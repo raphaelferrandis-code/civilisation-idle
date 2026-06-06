@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   cityVitals,
@@ -97,7 +96,7 @@ export default function Topbar() {
       <div className="resource ruins-resource" id="ruinsResource" tabIndex={0} data-tooltip="Ruines accumulees a travers les effondrements. Elles financent l'arbre inter-cycles et donnent un multiplicateur permanent.">
         <span>Ruines</span>
         <strong id="ruinsTopbar">{fmt(ruins)}</strong>
-        <small>×<b id="ruinMultTopbar">{fmt(ruinMult)}</b></small>
+        <small>Ã—<b id="ruinMultTopbar">{fmt(ruinMult)}</b></small>
       </div>
     </header>
   );

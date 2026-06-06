@@ -3578,6 +3578,14 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   max-height: calc(100vh - 4.3rem);
   overflow: hidden;
 }
+.options-dialog button,
+.options-dialog input,
+.options-dialog strong {
+  font-family: var(--font-title);
+}
+.options-dialog small {
+  font-family: var(--font-body);
+}
 .options-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));

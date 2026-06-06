@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   MYTHS,
@@ -9,18 +9,16 @@ import {
 } from '../game/data/myths.js';
 import { activateMyth } from '../game/core/actions.js';
 import { state } from '../game/core/state.js';
-import { fmt } from '../game/core/utils.js';
 
 const ACT_META = {
   1: { num: "Acte I", name: "Fondation", unlockHint: null },
-  2: { num: "Acte II", name: "Domination", unlockHint: "Complétez les 2 Mythes de l'Acte I" },
-  3: { num: "Acte III", name: "Apocalypse", unlockHint: "Complétez les 4 Mythes de l'Acte II" },
-  ragnarok: { num: "Ragnarok", name: "La Fin", unlockHint: "Complétez les 9 Mythes des Actes I, II et III" }
+  2: { num: "Acte II", name: "Domination", unlockHint: "Completez les 2 Mythes de l'Acte I" },
+  3: { num: "Acte III", name: "Apocalypse", unlockHint: "Completez les 4 Mythes de l'Acte II" },
+  ragnarok: { num: "Ragnarok", name: "La Fin", unlockHint: "Completez les 9 Mythes des Actes I, II et III" }
 };
 
 export default function MythsView() {
   const activeMythId = useGameState(s => s.activeMythId);
-  const mythsCompleted = useGameState(s => ({ ...s.mythsCompleted }));
   const gamePaused = useGameState(s => s.gamePaused);
 
   const [modalMyth, setModalMyth] = useState(null);
@@ -49,7 +47,7 @@ export default function MythsView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Défis permanents</span>
+            <span className="label">Defis permanents</span>
             <h2>Les Mythes</h2>
           </div>
         </div>
@@ -71,7 +69,7 @@ export default function MythsView() {
               const meta = ACT_META[act] || { num: String(act), name: "", unlockHint: null };
 
               // Check if Act is unlocked
-              let actUnlocked = false;
+              let actUnlocked;
               if (act === 1) {
                 actUnlocked = true;
               } else if (act === 2) {
@@ -94,14 +92,14 @@ export default function MythsView() {
                 >
                   <div className="myth-act-header">
                     <span className="myth-act-num">{meta.num}</span>
-                    <span className="myth-act-sep">·</span>
+                    <span className="myth-act-sep">-</span>
                     <span className="myth-act-name">{meta.name}</span>
                     {!actUnlocked && meta.unlockHint && (
-                      <span className="myth-act-lock-hint">🔒 {meta.unlockHint}</span>
+                      <span className="myth-act-lock-hint">Verrouille - {meta.unlockHint}</span>
                     )}
                     {actCompleted && (
                       <span className="myth-act-lock-hint" style={{ color: 'var(--green)', opacity: 1 }}>
-                        ✦ Acte accompli
+                        Acte accompli
                       </span>
                     )}
                   </div>
@@ -109,7 +107,7 @@ export default function MythsView() {
                   <div className="myth-cards-grid">
                     {mythsInAct.length === 0 && (
                       <p className="myth-locked-hint" style={{ gridColumn: '1 / -1', padding: '0.25rem 0', fontStyle: 'italic' }}>
-                        Les pactes de cet acte n'ont pas encore été gravés dans la pierre.
+                        Les pactes de cet acte n'ont pas encore ete graves dans la pierre.
                       </p>
                     )}
 
@@ -119,10 +117,10 @@ export default function MythsView() {
                       const active = isMythActive(myth.id);
 
                       let statusClass = "myth-locked";
-                      let statusLabel = "Verrouillé";
+                      let statusLabel = "Verrouille";
                       if (unlocked && completed) {
                         statusClass = "myth-completed";
-                        statusLabel = "Accompli ✦";
+                        statusLabel = "Accompli";
                       } else if (unlocked && active) {
                         statusClass = "myth-active";
                         statusLabel = "Actif";
@@ -141,11 +139,11 @@ export default function MythsView() {
                           {unlocked ? (
                             <>
                               <p className="myth-rule">
-                                <strong>Règle</strong> {myth.description}
+                                <strong>Regle</strong> {myth.description}
                               </p>
                               {completed ? (
                                 <p className="myth-heritage-desc">
-                                  <strong>Héritage</strong> {myth.heritageDescription}
+                                  <strong>Heritage</strong> {myth.heritageDescription}
                                 </p>
                               ) : (
                                 <>
@@ -156,14 +154,14 @@ export default function MythsView() {
                                     className="myth-activate-btn"
                                     onClick={() => handleOpenModal(myth)}
                                   >
-                                    {active ? "Pacte actif ↺" : "Sceller ce pacte"}
+                                    {active ? "Pacte actif" : "Sceller ce pacte"}
                                   </button>
                                 </>
                               )}
                             </>
                           ) : (
                             <p className="myth-locked-hint">
-                              Complétez l'acte précédent pour déverrouiller ce pacte.
+                              Completez l'acte precedent pour deverrouiller ce pacte.
                             </p>
                           )}
                         </div>
@@ -183,13 +181,13 @@ export default function MythsView() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <dialog open className="event-dialog myth-modal" style={{ display: 'block', position: 'static' }}>
               <span className="label">
-                {ACT_META[modalMyth.act]?.num || modalMyth.act} · {ACT_META[modalMyth.act]?.name || ""}
+                {ACT_META[modalMyth.act]?.num || modalMyth.act} - {ACT_META[modalMyth.act]?.name || ""}
               </span>
               <h2>{modalMyth.name}</h2>
               
               <div className="myth-modal-body">
                 <div className="myth-modal-row">
-                  <span className="myth-modal-label">Règle imposée</span>
+                  <span className="myth-modal-label">Regle imposee</span>
                   <span>{modalMyth.description}</span>
                 </div>
                 <div className="myth-modal-row">
@@ -197,19 +195,19 @@ export default function MythsView() {
                   <span>{modalMyth.objectif}</span>
                 </div>
                 <div className="myth-modal-row myth-modal-heritage">
-                  <span className="myth-modal-label">Héritage promis</span>
+                  <span className="myth-modal-label">Heritage promis</span>
                   <span>{modalMyth.heritageDescription}</span>
                 </div>
 
                 {/* Custom Options for Babel */}
                 {modalMyth.id === "mythe_de_babel" && (
                   <div className="myth-modal-row">
-                    <span className="myth-modal-label">Type de bâtiment</span>
+                    <span className="myth-modal-label">Type de batiment</span>
                     <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                       {[
-                        { value: "city", label: "Cité", desc: "Nourriture, Commerce, Population" },
-                        { value: "knowledge", label: "Savoir", desc: "Connaissance, Académies, Archives" },
-                        { value: "infra", label: "Infrastructure", desc: "Aqueducs, Routes, Bâtisseurs" }
+                        { value: "city", label: "Cite", desc: "Nourriture, Commerce, Population" },
+                        { value: "knowledge", label: "Savoir", desc: "Connaissance, Academies, Archives" },
+                        { value: "infra", label: "Infrastructure", desc: "Aqueducs, Routes, Batisseurs" }
                       ].map(c => (
                         <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                           <input
@@ -232,10 +230,10 @@ export default function MythsView() {
 
               <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
                 {activeMythId && activeMythId !== modalMyth.id
-                  ? `Le pacte "${activeMyth.name}" est déjà actif ce cycle et sera abandonné. Le cycle sera réinitialisé.`
+                  ? `Le pacte "${activeMyth.name}" est deja actif ce cycle et sera abandonne. Le cycle sera reinitialise.`
                   : activeMythId === modalMyth.id
-                  ? `Ce pacte est déjà actif. Confirmer va réinitialiser entièrement le cycle en cours.`
-                  : `Le cycle en cours sera entièrement réinitialisé (ressources, bâtiments, jauges).`}
+                  ? `Ce pacte est deja actif. Confirmer va reinitialiser entierement le cycle en cours.`
+                  : `Le cycle en cours sera entierement reinitialise (ressources, batiments, jauges).`}
               </p>
 
               <menu className="choice-menu" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>

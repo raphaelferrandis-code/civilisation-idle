@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   getNotifEnabled,
@@ -25,16 +25,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useRef(null);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
-  const [notifEnabled, setLocalNotifEnabled] = useState(() => getNotifEnabled());
-  const [musicEnabled, setLocalMusicEnabled] = useState(() => getMusicEnabled());
-  const [musicVolume, setLocalMusicVolume] = useState(() => getMusicVolume());
-  const [musicActiveTabOnly, setLocalMusicActiveTabOnly] = useState(() => getMusicActiveTabOnly());
-  const [formatMode, setFormatMode] = useState(numberFormatMode);
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
   // Rules lists. optionRevision force les controles mutables a se recalculer.
   void optionRevision;
+  const notifEnabled = getNotifEnabled();
+  const musicEnabled = getMusicEnabled();
+  const musicVolume = getMusicVolume();
+  const musicActiveTabOnly = getMusicActiveTabOnly();
+  const formatMode = numberFormatMode;
   const autoScriptRules = getAutoScriptRules();
   const automateRules = getAutomateRules();
 
@@ -53,16 +53,6 @@ export default function OptionsDialog({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setLocalNotifEnabled(getNotifEnabled());
-    setLocalMusicEnabled(getMusicEnabled());
-    setLocalMusicVolume(getMusicVolume());
-    setLocalMusicActiveTabOnly(getMusicActiveTabOnly());
-    setFormatMode(numberFormatMode);
-    setOptionRevision((revision) => revision + 1);
-  }, [isOpen]);
-
   const handleWipe = () => {
     if (!confirm("Recommencer depuis le tout premier feu ?")) return;
     localStorage.removeItem(SAVE_KEY);
@@ -72,7 +62,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
   const handleFormatChange = (format) => {
     setNumberFormatMode(format);
-    setFormatMode(numberFormatMode);
+    setOptionRevision((revision) => revision + 1);
     invalidateRenderCache("all");
     render();
   };
@@ -80,25 +70,25 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleNotifToggle = () => {
     const next = !notifEnabled;
     setNotifEnabled(next);
-    setLocalNotifEnabled(next);
+    setOptionRevision((revision) => revision + 1);
   };
 
   const handleMusicToggle = () => {
     const next = !musicEnabled;
     setMusicEnabled(next);
-    setLocalMusicEnabled(next);
+    setOptionRevision((revision) => revision + 1);
   };
 
   const handleVolumeChange = (event) => {
     const next = Number(event.target.value) / 100;
     setMusicVolume(next);
-    setLocalMusicVolume(getMusicVolume());
+    setOptionRevision((revision) => revision + 1);
   };
 
   const handleActiveTabToggle = () => {
     const next = !musicActiveTabOnly;
     setMusicActiveTabOnly(next);
-    setLocalMusicActiveTabOnly(next);
+    setOptionRevision((revision) => revision + 1);
   };
 
   const handleAutoScriptThreshold = (id, value) => {
@@ -146,7 +136,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
       <form method="dialog" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
         <h2>Options</h2>
 
-        <div className="options-tabs" aria-label="Catégories d'options">
+        <div className="options-tabs" aria-label="Categories d'options">
           <button
             className={`options-tab ${activeGroup === 'display' ? 'active' : ''}`}
             type="button"
@@ -197,14 +187,14 @@ export default function OptionsDialog({ isOpen, onClose }) {
               <div className="options-row">
                 <div>
                   <span>Notifications du fil</span>
-                  <small>Messages des habitants en haut de l'écran</small>
+                  <small>Messages des habitants en haut de l'ecran</small>
                 </div>
                 <button
                   type="button"
                   className={`toggle-btn ${notifEnabled ? 'on' : 'off'}`}
                   onClick={handleNotifToggle}
                 >
-                  {notifEnabled ? "Activé" : "Désactivé"}
+                  {notifEnabled ? "Active" : "Desactive"}
                 </button>
               </div>
 
@@ -253,7 +243,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                   className={`toggle-btn ${musicEnabled ? 'on' : 'off'}`}
                   onClick={handleMusicToggle}
                 >
-                  {musicEnabled ? "Activé" : "Désactivé"}
+                  {musicEnabled ? "Active" : "Desactive"}
                 </button>
               </div>
 
@@ -281,7 +271,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
               <div className="options-row">
                 <div>
                   <span>Musique seulement en onglet actif</span>
-                  <small>Met la musique en pause quand le jeu est en arrière-plan</small>
+                  <small>Met la musique en pause quand le jeu est en arriere-plan</small>
                 </div>
                 <button
                   type="button"
@@ -298,8 +288,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>
-                <span>Réinitialiser la partie</span>
-                <small>Efface toute la progression — irréversible</small>
+                <span>Reinitialiser la partie</span>
+                <small>Efface toute la progression - irreversible</small>
               </div>
               <button
                 type="button"

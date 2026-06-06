@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { importSave } from '../game/core/main.js';
 
 export default function ImportDialog({ isOpen, onClose }) {
@@ -10,7 +10,6 @@ export default function ImportDialog({ isOpen, onClose }) {
     if (!dialog) return;
 
     if (isOpen) {
-      setText("");
       if (!dialog.open) {
         dialog.showModal();
       }
@@ -27,11 +26,16 @@ export default function ImportDialog({ isOpen, onClose }) {
 
     const success = importSave(text);
     if (success) {
-      alert("Sauvegarde importée avec succès !");
-      onClose();
+      alert("Sauvegarde importee avec succes !");
+      handleClose();
     } else {
-      alert("Échec de l'importation : texte de sauvegarde invalide.");
+      alert("Echec de l'importation : texte de sauvegarde invalide.");
     }
+  };
+
+  const handleClose = () => {
+    setText("");
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -41,7 +45,7 @@ export default function ImportDialog({ isOpen, onClose }) {
       ref={dialogRef}
       className="event-dialog import-dialog"
       style={{ display: 'block' }}
-      onClose={onClose}
+      onClose={handleClose}
     >
       <form onSubmit={handleImport}>
         <h2>Importer une sauvegarde</h2>
@@ -54,7 +58,7 @@ export default function ImportDialog({ isOpen, onClose }) {
           style={{ width: '100%', minHeight: '150px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem', borderRadius: '4px', resize: 'vertical' }}
         />
         <menu style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={onClose}>Annuler</button>
+          <button type="button" onClick={handleClose}>Annuler</button>
           <button type="submit" className="confirm-btn">Importer</button>
         </menu>
       </form>

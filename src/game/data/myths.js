@@ -1,9 +1,7 @@
 "use strict";
 
-import { state, gamePaused } from '../core/state.js';
-import { fmt } from '../core/utils.js';
-import { eras } from './world.js';
-import { log, activateMyth } from '../core/actions.js';
+import { state } from '../core/state.js';
+import { log } from '../core/actions.js';
 
 // Seuil de Ruines requis pour réussir le Mythe du Chaos — à calibrer.
 export const CHAOS_RUIN_THRESHOLD = 50;

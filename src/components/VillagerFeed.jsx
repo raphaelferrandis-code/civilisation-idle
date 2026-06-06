@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   cityVitals,
@@ -69,9 +68,6 @@ export default function VillagerFeed() {
   const timeWear = useGameState(s => s.timeWear);
   const cycleStartedAt = useGameState(s => s.cycleStartedAt);
 
-  // Trigger re-render every tick to keep rates updated
-  const tickCounter = useGameState(s => s.cycles);
-
   if (!notifEnabled) return null;
 
   const vitals = cityVitals();
@@ -89,13 +85,13 @@ export default function VillagerFeed() {
     >
       <div className="villager-inner">
         <span className="villager-tag" id="villagerTag">
-          {message.quote ? "Voix de la cité" : "Chroniques"}
+          {message.quote ? "Voix de la citÃ©" : "Chroniques"}
         </span>
         <p className="villager-text" id="villagerMessage">
           {message.text}
         </p>
         <span className="villager-source" id="villagerSource">
-          {message.quote ? "— Un habitant" : ""}
+          {message.quote ? "â€” Un habitant" : ""}
         </span>
       </div>
     </section>

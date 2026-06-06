@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 import {
   state,
@@ -19,8 +19,7 @@ import {
   setGamePaused,
   setCollapseInProgress,
   setMourning,
-  setState,
-  notify
+  setState
 } from './state.js';
 
 import {
@@ -28,35 +27,16 @@ import {
   pressureBreakdown,
   rates,
   babelExponentialMult,
-  babelAdjacencyMultiplier,
-  orProdPenaltyMult,
-  orHeritageUsureMult,
-  hephInfraMult,
-  buildingOutputMultiplier,
-  nextMilestoneText,
-  buildingMilestoneInfo,
   has,
   hasDoctrine,
-  buildingEffectiveScale,
-  buildingDiscount,
   buildingCostAt,
-  buildingCostMainAt,
   maxBuyAmount,
   buildingBatchCost,
   archaeologyCost,
   archaeologyTarget,
   canExhume,
-  upgradeCostText,
   canBuyUpgrade,
-  prestigeNodeFor,
-  checkNodeAvailability,
-  dogmaFor,
-  checkDogmaAvailability,
-  canPerformGrandReset,
   currentEraIndex,
-  nextEraProgress,
-  heritageQuality,
-  crisisProgress,
   crisisOpen,
   timeWearRate,
   terminalCrisisReady,
@@ -64,8 +44,6 @@ import {
   ruinGain,
   legitimacyGain,
   crisisCosts,
-  mapStage,
-  autoCollapseDelay,
   isUnlocked,
   totalBuildingCount,
   globalMultiplier,
@@ -75,41 +53,32 @@ import {
 
 import { runCollapseSequence, openChoiceDialog } from './events.js';
 
-import { buildings, dynastyNames } from '../data/buildings.js';
+import { buildings } from '../data/buildings.js';
 import { upgrades } from '../data/upgrades.js';
 import { eras, CRISIS_EVENTS, CRISIS_POOL, DOCTRINES } from '../data/world.js';
 import { captureCurrentVestige } from '../citymap/cityMapBridge.js';
-import { clamp01, clamp, fmt, roman, seededRng, labelFor, canPayCost, payCost } from './utils.js';
+import { clamp01, clamp, fmt, canPayCost, payCost } from './utils.js';
 
 import {
   getMythById,
   isMythCompleted,
-  isMythActive,
   isMythUnlocked,
   checkActUnlocks,
-  MYTHS,
   PHENIX_CYCLE_COUNT,
   PHENIX_FORCE_INTERVAL,
-  PHENIX_RUIN_TARGET,
   HEPH_POP_CRISIS_THRESHOLD,
   HEPH_POP_DECAY_START_MIN,
   HEPH_POP_DECAY_RATE,
-  HEPH_INFRA_MULT_BASE,
   HEPH_INFRA_TARGET,
   HEPH_POP_DECLINE_PCT,
   ICARE_INFRA_TARGET,
   PROMETHEE_POP_TARGET,
   PROMETHEE_FATAL_RUPTURE,
-  PROMETHEE_FOOD_MULT,
   PROMETHEE_RUPTURE_PER_FOOD,
   SISYPHE_MULT_PER_PURCHASE,
   OR_POP_CAP,
   OR_GOLD_TARGET,
   OR_BALANCE_RATIO,
-  OR_USURE_IMBALANCE_MULT,
-  OR_POP_THRESHOLD,
-  OR_POP_PENALTY_PCT,
-  OR_RUPTURE_CAP,
   BABEL_MULT_TARGET,
   BABEL_CAT_LABELS,
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -447,7 +416,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.food = Math.max(35 + ruinEffectSum("startFood"), keptFood);
   state.gold = Math.max(ruinEffectSum("startGold"), keptGold);
   
-  // "Memoire des Cycles" : bonus Savoir proportionnel Ã  l'Ã¨re max atteinte historiquement
+  // "Memoire des Cycles : bonus Savoir proportionnel a l'ere max atteinte historiquement
   const memoireSavoirBonus = has("codex_mythique") ? 250 * (state.bestEraIndex || 0) : 0;
   state.knowledge = Math.max(ruinEffectSum("startKnowledge"), keptKnowledge) + memoireSavoirBonus;
   
@@ -465,7 +434,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.buildings = { ...defaultState().buildings };
   state.cityMapSlots = {};
   
-  // HÃ©ritage Atlas : LÃ©gitimitÃ© reset Ã  50 au dÃ©but de chaque cycle
+  // Heritage Atlas : Legitimite reset a 50 au debut de chaque cycle
   if (state.atlasHeritage) state.atlasLegitimite = 50;
   state.atlasCrisisCount = 0;
   state.babelProdReached = false;
@@ -714,7 +683,7 @@ export function resetCivilization() {
   state.buildings = { ...defaultState().buildings };
   state.cityMapSlots = {};
   
-  // HÃ©ritage Atlas : LÃ©gitimitÃ© reset Ã  50 au dÃ©but de chaque cycle
+  // Heritage Atlas : Legitimite reset a 50 au debut de chaque cycle
   if (state.atlasHeritage) state.atlasLegitimite = 50;
   state.atlasCrisisCount = 0;
   state.babelProdReached = false;

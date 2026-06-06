@@ -1,11 +1,10 @@
-import React from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import { setBuyAmount, invalidateRenderCache } from '../game/core/state.js';
 import { has } from '../game/core/mechanics.js';
 
 export default function BuyToolbar() {
   const buyAmount = useGameState(s => s.buyAmount);
-  const hasMaxUpgrade = useGameState(s => has("reforme_administrative"));
+  const hasMaxUpgrade = useGameState(() => has("reforme_administrative"));
 
   const handleSetAmount = (amount) => {
     setBuyAmount(amount);

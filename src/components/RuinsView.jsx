@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   ownedRuinBranchPurchaseCount,
@@ -12,15 +11,12 @@ import { upgradeById } from '../game/core/state.js';
 import {
   PRESTIGE_DOGMAS,
   PRESTIGE_TREE_BRANCHES,
-  PRESTIGE_TREE,
-  dogmaIds
+  PRESTIGE_TREE
 } from '../game/data/upgrades.js';
 import { fmt } from '../game/core/utils.js';
 
 export default function RuinsView() {
   const ruins = useGameState(s => s.ruins);
-  // Shallow copy of upgrades to detect changes when key/value changes in-place
-  const stateUpgrades = useGameState(s => ({ ...s.upgrades }));
 
   // Pre-calculate branch counts for active branch milestones
   const branchCounts = {};
@@ -40,12 +36,12 @@ export default function RuinsView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Après la première chute</span>
+            <span className="label">AprÃ¨s la premiÃ¨re chute</span>
             <h2>Ruines Actives</h2>
           </div>
           <div className="prestige-ruins-counter">
             <span className="label">Ruines Disponibles</span>
-            <strong>{fmt(ruins)} 🪙</strong>
+            <strong>{fmt(ruins)} ðŸª™</strong>
           </div>
         </div>
         <p className="body-copy">
@@ -82,7 +78,7 @@ export default function RuinsView() {
                   disabled={status !== 'available'}
                   onClick={() => buyUpgrade(dogma.id)}
                 >
-                  <span className="tree-status">{isOwned ? "Adopté" : dogma.tier}</span>
+                  <span className="tree-status">{isOwned ? "AdoptÃ©" : dogma.tier}</span>
                   <strong>{upgrade.name}</strong>
                   <small>{upgrade.effect}</small>
                   {isOwned ? (
@@ -100,7 +96,7 @@ export default function RuinsView() {
                   {missing > 0 ? (
                     <em>{missing} achats requis</em>
                   ) : isOwned ? null : (
-                    <em>Palier atteint — adoption gratuite</em>
+                    <em>Palier atteint â€” adoption gratuite</em>
                   )}
                 </button>
               );
@@ -127,7 +123,7 @@ export default function RuinsView() {
             const progressPct = progressTarget > 0 ? Math.min(100, Math.round((branchCount / progressTarget) * 100)) : 100;
             const progressLabel = nextDogma 
               ? `${branchCount} / ${progressTarget} vers ${nextDogma.tier}` 
-              : `${branchCount} achats — tous paliers atteints`;
+              : `${branchCount} achats â€” tous paliers atteints`;
 
             return (
               <section key={branch.id} className={`tree-branch ${branch.id}`}>
@@ -152,8 +148,8 @@ export default function RuinsView() {
                     const parentName = node.requires ? (upgradeById[node.requires]?.name || node.requires) : "";
                     const conflictName = upgrade.conflictsWith ? (upgradeById[upgrade.conflictsWith]?.name || upgrade.conflictsWith) : "";
                     
-                    let statusLabel = "Verrouillé";
-                    if (status === 'purchased') statusLabel = "Acheté";
+                    let statusLabel = "VerrouillÃ©";
+                    if (status === 'purchased') statusLabel = "AchetÃ©";
                     else if (status === 'available') statusLabel = "Disponible";
                     else if (status === 'blocked') statusLabel = "Exclu";
 
@@ -170,7 +166,7 @@ export default function RuinsView() {
                         <strong>{upgrade.name}</strong>
                         <small>{upgrade.effect}</small>
                         <span className="tree-cost">
-                          {status === 'purchased' ? "Maxé" : `${fmt(node.cost)} ruines`}
+                          {status === 'purchased' ? "MaxÃ©" : `${fmt(node.cost)} ruines`}
                         </span>
                         {status === 'blocked' ? (
                           <em>Exclu par : {conflictName}</em>

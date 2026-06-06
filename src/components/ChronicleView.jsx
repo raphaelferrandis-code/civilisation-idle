@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import { buildings, BUILDING_LORE, WONDER_LORE } from '../game/data/buildings.js';
 
@@ -42,7 +42,7 @@ export default function ChronicleView() {
     if (entries.length === 0) {
       return (
         <p className="archive-empty">
-          Aucune trace encore. Les premières constructions révèlent leurs secrets.
+          Aucune trace encore. Les premiÃ¨res constructions rÃ©vÃ¨lent leurs secrets.
         </p>
       );
     }
@@ -68,7 +68,7 @@ export default function ChronicleView() {
     if (earned.length === 0) {
       return (
         <p className="archive-empty">
-          Aucune merveille n'a encore été érigée. Les grandes œuvres demandent du temps.
+          Aucune merveille n'a encore Ã©tÃ© Ã©rigÃ©e. Les grandes Å“uvres demandent du temps.
         </p>
       );
     }
@@ -79,7 +79,7 @@ export default function ChronicleView() {
           <article key={w.id} className="archive-entry">
             <header>
               <h3>{w.name}</h3>
-              <span className="chip">Merveille érigée</span>
+              <span className="chip">Merveille Ã©rigÃ©e</span>
             </header>
             <p>{w.text}</p>
           </article>
@@ -115,7 +115,7 @@ export default function ChronicleView() {
         {activeTab === "chronicleLog" && (
           <div className="archive-view active" id="chronicleLog">
             {history.length === 0 ? (
-              <p className="archive-empty">Aucune chute répertoriée dans les chroniques pour l'instant.</p>
+              <p className="archive-empty">Aucune chute rÃ©pertoriÃ©e dans les chroniques pour l'instant.</p>
             ) : (
               <ol id="log" className="log">
                 {history.map((entry, index) => (

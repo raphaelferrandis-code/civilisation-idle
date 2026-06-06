@@ -2,21 +2,15 @@
 
 import {
   state,
-  gamePaused,
   collapseInProgress,
   save,
   invalidateRenderCache,
-  openView,
   render,
   setGamePaused,
   setCollapseInProgress,
   setState,
   notify,
-  SAVE_KEY,
-  defaultState,
-  hydrateState,
-  buildingById,
-  upgradeById
+  hydrateState
 } from './state.js';
 
 import {
@@ -26,11 +20,6 @@ import {
   ruinGain,
   timeWearRate,
   crisisOpen,
-  hasDoctrine,
-  cityVitals,
-  pressureBreakdown,
-  rates,
-  nomadInfrastructureCap,
   isUnlocked
 } from './mechanics.js';
 
@@ -39,9 +28,7 @@ import {
   log,
   chronicle,
   runCrisisAction,
-  completeCollapse,
-  resumeAfterCrisisOutcome,
-  gather
+  resumeAfterCrisisOutcome
 } from './actions.js';
 
 import { runCollapseSequence } from './events.js';
@@ -51,18 +38,10 @@ import {
   decodeSaveText,
   fmt,
   clamp,
-  canPayCost,
-  payCost,
-  numberFormatMode,
-  setNumberFormatMode,
-  seededRng,
-  pct
+  canPayCost
 } from './utils.js';
 
 import { upgrades } from '../data/upgrades.js';
-import { dynastyNames, buildings } from '../data/buildings.js';
-import { eras, DOCTRINES, CRISIS_EVENTS, CRISIS_POOL } from '../data/world.js';
-import { clamp01 } from './utils.js';
 
 export function exportSave() {
   const text = encodeSaveText(JSON.stringify(state));
@@ -182,7 +161,7 @@ export function checkAutoCollapse() {
   runCollapseSequence(gain, "auto_collapse");
 }
 
-// ── Gestion de l'audio ────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Gestion de l'audio Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 let bgAudio = null;
 let optMusic = true;
@@ -226,7 +205,7 @@ export function setNotifEnabled(enabled) {
   optNotif = enabled;
   try {
     localStorage.setItem("civ-opt-notif", String(optNotif));
-  } catch {}
+  } catch { /* Option persistence may be unavailable. */ }
   notify();
 }
 
@@ -247,7 +226,7 @@ export function setMusicVolume(vol) {
   if (bgAudio) bgAudio.volume = optMusicVolume;
   try {
     localStorage.setItem("civ-opt-music-volume", String(optMusicVolume));
-  } catch {}
+  } catch { /* Option persistence may be unavailable. */ }
   notify();
 }
 
@@ -255,7 +234,7 @@ export function setMusicEnabled(enabled) {
   optMusic = enabled;
   try {
     localStorage.setItem("civ-opt-music", String(optMusic));
-  } catch {}
+  } catch { /* Option persistence may be unavailable. */ }
   if (optMusic) playMusic();
   else {
     pauseMusic();
@@ -268,7 +247,7 @@ export function setMusicActiveTabOnly(enabled) {
   optMusicActiveTabOnly = enabled;
   try {
     localStorage.setItem("civ-opt-music-active-tab", String(optMusicActiveTabOnly));
-  } catch {}
+  } catch { /* Option persistence may be unavailable. */ }
   syncMusicVisibility();
   notify();
 }
@@ -280,7 +259,7 @@ function syncMusicVisibility() {
 
 export function initAudio() {
   if (typeof Audio === 'undefined') return; // Support Headless
-  if (bgAudio) return; // Évite les double-init
+  if (bgAudio) return; // Ãƒâ€°vite les double-init
   
   try {
     const savedNotif = localStorage.getItem("civ-opt-notif");
@@ -294,7 +273,7 @@ export function initAudio() {
     
     const savedVol = localStorage.getItem("civ-opt-music-volume");
     if (savedVol !== null) optMusicVolume = clamp(Number(savedVol), 0, 1);
-  } catch {}
+  } catch { /* Option persistence may be unavailable. */ }
 
   bgAudio = new Audio("/audio/ludum-dare-30-05.ogg");
   bgAudio.loop = true;
@@ -314,7 +293,7 @@ export function initAudio() {
   }
 }
 
-// ── Démarrage de la boucle de jeu ─────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ DÃƒÂ©marrage de la boucle de jeu Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export function startGameLoop() {
   applyOfflineProgress();
@@ -326,7 +305,7 @@ export function startGameLoop() {
     last = now;
     tick(seconds);
     checkAutoCollapse();
-    notify(); // Notifie React du changement d'état à chaque tick
+    notify(); // Notifie React du changement d'etat a chaque tick
   }, 250);
 
   const saveInterval = setInterval(() => {

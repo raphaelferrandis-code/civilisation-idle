@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   legitimacyGain,
@@ -6,7 +5,6 @@ import {
   isUnlocked,
   canBuyUpgrade,
   upgradeCostText,
-  canPerformGrandReset,
   has
 } from '../game/core/mechanics.js';
 import { foundDynasty, buyUpgrade, performGrandReset } from '../game/core/actions.js';
@@ -20,8 +18,6 @@ export default function HeritageView() {
   const dynastyCount = useGameState(s => s.dynastyCount);
   const dynastyDoctrine = useGameState(s => s.dynastyDoctrine);
   const grandResetCount = useGameState(s => s.grandResetCount) || 0;
-  // Shallow copy of upgrades to detect changes
-  const stateUpgrades = useGameState(s => ({ ...s.upgrades }));
 
   const legitGain = legitimacyGain();
   const dynCount = dynastyCount || 0;
@@ -58,8 +54,8 @@ export default function HeritageView() {
           </button>
         </div>
         <p className="body-copy">
-          Plusieurs effondrements racontent une légende.
-          Une dynastie se fonde quand les chroniques ont assez de matière pour fabriquer une légitimité durable.
+          Plusieurs effondrements racontent une lÃ©gende.
+          Une dynastie se fonde quand les chroniques ont assez de matiÃ¨re pour fabriquer une lÃ©gitimitÃ© durable.
         </p>
         <div className="prestige-stats">
           <div>
@@ -70,16 +66,16 @@ export default function HeritageView() {
             <span>Progression</span>
             <strong>
               {legitGain > 0
-                ? `+${fmt(legitGain)} légitimité possible`
+                ? `+${fmt(legitGain)} lÃ©gitimitÃ© possible`
                 : `Manque ${fmt(Math.max(0, 300 - ruins))} ruines`}
             </strong>
           </div>
           <div>
-            <span>Légitimité gagnée</span>
+            <span>LÃ©gitimitÃ© gagnÃ©e</span>
             <strong>{fmt(legitGain)}</strong>
           </div>
           <div>
-            <span>Légitimité</span>
+            <span>LÃ©gitimitÃ©</span>
             <strong>{fmt(legitimacy)}</strong>
           </div>
           <div>
@@ -100,7 +96,7 @@ export default function HeritageView() {
           <small>
             {activeDoctrine
               ? `${activeDoctrine.bonus} | ${activeDoctrine.penalty}`
-              : "À choisir lors de la prochaine fondation"}
+              : "Ã€ choisir lors de la prochaine fondation"}
           </small>
         </div>
       </div>
@@ -110,12 +106,12 @@ export default function HeritageView() {
         <div className="panel-heading">
           <div>
             <span className="label">Upgrades persistants</span>
-            <h2>Héritage</h2>
+            <h2>HÃ©ritage</h2>
           </div>
         </div>
         <p className="body-copy">
-          Ces améliorations survivent aux cycles et s'appliquent immédiatement.
-          Achetées avec la légitimité gagnée lors des fondations de dynasties.
+          Ces amÃ©liorations survivent aux cycles et s'appliquent immÃ©diatement.
+          AchetÃ©es avec la lÃ©gitimitÃ© gagnÃ©e lors des fondations de dynasties.
         </p>
         <div className="upgrade-grid">
           {visibleHeritageUpgrades.map(upgrade => {
@@ -159,12 +155,12 @@ export default function HeritageView() {
             disabled={!isGrandResetUnlocked}
             onClick={performGrandReset}
           >
-            Réinitialiser
+            RÃ©initialiser
           </button>
         </div>
         <p className="body-copy">
-          Efface toute progression : bâtiments, ruines, cycles, upgrades de ruines.
-          En échange, un bonus permanent x2 sur toute la production est ajouté. Cumulable sans limite.
+          Efface toute progression : bÃ¢timents, ruines, cycles, upgrades de ruines.
+          En Ã©change, un bonus permanent x2 sur toute la production est ajoutÃ©. Cumulable sans limite.
         </p>
         <div className="prestige-stats">
           <div>
@@ -176,12 +172,12 @@ export default function HeritageView() {
             <strong>x{Math.pow(2, grandResetCount).toFixed(0)}</strong>
           </div>
           <div>
-            <span>Bonus après</span>
+            <span>Bonus aprÃ¨s</span>
             <strong>x{Math.pow(2, grandResetCount + 1).toFixed(0)}</strong>
           </div>
           <div>
             <span>Requis</span>
-            <strong>Upgrade Grand Reset (50 légitimité)</strong>
+            <strong>Upgrade Grand Reset (50 lÃ©gitimitÃ©)</strong>
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
 "use strict";
 
-import { state, renderCache, gamePaused, collapseInProgress, buildingById, upgradeById, defaultState } from './state.js';
+import { state, renderCache, buildingById, upgradeById, defaultState } from './state.js';
 import { buildings } from '../data/buildings.js';
 import { upgrades, dogmaIds, PRESTIGE_TREE, PRESTIGE_DOGMAS } from '../data/upgrades.js';
 import { eras } from '../data/world.js';
 import { getCityMapEngineTileMap } from '../citymap/cityMapBridge.js';
-import { clamp01, clamp, fmt, roman, seededRng, labelFor, canPayCost } from './utils.js';
+import { clamp01, clamp, fmt, labelFor, canPayCost } from './utils.js';
 import {
   ICARE_PROD_MULT,
   SURCHAUFFE_PROD_MULT,
@@ -29,7 +29,6 @@ import {
   HEPH_INFRA_MULT_GROWTH,
   SISYPHE_SCALE_REDUCTION,
   OR_RUPTURE_CAP,
-  HEPH_POP_CRISIS_THRESHOLD,
   ATLAS_LEGIT_MAX_REDUCTION
 } from '../data/myths.js';
 

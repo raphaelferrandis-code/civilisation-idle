@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { resetCityMapRuntime, startCityMapRuntime } from '../game/citymap/loadCityMapScripts.js';
 
 export default function CityMapCanvas() {

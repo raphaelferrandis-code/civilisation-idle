@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useGameState } from '../hooks/useGameState.js';
 import {
   ruinGain,
-  legitimacyGain,
   ruinMultiplier,
   heritageQuality,
   crisisOpen,
@@ -20,17 +19,9 @@ import {
   runTerminalCrisisAction,
   activateSurchauffe
 } from '../game/core/actions.js';
-import { fmt, pct, clamp01, costLabel, signed, canPayCost } from '../game/core/utils.js';
-import { DOCTRINES } from '../game/data/world.js';
+import { fmt, pct, costLabel, canPayCost } from '../game/core/utils.js';
 
-function mood(value, labels) {
-  if (value >= 0.95) return labels[3];
-  if (value >= 0.45) return labels[2];
-  if (value >= 0.12) return labels[1];
-  return labels[0];
-}
-
-function tensionAdvice(mainCause, pressure) {
+function tensionAdvice(mainCause) {
   if (crisisOpen()) return "La crise est ouverte: choisis une issue dans Crises.";
   if (mainCause === "Subsistance") return "Augmente les reserves ou rationne avant que la faim politise la cite.";
   if (mainCause === "Inegalites") return "Le commerce enrichit la cite: festivals ou institutions peuvent absorber le choc.";
@@ -287,7 +278,7 @@ export default function PrestigeView() {
           <div>
             <span>Stabilisation</span>
             <strong id="tensionMitigation">{pct(pressure.mitigation)}</strong>
-            <small id="tensionAdvice">{tensionAdvice(mainCause, pressure)}</small>
+            <small id="tensionAdvice">{tensionAdvice(mainCause)}</small>
           </div>
         </div>
       </div>
