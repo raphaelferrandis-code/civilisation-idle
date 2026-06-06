@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Civilisation: Effondrement Idle</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="mark">CE</span>
+          <div>
+            <h1>Civilisation</h1>
+            <p>Effondrement Idle</p>
+          </div>
+        </div>
+
+        <nav class="tabs" aria-label="Vues">
+          <button class="tab active" data-view="city">Cite</button>
+          <button class="tab" data-view="prestige">Crises</button>
+          <button class="tab unlockable hidden" id="ruinsTab" data-view="ruinsView">Ruines</button>
+          <button class="tab unlockable hidden" id="heritageTab" data-view="tech">Heritage</button>
+          <button class="tab unlockable hidden" id="mythTab" data-view="mythView">Mythes</button>
+          <button class="tab" data-view="history">Chronique</button>
+        </nav>
+
+        <div class="quick-actions">
+          <button id="saveBtn" title="Sauvegarder">Save</button>
+          <button id="exportBtn" title="Exporter">Export</button>
+          <button id="importBtn" title="Importer">Import</button>
+          <button id="optionsBtn" title="Options">Options</button>
+        </div>
+      </aside>
+
+      <main>
+        <section class="villager-feed" id="villagerFeed" aria-live="polite">
+          <div class="villager-inner">
+            <span class="villager-tag" id="villagerTag">Chroniques</span>
+            <p class="villager-text" id="villagerMessage">Les premiers feux tiennent encore.</p>
+            <span class="villager-source" id="villagerSource"></span>
+          </div>
+        </section>
+
+        <header class="topbar">
+          <div class="resource primary resource-population" id="populationResource" tabindex="0" data-tooltip="Nombre d'habitants. Ils produisent surtout nourriture, puis tresor quand la cite grossit.">
+            <span>Population</span>
+            <strong id="population">0</strong>
+            <small><b id="popRate">0</b> / sec</small>
+          </div>
+          <div class="resource resource-food" id="foodResource" tabindex="0" data-tooltip="Premier carburant economique. Les moteurs de nourriture financent ensuite les moteurs de tresor.">
+            <span>Nourriture</span>
+            <strong id="food">0</strong>
+            <small><b id="foodRate">0</b> / sec</small>
+          </div>
+          <div class="resource resource-gold" id="goldResource" tabindex="0" data-tooltip="Monnaie urbaine. Les gros moteurs de tresor financent surtout les producteurs de savoir.">
+            <span>Tresor</span>
+            <strong id="gold">0</strong>
+            <small><b id="goldRate">0</b> / sec</small>
+          </div>
+          <div class="resource resource-knowledge" id="knowledgeResource" tabindex="0" data-tooltip="Memoire active. Le savoir sert surtout a acheter les infrastructures et a rendre les effondrements plus riches.">
+            <span>Savoir</span>
+            <strong id="knowledge">0</strong>
+            <small><b id="knowledgeRate">0</b> / sec</small>
+          </div>
+          <div class="resource resource-infrastructure" id="infrastructureResource" tabindex="0" data-tooltip="Routes, aqueducs, administration. S'achete surtout avec le savoir et calme la rupture.">
+            <span>Infrastructure</span>
+            <strong id="infrastructure">0</strong>
+            <small><b id="infraRate">0</b> / sec</small>
+          </div>
+          <div class="resource strain" id="instabilityResource" tabindex="0" data-tooltip="Instabilite structurelle. Elle monte avec la complexite, les tensions et les choix de croissance.">
+            <span>Rupture</span>
+            <strong id="instability">0%</strong>
+            <small id="collapseHint">stable</small>
+            <div class="instability-meter" aria-hidden="true"><span id="instabilityMeter"></span></div>
+          </div>
+          <div class="resource strain timewear" id="timeWearResource" tabindex="0" data-tooltip="Usure historique. Elle avance lentement avec le temps, meme hors ligne, et peut ouvrir une crise a 100%.">
+            <span>Usure</span>
+            <strong id="timeWear">0%</strong>
+            <small id="timeWearHint">temps calme</small>
+            <div class="instability-meter" aria-hidden="true"><span id="timeWearMeter"></span></div>
+          </div>
+          <div class="resource ruins-resource" id="ruinsResource" tabindex="0" data-tooltip="Ruines accumulees a travers les effondrements. Elles financent l'arbre inter-cycles et donnent un multiplicateur permanent.">
+            <span>Ruines</span>
+            <strong id="ruinsTopbar">0</strong>
+            <small>×<b id="ruinMultTopbar">1.0</b></small>
+          </div>
+        </header>
+
+        <div class="buy-toolbar" id="buyToolbar" aria-label="Mode d'achat">
+          <span class="label">Achat</span>
+          <div class="buy-modes">
+            <button class="buy-mode active" data-buy-amount="1">x1</button>
+            <button class="buy-mode" data-buy-amount="10">x10</button>
+            <button class="buy-mode" data-buy-amount="25">x25</button>
+            <button class="buy-mode" data-buy-amount="100">x100</button>
+            <button class="buy-mode buy-mode-max hidden" id="buyModeMax" data-buy-amount="max">Max</button>
+          </div>
+        </div>
+
+        <section class="view active" id="city">
+          <div class="city-left-col">
+          <div class="panel focus">
+            <div class="panel-heading">
+              <div>
+                <input id="cityNameInput" class="city-name-input" maxlength="42" value="NomVille" aria-label="Nom de la ville">
+              </div>
+            </div>
+            <div class="city-dashboard" aria-label="Tableau de bord de la cite">
+              <div class="city-pop-card">
+                <span>Population</span>
+                <strong id="cityPopulation">0</strong>
+                <small><b id="cityPopRate">0</b> / sec</small>
+              </div>
+              <div class="city-prod-food"><span>Nourriture</span><strong id="cityFoodTotal">0</strong><small><b id="cityFoodRate">0</b> / sec</small></div>
+              <div class="city-prod-gold"><span>Tresor</span><strong id="cityGoldTotal">0</strong><small><b id="cityGoldRate">0</b> / sec</small></div>
+              <div class="city-prod-knowledge"><span>Savoir</span><strong id="cityKnowledgeTotal">0</strong><small><b id="cityKnowledgeRate">0</b> / sec</small></div>
+              <div class="city-prod-infra"><span>Infrastructure</span><strong id="cityInfraTotal">0</strong><small><b id="cityInfraRate">0</b> / sec</small></div>
+              <div class="city-pressure-card">
+                <div class="city-gauge-row">
+                  <div class="city-gauge-label">
+                    <span>Rupture</span>
+                    <strong id="cityInstability">0%</strong>
+                  </div>
+                  <div class="city-wide-gauge rupture-gauge"><span id="cityInstabilityBar"></span></div>
+                </div>
+                <div class="city-gauge-row">
+                  <div class="city-gauge-label">
+                    <span>Usure</span>
+                    <strong id="cityTimeWear">0%</strong>
+                  </div>
+                  <div class="city-wide-gauge wear-gauge"><span id="cityTimeWearBar"></span></div>
+                </div>
+                <div id="atlasLegitimiteRow" class="city-gauge-row hidden">
+                  <div class="city-gauge-label">
+                    <span>Legitimite</span>
+                    <strong id="atlasLegitimiteValue">50</strong>
+                  </div>
+                  <div class="city-wide-gauge legitimite-gauge"><span id="atlasLegitimiteBar" style="width:50%"></span></div>
+                </div>
+              </div>
+            </div>
+            <button class="civilization-map" id="civilizationMap" type="button" aria-label="Encourager doucement la civilisation">
+              <canvas id="cityCanvas" class="city-canvas" aria-hidden="true"></canvas>
+              <div class="map-caption map-age">
+                <div class="map-age-head">
+                  <span class="label">Age courant</span>
+                  <span class="era-index" id="eraIndexDisplay">I / XX</span>
+                </div>
+                <strong class="era-name" id="eraName">Campement</strong>
+                <div class="era-progress-wrap">
+                  <div class="era-track"><span id="eraProgress"></span></div>
+                  <span class="era-next-label" id="eraNextName"></span>
+                </div>
+                <p class="era-flavor" id="eraText">Le feu brule encore. C'est un debut.</p>
+              </div>
+            </button>
+            <div class="metrics-grid">
+              <div><span>Cycles</span><strong id="cycles">0</strong></div>
+              <div><span>Dynastie</span><strong id="dynastyAge">I</strong></div>
+              <div><span>Multiplicateur</span><strong id="globalMult">x1</strong></div>
+              <div><span>Age max</span><strong id="bestEra">Campement</strong></div>
+              <div><span>Temps du cycle</span><strong id="cycleTime">0s</strong></div>
+              <div id="sisypheMultRow" class="hidden sisyphe-mult-row"><span>⚖ Malediction</span><strong id="sisypheMultValue">x1</strong></div>
+              <div id="icareTimerRow" class="hidden icare-timer-row"><span>⚡ Cycle Icare</span><strong id="icareTimerValue">0s</strong></div>
+              <div id="babelStatusRow" class="hidden babel-status-row"><span>🏗 Babel</span><span id="babelCategoryValue">-</span><strong id="babelMultValue">x1.00</strong></div>
+              <div id="orStatusRow" class="hidden or-status-row"><span>✦ Age d'Or</span><span id="orGoldValue">-</span><span id="orPopValue">-</span><span id="orImbalValue">-</span></div>
+              <div id="cityLatentRow" class="hidden"><span>Puissance latente</span><strong id="cityLatentBonus">x1.0</strong></div>
+            </div>
+          </div>
+
+          <div class="panel city-state">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Etat de la cite</span>
+                <h2>Sante des ressources</h2>
+              </div>
+            </div>
+            <div class="city-health-grid">
+              <div class="health-card health-food">
+                <div class="health-header">
+                  <span class="health-label">Reserves</span>
+                  <strong class="health-mood" id="foodMood">Greniers modestes</strong>
+                </div>
+                <div class="health-bar"><span id="foodBar"></span></div>
+                <small class="health-effect" id="foodEffect">Effet neutre</small>
+              </div>
+              <div class="health-card health-gold">
+                <div class="health-header">
+                  <span class="health-label">Economie</span>
+                  <strong class="health-mood" id="goldMood">Troc local</strong>
+                </div>
+                <div class="health-bar"><span id="goldBar"></span></div>
+                <small class="health-effect" id="goldEffect">Effet neutre</small>
+              </div>
+              <div class="health-card health-knowledge">
+                <div class="health-header">
+                  <span class="health-label">Memoire</span>
+                  <strong class="health-mood" id="knowledgeMood">Traditions orales</strong>
+                </div>
+                <div class="health-bar"><span id="knowledgeBar"></span></div>
+                <small class="health-effect" id="knowledgeEffect">Effet neutre</small>
+              </div>
+            </div>
+            <button id="exhumeBtn" class="hidden">Exhumer un vestige</button>
+          </div>
+          </div>
+
+          <div class="city-right-col">
+            <div class="panel shop-panel">
+              <div class="panel-heading">
+                <div>
+                  <span class="label">Construction</span>
+                  <h2>Batiments</h2>
+                </div>
+              </div>
+              <div class="shop-subtabs" role="tablist" aria-label="Categories de batiments">
+                <button class="shop-subtab active" type="button" data-shop="cityBuildings">Moteurs</button>
+                <button class="shop-subtab" type="button" data-shop="knowledgeBuildings">Savoir</button>
+                <button class="shop-subtab" type="button" data-shop="infraBuildings">Infrastructures</button>
+              </div>
+              <div id="cityBuildings" class="shop-list shop-cat active"></div>
+              <div id="knowledgeBuildings" class="shop-list shop-cat"></div>
+              <div id="infraBuildings" class="shop-list shop-cat"></div>
+            </div>
+          </div>
+
+        </section>
+
+        <section class="view" id="prestige">
+
+          <div class="panel prestige-panel" id="crisisOutcomePanel">
+            <div class="crisis-alert hidden" id="crisisAlert">
+              <div class="crisis-alert-icon">!</div>
+              <div class="crisis-alert-body">
+                <strong id="crisisAlertTitle">Ta cite ne peut plus tenir.</strong>
+                <p id="crisisAlertDesc">Lance l'effondrement pour commencer un nouveau cycle et recuperer des ruines — ou prepare d'abord la chute pour la rendre plus utile.</p>
+              </div>
+            </div>
+            <div class="panel-heading">
+              <div>
+                <span class="label">A 100% d'une jauge</span>
+                <h2>Issues de crise</h2>
+              </div>
+            </div>
+            <p class="body-copy">Quand la rupture ou l'usure arrive a terme: encaisser les ruines maintenant, ou tenir encore pour preparer une chute plus utile.</p>
+            <small id="autoCollapseCountdown" class="hidden auto-collapse-countdown"></small>
+            <div class="terminal-crisis-panel">
+              <div>
+                <span class="label">Avant d'effondrer</span>
+                <h3>Preparer la chute</h3>
+                <p>Ces choix prolongent une civilisation fatiguee pour rendre ses ruines plus utiles.</p>
+                <small id="terminalCrisisState">Disponible quand Rupture ou Usure atteint 100%.</small>
+              </div>
+              <div class="terminal-actions">
+                <article class="outcome-card">
+                  <span>Tenir la crise</span>
+                  <h3>Preparer les archives</h3>
+                  <p>Repousse la rupture en ralentissant la production, mais augmente la valeur historique de la chute future.</p>
+                  <button id="prepareArchivesBtn">Preparer</button>
+                </article>
+                <article class="outcome-card">
+                  <span>Tenir la crise</span>
+                  <h3>Organiser l'exode</h3>
+                  <p>Sauve des familles et des recits avant la fin. La croissance souffre, l'heritage devient plus dense.</p>
+                  <button id="exodusBtn">Exode</button>
+                </article>
+                <article class="outcome-card">
+                  <span>Tenir la crise</span>
+                  <h3>Maintenir l'ordre</h3>
+                  <p>Depense tresor et savoir pour gagner du temps sans bonifier fortement les ruines.</p>
+                  <button id="holdOrderBtn">Tenir</button>
+                </article>
+              </div>
+            </div>
+            <div class="crisis-outcomes">
+              <article class="outcome-card collapse-card">
+                <span>Fin du cycle</span>
+                <h3>Effondrement</h3>
+                <p>Accepte la chute. La cite tombe, laisse ses ruines, et le prochain cycle repart sur ce qui a ete transmis.</p>
+                <div class="collapse-preview hidden" id="collapsePreview">
+                  <span><b id="collapseRuinsPreview">0</b> ruines recuperees</span>
+                  <span id="collapseQualityPreview">Qualite: fragile</span>
+                </div>
+                <button id="collapseBtn">Effondrer</button>
+                <button id="surchauffeBtn" class="surchauffe-btn hidden" onclick="activateSurchauffe()">Surchauffe</button>
+              </article>
+            </div>
+            <div class="prestige-stats">
+              <div><span>Ruines gagnees</span><strong id="ruinGain">0</strong></div>
+              <div><span>Heritage prepare</span><strong id="collapsePreparation">0%</strong></div>
+              <div><span>Qualite</span><strong id="heritageQuality">Fragile</strong></div>
+              <div><span>Ruines</span><strong id="ruins">0</strong></div>
+              <div><span>Bonus</span><strong id="ruinBonus">x1</strong></div>
+              <div id="unspentBonusRow" class="hidden"><span>Puissance latente</span><strong id="unspentBonus">x1.0</strong></div>
+            </div>
+          </div>
+
+          <div class="panel crisis-status">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Progression inter-cycles</span>
+                <h2>Transmissions</h2>
+              </div>
+            </div>
+            <div class="crisis-summary">
+              <div>
+                <span>Rupture</span>
+                <strong id="crisisRupture">0%</strong>
+                <small id="crisisReadyText">Issue disponible a 100%</small>
+              </div>
+              <div>
+                <span>Usure</span>
+                <strong id="crisisWear">0%</strong>
+                <small id="crisisWearText">Le temps travaille</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel tension-status">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Diagnostic politique</span>
+                <h2>Pression actuelle</h2>
+              </div>
+            </div>
+            <div class="tension-summary">
+              <div>
+                <span>Rupture</span>
+                <strong id="tensionCurrent">0%</strong>
+                <small id="tensionDrift">Tendance stable</small>
+              </div>
+              <div>
+                <span>Usure du temps</span>
+                <strong id="tensionWear">0%</strong>
+                <small id="tensionWearDrift">Progresse lentement</small>
+              </div>
+              <div>
+                <span>Pression cible</span>
+                <strong id="tensionTarget">0%</strong>
+                <small id="tensionMainCause">Cause principale: aucune</small>
+              </div>
+              <div>
+                <span>Stabilisation</span>
+                <strong id="tensionMitigation">0%</strong>
+                <small id="tensionAdvice">Construis et observe.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Causes de rupture</span>
+                <h2>Ce qui pousse la cite</h2>
+              </div>
+            </div>
+            <div class="tension-grid">
+              <article class="tension-card">
+                <span>Subsistance</span>
+                <strong id="scarcityValue">0%</strong>
+                <p>Quand la population depasse les reserves, la faim rend la chute pensable.</p>
+                <div class="state-bar"><span id="scarcityBar"></span></div>
+              </article>
+              <article class="tension-card">
+                <span>Inegalites</span>
+                <strong id="inequalityValue">0%</strong>
+                <p>Le tresor accelere la cite, mais concentre aussi le pouvoir.</p>
+                <div class="state-bar"><span id="inequalityBar"></span></div>
+              </article>
+              <article class="tension-card">
+                <span>Complexite</span>
+                <strong id="complexityValue">0%</strong>
+                <p>Plus il y a de structures, plus la cite exige des institutions capables de suivre.</p>
+                <div class="state-bar"><span id="complexityBar"></span></div>
+              </article>
+              <article class="tension-card">
+                <span>Dissidence</span>
+                <strong id="dissentValue">0%</strong>
+                <p>Chaque cycle laisse des recits, des rancoeurs et des visions concurrentes.</p>
+                <div class="state-bar"><span id="dissentBar"></span></div>
+              </article>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Actions preventives</span>
+                <h2>Gerer ou laisser murir</h2>
+              </div>
+            </div>
+            <div class="crisis-list">
+              <button id="rationBtn">
+                <strong>Rationner</strong>
+                <small>Reduit la pression de subsistance</small>
+                <span id="rationCost">Cout</span>
+              </button>
+              <button id="festivalBtn">
+                <strong>Jeux civiques</strong>
+                <small>Agit surtout sur dissidence</small>
+                <span id="festivalCost">Cout</span>
+              </button>
+              <button id="censusBtn">
+                <strong>Recensement</strong>
+                <small>Agit surtout sur complexite</small>
+                <span id="censusCost">Cout</span>
+              </button>
+              <button id="reformBtn">
+                <strong>Reformes</strong>
+                <small>Agit sur complexite et institutions</small>
+                <span id="reformCost">Cout</span>
+              </button>
+              <button id="archiveCrisisBtn" class="hidden">
+                <strong>Archives des catastrophes</strong>
+                <small>Agit sur memoire des chutes</small>
+                <span id="archiveCrisisCost">Cout</span>
+              </button>
+              <button id="ancestorCrisisBtn" class="hidden">
+                <strong>Culte des ancetres</strong>
+                <small>Agit sur dissidence et legitimite</small>
+                <span id="ancestorCrisisCost">Cout</span>
+              </button>
+            </div>
+            <p class="body-copy tension-note">Reduire l'instabilite prolonge la cite, mais attendre la rupture rend l'effondrement plus riche.</p>
+          </div>
+
+        </section>
+
+        <section class="view" id="ruinsView">
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Apres la premiere chute</span>
+                <h2>Ruines actives</h2>
+              </div>
+            </div>
+            <p class="body-copy">Les ruines ne sont pas seulement une monnaie: elles sont des formes que les survivants reconnaissent. Elles s'organisent en trois traditions de reconstruction.</p>
+            <div id="dogmaMilestones" class="dogma-milestones"></div>
+            <div id="ruinUpgrades" class="prestige-tree"></div>
+          </div>
+        </section>
+
+        <section class="view" id="tech">
+
+          <div class="panel prestige-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Transmission longue</span>
+                <h2>Dynastie</h2>
+              </div>
+              <button id="dynastyBtn">Fonder</button>
+            </div>
+            <p class="body-copy">Plusieurs effondrements racontent une legende. Une dynastie se fonde quand les chroniques ont assez de matiere pour fabriquer une legitimite durable.</p>
+            <div class="prestige-stats">
+              <div><span>Prochaine fondation</span><strong id="dynastyRequirement">300 ruines</strong></div>
+              <div><span>Progression</span><strong id="dynastyProgress">Pas encore</strong></div>
+              <div><span>Legitimite gagnee</span><strong id="legitimacyGain">0</strong></div>
+              <div><span>Legitimite</span><strong id="legitimacy">0</strong></div>
+              <div><span>Palier dynastique</span><strong id="dynastyPalier">+0 / fondation</strong></div>
+              <div><span>Prochain palier</span><strong id="dynastyPalierNext">dynasty 5</strong></div>
+              <div><span>Institutions</span><strong id="institutionBonus">x1</strong></div>
+            </div>
+            <div class="doctrine-display">
+              <span id="dynastyDoctrineLabel">Aucune doctrine</span>
+              <small id="dynastyDoctrineDesc">A choisir lors de la prochaine fondation</small>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Upgrades persistants</span>
+                <h2>Heritage</h2>
+              </div>
+            </div>
+            <p class="body-copy">Ces ameliorations survivent aux cycles et s'appliquent immediatement. Achetees avec la legitimite gagnee lors des fondations de dynasties.</p>
+            <div id="upgrades" class="upgrade-grid"></div>
+          </div>
+
+          <div class="panel grand-reset-panel" id="grandResetPanel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Prestige ultime</span>
+                <h2>Grand Reset</h2>
+              </div>
+              <button id="grandResetBtn" class="grand-reset-btn" disabled>Reinitialiser</button>
+            </div>
+            <p class="body-copy">Efface toute progression: batiments, ruines, cycles, upgrades de ruines. En echange, un bonus permanent x2 sur toute la production est ajoute. Cumulable sans limite.</p>
+            <div class="prestige-stats">
+              <div><span>Grand Resets</span><strong id="grandResetCount">0</strong></div>
+              <div><span>Bonus actuel</span><strong id="grandResetBonus">x1</strong></div>
+              <div><span>Bonus apres</span><strong id="grandResetBonusNext">x2</strong></div>
+              <div><span>Requis</span><strong>Upgrade Grand Reset (50 legitimite)</strong></div>
+            </div>
+          </div>
+
+        </section>
+
+        <section class="view" id="mythView">
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Defis permanents</span>
+                <h2>Les Mythes</h2>
+              </div>
+            </div>
+            <div class="myth-view-body">
+              <div id="activeMythBanner" class="active-myth-banner hidden">
+                <span class="label">Pacte actif ce cycle</span>
+                <strong class="active-myth-name"></strong>
+                <p class="active-myth-rule"></p>
+              </div>
+              <div id="mythChallengeList">
+                <!-- Les sections Acte I / II / III sont injectees par renderMythView() -->
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <section class="view" id="history">
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <span class="label">Archives</span>
+                <h2>Chronique</h2>
+              </div>
+            </div>
+            <div class="archive-tabs" aria-label="Archives de la civilisation">
+              <button class="archive-tab active" data-archive-view="chronicleLog">Chutes</button>
+              <button class="archive-tab" data-archive-view="archiveMoteur">Moteur</button>
+              <button class="archive-tab" data-archive-view="archiveSavoir">Savoir</button>
+              <button class="archive-tab" data-archive-view="archiveInfra">Infrastructure</button>
+              <button class="archive-tab" data-archive-view="archiveMerveilles">Merveilles</button>
+            </div>
+            <div class="archive-view active" id="chronicleLog">
+              <ol id="log" class="log"></ol>
+            </div>
+            <div class="archive-view" id="archiveMoteur">
+              <div id="archiveMoteurList" class="archive-list"></div>
+            </div>
+            <div class="archive-view" id="archiveSavoir">
+              <div id="archiveSavoirList" class="archive-list"></div>
+            </div>
+            <div class="archive-view" id="archiveInfra">
+              <div id="archiveInfraList" class="archive-list"></div>
+            </div>
+            <div class="archive-view" id="archiveMerveilles">
+              <div id="archiveMerveillesList" class="archive-list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="optionsDialog">
+      <form method="dialog">
+        <h2>Options</h2>
+        <div class="options-tabs" aria-label="Categories d'options">
+          <button class="options-tab active" type="button" data-options-group="display">Affichage</button>
+          <button class="options-tab" type="button" data-options-group="sound">Son</button>
+          <button class="options-tab" type="button" data-options-group="other">Autre</button>
+        </div>
+        <div class="options-rows">
+          <div class="options-row" data-options-group-panel="display">
+            <div>
+              <span>Notifications du fil</span>
+              <small>Messages des habitants en haut de l'ecran</small>
+            </div>
+            <button id="notifToggleBtn" type="button" class="toggle-btn">Activé</button>
+          </div>
+          <div class="options-row" data-options-group-panel="display">
+            <div>
+              <span>Format des nombres</span>
+              <small>Affichage compact, complet ou scientifique des ressources</small>
+            </div>
+            <div class="number-format-control">
+              <button class="format-option active" type="button" data-number-format="compact">1.2M</button>
+              <button class="format-option" type="button" data-number-format="full">1 200 000</button>
+              <button class="format-option" type="button" data-number-format="scientific">1.20e6</button>
+            </div>
+          </div>
+          <div class="options-row" data-options-group-panel="sound">
+            <div>
+              <span>Musique</span>
+              <small>Ambiance sonore de fond</small>
+            </div>
+            <button id="musicToggleBtn" type="button" class="toggle-btn">Désactivé</button>
+          </div>
+          <div class="options-row options-row-volume" data-options-group-panel="sound">
+            <div>
+              <span>Volume</span>
+              <small>Niveau de la musique de fond</small>
+            </div>
+            <div class="volume-control">
+              <input id="musicVolumeSlider" type="range" min="0" max="100" step="5" value="100" aria-label="Volume de la musique">
+              <strong id="musicVolumeValue">100%</strong>
+            </div>
+          </div>
+          <div class="options-row" data-options-group-panel="sound">
+            <div>
+              <span>Musique seulement en onglet actif</span>
+              <small>Met la musique en pause quand le jeu est en arriere-plan</small>
+            </div>
+            <button id="musicActiveTabToggleBtn" type="button" class="toggle-btn">Actif</button>
+          </div>
+          <div class="options-row options-row-danger" data-options-group-panel="other">
+            <div>
+              <span>Réinitialiser la partie</span>
+              <small>Efface toute la progression — irréversible</small>
+            </div>
+            <button id="optionsWipeBtn" type="button" class="danger">Reset</button>
+          </div>
+        </div>
+        <menu>
+          <button value="cancel">Fermer</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="importDialog">
+      <form method="dialog">
+        <h2>Importer une sauvegarde</h2>
+        <textarea id="importText" spellcheck="false"></textarea>
+        <menu>
+          <button value="cancel">Annuler</button>
+          <button id="confirmImport" value="default">Importer</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="debugDialog">
+      <form method="dialog">
+        <h2>Mode debug</h2>
+        <p class="body-copy">Outils de test local pour explorer le late game.</p>
+        <div class="debug-grid">
+          <button id="debugRuins1K" value="keep">+1K ruines</button>
+          <button id="debugRuins1M" value="keep">+1M ruines</button>
+          <button id="debugRuins1B" value="keep">+1B ruines</button>
+          <button id="debugCrisis" value="keep">Rupture 100%</button>
+          <button id="debugCycles" value="keep">+10 cycles</button>
+          <button id="debugResources" value="keep">Ressources late</button>
+          <button id="debugUnlockRuins" value="keep">Voir ruines</button>
+          <button id="debugBuyEarlyRuins" value="keep">Acheter ruines debut</button>
+        </div>
+        <menu>
+          <button value="cancel">Fermer</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <!-- Modules chargés dans l'ordre de dépendance (scope global partagé, pas de bundler).
+         defer garantit l'ordre ET le chargement parallèle sans bloquer le parser HTML. -->
+    <script defer src="js/utils.js"></script>
+    <script defer src="js/data-buildings.js"></script>
+    <script defer src="js/data-upgrades.js"></script>
+    <script defer src="js/data-world.js"></script>
+    <script defer src="js/state.js"></script>
+    <script defer src="js/mechanics.js"></script>
+    <script defer src="js/events.js"></script>
+    <script defer src="js/actions.js"></script>
+    <script defer src="js/render.js"></script>
+    <script defer src="js/myths/data-myths.js"></script>
+    <script defer src="js/citymap-layout.js"></script>  <!-- constantes, layout pur, computeCityLayout -->
+    <script defer src="js/citymap-camera.js"></script>  <!-- camera, resize canvas, conversions ecran/monde -->
+    <script defer src="js/citymap-hit-test.js"></script><!-- hit-test carte et infobulles -->
+    <script defer src="js/citymap-input.js"></script>   <!-- interactions souris de la carte -->
+    <script defer src="js/citymap-runtime.js"></script> <!-- preparation runtime du layout -->
+    <script defer src="js/citymap-draw-utils.js"></script><!-- helpers visuels Canvas -->
+    <script defer src="js/citymap-render-ground.js"></script><!-- rendu sol, fleuve, foret, nuit -->
+    <script defer src="js/citymap-render-roads.js"></script><!-- rendu routes, ponts, lampadaires -->
+    <script defer src="js/citymap-render-agents.js"></script><!-- rendu pietons, vehicules, bateaux -->
+    <script defer src="js/citymap-render-crisis.js"></script><!-- rendu crises et foule -->
+    <script defer src="js/citymap-render-buildings.js"></script><!-- rendu tuiles, batiments, districts, merveilles -->
+    <script defer src="js/citymap.js"></script>          <!-- initCityMap, boucle rAF -->
+    <script defer src="js/main.js"></script>
+  </body>
+</html>
