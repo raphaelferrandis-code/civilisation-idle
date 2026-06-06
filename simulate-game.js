@@ -8,26 +8,26 @@ const path = require("path");
 // (cf. index.html). On les concatène pour reconstituer une source unique exécutable
 // dans le VM, exactement comme l'ancien game.js monolithique.
 const GAME_FILES = [
-  "utils.js",
-  "data-buildings.js",
-  "data-upgrades.js",
-  "data-world.js",
-  "state.js",
-  "mechanics.js",
-  "events.js",
-  "actions.js",
-  "render.js",
-  "citymap-camera.js",
-  "citymap-hit-test.js",
-  "citymap-input.js",
-  "citymap-runtime.js",
-  "citymap-draw-utils.js",
-  "citymap-render-ground.js",
-  "citymap-render-roads.js",
-  "citymap-render-agents.js",
-  "citymap-render-crisis.js",
-  "citymap.js",
-  "main.js"
+  "core/utils.js",
+  "data/buildings.js",
+  "data/upgrades.js",
+  "data/world.js",
+  "core/state.js",
+  "core/mechanics.js",
+  "core/events.js",
+  "core/actions.js",
+  "ui/render.js",
+  "citymap/core/camera.js",
+  "citymap/core/hit-test.js",
+  "citymap/core/input.js",
+  "citymap/core/runtime.js",
+  "citymap/rendering/draw-utils.js",
+  "citymap/rendering/ground.js",
+  "citymap/rendering/roads.js",
+  "citymap/rendering/agents.js",
+  "citymap/rendering/crisis.js",
+  "citymap/citymap.js",
+  "core/main.js"
 ];
 const DEFAULT_HOURS = 4;
 const STEP_SECONDS = 120;

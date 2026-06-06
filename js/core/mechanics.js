@@ -234,8 +234,9 @@ function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
   let knowledge = 0;
   let infra = 0;
 
-  const _babelExpMult = babelExponentialMult();
-  const _babelAdjMult = babelAdjacencyMultiplier();
+  const _babelExpMult  = babelExponentialMult();
+  const _babelAdjMult  = babelAdjacencyMultiplier();
+  const _hephInfraFactor = hephInfraMult();
   for (const b of buildings) {
     const count = state.buildings[b.id] || 0;
     const synergy = buildingOutputMultiplier(b, count);
@@ -246,7 +247,8 @@ function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
     food += b.food * count * synergy * totalMult;
     gold += b.gold * count * synergy * totalMult;
     knowledge += b.knowledge * count * synergy * totalMult;
-    infra += b.infra * count * synergy * totalMult;
+    const hephBonus = (_hephInfraFactor > 1 && b.category === "infra") ? _hephInfraFactor : 1;
+    infra += b.infra * count * synergy * totalMult * hephBonus;
   }
 
   // ── Mythe de Prométhée : multiplicateur Nourriture pendant le cycle ──────
@@ -330,6 +332,12 @@ function orHeritageUsureMult() {
   if (f <= 0 || g <= 0) return 1;
   const ratio = Math.abs(f - g) / Math.max(f, g);
   return ratio < OR_HERITAGE_BALANCE_RATIO ? (1 - OR_HERITAGE_USURE_RED) : 1;
+}
+
+function hephInfraMult() {
+  if (state.activeMythId !== "mythe_d_hephaistos") return 1;
+  const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
+  return HEPH_INFRA_MULT_BASE + elapsed * HEPH_INFRA_MULT_GROWTH;
 }
 
 function buildingOutputMultiplier(building, count) {
@@ -570,7 +578,8 @@ function timeWearRate() {
   const atlasHeritRed    = state.atlasHeritage ? (1 - ATLAS_USURE_REDUCTION) : 1;
   const orImbalanceMult  = (state.activeMythId === "mythe_age_or" && state.orUsureImbalance) ? OR_USURE_IMBALANCE_MULT : 1;
   const orHeritageMult   = orHeritageUsureMult();
-  return 0.00003 * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
+  const hephMult         = state.activeMythId === "mythe_d_hephaistos" ? HEPH_USURE_MULT : 1;
+  return 0.00003 * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 
 function terminalCrisisCost(type) {

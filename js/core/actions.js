@@ -97,6 +97,10 @@ async function performGrandReset() {
   const savedIcareHeritage        = Boolean(state.icareHeritage);
   const savedBabelHeritage        = Boolean(state.babelHeritage);
   const savedOrHeritage           = Boolean(state.orHeritage);
+  const savedPhoenixHeritage      = Boolean(state.phoenixHeritage);
+  const savedAutoScriptRules      = state.autoScriptRules ? JSON.parse(JSON.stringify(state.autoScriptRules)) : null;
+  const savedHephHeritage         = Boolean(state.hephHeritage);
+  const savedAutomateRules        = state.automateRules ? JSON.parse(JSON.stringify(state.automateRules)) : null;
   const savedSurchauffeEndTime    = state.surchauffeEndTime || 0;
   const savedSurchauffeCooldown   = state.surchauffeCooldownEnd || 0;
   const savedLegitimacy = state.legitimacy || 0;
@@ -114,6 +118,10 @@ async function performGrandReset() {
   fresh.icareHeritage         = savedIcareHeritage;
   fresh.babelHeritage         = savedBabelHeritage;
   fresh.orHeritage            = savedOrHeritage;
+  fresh.phoenixHeritage       = savedPhoenixHeritage;
+  if (savedAutoScriptRules)   fresh.autoScriptRules = savedAutoScriptRules;
+  fresh.hephHeritage          = savedHephHeritage;
+  if (savedAutomateRules)     fresh.automateRules = savedAutomateRules;
   fresh.surchauffeEndTime     = savedSurchauffeEndTime;
   fresh.surchauffeCooldownEnd = savedSurchauffeCooldown;
   fresh.legitimacy = savedLegitimacy;
@@ -347,6 +355,15 @@ function checkCrisisThresholds() {
 async function openCrisisEvent(event) {
   gamePaused = true;
   render();
+  // Héphaïstos : crises narratives irrésolubles si pop < seuil critique
+  if (state.activeMythId === "mythe_d_hephaistos" && state.population < HEPH_POP_CRISIS_THRESHOLD) {
+    chronicle(`Hephaistos : population critique (${Math.floor(state.population)} hab). La crise est irresolvable — ses effets negatifs s'imposent sans remede.`);
+    addProductionPenalty("global", 0.06);
+    state.instability = clamp01(state.instability + 0.05);
+    gamePaused = false;
+    render();
+    return;
+  }
   const choice = await openChoiceDialog(event);
   choice.apply();
   state.instability = clamp01(state.instability);
@@ -423,9 +440,24 @@ function runTerminalCrisisAction(type) {
 }
 
 function completeCollapse(gain, fallenDynasty, epitaph, reason) {
-  const wasChaos = state.activeMythId === "mythe_du_chaos";
-  checkMythOnCollapse();
-  state.activeMythId = null;
+  const wasChaos   = state.activeMythId === "mythe_du_chaos";
+  const wasPhoenix = state.activeMythId === "mythe_du_phenix";
+
+  // Phoenix : accumule les ruines et incrémente le compteur de cycles AVANT l'évaluation
+  if (wasPhoenix) {
+    state.phoenixTotalRuins = (state.phoenixTotalRuins || 0) + gain;
+    state.phoenixCycleCount = (state.phoenixCycleCount || 0) + 1;
+  }
+  const phoenixDone = wasPhoenix && state.phoenixCycleCount >= PHENIX_CYCLE_COUNT;
+
+  if (!wasPhoenix || phoenixDone) {
+    // Évaluation normale (dernier cycle Phoenix ou tout autre mythe)
+    checkMythOnCollapse();
+    state.activeMythId = null;
+  } else {
+    // Cycle intermédiaire Phoenix : le mythe reste actif
+    log(`Phoenix : cycle ${state.phoenixCycleCount}/${PHENIX_CYCLE_COUNT} acheve. Ruines cumulees : ${fmt(state.phoenixTotalRuins)}.`);
+  }
   const doctrinePopBonus = hasDoctrine("acier") ? Math.floor((state.cyclePeaks?.population || 0) * 0.08) : 0;
   const keptPop = Math.max(has("granaries") ? state.population * 0.03 : 10, 10 + ruinEffectSum("startPopulation")) + doctrinePopBonus;
   const foodKeepRate = (has("ancestor_granaries") ? 0.16 : has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
@@ -476,6 +508,10 @@ function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.orPopPeak        = 0;
   state.orGoldReached    = false;
   state.orUsureImbalance = false;
+  state.hephPopPeak      = 0;
+  state.hephGoalReached  = false;
+  // Phoenix: les compteurs (cycleCount, totalRuins, nextForceAt) sont gérés
+  // séparément dans le bloc Phoenix en tête de completeCollapse()
   invalidateRenderCache("all");
   enforceInfrastructureCap();
   resetCyclePeaks();
@@ -497,6 +533,13 @@ function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   }
   if (memoireSavoirBonus > 0) {
     chronicle(`Memoire des Cycles: +${fmt(memoireSavoirBonus)} savoir issu des eres precedentes.`);
+  }
+
+  // Phoenix : planifie le prochain effondrement forcé si le cycle continue
+  if (wasPhoenix && !phoenixDone) {
+    state.phoenixNextForceAt = Date.now() + PHENIX_FORCE_INTERVAL;
+  } else {
+    state.phoenixNextForceAt = null;
   }
 }
 
@@ -555,6 +598,126 @@ function activateSurchauffe() {
   render();
 }
 
+// ── Script d'Automatisation ──────────────────────────────────────────────────
+
+function initAutoScriptRules() {
+  state.autoScriptRules = [
+    { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%",   threshold: 80, enabled: false },
+    { id: "rule_usure",   type: "usure",   label: "Effondrer si Usure atteint",   unit: "%",   threshold: 80, enabled: false },
+    { id: "rule_time",    type: "time",    label: "Effondrer apres",               unit: "min", threshold: 5,  enabled: false }
+  ];
+  return state.autoScriptRules;
+}
+
+function getAutoScriptRules() {
+  if (!state.autoScriptRules) initAutoScriptRules();
+  return state.autoScriptRules;
+}
+
+function toggleAutoScriptRule(id) {
+  const rule = getAutoScriptRules().find((r) => r.id === id);
+  if (!rule) return;
+  rule.enabled = !rule.enabled;
+  save();
+  invalidateRenderCache("all");
+  render();
+}
+
+function setAutoScriptThreshold(id, raw) {
+  const rule = getAutoScriptRules().find((r) => r.id === id);
+  if (!rule) return;
+  const val = parseFloat(raw);
+  if (!isNaN(val)) rule.threshold = Math.max(1, Math.min(9999, val));
+  save();
+}
+
+function checkAutoScriptRules() {
+  for (const rule of getAutoScriptRules()) {
+    if (!rule.enabled) continue;
+    let triggered = false;
+    if (rule.type === "rupture") triggered = state.instability * 100 >= rule.threshold;
+    if (rule.type === "usure")   triggered = (state.timeWear || 0) * 100 >= rule.threshold;
+    if (rule.type === "time") {
+      const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
+      triggered = elapsed >= rule.threshold;
+    }
+    if (triggered) {
+      log(`Script : "${rule.label} ${rule.threshold}${rule.unit}" — effondrement declenche.`);
+      collapse("auto_script");
+      return;
+    }
+  }
+}
+
+// ── Automates ancestraux ─────────────────────────────────────────────────────
+
+function initAutomateRules() {
+  state.automateRules = [
+    { id: "auto_buy_city",  type: "buy_cheapest",  category: "city",      label: "Acheter bati. (Cite) si abordable",  enabled: false },
+    { id: "auto_buy_infra", type: "buy_cheapest",  category: "infra",     label: "Acheter bati. (Infra) si abordable", enabled: false },
+    { id: "auto_rationing", type: "crisis_action", actionId: "rationing", label: "Rationnement si Rupture >=", unit: "%", threshold: 60, enabled: false }
+  ];
+  return state.automateRules;
+}
+
+function getAutomateRules() {
+  if (!state.automateRules) initAutomateRules();
+  return state.automateRules;
+}
+
+function toggleAutomate(id) {
+  const rule = getAutomateRules().find((r) => r.id === id);
+  if (!rule) return;
+  rule.enabled = !rule.enabled;
+  save();
+  invalidateRenderCache("all");
+  render();
+}
+
+function setAutomateThreshold(id, raw) {
+  const rule = getAutomateRules().find((r) => r.id === id);
+  if (!rule) return;
+  const val = parseFloat(raw);
+  if (!isNaN(val)) rule.threshold = Math.max(1, Math.min(99, val));
+  save();
+}
+
+function checkAutomateRules() {
+  let didBuy = false;
+  for (const rule of getAutomateRules()) {
+    if (!rule.enabled) continue;
+    if (rule.type === "buy_cheapest") {
+      const cheapest = buildings
+        .filter((b) => b.category === rule.category && isUnlocked(b))
+        .sort((a, b) => {
+          const cA = buildingCostAt(a, state.buildings[a.id] || 0)[a.currency] || 0;
+          const cB = buildingCostAt(b, state.buildings[b.id] || 0)[b.currency] || 0;
+          return cA - cB;
+        })[0];
+      if (cheapest) {
+        const cost = buildingBatchCost(cheapest, 1);
+        if (canPayCost(cost)) {
+          payCost(cost);
+          state.buildings[cheapest.id] = (state.buildings[cheapest.id] || 0) + 1;
+          invalidateRenderCache("buildings");
+          didBuy = true;
+          chronicle(`Automate : ${cheapest.name} achete automatiquement.`);
+        }
+      }
+    }
+    if (rule.type === "crisis_action") {
+      if (!crisisOpen()) continue;
+      if (state.instability * 100 >= rule.threshold) {
+        const costs = crisisCosts();
+        if (canPayCost(costs[rule.actionId])) {
+          runCrisisAction(rule.actionId, false);
+        }
+      }
+    }
+  }
+  if (didBuy) render();
+}
+
 function activateMyth(mythId) {
   if (gamePaused) return;
   const myth = getMythById(mythId);
@@ -593,9 +756,14 @@ function resetCivilization() {
   if (state.atlasHeritage) state.atlasLegitimite = 50;
   state.atlasCrisisCount = 0;
   state.babelProdReached = false;
-  state.orPopPeak        = state.population;
-  state.orGoldReached    = false;
-  state.orUsureImbalance = false;
+  state.orPopPeak          = state.population;
+  state.orGoldReached      = false;
+  state.orUsureImbalance   = false;
+  state.phoenixCycleCount  = 0;
+  state.phoenixTotalRuins  = 0;
+  state.phoenixNextForceAt = null;
+  state.hephPopPeak        = state.population;
+  state.hephGoalReached    = false;
   invalidateRenderCache("all");
   enforceInfrastructureCap();
   resetCyclePeaks();
@@ -609,11 +777,17 @@ function autoUnlockDogmas() {
 }
 
 function collapse(reason) {
-  if (collapseInProgress || !crisisOpen()) return;
+  if (collapseInProgress) return;
+  // "forced" (Phoenix) et "auto_script" (Heritage Phenix) bypassent la garde crisisOpen
+  if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return;
   collapseInProgress = true;
   gamePaused = true;
   const gain = ruinGain();
-  chronicle(`Effondrement ${reason === "manual" ? "manuel" : "automatique"}: la cite s'effondre avec ${fmt(gain)} ruines.`);
+  const reasonLabel = reason === "manual" ? "manuel"
+    : reason === "forced"      ? "force (Phoenix)"
+    : reason === "auto_script" ? "automatique (Script)"
+    : "automatique";
+  chronicle(`Effondrement ${reasonLabel}: la cite s'effondre avec ${fmt(gain)} ruines.`);
   runCollapseSequence(gain, reason);
 }
 
@@ -748,6 +922,41 @@ function tick(dt) {
       const catLabel = BABEL_CAT_LABELS?.[state.babelCategory] || state.babelCategory;
       log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET} — le pacte est en passe d'etre honore.`);
     }
+  }
+
+  // ── Mythe du Phénix : effondrement forcé toutes les 5 minutes ─────────────
+  if (state.activeMythId === "mythe_du_phenix" && state.phoenixNextForceAt &&
+      Date.now() >= state.phoenixNextForceAt && !collapseInProgress && !gamePaused) {
+    state.phoenixNextForceAt = null;
+    collapse("forced");
+    return;
+  }
+
+  // ── Mythe d'Héphaïstos : déclin de population + suivi + condition de réussite ──
+  if (state.activeMythId === "mythe_d_hephaistos") {
+    if (state.population > (state.hephPopPeak || 0)) state.hephPopPeak = state.population;
+    const hephElapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
+    if (hephElapsed > HEPH_POP_DECAY_START_MIN) {
+      const decayRate = state.population * HEPH_POP_DECAY_RATE / 60; // par seconde
+      state.population = Math.max(1, state.population - decayRate * dt);
+    }
+    if (!state.hephGoalReached) {
+      const hephDecline = 1 - state.population / Math.max(1, state.hephPopPeak || 1);
+      if (state.infrastructure >= HEPH_INFRA_TARGET && hephDecline >= HEPH_POP_DECLINE_PCT) {
+        state.hephGoalReached = true;
+        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(HEPH_INFRA_TARGET)} atteinte, population en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
+      }
+    }
+  }
+
+  // ── Automates ancestraux (Héritage Héphaïstos) ───────────────────────────
+  if (state.hephHeritage && !collapseInProgress && !gamePaused) {
+    checkAutomateRules();
+  }
+
+  // ── Script d'Automatisation (Héritage Phénix) ────────────────────────────
+  if (state.phoenixHeritage && !collapseInProgress && !gamePaused) {
+    checkAutoScriptRules();
   }
 
   // "Protocoles de stabilisation" : auto-crise à 65% et 82% de rupture

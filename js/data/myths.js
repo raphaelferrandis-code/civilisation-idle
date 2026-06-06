@@ -74,6 +74,21 @@ const BABEL_MULT_TARGET    = 5;       // Multiplicateur cible pour réussite
 const BABEL_ADJ_BONUS      = 0.10;    // Héritage : +10% par voisin du même type
 const BABEL_CAT_LABELS     = { city: "Cite", knowledge: "Savoir", infra: "Infrastructure" };
 
+// ── Constantes Mythe du Phénix ───────────────────────────────────────────────
+const PHENIX_CYCLE_COUNT    = 20;           // Nombre total de cycles forcés
+const PHENIX_FORCE_INTERVAL = 5 * 60_000;  // 5 minutes entre chaque effondrement forcé
+const PHENIX_RUIN_TARGET    = 400;          // Ruines cumulées pour réussir
+
+// ── Constantes Mythe d'Héphaïstos ────────────────────────────────────────────
+const HEPH_POP_DECAY_START_MIN  = 3;      // Déclin pop démarre après 3 min de cycle
+const HEPH_POP_DECAY_RATE       = 0.008;  // 0.8% de la pop actuelle perdue par minute
+const HEPH_INFRA_MULT_BASE      = 2.0;    // Bonus infra x2 au départ
+const HEPH_INFRA_MULT_GROWTH    = 0.15;   // +0.15 par minute de cycle
+const HEPH_USURE_MULT           = 2.5;    // Usure x2.5
+const HEPH_POP_CRISIS_THRESHOLD = 50;     // Pop en-dessous de ce seuil → crises irrésolubles
+const HEPH_INFRA_TARGET         = 1500;   // Infrastructure cible pour réussir
+const HEPH_POP_DECLINE_PCT      = 0.25;   // Déclin requis depuis le pic (25%)
+
 // ── Constantes Mythe de Prométhée ────────────────────────────────────────────
 const PROMETHEE_FOOD_MULT       = 3;      // Multiplicateur de production de Nourriture
 const PROMETHEE_RUPTURE_PER_FOOD = 0.02;  // Rupture ajoutée par moteur de nourriture acheté (2%)
@@ -234,6 +249,28 @@ const MYTHS = [
     }
   },
 
+  {
+    id: "mythe_d_hephaistos",
+    act: 2,
+    name: "Le Mythe d'Hephaistos",
+    description: `${HEPH_POP_DECAY_START_MIN} min apres le debut du cycle, la Population commence a decroitre (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les batiments d'Infrastructure voient leur production multipliee par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au depart, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irresolues.`,
+    objectif: `Atteindre ${HEPH_INFRA_TARGET} d'Infrastructure avec une Population ayant decline d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis son pic.`,
+    heritageDescription: `Automates ancestraux : debloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs futures (achat automatique de batiments, declenchement de crises).`,
+
+    onActivate() {
+      state.hephPopPeak     = state.population;
+      state.hephGoalReached = false;
+    },
+
+    onCollapse() {
+      return Boolean(state.hephGoalReached);
+    },
+
+    applyHeritage() {
+      state.hephHeritage = true;
+    }
+  },
+
   // ── Acte III · Apocalypse ─────────────────────────────────────────────────
   {
     id: "mythe_d_atlas",
@@ -292,6 +329,30 @@ const MYTHS = [
       state.icareHeritage = true;
       // render.js lit ce flag pour afficher le bouton Surchauffe (#surchauffeBtn).
       // activateSurchauffe() dans actions.js gère l'activation et le cooldown.
+    }
+  },
+
+  {
+    id: "mythe_du_phenix",
+    act: 3,
+    name: "Le Mythe du Phenix",
+    description: `La civilisation s'effondre de force toutes les ${PHENIX_FORCE_INTERVAL / 60_000} minutes (temps reel), quoi qu'il arrive. Le pacte dure ${PHENIX_CYCLE_COUNT} cycles (forces ou manuels). L'effondrement manuel reste disponible.`,
+    objectif: `Sur ${PHENIX_CYCLE_COUNT} cycles, accumuler un total de ${PHENIX_RUIN_TARGET} Ruines.`,
+    heritageDescription: `Script d'Automatisation : debloque un panneau dans les Options pour definir des conditions d'effondrement automatique dans toutes les runs futures (seuil de Rupture, seuil d'Usure, duree du cycle).`,
+
+    onActivate() {
+      state.phoenixCycleCount  = 0;
+      state.phoenixTotalRuins  = 0;
+      state.phoenixNextForceAt = Date.now() + PHENIX_FORCE_INTERVAL;
+    },
+
+    onCollapse() {
+      return state.phoenixCycleCount >= PHENIX_CYCLE_COUNT &&
+             (state.phoenixTotalRuins || 0) >= PHENIX_RUIN_TARGET;
+    },
+
+    applyHeritage() {
+      state.phoenixHeritage = true;
     }
   },
 
@@ -360,9 +421,9 @@ function checkActUnlocks() {
 
 const ACT_META = {
   1:        { num: "Acte I",   name: "Fondation",  unlockHint: null },
-  2:        { num: "Acte II",  name: "Domination", unlockHint: "Completez les 4 Mythes de l'Acte I" },
+  2:        { num: "Acte II",  name: "Domination", unlockHint: "Completez les 2 Mythes de l'Acte I" },
   3:        { num: "Acte III", name: "Apocalypse", unlockHint: "Completez les 4 Mythes de l'Acte II" },
-  ragnarok: { num: "Ragnarok", name: "La Fin",     unlockHint: "Completez les 13 Mythes des Actes I, II et III" }
+  ragnarok: { num: "Ragnarok", name: "La Fin",     unlockHint: "Completez les 9 Mythes des Actes I, II et III" }
 };
 
 function renderMythView() {

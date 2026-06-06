@@ -407,6 +407,10 @@ function render() {
   renderSisypheMult();
   renderBabelStatus();
   renderOrStatus();
+  renderPhoenixStatus();
+  renderAutoScript();
+  renderHephStatus();
+  renderAutomates();
   renderAtlasLegitimite();
   el("dynastyBtn").disabled = legitGain <= 0;
 
@@ -579,6 +583,112 @@ function renderAtlasLegitimite() {
   const barEl = el("atlasLegitimiteBar");
   if (valEl) valEl.textContent = `${val}`;
   if (barEl) barEl.style.width = `${val}%`;
+}
+
+function renderPhoenixStatus() {
+  const row = el("phoenixStatusRow");
+  if (!row) return;
+  const isPhenix = state.activeMythId === "mythe_du_phenix";
+  row.classList.toggle("hidden", !isPhenix);
+  if (!isPhenix) return;
+  const cycleEl = el("phoenixCycleValue");
+  const ruinsEl = el("phoenixRuinsValue");
+  const timerEl = el("phoenixTimerValue");
+  if (cycleEl) cycleEl.textContent = `Cycle ${state.phoenixCycleCount || 0} / ${PHENIX_CYCLE_COUNT}`;
+  if (ruinsEl) ruinsEl.textContent = `${fmt(state.phoenixTotalRuins || 0)} / ${PHENIX_RUIN_TARGET} ruines`;
+  if (timerEl) {
+    const remaining = state.phoenixNextForceAt ? Math.max(0, state.phoenixNextForceAt - Date.now()) : 0;
+    const mins = Math.floor(remaining / 60_000);
+    const secs = Math.floor((remaining % 60_000) / 1_000);
+    timerEl.textContent = remaining > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : "—";
+  }
+}
+
+function renderAutoScript() {
+  const tab = el("autoScriptTab");
+  if (tab) tab.classList.toggle("hidden", !state.phoenixHeritage);
+
+  const panel = el("autoScriptPanel");
+  if (!panel || !state.phoenixHeritage) return;
+
+  const rules = getAutoScriptRules();
+  const sig   = rules.map((r) => `${r.id}:${r.threshold}:${r.enabled ? 1 : 0}`).join("|");
+  if (panel.dataset.sig === sig) return;
+  panel.dataset.sig = sig;
+
+  panel.innerHTML = rules.map((r) => `
+    <div class="options-row auto-script-rule">
+      <div>
+        <span class="auto-script-label">${r.label}</span>
+        <div class="auto-script-threshold">
+          <input type="number" class="auto-script-input" value="${r.threshold}" min="1" max="9999"
+                 onchange="setAutoScriptThreshold('${r.id}', this.value)"
+                 oninput="setAutoScriptThreshold('${r.id}', this.value)">
+          <span class="auto-script-unit">${r.unit}</span>
+        </div>
+      </div>
+      <button type="button" class="toggle-btn${r.enabled ? "" : " off"}"
+              onclick="toggleAutoScriptRule('${r.id}')">
+        ${r.enabled ? "Actif" : "Inactif"}
+      </button>
+    </div>
+  `).join("");
+}
+
+function renderHephStatus() {
+  const row = el("hephStatusRow");
+  if (!row) return;
+  const isHeph = state.activeMythId === "mythe_d_hephaistos";
+  row.classList.toggle("hidden", !isHeph);
+  if (!isHeph) return;
+  const infraEl = el("hephInfraValue");
+  const popEl   = el("hephPopValue");
+  const lockEl  = el("hephCrisisLock");
+  const infraFactor = hephInfraMult();
+  const peak = Math.max(1, state.hephPopPeak || state.population);
+  const decline = Math.max(0, 1 - state.population / peak);
+  const locked = state.population < HEPH_POP_CRISIS_THRESHOLD;
+  if (infraEl) infraEl.textContent = `Infra x${infraFactor.toFixed(2)} | ${fmt(Math.floor(state.infrastructure))} / ${HEPH_INFRA_TARGET}`;
+  if (popEl)   popEl.textContent   = `Pop -${Math.round(decline * 100)}% (pic ${fmt(Math.floor(peak))})`;
+  if (lockEl) {
+    lockEl.textContent = locked ? "Crises IRRESOLUBLES" : "";
+    lockEl.style.display = locked ? "" : "none";
+  }
+}
+
+function renderAutomates() {
+  const tab = el("automatesTab");
+  if (tab) tab.classList.toggle("hidden", !state.hephHeritage);
+
+  const panel = el("automatesPanel");
+  if (!panel || !state.hephHeritage) return;
+
+  const rules = getAutomateRules();
+  const sig   = rules.map((r) => `${r.id}:${r.threshold ?? ""}:${r.enabled ? 1 : 0}`).join("|");
+  if (panel.dataset.sig === sig) return;
+  panel.dataset.sig = sig;
+
+  panel.innerHTML = rules.map((r) => {
+    const hasThreshold = r.type === "crisis_action";
+    return `
+      <div class="options-row auto-script-rule">
+        <div>
+          <span class="auto-script-label">${r.label}</span>
+          ${hasThreshold ? `
+          <div class="auto-script-threshold">
+            <input type="number" class="auto-script-input" value="${r.threshold}" min="1" max="99"
+                   onchange="setAutomateThreshold('${r.id}', this.value)"
+                   oninput="setAutomateThreshold('${r.id}', this.value)">
+            <span class="auto-script-unit">${r.unit}</span>
+          </div>` : ""}
+        </div>
+        <button type="button" class="toggle-btn${r.enabled ? "" : " off"}"
+                onclick="toggleAutomate('${r.id}')">
+          ${r.enabled ? "Actif" : "Inactif"}
+        </button>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderOrStatus() {

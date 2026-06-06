@@ -1,0 +1,1031 @@
+{
+  "sim1": {
+    "profile": "cityOnly",
+    "policy": "collapse100",
+    "activeMythId": null,
+    "finalState": {
+      "cycles": 49,
+      "population": 317.23397266354505,
+      "gold": 120.00461641745595,
+      "knowledge": 0,
+      "infra": 1,
+      "ruins": 2,
+      "bestEra": "Bourg marchand",
+      "mythsCompleted": {}
+    },
+    "totalBlockageHours": 0,
+    "report": [
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Cueilleurs (city)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Conteurs (knowledge)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Routes (infra)"
+      },
+      {
+        "time": 0.06666666666666667,
+        "type": "unlock",
+        "message": "Déblocage de Greniers (city)"
+      },
+      {
+        "time": 0.1,
+        "type": "unlock",
+        "message": "Déblocage de Caravanes (city)"
+      },
+      {
+        "time": 0.13333333333333333,
+        "type": "unlock",
+        "message": "Déblocage de Marches (city)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "unlock",
+        "message": "Déblocage de Guildes (city)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 1). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.4666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 2). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.5666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 3). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.7333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 4). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.8666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 5). Ruines gagnées: 1"
+      },
+      {
+        "time": 1.0333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 6). Ruines gagnées: 0"
+      },
+      {
+        "time": 1.1666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 7). Ruines gagnées: 1"
+      },
+      {
+        "time": 1.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 8). Ruines gagnées: 2"
+      },
+      {
+        "time": 1.4333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 9). Ruines gagnées: 0"
+      },
+      {
+        "time": 1.5666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 10). Ruines gagnées: 1"
+      },
+      {
+        "time": 1.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 11). Ruines gagnées: 2"
+      },
+      {
+        "time": 1.8333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 12). Ruines gagnées: 3"
+      },
+      {
+        "time": 1.9666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 13). Ruines gagnées: 4"
+      },
+      {
+        "time": 2.066666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 14). Ruines gagnées: 0"
+      },
+      {
+        "time": 2.2,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 15). Ruines gagnées: 1"
+      },
+      {
+        "time": 2.3333333333333335,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 16). Ruines gagnées: 2"
+      },
+      {
+        "time": 2.433333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 17). Ruines gagnées: 3"
+      },
+      {
+        "time": 2.533333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 18). Ruines gagnées: 4"
+      },
+      {
+        "time": 2.6333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 19). Ruines gagnées: 5"
+      },
+      {
+        "time": 2.7333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 20). Ruines gagnées: 0"
+      },
+      {
+        "time": 2.8333333333333335,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 21). Ruines gagnées: 1"
+      },
+      {
+        "time": 2.933333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 22). Ruines gagnées: 2"
+      },
+      {
+        "time": 3.033333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 23). Ruines gagnées: 3"
+      },
+      {
+        "time": 3.1333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 24). Ruines gagnées: 4"
+      },
+      {
+        "time": 3.2333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 25). Ruines gagnées: 5"
+      },
+      {
+        "time": 3.3333333333333335,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 26). Ruines gagnées: 6"
+      },
+      {
+        "time": 3.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 27). Ruines gagnées: 0"
+      },
+      {
+        "time": 3.6,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 28). Ruines gagnées: 1"
+      },
+      {
+        "time": 3.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 29). Ruines gagnées: 2"
+      },
+      {
+        "time": 3.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 30). Ruines gagnées: 3"
+      },
+      {
+        "time": 3.933333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 31). Ruines gagnées: 4"
+      },
+      {
+        "time": 4.066666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 32). Ruines gagnées: 5"
+      },
+      {
+        "time": 4.2,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 33). Ruines gagnées: 6"
+      },
+      {
+        "time": 4.333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 34). Ruines gagnées: 7"
+      },
+      {
+        "time": 4.466666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 35). Ruines gagnées: 0"
+      },
+      {
+        "time": 4.566666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 36). Ruines gagnées: 1"
+      },
+      {
+        "time": 4.666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 37). Ruines gagnées: 2"
+      },
+      {
+        "time": 4.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 38). Ruines gagnées: 3"
+      },
+      {
+        "time": 4.933333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 39). Ruines gagnées: 4"
+      },
+      {
+        "time": 5.033333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 40). Ruines gagnées: 5"
+      },
+      {
+        "time": 5.133333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 41). Ruines gagnées: 6"
+      },
+      {
+        "time": 5.233333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 42). Ruines gagnées: 7"
+      },
+      {
+        "time": 5.366666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 43). Ruines gagnées: 8"
+      },
+      {
+        "time": 5.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 44). Ruines gagnées: 9"
+      },
+      {
+        "time": 5.6,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 45). Ruines gagnées: 10"
+      },
+      {
+        "time": 5.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 46). Ruines gagnées: 11"
+      },
+      {
+        "time": 5.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 47). Ruines gagnées: 0"
+      },
+      {
+        "time": 5.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 48). Ruines gagnées: 1"
+      },
+      {
+        "time": 5.966666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 49). Ruines gagnées: 2"
+      }
+    ]
+  },
+  "sim2": {
+    "profile": "all",
+    "policy": "collapse100",
+    "activeMythId": null,
+    "finalState": {
+      "cycles": 48,
+      "population": 430.9039994612421,
+      "gold": 130.1049671105029,
+      "knowledge": 0,
+      "infra": 1,
+      "ruins": 10,
+      "bestEra": "Bourg marchand",
+      "mythsCompleted": {}
+    },
+    "totalBlockageHours": 0,
+    "report": [
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Cueilleurs (city)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Conteurs (knowledge)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Routes (infra)"
+      },
+      {
+        "time": 0.06666666666666667,
+        "type": "unlock",
+        "message": "Déblocage de Greniers (city)"
+      },
+      {
+        "time": 0.1,
+        "type": "unlock",
+        "message": "Déblocage de Caravanes (city)"
+      },
+      {
+        "time": 0.13333333333333333,
+        "type": "unlock",
+        "message": "Déblocage de Marches (city)"
+      },
+      {
+        "time": 0.16666666666666666,
+        "type": "unlock",
+        "message": "Déblocage de Scribes (knowledge)"
+      },
+      {
+        "time": 0.2,
+        "type": "unlock",
+        "message": "Déblocage de Aqueducs (infra)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "unlock",
+        "message": "Déblocage de Guildes (city)"
+      },
+      {
+        "time": 0.26666666666666666,
+        "type": "unlock",
+        "message": "Déblocage de Ecoles (knowledge)"
+      },
+      {
+        "time": 0.26666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 1). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.5333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 2). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.5666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 3). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 4). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.8333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 5). Ruines gagnées: 1"
+      },
+      {
+        "time": 1.0666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 6). Ruines gagnées: 0"
+      },
+      {
+        "time": 1.3333333333333333,
+        "type": "unlock",
+        "message": "Déblocage de Veilleurs (infra)"
+      },
+      {
+        "time": 1.3333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 7). Ruines gagnées: 2"
+      },
+      {
+        "time": 1.3666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 8). Ruines gagnées: 3"
+      },
+      {
+        "time": 1.5666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 9). Ruines gagnées: 4"
+      },
+      {
+        "time": 1.7333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 10). Ruines gagnées: 0"
+      },
+      {
+        "time": 1.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 11). Ruines gagnées: 1"
+      },
+      {
+        "time": 2.1333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 12). Ruines gagnées: 3"
+      },
+      {
+        "time": 2.1666666666666665,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 13). Ruines gagnées: 4"
+      },
+      {
+        "time": 2.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 14). Ruines gagnées: 5"
+      },
+      {
+        "time": 2.4,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 15). Ruines gagnées: 0"
+      },
+      {
+        "time": 2.533333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 16). Ruines gagnées: 1"
+      },
+      {
+        "time": 2.7666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 17). Ruines gagnées: 3"
+      },
+      {
+        "time": 2.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 18). Ruines gagnées: 4"
+      },
+      {
+        "time": 2.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 19). Ruines gagnées: 5"
+      },
+      {
+        "time": 3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 20). Ruines gagnées: 6"
+      },
+      {
+        "time": 3.2333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 21). Ruines gagnées: 1"
+      },
+      {
+        "time": 3.2666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 22). Ruines gagnées: 2"
+      },
+      {
+        "time": 3.3666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 23). Ruines gagnées: 3"
+      },
+      {
+        "time": 3.6,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 24). Ruines gagnées: 5"
+      },
+      {
+        "time": 3.6333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 25). Ruines gagnées: 6"
+      },
+      {
+        "time": 3.7666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 26). Ruines gagnées: 7"
+      },
+      {
+        "time": 3.966666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 27). Ruines gagnées: 1"
+      },
+      {
+        "time": 4,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 28). Ruines gagnées: 2"
+      },
+      {
+        "time": 4.166666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 29). Ruines gagnées: 3"
+      },
+      {
+        "time": 4.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 30). Ruines gagnées: 4"
+      },
+      {
+        "time": 4.433333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 31). Ruines gagnées: 5"
+      },
+      {
+        "time": 4.566666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 32). Ruines gagnées: 6"
+      },
+      {
+        "time": 4.666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 33). Ruines gagnées: 7"
+      },
+      {
+        "time": 4.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 34). Ruines gagnées: 8"
+      },
+      {
+        "time": 4.933333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 35). Ruines gagnées: 9"
+      },
+      {
+        "time": 5.066666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 36). Ruines gagnées: 10"
+      },
+      {
+        "time": 5.166666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 37). Ruines gagnées: 11"
+      },
+      {
+        "time": 5.266666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 38). Ruines gagnées: 0"
+      },
+      {
+        "time": 5.366666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 39). Ruines gagnées: 1"
+      },
+      {
+        "time": 5.433333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 40). Ruines gagnées: 2"
+      },
+      {
+        "time": 5.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 41). Ruines gagnées: 3"
+      },
+      {
+        "time": 5.566666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 42). Ruines gagnées: 4"
+      },
+      {
+        "time": 5.633333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 43). Ruines gagnées: 5"
+      },
+      {
+        "time": 5.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 44). Ruines gagnées: 6"
+      },
+      {
+        "time": 5.766666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 45). Ruines gagnées: 7"
+      },
+      {
+        "time": 5.833333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 46). Ruines gagnées: 8"
+      },
+      {
+        "time": 5.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 47). Ruines gagnées: 9"
+      },
+      {
+        "time": 5.966666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 48). Ruines gagnées: 10"
+      }
+    ]
+  },
+  "sim3": {
+    "profile": "all",
+    "policy": "longGame",
+    "activeMythId": null,
+    "finalState": {
+      "cycles": 25,
+      "population": 183611.26063868712,
+      "gold": 114227.04621604097,
+      "knowledge": 15662.811696154939,
+      "infra": 7507.712411297499,
+      "ruins": 17,
+      "bestEra": "Cite des greniers",
+      "mythsCompleted": {}
+    },
+    "totalBlockageHours": 0,
+    "report": [
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Cueilleurs (city)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Conteurs (knowledge)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Routes (infra)"
+      },
+      {
+        "time": 0.06666666666666667,
+        "type": "unlock",
+        "message": "Déblocage de Greniers (city)"
+      },
+      {
+        "time": 0.1,
+        "type": "unlock",
+        "message": "Déblocage de Caravanes (city)"
+      },
+      {
+        "time": 0.13333333333333333,
+        "type": "unlock",
+        "message": "Déblocage de Marches (city)"
+      },
+      {
+        "time": 0.16666666666666666,
+        "type": "unlock",
+        "message": "Déblocage de Scribes (knowledge)"
+      },
+      {
+        "time": 0.2,
+        "type": "unlock",
+        "message": "Déblocage de Aqueducs (infra)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "unlock",
+        "message": "Déblocage de Guildes (city)"
+      },
+      {
+        "time": 0.26666666666666666,
+        "type": "unlock",
+        "message": "Déblocage de Ecoles (knowledge)"
+      },
+      {
+        "time": 0.3,
+        "type": "unlock",
+        "message": "Déblocage de Veilleurs (infra)"
+      },
+      {
+        "time": 0.3333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 1). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.6333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 2). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.9333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 3). Ruines gagnées: 3"
+      },
+      {
+        "time": 1.2666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 4). Ruines gagnées: 5"
+      },
+      {
+        "time": 1.5666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 5). Ruines gagnées: 5"
+      },
+      {
+        "time": 1.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 6). Ruines gagnées: 3"
+      },
+      {
+        "time": 2.1,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 7). Ruines gagnées: 10"
+      },
+      {
+        "time": 2.3333333333333335,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 8). Ruines gagnées: 4"
+      },
+      {
+        "time": 2.566666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 9). Ruines gagnées: 9"
+      },
+      {
+        "time": 2.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 10). Ruines gagnées: 3"
+      },
+      {
+        "time": 3.033333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 11). Ruines gagnées: 10"
+      },
+      {
+        "time": 3.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 12). Ruines gagnées: 1"
+      },
+      {
+        "time": 3.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 13). Ruines gagnées: 7"
+      },
+      {
+        "time": 3.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 14). Ruines gagnées: 13"
+      },
+      {
+        "time": 3.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 15). Ruines gagnées: 17"
+      },
+      {
+        "time": 4.1,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 16). Ruines gagnées: 5"
+      },
+      {
+        "time": 4.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 17). Ruines gagnées: 11"
+      },
+      {
+        "time": 4.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 18). Ruines gagnées: 16"
+      },
+      {
+        "time": 4.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 19). Ruines gagnées: 23"
+      },
+      {
+        "time": 4.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 20). Ruines gagnées: 1"
+      },
+      {
+        "time": 5.1,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 21). Ruines gagnées: 6"
+      },
+      {
+        "time": 5.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 22). Ruines gagnées: 3"
+      },
+      {
+        "time": 5.466666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 23). Ruines gagnées: 8"
+      },
+      {
+        "time": 5.633333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 24). Ruines gagnées: 11"
+      },
+      {
+        "time": 5.833333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 25). Ruines gagnées: 17"
+      }
+    ]
+  },
+  "sim4": {
+    "profile": "all",
+    "policy": "longGame",
+    "activeMythId": "mythe_de_promethee",
+    "finalState": {
+      "cycles": 27,
+      "population": 7697.944709453157,
+      "gold": 21081.45901095037,
+      "knowledge": 0,
+      "infra": 1,
+      "ruins": 10,
+      "bestEra": "Cite des greniers",
+      "mythsCompleted": {
+        "mythe_de_promethee": true
+      }
+    },
+    "totalBlockageHours": 0,
+    "report": [
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Cueilleurs (city)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Conteurs (knowledge)"
+      },
+      {
+        "time": 0,
+        "type": "unlock",
+        "message": "Déblocage de Routes (infra)"
+      },
+      {
+        "time": 0.06666666666666667,
+        "type": "unlock",
+        "message": "Déblocage de Greniers (city)"
+      },
+      {
+        "time": 0.1,
+        "type": "unlock",
+        "message": "Déblocage de Caravanes (city)"
+      },
+      {
+        "time": 0.13333333333333333,
+        "type": "unlock",
+        "message": "Déblocage de Marches (city)"
+      },
+      {
+        "time": 0.16666666666666666,
+        "type": "unlock",
+        "message": "Déblocage de Scribes (knowledge)"
+      },
+      {
+        "time": 0.2,
+        "type": "unlock",
+        "message": "Déblocage de Aqueducs (infra)"
+      },
+      {
+        "time": 0.2,
+        "type": "unlock",
+        "message": "Déblocage de Guildes (city)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "unlock",
+        "message": "Déblocage de Ecoles (knowledge)"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 1). Ruines gagnées: 0"
+      },
+      {
+        "time": 0.23333333333333334,
+        "type": "myth_complete",
+        "message": "FÉLICITATIONS : Pacte du mythe \"mythe_de_promethee\" complété avec succès !"
+      },
+      {
+        "time": 0.4666666666666667,
+        "type": "unlock",
+        "message": "Déblocage de Veilleurs (infra)"
+      },
+      {
+        "time": 0.5333333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 2). Ruines gagnées: 1"
+      },
+      {
+        "time": 0.8333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 3). Ruines gagnées: 2"
+      },
+      {
+        "time": 1.1,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 4). Ruines gagnées: 2"
+      },
+      {
+        "time": 1.3666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 5). Ruines gagnées: 1"
+      },
+      {
+        "time": 1.6666666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 6). Ruines gagnées: 7"
+      },
+      {
+        "time": 1.9666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 7). Ruines gagnées: 7"
+      },
+      {
+        "time": 2.2666666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 8). Ruines gagnées: 3"
+      },
+      {
+        "time": 2.5,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 9). Ruines gagnées: 8"
+      },
+      {
+        "time": 2.7,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 10). Ruines gagnées: 1"
+      },
+      {
+        "time": 2.9,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 11). Ruines gagnées: 6"
+      },
+      {
+        "time": 3.1,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 12). Ruines gagnées: 13"
+      },
+      {
+        "time": 3.3333333333333335,
+        "type": "unlock",
+        "message": "Déblocage de Academies (knowledge)"
+      },
+      {
+        "time": 3.3333333333333335,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 13). Ruines gagnées: 5"
+      },
+      {
+        "time": 3.533333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 14). Ruines gagnées: 12"
+      },
+      {
+        "time": 3.7333333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 15). Ruines gagnées: 2"
+      },
+      {
+        "time": 3.933333333333333,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 16). Ruines gagnées: 8"
+      },
+      {
+        "time": 4.133333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 17). Ruines gagnées: 13"
+      },
+      {
+        "time": 4.366666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 18). Ruines gagnées: 20"
+      },
+      {
+        "time": 4.566666666666666,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 19). Ruines gagnées: 1"
+      },
+      {
+        "time": 4.766666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 20). Ruines gagnées: 0"
+      },
+      {
+        "time": 4.966666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 21). Ruines gagnées: 3"
+      },
+      {
+        "time": 5.133333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 22). Ruines gagnées: 8"
+      },
+      {
+        "time": 5.3,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 23). Ruines gagnées: 5"
+      },
+      {
+        "time": 5.466666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 24). Ruines gagnées: 10"
+      },
+      {
+        "time": 5.633333333333334,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 25). Ruines gagnées: 18"
+      },
+      {
+        "time": 5.8,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 26). Ruines gagnées: 5"
+      },
+      {
+        "time": 5.966666666666667,
+        "type": "collapse",
+        "message": "Effondrement de la cité (Cycle 27). Ruines gagnées: 10"
+      }
+    ]
+  }
+}

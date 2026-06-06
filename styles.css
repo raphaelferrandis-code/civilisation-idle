@@ -3438,6 +3438,73 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 .or-status-row #orPopValue   { color: #c8b070; font-size: 0.78rem; flex: 1; }
 .or-status-row #orImbalValue { font-size: 0.78rem; font-weight: 600; }
 
+/* Statut Phénix dans la grille de métriques */
+.phoenix-status-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(200, 80, 40, 0.12) 0%, transparent 100%);
+  border-left: 2px solid rgba(220, 100, 50, 0.60);
+  animation: phenixPulse 3s ease-in-out infinite;
+}
+.phoenix-status-row > span:first-child { color: rgba(230, 120, 60, 0.9); font-size: 0.78rem; min-width: 4.5rem; }
+.phoenix-status-row #phoenixCycleValue  { color: #e0a060; font-size: 0.78rem; flex: 1; }
+.phoenix-status-row #phoenixRuinsValue  { color: #c08050; font-size: 0.78rem; flex: 1; }
+.phoenix-status-row strong              { color: #e06040; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+@keyframes phenixPulse {
+  0%, 100% { border-left-color: rgba(220, 100, 50, 0.40); }
+  50%       { border-left-color: rgba(220, 100, 50, 0.85); }
+}
+
+/* Statut Héphaïstos dans la grille de métriques */
+.heph-status-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(90, 160, 120, 0.12) 0%, transparent 100%);
+  border-left: 2px solid rgba(100, 180, 130, 0.55);
+}
+.heph-status-row > span:first-child { color: rgba(120, 200, 150, 0.85); font-size: 0.78rem; min-width: 5.5rem; }
+.heph-status-row #hephInfraValue    { color: #80d4a0; font-size: 0.78rem; flex: 1; }
+.heph-status-row #hephPopValue      { color: #a0c090; font-size: 0.78rem; flex: 1; }
+.heph-crisis-lock {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e05050;
+  letter-spacing: 0.04em;
+  animation: hephLockPulse 1.5s ease-in-out infinite;
+}
+@keyframes hephLockPulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
+}
+
+/* Script d'Automatisation dans les Options */
+.auto-script-rule { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+.auto-script-rule > div { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
+.auto-script-label  { font-size: 0.85rem; color: var(--text); flex: 1; min-width: 10rem; }
+.auto-script-threshold { display: flex; align-items: center; gap: 0.3rem; }
+.auto-script-input {
+  width: 4.5rem;
+  padding: 0.2rem 0.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: right;
+}
+.auto-script-input:focus { outline: none; border-color: rgba(200, 160, 60, 0.55); }
+.auto-script-unit { font-size: 0.78rem; color: var(--text-muted, rgba(255,255,255,0.45)); }
+.auto-script-rule .toggle-btn { align-self: flex-end; }
+.auto-script-rule .toggle-btn.off { opacity: 0.55; }
+
 /* Sélecteur de type dans la modale Babel */
 .babel-category-choice {
   display: flex;

@@ -168,6 +168,18 @@
               <div id="icareTimerRow" class="hidden icare-timer-row"><span>⚡ Cycle Icare</span><strong id="icareTimerValue">0s</strong></div>
               <div id="babelStatusRow" class="hidden babel-status-row"><span>🏗 Babel</span><span id="babelCategoryValue">-</span><strong id="babelMultValue">x1.00</strong></div>
               <div id="orStatusRow" class="hidden or-status-row"><span>✦ Age d'Or</span><span id="orGoldValue">-</span><span id="orPopValue">-</span><span id="orImbalValue">-</span></div>
+              <div id="phoenixStatusRow" class="hidden phoenix-status-row">
+                <span>🔥 Phenix</span>
+                <span id="phoenixCycleValue">-</span>
+                <span id="phoenixRuinsValue">-</span>
+                <strong id="phoenixTimerValue">-</strong>
+              </div>
+              <div id="hephStatusRow" class="hidden heph-status-row">
+                <span>⚙ Hephaistos</span>
+                <span id="hephInfraValue">-</span>
+                <span id="hephPopValue">-</span>
+                <span id="hephCrisisLock" class="heph-crisis-lock" style="display:none;">Crises IRRESOLUBLES</span>
+              </div>
               <div id="cityLatentRow" class="hidden"><span>Puissance latente</span><strong id="cityLatentBonus">x1.0</strong></div>
             </div>
           </div>
@@ -565,6 +577,8 @@
           <button class="options-tab active" type="button" data-options-group="display">Affichage</button>
           <button class="options-tab" type="button" data-options-group="sound">Son</button>
           <button class="options-tab" type="button" data-options-group="other">Autre</button>
+          <button class="options-tab hidden" type="button" data-options-group="script" id="autoScriptTab">Automatisation</button>
+          <button class="options-tab hidden" type="button" data-options-group="automates" id="automatesTab">Automates</button>
         </div>
         <div class="options-rows">
           <div class="options-row" data-options-group-panel="display">
@@ -609,6 +623,8 @@
             </div>
             <button id="musicActiveTabToggleBtn" type="button" class="toggle-btn">Actif</button>
           </div>
+          <div id="autoScriptPanel" data-options-group-panel="script" class="hidden"></div>
+          <div id="automatesPanel" data-options-group-panel="automates" class="hidden"></div>
           <div class="options-row options-row-danger" data-options-group-panel="other">
             <div>
               <span>Réinitialiser la partie</span>
@@ -656,28 +672,28 @@
 
     <!-- Modules chargés dans l'ordre de dépendance (scope global partagé, pas de bundler).
          defer garantit l'ordre ET le chargement parallèle sans bloquer le parser HTML. -->
-    <script defer src="js/utils.js"></script>
-    <script defer src="js/data-buildings.js"></script>
-    <script defer src="js/data-upgrades.js"></script>
-    <script defer src="js/data-world.js"></script>
-    <script defer src="js/state.js"></script>
-    <script defer src="js/mechanics.js"></script>
-    <script defer src="js/events.js"></script>
-    <script defer src="js/actions.js"></script>
-    <script defer src="js/render.js"></script>
-    <script defer src="js/myths/data-myths.js"></script>
-    <script defer src="js/citymap-layout.js"></script>  <!-- constantes, layout pur, computeCityLayout -->
-    <script defer src="js/citymap-camera.js"></script>  <!-- camera, resize canvas, conversions ecran/monde -->
-    <script defer src="js/citymap-hit-test.js"></script><!-- hit-test carte et infobulles -->
-    <script defer src="js/citymap-input.js"></script>   <!-- interactions souris de la carte -->
-    <script defer src="js/citymap-runtime.js"></script> <!-- preparation runtime du layout -->
-    <script defer src="js/citymap-draw-utils.js"></script><!-- helpers visuels Canvas -->
-    <script defer src="js/citymap-render-ground.js"></script><!-- rendu sol, fleuve, foret, nuit -->
-    <script defer src="js/citymap-render-roads.js"></script><!-- rendu routes, ponts, lampadaires -->
-    <script defer src="js/citymap-render-agents.js"></script><!-- rendu pietons, vehicules, bateaux -->
-    <script defer src="js/citymap-render-crisis.js"></script><!-- rendu crises et foule -->
-    <script defer src="js/citymap-render-buildings.js"></script><!-- rendu tuiles, batiments, districts, merveilles -->
-    <script defer src="js/citymap.js"></script>          <!-- initCityMap, boucle rAF -->
-    <script defer src="js/main.js"></script>
+    <script defer src="js/core/utils.js"></script>
+    <script defer src="js/data/buildings.js"></script>
+    <script defer src="js/data/upgrades.js"></script>
+    <script defer src="js/data/world.js"></script>
+    <script defer src="js/core/state.js"></script>
+    <script defer src="js/core/mechanics.js"></script>
+    <script defer src="js/core/events.js"></script>
+    <script defer src="js/core/actions.js"></script>
+    <script defer src="js/ui/render.js"></script>
+    <script defer src="js/data/myths.js"></script>
+    <script defer src="js/citymap/core/layout.js"></script>  <!-- constantes, layout pur, computeCityLayout -->
+    <script defer src="js/citymap/core/camera.js"></script>  <!-- camera, resize canvas, conversions ecran/monde -->
+    <script defer src="js/citymap/core/hit-test.js"></script><!-- hit-test carte et infobulles -->
+    <script defer src="js/citymap/core/input.js"></script>   <!-- interactions souris de la carte -->
+    <script defer src="js/citymap/core/runtime.js"></script> <!-- preparation runtime du layout -->
+    <script defer src="js/citymap/rendering/draw-utils.js"></script><!-- helpers visuels Canvas -->
+    <script defer src="js/citymap/rendering/ground.js"></script><!-- rendu sol, fleuve, foret, nuit -->
+    <script defer src="js/citymap/rendering/roads.js"></script><!-- rendu routes, ponts, lampadaires -->
+    <script defer src="js/citymap/rendering/agents.js"></script><!-- rendu pietons, vehicules, bateaux -->
+    <script defer src="js/citymap/rendering/crisis.js"></script><!-- rendu crises et foule -->
+    <script defer src="js/citymap/rendering/buildings.js"></script><!-- rendu tuiles, batiments, districts, merveilles -->
+    <script defer src="js/citymap/citymap.js"></script>          <!-- initCityMap, boucle rAF -->
+    <script defer src="js/core/main.js"></script>
   </body>
 </html>
