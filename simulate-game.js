@@ -1,121 +1,127 @@
-"use strict";
+import fs from "fs";
 
-const fs = require("fs");
-const vm = require("vm");
-const path = require("path");
+global.fakeClock = { now: Date.now() };
+global.window = {};
+global.localStorage = {
+  getItem() { return null; },
+  setItem() {}
+};
+Object.defineProperty(global, "navigator", {
+  value: { clipboard: { writeText() {} } },
+  writable: true,
+  configurable: true
+});
+global.document = {
+  addEventListener() {},
+  documentElement: { style: { setProperty() {} } },
+  body: { appendChild() {} },
+  querySelector() {
+    return {
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+      addEventListener() {},
+      setAttribute() {},
+      click() {},
+      style: {}
+    };
+  },
+  querySelectorAll() { return []; },
+  createElement() {
+    return {
+      className: "",
+      dataset: {},
+      innerHTML: "",
+      returnValue: "0",
+      addEventListener() {},
+      showModal() {},
+      remove() {},
+      querySelector() {
+        return {
+          dataset: {},
+          disabled: false,
+          addEventListener() {},
+          setAttribute() {},
+          style: {},
+          classList: { toggle() {} }
+        };
+      },
+      appendChild() {}
+    };
+  },
+  getElementById() {
+    return {
+      dataset: {},
+      textContent: "",
+      disabled: false,
+      value: "",
+      checked: false,
+      style: {},
+      classList: { toggle() {}, contains() { return false; } },
+      addEventListener() {},
+      setAttribute() {},
+      appendChild() {},
+      querySelector() { return null; }
+    };
+  }
+};
+global.Audio = class {
+  constructor() {
+    this.volume = 1;
+    this.loop = true;
+    this.preload = "auto";
+  }
+  addEventListener() {}
+  play() { return Promise.resolve(); }
+  pause() {}
+};
 
-// Le jeu est désormais découpé en plusieurs fichiers chargés dans cet ordre
-// (cf. index.html). On les concatène pour reconstituer une source unique exécutable
-// dans le VM, exactement comme l'ancien game.js monolithique.
-const GAME_FILES = [
-  "core/utils.js",
-  "data/buildings.js",
-  "data/upgrades.js",
-  "data/world.js",
-  "core/state.js",
-  "core/mechanics.js",
-  "core/events.js",
-  "core/actions.js",
-  "ui/render.js",
-  "citymap/core/camera.js",
-  "citymap/core/hit-test.js",
-  "citymap/core/input.js",
-  "citymap/core/runtime.js",
-  "citymap/rendering/draw-utils.js",
-  "citymap/rendering/ground.js",
-  "citymap/rendering/roads.js",
-  "citymap/rendering/agents.js",
-  "citymap/rendering/crisis.js",
-  "citymap/citymap.js",
-  "core/main.js"
-];
+// Mock render and save functions
+global.render = () => {};
+global.save = () => {};
+global.openView = () => {};
+global.checkCrisisThresholds = () => {};
+global.openChoiceDialog = async () => ({ apply() {} });
+
+// Dynamic imports
+const { buildings, dynastyNames } = await import("./src/game/data/buildings.js");
+const { upgrades, dogmaIds, PRESTIGE_DOGMAS } = await import("./src/game/data/upgrades.js");
+const { eras } = await import("./src/game/data/world.js");
+const {
+  state,
+  defaultState,
+  invalidateRenderCache,
+  setGamePaused,
+  setCollapseInProgress,
+  setBuyAmount,
+  setState
+} = await import("./src/game/core/state.js");
+const {
+  isUnlocked,
+  canBuyUpgrade,
+  checkDogmaAvailability,
+  ruinGain,
+  crisisOpen,
+  terminalCrisisReady,
+  buildingBatchCost
+} = await import("./src/game/core/mechanics.js");
+const {
+  canPayCost,
+  payCost
+} = await import("./src/game/core/utils.js");
+const {
+  buyUpgrade,
+  completeCollapse,
+  runTerminalCrisisAction,
+  tick,
+  cycleYear
+} = await import("./src/game/core/actions.js");
+const { generateEpitaph } = await import("./src/game/core/events.js");
+
 const DEFAULT_HOURS = 4;
 const STEP_SECONDS = 120;
 const TICK_SLICE_SECONDS = 5;
 
 const hours = Number(process.argv[2]) || DEFAULT_HOURS;
 const durationSeconds = hours * 3600;
-
-function browserStubs(fakeClock) {
-  return {
-    console,
-    Math,
-    Uint8Array,
-    TextEncoder,
-    TextDecoder,
-    btoa: (text) => Buffer.from(text, "binary").toString("base64"),
-    atob: (text) => Buffer.from(text, "base64").toString("binary"),
-    Date: { now: () => fakeClock.now },
-    setInterval() {},
-    setTimeout(fn) { fn(); return 0; },
-    clearTimeout() {},
-    localStorage: {
-      getItem() { return null; },
-      setItem() {}
-    },
-    navigator: { clipboard: { writeText() {} } },
-    document: {
-      addEventListener() {},
-      documentElement: { style: { setProperty() {} } },
-      body: { appendChild() {} },
-      querySelector() {
-        return {
-          classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-          addEventListener() {},
-          setAttribute() {},
-          click() {},
-          style: {}
-        };
-      },
-      querySelectorAll() { return []; },
-      createElement() {
-        return {
-          className: "",
-          dataset: {},
-          innerHTML: "",
-          returnValue: "0",
-          addEventListener() {},
-          showModal() {},
-          remove() {},
-          querySelector() {
-            return {
-              dataset: {},
-              disabled: false,
-              addEventListener() {},
-              setAttribute() {},
-              style: {},
-              classList: { toggle() {} }
-            };
-          },
-          appendChild() {}
-        };
-      },
-      getElementById() {
-        return {
-          dataset: {},
-          textContent: "",
-          disabled: false,
-          value: "",
-          checked: false,
-          style: {},
-          classList: { toggle() {}, contains() { return false; } },
-          addEventListener() {},
-          setAttribute() {},
-          appendChild() {},
-          querySelector() { return null; }
-        };
-      }
-    },
-    window: {}
-  };
-}
-
-const runner = `
-render = () => {};
-save = () => {};
-openView = () => {};
-checkCrisisThresholds = () => {};
-openChoiceDialog = async () => ({ apply() {} });
 
 function simCost(building, amount) {
   return buildingBatchCost(building, amount);
@@ -129,7 +135,7 @@ function simBuyBuilding(building, amount) {
   return true;
 }
 
-function simAutoBuyBuildings() {
+function simAutoBuyBuildings(currentBuyProfile) {
   const visible = buildings
     .filter((building) => isUnlocked(building))
     .filter((building) => {
@@ -186,15 +192,15 @@ function simCollapse(reason) {
   if (gain <= 0) return false;
   simCycleAges.push(cycleYear());
   completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), reason);
-  gamePaused = false;
-  collapseInProgress = false;
+  setGamePaused(false);
+  setCollapseInProgress(false);
   simAutoBuyRuins();
   return true;
 }
 
 function resolveCrisis(policy) {
   if (!crisisOpen()) {
-    gamePaused = false;
+    setGamePaused(false);
     return;
   }
 
@@ -238,14 +244,12 @@ function resolveCrisis(policy) {
   simCollapse("forced");
 }
 
-let currentBuyProfile = "all";
-
 function runScenario(policy, label, durationSeconds, stepSeconds, buyProfile = "all") {
-  state = defaultState();
-  gamePaused = false;
-  collapseInProgress = false;
-  buyAmount = 100;
-  currentBuyProfile = buyProfile;
+  setState(defaultState());
+  setGamePaused(false);
+  setCollapseInProgress(false);
+  setBuyAmount(100);
+  const currentBuyProfile = buyProfile;
   simCycleAges = [];
   invalidateRenderCache("all");
 
@@ -266,11 +270,11 @@ function runScenario(policy, label, durationSeconds, stepSeconds, buyProfile = "
   const startedAt = Date.now();
 
   for (let t = 0; t < durationSeconds; t += stepSeconds) {
-    simAutoBuyBuildings();
-    for (let slice = 0; slice < stepSeconds; slice += ${TICK_SLICE_SECONDS}) {
-      fakeClock.now = startedAt + (t + slice) * 1000;
-      tick(${TICK_SLICE_SECONDS});
-      if (gamePaused || crisisOpen()) resolveCrisis(policy);
+    simAutoBuyBuildings(currentBuyProfile);
+    for (let slice = 0; slice < stepSeconds; slice += TICK_SLICE_SECONDS) {
+      Date.now = () => startedAt + (t + slice) * 1000;
+      tick(TICK_SLICE_SECONDS);
+      if (state.gamePaused || crisisOpen()) resolveCrisis(policy);
     }
     simAutoBuyRuins();
 
@@ -278,7 +282,7 @@ function runScenario(policy, label, durationSeconds, stepSeconds, buyProfile = "
       previousCycles = state.cycles;
     }
     const totalRuins = state.ruins + upgrades
-      .filter((upgrade) => upgrade.group === "ruins" && has(upgrade.id) && !dogmaIds.has(upgrade.id))
+      .filter((upgrade) => upgrade.group === "ruins" && state.upgrades[upgrade.id] && !dogmaIds.has(upgrade.id))
       .reduce((sum, upgrade) => sum + upgrade.cost.ruins, 0);
     result.ruinsEarned += Math.max(0, totalRuins - previousTotalRuins);
     previousTotalRuins = totalRuins;
@@ -293,7 +297,7 @@ function runScenario(policy, label, durationSeconds, stepSeconds, buyProfile = "
   result.instability = state.instability;
   result.timeWear = state.timeWear;
   result.pendingGain = ruinGain();
-  result.ruinPurchases = upgrades.filter((upgrade) => upgrade.group === "ruins" && has(upgrade.id)).length;
+  result.ruinPurchases = upgrades.filter((upgrade) => upgrade.group === "ruins" && state.upgrades[upgrade.id]).length;
   result.averageCycleAge = simCycleAges.length
     ? Math.round(simCycleAges.reduce((sum, age) => sum + age, 0) / simCycleAges.length)
     : 0;
@@ -308,7 +312,8 @@ const scenarios = [
   ["longGame", "Moteurs seuls / tenir long", "cityOnly"]
 ];
 
-const results = scenarios.map(([policy, label, buyProfile]) => runScenario(policy, label, ${durationSeconds}, ${STEP_SECONDS}, buyProfile));
+console.log(`Lancement des simulations pour ${hours}h de temps de jeu virtuel...`);
+const results = scenarios.map(([policy, label, buyProfile]) => runScenario(policy, label, durationSeconds, STEP_SECONDS, buyProfile));
 console.table(results.map((result) => ({
   Strategie: result.label,
   Cycles: result.cycles,
@@ -324,17 +329,3 @@ console.table(results.map((result) => ({
   "Gain actuel": result.pendingGain,
   "Meilleure ere": result.bestEra
 })));
-`;
-
-const fakeClock = { now: 0 };
-const concatenated = GAME_FILES
-  .map((file) => fs.readFileSync(path.join(__dirname, "js", file), "utf8"))
-  .join("\n");
-// Retire la séquence d'initialisation (à partir de l'appel `bind();` dans main.js)
-// pour que le runner pilote la simulation à la place.
-const source = concatenated.replace(/\r?\nbind\(\);[\s\S]*$/, "") + runner;
-const sandbox = browserStubs(fakeClock);
-sandbox.fakeClock = fakeClock;
-
-vm.createContext(sandbox);
-vm.runInContext(source, sandbox, { filename: "simulate-game.vm.js" });
