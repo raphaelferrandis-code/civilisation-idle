@@ -1,39 +1,45 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import Topbar from './components/Topbar.jsx';
-import BuyToolbar from './components/BuyToolbar.jsx';
-import VillagerFeed from './components/VillagerFeed.jsx';
-import ChoiceDialog from './components/ChoiceDialog.jsx';
+import Topbar from './components/ui/Topbar.jsx';
+import VillagerFeed from './components/ui/VillagerFeed.jsx';
+import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { openView, save } from './game/core/state.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 
-const CityView = lazy(() => import('./components/CityView.jsx'));
-const PrestigeView = lazy(() => import('./components/PrestigeView.jsx'));
-const RuinsView = lazy(() => import('./components/RuinsView.jsx'));
-const HeritageView = lazy(() => import('./components/HeritageView.jsx'));
-const MythsView = lazy(() => import('./components/MythsView.jsx'));
-const ChronicleView = lazy(() => import('./components/ChronicleView.jsx'));
-const OptionsDialog = lazy(() => import('./components/OptionsDialog.jsx'));
-const ImportDialog = lazy(() => import('./components/ImportDialog.jsx'));
-const DebugDialog = lazy(() => import('./components/DebugDialog.jsx'));
+const CityView = lazy(() => import('./components/views/CityView.jsx'));
+const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
+const RuinsView = lazy(() => import('./components/views/RuinsView.jsx'));
+const HeritageView = lazy(() => import('./components/views/HeritageView.jsx'));
+const MythsView = lazy(() => import('./components/views/MythsView.jsx'));
+const ChronicleView = lazy(() => import('./components/views/ChronicleView.jsx'));
+const OptionsDialog = lazy(() => import('./components/dialogs/OptionsDialog.jsx'));
+const ImportDialog = lazy(() => import('./components/dialogs/ImportDialog.jsx'));
+const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
 
 export default function App() {
   const activeView = useGameState(s => s.activeView);
   const cycles = useGameState(s => s.cycles);
   const legitimacy = useGameState(s => s.legitimacy);
   const dynastyCount = useGameState(s => s.dynastyCount);
+  const grandResetCount = useGameState(s => s.grandResetCount || 0);
   const mourning = useGameState(s => s.mourning);
+  const isDanger = useGameState(s => (s.instability || 0) >= 0.8 || (s.timeWear || 0) >= 0.8);
+  const crisisLocked = useGameState(s => !!s.crisisLimitAnnounced);
+  const finalChronicleTitle = useGameState(s => s.finalChronicleTitle);
+  const choiceResolverRef = useRef(null);
 
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
-  const choiceResolverRef = useRef(null);
 
   useEffect(() => {
     initAudio();
     const cleanup = startGameLoop();
+
+    const handleBeforeUnload = () => save();
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Detect "debug" typed on keyboard
     let debugSequence = "";
@@ -59,6 +65,7 @@ export default function App() {
     return () => {
       cleanup();
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
 
@@ -70,7 +77,7 @@ export default function App() {
   // Determine which tabs are unlocked
   const isRuinsUnlocked = cycles >= 1 || dynastyCount > 0;
   const isHeritageUnlocked = legitimacy > 0 || dynastyCount > 0;
-  const isMythsUnlocked = cycles >= 1 || dynastyCount > 0;
+  const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
     { id: 'city', label: 'Cite', unlocked: true },
@@ -92,7 +99,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className={`app ${mourning ? 'mourning' : ''}`} data-active-view={activeView}>
+    <div className={`app ${mourning ? 'mourning' : ''} ${isDanger ? 'crisis-danger' : ''}`} data-active-view={activeView}>
       {/* Sidebar de navigation */}
       <aside className="sidebar">
         <div className="brand">
@@ -107,8 +114,10 @@ export default function App() {
           {tabs.map(tab => tab.unlocked && (
             <button
               key={tab.id}
-              className={`tab ${activeView === tab.id ? 'active' : ''}`}
-              onClick={() => openView(tab.id)}
+              className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
+              disabled={crisisLocked && tab.id !== 'prestige'}
+              onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
+              title={crisisLocked && tab.id !== 'prestige' ? 'Résolvez la crise en cours pour naviguer' : undefined}
             >
               {tab.label}
             </button>
@@ -123,14 +132,17 @@ export default function App() {
       </aside>
 
       <main>
+        {finalChronicleTitle && (
+          <div className="final-chronicle-title" aria-label="Titre final de la Chronique">
+            {finalChronicleTitle}
+          </div>
+        )}
+
         {/* Fil de notification des villageois */}
-        <VillagerFeed />
+        {activeView !== 'city' && <VillagerFeed />}
 
         {/* Topbar reelle */}
         <Topbar />
-
-        {/* BuyToolbar reelle */}
-        <BuyToolbar />
 
         {/* Vue Active */}
         <Suspense fallback={null}>

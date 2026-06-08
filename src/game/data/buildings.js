@@ -540,89 +540,100 @@ export const buildingDisplayOrder = {
 
 
 // ── Lore des bâtiments et merveilles (utilisé par renderElementArchive) ──────
+const bDesc = (id, suffix = "") => {
+  const building = buildings.find(b => b.id === id);
+  if (!building) return suffix;
+  const desc = building.desc;
+  if (!suffix) return desc;
+  if (suffix.startsWith(",") || suffix.startsWith(" ;") || suffix.startsWith(" —")) {
+    return desc.replace(/\.$/, "") + suffix;
+  }
+  return desc + " " + suffix;
+};
+
 export const BUILDING_LORE = {
   // ── MOTEUR ────────────────────────────────────────────────────────────────
   foragers: [
-    { at: 1,  label: "Découverte", text: "Ils marchent avant le jour et savent ce que la forêt cède sans qu'on le lui demande. La survie commence là, dans cette connaissance silencieuse." },
+    { at: 1,  label: "Découverte", text: bDesc("foragers", "La survie commence là, dans cette connaissance silencieuse.") },
     { at: 10, label: "Palier ×10", text: "Ils sont assez nombreux pour couvrir toute la frange boisée en une journée. On a commencé à cartographier ce qu'ils trouvent — la forêt est devenue une ressource." },
     { at: 25, label: "Palier ×25", text: "Les cueilleurs ont leurs propres routes, leurs propres saisons intérieures. Certains parlent des chemins forestiers comme d'une langue que les autres ont oublié de parler." },
     { at: 64, label: "Palier ×64", text: "La forêt n'a plus de secrets pour eux. Ils savent où chercher avant même d'y aller. Ce savoir s'est transmis de père en fils jusqu'à ressembler à de l'instinct." }
   ],
   granaries_city: [
-    { at: 1,  label: "Découverte", text: "La première victoire contre la famine, c'est d'avoir quelque chose à perdre. Un grenier, c'est un aveu que demain existe." },
+    { at: 1,  label: "Découverte", text: bDesc("granaries_city", "Un grenier, c'est un aveu que demain existe.") },
     { at: 10, label: "Palier ×10", text: "Un réseau de greniers se dessine autour du centre. La disette n'est plus une certitude — juste une possibilité. C'est une révolution dans les têtes autant que dans les ventres." },
     { at: 25, label: "Palier ×25", text: "Les archives alimentaires existent maintenant — des tablettes qui comptent chaque boisseau stocké. La faim s'est transformée en statistique, ce qui ne la supprime pas mais change qui en est responsable." },
     { at: 64, label: "Palier ×64", text: "Les greniers sont si nombreux que des quartiers entiers se définissent par leur proximité. L'abondance est devenue une géographie, et la pénurie une anomalie que l'on peut maintenant blâmer." }
   ],
   caravans: [
-    { at: 1,  label: "Découverte", text: "Ils partent avec du surplus et rentrent avec des habitudes étrangères. Le commerce n'a jamais transporté que des marchandises." },
+    { at: 1,  label: "Découverte", text: bDesc("caravans", "Le commerce n'a jamais transporté que des marchandises.") },
     { at: 10, label: "Palier ×10", text: "Les routes commerciales se stabilisent. Des auberges apparaissent aux carrefours. Le commerce a créé ses propres lieux, sa propre géographie du possible." },
     { at: 25, label: "Palier ×25", text: "Certaines caravanes ne reviennent jamais vraiment — leurs membres ont fondé des comptoirs, des familles, des habitudes ailleurs. La ville essaime sans le savoir." },
     { at: 64, label: "Palier ×64", text: "Le réseau caravanier est si dense que les nouvelles voyagent plus vite que les marchands. L'information est devenue une marchandise à part entière, et parfois la plus précieuse." }
   ],
   markets: [
-    { at: 1,  label: "Découverte", text: "Là où les gens se retrouvent librement, le prix des choses révèle ce qu'ils veulent vraiment. Le marché est un miroir que personne n'a commandé." },
+    { at: 1,  label: "Découverte", text: bDesc("markets", "Le marché est un miroir que personne n'a commandé.") },
     { at: 10, label: "Palier ×10", text: "Le marché a ses habitués, ses rumeurs, ses heures. Une économie informelle s'est développée à l'ombre des étals — plus rapide et plus honnête que celle qu'on a voulu bâtir." },
     { at: 25, label: "Palier ×25", text: "Les prix fluctuent selon des logiques que personne ne comprend tout à fait. Le marché a commencé à vivre sa propre vie, indifférent aux intentions de ceux qui l'ont fondé." },
     { at: 64, label: "Palier ×64", text: "Les marchés couvrent toute la ville. Ce qu'on cherche, on le trouve — à condition de savoir dans quel marché. La spécialisation a engendré une nouvelle forme d'ignorance." }
   ],
   guilds: [
-    { at: 1,  label: "Découverte", text: "Des frères de métier, des secrets partagés, et des mains qui savent ce que les autres ignorent. La guilde est la première forme d'oligarchie que les pauvres aient eux-mêmes construite." },
+    { at: 1,  label: "Découverte", text: bDesc("guilds", "La guilde est la première forme d'oligarchie que les pauvres aient eux-mêmes construite.") },
     { at: 10, label: "Palier ×10", text: "Les guildes ont leurs propres tribunaux, leurs propres fêtes. Un parallèle à l'autorité officielle s'est constitué — plus discret, souvent plus efficace." },
     { at: 25, label: "Palier ×25", text: "Certaines guildes sont plus vieilles que les familles dirigeantes. Elles ont vu des dynasties naître et mourir sans changer d'emblème ni de pratiques." },
     { at: 64, label: "Palier ×64", text: "Les guildes contrôlent maintenant des pans entiers de l'économie. Gouverner sans leur accord est devenu théoriquement possible et pratiquement absurde." }
   ],
   irrigated_fields: [
-    { at: 1,  label: "Découverte", text: "Quand l'eau obéit, la terre peut enfin tenir ses promesses. L'irrigation est une déclaration d'intention sur ce que la civilisation croit mériter." },
+    { at: 1,  label: "Découverte", text: bDesc("irrigated_fields", "L'irrigation est une déclaration d'intention sur ce que la civilisation croit mériter.") },
     { at: 10, label: "Palier ×10", text: "Les canaux ont leur propre administration. Des ingénieurs de l'eau forment une caste respectée — ils connaissent quelque chose que les dieux seuls maîtrisaient avant eux." },
     { at: 25, label: "Palier ×25", text: "La sécheresse n'est plus une catastrophe — juste un problème technique. La nature n'a pas changé ; notre rapport à elle a décidé de la précéder." },
     { at: 64, label: "Palier ×64", text: "L'irrigation couvre des territoires entiers. La carte agricole et la carte politique sont devenues presque identiques. Contrôler l'eau, c'est contrôler la faim des autres." }
   ],
   river_ports: [
-    { at: 1,  label: "Découverte", text: "Le fleuve est devenu une route. Ce qui part d'ici revient en or et en nouvelles — et parfois en idées que personne n'avait commandées." },
+    { at: 1,  label: "Découverte", text: bDesc("river_ports", " — et parfois en idées que personne n'avait commandées.") },
     { at: 10, label: "Palier ×10", text: "Des quartiers de dockers, de marchands et de navigateurs ont poussé autour des ports. Le fleuve génère sa propre société, plus mobile et moins obéissante." },
     { at: 25, label: "Palier ×25", text: "Les ports fluviaux ont leur propre justice, leurs propres dieux. Ce qui arrive par l'eau suit d'autres règles — celles de ceux qui ne s'arrêtent jamais longtemps." },
     { at: 64, label: "Palier ×64", text: "Le réseau portuaire s'étend jusqu'aux sources et jusqu'à la mer. Contrôler le fleuve, c'est contrôler tout ce qui y passe — et tout ce qu'on peut décider de retenir." }
   ],
   water_mills: [
-    { at: 1,  label: "Découverte", text: "La rivière travaille aussi la nuit. C'est une idée qui change tout — pour la première fois, la production ne dépend pas de la présence humaine." },
+    { at: 1,  label: "Découverte", text: bDesc("water_mills", " — pour la première fois, la production ne dépend pas de la présence humaine.") },
     { at: 10, label: "Palier ×10", text: "Les moulins tournent sans s'arrêter. Une économie de l'énergie s'est installée sans que personne n'ait prévu d'en faire une politique." },
     { at: 25, label: "Palier ×25", text: "Certains moulins accomplissent maintenant des tâches que personne n'avait pensé à leur confier. La machine a commencé à dépasser ses créateurs dans les usages." },
     { at: 64, label: "Palier ×64", text: "L'énergie hydraulique irrigue des pans entiers de l'industrie locale. Le fleuve ne sait pas qu'il fait fonctionner un empire. C'est peut-être sa seule vertu." }
   ],
   mint_houses: [
-    { at: 1,  label: "Découverte", text: "L'or circulait déjà. Maintenant il porte un nom, un sceau, une autorité. La monnaie est une forme de confiance qu'on a rendue obligatoire." },
+    { at: 1,  label: "Découverte", text: bDesc("mint_houses", "La monnaie est une forme de confiance qu'on a rendue obligatoire.") },
     { at: 10, label: "Palier ×10", text: "La monnaie porte un portrait. L'autorité s'imprime dans le métal et circule partout où l'autorité elle-même ne va pas — et parfois plus loin." },
     { at: 25, label: "Palier ×25", text: "Des économistes débattent maintenant des effets de la masse monétaire. L'argent est devenu une science, ce qui ne l'a pas rendu plus prévisible." },
     { at: 64, label: "Palier ×64", text: "Les hôtels des monnaies produisent des titres, des obligations, des instruments abstraits. L'or physique est presque devenu une métaphore de lui-même." }
   ],
   imperial_exchanges: [
-    { at: 1,  label: "Découverte", text: "Ici les chiffres ont remplacé les visages. Les fortunes bougent plus vite que les armées, et souvent avec plus d'efficacité." },
+    { at: 1,  label: "Découverte", text: bDesc("imperial_exchanges", ", et souvent avec plus d'efficacité.") },
     { at: 10, label: "Palier ×10", text: "Les transactions se font sur des livres de comptes plutôt qu'en main propre. La confiance est devenue une infrastructure — fragile et indispensable." },
     { at: 25, label: "Palier ×25", text: "Les bourses communiquent entre elles. Un krach dans une ville peut ruiner des marchands à trois semaines de distance. L'économie a acquis des propriétés contagieuses." },
     { at: 64, label: "Palier ×64", text: "Le système financier est devenu si complexe que même ses architectes n'en comprennent que des fragments. Il fonctionne parce que tout le monde fait comme s'il fonctionnait." }
   ],
   // ── SAVOIR ────────────────────────────────────────────────────────────────
   storytellers: [
-    { at: 1,  label: "Découverte", text: "Ils sont la mémoire de ceux qui ne lisent pas. Leur silence efface des générations ; leur parole en sauve d'autres que l'écriture n'a jamais touchées." },
+    { at: 1,  label: "Découverte", text: bDesc("storytellers", " ; leur parole en sauve d'autres que l'écriture n'a jamais touchées.") },
     { at: 10, label: "Palier ×10", text: "Les conteurs se spécialisent. Certains ne racontent que les victoires, d'autres que les désastres. La mémoire collective a commencé à se diviser en récits concurrents." },
-    { at: 25, label: "Palier ×25", text: "Des écoles de narration se sont formées. Les histoires ont maintenant des auteurs, des styles, des adversaires. La tradition est devenue une institution avec ses orthodoxies." },
+    { at: 25, label: "Palier ×25", text: "Des écoles de narration se sont formées. Les histoires ont maintenant des auteurs, des styles, des adversaires. La tradition is devenue une institution avec ses orthodoxies." },
     { at: 64, label: "Palier ×64", text: "La tradition orale est si riche qu'elle concurrence les archives écrites. Certains événements existent en deux versions contradictoires, toutes deux vraies selon qui les raconte." }
   ],
   scribes: [
-    { at: 1,  label: "Découverte", text: "Chaque tablette copiée est un mort qui continue de parler. L'écriture a inventé une forme d'immortalité que la chair ne peut pas offrir." },
+    { at: 1,  label: "Découverte", text: bDesc("scribes", "L'écriture a inventé une forme d'immortalité que la chair ne peut pas offrir.") },
     { at: 10, label: "Palier ×10", text: "Les scribes ont leurs codes, leurs abréviations, leurs conventions. Lire un document de dix ans exige maintenant un interprète — la mémoire s'opacifie à mesure qu'elle s'accumule." },
     { at: 25, label: "Palier ×25", text: "Les archives débordent. On a commencé à archiver les archives — des répertoires de répertoires. La bureaucratie de la mémoire est née." },
     { at: 64, label: "Palier ×64", text: "Les scribes constituent une classe à part entière. Savoir écrire n'est plus rare ; savoir ce qu'il faut écrire — et surtout omettre — est la véritable compétence." }
   ],
   schools: [
-    { at: 1,  label: "Découverte", text: "Pour la première fois, le savoir peut traverser une vie sans se perdre dans la suivante. L'école a rendu la transmission moins aléatoire — et moins personnelle." },
+    { at: 1,  label: "Découverte", text: bDesc("schools", "L'école a rendu la transmission moins aléatoire — et moins personnelle.") },
     { at: 10, label: "Palier ×10", text: "L'école a ses traditions, ses rituels, ses injustices propres. Elle reproduit la société en prétendant la dépasser." },
     { at: 25, label: "Palier ×25", text: "On commence à mesurer l'efficacité des écoles, à comparer les méthodes. L'éducation est devenue une politique, ce qui signifie qu'elle est maintenant un objet de conflit." },
     { at: 64, label: "Palier ×64", text: "Presque tout le monde est passé par une école. Ce qu'on y enseigne définit ce qu'on pense être vrai. L'éducation est devenue la première forme de pouvoir — et la moins visible." }
   ],
   academies: [
-    { at: 1,  label: "Découverte", text: "On n'y apprend pas à avoir raison. On y apprend à douter proprement — ce qui est plus long, plus difficile, et infiniment plus utile." },
+    { at: 1,  label: "Découverte", text: bDesc("academies", " — ce qui est plus long, plus difficile, et infiniment plus utile.") },
     { at: 10, label: "Palier ×10", text: "Les académies ont leurs rivalités, leurs batailles de priorité, leurs clans. La production du savoir ressemble à une politique — avec les mêmes alliances et les mêmes trahisons." },
     { at: 25, label: "Palier ×25", text: "Certaines découvertes académiques n'ont pas encore trouvé leur usage. On les archive en attendant que le monde rattrape la théorie." },
     { at: 64, label: "Palier ×64", text: "Les académies sont si nombreuses que leur production dépasse ce que quiconque peut lire. Le savoir s'accumule plus vite qu'il ne se comprend." }
@@ -665,19 +676,19 @@ export const BUILDING_LORE = {
   ],
   // ── INFRASTRUCTURE ────────────────────────────────────────────────────────
   roads: [
-    { at: 1,  label: "Découverte", text: "La distance n'a pas changé. Le temps qu'elle prend, si. Et c'est suffisant pour tout changer au reste." },
+    { at: 1,  label: "Découverte", text: bDesc("roads", "Et c'est suffisant pour tout changer au reste.") },
     { at: 10, label: "Palier ×10", text: "Les routes ont leurs étapes, leurs auberges, leurs brigands réguliers. Voyager est devenu un métier — et une industrie." },
     { at: 25, label: "Palier ×25", text: "La qualité des routes varie selon qui les emprunte. Les marchands ont les meilleures, les paysans les pires. L'infrastructure reproduit fidèlement la hiérarchie." },
     { at: 64, label: "Palier ×64", text: "Le réseau routier est si dense qu'un message peut traverser tout l'empire en quelques semaines. Le temps a changé de dimension, et l'espace avec lui." }
   ],
   aqueducts: [
-    { at: 1,  label: "Découverte", text: "L'eau est arrivée en ville. Les maladies des bas quartiers ont mis du temps à l'apprendre — mais elles ont appris." },
+    { at: 1,  label: "Découverte", text: bDesc("aqueducts", " — mais elles ont appris.") },
     { at: 10, label: "Palier ×10", text: "Des quartiers entiers ont maintenant de l'eau courante. La santé publique s'améliore par des mécanismes que personne ne comprend encore, ce qui ne les empêche pas de fonctionner." },
     { at: 25, label: "Palier ×25", text: "Les aqueducs ont leurs ingénieurs dédiés, leurs corporations d'entretien. L'eau est devenue une infrastructure politique autant que physique." },
     { at: 64, label: "Palier ×64", text: "Sans les aqueducs, la ville serait inhabitable à cette échelle. La dépendance à l'infrastructure est devenue totale — et personne ne s'en inquiète, ce qui est en soi inquiétant." }
   ],
   watch: [
-    { at: 1,  label: "Découverte", text: "Ils rendent la nuit un peu moins dangereuse pour ceux qui dorment. Leur simple présence a changé ce que la ville croit lui devoir." },
+    { at: 1,  label: "Découverte", text: bDesc("watch", "Leur simple présence a changé ce que la ville croit lui devoir.") },
     { at: 10, label: "Palier ×10", text: "Les veilleurs patrouillent selon des plans établis, des rotations fixes. La sécurité est devenue une administration — avec ses formulaires et ses responsables." },
     { at: 25, label: "Palier ×25", text: "Un réseau de tours de guet permet d'alerter toute la ville en quelques minutes. La menace est devenue calculable, ce qui ne l'a pas supprimée mais l'a rendue moins surprenante." },
     { at: 64, label: "Palier ×64", text: "Les veilleurs ont leurs propres archives, leurs propres enquêteurs. Ils savent ce qui se passe avant même que ça se produise — parfois. C'est leur seule limite avouée." }
@@ -692,7 +703,7 @@ export const BUILDING_LORE = {
     { at: 1,  label: "Découverte", text: "Pour la première fois, l'État peut se souvenir de lui-même d'une année sur l'autre. La mémoire institutionnelle est née — lente, redondante, et indispensable." },
     { at: 10, label: "Palier ×10", text: "Les formulaires se multiplient. Chaque acte nécessite un document, chaque document une autorisation. L'administration a commencé à s'administrer elle-même." },
     { at: 25, label: "Palier ×25", text: "La bureaucratie a créé ses propres règles de survie — des procédures pour contourner les procédures. Elle est devenue un écosystème autonome avec ses propres lois d'évolution." },
-    { at: 64, label: "Palier ×64", text: "Nul ne comprend l'ensemble du système. Chaque fonctionnaire connaît sa partie. L'État fonctionne parce que personne n'essaie de le voir en entier — et que c'est exactement ce qu'il faut." }
+    { at: 64, label: "Palier ×64", text: "Nul ne comprend l'ensemble du système. Chaque fonctionnaire connaît sa partie. L'État fonctionne parce personne n'essaie de le voir en entier — et que c'est exactement ce qu'il faut." }
   ],
   courthouses: [
     { at: 1,  label: "Découverte", text: "La loi existe depuis longtemps. Les tribunaux ont décidé qu'elle s'appliquait à tout le monde — en théorie. C'est un progrès considérable pour une théorie." },

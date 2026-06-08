@@ -28,6 +28,7 @@ import {
   log,
   chronicle,
   runCrisisAction,
+  registerOlympusInteraction,
   resumeAfterCrisisOutcome
 } from './actions.js';
 
@@ -156,12 +157,12 @@ export function checkAutoCollapse() {
   const gain = Math.max(0, Math.floor(ruinGain() * mult));
   setCollapseInProgress(true);
   state.crisisOpenedAt = null;
-  const penaltyNote = mult < 1.0 ? ` (${Math.round(mult * 100)}% des ruines recuperees)` : "";
-  chronicle(`Effondrement automatique: la cite s'est effondree sans decision active${penaltyNote}.`);
+  const penaltyNote = mult < 1.0 ? ` (seulement ${Math.round(mult * 100)}% de notre héritage a pu être préservé)` : "";
+  chronicle(`L'absence de décision de nos chefs nous a menés à la ruine : la cité s'est effondrée d'elle-même sous le poids de son inaction${penaltyNote}.`);
   runCollapseSequence(gain, "auto_collapse");
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Gestion de l'audio Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ──────────────── Gestion de l'audio ─────────────────────────────────────────
 
 let bgAudio = null;
 let optMusic = true;
@@ -259,7 +260,7 @@ function syncMusicVisibility() {
 
 export function initAudio() {
   if (typeof Audio === 'undefined') return; // Support Headless
-  if (bgAudio) return; // Ãƒâ€°vite les double-init
+  if (bgAudio) return; // Évite les double-init
   
   try {
     const savedNotif = localStorage.getItem("civ-opt-notif");
@@ -280,12 +281,6 @@ export function initAudio() {
   bgAudio.preload = "auto";
   bgAudio.volume = optMusicVolume;
 
-  bgAudio.addEventListener("ended", () => {
-    if (!optMusic) return;
-    bgAudio.currentTime = 0;
-    playMusic();
-  });
-
   document.addEventListener("visibilitychange", syncMusicVisibility);
   
   if (optMusic) {
@@ -293,10 +288,15 @@ export function initAudio() {
   }
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ DÃƒÂ©marrage de la boucle de jeu Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ──────────────── Démarrage de la boucle de jeu ─────────────────────────────
 
 export function startGameLoop() {
   applyOfflineProgress();
+  const trackInteraction = () => registerOlympusInteraction();
+  if (typeof window !== "undefined") {
+    window.addEventListener("pointerdown", trackInteraction, { passive: true });
+    window.addEventListener("keydown", trackInteraction);
+  }
   
   let last = performance.now();
   const tickInterval = setInterval(() => {
@@ -308,12 +308,32 @@ export function startGameLoop() {
     notify(); // Notifie React du changement d'etat a chaque tick
   }, 250);
 
+  // Auto-save toutes les 10 secondes
   const saveInterval = setInterval(() => {
     save();
   }, 10000);
 
+  // Sauvegarde rapide 2s après le lancement pour capturer la progression initiale
+  const earlySaveTimeout = setTimeout(() => {
+    save();
+  }, 2000);
+
+  // Sauvegarder quand l'onglet perd le focus (avant un éventuel F5, switch d'onglet, etc.)
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      save();
+    }
+  };
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
   return () => {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("pointerdown", trackInteraction);
+      window.removeEventListener("keydown", trackInteraction);
+    }
     clearInterval(tickInterval);
     clearInterval(saveInterval);
+    clearTimeout(earlySaveTimeout);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
   };
 }

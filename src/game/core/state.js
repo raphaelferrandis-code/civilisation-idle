@@ -4,6 +4,7 @@ import { buildings } from '../data/buildings.js';
 import { upgrades } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { clamp01 } from './utils.js';
+import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 
 export const SAVE_KEY = "civilization-collapse-idle-v1";
 
@@ -129,7 +130,37 @@ export const defaultState = () => ({
   dynastyDoctrine: null,
   buyAmount: 1,
   activeView: "city",
-  mourning: false
+  mourning: false,
+  atridesDebt: 0,
+  atridesDrainDisabled: false,
+  atridesDebtGrowthMultiplier: 1,
+  atridesRenegotiateActiveUntil: 0,
+  atridesRenegotiateCooldownEnd: 0,
+  atridesHeritage: false,
+  atridesPactActive: false,
+  atridesNextRunPenaltyActive: false,
+  eneeHeritage: false,
+  eneeCollapseCount: 0,
+  eneeMigrations: 0,
+  eneeDegraded: false,
+  eneeTerritoryStartedAt: null,
+  cadmosHeritage: false,
+  cadmosChronicle: [],
+  cadmosLastRunChronicle: [],
+  cadmosPermanentEpitaphs: [],
+  cadmosCycleBonuses: { food: 0, gold: 0, stability: 0 },
+  cadmosTriggeredMilestones: {},
+  cadmosPromptPending: false,
+  cadmosLastChosenOrientation: null,
+  cadmosRecentWords: [],
+  anteeHeritage: false,
+  activeRuinIds: [],
+  pendingActiveRuinsChoice: false,
+  ragnarokHeritage: false,
+  ragnarokEffectsApplied: false,
+  finalChronicleTitle: null,
+  ragnarokActiveConstraints: [],
+  olympus: defaultOlympusState()
 });
 
 export let state = load();
@@ -151,7 +182,8 @@ export let renderCache = {
   cachedRuinEffects: null,
   _frameVitals: null,
   _framePressure: null,
-  _frameGlobalMult: null
+  _frameGlobalMult: null,
+  _buildingSums: null
 };
 export let gamePaused = false;
 export let collapseInProgress = false;
@@ -335,6 +367,61 @@ export function normalizeRiverWaypoints(raw) {
   return points.every(Boolean) ? points : null;
 }
 
+export function normalizeCadmosChronicle(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(isPlainObject)
+    .map(entry => {
+      const id = typeof entry.id === "string" ? entry.id : `cadmos_${Date.now()}_${Math.random()}`;
+      const name = typeof entry.name === "string" ? entry.name.slice(0, 100) : "";
+      const word = typeof entry.word === "string" ? entry.word.slice(0, 50) : "";
+      const orientation = ["food", "gold", "stability"].includes(entry.orientation) ? entry.orientation : "food";
+      const orientationLabel = typeof entry.orientationLabel === "string" ? entry.orientationLabel.slice(0, 50) : "";
+      const milestoneType = typeof entry.milestoneType === "string" ? entry.milestoneType.slice(0, 50) : "";
+      const threshold = finiteNumber(entry.threshold, 0, 0);
+      const cycle = finiteInteger(entry.cycle, 0, 0);
+      const chosenAt = finiteTimestamp(entry.chosenAt, Date.now());
+      const engravedAt = entry.engravedAt ? finiteTimestamp(entry.engravedAt, Date.now()) : undefined;
+
+      const out = {
+        id,
+        name,
+        word,
+        orientation,
+        orientationLabel,
+        milestoneType,
+        threshold,
+        cycle,
+        chosenAt
+      };
+      if (engravedAt !== undefined) {
+        out.engravedAt = engravedAt;
+      }
+      return out;
+    })
+    .filter(e => e.name);
+}
+
+export function normalizeCadmosCycleBonuses(raw, fallback) {
+  const source = isPlainObject(raw) ? raw : {};
+  return {
+    food: finiteNumber(source.food, fallback.food, 0),
+    gold: finiteNumber(source.gold, fallback.gold, 0),
+    stability: finiteNumber(source.stability, fallback.stability, 0)
+  };
+}
+
+export function normalizeCadmosTriggeredMilestones(raw) {
+  if (!isPlainObject(raw)) return {};
+  const out = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (typeof key === "string" && key.length <= 128 && val) {
+      out[key] = true;
+    }
+  }
+  return out;
+}
+
 export function hydrateState(parsed = {}) {
   const base = defaultState();
   const source = isPlainObject(parsed) ? parsed : {};
@@ -385,6 +472,37 @@ export function hydrateState(parsed = {}) {
     icareHeritage: Boolean(source.icareHeritage),
     surchauffeEndTime: finiteNumber(source.surchauffeEndTime || 0, 0, 0),
     surchauffeCooldownEnd: finiteNumber(source.surchauffeCooldownEnd || 0, 0, 0),
+    atridesDebt: finiteNumber(source.atridesDebt, base.atridesDebt, 0),
+    atridesDrainDisabled: Boolean(source.atridesDrainDisabled),
+    atridesDebtGrowthMultiplier: finiteNumber(source.atridesDebtGrowthMultiplier, base.atridesDebtGrowthMultiplier, 0),
+    atridesRenegotiateActiveUntil: finiteTimestamp(source.atridesRenegotiateActiveUntil, base.atridesRenegotiateActiveUntil),
+    atridesRenegotiateCooldownEnd: finiteTimestamp(source.atridesRenegotiateCooldownEnd, base.atridesRenegotiateCooldownEnd),
+    atridesHeritage: Boolean(source.atridesHeritage),
+    atridesPactActive: Boolean(source.atridesPactActive),
+    atridesNextRunPenaltyActive: Boolean(source.atridesNextRunPenaltyActive),
+    eneeHeritage: Boolean(source.eneeHeritage),
+    eneeCollapseCount: finiteInteger(source.eneeCollapseCount, base.eneeCollapseCount, 0),
+    eneeMigrations: finiteInteger(source.eneeMigrations, base.eneeMigrations, 0),
+    eneeDegraded: Boolean(source.eneeDegraded),
+    eneeTerritoryStartedAt: source.eneeTerritoryStartedAt ? finiteTimestamp(source.eneeTerritoryStartedAt, base.eneeTerritoryStartedAt) : null,
+    cadmosHeritage: Boolean(source.cadmosHeritage),
+    cadmosChronicle: normalizeCadmosChronicle(source.cadmosChronicle),
+    cadmosLastRunChronicle: normalizeCadmosChronicle(source.cadmosLastRunChronicle),
+    cadmosPermanentEpitaphs: normalizeCadmosChronicle(source.cadmosPermanentEpitaphs),
+    cadmosCycleBonuses: normalizeCadmosCycleBonuses(source.cadmosCycleBonuses, base.cadmosCycleBonuses),
+    cadmosTriggeredMilestones: normalizeCadmosTriggeredMilestones(source.cadmosTriggeredMilestones),
+    cadmosPromptPending: Boolean(source.cadmosPromptPending),
+    cadmosLastChosenOrientation: ["food", "gold", "stability"].includes(source.cadmosLastChosenOrientation) ? source.cadmosLastChosenOrientation : null,
+    cadmosRecentWords: normalizeStringArray(source.cadmosRecentWords, 16, 50),
+    anteeHeritage: Boolean(source.anteeHeritage),
+    activeRuinIds: normalizeStringArray(source.activeRuinIds, 32, 80),
+    pendingActiveRuinsChoice: Boolean(source.pendingActiveRuinsChoice),
+    ragnarokHeritage: Boolean(source.ragnarokHeritage),
+    ragnarokEffectsApplied: Boolean(source.ragnarokEffectsApplied),
+    finalChronicleTitle: typeof source.finalChronicleTitle === "string" ? source.finalChronicleTitle.slice(0, 100) : base.finalChronicleTitle,
+    ragnarokActiveConstraints: normalizeStringArray(source.ragnarokActiveConstraints, 32, 200),
+    olympus: normalizeOlympusState(source.olympus),
+    mourning: Boolean(source.mourning),
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
@@ -445,6 +563,7 @@ export function invalidateRenderCache(scope = "all") {
   if (scope === "all" || scope === "buildings") {
     renderCache.buildings = {};
     renderCache.batchCosts = {}; // Le coût change si les upgrades ou counts changent
+    renderCache._buildingSums = null;
   }
   if (scope === "all" || scope === "upgrades") renderCache.upgrades = {};
   if (scope === "all" || scope === "dogmas") renderCache.dogmas = "";
@@ -478,4 +597,65 @@ export function setState(newState) {
   }
   Object.assign(state, newState);
   notify();
+}
+
+export function resetTemporaryRunState(s) {
+  s.instability = 0;
+  s.timeWear = 0;
+  s.activeRuinIds = [];
+  s.pendingActiveRuinsChoice = false;
+  s.crisisActions = {
+    rationing: 0,
+    census: 0,
+    festivals: 0,
+    reforms: 0,
+    ancestorCrisis: 0,
+    archiveCrisis: 0
+  };
+  s.crisisThresholds = {};
+  s.crisisProduction = {
+    population: 1,
+    food: 1,
+    gold: 1,
+    knowledge: 1,
+    infrastructure: 1
+  };
+  s.collapsePreparation = 0;
+  s.crisisExtensions = 0;
+  s.crisisLimitAnnounced = false;
+  s.crisisOpenedAt = null;
+  s.archaeologyUsed = false;
+  s.cityMapSlots = {};
+  
+  if (s.atlasHeritage) s.atlasLegitimite = 50;
+  s.atlasCrisisCount = 0;
+  s.babelProdReached = false;
+  s.babelCategory    = null;
+  s.orPopPeak        = s.population || 0;
+  s.orGoldReached    = false;
+  s.orUsureImbalance = false;
+  s.hephPopPeak      = s.population || 0;
+  s.hephGoalReached  = false;
+  
+  s.icareInfraReached   = false;
+  s.prometheePopReached = false;
+  s.prometheeFailed     = false;
+  s.prometheeBraisiers  = false;
+
+  s.eneeMigrations         = 0;
+  s.eneeDegraded           = false;
+  
+  s.cadmosChronicle = [];
+  s.cadmosCycleBonuses = { food: 0, gold: 0, stability: 0 };
+  s.cadmosTriggeredMilestones = {};
+  s.cadmosPromptPending = false;
+  s.cadmosLastChosenOrientation = null;
+  s.cadmosRecentWords = [];
+  
+  s.atridesDebt = 0;
+  s.atridesDrainDisabled = false;
+  s.atridesDebtGrowthMultiplier = 1;
+  s.atridesRenegotiateActiveUntil = 0;
+  s.atridesRenegotiateCooldownEnd = 0;
+  s.atridesPactActive = false;
 }

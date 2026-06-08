@@ -1,0 +1,29 @@
+:root {
+  /* Premium Dark Civilization Palette */
+  --bg: #0d1018;
+  --ink: #080910;
+  --panel: rgba(24, 27, 38, 0.82);
+  --panel-2: rgba(34, 38, 54, 0.90);
+  --line: rgba(255, 255, 255, 0.10);
+  --text: #f3f4f6;
+  --muted: #b0b9c4;
+
+  /* Accent Colors */
+  --gold: #d97706;          /* warm amber-600 */
+  --gold-bright: #fbbf24;   /* bright gold-400 */
+  --gold-deep: #b45309;     /* deep bronze-700 */
+
+  --green: #10b981;         /* emerald green: resilience / food */
+  --blue: #3b82f6;          /* azure blue: knowledge / memory */
+  --red: #ef4444;           /* crimson red: crisis / rupture */
+  --violet: #8b5cf6;        /* violet purple: infrastructure */
+
+  --shadow: rgba(0, 0, 0, 0.65);
+  --shine: rgba(255, 255, 255, 0.05);
+  --panel-border: rgba(255, 255, 255, 0.08);
+
+  --font-title: "Cinzel", Georgia, serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-serif: "Crimson Text", Georgia, serif;
+}
+

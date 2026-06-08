@@ -17,11 +17,16 @@ import {
   has
 } from './mechanics.js';
 
-import { completeCollapse } from './actions.js';
+import { completeCollapse, promptActiveRuinsForNewCycle } from './actions.js';
 import { requestChoiceDialog } from './choiceDialog.js';
 
 import { eras } from '../data/world.js';
 import { dynastyNames } from '../data/buildings.js';
+import {
+  EPITAPH_LEGACIES,
+  describeEpitaphLegacy,
+  epitaphRuinMultiplier
+} from '../data/epitaphs.js';
 import { fmt } from './utils.js';
 
 export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false }) {
@@ -58,42 +63,41 @@ export async function runCollapseSequence(gain, reason) {
   const dynastyIndex = state.dynastyCount % dynastyNames.length;
   const fallenDynasty = dynastyNames[dynastyIndex];
   const epitaph = generateEpitaph();
+  const cause = collapseCause();
   await new Promise((resolve) => setTimeout(resolve, 2000));
-  // "Rite de Passage" : +25% ruines de base à chaque effondrement
+
   const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
-  const gainBase    = Math.round(gain * riteBonus);
-  const gainPrepare = Math.round(gainBase * 1.2);
-  // "Rite de Passage" : sélectionne auto "Préparer la chute" (le dialogue s'ouvre quand même)
-  let finalGain;
-  if (has("rituel_effondrement")) {
-    // Auto-selection visible : on affiche le dialogue avec indication que c'est automatique
-    const choice = await openChoiceDialog({
-      title: `Chute de ${fallenDynasty}`,
-      body: `${epitaph}\n\nLes survivants rassemblent des ruines. Que faire ?`,
-      mourning: true,
-      preventClose: true,
-      options: [
-        { label: "Effondrement", detail: `Accepter la chute. ${fmt(gainBase)} ruines (+25% Rite).`, ruinGain: gainBase },
-        { label: "Preparer la chute", detail: `Organiser le repli. ${fmt(gainPrepare)} ruines (+25% +20%). Rite actif.`, ruinGain: gainPrepare }
-      ]
-    });
-    finalGain = choice.ruinGain ?? gainPrepare;
-  } else {
-    const choice = await openChoiceDialog({
-      title: `Chute de ${fallenDynasty}`,
-      body: `${epitaph}\n\nLes survivants rassemblent des ruines. Que faire ?`,
-      mourning: true,
-      preventClose: true,
-      options: [
-        { label: "Effondrement", detail: `Accepter la chute. ${fmt(gainBase)} ruines recoltees.`, ruinGain: gainBase },
-        { label: "Preparer la chute", detail: `Organiser le repli, preserver l'essentiel. ${fmt(gainPrepare)} ruines (+20%).`, ruinGain: gainPrepare }
-      ]
-    });
-    finalGain = choice.ruinGain ?? gainBase;
-  }
+  const gainBase = Math.round(gain * riteBonus);
+  const options = EPITAPH_LEGACIES.map((legacy) => {
+    const ruinGain = Math.round(gainBase * epitaphRuinMultiplier(legacy, cause));
+    return {
+      label: legacy.label,
+      detail: `${fmt(ruinGain)} ruines. ${describeEpitaphLegacy(legacy, cause)}`,
+      ruinGain,
+      epitaphLegacyId: legacy.id
+    };
+  });
+
+  const choice = await openChoiceDialog({
+    title: `Chute de ${fallenDynasty}`,
+    body: `${epitaph}\n\nLes survivants ne choisissent plus seulement combien sauver, mais ce que la prochaine civilisation devra retenir.`,
+    mourning: true,
+    preventClose: true,
+    options
+  });
+  const chosenLegacy = EPITAPH_LEGACIES.find((legacy) => legacy.id === choice.epitaphLegacyId) || EPITAPH_LEGACIES[0];
+  state.nextEpitaphLegacy = {
+    id: chosenLegacy.id,
+    cause,
+    chosenCycle: state.cycles || 0,
+    startedAt: Date.now()
+  };
+  const finalGain = choice.ruinGain ?? Math.round(gainBase * epitaphRuinMultiplier(chosenLegacy, cause));
+
   completeCollapse(finalGain, fallenDynasty, epitaph, reason);
-  setMourning(false);
   setCollapseInProgress(false);
+  await promptActiveRuinsForNewCycle();
+  setMourning(false);
   setGamePaused(false);
   save();
   openView("city");

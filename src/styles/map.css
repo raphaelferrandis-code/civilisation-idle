@@ -1,0 +1,356 @@
+/* background et font-family définis dans la section Identité Visuelle (bas du fichier) */
+
+body {
+  margin: 0;
+  color: var(--text);
+  letter-spacing: 0;
+  
+}
+
+.civilization-map {
+  position: relative;
+  display: grid;
+  place-items: stretch;
+  width: 100%;
+  height: clamp(18rem, 43vw, 32rem);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #4f3c22;
+  border-radius: 8px;
+  --sky-top: #1f1206;
+  --sky-mid: #2a1a0a;
+  --sky-horizon: #322410;
+  --ground: #2c2010;
+  --scene-bg:
+    radial-gradient(ellipse at 74% 4%, rgba(226, 221, 178, 0.12) 0%, transparent 22%),
+    linear-gradient(180deg, #1c0f04 0%, var(--sky-top) 44%, #241608 63%, #2e2010 64%, var(--ground) 100%);
+  background: var(--scene-bg);
+  --dynasty-accent: #e2bd55;
+  --dynasty-roof: #6b4f32;
+  --people-opacity: 0.68;
+  cursor: pointer;
+  text-align: left;
+  transform: none;
+  transition: border-color 0.3s ease;
+}
+
+.civilization-map:hover,
+.civilization-map:hover:not(:disabled) {
+  transform: none;
+  border-color: rgba(226, 189, 85, 0.9);
+  background: var(--scene-bg);
+  color: var(--text);
+}
+
+.civilization-map:active .crowd {
+  transform: translateY(-1px);
+}
+
+.civilization-map:active::before {
+  background:
+    radial-gradient(ellipse at 15% 5%, rgba(17, 48, 35, 0.95) 0 28%, transparent 29%),
+    radial-gradient(ellipse at 52% 7%, rgba(17, 48, 35, 0.92) 0 34%, transparent 35%),
+    radial-gradient(ellipse at 86% 5%, rgba(17, 48, 35, 0.95) 0 31%, transparent 32%),
+    linear-gradient(180deg, #1f2a18 0%, #29311d 100%);
+}
+
+.civilization-map:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.civilization-map::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 38%;
+  background:
+    radial-gradient(ellipse at 15% 5%, rgba(17, 48, 35, 0.95) 0 28%, transparent 29%),
+    radial-gradient(ellipse at 52% 7%, rgba(17, 48, 35, 0.92) 0 34%, transparent 35%),
+    radial-gradient(ellipse at 86% 5%, rgba(17, 48, 35, 0.95) 0 31%, transparent 32%),
+    linear-gradient(90deg, transparent 0 28%, rgba(40, 63, 39, 0.38) 33% 70%, transparent 74%),
+    linear-gradient(180deg, #1f2a18 0%, #29311d 100%);
+  box-shadow: inset 0 1px 0 rgba(125, 187, 114, 0.18);
+}
+
+.civilization-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1px 1px at 12% 8%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 27% 14%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 41% 6%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 58% 11%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 74% 7%, rgba(255,255,255,0.65) 0%, transparent 100%),
+    radial-gradient(1px 1px at 87% 16%, rgba(255,255,255,0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 19% 22%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 64% 19%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(circle at 20% 72%, rgba(125, 187, 114, 0.15), transparent 18%),
+    radial-gradient(circle at 82% 62%, rgba(169, 140, 207, 0.12), transparent 20%),
+    linear-gradient(180deg, transparent 35%, rgba(0,0,0,0.18) 100%);
+  pointer-events: none;
+}
+
+.map-caption {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  display: none;
+  gap: 0.18rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(226, 189, 85, 0.35);
+  border-radius: 8px;
+  background: rgba(12, 15, 11, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.45);
+  z-index: 5;
+}
+
+.map-caption span,
+.map-caption small {
+  color: var(--muted);
+}
+
+.map-caption span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.map-caption strong {
+  color: #fff4c8;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  line-height: 1.15;
+}
+
+/* ============================================================================
+   IDENTITE VISUELLE v2 — "CIVILISATION ANTIQUE" (spec detaillee)
+   Couche thematique chargee en dernier (prime sur le reste). JS non modifie.
+   ============================================================================ *//* ---------- FOND GENERAL : pierre/parchemin vieilli + vignette ---------- *//* Source unique pour margin/color/font/background — règle body unifiée */
+
+
+
+
+
+body {
+  margin: 0;
+  color: var(--text);
+  letter-spacing: 0;
+  font-family: var(--font-body);
+  background:
+    radial-gradient(ellipse at 50% -5%, rgba(120, 88, 36, 0.16), transparent 55%),
+    radial-gradient(ellipse at 12% 18%, rgba(74, 53, 16, 0.14), transparent 42%),
+    radial-gradient(ellipse at 88% 82%, rgba(58, 42, 16, 0.12), transparent 46%),
+    repeating-linear-gradient(0deg,  rgba(0,0,0,0.13)        0 2px, transparent 2px 4px),
+    repeating-linear-gradient(90deg, rgba(150,110,50,0.022)  0 3px, transparent 3px 6px),
+    radial-gradient(ellipse at 50% 40%, #15100a 0%, #0d0a07 60%, #080603 100%);
+  background-attachment: fixed;
+}
+
+/* ---------- TYPOGRAPHIE ---------- */
+
+
+h1, h2, h3,
+.brand h1, .mark, .label, .tab,
+button, .panel-heading h2,
+.era-name, .era-card-city .era-name, .map-caption strong,
+.tree-status, .tree-cost, .tree-branch-heading h3, .ruin-path-heading h3,
+.outcome-card h3, .outcome-card span, .dogma-card strong,
+.shop-title h3, .shop-item h3, .upgrade h3, .archive-entry h3, .event-dialog h2 {
+  font-family: var(--font-title);
+  letter-spacing: 0.04em;
+}
+
+/* Valeurs numeriques principales : Cinzel bold, plus grandes, dorees */
+
+
+.resource strong, .city-pop-card strong, .city-gauge-label strong,
+.tension-card strong, .tension-summary strong, .crisis-summary strong,
+.metrics-grid strong, .prestige-stats strong, .map-caption strong {
+  font-family: var(--font-title) !important;
+  font-weight: 700;
+  color: var(--gold) !important;
+  text-shadow: 0 0 16px rgba(201, 168, 76, 0.22);
+}
+
+/* ============================================================================
+   CARTE SVG PROCEDURALE (remplace l'ancien diorama)
+   ============================================================================ */
+
+.civilization-map { background: #0d0a07 !important; }
+
+.civilization-map::before,
+.civilization-map::after { content: none !important; display: none !important; }
+
+.city-scene { position: absolute; inset: 0; }
+
+.city-scene svg { width: 100%; height: 100%; display: block; }
+
+/* La legende redevient visible, posee en bas de la scene */
+
+
+.map-caption { display: flex !important; flex-direction: column; }
+
+/* --- Feu (declin) --- */
+
+
+.city-scene .fire {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: flame-flicker 0.9s ease-in-out infinite;
+  animation-delay: var(--fd, 0s);
+}
+
+/* --- Fumee --- */
+
+
+.city-scene .smoke {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: smoke-rise 3.6s ease-in infinite;
+  animation-delay: var(--sd, 0s);
+}
+
+/* --- Foule retravaillee --- */
+
+
+.city-scene .cz {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cz-walk var(--cd, 4s) ease-in-out infinite alternate;
+}
+
+/* --- Fenetres allumees : leger scintillement --- */
+
+
+.city-scene .lit-window { animation: win-glow 5s ease-in-out infinite; }
+
+/* ============================================================================
+   CARTE CANVAS VUE DU DESSUS (onglet Cite)
+   ============================================================================ */
+
+.civilization-map {
+  height: clamp(24rem, 62vh, 54rem) !important;
+  cursor: grab;
+}
+
+.city-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.city-minimap {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 150px;
+  height: 150px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  background: rgba(13, 10, 7, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.city-map-tooltip {
+  position: absolute;
+  z-index: 8;
+  max-width: min(260px, calc(100% - 24px));
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(201, 168, 76, 0.55);
+  border-radius: 6px;
+  background: rgba(13, 10, 7, 0.92);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48);
+  color: #f6e7bf;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  text-align: left;
+}
+
+.city-map-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.city-map-tooltip span,
+.city-map-tooltip strong,
+.city-map-tooltip em {
+  display: block;
+}
+
+.city-map-tooltip span {
+  margin-bottom: 0.16rem;
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.city-map-tooltip strong {
+  color: #fff1bd;
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.city-map-tooltip em {
+  margin-top: 0.22rem;
+  color: #d7c69a;
+  font-size: 0.78rem;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+/* La legende reste a gauche pour ne pas chevaucher la minimap */
+
+.civilization-map .map-caption {
+  right: auto;
+  max-width: 58%;
+}
+
+/* Age courant affiche directement sur la carte (remplace l'ancienne legende). */
+
+
+.map-caption.map-age { max-width: 74%; gap: 0.4rem; }
+
+.map-age-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+}
+
+.map-age .era-index {
+  font-family: var(--font-title);
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em;
+  color: rgba(201, 168, 76, 0.6);
+}
+
+.map-age .era-name {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 1.5rem; line-height: 1.05; letter-spacing: 0.04em;
+  color: #e8c96a;
+  text-shadow: 0 0 16px rgba(201, 168, 76, 0.25);
+}
+
+.map-age .era-progress-wrap { display: flex; align-items: center; gap: 0.5rem; }
+
+.map-age .era-track { flex: 1; height: 6px; }
+
+.map-age .era-next-label {
+  flex-shrink: 0; font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+  color: rgba(201, 168, 76, 0.6);
+}
+
+.map-age .era-flavor {
+  margin: 0; font-size: 0.82rem; font-style: italic; line-height: 1.4;
+  color: var(--muted);
+}
+
