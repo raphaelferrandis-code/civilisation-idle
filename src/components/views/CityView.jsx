@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
-import VillagerFeed from '../ui/VillagerFeed.jsx';
+import JournalPanel from '../ui/JournalPanel.jsx';
 import {
   cityVitals,
   pressureBreakdown,
@@ -692,7 +692,7 @@ export default function CityView() {
 
       {/* Colonne latérale droite (Bâtiments et Achats) */}
       <div className="city-right-col">
-        <VillagerFeed />
+        <JournalPanel />
         <BuildingShop />
       </div>
     </section>

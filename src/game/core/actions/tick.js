@@ -37,6 +37,7 @@ import {
 
 import { log } from './utils.js';
 import { clamp01, fmt, canPayCost } from '../utils.js';
+import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
 import {
   ICARE_INFRA_TARGET,
   PROMETHEE_POP_TARGET,
@@ -218,6 +219,8 @@ export function tick(dt) {
     if (inst >= 0.82 && canPayCost(costs.census)) runCrisisAction("census", false);
     else if (inst >= 0.65 && canPayCost(costs.rationing)) runCrisisAction("rationing", false);
   }
+
+  checkAndTriggerChronicleEntries(state, dt);
 
   checkCrisisThresholds();
   if (gamePaused || collapseInProgress) return;

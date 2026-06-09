@@ -359,7 +359,7 @@ export function pressureBreakdown() {
 export function cityVitals() {
   // Retourne le cache frame si disponible (invalidé au début de chaque intervalle de tick)
   if (renderCache._frameVitals) return renderCache._frameVitals;
-  const foodScore = state.food / Math.max(220, state.population * 8);
+  const foodScore = state.food / Math.max(660, state.population * 24);
   const goldScore = state.gold / Math.max(80, state.population * 1.4);
   const knowledgeScore = state.knowledge / Math.max(90, state.population * 0.9);
   const foodBonus = clamp((foodScore - 0.32) * 0.45, -0.18, 0.12);

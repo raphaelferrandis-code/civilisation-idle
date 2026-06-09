@@ -1,6 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
-import VillagerFeed from './components/ui/VillagerFeed.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
@@ -138,8 +137,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Fil de notification des villageois */}
-        {activeView !== 'city' && <VillagerFeed />}
+
 
         {/* Topbar reelle */}
         <Topbar />

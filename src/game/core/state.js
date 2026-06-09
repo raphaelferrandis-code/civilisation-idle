@@ -130,6 +130,7 @@ export const defaultState = () => ({
   dynastyDoctrine: null,
   buyAmount: 1,
   activeView: "city",
+  notifEnabled: true,
   mourning: false,
   atridesDebt: 0,
   atridesDrainDisabled: false,
@@ -160,6 +161,8 @@ export const defaultState = () => ({
   ragnarokEffectsApplied: false,
   finalChronicleTitle: null,
   ragnarokActiveConstraints: [],
+  chronicleEntries: [],
+  chronicleCooldown: 0,
   olympus: defaultOlympusState()
 });
 
@@ -422,6 +425,25 @@ export function normalizeCadmosTriggeredMilestones(raw) {
   return out;
 }
 
+export function normalizeChronicleEntries(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(isPlainObject)
+    .map(entry => {
+      return {
+        id: typeof entry.id === "string" ? entry.id : "",
+        title: typeof entry.title === "string" ? entry.title : "",
+        text: typeof entry.text === "string" ? entry.text : "",
+        author: typeof entry.author === "string" || entry.author === null ? entry.author : null,
+        age: typeof entry.age === "string" ? entry.age : "",
+        date: typeof entry.date === "string" ? entry.date : "",
+        category: typeof entry.category === "string" ? entry.category : "",
+        isNew: typeof entry.isNew === "boolean" ? entry.isNew : false
+      };
+    })
+    .filter(e => e.id);
+}
+
 export function hydrateState(parsed = {}) {
   const base = defaultState();
   const source = isPlainObject(parsed) ? parsed : {};
@@ -522,6 +544,8 @@ export function hydrateState(parsed = {}) {
     riverWP: normalizeRiverWaypoints(source.riverWP),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
+    chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),
+    chronicleCooldown: finiteNumber(source.chronicleCooldown, 0, 0),
     cityName: typeof source.cityName === "string" && source.cityName.trim()
       ? source.cityName.trim().slice(0, 42)
       : base.cityName,
@@ -658,4 +682,14 @@ export function resetTemporaryRunState(s) {
   s.atridesRenegotiateActiveUntil = 0;
   s.atridesRenegotiateCooldownEnd = 0;
   s.atridesPactActive = false;
+  s.chronicleEntries = [];
+  s.chronicleCooldown = 0;
+}
+
+export function markChronicleEntryRead(id) {
+  state.chronicleEntries = (state.chronicleEntries || []).map(entry =>
+    entry.id === id ? { ...entry, isNew: false } : entry
+  );
+  save();
+  notify();
 }
