@@ -56,7 +56,9 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleWipe = () => {
     if (!confirm("Recommencer depuis le tout premier feu ?")) return;
     localStorage.removeItem(SAVE_KEY);
+    invalidateRenderCache("all");
     setState(defaultState());
+    render();
     onClose();
   };
 

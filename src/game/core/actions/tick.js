@@ -64,6 +64,7 @@ export function tick(dt) {
   renderCache._frameVitals = null;
   renderCache._framePressure = null;
   renderCache._frameGlobalMult = null;
+  renderCache._frameRates = null;
 
   if (state.crisisLimitAnnounced) {
     if (state.instability >= 1) state.instability = 1;

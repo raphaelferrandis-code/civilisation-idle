@@ -515,7 +515,11 @@ function computeCityLayout(s) {
   }, 0);
   // Facteur de packing : village dense (0.27) → mégalopole diffuse (0.13)
   const packFactor = 0.27 - c.eraFrac * 0.14;
-  let N = 20;
+  // Grille minimale selon le nombre de merveilles : chacune réclame un rayon libre,
+  // il faut assez d'espace pour les espacer correctement en cercle.
+  const wonderCount = Array.isArray(s.wonders) ? s.wonders.length : 0;
+  const minNWonders = wonderCount >= 5 ? 36 : wonderCount >= 3 ? 30 : wonderCount >= 1 ? 24 : 20;
+  let N = minNWonders;
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < 300) N += 2;
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
 

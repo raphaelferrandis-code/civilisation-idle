@@ -9,7 +9,8 @@ import {
   render,
   save,
   setGamePaused,
-  resetTemporaryRunState
+  resetTemporaryRunState,
+  openView
 } from '../state.js';
 
 import {
@@ -20,6 +21,7 @@ import {
 
 import { openChoiceDialog } from '../events.js';
 import { DOCTRINES } from '../../data/world.js';
+import { CM } from '../../map/layout.js';
 import {
   getMythById,
   isMythCompleted,
@@ -80,6 +82,8 @@ export async function foundDynasty() {
   state.ruins = 0;
   setGamePaused(false);
   resetCivilization();
+  openView("city");
+  CM.centered = false; // force le recentrage de la caméra sur le nouveau village
   const doctrine = DOCTRINES.find((d) => d.id === state.dynastyDoctrine);
   log(`Dynastie ${state.dynastyCount}: les ruines deviennent ${fmt(gain)} legitimite. La ${doctrine?.name || "doctrine"} est proclamee.`);
   save();

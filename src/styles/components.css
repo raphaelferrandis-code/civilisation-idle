@@ -1555,12 +1555,13 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 }
 .journal-panel.is-parchment .journal-entry-title {
   color: #eeddbb;
-  font-family: serif;
+  font-family: Georgia, "Times New Roman", serif;
 }
 .journal-panel.is-parchment .journal-entry-text {
   color: #d4c7b8;
-  font-family: serif;
-  line-height: 1.45;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 .journal-panel.is-parchment .journal-entry-author {
   color: #8c7355;

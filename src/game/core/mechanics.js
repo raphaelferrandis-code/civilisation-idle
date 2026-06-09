@@ -386,6 +386,7 @@ export function cityVitals() {
 }
 
 export function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
+  if (renderCache._frameRates) return renderCache._frameRates;
   let pop = 0.04;
   let food = state.population * 0.012;
   let gold = Math.max(0, state.population - 25) * 0.0015;
@@ -463,6 +464,7 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
     baseRates.gold = 0;
   }
 
+  renderCache._frameRates = baseRates;
   return baseRates;
 }
 
@@ -651,6 +653,26 @@ export function archaeologyTarget() {
   return advanced[seed % advanced.length] || buildings[buildings.length - 1];
 }
 
+export function archaeologyCandidates() {
+  const entries = Object.entries(state.lastCollapsedBuildings || {})
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => ({ building: buildingById[id], count }))
+    .filter((e) => e.building)
+    .sort((a, b) => (b.building.base * Math.max(1, b.count)) - (a.building.base * Math.max(1, a.count)));
+  const collapsed = entries.map((e) => e.building).slice(0, 5);
+  if (collapsed.length >= 3) return collapsed;
+  // Compléter avec des bâtiments avancés si peu de collapsed
+  const seen = new Set(collapsed.map((b) => b.id));
+  const advanced = buildings.filter((b) => (b.base >= 100000 || b.category !== "city") && !seen.has(b.id));
+  const seed = Math.max(0, state.cycles * 31 + state.dynastyCount * 17 + totalBuildingCount());
+  const extras = [];
+  for (let i = 0; extras.length < 5 - collapsed.length && i < advanced.length * 2; i++) {
+    const b = advanced[(seed + i * 7) % advanced.length];
+    if (b && !extras.find((e) => e.id === b.id)) extras.push(b);
+  }
+  return [...collapsed, ...extras];
+}
+
 export function canExhume() {
   return has("skill_archaeology") && !state.archaeologyUsed && state.knowledge >= archaeologyCost();
 }
@@ -709,8 +731,9 @@ export function nextEraProgress(index) {
   const current = eras[index];
   const next = eras[index + 1];
   if (!next) return 1;
-  const span = Math.log10(next.at + 10) - Math.log10(current.at + 10);
-  const done = Math.log10(state.population + 10) - Math.log10(current.at + 10);
+  const base = Math.max(1, current.at);
+  const span = Math.log10(next.at) - Math.log10(base);
+  const done = Math.log10(Math.max(base, state.population)) - Math.log10(base);
   return Math.max(0, Math.min(1, done / span));
 }
 

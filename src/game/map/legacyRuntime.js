@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { state, collapseInProgress, buildingById } from '../core/state.js';
+import { state, collapseInProgress, buildingById, renderCache } from '../core/state.js';
 import {
   CM,
   CM_MAP_BUILDINGS,
@@ -38,8 +38,14 @@ import { drawTile, drawWonder, drawCentralFire, drawMinimap } from './renderBuil
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
 
 
+// Plafond de résolution de rendu : sur écrans HiDPI (dpr 2/3), dessiner à pleine
+// densité multiplie par dpr² le nombre de pixels des 3 canvas (principal + 2 offscreen)
+// et de chaque remplissage plein écran par frame — principale cause de lag GPU
+// "dès le début" sur portables HiDPI / GPU intégrés. 1.5 reste net à l'œil.
+const CM_MAX_RENDER_DPR = 1.5;
+
 function cityMapResizeCanvas(canvas) {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, CM_MAX_RENDER_DPR);
   const w = canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || 600;
   const h = canvas.clientHeight || 320;
   CM.dpr = dpr;
@@ -332,12 +338,31 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
 }
 
 
+// Cache engineSig et cityCounts entre frames — ne recalculer que si les bâtiments changent.
+let _cachedEngineSigBuildVer = -1;
+let _cachedEngineSig = "";
+let _cachedCityCounts = null;
+let _cachedCityCountsPopKey = "";
+
 function cityMapEnsureLayout(now, deps = {}) {
   const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
   const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "cart"; };
 
-  const engineSig = CM_MAP_BUILDINGS.map((meta) => `${meta.id}:${Math.floor((state.buildings && state.buildings[meta.id]) || 0)}`).join("|");
-  const cc = cityCounts(state);
+  // engineSig : ne reconstruire que si les bâtiments ont changé (renderCache._buildingsVersion)
+  if (renderCache._buildingsVersion !== _cachedEngineSigBuildVer) {
+    _cachedEngineSig = CM_MAP_BUILDINGS.map((meta) => `${meta.id}:${Math.floor((state.buildings && state.buildings[meta.id]) || 0)}`).join("|");
+    _cachedEngineSigBuildVer = renderCache._buildingsVersion;
+    _cachedCityCounts = null; // invalider aussi cityCounts
+  }
+  // cityCounts : ne recalculer que si population/infra/knowledge/cycles ont changé significativement
+  const _popKey = Math.floor(state.population / 500) + '|' + Math.floor((state.infrastructure || 0) / 200) + '|' + Math.floor((state.knowledge || 0) / 200) + '|' + (state.cycles || 0);
+  if (!_cachedCityCounts || _popKey !== _cachedCityCountsPopKey) {
+    _cachedCityCounts = cityCounts(state);
+    _cachedCityCountsPopKey = _popKey;
+  }
+  const cc = _cachedCityCounts;
+  const engineSig = _cachedEngineSig;
+
   const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
@@ -437,39 +462,21 @@ function cityMapEnsureLayout(now, deps = {}) {
     CM.centered = true;
   }
 
-  // (Re)cree les citoyens sur les routes — gestion incrementale pour eviter les disparitions.
+  // Calcule la cible et supprime l'excédent — l'ajout progressif se fait dans la boucle frame.
   const lateCrowd = Math.max(0, (L.counts.eraIndex || 0) - 11);
-  // Cap basé sur eraIndex (entier) → ne change qu'aux transitions d'ère, évite les recréations continues
-  const citizenCap = Math.round(8 + Math.pow(Math.min(1, (L.counts.eraIndex || 0) / 22), 0.74) * 650);
-  const want = Math.round(cmClamp(2 + L.counts.houses / 3.7 + (L.counts.eraIndex || 0) * 5.8 + L.counts.megaDistricts * 6.6 + lateCrowd * lateCrowd * 2.1, 2, citizenCap));
+  const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
+  const citizenCap = Math.round(10 + Math.pow(eraFrac, 0.55) * 240); // ~10 ère 0, ~250 ère 22
+  const want = Math.round(cmClamp(2 + L.counts.houses / 6 + Math.pow(eraFrac, 1.9) * 200 + L.counts.megaDistricts * 8, 2, citizenCap));
+  CM.citizenTarget = CM.walkRoadList.length ? want : 0;
   if (!CM.walkRoadList.length) {
     CM.citizens = [];
-  } else if (CM.citizens.length !== want) {
-    if (CM.citizens.length > want) {
-      CM.citizens.splice(want);
-    } else {
-      while (CM.citizens.length < want) {
-        const n = CM.citizens.length;
-        const r = CM.walkRoadList[(n * 37) % CM.walkRoadList.length];
-        const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
-        const roleList = CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
-        CM.citizens.push({
-          gx: r.gx, gy: r.gy,
-          x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
-          tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
-          dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
-          speed: 22 + (n % 7) * 4 + L.counts.urbanTier * 1.8,
-          col: ["#e8d2a0", "#cda36a", "#b58aa8", "#8fb8cf", "#c8b27a", "#9fb0c0"][n % 6],
-          name: cmCitizenName(seed, L.counts.eraBand),
-          role: cmPick(roleList, Math.floor(seed / 13))
-        });
-      }
-    }
+  } else if (CM.citizens.length > want) {
+    CM.citizens.splice(want);
   }
 
   // Trafic evolutif : paniers -> charrettes -> chars/convois -> voitures -> drones.
   const trafficBase = getVehicleDensity(L.counts.eraIndex, "main") * Math.max(1, L.counts.eraIndex) * 2.45 + L.counts.houses / 38 + lateCrowd * lateCrowd * 1.05;
-  const wantVeh = cmClamp(trafficBase, 0, L.counts.eraIndex >= 18 ? 210 : L.counts.eraIndex >= 14 ? 150 : L.counts.eraIndex >= 8 ? 72 : 20);
+  const wantVeh = cmClamp(trafficBase, 0, L.counts.eraIndex >= 18 ? 80 : L.counts.eraIndex >= 14 ? 55 : L.counts.eraIndex >= 8 ? 35 : 15);
   const trafficSig = `${L.counts.eraIndex}:${wantVeh}:${L.roads.length}:${L.roads.map((r) => r.rank).join("").length}`;
   if (CM.vehicles.length !== wantVeh || CM.vehicleSig !== trafficSig || !CM.walkRoadList.length) {
     CM.vehicleSig = trafficSig;
@@ -502,6 +509,23 @@ function cityMapEnsureLayout(now, deps = {}) {
       CM.ships.push({ t: (n / Math.max(1, wantShips)), dir: n % 2 ? 1 : -1, speed: 0.008 + (n % 4) * 0.003 });
     }
   }
+}
+
+function spawnOneCitizen(L) {
+  const n = CM.citizens.length;
+  const r = CM.walkRoadList[(n * 37) % CM.walkRoadList.length];
+  const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
+  const roleList = CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
+  CM.citizens.push({
+    gx: r.gx, gy: r.gy,
+    x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
+    tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
+    dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
+    speed: 22 + (n % 7) * 4 + L.counts.urbanTier * 1.8,
+    col: ["#e8d2a0", "#cda36a", "#b58aa8", "#8fb8cf", "#c8b27a", "#9fb0c0"][n % 6],
+    name: cmCitizenName(seed, L.counts.eraBand),
+    role: cmPick(roleList, Math.floor(seed / 13))
+  });
 }
 
 function initCityMap(canvas, options = {}) {
@@ -552,14 +576,30 @@ function initCityMap(canvas, options = {}) {
   };
   const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType };
 
+  const FRAME_MS = 1000 / 30; // cap à 30fps — suffisant pour un idle, évite la surcharge CPU
   let last = performance.now();
+  let lastCitizenSpawn = 0;
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    CM.raf = requestAnimationFrame(frame);
+    if (now - last < FRAME_MS) return;
+    const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
     const active = isActive();
     if (active && CM.canvas && CM.cw > 0) {
       if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
       cmCheckWonders(now);
+
+      // Arrivée progressive des citoyens : cadence selon l'ère et la population
+      const target = CM.citizenTarget || 0;
+      if (CM.layout && CM.walkRoadList.length && CM.citizens.length < target) {
+        const eraIndex = CM.layout.counts ? (CM.layout.counts.eraIndex || 0) : 0;
+        // Intervalle en ms : de 3000ms (ère 0) à 300ms (ère 20+), lié à l'ère
+        const msPerCitizen = Math.max(300, 3000 - eraIndex * 135);
+        if (now - lastCitizenSpawn >= msPerCitizen) {
+          lastCitizenSpawn = now;
+          spawnOneCitizen(CM.layout);
+        }
+      }
       // Cycle jour/nuit lent (~5 min).
       CM.nightF = 0.5 - 0.5 * Math.cos((now || 0) / 300000 * Math.PI * 2);
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
@@ -649,7 +689,6 @@ function initCityMap(canvas, options = {}) {
       drawVehicles(now, "air"); // drones au-dessus
       drawCitizenThoughts(now);
     }
-    CM.raf = requestAnimationFrame(frame);
   }
   // Premiere mise en page immediate puis boucle.
   if (CM.cw === 0) resize();

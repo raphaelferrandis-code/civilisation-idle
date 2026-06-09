@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import {
   cityVitals,
@@ -25,13 +24,9 @@ export default function Topbar() {
     buildingsSig, upgradesSig, cycleStartedAt
   } = useCityViewState();
 
-  const vitals = useMemo(() => cityVitals(), [population, food, gold, knowledge, activeMythId]);
-  const pressure = useMemo(() => pressureBreakdown(), [
-    population, food, gold, knowledge, infrastructure, legitimacy, cycles, ruins, instability, rationing, activeMythId, buildingsSig, upgradesSig
-  ]);
-  const r = useMemo(() => rates(vitals, pressure), [
-    vitals, pressure, activeMythId, prometheeBraisiers, atridesPactActive, atridesNextRunPenaltyActive, eneeHeritage, eneeDegraded, buildingsSig
-  ]);
+  const vitals = cityVitals();
+  const pressure = pressureBreakdown();
+  const r = rates(vitals, pressure);
 
   const showNomadCap = has("trait_nomadism");
   const nomadCap = nomadInfrastructureCap();

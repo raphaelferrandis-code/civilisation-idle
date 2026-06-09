@@ -1,6 +1,7 @@
 "use strict";
 
 import { useGameState } from './useGameState.js';
+import { renderCache } from '../game/core/state.js';
 
 export function useCityViewState() {
   return useGameState(s => ({
@@ -49,7 +50,7 @@ export function useCityViewState() {
     timeWear:                      s.timeWear,
     atlasLegitimite:               s.atlasLegitimite,
     atlasHeritage:                 s.atlasHeritage,
-    buildingsSig:                  Object.values(s.buildings || {}).join(","),
-    upgradesSig:                   Object.keys(s.upgrades || {}).filter(id => s.upgrades[id]).sort().join(",")
+    buildingsSig:                  renderCache._buildingsVersion,
+    upgradesSig:                   renderCache._upgradesVersion
   }));
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
@@ -117,13 +117,9 @@ export default function CityView() {
     return () => clearInterval(interval);
   }, []);
 
-  const vitals = useMemo(() => cityVitals(), [population, food, gold, knowledge, activeMythId]);
-  const pressure = useMemo(() => pressureBreakdown(), [
-    population, food, gold, knowledge, infrastructure, legitimacy, cycles, ruins, instability, rationing, activeMythId, buildingsSig, upgradesSig
-  ]);
-  const r = useMemo(() => rates(vitals, pressure), [
-    vitals, pressure, activeMythId, prometheeBraisiers, atridesPactActive, atridesNextRunPenaltyActive, eneeHeritage, eneeDegraded, buildingsSig
-  ]);
+  const vitals = cityVitals();
+  const pressure = pressureBreakdown();
+  const r = rates(vitals, pressure);
 
   const globalMult = globalMultiplier();
 

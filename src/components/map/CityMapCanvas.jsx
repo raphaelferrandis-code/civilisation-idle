@@ -16,7 +16,10 @@ export default function CityMapCanvas({ onCitizenThoughtClicked }) {
     startCityMapRuntime(canvasRef.current, {
       mapRoot: canvasRef.current.closest(".civilization-map"),
       tooltip: tooltipRef.current,
-      isActive: () => true,
+      // Met le rendu en pause tant qu'une modale (<dialog open>) est ouverte par-dessus
+      // la carte (Options, Import, Debug, choix de crise). Inutile de dessiner derrière
+      // une fenêtre opaque : libère CPU/GPU pour rendre l'interaction fluide.
+      isActive: () => !document.querySelector("dialog[open]"),
       onCitizenThoughtClicked: (citizen, type) => {
         callbackRef.current?.(citizen, type);
       }

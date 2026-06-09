@@ -229,7 +229,6 @@ export function setMusicVolume(vol) {
   try {
     localStorage.setItem("civ-opt-music-volume", String(optMusicVolume));
   } catch { /* Option persistence may be unavailable. */ }
-  notify();
 }
 
 export function setMusicEnabled(enabled) {
@@ -242,7 +241,6 @@ export function setMusicEnabled(enabled) {
     pauseMusic();
     if (bgAudio) bgAudio.currentTime = 0;
   }
-  notify();
 }
 
 export function setMusicActiveTabOnly(enabled) {
@@ -251,7 +249,6 @@ export function setMusicActiveTabOnly(enabled) {
     localStorage.setItem("civ-opt-music-active-tab", String(optMusicActiveTabOnly));
   } catch { /* Option persistence may be unavailable. */ }
   syncMusicVisibility();
-  notify();
 }
 
 function syncMusicVisibility() {
@@ -305,12 +302,12 @@ export function startGameLoop() {
   let last = performance.now();
   const tickInterval = setInterval(() => {
     const now = performance.now();
-    const seconds = Math.min(0.25, (now - last) / 1000);
+    const seconds = Math.min(1.0, (now - last) / 1000);
     last = now;
     tick(seconds);
     checkAutoCollapse();
     notify(); // Notifie React du changement d'etat a chaque tick
-  }, 250);
+  }, 1000);
 
   // Auto-save toutes les 10 secondes
   const saveInterval = setInterval(() => {
@@ -322,18 +319,21 @@ export function startGameLoop() {
     save();
   }, 2000);
 
-  // Sauvegarder quand l'onglet perd le focus (avant un éventuel F5, switch d'onglet, etc.)
+  // Sauvegarder quand l'onglet perd le focus (switch d'onglet, etc.)
   const handleVisibilityChange = () => {
-    if (document.hidden) {
-      save();
-    }
+    if (document.hidden) save();
   };
   document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  // Sauvegarder avant F5 / fermeture de l'onglet
+  const handleBeforeUnload = () => save();
+  window.addEventListener("beforeunload", handleBeforeUnload);
 
   return () => {
     if (typeof window !== "undefined") {
       window.removeEventListener("pointerdown", trackInteraction);
       window.removeEventListener("keydown", trackInteraction);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     }
     clearInterval(tickInterval);
     clearInterval(saveInterval);

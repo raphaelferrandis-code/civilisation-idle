@@ -186,7 +186,10 @@ export let renderCache = {
   _frameVitals: null,
   _framePressure: null,
   _frameGlobalMult: null,
-  _buildingSums: null
+  _frameRates: null,
+  _buildingSums: null,
+  _buildingsVersion: 0,
+  _upgradesVersion: 0
 };
 export let gamePaused = false;
 export let collapseInProgress = false;
@@ -584,12 +587,27 @@ export function save() {
 }
 
 export function invalidateRenderCache(scope = "all") {
+  if (scope === "all") {
+    renderCache._frameVitals = null;
+    renderCache._framePressure = null;
+    renderCache._frameGlobalMult = null;
+    renderCache._frameRates = null;
+    renderCache._buildingSums = null;
+    renderCache.cachedRuinEffects = null;
+    renderCache.cachedRuinEffectsSignature = "";
+  }
   if (scope === "all" || scope === "buildings") {
     renderCache.buildings = {};
-    renderCache.batchCosts = {}; // Le coût change si les upgrades ou counts changent
+    renderCache.batchCosts = {};
     renderCache._buildingSums = null;
+    renderCache._buildingsVersion++;
+    renderCache._frameRates = null;
   }
-  if (scope === "all" || scope === "upgrades") renderCache.upgrades = {};
+  if (scope === "all" || scope === "upgrades") {
+    renderCache.upgrades = {};
+    renderCache._upgradesVersion++;
+    renderCache._frameRates = null;
+  }
   if (scope === "all" || scope === "dogmas") renderCache.dogmas = "";
 }
 

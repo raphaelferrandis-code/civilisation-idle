@@ -24,7 +24,7 @@ import {
   maxBuyAmount,
   buildingBatchCost,
   canExhume,
-  archaeologyTarget,
+  archaeologyCandidates,
   archaeologyCost,
   enforceInfrastructureCap,
   canBuyUpgrade,
@@ -64,14 +64,38 @@ export function buyBuilding(id) {
   render();
 }
 
-export function exhumeVestige() {
+export async function exhumeVestige() {
   if (!canExhume()) return;
-  const target = archaeologyTarget();
-  if (!target) return;
-  state.knowledge -= archaeologyCost();
+  const candidates = archaeologyCandidates();
+  if (!candidates.length) return;
+  const cost = archaeologyCost();
+
+  setGamePaused(true);
+  render();
+
+  const choice = await openChoiceDialog({
+    title: "Vestige archéologique",
+    body: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
+    options: candidates.map((b) => ({
+      label: b.name,
+      detail: b.desc || "",
+      buildingId: b.id
+    }))
+  });
+
+  setGamePaused(false);
+
+  if (!choice?.buildingId) { render(); return; }
+  if (!canExhume()) { render(); return; }
+
+  const target = buildingById[choice.buildingId];
+  if (!target) { render(); return; }
+
+  state.knowledge -= cost;
   state.buildings[target.id] = (state.buildings[target.id] || 0) + 1;
   state.archaeologyUsed = true;
   enforceInfrastructureCap();
+  invalidateRenderCache("buildings");
   chronicle(`Nos archéologues ont exhumé les ruines de : ${target.name}. Ses fondations antiques ont été restaurées.`);
   render();
 }

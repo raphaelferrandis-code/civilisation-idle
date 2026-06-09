@@ -12,7 +12,7 @@ import { amplifyRuptureFactor } from '../core/mechanics.js';
  * ============================================================================ */
 
 export const eras = [
-  { name: "Campement", at: 0, text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
+  { name: "Campement", at: 10, text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
   { name: "Feux dispersés", at: 120, text: "Quelques foyers tiennent la nuit à distance. Les vivants commencent à revenir aux mêmes endroits." },
   { name: "Abris saisonniers", at: 300, text: "Les huttes ne sont plus seulement des refuges. On y laisse des outils, des traces, des promesses de retour." },
   { name: "Clan des foyers", at: 700, text: "Des familles se rassemblent sous les étoiles. Les premiers récits forgent nos liens." },
