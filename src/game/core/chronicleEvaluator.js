@@ -68,6 +68,7 @@ const CATEGORY_LABELS = {
   stage_6: "Développement",
   stage_12: "Sédentarité",
   pop_10k: "Démographie",
+  pop_100k: "Démographie",
   paix: "Paix"
 };
 
@@ -76,6 +77,7 @@ const CATEGORY_PRIORITIES = {
   stage_6: 1,
   stage_12: 1,
   pop_10k: 1,
+  pop_100k: 1,
   crise: 2,
   tension: 3,
   usure: 3,
@@ -110,6 +112,8 @@ export function evaluateCondition(type, state) {
       return stage >= 12;
     case "pop_10k":
       return state.population > 10000;
+    case "pop_100k":
+      return state.population > 100000;
     case "paix":
       return state.instability < 0.35 && state.timeWear < 0.35;
     default:
@@ -135,7 +139,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const candidates = [];
 
   const types = [
-    "stage_start", "stage_6", "stage_12", "pop_10k",
+    "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k",
     "crise", "tension", "usure",
     "nourriture", "or", "savoir",
     "paix"
