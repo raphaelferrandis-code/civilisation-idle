@@ -19,7 +19,8 @@ import {
   CM_ROLES,
   cmCitizenName,
   cmPick,
-  WONDER_CLEAR_R
+  WONDER_CLEAR_R,
+  WONDER_TIER_NAMES
 } from './layout.js';
 import { setCityMapEngineTileMap } from './cityMapBridge.js';
 import {
@@ -31,6 +32,10 @@ import {
   cityMapDrawNight,
   cityMapDrawStreetLights,
   cityMapDrawBridges,
+  cityMapDrawWalls,
+  cityMapDrawPlazaSurface,
+  cityMapDrawPlazas,
+  cityMapDrawMist,
   drawCrisis,
   cityMapDrawRoad
 } from './renderWorld.js';
@@ -96,8 +101,9 @@ function cityMapTileScreen(gx, gy, span = 1) {
 
 function cityMapCenterCamera(layout) {
   if (!layout) return;
-  CM.cam.x = layout.gridN * CM.TILE / 2;
-  CM.cam.y = layout.gridN * CM.TILE / 2;
+  // Caméra centrée sur le cœur urbain du plan procédural.
+  CM.cam.x = (layout.plan?.core?.x ?? layout.gridN / 2) * CM.TILE;
+  CM.cam.y = (layout.plan?.core?.y ?? layout.gridN / 2) * CM.TILE;
   // Zoom recule avec la taille de la ville : village (22 tuiles visibles) → mégalopole (36 tuiles)
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
   CM.cam.zoom = Math.max(0.35, Math.min(1.6, CM.cw / (targetTiles * CM.TILE)));
@@ -196,7 +202,9 @@ function cityMapHitTest(sx, sy) {
       const wsx = (slot.gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
       const wsy = (slot.gy * CM.TILE + CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
       if (Math.hypot(wsx - sx, wsy - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) {
-        return { title: w.name, body: w.unlockedBy ? `Declencheur : ${w.unlockedBy}` : "", kind: "Merveille" };
+        const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
+        const next = w.tiers && tier < w.tiers.length ? ` — prochain rang : ${w.tierLabel(w.tiers[tier])}` : " — rang maximal";
+        return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
       }
     }
   }
@@ -205,7 +213,10 @@ function cityMapHitTest(sx, sy) {
     const info = cityMapDescribeTile(tile);
     return { ...info, kind: tile.type === "house" ? "Logement" : "Batiment" };
   }
-  if (CM.roadSet.has(`${gx},${gy}`)) return { title: cmRoadName(gx, gy), kind: "Voie" };
+  if (CM.roadSet.has(`${gx},${gy}`)) {
+    const road = CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
+    return { title: cmRoadName(gx, gy), kind: road && road.rank === "plaza" ? "Place" : "Voie" };
+  }
   return null;
 }
 
@@ -363,11 +374,15 @@ function cityMapEnsureLayout(now, deps = {}) {
   const cc = _cachedCityCounts;
   const engineSig = _cachedEngineSig;
 
-  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + engineSig;
+  // Bande de crise : 0 normal, 1 crise, 2 effondrement imminent — force une
+  // régénération du layout quand l'état de la ville bascule (chaos procédural).
+  const crisisBand = ((state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1) ? 2
+    : ((state.timeWear || 0) > 0.6 || (state.instability || 0) >= 0.6) ? 1 : 0;
+  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
   // Pour les changements de eraFrac seuls, on limite à 1 recompute par 1500ms.
-  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + engineSig;
+  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + engineSig;
   const coreChanged = coreSig !== CM.layoutCoreSig;
   if (CM.layout && !coreChanged && (now - CM.layoutRecomputeAt) < 1500) return;
   CM.layoutSig = sig;
@@ -425,6 +440,15 @@ function cityMapEnsureLayout(now, deps = {}) {
   });
   CM.roadSet = validRoadSet;
   CM.walkRoadList = L.roads.filter((r) => cmIsWalkableRoad(L, r.gx, r.gy));
+  // Cellules de route appartenant aux places : cibles de flânerie des piétons.
+  CM.plazaRoadCells = [];
+  if (L.plan && Array.isArray(L.plan.plazas)) {
+    for (const p of L.plan.plazas) {
+      for (const r of CM.walkRoadList) {
+        if (Math.abs(r.gx - p.gx) <= p.size && Math.abs(r.gy - p.gy) <= p.size) CM.plazaRoadCells.push(r);
+      }
+    }
+  }
   // ClÃ©s numÃ©riques : Ã©vite les allocations string Ã  chaque lookup dans les boucles agents
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
   // Ponts prÃ©calculÃ©s : Ã©vite Array.filter Ã  chaque frame dans cityMapDrawBridges
@@ -454,6 +478,7 @@ function cityMapEnsureLayout(now, deps = {}) {
     for (const k of L.river.cells) occ.add(k);
     for (const k of L.river.banks) occ.add(k);
   }
+  if (L.walls) for (const wc of L.walls.cells) occ.add(wc.gx + "," + wc.gy);
   CM.occupied = occ;
   CM.riverRow = -999;
 
@@ -465,8 +490,12 @@ function cityMapEnsureLayout(now, deps = {}) {
   // Calcule la cible et supprime l'excédent — l'ajout progressif se fait dans la boucle frame.
   const lateCrowd = Math.max(0, (L.counts.eraIndex || 0) - 11);
   const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
-  const citizenCap = Math.round(10 + Math.pow(eraFrac, 0.55) * 240); // ~10 ère 0, ~250 ère 22
-  const want = Math.round(cmClamp(2 + L.counts.houses / 6 + Math.pow(eraFrac, 1.9) * 200 + L.counts.megaDistricts * 8, 2, citizenCap));
+  // Foule de fin de partie : ~10 piétons à l'ère 0, jusqu'à ~450 en mégalopole.
+  const citizenCap = Math.round(10 + Math.pow(eraFrac, 0.55) * 440);
+  // La personnalité de la ville module l'animation des rues (cité marchande
+  // grouillante vs cité agricole paisible vs ville en crise désertée).
+  const densityMul = (L.personality && L.personality.densityMul) || 1;
+  const want = Math.round(cmClamp((2 + L.counts.houses / 5 + Math.pow(eraFrac, 1.9) * 360 + L.counts.megaDistricts * 9) * densityMul, 2, citizenCap));
   CM.citizenTarget = CM.walkRoadList.length ? want : 0;
   if (!CM.walkRoadList.length) {
     CM.citizens = [];
@@ -515,14 +544,31 @@ function spawnOneCitizen(L) {
   const n = CM.citizens.length;
   const r = CM.walkRoadList[(n * 37) % CM.walkRoadList.length];
   const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
-  const roleList = CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
+  // Rôles définis par la config d'âge (huttes → tours), fallback legacy.
+  const roleList = (L.ageCfg && L.ageCfg.citizenRoles)
+    || CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
+  const band = L.counts.eraBand || 0;
+  // Garde-robe par ère : peaux/lin aux ères primitives, étoffes teintes ensuite.
+  const OUTFITS = band <= 1
+    ? ["#a8835a", "#8f6e48", "#b89468", "#7d6242", "#9c7a50", "#6e563c"]
+    : band <= 3
+      ? ["#9a4d38", "#3f6a8a", "#7a8a3c", "#8a5d9a", "#b08a3a", "#5d7a6a"]
+      : ["#7a4a68", "#3a6a9a", "#9a3a3a", "#4a8a6a", "#b0883a", "#5a5a8a"];
+  const SKINS = ["#e8c8a0", "#d4a878", "#b88a58", "#8a5c38"];
+  // Couvre-chefs : capuche sombre, paille, casque selon l'ère (1 sur 3 environ).
+  const hatRoll = seed % 9;
+  const hat = hatRoll === 0 ? (band <= 1 ? "#5d4226" : "#3c3228")
+    : hatRoll === 1 ? (band >= 3 ? "#8a8a92" : "#c8a85a")
+    : null;
   CM.citizens.push({
     gx: r.gx, gy: r.gy,
     x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
     tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
     dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
     speed: 22 + (n % 7) * 4 + L.counts.urbanTier * 1.8,
-    col: ["#e8d2a0", "#cda36a", "#b58aa8", "#8fb8cf", "#c8b27a", "#9fb0c0"][n % 6],
+    col: OUTFITS[seed % OUTFITS.length],
+    skin: SKINS[(seed >> 3) % SKINS.length],
+    hat,
     name: cmCitizenName(seed, L.counts.eraBand),
     role: cmPick(roleList, Math.floor(seed / 13))
   });
@@ -600,8 +646,13 @@ function initCityMap(canvas, options = {}) {
           spawnOneCitizen(CM.layout);
         }
       }
-      // Cycle jour/nuit lent (~5 min).
-      CM.nightF = 0.5 - 0.5 * Math.cos((now || 0) / 300000 * Math.PI * 2);
+      // Cycle jour/nuit lent (~5 min) + phase (montante = crépuscule,
+      // descendante = aube) + brume matinale autour de l'aube.
+      const dayP = ((now || 0) / 300000) % 1;
+      CM.nightF = 0.5 - 0.5 * Math.cos(dayP * Math.PI * 2);
+      CM.dayRising = dayP < 0.5;
+      CM.mistF = !CM.dayRising && CM.nightF > 0.1 && CM.nightF < 0.62
+        ? Math.sin(((0.62 - CM.nightF) / 0.52) * Math.PI) : 0;
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
       const _n = CM.nightF;
       CM.litWarm = `rgba(255,204,68,${(0.25 + _n * 0.65).toFixed(2)})`;
@@ -627,8 +678,10 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawTrees();
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
+        cityMapDrawPlazaSurface();
         for (const r of CM.roadList) cityMapDrawRoad(r);
         cityMapDrawBridges();
+        cityMapDrawWalls();
         cityMapDrawStreetLights(now);
         CM.ctx = _mainCtx;
         CM.staticCamKey = _camKey;
@@ -643,12 +696,15 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawTrees();
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
+        cityMapDrawPlazaSurface();
         for (const r of CM.roadList) cityMapDrawRoad(r);
         cityMapDrawBridges();
+        cityMapDrawWalls();
         cityMapDrawStreetLights(now);
       }
       // --- Couches dynamiques (animees, chaque frame) ---
       // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
+      cityMapDrawPlazas(now);
       updateVehicles(dt);
       drawShips(dt);
       drawCentralFire(now);
@@ -679,6 +735,7 @@ function initCityMap(canvas, options = {}) {
       }
       // Nuit : assombrit la scene, les villes avancees se mettent a briller.
       cityMapDrawNight(now);
+      cityMapDrawMist(now);
       drawCrisis(dt, now);
       // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
       if (CM.layout && Array.isArray(state.wonders)) {

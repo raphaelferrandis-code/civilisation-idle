@@ -5,6 +5,13 @@ import { seededRng } from '../core/utils.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
 import { setCityMapEngineTileMap, setCaptureVestigeHandler } from './cityMapBridge.js';
+import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
+import { ageConfigFor } from './procedural/ageVisualConfig.js';
+import { computeCityPersonality } from './procedural/cityPersonality.js';
+import { generateCityPlan } from './procedural/cityPlan.js';
+import { generateRoads } from './procedural/roadGenerator.js';
+import { generateWalls } from './procedural/wallGenerator.js';
+import { createBuildingPlacer } from './procedural/buildingGenerator.js';
 
 /* ---- legacy citymap core\layout.js ---- */
 
@@ -142,14 +149,45 @@ const CM_INFRA_IDS     = new Set(CM_INFRA_BUILDINGS.map((b) => b.id));
 const CM_SLOT_PRIORITIES = { aqueducts: 0, infra: 1, knowledge: 2, engine: 3 };
 
 // â”€â”€ Merveilles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Chaque merveille a une identité propre : nom, sprite dédié (renderBuildings),
+// emplacement thématique, et 5 PALIERS d'évolution : franchir un nouveau jalon
+// (population ×10, dynastie suivante, ère plus avancée...) fait grandir le
+// monument et l'orne de nouveaux attributs. `metric` extrait la valeur de
+// progression, `tiers` liste les 5 seuils, `tierLabel` nomme le jalon.
 const CM_WONDERS = [
-  { id: "dynasty1",       name: "Le Premier Mausolee",  icon: "obelisk", unlockedBy: "Premiere dynastie fondee.", test: (s) => (s.dynastyCount || 0) >= 1 },
-  { id: "pop1m",          name: "La Grande Halle",       icon: "hall",    unlockedBy: "Population d'au moins 1 000 000.", test: (s) => (s.population || 0) >= 1e6 },
-  { id: "era_kingdom",    name: "La Couronne de Pierre", icon: "dome",    unlockedBy: "Age du royaume atteint.", test: (s) => cmEraIndexFor(s) >= 9  },
-  { id: "era_empire",     name: "Le Forum Imperial",     icon: "hall",    unlockedBy: "Age imperial atteint.", test: (s) => cmEraIndexFor(s) >= 12 },
-  { id: "era_mega",       name: "La Spire des Mondes",   icon: "spire",   unlockedBy: "Age megastructurel atteint.", test: (s) => cmEraIndexFor(s) >= 15 },
-  { id: "era_singularity",name: "L'Axe Civique",         icon: "obelisk", unlockedBy: "Age de singularite atteint.", test: (s) => cmEraIndexFor(s) >= 19 }
+  { id: "dynasty1",       name: "Le Mausolée du Fondateur",   icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 },
+    unlockedBy: "Première dynastie fondée.",
+    metric: (s) => s.dynastyCount || 0, tiers: [1, 3, 5, 8, 12],
+    tierLabel: (v) => `${v} dynastie${v > 1 ? "s" : ""}` },
+  { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 },
+    unlockedBy: "Population d'au moins 1 000 000.",
+    metric: (s) => s.population || 0, tiers: [1e6, 1e7, 1e8, 1e9, 1e10],
+    tierLabel: (v) => v >= 1e9 ? `${v / 1e9} milliard${v >= 2e9 ? "s" : ""} d'habitants` : `${v / 1e6} million${v >= 2e6 ? "s" : ""} d'habitants` },
+  { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 },
+    unlockedBy: "Âge du royaume atteint.",
+    metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],
+    tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
+  { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 },
+    unlockedBy: "100 achats accomplis (bâtiments et décrets).",
+    metric: (s) => s.lifetimePurchases || 0, tiers: [100, 1000, 10000, 15000, 20000],
+    tierLabel: (v) => `${v >= 1000 ? (v / 1000) + " 000" : v} achats accomplis` },
+  { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 },
+    unlockedBy: "30 minutes passées à veiller sur la cité.",
+    metric: (s) => s.playTimeSec || 0, tiers: [1800, 7200, 28800, 86400, 259200],
+    tierLabel: (v) => v >= 3600 ? `${Math.round(v / 3600)} heures de veille` : `${Math.round(v / 60)} minutes de veille` },
+  { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 },
+    unlockedBy: "Premier mythe accompli.",
+    metric: (s) => Object.keys(s.mythsCompleted || {}).length, tiers: [1, 3, 5, 8, 12],
+    tierLabel: (v) => `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}` }
 ];
+const WONDER_TIER_NAMES = ["", "I", "II", "III", "IV", "V"];
+// Palier courant d'une merveille (0 = pas encore érigée, 1..5 sinon).
+function cmWonderTier(w, s) {
+  const v = w.metric(s);
+  let tier = 0;
+  for (const threshold of w.tiers) { if (v >= threshold) tier += 1; else break; }
+  return tier;
+}
 const WONDER_CLEAR_R = 4; // rayon libre (tuiles) autour de chaque merveille
 
 // â”€â”€ Utilitaires purs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -263,6 +301,21 @@ function cmRoadName(gx, gy) {
   const L = CM.layout;
   const cx = L ? L.cx : 0, cy = L ? L.cy : 0;
   const band = (L && L.counts) ? L.counts.eraBand : 2;
+  // Les cellules de place portent un nom de place, pas de rue.
+  const road = L && L.roadMap && L.roadMap.get(gx + "," + gy);
+  if (road && road.rank === "plaza") {
+    // Nom stable pour toute la place : basé sur la place la plus proche.
+    let pKey = gx + ":" + gy;
+    if (L.plan && Array.isArray(L.plan.plazas)) {
+      let best = Infinity;
+      for (const p of L.plan.plazas) {
+        const d = Math.hypot(gx - p.gx, gy - p.gy);
+        if (d < best) { best = d; pKey = p.gx + ":" + p.gy; }
+      }
+    }
+    const kind = band >= 4 ? ["Grande Place", "Place", "Esplanade"] : ["Place", "Parvis"];
+    return `${cmPick(kind, cmHash("pk" + pKey))} ${cmPick(CM_STREET_OF, cmHash("pof" + pKey))}`;
+  }
   const vertical = Math.abs(gx - cx) >= Math.abs(gy - cy);
   const lineId = vertical ? 1000 + gx : 2000 + gy;
   const major = gx === cx || gy === cy;
@@ -275,8 +328,14 @@ function cmRoadName(gx, gy) {
 
 // â”€â”€ Merveilles : slots et vÃ©rification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function cmBaseWonderSlot(idx, gridN, cx, cy) {
-  const angle = idx * (Math.PI * 2 / CM_WONDERS.length) - Math.PI / 2;
-  const ring = Math.max(WONDER_CLEAR_R + 2, Math.min(Math.round(gridN * 0.28), 30));
+  // Emplacement thématique propre à chaque merveille (angle/anneau dédiés),
+  // avec un léger jitter seedé pour que deux parties ne soient pas identiques.
+  const w = CM_WONDERS[idx] || CM_WONDERS[0];
+  const seed = (typeof state !== "undefined" && state && state.mapSeed) ? state.mapSeed : 0;
+  const jit = seed ? (((cmHash(seed + ":wslot:" + w.id) % 100) / 100) - 0.5) * 0.5 : 0;
+  const angle = (w.slot ? w.slot.angle : idx * (Math.PI * 2 / CM_WONDERS.length) - Math.PI / 2) + jit;
+  const ringBase = Math.max(WONDER_CLEAR_R + 2, Math.min(Math.round(gridN * 0.3), 34));
+  const ring = Math.max(WONDER_CLEAR_R + 2, Math.round(ringBase * (w.slot ? w.slot.ring : 1)));
   return { gx: Math.round(cx + Math.cos(angle) * ring), gy: Math.round(cy + Math.sin(angle) * ring) };
 }
 
@@ -325,14 +384,25 @@ function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet) {
 function cmCheckWonders(now) {
   if (typeof state === "undefined" || !state) return;
   if (!Array.isArray(state.wonders)) state.wonders = [];
+  if (!state.wonderTiers || typeof state.wonderTiers !== "object") state.wonderTiers = {};
   for (const w of CM_WONDERS) {
-    if (state.wonders.includes(w.id)) continue;
-    let ok = false;
-    try { ok = !!w.test(state); } catch (e) { ok = false; }
-    if (ok) {
+    let tier = 0;
+    try { tier = cmWonderTier(w, state); } catch (e) { tier = 0; }
+    const prev = state.wonderTiers[w.id] || (state.wonders.includes(w.id) ? 1 : 0);
+    if (tier <= prev) {
+      // Les merveilles ne régressent jamais : la pierre garde la mémoire du sommet.
+      if (prev > 0 && !state.wonderTiers[w.id]) state.wonderTiers[w.id] = prev;
+      continue;
+    }
+    state.wonderTiers[w.id] = tier;
+    if (!state.wonders.includes(w.id)) {
       state.wonders.push(w.id);
       CM.born["wonder:" + w.id] = now;
-      if (typeof chronicle === "function") chronicle(`Merveille erigee : ${w.name}. La cite grave son ascension dans la pierre.`);
+      if (typeof chronicle === "function") chronicle(`Merveille érigée : ${w.name}. La cité grave son ascension dans la pierre.`);
+    } else {
+      // Montée de rang : animation de reconstruction + chronique.
+      CM.born["wonder:" + w.id] = now;
+      if (typeof chronicle === "function") chronicle(`${w.name} s'élève au rang ${WONDER_TIER_NAMES[tier]} — ${w.tierLabel(w.tiers[tier - 1])}. Les bâtisseurs surpassent leurs ancêtres.`);
     }
   }
 }
@@ -508,6 +578,10 @@ function cityCounts(s) {
 // â”€â”€ GÃ©nÃ©ration de la disposition (pure) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function computeCityLayout(s) {
   const c = cityCounts(s);
+  // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
+  const mapSeed = ensureMapSeed(s);
+  const personality = computeCityPersonality(mapSeed, s);
+  const ageCfg = ageConfigFor(c.eraBand);
   const total = c.houses + c.farms + c.publics + c.libs;
   const enginePressure = CM_MAP_BUILDINGS.reduce((sum, meta) => {
     const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
@@ -533,8 +607,9 @@ function computeCityLayout(s) {
       y: cy + p.dy
     }));
   } else {
-    const rrng = seededRng(cmHash("river:v1") + 7);
-    const bandY = cy + N * 0.24;
+    // Rivière seedée par partie : chaque civilisation a son propre cours d'eau.
+    const rrng = seededRng(mixSeed(mapSeed, "river") + 7);
+    const bandY = cy + N * (0.16 + rrng() * 0.16);
     WP = [];
     for (let i = 0; i < WN; i += 1) {
       WP.push({ x: xStart + (xEnd - xStart) * (i / (WN - 1)), y: cmClamp(bandY + (rrng() - 0.5) * N * 0.22, cy + N * 0.08, N - 1.5) });
@@ -566,8 +641,6 @@ function computeCityLayout(s) {
       }
     }
   }
-  let riverBridge = riverSamples[0], rbd = Infinity;
-  for (const sp of riverSamples) { const dd = Math.abs(sp.x - (cx + 0.5)); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
   const riverYByCol = new Array(N);
   for (let gx = 0; gx < N; gx += 1) {
     let by = cy + N, bd = Infinity;
@@ -577,115 +650,59 @@ function computeCityLayout(s) {
   const riverYAt = (gx) => riverYByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
 
   const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25));
-  const organicReach = (angle) => {
-    const h1 = (cmHash("lobe:a:" + Math.round(angle * 1000) + ":" + c.eraIndex) % 1000) / 1000;
-    const h2 = (cmHash("lobe:b:" + Math.round(angle * 700)  + ":" + (s.cycles || 0)) % 1000) / 1000;
-    const lobes = Math.sin(angle * 3 + c.eraIndex * 0.27) * 0.14 + Math.cos(angle * 5 + h1 * 6.28) * 0.08 + (h2 - 0.5) * 0.08;
-    return cityReachBase * (1 + lobes);
-  };
-  const quarterAnchors = [];
-  const addAnchor = (label, angle, distMul, strength = 1) => {
-    const reach = organicReach(angle) * distMul;
-    quarterAnchors.push({ label, gx: cx + Math.cos(angle) * reach, gy: cy + Math.sin(angle) * reach, r: Math.max(3.2, cityReachBase * (0.14 + strength * 0.05)), strength });
-  };
-  const b = s.buildings || {};
-  addAnchor("halles", -0.18 + (cmHash("halles:" + (s.cycles || 0)) % 50) / 200, 0.55, 1.1);
-  if ((b.caravans || 0) + (b.markets || 0) + (b.guilds || 0) > 0) addAnchor("faubourg-marchand", Math.PI * 0.82, 0.92, 1.2);
-  if ((b.libraries || 0) + (b.schools || 0) + (b.academies || 0) + (b.observatories || 0) > 0) addAnchor("quartier-savant", -Math.PI * 0.62, 0.82, 1.05);
-  if ((b.irrigated_fields || 0) + (b.granaries_city || 0) > 0) addAnchor("ceinture-agricole", Math.PI * 0.12, 0.96, 1.15);
-  if ((b.river_ports || 0) + (b.water_mills || 0) > 0 || c.eraBand >= 3) addAnchor("rive-active", Math.PI * 0.42, 0.86, 1.1);
-  if ((b.public_works || 0) + (b.aqueducts || 0) + (b.watch || 0) > 0) addAnchor("travaux", -Math.PI * 0.08, 1.02, 1);
-  if (c.eraBand >= 4) addAnchor("faubourg-nord", -Math.PI * 0.92, 0.9, 0.9);
-  if (c.eraBand >= 5) addAnchor("quartier-haut", Math.PI * 0.02, 1.05, 0.95);
-  const axisBoost = (dx, dy) => {
-    const adx = Math.abs(dx), ady = Math.abs(dy);
-    const major    = Math.min(adx, ady) <= 1 ? 4 + c.infraRings * 0.65 : 0;
-    const diagonal = Math.abs(adx - ady) <= 1 && c.eraBand >= 3 ? 2.5 + c.infraRings * 0.35 : 0;
-    return Math.max(major, diagonal);
-  };
+  // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
+  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt });
+  plan.reachBase = cityReachBase;
+  plan.finalize({ reachBase: cityReachBase });
+  const quarterAnchors = plan.anchors;
+
+  // Pont historique : la traversée la plus proche du cœur urbain.
+  let riverBridge = riverSamples[0], rbd = Infinity;
+  for (const sp of riverSamples) { const dd = Math.abs(sp.x - (plan.core.x + 0.5)); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
+
+  // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon
+  // de route + chaque tentative de district. Boucle simple et hash entier
+  // (pas de concaténation de chaînes ni de closure de reduce).
+  const riverPullFactor = c.eraBand >= 2 ? 0.55 : 0.2;
   const organicLimit = (gx, gy, margin = 0) => {
-    const dx = gx + 0.5 - cx, dy = gy + 0.5 - cy;
+    const px = gx + 0.5, py = gy + 0.5;
+    const dx = px - plan.core.x, dy = py - plan.core.y;
     const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx);
-    const riverPull = Math.max(0, 5.5 - Math.abs((gy + 0.5) - riverYAt(gx))) * (c.eraBand >= 2 ? 0.55 : 0.2);
-    const quarterPull = quarterAnchors.reduce((best, q) => {
-      const qd = Math.hypot((gx + 0.5) - q.gx, (gy + 0.5) - q.gy);
-      return Math.max(best, Math.max(0, q.r - qd) * q.strength);
-    }, 0);
-    const hashEdge = ((cmHash("edge:" + gx + ":" + gy + ":" + c.eraIndex) % 1000) / 1000 - 0.5) * 1.8;
-    return dist <= organicReach(angle) + axisBoost(dx, dy) + riverPull + quarterPull + hashEdge + margin;
+    const riverPull = Math.max(0, 5.5 - Math.abs(py - riverYAt(gx))) * riverPullFactor;
+    let quarterPull = 0;
+    for (let qi = 0; qi < quarterAnchors.length; qi += 1) {
+      const q = quarterAnchors[qi];
+      const pull = (q.r - Math.hypot(px - q.gx, py - q.gy)) * q.strength;
+      if (pull > quarterPull) quarterPull = pull;
+    }
+    const h = (Math.imul(gx | 0, 73856093) ^ Math.imul(gy | 0, 19349663) ^ mapSeed) >>> 0;
+    const hashEdge = ((h % 1000) / 1000 - 0.5) * 1.8;
+    return dist <= plan.reachFor(cityReachBase, angle) + riverPull + quarterPull + hashEdge + margin;
   };
   const organicScore = (cell) => {
-    const dx = cell.gx + 0.5 - cx, dy = cell.gy + 0.5 - cy;
-    const reach = Math.max(1, organicReach(Math.atan2(dy, dx)) + axisBoost(dx, dy));
+    const dx = cell.gx + 0.5 - plan.core.x, dy = cell.gy + 0.5 - plan.core.y;
+    const reach = Math.max(1, plan.reachFor(cityReachBase, Math.atan2(dy, dx)));
     return Math.hypot(dx, dy) / reach;
   };
 
-  const roadKey = new Set(), roadMeta = new Map(), roads = [];
-  const addRoad = (x, y, force = false, axis = null, rank = "secondary", allowWater = false) => {
-    if (x < 0 || y < 0 || x >= N || y >= N) return;
-    const k = x + "," + y;
-    if (!allowWater) {
-      if (riverSet.has(k) && !(x === cx || y === cy)) return;
-      if (bankSet.has(k)  && !(x === cx || y === cy)) return;
-    }
-    if (!force && !organicLimit(x, y, 2.2)) return;
-    if (axis) {
-      const meta = roadMeta.get(k) || { h: false, v: false, rank: "path" };
-      if (axis === "h") meta.h = true;
-      if (axis === "v") meta.v = true;
-      meta.rank = cmBetterRoadRank(meta.rank, rank);
-      roadMeta.set(k, meta);
-    }
-    if (roadKey.has(k)) return;
-    roadKey.add(k); roads.push({ gx: x, gy: y });
-  };
-  for (let i = 0; i < N; i += 1) {
-    addRoad(i, cy, Math.abs(i - cx) < cityReachBase + 5, "h", "main");
-    addRoad(cx, i, Math.abs(i - cy) < cityReachBase + 5 || Math.abs(i - riverBridge.y) < 3, "v", "main");
-  }
-  for (let ring = 1; ring <= c.infraRings; ring += 1) {
-    const r = ring * 4;
-    if (r >= N / 2) break;
-    for (let d = -r; d <= r; d += 1) {
-      addRoad(cx + d, cy - r, false, "h", ring <= 2 ? "avenue" : "secondary");
-      addRoad(cx + d, cy + r, false, "h", ring <= 2 ? "avenue" : "secondary");
-      addRoad(cx - r, cy + d, false, "v", ring <= 2 ? "avenue" : "secondary");
-      addRoad(cx + r, cy + d, false, "v", ring <= 2 ? "avenue" : "secondary");
-    }
-  }
-  if (c.eraBand >= 3) {
-    const laneCount = Math.min(5, Math.floor((c.eraBand - 2) + c.urbanTier / 5.5));
-    const laneSpan  = Math.min(N, Math.ceil(cityReachBase * 1.25 + 12));
-    const minI = Math.max(0, cx - laneSpan), maxI = Math.min(N - 1, cx + laneSpan);
-    for (let offset = -laneCount; offset <= laneCount; offset += 1) {
-      if (offset === 0) continue;
-      const lane     = offset * 7;
-      const laneRank = Math.abs(offset) <= 2 ? "avenue" : "secondary";
-      for (let i = minI; i <= maxI; i += 1) {
-        addRoad(i,        cy + lane, false, "h", laneRank, false); // horizontales : pas de pont
-        addRoad(cx + lane, i,        false, "v", laneRank, true);  // verticales   : peuvent ponter
-      }
-    }
-  }
-  for (const q of quarterAnchors) {
-    // Math.round obligatoire : q.gx/gy sont des flottants (cx + Math.cos*reach).
-    // Sans arrondi, les boucles "x !== bendX" ne terminent jamais (float â‰  int)
-    // â†’ routes ajoutÃ©es jusqu'au bord de la grille, traversant le fleuve.
-    const tx = Math.round(cmClamp(q.gx, 1, N - 2));
-    const ty = Math.round(cmClamp(q.gy, 1, N - 2));
-    const bendX = Math.round(cmClamp(cx + (tx - cx) * 0.55 + ((cmHash("bendx:" + q.label) % 5) - 2), 1, N - 2));
-    const bendY = Math.round(cmClamp(cy + (ty - cy) * 0.35 + ((cmHash("bendy:" + q.label) % 5) - 2), 1, N - 2));
-    const sx = Math.sign(bendX - cx) || 1;
-    for (let x = cx; x !== bendX; x += sx) addRoad(x, bendY, false, "h", "secondary");
-    addRoad(bendX, bendY, false, "h", "secondary");
-    const sy = Math.sign(ty - bendY) || 1;
-    for (let y = bendY; y !== ty; y += sy) addRoad(bendX, y, false, "v", "secondary");
-    addRoad(bendX, ty, false, "v", "secondary");
-    const sx2 = Math.sign(tx - bendX) || 1;
-    for (let x = bendX; x !== tx; x += sx2) addRoad(x, ty, false, "h", "secondary");
-    addRoad(tx, ty, false, "h", "path");
-  }
+  // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
+  const { roads, roadKey, roadMeta } = generateRoads({
+    plan, seed: mapSeed, counts: c, ageCfg, N, cx, cy,
+    riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
+  });
+
+  // ── Enceinte urbaine (ère fortifiée+) ─────────────────────────────────────
+  // Le rayon est FIGÉ à la construction (state.wallRadius) : la muraille ne
+  // suit pas la croissance de la ville — c'est la ville qui déborde de ses
+  // murs, comme dans une vraie cité. Reset à chaque effondrement.
+  const frozenWallReach = Number.isFinite(s.wallRadius) && s.wallRadius > 0 ? s.wallRadius : null;
+  const walls = generateWalls({
+    plan, seed: mapSeed, counts: c, ageCfg, personality, N,
+    reachBase: frozenWallReach || cityReachBase, roadKey, riverSet, bankSet
+  });
+  if (walls && !frozenWallReach) s.wallRadius = cityReachBase;
+  const wallSet = walls ? walls.set : null;
 
   // Districts (anti-collision merveilles + fleuve)
   const districts = [];
@@ -715,7 +732,8 @@ function computeCityLayout(s) {
     const denseKinds = c.eraBand >= 6 ? ["arcology","grid","tower"]       : c.eraBand >= 5 ? ["tower","station","dense"]   : c.eraBand >= 4 ? ["forum","dense","market"]   : ["keep","market"];
     const kind = n < c.civicMonuments ? civicKinds[n % civicKinds.length] : denseKinds[n % denseKinds.length];
     const size = kind === "spire" || kind === "arcology" ? 4 : kind === "tower" || kind === "station" || kind === "palace" || kind === "archive" ? 3 : 2 + (n % 2);
-    const baseAngle = (Math.PI * 2 * n) / Math.max(6, c.megaDistricts) + (n % 2) * 0.28;
+    // Orientation seedée : les grands complexes ne poussent pas aux mêmes angles d'une partie à l'autre.
+    const baseAngle = (Math.PI * 2 * n) / Math.max(6, c.megaDistricts) + (n % 2) * 0.28 + (mixSeed(mapSeed, "districts") % 628) / 100;
     let placed = null;
     for (let attempt = 0; attempt < 10 && !placed; attempt += 1) {
       const ring = 5 + Math.floor(n / 6) * 5 + attempt;
@@ -754,54 +772,37 @@ function computeCityLayout(s) {
     for (let gy = 0; gy < N; gy += 1) {
       const key = gx + "," + gy;
       if (roadKey.has(key) || riverSet.has(key) || bankSet.has(key) || reserved.has(key)) continue;
+      if (wallSet && wallSet.has(key)) continue;
       if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
-      const noise = (cmHash("green:" + gx + ":" + gy + ":" + c.eraIndex) % 100) / 100;
-      const parkChance = Math.max(0.08, Math.min(0.42, 0.08 + Math.max(0, score - 0.58) * 0.42 - c.eraFrac * 0.05));
+      const noise = (cmHash("green:" + gx + ":" + gy + ":" + mapSeed) % 100) / 100;
+      // Espaces verts/vides : pilotés par la config d'âge et la personnalité
+      // (une cité fastueuse garde ses jardins, une mégalopole bétonne tout).
+      const parkBase = ageCfg.parkChance * (personality.treeMul || 1);
+      const parkChance = Math.max(0.05, Math.min(0.45, parkBase * 0.55 + Math.max(0, score - 0.58) * 0.42));
       cells.push({ gx, gy, d2: dx * dx + dy * dy, score, green: noise < parkChance });
     }
   }
+  // Décore-trie-retire : score calculé une seule fois par cellule (les
+  // comparateurs avec boucle d'ancres rendaient le tri quadratique en pratique).
   const buildable = cells
     .filter((cc) => !cc.green)
-    .sort((a, b) => (a.score * 100 + a.d2 * 0.012 - quarterScore(a) * 15 + (cmHash("build:" + a.gx + ":" + a.gy) % 17) / 40)
-                  - (b.score * 100 + b.d2 * 0.012 - quarterScore(b) * 15 + (cmHash("build:" + b.gx + ":" + b.gy) % 17) / 40));
+    .map((cc) => ({ cc, s: cc.score * 100 + cc.d2 * 0.012 - quarterScore(cc) * 15 + (cmHash("build:" + cc.gx + ":" + cc.gy) % 17) / 40 }))
+    .sort((a, b) => a.s - b.s)
+    .map((e) => e.cc);
 
   const tiles = [], usedKeys = new Set();
-  let i = 0;
-  const styleFor = (type, n, cell) => {
-    if (type === "house") {
-      if (c.eraBand <= 0) return "tent";
-      if (c.eraBand === 1) return n % 5 === 0 ? "longhouse" : "hut";
-      if (c.eraBand === 2) return n % 4 === 0 ? "courtyard" : "townhouse";
-      if (c.eraBand === 3) return n % 5 === 0 ? "manor" : "stonehouse";
-      if (c.eraBand === 4) return n % 3 === 0 ? "tenement" : "block";
-      if (c.eraBand === 5) return n % 5 === 0 ? "tower" : n % 2 === 0 ? "tenement" : "block";
-      if (c.eraIndex >= 18) return n % 6 === 0 ? "arcologyhome" : n % 3 === 0 ? "megablock" : "tower";
-      return n % 5 === 0 ? "megablock" : n % 3 === 0 ? "tower" : "block";
-    }
-    if (type === "public") {
-      const byEra = [["firepit"],["market","granary"],["temple","market","hall"],["keep","hall","temple"],["forum","palace","market"],["station","tower","forum"],["spire","station","archive"]];
-      const list = byEra[Math.min(c.eraBand, byEra.length - 1)];
-      return list[(n + cell.gx + cell.gy) % list.length];
-    }
-    if (type === "library") {
-      const byEra = [["shrine"],["shrine"],["school","temple"],["library","scribehall"],["academy","archive"],["university","observatory"],["datavault","observatory"]];
-      const list = byEra[Math.min(c.eraBand, byEra.length - 1)];
-      return list[(n + cell.gx) % list.length];
-    }
-    if (type === "farm") return c.eraBand >= 4 ? "industrial" : c.eraBand >= 2 ? "field" : "patch";
-    return type;
-  };
-  const place = (type, n) => {
-    for (let k = 0; k < n && i < buildable.length; k += 1, i += 1) {
-      while (i < buildable.length && usedKeys.has(buildable[i].gx + "," + buildable[i].gy)) i += 1;
-      if (i >= buildable.length) break;
-      const cell = buildable[i];
-      tiles.push({ gx: cell.gx, gy: cell.gy, type, variant: styleFor(type, k, cell), key: cell.gx + "," + cell.gy, d2: cell.d2 });
-      usedKeys.add(cell.gx + "," + cell.gy);
-    }
-  };
+
+  // ── Placement par catégorie : quartiers, rues, places, personnalité ──────
+  const placer = createBuildingPlacer({
+    cells: buildable, plan, roadKey, counts: c, personality, ageCfg,
+    seed: mapSeed, nearSet, N
+  });
+  const pushTile = (t) => tiles.push(t);
+  // Multiplicateurs de personnalité : une cité agricole a plus de champs,
+  // une cité savante plus de lieux de savoir... (bornés par les caps d'ère)
+  const biasedCount = (n, mul) => Math.max(0, Math.round(n * (mul || 1)));
 
   // Emprises moteur (bÃ¢timents achetÃ©s) â€” rÃ©servÃ©es avant les tuiles dÃ©coratives
   const claimed = new Set(), engineFootprint = new Set();
@@ -820,34 +821,92 @@ function computeCityLayout(s) {
   const claimFootprint = (gx, gy, sizeX, sizeY = sizeX) => {
     for (let ax = 0; ax < sizeX; ax += 1) for (let ay = 0; ay < sizeY; ay += 1) claimed.add((gx + ax) + "," + (gy + ay));
   };
-  const engineCandidates = (zone, size, id, index = 0, total = 1) => {
-    const base = zone === "river"
+  // Listes de base par zone (recalculées une fois par taille, pas par requête).
+  const engineBaseCache = new Map();
+  const engineBaseFor = (zone, size) => {
+    const cacheKey = zone + ":" + size;
+    let base = engineBaseCache.get(cacheKey);
+    if (base) return base;
+    base = zone === "river"
       ? Array.from(new Set([...Array.from(nearSet), ...Array.from(bankSet)])).map((k) => {
           const cma = k.indexOf(",");
           return { gx: +k.slice(0, cma), gy: +k.slice(cma + 1) };
         }).filter((cell) => cell.gx >= 0 && cell.gy >= 0 && cell.gx + size <= N && cell.gy + size <= N)
       : zone === "outside"
         ? cells.filter((cell) => cell.gx >= 0 && cell.gy >= 0 && cell.gx + size <= N && cell.gy + size <= N)
-        : buildable.slice();
-    const dist     = (cell) => Math.hypot(cell.gx + size / 2 - cx, cell.gy + size / 2 - cy);
-    const riverDist= (cell) => Math.abs((cell.gy + size / 2) - riverYAt(cell.gx + size / 2));
+        : buildable;
+    engineBaseCache.set(cacheKey, base);
+    return base;
+  };
+  // Fonction chaude (une exécution par bâtiment moteur × toutes les cellules) :
+  // clés dans un Float64Array + argsort d'indices, jitter par hash entier —
+  // pas d'objets temporaires ni de hash de chaîne par cellule.
+  const engineCandidates = (zone, size, id, index = 0, total = 1, limit = 1024) => {
+    const base = engineBaseFor(zone, size);
+    const half = size / 2;
+    const idHash = cmHash(id + ":" + index) >>> 0;
     const angleTarget = (Math.PI * 2 * index) / Math.max(1, total) + (cmHash(id) % 628) / 100;
-    const angular  = (cell) => {
-      const a = Math.atan2(cell.gy + size / 2 - cy, cell.gx + size / 2 - cx);
-      let d = Math.abs(a - angleTarget);
-      if (d > Math.PI) d = Math.PI * 2 - d;
-      return d;
+    const n = base.length;
+    const keys = new Float64Array(n);
+    for (let i = 0; i < n; i += 1) {
+      const cell = base[i];
+      const px = cell.gx + half, py = cell.gy + half;
+      const dist = Math.hypot(px - cx, py - cy);
+      let angular = Math.abs(Math.atan2(py - cy, px - cx) - angleTarget);
+      if (angular > Math.PI) angular = Math.PI * 2 - angular;
+      const jitter = (((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ idHash) >>> 0) % 1000) / 1000;
+      let k;
+      if (zone === "center")         k = dist + angular * 1.8;
+      else if (zone === "mid")       k = Math.abs(dist - N * 0.24) + angular * 2.4;
+      else if (zone === "river")     k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
+      else if (zone === "caravan")   k = Math.abs(dist - N * 0.38) + angular * 1.4;
+      else if (zone === "edge")      k = Math.abs(dist - N * 0.44) + angular * 2 + Math.max(0, cell.gy - cy) * 0.02;
+      else if (zone === "outside")   k = Math.abs(dist - N * 0.48) + Math.max(0, cy - cell.gy) * 0.025 + angular * 1.2;
+      else if (zone === "knowledge") k = Math.abs(dist - N * 0.28) + angular * 2 + Math.max(0, cell.gy - cy) * 0.01;
+      else if (zone === "ruin")      k = Math.abs(dist - N * 0.4) + angular * 1.5 + Math.max(0, cy - cell.gy) * 0.018;
+      else                           k = Math.abs(dist - N * 0.42) + angular * 1.8;
+      keys[i] = k + jitter;
+    }
+    // Sélection top-K (tas max) : on n'a besoin que des ~meilleures cellules,
+    // trier les dizaines de milliers d'autres serait du travail perdu.
+    const K = Math.min(n, limit);
+    if (K === n) {
+      const idx = new Uint32Array(n);
+      for (let i = 0; i < n; i += 1) idx[i] = i;
+      idx.sort((a, b) => keys[a] - keys[b]);
+      const out = new Array(n);
+      for (let i = 0; i < n; i += 1) out[i] = base[idx[i]];
+      return out;
+    }
+    const heap = new Uint32Array(K);
+    let heapSize = 0;
+    const siftUp = (i) => {
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (keys[heap[p]] >= keys[heap[i]]) break;
+        const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p;
+      }
     };
-    const jitter   = (cell) => (cmHash(id + ":" + index + ":" + cell.gx + ":" + cell.gy) % 1000) / 1000;
-    if (zone === "center")    return base.sort((a, b) => (dist(a) + angular(a)*1.8 + jitter(a)) - (dist(b) + angular(b)*1.8 + jitter(b)));
-    if (zone === "mid")       return base.sort((a, b) => (Math.abs(dist(a)-N*0.24) + angular(a)*2.4 + jitter(a)) - (Math.abs(dist(b)-N*0.24) + angular(b)*2.4 + jitter(b)));
-    if (zone === "river")     return base.sort((a, b) => (riverDist(a) + Math.abs((a.gx+size/2)-(cx+(index-total/2)*4))*0.22 + jitter(a)) - (riverDist(b) + Math.abs((b.gx+size/2)-(cx+(index-total/2)*4))*0.22 + jitter(b)));
-    if (zone === "caravan")   return base.sort((a, b) => (Math.abs(dist(a)-N*0.38) + angular(a)*1.4 + jitter(a)) - (Math.abs(dist(b)-N*0.38) + angular(b)*1.4 + jitter(b)));
-    if (zone === "edge")      return base.sort((a, b) => (Math.abs(dist(a)-N*0.44) + angular(a)*2 + Math.max(0,a.gy-cy)*0.02 + jitter(a)) - (Math.abs(dist(b)-N*0.44) + angular(b)*2 + Math.max(0,b.gy-cy)*0.02 + jitter(b)));
-    if (zone === "outside")   return base.sort((a, b) => (Math.abs(dist(a)-N*0.48) + Math.max(0,cy-a.gy)*0.025 + angular(a)*1.2 + jitter(a)) - (Math.abs(dist(b)-N*0.48) + Math.max(0,cy-b.gy)*0.025 + angular(b)*1.2 + jitter(b)));
-    if (zone === "knowledge") return base.sort((a, b) => (Math.abs(dist(a)-N*0.28) + angular(a)*2 + Math.max(0,a.gy-cy)*0.01 + jitter(a)) - (Math.abs(dist(b)-N*0.28) + angular(b)*2 + Math.max(0,b.gy-cy)*0.01 + jitter(b)));
-    if (zone === "ruin")      return base.sort((a, b) => (Math.abs(dist(a)-N*0.4)  + angular(a)*1.5 + Math.max(0,cy-a.gy)*0.018 + jitter(a)) - (Math.abs(dist(b)-N*0.4) + angular(b)*1.5 + Math.max(0,cy-b.gy)*0.018 + jitter(b)));
-    return base.sort((a, b) => (Math.abs(dist(a)-N*0.42) + angular(a)*1.8 + jitter(a)) - (Math.abs(dist(b)-N*0.42) + angular(b)*1.8 + jitter(b)));
+    const siftDown = () => {
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1, r = l + 1;
+        let m = i;
+        if (l < heapSize && keys[heap[l]] > keys[heap[m]]) m = l;
+        if (r < heapSize && keys[heap[r]] > keys[heap[m]]) m = r;
+        if (m === i) break;
+        const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m;
+      }
+    };
+    for (let i = 0; i < n; i += 1) {
+      if (heapSize < K) { heap[heapSize] = i; heapSize += 1; siftUp(heapSize - 1); }
+      else if (keys[i] < keys[heap[0]]) { heap[0] = i; siftDown(); }
+    }
+    const idx = heap.slice(0, heapSize);
+    idx.sort((a, b) => keys[a] - keys[b]);
+    const out = new Array(idx.length);
+    for (let i = 0; i < idx.length; i += 1) out[i] = base[idx[i]];
+    return out;
   };
 
   const slotStore      = cmCityMapSlotsFor(s);
@@ -876,10 +935,11 @@ function computeCityLayout(s) {
         if (footprintFits(saved.gx, saved.gy, spanX, false, false, spanY)) placed = saved;
       }
       if (!placed) {
-        const jit = (c2) => (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000;
-        const dist2 = (c2) => Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy);
+        // Décore-trie-retire : score calculé une fois par cellule.
         const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
-          .sort((a, b) => (Math.abs(dist2(a) - N * 0.46) + jit(a)) - (Math.abs(dist2(b) - N * 0.46) + jit(b)));
+          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - N * 0.46) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+          .sort((a, b) => a.s - b.s)
+          .map((e) => e.c2);
         for (const c2 of aqCells) {
           if (footprintFits(c2.gx, c2.gy, spanX, false, false, spanY)) { placed = c2; break; }
         }
@@ -908,15 +968,27 @@ function computeCityLayout(s) {
       if (footprintFits(saved.gx, saved.gy, size, allowBankSaved, false)) {
         placed = saved;
       } else {
+        // Re-tri local autour du slot sauvegardé (décoré : un score par cellule).
+        const slotHash = cmHash(req.slotKey) >>> 0;
         const nearby = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal)
-          .sort((a, b) => (Math.hypot(a.gx - saved.gx, a.gy - saved.gy) + (cmHash(req.slotKey + ":" + a.gx + ":" + a.gy) % 100) / 500)
-                        - (Math.hypot(b.gx - saved.gx, b.gy - saved.gy) + (cmHash(req.slotKey + ":" + b.gx + ":" + b.gy) % 100) / 500));
+          .map((cell) => ({ cell, s: Math.hypot(cell.gx - saved.gx, cell.gy - saved.gy) + ((((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ slotHash) >>> 0) % 100) / 500) }))
+          .sort((a, b) => a.s - b.s)
+          .map((e) => e.cell);
         for (const cell of nearby) if (footprintFits(cell.gx, cell.gy, size, allowBankSaved, false)) { placed = cell; break; }
       }
     }
     if (!placed) {
       const candidates = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
       for (const cell of candidates) if (footprintFits(cell.gx, cell.gy, size, req.meta.zone === "river")) { placed = cell; break; }
+      // Si le top-K est saturé (toutes les bonnes cellules déjà prises),
+      // on retombe sur la liste complète.
+      if (!placed) {
+        const all = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity);
+        for (let ci = candidates.length; ci < all.length; ci += 1) {
+          const cell = all[ci];
+          if (footprintFits(cell.gx, cell.gy, size, req.meta.zone === "river")) { placed = cell; break; }
+        }
+      }
       if (!placed && req.meta.zone === "river" && size > 1) {
         size = 1;
         for (const cell of engineCandidates(req.meta.zone, 1, req.meta.id, req.groupIndex - 1, req.groupTotal))
@@ -951,16 +1023,18 @@ function computeCityLayout(s) {
 
   const placeCentralFirepit = () => {
     if (c.eraBand > 0) return false;
+    // Le foyer fondateur s'installe près du cœur urbain choisi par le plan.
+    const fx = Math.round(plan.core.x), fy = Math.round(plan.core.y);
     const preferred = [
-      { gx: cx + 3, gy: cy - 1 },
-      { gx: cx + 2, gy: cy + 2 },
-      { gx: cx - 2, gy: cy + 2 },
-      { gx: cx + 2, gy: cy - 2 },
-      { gx: cx - 2, gy: cy - 2 },
-      { gx: cx + 3, gy: cy + 1 },
-      { gx: cx - 3, gy: cy + 1 },
-      { gx: cx + 1, gy: cy - 3 },
-      { gx: cx - 1, gy: cy - 3 }
+      { gx: fx + 3, gy: fy - 1 },
+      { gx: fx + 2, gy: fy + 2 },
+      { gx: fx - 2, gy: fy + 2 },
+      { gx: fx + 2, gy: fy - 2 },
+      { gx: fx - 2, gy: fy - 2 },
+      { gx: fx + 3, gy: fy + 1 },
+      { gx: fx - 3, gy: fy + 1 },
+      { gx: fx + 1, gy: fy - 3 },
+      { gx: fx - 1, gy: fy - 3 }
     ];
     const canUse = (cell) => {
       const k = cell.gx + "," + cell.gy;
@@ -976,33 +1050,25 @@ function computeCityLayout(s) {
   };
   const centralFirepitPlaced = placeCentralFirepit();
 
-  place("public", Math.max(0, c.publics - (centralFirepitPlaced ? 1 : 0)));
-  place("library", c.libs);
-  place("house", c.houses);
-  let farmLeft = c.farms;
-  const pushFarm = (cell) => {
-    tiles.push({ gx: cell.gx, gy: cell.gy, type: "farm", variant: styleFor("farm", farmLeft, cell), key: cell.gx + "," + cell.gy, d2: cell.d2 });
-    usedKeys.add(cell.gx + "," + cell.gy); farmLeft -= 1;
-  };
-  for (const cell of buildable) {
-    if (farmLeft <= 0) break;
-    if (!usedKeys.has(cell.gx + "," + cell.gy) && nearSet.has(cell.gx + "," + cell.gy)) pushFarm(cell);
-  }
-  for (let j = buildable.length - 1; farmLeft > 0 && j >= 0; j -= 1) {
-    const cell = buildable[j];
-    if (!usedKeys.has(cell.gx + "," + cell.gy)) pushFarm(cell);
-  }
+  const bias = personality.buildingBias || {};
+  placer.placeCategory("public", biasedCount(Math.max(0, c.publics - (centralFirepitPlaced ? 1 : 0)), bias.public), usedKeys, pushTile);
+  placer.placeCategory("library", biasedCount(c.libs, bias.library), usedKeys, pushTile);
+  placer.placeCategory("house", biasedCount(c.houses, bias.house), usedKeys, pushTile);
+  placer.placeCategory("farm", biasedCount(c.farms, bias.farm), usedKeys, pushTile);
 
   let maxD2 = 1;
   for (const t of tiles) if (t.d2 > maxD2) maxD2 = t.d2;
 
+  // Végétation : densité pilotée par l'âge (recul du front boisé) et la
+  // personnalité (les ruines et cités agricoles laissent la nature revenir).
   const trees = [];
   const maxR  = Math.max(1, Math.hypot(cx, cy));
+  const treeMul = ageCfg.treeDensity * (personality.treeMul || 1);
   for (const cell of cells) {
     if (usedKeys.has(cell.gx + "," + cell.gy)) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
-    const hsh  = cmHash(cell.gx + "x" + cell.gy) % 100;
-    const prob = 20 + norm * 50 - c.eraFrac * 16 + (norm > 0.55 ? 22 : 0);
+    const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
+    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul;
     if (hsh < prob) trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 });
   }
 
@@ -1012,7 +1078,14 @@ function computeCityLayout(s) {
     tiles.filter((t) => t.type === "engine" && t.buildingId)
          .map((t) => [t.gx + "," + t.gy, t])
   );
-  return { gridN: N, cx, cy, tiles, roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta, districts, trees, maxD2, counts: c, river, engineTileMap, wonderSlots };
+  return {
+    gridN: N, cx, cy, tiles,
+    roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
+    districts, trees, maxD2, counts: c, river, engineTileMap, wonderSlots, walls,
+    // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
+    plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
+    personality, ageCfg, mapSeed
+  };
 }
 
 // â”€â”€ Vestiges (pur, sans Canvas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1051,6 +1124,8 @@ export {
   cmPick,
   cmRoadName,
   cmWonderSlot,
+  cmWonderTier,
+  WONDER_TIER_NAMES,
   cmDryWonderSlot,
   computeCityLayout
 };

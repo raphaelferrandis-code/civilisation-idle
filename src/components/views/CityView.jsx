@@ -25,7 +25,9 @@ import {
   rewardCitizenThought,
   log
 } from '../../game/core/actions.js';
-import { save, setCityName } from '../../game/core/state.js';
+import { save, setCityName, state } from '../../game/core/state.js';
+import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
+import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { eras } from '../../game/data/world.js';
 import { fmt, roman } from '../../game/core/utils.js';
 import {
@@ -59,6 +61,17 @@ export default function CityView() {
 
   const [now, setNow] = useState(() => Date.now());
   const [bubbleMessage, setBubbleMessage] = useState(null);
+
+  // Personnalité procédurale de la ville (stable par cycle ; la surcouche
+  // crise/effondrement évolue avec instability/timeWear, recalcul léger).
+  const cityPersonalityLabel = (() => {
+    try {
+      const p = computeCityPersonality(ensureMapSeed(state), state);
+      return p.label.charAt(0).toUpperCase() + p.label.slice(1);
+    } catch {
+      return "";
+    }
+  })();
 
   const handleCitizenThought = useCallback((citizen, thoughtType) => {
     const quotes = {
@@ -257,6 +270,13 @@ export default function CityView() {
               onBlur={handleNameBlur}
               aria-label="Nom de la ville"
             />
+            <span
+              className="city-personality-label"
+              title="Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants"
+              style={{ fontSize: '0.78rem', fontStyle: 'italic', opacity: 0.75, letterSpacing: '0.03em' }}
+            >
+              {cityPersonalityLabel}
+            </span>
           </div>
           <div className="city-dynasty-stats" aria-label="Statistiques dynastiques">
             <div className="stat-chip" title="Cycles accomplis">

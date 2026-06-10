@@ -112,8 +112,17 @@ export const defaultState = () => ({
   lastCollapsedBuildings: {},
   vestiges: [],
   wonders: [],
+  // Palier d'évolution de chaque merveille (1..5), clé = id de merveille.
+  wonderTiers: {},
   cityMapSlots: {},
   riverWP: null,
+  // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
+  mapSeed: null,
+  // Rayon de l'enceinte, figé au moment de sa construction (null = pas bâtie).
+  wallRadius: null,
+  // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
+  lifetimePurchases: 0,
+  playTimeSec: 0,
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   upgrades: {},
   cityName: "NomVille",
@@ -196,6 +205,17 @@ export let collapseInProgress = false;
 
 export const buildingById = Object.fromEntries(buildings.map((building) => [building.id, building]));
 export const upgradeById = Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]));
+
+export function normalizeWonderTiers(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [key, tier] of Object.entries(raw).slice(0, 32)) {
+    const t = Number(tier);
+    if (typeof key !== "string" || !Number.isFinite(t)) continue;
+    out[key.slice(0, 40)] = Math.max(1, Math.min(5, Math.floor(t)));
+  }
+  return out;
+}
 
 export function normalizeCityMapSlots(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -543,8 +563,13 @@ export function hydrateState(parsed = {}) {
     lastCollapsedBuildings: normalizeNumberMap(source.lastCollapsedBuildings, buildingIds, {}, true),
     vestiges: normalizeVestiges(source.vestiges),
     wonders: normalizeStringArray(source.wonders, 64, 80),
+    wonderTiers: normalizeWonderTiers(source.wonderTiers),
     cityMapSlots: normalizeCityMapSlots(source.cityMapSlots),
     riverWP: normalizeRiverWaypoints(source.riverWP),
+    mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
+    wallRadius: Number.isFinite(source.wallRadius) && source.wallRadius > 0 ? Math.min(150, source.wallRadius) : null,
+    lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
+    playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
     chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),

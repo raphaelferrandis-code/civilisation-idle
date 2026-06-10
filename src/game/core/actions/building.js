@@ -47,6 +47,9 @@ export function buyBuilding(id) {
   const previousCount = state.buildings[id] || 0;
   payCost(prices);
   state.buildings[id] += amount;
+  // Compteur d'achats cumulés sur toute la partie (jalon de merveille) :
+  // survit aux effondrements, comme les ruines.
+  state.lifetimePurchases = (state.lifetimePurchases || 0) + amount;
   const previousMilestone = Math.floor(previousCount / 25);
   const currentMilestone = Math.floor(state.buildings[id] / 25);
   if (currentMilestone > previousMilestone) {
@@ -203,6 +206,7 @@ export function buyUpgrade(id) {
   if (!canBuyUpgrade(upgrade)) return;
   payCost(upgrade.cost);
   state.upgrades[id] = true;
+  state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
   renderCache.cachedRuinEffects = null;
   renderCache.cachedRuinEffectsSignature = "";
   invalidateRenderCache("all");

@@ -35,6 +35,7 @@ import { upgrades } from '../../data/upgrades.js';
 import { eras, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige } from '../../map/cityMapBridge.js';
+import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
@@ -222,6 +223,10 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     chronicle(`L'ombre du Chaos transfigure notre héritage : +${fmt(gain)} ruines immatérielles s'inscrivent dans notre histoire, magnifiant à jamais la mémoire de nos vestiges.`);
   }
   state.cycles += 1;
+  // Nouvelle civilisation : nouveau plan procédural (seed + rivière + enceinte régénérés).
+  state.mapSeed = newCitySeed();
+  state.riverWP = null;
+  state.wallRadius = null;
   state.population = Math.max(10, keptPop);
   state.food = Math.max(35 + ruinEffectSum("startFood"), keptFood);
   state.gold = Math.max(ruinEffectSum("startGold"), keptGold);

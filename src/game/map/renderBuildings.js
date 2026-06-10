@@ -7,7 +7,7 @@ import {
   cmWonderSlot
 } from './layout.js';
 import { cityMapTileScreen } from './legacyRuntime.js';
-import { drawEngineSprite, drawHouseShape, drawPublicShape } from './buildingShapes.js';
+import { drawEngineSprite, drawHouseShape, drawPublicShape, BUILDING_HEIGHTS } from './buildingShapes.js';
 import { baseColor, cmLitColor } from './renderWorld.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
@@ -246,8 +246,11 @@ function drawTile(t, now, timeWear, maxD2) {
     w *= sizeVar; h *= sizeVar;
     x = ccx - w / 2 + offX; y = ccy - h / 2 + offY;
     tileLumDelta = (((seedV >> 9) % 31) / 31 - 0.5) * 0.3; // ~ +/-15%
-    const sh = Math.max(1.2, 2.4 * zc);                // micro-ombre portee bas-droite
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    // Ombre portée bas-droite : s'allonge avec la hauteur du bâtiment
+    // (pseudo-3D — une tour projette beaucoup plus loin qu'une hutte).
+    const bh = BUILDING_HEIGHTS[t.variant] ?? 1;
+    const sh = Math.max(1.2, (1.4 + bh * 1.7) * zc);
+    ctx.fillStyle = `rgba(0,0,0,${Math.min(0.34, 0.2 + bh * 0.05).toFixed(2)})`;
     ctx.fillRect(x + pad + sh, y + pad + sh, w - pad * 2, h - pad * 2);
   }
 
@@ -315,6 +318,24 @@ function drawTile(t, now, timeWear, maxD2) {
     ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
   }
 
+  // Teinte de quartier : dominante subtile selon le quartier d'appartenance
+  // (rend la structure procédurale lisible : souk doré, quartier savant bleuté...).
+  if (t.qkind && t.type !== "engine" && t.type !== "farm") {
+    const QTINT = {
+      marchand: "rgba(235,180,60,0.1)",
+      religieux: "rgba(196,176,255,0.1)",
+      militaire: "rgba(190,60,46,0.1)",
+      savant: "rgba(96,150,255,0.1)",
+      agricole: "rgba(150,200,80,0.09)",
+      prestige: "rgba(255,222,140,0.12)"
+    };
+    const tint = QTINT[t.qkind];
+    if (tint) {
+      ctx.fillStyle = tint;
+      ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
+    }
+  }
+
   // Surcouche de degradation (usure > 60% : assombrissement + fissures diagonales).
   if (degraded) {
     ctx.fillStyle = "rgba(20,14,8,0.45)"; ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
@@ -363,8 +384,11 @@ function drawCentralFire(now) {
   const L = CM.layout;
   if (!L || !L.counts || L.counts.eraBand > 0) return;
   const z = CM.cam.zoom, s = CM.TILE * z;
-  const cx = ((L.cx + 0.5) * CM.TILE - CM.cam.x) * z + CM.cw / 2;
-  const cy = ((L.cy + 0.5) * CM.TILE - CM.cam.y) * z + CM.ch / 2;
+  // Le grand feu brûle au cœur de ville du plan (décalé du centre de grille).
+  const coreX = L.plan?.core?.x ?? L.cx;
+  const coreY = L.plan?.core?.y ?? L.cy;
+  const cx = ((coreX + 0.5) * CM.TILE - CM.cam.x) * z + CM.cw / 2;
+  const cy = ((coreY + 0.5) * CM.TILE - CM.cam.y) * z + CM.ch / 2;
   if (cx < -s * 2 || cx > CM.cw + s * 2 || cy < -s * 2 || cy > CM.ch + s * 2) return;
   const ctx = CM.ctx;
   const t = now || 0;
@@ -439,6 +463,11 @@ function drawWonder(w, idx, now) {
   if (w.id === "era_empire")     { H_MAX = s * 6;   W = s * 5.2; }
   if (w.id === "era_mega")       { H_MAX = s * 9;   W = s * 2.6; }
   if (w.id === "era_singularity"){ H_MAX = s * 8.5; W = s * 3.2; }
+  // Palier d'évolution (1..5) : le monument grandit à chaque jalon franchi.
+  const tier = Math.max(1, Math.min(5, (state && state.wonderTiers && state.wonderTiers[w.id]) || 1));
+  const tierMul = 0.78 + tier * 0.11; // rang I : ×0.89 → rang V : ×1.33
+  H_MAX *= tierMul;
+  W *= tierMul;
   if (cxs < -W * 3 || cxs > CM.cw + W * 3 || baseY < -H_MAX * 1.5 || baseY > CM.ch + s * 3) return;
 
   const born = CM.born["wonder:" + w.id];
@@ -516,47 +545,66 @@ function drawWonder(w, idx, now) {
     ctx.beginPath(); ctx.arc(cxs, topY, Math.max(2, s * 0.16), 0, Math.PI * 2); ctx.fill();
 
   } else if (w.id === "pop1m") {
-    // ── LA GRANDE HALLE — basilique romaine, panthéon, oculus ─────────
-    const nSt = 4, stH = H * 0.12;
+    // ── LA COLONNE DU MILLION — colonne triomphale, frise spiralée,
+    //    statue dorée au sommet, quatre lions de bronze au pied ─────────
+    const nSt = 4, stH = H * 0.14;
     for (let i = nSt; i >= 0; i--) {
-      const sw = W * (0.14 + (i / nSt) * 0.86), sh = stH / nSt;
+      const sw = W * (0.22 + (i / nSt) * 0.78), sh = stH / nSt;
       ctx.fillStyle = i % 2 === 0 ? "#c8c0a0" : "#d8d0b0";
       ctx.fillRect(cxs - sw / 2, baseY - (i + 1) * sh, sw, sh + 1);
     }
-    const podY = baseY - stH, bodyH = H * 0.46;
-    ctx.fillStyle = "#d0c898"; ctx.fillRect(cxs - W * 0.46, podY - bodyH, W * 0.92, bodyH);
-    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(cxs + W * 0.28, podY - bodyH, W * 0.18, bodyH);
-    const nC = 12;
-    for (let ci = 0; ci < nC; ci++) {
-      const cx2 = cxs - W * 0.44 + ci * (W * 0.88 / (nC - 1));
-      ctx.fillStyle = "#e8e0c0"; ctx.fillRect(cx2 - s * 0.038, podY - bodyH, s * 0.076, bodyH);
-      ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(cx2 + s * 0.015, podY - bodyH, s * 0.02, bodyH);
-      ctx.fillStyle = "#d8d0a8"; ctx.fillRect(cx2 - s * 0.08, podY - s * 0.06, s * 0.16, s * 0.06);
-      ctx.fillRect(cx2 - s * 0.08, podY - bodyH, s * 0.16, s * 0.06);
+    const podY = baseY - stH;
+    // Lions de bronze aux quatre coins du socle
+    ctx.fillStyle = "#8a6a28";
+    for (const lx of [-0.38, 0.38]) {
+      ctx.beginPath(); ctx.ellipse(cxs + W * lx, podY - H * 0.015, W * 0.06, H * 0.035, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cxs + W * lx + W * 0.04, podY - H * 0.05, W * 0.032, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = "#b8b090"; ctx.fillRect(cxs - W * 0.47, podY - bodyH - H * 0.035, W * 0.94, H * 0.035);
-    const friezeY = podY - bodyH - H * 0.07;
-    ctx.fillStyle = "#c8c0a0"; ctx.fillRect(cxs - W * 0.47, friezeY, W * 0.94, H * 0.035);
-    const frontH = H * 0.14;
-    ctx.fillStyle = "#888060";
-    ctx.beginPath(); ctx.moveTo(cxs - W * 0.48, friezeY); ctx.lineTo(cxs, friezeY - frontH); ctx.lineTo(cxs + W * 0.48, friezeY); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#b0a878";
-    ctx.beginPath(); ctx.moveTo(cxs - W * 0.44, friezeY - H * 0.008); ctx.lineTo(cxs, friezeY - frontH + H * 0.018); ctx.lineTo(cxs + W * 0.44, friezeY - H * 0.008); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba(20,16,8,0.55)"; ctx.beginPath(); ctx.arc(cxs, friezeY - frontH * 0.42, W * 0.07, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#d0c888"; ctx.lineWidth = Math.max(1, s * 0.028);
-    ctx.beginPath(); ctx.arc(cxs, friezeY - frontH * 0.42, W * 0.07, 0, Math.PI * 2); ctx.stroke();
-    for (const ax of [-0.48, 0, 0.48]) {
-      const ay2 = ax === 0 ? friezeY - frontH : friezeY;
-      ctx.fillStyle = "#d4c870";
-      ctx.beginPath(); ctx.moveTo(cxs + W * ax - W * 0.034, ay2); ctx.lineTo(cxs + W * ax, ay2 - H * 0.062); ctx.lineTo(cxs + W * ax + W * 0.034, ay2); ctx.closePath(); ctx.fill();
+    // Dé de la colonne (piédestal sculpté)
+    const dieW = W * 0.26, dieH = H * 0.12;
+    ctx.fillStyle = "#cfc4a0"; ctx.fillRect(cxs - dieW / 2, podY - dieH, dieW, dieH);
+    ctx.strokeStyle = "rgba(120,95,40,0.5)"; ctx.lineWidth = Math.max(0.5, s * 0.016);
+    ctx.strokeRect(cxs - dieW * 0.38, podY - dieH * 0.8, dieW * 0.76, dieH * 0.6);
+    // Fût de la colonne
+    const colW = W * 0.155, colTop = topY + H * 0.2, colBase = podY - dieH;
+    const cGrad = ctx.createLinearGradient(cxs - colW / 2, 0, cxs + colW / 2, 0);
+    cGrad.addColorStop(0, "#e6dcba"); cGrad.addColorStop(0.4, "#f2ead0"); cGrad.addColorStop(1, "#c8bc94");
+    ctx.fillStyle = cGrad;
+    ctx.fillRect(cxs - colW / 2, colTop, colW, colBase - colTop);
+    // Frise spiralée (bandes diagonales sculptées qui montent)
+    ctx.strokeStyle = "rgba(130,105,50,0.55)"; ctx.lineWidth = Math.max(0.8, s * 0.022);
+    const spirals = 9;
+    for (let li = 0; li <= spirals; li++) {
+      const y0 = colBase - (colBase - colTop) * (li / (spirals + 1));
+      const y1 = colBase - (colBase - colTop) * ((li + 0.85) / (spirals + 1));
+      ctx.beginPath(); ctx.moveTo(cxs - colW / 2, y0); ctx.lineTo(cxs + colW / 2, y1); ctx.stroke();
     }
-    ctx.fillStyle = "rgba(15,12,5,0.65)";
-    for (let wi2 = 0; wi2 < 6; wi2++) {
-      const wx2 = cxs - W * 0.38 + wi2 * (W * 0.76 / 5);
-      ctx.beginPath(); ctx.arc(wx2, podY - bodyH * 0.5, W * 0.044, 0, Math.PI * 2); ctx.fill();
+    // Reliefs : petits points de foule sculptée le long de la spirale
+    ctx.fillStyle = "rgba(110,88,40,0.5)";
+    for (let li = 0; li < spirals; li++) {
+      const ym = colBase - (colBase - colTop) * ((li + 0.45) / (spirals + 1));
+      for (let dx = -1; dx <= 1; dx++) {
+        ctx.fillRect(cxs + dx * colW * 0.26 - s * 0.012, ym - s * 0.012, Math.max(1, s * 0.024), Math.max(1, s * 0.024));
+      }
     }
-    ctx.fillStyle = `rgba(255,245,200,${(0.65 * glow).toFixed(2)})`;
-    ctx.beginPath(); ctx.arc(cxs, friezeY - frontH, Math.max(2, s * 0.13), 0, Math.PI * 2); ctx.fill();
+    // Chapiteau
+    ctx.fillStyle = "#d8cda8"; ctx.fillRect(cxs - colW * 0.85, colTop - H * 0.035, colW * 1.7, H * 0.035);
+    ctx.fillStyle = "#c4b88e"; ctx.fillRect(cxs - colW * 0.65, colTop - H * 0.06, colW * 1.3, H * 0.028);
+    // Statue dorée au sommet (figure ailée levant une couronne)
+    const statY = colTop - H * 0.06;
+    ctx.fillStyle = "#e8c645";
+    ctx.fillRect(cxs - W * 0.022, statY - H * 0.1, W * 0.044, H * 0.1);             // corps
+    ctx.beginPath(); ctx.arc(cxs, statY - H * 0.115, W * 0.026, 0, Math.PI * 2); ctx.fill(); // tête
+    // Ailes
+    ctx.fillStyle = "#f2d870";
+    ctx.beginPath(); ctx.moveTo(cxs - W * 0.02, statY - H * 0.08); ctx.lineTo(cxs - W * 0.1, statY - H * 0.12); ctx.lineTo(cxs - W * 0.025, statY - H * 0.055); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cxs + W * 0.02, statY - H * 0.08); ctx.lineTo(cxs + W * 0.1, statY - H * 0.12); ctx.lineTo(cxs + W * 0.025, statY - H * 0.055); ctx.closePath(); ctx.fill();
+    // Couronne brandie, scintillante
+    ctx.strokeStyle = `rgba(255,235,140,${(0.8 + 0.2 * Math.sin(now / 400)).toFixed(2)})`;
+    ctx.lineWidth = Math.max(1, s * 0.03);
+    ctx.beginPath(); ctx.arc(cxs, statY - H * 0.16, W * 0.035, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = `rgba(255,250,200,${(0.85 * glow).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(cxs, statY - H * 0.16, Math.max(2, s * 0.1), 0, Math.PI * 2); ctx.fill();
 
   } else if (w.id === "era_kingdom") {
     // ── LA COURONNE DE PIERRE — cathédrale gothique ───────────────────
@@ -749,6 +797,81 @@ function drawWonder(w, idx, now) {
     const prism = 0.6 + 0.4 * Math.sin(now / 300 + idx);
     ctx.fillStyle = `rgba(80,230,255,${(prism * 0.9).toFixed(2)})`;
     ctx.beginPath(); ctx.arc(cxs, topY, Math.max(2, s * 0.18), 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── Ornements de palier : chaque rang ajoute sa parure ────────────────────
+  if (tier >= 2) {
+    // Rang II+ : cercle de torches autour de l'esplanade.
+    const nT = 4 + tier;
+    for (let ti = 0; ti < nT; ti += 1) {
+      const a = (ti / nT) * Math.PI * 2 + 0.4;
+      const tx = cxs + Math.cos(a) * plazaRx * 0.82;
+      const ty = baseY + Math.sin(a) * plazaRy * 0.82;
+      ctx.strokeStyle = "#4a3a22"; ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty - s * 0.42); ctx.stroke();
+      const fl = 0.55 + 0.45 * Math.abs(Math.sin(now / 180 + ti * 1.9));
+      ctx.fillStyle = `rgba(255,170,50,${(0.55 + fl * 0.45).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(tx, ty - s * 0.46, Math.max(1.5, s * 0.07) * (0.8 + fl * 0.3), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  if (tier >= 3) {
+    // Rang III+ : stèles satellites encadrant le monument.
+    for (const side of [-1, 1]) {
+      const ox = cxs + side * W * 0.72;
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.beginPath(); ctx.ellipse(ox + s * 0.05, baseY + s * 0.03, s * 0.22, s * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#b9a878";
+      ctx.beginPath();
+      ctx.moveTo(ox - s * 0.1, baseY); ctx.lineTo(ox - s * 0.035, baseY - H * 0.22);
+      ctx.lineTo(ox + s * 0.035, baseY - H * 0.22); ctx.lineTo(ox + s * 0.1, baseY);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,240,180,0.3)";
+      ctx.fillRect(ox - s * 0.08, baseY - H * 0.2, s * 0.04, H * 0.19);
+      ctx.fillStyle = `rgba(255,235,140,${(0.6 * glow).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(ox, baseY - H * 0.24, Math.max(1.5, s * 0.05), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  if (tier >= 4) {
+    // Rang IV+ : particules dorées en ascension le long du monument.
+    for (let pi = 0; pi < 7; pi += 1) {
+      const ph = ((now / 2400) + pi / 7) % 1;
+      const px = cxs + Math.sin(pi * 2.4 + now / 900) * W * 0.3;
+      const py = baseY - ph * H * 1.05;
+      ctx.fillStyle = `rgba(255,226,120,${((1 - ph) * 0.65).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(px, py, Math.max(1, s * 0.035) * (1 - ph * 0.5), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  if (tier >= 5) {
+    // Rang V : couronne lumineuse en orbite au sommet.
+    const ringY = topY - H * 0.05;
+    const spin = now / 1100;
+    ctx.strokeStyle = `rgba(255,235,150,${(0.5 + 0.3 * Math.sin(now / 500)).toFixed(2)})`;
+    ctx.lineWidth = Math.max(1, s * 0.035);
+    ctx.beginPath(); ctx.ellipse(cxs, ringY, W * 0.5, W * 0.14, 0, 0, Math.PI * 2); ctx.stroke();
+    for (let oi = 0; oi < 6; oi += 1) {
+      const oa = spin + oi * Math.PI / 3;
+      ctx.fillStyle = `rgba(255,245,190,${(0.55 + 0.45 * Math.sin(oa * 2)).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(cxs + Math.cos(oa) * W * 0.5, ringY + Math.sin(oa) * W * 0.14, Math.max(1.5, s * 0.055), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Faisceau de lumière nocturne : les merveilles dominent la ville la nuit.
+  const nf = CM.nightF || 0;
+  if (nf > 0.25) {
+    const beamA = (nf - 0.25) * 0.5 * glow;
+    const bg = ctx.createLinearGradient(cxs, baseY, cxs, topY - H * 0.6);
+    bg.addColorStop(0, `rgba(255,235,150,${(beamA * 0.55).toFixed(3)})`);
+    bg.addColorStop(0.6, `rgba(255,235,160,${(beamA * 0.25).toFixed(3)})`);
+    bg.addColorStop(1, "rgba(255,235,170,0)");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(cxs - W * 0.2, baseY);
+    ctx.lineTo(cxs - W * 0.42, topY - H * 0.6);
+    ctx.lineTo(cxs + W * 0.42, topY - H * 0.6);
+    ctx.lineTo(cxs + W * 0.2, baseY);
+    ctx.closePath(); ctx.fill();
   }
 
   // Bannière de dynastie

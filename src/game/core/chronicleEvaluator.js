@@ -69,7 +69,9 @@ const CATEGORY_LABELS = {
   stage_12: "Sédentarité",
   pop_10k: "Démographie",
   pop_100k: "Démographie",
-  paix: "Paix"
+  pop_1m: "Démographie",
+  paix: "Paix",
+  bonus_libre: "Chronique"
 };
 
 const CATEGORY_PRIORITIES = {
@@ -78,26 +80,28 @@ const CATEGORY_PRIORITIES = {
   stage_12: 1,
   pop_10k: 1,
   pop_100k: 1,
+  pop_1m: 1,
   crise: 2,
   tension: 3,
   usure: 3,
   nourriture: 4,
   or: 4,
   savoir: 4,
-  paix: 5
+  paix: 5,
+  bonus_libre: 6
 };
 
 export function evaluateCondition(type, state) {
   const stage = getStage(state);
   switch (type) {
     case "crise":
-      return state.instability >= 1 || state.timeWear >= 1;
+      return state.instability >= 0.75 || state.timeWear >= 0.75;
     case "tension":
       // Eviter le chevauchement si crise est déjà active
-      return state.instability >= 0.75 && state.instability < 1 && state.timeWear < 1;
+      return state.instability >= 0.5 && state.instability < 0.75 && state.timeWear < 0.75;
     case "usure":
       // Eviter le chevauchement si crise est déjà active
-      return state.timeWear >= 0.75 && state.timeWear < 1 && state.instability < 1;
+      return state.timeWear >= 0.5 && state.timeWear < 0.75 && state.instability < 0.75;
     case "nourriture":
       return state.food > state.gold && state.food > state.knowledge;
     case "or":
@@ -114,8 +118,12 @@ export function evaluateCondition(type, state) {
       return state.population > 10000;
     case "pop_100k":
       return state.population > 100000;
+    case "pop_1m":
+      return state.population > 1000000;
     case "paix":
       return state.instability < 0.35 && state.timeWear < 0.35;
+    case "bonus_libre":
+      return true;
     default:
       return false;
   }
@@ -139,10 +147,10 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const candidates = [];
 
   const types = [
-    "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k",
+    "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k", "pop_1m",
     "crise", "tension", "usure",
     "nourriture", "or", "savoir",
-    "paix"
+    "paix", "bonus_libre"
   ];
 
   for (const type of types) {

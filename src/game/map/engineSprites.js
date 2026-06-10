@@ -2,7 +2,22 @@
 import { drawCityEngineSprite } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 
-function drawEngineSprite(t, x, y, w, h, now) {
+// Emblème par bâtiment : pictogramme sur médaillon, lisible d'un coup d'œil
+// même quand le sprite est petit. Affiché au-dessus du sprite (wrapper en bas
+// de fichier) dès que le zoom le permet.
+const ENGINE_EMBLEMS = {
+  foragers: "🍇", granaries_city: "🌾", caravans: "🐪", markets: "🧺",
+  guilds: "🛡️", irrigated_fields: "💧", river_ports: "⚓", water_mills: "💦",
+  mint_houses: "🪙", imperial_exchanges: "💰",
+  storytellers: "💬", scribes: "✍️", schools: "📚", academies: "🦉",
+  ancestral_cult: "🕯️", observatories: "🔭", libraries: "📖",
+  universities: "🎓", printing_houses: "📜", think_tanks: "💡",
+  aqueducts: "⛲", watch: "👁️", sewers: "🐀", bureaucracy: "📋",
+  courthouses: "⚖️", public_works: "🏗️", ministries: "🏛️",
+  archive_grids: "🗄️", ruin_architects: "🏚️"
+};
+
+function drawEngineSpriteCore(t, x, y, w, h, now) {
   const ctx = CM.ctx;
   const id = t.buildingId || t.variant;
   const tier = t.tier || 0;
@@ -844,6 +859,31 @@ function drawEngineSprite(t, x, y, w, h, now) {
   const ei = CM.layout?.counts?.eraIndex ?? 0;
   if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei })) return;
 
+}
+
+// Wrapper : sprite + médaillon-emblème en surimpression (coin haut-gauche).
+// Le médaillon n'apparaît que si le sprite est assez grand à l'écran pour ne
+// pas écraser le pixel-art au zoom minimal.
+function drawEngineSprite(t, x, y, w, h, now) {
+  drawEngineSpriteCore(t, x, y, w, h, now);
+  const id = t.buildingId || t.variant;
+  const emblem = ENGINE_EMBLEMS[id];
+  if (!emblem || w < 34) return;
+  const ctx = CM.ctx;
+  const r = Math.min(13, Math.max(6.5, w * 0.14));
+  const ex = x + r * 0.85, ey = y + r * 0.85;
+  ctx.save();
+  // Médaillon parchemin + liseré doré
+  ctx.fillStyle = "rgba(26,18,8,0.78)";
+  ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(201,168,76,0.85)";
+  ctx.lineWidth = Math.max(1, r * 0.12);
+  ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.font = `${Math.round(r * 1.3)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emblem, ex, ey + r * 0.08);
+  ctx.restore();
 }
 
 export { drawEngineSprite };

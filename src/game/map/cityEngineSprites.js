@@ -97,12 +97,59 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "granaries_city") {
-    px(0.12, 0.42, 0.76, 0.32, "#c9a84c");
-    ctx.fillStyle = "#d8bd68";
-    ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.43, sw * 0.38, sh * 0.16, 0, Math.PI, 0); ctx.fill();
-    px(0.25, 0.57, 0.12, 0.17, "#6a4a10");
-    px(0.63, 0.57, 0.12, 0.17, "#6a4a10");
-    if (tier >= 1) strokeRect(0.08, 0.36, 0.84, 0.42, "#6a4a10");
+    // ── GRENIERS — silos sur pilotis, grain doré, sacs, oiseau picoreur ──
+    // Sol en terre battue
+    px(0.0, 0.66, 1.0, 0.34, "#241a0c");
+    // Deux silos ronds sur pilotis (anti-rongeurs)
+    for (const [scx, srad] of [[0.32, 0.2], [0.68, 0.16]]) {
+      // Pilotis
+      ctx.fillStyle = "#4c3414";
+      ctx.fillRect(ox + sw * (scx - srad * 0.7), oy + sh * 0.66, sw * 0.035, sh * 0.12);
+      ctx.fillRect(ox + sw * (scx + srad * 0.55), oy + sh * 0.66, sw * 0.035, sh * 0.12);
+      // Corps torchis
+      ctx.fillStyle = "#b89048";
+      ctx.fillRect(ox + sw * (scx - srad), oy + sh * (0.66 - srad * 1.4), sw * srad * 2, sh * srad * 1.4);
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      ctx.fillRect(ox + sw * (scx + srad * 0.5), oy + sh * (0.66 - srad * 1.4), sw * srad * 0.5, sh * srad * 1.4);
+      // Grain doré qui déborde au sommet
+      ctx.fillStyle = "#e8c860";
+      ctx.beginPath(); ctx.ellipse(ox + sw * scx, oy + sh * (0.66 - srad * 1.4), sw * srad * 0.92, sh * srad * 0.4, 0, Math.PI, 0); ctx.fill();
+      // Toit conique de chaume au-dessus (sur poteaux)
+      ctx.fillStyle = "#7a5618";
+      ctx.beginPath();
+      ctx.moveTo(ox + sw * (scx - srad * 1.15), oy + sh * (0.66 - srad * 1.55));
+      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 2.4));
+      ctx.lineTo(ox + sw * (scx + srad * 1.15), oy + sh * (0.66 - srad * 1.55));
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,235,170,0.2)";
+      ctx.beginPath();
+      ctx.moveTo(ox + sw * (scx - srad * 1.15), oy + sh * (0.66 - srad * 1.55));
+      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 2.4));
+      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 1.55));
+      ctx.closePath(); ctx.fill();
+    }
+    // Sacs de grain empilés (plus nombreux avec le niveau)
+    const nSacks = 2 + Math.min(3, tier + 1);
+    for (let si = 0; si < nSacks; si += 1) {
+      const sx2 = 0.42 + (si % 3) * 0.09, sy2 = 0.78 - Math.floor(si / 3) * 0.08;
+      ctx.fillStyle = si % 2 ? "#c8a058" : "#b08c48";
+      ctx.beginPath(); ctx.ellipse(ox + sw * sx2, oy + sh * sy2, sw * 0.045, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6a4a18";
+      ctx.fillRect(ox + sw * (sx2 - 0.012), oy + sh * (sy2 - 0.065), sw * 0.024, sh * 0.02);
+    }
+    // Filet de grain animé qui coule du grand silo dans un sac
+    const pour = (now / 900) % 1;
+    ctx.fillStyle = "rgba(232,200,96,0.85)";
+    ctx.fillRect(ox + sw * 0.315, oy + sh * 0.6, Math.max(1, sw * 0.014), sh * 0.16);
+    for (let gi = 0; gi < 3; gi += 1) {
+      const gph = (pour + gi / 3) % 1;
+      ctx.beginPath(); ctx.arc(ox + sw * (0.32 + Math.sin(gph * 9) * 0.012), oy + sh * (0.6 + gph * 0.17), Math.max(0.8, sw * 0.013), 0, Math.PI * 2); ctx.fill();
+    }
+    // Oiseau picoreur (pivote la tête)
+    const peck = Math.sin(now / 320) > 0.4 ? 0.025 : 0;
+    ctx.fillStyle = "#3a3a44";
+    ctx.beginPath(); ctx.ellipse(ox + sw * 0.85, oy + sh * 0.82, sw * 0.035, sh * 0.025, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ox + sw * (0.87 + peck), oy + sh * (0.795 + peck * 1.4), sw * 0.018, 0, Math.PI * 2); ctx.fill();
     return true;
   }
   if (id === "caravans") {
@@ -410,19 +457,51 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "water_mills") {
-    px(0.06, 0.62, 0.86, 0.12, "#6a4a10");
-    px(0.12, 0.72, 0.76, 0.05, "#5a3a10");
-    px(0.16, 0.22, 0.36, 0.42, "#8b6914");
+    // ── MOULIN À EAU — bief qui coule, grande roue à aubes, éclaboussures ──
+    // Bief (canal d'eau animé sous la roue)
+    px(0.04, 0.6, 0.92, 0.2, "#2a5a8b");
+    const flow = (now / 600) % 1;
+    ctx.strokeStyle = "rgba(190,220,250,0.4)"; ctx.lineWidth = Math.max(0.5, sw * 0.014);
+    for (let fi = 0; fi < 3; fi += 1) {
+      const fx2 = ((flow + fi / 3) % 1) * 0.84 + 0.06;
+      ctx.beginPath(); ctx.moveTo(ox + sw * fx2, oy + sh * (0.64 + fi * 0.05)); ctx.lineTo(ox + sw * (fx2 + 0.08), oy + sh * (0.64 + fi * 0.05)); ctx.stroke();
+    }
+    // Corps du moulin (pierre + colombage)
+    px(0.14, 0.24, 0.38, 0.4, "#8b6914");
+    ctx.strokeStyle = "rgba(70,45,12,0.5)"; ctx.lineWidth = Math.max(0.5, sw * 0.018);
+    ctx.beginPath(); ctx.moveTo(ox + sw * 0.14, oy + sh * 0.44); ctx.lineTo(ox + sw * 0.52, oy + sh * 0.44); ctx.stroke();
     ctx.fillStyle = "#5a3a10";
-    ctx.beginPath(); ctx.moveTo(ox + sw * 0.12, oy + sh * 0.25); ctx.lineTo(ox + sw * 0.34, oy + sh * 0.06); ctx.lineTo(ox + sw * 0.56, oy + sh * 0.25); ctx.closePath(); ctx.fill();
-    px(0.26, 0.43, 0.1, 0.18, "#2a1a0c");
-    const cx = ox + sw * 0.68, cy = oy + sh * 0.68, rr = Math.min(sw, sh) * 0.24;
-    ctx.strokeStyle = "#5a3a10"; ctx.lineWidth = Math.max(1, sw * 0.04);
+    ctx.beginPath(); ctx.moveTo(ox + sw * 0.1, oy + sh * 0.27); ctx.lineTo(ox + sw * 0.33, oy + sh * 0.06); ctx.lineTo(ox + sw * 0.56, oy + sh * 0.27); ctx.closePath(); ctx.fill();
+    // Porte + fenêtre éclairée
+    px(0.24, 0.46, 0.1, 0.18, "#2a1a0c");
+    ctx.fillStyle = litWarm; ctx.fillRect(ox + sw * 0.4, oy + sh * 0.32, sw * 0.07, sh * 0.08);
+    // Grande roue à aubes (pales rectangulaires, rotation continue)
+    const cx = ox + sw * 0.7, cy = oy + sh * 0.58, rr = Math.min(sw, sh) * 0.26;
+    ctx.strokeStyle = "#4a2e0c"; ctx.lineWidth = Math.max(1.5, sw * 0.045);
     ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = "#7a5418";
-    for (let i = 0; i < 6; i += 1) {
-      const a = now / 450 + i * Math.PI / 3;
+    ctx.strokeStyle = "#6a4615"; ctx.lineWidth = Math.max(1, sw * 0.03);
+    ctx.beginPath(); ctx.arc(cx, cy, rr * 0.55, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 8; i += 1) {
+      const a = now / 520 + i * Math.PI / 4;
+      ctx.strokeStyle = "#7a5418"; ctx.lineWidth = Math.max(1, sw * 0.024);
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); ctx.stroke();
+      // Pale au bout du rayon
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * rr * 0.92, cy + Math.sin(a) * rr * 0.92);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = "#8a5e1e";
+      ctx.fillRect(-sw * 0.045, -sh * 0.016, sw * 0.09, sh * 0.032);
+      ctx.restore();
+    }
+    // Moyeu
+    ctx.fillStyle = "#3a240a"; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.5, rr * 0.14), 0, Math.PI * 2); ctx.fill();
+    // Éclaboussures au pied de la roue
+    for (let si = 0; si < 4; si += 1) {
+      const sph = ((now / 450) + si / 4) % 1;
+      ctx.fillStyle = `rgba(210,235,255,${((1 - sph) * 0.6).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(cx - rr * 0.5 + sph * rr * 0.4 - si * sw * 0.02, oy + sh * 0.66 - sph * sh * 0.1, Math.max(0.8, sw * 0.016), 0, Math.PI * 2);
+      ctx.fill();
     }
     return true;
   }

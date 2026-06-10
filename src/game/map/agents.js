@@ -10,6 +10,8 @@ import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from './layout.js';
  * ============================================================================ */
 
 function getVehicleDensity(eraIndex, rank) {
+  // Pas de charrettes au milieu des places : elles sont piétonnes.
+  if (rank === "plaza") return 0;
   const rankBase = rank === "main" ? 1.15 : rank === "avenue" ? 0.78 : rank === "secondary" ? 0.35 : 0.05;
   const ageBase = eraIndex < 3 ? 0.02 : eraIndex < 7 ? 0.22 : eraIndex < 11 ? 0.42 : eraIndex < 13 ? 0.72 : eraIndex < 18 ? 0.98 : 1.12;
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
@@ -19,6 +21,31 @@ function getVehicleDensity(eraIndex, rank) {
 function chooseRoadVehicleType(eraIndex, rank, seed) {
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
   if (ruined) return "broken_cart";
+  // Sélection pondérée par la config d'âge × le profil de la ville : une cité
+  // marchande déborde de caravanes, une cité militaire fait défiler ses chars.
+  const ageCfg = CM.layout && CM.layout.ageCfg;
+  const personality = CM.layout && CM.layout.personality;
+  if (ageCfg && Array.isArray(ageCfg.vehicles) && ageCfg.vehicles.length) {
+    const bias = (personality && personality.vehicleBias) || {};
+    let total = 0;
+    const weighted = ageCfg.vehicles.map((v) => {
+      const w = Math.max(0, v.weight * (bias[v.type] || 1));
+      total += w;
+      return { type: v.type, w };
+    });
+    if (total > 0) {
+      let roll = ((seed * 2654435761) >>> 0) % 1000 / 1000 * total;
+      for (const v of weighted) {
+        roll -= v.w;
+        if (roll <= 0) {
+          // car/tram réservés aux grands axes (sinon retombe sur un wagon).
+          if ((v.type === "car" || v.type === "tram") && rank !== "main" && rank !== "avenue") return "wagon";
+          return v.type;
+        }
+      }
+    }
+  }
+  // Fallback historique (layout pas encore généré).
   if (eraIndex < 3) return "basket";
   if (eraIndex < 6) return seed % 3 === 0 ? "barrow" : "cart";
   if (eraIndex < 9) return seed % 3 === 0 ? "chariot" : seed % 3 === 1 ? "wagon" : "cart";
@@ -54,9 +81,25 @@ function citizenChooseNext(p) {
     p.pauseT = 0.3 + Math.random() * 1.5;
     return;
   }
-  if (!p.goal || Math.random() < 0.05 || (p.goal.gx === p.gx && p.goal.gy === p.gy)) {
-    const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
-    p.goal = { gx: r.gx, gy: r.gy };
+  const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
+  // Arrivé sur une place : on s'attarde (discussions, marché, badauds).
+  if (arrived && p.social) {
+    p.social = false;
+    p.pauseT = 2.5 + Math.random() * 5;
+  }
+  if (!p.goal || Math.random() < 0.05 || arrived) {
+    // Le jour, une partie des piétons converge vers les places publiques.
+    const day = (CM.nightF || 0) < 0.45;
+    const plazaCells = CM.plazaRoadCells;
+    if (day && plazaCells && plazaCells.length && Math.random() < 0.3) {
+      const r = plazaCells[Math.floor(Math.random() * plazaCells.length)];
+      p.goal = { gx: r.gx, gy: r.gy };
+      p.social = true;
+    } else {
+      const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+      p.goal = { gx: r.gx, gy: r.gy };
+      p.social = false;
+    }
   }
   const rev = p.dir >= 0 ? (p.dir ^ 1) : -1;
   const opts = [];
@@ -145,6 +188,10 @@ function drawCitizens(dt, now) {
         p.y += dy / dist * sp;
       }
     }
+    // La nuit, une partie de la population rentre dormir.
+    const nightF = CM.nightF || 0;
+    if (nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0) continue;
+
     const wob = p.pauseT > 0 ? 0 : Math.sin((now || 0) / 240 + (p.phase || 0)) * 1.1;
     const perpX = (p.dir === 2 || p.dir === 3) ? 1 : 0;
     const perpY = perpX ? 0 : 1;
@@ -162,10 +209,39 @@ function drawCitizens(dt, now) {
       }
     }
 
+    // ── Silhouette humaine lisible : ombre, jambes, tunique, tête ──────
+    const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur du personnage
+    const walking = p.pauseT <= 0;
+    // Ombre au sol
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+    // Jambes alternées quand il marche
+    if (ph > 2 && walking) {
+      const step = Math.sin((now || 0) / 110 + (p.phase || 0) * 3) * ph * 0.45;
+      ctx.strokeStyle = "#241a10";
+      ctx.lineWidth = Math.max(1, ph * 0.28);
+      ctx.beginPath(); ctx.moveTo(sx - ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx - ph * 0.15 + step * 0.5, sy + ph * 1.3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx + ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx + ph * 0.15 - step * 0.5, sy + ph * 1.3); ctx.stroke();
+    }
+    // Corps (tunique colorée, épaules plus larges que la taille)
     ctx.fillStyle = p.col;
     ctx.beginPath();
-    ctx.arc(sx, sy, Math.max(1.1, 1.9 * z), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(sx - ph * 0.62, sy - ph * 0.45);
+    ctx.quadraticCurveTo(sx - ph * 0.5, sy + ph * 0.65, sx - ph * 0.3, sy + ph * 0.62);
+    ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
+    ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
+    ctx.closePath(); ctx.fill();
+    // Liseré d'épaule (volume)
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
+    // Tête (teint de peau)
+    ctx.fillStyle = p.skin || "#e0b890";
+    ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
+    // Couvre-chef selon le rôle/l'ère (capuche, casque, chapeau)
+    if (p.hat && ph > 1.8) {
+      ctx.fillStyle = p.hat;
+      ctx.beginPath(); ctx.arc(sx, sy - ph * 0.95, ph * 0.48, Math.PI, 0); ctx.fill();
+    }
   }
 }
 

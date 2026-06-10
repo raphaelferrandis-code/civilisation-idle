@@ -304,6 +304,8 @@ export function startGameLoop() {
     const now = performance.now();
     const seconds = Math.min(1.0, (now - last) / 1000);
     last = now;
+    // Temps de jeu actif cumulé (jalon de merveille) — survit aux effondrements.
+    state.playTimeSec = (state.playTimeSec || 0) + seconds;
     tick(seconds);
     checkAutoCollapse();
     notify(); // Notifie React du changement d'etat a chaque tick

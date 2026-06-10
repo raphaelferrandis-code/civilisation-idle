@@ -135,8 +135,11 @@ const CITY_MAP_GREENS = ["#2d5a1b", "#3a6b22", "#4a7a2a", "#255018", "#1e4010", 
 function cityMapDrawUrbanMass(layout) {
   if (!layout || layout.counts.eraBand < 2) return;
   const ctx = CM.ctx;
-  const worldCx = layout.cx * CM.TILE;
-  const worldCy = layout.cy * CM.TILE;
+  // Le halo urbain suit le cœur de ville du plan procédural (pas le centre de grille).
+  const coreX = layout.plan?.core?.x ?? layout.cx;
+  const coreY = layout.plan?.core?.y ?? layout.cy;
+  const worldCx = coreX * CM.TILE;
+  const worldCy = coreY * CM.TILE;
   const rx = Math.min(layout.gridN * CM.TILE * 0.49, (6 + layout.counts.eraIndex * 3.8 + layout.counts.urbanTier * 7) * CM.TILE);
   const ry = rx * 0.78;
   const sx = (worldCx - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
@@ -157,8 +160,8 @@ function cityMapDrawGround(layout) {
   ctx.fillStyle = "#2d3a1e";
   ctx.fillRect(0, 0, CM.cw, CM.ch);
   if (!layout || layout.counts.eraBand <= 1) return;
-  const sx = (layout.cx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
-  const sy = (layout.cy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
+  const sx = ((layout.plan?.core?.x ?? layout.cx) * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
+  const sy = ((layout.plan?.core?.y ?? layout.cy) * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
   const radius = (10 + tier * 12) * CM.TILE * CM.cam.zoom;
   const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, radius));
   g.addColorStop(0, "rgba(72,58,33,0.58)");
@@ -169,20 +172,58 @@ function cityMapDrawGround(layout) {
 }
 
 function cityMapDrawVestiges() {
+  // Ruines des civilisations passées : colonnes brisées, pans de murs,
+  // gravats et végétation qui reprend ses droits — pas de simples carrés.
   if (!Array.isArray(state.vestiges) || !state.vestiges.length) return;
   const ctx = CM.ctx, s = CM.TILE * CM.cam.zoom;
   for (let v = 0; v < state.vestiges.length; v += 1) {
     const ves = state.vestiges[v];
     if (!ves || !ves.ruins) continue;
     const off = (CM.gridN - (ves.gridN || CM.gridN)) / 2;
-    ctx.globalAlpha = 0.16 + v * 0.05;
-    ctx.fillStyle = "#1a1510";
+    // Les vestiges récents (v élevé) sont plus visibles que les anciens.
+    const age = 0.3 + v * 0.16;
     for (const c of ves.ruins) {
       const gx = c.x + off, gy = c.y + off;
       const sx = (gx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
       const sy = (gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
       if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
-      ctx.fillRect(sx + s * 0.2, sy + s * 0.2, s * 0.6, s * 0.6);
+      const h = ((gx * 31 + gy * 17 + v * 7) >>> 0) % 5;
+      ctx.globalAlpha = age;
+      if (h === 0) {
+        // Colonne brisée : fût clair + chapiteau tombé
+        ctx.fillStyle = "#8a8070";
+        ctx.fillRect(sx + s * 0.38, sy + s * 0.3, s * 0.16, s * 0.4);
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.fillRect(sx + s * 0.38, sy + s * 0.3, s * 0.06, s * 0.4);
+        ctx.fillStyle = "#6e6455";
+        ctx.fillRect(sx + s * 0.58, sy + s * 0.6, s * 0.2, s * 0.12);
+      } else if (h === 1) {
+        // Pan de mur en L
+        ctx.fillStyle = "#5d564a";
+        ctx.fillRect(sx + s * 0.2, sy + s * 0.26, s * 0.5, s * 0.14);
+        ctx.fillRect(sx + s * 0.2, sy + s * 0.26, s * 0.14, s * 0.46);
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillRect(sx + s * 0.2, sy + s * 0.36, s * 0.5, s * 0.04);
+      } else if (h === 2) {
+        // Gravats épars
+        ctx.fillStyle = "#534c40";
+        ctx.fillRect(sx + s * 0.25, sy + s * 0.5, s * 0.18, s * 0.14);
+        ctx.fillRect(sx + s * 0.52, sy + s * 0.34, s * 0.14, s * 0.12);
+        ctx.fillRect(sx + s * 0.45, sy + s * 0.62, s * 0.1, s * 0.09);
+      } else if (h === 3) {
+        // Fondations envahies de végétation
+        ctx.fillStyle = "#473f33";
+        ctx.fillRect(sx + s * 0.22, sy + s * 0.22, s * 0.56, s * 0.56);
+        ctx.fillStyle = "rgba(74,110,42,0.55)";
+        ctx.beginPath(); ctx.arc(sx + s * 0.36, sy + s * 0.4, s * 0.16, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx + s * 0.62, sy + s * 0.6, s * 0.12, 0, Math.PI * 2); ctx.fill();
+      } else {
+        // Dalle fissurée
+        ctx.fillStyle = "#4e4639";
+        ctx.fillRect(sx + s * 0.24, sy + s * 0.28, s * 0.52, s * 0.46);
+        ctx.strokeStyle = "rgba(20,14,8,0.6)"; ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath(); ctx.moveTo(sx + s * 0.32, sy + s * 0.3); ctx.lineTo(sx + s * 0.6, sy + s * 0.7); ctx.stroke();
+      }
     }
   }
   ctx.globalAlpha = 1;
@@ -233,16 +274,42 @@ function cityMapDrawRiver(now) {
       const t = (((now || 0) / 1000 * (0.03 + (i % 3) * 0.015)) + i * 0.11) % 1;
       const idx = Math.floor(t * (sm.length - 1));
       const flick = 0.4 + 0.6 * Math.abs(Math.sin((now || 0) / 320 + i * 1.7));
-      ctx.fillStyle = `rgba(255,255,255,${(refA * flick).toFixed(3)})`;
+      // La nuit, l'eau reflète les lumières chaudes de la ville.
+      const nf = CM.nightF || 0;
+      ctx.fillStyle = nf > 0.3
+        ? `rgba(255,210,130,${(refA * flick * (0.8 + nf)).toFixed(3)})`
+        : `rgba(255,255,255,${(refA * flick).toFixed(3)})`;
       ctx.fillRect(SX(sm[idx].x) - 1, SY(sm[idx].y) - 1, Math.max(2, 2.6 * z), Math.max(2, 2.6 * z));
     }
   }
 
+  // Quais de pierre : aux ères urbaines, les berges proches de la ville sont
+  // maçonnées (bande claire côté eau) ; les berges sauvages gardent leurs roseaux.
+  const band = L.counts ? L.counts.eraBand : 0;
+  const occ = CM.occupied;
   const reedOk = tw < 0.7 && !collapsed;
   for (const k of L.river.banks) {
     const c = k.indexOf(","); const bgx = +k.slice(0, c), bgy = +k.slice(c + 1);
     const px = SX(bgx), py = SY(bgy), ts = T * z;
     if (px < -ts || px > CM.cw || py < -ts || py > CM.ch) continue;
+    const isQuay = band >= 3 && !collapsed && tw < 0.7 && occ && (
+      occ.has((bgx - 1) + "," + bgy) || occ.has((bgx + 1) + "," + bgy) ||
+      occ.has(bgx + "," + (bgy - 1)) || occ.has(bgx + "," + (bgy + 1)));
+    if (isQuay) {
+      const waterBelow = L.river.cells.has(bgx + "," + (bgy + 1));
+      const waterAbove = L.river.cells.has(bgx + "," + (bgy - 1));
+      const qy = waterBelow ? py + ts * 0.62 : waterAbove ? py + ts * 0.06 : py + ts * 0.34;
+      ctx.fillStyle = band >= 5 ? "#857e70" : "#776f60";
+      ctx.fillRect(px, qy, ts + 1, ts * 0.32);
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.fillRect(px, qy, ts + 1, Math.max(1, ts * 0.07));
+      // Bittes d'amarrage espacées
+      if ((bgx * 5 + bgy * 11) % 3 === 0) {
+        ctx.fillStyle = "#3c362c";
+        ctx.fillRect(px + ts * 0.42, qy + ts * 0.1, Math.max(1.5, ts * 0.1), Math.max(1.5, ts * 0.1));
+      }
+      continue;
+    }
     if (reedOk && (bgx * 7 + bgy * 13) % 3 === 0) {
       const waterBelow = L.river.cells.has(bgx + "," + (bgy + 1));
       const waterAbove = L.river.cells.has(bgx + "," + (bgy - 1));
@@ -357,6 +424,16 @@ function cityMapDrawTrees() {
 
 function cityMapDrawNight(now) {
   const n = CM.nightF;
+  // Aube/crépuscule : voile chaud quand la nuit monte ou descend (pic à n=0.5).
+  const twilight = 4 * n * (1 - n);
+  if (twilight > 0.25) {
+    const ctx2 = CM.ctx;
+    // L'aube (nuit qui tombe → fausse : phase montante = crépuscule, descendante = aube)
+    const dawn = CM.dayRising === false;
+    const warmCol = dawn ? "255,170,90" : "255,120,50";
+    ctx2.fillStyle = `rgba(${warmCol},${((twilight - 0.25) * 0.16).toFixed(3)})`;
+    ctx2.fillRect(0, 0, CM.cw, CM.ch);
+  }
   if (n < 0.05) return;
   const ctx = CM.ctx;
   ctx.fillStyle = `rgba(10,16,34,${(n * 0.5).toFixed(3)})`;
@@ -374,6 +451,266 @@ function cityMapDrawNight(now) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1, r), 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = prev;
   }
+}
+
+// ── Enceinte urbaine : muraille continue, tours, portes ─────────────────────
+function cityMapDrawWalls() {
+  const L = CM.layout;
+  if (!L || !L.walls || !L.walls.cells.length) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, s = T * z;
+  const band = L.counts.eraBand;
+  const ruined = CM.frameRuined;
+  const stone = ruined ? "#4f4a40" : band >= 5 ? "#8a8378" : band >= 4 ? "#7d7668" : "#6f6b5e";
+  const stoneDark = ruined ? "#332f28" : "#46423a";
+  const stoneLight = "rgba(255,255,255,0.16)";
+  const all = new Set(L.walls.cells.map((c) => c.gx + "," + c.gy));
+  const SXY = (gx, gy) => [(gx * T - CM.cam.x) * z + CM.cw / 2, (gy * T - CM.cam.y) * z + CM.ch / 2];
+
+  // Passe 1 : ombre portée du rempart
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  for (const c of L.walls.cells) {
+    if (c.kind === "gate") continue;
+    const [x, y] = SXY(c.gx, c.gy);
+    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
+    ctx.fillRect(x + s * 0.22, y + s * 0.3, s * 0.72, s * 0.72);
+  }
+  // Passe 2 : corps du mur, prolongé vers les voisins pour une bande continue
+  for (const c of L.walls.cells) {
+    const [x, y] = SXY(c.gx, c.gy);
+    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
+    const nN = all.has(c.gx + "," + (c.gy - 1)), nS = all.has(c.gx + "," + (c.gy + 1));
+    const nE = all.has((c.gx + 1) + "," + c.gy), nW = all.has((c.gx - 1) + "," + c.gy);
+    if (c.kind === "gate") {
+      // Porte : deux montants encadrant la route + linteau sombre
+      ctx.fillStyle = stoneDark;
+      if (nE || nW) { // mur horizontal → montants haut/bas
+        ctx.fillRect(x + s * 0.02, y + s * 0.18, s * 0.24, s * 0.3);
+        ctx.fillRect(x + s * 0.74, y + s * 0.18, s * 0.24, s * 0.3);
+      } else {
+        ctx.fillRect(x + s * 0.18, y + s * 0.02, s * 0.3, s * 0.24);
+        ctx.fillRect(x + s * 0.18, y + s * 0.74, s * 0.3, s * 0.24);
+      }
+      continue;
+    }
+    const th = 0.52; // épaisseur du mur
+    let x0 = x + s * (0.5 - th / 2), y0 = y + s * (0.5 - th / 2);
+    let wPx = s * th, hPx = s * th;
+    if (nW) { x0 -= s * (0.5 - th / 2); wPx += s * (0.5 - th / 2); }
+    if (nE) { wPx += s * (0.5 - th / 2) + 1; }
+    if (nN) { y0 -= s * (0.5 - th / 2); hPx += s * (0.5 - th / 2); }
+    if (nS) { hPx += s * (0.5 - th / 2) + 1; }
+    const tower = c.kind === "tower";
+    if (tower) { x0 = x + s * 0.08; y0 = y + s * 0.08; wPx = s * 0.84; hPx = s * 0.84; }
+    ctx.fillStyle = tower ? stoneDark : stone;
+    ctx.fillRect(x0, y0, wPx, hPx);
+    // Chemin de ronde (liseré clair côté nord)
+    ctx.fillStyle = stoneLight;
+    ctx.fillRect(x0, y0, wPx, Math.max(1, s * 0.1));
+    // Créneaux : pointillés sombres le long du mur
+    ctx.fillStyle = stoneDark;
+    const dotS = Math.max(1, s * 0.1);
+    if (nE || nW) {
+      for (let dx = s * 0.12; dx < wPx - dotS; dx += s * 0.3) ctx.fillRect(x0 + dx, y0 + 1, dotS, dotS);
+    } else {
+      for (let dy = s * 0.12; dy < hPx - dotS; dy += s * 0.3) ctx.fillRect(x0 + 1, y0 + dy, dotS, dotS);
+    }
+    if (tower) {
+      // Toit de tour + fanion
+      ctx.fillStyle = stone;
+      ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
+      ctx.fillStyle = ruined ? "rgba(120,60,40,0.5)" : "#9a3c28";
+      ctx.beginPath();
+      ctx.moveTo(x + s * 0.5, y - s * 0.18);
+      ctx.lineTo(x + s * 0.78, y - s * 0.06);
+      ctx.lineTo(x + s * 0.5, y + s * 0.04);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(x + s * 0.5, y - s * 0.18); ctx.lineTo(x + s * 0.5, y + s * 0.3); ctx.stroke();
+    }
+  }
+}
+
+// ── Esplanade des places : dallage continu (couche statique) ────────────────
+// Une vraie place : surface pavée d'un seul tenant, rosace centrale, bordure
+// de pierre et dalles irrégulières — pas un carré de routes.
+function cityMapDrawPlazaSurface() {
+  const L = CM.layout;
+  if (!L || !L.plan || !Array.isArray(L.plan.plazas) || !L.plan.plazas.length) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const band = L.counts ? L.counts.eraBand : 0;
+  const ruined = CM.frameRuined;
+  const base = ruined ? "#4a4336" : band >= 5 ? "#8d8473" : band >= 3 ? "#a08e6e" : "#8f7a55";
+  const dark = "rgba(40,30,16,0.3)";
+  const light = "rgba(255,240,210,0.14)";
+  for (const p of L.plan.plazas) {
+    if (!p.size || p.size < 2) continue;
+    const half = Math.floor(p.size / 2);
+    // Emprise réelle des cellules (alignée sur la grille de la place)
+    const x0 = ((p.gx - half) * T - CM.cam.x) * z + CM.cw / 2;
+    const y0 = ((p.gy - half) * T - CM.cam.y) * z + CM.ch / 2;
+    const wPx = p.size * T * z, hPx = p.size * T * z;
+    if (x0 > CM.cw + wPx || y0 > CM.ch + hPx || x0 + wPx < -wPx || y0 + hPx < -hPx) continue;
+    const cx = x0 + wPx / 2, cy = y0 + hPx / 2;
+    const inset = T * z * 0.06;
+    // Dalle de fond aux coins adoucis
+    ctx.fillStyle = base;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0 + inset, y0 + inset, wPx - inset * 2, hPx - inset * 2, T * z * 0.3);
+    else ctx.rect(x0 + inset, y0 + inset, wPx - inset * 2, hPx - inset * 2);
+    ctx.fill();
+    // Bordure de pierre
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = Math.max(1, T * z * 0.08);
+    ctx.stroke();
+    // Dalles irrégulières (grille décalée une rangée sur deux)
+    ctx.strokeStyle = "rgba(55,42,24,0.22)";
+    ctx.lineWidth = Math.max(0.5, T * z * 0.025);
+    const cell = T * z * 0.5;
+    for (let ry = y0 + inset + cell; ry < y0 + hPx - inset; ry += cell) {
+      ctx.beginPath(); ctx.moveTo(x0 + inset, ry); ctx.lineTo(x0 + wPx - inset, ry); ctx.stroke();
+    }
+    let off = 0;
+    for (let ry = y0 + inset; ry < y0 + hPx - inset; ry += cell) {
+      for (let rx = x0 + inset + cell * (0.5 + off); rx < x0 + wPx - inset; rx += cell) {
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx, Math.min(ry + cell, y0 + hPx - inset)); ctx.stroke();
+      }
+      off = off ? 0 : 0.5;
+    }
+    // Rosace centrale (deux anneaux + dalle claire)
+    ctx.fillStyle = light;
+    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = Math.max(1, T * z * 0.05);
+    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.3, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.16, 0, Math.PI * 2); ctx.stroke();
+    // Rayons de la rosace
+    for (let i = 0; i < 8; i += 1) {
+      const a = i * Math.PI / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * wPx * 0.16, cy + Math.sin(a) * wPx * 0.16);
+      ctx.lineTo(cx + Math.cos(a) * wPx * 0.3, cy + Math.sin(a) * wPx * 0.3);
+      ctx.stroke();
+    }
+    // Bornes de pierre aux quatre coins
+    ctx.fillStyle = ruined ? "#3c362c" : "#6e6354";
+    const bs = Math.max(1.5, T * z * 0.14);
+    for (const [bx, by] of [[x0 + inset * 3, y0 + inset * 3], [x0 + wPx - inset * 3 - bs, y0 + inset * 3], [x0 + inset * 3, y0 + hPx - inset * 3 - bs], [x0 + wPx - inset * 3 - bs, y0 + hPx - inset * 3 - bs]]) {
+      ctx.fillRect(bx, by, bs, bs);
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillRect(bx, by, bs, Math.max(0.5, bs * 0.3));
+      ctx.fillStyle = ruined ? "#3c362c" : "#6e6354";
+    }
+  }
+}
+
+// ── Places publiques : monument central selon la personnalité de la ville ──
+function cityMapDrawPlazas(now) {
+  const L = CM.layout;
+  if (!L || !L.plan || !Array.isArray(L.plan.plazas)) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const pid = L.personality ? L.personality.id : "marchande";
+  const t = now || 0;
+  for (const p of L.plan.plazas) {
+    if (!p.size || p.size < 2) continue;
+    const cx = ((p.gx + 0.5) * T - CM.cam.x) * z + CM.cw / 2;
+    const cy = ((p.gy + 0.5) * T - CM.cam.y) * z + CM.ch / 2;
+    const s = T * z;
+    if (cx < -s * 3 || cy < -s * 3 || cx > CM.cw + s * 3 || cy > CM.ch + s * 3) continue;
+    // (le dallage est dessiné par cityMapDrawPlazaSurface en couche statique)
+    if (pid === "marchande" || pid === "pauvre") {
+      // Étals de marché : auvents rayés autour du centre
+      const stalls = pid === "marchande" ? 4 : 2;
+      for (let i = 0; i < stalls; i += 1) {
+        const a = (i / stalls) * Math.PI * 2 + 0.6;
+        const sx = cx + Math.cos(a) * s * 0.55, sy = cy + Math.sin(a) * s * 0.42;
+        ctx.fillStyle = i % 2 ? "#a33c2a" : "#b08a3a";
+        ctx.fillRect(sx - s * 0.18, sy - s * 0.13, s * 0.36, s * 0.26);
+        ctx.fillStyle = "rgba(255,245,225,0.55)";
+        ctx.fillRect(sx - s * 0.18, sy - s * 0.13, s * 0.36, s * 0.07);
+        ctx.fillStyle = "rgba(40,22,8,0.6)";
+        ctx.fillRect(sx - s * 0.16, sy + s * 0.08, s * 0.05, s * 0.07);
+        ctx.fillRect(sx + s * 0.11, sy + s * 0.08, s * 0.05, s * 0.07);
+      }
+    } else if (pid === "religieuse") {
+      // Statue votive sur socle + lueur
+      ctx.fillStyle = "#6a6458"; ctx.fillRect(cx - s * 0.16, cy - s * 0.1, s * 0.32, s * 0.26);
+      ctx.fillStyle = "#cfc6b0";
+      ctx.fillRect(cx - s * 0.06, cy - s * 0.52, s * 0.12, s * 0.46);
+      ctx.beginPath(); ctx.arc(cx, cy - s * 0.58, s * 0.09, 0, Math.PI * 2); ctx.fill();
+      const halo = 0.25 + 0.15 * Math.sin(t / 600) + (CM.nightF || 0) * 0.3;
+      ctx.fillStyle = `rgba(255,228,150,${halo.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(cx, cy - s * 0.4, s * 0.13, 0, Math.PI * 2); ctx.fill();
+    } else if (pid === "agricole") {
+      // Puits communal : margelle + potence + seau
+      ctx.fillStyle = "#6e6356"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#23303c"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#5a3c16"; ctx.lineWidth = Math.max(1, s * 0.06);
+      ctx.beginPath(); ctx.moveTo(cx - s * 0.26, cy); ctx.lineTo(cx - s * 0.26, cy - s * 0.42); ctx.lineTo(cx + s * 0.26, cy - s * 0.42); ctx.lineTo(cx + s * 0.26, cy); ctx.stroke();
+      ctx.strokeStyle = "#3a2a14"; ctx.lineWidth = Math.max(1, s * 0.03);
+      ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.42); ctx.lineTo(cx, cy - s * 0.18); ctx.stroke();
+    } else if (pid === "militaire") {
+      // Mât à bannière + braseros
+      ctx.strokeStyle = "#4a4438"; ctx.lineWidth = Math.max(1.5, s * 0.06);
+      ctx.beginPath(); ctx.moveTo(cx, cy + s * 0.15); ctx.lineTo(cx, cy - s * 0.6); ctx.stroke();
+      const wave = Math.sin(t / 300) * s * 0.05;
+      ctx.fillStyle = "#9a2c20";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.6); ctx.lineTo(cx + s * 0.34, cy - s * 0.52 + wave); ctx.lineTo(cx, cy - s * 0.42);
+      ctx.closePath(); ctx.fill();
+      for (const bx of [-0.5, 0.5]) {
+        const fx = cx + bx * s, fy = cy + s * 0.1;
+        ctx.fillStyle = "#3c342a"; ctx.fillRect(fx - s * 0.07, fy, s * 0.14, s * 0.12);
+        const fl = 0.55 + 0.45 * Math.abs(Math.sin(t / 170 + bx * 3));
+        ctx.fillStyle = `rgba(255,150,40,${fl.toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(fx, fy - s * 0.04, s * 0.08, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (pid === "savante") {
+      // Cadran solaire / sphère armillaire
+      ctx.strokeStyle = "#b8a060"; ctx.lineWidth = Math.max(1, s * 0.045);
+      ctx.beginPath(); ctx.arc(cx, cy - s * 0.18, s * 0.24, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.18, s * 0.24, s * 0.09, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.18, s * 0.09, s * 0.24, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#6a6458"; ctx.fillRect(cx - s * 0.07, cy + s * 0.02, s * 0.14, s * 0.16);
+    } else {
+      // Fontaine (luxueuse / impériale / défaut) : bassin + jets animés
+      ctx.fillStyle = "#7d7668"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.34, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#2a5a8b"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8d867a"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.08, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 5; i += 1) {
+        const ph = ((t / 900) + i / 5) % 1;
+        const a = i * Math.PI * 2 / 5;
+        const jr = s * (0.08 + ph * 0.16);
+        ctx.fillStyle = `rgba(200,230,255,${(0.7 - ph * 0.6).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * jr, cy + Math.sin(a) * jr * 0.7 - s * (0.1 - ph * 0.1), Math.max(1, s * 0.035), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// ── Brume matinale : nappes translucides dérivant le long du fleuve ────────
+function cityMapDrawMist(now) {
+  const L = CM.layout;
+  const mist = CM.mistF || 0;
+  if (mist < 0.04 || !L || !L.river || !L.river.samples) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const sm = L.river.samples;
+  const t = now || 0;
+  ctx.save();
+  for (let i = 0; i < 14; i += 1) {
+    const drift = ((t / 14000 + i * 0.13) % 1);
+    const idx = Math.floor(drift * (sm.length - 1));
+    const sp = sm[idx];
+    const wob = Math.sin(t / 2600 + i * 1.9);
+    const mx = (sp.x * T - CM.cam.x) * z + CM.cw / 2 + wob * 14 * z;
+    const my = (sp.y * T - CM.cam.y) * z + CM.ch / 2 - (i % 3) * 8 * z;
+    const rx = (34 + (i % 4) * 14) * z, ry = (10 + (i % 3) * 4) * z;
+    if (mx < -rx || mx > CM.cw + rx || my < -ry || my > CM.ch + ry) continue;
+    ctx.fillStyle = `rgba(214,224,228,${(mist * (0.1 + (i % 3) * 0.035)).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }
 
 /* ---- legacy citymap rendering\roads.js ---- */
@@ -410,6 +747,9 @@ function cmRoadMask(layout, gx, gy) {
 }
 
 function cityMapDrawRoad(r) {
+  // Les cellules de place ne sont pas des chaussées : l'esplanade dallée est
+  // dessinée d'un seul tenant par cityMapDrawPlazaSurface.
+  if (r.rank === "plaza") return;
   const s = CM.TILE * CM.cam.zoom;
   const sx = (r.gx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
   const sy = (r.gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
@@ -944,13 +1284,17 @@ export {
   baseColor,
   cityMapDrawBridges,
   cityMapDrawGround,
+  cityMapDrawMist,
   cityMapDrawNight,
+  cityMapDrawPlazaSurface,
+  cityMapDrawPlazas,
   cityMapDrawRiver,
   cityMapDrawRoad,
   cityMapDrawStreetLights,
   cityMapDrawTrees,
   cityMapDrawUrbanMass,
   cityMapDrawVestiges,
+  cityMapDrawWalls,
   cmLitColor,
   drawCrisis
 };
