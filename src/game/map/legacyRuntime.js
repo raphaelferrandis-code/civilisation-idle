@@ -183,6 +183,15 @@ function cityMapHitTest(sx, sy) {
   let bestCitizen = null;
   let bestDist = Infinity;
   const citizenRadius = Math.max(8, 7 * CM.cam.zoom);
+  // Les émeutiers se déplacent en groupe : survoler l'un d'eux signale l'émeute.
+  if (Array.isArray(CM.rioters) && CM.rioters.length) {
+    for (const p of CM.rioters) {
+      const sp = cityMapScreenFromWorld(p.x, p.y);
+      if (Math.hypot(sp.x - sx, sp.y - sy) < citizenRadius) {
+        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et fourches levées.", kind: "Émeute" };
+      }
+    }
+  }
   for (const p of CM.citizens) {
     const sp = cityMapScreenFromWorld(p.x, p.y);
     const dist = Math.hypot(sp.x - sx, sp.y - sy);

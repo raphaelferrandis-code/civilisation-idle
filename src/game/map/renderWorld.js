@@ -1277,7 +1277,9 @@ function drawCrisis(dt, now) {
   const cs = (wx, wy) => ({ x: (wx - CM.cam.x) * z + CM.cw / 2, y: (wy - CM.cam.y) * z + CM.ch / 2 });
 
   if (!CM.rioters) CM.rioters = [];
-  const want = inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
+  // Les émeutes n'éclatent que l'après-midi (jour montant vers le crépuscule).
+  const afternoon = CM.dayRising === true && (CM.nightF || 0) < 0.45;
+  const want = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
   if (want === 0) {
     CM.rioters.length = 0;
     CM.riotGoal = null;
@@ -1289,9 +1291,13 @@ function drawCrisis(dt, now) {
       CM.riotGoalAt = now;
     }
     const spawnAnchor = groupCenter || CM.riotGoal;
+    // Même garde-robe que les habitants : tuniques teintes + teints de peau.
+    const RIOT_OUTFITS = ["#9a4d38", "#3f6a8a", "#7a8a3c", "#8a5d9a", "#b08a3a", "#5d7a6a"];
+    const RIOT_SKINS = ["#e8c8a0", "#d4a878", "#b88a58", "#8a5c38"];
     while (CM.rioters.length < want) {
       const r = cityMapPickRiotRoadNear(spawnAnchor, 2 + Math.round(inst));
       if (!r) break;
+      const n = CM.rioters.length;
       CM.rioters.push({
         gx: r.gx,
         gy: r.gy,
@@ -1303,7 +1309,10 @@ function drawCrisis(dt, now) {
         pauseT: 0,
         speed: 24 + Math.random() * 10,
         phase: Math.random() * Math.PI * 2,
-        lane: (Math.random() - 0.5) * CM.TILE * 0.38
+        lane: (Math.random() - 0.5) * CM.TILE * 0.38,
+        col: RIOT_OUTFITS[n % RIOT_OUTFITS.length],
+        skin: RIOT_SKINS[(n * 7 + 3) % RIOT_SKINS.length],
+        weapon: n % 2 === 0 ? "torch" : "fork"
       });
     }
     if (CM.rioters.length > want) CM.rioters.length = want;
@@ -1391,16 +1400,65 @@ function drawCrisis(dt, now) {
         const wob = Math.sin(now / 170 + (p.phase || 0)) * 0.8;
         const sx = (p.x + laneX - CM.cam.x) * z + CM.cw / 2;
         const sy = (p.y + laneY - CM.cam.y) * z + CM.ch / 2 + wob * z;
-        if (sx < -4 || sy < -4 || sx > CM.cw + 4 || sy > CM.ch + 4) continue;
-        ctx.fillStyle = "rgba(205,45,35,0.92)";
+        if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) continue;
+
+        // ── Même silhouette que les habitants : ombre, jambes, tunique, tête ──
+        const ph = Math.max(1.5, 2.1 * z);
+        const walking = p.pauseT <= 0;
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+        if (ph > 2 && walking) {
+          const step = Math.sin(now / 110 + (p.phase || 0) * 3) * ph * 0.45;
+          ctx.strokeStyle = "#241a10";
+          ctx.lineWidth = Math.max(1, ph * 0.28);
+          ctx.beginPath(); ctx.moveTo(sx - ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx - ph * 0.15 + step * 0.5, sy + ph * 1.3); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(sx + ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx + ph * 0.15 - step * 0.5, sy + ph * 1.3); ctx.stroke();
+        }
+        ctx.fillStyle = p.col || "#9a4d38";
         ctx.beginPath();
-        ctx.arc(sx, sy, Math.max(1.4, 2.1 * z), 0, Math.PI * 2);
-        ctx.fill();
-        if (i % 5 === 0) {
-          ctx.fillStyle = `rgba(255,150,40,${(0.7 + 0.3 * pulse).toFixed(2)})`;
-          ctx.beginPath();
-          ctx.arc(sx, sy - 3 * z, Math.max(1, 1.3 * z), 0, Math.PI * 2);
-          ctx.fill();
+        ctx.moveTo(sx - ph * 0.62, sy - ph * 0.45);
+        ctx.quadraticCurveTo(sx - ph * 0.5, sy + ph * 0.65, sx - ph * 0.3, sy + ph * 0.62);
+        ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
+        ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
+        ctx.fillStyle = p.skin || "#e0b890";
+        ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
+
+        // ── Torche ou fourche brandie, bras levé qui s'agite ──────────────
+        if (ph > 1.8) {
+          const wave = Math.sin(now / 200 + (p.phase || 0) * 2) * ph * 0.18;
+          const hx = sx + ph * 0.55;                // main côté droit
+          const hy = sy - ph * 0.2;
+          ctx.strokeStyle = "#6b4a26";
+          ctx.lineWidth = Math.max(1, ph * 0.18);
+          if (p.weapon === "fork") {
+            // Manche de fourche
+            const tipX = hx + ph * 0.25 + wave, tipY = hy - ph * 1.7;
+            ctx.beginPath(); ctx.moveTo(hx - ph * 0.15, hy + ph * 0.5); ctx.lineTo(tipX, tipY); ctx.stroke();
+            // Trois dents métalliques
+            ctx.strokeStyle = "#aab2bc";
+            ctx.lineWidth = Math.max(0.8, ph * 0.12);
+            for (let d = -1; d <= 1; d += 1) {
+              ctx.beginPath();
+              ctx.moveTo(tipX + d * ph * 0.22, tipY);
+              ctx.lineTo(tipX + d * ph * 0.22, tipY - ph * 0.45);
+              ctx.stroke();
+            }
+          } else {
+            // Manche de torche
+            const tipX = hx + ph * 0.2 + wave, tipY = hy - ph * 1.2;
+            ctx.beginPath(); ctx.moveTo(hx - ph * 0.1, hy + ph * 0.3); ctx.lineTo(tipX, tipY); ctx.stroke();
+            // Flamme vacillante + halo chaud
+            const flick = 0.75 + 0.25 * Math.sin(now / 90 + (p.phase || 0) * 5);
+            ctx.fillStyle = `rgba(255,170,40,${(0.18 * flick).toFixed(2)})`;
+            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.2, ph * 0.9 * flick, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = `rgba(255,150,40,${(0.65 + 0.3 * pulse).toFixed(2)})`;
+            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.15, ph * 0.32 * flick, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(255,230,120,0.9)";
+            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.12, ph * 0.16 * flick, 0, Math.PI * 2); ctx.fill();
+          }
         }
       }
     }

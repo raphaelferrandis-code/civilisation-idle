@@ -103,6 +103,16 @@ export const defaultState = () => ({
     infrastructure: 1
   },
   collapsePreparation: 0,
+  // Préparations terminales : malus de production (%) actifs jusqu'à l'effondrement,
+  // bonus associés, et actions déjà utilisées pendant la crise en cours.
+  terminalPreparations: {
+    foodMalus: 0,
+    goldMalus: 0,
+    knowledgeMalus: 0,
+    infraBonus: 0,
+    ruptureSlow: 0,
+    used: {}
+  },
   crisisExtensions: 0,
   crisisLimitAnnounced: false,
   crisisOpenedAt: null,
@@ -340,6 +350,23 @@ export function normalizeCrisisProduction(raw, fallback) {
   return out;
 }
 
+export function normalizeTerminalPreparations(raw, fallback) {
+  const source = isPlainObject(raw) ? raw : {};
+  const usedSource = isPlainObject(source.used) ? source.used : {};
+  const used = {};
+  for (const key of ["exodus", "prepareArchives", "holdOrder"]) {
+    if (usedSource[key]) used[key] = true;
+  }
+  return {
+    foodMalus: finiteNumber(source.foodMalus, fallback.foodMalus, 0, 0.85),
+    goldMalus: finiteNumber(source.goldMalus, fallback.goldMalus, 0, 0.85),
+    knowledgeMalus: finiteNumber(source.knowledgeMalus, fallback.knowledgeMalus, 0, 0.85),
+    infraBonus: finiteNumber(source.infraBonus, fallback.infraBonus, 0, 1),
+    ruptureSlow: finiteNumber(source.ruptureSlow, fallback.ruptureSlow, 0, 0.8),
+    used
+  };
+}
+
 export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax = 9999) {
   if (!Array.isArray(raw)) return null;
   const byId = new Map(raw.filter(isPlainObject).map((rule) => [rule.id, rule]));
@@ -554,7 +581,8 @@ export function hydrateState(parsed = {}) {
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, 2.4),
-    crisisExtensions: finiteInteger(source.crisisExtensions, base.crisisExtensions, 0, 7),
+    terminalPreparations: normalizeTerminalPreparations(source.terminalPreparations, base.terminalPreparations),
+    crisisExtensions: finiteInteger(source.crisisExtensions, base.crisisExtensions, 0, 99),
     crisisLimitAnnounced: Boolean(source.crisisLimitAnnounced),
     crisisOpenedAt: source.crisisOpenedAt ? finiteTimestamp(source.crisisOpenedAt, null) : null,
     recentCrisisIds: normalizeStringArray(source.recentCrisisIds, 8, 80),
@@ -688,6 +716,14 @@ export function resetTemporaryRunState(s) {
     infrastructure: 1
   };
   s.collapsePreparation = 0;
+  s.terminalPreparations = {
+    foodMalus: 0,
+    goldMalus: 0,
+    knowledgeMalus: 0,
+    infraBonus: 0,
+    ruptureSlow: 0,
+    used: {}
+  };
   s.crisisExtensions = 0;
   s.crisisLimitAnnounced = false;
   s.crisisOpenedAt = null;

@@ -71,6 +71,8 @@ const CATEGORY_LABELS = {
   pop_100k: "Démographie",
   pop_1m: "Démographie",
   pop_100m: "Démographie",
+  pop_1b: "Démographie",
+  pop_100b: "Démographie",
   paix: "Paix",
   bonus_libre: "Chronique"
 };
@@ -83,6 +85,8 @@ const CATEGORY_PRIORITIES = {
   pop_100k: 1,
   pop_1m: 1,
   pop_100m: 1,
+  pop_1b: 1,
+  pop_100b: 1,
   crise: 2,
   tension: 3,
   usure: 3,
@@ -124,6 +128,10 @@ export function evaluateCondition(type, state) {
       return state.population > 1000000;
     case "pop_100m":
       return state.population > 100000000;
+    case "pop_1b":
+      return state.population > 1000000000;
+    case "pop_100b":
+      return state.population > 100000000000;
     case "paix":
       return state.instability < 0.35 && state.timeWear < 0.35;
     case "bonus_libre":
@@ -151,7 +159,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const candidates = [];
 
   const types = [
-    "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k", "pop_1m", "pop_100m",
+    "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k", "pop_1m", "pop_100m", "pop_1b", "pop_100b",
     "crise", "tension", "usure",
     "nourriture", "or", "savoir",
     "paix", "bonus_libre"

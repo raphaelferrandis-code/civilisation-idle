@@ -8,6 +8,7 @@ import {
   isMythUnlocked
 } from '../../game/data/myths.js';
 import { activateMyth } from '../../game/core/actions.js';
+import ViewHeader from '../ui/ViewHeader.jsx';
 import { state } from '../../game/core/state.js';
 import {
   OLYMPUS_COMPLETION_SCORE,
@@ -64,6 +65,11 @@ export default function MythsView() {
 
   return (
     <section className="view active" id="mythView">
+      <ViewHeader
+        icon="⚡"
+        title="Mythes"
+        subtitle="Pactes divins : des contraintes extrêmes en échange d'héritages permanents."
+      />
       <div className="panel">
         <div className="panel-heading">
           <div>

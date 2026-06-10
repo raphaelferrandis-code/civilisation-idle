@@ -4,8 +4,11 @@ import {
   pressureBreakdown,
   rates,
   has,
-  nomadInfrastructureCap
+  nomadInfrastructureCap,
+  currentEraIndex,
+  nextEraProgress
 } from '../../game/core/mechanics.js';
+import { eras } from '../../game/data/world.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { fmt, pct, clamp01, multLabel } from '../../game/core/utils.js';
 
@@ -30,6 +33,10 @@ export default function Topbar() {
 
   const showNomadCap = has("trait_nomadism");
   const nomadCap = nomadInfrastructureCap();
+
+  const eraIdx = currentEraIndex();
+  const currentEra = eras[eraIdx];
+  const eraProgress = nextEraProgress(eraIdx);
 
   const SEDIMENT_PALIERS = [
     { secs: 3600,   bonus: 2   },
@@ -213,11 +220,11 @@ export default function Topbar() {
         <div className="card-body stability-vitals-body">
           <div className="stability-gauge-row">
             <div className="gauge-meta">
-              <span className="gauge-title">Rupture</span>
-              <strong id="instability" className={instability >= 0.8 ? 'danger-pulse' : ''}>{pct(instability)}</strong>
+              <span className="gauge-title">Âge</span>
+              <strong id="currentEraTopbar">{currentEra.name}</strong>
             </div>
-            <div className="gauge-container stability-rupture">
-              <span id="instabilityMeter" className="gauge-bar-fill" style={{ width: `${clamp01(instability) * 100}%` }}></span>
+            <div className="gauge-container stability-age">
+              <span className="gauge-bar-fill age-progress-fill" style={{ width: `${eraProgress * 100}%` }}></span>
             </div>
           </div>
 

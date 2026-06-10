@@ -7,8 +7,6 @@ import {
   cityVitals,
   pressureBreakdown,
   rates,
-  currentEraIndex,
-  nextEraProgress,
   globalMultiplier,
   ruinEffectSum,
   unspentRuinsPowerMultiplier,
@@ -29,7 +27,7 @@ import { save, setCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { eras } from '../../game/data/world.js';
-import { fmt, roman } from '../../game/core/utils.js';
+import { fmt, roman, clamp01 } from '../../game/core/utils.js';
 import {
   ICARE_INFRA_TARGET,
   OR_GOLD_TARGET,
@@ -135,11 +133,6 @@ export default function CityView() {
   const r = rates(vitals, pressure);
 
   const globalMult = globalMultiplier();
-
-  const eraIndex = currentEraIndex();
-  const era = eras[eraIndex];
-  const progress = nextEraProgress(eraIndex);
-  const nextEra = eras[eraIndex + 1];
 
   const unspentPower = ruinEffectSum("unspentRuinsPower");
   const unspentMult = unspentPower > 0 ? unspentRuinsPowerMultiplier() : 1;
@@ -258,7 +251,6 @@ export default function CityView() {
 
         {/* 1. En-tête de la Cité (Identity & Dynasty stats) */}
         <div className="city-header-panel">
-          <div className="city-header-main">
           <div className="city-title-wrapper">
             <span className="city-title-label">Cité de la Dynastie</span>
             <input
@@ -278,6 +270,54 @@ export default function CityView() {
               {cityPersonalityLabel}
             </span>
           </div>
+
+          {/* Jauge de pression civilisationnelle (fine, adaptative) */}
+          {(() => {
+            const lvl = clamp01(instability);
+            const pctValue = Math.round(lvl * 100);
+            const tier = lvl >= 0.9
+              ? { cls: "sg-collapse", icon: "💀", label: "Effondrement imminent", desc: "La cité est au bord du gouffre. Résolvez la crise avant l'effondrement total." }
+              : lvl >= 0.75
+              ? { cls: "sg-crisis", icon: "🚨", label: "Crise ouverte", desc: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable." }
+              : lvl >= 0.5
+              ? { cls: "sg-strain", icon: "🔥", label: "Instabilité croissante", desc: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité." }
+              : lvl >= 0.25
+              ? { cls: "sg-tension", icon: "⚠️", label: "Premières tensions", desc: "Les tensions s'accumulent. Le progrès coûte de la stabilité." }
+              : { cls: "sg-stable", icon: "🛡️", label: "Civilisation stable", desc: "La cité tient bon. Continuez à bâtir votre civilisation." };
+            const crackOpacity = (threshold, ramp, max) =>
+              lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
+            return (
+              <div
+                className={`stability-gauge ${tier.cls}`}
+                title={tier.desc}
+                aria-label={`Pression civilisationnelle : ${pctValue}% — ${tier.label}`}
+              >
+                <div className="sg-meta">
+                  <span className="sg-icon" aria-hidden="true">{tier.icon}</span>
+                  <span className="sg-label">{tier.label}</span>
+                  <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
+                </div>
+                <div className="sg-track">
+                  <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
+                  {lvl >= 0.68 && (
+                    <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
+                      {[
+                        { d: "M250 13 L246 17.5 L249 21.5 L244 26.5 M246 17.5 L241 19.5 L238 25 M286 13 L283 17 L286 20.5 L282 26.5 M286 20.5 L290.5 23.5", opacity: crackOpacity(0.70, 3, 0.8) },
+                        { d: "M196 12.5 L192 17 L195 21 L190 27 M192 17 L186.5 19 M222 13.5 L226 18.5 L223 23 L227 27 M226 18.5 L231 20.5 L234.5 25.5 M305 12 L301 16 L304 21 L300 27.5 M301 16 L296 18 M304 21 L309 24", opacity: crackOpacity(0.82, 5, 0.9) },
+                        { d: "M150 7.5 L146 13.5 L149 18.5 L144 24 L147 31.5 M146 13.5 L140.5 16 M144 24 L154 26.5 M172 6 L176 12 L173 17 L177 23 L174 32.5 M176 12 L181.5 14 M177 23 L170 26.5 M262 7 L258 13 L261 18 L256 25 L259 33.5 M261 18 L267 20.5 M118 9.5 L114 15.5 L117 21.5 L112 28 M117 21.5 L123 24", opacity: crackOpacity(0.92, 7, 1) }
+                      ].map((g, i) => (
+                        <g key={i} className="sg-crack-group" style={{ opacity: g.opacity }}>
+                          <path className="sg-crack-light" d={g.d} transform="translate(0.7 0.9)" vectorEffect="non-scaling-stroke" />
+                          <path className="sg-crack-dark" d={g.d} vectorEffect="non-scaling-stroke" />
+                        </g>
+                      ))}
+                    </svg>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="city-dynasty-stats" aria-label="Statistiques dynastiques">
             <div className="stat-chip" title="Cycles accomplis">
               <span className="chip-icon">🔄</span>
@@ -305,45 +345,9 @@ export default function CityView() {
               <strong id="cycleTime">{cycleSeconds}s</strong>
             </div>
           </div>
-          </div>
-          <div className="city-inline-era" aria-label="Progression de l'ere de la civilisation">
-            <div className="city-inline-era-head">
-              <span>Age courant</span>
-              <strong>{era.name}</strong>
-              <small>{nextEra ? `Prochain: ${nextEra.name}` : "Apogee de l'Histoire"}</small>
-            </div>
-            <div className="city-inline-era-progress">
-              <div className="era-progress-track">
-                <span className="era-progress-fill" style={{ width: `${progress * 100}%` }}></span>
-              </div>
-              <span>{Math.round(progress * 100)}%</span>
-            </div>
-          </div>
         </div>
 
-        {/* 2. Panneau de progression de l'Ère (Civilization Progress) */}
-        <div className="era-progress-panel" aria-label="Progression de l'ère de la civilisation">
-          <div className="era-header-row">
-            <div className="era-title-block">
-              <span className="era-subtitle">Âge Courant</span>
-              <h2 className="era-title-name" id="eraName">{era.name}</h2>
-            </div>
-            <span className="era-next-pointer" id="eraNextName">
-              {nextEra ? `Prochain Âge: ${nextEra.name}` : "Apogée de l'Histoire"}
-            </span>
-          </div>
-          
-          <div className="era-progress-bar-wrapper">
-            <div className="era-progress-track">
-              <span id="eraProgress" className="era-progress-fill" style={{ width: `${progress * 100}%` }}></span>
-            </div>
-            <span className="era-progress-percentage">{Math.round(progress * 100)}%</span>
-          </div>
-          
-          <p className="era-description-text" id="eraText">{era.text}</p>
-        </div>
-
-        {/* 3. Diorama Interactif de la Cité (City Canvas) */}
+        {/* 2. Diorama Interactif de la Cité (City Canvas) */}
         <div className="city-map-container">
           <div
             className="civilization-map-interactive"

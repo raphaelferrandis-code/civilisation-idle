@@ -443,10 +443,10 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
     * _epitaphEffect.ruptureMult;
   const baseRates = {
     population: pop * mult * _epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult,
-    food: food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * _orPenaltyMult * cadmosProductionMultiplier("food"),
-    gold: gold * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * _orPenaltyMult * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold"),
-    knowledge: knowledge * mult * _epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + Math.log10(state.population + 10) * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * _orPenaltyMult + theocracyKnowledgeRate(),
-    infrastructure: infra * mult * _epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + Math.log10(state.knowledge + 10) * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure") * _orPenaltyMult,
+    food: food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * _orPenaltyMult * cadmosProductionMultiplier("food"),
+    gold: gold * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * terminalPrepMultiplier("gold") * _orPenaltyMult * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold"),
+    knowledge: knowledge * mult * _epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + Math.log10(state.population + 10) * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * terminalPrepMultiplier("knowledge") * _orPenaltyMult + theocracyKnowledgeRate(),
+    infrastructure: infra * mult * _epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + Math.log10(state.knowledge + 10) * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure") * terminalPrepMultiplier("infrastructure") * _orPenaltyMult,
     instability: isMythEffectActive("mythe_age_or")
       ? Math.min(OR_RUPTURE_CAP, _rawInstability)
       : _rawInstability
@@ -802,10 +802,32 @@ export function timeWearRate() {
   return 0.00003 * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 
-export function terminalCrisisCost(type) {
+// Préparations terminales : 3 actions × 3 paliers. Chaque palier coûte un
+// montant flat + un malus de production (%) qui dure jusqu'à l'effondrement,
+// et ramène la rupture au niveau cible (75 / 50 / 25 %).
+export const TERMINAL_PREP_TIERS = {
+  exodus: [
+    { malus: 0.15, target: 0.75, prep: 0.08, costScale: 1 },
+    { malus: 0.30, target: 0.50, prep: 0.16, costScale: 1.7 },
+    { malus: 0.50, target: 0.25, prep: 0.26, costScale: 2.6 }
+  ],
+  prepareArchives: [
+    { malus: 0.12, target: 0.75, infraBonus: 0.10, prep: 0.12, costScale: 1 },
+    { malus: 0.25, target: 0.50, infraBonus: 0.20, prep: 0.26, costScale: 1.7 },
+    { malus: 0.40, target: 0.25, infraBonus: 0.35, prep: 0.45, costScale: 2.6 }
+  ],
+  holdOrder: [
+    { malus: 0.08, target: 0.75, ruptureSlow: 0.25, prep: 0.05, costScale: 1 },
+    { malus: 0.16, target: 0.50, ruptureSlow: 0.45, prep: 0.10, costScale: 1.7 },
+    { malus: 0.28, target: 0.25, ruptureSlow: 0.65, prep: 0.18, costScale: 2.6 }
+  ]
+};
+
+export function terminalCrisisCost(type, tier = 0) {
   const extensionScale = 1 + (state.crisisExtensions || 0) * 0.55;
   const depthScale = 1 + Math.max(0, ruinGain() - 1) * 0.08;
-  const scale = extensionScale * depthScale;
+  const tierScale = TERMINAL_PREP_TIERS[type]?.[tier]?.costScale || 1;
+  const scale = extensionScale * depthScale * tierScale;
   if (type === "prepareArchives") {
     return {
       knowledge: Math.max(90, state.population * 0.045 + totalBuildingCount() * 18) * scale,
@@ -817,14 +839,27 @@ export function terminalCrisisCost(type) {
   }
   return {
     gold: Math.max(120, state.population * 0.12) * scale,
-    knowledge: Math.max(60, totalBuildingCount() * 10) * scale
+    knowledge: Math.max(60, totalBuildingCount() * 10) * scale,
+    food: Math.max(80, state.population * 0.18) * scale
   };
 }
 
-export function terminalCrisisReady(type) {
+export function terminalCrisisReady(type, tier = 0) {
   if (!crisisOpen()) return false;
-  if ((state.crisisExtensions || 0) >= 7) return false;
-  return canPayCost(terminalCrisisCost(type));
+  if (state.terminalPreparations?.used?.[type]) return false;
+  return canPayCost(terminalCrisisCost(type, tier));
+}
+
+// Multiplicateur de production issu des préparations terminales (malus jusqu'à l'effondrement).
+export function terminalPrepMultiplier(resource) {
+  const tp = state.terminalPreparations;
+  if (!tp) return 1;
+  if (resource === "infrastructure") return 1 + (tp.infraBonus || 0);
+  const malus = resource === "food" ? tp.foodMalus
+    : resource === "gold" ? tp.goldMalus
+    : resource === "knowledge" ? tp.knowledgeMalus
+    : 0;
+  return Math.max(0.15, 1 - (malus || 0));
 }
 
 export function legitimacyGain() {

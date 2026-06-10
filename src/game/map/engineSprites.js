@@ -866,24 +866,6 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
 // pas écraser le pixel-art au zoom minimal.
 function drawEngineSprite(t, x, y, w, h, now) {
   drawEngineSpriteCore(t, x, y, w, h, now);
-  const id = t.buildingId || t.variant;
-  const emblem = ENGINE_EMBLEMS[id];
-  if (!emblem || w < 34) return;
-  const ctx = CM.ctx;
-  const r = Math.min(13, Math.max(6.5, w * 0.14));
-  const ex = x + r * 0.85, ey = y + r * 0.85;
-  ctx.save();
-  // Médaillon parchemin + liseré doré
-  ctx.fillStyle = "rgba(26,18,8,0.78)";
-  ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(201,168,76,0.85)";
-  ctx.lineWidth = Math.max(1, r * 0.12);
-  ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.font = `${Math.round(r * 1.3)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emblem, ex, ey + r * 0.08);
-  ctx.restore();
 }
 
 export { drawEngineSprite };

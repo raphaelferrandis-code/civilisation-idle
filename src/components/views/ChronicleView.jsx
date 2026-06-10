@@ -1,6 +1,13 @@
+import ViewHeader from '../ui/ViewHeader.jsx';
+
 export default function ChronicleView() {
   return (
     <section className="view active" id="history">
+      <ViewHeader
+        icon="📜"
+        title="Chronique"
+        subtitle="Le récit complet de votre civilisation, cycle après cycle."
+      />
       <div className="panel">
         <div className="panel-heading">
           <div>

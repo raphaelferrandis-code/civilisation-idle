@@ -20,6 +20,7 @@ import {
   ruinGain,
   terminalCrisisReady,
   terminalCrisisCost,
+  TERMINAL_PREP_TIERS,
   ruinEffectSum,
   enforceInfrastructureCap,
   totalBuildingCount,
@@ -117,6 +118,8 @@ export function triggerCollapseChoices(shouldRender = true) {
   if (!state.crisisLimitAnnounced) {
     state.crisisLimitAnnounced = true;
     state.crisisOpenedAt = Date.now();
+    // Nouvelle crise : chaque préparation terminale redevient utilisable une fois.
+    if (state.terminalPreparations) state.terminalPreparations.used = {};
     const source = state.timeWear >= 1 ? "l'usure du temps" : "la rupture structurelle";
     chronicle(`La fin d'une ère approche : ${source} a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.`);
     openView("prestige");
@@ -143,28 +146,61 @@ export function lowerTerminalPressure(targetInstability, targetWear) {
   if (!crisisOpen()) resumeAfterCrisisOutcome();
 }
 
-export function runTerminalCrisisAction(type) {
+const TERMINAL_PREP_CHRONICLES = {
+  exodus: [
+    "Quelques familles quittent la cité par les portes de l'aube ; les champs se vident un peu, mais la colère retombe.",
+    "Une longue procession franchit les portes sacrées : l'exode est en marche, portant l'espoir d'une nouvelle fondation.",
+    "La moitié de la cité prend la route. Les greniers se taisent, mais ceux qui restent respirent enfin."
+  ],
+  prepareArchives: [
+    "Nos scribes copient les registres essentiels ; quelques ateliers ferment pour fournir l'encre et les tablettes.",
+    "Alors que les fondations tremblent, nos scribes mettent les chroniques à l'abri ; la mémoire de notre peuple survivra aux ruines.",
+    "Tout le savoir de la cité est gravé, scellé, enterré. L'économie s'épuise à cette tâche, mais rien ne sera oublié."
+  ],
+  holdOrder: [
+    "La garde double les patrouilles ; l'ordre coûte cher, mais les rues se calment.",
+    "La garde maintient un ordre de fer à grands frais. Nos murs tiennent encore, mais le souffle de l'effondrement fait vaciller nos derniers feux.",
+    "La loi martiale est proclamée. La cité entière vit au pas de la garde : la rupture recule, étouffée sous le poids du contrôle."
+  ]
+};
+
+export function runTerminalCrisisAction(type, tier = 0) {
   if (!crisisOpen() || collapseInProgress) return;
-  if (!terminalCrisisReady(type)) return;
-  const cost = terminalCrisisCost(type);
-  payCost(cost);
+  if (!terminalCrisisReady(type, tier)) return;
+  const tierDef = TERMINAL_PREP_TIERS[type]?.[tier];
+  if (!tierDef) return;
+  payCost(terminalCrisisCost(type, tier));
   state.crisisExtensions = (state.crisisExtensions || 0) + 1;
   registerOlympusCrisisResolved();
 
-  if (type === "prepareArchives") {
-    state.collapsePreparation = Math.min(2.4, (state.collapsePreparation || 0) + 0.34);
-    lowerTerminalPressure(0.88, 0.88);
-    chronicle("Alors que les fondations tremblent, nos scribes mettent les chroniques à l'abri ; la mémoire de notre peuple survivra aux ruines.");
-  } else if (type === "exodus") {
-    state.collapsePreparation = Math.min(2.4, (state.collapsePreparation || 0) + 0.24);
-    lowerTerminalPressure(0.90, 0.90);
-    chronicle("Une longue procession franchit les portes sacrées : l'exode est en marche, portant l'espoir d'une nouvelle fondation.");
+  const tp = state.terminalPreparations || (state.terminalPreparations = {
+    foodMalus: 0, goldMalus: 0, knowledgeMalus: 0, infraBonus: 0, ruptureSlow: 0, used: {}
+  });
+  if (!tp.used) tp.used = {};
+  tp.used[type] = true;
+  const addMalus = (key) => { tp[key] = Math.min(0.85, (tp[key] || 0) + tierDef.malus); };
+  if (type === "exodus") {
+    addMalus("foodMalus");
+  } else if (type === "prepareArchives") {
+    addMalus("knowledgeMalus");
+    addMalus("goldMalus");
+    tp.infraBonus = Math.min(1, (tp.infraBonus || 0) + (tierDef.infraBonus || 0));
   } else if (type === "holdOrder") {
-    state.collapsePreparation = Math.min(2.4, (state.collapsePreparation || 0) + 0.08);
-    lowerTerminalPressure(0.92, 0.92);
-    chronicle("La garde maintient un ordre de fer à grands frais. Nos murs tiennent encore, mais le souffle de l'effondrement fait vaciller nos derniers feux.");
+    addMalus("foodMalus");
+    addMalus("goldMalus");
+    addMalus("knowledgeMalus");
+    tp.ruptureSlow = Math.min(0.8, (tp.ruptureSlow || 0) + (tierDef.ruptureSlow || 0));
   }
+  state.collapsePreparation = Math.min(2.4, (state.collapsePreparation || 0) + tierDef.prep);
 
+  // Ramène la jauge qui a ouvert la crise au palier choisi, puis reprend la partie.
+  state.crisisLimitAnnounced = false;
+  if (state.instability >= 1) state.instability = Math.min(state.instability, tierDef.target);
+  if ((state.timeWear || 0) >= 1) state.timeWear = Math.min(state.timeWear, tierDef.target);
+  resumeAfterCrisisOutcome();
+
+  chronicle(TERMINAL_PREP_CHRONICLES[type]?.[tier] || "La cité s'organise face à la fin qui approche.");
+  save();
   render();
 }
 

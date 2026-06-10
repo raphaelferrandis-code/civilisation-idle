@@ -173,20 +173,58 @@ main {
   gap: 1rem;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--line);
+  /* Bande pleine largeur en tête de panneau : délimite clairement où
+     commence chaque section (le padding du .panel est de 1rem). */
+  margin: -1rem -1rem 1rem;
+  padding: 0.8rem 1rem 0.65rem;
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0.015) 80%, transparent);
+  border-bottom: 2px solid rgba(201, 168, 76, 0.3);
+  border-radius: 12px 12px 0 0;
 }
 
 .panel-heading h2 {
-  font-size: 1.2rem;
-  letter-spacing: -0.01em;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: var(--gold-bright);
 }
 
 .panel-heading .label {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  color: var(--gold);
+}
+
+/* ── Entête de vue : titre majeur de l'onglet actif ── */
+.view-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1.2rem;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(18, 20, 28, 0.4) 65%);
+}
+
+.view-header-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.view-header-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
+  color: var(--gold-bright);
+}
+
+.view-header-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 .panel-heading .label::before {
@@ -914,7 +952,7 @@ body::before {
 
 .city-pop-card strong { color: var(--gold) !important; }
 
-.panel-heading { border-bottom-color: rgba(201, 168, 76, 0.24); }
+.panel-heading { border-bottom-color: rgba(201, 168, 76, 0.3); }
 
 .panel-heading .label::before { background: var(--gold); }
 

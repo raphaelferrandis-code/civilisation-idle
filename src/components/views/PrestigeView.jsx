@@ -10,6 +10,7 @@ import {
   crisisCosts,
   terminalCrisisCost,
   terminalCrisisReady,
+  TERMINAL_PREP_TIERS,
   has,
   autoCollapseDelay
 } from '../../game/core/mechanics.js';
@@ -93,10 +94,44 @@ export default function PrestigeView() {
   const canCollapse = ruinGainVal > 0 && !mythBlocksCollapse;
 
   const showSurchauffe = icareHeritage;
-  
-  const prepCosts = terminalCrisisCost("prepareArchives");
-  const exoCosts = terminalCrisisCost("exodus");
-  const holdCosts = terminalCrisisCost("holdOrder");
+
+  const terminalPreparations = useGameState(s => s.terminalPreparations);
+  const tp = terminalPreparations || {};
+
+  // 3 actions × 3 paliers : coût flat + malus % jusqu'à l'effondrement.
+  const prepDefs = [
+    {
+      type: "exodus",
+      icon: "🏳️",
+      title: "Organiser l'exode",
+      desc: "Des familles quittent la cité : moins de bras aux champs, mais la pression retombe.",
+      malusLabel: "nourriture",
+      bonusLabel: null
+    },
+    {
+      type: "prepareArchives",
+      icon: "📜",
+      title: "Préparer les archives",
+      desc: "Scribes et ateliers se consacrent à la mémoire : savoir et trésor ralentissent, l'infrastructure profite des plans consignés.",
+      malusLabel: "savoir & trésor",
+      bonusLabel: (t) => `+${Math.round((t.infraBonus || 0) * 100)}% infra`
+    },
+    {
+      type: "holdOrder",
+      icon: "🛡️",
+      title: "Maintenir l'ordre",
+      desc: "La garde verrouille la cité : toute l'économie ralentit, mais la rupture monte plus lentement.",
+      malusLabel: "toute production",
+      bonusLabel: (t) => `rupture −${Math.round((t.ruptureSlow || 0) * 100)}% plus lente`
+    }
+  ];
+
+  const activeMaluses = [];
+  if ((tp.foodMalus || 0) > 0) activeMaluses.push(`Nourriture −${Math.round(tp.foodMalus * 100)}%`);
+  if ((tp.goldMalus || 0) > 0) activeMaluses.push(`Trésor −${Math.round(tp.goldMalus * 100)}%`);
+  if ((tp.knowledgeMalus || 0) > 0) activeMaluses.push(`Savoir −${Math.round(tp.knowledgeMalus * 100)}%`);
+  if ((tp.infraBonus || 0) > 0) activeMaluses.push(`Infrastructure +${Math.round(tp.infraBonus * 100)}%`);
+  if ((tp.ruptureSlow || 0) > 0) activeMaluses.push(`Montée de rupture −${Math.round(tp.ruptureSlow * 100)}%`);
 
   const showArchiveBtn = cycles >= 2;
   const showAncestorBtn = cycles >= 3;
@@ -300,44 +335,48 @@ export default function PrestigeView() {
             <div className="crisis-choices-grid">
               <div className="crisis-preparation-actions">
                 <h4>Préparations terminales (Tenir la crise)</h4>
-                <p className="sub-text">Sacrifiez vos ressources restantes pour enrichir l'héritage futur.</p>
-                
+                <p className="sub-text">
+                  Chaque préparation ramène la rupture au palier choisi, contre un coût immédiat
+                  et un malus de production qui durera jusqu'à l'effondrement.
+                </p>
+
+                {activeMaluses.length > 0 && (
+                  <div className="prep-active-maluses">
+                    <span>⚖️ En vigueur jusqu'à l'effondrement :</span> {activeMaluses.join(" · ")}
+                  </div>
+                )}
+
                 <div className="crisis-prep-buttons">
-                  <article className="prep-choice-card">
-                    <h5>Préparer les archives</h5>
-                    <p>Ralentit la production en échange de mémoire historique.</p>
-                    <button
-                      id="prepareArchivesBtn"
-                      disabled={!terminalCrisisReady("prepareArchives")}
-                      onClick={() => runTerminalCrisisAction("prepareArchives")}
-                    >
-                      Préparer ({costLabel(prepCosts)})
-                    </button>
-                  </article>
-
-                  <article className="prep-choice-card">
-                    <h5>Organiser l'exode</h5>
-                    <p>Sauve des familles en sacrifiant le développement actuel.</p>
-                    <button
-                      id="exodusBtn"
-                      disabled={!terminalCrisisReady("exodus")}
-                      onClick={() => runTerminalCrisisAction("exodus")}
-                    >
-                      Exode ({costLabel(exoCosts)})
-                    </button>
-                  </article>
-
-                  <article className="prep-choice-card">
-                    <h5>Maintenir l'ordre</h5>
-                    <p>Dépense or et savoir pour gagner un temps précieux.</p>
-                    <button
-                      id="holdOrderBtn"
-                      disabled={!terminalCrisisReady("holdOrder")}
-                      onClick={() => runTerminalCrisisAction("holdOrder")}
-                    >
-                      Tenir ({costLabel(holdCosts)})
-                    </button>
-                  </article>
+                  {prepDefs.map((def) => {
+                    const used = Boolean(tp.used?.[def.type]);
+                    return (
+                      <article className={`prep-choice-card${used ? " prep-used" : ""}`} key={def.type}>
+                        <h5>{def.icon} {def.title}</h5>
+                        <p>{def.desc}</p>
+                        {used ? (
+                          <p className="prep-used-note">Déjà engagée pour cette crise.</p>
+                        ) : (
+                          <div className="prep-tier-buttons">
+                            {TERMINAL_PREP_TIERS[def.type].map((t, i) => (
+                              <button
+                                key={i}
+                                disabled={!terminalCrisisReady(def.type, i)}
+                                onClick={() => runTerminalCrisisAction(def.type, i)}
+                              >
+                                <strong>
+                                  −{Math.round(t.malus * 100)}% {def.malusLabel} → rupture {Math.round(t.target * 100)}%
+                                </strong>
+                                {def.bonusLabel && (
+                                  <span className="prep-tier-bonus">{def.bonusLabel(t)}</span>
+                                )}
+                                <span className="action-cost">{costLabel(terminalCrisisCost(def.type, i))}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
 

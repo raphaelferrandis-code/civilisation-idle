@@ -100,7 +100,11 @@ export function tick(dt) {
 
   const instabilityTarget = clamp01(r.instability);
   const instabilityDrift = instabilityTarget - state.instability;
-  const nextInstability = state.instability + instabilityDrift * 0.045 * dt;
+  // "Maintenir l'ordre" ralentit la montée de la rupture (jamais sa descente).
+  const orderSlow = instabilityDrift > 0
+    ? 1 - Math.min(0.8, state.terminalPreparations?.ruptureSlow || 0)
+    : 1;
+  const nextInstability = state.instability + instabilityDrift * 0.045 * orderSlow * dt;
   state.instability = instabilityTarget >= 1 && nextInstability >= 0.995
     ? 1
     : clamp01(nextInstability);
