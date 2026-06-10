@@ -36,6 +36,7 @@ import { openChoiceDialog } from '../events.js';
 import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
+import { resetCameraCenter } from '../../map/cityMapBridge.js';
 
 export function buyBuilding(id) {
   const building = buildingById[id];
@@ -195,6 +196,7 @@ export async function performGrandReset() {
   setCollapseInProgress(false);
   setMourning(false);
   invalidateRenderCache("all");
+  resetCameraCenter();
   save();
   openView("city");
   render();

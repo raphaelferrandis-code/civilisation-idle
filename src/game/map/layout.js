@@ -306,15 +306,19 @@ function cmRoadName(gx, gy) {
   if (road && road.rank === "plaza") {
     // Nom stable pour toute la place : basé sur la place la plus proche.
     let pKey = gx + ":" + gy;
+    let pKind = "centrale";
     if (L.plan && Array.isArray(L.plan.plazas)) {
       let best = Infinity;
       for (const p of L.plan.plazas) {
         const d = Math.hypot(gx - p.gx, gy - p.gy);
-        if (d < best) { best = d; pKey = p.gx + ":" + p.gy; }
+        if (d < best) { best = d; pKey = p.gx + ":" + p.gy; pKind = p.kind || "centrale"; }
       }
     }
-    const kind = band >= 4 ? ["Grande Place", "Place", "Esplanade"] : ["Place", "Parvis"];
-    return `${cmPick(kind, cmHash("pk" + pKey))} ${cmPick(CM_STREET_OF, cmHash("pof" + pKey))}`;
+    const kindList = pKind === "marche" ? ["Place du Marché", "Halles"]
+      : pKind === "parvis" ? ["Parvis", "Place du Temple"]
+      : pKind === "jardin" ? ["Jardin Public", "Square"]
+      : band >= 4 ? ["Grande Place", "Place", "Esplanade"] : ["Place", "Place Commune"];
+    return `${cmPick(kindList, cmHash("pk" + pKey))} ${cmPick(CM_STREET_OF, cmHash("pof" + pKey))}`;
   }
   const vertical = Math.abs(gx - cx) >= Math.abs(gy - cy);
   const lineId = vertical ? 1000 + gx : 2000 + gy;

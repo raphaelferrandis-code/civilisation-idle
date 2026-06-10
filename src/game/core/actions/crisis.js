@@ -34,7 +34,7 @@ import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { upgrades } from '../../data/upgrades.js';
 import { eras, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
-import { captureCurrentVestige } from '../../map/cityMapBridge.js';
+import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
@@ -288,6 +288,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   } else {
     state.phoenixNextForceAt = null;
   }
+
+  resetCameraCenter();
 }
 
 export function collapse(reason) {

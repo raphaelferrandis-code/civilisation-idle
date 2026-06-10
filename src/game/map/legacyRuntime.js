@@ -22,7 +22,7 @@ import {
   WONDER_CLEAR_R,
   WONDER_TIER_NAMES
 } from './layout.js';
-import { setCityMapEngineTileMap } from './cityMapBridge.js';
+import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import {
   cityMapDrawGround,
   cityMapDrawRiver,
@@ -754,5 +754,7 @@ function initCityMap(canvas, options = {}) {
   CM.raf = requestAnimationFrame(frame);
 }
 
+
+setResetCameraCenterHandler(() => { CM.centered = false; });
 
 export { CM, initCityMap, cityMapTileScreen };

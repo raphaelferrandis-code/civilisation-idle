@@ -283,33 +283,11 @@ function cityMapDrawRiver(now) {
     }
   }
 
-  // Quais de pierre : aux ères urbaines, les berges proches de la ville sont
-  // maçonnées (bande claire côté eau) ; les berges sauvages gardent leurs roseaux.
-  const band = L.counts ? L.counts.eraBand : 0;
-  const occ = CM.occupied;
   const reedOk = tw < 0.7 && !collapsed;
   for (const k of L.river.banks) {
     const c = k.indexOf(","); const bgx = +k.slice(0, c), bgy = +k.slice(c + 1);
     const px = SX(bgx), py = SY(bgy), ts = T * z;
     if (px < -ts || px > CM.cw || py < -ts || py > CM.ch) continue;
-    const isQuay = band >= 3 && !collapsed && tw < 0.7 && occ && (
-      occ.has((bgx - 1) + "," + bgy) || occ.has((bgx + 1) + "," + bgy) ||
-      occ.has(bgx + "," + (bgy - 1)) || occ.has(bgx + "," + (bgy + 1)));
-    if (isQuay) {
-      const waterBelow = L.river.cells.has(bgx + "," + (bgy + 1));
-      const waterAbove = L.river.cells.has(bgx + "," + (bgy - 1));
-      const qy = waterBelow ? py + ts * 0.62 : waterAbove ? py + ts * 0.06 : py + ts * 0.34;
-      ctx.fillStyle = band >= 5 ? "#857e70" : "#776f60";
-      ctx.fillRect(px, qy, ts + 1, ts * 0.32);
-      ctx.fillStyle = "rgba(255,255,255,0.12)";
-      ctx.fillRect(px, qy, ts + 1, Math.max(1, ts * 0.07));
-      // Bittes d'amarrage espacées
-      if ((bgx * 5 + bgy * 11) % 3 === 0) {
-        ctx.fillStyle = "#3c362c";
-        ctx.fillRect(px + ts * 0.42, qy + ts * 0.1, Math.max(1.5, ts * 0.1), Math.max(1.5, ts * 0.1));
-      }
-      continue;
-    }
     if (reedOk && (bgx * 7 + bgy * 13) % 3 === 0) {
       const waterBelow = L.river.cells.has(bgx + "," + (bgy + 1));
       const waterAbove = L.river.cells.has(bgx + "," + (bgy - 1));
@@ -539,85 +517,246 @@ function cityMapDrawPlazaSurface() {
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
   const band = L.counts ? L.counts.eraBand : 0;
   const ruined = CM.frameRuined;
-  const base = ruined ? "#4a4336" : band >= 5 ? "#8d8473" : band >= 3 ? "#a08e6e" : "#8f7a55";
   const dark = "rgba(40,30,16,0.3)";
   const light = "rgba(255,240,210,0.14)";
   for (const p of L.plan.plazas) {
     if (!p.size || p.size < 2) continue;
+    const kind = p.kind || "centrale";
+    const seedH = ((p.gx * 73856093) ^ (p.gy * 19349663)) >>> 0;
     const half = Math.floor(p.size / 2);
-    // Emprise réelle des cellules (alignée sur la grille de la place)
     const x0 = ((p.gx - half) * T - CM.cam.x) * z + CM.cw / 2;
     const y0 = ((p.gy - half) * T - CM.cam.y) * z + CM.ch / 2;
     const wPx = p.size * T * z, hPx = p.size * T * z;
     if (x0 > CM.cw + wPx || y0 > CM.ch + hPx || x0 + wPx < -wPx || y0 + hPx < -hPx) continue;
     const cx = x0 + wPx / 2, cy = y0 + hPx / 2;
     const inset = T * z * 0.06;
-    // Dalle de fond aux coins adoucis
+    const rr = (n) => ((Math.imul(seedH, 2654435761 + n * 97) >>> 0) % 1000) / 1000;
+
+    // ── Sol selon l'âge ─────────────────────────────────────────────────
+    const base = ruined ? "#4a4336"
+      : band <= 1 ? "#7c6238"               // terre battue
+      : band <= 3 ? "#94815c"               // pavé rustique
+      : band >= 6 ? "#9a958a"               // esplanade moderne
+      : "#a08e6e";                          // dallage classique
     ctx.fillStyle = base;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x0 + inset, y0 + inset, wPx - inset * 2, hPx - inset * 2, T * z * 0.3);
+    const corner = band <= 1 ? T * z * 0.55 : T * z * 0.3;
+    if (ctx.roundRect) ctx.roundRect(x0 + inset, y0 + inset, wPx - inset * 2, hPx - inset * 2, corner);
     else ctx.rect(x0 + inset, y0 + inset, wPx - inset * 2, hPx - inset * 2);
     ctx.fill();
-    // Bordure de pierre
     ctx.strokeStyle = dark;
     ctx.lineWidth = Math.max(1, T * z * 0.08);
     ctx.stroke();
-    // Dalles irrégulières (grille décalée une rangée sur deux)
-    ctx.strokeStyle = "rgba(55,42,24,0.22)";
-    ctx.lineWidth = Math.max(0.5, T * z * 0.025);
-    const cell = T * z * 0.5;
-    for (let ry = y0 + inset + cell; ry < y0 + hPx - inset; ry += cell) {
-      ctx.beginPath(); ctx.moveTo(x0 + inset, ry); ctx.lineTo(x0 + wPx - inset, ry); ctx.stroke();
-    }
-    let off = 0;
-    for (let ry = y0 + inset; ry < y0 + hPx - inset; ry += cell) {
-      for (let rx = x0 + inset + cell * (0.5 + off); rx < x0 + wPx - inset; rx += cell) {
-        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx, Math.min(ry + cell, y0 + hPx - inset)); ctx.stroke();
+
+    if (band <= 1) {
+      // Terre battue : taches d'usure + cercle de pierres au bord
+      ctx.fillStyle = "rgba(60,44,20,0.25)";
+      for (let i = 0; i < 7; i += 1) {
+        ctx.beginPath();
+        ctx.ellipse(x0 + inset + rr(i) * (wPx - inset * 2), y0 + inset + rr(i + 9) * (hPx - inset * 2),
+          T * z * (0.12 + rr(i + 20) * 0.14), T * z * (0.07 + rr(i + 31) * 0.08), rr(i) * 3, 0, Math.PI * 2);
+        ctx.fill();
       }
-      off = off ? 0 : 0.5;
+      ctx.fillStyle = "#5d5142";
+      for (let i = 0; i < 10; i += 1) {
+        const a = (i / 10) * Math.PI * 2 + rr(40) * 0.6;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * (wPx / 2 - inset * 3), cy + Math.sin(a) * (hPx / 2 - inset * 3), Math.max(1, T * z * 0.05), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (band <= 3) {
+      // Pavé rustique : galets épars (pointillisme), pas de joints réguliers
+      ctx.fillStyle = "rgba(70,56,34,0.3)";
+      const nCobbles = Math.round(p.size * p.size * 9);
+      for (let i = 0; i < nCobbles; i += 1) {
+        ctx.fillRect(
+          x0 + inset + rr(i * 2) * (wPx - inset * 2 - 2),
+          y0 + inset + rr(i * 2 + 1) * (hPx - inset * 2 - 2),
+          Math.max(1, T * z * 0.07), Math.max(1, T * z * 0.05));
+      }
+    } else if (band >= 6) {
+      // Esplanade moderne : grandes dalles lisses + joints lumineux discrets
+      ctx.strokeStyle = `rgba(120,200,230,${(0.12 + (CM.nightF || 0) * 0.25).toFixed(2)})`;
+      ctx.lineWidth = Math.max(0.5, T * z * 0.03);
+      const cell2 = T * z;
+      for (let ry = y0 + cell2; ry < y0 + hPx - inset; ry += cell2) {
+        ctx.beginPath(); ctx.moveTo(x0 + inset, ry); ctx.lineTo(x0 + wPx - inset, ry); ctx.stroke();
+      }
+      for (let rx = x0 + cell2; rx < x0 + wPx - inset; rx += cell2) {
+        ctx.beginPath(); ctx.moveTo(rx, y0 + inset); ctx.lineTo(rx, y0 + hPx - inset); ctx.stroke();
+      }
+    } else {
+      // Dallage classique en appareil décalé
+      ctx.strokeStyle = "rgba(55,42,24,0.22)";
+      ctx.lineWidth = Math.max(0.5, T * z * 0.025);
+      const cell = T * z * 0.5;
+      for (let ry = y0 + inset + cell; ry < y0 + hPx - inset; ry += cell) {
+        ctx.beginPath(); ctx.moveTo(x0 + inset, ry); ctx.lineTo(x0 + wPx - inset, ry); ctx.stroke();
+      }
+      let off = 0;
+      for (let ry = y0 + inset; ry < y0 + hPx - inset; ry += cell) {
+        for (let rx = x0 + inset + cell * (0.5 + off); rx < x0 + wPx - inset; rx += cell) {
+          ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx, Math.min(ry + cell, y0 + hPx - inset)); ctx.stroke();
+        }
+        off = off ? 0 : 0.5;
+      }
     }
-    // Rosace centrale (deux anneaux + dalle claire)
-    ctx.fillStyle = light;
-    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.22, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = dark;
-    ctx.lineWidth = Math.max(1, T * z * 0.05);
-    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.3, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.16, 0, Math.PI * 2); ctx.stroke();
-    // Rayons de la rosace
-    for (let i = 0; i < 8; i += 1) {
-      const a = i * Math.PI / 4;
+
+    // ── Motifs selon le type de place ───────────────────────────────────
+    if (kind === "jardin") {
+      // Square public : pelouse centrale, allées en croix, bassin
+      ctx.fillStyle = ruined ? "rgba(86,96,52,0.6)" : "#5d7a34";
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * wPx * 0.16, cy + Math.sin(a) * wPx * 0.16);
-      ctx.lineTo(cx + Math.cos(a) * wPx * 0.3, cy + Math.sin(a) * wPx * 0.3);
-      ctx.stroke();
+      if (ctx.roundRect) ctx.roundRect(x0 + inset * 3, y0 + inset * 3, wPx - inset * 6, hPx - inset * 6, T * z * 0.35);
+      else ctx.rect(x0 + inset * 3, y0 + inset * 3, wPx - inset * 6, hPx - inset * 6);
+      ctx.fill();
+      // Allées
+      ctx.fillStyle = base;
+      const pw = Math.max(2, T * z * 0.22);
+      ctx.fillRect(x0 + inset, cy - pw / 2, wPx - inset * 2, pw);
+      ctx.fillRect(cx - pw / 2, y0 + inset, pw, hPx - inset * 2);
+      // Bassin central
+      ctx.fillStyle = "#2a5a8b";
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.13, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#6e6354"; ctx.lineWidth = Math.max(1, T * z * 0.05);
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.13, 0, Math.PI * 2); ctx.stroke();
+    } else if (kind === "parvis" && band >= 2) {
+      // Parvis : rayons convergeant vers le sanctuaire (motif solaire)
+      ctx.strokeStyle = "rgba(232,210,160,0.3)";
+      ctx.lineWidth = Math.max(0.5, T * z * 0.04);
+      for (let i = 0; i < 12; i += 1) {
+        const a = i * Math.PI / 6;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * wPx * 0.1, cy + Math.sin(a) * wPx * 0.1);
+        ctx.lineTo(cx + Math.cos(a) * wPx * 0.42, cy + Math.sin(a) * wPx * 0.42);
+        ctx.stroke();
+      }
+      ctx.fillStyle = light;
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.1, 0, Math.PI * 2); ctx.fill();
+    } else if (kind === "centrale" && band >= 3) {
+      // Rosace de la grande place
+      ctx.fillStyle = light;
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = Math.max(1, T * z * 0.05);
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.3, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, wPx * 0.16, 0, Math.PI * 2); ctx.stroke();
+      for (let i = 0; i < 8; i += 1) {
+        const a = i * Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * wPx * 0.16, cy + Math.sin(a) * wPx * 0.16);
+        ctx.lineTo(cx + Math.cos(a) * wPx * 0.3, cy + Math.sin(a) * wPx * 0.3);
+        ctx.stroke();
+      }
     }
-    // Bornes de pierre aux quatre coins
-    ctx.fillStyle = ruined ? "#3c362c" : "#6e6354";
-    const bs = Math.max(1.5, T * z * 0.14);
-    for (const [bx, by] of [[x0 + inset * 3, y0 + inset * 3], [x0 + wPx - inset * 3 - bs, y0 + inset * 3], [x0 + inset * 3, y0 + hPx - inset * 3 - bs], [x0 + wPx - inset * 3 - bs, y0 + hPx - inset * 3 - bs]]) {
-      ctx.fillRect(bx, by, bs, bs);
-      ctx.fillStyle = "rgba(255,255,255,0.15)";
-      ctx.fillRect(bx, by, bs, Math.max(0.5, bs * 0.3));
+
+    // Bornes de pierre aux quatre coins (à partir du pavé)
+    if (band >= 2) {
       ctx.fillStyle = ruined ? "#3c362c" : "#6e6354";
+      const bs = Math.max(1.5, T * z * 0.14);
+      for (const [bx, by] of [[x0 + inset * 3, y0 + inset * 3], [x0 + wPx - inset * 3 - bs, y0 + inset * 3], [x0 + inset * 3, y0 + hPx - inset * 3 - bs], [x0 + wPx - inset * 3 - bs, y0 + hPx - inset * 3 - bs]]) {
+        ctx.fillRect(bx, by, bs, bs);
+        ctx.fillStyle = "rgba(255,255,255,0.15)";
+        ctx.fillRect(bx, by, bs, Math.max(0.5, bs * 0.3));
+        ctx.fillStyle = ruined ? "#3c362c" : "#6e6354";
+      }
     }
   }
 }
 
-// ── Places publiques : monument central selon la personnalité de la ville ──
+// ── Mobilier de place : bancs, lanternes, parterres de fleurs ───────────────
+function cityMapDrawPlazaFurniture(ctx, cx, cy, ext, s, band, night, seedH, kind) {
+  const rr = (n) => ((Math.imul(seedH, 2654435761 + n * 131) >>> 0) % 1000) / 1000;
+  // Bancs (dès le bourg) : le long des bords, tournés vers le centre
+  if (band >= 2) {
+    const nBenches = kind === "jardin" ? 4 : 2 + (seedH % 2);
+    ctx.fillStyle = "#5d4226";
+    for (let i = 0; i < nBenches; i += 1) {
+      const side = (i + (seedH % 4)) % 4;
+      const along = (rr(i + 3) - 0.5) * ext * 1.1;
+      const bw = s * 0.34, bh = s * 0.09;
+      if (side === 0)      ctx.fillRect(cx + along - bw / 2, cy - ext * 0.78, bw, bh);
+      else if (side === 1) ctx.fillRect(cx + along - bw / 2, cy + ext * 0.7, bw, bh);
+      else if (side === 2) ctx.fillRect(cx - ext * 0.78, cy + along - bw / 2, bh, bw);
+      else                 ctx.fillRect(cx + ext * 0.7, cy + along - bw / 2, bh, bw);
+    }
+  }
+  // Lanternes d'angle (dès la cité fortifiée) : lueur chaude la nuit
+  if (band >= 3) {
+    for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const px = cx + lx * ext * 0.62, py = cy + ly * ext * 0.62;
+      ctx.strokeStyle = "#3c342a"; ctx.lineWidth = Math.max(1, s * 0.045);
+      ctx.beginPath(); ctx.moveTo(px, py + s * 0.1); ctx.lineTo(px, py - s * 0.26); ctx.stroke();
+      const glow = 0.35 + night * 0.6;
+      ctx.fillStyle = `rgba(255,205,95,${glow.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(px, py - s * 0.3, Math.max(1.2, s * 0.06), 0, Math.PI * 2); ctx.fill();
+      if (night > 0.3) {
+        ctx.fillStyle = `rgba(255,200,90,${(night * 0.14).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(px, py - s * 0.3, s * 0.3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  // Parterres de fleurs (ères riches, et toujours dans les jardins)
+  if (band >= 4 || kind === "jardin") {
+    const FLOWERS = ["#d05a8a", "#e8c64a", "#c84a3a", "#9a6ac8", "#e88a3a"];
+    const nBeds = kind === "jardin" ? 5 : 2;
+    for (let b = 0; b < nBeds; b += 1) {
+      const a = rr(b + 11) * Math.PI * 2;
+      const d = ext * (kind === "jardin" ? 0.3 + rr(b + 17) * 0.3 : 0.55);
+      const fx = cx + Math.cos(a) * d, fy = cy + Math.sin(a) * d;
+      ctx.fillStyle = "rgba(74,98,44,0.8)";
+      ctx.beginPath(); ctx.ellipse(fx, fy, s * 0.13, s * 0.09, a, 0, Math.PI * 2); ctx.fill();
+      for (let f = 0; f < 4; f += 1) {
+        ctx.fillStyle = FLOWERS[(b * 3 + f + (seedH % 5)) % FLOWERS.length];
+        ctx.beginPath();
+        ctx.arc(fx + (rr(b * 7 + f) - 0.5) * s * 0.2, fy + (rr(b * 9 + f) - 0.5) * s * 0.13, Math.max(0.8, s * 0.025), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// ── Places publiques : pièce maîtresse selon le TYPE de place, puis selon la
+//    personnalité de la ville pour la place centrale + mobilier par ère ──────
 function cityMapDrawPlazas(now) {
   const L = CM.layout;
   if (!L || !L.plan || !Array.isArray(L.plan.plazas)) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
-  const pid = L.personality ? L.personality.id : "marchande";
+  const band = L.counts ? L.counts.eraBand : 0;
+  const night = CM.nightF || 0;
+  const basePid = L.personality ? L.personality.id : "marchande";
   const t = now || 0;
   for (const p of L.plan.plazas) {
     if (!p.size || p.size < 2) continue;
+    const kind = p.kind || "centrale";
+    const seedH = ((p.gx * 73856093) ^ (p.gy * 19349663)) >>> 0;
     const cx = ((p.gx + 0.5) * T - CM.cam.x) * z + CM.cw / 2;
     const cy = ((p.gy + 0.5) * T - CM.cam.y) * z + CM.ch / 2;
     const s = T * z;
-    if (cx < -s * 3 || cy < -s * 3 || cx > CM.cw + s * 3 || cy > CM.ch + s * 3) continue;
-    // (le dallage est dessiné par cityMapDrawPlazaSurface en couche statique)
-    if (pid === "marchande" || pid === "pauvre") {
+    const ext = p.size * s / 2; // demi-étendue de la place à l'écran
+    if (cx < -ext * 2 || cy < -ext * 2 || cx > CM.cw + ext * 2 || cy > CM.ch + ext * 2) continue;
+    // Pièce maîtresse : le type de place prime ; la place centrale reflète la
+    // personnalité de la ville.
+    const pid = kind === "marche" ? "marchande"
+      : kind === "parvis" ? "religieuse"
+      : kind === "jardin" ? "jardin"
+      : basePid;
+    if (pid === "jardin") {
+      // Square : reflets animés du bassin + saules en coin
+      const shimmer = 0.2 + 0.15 * Math.sin(t / 700 + seedH);
+      ctx.fillStyle = `rgba(200,230,255,${shimmer.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(cx - ext * 0.04, cy - ext * 0.04, ext * 0.1, 0, Math.PI * 2); ctx.fill();
+      for (const [txd, tyd] of [[-0.55, -0.55], [0.55, 0.5]]) {
+        const txp = cx + txd * ext, typ = cy + tyd * ext;
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(txp + s * 0.05, typ + s * 0.16, s * 0.18, s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3a2008"; ctx.fillRect(txp - s * 0.025, typ - s * 0.04, s * 0.05, s * 0.2);
+        ctx.fillStyle = "#476b24";
+        ctx.beginPath(); ctx.arc(txp, typ - s * 0.12, s * 0.16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(120,160,70,0.6)";
+        ctx.beginPath(); ctx.arc(txp - s * 0.05, typ - s * 0.17, s * 0.1, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (pid === "marchande" || pid === "pauvre") {
       // Étals de marché : auvents rayés autour du centre
       const stalls = pid === "marchande" ? 4 : 2;
       for (let i = 0; i < stalls; i += 1) {
@@ -686,6 +825,8 @@ function cityMapDrawPlazas(now) {
         ctx.fill();
       }
     }
+    // Mobilier urbain : bancs, lanternes, parterres (selon l'ère et le type)
+    cityMapDrawPlazaFurniture(ctx, cx, cy, ext, s, band, night, seedH, kind);
   }
 }
 

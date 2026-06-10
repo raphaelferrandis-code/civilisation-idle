@@ -261,26 +261,29 @@ function drawCitizenThoughts(now) {
       if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
 
       const emoji = p.thoughtType === "thought" ? "💭" : p.thoughtType === "scroll" ? "📜" : "⚡";
+      // Taille fixe en pixels écran : la bulle ne suit pas le zoom, reste toujours lisible.
+      const BR = 11; // rayon fixe
       const bx = sx;
-      const by = sy - 14 * Math.max(0.6, z);
-      
+      const by = sy - 18;
+
       ctx.save();
+      // Queue pointant vers le personnage (bas de la bulle)
       ctx.beginPath();
-      ctx.moveTo(bx, by + 4);
-      ctx.lineTo(bx - 3, by + 10);
-      ctx.lineTo(bx + 3, by + 10);
+      ctx.moveTo(bx, by + BR - 1);
+      ctx.lineTo(bx - 3, by + BR + 6);
+      ctx.lineTo(bx + 3, by + BR + 6);
       ctx.fillStyle = "rgba(18, 10, 5, 0.85)";
       ctx.fill();
-      
+
       ctx.beginPath();
-      ctx.arc(bx, by, 8 * Math.max(0.7, z), 0, Math.PI * 2);
+      ctx.arc(bx, by, BR, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255, 248, 230, 0.95)";
       ctx.strokeStyle = "rgba(201, 168, 76, 0.85)";
       ctx.lineWidth = 1;
       ctx.fill();
       ctx.stroke();
-      
-      ctx.font = `${Math.round(10 * Math.max(0.7, z))}px sans-serif`;
+
+      ctx.font = "13px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(emoji, bx, by + 0.5);

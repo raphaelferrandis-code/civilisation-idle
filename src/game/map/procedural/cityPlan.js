@@ -93,24 +93,38 @@ function buildAnchors({ seed, counts, personality, archetype, core, reachBase, N
   return anchors;
 }
 
-// Places publiques : une place centrale près du cœur + des places de quartier
-// près des ancres marchandes/religieuses/prestige selon l'âge et le profil.
+// Places publiques typées, placées là où la vie les justifie :
+//   centrale — le cœur historique, près du noyau fondateur ;
+//   marche   — au centre du quartier marchand (étals, balance publique) ;
+//   parvis   — devant le quartier religieux (statue votive, braseros) ;
+//   jardin   — square public du quartier de prestige (ères avancées).
+// Espacement minimal pour éviter deux places collées.
 function buildPlazas({ seed, counts, ageCfg, personality, core, anchors }) {
   const plazas = [];
   if (ageCfg.plazaSize <= 0) return plazas;
   // Une vraie place : jamais moins de 2×2, jusqu'à 5×5 en mégalopole fastueuse.
   const size = Math.max(2, Math.min(5, Math.round(ageCfg.plazaSize * Math.min(1.5, personality.plazaBias)) + 1));
   const rng = rngFrom(seed, "plazas");
+  const farEnough = (gx, gy) =>
+    plazas.every((p) => Math.hypot(gx - p.gx, gy - p.gy) > (p.size + size) * 1.6);
   plazas.push({
     gx: Math.round(core.x + (rng() - 0.5) * 3),
     gy: Math.round(core.y + (rng() - 0.5) * 3),
-    size
+    size,
+    kind: "centrale"
   });
-  if (counts.eraBand >= 3) {
+  if (counts.eraBand >= 2) {
+    const kindFor = { marchand: "marche", religieux: "parvis", prestige: "jardin" };
+    const maxExtra = 1 + Math.round(2 * personality.plazaBias);
+    // Les ancres récentes d'abord : les places de quartier suivent l'expansion.
     for (const a of anchors) {
-      if (plazas.length >= 1 + Math.round(2 * personality.plazaBias)) break;
-      if (a.kind !== "marchand" && a.kind !== "religieux" && a.kind !== "prestige") continue;
-      plazas.push({ gx: Math.round(a.gx), gy: Math.round(a.gy), size: Math.max(2, size - 1) });
+      if (plazas.length >= 1 + maxExtra) break;
+      const kind = kindFor[a.kind];
+      if (!kind) continue;
+      if (kind === "jardin" && counts.eraBand < 4) continue; // squares publics : ères avancées
+      const gx = Math.round(a.gx), gy = Math.round(a.gy);
+      if (!farEnough(gx, gy)) continue;
+      plazas.push({ gx, gy, size: Math.max(2, size - 1), kind });
     }
   }
   return plazas;
