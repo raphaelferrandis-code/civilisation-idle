@@ -124,7 +124,7 @@ export function checkAutomateRules() {
       if (state.instability * 100 >= rule.threshold) {
         const costs = crisisCosts();
         if (canPayCost(costs[rule.actionId])) {
-          runCrisisAction(rule.actionId, false);
+          runCrisisAction(rule.actionId, { render: false });
         }
       }
     }

@@ -16,6 +16,7 @@ import {
 } from '../state.js';
 
 import {
+  addProductionPenalty,
   cityVitals,
   ruinGain,
   terminalCrisisReady,
@@ -38,6 +39,7 @@ import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
+import { COLLAPSE_PREP_MAX } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -68,7 +70,7 @@ export function checkCrisisThresholds() {
   if (!slot) return;
   state.crisisThresholds[slot.id] = true;
   const event = pickCrisisEvent(slot.threshold);
-  state.recentCrisisIds = [...(state.recentCrisisIds || []).slice(-8), event.id];
+  state.recentCrisisIds = [...(state.recentCrisisIds || []).slice(-7), event.id];
   openCrisisEvent(event);
 }
 
@@ -93,11 +95,6 @@ export async function openCrisisEvent(event) {
   state.instability = clamp01(state.instability);
   setGamePaused(false);
   render();
-}
-
-export function addProductionPenalty(type, amount) {
-  const current = state.crisisProduction[type] ?? 1;
-  state.crisisProduction[type] = Math.max(0.1, current * (1 - amount));
 }
 
 export function clearProductionPenalties(key) {
@@ -191,7 +188,7 @@ export function runTerminalCrisisAction(type, tier = 0) {
     addMalus("knowledgeMalus");
     tp.ruptureSlow = Math.min(0.8, (tp.ruptureSlow || 0) + (tierDef.ruptureSlow || 0));
   }
-  state.collapsePreparation = Math.min(2.4, (state.collapsePreparation || 0) + tierDef.prep);
+  state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + tierDef.prep);
 
   // Ramène la jauge qui a ouvert la crise au palier choisi, puis reprend la partie.
   state.crisisLimitAnnounced = false;
@@ -343,9 +340,12 @@ export function collapse(reason) {
   runCollapseSequence(gain, reason);
 }
 
-export function runCrisisAction(id, shouldRender = true) {
-  const doRender = shouldRender === true || (shouldRender && shouldRender.render !== false);
-  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
+export function runCrisisAction(id, options = {}) {
+  const opts = (typeof options === "object" && options !== null) ? options : { render: Boolean(options) };
+  const { render: doRender = true, force = false } = opts;
+  if (gamePaused || collapseInProgress) return;
+  // Pendant la crise terminale, seules les actions auto de l'intendant (force) passent.
+  if (state.crisisLimitAnnounced && !force) return;
   const costs = crisisCosts();
   const cost = costs[id];
   if (!cost || !canPayCost(cost)) return;

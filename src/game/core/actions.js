@@ -21,7 +21,6 @@ export {
   pickCrisisEvent,
   checkCrisisThresholds,
   openCrisisEvent,
-  addProductionPenalty,
   clearProductionPenalties,
   triggerCollapseChoices,
   resumeAfterCrisisOutcome,
@@ -31,6 +30,8 @@ export {
   collapse,
   runCrisisAction
 } from './actions/crisis.js';
+
+export { addProductionPenalty } from './mechanics.js';
 
 export {
   checkMythOnCollapse,

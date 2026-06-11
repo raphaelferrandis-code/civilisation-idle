@@ -4,9 +4,15 @@ import { buildings } from '../data/buildings.js';
 import { upgrades } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { clamp01 } from './utils.js';
+import { COLLAPSE_PREP_MAX } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 
 export const SAVE_KEY = "civilization-collapse-idle-v1";
+
+// Version du SCHÉMA de sauvegarde, stockée DANS le payload (state.saveVersion) —
+// surtout pas dans SAVE_KEY. Bumper SAVE_KEY effacerait tous les saves ; bumper
+// CURRENT_SAVE_VERSION + ajouter une migration les fait évoluer sans perte.
+export const CURRENT_SAVE_VERSION = 1;
 
 export const defaultAutoScriptRules = () => [
   { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%", threshold: 80, enabled: false },
@@ -43,6 +49,7 @@ export function render() {
 
 
 export const defaultState = () => ({
+  saveVersion: CURRENT_SAVE_VERSION,
   population: 10,
   food: 35,
   gold: 0,
@@ -481,27 +488,58 @@ export function normalizeChronicleEntries(raw) {
     .filter(isPlainObject)
     .map(entry => {
       return {
-        id: typeof entry.id === "string" ? entry.id : "",
-        title: typeof entry.title === "string" ? entry.title : "",
-        text: typeof entry.text === "string" ? entry.text : "",
-        author: typeof entry.author === "string" || entry.author === null ? entry.author : null,
-        age: typeof entry.age === "string" ? entry.age : "",
-        date: typeof entry.date === "string" ? entry.date : "",
-        category: typeof entry.category === "string" ? entry.category : "",
+        id: typeof entry.id === "string" ? entry.id.slice(0, 128) : "",
+        title: typeof entry.title === "string" ? entry.title.slice(0, 200) : "",
+        text: typeof entry.text === "string" ? entry.text.slice(0, 4000) : "",
+        author: typeof entry.author === "string" ? entry.author.slice(0, 100) : null,
+        age: typeof entry.age === "string" ? entry.age.slice(0, 80) : "",
+        date: typeof entry.date === "string" ? entry.date.slice(0, 80) : "",
+        category: typeof entry.category === "string" ? entry.category.slice(0, 80) : "",
         isNew: typeof entry.isNew === "boolean" ? entry.isNew : false
       };
     })
-    .filter(e => e.id);
+    .filter(e => e.id)
+    .slice(0, 250);
+}
+
+// Migrations séquentielles du schéma de sauvegarde.
+// Clé = version DE DÉPART ; la fonction transforme (en place) un save de cette
+// version vers la version+1. Pour passer à la v2, écris MIGRATIONS[1] = (s) => {...}
+// (ex. renommer un champ, recalculer une valeur rééquilibrée…).
+//
+// La v0 désigne les anciens saves sans champ `saveVersion`. Le passage 0 -> 1
+// ne nécessite AUCUNE transformation : les normalizers de hydrateState rendent
+// déjà ces saves compatibles. On se contente donc d'estampiller la version.
+const MIGRATIONS = {
+  // 0: (s) => { /* aucune transformation : géré par les normalizers */ },
+};
+
+// Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à
+// CURRENT_SAVE_VERSION en appliquant les migrations dans l'ordre.
+// Travaille sur une copie superficielle pour ne pas muter l'entrée.
+export function migrate(raw) {
+  const save = isPlainObject(raw) ? { ...raw } : {};
+  let version = Number.isInteger(save.saveVersion) ? save.saveVersion : 0;
+  // Save plus récent que ce build (downgrade) : on ne tente rien d'autre que
+  // de le ramener au schéma courant ; hydrateState ignorera les champs inconnus.
+  while (version < CURRENT_SAVE_VERSION) {
+    const step = MIGRATIONS[version];
+    if (step) step(save);
+    version += 1;
+  }
+  save.saveVersion = CURRENT_SAVE_VERSION;
+  return save;
 }
 
 export function hydrateState(parsed = {}) {
   const base = defaultState();
-  const source = isPlainObject(parsed) ? parsed : {};
+  const source = migrate(isPlainObject(parsed) ? parsed : {});
   const buildingIds = buildings.map((building) => building.id);
   const upgradeIds = upgrades.map((upgrade) => upgrade.id);
   const doctrineIds = new Set(DOCTRINES.map((doctrine) => doctrine.id));
   const stateOut = {
     ...base,
+    saveVersion: CURRENT_SAVE_VERSION,
     population: finiteNumber(source.population, base.population),
     food: finiteNumber(source.food, base.food),
     gold: finiteNumber(source.gold, base.gold),
@@ -580,7 +618,7 @@ export function hydrateState(parsed = {}) {
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
-    collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, 2.4),
+    collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
     terminalPreparations: normalizeTerminalPreparations(source.terminalPreparations, base.terminalPreparations),
     crisisExtensions: finiteInteger(source.crisisExtensions, base.crisisExtensions, 0, 99),
     crisisLimitAnnounced: Boolean(source.crisisLimitAnnounced),

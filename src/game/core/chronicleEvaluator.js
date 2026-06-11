@@ -3,49 +3,8 @@
 import { chronicleArticles } from '../data/chronicleArticles.js';
 import { eras } from '../data/world.js';
 import { save } from './state.js';
-
-function getStage(state) {
-  const b = state.buildings || {};
-  const cnt = (id) => b[id] || 0;
-  if (cnt("imperial_exchanges") >= 1) return 16;
-  if (cnt("mint_houses") >= 1 || cnt("public_works") >= 3) return 15;
-  if (cnt("water_mills") >= 3) return 14;
-  if (cnt("water_mills") >= 1 || cnt("courthouses") >= 3) return 13;
-  if (cnt("river_ports") >= 3) return 12;
-  if (cnt("river_ports") >= 1 || cnt("bureaucracy") >= 3) return 11;
-  if (cnt("irrigated_fields") >= 3) return 10;
-  if (cnt("irrigated_fields") >= 1 || cnt("sewers") >= 3) return 9;
-  if (cnt("guilds") >= 3) return 8;
-  if (cnt("guilds") >= 1 || cnt("aqueducts") >= 3) return 7;
-  if (cnt("markets") >= 3) return 6;
-  if (cnt("caravans") >= 3 || cnt("markets") >= 1) return 5;
-  if (cnt("caravans") >= 1) return 4;
-  if (cnt("granaries_city") >= 3) return 3;
-  if (cnt("granaries_city") >= 1) return 2;
-  if (cnt("foragers") >= 3) return 1;
-  return 0;
-}
-
-function getEraName(population) {
-  let index = 0;
-  for (let i = 0; i < eras.length; i += 1) {
-    if (population >= eras[i].at) index = i;
-  }
-  return eras[index]?.name || "Campement";
-}
-
-function cycleYear(state) {
-  const elapsed = Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000);
-  return Math.floor(elapsed / 60) + 1;
-}
-
-function getEraIndexLocal(population) {
-  let index = 0;
-  for (let i = 0; i < eras.length; i += 1) {
-    if (population >= eras[i].at) index = i;
-  }
-  return index;
-}
+import { mapStage, currentEraIndex } from './mechanics.js';
+import { cycleYear } from './actions/utils.js';
 
 export function getPeriod(eraIndex) {
   if (eraIndex < 4)  return 1;
@@ -98,7 +57,7 @@ const CATEGORY_PRIORITIES = {
 };
 
 export function evaluateCondition(type, state) {
-  const stage = getStage(state);
+  const stage = mapStage();
   switch (type) {
     case "crise":
       return state.instability >= 0.75 || state.timeWear >= 0.75;
@@ -152,7 +111,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     return;
   }
 
-  const eraIndex = getEraIndexLocal(state.population);
+  const eraIndex = currentEraIndex();
   const currentPeriod = getPeriod(eraIndex);
 
   const triggeredIds = new Set((state.chronicleEntries || []).map(e => e.id));
@@ -194,8 +153,8 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const chosenArticle = topCandidates[chosenIndex];
 
   // Build entry
-  const year = cycleYear(state);
-  const era = getEraName(state.population);
+  const year = cycleYear();
+  const era = eras[currentEraIndex()]?.name || "Campement";
 
   const newEntry = {
     id: chosenArticle.id,
@@ -208,7 +167,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     isNew: true
   };
 
-  state.chronicleEntries = [newEntry, ...(state.chronicleEntries || [])];
+  state.chronicleEntries = [newEntry, ...(state.chronicleEntries || [])].slice(0, 250);
   state.chronicleCooldown = 60; // 60 seconds cooldown
 
   save();

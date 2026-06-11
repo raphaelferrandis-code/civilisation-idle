@@ -1,9 +1,6 @@
 "use strict";
 
-import { state } from '../core/state.js';
-import { clamp01 } from '../core/utils.js';
-import { addProductionPenalty, chronicle } from '../core/actions.js';
-import { amplifyRuptureFactor } from '../core/mechanics.js';
+import { effects } from './worldEffects.js';
 
 /* ============================================================================
  * data-world.js - Donnees monde: eras, DOCTRINES, CRISIS_POOL, CRISIS_EVENTS.
@@ -90,12 +87,12 @@ export const CRISIS_POOL = [
       {
         label: "Ouvrir les réserves",
         detail: "Nourriture -12% ce cycle, Rupture -8%.",
-        apply: () => { addProductionPenalty("food", 0.12); state.instability *= 0.92; chronicle("Les réserves sont ouvertes. La peur redescend d'un cran."); }
+        apply: () => { effects.addProductionPenalty("food", 0.12); effects.state.instability *= 0.92; effects.chronicle("Les réserves sont ouvertes. La peur redescend d'un cran."); }
       },
       {
         label: "Nier le problème",
         detail: "Production globale -5% ce cycle, Rupture +8%.",
-        apply: () => { addProductionPenalty("global", 0.05); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.08)); chronicle("Le pouvoir dit que tout va bien. La tension monte."); }
+        apply: () => { effects.addProductionPenalty("global", 0.05); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.08)); effects.chronicle("Le pouvoir dit que tout va bien. La tension monte."); }
       }
     ]
   },
@@ -109,12 +106,12 @@ export const CRISIS_POOL = [
       {
         label: "Plafonner les prix",
         detail: "Trésor -18% ce cycle, Rupture -9%.",
-        apply: () => { addProductionPenalty("gold", 0.18); state.instability *= 0.91; chronicle("Les prix sont plafonnés par décret. Les marchands grincent des dents, la rue respire."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.instability *= 0.91; effects.chronicle("Les prix sont plafonnés par décret. Les marchands grincent des dents, la rue respire."); }
       },
       {
         label: "Laisser le marché faire",
         detail: "Trésor +6% ce cycle, Rupture +11%.",
-        apply: () => { addProductionPenalty("gold", -0.06); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.11)); chronicle("Le marché s'emballe. Quelques-uns s'enrichissent, beaucoup serrent la ceinture."); }
+        apply: () => { effects.addProductionPenalty("gold", -0.06); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.11)); effects.chronicle("Le marché s'emballe. Quelques-uns s'enrichissent, beaucoup serrent la ceinture."); }
       }
     ]
   },
@@ -128,12 +125,12 @@ export const CRISIS_POOL = [
       {
         label: "Réorganiser les quartiers",
         detail: "Savoir -14% ce cycle, Infrastructure +5%, Rupture -9%.",
-        apply: () => { addProductionPenalty("knowledge", 0.14); state.infrastructure *= 1.05; state.instability *= 0.91; chronicle("Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.14); effects.state.infrastructure *= 1.05; effects.state.instability *= 0.91; effects.chronicle("Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça."); }
       },
       {
         label: "Continuer à construire",
         detail: "Production globale +4% ce cycle, Rupture +10%.",
-        apply: () => { addProductionPenalty("global", -0.04); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.10)); chronicle("On continue. La cité grandit plus vite que sa propre compréhension d'elle-même."); }
+        apply: () => { effects.addProductionPenalty("global", -0.04); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.10)); effects.chronicle("On continue. La cité grandit plus vite que sa propre compréhension d'elle-même."); }
       }
     ]
   },
@@ -147,12 +144,12 @@ export const CRISIS_POOL = [
       {
         label: "Organiser une assemblée",
         detail: "Savoir -10% ce cycle, Rupture -10%.",
-        apply: () => { addProductionPenalty("knowledge", 0.10); state.instability *= 0.90; chronicle("L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.10); effects.state.instability *= 0.90; effects.chronicle("L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu."); }
       },
       {
         label: "Imposer le calme",
         detail: "Nourriture -8% ce cycle, Rupture +9%.",
-        apply: () => { addProductionPenalty("food", 0.08); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.09)); chronicle("Le calme est imposé. La jeunesse se tait en surface. En dessous, ça bout."); }
+        apply: () => { effects.addProductionPenalty("food", 0.08); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.09)); effects.chronicle("Le calme est imposé. La jeunesse se tait en surface. En dessous, ça bout."); }
       }
     ]
   },
@@ -166,12 +163,12 @@ export const CRISIS_POOL = [
       {
         label: "Enquêter sur la source",
         detail: "Savoir -12% ce cycle, Rupture -8%.",
-        apply: () => { addProductionPenalty("knowledge", 0.12); state.instability *= 0.92; chronicle("L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.12); effects.state.instability *= 0.92; effects.chronicle("L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant."); }
       },
       {
         label: "Diffuser un contre-récit",
         detail: "Trésor -10% ce cycle, Rupture +7% ou -4% (aléa).",
-        apply: () => { addProductionPenalty("gold", 0.10); const effect = Math.random() > 0.45 ? 0.96 : 1.07; state.instability = clamp01(state.instability * effect); chronicle(effect < 1 ? "Le contre-récit prend. Les esprits se calment." : "Le contre-récit est tourné en dérision. La rumeur gagne en crédibilité."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.10); const effect = Math.random() > 0.45 ? 0.96 : 1.07; effects.state.instability = effects.clamp01(effects.state.instability * effect); effects.chronicle(effect < 1 ? "Le contre-récit prend. Les esprits se calment." : "Le contre-récit est tourné en dérision. La rumeur gagne en crédibilité."); }
       }
     ]
   },
@@ -187,12 +184,12 @@ export const CRISIS_POOL = [
       {
         label: "Taxer les élites",
         detail: "Trésor -18% ce cycle, Infrastructure +4%, Rupture -9%.",
-        apply: () => { addProductionPenalty("gold", 0.18); state.infrastructure *= 1.04; state.instability *= 0.91; chronicle("Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure *= 1.04; effects.state.instability *= 0.91; effects.chronicle("Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent."); }
       },
       {
         label: "Acheter leur paix",
         detail: "Infrastructure -15% ce cycle, Trésor +6%, Rupture +12%.",
-        apply: () => { addProductionPenalty("infrastructure", 0.15); addProductionPenalty("gold", -0.06); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.12)); chronicle("La paix est achetée, brillante et fragile."); }
+        apply: () => { effects.addProductionPenalty("infrastructure", 0.15); effects.addProductionPenalty("gold", -0.06); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.12)); effects.chronicle("La paix est achetée, brillante et fragile."); }
       }
     ]
   },
@@ -206,12 +203,12 @@ export const CRISIS_POOL = [
       {
         label: "Partager les institutions",
         detail: "Légitimité -0.4, Rupture -12%.",
-        apply: () => { state.legitimacy = Math.max(0, state.legitimacy - 0.4); state.instability *= 0.88; chronicle("Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant."); }
+        apply: () => { effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.4); effects.state.instability *= 0.88; effects.chronicle("Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant."); }
       },
       {
         label: "Tenir les rênes",
         detail: "Savoir -15% ce cycle, Rupture +14%.",
-        apply: () => { addProductionPenalty("knowledge", 0.15); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.14)); chronicle("Le pouvoir central tient. La faction se tait. Sa colère, non."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.15); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("Le pouvoir central tient. La faction se tait. Sa colère, non."); }
       }
     ]
   },
@@ -225,12 +222,12 @@ export const CRISIS_POOL = [
       {
         label: "Imposer une doctrine",
         detail: "Savoir -22% ce cycle, Rupture -10%.",
-        apply: () => { addProductionPenalty("knowledge", 0.22); state.instability *= 0.90; chronicle("Une doctrine s'impose. L'autre école continue en secret, plus soudée que jamais."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.22); effects.state.instability *= 0.90; effects.chronicle("Une doctrine s'impose. L'autre école continue en secret, plus soudée que jamais."); }
       },
       {
         label: "Laisser le débat ouvert",
         detail: "Savoir +12% ce cycle, Rupture +13%.",
-        apply: () => { addProductionPenalty("knowledge", -0.12); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.13)); chronicle("Le débat s'envenime. Les idées prospèrent, les tensions aussi."); }
+        apply: () => { effects.addProductionPenalty("knowledge", -0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("Le débat s'envenime. Les idées prospèrent, les tensions aussi."); }
       }
     ]
   },
@@ -244,12 +241,12 @@ export const CRISIS_POOL = [
       {
         label: "Intégrer la milice",
         detail: "Trésor -18% ce cycle, Infrastructure +6%, Rupture -10%.",
-        apply: () => { addProductionPenalty("gold", 0.18); state.infrastructure *= 1.06; state.instability *= 0.90; chronicle("La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure *= 1.06; effects.state.instability *= 0.90; effects.chronicle("La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme."); }
       },
       {
         label: "Les repousser",
         detail: "Population -12% ce cycle, Rupture +16%.",
-        apply: () => { addProductionPenalty("population", 0.12); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.16)); chronicle("La milice est refusée. Elle ne part pas. Elle attend."); }
+        apply: () => { effects.addProductionPenalty("population", 0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.16)); effects.chronicle("La milice est refusée. Elle ne part pas. Elle attend."); }
       }
     ]
   },
@@ -263,12 +260,12 @@ export const CRISIS_POOL = [
       {
         label: "Investir dans les réparations",
         detail: "Trésor -20% ce cycle, Infrastructure +8%, Rupture -9%.",
-        apply: () => { addProductionPenalty("gold", 0.20); state.infrastructure *= 1.08; state.instability *= 0.91; chronicle("Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.20); effects.state.infrastructure *= 1.08; effects.state.instability *= 0.91; effects.chronicle("Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste."); }
       },
       {
         label: "Reporter aux prochains",
         detail: "Infrastructure -10%, Rupture +13%.",
-        apply: () => { state.infrastructure *= 0.90; state.instability = clamp01(state.instability * amplifyRuptureFactor(1.13)); chronicle("On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera."); }
+        apply: () => { effects.state.infrastructure *= 0.90; effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera."); }
       }
     ]
   },
@@ -284,12 +281,12 @@ export const CRISIS_POOL = [
       {
         label: "Importer du grain",
         detail: "Trésor -25% ce cycle, Rupture -12%.",
-        apply: () => { addProductionPenalty("gold", 0.25); state.instability *= 0.88; chronicle("Le grain arrive. Les bas quartiers respirent. Le trésor s'essouffle."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.25); effects.state.instability *= 0.88; effects.chronicle("Le grain arrive. Les bas quartiers respirent. Le trésor s'essouffle."); }
       },
       {
         label: "Laisser faire",
         detail: "Population -20% ce cycle, Rupture +20%.",
-        apply: () => { addProductionPenalty("population", 0.2); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.2)); chronicle("Les bas quartiers sont laissés à eux-mêmes. La rupture approche."); }
+        apply: () => { effects.addProductionPenalty("population", 0.2); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.2)); effects.chronicle("Les bas quartiers sont laissés à eux-mêmes. La rupture approche."); }
       }
     ]
   },
@@ -303,12 +300,12 @@ export const CRISIS_POOL = [
       {
         label: "Bloquer les sorties",
         detail: "Trésor conservé +10%, Population -8% ce cycle, Rupture -11%.",
-        apply: () => { addProductionPenalty("gold", -0.10); addProductionPenalty("population", 0.08); state.instability *= 0.89; chronicle("Les routes sont fermées. Le trésor reste. La colère aussi."); }
+        apply: () => { effects.addProductionPenalty("gold", -0.10); effects.addProductionPenalty("population", 0.08); effects.state.instability *= 0.89; effects.chronicle("Les routes sont fermées. Le trésor reste. La colère aussi."); }
       },
       {
         label: "Laisser partir",
         detail: "Trésor -28% ce cycle, Rupture +17%.",
-        apply: () => { addProductionPenalty("gold", 0.28); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.17)); chronicle("Ils partent avec leurs richesses. La cité se retrouve seule avec ses dettes."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.28); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.17)); effects.chronicle("Ils partent avec leurs richesses. La cité se retrouve seule avec ses dettes."); }
       }
     ]
   },
@@ -322,12 +319,12 @@ export const CRISIS_POOL = [
       {
         label: "Laisser les quartiers voter",
         detail: "Savoir -18% ce cycle, Légitimité -0.3, Rupture -14%.",
-        apply: () => { addProductionPenalty("knowledge", 0.18); state.legitimacy = Math.max(0, state.legitimacy - 0.3); state.instability *= 0.86; chronicle("Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.18); effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.3); effects.state.instability *= 0.86; effects.chronicle("Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement."); }
       },
       {
         label: "Trancher par décret",
         detail: "Trésor -18% ce cycle, Rupture +18%.",
-        apply: () => { addProductionPenalty("gold", 0.18); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.18)); chronicle("Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.18)); effects.chronicle("Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans."); }
       }
     ]
   },
@@ -341,12 +338,12 @@ export const CRISIS_POOL = [
       {
         label: "Décréter la quarantaine",
         detail: "Population -15% ce cycle, Trésor -12%, Rupture -13%.",
-        apply: () => { addProductionPenalty("population", 0.15); addProductionPenalty("gold", 0.12); state.instability *= 0.87; chronicle("La quarantaine est imposée. L'épidémie ralentit. L'économie aussi."); }
+        apply: () => { effects.addProductionPenalty("population", 0.15); effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.87; effects.chronicle("La quarantaine est imposée. L'épidémie ralentit. L'économie aussi."); }
       },
       {
         label: "Laisser circuler",
         detail: "Production globale +3% ce cycle, Rupture +20%.",
-        apply: () => { addProductionPenalty("global", -0.03); state.instability = clamp01(state.instability * amplifyRuptureFactor(1.20)); chronicle("On laisse circuler. La maladie se répand dans les rues et les ateliers."); }
+        apply: () => { effects.addProductionPenalty("global", -0.03); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.20)); effects.chronicle("On laisse circuler. La maladie se répand dans les rues et les ateliers."); }
       }
     ]
   },
@@ -360,12 +357,12 @@ export const CRISIS_POOL = [
       {
         label: "Honorer les dettes",
         detail: "Trésor -32% ce cycle, Rupture -14%.",
-        apply: () => { addProductionPenalty("gold", 0.32); state.instability *= 0.86; chronicle("Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.32); effects.state.instability *= 0.86; effects.chronicle("Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact."); }
       },
       {
         label: "Renégocier de force",
         detail: "Trésor -10% ce cycle, Infrastructure -8%, Rupture +14%.",
-        apply: () => { addProductionPenalty("gold", 0.10); state.infrastructure *= 0.92; state.instability = clamp01(state.instability * amplifyRuptureFactor(1.14)); chronicle("La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.10); effects.state.infrastructure *= 0.92; effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix."); }
       }
     ]
   }

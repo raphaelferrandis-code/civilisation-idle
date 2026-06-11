@@ -20,7 +20,9 @@ import {
   ruinGain,
   timeWearRate,
   crisisOpen,
-  isUnlocked
+  isUnlocked,
+  addProductionPenalty,
+  amplifyRuptureFactor
 } from './mechanics.js';
 
 import {
@@ -39,16 +41,31 @@ import {
   decodeSaveText,
   fmt,
   clamp,
+  clamp01,
   canPayCost
 } from './utils.js';
 
 import { upgrades } from '../data/upgrades.js';
 
-export function exportSave() {
+import { registerWorldEffects } from '../data/worldEffects.js';
+
+// Injection des implémentations de core/ dans le pont d'effets de world.js
+// (casse le cycle d'imports world.js ↔ core/).
+registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+
+export async function exportSave() {
   const text = encodeSaveText(JSON.stringify(state));
-  navigator.clipboard?.writeText(text);
-  log("Sauvegarde exportee dans le presse-papiers.");
-  render();
+  try {
+    if (!navigator.clipboard) throw new Error("clipboard indisponible");
+    await navigator.clipboard.writeText(text);
+    log("Sauvegarde exportee dans le presse-papiers.");
+    render();
+    return { ok: true, text };
+  } catch {
+    log("Copie automatique impossible — copie le texte manuellement.");
+    render();
+    return { ok: false, text };
+  }
 }
 
 export function importSave(text) {
@@ -109,19 +126,22 @@ export function debugBuyEarlyRuins() {
   render();
 }
 
-export function applyOfflineProgress() {
-  const elapsed = Math.min(60 * 60 * 6, Math.max(0, (Date.now() - state.lastTick) / 1000));
-  if (elapsed > 10) {
-    const usefulSeconds = elapsed * 0.35;
-    const wearBefore = state.timeWear || 0;
-    state.timeWear = clamp(wearBefore + timeWearRate() * usefulSeconds, 0, 1);
-    if (state.timeWear >= 1 && wearBefore < 1) {
-      log(`En ton absence, l'usure du temps a atteint son terme. La cite attend ta decision dans l'onglet Crises.`);
-    } else {
-      log(`Pendant ton absence, l'usure du temps a progresse pendant ${fmt(Math.round(usefulSeconds))} secondes.`);
-    }
-    save();
+export function applyElapsedWear(elapsedSeconds) {
+  const elapsed = Math.min(60 * 60 * 6, Math.max(0, elapsedSeconds));
+  if (elapsed <= 10) return;
+  const usefulSeconds = elapsed * 0.35;
+  const wearBefore = state.timeWear || 0;
+  state.timeWear = clamp(wearBefore + timeWearRate() * usefulSeconds, 0, 1);
+  if (state.timeWear >= 1 && wearBefore < 1) {
+    log(`En ton absence, l'usure du temps a atteint son terme. La cite attend ta decision dans l'onglet Crises.`);
+  } else {
+    log(`Pendant ton absence, l'usure du temps a progresse pendant ${fmt(Math.round(usefulSeconds))} secondes.`);
   }
+  save();
+}
+
+export function applyOfflineProgress() {
+  applyElapsedWear((Date.now() - state.lastTick) / 1000);
 }
 
 export function checkAutoCollapse() {
@@ -139,15 +159,19 @@ export function checkAutoCollapse() {
   const hasTier3 = has("memoire_institutionnelle");
   const hasTier2 = hasTier3 || has("conseil_de_regence");
 
+  // Une action de crise baisse l'instabilité mais PAS l'usure : si la crise
+  // terminale vient de l'usure (timeWear >= 1), l'auto-résolution ne peut rien
+  // faire et reboucle. On ne tente rationing/reforms que si elle peut résoudre.
+  const canAutoResolve = state.instability >= 1 && (state.timeWear || 0) < 1;
   const costs = crisisCosts();
-  if (hasTier2 && canPayCost(costs.rationing)) {
-    runCrisisAction("rationing", { render: false });
+  if (canAutoResolve && hasTier2 && canPayCost(costs.rationing)) {
+    runCrisisAction("rationing", { render: false, force: true });
     state.crisisOpenedAt = Date.now();
     if (!crisisOpen()) resumeAfterCrisisOutcome();
     return;
   }
-  if (hasTier3 && canPayCost(costs.reforms)) {
-    runCrisisAction("reforms", { render: false });
+  if (canAutoResolve && hasTier3 && canPayCost(costs.reforms)) {
+    runCrisisAction("reforms", { render: false, force: true });
     state.crisisOpenedAt = Date.now();
     if (!crisisOpen()) resumeAfterCrisisOutcome();
     return;
@@ -321,9 +345,19 @@ export function startGameLoop() {
     save();
   }, 2000);
 
-  // Sauvegarder quand l'onglet perd le focus (switch d'onglet, etc.)
+  // Sauvegarder quand l'onglet perd le focus (switch d'onglet, etc.) et
+  // rattraper l'usure du temps écoulé quand l'onglet redevient visible (le tick
+  // est throttlé par le navigateur en arrière-plan, d'où la perte de temps).
   const handleVisibilityChange = () => {
-    if (document.hidden) save();
+    if (document.hidden) {
+      save();
+    } else if (!collapseInProgress && !state.crisisLimitAnnounced) {
+      const elapsed = (Date.now() - state.lastTick) / 1000;
+      if (elapsed > 60) {
+        applyElapsedWear(elapsed);
+        last = performance.now();
+      }
+    }
   };
   document.addEventListener("visibilitychange", handleVisibilityChange);
 

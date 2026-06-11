@@ -7,6 +7,14 @@ import { eras } from '../data/world.js';
 import { getCityMapEngineTileMap } from '../map/cityMapBridge.js';
 import { clamp01, clamp, fmt, labelFor, canPayCost } from './utils.js';
 import {
+  RUIN_POWER_EXP,
+  RUIN_POWER_COEF,
+  TIME_WEAR_BASE_RATE,
+  COLLAPSE_PREP_MAX,
+  LEGITIMACY_POWER_EXP,
+  LEGITIMACY_COEF
+} from './balance.js';
+import {
   ICARE_PROD_MULT,
   SURCHAUFFE_PROD_MULT,
   ICARE_RUPTURE_MULT,
@@ -69,7 +77,7 @@ export function totalBuildingCount() {
 export function ruinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
   const effectiveRuins = (state.ruins || 0) + (state.chaosRuinsBonus || 0);
-  const base = 1 + Math.pow(effectiveRuins, 0.62) * 0.09;
+  const base = 1 + Math.pow(effectiveRuins, RUIN_POWER_EXP) * RUIN_POWER_COEF;
   return has("oral_tradition") ? 1 + (base - 1) * 1.2 : base;
 }
 
@@ -129,7 +137,7 @@ export function unspentRuinsPowerMultiplier() {
 
 export function institutionMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
-  return 1 + Math.pow(state.legitimacy, 0.7) * 0.22;
+  return 1 + Math.pow(state.legitimacy, LEGITIMACY_POWER_EXP) * LEGITIMACY_COEF;
 }
 
 export function grandResetMultiplier() {
@@ -315,6 +323,17 @@ export function buildingInstabilityLoad() {
   return getBuildingSums().positiveInstability;
 }
 
+// Cible de Rupture (instabilité) décomposée en sources additives, chacune bornée
+// individuellement avant sommation :
+//   - scarcity    : pénurie alimentaire face à la population
+//   - inequality  : inégalité de richesse (or)
+//   - complexity  : complexité administrative (bâtiments/savoir)
+//   - dissent     : dissidence/légitimité insuffisante
+//   - structural  : instabilité intrinsèque des bâtiments
+// De cette somme on retranche la mitigation (institutions, stabilisateurs, ruines,
+// grâces de fondation/installation), elle aussi bornée. Les constantes nues
+// ci-dessous (0.55, 0.34, 0.22, 2.2, …) sont des poids/plafonds locaux non
+// extraits : ils n'ont de sens qu'au sein de cette formule.
 export function pressureBreakdown() {
   // Retourne le cache frame si disponible (invalidé au début de chaque intervalle de tick)
   if (renderCache._framePressure) return renderCache._framePressure;
@@ -613,15 +632,16 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
   // Calcule le discount et le scale effectif une seule fois pour tout le lot
   const discount = buildingDiscount(building);
   const scale    = buildingEffectiveScale(building);
+  // Somme fermée de la série géométrique : coûts du palier count à count+batchSize-1.
+  const geomSum = (B, s, n, k) =>
+    s === 1 ? B * k : B * Math.pow(s, n) * (Math.pow(s, k) - 1) / (s - 1);
   const costs = {};
-  for (let i = 0; i < batchSize; i += 1) {
-    const n = count + i;
-    const mainCost = building.base * Math.pow(scale, n) * discount;
-    costs[building.currency] = (costs[building.currency] || 0) + mainCost;
-    if (building.extraCost) {
-      for (const [currency, base] of Object.entries(building.extraCost)) {
-        costs[currency] = (costs[currency] || 0) + base * Math.pow(scale, n) * discount;
-      }
+  costs[building.currency] = (costs[building.currency] || 0)
+    + geomSum(building.base, scale, count, batchSize) * discount;
+  if (building.extraCost) {
+    for (const [currency, base] of Object.entries(building.extraCost)) {
+      costs[currency] = (costs[currency] || 0)
+        + geomSum(base, scale, count, batchSize) * discount;
     }
   }
   // Mythe de Sisyphe : malédiction cumulative sur tous les coûts
@@ -777,7 +797,7 @@ export function ruinGain() {
   const populationDepth = Math.max(0.35, Math.pow(Math.max(10, peaks.population) / 25000, 0.42));
   const civicDepth = 0.75 + Math.log10((peaks.knowledge || 0) + (peaks.infrastructure || 0) * 4 + 10) * 0.14;
   const pressure = 1 + Math.max(0, crisisProgress() - 1) * 0.28;
-  const preparation = 1 + Math.min(2.4, state.collapsePreparation || 0);
+  const preparation = 1 + Math.min(COLLAPSE_PREP_MAX, state.collapsePreparation || 0);
   const doctrineRuinMod = hasDoctrine("acier") ? 1.4 : hasDoctrine("sillon") ? 0.8 : 1;
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
   const elapsed = (Date.now() - state.cycleStartedAt) / 1000;
@@ -799,7 +819,7 @@ export function timeWearRate() {
   const hephMult         = isMythEffectActive("mythe_d_hephaistos") ? HEPH_USURE_MULT : 1;
   const eneeUsureMult    = (isMythEffectActive("mythe_d_enee") && state.eneeDegraded) ? ENEE_USURE_DEGRADED_MULT : 1;
   const activeRuinUsureMult = hasActiveRuin(state, "hephaistos") ? ACTIVE_RUIN_USURE_MULT : 1;
-  return 0.00003 * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
+  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 
 // Préparations terminales : 3 actions × 3 paliers. Chaque palier coûte un

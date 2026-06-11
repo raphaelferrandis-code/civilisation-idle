@@ -37,9 +37,6 @@ export default function App() {
     initAudio();
     const cleanup = startGameLoop();
 
-    const handleBeforeUnload = () => save();
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     // Detect "debug" typed on keyboard
     let debugSequence = "";
     const handleKeyDown = (event) => {
@@ -64,7 +61,6 @@ export default function App() {
     return () => {
       cleanup();
       document.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
 
@@ -87,9 +83,13 @@ export default function App() {
     { id: 'history', label: 'Chronique', unlocked: true },
   ];
 
-  const handleExport = () => {
-    exportSave();
-    alert("Sauvegarde exportee dans le presse-papiers !");
+  const handleExport = async () => {
+    const result = await exportSave();
+    if (result.ok) {
+      alert("Sauvegarde exportee dans le presse-papiers !");
+    } else {
+      prompt("Copie ce texte :", result.text);
+    }
   };
   const handleChoice = useCallback((choice) => {
     choiceResolverRef.current?.(choice);
