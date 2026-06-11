@@ -293,15 +293,80 @@ function drawCitizenThoughts(now) {
   }
 }
 
+// Rang de la cellule de route (les esplanades portent le rang "plaza").
+function vehicleRoadRank(gx, gy) {
+  const road = CM.layout && CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
+  return road ? (road.rank || "path") : "path";
+}
+
+// Conduite des véhicules — distincte de la flânerie des piétons :
+//   - jamais sur une esplanade (rang "plaza", réservé aux piétons) ;
+//   - tient fortement sa ligne (pas de zigzag à chaque carrefour) ;
+//   - préfère rester sur les grands axes ;
+//   - les voitures se garent parfois en bord de chaussée.
+function vehicleChooseNext(v) {
+  if (!CM.walkRoadList.length) return;
+  if (v.type === "car" && Math.random() < 0.05) {
+    v.parkT = 5 + Math.random() * 16;
+    return;
+  }
+  if (Math.random() < 0.05) {
+    v.pauseT = 0.4 + Math.random() * 1.2;
+    return;
+  }
+  const arrived = v.goal && v.goal.gx === v.gx && v.goal.gy === v.gy;
+  if (!v.goal || arrived || Math.random() < 0.03) {
+    for (let tries = 0; tries < 8; tries += 1) {
+      const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+      if (vehicleRoadRank(r.gx, r.gy) !== "plaza") { v.goal = { gx: r.gx, gy: r.gy }; break; }
+    }
+    if (!v.goal) return;
+  }
+  const rev = v.dir >= 0 ? (v.dir ^ 1) : -1;
+  const opts = [];
+  for (let i = 0; i < 4; i += 1) {
+    const nx = v.gx + CM_DIRS[i][0], ny = v.gy + CM_DIRS[i][1];
+    if (!CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny))) continue;
+    if (!roadStepAllowed(v.gx, v.gy, i)) continue;
+    if (vehicleRoadRank(nx, ny) === "plaza") continue;
+    opts.push({ i, nx, ny });
+  }
+  if (!opts.length) return;
+  const forward = opts.filter((o) => o.i !== rev);
+  const pool = forward.length ? forward : opts;
+  let best = pool[0], bestScore = -Infinity;
+  for (const o of pool) {
+    let score = -(Math.abs(v.goal.gx - o.nx) + Math.abs(v.goal.gy - o.ny));
+    if (o.i === v.dir) score += 3.2;
+    const rank = vehicleRoadRank(o.nx, o.ny);
+    score += rank === "main" ? 1.2 : rank === "avenue" ? 0.8 : 0;
+    score += Math.random() * 0.8;
+    if (score > bestScore) {
+      bestScore = score;
+      best = o;
+    }
+  }
+  v.gx = best.nx;
+  v.gy = best.ny;
+  v.dir = best.i;
+  v.tx = (v.gx + 0.5) * CM.TILE;
+  v.ty = (v.gy + 0.5) * CM.TILE;
+}
+
 function updateVehicles(dt) {
   for (const v of CM.vehicles) {
+    if (v.parkT > 0) {
+      // Garé en bord de chaussée : immobile, phares éteints.
+      v.parkT -= dt;
+      continue;
+    }
     if (v.pauseT > 0) {
       v.pauseT -= dt;
       continue;
     }
     const dx = v.tx - v.x, dy = v.ty - v.y, d = Math.hypot(dx, dy);
     if (d < 2.4) {
-      citizenChooseNext(v);
+      vehicleChooseNext(v);
     } else {
       const sp = v.speed * dt;
       v.x += dx / d * sp;
@@ -385,12 +450,23 @@ function drawVehicles(now, pass) {
       continue;
     }
     ctx.save();
-    ctx.translate(sx, sy);
+    // Stationnement : la voiture se range sur le côté de la chaussée.
+    const parked = (v.parkT || 0) > 0;
+    const horiz = v.dir === 0 || v.dir === 1;
+    const parkOff = parked ? s * 0.3 * (v.parkSide || 1) : 0;
+    ctx.translate(sx + (horiz ? 0 : parkOff), sy + (horiz ? parkOff : 0));
     const vdx = v.tx - v.x, vdy = v.ty - v.y;
-    const vAngle = (Math.abs(vdx) > 0.5 || Math.abs(vdy) > 0.5)
+    const targetAngle = (!parked && (Math.abs(vdx) > 0.5 || Math.abs(vdy) > 0.5))
       ? Math.atan2(vdy, vdx)
       : v.dir === 0 ? 0 : v.dir === 1 ? Math.PI : v.dir === 2 ? Math.PI / 2 : -Math.PI / 2;
-    ctx.rotate(vAngle);
+    // Lissage du cap : les véhicules tournent en arc court au lieu de pivoter
+    // instantanément (conduite moins brutale).
+    if (v.vAngle === undefined) v.vAngle = targetAngle;
+    let aDiff = targetAngle - v.vAngle;
+    while (aDiff > Math.PI) aDiff -= Math.PI * 2;
+    while (aDiff < -Math.PI) aDiff += Math.PI * 2;
+    v.vAngle += aDiff * 0.25;
+    ctx.rotate(v.vAngle);
     ctx.fillStyle = "rgba(20,14,8,0.28)";
     ctx.fillRect(-s * 0.18, s * 0.08, s * 0.36, Math.max(1, s * 0.035));
     if (v.type === "car") {

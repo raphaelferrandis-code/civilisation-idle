@@ -35,6 +35,40 @@ function cmLitColor(band) {
   return CM.cmLitColorStr || `rgba(255,204,68,0.32)`;
 }
 
+// ── Émission lumineuse : halo radial ADDITIF, mis en cache par couleur ──────
+// Un seul créateRadialGradient par teinte (sprite offscreen 64px), puis un
+// drawImage en "lighter" par point de lumière — une vraie lumière, pas un
+// aplat. L'appelant module l'alpha par CM.nightF.
+const CM_GLOW_SPRITES = new Map();
+function cmGlowSprite(r, g, b) {
+  const key = r + "," + g + "," + b;
+  let c = CM_GLOW_SPRITES.get(key);
+  if (!c) {
+    const SZ = 64;
+    c = typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(SZ, SZ)
+      : (() => { const el = document.createElement("canvas"); el.width = SZ; el.height = SZ; return el; })();
+    const g2 = c.getContext("2d");
+    const grad = g2.createRadialGradient(SZ / 2, SZ / 2, 0, SZ / 2, SZ / 2, SZ / 2);
+    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.35, `rgba(${r},${g},${b},0.4)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    g2.fillStyle = grad;
+    g2.fillRect(0, 0, SZ, SZ);
+    CM_GLOW_SPRITES.set(key, c);
+  }
+  return c;
+}
+function cmDrawGlow(ctx, x, y, radius, r, g, b, alpha) {
+  if (alpha <= 0.015 || radius < 0.5) return;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.drawImage(cmGlowSprite(r, g, b), x - radius, y - radius, radius * 2, radius * 2);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = prev;
+}
+
 function cmRoadPalette(eraIndex, major, ruined) {
   if (ruined) {
     return {
@@ -108,18 +142,21 @@ function cmRoadPalette(eraIndex, major, ruined) {
 
 function getRoadVisualStyle(eraIndex, rank, ruined, major) {
   const palette = cmRoadPalette(eraIndex, major || rank === "main", ruined);
+  // Hiérarchie viaire lisible d'un coup d'œil : sentier discret (presque un
+  // trait) → rue → avenue → boulevard large et pavé. L'écart entre rangs est
+  // volontairement marqué — c'est lui qui structure la lecture de la ville.
   const widthByRank = {
-    path: eraIndex >= 7 ? 0.24 : 0.2,
-    secondary: eraIndex >= 12 ? 0.34 : eraIndex >= 7 ? 0.31 : 0.26,
-    avenue: eraIndex >= 12 ? 0.4 : eraIndex >= 7 ? 0.36 : 0.3,
-    main: eraIndex >= 12 ? 0.46 : eraIndex >= 7 ? 0.42 : 0.36
+    path: eraIndex >= 7 ? 0.16 : 0.13,
+    secondary: eraIndex >= 12 ? 0.3 : eraIndex >= 7 ? 0.28 : 0.24,
+    avenue: eraIndex >= 12 ? 0.46 : eraIndex >= 7 ? 0.42 : 0.36,
+    main: eraIndex >= 12 ? 0.62 : eraIndex >= 7 ? 0.56 : 0.48
   };
   const detailRate = rank === "main" ? 5 : rank === "avenue" ? 7 : rank === "secondary" ? 9 : 13;
   return {
     palette,
     width: widthByRank[rank] || widthByRank.secondary,
     detailRate,
-    borderStrength: rank === "main" ? 1 : rank === "avenue" ? 0.8 : rank === "secondary" ? 0.55 : 0.35
+    borderStrength: rank === "main" ? 1.2 : rank === "avenue" ? 0.85 : rank === "secondary" ? 0.5 : 0.2
   };
 }
 
@@ -133,6 +170,29 @@ function getRoadVisualStyle(eraIndex, rank, ruined, major) {
 
 const CITY_MAP_GREENS = ["#2d5a1b", "#3a6b22", "#4a7a2a", "#255018", "#1e4010", "#3d7220", "#5a8c2e", "#223d14"];
 
+// Mélange linéaire de deux couleurs [r,g,b] — t=0 → a, t=1 → b.
+function cmLerpRgb(a, b, t) {
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t)
+  ];
+}
+
+// Sol urbain par ère : terre battue → pavé chaud → pierre claire → asphalte.
+// La santé tire vers le brun terne : le brun est un signal de crise, pas
+// l'état par défaut d'une grande ville.
+function cmUrbanGroundRgb(band, health) {
+  const byBand = band >= 6 ? [92, 94, 99]      // asphalte de mégalopole
+    : band >= 5 ? [134, 128, 112]              // esplanades de pierre claire
+    : band >= 4 ? [122, 112, 88]               // dallage impérial
+    : band >= 3 ? [104, 92, 64]                // pavé de cité fortifiée
+    : [88, 72, 42];                            // terre battue chaude
+  const sick = [62, 50, 30];                   // brun-crotte de crise
+  const k = 1 - Math.max(0, Math.min(1, (health - 0.18) / 0.5)); // 0 sain → 1 malade
+  return cmLerpRgb(byBand, sick, k * 0.85);
+}
+
 function cityMapDrawUrbanMass(layout) {
   if (!layout || layout.counts.eraBand < 2) return;
   const ctx = CM.ctx;
@@ -145,9 +205,10 @@ function cityMapDrawUrbanMass(layout) {
   const ry = rx * 0.78;
   const sx = (worldCx - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
   const sy = (worldCy - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
+  const [ur, ug, ub] = cmUrbanGroundRgb(layout.counts.eraBand, CM.healthF);
   const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, rx * CM.cam.zoom));
-  g.addColorStop(0, "rgba(54,42,24,0.68)");
-  g.addColorStop(0.58, "rgba(42,33,20,0.42)");
+  g.addColorStop(0, `rgba(${ur},${ug},${ub},0.62)`);
+  g.addColorStop(0.58, `rgba(${Math.round(ur * 0.8)},${Math.round(ug * 0.8)},${Math.round(ub * 0.8)},0.4)`);
   g.addColorStop(1, "rgba(42,33,20,0)");
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -164,9 +225,10 @@ function cityMapDrawGround(layout) {
   const sx = ((layout.plan?.core?.x ?? layout.cx) * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
   const sy = ((layout.plan?.core?.y ?? layout.cy) * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
   const radius = (10 + tier * 12) * CM.TILE * CM.cam.zoom;
+  const [ur, ug, ub] = cmUrbanGroundRgb(layout.counts.eraBand, CM.healthF);
   const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, radius));
-  g.addColorStop(0, "rgba(72,58,33,0.58)");
-  g.addColorStop(0.45, "rgba(54,44,28,0.36)");
+  g.addColorStop(0, `rgba(${ur},${ug},${ub},0.55)`);
+  g.addColorStop(0.45, `rgba(${Math.round(ur * 0.78)},${Math.round(ug * 0.78)},${Math.round(ub * 0.78)},0.34)`);
   g.addColorStop(1, "rgba(45,58,30,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, CM.cw, CM.ch);
@@ -353,6 +415,18 @@ function cityMapDrawTrees() {
     }
   }
 
+  // LOD : un seul disque plein par arbre — la forêt reste une masse verte
+  // lisible sans payer ombre + tronc + couronne + reflet par arbre.
+  if (CM.lodActive) {
+    for (const t of trees) {
+      ctx.fillStyle = t.colBase;
+      ctx.beginPath();
+      ctx.arc(t.cx, t.cy - t.r * 0.5, t.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+
   // Passe 1 â€” ombres portÃ©es sous chaque arbre
   for (const t of trees) {
     // L'ombre se place sous le pied du tronc, dÃ©calÃ©e Ã  droite
@@ -433,78 +507,263 @@ function cityMapDrawNight(now) {
 }
 
 // ── Enceinte urbaine : muraille continue, tours, portes ─────────────────────
+// L'enceinte évolue avec l'ère : palissade de bois (cité fortifiée naissante),
+// mur de pierre (royaume/empire), remparts monumentaux clairs (métropole+).
+// Contraste assumé : liseré sombre sous le corps du mur pour qu'elle se
+// détache nettement du sol, quel que soit l'âge.
 function cityMapDrawWalls() {
   const L = CM.layout;
   if (!L || !L.walls || !L.walls.cells.length) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, s = T * z;
   const band = L.counts.eraBand;
   const ruined = CM.frameRuined;
-  const stone = ruined ? "#4f4a40" : band >= 5 ? "#8a8378" : band >= 4 ? "#7d7668" : "#6f6b5e";
-  const stoneDark = ruined ? "#332f28" : "#46423a";
-  const stoneLight = "rgba(255,255,255,0.16)";
-  const all = new Set(L.walls.cells.map((c) => c.gx + "," + c.gy));
+  const wooden = !ruined && band <= 3 && (L.walls.tier || 1) <= 1;
+  const stone = ruined ? "#555046"
+    : wooden ? "#8a6432"
+    : band >= 5 ? "#b3ac9b"
+    : band >= 4 ? "#a39a85"
+    : "#92897a";
+  const stoneDark = ruined ? "#332f28" : wooden ? "#4f3a1a" : "#3e3a30";
+  const stoneLight = wooden ? "rgba(255,222,160,0.22)" : "rgba(255,255,255,0.28)";
+  const outline = "rgba(16,13,9,0.6)";
   const SXY = (gx, gy) => [(gx * T - CM.cam.x) * z + CM.cw / 2, (gy * T - CM.cam.y) * z + CM.ch / 2];
 
-  // Passe 1 : ombre portée du rempart
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
-  for (const c of L.walls.cells) {
-    if (c.kind === "gate") continue;
-    const [x, y] = SXY(c.gx, c.gy);
-    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
-    ctx.fillRect(x + s * 0.22, y + s * 0.3, s * 0.72, s * 0.72);
-  }
-  // Passe 2 : corps du mur, prolongé vers les voisins pour une bande continue
-  for (const c of L.walls.cells) {
-    const [x, y] = SXY(c.gx, c.gy);
-    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
-    const nN = all.has(c.gx + "," + (c.gy - 1)), nS = all.has(c.gx + "," + (c.gy + 1));
-    const nE = all.has((c.gx + 1) + "," + c.gy), nW = all.has((c.gx - 1) + "," + c.gy);
-    if (c.kind === "gate") {
-      // Porte : deux montants encadrant la route + linteau sombre
-      ctx.fillStyle = stoneDark;
-      if (nE || nW) { // mur horizontal → montants haut/bas
-        ctx.fillRect(x + s * 0.02, y + s * 0.18, s * 0.24, s * 0.3);
-        ctx.fillRect(x + s * 0.74, y + s * 0.18, s * 0.24, s * 0.3);
+  // ── Corps du rempart : polyligne CONTINUE le long du contour ─────────────
+  // (les cellules rasterisées en diagonale ne se touchent que par les coins ;
+  // seul un tracé continu donne une enceinte lisible qui ceinture la ville)
+  const ol = L.walls.outline;
+  const gates = Array.isArray(L.walls.gates) ? L.walls.gates : [];
+  // Extrémités exactes des segments de mur interrompus par chaque porte :
+  // les tours de porte se posent dessus (le mur va JUSQU'À la tour).
+  const towerAnchors = new Map(); // gate -> [{x,y}, ...]
+  if (Array.isArray(ol) && ol.length > 2) {
+    // Segments : on coupe la boucle aux points en eau (brèche du fleuve) et
+    // aux portes. La coupe de porte est INTERPOLÉE pile au bord de
+    // l'ouverture — supprimer des points entiers laissait des trous de
+    // plusieurs tuiles entre le bout du mur et les tours.
+    const GATE_R = 1.15; // demi-ouverture (tuiles)
+    const gateOf = (p) => {
+      for (const g of gates) if (Math.hypot(p.x - g.gx, p.y - g.gy) < GATE_R) return g;
+      return null;
+    };
+    // Point du segment [pOut→pIn] à distance GATE_R du centre de la porte.
+    const clipTo = (pOut, pIn, g) => {
+      const dOut = Math.hypot(pOut.x - g.gx, pOut.y - g.gy);
+      const dIn = Math.hypot(pIn.x - g.gx, pIn.y - g.gy);
+      const t = Math.max(0, Math.min(1, (dOut - GATE_R) / Math.max(0.0001, dOut - dIn)));
+      return { x: pOut.x + (pIn.x - pOut.x) * t, y: pOut.y + (pIn.y - pOut.y) * t };
+    };
+    const addAnchor = (g, pt) => {
+      const arr = towerAnchors.get(g) || [];
+      if (!arr.some((a) => Math.hypot(a.x - pt.x, a.y - pt.y) < 0.5)) arr.push(pt);
+      towerAnchors.set(g, arr);
+    };
+    const segs = [];
+    let cur = [];
+    let prev = null, prevGate = null;
+    for (let i = 0; i <= ol.length; i += 1) {
+      const p = ol[i % ol.length];
+      const g = p.water ? null : gateOf(p);
+      if (p.water || g) {
+        if (cur.length) {
+          // Le mur entre dans l'ouverture : prolonge jusqu'au bord exact.
+          if (g && prev && !prev.water) {
+            const cp = clipTo(prev, p, g);
+            cur.push(cp);
+            addAnchor(g, cp);
+          }
+          if (cur.length > 1) segs.push(cur);
+          cur = [];
+        }
       } else {
-        ctx.fillRect(x + s * 0.18, y + s * 0.02, s * 0.3, s * 0.24);
-        ctx.fillRect(x + s * 0.18, y + s * 0.74, s * 0.3, s * 0.24);
+        // Le mur ressort d'une ouverture : repart du bord exact.
+        if (prevGate && prev) {
+          const cp = clipTo(p, prev, prevGate);
+          cur.push(cp);
+          addAnchor(prevGate, cp);
+        }
+        cur.push(p);
+        if (i === ol.length && cur.length > 1) { segs.push(cur); cur = []; }
       }
-      continue;
+      prev = p;
+      prevGate = g;
     }
-    const th = 0.52; // épaisseur du mur
-    let x0 = x + s * (0.5 - th / 2), y0 = y + s * (0.5 - th / 2);
-    let wPx = s * th, hPx = s * th;
-    if (nW) { x0 -= s * (0.5 - th / 2); wPx += s * (0.5 - th / 2); }
-    if (nE) { wPx += s * (0.5 - th / 2) + 1; }
-    if (nN) { y0 -= s * (0.5 - th / 2); hPx += s * (0.5 - th / 2); }
-    if (nS) { hPx += s * (0.5 - th / 2) + 1; }
-    const tower = c.kind === "tower";
-    if (tower) { x0 = x + s * 0.08; y0 = y + s * 0.08; wPx = s * 0.84; hPx = s * 0.84; }
-    ctx.fillStyle = tower ? stoneDark : stone;
-    ctx.fillRect(x0, y0, wPx, hPx);
-    // Chemin de ronde (liseré clair côté nord)
-    ctx.fillStyle = stoneLight;
-    ctx.fillRect(x0, y0, wPx, Math.max(1, s * 0.1));
-    // Créneaux : pointillés sombres le long du mur
-    ctx.fillStyle = stoneDark;
-    const dotS = Math.max(1, s * 0.1);
-    if (nE || nW) {
-      for (let dx = s * 0.12; dx < wPx - dotS; dx += s * 0.3) ctx.fillRect(x0 + dx, y0 + 1, dotS, dotS);
-    } else {
-      for (let dy = s * 0.12; dy < hPx - dotS; dy += s * 0.3) ctx.fillRect(x0 + 1, y0 + dy, dotS, dotS);
+    if (cur.length > 1) segs.push(cur);
+    // Le contour peut effleurer le rayon d'ouverture et ressortir brièvement :
+    // on jette les mini-tronçons orphelins coincés dans l'ouverture, et on ne
+    // garde par porte que les deux ancres les plus écartées — les VRAIES
+    // extrémités du mur interrompu.
+    for (let si = segs.length - 1; si >= 0; si -= 1) {
+      const seg = segs[si];
+      if (seg.length <= 3 && gates.some((g) => seg.every((p) => Math.hypot(p.x - g.gx, p.y - g.gy) < GATE_R + 1.2))) {
+        segs.splice(si, 1);
+      }
     }
-    if (tower) {
-      // Toit de tour + fanion
-      ctx.fillStyle = stone;
-      ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
+    for (const [g, arr] of towerAnchors) {
+      if (arr.length <= 2) continue;
+      let bi = 0, bj = 1, bd = -1;
+      for (let i = 0; i < arr.length; i += 1) {
+        for (let j = i + 1; j < arr.length; j += 1) {
+          const d = Math.hypot(arr[i].x - arr[j].x, arr[i].y - arr[j].y);
+          if (d > bd) { bd = d; bi = i; bj = j; }
+        }
+      }
+      towerAnchors.set(g, [arr[bi], arr[bj]]);
+    }
+    const trace = (seg) => {
+      ctx.beginPath();
+      const [x0, y0] = SXY(seg[0].x + 0.5, seg[0].y + 0.5);
+      ctx.moveTo(x0, y0);
+      for (let i = 1; i < seg.length; i += 1) {
+        const [x, y] = SXY(seg[i].x + 0.5, seg[i].y + 0.5);
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    };
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (const seg of segs) {
+      // Ombre portée, liseré sombre, corps, puis chemin de ronde clair.
+      ctx.strokeStyle = "rgba(0,0,0,0.3)";
+      ctx.lineWidth = Math.max(2, s * 0.5);
+      ctx.save(); ctx.translate(s * 0.1, s * 0.14); trace(seg); ctx.restore();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = Math.max(2.5, s * (band >= 5 ? 0.56 : 0.5));
+      trace(seg);
+      ctx.strokeStyle = stone;
+      ctx.lineWidth = Math.max(1.5, s * (band >= 5 ? 0.4 : 0.34));
+      trace(seg);
+      ctx.strokeStyle = stoneLight;
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      trace(seg);
+    }
+    ctx.lineJoin = "miter";
+    ctx.lineCap = "square";
+    // Créneaux / rondins : pointillés sombres réguliers le long du tracé.
+    if (s > 9) {
+      ctx.fillStyle = stoneDark;
+      const dotS = Math.max(1.2, s * (wooden ? 0.1 : band >= 5 ? 0.16 : 0.13));
+      const step = wooden ? 0.34 : 0.55; // en tuiles
+      for (const seg of segs) {
+        for (let i = 1; i < seg.length; i += 1) {
+          const a = seg[i - 1], b = seg[i];
+          const d = Math.hypot(b.x - a.x, b.y - a.y);
+          const n = Math.max(1, Math.round(d / step));
+          for (let k = 0; k < n; k += 1) {
+            const t2 = k / n;
+            const [px, py] = SXY(a.x + (b.x - a.x) * t2 + 0.5, a.y + (b.y - a.y) * t2 + 0.5);
+            ctx.fillRect(px - dotS / 2, py - dotS / 2, dotS, dotS);
+          }
+        }
+      }
+    }
+  }
+
+  // ── Portes : deux tours encadrant l'ouverture, sur les grands axes ──────
+  for (const g of gates) {
+    const [gx, gy] = SXY(g.gx + 0.5, g.gy + 0.5);
+    if (gx < -s * 3 || gy < -s * 3 || gx > CM.cw + s * 3 || gy > CM.ch + s * 3) continue;
+    // Les tours flanquent l'ouverture LE LONG du rempart : on suit la tangente
+    // du contour au point de porte (le mask de route trompe aux carrefours).
+    let tdx = Math.abs(Math.cos(g.angle)) < 0.7 ? 1 : 0, tdy = tdx ? 0 : 1;
+    if (Array.isArray(ol) && ol.length > 2) {
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < ol.length; i += 1) {
+        const d = Math.hypot(ol[i].x - g.gx, ol[i].y - g.gy);
+        if (d < bd) { bd = d; bi = i; }
+      }
+      const pa = ol[(bi - 1 + ol.length) % ol.length], pb = ol[(bi + 1) % ol.length];
+      const tl = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+      tdx = (pb.x - pa.x) / tl; tdy = (pb.y - pa.y) / tl;
+    }
+    const tw2 = s * 0.66; // côté d'une tour
+    const towerCol = wooden ? "#9a7438" : band >= 5 ? "#c4bda9" : stone;
+    // Une tour à CHAQUE extrémité du mur interrompu (point de coupe exact du
+    // tracé). Repli sur la tangente si la porte n'a pas borné de segment.
+    let anchors = towerAnchors.get(g) || [];
+    if (anchors.length < 2) {
+      anchors = [
+        { x: g.gx + tdx * 1.05, y: g.gy + tdy * 1.05 },
+        { x: g.gx - tdx * 1.05, y: g.gy - tdy * 1.05 }
+      ];
+    }
+    for (const a of anchors) {
+      const [ax, ay] = SXY(a.x + 0.5, a.y + 0.5);
+      const tx = ax - tw2 / 2;
+      const ty = ay - tw2 / 2;
+      // Ombre + liseré + corps
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(tx + s * 0.08, ty + s * 0.1, tw2, tw2);
+      ctx.fillStyle = outline;
+      const o2 = Math.max(1, s * 0.06);
+      ctx.fillRect(tx - o2, ty - o2, tw2 + o2 * 2, tw2 + o2 * 2);
+      ctx.fillStyle = stoneDark;
+      ctx.fillRect(tx, ty, tw2, tw2);
+      ctx.fillStyle = towerCol;
+      ctx.fillRect(tx + tw2 * 0.14, ty + tw2 * 0.14, tw2 * 0.72, tw2 * 0.72);
+      // Merlons d'angle
+      ctx.fillStyle = stoneDark;
+      const ms2 = Math.max(1, tw2 * 0.18);
+      for (const [mx, my] of [[0.06, 0.06], [0.76, 0.06], [0.06, 0.76], [0.76, 0.76]]) {
+        ctx.fillRect(tx + tw2 * mx, ty + tw2 * my, ms2, ms2);
+      }
+      // Fanion
+      ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(tx + tw2 / 2, ty - s * 0.16); ctx.lineTo(tx + tw2 / 2, ty + tw2 * 0.2); ctx.stroke();
       ctx.fillStyle = ruined ? "rgba(120,60,40,0.5)" : "#9a3c28";
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.5, y - s * 0.18);
-      ctx.lineTo(x + s * 0.78, y - s * 0.06);
-      ctx.lineTo(x + s * 0.5, y + s * 0.04);
+      ctx.moveTo(tx + tw2 / 2, ty - s * 0.16);
+      ctx.lineTo(tx + tw2 / 2 + s * 0.2, ty - s * 0.08);
+      ctx.lineTo(tx + tw2 / 2, ty - s * 0.01);
       ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
-      ctx.beginPath(); ctx.moveTo(x + s * 0.5, y - s * 0.18); ctx.lineTo(x + s * 0.5, y + s * 0.3); ctx.stroke();
+    }
+    // Entre les deux tours : RIEN — l'ouverture laisse voir le sol et la
+    // route qui passe (pas de remplissage, pas de halo).
+  }
+
+  // ── Tours de courtine : structures ponctuelles par-dessus le rempart ────
+  for (const c of L.walls.cells) {
+    if (c.kind !== "tower") continue;
+    const [x, y] = SXY(c.gx, c.gy);
+    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
+    // Socle de tour : masse sombre détachée du sol
+    const o = Math.max(1, s * 0.06);
+    ctx.fillStyle = outline;
+    ctx.fillRect(x + s * 0.08 - o, y + s * 0.08 - o, s * 0.84 + o * 2, s * 0.84 + o * 2);
+    ctx.fillStyle = stoneDark;
+    ctx.fillRect(x + s * 0.08, y + s * 0.08, s * 0.84, s * 0.84);
+    {
+      if (wooden) {
+        // Tour de guet en bois : plateforme claire + toit pointu sombre
+        ctx.fillStyle = "#9a7438";
+        ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
+        ctx.fillStyle = "#4f3a1a";
+        ctx.beginPath();
+        ctx.moveTo(x + s * 0.5, y - s * 0.1);
+        ctx.lineTo(x + s * 0.76, y + s * 0.26);
+        ctx.lineTo(x + s * 0.24, y + s * 0.26);
+        ctx.closePath(); ctx.fill();
+      } else {
+        // Toit de tour + fanion
+        ctx.fillStyle = band >= 5 ? "#c4bda9" : stone;
+        ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
+        // Merlons d'angle sur les grandes tours de métropole
+        if (band >= 5) {
+          ctx.fillStyle = stoneDark;
+          const ms = Math.max(1, s * 0.12);
+          for (const [mx, my] of [[0.16, 0.16], [0.72, 0.16], [0.16, 0.72], [0.72, 0.72]]) {
+            ctx.fillRect(x + s * mx, y + s * my, ms, ms);
+          }
+        }
+        ctx.fillStyle = ruined ? "rgba(120,60,40,0.5)" : "#9a3c28";
+        ctx.beginPath();
+        ctx.moveTo(x + s * 0.5, y - s * 0.18);
+        ctx.lineTo(x + s * 0.78, y - s * 0.06);
+        ctx.lineTo(x + s * 0.5, y + s * 0.04);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
+        ctx.beginPath(); ctx.moveTo(x + s * 0.5, y - s * 0.18); ctx.lineTo(x + s * 0.5, y + s * 0.3); ctx.stroke();
+      }
     }
   }
 }
@@ -576,8 +835,11 @@ function cityMapDrawPlazaSurface() {
           Math.max(1, T * z * 0.07), Math.max(1, T * z * 0.05));
       }
     } else if (band >= 6) {
-      // Esplanade moderne : grandes dalles lisses + joints lumineux discrets
-      ctx.strokeStyle = `rgba(120,200,230,${(0.12 + (CM.nightF || 0) * 0.25).toFixed(2)})`;
+      // Esplanade moderne : grandes dalles lisses ; les joints ne s'illuminent
+      // que la nuit (joints sombres discrets le jour).
+      ctx.strokeStyle = (CM.nightF || 0) > 0.05
+        ? `rgba(120,200,230,${((CM.nightF || 0) * 0.36).toFixed(2)})`
+        : "rgba(60,70,78,0.25)";
       ctx.lineWidth = Math.max(0.5, T * z * 0.03);
       const cell2 = T * z;
       for (let ry = y0 + cell2; ry < y0 + hPx - inset; ry += cell2) {
@@ -668,33 +930,35 @@ function cityMapDrawPlazaSurface() {
 // ── Mobilier de place : bancs, lanternes, parterres de fleurs ───────────────
 function cityMapDrawPlazaFurniture(ctx, cx, cy, ext, s, band, night, seedH, kind) {
   const rr = (n) => ((Math.imul(seedH, 2654435761 + n * 131) >>> 0) % 1000) / 1000;
-  // Bancs (dès le bourg) : le long des bords, tournés vers le centre
+  // Bancs (dès le bourg) : à intervalles RÉGULIERS et symétriques le long des
+  // quatre bords, tournés vers le centre — une place est un espace ordonné.
   if (band >= 2) {
-    const nBenches = kind === "jardin" ? 4 : 2 + (seedH % 2);
     ctx.fillStyle = "#5d4226";
-    for (let i = 0; i < nBenches; i += 1) {
-      const side = (i + (seedH % 4)) % 4;
-      const along = (rr(i + 3) - 0.5) * ext * 1.1;
-      const bw = s * 0.34, bh = s * 0.09;
-      if (side === 0)      ctx.fillRect(cx + along - bw / 2, cy - ext * 0.78, bw, bh);
-      else if (side === 1) ctx.fillRect(cx + along - bw / 2, cy + ext * 0.7, bw, bh);
-      else if (side === 2) ctx.fillRect(cx - ext * 0.78, cy + along - bw / 2, bh, bw);
-      else                 ctx.fillRect(cx + ext * 0.7, cy + along - bw / 2, bh, bw);
+    const bw = s * 0.34, bh = s * 0.09;
+    const off = ext * 0.74; // distance du bord (laisse les angles aux lanternes)
+    // Grandes places : deux bancs par côté (±), petites : un banc centré.
+    const slots = ext > s * 1.2 ? [-0.56, 0.56] : [0];
+    for (const t of slots) {
+      const along = t * ext;
+      ctx.fillRect(cx + along - bw / 2, cy - off, bw, bh);      // bord nord
+      ctx.fillRect(cx + along - bw / 2, cy + off - bh, bw, bh); // bord sud
+      ctx.fillRect(cx - off, cy + along - bw / 2, bh, bw);      // bord ouest
+      ctx.fillRect(cx + off - bh, cy + along - bw / 2, bh, bw); // bord est
     }
   }
-  // Lanternes d'angle (dès la cité fortifiée) : lueur chaude la nuit
+  // Lanternes d'angle (dès la cité fortifiée) : éteintes le jour (verre
+  // sombre), émission additive qui monte avec la nuit.
   if (band >= 3) {
     for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       const px = cx + lx * ext * 0.62, py = cy + ly * ext * 0.62;
       ctx.strokeStyle = "#3c342a"; ctx.lineWidth = Math.max(1, s * 0.045);
       ctx.beginPath(); ctx.moveTo(px, py + s * 0.1); ctx.lineTo(px, py - s * 0.26); ctx.stroke();
-      const glow = 0.35 + night * 0.6;
-      ctx.fillStyle = `rgba(255,205,95,${glow.toFixed(2)})`;
+      // Tête physique de la lanterne : verre sombre, toujours visible.
+      ctx.fillStyle = "#4a4034";
       ctx.beginPath(); ctx.arc(px, py - s * 0.3, Math.max(1.2, s * 0.06), 0, Math.PI * 2); ctx.fill();
-      if (night > 0.3) {
-        ctx.fillStyle = `rgba(255,200,90,${(night * 0.14).toFixed(2)})`;
-        ctx.beginPath(); ctx.arc(px, py - s * 0.3, s * 0.3, 0, Math.PI * 2); ctx.fill();
-      }
+      // Émission : cœur vif + halo radial, tous deux ∝ nightF (0 le jour).
+      cmDrawGlow(ctx, px, py - s * 0.3, Math.max(2, s * 0.1), 255, 215, 120, night * 1.1);
+      cmDrawGlow(ctx, px, py - s * 0.3, s * 0.36, 255, 195, 90, night * 0.55);
     }
   }
   // Parterres de fleurs (ères riches, et toujours dans les jardins)
@@ -935,6 +1199,8 @@ function cityMapDrawRoad(r) {
   ctx.save();
   drawAxis(pal.edge, half * 2 + shoulder);
   drawAxis(pal.core, half * 2);
+  // Boulevard : bande centrale pavée plus claire, signature des grands axes.
+  if (roadRank === "main") drawAxis(pal.detail, half * 1.05);
 
   const drawPebble = (px, py, rScale, color) => {
     const r = s * rScale;
@@ -1154,16 +1420,34 @@ function cityMapDrawBridges() {
 function cityMapDrawStreetLights(now) {
   const L = CM.layout;
   if (!L || !L.counts) return;
+  // En vue LOD, les mâts de 2px sont du bruit — la couche de lumières
+  // nocturnes assure seule l'éclairage vu de haut.
+  if (CM.lodActive) return;
   const ei = L.counts.eraIndex;
   if (ei < 7) return;
   const ctx = CM.ctx, z = CM.cam.zoom, s = CM.TILE * z;
   const night = CM.nightF || 0;
   const glowA = 0.45 + 0.55 * night;
-  const cyberpunk = ei >= 13;
-  const futuristic = ei >= 9;
+  // La lanterne classique (style des places) est le look par défaut de la
+  // ville ; les variantes futuriste/néon n'arrivent qu'aux ères avancées
+  // (~35 ères au total : futuriste vers la métropole, néon en mégalopole).
+  const cyberpunk = ei >= 30;
+  const futuristic = ei >= 24;
+  // Les esplanades ont leurs propres lanternes d'angle (positions fixes) :
+  // aucun mât de RUE ne doit tomber sur l'emprise d'une place.
+  const plazas = (L.plan && L.plan.plazas) || [];
+  const onPlaza = (gx, gy) => {
+    for (const p of plazas) {
+      const half = Math.floor(p.size / 2);
+      if (gx >= p.gx - half - 1 && gx <= p.gx - half + p.size
+        && gy >= p.gy - half - 1 && gy <= p.gy - half + p.size) return true;
+    }
+    return false;
+  };
 
   for (const r of CM.roadList) {
     if (r.rank !== "main" && r.rank !== "avenue") continue;
+    if (onPlaza(r.gx, r.gy)) continue;
     const seed = cmHash(`lamp:${r.gx}:${r.gy}`);
     if (seed % 3 !== 0) continue;
     const mask = cmRoadMask(L, r.gx, r.gy);
@@ -1181,43 +1465,41 @@ function cityMapDrawStreetLights(now) {
       const t2 = now || 0;
 
       if (cyberpunk) {
+        // Tube néon : éteint (sombre) le jour, couleur + halo ∝ nuit.
         const hue = seed % 2 === 0 ? [50, 210, 255] : [255, 50, 200];
         const pulse = 0.65 + 0.25 * Math.sin(t2 / 500 + r.gx * 0.3 + r.gy * 0.4);
         ctx.strokeStyle = "#28303a"; ctx.lineWidth = Math.max(1, s * 0.018);
         ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly - s * 0.38); ctx.stroke();
-        const nAlpha = (pulse * glowA).toFixed(2);
-        ctx.strokeStyle = `rgba(${hue[0]},${hue[1]},${hue[2]},${nAlpha})`; ctx.lineWidth = Math.max(1.5, s * 0.03);
+        ctx.strokeStyle = "#1e2630"; ctx.lineWidth = Math.max(1.5, s * 0.03);
         ctx.beginPath(); ctx.moveTo(lx - s * 0.09, ly - s * 0.38); ctx.lineTo(lx + s * 0.09, ly - s * 0.38); ctx.stroke();
-        if (night > 0.15) {
-          const hg = ctx.createRadialGradient(lx, ly - s * 0.38, 0, lx, ly - s * 0.38, s * 0.24);
-          hg.addColorStop(0, `rgba(${hue[0]},${hue[1]},${hue[2]},${(0.30 * night * pulse).toFixed(2)})`);
-          hg.addColorStop(1, `rgba(${hue[0]},${hue[1]},${hue[2]},0)`);
-          ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(lx, ly - s * 0.38, s * 0.24, 0, Math.PI * 2); ctx.fill();
+        if (night > 0.02) {
+          const prev2 = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = "lighter";
+          ctx.strokeStyle = `rgba(${hue[0]},${hue[1]},${hue[2]},${(night * pulse).toFixed(2)})`;
+          ctx.lineWidth = Math.max(1.5, s * 0.03);
+          ctx.beginPath(); ctx.moveTo(lx - s * 0.09, ly - s * 0.38); ctx.lineTo(lx + s * 0.09, ly - s * 0.38); ctx.stroke();
+          ctx.globalCompositeOperation = prev2;
+          cmDrawGlow(ctx, lx, ly - s * 0.38, s * 0.26, hue[0], hue[1], hue[2], night * pulse * 0.55);
         }
       } else if (futuristic) {
+        // Mât moderne : tête sombre le jour, lumière froide ∝ nuit.
         ctx.strokeStyle = "#545e6a"; ctx.lineWidth = Math.max(1, s * 0.02);
         ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly - s * 0.34); ctx.stroke();
         ctx.strokeStyle = "#606a78"; ctx.lineWidth = Math.max(0.5, s * 0.013);
         ctx.beginPath(); ctx.moveTo(lx, ly - s * 0.34); ctx.lineTo(lx + s * 0.07, ly - s * 0.39); ctx.stroke();
-        const gc = `rgba(200,230,255,${glowA.toFixed(2)})`;
-        ctx.fillStyle = gc; ctx.beginPath(); ctx.arc(lx + s * 0.07, ly - s * 0.39, Math.max(1, s * 0.036), 0, Math.PI * 2); ctx.fill();
-        if (night > 0.25) {
-          const hg = ctx.createRadialGradient(lx + s * 0.07, ly - s * 0.39, 0, lx + s * 0.07, ly - s * 0.39, s * 0.19);
-          hg.addColorStop(0, `rgba(200,230,255,${(0.22 * night).toFixed(2)})`);
-          hg.addColorStop(1, "rgba(200,230,255,0)");
-          ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(lx + s * 0.07, ly - s * 0.39, s * 0.19, 0, Math.PI * 2); ctx.fill();
-        }
+        ctx.fillStyle = "#3a424e";
+        ctx.beginPath(); ctx.arc(lx + s * 0.07, ly - s * 0.39, Math.max(1, s * 0.036), 0, Math.PI * 2); ctx.fill();
+        cmDrawGlow(ctx, lx + s * 0.07, ly - s * 0.39, Math.max(2, s * 0.07), 210, 235, 255, night * 1.05);
+        cmDrawGlow(ctx, lx + s * 0.07, ly - s * 0.39, s * 0.24, 190, 225, 255, night * 0.5);
       } else {
-        ctx.strokeStyle = "#302820"; ctx.lineWidth = Math.max(1, s * 0.018);
-        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly - s * 0.3); ctx.lineTo(lx + s * 0.07, ly - s * 0.36); ctx.stroke();
-        const gc = `rgba(255,210,80,${glowA.toFixed(2)})`;
-        ctx.fillStyle = gc; ctx.beginPath(); ctx.arc(lx + s * 0.07, ly - s * 0.36, Math.max(1, s * 0.04), 0, Math.PI * 2); ctx.fill();
-        if (night > 0.25) {
-          const hg = ctx.createRadialGradient(lx + s * 0.07, ly - s * 0.36, 0, lx + s * 0.07, ly - s * 0.36, s * 0.17);
-          hg.addColorStop(0, `rgba(255,200,50,${(0.2 * night).toFixed(2)})`);
-          hg.addColorStop(1, "rgba(255,200,50,0)");
-          ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(lx + s * 0.07, ly - s * 0.36, s * 0.17, 0, Math.PI * 2); ctx.fill();
-        }
+        // Lanterne classique — exactement le style des lanternes des places :
+        // verre sombre le jour, cœur chaud + halo radial ∝ nuit.
+        ctx.strokeStyle = "#3c342a"; ctx.lineWidth = Math.max(1, s * 0.045);
+        ctx.beginPath(); ctx.moveTo(lx, ly + s * 0.1); ctx.lineTo(lx, ly - s * 0.26); ctx.stroke();
+        ctx.fillStyle = "#4a4034";
+        ctx.beginPath(); ctx.arc(lx, ly - s * 0.3, Math.max(1.2, s * 0.06), 0, Math.PI * 2); ctx.fill();
+        cmDrawGlow(ctx, lx, ly - s * 0.3, Math.max(2, s * 0.1), 255, 215, 120, night * 1.1);
+        cmDrawGlow(ctx, lx, ly - s * 0.3, s * 0.36, 255, 195, 90, night * 0.55);
       }
     }
   }
@@ -1480,10 +1762,132 @@ function drawCrisis(dt, now) {
   }
 }
 
+// ── Voile de santé : la taille pilote l'échelle, la santé pilote l'ambiance ──
+// Santé basse → désaturation + dominante brune (le brun-crotte devient un
+// signal de crise). Santé haute → légère vibrance : une grande ville équilibrée
+// est éclatante. Appliqué plein écran, avant la nuit.
+function cityMapDrawHealthTint() {
+  if (!CM.layout) return;
+  const h = CM.healthF;
+  const ctx = CM.ctx;
+  const prev = ctx.globalCompositeOperation;
+  if (h < 0.45) {
+    const k = Math.min(1, (0.45 - h) / 0.45);
+    ctx.globalCompositeOperation = "saturation";
+    ctx.fillStyle = `rgba(128,128,128,${(k * 0.5).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = `rgba(${Math.round(214 - k * 34)},${Math.round(196 - k * 50)},${Math.round(170 - k * 66)},${(k * 0.42).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+  } else if (h > 0.66) {
+    const k = Math.min(1, (h - 0.66) / 0.34);
+    // Vibrance : la teinte du fond est conservée, seule la saturation monte.
+    ctx.globalCompositeOperation = "saturation";
+    ctx.fillStyle = `rgba(255,0,0,${(k * 0.12).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+    ctx.globalCompositeOperation = "soft-light";
+    ctx.fillStyle = `rgba(186,226,160,${(k * 0.18).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+  }
+  ctx.globalCompositeOperation = prev;
+}
+
+// ── Tapis de lumières nocturnes ──────────────────────────────────────────────
+// Calque additif au-dessus du voile de nuit : fenêtres chaudes sur les
+// bâtiments (densité ∝ population, éteintes quand la ville agonise), rangées
+// de fenêtres sur les grands districts, phares des véhicules motorisés.
+// Tout est seedé par tuile : aucun scintillement non maîtrisé, juste une
+// respiration lente par foyer.
+function cityMapDrawCityLights(now) {
+  const L = CM.layout;
+  const n = CM.nightF || 0;
+  if (!L || n < 0.1 || !L.counts || L.counts.eraBand < 1) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const seed = (L.mapSeed || 0) >>> 0;
+  const health = CM.healthF;
+  const ruined = CM.frameRuined;
+  // Densité de foyers éclairés : croît avec la population (log) et s'éteint
+  // avec la santé — une ville en crise est une ville sombre.
+  const pop = toNum(state.population);
+  let density = Math.max(0.1, Math.min(0.92, 0.16 + Math.log10(Math.max(1, pop)) * 0.075))
+    * (0.35 + health * 0.65);
+  if (ruined) density *= 0.22;
+  const a = Math.min(1, (n - 0.1) / 0.7); // montée progressive au crépuscule
+  const warm = L.counts.eraBand >= 5 ? "255,224,160" : "255,196,108";
+  const [wr, wg, wb] = warm.split(",").map(Number);
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+
+  // Fenêtres des bâtiments (maisons, publics, savoirs — pas les champs).
+  const t9 = now / 5200;
+  for (const t of L.tiles) {
+    if (t.type === "farm") continue;
+    const span = t.size || 1;
+    const sx = (t.gx * T - CM.cam.x) * z + CM.cw / 2;
+    const sy = (t.gy * T - CM.cam.y) * z + CM.ch / 2;
+    const s = T * z * span;
+    if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+    const h = (Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663) ^ seed) >>> 0;
+    if ((h % 100) >= density * 100) continue;
+    // 1 fenêtre par tuile simple, jusqu'à 4 sur les grandes emprises moteur.
+    const nW = span >= 3 ? 4 : span >= 2 ? 2 : 1;
+    const ws = Math.max(1, T * z * 0.085);
+    // Respiration lente et stable par foyer (pas de scintillement).
+    const breathe = 0.8 + 0.2 * Math.sin(t9 + (h % 628) / 100);
+    const alpha = a * breathe;
+    for (let wi = 0; wi < nW; wi += 1) {
+      const hx = (h >> (3 + wi * 5)) % 100, hy = (h >> (5 + wi * 5)) % 100;
+      const wx = sx + s * (0.18 + (hx / 100) * 0.6);
+      const wy = sy + s * (0.16 + (hy / 100) * 0.55);
+      // Halo radial doux (sprite de glow mis en cache) + cœur chaud carré
+      // (la fenêtre elle-même) — intensité entièrement pilotée par la nuit.
+      cmDrawGlow(ctx, wx + ws / 2, wy + ws / 2, ws * 2.3, wr, wg, wb, alpha * 0.35);
+      ctx.fillStyle = `rgba(${warm},${(alpha * 0.6).toFixed(3)})`;
+      ctx.fillRect(wx, wy, ws, ws);
+    }
+  }
+
+  // Phares des véhicules motorisés sur les grands axes.
+  if (n > 0.3 && Array.isArray(CM.vehicles) && (L.counts.eraIndex || 0) >= 14) {
+    const hl = Math.max(1, T * z * 0.06);
+    for (const v of CM.vehicles) {
+      if (v.type !== "car" && v.type !== "tram") continue;
+      if ((v.parkT || 0) > 0 || v.pauseT > 0) continue; // garé/arrêté : phares éteints
+      const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
+      const sy = (v.y - CM.cam.y) * z + CM.ch / 2;
+      if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) continue;
+      // Cap réel du véhicule (vitesse, sinon direction de grille : 0=E 1=W 2=S 3=N).
+      let hx = v.tx - v.x, hy = v.ty - v.y;
+      const hd = Math.hypot(hx, hy);
+      if (hd > 0.5) { hx /= hd; hy /= hd; }
+      else { hx = v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0; hy = v.dir === 2 ? 1 : v.dir === 3 ? -1 : 0; }
+      const px = -hy, py = hx; // perpendiculaire (écart entre les deux phares)
+      const off = T * z * 0.2;
+      // Deux phares ronds à l'AVANT + faisceau elliptique orienté devant.
+      ctx.fillStyle = `rgba(255,244,210,${(a * 0.75).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(sx + hx * off + px * hl, sy + hy * off + py * hl, hl * 0.55, 0, Math.PI * 2);
+      ctx.arc(sx + hx * off - px * hl, sy + hy * off - py * hl, hl * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      // Faisceau : halo radial étiré dans l'axe du véhicule.
+      ctx.save();
+      ctx.translate(sx + hx * off * 2.6, sy + hy * off * 2.6);
+      ctx.rotate(Math.atan2(hy, hx));
+      ctx.globalAlpha = a * 0.4;
+      ctx.drawImage(cmGlowSprite(255, 238, 180), -hl * 3.4, -hl * 1.8, hl * 6.8, hl * 3.6);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.globalCompositeOperation = prev;
+}
+
 export {
   baseColor,
   cityMapDrawBridges,
   cityMapDrawGround,
+  cityMapDrawHealthTint,
+  cityMapDrawCityLights,
   cityMapDrawMist,
   cityMapDrawNight,
   cityMapDrawPlazaSurface,

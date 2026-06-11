@@ -99,7 +99,9 @@ const AGE_CONFIG = [
     plazaSize: 4,
     parkChance: 0.08,
     treeDensity: 0.4,
-    wallTier: 0,
+    // La mégalopole garde l'enceinte de son vieux centre intra-muros : la
+    // muraille (rayon figé dans state.wallRadius) reste un repère historique.
+    wallTier: 2,
     citizenRoles: ["suit le flux civique", "rejoint une station", "marche sous les arches", "consulte un terminal", "surveille les niveaux"],
     vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 }],
     decorDensity: 1

@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { state, collapseInProgress, buildingById, renderCache } from '../core/state.js';
 import { toNum } from '../core/num.js';
+import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 import {
   CM,
   CM_MAP_BUILDINGS,
@@ -37,6 +38,8 @@ import {
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
   cityMapDrawMist,
+  cityMapDrawHealthTint,
+  cityMapDrawCityLights,
   drawCrisis,
   cityMapDrawRoad
 } from './renderWorld.js';
@@ -215,6 +218,14 @@ function cityMapHitTest(sx, sy) {
         const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
         const next = w.tiers && tier < w.tiers.length ? ` — prochain rang : ${w.tierLabel(w.tiers[tier])}` : " — rang maximal";
         return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
+      }
+    }
+  }
+  // Portes de l'enceinte : chacune a son nom.
+  if (CM.layout && CM.layout.walls && Array.isArray(CM.layout.walls.gates)) {
+    for (const g of CM.layout.walls.gates) {
+      if (Math.hypot(gx - g.gx, gy - g.gy) <= 1.6) {
+        return { title: g.name, body: "L'un des rares accès fortifiés de la vieille ville.", kind: "Porte" };
       }
     }
   }
@@ -523,6 +534,7 @@ function cityMapEnsureLayout(now, deps = {}) {
     const ranked = CM.walkRoadList.filter((r) => getVehicleDensity(L.counts.eraIndex, r.rank || "secondary") > 0.08);
     const weighted = [];
     for (const r of (ranked.length ? ranked : CM.walkRoadList)) {
+      if (r.rank === "plaza") continue; // les esplanades sont piétonnes
       const weight = r.rank === "main" ? 11 : r.rank === "avenue" ? 7 : r.rank === "secondary" ? 3 : 0;
       for (let w = 0; w < Math.max(1, weight); w += 1) weighted.push(r);
     }
@@ -533,7 +545,10 @@ function cityMapEnsureLayout(now, deps = {}) {
       CM.vehicles.push({
         gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
         tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
-        dir: -1, goal: null, pauseT: 0,
+        dir: n % 2 ? 0 : 2, goal: null, pauseT: 0,
+        // Une partie des voitures apparaît garée en bord de rue, puis démarre.
+        parkT: vehicleType === "car" && n % 3 === 0 ? 4 + (n % 7) * 3 : 0,
+        parkSide: n % 2 ? 1 : -1,
         type: vehicleType,
         speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" ? 34 + (n % 6) * 4 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
         col: vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6]
@@ -663,11 +678,30 @@ function initCityMap(canvas, options = {}) {
       CM.dayRising = dayP < 0.5;
       CM.mistF = !CM.dayRising && CM.nightF > 0.1 && CM.nightF < 0.62
         ? Math.sin(((0.62 - CM.nightF) / 0.52) * Math.PI) : 0;
+      // Indice de santé de la cité (0 = agonie, 1 = prospérité) : la taille
+      // pilote l'échelle, la santé pilote l'ambiance (palette, lumières).
+      {
+        let healthT;
+        try {
+          const pr = pressureBreakdown();
+          const vt = cityVitals();
+          const prosper = Math.max(0, Math.min(1, 0.55 + vt.foodBonus * 1.6 + vt.goldBonus * 0.9 + vt.knowledgeBonus * 0.9));
+          const strain = Math.max(0, Math.min(1, pr.total * 0.5 + (state.instability || 0) * 0.55 + (state.timeWear || 0) * 0.6));
+          healthT = Math.max(0, Math.min(1, prosper * 0.45 + (1 - strain) * 0.55));
+        } catch (e) { healthT = CM.healthF; }
+        // Lissage : la palette glisse au fil des secondes, elle ne saute pas.
+        CM.healthF += (healthT - CM.healthF) * Math.min(1, dt * 0.8);
+      }
+      // LOD : sous ce zoom, les sprites individuels deviennent du bruit — on
+      // bascule sur des masses de quartier + la couche de lumières.
+      CM.lodActive = CM.cam.zoom < 0.55;
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
+      // Les fenêtres « allumées » des sprites sont de VRAIES lumières :
+      // alpha entièrement piloté par la nuit (0 en plein jour).
       const _n = CM.nightF;
-      CM.litWarm = `rgba(255,204,68,${(0.25 + _n * 0.65).toFixed(2)})`;
-      CM.litGold = `rgba(255,220,120,${(0.35 + _n * 0.6).toFixed(2)})`;
-      CM.cmLitColorStr = `rgba(255,${Math.round(204 + (1 - _n) * 28)},${Math.round(68 + (1 - _n) * 64)},${(0.32 + 0.62 * _n).toFixed(2)})`;
+      CM.litWarm = `rgba(255,204,68,${(_n * 0.9).toFixed(2)})`;
+      CM.litGold = `rgba(255,220,120,${(_n * 0.95).toFixed(2)})`;
+      CM.cmLitColorStr = `rgba(255,${Math.round(204 + (1 - _n) * 28)},${Math.round(68 + (1 - _n) * 64)},${(_n * 0.94).toFixed(2)})`;
       if (CM.layout && CM.layout.counts) {
         CM.frameEraIndex = CM.layout.counts.eraIndex || 0;
         CM.frameRuined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
@@ -676,7 +710,7 @@ function initCityMap(canvas, options = {}) {
       if (typeof collapseInProgress !== "undefined" && collapseInProgress) { if (!CM.collapseAt) CM.collapseAt = now; }
       else { CM.collapseAt = 0; }
       // --- Couches statiques (rebake uniquement si camera ou layout change) ---
-      const _camKey = Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1);
+      const _camKey = Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1) + ':' + CM.healthF.toFixed(1);
       if (_camKey !== CM.staticCamKey && CM.staticCanvas) {
         const _mainCtx = CM.ctx;
         CM.ctx = CM.sctx;
@@ -699,6 +733,9 @@ function initCityMap(canvas, options = {}) {
       // Sol + rivière d'abord (sous le canvas statique), puis blit
       cityMapDrawGround(CM.layout);
       cityMapDrawRiver(now);
+      // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
+      // bâtiments (le blit statique les recouvre aux croisements).
+      drawShips(dt);
       if (CM.staticCanvas) {
         CM.ctx.drawImage(CM.staticCanvas, 0, 0, CM.cw, CM.ch);
       } else {
@@ -716,10 +753,13 @@ function initCityMap(canvas, options = {}) {
       // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
       cityMapDrawPlazas(now);
       updateVehicles(dt);
-      drawShips(dt);
       drawCentralFire(now);
-      drawCitizens(dt, now);
-      drawVehicles(now, "ground");
+      // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
+      // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
+      if (!CM.lodActive) {
+        drawCitizens(dt, now);
+        drawVehicles(now, "ground");
+      }
       const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
       if (CM.layout) {
         const _tileKey = CM.layoutRecomputeAt + ':' + Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':' + tw.toFixed(2) + ':' + (CM.frameRuined ? 1 : 0);
@@ -743,8 +783,13 @@ function initCityMap(canvas, options = {}) {
           for (const t of CM.layout.tiles) drawTile(t, now, tw, maxD2);
         }
       }
+      // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
+      // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.
+      cityMapDrawHealthTint();
       // Nuit : assombrit la scene, les villes avancees se mettent a briller.
       cityMapDrawNight(now);
+      // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
+      cityMapDrawCityLights(now);
       cityMapDrawMist(now);
       drawCrisis(dt, now);
       // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
@@ -754,7 +799,7 @@ function initCityMap(canvas, options = {}) {
         }
       }
       drawVehicles(now, "air"); // drones au-dessus
-      drawCitizenThoughts(now);
+      if (!CM.lodActive) drawCitizenThoughts(now);
     }
   }
   // Premiere mise en page immediate puis boucle.

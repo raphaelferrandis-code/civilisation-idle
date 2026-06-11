@@ -660,6 +660,29 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // Tribunaux : cercle des anciens → tribunal à colonnes → palais de justice
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     const band2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
+    // Sigle de justice : balance STATIQUE sur médaillon sombre — lisible de
+    // loin, sans animation (remplace l'ancienne balance fil-de-fer oscillante).
+    const drawScalesEmblem = (cxr, cyr, u) => {
+      const bx = ox + sw * cxr, by = oy + sh * cyr, r2 = sw * u;
+      ctx.fillStyle = "rgba(38,28,14,0.9)";
+      ctx.beginPath(); ctx.arc(bx, by, r2 * 1.55, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#d4a017"; ctx.lineWidth = Math.max(0.8, sw * 0.018);
+      ctx.beginPath(); ctx.arc(bx, by, r2 * 1.55, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = "#e8b820"; ctx.lineWidth = Math.max(1, sw * 0.028); ctx.lineCap = "round";
+      // Mât, fléau, socle
+      ctx.beginPath(); ctx.moveTo(bx, by - r2 * 0.9); ctx.lineTo(bx, by + r2 * 0.8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx - r2, by - r2 * 0.55); ctx.lineTo(bx + r2, by - r2 * 0.55); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx - r2 * 0.5, by + r2 * 0.8); ctx.lineTo(bx + r2 * 0.5, by + r2 * 0.8); ctx.stroke();
+      // Chaînes
+      ctx.lineWidth = Math.max(0.7, sw * 0.014);
+      ctx.beginPath(); ctx.moveTo(bx - r2, by - r2 * 0.55); ctx.lineTo(bx - r2, by + r2 * 0.1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx + r2, by - r2 * 0.55); ctx.lineTo(bx + r2, by + r2 * 0.1); ctx.stroke();
+      ctx.lineCap = "butt";
+      // Coupelles pleines
+      ctx.fillStyle = "#e8b820";
+      ctx.beginPath(); ctx.arc(bx - r2, by + r2 * 0.1, r2 * 0.42, 0, Math.PI, false); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx + r2, by + r2 * 0.1, r2 * 0.42, 0, Math.PI, false); ctx.fill();
+    };
     if (ei2 >= 11) {
       px(0.06, 0.16, 0.88, 0.66, "#d8d0b8");
       ctx.fillStyle="#c8c0a0"; ctx.beginPath(); ctx.moveTo(ox+sw*0.04,oy+sh*0.18); ctx.lineTo(ox+sw*0.5,oy+sh*0.02); ctx.lineTo(ox+sw*0.96,oy+sh*0.18); ctx.closePath(); ctx.fill();
@@ -667,24 +690,14 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
       ctx.fillStyle="rgba(80,140,220,0.16)"; ctx.fillRect(ox+sw*0.28,oy+sh*0.22,sw*0.44,sh*0.44);
       ctx.strokeStyle="rgba(180,200,240,0.38)"; ctx.lineWidth=Math.max(0.5,sw*0.016);
       for (let i=1; i<4; i++) { ctx.beginPath(); ctx.moveTo(ox+sw*(0.28+i*0.11),oy+sh*0.22); ctx.lineTo(ox+sw*(0.28+i*0.11),oy+sh*0.66); ctx.stroke(); }
-      const balA=0.12*Math.sin(now/1400);
-      ctx.strokeStyle="#d4a017"; ctx.lineWidth=Math.max(1,sw*0.024);
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.38,oy+sh*0.28); ctx.lineTo(ox+sw*0.62,oy+sh*0.28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.5,oy+sh*0.20); ctx.lineTo(ox+sw*0.5,oy+sh*0.28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.38,oy+sh*0.28); ctx.lineTo(ox+sw*0.34,oy+sh*(0.36+balA)); ctx.lineTo(ox+sw*0.42,oy+sh*(0.36+balA)); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.62,oy+sh*0.28); ctx.lineTo(ox+sw*0.58,oy+sh*(0.36-balA)); ctx.lineTo(ox+sw*0.66,oy+sh*(0.36-balA)); ctx.stroke();
+      drawScalesEmblem(0.5, 0.36, 0.085);
       const nC=4+Math.min(tier,2); for (let i=0; i<nC; i++) px(0.09+i*(0.82/Math.max(1,nC-1))-0.016,0.18,0.032,0.62,"rgba(20,15,8,0.36)");
       px(0.44, 0.70, 0.12, 0.14, "#2a1a08");
     } else if (band2 >= 2) {
       px(0.08, 0.28, 0.84, 0.50, "#d4c5a0");
       ctx.fillStyle="#b8a882"; ctx.beginPath(); ctx.moveTo(ox+sw*0.06,oy+sh*0.30); ctx.lineTo(ox+sw*0.5,oy+sh*0.10); ctx.lineTo(ox+sw*0.94,oy+sh*0.30); ctx.closePath(); ctx.fill();
       const nC=3+Math.min(tier,2); for (let i=0; i<nC; i++) px(0.13+i*(0.74/Math.max(1,nC-1))-0.018,0.30,0.036,0.44,"rgba(30,20,8,0.40)");
-      const balA2=0.10*Math.sin(now/1500);
-      ctx.strokeStyle="#d4a017"; ctx.lineWidth=Math.max(1,sw*0.024);
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.38,oy+sh*0.20); ctx.lineTo(ox+sw*0.62,oy+sh*0.20); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.5,oy+sh*0.14); ctx.lineTo(ox+sw*0.5,oy+sh*0.20); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.38,oy+sh*0.20); ctx.lineTo(ox+sw*0.34,oy+sh*(0.28+balA2)); ctx.lineTo(ox+sw*0.42,oy+sh*(0.28+balA2)); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.62,oy+sh*0.20); ctx.lineTo(ox+sw*0.58,oy+sh*(0.28-balA2)); ctx.lineTo(ox+sw*0.66,oy+sh*(0.28-balA2)); ctx.stroke();
+      drawScalesEmblem(0.5, 0.47, 0.08);
       px(0.44, 0.62, 0.12, 0.18, "#2a1a08");
     } else {
       px(0.0, 0.48, 1.0, 0.52, "#2e2416");
