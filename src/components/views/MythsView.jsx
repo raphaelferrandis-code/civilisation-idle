@@ -1,0 +1,350 @@
+import { useState } from 'react';
+import { useGameState } from '../../hooks/useGameState.js';
+import {
+  MYTHS,
+  getMythById,
+  isMythCompleted,
+  isMythActive,
+  isMythUnlocked
+} from '../../game/data/myths.js';
+import { activateMyth } from '../../game/core/actions.js';
+import ViewHeader from '../ui/ViewHeader.jsx';
+import { state } from '../../game/core/state.js';
+import {
+  OLYMPUS_COMPLETION_SCORE,
+  OLYMPUS_MIN_DOMINANT_SCORE,
+  OLYMPUS_PROFILES,
+  defaultOlympusState,
+  dominantOlympusProfile,
+  olympusMetrics,
+  unlockedOlympusProfile
+} from '../../game/data/olympus.js';
+
+const ACT_META = {
+  1: { num: "Acte I", name: "Fondation", unlockHint: null },
+  2: { num: "Acte II", name: "Domination", unlockHint: "Completez les 2 Mythes de l'Acte I" },
+  3: { num: "Acte III", name: "Apocalypse", unlockHint: "Completez les 4 Mythes de l'Acte II" },
+  ragnarok: { num: "Ragnarok", name: "La Fin", unlockHint: "Completez les Mythes des Actes I, II et III" }
+};
+
+const FALLBACK_OLYMPUS = defaultOlympusState(0);
+
+export default function MythsView() {
+  const activeMythId = useGameState(s => s.activeMythId);
+  const gamePaused = useGameState(s => s.gamePaused);
+  const ragnarokActiveConstraints = useGameState(s => s.ragnarokActiveConstraints || []);
+  const olympusState = useGameState(s => s.olympus);
+
+  const [modalMyth, setModalMyth] = useState(null);
+  const [selectedBabelCat, setSelectedBabelCat] = useState("city");
+
+  const activeMyth = activeMythId ? getMythById(activeMythId) : null;
+  const ragnarokCompleted = isMythCompleted("mythe_du_ragnarok");
+  const olympus = olympusState || FALLBACK_OLYMPUS;
+  const olympusDominant = dominantOlympusProfile(olympus);
+  const olympusUnlocked = unlockedOlympusProfile(olympus);
+  const olympusMetricValues = olympusMetrics(olympus);
+  const olympusProgress = olympus.profileProgress || FALLBACK_OLYMPUS.profileProgress;
+
+  const handleOpenModal = (myth) => {
+    if (gamePaused) return;
+    if (!isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
+    setModalMyth(myth);
+    setSelectedBabelCat("city");
+  };
+
+  const handleConfirmPact = async () => {
+    if (!modalMyth) return;
+    const mythId = modalMyth.id;
+    if (modalMyth.id === "mythe_de_babel") {
+      state.babelCategory = selectedBabelCat;
+    }
+    setModalMyth(null);
+    await activateMyth(mythId);
+  };
+
+  return (
+    <section className="view active" id="mythView">
+      <ViewHeader
+        icon="⚡"
+        title="Mythes"
+        subtitle="Pactes divins : des contraintes extrêmes en échange d'héritages permanents."
+      />
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <span className="label">Defis permanents</span>
+            <h2>Les Mythes</h2>
+          </div>
+        </div>
+
+        <div className="myth-view-body">
+          {/* Active Myth Banner */}
+          {activeMyth && (
+            <div id="activeMythBanner" className="active-myth-banner">
+              <span className="label">Pacte actif ce cycle</span>
+              <strong className="active-myth-name">{activeMyth.name}</strong>
+              <p className="active-myth-rule">{activeMyth.description}</p>
+            </div>
+          )}
+
+          {activeMythId === "mythe_du_ragnarok" && ragnarokActiveConstraints.length > 0 && (
+            <div className="ragnarok-constraints-panel">
+              <div className="ragnarok-constraints-heading">
+                <span className="label">Contraintes simultanees</span>
+                <strong>La Fin rassemble tous les pactes</strong>
+              </div>
+              <ul>
+                {ragnarokActiveConstraints.map((constraint, index) => (
+                  <li key={`${constraint}-${index}`}>{constraint}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {ragnarokCompleted && (
+            <div className="ragnarok-fresco-banner">
+              <span className="label">Fresque complete</span>
+              <strong>Tous les Mythes sont illumines.</strong>
+            </div>
+          )}
+
+          <div className="olympus-section">
+            <div className="olympus-header">
+              <div>
+                <span className="label">Observation permanente</span>
+                <h3>L'Olympe</h3>
+              </div>
+              <span className={`olympus-state ${olympusUnlocked ? "unlocked" : ""}`}>
+                {olympusUnlocked ? "Religion debloquee" : "Croyance emergente"}
+              </span>
+            </div>
+
+            <div className="olympus-dominant">
+              <span>Religion dominante</span>
+              <strong>{(olympusUnlocked || olympusDominant.profile).name}</strong>
+              <p>{(olympusUnlocked || olympusDominant.profile).description}</p>
+              <small>
+                {olympusUnlocked
+                  ? `Heritage actif: ${olympusUnlocked.heritageDescription}`
+                  : `Score actuel: ${olympusDominant.score}/100. Progression si score >= ${OLYMPUS_MIN_DOMINANT_SCORE}. Completion placeholder: ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}.`}
+              </small>
+            </div>
+
+            <div className="olympus-profile-grid">
+              {Object.values(OLYMPUS_PROFILES).map(profile => {
+                const score = olympusDominant.scores[profile.id] || 0;
+                const progress = olympusProgress[profile.id] || 0;
+                return (
+                  <div
+                    key={profile.id}
+                    className={`olympus-profile ${profile.id === olympusDominant.profile.id ? "dominant" : ""} ${olympusUnlocked?.id === profile.id ? "unlocked" : ""}`}
+                  >
+                    <span>{profile.short}</span>
+                    <strong>{profile.name}</strong>
+                    <div className="olympus-score-track">
+                      <span style={{ width: `${Math.min(100, score)}%` }}></span>
+                    </div>
+                    <small>{score}/100 - {Math.floor(progress)}/{OLYMPUS_COMPLETION_SCORE}</small>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="olympus-metrics">
+              <span>Effondrements volontaires: {olympusMetricValues.collapseFrequency.toFixed(2)}/h</span>
+              <span>Crises resolues: {Math.round(olympusMetricValues.crisisResolutionRatio * 100)}%</span>
+              <span>Idle: {Math.round(olympusMetricValues.idleRatio * 100)}%</span>
+              <span>Rupture moyenne a la chute: {Math.round(olympusMetricValues.averageCollapseRupture * 100)}%</span>
+            </div>
+          </div>
+
+          {/* Myth Act List */}
+          <div id="mythChallengeList" className={ragnarokCompleted ? "myth-fresco-complete" : ""}>
+            {[1, 2, 3, "ragnarok"].map(act => {
+              const mythsInAct = MYTHS.filter(m => m.act === act);
+              const meta = ACT_META[act] || { num: String(act), name: "", unlockHint: null };
+
+              // Check if Act is unlocked
+              let actUnlocked;
+              if (act === 1) {
+                actUnlocked = true;
+              } else if (act === 2) {
+                const a1 = MYTHS.filter(m => m.act === 1);
+                actUnlocked = a1.length > 0 && a1.every(m => isMythCompleted(m.id));
+              } else if (act === 3) {
+                const a2 = MYTHS.filter(m => m.act === 2);
+                actUnlocked = a2.length > 0 && a2.every(m => isMythCompleted(m.id));
+              } else {
+                const mains = MYTHS.filter(m => m.act === 1 || m.act === 2 || m.act === 3);
+                actUnlocked = mains.length > 0 && mains.every(m => isMythCompleted(m.id));
+              }
+
+              const actCompleted = mythsInAct.length > 0 && mythsInAct.every(m => isMythCompleted(m.id));
+
+              return (
+                <div
+                  key={act}
+                  className={`myth-act ${!actUnlocked ? "myth-act-locked" : ""} ${actCompleted ? "myth-act-completed" : ""}`}
+                >
+                  <div className="myth-act-header">
+                    <span className="myth-act-num">{meta.num}</span>
+                    <span className="myth-act-sep">-</span>
+                    <span className="myth-act-name">{meta.name}</span>
+                    {!actUnlocked && meta.unlockHint && (
+                      <span className="myth-act-lock-hint">Verrouille - {meta.unlockHint}</span>
+                    )}
+                    {actCompleted && (
+                      <span className="myth-act-lock-hint" style={{ color: 'var(--green)', opacity: 1 }}>
+                        Acte accompli
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="myth-cards-grid">
+                    {mythsInAct.length === 0 && (
+                      <p className="myth-locked-hint" style={{ gridColumn: '1 / -1', padding: '0.25rem 0', fontStyle: 'italic' }}>
+                        Les pactes de cet acte n'ont pas encore ete graves dans la pierre.
+                      </p>
+                    )}
+
+                    {mythsInAct.map(myth => {
+                      const unlocked = isMythUnlocked(myth);
+                      const completed = isMythCompleted(myth.id);
+                      const active = isMythActive(myth.id);
+
+                      let statusClass = "myth-locked";
+                      let statusLabel = "Verrouille";
+                      if (unlocked && completed) {
+                        statusClass = "myth-completed";
+                        statusLabel = "Accompli";
+                      } else if (unlocked && active) {
+                        statusClass = "myth-active";
+                        statusLabel = "Actif";
+                      } else if (unlocked) {
+                        statusClass = "myth-available";
+                        statusLabel = "Disponible";
+                      }
+
+                      return (
+                        <div key={myth.id} className={`myth-card ${statusClass}`}>
+                          <div className="myth-card-header">
+                            <span className="myth-name">{myth.name}</span>
+                            <span className="myth-status-badge">{statusLabel}</span>
+                          </div>
+
+                          {unlocked ? (
+                            <>
+                              <p className="myth-rule">
+                                <strong>Regle</strong> {myth.description}
+                              </p>
+                              {completed ? (
+                                <p className="myth-heritage-desc">
+                                  <strong>Heritage</strong> {myth.heritageDescription}
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="myth-objectif">
+                                    <strong>Objectif</strong> {myth.objectif}
+                                  </p>
+                                  <button
+                                    className="myth-activate-btn"
+                                    onClick={() => handleOpenModal(myth)}
+                                  >
+                                    {active ? "Pacte actif" : "Sceller ce pacte"}
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <p className="myth-locked-hint">
+                              Completez l'acte precedent pour deverrouiller ce pacte.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {modalMyth && (
+        <div className="modal-backdrop" onClick={() => setModalMyth(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <dialog open className="event-dialog myth-modal" style={{ display: 'block', position: 'static' }}>
+              <span className="label">
+                {ACT_META[modalMyth.act]?.num || modalMyth.act} - {ACT_META[modalMyth.act]?.name || ""}
+              </span>
+              <h2>{modalMyth.name}</h2>
+              
+              <div className="myth-modal-body">
+                <div className="myth-modal-row">
+                  <span className="myth-modal-label">Regle imposee</span>
+                  <span>{modalMyth.description}</span>
+                </div>
+                <div className="myth-modal-row">
+                  <span className="myth-modal-label">Objectif</span>
+                  <span>{modalMyth.objectif}</span>
+                </div>
+                <div className="myth-modal-row myth-modal-heritage">
+                  <span className="myth-modal-label">Heritage promis</span>
+                  <span>{modalMyth.heritageDescription}</span>
+                </div>
+
+                {/* Custom Options for Babel */}
+                {modalMyth.id === "mythe_de_babel" && (
+                  <div className="myth-modal-row">
+                    <span className="myth-modal-label">Type de batiment</span>
+                    <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      {[
+                        { value: "city", label: "Cite", desc: "Nourriture, Commerce, Population" },
+                        { value: "knowledge", label: "Savoir", desc: "Connaissance, Academies, Archives" },
+                        { value: "infra", label: "Infrastructure", desc: "Aqueducs, Routes, Batisseurs" }
+                      ].map(c => (
+                        <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="babelCategory"
+                            value={c.value}
+                            checked={selectedBabelCat === c.value}
+                            onChange={() => setSelectedBabelCat(c.value)}
+                          />
+                          <div>
+                            <span className="babel-cat-name" style={{ fontWeight: 'bold' }}>{c.label}</span>
+                            <span className="babel-cat-desc" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-dim)' }}>{c.desc}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
+                {activeMythId && activeMythId !== modalMyth.id
+                  ? `Le pacte "${activeMyth.name}" est deja actif ce cycle et sera abandonne. Le cycle sera reinitialise.`
+                  : activeMythId === modalMyth.id
+                  ? `Ce pacte est deja actif. Confirmer va reinitialiser entierement le cycle en cours.`
+                  : `Le cycle en cours sera entierement reinitialise (ressources, batiments, jauges).`}
+              </p>
+
+              <menu className="choice-menu" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button className="myth-confirm-btn" onClick={handleConfirmPact}>
+                  Sceller ce pacte
+                </button>
+                <button type="button" onClick={() => setModalMyth(null)}>
+                  Annuler
+                </button>
+              </menu>
+            </dialog>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

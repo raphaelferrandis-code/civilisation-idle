@@ -1,0 +1,888 @@
+/* (CSS mort purgé : .era-card-city / .era-card / .era-track — plus aucun usage JSX) */
+
+/* (.quick-actions : définition unique dans layout.css — doublon supprimé Phase 4) */
+
+.quick-actions button {
+  min-width: 0;
+}
+
+/* ============================================================================
+   Topbar (Audit UI Phase 5) : 5 cartes 2 lignes + bandeau d'état distinct
+   ============================================================================ */
+
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.topbar-resources {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.topbar .resource-card-unified {
+  position: relative;
+  min-height: 0;
+  gap: 0.3rem;
+  padding: 0.55rem 0.7rem 0.7rem;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* Cartes non interactives : pas d'élévation ni de bordure or au survol */
+.topbar .resource-card-unified:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.05);
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.topbar .resource-card-unified .card-header {
+  gap: 0.35rem;
+  padding-bottom: 0.3rem;
+}
+
+.topbar .resource-title-wrapper {
+  min-width: 0;
+  gap: 0.32rem;
+}
+
+.topbar .resource-icon i {
+  font-size: 0.82rem;
+}
+
+.topbar .resource-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-label);
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* La valeur domine sa carte */
+.topbar .resource-value {
+  flex-shrink: 0;
+  font-size: var(--fs-value);
+  line-height: 1;
+}
+
+.resource-rate-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+.resource-rate-row .rate-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rate-arrow {
+  font-size: 0.6em;
+  line-height: 1;
+}
+
+/* Jauge de réserve : filet 3px en bord inférieur de la carte */
+.reserve-filet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.reserve-filet span {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.card-food .reserve-filet span  { background: var(--res-food); }
+.card-gold .reserve-filet span  { background: var(--res-gold); }
+.card-knowledge .reserve-filet span { background: var(--res-know); }
+
+/* ── Bandeau d'état : Âge / Usure / Légitimité / sédiment ── */
+.vitals-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1.25rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--red);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.vitals-seg {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 13rem;
+  min-width: 0;
+}
+
+.vitals-label {
+  flex: 0 0 auto;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.vitals-value {
+  flex: 0 0 auto;
+  overflow: hidden;
+  max-width: 11rem;
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vitals-seg .gauge-container {
+  flex: 1 1 3rem;
+  min-width: 2.5rem;
+  height: 4px;
+}
+
+.vitals-band .sediment-bonus-value,
+.vitals-band .sediment-help {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .topbar-resources {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar-resources {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* (CSS mort purgé : .resource legacy / .strain / .timewear / .instability-meter —
+   remplacés par .resource-card-unified dans views.css) */
+
+.buy-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin: -0.35rem 0 1rem;
+}
+
+.shop-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.shop-panel .buy-toolbar {
+  justify-content: flex-end;
+  margin: 0;
+  width: fit-content;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #3a2a10;
+  border-radius: 6px;
+  background: rgba(21, 16, 10, 0.78);
+}
+
+@media (max-width: 560px) {
+  .shop-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+  .shop-panel .buy-toolbar {
+    width: 100%;
+  }
+  .shop-panel .buy-modes {
+    flex: 1;
+  }
+  .shop-panel .buy-mode {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.buy-toolbar .label {
+  margin: 0;
+}
+
+.buy-modes {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.15rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(30, 20, 10, 0.82);
+}
+
+.buy-mode {
+  width: auto;
+  height: 1.65rem;
+  min-width: 2.5rem;
+  padding: 0 0.45rem;
+  border-radius: 4px;
+  font-size: 0.76rem;
+}
+
+.buy-mode.active {
+  border-color: var(--gold);
+  background: #44381f;
+  color: var(--gold-ivory);
+}
+
+/* (CSS mort purgé : .city-dashboard / jauges ville / .health-* / .state-* /
+   .crisis-summary / .terminal-actions / #exhumeBtn — plus aucun usage JSX) */
+
+.milestone-badge {
+  border-color: rgba(214, 168, 75, 0.66);
+  background: linear-gradient(135deg, rgba(214, 168, 75, 0.28), rgba(214, 168, 75, 0.08));
+  color: #fff1bd;
+  box-shadow: 0 0 12px rgba(214, 168, 75, 0.18);
+}
+
+.work-bar {
+  height: 0.6rem;
+  overflow: hidden;
+  border: 1px solid #4a3720;
+  border-radius: 999px;
+  background: #0d0803;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.active-machine .work-bar {
+  border-color: #5e4828;
+}
+
+.active-machine {
+  animation: machine-pulse 2.8s ease-in-out infinite;
+}
+
+.active-machine:hover,
+.active-machine:focus-within {
+  animation-duration: 8s;
+}
+
+.locked-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.danger {
+  border-color: #754032;
+  background: #3d201b;
+}
+
+.danger:hover:not(:disabled) {
+  border-color: var(--red);
+  background: #552a22;
+}
+
+dialog {
+  width: min(42rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+  padding: 1.5rem;
+}
+
+dialog::backdrop {
+  background: rgba(5, 6, 8, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.event-dialog p {
+  margin: 0.8rem 0 1rem;
+  color: var(--muted);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.event-dialog h2 {
+  margin-top: 0.25rem;
+}
+
+.epitaph-dialog .choice-menu {
+  grid-template-columns: 1fr;
+}
+
+.dynasty-dialog {
+  border-color: var(--gold);
+}
+
+.dynasty-dialog .label {
+  color: var(--gold-bright);
+}
+
+.dynasty-dialog h2 {
+  color: var(--gold-bright);
+}
+
+.dynasty-dialog .choice-menu {
+  grid-template-columns: 1fr;
+}
+
+.dynasty-dialog .choice-menu button {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dynasty-dialog .choice-menu button:hover {
+  border-color: var(--gold);
+  background: rgba(214, 168, 75, 0.1);
+  color: var(--gold-bright);
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+/* Banner d'urgence crise */
+
+
+.crisis-alert {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  margin-bottom: 1.1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(215, 109, 86, 0.5);
+  border-left: 3px solid var(--red);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(215, 109, 86, 0.1) 0%, transparent 60%),
+    rgba(30, 14, 12, 0.95);
+  animation: crisis-alert-in 350ms ease-out;
+}
+
+.crisis-alert-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid rgba(215, 109, 86, 0.7);
+  color: var(--red);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.buy-mode-max {
+  border-color: rgba(214, 168, 75, 0.5);
+  background: linear-gradient(180deg, rgba(214, 168, 75, 0.12) 0%, rgba(42, 34, 15, 0.8) 100%);
+  color: var(--gold-ivory);
+}
+
+.grand-reset-btn {
+  border-color: rgba(215, 109, 86, 0.55);
+  background: linear-gradient(180deg, rgba(215, 109, 86, 0.18) 0%, rgba(50, 18, 14, 0.9) 100%);
+  color: #f0a090;
+  font-weight: 800;
+}
+
+.grand-reset-btn:hover:not(:disabled) {
+  border-color: rgba(215, 109, 86, 0.85);
+  background: linear-gradient(180deg, rgba(215, 109, 86, 0.28) 0%, rgba(65, 22, 16, 0.95) 100%);
+  box-shadow: 0 0 0 1px rgba(215, 109, 86, 0.2), 0 4px 16px rgba(215, 109, 86, 0.15);
+}
+
+/* Glow retiré des titres : réservé à affordable / critical / milestone (Phase 4) */
+h1, .panel-heading h2, .era-name, .event-dialog h2 {
+  letter-spacing: 0.06em;
+}
+
+/* Textes secondaires / descriptions en Crimson Text */
+
+
+.body-copy, .shop-item p, .upgrade p, .upgrade .effect-line,
+.tension-card p, .tension-note, .health-effect, .locked-hint,
+.event-dialog p, .villager-text, .choice-menu small, .archive-entry p,
+small, .chip, .doctrine-display small {
+  font-family: var(--font-body);
+}
+
+/* (CSS mort purgé : surcouche parchemin des .resource legacy) */
+
+.milestone-badge {
+  background: #3a2a05;
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+/* ---------- BOUTONS x1 / x10 / x25 / x100 ---------- */
+
+
+.buy-modes { border-color: #3a2a10; background: #15100a; }
+
+.buy-mode {
+  border: 1px solid #5a4216;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #2a1c08 0%, #1a1206 100%);
+  color: var(--gold-dim);
+  font-family: var(--font-title);
+}
+
+.buy-mode.active, .buy-mode-max.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1a0f00;
+  box-shadow: 0 0 10px rgba(214, 168, 75,0.4);
+}
+
+/* ---------- BARRES DE PROGRESSION (rupture/usure + jauges ville) ---------- */
+
+
+.work-bar {
+  background: #1a1208 !important;
+  border-color: #4a3510;
+}
+
+/* ---------- Dialogues : parchemin encadre d'or ---------- */
+
+
+dialog {
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #1a1208 0%, #100b05 100%);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.72), 0 0 0 1px rgba(214, 168, 75,0.12);
+}
+
+dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
+
+/* Banner mythe actif */
+
+
+.active-myth-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem 0.8rem;
+  border-left: 3px solid var(--gold);
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(90deg, rgba(214, 168, 75,0.1) 0%, transparent 80%);
+}
+
+.active-myth-banner .active-myth-name {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  color: #f0e4cf;
+}
+
+.active-myth-banner .active-myth-rule {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* ============================================================================
+   ICARE — Timer de cycle + Bouton Surchauffe
+   ============================================================================ *//* Jauge Légitimité Atlas */
+
+
+
+
+.legitimite-gauge {
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+}
+
+.legitimite-gauge span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5a6e9a, #8fa8d8, #b8caf0);
+  box-shadow: 0 0 6px rgba(143, 168, 216, 0.3);
+  transition: width 600ms ease;
+}
+
+/* Timer dans la grille de métriques */
+
+
+.icare-timer-row {
+  grid-column: 1 / -1;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(194, 96, 58, 0.12) 0%, transparent 100%);
+  border-left: 2px solid rgba(194, 96, 58, 0.6);
+  animation: icarePulse 2s ease-in-out infinite;
+}
+
+.icare-timer-row strong { color: #e8a06a; font-size: 0.9rem; }
+
+/* Statut Babel dans la grille de métriques */
+
+
+.babel-status-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(58, 110, 180, 0.12) 0%, transparent 100%);
+  border-left: 2px solid rgba(80, 140, 220, 0.55);
+}
+
+.babel-status-row #babelCategoryValue { color: #8ab4e0; font-size: 0.78rem; flex: 1; }
+
+.babel-status-row strong { color: #6ab4f0; font-size: 0.9rem; }
+
+/* Statut Âge d'Or dans la grille de métriques */
+
+
+.or-status-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(201, 168, 64, 0.12) 0%, transparent 100%);
+  border-left: 2px solid rgba(201, 168, 64, 0.55);
+}
+
+.or-status-row #orImbalValue { font-size: 0.78rem; font-weight: 600; }
+
+.babel-cat-name { font-weight: 600; color: var(--gold-ivory); font-size: 0.88rem; min-width: 7rem; }
+
+.babel-cat-desc { color: var(--muted); font-size: 0.76rem; }
+
+/* Bouton Surchauffe */
+
+
+.surchauffe-btn {
+  margin-top: 0.5rem;
+  width: 100%;
+  min-height: 2.4rem;
+  border-color: rgba(194, 96, 58, 0.5);
+  background: linear-gradient(180deg, #3a1a0a 0%, #2e1508 100%);
+  color: #e8a06a;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: border-color 150ms, box-shadow 150ms, background 150ms, transform 100ms;
+}
+
+.surchauffe-btn:hover:not(:disabled) {
+  border-color: rgba(194, 96, 58, 0.85);
+  background: linear-gradient(180deg, #4a220c 0%, #3a1a0a 100%);
+  box-shadow: 0 0 14px rgba(194, 96, 58, 0.28), inset 0 1px 0 rgba(255, 160, 80, 0.12);
+  transform: translateY(-1px);
+}
+
+.surchauffe-btn.surchauffe-active {
+  border-color: rgba(194, 96, 58, 0.9);
+  background: linear-gradient(180deg, #5a2a0e 0%, #471e0b 100%);
+  box-shadow: 0 0 20px rgba(194, 96, 58, 0.35), inset 0 1px 0 rgba(255, 160, 80, 0.18);
+  animation: surchauffeGlow 1.5s ease-in-out infinite;
+}
+
+/* ============================================================================
+   DIALOG OPTIONS
+   ============================================================================ */
+
+
+.options-dialog {
+  width: min(44rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.15rem;
+  overflow: hidden;
+}
+
+.options-dialog form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 4.3rem);
+  overflow: hidden;
+}
+
+.options-dialog button,
+.options-dialog input,
+.options-dialog strong {
+  font-family: var(--font-title);
+}
+
+.options-dialog small {
+  font-family: var(--font-body);
+}
+
+.toggle-btn {
+  flex-shrink: 0;
+  min-width: 6rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #4a3a1a;
+  border-radius: 4px;
+  background: #1e1508;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.toggle-btn.on {
+  border-color: #6a8a3a;
+  background: #1e2e10;
+  color: #a8c860;
+}
+
+.toggle-btn:hover { border-color: var(--gold); }
+
+.villager-feed.hidden-by-options { display: none; }
+
+/* (CSS mort purgé : CollapseChronicle — composant jamais importé,
+   remplacé par JournalPanel, lui-même destiné à devenir ChronicleTicker en Phase 2) */
+
+/* ============================================================================
+   ChronicleTicker — bandeau-dépêche (Audit UI Phase 2, remplace JournalPanel)
+   Une ligne pleine largeur sous la topbar ; thème par âge ; la dépêche reste
+   affichée jusqu''à la suivante ; survol = texte complet + 2 dépêches fantômes.
+   ============================================================================ */
+
+.chronicle-ticker {
+  position: relative;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-card);
+  background: var(--panel);
+  cursor: default;
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.ticker-masthead {
+  flex: 0 0 auto;
+  font-family: var(--font-title);
+  font-size: var(--fs-label);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  white-space: nowrap;
+}
+
+.ticker-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 1.1em;
+  background: var(--border-strong);
+}
+
+.ticker-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  animation: ticker-in 600ms ease-out;
+}
+
+/* Survol : la ligne se déplie pour montrer le texte complet */
+.chronicle-ticker:hover .ticker-line {
+  white-space: normal;
+}
+
+.ticker-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ticker-author {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.ticker-empty {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.ticker-new-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+  animation: ticker-dot 2s ease-in-out infinite;
+}
+
+.ticker-date {
+  flex: 0 0 auto;
+  font-size: var(--fs-label);
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ticker-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ticker-dot {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* ---- Thèmes par âge (transposés de l''ancien journal) ---- */
+
+/* 1. Tradition orale */
+.chronicle-ticker.is-oral {
+  border: 1px dashed #422d1b;
+  background: radial-gradient(circle at 10% 50%, #1b120c 0%, #0d0906 100%);
+}
+.chronicle-ticker.is-oral .ticker-masthead { color: #cda88b; animation: oralPulse 5s infinite ease-in-out; }
+.chronicle-ticker.is-oral .ticker-line { color: #d1bba8; font-style: italic; }
+
+@keyframes oralPulse {
+  0%, 100% { text-shadow: 0 0 5px rgba(186, 115, 41, 0.2); }
+  50% { text-shadow: 0 0 12px rgba(186, 115, 41, 0.5); color: #dfbda2; }
+}
+
+/* 2. Argile gravée */
+.chronicle-ticker.is-clay-tablet {
+  background-color: #38291f;
+  border: 2px solid #574132;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55);
+}
+.chronicle-ticker.is-clay-tablet .ticker-masthead { color: #dfc1ab; text-shadow: -1px -1px 1px #221812, 1px 1px 1px rgba(255, 255, 255, 0.08); }
+.chronicle-ticker.is-clay-tablet .ticker-line { color: #d1baa8; }
+
+/* 3. Manuscrit */
+.chronicle-ticker.is-parchment {
+  background-color: #17120a;
+  border: 1px solid #362919;
+  box-shadow: inset 0 0 18px rgba(212, 178, 140, 0.05);
+}
+.chronicle-ticker.is-parchment .ticker-masthead { color: #dfc19b; font-style: italic; }
+.chronicle-ticker.is-parchment .ticker-line { color: #d4c7b8; font-family: var(--font-serif); }
+
+/* 4. Proclamation */
+.chronicle-ticker.is-scroll {
+  background-color: #1a140d;
+  border-left: 6px solid #4a1515;
+  border-right: 6px solid #4a1515;
+  border-top: 1px solid #cc9955;
+  border-bottom: 1px solid #cc9955;
+  border-radius: 2px;
+}
+.chronicle-ticker.is-scroll .ticker-masthead { color: #ffd899; letter-spacing: 0.14em; }
+.chronicle-ticker.is-scroll .ticker-line { color: #ebd6c4; }
+.chronicle-ticker.is-scroll .ticker-title { text-decoration: underline; text-decoration-color: #8c2a2a; }
+
+/* 5. Gazette imprimée */
+.chronicle-ticker.is-printed-paper {
+  background-color: #191817;
+  border: 3px double #423d38;
+}
+.chronicle-ticker.is-printed-paper .ticker-masthead { color: #e6dfd5; font-family: "Courier New", Courier, Georgia, serif; font-weight: 800; }
+.chronicle-ticker.is-printed-paper .ticker-line { color: #d1c9bd; font-family: Georgia, serif; }
+
+/* 6. Presse / Ondes */
+.chronicle-ticker.is-press {
+  background-color: #202226;
+  border: 1px solid #3c4048;
+}
+.chronicle-ticker.is-press::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  background-color: #ff3b30;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #ff3b30;
+  animation: pressLedBlink 1.5s infinite steps(1);
+}
+.chronicle-ticker.is-press .ticker-masthead,
+.chronicle-ticker.is-press .ticker-line { font-family: "Roboto Mono", monospace; }
+.chronicle-ticker.is-press .ticker-masthead { color: #cbd7e8; }
+.chronicle-ticker.is-press .ticker-line { color: #c5ced6; }
+
+@keyframes pressLedBlink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* 7. Flux cybernétique */
+.chronicle-ticker.is-cyber-feed {
+  background: rgba(6, 12, 24, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.12), inset 0 0 12px rgba(0, 240, 255, 0.06);
+  overflow: hidden;
+}
+.chronicle-ticker.is-cyber-feed::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 70px;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.12), transparent);
+  animation: cyberSweep 4s infinite linear;
+  pointer-events: none;
+}
+.chronicle-ticker.is-cyber-feed:hover { overflow: visible; }
+.chronicle-ticker.is-cyber-feed:hover::after { display: none; }
+.chronicle-ticker.is-cyber-feed .ticker-masthead { color: #ffffff; font-family: "Orbitron", "Roboto Mono", monospace; letter-spacing: 0.18em; text-shadow: 0 0 6px rgba(0, 240, 255, 0.6); }
+.chronicle-ticker.is-cyber-feed .ticker-line { color: #b3d7df; font-family: "Roboto Mono", monospace; }
+.chronicle-ticker.is-cyber-feed .ticker-new-dot { background: #00f0ff; box-shadow: 0 0 6px #00f0ff; }
+
+@keyframes cyberSweep {
+  0% { transform: translateX(-80px); }
+  100% { transform: translateX(calc(100vw)); }
+}
+
+/* Dépêche de crise : signal rouge persistant tant que la crise est ouverte
+   (déclaré en dernier pour primer sur les thèmes d''âge) */
+.chronicle-ticker.is-crisis {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), transparent 55%), var(--panel);
+}
+.chronicle-ticker.is-crisis .ticker-masthead { color: #f08a80; }
+.chronicle-ticker.is-crisis .ticker-new-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }

@@ -1,0 +1,80 @@
+:root {
+  /* ============================================================
+     DESIGN TOKENS — source de vérité unique (Audit UI Phase 1)
+     ============================================================ */
+
+  /* ----- Fonds ----- */
+  --bg: #0d1018;
+  --bg-main: var(--bg);
+  --ink: #080910;
+  --bg-panel: #161a26;
+  --bg-card: #1d2231;
+  --bg-card-2: #242a3c;          /* survol / surélevé */
+  --bg-inset: #0a0d13;           /* pistes de barres, champs */
+  --panel: rgba(24, 27, 38, 0.82);
+  --panel-2: rgba(34, 38, 54, 0.90);
+
+  /* ----- Bordures ----- */
+  --line: rgba(255, 255, 255, 0.10);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --panel-border: rgba(255, 255, 255, 0.08);
+
+  /* ----- Textes ----- */
+  --text: #f2f4f7;
+  --text-main: var(--text);
+  --text-secondary: #c8cfda;
+  --muted: #b0b9c4;
+  --text-muted: var(--muted);
+  --text-dim: var(--muted);      /* alias (utilisé par CityView) */
+  --text-disabled: #6a7180;
+
+  /* ----- Or unifié (un seul or dans tout le jeu) ----- */
+  --gold: #d6a84b;               /* or canonique : interactif & disponible */
+  --gold-bright: #f0c860;        /* accent vif : actif / affordable */
+  --gold-deep: #8f6b25;          /* bronze profond : bordures discrètes */
+  --gold-ivory: #f5e7c0;         /* textes crème sur fonds dorés sombres */
+  --gold-dim: #b3925c;           /* labels dorés atténués */
+  --accent-gold: var(--gold);
+  --accent-gold-bright: var(--gold-bright);
+
+  /* ----- Couleurs fonctionnelles ----- */
+  --green: #10b981;              /* flux positifs / résilience */
+  --blue: #3b82f6;               /* savoir / mémoire */
+  --red: #ef4444;                /* crise / rupture / irréversible */
+  --violet: #8b5cf6;             /* infrastructure */
+  --orange: #e8943a;             /* achat / alerte douce (fix: était indéfini) */
+  --cyan: #5fd4e0;               /* chronique / journal uniquement */
+
+  /* ----- Tokens ressources (topbar, coûts, carte, boutique) ----- */
+  --res-pop: #d9c27f;
+  --res-food: var(--green);
+  --res-gold: #f0a94a;
+  --res-know: var(--blue);
+  --res-infra: var(--violet);
+
+  /* ----- Ombres / brillances ----- */
+  --shadow: rgba(0, 0, 0, 0.65);
+  --shine: rgba(255, 255, 255, 0.05);
+
+  /* ----- Typographie ----- */
+  --font-title: "Cinzel", Georgia, serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-serif: "Crimson Text", Georgia, serif;
+
+  /* Échelle (plancher absolu : 11px / 0.6875rem) */
+  --fs-h1: 1.75rem;
+  --fs-h2: 1.25rem;
+  --fs-h3: 0.9375rem;
+  --fs-value: 1.375rem;
+  --fs-body: 0.875rem;
+  --fs-cost: 0.8125rem;
+  --fs-label: 0.6875rem;
+  --fs-tiny: 0.6875rem;
+
+  /* ----- Rayons ----- */
+  --r-panel: 12px;
+  --r-card: 6px;
+  --r-tiny: 4px;
+  --r-pill: 999px;
+}

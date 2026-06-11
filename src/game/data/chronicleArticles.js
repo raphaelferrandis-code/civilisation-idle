@@ -1,0 +1,1793 @@
+"use strict";
+
+export const chronicleArticles = [
+  // =========================================================================
+  //  PÉRIODE 1 — Tradition Orale
+  // =========================================================================
+
+  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  {
+    id: "p1_crisis_fire",
+    period: 1,
+    conditionType: "crise",
+    title: "LES FEUX FAIBLISSENT, LE FROID REVIENT",
+    text: "« Les braises pâlissent et nul ne sait pourquoi. Les anciens conseillent de se serrer fort et d'espérer le matin. Comme d'habituuude. »",
+    author: "Claude, le gardien du feu"
+  },
+  {
+    id: "p1_crisis_hunter",
+    period: 1,
+    conditionType: "crise",
+    title: "LA DIFFERENCE ENTRE UN BON CHASSEUR",
+    text: "« Trois jours que les chasseurs rentrent les mains vides. Aucun volontaire pour goûter en premier. »",
+    author: null
+  },
+  {
+    id: "p1_crisis_split",
+    period: 1,
+    conditionType: "crise",
+    title: "LE CLAN PARLE DE SE SÉPARER",
+    text: "« Trop de bouches, pas assez de nourriture. Certains veulent partir vers l'ouest. Les anciens rappellent qu'à l'ouest, c'est pareil, mais plus loin. »",
+    author: null
+  },
+  {
+    id: "p1_crisis_forget_fire",
+    period: 1,
+    conditionType: "crise",
+    title: "ON A OUBLIÉ COMMENT FAIRE DU FEU",
+    text: "« Le dernier qui savait s'est endormi pour de bon. On frotte des bâtons en attendant que la mémoire revienne mais il fait froid pendant ce temps. »",
+    author: null
+  },
+
+  // --- Tension élevée (instability >= 0.75) ---
+  {
+    id: "p1_tension_tents",
+    period: 1,
+    conditionType: "tension",
+    title: "BAGARRE POUR LA MEILLEURE TENTE",
+    text: "« Deux familles revendiquent la même tente, sous prétexte qu'ils l'ont vu en premier. »",
+    author: null
+  },
+  {
+    id: "p1_tension_reserve",
+    period: 1,
+    conditionType: "tension",
+    title: "QUI A MANGÉ DANS LA RESERVE?",
+    text: "« Une ration a disparu cette nuit. Les soupçons pèsent sur tout le monde, surtout sur celui qui n'a plus faim. »",
+    author: "Claude, le gardien du feu"
+  },
+  {
+    id: "p1_tension_chief",
+    period: 1,
+    conditionType: "tension",
+    title: "LE CHEF EST CONTESTÉ",
+    text: "« Un jeune costaud estime qu'il guiderait mieux le clan. Le vieux chef propose de régler ça à la prochaine famine. »",
+    author: null
+  },
+  {
+    id: "p1_tension_crowd",
+    period: 1,
+    conditionType: "tension",
+    title: "TROP DE MONDE AUTOUR DU FEU",
+    text: "« Quelqu'un a suggéré un deuxième feu. Idée révolutionnaire, mais accueillie avec méfiance. »",
+    author: null
+  },
+
+  // --- Usure élevée (timeWear >= 0.75) ---
+  {
+    id: "p1_wear_repos",
+    period: 1,
+    conditionType: "usure",
+    title: "ON VEUT DU REPOS",
+    text: "« Les silex s'émoussent plus vite qu'on ne les taille. Le tailleur réclame du repos ; on lui répond qu'il se reposera plus tard, comme tout le monde. »",
+    author: "Garin, tailleur de silex"
+  },
+  {
+    id: "p1_wear_tired",
+    period: 1,
+    conditionType: "usure",
+    title: "ON EST FATIGUÉ",
+    text: "« Cueillir, chasser, recommencer : certains se demandent si ça vaut le coup : on leur a conseillé de moins réfléchir. »",
+    author: "Claude, le gardien du feu"
+  },
+  {
+    id: "p1_wear_resemble",
+    period: 1,
+    conditionType: "usure",
+    title: "LES JOURS SE RESSEMBLENT TROP",
+    text: "« Un membre du clan jure que cette lune est exactement la même que la dernière. On a mis ça sur le compte de la fatigue. »",
+    author: null
+  },
+
+  // --- Nourriture dominante ---
+  {
+    id: "p1_food_surplus",
+    period: 1,
+    conditionType: "nourriture",
+    title: "TROP DE VIANDE : UNE SOLUTION?",
+    text: "« La chasse a été si bonne qu'on ne sait plus où poser le surplus. Un gars a proposé d'en garder pour demain. On l'a regardé comme s'il avait inventé la magie. »",
+    author: "Renaud, habitant"
+  },
+  {
+    id: "p1_food_berries",
+    period: 1,
+    conditionType: "nourriture",
+    title: "LES BAIES JUSQU'À PLUS SOIF",
+    text: "« Les cueilleurs sont trop efficaces, les enfants mangent trop de baies qu'ils en sont violets. »",
+    author: null
+  },
+  {
+    id: "p1_food_tomorrow",
+    period: 1,
+    conditionType: "nourriture",
+    title: "LE CONCEPT DE 'DEMAIN'",
+    text: "« Pour la première fois, il reste à manger après le repas. La communauté peut penser à demain »",
+    author: null
+  },
+  {
+    id: "p1_food_river",
+    period: 1,
+    conditionType: "nourriture",
+    title: "LA RIVIÈRE DÉBORDE DE POISSONS",
+    text: "« Il suffit de tendre la main. Certains trouvent ça trop facile et se méfient. Les autres mangent. »",
+    author: "Nessa, chasseuse"
+  },
+
+  // --- Or dominant ---
+  {
+    id: "p1_gold_stones",
+    period: 1,
+    conditionType: "or",
+    title: "LA FOLIE DES CAILLOUX BRILLANTS",
+    text: "« On échange trois jours de cueillette contre une pierre qui brille mais ne se mange pas. Personne ne comprend mais tout le monde en veut. »",
+    author: "une habitante perplexe"
+  },
+  {
+    id: "p1_gold_shell",
+    period: 1,
+    conditionType: "or",
+    title: "LE COQUILLAGE VAUT-IL UN REPAS ?",
+    text: "« Le troc d'une jolie coquille contre de la viande ouvre un grand débat : peut-on manger du joli ? »",
+    author: null
+  },
+  {
+    id: "p1_gold_hoarder",
+    period: 1,
+    conditionType: "or",
+    title: "CELUI QUI A LE PLUS DE PIERRES",
+    text: "« Un habitant a amassé plus de cailloux brillants que tout le monde. Depuis, il dort mal de peur qu'on les lui prenne »",
+    author: null
+  },
+  {
+    id: "p1_gold_tombs",
+    period: 1,
+    conditionType: "or",
+    title: "ON ENTERRE LES MORTS AVEC LEURS TRÉSORS",
+    text: "« Nouvelle coutume : une belle pierre dans la tombe. Ceux qui n'en ont pas trouvent ça dommage. »",
+    author: null
+  },
+
+  // --- Savoir actif ---
+  {
+    id: "p1_knowledge_numbers",
+    period: 1,
+    conditionType: "savoir",
+    title: "ON A COMPTÉ!",
+    text: "« Un habitant jure qu'après dix, il existe encore des nombres. On reste prudent : on n'a jamais eu besoin d'autant. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p1_knowledge_drawings",
+    period: 1,
+    conditionType: "savoir",
+    title: "DES DESSINS SUR LES MURS",
+    text: "« Quelqu'un a peint un bison sur la roche et a presque provoqué une guerre civile; A quoi bon peindre un bison qu'on ne peut pas manger. »",
+    author: null
+  },
+  {
+    id: "p1_knowledge_stones",
+    period: 1,
+    conditionType: "savoir",
+    title: "LE FEU PEUT VENIR DES PIERRES",
+    text: "« En frappant deux silex, des étincelles naissent. La nouvelle bouleverse Claude le gardien du feu, soudain moins indispensable. »",
+    author: "Garin, tailleur de silex"
+  },
+  {
+    id: "p1_knowledge_wheel",
+    period: 1,
+    conditionType: "savoir",
+    title: "LA ROUE, PEUT-ÊTRE ?",
+    text: "« Une habitante a eu l'idée d'un transporteur roulant. Le conseil note l'idée mais préfère faire porter les charges à dos d'homme, comme des gens sérieux. »",
+    author: null
+  },
+
+  // --- Jalons (Bonus) ---
+  {
+    id: "p1_bonus_start",
+    period: 1,
+    conditionType: "stage_start",
+    title: "UNE NOUVELLE COMMUNAUTÉ",
+    text: "« Des inconnus se sont assis autour du même feu sans se battre. Les anciens parlent déjà d'âge d'or. »",
+    author: null
+  },
+  {
+    id: "p1_bonus_stage6",
+    period: 1,
+    conditionType: "stage_6",
+    title: "LE CAMPEMENT DEVIENT UN VRAI VILLAGE",
+    text: "« Plus de huttes que de doigts pour les compter. Certains s'émeuvent ; d'autres pensent que c'était quand même mieux avant. »",
+    author: null
+  },
+  {
+    id: "p1_bonus_stage12",
+    period: 1,
+    conditionType: "stage_12",
+    title: "ET SI ON RESTAIT ICI POUR TOUJOURS ?",
+    text: "« Ne plus suivre les troupeaux fait son chemin. Semer, attendre, récolter : pari risqué, mais les jambes sont fatiguées de marcher. »",
+    author: null
+  },
+  {
+    id: "p1_bonus_pop10k",
+    period: 1,
+    conditionType: "pop_10k",
+    title: "DIX MILLE BOUCHES AUTOUR DU FEU",
+    text: "« Le clan est si grand qu'on ne se connait plus tous. »",
+    author: null
+  },
+  {
+    id: "p1_bonus_peace1",
+    period: 1,
+    conditionType: "paix",
+    title: "RIEN À SIGNALER, ET C'EST TRÈS BIEN COMME ÇA",
+    text: "« Les feux brûlent, les ventres sont pleins, (presque) personne n'est mort ce mois. On s'excuse pour le manque de nouvelles palpitantes. »",
+    author: "Claude, le gardien du feu"
+  },
+  {
+    id: "p1_bonus_peace2",
+    period: 1,
+    conditionType: "paix",
+    title: "UNE SAISON SANS UN SEUL MALHEUR",
+    text: "« Pas de famine, pas de bête féroce, pas de querelle. Les anciens, méfiants, cherchent ce qui cloche. Ils ne trouvent rien, et ça les inquiète. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 2 — Argile Gravée
+  // =========================================================================
+
+  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  {
+    id: "p2_crisis_harvest",
+    period: 2,
+    conditionType: "crise",
+    title: "LA RÉCOLTE A POURRI",
+    text: "« Pluies sans fin, greniers vides. Les prêtres affirment qu'un dieu est en colère ; reste à savoir lequel, et pourquoi. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p2_crisis_flood",
+    period: 2,
+    conditionType: "crise",
+    title: "INONDATION",
+    text: "« La crue a noyé les champs, les réserves et les habitations. On reconstruit, comme l'an dernier, et comme l'an prochain sûrement. »",
+    author: "Doran, habitant"
+  },
+  {
+    id: "p2_crisis_neighbors",
+    period: 2,
+    conditionType: "crise",
+    title: "LA CITÉ VOISINE VEUT NOS TERRES",
+    text: "« Des hommes armés campent à la frontière. Le conseil hésite entre prier et fuir, et choisit de faire les deux. »",
+    author: null
+  },
+  {
+    id: "p2_crisis_plague",
+    period: 2,
+    conditionType: "crise",
+    title: "LA MALADIE COURT DANS LES RUELLES",
+    text: "« Les malades se comptent par dizaines. Les prêtres guérisseurs recommandent du repos, des offrandes, et de ne pas trop y penser. »",
+    author: null
+  },
+
+  // --- Tension élevée (instability >= 0.75) ---
+  {
+    id: "p2_tension_king",
+    period: 2,
+    conditionType: "tension",
+    title: "LE ROI PREND TROP",
+    text: "« Beaucoup trouvent que le palais mange mieux que ceux qui sèment. »",
+    author: "Renaud, citoyen"
+  },
+  {
+    id: "p2_tension_field",
+    period: 2,
+    conditionType: "tension",
+    title: "À QUI APPARTIENT LE CHAMP DU MILIEU ?",
+    text: "« Deux familles brandissent chacune une tablette prouvant qu'elles ont raison, ces dernières se contredisent. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p2_tension_gods",
+    period: 2,
+    conditionType: "tension",
+    title: "LES DIEUX DES UNS CONTRE LES DIEUX DES AUTRES",
+    text: "« Le quartier d'en haut prie un dieu, celui d'en bas un autre. Aucun n'a encore été vu. »",
+    author: null
+  },
+  {
+    id: "p2_tension_strike",
+    period: 2,
+    conditionType: "tension",
+    title: "GRÈVE DES PORTEURS D'EAU",
+    text: "« Plus personne ne veut monter les seaux gratuitement. Le concept de salaire est évoqué mais vite enterré. »",
+    author: null
+  },
+
+  // --- Usure élevée (timeWear >= 0.75) ---
+  {
+    id: "p2_wear_bronze",
+    period: 2,
+    conditionType: "usure",
+    title: "TOUJOURS PLUS",
+    text: "« On use le bronze plus vite que je ne le fonds. Fondre, marteler, recommencer — Garin rêve d'un peu de repos. »",
+    author: "Garin, tailleur de silex en reconversion"
+  },
+  {
+    id: "p2_wear_canals",
+    period: 2,
+    conditionType: "usure",
+    title: "LES CANAUX S'ENVASENT",
+    text: "« L'eau passe de moins en moins bien. Curer les canaux est le travail que personne ne réclame et que tout le monde repousse. »",
+    author: null
+  },
+  {
+    id: "p2_wear_seasons",
+    period: 2,
+    conditionType: "usure",
+    title: "LES MÊMES SAISONS, ENCORE",
+    text: "« Semer, attendre, récolter, recommencer. Un ancien jure avoir déjà vécu cette année-là. On a mis ça sur le compte du grand âge. »",
+    author: null
+  },
+
+  // --- Nourriture dominante ---
+  {
+    id: "p2_food_granaries",
+    period: 2,
+    conditionType: "nourriture",
+    title: "LES GRENIERS DÉBORDENT",
+    text: "« Tant de grain qu'on en perd le compte. Edith propose de tout noter sur des tablettes ; ainsi naît l'ennui administratif. »",
+    author: "Raphael, habitant"
+  },
+  {
+    id: "p2_food_feast",
+    period: 2,
+    conditionType: "nourriture",
+    title: "UNE FÊTE, TROP DE BLÉ",
+    text: "« Le surplus est tel qu'on découvre un nouveau fléau : le mal de ventre collectif. »",
+    author: null
+  },
+  {
+    id: "p2_food_cattle",
+    period: 2,
+    conditionType: "nourriture",
+    title: "LES BÊTES SONT GRASSES",
+    text: "« Les troupeaux n'ont jamais été si dodus. Je crains qu'à ce rythme, les moutons ne sachent même plus courir. »",
+    author: "Nessa, l'éleveuse"
+  },
+  {
+    id: "p2_food_export",
+    period: 2,
+    conditionType: "nourriture",
+    title: "ON EXPORTE LE TROP-PLEIN",
+    text: "« Des marchands viennent acheter notre surplus contre un métal jaune. Personne ne sait encore si c'est une bonne affaire. »",
+    author: null
+  },
+
+  // --- Or dominant ---
+  {
+    id: "p2_gold_metal",
+    period: 2,
+    conditionType: "or",
+    title: "LE MÉTAL QUI BRILLE VAUT TOUT",
+    text: "« On échange grain, terres et bétail contre du métal jaune. Je tiens les comptes et soupire devant tant de chiffres. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p2_gold_temple",
+    period: 2,
+    conditionType: "or",
+    title: "LE TEMPLE EST PLUS RICHE QUE LE ROI",
+    text: "« Les offrandes s'entassent dans les temples. Les dieux n'ont pourtant jamais réclamé d'or. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p2_gold_theft",
+    period: 2,
+    conditionType: "or",
+    title: "LE PREMIER VOL D'OR DE L'HISTOIRE",
+    text: "« La nourriture, ça passe. Les querelles entre voisins aussi. Mais de l'or ? Nous devons inventer en urgence le concept de punition. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p2_gold_tablets",
+    period: 2,
+    conditionType: "or",
+    title: "CHACUN VEUT SA TABLETTE DE COMPTES",
+    text: "« Posséder, c'est bien ; montrer qu'on possède, c'est mieux. Le marché des scribes explose. »",
+    author: null
+  },
+
+  // --- Savoir actif ---
+  {
+    id: "p2_knowledge_clay",
+    period: 2,
+    conditionType: "savoir",
+    title: "ON SAIT ÉCRIRE SUR L'ARGILE",
+    text: "« Des marques dans la glaise gardent les formes une fois sèches. J'y vois l'avenir ; les anciens y voient des gribouillis. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p2_knowledge_stars",
+    period: 2,
+    conditionType: "savoir",
+    title: "LE CIEL SUIT DES RÈGLES",
+    text: "« Un veilleur de nuit affirme que les astres reviennent toujours au même endroit. Si même le ciel est prévisible, que reste-t-il au hasard ? »",
+    author: null
+  },
+  {
+    id: "p2_knowledge_wheel",
+    period: 2,
+    conditionType: "savoir",
+    title: "LA ROUE, FINALEMENT",
+    text: "« Après des générations de refus, la cité adopte la roue. L'inventeur d'origine reçoit à titre posthume un tour en charrette. »",
+    author: null
+  },
+  {
+    id: "p2_knowledge_laws",
+    period: 2,
+    conditionType: "savoir",
+    title: "DES LOIS GRAVÉES POUR TOUS",
+    text: "« On inscrit les règles sur une grande pierre pour ne plus ignorer la loi. Beaucoup, ne sachant pas lire, ne savent toujours pas. »",
+    author: null
+  },
+
+  // --- Jalons (Bonus) ---
+  {
+    id: "p2_bonus_start",
+    period: 2,
+    conditionType: "stage_start",
+    title: "ON POSE LA PREMIÈRE PIERRE",
+    text: "« La communauté décide de ne plus bouger et de bâtir pour de bon. Les nomades d'hier se découvrent une passion : la propriété. »",
+    author: null
+  },
+  {
+    id: "p2_bonus_stage6",
+    period: 2,
+    conditionType: "stage_6",
+    title: "LA VILLE A MAINTENANT DES MURS",
+    text: "« On entoure la cité de remparts. Dehors, le danger ; dedans, les querelles de voisinage. »",
+    author: null
+  },
+  {
+    id: "p2_bonus_stage12",
+    period: 2,
+    conditionType: "stage_12",
+    title: "UN ROI POUR LES GOUVERNER",
+    text: "« Lassée de tout décider en assemblée, la cité se choisit un roi. Elle se demande déjà comment s'en débarrasser. »",
+    author: null
+  },
+  {
+    id: "p2_bonus_pop10k",
+    period: 2,
+    conditionType: "pop_10k",
+    title: "LA CITÉ NE TIENT PLUS DANS SES MURS",
+    text: "« Trop d'habitants et pas assez de rues. On bâtit vers le haut, faute de pouvoir s'étendre. Les voisins du dessous protestent. »",
+    author: null
+  },
+  {
+    id: "p2_bonus_peace1",
+    period: 2,
+    conditionType: "paix",
+    title: "NI GUERRE NI FAMINE : ÉTRANGE",
+    text: "« Greniers pleins, frontières calmes. Les prêtres, méfiants, demandent davantage d'offrandes pour que ça dure. On ne sait jamais à qui on doit la chance. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p2_bonus_peace2",
+    period: 2,
+    conditionType: "paix",
+    title: "UNE GÉNÉRATION SANS MALHEUR",
+    text: "« Les vieux n'ont pas connu de fléau depuis si longtemps qu'ils ne savent plus quoi raconter aux enfants. Ils inventent donc des monstres, par prudence. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 3 — Manuscrit
+  // =========================================================================
+
+  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  {
+    id: "p3_crisis_plague",
+    period: 3,
+    conditionType: "crise",
+    title: "LA PESTE FRAPPE LA CITÉ ÉLUE",
+    text: "« Les morts s'empilent malgré nos temples. Si nous sommes vraiment favorisés, certains trouvent que ça ne se voit pas beaucoup. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p3_crisis_barbarians",
+    period: 3,
+    conditionType: "crise",
+    title: "LES BARBARES AUX PORTES",
+    text: "« Une armée étrangère assiège la cité. Les prêtres promettent une protection divine. Les soldats préfèrent compter sur les murs. »",
+    author: null
+  },
+  {
+    id: "p3_crisis_fire",
+    period: 3,
+    conditionType: "crise",
+    title: "L'ENTREPÔT CENTRAL A BRÛLÉ",
+    text: "« Une nuit, tout le grain de l'année est parti en fumée. On cherche un coupable, et à défaut, on accuse le destin. »",
+    author: "Doran, habitant"
+  },
+  {
+    id: "p3_crisis_heir",
+    period: 3,
+    conditionType: "crise",
+    title: "LE ROI EST MORT SANS HÉRITIER",
+    text: "« Trois cousins revendiquent le trône. La cité, prudente, prépare déjà trois fêtes de couronnement. »",
+    author: null
+  },
+
+  // --- Tension élevée (instability >= 0.75) ---
+  {
+    id: "p3_tension_taxes",
+    period: 3,
+    conditionType: "tension",
+    title: "IMPÔTS EN HAUSSE, CHAUSSÉES EN RUINE",
+    text: "« On paie toujours plus pour réparer les chemins. À ce jour, le seul trajet vraiment amélioré est celui entre nos poches et celles du percepteur. »",
+    author: "Renaud, citoyen"
+  },
+  {
+    id: "p3_tension_philosophers",
+    period: 3,
+    conditionType: "tension",
+    title: "LES PHILOSOPHES SE DISPUTENT SUR LA PLACE",
+    text: "« L'un dit que tout est nombre, l'autre que tout est lettres. Au final, le public a surtout faim. »",
+    author: "Aldric, philosophe"
+  },
+  {
+    id: "p3_tension_schism",
+    period: 3,
+    conditionType: "tension",
+    title: "SCHISME AU TEMPLE",
+    text: "« Deux prêtres ne s'accordent plus sur la volonté des dieux. Chacun fonde son propre temple, avec sa propre quête. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p3_tension_scribes",
+    period: 3,
+    conditionType: "tension",
+    title: "LA GUILDE DES SCRIBES EN COLÈRE",
+    text: "« Copier coûte cher, lire est gratuit. Les scribes jugent l'équation injuste et cessent la plume. »",
+    author: "Edith, comptable"
+  },
+
+  // --- Usure élevée (timeWear >= 0.75) ---
+  {
+    id: "p3_wear_aqueducts",
+    period: 3,
+    conditionType: "usure",
+    title: "LES AQUEDUCS SE LÉZARDENT",
+    text: "« Bâtis par les anciennes générations, mais jamais réparés par les nouvelles. On admire l'ouvrage en attendant qu'il nous tombe dessus. »",
+    author: "Garin, forgeron"
+  },
+  {
+    id: "p3_wear_oldtexts",
+    period: 3,
+    conditionType: "usure",
+    title: "PLUS PERSONNE NE SAIT LIRE LES VIEUX TEXTES",
+    text: "« Les manuscrits des anciens dorment dans la poussière. Tant de savoirs perdus pour rien, et très proprement classés. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p3_wear_history",
+    period: 3,
+    conditionType: "usure",
+    title: "L'HISTOIRE BÉGAIE",
+    text: "« Un savant remarque que les empires montent et tombent toujours pareil. Il l'écrit, personne ne le lit. L'histoire se répète. »",
+    author: null
+  },
+
+  // --- Nourriture dominante ---
+  {
+    id: "p3_food_blessed",
+    period: 3,
+    conditionType: "nourriture",
+    title: "UNE ANNÉE DE BLÉ BÉNIE",
+    text: "« Les champs croulent. Les prêtres y voient la preuve que leurs bénédictions marchent ; les paysans y voient la preuve qu'ils ont travaillé. »",
+    author: "Nessa, marchande"
+  },
+  {
+    id: "p3_food_wine",
+    period: 3,
+    conditionType: "nourriture",
+    title: "LE VIN COULE À FLOT",
+    text: "« La vendange est si bonne que la cité célèbre sans interruption depuis trois jours. Le travail attendra que les têtes décantent. »",
+    author: null
+  },
+  {
+    id: "p3_food_feast",
+    period: 3,
+    conditionType: "nourriture",
+    title: "DES FÊTES POUR REMERCIER QUI ?",
+    text: "« On banquette en l'honneur des dieux et les plats finissent dans nos ventres. Un enfant demande à qui profitent vraiment les offrandes. »",
+    author: null
+  },
+  {
+    id: "p3_food_storage",
+    period: 3,
+    conditionType: "nourriture",
+    title: "PROBLÈME DE STOCKAGE",
+    text: "« La cité produit trop de blé. Les mendiants proposent très généreusement de nous aider à régler ce problème. »",
+    author: null
+  },
+
+  // --- Or dominant ---
+  {
+    id: "p3_gold_richest",
+    period: 3,
+    conditionType: "or",
+    title: "LA CITÉ LA PLUS RICHE DU MONDE CONNU",
+    text: "« Notre or attire marchands et voleurs des quatre horizons. Je tiens des registres si longs que je commence à croire que le vol n'est qu'un commerce sans tampon. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p3_gold_lending",
+    period: 3,
+    conditionType: "or",
+    title: "ON PRÊTE DE L'OR CONTRE PLUS D'OR",
+    text: "« Un marchand prête, puis réclame davantage qu'il n'a donné. Adoption générale : on appellera ça la banque. »",
+    author: null
+  },
+  {
+    id: "p3_gold_statues",
+    period: 3,
+    conditionType: "or",
+    title: "STATUES D'OR À CHAQUE COIN DE RUE",
+    text: "« On dresse des effigies dorées des dieux protecteurs. Curieusement, elles ressemblent surtout aux notables qui les financent. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p3_gold_temple",
+    period: 3,
+    conditionType: "or",
+    title: "L'OR DU TEMPLE FAIT DES JALOUX",
+    text: "« Les caves sacrées débordent. Le roi lorgne, le peuple murmure, les prêtres serrent les clés. »",
+    author: "Claude, gardien du feu"
+  },
+
+  // --- Savoir actif ---
+  {
+    id: "p3_knowledge_library",
+    period: 3,
+    conditionType: "savoir",
+    title: "UNE GRANDE BIBLIOTHÈQUE OUVRE SES PORTES",
+    text: "« On rassemble tout le savoir du monde sous un même toit. Reste à trouver des gens qui savent lire. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p3_knowledge_stars",
+    period: 3,
+    conditionType: "savoir",
+    title: "LES ASTRES ANNONCENT-ILS NOTRE DESTIN ?",
+    text: "« Les astrologues ont noté que la cité était née dans l'alignement de deux planètes. Ils en concluent que nous sommes choisis. Reste à savoir par qui, et pour quoi. »",
+    author: "Aldric, philosophe"
+  },
+  {
+    id: "p3_knowledge_probability",
+    period: 3,
+    conditionType: "savoir",
+    title: "LE CALCUL DES CHANCES",
+    text: "« Un savant a mesuré notre prospérité : trop régulière pour être due au seul hasard. Il évoque \"une main invisible\". Nous lui conseillons de se reposer. »",
+    author: "Raphaël, habitant"
+  },
+  {
+    id: "p3_knowledge_medicine",
+    period: 3,
+    conditionType: "savoir",
+    title: "LA MÉDECINE REMPLACE (PARFOIS) LA PRIÈRE",
+    text: "« Une fièvre tenace a disparu après quelques décoctions. Le temple se félicite d'avoir été entendu. Le médecin n'a pas contredit. »",
+    author: null
+  },
+
+  // --- Jalons (Bonus) ---
+  {
+    id: "p3_bonus_start",
+    period: 3,
+    conditionType: "stage_start",
+    title: "UN NOUVEL ÂGE D'OR EST PROCLAMÉ",
+    text: "« La cité entre dans une ère qu'on dit dorée. Comme à chaque ère, d'ailleurs. Les hérauts manquent d'imagination. »",
+    author: null
+  },
+  {
+    id: "p3_bonus_stage6",
+    period: 3,
+    conditionType: "stage_6",
+    title: "DES ROUTES MÈNENT PARTOUT",
+    text: "« On pave des chemins vers les cités voisines. Le commerce explose, les idées circulent, les maladies aussi. »",
+    author: null
+  },
+  {
+    id: "p3_bonus_stage12",
+    period: 3,
+    conditionType: "stage_12",
+    title: "UN EMPIRE, RIEN DE MOINS",
+    text: "« La cité a tant grandi qu'elle gouverne ses voisines. On appelle ça un empire. Ça passe mieux. »",
+    author: null
+  },
+  {
+    id: "p3_bonus_pop100k",
+    period: 3,
+    conditionType: "pop_100k",
+    title: "LA CAPITALE GROUILLE DE MONDE",
+    text: "« Tant d'habitants qu'on se perd dans sa propre cité. On invente les plans gravés. On s'y perd aussi. »",
+    author: null
+  },
+  {
+    id: "p3_bonus_peace1",
+    period: 3,
+    conditionType: "paix",
+    title: "UN SIÈCLE SANS GUERRE : SUSPECT",
+    text: "« Ni peste, ni invasion, ni famine depuis des générations. Les savants cherchent la cause ; les prêtres crient au miracle. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p3_bonus_peace2",
+    period: 3,
+    conditionType: "paix",
+    title: "TOUT VA SI BIEN QUE C'EN EST GÊNANT",
+    text: "« La prospérité est telle que les poètes manquent de tragédies à chanter. Ils en inventent pour ne pas perdre la main. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 4 — Proclamation
+  // =========================================================================
+
+  // --- Crise (instability >= 0.75 || timeWear >= 0.75) ---
+  {
+    id: "p4_crisis_manuscript",
+    period: 4,
+    conditionType: "crise",
+    title: "UN MANUSCRIT PRÉDIT TOUT, MAIS APRÈS COUP",
+    text: "« Un moine affirme que les signes étaient là depuis le début. Il les a trouvés hier, dans un texte qu'il vient de finir. »",
+    author: null
+  },
+  {
+    id: "p4_crisis_revolt",
+    period: 4,
+    conditionType: "crise",
+    title: "UNE RÉVOLTE ÉCLATE AU PIED DU PALAIS",
+    text: "« Le peuple demande du pain, moins d'impôts et une explication claire sur les décisions récentes. Le palais promet deux réponses sur trois. »",
+    author: null
+  },
+  {
+    id: "p4_crisis_bridge",
+    period: 4,
+    conditionType: "crise",
+    title: "LE GRAND PONT S'EFFONDRE EN PLEINE CÉRÉMONIE",
+    text: "« L'ouvrage devait prouver la grandeur de l'Empire. Il a surtout rappelé que même les plus grands projets peuvent s'écrouler. »",
+    author: "Garin, maître bâtisseur"
+  },
+  {
+    id: "p4_crisis_temple",
+    period: 4,
+    conditionType: "crise",
+    title: "LE TEMPLE DÉCLARE L'URGENCE SACRÉE",
+    text: "« Les prêtres annoncent que les dieux nous testent. Le peuple aimerait connaître la durée de l'épreuve pour s'organiser. »",
+    author: "Claude, gardien du feu"
+  },
+
+  // --- Tension élevée (instability >= 0.5) ---
+  {
+    id: "p4_tension_windows",
+    period: 4,
+    conditionType: "tension",
+    title: "NOUVEL IMPÔT SUR LES FENÊTRES",
+    text: "« Le trésor royal manque d'or et invente de nouveaux impôts. »",
+    author: "Renaud, contribuable"
+  },
+  {
+    id: "p4_tension_invisible",
+    period: 4,
+    conditionType: "tension",
+    title: "LE CONSEIL SE DIVISE SUR L'INVISIBLE",
+    text: "« De plus en plus de gens affirment qu'une force nous guide. D'autres rappellent que, même guidés, personne n'a réparé les égouts. »",
+    author: null
+  },
+  {
+    id: "p4_tension_cult",
+    period: 4,
+    conditionType: "tension",
+    title: "CULTE NOUVEAU, FILE D'ATTENTE ANCIENNE",
+    text: "« Les fidèles du Créateur se rassemblent chaque matin. Les voisins se plaignent du bruit et du manque de miracle. »",
+    author: null
+  },
+  {
+    id: "p4_tension_scribes",
+    period: 4,
+    conditionType: "tension",
+    title: "LES SCRIBES REFUSENT DE COPIER LE DÉCRET",
+    text: "« Le texte affirme que tout va selon un plan supérieur. Les scribes demandent à voir le plan avant de faire des copies. »",
+    author: "Edith, Intendante"
+  },
+
+  // --- Usure élevée (timeWear >= 0.5) ---
+  {
+    id: "p4_wear_statues",
+    period: 4,
+    conditionType: "usure",
+    title: "LES STATUES DES ANCIENS ONT PERDU LEUR NEZ",
+    text: "« On les vénère toujours, par respect même si on ne sait plus très bien qui elles représentent. C'est important un nez »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p4_wear_archives",
+    period: 4,
+    conditionType: "usure",
+    title: "LES ARCHIVES SENTENT L'HUMIDITÉ ET LA VÉRITÉ",
+    text: "« Un registre ancien décrit une crise presque identique à la nôtre. La commission conclut à une grosse coïncidence. »",
+    author: "Edith, Intendante"
+  },
+  {
+    id: "p4_wear_walls",
+    period: 4,
+    conditionType: "usure",
+    title: "LES VIEUX MURS TIENNENT",
+    text: "« Les ingénieurs disent qu'ils ne comprennent pas pourquoi la cité tient encore debout. Les prêtres notent la phrase pour leur prochain sermon. »",
+    author: null
+  },
+
+  // --- Nourriture dominante ---
+  {
+    id: "p4_food_bread",
+    period: 4,
+    conditionType: "nourriture",
+    title: "TROP DE PAIN, TROP PEU DE MODÉRATION",
+    text: "« Les fours tournent jour et nuit. Le peuple est nourri, heureux, et mange bien au-delà du raisonnable. »",
+    author: null
+  },
+  {
+    id: "p4_food_neighbors",
+    period: 4,
+    conditionType: "nourriture",
+    title: "LA CITÉ NOURRIT SES VOISINS",
+    text: "« Nos convois de grain partent vers les cités affamées. Les voisins remercient les dieux, mais oublient souvent de remercier ceux qui remplissent les chariots. »",
+    author: null
+  },
+  {
+    id: "p4_food_banquet",
+    period: 4,
+    conditionType: "nourriture",
+    title: "BANQUET OFFICIEL EN L'HONNEUR DU CRÉATEUR",
+    text: "« Trois cents plats ont été servis à Celui qui nous guide. Comme il n'est pas venu, les ministres ont fait preuve de dévouement. »",
+    author: null
+  },
+  {
+    id: "p4_food_peasants",
+    period: 4,
+    conditionType: "nourriture",
+    title: "LES PAYSANS DEMANDENT MOINS DE MIRACLES",
+    text: "« Les récoltes sont excellentes depuis des années. Les paysans réclament qu'on remercie aussi les bras, les dos et les phlyctènes. »",
+    author: "Nessa, Marchande"
+  },
+
+  // --- Or dominant ---
+  {
+    id: "p4_gold_overflow",
+    period: 4,
+    conditionType: "or",
+    title: "LE TRÉSOR DÉBORDE, LE PEUPLE AUSSI",
+    text: "« Les coffres sont pleins à craquer. Les pauvres demandent s'il est possible de faire ruisseler la richesse. »",
+    author: null
+  },
+  {
+    id: "p4_gold_ministry",
+    period: 4,
+    conditionType: "or",
+    title: "UN MINISTÈRE DE LA COMPTABILITE",
+    text: "« La cité possède trop d'or pour être compté à la main. Je demande trois assistants, deux tables et une semaine sans prophète. »",
+    author: "Edith, Intendante"
+  },
+  {
+    id: "p4_gold_sacred",
+    period: 4,
+    conditionType: "or",
+    title: "L'OR SACRÉ CHANGE DE SALLE",
+    text: "« Le temple affirme protéger les richesses du Créateur. Le roi affirme protéger le temple. Le peuple se sent un peu abandonné. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p4_gold_relics",
+    period: 4,
+    conditionType: "or",
+    title: "LES MARCHANDS VENDENT DES RELIQUES NEUVES",
+    text: "« Des fragments de la volonté divine circulent au marché. La plupart portent encore l'odeur de l'atelier. »",
+    author: null
+  },
+
+  // --- Savoir actif ---
+  {
+    id: "p4_knowledge_question",
+    period: 4,
+    conditionType: "savoir",
+    title: "UN PHILOSOPHE POSE LA MAUVAISE QUESTION",
+    text: "« Et si nous n'étions pas bénis, mais observés ? »",
+    author: "Aldric, philosophe"
+  },
+  {
+    id: "p4_knowledge_treatise",
+    period: 4,
+    conditionType: "savoir",
+    title: "PREMIER TRAITÉ SUR CELUI QUI REGARDE",
+    text: "« L'ouvrage parle de l'idée que notre cité soit guidée par une volonté extérieure. Il se vend mal, mais fait réfléchir. »",
+    author: null
+  },
+  {
+    id: "p4_knowledge_hand",
+    period: 4,
+    conditionType: "savoir",
+    title: "UNE MAIN DANS LES HASARDS",
+    text: "« Les catastrophes frappent sans prévenir, les ponts s'effondrent et les récoltes échouent parfois. Pourtant, au moment où tout semble perdu, une solution apparaît souvent. Je ne dis pas qu'on nous pousse. Je dis simplement que les coïncidences deviennent difficiles à ignorer. »",
+    author: "Raphaël, habitant"
+  },
+  {
+    id: "p4_knowledge_medicine",
+    period: 4,
+    conditionType: "savoir",
+    title: "LA MÉDECINE PROGRESSE, LE TEMPLE S'ADAPTE",
+    text: "« Les médecins guérissent mieux qu'avant. Le temple annonce que les dieux ont toujours été favorables aux plantes, surtout depuis que la recherche existe. »",
+    author: null
+  },
+
+  // --- Jalons (Bonus) ---
+  {
+    id: "p4_bonus_start",
+    period: 4,
+    conditionType: "stage_start",
+    title: "UNE NOUVELLE ÈRE EST PROCLAMÉE AU BALCON",
+    text: "« Les hérauts annoncent un âge de paix, de grandeur et d'ordre. La foule applaudit, faute d'avoir reçu le programme. »",
+    author: null
+  },
+  {
+    id: "p4_bonus_stage6",
+    period: 4,
+    conditionType: "stage_6",
+    title: "LES ROUTES SONT SI DROITES QUE C'EN EST GÊNANT",
+    text: "« Les voies traversent plaines, forêts et collines avec une logique parfaite. Les cartographes remercient les ingénieurs. »",
+    author: null
+  },
+  {
+    id: "p4_bonus_stage12",
+    period: 4,
+    conditionType: "stage_12",
+    title: "L'EMPIRE ORGANISE SES VOISINS",
+    text: "« Les cités voisines conservent leurs coutumes, leurs fêtes et leurs chefs, tant qu'elles obéissent correctement. »",
+    author: null
+  },
+  {
+    id: "p4_bonus_pop1m",
+    period: 4,
+    conditionType: "pop_1m",
+    title: "TROP DE MONDE POUR UNE SEULE PLACE PUBLIQUE",
+    text: "« La capitale a grandi si vite que les annonces officielles mettent sept jours à atteindre tout le monde. Les rumeurs circulent mieux. »",
+    author: null
+  },
+  {
+    id: "p4_bonus_peace1",
+    period: 4,
+    conditionType: "paix",
+    title: "AUCUNE GUERRE, AUCUNE FAMINE, AUCUN MÉRITE",
+    text: "« Tout va bien depuis si longtemps que les anciens commencent à mentir. C'était quand même plus dur avant. »",
+    author: "Renaud, citoyen"
+  },
+  {
+    id: "p4_bonus_peace2",
+    period: 4,
+    conditionType: "paix",
+    title: "LA PAIX DEVIENT UNE THÉORIE POLITIQUE",
+    text: "« Les savants affirment que notre stabilité prouve l'existence d'un ordre supérieur. »",
+    author: null
+  },
+  {
+    id: "p4_bonus_watched",
+    period: 4,
+    conditionType: "bonus_libre",
+    title: "ON NOUS REGARDE ?",
+    text: "« La question circule à voix basse dans les rues. Personne ne sait qui regarde, mais chacun commence à mieux se tenir. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 5 — Imprimé
+  // =========================================================================
+
+  // --- Crise (instability >= 0.75 || timeWear >= 0.75) ---
+  {
+    id: "p5_crisis_predictable",
+    period: 5,
+    conditionType: "crise",
+    title: "LA CRISE ÉTAIT PRÉVISIBLE, DONC PERSONNE N'A PRÉVU",
+    text: "« Les signes étaient là : greniers vides, colère haute, routes coupées. Le gouvernement promet d'étudier pourquoi il n'a rien étudié. »",
+    author: null
+  },
+  {
+    id: "p5_crisis_riots",
+    period: 5,
+    conditionType: "crise",
+    title: "LES ÉMEUTES GAGNENT LES QUARTIERS RICHES",
+    text: "« Les milices affirment que la situation est sous contrôle. Les quartiers riches affirment que les milices sont trop loin. »",
+    author: "Renaud, citoyen"
+  },
+  {
+    id: "p5_crisis_fire",
+    period: 5,
+    conditionType: "crise",
+    title: "LE GRAND INCENDIE DÉTRUIT TROIS DISTRICTS",
+    text: "« Les flammes ont tout pris en une nuit. Dès l'aube, des plans de reconstruction étaient déjà prêts, comme s'ils attendaient. »",
+    author: null
+  },
+  {
+    id: "p5_crisis_guardian",
+    period: 5,
+    conditionType: "crise",
+    title: "LE GARDIEN DU FEU NOUS INTERPELLE",
+    text: "« Le feu sacré vacille, les fidèles paniquent, les prêtres improvisent. J'ai déjà vu ce genre de nuit. »",
+    author: "Claude, gardien du feu"
+  },
+
+  // --- Tension élevée (instability >= 0.5) ---
+  {
+    id: "p5_tension_who_decides",
+    period: 5,
+    conditionType: "tension",
+    title: "LE PEUPLE SE DEMANDE QUI DÉCIDE VRAIMENT",
+    text: "« Le roi désigne le conseil, le conseil désigne les prêtres, les prêtres désignent le ciel. Le ciel ne répond pas. Il va falloir du changement. »",
+    author: null
+  },
+  {
+    id: "p5_tension_tax_print",
+    period: 5,
+    conditionType: "tension",
+    title: "NOUVELLE TAXE SUR LES TEXTES IMPRIMÉS",
+    text: "« Lire rend critique. Le Trésor trouve prudent de rendre la critique payante. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p5_tension_cult_split",
+    period: 5,
+    conditionType: "tension",
+    title: "LE CULTE SE DIVISE EN TROIS BRANCHES",
+    text: "« Les uns disent qu'il nous guide. Les autres qu'il nous teste. Les derniers qu'il attend. Personne ne sait ce que cela veut dire. »",
+    author: null
+  },
+  {
+    id: "p5_tension_march",
+    period: 5,
+    conditionType: "tension",
+    title: "UNE GRANDE MARCHE POUR PLUS DE HASARD",
+    text: "« Les citoyens réclament des récoltes normales, des crises normales, et quelques années qui ne ressemblent pas à un plan. »",
+    author: null
+  },
+
+  // --- Usure élevée (timeWear >= 0.5) ---
+  {
+    id: "p5_wear_streets",
+    period: 5,
+    conditionType: "usure",
+    title: "LES RUES NE PORTENT PLUS LEUR NOM D'ORIGINE",
+    text: "« La cité se laisse aller. On renomme les lieux d'après ce qu'ils remplacent ; ainsi, l'ancienne place du marché est maintenant l'ancienne ancienne place. »",
+    author: null
+  },
+  {
+    id: "p5_wear_old_papers",
+    period: 5,
+    conditionType: "usure",
+    title: "LES ANCIENS JOURNAUX RACONTENT LA MÊME CHOSE",
+    text: "« Famine, prospérité, guerre, miracle, chute, reconstruction. Les dates changent. Le ton, très peu. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p5_wear_past_politics",
+    period: 5,
+    conditionType: "usure",
+    title: "LE PASSÉ DEVIENT UN ARGUMENT POLITIQUE",
+    text: "« Chaque faction affirme que l'histoire lui donne raison. L'histoire, elle, semble surtout fatiguée. »",
+    author: null
+  },
+
+  // --- Nourriture dominante ---
+  {
+    id: "p5_food_harvest",
+    period: 5,
+    conditionType: "nourriture",
+    title: "LES RÉCOLTES DÉPASSENT LES PRÉVISIONS",
+    text: "« Les agronomes avaient prévu une bonne année. Elle l'est davantage. »",
+    author: null
+  },
+  {
+    id: "p5_food_bread",
+    period: 5,
+    conditionType: "nourriture",
+    title: "DU PAIN POUR TOUS, MÊME POUR LES DOUTES",
+    text: "« Les boulangeries ne désemplissent pas et les files sont calmes. On y parle beaucoup de Celui qui veille, et du prix de la farine. »",
+    author: null
+  },
+  {
+    id: "p5_food_export",
+    period: 5,
+    conditionType: "nourriture",
+    title: "EXPORTATION MASSIVE DE BLÉ",
+    text: "« La cité nourrit ses alliés, mais aussi ses rivaux. L'intendance appelle cela de la diplomatie comestible. »",
+    author: "Nessa, marchande"
+  },
+  {
+    id: "p5_food_peasants",
+    period: 5,
+    conditionType: "nourriture",
+    title: "LES PAYSANS NE CROIENT PLUS AUX COÏNCIDENCES",
+    text: "« Semer, attendre, récolter : voilà leur métier. Mais certains jurent que les saisons obéissent à un rythme qui n'est pas le leur. »",
+    author: null
+  },
+
+  // --- Or dominant ---
+  {
+    id: "p5_gold_speed",
+    period: 5,
+    conditionType: "or",
+    title: "L'OR CIRCULE PLUS VITE QUE LES DÉCRETS",
+    text: "« Les banques ouvrent avant les temples et ferment après les tribunaux. Khael trouve cela pratique. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p5_gold_suspicious",
+    period: 5,
+    conditionType: "or",
+    title: "LA PROSPÉRITÉ DEVIENT SUSPECTE",
+    text: "« Chaque crise finit par remplir les coffres de quelqu'un. Le peuple se demande si les anciens effondrements ne profitaient pas déjà à certains. »",
+    author: null
+  },
+  {
+    id: "p5_gold_accounts",
+    period: 5,
+    conditionType: "or",
+    title: "EDITH PUBLIE LES COMPTES DU ROYAUME",
+    text: "« Les chiffres sont exacts, alignés et profondément inquiétants. Trop de pertes mènent à trop de gains. »",
+    author: "Edith, comptable"
+  },
+  {
+    id: "p5_gold_coins",
+    period: 5,
+    conditionType: "or",
+    title: "DES PIÈCES À L'EFFIGIE DU CRÉATEUR",
+    text: "« Le visage n'étant pas connu, les graveurs ont choisi le symbole d'une main. »",
+    author: null
+  },
+
+  // --- Savoir actif ---
+  {
+    id: "p5_knowledge_academy",
+    period: 5,
+    conditionType: "savoir",
+    title: "LE HASARD ENTRE À L'ACADÉMIE",
+    text: "« Les savants ne demandent plus si la cité est favorisée, mais selon quelles règles. »",
+    author: "Aldric, philosophe"
+  },
+  {
+    id: "p5_knowledge_cycles",
+    period: 5,
+    conditionType: "savoir",
+    title: "PREMIER MODÈLE DES CYCLES CIVIQUES",
+    text: "« Un ouvrage affirme que les civilisations montent, brillent, craquent, puis recommencent autrement. Il est interdit, et donc très lu. »",
+    author: null
+  },
+  {
+    id: "p5_knowledge_rescues",
+    period: 5,
+    conditionType: "savoir",
+    title: "LES SAUVETAGES TROP RESSEMBLANTS",
+    text: "« Quand tout menace de tomber, quelque chose arrive : une réforme, une récolte, une idée. Et quand ça finit par tomber… »",
+    author: "Raphaël, habitant"
+  },
+  {
+    id: "p5_knowledge_medicine",
+    period: 5,
+    conditionType: "savoir",
+    title: "LA MÉDECINE PROGRESSE",
+    text: "« Les fièvres reculent, les prises en charge s'accélèrent, les remèdes circulent, et la population ne dit plus \"doigt de pied\" mais bien \"orteil\". »",
+    author: null
+  },
+
+  // --- Jalons (Bonus) ---
+  {
+    id: "p5_bonus_start",
+    period: 5,
+    conditionType: "stage_start",
+    title: "UN ÂGE NOUVEAU, ENCORE IMPRIMÉ EN GRAND",
+    text: "« Les affiches promettent un nouveau départ. Pourquoi serait-il différent cette fois-ci ? »",
+    author: null
+  },
+  {
+    id: "p5_bonus_stage6",
+    period: 5,
+    conditionType: "stage_6",
+    title: "LES ROUTES DESSINENT UNE INTENTION",
+    text: "« Vues depuis les collines, les routes semblent former un réseau trop cohérent. Les ingénieurs prennent le compliment prudemment. »",
+    author: null
+  },
+  {
+    id: "p5_bonus_stage12",
+    period: 5,
+    conditionType: "stage_12",
+    title: "L'EMPIRE SE CROIT DURABLE",
+    text: "« Les cartes couvrent les murs, les frontières avancent et les ministres parlent d'éternité tandis que les historiens regardent leurs pieds. »",
+    author: null
+  },
+  {
+    id: "p5_bonus_pop100m",
+    period: 5,
+    conditionType: "pop_100m",
+    title: "LA CAPITALE DÉBORDE DE SES MURS",
+    text: "« On construit au-delà des portes, puis au-delà des nouveaux murs. La ville ne grandit plus : elle déborde. »",
+    author: null
+  },
+  {
+    id: "p5_bonus_peace1",
+    period: 5,
+    conditionType: "paix",
+    title: "LA PAIX PROLONGÉE TROUBLE LES STRATÈGES",
+    text: "« Les généraux organisent des simulations de guerre pour ne pas perdre la main. Certains demandent à perdre moins fort. »",
+    author: null
+  },
+  {
+    id: "p5_bonus_peace2",
+    period: 5,
+    conditionType: "paix",
+    title: "TOUT VA BIEN",
+    text: "« La prospérité dure et les enfants n'ont jamais connu la famine. Les adultes trouvent cela rassurant, mais anormal. »",
+    author: null
+  },
+  {
+    id: "p5_bonus_maps",
+    period: 5,
+    conditionType: "bonus_libre",
+    title: "LES ENFANTS INVENTENT DES CARTES DU MONDE",
+    text: "« Dans les écoles, une mode étrange se répand : dessiner les terres inconnues au-delà des frontières. Certaines cartes se ressemblent sans que leurs auteurs se soient jamais rencontrés. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 6 — Presse / Ondes (eraIndex 27–31)
+  // =========================================================================
+
+  // --- Crise ---
+  {
+    id: "p6_crisis_flames",
+    period: 6,
+    conditionType: "crise",
+    title: "LA CRISE EST LÀ",
+    text: "« Les flammes montent au nord, les marchés chutent au sud et les foules grondent partout. La période à venir sera décisive. »",
+    author: null
+  },
+  {
+    id: "p6_crisis_ministers",
+    period: 6,
+    conditionType: "crise",
+    title: "LES MINISTRES PROMETTENT UN RETOUR À LA NORMALE",
+    text: "« Ils n'ont jamais réussi à définir ce mot, mais cela ne les empêche pas de l'utiliser. »",
+    author: null
+  },
+  {
+    id: "p6_crisis_sirens",
+    period: 6,
+    conditionType: "crise",
+    title: "LES SIRÈNES RÉSONNENT DANS TOUTE LA CAPITALE",
+    text: "« Les habitants descendent dans les égouts avec calme. Certains apportent même des cartes, de l'eau et les anciens journaux. »",
+    author: null
+  },
+  {
+    id: "p6_crisis_claude",
+    period: 6,
+    conditionType: "crise",
+    title: "CLAUDE RESTE PRÈS DU FEU",
+    text: "« Les centrales s'arrêtent, les écrans tremblent, les prêtres cherchent un discours. Moi, je surveille ma flamme, pour ce que ça vaut aujourd'hui. »",
+    author: "Claude, gardien du feu"
+  },
+
+  // --- Tension ---
+  {
+    id: "p6_tension_denial",
+    period: 6,
+    conditionType: "tension",
+    title: "LE GOUVERNEMENT NIE TOUTE INGÉRENCE EXTÉRIEURE",
+    text: "« Le communiqué affirme que la civilisation est souveraine, libre et maîtresse de son destin. »",
+    author: null
+  },
+  {
+    id: "p6_tension_manifesto",
+    period: 6,
+    conditionType: "tension",
+    title: "MANIFESTATION CONTRE LES CYCLES",
+    text: "« Des milliers de citoyens réclament une histoire linéaire, des progrès durables et des fins moins répétitives. Le cortège tourne autour du même rond-point depuis deux heures. »",
+    author: null
+  },
+  {
+    id: "p6_tension_parties",
+    period: 6,
+    conditionType: "tension",
+    title: "LES PARTIS SE DISPUTENT LE CRÉATEUR",
+    text: "« Les uns veulent l'honorer, les autres le limiter, d'autres encore prétendent comprendre ses intentions. Vous n'avez répondu à aucun débat. »",
+    author: null
+  },
+  {
+    id: "p6_tension_budget",
+    period: 6,
+    conditionType: "tension",
+    title: "LES BUDGETS DE L'URGENCE",
+    text: "« Chaque crise débloque des fonds, chaque fonds crée une commission, chaque commission demande un nouveau budget. Attention, je ne dis pas que l'effondrement est rentable. Pas encore. »",
+    author: "Edith, comptable"
+  },
+
+  // --- Usure ---
+  {
+    id: "p6_usure_districts",
+    period: 6,
+    conditionType: "usure",
+    title: "LES ANCIENS QUARTIERS SONT CLASSÉS PUIS OUBLIÉS",
+    text: "« On pose des plaques, on coupe des rubans, on promet de préserver la mémoire ; mais pour combien de temps ? »",
+    author: null
+  },
+  {
+    id: "p6_usure_archives",
+    period: 6,
+    conditionType: "usure",
+    title: "LES ARCHIVES SONORES RÉPÈTENT LES MÊMES PHRASES",
+    text: "« Croissance historique. Tensions inédites. Réforme nécessaire. Retour à la stabilité ou effondrement. Les gens changent, mais pas le scénario. »",
+    author: null
+  },
+  {
+    id: "p6_usure_infra",
+    period: 6,
+    conditionType: "usure",
+    title: "LES INFRASTRUCTURES TIENNENT PAR RUSTINES",
+    text: "« Les ponts, les lignes et les réseaux deviennent vestiges et poussière. On les entretient surtout pour retarder la phrase suivante. »",
+    author: null
+  },
+
+  // --- Nourriture ---
+  {
+    id: "p6_food_factories",
+    period: 6,
+    conditionType: "nourriture",
+    title: "LES USINES ALIMENTAIRES NE S'ARRÊTENT PLUS",
+    text: "« La production couvre la capitale, les provinces et plusieurs régions du monde. »",
+    author: null
+  },
+  {
+    id: "p6_food_famine",
+    period: 6,
+    conditionType: "nourriture",
+    title: "LA FAMINE DEVIENT UN SOUVENIR",
+    text: "« Les anciens racontent les ventres vides pour faire peur aux enfants, qui s'empressent d'ingurgiter davantage de nourriture, juste au cas où. »",
+    author: null
+  },
+  {
+    id: "p6_food_habit",
+    period: 6,
+    conditionType: "nourriture",
+    title: "NOURRIR LE MONDE EST DEVENU UNE HABITUDE",
+    text: "« Les convois partent par trains, navires et dirigeables. La générosité est belle, surtout quand elle suit les horaires. »",
+    author: "Nessa, directrice des échanges"
+  },
+  {
+    id: "p6_food_harvest",
+    period: 6,
+    conditionType: "nourriture",
+    title: "DES RÉCOLTES TROP STABLES POUR ÊTRE NATURELLES",
+    text: "« Les météorologues parlent de chance, les agronomes de méthode, les croyants de volonté supérieure. »",
+    author: null
+  },
+
+  // --- Or ---
+  {
+    id: "p6_gold_markets",
+    period: 6,
+    conditionType: "or",
+    title: "LES MARCHÉS ANTICIPENT MÊME LES MIRACLES",
+    text: "« Les prix semblent toujours avoir un temps d'avance : ils grimpent avant les sauvetages, baissent avant les crises et repartent à la hausse avant même que les dirigeants prennent la parole. Certains pensent que quelqu'un est bien informé. »",
+    author: null
+  },
+  {
+    id: "p6_gold_logo",
+    period: 6,
+    conditionType: "or",
+    title: "LA MAIN DEVIENT UN LOGO",
+    text: "« Banques, assurances, journaux, écoles : le symbole du Créateur apparaît partout. Personne ne sait ce qu'il fait, mais tous espèrent qu'il veut le bien de la cité. »",
+    author: null
+  },
+  {
+    id: "p6_gold_khael",
+    period: 6,
+    conditionType: "or",
+    title: "KHAEL OUVRE UN PROCÈS CONTRE L'INVISIBLE",
+    text: "« L'accusé ne se présente pas. Le tribunal débat tout de même de sa responsabilité dans les cycles, les crises et plusieurs décisions urbanistiques discutables. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p6_gold_line",
+    period: 6,
+    conditionType: "or",
+    title: "UNE LIGNE IMPOSSIBLE",
+    text: "« Dans les comptes, une perte ancienne devient un gain futur. Ce n'est pas une erreur. C'est pire : c'est cohérent. »",
+    author: "Edith, comptable"
+  },
+
+  // --- Savoir ---
+  {
+    id: "p6_know_system",
+    period: 6,
+    conditionType: "savoir",
+    title: "LES SAVANTS PARLENT D'UN SYSTÈME",
+    text: "« Le mot circule dans les universités, les journaux et les cafés. Il est moins sacré que destin, car il serait quantifiable. »",
+    author: null
+  },
+  {
+    id: "p6_know_loops",
+    period: 6,
+    conditionType: "savoir",
+    title: "LE MYTHE DES BOUCLES ENTRE DANS LES ÉCOLES",
+    text: "« Les enfants apprennent que les civilisations naissent, grandissent, saturent, tombent, puis laissent quelque chose derrière elles. Les professeurs évitent le mot recommencer. »",
+    author: null
+  },
+  {
+    id: "p6_know_publication",
+    period: 6,
+    conditionType: "savoir",
+    title: "PUBLICATION : \"NOUS SOMMES PEUT-ÊTRE ADMINISTRÉS\"",
+    text: "« Le texte fait scandale, non parce qu'il accuse quelqu'un, mais parce qu'il met des mots sur ce que chacun soupçonnait déjà. »",
+    author: "Raphaël, essayiste"
+  },
+  {
+    id: "p6_know_medicine",
+    period: 6,
+    conditionType: "savoir",
+    title: "LA MÉDECINE ALLONGE LA VIE",
+    text: "« On soigne mieux, on vit plus longtemps, on comprend davantage et pourtant, les grandes secousses finissent toujours par revenir. »",
+    author: null
+  },
+
+  // --- Bonus ---
+  {
+    id: "p6_stage_start_waves",
+    period: 6,
+    conditionType: "stage_start",
+    title: "UN NOUVEL ÂGE EST ANNONCÉ SUR TOUTES LES ONDES",
+    text: "« La voix officielle promet une reconstruction complète, durable et rationnelle. »",
+    author: null
+  },
+  {
+    id: "p6_stage_6_roads",
+    period: 6,
+    conditionType: "stage_6",
+    title: "LES ROUTES DEVIENNENT DES RÉSEAUX",
+    text: "« Les villes, les ports, les tours et les usines sont reliés en permanence. »",
+    author: null
+  },
+  {
+    id: "p6_stage_12_empire",
+    period: 6,
+    conditionType: "stage_12",
+    title: "L'EMPIRE N'A PLUS BESOIN DE DIRE SON NOM",
+    text: "« Les frontières sont immenses, les lois circulent vite et les ordres encore plus. Le drapeau est reconnu. »",
+    author: null
+  },
+  {
+    id: "p6_pop_1b_megacity",
+    period: 6,
+    conditionType: "pop_1b",
+    title: "LA MÉGALOPOLE AVALE L'HORIZON",
+    text: "« Les quartiers s'étendent jusqu'aux anciennes campagnes, puis jusqu'aux anciennes cartes. On ne quitte plus la ville. »",
+    author: null
+  },
+  {
+    id: "p6_paix_world",
+    period: 6,
+    conditionType: "paix",
+    title: "LA PAIX MONDIALE PARAÎT FABRIQUÉE",
+    text: "« Plus de guerre ouverte, plus de famine majeure, plus d'ennemi évident. »",
+    author: null
+  },
+  {
+    id: "p6_paix_stable",
+    period: 6,
+    conditionType: "paix",
+    title: "TOUT FONCTIONNE, CE QUI INQUIÈTE",
+    text: "« Les trains partent, les récoltes arrivent, les marchés tiennent, les hôpitaux soignent. La population commence à comprendre qu'un monde trop stable demande aussi une explication. »",
+    author: null
+  },
+  {
+    id: "p6_bonus_hands",
+    period: 6,
+    conditionType: "bonus_libre",
+    title: "FINANCÉ PAR DES MAINS QUI N'APPARAISSENT PAS",
+    text: "« Les journaux refusent de dire qui les soutient vraiment. Certains lecteurs dessinent une main ouverte, puis la barrent avant de la redessiner. »",
+    author: null
+  },
+
+  // =========================================================================
+  //  PÉRIODE 7 — Flux Cybernétique (eraIndex 32+)
+  // =========================================================================
+
+  // --- Crise ---
+  {
+    id: "p7_crisis_alert",
+    period: 7,
+    conditionType: "crise",
+    title: "ALERTE : EFFONDREMENT EN COURS",
+    text: "« Les indicateurs passent au rouge, les réseaux saturent et les habitants consultent les anciens cycles. Au final, personne n'est surpris ; c'est ce qui doit arriver. »",
+    author: null
+  },
+  {
+    id: "p7_crisis_panic",
+    period: 7,
+    conditionType: "crise",
+    title: "LES AUTORITÉS DEMANDENT DE NE PAS PANIQUER",
+    text: "« Le message automatique a été diffusé avant la crise. »",
+    author: null
+  },
+  {
+    id: "p7_crisis_signal",
+    period: 7,
+    conditionType: "crise",
+    title: "LA CAPITALE PERD LE SIGNAL",
+    text: "« Les tours s'éteignent une à une. Dans le silence, on se surprend à s'entendre respirer, et profiter. »",
+    author: "Claude, gardien du feu"
+  },
+  {
+    id: "p7_crisis_claude",
+    period: 7,
+    conditionType: "crise",
+    title: "CLAUDE GARDE LE FEU, ENCORE",
+    text: "« Les écrans tombent, les temples ferment et les systèmes redémarrent. Moi, je garde la flamme et j'attends les prochains. »",
+    author: "Claude, gardien du feu"
+  },
+
+  // --- Tension ---
+  {
+    id: "p7_tension_random",
+    period: 7,
+    conditionType: "tension",
+    title: "LE PEUPLE RÉCLAME UN DROIT AU HASARD",
+    text: "« Les citoyens demandent des vies non optimisées, des erreurs gratuites et des chemins qui ne servent à rien. Le gouvernement juge la revendication difficile à chiffrer. »",
+    author: null
+  },
+  {
+    id: "p7_tension_debate",
+    period: 7,
+    conditionType: "tension",
+    title: "DÉBAT NATIONAL : SOMMES-NOUS GÉRÉS ?",
+    text: "« Les experts répondent oui, non, peut-être, je ne sais pas, pouvez-vous répéter la question ? »",
+    author: null
+  },
+  {
+    id: "p7_tension_cult",
+    period: 7,
+    conditionType: "tension",
+    title: "LE CULTE DU CRÉATEUR PERD DES FIDÈLES",
+    text: "« Les croyants ne doutent pas de son existence, mais de son sens de l'organisation. »",
+    author: null
+  },
+  {
+    id: "p7_tension_edith",
+    period: 7,
+    conditionType: "tension",
+    title: "DEMANDE SOLENNELLE À VOUS VOIR",
+    text: "« Si quelqu'un ajuste nos impôts, nos stocks et nos catastrophes, j'aimerais au moins le connaître. »",
+    author: "Edith, comptable"
+  },
+
+  // --- Usure ---
+  {
+    id: "p7_usure_ruins",
+    period: 7,
+    conditionType: "usure",
+    title: "LES RUINES SONT DÉJÀ RÉPERTORIÉES AVANT DE TOMBER",
+    text: "« Les drones patrimoniaux classent les bâtiments fragiles en futurs souvenirs. Les propriétaires trouvent la démarche prématurée. »",
+    author: null
+  },
+  {
+    id: "p7_usure_archives",
+    period: 7,
+    conditionType: "usure",
+    title: "LES ARCHIVES NE PARLENT PLUS DU PASSÉ, MAIS DES VERSIONS",
+    text: "« Version avant la famine. Version après les routes. Version prospère. Version effondrée. Les historiens ne datent plus : ils comparent. »",
+    author: null
+  },
+  {
+    id: "p7_usure_world",
+    period: 7,
+    conditionType: "usure",
+    title: "LE MONDE SEMBLE AVOIR TROP SERVI",
+    text: "« Les sols sont usés, les murs sont repris, les réseaux sont réparés sur des réparations. La civilisation tient encore, mais jusqu'où ? »",
+    author: null
+  },
+
+  // --- Nourriture ---
+  {
+    id: "p7_food_hunger",
+    period: 7,
+    conditionType: "nourriture",
+    title: "LA FAIM EST RÉSOLUE, PUIS REVIENT EN OPTION",
+    text: "« Les systèmes produisent assez pour tous. Pourtant, certains scénarios de crise réactivent les désastres. »",
+    author: null
+  },
+  {
+    id: "p7_food_stocks",
+    period: 7,
+    conditionType: "nourriture",
+    title: "LES STOCKS DÉPASSENT LA CONSOMMATION",
+    text: "« On produit plus que l'humanité ne peut consommer. Les anciens mots pour manque, ration et famine sont conservés au musée. »",
+    author: null
+  },
+  {
+    id: "p7_food_nessa",
+    period: 7,
+    conditionType: "nourriture",
+    title: "NESSA SUPERVISE LA NOURRITURE PLANÉTAIRE",
+    text: "« Les flux partent vers les mégapoles, les arches, les stations et les zones oubliées. La générosité n'a plus de visage, l'humanité est unie. »",
+    author: "Nessa, coordinatrice des flux"
+  },
+  {
+    id: "p7_food_harvest",
+    period: 7,
+    conditionType: "nourriture",
+    title: "DES RÉCOLTES PARFAITES INQUIÈTENT LES ENFANTS",
+    text: "« À l'école, on leur apprend que la nature est complexe. Pourtant, tout pousse naturellement et exponentiellement. »",
+    author: null
+  },
+
+  // --- Or ---
+  {
+    id: "p7_gold_economy",
+    period: 7,
+    conditionType: "or",
+    title: "L'ÉCONOMIE TOURNE TOUJOURS",
+    text: "« Les marchés chutent, remontent, rechutent, puis battent un record. Les citoyens ne savent plus si c'est une crise ou une animation. »",
+    author: null
+  },
+  {
+    id: "p7_gold_hand",
+    period: 7,
+    conditionType: "or",
+    title: "LA MAIN EST PARTOUT, SAUF LÀ OÙ ON REGARDE",
+    text: "« Elle figure sur les monnaies, les contrats, les écrans et les bâtiments publics. Tout le monde la reconnaît. »",
+    author: null
+  },
+  {
+    id: "p7_gold_khael",
+    period: 7,
+    conditionType: "or",
+    title: "KHAEL OUVRE UN RECOURS CONTRE LE CYCLE",
+    text: "« Le dossier accuse la répétition, l'optimisation et plusieurs effondrements abusifs. Le tribunal accepte la plainte, faute de savoir à qui l'envoyer. »",
+    author: "Khael, juge autoproclamé"
+  },
+  {
+    id: "p7_gold_edith",
+    period: 7,
+    conditionType: "or",
+    title: "DÉCOUVERTE DE LA COLONNE HÉRITAGE",
+    text: "« Dans les comptes, tout ce qui disparaît revient ailleurs sous une autre forme. Ce n'est plus de la finance. C'est de la mémoire organisée. »",
+    author: "Edith, comptable"
+  },
+
+  // --- Savoir ---
+  {
+    id: "p7_know_loop",
+    period: 7,
+    conditionType: "savoir",
+    title: "LES CHERCHEURS NOMMENT LA BOUCLE",
+    text: "« On ne parle plus de destin, ni de faveur, ni de système. On parle de boucle. »",
+    author: null
+  },
+  {
+    id: "p7_know_theory",
+    period: 7,
+    conditionType: "savoir",
+    title: "PREMIÈRE THÉORIE DU COMPTEUR",
+    text: "« Certains savants affirment que notre grandeur est mesurée en permanence, mais ignorent par qui. Ou quoi. »",
+    author: null
+  },
+  {
+    id: "p7_know_raphael",
+    period: 7,
+    conditionType: "savoir",
+    title: "RAPHAËL PUBLIE : \"JE CROIS QU'IL JOUE\"",
+    text: "« J'ai écrit peu de mots, sans colère ni éclat. Pourtant, ce sont souvent les idées les plus simples qui restent le plus longtemps. »",
+    author: "Raphaël, essayiste"
+  },
+  {
+    id: "p7_know_maps",
+    period: 7,
+    conditionType: "savoir",
+    title: "LES CARTOGRAPHES DESSINENT DES FRONTIÈRES QUI BOUGENT TOUTES SEULES",
+    text: "« Chaque décennie ajoute une ligne, efface une autre et transforme les certitudes en annotations. Le monde change et reste instable. »",
+    author: null
+  },
+
+  // --- Bonus ---
+  {
+    id: "p7_stage_start_auto",
+    period: 7,
+    conditionType: "stage_start",
+    title: "UN NOUVEL ÂGE COMMENCE AVEC UN MESSAGE AUTOMATIQUE",
+    text: "« Bienvenue dans une nouvelle phase de développement. La formule apparaît sur tous les écrans sans que personne ne sache qui l'a validée. »",
+    author: null
+  },
+  {
+    id: "p7_stage_6_program",
+    period: 7,
+    conditionType: "stage_6",
+    title: "LES ROUTES RESSEMBLENT À DES LIGNES DE PROGRAMME",
+    text: "« Elles relient exactement ce qu'il faut, contournent rarement, optimisent souvent. Les urbanistes parlent d'efficacité. Les enfants parlent de grille. »",
+    author: null
+  },
+  {
+    id: "p7_stage_12_layer",
+    period: 7,
+    conditionType: "stage_12",
+    title: "L'EMPIRE DEVIENT UNE COUCHE DU MONDE",
+    text: "« Il n'a plus besoin de conquérir. Il administre, relie, absorbe, transmet. »",
+    author: null
+  },
+  {
+    id: "p7_pop_100b_cover",
+    period: 7,
+    conditionType: "pop_100b",
+    title: "LA CIVILISATION COUVRE PRESQUE TOUT",
+    text: "« Les villes se touchent, les campagnes deviennent des interlignes, les océans des couloirs. Les cartes ne représentent plus le monde : elles le compressent. »",
+    author: null
+  },
+  {
+    id: "p7_paix_setting",
+    period: 7,
+    conditionType: "paix",
+    title: "LA PAIX TOTALE A L'AIR D'UN RÉGLAGE",
+    text: "« Aucun front, aucune famine, aucune grande rupture. Les stratèges parlent de miracle. Les techniciens parlent de paramètre. »",
+    author: null
+  },
+  {
+    id: "p7_paix_wait",
+    period: 7,
+    conditionType: "paix",
+    title: "TOUT EST STABLE, DONC TOUT LE MONDE ATTEND",
+    text: "« La prospérité continue, les courbes montent, les alertes se taisent. Tout s'autoproduit et s'automatise ; alors on attend. »",
+    author: null
+  },
+  {
+    id: "p7_bonus_observers",
+    period: 7,
+    conditionType: "bonus_libre",
+    title: "LES OBSERVATEURS DEVIENNENT LE SUJET",
+    text: "« Pendant longtemps, la Chronique a raconté le monde. Désormais, elle s'interroge sur ceux qui le contemplent. Les lecteurs remarquent que certains articles semblent répondre à des questions qui n'ont jamais été posées. »",
+    author: null
+  },
+  {
+    id: "p7_bonus_question",
+    period: 7,
+    conditionType: "bonus_libre",
+    title: "DERNIÈRE QUESTION",
+    text: "« Si tout recommence, que reste-t-il de nous ? »",
+    author: null
+  }
+];

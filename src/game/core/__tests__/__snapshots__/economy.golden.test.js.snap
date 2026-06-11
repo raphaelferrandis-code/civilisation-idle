@@ -1,0 +1,99 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden-master du cœur économique > buildingBatchCost > foragers x1 1`] = `
+{
+  "food": Decimal(273.93034604205934),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > foragers x25 1`] = `
+{
+  "food": Decimal(93849.49135050112),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > foragers x500 1`] = `
+{
+  "food": Decimal(1.3285297805724612e+39),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > foragers xmax 1`] = `
+{
+  "food": Decimal(273.93034604205934),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > markets x1 1`] = `
+{
+  "food": Decimal(25937.424600999995),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > markets x25 1`] = `
+{
+  "food": Decimal(14375614.14672942),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > markets x500 1`] = `
+{
+  "food": Decimal(3.050652325252528e+46),
+}
+`;
+
+exports[`golden-master du cœur économique > buildingBatchCost > markets xmax 1`] = `
+{
+  "food": Decimal(25937.424600999995),
+}
+`;
+
+exports[`golden-master du cœur économique > cityVitals 1`] = `
+{
+  "foodBonus": -0.11400000000000002,
+  "foodMult": 1,
+  "foodScore": 0.06666666666666667,
+  "goldBonus": 0.22,
+  "goldMult": 1.22,
+  "goldScore": 0.5714285714285714,
+  "infraMult": 1.0960666666666665,
+  "instabilityRelief": 0.0052,
+  "knowledgeBonus": 0.08666666666666667,
+  "knowledgeMult": 1.0866666666666667,
+  "knowledgeScore": 0.26666666666666666,
+  "populationMult": 0.886,
+}
+`;
+
+exports[`golden-master du cœur économique > maxBuyAmount > foragers 1`] = `24`;
+
+exports[`golden-master du cœur économique > maxBuyAmount > guilds 1`] = `1`;
+
+exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `2`;
+
+exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
+{
+  "complexity": 0.6813436132213111,
+  "dissent": 0.07523170032001948,
+  "inequality": 0.07919999999999999,
+  "mitigation": 0.33766340242750076,
+  "scarcity": 0.18333333333333335,
+  "structural": 0.18172000000000002,
+  "total": 0.8631652444471634,
+}
+`;
+
+exports[`golden-master du cœur économique > rates 1`] = `
+{
+  "food": Decimal(7713.683554745192),
+  "gold": Decimal(9077.688185428035),
+  "infrastructure": Decimal(1155.1735704940465),
+  "instability": 0.8579652444471634,
+  "knowledge": Decimal(0),
+  "population": Decimal(811.9837544644295),
+}
+`;
+
+exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(4)`;
+
+exports[`golden-master du cœur économique > timeWearRate 1`] = `0.000012715269475780118`;
