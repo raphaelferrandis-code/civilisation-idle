@@ -49,6 +49,8 @@ const CM = {
   vehicleSig: "",
   ships: [],
   nightF: 0,
+  healthF: 0.6,
+  lodActive: false,
   drag: null, dragged: false,
   centered: false,
   inited: false,
@@ -350,11 +352,18 @@ function cmWonderSlot(idx, gridN, cx, cy) {
   return cmBaseWonderSlot(idx, gridN, cx, cy);
 }
 
-function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet) {
+function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas) {
   const base = cmBaseWonderSlot(idx, gridN, cx, cy);
   const waterR = Math.max(2, WONDER_CLEAR_R - 1);
   const blocked = (gx, gy) => {
     if (gx < 2 || gy < 2 || gx > gridN - 3 || gy > gridN - 3) return true;
+    // Jamais sur une esplanade : les places restent des espaces publics nus.
+    if (Array.isArray(plazas)) {
+      for (const p of plazas) {
+        const half = p.size / 2 + 2.5;
+        if (Math.abs(gx - p.gx) <= half && Math.abs(gy - p.gy) <= half) return true;
+      }
+    }
     for (let dy = -waterR; dy <= waterR; dy += 1) {
       for (let dx = -waterR; dx <= waterR; dx += 1) {
         if (Math.hypot(dx, dy) > waterR) continue;
@@ -704,7 +713,7 @@ function computeCityLayout(s) {
   const frozenWallReach = Number.isFinite(s.wallRadius) && s.wallRadius > 0 ? s.wallRadius : null;
   const walls = generateWalls({
     plan, seed: mapSeed, counts: c, ageCfg, personality, N,
-    reachBase: frozenWallReach || cityReachBase, roadKey, riverSet, bankSet
+    reachBase: frozenWallReach || cityReachBase, roadKey, roadMeta, riverSet, bankSet
   });
   if (walls && !frozenWallReach) s.wallRadius = cityReachBase;
   const wallSet = walls ? walls.set : null;
@@ -713,7 +722,7 @@ function computeCityLayout(s) {
   const districts = [];
   const occupiedFoot = new Set();
   const builtWonderIds = new Set(Array.isArray(s.wonders) ? s.wonders : []);
-  const wonderSlots = CM_WONDERS.map((_, wi) => cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet));
+  const wonderSlots = CM_WONDERS.map((_, wi) => cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas));
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     if (!builtWonderIds.has(CM_WONDERS[wi].id)) continue;
     const slot = wonderSlots[wi];

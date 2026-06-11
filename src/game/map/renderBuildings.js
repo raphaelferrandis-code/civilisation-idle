@@ -1,4 +1,4 @@
-/* eslint-disable */
+﻿/* eslint-disable */
 import { state } from '../core/state.js';
 import {
   CM,
@@ -15,174 +15,49 @@ import { baseColor, cmLitColor } from './renderWorld.js';
 
 /* ============================================================================
  * citymap-render-buildings.js - Rendu des tuiles, batiments, districts et merveilles.
- *   drawDistrict, drawTile et helpers de forme (drawHouseShape, drawPublicShape,
+ *   drawTile et helpers de forme (drawHouseShape, drawPublicShape,
  *   drawEngineSprite, drawTinyCamp). Depend de CM, citymap-camera et citymap-draw-utils.
  * ============================================================================ */
 
-// Constantes module — allouées une fois, jamais à chaque frame
-const CM_DISTRICT_PALETTE = {
-  dense:      ["#5c4521", "#2f2110"],
-  market:     ["#8a6622", "#e8c96a"],
-  monument:   ["#c9a84c", "#fff1bd"],
-  archive:    ["#6a5a34", "#e8dcae"],
-  temple:     ["#a58a3f", "#f0d98d"],
-  keep:       ["#77715d", "#d8cfb0"],
-  forum:      ["#9f7b2a", "#f0d98d"],
-  palace:     ["#b19042", "#fff1bd"],
-  tower:      ["#60594c", "#e8dcae"],
-  station:    ["#5e5746", "#e8dcae"],
-  spire:      ["#625a49", "#f0d98d"],
-  observatory:["#534a34", "#e8dcae"],
-  arcology:   ["#5e5746", "#e8dcae"],
-  grid:       ["#544e3e", "#e8dcae"]
+// Teintes de quartier (qkind) : dominante marquée pour que les quartiers se
+// distinguent d'un coup d'œil — toits de tuile en habitat, souk doré, marbre
+// lavande au sanctuaire, garnison rouge sombre, quartier savant bleuté...
+const CM_QTINT = {
+  habitat: "rgba(205,92,58,0.16)",
+  marchand: "rgba(235,180,60,0.17)",
+  religieux: "rgba(206,188,255,0.18)",
+  militaire: "rgba(190,60,46,0.16)",
+  savant: "rgba(96,150,255,0.17)",
+  agricole: "rgba(150,200,80,0.14)",
+  prestige: "rgba(255,226,150,0.2)"
 };
-const CM_DISTRICT_PALETTE_DEFAULT = ["#5c4521", "#2f2110"];
-const CM_FREESTANDING_KINDS = new Set(["tower", "spire", "arcology", "station", "grid", "observatory"]);
 
-function drawDistrict(d, now, timeWear) {
-  const span = d.size;
-  const box = cityMapTileScreen(d.gx, d.gy, span);
-  if (box.x < -box.w || box.y < -box.h || box.x > CM.cw + box.w || box.y > CM.ch + box.h) return;
-  const ctx = CM.ctx;
-  const pad = box.s * 0.12;
-  const born = CM.born[d.key] || now;
-  const prog = Math.max(0, Math.min(1, (now - born) / 650));
-  const e = prog * prog * (3 - 2 * prog);
-  const inset = (1 - e) * Math.min(box.w, box.h) * 0.35;
-  const x = box.x + inset, y = box.y + inset, w = box.w - inset * 2, h = box.h - inset * 2;
-  if (w <= 1 || h <= 1) return;
-  const palette = CM_DISTRICT_PALETTE[d.kind] || CM_DISTRICT_PALETTE_DEFAULT;
+// Masses de quartier pour le rendu dézoomé (LOD) : une couleur pleine par
+// type de quartier/catégorie, lisible de très haut.
+const CM_LOD_COLORS = {
+  habitat: "#9c5a40",
+  marchand: "#b08a3a",
+  religieux: "#9a8cb8",
+  militaire: "#84443a",
+  savant: "#5a7aa8",
+  agricole: "#6f8a3c",
+  prestige: "#c2a868"
+};
+const CM_LOD_BY_TYPE = {
+  house: "#8a6044",
+  public: "#b09050",
+  library: "#7a86a0",
+  farm: "#55772e",
+  engine: "#c0a050"
+};
 
-  ctx.globalAlpha = e;
-  ctx.fillStyle = "rgba(8,5,2,0.28)";
-  ctx.beginPath();
-  ctx.ellipse(x + w / 2, y + h * 0.76, w * 0.43, h * 0.22, 0, 0, Math.PI * 2);
-  ctx.fill();
-  const bx = x + pad, by = y + pad, bw = w - pad * 2, bh = h - pad * 2;
-  const freestanding = CM_FREESTANDING_KINDS.has(d.kind);
-  if (!freestanding) {
-    // Masse batie avec ombrage lateral + bandeau de toit (plus de cadre carre dur).
-    ctx.fillStyle = palette[0];
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = "rgba(255,235,190,0.07)";
-    ctx.fillRect(bx, by, bw * 0.24, bh);
-    ctx.fillStyle = "rgba(0,0,0,0.24)";
-    ctx.fillRect(bx + bw * 0.76, by, bw * 0.24, bh);
-    ctx.fillStyle = "rgba(18,11,4,0.55)";
-    ctx.fillRect(bx, by, bw, bh * 0.13);
-  }
-
-  if (d.kind === "spire" || d.kind === "tower" || d.kind === "arcology") {
-    const towers = d.kind === "arcology" ? 5 : d.kind === "spire" ? 3 : 4;
-    for (let twr = 0; twr < towers; twr += 1) {
-      const ratio = towers === 1 ? 0.5 : twr / (towers - 1);
-      const tw = bw * (d.kind === "arcology" ? 0.18 : 0.16);
-      const th = bh * (0.46 + ((twr * 37) % 5) * 0.08 + (d.kind === "spire" ? 0.2 : 0));
-      const tx = bx + bw * (0.18 + ratio * 0.64) - tw / 2;
-      const ty = by + bh * 0.88 - th;
-      ctx.fillStyle = palette[0];
-      ctx.fillRect(tx, ty, tw, th);
-      ctx.strokeStyle = "rgba(215,243,255,0.48)";
-      ctx.lineWidth = Math.max(1, box.s * 0.035);
-      ctx.strokeRect(tx, ty, tw, th);
-      ctx.fillStyle = palette[1];
-      for (let row = 0; row < 5; row += 1) {
-        const wy = ty + th * (0.18 + row * 0.14);
-        if (wy > ty + th * 0.84) continue;
-        ctx.fillRect(tx + tw * 0.28, wy, tw * 0.16, Math.max(1, th * 0.045));
-        ctx.fillRect(tx + tw * 0.58, wy, tw * 0.16, Math.max(1, th * 0.045));
-      }
-    }
-    ctx.fillStyle = "rgba(20,12,5,0.32)";
-    ctx.fillRect(bx + bw * 0.18, by + bh * 0.78, bw * 0.64, bh * 0.12);
-    ctx.fillStyle = palette[1];
-    if (d.kind === "spire") {
-      ctx.beginPath();
-      ctx.moveTo(bx + bw * 0.42, by + bh * 0.2);
-      ctx.lineTo(bx + bw * 0.5, by - bh * 0.06);
-      ctx.lineTo(bx + bw * 0.58, by + bh * 0.2);
-      ctx.closePath();
-      ctx.fill();
-    }
-  } else if (d.kind === "station" || d.kind === "grid") {
-    ctx.fillStyle = palette[0];
-    ctx.beginPath();
-    ctx.moveTo(bx + bw * 0.16, by + bh * 0.32);
-    ctx.lineTo(bx + bw * 0.84, by + bh * 0.22);
-    ctx.lineTo(bx + bw * 0.92, by + bh * 0.7);
-    ctx.lineTo(bx + bw * 0.28, by + bh * 0.88);
-    ctx.lineTo(bx + bw * 0.1, by + bh * 0.62);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = palette[1];
-    ctx.lineWidth = Math.max(1, box.s * 0.05);
-    for (let i = 1; i < 4; i += 1) {
-      const lx = bx + bw * i / 4;
-      const ly = by + bh * i / 4;
-      ctx.beginPath(); ctx.moveTo(lx, by + bh * 0.12); ctx.lineTo(lx, by + bh * 0.88); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(bx + bw * 0.12, ly); ctx.lineTo(bx + bw * 0.88, ly); ctx.stroke();
-    }
-  } else if (d.kind === "dense" || d.kind === "market" || d.kind === "forum") {
-    ctx.fillStyle = "rgba(20,12,5,0.32)";
-    ctx.fillRect(bx + bw * 0.18, by + bh * 0.18, bw * 0.64, bh * 0.64);
-    ctx.fillStyle = "rgba(255,232,180,0.24)";
-    const cols = Math.max(3, Math.floor(span * 2.2));
-    for (let i = 1; i < cols; i += 1) {
-      const lx = bx + bw * i / cols;
-      ctx.fillRect(lx, by + bh * 0.08, Math.max(1, box.s * 0.045), bh * 0.84);
-    }
-    if (d.kind === "market" || d.kind === "forum") {
-      ctx.fillStyle = "rgba(232,201,106,0.55)";
-      ctx.fillRect(bx + bw * 0.28, by + bh * 0.36, bw * 0.44, bh * 0.28);
-    }
-  } else {
-    if (freestanding) {
-      ctx.fillStyle = palette[0];
-      ctx.beginPath();
-      ctx.ellipse(bx + bw * 0.5, by + bh * 0.52, bw * 0.36, bh * 0.28, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.fillStyle = "rgba(18,10,4,0.28)";
-      ctx.fillRect(bx + bw * 0.22, by + bh * 0.22, bw * 0.56, bh * 0.56);
-    }
-    ctx.fillStyle = palette[1];
-    if (d.kind === "archive" || d.kind === "observatory") {
-      ctx.fillRect(bx + bw * 0.18, by + bh * 0.2, bw * 0.64, bh * 0.16);
-      ctx.fillRect(bx + bw * 0.18, by + bh * 0.64, bw * 0.64, bh * 0.16);
-      for (let ci = 0; ci < 4; ci += 1) ctx.fillRect(bx + bw * (0.24 + ci * 0.14), by + bh * 0.28, bw * 0.045, bh * 0.34);
-      if (d.kind === "observatory") {
-        ctx.beginPath();
-        ctx.arc(bx + bw * 0.5, by + bh * 0.2, bw * 0.18, Math.PI, Math.PI * 2);
-        ctx.stroke();
-      }
-    } else {
-      ctx.beginPath();
-      ctx.arc(x + w / 2, y + h / 2, Math.max(2, Math.min(w, h) * 0.18), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,241,189,0.45)";
-      ctx.beginPath();
-      ctx.arc(x + w / 2, y + h / 2, Math.max(4, Math.min(w, h) * 0.32), 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillRect(bx + bw * 0.45, by + bh * 0.08, bw * 0.1, bh * 0.84);
-    }
-  }
-
-  // Banniere aux couleurs de la dynastie au sommet du grand batiment.
-  const tint = CM_TINTS[CM.dynastyIdx % CM_TINTS.length];
-  ctx.strokeStyle = "#2a1c0c"; ctx.lineWidth = Math.max(1, box.s * 0.04);
-  ctx.beginPath(); ctx.moveTo(x + w * 0.5, by); ctx.lineTo(x + w * 0.5, by - box.s * 0.55); ctx.stroke();
-  ctx.fillStyle = tint;
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.5, by - box.s * 0.55);
-  ctx.lineTo(x + w * 0.5 + box.s * 0.42, by - box.s * 0.46);
-  ctx.lineTo(x + w * 0.5, by - box.s * 0.37);
-  ctx.closePath(); ctx.fill();
-
-  if (timeWear > 0.65) {
-    ctx.fillStyle = `rgba(20,14,8,${Math.min(0.36, (timeWear - 0.65) * 0.9)})`;
-    ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
-  }
-  ctx.globalAlpha = 1;
+// Tuile en mode LOD : un seul aplat coloré (quartier puis catégorie), aucune
+// micro-géométrie — la métropole vue de haut devient des masses lisibles.
+function drawTileLOD(t, ctx, x, y, w, h) {
+  const col = (t.type !== "farm" && t.type !== "engine" && t.qkind && CM_LOD_COLORS[t.qkind])
+    || CM_LOD_BY_TYPE[t.type] || "#8a6044";
+  ctx.fillStyle = col;
+  ctx.fillRect(x, y, w, h);
 }
 
 /* Building shape helpers moved to buildingShapes.js. */
@@ -196,6 +71,14 @@ function drawTile(t, now, timeWear, maxD2) {
   const boxW = s * spanX, boxH = s * spanY;
   if (sx < -boxW || sy < -boxH || sx > CM.cw + boxW || sy > CM.ch + boxH) return;
   const ctx = CM.ctx;
+
+  // Niveau de détail : très dézoomé, chaque tuile devient un aplat de masse
+  // de quartier — pas de sprites, pas d'ombres, pas d'animations.
+  if (CM.lodActive && !CM.collapseAt) {
+    const padL = Math.max(0.5, s * 0.08);
+    drawTileLOD(t, ctx, sx + padL, sy + padL, boxW - padL * 2, boxH - padL * 2);
+    return;
+  }
 
   // Degradation peripherique (usure > 50%).
   const degradeFrac = timeWear > 0.5 ? (timeWear - 0.5) / 0.5 : 0;
@@ -318,18 +201,10 @@ function drawTile(t, now, timeWear, maxD2) {
     ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
   }
 
-  // Teinte de quartier : dominante subtile selon le quartier d'appartenance
+  // Teinte de quartier : dominante selon le quartier d'appartenance
   // (rend la structure procédurale lisible : souk doré, quartier savant bleuté...).
   if (t.qkind && t.type !== "engine" && t.type !== "farm") {
-    const QTINT = {
-      marchand: "rgba(235,180,60,0.1)",
-      religieux: "rgba(196,176,255,0.1)",
-      militaire: "rgba(190,60,46,0.1)",
-      savant: "rgba(96,150,255,0.1)",
-      agricole: "rgba(150,200,80,0.09)",
-      prestige: "rgba(255,222,140,0.12)"
-    };
-    const tint = QTINT[t.qkind];
+    const tint = CM_QTINT[t.qkind];
     if (tint) {
       ctx.fillStyle = tint;
       ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
