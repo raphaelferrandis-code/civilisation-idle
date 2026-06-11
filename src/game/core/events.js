@@ -28,6 +28,7 @@ import {
   epitaphRuinMultiplier
 } from '../data/epitaphs.js';
 import { fmt } from './utils.js';
+import { D } from './num.js';
 
 export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false }) {
   return requestChoiceDialog({ title, body, options, mourning, variant, preventClose });
@@ -36,7 +37,7 @@ export function openChoiceDialog({ title, body, options, mourning = false, varia
 export function collapseCause() {
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
-  const inequalityWithoutInfra = state.gold > Math.max(500, state.infrastructure * 400 + state.population * 0.7);
+  const inequalityWithoutInfra = D(state.gold).gt(D(state.infrastructure).mul(400).add(D(state.population).mul(0.7)).max(500));
   if ((state.timeWear || 0) >= 1) return "time";
   if (vitals.foodScore < 0.16 || pressure.scarcity >= pressure.inequality && pressure.scarcity >= pressure.complexity) return "famine";
   if (inequalityWithoutInfra || pressure.inequality > Math.max(pressure.scarcity, pressure.complexity, pressure.structural)) return "avarice";
@@ -67,9 +68,9 @@ export async function runCollapseSequence(gain, reason) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
-  const gainBase = Math.round(gain * riteBonus);
+  const gainBase = D(gain).mul(riteBonus).round();
   const options = EPITAPH_LEGACIES.map((legacy) => {
-    const ruinGain = Math.round(gainBase * epitaphRuinMultiplier(legacy, cause));
+    const ruinGain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).round();
     return {
       label: legacy.label,
       detail: `${fmt(ruinGain)} ruines. ${describeEpitaphLegacy(legacy, cause)}`,
@@ -92,7 +93,7 @@ export async function runCollapseSequence(gain, reason) {
     chosenCycle: state.cycles || 0,
     startedAt: Date.now()
   };
-  const finalGain = choice.ruinGain ?? Math.round(gainBase * epitaphRuinMultiplier(chosenLegacy, cause));
+  const finalGain = choice.ruinGain ?? gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round();
 
   completeCollapse(finalGain, fallenDynasty, epitaph, reason);
   setCollapseInProgress(false);

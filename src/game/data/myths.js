@@ -2,6 +2,17 @@
 
 import { state } from '../core/state.js';
 import { log } from '../core/actions.js';
+import { D } from '../core/num.js';
+
+// Score de « puissance » agrégé (Antée, Ragnarok) : somme pondérée des
+// ressources principales, en Decimal pour survivre au-delà du float.
+function mythPowerScore() {
+  return D(state.population).max(0)
+    .add(D(state.food).max(0).mul(0.05))
+    .add(D(state.gold).max(0).mul(0.1))
+    .add(D(state.knowledge).max(0).mul(0.25))
+    .add(D(state.infrastructure).max(0));
+}
 import {
   ANTEE_MIN_ACTIVE_RUINS,
   ANTEE_POWER_THRESHOLD,
@@ -160,7 +171,7 @@ export const MYTHS = [
     },
 
     onCollapse() {
-      return state.ruins >= CHAOS_RUIN_THRESHOLD;
+      return D(state.ruins).gte(CHAOS_RUIN_THRESHOLD);
     },
 
     applyHeritage() {
@@ -259,7 +270,7 @@ export const MYTHS = [
     },
 
     onCollapse() {
-      return state.gold >= SISYPHE_GOLD_TARGET;
+      return D(state.gold).gte(SISYPHE_GOLD_TARGET);
     },
 
     applyHeritage() {
@@ -422,13 +433,13 @@ export const MYTHS = [
 
     onActivate() {
       state.phoenixCycleCount  = 0;
-      state.phoenixTotalRuins  = 0;
+      state.phoenixTotalRuins  = D(0);
       state.phoenixNextForceAt = Date.now() + PHENIX_FORCE_INTERVAL;
     },
 
     onCollapse() {
       return state.phoenixCycleCount >= PHENIX_CYCLE_COUNT &&
-             (state.phoenixTotalRuins || 0) >= PHENIX_RUIN_TARGET;
+             D(state.phoenixTotalRuins).gte(PHENIX_RUIN_TARGET);
     },
 
     applyHeritage() {
@@ -447,7 +458,7 @@ export const MYTHS = [
 
     onActivate() {
       state.atridesDebt = ATRIDES_STARTING_DEBT;
-      state.gold = Math.max(state.gold, ATRIDES_STARTING_GOLD);
+      state.gold = D(state.gold).max(ATRIDES_STARTING_GOLD);
       state.atridesDrainDisabled = false;
       state.atridesDebtGrowthMultiplier = 1;
       state.atridesRenegotiateActiveUntil = 0;
@@ -455,8 +466,8 @@ export const MYTHS = [
     },
 
     onCollapse() {
-      const netGold = state.gold - (state.atridesDebt || 0);
-      return netGold >= ATRIDES_GOAL_NET_GOLD;
+      const netGold = D(state.gold).sub(state.atridesDebt || 0);
+      return netGold.gte(ATRIDES_GOAL_NET_GOLD);
     },
 
     applyHeritage() {
@@ -480,13 +491,9 @@ export const MYTHS = [
     },
 
     onCollapse() {
-      const power = Math.max(0, state.population || 0)
-        + Math.max(0, state.food || 0) * 0.05
-        + Math.max(0, state.gold || 0) * 0.1
-        + Math.max(0, state.knowledge || 0) * 0.25
-        + Math.max(0, state.infrastructure || 0);
+      const power = mythPowerScore();
       return activeRuinCount(state) >= ANTEE_MIN_ACTIVE_RUINS &&
-             power >= ANTEE_POWER_THRESHOLD;
+             power.gte(ANTEE_POWER_THRESHOLD);
     },
 
     applyHeritage() {
@@ -528,12 +535,7 @@ export const MYTHS = [
     },
 
     onCollapse() {
-      const power = Math.max(0, state.population || 0)
-        + Math.max(0, state.food || 0) * 0.05
-        + Math.max(0, state.gold || 0) * 0.1
-        + Math.max(0, state.knowledge || 0) * 0.25
-        + Math.max(0, state.infrastructure || 0);
-      return power >= RAGNAROK_POWER_THRESHOLD || (state.ruins || 0) >= RAGNAROK_RUIN_THRESHOLD;
+      return mythPowerScore().gte(RAGNAROK_POWER_THRESHOLD) || D(state.ruins).gte(RAGNAROK_RUIN_THRESHOLD);
     },
 
     applyHeritage() {

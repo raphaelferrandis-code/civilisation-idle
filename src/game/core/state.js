@@ -4,6 +4,7 @@ import { buildings } from '../data/buildings.js';
 import { upgrades } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { clamp01 } from './utils.js';
+import { Decimal, D } from './num.js';
 import { COLLAPSE_PREP_MAX } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 
@@ -12,7 +13,15 @@ export const SAVE_KEY = "civilization-collapse-idle-v1";
 // Version du SCHÉMA de sauvegarde, stockée DANS le payload (state.saveVersion) —
 // surtout pas dans SAVE_KEY. Bumper SAVE_KEY effacerait tous les saves ; bumper
 // CURRENT_SAVE_VERSION + ajouter une migration les fait évoluer sans perte.
-export const CURRENT_SAVE_VERSION = 1;
+// v2 : les champs sans plafond (ressources, ruines, pics…) sont sérialisés en
+// strings Decimal ("1.5e+30") au lieu de numbers (migration Phase 3).
+export const CURRENT_SAVE_VERSION = 2;
+
+// Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
+export const DECIMAL_SAVE_FIELDS = [
+  "population", "food", "gold", "knowledge", "infrastructure", "ruins",
+  "chaosRuinsBonus", "phoenixTotalRuins", "orPopPeak", "hephPopPeak"
+];
 
 export const defaultAutoScriptRules = () => [
   { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%", threshold: 80, enabled: false },
@@ -50,12 +59,12 @@ export function render() {
 
 export const defaultState = () => ({
   saveVersion: CURRENT_SAVE_VERSION,
-  population: 10,
-  food: 35,
-  gold: 0,
-  knowledge: 0,
-  infrastructure: 0,
-  ruins: 0,
+  population: new Decimal(10),
+  food: new Decimal(35),
+  gold: new Decimal(0),
+  knowledge: new Decimal(0),
+  infrastructure: new Decimal(0),
+  ruins: new Decimal(0),
   legitimacy: 0,
   cycles: 0,
   dynastyCount: 0,
@@ -63,7 +72,7 @@ export const defaultState = () => ({
   mythsCompleted: {},
   mythActsAnnounced: {},
   chaosRuinsDouble: false,
-  chaosRuinsBonus: 0,
+  chaosRuinsBonus: new Decimal(0),
   prometheeFailed: false,
   prometheePopReached: false,
   prometheeBraisiers: false,
@@ -76,15 +85,15 @@ export const defaultState = () => ({
   babelCategory: null,
   babelProdReached: false,
   orHeritage: false,
-  orPopPeak: 0,
+  orPopPeak: new Decimal(0),
   orGoldReached: false,
   orUsureImbalance: false,
   phoenixHeritage: false,
   phoenixCycleCount: 0,
-  phoenixTotalRuins: 0,
+  phoenixTotalRuins: new Decimal(0),
   phoenixNextForceAt: null,
   hephHeritage: false,
-  hephPopPeak: 0,
+  hephPopPeak: new Decimal(0),
   hephGoalReached: false,
   autoScriptRules: null,
   automateRules: null,
@@ -146,9 +155,9 @@ export const defaultState = () => ({
   history: ["An 0: une premiere communaute allume ses feux."],
   bestEraIndex: 0,
   cyclePeaks: {
-    population: 10,
-    knowledge: 0,
-    infrastructure: 0,
+    population: new Decimal(10),
+    knowledge: new Decimal(0),
+    infrastructure: new Decimal(0),
     eraIndex: 0
   },
   cycleStartedAt: Date.now(),
@@ -212,6 +221,7 @@ export let renderCache = {
   _frameVitals: null,
   _framePressure: null,
   _frameGlobalMult: null,
+  _frameGlobalMultDec: null,
   _frameRates: null,
   _buildingSums: null,
   _buildingsVersion: 0,
@@ -254,6 +264,21 @@ export function normalizeCityMapSlots(raw) {
 
 export function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+// Équivalent de finiteNumber pour les champs migrés en Decimal : accepte un
+// Decimal, un number ou une string sérialisée ("1.5e+30"), borne à >= 0, et
+// surtout NE clampe PAS à 2^53 (c'était le plafond caché du chargement).
+export function decimalField(value, fallback) {
+  const candidate =
+    value instanceof Decimal ? value
+      : typeof value === "number" && Number.isFinite(value) ? new Decimal(value)
+      : typeof value === "string" && value ? new Decimal(value)
+      : null;
+  if (!candidate || !Number.isFinite(candidate.mantissa) || !Number.isFinite(candidate.exponent)) {
+    return D(fallback);
+  }
+  return candidate.lt(0) ? new Decimal(0) : candidate;
 }
 
 export function finiteNumber(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
@@ -393,9 +418,9 @@ export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax 
 export function normalizeCyclePeaks(raw, fallback) {
   const source = isPlainObject(raw) ? raw : {};
   return {
-    population: finiteNumber(source.population, fallback.population),
-    knowledge: finiteNumber(source.knowledge, fallback.knowledge),
-    infrastructure: finiteNumber(source.infrastructure, fallback.infrastructure),
+    population: decimalField(source.population, fallback.population),
+    knowledge: decimalField(source.knowledge, fallback.knowledge),
+    infrastructure: decimalField(source.infrastructure, fallback.infrastructure),
     eraIndex: finiteInteger(source.eraIndex, fallback.eraIndex, 0, Math.max(0, eras.length - 1))
   };
 }
@@ -512,6 +537,22 @@ export function normalizeChronicleEntries(raw) {
 // déjà ces saves compatibles. On se contente donc d'estampiller la version.
 const MIGRATIONS = {
   // 0: (s) => { /* aucune transformation : géré par les normalizers */ },
+  // 1 -> 2 : les champs numériques sans plafond deviennent des strings Decimal.
+  // decimalField() accepte les deux formes ; cette migration rend simplement le
+  // format v2 canonique pour que tout save réécrit soit homogène.
+  1: (s) => {
+    for (const field of DECIMAL_SAVE_FIELDS) {
+      if (typeof s[field] === "number" && Number.isFinite(s[field])) s[field] = String(s[field]);
+    }
+    if (isPlainObject(s.cyclePeaks)) {
+      // migrate() ne copie que le premier niveau : on clone avant de muter.
+      s.cyclePeaks = { ...s.cyclePeaks };
+      for (const field of ["population", "knowledge", "infrastructure"]) {
+        const value = s.cyclePeaks[field];
+        if (typeof value === "number" && Number.isFinite(value)) s.cyclePeaks[field] = String(value);
+      }
+    }
+  }
 };
 
 // Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à
@@ -540,12 +581,12 @@ export function hydrateState(parsed = {}) {
   const stateOut = {
     ...base,
     saveVersion: CURRENT_SAVE_VERSION,
-    population: finiteNumber(source.population, base.population),
-    food: finiteNumber(source.food, base.food),
-    gold: finiteNumber(source.gold, base.gold),
-    knowledge: finiteNumber(source.knowledge, base.knowledge),
-    infrastructure: finiteNumber(source.infrastructure, base.infrastructure),
-    ruins: finiteNumber(source.ruins, base.ruins),
+    population: decimalField(source.population, base.population),
+    food: decimalField(source.food, base.food),
+    gold: decimalField(source.gold, base.gold),
+    knowledge: decimalField(source.knowledge, base.knowledge),
+    infrastructure: decimalField(source.infrastructure, base.infrastructure),
+    ruins: decimalField(source.ruins, base.ruins),
     legitimacy: finiteNumber(source.legitimacy, base.legitimacy),
     cycles: finiteInteger(source.cycles, base.cycles),
     dynastyCount: finiteInteger(source.dynastyCount, base.dynastyCount),
@@ -553,7 +594,7 @@ export function hydrateState(parsed = {}) {
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
     chaosRuinsDouble: Boolean(source.chaosRuinsDouble),
-    chaosRuinsBonus: finiteNumber(source.chaosRuinsBonus, 0, 0),
+    chaosRuinsBonus: decimalField(source.chaosRuinsBonus, 0),
     prometheeFailed: Boolean(source.prometheeFailed),
     prometheePopReached: Boolean(source.prometheePopReached),
     prometheeBraisiers: Boolean(source.prometheeBraisiers),
@@ -566,15 +607,15 @@ export function hydrateState(parsed = {}) {
     babelCategory: ["city", "knowledge", "infra"].includes(source.babelCategory) ? source.babelCategory : null,
     babelProdReached: Boolean(source.babelProdReached),
     orHeritage: Boolean(source.orHeritage),
-    orPopPeak: finiteNumber(source.orPopPeak, 0, 0),
+    orPopPeak: decimalField(source.orPopPeak, 0),
     orGoldReached: Boolean(source.orGoldReached),
     orUsureImbalance: Boolean(source.orUsureImbalance),
     phoenixHeritage: Boolean(source.phoenixHeritage),
     phoenixCycleCount: finiteInteger(source.phoenixCycleCount, 0),
-    phoenixTotalRuins: finiteNumber(source.phoenixTotalRuins, 0, 0),
+    phoenixTotalRuins: decimalField(source.phoenixTotalRuins, 0),
     phoenixNextForceAt: source.phoenixNextForceAt ? finiteNumber(source.phoenixNextForceAt, 0, 0) : null,
     hephHeritage: Boolean(source.hephHeritage),
-    hephPopPeak: finiteNumber(source.hephPopPeak, 0, 0),
+    hephPopPeak: decimalField(source.hephPopPeak, 0),
     hephGoalReached: Boolean(source.hephGoalReached),
     autoScriptRules: normalizeRuleList(source.autoScriptRules, defaultAutoScriptRules(), 1, 9999),
     automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99),
@@ -682,6 +723,7 @@ export function invalidateRenderCache(scope = "all") {
     renderCache._frameVitals = null;
     renderCache._framePressure = null;
     renderCache._frameGlobalMult = null;
+    renderCache._frameGlobalMultDec = null;
     renderCache._frameRates = null;
     renderCache._buildingSums = null;
     renderCache.cachedRuinEffects = null;
@@ -772,10 +814,10 @@ export function resetTemporaryRunState(s) {
   s.atlasCrisisCount = 0;
   s.babelProdReached = false;
   s.babelCategory    = null;
-  s.orPopPeak        = s.population || 0;
+  s.orPopPeak        = D(s.population || 0);
   s.orGoldReached    = false;
   s.orUsureImbalance = false;
-  s.hephPopPeak      = s.population || 0;
+  s.hephPopPeak      = D(s.population || 0);
   s.hephGoalReached  = false;
   
   s.icareInfraReached   = false;

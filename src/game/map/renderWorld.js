@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { state } from '../core/state.js';
+import { toNum } from '../core/num.js';
 import {
   CM,
   CM_WONDERS,
@@ -1464,7 +1465,7 @@ function drawCrisis(dt, now) {
     }
   }
 
-  const famine = (state.population || 0) > 60 && (state.food || 0) < (state.population || 0) * 1.1;
+  const famine = toNum(state.population) > 60 && toNum(state.food) < toNum(state.population) * 1.1;
   if (famine) {
     const target = CM.layout.tiles.find((t) => t.type === "public") || CM.layout.tiles.find((t) => t.type === "house");
     if (target) {

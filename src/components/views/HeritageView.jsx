@@ -11,6 +11,7 @@ import { foundDynasty, buyUpgrade, performGrandReset } from '../../game/core/act
 import { upgrades } from '../../game/data/upgrades.js';
 import { DOCTRINES } from '../../game/data/world.js';
 import { fmt } from '../../game/core/utils.js';
+import { D } from '../../game/core/num.js';
 import ViewHeader from '../ui/ViewHeader.jsx';
 
 export default function HeritageView() {
@@ -78,7 +79,7 @@ export default function HeritageView() {
             <strong>
               {legitGain > 0
                 ? `+${fmt(legitGain)} légitimité possible`
-                : `Manque ${fmt(Math.max(0, 300 - ruins))} ruines`}
+                : `Manque ${fmt(D(300).sub(ruins).max(0))} ruines`}
             </strong>
           </div>
           <div>

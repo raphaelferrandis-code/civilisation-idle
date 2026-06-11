@@ -41,6 +41,7 @@ import {
   CADMOS_ORIENTATIONS
 } from '../../data/myths.js';
 import { clamp01, fmt } from '../utils.js';
+import { D } from '../num.js';
 import { log, resetCyclePeaks } from './utils.js';
 import {
   ACTIVE_RUIN_RUPTURE_START,
@@ -79,7 +80,7 @@ export async function foundDynasty() {
   state.dynastyDoctrine = choice.doctrineId || DOCTRINES[0].id;
   state.legitimacy += gain;
   state.dynastyCount += 1;
-  state.ruins = 0;
+  state.ruins = D(0);
   setGamePaused(false);
   resetCivilization();
   openView("city");
@@ -273,9 +274,9 @@ export function activateSurchauffe() {
 export function rembourserAtridesDebt() {
   if (!isMythEffectActive("mythe_atrides") || gamePaused || collapseInProgress) return;
   const cost = (state.atridesDebt || 0) * ATRIDES_DEBT_PAYBACK_FACTOR;
-  if (state.gold < cost) return;
-  
-  state.gold -= cost;
+  if (D(state.gold).lt(cost)) return;
+
+  state.gold = D(state.gold).sub(cost);
   state.atridesDebt = 0;
   log(`Dette remboursée ! Vous avez payé ${fmt(cost)} Trésor pour éteindre votre dette.`);
   invalidateRenderCache("all");
@@ -322,11 +323,11 @@ export function activateAtridesPact() {
 }
 
 export function resetCivilization() {
-  state.population = 10 + ruinEffectSum("startPopulation");
-  state.food = 35 + ruinEffectSum("startFood");
-  state.gold = ruinEffectSum("startGold");
-  state.knowledge = ruinEffectSum("startKnowledge");
-  state.infrastructure = 0;
+  state.population = D(10 + ruinEffectSum("startPopulation"));
+  state.food = D(35 + ruinEffectSum("startFood"));
+  state.gold = D(ruinEffectSum("startGold"));
+  state.knowledge = D(ruinEffectSum("startKnowledge"));
+  state.infrastructure = D(0);
   state.activeEpitaphLegacy = null;
   state.nextEpitaphLegacy = null;
   state.buildings = { ...defaultState().buildings };
@@ -350,8 +351,8 @@ export function migrerEnee() {
 
   state.buildings = { ...defaultState().buildings };
   state.cityMapSlots = {};
-  state.infrastructure = 0;
-  state.food = 35 + ruinEffectSum("startFood");
+  state.infrastructure = D(0);
+  state.food = D(35 + ruinEffectSum("startFood"));
 
   state.eneeMigrations = (state.eneeMigrations || 0) + 1;
   state.eneeDegraded = false;

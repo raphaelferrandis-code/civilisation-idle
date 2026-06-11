@@ -19,6 +19,7 @@ import {
 
 import { buildings } from '../../data/buildings.js';
 import { canPayCost, payCost } from '../utils.js';
+import { D } from '../num.js';
 import { collapse, runCrisisAction } from './crisis.js';
 import { log, chronicle } from './utils.js';
 
@@ -106,7 +107,7 @@ export function checkAutomateRules() {
         .sort((a, b) => {
           const cA = buildingCostAt(a, state.buildings[a.id] || 0)[a.currency] || 0;
           const cB = buildingCostAt(b, state.buildings[b.id] || 0)[b.currency] || 0;
-          return cA - cB;
+          return D(cA).cmp(cB);
         })[0];
       if (cheapest) {
         const cost = buildingBatchCost(cheapest, 1);

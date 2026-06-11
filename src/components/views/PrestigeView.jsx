@@ -91,7 +91,7 @@ export default function PrestigeView() {
     : `+${fmt(timeWearRate() * 100)} pts/s`;
 
   const mythBlocksCollapse = isMythEffectActive("mythe_d_icare") || isMythEffectActive("mythe_d_atlas");
-  const canCollapse = ruinGainVal > 0 && !mythBlocksCollapse;
+  const canCollapse = ruinGainVal.gt(0) && !mythBlocksCollapse;
 
   const showSurchauffe = icareHeritage;
 

@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { state, collapseInProgress, buildingById, renderCache } from '../core/state.js';
+import { toNum } from '../core/num.js';
 import {
   CM,
   CM_MAP_BUILDINGS,
@@ -375,7 +376,7 @@ function cityMapEnsureLayout(now, deps = {}) {
     _cachedCityCounts = null; // invalider aussi cityCounts
   }
   // cityCounts : ne recalculer que si population/infra/knowledge/cycles ont changé significativement
-  const _popKey = Math.floor(state.population / 500) + '|' + Math.floor((state.infrastructure || 0) / 200) + '|' + Math.floor((state.knowledge || 0) / 200) + '|' + (state.cycles || 0);
+  const _popKey = Math.floor(toNum(state.population) / 500) + '|' + Math.floor(toNum(state.infrastructure) / 200) + '|' + Math.floor(toNum(state.knowledge) / 200) + '|' + (state.cycles || 0);
   if (!_cachedCityCounts || _popKey !== _cachedCityCountsPopKey) {
     _cachedCityCounts = cityCounts(state);
     _cachedCityCountsPopKey = _popKey;

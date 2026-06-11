@@ -2,49 +2,49 @@
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x1 1`] = `
 {
-  "food": 273.93034604205934,
+  "food": Decimal(273.93034604205934),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x25 1`] = `
 {
-  "food": 93849.49135050112,
+  "food": Decimal(93849.49135050112),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x500 1`] = `
 {
-  "food": 1.328529780572461e+39,
+  "food": Decimal(1.3285297805724612e+39),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers xmax 1`] = `
 {
-  "food": 273.93034604205934,
+  "food": Decimal(273.93034604205934),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x1 1`] = `
 {
-  "food": 25937.424600999995,
+  "food": Decimal(25937.424600999995),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x25 1`] = `
 {
-  "food": 14375614.14672942,
+  "food": Decimal(14375614.14672942),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x500 1`] = `
 {
-  "food": 3.050652325252528e+46,
+  "food": Decimal(3.050652325252528e+46),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets xmax 1`] = `
 {
-  "food": 25937.424600999995,
+  "food": Decimal(25937.424600999995),
 }
 `;
 
@@ -85,15 +85,15 @@ exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 
 exports[`golden-master du cœur économique > rates 1`] = `
 {
-  "food": 7713.683554745192,
-  "gold": 9077.688185428035,
-  "infrastructure": 1155.1735704940465,
+  "food": Decimal(7713.683554745192),
+  "gold": Decimal(9077.688185428035),
+  "infrastructure": Decimal(1155.1735704940465),
   "instability": 0.8579652444471634,
-  "knowledge": 0,
-  "population": 811.9837544644295,
+  "knowledge": Decimal(0),
+  "population": Decimal(811.9837544644295),
 }
 `;
 
-exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `4`;
+exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(4)`;
 
 exports[`golden-master du cœur économique > timeWearRate 1`] = `0.000012715269475780118`;

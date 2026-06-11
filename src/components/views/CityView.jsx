@@ -28,6 +28,7 @@ import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { eras } from '../../game/data/world.js';
 import { fmt, roman, clamp01 } from '../../game/core/utils.js';
+import { D, toNum } from '../../game/core/num.js';
 import {
   ICARE_INFRA_TARGET,
   OR_GOLD_TARGET,
@@ -164,9 +165,12 @@ export default function CityView() {
   const phoenixSeconds = phoenixNextForceAt ? Math.max(0, Math.floor((phoenixNextForceAt - now) / 1000)) : null;
 
   const isAtrides = isMythEffectActive("mythe_atrides");
-  const totalProd = Math.max(0, r.food + r.gold + r.knowledge + r.infrastructure);
+  const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
   const atridesDebtGrowthRate = Math.max(10, totalProd * 0.01) * (atridesDebtGrowthMultiplier || 1);
-  const netGold = gold - (atridesDebt || 0);
+  const netGold = D(gold).sub(atridesDebt || 0);
+  const netGoldReached = netGold.gte(ATRIDES_GOAL_NET_GOLD);
+  const atridesRepayCost = (atridesDebt || 0) * ATRIDES_DEBT_PAYBACK_FACTOR;
+  const canRepayAtrides = D(gold).gte(atridesRepayCost) && (atridesDebt || 0) > 0;
 
   const renegocierCooldownSecs = atridesRenegotiateCooldownEnd ? Math.max(0, Math.ceil((atridesRenegotiateCooldownEnd - now) / 1000)) : 0;
   const renegocierActiveSecs = atridesRenegotiateActiveUntil ? Math.max(0, Math.ceil((atridesRenegotiateActiveUntil - now) / 1000)) : 0;
@@ -405,7 +409,7 @@ export default function CityView() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--gold)' }}>
                   <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Objectif Trésor Net</span>
-                  <strong style={{ fontSize: '1.25rem', color: netGold >= ATRIDES_GOAL_NET_GOLD ? 'var(--green)' : 'var(--gold)' }}>
+                  <strong style={{ fontSize: '1.25rem', color: netGoldReached ? 'var(--green)' : 'var(--gold)' }}>
                     {fmt(netGold)} / {fmt(ATRIDES_GOAL_NET_GOLD)}
                   </strong>
                   <small style={{ fontSize: '0.75rem', opacity: 0.7 }}>Trésor moins Dette</small>
@@ -425,23 +429,23 @@ export default function CityView() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <button
                   onClick={rembourserAtridesDebt}
-                  disabled={gold < atridesDebt * ATRIDES_DEBT_PAYBACK_FACTOR || atridesDebt <= 0}
+                  disabled={!canRepayAtrides}
                   className="action-btn"
                   style={{
                     flex: '1 1 120px',
                     padding: '0.6rem',
-                    backgroundColor: gold >= atridesDebt * ATRIDES_DEBT_PAYBACK_FACTOR && atridesDebt > 0 ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.03)',
+                    backgroundColor: canRepayAtrides ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.03)',
                     border: '1px solid var(--gold)',
                     borderRadius: '4px',
                     color: 'var(--gold)',
-                    cursor: gold >= atridesDebt * ATRIDES_DEBT_PAYBACK_FACTOR && atridesDebt > 0 ? 'pointer' : 'not-allowed',
-                    opacity: gold >= atridesDebt * ATRIDES_DEBT_PAYBACK_FACTOR && atridesDebt > 0 ? 1 : 0.4,
+                    cursor: canRepayAtrides ? 'pointer' : 'not-allowed',
+                    opacity: canRepayAtrides ? 1 : 0.4,
                     fontWeight: 'bold',
                     fontSize: '0.85rem'
                   }}
                   title="Rembourse la dette en payant de l'Or"
                 >
-                  Rembourser ({fmt(atridesDebt * ATRIDES_DEBT_PAYBACK_FACTOR)} Or)
+                  Rembourser ({fmt(atridesRepayCost)} Or)
                 </button>
 
                 <button
@@ -632,7 +636,7 @@ export default function CityView() {
                   <span className="myth-card-icon">⚙</span>
                   <div className="myth-card-info">
                     <span>Héphaïstos {hephGoalReached && " (Pacte accompli !)"}</span>
-                    <strong>Infra: {fmt(infrastructure)}/{fmt(HEPH_INFRA_TARGET)} | {population < hephPopPeak ? 'Déclin pop' : 'Stable'}</strong>
+                    <strong>Infra: {fmt(infrastructure)}/{fmt(HEPH_INFRA_TARGET)} | {D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}</strong>
                   </div>
                 </div>
               )}

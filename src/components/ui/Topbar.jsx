@@ -30,6 +30,9 @@ export default function Topbar() {
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
   const r = rates(vitals, pressure);
+  // Les taux de ressources sont des Decimal : signe via .gte, jamais via >=.
+  const rateClass = (rate) => (rate.gte(0) ? 'positive' : 'negative');
+  const rateSign = (rate) => (rate.gte(0) ? '+' : '');
 
   const showNomadCap = has("trait_nomadism");
   const nomadCap = nomadInfrastructureCap();
@@ -75,8 +78,8 @@ export default function Topbar() {
         <div className="card-body">
           <div className="resource-rate-wrapper">
             <span className="rate-label">Croissance</span>
-            <span className={`rate-value ${r.population >= 0 ? 'positive' : 'negative'}`}>
-              <strong id="popRate">{r.population >= 0 ? '+' : ''}{fmt(r.population)}</strong> / sec
+            <span className={`rate-value ${rateClass(r.population)}`}>
+              <strong id="popRate">{rateSign(r.population)}{fmt(r.population)}</strong> / sec
             </span>
           </div>
         </div>
@@ -96,8 +99,8 @@ export default function Topbar() {
         <div className="card-body">
           <div className="resource-rate-wrapper">
             <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${r.food >= 0 ? 'positive' : 'negative'}`}>
-              <strong id="foodRate">{r.food >= 0 ? '+' : ''}{fmt(r.food)}</strong> / sec
+            <span className={`rate-value ${rateClass(r.food)}`}>
+              <strong id="foodRate">{rateSign(r.food)}{fmt(r.food)}</strong> / sec
             </span>
           </div>
           <div className="resource-gauge-section">
@@ -130,8 +133,8 @@ export default function Topbar() {
         <div className="card-body">
           <div className="resource-rate-wrapper">
             <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${r.gold >= 0 ? 'positive' : 'negative'}`}>
-              <strong id="goldRate">{r.gold >= 0 ? '+' : ''}{fmt(r.gold)}</strong> / sec
+            <span className={`rate-value ${rateClass(r.gold)}`}>
+              <strong id="goldRate">{rateSign(r.gold)}{fmt(r.gold)}</strong> / sec
             </span>
           </div>
           <div className="resource-gauge-section">
@@ -164,8 +167,8 @@ export default function Topbar() {
         <div className="card-body">
           <div className="resource-rate-wrapper">
             <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${r.knowledge >= 0 ? 'positive' : 'negative'}`}>
-              <strong id="knowledgeRate">{r.knowledge >= 0 ? '+' : ''}{fmt(r.knowledge)}</strong> / sec
+            <span className={`rate-value ${rateClass(r.knowledge)}`}>
+              <strong id="knowledgeRate">{rateSign(r.knowledge)}{fmt(r.knowledge)}</strong> / sec
             </span>
           </div>
           <div className="resource-gauge-section">
@@ -198,9 +201,9 @@ export default function Topbar() {
         <div className="card-body">
           <div className="resource-rate-wrapper">
             <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${r.infrastructure >= 0 ? 'positive' : 'negative'}`}>
+            <span className={`rate-value ${rateClass(r.infrastructure)}`}>
               <strong id="infraRate">
-                {r.infrastructure >= 0 ? '+' : ''}{showNomadCap ? `${fmt(r.infrastructure)} (cap ${fmt(nomadCap)})` : fmt(r.infrastructure)}
+                {rateSign(r.infrastructure)}{showNomadCap ? `${fmt(r.infrastructure)} (cap ${fmt(nomadCap)})` : fmt(r.infrastructure)}
               </strong> / sec
             </span>
           </div>

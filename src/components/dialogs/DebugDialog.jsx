@@ -7,6 +7,7 @@ import {
 } from '../../game/core/main.js';
 import { state, notify, openView } from '../../game/core/state.js';
 import { log } from '../../game/core/actions.js';
+import { D } from '../../game/core/num.js';
 
 export default function DebugDialog({ isOpen, onClose }) {
   const dialogRef = useRef(null);
@@ -41,7 +42,7 @@ export default function DebugDialog({ isOpen, onClose }) {
 
   const handleUnlockRuinsView = () => {
     state.cycles = Math.max(state.cycles, 1);
-    state.ruins = Math.max(state.ruins, 1);
+    state.ruins = D(state.ruins).max(1);
     log("Debug: onglet ruines debloque.");
     notify();
   };

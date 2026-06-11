@@ -2,6 +2,7 @@
 import { state } from '../core/state.js';
 import { eras } from '../data/world.js';
 import { seededRng } from '../core/utils.js';
+import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
 import { setCityMapEngineTileMap, setCaptureVestigeHandler } from './cityMapBridge.js';
@@ -161,7 +162,7 @@ const CM_WONDERS = [
     tierLabel: (v) => `${v} dynastie${v > 1 ? "s" : ""}` },
   { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 },
     unlockedBy: "Population d'au moins 1 000 000.",
-    metric: (s) => s.population || 0, tiers: [1e6, 1e7, 1e8, 1e9, 1e10],
+    metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e7, 1e8, 1e9, 1e10],
     tierLabel: (v) => v >= 1e9 ? `${v / 1e9} milliard${v >= 2e9 ? "s" : ""} d'habitants` : `${v / 1e6} million${v >= 2e6 ? "s" : ""} d'habitants` },
   { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 },
     unlockedBy: "Âge du royaume atteint.",
@@ -216,7 +217,7 @@ function cmEraIndexFor(s) {
   if (typeof currentEraIndex === "function") return currentEraIndex();
   if (typeof eras !== "undefined" && Array.isArray(eras) && eras.length > 0) {
     let index = 0;
-    const pop = s.population || 0;
+    const pop = toNum(s.population) || 0;
     for (let i = 0; i < eras.length; i += 1) {
       if (pop >= eras[i].at) index = i; else break; // early exit (seuils croissants)
     }
@@ -554,9 +555,9 @@ function cityCounts(s) {
   const eraIndex    = cmEraIndexFor(s);
   const eraFrac     = cmEraFrac(eraIndex);
   const eraBand     = cmEraBand(eraIndex);
-  const popDepth    = lg(s.population);
-  const infraDepth  = lg(s.infrastructure);
-  const knowledgeDepth = lg(s.knowledge);
+  const popDepth    = lg(toNum(s.population));
+  const infraDepth  = lg(toNum(s.infrastructure));
+  const knowledgeDepth = lg(toNum(s.knowledge));
   const urbanTier   = cmClamp(eraBand * 1.8 + Math.max(0, infraDepth - 5) * 0.85, 0, 14);
   const campTier    = cmClamp(popDepth - 1, 0, 3);
   const lateSurge   = Math.pow(Math.max(0, eraIndex - 12), 2.08);

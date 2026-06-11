@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
+import { Decimal } from "../num.js";
 import {
   cityVitals,
   pressureBreakdown,
@@ -19,6 +20,13 @@ import {
 } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+
+// Les valeurs migrées en Decimal se snapshotent comme `Decimal(<valeur>)` :
+// sous 2^53 les chiffres doivent rester identiques à l'ancien snapshot number.
+expect.addSnapshotSerializer({
+  test: (value) => value instanceof Decimal,
+  serialize: (value) => `Decimal(${value.toString()})`
+});
 
 const buildingById = (id) => {
   const b = buildings.find((x) => x.id === id);

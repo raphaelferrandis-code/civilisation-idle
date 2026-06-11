@@ -39,6 +39,7 @@ import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
+import { D } from '../num.js';
 import { COLLAPSE_PREP_MAX } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
@@ -77,8 +78,8 @@ export function checkCrisisThresholds() {
 export async function openCrisisEvent(event) {
   setGamePaused(true);
   render();
-  if (isMythEffectActive("mythe_d_hephaistos") && state.population < HEPH_POP_CRISIS_THRESHOLD) {
-    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${Math.floor(state.population)} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+  if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
+    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(D(state.population).floor())} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
     setGamePaused(false);
@@ -217,7 +218,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     : [];
 
   if (wasPhoenix) {
-    state.phoenixTotalRuins = (state.phoenixTotalRuins || 0) + gain;
+    state.phoenixTotalRuins = D(state.phoenixTotalRuins).add(gain);
     state.phoenixCycleCount = (state.phoenixCycleCount || 0) + 1;
   }
   const phoenixDone = wasPhoenix && state.phoenixCycleCount >= PHENIX_CYCLE_COUNT;
@@ -233,16 +234,18 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (state.eneeHeritage) {
     state.eneeCollapseCount = Math.min(ENEE_HERITAGE_MAX_COLLAPSES, (state.eneeCollapseCount || 0) + 1);
   }
-  const doctrinePopBonus = hasDoctrine("acier") ? Math.floor((state.cyclePeaks?.population || 0) * 0.08) : 0;
-  const keptPop = Math.max(has("granaries") ? state.population * 0.03 : 10, 10 + ruinEffectSum("startPopulation")) + doctrinePopBonus;
+  const doctrinePopBonus = hasDoctrine("acier") ? D(state.cyclePeaks?.population || 0).mul(0.08).floor() : D(0);
+  const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
+    .max(10 + ruinEffectSum("startPopulation"))
+    .add(doctrinePopBonus);
   const foodKeepRate = (has("ancestor_granaries") ? 0.16 : has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
   const goldKeepRate = 0.04 + (has("ash_markets") ? 0.05 : 0) + (has("ash_contracts") ? 0.07 : 0) + ruinEffectSum("goldKeep");
   const knowledgeKeepRate = (has("memory_scribes") ? 0.04 : 0) + ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0);
   const infraKeepRate = ruinEffectSum("infraKeep") + (hasDoctrine("sillon") ? 0.06 : 0);
-  const keptFood = foodKeepRate > 0 ? state.food * foodKeepRate : 35;
-  const keptGold = state.gold * goldKeepRate;
-  const keptKnowledge = state.knowledge * knowledgeKeepRate;
-  const keptInfra = state.infrastructure * infraKeepRate;
+  const keptFood = foodKeepRate > 0 ? D(state.food).mul(foodKeepRate) : D(35);
+  const keptGold = D(state.gold).mul(goldKeepRate);
+  const keptKnowledge = D(state.knowledge).mul(knowledgeKeepRate);
+  const keptInfra = D(state.infrastructure).mul(infraKeepRate);
   const era = eras[currentEraIndex()].name;
   const age = cycleYear();
   
@@ -250,9 +253,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   
   captureCurrentVestige();
   
-  state.ruins += gain;
+  state.ruins = D(state.ruins).add(gain);
   if (wasChaos && state.chaosRuinsDouble) {
-    state.chaosRuinsBonus = (state.chaosRuinsBonus || 0) + gain;
+    state.chaosRuinsBonus = D(state.chaosRuinsBonus).add(gain);
     chronicle(`L'ombre du Chaos transfigure notre héritage : +${fmt(gain)} ruines immatérielles s'inscrivent dans notre histoire, magnifiant à jamais la mémoire de nos vestiges.`);
   }
   state.cycles += 1;
@@ -260,14 +263,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.mapSeed = newCitySeed();
   state.riverWP = null;
   state.wallRadius = null;
-  state.population = Math.max(10, keptPop);
-  state.food = Math.max(35 + ruinEffectSum("startFood"), keptFood);
-  state.gold = Math.max(ruinEffectSum("startGold"), keptGold);
-  
+  state.population = keptPop.max(10);
+  state.food = keptFood.max(35 + ruinEffectSum("startFood"));
+  state.gold = keptGold.max(ruinEffectSum("startGold"));
+
   const memoireSavoirBonus = has("codex_mythique") ? 250 * (state.bestEraIndex || 0) : 0;
-  state.knowledge = Math.max(ruinEffectSum("startKnowledge"), keptKnowledge) + memoireSavoirBonus;
-  
-  state.infrastructure = keptInfra + (has("fallen_roads") ? Math.max(1, Math.sqrt(state.ruins) * 0.25) : 0);
+  state.knowledge = keptKnowledge.max(ruinEffectSum("startKnowledge")).add(memoireSavoirBonus);
+
+  state.infrastructure = keptInfra.add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);
   
   const chosenEpitaphLegacy = state.nextEpitaphLegacy || null;
   const chosenEpitaphDefinition = chosenEpitaphLegacy ? epitaphLegacyById(chosenEpitaphLegacy.id) : null;
@@ -302,10 +305,10 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   
   if (has("conservateurs_ruines")) {
     const cheapest = upgrades
-      .filter((u) => u.group === "ruins" && !has(u.id) && state.ruins >= (u.cost?.ruins || Infinity))
+      .filter((u) => u.group === "ruins" && !has(u.id) && Number.isFinite(u.cost?.ruins) && D(state.ruins).gte(u.cost.ruins))
       .sort((a, b) => (a.cost?.ruins || 0) - (b.cost?.ruins || 0))[0];
     if (cheapest) {
-      state.ruins -= (cheapest.cost?.ruins || 0);
+      state.ruins = D(state.ruins).sub(cheapest.cost?.ruins || 0);
       state.upgrades[cheapest.id] = true;
       renderCache.cachedRuinEffects = null;
       renderCache.cachedRuinEffectsSignature = "";
@@ -366,8 +369,8 @@ export function runCrisisAction(id, options = {}) {
     state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
   }
   state.crisisActions[effect.key] += 1;
-  if (id === "reforms") state.infrastructure += Math.max(1, totalBuildingCount() * 0.08);
-  if (id === "archiveCrisis") state.knowledge += Math.max(4, state.cycles * 2);
+  if (id === "reforms") state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.08));
+  if (id === "archiveCrisis") state.knowledge = D(state.knowledge).add(Math.max(4, state.cycles * 2));
   if (id === "ancestorCrisis") state.legitimacy += 0.35;
   registerOlympusCrisisResolved();
   if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();

@@ -2,6 +2,8 @@
 
 import { state, invalidateRenderCache } from "../state.js";
 import { chronicle, log } from "./utils.js";
+import { fmt } from "../utils.js";
+import { D } from "../num.js";
 import {
   OLYMPUS_ABYSS_PROD_MAX,
   OLYMPUS_BUREAUCRACY_KNOWLEDGE,
@@ -54,7 +56,7 @@ export function registerOlympusCrisisResolved() {
   const o = olympus();
   o.crisesResolved = (o.crisesResolved || 0) + 1;
   if (o.unlockedProfile === "bureaucracy") {
-    state.knowledge = (state.knowledge || 0) + OLYMPUS_BUREAUCRACY_KNOWLEDGE;
+    state.knowledge = D(state.knowledge).add(OLYMPUS_BUREAUCRACY_KNOWLEDGE);
     chronicle(`Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${OLYMPUS_BUREAUCRACY_KNOWLEDGE} savoirs sont versés à nos archives.`);
   }
 }
@@ -87,11 +89,11 @@ export function olympusRuinBonus(gain, reason) {
   const cycleAge = Date.now() - (state.cycleStartedAt || Date.now());
   if (reason !== "manual" || cycleAge > OLYMPUS_QUICK_COLLAPSE_MS) return gain;
   const speed = 1 - cycleAge / OLYMPUS_QUICK_COLLAPSE_MS;
-  const bonus = Math.floor(gain * (0.12 + speed * 0.18));
-  if (bonus > 0) {
-    chronicle(`Le Culte Apocalyptique glorifie notre fin précipitée : les prêtres nous guident à travers le chaos, révélant +${bonus} ruines sacrées sous les cendres.`);
+  const bonus = D(gain).mul(0.12 + speed * 0.18).floor();
+  if (bonus.gt(0)) {
+    chronicle(`Le Culte Apocalyptique glorifie notre fin précipitée : les prêtres nous guident à travers le chaos, révélant +${fmt(bonus)} ruines sacrées sous les cendres.`);
   }
-  return gain + bonus;
+  return D(gain).add(bonus);
 }
 
 export function olympusAbyssProductionMultiplier() {
@@ -107,7 +109,7 @@ function applyOlympusSleepHeritage(dt) {
   const o = olympus();
   if (o.unlockedProfile !== "sleep") return;
   const gain = OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR * (dt / 3600);
-  state.knowledge = (state.knowledge || 0) + gain;
+  state.knowledge = D(state.knowledge).add(gain);
 }
 
 export function olympusUnlockedProfile() {

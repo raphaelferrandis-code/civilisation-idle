@@ -5,6 +5,7 @@ import { eras } from '../data/world.js';
 import { save } from './state.js';
 import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
+import { D } from './num.js';
 
 export function getPeriod(eraIndex) {
   if (eraIndex < 4)  return 1;
@@ -68,11 +69,11 @@ export function evaluateCondition(type, state) {
       // Eviter le chevauchement si crise est déjà active
       return state.timeWear >= 0.5 && state.timeWear < 0.75 && state.instability < 0.75;
     case "nourriture":
-      return state.food > state.gold && state.food > state.knowledge;
+      return D(state.food).gt(state.gold) && D(state.food).gt(state.knowledge);
     case "or":
-      return state.gold > state.food && state.gold > state.knowledge;
+      return D(state.gold).gt(state.food) && D(state.gold).gt(state.knowledge);
     case "savoir":
-      return state.knowledge > 0;
+      return D(state.knowledge).gt(0);
     case "stage_start":
       return stage <= 1;
     case "stage_6":
@@ -80,17 +81,17 @@ export function evaluateCondition(type, state) {
     case "stage_12":
       return stage >= 12;
     case "pop_10k":
-      return state.population > 10000;
+      return D(state.population).gt(10000);
     case "pop_100k":
-      return state.population > 100000;
+      return D(state.population).gt(100000);
     case "pop_1m":
-      return state.population > 1000000;
+      return D(state.population).gt(1000000);
     case "pop_100m":
-      return state.population > 100000000;
+      return D(state.population).gt(100000000);
     case "pop_1b":
-      return state.population > 1000000000;
+      return D(state.population).gt(1000000000);
     case "pop_100b":
-      return state.population > 100000000000;
+      return D(state.population).gt(100000000000);
     case "paix":
       return state.instability < 0.35 && state.timeWear < 0.35;
     case "bonus_libre":

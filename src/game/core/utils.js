@@ -1,6 +1,7 @@
 "use strict";
 
 import { state } from './state.js';
+import { Decimal, D } from './num.js';
 
 export const NUMBER_FORMAT_KEY = "civ-opt-number-format";
 
@@ -23,8 +24,11 @@ export function setNumberFormatMode(mode) {
 }
 
 export function formatFullNumber(value) {
-  const sign = value < 0 ? "-" : "";
   const abs = Math.abs(value);
+  // Au-delà de 1e21, toFixed bascule de lui-même en notation exponentielle :
+  // autant le faire proprement.
+  if (abs >= 1e21) return formatScientificNumber(value);
+  const sign = value < 0 ? "-" : "";
   const decimals = abs < 10 ? 1 : 0;
   const [integer, fraction] = abs.toFixed(decimals).split(".");
   const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -38,13 +42,23 @@ export function formatScientificNumber(value) {
 }
 
 export const fmt = (value) => {
+  if (value instanceof Decimal) {
+    const n = value.toNumber();
+    // Dans le domaine float, on réutilise les chemins existants à l'identique.
+    if (Number.isFinite(n)) return fmt(n);
+    // Au-delà de ~1.8e308 : notation scientifique depuis mantisse/exposant.
+    return value.toExponential(2).replace("e+", "e");
+  }
   if (!Number.isFinite(value)) return "inf";
   if (numberFormatMode === "full") return formatFullNumber(value);
   if (numberFormatMode === "scientific") return formatScientificNumber(value);
   const sign = value < 0 ? "-" : "";
   let v = Math.abs(value);
   if (v < 1000) return `${sign}${v.toFixed(v < 10 ? 1 : 0)}`;
-  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc"];
+  // Suffixes jusqu'au décillion (1e36), puis notation scientifique : empiler
+  // des suffixes exotiques au-delà n'aide personne.
+  if (v >= 1e36) return formatScientificNumber(value);
+  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   let i = -1;
   while (v >= 1000 && i < units.length - 1) {
     v /= 1000;
@@ -77,7 +91,8 @@ export function clamp(value, min, max) {
 }
 
 export function signed(value) {
-  return `${value >= 0 ? "+" : ""}${fmt(value)}`;
+  const isNegative = value instanceof Decimal ? value.lt(0) : value < 0;
+  return `${isNegative ? "" : "+"}${fmt(value)}`;
 }
 
 export function multLabel(value) {
@@ -86,11 +101,25 @@ export function multLabel(value) {
 }
 
 export function canPayCost(cost) {
-  return Object.entries(cost).every(([currency, amount]) => state[currency] >= amount);
+  return Object.entries(cost).every(([currency, amount]) => D(state[currency]).gte(amount));
 }
 
 export function payCost(cost) {
-  for (const [currency, amount] of Object.entries(cost)) state[currency] -= amount;
+  for (const [currency, amount] of Object.entries(cost)) {
+    if (!(currency in state)) throw new Error(`payCost: ressource inconnue "${currency}"`);
+    const current = state[currency];
+    if (current instanceof Decimal) {
+      state[currency] = current.sub(amount);
+    } else {
+      // Ressource encore en number natif : soustraction float pour rester
+      // bit-à-bit identique sous 2^53 (canPayCost garantit amount <= current).
+      state[currency] = current - toNumberLoose(amount);
+    }
+  }
+}
+
+function toNumberLoose(value) {
+  return value instanceof Decimal ? value.toNumber() : value;
 }
 
 export function costLabel(cost) {

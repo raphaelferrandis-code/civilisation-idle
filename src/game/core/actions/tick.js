@@ -35,6 +35,7 @@ import {
 
 import { log } from './utils.js';
 import { clamp01, canPayCost } from '../utils.js';
+import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
 import { INSTABILITY_DRIFT_SPEED } from '../balance.js';
 import {
@@ -48,6 +49,7 @@ export function tick(dt) {
   renderCache._frameVitals = null;
   renderCache._framePressure = null;
   renderCache._frameGlobalMult = null;
+  renderCache._frameGlobalMultDec = null;
   renderCache._frameRates = null;
 
   if (state.crisisLimitAnnounced) {
@@ -61,18 +63,20 @@ export function tick(dt) {
   const r = rates(vitals, pressure);
   tickOlympus(dt);
 
-  state.population = Math.max(1, state.population + r.population * dt);
-  state.food = Math.max(0, state.food + r.food * dt);
-  state.gold = Math.max(0, state.gold + r.gold * dt);
-  state.knowledge = Math.max(0, state.knowledge + r.knowledge * dt);
-  state.infrastructure = Math.max(0, state.infrastructure + r.infrastructure * dt);
+  state.population = D(state.population).add(r.population.mul(dt)).max(1);
+  state.food = D(state.food).add(r.food.mul(dt)).max(0);
+  state.gold = D(state.gold).add(r.gold.mul(dt)).max(0);
+  state.knowledge = D(state.knowledge).add(r.knowledge.mul(dt)).max(0);
+  state.infrastructure = D(state.infrastructure).add(r.infrastructure.mul(dt)).max(0);
 
   enforceInfrastructureCap();
 
   if (isMythEffectActive("mythe_atrides")) {
-    const totalProd = Math.max(0, r.food + r.gold + r.knowledge + r.infrastructure);
-    const growthPerSec = Math.max(10, totalProd * 0.01) * (state.atridesDebtGrowthMultiplier || 1);
-    state.atridesDebt = (state.atridesDebt || 0) + growthPerSec * dt;
+    // La dette Atrides reste un number natif (mythe de milieu de partie) :
+    // on borne à MAX_VALUE pour ne jamais propager Infinity.
+    const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
+    const growthPerSec = Math.min(Number.MAX_VALUE, Math.max(10, totalProd * 0.01) * (state.atridesDebtGrowthMultiplier || 1));
+    state.atridesDebt = Math.min(Number.MAX_VALUE, (state.atridesDebt || 0) + growthPerSec * dt);
 
     if (state.atridesDebtGrowthMultiplier < 1 && Date.now() >= (state.atridesRenegotiateActiveUntil || 0)) {
       state.atridesDebtGrowthMultiplier = 1;
@@ -94,9 +98,9 @@ export function tick(dt) {
     : clamp01(nextInstability);
 
   const peaks = state.cyclePeaks;
-  if (state.population > peaks.population) peaks.population = state.population;
-  if (state.knowledge > peaks.knowledge) peaks.knowledge = state.knowledge;
-  if (state.infrastructure > peaks.infrastructure) peaks.infrastructure = state.infrastructure;
+  if (D(state.population).gt(peaks.population)) peaks.population = state.population;
+  if (D(state.knowledge).gt(peaks.knowledge)) peaks.knowledge = state.knowledge;
+  if (D(state.infrastructure).gt(peaks.infrastructure)) peaks.infrastructure = state.infrastructure;
   const currentEra = currentEraIndex();
   if (currentEra > peaks.eraIndex) {
     peaks.eraIndex = currentEra;

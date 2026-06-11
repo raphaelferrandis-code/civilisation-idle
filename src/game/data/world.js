@@ -1,6 +1,7 @@
 "use strict";
 
 import { effects } from './worldEffects.js';
+import { D } from '../core/num.js';
 
 /* ============================================================================
  * data-world.js - Donnees monde: eras, DOCTRINES, CRISIS_POOL, CRISIS_EVENTS.
@@ -125,7 +126,7 @@ export const CRISIS_POOL = [
       {
         label: "Réorganiser les quartiers",
         detail: "Savoir -14% ce cycle, Infrastructure +5%, Rupture -9%.",
-        apply: () => { effects.addProductionPenalty("knowledge", 0.14); effects.state.infrastructure *= 1.05; effects.state.instability *= 0.91; effects.chronicle("Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça."); }
+        apply: () => { effects.addProductionPenalty("knowledge", 0.14); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.05); effects.state.instability *= 0.91; effects.chronicle("Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça."); }
       },
       {
         label: "Continuer à construire",
@@ -184,7 +185,7 @@ export const CRISIS_POOL = [
       {
         label: "Taxer les élites",
         detail: "Trésor -18% ce cycle, Infrastructure +4%, Rupture -9%.",
-        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure *= 1.04; effects.state.instability *= 0.91; effects.chronicle("Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.04); effects.state.instability *= 0.91; effects.chronicle("Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent."); }
       },
       {
         label: "Acheter leur paix",
@@ -215,7 +216,7 @@ export const CRISIS_POOL = [
   {
     id: "knowledge_schism",
     threshold: 0.5,
-    condition: (s) => s.knowledge > 300,
+    condition: (s) => D(s.knowledge).gt(300),
     title: "Les savants se querellent",
     body: "Deux écoles d'idées s'affrontent dans les académies. L'une veut codifier, l'autre expérimenter. Chacune demande que l'autre soit interdite. Les étudiants prennent parti dans les rues.",
     options: [
@@ -241,7 +242,7 @@ export const CRISIS_POOL = [
       {
         label: "Intégrer la milice",
         detail: "Trésor -18% ce cycle, Infrastructure +6%, Rupture -10%.",
-        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure *= 1.06; effects.state.instability *= 0.90; effects.chronicle("La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.06); effects.state.instability *= 0.90; effects.chronicle("La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme."); }
       },
       {
         label: "Les repousser",
@@ -253,19 +254,19 @@ export const CRISIS_POOL = [
   {
     id: "infrastructure_debt",
     threshold: 0.5,
-    condition: (s) => s.infrastructure > 40,
+    condition: (s) => D(s.infrastructure).gt(40),
     title: "Les fondations fissurent",
     body: "Les aqueducs perdent leurs joints. Les routes s'effondrent entre les pierres. On a construit vite, mais personne n'a prévenu les budgets d'entretien.",
     options: [
       {
         label: "Investir dans les réparations",
         detail: "Trésor -20% ce cycle, Infrastructure +8%, Rupture -9%.",
-        apply: () => { effects.addProductionPenalty("gold", 0.20); effects.state.infrastructure *= 1.08; effects.state.instability *= 0.91; effects.chronicle("Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.20); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.08); effects.state.instability *= 0.91; effects.chronicle("Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste."); }
       },
       {
         label: "Reporter aux prochains",
         detail: "Infrastructure -10%, Rupture +13%.",
-        apply: () => { effects.state.infrastructure *= 0.90; effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera."); }
+        apply: () => { effects.state.infrastructure = D(effects.state.infrastructure).mul(0.90); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera."); }
       }
     ]
   },
@@ -331,7 +332,7 @@ export const CRISIS_POOL = [
   {
     id: "plague_scare",
     threshold: 0.75,
-    condition: (s) => s.population > 3000,
+    condition: (s) => D(s.population).gt(3000),
     title: "Une maladie s'installe dans les bas-fonds",
     body: "Personne ne sait encore ce que c'est. Les médecins disent quarantaine. Les marchands disent non. Les gens toussent.",
     options: [
@@ -362,7 +363,7 @@ export const CRISIS_POOL = [
       {
         label: "Renégocier de force",
         detail: "Trésor -10% ce cycle, Infrastructure -8%, Rupture +14%.",
-        apply: () => { effects.addProductionPenalty("gold", 0.10); effects.state.infrastructure *= 0.92; effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix."); }
+        apply: () => { effects.addProductionPenalty("gold", 0.10); effects.state.infrastructure = D(effects.state.infrastructure).mul(0.92); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix."); }
       }
     ]
   }

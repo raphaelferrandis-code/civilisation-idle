@@ -13,6 +13,7 @@ import { promptCadmosAgeName } from './myths.js';
 
 import { log } from './utils.js';
 import { fmt } from '../utils.js';
+import { D } from '../num.js';
 
 import {
   ICARE_INFRA_TARGET,
@@ -39,7 +40,7 @@ import {
 export const MYTH_TICK_HANDLERS = {
   mythe_d_icare: (state) => {
     if (!state.icareInfraReached) {
-      if (state.infrastructure >= ICARE_INFRA_TARGET) {
+      if (D(state.infrastructure).gte(ICARE_INFRA_TARGET)) {
         state.icareInfraReached = true;
         log(`Icare : l'infrastructure a atteint ${fmt(ICARE_INFRA_TARGET)} ! Le soleil est touche.`);
       }
@@ -47,7 +48,7 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_de_promethee: (state) => {
-    if (!state.prometheePopReached && state.population >= PROMETHEE_POP_TARGET) {
+    if (!state.prometheePopReached && D(state.population).gte(PROMETHEE_POP_TARGET)) {
       state.prometheePopReached = true;
       log(`Promethee : la population a atteint ${fmt(PROMETHEE_POP_TARGET)} habitants ! L'epopee est accomplie.`);
     }
@@ -58,11 +59,11 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_age_or: (state) => {
-    if (state.population > (state.orPopPeak || 0)) state.orPopPeak = state.population;
-    const _orF = state.food;
-    const _orG = state.gold;
-    state.orUsureImbalance = Math.abs(_orF - _orG) / Math.max(_orF, _orG, 1) > OR_BALANCE_RATIO;
-    if (!state.orGoldReached && state.gold >= OR_GOLD_TARGET && (state.orPopPeak || 0) <= OR_POP_CAP) {
+    if (D(state.population).gt(state.orPopPeak || 0)) state.orPopPeak = state.population;
+    const _orF = D(state.food);
+    const _orG = D(state.gold);
+    state.orUsureImbalance = _orF.sub(_orG).abs().div(_orF.max(_orG).max(1)).toNumber() > OR_BALANCE_RATIO;
+    if (!state.orGoldReached && D(state.gold).gte(OR_GOLD_TARGET) && D(state.orPopPeak || 0).lte(OR_POP_CAP)) {
       state.orGoldReached = true;
       log(`Age d'Or : le Tresor a atteint ${fmt(OR_GOLD_TARGET)} ! La prosperite est etablie — que le pacte soit scelle.`);
     }
@@ -88,15 +89,15 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_d_hephaistos: (state, dt) => {
-    if (state.population > (state.hephPopPeak || 0)) state.hephPopPeak = state.population;
+    if (D(state.population).gt(state.hephPopPeak || 0)) state.hephPopPeak = state.population;
     const hephElapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
     if (hephElapsed > HEPH_POP_DECAY_START_MIN) {
-      const decayRate = state.population * HEPH_POP_DECAY_RATE / 60; // par seconde
-      state.population = Math.max(1, state.population - decayRate * dt);
+      const decayRate = D(state.population).mul(HEPH_POP_DECAY_RATE / 60); // par seconde
+      state.population = D(state.population).sub(decayRate.mul(dt)).max(1);
     }
     if (!state.hephGoalReached) {
-      const hephDecline = 1 - state.population / Math.max(1, state.hephPopPeak || 1);
-      if (state.infrastructure >= HEPH_INFRA_TARGET && hephDecline >= HEPH_POP_DECLINE_PCT) {
+      const hephDecline = 1 - D(state.population).div(D(state.hephPopPeak || 1).max(1)).toNumber();
+      if (D(state.infrastructure).gte(HEPH_INFRA_TARGET) && hephDecline >= HEPH_POP_DECLINE_PCT) {
         state.hephGoalReached = true;
         log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(HEPH_INFRA_TARGET)} atteinte, population en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
       }
@@ -122,7 +123,7 @@ export const MYTH_TICK_HANDLERS = {
       ];
       const reached = milestones.find((milestone) => {
         const key = `${milestone.type}:${milestone.threshold}`;
-        return milestone.value >= milestone.threshold && !state.cadmosTriggeredMilestones?.[key];
+        return D(milestone.value).gte(milestone.threshold) && !state.cadmosTriggeredMilestones?.[key];
       });
       if (reached) {
         const key = `${reached.type}:${reached.threshold}`;

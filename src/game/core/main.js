@@ -35,6 +35,7 @@ import {
 } from './actions.js';
 
 import { runCollapseSequence } from './events.js';
+import { D } from './num.js';
 
 import {
   encodeSaveText,
@@ -88,7 +89,7 @@ export function importSave(text) {
 }
 
 export function addDebugRuins(amount) {
-  state.ruins += amount;
+  state.ruins = D(state.ruins).add(amount);
   state.cycles = Math.max(state.cycles, 1);
   log(`Debug: +${fmt(amount)} ruines ajoutees.`);
   render();
@@ -102,11 +103,11 @@ export function addDebugCycles(amount) {
 }
 
 export function addDebugResources() {
-  state.population = Math.max(state.population, 1000000);
-  state.food = Math.max(state.food, 10000000000);
-  state.gold = Math.max(state.gold, 10000000000);
-  state.knowledge = Math.max(state.knowledge, 1000000000);
-  state.infrastructure = Math.max(state.infrastructure, 1000000);
+  state.population = D(state.population).max(1000000);
+  state.food = D(state.food).max(10000000000);
+  state.gold = D(state.gold).max(10000000000);
+  state.knowledge = D(state.knowledge).max(1000000000);
+  state.infrastructure = D(state.infrastructure).max(1000000);
   log("Debug: ressources late game injectees.");
   render();
 }
@@ -118,8 +119,8 @@ export function debugBuyEarlyRuins() {
 
   for (const upgrade of affordable) {
     const costRuins = upgrade.cost.ruins || 0;
-    if (has(upgrade.id) || state.ruins < costRuins || !isUnlocked(upgrade)) continue;
-    state.ruins -= costRuins;
+    if (has(upgrade.id) || D(state.ruins).lt(costRuins) || !isUnlocked(upgrade)) continue;
+    state.ruins = D(state.ruins).sub(costRuins);
     state.upgrades[upgrade.id] = true;
   }
   log("Debug: achats de ruines de debut appliques quand possible.");
@@ -178,7 +179,7 @@ export function checkAutoCollapse() {
   }
 
   const mult = hasTier3 ? 1.0 : hasTier2 ? 0.80 : 0.55;
-  const gain = Math.max(0, Math.floor(ruinGain() * mult));
+  const gain = ruinGain().mul(mult).floor().max(0);
   setCollapseInProgress(true);
   state.crisisOpenedAt = null;
   const penaltyNote = mult < 1.0 ? ` (seulement ${Math.round(mult * 100)}% de notre héritage a pu être préservé)` : "";
