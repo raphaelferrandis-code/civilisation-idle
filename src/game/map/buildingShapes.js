@@ -16,7 +16,7 @@ import { drawEngineSprite } from './engineSprites.js';
 
 // Hauteur relative par variante — pilote l'ombre portée dans drawTile.
 const BUILDING_HEIGHTS = {
-  tent: 0.5, firepit: 0.2, hut: 0.6, longhouse: 0.8, townhouse: 1.1,
+  tent: 0.5, firepit: 0.9, hut: 0.6, longhouse: 0.8, townhouse: 1.1,
   courtyard: 0.9, stonehouse: 1.1, manor: 1.4, block: 1.8, tenement: 2.2,
   tower: 3.2, megablock: 2.8, arcologyhome: 3.4,
   market: 0.8, granary: 1.2, temple: 1.5, hall: 1.6, keep: 2.2, forum: 1.4,
@@ -358,7 +358,86 @@ function drawPublicShape(type, x, y, w, h, pad, tier, variant, now) {
   const lit = cmLitColor(band);
   const t = now || 0;
 
-  if (variant === "shrine" || variant === "firepit") {
+  if (variant === "firepit") {
+    // ── GRANGE COMMUNE — grange de bois à toit en bâtière, grandes portes
+    //    à croix de Saint-André, lucarne de fenil et bottes de foin : la
+    //    réserve commune du campement (ex-« foyer commun »). ──────────────
+    const yTop = y + h * 0.16, yRidge = y + h * 0.34, yEave = y + h * 0.52, yBase = y + h * 0.86;
+    const bx = x + w * 0.18, bw = w * 0.64;
+    // Corps en planches
+    ctx.fillStyle = "#8a5a2c";
+    ctx.fillRect(bx, yEave, bw, yBase - yEave);
+    ctx.strokeStyle = "rgba(45,26,8,0.45)"; ctx.lineWidth = Math.max(0.5, w * 0.014);
+    for (let i = 1; i < 7; i++) { ctx.beginPath(); ctx.moveTo(bx + bw * i / 7, yEave); ctx.lineTo(bx + bw * i / 7, yBase); ctx.stroke(); }
+    // Ombre sous l'auvent du toit
+    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(bx, yEave, bw, Math.max(0.5, (yBase - yEave) * 0.12));
+    // Grandes portes (double battant) + croix de Saint-André
+    const dW = bw * 0.46, dH = (yBase - yEave) * 0.72, dX = x + w * 0.5 - dW / 2, dY = yBase - dH;
+    ctx.fillStyle = "#5c3a16"; ctx.fillRect(dX, dY, dW, dH);
+    ctx.strokeStyle = "rgba(30,18,6,0.7)"; ctx.lineWidth = Math.max(0.5, w * 0.012);
+    ctx.beginPath(); ctx.moveTo(x + w * 0.5, dY); ctx.lineTo(x + w * 0.5, yBase); ctx.stroke();
+    ctx.strokeStyle = "rgba(150,104,44,0.65)";
+    ctx.beginPath(); ctx.moveTo(dX, dY); ctx.lineTo(dX + dW / 2, yBase); ctx.lineTo(dX + dW, dY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(dX, yBase); ctx.lineTo(dX + dW / 2, dY); ctx.lineTo(dX + dW, yBase); ctx.stroke();
+    // Toit en bâtière : versant nord clair / sud sombre
+    roofGable(ctx, x + w * 0.1, w * 0.8, yTop, yRidge, yEave, "#a06a26", "#7c4e18");
+    // Lucarne de fenil sombre dans le pignon + poutre de levage
+    ctx.fillStyle = "rgba(25,14,4,0.75)";
+    ctx.fillRect(x + w * 0.44, yRidge - h * 0.02, w * 0.12, h * 0.1);
+    ctx.strokeStyle = "#4a2e10"; ctx.lineWidth = Math.max(1, w * 0.025);
+    ctx.beginPath(); ctx.moveTo(x + w * 0.5, yTop + h * 0.03); ctx.lineTo(x + w * 0.5, yRidge - h * 0.04); ctx.stroke();
+    // Bottes de foin devant la grange
+    ctx.fillStyle = "#d8b24c";
+    ctx.beginPath(); ctx.ellipse(x + w * 0.26, yBase - h * 0.02, w * 0.07, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.74, yBase - h * 0.01, w * 0.06, h * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(120,86,20,0.6)"; ctx.lineWidth = Math.max(0.5, w * 0.01);
+    ctx.beginPath(); ctx.arc(x + w * 0.26, yBase - h * 0.02, w * 0.04, 0, Math.PI * 2); ctx.stroke();
+    return;
+  }
+
+  if (variant === "shrine") {
+    // Sanctuaire primitif : stele gravee, cercle de pierres et offrandes.
+    const glow = 0.28 + 0.14 * Math.sin(t / 450);
+    const rg = ctx.createRadialGradient(x + w * 0.5, y + h * 0.66, 0, x + w * 0.5, y + h * 0.66, w * 0.28);
+    rg.addColorStop(0, `rgba(255,195,85,${glow.toFixed(2)})`);
+    rg.addColorStop(1, "rgba(255,170,60,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(x + w * 0.5, y + h * 0.66, w * 0.28, 0, Math.PI * 2); ctx.fill();
+
+    const pebbles = [[0.28,0.72,0.055,0.038],[0.38,0.68,0.045,0.034],[0.5,0.7,0.052,0.036],[0.62,0.68,0.045,0.034],[0.72,0.72,0.055,0.038]];
+    for (const [px2, py2, rx2, ry2] of pebbles) {
+      ctx.fillStyle = "#5f584b";
+      ctx.beginPath(); ctx.ellipse(x + w * px2, y + h * py2, w * rx2, h * ry2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(230,220,190,0.2)";
+      ctx.beginPath(); ctx.ellipse(x + w * (px2 - 0.015), y + h * (py2 - 0.012), w * rx2 * 0.45, h * ry2 * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.fillStyle = "#8d8472";
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.36, y + h * 0.64);
+    ctx.lineTo(x + w * 0.4, y + h * 0.34);
+    ctx.quadraticCurveTo(x + w * 0.5, y + h * 0.22, x + w * 0.6, y + h * 0.34);
+    ctx.lineTo(x + w * 0.64, y + h * 0.64);
+    ctx.quadraticCurveTo(x + w * 0.5, y + h * 0.7, x + w * 0.36, y + h * 0.64);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.42, y + h * 0.6);
+    ctx.lineTo(x + w * 0.44, y + h * 0.36);
+    ctx.quadraticCurveTo(x + w * 0.49, y + h * 0.29, x + w * 0.52, y + h * 0.35);
+    ctx.lineTo(x + w * 0.49, y + h * 0.6);
+    ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = "rgba(45,32,15,0.62)";
+    ctx.lineWidth = Math.max(0.5, w * 0.018);
+    ctx.beginPath(); ctx.arc(x + w * 0.5, y + h * 0.43, w * 0.045, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w * 0.5, y + h * 0.43); ctx.lineTo(x + w * 0.5, y + h * 0.53); ctx.stroke();
+
+    ctx.fillStyle = "#caa14a";
+    ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.72, w * 0.045, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w * 0.66, y + h * 0.72, w * 0.045, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
+    return;
+
     // ── SANCTUAIRE — pierre dressée fleurie + offrandes + lueur ────────
     ctx.fillStyle = "#6a6254"; ctx.fillRect(x+w*0.36, y+h*0.62, w*0.28, h*0.12);
     ctx.fillStyle = "#8d8472";

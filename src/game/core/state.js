@@ -225,7 +225,10 @@ export let renderCache = {
   _frameRates: null,
   _buildingSums: null,
   _buildingsVersion: 0,
-  _upgradesVersion: 0
+  _upgradesVersion: 0,
+  // Horloge du dernier tick, pour les composants qui affichent du temps écoulé
+  // (barre de sédiments) sans appeler Date.now() pendant le rendu (React Compiler).
+  tickNow: Date.now()
 };
 export let gamePaused = false;
 export let collapseInProgress = false;

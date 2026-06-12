@@ -1,0 +1,94 @@
+/* ============================================================================
+   Système de boutons (Audit UI Phase 4)
+   Le style de base de l'élément <button> vit dans base.css ; ici, les
+   variantes applicables à n'importe quel bouton + le focus clavier global.
+   Règle : le glow est réservé à affordable / critical / milestone.
+   ============================================================================ */
+
+/* ----- Focus clavier visible partout ----- */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+/* ----- Primary : action dorée (payer, confirmer, activer) ----- */
+.btn-primary {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #16100a;
+}
+
+/* ----- Secondary : action neutre (annuler, options secondaires) ----- */
+.btn-secondary {
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border-radius: var(--r-card);
+  font-weight: 600;
+}
+
+/* ----- Danger : action coûteuse / risquée mais réversible ----- */
+.btn-danger {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid color-mix(in srgb, var(--red), transparent 40%);
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--red), transparent 90%);
+  color: #f0a090;
+  font-weight: 700;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red), transparent 80%);
+  color: #ffb8a8;
+}
+
+/* ----- Critical : action majeure irréversible (effondrement, migration) —
+   seul bouton plein rouge, seul bouton avec ombre portée colorée ----- */
+.btn-critical {
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border: 1px solid #7f1d1d;
+  border-radius: var(--r-card);
+  background: linear-gradient(180deg, #dc5f4b, #b91c1c);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(220, 95, 75, 0.25);
+}
+
+.btn-critical:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(220, 95, 75, 0.35);
+}
+
+.btn-critical:disabled {
+  background: var(--bg-inset);
+  border-color: var(--border-soft);
+  color: var(--text-disabled);
+  box-shadow: none;
+  filter: none;
+}
+
+/* ----- Tiny : utilitaires compacts (save/export, toggles) ----- */
+.btn-tiny {
+  min-height: 1.875rem;
+  padding: 0 0.6rem;
+  border-radius: var(--r-tiny);
+  font-size: 0.78rem;
+  font-weight: 600;
+}

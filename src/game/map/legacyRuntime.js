@@ -43,7 +43,7 @@ import {
   drawCrisis,
   cityMapDrawRoad
 } from './renderWorld.js';
-import { drawTile, drawWonder, drawCentralFire, drawMinimap } from './renderBuildings.js';
+import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
 
 
@@ -119,7 +119,7 @@ function cityMapEnsureTooltip(mapRoot, tooltipElement = null) {
 
 function cityMapVariantLabel(type, variant) {
   const labels = {
-    firepit: "Foyer commun",
+    firepit: "Grange commune",
     tent: "Tente",
     hut: "Cabane",
     longhouse: "Longue maison",
@@ -788,6 +788,9 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawHealthTint();
       // Nuit : assombrit la scene, les villes avancees se mettent a briller.
       cityMapDrawNight(now);
+      // Lumière du grand feu de camp (âge 0) : éclaire les alentours par-dessus
+      // le voile de nuit (additif).
+      drawCentralFireGlow(now);
       // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
       cityMapDrawCityLights(now);
       cityMapDrawMist(now);

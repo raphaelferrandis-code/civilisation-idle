@@ -178,18 +178,36 @@ export function createBuildingPlacer({
     return best;
   };
 
+  const quarterIdAt = (gx, gy) => {
+    let best = "outskirts", bestD = Infinity;
+    const anchors = plan.anchors || [];
+    for (let i = 0; i < anchors.length; i += 1) {
+      const a = anchors[i];
+      const d = Math.hypot(gx + 0.5 - a.gx, gy + 0.5 - a.gy);
+      if (d <= a.r * 1.5 && d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  };
+
   // Place `count` bâtiments d'une catégorie ; `usedKeys` est partagé avec le
   // placement moteur pour éviter tout chevauchement.
   const placeCategory = (category, count, usedKeys, pushTile) => {
     const list = orderedList(category);
+    const shrineQuarters = category === "library" ? new Set() : null;
     let placed = 0;
     for (let i = 0; i < list.length && placed < count; i += 1) {
       const cell = list[i];
       const k = cell.gx + "," + cell.gy;
       if (usedKeys.has(k)) continue;
+      const variant = chooseVariant(category, placed, cell);
+      if (category === "library" && variant === "shrine") {
+        const qid = quarterIdAt(cell.gx, cell.gy);
+        if (shrineQuarters.has(qid)) continue;
+        shrineQuarters.add(qid);
+      }
       pushTile({
         gx: cell.gx, gy: cell.gy, type: category,
-        variant: chooseVariant(category, placed, cell),
+        variant,
         qkind: quarterKindAt(cell.gx, cell.gy),
         key: k, d2: cell.d2
       });

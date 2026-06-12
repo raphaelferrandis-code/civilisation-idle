@@ -1,0 +1,201 @@
+/* ============================================================================
+   TYPOGRAPHIE SIGNATURE — « La pierre et la plume »
+   (importé en dernier : ce fichier a le dernier mot sur les polices)
+
+   Trois matières :
+   · L'OR GRAVÉ   — titres en Cinzel avec dégradé métallique dans la lettre
+   · LE MANUSCRIT — prose en Crimson : lettrines, petites capitales,
+                    chiffres elzéviriens, italiques
+   · LE REGISTRE  — Inter tabulaire pour tout ce qui compte
+   ============================================================================ */
+
+/* La sélection de texte elle-même est dorée */
+::selection {
+  background: var(--gold);
+  color: #16100a;
+}
+
+/* ----------------------------------------------------------------------------
+   1. L'OR GRAVÉ — titres majeurs : la lumière traverse la lettre
+   ---------------------------------------------------------------------------- */
+
+.panel-heading h2,
+.view-header-title,
+.brand h1,
+.event-dialog h2,
+.era-banner-name {
+  font-family: var(--font-title);
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  background: linear-gradient(
+    180deg,
+    #f7e7b8 0%,
+    var(--gold-bright) 34%,
+    #8a6526 72%,
+    #d9b465 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Fleuron de fin de titre de panneau */
+.panel-heading h2::after {
+  content: " ❧";
+  -webkit-text-fill-color: var(--gold-deep);
+  font-size: 0.65em;
+  vertical-align: 0.18em;
+  letter-spacing: 0;
+}
+
+.panel-heading h2 {
+  font-size: 1.35rem;
+}
+
+/* Le nom de la cité : monumental, ciselé dans la pierre */
+.city-title-wrapper .city-name-input {
+  font-family: var(--font-title);
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  color: var(--gold-ivory);
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.85),
+    0 -1px 0 rgba(255, 240, 200, 0.14);
+}
+
+/* La navigation parle le langage du monument */
+.tab {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* ----------------------------------------------------------------------------
+   2. LE MANUSCRIT — la prose du chroniqueur
+   ---------------------------------------------------------------------------- */
+
+/* Ligatures + chiffres elzéviriens (les nombres dansent DANS le texte,
+   jamais dans les compteurs) */
+.body-copy,
+.event-dialog p,
+.era-description-text,
+.shop-item p,
+.upgrade p,
+.archive-entry p,
+.myth-rule,
+.myth-objectif,
+.myth-heritage-desc,
+.locked-hint,
+.pr-locked-hint,
+.choice-menu small,
+.ticker-text {
+  font-feature-settings: "liga" 1, "onum" 1;
+}
+
+/* Lettrine : la première lettre des récits est enluminée */
+.event-dialog p:first-of-type::first-letter,
+.body-copy::first-letter {
+  float: left;
+  margin: 0.04em 0.14em 0 0;
+  font-family: var(--font-title);
+  font-size: 3em;
+  font-weight: 700;
+  line-height: 0.8;
+  color: var(--gold);
+}
+
+/* Les noms de bâtiments : petites capitales du copiste */
+.pr-name {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.035em;
+}
+
+/* Le bâtiment verrouillé murmure en italique */
+.purchase-row.pr-locked .pr-name {
+  font-style: italic;
+  font-variant: normal;
+}
+
+/* Le ticker : une manchette de gazette ancienne */
+.ticker-masthead {
+  letter-spacing: 0.22em;
+  font-weight: 700;
+}
+
+.ticker-title {
+  font-family: var(--font-serif);
+  font-size: 1.08em;
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+
+/* Texte de dépêche : droit (l'italique gênait la lecture) et plus présent */
+.ticker-text {
+  font-style: normal;
+  font-size: 1.08em;
+}
+
+.ticker-author {
+  font-variant: small-caps;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.ticker-date {
+  font-family: var(--font-title);
+  font-weight: 600;
+}
+
+/* Les humeurs et états narratifs penchent (c'est une opinion, pas une mesure) */
+.sg-label {
+  letter-spacing: 0.18em;
+}
+
+.city-personality-label {
+  font-size: 0.92rem;
+}
+
+/* ----------------------------------------------------------------------------
+   3. LE REGISTRE — inscriptions et mesures
+   ---------------------------------------------------------------------------- */
+
+/* Labels : inscriptions de monnaie — minuscules, très espacées, en retrait */
+.resource-name,
+.vitals-label,
+.city-title-label,
+.myth-modal-label,
+.chip-label {
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+/* Les valeurs écrasent leurs labels (contraste de hiérarchie assumé) */
+.topbar .resource-value {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Le compteur fantôme : chiffre de marge (pas d'italique — Cinzel n'a pas
+   de face italique, l'oblique synthétique déforme les chiffres) */
+.pr-count {
+  font-weight: 600;
+}
+
+/* Le bouton d'achat : une inscription votive */
+.btn-purchase .bp-action {
+  font-family: var(--font-title);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* L'ère dans le bandeau d'état : gravée, pas tapée */
+.vitals-value {
+  letter-spacing: 0.04em;
+}

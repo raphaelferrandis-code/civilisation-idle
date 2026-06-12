@@ -2,6 +2,19 @@
   box-sizing: border-box;
 }
 
+/* Accessibilité : coupe toutes les animations/transitions pour les joueurs
+   qui demandent moins de mouvement (Audit UI Phase 6) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html,
 body {
   min-height: 100vh;
@@ -27,9 +40,9 @@ button {
 button:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--gold);
-  background: rgba(217, 119, 6, 0.1);
+  background: rgba(214, 168, 75, 0.1);
   color: var(--gold-bright);
-  box-shadow: inset 0 1px 0 var(--shine), 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 12px rgba(217, 119, 6, 0.15);
+  box-shadow: inset 0 1px 0 var(--shine), 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 12px rgba(214, 168, 75, 0.15);
 }
 
 button:active:not(:disabled) {
@@ -37,9 +50,13 @@ button:active:not(:disabled) {
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
 }
 
+/* Disabled : fond grisé + texte atténué mais LISIBLE (plus d'opacité seule) */
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  border-color: var(--border-soft);
+  background: var(--bg-inset);
+  color: var(--text-disabled);
+  box-shadow: none;
 }
 
 h1,
@@ -57,6 +74,23 @@ h1 {
   display: none !important;
 }
 
+/* Chiffres à chasse fixe : les valeurs qui tickent ne "dansent" plus
+   (Audit UI Phase 1) */
+.resource-value,
+.rate-value,
+.rate-value strong,
+.gauge-meta strong,
+.gauge-mood-text,
+.stat-chip strong,
+.chip,
+.sg-pct,
+.era-progress-percentage,
+.auto-collapse-countdown,
+.metrics-grid strong,
+.prestige-stats strong {
+  font-variant-numeric: tabular-nums;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -69,16 +103,7 @@ h1 {
     0 20px 48px var(--shadow);
 }
 
-/* era-card dans la sidebar (plus utilisée mais conservée) */
-
-
-.era-card {
-  padding: 1rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(36, 24, 11, 0.92);
-  box-shadow: 0 1px 0 var(--panel-border) inset, 0 20px 48px var(--shadow);
-}
+/* (CSS mort purgé : .era-card sidebar) */
 
 /* Colonne droite de la vue Cité */
 
@@ -94,36 +119,7 @@ h1 {
   margin-bottom: 0;
 }
 
-/* era-card dans la vue Cité (colonne droite, sous santé des ressources) */
-
-
-.era-card-city {
-  padding: 1rem 1.15rem 1.1rem;
-  border-left: 2px solid rgba(232, 196, 90, 0.45);
-  background:
-    linear-gradient(135deg, rgba(232, 196, 90, 0.06) 0%, transparent 55%),
-    rgba(30, 20, 9, 0.96);
-  box-shadow: inset 0 1px 0 var(--panel-border);
-}
-
-.era-card-city .era-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.35rem;
-}
-
-.era-card-city .era-progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 0.75rem;
-}
-
-.era-card-city .era-track span {
-  background: linear-gradient(90deg, #a8a14e, var(--gold), #c2603a);
-  box-shadow: 0 0 8px rgba(232, 196, 90, 0.3);
-}
+/* (CSS mort purgé : .era-card-city) */
 
 .label {
   display: block;
@@ -134,20 +130,7 @@ h1 {
   text-transform: uppercase;
 }
 
-.era-track span {
-  display: block;
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--green), var(--gold), var(--red));
-  transition: width 180ms linear;
-}
-
-.era-card p {
-  margin-top: 0.7rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
+/* (CSS mort purgé : .era-track span / .era-card p) */
 
 main {
   min-width: 0;
@@ -177,8 +160,8 @@ main {
      commence chaque section (le padding du .panel est de 1rem). */
   margin: -1rem -1rem 1rem;
   padding: 0.8rem 1rem 0.65rem;
-  background: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0.015) 80%, transparent);
-  border-bottom: 2px solid rgba(201, 168, 76, 0.3);
+  background: linear-gradient(180deg, rgba(214, 168, 75, 0.08), rgba(214, 168, 75, 0.015) 80%, transparent);
+  border-bottom: 2px solid rgba(214, 168, 75, 0.3);
   border-radius: 12px 12px 0 0;
 }
 
@@ -202,10 +185,10 @@ main {
   align-items: center;
   gap: 0.9rem;
   padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(201, 168, 76, 0.3);
+  border: 1px solid rgba(214, 168, 75, 0.3);
   border-left: 4px solid var(--gold);
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(18, 20, 28, 0.4) 65%);
+  background: linear-gradient(135deg, rgba(214, 168, 75, 0.1), rgba(18, 20, 28, 0.4) 65%);
 }
 
 .view-header-icon {
@@ -240,12 +223,12 @@ main {
 .city-name-input {
   width: min(28rem, 100%);
   border: 0;
-  border-bottom: 1px solid rgba(226, 189, 85, 0.42);
+  border-bottom: 1px solid rgba(214, 168, 75, 0.42);
   background: transparent;
-  color: #fff4c8;
+  color: var(--gold-ivory);
   font: inherit;
   font-size: clamp(1.25rem, 2.8vw, 2rem);
-  font-weight: 850;
+  font-weight: 800;
   line-height: 1.15;
   outline: none;
 }
@@ -259,111 +242,7 @@ main {
   padding: 0 1rem;
 }
 
-.city-pop-card,
-.city-pressure-card,
-.city-dashboard > [class^="city-prod-"] {
-  min-width: 0;
-  border: 1px solid #4a3720;
-  border-radius: 8px;
-  background: #211408;
-}
-
-.city-pop-card {
-  container-type: inline-size;
-  display: grid;
-  align-content: center;
-  padding: 0.95rem;
-  background:
-    radial-gradient(circle at 88% 18%, rgba(217, 194, 127, 0.16), transparent 5rem),
-    #211408;
-}
-
-.city-pop-card span,
-.city-gauge-label span,
-.city-dashboard > [class^="city-prod-"] span {
-  display: block;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.city-pop-card strong,
-.city-dashboard > [class^="city-prod-"] strong {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: #d9c27f;
-  font-size: min(22cqw, 3.2rem);
-  line-height: 1;
-  text-shadow: 0 0 18px rgba(217, 194, 127, 0.18);
-}
-
-.city-pop-card small,
-.city-dashboard > [class^="city-prod-"] small {
-  margin-top: 0.25rem;
-  color: #e6ddc7;
-  font-weight: 800;
-  display: block;
-}
-
-.city-pressure-card {
-  display: grid;
-  grid-column: 1 / -1;
-  gap: 0.75rem;
-  padding: 0.95rem;
-}
-
-.city-wide-gauge span {
-  display: block;
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  transition: width 180ms ease, background 180ms ease;
-}
-
-.city-dashboard > [class^="city-prod-"] {
-  container-type: inline-size;
-  --city-prod-color: var(--gold);
-  display: grid;
-  align-content: center;
-  min-height: 6.5rem;
-  padding: 0.95rem;
-  border-color: color-mix(in srgb, var(--city-prod-color), var(--line) 55%);
-  background:
-    radial-gradient(circle at 86% 16%, color-mix(in srgb, var(--city-prod-color), transparent 82%), transparent 4.8rem),
-    linear-gradient(135deg, color-mix(in srgb, var(--city-prod-color), transparent 92%), transparent 58%),
-    #211408;
-}
-
-.city-dashboard .city-prod-food {
-  --city-prod-color: var(--green);
-}
-
-.city-dashboard .city-prod-gold {
-  --city-prod-color: #f0a94a;
-}
-
-.city-dashboard .city-prod-knowledge {
-  --city-prod-color: var(--blue);
-}
-
-.city-dashboard .city-prod-infra {
-  --city-prod-color: var(--violet);
-}
-
-.city-dashboard > [class^="city-prod-"] span {
-  color: color-mix(in srgb, var(--city-prod-color), var(--muted) 38%);
-}
-
-.city-dashboard > [class^="city-prod-"] strong {
-  color: var(--city-prod-color);
-  text-shadow: 0 0 14px color-mix(in srgb, var(--city-prod-color), transparent 78%);
-}
-
-.city-dashboard > [class^="city-prod-"] small {
-  color: color-mix(in srgb, var(--city-prod-color), var(--muted) 28%);
-}
+/* (CSS mort purgé : .city-pop-card / .city-pressure-card / .city-dashboard / city-prod-*) */
 
 .counter-bump {
   animation: counter-bump 260ms ease-out;
@@ -375,147 +254,24 @@ main {
   100% { transform: translateY(0); filter: brightness(1); }
 }
 
-/* ── Panel Santé des ressources ─────────────────────── */
-
-
-.city-health-grid {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.health-gold      { --hc: #e8a84a; }
-
-.health-header {
-  display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.health-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--hc), transparent 25%);
-  transition: width 200ms ease;
-}
-
-/* ── Ancien style state-list (conservé pour compatibilité) ── */
-
-
-.state-list {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.state-row span {
-  color: color-mix(in srgb, var(--state-color), var(--muted) 42%);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.state-row small {
-  color: #d6ccb4;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.crisis-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.crisis-list button {
-  display: grid;
-  gap: 0.2rem;
-  min-height: 4.8rem;
-  padding: 0.85rem 0.95rem;
-  text-align: left;
-  border-color: #43301a;
-  background: linear-gradient(180deg, #241509 0%, #1c1206 100%);
-  box-shadow: inset 0 1px 0 var(--shine);
-}
-
-.crisis-list button:hover:not(:disabled) {
-  border-color: rgba(232, 196, 90, 0.5);
-  background: linear-gradient(180deg, #30220f 0%, #281a0c 100%);
-}
-
-.crisis-list button span,
-.crisis-list button small {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-
-.chronicle-preview {
-  margin-top: 1rem;
-  padding: 0.9rem;
-  border: 1px solid rgba(226, 189, 85, 0.22);
-  border-radius: 8px;
-  background: rgba(68, 56, 31, 0.25);
-}
-
-.chronicle-preview p {
-  color: #e7dec7;
-  line-height: 1.45;
-}
-
-.crisis-summary span,
-.crisis-summary small {
-  display: block;
-  color: var(--muted);
-}
-
-.crisis-summary span {
-  font-size: 0.76rem;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.terminal-crisis-panel {
-  display: grid;
-  gap: 0.8rem;
-  margin: 1rem 0;
-  padding: 1rem;
-  border: 1px solid #6e5b2b;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(81, 62, 25, 0.36), rgba(37, 25, 12, 0.96));
-}
-
-.terminal-crisis-panel h3,
-.terminal-crisis-panel p {
-  margin: 0;
-}
-
-.terminal-crisis-panel p,
-.terminal-crisis-panel small {
-  color: var(--muted);
-}
-
-.collapse-card {
-  border-color: #8b3f34;
-  background: linear-gradient(135deg, rgba(96, 34, 28, 0.34), #221409);
-}
+/* (CSS mort purgé : .city-health-grid / .health-* / .state-list / .state-row /
+   .crisis-list / .chronicle-preview / .crisis-summary / .terminal-crisis-panel / .collapse-card) */
 
 @keyframes milestone-flash {
   0% {
-    border-color: #fff4c8;
-    box-shadow: 0 0 0 rgba(226, 189, 85, 0);
+    border-color: var(--gold-ivory);
+    box-shadow: 0 0 0 rgba(214, 168, 75, 0);
     filter: brightness(1);
   }
 
   28% {
-    border-color: #fff4c8;
-    box-shadow: 0 0 26px rgba(226, 189, 85, 0.34);
+    border-color: var(--gold-ivory);
+    box-shadow: 0 0 26px rgba(214, 168, 75, 0.34);
     filter: brightness(1.18);
   }
 
   100% {
-    box-shadow: 0 0 0 rgba(226, 189, 85, 0);
+    box-shadow: 0 0 0 rgba(214, 168, 75, 0);
     filter: brightness(1);
   }
 }
@@ -573,8 +329,8 @@ main {
 
 .upgrade .effect-line {
   margin-top: 0.35rem;
-  color: #f0dfaa;
-  font-weight: 750;
+  color: var(--gold-ivory);
+  font-weight: 700;
 }
 
 .ruin-paths {
@@ -635,7 +391,7 @@ main {
 }
 
 .output-chip {
-  color: #f0dfaa;
+  color: var(--gold-ivory);
 }
 
 .body-copy {
@@ -671,7 +427,7 @@ main {
 
 .choice-menu small {
   color: var(--muted);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -756,19 +512,16 @@ menu {
     grid-template-columns: repeat(4, 1fr);
   }
 
+  /* minmax(0, 1fr) et non 1fr : sinon le min-content des enfants nowrap
+     (ticker, titres) déborde de la colonne (Audit UI Phase 6) */
   .topbar,
-  .city-dashboard,
   .view.active,
   .upgrade-grid,
   .dogma-grid,
   .prestige-tree,
   .ruin-paths,
-  .tension-grid,
-  .tension-summary,
-  .crisis-list,
-  .crisis-outcomes,
-  .crisis-summary {
-    grid-template-columns: 1fr;
+  .crisis-outcomes {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .city-production-strip {
@@ -842,7 +595,7 @@ menu {
 
 .branch-progress-bar.resilience span { background: rgba(125, 187, 114, 0.65); }
 
-.branch-progress-bar.prosperity span { background: rgba(226, 189, 85, 0.65); }
+.branch-progress-bar.prosperity span { background: rgba(214, 168, 75, 0.65); }
 
 .branch-progress-bar.knowledge span  { background: rgba(115, 166, 200, 0.65); }
 
@@ -942,17 +695,7 @@ body::before {
   100% { transform: translateX(320%); }
 }
 
-/* ---------- Cohesion : cartes tableau de bord ville ---------- */
-
-
-.city-pop-card, .city-pressure-card, .city-dashboard > [class^="city-prod-"] {
-  border-color: #4a3510;
-  border-top: 2px solid var(--gold);
-}
-
-.city-pop-card strong { color: var(--gold) !important; }
-
-.panel-heading { border-bottom-color: rgba(201, 168, 76, 0.3); }
+.panel-heading { border-bottom-color: rgba(214, 168, 75, 0.3); }
 
 .panel-heading .label::before { background: var(--gold); }
 
@@ -974,9 +717,6 @@ body::before {
 
 @keyframes win-glow { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.5; } }
 
-@media (max-width: 560px) {
-  .city-minimap { width: 96px; height: 96px; }
-}
 
 /* ============================================================================
    VUE CITE : colonne gauche (carte + etat) / colonne droite (construction)
@@ -1037,8 +777,8 @@ body::before {
 }
 
 @keyframes mythActivePulse {
-  0%, 100% { box-shadow: 0 0 16px rgba(201,168,76,0.10), inset 0 1px 0 rgba(201,168,76,0.12); }
-  50%       { box-shadow: 0 0 36px rgba(201,168,76,0.28), inset 0 1px 0 rgba(201,168,76,0.22); }
+  0%, 100% { box-shadow: 0 0 16px rgba(214, 168, 75,0.10), inset 0 1px 0 rgba(214, 168, 75,0.12); }
+  50%       { box-shadow: 0 0 36px rgba(214, 168, 75,0.28), inset 0 1px 0 rgba(214, 168, 75,0.22); }
 }
 
 /* Responsive */
@@ -1188,14 +928,14 @@ body::before {
   gap: 0.55rem;
   padding: 0.4rem 0.6rem;
   border-radius: 5px;
-  border: 1px solid rgba(201, 168, 76, 0.18);
+  border: 1px solid rgba(214, 168, 75, 0.18);
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.babel-cat-option:hover { background: rgba(201, 168, 76, 0.09); }
+.babel-cat-option:hover { background: rgba(214, 168, 75, 0.09); }
 
-.babel-cat-option input[type="radio"] { accent-color: #c9a84c; flex-shrink: 0; }
+.babel-cat-option input[type="radio"] { accent-color: var(--gold); flex-shrink: 0; }
 
 @keyframes surchauffeGlow {
   0%, 100% { box-shadow: 0 0 14px rgba(194, 96, 58, 0.25); }
@@ -1218,8 +958,8 @@ body::before {
 }
 
 .options-tab.active {
-  border-color: rgba(232, 196, 90, 0.55);
-  background: linear-gradient(180deg, rgba(232, 196, 90, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  border-color: rgba(214, 168, 75, 0.55);
+  background: linear-gradient(180deg, rgba(214, 168, 75, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
   color: #fff3c4;
 }
 
@@ -1280,8 +1020,8 @@ body::before {
 }
 
 .format-option.active {
-  border-color: rgba(232, 196, 90, 0.55);
-  background: linear-gradient(180deg, rgba(232, 196, 90, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  border-color: rgba(214, 168, 75, 0.55);
+  background: linear-gradient(180deg, rgba(214, 168, 75, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
   color: #fff3c4;
 }
 

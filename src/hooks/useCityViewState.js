@@ -51,6 +51,9 @@ export function useCityViewState() {
     atlasLegitimite:               s.atlasLegitimite,
     atlasHeritage:                 s.atlasHeritage,
     buildingsSig:                  renderCache._buildingsVersion,
-    upgradesSig:                   renderCache._upgradesVersion
+    upgradesSig:                   renderCache._upgradesVersion,
+    // Horloge du dernier tick : permet d'afficher du temps écoulé sans appeler
+    // Date.now() pendant le rendu (fragile sous mémoïsation React Compiler).
+    tickNow:                       renderCache.tickNow
   }));
 }

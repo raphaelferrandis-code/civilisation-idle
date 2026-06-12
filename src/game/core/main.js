@@ -2,6 +2,7 @@
 
 import {
   state,
+  renderCache,
   collapseInProgress,
   save,
   invalidateRenderCache,
@@ -331,6 +332,7 @@ export function startGameLoop() {
     last = now;
     // Temps de jeu actif cumulé (jalon de merveille) — survit aux effondrements.
     state.playTimeSec = (state.playTimeSec || 0) + seconds;
+    renderCache.tickNow = Date.now(); // horloge lue par les composants (pas de Date.now() en rendu)
     tick(seconds);
     checkAutoCollapse();
     notify(); // Notifie React du changement d'etat a chaque tick

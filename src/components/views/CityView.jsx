@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
-import JournalPanel from '../ui/JournalPanel.jsx';
+import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import {
   cityVitals,
   pressureBreakdown,
@@ -20,8 +20,7 @@ import {
   transmettreAtrides,
   activateAtridesPact,
   migrerEnee,
-  rewardCitizenThought,
-  log
+  rewardCitizenThought
 } from '../../game/core/actions.js';
 import { save, setCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
@@ -55,7 +54,7 @@ export default function CityView() {
     atridesHeritage, atridesPactActive, atridesNextRunPenaltyActive,
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
     activeEpitaphLegacy,
-    food, knowledge, legitimacy, instability, ruins, rationing, prometheeBraisiers, buildingsSig, upgradesSig
+    instability
   } = useCityViewState();
 
   const [now, setNow] = useState(() => Date.now());
@@ -185,68 +184,33 @@ export default function CityView() {
 
   return (
     <section className="view active" id="city">
+      {/* Bandeau-dépêche pleine largeur (remplace le panneau journal) */}
+      <ChronicleTicker />
+
       <div className="city-left-col">
         {eneeHeritage && cycleSeconds < 30 && (
-          <div className="enee-boost-banner" style={{
-            background: 'rgba(76,201,168,0.15)',
-            border: '1px solid var(--green)',
-            borderRadius: '6px',
-            padding: '1rem',
-            marginBottom: '1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            position: 'relative'
-          }}>
-            <strong style={{ color: 'var(--green)', fontSize: '1rem' }}>
-              ⚖ Bénédiction d'Énée
-            </strong>
-            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4' }}>
+          <div className="enee-boost-banner">
+            <strong>⚖ Bénédiction d'Énée</strong>
+            <p>
               Démarrage rapide : la production globale est augmentée de <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s restantes).
             </p>
           </div>
         )}
         {atridesHeritage && !activeMythId && cycleSeconds < 120 && (
-          <div className="atrides-pact-banner" style={{
-            background: atridesPactActive ? 'rgba(201,168,76,0.15)' : 'rgba(201,100,76,0.1)',
-            border: '1px solid var(--gold)',
-            borderRadius: '6px',
-            padding: '1rem',
-            marginBottom: '1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: 'var(--gold)', fontSize: '1rem' }}>
+          <div className={`atrides-pact-banner${atridesPactActive ? ' is-sealed' : ''}`}>
+            <div className="pact-banner-head">
+              <strong>
                 {atridesPactActive ? "⚖ Pacte des Atrides Scellé" : "📜 Pacte des Atrides Disponible"}
               </strong>
-              <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Temps restant: {120 - cycleSeconds}s</span>
+              <span className="pact-banner-time">Temps restant: {120 - cycleSeconds}s</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4' }}>
-              {atridesPactActive 
+            <p>
+              {atridesPactActive
                 ? "Vous avez emprunté de la production. Bonus x2 actif pendant les 2 premières minutes, puis malus x0.5 s'appliquera en phase de crise."
                 : "Empruntez un bonus de production de x2 pour les 2 premières minutes de ce cycle. En échange, la production sera réduite de 50% pendant la crise finale."}
             </p>
             {!atridesPactActive && (
-              <button 
-                onClick={activateAtridesPact}
-                className="myth-activate-btn"
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: '0.5rem',
-                  padding: '0.4rem 1rem',
-                  fontSize: '0.85rem',
-                  backgroundColor: 'var(--gold)',
-                  color: '#111',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
+              <button onClick={activateAtridesPact} className="btn-primary pact-activate-btn">
                 Activer le Pacte
               </button>
             )}
@@ -256,7 +220,6 @@ export default function CityView() {
         {/* 1. En-tête de la Cité (Identity & Dynasty stats) */}
         <div className="city-header-panel">
           <div className="city-title-wrapper">
-            <span className="city-title-label">Cité de la Dynastie</span>
             <input
               id="cityNameInput"
               className="city-name-input"
@@ -269,7 +232,6 @@ export default function CityView() {
             <span
               className="city-personality-label"
               title="Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants"
-              style={{ fontSize: '0.78rem', fontStyle: 'italic', opacity: 0.75, letterSpacing: '0.03em' }}
             >
               {cityPersonalityLabel}
             </span>
@@ -290,10 +252,20 @@ export default function CityView() {
               : { cls: "sg-stable", icon: "🛡️", label: "Civilisation stable", desc: "La cité tient bon. Continuez à bâtir votre civilisation." };
             const crackOpacity = (threshold, ramp, max) =>
               lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
+            // Tooltip détaillé : sources de pression (données de pressureBreakdown)
+            const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
+            const pressureTooltip = [
+              tier.desc,
+              "",
+              "Sources de pression :",
+              `Rareté ${pp(pressure.scarcity)} · Inégalités ${pp(pressure.inequality)}`,
+              `Complexité ${pp(pressure.complexity)} · Dissidence ${pp(pressure.dissent)}`,
+              `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`
+            ].join("\n");
             return (
               <div
                 className={`stability-gauge ${tier.cls}`}
-                title={tier.desc}
+                title={pressureTooltip}
                 aria-label={`Pression civilisationnelle : ${pctValue}% — ${tier.label}`}
               >
                 <div className="sg-meta">
@@ -302,6 +274,9 @@ export default function CityView() {
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
+                  {[25, 50, 75, 90].map((t) => (
+                    <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
+                  ))}
                   <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
                   {lvl >= 0.68 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
@@ -377,72 +352,49 @@ export default function CityView() {
 
         {/* 5. Atrides Debt Panel */}
         {isAtrides && (
-          <div className="panel atrides-debt-panel" style={{
-            marginTop: '1rem',
-            border: '1px solid rgba(220, 50, 50, 0.3)',
-            background: 'rgba(20, 10, 10, 0.45)',
-            boxShadow: 'inset 0 0 10px rgba(220, 50, 50, 0.15)',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }}>
-            <div className="panel-heading" style={{ borderBottom: '1px solid rgba(220, 50, 50, 0.15)', padding: '1rem' }}>
+          <div className="panel myth-panel myth-panel--atrides atrides-debt-panel">
+            <div className="panel-heading">
               <div>
-                <span className="label" style={{ color: 'var(--red)' }}>Acte III · Le Fardeau des Atrides</span>
-                <h2 style={{ margin: '0.2rem 0 0 0', fontSize: '1.25rem' }}>Tragédie & Dette Active</h2>
+                <span className="label label-red">Acte III · Le Fardeau des Atrides</span>
+                <h2>Tragédie & Dette Active</h2>
               </div>
             </div>
-            
-            <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--red)' }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Dette Cumulée</span>
-                  <strong style={{ fontSize: '1.25rem', color: 'var(--red)' }}>{fmt(atridesDebt)}</strong>
+
+            <div className="myth-panel-body">
+              <div className="myth-stats-grid">
+                <div className="myth-stat is-red">
+                  <span>Dette Cumulée</span>
+                  <strong>{fmt(atridesDebt)}</strong>
                 </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--orange)' }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Taux de Croissance</span>
-                  <strong style={{ fontSize: '1.25rem', color: 'var(--orange)' }}>+{fmt(atridesDebtGrowthRate)} /s</strong>
+
+                <div className="myth-stat is-orange">
+                  <span>Taux de Croissance</span>
+                  <strong>+{fmt(atridesDebtGrowthRate)} /s</strong>
                   {isRenegotiationActive && (
-                    <small style={{ color: 'var(--green)', fontSize: '0.75rem' }}>Renégociation active ({renegocierActiveSecs}s)</small>
+                    <small className="stat-green">Renégociation active ({renegocierActiveSecs}s)</small>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--gold)' }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Objectif Trésor Net</span>
-                  <strong style={{ fontSize: '1.25rem', color: netGoldReached ? 'var(--green)' : 'var(--gold)' }}>
+                <div className="myth-stat">
+                  <span>Objectif Trésor Net</span>
+                  <strong className={netGoldReached ? "stat-green" : "stat-gold"}>
                     {fmt(netGold)} / {fmt(ATRIDES_GOAL_NET_GOLD)}
                   </strong>
-                  <small style={{ fontSize: '0.75rem', opacity: 0.7 }}>Trésor moins Dette</small>
+                  <small>Trésor moins Dette</small>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: `3px solid ${atridesDrainDisabled ? 'var(--green)' : 'var(--red)'}` }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Drain de Ressources</span>
-                  <strong style={{ fontSize: '1.25rem', color: atridesDrainDisabled ? 'var(--green)' : 'var(--red)' }}>
-                    {atridesDrainDisabled ? "Désactivé" : "-10%"}
-                  </strong>
-                  <small style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-                    {atridesDrainDisabled ? "Transmission active" : "Va à la Dette"}
-                  </small>
+                <div className={`myth-stat ${atridesDrainDisabled ? "is-green" : "is-red"}`}>
+                  <span>Drain de Ressources</span>
+                  <strong>{atridesDrainDisabled ? "Désactivé" : "-10%"}</strong>
+                  <small>{atridesDrainDisabled ? "Transmission active" : "Va à la Dette"}</small>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div className="myth-actions">
                 <button
                   onClick={rembourserAtridesDebt}
                   disabled={!canRepayAtrides}
-                  className="action-btn"
-                  style={{
-                    flex: '1 1 120px',
-                    padding: '0.6rem',
-                    backgroundColor: canRepayAtrides ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--gold)',
-                    borderRadius: '4px',
-                    color: 'var(--gold)',
-                    cursor: canRepayAtrides ? 'pointer' : 'not-allowed',
-                    opacity: canRepayAtrides ? 1 : 0.4,
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem'
-                  }}
+                  className="btn-primary"
                   title="Rembourse la dette en payant de l'Or"
                 >
                   Rembourser ({fmt(atridesRepayCost)} Or)
@@ -451,18 +403,7 @@ export default function CityView() {
                 <button
                   onClick={renegocierAtridesDebt}
                   disabled={isRenegotiationOnCooldown}
-                  className="action-btn"
-                  style={{
-                    flex: '1 1 120px',
-                    padding: '0.6rem',
-                    backgroundColor: !isRenegotiationOnCooldown ? 'rgba(168,161,78,0.2)' : 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--text)',
-                    borderRadius: '4px',
-                    cursor: !isRenegotiationOnCooldown ? 'pointer' : 'not-allowed',
-                    opacity: !isRenegotiationOnCooldown ? 1 : 0.4,
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem'
-                  }}
+                  className="btn-secondary"
                   title="Réduit le taux de croissance de la dette de 70% pour 30s"
                 >
                   {isRenegotiationOnCooldown ? `Renégocier (${renegocierCooldownSecs}s)` : "Renégocier (120s CD)"}
@@ -471,19 +412,7 @@ export default function CityView() {
                 <button
                   onClick={transmettreAtrides}
                   disabled={atridesDrainDisabled}
-                  className="action-btn"
-                  style={{
-                    flex: '1 1 120px',
-                    padding: '0.6rem',
-                    backgroundColor: !atridesDrainDisabled ? 'rgba(220,50,50,0.2)' : 'rgba(255,255,255,0.03)',
-                    border: '1px solid var(--red)',
-                    borderRadius: '4px',
-                    color: 'var(--red)',
-                    cursor: !atridesDrainDisabled ? 'pointer' : 'not-allowed',
-                    opacity: !atridesDrainDisabled ? 1 : 0.4,
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem'
-                  }}
+                  className="btn-danger"
                   title="Désactive le drain, gains de ruines x1.5, mais malus de production de 20% au cycle suivant"
                 >
                   {atridesDrainDisabled ? "Transmis" : "Transmettre (Ruines x1.5)"}
@@ -495,58 +424,40 @@ export default function CityView() {
 
         {/* 6. Enee Panel */}
         {isMythEffectActive("mythe_d_enee") && (
-          <div className="panel enee-panel" style={{
-            marginTop: '1rem',
-            border: eneeDegraded ? '1px solid rgba(220, 50, 50, 0.5)' : '1px solid rgba(76, 201, 168, 0.3)',
-            background: eneeDegraded ? 'rgba(30, 10, 10, 0.45)' : 'rgba(10, 25, 20, 0.45)',
-            boxShadow: eneeDegraded ? 'inset 0 0 10px rgba(220, 50, 50, 0.2)' : 'inset 0 0 10px rgba(76, 201, 168, 0.1)',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }}>
-            <div className="panel-heading" style={{ 
-              borderBottom: eneeDegraded ? '1px solid rgba(220, 50, 50, 0.2)' : '1px solid rgba(76, 201, 168, 0.15)', 
-              padding: '1rem' 
-            }}>
+          <div className={`panel myth-panel myth-panel--enee enee-panel${eneeDegraded ? ' is-degraded' : ''}`}>
+            <div className="panel-heading">
               <div>
-                <span className="label" style={{ color: eneeDegraded ? 'var(--red)' : 'var(--green)' }}>Acte I · Le Mythe d'Énée</span>
-                <h2 style={{ margin: '0.2rem 0 0 0', fontSize: '1.25rem' }}>Territoire & Migration</h2>
+                <span className={`label ${eneeDegraded ? 'label-red' : 'label-green'}`}>Acte I · Le Mythe d'Énée</span>
+                <h2>Territoire & Migration</h2>
               </div>
             </div>
-            
-            <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: '3px solid var(--green)' }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Migrations Effectuées</span>
-                  <strong style={{ fontSize: '1.25rem', color: eneeMigrations >= ENEE_MIGRATIONS_TARGET ? 'var(--green)' : 'var(--text)' }}>
+
+            <div className="myth-panel-body">
+              <div className="myth-stats-grid">
+                <div className="myth-stat is-green">
+                  <span>Migrations Effectuées</span>
+                  <strong className={eneeMigrations >= ENEE_MIGRATIONS_TARGET ? "stat-green" : "stat-text"}>
                     {eneeMigrations} / {ENEE_MIGRATIONS_TARGET}
                   </strong>
                 </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '4px', borderLeft: `3px solid ${eneeDegraded ? 'var(--red)' : 'var(--gold)'}` }}>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Statut du Territoire</span>
+
+                <div className={`myth-stat ${eneeDegraded ? "is-red" : ""}`}>
+                  <span>Statut du Territoire</span>
                   {eneeDegraded ? (
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--red)' }}>DÉGRADÉ (Invivable)</strong>
+                    <strong>DÉGRADÉ (Invivable)</strong>
                   ) : (
                     <>
-                      <strong style={{ fontSize: '1.25rem', color: 'var(--gold)' }}>
+                      <strong>
                         {Math.floor(eneeRemainingSecs / 60)}m {String(eneeRemainingSecs % 60).padStart(2, '0')}s
                       </strong>
-                      <small style={{ fontSize: '0.75rem', opacity: 0.7 }}>Avant dégradation</small>
+                      <small>Avant dégradation</small>
                     </>
                   )}
                 </div>
               </div>
 
               {eneeDegraded && (
-                <div style={{ 
-                  backgroundColor: 'rgba(220, 50, 50, 0.1)', 
-                  border: '1px solid rgba(220, 50, 50, 0.3)', 
-                  borderRadius: '4px', 
-                  padding: '0.75rem', 
-                  fontSize: '0.85rem', 
-                  color: 'var(--red)',
-                  lineHeight: '1.4'
-                }}>
+                <div className="myth-alert">
                   ⚠️ <strong>Alerte : Le territoire se dégrade !</strong> Nourriture à 0, Or bloqué, Usure x2. Migrez dès que possible.
                 </div>
               )}
@@ -554,21 +465,7 @@ export default function CityView() {
               <button
                 onClick={migrerEnee}
                 disabled={!eneeDegraded}
-                className="action-btn"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  backgroundColor: eneeDegraded ? 'var(--red)' : 'rgba(255, 255, 255, 0.05)',
-                  border: eneeDegraded ? '1px solid var(--red)' : '1px solid rgba(255, 255, 255, 0.15)',
-                  borderRadius: '4px',
-                  color: eneeDegraded ? '#fff' : 'var(--text-dim)',
-                  cursor: eneeDegraded ? 'pointer' : 'not-allowed',
-                  opacity: eneeDegraded ? 1 : 0.6,
-                  fontWeight: 'bold',
-                  fontSize: '0.9rem',
-                  transition: 'all 0.2s',
-                  boxShadow: eneeDegraded ? '0 0 10px rgba(220, 50, 50, 0.3)' : 'none'
-                }}
+                className="btn-critical enee-migrate-btn"
                 title={eneeDegraded ? "Détruit tous les bâtiments mais conserve les ressources (Or, Population, Savoir)" : "Le territoire est viable pour le moment."}
               >
                 {eneeDegraded ? "MIGRER (Nouveau Territoire)" : "Territoire viable (Attendre dégradation)"}
@@ -716,7 +613,6 @@ export default function CityView() {
 
       {/* Colonne latérale droite (Bâtiments et Achats) */}
       <div className="city-right-col">
-        <JournalPanel />
         <BuildingShop />
       </div>
     </section>

@@ -51,6 +51,44 @@ const CM_LOD_BY_TYPE = {
   engine: "#c0a050"
 };
 
+// Variantes à empreinte non rectangulaire : rendues à fond transparent,
+// directement sur la couleur du terrain. On supprime pour elles tout rectangle
+// de fond (ombre portée carrée, surcouche de luminosité, teinte de quartier) ;
+// seule une petite ombre ovale naturelle est conservée.
+const CM_SOFT_FOOTPRINT = new Set(["tent", "firepit", "hut", "longhouse", "granary", "shrine"]);
+const CM_SOFT_SHADOW = {
+  tent:      { cx: 0.50, cy: 0.84, rx: 0.27, ry: 0.075, a: 0.20 },
+  firepit:   { cx: 0.50, cy: 0.82, rx: 0.32, ry: 0.080, a: 0.16 },
+  hut:       { cx: 0.50, cy: 0.59, rx: 0.40, ry: 0.310, a: 0.22 },
+  longhouse: { cx: 0.50, cy: 0.86, rx: 0.43, ry: 0.080, a: 0.19 },
+  granary:   { cx: 0.50, cy: 0.85, rx: 0.36, ry: 0.075, a: 0.18 },
+  shrine:    { cx: 0.50, cy: 0.76, rx: 0.23, ry: 0.055, a: 0.18 }
+};
+
+function drawSoftFootprintShadow(ctx, variant, x, y, w, h) {
+  const sh = CM_SOFT_SHADOW[variant] || CM_SOFT_SHADOW.tent;
+  ctx.save();
+  ctx.fillStyle = `rgba(0,0,0,${sh.a})`;
+  ctx.strokeStyle = `rgba(0,0,0,${sh.a})`;
+  if (variant === "hut") {
+    ctx.lineWidth = Math.max(1, h * 0.075);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.ellipse(x + w * sh.cx, y + h * sh.cy, w * sh.rx, h * sh.ry, 0, Math.PI * 0.08, Math.PI * 0.92);
+    ctx.stroke();
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = Math.max(1, h * 0.045);
+    ctx.beginPath();
+    ctx.ellipse(x + w * sh.cx, y + h * (sh.cy + 0.035), w * (sh.rx * 0.86), h * (sh.ry * 0.78), 0, Math.PI * 0.13, Math.PI * 0.87);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(x + w * sh.cx, y + h * sh.cy, w * sh.rx, h * sh.ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 // Tuile en mode LOD : un seul aplat coloré (quartier puis catégorie), aucune
 // micro-géométrie — la métropole vue de haut devient des masses lisibles.
 function drawTileLOD(t, ctx, x, y, w, h) {
@@ -129,12 +167,18 @@ function drawTile(t, now, timeWear, maxD2) {
     w *= sizeVar; h *= sizeVar;
     x = ccx - w / 2 + offX; y = ccy - h / 2 + offY;
     tileLumDelta = (((seedV >> 9) % 31) / 31 - 0.5) * 0.3; // ~ +/-15%
-    // Ombre portée bas-droite : s'allonge avec la hauteur du bâtiment
-    // (pseudo-3D — une tour projette beaucoup plus loin qu'une hutte).
     const bh = BUILDING_HEIGHTS[t.variant] ?? 1;
-    const sh = Math.max(1.2, (1.4 + bh * 1.7) * zc);
-    ctx.fillStyle = `rgba(0,0,0,${Math.min(0.34, 0.2 + bh * 0.05).toFixed(2)})`;
-    ctx.fillRect(x + pad + sh, y + pad + sh, w - pad * 2, h - pad * 2);
+    if (CM_SOFT_FOOTPRINT.has(t.variant)) {
+      // Empreintes libres : aucune ombre rectangulaire. Chaque variante a une
+      // ombre ovale basse, assez visible pour ancrer le sprite sans refaire une tuile.
+      drawSoftFootprintShadow(ctx, t.variant, x, y, w, h);
+    } else {
+      // Ombre portée bas-droite : s'allonge avec la hauteur du bâtiment
+      // (pseudo-3D — une tour projette beaucoup plus loin qu'une hutte).
+      const sh = Math.max(1.2, (1.4 + bh * 1.7) * zc);
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(0.34, 0.2 + bh * 0.05).toFixed(2)})`;
+      ctx.fillRect(x + pad + sh, y + pad + sh, w - pad * 2, h - pad * 2);
+    }
   }
 
   if (t.type === "engine") {
@@ -196,14 +240,14 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   // Variation de luminosite (clair/sombre selon le seed).
-  if (t.type !== "farm" && Math.abs(tileLumDelta) > 0.02) {
+  if (t.type !== "farm" && !CM_SOFT_FOOTPRINT.has(t.variant) && Math.abs(tileLumDelta) > 0.02) {
     ctx.fillStyle = tileLumDelta > 0 ? `rgba(255,240,210,${tileLumDelta.toFixed(2)})` : `rgba(0,0,0,${(-tileLumDelta).toFixed(2)})`;
     ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
   }
 
   // Teinte de quartier : dominante selon le quartier d'appartenance
   // (rend la structure procédurale lisible : souk doré, quartier savant bleuté...).
-  if (t.qkind && t.type !== "engine" && t.type !== "farm") {
+  if (t.qkind && t.type !== "engine" && t.type !== "farm" && !CM_SOFT_FOOTPRINT.has(t.variant)) {
     const tint = CM_QTINT[t.qkind];
     if (tint) {
       ctx.fillStyle = tint;
@@ -269,14 +313,18 @@ function drawCentralFire(now) {
   const t = now || 0;
   const r = s * 0.55; // rayon du feu proportionnel au zoom
 
-  // Halo rayonnant
-  const halo = 0.22 + 0.10 * Math.abs(Math.sin(t / 520));
-  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2);
-  rg.addColorStop(0, `rgba(255,165,35,${halo.toFixed(2)})`);
-  rg.addColorStop(0.6, `rgba(255,80,10,${(halo * 0.35).toFixed(2)})`);
+  // Halo rayonnant — plus intense et plus large la nuit (le foyer domine le
+  // campement nocturne). La lumière projetée sur les alentours est, elle,
+  // dessinée par drawCentralFireGlow APRÈS le voile de nuit (sinon assombrie).
+  const nf = CM.nightF || 0;
+  const haloR = r * (2.2 + nf * 1.6);
+  const halo = 0.14 + 0.06 * Math.abs(Math.sin(t / 520)) + nf * 0.18;
+  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
+  rg.addColorStop(0, `rgba(255,175,55,${halo.toFixed(2)})`);
+  rg.addColorStop(0.6, `rgba(255,90,15,${(halo * 0.38).toFixed(2)})`);
   rg.addColorStop(1, "rgba(255,60,5,0)");
   ctx.fillStyle = rg;
-  ctx.beginPath(); ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
   // Cercle de pierres
   ctx.fillStyle = "#5a4830";
@@ -302,6 +350,38 @@ function drawCentralFire(now) {
   // Étincelle au sommet
   ctx.fillStyle = `rgba(255,252,210,${(0.65+f3*0.35).toFixed(2)})`;
   ctx.beginPath(); ctx.arc(cx, cy - r*(0.64+f2*0.17), Math.max(1, r*0.09), 0, Math.PI*2); ctx.fill();
+}
+
+// Lumière nocturne projetée par le grand feu : large halo chaud ADDITIF dessiné
+// APRÈS le voile de nuit (sinon il serait assombri comme le reste). C'est cette
+// passe qui « éclaire les alentours » — flamme vacillante, rayon qui respire.
+function drawCentralFireGlow(now) {
+  const L = CM.layout;
+  if (!L || !L.counts || L.counts.eraBand > 0) return;
+  const nf = CM.nightF || 0;
+  if (nf < 0.04) return;
+  const z = CM.cam.zoom, s = CM.TILE * z;
+  const coreX = L.plan?.core?.x ?? L.cx;
+  const coreY = L.plan?.core?.y ?? L.cy;
+  const cx = ((coreX + 0.5) * CM.TILE - CM.cam.x) * z + CM.cw / 2;
+  const cy = ((coreY + 0.5) * CM.TILE - CM.cam.y) * z + CM.ch / 2;
+  const t = now || 0;
+  // Vacillement : combinaison de deux sinus rapides → la lueur n'est jamais figée.
+  const flick = 0.86 + 0.1 * Math.sin(t / 150) + 0.06 * Math.sin(t / 67 + 1.7);
+  const lightR = s * (3.4 + nf * 4.2) * flick;
+  if (cx < -lightR || cx > CM.cw + lightR || cy < -lightR || cy > CM.ch + lightR) return;
+  const ctx = CM.ctx;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  const a = (0.13 + nf * 0.32) * flick;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, lightR);
+  g.addColorStop(0, `rgba(255,196,100,${a.toFixed(3)})`);
+  g.addColorStop(0.32, `rgba(255,150,55,${(a * 0.5).toFixed(3)})`);
+  g.addColorStop(0.7, `rgba(255,110,30,${(a * 0.18).toFixed(3)})`);
+  g.addColorStop(1, "rgba(255,100,25,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, lightR, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = prev;
 }
 
 function drawMinimap() {
@@ -760,4 +840,4 @@ function drawWonder(w, idx, now) {
   ctx.globalAlpha = 1;
 }
 
-export { drawCentralFire, drawMinimap, drawTile, drawWonder };
+export { drawCentralFire, drawCentralFireGlow, drawMinimap, drawTile, drawWonder };

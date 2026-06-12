@@ -25,7 +25,7 @@ export const buildings = [
   {
     id: "granaries_city",
     category: "city",
-    name: "Greniers",
+    name: "Entrepots",
     desc: "La premiere victoire contre la famine, c'est d'avoir quelque chose a perdre.",
     unlockBuilding: { id: "foragers", count: 3 },
     base: 100,
@@ -184,7 +184,7 @@ export const buildings = [
   {
     id: "irrigated_fields",
     category: "city",
-    name: "Champs irrigues",
+    name: "Champs",
     desc: "Quand l'eau obeit, la terre peut enfin tenir ses promesses.",
     unlockBuilding: { id: "guilds", count: 5 },
     base: 1000000,
@@ -200,7 +200,7 @@ export const buildings = [
   {
     id: "river_ports",
     category: "city",
-    name: "Ports fluviaux",
+    name: "Ports",
     desc: "Le fleuve est devenu une route. Ce qui part d'ici revient en or et en nouvelles.",
     unlockBuilding: { id: "irrigated_fields", count: 3 },
     unlockCycles: 1,
@@ -217,7 +217,7 @@ export const buildings = [
   {
     id: "water_mills",
     category: "city",
-    name: "Moulins hydrauliques",
+    name: "Moulins",
     desc: "La riviere travaille aussi la nuit. C'est une idee qui change tout.",
     unlockBuilding: { id: "river_ports", count: 3 },
     unlockCycles: 2,
@@ -251,7 +251,7 @@ export const buildings = [
   {
     id: "imperial_exchanges",
     category: "city",
-    name: "Bourses imperiales",
+    name: "Banques Nationnales",
     desc: "Ici les chiffres ont remplace les visages. Les fortunes bougent plus vite que les armees.",
     unlockBuilding: { id: "mint_houses", count: 3 },
     unlockCycles: 5,
@@ -475,7 +475,7 @@ export const buildings = [
   {
     id: "printing_houses",
     category: "knowledge",
-    name: "Maisons d'impression",
+    name: "Imprimeries",
     desc: "Une idee dangereuse peut desormais traverser un empire avant que le roi en entende parler.",
     unlockBuilding: { id: "universities", count: 3 },
     unlockCycles: 7,

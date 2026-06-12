@@ -19,12 +19,16 @@ function mood(value, labels) {
   return labels[0];
 }
 
+/**
+ * Topbar (Audit UI Phase 5) :
+ * — 5 cartes de ressources sur 2 lignes (valeur dominante + flux signé ▲▼),
+ *   humeurs et effets déplacés en tooltip, jauge de réserve en filet 3px ;
+ * — bandeau d'état distinct (Âge / Usure / Légitimité / bonus sédiment).
+ */
 export default function Topbar() {
   const {
-    population, food, gold, knowledge, infrastructure, instability, timeWear, atlasLegitimite, atlasHeritage, legitimacy,
-    activeMythId, cycles, ruins, rationing, prometheeBraisiers,
-    atridesPactActive, atridesNextRunPenaltyActive, eneeHeritage, eneeDegraded,
-    buildingsSig, upgradesSig, cycleStartedAt
+    population, food, gold, knowledge, infrastructure, timeWear, atlasLegitimite, atlasHeritage,
+    cycleStartedAt, tickNow
   } = useCityViewState();
 
   const vitals = cityVitals();
@@ -32,6 +36,7 @@ export default function Topbar() {
   const r = rates(vitals, pressure);
   // Les taux de ressources sont des Decimal : signe via .gte, jamais via >=.
   const rateClass = (rate) => (rate.gte(0) ? 'positive' : 'negative');
+  const rateArrow = (rate) => (rate.gte(0) ? '▲' : '▼');
   const rateSign = (rate) => (rate.gte(0) ? '+' : '');
 
   const showNomadCap = has("trait_nomadism");
@@ -48,7 +53,7 @@ export default function Topbar() {
     { secs: 259200, bonus: 135 },
     { secs: 604800, bonus: 400 },
   ];
-  const cycleElapsed = (Date.now() - cycleStartedAt) / 1000;
+  const cycleElapsed = (tickNow - cycleStartedAt) / 1000;
   let sedimentIdx = -1;
   for (let i = SEDIMENT_PALIERS.length - 1; i >= 0; i--) {
     if (cycleElapsed >= SEDIMENT_PALIERS[i].secs) { sedimentIdx = i; break; }
@@ -65,211 +70,126 @@ export default function Topbar() {
     return `${Math.floor(s / 60)}min`;
   };
 
+  /* Humeurs (déplacées en tooltip) */
+  const foodMood = mood(vitals.foodScore, ["Famine proche", "Greniers modestes", "Surplus rassurant", "Abondance"]);
+  const goldMood = mood(vitals.goldScore, ["Troc local", "Bourses maigres", "Commerce actif", "Trésor florissant"]);
+  const knowledgeMood = mood(vitals.knowledgeScore, ["Traditions orales", "Archives naissantes", "Savoirs partagés", "Culture savante"]);
+
+  const tooltips = {
+    population: "Fondation démographique de votre empire.",
+    food: `Réserves : ${foodMood}\nCroissance pop ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
+    gold: `Économie : ${goldMood}\nOr ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`,
+    knowledge: `Mémoire : ${knowledgeMood}\nSavoir ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
+    infrastructure: `Réseau routier et solidité technique.${showNomadCap ? `\nCap nomade : ${fmt(nomadCap)}` : ""}`
+  };
+
+  const cards = [
+    {
+      key: "population", cls: "card-pop", icon: "fa-users", name: "Population",
+      valueId: "population", value: population, rate: r.population, rateId: "popRate",
+      gauge: null
+    },
+    {
+      key: "food", cls: "card-food", icon: "fa-wheat-awn", name: "Nourriture",
+      valueId: "food", value: food, rate: r.food, rateId: "foodRate",
+      gauge: { id: "foodBar", score: vitals.foodScore }
+    },
+    {
+      key: "gold", cls: "card-gold", icon: "fa-coins", name: "Trésor",
+      valueId: "gold", value: gold, rate: r.gold, rateId: "goldRate",
+      gauge: { id: "goldBar", score: vitals.goldScore }
+    },
+    {
+      key: "knowledge", cls: "card-knowledge", icon: "fa-book-open", name: "Savoir",
+      valueId: "knowledge", value: knowledge, rate: r.knowledge, rateId: "knowledgeRate",
+      gauge: { id: "knowledgeBar", score: vitals.knowledgeScore }
+    },
+    {
+      key: "infrastructure", cls: "card-infra", icon: "fa-archway", name: "Infrastructure",
+      valueId: "infrastructure", value: infrastructure, rate: r.infrastructure, rateId: "infraRate",
+      gauge: null
+    }
+  ];
+
   return (
-    <header className="topbar unified-resource-grid" aria-label="Ressources de la cite">
-      <div className="resource-card-unified card-pop" id="populationResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-users"></i></span>
-            <span className="resource-name">Population</span>
-          </div>
-          <span className="resource-value" id="population">{fmt(population)}</span>
-        </div>
-        <div className="card-body">
-          <div className="resource-rate-wrapper">
-            <span className="rate-label">Croissance</span>
-            <span className={`rate-value ${rateClass(r.population)}`}>
-              <strong id="popRate">{rateSign(r.population)}{fmt(r.population)}</strong> / sec
-            </span>
-          </div>
-        </div>
-        <div className="card-footer">
-          <small className="resource-desc">Fondation demographique de votre empire.</small>
-        </div>
-      </div>
-
-      <div className="resource-card-unified card-food" id="foodResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-wheat-awn"></i></span>
-            <span className="resource-name">Nourriture</span>
-          </div>
-          <span className="resource-value" id="food">{fmt(food)}</span>
-        </div>
-        <div className="card-body">
-          <div className="resource-rate-wrapper">
-            <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${rateClass(r.food)}`}>
-              <strong id="foodRate">{rateSign(r.food)}{fmt(r.food)}</strong> / sec
-            </span>
-          </div>
-          <div className="resource-gauge-section">
-            <div className="gauge-header">
-              <span className="gauge-label">Reserves</span>
-              <strong className="gauge-mood-text" id="foodMood">
-                {mood(vitals.foodScore, ["Famine proche", "Greniers modestes", "Surplus rassurant", "Abondance"])}
-              </strong>
+    <header className="topbar" aria-label="Ressources de la cité">
+      <div className="topbar-resources">
+        {cards.map((c) => (
+          <div
+            key={c.key}
+            className={`resource-card-unified ${c.cls}`}
+            id={`${c.key}Resource`}
+            title={tooltips[c.key]}
+          >
+            <div className="card-header">
+              <div className="resource-title-wrapper">
+                <span className="resource-icon"><i className={`fa-solid ${c.icon}`}></i></span>
+                <span className="resource-name">{c.name}</span>
+              </div>
+              <span className="resource-value" id={c.valueId}>{fmt(c.value)}</span>
             </div>
-            <div className="mini-gauge-bar food-bar">
-              <span id="foodBar" className="gauge-fill" style={{ width: `${clamp01(vitals.foodScore) * 100}%` }}></span>
-            </div>
-          </div>
-        </div>
-        <div className="card-footer">
-          <small className="resource-desc" id="foodEffect">
-            Croissance pop {multLabel(vitals.populationMult)} - rupture -{fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts
-          </small>
-        </div>
-      </div>
-
-      <div className="resource-card-unified card-gold" id="goldResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-coins"></i></span>
-            <span className="resource-name">Tresor</span>
-          </div>
-          <span className="resource-value" id="gold">{fmt(gold)}</span>
-        </div>
-        <div className="card-body">
-          <div className="resource-rate-wrapper">
-            <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${rateClass(r.gold)}`}>
-              <strong id="goldRate">{rateSign(r.gold)}{fmt(r.gold)}</strong> / sec
-            </span>
-          </div>
-          <div className="resource-gauge-section">
-            <div className="gauge-header">
-              <span className="gauge-label">Economie</span>
-              <strong className="gauge-mood-text" id="goldMood">
-                {mood(vitals.goldScore, ["Troc local", "Bourses maigres", "Commerce actif", "Tresor florissant"])}
-              </strong>
-            </div>
-            <div className="mini-gauge-bar gold-bar">
-              <span id="goldBar" className="gauge-fill" style={{ width: `${clamp01(vitals.goldScore) * 100}%` }}></span>
-            </div>
-          </div>
-        </div>
-        <div className="card-footer">
-          <small className="resource-desc" id="goldEffect">
-            Or {multLabel(vitals.goldMult)} - infrastructure {multLabel(vitals.infraMult)}
-          </small>
-        </div>
-      </div>
-
-      <div className="resource-card-unified card-knowledge" id="knowledgeResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-book-open"></i></span>
-            <span className="resource-name">Savoir</span>
-          </div>
-          <span className="resource-value" id="knowledge">{fmt(knowledge)}</span>
-        </div>
-        <div className="card-body">
-          <div className="resource-rate-wrapper">
-            <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${rateClass(r.knowledge)}`}>
-              <strong id="knowledgeRate">{rateSign(r.knowledge)}{fmt(r.knowledge)}</strong> / sec
-            </span>
-          </div>
-          <div className="resource-gauge-section">
-            <div className="gauge-header">
-              <span className="gauge-label">Memoire</span>
-              <strong className="gauge-mood-text" id="knowledgeMood">
-                {mood(vitals.knowledgeScore, ["Traditions orales", "Archives naissantes", "Savoirs partages", "Culture savante"])}
-              </strong>
-            </div>
-            <div className="mini-gauge-bar knowledge-bar">
-              <span id="knowledgeBar" className="gauge-fill" style={{ width: `${clamp01(vitals.knowledgeScore) * 100}%` }}></span>
-            </div>
-          </div>
-        </div>
-        <div className="card-footer">
-          <small className="resource-desc" id="knowledgeEffect">
-            Savoir {multLabel(vitals.knowledgeMult)} - rupture -{fmt(vitals.instabilityRelief * 100)} pts
-          </small>
-        </div>
-      </div>
-
-      <div className="resource-card-unified card-infra" id="infrastructureResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-archway"></i></span>
-            <span className="resource-name">Infrastructure</span>
-          </div>
-          <span className="resource-value" id="infrastructure">{fmt(infrastructure)}</span>
-        </div>
-        <div className="card-body">
-          <div className="resource-rate-wrapper">
-            <span className="rate-label">Flux net</span>
-            <span className={`rate-value ${rateClass(r.infrastructure)}`}>
-              <strong id="infraRate">
-                {rateSign(r.infrastructure)}{showNomadCap ? `${fmt(r.infrastructure)} (cap ${fmt(nomadCap)})` : fmt(r.infrastructure)}
-              </strong> / sec
-            </span>
-          </div>
-        </div>
-        <div className="card-footer">
-          <small className="resource-desc">Reseau routier et solidite technique.</small>
-        </div>
-      </div>
-
-      <div className="resource-card-unified stability-vitals-card" id="vitalsResource">
-        <div className="card-header">
-          <div className="resource-title-wrapper">
-            <span className="resource-icon"><i className="fa-solid fa-scale-balanced"></i></span>
-            <span className="resource-name">Vitalite & Pressions</span>
-          </div>
-        </div>
-        <div className="card-body stability-vitals-body">
-          <div className="stability-gauge-row">
-            <div className="gauge-meta">
-              <span className="gauge-title">Âge</span>
-              <strong id="currentEraTopbar">{currentEra.name}</strong>
-            </div>
-            <div className="gauge-container stability-age">
-              <span className="gauge-bar-fill age-progress-fill" style={{ width: `${eraProgress * 100}%` }}></span>
-            </div>
-          </div>
-
-          <div className="stability-gauge-row">
-            <div className="gauge-meta">
-              <span className="gauge-title">Usure</span>
-              <span className="gauge-meta-right">
-                <strong id="timeWear" className={timeWear >= 0.8 ? 'danger-pulse' : ''}>{pct(timeWear)}</strong>
-                {sedimentIdx >= 0 && (
-                  <span className="sediment-laps">
-                    {SEDIMENT_PALIERS.map((_, i) => (
-                      <span key={i} className={i <= sedimentIdx ? 'sediment-lap-done' : 'sediment-lap-empty'}>■</span>
-                    ))}
-                  </span>
-                )}
+            <div className="resource-rate-row">
+              <span className={`rate-value ${rateClass(c.rate)}`}>
+                <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
+                <strong id={c.rateId}>
+                  {rateSign(c.rate)}{fmt(c.rate)}
+                  {c.key === "infrastructure" && showNomadCap ? ` (cap ${fmt(nomadCap)})` : ""}
+                </strong> / sec
               </span>
             </div>
-            <div className="gauge-container stability-wear">
-              <span id="timeWearMeter" className={`gauge-bar-fill sediment-palier-${Math.max(0, sedimentIdx + 1)}`} style={{ width: `${sedimentBarFill}%` }}></span>
+            {c.gauge && (
+              <span className="reserve-filet" aria-hidden="true">
+                <span id={c.gauge.id} style={{ width: `${clamp01(c.gauge.score) * 100}%` }}></span>
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Bandeau d'état : nature différente des ressources, traitement distinct */}
+      <div className="vitals-band" id="vitalsResource" aria-label="Vitalité et pressions">
+        <div className="vitals-seg" title="Progression vers l'âge suivant">
+          <span className="vitals-label">Âge</span>
+          <strong className="vitals-value" id="currentEraTopbar">{currentEra.name}</strong>
+          <div className="gauge-container stability-age">
+            <span className="gauge-bar-fill age-progress-fill" style={{ width: `${eraProgress * 100}%` }}></span>
+          </div>
+        </div>
+
+        <div
+          className="vitals-seg"
+          title={nextPalier ? `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}` : "Bonus sédiment maximum atteint"}
+        >
+          <span className="vitals-label">Usure</span>
+          <strong className={`vitals-value ${timeWear >= 0.8 ? 'danger-pulse' : ''}`} id="timeWear">{pct(timeWear)}</strong>
+          {sedimentIdx >= 0 && (
+            <span className="sediment-laps" aria-hidden="true">
+              {SEDIMENT_PALIERS.map((_, i) => (
+                <span key={i} className={i <= sedimentIdx ? 'sediment-lap-done' : 'sediment-lap-empty'}>■</span>
+              ))}
+            </span>
+          )}
+          <div className="gauge-container stability-wear">
+            <span id="timeWearMeter" className={`gauge-bar-fill sediment-palier-${Math.max(0, sedimentIdx + 1)}`} style={{ width: `${sedimentBarFill}%` }}></span>
+          </div>
+        </div>
+
+        {(atlasHeritage || isMythEffectActive("mythe_d_atlas")) && (
+          <div className="vitals-seg" title="Légitimité d'Atlas">
+            <span className="vitals-label">Légitimité</span>
+            <strong className="vitals-value" id="atlasLegitimiteValue">{fmt(atlasLegitimite)}</strong>
+            <div className="gauge-container stability-legitimite">
+              <span id="atlasLegitimiteBar" className="gauge-bar-fill" style={{ width: `${clamp01((atlasLegitimite || 0) / 100) * 100}%` }}></span>
             </div>
           </div>
+        )}
 
-          {(atlasHeritage || isMythEffectActive("mythe_d_atlas")) && (
-            <div className="stability-gauge-row">
-              <div className="gauge-meta">
-                <span className="gauge-title">Legitimite</span>
-                <strong id="atlasLegitimiteValue">{fmt(atlasLegitimite)}</strong>
-              </div>
-              <div className="gauge-container stability-legitimite">
-                <span id="atlasLegitimiteBar" className="gauge-bar-fill" style={{ width: `${clamp01((atlasLegitimite || 0) / 100) * 100}%` }}></span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="card-footer">
-          <small
-            className={sedimentBonus > 0 ? 'sediment-bonus-value' : 'sediment-help'}
-            title={nextPalier ? `Prochain palier : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}` : 'Bonus maximum atteint'}
-          >
-            +{sedimentBonus}% ruines au prochain effondrement
-          </small>
-        </div>
+        <small
+          className={sedimentBonus > 0 ? 'sediment-bonus-value' : 'sediment-help'}
+          title={nextPalier ? `Prochain palier : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}` : 'Bonus maximum atteint'}
+        >
+          +{sedimentBonus}% ruines au prochain effondrement
+        </small>
       </div>
     </header>
   );

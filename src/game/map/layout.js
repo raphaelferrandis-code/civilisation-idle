@@ -113,15 +113,15 @@ const CM_STREET_OF = [
 // â”€â”€ BÃ¢timents (registre pour la carte) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CM_ENGINE_BUILDINGS = [
   { id: "foragers",          name: "Cueilleurs",          zone: "outer"   },
-  { id: "granaries_city",    name: "Greniers",             zone: "outer"   },
+  { id: "granaries_city",    name: "Entrepots",            zone: "outer"   },
   { id: "caravans",          name: "Caravanes",            zone: "caravan" },
   { id: "markets",           name: "Marches",              zone: "mid"     },
   { id: "guilds",            name: "Guildes",              zone: "center"  },
-  { id: "irrigated_fields",  name: "Champs irrigues",      zone: "outer"   },
-  { id: "river_ports",       name: "Ports fluviaux",       zone: "river"   },
-  { id: "water_mills",       name: "Moulins hydrauliques", zone: "river"   },
+  { id: "irrigated_fields",  name: "Champs",               zone: "outer"   },
+  { id: "river_ports",       name: "Ports",                zone: "river"   },
+  { id: "water_mills",       name: "Moulins",              zone: "river"   },
   { id: "mint_houses",       name: "Hotels des monnaies",  zone: "center"  },
-  { id: "imperial_exchanges",name: "Bourses imperiales",   zone: "center"  }
+  { id: "imperial_exchanges",name: "Banques Nationnales",  zone: "center"  }
 ];
 const CM_KNOWLEDGE_BUILDINGS = [
   { id: "storytellers",   name: "Conteurs",              zone: "outer"  },
@@ -132,7 +132,7 @@ const CM_KNOWLEDGE_BUILDINGS = [
   { id: "observatories",  name: "Observatoires",         zone: "edge"   },
   { id: "libraries",      name: "Bibliotheques",         zone: "mid"    },
   { id: "universities",   name: "Universites",           zone: "center" },
-  { id: "printing_houses",name: "Maisons d'impression",  zone: "mid"    },
+  { id: "printing_houses",name: "Imprimeries",           zone: "mid"    },
   { id: "think_tanks",    name: "Instituts strategiques",zone: "edge"   }
 ];
 const CM_INFRA_BUILDINGS = [

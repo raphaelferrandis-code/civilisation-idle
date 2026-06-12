@@ -149,8 +149,24 @@ export function generateRoads({
       { allowWater: true, force: counts.eraBand >= 1 });
   }
 
+  function riverCrossing(rank) {
+    const x = Math.round(riverBridgeX);
+    let y0 = N, y1 = -1;
+    for (const k of riverSet) {
+      const comma = k.indexOf(",");
+      const gx = Number(k.slice(0, comma));
+      if (gx !== x) continue;
+      const gy = Number(k.slice(comma + 1));
+      if (gy < y0) y0 = gy;
+      if (gy > y1) y1 = gy;
+    }
+    if (y1 < y0) return;
+    vLine(Math.max(0, y0 - 2), Math.min(N - 1, y1 + 2), x, rank, { allowWater: true, force: true });
+  }
+
   if (A === "scattered") {
     // Sentiers sinueux du cœur vers chaque poche d'habitat. Pas de grands axes.
+    riverCrossing("path");
     for (const a of plan.anchors) {
       staircase(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
     }

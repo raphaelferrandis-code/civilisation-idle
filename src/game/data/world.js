@@ -9,42 +9,48 @@ import { D } from '../core/num.js';
  * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
  * ============================================================================ */
 
+const eraPopulationThreshold = (index) => (
+  index >= 29
+    ? 10 ** (index + 1)
+    : 10 ** (1 + 28 * Math.pow(index / 28, 0.9))
+);
+
 export const eras = [
-  { name: "Campement", at: 10, text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
-  { name: "Feux dispersés", at: 120, text: "Quelques foyers tiennent la nuit à distance. Les vivants commencent à revenir aux mêmes endroits." },
-  { name: "Abris saisonniers", at: 300, text: "Les huttes ne sont plus seulement des refuges. On y laisse des outils, des traces, des promesses de retour." },
-  { name: "Clan des foyers", at: 700, text: "Des familles se rassemblent sous les étoiles. Les premiers récits forgent nos liens." },
-  { name: "Lignée des huttes", at: 1200, text: "Les enfants reconnaissent les chemins avant d'en comprendre le nom. Le lieu commence à précéder ceux qui l'habitent." },
-  { name: "Hameau", at: 2000, text: "Les huttes s'alignent et les premiers sentiers dessinent les contours du destin commun." },
-  { name: "Hameau palissadé", at: 3800, text: "Une enceinte basse protège les réserves et les peurs. Entrer et sortir devient une décision." },
-  { name: "Village", at: 6500, text: "La terre est partagée. Plus les réserves se remplissent, plus la peur de les perdre grandit." },
-  { name: "Village des greniers", at: 11000, text: "Les stocks ont leurs gardiens. La faim recule assez pour que la politique apparaisse." },
-  { name: "Bourg agricole", at: 20000, text: "Le rythme de la faucille et du blé dicte le temps. La terre façonne la communauté." },
-  { name: "Bourg des artisans", at: 40000, text: "Certains ne cultivent plus. Leurs mains transforment ce que d'autres récoltent, et la cité apprend la spécialisation." },
-  { name: "Bourg marchand", at: 80000, text: "Le troc laisse place au commerce. L'or et l'étranger apportent de nouveaux horizons." },
-  { name: "Cité des marchés", at: 140000, text: "Les places publiques dictent le rythme des journées. On y vend des biens, mais surtout des possibilités." },
-  { name: "Cité des greniers", at: 250000, text: "Les silos débordent pour conjurer les disettes. Le pouvoir naît de la clé des réserves." },
-  { name: "Cité des canaux", at: 450000, text: "L'eau suit des lignes tracées par la volonté humaine. La terre obéit mieux quand on lui indique où aller." },
-  { name: "Cité fortifiée", at: 800000, text: "Les premières murailles s'élèvent. Pour protéger les nôtres, nous inventons l'ennemi." },
-  { name: "Cité administrative", at: 1500000, text: "Les tablettes circulent presque autant que les marchandises. Gouverner devient une affaire de listes." },
-  { name: "Principauté", at: 3000000, text: "Un seigneur s'impose au sommet du conseil. La force brute se pare d'un manteau de justice." },
-  { name: "Principauté marchande", at: 5500000, text: "Les routes enrichissent plus sûrement que les raids. Les marchands apprennent à parler au pouvoir d'égal à égal." },
-  { name: "Royaume", at: 9000000, text: "Un sceptre unit les provinces éloignées. Le destin du trône repose sur la sûreté des routes." },
-  { name: "Royaume des routes", at: 15000000, text: "Les provinces cessent d'être des marges. Les messagers donnent au territoire une seule respiration." },
-  { name: "Royaume savant", at: 25000000, text: "Les parchemins archivent les impôts et l'orbite des astres. L'écrit légitime l'autorité." },
-  { name: "Couronne impériale", at: 45000000, text: "Le royaume se pense plus grand que ses frontières. Les cartes commencent à précéder les conquêtes." },
-  { name: "Empire naissant", at: 80000000, text: "Les armées repoussent les frontières. Le monde connu devient la scène de notre grandeur." },
-  { name: "Empire provincial", at: 140000000, text: "Les provinces apprennent à obéir à distance. Le centre n'est plus un lieu, c'est une habitude." },
-  { name: "Empire", at: 220000000, text: "Un gigantesque édifice de lois et de taxes. Une puissance immense au bord de sa propre chute." },
-  { name: "Capitale monumentale", at: 400000000, text: "La pierre raconte une version officielle de la grandeur. Les rues deviennent des arguments." },
-  { name: "Capitale impériale", at: 650000000, text: "Le ciment de l'univers connu. Ses palais de marbre masquent les premières fissures." },
-  { name: "Conurbation", at: 1200000000, text: "Les villes voisines se touchent sans toujours se comprendre. Les frontières deviennent des quartiers." },
-  { name: "Métropole", at: 2000000000, text: "Une mer humaine sous des millions de toits. Au cœur de la foule, chacun y vit sa solitude." },
-  { name: "Mégalopole", at: 5000000000, text: "Les villes se rejoignent et le béton étouffe la plaine. La nature n'est plus qu'un lointain souvenir." },
-  { name: "Mégalopole stratifiée", at: 10000000000, text: "La cité s'élève sur elle-même. Les riches côtoient les nuages, les autres restent dans l'ombre." },
-  { name: "Réseau continental", at: 25000000000, text: "Le fer et l'électricité relient les côtes. La cité n'a plus de murs, elle est partout." },
-  { name: "Machine civique", at: 60000000000, text: "La bureaucratie s'organise en rouages complexes. La structure commande, les humains obéissent." },
-  { name: "Singularité civique", at: 150000000000, text: "La cité palpite d'une vie autonome. Les citoyens ne sont plus que les cellules d'un titan de métal." }
+  { name: "Campement", at: eraPopulationThreshold(0), text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
+  { name: "Feux dispersés", at: eraPopulationThreshold(1), text: "Quelques foyers tiennent la nuit à distance. Les vivants commencent à revenir aux mêmes endroits." },
+  { name: "Abris saisonniers", at: eraPopulationThreshold(2), text: "Les huttes ne sont plus seulement des refuges. On y laisse des outils, des traces, des promesses de retour." },
+  { name: "Clan des foyers", at: eraPopulationThreshold(3), text: "Des familles se rassemblent sous les étoiles. Les premiers récits forgent nos liens." },
+  { name: "Lignée des huttes", at: eraPopulationThreshold(4), text: "Les enfants reconnaissent les chemins avant d'en comprendre le nom. Le lieu commence à précéder ceux qui l'habitent." },
+  { name: "Hameau", at: eraPopulationThreshold(5), text: "Les huttes s'alignent et les premiers sentiers dessinent les contours du destin commun." },
+  { name: "Hameau palissadé", at: eraPopulationThreshold(6), text: "Une enceinte basse protège les réserves et les peurs. Entrer et sortir devient une décision." },
+  { name: "Village", at: eraPopulationThreshold(7), text: "La terre est partagée. Plus les réserves se remplissent, plus la peur de les perdre grandit." },
+  { name: "Village des greniers", at: eraPopulationThreshold(8), text: "Les stocks ont leurs gardiens. La faim recule assez pour que la politique apparaisse." },
+  { name: "Bourg agricole", at: eraPopulationThreshold(9), text: "Le rythme de la faucille et du blé dicte le temps. La terre façonne la communauté." },
+  { name: "Bourg des artisans", at: eraPopulationThreshold(10), text: "Certains ne cultivent plus. Leurs mains transforment ce que d'autres récoltent, et la cité apprend la spécialisation." },
+  { name: "Bourg marchand", at: eraPopulationThreshold(11), text: "Le troc laisse place au commerce. L'or et l'étranger apportent de nouveaux horizons." },
+  { name: "Cité des marchés", at: eraPopulationThreshold(12), text: "Les places publiques dictent le rythme des journées. On y vend des biens, mais surtout des possibilités." },
+  { name: "Cité des greniers", at: eraPopulationThreshold(13), text: "Les silos débordent pour conjurer les disettes. Le pouvoir naît de la clé des réserves." },
+  { name: "Cité des canaux", at: eraPopulationThreshold(14), text: "L'eau suit des lignes tracées par la volonté humaine. La terre obéit mieux quand on lui indique où aller." },
+  { name: "Cité fortifiée", at: eraPopulationThreshold(15), text: "Les premières murailles s'élèvent. Pour protéger les nôtres, nous inventons l'ennemi." },
+  { name: "Cité administrative", at: eraPopulationThreshold(16), text: "Les tablettes circulent presque autant que les marchandises. Gouverner devient une affaire de listes." },
+  { name: "Principauté", at: eraPopulationThreshold(17), text: "Un seigneur s'impose au sommet du conseil. La force brute se pare d'un manteau de justice." },
+  { name: "Principauté marchande", at: eraPopulationThreshold(18), text: "Les routes enrichissent plus sûrement que les raids. Les marchands apprennent à parler au pouvoir d'égal à égal." },
+  { name: "Royaume", at: eraPopulationThreshold(19), text: "Un sceptre unit les provinces éloignées. Le destin du trône repose sur la sûreté des routes." },
+  { name: "Royaume des routes", at: eraPopulationThreshold(20), text: "Les provinces cessent d'être des marges. Les messagers donnent au territoire une seule respiration." },
+  { name: "Royaume savant", at: eraPopulationThreshold(21), text: "Les parchemins archivent les impôts et l'orbite des astres. L'écrit légitime l'autorité." },
+  { name: "Couronne impériale", at: eraPopulationThreshold(22), text: "Le royaume se pense plus grand que ses frontières. Les cartes commencent à précéder les conquêtes." },
+  { name: "Empire naissant", at: eraPopulationThreshold(23), text: "Les armées repoussent les frontières. Le monde connu devient la scène de notre grandeur." },
+  { name: "Empire provincial", at: eraPopulationThreshold(24), text: "Les provinces apprennent à obéir à distance. Le centre n'est plus un lieu, c'est une habitude." },
+  { name: "Empire", at: eraPopulationThreshold(25), text: "Un gigantesque édifice de lois et de taxes. Une puissance immense au bord de sa propre chute." },
+  { name: "Capitale monumentale", at: eraPopulationThreshold(26), text: "La pierre raconte une version officielle de la grandeur. Les rues deviennent des arguments." },
+  { name: "Capitale impériale", at: eraPopulationThreshold(27), text: "Le ciment de l'univers connu. Ses palais de marbre masquent les premières fissures." },
+  { name: "Conurbation", at: eraPopulationThreshold(28), text: "Les villes voisines se touchent sans toujours se comprendre. Les frontières deviennent des quartiers." },
+  { name: "Métropole", at: eraPopulationThreshold(29), text: "Une mer humaine sous des millions de toits. Au cœur de la foule, chacun y vit sa solitude." },
+  { name: "Mégalopole", at: eraPopulationThreshold(30), text: "Les villes se rejoignent et le béton étouffe la plaine. La nature n'est plus qu'un lointain souvenir." },
+  { name: "Mégalopole stratifiée", at: eraPopulationThreshold(31), text: "La cité s'élève sur elle-même. Les riches côtoient les nuages, les autres restent dans l'ombre." },
+  { name: "Réseau continental", at: eraPopulationThreshold(32), text: "Le fer et l'électricité relient les côtes. La cité n'a plus de murs, elle est partout." },
+  { name: "Machine civique", at: eraPopulationThreshold(33), text: "La bureaucratie s'organise en rouages complexes. La structure commande, les humains obéissent." },
+  { name: "Singularité civique", at: eraPopulationThreshold(34), text: "La cité palpite d'une vie autonome. Les citoyens ne sont plus que les cellules d'un titan de métal." }
 ];
 export const DOCTRINES = [
   {
