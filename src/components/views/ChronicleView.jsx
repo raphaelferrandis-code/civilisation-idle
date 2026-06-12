@@ -1,6 +1,17 @@
 import ViewHeader from '../ui/ViewHeader.jsx';
+import { useGameState } from '../../hooks/useGameState.js';
+import { currentEraIndex } from '../../game/core/mechanics.js';
+import { eras } from '../../game/data/world.js';
+import { fmt } from '../../game/core/utils.js';
 
 export default function ChronicleView() {
+  const bestEraIndex = useGameState(s => s.bestEraIndex || 0);
+  const eraIdx = useGameState(() => currentEraIndex());
+
+  // Les âges déjà atteints (sur l'ensemble des cycles) sont révélés ; le
+  // suivant est annoncé en silhouette, le reste demeure inconnu.
+  const revealedMax = Math.max(bestEraIndex, eraIdx);
+
   return (
     <section className="view active" id="history">
       <ViewHeader
@@ -8,22 +19,43 @@ export default function ChronicleView() {
         title="Chronique"
         subtitle="Le récit complet de votre civilisation, cycle après cycle."
       />
+
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Archives</span>
-            <h2>Chronique</h2>
+            <span className="label">Mémoire des âges</span>
+            <h2>Les Âges traversés</h2>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center', opacity: 0.7 }}>
-          <p style={{ fontSize: '1.25rem', fontStyle: 'italic', marginBottom: '0.5rem' }}>
-            « Les pages sont blanches, prêtes à être écrites. La mémoire de notre civilisation attend sa prochaine évolution. »
-          </p>
-          <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            – Cet espace accueillera bientôt le récit complet de votre histoire –
-          </span>
-        </div>
+        <ol className="era-timeline">
+          {eras.map((era, i) => {
+            if (i > revealedMax + 1) return null;
+            const reached = i <= revealedMax;
+            const isCurrent = i === eraIdx;
+            return (
+              <li
+                key={era.name}
+                className={`era-timeline-item${reached ? ' is-reached' : ' is-next'}${isCurrent ? ' is-current' : ''}`}
+              >
+                <span className="era-timeline-marker" aria-hidden="true"></span>
+                <div className="era-timeline-body">
+                  <div className="era-timeline-head">
+                    <h3>{reached ? era.name : '— ? —'}</h3>
+                    <span className="era-timeline-pop" title="Population requise">
+                      {fmt(era.at)} habitants
+                    </span>
+                    {isCurrent && <span className="era-timeline-now">Âge actuel</span>}
+                  </div>
+                  <p>{reached ? era.text : "Cet âge reste à découvrir : la population doit encore croître."}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        {revealedMax + 1 < eras.length - 1 && (
+          <p className="era-timeline-more">… et {eras.length - 1 - (revealedMax + 1)} âges encore voilés.</p>
+        )}
       </div>
     </section>
   );

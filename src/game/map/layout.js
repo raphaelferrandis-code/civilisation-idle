@@ -171,8 +171,8 @@ const CM_WONDERS = [
     metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
   { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 },
-    unlockedBy: "100 achats accomplis (bâtiments et décrets).",
-    metric: (s) => s.lifetimePurchases || 0, tiers: [100, 1000, 10000, 15000, 20000],
+    unlockedBy: "500 achats accomplis (bâtiments et décrets).",
+    metric: (s) => s.lifetimePurchases || 0, tiers: [500, 2500, 10000, 15000, 20000],
     tierLabel: (v) => `${v >= 1000 ? (v / 1000) + " 000" : v} achats accomplis` },
   { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 },
     unlockedBy: "30 minutes passées à veiller sur la cité.",
@@ -1004,8 +1004,12 @@ function computeCityLayout(s) {
       }
       if (!placed) {
         // Décore-trie-retire : score calculé une fois par cellule.
+        // L'aqueduc longe la lisière de la ville (reach + 2.5), pas le bord de
+        // la grille : à N*0.46 il finissait hors de la zone que le joueur
+        // regarde, visible seulement en dézoom LOD (gros pavés).
+        const aqRing = Math.min(N * 0.44, (frozenWallReach || cityReachBase) + 2.5);
         const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
-          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - N * 0.46) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
           .sort((a, b) => a.s - b.s)
           .map((e) => e.c2);
         for (const c2 of aqCells) {

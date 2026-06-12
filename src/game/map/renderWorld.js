@@ -320,27 +320,31 @@ function cityMapDrawRiver(now) {
   ribbon(0.55, mid);
 
   if (!collapsed) {
-    ctx.strokeStyle = `rgba(255,255,255,${(refA * 0.6).toFixed(3)})`; ctx.lineWidth = 1;
+    // Filets de courant : ondulation lente et ample, presque paresseuse.
+    ctx.strokeStyle = `rgba(255,255,255,${(refA * 0.5).toFixed(3)})`; ctx.lineWidth = 1;
     for (let w2 = 0; w2 < 3; w2 += 1) {
       ctx.beginPath();
       for (let i = 0; i < sm.length; i += 1) {
         const n = normalAt(i);
-        const off = (w2 - 1) * sm[i].hw * 0.45 + Math.sin(i * 0.5 + (now || 0) / 650 + w2 * 2) * sm[i].hw * 0.25;
+        const off = (w2 - 1) * sm[i].hw * 0.45 + Math.sin(i * 0.35 + (now || 0) / 2400 + w2 * 2) * sm[i].hw * 0.22;
         const x = SX(sm[i].x + n.nx * off), y = SY(sm[i].y + n.ny * off);
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.stroke();
     }
+    // Étincelles : points doux qui glissent lentement avec le courant.
     for (let i = 0; i < 9; i += 1) {
-      const t = (((now || 0) / 1000 * (0.03 + (i % 3) * 0.015)) + i * 0.11) % 1;
+      const t = (((now || 0) / 1000 * (0.012 + (i % 3) * 0.006)) + i * 0.11) % 1;
       const idx = Math.floor(t * (sm.length - 1));
-      const flick = 0.4 + 0.6 * Math.abs(Math.sin((now || 0) / 320 + i * 1.7));
+      const flick = 0.4 + 0.6 * Math.abs(Math.sin((now || 0) / 1100 + i * 1.7));
       // La nuit, l'eau reflète les lumières chaudes de la ville.
       const nf = CM.nightF || 0;
       ctx.fillStyle = nf > 0.3
         ? `rgba(255,210,130,${(refA * flick * (0.8 + nf)).toFixed(3)})`
         : `rgba(255,255,255,${(refA * flick).toFixed(3)})`;
-      ctx.fillRect(SX(sm[idx].x) - 1, SY(sm[idx].y) - 1, Math.max(2, 2.6 * z), Math.max(2, 2.6 * z));
+      ctx.beginPath();
+      ctx.arc(SX(sm[idx].x), SY(sm[idx].y), Math.max(1, 1.3 * z), 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -1093,7 +1097,10 @@ function cityMapDrawPlazas(now) {
   }
 }
 
-// ── Brume matinale : nappes translucides dérivant le long du fleuve ────────
+// ── Brume matinale : nappes translucides dérivant SUR l'eau ────────────────
+// Dessinée juste après la rivière (avant bateaux, ponts, routes, bâtiments)
+// et clippée au ruban du fleuve : les nappes restent sous tout le reste et
+// ne débordent jamais sur les berges.
 function cityMapDrawMist(now) {
   const L = CM.layout;
   const mist = CM.mistF || 0;
@@ -1101,18 +1108,43 @@ function cityMapDrawMist(now) {
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
   const sm = L.river.samples;
   const t = now || 0;
+  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
+  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
+  const normalAt = (i) => {
+    const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
+    return { nx: -ty / tl, ny: tx / tl };
+  };
   ctx.save();
-  for (let i = 0; i < 14; i += 1) {
-    const drift = ((t / 14000 + i * 0.13) % 1);
+  // Clip au ruban du fleuve : les nappes sont des voiles SUR l'eau.
+  ctx.beginPath();
+  for (let i = 0; i < sm.length; i += 1) { const n = normalAt(i); const x = SX(sm[i].x + n.nx * sm[i].hw), y = SY(sm[i].y + n.ny * sm[i].hw); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+  for (let i = sm.length - 1; i >= 0; i -= 1) { const n = normalAt(i); ctx.lineTo(SX(sm[i].x - n.nx * sm[i].hw), SY(sm[i].y - n.ny * sm[i].hw)); }
+  ctx.closePath();
+  ctx.clip();
+  for (let i = 0; i < 9; i += 1) {
+    // Dérive très lente le long du fleuve, fondu aux deux extrémités.
+    const drift = ((t / 52000 + i * 0.117) % 1);
     const idx = Math.floor(drift * (sm.length - 1));
     const sp = sm[idx];
-    const wob = Math.sin(t / 2600 + i * 1.9);
-    const mx = (sp.x * T - CM.cam.x) * z + CM.cw / 2 + wob * 14 * z;
-    const my = (sp.y * T - CM.cam.y) * z + CM.ch / 2 - (i % 3) * 8 * z;
-    const rx = (34 + (i % 4) * 14) * z, ry = (10 + (i % 3) * 4) * z;
-    if (mx < -rx || mx > CM.cw + rx || my < -ry || my > CM.ch + ry) continue;
-    ctx.fillStyle = `rgba(214,224,228,${(mist * (0.1 + (i % 3) * 0.035)).toFixed(3)})`;
-    ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    const a = sm[Math.max(0, idx - 1)], b = sm[Math.min(sm.length - 1, idx + 1)];
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const wob = Math.sin(t / 9000 + i * 1.9);
+    const mx = SX(sp.x) + Math.cos(ang) * wob * 7 * z;
+    const my = SY(sp.y) + Math.sin(ang) * wob * 7 * z;
+    const rx = (30 + (i % 4) * 12) * z, ry = (7 + (i % 3) * 3) * z;
+    if (mx < -rx || mx > CM.cw + rx || my < -rx || my > CM.ch + rx) continue;
+    const alpha = mist * (0.08 + (i % 3) * 0.03) * Math.sin(drift * Math.PI);
+    if (alpha < 0.01) continue;
+    // Nappe allongée dans le sens du courant, bords fondus (dégradé radial).
+    ctx.save();
+    ctx.translate(mx, my); ctx.rotate(ang); ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(214,224,228,${alpha.toFixed(3)})`);
+    g.addColorStop(1, "rgba(214,224,228,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -1566,6 +1598,30 @@ function cityMapRiotGroupCenter(rioters) {
   return { gx: gx / rioters.length, gy: gy / rioters.length };
 }
 
+// Apaisement au clic : retire l'émeutier visé, fait retomber un peu la rupture
+// et empêche le groupe de se re-remplir aussitôt (compteur à décroissance).
+function cityMapCalmRioterAt(sx, sy) {
+  if (!Array.isArray(CM.rioters) || !CM.rioters.length) return false;
+  const z = CM.cam.zoom;
+  const radius = Math.max(14, 10 * z);
+  let bi = -1, bd = Infinity;
+  for (let i = 0; i < CM.rioters.length; i += 1) {
+    const p = CM.rioters[i];
+    const px = (p.x - CM.cam.x) * z + CM.cw / 2;
+    const py = (p.y - CM.cam.y) * z + CM.ch / 2;
+    const d = Math.hypot(px - sx, py - sy);
+    if (d < radius && d < bd) { bd = d; bi = i; }
+  }
+  if (bi < 0) return false;
+  const p = CM.rioters.splice(bi, 1)[0];
+  CM.riotCalmed = (CM.riotCalmed || 0) + 1;
+  if (!CM.calmPoofs) CM.calmPoofs = [];
+  CM.calmPoofs.push({ x: p.x, y: p.y, t: performance.now() });
+  // Geste réel mais modeste : −0.2 pt de Rupture par émeutier apaisé.
+  state.instability = Math.max(0, (state.instability || 0) - 0.002);
+  return true;
+}
+
 function drawCrisis(dt, now) {
   if (!CM.layout) return;
   const ctx = CM.ctx, z = CM.cam.zoom;
@@ -1575,10 +1631,18 @@ function drawCrisis(dt, now) {
   if (!CM.rioters) CM.rioters = [];
   // Les émeutes n'éclatent que l'après-midi (jour montant vers le crépuscule).
   const afternoon = CM.dayRising === true && (CM.nightF || 0) < 0.45;
-  const want = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
+  const baseWant = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
+  // Les apaisements au clic réduisent la foule ; l'effet s'estompe avec le temps
+  // (1 émeutier "revient" toutes les ~8 s tant que la tension persiste).
+  if ((CM.riotCalmed || 0) > 0) {
+    CM.riotCalmDecayT = (CM.riotCalmDecayT || 0) + dt;
+    if (CM.riotCalmDecayT >= 8) { CM.riotCalmDecayT = 0; CM.riotCalmed -= 1; }
+  }
+  const want = baseWant > 0 ? Math.max(0, baseWant - (CM.riotCalmed || 0)) : 0;
   if (want === 0) {
     CM.rioters.length = 0;
     CM.riotGoal = null;
+    if (baseWant === 0) { CM.riotCalmed = 0; CM.riotCalmDecayT = 0; }
   } else {
     const isRoad = (x, y) => CM.walkRoadSet.has(cityMapWalkRoadKey(x, y)) && !cityMapRiotBlocked(x, y);
     const groupCenter = cityMapRiotGroupCenter(CM.rioters);
@@ -1760,6 +1824,20 @@ function drawCrisis(dt, now) {
     }
   }
 
+  // Anneaux d'apaisement : feedback du clic sur un émeutier (0,7 s).
+  if (CM.calmPoofs && CM.calmPoofs.length) {
+    for (let i = CM.calmPoofs.length - 1; i >= 0; i -= 1) {
+      const e = CM.calmPoofs[i];
+      const k = (now - e.t) / 700;
+      if (k >= 1) { CM.calmPoofs.splice(i, 1); continue; }
+      const c = cs(e.x, e.y);
+      const r = (4 + k * 14) * Math.max(0.6, z);
+      ctx.strokeStyle = `rgba(150,230,170,${(0.8 * (1 - k)).toFixed(2)})`;
+      ctx.lineWidth = Math.max(1, 2 * z * (1 - k));
+      ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
   const famine = toNum(state.population) > 60 && toNum(state.food) < toNum(state.population) * 1.1;
   if (famine) {
     const target = CM.layout.tiles.find((t) => t.type === "public") || CM.layout.tiles.find((t) => t.type === "house");
@@ -1912,26 +1990,6 @@ function cmEraDetailSet() {
   return CM._eraDetailSet;
 }
 
-// Positions des feux satellites du campement (partagées dessin/lueur).
-function cmSatelliteFireSpots(L) {
-  const T = CM.TILE;
-  const seed = (L.mapSeed || 0) >>> 0;
-  const coreX = (L.plan?.core?.x ?? L.cx) * T;
-  const coreY = (L.plan?.core?.y ?? L.cy) * T;
-  const spots = [];
-  const count = Math.min(4, 2 + ((CM.frameEraIndex || 0)));
-  for (let i = 0; i < count; i++) {
-    const h = cmHash(`satfire:${seed}:${i}`);
-    const ang = ((h % 360) / 360) * Math.PI * 2;
-    const dist = (3.4 + ((h >> 4) % 30) / 10) * T;
-    spots.push({
-      x: coreX + Math.cos(ang) * dist,
-      y: coreY + Math.sin(ang) * dist * 0.8,
-      h
-    });
-  }
-  return spots;
-}
 
 function cityMapDrawEraDetails(now) {
   const L = CM.layout;
@@ -1945,24 +2003,7 @@ function cityMapDrawEraDetails(now) {
   const coreY = (L.plan?.core?.y ?? L.cy) * T;
   const s = T * z;
 
-  // ── Feux satellites (ère 1+, campement uniquement) ──
-  if (det.has("satellite_fires") && band === 0) {
-    for (const f of cmSatelliteFireSpots(L)) {
-      const sx = toSX(f.x), sy = toSY(f.y);
-      if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
-      // Cercle de pierres
-      ctx.fillStyle = "rgba(60,54,46,0.85)";
-      ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.16, s * 0.11, 0, 0, Math.PI * 2); ctx.fill();
-      // Flamme vacillante (déphasée par feu)
-      const fl = 0.75 + 0.25 * Math.sin(now / 130 + (f.h % 7));
-      ctx.fillStyle = `rgba(255,${150 + Math.round(50 * fl)},60,${(0.8 * fl).toFixed(2)})`;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy - s * 0.22 * fl);
-      ctx.lineTo(sx - s * 0.07, sy);
-      ctx.lineTo(sx + s * 0.07, sy);
-      ctx.closePath(); ctx.fill();
-    }
-  }
+  // (Feux satellites supprimés : le grand feu central suffit au campement.)
 
   // ── Totem du clan (ère 3+, campement uniquement) ──
   if (det.has("totem") && band === 0) {
@@ -2212,22 +2253,6 @@ function cityMapDrawEraGlow(now) {
   const n = CM.nightF || 0;
   const prev = ctx.globalCompositeOperation;
 
-  // ── Lueur des feux satellites la nuit ──
-  if (det.has("satellite_fires") && band === 0 && n > 0.15 && !CM.lodActive) {
-    ctx.globalCompositeOperation = "lighter";
-    for (const f of cmSatelliteFireSpots(L)) {
-      const sx = toSX(f.x), sy = toSY(f.y);
-      const r = T * z * 1.6;
-      if (sx < -r || sy < -r || sx > CM.cw + r || sy > CM.ch + r) continue;
-      const fl = 0.8 + 0.2 * Math.sin(now / 170 + (f.h % 5));
-      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, r));
-      g.addColorStop(0, `rgba(255,176,96,${(n * 0.28 * fl).toFixed(3)})`);
-      g.addColorStop(1, "rgba(255,176,96,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(sx, sy, Math.max(1, r), 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalCompositeOperation = prev;
-  }
 
   // ── Grille civique pulsante (ère 33+) ──
   if (det.has("neon_grid") && band >= 6) {
@@ -2288,5 +2313,6 @@ export {
   cityMapDrawEraDetails,
   cityMapDrawEraGlow,
   cmLitColor,
-  drawCrisis
+  drawCrisis,
+  cityMapCalmRioterAt
 };

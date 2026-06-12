@@ -137,13 +137,35 @@ function drawCityEngineSprite(context) {
       ctx.fillStyle = "#6a4a18";
       ctx.fillRect(ox + sw * (sx2 - 0.012), oy + sh * (sy2 - 0.065), sw * 0.024, sh * 0.02);
     }
-    // Filet de grain animé qui coule du grand silo dans un sac
-    const pour = (now / 900) % 1;
-    ctx.fillStyle = "rgba(232,200,96,0.85)";
-    ctx.fillRect(ox + sw * 0.315, oy + sh * 0.6, Math.max(1, sw * 0.014), sh * 0.16);
-    for (let gi = 0; gi < 3; gi += 1) {
-      const gph = (pour + gi / 3) % 1;
-      ctx.beginPath(); ctx.arc(ox + sw * (0.32 + Math.sin(gph * 9) * 0.012), oy + sh * (0.6 + gph * 0.17), Math.max(0.8, sw * 0.013), 0, Math.PI * 2); ctx.fill();
+    // Manutentionnaire : un ouvrier fait la navette entre la pile de sacs et
+    // le grand silo, un sac sur l'épaule à l'aller, les mains vides au retour.
+    {
+      const cyc = (now / 5200) % 1;                  // un aller-retour ~5 s
+      const going = cyc < 0.5;
+      const k = going ? cyc * 2 : (1 - cyc) * 2;     // 0 → 1 → 0
+      const wx = 0.56 - k * 0.22;                     // pile (0.56) → silo (0.34)
+      const wy = 0.8;
+      const step = Math.sin(now / 130) * 0.012;
+      // Ombre
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath(); ctx.ellipse(ox + sw * wx, oy + sh * (wy + 0.075), sw * 0.045, sh * 0.018, 0, 0, Math.PI * 2); ctx.fill();
+      // Jambes
+      ctx.fillStyle = "#2e2010";
+      ctx.fillRect(ox + sw * (wx - 0.022 + step), oy + sh * (wy + 0.02), sw * 0.02, sh * 0.05);
+      ctx.fillRect(ox + sw * (wx + 0.004 - step), oy + sh * (wy + 0.02), sw * 0.02, sh * 0.05);
+      // Corps légèrement penché sous la charge
+      ctx.fillStyle = "#5a3c1a";
+      ctx.fillRect(ox + sw * (wx - 0.03), oy + sh * (wy - 0.06), sw * 0.06, sh * 0.085);
+      // Tête
+      ctx.fillStyle = "#c48c50";
+      ctx.beginPath(); ctx.arc(ox + sw * wx, oy + sh * (wy - 0.085), sw * 0.026, 0, Math.PI * 2); ctx.fill();
+      // Sac de grain sur l'épaule (à l'aller seulement)
+      if (going) {
+        ctx.fillStyle = "#c8a058";
+        ctx.beginPath(); ctx.ellipse(ox + sw * (wx - 0.012), oy + sh * (wy - 0.115), sw * 0.038, sh * 0.026, -0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#6a4a18"; ctx.lineWidth = Math.max(0.5, sw * 0.01);
+        ctx.beginPath(); ctx.ellipse(ox + sw * (wx - 0.012), oy + sh * (wy - 0.115), sw * 0.038, sh * 0.026, -0.35, 0, Math.PI * 2); ctx.stroke();
+      }
     }
     // Oiseau picoreur (pivote la tête)
     const peck = Math.sin(now / 320) > 0.4 ? 0.025 : 0;
@@ -179,11 +201,12 @@ function drawCityEngineSprite(context) {
     ctx.moveTo(ox+sw*(cx2-0.19), oy+sh*(cy2-0.04));
     ctx.bezierCurveTo(ox+sw*(cx2-0.19), oy+sh*(cy2-0.22), ox+sw*(cx2+0.19), oy+sh*(cy2-0.22), ox+sw*(cx2+0.19), oy+sh*(cy2-0.04));
     ctx.closePath(); ctx.fill();
-    // Plis de la bâche
+    // Plis de la bâche — la toile frémit doucement sous le vent
     ctx.strokeStyle = "rgba(155,120,25,0.48)"; ctx.lineWidth = Math.max(0.5, sw*0.02);
     for (let bi = -1; bi <= 1; bi++) {
       const bpx = cx2 + bi * 0.1;
-      ctx.beginPath(); ctx.moveTo(ox+sw*bpx, oy+sh*(cy2-0.04)); ctx.quadraticCurveTo(ox+sw*(bpx+0.015), oy+sh*(cy2-0.16), ox+sw*bpx, oy+sh*(cy2-0.22)); ctx.stroke();
+      const wind = Math.sin(now / 640 + bi * 1.7) * 0.008;
+      ctx.beginPath(); ctx.moveTo(ox+sw*bpx, oy+sh*(cy2-0.04)); ctx.quadraticCurveTo(ox+sw*(bpx+0.015+wind), oy+sh*(cy2-0.16), ox+sw*(bpx+wind), oy+sh*(cy2-0.22)); ctx.stroke();
     }
     // Grandes roues (vue de côté légèrement inclinée)
     for (const wrx of [cx2-0.17, cx2+0.17]) {
@@ -216,37 +239,75 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "markets") {
-    // ── ÉTALS DE MARCHÉ ──────────────────────────────────────────────
-    const stallColors = ["#c03828","#2a6888","#d4a018","#386830"];
-    const goodColors  = ["#e05030","#f0c040","#60a840","#e8804a","#9060c0","#e8e080"];
-    const nStalls = tier >= 2 ? 4 : tier >= 1 ? 3 : 2;
-    const cols = nStalls <= 2 ? 2 : 2;
-    const rows = nStalls <= 2 ? 1 : 2;
-    for (let si = 0; si < nStalls; si++) {
-      const col = si % cols, row = Math.floor(si / cols);
-      const sx2 = 0.1 + col * 0.48, sy2 = 0.14 + row * 0.46;
-      // Table/comptoir
-      ctx.fillStyle = "#7a5020"; ctx.fillRect(ox+sw*sx2, oy+sh*(sy2+0.18), sw*0.38, sh*0.16);
-      ctx.fillStyle = "#9a6830"; ctx.fillRect(ox+sw*sx2, oy+sh*(sy2+0.18), sw*0.38, sh*0.04);
-      // Auvent (canopée colorée, légère avancée)
-      ctx.fillStyle = stallColors[si % stallColors.length];
-      ctx.fillRect(ox+sw*(sx2-0.02), oy+sh*sy2, sw*0.42, sh*0.12);
-      // Rayures sur l'auvent
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      for (let ri2 = 0; ri2 < 3; ri2++) ctx.fillRect(ox+sw*(sx2+ri2*0.12), oy+sh*sy2, sw*0.04, sh*0.12);
-      // Ombre sous l'auvent
-      ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(ox+sw*sx2, oy+sh*(sy2+0.12), sw*0.38, sh*0.04);
-      // Marchandises sur le comptoir
-      for (let gi = 0; gi < 4; gi++) {
-        const gx2 = sx2 + 0.04 + gi * 0.08;
-        ctx.fillStyle = goodColors[(si * 3 + gi) % goodColors.length];
-        ctx.beginPath(); ctx.arc(ox+sw*(gx2+0.02), oy+sh*(sy2+0.22), sw*0.03, 0, Math.PI*2); ctx.fill();
-      }
-      // Vendeur (silhouette derrière le comptoir)
-      ctx.fillStyle = "#4a3018";
-      ctx.fillRect(ox+sw*(sx2+0.15), oy+sh*(sy2+0.34), sw*0.08, sh*0.1);
+    // ── GRANDE HALLE DE MARCHÉ ───────────────────────────────────────
+    // Refonte lisibilité : une halle couverte qui déborde légèrement de la
+    // tuile (1.25×), au lieu de micro-étals illisibles au zoom normal.
+    const mx = ox - sw * 0.125, my = oy - sh * 0.125;
+    const mw = sw * 1.25, mh = sh * 1.25;
+    const P = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(mx + mw * rx, my + mh * ry, mw * rw, mh * rh); };
+    // Esplanade de terre battue
+    P(0.04, 0.3, 0.92, 0.62, "#3a2c18");
+    // Grande toile rayée à double pente (vue de dessus)
+    const awnA = "#c03828", awnB = "#e8e0cc";
+    const ax = 0.1, aw = 0.8, ay = 0.12, ah2 = 0.4;
+    for (let i = 0; i < 8; i++) {
+      ctx.fillStyle = i % 2 ? awnB : awnA;
+      ctx.fillRect(mx + mw * (ax + aw * i / 8), my + mh * ay, mw * aw / 8 + 0.5, mh * ah2);
+    }
+    // Faîtage central + ombre du bord de toile
+    P(ax, ay + ah2 * 0.46, aw, 0.025, "rgba(90,20,10,0.55)");
+    P(ax, ay + ah2 - 0.03, aw, 0.05, "rgba(0,0,0,0.28)");
+    // Poteaux de la halle
+    ctx.fillStyle = "#5a3c16";
+    for (const ppx of [ax + 0.015, ax + aw - 0.05]) {
+      ctx.fillRect(mx + mw * ppx, my + mh * (ay + ah2), mw * 0.045, mh * 0.16);
+    }
+    // Comptoir frontal sur toute la largeur + marchandises colorées
+    P(ax + 0.04, 0.62, aw - 0.08, 0.1, "#7a5020");
+    P(ax + 0.04, 0.62, aw - 0.08, 0.025, "#9a6830");
+    const goodColors = ["#e05030", "#f0c040", "#60a840", "#e8804a", "#9060c0", "#e8e080"];
+    const nGoods = 5 + tier * 2;
+    for (let gi = 0; gi < nGoods; gi++) {
+      const gx2 = ax + 0.08 + gi * ((aw - 0.16) / Math.max(1, nGoods - 1));
+      ctx.fillStyle = goodColors[gi % goodColors.length];
+      ctx.beginPath(); ctx.arc(mx + mw * gx2, my + mh * 0.645, mw * 0.028, 0, Math.PI * 2); ctx.fill();
+    }
+    // Sacs et caisses sur l'esplanade
+    ctx.fillStyle = "#9a6828"; ctx.fillRect(mx + mw * 0.08, my + mh * 0.76, mw * 0.1, mh * 0.09);
+    ctx.fillStyle = "#b08a4a";
+    ctx.beginPath(); ctx.ellipse(mx + mw * 0.86, my + mh * 0.8, mw * 0.05, mh * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+    // Marchand derrière le comptoir + chalands devant (badauds animés)
+    const folk = [[0.5, 0.58, "#4a3018"], [0.32, 0.8, "#3f6a8a"], [0.58, 0.84, "#7a8a3c"]];
+    const nFolk = 1 + Math.min(2, tier + 1);
+    for (let fi = 0; fi < nFolk; fi++) {
+      const [fx2, fy2, fcol] = folk[fi];
+      const sway = Math.sin(now / 540 + fi * 2.1) * 0.012;
+      ctx.fillStyle = fcol;
+      ctx.fillRect(mx + mw * (fx2 - 0.03 + sway), my + mh * fy2, mw * 0.06, mh * 0.09);
       ctx.fillStyle = "#c49060";
-      ctx.beginPath(); ctx.arc(ox+sw*(sx2+0.19), oy+sh*(sy2+0.32), sw*0.04, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx + mw * (fx2 + sway), my + mh * (fy2 - 0.02), mw * 0.034, 0, Math.PI * 2); ctx.fill();
+    }
+    // Tier 1+ : étal latéral avec son propre auvent
+    if (tier >= 1) {
+      P(0.0, 0.34, 0.16, 0.2, "#2a6888");
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(mx, my + mh * 0.34, mw * 0.05, mh * 0.2);
+      P(0.01, 0.54, 0.14, 0.07, "#7a5020");
+    }
+    // Tier 2+ : fanions colorés au-dessus de la halle
+    if (tier >= 2) {
+      ctx.strokeStyle = "rgba(60,40,16,0.6)"; ctx.lineWidth = Math.max(0.5, mw * 0.012);
+      ctx.beginPath(); ctx.moveTo(mx + mw * ax, my + mh * 0.08); ctx.lineTo(mx + mw * (ax + aw), my + mh * 0.08); ctx.stroke();
+      for (let fi = 0; fi < 6; fi++) {
+        const fx2 = ax + 0.08 + fi * (aw - 0.16) / 5;
+        const flap = Math.sin(now / 380 + fi) * 0.01;
+        ctx.fillStyle = goodColors[fi % goodColors.length];
+        ctx.beginPath();
+        ctx.moveTo(mx + mw * (fx2 - 0.025), my + mh * 0.08);
+        ctx.lineTo(mx + mw * (fx2 + 0.025), my + mh * 0.08);
+        ctx.lineTo(mx + mw * (fx2 + flap), my + mh * 0.135);
+        ctx.closePath(); ctx.fill();
+      }
     }
     return true;
   }
@@ -287,10 +348,19 @@ function drawCityEngineSprite(context) {
     ctx.fillStyle = tier >= 2 ? "#c0a030" : "#9a8060";
     ctx.fillRect(ox+sw*0.47, oy+sh*0.3, sw*0.06, sh*0.18); // vertical
     ctx.fillRect(ox+sw*0.4, oy+sh*0.38, sw*0.2, sh*0.06);  // horizontal
-    // Bannière
-    ctx.fillStyle = "#a02020"; ctx.fillRect(ox+sw*0.46, oy+sh*0.12, sw*0.16, sh*0.1);
-    ctx.strokeStyle = "#7a1010"; ctx.lineWidth = Math.max(0.5, sw*0.016);
-    ctx.beginPath(); ctx.moveTo(ox+sw*0.46, oy+sh*0.08); ctx.lineTo(ox+sw*0.46, oy+sh*0.22); ctx.stroke();
+    // Bannière qui claque au vent
+    {
+      const flap = Math.sin(now / 420) * 0.018;
+      ctx.fillStyle = "#a02020";
+      ctx.beginPath();
+      ctx.moveTo(ox+sw*0.46, oy+sh*0.12);
+      ctx.lineTo(ox+sw*0.62, oy+sh*(0.13+flap));
+      ctx.lineTo(ox+sw*0.62, oy+sh*(0.21+flap));
+      ctx.lineTo(ox+sw*0.46, oy+sh*0.22);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#7a1010"; ctx.lineWidth = Math.max(0.5, sw*0.016);
+      ctx.beginPath(); ctx.moveTo(ox+sw*0.46, oy+sh*0.08); ctx.lineTo(ox+sw*0.46, oy+sh*0.22); ctx.stroke();
+    }
     return true;
   }
   if (id === "irrigated_fields") {
@@ -534,16 +604,41 @@ function drawCityEngineSprite(context) {
       ctx.beginPath(); ctx.moveTo(ox+sw*0.5, oy+sh*0.68); ctx.lineTo(ox+sw*(0.5+Math.cos(ra)*0.09), oy+sh*(0.68+Math.sin(ra)*0.09)); ctx.stroke();
     }
     ctx.fillStyle = "#d4a828"; ctx.beginPath(); ctx.arc(ox+sw*0.5, oy+sh*0.68, sw*0.04, 0, Math.PI*2); ctx.fill();
-    // Pièces d'or animées (sortent du toit en fumée d'activité)
-    for (let k = 0; k < 2 + tier; k++) {
-      const ph = ((now / 1400 + k * 0.38) % 1);
-      const coinX = ox + sw*(0.34 + k*0.14);
-      const coinY = oy + sh*(0.18 - ph*0.15);
-      ctx.fillStyle = `rgba(210,165,20,${(Math.sin(ph*Math.PI)*0.85).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(coinX, coinY, Math.max(1.5, sw*0.036), 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = `rgba(160,110,10,${(Math.sin(ph*Math.PI)*0.6).toFixed(2)})`;
-      ctx.lineWidth = Math.max(0.5, sw*0.012);
-      ctx.beginPath(); ctx.arc(coinX, coinY, Math.max(1.5, sw*0.036), 0, Math.PI*2); ctx.stroke();
+    // Frappe de la monnaie : piles de pièces devant le coffre + coup de
+    // marteau périodique avec étincelle (diégétique — fini les pièces qui
+    // s'envolaient du toit comme de la fumée).
+    {
+      // Piles de pièces (grandissent avec le tier)
+      for (let k = 0; k < 2 + tier && k < 4; k++) {
+        const pileX = 0.24 + k * 0.13;
+        const nCoins = 2 + ((k * 7) % 3);
+        for (let c = 0; c < nCoins; c++) {
+          ctx.fillStyle = c === nCoins - 1 ? "#e8c040" : "#c89828";
+          ctx.beginPath(); ctx.ellipse(ox + sw * pileX, oy + sh * (0.82 - c * 0.022), sw * 0.032, sh * 0.012, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      // Monnayeur au marteau (droite du coffre)
+      const strike = Math.max(0, Math.sin(now / 480));     // lève puis frappe
+      const hx2 = 0.74, hy2 = 0.76;
+      ctx.fillStyle = "#3a2c14";
+      ctx.fillRect(ox + sw * (hx2 - 0.025), oy + sh * (hy2 - 0.05), sw * 0.05, sh * 0.09);
+      ctx.fillStyle = "#c49060";
+      ctx.beginPath(); ctx.arc(ox + sw * hx2, oy + sh * (hy2 - 0.07), sw * 0.024, 0, Math.PI * 2); ctx.fill();
+      // Bras + marteau (angle suit la frappe)
+      const ha = -0.4 - strike * 0.9;
+      ctx.strokeStyle = "#3a2c14"; ctx.lineWidth = Math.max(1, sw * 0.022); ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(ox + sw * (hx2 + 0.02), oy + sh * (hy2 - 0.03));
+      ctx.lineTo(ox + sw * (hx2 + 0.02 + Math.cos(ha) * 0.07), oy + sh * (hy2 - 0.03 + Math.sin(ha) * 0.07));
+      ctx.stroke();
+      ctx.lineCap = "butt";
+      ctx.fillStyle = "#8a8a92";
+      ctx.fillRect(ox + sw * (hx2 + 0.02 + Math.cos(ha) * 0.07 - 0.015), oy + sh * (hy2 - 0.03 + Math.sin(ha) * 0.07 - 0.012), sw * 0.03, sh * 0.024);
+      // Étincelle au moment de l'impact (marteau bas)
+      if (strike < 0.12) {
+        ctx.fillStyle = "rgba(255,230,120,0.9)";
+        ctx.beginPath(); ctx.arc(ox + sw * (hx2 + 0.055), oy + sh * (hy2 + 0.02), Math.max(1, sw * 0.018), 0, Math.PI * 2); ctx.fill();
+      }
     }
     // Balance (symbole sur le fronton)
     ctx.fillStyle = "#c8a030"; ctx.fillRect(ox+sw*0.47, oy+sh*0.14, sw*0.06, sh*0.07);

@@ -2,6 +2,16 @@
 import { drawCityEngineSprite } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 
+/* Charte d'animation des sprites (DA par âge) :
+ *   - Toute animation est DIÉGÉTIQUE : un geste, une flamme, une roue — jamais
+ *     d'objet qui flotte ou jaillit du bâtiment (cf. ex-pièces volantes de
+ *     l'hôtel des monnaies, ex-filet de grain des entrepôts).
+ *   - Ères primitives/antiques : mouvement ORGANIQUE (personnages, feu, tissu).
+ *   - Ères médiévales/industrielles : mouvement MÉCANIQUE (presse, grue, roue).
+ *   - Ères futuristes : mouvement LUMINEUX (pulses, LED, hologrammes).
+ *   - Amplitudes faibles (< 2% du sprite) et périodes désynchronisées
+ *     (offset par index) pour éviter l'effet métronome. */
+
 // Emblème par bâtiment : pictogramme sur médaillon, lisible d'un coup d'œil
 // même quand le sprite est petit. Affiché au-dessus du sprite (wrapper en bas
 // de fichier) dès que le zoom le permet.
@@ -52,16 +62,17 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // Braises
     ctx.fillStyle = "rgba(210,70,5,0.75)";
     ctx.beginPath(); ctx.ellipse(ox+sw*fx, oy+sh*(fy-0.01), sw*0.11, sh*0.04, 0, 0, Math.PI*2); ctx.fill();
-    // Flammes (3 langues animées)
-    const f1 = 0.5+0.5*Math.sin(now/190), f2 = 0.5+0.5*Math.sin(now/160+1.5), f3 = 0.5+0.5*Math.sin(now/220+2.9);
-    ctx.fillStyle = `rgba(255,90,8,${(0.72+f1*0.28).toFixed(2)})`;
-    ctx.beginPath(); ctx.moveTo(ox+sw*(fx-0.08), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx-0.14), oy+sh*(fy-0.14-f1*0.07), ox+sw*(fx-0.04), oy+sh*(fy-0.19-f1*0.05)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.08), ox+sw*(fx+0.04), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = `rgba(255,195,15,${(0.78+f2*0.22).toFixed(2)})`;
-    ctx.beginPath(); ctx.moveTo(ox+sw*(fx-0.06), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx-0.01), oy+sh*(fy-0.2-f2*0.1), ox+sw*fx, oy+sh*(fy-0.25-f2*0.07)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.12), ox+sw*(fx+0.06), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = `rgba(255,130,15,${(0.7+f3*0.3).toFixed(2)})`;
-    ctx.beginPath(); ctx.moveTo(ox+sw*(fx+0.04), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx+0.12), oy+sh*(fy-0.12-f3*0.06), ox+sw*(fx+0.06), oy+sh*(fy-0.17-f3*0.05)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.07), ox+sw*(fx-0.03), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
-    // Halo rayonnant
-    const halo = 0.28 + 0.18*Math.abs(Math.sin(now/520));
+    // Flammes (3 langues animées) — scintillement vif, calé sur les feux
+    // satellites du campement (now/130) pour battre au même rythme.
+    const f1 = 0.5+0.5*Math.sin(now/130), f2 = 0.5+0.5*Math.sin(now/110+1.5), f3 = 0.5+0.5*Math.sin(now/150+2.9);
+    ctx.fillStyle = `rgba(255,90,8,${(0.55+f1*0.45).toFixed(2)})`;
+    ctx.beginPath(); ctx.moveTo(ox+sw*(fx-0.08), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx-0.14), oy+sh*(fy-0.12-f1*0.11), ox+sw*(fx-0.04), oy+sh*(fy-0.16-f1*0.09)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.08), ox+sw*(fx+0.04), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(255,195,15,${(0.6+f2*0.4).toFixed(2)})`;
+    ctx.beginPath(); ctx.moveTo(ox+sw*(fx-0.06), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx-0.01), oy+sh*(fy-0.17-f2*0.14), ox+sw*fx, oy+sh*(fy-0.21-f2*0.12)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.12), ox+sw*(fx+0.06), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(255,130,15,${(0.5+f3*0.5).toFixed(2)})`;
+    ctx.beginPath(); ctx.moveTo(ox+sw*(fx+0.04), oy+sh*(fy-0.02)); ctx.quadraticCurveTo(ox+sw*(fx+0.12), oy+sh*(fy-0.1-f3*0.1), ox+sw*(fx+0.06), oy+sh*(fy-0.14-f3*0.08)); ctx.quadraticCurveTo(ox+sw*(fx+0.01), oy+sh*(fy-0.07), ox+sw*(fx-0.03), oy+sh*(fy-0.02)); ctx.closePath(); ctx.fill();
+    // Halo rayonnant — pulse au rythme des flammes
+    const halo = 0.24 + 0.2*Math.abs(Math.sin(now/170));
     const rg = ctx.createRadialGradient(ox+sw*fx, oy+sh*fy, 0, ox+sw*fx, oy+sh*fy, sw*0.36);
     rg.addColorStop(0, `rgba(255,170,40,${halo.toFixed(2)})`); rg.addColorStop(1, "rgba(255,90,10,0)");
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(ox+sw*fx, oy+sh*fy, sw*0.36, 0, Math.PI*2); ctx.fill();
@@ -115,6 +126,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
       ctx.fillStyle = "#1a1008"; ctx.beginPath(); ctx.arc(ox+sw*wx, oy+sh*0.40, sw*0.036, Math.PI, 0); ctx.fill();
       ctx.fillStyle = litWarm; ctx.beginPath(); ctx.arc(ox+sw*wx, oy+sh*0.40, sw*0.020, Math.PI, 0); ctx.fill();
       ctx.fillRect(ox+sw*(wx-0.016), oy+sh*0.40, sw*0.032, sh*0.12);
+      // Vacillement de bougie : chaque fenêtre respire à son propre rythme
+      const cdl = 0.10 + 0.10 * Math.sin(now / 260 + i * 2.3);
+      ctx.fillStyle = `rgba(255,190,80,${cdl.toFixed(2)})`;
+      ctx.fillRect(ox+sw*(wx-0.016), oy+sh*0.40, sw*0.032, sh*0.12);
     }
     const nT = 2 + tier;
     for (let i = 0; i < nT && i < 4; i++) {
@@ -139,7 +154,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
         ctx.beginPath(); ctx.arc(ox+sw*(0.26+c*0.14), oy+sh*(0.50+row*0.08), sw*0.018, 0, Math.PI*2); ctx.fill();
       }
     }
-    ctx.fillStyle = "#2a1408"; ctx.beginPath(); ctx.arc(ox+sw*0.5, oy+sh*0.43, sw*0.026, 0, Math.PI*2); ctx.fill();
+    // Le maître fait les cent pas devant ses rangées d'élèves
+    const pace = Math.sin(now / 1600) * 0.05;
+    ctx.fillStyle = "#2a1408"; ctx.beginPath(); ctx.arc(ox+sw*(0.5+pace), oy+sh*0.43, sw*0.026, 0, Math.PI*2); ctx.fill();
     const nCol = 3 + Math.min(tier, 2);
     for (let i = 0; i < nCol; i++) px(0.14 + i * (0.72 / Math.max(1, nCol - 1)) - 0.014, 0.28, 0.028, 0.14, "rgba(30,20,8,0.42)");
     px(0.44, 0.62, 0.12, 0.16, "#1e1006");
@@ -157,8 +174,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     const nPhil = 4 + tier;
     for (let i = 0; i < nPhil; i++) {
       const a = (i / nPhil) * Math.PI * 2;
+      // Léger balancement : le cercle de discussion vit (chacun à son rythme)
+      const sway = Math.sin(now / 700 + i * 1.9) * 0.006;
       ctx.fillStyle = "rgba(50,32,10,0.65)";
-      ctx.beginPath(); ctx.arc(ox+sw*(0.5+Math.cos(a)*0.14), oy+sh*(0.56+Math.sin(a)*0.075), sw*0.022, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ox+sw*(0.5+Math.cos(a)*0.14+sway), oy+sh*(0.56+Math.sin(a)*0.075), sw*0.022, 0, Math.PI*2); ctx.fill();
     }
     px(0.46, 0.48, 0.08, 0.10, "#b0a070");
     px(0.44, 0.66, 0.12, 0.14, "#1e1408");
@@ -238,7 +257,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     }
     for (let i = 0; i < 1 + tier; i++) {
       px(0.22 + i * 0.22, 0.66, 0.14, 0.06, "#d8c898");
-      ctx.fillStyle = "rgba(40,24,8,0.55)"; ctx.beginPath(); ctx.arc(ox+sw*(0.29+i*0.22), oy+sh*0.64, sw*0.018, 0, Math.PI*2); ctx.fill();
+      // Tête du lecteur qui se penche sur la page puis se redresse
+      const nod = Math.max(0, Math.sin(now / 1100 + i * 2.1)) * 0.012;
+      ctx.fillStyle = "rgba(40,24,8,0.55)"; ctx.beginPath(); ctx.arc(ox+sw*(0.29+i*0.22), oy+sh*(0.64+nod), sw*0.018, 0, Math.PI*2); ctx.fill();
     }
     px(0.44, 0.60, 0.12, 0.20, "#2e1e0a");
     return;
@@ -746,12 +767,12 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
       px(0.08, 0.58, 0.84, 0.18, "#7a6040"); // sol
       // Blocs de pierre en cours de pose
       for (let i=0; i<3; i++) px(0.14+i*0.22, 0.44, 0.18, 0.16, "#b8a882");
-      // Ouvriers (silhouettes)
+      // Ouvriers (silhouettes) — la pioche se lève et retombe en cadence
       for (let i=0; i<2+tier; i++) {
         ctx.fillStyle="rgba(50,30,10,0.65)"; ctx.beginPath(); ctx.arc(ox+sw*(0.24+i*0.20),oy+sh*0.52,sw*0.026,0,Math.PI*2); ctx.fill();
-        // Outil (pelle/levier)
+        const dig = Math.abs(Math.sin(now / 560 + i * 1.4));
         ctx.strokeStyle="#5a3818"; ctx.lineWidth=Math.max(1,sw*0.018);
-        ctx.beginPath(); ctx.moveTo(ox+sw*(0.24+i*0.20),oy+sh*0.48); ctx.lineTo(ox+sw*(0.30+i*0.20),oy+sh*0.60); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ox+sw*(0.24+i*0.20),oy+sh*0.48); ctx.lineTo(ox+sw*(0.30+i*0.20),oy+sh*(0.60-dig*0.08)); ctx.stroke();
       }
       // Corde tendue (palan primitif)
       ctx.strokeStyle="#8a6830"; ctx.lineWidth=Math.max(1,sw*0.018);

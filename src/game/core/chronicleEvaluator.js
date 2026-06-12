@@ -7,6 +7,18 @@ import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
 
+// Rythme de la gazette : une dépêche au plus toutes les 3 minutes. Le bandeau
+// (ChronicleTicker) ne l'affiche que pendant CHRONICLE_VISIBLE_MS, puis reste
+// masqué jusqu'à la publication suivante (~2 min de silence).
+export const CHRONICLE_COOLDOWN_SEC = 180;
+export const CHRONICLE_VISIBLE_MS = 60 * 1000;
+
+// Pool de période épuisé (~30 articles, soit ~1 h 30 au rythme de 3 min) :
+// les articles déjà parus repartent en rediffusion plutôt que de laisser la
+// gazette muette, en évitant de répéter les RERUN_NO_REPEAT_WINDOW dernières
+// parutions pour espacer les redites.
+export const RERUN_NO_REPEAT_WINDOW = 10;
+
 export function getPeriod(eraIndex) {
   if (eraIndex < 4)  return 1;
   if (eraIndex < 9)  return 2;
@@ -115,8 +127,11 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const eraIndex = currentEraIndex();
   const currentPeriod = getPeriod(eraIndex);
 
-  const triggeredIds = new Set((state.chronicleEntries || []).map(e => e.id));
-  const candidates = [];
+  const entries = state.chronicleEntries || [];
+  // articleId = id de l'article source ; entry.id reste unique par parution
+  // (suffixé pour les rediffusions). Les anciennes entrées n'ont pas
+  // d'articleId : on retombe sur leur id.
+  const triggeredIds = new Set(entries.map(e => e.articleId || e.id));
 
   const types = [
     "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k", "pop_1m", "pop_100m", "pop_1b", "pop_100b",
@@ -125,12 +140,30 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     "paix", "bonus_libre"
   ];
 
+  const matchingArticles = [];
   for (const type of types) {
     if (evaluateCondition(type, state)) {
-      const matching = chronicleArticles.filter(
-        art => art.period === currentPeriod && art.conditionType === type && !triggeredIds.has(art.id)
-      );
-      candidates.push(...matching);
+      matchingArticles.push(...chronicleArticles.filter(
+        art => art.period === currentPeriod && art.conditionType === type
+      ));
+    }
+  }
+
+  let candidates = matchingArticles.filter(art => !triggeredIds.has(art.id));
+  let isRerun = false;
+
+  // Pool frais épuisé : rediffusion, en écartant les dernières parutions.
+  if (candidates.length === 0) {
+    isRerun = true;
+    const recentIds = new Set(
+      entries.slice(0, RERUN_NO_REPEAT_WINDOW).map(e => e.articleId || e.id)
+    );
+    candidates = matchingArticles.filter(art => !recentIds.has(art.id));
+    // Trop peu d'articles compatibles pour respecter la fenêtre : on évite au
+    // moins de répéter la toute dernière dépêche.
+    if (candidates.length === 0) {
+      const lastId = entries[0] ? (entries[0].articleId || entries[0].id) : null;
+      candidates = matchingArticles.filter(art => art.id !== lastId);
     }
   }
 
@@ -158,18 +191,21 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const era = eras[currentEraIndex()]?.name || "Campement";
 
   const newEntry = {
-    id: chosenArticle.id,
+    id: isRerun ? `${chosenArticle.id}~r${Date.now()}` : chosenArticle.id,
+    articleId: chosenArticle.id,
     title: chosenArticle.title,
     text: chosenArticle.text,
     author: chosenArticle.author,
     age: era,
     date: `An ${year}`,
     category: CATEGORY_LABELS[chosenArticle.conditionType] || "Chronique",
-    isNew: true
+    isNew: true,
+    isRerun,
+    publishedAt: Date.now()
   };
 
   state.chronicleEntries = [newEntry, ...(state.chronicleEntries || [])].slice(0, 250);
-  state.chronicleCooldown = 60; // 60 seconds cooldown
+  state.chronicleCooldown = CHRONICLE_COOLDOWN_SEC;
 
   save();
 }

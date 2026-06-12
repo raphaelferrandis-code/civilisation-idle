@@ -879,6 +879,12 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 
 .ticker-empty {
   color: var(--muted);
+  font-style: italic;
+}
+
+/* État vide : le bandeau garde sa place (pas de saut de layout) mais s'efface. */
+.chronicle-ticker.is-idle {
+  opacity: 0.55;
 }
 
 .ticker-new-dot {
