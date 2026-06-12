@@ -5,7 +5,11 @@ import {
   isUnlocked,
   canBuyUpgrade,
   upgradeCostText,
-  has
+  has,
+  dynastyRuinsThreshold,
+  grandResetLegitimacyCost,
+  grandResetMythsRequired,
+  completedMythCount
 } from '../../game/core/mechanics.js';
 import { foundDynasty, buyUpgrade, performGrandReset } from '../../game/core/actions.js';
 import { upgrades } from '../../game/data/upgrades.js';
@@ -37,11 +41,17 @@ export default function HeritageView() {
     upgrade => (upgrade.group || "heritage") === "heritage" && isUnlocked(upgrade)
   );
 
+  const dynastyThreshold = dynastyRuinsThreshold();
+
   const isGrandResetUnlocked = has("grand_reset");
   const maxGrandResets = ragnarokHeritage ? 11 : 10;
   const nextGrandReset = Math.min(maxGrandResets, grandResetCount + 1);
   const grandResetCapped = grandResetCount >= maxGrandResets;
   const nextResetIsRagnarok = ragnarokHeritage && grandResetCount === 10;
+  const nextResetLegitCost = grandResetLegitimacyCost(nextGrandReset);
+  const nextResetMythsRequired = grandResetMythsRequired(nextGrandReset);
+  const mythsDone = completedMythCount();
+  const grandResetBlocked = legitimacy < nextResetLegitCost || mythsDone < nextResetMythsRequired;
 
   return (
     <section className="view active" id="tech">
@@ -72,14 +82,14 @@ export default function HeritageView() {
         <div className="prestige-stats">
           <div>
             <span>Prochaine fondation</span>
-            <strong>300 ruines</strong>
+            <strong>{fmt(dynastyThreshold)} ruines</strong>
           </div>
           <div>
             <span>Progression</span>
             <strong>
               {legitGain > 0
                 ? `+${fmt(legitGain)} légitimité possible`
-                : `Manque ${fmt(D(300).sub(ruins).max(0))} ruines`}
+                : `Manque ${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruines`}
             </strong>
           </div>
           <div>
@@ -164,7 +174,7 @@ export default function HeritageView() {
           <button
             id="grandResetBtn"
             className="grand-reset-btn"
-            disabled={!isGrandResetUnlocked || grandResetCapped}
+            disabled={!isGrandResetUnlocked || grandResetCapped || grandResetBlocked}
             onClick={performGrandReset}
           >
             {grandResetCapped ? "Complet" : "Reinitialiser"}
@@ -190,7 +200,15 @@ export default function HeritageView() {
           </div>
           <div>
             <span>Requis</span>
-            <strong>{nextResetIsRagnarok ? "La Fin des Dieux" : "Upgrade Grand Reset (50 légitimité)"}</strong>
+            <strong>
+              {grandResetCapped ? "Maximum atteint"
+                : nextResetIsRagnarok ? "La Fin des Dieux"
+                : !isGrandResetUnlocked ? "Upgrade Grand Reset (300 légitimité)"
+                : [
+                    nextResetLegitCost > 0 ? `${fmt(nextResetLegitCost)} légitimité` : null,
+                    nextResetMythsRequired > 0 ? `${mythsDone}/${nextResetMythsRequired} Mythes complétés` : null
+                  ].filter(Boolean).join(" + ") || "Prêt"}
+            </strong>
           </div>
         </div>
       </div>

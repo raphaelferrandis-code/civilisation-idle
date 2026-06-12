@@ -2,6 +2,8 @@
 import { state } from '../core/state.js';
 import {
   CM,
+  CM_INFRA_IDS,
+  CM_KNOWLEDGE_IDS,
   CM_TINTS,
   cmHash,
   cmWonderSlot
@@ -19,37 +21,75 @@ import { baseColor, cmLitColor } from './renderWorld.js';
  *   drawEngineSprite, drawTinyCamp). Depend de CM, citymap-camera et citymap-draw-utils.
  * ============================================================================ */
 
-// Teintes de quartier (qkind) : dominante marquée pour que les quartiers se
-// distinguent d'un coup d'œil — toits de tuile en habitat, souk doré, marbre
-// lavande au sanctuaire, garnison rouge sombre, quartier savant bleuté...
+// Teintes de quartier (qkind) : palette harmonisée sur une dominante chaude
+// (terre, ocre, pierre) — les quartiers se distinguent par la valeur et un
+// léger glissement de teinte, pas par des hues saturées qui se battent.
 const CM_QTINT = {
-  habitat: "rgba(205,92,58,0.16)",
-  marchand: "rgba(235,180,60,0.17)",
-  religieux: "rgba(206,188,255,0.18)",
-  militaire: "rgba(190,60,46,0.16)",
-  savant: "rgba(96,150,255,0.17)",
-  agricole: "rgba(150,200,80,0.14)",
-  prestige: "rgba(255,226,150,0.2)"
+  habitat: "rgba(206,116,76,0.13)",
+  marchand: "rgba(232,184,96,0.15)",
+  religieux: "rgba(228,212,216,0.15)",
+  militaire: "rgba(158,80,62,0.16)",
+  savant: "rgba(136,164,188,0.15)",
+  agricole: "rgba(164,180,100,0.11)",
+  prestige: "rgba(248,230,176,0.16)"
 };
 
-// Masses de quartier pour le rendu dézoomé (LOD) : une couleur pleine par
-// type de quartier/catégorie, lisible de très haut.
+// Masses de quartier pour le rendu dézoomé (LOD) : même famille chromatique
+// que CM_QTINT, saturation contenue et luminosités étagées pour que la ville
+// vue de haut lise comme une carte peinte, pas comme un patchwork.
 const CM_LOD_COLORS = {
-  habitat: "#9c5a40",
-  marchand: "#b08a3a",
-  religieux: "#9a8cb8",
-  militaire: "#84443a",
-  savant: "#5a7aa8",
-  agricole: "#6f8a3c",
-  prestige: "#c2a868"
+  habitat: "#a26b4c",
+  marchand: "#b6924e",
+  religieux: "#afa1a6",
+  militaire: "#7d5244",
+  savant: "#76889b",
+  agricole: "#8a9156",
+  prestige: "#c9b384"
 };
 const CM_LOD_BY_TYPE = {
-  house: "#8a6044",
-  public: "#b09050",
-  library: "#7a86a0",
-  farm: "#55772e",
-  engine: "#c0a050"
+  house: "#97704f",
+  public: "#b3955c",
+  library: "#8a8f99",
+  farm: "#6d7f42",
+  engine: "#b59e5e"
 };
+
+// Moteurs colorés par famille de ressource (même partition que la minimap) :
+// l'or produit, l'ardoise pense, la pierre administre — le jaune cesse d'être
+// la masse dominante et la carte dit où bat chaque organe de la ville.
+const CM_LOD_ENGINE = {
+  eco: "#a37e4a",
+  savoir: "#76889b",
+  infra: "#8d897e"
+};
+function cmLodEngineColor(buildingId) {
+  if (CM_INFRA_IDS.has(buildingId)) return CM_LOD_ENGINE.infra;
+  if (CM_KNOWLEDGE_IDS.has(buildingId)) return CM_LOD_ENGINE.savoir;
+  return CM_LOD_ENGINE.eco;
+}
+
+// Effet mosaïque du rendu LOD : chaque quartier dispose d'une rampe de 4
+// "pierres" voisines (luminosité ±8 %) piochées par hash de position — la
+// masse vibre comme un pavage au lieu d'un aplat uniforme. Les tesselles
+// sont posées sur un joint de mortier constant et reçoivent un micro-relief
+// (arête éclairée haut-gauche, ombrée bas-droite, lumière fixe).
+const CM_LOD_MORTAR = "#33271b";
+const CM_LOD_BEVEL_LIT = "rgba(255,240,214,0.16)";
+const CM_LOD_BEVEL_DARK = "rgba(22,14,7,0.22)";
+const CM_LOD_RAMPS = new Map();
+function cmLodShade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+  return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+function cmLodRamp(col) {
+  let ramp = CM_LOD_RAMPS.get(col);
+  if (!ramp) {
+    ramp = [cmLodShade(col, 0.92), cmLodShade(col, 0.97), cmLodShade(col, 1.03), cmLodShade(col, 1.08)];
+    CM_LOD_RAMPS.set(col, ramp);
+  }
+  return ramp;
+}
 
 // Variantes à empreinte non rectangulaire : rendues à fond transparent,
 // directement sur la couleur du terrain. On supprime pour elles tout rectangle
@@ -89,13 +129,41 @@ function drawSoftFootprintShadow(ctx, variant, x, y, w, h) {
   ctx.restore();
 }
 
-// Tuile en mode LOD : un seul aplat coloré (quartier puis catégorie), aucune
-// micro-géométrie — la métropole vue de haut devient des masses lisibles.
+// Tuile en mode LOD : une tesselle de mosaïque — joint de mortier constant,
+// pierre piochée dans la rampe du quartier, micro-relief vernissé. La
+// métropole vue de haut devient un tableau pavé, pas une grille d'aplats.
 function drawTileLOD(t, ctx, x, y, w, h) {
-  const col = (t.type !== "farm" && t.type !== "engine" && t.qkind && CM_LOD_COLORS[t.qkind])
-    || CM_LOD_BY_TYPE[t.type] || "#8a6044";
-  ctx.fillStyle = col;
+  const col = t.type === "engine" ? cmLodEngineColor(t.buildingId)
+    : (t.type !== "farm" && t.qkind && CM_LOD_COLORS[t.qkind])
+    || CM_LOD_BY_TYPE[t.type] || "#97704f";
+  ctx.fillStyle = CM_LOD_MORTAR;
   ctx.fillRect(x, y, w, h);
+  // Les tuiles multi-cases (span 2-4) sont subdivisées en tesselles unitaires :
+  // tout le pavage garde le même grain, une grande structure se lit comme un
+  // motif de plusieurs pierres de la même famille, pas comme une dalle géante.
+  const nx = t.spanX || t.size || 1;
+  const ny = t.spanY || t.size || 1;
+  const cw = w / nx, ch = h / ny;
+  const j = Math.min(1.5, Math.max(0.5, Math.min(cw, ch) * 0.08));
+  const ramp = cmLodRamp(col);
+  for (let ax = 0; ax < nx; ax += 1) {
+    for (let ay = 0; ay < ny; ay += 1) {
+      const tx = x + ax * cw + j, ty = y + ay * ch + j;
+      const tw = cw - j * 2, th = ch - j * 2;
+      if (tw <= 0 || th <= 0) continue;
+      ctx.fillStyle = ramp[cmHash((t.gx + ax) + ":" + (t.gy + ay)) % 4];
+      ctx.fillRect(tx, ty, tw, th);
+      // Relief : tesselles trop petites (dézoom extrême) restent plates.
+      if (tw < 4 || th < 4) continue;
+      const b = Math.min(1.2, Math.max(0.5, Math.min(tw, th) * 0.1));
+      ctx.fillStyle = CM_LOD_BEVEL_LIT;
+      ctx.fillRect(tx, ty, tw, b);
+      ctx.fillRect(tx, ty + b, b, th - b);
+      ctx.fillStyle = CM_LOD_BEVEL_DARK;
+      ctx.fillRect(tx, ty + th - b, tw, b);
+      ctx.fillRect(tx + tw - b, ty, b, th - b);
+    }
+  }
 }
 
 /* Building shape helpers moved to buildingShapes.js. */
@@ -113,8 +181,7 @@ function drawTile(t, now, timeWear, maxD2) {
   // Niveau de détail : très dézoomé, chaque tuile devient un aplat de masse
   // de quartier — pas de sprites, pas d'ombres, pas d'animations.
   if (CM.lodActive && !CM.collapseAt) {
-    const padL = Math.max(0.5, s * 0.08);
-    drawTileLOD(t, ctx, sx + padL, sy + padL, boxW - padL * 2, boxH - padL * 2);
+    drawTileLOD(t, ctx, sx, sy, boxW, boxH);
     return;
   }
 
@@ -368,12 +435,12 @@ function drawCentralFireGlow(now) {
   const t = now || 0;
   // Vacillement : combinaison de deux sinus rapides → la lueur n'est jamais figée.
   const flick = 0.86 + 0.1 * Math.sin(t / 150) + 0.06 * Math.sin(t / 67 + 1.7);
-  const lightR = s * (3.4 + nf * 4.2) * flick;
+  const lightR = s * (3.2 + nf * 3.8) * flick;
   if (cx < -lightR || cx > CM.cw + lightR || cy < -lightR || cy > CM.ch + lightR) return;
   const ctx = CM.ctx;
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
-  const a = (0.13 + nf * 0.32) * flick;
+  const a = (0.115 + nf * 0.27) * flick;
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, lightR);
   g.addColorStop(0, `rgba(255,196,100,${a.toFixed(3)})`);
   g.addColorStop(0.32, `rgba(255,150,55,${(a * 0.5).toFixed(3)})`);

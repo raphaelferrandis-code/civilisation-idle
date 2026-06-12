@@ -73,13 +73,13 @@ exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `2`;
 
 exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 {
-  "complexity": 0.6813436132213111,
+  "complexity": 0.28581026086448175,
   "dissent": 0.07523170032001948,
-  "inequality": 0.07919999999999999,
-  "mitigation": 0.33766340242750076,
+  "inequality": 0.06923076923076923,
+  "mitigation": 0.3517250198958954,
   "scarcity": 0.18333333333333335,
-  "structural": 0.18172000000000002,
-  "total": 0.8631652444471634,
+  "structural": 0.08607950521693972,
+  "total": 0.3479605490696481,
 }
 `;
 
@@ -88,18 +88,18 @@ exports[`golden-master du cœur économique > rates 1`] = `
   "food": Decimal(7713.683554745192),
   "gold": Decimal(9077.688185428035),
   "infrastructure": Decimal(1155.1735704940465),
-  "instability": 0.8579652444471634,
+  "instability": 0.3427605490696481,
   "knowledge": Decimal(0),
   "population": Decimal(811.9837544644295),
 }
 `;
 
-exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(4)`;
+exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(10)`;
 
-exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic au-delà du domaine float (1e310) — chemin Decimal 1`] = `Decimal(1.2728925311991155e+129)`;
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic au-delà du domaine float (1e310) — chemin Decimal 1`] = `Decimal(2.3587693467982502e+138)`;
 
-exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic early game (500) 1`] = `Decimal(1)`;
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic early game (500) 1`] = `Decimal(6)`;
 
-exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic late game float (1e20) 1`] = `Decimal(20173987.000000004)`;
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic late game float (1e20) 1`] = `Decimal(74590841)`;
 
 exports[`golden-master du cœur économique > timeWearRate 1`] = `0.000012715269475780118`;

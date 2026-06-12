@@ -9,6 +9,7 @@ import {
   nextEraProgress
 } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
+import { getEraTheme } from '../../game/data/eraThemes.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { fmt, pct, clamp01, multLabel } from '../../game/core/utils.js';
 
@@ -45,6 +46,7 @@ export default function Topbar() {
   const eraIdx = currentEraIndex();
   const currentEra = eras[eraIdx];
   const eraProgress = nextEraProgress(eraIdx);
+  const eraTheme = getEraTheme(eraIdx);
 
   const SEDIMENT_PALIERS = [
     { secs: 3600,   bonus: 2   },
@@ -148,9 +150,14 @@ export default function Topbar() {
 
       {/* Bandeau d'état : nature différente des ressources, traitement distinct */}
       <div className="vitals-band" id="vitalsResource" aria-label="Vitalité et pressions">
-        <div className="vitals-seg" title="Progression vers l'âge suivant">
+        <div className="vitals-seg" title={`Progression vers l'âge suivant — ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V`}>
           <span className="vitals-label">Âge</span>
-          <strong className="vitals-value" id="currentEraTopbar">{currentEra.name}</strong>
+          <strong className="vitals-value" id="currentEraTopbar">
+            {currentEra.name}
+            <span className="era-epoch-chip" aria-label={`Époque : ${eraTheme.epochLabel}`}>
+              {eraTheme.epochLabel} · {eraTheme.epochNumeral}
+            </span>
+          </strong>
           <div className="gauge-container stability-age">
             <span className="gauge-bar-fill age-progress-fill" style={{ width: `${eraProgress * 100}%` }}></span>
           </div>

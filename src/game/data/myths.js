@@ -255,6 +255,32 @@ export const MYTHS = [
     }
   },
 
+  // Héphaïstos est placé en Acte I (et non II) pour offrir l'automatisation
+  // d'achat/crise tôt : les panneaux d'automatisation étaient sinon hors de
+  // portée pendant l'essentiel de la partie (cf. déblocage en cascade des actes).
+  {
+    id: "mythe_d_hephaistos",
+    act: 1,
+    name: "Le Mythe d'Héphaïstos",
+    description: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, la Population commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irrésolues.`,
+    ragnarokSummary: `population en déclin, infrastructure amplifiée, Usure x${HEPH_USURE_MULT}.`,
+    objectif: `Atteindre ${HEPH_INFRA_TARGET} d'Infrastructure avec une Population ayant décliné d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis son pic.`,
+    heritageDescription: `Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs futures (achat automatique de bâtiments, déclenchement de crises).`,
+
+    onActivate() {
+      state.hephPopPeak     = state.population;
+      state.hephGoalReached = false;
+    },
+
+    onCollapse() {
+      return Boolean(state.hephGoalReached);
+    },
+
+    applyHeritage() {
+      state.hephHeritage = true;
+    }
+  },
+
   // ── Acte II · Domination ──────────────────────────────────────────────────
   {
     id: "mythe_de_sisyphe",
@@ -348,29 +374,6 @@ export const MYTHS = [
 
     applyHeritage() {
       state.orHeritage = true;
-    }
-  },
-
-  {
-    id: "mythe_d_hephaistos",
-    act: 2,
-    name: "Le Mythe d'Héphaïstos",
-    description: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, la Population commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irrésolues.`,
-    ragnarokSummary: `population en déclin, infrastructure amplifiée, Usure x${HEPH_USURE_MULT}.`,
-    objectif: `Atteindre ${HEPH_INFRA_TARGET} d'Infrastructure avec une Population ayant décliné d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis son pic.`,
-    heritageDescription: `Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs futures (achat automatique de bâtiments, déclenchement de crises).`,
-
-    onActivate() {
-      state.hephPopPeak     = state.population;
-      state.hephGoalReached = false;
-    },
-
-    onCollapse() {
-      return Boolean(state.hephGoalReached);
-    },
-
-    applyHeritage() {
-      state.hephHeritage = true;
     }
   },
 

@@ -67,16 +67,41 @@ export function generateWalls({
     }
     return false;
   };
-  for (let i = 0; i < steps; i += 1) {
-    const a = (i / steps) * Math.PI * 2;
-    let r = Math.max(4, plan.reachFor(reachBase, a) * wallMul);
-    let fx = Math.max(1, Math.min(N - 2, plan.core.x + Math.cos(a) * r));
-    let fy = Math.max(1, Math.min(N - 2, plan.core.y + Math.sin(a) * r));
-    for (let guard = 0; guard < 12 && onPlaza(fx, fy); guard += 1) {
-      r += 0.8;
-      fx = Math.max(1, Math.min(N - 2, plan.core.x + Math.cos(a) * r));
-      fy = Math.max(1, Math.min(N - 2, plan.core.y + Math.sin(a) * r));
+  const angleFor = (i) => (i / steps) * Math.PI * 2;
+  const posFor = (i, r) => [
+    Math.max(1, Math.min(N - 2, plan.core.x + Math.cos(angleFor(i)) * r)),
+    Math.max(1, Math.min(N - 2, plan.core.y + Math.sin(angleFor(i)) * r))
+  ];
+  const radii = new Array(steps);
+  for (let i = 0; i < steps; i += 1) radii[i] = Math.max(4, plan.reachFor(reachBase, angleFor(i)) * wallMul);
+  // Pousser un seul point hors d'une place crée un pic (zigzag visible) :
+  // on pousse aussi ses voisins avec une retombée angulaire pour que la
+  // déviation reste une courbe douce.
+  const pushOutOfPlazas = () => {
+    for (let iter = 0; iter < 16; iter += 1) {
+      let any = false;
+      for (let i = 0; i < steps; i += 1) {
+        const [fx, fy] = posFor(i, radii[i]);
+        if (!onPlaza(fx, fy)) continue;
+        any = true;
+        for (let d = -4; d <= 4; d += 1) {
+          const j = (i + d + steps) % steps;
+          radii[j] += 0.8 * (1 - Math.abs(d) / 5);
+        }
+      }
+      if (!any) break;
     }
+  };
+  pushOutOfPlazas();
+  // Lissage circulaire du rayon : gomme les cassures héritées du contour
+  // organique et des poussées ci-dessus, puis re-vérifie les places.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const sm = radii.map((r, i) => (radii[(i - 1 + steps) % steps] + 2 * r + radii[(i + 1) % steps]) / 4);
+    for (let i = 0; i < steps; i += 1) radii[i] = sm[i];
+    pushOutOfPlazas();
+  }
+  for (let i = 0; i < steps; i += 1) {
+    const [fx, fy] = posFor(i, radii[i]);
     outline.push({ x: fx, y: fy, water: riverSet.has(Math.round(fx) + "," + Math.round(fy)) || bankSet.has(Math.round(fx) + "," + Math.round(fy)) });
     pts.push({ x: Math.round(fx), y: Math.round(fy) });
   }

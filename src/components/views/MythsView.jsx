@@ -20,12 +20,22 @@ import {
   unlockedOlympusProfile
 } from '../../game/data/olympus.js';
 
+// Les indices de déblocage sont calculés dynamiquement (mythCountInAct) pour ne
+// jamais désynchroniser avec data/myths.js si un Mythe change d'acte.
 const ACT_META = {
-  1: { num: "Acte I", name: "Fondation", unlockHint: null },
-  2: { num: "Acte II", name: "Domination", unlockHint: "Completez les 2 Mythes de l'Acte I" },
-  3: { num: "Acte III", name: "Apocalypse", unlockHint: "Completez les 4 Mythes de l'Acte II" },
-  ragnarok: { num: "Ragnarok", name: "La Fin", unlockHint: "Completez les Mythes des Actes I, II et III" }
+  1: { num: "Acte I", name: "Fondation", unlockFrom: null },
+  2: { num: "Acte II", name: "Domination", unlockFrom: 1 },
+  3: { num: "Acte III", name: "Apocalypse", unlockFrom: 2 },
+  ragnarok: { num: "Ragnarok", name: "La Fin", unlockFrom: "all" }
 };
+
+const mythCountInAct = (act) => MYTHS.filter(m => m.act === act).length;
+function actUnlockHint(act) {
+  const from = ACT_META[act]?.unlockFrom;
+  if (from == null) return null;
+  if (from === "all") return "Completez les Mythes des Actes I, II et III";
+  return `Completez les ${mythCountInAct(from)} Mythes de l'Acte ${from === 1 ? "I" : "II"}`;
+}
 
 const FALLBACK_OLYMPUS = defaultOlympusState(0);
 
@@ -163,7 +173,8 @@ export default function MythsView() {
           <div id="mythChallengeList" className={ragnarokCompleted ? "myth-fresco-complete" : ""}>
             {[1, 2, 3, "ragnarok"].map(act => {
               const mythsInAct = MYTHS.filter(m => m.act === act);
-              const meta = ACT_META[act] || { num: String(act), name: "", unlockHint: null };
+              const meta = ACT_META[act] || { num: String(act), name: "" };
+              const unlockHint = actUnlockHint(act);
 
               // Check if Act is unlocked
               let actUnlocked;
@@ -191,8 +202,8 @@ export default function MythsView() {
                     <span className="myth-act-num">{meta.num}</span>
                     <span className="myth-act-sep">-</span>
                     <span className="myth-act-name">{meta.name}</span>
-                    {!actUnlocked && meta.unlockHint && (
-                      <span className="myth-act-lock-hint">Verrouille - {meta.unlockHint}</span>
+                    {!actUnlocked && unlockHint && (
+                      <span className="myth-act-lock-hint">Verrouille - {unlockHint}</span>
                     )}
                     {actCompleted && (
                       <span className="myth-act-lock-hint" style={{ color: 'var(--green)', opacity: 1 }}>

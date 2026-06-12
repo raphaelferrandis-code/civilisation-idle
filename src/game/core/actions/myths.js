@@ -80,6 +80,8 @@ export async function foundDynasty() {
   state.dynastyDoctrine = choice.doctrineId || DOCTRINES[0].id;
   state.legitimacy += gain;
   state.dynastyCount += 1;
+  // Seuil croissant de la prochaine fondation (remis à zéro au Grand Reset).
+  state.dynastiesSinceGR = (state.dynastiesSinceGR || 0) + 1;
   state.ruins = D(0);
   setGamePaused(false);
   resetCivilization();

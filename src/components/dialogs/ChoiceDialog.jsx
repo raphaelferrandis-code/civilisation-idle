@@ -80,18 +80,43 @@ export default function ChoiceDialog({ dialog, onChoose }) {
           </div>
         )}
         <menu className="choice-menu">
-          {dialog.options.map((option, index) => (
-            <button
-              key={`${option.label}-${index}`}
-              type="button"
-              value={index}
-              onClick={() => onChoose({ ...option, selectedIds })}
-            >
-              {option.label}
-              {option.detail && <small>{option.detail}</small>}
-            </button>
-          ))}
+          {dialog.options.map((option, index) => {
+            const hasStructure = option.headline || option.badge || (Array.isArray(option.effects) && option.effects.length > 0);
+            return (
+              <button
+                key={`${option.label}-${index}`}
+                type="button"
+                value={index}
+                className={`${hasStructure ? "choice-structured" : ""}${option.highlight ? " is-favored" : ""}`}
+                onClick={() => onChoose({ ...option, selectedIds })}
+              >
+                <span className="choice-option-head">
+                  <strong>{option.label}</strong>
+                  {option.badge && <span className="choice-badge">{option.badge}</span>}
+                </span>
+                {option.headline && (
+                  <span className="choice-headline">
+                    {option.headline}
+                    {option.delta && (
+                      <span className={`effect-chip is-${option.delta.kind}`}>{option.delta.label}</span>
+                    )}
+                  </span>
+                )}
+                {Array.isArray(option.effects) && option.effects.length > 0 && (
+                  <span className="effect-chips">
+                    {option.effects.map((effect, effectIndex) => (
+                      <span key={`${effect.label}-${effectIndex}`} className={`effect-chip is-${effect.kind || "info"}`}>
+                        {effect.label}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {option.detail && <small>{option.detail}</small>}
+              </button>
+            );
+          })}
         </menu>
+        {dialog.footnote && <p className="dialog-footnote">{dialog.footnote}</p>}
       </form>
     </dialog>
   );

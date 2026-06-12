@@ -99,39 +99,45 @@ export default function PrestigeView() {
   const tp = terminalPreparations || {};
 
   // 3 actions × 3 paliers : coût flat + malus % jusqu'à l'effondrement.
+  const tierNames = ["Mesuré", "Drastique", "Total"];
   const prepDefs = [
     {
       type: "exodus",
       icon: "🏳️",
       title: "Organiser l'exode",
       desc: "Des familles quittent la cité : moins de bras aux champs, mais la pression retombe.",
-      malusLabel: "nourriture",
-      bonusLabel: null
+      tierChips: (t) => [
+        { label: `Nourriture −${Math.round(t.malus * 100)}%`, kind: "cost" }
+      ]
     },
     {
       type: "prepareArchives",
       icon: "📜",
       title: "Préparer les archives",
       desc: "Scribes et ateliers se consacrent à la mémoire : savoir et trésor ralentissent, l'infrastructure profite des plans consignés.",
-      malusLabel: "savoir & trésor",
-      bonusLabel: (t) => `+${Math.round((t.infraBonus || 0) * 100)}% infra`
+      tierChips: (t) => [
+        { label: `Savoir & Trésor −${Math.round(t.malus * 100)}%`, kind: "cost" },
+        { label: `Infrastructure +${Math.round((t.infraBonus || 0) * 100)}%`, kind: "gain" }
+      ]
     },
     {
       type: "holdOrder",
       icon: "🛡️",
       title: "Maintenir l'ordre",
       desc: "La garde verrouille la cité : toute l'économie ralentit, mais la rupture monte plus lentement.",
-      malusLabel: "toute production",
-      bonusLabel: (t) => `rupture −${Math.round((t.ruptureSlow || 0) * 100)}% plus lente`
+      tierChips: (t) => [
+        { label: `Toute production −${Math.round(t.malus * 100)}%`, kind: "cost" },
+        { label: `Montée de Rupture −${Math.round((t.ruptureSlow || 0) * 100)}%`, kind: "gain" }
+      ]
     }
   ];
 
   const activeMaluses = [];
-  if ((tp.foodMalus || 0) > 0) activeMaluses.push(`Nourriture −${Math.round(tp.foodMalus * 100)}%`);
-  if ((tp.goldMalus || 0) > 0) activeMaluses.push(`Trésor −${Math.round(tp.goldMalus * 100)}%`);
-  if ((tp.knowledgeMalus || 0) > 0) activeMaluses.push(`Savoir −${Math.round(tp.knowledgeMalus * 100)}%`);
-  if ((tp.infraBonus || 0) > 0) activeMaluses.push(`Infrastructure +${Math.round(tp.infraBonus * 100)}%`);
-  if ((tp.ruptureSlow || 0) > 0) activeMaluses.push(`Montée de rupture −${Math.round(tp.ruptureSlow * 100)}%`);
+  if ((tp.foodMalus || 0) > 0) activeMaluses.push({ label: `Nourriture −${Math.round(tp.foodMalus * 100)}%`, kind: "cost" });
+  if ((tp.goldMalus || 0) > 0) activeMaluses.push({ label: `Trésor −${Math.round(tp.goldMalus * 100)}%`, kind: "cost" });
+  if ((tp.knowledgeMalus || 0) > 0) activeMaluses.push({ label: `Savoir −${Math.round(tp.knowledgeMalus * 100)}%`, kind: "cost" });
+  if ((tp.infraBonus || 0) > 0) activeMaluses.push({ label: `Infrastructure +${Math.round(tp.infraBonus * 100)}%`, kind: "gain" });
+  if ((tp.ruptureSlow || 0) > 0) activeMaluses.push({ label: `Montée de Rupture −${Math.round(tp.ruptureSlow * 100)}%`, kind: "gain" });
 
   const showArchiveBtn = cycles >= 2;
   const showAncestorBtn = cycles >= 3;
@@ -342,7 +348,12 @@ export default function PrestigeView() {
 
                 {activeMaluses.length > 0 && (
                   <div className="prep-active-maluses">
-                    <span>⚖️ En vigueur jusqu'à l'effondrement :</span> {activeMaluses.join(" · ")}
+                    <span>⚖️ En vigueur jusqu'à l'effondrement :</span>
+                    <span className="effect-chips">
+                      {activeMaluses.map((chip) => (
+                        <span key={chip.label} className={`effect-chip is-${chip.kind}`}>{chip.label}</span>
+                      ))}
+                    </span>
                   </div>
                 )}
 
@@ -363,12 +374,18 @@ export default function PrestigeView() {
                                 disabled={!terminalCrisisReady(def.type, i)}
                                 onClick={() => runTerminalCrisisAction(def.type, i)}
                               >
-                                <strong>
-                                  −{Math.round(t.malus * 100)}% {def.malusLabel} → rupture {Math.round(t.target * 100)}%
-                                </strong>
-                                {def.bonusLabel && (
-                                  <span className="prep-tier-bonus">{def.bonusLabel(t)}</span>
-                                )}
+                                <span className="prep-tier-head">
+                                  <strong>{tierNames[i]}</strong>
+                                  <span className="prep-tier-target">Rupture ramenée à {Math.round(t.target * 100)}%</span>
+                                </span>
+                                <span className="prep-target-track" aria-hidden="true">
+                                  <span className="prep-target-fill" style={{ width: `${Math.round(t.target * 100)}%` }}></span>
+                                </span>
+                                <span className="effect-chips">
+                                  {def.tierChips(t).map((chip) => (
+                                    <span key={chip.label} className={`effect-chip is-${chip.kind}`}>{chip.label}</span>
+                                  ))}
+                                </span>
                                 <span className="action-cost">{costLabel(terminalCrisisCost(def.type, i))}</span>
                               </button>
                             ))}

@@ -1,0 +1,49 @@
+temps_virtuel	jalon	cycle	age	GR	dynasties	legitimite	mult_global	prod_s
+0m 0s	Age atteint : Campement (palier 0)	0	Campement	0	0	0.0	x1.0	0.2
+1m 20s	Age atteint : Feux dispersés (palier 1)	0	Feux dispersés	0	0	0.0	x1.0	393
+3m 20s	Age atteint : Abris saisonniers (palier 2)	0	Abris saisonniers	0	0	0.0	x1.0	1.17K
+14m 20s	Age atteint : Clan des foyers (palier 3)	0	Clan des foyers	0	0	0.0	x1.1	5.89K
+50m 0s	Age atteint : Lignée des huttes (palier 4)	0	Lignée des huttes	0	0	0.0	x1.1	27.6K
+10h 3m	Age atteint : Hameau (palier 5)	8	Hameau	0	0	0.0	x3.0	1.35M
+10h 11m	Dynastie 1 fondee	9	Campement	0	1	0.0	x1.0	0.3
+1j 2h 7m	Palier 10 ruines achete - branche Prospérité	148	Clan des foyers	0	6	2.0	x1.6	6.76K
+1j 8h 53m	Age atteint : Hameau palissadé (palier 6)	200	Hameau palissadé	0	6	2.0	x92	63.6M
+1j 11h 44m	Age atteint : Village (palier 7)	222	Village	0	7	3.0	x404	1.66B
+1j 11h 45m	Palier 10 ruines achete - branche Connaissance	223	Hameau palissadé	0	7	3.0	x3.6	22.2M
+1j 14h 12m	Dynastie 10 fondee	241	Campement	0	10	74	x6.2	1.2
+1j 14h 58m	Age atteint : Village des greniers (palier 8)	246	Village des greniers	0	10	74	x6.91K	92.7B
+1j 15h 7m	Age atteint : Bourg agricole (palier 9)	247	Bourg agricole	0	10	74	x19.9K	1.75T
+1j 16h 41m	Age atteint : Bourg des artisans (palier 10)	258	Bourg des artisans	0	12	132	x21.9K	12.6T
+1j 16h 50m	Palier 10 ruines achete - branche Résilience	260	Campement	0	13	170	x11	2.3
+1j 19h 6m	Age atteint : Bourg marchand (palier 11)	275	Bourg marchand	0	16	278	x110.9K	563.7T
+1j 19h 7m	Grand Reset 1	0	Campement	1	17	21	x5.7	0.5
+1j 19h 7m	Premiers Mythes debloques (Acte I disponible)	0	Campement	1	17	21	x5.7	0.5
+2j 6h 31m	Age atteint : Cité des marchés (palier 12)	79	Cité des marchés	1	32	188	x426.8K	11.9Qa
+2j 6h 58m	Age atteint : Cité des greniers (palier 13)	82	Cité des greniers	1	33	241	x1.31M	138.2Qa
+2j 11h 8m	Age atteint : Cité des canaux (palier 14)	111	Cité des canaux	1	42	579	x17.5M	7.41Qi
+2j 17h 28m	Age atteint : Cité fortifiée (palier 15)	43	Cité fortifiée	2	64	447	x109.1M	201.1Qi
+2j 17h 28m	Palier 20 ruines achete - branche Prospérité	44	Campement	2	65	705	x188	41
+3j 1h 16m	Age atteint : Cité administrative (palier 16)	21	Cité administrative	4	92	684	x2.50T	239.7Sx
+3j 1h 18m	Age atteint : Principauté (palier 17)	21	Principauté	4	92	684	x3.10T	2.57Sp
+3j 1h 19m	Age atteint : Principauté marchande (palier 18)	21	Principauté marchande	4	92	684	x3.77T	30.7Sp
+3j 1h 20m	Age atteint : Royaume (palier 19)	21	Royaume	4	92	684	x4.24T	184.3Sp
+3j 1h 21m	Age atteint : Royaume des routes (palier 20)	21	Royaume des routes	4	92	684	x4.94T	1.82Oc
+3j 1h 22m	Palier 20 ruines achete - branche Résilience	22	Campement	4	93	8.69K	x21.8K	4.10K
+3j 1h 22m	Palier 20 ruines achete - branche Connaissance	22	Campement	4	93	8.69K	x21.8K	4.10K
+3j 1h 41m	Age atteint : Royaume savant (palier 21)	30	Royaume savant	4	93	8.69K	x4.28Qi	10.0No
+3j 1h 42m	Age atteint : Couronne impériale (palier 22)	30	Couronne impériale	4	93	8.69K	x6.64Qi	201.1No
+3j 1h 43m	Age atteint : Empire naissant (palier 23)	30	Empire naissant	4	93	8.69K	x8.28Qi	1.35Dc
+3j 1h 44m	Age atteint : Empire provincial (palier 24)	30	Empire provincial	4	93	8.69K	x10.6Qi	16.7Dc
+3j 1h 46m	Age atteint : Empire (palier 25)	30	Empire	4	93	8.69K	x13.1Qi	201.5Dc
+3j 1h 47m	Age atteint : Capitale monumentale (palier 26)	30	Capitale monumentale	4	93	8.69K	x15.7Qi	2.21e36
+3j 1h 48m	Age atteint : Capitale impériale (palier 27)	30	Capitale impériale	4	93	8.69K	x17.5Qi	1.29e37
+3j 1h 49m	Palier 30 ruines achete - branche Prospérité	31	Campement	4	94	472.9K	x511.4K	79.3K
+3j 7h 52m	Palier 30 ruines achete - branche Résilience	68	Campement	4	130	575.9K	x722.1K	146.5K
+3j 7h 52m	Palier 30 ruines achete - branche Connaissance	68	Campement	4	130	575.9K	x722.1K	146.5K
+3j 20h 6m	Age atteint : Conurbation (palier 28)	144	Conurbation	4	167	9.60M	x30.2Sp	1.56e41
+3j 20h 7m	Age atteint : Métropole (palier 29)	144	Métropole	4	167	9.60M	x38.0Sp	1.06e42
+3j 20h 8m	Age atteint : Mégalopole (palier 30)	144	Mégalopole	4	167	9.60M	x56.2Sp	1.43e43
+3j 20h 10m	Age atteint : Mégalopole stratifiée (palier 31)	144	Mégalopole stratifiée	4	167	9.60M	x74.6Sp	1.88e44
+3j 20h 11m	Age atteint : Réseau continental (palier 32)	144	Réseau continental	4	167	9.60M	x90.7Sp	1.90e45
+3j 20h 12m	Age atteint : Machine civique (palier 33)	144	Machine civique	4	167	9.60M	x109.9Sp	2.33e46
+3j 20h 14m	Age atteint : Singularité civique (palier 34)	144	Singularité civique	4	167	9.60M	x134.5Sp	3.95e47

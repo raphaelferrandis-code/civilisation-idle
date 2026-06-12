@@ -40,7 +40,7 @@ import {
   ENEE_MIGRATIONS_TARGET,
   isMythEffectActive
 } from '../../game/data/myths.js';
-import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById } from '../../game/data/epitaphs.js';
+import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
 
 export default function CityView() {
   const {
@@ -589,11 +589,16 @@ export default function CityView() {
                 </div>
               )}
               {hasActiveEpitaphLegacy && (
-                <div className="myth-status-card epitaph-legacy" title={activeEpitaphDefinition.detail}>
-                  <span className="myth-card-icon">📜</span>
+                <div
+                  className="myth-status-card epitaph-legacy"
+                  title={`${activeEpitaphDefinition.tagline}\n${epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => chip.label).join(" · ")}`}
+                >
+                  <span className="myth-card-icon">{activeEpitaphDefinition.icon || "📜"}</span>
                   <div className="myth-card-info">
-                    <span>Legs d'épitaphe</span>
-                    <strong>{activeEpitaphDefinition.logLabel} · {Math.ceil(epitaphRemainingSeconds / 60)}m</strong>
+                    <span>Legs : {activeEpitaphDefinition.logLabel}</span>
+                    <strong>
+                      {Math.floor(epitaphRemainingSeconds / 60)}m {String(epitaphRemainingSeconds % 60).padStart(2, "0")}s restantes
+                    </strong>
                   </div>
                 </div>
               )}

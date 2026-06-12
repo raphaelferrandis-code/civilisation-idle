@@ -33,6 +33,7 @@ import {
 } from '../mechanics.js';
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
+import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { upgrades } from '../../data/upgrades.js';
 import { eras, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
@@ -40,7 +41,7 @@ import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridg
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX } from '../balance.js';
+import { COLLAPSE_PREP_MAX, CRISIS_ACTION_DECAY } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -87,10 +88,14 @@ export async function openCrisisEvent(event) {
     return;
   }
 
-  const choice = await openChoiceDialog(event);
+  const choice = await openChoiceDialog({
+    ...event,
+    footnote: "Sauf mention contraire, les effets sur la production durent jusqu'à la fin du cycle en cours."
+  });
 
   const instabilityBefore = state.instability || 0;
-  choice.apply();
+  const outcome = choice.apply();
+  if (outcome && outcome.label) pushOutcomeFloat(outcome);
   if ((state.instability || 0) < instabilityBefore) registerOlympusCrisisResolved();
   else registerOlympusCrisisIgnored();
   state.instability = clamp01(state.instability);
@@ -364,7 +369,11 @@ export function runCrisisAction(id, options = {}) {
   const effect = effects[id];
   if (!effect) return;
   if (!isMythEffectActive("mythe_d_atlas")) {
-    state.instability = Math.max(0, state.instability - effect.drop);
+    // Rendements décroissants : chaque usage du même levier calme un peu moins
+    // la rue (0.9^n). Tenir la jauge devient un délai, pas une immortalité.
+    const usedCount = state.crisisActions[effect.key] || 0;
+    const effectiveDrop = effect.drop * Math.pow(CRISIS_ACTION_DECAY, usedCount);
+    state.instability = Math.max(0, state.instability - effectiveDrop);
   } else {
     state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
   }

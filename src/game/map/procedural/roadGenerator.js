@@ -167,8 +167,19 @@ export function generateRoads({
   if (A === "scattered") {
     // Sentiers sinueux du cœur vers chaque poche d'habitat. Pas de grands axes.
     riverCrossing("path");
+    let prevA = null;
     for (const a of plan.anchors) {
       staircase(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
+      // Boucle locale dans la poche : les habitations se massent autour de
+      // l'ancre (anchorAffinity) — sans desserte locale, toute la périphérie de
+      // la poche « flotte » loin du sentier. Le petit anneau la longe.
+      const ar = Math.max(1, Math.round((a.r || 2) * 0.5));
+      ring(Math.round(a.gx), Math.round(a.gy), ar, "path");
+      // Chemin de hameau à hameau : relie les poches entre elles, pas seulement
+      // au cœur — donne un vrai maillage de village dispersé et évite les poches
+      // accessibles uniquement par une longue antenne unique.
+      if (prevA) staircase(prevA.gx, prevA.gy, a.gx, a.gy, "path", "sc-link:" + prevA.label + ">" + a.label);
+      prevA = a;
     }
     // Petite boucle autour du foyer.
     ring(core.x, core.y, 2, "path");

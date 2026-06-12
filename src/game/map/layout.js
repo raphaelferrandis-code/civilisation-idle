@@ -429,6 +429,7 @@ function cmIsBridgeRoad(layout, gx, gy) {
 
 function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
   const key = (gx, gy) => gx + "," + gy;
+  const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const isWater = (gx, gy) => !!(river && river.cells && river.cells.has(key(gx, gy)));
   const buildGraph = (activeSet) => {
     const isCore  = (gx, gy) => activeSet.has(key(gx, gy));
@@ -537,6 +538,55 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
   if (invalid.size) {
     for (const k of invalid) activeSet.delete(k);
     graph = buildGraph(activeSet);
+  }
+
+  // ── Élagage de connectivité : ne garder que le réseau marchable relié au cœur.
+  //    Les piétons se déplacent par adjacence ORTHOGONALE (agents.js) ; tout
+  //    fragment terrestre, mini-cluster ou cul-de-sac coupé du cœur est à la fois
+  //    un piège (habitant bloqué « au milieu de nulle part ») et un artefact
+  //    visuel. On flood-fill depuis la route marchable la plus proche du cœur et
+  //    on retire le reste. (Les ponts sans issue terrestre des deux côtés ont
+  //    déjà été écartés par la validation ci-dessus.) Le réseau étant généré
+  //    depuis le cœur, les composantes hors-cœur sont en pratique de petits
+  //    fragments — pas des quartiers légitimes.
+  const isBridgeAt = (gx, gy) => {
+    const rr = graph.roadMap.get(key(gx, gy));
+    return !!(rr && rr.roadSurface === "bridge");
+  };
+  const walkable = (gx, gy) => {
+    const k = key(gx, gy);
+    if (!graph.roadMap.has(k)) return false;
+    if (river && river.cells && river.cells.has(k)) return isBridgeAt(gx, gy);
+    if (river && river.banks && river.banks.has(k)) {
+      return ORTHO.some(([dx, dy]) => isBridgeAt(gx + dx, gy + dy));
+    }
+    return true;
+  };
+  let seedKey = null, seedD = Infinity;
+  for (const r of graph.roads) {
+    if (!walkable(r.gx, r.gy)) continue;
+    const d = (r.gx - cx) * (r.gx - cx) + (r.gy - cy) * (r.gy - cy);
+    if (d < seedD) { seedD = d; seedKey = key(r.gx, r.gy); }
+  }
+  if (seedKey) {
+    const reached = new Set([seedKey]);
+    const stack = [seedKey];
+    while (stack.length) {
+      const k = stack.pop();
+      const comma = k.indexOf(",");
+      const gx = +k.slice(0, comma), gy = +k.slice(comma + 1);
+      for (const [dx, dy] of ORTHO) {
+        const ngx = gx + dx, ngy = gy + dy, nk = key(ngx, ngy);
+        if (reached.has(nk) || !walkable(ngx, ngy)) continue;
+        reached.add(nk);
+        stack.push(nk);
+      }
+    }
+    let pruned = false;
+    for (const r of graph.roads) {
+      if (!reached.has(key(r.gx, r.gy))) { activeSet.delete(key(r.gx, r.gy)); pruned = true; }
+    }
+    if (pruned) graph = buildGraph(activeSet);
   }
   return { roads: graph.roads, roadMap: graph.roadMap, roadSet: activeSet };
 }
@@ -736,6 +786,7 @@ function computeCityLayout(s) {
     for (let ax = -1; ax <= size; ax += 1) for (let ay = -1; ay <= size; ay += 1) {
       const tx = gx + ax, ty = gy + ay;
       if (occupiedFoot.has(tx + "," + ty)) return false;
+      if (wallSet && wallSet.has(tx + "," + ty)) return false;
       if (riverSet.has(tx + "," + ty) || bankSet.has(tx + "," + ty)) return false;
       if (ax >= 0 && ax < size && ay >= 0 && ay < size && roadKey.has(tx + "," + ty)) return false;
     }
@@ -820,6 +871,9 @@ function computeCityLayout(s) {
 
   // Emprises moteur (bÃ¢timents achetÃ©s) â€” rÃ©servÃ©es avant les tuiles dÃ©coratives
   const claimed = new Set(), engineFootprint = new Set();
+  // La muraille est inconstructible : sans cette graine, les emprises multi-
+  // cellules et les slots sauvegardés d'avant l'enceinte passent par-dessus.
+  if (wallSet) for (const k of wallSet) claimed.add(k);
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
   }
@@ -1070,6 +1124,119 @@ function computeCityLayout(s) {
   placer.placeCategory("house", biasedCount(c.houses, bias.house), usedKeys, pushTile);
   placer.placeCategory("farm", biasedCount(c.farms, bias.farm), usedKeys, pushTile);
 
+  // ── Sentiers de raccordement : tout bâtiment décoratif doit toucher le réseau.
+  //    Quand la population pousse logements/granges au-delà de ce que les rues
+  //    générées desservent, le surplus atterrit loin de toute route. Pour chaque
+  //    bâtiment non desservi (aucune route à ≤ 2 cases orthogonales), on trace
+  //    une amorce de route (BFS déterministe) jusqu'à la route la plus proche, en
+  //    contournant l'eau et les autres bâtiments. Posé AVANT cmBuildRoadGraph :
+  //    le sentier rejoint la composante du cœur et survit donc à son élagage.
+  const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const isWaterCell = (gx, gy) => riverSet.has(gx + "," + gy) || bankSet.has(gx + "," + gy);
+  // Praticabilité d'une cellule de route (mêmes règles que cmIsWalkableRoad, sur
+  // roadKey/riverSet/bankSet) : une route sur l'eau EST un pont ; une route de
+  // berge n'est praticable qu'adossée à un pont.
+  const isBridgeRoad = (gx, gy) => roadKey.has(gx + "," + gy) && riverSet.has(gx + "," + gy);
+  const walkableRoad = (gx, gy) => {
+    const k = gx + "," + gy;
+    if (!roadKey.has(k)) return false;
+    if (riverSet.has(k)) return true;
+    if (bankSet.has(k)) return DIRS4.some(([dx, dy]) => isBridgeRoad(gx + dx, gy + dy));
+    return true;
+  };
+  // Composante marchable du cœur (flood orthogonal depuis la route praticable la
+  // plus proche du centre) : les sentiers de raccordement DOIVENT viser cette
+  // composante — pas un fragment qui sera ensuite élagué par cmBuildRoadGraph.
+  const coreComp = new Set();
+  {
+    let seed = null, sd = Infinity;
+    for (const r of roads) {
+      if (!walkableRoad(r.gx, r.gy)) continue;
+      const d = (r.gx - cx) * (r.gx - cx) + (r.gy - cy) * (r.gy - cy);
+      if (d < sd) { sd = d; seed = r; }
+    }
+    if (seed) {
+      coreComp.add(seed.gx + "," + seed.gy);
+      const st = [[seed.gx, seed.gy]];
+      while (st.length) {
+        const [gx, gy] = st.pop();
+        for (const [dx, dy] of DIRS4) {
+          const nk = (gx + dx) + "," + (gy + dy);
+          if (!coreComp.has(nk) && walkableRoad(gx + dx, gy + dy)) { coreComp.add(nk); st.push([gx + dx, gy + dy]); }
+        }
+      }
+    }
+  }
+  const served = (gx, gy) => {
+    for (let d = 1; d <= 2; d += 1) {
+      if (coreComp.has((gx + d) + "," + gy) || coreComp.has((gx - d) + "," + gy)
+        || coreComp.has(gx + "," + (gy + d)) || coreComp.has(gx + "," + (gy - d))) return true;
+    }
+    return false;
+  };
+  const addSpurCell = (gx, gy, axis) => {
+    const k = gx + "," + gy;
+    const meta = roadMeta.get(k) || { h: false, v: false, rank: "path" };
+    if (axis === "h") meta.h = true; else meta.v = true;
+    roadMeta.set(k, meta);
+    if (!roadKey.has(k)) { roadKey.add(k); roads.push({ gx, gy }); }
+    coreComp.add(k); // le sentier étend la composante du cœur
+  };
+  // Champ de distance multi-source depuis la composante du cœur, à travers la
+  // terre praticable (ni eau ni bâtiment) — une seule passe BFS O(N²). Chaque
+  // cellule mémorise le pas `from` vers le réseau et sa distance. Les bâtiments
+  // orphelins descendent ensuite ce gradient en posant un sentier ; comme `from`
+  // est un arbre BFS et qu'on s'arrête dès qu'on rejoint le réseau (sentiers déjà
+  // posés inclus), les amorces fusionnent en arbre — pas de lignes parallèles.
+  const from = new Map(), fdist = new Map();
+  {
+    const q = [];
+    for (const k of coreComp) { fdist.set(k, 0); q.push(k); }
+    let head = 0;
+    while (head < q.length) {
+      const cur = q[head++];
+      const comma = cur.indexOf(",");
+      const gx = +cur.slice(0, comma), gy = +cur.slice(comma + 1);
+      const dCur = fdist.get(cur);
+      for (const [dx, dy] of DIRS4) {
+        const ngx = gx + dx, ngy = gy + dy;
+        if (ngx < 0 || ngy < 0 || ngx >= N || ngy >= N) continue;
+        const nk = ngx + "," + ngy;
+        if (fdist.has(nk)) continue;
+        if (isWaterCell(ngx, ngy) || usedKeys.has(nk)) continue; // ni eau ni bâtiment
+        fdist.set(nk, dCur + 1);
+        from.set(nk, cur);
+        q.push(nk);
+      }
+    }
+  }
+  const axisBetween = (a, b) => (a.slice(0, a.indexOf(",")) === b.slice(0, b.indexOf(","))) ? "v" : "h";
+  for (const t of tiles) {
+    if (t.type !== "house" && t.type !== "public" && t.type !== "library" && t.type !== "farm") continue;
+    if (t.variant === "firepit") continue;
+    if (served(t.gx, t.gy)) continue;
+    // Voisin praticable le plus proche du réseau (présent dans le champ).
+    let entry = null, eDist = Infinity;
+    for (const [dx, dy] of DIRS4) {
+      const nk = (t.gx + dx) + "," + (t.gy + dy);
+      const d = fdist.get(nk);
+      if (d !== undefined && d < eDist) { eDist = d; entry = nk; }
+    }
+    if (!entry) continue; // bâtiment enclavé (eau/bâtiments) : laissé tel quel
+    // Descend le gradient en posant un sentier jusqu'à rejoindre le réseau, en
+    // marquant l'axe de chaque pas incident pour des masques de route cohérents.
+    let cur = entry, child = null;
+    while (cur && !coreComp.has(cur)) {
+      const comma = cur.indexOf(",");
+      const cgx = +cur.slice(0, comma), cgy = +cur.slice(comma + 1);
+      const parent = from.get(cur);
+      if (parent) addSpurCell(cgx, cgy, axisBetween(cur, parent));
+      if (child) addSpurCell(cgx, cgy, axisBetween(cur, child));
+      child = cur;
+      cur = parent;
+    }
+  }
+
   let maxD2 = 1;
   for (const t of tiles) if (t.d2 > maxD2) maxD2 = t.d2;
 
@@ -1118,6 +1285,8 @@ setCaptureVestigeHandler(captureVestige);
 
 export {
   CM,
+  CM_INFRA_IDS,
+  CM_KNOWLEDGE_IDS,
   CM_MAP_BUILDINGS,
   CM_ROLES,
   CM_TINTS,

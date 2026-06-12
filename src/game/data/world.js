@@ -17,40 +17,40 @@ const eraPopulationThreshold = (index) => (
 
 export const eras = [
   { name: "Campement", at: eraPopulationThreshold(0), text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
-  { name: "Feux dispersés", at: eraPopulationThreshold(1), text: "Quelques foyers tiennent la nuit à distance. Les vivants commencent à revenir aux mêmes endroits." },
-  { name: "Abris saisonniers", at: eraPopulationThreshold(2), text: "Les huttes ne sont plus seulement des refuges. On y laisse des outils, des traces, des promesses de retour." },
-  { name: "Clan des foyers", at: eraPopulationThreshold(3), text: "Des familles se rassemblent sous les étoiles. Les premiers récits forgent nos liens." },
-  { name: "Lignée des huttes", at: eraPopulationThreshold(4), text: "Les enfants reconnaissent les chemins avant d'en comprendre le nom. Le lieu commence à précéder ceux qui l'habitent." },
+  { name: "Grand Feu", at: eraPopulationThreshold(1), text: "Quelques foyers tiennent la nuit à distance. Les vivants commencent à revenir aux mêmes endroits." },
+  { name: "Abris", at: eraPopulationThreshold(2), text: "Les huttes ne sont plus seulement des refuges. On y laisse des outils, des traces, des promesses de retour." },
+  { name: "Clans", at: eraPopulationThreshold(3), text: "Des familles se rassemblent sous les étoiles. Les premiers récits forgent nos liens." },
+  { name: "Maîtrise du bois", at: eraPopulationThreshold(4), text: "Les enfants reconnaissent les chemins avant d'en comprendre le nom. Le lieu commence à précéder ceux qui l'habitent." },
   { name: "Hameau", at: eraPopulationThreshold(5), text: "Les huttes s'alignent et les premiers sentiers dessinent les contours du destin commun." },
-  { name: "Hameau palissadé", at: eraPopulationThreshold(6), text: "Une enceinte basse protège les réserves et les peurs. Entrer et sortir devient une décision." },
+  { name: "Hameau protégé", at: eraPopulationThreshold(6), text: "Une enceinte basse protège les réserves et les peurs. Entrer et sortir devient une décision." },
   { name: "Village", at: eraPopulationThreshold(7), text: "La terre est partagée. Plus les réserves se remplissent, plus la peur de les perdre grandit." },
-  { name: "Village des greniers", at: eraPopulationThreshold(8), text: "Les stocks ont leurs gardiens. La faim recule assez pour que la politique apparaisse." },
+  { name: "Les Entrepôts", at: eraPopulationThreshold(8), text: "Les stocks ont leurs gardiens. La faim recule assez pour que la politique apparaisse." },
   { name: "Bourg agricole", at: eraPopulationThreshold(9), text: "Le rythme de la faucille et du blé dicte le temps. La terre façonne la communauté." },
   { name: "Bourg des artisans", at: eraPopulationThreshold(10), text: "Certains ne cultivent plus. Leurs mains transforment ce que d'autres récoltent, et la cité apprend la spécialisation." },
   { name: "Bourg marchand", at: eraPopulationThreshold(11), text: "Le troc laisse place au commerce. L'or et l'étranger apportent de nouveaux horizons." },
-  { name: "Cité des marchés", at: eraPopulationThreshold(12), text: "Les places publiques dictent le rythme des journées. On y vend des biens, mais surtout des possibilités." },
-  { name: "Cité des greniers", at: eraPopulationThreshold(13), text: "Les silos débordent pour conjurer les disettes. Le pouvoir naît de la clé des réserves." },
-  { name: "Cité des canaux", at: eraPopulationThreshold(14), text: "L'eau suit des lignes tracées par la volonté humaine. La terre obéit mieux quand on lui indique où aller." },
+  { name: "Cité marchande", at: eraPopulationThreshold(12), text: "Les places publiques dictent le rythme des journées. On y vend des biens, mais surtout des possibilités." },
+  { name: "Cité commerciale", at: eraPopulationThreshold(13), text: "Les silos débordent pour conjurer les disettes. Le pouvoir naît de la clé des réserves." },
+  { name: "Cité portuaire", at: eraPopulationThreshold(14), text: "L'eau suit des lignes tracées par la volonté humaine. La terre obéit mieux quand on lui indique où aller." },
   { name: "Cité fortifiée", at: eraPopulationThreshold(15), text: "Les premières murailles s'élèvent. Pour protéger les nôtres, nous inventons l'ennemi." },
   { name: "Cité administrative", at: eraPopulationThreshold(16), text: "Les tablettes circulent presque autant que les marchandises. Gouverner devient une affaire de listes." },
   { name: "Principauté", at: eraPopulationThreshold(17), text: "Un seigneur s'impose au sommet du conseil. La force brute se pare d'un manteau de justice." },
   { name: "Principauté marchande", at: eraPopulationThreshold(18), text: "Les routes enrichissent plus sûrement que les raids. Les marchands apprennent à parler au pouvoir d'égal à égal." },
   { name: "Royaume", at: eraPopulationThreshold(19), text: "Un sceptre unit les provinces éloignées. Le destin du trône repose sur la sûreté des routes." },
-  { name: "Royaume des routes", at: eraPopulationThreshold(20), text: "Les provinces cessent d'être des marges. Les messagers donnent au territoire une seule respiration." },
+  { name: "Royaume diplomate", at: eraPopulationThreshold(20), text: "Les provinces cessent d'être des marges. Les messagers donnent au territoire une seule respiration." },
   { name: "Royaume savant", at: eraPopulationThreshold(21), text: "Les parchemins archivent les impôts et l'orbite des astres. L'écrit légitime l'autorité." },
-  { name: "Couronne impériale", at: eraPopulationThreshold(22), text: "Le royaume se pense plus grand que ses frontières. Les cartes commencent à précéder les conquêtes." },
+  { name: "Royaume conquérant", at: eraPopulationThreshold(22), text: "Le royaume se pense plus grand que ses frontières. Les cartes commencent à précéder les conquêtes." },
   { name: "Empire naissant", at: eraPopulationThreshold(23), text: "Les armées repoussent les frontières. Le monde connu devient la scène de notre grandeur." },
   { name: "Empire provincial", at: eraPopulationThreshold(24), text: "Les provinces apprennent à obéir à distance. Le centre n'est plus un lieu, c'est une habitude." },
   { name: "Empire", at: eraPopulationThreshold(25), text: "Un gigantesque édifice de lois et de taxes. Une puissance immense au bord de sa propre chute." },
-  { name: "Capitale monumentale", at: eraPopulationThreshold(26), text: "La pierre raconte une version officielle de la grandeur. Les rues deviennent des arguments." },
-  { name: "Capitale impériale", at: eraPopulationThreshold(27), text: "Le ciment de l'univers connu. Ses palais de marbre masquent les premières fissures." },
-  { name: "Conurbation", at: eraPopulationThreshold(28), text: "Les villes voisines se touchent sans toujours se comprendre. Les frontières deviennent des quartiers." },
+  { name: "Capitale impériale", at: eraPopulationThreshold(26), text: "Le ciment de l'univers connu. Ses palais de marbre masquent les premières fissures." },
+  { name: "Capitale monumentale", at: eraPopulationThreshold(27), text: "La pierre raconte une version officielle de la grandeur. Les rues deviennent des arguments." },
+  { name: "Agglomération impériale", at: eraPopulationThreshold(28), text: "Les villes voisines se touchent sans toujours se comprendre. Les frontières deviennent des quartiers." },
   { name: "Métropole", at: eraPopulationThreshold(29), text: "Une mer humaine sous des millions de toits. Au cœur de la foule, chacun y vit sa solitude." },
   { name: "Mégalopole", at: eraPopulationThreshold(30), text: "Les villes se rejoignent et le béton étouffe la plaine. La nature n'est plus qu'un lointain souvenir." },
   { name: "Mégalopole stratifiée", at: eraPopulationThreshold(31), text: "La cité s'élève sur elle-même. Les riches côtoient les nuages, les autres restent dans l'ombre." },
   { name: "Réseau continental", at: eraPopulationThreshold(32), text: "Le fer et l'électricité relient les côtes. La cité n'a plus de murs, elle est partout." },
-  { name: "Machine civique", at: eraPopulationThreshold(33), text: "La bureaucratie s'organise en rouages complexes. La structure commande, les humains obéissent." },
-  { name: "Singularité civique", at: eraPopulationThreshold(34), text: "La cité palpite d'une vie autonome. Les citoyens ne sont plus que les cellules d'un titan de métal." }
+  { name: "Machination", at: eraPopulationThreshold(33), text: "La bureaucratie s'organise en rouages complexes. La structure commande, les humains obéissent." },
+  { name: "Singularité", at: eraPopulationThreshold(34), text: "La cité palpite d'une vie autonome. Les citoyens ne sont plus que les cellules d'un titan de métal." }
 ];
 export const DOCTRINES = [
   {
@@ -93,12 +93,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Ouvrir les réserves",
-        detail: "Nourriture -12% ce cycle, Rupture -8%.",
+        effects: [{ label: "Nourriture −12%", kind: "cost" }, { label: "Rupture −8%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("food", 0.12); effects.state.instability *= 0.92; effects.chronicle("Les réserves sont ouvertes. La peur redescend d'un cran."); }
       },
       {
         label: "Nier le problème",
-        detail: "Production globale -5% ce cycle, Rupture +8%.",
+        effects: [{ label: "Production globale −5%", kind: "cost" }, { label: "Rupture +8%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("global", 0.05); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.08)); effects.chronicle("Le pouvoir dit que tout va bien. La tension monte."); }
       }
     ]
@@ -112,12 +112,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Plafonner les prix",
-        detail: "Trésor -18% ce cycle, Rupture -9%.",
+        effects: [{ label: "Trésor −18%", kind: "cost" }, { label: "Rupture −9%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.instability *= 0.91; effects.chronicle("Les prix sont plafonnés par décret. Les marchands grincent des dents, la rue respire."); }
       },
       {
         label: "Laisser le marché faire",
-        detail: "Trésor +6% ce cycle, Rupture +11%.",
+        effects: [{ label: "Trésor +6%", kind: "gain" }, { label: "Rupture +11%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("gold", -0.06); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.11)); effects.chronicle("Le marché s'emballe. Quelques-uns s'enrichissent, beaucoup serrent la ceinture."); }
       }
     ]
@@ -131,12 +131,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Réorganiser les quartiers",
-        detail: "Savoir -14% ce cycle, Infrastructure +5%, Rupture -9%.",
+        effects: [{ label: "Savoir −14%", kind: "cost" }, { label: "Infrastructure +5%", kind: "gain" }, { label: "Rupture −9%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.14); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.05); effects.state.instability *= 0.91; effects.chronicle("Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça."); }
       },
       {
         label: "Continuer à construire",
-        detail: "Production globale +4% ce cycle, Rupture +10%.",
+        effects: [{ label: "Production globale +4%", kind: "gain" }, { label: "Rupture +10%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("global", -0.04); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.10)); effects.chronicle("On continue. La cité grandit plus vite que sa propre compréhension d'elle-même."); }
       }
     ]
@@ -150,12 +150,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Organiser une assemblée",
-        detail: "Savoir -10% ce cycle, Rupture -10%.",
+        effects: [{ label: "Savoir −10%", kind: "cost" }, { label: "Rupture −10%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.10); effects.state.instability *= 0.90; effects.chronicle("L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu."); }
       },
       {
         label: "Imposer le calme",
-        detail: "Nourriture -8% ce cycle, Rupture +9%.",
+        effects: [{ label: "Nourriture −8%", kind: "cost" }, { label: "Rupture +9%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("food", 0.08); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.09)); effects.chronicle("Le calme est imposé. La jeunesse se tait en surface. En dessous, ça bout."); }
       }
     ]
@@ -169,13 +169,21 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Enquêter sur la source",
-        detail: "Savoir -12% ce cycle, Rupture -8%.",
+        effects: [{ label: "Savoir −12%", kind: "cost" }, { label: "Rupture −8%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.12); effects.state.instability *= 0.92; effects.chronicle("L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant."); }
       },
       {
         label: "Diffuser un contre-récit",
-        detail: "Trésor -10% ce cycle, Rupture +7% ou -4% (aléa).",
-        apply: () => { effects.addProductionPenalty("gold", 0.10); const effect = Math.random() > 0.45 ? 0.96 : 1.07; effects.state.instability = effects.clamp01(effects.state.instability * effect); effects.chronicle(effect < 1 ? "Le contre-récit prend. Les esprits se calment." : "Le contre-récit est tourné en dérision. La rumeur gagne en crédibilité."); }
+        effects: [{ label: "Trésor −10%", kind: "cost" }, { label: "🎲 55% : Rupture −4% · 45% : Rupture +7%", kind: "info" }],
+        apply: () => {
+          effects.addProductionPenalty("gold", 0.10);
+          const effect = Math.random() > 0.45 ? 0.96 : 1.07;
+          effects.state.instability = effects.clamp01(effects.state.instability * effect);
+          effects.chronicle(effect < 1 ? "Le contre-récit prend. Les esprits se calment." : "Le contre-récit est tourné en dérision. La rumeur gagne en crédibilité.");
+          return effect < 1
+            ? { label: "🎲 Le contre-récit prend : Rupture −4%", kind: "gain" }
+            : { label: "🎲 Le contre-récit échoue : Rupture +7%", kind: "cost" };
+        }
       }
     ]
   },
@@ -190,12 +198,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Taxer les élites",
-        detail: "Trésor -18% ce cycle, Infrastructure +4%, Rupture -9%.",
+        effects: [{ label: "Trésor −18%", kind: "cost" }, { label: "Infrastructure +4%", kind: "gain" }, { label: "Rupture −9%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.04); effects.state.instability *= 0.91; effects.chronicle("Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent."); }
       },
       {
         label: "Acheter leur paix",
-        detail: "Infrastructure -15% ce cycle, Trésor +6%, Rupture +12%.",
+        effects: [{ label: "Infrastructure −15%", kind: "cost" }, { label: "Trésor +6%", kind: "gain" }, { label: "Rupture +12%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("infrastructure", 0.15); effects.addProductionPenalty("gold", -0.06); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.12)); effects.chronicle("La paix est achetée, brillante et fragile."); }
       }
     ]
@@ -209,12 +217,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Partager les institutions",
-        detail: "Légitimité -0.4, Rupture -12%.",
+        effects: [{ label: "Légitimité −0.4", kind: "cost" }, { label: "Rupture −12%", kind: "gain" }],
         apply: () => { effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.4); effects.state.instability *= 0.88; effects.chronicle("Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant."); }
       },
       {
         label: "Tenir les rênes",
-        detail: "Savoir -15% ce cycle, Rupture +14%.",
+        effects: [{ label: "Savoir −15%", kind: "cost" }, { label: "Rupture +14%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.15); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("Le pouvoir central tient. La faction se tait. Sa colère, non."); }
       }
     ]
@@ -228,12 +236,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Imposer une doctrine",
-        detail: "Savoir -22% ce cycle, Rupture -10%.",
+        effects: [{ label: "Savoir −22%", kind: "cost" }, { label: "Rupture −10%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.22); effects.state.instability *= 0.90; effects.chronicle("Une doctrine s'impose. L'autre école continue en secret, plus soudée que jamais."); }
       },
       {
         label: "Laisser le débat ouvert",
-        detail: "Savoir +12% ce cycle, Rupture +13%.",
+        effects: [{ label: "Savoir +12%", kind: "gain" }, { label: "Rupture +13%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("knowledge", -0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("Le débat s'envenime. Les idées prospèrent, les tensions aussi."); }
       }
     ]
@@ -247,12 +255,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Intégrer la milice",
-        detail: "Trésor -18% ce cycle, Infrastructure +6%, Rupture -10%.",
+        effects: [{ label: "Trésor −18%", kind: "cost" }, { label: "Infrastructure +6%", kind: "gain" }, { label: "Rupture −10%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.06); effects.state.instability *= 0.90; effects.chronicle("La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme."); }
       },
       {
         label: "Les repousser",
-        detail: "Population -12% ce cycle, Rupture +16%.",
+        effects: [{ label: "Population −12%", kind: "cost" }, { label: "Rupture +16%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("population", 0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.16)); effects.chronicle("La milice est refusée. Elle ne part pas. Elle attend."); }
       }
     ]
@@ -266,12 +274,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Investir dans les réparations",
-        detail: "Trésor -20% ce cycle, Infrastructure +8%, Rupture -9%.",
+        effects: [{ label: "Trésor −20%", kind: "cost" }, { label: "Infrastructure +8%", kind: "gain" }, { label: "Rupture −9%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.20); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.08); effects.state.instability *= 0.91; effects.chronicle("Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste."); }
       },
       {
         label: "Reporter aux prochains",
-        detail: "Infrastructure -10%, Rupture +13%.",
+        effects: [{ label: "Infrastructure −10% (immédiat)", kind: "cost" }, { label: "Rupture +13%", kind: "cost" }],
         apply: () => { effects.state.infrastructure = D(effects.state.infrastructure).mul(0.90); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle("On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera."); }
       }
     ]
@@ -287,12 +295,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Importer du grain",
-        detail: "Trésor -25% ce cycle, Rupture -12%.",
+        effects: [{ label: "Trésor −25%", kind: "cost" }, { label: "Rupture −12%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.25); effects.state.instability *= 0.88; effects.chronicle("Le grain arrive. Les bas quartiers respirent. Le trésor s'essouffle."); }
       },
       {
         label: "Laisser faire",
-        detail: "Population -20% ce cycle, Rupture +20%.",
+        effects: [{ label: "Population −20%", kind: "cost" }, { label: "Rupture +20%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("population", 0.2); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.2)); effects.chronicle("Les bas quartiers sont laissés à eux-mêmes. La rupture approche."); }
       }
     ]
@@ -306,12 +314,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Bloquer les sorties",
-        detail: "Trésor conservé +10%, Population -8% ce cycle, Rupture -11%.",
+        effects: [{ label: "Trésor +10%", kind: "gain" }, { label: "Population −8%", kind: "cost" }, { label: "Rupture −11%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", -0.10); effects.addProductionPenalty("population", 0.08); effects.state.instability *= 0.89; effects.chronicle("Les routes sont fermées. Le trésor reste. La colère aussi."); }
       },
       {
         label: "Laisser partir",
-        detail: "Trésor -28% ce cycle, Rupture +17%.",
+        effects: [{ label: "Trésor −28%", kind: "cost" }, { label: "Rupture +17%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("gold", 0.28); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.17)); effects.chronicle("Ils partent avec leurs richesses. La cité se retrouve seule avec ses dettes."); }
       }
     ]
@@ -325,12 +333,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Laisser les quartiers voter",
-        detail: "Savoir -18% ce cycle, Légitimité -0.3, Rupture -14%.",
+        effects: [{ label: "Savoir −18%", kind: "cost" }, { label: "Légitimité −0.3", kind: "cost" }, { label: "Rupture −14%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("knowledge", 0.18); effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.3); effects.state.instability *= 0.86; effects.chronicle("Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement."); }
       },
       {
         label: "Trancher par décret",
-        detail: "Trésor -18% ce cycle, Rupture +18%.",
+        effects: [{ label: "Trésor −18%", kind: "cost" }, { label: "Rupture +18%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.18)); effects.chronicle("Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans."); }
       }
     ]
@@ -344,12 +352,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Décréter la quarantaine",
-        detail: "Population -15% ce cycle, Trésor -12%, Rupture -13%.",
+        effects: [{ label: "Population −15%", kind: "cost" }, { label: "Trésor −12%", kind: "cost" }, { label: "Rupture −13%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("population", 0.15); effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.87; effects.chronicle("La quarantaine est imposée. L'épidémie ralentit. L'économie aussi."); }
       },
       {
         label: "Laisser circuler",
-        detail: "Production globale +3% ce cycle, Rupture +20%.",
+        effects: [{ label: "Production globale +3%", kind: "gain" }, { label: "Rupture +20%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("global", -0.03); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.20)); effects.chronicle("On laisse circuler. La maladie se répand dans les rues et les ateliers."); }
       }
     ]
@@ -363,12 +371,12 @@ export const CRISIS_POOL = [
     options: [
       {
         label: "Honorer les dettes",
-        detail: "Trésor -32% ce cycle, Rupture -14%.",
+        effects: [{ label: "Trésor −32%", kind: "cost" }, { label: "Rupture −14%", kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", 0.32); effects.state.instability *= 0.86; effects.chronicle("Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact."); }
       },
       {
         label: "Renégocier de force",
-        detail: "Trésor -10% ce cycle, Infrastructure -8%, Rupture +14%.",
+        effects: [{ label: "Trésor −10%", kind: "cost" }, { label: "Infrastructure −8% (immédiat)", kind: "cost" }, { label: "Rupture +14%", kind: "cost" }],
         apply: () => { effects.addProductionPenalty("gold", 0.10); effects.state.infrastructure = D(effects.state.infrastructure).mul(0.92); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle("La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix."); }
       }
     ]

@@ -68,6 +68,9 @@ export const defaultState = () => ({
   legitimacy: 0,
   cycles: 0,
   dynastyCount: 0,
+  // Fondations depuis le dernier Grand Reset : pilote le seuil croissant de
+  // dynastie (anti-spam). Remis à zéro par le GR (non copié dans le state frais).
+  dynastiesSinceGR: 0,
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -209,7 +212,7 @@ export let renderedLogSignature = "";
 export let renderedArchiveSignature = "";
 export let renderedCityCounters = {};
 export let renderedVillagerMessage = "";
-export let buyAmount = 1;
+export let buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
 export let recentBuildingMilestones = {};
 export let renderCache = {
   buildings: {},
@@ -593,6 +596,7 @@ export function hydrateState(parsed = {}) {
     legitimacy: finiteNumber(source.legitimacy, base.legitimacy),
     cycles: finiteInteger(source.cycles, base.cycles),
     dynastyCount: finiteInteger(source.dynastyCount, base.dynastyCount),
+    dynastiesSinceGR: finiteInteger(source.dynastiesSinceGR, base.dynastiesSinceGR),
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -656,7 +660,11 @@ export function hydrateState(parsed = {}) {
     finalChronicleTitle: typeof source.finalChronicleTitle === "string" ? source.finalChronicleTitle.slice(0, 100) : base.finalChronicleTitle,
     ragnarokActiveConstraints: normalizeStringArray(source.ragnarokActiveConstraints, 32, 200),
     olympus: normalizeOlympusState(source.olympus),
-    mourning: Boolean(source.mourning),
+    // Le deuil est le voile transitoire de la séquence d'effondrement
+    // (runCollapseSequence) ; la séquence ne reprend pas après un
+    // rechargement, donc le restaurer figerait l'écran en sombre sans
+    // dialogue d'épitaphe ni issue.
+    mourning: false,
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
@@ -774,10 +782,17 @@ export function setState(newState) {
     delete state[key];
   }
   Object.assign(state, newState);
+  // Resynchronise le miroir module : sinon buyAmount reste sur l'ancienne
+  // valeur après un Grand Reset / import de save et diverge de state.buyAmount.
+  buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
   notify();
 }
 
 export function resetTemporaryRunState(s) {
+  // Nouveau run = ressources de départ : un mode x25/x100/max hérité du run
+  // précédent bloquerait tout achat tant que le joueur ne le change pas.
+  s.buyAmount = 1;
+  if (s === state) buyAmount = 1;
   s.instability = 0;
   s.timeWear = 0;
   s.activeRuinIds = [];

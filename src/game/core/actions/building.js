@@ -2,7 +2,6 @@
 
 import {
   state,
-  buyAmount,
   recentBuildingMilestones,
   renderCache,
   defaultState,
@@ -30,7 +29,10 @@ import {
   canBuyUpgrade,
   has,
   globalMultiplier,
-  globalMultiplierDec
+  globalMultiplierDec,
+  grandResetLegitimacyCost,
+  grandResetMythsRequired,
+  completedMythCount
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
@@ -44,7 +46,9 @@ export function buyBuilding(id) {
   const building = buildingById[id];
   if (!building) return;
   if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return;
-  const amount = buyAmount === "max" ? maxBuyAmount(building) : clamp(Math.floor(Number(buyAmount) || 1), 1, 500);
+  // state.buyAmount est la source de vérité : la variable module exportée par
+  // state.js n'est pas resynchronisée par setState (Grand Reset, import de save).
+  const amount = state.buyAmount === "max" ? maxBuyAmount(building) : clamp(Math.floor(Number(state.buyAmount) || 1), 1, 500);
   const prices = buildingBatchCost(building, amount);
   if (!canPayCost(prices)) return;
   const previousCount = state.buildings[id] || 0;
@@ -108,19 +112,34 @@ export async function exhumeVestige() {
 
 export async function performGrandReset() {
   if (collapseInProgress || gamePaused || !has("grand_reset")) return;
-  setGamePaused(true);
   const nextCount = (state.grandResetCount || 0) + 1;
   const maxGrandResets = state.ragnarokHeritage ? 11 : 10;
-  if (nextCount > maxGrandResets) {
-    setGamePaused(false);
+  if (nextCount > maxGrandResets) return;
+  // Coût croissant (le 1er GR est couvert par l'achat de l'upgrade) : la
+  // récompense double à chaque GR, le coût aussi — sinon les 10 GR s'enchaînent
+  // sans être ressentis comme des sommets.
+  const legitCost = grandResetLegitimacyCost(nextCount);
+  if (state.legitimacy < legitCost) {
+    log(`Le Grand Reset ${nextCount} exige ${fmt(legitCost)} légitimité (actuel : ${fmt(state.legitimacy)}). Fondez des dynasties pour mériter ce sommet.`);
+    render();
     return;
   }
+  // Gating doux par les Mythes : chaque GR à partir du 3e exige un pacte
+  // mythique honoré de plus — les Mythes sont les chapitres de la route.
+  const mythsRequired = grandResetMythsRequired(nextCount);
+  if (completedMythCount() < mythsRequired) {
+    log(`Le Grand Reset ${nextCount} exige ${mythsRequired} Mythe(s) complété(s) (actuel : ${completedMythCount()}). Honorez un pacte mythique pour continuer.`);
+    render();
+    return;
+  }
+  setGamePaused(true);
   const resetRewardText = nextCount === 11
     ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
     : `un bonus permanent x${Math.pow(2, nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
+  const costText = legitCost > 0 ? ` Coût : ${fmt(legitCost)} légitimité.` : "";
   const choice = await openChoiceDialog({
     title: "Grand Reset",
-    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage. En echange: ${resetRewardText}. Actuellement: x${Math.pow(2, state.grandResetCount || 0).toFixed(0)} production. Apres: x${Math.pow(2, nextCount).toFixed(0)} production.`,
+    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage.${costText} En echange: ${resetRewardText}. Actuellement: x${Math.pow(2, state.grandResetCount || 0).toFixed(0)} production. Apres: x${Math.pow(2, nextCount).toFixed(0)} production.`,
     options: [
       { label: "Tout reinitialiser", detail: nextCount === 11 ? "+x4 Ruines permanent" : `+x${Math.pow(2, nextCount).toFixed(0)} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }
@@ -148,7 +167,8 @@ export async function performGrandReset() {
   const savedAutomateRules        = state.automateRules ? JSON.parse(JSON.stringify(state.automateRules)) : null;
   const savedSurchauffeEndTime    = state.surchauffeEndTime || 0;
   const savedSurchauffeCooldown   = state.surchauffeCooldownEnd || 0;
-  const savedLegitimacy = state.legitimacy || 0;
+  // La légitimité survit au GR, AMPUTÉE du coût du reset (croissant).
+  const savedLegitimacy = Math.max(0, (state.legitimacy || 0) - legitCost);
   const savedDynastyCount = state.dynastyCount || 0;
   const savedDynastyDoctrine = state.dynastyDoctrine || null;
   const savedCadmosHeritage = Boolean(state.cadmosHeritage);

@@ -40,9 +40,9 @@ button {
 button:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--gold);
-  background: rgba(214, 168, 75, 0.1);
+  background: rgba(var(--era-rgb), 0.1);
   color: var(--gold-bright);
-  box-shadow: inset 0 1px 0 var(--shine), 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 12px rgba(214, 168, 75, 0.15);
+  box-shadow: inset 0 1px 0 var(--shine), 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 12px rgba(var(--era-rgb), 0.15);
 }
 
 button:active:not(:disabled) {
@@ -93,7 +93,7 @@ h1 {
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-panel);
   background: var(--panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -160,9 +160,9 @@ main {
      commence chaque section (le padding du .panel est de 1rem). */
   margin: -1rem -1rem 1rem;
   padding: 0.8rem 1rem 0.65rem;
-  background: linear-gradient(180deg, rgba(214, 168, 75, 0.08), rgba(214, 168, 75, 0.015) 80%, transparent);
-  border-bottom: 2px solid rgba(214, 168, 75, 0.3);
-  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.08), rgba(var(--era-rgb), 0.015) 80%, transparent);
+  border-bottom: 2px solid rgba(var(--era-rgb), 0.3);
+  border-radius: var(--r-panel) var(--r-panel) 0 0;
 }
 
 .panel-heading h2 {
@@ -185,10 +185,10 @@ main {
   align-items: center;
   gap: 0.9rem;
   padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(214, 168, 75, 0.3);
+  border: 1px solid rgba(var(--era-rgb), 0.3);
   border-left: 4px solid var(--gold);
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(214, 168, 75, 0.1), rgba(18, 20, 28, 0.4) 65%);
+  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.1), rgba(18, 20, 28, 0.4) 65%);
 }
 
 .view-header-icon {
@@ -223,7 +223,7 @@ main {
 .city-name-input {
   width: min(28rem, 100%);
   border: 0;
-  border-bottom: 1px solid rgba(214, 168, 75, 0.42);
+  border-bottom: 1px solid rgba(var(--era-rgb), 0.42);
   background: transparent;
   color: var(--gold-ivory);
   font: inherit;
@@ -260,18 +260,18 @@ main {
 @keyframes milestone-flash {
   0% {
     border-color: var(--gold-ivory);
-    box-shadow: 0 0 0 rgba(214, 168, 75, 0);
+    box-shadow: 0 0 0 rgba(var(--era-rgb), 0);
     filter: brightness(1);
   }
 
   28% {
     border-color: var(--gold-ivory);
-    box-shadow: 0 0 26px rgba(214, 168, 75, 0.34);
+    box-shadow: 0 0 26px rgba(var(--era-rgb), 0.34);
     filter: brightness(1.18);
   }
 
   100% {
-    box-shadow: 0 0 0 rgba(214, 168, 75, 0);
+    box-shadow: 0 0 0 rgba(var(--era-rgb), 0);
     filter: brightness(1);
   }
 }
@@ -451,7 +451,7 @@ main {
 
 .active-ruin-option.is-selected {
   border-color: var(--gold);
-  background: rgba(214, 168, 75, 0.10);
+  background: rgba(var(--era-rgb), 0.10);
 }
 
 .active-ruin-option.is-disabled {
@@ -595,7 +595,7 @@ menu {
 
 .branch-progress-bar.resilience span { background: rgba(125, 187, 114, 0.65); }
 
-.branch-progress-bar.prosperity span { background: rgba(214, 168, 75, 0.65); }
+.branch-progress-bar.prosperity span { background: rgba(var(--era-rgb), 0.65); }
 
 .branch-progress-bar.knowledge span  { background: rgba(115, 166, 200, 0.65); }
 
@@ -695,7 +695,7 @@ body::before {
   100% { transform: translateX(320%); }
 }
 
-.panel-heading { border-bottom-color: rgba(214, 168, 75, 0.3); }
+.panel-heading { border-bottom-color: rgba(var(--era-rgb), 0.3); }
 
 .panel-heading .label::before { background: var(--gold); }
 
@@ -777,8 +777,8 @@ body::before {
 }
 
 @keyframes mythActivePulse {
-  0%, 100% { box-shadow: 0 0 16px rgba(214, 168, 75,0.10), inset 0 1px 0 rgba(214, 168, 75,0.12); }
-  50%       { box-shadow: 0 0 36px rgba(214, 168, 75,0.28), inset 0 1px 0 rgba(214, 168, 75,0.22); }
+  0%, 100% { box-shadow: 0 0 16px rgba(var(--era-rgb),0.10), inset 0 1px 0 rgba(var(--era-rgb),0.12); }
+  50%       { box-shadow: 0 0 36px rgba(var(--era-rgb),0.28), inset 0 1px 0 rgba(var(--era-rgb),0.22); }
 }
 
 /* Responsive */
@@ -928,12 +928,12 @@ body::before {
   gap: 0.55rem;
   padding: 0.4rem 0.6rem;
   border-radius: 5px;
-  border: 1px solid rgba(214, 168, 75, 0.18);
+  border: 1px solid rgba(var(--era-rgb), 0.18);
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.babel-cat-option:hover { background: rgba(214, 168, 75, 0.09); }
+.babel-cat-option:hover { background: rgba(var(--era-rgb), 0.09); }
 
 .babel-cat-option input[type="radio"] { accent-color: var(--gold); flex-shrink: 0; }
 
@@ -958,8 +958,8 @@ body::before {
 }
 
 .options-tab.active {
-  border-color: rgba(214, 168, 75, 0.55);
-  background: linear-gradient(180deg, rgba(214, 168, 75, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  border-color: rgba(var(--era-rgb), 0.55);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
   color: #fff3c4;
 }
 
@@ -1020,8 +1020,8 @@ body::before {
 }
 
 .format-option.active {
-  border-color: rgba(214, 168, 75, 0.55);
-  background: linear-gradient(180deg, rgba(214, 168, 75, 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  border-color: rgba(var(--era-rgb), 0.55);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
   color: #fff3c4;
 }
 

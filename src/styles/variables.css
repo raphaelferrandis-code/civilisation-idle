@@ -30,6 +30,9 @@
   --text-disabled: #6a7180;
 
   /* ----- Or unifié (un seul or dans tout le jeu) ----- */
+  /* Triplet RGB de l'accent d'époque : redéfini par ère via App.jsx
+     (peau d'époque). Par défaut : l'or canonique. */
+  --era-rgb: 214, 168, 75;
   --gold: #d6a84b;               /* or canonique : interactif & disponible */
   --gold-bright: #f0c860;        /* accent vif : actif / affordable */
   --gold-deep: #8f6b25;          /* bronze profond : bordures discrètes */

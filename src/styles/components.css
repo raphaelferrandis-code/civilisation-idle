@@ -261,10 +261,10 @@
    .crisis-summary / .terminal-actions / #exhumeBtn — plus aucun usage JSX) */
 
 .milestone-badge {
-  border-color: rgba(214, 168, 75, 0.66);
-  background: linear-gradient(135deg, rgba(214, 168, 75, 0.28), rgba(214, 168, 75, 0.08));
+  border-color: rgba(var(--era-rgb), 0.66);
+  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.28), rgba(var(--era-rgb), 0.08));
   color: #fff1bd;
-  box-shadow: 0 0 12px rgba(214, 168, 75, 0.18);
+  box-shadow: 0 0 12px rgba(var(--era-rgb), 0.18);
 }
 
 .work-bar {
@@ -335,8 +335,149 @@ dialog::backdrop {
   margin-top: 0.25rem;
 }
 
+.epitaph-dialog {
+  width: min(52rem, calc(100vw - 2rem));
+}
+
 .epitaph-dialog .choice-menu {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .epitaph-dialog .choice-menu {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Options de dialogue structurées (effets en chips, badges d'affinité) ── */
+.choice-menu button.choice-structured {
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.choice-option-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.choice-option-head strong {
+  font-size: 0.92rem;
+}
+
+.choice-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+  color: var(--gold-bright);
+  border: 1px solid rgba(var(--era-rgb), 0.45);
+  background: rgba(var(--era-rgb), 0.12);
+  white-space: nowrap;
+}
+
+.choice-headline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gold-ivory);
+}
+
+.choice-menu button.is-favored {
+  border-color: var(--gold);
+  background: rgba(var(--era-rgb), 0.08);
+}
+
+.choice-menu button.is-favored:hover {
+  background: rgba(var(--era-rgb), 0.14);
+}
+
+.effect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.effect-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.effect-chip.is-gain {
+  color: #86efac;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.effect-chip.is-cost {
+  color: #fca5a5;
+  border-color: rgba(220, 95, 75, 0.35);
+  background: rgba(220, 95, 75, 0.08);
+}
+
+.dialog-footnote {
+  margin: 0.75rem 0 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ── Texte flottant de résultat (issue aléatoire d'une crise) ── */
+.outcome-float-layer {
+  position: fixed;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.outcome-float {
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: nowrap;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 12, 14, 0.88);
+  color: var(--gold-ivory);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  animation: outcome-float-up 2.4s ease-out forwards;
+}
+
+.outcome-float.is-gain {
+  color: #86efac;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.outcome-float.is-cost {
+  color: #fca5a5;
+  border-color: rgba(220, 95, 75, 0.45);
+}
+
+@keyframes outcome-float-up {
+  0%   { opacity: 0; transform: translateY(12px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-30px); }
 }
 
 .dynasty-dialog {
@@ -362,7 +503,7 @@ dialog::backdrop {
 
 .dynasty-dialog .choice-menu button:hover {
   border-color: var(--gold);
-  background: rgba(214, 168, 75, 0.1);
+  background: rgba(var(--era-rgb), 0.1);
   color: var(--gold-bright);
 }
 
@@ -404,8 +545,8 @@ dialog::backdrop {
 }
 
 .buy-mode-max {
-  border-color: rgba(214, 168, 75, 0.5);
-  background: linear-gradient(180deg, rgba(214, 168, 75, 0.12) 0%, rgba(42, 34, 15, 0.8) 100%);
+  border-color: rgba(var(--era-rgb), 0.5);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.12) 0%, rgba(42, 34, 15, 0.8) 100%);
   color: var(--gold-ivory);
 }
 
@@ -462,7 +603,7 @@ small, .chip, .doctrine-display small {
   background: var(--gold);
   border-color: var(--gold);
   color: #1a0f00;
-  box-shadow: 0 0 10px rgba(214, 168, 75,0.4);
+  box-shadow: 0 0 10px rgba(var(--era-rgb),0.4);
 }
 
 /* ---------- BARRES DE PROGRESSION (rupture/usure + jauges ville) ---------- */
@@ -479,7 +620,7 @@ small, .chip, .doctrine-display small {
 dialog {
   border: 1px solid var(--gold);
   background: linear-gradient(180deg, #1a1208 0%, #100b05 100%);
-  box-shadow: 0 24px 60px rgba(0,0,0,0.72), 0 0 0 1px rgba(214, 168, 75,0.12);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.72), 0 0 0 1px rgba(var(--era-rgb),0.12);
 }
 
 dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
@@ -494,7 +635,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   padding: 0.75rem 1rem 0.8rem;
   border-left: 3px solid var(--gold);
   border-radius: 0 8px 8px 0;
-  background: linear-gradient(90deg, rgba(214, 168, 75,0.1) 0%, transparent 80%);
+  background: linear-gradient(90deg, rgba(var(--era-rgb),0.1) 0%, transparent 80%);
 }
 
 .active-myth-banner .active-myth-name {
@@ -734,11 +875,9 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 
 .ticker-author {
   color: var(--muted);
-  font-style: italic;
 }
 
 .ticker-empty {
-  font-style: italic;
   color: var(--muted);
 }
 
@@ -778,7 +917,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   background: radial-gradient(circle at 10% 50%, #1b120c 0%, #0d0906 100%);
 }
 .chronicle-ticker.is-oral .ticker-masthead { color: #cda88b; animation: oralPulse 5s infinite ease-in-out; }
-.chronicle-ticker.is-oral .ticker-line { color: #d1bba8; font-style: italic; }
+.chronicle-ticker.is-oral .ticker-line { color: #d1bba8; }
 
 @keyframes oralPulse {
   0%, 100% { text-shadow: 0 0 5px rgba(186, 115, 41, 0.2); }
@@ -800,7 +939,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   border: 1px solid #362919;
   box-shadow: inset 0 0 18px rgba(212, 178, 140, 0.05);
 }
-.chronicle-ticker.is-parchment .ticker-masthead { color: #dfc19b; font-style: italic; }
+.chronicle-ticker.is-parchment .ticker-masthead { color: #dfc19b; }
 .chronicle-ticker.is-parchment .ticker-line { color: #d4c7b8; font-family: var(--font-serif); }
 
 /* 4. Proclamation */

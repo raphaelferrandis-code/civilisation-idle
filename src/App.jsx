@@ -1,12 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
+import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { openView, save } from './game/core/state.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
+import { getEraTheme } from './game/data/eraThemes.js';
 
 const CityView = lazy(() => import('./components/views/CityView.jsx'));
 const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
@@ -41,16 +43,24 @@ export default function App() {
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
 
-  // Moment signature : bandeau plein écran au passage d'un nouvel âge (Phase 7)
+  // Moment signature : bandeau plein écran au passage d'un nouvel âge (Phase 7).
+  // Changement d'ÉPOQUE (toutes les 5 ères) : cérémonie renforcée + bascule de peau UI.
   const eraIdx = useGameState(() => currentEraIndex());
+  const eraTheme = getEraTheme(eraIdx);
   const prevEraRef = useRef(null);
   const [eraBanner, setEraBanner] = useState(null);
   useEffect(() => {
     const prev = prevEraRef.current;
     prevEraRef.current = eraIdx;
     if (prev !== null && eraIdx > prev) {
-      setEraBanner(eras[eraIdx]?.name || "");
-      const t = setTimeout(() => setEraBanner(null), 3200);
+      const theme = getEraTheme(eraIdx);
+      const isEpochShift = getEraTheme(prev).band !== theme.band;
+      setEraBanner({
+        name: eras[eraIdx]?.name || "",
+        announce: theme.announce,
+        epoch: isEpochShift ? theme.epochLabel : null
+      });
+      const t = setTimeout(() => setEraBanner(null), isEpochShift ? 4800 : 3200);
       return () => clearTimeout(t);
     }
   }, [eraIdx]);
@@ -123,7 +133,17 @@ export default function App() {
     <div
       className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
       data-active-view={activeView}
-      style={{ '--crisis-level': crisisLevel }}
+      data-era-band={eraTheme.band}
+      style={{
+        '--crisis-level': crisisLevel,
+        // Peau d'époque : le chrome doré entier dérive vers l'accent de l'ère.
+        '--gold': eraTheme.accent,
+        '--gold-bright': eraTheme.accentBright,
+        '--gold-dim': eraTheme.accentDim,
+        '--gold-deep': eraTheme.accentDeep,
+        '--gold-ivory': eraTheme.accentIvory,
+        '--era-rgb': eraTheme.accentRgb
+      }}
     >
       {/* Sidebar de navigation */}
       <aside className="sidebar">
@@ -204,11 +224,17 @@ export default function App() {
         dialog={choiceDialog}
         onChoose={handleChoice}
       />
+      <OutcomeFloatLayer />
 
       {eraBanner && (
-        <div className="era-banner" role="status" aria-live="polite">
-          <span className="era-banner-kicker">Un nouvel âge commence</span>
-          <strong className="era-banner-name">{eraBanner}</strong>
+        <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} role="status" aria-live="polite">
+          <span className="era-banner-kicker">
+            {eraBanner.epoch ? `Une nouvelle époque s'ouvre — ${eraBanner.epoch}` : 'Un nouvel âge commence'}
+          </span>
+          <strong className="era-banner-name">{eraBanner.name}</strong>
+          {eraBanner.announce && (
+            <span className="era-banner-announce">{eraBanner.announce}</span>
+          )}
         </div>
       )}
     </div>

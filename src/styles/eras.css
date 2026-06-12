@@ -1,0 +1,183 @@
+/* ============================================================
+   PEAUX D'ÉPOQUE — [data-era-band="0..6"] (refonte âges)
+   ------------------------------------------------------------
+   La palette (famille --gold + --era-rgb) est injectée inline par
+   App.jsx depuis eraThemes.js : elle dérive à CHAQUE ère.
+   Ici : les signatures STRUCTURELLES qui basculent toutes les 5
+   ères — matière des panneaux, rayons, typo, textures.
+   ============================================================ */
+
+/* Fondu doux du chrome quand la palette d'ère dérive
+   (le bandeau plein écran masque les bascules d'époque). */
+.panel,
+.panel-heading,
+.view-header,
+.mark,
+.vitals-band {
+  transition: border-color 0.9s ease, background-color 0.9s ease,
+    box-shadow 0.9s ease, color 0.9s ease;
+}
+
+/* ── 0 · Âge du Feu : os et braise — chrome rugueux, angles crus ── */
+.app[data-era-band="0"] {
+  --r-panel: 4px;
+  --r-card: 3px;
+  --font-title: var(--font-serif);
+}
+
+.app[data-era-band="0"] .panel-heading {
+  border-bottom-style: dashed;
+}
+
+.app[data-era-band="0"] .mark {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 18px rgba(var(--era-rgb), 0.35);
+}
+
+/* ── 1 · Âge du Bois : torchis et planches ── */
+.app[data-era-band="1"] {
+  --r-panel: 6px;
+  --r-card: 4px;
+  --font-title: var(--font-serif);
+}
+
+.app[data-era-band="1"] .panel-heading {
+  border-bottom-width: 3px;
+  border-bottom-style: groove;
+}
+
+/* ── 2 · Âge de la Pierre taillée : le classicisme parchemin (état canonique) ── */
+.app[data-era-band="2"] {
+  --r-panel: 10px;
+}
+
+/* ── 3 · Âge de la Couronne : héraldique, filets doubles ── */
+.app[data-era-band="3"] .panel-heading {
+  border-bottom-width: 3px;
+  border-bottom-style: double;
+}
+
+.app[data-era-band="3"] .view-header {
+  border-left-width: 6px;
+  border-left-style: double;
+}
+
+.app[data-era-band="3"] .view-header-title {
+  letter-spacing: 0.09em;
+}
+
+/* ── 4 · Âge du Marbre : taille nette, petites capitales gravées ── */
+.app[data-era-band="4"] {
+  --r-panel: 2px;
+  --r-card: 2px;
+}
+
+.app[data-era-band="4"] .panel-heading h2,
+.app[data-era-band="4"] .view-header-title {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.12em;
+}
+
+.app[data-era-band="4"] .panel {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 20px 48px var(--shadow);
+}
+
+/* ── 5 · Âge de la Fonte : métal sombre, chrome resserré ── */
+.app[data-era-band="5"] {
+  --r-panel: 4px;
+  --r-card: 3px;
+  --panel: rgba(19, 20, 24, 0.88);
+  --panel-2: rgba(28, 30, 36, 0.92);
+}
+
+.app[data-era-band="5"] .panel-heading {
+  border-bottom-width: 3px;
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.1),
+    rgba(0, 0, 0, 0.18) 85%, transparent);
+}
+
+/* ── 6 · Âge du Néon : flux froid, scanlines, chiffres mono ── */
+.app[data-era-band="6"] {
+  --r-panel: 0px;
+  --r-card: 0px;
+  --panel: rgba(10, 13, 17, 0.9);
+  --panel-2: rgba(14, 18, 24, 0.94);
+}
+
+.app[data-era-band="6"] .panel {
+  border-color: rgba(var(--era-rgb), 0.26);
+}
+
+.app[data-era-band="6"] .resource-value,
+.app[data-era-band="6"] .vitals-value,
+.app[data-era-band="6"] .rate-value {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+/* Scanlines très discrètes sur tout l'écran (sous la vignette de crise). */
+.app[data-era-band="6"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(var(--era-rgb), 0.022) 0px,
+    rgba(var(--era-rgb), 0.022) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+/* ============================================================
+   Bandeau de transition : annonce du détail signature + variante
+   "époque" (cérémonie renforcée toutes les 5 ères).
+   ============================================================ */
+
+.era-banner-announce {
+  max-width: min(34rem, 80vw);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-secondary);
+  opacity: 0.92;
+}
+
+.era-banner--epoch {
+  background: radial-gradient(ellipse at center,
+    rgba(8, 7, 5, 0.93) 0%, rgba(8, 7, 5, 0.6) 60%, rgba(8, 7, 5, 0.2) 100%);
+  animation-duration: 4.8s;
+}
+
+.era-banner--epoch .era-banner-kicker {
+  color: var(--gold-bright);
+  text-shadow: 0 0 18px rgba(var(--era-rgb), 0.45);
+}
+
+.era-banner--epoch .era-banner-name {
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+}
+
+/* ============================================================
+   Topbar : pastille d'époque (Âge du Feu · III) à côté du nom d'ère.
+   ============================================================ */
+
+.era-epoch-chip {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid rgba(var(--era-rgb), 0.4);
+  border-radius: var(--r-pill);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  background: rgba(var(--era-rgb), 0.08);
+  white-space: nowrap;
+  vertical-align: middle;
+}

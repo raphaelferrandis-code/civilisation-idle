@@ -14,7 +14,27 @@ import {
   COLLAPSE_PREP_MAX,
   RUIN_REFERENCE_POP,
   LEGITIMACY_POWER_EXP,
-  LEGITIMACY_COEF
+  LEGITIMACY_COEF,
+  TIME_WEAR_MITIGATION_CAP,
+  RUIN_GAIN_SCALE_FLOOR_LOG_DIV,
+  FOUNDING_GRACE_BUILDINGS,
+  RUIN_POP_DEPTH_REF,
+  RUIN_POP_DEPTH_EXP,
+  DYNASTY_BASE_RUINS,
+  DYNASTY_COST_GROWTH,
+  GRAND_RESET_LEGIT_BASE,
+  MYTH_GATE_START_GR,
+  ERA_RUIN_BONUS_PER_INDEX,
+  INFRA_COVERAGE_POP_FACTOR,
+  INFRA_COVERAGE_BUILDING_FACTOR,
+  INFRA_COVERAGE_MIN_BASE,
+  INFRA_COVERAGE_EFFECTIVE_CAP,
+  INFRA_COVERAGE_MITIGATION_MULT,
+  MITIGATION_LOG_COEF,
+  MITIGATION_CAP,
+  STABILIZER_DIRECT_FACTOR,
+  STRUCTURAL_COVERAGE_DAMP,
+  COMPLEXITY_COVERAGE_ABSORB
 } from './balance.js';
 import {
   ICARE_PROD_MULT,
@@ -341,6 +361,7 @@ export function getBuildingSums() {
   let positiveInstability = 0;
   let negativeInstability = 0;
   let buildingCount = 0;
+  let stabilizerCount = 0; // bâtiments à instabilité négative (égouts, tribunaux…)
   const baseSumsByCategory = {};
 
   for (const b of buildings) {
@@ -351,6 +372,7 @@ export function getBuildingSums() {
       positiveInstability += b.instability * count;
     } else if (b.instability < 0) {
       negativeInstability += b.instability * count;
+      stabilizerCount += count;
     }
 
     if (count > 0) {
@@ -400,6 +422,7 @@ export function getBuildingSums() {
     positiveInstability,
     negativeInstability,
     buildingCount,
+    stabilizerCount,
     baseSumsByCategory,
     overflow
   };
@@ -416,11 +439,14 @@ export function buildingInstabilityLoad() {
 //   - inequality  : inégalité de richesse (or)
 //   - complexity  : complexité administrative (bâtiments/savoir)
 //   - dissent     : dissidence/légitimité insuffisante
-//   - structural  : instabilité intrinsèque des bâtiments
-// De cette somme on retranche la mitigation (institutions, stabilisateurs, ruines,
-// grâces de fondation/installation), elle aussi bornée. Les constantes nues
+//   - structural  : instabilité intrinsèque des bâtiments, portée par l'infra
+//     et réduite en prise directe par les bâtiments stabilisants
+// De cette somme on retranche la mitigation (couverture d'infrastructure en
+// RATIO + légitimité, ruines, grâces de fondation/installation). Complexity,
+// inequality et structural utilisent des plafonds DOUX (cap·x/(x+cap)) : la
+// jauge reste sensible aux achats à toutes les échelles. Les constantes nues
 // ci-dessous (0.55, 0.34, 0.22, 2.2, …) sont des poids/plafonds locaux non
-// extraits : ils n'ont de sens qu'au sein de cette formule.
+// extraits ; les leviers d'équilibrage sont dans balance.js.
 export function pressureBreakdown() {
   // Retourne le cache frame si disponible (invalidé au début de chaque intervalle de tick)
   if (renderCache._framePressure) return renderCache._framePressure;
@@ -435,43 +461,70 @@ export function pressureBreakdown() {
   const positiveInstability = sums.positiveInstability;
   const negativeInstability = sums.negativeInstability;
   const buildingCount = sums.buildingCount;
+  // Les bâtiments stabilisants SONT de l'infrastructure : ils ne comptent ni
+  // dans la demande de couverture, ni dans la charge administrative — sinon
+  // acheter un égout AUGMENTERAIT paradoxalement la pression (mesuré : +0.116).
+  const riskyBuildingCount = Math.max(0, buildingCount - (sums.stabilizerCount || 0));
 
-  const stabilizers = 1 + Math.max(0, -negativeInstability) * 12;
   const cycleAgeSeconds = Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000);
+  // Terme bâtiments : décroissance quadratique sur une portée étendue — la
+  // protection s'efface progressivement au lieu de tomber en mur à 65 bâtiments.
   const foundingGrace = Math.max(0, 1 - Math.min(1, state.cycles / 12))
     * Math.max(0, 1 - Math.min(1, population / 450000))
-    * Math.max(0, 1 - Math.min(1, buildingCount / 65))
+    * Math.pow(Math.max(0, 1 - Math.min(1, buildingCount / FOUNDING_GRACE_BUILDINGS)), 2)
     * 0.34;
   const settlingGrace = Math.max(0, 1 - Math.min(1, cycleAgeSeconds / 420))
     * Math.max(0, 1 - Math.min(1, state.cycles / 10))
     * 0.18;
 
-  let scarcityRaw, inequalityRaw, complexityRaw, institutionalLog;
+  // Couverture d'infrastructure : infra jugée RELATIVEMENT à la taille de la
+  // cité (≈1 = bien équipée), comme la nourriture l'est face à la population.
+  // C'est ce ratio — discriminant à toutes les échelles — qui donne à l'infra
+  // ses trois canaux anti-Rupture (mitigation, structural, complexity).
+  let scarcityRaw, inequalityRaw, knowledgeStrain, infraCoverage;
+  const coverageDemandBase = Math.max(INFRA_COVERAGE_MIN_BASE, riskyBuildingCount * INFRA_COVERAGE_BUILDING_FACTOR);
   if (Number.isFinite(popF) && Number.isFinite(foodF) && Number.isFinite(goldF) && Number.isFinite(knowF) && Number.isFinite(infraF)) {
-    // Chemin float : identique bit-à-bit à l'implémentation pré-Decimal.
-    const institutionalCapacity = 1 + infraF * 0.018 + state.legitimacy * 0.16;
+    // Chemin float.
     scarcityRaw = Math.max(0, (population * 2.4 - foodF) / Math.max(120, population * 2.4));
     inequalityRaw = Math.max(0, goldF / Math.max(80, population * 1.25) - 0.55);
-    complexityRaw = Math.max(0, buildingCount / 26 + knowF / Math.max(180, infraF * 38 + 180) - 0.35);
-    institutionalLog = Math.log10(institutionalCapacity * stabilizers);
+    knowledgeStrain = knowF / Math.max(180, infraF * 38 + 180);
+    infraCoverage = infraF / Math.max(coverageDemandBase, population * INFRA_COVERAGE_POP_FACTOR);
   } else {
     // Au-delà du float : mêmes formules en ratios Decimal (les sorties restent bornées).
     const popDec = D(state.population).max(1);
     scarcityRaw = Math.max(0, popDec.mul(2.4).sub(state.food).div(popDec.mul(2.4).max(120)).toNumber());
     inequalityRaw = Math.max(0, D(state.gold).div(popDec.mul(1.25).max(80)).toNumber() - 0.55);
-    complexityRaw = Math.max(0, buildingCount / 26 + D(state.knowledge).div(D(state.infrastructure).mul(38).add(180).max(180)).toNumber() - 0.35);
-    institutionalLog = D(state.infrastructure).mul(0.018).add(1 + state.legitimacy * 0.16).mul(stabilizers).log10();
+    knowledgeStrain = D(state.knowledge).div(D(state.infrastructure).mul(38).add(180).max(180)).toNumber();
+    infraCoverage = D(state.infrastructure).div(popDec.mul(INFRA_COVERAGE_POP_FACTOR).max(coverageDemandBase)).toNumber();
   }
+  if (!Number.isFinite(infraCoverage)) infraCoverage = 1e6; // infra >> pop au-delà du float
+
+  // Plafond doux (Michaelis-Menten) : approche le plafond sans jamais l'atteindre
+  // → la dérivée n'est jamais nulle, chaque achat garde un effet mesurable.
+  const softCap = (x, cap) => (x <= 0 ? 0 : cap * x / (x + cap));
+
+  // Couverture EFFECTIVE plafonnée en doux : le stock d'infra (jamais consommé)
+  // finit toujours par dépasser la demande sur un long cycle — sans ce plafond,
+  // l'accumulation passive tue la Rupture (couverture 16 mesurée, cible 0.15).
+  const effCoverage = softCap(infraCoverage, INFRA_COVERAGE_EFFECTIVE_CAP);
+  const complexityRaw = Math.max(
+    0,
+    riskyBuildingCount / (26 * (1 + effCoverage * COMPLEXITY_COVERAGE_ABSORB)) + knowledgeStrain - 0.35
+  );
   const dissentRaw = Math.max(0, state.cycles * 0.035 + Math.log10(toNum(state.ruins) + 1) * 0.04 + state.instability * 0.12);
 
   const rationRelief = Math.min(0.35, state.crisisActions.rationing * 0.06);
   const scarcity = Math.max(0, Math.min(0.7, scarcityRaw * 0.55) - rationRelief);
-  const inequality = Math.min(0.55, inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008);
-  const complexity = Math.min(0.75, complexityRaw * 0.34);
+  const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55);
+  const complexity = softCap(complexityRaw * 0.34, 0.75);
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
   const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief);
-  const structural = Math.min(0.75, positiveInstability * 2.2);
-  const mitigation = Math.min(0.75, institutionalLog * 0.22 + ruinEffectSum("stability") + foundingGrace + settlingGrace);
+  // Charge structurelle : les bâtiments stabilisants (instabilité négative)
+  // soustraient en PRISE DIRECTE, et l'infrastructure « porte » la charge.
+  const structuralNet = Math.max(0, positiveInstability + negativeInstability * STABILIZER_DIRECT_FACTOR);
+  const structural = softCap(structuralNet * 2.2 / (1 + effCoverage * STRUCTURAL_COVERAGE_DAMP), 0.75);
+  const institutionalLog = Math.log10(1 + effCoverage * INFRA_COVERAGE_MITIGATION_MULT + state.legitimacy * 0.16);
+  const mitigation = Math.min(MITIGATION_CAP, institutionalLog * MITIGATION_LOG_COEF + ruinEffectSum("stability") + foundingGrace + settlingGrace);
   const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowthMultiplier() - mitigation);
   const total = hasDoctrine("acier") ? baseTotal * 1.25 : baseTotal;
 
@@ -965,7 +1018,12 @@ export function checkDogmaAvailability(id) {
 }
 
 export function canPerformGrandReset() {
-  return has("grand_reset") && state.legitimacy >= 0; // le coût est déjà payé à l'achat de l'upgrade
+  if (!has("grand_reset")) return false;
+  const nextCount = (state.grandResetCount || 0) + 1;
+  // Le 1er GR est couvert par l'achat de l'upgrade ; les suivants consomment
+  // une légitimité croissante et exigent des Mythes complétés (gating doux).
+  return state.legitimacy >= grandResetLegitimacyCost(nextCount)
+    && completedMythCount() >= grandResetMythsRequired(nextCount);
 }
 
 export function currentEraIndex() {
@@ -1026,7 +1084,7 @@ export function ruinGain() {
     1
   ) * 6;
   const ageDepth = 0.55 + normalizedEraIndex * 0.22;
-  const populationDepth = Math.max(0.35, Math.pow(Math.max(10, peakPopulation) / 25000, 0.42));
+  const populationDepth = Math.max(0.35, Math.pow(Math.max(10, peakPopulation) / RUIN_POP_DEPTH_REF, RUIN_POP_DEPTH_EXP));
   const civicDepth = 0.75 + Math.log10(toNum(peaks.knowledge || 0) + toNum(peaks.infrastructure || 0) * 4 + 10) * 0.14;
   const pressure = 1 + Math.max(0, crisisProgress() - 1) * 0.28;
   const preparation = 1 + Math.min(COLLAPSE_PREP_MAX, state.collapsePreparation || 0);
@@ -1034,22 +1092,60 @@ export function ruinGain() {
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
   const elapsed = (Date.now() - state.cycleStartedAt) / 1000;
   const sedimentMod = elapsed >= 604800 ? 5.0 : elapsed >= 259200 ? 2.35 : elapsed >= 86400 ? 1.45 : elapsed >= 28800 ? 1.15 : elapsed >= 3600 ? 1.02 : 1.0;
-  const minGain = age >= 120 ? 1 : 0;
+  // Plancher basé sur l'ÉCHELLE et plus seulement l'âge : une cité d'un million
+  // d'habitants qui tombe en 90 s n'a pas « rien construit ». Évite l'effondrement
+  // à gain nul des cités sur-puissantes (Rupture à 100 % en <120 s).
+  const peakPopLog = Number.isFinite(peakPopulation)
+    ? Math.log10(Math.max(10, peakPopulation))
+    : D(peaks.population).max(10).log10();
+  const scaleFloor = Math.floor(peakPopLog / RUIN_GAIN_SCALE_FLOOR_LOG_DIV);
+  const minGain = Math.max(age >= 120 ? 1 : 0, scaleFloor);
+  // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
+  // express des ères après un Grand Reset devient une pluie de gains visibles.
+  const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * (state.bestEraIndex || 0);
   const raw = ageDepth * populationDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
-  if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)));
-  const populationDepthDec = D(peaks.population).max(10).div(25000).pow(0.42).max(0.35);
+  if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)) + eraFlatBonus);
+  const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
   const restProduct = ageDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod;
-  return populationDepthDec.mul(restProduct).floor().max(minGain);
+  return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
+}
+
+// Seuil de ruines requis pour fonder une dynastie : croît à chaque fondation
+// depuis le dernier Grand Reset (anti-spam — 1820 fondations mesurées avec un
+// seuil fixe), remis à zéro par le GR pour que chaque boucle re-déroule l'arc
+// dynastique depuis un seuil accessible.
+export function dynastyRuinsThreshold() {
+  return DYNASTY_BASE_RUINS * Math.pow(DYNASTY_COST_GROWTH, state.dynastiesSinceGR || 0);
+}
+
+// Coût en légitimité du n-ième Grand Reset. Le 1er est couvert par l'achat de
+// l'upgrade « grand_reset » ; chaque suivant double (la récompense double aussi).
+export function grandResetLegitimacyCost(nextCount) {
+  return nextCount <= 1 ? 0 : GRAND_RESET_LEGIT_BASE * Math.pow(2, nextCount - 1);
+}
+
+// Nombre de Mythes complétés requis pour le n-ième Grand Reset (gating doux :
+// GR3 : 1, GR4 : 2, … — les Mythes sont les chapitres de la route principale).
+export function grandResetMythsRequired(nextCount) {
+  return nextCount >= MYTH_GATE_START_GR ? nextCount - (MYTH_GATE_START_GR - 1) : 0;
+}
+
+export function completedMythCount() {
+  return Object.values(state.mythsCompleted || {}).filter(Boolean).length;
 }
 
 export function timeWearRate() {
   const cycleFatigue = 1 + Math.min(1.2, state.cycles * 0.045);
   const scaleFatigue = 1 + Math.min(0.9, Math.log10(toNum(state.population) + 10) * 0.06);
-  // mitigation peut déborder le float (infra/savoir énormes) : la division
-  // finale tend alors vers 0, ce qui est le comportement voulu (usure gelée).
-  const mitigation = 1 + toNum(state.infrastructure) * 0.0015 + toNum(state.knowledge) * 0.000012 + state.legitimacy * 0.035;
+  // Mitigation PLAFONNÉE : non bornée, elle gelait l'Usure en fin de partie
+  // (taux mesuré ~0.002 → cité immortelle). Le plafond garantit que l'Usure
+  // reste une deadline : toute civilisation finit par tomber par le temps.
+  const mitigation = Math.min(
+    TIME_WEAR_MITIGATION_CAP,
+    1 + toNum(state.infrastructure) * 0.0015 + toNum(state.knowledge) * 0.000012 + state.legitimacy * 0.035
+  );
   const doctrineMod = hasDoctrine("sillon") ? 0.7 : 1;
   const icareMult        = isMythEffectActive("mythe_d_icare") ? ICARE_USURE_MULT : 1;
   const atlasMult        = isMythEffectActive("mythe_d_atlas") ? ATLAS_USURE_MULT : 1;
@@ -1125,7 +1221,7 @@ export function terminalPrepMultiplier(resource) {
 }
 
 export function legitimacyGain() {
-  if (D(state.ruins).lt(300)) return 0;
+  if (D(state.ruins).lt(dynastyRuinsThreshold())) return 0;
   // legitimacy reste un number natif : au-delà du domaine float on plafonne
   // à MAX_VALUE pour éviter de propager Infinity dans le state.
   const base       = Math.min(Number.MAX_VALUE, Math.pow(toNum(state.ruins) / 160, 0.5));

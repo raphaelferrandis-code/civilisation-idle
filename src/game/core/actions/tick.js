@@ -34,14 +34,24 @@ import {
 } from './automation.js';
 
 import { log } from './utils.js';
+import { eras } from '../../data/world.js';
 import { clamp01, canPayCost } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
-import { INSTABILITY_DRIFT_SPEED } from '../balance.js';
+import {
+  INSTABILITY_DRIFT_SPEED,
+  INSTABILITY_OVERSHOOT_CAP,
+  INSTABILITY_MAX_RISE_PER_SEC,
+  AUTO_CRISIS_COOLDOWN_MS
+} from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
   isMythEffectActive
 } from '../../data/myths.js';
+
+// Dernier déclenchement automatique de protocoles_urgence (cooldown anti-verrou :
+// l'automation seule ne doit pas pouvoir maintenir la jauge sous le seuil de crise).
+let lastAutoCrisisAt = 0;
 
 export function tick(dt) {
   if (gamePaused || collapseInProgress) return;
@@ -86,13 +96,26 @@ export function tick(dt) {
 
   state.timeWear = clamp01((state.timeWear || 0) + timeWearRate() * dt);
 
-  const instabilityTarget = clamp01(r.instability);
+  const rawTarget = Math.max(0, r.instability);
+  const instabilityTarget = clamp01(rawTarget);
   const instabilityDrift = instabilityTarget - state.instability;
   // "Maintenir l'ordre" ralentit la montée de la rupture (jamais sa descente).
   const orderSlow = instabilityDrift > 0
     ? 1 - Math.min(0.8, state.terminalPreparations?.ruptureSlow || 0)
     : 1;
-  const nextInstability = state.instability + instabilityDrift * INSTABILITY_DRIFT_SPEED * orderSlow * dt;
+  // Surcharge : au-delà du seuil, la dérive accélère proportionnellement au
+  // dépassement (plafonné) — une cité en pression x3 ne peut plus être tenue
+  // indéfiniment sous 100 % à coups d'actions de crise.
+  const overshoot = instabilityDrift > 0
+    ? Math.min(INSTABILITY_OVERSHOOT_CAP, Math.max(1, rawTarget))
+    : 1;
+  let instabilityDelta = instabilityDrift * INSTABILITY_DRIFT_SPEED * orderSlow * overshoot * dt;
+  // Montée incompressible : garantit un cycle d'au moins ~2-3 min, le temps que
+  // les pics se reconstruisent (sinon effondrement à gain nul en fin de partie).
+  if (instabilityDelta > 0) {
+    instabilityDelta = Math.min(instabilityDelta, INSTABILITY_MAX_RISE_PER_SEC * dt);
+  }
+  const nextInstability = state.instability + instabilityDelta;
   state.instability = instabilityTarget >= 1 && nextInstability >= 0.995
     ? 1
     : clamp01(nextInstability);
@@ -104,7 +127,12 @@ export function tick(dt) {
   const currentEra = currentEraIndex();
   if (currentEra > peaks.eraIndex) {
     peaks.eraIndex = currentEra;
-    if (currentEra > (state.bestEraIndex || 0)) state.bestEraIndex = currentEra;
+    if (currentEra > (state.bestEraIndex || 0)) {
+      state.bestEraIndex = currentEra;
+      // Récompense visible de chaque nouveau sommet : +1 ruine plate par palier
+      // d'ère maximale, à chaque effondrement (cf. ERA_RUIN_BONUS_PER_INDEX).
+      log(`Sommet historique : l'ère ${eras[currentEra].name} est atteinte pour la première fois. Chaque effondrement rapportera désormais +${currentEra} ruines.`);
+    }
   }
 
   if (state.atlasHeritage) {
@@ -123,11 +151,17 @@ export function tick(dt) {
     checkAutoScriptRules();
   }
 
-  if (has("protocoles_urgence") && !crisisOpen() && !gamePaused && !collapseInProgress) {
+  if (has("protocoles_urgence") && !crisisOpen() && !gamePaused && !collapseInProgress
+    && Date.now() - lastAutoCrisisAt >= AUTO_CRISIS_COOLDOWN_MS) {
     const inst = state.instability;
     const costs = crisisCosts();
-    if (inst >= 0.82 && canPayCost(costs.census)) runCrisisAction("census", { render: false });
-    else if (inst >= 0.65 && canPayCost(costs.rationing)) runCrisisAction("rationing", { render: false });
+    if (inst >= 0.82 && canPayCost(costs.census)) {
+      runCrisisAction("census", { render: false });
+      lastAutoCrisisAt = Date.now();
+    } else if (inst >= 0.65 && canPayCost(costs.rationing)) {
+      runCrisisAction("rationing", { render: false });
+      lastAutoCrisisAt = Date.now();
+    }
   }
 
   checkAndTriggerChronicleEntries(state, dt);

@@ -14,6 +14,7 @@ import {
   WONDER_CLEAR_R
 } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
+import { mapThemeForBand, activeEraDetails, getEraTheme } from '../data/eraThemes.js';
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
 
@@ -183,11 +184,8 @@ function cmLerpRgb(a, b, t) {
 // La santé tire vers le brun terne : le brun est un signal de crise, pas
 // l'état par défaut d'une grande ville.
 function cmUrbanGroundRgb(band, health) {
-  const byBand = band >= 6 ? [92, 94, 99]      // asphalte de mégalopole
-    : band >= 5 ? [134, 128, 112]              // esplanades de pierre claire
-    : band >= 4 ? [122, 112, 88]               // dallage impérial
-    : band >= 3 ? [104, 92, 64]                // pavé de cité fortifiée
-    : [88, 72, 42];                            // terre battue chaude
+  // Teinte de sol par époque : centralisée dans eraThemes.js.
+  const byBand = mapThemeForBand(band).urbanGround;
   const sick = [62, 50, 30];                   // brun-crotte de crise
   const k = 1 - Math.max(0, Math.min(1, (health - 0.18) / 0.5)); // 0 sain → 1 malade
   return cmLerpRgb(byBand, sick, k * 0.85);
@@ -219,7 +217,7 @@ function cityMapDrawUrbanMass(layout) {
 function cityMapDrawGround(layout) {
   const ctx = CM.ctx;
   const tier = layout?.counts?.eraIndex || 0;
-  ctx.fillStyle = "#2d3a1e";
+  ctx.fillStyle = mapThemeForBand(layout?.counts?.eraBand || 0).wildGround;
   ctx.fillRect(0, 0, CM.cw, CM.ch);
   if (!layout || layout.counts.eraBand <= 1) return;
   const sx = ((layout.plan?.core?.x ?? layout.cx) * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
@@ -495,7 +493,7 @@ function cityMapDrawNight(now) {
     const sx = (CM.layout.cx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
     const sy = (CM.layout.cy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
     const r = (8 + CM.layout.counts.eraIndex * 2.4) * CM.TILE * CM.cam.zoom;
-    const warm = CM.layout.counts.eraBand >= 5 ? "255,215,150" : "255,200,120";
+    const warm = mapThemeForBand(CM.layout.counts.eraBand).nightWarm;
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = "lighter";
     const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, r));
@@ -1172,6 +1170,16 @@ function cityMapDrawRoad(r) {
 
   const mask = cmRoadMask(layout, r.gx, r.gy);
   const degree = (mask.n ? 1 : 0) + (mask.e ? 1 : 0) + (mask.s ? 1 : 0) + (mask.w ? 1 : 0);
+  // Raccord visuel = praticabilité. Le masque (méta h/v) peut valoir 0 alors que
+  // la cellule est marchable par simple adjacence orthogonale (les piétons se
+  // déplacent ainsi). On calcule donc les voisins ROUTE orthogonaux pour relier
+  // proprement ces cellules au lieu d'un stub centré (l'ancien « point » parasite).
+  // Une cellule sans aucun voisin route (vraie orpheline — normalement déjà
+  // élaguée par cmBuildRoadGraph) n'est pas dessinée.
+  const adjRoad = (gx, gy) => !!(layout && layout.roadSet && layout.roadSet.has(gx + "," + gy));
+  const adjN = adjRoad(r.gx, r.gy - 1), adjE = adjRoad(r.gx + 1, r.gy);
+  const adjS = adjRoad(r.gx, r.gy + 1), adjW = adjRoad(r.gx - 1, r.gy);
+  if (degree === 0 && !(adjN || adjE || adjS || adjW)) return;
   const pathWidth = roadStyle.width;
   const half = s * pathWidth * 0.5;
   const cxp = sx + s / 2, cyp = sy + s / 2;
@@ -1185,8 +1193,13 @@ function cityMapDrawRoad(r) {
     ctx.lineJoin = "round";
     ctx.beginPath();
     if (degree === 0) {
-      ctx.moveTo(cxp - half * 0.35, cyp);
-      ctx.lineTo(cxp + half * 0.35, cyp);
+      // Pas de connexion par masque : on relie vers les voisins route orthogonaux
+      // (cohérence avec le déplacement piéton). Au moins un existe ici (sinon la
+      // cellule a été écartée plus haut).
+      if (adjN) { ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, sy); }
+      if (adjS) { ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, sy + s); }
+      if (adjW) { ctx.moveTo(cxp, cyp); ctx.lineTo(sx, cyp); }
+      if (adjE) { ctx.moveTo(cxp, cyp); ctx.lineTo(sx + s, cyp); }
     } else {
       if (mask.n) { ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, sy); }
       if (mask.s) { ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, sy + s); }
@@ -1813,7 +1826,7 @@ function cityMapDrawCityLights(now) {
     * (0.35 + health * 0.65);
   if (ruined) density *= 0.22;
   const a = Math.min(1, (n - 0.1) / 0.7); // montée progressive au crépuscule
-  const warm = L.counts.eraBand >= 5 ? "255,224,160" : "255,196,108";
+  const warm = mapThemeForBand(L.counts.eraBand).nightWarm;
   const [wr, wg, wb] = warm.split(",").map(Number);
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
@@ -1882,6 +1895,379 @@ function cityMapDrawCityLights(now) {
   ctx.globalCompositeOperation = prev;
 }
 
+/* ============================================================================
+ * Détails signature par ère (refonte âges) — éléments diégétiques introduits
+ * à une ère précise (cumulatifs), pilotés par ERA_SIGNATURES (eraThemes.js).
+ * Positions déterministes via cmHash + mapSeed : jamais de Math.random.
+ *  - cityMapDrawEraDetails : objets physiques, AVANT le voile santé/nuit.
+ *  - cityMapDrawEraGlow    : lumières additives, APRÈS le voile de nuit.
+ * ============================================================================ */
+
+function cmEraDetailSet() {
+  const ei = CM.frameEraIndex || 0;
+  if (CM._eraDetailIdx !== ei || !CM._eraDetailSet) {
+    CM._eraDetailIdx = ei;
+    CM._eraDetailSet = activeEraDetails(ei);
+  }
+  return CM._eraDetailSet;
+}
+
+// Positions des feux satellites du campement (partagées dessin/lueur).
+function cmSatelliteFireSpots(L) {
+  const T = CM.TILE;
+  const seed = (L.mapSeed || 0) >>> 0;
+  const coreX = (L.plan?.core?.x ?? L.cx) * T;
+  const coreY = (L.plan?.core?.y ?? L.cy) * T;
+  const spots = [];
+  const count = Math.min(4, 2 + ((CM.frameEraIndex || 0)));
+  for (let i = 0; i < count; i++) {
+    const h = cmHash(`satfire:${seed}:${i}`);
+    const ang = ((h % 360) / 360) * Math.PI * 2;
+    const dist = (3.4 + ((h >> 4) % 30) / 10) * T;
+    spots.push({
+      x: coreX + Math.cos(ang) * dist,
+      y: coreY + Math.sin(ang) * dist * 0.8,
+      h
+    });
+  }
+  return spots;
+}
+
+function cityMapDrawEraDetails(now) {
+  const L = CM.layout;
+  if (!L || !L.counts || CM.lodActive) return;
+  const det = cmEraDetailSet();
+  const band = L.counts.eraBand;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const toSX = (wx) => (wx - CM.cam.x) * z + CM.cw / 2;
+  const toSY = (wy) => (wy - CM.cam.y) * z + CM.ch / 2;
+  const coreX = (L.plan?.core?.x ?? L.cx) * T;
+  const coreY = (L.plan?.core?.y ?? L.cy) * T;
+  const s = T * z;
+
+  // ── Feux satellites (ère 1+, campement uniquement) ──
+  if (det.has("satellite_fires") && band === 0) {
+    for (const f of cmSatelliteFireSpots(L)) {
+      const sx = toSX(f.x), sy = toSY(f.y);
+      if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+      // Cercle de pierres
+      ctx.fillStyle = "rgba(60,54,46,0.85)";
+      ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.16, s * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+      // Flamme vacillante (déphasée par feu)
+      const fl = 0.75 + 0.25 * Math.sin(now / 130 + (f.h % 7));
+      ctx.fillStyle = `rgba(255,${150 + Math.round(50 * fl)},60,${(0.8 * fl).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - s * 0.22 * fl);
+      ctx.lineTo(sx - s * 0.07, sy);
+      ctx.lineTo(sx + s * 0.07, sy);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // ── Totem du clan (ère 3+, campement uniquement) ──
+  if (det.has("totem") && band === 0) {
+    const sx = toSX(coreX + T * 1.7), sy = toSY(coreY - T * 0.6);
+    if (sx > -s && sy > -s && sx < CM.cw + s && sy < CM.ch + s) {
+      const hgt = s * 0.85;
+      ctx.strokeStyle = "#5a4226";
+      ctx.lineWidth = Math.max(1.5, s * 0.09);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - hgt); ctx.stroke();
+      // Traverses sculptées
+      ctx.lineWidth = Math.max(1, s * 0.055);
+      for (let i = 1; i <= 3; i++) {
+        const ty = sy - hgt * (i / 3.4);
+        const w = s * (0.2 - i * 0.035);
+        ctx.beginPath(); ctx.moveTo(sx - w, ty); ctx.lineTo(sx + w, ty); ctx.stroke();
+      }
+      // Œil peint au sommet
+      ctx.fillStyle = "#c9a84c";
+      ctx.beginPath(); ctx.arc(sx, sy - hgt, Math.max(1, s * 0.06), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ── Puits du hameau (ère 5+, âges Bois et Pierre) ──
+  if (det.has("well") && band >= 1 && band <= 2) {
+    const h = cmHash(`well:${(L.mapSeed || 0) >>> 0}`);
+    const wx = coreX + (1.6 + (h % 10) / 10) * T;
+    const wy = coreY + (1.2 + ((h >> 3) % 10) / 12) * T;
+    const sx = toSX(wx), sy = toSY(wy);
+    if (sx > -s && sy > -s && sx < CM.cw + s && sy < CM.ch + s) {
+      // Margelle de pierre
+      ctx.fillStyle = "#7a7268";
+      ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.17, s * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#1c2430";
+      ctx.beginPath(); ctx.ellipse(sx, sy, s * 0.1, s * 0.066, 0, 0, Math.PI * 2); ctx.fill();
+      // Potence et toit
+      ctx.strokeStyle = "#6a4a10";
+      ctx.lineWidth = Math.max(1, s * 0.045);
+      ctx.beginPath();
+      ctx.moveTo(sx - s * 0.14, sy); ctx.lineTo(sx - s * 0.14, sy - s * 0.3);
+      ctx.moveTo(sx + s * 0.14, sy); ctx.lineTo(sx + s * 0.14, sy - s * 0.3);
+      ctx.stroke();
+      ctx.fillStyle = "#8a5a20";
+      ctx.beginPath();
+      ctx.moveTo(sx - s * 0.2, sy - s * 0.28);
+      ctx.lineTo(sx, sy - s * 0.42);
+      ctx.lineTo(sx + s * 0.2, sy - s * 0.28);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // ── Bannières sur les places (ère 15+, âges Couronne et Marbre) ──
+  // Ère 16+ : étendards aux quatre coins. Ère 19+ : oriflamme royale dorée
+  // sous chaque pennon.
+  if (det.has("wall_banners") && band >= 3 && band <= 4) {
+    const ei = CM.frameEraIndex || 0;
+    const accent = getEraTheme(ei).accent;
+    const plazas = (L.plan && L.plan.plazas) || [];
+    let bi = 0;
+    for (const p of plazas) {
+      const half = Math.floor(p.size / 2);
+      const corners = ei >= 16
+        ? [
+          [p.gx - half, p.gy - half],
+          [p.gx - half + p.size - 1, p.gy - half],
+          [p.gx - half, p.gy - half + p.size - 1],
+          [p.gx - half + p.size - 1, p.gy - half + p.size - 1]
+        ]
+        : [
+          [p.gx - half, p.gy - half],
+          [p.gx - half + p.size - 1, p.gy - half + p.size - 1]
+        ];
+      for (const [cgx, cgy] of corners) {
+        bi++;
+        const sx = toSX(cgx * T + T * 0.5), sy = toSY(cgy * T + T * 0.5);
+        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+        const hgt = s * 0.7;
+        ctx.strokeStyle = "#3a3230";
+        ctx.lineWidth = Math.max(1, s * 0.04);
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - hgt); ctx.stroke();
+        // Pennon qui ondule
+        const wave = Math.sin(now / 320 + bi) * s * 0.05;
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - hgt);
+        ctx.lineTo(sx + s * 0.3, sy - hgt + s * 0.08 + wave);
+        ctx.lineTo(sx, sy - hgt + s * 0.18);
+        ctx.closePath(); ctx.fill();
+        if (ei >= 19) {
+          ctx.fillStyle = "#d6a84b";
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - hgt + s * 0.2);
+          ctx.lineTo(sx + s * 0.22, sy - hgt + s * 0.26 + wave * 0.8);
+          ctx.lineTo(sx, sy - hgt + s * 0.34);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+    }
+  }
+
+  // ── Claies de séchage (ère 2+, campement) ──
+  if (det.has("drying_racks") && band === 0) {
+    const seed = (L.mapSeed || 0) >>> 0;
+    for (let i = 0; i < 3; i++) {
+      const h = cmHash(`rack:${seed}:${i}`);
+      const ang = ((h % 360) / 360) * Math.PI * 2;
+      const dist = (2.2 + ((h >> 5) % 14) / 10) * T;
+      const sx = toSX(coreX + Math.cos(ang) * dist);
+      const sy = toSY(coreY + Math.sin(ang) * dist * 0.8);
+      if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+      const w = s * 0.3, hgt = s * 0.26;
+      ctx.strokeStyle = "#6a4a20";
+      ctx.lineWidth = Math.max(1, s * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(sx - w / 2, sy); ctx.lineTo(sx - w / 2, sy - hgt);
+      ctx.moveTo(sx + w / 2, sy); ctx.lineTo(sx + w / 2, sy - hgt);
+      ctx.moveTo(sx - w / 2, sy - hgt); ctx.lineTo(sx + w / 2, sy - hgt);
+      ctx.stroke();
+      // Peaux/poissons suspendus
+      ctx.strokeStyle = "#9a7a50";
+      ctx.lineWidth = Math.max(0.8, s * 0.05);
+      for (let k = 0; k < 3; k++) {
+        const px = sx - w / 2 + w * (0.25 + k * 0.25);
+        ctx.beginPath(); ctx.moveTo(px, sy - hgt); ctx.lineTo(px, sy - hgt * 0.45); ctx.stroke();
+      }
+    }
+  }
+
+  // ── Meules de foin et épouvantails dans les champs (ères 7/8, âges Bois-Pierre) ──
+  if ((det.has("haystacks") || det.has("scarecrows")) && band >= 1 && band <= 2) {
+    // Cache des emplacements par layout (les tuiles ne bougent pas entre rebuilds).
+    if (CM._eraFarmKey !== CM.layoutRecomputeAt) {
+      CM._eraFarmKey = CM.layoutRecomputeAt;
+      const hay = [], crows = [];
+      for (const t of (L.tiles || [])) {
+        if (t.type !== "farm") continue;
+        const h = cmHash(`fdet:${t.gx}:${t.gy}`);
+        if (h % 5 === 0 && hay.length < 14) hay.push({ gx: t.gx, gy: t.gy, h });
+        else if (h % 7 === 3 && crows.length < 8) crows.push({ gx: t.gx, gy: t.gy, h });
+      }
+      CM._eraFarmHay = hay;
+      CM._eraFarmCrows = crows;
+    }
+    if (det.has("haystacks")) {
+      for (const f of (CM._eraFarmHay || [])) {
+        const sx = toSX(f.gx * T + T * (0.25 + (f.h % 5) / 10));
+        const sy = toSY(f.gy * T + T * (0.3 + ((f.h >> 3) % 5) / 10));
+        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+        ctx.fillStyle = "#c9a23e";
+        ctx.beginPath();
+        ctx.arc(sx, sy, s * 0.11, Math.PI, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(90,66,20,0.5)";
+        ctx.fillRect(sx - s * 0.11, sy - s * 0.012, s * 0.22, s * 0.024);
+      }
+    }
+    if (det.has("scarecrows")) {
+      for (const f of (CM._eraFarmCrows || [])) {
+        const sx = toSX(f.gx * T + T * (0.3 + (f.h % 4) / 10));
+        const sy = toSY(f.gy * T + T * (0.35 + ((f.h >> 2) % 4) / 10));
+        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+        const hgt = s * 0.32;
+        ctx.strokeStyle = "#5a3a14";
+        ctx.lineWidth = Math.max(0.8, s * 0.035);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - hgt);
+        ctx.moveTo(sx - s * 0.1, sy - hgt * 0.7); ctx.lineTo(sx + s * 0.1, sy - hgt * 0.7);
+        ctx.stroke();
+        ctx.fillStyle = "#c9b48a";
+        ctx.beginPath(); ctx.arc(sx, sy - hgt, Math.max(0.8, s * 0.045), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  // ── Étals de marché sur les places (ère 12+, âges Pierre à Marbre) ──
+  if (det.has("market_stalls") && band >= 2 && band <= 4) {
+    const plazas = (L.plan && L.plan.plazas) || [];
+    const stallColors = ["#b8503c", "#3f7a52", "#b8923c", "#5b6ea8"];
+    for (const p of plazas) {
+      const half = Math.floor(p.size / 2);
+      for (let i = 0; i < 4; i++) {
+        const h = cmHash(`stall:${p.gx}:${p.gy}:${i}`);
+        if (h % 3 === 0) continue; // toutes les places ne sont pas pleines
+        const ox = (h % 100) / 100, oy = ((h >> 4) % 100) / 100;
+        const wx = (p.gx - half + 0.5 + ox * (p.size - 1.6)) * T;
+        const wy = (p.gy - half + 0.5 + oy * (p.size - 1.6)) * T;
+        const sx = toSX(wx), sy = toSY(wy);
+        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+        const w = s * 0.24, d = s * 0.16;
+        // Comptoir + auvent coloré
+        ctx.fillStyle = "#7a5a30";
+        ctx.fillRect(sx - w / 2, sy - d * 0.4, w, d * 0.55);
+        ctx.fillStyle = stallColors[h % stallColors.length];
+        ctx.beginPath();
+        ctx.moveTo(sx - w * 0.62, sy - d * 0.4);
+        ctx.lineTo(sx + w * 0.62, sy - d * 0.4);
+        ctx.lineTo(sx + w * 0.5, sy - d * 0.85);
+        ctx.lineTo(sx - w * 0.5, sy - d * 0.85);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  // ── Étendard seigneurial au cœur de la ville (ère 17+, âges Couronne-Marbre) ──
+  if (det.has("keep_standard") && band >= 3 && band <= 4) {
+    const accent = getEraTheme(CM.frameEraIndex || 0).accent;
+    const sx = toSX(coreX + T * 0.5), sy = toSY(coreY - T * 0.4);
+    if (sx > -s * 2 && sy > -s * 2 && sx < CM.cw + s * 2 && sy < CM.ch + s * 2) {
+      const hgt = s * 1.5;
+      ctx.strokeStyle = "#2e2825";
+      ctx.lineWidth = Math.max(1.2, s * 0.055);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - hgt); ctx.stroke();
+      // Grand gonfanon rectangulaire qui ondule
+      const wave = Math.sin(now / 380) * s * 0.06;
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - hgt);
+      ctx.lineTo(sx + s * 0.52, sy - hgt + s * 0.06 + wave);
+      ctx.lineTo(sx + s * 0.52, sy - hgt + s * 0.3 + wave);
+      ctx.lineTo(sx, sy - hgt + s * 0.36);
+      ctx.closePath(); ctx.fill();
+      // Emblème doré
+      ctx.fillStyle = "#f0c860";
+      ctx.beginPath();
+      ctx.arc(sx + s * 0.24, sy - hgt + s * 0.19 + wave * 0.5, Math.max(1, s * 0.05), 0, Math.PI * 2);
+      ctx.fill();
+      // Pointe de lance
+      ctx.fillStyle = "#c8c2b8";
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - hgt - s * 0.1);
+      ctx.lineTo(sx - s * 0.035, sy - hgt);
+      ctx.lineTo(sx + s * 0.035, sy - hgt);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+
+function cityMapDrawEraGlow(now) {
+  const L = CM.layout;
+  if (!L || !L.counts) return;
+  const det = cmEraDetailSet();
+  const band = L.counts.eraBand;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
+  const toSX = (wx) => (wx - CM.cam.x) * z + CM.cw / 2;
+  const toSY = (wy) => (wy - CM.cam.y) * z + CM.ch / 2;
+  const coreX = (L.plan?.core?.x ?? L.cx) * T;
+  const coreY = (L.plan?.core?.y ?? L.cy) * T;
+  const n = CM.nightF || 0;
+  const prev = ctx.globalCompositeOperation;
+
+  // ── Lueur des feux satellites la nuit ──
+  if (det.has("satellite_fires") && band === 0 && n > 0.15 && !CM.lodActive) {
+    ctx.globalCompositeOperation = "lighter";
+    for (const f of cmSatelliteFireSpots(L)) {
+      const sx = toSX(f.x), sy = toSY(f.y);
+      const r = T * z * 1.6;
+      if (sx < -r || sy < -r || sx > CM.cw + r || sy > CM.ch + r) continue;
+      const fl = 0.8 + 0.2 * Math.sin(now / 170 + (f.h % 5));
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, r));
+      g.addColorStop(0, `rgba(255,176,96,${(n * 0.28 * fl).toFixed(3)})`);
+      g.addColorStop(1, "rgba(255,176,96,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(sx, sy, Math.max(1, r), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = prev;
+  }
+
+  // ── Grille civique pulsante (ère 33+) ──
+  if (det.has("neon_grid") && band >= 6) {
+    const warm = mapThemeForBand(band).nightWarm;
+    const pulse = 0.5 + 0.5 * Math.sin(now / 900);
+    const alpha = (0.04 + 0.1 * pulse) * (0.35 + 0.65 * n);
+    const reach = (8 + L.counts.urbanTier) * T;
+    const sx0 = toSX(coreX - reach), sx1 = toSX(coreX + reach);
+    const sy0 = toSY(coreY - reach), sy1 = toSY(coreY + reach);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `rgba(${warm},${alpha.toFixed(3)})`;
+    ctx.lineWidth = Math.max(0.5, z * 0.8);
+    const step = T * 2 * z;
+    if (step > 4) {
+      ctx.beginPath();
+      for (let x = sx0; x <= sx1; x += step) { ctx.moveTo(x, Math.max(0, sy0)); ctx.lineTo(x, Math.min(CM.ch, sy1)); }
+      for (let y = sy0; y <= sy1; y += step) { ctx.moveTo(Math.max(0, sx0), y); ctx.lineTo(Math.min(CM.cw, sx1), y); }
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = prev;
+  }
+
+  // ── Cœur qui respire (ère finale) ──
+  if (det.has("breathing_core")) {
+    const warm = mapThemeForBand(band).nightWarm;
+    const breath = 0.5 + 0.5 * Math.sin(now / 1600);
+    const r = (5 + breath * 3) * T * z;
+    const sx = toSX(coreX), sy = toSY(coreY);
+    if (sx > -r && sy > -r && sx < CM.cw + r && sy < CM.ch + r) {
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(1, r));
+      g.addColorStop(0, `rgba(${warm},${(0.1 + 0.12 * breath).toFixed(3)})`);
+      g.addColorStop(1, `rgba(${warm},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(sx, sy, Math.max(1, r), 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = prev;
+    }
+  }
+}
+
 export {
   baseColor,
   cityMapDrawBridges,
@@ -1899,6 +2285,8 @@ export {
   cityMapDrawUrbanMass,
   cityMapDrawVestiges,
   cityMapDrawWalls,
+  cityMapDrawEraDetails,
+  cityMapDrawEraGlow,
   cmLitColor,
   drawCrisis
 };

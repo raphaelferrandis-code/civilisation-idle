@@ -33,3 +33,121 @@ export const RUIN_REFERENCE_POP = 1.5e11;
 //   1 + legitimacy^LEGITIMACY_POWER_EXP * LEGITIMACY_COEF
 export const LEGITIMACY_POWER_EXP = 0.7;  // exposant du multiplicateur d'institutions
 export const LEGITIMACY_COEF = 0.22;      // coefficient associé
+
+// ── Anti-dégénérescence de la Rupture (rééquilibrage post-simulation) ────────
+// Deux dégénérescences mesurées en fin de partie : (1) cité sur-stabilisée
+// (actions de crise + Usure gelée) → ineffondrable ; (2) cité sur-puissante →
+// Rupture à 100 % en <120 s → effondrement à gain nul. Les constantes ci-dessous
+// corrigent les deux sans toucher au cœur des formules.
+
+// Quand la cible de pression dépasse 1, la dérive de la jauge accélère
+// proportionnellement au dépassement (plafonné) : une cité dont la pression
+// réelle vaut 3× le seuil ne peut plus être tenue indéfiniment par des actions.
+export const INSTABILITY_OVERSHOOT_CAP = 3;
+
+// Montée incompressible : la jauge ne peut pas gagner plus de 1 %/s, quelle que
+// soit la pression. Garantit un cycle d'au moins ~2-3 minutes, le temps que les
+// pics (population) se reconstruisent et que la patience de ruinGain() compte.
+export const INSTABILITY_MAX_RISE_PER_SEC = 0.01;
+
+// Rendements décroissants des actions de crise : chaque usage du même type
+// multiplie la baisse de Rupture par ce facteur (0.9^n). Tenir la jauge devient
+// une stratégie de délai, plus une stratégie d'immortalité.
+export const CRISIS_ACTION_DECAY = 0.9;
+
+// Cooldown des actions automatiques de protocoles_urgence : l'automation ne
+// doit pas pouvoir verrouiller la jauge sous le seuil de crise à elle seule.
+export const AUTO_CRISIS_COOLDOWN_MS = 60_000;
+
+// Plafond de la mitigation d'Usure (infra/savoir/légitimité). Non bornée, elle
+// gelait l'Usure en fin de partie (taux mesuré ~0.002) : l'Usure redevient une
+// deadline garantie — toute civilisation finit par tomber par le temps.
+export const TIME_WEAR_MITIGATION_CAP = 8;
+
+// Plancher du gain de Ruines basé sur l'ÉCHELLE (pic de population), pas
+// seulement l'âge du cycle : floor(log10(peakPop)/DIV). Une cité d'un million
+// d'habitants qui tombe en 90 s n'a pas « rien construit ».
+export const RUIN_GAIN_SCALE_FLOOR_LOG_DIV = 4;
+
+// Grâce de fondation : portée étendue (65 → 80 bâtiments) mais décroissance
+// quadratique — sortie progressive au lieu d'un mur binaire.
+export const FOUNDING_GRACE_BUILDINGS = 80;
+
+// ── « Impression d'évoluer » (rééquilibrage cadence des jalons) ──────────────
+// Mesure de référence (simulation) : désert sans jalon de 14 min à 1j15h, puis
+// GR1→GR10 en 1j14h et 1820 dynasties spammées. Objectifs : un jalon visible
+// toutes les ~30-60 min, des boucles de prestige à coût croissant, pas de spam.
+
+// Profondeur de population dans ruinGain() : référence abaissée et exposant
+// relevé pour que l'arbre de ruines ne stagne plus pendant des centaines de
+// cycles en début de partie (revenu mesuré : 2-5 ruines/cycle face à des nœuds
+// à 110-840).
+export const RUIN_POP_DEPTH_REF = 15000;  // population de référence (ancien : 25000)
+export const RUIN_POP_DEPTH_EXP = 0.45;   // exposant (ancien : 0.42)
+
+// Fondation de dynastie : seuil d'entrée abaissé (visible dès ~8-12 h de jeu au
+// lieu de 1j15h) mais croissant à chaque fondation depuis le dernier Grand Reset
+// (× growth^n) — les premières dynasties d'une boucle restent un rituel
+// accessible, le spam (1820 fondations mesurées) devient impossible.
+export const DYNASTY_BASE_RUINS = 120;    // seuil de ruines de la 1re fondation (ancien : 300 fixe)
+export const DYNASTY_COST_GROWTH = 1.4;   // multiplicateur du seuil par fondation depuis le dernier GR
+
+// Grand Reset à coût croissant : le 1er est payé par l'upgrade « grand_reset »,
+// chaque suivant consomme BASE × 2^(n-1) légitimité (GR2 : 600, GR3 : 1200…).
+// La récompense double à chaque GR, le coût doit suivre — sinon les 10 GR
+// tombent en 1j14h (mesuré) et cessent d'être ressentis comme des sommets.
+export const GRAND_RESET_LEGIT_BASE = 300;
+
+// Gating doux des Grand Resets par les Mythes : à partir de MYTH_GATE_START_GR,
+// chaque GR exige un Mythe complété de plus (GR3 : 1, GR4 : 2, … GR10 : 8).
+// Les Mythes deviennent les chapitres de la route principale au lieu d'un
+// contenu optionnel contournable (le bot a atteint GR10 avec 1 seul Mythe).
+export const MYTH_GATE_START_GR = 3;
+
+// Récompense de la « rafale d'ères » post-GR : chaque palier d'ère maximale
+// jamais atteint ajoute un bonus PLAT de ruines à chaque effondrement. La
+// retraversée express des ères devient une pluie de gains visibles.
+export const ERA_RUIN_BONUS_PER_INDEX = 1;
+
+// ── Rupture : l'infrastructure jugée en RATIO, plafonds doux ─────────────────
+// Problème mesuré : l'infra n'agissait que via log10(infra×0.018)×0.22 plafonné
+// à 0.75 → effet nul au-delà de ~1e5 d'infra, et les sources saturaient en
+// plafonds durs → en fin de partie AUCUN achat ne bougeait la jauge. La recette
+// qui marche à toutes les échelles est celle de la nourriture : un RATIO.
+
+// Couverture d'infrastructure : infra / max(MIN_BASE, pop×POP_F + bâtiments×BLD_F).
+// ≈1 quand la cité est bien équipée pour sa taille — discriminant de l'an 0 à la
+// Singularité, c'est le cœur du rééquilibrage.
+export const INFRA_COVERAGE_POP_FACTOR = 0.012;
+export const INFRA_COVERAGE_BUILDING_FACTOR = 1.5;
+export const INFRA_COVERAGE_MIN_BASE = 30;
+
+// Couverture EFFECTIVE plafonnée en doux (cap·x/(x+cap)) : le stock d'infra
+// n'est jamais consommé, donc sur un long cycle il dépasse mécaniquement la
+// demande (couverture 16 mesurée → Rupture morte). L'infra aide jusqu'à « bien
+// équipée ×3 », l'accumulation passive ne trivialise plus la jauge.
+export const INFRA_COVERAGE_EFFECTIVE_CAP = 3;
+
+// Mitigation : log10(1 + couvertureEff×MULT + légitimité×0.16) × COEF, plafond
+// relevé (0.75 → 1.1). Relever le plafond ne recrée pas la cité ineffondrable :
+// l'Usure (mitigation plafonnée ×8) reste la deadline garantie. Rupture = jauge
+// pilotée par les choix du joueur ; Usure = horloge inévitable.
+export const INFRA_COVERAGE_MITIGATION_MULT = 6;
+export const MITIGATION_LOG_COEF = 0.30;
+export const MITIGATION_CAP = 1.1;
+
+// Amortissement de la charge structurelle par la couverture : structural est
+// divisé par (1 + couvertureEff×DAMP) — réduction max ~×2.5, pas l'annulation.
+export const STRUCTURAL_COVERAGE_DAMP = 0.5;
+
+// Bâtiments stabilisants (égouts, tribunaux… instabilité négative) : prise
+// DIRECTE sur la charge structurelle, au lieu d'être compressés dans le log de
+// mitigation. Facteur ×6 : leurs valeurs nominales (-0.003…-0.01) sont petites
+// face à la masse d'instabilité positive accumulée (l'ancien système les
+// multipliait ×12 dans le log) — assez investir en ordre civil peut annuler la
+// charge structurelle, les autres sources de pression restent.
+export const STABILIZER_DIRECT_FACTOR = 6;
+
+// Complexity : le dénominateur 26 devient 26 × (1 + couvertureEff×ABSORB) — une
+// cité bien équipée digère sa taille administrative (absorption max ~×2.5).
+export const COMPLEXITY_COVERAGE_ABSORB = 0.5;

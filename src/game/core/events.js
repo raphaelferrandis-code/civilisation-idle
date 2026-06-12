@@ -24,14 +24,16 @@ import { eras } from '../data/world.js';
 import { dynastyNames } from '../data/buildings.js';
 import {
   EPITAPH_LEGACIES,
-  describeEpitaphLegacy,
+  EPITAPH_LEGACY_DURATION_MS,
+  FAVORED_CAUSE_LABELS,
+  epitaphLegacyChips,
   epitaphRuinMultiplier
 } from '../data/epitaphs.js';
 import { fmt } from './utils.js';
 import { D } from './num.js';
 
-export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false }) {
-  return requestChoiceDialog({ title, body, options, mourning, variant, preventClose });
+export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false, footnote = "" }) {
+  return requestChoiceDialog({ title, body, options, mourning, variant, preventClose, footnote });
 }
 
 export function collapseCause() {
@@ -48,15 +50,15 @@ export function generateEpitaph() {
   const era = eras[currentEraIndex()].name;
   const cause = collapseCause();
   if (cause === "time") {
-    return "Le temps a efface ses fondations. Elle s'eteignit doucement, oubliee par l'histoire.";
+    return "Le temps a effacé ses fondations. Elle s'éteignit doucement, oubliée par l'histoire.";
   }
   if (cause === "famine") {
-    return `Ici s'arrete l'Age ${era}. Detruite par ses propres famines, elle ne laissa que des poteries brisees.`;
+    return `Ici s'arrête l'Âge ${era}. Détruite par ses propres famines, elle ne laissa que des poteries brisées.`;
   }
   if (cause === "avarice") {
-    return `Ici s'arrete l'Age ${era}. Detruite par l'avarice de ses elites, son opulence fut ensevelie sous les sables.`;
+    return `Ici s'arrête l'Âge ${era}. Détruite par l'avarice de ses élites, son opulence fut ensevelie sous les sables.`;
   }
-  return `Ici s'arrete l'Age ${era}. Trop vaste pour se gouverner, elle confondit sa grandeur avec une promesse d'eternite.`;
+  return `Ici s'arrête l'Âge ${era}. Trop vaste pour se gouverner, elle confondit sa grandeur avec une promesse d'éternité.`;
 }
 
 export async function runCollapseSequence(gain, reason) {
@@ -69,11 +71,22 @@ export async function runCollapseSequence(gain, reason) {
 
   const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
   const gainBase = D(gain).mul(riteBonus).round();
+  const legacyMinutes = Math.round(EPITAPH_LEGACY_DURATION_MS / 60000);
   const options = EPITAPH_LEGACIES.map((legacy) => {
-    const ruinGain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).round();
+    const mult = epitaphRuinMultiplier(legacy, cause);
+    const ruinGain = gainBase.mul(mult).round();
+    const deltaPct = Math.round((mult - 1) * 100);
+    const favored = legacy.favoredCause === cause;
     return {
-      label: legacy.label,
-      detail: `${fmt(ruinGain)} ruines. ${describeEpitaphLegacy(legacy, cause)}`,
+      label: `${legacy.icon} ${legacy.label}`,
+      headline: `+${fmt(ruinGain)} ruines`,
+      delta: deltaPct
+        ? { label: `${deltaPct > 0 ? "+" : "−"}${Math.abs(deltaPct)}% de ruines`, kind: deltaPct > 0 ? "gain" : "cost" }
+        : null,
+      effects: epitaphLegacyChips(legacy, cause),
+      badge: favored ? `⚡ Affinité : ${FAVORED_CAUSE_LABELS[cause] || cause}` : null,
+      highlight: favored,
+      detail: legacy.tagline,
       ruinGain,
       epitaphLegacyId: legacy.id
     };
@@ -82,6 +95,7 @@ export async function runCollapseSequence(gain, reason) {
   const choice = await openChoiceDialog({
     title: `Chute de ${fallenDynasty}`,
     body: `${epitaph}\n\nLes survivants ne choisissent plus seulement combien sauver, mais ce que la prochaine civilisation devra retenir.`,
+    footnote: `Le legs gravé agit pendant les ${legacyMinutes} premières minutes du prochain cycle. L'affinité avec la cause de la chute renforce le legs correspondant.`,
     mourning: true,
     preventClose: true,
     options
