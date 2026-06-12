@@ -12,6 +12,7 @@ import {
   RUIN_POWER_COEF,
   TIME_WEAR_BASE_RATE,
   COLLAPSE_PREP_MAX,
+  RUIN_REFERENCE_POP,
   LEGITIMACY_POWER_EXP,
   LEGITIMACY_COEF
 } from './balance.js';
@@ -1016,10 +1017,11 @@ export function ruinGain() {
       : age < 600
         ? 0.8
         : Math.min(1.75, 1 + Math.log10(age / 600 + 1) * 0.55);
-  const finalEraPopulation = eras[eras.length - 1]?.at || 150000000000;
+  // Référence figée (balance.js) et non eras[eras.length - 1].at : la longueur
+  // de la courbe des ères ne doit pas influencer le gain de Ruines.
   const normalizedEraIndex = clamp(
     (Math.log10(Math.max(10, peakPopulation) + 10) - Math.log10(10)) /
-    (Math.log10(finalEraPopulation + 10) - Math.log10(10)),
+    (Math.log10(RUIN_REFERENCE_POP + 10) - Math.log10(10)),
     0,
     1
   ) * 6;

@@ -22,6 +22,13 @@ export const TIME_WEAR_BASE_RATE = 0.00003;   // vitesse de base de l'Usure du t
 // borne le bonus de Ruines obtenu en préparant sa chute.
 export const COLLAPSE_PREP_MAX = 2.4; // plafond de préparation à l'effondrement
 
+// Population de référence pour normaliser la profondeur d'ère dans ruinGain().
+// C'est l'ancien seuil de la dernière ère ("Singularité civique", 1.5e11),
+// figé volontairement : le gain de Ruines ne doit PAS dépendre de la longueur
+// de la courbe des ères (l'extension à 35 paliers / 10^35 avait nerfé ~33 %
+// l'early game par effet de bord — attrapé par le golden test).
+export const RUIN_REFERENCE_POP = 1.5e11;
+
 // Multiplicateur d'institutions tiré de la Légitimité :
 //   1 + legitimacy^LEGITIMACY_POWER_EXP * LEGITIMACY_COEF
 export const LEGITIMACY_POWER_EXP = 0.7;  // exposant du multiplicateur d'institutions

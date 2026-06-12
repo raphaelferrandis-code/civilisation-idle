@@ -69,6 +69,30 @@ describe("golden-master du cœur économique", () => {
     expect(ruinGain()).toMatchSnapshot();
   });
 
+  // Trois points de la courbe en plus de la fixture mid-game : le nerf de -33 %
+  // introduit par l'extension des ères (revue n°2) n'avait été visible que parce
+  // qu'un point existait — on couvre désormais early game, late game float, et
+  // le chemin Decimal au-delà de 2^53 (branche populationDepthDec).
+  describe("ruinGain — couverture de la courbe", () => {
+    const ruinGainAtPeak = (population) => {
+      state.instability = 1;
+      state.cyclePeaks.population = population;
+      return ruinGain();
+    };
+
+    it("pic early game (500)", () => {
+      expect(ruinGainAtPeak(500)).toMatchSnapshot();
+    });
+
+    it("pic late game float (1e20)", () => {
+      expect(ruinGainAtPeak(1e20)).toMatchSnapshot();
+    });
+
+    it("pic au-delà du domaine float (1e310) — chemin Decimal", () => {
+      expect(ruinGainAtPeak(new Decimal("1e310"))).toMatchSnapshot();
+    });
+  });
+
   it("timeWearRate", () => {
     expect(timeWearRate()).toMatchSnapshot();
   });

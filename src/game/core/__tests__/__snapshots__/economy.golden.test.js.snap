@@ -96,4 +96,10 @@ exports[`golden-master du cœur économique > rates 1`] = `
 
 exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(4)`;
 
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic au-delà du domaine float (1e310) — chemin Decimal 1`] = `Decimal(1.2728925311991155e+129)`;
+
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic early game (500) 1`] = `Decimal(1)`;
+
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic late game float (1e20) 1`] = `Decimal(20173987.000000004)`;
+
 exports[`golden-master du cœur économique > timeWearRate 1`] = `0.000012715269475780118`;
