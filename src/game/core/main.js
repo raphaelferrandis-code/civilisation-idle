@@ -303,7 +303,9 @@ export function initAudio() {
     if (savedVol !== null) optMusicVolume = clamp(Number(savedVol), 0, 1);
   } catch { /* Option persistence may be unavailable. */ }
 
-  bgAudio = new Audio("/audio/ludum-dare-30-05.ogg");
+  // Chemin relatif au document : indispensable pour l'exe Electron (file://),
+  // où un chemin absolu "/audio/…" pointe hors du dossier dist.
+  bgAudio = new Audio(`${import.meta.env.BASE_URL}audio/ludum-dare-30-05.ogg`);
   bgAudio.loop = true;
   bgAudio.preload = "auto";
   bgAudio.volume = optMusicVolume;

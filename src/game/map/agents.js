@@ -175,7 +175,12 @@ function drawCitizens(dt, now) {
       p.tx = p.x;
       p.ty = p.y;
       p.dir = -1;
+      // Téléporté après un recalcul du plan (achat de bâtiment) : fondu
+      // d'apparition pour éviter les "points" qui surgissent sur la carte.
+      p.fade = 0;
     }
+    if (p.fade === undefined) p.fade = 1;
+    else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 0.7);
     if (p.pauseT > 0) {
       p.pauseT -= dt;
     } else {
@@ -212,6 +217,7 @@ function drawCitizens(dt, now) {
     // ── Silhouette humaine lisible : ombre, jambes, tunique, tête ──────
     const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur du personnage
     const walking = p.pauseT <= 0;
+    if (p.fade < 1) ctx.globalAlpha = p.fade;
     // Ombre au sol
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
@@ -231,9 +237,12 @@ function drawCitizens(dt, now) {
     ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
     ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
     ctx.closePath(); ctx.fill();
-    // Liseré d'épaule (volume)
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
+    // Liseré d'épaule (volume) — seulement quand la silhouette est assez
+    // grande : sur 2-3 px, ce blanc transformait le personnage en point clair.
+    if (ph >= 3) {
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
+    }
     // Tête (teint de peau)
     ctx.fillStyle = p.skin || "#e0b890";
     ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
@@ -242,6 +251,7 @@ function drawCitizens(dt, now) {
       ctx.fillStyle = p.hat;
       ctx.beginPath(); ctx.arc(sx, sy - ph * 0.95, ph * 0.48, Math.PI, 0); ctx.fill();
     }
+    if (p.fade < 1) ctx.globalAlpha = 1;
   }
 }
 
@@ -404,6 +414,9 @@ function drawVehicles(now, pass) {
     const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
     let sy = (v.y - CM.cam.y) * z + CM.ch / 2;
     if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+    if (v.fade === undefined) v.fade = 1;
+    else if (v.fade < 1) v.fade = Math.min(1, v.fade + 0.045); // ~0.7s à 30fps
+    if (v.fade < 1) ctx.globalAlpha = v.fade;
     if (v.type === "drone") {
       sy -= s * 0.5;
       const t2 = now || 0;
@@ -447,6 +460,42 @@ function drawVehicles(now, pass) {
       ctx.beginPath();
       ctx.arc(sx - s * 0.1, sy + hover + s * 0.06, Math.max(1, s * 0.025), 0, Math.PI * 2);
       ctx.fill();
+      if (v.fade < 1) ctx.globalAlpha = 1;
+      continue;
+    }
+    if (v.type === "basket") {
+      // Porteur de panier : une vraie silhouette (comme les habitants), pas un
+      // cercle beige flottant — l'ancien rendu faisait des "points" sur les routes.
+      const ph = Math.max(1.5, 2.1 * z);
+      const bob = Math.sin((now || 0) / 150 + v.x * 0.05) * ph * 0.08;
+      // Ombre au sol
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+      // Jambes alternées
+      if (ph > 2) {
+        const step = Math.sin((now || 0) / 120 + v.x * 0.08) * ph * 0.45;
+        ctx.strokeStyle = "#241a10";
+        ctx.lineWidth = Math.max(1, ph * 0.28);
+        ctx.beginPath(); ctx.moveTo(sx - ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx - ph * 0.15 + step * 0.5, sy + ph * 1.3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx + ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx + ph * 0.15 - step * 0.5, sy + ph * 1.3); ctx.stroke();
+      }
+      // Tunique
+      ctx.fillStyle = "#8f6e48";
+      ctx.beginPath();
+      ctx.moveTo(sx - ph * 0.62, sy - ph * 0.45);
+      ctx.quadraticCurveTo(sx - ph * 0.5, sy + ph * 0.65, sx - ph * 0.3, sy + ph * 0.62);
+      ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
+      ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
+      ctx.closePath(); ctx.fill();
+      // Tête
+      ctx.fillStyle = "#d4a878";
+      ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
+      // Panier porté sur la tête (ovale + rebord sombre)
+      ctx.fillStyle = "#b08a4a";
+      ctx.beginPath(); ctx.ellipse(sx, sy - ph * 1.45 + bob, ph * 0.75, ph * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#7a5a28";
+      ctx.beginPath(); ctx.ellipse(sx, sy - ph * 1.58 + bob, ph * 0.6, ph * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+      if (v.fade < 1) ctx.globalAlpha = 1;
       continue;
     }
     ctx.save();
@@ -553,11 +602,6 @@ function drawVehicles(now, pass) {
         ctx.lineTo(s * 0.24, s * 0.09);
         ctx.stroke();
       }
-    } else if (v.type === "basket") {
-      ctx.fillStyle = "#b08a4a";
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(1, s * 0.075), 0, Math.PI * 2);
-      ctx.fill();
     } else if (v.type === "barrow") {
       ctx.fillStyle = "#8f6534";
       ctx.fillRect(-s * 0.11, -s * 0.07, s * 0.22, s * 0.12);
@@ -589,6 +633,7 @@ function drawVehicles(now, pass) {
       drawVehicleWheelSet(ctx, s, [-0.1, 0.1], 0.08, 0.03, 0.016, "#2a1a0c");
     }
     ctx.restore();
+    if (v.fade < 1) ctx.globalAlpha = 1;
   }
 }
 

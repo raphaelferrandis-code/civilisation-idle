@@ -13,6 +13,7 @@ import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoads } from './procedural/roadGenerator.js';
 import { generateWalls } from './procedural/wallGenerator.js';
 import { createBuildingPlacer } from './procedural/buildingGenerator.js';
+import { createWaterModel } from './procedural/waterModel.js';
 
 /* ---- legacy citymap core\layout.js ---- */
 
@@ -118,8 +119,8 @@ const CM_ENGINE_BUILDINGS = [
   { id: "markets",           name: "Marches",              zone: "mid"     },
   { id: "guilds",            name: "Guildes",              zone: "center"  },
   { id: "irrigated_fields",  name: "Champs",               zone: "outer"   },
-  { id: "river_ports",       name: "Ports",                zone: "river"   },
-  { id: "water_mills",       name: "Moulins",              zone: "river"   },
+  { id: "river_ports",       name: "Ports",                zone: "river",   water: "bank" },
+  { id: "water_mills",       name: "Moulins",              zone: "river",   water: "bank" },
   { id: "mint_houses",       name: "Hotels des monnaies",  zone: "center"  },
   { id: "imperial_exchanges",name: "Banques Nationnales",  zone: "center"  }
 ];
@@ -151,6 +152,31 @@ const CM_KNOWLEDGE_IDS = new Set(CM_KNOWLEDGE_BUILDINGS.map((b) => b.id));
 const CM_INFRA_IDS     = new Set(CM_INFRA_BUILDINGS.map((b) => b.id));
 const CM_SLOT_PRIORITIES = { aqueducts: 0, infra: 1, knowledge: 2, engine: 3 };
 
+// Affinité à l'eau d'un bâtiment moteur : où son emprise a le droit de se poser.
+//   "dry" (défaut) = jamais sur l'eau ni sur la berge ;
+//   "bank"         = peut mordre la berge (quais, moulins, ports) — pool rive ;
+//   "near"         = sol sec proche de la rive ;
+//   "on"           = se pose SUR l'eau (comme un pont) ;
+//   "any"          = indifférent (pool terrestre, eau interdite).
+// Sans champ `water`, on retombe sur l'historique : zone "river" ⇒ "bank".
+// Une seule fonction à toucher pour qu'une demande « tel objet sur/hors de
+// l'eau » devienne une métadonnée dans CM_*_BUILDINGS.
+function cmWaterAffinity(meta) {
+  if (meta && meta.water) return meta.water;
+  return meta && meta.zone === "river" ? "bank" : "dry";
+}
+// Droits de pose dérivés de l'affinité, consommés par footprintFits.
+function cmWaterAllow(affinity) {
+  return {
+    allowWater: affinity === "on",
+    allowBank:  affinity === "on" || affinity === "bank"
+  };
+}
+// Vrai dès qu'un bâtiment cherche la proximité de l'eau (pool + score « rivière »).
+function cmWaterAffine(affinity) {
+  return affinity === "on" || affinity === "bank" || affinity === "near";
+}
+
 // â”€â”€ Merveilles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Chaque merveille a une identité propre : nom, sprite dédié (renderBuildings),
 // emplacement thématique, et 5 PALIERS d'évolution : franchir un nouveau jalon
@@ -171,8 +197,8 @@ const CM_WONDERS = [
     metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
   { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 },
-    unlockedBy: "100 achats accomplis (bâtiments et décrets).",
-    metric: (s) => s.lifetimePurchases || 0, tiers: [100, 1000, 10000, 15000, 20000],
+    unlockedBy: "500 achats accomplis (bâtiments et décrets).",
+    metric: (s) => s.lifetimePurchases || 0, tiers: [500, 2500, 10000, 15000, 20000],
     tierLabel: (v) => `${v >= 1000 ? (v / 1000) + " 000" : v} achats accomplis` },
   { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 },
     unlockedBy: "30 minutes passées à veiller sur la cité.",
@@ -259,8 +285,16 @@ function cmAqueductSpan(level) {
   if (level >= 5)  return 5;
   return 3;
 }
+function cmFieldSpan(level) {
+  // Ceinture de champs : un bloc unique, plus large que haut, qui grandit avec
+  // le niveau. Croissance en sqrt pour ralentir l'expansion en fin de partie.
+  const r = Math.sqrt(Math.max(1, Math.floor(level)));
+  return { w: cmClamp(2 + Math.floor(r * 1.4), 2, 11), h: cmClamp(2 + Math.floor(r * 0.7), 2, 6) };
+}
 function cmEngineInstances(count, id) {
   if (id === "aqueducts") return count > 0 ? [Math.floor(count)] : [];
+  // Champs : une seule ceinture agricole qui grandit (pas de tuiles dispersées).
+  if (id === "irrigated_fields") return count > 0 ? [Math.floor(count)] : [];
   if (count <= 0) return [];
   const out = [], n = Math.floor(count), maxGroups = 6;
   if (n >= 10) out.push(10);
@@ -430,7 +464,7 @@ function cmIsBridgeRoad(layout, gx, gy) {
 function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
   const key = (gx, gy) => gx + "," + gy;
   const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const isWater = (gx, gy) => !!(river && river.cells && river.cells.has(key(gx, gy)));
+  const isWater = (gx, gy) => !!(river && river.isWater && river.isWater(gx, gy));
   const buildGraph = (activeSet) => {
     const isCore  = (gx, gy) => activeSet.has(key(gx, gy));
     const metaAt  = (gx, gy) => {
@@ -724,6 +758,15 @@ function computeCityLayout(s) {
   let riverBridge = riverSamples[0], rbd = Infinity;
   for (const sp of riverSamples) { const dd = Math.abs(sp.x - (plan.core.x + 0.5)); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
 
+  // Modèle d'eau : source de vérité unique du « sur l'eau / berge / près / sec ».
+  // Construit tôt pour que pose, graphe routier et rendu consultent les mêmes
+  // prédicats. Sur-ensemble du contrat river historique → rétro-compatible.
+  const water = createWaterModel({
+    cells: riverSet, banks: bankSet, near: nearSet,
+    samples: riverSamples, bridge: riverBridge, riverYAt, present: true
+  });
+  const river = water;
+
   // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon
   // de route + chaque tentative de district. Boucle simple et hash entier
   // (pas de concaténation de chaînes ni de closure de reduce).
@@ -877,11 +920,12 @@ function computeCityLayout(s) {
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
   }
-  const footprintFits = (gx, gy, sizeX, allowBank = false, allowRoad = false, sizeY = sizeX) => {
+  const footprintFits = (gx, gy, sizeX, allowBank = false, allowRoad = false, sizeY = sizeX, allowWater = false) => {
     if (gx < 0 || gy < 0 || gx + sizeX > N || gy + sizeY > N) return false;
     for (let ax = 0; ax < sizeX; ax += 1) for (let ay = 0; ay < sizeY; ay += 1) {
       const key = (gx + ax) + "," + (gy + ay);
-      if (claimed.has(key) || (!allowRoad && roadKey.has(key)) || riverSet.has(key)) return false;
+      if (claimed.has(key) || (!allowRoad && roadKey.has(key))) return false;
+      if (!allowWater && riverSet.has(key)) return false;
       if (!allowBank && bankSet.has(key)) return false;
     }
     return true;
@@ -889,28 +933,56 @@ function computeCityLayout(s) {
   const claimFootprint = (gx, gy, sizeX, sizeY = sizeX) => {
     for (let ax = 0; ax < sizeX; ax += 1) for (let ay = 0; ay < sizeY; ay += 1) claimed.add((gx + ax) + "," + (gy + ay));
   };
-  // Listes de base par zone (recalculées une fois par taille, pas par requête).
+  // Côté (N/S/E/W) par lequel une emprise sizeX×sizeY touche le FLEUVE (cellules
+  // d'eau, pas la berge) — sert à orienter le sprite riverain vers le vrai cours
+  // d'eau. Renvoie le bord le plus mouillé, ou null si l'emprise ne borde pas
+  // l'eau (donc pas un vrai riverain : candidat à rejeter).
+  const footprintWaterSide = (gx, gy, sizeX, sizeY) => {
+    let n = 0, s = 0, e = 0, w = 0;
+    for (let ax = 0; ax < sizeX; ax += 1) {
+      if (riverSet.has((gx + ax) + "," + (gy - 1)))     n += 1;
+      if (riverSet.has((gx + ax) + "," + (gy + sizeY))) s += 1;
+    }
+    for (let ay = 0; ay < sizeY; ay += 1) {
+      if (riverSet.has((gx - 1) + "," + (gy + ay)))      w += 1;
+      if (riverSet.has((gx + sizeX) + "," + (gy + ay)))  e += 1;
+    }
+    const m = Math.max(n, s, e, w);
+    if (m === 0) return null;
+    // Égalités tranchées vers le bas (S) : c'est l'orientation native du sprite.
+    if (m === s) return "S";
+    if (m === n) return "N";
+    if (m === e) return "E";
+    return "W";
+  };
+  // Listes de base par pool (recalculées une fois par taille, pas par requête).
+  // Le pool dépend de l'affinité à l'eau (on/bank/near → cellules d'eau/rive)
+  // OU, à défaut, de la zone terrestre (outside vs buildable).
   const engineBaseCache = new Map();
-  const engineBaseFor = (zone, size) => {
-    const cacheKey = zone + ":" + size;
+  const fitsGrid = (cell, size) => cell.gx >= 0 && cell.gy >= 0 && cell.gx + size <= N && cell.gy + size <= N;
+  const cellsFromSet = (set, size) => Array.from(set).map((k) => {
+    const cma = k.indexOf(",");
+    return { gx: +k.slice(0, cma), gy: +k.slice(cma + 1) };
+  }).filter((cell) => fitsGrid(cell, size));
+  const engineBaseFor = (zone, affinity, size) => {
+    const waterAffine = cmWaterAffine(affinity);
+    const cacheKey = (waterAffine ? "w:" + affinity : "z:" + zone) + ":" + size;
     let base = engineBaseCache.get(cacheKey);
     if (base) return base;
-    base = zone === "river"
-      ? Array.from(new Set([...Array.from(nearSet), ...Array.from(bankSet)])).map((k) => {
-          const cma = k.indexOf(",");
-          return { gx: +k.slice(0, cma), gy: +k.slice(cma + 1) };
-        }).filter((cell) => cell.gx >= 0 && cell.gy >= 0 && cell.gx + size <= N && cell.gy + size <= N)
-      : zone === "outside"
-        ? cells.filter((cell) => cell.gx >= 0 && cell.gy >= 0 && cell.gx + size <= N && cell.gy + size <= N)
-        : buildable;
+    if (affinity === "on")        base = cellsFromSet(riverSet, size);
+    else if (affinity === "bank") base = cellsFromSet(new Set([...Array.from(nearSet), ...Array.from(bankSet)]), size);
+    else if (affinity === "near") base = cellsFromSet(nearSet, size);
+    else if (zone === "outside")  base = cells.filter((cell) => fitsGrid(cell, size));
+    else                          base = buildable;
     engineBaseCache.set(cacheKey, base);
     return base;
   };
   // Fonction chaude (une exécution par bâtiment moteur × toutes les cellules) :
   // clés dans un Float64Array + argsort d'indices, jitter par hash entier —
   // pas d'objets temporaires ni de hash de chaîne par cellule.
-  const engineCandidates = (zone, size, id, index = 0, total = 1, limit = 1024) => {
-    const base = engineBaseFor(zone, size);
+  const engineCandidates = (zone, affinity, size, id, index = 0, total = 1, limit = 1024) => {
+    const base = engineBaseFor(zone, affinity, size);
+    const waterAffine = cmWaterAffine(affinity);
     const half = size / 2;
     const idHash = cmHash(id + ":" + index) >>> 0;
     const angleTarget = (Math.PI * 2 * index) / Math.max(1, total) + (cmHash(id) % 628) / 100;
@@ -924,9 +996,11 @@ function computeCityLayout(s) {
       if (angular > Math.PI) angular = Math.PI * 2 - angular;
       const jitter = (((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ idHash) >>> 0) % 1000) / 1000;
       let k;
-      if (zone === "center")         k = dist + angular * 1.8;
+      // Un bâtiment affine à l'eau se range le long du fil du courant, quelle
+      // que soit sa zone nominale.
+      if (waterAffine || zone === "river") k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
+      else if (zone === "center")    k = dist + angular * 1.8;
       else if (zone === "mid")       k = Math.abs(dist - N * 0.24) + angular * 2.4;
-      else if (zone === "river")     k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
       else if (zone === "caravan")   k = Math.abs(dist - N * 0.38) + angular * 1.4;
       else if (zone === "edge")      k = Math.abs(dist - N * 0.44) + angular * 2 + Math.max(0, cell.gy - cy) * 0.02;
       else if (zone === "outside")   k = Math.abs(dist - N * 0.48) + Math.max(0, cy - cell.gy) * 0.025 + angular * 1.2;
@@ -1004,8 +1078,12 @@ function computeCityLayout(s) {
       }
       if (!placed) {
         // Décore-trie-retire : score calculé une fois par cellule.
+        // L'aqueduc longe la lisière de la ville (reach + 2.5), pas le bord de
+        // la grille : à N*0.46 il finissait hors de la zone que le joueur
+        // regarde, visible seulement en dézoom LOD (gros pavés).
+        const aqRing = Math.min(N * 0.44, (frozenWallReach || cityReachBase) + 2.5);
         const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
-          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - N * 0.46) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
           .sort((a, b) => a.s - b.s)
           .map((e) => e.c2);
         for (const c2 of aqCells) {
@@ -1028,39 +1106,126 @@ function computeCityLayout(s) {
       placedSlotKeys.add(req.slotKey);
       return true;
     }
+    // ── Champs : ceinture agricole 2D (spanX × spanY) collée à la lisière ──
+    // Un seul bloc qui grandit avec le niveau, placé tangent au bord de la ville
+    // (comme la ferme qui s'étend autour du bourg) plutôt que des tuiles éparses.
+    if (req.meta.id === "irrigated_fields") {
+      const fs = cmFieldSpan(req.level);
+      let spanX = fs.w, spanY = fs.h, placed = null;
+      const slot = slotStore[req.slotKey];
+      if (preferSavedSlot && slot) {
+        const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - spanX), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - spanY) };
+        if (footprintFits(saved.gx, saved.gy, spanX, false, false, spanY)) placed = saved;
+      }
+      if (!placed) {
+        const fieldRing = Math.min(N * 0.46, (frozenWallReach || cityReachBase) + Math.max(spanX, spanY) / 2 + 1);
+        const fieldCells = cells
+          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + spanY / 2 - cy) - fieldRing) + (cmHash("field:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+          .sort((a, b) => a.s - b.s)
+          .map((e) => e.c2);
+        const tryPlace = () => { for (const c2 of fieldCells) if (footprintFits(c2.gx, c2.gy, spanX, false, false, spanY)) return c2; return null; };
+        placed = tryPlace();
+        // Repli : rétrécir le bloc si la ville est trop dense pour le loger.
+        while (!placed && (spanX > 2 || spanY > 2)) { spanX = Math.max(2, spanX - 1); spanY = Math.max(2, spanY - 1); placed = tryPlace(); }
+      }
+      if (!placed) return false;
+      claimFootprint(placed.gx, placed.gy, spanX, spanY);
+      for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
+        engineFootprint.add((placed.gx + ax) + "," + (placed.gy + ay));
+        usedKeys.add((placed.gx + ax) + "," + (placed.gy + ay));
+      }
+      const dx = placed.gx + spanX / 2 - cx, dy = placed.gy + spanY / 2 - cy;
+      tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: "irrigated_fields", buildingId: "irrigated_fields",
+        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(spanX, spanY), spanX, spanY,
+        key: `engine:irrigated_fields:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
+      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.meta.zone, id: req.meta.id };
+      liveSlotKeys.add(req.slotKey);
+      placedSlotKeys.add(req.slotKey);
+      return true;
+    }
+    const aff = cmWaterAffinity(req.meta);
+    // ── Bâtiments de berge (ports, moulins) ──────────────────────────────────
+    // L'emprise se cale au bord du fleuve (sur terre/berge, JAMAIS sur l'eau) et
+    // DOIT border l'eau. Le sprite est dessiné « eau en bas » (vue oblique, toit
+    // vers le haut) : on PRIORISE donc une pose dont le fleuve est au sud
+    // (waterSide "S"), où le sprite tombe juste sans réorientation. À défaut, on
+    // accepte un autre bord (rendu natif, toujours à l'endroit — jamais tourné,
+    // pour ne pas retourner les toits/coques). waterSide est conservé pour info.
+    if (aff === "bank") {
+      let bsize = req.size, bplaced = null, bside = null;
+      const tryAt = (gx, gy, sz) =>
+        footprintFits(gx, gy, sz, true, false, sz, false) ? footprintWaterSide(gx, gy, sz, sz) : null;
+      const bslot = slotStore[req.slotKey];
+      if (preferSavedSlot && bslot) {
+        const sgx = cmClamp(cx + (Number(bslot.dx) || 0), 0, N - bsize);
+        const sgy = cmClamp(cy + (Number(bslot.dy) || 0), 0, N - bsize);
+        const ws = tryAt(sgx, sgy, bsize);
+        if (ws) { bplaced = { gx: sgx, gy: sgy }; bside = ws; }
+      }
+      if (!bplaced) {
+        // Passe 1 : fleuve au sud (orientation native parfaite). Passe 2 : tout bord.
+        for (const wantSouth of [true, false]) {
+          for (const sz of (bsize > 1 ? [bsize, 1] : [1])) {
+            for (const cell of engineCandidates(req.meta.zone, aff, sz, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity)) {
+              const ws = tryAt(cell.gx, cell.gy, sz);
+              if (ws && (!wantSouth || ws === "S")) { bplaced = cell; bside = ws; bsize = sz; break; }
+            }
+            if (bplaced) break;
+          }
+          if (bplaced) break;
+        }
+      }
+      if (!bplaced) return false;
+      claimFootprint(bplaced.gx, bplaced.gy, bsize);
+      for (let ax = 0; ax < bsize; ax += 1) for (let ay = 0; ay < bsize; ay += 1) {
+        engineFootprint.add((bplaced.gx + ax) + "," + (bplaced.gy + ay));
+        usedKeys.add((bplaced.gx + ax) + "," + (bplaced.gy + ay));
+      }
+      const bdx = bplaced.gx + bsize / 2 - cx, bdy = bplaced.gy + bsize / 2 - cy;
+      tiles.push({ gx: bplaced.gx, gy: bplaced.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
+        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size: bsize, waterSide: bside,
+        key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: bdx * bdx + bdy * bdy });
+      slotStore[req.slotKey] = { dx: bplaced.gx - cx, dy: bplaced.gy - cy, zone: req.meta.zone, id: req.meta.id };
+      liveSlotKeys.add(req.slotKey);
+      placedSlotKeys.add(req.slotKey);
+      return true;
+    }
     let size = req.size, placed = null;
-    const allowBankSaved = req.meta.zone === "river";
+    const { allowWater, allowBank } = cmWaterAllow(aff);
     const slot = slotStore[req.slotKey];
     if (preferSavedSlot && slot) {
       const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - size), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - size) };
-      if (footprintFits(saved.gx, saved.gy, size, allowBankSaved, false)) {
+      if (footprintFits(saved.gx, saved.gy, size, allowBank, false, size, allowWater)) {
         placed = saved;
       } else {
         // Re-tri local autour du slot sauvegardé (décoré : un score par cellule).
         const slotHash = cmHash(req.slotKey) >>> 0;
-        const nearby = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal)
+        const nearby = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal)
           .map((cell) => ({ cell, s: Math.hypot(cell.gx - saved.gx, cell.gy - saved.gy) + ((((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ slotHash) >>> 0) % 100) / 500) }))
           .sort((a, b) => a.s - b.s)
           .map((e) => e.cell);
-        for (const cell of nearby) if (footprintFits(cell.gx, cell.gy, size, allowBankSaved, false)) { placed = cell; break; }
+        for (const cell of nearby) if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
       }
     }
     if (!placed) {
-      const candidates = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
-      for (const cell of candidates) if (footprintFits(cell.gx, cell.gy, size, req.meta.zone === "river")) { placed = cell; break; }
+      const candidates = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
+      for (const cell of candidates) if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
       // Si le top-K est saturé (toutes les bonnes cellules déjà prises),
       // on retombe sur la liste complète.
       if (!placed) {
-        const all = engineCandidates(req.meta.zone, size, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity);
+        const all = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity);
         for (let ci = candidates.length; ci < all.length; ci += 1) {
           const cell = all[ci];
-          if (footprintFits(cell.gx, cell.gy, size, req.meta.zone === "river")) { placed = cell; break; }
+          if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
         }
       }
-      if (!placed && req.meta.zone === "river" && size > 1) {
+      // Repli taille-1 pour les bâtiments affines à l'eau (rive souvent étroite).
+      if (!placed && cmWaterAffine(aff) && size > 1) {
         size = 1;
-        for (const cell of engineCandidates(req.meta.zone, 1, req.meta.id, req.groupIndex - 1, req.groupTotal))
-          if (footprintFits(cell.gx, cell.gy, 1, true)) { placed = cell; break; }
+        for (const cell of engineCandidates(req.meta.zone, aff, 1, req.meta.id, req.groupIndex - 1, req.groupTotal))
+          if (footprintFits(cell.gx, cell.gy, 1, allowBank, false, 1, allowWater)) { placed = cell; break; }
       }
     }
     if (!placed) return false;
@@ -1253,7 +1418,6 @@ function computeCityLayout(s) {
     if (hsh < prob) trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 });
   }
 
-  const river = { present: true, samples: riverSamples, cells: riverSet, banks: bankSet, bridge: riverBridge };
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
   const engineTileMap = new Map(
     tiles.filter((t) => t.type === "engine" && t.buildingId)
@@ -1262,7 +1426,7 @@ function computeCityLayout(s) {
   return {
     gridN: N, cx, cy, tiles,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, river, engineTileMap, wonderSlots, walls,
+    districts, trees, maxD2, counts: c, river, water, engineTileMap, wonderSlots, walls,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed

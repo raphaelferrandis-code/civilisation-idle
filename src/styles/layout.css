@@ -285,6 +285,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
+  padding: 0 2rem;
+  text-align: center; /* multi-ligne : les lignes restent centrées */
   pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(10, 8, 4, 0.85) 0%, rgba(10, 8, 4, 0.45) 60%, transparent 100%);
   animation: era-banner-fade 3.2s ease forwards;

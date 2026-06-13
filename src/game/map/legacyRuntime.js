@@ -43,7 +43,8 @@ import {
   cityMapDrawEraDetails,
   cityMapDrawEraGlow,
   drawCrisis,
-  cityMapDrawRoad
+  cityMapDrawRoad,
+  cityMapCalmRioterAt
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
@@ -194,7 +195,7 @@ function cityMapHitTest(sx, sy) {
     for (const p of CM.rioters) {
       const sp = cityMapScreenFromWorld(p.x, p.y);
       if (Math.hypot(sp.x - sx, sp.y - sy) < citizenRadius) {
-        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et fourches levées.", kind: "Émeute" };
+        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et fourches levées. Cliquez sur un émeutier pour l'apaiser.", kind: "Émeute" };
       }
     }
   }
@@ -356,6 +357,12 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+    // Émeutiers : un clic apaise l'individu visé (prioritaire sur le reste).
+    if (cityMapCalmRioterAt(mx, my)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return;
+    }
     const hitCitizen = cityMapHitTestCitizenWithThought(mx, my);
     if (hitCitizen && callbacks.onCitizenThoughtClicked) {
       e.stopImmediatePropagation();
@@ -401,11 +408,15 @@ function cityMapEnsureLayout(now, deps = {}) {
   // régénération du layout quand l'état de la ville bascule (chaos procédural).
   const crisisBand = ((state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1) ? 2
     : ((state.timeWear || 0) > 0.6 || (state.instability || 0) >= 0.6) ? 1 : 0;
-  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + engineSig;
+  // Les merveilles réservent leur clairière au prochain calcul du plan : leur
+  // érection doit donc invalider le layout, sinon elles s'affichent par-dessus
+  // les bâtiments existants jusqu'à la régénération suivante.
+  const wonderSig = Array.isArray(state.wonders) ? state.wonders.length : 0;
+  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
   // Pour les changements de eraFrac seuls, on limite à 1 recompute par 1500ms.
-  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + engineSig;
+  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineSig;
   const coreChanged = coreSig !== CM.layoutCoreSig;
   if (CM.layout && !coreChanged && (now - CM.layoutRecomputeAt) < 1500) return;
   CM.layoutSig = sig;
@@ -547,6 +558,7 @@ function cityMapEnsureLayout(now, deps = {}) {
       CM.vehicles.push({
         gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
         tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
+        fade: 0, // la flotte est reconstruite à chaque recalcul du plan : fondu d'apparition
         dir: n % 2 ? 0 : 2, goal: null, pauseT: 0,
         // Une partie des voitures apparaît garée en bord de rue, puis démarre.
         parkT: vehicleType === "car" && n % 3 === 0 ? 4 + (n % 7) * 3 : 0,
@@ -576,8 +588,10 @@ function spawnOneCitizen(L) {
     || CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
   const band = L.counts.eraBand || 0;
   // Garde-robe par ère : peaux/lin aux ères primitives, étoffes teintes ensuite.
+  // Tons FONCÉS aux ères 0-1 : les teintes claires lisaient comme des points
+  // blancs sur les routes sombres (bug "petits points" CE 0.2/0.3).
   const OUTFITS = band <= 1
-    ? ["#a8835a", "#8f6e48", "#b89468", "#7d6242", "#9c7a50", "#6e563c"]
+    ? ["#6e5238", "#5d4630", "#7a5a3c", "#4e3c28", "#66503a", "#54422e"]
     : band <= 3
       ? ["#9a4d38", "#3f6a8a", "#7a8a3c", "#8a5d9a", "#b08a3a", "#5d7a6a"]
       : ["#7a4a68", "#3a6a9a", "#9a3a3a", "#4a8a6a", "#b0883a", "#5a5a8a"];
@@ -591,6 +605,7 @@ function spawnOneCitizen(L) {
     gx: r.gx, gy: r.gy,
     x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
     tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
+    fade: 0, // fondu d'apparition — pas de "point" qui surgit
     dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
     speed: 22 + (n % 7) * 4 + L.counts.urbanTier * 1.8,
     col: OUTFITS[seed % OUTFITS.length],
@@ -735,6 +750,9 @@ function initCityMap(canvas, options = {}) {
       // Sol + rivière d'abord (sous le canvas statique), puis blit
       cityMapDrawGround(CM.layout);
       cityMapDrawRiver(now);
+      // Brume/reflets : voiles clippés à l'eau, sous les bateaux, ponts,
+      // routes et bâtiments.
+      cityMapDrawMist(now);
       // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
       // bâtiments (le blit statique les recouvre aux croisements).
       drawShips(dt);
@@ -800,7 +818,6 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawCityLights(now);
       // Lueurs signature d'ère : feux satellites, grille néon, cœur qui respire.
       cityMapDrawEraGlow(now);
-      cityMapDrawMist(now);
       drawCrisis(dt, now);
       // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
       if (CM.layout && Array.isArray(state.wonders)) {

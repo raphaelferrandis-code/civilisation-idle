@@ -148,7 +148,6 @@ export default function PrestigeView() {
       <div className="panel barometers-panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Mesures de stabilité</span>
             <h2>Baromètres de la Cité</h2>
           </div>
         </div>
@@ -193,7 +192,6 @@ export default function PrestigeView() {
       <div className="panel tactical-panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Gestion politique</span>
             <h2>Foyers de tension & Actions de régulation</h2>
           </div>
         </div>
@@ -321,7 +319,6 @@ export default function PrestigeView() {
       <div className={`panel cycle-outcome-panel ${isCrisisActive ? 'crisis-focus-active' : ''}`} id="crisisOutcomePanel">
         <div className="panel-heading">
           <div>
-            <span className="label">Clôture du cycle</span>
             <h2>{isCrisisActive ? "Chute & Transmission" : "Bilan de la Civilisation"}</h2>
           </div>
         </div>

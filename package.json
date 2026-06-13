@@ -1,15 +1,32 @@
 {
-  "name": "vite-temp",
+  "name": "civilisation-effondrement",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "electron": "electron .",
+    "dist-win": "vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.civilisationidle.game",
+    "productName": "Civilisation Idle",
+    "files": [
+      "dist/**/*",
+      "main.cjs"
+    ],
+    "directories": {
+      "output": "C:/Users/Hardware31/ce-release"
+    },
+    "win": {
+      "target": "nsis"
+    }
   },
   "dependencies": {
     "break_infinity.js": "^2.2.0",
@@ -21,6 +38,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

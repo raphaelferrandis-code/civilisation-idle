@@ -7,6 +7,7 @@ import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
 import { COLLAPSE_PREP_MAX } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
+import { epitaphLegacyById } from '../data/epitaphs.js';
 
 export const SAVE_KEY = "civilization-collapse-idle-v1";
 
@@ -45,9 +46,10 @@ export const notify = () => {
   listeners.forEach(l => l());
 };
 
-export let activeView = "city";
+// Pas de miroir module pour la vue active : state.activeView est l'unique
+// source de vérité (un miroir non resynchronisé au load() est un piège — cf.
+// le commentaire sur buyAmount dans setState).
 export function openView(viewId) {
-  activeView = viewId;
   state.activeView = viewId;
   notify();
 }
@@ -166,6 +168,12 @@ export const defaultState = () => ({
   cycleStartedAt: Date.now(),
   lastTick: Date.now(),
   dynastyDoctrine: null,
+  // Legs d'épitaphe : bonus actif en début de cycle (activeEpitaphLegacy) et
+  // choix en attente entre le dialogue d'épitaphe et completeCollapse
+  // (nextEpitaphLegacy). Doivent figurer ici ET dans hydrateState, sinon ils
+  // sont silencieusement perdus au rechargement.
+  activeEpitaphLegacy: null,
+  nextEpitaphLegacy: null,
   buyAmount: 1,
   activeView: "city",
   notifEnabled: true,
@@ -513,6 +521,18 @@ export function normalizeCadmosTriggeredMilestones(raw) {
   return out;
 }
 
+export function normalizeEpitaphLegacy(raw) {
+  if (!isPlainObject(raw)) return null;
+  const id = typeof raw.id === "string" ? raw.id.slice(0, 64) : "";
+  if (!id || !epitaphLegacyById(id)) return null;
+  return {
+    id,
+    cause: typeof raw.cause === "string" ? raw.cause.slice(0, 32) : "",
+    chosenCycle: finiteInteger(raw.chosenCycle, 0),
+    startedAt: finiteTimestamp(raw.startedAt, Date.now())
+  };
+}
+
 export function normalizeChronicleEntries(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -520,13 +540,20 @@ export function normalizeChronicleEntries(raw) {
     .map(entry => {
       return {
         id: typeof entry.id === "string" ? entry.id.slice(0, 128) : "",
+        // Id de l'article source (entry.id est suffixé pour les rediffusions) ;
+        // les saves d'avant ce champ retombent sur entry.id.
+        articleId: typeof entry.articleId === "string" ? entry.articleId.slice(0, 128) : (typeof entry.id === "string" ? entry.id.slice(0, 128) : ""),
         title: typeof entry.title === "string" ? entry.title.slice(0, 200) : "",
         text: typeof entry.text === "string" ? entry.text.slice(0, 4000) : "",
         author: typeof entry.author === "string" ? entry.author.slice(0, 100) : null,
         age: typeof entry.age === "string" ? entry.age.slice(0, 80) : "",
         date: typeof entry.date === "string" ? entry.date.slice(0, 80) : "",
         category: typeof entry.category === "string" ? entry.category.slice(0, 80) : "",
-        isNew: typeof entry.isNew === "boolean" ? entry.isNew : false
+        isNew: typeof entry.isNew === "boolean" ? entry.isNew : false,
+        isRerun: Boolean(entry.isRerun),
+        // Pilote la fenêtre d'affichage du bandeau (1 min) ; 0 = dépêche
+        // ancienne (save d'avant ce champ), donc bandeau masqué.
+        publishedAt: finiteTimestamp(entry.publishedAt, 0)
       };
     })
     .filter(e => e.id)
@@ -662,9 +689,9 @@ export function hydrateState(parsed = {}) {
     olympus: normalizeOlympusState(source.olympus),
     // Le deuil est le voile transitoire de la séquence d'effondrement
     // (runCollapseSequence) ; la séquence ne reprend pas après un
-    // rechargement, donc le restaurer figerait l'écran en sombre sans
-    // dialogue d'épitaphe ni issue.
     mourning: false,
+    activeEpitaphLegacy: normalizeEpitaphLegacy(source.activeEpitaphLegacy),
+    nextEpitaphLegacy: normalizeEpitaphLegacy(source.nextEpitaphLegacy),
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
@@ -702,7 +729,9 @@ export function hydrateState(parsed = {}) {
     lastTick: finiteTimestamp(source.lastTick, base.lastTick),
     dynastyDoctrine: doctrineIds.has(source.dynastyDoctrine) ? source.dynastyDoctrine : null,
     buyAmount: source.buyAmount === "max" ? "max" : finiteInteger(source.buyAmount, 1, 1, 500),
-    activeView: source.activeView || "city"
+    activeView: ["city", "prestige", "ruinsView", "tech", "mythView", "history"].includes(source.activeView)
+      ? source.activeView
+      : "city"
   };
   if (!stateOut.crisisLimitAnnounced) stateOut.crisisOpenedAt = null;
   return stateOut;
@@ -797,22 +826,13 @@ export function resetTemporaryRunState(s) {
   s.timeWear = 0;
   s.activeRuinIds = [];
   s.pendingActiveRuinsChoice = false;
-  s.crisisActions = {
-    rationing: 0,
-    census: 0,
-    festivals: 0,
-    reforms: 0,
-    ancestorCrisis: 0,
-    archiveCrisis: 0
-  };
+  // defaultState() est l'unique source de vérité pour la forme de ces deux
+  // objets (les effets ancestorCrisis/archiveCrisis incrémentent les
+  // compteurs festivals/census, pas des clés à eux).
+  const freshDefaults = defaultState();
+  s.crisisActions = freshDefaults.crisisActions;
   s.crisisThresholds = {};
-  s.crisisProduction = {
-    population: 1,
-    food: 1,
-    gold: 1,
-    knowledge: 1,
-    infrastructure: 1
-  };
+  s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;
   s.terminalPreparations = {
     foodMalus: 0,

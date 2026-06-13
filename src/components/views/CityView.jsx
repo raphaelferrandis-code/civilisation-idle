@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
@@ -54,10 +54,12 @@ export default function CityView() {
     atridesHeritage, atridesPactActive, atridesNextRunPenaltyActive,
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
     activeEpitaphLegacy,
-    instability
+    instability,
+    tickNow
   } = useCityViewState();
 
-  const [now, setNow] = useState(() => Date.now());
+  // Horloge du tick (1 Hz) : évite un timer local qui doublerait les rendus.
+  const now = tickNow;
   const [bubbleMessage, setBubbleMessage] = useState(null);
 
   // Personnalité procédurale de la ville (stable par cycle ; la surcouche
@@ -118,14 +120,6 @@ export default function CityView() {
         return current;
       });
     }, 4000);
-  }, []);
-
-  // Update cycle duration timer every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
   }, []);
 
   const vitals = cityVitals();

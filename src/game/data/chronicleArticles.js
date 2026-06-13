@@ -5,14 +5,14 @@ export const chronicleArticles = [
   //  PÉRIODE 1 — Tradition Orale
   // =========================================================================
 
-  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  // --- Crise (instability >= 0.75 || timeWear >= 0.75) ---
   {
     id: "p1_crisis_fire",
     period: 1,
     conditionType: "crise",
     title: "LES FEUX FAIBLISSENT, LE FROID REVIENT",
     text: "« Les braises pâlissent et nul ne sait pourquoi. Les anciens conseillent de se serrer fort et d'espérer le matin. Comme d'habituuude. »",
-    author: "Claude, le gardien du feu"
+    author: "Claude, gardien du feu"
   },
   {
     id: "p1_crisis_hunter",
@@ -39,7 +39,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Tension élevée (instability >= 0.75) ---
+  // --- Tension élevée (0.5 <= instability < 0.75) ---
   {
     id: "p1_tension_tents",
     period: 1,
@@ -54,7 +54,7 @@ export const chronicleArticles = [
     conditionType: "tension",
     title: "QUI A MANGÉ DANS LA RESERVE?",
     text: "« Une ration a disparu cette nuit. Les soupçons pèsent sur tout le monde, surtout sur celui qui n'a plus faim. »",
-    author: "Claude, le gardien du feu"
+    author: "Claude, gardien du feu"
   },
   {
     id: "p1_tension_chief",
@@ -73,7 +73,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Usure élevée (timeWear >= 0.75) ---
+  // --- Usure élevée (0.5 <= timeWear < 0.75) ---
   {
     id: "p1_wear_repos",
     period: 1,
@@ -88,7 +88,7 @@ export const chronicleArticles = [
     conditionType: "usure",
     title: "ON EST FATIGUÉ",
     text: "« Cueillir, chasser, recommencer : certains se demandent si ça vaut le coup : on leur a conseillé de moins réfléchir. »",
-    author: "Claude, le gardien du feu"
+    author: "Claude, gardien du feu"
   },
   {
     id: "p1_wear_resemble",
@@ -240,7 +240,7 @@ export const chronicleArticles = [
     conditionType: "paix",
     title: "RIEN À SIGNALER, ET C'EST TRÈS BIEN COMME ÇA",
     text: "« Les feux brûlent, les ventres sont pleins, (presque) personne n'est mort ce mois. On s'excuse pour le manque de nouvelles palpitantes. »",
-    author: "Claude, le gardien du feu"
+    author: "Claude, gardien du feu"
   },
   {
     id: "p1_bonus_peace2",
@@ -255,7 +255,7 @@ export const chronicleArticles = [
   //  PÉRIODE 2 — Argile Gravée
   // =========================================================================
 
-  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  // --- Crise (instability >= 0.75 || timeWear >= 0.75) ---
   {
     id: "p2_crisis_harvest",
     period: 2,
@@ -289,7 +289,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Tension élevée (instability >= 0.75) ---
+  // --- Tension élevée (0.5 <= instability < 0.75) ---
   {
     id: "p2_tension_king",
     period: 2,
@@ -323,7 +323,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Usure élevée (timeWear >= 0.75) ---
+  // --- Usure élevée (0.5 <= timeWear < 0.75) ---
   {
     id: "p2_wear_bronze",
     period: 2,
@@ -505,7 +505,7 @@ export const chronicleArticles = [
   //  PÉRIODE 3 — Manuscrit
   // =========================================================================
 
-  // --- Crise (instability >= 1 || timeWear >= 1) ---
+  // --- Crise (instability >= 0.75 || timeWear >= 0.75) ---
   {
     id: "p3_crisis_plague",
     period: 3,
@@ -539,7 +539,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Tension élevée (instability >= 0.75) ---
+  // --- Tension élevée (0.5 <= instability < 0.75) ---
   {
     id: "p3_tension_taxes",
     period: 3,
@@ -573,7 +573,7 @@ export const chronicleArticles = [
     author: "Edith, comptable"
   },
 
-  // --- Usure élevée (timeWear >= 0.75) ---
+  // --- Usure élevée (0.5 <= timeWear < 0.75) ---
   {
     id: "p3_wear_aqueducts",
     period: 3,
@@ -789,7 +789,7 @@ export const chronicleArticles = [
     author: "Claude, gardien du feu"
   },
 
-  // --- Tension élevée (instability >= 0.5) ---
+  // --- Tension élevée (0.5 <= instability < 0.75) ---
   {
     id: "p4_tension_windows",
     period: 4,
@@ -823,7 +823,7 @@ export const chronicleArticles = [
     author: "Edith, Intendante"
   },
 
-  // --- Usure élevée (timeWear >= 0.5) ---
+  // --- Usure élevée (0.5 <= timeWear < 0.75) ---
   {
     id: "p4_wear_statues",
     period: 4,
@@ -1047,7 +1047,7 @@ export const chronicleArticles = [
     author: "Claude, gardien du feu"
   },
 
-  // --- Tension élevée (instability >= 0.5) ---
+  // --- Tension élevée (0.5 <= instability < 0.75) ---
   {
     id: "p5_tension_who_decides",
     period: 5,
@@ -1081,7 +1081,7 @@ export const chronicleArticles = [
     author: null
   },
 
-  // --- Usure élevée (timeWear >= 0.5) ---
+  // --- Usure élevée (0.5 <= timeWear < 0.75) ---
   {
     id: "p5_wear_streets",
     period: 5,
