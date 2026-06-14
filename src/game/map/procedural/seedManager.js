@@ -57,12 +57,6 @@ export function ensureMapSeed(s) {
   return s.mapSeed;
 }
 
-// Entier seedé dans [min, max] inclus.
-export function seededInt(seed, label, min, max) {
-  const r = rngFrom(seed, label)();
-  return min + Math.floor(r * (max - min + 1));
-}
-
 // Choix pondéré déterministe dans une liste [{value, weight}].
 export function seededWeightedPick(seed, label, entries) {
   const total = entries.reduce((sum, e) => sum + Math.max(0, e.weight), 0);

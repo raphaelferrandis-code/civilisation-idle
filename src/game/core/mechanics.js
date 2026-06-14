@@ -119,7 +119,7 @@ export function ruinMultiplierDec() {
   return has("oral_tradition") ? base.sub(1).mul(1.2).add(1) : base;
 }
 
-export function ruinEffects() {
+function ruinEffects() {
   if (isMythEffectActive("mythe_du_chaos")) return { sums: {}, ownedCount: 0 };
 
   const signature = Object.keys(state.upgrades)
@@ -150,7 +150,7 @@ export function ruinEffectMultiplier(type) {
   return 1 + ruinEffectSum(type);
 }
 
-export function ownedRuinUpgradeCount() {
+function ownedRuinUpgradeCount() {
   return ruinEffects().ownedCount;
 }
 
@@ -162,7 +162,7 @@ export function ownedRuinBranchPurchaseCount(branchId) {
   return PRESTIGE_TREE.filter((node) => node.branch === branchId && has(node.id)).length;
 }
 
-export function chronicleEngineMultiplier() {
+function chronicleEngineMultiplier() {
   if (!has("chronicle_engine")) return 1;
   const ownedBonus = ownedRuinUpgradeCount() * 0.03;
   // log10 Decimal : reste fini même quand les ruines dépassent le domaine float.
@@ -188,19 +188,19 @@ export function institutionMultiplierDec() {
   return Decimal.pow(Math.max(0, state.legitimacy), LEGITIMACY_POWER_EXP).mul(LEGITIMACY_COEF).add(1);
 }
 
-export function grandResetMultiplier() {
+function grandResetMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
   return Math.pow(2, state.grandResetCount || 0);
 }
 
-export function grandResetRuinMultiplier() {
+function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
   const base = Math.pow(2, state.grandResetCount || 0);
   const ragnarokBonus = (state.ragnarokHeritage && (state.grandResetCount || 0) >= 11) ? 4 : 1;
   return base * ragnarokBonus;
 }
 
-export function marketMultiplier() {
+function marketMultiplier() {
   return 1 + state.buildings.bureaucracy * 0.08;
 }
 
@@ -215,7 +215,7 @@ export function addProductionPenalty(type, amount) {
   state.crisisProduction[type] = Math.max(0.1, current * (1 - effectiveAmount));
 }
 
-export function crisisProductionMultiplier(type) {
+function crisisProductionMultiplier(type) {
   const global = state.crisisProduction.global ?? 1;
   return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type);
 }
@@ -284,11 +284,11 @@ export function regulFatigueCostMult() {
   return 1 + (state.regulFatigue || 0) * FATIGUE_COST_PENALTY;
 }
 
-export function theocracyKnowledgeRate() {
+function theocracyKnowledgeRate() {
   return has("trait_theocracy") ? toNum(state.gold) * 0.01 : 0;
 }
 
-export function ruptureGrowthMultiplier() {
+function ruptureGrowthMultiplier() {
   return has("trait_theocracy") ? 1.25 : 1;
 }
 
@@ -297,23 +297,23 @@ export function amplifyRuptureFactor(factor) {
   return 1 + (factor - 1) * ruptureGrowthMultiplier();
 }
 
-export function cadmosPermanentBonus(orientation) {
+function cadmosPermanentBonus(orientation) {
   return (state.cadmosPermanentEpitaphs || [])
     .filter((entry) => entry.orientation === orientation)
     .length * CADMOS_EPITAPH_BONUS_PCT;
 }
 
-export function cadmosCycleBonus(orientation) {
+function cadmosCycleBonus(orientation) {
   return isMythEffectActive("mythe_de_cadmos")
     ? (state.cadmosCycleBonuses?.[orientation] || 0) * CADMOS_CYCLE_BONUS_PCT
     : 0;
 }
 
-export function cadmosProductionMultiplier(orientation) {
+function cadmosProductionMultiplier(orientation) {
   return 1 + cadmosPermanentBonus(orientation) + cadmosCycleBonus(orientation);
 }
 
-export function cadmosStabilityMultiplier() {
+function cadmosStabilityMultiplier() {
   const reduction = cadmosPermanentBonus("stability") + cadmosCycleBonus("stability");
   return Math.max(0.25, 1 - reduction);
 }
@@ -328,7 +328,7 @@ export function activeEpitaphLegacy() {
   return { ...active, definition: legacy, elapsed };
 }
 
-export function epitaphLegacyEffect() {
+function epitaphLegacyEffect() {
   const active = activeEpitaphLegacy();
   if (!active) {
     return { globalMult: 1, foodMult: 1, goldMult: 1, knowledgeMult: 1, infraMult: 1, ruptureMult: 1 };
@@ -426,7 +426,7 @@ export function globalMultiplierDec() {
   return renderCache._frameGlobalMultDec;
 }
 
-export function getBuildingSums() {
+function getBuildingSums() {
   if (renderCache._buildingSums) return renderCache._buildingSums;
 
   let positiveInstability = 0;
@@ -498,10 +498,6 @@ export function getBuildingSums() {
     overflow
   };
   return renderCache._buildingSums;
-}
-
-export function buildingInstabilityLoad() {
-  return getBuildingSums().positiveInstability;
 }
 
 // Cible de Rupture (instabilité) décomposée en sources additives, chacune bornée
@@ -835,7 +831,7 @@ export function babelExponentialMultDec() {
   return Decimal.pow(BABEL_PROD_BASE_MULT, n);
 }
 
-export function babelAdjacencyMultiplier() {
+function babelAdjacencyMultiplier() {
   if (!state.babelHeritage) return 1;
   const tileMap = getCityMapEngineTileMap();
   if (!tileMap || tileMap.size === 0) return 1;
@@ -856,14 +852,14 @@ export function babelAdjacencyMultiplier() {
   return count > 0 ? 1 + totalBonus / count : 1;
 }
 
-export function orProdPenaltyMult() {
+function orProdPenaltyMult() {
   if (!isMythEffectActive("mythe_age_or")) return 1;
   if (D(state.population).lte(OR_POP_THRESHOLD)) return 1;
   const excess = toNum(state.population) - OR_POP_THRESHOLD;
   return Math.max(0.1, 1 - excess * OR_POP_PENALTY_PCT);
 }
 
-export function orHeritageUsureMult() {
+function orHeritageUsureMult() {
   if (!state.orHeritage) return 1;
   const f = D(state.food).max(0);
   const g = D(state.gold).max(0);
@@ -873,7 +869,7 @@ export function orHeritageUsureMult() {
   return ratio < OR_HERITAGE_BALANCE_RATIO ? (1 - OR_HERITAGE_USURE_RED) : 1;
 }
 
-export function hephInfraMult() {
+function hephInfraMult() {
   if (!isMythEffectActive("mythe_d_hephaistos")) return 1;
   const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
   return HEPH_INFRA_MULT_BASE + elapsed * HEPH_INFRA_MULT_GROWTH;
@@ -901,14 +897,6 @@ export function buildingOutputMultiplierDec(building, count) {
   return Decimal.pow(1.025, count).mul(Decimal.pow(2, milestone)).mul(1 + Math.log10(count + 1) * 0.18);
 }
 
-export function nextMilestoneText(building, count) {
-  const milestone = Math.floor(count / 25);
-  const next = (milestone + 1) * 25;
-  const multiplier = buildingOutputMultiplier(building, count);
-  const milestoneLabel = building.category === "city" ? "palier x2" : "palier x1.5";
-  return `Prod x${fmt(multiplier)} | ${milestoneLabel} dans ${next - count}`;
-}
-
 export function buildingMilestoneInfo(building, count) {
   const milestone = Math.floor(count / 25);
   if (milestone <= 0) return null;
@@ -930,12 +918,12 @@ export function hasDoctrine(id) {
 
 // Retourne le facteur de scaling effectif d'un bâtiment.
 // Héritage Sisyphe : réduit la croissance du scaling de SISYPHE_SCALE_REDUCTION.
-export function buildingEffectiveScale(building) {
+function buildingEffectiveScale(building) {
   if (!state.sisypheHeritage) return building.scale;
   return 1 + (building.scale - 1) * (1 - SISYPHE_SCALE_REDUCTION);
 }
 
-export function buildingDiscount(building) {
+function buildingDiscount(building) {
   let discount = 1;
   // -5% par dynastie fondée, plafonné à -60% (sinon trivialise la progression longue)
   if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.dynastyCount));
@@ -968,10 +956,6 @@ export function buildingCostAt(building, count) {
     }
   }
   return costs;
-}
-
-export function buildingCostMainAt(building, count) {
-  return scaledCost(building.base, building.scale, count, buildingDiscount(building));
 }
 
 export function maxBuyAmount(building) {
@@ -1025,19 +1009,6 @@ export function archaeologyCost() {
   return D(state.population).mul(0.12).max(Math.max(25000, remembered * 8500));
 }
 
-export function archaeologyTarget() {
-  const entries = Object.entries(state.lastCollapsedBuildings || {}).filter(([, count]) => count > 0);
-  if (entries.length) {
-    return entries
-      .map(([id, count]) => ({ building: buildingById[id], count }))
-      .filter((entry) => entry.building)
-      .sort((a, b) => (b.building.base * Math.max(1, b.count)) - (a.building.base * Math.max(1, a.count)))[0]?.building;
-  }
-  const advanced = buildings.filter((building) => building.base >= 100000 || building.category !== "city");
-  const seed = Math.max(0, state.cycles * 31 + state.dynastyCount * 17 + totalBuildingCount());
-  return advanced[seed % advanced.length] || buildings[buildings.length - 1];
-}
-
 export function archaeologyCandidates() {
   const entries = Object.entries(state.lastCollapsedBuildings || {})
     .filter(([, count]) => count > 0)
@@ -1072,7 +1043,7 @@ export function canBuyUpgrade(upgrade) {
   return !has(upgrade.id) && canPayCost(upgrade.cost);
 }
 
-export function prestigeNodeFor(id) {
+function prestigeNodeFor(id) {
   return PRESTIGE_TREE.find((node) => node.id === id);
 }
 
@@ -1087,7 +1058,7 @@ export function checkNodeAvailability(id) {
   return canPayCost(node.cost) ? "available" : "locked";
 }
 
-export function dogmaFor(id) {
+function dogmaFor(id) {
   return PRESTIGE_DOGMAS.find((dogma) => dogma.id === id);
 }
 
@@ -1098,15 +1069,6 @@ export function checkDogmaAvailability(id) {
   if (has(id)) return "purchased";
   if (ownedRuinBranchPurchaseCount(dogma.branch) < dogma.requiredPurchases) return "locked";
   return "available";
-}
-
-export function canPerformGrandReset() {
-  if (!has("grand_reset")) return false;
-  const nextCount = (state.grandResetCount || 0) + 1;
-  // Le 1er GR est couvert par l'achat de l'upgrade ; les suivants consomment
-  // une légitimité croissante et exigent des Mythes complétés (gating doux).
-  return state.legitimacy >= grandResetLegitimacyCost(nextCount)
-    && completedMythCount() >= grandResetMythsRequired(nextCount);
 }
 
 export function currentEraIndex() {
@@ -1138,7 +1100,7 @@ export function heritageQuality() {
   return "Fragile";
 }
 
-export function crisisProgress() {
+function crisisProgress() {
   return Math.max(state.instability, state.timeWear || 0);
 }
 
@@ -1295,7 +1257,7 @@ export function terminalCrisisReady(type, tier = 0) {
 }
 
 // Multiplicateur de production issu des préparations terminales (malus jusqu'à l'effondrement).
-export function terminalPrepMultiplier(resource) {
+function terminalPrepMultiplier(resource) {
   const tp = state.terminalPreparations;
   if (!tp) return 1;
   if (resource === "infrastructure") return 1 + (tp.infraBonus || 0);

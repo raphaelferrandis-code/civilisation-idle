@@ -1,6 +1,6 @@
 "use strict";
 
-import { state, invalidateRenderCache } from "../state.js";
+import { state } from "../state.js";
 import { chronicle, log } from "./utils.js";
 import { fmt } from "../utils.js";
 import { D } from "../num.js";
@@ -115,8 +115,4 @@ function applyOlympusSleepHeritage(dt) {
 export function olympusUnlockedProfile() {
   const o = olympus();
   return o.unlockedProfile ? OLYMPUS_PROFILES[o.unlockedProfile] : null;
-}
-
-export function refreshOlympusCache() {
-  invalidateRenderCache("all");
 }

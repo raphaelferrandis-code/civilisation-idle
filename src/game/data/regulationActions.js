@@ -149,11 +149,6 @@ export const REGULATION_ACTIONS_BY_ID = Object.fromEntries(
   REGULATION_ACTIONS.map((a) => [a.id, a])
 );
 
-// id → foyer (miroir d'ACTION_FOYER pour les actions déblocables).
-export const REGULATION_ACTION_FOYER = Object.fromEntries(
-  REGULATION_ACTIONS.map((a) => [a.id, a.foyer])
-);
-
 /* ── Levier C — POLITIQUES PERMANENTES (toggles) ──────────────────────────────
  * Tant qu'une politique est active, elle RALENTIT LA MONTÉE de la Rupture
  * (`riseSlow`, ajouté à orderSlow dans tick.js, plafonné en commun à 0.8) contre
