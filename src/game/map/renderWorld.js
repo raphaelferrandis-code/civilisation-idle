@@ -237,6 +237,12 @@ function cityMapDrawVestiges() {
   // gravats et végétation qui reprend ses droits — pas de simples carrés.
   if (!Array.isArray(state.vestiges) || !state.vestiges.length) return;
   const ctx = CM.ctx, s = CM.TILE * CM.cam.zoom;
+  // Le fleuve est seedé par partie mais son tracé absolu dépend de la taille de
+  // grille (qui varie d'un cycle à l'autre) : une ruine d'une cité passée peut
+  // donc tomber sur l'eau actuelle. On masque les vestiges qui retombent dans le
+  // fleuve ou sur la berge — sinon ils flottent dans l'eau (cf. « morceaux dans
+  // l'eau »). cityMapDrawVestiges est dessiné APRÈS le fleuve, d'où la visibilité.
+  const water = CM.layout && CM.layout.water;
   for (let v = 0; v < state.vestiges.length; v += 1) {
     const ves = state.vestiges[v];
     if (!ves || !ves.ruins) continue;
@@ -245,6 +251,7 @@ function cityMapDrawVestiges() {
     const age = 0.3 + v * 0.16;
     for (const c of ves.ruins) {
       const gx = c.x + off, gy = c.y + off;
+      if (water && !water.isDry(Math.round(gx), Math.round(gy))) continue;
       const sx = (gx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
       const sy = (gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
       if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
@@ -354,8 +361,8 @@ function cityMapDrawRiver(now) {
     const px = SX(bgx), py = SY(bgy), ts = T * z;
     if (px < -ts || px > CM.cw || py < -ts || py > CM.ch) continue;
     if (reedOk && (bgx * 7 + bgy * 13) % 3 === 0) {
-      const waterBelow = L.river.cells.has(bgx + "," + (bgy + 1));
-      const waterAbove = L.river.cells.has(bgx + "," + (bgy - 1));
+      const waterBelow = L.river.isWater(bgx, bgy + 1);
+      const waterAbove = L.river.isWater(bgx, bgy - 1);
       const baseY = waterBelow ? py + ts * 0.28 : waterAbove ? py + ts * 0.78 : py + ts * 0.54;
       const tipY = waterBelow ? py + ts * 0.08 : waterAbove ? py + ts * 0.96 : py + ts * 0.38;
       ctx.strokeStyle = "rgba(90,138,42,0.72)";
@@ -388,32 +395,52 @@ function cityMapDrawTrees() {
     occ.has((gx - 1) + "," + gy) || occ.has((gx + 1) + "," + gy) ||
     occ.has(gx + "," + (gy - 1)) || occ.has(gx + "," + (gy + 1));
 
+  // Bruit de densite basse frequence : agglutine les arbres en fourres et
+  // menage des trouees, au lieu d'une densite plate.
+  const cellNoise = (gx, gy) => {
+    const n1 = (cmHash(Math.floor(gx / 5) + "n" + Math.floor(gy / 5)) % 1000) / 1000;
+    const n2 = (cmHash(Math.floor(gx / 11) + "m" + Math.floor(gy / 11)) % 1000) / 1000;
+    return n1 * 0.6 + n2 * 0.4;
+  };
   const hasTree = (gx, gy) => {
     if (isRiver(gx, gy) || occ.has(gx + "," + gy)) return false;
-    const h = cmHash(gx + "f" + gy) % 100;
-    return h < 68 || nearCity(gx, gy);
+    let thr = cellNoise(gx, gy) * 1.25 - 0.08;   // fourres (haut) / trouees (bas)
+    if (nearCity(gx, gy)) thr -= 0.35;            // aere la lisiere de ville
+    return (cmHash(gx + "f" + gy) % 1000) / 1000 < thr;
   };
 
-  // Parametres par arbre (stables, calculÃ©s une fois)
+  // Nuance une couleur hex par canal : variation de teinte d'un arbre a l'autre.
+  const shiftRGB = (hex, dr, dg, db) => {
+    const v = parseInt(hex.slice(1), 16);
+    const cl = (n) => (n < 0 ? 0 : n > 255 ? 255 : n);
+    return "rgb(" + cl((v >> 16) + dr) + "," + cl(((v >> 8) & 255) + dg) + "," + cl((v & 255) + db) + ")";
+  };
+
+  // Parametres par arbre (stables, calcules une fois)
   const trees = [];
   for (let gy = gy0; gy <= gy1; gy += 1) {
     for (let gx = gx0; gx <= gx1; gx += 1) {
       if (!hasTree(gx, gy)) continue;
       const h = cmHash(gx + "f" + gy) % 100;
+      const hh = cmHash(gx + "h" + gy);     // hash riche : echelle + jitter
+      const hv = cmHash(gx + "v" + gy);     // hash riche : teinte + ombre
       const edge = nearCity(gx, gy);
-      // LÃ©ger dÃ©calage pseudo-alÃ©atoire dans la case pour casser la grille
-      const jx = ((h * 17 + gx * 3) % 30 - 15) / 100;
-      const jy = ((h * 13 + gy * 7) % 30 - 15) / 100;
+      // Decalage pseudo-aleatoire dans la case pour casser la grille
+      const jx = (((hh >> 3) & 31) - 15) / 90;
+      const jy = (((hh >> 11) & 31) - 15) / 90;
       const cx = (gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * z + CM.cw / 2 + jx * s;
       const cy = (gy * CM.TILE + CM.TILE / 2 - CM.cam.y) * z + CM.ch / 2 + jy * s;
-      // Rayon: lisiÃ¨re = petit, intÃ©rieur = grand (chevauche les voisins)
-      const r = edge
-        ? s * (0.20 + (h % 4) * 0.025)
-        : s * (0.36 + (h % 5) * 0.04);
-      // Couleurs: base sombre, canopÃ©e, surbrillance
-      const colBase  = CITY_MAP_GREENS[(h % 4) + 4];      // verts sombres index 4-7
-      const colTop   = CITY_MAP_GREENS[h % 4];             // verts moyens  index 0-3
-      trees.push({ cx, cy, r, colBase, colTop, h, edge });
+      // Echelle par arbre x0.7..x1.4 : casse l'uniformite ("assets eparpilles")
+      const scale = 0.7 + ((hh >>> 16) & 1023) / 1023 * 0.7;
+      const r = (edge ? s * 0.20 : s * 0.38) * scale;
+      // Teinte verte + balance chaude nuancees par arbre (casse la teinte unique)
+      const dG = (hv & 15) - 7;
+      const dW = ((hv >> 4) & 7) - 3;
+      const colBase = shiftRGB(CITY_MAP_GREENS[(h % 4) + 4], dW, dG, -dW);
+      const colTop = shiftRGB(CITY_MAP_GREENS[h % 4], dW, dG, -dW);
+      // Ombre nuancee (alpha) d'un arbre a l'autre
+      const shA = 0.20 + ((hv >> 8) & 7) / 7 * 0.12;
+      trees.push({ cx, cy, r, colBase, colTop, h, edge, shA });
     }
   }
 
@@ -432,7 +459,7 @@ function cityMapDrawTrees() {
   // Passe 1 â€” ombres portÃ©es sous chaque arbre
   for (const t of trees) {
     // L'ombre se place sous le pied du tronc, dÃ©calÃ©e Ã  droite
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fillStyle = "rgba(20,14,6," + t.shA.toFixed(2) + ")";
     ctx.beginPath();
     ctx.ellipse(
       t.cx + t.r * 0.18, t.cy + t.r * 0.80,
@@ -446,34 +473,117 @@ function cityMapDrawTrees() {
   // GÃ©omÃ©trie : couronne centrÃ©e Ã  cy - r*0.50  â†’  bas de la couronne = cy + r*0.50
   //             tronc descend jusqu'Ã  cy + r*0.90  â†’  r*0.40 de tronc visible en bas
   for (const t of trees) {
-    // --- Tronc ---
-    const tw = Math.max(1.5, t.r * (t.edge ? 0.11 : 0.16));
-    const trunkTop = t.cy - t.r * 0.15;   // part juste sous la couronne (sera cachÃ©)
-    const trunkBot = t.cy + t.r * (t.edge ? 0.72 : 0.90); // dÃ©passe sous la couronne
-    ctx.fillStyle = "#3a1e06";
-    ctx.fillRect(t.cx - tw / 2, trunkTop, tw, trunkBot - trunkTop);
-    // Face gauche plus claire pour donner du volume cylindrique
-    ctx.fillStyle = "rgba(100,55,15,0.55)";
-    ctx.fillRect(t.cx - tw / 2, trunkTop, tw * 0.42, trunkBot - trunkTop);
+    const r = t.r, cx = t.cx, cy = t.cy;
+    // Bits de hash supplementaires : casse la regularite d'un arbre a l'autre.
+    const hb = Math.imul(t.h + 7, 2654435761) >>> 0;
+    // ~1 arbre sauvage sur 5 (hors lisiere) est un conifere : varie la foret.
+    const conifer = !t.edge && (t.h % 5) === 0;
 
-    // --- Couronne : montÃ©e haut pour laisser le tronc visible en bas ---
-    // Cercle sombre (bord de la couronne)
+    if (conifer) {
+      // ── SAPIN — tiers triangulaires empiles, tronc fin, cime pointue ─────
+      const tw = Math.max(1.4, r * 0.12);
+      const baseY = cy + r * 0.62;          // pied du feuillage (proche du sol)
+      const topY = cy - r * 1.15;           // cime, plus haute qu'un feuillu
+      const halfW = r * 0.64;
+      ctx.fillStyle = "#3a2207";
+      ctx.fillRect(cx - tw / 2, baseY - r * 0.1, tw, r * 0.5);
+      ctx.fillStyle = "rgba(110,70,25,0.5)";
+      ctx.fillRect(cx - tw / 2, baseY - r * 0.1, tw * 0.4, r * 0.5);
+      const tiers = 4;
+      for (let i = tiers - 1; i >= 0; i -= 1) {
+        const yA = topY + (baseY - topY) * (i / tiers);              // sommet du tier
+        const yB = topY + (baseY - topY) * Math.min(1, (i + 1.25) / tiers); // base
+        const wH = halfW * ((i + 1) / tiers);
+        // Silhouette sombre, decalee bas-droite
+        ctx.fillStyle = t.colBase;
+        ctx.beginPath();
+        ctx.moveTo(cx + r * 0.03, yA);
+        ctx.lineTo(cx + wH + r * 0.03, yB);
+        ctx.lineTo(cx - wH + r * 0.03, yB);
+        ctx.closePath(); ctx.fill();
+        // Aiguilles claires par-dessus, decalees haut-gauche
+        ctx.fillStyle = t.colTop;
+        ctx.beginPath();
+        ctx.moveTo(cx - r * 0.04, yA);
+        ctx.lineTo(cx + wH * 0.82 - r * 0.04, yB);
+        ctx.lineTo(cx - wH * 0.82 - r * 0.04, yB);
+        ctx.closePath(); ctx.fill();
+      }
+      // Reflet solaire sur le flanc haut-gauche de la cime
+      ctx.fillStyle = "rgba(200,245,150,0.16)";
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.05, topY + r * 0.08);
+      ctx.lineTo(cx - halfW * 0.4, topY + r * 0.5);
+      ctx.lineTo(cx - r * 0.05, topY + r * 0.5);
+      ctx.closePath(); ctx.fill();
+      continue;
+    }
+
+    // ── FEUILLU — tronc evase (parfois fourchu) + couronne a lobes ─────────
+    const tw = Math.max(1.5, r * (t.edge ? 0.12 : 0.17));
+    const ccy = cy - r * 0.5;               // centre de la couronne
+    const trunkTop = ccy + r * 0.2;
+    const trunkBot = cy + r * (t.edge ? 0.7 : 0.9);
+    // Tronc evase : base plus large que le sommet
+    ctx.fillStyle = "#4a2a0c";
+    ctx.beginPath();
+    ctx.moveTo(cx - tw * 0.5, trunkTop);
+    ctx.lineTo(cx - tw * 0.85, trunkBot);
+    ctx.lineTo(cx + tw * 0.85, trunkBot);
+    ctx.lineTo(cx + tw * 0.5, trunkTop);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(110,65,22,0.55)";
+    ctx.fillRect(cx - tw * 0.5, trunkTop, tw * 0.4, trunkBot - trunkTop);
+    // Fourche : deux branches montant dans la couronne (grands arbres)
+    if (!t.edge) {
+      ctx.strokeStyle = "#4a2a0c";
+      ctx.lineWidth = Math.max(1, tw * 0.6); ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx, trunkTop + r * 0.12);
+      ctx.lineTo(cx - r * 0.26, ccy + r * 0.05);
+      ctx.moveTo(cx, trunkTop + r * 0.12);
+      ctx.lineTo(cx + r * 0.24, ccy);
+      ctx.stroke();
+      ctx.lineCap = "square";
+    }
+
+    // Couronne : grappe de lobes (silhouette « nuage » bosselee).
+    // Gabarit en unites de r, autour du centre de couronne (cx, ccy).
+    const LB = [
+      [0.00, -0.42, 0.50], [-0.46, -0.08, 0.46], [0.46, -0.08, 0.46],
+      [-0.26, 0.26, 0.46], [0.28, 0.26, 0.45], [0.00, 0.04, 0.60]
+    ];
+    // Jitter deterministe par lobe (bits de hb) : chaque arbre est unique.
+    const lobe = (k) => {
+      const b = (hb >> (k * 3)) & 7;
+      const dx = ((b & 1) ? 1 : -1) * ((b & 2) ? 0.05 : 0.02);
+      const dy = (b & 4) ? 0.05 : -0.03;
+      return [LB[k][0] + dx, LB[k][1] + dy, LB[k][2] * (0.92 + (b & 1) * 0.12)];
+    };
+    // Passe A — silhouette sombre (lobes agrandis = lisere sombre net)
     ctx.fillStyle = t.colBase;
-    ctx.beginPath();
-    ctx.arc(t.cx, t.cy - t.r * 0.50, t.r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cercle principal (couleur vive), lÃ©gÃ¨rement dÃ©calÃ© haut-gauche
+    for (let k = 0; k < LB.length; k += 1) {
+      const [lx, ly, lr] = lobe(k);
+      ctx.beginPath();
+      ctx.arc(cx + lx * r, ccy + ly * r, lr * r * 1.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Passe B — corps clair, decale haut-gauche (volume)
     ctx.fillStyle = t.colTop;
-    ctx.beginPath();
-    ctx.arc(t.cx - t.r * 0.09, t.cy - t.r * 0.60, t.r * 0.82, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Reflet solaire haut-gauche
-    ctx.fillStyle = "rgba(210,255,140,0.15)";
-    ctx.beginPath();
-    ctx.arc(t.cx - t.r * 0.28, t.cy - t.r * 0.72, t.r * 0.40, 0, Math.PI * 2);
-    ctx.fill();
+    for (let k = 0; k < LB.length; k += 1) {
+      const [lx, ly, lr] = lobe(k);
+      ctx.beginPath();
+      ctx.arc(cx + (lx - 0.05) * r, ccy + (ly - 0.06) * r, lr * r * 0.92, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Passe C — reflets solaires sur les lobes hauts-gauches
+    ctx.fillStyle = "rgba(205,250,140,0.18)";
+    for (const k of [0, 1]) {
+      const [lx, ly, lr] = lobe(k);
+      ctx.beginPath();
+      ctx.arc(cx + (lx - 0.12) * r, ccy + (ly - 0.16) * r, lr * r * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -1158,7 +1268,7 @@ function cityMapDrawMist(now) {
 
 function cmRoadConnects(layout, gx, gy) {
   if (!layout || !layout.roadSet || !layout.roadSet.has(gx + "," + gy)) return false;
-  if (layout.river && layout.river.cells && layout.river.cells.has(gx + "," + gy)) {
+  if (layout.river && layout.river.isWater && layout.river.isWater(gx, gy)) {
     return cmIsBridgeRoad(layout, gx, gy);
   }
   return true;

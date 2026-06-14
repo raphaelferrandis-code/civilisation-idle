@@ -61,7 +61,7 @@ const CATEGORY_AFFINITY = {
 };
 
 export function createBuildingPlacer({
-  cells, plan, roadKey, counts, personality, seed, nearSet, N
+  cells, plan, roadKey, counts, personality, seed, nearSet, N, requireRoad = false
 }) {
   const bias = personality.variantBias;
   const core = plan.core;
@@ -199,6 +199,10 @@ export function createBuildingPlacer({
       const cell = list[i];
       const k = cell.gx + "," + cell.gy;
       if (usedKeys.has(k)) continue;
+      // PR2 — placement par lots : tout bâtiment décoratif doit border une rue
+      // (route dans le 8-voisinage). Sans rue adjacente, la cellule est ignorée
+      // → plus d'orphelins « au milieu de nulle part », plus de sentier à tracer.
+      if (requireRoad && roadAdj(cell.gx, cell.gy) < 1) continue;
       const variant = chooseVariant(category, placed, cell);
       if (category === "library" && variant === "shrine") {
         const qid = quarterIdAt(cell.gx, cell.gy);

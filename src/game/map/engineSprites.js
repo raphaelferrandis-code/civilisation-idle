@@ -891,7 +891,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   const band = CM.layout?.counts?.eraBand ?? 0;
   const ei = CM.layout?.counts?.eraIndex ?? 0;
-  if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei })) return;
+  if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei, gw: t.spanX || 1, gh: t.spanY || 1 })) return;
 
 }
 

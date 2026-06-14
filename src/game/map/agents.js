@@ -167,7 +167,15 @@ function drawCitizens(dt, now) {
     if (p.thoughtType === undefined) p.thoughtType = null;
 
     if (!CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
-      const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+      // PR3 — remap vers la route SURVIVANTE la plus proche (pas un saut
+      // aléatoire) : au recalcul du plan (achat, émondage), un habitant dont la
+      // cellule a disparu glisse sur la route voisine au lieu de sauter à l'autre
+      // bout de la ville → bien moins de clignotement.
+      let r = CM.walkRoadList[0], bestD = Infinity;
+      for (const c of CM.walkRoadList) {
+        const d = (c.gx - p.gx) * (c.gx - p.gx) + (c.gy - p.gy) * (c.gy - p.gy);
+        if (d < bestD) { bestD = d; r = c; }
+      }
       p.gx = r.gx;
       p.gy = r.gy;
       p.x = (r.gx + 0.5) * CM.TILE;
@@ -175,8 +183,7 @@ function drawCitizens(dt, now) {
       p.tx = p.x;
       p.ty = p.y;
       p.dir = -1;
-      // Téléporté après un recalcul du plan (achat de bâtiment) : fondu
-      // d'apparition pour éviter les "points" qui surgissent sur la carte.
+      // Fondu d'apparition pour éviter les "points" qui surgissent sur la carte.
       p.fade = 0;
     }
     if (p.fade === undefined) p.fade = 1;
