@@ -1,7 +1,7 @@
 /* ============================================================================
- * roadGraph.js — RoadGraphGenerator (moteur de routes v2)
- *   Construit le réseau viaire comme un GRAPHE CONNEXE par construction, en
- *   remplacement de roadGenerator.js. Différences clés :
+ * roadGraph.js — RoadGraphGenerator (moteur de routes)
+ *   Construit le réseau viaire comme un GRAPHE CONNEXE par construction.
+ *   Principes :
  *     - aucune route n'est « coupée » par la silhouette : organicLimit ne décide
  *       plus que de la LONGUEUR d'une antenne/ligne (on tronque le BOUT, jamais
  *       le milieu), il ne perce pas de trou dans un connecteur ;
@@ -10,16 +10,11 @@
  *     - une passe de couture (stitchComponents) RELIE — sans jamais supprimer —
  *       les rares composantes égarées à la composante du cœur : connexité
  *       garantie même si une recette d'archétype laisse un fragment.
- *   Sortie strictement identique à generateRoads ({ roads, roadKey, roadMeta,
- *   bridgeCols }) : c'est un drop-in piloté par un flag dans layout.js.
+ *   Sortie : { roads, roadKey, roadMeta, bridgeCols }, consommée par layout.js.
  *   La validation finale (ponts droits) reste assurée par cmBuildRoadGraph.
  * ============================================================================ */
 
 import { rngFrom } from "./seedManager.js";
-
-// Drapeau d'activation. v2=true : moteur graphe par défaut. Surchargé en jeu par
-// state.devFlags.legacyRoads pour comparer v1/v2 sur une même seed.
-export const ROAD_ENGINE = { v2: true };
 
 // "plaza" = rang le plus fort (esplanade dallée, exclue du rendu de chaussée).
 const RANK_WEIGHT = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
@@ -412,7 +407,7 @@ export function generateRoadsGraph({
     }
   }
 
-  // ── Rastérisation : sortie drop-in identique à generateRoads ────────────────
+  // ── Rastérisation : { roads, roadKey, roadMeta, bridgeCols } ────────────────
   const roads = [], roadKey = new Set(), roadMeta = new Map();
   for (const k of cells) {
     const c = k.indexOf(",");

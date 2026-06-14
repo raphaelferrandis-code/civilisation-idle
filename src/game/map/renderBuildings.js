@@ -8,7 +8,7 @@ import {
   cmHash,
   cmWonderSlot
 } from './layout.js';
-import { cityMapTileScreen } from './legacyRuntime.js';
+import { cityMapTileScreen } from './cityMapRuntime.js';
 import { drawEngineSprite, drawHouseShape, drawPublicShape, BUILDING_HEIGHTS } from './buildingShapes.js';
 import { baseColor, cmLitColor } from './renderWorld.js';
 

@@ -10,8 +10,7 @@ import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
-import { generateRoads } from './procedural/roadGenerator.js';
-import { generateRoadsGraph, trimDemandlessRoads, ROAD_ENGINE } from './procedural/roadGraph.js';
+import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.js';
 import { generateWalls } from './procedural/wallGenerator.js';
 import { createBuildingPlacer } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
@@ -20,17 +19,17 @@ import { createWaterModel } from './procedural/waterModel.js';
 
 
 /* ============================================================================
- * citymap-layout.js â€” Code PUR (sans dÃ©pendance navigateur/Canvas).
+ * citymap-layout.js — Code PUR (sans dépendance navigateur/Canvas).
  *   Contient : constantes, utilitaires, computeCityLayout, et tout ce qui
- *   peut Ãªtre exÃ©cutÃ© en dehors d'un contexte DOM (simulation Node incluse).
- *   ChargÃ© AVANT citymap.js qui contient uniquement initCityMap().
+ *   peut être exécuté en dehors d'un contexte DOM (simulation Node incluse).
+ *   Chargé AVANT citymap.js qui contient uniquement initCityMap().
  *
- * DÃ©pendances globales attendues au chargement :
+ * Dépendances globales attendues au chargement :
  *   - seededRng()   (utils.js)
  *   - state, eras   (state.js, data-world.js)
  * ============================================================================ */
 
-// â”€â”€ Objet Ã©tat du canvas (partagÃ© avec citymap.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Objet état du canvas (partagé avec citymap.js) ──────────────────────────
 const CM = {
   TILE: 32,
   canvas: null, ctx: null, mini: null, mctx: null,
@@ -65,7 +64,7 @@ const CM = {
   collapseAt: 0,
   raf: null
 };
-// â”€â”€ Constantes de routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Constantes de routes ─────────────────────────────────────────────────────
 const ROAD_N = 1;
 const ROAD_E = 2;
 const ROAD_S = 4;
@@ -75,7 +74,7 @@ function cmBetterRoadRank(a, b) {
   return (ROAD_RANK_WEIGHT[b] || 0) > (ROAD_RANK_WEIGHT[a] || 0) ? b : a;
 }
 
-// â”€â”€ Palettes et donnÃ©es visuelles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Palettes et données visuelles ────────────────────────────────────────────
 const CM_TINTS = ["#c9a84c", "#d8a24a", "#caa05a", "#d6b257", "#cf9a4a", "#d1c06a", "#b98f6a", "#cf8a5a"];
 const CM_GIVEN = [
   "Aldric", "Sibylle", "Garin", "Mahaut", "Renaud", "Ysoria", "Tassin", "Oda",
@@ -112,7 +111,7 @@ const CM_STREET_OF = [
   "du Fleuve", "des Archives", "du Rempart", "des Greniers", "du Couchant", "des Orfevres"
 ];
 
-// â”€â”€ BÃ¢timents (registre pour la carte) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Bâtiments (registre pour la carte) ──────────────────────────────────────
 const CM_ENGINE_BUILDINGS = [
   { id: "foragers",          name: "Cueilleurs",          zone: "outer"   },
   { id: "granaries_city",    name: "Entrepots",            zone: "outer"   },
@@ -178,7 +177,7 @@ function cmWaterAffine(affinity) {
   return affinity === "on" || affinity === "bank" || affinity === "near";
 }
 
-// â”€â”€ Merveilles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Merveilles ───────────────────────────────────────────────────────────────
 // Chaque merveille a une identité propre : nom, sprite dédié (renderBuildings),
 // emplacement thématique, et 5 PALIERS d'évolution : franchir un nouveau jalon
 // (population ×10, dynastie suivante, ère plus avancée...) fait grandir le
@@ -220,7 +219,7 @@ function cmWonderTier(w, s) {
 }
 const WONDER_CLEAR_R = 4; // rayon libre (tuiles) autour de chaque merveille
 
-// â”€â”€ Utilitaires purs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Utilitaires purs ─────────────────────────────────────────────────────────
 function cmClamp(v, a, b) { return Math.max(a, Math.min(b, Math.round(v))); }
 
 function cmHash(text) {
@@ -234,7 +233,7 @@ function cmHash(text) {
 function cmPick(list, seed) { return list[seed % list.length]; }
 
 function cmEraFrac(index) {
-  // ProtÃ¨ge contre eras vide ou non dÃ©fini
+  // Protège contre eras vide ou non défini
   const len = (typeof eras !== "undefined" && Array.isArray(eras)) ? eras.length : 0;
   const max = len > 1 ? len - 1 : 19;
   return Math.max(0, Math.min(1, index / max));
@@ -389,7 +388,7 @@ function cmRoadName(gx, gy) {
   return `${cmPick(kindList, cmHash("k" + lineId))} ${of}`;
 }
 
-// â”€â”€ Merveilles : slots et vÃ©rification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Merveilles : slots et vérification ──────────────────────────────────────
 function cmBaseWonderSlot(idx, gridN, cx, cy) {
   // Emplacement thématique propre à chaque merveille (angle/anneau dédiés),
   // avec un léger jitter seedé pour que deux parties ne soient pas identiques.
@@ -477,7 +476,7 @@ function cmCheckWonders(now) {
   }
 }
 
-// â”€â”€ Graphe routier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Graphe routier ───────────────────────────────────────────────────────────
 function cmIsBridgeRoad(layout, gx, gy) {
   const road = layout && layout.roadMap && layout.roadMap.get(gx + "," + gy);
   return !!(road && road.roadSurface === "bridge");
@@ -661,7 +660,7 @@ function cmIsWalkableRoad(layout, gx, gy) {
   return true;
 }
 
-// â”€â”€ Compteurs et disposition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Compteurs et disposition ─────────────────────────────────────────────────
 function cityCounts(s) {
   const b = s.buildings || {};
   const get = (id) => b[id] || 0;
@@ -695,7 +694,7 @@ function cityCounts(s) {
   return { houses, farms, publics, libs, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
 }
 
-// â”€â”€ GÃ©nÃ©ration de la disposition (pure) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
   const c = cityCounts(s);
   // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
@@ -717,7 +716,7 @@ function computeCityLayout(s) {
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < 300) N += 2;
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
 
-  // RiviÃ¨re fixe â€” stockÃ©e dans state.riverWP, la ville s'Ã©tend autour
+  // Rivière fixe — stockée dans state.riverWP, la ville s'étend autour
   const xStart = cx - N * 1.8, xEnd = cx + N * 1.8;
   const WN = 6;
   let WP;
@@ -819,11 +818,8 @@ function computeCityLayout(s) {
   };
 
   // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
-  // Moteur v2 (graphe connexe par construction) par défaut ; bascule sur le
-  // moteur v1 historique via state.devFlags.legacyRoads pour comparaison A/B.
-  const useGraphRoads = ROAD_ENGINE.v2 && !(s.devFlags && s.devFlags.legacyRoads === true);
-  const genRoads = useGraphRoads ? generateRoadsGraph : generateRoads;
-  const { roads, roadKey, roadMeta } = genRoads({
+  // Moteur graphe : réseau connexe par construction (cf. roadGraph.js).
+  const { roads, roadKey, roadMeta } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N, cx, cy,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
   });
@@ -875,7 +871,7 @@ function computeCityLayout(s) {
     for (let attempt = 0; attempt < 10 && !placed; attempt += 1) {
       const ring = 5 + Math.floor(n / 6) * 5 + attempt;
       const angle = baseAngle + attempt * 0.17;
-      // Math.floor obligatoire : les clÃ©s de riverSet/bankSet/occupiedFoot sont des entiers.
+      // Math.floor obligatoire : les clés de riverSet/bankSet/occupiedFoot sont des entiers.
       // Sans floor, "12.83,5" != "12,5" et le check fleuve ne fonctionne jamais.
       const gx = Math.floor(cmClamp(cx + Math.cos(angle) * ring, 1, N - size - 1));
       const gy = Math.floor(cmClamp(cy + Math.sin(angle) * ring, 1, N - size - 1));
@@ -886,7 +882,7 @@ function computeCityLayout(s) {
     districts.push({ gx: placed.gx, gy: placed.gy, size, kind, key: `district:${placed.gx},${placed.gy}:${kind}` });
   }
 
-  // Zone rÃ©servÃ©e (merveilles + districts)
+  // Zone réservée (merveilles + districts)
   const reserved = new Set();
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) reserved.add((d.gx + ax) + "," + (d.gy + ay));
@@ -899,7 +895,7 @@ function computeCityLayout(s) {
         if (Math.hypot(dx, dy) <= WONDER_CLEAR_R) reserved.add((slot.gx + dx) + "," + (slot.gy + dy));
   }
 
-  // Cellules (bÃ¢tissables + arbres)
+  // Cellules (bâtissables + arbres)
   const cells = [];
   const quarterScore = (cell) => quarterAnchors.reduce((best, q) => {
     const qd = Math.hypot((cell.gx + 0.5) - q.gx, (cell.gy + 0.5) - q.gy);
@@ -934,14 +930,14 @@ function computeCityLayout(s) {
   // ── Placement par catégorie : quartiers, rues, places, personnalité ──────
   const placer = createBuildingPlacer({
     cells: buildable, plan, roadKey, counts: c, personality, ageCfg,
-    seed: mapSeed, nearSet, N, requireRoad: useGraphRoads
+    seed: mapSeed, nearSet, N, requireRoad: true
   });
   const pushTile = (t) => tiles.push(t);
   // Multiplicateurs de personnalité : une cité agricole a plus de champs,
   // une cité savante plus de lieux de savoir... (bornés par les caps d'ère)
   const biasedCount = (n, mul) => Math.max(0, Math.round(n * (mul || 1)));
 
-  // Emprises moteur (bÃ¢timents achetÃ©s) â€” rÃ©servÃ©es avant les tuiles dÃ©coratives
+  // Emprises moteur (bâtiments achetés) — réservées avant les tuiles décoratives
   const claimed = new Set(), engineFootprint = new Set();
   // La muraille est inconstructible : sans cette graine, les emprises multi-
   // cellules et les slots sauvegardés d'avant l'enceinte passent par-dessus.
@@ -1096,7 +1092,7 @@ function computeCityLayout(s) {
   }
   const placedSlotKeys = new Set();
   const placeRequest   = (req, preferSavedSlot) => {
-    // â”€â”€ Aqueduc : structure linÃ©aire (spanX tiles Ã— 1 tile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Aqueduc : structure linéaire (spanX tiles × 1 tile) ─────────────────
     if (req.meta.id === "aqueducts") {
       const spanX = cmAqueductSpan(req.level), spanY = 1;
       let placed = null;
@@ -1387,139 +1383,20 @@ function computeCityLayout(s) {
   placer.placeCategory("house", biasedCount(c.houses, bias.house), usedKeys, pushTile);
   placer.placeCategory("farm", biasedCount(c.farms, bias.farm), usedKeys, pushTile);
 
-  // ── Sentiers de raccordement : tout bâtiment décoratif doit toucher le réseau.
-  //    Quand la population pousse logements/granges au-delà de ce que les rues
-  //    générées desservent, le surplus atterrit loin de toute route. Pour chaque
-  //    bâtiment non desservi (aucune route à ≤ 2 cases orthogonales), on trace
-  //    une amorce de route (BFS déterministe) jusqu'à la route la plus proche, en
-  //    contournant l'eau et les autres bâtiments. Posé AVANT cmBuildRoadGraph :
-  //    le sentier rejoint la composante du cœur et survit donc à son élagage.
-  //    Moteur v2 : inutile — requireRoad garantit déjà un lot bordant une rue
-  //    pour chaque bâtiment décoratif. On ne garde ce filet que pour le legacy.
-  if (!useGraphRoads) {
-  const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const isWaterCell = (gx, gy) => riverSet.has(gx + "," + gy) || bankSet.has(gx + "," + gy);
-  // Praticabilité d'une cellule de route (mêmes règles que cmIsWalkableRoad, sur
-  // roadKey/riverSet/bankSet) : une route sur l'eau EST un pont ; une route de
-  // berge n'est praticable qu'adossée à un pont.
-  const isBridgeRoad = (gx, gy) => roadKey.has(gx + "," + gy) && riverSet.has(gx + "," + gy);
-  const walkableRoad = (gx, gy) => {
-    const k = gx + "," + gy;
-    if (!roadKey.has(k)) return false;
-    if (riverSet.has(k)) return true;
-    if (bankSet.has(k)) return DIRS4.some(([dx, dy]) => isBridgeRoad(gx + dx, gy + dy));
-    return true;
+  // ── Trim à la demande : émonde les routes qui ne bordent aucun bâtiment
+  //    (approche de pont vers le vide, antennes mortes des secteurs sous-bâtis).
+  //    N'enlève que des feuilles → ne coupe aucun axe traversant ni n'isole le
+  //    réseau. Posé AVANT cmBuildRoadGraph : un pont devenu inutile perd son
+  //    ancrage terrestre et sera écarté par sa validation.
+  const demand = new Set(reserved); // merveilles + districts comptent comme demande
+  const addFoot = (gx, gy, sx, sy) => {
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) demand.add((gx + ax) + "," + (gy + ay));
   };
-  // Composante marchable du cœur (flood orthogonal depuis la route praticable la
-  // plus proche du centre) : les sentiers de raccordement DOIVENT viser cette
-  // composante — pas un fragment qui sera ensuite élagué par cmBuildRoadGraph.
-  const coreComp = new Set();
-  {
-    let seed = null, sd = Infinity;
-    for (const r of roads) {
-      if (!walkableRoad(r.gx, r.gy)) continue;
-      const d = (r.gx - cx) * (r.gx - cx) + (r.gy - cy) * (r.gy - cy);
-      if (d < sd) { sd = d; seed = r; }
-    }
-    if (seed) {
-      coreComp.add(seed.gx + "," + seed.gy);
-      const st = [[seed.gx, seed.gy]];
-      while (st.length) {
-        const [gx, gy] = st.pop();
-        for (const [dx, dy] of DIRS4) {
-          const nk = (gx + dx) + "," + (gy + dy);
-          if (!coreComp.has(nk) && walkableRoad(gx + dx, gy + dy)) { coreComp.add(nk); st.push([gx + dx, gy + dy]); }
-        }
-      }
-    }
-  }
-  const served = (gx, gy) => {
-    for (let d = 1; d <= 2; d += 1) {
-      if (coreComp.has((gx + d) + "," + gy) || coreComp.has((gx - d) + "," + gy)
-        || coreComp.has(gx + "," + (gy + d)) || coreComp.has(gx + "," + (gy - d))) return true;
-    }
-    return false;
-  };
-  const addSpurCell = (gx, gy, axis) => {
-    const k = gx + "," + gy;
-    const meta = roadMeta.get(k) || { h: false, v: false, rank: "path" };
-    if (axis === "h") meta.h = true; else meta.v = true;
-    roadMeta.set(k, meta);
-    if (!roadKey.has(k)) { roadKey.add(k); roads.push({ gx, gy }); }
-    coreComp.add(k); // le sentier étend la composante du cœur
-  };
-  // Champ de distance multi-source depuis la composante du cœur, à travers la
-  // terre praticable (ni eau ni bâtiment) — une seule passe BFS O(N²). Chaque
-  // cellule mémorise le pas `from` vers le réseau et sa distance. Les bâtiments
-  // orphelins descendent ensuite ce gradient en posant un sentier ; comme `from`
-  // est un arbre BFS et qu'on s'arrête dès qu'on rejoint le réseau (sentiers déjà
-  // posés inclus), les amorces fusionnent en arbre — pas de lignes parallèles.
-  const from = new Map(), fdist = new Map();
-  {
-    const q = [];
-    for (const k of coreComp) { fdist.set(k, 0); q.push(k); }
-    let head = 0;
-    while (head < q.length) {
-      const cur = q[head++];
-      const comma = cur.indexOf(",");
-      const gx = +cur.slice(0, comma), gy = +cur.slice(comma + 1);
-      const dCur = fdist.get(cur);
-      for (const [dx, dy] of DIRS4) {
-        const ngx = gx + dx, ngy = gy + dy;
-        if (ngx < 0 || ngy < 0 || ngx >= N || ngy >= N) continue;
-        const nk = ngx + "," + ngy;
-        if (fdist.has(nk)) continue;
-        if (isWaterCell(ngx, ngy) || usedKeys.has(nk)) continue; // ni eau ni bâtiment
-        fdist.set(nk, dCur + 1);
-        from.set(nk, cur);
-        q.push(nk);
-      }
-    }
-  }
-  const axisBetween = (a, b) => (a.slice(0, a.indexOf(",")) === b.slice(0, b.indexOf(","))) ? "v" : "h";
   for (const t of tiles) {
-    if (t.type !== "house" && t.type !== "public" && t.type !== "library" && t.type !== "farm") continue;
-    if (t.variant === "firepit") continue;
-    if (served(t.gx, t.gy)) continue;
-    // Voisin praticable le plus proche du réseau (présent dans le champ).
-    let entry = null, eDist = Infinity;
-    for (const [dx, dy] of DIRS4) {
-      const nk = (t.gx + dx) + "," + (t.gy + dy);
-      const d = fdist.get(nk);
-      if (d !== undefined && d < eDist) { eDist = d; entry = nk; }
-    }
-    if (!entry) continue; // bâtiment enclavé (eau/bâtiments) : laissé tel quel
-    // Descend le gradient en posant un sentier jusqu'à rejoindre le réseau, en
-    // marquant l'axe de chaque pas incident pour des masques de route cohérents.
-    let cur = entry, child = null;
-    while (cur && !coreComp.has(cur)) {
-      const comma = cur.indexOf(",");
-      const cgx = +cur.slice(0, comma), cgy = +cur.slice(comma + 1);
-      const parent = from.get(cur);
-      if (parent) addSpurCell(cgx, cgy, axisBetween(cur, parent));
-      if (child) addSpurCell(cgx, cgy, axisBetween(cur, child));
-      child = cur;
-      cur = parent;
-    }
+    if (t.type === "engine") addFoot(t.gx, t.gy, t.spanX || t.size || 1, t.spanY || t.size || 1);
+    else demand.add(t.gx + "," + t.gy);
   }
-  } // fin if (!useGraphRoads) — sentiers de raccordement (moteur v1 uniquement)
-
-  // ── Trim à la demande (moteur v2) : émonde les routes qui ne bordent aucun
-  //    bâtiment (approche de pont vers le vide, antennes mortes des secteurs
-  //    sous-bâtis). N'enlève que des feuilles → ne coupe aucun axe traversant ni
-  //    n'isole le réseau. Posé AVANT cmBuildRoadGraph : un pont devenu inutile
-  //    perd son ancrage terrestre et sera écarté par sa validation.
-  if (useGraphRoads) {
-    const demand = new Set(reserved); // merveilles + districts comptent comme demande
-    const addFoot = (gx, gy, sx, sy) => {
-      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) demand.add((gx + ax) + "," + (gy + ay));
-    };
-    for (const t of tiles) {
-      if (t.type === "engine") addFoot(t.gx, t.gy, t.spanX || t.size || 1, t.spanY || t.size || 1);
-      else demand.add(t.gx + "," + t.gy);
-    }
-    trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
-  }
+  trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
 
   let maxD2 = 1;
   for (const t of tiles) if (t.d2 > maxD2) maxD2 = t.d2;
@@ -1552,7 +1429,7 @@ function computeCityLayout(s) {
   };
 }
 
-// â”€â”€ Vestiges (pur, sans Canvas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Vestiges (pur, sans Canvas) ──────────────────────────────────────────────
 function captureVestige() {
   if (typeof state === "undefined" || !state) return;
   try {

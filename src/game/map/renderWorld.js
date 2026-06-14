@@ -456,9 +456,9 @@ function cityMapDrawTrees() {
     return;
   }
 
-  // Passe 1 â€” ombres portÃ©es sous chaque arbre
+  // Passe 1 — ombres portées sous chaque arbre
   for (const t of trees) {
-    // L'ombre se place sous le pied du tronc, dÃ©calÃ©e Ã  droite
+    // L'ombre se place sous le pied du tronc, décalée à droite
     ctx.fillStyle = "rgba(20,14,6," + t.shA.toFixed(2) + ")";
     ctx.beginPath();
     ctx.ellipse(
@@ -469,9 +469,9 @@ function cityMapDrawTrees() {
     ctx.fill();
   }
 
-  // Passe 2 â€” troncs + couronnes
-  // GÃ©omÃ©trie : couronne centrÃ©e Ã  cy - r*0.50  â†’  bas de la couronne = cy + r*0.50
-  //             tronc descend jusqu'Ã  cy + r*0.90  â†’  r*0.40 de tronc visible en bas
+  // Passe 2 — troncs + couronnes
+  // Géométrie : couronne centrée à cy - r*0.50  →  bas de la couronne = cy + r*0.50
+  //             tronc descend jusqu'à cy + r*0.90  →  r*0.40 de tronc visible en bas
   for (const t of trees) {
     const r = t.r, cx = t.cx, cy = t.cy;
     // Bits de hash supplementaires : casse la regularite d'un arbre a l'autre.
@@ -1418,7 +1418,7 @@ function cityMapDrawRoad(r) {
     if ((mask.n || mask.s) && major) { ctx.beginPath(); ctx.moveTo(cxp, sy + s * 0.26); ctx.lineTo(cxp, sy + s * 0.5); ctx.stroke(); }
   }
   ctx.restore();
-  ctx.lineJoin = "miter"; // reset explicite â€” drawAxis pose "round" dans le save block
+  ctx.lineJoin = "miter"; // reset explicite — drawAxis pose "round" dans le save block
 
   if (ruined && seed % 2 === 0) {
     ctx.strokeStyle = "rgba(20,14,9,0.72)";

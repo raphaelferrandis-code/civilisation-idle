@@ -483,9 +483,9 @@ function cityMapEnsureLayout(now, deps = {}) {
       }
     }
   }
-  // ClÃ©s numÃ©riques : Ã©vite les allocations string Ã  chaque lookup dans les boucles agents
+  // Clés numériques : évite les allocations string à chaque lookup dans les boucles agents
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
-  // Ponts prÃ©calculÃ©s : Ã©vite Array.filter Ã  chaque frame dans cityMapDrawBridges
+  // Ponts précalculés : évite Array.filter à chaque frame dans cityMapDrawBridges
   CM.bridgeList = CM.roadList.filter((r) => r.roadSurface === "bridge");
   // Précalcul des seeds de route — évite la string `road:${gx}:${gy}:${era}` à chaque frame
   const _eraForSeed = L.counts ? L.counts.eraIndex : 0;

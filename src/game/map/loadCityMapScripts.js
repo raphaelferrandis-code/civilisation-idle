@@ -1,4 +1,4 @@
-import { CM, initCityMap } from './legacyRuntime.js';
+import { CM, initCityMap } from './cityMapRuntime.js';
 
 export function startCityMapRuntime(canvas, options = {}) {
   resetCityMapRuntime();
