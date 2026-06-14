@@ -1510,17 +1510,25 @@
   transition: width 0.3s ease;
 }
 
+.tactical-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .tactical-actions button {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.55rem 0.7rem;
   border: 1px solid rgba(var(--era-rgb), 0.3);
   border-radius: 8px;
   background: rgba(var(--era-rgb), 0.06);
   color: var(--gold-bright);
   font-weight: 600;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
+  text-align: left;
   transition: all 0.2s ease;
 }
 
@@ -2166,6 +2174,7 @@
 
 .crisis-foyer-chevron {
   flex: 0 0 auto;
+  margin-left: auto;
   font-size: 0.62rem;
   line-height: 1;
   color: var(--muted);
@@ -2217,9 +2226,9 @@
 
 .crisis-regul-btn {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
   padding: 0.4rem 0.55rem;
   border: 1px solid rgba(var(--era-rgb), 0.4);
   border-radius: 7px;
@@ -2269,6 +2278,193 @@
 .crisis-foyer--gold  { --foyer-color: #e8b339; }
 .crisis-foyer--know  { --foyer-color: #85b7eb; }
 .crisis-foyer--infra { --foyer-color: #af9eec; }
+
+/* ── Étape 4 : boutons de régulation enrichis (effet · contrepartie · coût) ── */
+.regul-btn-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.regul-gain {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #9bd17a;            /* bénéfice : ce que l'action calme */
+  white-space: nowrap;
+}
+
+.regul-malus {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #e0934a;            /* contrepartie : malus de production */
+  white-space: nowrap;
+}
+
+.regul-cost {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Badge « apaisé » + état adouci d'un foyer en cours de régulation. */
+.crisis-foyer-soothed {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9bd17a;
+  background: rgba(155, 209, 122, 0.12);
+  border: 1px solid rgba(155, 209, 122, 0.35);
+  border-radius: 999px;
+  padding: 0.02rem 0.34rem;
+  line-height: 1.4;
+}
+
+.tactical-htitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.is-soothed .crisis-foyer-fill,
+.is-soothed .tactical-fill {
+  filter: saturate(0.7) brightness(1.05);
+  box-shadow: 0 0 6px rgba(155, 209, 122, 0.45);
+}
+
+/* ── Réforme de fond : recul DURABLE (ton or/parchemin, vs le vert temporaire) ── */
+.regul-reform-tag {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gold);        /* gain durable : se distingue du vert « apaisé » */
+  white-space: nowrap;
+}
+
+.regul-reform {
+  border-color: rgba(212, 175, 55, 0.5) !important;
+  background-image: linear-gradient(135deg, rgba(212, 175, 55, 0.10), transparent 60%);
+}
+.regul-reform:disabled {
+  opacity: 0.55;
+}
+
+/* Badge « réformé » : recul durable acquis sur le foyer. */
+.crisis-foyer-reformed {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 999px;
+  padding: 0.02rem 0.34rem;
+  line-height: 1.4;
+}
+
+.is-reformed .crisis-foyer-fill,
+.is-reformed .tactical-fill {
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.5);
+}
+
+/* Bonus économique d'une action (infra/légitimité) — ton azur, vs malus orange. */
+.regul-bonus {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #6fb8d8;
+  white-space: nowrap;
+}
+
+/* Action verrouillée (palier non atteint) : aperçu grisé « 🔒 Ère / mythe ». */
+.regul-locked {
+  opacity: 0.42;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+}
+
+/* Levier B — tampon institutionnel : pression absorbée par infra + légitimité. */
+.crisis-regul-buffer {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #7fc6e6;
+  letter-spacing: 0.02em;
+}
+.crisis-regul-buffer--full {
+  font-size: 0.82rem;
+  margin: 0.1rem 0 0.6rem;
+  color: var(--muted);
+}
+.crisis-regul-buffer--full strong {
+  color: #7fc6e6;
+}
+
+/* ── Levier C — Politiques permanentes (toggles) ─────────────────────────────── */
+.crisis-policies {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(var(--era-rgb), 0.18);
+}
+.crisis-policies-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.crisis-policies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.5rem;
+}
+.policy-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(127, 198, 230, 0.28);
+  border-radius: 8px;
+  background: rgba(20, 30, 40, 0.5);
+  cursor: pointer;
+}
+.policy-btn:disabled {
+  cursor: not-allowed;
+}
+.policy-btn.is-active {
+  border-color: rgba(127, 198, 230, 0.85);
+  background-image: linear-gradient(135deg, rgba(127, 198, 230, 0.16), transparent 60%);
+  box-shadow: 0 0 8px rgba(127, 198, 230, 0.35);
+}
+.policy-effect {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #7fc6e6;
+  white-space: nowrap;
+}
+.policy-active-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7fc6e6;
+}
 
 /* Panneau de progression de l'Ère / Rupture */
 .era-progress-panel {

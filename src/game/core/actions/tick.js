@@ -16,7 +16,8 @@ import {
   crisisCosts,
   currentEraIndex,
   enforceInfrastructureCap,
-  has
+  has,
+  policyRiseSlow
 } from '../mechanics.js';
 
 import {
@@ -42,7 +43,8 @@ import {
   INSTABILITY_DRIFT_SPEED,
   INSTABILITY_OVERSHOOT_CAP,
   INSTABILITY_MAX_RISE_PER_SEC,
-  AUTO_CRISIS_COOLDOWN_MS
+  AUTO_CRISIS_COOLDOWN_MS,
+  FOYER_RELIEF_HALF_LIFE_S
 } from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -99,9 +101,11 @@ export function tick(dt) {
   const rawTarget = Math.max(0, r.instability);
   const instabilityTarget = clamp01(rawTarget);
   const instabilityDrift = instabilityTarget - state.instability;
-  // "Maintenir l'ordre" ralentit la montée de la rupture (jamais sa descente).
+  // "Maintenir l'ordre" (prépa terminale) + politiques permanentes (Levier C)
+  // ralentissent la MONTÉE de la rupture (jamais sa descente). Plafond commun 0.8
+  // → même tout ralenti, la jauge monte encore : jamais un gel (anti-immortalité).
   const orderSlow = instabilityDrift > 0
-    ? 1 - Math.min(0.8, state.terminalPreparations?.ruptureSlow || 0)
+    ? 1 - Math.min(0.8, (state.terminalPreparations?.ruptureSlow || 0) + policyRiseSlow())
     : 1;
   // Surcharge : au-delà du seuil, la dérive accélère proportionnellement au
   // dépassement (plafonné) — une cité en pression x3 ne peut plus être tenue
@@ -119,6 +123,17 @@ export function tick(dt) {
   state.instability = instabilityTarget >= 1 && nextInstability >= 0.995
     ? 1
     : clamp01(nextInstability);
+
+  // Étape 2 : déclin du relief temporaire des foyers (demi-vie FOYER_RELIEF_HALF_LIFE_S)
+  // — l'apaisement obtenu en cliquant s'estompe, il faut ré-intervenir.
+  const fr = state.foyerRelief;
+  if (fr) {
+    const keep = Math.pow(0.5, dt / FOYER_RELIEF_HALF_LIFE_S);
+    fr.scarcity *= keep;
+    fr.inequality *= keep;
+    fr.complexity *= keep;
+    fr.dissent *= keep;
+  }
 
   const peaks = state.cyclePeaks;
   if (D(state.population).gt(peaks.population)) peaks.population = state.population;

@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { pressureBreakdown, crisisCosts } from '../../game/core/mechanics.js';
-import { runCrisisAction } from '../../game/core/actions.js';
-import { pct, costLabel, canPayCost } from '../../game/core/utils.js';
+import { pressureBreakdown, crisisCosts, rates, regulationContext, regulationActionUnlocked, regulationPolicyUnlocked } from '../../game/core/mechanics.js';
+import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
+import { costLabel, canPayCost } from '../../game/core/utils.js';
+import { state } from '../../game/core/state.js';
+import { toNum } from '../../game/core/num.js';
+import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE } from '../../game/core/balance.js';
+import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
 
 /**
  * Actions de régulation des foyers de tension (Subsistance / Inégalités /
@@ -10,12 +14,190 @@ import { pct, costLabel, canPayCost } from '../../game/core/utils.js';
  *  — l'en-tête de la Cité (variant="compact", toujours visible) ;
  *  — l'onglet Effondrement (variant="full", tableau tactique détaillé).
  *
- * L'abonnement à `instability` cale le recalcul des coûts et de l'état
- * "payable" sur le tick (1 Hz), comme dans la vue Effondrement d'origine.
+ * Les deux variantes mappent la MÊME config `foyers` : chaque bouton annonce
+ * désormais ce qu'il calme (−X % du foyer), sa contrepartie de production
+ * (↓Y % d'une ressource jusqu'au prochain effondrement) et son coût (montant +
+ * équivalent en secondes de production). L'abonnement à `instability` cale le
+ * recalcul (coûts, relief décroissant) sur le tick (1 Hz).
  */
+
+const RES_LABEL = { food: 'nourriture', gold: 'trésor', knowledge: 'savoir', infrastructure: 'infrastructure' };
+
+// Équivalent du coût en secondes de production courante (coût ÷ revenu/s) : le
+// coût est ancré sur la production, on l'affiche aussi « ≈ N s » pour la lisibilité.
+function costSeconds(cost, r) {
+  let sec = 0;
+  for (const [res, amt] of Object.entries(cost)) {
+    const inc = r[res] ? toNum(r[res]) : 0;
+    if (inc > 0) sec = Math.max(sec, toNum(amt) / inc);
+  }
+  return sec >= 1 ? Math.round(sec) : 0;
+}
+
+// Descripteur d'affichage d'une action d'apaisement : ce qu'elle calme (relief
+// temporaire), sa contrepartie (malus de production), et la durée-coût.
+function describeAction(id, cost, r) {
+  return {
+    id,
+    cost,
+    relief: FOYER_RELIEF_ADD[id] || 0,
+    malusRes: FOYER_MALUS_RESOURCE[id],
+    malusPct: FOYER_MALUS_PCT[id] || 0,
+    costSec: costSeconds(cost, r)
+  };
+}
+
+// Action id de la réforme de fond par foyer.
+const REFORM_ID = {
+  scarcity: 'reformScarcity',
+  inequality: 'reformInequality',
+  complexity: 'reformComplexity',
+  dissent: 'reformDissent'
+};
+
+// Descripteur d'une réforme de fond : recul DURABLE déposé sur le foyer, déjà
+// acquis (currentReform), et saturation au plafond partagé (atCap).
+function describeReform(foyer, cost, r, currentReform) {
+  return {
+    id: REFORM_ID[foyer],
+    cost,
+    reform: true,
+    durableAdd: FOYER_REFORM[foyer]?.add || 0,
+    currentReform: currentReform || 0,
+    atCap: (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
+    costSec: costSeconds(cost, r)
+  };
+}
+
+// Descripteur d'une action déblocable (registre) : apaisement ou réforme, avec
+// éventuel effet économique (bonus), et état verrouillé/débloqué.
+function describeRegAction(action, cost, r, ctx, currentReform) {
+  const unlocked = regulationActionUnlocked(action.id, ctx);
+  const isReform = action.kind === 'reform';
+  return {
+    id: action.id,
+    label: action.label,
+    cost,
+    costSec: costSeconds(cost, r),
+    locked: !unlocked,
+    unlockLabel: action.unlockLabel,
+    reform: isReform,
+    durableAdd: action.reformAdd || 0,
+    currentReform: currentReform || 0,
+    atCap: isReform && (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
+    malusRes: action.malusRes,
+    malusPct: action.malusPct || 0,
+    bonus: action.infraAdd ? 'infra' : (action.legitAdd ? 'legit' : null)
+  };
+}
+
+// Bouton partagé par les deux variantes : libellé + coût (ligne 1), puis la
+// contrepartie de production (ligne 2). `showSeconds` ajoute l'équivalent
+// « ≈ N s de prod » au coût — réservé à la variante full (cartes larges) ;
+// en compact le menu flottant est trop étroit.
+const BONUS_LABEL = { infra: '+infrastructure', legit: '+légitimité' };
+
+function RegulButton({ a, label, btnClass, showSeconds }) {
+  if (a.locked) {
+    const cls = `${btnClass}${btnClass ? ' ' : ''}regul-locked`.trim();
+    return (
+      <button className={cls} disabled title={`Se débloque : ${a.unlockLabel}`}>
+        <span className="regul-btn-line">
+          <strong>{label}</strong>
+          <span className="regul-cost">🔒 {a.unlockLabel}</span>
+        </span>
+      </button>
+    );
+  }
+  if (a.reform) {
+    const cls = `${btnClass}${btnClass ? ' ' : ''}regul-reform`.trim();
+    return (
+      <button
+        className={cls}
+        disabled={a.atCap || !canPayCost(a.cost)}
+        title="Réforme de fond : recul DURABLE de ce foyer (ne décline pas, jusqu'au prochain effondrement). Coût lourd."
+        onClick={() => runCrisisAction(a.id)}
+      >
+        <span className="regul-btn-line">
+          <strong>{label}</strong>
+          <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+        </span>
+        <span className="regul-btn-line regul-btn-sub">
+          <span className="regul-reform-tag">
+            {a.atCap ? '✓ foyer réformé au maximum' : `−${Math.round(a.durableAdd * 100)}% durable`}
+          </span>
+        </span>
+      </button>
+    );
+  }
+  return (
+    <button className={btnClass} disabled={!canPayCost(a.cost)} onClick={() => runCrisisAction(a.id)}>
+      <span className="regul-btn-line">
+        <strong>{label}</strong>
+        <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+      </span>
+      {(a.malusRes || a.bonus) && (
+        <span className="regul-btn-line regul-btn-sub">
+          {a.malusRes && (
+            <span className="regul-malus" title="Malus de production cumulatif, jusqu'au prochain effondrement">
+              ↓{Math.round(a.malusPct * 100)}% {RES_LABEL[a.malusRes] || a.malusRes}
+            </span>
+          )}
+          {a.bonus && (
+            <span className="regul-bonus" title="Bénéfice durable pour la cité">
+              {BONUS_LABEL[a.bonus] || a.bonus}
+            </span>
+          )}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// Coût continu d'une politique en libellé court (« −10% production · −15% trésor »).
+function policyCostLabel(cost) {
+  const parts = [];
+  if (cost.global) parts.push(`−${Math.round(cost.global * 100)}% production`);
+  for (const [res, v] of Object.entries(cost)) {
+    if (res === 'global') continue;
+    parts.push(`−${Math.round(v * 100)}% ${RES_LABEL[res] || res}`);
+  }
+  return parts.join(' · ');
+}
+
+// Bascule d'une politique permanente (Levier C) : ralentit la montée, coût continu.
+function PolicyRow({ p, slotsFull }) {
+  const disabled = !p.active && (p.locked || slotsFull);
+  return (
+    <button
+      className={`policy-btn${p.active ? ' is-active' : ''}${p.locked ? ' regul-locked' : ''}`}
+      disabled={disabled}
+      title={p.locked ? `Se débloque : ${p.unlockLabel}` : p.desc}
+      onClick={() => togglePolicy(p.id)}
+    >
+      <span className="regul-btn-line">
+        <strong>{p.label}</strong>
+        <span className="regul-cost">{p.locked ? `🔒 ${p.unlockLabel}` : policyCostLabel(p.cost)}</span>
+      </span>
+      <span className="regul-btn-line regul-btn-sub">
+        <span className="policy-effect">−{Math.round(p.riseSlow * 100)}% montée de la Rupture</span>
+        {p.active && <span className="policy-active-tag">● active</span>}
+      </span>
+    </button>
+  );
+}
+
 export default function CrisisActionBar({ variant = 'full' }) {
   useGameState(s => s.instability);
   const cycles = useGameState(s => s.cycles);
+  // Les réformes ne touchent pas `instability` : on s'abonne aussi à la somme du
+  // recul durable pour re-render dès le clic (sinon feedback retardé au tick).
+  useGameState(s => {
+    const rf = s.foyerReform || {};
+    return (rf.scarcity || 0) + (rf.inequality || 0) + (rf.complexity || 0) + (rf.dissent || 0);
+  });
+  // Levier C : re-render au toggle d'une politique (la liste change).
+  useGameState(s => (s.activePolicies || []).join(','));
 
   // Variante compacte : un seul pointerdown gère la fermeture au clic extérieur
   // ET l'accordéon (ouvrir un foyer ferme les autres → un seul menu flottant).
@@ -36,57 +218,105 @@ export default function CrisisActionBar({ variant = 'full' }) {
 
   const pressure = pressureBreakdown();
   const costs = crisisCosts();
+  const r = rates();
+  const relief = state.foyerRelief || {};
+  const reform = state.foyerReform || {};
   const showArchiveBtn = cycles >= 2;
   const showAncestorBtn = cycles >= 3;
 
-  if (variant === 'compact') {
-    const foyers = [
-      {
-        key: 'scarcity', icon: '🌾', label: 'Subsistance', tone: 'food',
-        value: pressure.scarcity, denom: 0.7,
-        actions: [{ id: 'rationing', label: 'Rationner', cost: costs.rationing }]
-      },
-      {
-        key: 'inequality', icon: '⚖️', label: 'Inégalités', tone: 'gold',
-        value: pressure.inequality, denom: 0.55,
-        actions: [{ id: 'festivals', label: 'Jeux civiques', cost: costs.festivals }]
-      },
-      {
-        key: 'complexity', icon: '🏛️', label: 'Complexité', tone: 'know',
-        value: pressure.complexity, denom: 0.75,
-        actions: [
-          { id: 'census', label: 'Recenser', cost: costs.census },
-          { id: 'reforms', label: 'Réformes', cost: costs.reforms }
-        ]
-      },
-      {
-        key: 'dissent', icon: '📜', label: 'Dissidence', tone: 'infra',
-        value: pressure.dissent, denom: 0.55,
-        actions: [
-          showAncestorBtn && { id: 'ancestorCrisis', label: 'Culte des ancêtres', cost: costs.ancestorCrisis },
-          showArchiveBtn && { id: 'archiveCrisis', label: 'Catastrophes', cost: costs.archiveCrisis }
-        ].filter(Boolean)
-      }
-    ];
+  // Config unique des 4 foyers (key = foyer de pressureBreakdown / foyerRelief),
+  // partagée par les deux variantes. `desc` n'est affichée qu'en variante full.
+  // `act` = apaisement (temporaire) ; `ref` = réforme de fond (recul durable).
+  const ctx = regulationContext();
+  const act = (id, label) => ({ label, ...describeAction(id, costs[id], r) });
+  const ref = (foyer) => ({ label: FOYER_REFORM[foyer].label, ...describeReform(foyer, costs[REFORM_ID[foyer]], r, reform[foyer]) });
+  // Actions déblocables du registre pour un foyer (triées par palier ; les
+  // verrouillées s'affichent en aperçu « 🔒 Ère / mythe »).
+  const regFor = (foyerKey) => REGULATION_ACTIONS
+    .filter((a) => a.foyer === foyerKey)
+    .sort((a, b) => a.tier - b.tier)
+    .map((a) => describeRegAction(a, costs[a.id], r, ctx, reform[foyerKey]));
+  const foyers = [
+    {
+      key: 'scarcity', icon: '🌾', label: 'Subsistance', tone: 'food', value: pressure.scarcity,
+      desc: 'La population croissante pèse sur les réserves de blé.',
+      actions: [act('rationing', 'Rationner'), ref('scarcity'), ...regFor('scarcity')]
+    },
+    {
+      key: 'inequality', icon: '⚖️', label: 'Inégalités', tone: 'gold', value: pressure.inequality,
+      desc: "L'accumulation de trésor crée des barrières entre classes.",
+      actions: [act('festivals', 'Jeux civiques'), ref('inequality'), ...regFor('inequality')]
+    },
+    {
+      key: 'complexity', icon: '🏛️', label: 'Complexité', tone: 'know', value: pressure.complexity,
+      desc: 'Le nombre de structures demande une administration lourde.',
+      actions: [act('census', 'Recenser'), act('reforms', 'Réformes'), ref('complexity'), ...regFor('complexity')]
+    },
+    {
+      key: 'dissent', icon: '📜', label: 'Dissidence', tone: 'infra', value: pressure.dissent,
+      desc: "Les récits et la mémoire des cycles divisent l'opinion.",
+      actions: [
+        showAncestorBtn && act('ancestorCrisis', 'Culte des ancêtres'),
+        showArchiveBtn && act('archiveCrisis', 'Catastrophes'),
+        ref('dissent'),
+        ...regFor('dissent')
+      ].filter(Boolean)
+    }
+  ];
 
+  // Levier C — politiques permanentes (toggles).
+  const activePolicies = state.activePolicies || [];
+  const policies = REGULATION_POLICIES.map((p) => ({
+    ...p,
+    active: activePolicies.includes(p.id),
+    locked: !regulationPolicyUnlocked(p.id, ctx)
+  }));
+  const slotsFull = activePolicies.length >= POLICY_MAX_ACTIVE;
+  const policiesSection = (
+    <div className="crisis-policies">
+      <div className="crisis-policies-head">
+        <span className="crisis-regul-title">Politiques permanentes</span>
+        <span className="crisis-regul-hint">
+          {activePolicies.length}/{POLICY_MAX_ACTIVE} actives — ralentissent la montée, coût de production continu
+        </span>
+      </div>
+      <div className="crisis-policies-grid">
+        {policies.map((p) => <PolicyRow key={p.id} p={p} slotsFull={slotsFull} />)}
+      </div>
+    </div>
+  );
+
+  const isSoothed = (key) => (relief[key] || 0) > 0.02;
+  const isReformed = (key) => (reform[key] || 0) > 0.02;
+  // Levier B — lisibilité : combien tes institutions (infrastructure + légitimité)
+  // absorbent de pression. Rend visible que CONSTRUIRE de l'infra recule la Rupture.
+  const mitigationPct = Math.round((pressure.mitigation || 0) * 100);
+
+  if (variant === 'compact') {
     return (
       <div className="crisis-regul" aria-label="Régulation des tensions" ref={regulRef}>
         <div className="crisis-regul-head">
           <span className="crisis-regul-title">Régulation des tensions</span>
           <span className="crisis-regul-hint">Ouvrez un foyer pour dépenser des ressources et l'apaiser</span>
+          {mitigationPct > 0 && (
+            <span className="crisis-regul-buffer" title="Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.">
+              🛡️ Institutions : −{mitigationPct}% de pression absorbée
+            </span>
+          )}
         </div>
         <div className="crisis-regul-grid">
           {foyers.map((f) => (
-            <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}`}>
-              <summary className="crisis-foyer-head">
+            <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`}>
+              <summary className="crisis-foyer-head" title="Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.">
                 <span className="crisis-foyer-icon" aria-hidden="true">{f.icon}</span>
                 <span className="crisis-foyer-name">{f.label}</span>
-                <strong className="crisis-foyer-pct">{pct(f.value)}</strong>
+                {isReformed(f.key) && <span className="crisis-foyer-reformed" title="Foyer réformé — recul durable acquis (ne décline pas)">réformé</span>}
+                {isSoothed(f.key) && <span className="crisis-foyer-soothed" title="Foyer apaisé — l'effet décline">apaisé</span>}
                 <span className="crisis-foyer-chevron" aria-hidden="true"></span>
                 <span className="crisis-foyer-track" aria-hidden="true">
                   <span
                     className="crisis-foyer-fill"
-                    style={{ width: `${Math.min(1, f.value / f.denom) * 100}%` }}
+                    style={{ width: `${Math.min(1, f.value) * 100}%` }}
                   ></span>
                 </span>
               </summary>
@@ -95,21 +325,14 @@ export default function CrisisActionBar({ variant = 'full' }) {
                   <span className="crisis-foyer-locked">Disponible au cycle 2</span>
                 ) : (
                   f.actions.map((a) => (
-                    <button
-                      key={a.id}
-                      className="crisis-regul-btn"
-                      disabled={!canPayCost(a.cost)}
-                      onClick={() => runCrisisAction(a.id)}
-                    >
-                      <strong>{a.label}</strong>
-                      <span className="crisis-regul-cost">{costLabel(a.cost)}</span>
-                    </button>
+                    <RegulButton key={a.id} a={a} label={a.label} btnClass="crisis-regul-btn" showSeconds={false} />
                   ))
                 )}
               </div>
             </details>
           ))}
         </div>
+        {policiesSection}
       </div>
     );
   }
@@ -122,122 +345,43 @@ export default function CrisisActionBar({ variant = 'full' }) {
         </div>
       </div>
       <p className="body-copy">Dépenser vos ressources pour atténuer les facteurs de rupture ralentit le déclin, mais une chute tardive et complexe rapporte davantage de ruines.</p>
+      {mitigationPct > 0 && (
+        <p className="crisis-regul-buffer crisis-regul-buffer--full" title="Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.">
+          🛡️ Tes institutions (infrastructure + légitimité) absorbent <strong>−{mitigationPct}%</strong> de pression en continu — construire de l'infrastructure recule durablement la Rupture.
+        </p>
+      )}
 
       <div className="tactical-board">
         <div className="tactical-grid">
-          {/* Subsistance */}
-          <article className="tactical-card">
-            <div className="tactical-info">
-              <header>
-                <h4>🌾 Subsistance</h4>
-                <strong className="tactical-value">{pct(pressure.scarcity)}</strong>
-              </header>
-              <p>La population croissante pèse sur les réserves de blé.</p>
-              <div className="tactical-track">
-                <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.scarcity / 0.7) * 100}%` }}></span>
+          {foyers.map((f) => (
+            <article key={f.key} className={`tactical-card${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`} title="Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.">
+              <div className="tactical-info">
+                <header>
+                  <span className="tactical-htitle">
+                    <h4>{f.icon} {f.label}</h4>
+                    {isReformed(f.key) && <span className="crisis-foyer-reformed" title="Foyer réformé — recul durable acquis (ne décline pas)">réformé</span>}
+                    {isSoothed(f.key) && <span className="crisis-foyer-soothed" title="Foyer apaisé — l'effet décline">apaisé</span>}
+                  </span>
+                </header>
+                <p>{f.desc}</p>
+                <div className="tactical-track">
+                  <span className="tactical-fill" style={{ width: `${Math.min(1, f.value) * 100}%` }}></span>
+                </div>
               </div>
-            </div>
-            <div className="tactical-actions">
-              <button
-                disabled={!canPayCost(costs.rationing)}
-                onClick={() => runCrisisAction("rationing")}
-              >
-                <strong>Rationner</strong>
-                <span className="action-cost">{costLabel(costs.rationing)}</span>
-              </button>
-            </div>
-          </article>
-
-          {/* Inégalités */}
-          <article className="tactical-card">
-            <div className="tactical-info">
-              <header>
-                <h4>⚖️ Inégalités</h4>
-                <strong className="tactical-value">{pct(pressure.inequality)}</strong>
-              </header>
-              <p>L'accumulation de trésor crée des barrières entre classes.</p>
-              <div className="tactical-track">
-                <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.inequality / 0.55) * 100}%` }}></span>
+              <div className="tactical-actions">
+                {f.actions.length === 0 ? (
+                  <span className="crisis-foyer-locked">Disponible au cycle 2</span>
+                ) : (
+                  f.actions.map((a) => (
+                    <RegulButton key={a.id} a={a} label={a.label} btnClass="" showSeconds={true} />
+                  ))
+                )}
               </div>
-            </div>
-            <div className="tactical-actions">
-              <button
-                disabled={!canPayCost(costs.festivals)}
-                onClick={() => runCrisisAction("festivals")}
-              >
-                <strong>Jeux civiques</strong>
-                <span className="action-cost">{costLabel(costs.festivals)}</span>
-              </button>
-            </div>
-          </article>
-
-          {/* Complexité */}
-          <article className="tactical-card">
-            <div className="tactical-info">
-              <header>
-                <h4>🏛️ Complexité</h4>
-                <strong className="tactical-value">{pct(pressure.complexity)}</strong>
-              </header>
-              <p>Le nombre de structures demande une administration lourde.</p>
-              <div className="tactical-track">
-                <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.complexity / 0.75) * 100}%` }}></span>
-              </div>
-            </div>
-            <div className="tactical-actions">
-              <button
-                disabled={!canPayCost(costs.census)}
-                onClick={() => runCrisisAction("census")}
-                style={{ marginBottom: '0.4rem' }}
-              >
-                <strong>Recenser</strong>
-                <span className="action-cost">{costLabel(costs.census)}</span>
-              </button>
-              <button
-                disabled={!canPayCost(costs.reforms)}
-                onClick={() => runCrisisAction("reforms")}
-              >
-                <strong>Réformes</strong>
-                <span className="action-cost">{costLabel(costs.reforms)}</span>
-              </button>
-            </div>
-          </article>
-
-          {/* Dissidence */}
-          <article className="tactical-card">
-            <div className="tactical-info">
-              <header>
-                <h4>📜 Dissidence</h4>
-                <strong className="tactical-value">{pct(pressure.dissent)}</strong>
-              </header>
-              <p>Les récits et la mémoire des cycles divisent l'opinion.</p>
-              <div className="tactical-track">
-                <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.dissent / 0.55) * 100}%` }}></span>
-              </div>
-            </div>
-            <div className="tactical-actions">
-              {showAncestorBtn && (
-                <button
-                  disabled={!canPayCost(costs.ancestorCrisis)}
-                  onClick={() => runCrisisAction("ancestorCrisis")}
-                  style={{ marginBottom: '0.4rem' }}
-                >
-                  <strong>Culte des Ancêtres</strong>
-                  <span className="action-cost">{costLabel(costs.ancestorCrisis)}</span>
-                </button>
-              )}
-              {showArchiveBtn && (
-                <button
-                  disabled={!canPayCost(costs.archiveCrisis)}
-                  onClick={() => runCrisisAction("archiveCrisis")}
-                >
-                  <strong>Catastrophes</strong>
-                  <span className="action-cost">{costLabel(costs.archiveCrisis)}</span>
-                </button>
-              )}
-            </div>
-          </article>
+            </article>
+          ))}
         </div>
       </div>
+      {policiesSection}
     </div>
   );
 }

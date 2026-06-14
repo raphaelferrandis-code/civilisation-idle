@@ -28,7 +28,8 @@ export {
   runTerminalCrisisAction,
   completeCollapse,
   collapse,
-  runCrisisAction
+  runCrisisAction,
+  togglePolicy
 } from './actions/crisis.js';
 
 export { addProductionPenalty } from './mechanics.js';

@@ -114,6 +114,27 @@ export const defaultState = () => ({
     census: 0,
     reforms: 0
   },
+  // Relief temporaire par foyer (Étape 2) : part d'apaisement [0..1] appliquée à
+  // chaque foyer, alimentée par les actions de régulation et déclinant à chaque
+  // tick (cf. FOYER_RELIEF_HALF_LIFE_S). Remis à zéro à chaque cycle.
+  foyerRelief: {
+    scarcity: 0,
+    inequality: 0,
+    complexity: 0,
+    dissent: 0
+  },
+  // Réforme de fond : recul DURABLE par foyer [0..FOYER_RELIEF_CAP], déposé par
+  // les actions de réforme. Ne décline PAS (contrairement à foyerRelief) ; partage
+  // le plafond combiné avec foyerRelief. Remis à zéro à chaque cycle.
+  foyerReform: {
+    scarcity: 0,
+    inequality: 0,
+    complexity: 0,
+    dissent: 0
+  },
+  // Levier C : politiques permanentes actives (ids). Tant qu'actives, ralentissent
+  // la montée de la Rupture contre un coût de production récupérable. Reset au cycle.
+  activePolicies: [],
   crisisThresholds: {},
   crisisProduction: {
     global: 1,
@@ -392,6 +413,15 @@ export function normalizeCrisisProduction(raw, fallback) {
   const out = {};
   for (const key of Object.keys(fallback)) {
     out[key] = finiteNumber(source[key], fallback[key], 0.1, 100);
+  }
+  return out;
+}
+
+export function normalizeFoyerRelief(raw, fallback) {
+  const source = isPlainObject(raw) ? raw : {};
+  const out = {};
+  for (const key of Object.keys(fallback)) {
+    out[key] = finiteNumber(source[key], fallback[key], 0, 1);
   }
   return out;
 }
@@ -695,6 +725,9 @@ export function hydrateState(parsed = {}) {
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
+    foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
+    foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
+    activePolicies: normalizeStringArray(source.activePolicies, 4, 40),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
@@ -831,6 +864,9 @@ export function resetTemporaryRunState(s) {
   // compteurs festivals/census, pas des clés à eux).
   const freshDefaults = defaultState();
   s.crisisActions = freshDefaults.crisisActions;
+  s.foyerRelief = freshDefaults.foyerRelief;
+  s.foyerReform = freshDefaults.foyerReform;
+  s.activePolicies = [];
   s.crisisThresholds = {};
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;

@@ -4,6 +4,7 @@ import { state, renderCache, buildingById, upgradeById, defaultState } from './s
 import { buildings } from '../data/buildings.js';
 import { upgrades, dogmaIds, PRESTIGE_TREE, PRESTIGE_DOGMAS } from '../data/upgrades.js';
 import { eras } from '../data/world.js';
+import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../data/regulationActions.js';
 import { getCityMapEngineTileMap } from '../map/cityMapBridge.js';
 import { clamp01, clamp, fmt, labelFor, canPayCost } from './utils.js';
 import { Decimal, D, toNum } from './num.js';
@@ -34,7 +35,11 @@ import {
   MITIGATION_CAP,
   STABILIZER_DIRECT_FACTOR,
   STRUCTURAL_COVERAGE_DAMP,
-  COMPLEXITY_COVERAGE_ABSORB
+  COMPLEXITY_COVERAGE_ABSORB,
+  CRISIS_COST_SECONDS,
+  CRISIS_COST_ACTION_GROWTH,
+  FOYER_RELIEF_CAP,
+  FOYER_REFORM
 } from './balance.js';
 import {
   ICARE_PROD_MULT,
@@ -210,7 +215,40 @@ export function addProductionPenalty(type, amount) {
 
 export function crisisProductionMultiplier(type) {
   const global = state.crisisProduction.global ?? 1;
-  return global * (state.crisisProduction[type] ?? 1);
+  return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type);
+}
+
+// Levier C — coût de production CONTINU et RÉCUPÉRABLE des politiques actives
+// (revient à 1 dès qu'on les désactive, contrairement à crisisProduction qui ne
+// se rétablit jamais). Replié dans crisisProductionMultiplier → s'applique à
+// toutes les ressources, chemins float et Decimal. Plancher 0.1 (max 90 % malus).
+export function policyProductionMultiplier(type) {
+  const policies = state.activePolicies;
+  if (!policies || !policies.length) return 1;
+  let m = 1;
+  for (const id of policies) {
+    const cost = POLICY_BY_ID[id]?.cost;
+    if (!cost) continue;
+    if (cost.global) m *= (1 - cost.global);
+    if (cost[type]) m *= (1 - cost[type]);
+  }
+  return Math.max(0.1, m);
+}
+
+// Levier C — ralentissement de la MONTÉE de la Rupture par les politiques actives
+// (ajouté à orderSlow dans tick.js, plafonné en commun à 0.8 → jamais un gel).
+export function policyRiseSlow() {
+  const policies = state.activePolicies;
+  if (!policies || !policies.length) return 0;
+  let s = 0;
+  for (const id of policies) s += POLICY_BY_ID[id]?.riseSlow || 0;
+  return s;
+}
+
+export function regulationPolicyUnlocked(id, ctx = regulationContext()) {
+  const p = POLICY_BY_ID[id];
+  if (!p) return false;
+  return !p.unlock || p.unlock(ctx);
 }
 
 export function theocracyKnowledgeRate() {
@@ -513,12 +551,24 @@ export function pressureBreakdown() {
   );
   const dissentRaw = Math.max(0, state.cycles * 0.035 + Math.log10(toNum(state.ruins) + 1) * 0.04 + state.instability * 0.12);
 
-  const rationRelief = Math.min(0.35, state.crisisActions.rationing * 0.06);
-  const scarcity = Math.max(0, Math.min(0.7, scarcityRaw * 0.55) - rationRelief);
-  const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55);
-  const complexity = softCap(complexityRaw * 0.34, 0.75);
+  // Étape 2 : relief temporaire par foyer (multiplicatif, décroît dans le tick).
+  // Chaque action de régulation calme SON foyer → la barre descend en prise
+  // directe. `rationRelief` (ancien, propre à Rationner) est désormais unifié
+  // dans fr.scarcity. Plafonné < 1 (cf. FOYER_RELIEF_CAP) : un foyer n'est jamais
+  // annulé, donc tenir la jauge reste un délai et non une immortalité.
+  const fr = state.foyerRelief || {};
+  const rf = state.foyerReform || {};
+  // Réduction d'un foyer = apaisement temporaire (fr, décline) + réforme durable
+  // (rf, permanente), PLAFONNÉE en commun à FOYER_RELIEF_CAP. Le plafond partagé
+  // garantit l'invariant anti-immortalité : la réforme rend le recul durable,
+  // sans jamais dépasser le maximum déjà atteignable par l'apaisement (cf.
+  // FOYER_REFORM dans balance.js, mesuré par measure-foyers.js).
+  const foyerCut = (key) => Math.min(FOYER_RELIEF_CAP, (fr[key] || 0) + (rf[key] || 0));
+  const scarcity = Math.max(0, Math.min(0.7, scarcityRaw * 0.55)) * (1 - foyerCut("scarcity"));
+  const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55) * (1 - foyerCut("inequality"));
+  const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity"));
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
-  const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief);
+  const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief) * (1 - foyerCut("dissent"));
   // Charge structurelle : les bâtiments stabilisants (instabilité négative)
   // soustraient en PRISE DIRECTE, et l'infrastructure « porte » la charge.
   const structuralNet = Math.max(0, positiveInstability + negativeInstability * STABILIZER_DIRECT_FACTOR);
@@ -1232,19 +1282,56 @@ export function legitimacyGain() {
   return Math.floor(base + cycleMod + dynPalier);
 }
 
-export function crisisCosts() {
-  const actionScale = 1 + Object.values(state.crisisActions).reduce((sum, value) => sum + value, 0) * 0.08;
-  const population = D(state.population);
+// Coût des actions de régulation, ancré sur la PRODUCTION du joueur (et non plus
+// la population) : coût = N secondes de production courante × escalade par usage.
+// Devient inpayable si le joueur a tout dépensé → il faut garder une réserve.
+// Voir CRISIS_COST_* dans balance.js. (Les Ruines, qui ne sont pas un flux de
+// production, gardent un ancrage cycle pour ancestorCrisis.)
+// Contexte de déblocage des actions de régulation (ères/paliers/mythes). Fourni
+// aux prédicats `unlock` du registre — calculé ici car le registre est pur (data).
+export function regulationContext() {
   return {
-    rationing: { food: population.mul(0.9).max(35).mul(actionScale) },
-    festivals: { gold: population.mul(0.18).max(18).mul(actionScale) },
-    census: { knowledge: population.mul(0.04).add(totalBuildingCount() * 12).max(20).mul(actionScale) },
+    era: currentEraIndex(),
+    bestEra: state.bestEraIndex || 0,
+    cycles: state.cycles || 0,
+    mythCount: completedMythCount(),
+    mapStage: mapStage()
+  };
+}
+
+export function regulationActionUnlocked(id, ctx = regulationContext()) {
+  const a = REGULATION_ACTIONS_BY_ID[id];
+  if (!a) return true; // actions de base (hors registre) : toujours disponibles
+  return !a.unlock || a.unlock(ctx);
+}
+
+export function crisisCosts() {
+  const actionScale = 1 + Object.values(state.crisisActions).reduce((sum, value) => sum + value, 0) * CRISIS_COST_ACTION_GROWTH;
+  const r = rates();
+  const cost = (resource, seconds) => D(r[resource]).max(0).mul(seconds).mul(actionScale).max(1);
+  const S = CRISIS_COST_SECONDS;
+  // Coûts des actions déblocables (registre) — même ancrage « secondes de prod ».
+  const regCosts = {};
+  for (const a of REGULATION_ACTIONS) {
+    regCosts[a.id] = { [a.cost.res]: cost(a.cost.res, a.cost.seconds) };
+  }
+  return {
+    ...regCosts,
+    rationing: { food: cost("food", S.rationing) },
+    festivals: { gold: cost("gold", S.festivals) },
+    census: { knowledge: cost("knowledge", S.census) },
     reforms: {
-      gold: population.mul(0.24).max(60).mul(actionScale),
-      knowledge: D(Math.max(45, totalBuildingCount() * 10)).mul(actionScale)
+      gold: cost("gold", S.reformsGold),
+      knowledge: cost("knowledge", S.reformsKnowledge)
     },
-    archiveCrisis: { knowledge: population.mul(0.025).add(state.cycles * 30).max(120).mul(actionScale) },
-    ancestorCrisis: { ruins: D(Math.max(8, state.cycles * 3)).mul(actionScale), food: population.mul(0.35).max(300).mul(actionScale) }
+    archiveCrisis: { knowledge: cost("knowledge", S.archiveCrisis) },
+    ancestorCrisis: { ruins: D(Math.max(8, state.cycles * 3)).mul(actionScale), food: cost("food", S.ancestorCrisis) },
+    // Réformes de fond : recul DURABLE, coût LOURD (≈5× l'apaisement), ancré sur
+    // la même base « secondes de production » (cf. FOYER_REFORM dans balance.js).
+    reformScarcity: { [FOYER_REFORM.scarcity.resource]: cost(FOYER_REFORM.scarcity.resource, FOYER_REFORM.scarcity.seconds) },
+    reformInequality: { [FOYER_REFORM.inequality.resource]: cost(FOYER_REFORM.inequality.resource, FOYER_REFORM.inequality.seconds) },
+    reformComplexity: { [FOYER_REFORM.complexity.resource]: cost(FOYER_REFORM.complexity.resource, FOYER_REFORM.complexity.seconds) },
+    reformDissent: { [FOYER_REFORM.dissent.resource]: cost(FOYER_REFORM.dissent.resource, FOYER_REFORM.dissent.seconds) }
   };
 }
 

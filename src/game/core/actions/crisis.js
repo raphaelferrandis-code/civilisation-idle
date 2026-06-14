@@ -29,8 +29,11 @@ import {
   crisisCosts,
   has,
   hasDoctrine,
-  currentEraIndex
+  currentEraIndex,
+  regulationActionUnlocked,
+  regulationPolicyUnlocked
 } from '../mechanics.js';
+import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
@@ -41,7 +44,7 @@ import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridg
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX, CRISIS_ACTION_DECAY } from '../balance.js';
+import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -348,6 +351,24 @@ export function collapse(reason) {
   runCollapseSequence(gain, reason);
 }
 
+// Étape 2 : quelle barre (foyer de pressureBreakdown) chaque action calme.
+const ACTION_FOYER = {
+  rationing: "scarcity",
+  festivals: "inequality",
+  census: "complexity",
+  reforms: "complexity",
+  archiveCrisis: "dissent",
+  ancestorCrisis: "dissent"
+};
+
+// Dépêches des réformes de fond (recul DURABLE par foyer).
+const REFORM_CHRONICLES = {
+  scarcity: "Des greniers d'État sont édifiés pour toujours : la cité ne craint plus la disette d'une mauvaise saison.",
+  inequality: "Une charte des communs est gravée dans le marbre : le partage des richesses devient loi, et la rue s'apaise durablement.",
+  complexity: "Le grand cadastre est achevé : chaque rue, chaque toit est enregistré ; l'administration cesse d'étouffer sous sa propre taille.",
+  dissent: "Un panthéon d'État unit les cultes sous un même toit : la mémoire commune scelle l'unité du peuple pour les années à venir."
+};
+
 export function runCrisisAction(id, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : { render: Boolean(options) };
   const { render: doRender = true, force = false } = opts;
@@ -355,34 +376,135 @@ export function runCrisisAction(id, options = {}) {
   // Pendant la crise terminale, seules les actions auto de l'intendant (force) passent.
   if (state.crisisLimitAnnounced && !force) return;
   const costs = crisisCosts();
+
+  // Réforme de fond : dépose un recul DURABLE sur son foyer (ne décline pas),
+  // sous le plafond partagé avec l'apaisement. Branche séparée : pas de relief
+  // temporaire ni de malus de prod — le coût lourd EST la contrepartie.
+  const reformFoyer = REFORM_ACTION_FOYER[id];
+  if (reformFoyer) {
+    const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+    if ((rf[reformFoyer] || 0) >= FOYER_RELIEF_CAP) return; // foyer déjà réformé au max
+    const reformCost = costs[id];
+    if (!reformCost || !canPayCost(reformCost)) return;
+    payCost(reformCost);
+    rf[reformFoyer] = Math.min(FOYER_RELIEF_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0));
+    // Kicker économique modeste : la réforme bâtit aussi de l'institution.
+    state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
+    registerOlympusCrisisResolved();
+    renderCache._framePressure = null;
+    renderCache._frameRates = null;
+    if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
+    chronicle(REFORM_CHRONICLES[reformFoyer] || "Une réforme de fond s'installe durablement dans la cité.");
+    if (doRender) render();
+    return;
+  }
+
+  // Actions déblocables (registre regulationActions) : apaisement OU réforme,
+  // avec effets économiques optionnels (infra/légitimité). Gating ères/mythes.
+  const regAction = REGULATION_ACTIONS_BY_ID[id];
+  if (regAction) {
+    if (!regulationActionUnlocked(id)) return; // pas encore débloquée
+    const foyer = regAction.foyer;
+    if (regAction.kind === "reform") {
+      const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+      if ((rf[foyer] || 0) >= FOYER_RELIEF_CAP) return; // foyer déjà réformé au max
+    }
+    const regCost = costs[id];
+    if (!regCost || !canPayCost(regCost)) return;
+    payCost(regCost);
+
+    if (regAction.kind === "reform") {
+      const rf = state.foyerReform;
+      rf[foyer] = Math.min(FOYER_RELIEF_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0));
+    } else if (!isMythEffectActive("mythe_d_atlas")) {
+      const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+      const add = regAction.relief || 0;
+      fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
+      state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
+      if (regAction.malusRes) addProductionPenalty(regAction.malusRes, regAction.malusPct || 0);
+      if (regAction.counter && regAction.counter in state.crisisActions) state.crisisActions[regAction.counter] += 1;
+    } else {
+      state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
+    }
+    // Effets économiques (les deux kinds) : la gestion de crise nourrit la croissance.
+    if (regAction.infraAdd) state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * regAction.infraAdd));
+    if (regAction.legitAdd) state.legitimacy += regAction.legitAdd;
+
+    registerOlympusCrisisResolved();
+    renderCache._framePressure = null;
+    renderCache._frameRates = null;
+    if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
+    chronicle(regAction.note);
+    if (doRender) render();
+    return;
+  }
+
   const cost = costs[id];
   if (!cost || !canPayCost(cost)) return;
   payCost(cost);
+  // `key` = compteur de coût (escalade actionScale + partage census/festivals) ;
+  // `note` = dépêche de chronique. L'effet sur la Rupture passe désormais par le
+  // relief de foyer (cf. ACTION_FOYER / FOYER_RELIEF_*), plus un coup instantané.
   const effects = {
-    rationing: { key: "rationing", drop: 0.06, note: "Les greniers ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim." },
-    festivals: { key: "festivals", drop: 0.08, note: "De grands jeux civiques sont proclamés sur les places publiques ; le peuple oublie un instant sa colère sous les bannières de la dynastie." },
-    census: { key: "census", drop: 0.12, note: "Nos scribes achèvent le grand recensement, gravant chaque nom sur l'argile pour redonner un visage à la cité." },
-    reforms: { key: "reforms", drop: 0.18, note: "De profondes réformes institutionnelles sont votées, consolidant les assises de la cité face aux menaces imminentes." },
-    archiveCrisis: { key: "census", drop: 0.09, note: "L'étude minutieuse des catastrophes passées est consignée par écrit, afin que les générations futures sachent comment faire face à l'effroi." },
-    ancestorCrisis: { key: "festivals", drop: 0.14, note: "Les autels de nos ancêtres sont fleuris ; la peur s'efface devant la ferveur et la continuité de notre lignée." }
+    rationing: { key: "rationing", note: "Les greniers ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim." },
+    festivals: { key: "festivals", note: "De grands jeux civiques sont proclamés sur les places publiques ; le peuple oublie un instant sa colère sous les bannières de la dynastie." },
+    census: { key: "census", note: "Nos scribes achèvent le grand recensement, gravant chaque nom sur l'argile pour redonner un visage à la cité." },
+    reforms: { key: "reforms", note: "De profondes réformes institutionnelles sont votées, consolidant les assises de la cité face aux menaces imminentes." },
+    archiveCrisis: { key: "census", note: "L'étude minutieuse des catastrophes passées est consignée par écrit, afin que les générations futures sachent comment faire face à l'effroi." },
+    ancestorCrisis: { key: "festivals", note: "Les autels de nos ancêtres sont fleuris ; la peur s'efface devant la ferveur et la continuité de notre lignée." }
   };
   const effect = effects[id];
   if (!effect) return;
   if (!isMythEffectActive("mythe_d_atlas")) {
-    // Rendements décroissants : chaque usage du même levier calme un peu moins
-    // la rue (0.9^n). Tenir la jauge devient un délai, pas une immortalité.
-    const usedCount = state.crisisActions[effect.key] || 0;
-    const effectiveDrop = effect.drop * Math.pow(CRISIS_ACTION_DECAY, usedCount);
-    state.instability = Math.max(0, state.instability - effectiveDrop);
+    // Étape 2 : l'action calme SON foyer (relief multiplicatif décroissant → la
+    // barre du foyer descend), plus un petit coup instantané sur la jauge globale
+    // pour la réactivité. Le relief est plafonné et décline : tenir la jauge
+    // reste un délai, pas une immortalité.
+    const foyer = ACTION_FOYER[id];
+    if (foyer) {
+      const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+      const add = FOYER_RELIEF_ADD[id] || 0;
+      fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
+      state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
+    }
+    // Étape 3 : contrepartie de production — malus temporaire (jusqu'au prochain
+    // effondrement) sur une ressource, pour que chaque clic soit un sacrifice
+    // ressenti dans les taux. Cumulatif, plafonné par addProductionPenalty.
+    const malusRes = FOYER_MALUS_RESOURCE[id];
+    if (malusRes) addProductionPenalty(malusRes, FOYER_MALUS_PCT[id] || 0);
   } else {
     state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
   }
   state.crisisActions[effect.key] += 1;
   if (id === "reforms") state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.08));
-  if (id === "archiveCrisis") state.knowledge = D(state.knowledge).add(Math.max(4, state.cycles * 2));
   if (id === "ancestorCrisis") state.legitimacy += 0.35;
   registerOlympusCrisisResolved();
+  // Barres/coûts à jour dès ce render (sinon ~1 tick de retard sur le cache frame).
+  renderCache._framePressure = null;
+  renderCache._frameRates = null;
   if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
   chronicle(effect.note);
   if (doRender) render();
+}
+
+// Levier C — bascule une politique permanente (toggle). Pas de coût ponctuel : le
+// coût est le malus de production CONTINU tant qu'elle est active (récupérable à
+// l'extinction). Borné par POLICY_MAX_ACTIVE (budget de stabilité).
+export function togglePolicy(id) {
+  if (collapseInProgress) return;
+  if (!POLICY_BY_ID[id]) return;
+  const list = state.activePolicies || (state.activePolicies = []);
+  const idx = list.indexOf(id);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    if (!regulationPolicyUnlocked(id)) return;
+    if (list.length >= POLICY_MAX_ACTIVE) return;
+    list.push(id);
+  }
+  // Coût et ralentissement changent immédiatement (sinon ~1 tick de retard).
+  renderCache._frameRates = null;
+  renderCache._framePressure = null;
+  save();
+  render();
 }

@@ -55,9 +55,117 @@ export const INSTABILITY_MAX_RISE_PER_SEC = 0.01;
 // une stratégie de délai, plus une stratégie d'immortalité.
 export const CRISIS_ACTION_DECAY = 0.9;
 
+// ── Coût des actions de régulation : ancré sur la PRODUCTION, pas la population ──
+// Ancien défaut : coût ∝ population (croissance lente) alors que les stocks
+// suivent la production exponentielle → le coût devenait dérisoire (mesuré
+// ~5e-6 du stock en fin de partie : 5e24 trésor pour 9e32 en réserve).
+// Nouveau modèle (crisisCosts() dans mechanics.js) : coût = N secondes de
+// production COURANTE de la ressource. Choix de design : les stocks ne valent
+// qu'~1-2 min de production, donc « N s de prod » est une part réelle de la
+// réserve — et devient INPAYABLE si le joueur a tout dépensé. C'est voulu : il
+// faut rester attentif et garder une réserve pour pouvoir réguler, plutôt que
+// de tout claquer dès que possible. Reste sensible à toutes les échelles.
+// N (secondes de production) par action — les actions à fort effet coûtent +.
+export const CRISIS_COST_SECONDS = {
+  rationing: 25,
+  festivals: 30,
+  census: 40,
+  reformsGold: 45,
+  reformsKnowledge: 45,
+  archiveCrisis: 32,
+  ancestorCrisis: 42
+};
+// Escalade par usage cumulé d'actions dans le cycle : coût ×(1 + n·k).
+export const CRISIS_COST_ACTION_GROWTH = 0.08;
+
+// ── Relief temporaire par foyer (Étape 2) — « jonglage » entre les 4 foyers ──
+// Chaque action de régulation calme SON foyer (et fait descendre SA barre), puis
+// l'apaisement DÉCLINE (demi-vie ci-dessous) : il faut ré-intervenir, on ne
+// matraque plus un seul bouton. Le relief est MULTIPLICATIF (réduit le foyer
+// d'un %), plafonné < 1 : un foyer garde toujours une part irréductible → tenir
+// la jauge reste un délai, jamais une immortalité (anti-effondrement à gain nul).
+export const FOYER_RELIEF_HALF_LIFE_S = 30;  // demi-vie du déclin (s)
+// Plafond du relief par foyer. Mesuré : à 0.6, maxer les 4 foyers ramène la
+// cible late-game sous 1.0 (≈0.82) → la jauge se stabilise et n'atteint plus
+// jamais 100 % (immortalité via Rupture, contre l'intention « délai »). À 0.45
+// la cible max reste ≥ ~1.0 : on temporise fort, sans figer la jauge. Valeur de
+// départ — affinée par simulation à l'Étape 5.
+export const FOYER_RELIEF_CAP = 0.45;        // un foyer ne descend jamais sous 55 % de sa valeur
+// Part d'apaisement ajoutée par clic (cumulée vers le plafond) — actions fortes +.
+export const FOYER_RELIEF_ADD = {
+  rationing: 0.18,      // → Subsistance (scarcity)
+  festivals: 0.20,      // → Inégalités (inequality)
+  census: 0.16,         // → Complexité (complexity)
+  reforms: 0.28,        // → Complexité (action forte)
+  archiveCrisis: 0.16,  // → Dissidence (dissent)
+  ancestorCrisis: 0.24  // → Dissidence (action forte)
+};
+// Coup instantané sur la jauge globale, pour la réactivité du clic (la dérive
+// vers la cible n'est que ~1.3 %/s) : nudge = FOYER_RELIEF_ADD[id] × ce facteur.
+// Le gros de l'effet, lui, vient du relief de foyer décroissant ci-dessus.
+export const FOYER_RELIEF_INSTANT_FACTOR = 0.4;
+
+// ── Contrepartie de production (Étape 3) — le « sacrifice ressenti » ──
+// Chaque action impose un malus de production TEMPORAIRE (jusqu'au prochain
+// effondrement, comme les événements de crise), via addProductionPenalty :
+// multiplicatif, cumulatif, plancher 0.1 (max 90 % de malus). But : chaque clic
+// se paie dans les taux à l'écran → réguler n'est plus gratuit, et sur-réguler
+// crève l'économie du cycle. La ressource pénalisée diffère (en partie) de celle
+// que le foyer calme, pour créer un arbitrage.
+export const FOYER_MALUS_RESOURCE = {
+  rationing: "food",          // on se serre la ceinture
+  festivals: "gold",          // le trésor finance les jeux
+  census: "knowledge",        // les scribes sont mobilisés
+  reforms: "gold",            // des réformes coûteuses à appliquer
+  archiveCrisis: "knowledge", // les archivistes sont accaparés
+  ancestorCrisis: "food"      // offrandes et festins rituels
+};
+export const FOYER_MALUS_PCT = {
+  rationing: 0.10,
+  festivals: 0.10,
+  census: 0.10,
+  reforms: 0.15,
+  archiveCrisis: 0.10,
+  ancestorCrisis: 0.13
+};
+
+// ── Réforme de fond (recul DURABLE des foyers) — la couche « gestion de crise »
+// la plus impactante quand on la joue bien ──────────────────────────────────
+// Problème résolu : l'apaisement (FOYER_RELIEF_*) DÉCLINE → « ça revient
+// toujours », jamais de terrain gagné. La réforme dépose un recul PERMANENT
+// (sur le run, remis à zéro à l'effondrement) sur SON foyer, contre un coût
+// LOURD (≈5× l'apaisement, payé surtout en trésor/savoir).
+//
+// Garde-fou anti-immortalité (mesuré, cf. measure-foyers.js) : réforme et
+// apaisement PARTAGENT le plafond FOYER_RELIEF_CAP (la réduction combinée d'un
+// foyer ne dépasse jamais 0.45). À ce plafond la cible late maxée reste ~1.016
+// ≥ 1.0 → l'effondrement reste garanti. La réforme n'augmente donc PAS le
+// plafond : elle rend le recul DURABLE (et tenable sur les 4 foyers à la fois,
+// ce que le clic décroissant ne permet pas) → c'est là qu'est l'impact réel.
+// `add` = part déposée par clic (cumulée vers le plafond commun) ;
+// `seconds` = coût en secondes de production courante (cf. crisisCosts) ;
+// `resource` = ressource ponctionnée (trésor/savoir = « réduction du trésor »).
+export const FOYER_REFORM = {
+  scarcity:   { add: 0.15, seconds: 140, resource: 'food',      label: "Réserve d'État" },
+  inequality: { add: 0.15, seconds: 160, resource: 'gold',      label: 'Charte des communs' },
+  complexity: { add: 0.15, seconds: 180, resource: 'knowledge', label: 'Grand cadastre' },
+  dissent:    { add: 0.15, seconds: 160, resource: 'gold',      label: "Panthéon d'État" }
+};
+// id d'action de réforme → foyer ciblé (miroir de ACTION_FOYER pour l'apaisement).
+export const REFORM_ACTION_FOYER = {
+  reformScarcity: 'scarcity',
+  reformInequality: 'inequality',
+  reformComplexity: 'complexity',
+  reformDissent: 'dissent'
+};
+
 // Cooldown des actions automatiques de protocoles_urgence : l'automation ne
 // doit pas pouvoir verrouiller la jauge sous le seuil de crise à elle seule.
 export const AUTO_CRISIS_COOLDOWN_MS = 60_000;
+
+// Levier C — nombre maximum de politiques permanentes actives simultanément
+// (budget de stabilité : on choisit quelles tensions l'économie peut soutenir).
+export const POLICY_MAX_ACTIVE = 2;
 
 // Plafond de la mitigation d'Usure (infra/savoir/légitimité). Non bornée, elle
 // gelait l'Usure en fin de partie (taux mesuré ~0.002) : l'Usure redevient une
