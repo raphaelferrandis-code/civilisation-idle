@@ -167,6 +167,18 @@ export const AUTO_CRISIS_COOLDOWN_MS = 60_000;
 // (budget de stabilité : on choisit quelles tensions l'économie peut soutenir).
 export const POLICY_MAX_ACTIVE = 2;
 
+// ── Fatigue de régulation (anti-matraquage) ──────────────────────────────────
+// Chaque action de régulation (apaisement/réforme/pari) monte une fatigue
+// globale [0..1] qui (a) réduit l'EFFICACITÉ des actions et (b) augmente leur
+// COÛT, puis redescend avec le temps. Le jeu optimal devient « intervenir au bon
+// moment » plutôt que « spammer ». Généralisation lisible de l'ancien
+// CRISIS_ACTION_DECAY (jamais branché en code). Ne peut que RÉDUIRE l'effet des
+// actions → aucun risque côté anti-immortalité.
+export const FATIGUE_PER_ACTION = 0.14;     // hausse de fatigue par action
+export const FATIGUE_EFFECT_PENALTY = 0.5;  // à fatigue 100 % : efficacité −50 %
+export const FATIGUE_COST_PENALTY = 1.0;    // à fatigue 100 % : coût ×2
+export const FATIGUE_HALF_LIFE_S = 18;      // demi-vie de décroissance (s)
+
 // Plafond de la mitigation d'Usure (infra/savoir/légitimité). Non bornée, elle
 // gelait l'Usure en fin de partie (taux mesuré ~0.002) : l'Usure redevient une
 // deadline garantie — toute civilisation finit par tomber par le temps.

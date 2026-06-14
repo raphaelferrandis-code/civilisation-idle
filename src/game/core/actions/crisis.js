@@ -31,7 +31,8 @@ import {
   hasDoctrine,
   currentEraIndex,
   regulationActionUnlocked,
-  regulationPolicyUnlocked
+  regulationPolicyUnlocked,
+  regulFatigueEffectMult
 } from '../mechanics.js';
 import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 
@@ -44,7 +45,7 @@ import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridg
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
+import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -369,6 +370,12 @@ const REFORM_CHRONICLES = {
   dissent: "Un panthéon d'État unit les cultes sous un même toit : la mémoire commune scelle l'unité du peuple pour les années à venir."
 };
 
+// Chaque action de régulation fatigue l'administration (anti-spam) : la fatigue
+// monte, redescend avec le temps (cf. tick.js), réduit l'efficacité et majore le coût.
+function raiseRegulFatigue() {
+  state.regulFatigue = Math.min(1, (state.regulFatigue || 0) + FATIGUE_PER_ACTION);
+}
+
 export function runCrisisAction(id, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : { render: Boolean(options) };
   const { render: doRender = true, force = false } = opts;
@@ -387,9 +394,10 @@ export function runCrisisAction(id, options = {}) {
     const reformCost = costs[id];
     if (!reformCost || !canPayCost(reformCost)) return;
     payCost(reformCost);
-    rf[reformFoyer] = Math.min(FOYER_RELIEF_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0));
+    rf[reformFoyer] = Math.min(FOYER_RELIEF_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
     // Kicker économique modeste : la réforme bâtit aussi de l'institution.
     state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
+    raiseRegulFatigue();
     registerOlympusCrisisResolved();
     renderCache._framePressure = null;
     renderCache._frameRates = null;
@@ -413,12 +421,30 @@ export function runCrisisAction(id, options = {}) {
     if (!regCost || !canPayCost(regCost)) return;
     payCost(regCost);
 
-    if (regAction.kind === "reform") {
+    const eff = regulFatigueEffectMult();
+    let note = regAction.note;
+    if (regAction.kind === "gamble") {
+      // Pari : proba de gros apaisement, sinon retour de bâton (hausse de Rupture).
+      const win = Math.random() < (regAction.p ?? 0.5);
+      if (win && !isMythEffectActive("mythe_d_atlas")) {
+        const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+        const add = (regAction.relief || 0) * eff;
+        fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
+        state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
+      } else if (!win) {
+        state.instability = clamp01(state.instability + (regAction.failInstability || 0));
+      } else {
+        state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
+      }
+      if (regAction.counter && regAction.counter in state.crisisActions) state.crisisActions[regAction.counter] += 1;
+      note = win ? (regAction.noteWin || regAction.note) : (regAction.noteFail || "Le pari tourne court : la tension remonte.");
+      pushOutcomeFloat({ label: win ? "🎲 Pari réussi" : "🎲 Pari perdu", kind: win ? "gain" : "cost" });
+    } else if (regAction.kind === "reform") {
       const rf = state.foyerReform;
-      rf[foyer] = Math.min(FOYER_RELIEF_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0));
+      rf[foyer] = Math.min(FOYER_RELIEF_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0) * eff);
     } else if (!isMythEffectActive("mythe_d_atlas")) {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-      const add = regAction.relief || 0;
+      const add = (regAction.relief || 0) * eff;
       fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
       state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
       if (regAction.malusRes) addProductionPenalty(regAction.malusRes, regAction.malusPct || 0);
@@ -426,15 +452,16 @@ export function runCrisisAction(id, options = {}) {
     } else {
       state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
     }
-    // Effets économiques (les deux kinds) : la gestion de crise nourrit la croissance.
+    // Effets économiques (tous kinds) : la gestion de crise nourrit la croissance.
     if (regAction.infraAdd) state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * regAction.infraAdd));
     if (regAction.legitAdd) state.legitimacy += regAction.legitAdd;
 
+    raiseRegulFatigue();
     registerOlympusCrisisResolved();
     renderCache._framePressure = null;
     renderCache._frameRates = null;
     if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
-    chronicle(regAction.note);
+    chronicle(note);
     if (doRender) render();
     return;
   }
@@ -463,7 +490,7 @@ export function runCrisisAction(id, options = {}) {
     const foyer = ACTION_FOYER[id];
     if (foyer) {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-      const add = FOYER_RELIEF_ADD[id] || 0;
+      const add = (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult();
       fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
       state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
     }
@@ -478,6 +505,7 @@ export function runCrisisAction(id, options = {}) {
   state.crisisActions[effect.key] += 1;
   if (id === "reforms") state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.08));
   if (id === "ancestorCrisis") state.legitimacy += 0.35;
+  raiseRegulFatigue();
   registerOlympusCrisisResolved();
   // Barres/coûts à jour dès ce render (sinon ~1 tick de retard sur le cache frame).
   renderCache._framePressure = null;

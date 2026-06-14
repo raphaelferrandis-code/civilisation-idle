@@ -135,6 +135,9 @@ export const defaultState = () => ({
   // Levier C : politiques permanentes actives (ids). Tant qu'actives, ralentissent
   // la montée de la Rupture contre un coût de production récupérable. Reset au cycle.
   activePolicies: [],
+  // Fatigue de régulation [0..1] : monte à chaque action, réduit leur efficacité
+  // et augmente leur coût, décline avec le temps. Reset au cycle.
+  regulFatigue: 0,
   crisisThresholds: {},
   crisisProduction: {
     global: 1,
@@ -728,6 +731,7 @@ export function hydrateState(parsed = {}) {
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
     activePolicies: normalizeStringArray(source.activePolicies, 4, 40),
+    regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
@@ -867,6 +871,7 @@ export function resetTemporaryRunState(s) {
   s.foyerRelief = freshDefaults.foyerRelief;
   s.foyerReform = freshDefaults.foyerReform;
   s.activePolicies = [];
+  s.regulFatigue = 0;
   s.crisisThresholds = {};
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;

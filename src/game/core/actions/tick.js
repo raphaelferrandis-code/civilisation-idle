@@ -17,7 +17,8 @@ import {
   currentEraIndex,
   enforceInfrastructureCap,
   has,
-  policyRiseSlow
+  policyRiseSlow,
+  policyOvershootDamp
 } from '../mechanics.js';
 
 import {
@@ -44,7 +45,8 @@ import {
   INSTABILITY_OVERSHOOT_CAP,
   INSTABILITY_MAX_RISE_PER_SEC,
   AUTO_CRISIS_COOLDOWN_MS,
-  FOYER_RELIEF_HALF_LIFE_S
+  FOYER_RELIEF_HALF_LIFE_S,
+  FATIGUE_HALF_LIFE_S
 } from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -110,9 +112,11 @@ export function tick(dt) {
   // Surcharge : au-delà du seuil, la dérive accélère proportionnellement au
   // dépassement (plafonné) — une cité en pression x3 ne peut plus être tenue
   // indéfiniment sous 100 % à coups d'actions de crise.
-  const overshoot = instabilityDrift > 0
+  const overshootRaw = instabilityDrift > 0
     ? Math.min(INSTABILITY_OVERSHOOT_CAP, Math.max(1, rawTarget))
     : 1;
+  // Politique « Diplomatie de crise » : atténue la surcharge (gagne du temps).
+  const overshoot = 1 + (overshootRaw - 1) * (1 - policyOvershootDamp());
   let instabilityDelta = instabilityDrift * INSTABILITY_DRIFT_SPEED * orderSlow * overshoot * dt;
   // Montée incompressible : garantit un cycle d'au moins ~2-3 min, le temps que
   // les pics se reconstruisent (sinon effondrement à gain nul en fin de partie).
@@ -133,6 +137,13 @@ export function tick(dt) {
     fr.inequality *= keep;
     fr.complexity *= keep;
     fr.dissent *= keep;
+  }
+
+  // Fatigue de régulation : redescend avec le temps (demi-vie FATIGUE_HALF_LIFE_S)
+  // → espacer ses interventions restaure l'efficacité et baisse les coûts.
+  if (state.regulFatigue > 0) {
+    state.regulFatigue *= Math.pow(0.5, dt / FATIGUE_HALF_LIFE_S);
+    if (state.regulFatigue < 1e-4) state.regulFatigue = 0;
   }
 
   const peaks = state.cyclePeaks;

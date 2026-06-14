@@ -39,7 +39,9 @@ import {
   CRISIS_COST_SECONDS,
   CRISIS_COST_ACTION_GROWTH,
   FOYER_RELIEF_CAP,
-  FOYER_REFORM
+  FOYER_REFORM,
+  FATIGUE_EFFECT_PENALTY,
+  FATIGUE_COST_PENALTY
 } from './balance.js';
 import {
   ICARE_PROD_MULT,
@@ -245,10 +247,41 @@ export function policyRiseSlow() {
   return s;
 }
 
+// Levier C — atténuation de la SURCHARGE par les politiques actives (plafond 0.8).
+// La surcharge accélère la montée quand la cible dépasse 100 % ; la réduire ne fait
+// que gagner du temps (la cible ne bouge pas) → sûr.
+export function policyOvershootDamp() {
+  const policies = state.activePolicies;
+  if (!policies || !policies.length) return 0;
+  let s = 0;
+  for (const id of policies) s += POLICY_BY_ID[id]?.overshootDamp || 0;
+  return Math.min(0.8, s);
+}
+
+// Levier C — étouffement CONTINU d'un foyer par les politiques actives (entre dans
+// le plafond partagé foyerCut → jamais d'immortalité). Récupérable à l'extinction.
+export function policyFoyerDamp(foyer) {
+  const policies = state.activePolicies;
+  if (!policies || !policies.length) return 0;
+  let s = 0;
+  for (const id of policies) s += POLICY_BY_ID[id]?.foyerDamp?.[foyer] || 0;
+  return s;
+}
+
 export function regulationPolicyUnlocked(id, ctx = regulationContext()) {
   const p = POLICY_BY_ID[id];
   if (!p) return false;
   return !p.unlock || p.unlock(ctx);
+}
+
+// Fatigue de régulation — multiplicateurs dérivés de state.regulFatigue [0..1].
+// Efficacité : réduit l'effet des actions (jamais sous 1 - FATIGUE_EFFECT_PENALTY).
+// Coût : majore le coût des actions (jusqu'à ×(1 + FATIGUE_COST_PENALTY)).
+export function regulFatigueEffectMult() {
+  return 1 - (state.regulFatigue || 0) * FATIGUE_EFFECT_PENALTY;
+}
+export function regulFatigueCostMult() {
+  return 1 + (state.regulFatigue || 0) * FATIGUE_COST_PENALTY;
 }
 
 export function theocracyKnowledgeRate() {
@@ -563,7 +596,7 @@ export function pressureBreakdown() {
   // garantit l'invariant anti-immortalité : la réforme rend le recul durable,
   // sans jamais dépasser le maximum déjà atteignable par l'apaisement (cf.
   // FOYER_REFORM dans balance.js, mesuré par measure-foyers.js).
-  const foyerCut = (key) => Math.min(FOYER_RELIEF_CAP, (fr[key] || 0) + (rf[key] || 0));
+  const foyerCut = (key) => Math.min(FOYER_RELIEF_CAP, (fr[key] || 0) + (rf[key] || 0) + policyFoyerDamp(key));
   const scarcity = Math.max(0, Math.min(0.7, scarcityRaw * 0.55)) * (1 - foyerCut("scarcity"));
   const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55) * (1 - foyerCut("inequality"));
   const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity"));
@@ -1113,8 +1146,11 @@ export function crisisOpen() {
   return state.instability >= 1 || (state.timeWear || 0) >= 1;
 }
 
-export function ruinGain() {
-  if (!crisisOpen()) return new Decimal(0);
+// projected=true : calcule le gain « si on s'effondrait maintenant » même hors
+// crise (pour l'indicateur d'aide à la décision). Sans argument : comportement
+// inchangé (0 hors crise) → toutes les autres dépendances restent identiques.
+export function ruinGain(projected = false) {
+  if (!projected && !crisisOpen()) return new Decimal(0);
   const age = Math.max(1, (Date.now() - state.cycleStartedAt) / 1000);
   const peaks = state.cyclePeaks || defaultState().cyclePeaks;
   const peakPopulation = toNum(peaks.population);
@@ -1306,7 +1342,8 @@ export function regulationActionUnlocked(id, ctx = regulationContext()) {
 }
 
 export function crisisCosts() {
-  const actionScale = 1 + Object.values(state.crisisActions).reduce((sum, value) => sum + value, 0) * CRISIS_COST_ACTION_GROWTH;
+  // actionScale = escalade par usage cumulé × majoration de fatigue (anti-spam).
+  const actionScale = (1 + Object.values(state.crisisActions).reduce((sum, value) => sum + value, 0) * CRISIS_COST_ACTION_GROWTH) * regulFatigueCostMult();
   const r = rates();
   const cost = (resource, seconds) => D(r[resource]).max(0).mul(seconds).mul(actionScale).max(1);
   const S = CRISIS_COST_SECONDS;

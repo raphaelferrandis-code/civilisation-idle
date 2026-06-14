@@ -81,8 +81,64 @@ politique), lint propre, navigateur (toggle, surbrillance active, teasers 🔒, 
 
 ---
 
-**Restent à faire :** reworks §5 — « Ruines si effondrement maintenant », fantôme de la cible sur la
-jauge, actions **pari/RNG**, fatigue de régulation, politiques à effets variés (overshoot, foyer-damp).
+## ✅ Reworks §5.1 + §5.2 LIVRÉS — lisibilité de la décision
+
+**§5.1 « Ruines si effondrement maintenant »** : `ruinGain(projected=true)` calcule le gain même
+hors crise (sans argument = inchangé → golden safe). Affiché sous la jauge (« 💀 Si effondrement
+maintenant : +X 🏛️ ») et dans la stat hors-crise (« Ruines si effondrement ») au lieu du 0 trompeur.
+→ donne enfin un sens à *temporiser vs s'effondrer*.
+
+**§5.2 Fantôme de la cible** : marqueur lumineux sur la jauge de Rupture à `pressure.total`
+(`.barometer-target-ghost`), distinct de la bille (`instability`). → on *voit* où la jauge dérive
+et quand on a stabilisé la cible sous 100 %. (PrestigeView + views.css.)
+
+**Vérifié :** 62/62 tests (golden inchangé), lint propre, navigateur (hint + stat projetés, fantôme
+visible quand décalé, aucune erreur console).
+
+---
+
+## ✅ Reworks §5.3 (pari/RNG) + §5.4 (fatigue) LIVRÉS
+
+**§5.4 Fatigue de régulation** : `state.regulFatigue` [0..1] monte de `FATIGUE_PER_ACTION` à chaque
+action, **réduit l'efficacité** (`regulFatigueEffectMult`, appliqué aux dépôts relief/réforme) et
+**majore le coût** (`regulFatigueCostMult` dans `crisisCosts` via actionScale), puis **décline**
+(demi-vie `FATIGUE_HALF_LIFE_S`, tick.js). Indicateur UI « 😮‍💨 Fatigue X% ». Ne peut que réduire
+l'effet des actions → aucun risque anti-immortalité. (Généralise l'ancien `CRISIS_ACTION_DECAY`
+jamais branché.)
+
+**§5.3 Actions pari/RNG** : nouveau `kind: 'gamble'` dans le registre (`p` succès / `relief` /
+`failInstability`). 3 paris déblocables : Prière pour la pluie (scarcity, Ère II), Loterie publique
+(inequality, Ère III), Bouc émissaire (dissent, Ère II). UI : odds « 🎲 X% apaise · Y% aggrave »,
+float de résultat. Style de jeu « joueur » vs prudent.
+
+**Vérifié :** 12/12 checks moteur ([`scratch/check-fatigue-gamble.js`](../scratch/check-fatigue-gamble.js) :
+montée/efficacité/coût de fatigue, pari gagné/perdu/verrouillé), 62/62 tests (golden inchangé),
+lint propre, navigateur (fatigue déclenchée par les clics, paris en teasers 🔒, aucune erreur console).
+
+---
+
+## ✅ §5 finalisé — politiques variées + surfacing dans l'en-tête
+
+**Politiques à effets variés** : 2 nouvelles politiques au-delà du `riseSlow` —
+**Diplomatie de crise** (`overshootDamp` 0.5 : atténue la surcharge quand la cible dépasse 100 %,
+appliquée à `overshoot` dans tick.js) et **Milice de quartier** (`foyerDamp { dissent: 0.20 }` :
+étouffe un foyer EN CONTINU, intégré au `foyerCut` partagé → sous plafond, sûr). Helpers
+`policyOvershootDamp` / `policyFoyerDamp` ; libellé d'effet UI généralisé.
+
+**Surfacing en-tête Cité** : la jauge de stabilité du header (`.sg-track`) reçoit le **fantôme de
+la cible** (`.sg-target-ghost` à `pressure.total`) et le **gain projeté** (« 💀 +X 🏛️ », via
+`ruinGain(true)`) — les indicateurs de décision sont là où l'on joue, plus seulement dans l'onglet
+Effondrement.
+
+**Vérifié :** 14/14 checks moteur (`scratch/check-policies.js` : overshootDamp, foyerDamp + foyer
+étouffé), 62/62 tests (golden inchangé), lint propre, navigateur (header ghost + gain, 6 politiques
+aux libellés corrects, aucune erreur console).
+
+---
+
+**Refonte Rupture : TERMINÉE** (Leviers A/B/C + reworks §5.1-5.4 + politiques variées + surfacing).
+Pistes futures éventuelles : tuning au ressenti (data), pips de rendement sur les boutons, feedback
+diégétique sur la carte.
 
 ---
 

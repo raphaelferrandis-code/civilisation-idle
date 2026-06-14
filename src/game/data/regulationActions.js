@@ -108,6 +108,40 @@ export const REGULATION_ACTIONS = [
     unlock: (c) => c.mythCount >= 1, unlockLabel: "1 mythe",
     cost: { res: "knowledge", seconds: 150 },
     reformAdd: 0.18, legitAdd: 0.5
+  },
+
+  // ─── 🎲 PARIS (kind: gamble) — gros apaisement OU retour de bâton ────────────
+  // `p` = proba de succès ; `relief` = apaisement si succès ; `failInstability` =
+  // hausse de Rupture si échec. Pas cher : un style de jeu « joueur » vs prudent.
+  {
+    id: "prayForRain", foyer: "scarcity", tier: 3, kind: "gamble",
+    label: "Prière pour la pluie",
+    note: "On implore le ciel pour les récoltes.",
+    noteWin: "Les pluies viennent : les champs reverdissent et la faim recule d'un coup.",
+    noteFail: "Le ciel reste muet ; la sécheresse persiste et la colère enfle.",
+    unlock: (c) => c.bestEra >= 2, unlockLabel: "Ère II",
+    cost: { res: "food", seconds: 28 },
+    p: 0.55, relief: 0.30, failInstability: 0.05, counter: "rationing"
+  },
+  {
+    id: "publicLottery", foyer: "inequality", tier: 3, kind: "gamble",
+    label: "Loterie publique",
+    note: "Une grande loterie est organisée pour redistribuer le hasard.",
+    noteWin: "La loterie enflamme la cité : chacun rêve, l'envie des riches s'efface un temps.",
+    noteFail: "La loterie tourne au scandale de favoritisme : la rancœur redouble.",
+    unlock: (c) => c.bestEra >= 3, unlockLabel: "Ère III",
+    cost: { res: "gold", seconds: 30 },
+    p: 0.55, relief: 0.26, failInstability: 0.05, counter: "festivals"
+  },
+  {
+    id: "scapegoat", foyer: "dissent", tier: 3, kind: "gamble",
+    label: "Bouc émissaire",
+    note: "On désigne un coupable aux malheurs de la cité.",
+    noteWin: "La foule tient son coupable : la colère se déverse ailleurs et l'unité revient.",
+    noteFail: "L'accusation se retourne contre le pouvoir : la défiance grandit.",
+    unlock: (c) => c.bestEra >= 2, unlockLabel: "Ère II",
+    cost: { res: "gold", seconds: 32 },
+    p: 0.60, relief: 0.28, failInstability: 0.06, counter: "festivals"
   }
 ];
 
@@ -129,6 +163,11 @@ export const REGULATION_ACTION_FOYER = Object.fromEntries(
  * du temps → il ne peut JAMAIS empêcher l'effondrement quand la cible ≥ 1.0.
  * Nombre de politiques actives borné (POLICY_MAX_ACTIVE) → budget de stabilité.
  *   cost: { global?, food?, gold?, knowledge?, infrastructure? } en fraction [0..1].
+ * Effets possibles (cumulables) — tous ne font que GAGNER DU TEMPS, jamais empêcher
+ * l'effondrement (cible ≥ 1.0 le force toujours) :
+ *   riseSlow      : ralentit la montée de la jauge (plafond commun 0.8).
+ *   overshootDamp : atténue la SURCHARGE (accélération quand la cible dépasse 100 %).
+ *   foyerDamp     : { foyer: part } étouffe un foyer EN CONTINU (sous le plafond partagé).
  */
 export const REGULATION_POLICIES = [
   {
@@ -154,6 +193,18 @@ export const REGULATION_POLICIES = [
     desc: "La paix des dieux s'étend sur la cité : le temps lui-même semble suspendre la rupture.",
     riseSlow: 0.55, cost: { global: 0.15 },
     unlock: (c) => c.mythCount >= 1, unlockLabel: "1 mythe"
+  },
+  {
+    id: "crisisDiplomacy", label: "Diplomatie de crise", tier: 3,
+    desc: "Une chancellerie désamorce les emballements : même très au-dessus du seuil, la rupture s'emballe moins vite. Mobilise les scribes.",
+    overshootDamp: 0.5, cost: { knowledge: 0.20 },
+    unlock: (c) => c.bestEra >= 4, unlockLabel: "Ère IV"
+  },
+  {
+    id: "neighborhoodMilitia", label: "Milice de quartier", tier: 3,
+    desc: "Des milices locales étouffent la fronde en continu, tant qu'on les finance et les nourrit.",
+    foyerDamp: { dissent: 0.20 }, cost: { gold: 0.12, food: 0.08 },
+    unlock: (c) => c.bestEra >= 3, unlockLabel: "Ère III"
   }
 ];
 

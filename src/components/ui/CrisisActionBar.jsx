@@ -87,7 +87,9 @@ function describeRegAction(action, cost, r, ctx, currentReform) {
     atCap: isReform && (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
     malusRes: action.malusRes,
     malusPct: action.malusPct || 0,
-    bonus: action.infraAdd ? 'infra' : (action.legitAdd ? 'legit' : null)
+    bonus: action.infraAdd ? 'infra' : (action.legitAdd ? 'legit' : null),
+    gamble: action.kind === 'gamble',
+    winPct: Math.round((action.p || 0) * 100)
   };
 }
 
@@ -105,6 +107,25 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
         <span className="regul-btn-line">
           <strong>{label}</strong>
           <span className="regul-cost">🔒 {a.unlockLabel}</span>
+        </span>
+      </button>
+    );
+  }
+  if (a.gamble) {
+    const cls = `${btnClass}${btnClass ? ' ' : ''}regul-gamble`.trim();
+    return (
+      <button
+        className={cls}
+        disabled={!canPayCost(a.cost)}
+        title={`Pari : ${a.winPct}% de gros apaisement, ${100 - a.winPct}% de retour de bâton (hausse de Rupture).`}
+        onClick={() => runCrisisAction(a.id)}
+      >
+        <span className="regul-btn-line">
+          <strong>{label}</strong>
+          <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+        </span>
+        <span className="regul-btn-line regul-btn-sub">
+          <span className="regul-gamble-tag">🎲 {a.winPct}% apaise · {100 - a.winPct}% aggrave</span>
         </span>
       </button>
     );
@@ -154,6 +175,21 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
   );
 }
 
+const FOYER_SHORT = { scarcity: 'Subsistance', inequality: 'Inégalités', complexity: 'Complexité', dissent: 'Dissidence' };
+
+// Effet d'une politique en libellé court (cumule riseSlow / surcharge / étouffement).
+function policyEffectLabel(p) {
+  const parts = [];
+  if (p.riseSlow) parts.push(`−${Math.round(p.riseSlow * 100)}% montée de la Rupture`);
+  if (p.overshootDamp) parts.push(`−${Math.round(p.overshootDamp * 100)}% surcharge`);
+  if (p.foyerDamp) {
+    for (const [f, v] of Object.entries(p.foyerDamp)) {
+      parts.push(`−${Math.round(v * 100)}% ${FOYER_SHORT[f] || f} (continu)`);
+    }
+  }
+  return parts.join(' · ');
+}
+
 // Coût continu d'une politique en libellé court (« −10% production · −15% trésor »).
 function policyCostLabel(cost) {
   const parts = [];
@@ -180,7 +216,7 @@ function PolicyRow({ p, slotsFull }) {
         <span className="regul-cost">{p.locked ? `🔒 ${p.unlockLabel}` : policyCostLabel(p.cost)}</span>
       </span>
       <span className="regul-btn-line regul-btn-sub">
-        <span className="policy-effect">−{Math.round(p.riseSlow * 100)}% montée de la Rupture</span>
+        <span className="policy-effect">{policyEffectLabel(p)}</span>
         {p.active && <span className="policy-active-tag">● active</span>}
       </span>
     </button>
@@ -198,6 +234,8 @@ export default function CrisisActionBar({ variant = 'full' }) {
   });
   // Levier C : re-render au toggle d'une politique (la liste change).
   useGameState(s => (s.activePolicies || []).join(','));
+  // Fatigue de régulation : re-render quand elle évolue (effet/coût des actions).
+  const regulFatigue = useGameState(s => s.regulFatigue || 0);
 
   // Variante compacte : un seul pointerdown gère la fermeture au clic extérieur
   // ET l'accordéon (ouvrir un foyer ferme les autres → un seul menu flottant).
@@ -292,6 +330,16 @@ export default function CrisisActionBar({ variant = 'full' }) {
   // absorbent de pression. Rend visible que CONSTRUIRE de l'infra recule la Rupture.
   const mitigationPct = Math.round((pressure.mitigation || 0) * 100);
 
+  // Fatigue de régulation : indicateur (affiché dès qu'elle est sensible).
+  const fatiguePct = Math.round(regulFatigue * 100);
+  const fatigueIndicator = fatiguePct >= 3 ? (
+    <div className="crisis-fatigue" title="Fatigue de l'administration : chaque action la fait monter. Plus elle est haute, moins les actions sont efficaces et plus elles coûtent cher. Elle redescend si vous espacez vos interventions.">
+      <span className="crisis-fatigue-label">😮‍💨 Fatigue de régulation</span>
+      <span className="crisis-fatigue-track"><span className="crisis-fatigue-fill" style={{ width: `${Math.min(100, fatiguePct)}%` }}></span></span>
+      <span className="crisis-fatigue-val">{fatiguePct}%</span>
+    </div>
+  ) : null;
+
   if (variant === 'compact') {
     return (
       <div className="crisis-regul" aria-label="Régulation des tensions" ref={regulRef}>
@@ -304,6 +352,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
             </span>
           )}
         </div>
+        {fatigueIndicator}
         <div className="crisis-regul-grid">
           {foyers.map((f) => (
             <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`}>
@@ -350,6 +399,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
           🛡️ Tes institutions (infrastructure + légitimité) absorbent <strong>−{mitigationPct}%</strong> de pression en continu — construire de l'infrastructure recule durablement la Rupture.
         </p>
       )}
+      {fatigueIndicator}
 
       <div className="tactical-board">
         <div className="tactical-grid">

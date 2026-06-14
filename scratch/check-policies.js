@@ -9,7 +9,7 @@ global.document = global.document || { addEventListener() {}, documentElement: {
 global.Audio = global.Audio || class { addEventListener() {} play() { return Promise.resolve(); } pause() {} };
 
 const { state, defaultState, invalidateRenderCache, setState } = await import("../src/game/core/state.js");
-const { policyRiseSlow, policyProductionMultiplier, rates } = await import("../src/game/core/mechanics.js");
+const { policyRiseSlow, policyProductionMultiplier, policyOvershootDamp, policyFoyerDamp, pressureBreakdown, rates } = await import("../src/game/core/mechanics.js");
 const { togglePolicy } = await import("../src/game/core/actions/crisis.js");
 const { D, toNum } = await import("../src/game/core/num.js");
 
@@ -58,6 +58,22 @@ ok("curfew désactivée", !(state.activePolicies || []).includes("curfew"));
 setup({ bestEra: 5, myth: false });
 togglePolicy("paxDivina");
 ok("paxDivina verrouillée (0 mythe) : refusée", !(state.activePolicies || []).includes("paxDivina"));
+
+// 6) Politiques à effets variés
+setup({ bestEra: 5, myth: true });
+togglePolicy("crisisDiplomacy");
+ok("crisisDiplomacy : overshootDamp = 0.5", Math.abs(policyOvershootDamp() - 0.5) < 1e-9);
+
+setup({ bestEra: 5, myth: true });
+state.food = D(0); state.population = D(50000); // dissidence non nulle via cycles
+state.cycles = 20;
+invalidateRenderCache("all");
+const dissentBefore = pressureBreakdown().dissent;
+togglePolicy("neighborhoodMilitia");
+ok("neighborhoodMilitia : policyFoyerDamp(dissent) = 0.20", Math.abs(policyFoyerDamp("dissent") - 0.20) < 1e-9);
+invalidateRenderCache("all");
+const dissentAfter = pressureBreakdown().dissent;
+ok("neighborhoodMilitia : foyer dissidence étouffé", dissentAfter < dissentBefore);
 
 console.table(checks);
 const failed = checks.filter((c) => !c.pass);

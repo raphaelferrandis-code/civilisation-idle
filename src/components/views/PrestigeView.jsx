@@ -44,6 +44,10 @@ export default function PrestigeView() {
   const [remainingTime, setRemainingTime] = useState("");
 
   const ruinGainVal = ruinGain();
+  // Rework 1 — gain PROJETÉ « si effondrement maintenant » (calculé même hors
+  // crise) : aide à la décision temporiser vs s'effondrer. Hors crise, ruinGainVal
+  // vaut 0 ; ce projeté montre ce que la chute rapporterait à cet instant.
+  const projectedRuin = ruinGain(true);
   const ruinMult = ruinMultiplier();
   const isCrisisActive = crisisOpen();
 
@@ -154,10 +158,20 @@ export default function PrestigeView() {
             </div>
             <div className="barometer-track">
               <span className="barometer-fill" style={{ width: `${clamp01(instability) * 100}%` }}></span>
+              {/* Rework 2 — fantôme de la cible : où la jauge se dirige (pressure.total). */}
+              <span
+                className="barometer-target-ghost"
+                style={{ left: `${clamp01(pressure.total) * 100}%` }}
+                title={`Cible : ${pct(pressure.total)} — la jauge dérive vers ce niveau. Réguler la fait baisser ; au-dessus de 100 %, la crise s'ouvre.`}
+              ></span>
             </div>
             <div className="barometer-footer">
               <small>{driftText}</small>
               <small className="target-pressure">Cible : {pct(pressure.total)}</small>
+            </div>
+            {/* Rework 1 — gain projeté si effondrement maintenant (aide à la décision). */}
+            <div className="barometer-collapse-hint" title="Ruines obtenues si la cité s'effondrait à cet instant. Tenir plus longtemps et chuter plus profond rapporte davantage.">
+              💀 Si effondrement maintenant : <strong>+{fmt(projectedRuin)} 🏛️</strong>
             </div>
           </div>
 
@@ -311,8 +325,8 @@ export default function PrestigeView() {
 
             <div className="prestige-stats-grid">
               <div className="prestige-stat-card">
-                <span>Ruines à gagner</span>
-                <strong>{fmt(ruinGainVal)} 🏛️</strong>
+                <span>Ruines si effondrement</span>
+                <strong>{fmt(projectedRuin)} 🏛️</strong>
               </div>
               <div className="prestige-stat-card">
                 <span>Héritage préparé</span>

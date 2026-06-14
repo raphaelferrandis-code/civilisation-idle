@@ -10,6 +10,7 @@ import {
   rates,
   ruinEffectSum,
   unspentRuinsPowerMultiplier,
+  ruinGain,
   has,
   crisisOpen
 } from '../../game/core/mechanics.js';
@@ -243,6 +244,9 @@ export default function CityView() {
               : { cls: "sg-stable", icon: "🛡️", label: "Civilisation stable", desc: "La cité tient bon. Continuez à bâtir votre civilisation." };
             const crackOpacity = (threshold, ramp, max) =>
               lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
+            // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
+            const targetLvl = clamp01(pressure.total);
+            const projectedRuin = ruinGain(true);
             // Tooltip détaillé : sources de pression (données de pressureBreakdown)
             const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
             const pressureTooltip = [
@@ -262,6 +266,7 @@ export default function CityView() {
                 <div className="sg-meta">
                   <span className="sg-icon" aria-hidden="true">{tier.icon}</span>
                   <span className="sg-label">{tier.label}</span>
+                  <span className="sg-collapse-gain" title="Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.">💀 +{fmt(projectedRuin)} 🏛️</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -269,6 +274,7 @@ export default function CityView() {
                     <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
                   ))}
                   <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
+                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={`Cible : ${Math.round(targetLvl * 100)}% — la jauge dérive vers ce niveau.`}></span>
                   {lvl >= 0.68 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
                       {[
