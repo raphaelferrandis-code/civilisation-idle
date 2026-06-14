@@ -7,7 +7,6 @@ import {
   crisisOpen,
   pressureBreakdown,
   timeWearRate,
-  crisisCosts,
   terminalCrisisCost,
   terminalCrisisReady,
   TERMINAL_PREP_TIERS,
@@ -15,13 +14,13 @@ import {
   autoCollapseDelay
 } from '../../game/core/mechanics.js';
 import {
-  runCrisisAction,
   collapse,
   runTerminalCrisisAction,
   activateSurchauffe
 } from '../../game/core/actions.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
-import { fmt, pct, costLabel, canPayCost, clamp01 } from '../../game/core/utils.js';
+import { fmt, pct, costLabel, clamp01 } from '../../game/core/utils.js';
+import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 
 function tensionAdvice(mainCause) {
   if (crisisOpen()) return "La crise est ouverte : choisissez une issue pour clore ce cycle.";
@@ -41,7 +40,6 @@ export default function PrestigeView() {
   const crisisOpenedAt = useGameState(s => s.crisisOpenedAt);
   useGameState(s => s.activeMythId);
   const icareHeritage = useGameState(s => s.icareHeritage);
-  const cycles = useGameState(s => s.cycles);
 
   const [remainingTime, setRemainingTime] = useState("");
 
@@ -68,7 +66,6 @@ export default function PrestigeView() {
   }, [crisisLimitAnnounced, crisisOpenedAt]);
 
   const pressure = pressureBreakdown();
-  const costs = crisisCosts();
 
   const causes = [
     ["Subsistance", pressure.scarcity],
@@ -139,9 +136,6 @@ export default function PrestigeView() {
   if ((tp.infraBonus || 0) > 0) activeMaluses.push({ label: `Infrastructure +${Math.round(tp.infraBonus * 100)}%`, kind: "gain" });
   if ((tp.ruptureSlow || 0) > 0) activeMaluses.push({ label: `Montée de Rupture −${Math.round(tp.ruptureSlow * 100)}%`, kind: "gain" });
 
-  const showArchiveBtn = cycles >= 2;
-  const showAncestorBtn = cycles >= 3;
-
   return (
     <section className="view active" id="prestige">
       {/* 1. BAROMÈTRES GLOBAUX */}
@@ -188,132 +182,7 @@ export default function PrestigeView() {
       </div>
 
       {/* 2. TABLEAU TACTIQUE (FUSION TENSIONS & ACTIONS) */}
-      {!isCrisisActive && (
-      <div className="panel tactical-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Foyers de tension & Actions de régulation</h2>
-          </div>
-        </div>
-        <p className="body-copy">Dépenser vos ressources pour atténuer les facteurs de rupture ralentit le déclin, mais une chute tardive et complexe rapporte davantage de ruines.</p>
-
-        <div className="tactical-board">
-          <div className="tactical-grid">
-            {/* Subsistance */}
-            <article className="tactical-card">
-              <div className="tactical-info">
-                <header>
-                  <h4>🌾 Subsistance</h4>
-                  <strong className="tactical-value">{pct(pressure.scarcity)}</strong>
-                </header>
-                <p>La population croissante pèse sur les réserves de blé.</p>
-                <div className="tactical-track">
-                  <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.scarcity / 0.7) * 100}%` }}></span>
-                </div>
-              </div>
-              <div className="tactical-actions">
-                <button
-                  disabled={!canPayCost(costs.rationing)}
-                  onClick={() => runCrisisAction("rationing")}
-                >
-                  <strong>Rationner</strong>
-                  <span className="action-cost">{costLabel(costs.rationing)}</span>
-                </button>
-              </div>
-            </article>
-
-            {/* Inégalités */}
-            <article className="tactical-card">
-              <div className="tactical-info">
-                <header>
-                  <h4>⚖️ Inégalités</h4>
-                  <strong className="tactical-value">{pct(pressure.inequality)}</strong>
-                </header>
-                <p>L'accumulation de trésor crée des barrières entre classes.</p>
-                <div className="tactical-track">
-                  <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.inequality / 0.55) * 100}%` }}></span>
-                </div>
-              </div>
-              <div className="tactical-actions">
-                <button
-                  disabled={!canPayCost(costs.festivals)}
-                  onClick={() => runCrisisAction("festivals")}
-                >
-                  <strong>Jeux civiques</strong>
-                  <span className="action-cost">{costLabel(costs.festivals)}</span>
-                </button>
-              </div>
-            </article>
-
-            {/* Complexité */}
-            <article className="tactical-card">
-              <div className="tactical-info">
-                <header>
-                  <h4>🏛️ Complexité</h4>
-                  <strong className="tactical-value">{pct(pressure.complexity)}</strong>
-                </header>
-                <p>Le nombre de structures demande une administration lourde.</p>
-                <div className="tactical-track">
-                  <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.complexity / 0.75) * 100}%` }}></span>
-                </div>
-              </div>
-              <div className="tactical-actions">
-                <button
-                  disabled={!canPayCost(costs.census)}
-                  onClick={() => runCrisisAction("census")}
-                  style={{ marginBottom: '0.4rem' }}
-                >
-                  <strong>Recenser</strong>
-                  <span className="action-cost">{costLabel(costs.census)}</span>
-                </button>
-                <button
-                  disabled={!canPayCost(costs.reforms)}
-                  onClick={() => runCrisisAction("reforms")}
-                >
-                  <strong>Réformes</strong>
-                  <span className="action-cost">{costLabel(costs.reforms)}</span>
-                </button>
-              </div>
-            </article>
-
-            {/* Dissidence */}
-            <article className="tactical-card">
-              <div className="tactical-info">
-                <header>
-                  <h4>📜 Dissidence</h4>
-                  <strong className="tactical-value">{pct(pressure.dissent)}</strong>
-                </header>
-                <p>Les récits et la mémoire des cycles divisent l'opinion.</p>
-                <div className="tactical-track">
-                  <span className="tactical-fill" style={{ width: `${Math.min(1, pressure.dissent / 0.55) * 100}%` }}></span>
-                </div>
-              </div>
-              <div className="tactical-actions">
-                {showAncestorBtn && (
-                  <button
-                    disabled={!canPayCost(costs.ancestorCrisis)}
-                    onClick={() => runCrisisAction("ancestorCrisis")}
-                    style={{ marginBottom: '0.4rem' }}
-                  >
-                    <strong>Culte des Ancêtres</strong>
-                    <span className="action-cost">{costLabel(costs.ancestorCrisis)}</span>
-                  </button>
-                )}
-                {showArchiveBtn && (
-                  <button
-                    disabled={!canPayCost(costs.archiveCrisis)}
-                    onClick={() => runCrisisAction("archiveCrisis")}
-                  >
-                    <strong>Catastrophes</strong>
-                    <span className="action-cost">{costLabel(costs.archiveCrisis)}</span>
-                  </button>
-                )}
-              </div>
-            </article>
-          </div>
-        </div>
-      </div>
-      )}
+      {!isCrisisActive && <CrisisActionBar variant="full" />}
 
       {/* 3. CYCLE & DÉCLIN (BILAN & PRESTIGE / MODE CRISE) */}
       <div className={`panel cycle-outcome-panel ${isCrisisActive ? 'crisis-focus-active' : ''}`} id="crisisOutcomePanel">

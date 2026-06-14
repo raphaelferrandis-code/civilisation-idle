@@ -3,11 +3,11 @@ import { useCityViewState } from '../../hooks/useCityViewState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
+import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 import {
   cityVitals,
   pressureBreakdown,
   rates,
-  globalMultiplier,
   ruinEffectSum,
   unspentRuinsPowerMultiplier,
   has,
@@ -25,8 +25,7 @@ import {
 import { save, setCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
-import { eras } from '../../game/data/world.js';
-import { fmt, roman, clamp01 } from '../../game/core/utils.js';
+import { fmt, clamp01 } from '../../game/core/utils.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
   ICARE_INFRA_TARGET,
@@ -44,8 +43,8 @@ import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } fro
 
 export default function CityView() {
   const {
-    cityName, population, gold, infrastructure, cycles, dynastyCount,
-    bestEraIndex, cycleStartedAt, archaeologyUsed,
+    cityName, population, gold, infrastructure,
+    cycleStartedAt, archaeologyUsed,
     activeMythId, sisypheMult, icareInfraReached, babelProdReached, babelCategory,
     orPopPeak, orUsureImbalance, phoenixCycleCount, phoenixTotalRuins, phoenixNextForceAt,
     hephPopPeak, hephGoalReached,
@@ -125,8 +124,6 @@ export default function CityView() {
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
   const r = rates(vitals, pressure);
-
-  const globalMult = globalMultiplier();
 
   const unspentPower = ruinEffectSum("unspentRuinsPower");
   const unspentMult = unspentPower > 0 ? unspentRuinsPowerMultiplier() : 1;
@@ -291,33 +288,8 @@ export default function CityView() {
             );
           })()}
 
-          <div className="city-dynasty-stats" aria-label="Statistiques dynastiques">
-            <div className="stat-chip" title="Cycles accomplis">
-              <span className="chip-icon">🔄</span>
-              <span className="chip-label">Cycles</span>
-              <strong id="cycles">{fmt(cycles)}</strong>
-            </div>
-            <div className="stat-chip" title="Numéro de la dynastie actuelle">
-              <span className="chip-icon">👑</span>
-              <span className="chip-label">Dynastie</span>
-              <strong id="dynastyAge">{roman(dynastyCount + 1)}</strong>
-            </div>
-            <div className="stat-chip" title="Multiplicateur global de production">
-              <span className="chip-icon">⚡</span>
-              <span className="chip-label">Multiplicateur</span>
-              <strong id="globalMult">x{fmt(globalMult)}</strong>
-            </div>
-            <div className="stat-chip" title="Meilleure ère atteinte à ce jour">
-              <span className="chip-icon">🏆</span>
-              <span className="chip-label">Âge Max</span>
-              <strong id="bestEra">{eras[bestEraIndex].name}</strong>
-            </div>
-            <div className="stat-chip" title="Durée du cycle actuel">
-              <span className="chip-icon">⏳</span>
-              <span className="chip-label">Temps</span>
-              <strong id="cycleTime">{cycleSeconds}s</strong>
-            </div>
-          </div>
+          {/* Régulation des tensions : actions toujours accessibles depuis la Cité */}
+          <CrisisActionBar variant="compact" />
         </div>
 
         {/* 2. Diorama Interactif de la Cité (City Canvas) */}

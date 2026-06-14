@@ -12,8 +12,7 @@
 .panel,
 .panel-heading,
 .view-header,
-.mark,
-.vitals-band {
+.mark {
   transition: border-color 0.9s ease, background-color 0.9s ease,
     box-shadow 0.9s ease, color 0.9s ease;
 }
@@ -110,7 +109,6 @@
 }
 
 .app[data-era-band="6"] .resource-value,
-.app[data-era-band="6"] .vitals-value,
 .app[data-era-band="6"] .rate-value {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
@@ -162,22 +160,3 @@
   font-size: clamp(2.6rem, 6vw, 4.4rem);
 }
 
-/* ============================================================
-   Topbar : pastille d'époque (Âge du Feu · III) à côté du nom d'ère.
-   ============================================================ */
-
-.era-epoch-chip {
-  display: inline-block;
-  margin-left: 0.45rem;
-  padding: 0.05rem 0.45rem;
-  border: 1px solid rgba(var(--era-rgb), 0.4);
-  border-radius: var(--r-pill);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gold-dim);
-  background: rgba(var(--era-rgb), 0.08);
-  white-space: nowrap;
-  vertical-align: middle;
-}

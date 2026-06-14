@@ -171,10 +171,8 @@
 
 /* Labels : inscriptions de monnaie — minuscules, très espacées, en retrait */
 .resource-name,
-.vitals-label,
 .city-title-label,
-.myth-modal-label,
-.chip-label {
+.myth-modal-label {
   letter-spacing: 0.16em;
   font-weight: 600;
 }
@@ -200,7 +198,3 @@
   text-transform: uppercase;
 }
 
-/* L'ère dans le bandeau d'état : gravée, pas tapée */
-.vitals-value {
-  letter-spacing: 0.04em;
-}

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
+import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
@@ -108,7 +109,7 @@ export default function App() {
 
   const tabs = [
     { id: 'city', label: 'Cité', icon: 'fa-city', unlocked: true },
-    { id: 'prestige', label: 'Crises', icon: 'fa-fire', unlocked: true },
+    { id: 'prestige', label: 'Effondrement', icon: 'fa-fire', unlocked: true },
     { id: 'ruinsView', label: 'Ruines', icon: 'fa-landmark', unlocked: isRuinsUnlocked },
     { id: 'tech', label: 'Héritage', icon: 'fa-monument', unlocked: isHeritageUnlocked },
     { id: 'mythView', label: 'Mythes', icon: 'fa-bolt', unlocked: isMythsUnlocked },
@@ -170,6 +171,9 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <CityStatusPanel />
+
         <div className="quick-actions">
           <button className="btn-tiny" onClick={() => { save(); alert("Partie sauvegardée !"); }} title="Sauvegarder">
             <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i><span className="qa-label">Save</span>

@@ -1992,10 +1992,19 @@
 
 .city-title-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.85rem;
   flex: 0 0 auto;
   min-width: 0;
+  border-bottom: 2px solid rgba(var(--era-rgb), 0.42);
+  padding-bottom: 0.3rem;
+  transition: border-color 0.25s ease;
+}
+
+.city-title-wrapper:focus-within {
+  border-color: var(--gold-bright);
 }
 
 .city-inline-era {
@@ -2059,58 +2068,207 @@
 
 .city-title-wrapper .city-name-input {
   border: 0;
-  border-bottom: 2px solid rgba(var(--era-rgb), 0.42);
   padding: 0.2rem 0;
   color: var(--gold-ivory);
   font-family: var(--font-title);
   font-size: clamp(1.4rem, 2.5vw, 1.85rem);
   font-weight: 700;
   background: transparent;
-  width: 100%;
-  transition: border-color 0.25s ease;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
 }
 
 .city-title-wrapper .city-name-input:focus {
-  border-color: var(--gold-bright);
   outline: none;
 }
 
-.city-dynasty-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 0.75rem;
-  max-width: min(64rem, 100%);
+/* ── Régulation des tensions : barre compacte permanente (en-tête de la Cité) ── */
+.crisis-regul {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 0.7rem;
 }
 
-.stat-chip {
+.crisis-regul-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-  font-size: 0.8rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
 }
 
-.stat-chip .chip-icon {
-  font-size: 0.9rem;
-}
-
-.stat-chip .chip-label {
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.stat-chip strong {
+.crisis-regul-title {
   font-family: var(--font-title);
-  color: var(--gold-bright) !important;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
 }
+
+.crisis-regul-hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.crisis-regul-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  align-items: start;
+}
+
+/* Chaque foyer = un menu déroulant (replié par défaut) : seul l'en-tête + la
+   jauge restent visibles, les actions (extensibles) se déplient au clic. */
+.crisis-foyer {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.crisis-foyer[open] {
+  border-color: rgba(var(--era-rgb), 0.45);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.crisis-foyer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.crisis-foyer-head::-webkit-details-marker { display: none; }
+
+.crisis-foyer-head:hover .crisis-foyer-name { color: var(--gold-ivory); }
+
+.crisis-foyer-icon { font-size: 0.9rem; }
+
+.crisis-foyer-name {
+  font-size: 0.8rem;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+
+.crisis-foyer-pct {
+  margin-left: auto;
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--foyer-color, var(--gold-bright));
+}
+
+.crisis-foyer-chevron {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.crisis-foyer-chevron::before { content: "\25BE"; }
+
+.crisis-foyer[open] .crisis-foyer-chevron::before { content: "\25B4"; }
+
+.crisis-foyer-track {
+  flex: 0 0 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.crisis-foyer-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--foyer-color, var(--gold));
+  transition: width 0.4s ease;
+}
+
+/* Repli explicite : on force le masquage hors état [open] car le menu, mis en
+   position absolue, échappe au masquage natif du <details> fermé. */
+.crisis-foyer:not([open]) .crisis-foyer-actions {
+  display: none;
+}
+
+/* Le menu d'actions flotte par-dessus la carte (hors flux) : ouvrir un foyer
+   ne décale plus l'en-tête ni la carte. */
+.crisis-foyer-actions {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(var(--era-rgb), 0.32);
+  border-radius: 8px;
+  background: #12161f;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.crisis-regul-btn {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(var(--era-rgb), 0.4);
+  border-radius: 7px;
+  background: rgba(var(--era-rgb), 0.1);
+  color: var(--gold-ivory);
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.crisis-regul-btn strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.crisis-regul-btn:hover:not(:disabled) {
+  background: rgba(var(--era-rgb), 0.18);
+  border-color: var(--gold-bright);
+}
+
+.crisis-regul-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.crisis-regul-cost {
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crisis-foyer-locked {
+  display: block;
+  padding-top: 0.1rem;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.crisis-foyer--food  { --foyer-color: #97c459; }
+.crisis-foyer--gold  { --foyer-color: #e8b339; }
+.crisis-foyer--know  { --foyer-color: #85b7eb; }
+.crisis-foyer--infra { --foyer-color: #af9eec; }
 
 /* Panneau de progression de l'Ère / Rupture */
 .era-progress-panel {
@@ -2330,13 +2488,6 @@
   stroke-width: 1.3;
 }
 
-/* Âge courant dans la topbar (remplace rupture) */
-.stability-age .gauge-bar-fill,
-.age-progress-fill {
-  background: linear-gradient(90deg, #a8a14e, var(--gold), #e8c45a);
-  box-shadow: 0 0 10px rgba(var(--era-rgb), 0.3);
-}
-
 /* Diorama / Carte de la Cité */
 .city-map-container {
   position: relative;
@@ -2354,7 +2505,9 @@
   place-items: stretch;
   width: 100%;
   /* La carte remplit la hauteur restante du viewport : 100vh moins
-     topbar + ticker + en-tête de cité + marges (~27rem). Le canvas suit
+     topbar + ticker + en-tête de cité (titre + jauge + barre de régulation
+     repliée) + marges. Les menus de régulation s'ouvrent en surimpression
+     (hors flux), donc l'en-tête garde une hauteur constante. Le canvas suit
      via son ResizeObserver. */
   height: clamp(22rem, calc(100vh - 28rem), 70rem) !important;
   min-height: 22rem;
@@ -2632,62 +2785,6 @@
   100% { opacity: 1; text-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
 }
 
-.gauge-container {
-  height: 6px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.gauge-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  transition: width 0.3s ease;
-}
-
-.stability-rupture .gauge-bar-fill {
-  background: linear-gradient(90deg, var(--green), var(--gold), var(--red));
-}
-
-.stability-wear .gauge-bar-fill {
-  background: linear-gradient(90deg, var(--blue), var(--violet), var(--red));
-}
-
-.stability-legitimite .gauge-bar-fill {
-  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
-}
-
-.sediment-bonus-value {
-  color: var(--gold-bright);
-  font-size: 0.78rem;
-  cursor: default;
-}
-
-.sediment-help {
-  color: var(--muted);
-  font-size: 0.75rem;
-  cursor: default;
-}
-
-.sediment-laps {
-  display: flex;
-  gap: 0.1rem;
-  font-size: 0.55rem;
-  line-height: 1;
-  align-items: center;
-}
-
-.sediment-lap-done  { color: var(--gold-bright); }
-.sediment-lap-empty { color: rgba(255,255,255,0.15); }
-
-.sediment-palier-0 { background: linear-gradient(90deg, var(--blue), var(--violet), var(--red)); }
-.sediment-palier-1 { background: linear-gradient(90deg, #2a4a8a, #6a60d0, #c040c0); }
-.sediment-palier-2 { background: linear-gradient(90deg, #5a2a80, #9a50c0, #e060a0); }
-.sediment-palier-3 { background: linear-gradient(90deg, #7a3010, #c87020, #e8a030); }
-.sediment-palier-4 { background: linear-gradient(90deg, #5c3d0a, #b87c2a, var(--gold-bright)); }
-
 /* Bouton Exhumer */
 .exhume-btn-redesigned {
   width: 100%;
@@ -2865,29 +2962,6 @@
 @keyframes slideUpFadeIn {
   0% { opacity: 0; transform: translate(-50%, 12px); }
   100% { opacity: 1; transform: translate(-50%, 0); }
-}
-
-.stat-chip.boost-active {
-  background: rgba(var(--era-rgb), 0.16) !important;
-  border-color: rgba(240, 200, 96, 0.45) !important;
-  box-shadow: 0 0 12px rgba(240, 200, 96, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  animation: pulse-boost 1.6s infinite alternate ease-in-out;
-}
-
-.stat-chip.boost-active strong {
-  color: #fb923c !important;
-  text-shadow: 0 0 8px rgba(251, 146, 60, 0.4);
-}
-
-@keyframes pulse-boost {
-  0% {
-    box-shadow: 0 0 4px rgba(240, 200, 96, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.02);
-    border-color: rgba(240, 200, 96, 0.3);
-  }
-  100% {
-    box-shadow: 0 0 14px rgba(240, 200, 96, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    border-color: rgba(240, 200, 96, 0.6);
-  }
 }
 
 /* ============================================================================
@@ -3079,6 +3153,13 @@
 }
 
 .city-personality-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  align-self: baseline;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   font-style: italic;
   opacity: 0.75;

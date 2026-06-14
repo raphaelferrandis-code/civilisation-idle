@@ -113,62 +113,6 @@
 .card-gold .reserve-filet span  { background: var(--res-gold); }
 .card-knowledge .reserve-filet span { background: var(--res-know); }
 
-/* ── Bandeau d'état : Âge / Usure / Légitimité / sédiment ── */
-.vitals-band {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem 1.25rem;
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--border-soft);
-  border-left: 3px solid var(--red);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.vitals-seg {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1 1 13rem;
-  min-width: 0;
-}
-
-.vitals-label {
-  flex: 0 0 auto;
-  font-size: var(--fs-label);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
-
-.vitals-value {
-  flex: 0 0 auto;
-  overflow: hidden;
-  max-width: 11rem;
-  font-family: var(--font-title);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.vitals-seg .gauge-container {
-  flex: 1 1 3rem;
-  min-width: 2.5rem;
-  height: 4px;
-}
-
-.vitals-band .sediment-bonus-value,
-.vitals-band .sediment-help {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
 @media (max-width: 1200px) {
   .topbar-resources {
     grid-template-columns: repeat(3, minmax(0, 1fr));

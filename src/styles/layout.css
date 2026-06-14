@@ -178,6 +178,161 @@
   border-top: 1px solid var(--line);
 }
 
+/* ── Encart d'état civilisationnel (Âge / Usure / Légitimité / stats dynastiques) ──
+   Logé en bas de la sidebar, juste au-dessus des actions rapides. */
+.city-status-panel {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid rgba(var(--era-rgb), 0.18);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.city-status-panel + .quick-actions {
+  margin-top: 0.75rem;
+}
+
+.csp-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.csp-block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.csp-label {
+  flex: 0 0 auto;
+  font-family: var(--font-title);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.csp-value {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-title);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csp-value--era { color: var(--gold-bright); }
+.csp-value.danger-pulse { color: var(--red); }
+
+.csp-laps {
+  margin-left: auto;
+  font-size: 0.5rem;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+.csp-lap-done  { color: var(--gold); }
+.csp-lap-empty { color: rgba(255, 255, 255, 0.18); }
+
+.csp-bar {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.csp-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s ease;
+}
+.csp-bar-fill--era   { background: var(--gold); }
+.csp-bar-fill--wear  { background: #9b6ae8; }
+.csp-bar-fill--legit { background: #5dcaa5; }
+
+.csp-ruin-bonus {
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+.csp-ruin-bonus.is-active { color: var(--gold-bright); }
+
+.csp-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.csp-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.csp-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+}
+
+.csp-stat-icon { flex: 0 0 auto; font-size: 0.8rem; }
+.csp-stat-label { color: var(--muted); }
+
+.csp-stat strong {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csp-stat-era {
+  font-size: 0.66rem !important;
+  color: var(--gold-ivory) !important;
+}
+
+/* Sidebar icônes-seules (981–1500px : gouttière de 4,5rem) : variante condensée.
+   Les barres Âge/Usure/Légitimité restent (libellés et valeurs en tooltip), et
+   les stats passent en icône + valeur centrées. À ≤980px la sidebar redevient un
+   bloc pleine largeur : l'encart s'y affiche au format normal, aucune surcharge. */
+@media (max-width: 1500px) and (min-width: 981px) {
+  .city-status-panel {
+    width: 100%;
+    gap: 0.5rem;
+    padding: 0.55rem 0.4rem;
+  }
+
+  .city-status-panel .csp-label,
+  .city-status-panel .csp-value,
+  .city-status-panel .csp-laps,
+  .city-status-panel .csp-ruin-bonus,
+  .city-status-panel .csp-stat-label {
+    display: none;
+  }
+
+  .city-status-panel .csp-stat {
+    justify-content: center;
+    gap: 0.35rem;
+    font-size: 0.64rem;
+  }
+
+  .city-status-panel .csp-stat strong {
+    margin-left: 0;
+    font-size: 0.6rem;
+  }
+}
+
 /* ── Breakpoint laptop (981–1500px) : sidebar compacte icônes-seules,
    densité réduite, zéro débordement horizontal (Audit UI Phases 2+6) ── */
 @media (max-width: 1500px) and (min-width: 981px) {

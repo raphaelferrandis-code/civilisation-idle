@@ -4,14 +4,9 @@ import {
   pressureBreakdown,
   rates,
   has,
-  nomadInfrastructureCap,
-  currentEraIndex,
-  nextEraProgress
+  nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { eras } from '../../game/data/world.js';
-import { getEraTheme } from '../../game/data/eraThemes.js';
-import { isMythEffectActive } from '../../game/data/myths.js';
-import { fmt, pct, clamp01, multLabel } from '../../game/core/utils.js';
+import { fmt, clamp01, multLabel } from '../../game/core/utils.js';
 
 function mood(value, labels) {
   if (value >= 0.95) return labels[3];
@@ -23,13 +18,13 @@ function mood(value, labels) {
 /**
  * Topbar (Audit UI Phase 5) :
  * — 5 cartes de ressources sur 2 lignes (valeur dominante + flux signé ▲▼),
- *   humeurs et effets déplacés en tooltip, jauge de réserve en filet 3px ;
- * — bandeau d'état distinct (Âge / Usure / Légitimité / bonus sédiment).
+ *   humeurs et effets déplacés en tooltip, jauge de réserve en filet 3px.
+ * L'état civilisationnel (Âge / Usure / Légitimité / bonus sédiment) vit
+ * désormais dans l'encart latéral (CityStatusPanel).
  */
 export default function Topbar() {
   const {
-    population, food, gold, knowledge, infrastructure, timeWear, atlasLegitimite, atlasHeritage,
-    cycleStartedAt, tickNow
+    population, food, gold, knowledge, infrastructure
   } = useCityViewState();
 
   const vitals = cityVitals();
@@ -42,35 +37,6 @@ export default function Topbar() {
 
   const showNomadCap = has("trait_nomadism");
   const nomadCap = nomadInfrastructureCap();
-
-  const eraIdx = currentEraIndex();
-  const currentEra = eras[eraIdx];
-  const eraProgress = nextEraProgress(eraIdx);
-  const eraTheme = getEraTheme(eraIdx);
-
-  const SEDIMENT_PALIERS = [
-    { secs: 3600,   bonus: 2   },
-    { secs: 28800,  bonus: 15  },
-    { secs: 86400,  bonus: 45  },
-    { secs: 259200, bonus: 135 },
-    { secs: 604800, bonus: 400 },
-  ];
-  const cycleElapsed = (tickNow - cycleStartedAt) / 1000;
-  let sedimentIdx = -1;
-  for (let i = SEDIMENT_PALIERS.length - 1; i >= 0; i--) {
-    if (cycleElapsed >= SEDIMENT_PALIERS[i].secs) { sedimentIdx = i; break; }
-  }
-  const sedimentBonus = sedimentIdx >= 0 ? SEDIMENT_PALIERS[sedimentIdx].bonus : 0;
-  const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
-  const segStart = sedimentIdx >= 0 ? SEDIMENT_PALIERS[sedimentIdx].secs : 0;
-  const segEnd   = nextPalier ? nextPalier.secs : SEDIMENT_PALIERS[SEDIMENT_PALIERS.length - 1].secs;
-  const sedimentBarFill = !nextPalier ? 100 : Math.min(100, ((cycleElapsed - segStart) / (segEnd - segStart)) * 100);
-  const nextPalierInSecs = nextPalier ? Math.ceil(nextPalier.secs - cycleElapsed) : 0;
-  const fmtSecs = (s) => {
-    if (s >= 86400) return `${Math.floor(s / 86400)}j ${Math.floor((s % 86400) / 3600)}h`;
-    if (s >= 3600)  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}min`;
-    return `${Math.floor(s / 60)}min`;
-  };
 
   /* Humeurs (déplacées en tooltip) */
   const foodMood = mood(vitals.foodScore, ["Famine proche", "Greniers modestes", "Surplus rassurant", "Abondance"]);
@@ -146,57 +112,6 @@ export default function Topbar() {
             )}
           </div>
         ))}
-      </div>
-
-      {/* Bandeau d'état : nature différente des ressources, traitement distinct */}
-      <div className="vitals-band" id="vitalsResource" aria-label="Vitalité et pressions">
-        <div className="vitals-seg" title={`Progression vers l'âge suivant — ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V`}>
-          <span className="vitals-label">Âge</span>
-          <strong className="vitals-value" id="currentEraTopbar">
-            {currentEra.name}
-            <span className="era-epoch-chip" aria-label={`Époque : ${eraTheme.epochLabel}`}>
-              {eraTheme.epochLabel} · {eraTheme.epochNumeral}
-            </span>
-          </strong>
-          <div className="gauge-container stability-age">
-            <span className="gauge-bar-fill age-progress-fill" style={{ width: `${eraProgress * 100}%` }}></span>
-          </div>
-        </div>
-
-        <div
-          className="vitals-seg"
-          title={nextPalier ? `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}` : "Bonus sédiment maximum atteint"}
-        >
-          <span className="vitals-label">Usure</span>
-          <strong className={`vitals-value ${timeWear >= 0.8 ? 'danger-pulse' : ''}`} id="timeWear">{pct(timeWear)}</strong>
-          {sedimentIdx >= 0 && (
-            <span className="sediment-laps" aria-hidden="true">
-              {SEDIMENT_PALIERS.map((_, i) => (
-                <span key={i} className={i <= sedimentIdx ? 'sediment-lap-done' : 'sediment-lap-empty'}>■</span>
-              ))}
-            </span>
-          )}
-          <div className="gauge-container stability-wear">
-            <span id="timeWearMeter" className={`gauge-bar-fill sediment-palier-${Math.max(0, sedimentIdx + 1)}`} style={{ width: `${sedimentBarFill}%` }}></span>
-          </div>
-        </div>
-
-        {(atlasHeritage || isMythEffectActive("mythe_d_atlas")) && (
-          <div className="vitals-seg" title="Légitimité d'Atlas">
-            <span className="vitals-label">Légitimité</span>
-            <strong className="vitals-value" id="atlasLegitimiteValue">{fmt(atlasLegitimite)}</strong>
-            <div className="gauge-container stability-legitimite">
-              <span id="atlasLegitimiteBar" className="gauge-bar-fill" style={{ width: `${clamp01((atlasLegitimite || 0) / 100) * 100}%` }}></span>
-            </div>
-          </div>
-        )}
-
-        <small
-          className={sedimentBonus > 0 ? 'sediment-bonus-value' : 'sediment-help'}
-          title={nextPalier ? `Prochain palier : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}` : 'Bonus maximum atteint'}
-        >
-          +{sedimentBonus}% ruines au prochain effondrement
-        </small>
       </div>
     </header>
   );
