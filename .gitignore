@@ -26,3 +26,10 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+# Artefacts de dev / simulation (bac à sable local, non versionné)
+scratch/
+# Rapports et dumps générés par les scripts de simulation
+simulation-report.html
+sim_results.json
+sim_long_results.json
