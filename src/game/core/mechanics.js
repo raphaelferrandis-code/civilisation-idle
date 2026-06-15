@@ -41,7 +41,9 @@ import {
   FOYER_RELIEF_CAP,
   FOYER_REFORM,
   FATIGUE_EFFECT_PENALTY,
-  FATIGUE_COST_PENALTY
+  FATIGUE_COST_PENALTY,
+  INEQUALITY_RESERVE_REF_S,
+  INEQUALITY_RESERVE_SCALE_S
 } from './balance.js';
 import {
   ICARE_PROD_MULT,
@@ -610,7 +612,14 @@ export function pressureBreakdown() {
   // sinon l'instantané (repli — golden master inchangé tant que l'EMA est null).
   const scarcityRawUsed = state.scarcityRawEase != null ? state.scarcityRawEase : scarcityRaw;
   const scarcity = Math.max(0, Math.min(0.7, scarcityRawUsed * 0.55)) * (1 - foyerCut("scarcity"));
-  const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55) * (1 - foyerCut("inequality"));
+  // Inégalités ancrées sur la RÉSERVE D'OR en secondes de revenu (state.goldReserveEase,
+  // lissée dans le tick) : stable à toute échelle, et la dépense la fait baisser
+  // durablement. Repli sur l'ancienne formule gold/pop quand l'EMA n'est pas
+  // initialisée → golden master inchangé. (cf. INEQUALITY_RESERVE_* dans balance.js)
+  const inequalityArg = state.goldReserveEase != null
+    ? Math.max(0, (state.goldReserveEase - INEQUALITY_RESERVE_REF_S) / INEQUALITY_RESERVE_SCALE_S) * 0.28
+    : inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008;
+  const inequality = softCap(inequalityArg, 0.55) * (1 - foyerCut("inequality"));
   const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity"));
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
   const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief) * (1 - foyerCut("dissent"));

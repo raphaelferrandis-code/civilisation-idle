@@ -141,6 +141,9 @@ export const defaultState = () => ({
   // Lissage (EMA) du déficit de nourriture pour le foyer Subsistance. null =
   // non initialisé (le tick le cale sur l'instantané au 1er pas). Reset au cycle.
   scarcityRawEase: null,
+  // Lissage (EMA) de la réserve d'or en secondes de revenu, pour le foyer
+  // Inégalités. null = non initialisé. Reset au cycle.
+  goldReserveEase: null,
   crisisThresholds: {},
   crisisProduction: {
     global: 1,
@@ -732,6 +735,7 @@ export function hydrateState(parsed = {}) {
     activePolicies: normalizeStringArray(source.activePolicies, 4, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
+    goldReserveEase: source.goldReserveEase == null ? null : finiteNumber(source.goldReserveEase, 0, 0, 1e9),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
@@ -869,6 +873,10 @@ export function resetTemporaryRunState(s) {
   s.activePolicies = [];
   s.regulFatigue = 0;
   s.scarcityRawEase = null;
+  // goldReserveEase n'est PAS réinitialisé : juste après l'effondrement, l'or
+  // résiduel + un revenu quasi nul donneraient une réserve géante → pic
+  // d'Inégalités parasite. On laisse l'EMA reporter la valeur (basse) du cycle
+  // précédent et converger doucement vers la nouvelle économie.
   s.crisisThresholds = {};
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;

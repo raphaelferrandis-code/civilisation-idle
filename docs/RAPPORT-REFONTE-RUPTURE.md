@@ -148,8 +148,33 @@ Helper `scarcityRawInstant()`. Effet : les creux brefs sont amortis, un déficit
 progressivement → la Subsistance compte enfin. Vérifié : `scratch/check-scarcity-ease.js` (7/7),
 71/71 tests, lint OK, navigateur sans erreur. *(Même patron applicable aux autres foyers si besoin.)*
 
+## ✅ Ré-ancrage du trésor (Inégalités) + Usure renforcée
+
+**Problème mesuré** (`scratch/sim-gold-anchor.js`, 200 h auto-jouées) : l'or explose (10⁷⁴⁺),
+donc l'ancien `inégalités = gold/pop − 0.55` **saturait à 0.55 dès ~40 h** → taxe plate
+permanente que dépenser ne soulageait pas. `gold/infra` aurait été pire (sature encore plus).
+**Seule mesure stable** : la **réserve d'or en secondes de revenu** (`gold / revenu_or`), bornée
+~120-640 s sur toute la partie malgré 68 ordres de grandeur d'or.
+
+**Nouveau modèle** : `inégalités = softCap((reserveEMA − REF)/SCALE × 0.28, 0.55) × (1−réductions)`
+avec `INEQUALITY_RESERVE_REF_S=60`, `SCALE=200`, lissée (EMA, `goldReserveEase` mis à jour dans
+tick), bornée `INEQUALITY_RESERVE_CAP_S=600`. Repli sur l'ancienne formule quand l'EMA est null →
+**golden inchangé**. Terme marchés/guildes supprimé (il punissait le fait de bâtir). `goldReserveEase`
+**n'est pas réinitialisé** au cycle (évite un pic post-effondrement parasite).
+→ Résultat mesuré : Inégalités **0.06-0.32** (pic 0.318, vs 0.55 avant), **playstyle-driven**
+(dépenser → bas, thésauriser → modéré), **jamais saturant**.
+
+**Usure renforcée** (compense la baisse de pression + rend la chute inexorable) : `TIME_WEAR_BASE_RATE`
+0.00003 → **0.000045** (×1.5), `TIME_WEAR_MITIGATION_CAP` 8 → **5**. Snapshot golden `timeWearRate`
+mis à jour volontairement. → pacing restauré (**206 cycles / 50 h** vs 38 sans le buff), le **temps**
+porte désormais l'effondrement garanti.
+
+**Vérifié** : sim 50 h (Inégalités modérées + pacing sain + ère max 34), 82/82 tests, lint, navigateur.
+**Piste de fond restante** : l'or n'a pas de **puits late-game** suffisant (réserve forcée → ~0.32) ;
+ajouter des sinks d'or scalants permettrait au joueur de descendre encore les Inégalités.
+
 Pistes futures éventuelles : tuning au ressenti (data), pips de rendement sur les boutons, feedback
-diégétique sur la carte.
+diégétique sur la carte, puits d'or late-game.
 
 ---
 

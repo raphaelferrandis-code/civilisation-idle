@@ -48,7 +48,9 @@ import {
   AUTO_CRISIS_COOLDOWN_MS,
   FOYER_RELIEF_HALF_LIFE_S,
   FATIGUE_HALF_LIFE_S,
-  SCARCITY_EASE_HALF_LIFE_S
+  SCARCITY_EASE_HALF_LIFE_S,
+  INEQUALITY_EASE_HALF_LIFE_S,
+  INEQUALITY_RESERVE_CAP_S
 } from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -154,6 +156,16 @@ export function tick(dt) {
   state.scarcityRawEase = state.scarcityRawEase == null
     ? scarcityNow
     : state.scarcityRawEase + (scarcityNow - state.scarcityRawEase) * (1 - Math.pow(0.5, dt / SCARCITY_EASE_HALF_LIFE_S));
+
+  // Foyer Inégalités : réserve d'or en SECONDES DE REVENU (gold / revenu_or),
+  // lissée (EMA). Stable à toute échelle ; thésauriser monte, dépenser baisse.
+  const goldRateNow = toNum(r.gold);
+  const reserveNow = goldRateNow > 1e-9
+    ? Math.min(INEQUALITY_RESERVE_CAP_S, Math.max(0, toNum(D(state.gold).div(r.gold))))
+    : 0;
+  state.goldReserveEase = state.goldReserveEase == null
+    ? reserveNow
+    : state.goldReserveEase + (reserveNow - state.goldReserveEase) * (1 - Math.pow(0.5, dt / INEQUALITY_EASE_HALF_LIFE_S));
 
   const peaks = state.cyclePeaks;
   if (D(state.population).gt(peaks.population)) peaks.population = state.population;

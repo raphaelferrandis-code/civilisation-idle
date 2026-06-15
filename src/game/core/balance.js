@@ -16,7 +16,10 @@ export const RUIN_POWER_COEF = 0.09;  // coefficient associé
 export const INSTABILITY_DRIFT_SPEED = 0.045; // vitesse de convergence de la Rupture vers sa cible
 
 // Vitesse de base de l'Usure du temps (avant tous les modificateurs).
-export const TIME_WEAR_BASE_RATE = 0.00003;   // vitesse de base de l'Usure du temps
+// Relevée (0.00003 → 0.000045, ×1.5) pour rendre l'effondrement par le TEMPS
+// plus inexorable, et compenser la baisse de pression liée au ré-ancrage du
+// trésor (le temps devient le moteur garanti de la chute).
+export const TIME_WEAR_BASE_RATE = 0.000045;  // vitesse de base de l'Usure du temps
 
 // Plafond de la préparation à l'effondrement accumulée (actions terminales) :
 // borne le bonus de Ruines obtenu en préparant sa chute.
@@ -187,10 +190,27 @@ export const FATIGUE_HALF_LIFE_S = 18;      // demi-vie de décroissance (s)
 // à régler au ressenti. Curseur unique, n'affecte que ce foyer.
 export const SCARCITY_EASE_HALF_LIFE_S = 8;
 
+// ── Inégalités ancrées sur la RÉSERVE D'OR (anti-saturation du trésor) ────────
+// Mesuré (scratch/sim-gold-anchor.js) : l'or explose (10^74 en fin de partie),
+// donc gold/pop et gold/infra saturent les Inégalités. Seule mesure stable : la
+// réserve d'or en SECONDES DE REVENU (gold / revenu_or), bornée ~120-640 s sur
+// toute la partie. Inégalités = excédent de réserve au-delà de REF, /SCALE.
+// → l'or n'est plus une taxe automatique ; thésauriser le punit, dépenser le soulage.
+export const INEQUALITY_RESERVE_REF_S = 60;     // réserve « normale » (≈1 min) : Inégalités nulles en deçà
+export const INEQUALITY_RESERVE_SCALE_S = 200;  // échelle de montée au-delà de REF (raide → contributeur modéré ~0.1-0.3)
+export const INEQUALITY_EASE_HALF_LIFE_S = 10;  // demi-vie du lissage EMA de la réserve (s)
+// Borne de la réserve : en fin de partie l'or dépasse massivement tous les puits
+// (sur-accumulation forcée) → sans borne, les Inégalités re-satureraient à 0.55.
+// À 600 s (10 min de revenu), l'inégalité « forcée » plafonne à ~0.32 → reste un
+// contributeur MODÉRÉ partout. (Vrai correctif de fond = ajouter des puits d'or.)
+export const INEQUALITY_RESERVE_CAP_S = 600;
+
 // Plafond de la mitigation d'Usure (infra/savoir/légitimité). Non bornée, elle
 // gelait l'Usure en fin de partie (taux mesuré ~0.002) : l'Usure redevient une
 // deadline garantie — toute civilisation finit par tomber par le temps.
-export const TIME_WEAR_MITIGATION_CAP = 8;
+// Abaissé (8 → 5) : on ne peut plus repousser l'Usure aussi loin → deadline plus
+// rapprochée, l'effondrement par le temps devient inexorable plus tôt.
+export const TIME_WEAR_MITIGATION_CAP = 5;
 
 // Plancher du gain de Ruines basé sur l'ÉCHELLE (pic de population), pas
 // seulement l'âge du cycle : floor(log10(peakPop)/DIV). Une cité d'un million
