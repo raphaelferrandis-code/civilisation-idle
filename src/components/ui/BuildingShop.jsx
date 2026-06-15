@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   globalMultiplier,
@@ -9,7 +9,7 @@ import {
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
-import { buildingById } from '../../game/core/state.js';
+import { buildingById, renderCache } from '../../game/core/state.js';
 import { canPayCost } from '../../game/core/utils.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
@@ -47,6 +47,26 @@ export default function BuildingShop() {
     f: s.food, g: s.gold, k: s.knowledge, i: s.infrastructure, p: s.population
   }));
 
+  // Coûts de lot mémoïsés. buildingBatchCost fait des sommes géométriques en
+  // Decimal et NE dépend PAS des ressources (qui changent chaque tick) : ses
+  // seules entrées — compteurs, buyAmount, discount/upgrades/mythes — ne bougent
+  // qu'aux achats, qui bumpent _buildingsVersion/_upgradesVersion (le tick, lui,
+  // ne touche que les caches _frameX). On recalcule donc tous les coûts UNE fois
+  // par achat, plus à chaque tick ; l'« achetable » reste, lui, réévalué chaque
+  // tick par un simple canPayCost contre les coûts déjà calculés.
+  const buildingsVersion = useGameState(() => renderCache._buildingsVersion);
+  const upgradesVersion = useGameState(() => renderCache._upgradesVersion);
+  const costById = useMemo(() => {
+    const costs = {};
+    for (const b of buildings) costs[b.id] = buildingBatchCost(b);
+    return costs;
+    // Deps = clés d'invalidation, pas des valeurs capturées : buildingBatchCost
+    // lit l'état (compteurs, buyAmount, discount) en interne, invisible pour la
+    // règle exhaustive-deps. Ces versions/buyAmount sont précisément ce qui doit
+    // déclencher le recalcul, d'où la désactivation ciblée.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildingsVersion, upgradesVersion, buyAmount]);
+
   const globalMult = globalMultiplier();
   const sqrtGlobalMult = Math.sqrt(globalMult);
 
@@ -68,7 +88,7 @@ export default function BuildingShop() {
   const affordableCount = (catId) => {
     if (babelActive && babelCat && catId !== babelCat) return 0;
     return categoryData(catId).visible
-      .filter((b) => canPayCost(buildingBatchCost(b)))
+      .filter((b) => canPayCost(costById[b.id]))
       .length;
   };
 
@@ -77,7 +97,7 @@ export default function BuildingShop() {
   // Premier bâtiment achetable, calculé avant le rendu (pas de mutation
   // pendant le .map() : incompatible avec la mémoïsation du React Compiler).
   const firstAffordableId = visibleBuildings.find((b) =>
-    canPayCost(buildingBatchCost(b)) && !(babelActive && babelCat && b.category !== babelCat)
+    canPayCost(costById[b.id]) && !(babelActive && babelCat && b.category !== babelCat)
   )?.id;
 
   return (
@@ -113,7 +133,7 @@ export default function BuildingShop() {
 
       <div className="shop-list shop-cat active">
         {visibleBuildings.map((b) => {
-          const prices = buildingBatchCost(b);
+          const prices = costById[b.id];
           const count = stateBuildings[b.id] || 0;
           const outputMult = buildingOutputMultiplier(b, count);
           const outputCount = Math.max(1, count);
