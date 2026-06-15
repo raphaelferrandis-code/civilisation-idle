@@ -9,11 +9,26 @@ import { D } from '../core/num.js';
  * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
  * ============================================================================ */
 
-const eraPopulationThreshold = (index) => (
-  index >= 29
-    ? 10 ** (index + 1)
-    : 10 ** (1 + 28 * Math.pow(index / 28, 0.9))
-);
+// Pente des ères TRANSCENDANTES (n ≥ 35). Calibrée par scratch/sim-era-design.js
+// (overlay sur la trajectoire réelle du plafond) : log10(seuil) = 35 + a·k + b·k²
+// avec k = n−34. Volontairement TRÈS lente (écarts +5,8 → +14 ordres puis bien
+// au-delà) : un gros run (plafond ~10^97) ne franchit que ~6 ères, et chacune
+// coûte de plus en plus de méta-puissance (décélération portée par l'écart, pas
+// par un nerf de récompense). Les ères 0–34 sont conservées À L'IDENTIQUE.
+const ERA_TRANSCENDENT_SLOPE_A = 5;
+const ERA_TRANSCENDENT_SLOPE_B = 0.8;
+const eraPopulationThreshold = (index) => {
+  if (index <= 34) {
+    return index >= 29
+      ? 10 ** (index + 1)
+      : 10 ** (1 + 28 * Math.pow(index / 28, 0.9));
+  }
+  const k = index - 34;
+  const log = 35 + ERA_TRANSCENDENT_SLOPE_A * k + ERA_TRANSCENDENT_SLOPE_B * k * k;
+  // Au-delà du domaine float (~1e308) le seuil doit être Decimal pour rester
+  // comparable (currentEraIndex fait population.gte(at)) sans buter sur Infinity.
+  return log < 308 ? 10 ** log : D(10).pow(log);
+};
 
 export const eras = [
   { name: "Campement", at: eraPopulationThreshold(0), text: "Un cercle de pierres et quelques braises. L'aube de notre histoire s'éveille dans l'obscurité." },
@@ -52,6 +67,111 @@ export const eras = [
   { name: "Machination", at: eraPopulationThreshold(33), text: "La bureaucratie s'organise en rouages complexes. La structure commande, les humains obéissent." },
   { name: "Singularité", at: eraPopulationThreshold(34), text: "La cité palpite d'une vie autonome. Les citoyens ne sont plus que les cellules d'un titan de métal." }
 ];
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Ères TRANSCENDANTES (au-delà de la Singularité).
+ *
+ * Structure : des PALIERS MAJEURS aux seuils lents (eraPopulationThreshold) —
+ * nommés, rares, et qui PAIENT — séparés par SUB_ERAS_PER_MAJOR ères « factices »
+ * intercalées (espacées également en log) qui ne servent qu'au SENTIMENT de
+ * progression (le compteur/nom avance souvent pendant la longue montée).
+ *
+ * « Pas de changement de système » : les factices n'ont AUCUNE incidence éco.
+ * Toutes les récompenses par ère (recurringAgeBonus, +ruine/ère, +savoir codex)
+ * sont calées sur le champ `tier` = index du palier MAJEUR équivalent. Les
+ * factices héritent du tier du palier sous elles → les traverser ne paie rien ;
+ * seul un vrai palier incrémente le tier (comme l'ancienne courbe sans factices).
+ * Pour les ères ≤34, tier = index → golden intact.
+ *
+ * Construit par push() pour ne pas toucher au littéral des 35 ères d'origine.
+ * Les normalisations visuelles (eraThemes.eraBandOf, layout.cmEraFrac) restent
+ * ancrées sur 34 → ères existantes inchangées ; transcendantes en bande 6.
+ * ────────────────────────────────────────────────────────────────────────── */
+for (let i = 0; i < eras.length; i += 1) eras[i].tier = i; // base 0–34 : tier = index
+
+const SUB_ERAS_PER_MAJOR = 10;       // ères factices entre deux paliers majeurs
+const TRANSCENDENT_MAJOR_CAP = 24;   // nb de paliers majeurs (12 nommés + procéduraux ; ≈ infini en jeu)
+const popFromLog = (log) => (log < 308 ? 10 ** log : D(10).pow(log));
+const majorLog = (m) => 35 + ERA_TRANSCENDENT_SLOPE_A * m + ERA_TRANSCENDENT_SLOPE_B * m * m;
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+const HANDCRAFTED_MAJORS = [
+  { name: "Conscience planétaire", text: "La cité a cessé d'avoir des frontières : elle est devenue le monde lui-même, une seule pensée enroulée autour de la planète." },
+  { name: "Noosphère", text: "Les esprits ne sont plus séparés. Une membrane de pensée pure enveloppe le globe et respire à l'unisson." },
+  { name: "Essaim orbital", text: "La pensée déborde du ciel. Des milliards de structures encerclent l'astre, et la nuit n'existe plus." },
+  { name: "Sphère de Dyson", text: "L'étoile entière est mise au travail. Plus un seul photon ne s'échappe sans avoir servi le dessein de la cité." },
+  { name: "Civilisation stellaire", text: "Le soleil n'est plus qu'un organe. La cité s'étend d'étoile en étoile comme on enjambe des ruisseaux." },
+  { name: "Cœur galactique", text: "Le centre de la galaxie bat au rythme de nos calculs. Les bras d'étoiles s'enroulent autour d'une seule volonté." },
+  { name: "Esprit des étoiles", text: "Chaque soleil est devenu une synapse. La galaxie tout entière pense, et ce qu'elle pense, c'est nous." },
+  { name: "Maîtres de l'entropie", text: "Nous avons appris à ralentir la mort de toute chose. Le désordre lui-même plie devant nos registres." },
+  { name: "Architectes du Vide", text: "Là où il n'y avait rien, nous bâtissons. L'espace vide devient matière première, le néant un chantier." },
+  { name: "Tisseurs de réalité", text: "Les lois ne sont plus subies mais filées. Nous tissons les constantes du monde comme on tissait jadis la laine." },
+  { name: "Conscience du Grand Amas", text: "Des milliers de galaxies n'élèvent plus qu'une seule voix. La distance a perdu tout son sens." },
+  { name: "Démiurge", text: "La cité touche aux fondations de l'être. Ce qui fut civilisation est devenu force créatrice, indistincte d'un dieu." }
+];
+
+// Paliers majeurs procéduraux (au-delà des 12 nommés) : noms déterministes, pour
+// ne jamais rebuter sur un mur (seuils Decimal sans borne).
+const PROC_PREFIX = ["Aeon", "Strate", "Horizon", "Ordre", "Échelon", "Cycle", "Règne", "Abîme"];
+const PROC_QUALIFIER = [
+  "du Vide Tissé", "des Constantes", "de l'Infini Plié", "Omniversel", "des Mondes Repliés",
+  "Transfini", "du Silence Premier", "de l'Éternité Comptée", "des Lumières Mortes", "de l'Au-delà"
+];
+const PROC_TEXTS = [
+  "Les mots manquent depuis longtemps pour décrire ce que la cité est devenue. Restent les nombres, qui eux non plus ne suffisent plus.",
+  "Plus rien ne distingue la cité de l'univers qu'elle habite. Croître, désormais, c'est repousser les bords du réel.",
+  "On ne compte plus les mondes ni les âges. On ne fait que continuer, parce que continuer est la seule chose qui reste.",
+  "Le souvenir du premier feu de camp n'a pas disparu. Il brûle quelque part, infiniment petit, au centre d'une chose infiniment grande."
+];
+const SUB_ERA_TEXT = "La cité s'enfonce plus avant dans cette ère, repoussant ses propres limites avant le prochain seuil.";
+
+function proceduralMajorName(m) {
+  const k = m - HANDCRAFTED_MAJORS.length - 1; // 0-based au-delà des paliers nommés
+  const prefix = PROC_PREFIX[k % PROC_PREFIX.length];
+  const qualifier = PROC_QUALIFIER[Math.floor(k / PROC_PREFIX.length) % PROC_QUALIFIER.length];
+  const loop = Math.floor(k / (PROC_PREFIX.length * PROC_QUALIFIER.length));
+  return loop > 0 ? `${prefix} ${qualifier} · ${loop + 1}` : `${prefix} ${qualifier}`;
+}
+function majorName(m) { // m=0 → Singularité (ère 34, palier sous le 1er transcendant)
+  if (m === 0) return eras[34].name;
+  if (m <= HANDCRAFTED_MAJORS.length) return HANDCRAFTED_MAJORS[m - 1].name;
+  return proceduralMajorName(m);
+}
+function majorText(m) {
+  if (m >= 1 && m <= HANDCRAFTED_MAJORS.length) return HANDCRAFTED_MAJORS[m - 1].text;
+  return PROC_TEXTS[(m - HANDCRAFTED_MAJORS.length - 1 + PROC_TEXTS.length) % PROC_TEXTS.length];
+}
+
+let prevLog = 35;                 // log10 du seuil de l'ère 34 (Singularité = 10^35)
+let namedEraCount = eras.length;  // mémorise la fin des paliers nommés à la main
+for (let m = 1; m <= TRANSCENDENT_MAJOR_CAP; m += 1) {
+  const mLog = majorLog(m);
+  const lowerName = majorName(m - 1);
+  // SUB_ERAS_PER_MAJOR factices : nom = palier sous elles + déclinaison, tier du
+  // palier inférieur (= traverser une factice ne change AUCUNE récompense).
+  for (let j = 1; j <= SUB_ERAS_PER_MAJOR; j += 1) {
+    const subLog = prevLog + (mLog - prevLog) * (j / (SUB_ERAS_PER_MAJOR + 1));
+    eras.push({ name: `${lowerName} · ${ROMAN[j + 1]}`, at: popFromLog(subLog), text: SUB_ERA_TEXT, tier: 34 + (m - 1) });
+  }
+  // Palier MAJEUR : incrémente le tier (seul lui paie).
+  eras.push({ name: majorName(m), at: popFromLog(mLog), text: majorText(m), tier: 34 + m });
+  prevLog = mLog;
+  if (m === HANDCRAFTED_MAJORS.length) namedEraCount = eras.length;
+}
+
+// Tier (= index de palier MAJEUR équivalent) d'une ère : source de vérité des
+// récompenses par ère (mechanics.recurringAgeBonus/eraFlatBonus, crisis.codex).
+// Les factices renvoient le tier du palier sous elles → balance inchangée.
+export const eraTier = (index) => {
+  const e = eras[index];
+  return e && typeof e.tier === "number" ? e.tier : (index || 0);
+};
+
+// Nombre d'ères NOMMÉES (jusqu'au dernier palier handcraft « Démiurge », factices
+// incluses). Au-delà : paliers procéduraux. L'UI affiche un horizon fini jusqu'ici
+// puis un texte « sans fin » (évite d'exposer le cap procédural).
+export const NAMED_ERA_COUNT = namedEraCount;
+
 export const DOCTRINES = [
   {
     id: "acier",

@@ -14,7 +14,11 @@ const JOURNAL_BY_BAND = [
   { cssClass: "is-scroll",        price: "2 deniers",    tradition: "Proclamation" },
   { cssClass: "is-printed-paper", price: "5 centimes",   tradition: "Gravure Imprimée" },
   { cssClass: "is-press",         price: "10 centimes",  tradition: "Presse / Ondes" },
-  { cssClass: "is-cyber-feed",    price: "0.02 crédit",  tradition: "Flux Cybernétique" }
+  { cssClass: "is-cyber-feed",    price: "0.02 crédit",  tradition: "Flux Cybernétique" },
+  // Époques transcendantes (bands 7–9)
+  { cssClass: "is-noosphere",     price: "une pensée",   tradition: "Conscience Partagée" },
+  { cssClass: "is-stellar",       price: "un photon",    tradition: "Écho Stellaire" },
+  { cssClass: "is-demiurge",      price: "néant",        tradition: "Verbe Premier" }
 ];
 
 export function getJournalTheme(eraIndex) {

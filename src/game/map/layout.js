@@ -8,6 +8,7 @@ import { chronicle } from '../core/actions.js';
 import { setCityMapEngineTileMap, setCaptureVestigeHandler } from './cityMapBridge.js';
 import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
+import { eraBandOf } from '../data/eraThemes.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.js';
@@ -232,14 +233,17 @@ function cmHash(text) {
 }
 function cmPick(list, seed) { return list[seed % list.length]; }
 
+// Fraction d'ère [0..1] pour le dimensionnement de la ville (densité, portée…).
+// Ancrée sur 34 : les ères transcendantes (index dense ≥ 35) saturent à 1 (ville
+// maximale). Identique à l'origine pour les ères 0–34.
 function cmEraFrac(index) {
-  // Protège contre eras vide ou non défini
-  const len = (typeof eras !== "undefined" && Array.isArray(eras)) ? eras.length : 0;
-  const max = len > 1 ? len - 1 : 19;
-  return Math.max(0, Math.min(1, index / max));
+  return Math.max(0, Math.min(1, index / 34));
 }
+// Bande visuelle : source unique de vérité (eraThemes.eraBandOf), ancrée sur 34
+// pour les ères 0–34 (couleurs inchangées) + 3 bandes cosmiques 7–9 (mappées par
+// tier → les ères « factices » suivent leur palier majeur).
 function cmEraBand(index) {
-  return Math.max(0, Math.min(6, Math.floor(cmEraFrac(index) * 6.999)));
+  return eraBandOf(index);
 }
 function cmEraIndexFor(s) {
   if (typeof currentEraIndex === "function") return currentEraIndex();
@@ -247,7 +251,7 @@ function cmEraIndexFor(s) {
     let index = 0;
     const pop = toNum(s.population) || 0;
     for (let i = 0; i < eras.length; i += 1) {
-      if (pop >= eras[i].at) index = i; else break; // early exit (seuils croissants)
+      if (pop >= toNum(eras[i].at)) index = i; else break; // early exit ; toNum() évite la coercion native d'un seuil Decimal (ères transcendantes)
     }
     return index;
   }

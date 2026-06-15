@@ -1,8 +1,215 @@
-/* eslint-disable */
+/* ============================================================================
+ * Sprites de bâtiments COSMIQUES (ères 35+, bands 7–9) — passe « Tier 1 ».
+ * Un langage visuel par époque, fortement distinct (anti-bouillie) :
+ *   7 Noosphère  → organique bioluminescent, jade, qui respire ;
+ *   8 stellaire  → métal/orbital, anneaux + voiles, or ;
+ *   9 Démiurge   → cristallin géométrique flottant sur le vide, violet-blanc.
+ * Partagé par TOUS les bâtiments achetés : `kind` choisit le motif (food, market,
+ * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
+ * ========================================================================== */
+const COSMIC_PAL = {
+  7: { core: "#0c241a", mid: "#16442e", glow: "90,240,180", edge: "#3aeca0", lite: "#bdf8de", deep: "#040f0a" },
+  8: { core: "#221808", mid: "#3e2c10", glow: "255,205,120", edge: "#f4c25c", lite: "#ffeaba", deep: "#110a03" },
+  9: { core: "#161226", mid: "#262044", glow: "170,140,255", edge: "#c8aef0", lite: "#ece2ff", deep: "#08060f" }
+};
+// Silhouette + couronne (motif distinctif) par fonction de bâtiment. La COURONNE
+// = identité du bâtiment (constante d'une époque à l'autre) ; c'est le MATÉRIAU
+// (palette + traitement de surface) qui change selon l'époque.
+const COSMIC_KIND = {
+  food:      { baseW: 0.30, topW: 0.16, top: 0.22, crown: "pods" },
+  store:     { baseW: 0.36, topW: 0.26, top: 0.28, crown: "vaults" },
+  transport: { baseW: 0.24, topW: 0.13, top: 0.18, crown: "motes" },
+  market:    { baseW: 0.28, topW: 0.15, top: 0.18, crown: "network" },
+  craft:     { baseW: 0.32, topW: 0.22, top: 0.26, crown: "arms" },
+  field:     { baseW: 0.48, topW: 0.42, top: 0.46, crown: "rows" },
+  port:      { baseW: 0.42, topW: 0.28, top: 0.34, crown: "docks" },
+  water:     { baseW: 0.30, topW: 0.19, top: 0.26, crown: "wheel" },
+  mint:      { baseW: 0.30, topW: 0.22, top: 0.30, crown: "coins" },
+  exchange:  { baseW: 0.26, topW: 0.11, top: 0.13, crown: "grand" }
+};
+
+// DÉSACTIVÉ : ancien rendu cosmique partagé (glowy/translucide → noyé par le voile
+// de nuit in-game). Remplacé par des stades cosmiques bespoke OPAQUES dessinés
+// directement dans chaque bâtiment (comme les stades 0-3). Gardé en réserve
+// (palette COSMIC_PAL + helpers) pour ces stades. Plus appelé.
+// eslint-disable-next-line no-unused-vars
+function cosmicEngineSprite(ctx, kind, band, g) {
+  const { ox, oy, sw, sh, now, litWarm = 0 } = g;
+  const pal = COSMIC_PAL[band] || COSMIC_PAL[9];
+  const prof = COSMIC_KIND[kind] || COSMIC_KIND.market;
+  const X = (x) => ox + sw * x, Y = (y) => oy + sh * y;
+  const t = now / 1000;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + band);     // respiration
+  const sway = Math.sin(t * 0.5 + kind.length) * 0.012;   // léger balancement vivant
+  const bob = band === 9 ? (-0.012 - 0.016 * pulse) : 0;  // Démiurge : flotte sur le vide
+  const bw = prof.baseW;
+  const tx = 0.5 + sway;
+  const glowA = 0.12 + 0.16 * litWarm + 0.05 * pulse;
+
+  const orb = (x, y, r, a) => {
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const og = ctx.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), sw * r);
+    og.addColorStop(0, `rgba(${pal.glow},${a})`); og.addColorStop(1, `rgba(${pal.glow},0)`);
+    ctx.fillStyle = og; ctx.beginPath(); ctx.arc(X(x), Y(y), sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  };
+  const lineGlow = (x1, y1, x2, y2, w, a) => {
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `rgba(${pal.glow},${a})`; ctx.lineWidth = Math.max(1, sw * w); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke(); ctx.restore();
+  };
+  const dot = (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(x), Y(y), sw * r, 0, Math.PI * 2); ctx.fill(); };
+
+  // ── Halo d'ambiance NON additif (source-over) — un halo "lighter" s'accumule
+  // entre bâtiments voisins denses et sature la carte en BLANC (vérifié). En
+  // compositing normal, les halos se recouvrent sans s'additionner → pas de
+  // blowout. Le sprite ressort via ses remplissages + petits orbes localisés. ──
+  ctx.save();
+  const hg = ctx.createRadialGradient(X(0.5), Y(0.52), sw * 0.04, X(0.5), Y(0.52), sw * 0.42);
+  hg.addColorStop(0, `rgba(${pal.glow},${glowA.toFixed(3)})`); hg.addColorStop(1, `rgba(${pal.glow},0)`);
+  ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(X(0.5), Y(0.52), sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+
+  // ── Ombre de contact (plus diffuse quand le bâtiment flotte) ──
+  ctx.save(); ctx.globalAlpha = band === 9 ? 0.5 : 0.9; ctx.fillStyle = pal.deep;
+  ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.85), sw * bw * 1.25, sh * 0.055, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+
+  ctx.save(); ctx.translate(0, sh * bob);
+
+  // ── Corps BESPOKE par fonction : chaque bâtiment a sa silhouette propre, en
+  // remplissage LUMINEUX (edge/lite) pour RESSORTIR sur le sol cosmique sombre à
+  // l'échelle carte (~40px). L'ÉPOQUE ne change que la matière (palette). ──
+  const rr = (x0, y0, x1, y1, r, fl, st) => { ctx.beginPath(); ctx.roundRect(X(x0), Y(y0), sw * (x1 - x0), sh * (y1 - y0), sw * r); if (fl) { ctx.fillStyle = fl; ctx.fill(); } if (st) { ctx.strokeStyle = st; ctx.lineWidth = Math.max(1, sw * 0.014); ctx.stroke(); } };
+  const ell = (x, y, ax, ay, fl, st) => { ctx.beginPath(); ctx.ellipse(X(x), Y(y), sw * ax, sh * ay, 0, 0, Math.PI * 2); if (fl) { ctx.fillStyle = fl; ctx.fill(); } if (st) { ctx.strokeStyle = st; ctx.lineWidth = Math.max(1, sw * 0.014); ctx.stroke(); } };
+  const ring = (x, y, ax, ay, tilt, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${pal.glow},${a})`; ctx.lineWidth = Math.max(1, sw * 0.02); ctx.beginPath(); ctx.ellipse(X(x), Y(y), sw * ax, sh * ay, tilt, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); };
+  const asp = sw / sh;
+
+  switch (kind) {
+    case "food": // jardin bioluminescent : monticule + frondes
+      ell(tx, 0.74, bw * 0.62, 0.12, pal.edge, pal.lite);
+      for (const [dx, hh] of [[-0.11, 0.28], [0.0, 0.40], [0.11, 0.32]]) {
+        ctx.fillStyle = pal.lite; ctx.beginPath(); ctx.moveTo(X(tx + dx - 0.04), Y(0.72)); ctx.quadraticCurveTo(X(tx + dx + 0.03), Y(0.72 - hh * 0.6), X(tx + dx), Y(0.72 - hh)); ctx.quadraticCurveTo(X(tx + dx - 0.03), Y(0.72 - hh * 0.6), X(tx + dx + 0.04), Y(0.72)); ctx.closePath(); ctx.fill();
+        orb(tx + dx, 0.72 - hh, 0.05, 0.4 + 0.3 * pulse); dot(tx + dx, 0.72 - hh, 0.014, pal.lite);
+      }
+      break;
+    case "store": // silos lumineux : 3 capsules
+      for (let i = 0; i < 3; i++) { const x = tx - 0.16 + i * 0.16; rr(x - 0.06, 0.42, x + 0.06, 0.8, 0.055, pal.edge, pal.lite); rr(x - 0.055, 0.42, x + 0.055, 0.52, 0.05, pal.lite); }
+      break;
+    case "transport": // portail de transit : anneau vertical + mote en orbite
+      ell(tx, 0.55, bw * 0.55, 0.27, pal.edge, pal.lite); ell(tx, 0.55, bw * 0.32, 0.16, pal.deep);
+      { const a = t * 1.4, mx = tx + Math.cos(a) * bw * 0.55, my = 0.55 + Math.sin(a) * 0.27; orb(mx, my, 0.05, 0.8); dot(mx, my, 0.015, pal.lite); }
+      break;
+    case "market": // nexus d'échange : dôme + rais + cœur
+      for (const dx of [-0.18, 0.18]) lineGlow(tx, 0.58, tx + dx, 0.72, 0.012, 0.4);
+      lineGlow(tx, 0.58, tx, 0.36, 0.012, 0.45);
+      ell(tx, 0.66, bw * 0.5, 0.2, pal.edge, pal.lite);
+      orb(tx, 0.36, 0.06, 0.6); dot(tx, 0.36, 0.018, pal.lite);
+      break;
+    case "craft": // assembleur : bloc + bras + cœur de forge
+      rr(tx - bw * 0.42, 0.5, tx + bw * 0.42, 0.8, 0.04, pal.edge, pal.lite);
+      for (const s of [-1, 1]) { lineGlow(tx, 0.52, tx + s * 0.18, 0.4, 0.016, 0.5); dot(tx + s * 0.18, 0.4, 0.016, pal.lite); }
+      orb(tx, 0.5, 0.07, 0.4 + 0.3 * pulse); dot(tx, 0.55, 0.022, pal.lite);
+      break;
+    case "field": // bio-parcelles : rangée de lames (large/bas)
+      ell(tx, 0.78, bw * 0.72, 0.09, pal.deep);
+      for (let i = -3; i <= 3; i++) { const x = tx + i * 0.1, hh = 0.22 + 0.03 * Math.sin(t + i); rr(x - 0.022, 0.76 - hh, x + 0.022, 0.76, 0.02, pal.edge, pal.lite); dot(x, 0.76 - hh, 0.012, pal.lite); }
+      break;
+    case "port": // docks : bassin lumineux + bras d'amarrage
+      ell(tx, 0.72, bw * 0.62, 0.13, pal.edge, pal.lite);
+      for (const s of [-1, 1]) { rr(tx + s * 0.05, 0.5, tx + s * 0.27, 0.56, 0.02, pal.lite); dot(tx + s * 0.25, 0.53, 0.018, pal.lite); }
+      break;
+    case "water": // roue d'énergie : mât + roue à rayons (tourne)
+      rr(tx - 0.04, 0.5, tx + 0.04, 0.82, 0.02, pal.edge, pal.lite);
+      { const wr = bw * 0.55, a0 = t; ring(tx, 0.45, wr, wr * asp, 0, 0.6); for (let i = 0; i < 6; i++) { const a = a0 + i * 1.047; lineGlow(tx, 0.45, tx + Math.cos(a) * wr, 0.45 + Math.sin(a) * wr * asp, 0.01, 0.5); } orb(tx, 0.45, 0.05, 0.6); }
+      break;
+    case "mint": // chambre forte : voûte + pièces empilées
+      rr(tx - bw * 0.42, 0.52, tx + bw * 0.42, 0.8, 0.05, pal.edge, pal.lite);
+      ell(tx, 0.52, bw * 0.42, 0.12, pal.lite);
+      for (let i = 0; i < 3; i++) { const y = 0.66 - i * 0.07; ell(tx, y, 0.065, 0.028, pal.lite); orb(tx, y, 0.04, 0.4 + 0.3 * pulse); }
+      break;
+    case "exchange": // grand axe : flèche monumentale + anneaux
+      ctx.fillStyle = pal.edge; ctx.beginPath(); ctx.moveTo(X(tx - bw * 0.32), Y(0.82)); ctx.lineTo(X(tx - 0.03), Y(0.28)); ctx.lineTo(X(tx + 0.03), Y(0.28)); ctx.lineTo(X(tx + bw * 0.32), Y(0.82)); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = pal.lite; ctx.lineWidth = Math.max(1, sw * 0.014); ctx.stroke();
+      orb(tx, 0.26, 0.07, 0.7); dot(tx, 0.26, 0.022, pal.lite);
+      for (let r = 0; r < 2; r++) ring(tx, 0.52, bw * 0.5 + 0.08 - r * 0.06, 0.07, (r ? 0.4 : -0.4) + 0.12 * Math.sin(t * (r ? -0.7 : 0.7)), 0.4);
+      break;
+    default:
+      rr(tx - bw * 0.4, 0.45, tx + bw * 0.4, 0.82, 0.05, pal.edge, pal.lite);
+  }
+
+  ctx.restore();
+  return true;
+}
+
+// Décor cosmique commun aux stades transcendants (ères 35+) : sol OPAQUE + ombre
+// de contact, et une fonction `glow` (halo additif localisé). Chaque bâtiment
+// dessine ensuite son corps OPAQUE par-dessus (silhouette propre par fonction,
+// matière selon l'époque via cp). Opaque ⇒ survit au voile de nuit.
+function cosmicBase(ctx, ox, oy, sw, sh, px, band) {
+  const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
+  px(0, 0.5, 1, 0.5, cp.deep);
+  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.34, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+  return { cp, glow };
+}
 
 function drawCityEngineSprite(context) {
   const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1 } = context;
   if (id === "foragers") {
+    if (band >= 7) {
+      // STADE COSMIQUE (ères 35+) : jardin bioluminescent (Noosphère) → serre
+      // orbitale (stellaire) → jardin cristallin (Démiurge). Dessiné OPAQUE comme
+      // les stades 0-3 (corps pleins) pour survivre au voile de nuit ; palette par époque.
+      const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
+      px(0, 0.5, 1, 0.5, cp.deep); // sol cosmique opaque
+      ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.34, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+      if (band === 7) { // bulbes-pods organiques sur tiges qui ondulent (vivant)
+        for (const [bx, by, br] of [[0.32, 0.52, 0.12], [0.5, 0.4, 0.16], [0.68, 0.54, 0.11]]) {
+          const ph = bx * 9;
+          const sway = Math.sin(now / 760 + ph) * 0.05;           // ondulation de la tige
+          const tipx = bx + sway, tipy = by - 0.008 * Math.abs(Math.sin(now / 760 + ph));
+          // Tige courbe OPAQUE, ancrée au sol, fléchie au sommet (la « branche » qui bouge)
+          ctx.strokeStyle = cp.mid; ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5, sw * 0.05);
+          ctx.beginPath(); ctx.moveTo(ox + sw * bx, oy + sh * 0.82);
+          ctx.quadraticCurveTo(ox + sw * (bx + sway * 0.45), oy + sh * ((0.82 + by) / 2), ox + sw * tipx, oy + sh * tipy);
+          ctx.stroke();
+          // Bulbe au bout de la tige (suit l'ondulation)
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * tipx, oy + sh * tipy, sw * br, sh * br * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * (tipx - br * 0.3), oy + sh * (tipy - br * 0.35), sw * br * 0.42, sh * br * 0.48, 0, 0, Math.PI * 2); ctx.fill();
+          glow(tipx, tipy, br * 1.5, 0.3 + 0.2 * Math.sin(now / 600 + ph));
+        }
+      } else if (band === 8) { // serre orbitale dorée : dôme opaque + anneau
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.74, sw * 0.32, sh * 0.24, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.62, sw * 0.27, sh * 0.27, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * 0.42, oy + sh * 0.56, sw * 0.1, sh * 0.13, 0, Math.PI, 0); ctx.fill();
+        const rt = -0.3 + 0.1 * Math.sin(now / 900);
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.6)`; ctx.lineWidth = Math.max(1, sw * 0.02); ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.52, sw * 0.42, sh * 0.1, rt, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        // Satellite-pod OPAQUE qui orbite le long de l'anneau (vie)
+        { const ra = now / 1400, ax = Math.cos(ra) * sw * 0.42, ay = Math.sin(ra) * sh * 0.1;
+          const mxp = ox + sw * 0.5 + ax * Math.cos(rt) - ay * Math.sin(rt);
+          const myp = oy + sh * 0.52 + ax * Math.sin(rt) + ay * Math.cos(rt);
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(mxp, myp, sw * 0.03, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(mxp, myp, sw * 0.016, 0, Math.PI * 2); ctx.fill();
+          glow((mxp - ox) / sw, (myp - oy) / sh, 0.06, 0.45); }
+      } else { // jardin cristallin violet : cristaux opaques facettés en lévitation
+        for (const [cx2, cy2, cr, rot] of [[0.36, 0.62, 0.13, 0.3], [0.5, 0.46, 0.17, 0], [0.66, 0.62, 0.12, -0.3]]) {
+          const ph = cx2 * 11;
+          const hd = Math.sin(now / 1300 + ph) * 0.022;            // dérive horizontale (lévitation visible)
+          const bob = Math.cos(now / 900 + ph) * 0.03;             // flottaison Démiurge
+          const spin = rot + 0.12 * Math.sin(now / 1500 + cx2 * 7); // tumble lent
+          ctx.save(); ctx.translate(ox + sw * (cx2 + hd), oy + sh * (cy2 + bob)); ctx.rotate(spin);
+          const w = sw * cr * 0.6, h = sh * cr;
+          ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(w, 0); ctx.lineTo(0, h); ctx.lineTo(-w, 0); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(0, h); ctx.lineTo(-w, 0); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(0, h * 0.5); ctx.lineTo(-w * 0.5, 0); ctx.closePath(); ctx.fill();
+          ctx.restore(); glow(cx2 + hd, cy2 + bob, cr * 1.2, 0.18 + 0.12 * Math.sin(now / 700 + cx2 * 5));
+        }
+        // éclat cristallin en orbite autour du cœur (mouvement franc)
+        const oa = now / 1100, sx9 = 0.5 + Math.cos(oa) * 0.26, sy9 = 0.5 + Math.sin(oa) * 0.16;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * sx9, oy + sh * sy9, sw * 0.02, 0, Math.PI * 2); ctx.fill();
+        glow(sx9, sy9, 0.05, 0.4);
+      }
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : cueillette sauvage → verger taillé → serre industrielle →
     // hydroponie néon. tier reste la richesse intra-stade (perso/fruits/cagettes).
@@ -307,6 +514,46 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "granaries_city") {
+    if (band >= 7) { // silos/coffres opaques — organiques (Noo.) / orbitaux (Stel.) / cristallins (Dém.)
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band, now);
+      for (let i = 0; i < 3; i++) {
+        const x = 0.32 + i * 0.18, w = 0.07;
+        const bob = band === 9 ? Math.sin(now / 950 + i * 1.4) * 0.022 : 0;   // lévitation Démiurge
+        ctx.save(); ctx.translate(0, sh * bob);
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * (x - w), oy + sh * 0.4, sw * w * 2, sh * 0.42, sw * w * 0.8); ctx.fill();
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.roundRect(ox + sw * (x - w * 0.8), oy + sh * 0.42, sw * w * 1.6, sh * 0.15, sw * w * 0.6); ctx.fill();
+        if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * (x - w), oy + sh * 0.42); ctx.lineTo(ox + sw * x, oy + sh * 0.31); ctx.lineTo(ox + sw * (x + w), oy + sh * 0.42); ctx.closePath(); ctx.fill(); }
+        else { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (x - w * 0.5), oy + sh * 0.45, sw * w, sh * 0.03); }
+        ctx.restore();
+        if (band === 7) { // pousse organique qui ondule au sommet (rime avec les foragers)
+          const sway = Math.sin(now / 700 + i * 2.1) * 0.055, tipx = x + sway, tipy = 0.24;
+          ctx.strokeStyle = cp.edge; ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5, sw * 0.04);
+          ctx.beginPath(); ctx.moveTo(ox + sw * x, oy + sh * 0.4);
+          ctx.quadraticCurveTo(ox + sw * (x + sway * 0.5), oy + sh * 0.32, ox + sw * tipx, oy + sh * tipy);
+          ctx.stroke();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * tipx, oy + sh * tipy, sw * 0.032, 0, Math.PI * 2); ctx.fill();
+          glow(tipx, tipy, 0.07, 0.4);
+        }
+        glow(x, 0.5 + bob, w * 2.2, 0.18 + 0.08 * Math.sin(now / 720 + i * 1.7));  // halo qui respire
+      }
+      if (band === 9) { // éclats cristallins en orbite au-dessus des silos (Démiurge)
+        for (let sft = 0; sft < 2; sft++) {
+          const oa = now / 1200 + sft * Math.PI, ssx = 0.5 + Math.cos(oa) * 0.32, ssy = 0.4 + Math.sin(oa) * 0.12;
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * ssx, oy + sh * ssy, sw * 0.022, 0, Math.PI * 2); ctx.fill();
+          glow(ssx, ssy, 0.05, 0.4);
+        }
+      }
+      if (band === 8) { // anneau orbital + satellite-pod OPAQUE qui le parcourt
+        const rt = -0.2 + 0.1 * Math.sin(now / 900);
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.5)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.45, sw * 0.42, sh * 0.08, rt, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        const ra = now / 1500, ax = Math.cos(ra) * sw * 0.42, ay = Math.sin(ra) * sh * 0.08;
+        const mxp = ox + sw * 0.5 + ax * Math.cos(rt) - ay * Math.sin(rt);
+        const myp = oy + sh * 0.45 + ax * Math.sin(rt) + ay * Math.cos(rt);
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(mxp, myp, sw * 0.026, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(mxp, myp, sw * 0.014, 0, Math.PI * 2); ctx.fill();
+      }
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : greniers sur pilotis → halle de pierre → entrepôt industriel
     // → hub logistique automatisé. tier reste la richesse intra-stade.
@@ -619,6 +866,41 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "caravans") {
+    if (band >= 7) { // PORTAIL DE TRANSIT cosmique : pod de fret qui traverse (motion franche)
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      const tt = (now / 2600) % 1, k = tt < 0.5 ? tt * 2 : (1 - tt) * 2; // navette triangle 0..1..0
+      const podx = 0.2 + k * 0.6;
+      if (band === 7) { // arche organique vivante : 2 piliers courbes + linteau
+        for (const s of [-1, 1]) {
+          ctx.strokeStyle = cp.mid; ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, sw * 0.07);
+          ctx.beginPath(); ctx.moveTo(ox + sw * (0.5 + s * 0.26), oy + sh * 0.82); ctx.quadraticCurveTo(ox + sw * (0.5 + s * 0.3), oy + sh * 0.46, ox + sw * (0.5 + s * 0.12), oy + sh * 0.32); ctx.stroke();
+        }
+        ctx.strokeStyle = cp.edge; ctx.lineWidth = Math.max(1.5, sw * 0.05); ctx.beginPath(); ctx.moveTo(ox + sw * 0.38, oy + sh * 0.33); ctx.quadraticCurveTo(ox + sw * 0.5, oy + sh * 0.25, ox + sw * 0.62, oy + sh * 0.33); ctx.stroke();
+        glow(0.5, 0.32, 0.16, 0.25 + 0.15 * Math.sin(now / 700));
+      } else if (band === 8) { // portail-anneau orbital : montants + anneau + satellite
+        for (const s of [-1, 1]) { ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * (0.5 + s * 0.28) - sw * 0.025, oy + sh * 0.36, sw * 0.05, sh * 0.46); }
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.5, sw * 0.22, sh * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = cp.deep; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.5, sw * 0.14, sh * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+        const ra = now / 1500, mx = 0.5 + Math.cos(ra) * 0.22, my = 0.5 + Math.sin(ra) * 0.26;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * mx, oy + sh * my, sw * 0.03, 0, Math.PI * 2); ctx.fill();
+        glow(mx, my, 0.07, 0.5);
+      } else { // arche cristalline : 2 pylônes facettés + clé de voûte flottante
+        for (const s of [-1, 1]) {
+          ctx.save(); ctx.translate(ox + sw * (0.5 + s * 0.26), oy + sh * 0.58);
+          ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(0, -sh * 0.26); ctx.lineTo(sw * 0.06, 0); ctx.lineTo(0, sh * 0.24); ctx.lineTo(-sw * 0.06, 0); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(0, -sh * 0.26); ctx.lineTo(0, sh * 0.24); ctx.lineTo(-sw * 0.06, 0); ctx.closePath(); ctx.fill();
+          ctx.restore();
+        }
+        const cb = Math.sin(now / 900) * 0.025;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.5, oy + sh * (0.26 + cb)); ctx.lineTo(ox + sw * 0.57, oy + sh * (0.34 + cb)); ctx.lineTo(ox + sw * 0.5, oy + sh * (0.42 + cb)); ctx.lineTo(ox + sw * 0.43, oy + sh * (0.34 + cb)); ctx.closePath(); ctx.fill();
+        glow(0.5, 0.34 + cb, 0.12, 0.3);
+      }
+      // Pod de fret qui traverse le portail (toutes époques) — mouvement horizontal franc
+      ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.roundRect(ox + sw * podx - sw * 0.05, oy + sh * 0.72, sw * 0.1, sh * 0.08, sw * 0.02); ctx.fill();
+      ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * podx - sw * 0.03, oy + sh * 0.735, sw * 0.06, sh * 0.02);
+      glow(podx, 0.75, 0.07, 0.35);
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : mulet bâté → convoi caravanier pavé → fret industriel à vapeur
     // → logistique autonome néon. tier reste la richesse intra-stade (nombre de
@@ -877,6 +1159,49 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "markets") {
+    if (band >= 7) { // NEXUS D'ÉCHANGE cosmique : cœur relié à des nœuds (réseau qui pulse)
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      const cxc = 0.5, cyc = 0.52;
+      if (band === 7) { // tendrils organiques + paquet lumineux qui file vers un nœud
+        const nodes = [[0.2, 0.4], [0.8, 0.4], [0.26, 0.72], [0.74, 0.72]];
+        for (const [nx, ny] of nodes) {
+          const sway = Math.sin(now / 800 + nx * 7) * 0.02;
+          ctx.strokeStyle = cp.mid; ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5, sw * 0.035);
+          ctx.beginPath(); ctx.moveTo(ox + sw * cxc, oy + sh * cyc); ctx.quadraticCurveTo(ox + sw * ((cxc + nx) / 2 + sway), oy + sh * ((cyc + ny) / 2), ox + sw * (nx + sway), oy + sh * ny); ctx.stroke();
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(ox + sw * (nx + sway), oy + sh * ny, sw * 0.05, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * cxc, oy + sh * cyc, sw * 0.13, sh * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * (cxc - 0.03), oy + sh * (cyc - 0.03), sw * 0.05, 0, Math.PI * 2); ctx.fill();
+        const pk = (now / 1500) % 1, n0 = nodes[0], pkx = cxc + (n0[0] - cxc) * pk, pky = cyc + (n0[1] - cyc) * pk;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * pkx, oy + sh * pky, sw * 0.022, 0, Math.PI * 2); ctx.fill();
+        glow(pkx, pky, 0.05, 0.45);
+      } else if (band === 8) { // moyeu + bras-rayons qui tournent (rotation visible)
+        const rot = now / 2200, R = sw * 0.3;
+        for (let a = 0; a < 4; a++) {
+          const ang = rot + a * Math.PI / 2, exp = ox + sw * cxc + Math.cos(ang) * R, eyp = oy + sh * cyc + Math.sin(ang) * R * 0.7;
+          ctx.strokeStyle = cp.mid; ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, sw * 0.04);
+          ctx.beginPath(); ctx.moveTo(ox + sw * cxc, oy + sh * cyc); ctx.lineTo(exp, eyp); ctx.stroke();
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(exp, eyp, sw * 0.045, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(exp, eyp, sw * 0.02, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(ox + sw * cxc, oy + sh * cyc, sw * 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * cxc, oy + sh * cyc, sw * 0.05, 0, Math.PI * 2); ctx.fill();
+      } else { // cristal central + nœuds-cristaux en orbite
+        const rot = now / 2000, R = sw * 0.3;
+        ctx.save(); ctx.translate(ox + sw * cxc, oy + sh * cyc);
+        const w0 = sw * 0.1, h0 = sh * 0.17;
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(0, -h0); ctx.lineTo(w0, 0); ctx.lineTo(0, h0); ctx.lineTo(-w0, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(0, -h0); ctx.lineTo(0, h0); ctx.lineTo(-w0, 0); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        for (let a = 0; a < 3; a++) {
+          const ang = rot + a * 2.094, exp = ox + sw * cxc + Math.cos(ang) * R, eyp = oy + sh * cyc + Math.sin(ang) * R * 0.6;
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.arc(exp, eyp, sw * 0.035, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(exp, eyp, sw * 0.016, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      glow(cxc, cyc, 0.2, 0.16 + 0.1 * Math.sin(now / 650));
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei 0–34), un tous les 10 âges :
     // troc sur nattes → halle à toile rayée → halles de fonte vitrées →
     // place de commerce néon. Le geste animé reste le transport/échange de
@@ -1132,6 +1457,50 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "guilds") {
+    if (band >= 7) { // ASSEMBLEUR cosmique : corps + bras qui forgent (contre-phase) + cœur
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      const swing = Math.sin(now / 600);            // va-et-vient des bras (forge)
+      const beat = 0.5 + 0.5 * Math.sin(now / 400); // pulsation du cœur
+      if (band === 7) { // pod-forge organique + 2 bras-tendrils qui pompent
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.64, sw * 0.24, sh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.58, sw * 0.15, sh * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+        for (const s of [-1, 1]) {
+          const tipY = 0.42 + s * swing * 0.06;
+          ctx.strokeStyle = cp.mid; ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, sw * 0.05);
+          ctx.beginPath(); ctx.moveTo(ox + sw * (0.5 + s * 0.1), oy + sh * 0.58); ctx.quadraticCurveTo(ox + sw * (0.5 + s * 0.28), oy + sh * 0.46, ox + sw * (0.5 + s * 0.32), oy + sh * tipY); ctx.stroke();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * (0.5 + s * 0.32), oy + sh * tipY, sw * 0.03, 0, Math.PI * 2); ctx.fill();
+        }
+        glow(0.5, 0.58, 0.12, 0.2 + 0.25 * beat);
+      } else if (band === 8) { // bloc d'assemblage métal + 2 bras qui forgent + mote-outil
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.32, oy + sh * 0.52, sw * 0.36, sh * 0.32, sw * 0.04); ctx.fill();
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.36, oy + sh * 0.55, sw * 0.28, sh * 0.06);
+        for (const s of [-1, 1]) {
+          const tipY = 0.42 + s * swing * 0.07;
+          ctx.strokeStyle = cp.edge; ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, sw * 0.045);
+          ctx.beginPath(); ctx.moveTo(ox + sw * (0.5 + s * 0.08), oy + sh * 0.54); ctx.lineTo(ox + sw * (0.5 + s * 0.3), oy + sh * tipY); ctx.stroke();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * (0.5 + s * 0.3), oy + sh * tipY, sw * 0.026, 0, Math.PI * 2); ctx.fill();
+        }
+        glow(0.5, 0.62, 0.1, 0.2 + 0.25 * beat);
+        const ra = now / 1300, mx = 0.5 + Math.cos(ra) * 0.3, my = 0.5 + Math.sin(ra) * 0.12;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * mx, oy + sh * my, sw * 0.022, 0, Math.PI * 2); ctx.fill();
+      } else { // assembleur cristallin + bras facettés + cœur prismatique + éclat orbital
+        ctx.save(); ctx.translate(ox + sw * 0.5, oy + sh * 0.64);
+        const w0 = sw * 0.2, h0 = sh * 0.22;
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(0, -h0); ctx.lineTo(w0, 0); ctx.lineTo(0, h0); ctx.lineTo(-w0, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(0, -h0); ctx.lineTo(0, h0); ctx.lineTo(-w0, 0); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        for (const s of [-1, 1]) {
+          const tipY = 0.44 + s * swing * 0.05;
+          ctx.strokeStyle = cp.edge; ctx.lineCap = "round"; ctx.lineWidth = Math.max(2, sw * 0.04);
+          ctx.beginPath(); ctx.moveTo(ox + sw * (0.5 + s * 0.08), oy + sh * 0.58); ctx.lineTo(ox + sw * (0.5 + s * 0.3), oy + sh * tipY); ctx.stroke();
+        }
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.6, sw * (0.045 + 0.02 * beat), 0, Math.PI * 2); ctx.fill();
+        const ra = now / 1200, mx = 0.5 + Math.cos(ra) * 0.32, my = 0.6 + Math.sin(ra) * 0.14;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * mx, oy + sh * my, sw * 0.02, 0, Math.PI * 2); ctx.fill();
+        glow(0.5, 0.6, 0.1, 0.2 + 0.2 * beat);
+      }
+      return true;
+    }
     // ── GUILDES — confrérie de métier ─────────────────────────────────
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges, calés sur les eraBand du design ville (ageVisualConfig.js) :
@@ -1399,6 +1768,30 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "irrigated_fields") {
+    if (band >= 7) { // BIO-PARCELLES cosmiques : rangées de pousses qui ondulent (vague)
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.1, oy + sh * 0.6, sw * 0.8, sh * 0.26, sw * 0.03); ctx.fill();
+      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.12, oy + sh * 0.62, sw * 0.76, sh * 0.03);
+      if (band === 8) { // drone récolteur qui survole les rangs (motion horizontale franche)
+        const tt = (now / 3000) % 1, dx = 0.15 + tt * 0.7;
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * dx - sw * 0.06, oy + sh * 0.3, sw * 0.12, sh * 0.05, sw * 0.02); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * dx - sw * 0.04, oy + sh * 0.31, sw * 0.08, sh * 0.015);
+        glow(dx, 0.36, 0.08, 0.4);
+      }
+      for (let r = 0; r < 9; r++) {
+        const bx = 0.16 + r * 0.085, wv = Math.sin(now / 700 + r * 0.6), hh = 0.2 + 0.04 * wv, tilt = wv * 0.04;
+        if (band === 9) {
+          ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(ox + sw * (bx + tilt), oy + sh * (0.62 - hh)); ctx.lineTo(ox + sw * (bx + 0.03), oy + sh * 0.62); ctx.lineTo(ox + sw * (bx - 0.03), oy + sh * 0.62); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (bx + tilt) - sw * 0.004, oy + sh * (0.62 - hh), sw * 0.008, sh * hh * 0.5);
+        } else {
+          ctx.strokeStyle = cp.edge; ctx.lineCap = "round"; ctx.lineWidth = Math.max(1.5, sw * 0.022);
+          ctx.beginPath(); ctx.moveTo(ox + sw * bx, oy + sh * 0.62); ctx.quadraticCurveTo(ox + sw * (bx + tilt * 1.5), oy + sh * (0.62 - hh * 0.6), ox + sw * (bx + tilt), oy + sh * (0.62 - hh)); ctx.stroke();
+          ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * (bx + tilt), oy + sh * (0.62 - hh), sw * 0.012, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      glow(0.5, 0.6, 0.3, 0.12 + 0.06 * Math.sin(now / 800));
+      return true;
+    }
     // ── CHAMPS IRRIGUÉS — PATCHWORK DE PARCELLES + 4 stades ───────────────
     // Le bloc (gw×gh tuiles) est pavé en parcelles distinctes (teinte + motif
     // de sillons variés, séparées par des chemins de terre), comme une vraie
@@ -1498,6 +1891,54 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "river_ports") {
+    if (band >= 7) { // GRAND PORT cosmique : halle + conteneurs + ponton ; le VRAI fleuve sert d'eau (pas d'eau fake)
+      const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
+      const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+      // Grande plateforme / quai cosmique (le ponton la dépasse pour atteindre le fleuve)
+      ctx.fillStyle = cp.deep; ctx.fillRect(ox, oy + sh * 0.34, sw, sh * 0.54);
+      ctx.fillStyle = "rgba(0,0,0,0.30)"; ctx.fillRect(ox, oy + sh * 0.862, sw, sh * 0.02); // bord de quai
+      // Grande halle portuaire (corps imposant, agrandi)
+      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.02, oy + sh * 0.04, sw * 0.62, sh * 0.64, sw * 0.03); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.42, oy + sh * 0.04, sw * 0.22, sh * 0.64);
+      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.06, sw * 0.58, sh * 0.06);
+      if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.02, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.33, oy - sh * 0.08); ctx.lineTo(ox + sw * 0.64, oy + sh * 0.04); ctx.closePath(); ctx.fill(); }
+      else { for (let r3 = 0; r3 < 2; r3++) for (let i = 0; i < 6; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.06 + i * 0.093), oy + sh * (0.2 + r3 * 0.2), sw * 0.06, sh * 0.1); } }
+      // Tour/silo annexe (agrandie)
+      ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.56);
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.86, oy + sh * 0.12, sw * 0.08, sh * 0.56);
+      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.04);
+      // Conteneurs empilés sur le quai
+      for (let r2 = 0; r2 < 2; r2++) for (let i = 0; i < 4; i++) { const cxx = 0.08 + i * 0.1; ctx.fillStyle = (i + r2) % 2 ? cp.edge : cp.mid; ctx.fillRect(ox + sw * cxx, oy + sh * (0.72 + r2 * 0.05), sw * 0.085, sh * 0.045); }
+      // Plusieurs pontons depuis le quai jusque DANS le fleuve, chacun avec un vaisseau futuriste
+      const fboat = (bxc, byc, L, ph) => {
+        const yb2 = byc + Math.sin(now / 1100 + ph) * 0.012, hw = L * 0.5;
+        // Clapotis : anneaux qui s'élargissent autour de la coque, à la surface du fleuve
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        for (let r = 0; r < 2; r++) { const t = (now / 1500 + ph + r * 0.5) % 1, rr2 = L * (0.45 + t * 0.7); ctx.strokeStyle = `rgba(210,235,255,${(0.24 * (1 - t)).toFixed(3)})`; ctx.lineWidth = Math.max(1, sw * 0.01); ctx.beginPath(); ctx.ellipse(ox + sw * bxc, oy + sh * (yb2 + hw * 0.55), sw * rr2, sh * rr2 * 0.42, 0, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = cp.mid; ctx.beginPath();
+        ctx.moveTo(ox + sw * bxc, oy + sh * (yb2 + hw));                        // nez profilé vers le fleuve
+        ctx.lineTo(ox + sw * (bxc + L * 0.32), oy + sh * (yb2 + hw * 0.2));
+        ctx.lineTo(ox + sw * (bxc + L * 0.22), oy + sh * (yb2 - hw * 0.7));
+        ctx.lineTo(ox + sw * (bxc - L * 0.22), oy + sh * (yb2 - hw * 0.7));
+        ctx.lineTo(ox + sw * (bxc - L * 0.32), oy + sh * (yb2 + hw * 0.2));
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * bxc, oy + sh * (yb2 + hw * 0.05), sw * L * 0.1, sh * hw * 0.55, 0, 0, Math.PI * 2); ctx.fill(); // canopy
+        ctx.fillStyle = cp.edge; // ailerons
+        ctx.fillRect(ox + sw * (bxc - L * 0.46), oy + sh * (yb2 - hw * 0.2), sw * L * 0.18, Math.max(1, sh * 0.02));
+        ctx.fillRect(ox + sw * (bxc + L * 0.28), oy + sh * (yb2 - hw * 0.2), sw * L * 0.18, Math.max(1, sh * 0.02));
+        glow(bxc, yb2 - hw * 0.7, L * 0.5, 0.35 + 0.2 * Math.sin(now / 300 + ph)); // propulseur qui pulse
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * bxc, oy + sh * (yb2 - hw * 0.62), sw * L * 0.08, 0, Math.PI * 2); ctx.fill();
+      };
+      for (const [px2, top, len, bly, bl] of [[0.26, 0.62, 0.46, 1.02, 0.15], [0.52, 0.6, 0.66, 1.2, 0.2], [0.78, 0.63, 0.42, 0.98, 0.14]]) {
+        ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * (px2 - 0.03), oy + sh * top, sw * 0.06, sh * len);
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * (px2 - 0.03), oy + sh * top, sw * 0.06, sh * 0.018);
+        fboat(px2, bly, bl, px2 * 7);
+      }
+      glow(0.4, 0.4, 0.24, 0.12 + 0.06 * Math.sin(now / 800));
+      if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.45)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.16, sw * 0.34, sh * 0.06, 0.1 * Math.sin(now / 900), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      return true;
+    }
     // ── PORT FLUVIAL UNIQUE ───────────────────────────────────────────────────
     // Un seul port sur la carte, posé sur la rive nord, bord SUD plaqué sur l'eau
     // (cf. layout.js) : le bas du sprite (y→1) EST la berge, le vrai fleuve est
@@ -1770,6 +2211,33 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "water_mills") {
+    if (band >= 7) { // ROUE D'ÉNERGIE cosmique : moulin sur berge, roue qui plonge dans le VRAI fleuve (pas d'eau fake)
+      const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
+      const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+      // PAS de plateforme cosmique : le vrai fleuve + le sol de la carte restent visibles dessous
+      ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.62, oy + sh * 0.68, sw * 0.26, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill(); // ombre de contact (ancre le bâtiment)
+      // Gros bâtiment du moulin (droite)
+      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.44, oy + sh * 0.2, sw * 0.44, sh * 0.5, sw * 0.03); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.7, oy + sh * 0.2, sw * 0.18, sh * 0.5);
+      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.46, oy + sh * 0.22, sw * 0.4, sh * 0.05);
+      if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.44, oy + sh * 0.2); ctx.lineTo(ox + sw * 0.66, oy + sh * 0.08); ctx.lineTo(ox + sw * 0.88, oy + sh * 0.2); ctx.closePath(); ctx.fill(); }
+      else { for (let i = 0; i < 3; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.5 + i * 0.12), oy + sh * 0.36, sw * 0.08, sh * 0.09); } }
+      // Roue qui plonge dans le VRAI fleuve (gauche) — gros diamètre, bas dans l'eau
+      const wcx = 0.27, wcy = 0.66, R = sw * 0.25, rot = now / 900;
+      ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(2, sw * 0.03); ctx.beginPath(); ctx.moveTo(ox + sw * wcx, oy + sh * wcy); ctx.lineTo(ox + sw * 0.46, oy + sh * 0.52); ctx.stroke(); // essieu vers le bâtiment
+      ctx.strokeStyle = cp.edge; ctx.lineWidth = Math.max(2, sw * 0.04); ctx.beginPath(); ctx.arc(ox + sw * wcx, oy + sh * wcy, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(1.5, sw * 0.028);
+      for (let a = 0; a < 8; a++) { const ang = rot + a * Math.PI / 4; ctx.beginPath(); ctx.moveTo(ox + sw * wcx, oy + sh * wcy); ctx.lineTo(ox + sw * wcx + Math.cos(ang) * R, oy + sh * wcy + Math.sin(ang) * R); ctx.stroke(); }
+      for (let a = 0; a < 8; a++) { const ang = rot + a * Math.PI / 4; ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * wcx + Math.cos(ang) * R, oy + sh * wcy + Math.sin(ang) * R, sw * 0.02, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * wcx, oy + sh * wcy, sw * 0.05, 0, Math.PI * 2); ctx.fill();
+      // Clapotis churnés par la roue, qui filent dans le sens de rotation (bas de roue → gauche)
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 3; i++) { const t = (now / 800 + i * 0.34) % 1, cxr = wcx - t * 0.14; ctx.strokeStyle = `rgba(210,235,255,${(0.3 * (1 - t)).toFixed(3)})`; ctx.lineWidth = Math.max(1, sw * 0.012); ctx.beginPath(); ctx.ellipse(ox + sw * cxr, oy + sh * 0.87, sw * (0.05 + t * 0.08), sh * (0.02 + t * 0.03), 0, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+      glow(wcx, wcy, 0.16, 0.16 + 0.08 * Math.sin(now / 700));
+      if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.45)`; ctx.lineWidth = Math.max(1, sw * 0.014); ctx.beginPath(); ctx.ellipse(ox + sw * wcx, oy + sh * wcy, R * 1.3, R * 0.4, rot * 0.5, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      return true;
+    }
     // ── MOULIN À EAU UNIQUE — posé sur la rive, eau au sud (comme le port) ──────
     // L'emprise plonge jusqu'au centre du fleuve : la moitié basse du sprite est de
     // l'eau RÉELLEMENT peinte (cf. layout cmWaterMillSpan + branche de pose). On ne
@@ -1926,6 +2394,19 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "mint_houses") {
+    if (band >= 7) { // CHAMBRE FORTE cosmique : voûte + pièces + frappe qui bat + pièce en orbite
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.28, oy + sh * 0.46, sw * 0.44, sh * 0.38, sw * 0.05); ctx.fill();
+      ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.46, sw * 0.22, sh * 0.1, 0, Math.PI, 0); ctx.fill();
+      if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.28, oy + sh * 0.46); ctx.lineTo(ox + sw * 0.5, oy + sh * 0.34); ctx.lineTo(ox + sw * 0.72, oy + sh * 0.46); ctx.closePath(); ctx.fill(); }
+      for (let i = 0; i < 3; i++) { const cy3 = 0.74 - i * 0.06, pl = 0.5 + 0.5 * Math.sin(now / 500 + i); ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * cy3, sw * 0.09, sh * 0.03, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 0.4 + 0.4 * pl; ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * cy3, sw * 0.05, sh * 0.018, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+      const press = 0.36 + Math.max(0, Math.sin(now / 360)) * 0.14;
+      ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * 0.46, oy + sh * 0.2, sw * 0.08, sh * (press - 0.2));
+      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.44, oy + sh * press, sw * 0.12, sh * 0.03);
+      if (band !== 7) { const ra = now / 1300, mx = 0.5 + Math.cos(ra) * 0.3, my = 0.5 + Math.sin(ra) * 0.14; ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * mx, oy + sh * my, sw * 0.028, sh * 0.014, 0, 0, Math.PI * 2); ctx.fill(); glow(mx, my, 0.06, 0.4); }
+      glow(0.5, 0.6, 0.16, 0.14 + 0.08 * Math.sin(now / 650));
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : atelier de frappe à la masse → hôtel des monnaies classique →
     // manufacture à vapeur (balancier) → frappe numérique automatisée.
@@ -2178,6 +2659,21 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "imperial_exchanges") {
+    if (band >= 7) { // GRAND AXE cosmique : flèche monumentale + anneaux qui tournent
+      const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(ox + sw * 0.38, oy + sh * 0.84); ctx.lineTo(ox + sw * 0.47, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.53, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.62, oy + sh * 0.84); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(ox + sw * 0.47, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.53, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.5, oy + sh * 0.18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.22, sw * (0.03 + 0.012 * Math.sin(now / 400)), 0, Math.PI * 2); ctx.fill();
+      const rot = now / 1600;
+      for (let r = 0; r < 2; r++) {
+        const ry = 0.46 + r * 0.16, tilt = (r ? -0.4 : 0.4) + 0.15 * Math.sin(rot * (r ? -1 : 1)), rx = 0.26 - r * 0.04;
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.5)`; ctx.lineWidth = Math.max(1.5, sw * 0.02); ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * ry, sw * rx, sh * 0.05, tilt, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        const ang = rot * (r ? -1.3 : 1.3), mx = 0.5 + Math.cos(ang) * rx, my = ry + Math.sin(ang) * 0.05 * Math.cos(tilt);
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * mx, oy + sh * my, sw * 0.022, 0, Math.PI * 2); ctx.fill();
+      }
+      glow(0.5, 0.4, 0.24, 0.14 + 0.08 * Math.sin(now / 700));
+      return true;
+    }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : comptoir de change à ciel ouvert → banco Renaissance →
     // grande banque néoclassique → bourse de verre & néon.
@@ -2490,4 +2986,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite };
+export { drawCityEngineSprite, cosmicBase };

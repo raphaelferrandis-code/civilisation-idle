@@ -54,7 +54,7 @@ export default function ChronicleView() {
           })}
         </ol>
         {revealedMax + 1 < eras.length - 1 && (
-          <p className="era-timeline-more">… et {eras.length - 1 - (revealedMax + 1)} âges encore voilés.</p>
+          <p className="era-timeline-more">… et encore de nombreux âges à traverser.</p>
         )}
       </div>
     </section>

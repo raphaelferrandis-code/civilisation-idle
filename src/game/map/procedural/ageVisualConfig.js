@@ -105,6 +105,50 @@ const AGE_CONFIG = [
     citizenRoles: ["suit le flux civique", "rejoint une station", "marche sous les arches", "consulte un terminal", "surveille les niveaux"],
     vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 }],
     decorDensity: 1
+  },
+  // ── Époques TRANSCENDANTES (bands 7–9) ──────────────────────────────────────
+  // Réutilisent les archétypes/véhicules existants (drones) : seuls le degré
+  // d'ordre, la densité, les rôles et l'ambiance (mapThemeForBand) évoluent. Les
+  // SPRITES de bâtiments restent ceux de la mégalopole tant que la passe d'art
+  // cosmique (Phases B/C) n'est pas faite.
+  { // 7 — Noosphère : la planète-cerveau, grille quasi parfaite
+    id: "noosphere",
+    archetypes: ["megalopolis", "capital"],
+    roadRanks: { main: true, avenue: true, secondary: true, path: false },
+    order: 0.94,
+    plazaSize: 4,
+    parkChance: 0.06,
+    treeDensity: 0.3,
+    wallTier: 2,
+    citizenRoles: ["dérive entre les tours-mémoire", "écoute le chœur planétaire", "synchronise un nœud", "veille la membrane", "consulte la conscience commune"],
+    vehicles: [{ type: "drone", weight: 4 }, { type: "tram", weight: 1 }],
+    decorDensity: 1.1
+  },
+  { // 8 — Âge stellaire : la cité essaime, ordre absolu
+    id: "stellaire",
+    archetypes: ["megalopolis", "capital"],
+    roadRanks: { main: true, avenue: true, secondary: true, path: false },
+    order: 0.97,
+    plazaSize: 5,
+    parkChance: 0.05,
+    treeDensity: 0.2,
+    wallTier: 2,
+    citizenRoles: ["guide un essaim d'étoiles", "veille un cœur stellaire", "ajuste une orbite", "déploie une voile solaire", "écoute l'esprit des étoiles"],
+    vehicles: [{ type: "drone", weight: 5 }, { type: "tram", weight: 1 }],
+    decorDensity: 1.2
+  },
+  { // 9 — Démiurge : la trame du réel, grille parfaite
+    id: "demiurge",
+    archetypes: ["megalopolis", "capital"],
+    roadRanks: { main: true, avenue: true, secondary: true, path: false },
+    order: 1,
+    plazaSize: 5,
+    parkChance: 0.04,
+    treeDensity: 0.12,
+    wallTier: 2,
+    citizenRoles: ["réécrit une constante", "tisse une portion de vide", "stabilise l'entropie", "grave une loi nouvelle", "contemple le Grand Amas"],
+    vehicles: [{ type: "drone", weight: 6 }],
+    decorDensity: 1.3
   }
 ];
 

@@ -134,12 +134,35 @@ function drawTinyCamp(x, y, w, h, pad, seed, variant, now) {
   ctx.beginPath(); ctx.moveTo(x + w * 0.84, baseY); ctx.lineTo(x + w * 0.94, baseY + h * 0.06); ctx.stroke();
 }
 
+// Palette cosmique (ères 35+, bands 7–9) pour le fond de ville procédural. Corps
+// OPAQUES + fenêtres lumineuses en source-over (PAS de glow additif : la ville est
+// dense → l'additif saturerait en blanc). Miroir de COSMIC_PAL (cityEngineSprites).
+const CPAL = {
+  7: { mid: "#16442e", edge: "#3aeca0", lite: "#bdf8de", glow: "90,240,180" },
+  8: { mid: "#3e2c10", edge: "#f4c25c", lite: "#ffeaba", glow: "255,205,120" },
+  9: { mid: "#262044", edge: "#c8aef0", lite: "#ece2ff", glow: "170,140,255" }
+};
+
 function drawHouseShape(x, y, w, h, pad, tier, seed, variant, now) {
   const ctx = CM.ctx;
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 0;
   const lit = cmLitColor(band);
   const s = (seed || 0) % 100;
   const t = now || 0;
+
+  if (band >= 7) {
+    // ── MAISON COSMIQUE (pod opaque + toit selon l'époque + fenêtres scintillantes) ──
+    const cp = CPAL[band] || CPAL[9];
+    ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(x + w * 0.18, y + h * 0.38, w * 0.64, h * 0.48, w * 0.05); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + w * 0.56, y + h * 0.38, w * 0.26, h * 0.48);
+    if (band === 7) { ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(x + w * 0.5, y + h * 0.4, w * 0.32, h * 0.16, 0, Math.PI, 0); ctx.fill(); }
+    else if (band === 8) { ctx.fillStyle = cp.edge; ctx.fillRect(x + w * 0.16, y + h * 0.33, w * 0.68, h * 0.08); ctx.fillStyle = cp.lite; ctx.fillRect(x + w * 0.46, y + h * 0.22, w * 0.08, h * 0.12); }
+    else { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(x + w * 0.18, y + h * 0.4); ctx.lineTo(x + w * 0.5, y + h * 0.22); ctx.lineTo(x + w * 0.82, y + h * 0.4); ctx.closePath(); ctx.fill(); }
+    const lp = (0.45 + 0.35 * Math.sin(t / 700 + s)).toFixed(2);
+    ctx.fillStyle = `rgba(${cp.glow},${lp})`;
+    for (let i = 0; i < 2; i++) ctx.fillRect(x + w * (0.3 + i * 0.24), y + h * 0.56, w * 0.14, h * 0.18);
+    return;
+  }
 
   if (variant === "tent" || variant === "firepit") {
     drawTinyCamp(x, y, w, h, pad, seed, variant, now); return;
@@ -357,6 +380,20 @@ function drawPublicShape(type, x, y, w, h, pad, tier, variant, now) {
   const library = type === "library";
   const lit = cmLitColor(band);
   const t = now || 0;
+
+  if (band >= 7) {
+    // ── BÂTIMENT PUBLIC COSMIQUE (plus grand que les maisons : dôme/tour/flèche) ──
+    const cp = CPAL[band] || CPAL[9];
+    ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(x + w * 0.12, y + h * 0.32, w * 0.76, h * 0.54, w * 0.05); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + w * 0.6, y + h * 0.32, w * 0.28, h * 0.54);
+    if (band === 7) { ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(x + w * 0.5, y + h * 0.34, w * 0.3, h * 0.2, 0, Math.PI, 0); ctx.fill(); ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(x + w * 0.5, y + h * 0.3, w * 0.05, 0, Math.PI * 2); ctx.fill(); }
+    else if (band === 8) { ctx.fillStyle = cp.edge; ctx.fillRect(x + w * 0.1, y + h * 0.28, w * 0.8, h * 0.07); ctx.fillStyle = cp.lite; ctx.fillRect(x + w * 0.46, y + h * 0.14, w * 0.08, h * 0.16); }
+    else { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(x + w * 0.12, y + h * 0.34); ctx.lineTo(x + w * 0.5, y + h * 0.14); ctx.lineTo(x + w * 0.88, y + h * 0.34); ctx.closePath(); ctx.fill(); }
+    const lp = (0.45 + 0.35 * Math.sin(t / 650 + x * 0.4)).toFixed(2);
+    ctx.fillStyle = `rgba(${cp.glow},${lp})`;
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + w * (0.24 + i * 0.2), y + h * 0.5, w * 0.12, h * 0.22);
+    return;
+  }
 
   if (variant === "firepit") {
     // ── GRANGE COMMUNE — grange de bois à toit en bâtière, grandes portes

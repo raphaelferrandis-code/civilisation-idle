@@ -37,7 +37,7 @@ import {
 } from './automation.js';
 
 import { log } from './utils.js';
-import { eras } from '../../data/world.js';
+import { eras, eraTier } from '../../data/world.js';
 import { clamp01, canPayCost } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
@@ -175,10 +175,15 @@ export function tick(dt) {
   if (currentEra > peaks.eraIndex) {
     peaks.eraIndex = currentEra;
     if (currentEra > (state.bestEraIndex || 0)) {
+      const prevTier = eraTier(state.bestEraIndex || 0);
       state.bestEraIndex = currentEra;
+      const newTier = eraTier(currentEra);
       // Récompense visible de chaque nouveau sommet : +1 ruine plate par palier
-      // d'ère maximale, à chaque effondrement (cf. ERA_RUIN_BONUS_PER_INDEX).
-      log(`Sommet historique : l'ère ${eras[currentEra].name} est atteinte pour la première fois. Chaque effondrement rapportera désormais +${currentEra} ruines.`);
+      // d'ère MAJEUR (cf. ERA_RUIN_BONUS_PER_INDEX). Les ères « factices »
+      // (tier inchangé) avancent le compteur sans log ni récompense.
+      if (newTier > prevTier) {
+        log(`Sommet historique : l'ère ${eras[currentEra].name} est atteinte pour la première fois. Chaque effondrement rapportera désormais +${newTier} ruines.`);
+      }
     }
   }
 

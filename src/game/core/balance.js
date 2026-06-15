@@ -257,6 +257,15 @@ export const MYTH_GATE_START_GR = 3;
 // retraversée express des ères devient une pluie de gains visibles.
 export const ERA_RUIN_BONUS_PER_INDEX = 1;
 
+// Ancre de normalisation du bonus de prod par ère (recurring_ages, cf.
+// globalMultiplier). Figée sur la longueur d'ORIGINE de la courbe (35 ères →
+// 34 intervalles) et NON sur eras.length : ainsi les ères transcendantes
+// ajoutées au-delà de 34 PAIENT en production au lieu de diluer le bonus
+// (sans ça, ×(19/(eras.length-1)) rétrécit l'incrément à chaque ère ajoutée →
+// nerf de tout le jeu). Pour bestEraIndex ≤ 34, valeur bit-à-bit identique à
+// l'ancienne (golden-safe).
+export const RECURRING_AGE_ERA_ANCHOR = 34;
+
 // ── Rupture : l'infrastructure jugée en RATIO, plafonds doux ─────────────────
 // Problème mesuré : l'infra n'agissait que via log10(infra×0.018)×0.22 plafonné
 // à 0.75 → effet nul au-delà de ~1e5 d'infra, et les sources saturaient en

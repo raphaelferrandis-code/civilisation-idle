@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite } from './cityEngineSprites.js';
+import { drawCityEngineSprite, cosmicBase } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 
 /* Charte d'animation des sprites (DA par âge) :
@@ -27,6 +27,64 @@ const ENGINE_EMBLEMS = {
   archive_grids: "🗄️", ruin_architects: "🏚️"
 };
 
+// Stade cosmique (ères 35+, bands 7–9) des 19 bâtiments SAVOIR/INFRA. Corps OPAQUE
+// (cp.mid/edge/lite) pour survivre au voile de nuit ; matière selon l'époque ;
+// silhouette par FAMILLE (dôme/flèche/halle/temple/arches/ossature) + emblème du
+// médaillon = identité. Animation : mote de savoir en orbite + halo qui respire
+// (+ anneau orbital qui tourne en band 8). cosmicBase importé de cityEngineSprites.
+const COSMIC_SAVOIR_FAM = {
+  observatories: "dome", ministries: "dome", schools: "dome", universities: "dome",
+  ancestral_cult: "spire", watch: "spire", think_tanks: "spire",
+  libraries: "hall", archive_grids: "hall", bureaucracy: "hall", scribes: "hall", printing_houses: "hall", storytellers: "hall",
+  academies: "temple", courthouses: "temple",
+  aqueducts: "arch", sewers: "arch",
+  public_works: "frame", ruin_architects: "frame"
+};
+function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind) {
+  const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+  const X = (x) => ox + sw * x, Y = (y) => oy + sh * y;
+  const pulse = 0.5 + 0.5 * Math.sin(now / 600);
+  const rrect = (x0, y0, x1, y1, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(X(x0), Y(y0), sw * (x1 - x0), sh * (y1 - y0), sw * r); ctx.fill(); };
+  const dot = (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(x), Y(y), sw * r, 0, Math.PI * 2); ctx.fill(); };
+  const fam = COSMIC_SAVOIR_FAM[kind] || "hall";
+  if (fam === "dome") {
+    rrect(0.28, 0.5, 0.72, 0.84, 0.03, cp.mid);
+    ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.5), sw * 0.24, sh * 0.2, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.5), sw * 0.16, sh * 0.14, 0, Math.PI, 0); ctx.fill();
+    if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(X(0.32), Y(0.5)); ctx.lineTo(X(0.5), Y(0.3)); ctx.lineTo(X(0.68), Y(0.5)); ctx.closePath(); ctx.fill(); }
+    dot(0.5, 0.46, 0.028, cp.lite);
+  } else if (fam === "spire") {
+    ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(X(0.4), Y(0.84)); ctx.lineTo(X(0.46), Y(0.28)); ctx.lineTo(X(0.54), Y(0.28)); ctx.lineTo(X(0.6), Y(0.84)); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(X(0.46), Y(0.28)); ctx.lineTo(X(0.54), Y(0.28)); ctx.lineTo(X(0.5), Y(0.16)); ctx.closePath(); ctx.fill();
+    dot(0.5, 0.2, 0.028 + 0.012 * pulse, cp.lite);
+  } else if (fam === "hall") {
+    rrect(0.12, 0.42, 0.88, 0.84, 0.03, cp.mid);
+    ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(X(0.62), Y(0.42), sw * 0.26, sh * 0.42);
+    ctx.fillStyle = cp.edge; ctx.fillRect(X(0.14), Y(0.44), sw * 0.72, sh * 0.05);
+    if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(X(0.12), Y(0.42)); ctx.lineTo(X(0.5), Y(0.3)); ctx.lineTo(X(0.88), Y(0.42)); ctx.closePath(); ctx.fill(); }
+    for (let i = 0; i < 4; i++) dot(0.24 + i * 0.17, 0.62, 0.025, cp.lite);
+  } else if (fam === "temple") {
+    ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(X(0.18), Y(0.46)); ctx.lineTo(X(0.5), Y(0.26)); ctx.lineTo(X(0.82), Y(0.46)); ctx.closePath(); ctx.fill();
+    if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(X(0.18), Y(0.46)); ctx.lineTo(X(0.5), Y(0.26)); ctx.lineTo(X(0.5), Y(0.46)); ctx.closePath(); ctx.fill(); }
+    else { ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(X(0.18), Y(0.46)); ctx.lineTo(X(0.5), Y(0.26)); ctx.lineTo(X(0.82), Y(0.46)); ctx.closePath(); ctx.fill(); ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(X(0.24), Y(0.45)); ctx.lineTo(X(0.5), Y(0.31)); ctx.lineTo(X(0.76), Y(0.45)); ctx.closePath(); ctx.fill(); }
+    for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? cp.edge : cp.mid; ctx.fillRect(X(0.22 + i * 0.13), Y(0.48), sw * 0.06, sh * 0.36); }
+  } else if (fam === "arch") {
+    for (let i = 0; i < 3; i++) { const ax = 0.24 + i * 0.26; ctx.fillStyle = cp.mid; ctx.fillRect(X(ax - 0.05), Y(0.5), sw * 0.1, sh * 0.34); ctx.fillStyle = cp.deep; ctx.beginPath(); ctx.arc(X(ax), Y(0.66), sw * 0.07, Math.PI, 0); ctx.fill(); }
+    rrect(0.12, 0.42, 0.88, 0.5, 0.02, cp.mid);
+    ctx.fillStyle = cp.edge; ctx.fillRect(X(0.12), Y(0.42), sw * 0.76, sh * 0.04);
+  } else {
+    ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(2, sw * 0.04);
+    ctx.strokeRect(X(0.28), Y(0.44), sw * 0.4, sh * 0.4);
+    ctx.beginPath(); ctx.moveTo(X(0.28), Y(0.44)); ctx.lineTo(X(0.68), Y(0.84)); ctx.moveTo(X(0.68), Y(0.44)); ctx.lineTo(X(0.28), Y(0.84)); ctx.stroke();
+    ctx.fillStyle = cp.edge; ctx.fillRect(X(0.26), Y(0.42), sw * 0.44, sh * 0.04);
+  }
+  // Animation partagée : mote de savoir en orbite + halo qui respire
+  const a = now / 1300, mx = 0.5 + Math.cos(a) * 0.34, my = 0.5 + Math.sin(a) * 0.16;
+  dot(mx, my, 0.02, cp.lite); glow(mx, my, 0.05, 0.45);
+  if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.45)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.4), sw * 0.34, sh * 0.07, 0.15 * Math.sin(now / 900), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+  glow(0.5, 0.56, 0.18, 0.12 + 0.08 * pulse);
+}
+
 function drawEngineSpriteCore(t, x, y, w, h, now) {
   const ctx = CM.ctx;
   const id = t.buildingId || t.variant;
@@ -35,6 +93,8 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   const litWarm = CM.litWarm || `rgba(255,204,68,0.25)`;
   const litGold = CM.litGold || `rgba(255,220,120,0.35)`;
   const ox = x, oy = y, sw = w, sh = h;
+  const band = CM.layout?.counts?.eraBand ?? 0;   // hissé ici : les blocs savoir/infra (return avant la fin) en ont besoin
+  const ei = CM.layout?.counts?.eraIndex ?? 0;
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   ctx.fillStyle = "rgba(0,0,0,0.26)";
@@ -43,6 +103,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   ctx.fill();
 
   if (id === "storytellers") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "storytellers"); return; }
     // Sol
     px(0.0, 0.58, 1.0, 0.42, "#16100a");
 
@@ -114,6 +175,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "scribes") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "scribes"); return; }
     // Scriptorium : salle voûtée médiévale, scribes à la lueur des bougies
     px(0.08, 0.34, 0.84, 0.48, "#705230");
     ctx.fillStyle = "#4a3218";
@@ -141,6 +203,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "schools") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "schools"); return; }
     // École : cour à colonnades, rangées d'élèves, maître à l'avant
     px(0.08, 0.26, 0.84, 0.50, "#b8944a");
     ctx.fillStyle = "#6a4a10";
@@ -163,6 +226,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "academies") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "academies"); return; }
     // Académie : péristyle, jardin, philosophes en cercle de discussion
     px(0.06, 0.28, 0.88, 0.52, "#d4c5a0");
     ctx.fillStyle = "#b8a882";
@@ -185,6 +249,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "ancestral_cult") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ancestral_cult"); return; }
     // Culte des ancêtres : mégalithes en cercle, autel central, flamme rituelle
     px(0.0, 0.48, 1.0, 0.52, "#2e2416");
     const nStones = 5 + Math.min(tier, 3);
@@ -216,6 +281,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "observatories") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "observatories"); return; }
     // Observatoire : dôme avec fente animée, bras de télescope pivotant, rose des vents
     ctx.fillStyle = "#3a3050"; ctx.beginPath(); ctx.ellipse(ox+sw*0.5, oy+sh*0.64, sw*0.42, sh*0.18, 0, 0, Math.PI*2); ctx.fill();
     px(0.36, 0.24, 0.28, 0.40, "#2a2840");
@@ -243,6 +309,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "libraries") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "libraries"); return; }
     // Bibliothèque : hall néoclassique, rayonnages colorés par rangées, lecteurs aux tables
     px(0.08, 0.26, 0.84, 0.54, "#c8b882");
     ctx.fillStyle = "#b0a070";
@@ -265,6 +332,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "universities") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "universities"); return; }
     const band = CM.layout?.counts?.eraBand ?? 0;
     const t2 = now || 0;
 
@@ -434,6 +502,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "printing_houses") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "printing_houses"); return; }
     // Imprimerie : grande presse mécanique animée, feuilles, encriers, cheminée industrielle
     px(0.06, 0.24, 0.88, 0.56, "#6a5030");
     ctx.fillStyle = "#3a2818";
@@ -465,6 +534,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "think_tanks") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "think_tanks"); return; }
     // Institut stratégique : verre et acier, écrans holographiques, antennes, hologramme
     px(0.08, 0.18, 0.84, 0.64, "#1e2434");
     px(0.06, 0.12, 0.88, 0.08, "#2a3248");
@@ -507,6 +577,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "aqueducts") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "aqueducts"); return; }
     // Structure linéaire : spanX arches, 1 tile de haut. sw = largeur totale.
     const spanX = t.spanX || 3;
     const aw = 1 / spanX;          // fraction de sw par travée
@@ -558,6 +629,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "watch") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "watch"); return; }
     // Veilleurs : tour de guet qui évolue du poste de feu primitif à la tourelle de surveillance
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -606,6 +678,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "sewers") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "sewers"); return; }
     // Égouts : canaux ouverts → réseau de pierres → conduites modernes
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     const band2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
@@ -642,6 +715,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "bureaucracy") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "bureaucracy"); return; }
     // Bureaucratie : salle des scribes → guichets → open space moderne
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -678,6 +752,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "courthouses") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "courthouses"); return; }
     // Tribunaux : cercle des anciens → tribunal à colonnes → palais de justice
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     const band2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
@@ -732,6 +807,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "public_works") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "public_works"); return; }
     // Grands travaux : chantier avec outils → grue → engins modernes
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -781,6 +857,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "ministries") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ministries"); return; }
     // Ministères : salle du conseil → palais → ministère moderne
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -815,6 +892,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "archive_grids") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "archive_grids"); return; }
     // Réseaux d'archives : rayonnages → salle des archives → data center
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 10) {
@@ -859,6 +937,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     return;
   }
   if (id === "ruin_architects") {
+    if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ruin_architects"); return; }
     // Architectes des ruines : vestige en ruine + architectes + plans évolutifs
     // Ruine partielle (mur effondré)
     px(0.08, 0.54, 0.84, 0.24, "#4a4030");
@@ -889,8 +968,6 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     }
     return;
   }
-  const band = CM.layout?.counts?.eraBand ?? 0;
-  const ei = CM.layout?.counts?.eraIndex ?? 0;
   if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei, gw: t.spanX || 1, gh: t.spanY || 1 })) return;
 
 }

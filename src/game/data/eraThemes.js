@@ -14,13 +14,28 @@
  * journalThemes.js et le rendu canvas (renderWorld.js).
  */
 
-import { eras } from "./world.js";
+import { eras, eraTier } from "./world.js";
 
-// Même découpage que cmEraBand (layout.js) : 35 ères → 7 bandes de 5.
+// Bande visuelle d'une ère, calée sur le TIER (palier majeur équivalent) et non
+// l'index brut : les ères « factices » partagent ainsi la bande/époque de leur
+// palier. Le dénominateur est ANCRÉ sur 34 (longueur d'origine) pour ne pas
+// re-mapper les couleurs des ères 0–34 existantes. Au-delà : 3 époques cosmiques.
+const ERA_BAND_ANCHOR = 34;
 export function eraBandOf(eraIndex) {
-  const max = eras.length - 1;
-  const i = Math.max(0, Math.min(max, eraIndex | 0));
-  return Math.max(0, Math.min(6, Math.floor((i / max) * 6.999)));
+  const i = Math.max(0, eraIndex | 0);
+  const tier = eraTier(i);
+  // Ères 0–34 : bande dérivée du tier (= index ici) → couleurs inchangées.
+  // Gating sur l'INDEX (pas le tier) : sinon les ères « factices » 35–44 héritent
+  // du tier 34 de la Singularité → resteraient en bande 6 (néon), créant 10 ères
+  // de « trou » sans cosmique. Dès l'ère 35, on passe en cosmique.
+  if (i <= ERA_BAND_ANCHOR) {
+    return Math.max(0, Math.min(6, Math.floor((tier / ERA_BAND_ANCHOR) * 6.999)));
+  }
+  // Sous-bande cosmique selon le tier du palier majeur (les factices suivent leur
+  // palier) : 7 Noosphère (tier ≤38), 8 stellaire (39–42), 9 Démiurge (43+).
+  if (tier <= 38) return 7;
+  if (tier <= 42) return 8;
+  return 9;
 }
 
 /* ------------------------------------------------------------------ */
@@ -97,6 +112,41 @@ export const EPOCHS = [
       urbanGround: [92, 94, 99],
       wildGround: "#262c26",
       nightWarm: "150,230,255"
+    }
+  },
+  // ── Époques TRANSCENDANTES (bands 7–9, ères 35+) ──────────────────────────
+  // Trois CHAPITRES fortement contrastés en teinte (jade → or → violet-blanc),
+  // jamais un dégradé continu : c'est ce qui évite la « bouillie galactique ».
+  // S'éloignent du cyan néon (band 6). Les ères « factices » héritent de la bande
+  // de leur palier majeur (cf. eraBandOf via eraTier).
+  {
+    id: "noosphere", label: "Âge de la Noosphère",
+    // La planète vivante s'éclaire de l'intérieur : jade bioluminescent.
+    hue: 155, sat: 68, lum: 52,
+    map: {
+      urbanGround: [14, 34, 26],   // [R,G,B] sombre jade
+      wildGround: "#08140e",
+      nightWarm: "110,240,180"
+    }
+  },
+  {
+    id: "stellaire", label: "Âge stellaire",
+    // Essaimage d'étoile en étoile : or stellaire chaud.
+    hue: 42, sat: 80, lum: 58,
+    map: {
+      urbanGround: [40, 30, 14],   // [R,G,B] sombre or/ambre
+      wildGround: "#14100a",
+      nightWarm: "255,205,120"
+    }
+  },
+  {
+    id: "demiurge", label: "Âge du Démiurge",
+    // Manipulation du vide et de la réalité : blanc-violet iridescent sur noir.
+    hue: 282, sat: 30, lum: 76,
+    map: {
+      urbanGround: [22, 16, 34],   // [R,G,B] sombre violet (R≤255 !)
+      wildGround: "#0a0810",
+      nightWarm: "225,215,255"
     }
   }
 ];
@@ -226,6 +276,6 @@ export function activeEraDetails(eraIndex) {
 
 /** Ambiance carte d'une bande (sol urbain, fond sauvage, chaleur nocturne). */
 export function mapThemeForBand(band) {
-  const b = Math.max(0, Math.min(6, band | 0));
+  const b = Math.max(0, Math.min(EPOCHS.length - 1, band | 0));
   return EPOCHS[b].map;
 }

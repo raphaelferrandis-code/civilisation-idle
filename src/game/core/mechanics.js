@@ -3,7 +3,7 @@
 import { state, renderCache, buildingById, upgradeById, defaultState } from './state.js';
 import { buildings } from '../data/buildings.js';
 import { upgrades, dogmaIds, PRESTIGE_TREE, PRESTIGE_DOGMAS } from '../data/upgrades.js';
-import { eras } from '../data/world.js';
+import { eras, eraTier } from '../data/world.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../data/regulationActions.js';
 import { getCityMapEngineTileMap } from '../map/cityMapBridge.js';
 import { clamp01, clamp, fmt, labelFor, canPayCost } from './utils.js';
@@ -26,6 +26,7 @@ import {
   GRAND_RESET_LEGIT_BASE,
   MYTH_GATE_START_GR,
   ERA_RUIN_BONUS_PER_INDEX,
+  RECURRING_AGE_ERA_ANCHOR,
   INFRA_COVERAGE_POP_FACTOR,
   INFRA_COVERAGE_BUILDING_FACTOR,
   INFRA_COVERAGE_MIN_BASE,
@@ -371,7 +372,13 @@ export function infraMultiplierDec() {
 
 export function globalMultiplier() {
   if (renderCache._frameGlobalMult !== null) return renderCache._frameGlobalMult;
-  const normalizedBestEraIndex = (state.bestEraIndex || 0) * (19 / Math.max(1, eras.length - 1));
+  // Ancré sur RECURRING_AGE_ERA_ANCHOR (34, longueur d'origine) et NON sur
+  // eras.length : les ères transcendantes ajoutées paient en prod au lieu de
+  // diluer l'incrément. Délié (pas de plafond) → tier > 34 continue de monter
+  // linéairement. Calé sur eraTier (palier MAJEUR équivalent) et non l'index
+  // brut : les ères « factices » ne gonflent pas le bonus. Identique bit-à-bit à
+  // l'ancien pour bestEraIndex ≤ 34 (tier = index).
+  const normalizedBestEraIndex = eraTier(state.bestEraIndex || 0) * (19 / RECURRING_AGE_ERA_ANCHOR);
   const recurringAgeBonus = has("recurring_ages") ? 1 + normalizedBestEraIndex * 0.035 : 1;
   const icareMult       = isMythEffectActive("mythe_d_icare") ? ICARE_PROD_MULT : 1;
   const surchauffeMult  = (state.surchauffeEndTime && Date.now() < state.surchauffeEndTime) ? SURCHAUFFE_PROD_MULT : 1;
@@ -404,7 +411,13 @@ export function globalMultiplier() {
 // peuvent déborder : ils ont leur variante Decimal, le reste est borné.
 export function globalMultiplierDec() {
   if (renderCache._frameGlobalMultDec !== null) return renderCache._frameGlobalMultDec;
-  const normalizedBestEraIndex = (state.bestEraIndex || 0) * (19 / Math.max(1, eras.length - 1));
+  // Ancré sur RECURRING_AGE_ERA_ANCHOR (34, longueur d'origine) et NON sur
+  // eras.length : les ères transcendantes ajoutées paient en prod au lieu de
+  // diluer l'incrément. Délié (pas de plafond) → tier > 34 continue de monter
+  // linéairement. Calé sur eraTier (palier MAJEUR équivalent) et non l'index
+  // brut : les ères « factices » ne gonflent pas le bonus. Identique bit-à-bit à
+  // l'ancien pour bestEraIndex ≤ 34 (tier = index).
+  const normalizedBestEraIndex = eraTier(state.bestEraIndex || 0) * (19 / RECURRING_AGE_ERA_ANCHOR);
   const recurringAgeBonus = has("recurring_ages") ? 1 + normalizedBestEraIndex * 0.035 : 1;
   const icareMult       = isMythEffectActive("mythe_d_icare") ? ICARE_PROD_MULT : 1;
   const surchauffeMult  = (state.surchauffeEndTime && Date.now() < state.surchauffeEndTime) ? SURCHAUFFE_PROD_MULT : 1;
@@ -1101,8 +1114,11 @@ export function checkDogmaAvailability(id) {
 export function currentEraIndex() {
   let index = 0;
   const population = D(state.population);
+  // Early-exit : les seuils sont croissants, donc dès qu'on est sous l'un d'eux
+  // on l'est pour tous les suivants. Indispensable depuis le filet d'ères
+  // procédural (eras.length ~ centaines) appelé à chaque tick.
   for (let i = 0; i < eras.length; i += 1) {
-    if (population.gte(eras[i].at)) index = i;
+    if (population.gte(eras[i].at)) index = i; else break;
   }
   return index;
 }
@@ -1111,9 +1127,14 @@ export function nextEraProgress(index) {
   const current = eras[index];
   const next = eras[index + 1];
   if (!next) return 1;
-  const base = Math.max(1, current.at);
-  const span = Math.log10(next.at) - Math.log10(base);
-  const done = D(state.population).max(base).log10() - Math.log10(base);
+  // Decimal-safe : les seuils d'ères transcendantes (.at) dépassent le domaine
+  // float et sont des Decimal → Math.log10/Math.max les coercent (NaN en prod,
+  // throw en dev). On passe par Decimal.log10(), qui renvoie un number (le log
+  // tient toujours en float), puis on fait l'arithmétique en number.
+  const baseLog = D(current.at).max(1).log10();
+  const span = D(next.at).log10() - baseLog;
+  if (span <= 0) return 1;
+  const done = D(state.population).max(D(current.at).max(1)).log10() - baseLog;
   return Math.max(0, Math.min(1, done / span));
 }
 
@@ -1177,7 +1198,7 @@ export function ruinGain(projected = false) {
   const minGain = Math.max(age >= 120 ? 1 : 0, scaleFloor);
   // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
   // express des ères après un Grand Reset devient une pluie de gains visibles.
-  const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * (state.bestEraIndex || 0);
+  const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * eraTier(state.bestEraIndex || 0);
   const raw = ageDepth * populationDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
