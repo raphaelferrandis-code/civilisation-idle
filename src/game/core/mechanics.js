@@ -514,6 +514,19 @@ function getBuildingSums() {
 // jauge reste sensible aux achats à toutes les échelles. Les constantes nues
 // ci-dessous (0.55, 0.34, 0.22, 2.2, …) sont des poids/plafonds locaux non
 // extraits ; les leviers d'équilibrage sont dans balance.js.
+// Déficit de nourriture instantané (0..1) — entrée brute du foyer Subsistance.
+// Lissé par EMA dans tick.js (state.scarcityRawEase) pour réduire la volatilité.
+export function scarcityRawInstant() {
+  const popF = toNum(state.population);
+  const foodF = toNum(state.food);
+  const population = Math.max(1, popF);
+  if (Number.isFinite(popF) && Number.isFinite(foodF)) {
+    return Math.max(0, (population * 2.4 - foodF) / Math.max(120, population * 2.4));
+  }
+  const popDec = D(state.population).max(1);
+  return Math.max(0, popDec.mul(2.4).sub(state.food).div(popDec.mul(2.4).max(120)).toNumber());
+}
+
 export function pressureBreakdown() {
   // Retourne le cache frame si disponible (invalidé au début de chaque intervalle de tick)
   if (renderCache._framePressure) return renderCache._framePressure;
@@ -593,7 +606,10 @@ export function pressureBreakdown() {
   // sans jamais dépasser le maximum déjà atteignable par l'apaisement (cf.
   // FOYER_REFORM dans balance.js, mesuré par measure-foyers.js).
   const foyerCut = (key) => Math.min(FOYER_RELIEF_CAP, (fr[key] || 0) + (rf[key] || 0) + policyFoyerDamp(key));
-  const scarcity = Math.max(0, Math.min(0.7, scarcityRaw * 0.55)) * (1 - foyerCut("scarcity"));
+  // Subsistance lissée : utilise l'EMA (state.scarcityRawEase) si initialisée,
+  // sinon l'instantané (repli — golden master inchangé tant que l'EMA est null).
+  const scarcityRawUsed = state.scarcityRawEase != null ? state.scarcityRawEase : scarcityRaw;
+  const scarcity = Math.max(0, Math.min(0.7, scarcityRawUsed * 0.55)) * (1 - foyerCut("scarcity"));
   const inequality = softCap(inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008, 0.55) * (1 - foyerCut("inequality"));
   const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity"));
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
@@ -659,8 +675,10 @@ export function cityVitals() {
 //   - float : identique bit-à-bit à l'implémentation pré-Decimal tant que tout
 //     reste fini (cas de 99,9 % des parties — et garantie golden-master) ;
 //   - Decimal : miroir activé dès qu'une valeur déborde ~1.8e308.
-export function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
-  if (renderCache._frameRates) return renderCache._frameRates;
+export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), forceDecimalPath = false) {
+  // forceDecimalPath : séam réservé aux tests de parité — force la branche Decimal
+  // sur un état sous le plafond float, pour vérifier qu'elle égale la branche float.
+  if (!forceDecimalPath && renderCache._frameRates) return renderCache._frameRates;
 
   const _babelExpMult  = babelExponentialMult();
   const _babelAdjMult  = babelAdjacencyMultiplier();
@@ -694,7 +712,7 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown()) {
   const knowF = toNum(state.knowledge);
 
   // ── Chemin float (rapide et exact sous le plafond float) ────────────────
-  if (!sums.overflow) {
+  if (!forceDecimalPath && !sums.overflow) {
     let pop = 0.04;
     let food = popF * 0.012;
     let gold = Math.max(0, popF - 25) * 0.0015;

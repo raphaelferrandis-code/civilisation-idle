@@ -137,6 +137,17 @@ aux libellés corrects, aucune erreur console).
 ---
 
 **Refonte Rupture : TERMINÉE** (Leviers A/B/C + reworks §5.1-5.4 + politiques variées + surfacing).
+
+## ✅ Tuning — lissage du foyer Subsistance (anti-volatilité)
+
+Le foyer scarcity lisait un STOCK instantané (déficit de nourriture) → très volatil (pics brefs
+sans impact, la bille n'a pas le temps de suivre). Ajout d'un **filtre passe-bas (EMA)** sur l'entrée :
+`state.scarcityRawEase` mis à jour dans tick (`SCARCITY_EASE_HALF_LIFE_S` = 8 s, demi-vie effective
+~10 s), lu par `pressureBreakdown` (repli sur l'instantané quand non initialisé → golden inchangé).
+Helper `scarcityRawInstant()`. Effet : les creux brefs sont amortis, un déficit DURABLE monte
+progressivement → la Subsistance compte enfin. Vérifié : `scratch/check-scarcity-ease.js` (7/7),
+71/71 tests, lint OK, navigateur sans erreur. *(Même patron applicable aux autres foyers si besoin.)*
+
 Pistes futures éventuelles : tuning au ressenti (data), pips de rendement sur les boutons, feedback
 diégétique sur la carte.
 

@@ -314,9 +314,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
     <div className="crisis-policies">
       <div className="crisis-policies-head">
         <span className="crisis-regul-title">Politiques permanentes</span>
-        <span className="crisis-regul-hint">
-          {activePolicies.length}/{POLICY_MAX_ACTIVE} actives — ralentissent la montée, coût de production continu
-        </span>
+        <span className="crisis-policies-count">{activePolicies.length}/{POLICY_MAX_ACTIVE}</span>
       </div>
       <div className="crisis-policies-grid">
         {policies.map((p) => <PolicyRow key={p.id} p={p} slotsFull={slotsFull} />)}
@@ -345,7 +343,6 @@ export default function CrisisActionBar({ variant = 'full' }) {
       <div className="crisis-regul" aria-label="Régulation des tensions" ref={regulRef}>
         <div className="crisis-regul-head">
           <span className="crisis-regul-title">Régulation des tensions</span>
-          <span className="crisis-regul-hint">Ouvrez un foyer pour dépenser des ressources et l'apaiser</span>
           {mitigationPct > 0 && (
             <span className="crisis-regul-buffer" title="Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.">
               🛡️ Institutions : −{mitigationPct}% de pression absorbée

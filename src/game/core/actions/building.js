@@ -4,7 +4,7 @@ import {
   state,
   recentBuildingMilestones,
   renderCache,
-  defaultState,
+  buildGrandResetState,
   invalidateRenderCache,
   openView,
   render,
@@ -150,68 +150,11 @@ export async function performGrandReset() {
   setMourning(true);
   await new Promise((resolve) => setTimeout(resolve, 1300));
 
-  const savedMythsCompleted = { ...(state.mythsCompleted || {}) };
-  const savedMythActsAnnounced = { ...(state.mythActsAnnounced || {}) };
-  const savedChaosRuinsDouble = Boolean(state.chaosRuinsDouble);
-  const savedChaosRuinsBonus = state.chaosRuinsBonus || 0;
-  const savedPrometheeBraisiers   = Boolean(state.prometheeBraisiers);
-  const savedAtlasHeritage        = Boolean(state.atlasHeritage);
-  const savedSisypheHeritage      = Boolean(state.sisypheHeritage);
-  const savedIcareHeritage        = Boolean(state.icareHeritage);
-  const savedBabelHeritage        = Boolean(state.babelHeritage);
-  const savedOrHeritage           = Boolean(state.orHeritage);
-  const savedPhoenixHeritage      = Boolean(state.phoenixHeritage);
-  const savedAtridesHeritage      = Boolean(state.atridesHeritage);
-  const savedAutoScriptRules      = state.autoScriptRules ? JSON.parse(JSON.stringify(state.autoScriptRules)) : null;
-  const savedHephHeritage         = Boolean(state.hephHeritage);
-  const savedAutomateRules        = state.automateRules ? JSON.parse(JSON.stringify(state.automateRules)) : null;
-  const savedSurchauffeEndTime    = state.surchauffeEndTime || 0;
-  const savedSurchauffeCooldown   = state.surchauffeCooldownEnd || 0;
-  // La légitimité survit au GR, AMPUTÉE du coût du reset (croissant).
-  const savedLegitimacy = Math.max(0, (state.legitimacy || 0) - legitCost);
-  const savedDynastyCount = state.dynastyCount || 0;
-  const savedDynastyDoctrine = state.dynastyDoctrine || null;
-  const savedCadmosHeritage = Boolean(state.cadmosHeritage);
-  const savedCadmosPermanentEpitaphs = Array.isArray(state.cadmosPermanentEpitaphs)
-    ? JSON.parse(JSON.stringify(state.cadmosPermanentEpitaphs))
-    : [];
-  const savedCadmosLastRunChronicle = Array.isArray(state.cadmosLastRunChronicle)
-    ? JSON.parse(JSON.stringify(state.cadmosLastRunChronicle))
-    : [];
-  const savedAnteeHeritage = Boolean(state.anteeHeritage);
-  const savedRagnarokHeritage = Boolean(state.ragnarokHeritage);
-  const savedFinalChronicleTitle = state.finalChronicleTitle || "";
-  
-  const fresh = defaultState();
-  fresh.grandResetCount = nextCount;
-  fresh.mythsCompleted = savedMythsCompleted;
-  fresh.mythActsAnnounced = savedMythActsAnnounced;
-  fresh.chaosRuinsDouble = savedChaosRuinsDouble;
-  fresh.chaosRuinsBonus = savedChaosRuinsBonus;
-  fresh.prometheeBraisiers    = savedPrometheeBraisiers;
-  fresh.atlasHeritage         = savedAtlasHeritage;
-  fresh.sisypheHeritage       = savedSisypheHeritage;
-  fresh.icareHeritage         = savedIcareHeritage;
-  fresh.babelHeritage         = savedBabelHeritage;
-  fresh.orHeritage            = savedOrHeritage;
-  fresh.phoenixHeritage       = savedPhoenixHeritage;
-  fresh.atridesHeritage       = savedAtridesHeritage;
-  if (savedAutoScriptRules)   fresh.autoScriptRules = savedAutoScriptRules;
-  fresh.hephHeritage          = savedHephHeritage;
-  if (savedAutomateRules)     fresh.automateRules = savedAutomateRules;
-  fresh.surchauffeEndTime     = savedSurchauffeEndTime;
-  fresh.surchauffeCooldownEnd = savedSurchauffeCooldown;
-  fresh.legitimacy = savedLegitimacy;
-  fresh.dynastyCount = savedDynastyCount;
-  fresh.dynastyDoctrine = savedDynastyDoctrine;
-  fresh.cadmosHeritage = savedCadmosHeritage;
-  fresh.cadmosPermanentEpitaphs = savedCadmosPermanentEpitaphs;
-  fresh.cadmosLastRunChronicle = savedCadmosLastRunChronicle;
-  fresh.anteeHeritage = savedAnteeHeritage;
-  fresh.ragnarokHeritage = savedRagnarokHeritage;
-  fresh.finalChronicleTitle = savedFinalChronicleTitle;
-  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${Math.pow(2, nextCount).toFixed(0)} production et Ruines gagnées`}. Les pactes mythiques demeurent.`];
-  
+  // Construit le state frais en préservant les héritages permanents.
+  // SOURCE DE VÉRITÉ des champs conservés : GR_PERSISTENT_FIELDS (state.js).
+  // Tout nouveau déblocage permanent DOIT y être ajouté, sinon il est effacé ici.
+  const fresh = buildGrandResetState(nextCount, legitCost);
+
   setState(fresh);
 
   setGamePaused(false);

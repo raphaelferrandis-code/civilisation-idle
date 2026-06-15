@@ -18,7 +18,8 @@ import {
   enforceInfrastructureCap,
   has,
   policyRiseSlow,
-  policyOvershootDamp
+  policyOvershootDamp,
+  scarcityRawInstant
 } from '../mechanics.js';
 
 import {
@@ -46,7 +47,8 @@ import {
   INSTABILITY_MAX_RISE_PER_SEC,
   AUTO_CRISIS_COOLDOWN_MS,
   FOYER_RELIEF_HALF_LIFE_S,
-  FATIGUE_HALF_LIFE_S
+  FATIGUE_HALF_LIFE_S,
+  SCARCITY_EASE_HALF_LIFE_S
 } from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -145,6 +147,13 @@ export function tick(dt) {
     state.regulFatigue *= Math.pow(0.5, dt / FATIGUE_HALF_LIFE_S);
     if (state.regulFatigue < 1e-4) state.regulFatigue = 0;
   }
+
+  // Lissage du foyer Subsistance (EMA) : amortit les pics de déficit de nourriture
+  // → la barre ne clignote plus, mais un manque DURABLE finit par compter.
+  const scarcityNow = scarcityRawInstant();
+  state.scarcityRawEase = state.scarcityRawEase == null
+    ? scarcityNow
+    : state.scarcityRawEase + (scarcityNow - state.scarcityRawEase) * (1 - Math.pow(0.5, dt / SCARCITY_EASE_HALF_LIFE_S));
 
   const peaks = state.cyclePeaks;
   if (D(state.population).gt(peaks.population)) peaks.population = state.population;

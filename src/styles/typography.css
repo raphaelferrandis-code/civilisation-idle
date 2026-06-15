@@ -68,9 +68,9 @@
     0 -1px 0 rgba(255, 240, 200, 0.14);
 }
 
-/* La navigation parle le langage du monument */
+/* La navigation : police lisible, mais on garde l'espacement de capitale */
 .tab {
-  font-family: var(--font-title);
+  font-family: var(--font-body);
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -152,7 +152,7 @@
 }
 
 .ticker-date {
-  font-family: var(--font-title);
+  font-family: var(--font-body);
   font-weight: 600;
 }
 
@@ -189,9 +189,9 @@
   font-weight: 600;
 }
 
-/* Le bouton d'achat : une inscription votive */
+/* Le bouton d'achat : police lisible, en capitales espacées */
 .btn-purchase .bp-action {
-  font-family: var(--font-title);
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;

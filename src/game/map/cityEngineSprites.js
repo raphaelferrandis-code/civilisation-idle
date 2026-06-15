@@ -1632,42 +1632,67 @@ function drawCityEngineSprite(context) {
     px(0.0, 0.40, 1.0, 0.40, apronCol);
     px(0.0, 0.78, 1.0, 0.03, "rgba(0,0,0,0.28)");   // lèvre humide au bord du quai
 
+    // ── Ombrage volumétrique (lumière en haut-gauche) : face droite à l'ombre,
+    //    liseré haut + arête gauche éclairés. Appliqué au corps ET aux toits. ─────
+    const shadeBox = (bx, by, bw, bh) => {
+      ctx.fillStyle = "rgba(0,0,0,0.20)"; ctx.fillRect(ox + sw * (bx + bw * 0.6), oy + sh * by, sw * bw * 0.4, sh * bh);
+      ctx.fillStyle = "rgba(255,242,210,0.15)";
+      ctx.fillRect(ox + sw * bx, oy + sh * by, sw * bw, Math.max(1, sh * bh * 0.05));   // liseré haut
+      ctx.fillRect(ox + sw * bx, oy + sh * by, Math.max(1, sw * bw * 0.04), sh * bh);   // arête gauche
+    };
+    const shadeRoof = (lx, ly, ax, ay, rx, ry) => {
+      const mx = (lx + rx) / 2, my = (ly + ry) / 2;
+      ctx.fillStyle = "rgba(0,0,0,0.24)";
+      ctx.beginPath(); ctx.moveTo(ox + sw * ax, oy + sh * ay); ctx.lineTo(ox + sw * rx, oy + sh * ry); ctx.lineTo(ox + sw * mx, oy + sh * my); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(255,244,214,0.45)"; ctx.lineWidth = Math.max(1, sw * 0.009);
+      ctx.beginPath(); ctx.moveTo(ox + sw * lx, oy + sh * ly); ctx.lineTo(ox + sw * ax, oy + sh * ay); ctx.stroke();
+    };
+
     // ── Corps du bâtiment (s'étire sur la terre, partie nord) ───────────────────
     if (stage === 0) {
       // Abri de roseaux / hutte à toit de chaume + foyer rougeoyant la nuit
       px(0.06, 0.18, 0.30, 0.26, "#8a7030");
+      shadeBox(0.06, 0.18, 0.30, 0.26);
       ctx.fillStyle = "#6a5018";
       ctx.beginPath(); ctx.moveTo(ox + sw * 0.03, oy + sh * 0.20); ctx.lineTo(ox + sw * 0.21, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.39, oy + sh * 0.20); ctx.closePath(); ctx.fill();
+      shadeRoof(0.03, 0.20, 0.21, 0.04, 0.39, 0.20);
       px(0.16, 0.28, 0.09, 0.16, "#2a1a0c");
       ctx.fillStyle = `rgba(220,120,40,${(0.25 + nF * 0.6).toFixed(2)})`;
       ctx.fillRect(ox + sw * 0.18, oy + sh * 0.32, sw * 0.05, sh * 0.10);
     } else if (stage === 1) {
       // Entrepôt à pignon + fenêtre en arc éclairée
       px(0.05, 0.14, 0.34, 0.30, "#7a5828");
+      shadeBox(0.05, 0.14, 0.34, 0.30);
       ctx.fillStyle = "#5a3e18";
       ctx.beginPath(); ctx.moveTo(ox + sw * 0.03, oy + sh * 0.16); ctx.lineTo(ox + sw * 0.22, oy + sh * 0.02); ctx.lineTo(ox + sw * 0.41, oy + sh * 0.16); ctx.closePath(); ctx.fill();
+      shadeRoof(0.03, 0.16, 0.22, 0.02, 0.41, 0.16);
       px(0.16, 0.22, 0.10, 0.12, "#2a1a0c");
       ctx.fillStyle = litWarm; ctx.beginPath(); ctx.arc(ox + sw * 0.21, oy + sh * 0.22, sw * 0.05, Math.PI, 0); ctx.fill();
     } else if (stage === 2) {
       // Entrepôt de briques + charpente fer, cheminée fumante, fenêtres éclairées
       px(0.05, 0.10, 0.36, 0.34, "#8a7060");
+      shadeBox(0.05, 0.10, 0.36, 0.34);
       ctx.fillStyle = "#2a2622";
       ctx.fillRect(ox + sw * 0.05, oy + sh * 0.10, sw * 0.016, sh * 0.34);
       ctx.fillRect(ox + sw * 0.394, oy + sh * 0.10, sw * 0.016, sh * 0.34);
       ctx.fillStyle = "#6a5848";
       ctx.beginPath(); ctx.moveTo(ox + sw * 0.03, oy + sh * 0.12); ctx.lineTo(ox + sw * 0.23, oy + sh * 0.00); ctx.lineTo(ox + sw * 0.43, oy + sh * 0.12); ctx.closePath(); ctx.fill();
+      shadeRoof(0.03, 0.12, 0.23, 0.00, 0.43, 0.12);
       for (let i = 0; i < 2 + (tier >= 2 ? 1 : 0); i += 1) {
         ctx.fillStyle = "#2a1a10"; ctx.fillRect(ox + sw * (0.08 + i * 0.11), oy + sh * 0.24, sw * 0.08, sh * 0.10);
         ctx.fillStyle = litWarm; ctx.beginPath(); ctx.arc(ox + sw * (0.12 + i * 0.11), oy + sh * 0.24, sw * 0.04, Math.PI, 0); ctx.fill();
       }
       px(0.30, 0.04, 0.06, 0.20, "#4a3a2a");
+      ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(ox + sw * 0.336, oy + sh * 0.04, sw * 0.024, sh * 0.20); // ombre cheminée
       const smk = (now / 700) % 1;
       ctx.fillStyle = `rgba(120,110,100,${((1 - smk) * 0.35).toFixed(2)})`;
       ctx.beginPath(); ctx.arc(ox + sw * 0.33, oy + sh * (0.04 - smk * 0.04 + 0.0), sw * (0.04 + smk * 0.06), 0, Math.PI * 2); ctx.fill();
     } else {
       // Terminal métal / verre + baies vitrées cyan pulsées
       px(0.05, 0.08, 0.38, 0.36, "#2e3c50");
-      px(0.03, 0.04, 0.42, 0.05, "#1e2c40");
+      shadeBox(0.05, 0.08, 0.38, 0.36);
+      px(0.03, 0.04, 0.42, 0.05, "#1e2c40");                                           // acrotère (toit plat)
+      ctx.fillStyle = "rgba(255,250,230,0.12)"; ctx.fillRect(ox + sw * 0.03, oy + sh * 0.04, sw * 0.42, Math.max(1, sh * 0.012)); // liseré d'acrotère
       const pulse = 0.5 + 0.3 * Math.sin(now / 500);
       ctx.fillStyle = `rgba(80,180,255,${(0.30 + nF * 0.4 + pulse * 0.15).toFixed(2)})`;
       for (let i = 0; i < 3; i += 1) ctx.fillRect(ox + sw * (0.09 + i * 0.11), oy + sh * 0.16, sw * 0.075, sh * 0.10);
@@ -1901,7 +1926,72 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "mint_houses") {
-    // ── HÔTEL DES MONNAIES — coffres, pièces, balances ───────────────
+    // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
+    // 10 âges : atelier de frappe à la masse → hôtel des monnaies classique →
+    // manufacture à vapeur (balancier) → frappe numérique automatisée.
+    // tier reste la richesse intra-stade (piles de pièces / cadence / lueur).
+    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (stage === 0) {
+      // ── STADE 0 · ATELIER DE FRAPPE — four à creuset, enclume, coin gravé ──
+      // L'or se monnaie déjà mais à la main : on fond le flan au creuset puis on
+      // le frappe entre deux coins à coups de masse. Pierre brute + braises.
+      px(0.0, 0.66, 1.0, 0.34, "#241a10");                   // sol de terre battue
+      // Appentis ouvert : poteaux de bois + auvent de chaume abritant l'atelier
+      ctx.fillStyle = "#5a3c18";
+      ctx.fillRect(ox+sw*0.1, oy+sh*0.32, sw*0.045, sh*0.36);
+      ctx.fillRect(ox+sw*0.855, oy+sh*0.32, sw*0.045, sh*0.36);
+      ctx.fillStyle = "#7a5a24";
+      ctx.beginPath(); ctx.moveTo(ox+sw*0.05, oy+sh*0.34); ctx.lineTo(ox+sw*0.5, oy+sh*0.16); ctx.lineTo(ox+sw*0.95, oy+sh*0.34); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,235,170,0.16)";              // versant éclairé
+      ctx.beginPath(); ctx.moveTo(ox+sw*0.05, oy+sh*0.34); ctx.lineTo(ox+sw*0.5, oy+sh*0.16); ctx.lineTo(ox+sw*0.5, oy+sh*0.34); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(40,26,10,0.5)"; ctx.lineWidth = Math.max(0.5, sw*0.012); // chevrons de chaume
+      for (let s=1;s<5;s++){const t=s/5; ctx.beginPath(); ctx.moveTo(ox+sw*(0.05+(0.5-0.05)*t), oy+sh*(0.34-(0.34-0.16)*t)); ctx.lineTo(ox+sw*(0.95-(0.95-0.5)*t), oy+sh*(0.34-(0.34-0.16)*t)); ctx.stroke();}
+      // Four à creuset (gauche) — maçonnerie + gueule de braises qui respirent
+      px(0.15, 0.48, 0.2, 0.26, "#46301e");
+      px(0.15, 0.48, 0.055, 0.26, "rgba(255,255,255,0.07)"); // arête éclairée
+      strokeRect(0.15, 0.48, 0.2, 0.26, "rgba(20,12,6,0.6)");
+      const glow = 0.5 + 0.5*Math.sin(now/320);
+      ctx.fillStyle = `rgba(${(215+glow*40)|0},${(85+glow*75)|0},22,0.95)`;
+      ctx.beginPath(); ctx.arc(ox+sw*0.25, oy+sh*0.64, sw*0.052, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(255,232,150,${(0.45+glow*0.4).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(ox+sw*0.25, oy+sh*0.64, sw*0.026, 0, Math.PI*2); ctx.fill();
+      // Volute de fumée au-dessus du four
+      ctx.fillStyle = "rgba(70,58,46,0.28)";
+      for (let s=0;s<3;s++){const sy=0.46-s*0.08-((now/950)%0.08); ctx.beginPath(); ctx.arc(ox+sw*(0.25+Math.sin(now/520+s)*0.025), oy+sh*sy, sw*(0.018+s*0.01), 0, Math.PI*2); ctx.fill();}
+      // Enclume de pierre + flan posé dessus (centre-droit)
+      const avx = 0.6, avy = 0.7;
+      ctx.fillStyle = "#5a5a64"; ctx.fillRect(ox+sw*(avx-0.02), oy+sh*avy, sw*0.04, sh*0.1);      // pied
+      ctx.fillStyle = "#7a7a86"; ctx.fillRect(ox+sw*(avx-0.07), oy+sh*(avy-0.04), sw*0.14, sh*0.05); // table
+      ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(ox+sw*(avx+0.01), oy+sh*(avy-0.04), sw*0.06, sh*0.05);
+      ctx.fillStyle = "#e8c040"; ctx.beginPath(); ctx.ellipse(ox+sw*avx, oy+sh*(avy-0.045), sw*0.022, sh*0.01, 0, 0, Math.PI*2); ctx.fill(); // flan doré
+      // Monnayeur à la masse (frappe périodique sur l'enclume)
+      const strike = Math.max(0, Math.sin(now / 460));
+      const wx = avx + 0.13, wy = 0.74;
+      ctx.fillStyle = "#4a3014"; ctx.fillRect(ox+sw*(wx-0.025), oy+sh*(wy-0.05), sw*0.05, sh*0.1);
+      ctx.fillStyle = "#c48c50"; ctx.beginPath(); ctx.arc(ox+sw*wx, oy+sh*(wy-0.075), sw*0.026, 0, Math.PI*2); ctx.fill();
+      const ha = -2.1 + strike * 1.1;                        // bras lève (haut) puis abat vers l'enclume
+      const hx3 = wx - 0.02 + Math.cos(ha)*0.09, hy3 = wy - 0.04 + Math.sin(ha)*0.09;
+      ctx.strokeStyle = "#4a3014"; ctx.lineWidth = Math.max(1, sw*0.024); ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ox+sw*(wx-0.02), oy+sh*(wy-0.04)); ctx.lineTo(ox+sw*hx3, oy+sh*hy3); ctx.stroke();
+      ctx.lineCap = "butt";
+      ctx.fillStyle = "#6a4a22"; ctx.fillRect(ox+sw*(hx3-0.022), oy+sh*(hy3-0.018), sw*0.044, sh*0.03); // masse (maillet bois)
+      // Étincelle d'impact (masse au plus bas, sur le flan)
+      if (strike < 0.12) {
+        ctx.fillStyle = "rgba(255,236,150,0.9)";
+        for (const [ex,ey] of [[avx-0.02,avy-0.06],[avx+0.02,avy-0.07],[avx,avy-0.09]]) { ctx.beginPath(); ctx.arc(ox+sw*ex, oy+sh*ey, Math.max(0.8, sw*0.012), 0, Math.PI*2); ctx.fill(); }
+      }
+      // Pièces frappées rangées au sol (croît avec le tier)
+      for (let k = 0; k < 2 + tier && k < 4; k++) {
+        const pileX = 0.2 + k * 0.085, nCoins = 2 + ((k * 7) % 3);
+        for (let c = 0; c < nCoins; c++) {
+          ctx.fillStyle = c === nCoins - 1 ? "#e8c040" : "#c89828";
+          ctx.beginPath(); ctx.ellipse(ox+sw*pileX, oy+sh*(0.84 - c*0.02), sw*0.026, sh*0.01, 0, 0, Math.PI*2); ctx.fill();
+        }
+      }
+      return true;
+    }
+    if (stage === 1) {
+    // ── STADE 1 · HÔTEL DES MONNAIES — coffre, balance, monnayeur au marteau ──
     // Bâtiment sécurisé (murs épais, pierre)
     ctx.fillStyle = "#a89060"; ctx.fillRect(ox+sw*0.14, oy+sh*0.24, sw*0.72, sh*0.6);
     ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(ox+sw*0.7, oy+sh*0.24, sw*0.16, sh*0.6);
@@ -1971,63 +2061,430 @@ function drawCityEngineSprite(context) {
     ctx.beginPath(); ctx.arc(ox+sw*0.38, oy+sh*0.19, sw*0.04, 0, Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(ox+sw*0.62, oy+sh*0.19, sw*0.04, 0, Math.PI); ctx.stroke();
     return true;
+    }
+    if (stage === 2) {
+      // ── STADE 2 · MANUFACTURE À VAPEUR — brique, cheminée, balancier mécanisé ──
+      // La frappe s'industrialise : un balancier monétaire entraîné par volant
+      // d'inertie bat la monnaie en cadence, la vapeur fume, les pièces défilent.
+      px(0.0, 0.7, 1.0, 0.3, "#1c1812");                     // sol d'atelier
+      // Corps de brique
+      px(0.12, 0.3, 0.76, 0.46, "#7a3c2a");
+      px(0.7, 0.3, 0.18, 0.46, "rgba(0,0,0,0.18)");          // ombre côté droit
+      // Assises de brique
+      ctx.strokeStyle = "rgba(40,18,12,0.4)"; ctx.lineWidth = Math.max(0.5, sw*0.01);
+      for (let r=1;r<7;r++){ ctx.beginPath(); ctx.moveTo(ox+sw*0.12, oy+sh*(0.3+r*0.065)); ctx.lineTo(ox+sw*0.88, oy+sh*(0.3+r*0.065)); ctx.stroke(); }
+      // Toit à shed dentelé (verrières d'usine)
+      ctx.fillStyle = "#4a4a52";
+      for (let k=0;k<3;k++){const rx=0.14+k*0.25; ctx.beginPath(); ctx.moveTo(ox+sw*rx, oy+sh*0.3); ctx.lineTo(ox+sw*(rx+0.12), oy+sh*0.22); ctx.lineTo(ox+sw*(rx+0.24), oy+sh*0.3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = litWarm; ctx.fillRect(ox+sw*(rx+0.005), oy+sh*0.245, sw*0.1, sh*0.05); ctx.fillStyle = "#4a4a52"; }
+      // Cheminée + fumée
+      px(0.74, 0.1, 0.08, 0.22, "#5a2c1e");
+      px(0.74, 0.08, 0.08, 0.03, "#3a1c12");
+      ctx.fillStyle = "rgba(80,72,64,0.32)";
+      for (let s=0;s<4;s++){const sy=0.1-s*0.06-((now/780)%0.06); if(sy<0.02) continue; ctx.beginPath(); ctx.arc(ox+sw*(0.78+Math.sin(now/600+s)*0.03), oy+sh*sy, sw*(0.02+s*0.012), 0, Math.PI*2); ctx.fill();}
+      // Fenêtres d'atelier éclairées (gaz)
+      ctx.fillStyle = litWarm;
+      for (let wi=0; wi<3; wi++) ctx.fillRect(ox+sw*(0.18+wi*0.2), oy+sh*0.5, sw*0.1, sh*0.12);
+      ctx.strokeStyle = "rgba(40,18,12,0.5)"; ctx.lineWidth = Math.max(0.5, sw*0.012);
+      for (let wi=0; wi<3; wi++) ctx.strokeRect(ox+sw*(0.18+wi*0.2), oy+sh*0.5, sw*0.1, sh*0.12);
+      // Balancier monétaire au premier plan : socle + volant d'inertie tournant
+      const fwx = 0.32, fwy = 0.72, fr = 0.09;
+      ctx.fillStyle = "#3a3a44"; ctx.fillRect(ox+sw*(fwx-0.02), oy+sh*0.78, sw*0.04, sh*0.16); // bâti
+      ctx.fillStyle = "#2c2c34"; ctx.beginPath(); ctx.arc(ox+sw*fwx, oy+sh*fwy, sw*fr, 0, Math.PI*2); ctx.fill(); // volant
+      ctx.strokeStyle = "#6a6a76"; ctx.lineWidth = Math.max(1, sw*0.02);
+      ctx.beginPath(); ctx.arc(ox+sw*fwx, oy+sh*fwy, sw*fr, 0, Math.PI*2); ctx.stroke();
+      const fa = (now/240) % (Math.PI*2);                    // rayons qui tournent
+      ctx.strokeStyle = "#52525c"; ctx.lineWidth = Math.max(0.8, sw*0.014);
+      for (let r=0;r<4;r++){const a=fa+r*Math.PI/4; ctx.beginPath(); ctx.moveTo(ox+sw*(fwx-Math.cos(a)*fr*0.9), oy+sh*(fwy-Math.sin(a)*fr*0.9)); ctx.lineTo(ox+sw*(fwx+Math.cos(a)*fr*0.9), oy+sh*(fwy+Math.sin(a)*fr*0.9)); ctx.stroke();}
+      ctx.fillStyle = "#8a8a92"; ctx.beginPath(); ctx.arc(ox+sw*fwx, oy+sh*fwy, sw*0.018, 0, Math.PI*2); ctx.fill(); // moyeu
+      // Bielle + coulisseau de frappe (monte/descend en cadence avec le volant)
+      const press = (Math.sin(now/240) * 0.5 + 0.5);         // 0 haut → 1 bas
+      const pcx = fwx + 0.22;
+      ctx.fillStyle = "#3a3a44"; ctx.fillRect(ox+sw*(pcx-0.05), oy+sh*0.4, sw*0.1, sh*0.46); // colonnes du balancier
+      ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(ox+sw*(pcx+0.02), oy+sh*0.4, sw*0.03, sh*0.46);
+      ctx.strokeStyle = "#6a6a76"; ctx.lineWidth = Math.max(1, sw*0.018);
+      ctx.beginPath(); ctx.moveTo(ox+sw*(fwx+fr*0.6), oy+sh*fwy); ctx.lineTo(ox+sw*pcx, oy+sh*(0.5+press*0.12)); ctx.stroke(); // bielle
+      ctx.fillStyle = "#7a7a86"; ctx.fillRect(ox+sw*(pcx-0.045), oy+sh*(0.5+press*0.12), sw*0.09, sh*0.05); // coulisseau (matrice)
+      // Enclume basse + flan frappé + étincelle au point bas
+      ctx.fillStyle = "#52525c"; ctx.fillRect(ox+sw*(pcx-0.05), oy+sh*0.66, sw*0.1, sh*0.05);
+      ctx.fillStyle = "#e8c040"; ctx.beginPath(); ctx.ellipse(ox+sw*pcx, oy+sh*0.655, sw*0.02, sh*0.009, 0, 0, Math.PI*2); ctx.fill();
+      if (press > 0.92) { ctx.fillStyle = "rgba(255,236,150,0.9)"; for (const dx of [-0.03,0.03,0]) { ctx.beginPath(); ctx.arc(ox+sw*(pcx+dx), oy+sh*(0.65-Math.abs(dx)), Math.max(0.8,sw*0.012), 0, Math.PI*2); ctx.fill(); } }
+      // Pièces fraîchement frappées en tas (croît avec le tier)
+      for (let k = 0; k < 2 + tier && k < 4; k++) {
+        const pileX = pcx + 0.12 + k*0.06, nCoins = 2 + ((k*7)%3);
+        if (pileX > 0.95) break;
+        for (let c=0;c<nCoins;c++){ ctx.fillStyle = c===nCoins-1?"#e8c040":"#c89828"; ctx.beginPath(); ctx.ellipse(ox+sw*pileX, oy+sh*(0.86-c*0.018), sw*0.024, sh*0.009, 0, 0, Math.PI*2); ctx.fill(); }
+      }
+      return true;
+    }
+    // ── STADE 3 · FRAPPE NUMÉRIQUE — monolithe néon, hologramme, presse robot ──
+    // La monnaie devient signal : un bras automatisé estampe des jetons qui
+    // glissent sous un hologramme de devise. Lueur cyan/or pilotée par la nuit.
+    const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+    px(0.0, 0.66, 1.0, 0.34, "#0c1016");                     // dalle sombre
+    px(0.0, 0.84, 1.0, 0.16, "#080b10");
+    // Monolithe (bloc sombre à façade lisse + liseré néon)
+    px(0.14, 0.2, 0.72, 0.56, "#161c24");
+    px(0.7, 0.2, 0.16, 0.56, "rgba(0,0,0,0.3)");
+    ctx.fillStyle = "#2f8fa0"; ctx.fillRect(ox+sw*0.14, oy+sh*0.2, sw*0.72, Math.max(1, sh*0.006)); // liseré haut
+    ctx.fillRect(ox+sw*0.14, oy+sh*0.755, sw*0.72, Math.max(1, sh*0.006));                          // liseré bas
+    if (nF > 0.02) {                                         // halos néon (nuit)
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(90,220,230,${(nF*0.25).toFixed(2)})`;
+      ctx.fillRect(ox+sw*0.14, oy+sh*0.19, sw*0.72, sh*0.02);
+      ctx.restore();
+    }
+    // Bandes de données lumineuses (fenêtres-écrans), densité selon tier
+    for (let r=0; r<2+Math.min(2,tier); r++){
+      const ry = 0.3 + r*0.1;
+      ctx.fillStyle = "#123038"; ctx.fillRect(ox+sw*0.2, oy+sh*ry, sw*0.4, sh*0.05);
+      ctx.fillStyle = `rgba(120,240,220,${(0.4+nF*0.5).toFixed(2)})`;
+      for (let c=0;c<5;c++){ if (((now/300|0)+r*2+c)%3) ctx.fillRect(ox+sw*(0.22+c*0.075), oy+sh*(ry+0.012), sw*0.04, sh*0.026); }
+    }
+    // Hologramme de devise au-dessus du toit : pièce filaire qui tourne (largeur sinusoïdale)
+    const hw = Math.abs(Math.cos(now/700));
+    const hcx = 0.5, hcy = 0.13;
+    ctx.save(); if (nF > 0.02) ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `rgba(130,245,225,${(0.5+nF*0.45).toFixed(2)})`; ctx.lineWidth = Math.max(1, sw*0.02);
+    ctx.beginPath(); ctx.ellipse(ox+sw*hcx, oy+sh*hcy, sw*(0.012+0.05*hw), sh*0.06, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = `rgba(180,250,235,${(0.35+nF*0.4).toFixed(2)})`; ctx.font = `${Math.max(6,sw*0.09)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (hw > 0.4) ctx.fillText("¤", ox+sw*hcx, oy+sh*hcy);   // glyphe devise quand la pièce est de face
+    ctx.restore();
+    // Faisceau projecteur reliant le toit à l'hologramme
+    if (nF > 0.02) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(90,220,230,${(nF*0.2).toFixed(2)})`;
+      ctx.beginPath(); ctx.moveTo(ox+sw*(hcx-0.02), oy+sh*0.2); ctx.lineTo(ox+sw*(hcx-0.05), oy+sh*(hcy+0.05)); ctx.lineTo(ox+sw*(hcx+0.05), oy+sh*(hcy+0.05)); ctx.lineTo(ox+sw*(hcx+0.02), oy+sh*0.2); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    // Convoyeur de jetons (premier plan) + bras presse automatisé
+    px(0.18, 0.8, 0.64, 0.035, "#1a222a");
+    ctx.fillStyle = "#2f8fa0"; ctx.fillRect(ox+sw*0.18, oy+sh*0.8, sw*0.64, Math.max(1, sh*0.004));
+    const beltT = (now/900) % 0.16;                          // jetons qui défilent
+    for (let j=0;j<5;j++){const jx=0.22+j*0.14+beltT; if(jx>0.82) continue;
+      ctx.fillStyle = "#d6b840"; ctx.beginPath(); ctx.ellipse(ox+sw*jx, oy+sh*0.793, sw*0.022, sh*0.009, 0, 0, Math.PI*2); ctx.fill();
+      if (nF>0.02){ ctx.save(); ctx.globalCompositeOperation="lighter"; ctx.fillStyle=`rgba(255,220,120,${(nF*0.4).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox+sw*jx, oy+sh*0.793, sw*0.018, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+    }
+    // Bras robotisé qui estampe en cadence sur le convoyeur (gauche)
+    const stamp = (Math.sin(now/360)*0.5+0.5);               // 0 haut → 1 bas
+    const rax = 0.3, rtop = 0.62, rbot = 0.76;
+    px(rax-0.04, 0.56, 0.08, 0.06, "#283038");               // tête de portique
+    ctx.strokeStyle = "#3a4a54"; ctx.lineWidth = Math.max(1.5, sw*0.024); ctx.lineCap = "round";
+    const ray = rtop + (rbot-rtop)*stamp;
+    ctx.beginPath(); ctx.moveTo(ox+sw*rax, oy+sh*0.62); ctx.lineTo(ox+sw*rax, oy+sh*ray); ctx.stroke();
+    ctx.lineCap = "butt";
+    ctx.fillStyle = "#52525c"; ctx.fillRect(ox+sw*(rax-0.03), oy+sh*ray, sw*0.06, sh*0.025); // matrice
+    if (stamp > 0.9 && nF > 0.02) { ctx.save(); ctx.globalCompositeOperation="lighter"; ctx.fillStyle=`rgba(130,245,225,${(0.6).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox+sw*rax, oy+sh*(ray+0.02), Math.max(1,sw*0.02), 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+    return true;
   }
   if (id === "imperial_exchanges") {
-    // ── GRANDE BANQUE NÉOCLASSIQUE (style Banque de France / FMI) ────
-    // Escalier monumental
-    const nSteps = 4;
-    for (let si = nSteps; si >= 0; si--) {
-      const sw2 = 0.1 + (si/nSteps)*0.8, sh2 = 0.04;
-      ctx.fillStyle = si%2===0 ? "#d8d0b0" : "#e8e0c0";
-      ctx.fillRect(ox+sw*(0.5-sw2/2), oy+sh*(0.76-si*sh2), sw*sw2, sh*(sh2+0.005));
+    // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
+    // 10 âges : comptoir de change à ciel ouvert → banco Renaissance →
+    // grande banque néoclassique → bourse de verre & néon.
+    // tier reste la richesse intra-stade (piles d'or / vitres / écrans).
+    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (stage === 0) {
+      // ── STADE 0 · COMPTOIR DE CHANGE — table de changeur, trébuchet, abaque ──
+      // Avant la banque, le trapézite : sous un auvent, on pèse l'or au fléau et
+      // on compte sur les lignes gravées de la table. Le change précède le crédit.
+      px(0.0, 0.68, 1.0, 0.32, "#241a0c");                  // terre battue
+      // Auvent sur deux poteaux (toile rouge passée)
+      ctx.fillStyle = "#5a3c18";
+      ctx.fillRect(ox+sw*0.12, oy+sh*0.3, sw*0.04, sh*0.4);
+      ctx.fillRect(ox+sw*0.84, oy+sh*0.3, sw*0.04, sh*0.4);
+      ctx.fillStyle = "#9a3a2a";
+      ctx.beginPath(); ctx.moveTo(ox+sw*0.08, oy+sh*0.32); ctx.lineTo(ox+sw*0.92, oy+sh*0.32); ctx.lineTo(ox+sw*0.88, oy+sh*0.4); ctx.lineTo(ox+sw*0.12, oy+sh*0.4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,235,200,0.14)";             // arête éclairée de la toile
+      ctx.fillRect(ox+sw*0.12, oy+sh*0.32, sw*0.8, sh*0.022);
+      ctx.fillStyle = "#7a2c20";                            // festons (bord ondulé)
+      for (let k=0;k<8;k++){ ctx.beginPath(); ctx.arc(ox+sw*(0.17+k*0.095), oy+sh*0.4, sw*0.024, 0, Math.PI); ctx.fill(); }
+      // Table de change : plateau sur tréteaux
+      const tbx=0.2, tbw=0.6, tby=0.6;
+      px(tbx, tby, tbw, 0.05, "#6a4a24");
+      px(tbx, tby, tbw, 0.013, "rgba(255,235,190,0.25)");   // arête éclairée
+      ctx.fillStyle = "#4a3216";
+      ctx.fillRect(ox+sw*(tbx+0.04), oy+sh*(tby+0.05), sw*0.03, sh*0.16);
+      ctx.fillRect(ox+sw*(tbx+tbw-0.07), oy+sh*(tby+0.05), sw*0.03, sh*0.16);
+      // Lignes de comptage gravées sur le plateau (abaque romain)
+      ctx.strokeStyle = "rgba(30,18,8,0.5)"; ctx.lineWidth=Math.max(0.5,sw*0.01);
+      for (let l=1;l<5;l++){ ctx.beginPath(); ctx.moveTo(ox+sw*(tbx+0.05+l*0.05), oy+sh*tby); ctx.lineTo(ox+sw*(tbx+0.05+l*0.05), oy+sh*(tby+0.05)); ctx.stroke(); }
+      // Piles de pièces sur la table (croît avec le tier)
+      for (let k=0;k<2+tier && k<4;k++){
+        const pileX = tbx+0.42+k*0.05, nC = 2+((k*5)%3);
+        for (let c=0;c<nC;c++){ ctx.fillStyle = c===nC-1?"#e8c040":"#c89828"; ctx.beginPath(); ctx.ellipse(ox+sw*pileX, oy+sh*(tby-0.005-c*0.016), sw*0.02, sh*0.008, 0,0,Math.PI*2); ctx.fill(); }
+      }
+      // Trébuchet (balance à fléau) — les plateaux oscillent doucement
+      const balx=tbx+0.15, baly=0.6, tilt=Math.sin(now/700)*0.05;
+      ctx.strokeStyle="#7a6a3a"; ctx.lineWidth=Math.max(1,sw*0.016); ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(ox+sw*balx, oy+sh*baly); ctx.lineTo(ox+sw*balx, oy+sh*(baly-0.16)); ctx.stroke(); // mât
+      const bx0=balx-0.08, bx1=balx+0.08, by0=baly-0.15;
+      ctx.beginPath(); ctx.moveTo(ox+sw*bx0, oy+sh*(by0+tilt)); ctx.lineTo(ox+sw*bx1, oy+sh*(by0-tilt)); ctx.stroke(); // fléau
+      for (const [pxa,dy] of [[bx0,tilt],[bx1,-tilt]]){
+        ctx.beginPath(); ctx.moveTo(ox+sw*pxa, oy+sh*(by0+dy)); ctx.lineTo(ox+sw*pxa, oy+sh*(by0+dy+0.05)); ctx.stroke();
+        ctx.fillStyle="#9a8440"; ctx.beginPath(); ctx.ellipse(ox+sw*pxa, oy+sh*(by0+dy+0.06), sw*0.028, sh*0.011, 0,0,Math.PI*2); ctx.fill();
+      }
+      ctx.lineCap="butt";
+      // Changeur assis derrière la table, bras qui pose une pièce
+      const mx=0.7, my=0.6, reach=Math.sin(now/520)*0.02;
+      ctx.fillStyle="#3a2c5a"; ctx.fillRect(ox+sw*(mx-0.04), oy+sh*(my-0.13), sw*0.08, sh*0.15); // robe
+      ctx.fillStyle="#c49060"; ctx.beginPath(); ctx.arc(ox+sw*mx, oy+sh*(my-0.17), sw*0.03, 0, Math.PI*2); ctx.fill(); // tête
+      ctx.strokeStyle="#3a2c5a"; ctx.lineWidth=Math.max(1,sw*0.022); ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(ox+sw*(mx-0.03), oy+sh*(my-0.09)); ctx.lineTo(ox+sw*(mx-0.13+reach), oy+sh*(my-0.04)); ctx.stroke();
+      ctx.lineCap="butt";
+      ctx.fillStyle="#c49060"; ctx.beginPath(); ctx.arc(ox+sw*(mx-0.13+reach), oy+sh*(my-0.04), sw*0.018, 0, Math.PI*2); ctx.fill();
+      // Cassette ferrée posée au sol (le coffre du changeur), couvercle + serrure
+      const cbx=0.13, cby=0.8;
+      ctx.fillStyle="rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox+sw*(cbx+0.06), oy+sh*(cby+0.085), sw*0.07, sh*0.016, 0,0,Math.PI*2); ctx.fill();
+      px(cbx, cby+0.02, 0.12, 0.065, "#3e2c14");            // caisse
+      px(cbx, cby+0.02, 0.016, 0.065, "#5a4220");           // arête éclairée gauche
+      px(cbx+0.09, cby+0.02, 0.03, 0.065, "rgba(0,0,0,0.28)"); // ombre droite
+      px(cbx, cby+0.006, 0.12, 0.02, "#503a1c");            // couvercle
+      px(cbx, cby+0.006, 0.12, 0.006, "rgba(255,236,190,0.22)"); // reflet du couvercle
+      ctx.fillStyle="#7a6a44"; px(cbx+0.034, cby+0.01, 0.012, 0.075, "#7a6a44"); px(cbx+0.072, cby+0.01, 0.012, 0.075, "#7a6a44"); // ferrures
+      ctx.fillStyle="#1c140a"; ctx.fillRect(ox+sw*(cbx+0.05), oy+sh*(cby+0.04), sw*0.022, sh*0.022); // serrure
+      ctx.fillStyle="#d4a828"; ctx.beginPath(); ctx.arc(ox+sw*(cbx+0.061), oy+sh*(cby+0.05), sw*0.008, 0, Math.PI*2); ctx.fill();
+      return true;
     }
-    const podY = 0.6;
-    // Corps principal (marbre / pierre de taille)
-    ctx.fillStyle = "#d4c898"; ctx.fillRect(ox+sw*0.06, oy+sh*podY, sw*0.88, sh*0.28);
-    ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(ox+sw*0.78, oy+sh*podY, sw*0.16, sh*0.28);
-    // Colonnes (proportionnelles au tier)
-    const nCols = 6 + Math.min(4, tier * 2);
-    ctx.fillStyle = "#e8e0c0";
+    if (stage === 1) {
+      // ── STADE 1 · BANCO RENAISSANCE — palais marchand, banc drapé, grand livre ──
+      // « Banco » : le banc drapé de vert où le changeur florentin tient ses
+      // comptes. Loggia à arcades, registre et plume, coffre cerclé de fer.
+      px(0.0, 0.74, 1.0, 0.26, "#241c12");                  // dallage
+      // Corps du palais (pierre ocre)
+      px(0.1, 0.22, 0.8, 0.56, "#b89c66");
+      px(0.72, 0.22, 0.18, 0.56, "rgba(0,0,0,0.16)");       // ombre droite
+      ctx.strokeStyle="rgba(60,42,20,0.35)"; ctx.lineWidth=Math.max(0.5,sw*0.01);
+      for (let r=1;r<5;r++){ ctx.beginPath(); ctx.moveTo(ox+sw*0.1, oy+sh*(0.22+r*0.11)); ctx.lineTo(ox+sw*0.9, oy+sh*(0.22+r*0.11)); ctx.stroke(); }
+      // Corniche de toit débordante
+      ctx.fillStyle="#7a4424"; ctx.fillRect(ox+sw*0.06, oy+sh*0.18, sw*0.88, sh*0.06);
+      ctx.fillStyle="rgba(0,0,0,0.18)"; ctx.fillRect(ox+sw*0.06, oy+sh*0.225, sw*0.88, sh*0.014);
+      // Loggia : trois arcades en plein cintre, embrasure creusée + vitre chaude
+      for (let a=0;a<3;a++){
+        const axc=0.27+a*0.23;
+        ctx.fillStyle="#2c2012";                            // fond d'ombre profond
+        ctx.fillRect(ox+sw*(axc-0.07), oy+sh*0.42, sw*0.14, sh*0.3);
+        ctx.beginPath(); ctx.arc(ox+sw*axc, oy+sh*0.42, sw*0.07, Math.PI, 0); ctx.fill();
+        ctx.fillStyle=litWarm;                              // lueur de bougie au fond
+        ctx.fillRect(ox+sw*(axc-0.048), oy+sh*0.47, sw*0.096, sh*0.23);
+        ctx.beginPath(); ctx.arc(ox+sw*axc, oy+sh*0.47, sw*0.048, Math.PI, 0); ctx.fill();
+        ctx.fillStyle="rgba(20,12,6,0.55)";                 // meneau central de l'arcade
+        ctx.fillRect(ox+sw*(axc-0.006), oy+sh*0.47, sw*0.012, sh*0.23);
+        // Voussoirs + claveau (clef) éclairés
+        ctx.strokeStyle="#cdb074"; ctx.lineWidth=Math.max(0.8,sw*0.012);
+        ctx.beginPath(); ctx.arc(ox+sw*axc, oy+sh*0.42, sw*0.064, Math.PI, 0); ctx.stroke();
+        ctx.fillStyle="#d8bd80"; ctx.fillRect(ox+sw*(axc-0.014), oy+sh*0.348, sw*0.028, sh*0.03); // claveau
+      }
+      ctx.fillStyle="#9a814e";                              // pilastres entre arcades
+      for (const pxc of [0.16,0.385,0.615,0.84]){
+        ctx.fillRect(ox+sw*(pxc-0.014), oy+sh*0.4, sw*0.028, sh*0.32);
+        ctx.fillStyle="rgba(255,238,200,0.18)"; ctx.fillRect(ox+sw*(pxc-0.014), oy+sh*0.4, sw*0.008, sh*0.32); // arête éclairée
+        ctx.fillStyle="#9a814e";
+      }
+      // Banc drapé de vert au premier plan (le « banco »)
+      const bnx=0.2, bnw=0.44, bny=0.78;
+      px(bnx, bny, bnw, 0.04, "#1f5a32");                   // drap vert
+      px(bnx, bny+0.04, bnw, 0.09, "#17441f");              // pan qui tombe
+      ctx.fillStyle="rgba(255,255,255,0.08)"; ctx.fillRect(ox+sw*bnx, oy+sh*bny, sw*bnw, sh*0.01);
+      ctx.fillStyle="#d4a828"; ctx.fillRect(ox+sw*bnx, oy+sh*(bny+0.12), sw*bnw, sh*0.012); // galon doré
+      // Grand livre ouvert + plume qui court sur la page
+      const lgx=bnx+0.1, lgy=bny-0.02;
+      ctx.fillStyle="#e8e0c8"; ctx.fillRect(ox+sw*(lgx-0.06), oy+sh*lgy, sw*0.12, sh*0.04);
+      ctx.fillStyle="rgba(0,0,0,0.14)"; ctx.fillRect(ox+sw*(lgx-0.001), oy+sh*lgy, sw*0.004, sh*0.04); // reliure
+      ctx.strokeStyle="rgba(60,40,20,0.5)"; ctx.lineWidth=Math.max(0.4,sw*0.006);
+      for (let l=0;l<3;l++){ ctx.beginPath(); ctx.moveTo(ox+sw*(lgx-0.05), oy+sh*(lgy+0.013+l*0.009)); ctx.lineTo(ox+sw*(lgx-0.01), oy+sh*(lgy+0.013+l*0.009)); ctx.stroke(); }
+      const quillx=lgx+0.02+Math.sin(now/300)*0.015;
+      ctx.strokeStyle="#d8d0b0"; ctx.lineWidth=Math.max(1,sw*0.014); ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(ox+sw*quillx, oy+sh*(lgy+0.02)); ctx.lineTo(ox+sw*(quillx+0.03), oy+sh*(lgy-0.06)); ctx.stroke();
+      ctx.lineCap="butt";
+      // Piles d'or sur le banc (croît avec le tier)
+      for (let k=0;k<2+tier && k<4;k++){
+        const pileX=bnx+0.32+k*0.04, nC=2+((k*5)%3);
+        for (let c=0;c<nC;c++){ ctx.fillStyle=c===nC-1?"#e8c040":"#c89828"; ctx.beginPath(); ctx.ellipse(ox+sw*pileX, oy+sh*(bny-0.005-c*0.013), sw*0.017, sh*0.007, 0,0,Math.PI*2); ctx.fill(); }
+      }
+      // Coffre cerclé de fer (droite), couvercle bombé + ferrures + serrure
+      const kfx=0.74, kfw=0.17, kfy=0.7;
+      ctx.fillStyle="rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox+sw*(kfx+kfw/2), oy+sh*0.855, sw*0.1, sh*0.022, 0,0,Math.PI*2); ctx.fill(); // ombre au sol
+      px(kfx, kfy+0.04, kfw, 0.1, "#3e2c14");               // caisse
+      px(kfx, kfy+0.04, 0.022, 0.1, "#5a4220");             // arête éclairée gauche
+      px(kfx+kfw-0.03, kfy+0.04, 0.03, 0.1, "rgba(0,0,0,0.3)"); // ombre droite
+      ctx.fillStyle="#503a1c";                              // couvercle bombé
+      ctx.beginPath(); ctx.moveTo(ox+sw*kfx, oy+sh*(kfy+0.045)); ctx.quadraticCurveTo(ox+sw*(kfx+kfw/2), oy+sh*(kfy-0.01), ox+sw*(kfx+kfw), oy+sh*(kfy+0.045)); ctx.lineTo(ox+sw*(kfx+kfw), oy+sh*(kfy+0.055)); ctx.lineTo(ox+sw*kfx, oy+sh*(kfy+0.055)); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle="rgba(255,236,190,0.3)"; ctx.lineWidth=Math.max(0.8,sw*0.012); // reflet du couvercle
+      ctx.beginPath(); ctx.moveTo(ox+sw*(kfx+0.02), oy+sh*(kfy+0.04)); ctx.quadraticCurveTo(ox+sw*(kfx+kfw*0.4), oy+sh*(kfy+0.004), ox+sw*(kfx+kfw*0.6), oy+sh*(kfy+0.02)); ctx.stroke();
+      ctx.fillStyle="#7a6a44";                              // ferrures verticales
+      for (const bx of [kfx+0.03, kfx+kfw-0.05]) px(bx, kfy+0.02, 0.014, 0.12, "#7a6a44");
+      px(kfx, kfy+0.06, kfw, 0.012, "#7a6a44");             // cerclage horizontal
+      ctx.fillStyle="#1c140a"; ctx.fillRect(ox+sw*(kfx+kfw/2-0.018), oy+sh*(kfy+0.075), sw*0.036, sh*0.03); // serrure
+      ctx.fillStyle="#d4a828"; ctx.beginPath(); ctx.arc(ox+sw*(kfx+kfw/2), oy+sh*(kfy+0.088), sw*0.01, 0, Math.PI*2); ctx.fill(); // pêne doré
+      return true;
+    }
+    if (stage === 2) {
+    // ── STADE 2 · GRANDE BANQUE NÉOCLASSIQUE (Banque de France / FMI) ──
+    // Composition classique : deux ailes de pierre percées de fenêtres encadrées,
+    // un portique central à colonnes creusé d'ombre, grande porte de bronze.
+    // Lumière au haut-gauche → faces gauches claires, faces droites ombrées.
+    const podY = 0.6, bodyH = 0.28;
+    // Fenêtre encadrée : chambranle + embrasure sombre + vitre chaude + croisillon
+    const litWindow = (x, y, w, h) => {
+      px(x-0.008, y-0.01, w+0.016, h+0.02, "#8a7e58");      // chambranle de pierre
+      px(x, y, w, h, "#2a2110");                            // embrasure sombre
+      ctx.fillStyle = litGold; ctx.fillRect(ox+sw*(x+0.006), oy+sh*(y+0.006), sw*(w-0.012), sh*(h-0.012)); // vitre
+      ctx.strokeStyle = "rgba(34,24,10,0.8)"; ctx.lineWidth = Math.max(0.6, sw*0.009);
+      ctx.beginPath(); ctx.moveTo(ox+sw*(x+w/2), oy+sh*(y+0.006)); ctx.lineTo(ox+sw*(x+w/2), oy+sh*(y+h-0.006)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ox+sw*(x+0.006), oy+sh*(y+h*0.5)); ctx.lineTo(ox+sw*(x+w-0.006), oy+sh*(y+h*0.5)); ctx.stroke();
+      px(x-0.014, y+h, w+0.028, 0.012, "#b6ad86");          // appui éclairé
+    };
+    // Escalier monumental (giron clair dessus, contremarche ombrée)
+    for (let si = 4; si >= 0; si--) {
+      const sw2 = 0.12 + (si/4)*0.74, sy = 0.78 - si*0.034;
+      px(0.5-sw2/2, sy, sw2, 0.018, "#e8e0c0");
+      px(0.5-sw2/2, sy+0.018, sw2, 0.016, "#ada585");
+    }
+    // Deux ailes de pierre (corps), ombrage gauche→droite
+    px(0.06, podY, 0.88, bodyH, "#d4c898");
+    px(0.06, podY, 0.03, bodyH, "#e2d8aa");                 // jour à gauche
+    px(0.80, podY, 0.14, bodyH, "rgba(60,50,28,0.18)");     // ombre à droite
+    ctx.strokeStyle="rgba(110,96,56,0.3)"; ctx.lineWidth=Math.max(0.5,sw*0.008); // assises
+    for (let r=1;r<4;r++){ ctx.beginPath(); ctx.moveTo(ox+sw*0.06, oy+sh*(podY+r*0.07)); ctx.lineTo(ox+sw*0.94, oy+sh*(podY+r*0.07)); ctx.stroke(); }
+    // Fenêtres encadrées dans les ailes (2 par aile, hors colonnade)
+    for (const wx of [0.115, 0.205, 0.715, 0.805]) litWindow(wx, podY+0.06, 0.06, 0.12);
+    // Portique central : mur de péristyle sombre (l'ombre derrière les colonnes)
+    px(0.31, podY-0.02, 0.38, bodyH+0.02, "#4e4530");
+    // Grande porte de bronze à double battant + chambranle de pierre
+    const dx=0.435, dw=0.13, dy=podY+0.06, dh=0.22;
+    px(dx-0.016, dy-0.018, dw+0.032, dh+0.018, "#cfc6a0");  // chambranle
+    px(dx-0.016, dy-0.018, 0.01, dh+0.018, "#efe8c8");      // arête éclairée
+    px(dx, dy, dw, dh, "#140e04");                          // embrasure
+    ctx.fillStyle="#8a6526";                                // vantaux bronze
+    ctx.fillRect(ox+sw*(dx+0.005), oy+sh*(dy+0.006), sw*(dw/2-0.008), sh*(dh-0.01));
+    ctx.fillRect(ox+sw*(dx+dw/2+0.003), oy+sh*(dy+0.006), sw*(dw/2-0.008), sh*(dh-0.01));
+    ctx.fillStyle="rgba(255,228,150,0.22)";                 // reflet bronze (gauche)
+    ctx.fillRect(ox+sw*(dx+0.005), oy+sh*(dy+0.006), sw*0.016, sh*(dh-0.01));
+    ctx.fillStyle="rgba(0,0,0,0.45)";                       // joint central
+    ctx.fillRect(ox+sw*(dx+dw/2-0.004), oy+sh*(dy+0.006), sw*0.008, sh*(dh-0.01));
+    ctx.fillStyle="#3a2a0e";                                // caissons des vantaux
+    for (let pr=0; pr<3; pr++) for (let pc=0; pc<2; pc++)
+      ctx.fillRect(ox+sw*(dx+0.016+pc*dw*0.46), oy+sh*(dy+0.028+pr*0.058), sw*0.026, sh*0.034);
+    ctx.fillStyle=litGold;                                  // lueur chaude au seuil
+    ctx.fillRect(ox+sw*(dx+0.018), oy+sh*(dy+dh-0.022), sw*(dw-0.036), sh*0.022);
+    // Colonnes du portique devant le mur sombre, ombrage gauche→droite
+    const nCols = 4 + Math.min(2, tier);
     for (let ci = 0; ci < nCols; ci++) {
-      const cx2 = ox + sw*(0.1 + ci*(0.8/(nCols-1)));
-      ctx.fillRect(cx2 - sw*0.02, oy+sh*podY, sw*0.04, sh*0.28);
-      ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(cx2+sw*0.01, oy+sh*podY, sw*0.012, sh*0.28);
-      ctx.fillStyle = "#e8e0c0";
-      // Chapiteau
-      ctx.fillRect(cx2-sw*0.032, oy+sh*podY, sw*0.064, sh*0.026);
+      const cxc = 0.335 + ci*(0.33/(nCols-1)), cw = 0.036;
+      px(cxc-cw/2, podY-0.01, cw, bodyH+0.01, "#d8cfa6");   // fût
+      px(cxc-cw/2, podY-0.01, cw*0.3, bodyH+0.01, "#f0e9ca"); // arête éclairée
+      px(cxc+cw*0.18, podY-0.01, cw*0.32, bodyH+0.01, "rgba(58,48,24,0.4)"); // cannelure ombrée
+      px(cxc-cw*0.8, podY-0.026, cw*1.6, 0.016, "#f0e9ca"); // chapiteau
+      px(cxc-cw*0.68, podY+bodyH-0.012, cw*1.36, 0.012, "#bcb288"); // base
     }
-    // Architrave
-    ctx.fillStyle = "#b8b090"; ctx.fillRect(ox+sw*0.06, oy+sh*podY, sw*0.88, sh*0.03);
-    // Frise
-    ctx.fillStyle = "#c8c0a0"; ctx.fillRect(ox+sw*0.06, oy+sh*(podY-0.05), sw*0.88, sh*0.05);
-    for (let fi = 0; fi < 8; fi++) {
-      ctx.fillStyle = fi%2===0 ? "rgba(120,100,50,0.5)" : "rgba(200,180,100,0.4)";
-      ctx.fillRect(ox+sw*(0.08+fi*0.11), oy+sh*(podY-0.048), sw*0.075, sh*0.045);
-    }
-    // Grand fronton triangulaire
-    const frontH = 0.14;
-    ctx.fillStyle = "#9a9070";
-    ctx.beginPath(); ctx.moveTo(ox+sw*0.06, oy+sh*(podY-0.05)); ctx.lineTo(ox+sw*0.5, oy+sh*(podY-0.05-frontH)); ctx.lineTo(ox+sw*0.94, oy+sh*(podY-0.05)); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#b0a880";
-    ctx.beginPath(); ctx.moveTo(ox+sw*0.1, oy+sh*(podY-0.05)); ctx.lineTo(ox+sw*0.5, oy+sh*(podY-0.05-frontH+0.02)); ctx.lineTo(ox+sw*0.9, oy+sh*(podY-0.05)); ctx.closePath(); ctx.fill();
-    // Acrotères + ornements
-    ctx.fillStyle = "#c8b858";
-    for (const ax of [0.06, 0.5, 0.94]) {
-      const ay = ax===0.5 ? podY-0.05-frontH : podY-0.05;
-      ctx.beginPath(); ctx.moveTo(ox+sw*(ax-0.024), oy+sh*ay); ctx.lineTo(ox+sw*ax, oy+sh*(ay-0.048)); ctx.lineTo(ox+sw*(ax+0.024), oy+sh*ay); ctx.closePath(); ctx.fill();
-    }
-    // Dôme central (tiers élevés)
+    // Entablement plein cadre : corniche saillante + ombre portée + frise
+    px(0.05, podY-0.05, 0.9, 0.024, "#cfc6a0");             // corniche
+    px(0.06, podY-0.026, 0.88, 0.012, "rgba(0,0,0,0.28)");  // ombre sous corniche
+    px(0.07, podY-0.072, 0.86, 0.026, "#bcb38e");           // frise
+    px(0.06, podY-0.092, 0.2, 0.02, "#c8bf98"); px(0.74, podY-0.092, 0.2, 0.02, "#c8bf98"); // attique des ailes
+    // Dôme cuivré derrière le fronton (tiers élevés) — éclairé à gauche
     if (tier >= 2) {
-      const domeX = ox+sw*0.5, domeY = oy+sh*(podY-0.05-frontH);
-      ctx.fillStyle = "#c0b870"; ctx.beginPath(); ctx.arc(domeX, domeY, sw*0.08, Math.PI, 0); ctx.fill();
-      ctx.fillStyle = "#e8d880"; ctx.beginPath(); ctx.arc(domeX-sw*0.02, domeY-sh*0.02, sw*0.035, Math.PI*1.1, Math.PI*1.9); ctx.fill();
-      ctx.strokeStyle = "#9a8840"; ctx.lineWidth = Math.max(0.5, sw*0.018);
-      ctx.beginPath(); ctx.moveTo(domeX, domeY-sw*0.08); ctx.lineTo(domeX, domeY-sw*0.13); ctx.stroke();
+      const domeX=ox+sw*0.5, domeY=oy+sh*(podY-0.082);
+      ctx.fillStyle="#b8af6a"; ctx.beginPath(); ctx.arc(domeX, domeY, sw*0.078, Math.PI, 0); ctx.fill();
+      ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.arc(domeX, domeY, sw*0.078, Math.PI*1.5, 0); ctx.fill();
+      ctx.fillStyle="#ecdc88"; ctx.beginPath(); ctx.arc(domeX-sw*0.022, domeY-sh*0.016, sw*0.03, Math.PI*1.1, Math.PI*1.85); ctx.fill();
+      ctx.fillStyle="#9a8840"; ctx.fillRect(domeX-sw*0.006, domeY-sw*0.13, sw*0.012, sw*0.055); // lanterneau
+      ctx.fillStyle="#e8d27a"; ctx.beginPath(); ctx.arc(domeX, domeY-sw*0.135, sw*0.012, 0, Math.PI*2); ctx.fill();
     }
-    // Grandes portes + fenêtres hautes
-    ctx.fillStyle = "rgba(15,12,6,0.7)"; ctx.fillRect(ox+sw*0.42, oy+sh*(podY+0.14), sw*0.16, sh*0.14);
-    ctx.fillStyle = litGold;
-    for (let wi = 0; wi < 4; wi++) ctx.fillRect(ox+sw*(0.14+wi*0.18), oy+sh*(podY+0.05), sw*0.08, sh*0.1);
+    // Fronton triangulaire au-dessus du portique (versant droit ombré)
+    const pL=0.28, pR=0.72, baseY=podY-0.072, apexY=baseY-0.13;
+    ctx.fillStyle="#c4ba90"; ctx.beginPath(); ctx.moveTo(ox+sw*pL, oy+sh*baseY); ctx.lineTo(ox+sw*0.5, oy+sh*apexY); ctx.lineTo(ox+sw*pR, oy+sh*baseY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="rgba(56,46,24,0.32)"; ctx.beginPath(); ctx.moveTo(ox+sw*0.5, oy+sh*apexY); ctx.lineTo(ox+sw*pR, oy+sh*baseY); ctx.lineTo(ox+sw*0.5, oy+sh*baseY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="rgba(255,244,200,0.18)"; ctx.beginPath(); ctx.moveTo(ox+sw*pL, oy+sh*baseY); ctx.lineTo(ox+sw*0.5, oy+sh*apexY); ctx.lineTo(ox+sw*0.5, oy+sh*(apexY+0.018)); ctx.lineTo(ox+sw*(pL+0.04), oy+sh*baseY); ctx.closePath(); ctx.fill();
+    // Médaillon doré au tympan (balance — emblème bancaire)
+    ctx.fillStyle="#c8a83c"; ctx.beginPath(); ctx.arc(ox+sw*0.5, oy+sh*(baseY-0.04), sw*0.026, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#6a521c"; ctx.lineWidth=Math.max(0.6,sw*0.009);
+    ctx.beginPath(); ctx.moveTo(ox+sw*0.475, oy+sh*(baseY-0.045)); ctx.lineTo(ox+sw*0.525, oy+sh*(baseY-0.045)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ox+sw*0.475, oy+sh*(baseY-0.036), sw*0.012, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(ox+sw*0.525, oy+sh*(baseY-0.036), sw*0.012, 0, Math.PI); ctx.stroke();
+    // Acrotères (faîte + angles du fronton + angles des ailes)
+    ctx.fillStyle="#c8b858";
+    for (const [ax,ay] of [[0.5,apexY],[pL,baseY],[pR,baseY],[0.07,podY-0.092],[0.93,podY-0.092]]) {
+      ctx.beginPath(); ctx.moveTo(ox+sw*(ax-0.02), oy+sh*ay); ctx.lineTo(ox+sw*ax, oy+sh*(ay-0.04)); ctx.lineTo(ox+sw*(ax+0.02), oy+sh*ay); ctx.closePath(); ctx.fill();
+    }
+    return true;
+    }
+    // ── STADE 3 · BOURSE DE VERRE — tour-rideau, ticker défilant, chandeliers néon ──
+    // « Les fortunes bougent plus vite que les armées » : une tour de verre, un
+    // ruban de cotations qui file et un graphique en chandeliers qui monte et
+    // chute. Lueur cyan/or pilotée par la nuit (nF dérivé de litGold).
+    const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+    px(0.0, 0.72, 1.0, 0.28, "#0c1016");                    // parvis sombre
+    px(0.0, 0.88, 1.0, 0.12, "#080b10");
+    // Tour-rideau de verre (mur-rideau bleu nuit + ombre côté droit)
+    px(0.2, 0.1, 0.6, 0.66, "#10202c");
+    px(0.64, 0.1, 0.16, 0.66, "rgba(0,0,0,0.3)");
+    // Trame du mur-rideau (meneaux verticaux + nez de dalle)
+    ctx.strokeStyle="#1f3a48"; ctx.lineWidth=Math.max(0.5,sw*0.008);
+    for (let c=1;c<5;c++){ ctx.beginPath(); ctx.moveTo(ox+sw*(0.2+c*0.12), oy+sh*0.1); ctx.lineTo(ox+sw*(0.2+c*0.12), oy+sh*0.76); ctx.stroke(); }
+    for (let r=1;r<9;r++){ ctx.beginPath(); ctx.moveTo(ox+sw*0.2, oy+sh*(0.1+r*0.073)); ctx.lineTo(ox+sw*0.8, oy+sh*(0.1+r*0.073)); ctx.stroke(); }
+    // Vitres éclairées (scintillement déterministe piloté par now → pas de Math.random)
+    for (let r=0;r<8;r++) for (let c=0;c<5;c++){
+      if (((r*5+c+(now/700|0))*7)%5===0){
+        ctx.fillStyle=`rgba(120,200,230,${(0.18+nF*0.4).toFixed(2)})`;
+        ctx.fillRect(ox+sw*(0.21+c*0.12), oy+sh*(0.11+r*0.073), sw*0.1, sh*0.06);
+      }
+    }
+    // Liserés néon en tête et pied de tour
+    ctx.fillStyle="#2f8fa0";
+    ctx.fillRect(ox+sw*0.2, oy+sh*0.1, sw*0.6, Math.max(1,sh*0.006));
+    ctx.fillRect(ox+sw*0.2, oy+sh*0.754, sw*0.6, Math.max(1,sh*0.006));
+    if (nF > 0.02){
+      ctx.save(); ctx.globalCompositeOperation="lighter";
+      ctx.fillStyle=`rgba(90,220,230,${(nF*0.25).toFixed(2)})`;
+      ctx.fillRect(ox+sw*0.2, oy+sh*0.09, sw*0.6, sh*0.02);
+      ctx.restore();
+    }
+    // Hologramme de graphique en chandeliers au-dessus de la tour (rouge/vert)
+    ctx.save(); if (nF > 0.02) ctx.globalCompositeOperation="lighter";
+    const chN = 5 + Math.min(3, tier);
+    for (let i=0;i<chN;i++){
+      const cx2 = 0.28 + i*(0.44/(chN-1));
+      const phase = Math.sin(now/600 + i*1.3);
+      const mid = 0.06 - phase*0.018;                       // le corps monte/descend
+      const bodyH = 0.016 + Math.abs(phase)*0.014;
+      const up = phase >= 0;
+      const col = up ? `rgba(80,230,150,${(0.45+nF*0.4).toFixed(2)})` : `rgba(240,95,95,${(0.45+nF*0.4).toFixed(2)})`;
+      ctx.fillStyle = col;
+      ctx.fillRect(ox+sw*(cx2-0.012), oy+sh*(mid-bodyH/2), sw*0.024, sh*bodyH);
+      ctx.strokeStyle = col; ctx.lineWidth=Math.max(0.5,sw*0.006);          // mèches
+      ctx.beginPath(); ctx.moveTo(ox+sw*cx2, oy+sh*(mid-bodyH/2-0.016)); ctx.lineTo(ox+sw*cx2, oy+sh*(mid+bodyH/2+0.016)); ctx.stroke();
+    }
+    ctx.restore();
+    // Bandeau-ticker au pied de la tour : cotations qui défilent vers la gauche
+    px(0.16, 0.78, 0.68, 0.06, "#06222a");
+    ctx.fillStyle="#2f8fa0"; ctx.fillRect(ox+sw*0.16, oy+sh*0.78, sw*0.68, Math.max(1,sh*0.004));
+    ctx.font=`${Math.max(5,sw*0.05)}px monospace`; ctx.textBaseline="middle"; ctx.textAlign="center";
+    const slot=0.13, off=(now/1400)%slot;
+    for (let s=0;s<7;s++){
+      const gx = 0.18 + s*slot - off;
+      if (gx < 0.18 || gx > 0.82) continue;                 // hors bandeau → on saute
+      const up = (s*3+1)%2===0;
+      ctx.fillStyle = up ? `rgba(80,230,150,${(0.7+nF*0.3).toFixed(2)})` : `rgba(240,95,95,${(0.7+nF*0.3).toFixed(2)})`;
+      ctx.fillText(up?"▲":"▼", ox+sw*gx, oy+sh*0.812);
+    }
+    ctx.textAlign="left"; ctx.textBaseline="alphabetic";
+    // Hall d'entrée vitré au pied de la tour : auvent + portes à meneaux + lueur chaude
+    const exc=0.5, ew=0.2, ey=0.835, eh=0.065;
+    px(exc-ew/2-0.012, ey-0.014, ew+0.024, 0.012, "#243a44");           // auvent
+    px(exc-ew/2, ey, ew, eh, "#0a1820");                                 // embrasure du hall
+    ctx.fillStyle=`rgba(150,210,225,${(0.32+nF*0.5).toFixed(2)})`;       // hall éclairé
+    ctx.fillRect(ox+sw*(exc-ew/2+0.006), oy+sh*(ey+0.006), sw*(ew-0.012), sh*(eh-0.01));
+    ctx.fillStyle=`rgba(255,224,150,${(0.3+nF*0.45).toFixed(2)})`;       // chaleur de comptoir au fond
+    ctx.fillRect(ox+sw*(exc-0.03), oy+sh*(ey+eh*0.45), sw*0.06, sh*eh*0.5);
+    ctx.strokeStyle="#1f3a48"; ctx.lineWidth=Math.max(0.6,sw*0.01);      // meneaux des portes
+    for (const mxr of [-0.5,-0.16,0.16,0.5]){ ctx.beginPath(); ctx.moveTo(ox+sw*(exc+ew*mxr), oy+sh*ey); ctx.lineTo(ox+sw*(exc+ew*mxr), oy+sh*(ey+eh)); ctx.stroke(); }
+    if (nF > 0.02){                                                      // halo de seuil la nuit
+      ctx.save(); ctx.globalCompositeOperation="lighter";
+      ctx.fillStyle=`rgba(120,210,230,${(nF*0.3).toFixed(2)})`;
+      ctx.beginPath(); ctx.ellipse(ox+sw*exc, oy+sh*(ey+eh), sw*0.14, sh*0.03, 0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
     return true;
   }
   return false;

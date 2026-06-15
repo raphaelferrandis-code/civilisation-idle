@@ -138,6 +138,9 @@ export const defaultState = () => ({
   // Fatigue de régulation [0..1] : monte à chaque action, réduit leur efficacité
   // et augmente leur coût, décline avec le temps. Reset au cycle.
   regulFatigue: 0,
+  // Lissage (EMA) du déficit de nourriture pour le foyer Subsistance. null =
+  // non initialisé (le tick le cale sur l'instantané au 1er pas). Reset au cycle.
+  scarcityRawEase: null,
   crisisThresholds: {},
   crisisProduction: {
     global: 1,
@@ -247,10 +250,6 @@ export let renderedVillagerMessage = "";
 export let buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
 export let recentBuildingMilestones = {};
 export let renderCache = {
-  buildings: {},
-  upgrades: {},
-  dogmas: "",
-  batchCosts: {},
   cachedRuinEffectsSignature: "",
   cachedRuinEffects: null,
   _frameVitals: null,
@@ -732,6 +731,7 @@ export function hydrateState(parsed = {}) {
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
     activePolicies: normalizeStringArray(source.activePolicies, 4, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
+    scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
@@ -807,18 +807,14 @@ export function invalidateRenderCache(scope = "all") {
     renderCache.cachedRuinEffectsSignature = "";
   }
   if (scope === "all" || scope === "buildings") {
-    renderCache.buildings = {};
-    renderCache.batchCosts = {};
     renderCache._buildingSums = null;
     renderCache._buildingsVersion++;
     renderCache._frameRates = null;
   }
   if (scope === "all" || scope === "upgrades") {
-    renderCache.upgrades = {};
     renderCache._upgradesVersion++;
     renderCache._frameRates = null;
   }
-  if (scope === "all" || scope === "dogmas") renderCache.dogmas = "";
 }
 
 // Helpers setters pour permettre de reassigner buyAmount ou d'autres variables exportees depuis main.js
@@ -872,6 +868,7 @@ export function resetTemporaryRunState(s) {
   s.foyerReform = freshDefaults.foyerReform;
   s.activePolicies = [];
   s.regulFatigue = 0;
+  s.scarcityRawEase = null;
   s.crisisThresholds = {};
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;
@@ -922,6 +919,47 @@ export function resetTemporaryRunState(s) {
   s.atridesPactActive = false;
   s.chronicleEntries = [];
   s.chronicleCooldown = 0;
+}
+
+// ──────────────── Grand Reset : préservation des héritages ───────────────────
+// SOURCE DE VÉRITÉ des champs conservés à travers un Grand Reset. Tout nouveau
+// déblocage PERMANENT doit être ajouté ici, sinon il est silencieusement effacé
+// au prochain GR (cf. grandReset.test.js). grandResetCount / legitimacy / history
+// sont CALCULÉS et traités à part dans buildGrandResetState().
+export const GR_PERSISTENT_FIELDS = [
+  "mythsCompleted", "mythActsAnnounced", "chaosRuinsDouble", "chaosRuinsBonus",
+  "prometheeBraisiers", "atlasHeritage", "sisypheHeritage", "icareHeritage",
+  "babelHeritage", "orHeritage", "phoenixHeritage", "atridesHeritage",
+  "autoScriptRules", "hephHeritage", "automateRules",
+  "surchauffeEndTime", "surchauffeCooldownEnd", "dynastyCount", "dynastyDoctrine",
+  "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
+  "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle"
+];
+
+// Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)
+// sont copiés par RÉFÉRENCE — l'ancien state est jeté juste après, donc pas
+// d'aliasing — et surtout PAS via structuredClone/JSON qui perdrait la classe.
+// Les objets/arrays de données simples sont clonés en profondeur.
+function cloneGrandResetValue(value) {
+  if (value === null || typeof value !== "object") return value;
+  if (value instanceof Decimal) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+// Construit (sans muter) l'état post-Grand-Reset : un defaultState() frais sur
+// lequel on recopie les héritages permanents (GR_PERSISTENT_FIELDS), puis les 3
+// champs calculés. Pur (lit le `state` courant) → testable hors de la séquence
+// async à dialogue de performGrandReset.
+export function buildGrandResetState(nextCount, legitCost) {
+  const fresh = defaultState();
+  for (const key of GR_PERSISTENT_FIELDS) {
+    if (state[key] !== undefined) fresh[key] = cloneGrandResetValue(state[key]);
+  }
+  fresh.grandResetCount = nextCount;
+  // La légitimité survit au GR, AMPUTÉE du coût du reset (croissant).
+  fresh.legitimacy = Math.max(0, (state.legitimacy || 0) - legitCost);
+  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${Math.pow(2, nextCount).toFixed(0)} production et Ruines gagnées`}. Les pactes mythiques demeurent.`];
+  return fresh;
 }
 
 export function markChronicleEntryRead(id) {

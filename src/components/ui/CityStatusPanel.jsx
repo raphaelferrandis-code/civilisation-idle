@@ -48,7 +48,6 @@ export default function CityStatusPanel() {
   for (let i = SEDIMENT_PALIERS.length - 1; i >= 0; i--) {
     if (cycleElapsed >= SEDIMENT_PALIERS[i].secs) { sedimentIdx = i; break; }
   }
-  const sedimentBonus = sedimentIdx >= 0 ? SEDIMENT_PALIERS[sedimentIdx].bonus : 0;
   const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
   const nextPalierInSecs = nextPalier ? Math.ceil(nextPalier.secs - cycleElapsed) : 0;
 
@@ -89,9 +88,6 @@ export default function CityStatusPanel() {
         <span className="csp-bar">
           <span className="csp-bar-fill csp-bar-fill--wear" style={{ width: `${clamp01(timeWear) * 100}%` }}></span>
         </span>
-        <small className={`csp-ruin-bonus${sedimentBonus > 0 ? ' is-active' : ''}`}>
-          +{sedimentBonus}% ruines au prochain effondrement
-        </small>
       </div>
 
       {showLegitimite && (

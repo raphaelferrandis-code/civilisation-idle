@@ -209,23 +209,22 @@
 
 .csp-label {
   flex: 0 0 auto;
-  font-family: var(--font-title);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .csp-value {
   min-width: 0;
-  overflow: hidden;
-  font-family: var(--font-title);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  font-weight: 600;
   color: var(--text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .csp-value--era { color: var(--gold-bright); }
@@ -259,12 +258,6 @@
 .csp-bar-fill--wear  { background: #9b6ae8; }
 .csp-bar-fill--legit { background: #5dcaa5; }
 
-.csp-ruin-bonus {
-  font-size: 0.66rem;
-  color: var(--muted);
-}
-.csp-ruin-bonus.is-active { color: var(--gold-bright); }
-
 .csp-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
@@ -289,16 +282,16 @@
 .csp-stat strong {
   min-width: 0;
   margin-left: auto;
-  overflow: hidden;
-  font-family: var(--font-title);
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-weight: 600;
   color: var(--gold-bright);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .csp-stat-era {
-  font-size: 0.66rem !important;
+  font-size: 0.74rem !important;
   color: var(--gold-ivory) !important;
 }
 
@@ -316,7 +309,6 @@
   .city-status-panel .csp-label,
   .city-status-panel .csp-value,
   .city-status-panel .csp-laps,
-  .city-status-panel .csp-ruin-bonus,
   .city-status-panel .csp-stat-label {
     display: none;
   }

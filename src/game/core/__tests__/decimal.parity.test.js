@@ -24,7 +24,8 @@ import {
   infraMultiplier, infraMultiplierDec,
   globalMultiplier, globalMultiplierDec,
   babelExponentialMult, babelExponentialMultDec,
-  buildingOutputMultiplier, buildingOutputMultiplierDec
+  buildingOutputMultiplier, buildingOutputMultiplierDec,
+  rates
 } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
@@ -35,8 +36,11 @@ import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 const REL_TOL = 1e-9;
 
 function expectClose(label, floatVal, decVal) {
+  // Les deux côtés peuvent être Decimal (cas de rates(), qui renvoie du Decimal
+  // dans ses DEUX branches) ou number (cas des multiplicateurs float). On évite
+  // toute coercition native (piège valueOf) en passant par toNumber().
   const d = decVal instanceof Decimal ? decVal.toNumber() : Number(decVal);
-  const f = Number(floatVal);
+  const f = floatVal instanceof Decimal ? floatVal.toNumber() : Number(floatVal);
   expect(Number.isFinite(f), `${label}: version float non finie (${f})`).toBe(true);
   expect(Number.isFinite(d), `${label}: version Decimal non finie (${d})`).toBe(true);
   const diff = Math.abs(f - d);
@@ -121,6 +125,25 @@ describe("parité float ↔ Decimal — multiplicateurs miroir", () => {
       expectClose("babelExponentialMult", babelExponentialMult(), babelExponentialMultDec());
       // Composite : garde aussi contre un facteur ajouté/retiré d'un seul côté.
       expectClose("globalMultiplier", globalMultiplier(), globalMultiplierDec());
+    });
+  }
+});
+
+describe("parité float ↔ Decimal — rates()", () => {
+  // rates() choisit lui-même sa branche (float tant que tout est fini). Le 3e
+  // argument force la branche Decimal sur le MÊME état sous-plafond → on peut
+  // comparer les deux chemins de la fonction de production, la plus susceptible
+  // d'être retouchée en équilibrage et donc la plus exposée à une divergence.
+  for (const scenario of SCENARIOS) {
+    it(scenario.name, () => {
+      scenario.patch();
+      invalidateRenderCache("all");
+      const floatRates = rates();                          // branche float
+      invalidateRenderCache("all");
+      const decRates = rates(undefined, undefined, true);  // branche Decimal forcée
+      for (const key of ["population", "food", "gold", "knowledge", "infrastructure"]) {
+        expectClose(`rates.${key}`, floatRates[key], decRates[key]);
+      }
     });
   }
 });

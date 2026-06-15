@@ -149,10 +149,16 @@
   justify-content: flex-end;
   margin: 0;
   width: fit-content;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #3a2a10;
-  border-radius: 6px;
-  background: rgba(21, 16, 10, 0.78);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* Multiplicateurs logés dans l'en-tête « Bâtiments » : pas d'encart foncé,
+   et on neutralise le min-width des boutons d'en-tête (8.5rem). */
+.panel-heading .buy-toolbar button {
+  min-width: 0;
+  padding: 0 0.45rem;
 }
 
 @media (max-width: 560px) {
@@ -180,10 +186,9 @@
 .buy-modes {
   display: inline-flex;
   gap: 0.25rem;
-  padding: 0.15rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: rgba(30, 20, 10, 0.82);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .buy-mode {
@@ -533,14 +538,14 @@ small, .chip, .doctrine-display small {
 /* ---------- BOUTONS x1 / x10 / x25 / x100 ---------- */
 
 
-.buy-modes { border-color: #3a2a10; background: #15100a; }
+.buy-modes { border: 0; background: none; }
 
 .buy-mode {
   border: 1px solid #5a4216;
   border-radius: 3px;
   background: linear-gradient(180deg, #2a1c08 0%, #1a1206 100%);
   color: var(--gold-dim);
-  font-family: var(--font-title);
+  font-family: var(--font-body);
 }
 
 .buy-mode.active, .buy-mode-max.active {
@@ -779,7 +784,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 
 .ticker-masthead {
   flex: 0 0 auto;
-  font-family: var(--font-title);
+  font-family: var(--font-body);
   font-size: var(--fs-label);
   font-weight: 800;
   letter-spacing: 0.08em;

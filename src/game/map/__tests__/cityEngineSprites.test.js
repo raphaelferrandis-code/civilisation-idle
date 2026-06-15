@@ -17,7 +17,7 @@ function makeCtx() {
   for (const m of [
     "beginPath", "moveTo", "lineTo", "arc", "ellipse", "closePath", "fill",
     "stroke", "save", "restore", "translate", "rotate", "scale",
-    "quadraticCurveTo", "arcTo", "rect", "strokeRect",
+    "quadraticCurveTo", "arcTo", "rect", "strokeRect", "fillText",
   ]) ctx[m] = () => {};
   ctx.fillRect = () => { ctx._fills += 1; };
   return ctx;
@@ -36,15 +36,15 @@ function makeContext({ id, ei, tier, now }) {
   };
 }
 
-describe("drawCityEngineSprite — water_mills", () => {
-  // Un âge représentatif par stade (ei<10/<20/<30/sinon).
-  const stages = [{ ei: 4 }, { ei: 14 }, { ei: 24 }, { ei: 32 }];
+// Un âge représentatif par stade (ei<10/<20/<30/sinon).
+const stages = [{ ei: 4 }, { ei: 14 }, { ei: 24 }, { ei: 32 }];
 
+describe.each(["water_mills", "mint_houses", "imperial_exchanges"])("drawCityEngineSprite — %s", (id) => {
   it("dessine les 4 stades d'ère pour chaque tier sans planter", () => {
     for (const { ei } of stages) {
       for (const tier of [0, 1, 2]) {
         for (const now of [0, 1234]) {
-          const c = makeContext({ id: "water_mills", ei, tier, now });
+          const c = makeContext({ id, ei, tier, now });
           let result;
           expect(() => { result = drawCityEngineSprite(c); }).not.toThrow();
           expect(result).toBe(true);          // le sprite est pris en charge

@@ -86,6 +86,7 @@ export default function BuildingShop() {
         <div>
           <h2>Bâtiments</h2>
         </div>
+        <BuyToolbar />
       </div>
 
       <div className="shop-controls-row">
@@ -108,7 +109,6 @@ export default function BuildingShop() {
             );
           })}
         </div>
-        <BuyToolbar />
       </div>
 
       <div className="shop-list shop-cat active">
