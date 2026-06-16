@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
-import { D } from '../../game/core/num.js';
 import { fmt, signed, labelFor } from '../../game/core/utils.js';
 import { RES_ICONS } from './resourceIcons.js';
 
@@ -46,7 +45,7 @@ function buildingIcon(b) {
  *   compteur fantôme, barre de progression vers le prochain palier.
  * Aucune logique de jeu : tout passe par buyBuilding / buildingBatchCost.
  */
-export default function PurchaseRow({
+function PurchaseRow({
   building: b,
   count,
   prices,
@@ -56,6 +55,7 @@ export default function PurchaseRow({
   milestoneInfo,
   tier,
   production,
+  lackingKey,
   pulse
 }) {
   // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0")
@@ -66,7 +66,8 @@ export default function PurchaseRow({
   const stepPct = (inStep / 25) * 100;
   const { icon, cls } = buildingIcon(b);
 
-  const lacking = (currency, amount) => !D(state[currency] ?? 0).gte(amount);
+  // Devises manquantes : signature fournie par le parent (abonné aux ressources).
+  const lackingSet = lackingKey ? new Set(lackingKey.split(",")) : null;
 
   /* Game feel (Phase 7) : +N flottant à l'achat, shake si impayable */
   const [floats, setFloats] = useState([]);
@@ -182,7 +183,7 @@ export default function PurchaseRow({
           {Object.entries(prices).map(([currency, amount]) => (
             <span
               key={currency}
-              className={`bp-cost-item${lacking(currency, amount) ? " is-lacking" : ""}`}
+              className={`bp-cost-item${lackingSet?.has(currency) ? " is-lacking" : ""}`}
               title={`${exactLabel(amount)} ${labelFor(currency)}`}
             >
               <i className={`fa-solid ${RES_ICONS[currency] || "fa-circle"}`} aria-hidden="true"></i>
@@ -194,3 +195,27 @@ export default function PurchaseRow({
     </article>
   );
 }
+
+/**
+ * Le parent (BuildingShop) se re-rend à chaque tick (instances Decimal des
+ * ressources). On bloque ici le re-render des rangées dont l'affichage n'a pas
+ * bougé. `milestoneInfo` et `production` sont recréés à chaque rendu parent mais
+ * dérivent de (building, count, globalMult) : on compare ces entrées, pas les
+ * objets. `globalMult` n'est passé que pour ce comparateur (proxy de production).
+ */
+function arePropsEqual(prev, next) {
+  return (
+    prev.building === next.building &&
+    prev.count === next.count &&
+    prev.prices === next.prices &&          // ref stable (costById mémoïsé)
+    prev.buyAmount === next.buyAmount &&
+    prev.affordable === next.affordable &&
+    prev.babelBlocked === next.babelBlocked &&
+    prev.tier === next.tier &&
+    prev.pulse === next.pulse &&
+    prev.globalMult === next.globalMult &&  // production = f(count, globalMult, building)
+    prev.lackingKey === next.lackingKey     // highlight is-lacking par devise
+  );
+}
+
+export default memo(PurchaseRow, arePropsEqual);

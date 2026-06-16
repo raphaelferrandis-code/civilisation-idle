@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   globalMultiplier,
@@ -10,7 +10,7 @@ import {
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { buildingById, renderCache } from '../../game/core/state.js';
-import { canPayCost } from '../../game/core/utils.js';
+import { D } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
 
@@ -32,7 +32,7 @@ const TABS = [
   { id: "infra", label: "Infra" }
 ];
 
-export default function BuildingShop() {
+function BuildingShop() {
   const [activeTab, setActiveTab] = useState("city"); // "city", "knowledge", "infra"
 
   // Subscriptions to trigger component update on state mutations
@@ -40,12 +40,11 @@ export default function BuildingShop() {
   const buyAmount = useGameState(s => s.buyAmount);
   const stateCycles = useGameState(s => s.cycles);
   useGameState(s => s.activeMythId);
+  // babelActive dépend de activeMythId ET de ragnarokEffectsApplied (Babel ∈
+  // RAGNAROK_CONSTRAINTS) : sans cet abonnement, le blocage Babel resterait
+  // périmé si Ragnarok (dés)activait ses effets sans changer activeMythId.
+  useGameState(s => s.ragnarokEffectsApplied);
   const babelCategory = useGameState(s => s.babelCategory);
-  // Ressources : nécessaires pour que l'état "achetable" se mette à jour en
-  // continu (les instances Decimal changent à chaque tick → re-render).
-  useGameState(s => ({
-    f: s.food, g: s.gold, k: s.knowledge, i: s.infrastructure, p: s.population
-  }));
 
   // Coûts de lot mémoïsés. buildingBatchCost fait des sommes géométriques en
   // Decimal et NE dépend PAS des ressources (qui changent chaque tick) : ses
@@ -67,7 +66,25 @@ export default function BuildingShop() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildingsVersion, upgradesVersion, buyAmount]);
 
-  const globalMult = globalMultiplier();
+  // Signature d'abordabilité par bâtiment : pour chaque coût, la liste (jointe)
+  // des devises manquantes. Remplace l'abonnement aux Decimal bruts (nouvelle
+  // instance/tick → re-render systématique) : ne déclenche un rendu QUE quand une
+  // abordabilité bascule. Le sélecteur capture costById (coûts figés entre achats) ;
+  // shallowEqual court-circuite tant que toutes les signatures restent stables.
+  const affordability = useGameState((s) => {
+    const sig = {};
+    for (const b of buildings) {
+      const cost = costById[b.id];
+      sig[b.id] = Object.keys(cost).filter((cur) => !D(s[cur]).gte(cost[cur])).join(",");
+    }
+    return sig;
+  });
+
+  // Abonnement à la VALEUR de globalMultiplier (un number, pas un Decimal) :
+  // piecewise-constant, il ne re-render qu'aux bascules réelles (fin de surchauffe,
+  // paliers Atrides/Énée…) qui n'incrémentent pas _buildingsVersion → garde les
+  // /s de production à jour sans re-render à chaque tick.
+  const globalMult = useGameState(() => globalMultiplier());
   const sqrtGlobalMult = Math.sqrt(globalMult);
 
   const babelActive = isMythEffectActive("mythe_de_babel");
@@ -88,7 +105,7 @@ export default function BuildingShop() {
   const affordableCount = (catId) => {
     if (babelActive && babelCat && catId !== babelCat) return 0;
     return categoryData(catId).visible
-      .filter((b) => canPayCost(costById[b.id]))
+      .filter((b) => affordability[b.id] === "")
       .length;
   };
 
@@ -97,7 +114,7 @@ export default function BuildingShop() {
   // Premier bâtiment achetable, calculé avant le rendu (pas de mutation
   // pendant le .map() : incompatible avec la mémoïsation du React Compiler).
   const firstAffordableId = visibleBuildings.find((b) =>
-    canPayCost(costById[b.id]) && !(babelActive && babelCat && b.category !== babelCat)
+    affordability[b.id] === "" && !(babelActive && babelCat && b.category !== babelCat)
   )?.id;
 
   return (
@@ -139,7 +156,11 @@ export default function BuildingShop() {
           const outputCount = Math.max(1, count);
           const milestoneInfo = buildingMilestoneInfo(b, count);
           const babelBlocked = babelActive && babelCat && b.category !== babelCat;
-          const isAffordable = canPayCost(prices) && !babelBlocked;
+          // lackingKey : devises manquantes (depuis la signature d'abordabilité).
+          // "" ⟺ tout payable ⟺ canPayCost true. Pilote aussi le highlight
+          // is-lacking par coût dans PurchaseRow (mémoïsé).
+          const lackingKey = affordability[b.id];
+          const isAffordable = lackingKey === "" && !babelBlocked;
 
           const m = milestoneInfo?.milestone || 0;
           const milestoneTier = m >= 8 ? 5 : m >= 6 ? 4 : m >= 4 ? 3 : m >= 2 ? 2 : m >= 1 ? 1 : 0;
@@ -158,6 +179,8 @@ export default function BuildingShop() {
               milestoneInfo={milestoneInfo}
               tier={milestoneTier}
               production={buildingProductionSegments(b, outputCount, globalMult, sqrtGlobalMult, outputMult)}
+              globalMult={globalMult}
+              lackingKey={lackingKey}
               pulse={pulse}
             />
           );
@@ -196,3 +219,8 @@ export default function BuildingShop() {
     </div>
   );
 }
+
+// Sans props : memo le découple du re-render de CityView (1 Hz via tickNow).
+// Le shop ne se re-rend plus que sur ses propres abonnements (abordabilité,
+// globalMult, bâtiments, buyAmount, mythes) — pas à chaque tick.
+export default memo(BuildingShop);
