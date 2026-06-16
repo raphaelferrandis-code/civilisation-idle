@@ -97,6 +97,31 @@ export function setAutomateThreshold(id, raw) {
   render();
 }
 
+// ── Doctrine de crise (cf. CE-spec-idle-crises.md §A) ────────────────────────
+// Setters UI : posture par palier + configuration de l'auto-effondrement.
+export function setCrisisPosture(palier, stance) {
+  if (!state.crisisDoctrine) return;
+  if (!["p25", "p50", "p75"].includes(palier)) return;
+  if (!["ask", "stabiliser", "temporiser"].includes(stance)) return;
+  state.crisisDoctrine[palier] = stance;
+  save();
+  invalidateRenderCache("all");
+  render();
+}
+
+export function setAutoCollapseConfig(patch) {
+  const ac = state.crisisDoctrine && state.crisisDoctrine.autoCollapse;
+  if (!ac || !patch) return;
+  if ("enabled" in patch) ac.enabled = Boolean(patch.enabled);
+  if ("trigger" in patch && ["rupture100", "usure", "temps"].includes(patch.trigger)) ac.trigger = patch.trigger;
+  if ("usureThreshold" in patch) { const v = parseFloat(patch.usureThreshold); if (!isNaN(v)) ac.usureThreshold = Math.max(0.1, Math.min(1, v)); }
+  if ("timeSeconds" in patch) { const v = parseInt(patch.timeSeconds, 10); if (!isNaN(v)) ac.timeSeconds = Math.max(30, Math.min(24 * 3600, v)); }
+  if ("prepare" in patch) ac.prepare = Boolean(patch.prepare);
+  save();
+  invalidateRenderCache("all");
+  render();
+}
+
 export function checkAutomateRules() {
   let didBuy = false;
   for (const rule of getAutomateRules()) {

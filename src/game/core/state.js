@@ -168,6 +168,15 @@ export const defaultState = () => ({
   crisisLimitAnnounced: false,
   crisisOpenedAt: null,
   recentCrisisIds: [],
+  // Doctrine de crise — auto-résolution des paliers 25/50/75 % + auto-effondrement
+  // configurable (cf. CE-spec-idle-crises.md §A). Postures : "ask" (dialogue
+  // bloquant, défaut), "stabiliser" (option qui baisse la Rupture), "temporiser".
+  crisisDoctrine: {
+    p25: "ask",
+    p50: "ask",
+    p75: "ask",
+    autoCollapse: { enabled: false, trigger: "rupture100", usureThreshold: 0.9, timeSeconds: 600, prepare: true }
+  },
   grandResetCount: 0,
   archaeologyUsed: false,
   lastCollapsedBuildings: {},
@@ -430,6 +439,25 @@ export function normalizeCrisisProduction(raw, fallback) {
     out[key] = finiteNumber(source[key], fallback[key], 0.1, 100);
   }
   return out;
+}
+
+export function normalizeCrisisDoctrine(raw, fallback) {
+  const source = isPlainObject(raw) ? raw : {};
+  const ac = isPlainObject(source.autoCollapse) ? source.autoCollapse : {};
+  const fac = fallback.autoCollapse;
+  const posture = (v, def) => (["ask", "stabiliser", "temporiser"].includes(v) ? v : def);
+  return {
+    p25: posture(source.p25, fallback.p25),
+    p50: posture(source.p50, fallback.p50),
+    p75: posture(source.p75, fallback.p75),
+    autoCollapse: {
+      enabled: Boolean(ac.enabled),
+      trigger: ["rupture100", "usure", "temps"].includes(ac.trigger) ? ac.trigger : fac.trigger,
+      usureThreshold: finiteNumber(ac.usureThreshold, fac.usureThreshold, 0.1, 1),
+      timeSeconds: finiteInteger(ac.timeSeconds, fac.timeSeconds, 30, 24 * 3600),
+      prepare: ac.prepare === undefined ? fac.prepare : Boolean(ac.prepare)
+    }
+  };
 }
 
 export function normalizeFoyerRelief(raw, fallback) {
@@ -754,6 +782,7 @@ export function hydrateState(parsed = {}) {
     crisisLimitAnnounced: Boolean(source.crisisLimitAnnounced),
     crisisOpenedAt: source.crisisOpenedAt ? finiteTimestamp(source.crisisOpenedAt, null) : null,
     recentCrisisIds: normalizeStringArray(source.recentCrisisIds, 8, 80),
+    crisisDoctrine: normalizeCrisisDoctrine(source.crisisDoctrine, base.crisisDoctrine),
     grandResetCount: finiteInteger(source.grandResetCount, base.grandResetCount),
     archaeologyUsed: Boolean(source.archaeologyUsed),
     lastCollapsedBuildings: normalizeNumberMap(source.lastCollapsedBuildings, buildingIds, {}, true),
@@ -785,6 +814,17 @@ export function hydrateState(parsed = {}) {
       : "city"
   };
   if (!stateOut.crisisLimitAnnounced) stateOut.crisisOpenedAt = null;
+  // Migration : les anciens upgrades d'auto-effondrement (intendant/conseil/memoire)
+  // sont remplacés par conseil_de_crise + edit_effondrement (cf. CE-spec §A.5). On
+  // lit le save BRUT (les anciens ids ont été filtrés de stateOut.upgrades) et on
+  // octroie les nouveaux + active l'auto-effondrement pour ne pas régresser.
+  const oldAuto = isPlainObject(source.upgrades) &&
+    (source.upgrades.intendant_de_crise || source.upgrades.conseil_de_regence || source.upgrades.memoire_institutionnelle);
+  if (oldAuto) {
+    stateOut.upgrades.conseil_de_crise = true;
+    stateOut.upgrades.edit_effondrement = true;
+    stateOut.crisisDoctrine.autoCollapse.enabled = true;
+  }
   return stateOut;
 }
 

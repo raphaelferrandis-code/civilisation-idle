@@ -77,7 +77,44 @@ export function checkCrisisThresholds() {
   state.crisisThresholds[slot.id] = true;
   const event = pickCrisisEvent(slot.threshold);
   state.recentCrisisIds = [...(state.recentCrisisIds || []).slice(-7), event.id];
+  // Doctrine de crise : si le palier est automatisé (Conseil de crise possédé +
+  // posture ≠ "ask"), on résout l'event sans dialogue ni pause. Sinon, dialogue.
+  const stance = crisisAutoStance(slot.id);
+  if (stance) { autoResolveCrisisEvent(event, stance); return; }
   openCrisisEvent(event);
+}
+
+// Posture configurée pour un palier (slot.id "_25"/"_50"/"_75"), ou null si le
+// joueur n'a pas le Conseil de crise ou a laissé "ask" (dialogue manuel).
+function crisisAutoStance(slotId) {
+  if (!has("conseil_de_crise")) return null;
+  const d = state.crisisDoctrine;
+  if (!d) return null;
+  const stance = slotId === "_25" ? d.p25 : slotId === "_50" ? d.p50 : slotId === "_75" ? d.p75 : "ask";
+  return (stance === "stabiliser" || stance === "temporiser") ? stance : null;
+}
+
+// Résolution automatique d'un event de crise selon la posture, SANS pause ni
+// dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
+export function autoResolveCrisisEvent(event, stance) {
+  // Mythe d'Héphaïstos : sous le seuil de population, la crise s'impose sans choix
+  // — même override qu'openCrisisEvent, pour ne pas court-circuiter le mythe.
+  if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
+    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(D(state.population).floor())} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+    addProductionPenalty("global", 0.06);
+    state.instability = clamp01(state.instability + 0.05);
+    return;
+  }
+  const opts = event.options || [];
+  const choice = opts.find((o) => o.stance === stance) || opts[0];
+  if (!choice || typeof choice.apply !== "function") return;
+  const before = state.instability || 0;
+  const outcome = choice.apply();
+  if (outcome && outcome.label) pushOutcomeFloat(outcome);
+  if ((state.instability || 0) < before) registerOlympusCrisisResolved();
+  else registerOlympusCrisisIgnored();
+  state.instability = clamp01(state.instability);
+  chronicle(`Le Conseil de crise tranche : « ${choice.label} » — appliqué sans délai.`);
 }
 
 export async function openCrisisEvent(event) {

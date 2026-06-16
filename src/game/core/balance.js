@@ -308,3 +308,24 @@ export const STABILIZER_DIRECT_FACTOR = 6;
 // Complexity : le dénominateur 26 devient 26 × (1 + couvertureEff×ABSORB) — une
 // cité bien équipée digère sa taille administrative (absorption max ~×2.5).
 export const COMPLEXITY_COVERAGE_ABSORB = 0.5;
+
+// ── Gain idle : production + Usure capées sur le temps d'absence ──────────────
+// (cf. CE-spec-idle-crises.md §B). Pendant l'absence, la cité produit à son taux
+// courant ET vieillit (Usure), tous deux bornés par le MÊME cap de temps. Au-delà
+// du cap : tout gèle (ni prod, ni Usure) — évite de revenir sur une cité plus
+// vieille que ce qu'elle a produit (l'ancien hors-ligne ne faisait QUE vieillir).
+// Le cap commence à 2 h GRATUITES (corrige « ferme l'onglet → rien » dès le départ),
+// puis les upgrades « Veilleurs de nuit » l'étendent. Le rendement idle scalant
+// déjà ~×13/ère, on ne vend que des HEURES (pas besoin de scaler le cap par ère).
+export const IDLE_BASE_CAP_SECONDS = 2 * 3600;        // cap gratuit pour tous
+// Incrément de cap (secondes) débloqué par chaque palier de ruines. Cumulés à la
+// base : 2h → 4h → 8h → 12h → 24h. Les coûts en ruines vivent dans upgrades.js.
+export const IDLE_CAP_PALIERS = {
+  veilleurs_nuit_1: 2 * 3600,   // → 4 h
+  veilleurs_nuit_2: 4 * 3600,   // → 8 h
+  veilleurs_nuit_3: 4 * 3600,   // → 12 h
+  veilleurs_nuit_4: 12 * 3600   // → 24 h
+};
+// Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
+// Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
+export const OFFLINE_MAX_COLLAPSES = 20;

@@ -201,9 +201,9 @@ function timedOut() { return realNow() - scenarioRealStart > REAL_TIME_LIMIT_MS;
 
 function activeAutomations() {
   const out = [];
-  if (has("intendant_de_crise")) out.push("Intendant de crise (effondrement auto 10 min, 55%)");
-  if (has("conseil_de_regence")) out.push("Conseil de regence (auto 6 min + rationnement, 80%)");
-  if (has("memoire_institutionnelle")) out.push("Memoire institutionnelle (auto 3 min, 100%)");
+  if (has("conseil_de_crise")) out.push("Conseil de crise (auto-resolution des paliers 25/50/75)");
+  if (has("edit_effondrement")) out.push("Edit d'effondrement (auto-effondrement configurable)");
+  for (const id of ["veilleurs_nuit_1", "veilleurs_nuit_2", "veilleurs_nuit_3", "veilleurs_nuit_4"]) if (has(id)) out.push(`${id} (cap idle etendu)`);
   if (has("protocoles_urgence")) out.push("Protocoles de stabilisation (rationnement/recensement auto)");
   if (has("conservateurs_ruines")) out.push("Archivistes des Ruines (achat auto 1er upgrade au collapse)");
   if (state.hephHeritage) out.push("Automates (Hephaistos) - achat/crise auto");

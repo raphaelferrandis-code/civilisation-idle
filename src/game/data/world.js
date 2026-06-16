@@ -503,6 +503,29 @@ export const CRISIS_POOL = [
   }
 ];
 
+// Posture de chaque option de crise, pour l'auto-résolution par la Doctrine de
+// crise (cf. CE-spec-idle-crises.md §A.2). L'option STABILISANTE est celle qui
+// REDUIT la Rupture (un effet kind:"gain" portant sur la Rupture) ; l'autre
+// TEMPORISE (Rupture +, ou pari). Dérivé des `effects` → robuste au
+// réordonnancement des options, contrairement à un index figé.
+const inferCrisisStance = (option) =>
+  (option.effects || []).some((e) => e.kind === "gain" && /Rupture/.test(e.label || ""))
+    ? "stabiliser" : "temporiser";
+for (const ev of CRISIS_POOL) {
+  for (const opt of (ev.options || [])) opt.stance = inferCrisisStance(opt);
+}
+// Garde-fou dev-only (coût nul en prod) : chaque event doit avoir exactement une
+// option `stabiliser` et une `temporiser`, sinon l'auto-résolution est ambiguë.
+if (import.meta.env?.DEV) {
+  for (const ev of CRISIS_POOL) {
+    const stab = (ev.options || []).filter((o) => o.stance === "stabiliser").length;
+    const temp = (ev.options || []).filter((o) => o.stance === "temporiser").length;
+    if (stab !== 1 || temp !== 1) {
+      throw new Error(`Crise "${ev.id}" : attendu 1 stabiliser + 1 temporiser, obtenu ${stab}/${temp} — la Doctrine de crise ne saurait pas quelle option jouer.`);
+    }
+  }
+}
+
 // Conserve la compatibilite avec le systeme existant (checkCrisisThresholds utilise CRISIS_EVENTS)
 export const CRISIS_EVENTS = [
   { id: "_25", threshold: 0.25 },

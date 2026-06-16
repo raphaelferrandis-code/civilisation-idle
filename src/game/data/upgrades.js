@@ -1104,31 +1104,58 @@ export const upgrades = [
     effect: "Dogme: production de savoir +125%."
   },
   {
-    id: "intendant_de_crise",
-    group: "ruins",
-    unlockCycles: 1,
-    name: "Intendant de crise",
-    cost: { ruins: 3 },
-    desc: "Quand personne ne décide, quelqu'un doit finir par le faire.",
-    effect: "Effondrement automatique après 10 min d'inaction en crise ouverte (55% des ruines)."
-  },
-  {
-    id: "conseil_de_regence",
+    id: "conseil_de_crise",
     group: "ruins",
     unlockCycles: 2,
-    name: "Conseil de régence",
-    cost: { ruins: 18 },
-    desc: "Le conseil essaie d'abord de rationner avant d'abandonner.",
-    effect: "Effondrement auto après 6 min. Tente Rationner avant d'effondrer si possible (80% des ruines)."
+    name: "Conseil de crise",
+    cost: { ruins: 8 },
+    desc: "Un conseil permanent tranche les crises sans réveiller le prince. Tu fixes la ligne, il l'applique.",
+    effect: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %). Fini les interruptions."
   },
   {
-    id: "memoire_institutionnelle",
+    id: "edit_effondrement",
     group: "ruins",
-    unlockCycles: 4,
-    name: "Mémoire institutionnelle",
-    cost: { ruins: 100 },
-    desc: "Les institutions survivent aux personnes. La procédure continue même sans gardien.",
-    effect: "Effondrement auto après 3 min. Tente Rationner et Réformes d'abord. Aucune pénalité (100% des ruines)."
+    unlockCycles: 3,
+    name: "Édit d'effondrement",
+    cost: { ruins: 15 },
+    desc: "L'effondrement devient un acte programmé, déclenché sans hésitation le moment venu.",
+    effect: "Débloque l'effondrement automatique configurable : à 100% de Rupture, à un seuil d'Usure, ou après une durée. Peut tenter Rationner/Réformes avant."
+  },
+  {
+    id: "veilleurs_nuit_1",
+    group: "ruins",
+    unlockCycles: 1,
+    name: "Veilleurs de nuit",
+    cost: { ruins: 8 },
+    desc: "Quelques gardiens tiennent les registres pendant que la cité dort. Rien ne s'arrête vraiment.",
+    effect: "Gain hors-ligne : la cité produit et vieillit jusqu'à 4 h d'absence (au lieu de 2 h)."
+  },
+  {
+    id: "veilleurs_nuit_2",
+    group: "ruins",
+    unlockCycles: 3,
+    name: "Veilleurs de nuit II",
+    cost: { ruins: 40 },
+    desc: "La veille s'organise en relèves. La cité ne ferme plus jamais tout à fait les yeux.",
+    effect: "Gain hors-ligne : jusqu'à 8 h d'absence."
+  },
+  {
+    id: "veilleurs_nuit_3",
+    group: "ruins",
+    unlockCycles: 5,
+    name: "Veilleurs de nuit III",
+    cost: { ruins: 200 },
+    desc: "Des consignes écrites couvrent toutes les situations prévues. Et quelques-unes qui ne le sont pas.",
+    effect: "Gain hors-ligne : jusqu'à 12 h d'absence."
+  },
+  {
+    id: "veilleurs_nuit_4",
+    group: "ruins",
+    unlockCycles: 7,
+    name: "Veilleurs de nuit IV",
+    cost: { ruins: 1500 },
+    desc: "La cité fonctionne désormais aussi bien sans toi qu'avec. C'est à la fois rassurant et vertigineux.",
+    effect: "Gain hors-ligne : jusqu'à 24 h d'absence."
   },
   {
     id: "reforme_administrative",
@@ -1233,8 +1260,14 @@ export const PRESTIGE_TREE_BRANCHES = [
   {
     id: "rupture",
     name: "Rupture",
-    hint: "Gestion autonome des crises: effondrement automatique si le joueur ne decide pas.",
-    ids: ["intendant_de_crise", "conseil_de_regence", "recurring_ages", "memoire_institutionnelle"]
+    hint: "Gestion autonome des crises: doctrine de crise + effondrement automatique configurable.",
+    ids: ["conseil_de_crise", "edit_effondrement", "recurring_ages"]
+  },
+  {
+    id: "veille",
+    name: "Veille",
+    hint: "Gain hors-ligne : la cite continue de produire et de vieillir en ton absence.",
+    ids: ["veilleurs_nuit_1", "veilleurs_nuit_2", "veilleurs_nuit_3", "veilleurs_nuit_4"]
   }
 ];
 

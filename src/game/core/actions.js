@@ -61,7 +61,9 @@ export {
   getAutomateRules,
   toggleAutomate,
   setAutomateThreshold,
-  checkAutomateRules
+  checkAutomateRules,
+  setCrisisPosture,
+  setAutoCollapseConfig
 } from './actions/automation.js';
 
 export {

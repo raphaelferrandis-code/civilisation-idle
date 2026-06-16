@@ -8,7 +8,8 @@ import {
   getMusicVolume,
   setMusicVolume,
   getMusicActiveTabOnly,
-  setMusicActiveTabOnly
+  setMusicActiveTabOnly,
+  idleCapSeconds
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
 import {
@@ -17,7 +18,9 @@ import {
   setAutoScriptThreshold,
   getAutomateRules,
   toggleAutomate,
-  setAutomateThreshold
+  setAutomateThreshold,
+  setCrisisPosture,
+  setAutoCollapseConfig
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render } from '../../game/core/state.js';
 
@@ -28,6 +31,10 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
+  const conseilDeCrise = useGameState(s => Boolean(s.upgrades.conseil_de_crise));
+  const editEffondrement = useGameState(s => Boolean(s.upgrades.edit_effondrement));
+  const crisisDoctrine = useGameState(s => s.crisisDoctrine) || {};
+  const autoCollapse = crisisDoctrine.autoCollapse || {};
   // Rules lists. optionRevision force les controles mutables a se recalculer.
   void optionRevision;
   const notifEnabled = getNotifEnabled();
@@ -113,6 +120,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
     setOptionRevision((revision) => revision + 1);
   };
 
+  const handleSetPosture = (palier, stance) => {
+    setCrisisPosture(palier, stance);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleAutoCollapse = (patch) => {
+    setAutoCollapseConfig(patch);
+    setOptionRevision((revision) => revision + 1);
+  };
+
   const handleDialogClick = (event) => {
     const dialog = dialogRef.current;
     if (!dialog || event.target !== dialog) return;
@@ -178,6 +195,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
               onClick={() => setActiveGroup('automates')}
             >
               Automates
+            </button>
+          )}
+
+          {conseilDeCrise && (
+            <button
+              className={`options-tab ${activeGroup === 'doctrine' ? 'active' : ''}`}
+              type="button"
+              onClick={() => setActiveGroup('doctrine')}
+            >
+              Doctrine de crise
             </button>
           )}
         </div>
@@ -367,6 +394,154 @@ export default function OptionsDialog({ isOpen, onClose }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* DOCTRINE DE CRISE PANEL (Unlocked by conseil_de_crise) */}
+          {activeGroup === 'doctrine' && conseilDeCrise && (
+            <div id="crisisDoctrinePanel">
+              {[
+                { key: 'p25', label: 'Crise à 25 % de Rupture' },
+                { key: 'p50', label: 'Crise à 50 % de Rupture' },
+                { key: 'p75', label: 'Crise à 75 % de Rupture' }
+              ].map(({ key, label }) => (
+                <div key={key} className="options-row">
+                  <div>
+                    <span>{label}</span>
+                    <small>Réponse automatique (sans interruption)</small>
+                  </div>
+                  <div className="number-format-control">
+                    {[
+                      { v: 'ask', t: 'Demander' },
+                      { v: 'stabiliser', t: 'Stabiliser' },
+                      { v: 'temporiser', t: 'Temporiser' }
+                    ].map(({ v, t }) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`format-option ${(crisisDoctrine[key] || 'ask') === v ? 'active' : ''}`}
+                        onClick={() => handleSetPosture(key, v)}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {editEffondrement ? (
+                <>
+                  <div className="options-row">
+                    <div>
+                      <span>Effondrement automatique</span>
+                      <small>La cité tombe seule au moment choisi (héritage préservé)</small>
+                    </div>
+                    <button
+                      type="button"
+                      className={`toggle-btn ${autoCollapse.enabled ? 'on' : 'off'}`}
+                      onClick={() => handleAutoCollapse({ enabled: !autoCollapse.enabled })}
+                    >
+                      {autoCollapse.enabled ? 'Actif' : 'Inactif'}
+                    </button>
+                  </div>
+
+                  {autoCollapse.enabled && (
+                    <>
+                      <div className="options-row">
+                        <div>
+                          <span>Déclencheur</span>
+                          <small>Quand effondrer automatiquement</small>
+                        </div>
+                        <div className="number-format-control">
+                          {[
+                            { v: 'rupture100', t: 'Rupture 100 %' },
+                            { v: 'usure', t: 'Usure' },
+                            { v: 'temps', t: 'Durée' }
+                          ].map(({ v, t }) => (
+                            <button
+                              key={v}
+                              type="button"
+                              className={`format-option ${autoCollapse.trigger === v ? 'active' : ''}`}
+                              onClick={() => handleAutoCollapse({ trigger: v })}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {autoCollapse.trigger === 'usure' && (
+                        <div className="options-row">
+                          <div>
+                            <span>Seuil d'Usure</span>
+                            <small>Effondre dès que l'Usure atteint ce pourcentage</small>
+                          </div>
+                          <div className="auto-script-threshold">
+                            <input
+                              type="number"
+                              className="auto-script-input"
+                              min="10"
+                              max="100"
+                              value={Math.round((autoCollapse.usureThreshold ?? 0.9) * 100)}
+                              onChange={(e) => handleAutoCollapse({ usureThreshold: (parseFloat(e.target.value) || 0) / 100 })}
+                            />
+                            <span className="auto-script-unit">%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {autoCollapse.trigger === 'temps' && (
+                        <div className="options-row">
+                          <div>
+                            <span>Durée de cycle</span>
+                            <small>Effondre après ce nombre de minutes</small>
+                          </div>
+                          <div className="auto-script-threshold">
+                            <input
+                              type="number"
+                              className="auto-script-input"
+                              min="1"
+                              max="1440"
+                              value={Math.round((autoCollapse.timeSeconds ?? 600) / 60)}
+                              onChange={(e) => handleAutoCollapse({ timeSeconds: (parseFloat(e.target.value) || 0) * 60 })}
+                            />
+                            <span className="auto-script-unit">min</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="options-row">
+                        <div>
+                          <span>Tenter de sauver avant</span>
+                          <small>Rationner / Réformes avant d'effondrer si la crise est résoluble</small>
+                        </div>
+                        <button
+                          type="button"
+                          className={`toggle-btn ${autoCollapse.prepare ? 'on' : 'off'}`}
+                          onClick={() => handleAutoCollapse({ prepare: !autoCollapse.prepare })}
+                        >
+                          {autoCollapse.prepare ? 'Oui' : 'Non'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="options-row">
+                  <div>
+                    <span>Effondrement automatique</span>
+                    <small>Débloqué par l'upgrade de ruines « Édit d'effondrement ».</small>
+                  </div>
+                </div>
+              )}
+
+              <div className="options-row">
+                <div>
+                  <span>Gain hors-ligne</span>
+                  <small>La cité produit et vieillit en ton absence, jusqu'à ce plafond. Étends-le avec « Veilleurs de nuit ».</small>
+                </div>
+                <strong>{Math.round(idleCapSeconds() / 3600)} h</strong>
+              </div>
             </div>
           )}
         </div>

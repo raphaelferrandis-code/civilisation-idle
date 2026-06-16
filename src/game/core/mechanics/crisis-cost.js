@@ -14,7 +14,7 @@ import {
   FATIGUE_COST_PENALTY
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
-import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage, has } from './shared.js';
+import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage } from './shared.js';
 import { rates } from './production.js';
 import { ruinGain, completedMythCount } from './prestige.js';
 
@@ -133,10 +133,10 @@ export function crisisCosts() {
   };
 }
 
-// Délai avant effondrement automatique (intendant_de_crise).
+// Délai d'inaction avant l'effondrement automatique pour le trigger "rupture100"
+// de la Doctrine de crise (cf. CE-spec-idle-crises.md §A.4) : une grâce laissant
+// au joueur le temps d'intervenir avant que l'Édit d'effondrement ne tranche.
 // Utilisé par checkAutoCollapse() dans main.js et renderCrisisSummary() dans render.js.
 export function autoCollapseDelay() {
-  const hasTier3 = has("memoire_institutionnelle");
-  const hasTier2 = hasTier3 || has("conseil_de_regence");
-  return hasTier3 ? 3 * 60 * 1000 : hasTier2 ? 6 * 60 * 1000 : 10 * 60 * 1000;
+  return 3 * 60 * 1000;
 }

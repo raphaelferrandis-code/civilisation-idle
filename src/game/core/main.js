@@ -4,6 +4,7 @@ import {
   state,
   renderCache,
   collapseInProgress,
+  gamePaused,
   save,
   invalidateRenderCache,
   render,
@@ -20,11 +21,16 @@ import {
   autoCollapseDelay,
   ruinGain,
   timeWearRate,
+  rates,
   crisisOpen,
+  currentEraIndex,
   isUnlocked,
   addProductionPenalty,
   amplifyRuptureFactor
 } from './mechanics.js';
+
+import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS } from './balance.js';
+import { idleResumeNarrative } from '../data/idleNarrative.js';
 
 import {
   tick,
@@ -128,63 +134,101 @@ export function debugBuyEarlyRuins() {
   render();
 }
 
-export function applyElapsedWear(elapsedSeconds) {
-  const elapsed = Math.min(60 * 60 * 6, Math.max(0, elapsedSeconds));
+// Cap d'absence créditée (production + Usure), en secondes : 2 h gratuites pour
+// tous + paliers « Veilleurs de nuit » possédés (cf. CE-spec-idle-crises.md §B.3).
+export function idleCapSeconds() {
+  let cap = IDLE_BASE_CAP_SECONDS;
+  for (const [id, seconds] of Object.entries(IDLE_CAP_PALIERS)) if (has(id)) cap += seconds;
+  return cap;
+}
+
+// Progression hors-ligne (cf. §B). Pendant l'absence, la cité PRODUIT à son taux
+// courant ET vieillit (Usure), tous deux bornés par le MÊME cap (idleCapSeconds) —
+// au-delà, tout gèle. La Rupture reste GELÉE en v1 (pas de simu de crises hors-ligne).
+// Remplace l'ancien hors-ligne « Usure seule ×0.35 », qui ne produisait rien.
+export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
+  // Crise terminale déjà ouverte / effondrement en cours : on ne touche à rien.
+  if (collapseInProgress || state.crisisLimitAnnounced) return;
+  const elapsed = Math.min(idleCapSeconds(), Math.max(0, elapsedSeconds));
   if (elapsed <= 10) return;
-  const usefulSeconds = elapsed * 0.35;
+
+  // 1. Production au taux courant. Les bâtiments ne changent pas hors-ligne → rates()
+  //    est stable, l'intégration linéaire suffit. Ressources en Decimal.
+  invalidateRenderCache("all");
+  const r = rates();
+  state.population = D(state.population).add(D(r.population).mul(elapsed));
+  state.food = D(state.food).add(D(r.food).mul(elapsed));
+  state.gold = D(state.gold).add(D(r.gold).mul(elapsed));
+  state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(elapsed));
+  state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(elapsed));
+  invalidateRenderCache("all");
+
+  // 2. Usure du temps, MÊME elapsed que la prod (couplage : on ne vieillit jamais
+  //    plus que ce qu'on a produit). Plus de facteur ×0.35.
   const wearBefore = state.timeWear || 0;
-  state.timeWear = clamp(wearBefore + timeWearRate() * usefulSeconds, 0, 1);
-  if (state.timeWear >= 1 && wearBefore < 1) {
-    log(`En ton absence, l'usure du temps a atteint son terme. La cite attend ta decision dans l'onglet Crises.`);
-  } else {
-    log(`Pendant ton absence, l'usure du temps a progresse pendant ${fmt(Math.round(usefulSeconds))} secondes.`);
-  }
+  state.timeWear = clamp(wearBefore + timeWearRate() * elapsed, 0, 1);
+
+  // 3. Habillage narratif de la reprise (dépêche datée dans la Chronique).
+  //    Purement cosmétique — paramétré par durée d'absence, âge et Rupture.
+  chronicle(idleResumeNarrative({
+    elapsedSeconds,
+    eraIndex: currentEraIndex(),
+    instability: state.instability || 0,
+    terminalUsure: state.timeWear >= 1 && wearBefore < 1
+  }));
   save();
 }
 
-export function applyOfflineProgress() {
-  applyElapsedWear((Date.now() - state.lastTick) / 1000);
-}
-
+// Effondrement automatique configurable (Édit d'effondrement / Doctrine de crise,
+// cf. CE-spec-idle-crises.md §A.4). Trigger au choix : "rupture100" (crise
+// terminale + grâce), "usure" (seuil d'Usure), "temps" (durée de cycle). Les deux
+// derniers peuvent effondrer une cité NON terminale — d'où ruinGain(projected).
 export function checkAutoCollapse() {
-  if (!state.crisisLimitAnnounced || collapseInProgress) return;
-  if (!has("intendant_de_crise")) return;
-  if (!state.crisisOpenedAt) {
-    state.crisisOpenedAt = Date.now();
-    return;
+  if (collapseInProgress || gamePaused) return;
+  const ac = state.crisisDoctrine?.autoCollapse;
+  if (!ac || !ac.enabled || !has("edit_effondrement")) return;
+
+  let shouldCollapse = false;
+  let projected = false; // gain "comme si on s'effondrait maintenant" hors crise terminale
+  if (ac.trigger === "rupture100") {
+    // Comportement historique : on attend la crise terminale, puis un délai de grâce.
+    if (!state.crisisLimitAnnounced) { state.crisisOpenedAt = state.crisisOpenedAt || null; return; }
+    if (!state.crisisOpenedAt) { state.crisisOpenedAt = Date.now(); return; }
+    if (Date.now() - state.crisisOpenedAt < autoCollapseDelay()) return;
+    shouldCollapse = true;
+  } else if (ac.trigger === "usure") {
+    if ((state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)) { shouldCollapse = true; projected = !crisisOpen(); }
+  } else if (ac.trigger === "temps") {
+    const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
+    if (elapsed >= (ac.timeSeconds ?? 600)) { shouldCollapse = true; projected = !crisisOpen(); }
+  }
+  if (!shouldCollapse) return;
+
+  // Option "prepare" : si la crise terminale est ouverte ET résoluble (Rupture, pas
+  // Usure), on tente Rationner puis Réformes avant d'effondrer. Une action baisse
+  // l'instabilité mais PAS l'usure → on ne tente que si ça peut réellement résoudre.
+  if (ac.prepare && state.crisisLimitAnnounced) {
+    const canAutoResolve = state.instability >= 1 && (state.timeWear || 0) < 1;
+    const costs = crisisCosts();
+    if (canAutoResolve && canPayCost(costs.rationing)) {
+      runCrisisAction("rationing", { render: false, force: true });
+      state.crisisOpenedAt = Date.now();
+      if (!crisisOpen()) resumeAfterCrisisOutcome();
+      return;
+    }
+    if (canAutoResolve && canPayCost(costs.reforms)) {
+      runCrisisAction("reforms", { render: false, force: true });
+      state.crisisOpenedAt = Date.now();
+      if (!crisisOpen()) resumeAfterCrisisOutcome();
+      return;
+    }
   }
 
-  const delay = autoCollapseDelay();
-
-  if (Date.now() - state.crisisOpenedAt < delay) return;
-
-  const hasTier3 = has("memoire_institutionnelle");
-  const hasTier2 = hasTier3 || has("conseil_de_regence");
-
-  // Une action de crise baisse l'instabilité mais PAS l'usure : si la crise
-  // terminale vient de l'usure (timeWear >= 1), l'auto-résolution ne peut rien
-  // faire et reboucle. On ne tente rationing/reforms que si elle peut résoudre.
-  const canAutoResolve = state.instability >= 1 && (state.timeWear || 0) < 1;
-  const costs = crisisCosts();
-  if (canAutoResolve && hasTier2 && canPayCost(costs.rationing)) {
-    runCrisisAction("rationing", { render: false, force: true });
-    state.crisisOpenedAt = Date.now();
-    if (!crisisOpen()) resumeAfterCrisisOutcome();
-    return;
-  }
-  if (canAutoResolve && hasTier3 && canPayCost(costs.reforms)) {
-    runCrisisAction("reforms", { render: false, force: true });
-    state.crisisOpenedAt = Date.now();
-    if (!crisisOpen()) resumeAfterCrisisOutcome();
-    return;
-  }
-
-  const mult = hasTier3 ? 1.0 : hasTier2 ? 0.80 : 0.55;
-  const gain = ruinGain().mul(mult).floor().max(0);
+  const gain = ruinGain(projected).floor().max(0);
+  if (D(gain).lte(0)) return; // cité trop jeune/petite : rien à récolter, on n'effondre pas à vide
   setCollapseInProgress(true);
   state.crisisOpenedAt = null;
-  const penaltyNote = mult < 1.0 ? ` (seulement ${Math.round(mult * 100)}% de notre héritage a pu être préservé)` : "";
-  chronicle(`L'absence de décision de nos chefs nous a menés à la ruine : la cité s'est effondrée d'elle-même sous le poids de son inaction${penaltyNote}.`);
+  chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
   runCollapseSequence(gain, "auto_collapse");
 }
 
@@ -350,16 +394,16 @@ export function startGameLoop() {
     save();
   }, 2000);
 
-  // Sauvegarder quand l'onglet perd le focus (switch d'onglet, etc.) et
-  // rattraper l'usure du temps écoulé quand l'onglet redevient visible (le tick
-  // est throttlé par le navigateur en arrière-plan, d'où la perte de temps).
+  // Sauvegarder quand l'onglet perd le focus (switch d'onglet, etc.) et créditer
+  // la progression hors-ligne (prod + Usure, capées) quand il redevient visible
+  // (le tick est throttlé par le navigateur en arrière-plan, d'où la perte de temps).
   const handleVisibilityChange = () => {
     if (document.hidden) {
       save();
     } else if (!collapseInProgress && !state.crisisLimitAnnounced) {
       const elapsed = (Date.now() - state.lastTick) / 1000;
       if (elapsed > 60) {
-        applyElapsedWear(elapsed);
+        applyOfflineProgress(elapsed);
         last = performance.now();
       }
     }
