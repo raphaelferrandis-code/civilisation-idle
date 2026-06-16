@@ -61,6 +61,15 @@ export function generateEpitaph() {
   return `Ici s'arrête l'Âge ${era}. Trop vaste pour se gouverner, elle confondit sa grandeur avec une promesse d'éternité.`;
 }
 
+// INVARIANT DE SAUVEGARDE (revue 0.4 §1.3) — NE PAS CASSER : aucune mutation d'état
+// survivant à un rechargement ne doit avoir lieu AVANT la résolution du dialogue
+// d'épitaphe (`await openChoiceDialog`). La seule mutation autorisée avant est
+// `setMourning(true)`, neutralisée par hydrateState (qui force `mourning: false`).
+// Conséquence : un F5 pendant le deuil OU le dialogue recharge l'état pré-effondrement
+// — la crise est re-proposée et le gain recalculé, jamais une sauvegarde à moitié
+// effondrée. Toutes les mutations persistées (`nextEpitaphLegacy`, `completeCollapse`)
+// arrivent APRÈS l'await. Défendu par collapse.persistence.test.js : déplacer une
+// écriture d'état avant le dialogue fera échouer ce test.
 export async function runCollapseSequence(gain, reason) {
   setMourning(true);
   const dynastyIndex = state.dynastyCount % dynastyNames.length;
