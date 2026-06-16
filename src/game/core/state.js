@@ -255,11 +255,21 @@ export let recentBuildingMilestones = {};
 export let renderCache = {
   cachedRuinEffectsSignature: "",
   cachedRuinEffects: null,
+  // Compteur de frame : bumpFrame() l'incrémente (1× par tick). Chaque cache de
+  // frame retient la version à laquelle il a été calculé (_frameXVer) et se
+  // recalcule dès qu'elle diffère → invalidation centralisée, plus de nullage
+  // manuel champ par champ. Sentinelle -1 = forcé périmé (frameVersion >= 0).
+  frameVersion: 0,
   _frameVitals: null,
+  _frameVitalsVer: -1,
   _framePressure: null,
+  _framePressureVer: -1,
   _frameGlobalMult: null,
+  _frameGlobalMultVer: -1,
   _frameGlobalMultDec: null,
+  _frameGlobalMultDecVer: -1,
   _frameRates: null,
+  _frameRatesVer: -1,
   _buildingSums: null,
   _buildingsVersion: 0,
   _upgradesVersion: 0,
@@ -799,25 +809,31 @@ export function save() {
   }
 }
 
+// Invalide d'un seul coup les 5 caches de frame (vitals, pressure, globalMult,
+// globalMultDec, rates) : il suffit d'avancer la version, les getters comparent
+// eux-mêmes. Appelé 1× en tête de tick (remplace 5 nullages) et par scope "all".
+export function bumpFrame() {
+  renderCache.frameVersion++;
+}
+
 export function invalidateRenderCache(scope = "all") {
   if (scope === "all") {
-    renderCache._frameVitals = null;
-    renderCache._framePressure = null;
-    renderCache._frameGlobalMult = null;
-    renderCache._frameGlobalMultDec = null;
-    renderCache._frameRates = null;
+    bumpFrame();
     renderCache._buildingSums = null;
     renderCache.cachedRuinEffects = null;
     renderCache.cachedRuinEffectsSignature = "";
   }
+  // Portées ciblées : seul `rates` dépend des sommes de bâtiments / upgrades, on
+  // le force périmé (-1) SANS toucher vitals/pressure/globalMult — qui, eux, ne
+  // se rafraîchissent qu'au tick suivant (granularité d'origine préservée).
   if (scope === "all" || scope === "buildings") {
     renderCache._buildingSums = null;
     renderCache._buildingsVersion++;
-    renderCache._frameRates = null;
+    renderCache._frameRatesVer = -1;
   }
   if (scope === "all" || scope === "upgrades") {
     renderCache._upgradesVersion++;
-    renderCache._frameRates = null;
+    renderCache._frameRatesVer = -1;
   }
 }
 

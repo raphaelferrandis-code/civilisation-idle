@@ -4,7 +4,7 @@ import {
   state,
   gamePaused,
   collapseInProgress,
-  renderCache
+  bumpFrame
 } from '../state.js';
 
 import {
@@ -64,11 +64,7 @@ let lastAutoCrisisAt = 0;
 export function tick(dt) {
   if (gamePaused || collapseInProgress) return;
 
-  renderCache._frameVitals = null;
-  renderCache._framePressure = null;
-  renderCache._frameGlobalMult = null;
-  renderCache._frameGlobalMultDec = null;
-  renderCache._frameRates = null;
+  bumpFrame(); // invalide les 5 caches de frame en une fois (cf. state.js)
 
   if (state.crisisLimitAnnounced) {
     if (state.instability >= 1) state.instability = 1;

@@ -509,3 +509,16 @@ export const CRISIS_EVENTS = [
   { id: "_50", threshold: 0.5 },
   { id: "_75", threshold: 0.75 }
 ];
+
+// Invariant dev-only (coût nul en prod) : chaque seuil de CRISIS_EVENTS doit avoir
+// au moins une crise dans CRISIS_POOL. Sinon pickCrisisEvent obtient un tableau vide
+// → choices[state.cycles % 0] = choices[NaN] = undefined → crash sur event.id.
+// Garantie purement data jusqu'ici (revue 0.4 §1.2) ; ici elle casse au chargement
+// en DEV et en test, donc impossible d'ajouter un seuil orphelin sans le voir.
+if (import.meta.env?.DEV) {
+  for (const ev of CRISIS_EVENTS) {
+    if (!CRISIS_POOL.some((p) => p.threshold === ev.threshold)) {
+      throw new Error(`CRISIS_POOL ne contient aucune crise pour le seuil ${ev.threshold} (CRISIS_EVENTS "${ev.id}") — pickCrisisEvent planterait.`);
+    }
+  }
+}

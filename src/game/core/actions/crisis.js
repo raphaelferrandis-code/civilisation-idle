@@ -399,8 +399,8 @@ export function runCrisisAction(id, options = {}) {
     state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
     raiseRegulFatigue();
     registerOlympusCrisisResolved();
-    renderCache._framePressure = null;
-    renderCache._frameRates = null;
+    renderCache._framePressureVer = -1;
+    renderCache._frameRatesVer = -1;
     if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
     chronicle(REFORM_CHRONICLES[reformFoyer] || "Une réforme de fond s'installe durablement dans la cité.");
     if (doRender) render();
@@ -458,8 +458,8 @@ export function runCrisisAction(id, options = {}) {
 
     raiseRegulFatigue();
     registerOlympusCrisisResolved();
-    renderCache._framePressure = null;
-    renderCache._frameRates = null;
+    renderCache._framePressureVer = -1;
+    renderCache._frameRatesVer = -1;
     if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
     chronicle(note);
     if (doRender) render();
@@ -508,8 +508,8 @@ export function runCrisisAction(id, options = {}) {
   raiseRegulFatigue();
   registerOlympusCrisisResolved();
   // Barres/coûts à jour dès ce render (sinon ~1 tick de retard sur le cache frame).
-  renderCache._framePressure = null;
-  renderCache._frameRates = null;
+  renderCache._framePressureVer = -1;
+  renderCache._frameRatesVer = -1;
   if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
   chronicle(effect.note);
   if (doRender) render();
@@ -531,8 +531,8 @@ export function togglePolicy(id) {
     list.push(id);
   }
   // Coût et ralentissement changent immédiatement (sinon ~1 tick de retard).
-  renderCache._frameRates = null;
-  renderCache._framePressure = null;
+  renderCache._frameRatesVer = -1;
+  renderCache._framePressureVer = -1;
   save();
   render();
 }
