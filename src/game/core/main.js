@@ -10,6 +10,7 @@ import {
   render,
   setGamePaused,
   setCollapseInProgress,
+  setNotifyPaused,
   setState,
   notify,
   hydrateState
@@ -29,7 +30,7 @@ import {
   amplifyRuptureFactor
 } from './mechanics.js';
 
-import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS } from './balance.js';
+import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES } from './balance.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
 
 import {
@@ -37,11 +38,13 @@ import {
   log,
   chronicle,
   runCrisisAction,
+  completeCollapse,
   registerOlympusInteraction,
   resumeAfterCrisisOutcome
 } from './actions.js';
 
-import { runCollapseSequence } from './events.js';
+import { runCollapseSequence, generateEpitaph } from './events.js';
+import { dynastyNames } from '../data/buildings.js';
 import { D } from './num.js';
 
 import {
@@ -142,9 +145,80 @@ export function idleCapSeconds() {
   return cap;
 }
 
-// Progression hors-ligne (cf. §B). Pendant l'absence, la cité PRODUIT à son taux
-// courant ET vieillit (Usure), tous deux bornés par le MÊME cap (idleCapSeconds) —
-// au-delà, tout gèle. La Rupture reste GELÉE en v1 (pas de simu de crises hors-ligne).
+// Pas (s. virtuelles) de la simulation hors-ligne. Petit → l'auto-achat (1 bâtiment
+// par tick) rebâtit correctement ; borné par OFFLINE_MAX_COLLAPSES + le cap d'idle.
+const OFFLINE_STEP_SECONDS = 10;
+
+// Farm hors-ligne (cf. CE-spec §B.5, v2) : rejoue la VRAIE boucle tick() par pas
+// grossiers sur le temps d'absence → l'auto-achat (Héphaïstos) rebâtit, l'Usure et
+// la Rupture montent, et l'Édit d'effondrement effondre au déclencheur choisi, en
+// banquant les ruines. Plafonné à OFFLINE_MAX_COLLAPSES.
+// Éligibilité : auto-achat (hephHeritage) + auto-effondrement activé — sinon la
+// cité ne se rebâtit pas seule et on retombe sur le crédit linéaire (return null).
+// Effets de bord neutralisés : notifications React suspendues, crises narratives
+// 25/50/75 supprimées (évite les dialogues async), spam de Chronique jeté.
+function simulateAwayCrises(elapsedSeconds) {
+  const ac = state.crisisDoctrine && state.crisisDoctrine.autoCollapse;
+  if (!state.hephHeritage || !has("edit_effondrement") || !ac || !ac.enabled) return null;
+
+  const realDateNow = Date.now;
+  const savedHistory = state.history;
+  const ruinsBefore = D(state.ruins);
+  let virtual = realDateNow.call(Date) - elapsedSeconds * 1000;
+  let collapses = 0;
+  const markThresholds = () => { state.crisisThresholds = { _25: true, _50: true, _75: true }; };
+
+  Date.now = () => virtual;
+  setNotifyPaused(true);
+  try {
+    markThresholds(); // pas de crises narratives hors-ligne (flavor foreground)
+    let remaining = elapsedSeconds;
+    while (remaining > 0 && collapses < OFFLINE_MAX_COLLAPSES) {
+      const step = Math.min(OFFLINE_STEP_SECONDS, remaining);
+      remaining -= step;
+      virtual += step * 1000;
+      tick(step); // prod + Usure + dérive Rupture + auto-achat + maj des pics
+      if (gamePaused) { setGamePaused(false); break; } // sécurité : aucun dialogue ne doit s'ouvrir
+
+      const cycleAge = (virtual - (state.cycleStartedAt || virtual)) / 1000;
+      const fire = ac.trigger === "usure" ? (state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)
+        : ac.trigger === "temps" ? cycleAge >= (ac.timeSeconds ?? 600)
+        : state.crisisLimitAnnounced; // rupture100 : tick() a posé le drapeau terminal
+      if (!fire) continue;
+
+      const gain = ruinGain(true).floor().max(0);
+      if (D(gain).gt(0)) {
+        completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), "auto_collapse");
+        collapses += 1;
+        markThresholds(); // completeCollapse a remis crisisThresholds à {}
+      } else if (ac.trigger === "rupture100" && state.crisisLimitAnnounced) {
+        break; // crise terminale mais gain nul (cité trop jeune) : on évite de boucler à vide
+      }
+    }
+    // Temps restant après le plafond d'effondrements : crédit linéaire (pas de gâchis).
+    if (remaining > 0) {
+      const r = rates();
+      state.population = D(state.population).add(D(r.population).mul(remaining));
+      state.food = D(state.food).add(D(r.food).mul(remaining));
+      state.gold = D(state.gold).add(D(r.gold).mul(remaining));
+      state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(remaining));
+      state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(remaining));
+    }
+  } finally {
+    Date.now = realDateNow;
+    setNotifyPaused(false);
+    setGamePaused(false);
+    state.history = savedHistory; // on jette le spam de Chronique hors-ligne
+    invalidateRenderCache("all");
+  }
+  return { collapses, ruinsGained: D(state.ruins).sub(ruinsBefore).max(0) };
+}
+
+// Progression hors-ligne (cf. §B). Deux régimes :
+//  - FARM (Héphaïstos + Édit d'effondrement actif) : la vraie boucle est rejouée,
+//    la cité s'effondre et se relève en banquant des ruines (simulateAwayCrises).
+//  - LINÉAIRE (sinon) : la cité PRODUIT et vieillit au taux courant, bornés par le
+//    MÊME cap (idleCapSeconds) — au-delà, tout gèle. Rupture gelée.
 // Remplace l'ancien hors-ligne « Usure seule ×0.35 », qui ne produisait rien.
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
   // Crise terminale déjà ouverte / effondrement en cours : on ne touche à rien.
@@ -152,29 +226,32 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   const elapsed = Math.min(idleCapSeconds(), Math.max(0, elapsedSeconds));
   if (elapsed <= 10) return;
 
-  // 1. Production au taux courant. Les bâtiments ne changent pas hors-ligne → rates()
-  //    est stable, l'intégration linéaire suffit. Ressources en Decimal.
-  invalidateRenderCache("all");
-  const r = rates();
-  state.population = D(state.population).add(D(r.population).mul(elapsed));
-  state.food = D(state.food).add(D(r.food).mul(elapsed));
-  state.gold = D(state.gold).add(D(r.gold).mul(elapsed));
-  state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(elapsed));
-  state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(elapsed));
-  invalidateRenderCache("all");
-
-  // 2. Usure du temps, MÊME elapsed que la prod (couplage : on ne vieillit jamais
-  //    plus que ce qu'on a produit). Plus de facteur ×0.35.
   const wearBefore = state.timeWear || 0;
-  state.timeWear = clamp(wearBefore + timeWearRate() * elapsed, 0, 1);
+  const farm = simulateAwayCrises(elapsed); // null si non éligible → chemin linéaire
 
-  // 3. Habillage narratif de la reprise (dépêche datée dans la Chronique).
-  //    Purement cosmétique — paramétré par durée d'absence, âge et Rupture.
+  if (!farm) {
+    // Production au taux courant (bâtiments constants hors-ligne → rates() stable).
+    invalidateRenderCache("all");
+    const r = rates();
+    state.population = D(state.population).add(D(r.population).mul(elapsed));
+    state.food = D(state.food).add(D(r.food).mul(elapsed));
+    state.gold = D(state.gold).add(D(r.gold).mul(elapsed));
+    state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(elapsed));
+    state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(elapsed));
+    invalidateRenderCache("all");
+    // Usure, MÊME elapsed que la prod (couplage : on ne vieillit jamais plus que ce
+    // qu'on a produit). Plus de facteur ×0.35.
+    state.timeWear = clamp(wearBefore + timeWearRate() * elapsed, 0, 1);
+  }
+
+  // Habillage narratif de la reprise (dépêche datée dans la Chronique) — cosmétique.
   chronicle(idleResumeNarrative({
     elapsedSeconds,
     eraIndex: currentEraIndex(),
     instability: state.instability || 0,
-    terminalUsure: state.timeWear >= 1 && wearBefore < 1
+    terminalUsure: state.timeWear >= 1 && wearBefore < 1,
+    collapses: farm ? farm.collapses : 0,
+    ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
   }));
   save();
 }

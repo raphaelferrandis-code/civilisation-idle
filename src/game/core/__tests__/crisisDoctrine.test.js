@@ -126,3 +126,41 @@ describe("autoResolveCrisisEvent — selon la posture, sans pause", () => {
     expect(stateModule.gamePaused).toBe(false);
   });
 });
+
+describe("simulateAwayCrises — farm hors-ligne (v2)", () => {
+  const farmState = (overrides = {}) => hydrateState({
+    population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
+    legitimacy: 50, ruins: 5000, cycles: 10, dynastyCount: 8, instability: 0.3, timeWear: 0.1,
+    bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
+    cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
+    buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },
+    upgrades: { conseil_de_crise: true, edit_effondrement: true },
+    hephHeritage: true,
+    crisisDoctrine: { p25: "stabiliser", p50: "stabiliser", p75: "stabiliser", autoCollapse: { enabled: true, trigger: "temps", timeSeconds: 180, usureThreshold: 0.9, prepare: false } },
+    ...overrides
+  });
+
+  it("enchaîne des effondrements, banque des ruines, plafonné à OFFLINE_MAX_COLLAPSES, sans fuite de pause", () => {
+    setState(farmState());
+    invalidateRenderCache("all");
+    const cyclesBefore = state.cycles;
+    const ruinsBefore = toNum(state.ruins);
+    applyOfflineProgress(2 * 3600); // 2 h, cap de base ; temps=180 s → > 20 cycles possibles
+    const collapses = state.cycles - cyclesBefore;
+    expect(collapses).toBeGreaterThan(0);
+    expect(collapses).toBeLessThanOrEqual(20); // OFFLINE_MAX_COLLAPSES
+    expect(toNum(state.ruins)).toBeGreaterThan(ruinsBefore);
+    expect(stateModule.gamePaused).toBe(false);
+    expect(state.crisisLimitAnnounced).toBe(false);
+  });
+
+  it("sans auto-achat (hephHeritage false) → pas de farm, aucun effondrement (chemin linéaire)", () => {
+    setState(farmState({ hephHeritage: false }));
+    invalidateRenderCache("all");
+    const cyclesBefore = state.cycles;
+    const popBefore = toNum(state.population);
+    applyOfflineProgress(2 * 3600);
+    expect(state.cycles).toBe(cyclesBefore);          // aucun effondrement
+    expect(toNum(state.population)).toBeGreaterThan(popBefore); // mais prod linéaire créditée
+  });
+});

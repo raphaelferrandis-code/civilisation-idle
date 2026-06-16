@@ -44,11 +44,17 @@ function ruptureClause(instability) {
   return "dans une paix presque suspecte";
 }
 
-export function idleResumeNarrative({ elapsedSeconds, eraIndex, instability, terminalUsure }) {
+export function idleResumeNarrative({ elapsedSeconds, eraIndex, instability, terminalUsure, collapses = 0, ruinsGained = null }) {
   const band = eraBandOf(eraIndex);
   const mood = ERA_MOOD[Math.max(0, Math.min(ERA_MOOD.length - 1, band))];
   const dur = durationPhrase(Math.max(0, elapsedSeconds || 0));
   const rupt = ruptureClause(instability || 0);
+  // Farm hors-ligne : la cité a bouclé effondrement → renaissance plusieurs fois.
+  if (collapses > 0) {
+    const fois = collapses === 1 ? "une fois" : `${collapses} fois`;
+    const ruines = ruinsGained ? ` Tes archivistes ont consigné +${ruinsGained} ruines à ton retour.` : "";
+    return `${dur} d'absence. ${capitalize(mood)} — mais les cycles n'ont pas dormi : la cité s'est effondrée et relevée ${fois}, ${rupt}.${ruines}`;
+  }
   if (terminalUsure) {
     return `${dur} d'absence. ${capitalize(mood)}, ${rupt} — et le temps, lui, n'a pas attendu : l'usure a tout rattrapé. La cité retient son souffle et attend ta décision.`;
   }

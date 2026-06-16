@@ -4,9 +4,9 @@
 > 1. **Doctrine de crise** — automatiser les choix de crise aux paliers 25/50/75 % + l'effondrement, configurable, débloqué en **ruines**.
 > 2. **Gain idle** — pendant l'absence, la cité **continue sa production normale** ; l'**Usure est conservée** (deadline + bonus de ruines).
 >
-> **Décisions actées** : 3 postures simples · « Conseil de crise » débloque **les 3 paliers d'un coup** · Rupture **gelée** en idle sans automatisation · **gain idle = production capée en temps** (2 h gratuit + paliers ruines « Veilleurs de nuit »), **Usure couplée au même cap** · automatisation = **confort bon marché** (farm multi-effondrement = **v2**, adossé à l'auto-achat Héphaïstos).
+> **Décisions actées** : 3 postures simples · « Conseil de crise » débloque **les 3 paliers d'un coup** · Rupture **gelée** en idle sans automatisation · **gain idle = production capée en temps** (2 h gratuit + paliers ruines « Veilleurs de nuit »), **Usure couplée au même cap** · automatisation = **confort bon marché** ; **farm multi-effondrement hors-ligne implémenté** (§B.5, adossé à l'auto-achat Héphaïstos).
 >
-> **Périmètre v1** : §A (doctrine de crise) + §B sauf B.5 + cap idle paliers. Le farm AFK (B.5) est explicitement v2.
+> **Statut** : §A (doctrine de crise) + §B (idle/cap) **et** le farm hors-ligne (§B.5) sont implémentés, testés et livrés.
 
 ---
 
@@ -158,28 +158,30 @@ Le cap de temps crédité est **gratuit à 2 h pour tous** (corrige « ferme l'o
 
 La cité **produit + vieillit** mais la jauge de Rupture **ne bouge pas** pendant l'absence. Au retour, tu trouves une cité plus riche et plus vieille (Usure ↑ → `sedimentMod` ↑ dans [ruinGain](src/game/core/mechanics/prestige.js:99)) → **effondrement manuel juteux**. Agence préservée, aucune crise ne « se passe » sans toi.
 
-### B.5 Farm multi-effondrement (avec automatisation) — `simulateAwayCrises(elapsed)` — ⚠️ v2
+### B.5 Farm multi-effondrement (avec automatisation) — `simulateAwayCrises(elapsed)` — ✅ implémenté
 
-Si `conseil_de_crise` **et** `edit_effondrement` actifs : on rejoue le temps d'absence par **pas grossiers** (ex. `STEP = 30 s`), en réutilisant la vraie logique :
+**Éligibilité** : `hephHeritage` (auto-achat) **+** `edit_effondrement` **+** `autoCollapse.enabled`. Sinon → chemin linéaire (§B.2). Implémenté dans [`simulateAwayCrises`](src/game/core/main.js).
+
+On rejoue la **vraie boucle `tick()`** par pas de `OFFLINE_STEP_SECONDS` (10 s), sous **horloge virtuelle** (`Date.now` overridé, restauré en `finally`) pour des âges de cycle corrects :
 
 ```
-remaining = elapsed; collapses = 0
+markThresholds()                 // crises narratives 25/50/75 supprimées offline (évite dialogue async)
+setNotifyPaused(true)            // aucun re-render React pendant la boucle
 while (remaining > 0 && collapses < OFFLINE_MAX_COLLAPSES) {
-  step = min(STEP, remaining); remaining -= step
-  tick(step)                            // prod + Usure + Rupture + doctrine auto (A.3)
-  if (crisisOpen()) {                   // terminal (Rupture 100 % ou Usure)
-    bankRuins(ruinGain())               // crédite les ruines
-    completeCollapse(...)               // reset cycle, garde ruines/héritages
-    collapses++
-  }
+  step = min(STEP, remaining); remaining -= step; virtual += step
+  tick(step)                      // prod + Usure + dérive Rupture + auto-achat (Héphaïstos) + pics
+  fire = trigger==="usure" ? timeWear>=seuil : trigger==="temps" ? cycleAge>=timeSeconds : crisisLimitAnnounced
+  if (fire && ruinGain(projected) > 0) { completeCollapse(...); collapses++; markThresholds() }
 }
+// temps restant après le cap d'effondrements : crédit linéaire (pas de gâchis)
 ```
 
-- `OFFLINE_MAX_COLLAPSES` = cap (ex. **20**) → borne perf + équilibre (pas de farm infini sur une absence de 3 jours).
-- Le `STEP` grossier reste correct car la prod est dominée par les bâtiments (constants) et la Rupture dérive lentement.
-- **Ne fonde PAS de dynastie automatiquement** (la fondation reset la cité + choix de doctrine = décision joueur). Les ruines s'**accumulent** ; le joueur fonde/GR à son retour.
+- `OFFLINE_MAX_COLLAPSES` = **20** → borne perf + équilibre.
+- **Effets de bord neutralisés** : notifications React suspendues (`setNotifyPaused`), crises narratives supprimées, spam de Chronique jeté (`history` sauvé/restauré), `completeCollapse` (sync) au lieu de `runCollapseSequence` (async/épitaphe).
+- **Ne fonde PAS de dynastie** (décision joueur) ; les ruines s'**accumulent**.
+- **Mesuré (live)** : 4 h d'absence → 20 effondrements (cap), **+171 ruines**, **374 ms** de calcul, pas de fuite de pause.
 
-> **⚠️ Finding mesuré (sim) — pourquoi ce farm est v2, pas v1.** L'auto-effondrement seul **ne farme quasi rien** : (1) une cité bien gérée stabilise sa Rupture sous 100 % et **ne tombe jamais seule** (mesuré : 3 effondrements réels sur 20 cycles ; une cité monte à 38M hab sans chuter) ; (2) **sans auto-ACHAT, la cité est vide après chaque chute** → ne rebâtit pas → le farm s'essouffle au 1er cycle. Un vrai farm AFK exige donc **auto-achat (rebuild)** + un **trigger forcé** (`temps`/`usure` plutôt que `rupture100`). L'auto-achat = héritage **Héphaïstos** (post-GR1) → ce bloc B.5 attend la v2. En **v1**, `edit_effondrement` sert juste à **banquer l'unique effondrement mûr** quand on revient.
+> **Finding qui a motivé ce design.** L'auto-effondrement *seul* ne farme quasi rien : (1) une cité bien gérée stabilise sa Rupture sous 100 % et **ne tombe pas seule** ; (2) **sans auto-achat, la cité est vide après chaque chute**. D'où l'éligibilité **auto-achat (Héphaïstos) + trigger forcé** (`temps`/`usure` recommandés sur `rupture100`). Sans ces pré-requis, on reste sur le crédit linéaire (§B.2) : production accumulée + un effondrement mûr au retour.
 
 ### B.6 Boucle idle résultante
 
@@ -189,7 +191,7 @@ while (remaining > 0 && collapses < OFFLINE_MAX_COLLAPSES) {
 | `conseil_de_crise` | + crises **auto-résolues** (plus de blocage modal) |
 | + `edit_effondrement` | + **l'effondrement mûr auto-banqué** au retour (pas un farm continu — cf. B.5) |
 | Paliers « Veilleurs de nuit » | + **cap d'absence étendu** (2 h → 24 h) = l'axe de progression idle |
-| **v2** : auto-achat (Héphaïstos) | + **farm multi-effondrement** réel (≤ `OFFLINE_MAX_COLLAPSES`) |
+| + auto-achat (Héphaïstos) | + **farm multi-effondrement** hors-ligne réel (≤ `OFFLINE_MAX_COLLAPSES`) ✅ |
 
 ---
 
@@ -225,11 +227,11 @@ Revenu de ruines en début de partie : **~2-5 ruines/cycle** (cf. [balance.js:23
 4. **Crise** : `autoResolveCrisisEvent` + branchement `checkCrisisThresholds` (A.3).
 5. **Effondrement** : généraliser `checkAutoCollapse` (A.4).
 6. **Cap idle** : upgrades `veilleurs_nuit_*` + `idleCapSeconds()` (B.3).
-7. **Idle** : réécrire `applyOfflineProgress` (prod + Usure couplées au cap, B.2). `simulateAwayCrises` (B.5) = **v2**.
+7. **Idle** : réécrire `applyOfflineProgress` (prod + Usure couplées au cap, B.2) + `simulateAwayCrises` (farm hors-ligne, B.5) ✅.
 8. **UI** : panneau « Doctrine de crise » (3 sélecteurs de posture + config auto-effondrement) — débloqué par les upgrades.
 9. **Tests** : auto-résolution sans pause ; idle crédite la prod ; Usure avance et **gèle au cap** ; saves migrées.
 
-> **Périmètre v1** = étapes 1-8 sauf `simulateAwayCrises`. Le farm multi-effondrement (B.5) + son auto-achat sont **v2**.
+> **Livré** = étapes 1-9, y compris `simulateAwayCrises` (farm hors-ligne, B.5). L'auto-achat réutilisé est l'héritage Héphaïstos existant.
 
 ---
 

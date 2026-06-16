@@ -42,7 +42,13 @@ export const subscribe = (listener) => {
   listeners.add(listener);
   return () => listeners.delete(listener);
 };
+// Suspension temporaire des notifications React : utilisé par la simulation
+// hors-ligne (main.simulateAwayCrises) qui rejoue des milliers de ticks d'un coup
+// — on ne re-rend qu'une fois à la fin, sinon le boot se fige.
+let notifyPaused = false;
+export const setNotifyPaused = (paused) => { notifyPaused = Boolean(paused); };
 export const notify = () => {
+  if (notifyPaused) return;
   listeners.forEach(l => l());
 };
 
