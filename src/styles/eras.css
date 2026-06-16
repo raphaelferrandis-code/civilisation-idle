@@ -11,7 +11,6 @@
    (le bandeau plein écran masque les bascules d'époque). */
 .panel,
 .panel-heading,
-.view-header,
 .mark {
   transition: border-color 0.9s ease, background-color 0.9s ease,
     box-shadow 0.9s ease, color 0.9s ease;
@@ -56,23 +55,13 @@
   border-bottom-style: double;
 }
 
-.app[data-era-band="3"] .view-header {
-  border-left-width: 6px;
-  border-left-style: double;
-}
-
-.app[data-era-band="3"] .view-header-title {
-  letter-spacing: 0.09em;
-}
-
 /* ── 4 · Âge du Marbre : taille nette, petites capitales gravées ── */
 .app[data-era-band="4"] {
   --r-panel: 2px;
   --r-card: 2px;
 }
 
-.app[data-era-band="4"] .panel-heading h2,
-.app[data-era-band="4"] .view-header-title {
+.app[data-era-band="4"] .panel-heading h2 {
   font-variant-caps: small-caps;
   letter-spacing: 0.12em;
 }

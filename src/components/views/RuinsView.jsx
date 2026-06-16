@@ -14,7 +14,6 @@ import {
   PRESTIGE_TREE
 } from '../../game/data/upgrades.js';
 import { fmt } from '../../game/core/utils.js';
-import ViewHeader from '../ui/ViewHeader.jsx';
 
 export default function RuinsView() {
   const ruins = useGameState(s => s.ruins);
@@ -34,15 +33,9 @@ export default function RuinsView() {
 
   return (
     <section className="view active" id="ruinsView">
-      <ViewHeader
-        icon="🏛️"
-        title="Ruines"
-        subtitle="Dépensez les ruines de vos effondrements dans les trois traditions de reconstruction."
-      />
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Après la première chute</span>
             <h2>Ruines Actives</h2>
           </div>
           <div className="prestige-ruins-counter">

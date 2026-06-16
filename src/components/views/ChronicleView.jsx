@@ -1,4 +1,3 @@
-import ViewHeader from '../ui/ViewHeader.jsx';
 import { useGameState } from '../../hooks/useGameState.js';
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
@@ -14,16 +13,9 @@ export default function ChronicleView() {
 
   return (
     <section className="view active" id="history">
-      <ViewHeader
-        icon="📜"
-        title="Chronique"
-        subtitle="Le récit complet de votre civilisation, cycle après cycle."
-      />
-
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Mémoire des âges</span>
             <h2>Les Âges traversés</h2>
           </div>
         </div>

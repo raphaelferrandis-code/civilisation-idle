@@ -22,15 +22,6 @@ import { isMythEffectActive } from '../../game/data/myths.js';
 import { fmt, pct, costLabel, clamp01 } from '../../game/core/utils.js';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 
-function tensionAdvice(mainCause) {
-  if (crisisOpen()) return "La crise est ouverte : choisissez une issue pour clore ce cycle.";
-  if (mainCause === "Subsistance") return "Augmentez les réserves de nourriture ou rationnez pour calmer la faim.";
-  if (mainCause === "Inegalites") return "Le commerce enrichit la cité : les jeux civiques peuvent absorber le mécontentement.";
-  if (mainCause === "Complexite") return "Ajoutez des infrastructures ou lancez des réformes pour encadrer la croissance.";
-  if (mainCause === "Dissidence") return "La mémoire des ancêtres ou des archives de catastrophes aideront à calmer la fronde.";
-  return "La cité est stable et prospère : vous pouvez pousser le développement.";
-}
-
 export default function PrestigeView() {
   const instability = useGameState(s => s.instability);
   const timeWear = useGameState(s => s.timeWear);
@@ -71,14 +62,6 @@ export default function PrestigeView() {
 
   const pressure = pressureBreakdown();
 
-  const causes = [
-    ["Subsistance", pressure.scarcity],
-    ["Inegalites", pressure.inequality],
-    ["Complexite", pressure.complexity],
-    ["Dissidence", pressure.dissent],
-    ["Structures", pressure.structural]
-  ];
-  const [mainCause] = causes.reduce((best, current) => current[1] > best[1] ? current : best, ["Aucune", 0]);
   const drift = pressure.total - instability;
 
   const driftText = Math.abs(drift) < 0.02
@@ -149,7 +132,7 @@ export default function PrestigeView() {
             <h2>Baromètres de la Cité</h2>
           </div>
         </div>
-        
+
         <div className="barometers-grid">
           <div className="barometer-card instability">
             <div className="barometer-header">
@@ -187,11 +170,6 @@ export default function PrestigeView() {
               <small>{wearDriftText}</small>
             </div>
           </div>
-        </div>
-
-        <div className="diagnostic-advice-bar">
-          <span>💡 Diagnostic :</span>
-          <p>{tensionAdvice(mainCause)}</p>
         </div>
       </div>
 

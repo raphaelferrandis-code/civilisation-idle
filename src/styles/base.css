@@ -177,38 +177,6 @@ main {
   color: var(--gold);
 }
 
-/* ── Entête de vue : titre majeur de l'onglet actif ── */
-.view-header {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.9rem 1.2rem;
-  border: 1px solid rgba(var(--era-rgb), 0.3);
-  border-left: 4px solid var(--gold);
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.1), rgba(18, 20, 28, 0.4) 65%);
-}
-
-.view-header-icon {
-  font-size: 1.6rem;
-  line-height: 1;
-}
-
-.view-header-title {
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: 1.5rem;
-  letter-spacing: 0.05em;
-  color: var(--gold-bright);
-}
-
-.view-header-subtitle {
-  margin: 0.15rem 0 0;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
 .panel-heading .label::before {
   content: "";
   display: inline-block;

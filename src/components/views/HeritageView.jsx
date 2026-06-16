@@ -16,7 +16,6 @@ import { upgrades } from '../../game/data/upgrades.js';
 import { DOCTRINES } from '../../game/data/world.js';
 import { fmt } from '../../game/core/utils.js';
 import { D } from '../../game/core/num.js';
-import ViewHeader from '../ui/ViewHeader.jsx';
 
 export default function HeritageView() {
   const ruins = useGameState(s => s.ruins);
@@ -55,16 +54,10 @@ export default function HeritageView() {
 
   return (
     <section className="view active" id="tech">
-      <ViewHeader
-        icon="👑"
-        title="Héritage"
-        subtitle="Dynasties, améliorations persistantes et Grand Reset : ce qui survit aux cycles."
-      />
       {/* Dynastie Panel */}
       <div className="panel prestige-panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Transmission longue</span>
             <h2>Dynastie</h2>
           </div>
           <button
@@ -127,7 +120,6 @@ export default function HeritageView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <span className="label">Upgrades persistants</span>
             <h2>Héritage</h2>
           </div>
         </div>
@@ -168,7 +160,6 @@ export default function HeritageView() {
       <div className="panel grand-reset-panel" id="grandResetPanel">
         <div className="panel-heading">
           <div>
-            <span className="label">Prestige ultime</span>
             <h2>Grand Reset</h2>
           </div>
           <button
