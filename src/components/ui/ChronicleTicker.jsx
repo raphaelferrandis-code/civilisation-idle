@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { markChronicleEntryRead, renderCache } from '../../game/core/state.js';
 import { currentEraIndex, crisisOpen } from '../../game/core/mechanics.js';
@@ -20,33 +21,48 @@ export default function ChronicleTicker() {
   const theme = getJournalTheme(eraIndex);
   const latest = entries[0];
 
+  // Par défaut on n'affiche que le titre ; un clic déplie la dépêche complète.
+  // On replie automatiquement dès qu'une nouvelle dépêche arrive.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { setExpanded(false); }, [latest?.id]);
+
   // Fenêtre d'affichage : 1 min après publication. Les dépêches d'anciens
   // saves (publishedAt = 0) restent masquées. Hors fenêtre, le bandeau reste
   // monté (état vide) : sa disparition décalait toute la mise en page.
   const visible = Boolean(latest && tickNow - (latest.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
 
+  // Bandeau éphémère : n'apparaît QUE sur notification (≤ CHRONICLE_VISIBLE_MS
+  // après publication). Hors fenêtre, il se démonte entièrement — en overlay
+  // absolu, sa disparition ne décale plus rien (contrairement à l'ancien
+  // bandeau en flux qui devait rester monté pour ne pas sauter la mise en page).
+  if (!visible) return null;
+
+  const toggle = () => {
+    if (!expanded) markChronicleEntryRead(latest.id);
+    setExpanded((v) => !v);
+  };
+
   return (
     <div
-      className={`chronicle-ticker ${theme.cssClass}${isCrisis ? ' is-crisis' : ''}${visible ? '' : ' is-idle'}`}
+      className={`chronicle-ticker ${theme.cssClass}${isCrisis ? ' is-crisis' : ''}${expanded ? ' is-expanded' : ''}`}
       aria-label="Chronique de l'effondrement"
-      title={`${theme.tradition} — Prix : ${theme.price}`}
-      onClick={() => visible && markChronicleEntryRead(latest.id)}
+      title={expanded ? `${theme.tradition} — Prix : ${theme.price}` : 'Cliquer pour lire la dépêche'}
+      onClick={toggle}
     >
-      <span className="ticker-masthead">{theme.masthead}</span>
-      <span className="ticker-sep" aria-hidden="true"></span>
-      {visible ? (
-        <span className="ticker-line" key={latest.id} aria-live="polite">
-          <strong className="ticker-title">{latest.title}</strong>
+      <span className="ticker-masthead">
+        {theme.masthead}
+        {latest.isNew && <span className="ticker-new-dot" aria-hidden="true"></span>}
+      </span>
+      <span className="ticker-line" key={latest.id} aria-live="polite">
+        <strong className="ticker-title">{latest.title}</strong>
+        {expanded && (
           <span className="ticker-text">
             {" — "}{latest.text}
             {latest.author && <span className="ticker-author"> — {latest.author}</span>}
           </span>
-        </span>
-      ) : (
-        <span className="ticker-line ticker-empty">En attente de la prochaine dépêche…</span>
-      )}
-      {visible && latest.isNew && <span className="ticker-new-dot" aria-hidden="true"></span>}
-      {visible && <span className="ticker-date">{latest.date}</span>}
+        )}
+      </span>
+      {expanded && <span className="ticker-date">{latest.date}</span>}
     </div>
   );
 }

@@ -64,6 +64,8 @@
   --font-title: "Cinzel", Georgia, serif;
   --font-body: "Inter", system-ui, -apple-system, sans-serif;
   --font-serif: "Crimson Text", Georgia, serif;
+  /* Chiffres « idle » : ronds et un peu joueurs (valeurs de ressources) */
+  --font-number: "Baloo 2", "Inter", system-ui, sans-serif;
 
   /* Échelle (plancher absolu : 11px / 0.6875rem) */
   --fs-h1: 1.75rem;

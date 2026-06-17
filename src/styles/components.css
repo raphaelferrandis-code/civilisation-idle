@@ -67,7 +67,10 @@
 /* La valeur domine sa carte */
 .topbar .resource-value {
   flex-shrink: 0;
-  font-size: var(--fs-value);
+  font-family: var(--font-number);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   line-height: 1;
 }
 

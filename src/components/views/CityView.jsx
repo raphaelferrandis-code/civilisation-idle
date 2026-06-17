@@ -4,6 +4,7 @@ import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
+import HudPanel from '../ui/HudPanel.jsx';
 import {
   cityVitals,
   pressureBreakdown,
@@ -33,7 +34,8 @@ import {
   OR_GOLD_TARGET,
   OR_POP_CAP,
   BABEL_CAT_LABELS,
-  PHENIX_CYCLE_COUNT,
+  PHENIX_RENAISSANCE_TARGET,
+  PHENIX_REBIRTH_WINDOW_MS,
   HEPH_INFRA_PER_PEAK,
   ATRIDES_GOAL_NET_GOLD,
   ATRIDES_DEBT_PAYBACK_FACTOR,
@@ -47,7 +49,7 @@ export default function CityView() {
     cityName, population, gold, infrastructure,
     cycleStartedAt, archaeologyUsed,
     activeMythId, sisypheMult, icareInfraReached, babelProdReached, babelCategory,
-    orPopPeak, orUsureImbalance, phoenixCycleCount, phoenixTotalRuins, phoenixNextForceAt,
+    orPopPeak, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
     hephPopPeak, hephGoalReached,
     atridesDebt, atridesDrainDisabled, atridesDebtGrowthMultiplier,
     atridesRenegotiateActiveUntil, atridesRenegotiateCooldownEnd,
@@ -153,7 +155,9 @@ export default function CityView() {
     ? Math.max(0, Math.ceil((EPITAPH_LEGACY_DURATION_MS - (now - (activeEpitaphLegacy.startedAt || cycleStartedAt || now))) / 1000))
     : 0;
   const hasActiveEpitaphLegacy = Boolean(activeEpitaphDefinition && epitaphRemainingSeconds > 0);
-  const phoenixSeconds = phoenixNextForceAt ? Math.max(0, Math.floor((phoenixNextForceAt - now) / 1000)) : null;
+  const phoenixWindowSecs = isPhoenix
+    ? Math.max(0, Math.ceil(((cycleStartedAt || now) + PHENIX_REBIRTH_WINDOW_MS - now) / 1000))
+    : null;
 
   const isAtrides = isMythEffectActive("mythe_atrides");
   const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
@@ -176,9 +180,6 @@ export default function CityView() {
 
   return (
     <section className="view active" id="city">
-      {/* Bandeau-dépêche pleine largeur (remplace le panneau journal) */}
-      <ChronicleTicker />
-
       <div className="city-left-col">
         {eneeHeritage && cycleSeconds < 30 && (
           <div className="enee-boost-banner">
@@ -209,8 +210,10 @@ export default function CityView() {
           </div>
         )}
 
-        {/* 1. En-tête de la Cité (Identity & Dynasty stats) */}
-        <div className="city-header-panel">
+        {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
+            posées en HUD par-dessus (on montre le monde d'abord). */}
+        <div className="city-stage">
+          <div className="city-stage-hud">
           <div className="city-title-wrapper">
             <input
               id="cityNameInput"
@@ -294,12 +297,10 @@ export default function CityView() {
             );
           })()}
 
-          {/* Régulation des tensions : actions toujours accessibles depuis la Cité */}
-          <CrisisActionBar variant="compact" />
-        </div>
+          </div>{/* /city-stage-hud */}
 
-        {/* 2. Diorama Interactif de la Cité (City Canvas) */}
-        <div className="city-map-container">
+          {/* La carte interactive : le monde occupe tout le cadre */}
+          <div className="city-map-container">
           <div
             className="civilization-map-interactive"
             id="civilizationMap"
@@ -314,8 +315,22 @@ export default function CityView() {
               {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
             </div>
           )}
-        </div>
+          </div>{/* /city-map-container */}
 
+          {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
+          <aside className="city-shop-dock" aria-label="Construction">
+            <BuildingShop />
+          </aside>
+        </div>{/* /city-stage */}
+
+        {/* Régulation des tensions + politiques : encart pliable, sous la carte */}
+        <HudPanel className="city-controls-panel" storageKey="regul" title="Régulation des tensions">
+          <CrisisActionBar variant="compact" />
+        </HudPanel>
+
+        {/* Rail gauche : chronique (sur notif) puis panneaux secondaires (mythes/exhume) */}
+        <div className="city-aux">
+          <ChronicleTicker />
         {showExhume && (
           <button id="exhumeBtn" className="exhume-btn-redesigned" onClick={exhumeVestige}>
             ⛏ Exhumer un vestige archéologique
@@ -448,10 +463,7 @@ export default function CityView() {
 
         {/* 7. Panneau des défis mythologiques et puissance latente */}
         {showMythsPanel && (
-          <div className="active-myths-panel">
-            <div className="panel-heading-myths">
-              <span>📜 Mythes Actifs & Bénédictions de Cycle</span>
-            </div>
+          <HudPanel className="active-myths-panel" storageKey="myths" title="📜 Mythes actifs & bénédictions">
             <div className="myths-grid-redesigned">
               {isSisyphe && (
                 <div className="myth-status-card sisyphus" title="Le mythe de Sisyphe est actif">
@@ -496,7 +508,7 @@ export default function CityView() {
                   <span className="myth-card-icon">🔥</span>
                   <div className="myth-card-info">
                     <span>Phénix</span>
-                    <strong>Cycle: {phoenixCycleCount}/{PHENIX_CYCLE_COUNT} | Ruines: {fmt(phoenixTotalRuins)} | Prox: {phoenixSeconds !== null ? `${phoenixSeconds}s` : '-'}</strong>
+                    <strong>Renaissances: {phoenixRenaissances || 0}/{PHENIX_RENAISSANCE_TARGET} | Pop: {fmt(population)}/{fmt(phoenixRebirthTargetPop)} | Fenêtre: {phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}</strong>
                   </div>
                 </div>
               )}
@@ -584,13 +596,9 @@ export default function CityView() {
                 </div>
               )}
             </div>
-          </div>
+          </HudPanel>
         )}
-      </div>
-
-      {/* Colonne latérale droite (Bâtiments et Achats) */}
-      <div className="city-right-col">
-        <BuildingShop />
+        </div>{/* /city-aux */}
       </div>
     </section>
   );

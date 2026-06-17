@@ -22,7 +22,7 @@
       "main.cjs"
     ],
     "directories": {
-      "output": "C:/Users/Hardware31/ce-release"
+      "output": "../ce-release"
     },
     "win": {
       "target": "nsis"

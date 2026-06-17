@@ -3540,13 +3540,549 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* ============================================================================
+   CITÉ EN HÉROS — la carte occupe le cadre, l'identité + la jauge de stabilité
+   se posent en HUD par-dessus. Le monde d'abord, l'UI en habillage autour.
+   ============================================================================ */
+.city-stage {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+/* La carte ne porte plus sa marge : c'est le stage qui cadre, et on enrichit
+   un peu le liseré (le "diorama" devient le sujet de l'écran). */
+.city-stage .city-map-container {
+  margin-bottom: 0;
+  border-color: rgba(var(--era-rgb), 0.28);
+  border-radius: 14px;
+}
+
+/* Carte plus haute : c'est le héros. La régulation est passée DESSOUS, donc on
+   récupère la hauteur qu'elle réservait dans l'ancien en-tête (≈ 8rem). */
+.city-stage .civilization-map-interactive {
+  height: clamp(26rem, calc(100vh - 13rem), 82rem) !important;
+}
+
+/* HUD posé sur le haut de la carte : un scrim dégradé, pas une boîte. Le texte
+   reste lisible sur le ciel puis se fond dans la scène. */
+.city-stage-hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.05rem 1.4rem 2.6rem;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(8, 6, 3, 0.88) 0%,
+    rgba(8, 6, 3, 0.55) 50%,
+    transparent 100%);
+  border-radius: 14px 14px 0 0;
+}
+
+/* Seuls les éléments interactifs captent la souris ; ailleurs le clic/drag
+   traverse vers la carte. */
+.city-stage-hud .city-title-wrapper,
+.city-stage-hud .stability-gauge {
+  pointer-events: auto;
+}
+
+/* Le nom de la cité devient un vrai titre de jeu : grand Cinzel gravé. */
+.city-stage-hud .city-title-wrapper {
+  border-bottom: none;
+  align-items: flex-end;
+}
+
+.city-stage-hud .city-name-input {
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem) !important;
+  line-height: 1.04;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75), 0 0 26px rgba(var(--era-rgb), 0.25);
+}
+
+.city-stage-hud .city-personality-label {
+  color: var(--gold-ivory);
+  opacity: 0.92;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+
+/* La jauge de stabilité = la "barre de vie" de la cité, posée sous le nom. */
+.city-stage-hud .stability-gauge {
+  max-width: 32rem;
+}
+
+.city-stage-hud .sg-label,
+.city-stage-hud .sg-pct,
+.city-stage-hud .sg-collapse-gain {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* Régulation + politiques : un seul groupe fonctionnel, sous la carte. */
+.city-controls-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem 1.15rem;
+  border: 1px solid rgba(var(--era-rgb), 0.14);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.08), transparent 70%),
+    var(--panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Le panneau fait déjà le cadre : on retire le filet supérieur interne. */
+.city-controls-panel .crisis-regul {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ============================================================================
+   MONDE PLEIN CADRE — la vue Cité passe en pleine largeur : la carte occupe
+   tout l'espace, la boutique se docke en panneau flottant sur le bord droit
+   (façon menu de construction de city-builder). Le moins de panneaux possible.
+   ============================================================================ */
+.view.active#city {
+  display: block;
+  position: relative;
+}
+
+.view.active#city > .chronicle-ticker {
+  margin-bottom: 0.85rem;
+}
+
+/* Boutique dockée : panneau de verre posé sur le bord droit de la carte. */
+.city-shop-dock {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 7;
+  display: flex;
+  width: clamp(20rem, 26vw, 26rem);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* Le panneau boutique remplit le dock et scrolle en interne (pas la page). */
+.city-shop-dock .shop-panel {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(30, 35, 45, 0.46);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.5);
+}
+
+.city-shop-dock .shop-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+/* ── Îlots d'achat allégés : moins de cadres, coins doux ──
+   On retire la bordure + le fond opaque des rangées ; seule la rangée
+   ACHETABLE prend un léger voile doré, le reste s'efface. */
+.city-shop-dock .shop-list { gap: 0.3rem; }
+.city-shop-dock .purchase-row {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.022);
+  transition: background 150ms ease;
+}
+.city-shop-dock .purchase-row.is-affordable {
+  background: color-mix(in srgb, var(--gold), transparent 90%);
+}
+.city-shop-dock .purchase-row.is-affordable:hover {
+  background: color-mix(in srgb, var(--gold), transparent 82%);
+}
+.city-shop-dock .purchase-row.is-locked-cost {
+  background: rgba(255, 255, 255, 0.012);
+}
+.city-shop-dock .purchase-row[data-tier="5"] {
+  box-shadow: none;
+}
+/* Icône ronde : casse l'effet « carré » */
+.city-shop-dock .pr-icon {
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+/* Bouton d'achat : coins francs → arrondi généreux */
+.city-shop-dock .btn-purchase {
+  border-radius: 13px;
+}
+
+/* « Cité modeste » se loge juste à droite du nom (plus en bout de ligne). */
+.city-stage-hud .city-title-wrapper {
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.city-stage-hud .city-name-input {
+  field-sizing: content;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 4rem;
+  max-width: 100%;
+}
+
+.city-stage-hud .city-personality-label {
+  flex: 0 0 auto;
+  align-self: baseline;
+  text-align: left;
+}
+
 /* ── Tablette (≤980px) : carte réduite (déclaré ici pour primer sur la règle
    de base, views.css étant chargé après layout.css) ── */
 @media (max-width: 980px) {
-  .civilization-map-interactive {
+  .civilization-map-interactive,
+  .city-stage .civilization-map-interactive {
     height: clamp(16rem, 42vh, 26rem) !important;
     min-height: 16rem;
   }
+
+  /* Écran étroit : la boutique se dé-docke et repasse sous la carte. */
+  .city-shop-dock {
+    position: static;
+    width: auto;
+    margin-top: 0.75rem;
+    overflow: visible;
+  }
+}
+
+/* ============================================================================
+   VUE CITÉ — MODE HUD PLEIN ÉCRAN
+   La carte occupe tout l'écran ; l'UI flotte sur les bords : ressources en
+   haut, régulation en bas, chronique (sur notif) + mythes à gauche, boutique
+   à droite. Tout est scopé à [data-active-view="city"] : les autres onglets
+   gardent leur mise en page normale (topbar en flux, etc.).
+   ============================================================================ */
+.app[data-active-view="city"] main {
+  position: relative;
+  height: 100vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* La vue remplit la scène et sert de contexte de positionnement au HUD. */
+.app[data-active-view="city"] .view.active#city {
+  position: absolute;
+  inset: 0;
+}
+
+.app[data-active-view="city"] .city-left-col {
+  position: absolute;
+  inset: 0;
+  gap: 0;
+}
+
+/* ---- Le monde, bord à bord (plus de cadre) ---- */
+.app[data-active-view="city"] .city-stage {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.app[data-active-view="city"] .city-map-container {
+  height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.app[data-active-view="city"] .city-stage .civilization-map-interactive {
+  height: 100% !important;
+}
+
+/* ---- Ressources : barre haute en overlay translucide ---- */
+.app[data-active-view="city"] .topbar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 30;
+  margin: 0;
+  padding: 0.55rem 0.8rem 1.4rem;
+  background: linear-gradient(180deg, rgba(18, 20, 26, 0.5) 0%, rgba(18, 20, 26, 0.1) 60%, transparent 100%);
+  pointer-events: none;
+}
+.app[data-active-view="city"] .topbar .resource-card-unified {
+  pointer-events: auto;
+  background: rgba(32, 37, 48, 0.42) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+/* ---- Identité : nom + jauge, juste sous les ressources ---- */
+.app[data-active-view="city"] .city-stage-hud {
+  inset: 5.2rem auto auto 0;
+  width: min(42rem, 62%);
+  padding: 0.7rem 1.7rem 1.7rem 1.4rem;
+  /* Voile sombre doux (sans bord franc) derrière le nom + la jauge, pour les
+     décoller de la carte chargée. */
+  background: radial-gradient(135% 155% at 5% 26%, rgba(5, 7, 9, 0.88) 0%, rgba(5, 7, 9, 0.52) 38%, rgba(5, 7, 9, 0) 72%);
+}
+
+/* ---- Chronique : carte du rail gauche, n'apparaît que sur notif (slide-in) ---- */
+.app[data-active-view="city"] .chronicle-ticker {
+  position: static;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(30, 35, 45, 0.5);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  animation: city-chronicle-in 360ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-sep { display: none; }
+.app[data-active-view="city"] .chronicle-ticker .ticker-line {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+/* Repliée : juste le titre, cliquable pour déplier (indice « › »). */
+.app[data-active-view="city"] .chronicle-ticker {
+  cursor: pointer;
+}
+.app[data-active-view="city"] .chronicle-ticker:hover {
+  border-color: rgba(var(--era-rgb), 0.45);
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-masthead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-title {
+  white-space: normal;
+}
+.app[data-active-view="city"] .chronicle-ticker:not(.is-expanded) .ticker-title::after {
+  content: " ›";
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+@keyframes city-chronicle-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Mythes / exhume : pile gauche, sous la chronique ---- */
+.app[data-active-view="city"] .city-aux {
+  position: absolute;
+  left: 1rem;
+  top: 12rem;
+  bottom: 6.5rem;
+  width: clamp(18rem, 24vw, 24rem);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+.app[data-active-view="city"] .city-aux:empty { display: none; }
+
+/* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */
+.app[data-active-view="city"] .city-shop-dock {
+  top: 5.2rem;
+  bottom: 1rem;
+}
+
+/* ---- Régulation : barre basse en overlay (libère la place du dock à droite) ---- */
+.app[data-active-view="city"] .city-controls-panel {
+  position: absolute;
+  left: 1rem;
+  right: calc(2.8rem + clamp(20rem, 26vw, 26rem));
+  bottom: 1rem;
+  z-index: 20;
+  margin: 0;
+  background: rgba(30, 35, 45, 0.44);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+}
+/* En bas d'écran, le menu d'un foyer s'ouvre vers le HAUT. */
+.app[data-active-view="city"] .city-controls-panel .crisis-foyer-actions {
+  top: auto;
+  bottom: calc(100% + 0.3rem);
+}
+
+/* On resserre la barre : politiques sur une rangée, padding réduit. */
+.app[data-active-view="city"] .city-controls-panel {
+  padding: 0.7rem 1rem 0.8rem;
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-regul-head,
+.app[data-active-view="city"] .city-controls-panel .crisis-policies-head {
+  margin-bottom: 0.4rem;
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-policies {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-policies-grid {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+/* Les libellés ne débordent plus des cartes en réduit : ils passent à la ligne. */
+.app[data-active-view="city"] .city-controls-panel .policy-btn {
+  min-width: 0;
+  overflow: hidden;
+}
+.app[data-active-view="city"] .city-controls-panel .regul-btn-line {
+  flex-wrap: wrap;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn strong,
+.app[data-active-view="city"] .city-controls-panel .policy-effect,
+.app[data-active-view="city"] .city-controls-panel .regul-cost,
+.app[data-active-view="city"] .city-controls-panel .crisis-regul-btn strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-effect,
+.app[data-active-view="city"] .city-controls-panel .regul-cost {
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+/* ── Encart Politiques retravaillé : hiérarchie claire ──
+   Les politiques utilisables ressortent, les verrouillées s'effacent ;
+   bénéfice en vert, coût en rouge atténué, active en liseré vert. */
+.app[data-active-view="city"] .city-controls-panel .policy-btn {
+  gap: 0.3rem;
+  padding: 0.5rem 0.62rem;
+  background: rgba(30, 35, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--gold-ivory);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-effect {
+  color: #86efac;            /* bénéfice = vert */
+  font-weight: 600;
+}
+.app[data-active-view="city"] .city-controls-panel .regul-cost {
+  color: #e6a18f;            /* coût = rouge atténué */
+}
+/* Verrouillée : s'efface (le regard va aux politiques activables) */
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked strong {
+  color: var(--muted);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked .policy-effect {
+  color: var(--muted);
+  font-weight: 500;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked .regul-cost {
+  color: var(--gold-dim);    /* condition de déblocage (🔒) en doré atténué */
+}
+/* Active : liseré vert net + pastille */
+.app[data-active-view="city"] .city-controls-panel .policy-btn.is-active {
+  opacity: 1;
+  border-color: rgba(16, 185, 129, 0.7);
+  background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.18), transparent 60%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-active-tag {
+  color: #86efac;
+}
+
+/* ============================================================================
+   HUD PANEL — encart pliable réutilisable (titre cliquable + corps repliable).
+   ============================================================================ */
+.hud-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0.45rem;
+  border: 0;
+  border-bottom: 1px solid rgba(var(--era-rgb), 0.15);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.hud-panel-toggle:hover:not(:disabled),
+.hud-panel-toggle:focus-visible {
+  transform: none;
+  background: none;
+  box-shadow: none;
+  border-color: rgba(var(--era-rgb), 0.15);
+  color: var(--gold-ivory);
+}
+.hud-panel-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-panel-chevron {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  transition: transform 0.2s ease;
+}
+.hud-panel-chevron::before { content: "\25BE"; }
+.hud-panel.is-collapsed .hud-panel-chevron { transform: rotate(-90deg); }
+.hud-panel.is-collapsed .hud-panel-toggle {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Régulation enveloppée : on masque le titre interne dupliqué (le HudPanel le
+   porte déjà), on garde le bandeau « Institutions : … ». */
+.app[data-active-view="city"] .city-controls-panel.hud-panel .crisis-regul-head .crisis-regul-title {
+  display: none;
+}
+.app[data-active-view="city"] .city-controls-panel.hud-panel.is-collapsed {
+  padding-bottom: 0.7rem;
+}
+/* Panneau Mythes : un peu plus compact dans le rail. */
+.app[data-active-view="city"] .active-myths-panel.hud-panel {
+  padding: 0.75rem 0.9rem;
+}
+
+/* ---- Bannières d'héritage (Énée/Atrides) : toasts centrés en haut ---- */
+.app[data-active-view="city"] .enee-boost-banner,
+.app[data-active-view="city"] .atrides-pact-banner {
+  position: absolute;
+  top: 6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(42rem, 56%);
+  z-index: 26;
 }
 
 /* ============================================================================

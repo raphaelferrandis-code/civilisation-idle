@@ -47,7 +47,6 @@ export default function App() {
   // Moment signature : bandeau plein écran au passage d'un nouvel âge (Phase 7).
   // Changement d'ÉPOQUE (toutes les 5 ères) : cérémonie renforcée + bascule de peau UI.
   const eraIdx = useGameState(() => currentEraIndex());
-  const eraTheme = getEraTheme(eraIdx);
   const prevEraRef = useRef(null);
   const [eraBanner, setEraBanner] = useState(null);
   useEffect(() => {
@@ -134,16 +133,11 @@ export default function App() {
     <div
       className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
       data-active-view={activeView}
-      data-era-band={eraTheme.band}
       style={{
-        '--crisis-level': crisisLevel,
-        // Peau d'époque : le chrome doré entier dérive vers l'accent de l'ère.
-        '--gold': eraTheme.accent,
-        '--gold-bright': eraTheme.accentBright,
-        '--gold-dim': eraTheme.accentDim,
-        '--gold-deep': eraTheme.accentDeep,
-        '--gold-ivory': eraTheme.accentIvory,
-        '--era-rgb': eraTheme.accentRgb
+        // Style universel : le chrome n'est plus teinté par l'âge — l'accent or
+        // canonique de variables.css s'applique partout. L'âge ne pilote plus
+        // que la carte (rendu JS) et le bandeau de transition d'ère.
+        '--crisis-level': crisisLevel
       }}
     >
       {/* Sidebar de navigation */}
