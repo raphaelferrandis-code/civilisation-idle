@@ -3658,7 +3658,9 @@
   bottom: 0.9rem;
   z-index: 7;
   display: flex;
-  width: clamp(20rem, 26vw, 26rem);
+  /* Élargi : la colonne « nom » tient désormais les libellés d'un seul mot
+     (« Observatoires », « Cueilleurs ») sur une ligne, sans troncature. */
+  width: clamp(22rem, 32vw, 32rem);
   overflow: hidden;
   pointer-events: auto;
 }
@@ -3683,6 +3685,12 @@
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.3rem;
+  /* Pile flex verticale : les rangées grandissent pour remplir la hauteur
+     dispo (pas de grand vide en bas quand tous les bâtiments sont là), mais
+     restent plafonnées (max-height sur .purchase-row) pour ne pas devenir
+     géantes quand il n'y en a que 2. Trop de bâtiments → débordement → scroll. */
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Îlots d'achat allégés : moins de cadres, coins doux ──
@@ -3694,6 +3702,12 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.022);
   transition: background 150ms ease;
+  /* grandit pour remplir, sans rétrécir le contenu (déborde → scroll) ;
+     plafond = jamais de carte géante quand il y a peu de bâtiments. Le plafond
+     reste > au plus grand contenu possible (nom sur 2 lignes + 3 lignes de
+     prod ≈ 135px) pour ne jamais rogner/déborder. */
+  flex: 1 0 auto;
+  max-height: 8.5rem;
 }
 .city-shop-dock .purchase-row.is-affordable {
   background: color-mix(in srgb, var(--gold), transparent 90%);

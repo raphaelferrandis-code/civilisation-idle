@@ -127,14 +127,6 @@ function PurchaseRow({
       <div className="pr-main">
         <div className="pr-name-row">
           <h3 className="pr-name" title={b.desc}>{b.name}</h3>
-          {milestoneInfo && (
-            <span
-              className="pr-milestone-badge"
-              title={`Bonus de palier actuel : ${milestoneInfo.label}`}
-            >
-              {"×"}{fmt(milestoneInfo.bonus)}
-            </span>
-          )}
         </div>
 
         <div className="pr-prod">
@@ -163,8 +155,20 @@ function PurchaseRow({
         </div>
       </div>
 
-      <span className="pr-count" title={`Niveau ${countLabel}`} aria-label={`Niveau ${countLabel}`}>
-        {countLabel}
+      <span className="pr-count" title={`${countLabel} possédés`} aria-label={`${countLabel} possédés`}>
+        <span className="pr-count-main">
+          <i className="fa-solid fa-layer-group pr-count-icon" aria-hidden="true"></i>
+          <span className="pr-count-num">{countLabel}</span>
+        </span>
+        {milestoneInfo && (
+          <span
+            className="pr-milestone-badge"
+            title={`Bonus de production des paliers (${stepLabel} tous les 25 niveaux) : ×${fmt(milestoneInfo.bonus)}`}
+          >
+            <i className="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>
+            {"×"}{fmt(milestoneInfo.bonus)}
+          </span>
+        )}
       </span>
 
       <button
