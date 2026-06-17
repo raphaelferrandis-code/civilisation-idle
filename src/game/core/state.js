@@ -21,7 +21,7 @@ export const CURRENT_SAVE_VERSION = 2;
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
-  "chaosRuinsBonus", "phoenixTotalRuins", "orPopPeak", "hephPopPeak"
+  "chaosRuinsBonus", "phoenixTotalRuins", "orStartPop", "orPopPeak", "hephPopPeak"
 ];
 
 export const defaultAutoScriptRules = () => [
@@ -96,6 +96,7 @@ export const defaultState = () => ({
   babelCategory: null,
   babelProdReached: false,
   orHeritage: false,
+  orStartPop: new Decimal(0),
   orPopPeak: new Decimal(0),
   orGoldReached: false,
   orUsureImbalance: false,
@@ -206,6 +207,8 @@ export const defaultState = () => ({
   bestEraIndex: 0,
   cyclePeaks: {
     population: new Decimal(10),
+    food: new Decimal(35),
+    gold: new Decimal(0),
     knowledge: new Decimal(0),
     infrastructure: new Decimal(0),
     eraIndex: 0
@@ -512,6 +515,8 @@ export function normalizeCyclePeaks(raw, fallback) {
   const source = isPlainObject(raw) ? raw : {};
   return {
     population: decimalField(source.population, fallback.population),
+    food: decimalField(source.food, fallback.food),
+    gold: decimalField(source.gold, fallback.gold),
     knowledge: decimalField(source.knowledge, fallback.knowledge),
     infrastructure: decimalField(source.infrastructure, fallback.infrastructure),
     eraIndex: finiteInteger(source.eraIndex, fallback.eraIndex, 0, Math.max(0, eras.length - 1))
@@ -659,7 +664,7 @@ const MIGRATIONS = {
     if (isPlainObject(s.cyclePeaks)) {
       // migrate() ne copie que le premier niveau : on clone avant de muter.
       s.cyclePeaks = { ...s.cyclePeaks };
-      for (const field of ["population", "knowledge", "infrastructure"]) {
+      for (const field of ["population", "food", "gold", "knowledge", "infrastructure"]) {
         const value = s.cyclePeaks[field];
         if (typeof value === "number" && Number.isFinite(value)) s.cyclePeaks[field] = String(value);
       }
@@ -720,6 +725,7 @@ export function hydrateState(parsed = {}) {
     babelCategory: ["city", "knowledge", "infra"].includes(source.babelCategory) ? source.babelCategory : null,
     babelProdReached: Boolean(source.babelProdReached),
     orHeritage: Boolean(source.orHeritage),
+    orStartPop: decimalField(source.orStartPop, 0),
     orPopPeak: decimalField(source.orPopPeak, 0),
     orGoldReached: Boolean(source.orGoldReached),
     orUsureImbalance: Boolean(source.orUsureImbalance),
@@ -960,6 +966,7 @@ export function resetTemporaryRunState(s) {
   s.atlasCrisisCount = 0;
   s.babelProdReached = false;
   s.babelCategory    = null;
+  s.orStartPop       = D(s.population || 0);
   s.orPopPeak        = D(s.population || 0);
   s.orGoldReached    = false;
   s.orUsureImbalance = false;

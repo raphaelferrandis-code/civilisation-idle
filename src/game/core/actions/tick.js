@@ -165,6 +165,8 @@ export function tick(dt) {
 
   const peaks = state.cyclePeaks;
   if (D(state.population).gt(peaks.population)) peaks.population = state.population;
+  if (D(state.food).gt(peaks.food ?? 0)) peaks.food = state.food;
+  if (D(state.gold).gt(peaks.gold ?? 0)) peaks.gold = state.gold;
   if (D(state.knowledge).gt(peaks.knowledge)) peaks.knowledge = state.knowledge;
   if (D(state.infrastructure).gt(peaks.infrastructure)) peaks.infrastructure = state.infrastructure;
   const currentEra = currentEraIndex();

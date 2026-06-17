@@ -50,6 +50,8 @@ export function chronicleBuilding(building, previousCount, newCount) {
 export function resetCyclePeaks() {
   state.cyclePeaks = {
     population: state.population,
+    food: state.food,
+    gold: state.gold,
     knowledge: state.knowledge,
     infrastructure: state.infrastructure,
     eraIndex: currentEraIndex()

@@ -20,13 +20,14 @@ import {
   PROMETHEE_POP_TARGET,
   PROMETHEE_FATAL_RUPTURE,
   OR_POP_CAP,
+  OR_POP_CAP_GROWTH,
   OR_GOLD_TARGET,
   OR_BALANCE_RATIO,
   BABEL_MULT_TARGET,
   BABEL_CAT_LABELS,
   HEPH_POP_DECAY_START_MIN,
   HEPH_POP_DECAY_RATE,
-  HEPH_INFRA_TARGET,
+  HEPH_INFRA_PER_PEAK,
   HEPH_POP_DECLINE_PCT,
   ENEE_TERRITORY_INTERVAL_MS,
   CADMOS_POPULATION_THRESHOLDS,
@@ -59,13 +60,19 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_age_or: (state) => {
+    // Plafond DUR de population : la production post-GR est si forte qu'un seul
+    // tick fait exploser la pop (10^21 mesuré) avant que l'arrêt de production ne
+    // réagisse. On CLAMPE donc la pop au plafond (comme le cap d'infrastructure),
+    // garantissant que la cité dorée ne s'étale jamais. Relatif au départ du cycle.
+    const orPopCap = D(state.orStartPop || 0).mul(OR_POP_CAP_GROWTH).max(OR_POP_CAP);
+    if (D(state.population).gt(orPopCap)) state.population = orPopCap;
     if (D(state.population).gt(state.orPopPeak || 0)) state.orPopPeak = state.population;
     const _orF = D(state.food);
     const _orG = D(state.gold);
     state.orUsureImbalance = _orF.sub(_orG).abs().div(_orF.max(_orG).max(1)).toNumber() > OR_BALANCE_RATIO;
-    if (!state.orGoldReached && D(state.gold).gte(OR_GOLD_TARGET) && D(state.orPopPeak || 0).lte(OR_POP_CAP)) {
+    if (!state.orGoldReached && D(state.gold).gte(OR_GOLD_TARGET) && D(state.orPopPeak || 0).lte(orPopCap)) {
       state.orGoldReached = true;
-      log(`Age d'Or : le Tresor a atteint ${fmt(OR_GOLD_TARGET)} ! La prosperite est etablie — que le pacte soit scelle.`);
+      log(`Age d'Or : le Tresor a atteint ${fmt(OR_GOLD_TARGET)} sans laisser la cite s'etaler ! La prosperite est etablie — que le pacte soit scelle.`);
     }
   },
 
@@ -97,9 +104,13 @@ export const MYTH_TICK_HANDLERS = {
     }
     if (!state.hephGoalReached) {
       const hephDecline = 1 - D(state.population).div(D(state.hephPopPeak || 1).max(1)).toNumber();
-      if (D(state.infrastructure).gte(HEPH_INFRA_TARGET) && hephDecline >= HEPH_POP_DECLINE_PCT) {
+      // Objectif « machines par habitant » : l'infrastructure doit atteindre un
+      // RATIO du pic de population (HEPH_INFRA_PER_PEAK), pendant que la pop a
+      // suffisamment décliné. Le ratio garde du sens à toutes les échelles.
+      const infraTarget = D(state.hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK);
+      if (D(state.infrastructure).gte(infraTarget) && hephDecline >= HEPH_POP_DECLINE_PCT) {
         state.hephGoalReached = true;
-        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(HEPH_INFRA_TARGET)} atteinte, population en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
+        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(infraTarget)} atteinte (${HEPH_INFRA_PER_PEAK}x le pic de pop), population en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
       }
     }
   },

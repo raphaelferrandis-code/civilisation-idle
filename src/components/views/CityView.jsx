@@ -34,7 +34,7 @@ import {
   OR_POP_CAP,
   BABEL_CAT_LABELS,
   PHENIX_CYCLE_COUNT,
-  HEPH_INFRA_TARGET,
+  HEPH_INFRA_PER_PEAK,
   ATRIDES_GOAL_NET_GOLD,
   ATRIDES_DEBT_PAYBACK_FACTOR,
   ENEE_MIGRATIONS_TARGET,
@@ -505,7 +505,7 @@ export default function CityView() {
                   <span className="myth-card-icon">⚙</span>
                   <div className="myth-card-info">
                     <span>Héphaïstos {hephGoalReached && " (Pacte accompli !)"}</span>
-                    <strong>Infra: {fmt(infrastructure)}/{fmt(HEPH_INFRA_TARGET)} | {D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}</strong>
+                    <strong>Infra: {fmt(infrastructure)}/{fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | {D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}</strong>
                   </div>
                 </div>
               )}

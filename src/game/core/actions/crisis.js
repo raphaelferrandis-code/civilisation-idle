@@ -280,9 +280,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (state.eneeHeritage) {
     state.eneeCollapseCount = Math.min(ENEE_HERITAGE_MAX_COLLAPSES, (state.eneeCollapseCount || 0) + 1);
   }
-  const doctrinePopBonus = hasDoctrine("acier") ? D(state.cyclePeaks?.population || 0).mul(0.08).floor() : D(0);
+  // Pics du cycle qui vient de tomber (cyclePeaks n'est remis à zéro qu'en fin de
+  // fonction) : socle de départ indexé sur l'ÉCHELLE via les effectType *PctPeak.
+  const peaks = state.cyclePeaks || {};
+  const startFloor = (resource, flat) =>
+    D(flat + ruinEffectSum(`start${resource}`)).add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+  const doctrinePopBonus = hasDoctrine("acier") ? D(peaks.population || 0).mul(0.08).floor() : D(0);
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
-    .max(10 + ruinEffectSum("startPopulation"))
+    .max(startFloor("Population", 10))
     .add(doctrinePopBonus);
   const foodKeepRate = (has("ancestor_granaries") ? 0.16 : has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
   const goldKeepRate = 0.04 + (has("ash_markets") ? 0.05 : 0) + (has("ash_contracts") ? 0.07 : 0) + ruinEffectSum("goldKeep");
@@ -310,11 +315,11 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.riverWP = null;
   state.wallRadius = null;
   state.population = keptPop.max(10);
-  state.food = keptFood.max(35 + ruinEffectSum("startFood"));
-  state.gold = keptGold.max(ruinEffectSum("startGold"));
+  state.food = keptFood.max(startFloor("Food", 35));
+  state.gold = keptGold.max(startFloor("Gold", 0));
 
   const memoireSavoirBonus = has("codex_mythique") ? 250 * eraTier(state.bestEraIndex || 0) : 0;
-  state.knowledge = keptKnowledge.max(ruinEffectSum("startKnowledge")).add(memoireSavoirBonus);
+  state.knowledge = keptKnowledge.max(startFloor("Knowledge", 0)).add(memoireSavoirBonus);
 
   state.infrastructure = keptInfra.add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);
   

@@ -325,10 +325,15 @@ export function activateAtridesPact() {
 }
 
 export function resetCivilization() {
-  state.population = D(10 + ruinEffectSum("startPopulation"));
-  state.food = D(35 + ruinEffectSum("startFood"));
-  state.gold = D(ruinEffectSum("startGold"));
-  state.knowledge = D(ruinEffectSum("startKnowledge"));
+  // Socle de départ indexé sur l'échelle (effectType *PctPeak) : lit les pics du
+  // cycle précédent encore présents dans cyclePeaks (reset en fin de fonction).
+  const peaks = state.cyclePeaks || {};
+  const startFloor = (resource, flat) =>
+    D(flat + ruinEffectSum(`start${resource}`)).add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+  state.population = startFloor("Population", 10);
+  state.food = startFloor("Food", 35);
+  state.gold = startFloor("Gold", 0);
+  state.knowledge = startFloor("Knowledge", 0);
   state.infrastructure = D(0);
   state.activeEpitaphLegacy = null;
   state.nextEpitaphLegacy = null;

@@ -6,51 +6,6 @@
  * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
  * ============================================================================ */
 
-export const ruinPaths = [
-  {
-    id: "abundance",
-    name: "Abondance",
-    hint: "Nourriture, réserves et relance des premiers jours.",
-    types: ["foodMult", "startFood", "foodKeep"],
-    ids: ["root_cellars", "granaries", "ancestor_granaries", "ember_baskets"]
-  },
-  {
-    id: "treasure",
-    name: "Trésor",
-    hint: "Argent, commerce et richesses conservées.",
-    types: ["goldMult", "startGold", "goldKeep"],
-    ids: ["buried_coins", "ash_markets", "ash_contracts"]
-  },
-  {
-    id: "knowledge",
-    name: "Savoir",
-    hint: "Mémoire, recherche et savoir qui survit aux chutes.",
-    types: ["knowledgeMult", "startKnowledge", "knowledgeKeep", "knowledgeDiscount"],
-    ids: ["charcoal_tablets", "memory_scribes"]
-  },
-  {
-    id: "foundations",
-    name: "Fondations",
-    hint: "Infrastructure, coûts, routes et bases conservées.",
-    types: ["infraMult", "infraDiscount", "infraKeep"],
-    ids: ["fallen_roads", "old_wall_maps"]
-  },
-  {
-    id: "rupture",
-    name: "Rupture",
-    hint: "Options qui accélèrent ou ralentissent la crise.",
-    types: ["stability", "ruptureHaste", "timeWearSlow", "ruinGain"],
-    ids: ["ruin_liturgy", "recurring_ages"]
-  },
-  {
-    id: "relaunch",
-    name: "Relance",
-    hint: "Bonus globaux, population, clics et puissance des ruines gardées.",
-    types: ["globalMult", "populationMult", "startPopulation", "cityDiscount", "unspentRuinsPower", "chronicleEngine"],
-    ids: ["oral_tradition", "salvage_crews", "broken_milestones"]
-  }
-];
-
 export const upgrades = [
   {
     id: "root_cellars",
@@ -436,7 +391,7 @@ export const upgrades = [
     group: "ruins",
     unlockCycles: 4,
     name: "Ruines vertes",
-    cost: { ruins: 35000 },
+    cost: { ruins: 8000 },
     effectType: "foodMult",
     amount: 1,
     desc: "Des figuiers poussent dans les salles du trône. C'est peut-être ça, l'optimisme.",
@@ -482,10 +437,10 @@ export const upgrades = [
     unlockCycles: 5,
     name: "Graines dynastiques",
     cost: { ruins: 180000 },
-    effectType: "startPopulation",
-    amount: 25,
+    effectType: "startPopulationPctPeak",
+    amount: 0.02,
     desc: "Certaines familles savent déjà qu'elles vont durer. Ça change tout.",
-    effect: "Chaque cycle commence avec plus de population."
+    effect: "Chaque cycle commence avec 2% du pic de population précédent."
   },
   {
     id: "fossil_taxes",
@@ -493,21 +448,21 @@ export const upgrades = [
     unlockCycles: 5,
     name: "Impôts fossiles",
     cost: { ruins: 270000 },
-    effectType: "startGold",
-    amount: 250,
+    effectType: "startGoldPctPeak",
+    amount: 0.03,
     desc: "La dette survit mieux que les palais qui l'ont générée.",
-    effect: "Chaque cycle commence avec plus de trésor."
+    effect: "Chaque cycle commence avec 3% du pic de trésor précédent."
   },
   {
     id: "first_grammar",
     group: "ruins",
     unlockCycles: 5,
     name: "Première grammaire",
-    cost: { ruins: 400000 },
-    effectType: "startKnowledge",
-    amount: 120,
+    cost: { ruins: 120000 },
+    effectType: "startKnowledgePctPeak",
+    amount: 0.03,
     desc: "Les premières règles du langage ont tout changé. La deuxième fois, ça va plus vite.",
-    effect: "Chaque cycle commence avec plus de savoir."
+    effect: "Chaque cycle commence avec 3% du pic de savoir précédent."
   },
   {
     id: "rubble_survey",
@@ -656,12 +611,13 @@ export const upgrades = [
     id: "deep_foundry",
     group: "ruins",
     unlockCycles: 8,
+    capstone: true,
     name: "Fonderie profonde",
-    cost: { ruins: 120000000 },
+    cost: { ruins: 12000000000 },
     effectType: "globalMult",
-    amount: 0.24,
+    amount: 0.30,
     desc: "Sous les décombres, le métal apprend une seconde chaleur.",
-    effect: "Production globale +24%."
+    effect: "Capstone Prospérité : production globale +30%."
   },
   {
     id: "cradle_of_laws",
@@ -680,10 +636,10 @@ export const upgrades = [
     unlockCycles: 9,
     name: "Dix mille réserves",
     cost: { ruins: 270000000 },
-    effectType: "startFood",
-    amount: 250000,
+    effectType: "startFoodPctPeak",
+    amount: 0.05,
     desc: "La famine cherche une entrée. Elle trouve des portes fermées partout.",
-    effect: "Chaque cycle commence avec beaucoup plus de nourriture."
+    effect: "Chaque cycle commence avec 5% du pic de nourriture précédent."
   },
   {
     id: "palace_of_receipts",
@@ -691,10 +647,10 @@ export const upgrades = [
     unlockCycles: 9,
     name: "Palais des quittances",
     cost: { ruins: 400000000 },
-    effectType: "startGold",
-    amount: 100000,
+    effectType: "startGoldPctPeak",
+    amount: 0.06,
     desc: "Le trésor physique a déménagé ici. Les preuves de paiement ont plus de gardes que les princes.",
-    effect: "Chaque cycle commence avec beaucoup plus de trésor."
+    effect: "Chaque cycle commence avec 6% du pic de trésor précédent."
   },
   {
     id: "library_under_world",
@@ -702,10 +658,10 @@ export const upgrades = [
     unlockCycles: 9,
     name: "Bibliothèque souterraine",
     cost: { ruins: 600000000 },
-    effectType: "startKnowledge",
-    amount: 50000,
+    effectType: "startKnowledgePctPeak",
+    amount: 0.05,
     desc: "Les livres y respirent dans l'ombre minérale, patients comme de la géologie.",
-    effect: "Chaque cycle commence avec beaucoup plus de savoir."
+    effect: "Chaque cycle commence avec 5% du pic de savoir précédent."
   },
   {
     id: "immortal_blueprint",
@@ -722,12 +678,13 @@ export const upgrades = [
     id: "chronicle_engine",
     group: "ruins",
     unlockCycles: 10,
+    capstone: true,
     name: "Machine chronique",
-    cost: { ruins: 1300000000 },
+    cost: { ruins: 40000000000 },
     effectType: "chronicleEngine",
     amount: 0.03,
     desc: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus — elle recommence.",
-    effect: "Capstone: chaque achat de ruines renforce toute la production, et les ruines non dépensées ajoutent un bonus."
+    effect: "Capstone Connaissance : chaque achat de ruines renforce toute la production, et les ruines non dépensées ajoutent un bonus."
   },
   {
     id: "root_hospices",
@@ -804,10 +761,10 @@ export const upgrades = [
     group: "ruins",
     name: "Recensement vert",
     cost: { ruins: 13000000000 },
-    effectType: "startPopulation",
-    amount: 120,
+    effectType: "startPopulationPctPeak",
+    amount: 0.05,
     desc: "Les noms de famille repoussent avec les jardins. Les gens reviennent.",
-    effect: "Chaque cycle commence avec +120 population."
+    effect: "Chaque cycle commence avec 5% du pic de population précédent."
   },
   {
     id: "mother_walls",
@@ -826,7 +783,7 @@ export const upgrades = [
     cost: { ruins: 21000000000 },
     effectType: "stability",
     amount: 0.04,
-    desc: "A chaque saison, la cite repete pourquoi elle existe. Ca aide a tenir.",
+    desc: "À chaque saison, la cité répète pourquoi elle existe. Ça aide à tenir.",
     effect: "Pression de rupture -4 pts."
   },
   {
@@ -834,10 +791,10 @@ export const upgrades = [
     group: "ruins",
     name: "Puits profonds",
     cost: { ruins: 25000000000 },
-    effectType: "startFood",
-    amount: 1000000,
-    desc: "L'eau ici remonte d'avant la premiere cite. Elle sera la apres la derniere.",
-    effect: "Chaque cycle commence avec beaucoup plus de nourriture."
+    effectType: "startFoodPctPeak",
+    amount: 0.08,
+    desc: "L'eau ici remonte d'avant la première cité. Elle sera là après la dernière.",
+    effect: "Chaque cycle commence avec 8% du pic de nourriture précédent."
   },
   {
     id: "patient_bloodlines",
@@ -852,12 +809,13 @@ export const upgrades = [
   {
     id: "last_refuges",
     group: "ruins",
+    capstone: true,
     name: "Derniers refuges",
     cost: { ruins: 35000000000 },
     effectType: "timeWearSlow",
     amount: 0.22,
     desc: "Ces lieux savent encore fermer leurs portes quand tout le reste tombe.",
-    effect: "Usure du temps -22%."
+    effect: "Capstone Résilience : usure du temps -22%."
   },
   {
     id: "silver_roads",
@@ -867,7 +825,7 @@ export const upgrades = [
     effectType: "goldMult",
     amount: 2.4,
     desc: "Elles brillent surtout la nuit, quand les marchands mentent moins.",
-    effect: "Production de tresor +240%."
+    effect: "Production de trésor +240%."
   },
   {
     id: "public_quarries",
@@ -897,7 +855,7 @@ export const upgrades = [
     effectType: "infraDiscount",
     amount: 0.1,
     desc: "Chaque canal est aussi un accord. L'eau circule, l'argent suit.",
-    effect: "Couts d'infrastructure -10%."
+    effect: "Coûts d'infrastructure -10%."
   },
   {
     id: "vaulted_treasuries",
@@ -984,10 +942,10 @@ export const upgrades = [
     group: "ruins",
     name: "Archives aux lampes",
     cost: { ruins: 14000000000 },
-    effectType: "startKnowledge",
-    amount: 200000,
+    effectType: "startKnowledgePctPeak",
+    amount: 0.07,
     desc: "Une lumière basse, des mains qui copient, des idées qui ne dorment pas.",
-    effect: "Chaque cycle commence avec beaucoup plus de savoir."
+    effect: "Chaque cycle commence avec 7% du pic de savoir précédent."
   },
   {
     id: "counterfactual_histories",
@@ -1012,12 +970,13 @@ export const upgrades = [
   {
     id: "axiom_engine",
     group: "ruins",
+    capstone: true,
     name: "Moteur d'axiomes",
-    cost: { ruins: 26000000000 },
+    cost: { ruins: 30000000000 },
     effectType: "globalMult",
-    amount: 0.28,
+    amount: 0.32,
     desc: "Quelques vérités simples y font tourner des empires entiers.",
-    effect: "Production globale +28%."
+    effect: "Capstone Cycle & Crise : production globale +32%."
   },
   {
     id: "trait_theocracy",
@@ -1102,6 +1061,16 @@ export const upgrades = [
     amount: 1.25,
     desc: "Quand tout le monde peut apprendre, les idées circulent plus vite que les rumeurs.",
     effect: "Dogme: production de savoir +125%."
+  },
+  {
+    id: "dogma_eternal_return",
+    group: "ruins",
+    name: "Éternel retour",
+    cost: { ruins: 0 },
+    effectType: "ruinGain",
+    amount: 0.30,
+    desc: "Chaque fin est une répétition générale. On finit par en tirer plus à chaque chute.",
+    effect: "Dogme: Ruines gagnées +30%."
   },
   {
     id: "conseil_de_crise",
@@ -1215,130 +1184,108 @@ export const upgrades = [
   }
 ];
 
+// Arbre de prestige à PALIERS À CHOIX (et non plus rails linéaires) :
+// chaque branche est une suite de `tiers` (paliers) ; un nœud du palier t devient
+// disponible quand on possède au moins `unlock[t]` nœuds des paliers INFÉRIEURS —
+// un compteur, pas un nœud précis. On peut donc SAUTER ~40 % de chaque palier et
+// choisir sa spécialisation. `unlock[0] = 0` (premier palier toujours ouvert).
+// Conséquence clé : un `conflictsWith` (choix exclusif) ne sévère plus jamais
+// l'aval — bloquer un nœud n'empêche pas le compteur d'atteindre le seuil suivant.
 export const PRESTIGE_TREE_BRANCHES = [
   {
     id: "resilience",
     name: "Résilience",
     hint: "Population, nourriture, stabilité et résistance à l'usure.",
-    ids: [
-      "root_cellars", "ember_baskets", "granaries", "seed_vaults", "ancestor_granaries", "charred_ploughs",
-      "smoke_calendar", "clay_cisterns", "stone_bread", "green_ruins", "age_sutures", "crisis_theatre",
-      "dynastic_seeds", "echo_census", "evergreen_fields", "cradle_of_laws", "ten_thousand_storehouses",
-      "root_hospices", "winter_granaries", "slow_calendar", "plague_records", "famine_laws",
-      "river_seedbanks", "ash_medicine", "green_census", "mother_walls", "seasonal_oaths",
-      "deep_wells", "patient_bloodlines", "last_refuges"
+    unlock: [0, 3, 6, 9, 12, 15],
+    tiers: [
+      ["root_cellars", "ember_baskets", "granaries", "seed_vaults", "ancestor_granaries"],
+      ["charred_ploughs", "smoke_calendar", "clay_cisterns", "stone_bread", "green_ruins"],
+      ["age_sutures", "crisis_theatre", "dynastic_seeds", "echo_census", "evergreen_fields"],
+      ["cradle_of_laws", "ten_thousand_storehouses", "root_hospices", "winter_granaries", "slow_calendar"],
+      ["plague_records", "famine_laws", "river_seedbanks", "ash_medicine", "green_census"],
+      ["mother_walls", "seasonal_oaths", "deep_wells", "patient_bloodlines", "last_refuges"]
     ]
   },
   {
     id: "prosperity",
     name: "Prospérité",
     hint: "Trésor, infrastructures, routes, coûts de construction et conservation matérielle.",
-    ids: [
-      "buried_coins", "salvage_crews", "ash_paths", "broken_milestones", "fallen_roads", "cracked_scales",
-      "ash_markets", "silent_wells", "old_wall_maps", "buried_tolls", "ash_contracts", "ancestral_markets",
-      "old_coin_molds", "tilted_milestones", "forgotten_wharves", "buried_engineers", "fossil_taxes",
-      "rubble_survey", "dead_road_network", "bronze_foundations", "ancestor_stipends", "silver_ghosts",
-      "cyclopean_blocks", "deep_foundry", "palace_of_receipts", "immortal_blueprint",
-      "silver_roads", "public_quarries", "nomad_ledgers", "canal_charters", "vaulted_treasuries",
-      "imperial_scaffolds"
+    unlock: [0, 3, 6, 9, 12, 15],
+    tiers: [
+      ["buried_coins", "salvage_crews", "ash_paths", "broken_milestones", "fallen_roads"],
+      ["cracked_scales", "ash_markets", "silent_wells", "old_wall_maps", "buried_tolls"],
+      ["ash_contracts", "ancestral_markets", "old_coin_molds", "tilted_milestones", "forgotten_wharves"],
+      ["buried_engineers", "fossil_taxes", "rubble_survey", "dead_road_network", "bronze_foundations"],
+      ["ancestor_stipends", "silver_ghosts", "cyclopean_blocks", "palace_of_receipts", "immortal_blueprint", "silver_roads"],
+      ["public_quarries", "nomad_ledgers", "canal_charters", "vaulted_treasuries", "imperial_scaffolds", "deep_foundry"]
     ]
   },
   {
     id: "knowledge",
     name: "Connaissance",
-    hint: "Savoir, archives, actions avancées, gains de ruines et mémoire longue.",
-    ids: [
-      "charcoal_tablets", "bone_ledgers", "oral_tradition", "burnt_abacus", "ruin_liturgy", "memory_scribes",
-      "foundation_ghosts", "rubble_contracts", "sunken_scriptorium", "mirror_archives", "crowned_debris",
-      "burial_math", "ashen_libraries", "first_grammar", "blackboard_walls", "ruined_mandate",
-      "salted_memory", "ivory_questions", "ritual_accounting", "library_under_world", "chronicle_engine",
-      "ink_relics", "dead_language_schools", "oracle_tables", "memory_courts", "silent_observatories",
-      "codex_of_failures", "lamp_archives", "counterfactual_histories", "collapse_taxonomy",
-      "axiom_engine"
+    hint: "Savoir, archives, mémoire longue et coûts de recherche.",
+    unlock: [0, 3, 6, 8, 10],
+    tiers: [
+      ["charcoal_tablets", "bone_ledgers", "oral_tradition", "burnt_abacus", "memory_scribes"],
+      ["rubble_contracts", "sunken_scriptorium", "mirror_archives", "ashen_libraries", "first_grammar"],
+      ["blackboard_walls", "salted_memory", "ivory_questions", "ritual_accounting"],
+      ["library_under_world", "ink_relics", "dead_language_schools", "memory_courts"],
+      ["silent_observatories", "lamp_archives", "counterfactual_histories", "chronicle_engine"]
     ]
   },
   {
-    id: "rupture",
-    name: "Rupture",
-    hint: "Gestion autonome des crises: doctrine de crise + effondrement automatique configurable.",
-    ids: ["conseil_de_crise", "edit_effondrement", "recurring_ages"]
+    id: "cycle_crise",
+    name: "Cycle & Crise",
+    hint: "Gain de ruines, arbitrages d'effondrement et automatisation des crises.",
+    unlock: [0, 2, 5],
+    tiers: [
+      ["conseil_de_crise", "edit_effondrement", "ruin_liturgy", "foundation_ghosts"],
+      ["recurring_ages", "crowned_debris", "burial_math", "ruined_mandate"],
+      ["oracle_tables", "codex_of_failures", "collapse_taxonomy", "axiom_engine"]
+    ]
   },
   {
     id: "veille",
     name: "Veille",
-    hint: "Gain hors-ligne : la cite continue de produire et de vieillir en ton absence.",
-    ids: ["veilleurs_nuit_1", "veilleurs_nuit_2", "veilleurs_nuit_3", "veilleurs_nuit_4"]
+    hint: "Gain hors-ligne : la cité continue de produire et de vieillir en ton absence.",
+    unlock: [0, 1],
+    tiers: [
+      ["veilleurs_nuit_1", "veilleurs_nuit_2"],
+      ["veilleurs_nuit_3", "veilleurs_nuit_4"]
+    ]
   }
 ];
 
 export const PRESTIGE_DOGMAS = [
-  {
-    id: "dogma_communal_granaries",
-    tier: "Palier I",
-    requiredPurchases: 10,
-    branch: "resilience"
-  },
-  {
-    id: "dogma_medicine",
-    tier: "Palier II",
-    requiredPurchases: 20,
-    branch: "resilience"
-  },
-  {
-    id: "dogma_stoic_rites",
-    tier: "Palier III",
-    requiredPurchases: 30,
-    branch: "resilience"
-  },
-  {
-    id: "trait_nomadism",
-    tier: "Palier I",
-    requiredPurchases: 10,
-    branch: "prosperity"
-  },
-  {
-    id: "dogma_merchant_law",
-    tier: "Palier II",
-    requiredPurchases: 20,
-    branch: "prosperity"
-  },
-  {
-    id: "dogma_public_works",
-    tier: "Palier III",
-    requiredPurchases: 30,
-    branch: "prosperity"
-  },
-  {
-    id: "trait_theocracy",
-    tier: "Palier I",
-    requiredPurchases: 10,
-    branch: "knowledge"
-  },
-  {
-    id: "skill_archaeology",
-    tier: "Palier II",
-    requiredPurchases: 20,
-    branch: "knowledge"
-  },
-  {
-    id: "dogma_free_academies",
-    tier: "Palier III",
-    requiredPurchases: 30,
-    branch: "knowledge"
-  }
+  { id: "dogma_communal_granaries", tier: "Palier I", requiredPurchases: 6, branch: "resilience" },
+  { id: "dogma_medicine", tier: "Palier II", requiredPurchases: 14, branch: "resilience" },
+  { id: "dogma_stoic_rites", tier: "Palier III", requiredPurchases: 22, branch: "resilience" },
+  { id: "trait_nomadism", tier: "Palier I", requiredPurchases: 6, branch: "prosperity" },
+  { id: "dogma_merchant_law", tier: "Palier II", requiredPurchases: 14, branch: "prosperity" },
+  { id: "dogma_public_works", tier: "Palier III", requiredPurchases: 22, branch: "prosperity" },
+  { id: "trait_theocracy", tier: "Palier I", requiredPurchases: 6, branch: "knowledge" },
+  { id: "skill_archaeology", tier: "Palier II", requiredPurchases: 12, branch: "knowledge" },
+  { id: "dogma_free_academies", tier: "Palier III", requiredPurchases: 18, branch: "knowledge" },
+  { id: "dogma_eternal_return", tier: "Palier I", requiredPurchases: 5, branch: "cycle_crise" }
 ];
 
 export const dogmaIds = new Set(PRESTIGE_DOGMAS.map((dogma) => dogma.id));
 
-export const PRESTIGE_TREE = PRESTIGE_TREE_BRANCHES.flatMap((branch) => branch.ids.map((id, index) => {
-  const upgrade = upgrades.find((candidate) => candidate.id === id);
-  return {
-    id,
-    branch: branch.id,
-    name: upgrade?.name || id,
-    cost: upgrade?.cost || { ruins: 0 },
-    purchased: false,
-    requires: index > 0 ? branch.ids[index - 1] : null,
-    effect: upgrade?.effect || ""
-  };
-}));
+// Aplatissement des paliers en nœuds. Chaque nœud porte son `tier` et son seuil
+// `unlock` (recopié de la branche) → checkNodeAvailability est auto-suffisant.
+export const PRESTIGE_TREE = PRESTIGE_TREE_BRANCHES.flatMap((branch) =>
+  branch.tiers.flatMap((tierIds, tierIndex) => tierIds.map((id) => {
+    const upgrade = upgrades.find((candidate) => candidate.id === id);
+    return {
+      id,
+      branch: branch.id,
+      tier: tierIndex,
+      unlock: branch.unlock[tierIndex] ?? 0,
+      name: upgrade?.name || id,
+      cost: upgrade?.cost || { ruins: 0 },
+      capstone: Boolean(upgrade?.capstone),
+      purchased: false,
+      effect: upgrade?.effect || ""
+    };
+  }))
+);

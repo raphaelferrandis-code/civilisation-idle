@@ -36,16 +36,17 @@ export default function RuinsView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Ruines Actives</h2>
+            <h2>Mémoire des Ruines</h2>
           </div>
           <div className="prestige-ruins-counter">
             <span className="label">Ruines Disponibles</span>
-            <strong>{fmt(ruins)} 🪙</strong>
+            <strong>{fmt(ruins)} 🏛️</strong>
           </div>
         </div>
         <p className="body-copy">
           Les ruines ne sont pas seulement une monnaie : elles sont des formes que les survivants reconnaissent.
-          Elles s'organisent en trois traditions de reconstruction.
+          Chaque branche s'ouvre par paliers — possède assez de nœuds d'un palier pour débloquer le suivant,
+          et choisis librement ta spécialisation.
         </p>
 
         {/* Dogmes Majeurs */}
@@ -55,7 +56,7 @@ export default function RuinsView() {
               <span className="label">Paliers culturels</span>
               <h3>Dogmes majeurs</h3>
             </div>
-            <strong>10 / 20 / 30 achats par branche</strong>
+            <strong>Jalons de spécialisation par branche</strong>
           </div>
 
           <div className="dogma-grid">
@@ -68,23 +69,30 @@ export default function RuinsView() {
               const missing = Math.max(0, dogma.requiredPurchases - branchCount);
               const isOwned = has(dogma.id);
               const barPct = isOwned ? 100 : Math.min(100, Math.round((branchCount / dogma.requiredPurchases) * 100));
+              // Nature du jalon, déduite du préfixe d'id : passif (dogma_), à
+              // contrepartie (trait_) ou capacité activable (skill_).
+              const isTrait = dogma.id.startsWith('trait_');
+              const kind = isTrait ? 'Trait' : dogma.id.startsWith('skill_') ? 'Compétence' : 'Dogme';
 
               return (
                 <button
                   key={dogma.id}
                   type="button"
-                  className={`dogma-card ${dogma.branch} ${status}`}
+                  className={`dogma-card ${dogma.branch} ${status}${isTrait ? ' is-trait' : ''}`}
                   disabled={status !== 'available'}
                   onClick={() => buyUpgrade(dogma.id)}
                 >
-                  <span className="tree-status">{isOwned ? "Adopté" : dogma.tier}</span>
+                  <span className="dogma-kind-row">
+                    <span className={`dogma-kind${isTrait ? ' is-trait' : ''}`}>{kind}</span>
+                    <span className="tree-status">{isOwned ? "Adopté" : dogma.tier}</span>
+                  </span>
                   <strong>{upgrade.name}</strong>
                   <small>{upgrade.effect}</small>
                   {isOwned ? (
                     <span className="tree-cost">Actif</span>
                   ) : (
                     <div className="dogma-progress">
-                      <div className="dogma-progress-bar ${dogma.branch}">
+                      <div className={`dogma-progress-bar ${dogma.branch}`}>
                         <span style={{ width: `${barPct}%` }}></span>
                       </div>
                       <span className="dogma-progress-label">
@@ -139,40 +147,60 @@ export default function RuinsView() {
                 </div>
                 
                 <div className="tree-flow">
-                  {branchNodes.map(node => {
-                    const upgrade = upgradeById[node.id];
-                    if (!upgrade) return null;
+                  {branch.tiers.map((tierIds, tierIndex) => {
+                    const tierNodes = branchNodes.filter(node => node.tier === tierIndex);
+                    if (tierNodes.length === 0) return null;
 
-                    const status = checkNodeAvailability(node.id);
-                    const parentName = node.requires ? (upgradeById[node.requires]?.name || node.requires) : "";
-                    const conflictName = upgrade.conflictsWith ? (upgradeById[upgrade.conflictsWith]?.name || upgrade.conflictsWith) : "";
-                    
-                    let statusLabel = "Verrouillé";
-                    if (status === 'purchased') statusLabel = "Acheté";
-                    else if (status === 'available') statusLabel = "Disponible";
-                    else if (status === 'blocked') statusLabel = "Exclu";
+                    const need = branch.unlock[tierIndex] ?? 0;
+                    const ownedBelow = branchNodes.filter(node => node.tier < tierIndex && has(node.id)).length;
+                    const tierOpen = ownedBelow >= need;
 
                     return (
-                      <button
-                        key={node.id}
-                        type="button"
-                        id={`tree-node-${node.id}`}
-                        className={`tree-node ${status}`}
-                        disabled={status !== 'available'}
-                        onClick={() => buyUpgrade(node.id)}
-                      >
-                        <span className="tree-status">{statusLabel}</span>
-                        <strong>{upgrade.name}</strong>
-                        <small>{upgrade.effect}</small>
-                        <span className="tree-cost">
-                          {status === 'purchased' ? "Maxé" : `${fmt(node.cost.ruins)} ruines`}
-                        </span>
-                        {status === 'blocked' ? (
-                          <em>Exclu par : {conflictName}</em>
-                        ) : node.requires && !has(node.requires) ? (
-                          <em>Requiert {parentName}</em>
-                        ) : null}
-                      </button>
+                      <div className={`tree-tier ${tierOpen ? 'open' : 'gated'}`} key={tierIndex}>
+                        <div className="tree-tier-head">
+                          <span className="tree-tier-label">Palier {tierIndex + 1}</span>
+                          {!tierOpen && (
+                            <span className="tree-tier-gate">{ownedBelow} / {need} achats requis</span>
+                          )}
+                        </div>
+                        <div className="tree-tier-nodes">
+                          {tierNodes.map(node => {
+                            const upgrade = upgradeById[node.id];
+                            if (!upgrade) return null;
+
+                            const status = checkNodeAvailability(node.id);
+                            const conflictName = upgrade.conflictsWith ? (upgradeById[upgrade.conflictsWith]?.name || upgrade.conflictsWith) : "";
+
+                            let statusLabel = "Verrouillé";
+                            if (status === 'purchased') statusLabel = "Acheté";
+                            else if (status === 'available') statusLabel = "Disponible";
+                            else if (status === 'blocked') statusLabel = "Exclu";
+
+                            return (
+                              <button
+                                key={node.id}
+                                type="button"
+                                id={`tree-node-${node.id}`}
+                                className={`tree-node ${status}${node.capstone ? ' capstone' : ''}`}
+                                disabled={status !== 'available'}
+                                onClick={() => buyUpgrade(node.id)}
+                              >
+                                <span className="tree-status">{node.capstone ? `★ ${statusLabel}` : statusLabel}</span>
+                                <strong>{upgrade.name}</strong>
+                                <small>{upgrade.effect}</small>
+                                <span className="tree-cost">
+                                  {status === 'purchased' ? "Maxé" : `${fmt(node.cost.ruins)} ruines`}
+                                </span>
+                                {status === 'blocked' ? (
+                                  <em>Exclu par : {conflictName}</em>
+                                ) : conflictName ? (
+                                  <em>Exclut : {conflictName}</em>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

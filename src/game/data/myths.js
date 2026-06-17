@@ -56,7 +56,12 @@ export const OR_POP_PENALTY_PCT       = 0.005;   // -0.5% de production par habi
 export const OR_BALANCE_RATIO         = 0.25;    // Écart Nourriture/Trésor au-delà duquel il y a déséquilibre
 export const OR_USURE_IMBALANCE_MULT  = 3;       // Usure ×3 pendant le déséquilibre
 export const OR_GOLD_TARGET           = 75_000;  // Trésor cible pour réussir
-export const OR_POP_CAP               = 300;     // Population max autorisée pour valider
+export const OR_POP_CAP               = 300;     // Plancher absolu du plafond de pop (early game)
+// Plafond de population RELATIF au départ du cycle : la pop ne doit pas croître
+// de plus de (facteur-1) depuis le début. Corrige l'injouabilité post-GR (la pop
+// gardée dépasse déjà 300) tout en gardant l'intention « cité dorée qui ne
+// s'étale pas ». Plafond effectif = max(OR_POP_CAP, popDépart × OR_POP_CAP_GROWTH).
+export const OR_POP_CAP_GROWTH        = 1.25;    // +25% de pop max pendant l'Âge d'Or
 export const OR_HERITAGE_BALANCE_RATIO = 0.15;  // Héritage : seuil d'équilibre (<15% d'écart)
 export const OR_HERITAGE_USURE_RED    = 0.20;   // Héritage : -20% Usure quand équilibré
 
@@ -73,14 +78,23 @@ export const PHENIX_FORCE_INTERVAL = 5 * 60_000;  // 5 minutes entre chaque effo
 export const PHENIX_RUIN_TARGET    = 400;          // Ruines cumulées pour réussir
 
 // ── Constantes Mythe d'Héphaïstos ────────────────────────────────────────────
+// Refonte (le calibrage d'origine était devenu injouable : la production de pop
+// de l'économie actuelle annulait le déclin). Le fantasme « les machines
+// remplacent les hommes » est désormais mécanisé : pendant le déclin, la
+// production de population est ÉTOUFFÉE (HEPH_POP_PROD_MULT) → la pop chute
+// réellement (≈ HEPH_POP_DECAY_RATE/min), indépendamment de la courbe de prod.
+// L'objectif d'infra n'est plus un seuil absolu trivial mais un RATIO
+// « machines par habitant au pic » (HEPH_INFRA_PER_PEAK), qui garde du sens à
+// toutes les échelles. Cf. analyse-mythe-hephaistos.md.
 export const HEPH_POP_DECAY_START_MIN  = 3;      // Déclin pop démarre après 3 min de cycle
 export const HEPH_POP_DECAY_RATE       = 0.008;  // 0.8% de la pop actuelle perdue par minute
+export const HEPH_POP_PROD_MULT        = 0.0;    // Production de pop étouffée pendant le déclin (0 = les machines remplacent les hommes)
 export const HEPH_INFRA_MULT_BASE      = 2.0;    // Bonus infra x2 au départ
 export const HEPH_INFRA_MULT_GROWTH    = 0.15;   // +0.15 par minute de cycle
 export const HEPH_USURE_MULT           = 2.5;    // Usure x2.5
 export const HEPH_POP_CRISIS_THRESHOLD = 50;     // Pop en-dessous de ce seuil → crises irrésolubles
-export const HEPH_INFRA_TARGET         = 1500;   // Infrastructure cible pour réussir
-export const HEPH_POP_DECLINE_PCT      = 0.25;   // Déclin requis depuis le pic (25%)
+export const HEPH_INFRA_PER_PEAK       = 1.0;    // Ratio cible infra / pic de population (placeholder, calibré par simulation)
+export const HEPH_POP_DECLINE_PCT      = 0.20;   // Déclin requis depuis le pic (20% ≈ 25 min à 0,8%/min après le départ)
 
 // ── Constantes Mythe de Prométhée ────────────────────────────────────────────
 export const PROMETHEE_FOOD_MULT       = 3;      // Multiplicateur de production de Nourriture
@@ -264,7 +278,7 @@ export const MYTHS = [
     name: "Le Mythe d'Héphaïstos",
     description: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, la Population commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irrésolues.`,
     ragnarokSummary: `population en déclin, infrastructure amplifiée, Usure x${HEPH_USURE_MULT}.`,
-    objectif: `Atteindre ${HEPH_INFRA_TARGET} d'Infrastructure avec une Population ayant décliné d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis son pic.`,
+    objectif: `Bâtir une Infrastructure d'au moins ${HEPH_INFRA_PER_PEAK}x le pic de Population, pendant que la Population décline d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis ce pic (les machines remplacent les hommes).`,
     heritageDescription: `Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs futures (achat automatique de bâtiments, déclenchement de crises).`,
 
     onActivate() {
@@ -359,10 +373,11 @@ export const MYTHS = [
     name: "Le Mythe de l'Âge d'Or",
     description: `La Rupture est plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)}% et toutes ses crises sont suspendues. Mais au-delà de ${OR_POP_THRESHOLD} habitants, chaque point de Population supprime ${OR_POP_PENALTY_PCT * 100}% de production globale. Si l'écart entre Nourriture et Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)}%, l'Usure monte x${OR_USURE_IMBALANCE_MULT} plus vite.`,
     ragnarokSummary: `Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)}%, population risquée et équilibre Nourriture/Trésor exigé.`,
-    objectif: `Accumuler ${OR_GOLD_TARGET.toLocaleString()} de Trésor en ayant la population qui n'a jamais dépassé ${OR_POP_CAP} habitants.`,
+    objectif: `Accumuler ${OR_GOLD_TARGET.toLocaleString()} de Trésor sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
     heritageDescription: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement — en permanence, dans toutes les runs futures.`,
 
     onActivate() {
+      state.orStartPop     = state.population;
       state.orPopPeak      = state.population;
       state.orGoldReached  = false;
       state.orUsureImbalance = false;

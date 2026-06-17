@@ -44,8 +44,12 @@ import {
   BABEL_ADJ_BONUS,
   OR_POP_THRESHOLD,
   OR_POP_PENALTY_PCT,
+  OR_POP_CAP,
+  OR_POP_CAP_GROWTH,
   HEPH_INFRA_MULT_BASE,
   HEPH_INFRA_MULT_GROWTH,
+  HEPH_POP_DECAY_START_MIN,
+  HEPH_POP_PROD_MULT,
   OR_RUPTURE_CAP,
   ATLAS_LEGIT_MAX_REDUCTION,
   ATRIDES_NEXT_RUN_PENALTY_MULT,
@@ -630,6 +634,9 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   const _babelExpMult  = babelExponentialMult();
   const _babelAdjMult  = babelAdjacencyMultiplier();
   const _hephInfraFactor = hephInfraMult();
+  // Étouffement de la production de population par les Mythes (Héphaïstos : déclin ;
+  // Âge d'Or : plafond). Neutre (×1) hors de ces Mythes.
+  const _popSuppressFactor = hephPopProdMult() * orPopProdMult();
   const babelActive = isMythEffectActive("mythe_de_babel");
 
   const sums = getBuildingSums();
@@ -689,7 +696,7 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
     knowledge *= ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1);
     infra *= ruinEffectMultiplier("infraMult") * (hasDoctrine("sillon") ? 1.25 : 1);
 
-    let populationRate = pop * mult * _epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult;
+    let populationRate = pop * mult * _epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult * _popSuppressFactor;
     let foodRate = food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * _orPenaltyMult * cadmosProductionMultiplier("food");
     let goldRate = gold * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * terminalPrepMultiplier("gold") * _orPenaltyMult * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold");
     let knowledgeRate = knowledge * mult * _epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + Math.log10(popF + 10) * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * terminalPrepMultiplier("knowledge") * _orPenaltyMult + theocracyKnowledgeRate();
@@ -756,7 +763,7 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
 
   const theocracyD = has("trait_theocracy") ? D(state.gold).mul(0.01) : new Decimal(0);
   const baseRates = {
-    population: popD.mul(multD).mul(_epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult),
+    population: popD.mul(multD).mul(_epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult * _popSuppressFactor),
     food: foodD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * _orPenaltyMult * cadmosProductionMultiplier("food")),
     gold: goldD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * terminalPrepMultiplier("gold") * _orPenaltyMult * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold")),
     knowledge: knowledgeD.mul(multD).mul(_epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + D(state.population).add(10).log10() * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * terminalPrepMultiplier("knowledge") * _orPenaltyMult).add(theocracyD),
@@ -830,6 +837,26 @@ function hephInfraMult() {
   if (!isMythEffectActive("mythe_d_hephaistos")) return 1;
   const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
   return HEPH_INFRA_MULT_BASE + elapsed * HEPH_INFRA_MULT_GROWTH;
+}
+
+// Sous Héphaïstos, une fois le déclin enclenché, la production de population est
+// étouffée : les machines remplacent les hommes, plus aucune main-d'œuvre nouvelle.
+// Découple le déclin (HEPH_POP_DECAY_RATE) de la courbe de production → la pop
+// chute réellement, à toutes les échelles. Hors Héphaïstos : neutre (×1).
+function hephPopProdMult() {
+  if (!isMythEffectActive("mythe_d_hephaistos")) return 1;
+  const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
+  return elapsed > HEPH_POP_DECAY_START_MIN ? HEPH_POP_PROD_MULT : 1;
+}
+
+// Sous l'Âge d'Or, la population est PLAFONNÉE : sa production tombe à 0 une fois
+// le plafond atteint (max plancher absolu / relatif au départ du cycle). La cité
+// dorée prospère sans s'étaler — sans cet arrêt dur, la pop explose (mesuré 10^45)
+// et rend l'objectif « ne pas dépasser le plafond » injouable à l'échelle post-GR.
+function orPopProdMult() {
+  if (!isMythEffectActive("mythe_age_or")) return 1;
+  const cap = D(state.orStartPop || 0).mul(OR_POP_CAP_GROWTH).max(OR_POP_CAP);
+  return D(state.population).gte(cap) ? 0 : 1;
 }
 
 export function buildingOutputMultiplier(building, count) {

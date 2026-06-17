@@ -13,31 +13,31 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "enee",
     stateKey: "eneeHeritage",
     title: "Migration fondatrice",
-    source: "Enee",
-    bonus: "Boost de depart actif (+10% par effondrement, jusqu'a +100%).",
+    source: "Énée",
+    bonus: "Boost de départ actif (+10% par effondrement, jusqu'à +100%).",
     malus: `Rupture initiale +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.`
   },
   {
     id: "promethee",
     stateKey: "prometheeBraisiers",
     title: "Braisiers ancestraux",
-    source: "Promethee",
-    bonus: "Bonus Nourriture x2 actif en debut de cycle.",
-    malus: `Chaque moteur de Nourriture coute ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% plus cher.`
+    source: "Prométhée",
+    bonus: "Bonus Nourriture x2 actif en début de cycle.",
+    malus: `Chaque moteur de Nourriture coûte ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% plus cher.`
   },
   {
     id: "age_or",
     stateKey: "orHeritage",
     title: "Equilibre Dore",
-    source: "Age d'Or",
-    bonus: "Bonus d'Usure actif (-20% quand Nourriture et Tresor sont equilibres).",
-    malus: `La production de Tresor demarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`
+    source: "Âge d'Or",
+    bonus: "Bonus d'Usure actif (-20% quand Nourriture et Trésor sont équilibrés).",
+    malus: `La production de Trésor démarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`
   },
   {
     id: "hephaistos",
     stateKey: "hephHeritage",
     title: "Automates ancestraux",
-    source: "Hephaistos",
+    source: "Héphaïstos",
     bonus: "Automatisations permanentes actives.",
     malus: `L'Usure monte ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% plus vite.`
   },
@@ -46,8 +46,8 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "atlasHeritage",
     title: "Slot futur",
     source: "Atlas",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   },
   {
@@ -55,8 +55,8 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "sisypheHeritage",
     title: "Slot futur",
     source: "Sisyphe",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   },
   {
@@ -64,8 +64,8 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "babelHeritage",
     title: "Slot futur",
     source: "Babel",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   },
   {
@@ -73,17 +73,17 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "icareHeritage",
     title: "Slot futur",
     source: "Icare",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   },
   {
     id: "phenix",
     stateKey: "phoenixHeritage",
     title: "Slot futur",
-    source: "Phenix",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    source: "Phénix",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   },
   {
@@ -91,8 +91,8 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "atridesHeritage",
     title: "Slot futur",
     source: "Atrides",
-    bonus: "Bonus a definir.",
-    malus: "Malus a definir.",
+    bonus: "Bonus à définir.",
+    malus: "Malus à définir.",
     pending: true
   }
 ];
