@@ -1,0 +1,75 @@
+profil	temps_virtuel	jalon	cycle	age	GR	dynasties	legitimite	ruines
+theoricien	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
+theoricien	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+theoricien	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
+theoricien	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+theoricien	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
+theoricien	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
+theoricien	15h 14m	Dynastie 1 fondee	16	Campement	0	1	2.0	0.0
+theoricien	1j 2h 30m	Age : Hameau protégé	106	Hameau protégé	0	6	0.6	617
+theoricien	1j 6h 38m	Dynastie 10 fondee	149	Campement	0	10	19	0.0
+theoricien	1j 7h 29m	Age : Village	157	Village	0	10	18	1.50K
+theoricien	1j 9h 47m	Age : Les Entrepôts	185	Les Entrepôts	0	12	59	5.25K
+theoricien	1j 11h 4m	Age : Bourg agricole	200	Bourg agricole	0	13	81	9.22K
+theoricien	1j 14h 19m	Age : Bourg des artisans	234	Bourg des artisans	0	18	247	44.3K
+theoricien	1j 15h 6m	Grand Reset 1	0	Campement	1	20	42	0.0
+theoricien	2j 1h 11m	Acte I (Fondation) complete	6	Clans	1	20	42	24.4K
+theoricien	2j 1h 15m	Acte II (Domination) complete	9	Grand Feu	1	20	42	24.4K
+theoricien	2j 9h 58m	Age : Bourg marchand	113	Bourg marchand	1	42	189	149.3K
+theoricien	2j 10h 44m	Age : Cité marchande	120	Cité marchande	1	44	339	84.1K
+theoricien	2j 18h 54m	Age : Cité commerciale	82	Cité commerciale	2	75	883	1.27M
+theoricien	2j 18h 55m	Age : Cité portuaire	82	Cité portuaire	2	75	883	1.27M
+theoricien	2j 19h 14m	Grand Reset 3	0	Campement	3	77	239	0.0
+theoricien	3j 7h 22m	Grand Reset 5	0	Campement	5	144	43	0.0
+theoricien	3j 12h 1m	Age : Cité fortifiée	46	Cité fortifiée	5	179	5.33K	9.05M
+theoricien	3j 21h 41m	Age : Cité administrative	35	Cité administrative	6	218	11.4K	4.09M
+theoricien	3j 21h 46m	Age : Principauté	36	Principauté	6	218	11.4K	7.12M
+theoricien	4j 7h 29m	Age : Principauté marchande	41	Principauté marchande	7	260	29.0K	38.6M
+theoricien	5j 17h 32m	Age : Royaume	1	Royaume	9	270	52.5K	0.0
+theoricien	6j 3h 50m	Age : Royaume diplomate	1	Royaume diplomate	9	270	52.5K	0.0
+theoricien	6j 8h 8m	Grand Reset 10	0	Campement	10	272	28.4K	0.0
+theoricien	7j 10h 11m	Age : Royaume savant	1	Royaume savant	10	273	136.2K	0.0
+theoricien	8j 2h 47m	Age : Royaume conquérant	48	Royaume conquérant	10	319	1.05M	536.8M
+theoricien	8j 2h 48m	Arbre de Ruines complet	49	Royaume diplomate	10	320	1.33M	0.0
+theoricien	8j 4h 20m	Age : Empire naissant	57	Empire naissant	10	327	2.47M	9.21B
+theoricien	8j 4h 21m	Age : Empire provincial	57	Empire provincial	10	327	2.47M	9.21B
+theoricien	8j 4h 22m	Age : Empire	57	Empire	10	327	2.47M	9.21B
+theoricien	8j 4h 23m	Age : Capitale impériale	57	Capitale impériale	10	327	2.47M	9.21B
+theoricien	8j 6h 42m	Age : Capitale monumentale	67	Capitale monumentale	10	336	10.7M	153.2B
+theoricien	8j 6h 44m	Age : Agglomération impériale	67	Agglomération impériale	10	336	10.7M	153.2B
+theoricien	8j 9h 34m	Age : Métropole	78	Métropole	10	346	34.4M	4.48T
+theoricien	8j 9h 35m	Age : Mégalopole	78	Mégalopole	10	346	34.4M	4.48T
+theoricien	8j 9h 36m	Age : Mégalopole stratifiée	78	Mégalopole stratifiée	10	346	34.4M	4.48T
+theoricien	8j 12h 39m	Age : Réseau continental	88	Réseau continental	10	355	138.9M	70.6T
+theoricien	8j 12h 40m	Age : Machination	88	Machination	10	355	138.9M	70.6T
+theoricien	8j 15h 49m	Age : Singularité	97	Singularité	10	363	405.0M	570.8T
+theoricien	8j 15h 50m	Age : Singularité · II	97	Singularité · II	10	363	405.0M	570.8T
+theoricien	8j 15h 50m	Age : Singularité · III	97	Singularité · III	10	363	405.0M	570.8T
+theoricien	8j 15h 51m	Age : Singularité · IV	97	Singularité · IV	10	363	405.0M	570.8T
+theoricien	8j 18h 44m	Age : Singularité · V	105	Singularité · V	10	370	1.18B	21.5Qa
+theoricien	8j 18h 44m	Age : Singularité · VII	105	Singularité · VII	10	370	1.18B	21.5Qa
+theoricien	8j 18h 45m	Age : Singularité · VIII	105	Singularité · VIII	10	370	1.18B	21.5Qa
+theoricien	8j 18h 46m	Age : Singularité · IX	105	Singularité · IX	10	370	1.18B	21.5Qa
+theoricien	8j 18h 46m	Age : Singularité · X	105	Singularité · X	10	370	1.18B	21.5Qa
+theoricien	8j 18h 47m	Age : Singularité · VI	106	Singularité · VI	10	371	2.44B	0.0
+theoricien	8j 22h 44m	Age : Singularité · XI	114	Singularité · XI	10	378	4.40B	65.9Qa
+theoricien	8j 22h 44m	Age : Conscience planétaire	114	Conscience planétaire	10	378	4.40B	65.9Qa
+theoricien	9j 2h 40m	Age : Conscience planétaire · III	121	Conscience planétaire · III	10	384	10.1B	2.36Qi
+theoricien	9j 2h 41m	Age : Conscience planétaire · IV	121	Conscience planétaire · IV	10	384	10.1B	2.36Qi
+theoricien	9j 2h 42m	Age : Conscience planétaire · V	121	Conscience planétaire · V	10	384	10.1B	2.36Qi
+theoricien	9j 2h 42m	Age : Conscience planétaire · II	122	Conscience planétaire · II	10	385	20.6B	0.0
+theoricien	9j 7h 25m	Age : Conscience planétaire · VI	128	Conscience planétaire · VI	10	390	34.6B	17.4Qi
+theoricien	9j 7h 26m	Age : Conscience planétaire · VII	128	Conscience planétaire · VII	10	390	34.6B	17.4Qi
+theoricien	9j 12h 25m	Age : Conscience planétaire · VIII	135	Conscience planétaire · VIII	10	396	80.4B	35.5Qi
+theoricien	9j 12h 26m	Age : Conscience planétaire · IX	135	Conscience planétaire · IX	10	396	80.4B	35.5Qi
+theoricien	9j 17h 9m	Age : Conscience planétaire · X	141	Conscience planétaire · X	10	401	165.4B	585.3Qi
+theoricien	9j 17h 10m	Age : Conscience planétaire · XI	141	Conscience planétaire · XI	10	401	165.4B	585.3Qi
+theoricien	9j 17h 11m	Age : Noosphère	141	Noosphère	10	401	165.4B	585.3Qi
+theoricien	9j 21h 54m	Age : Noosphère · II	147	Noosphère · II	10	406	443.8B	2.97Sx
+theoricien	9j 21h 55m	Age : Noosphère · III	147	Noosphère · III	10	406	443.8B	2.97Sx
+theoricien	10j 3h 11m	Age : Noosphère · IV	153	Noosphère · IV	10	411	1.02T	13.1Sx
+theoricien	10j 8h 27m	Age : Noosphère · V	159	Noosphère · V	10	416	2.23T	47.5Sx
+theoricien	10j 8h 27m	Age : Noosphère · VI	159	Noosphère · VI	10	416	2.23T	47.5Sx
+theoricien	10j 13h 11m	Age : Noosphère · VII	164	Noosphère · VII	10	420	4.28T	405.7Sx
+theoricien	10j 17h 54m	Age : Noosphère · VIII	169	Noosphère · VIII	10	424	8.21T	1.19Sp
+theoricien	10j 17h 55m	Age : Noosphère · IX	169	Noosphère · IX	10	424	8.21T	1.19Sp

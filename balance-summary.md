@@ -1,7 +1,7 @@
 # Civilisation Effondrement - Synthese d'equilibrage
 
-> Genere par `simulate-ce.js` (budget demande 2000000 h virtuelles, pas 5s).
-> **Temps virtuel reellement simule : 3j 13h 55m** (ARRETE par la limite de temps reel --maxreal=2min, pas par le budget virtuel).
+> Genere par `simulate-ce.js` (budget demande 24 h virtuelles, pas 5s).
+> **Temps virtuel reellement simule : 1j 0h 0m**.
 > Formules reelles importees de `src/game/**`. Tout jalon non atteignable est **flagge**, jamais invente.
 > Les jalons "NON ATTEINT" le sont faute de temps reel de calcul, pas forcement par design : relancer avec `--maxreal` plus grand pour aller plus loin.
 > Cibles de pacing = **placeholders indicatifs** a calibrer par le designer.
@@ -14,25 +14,27 @@
 ## Synthese finale
 | Scenario | Cycles | Dynasties | Grand Resets | Meilleur age | Ruines | Legitimite | Mult. | Prod./s |
 |---|---|---|---|---|---|---|---|---|
-| Optimise | 118 | 153 | 4 | Cité des canaux | 301.1M | 27.9M | x652.9Qa | 8.62Sp |
+| Optimise | 277 | 6 | 0 | Abris | 18 | 10 | x3.6 | 5.27K |
+| Sans Mythes | 277 | 6 | 0 | Abris | 18 | 10 | x3.6 | 5.27K |
+| Idle | 4 | 0 | 0 | Grand Feu | 8.0 | 0.0 | x1.3 | 13 |
 
 ## Jalons requis (scenario optimise)
 | Jalon | Temps virtuel ecoule | Contexte | Mult. | Prod. | Prestige |
 |---|---|---|---|---|---|
 | Premier age | 0m 0s | cycle 0, Campement | x1.0 | 0.2/s | 0.0 ruines / 0.0 legit. |
-| Dynastie 1 | 10h 11m | cycle 9, Campement | x1.0 | 0.3/s | 0.0 ruines / 0.0 legit. |
-| Dynastie 10 | 1j 14h 12m | cycle 241, Campement | x6.2 | 1.2/s | 0.0 ruines / 74 legit. |
-| Palier ruines 10 (dogme) | 1j 2h 7m | cycle 148, Clan des foyers | x1.6 | 6.76K/s | 2.0 ruines / 2.0 legit. |
-| Palier ruines 20 (dogme) | 2j 10h 26m | cycle 109, Campement | x97 | 29/s | 0.0 ruines / 734 legit. |
-| Palier ruines 30 (dogme) | 3j 1h 26m | cycle 35, Royaume des routes | x73.1Qi | 17.0No/s | 48.2B ruines / 298.3K legit. |
-| Grand Reset 1 | 1j 19h 7m | cycle 0, Campement | x5.7 | 0.5/s | 0.0 ruines / 21 legit. |
-| Grand Reset 10 | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
-| Grand Reset 11 | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
-| 1er Mythe debloque | 1j 19h 7m | cycle 0, Campement | x5.7 | 0.5/s | 0.0 ruines / 21 legit. |
-| Acte I complete | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
-| Acte II complete | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
-| Acte III complete | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
-| Tous les Mythes | NON ATTEINT (sim tronquee au temps reel) | - | - | - | - |
+| Dynastie 1 | 9h 47m | cycle 7, Campement | x1.0 | 0.3/s | 0.0 ruines / 0.0 legit. |
+| Dynastie 10 | NON ATTEINT | - | - | - | - |
+| Palier ruines 10 (dogme) | NON ATTEINT | - | - | - | - |
+| Palier ruines 20 (dogme) | NON ATTEINT | - | - | - | - |
+| Palier ruines 30 (dogme) | NON ATTEINT | - | - | - | - |
+| Grand Reset 1 | NON ATTEINT | - | - | - | - |
+| Grand Reset 10 | NON ATTEINT | - | - | - | - |
+| Grand Reset 11 | NON ATTEINT | - | - | - | - |
+| 1er Mythe debloque | NON ATTEINT | - | - | - | - |
+| Acte I complete | NON ATTEINT | - | - | - | - |
+| Acte II complete | NON ATTEINT | - | - | - | - |
+| Acte III complete | NON ATTEINT | - | - | - | - |
+| Tous les Mythes | NON ATTEINT | - | - | - | - |
 
 ## Evaluation des Mythes - gate de progression ou multiplicateur cosmetique ?
 
@@ -43,10 +45,10 @@
 | I Fondation | Le Mythe de Prométhée | multiplicateur | Atteindre 500 habitants AVANT que la Rupture ne dépasse 80%. Dépasser le seuil fatal en premier = échec. | Braisiers ancestraux : chaque cycle démarre avec un bonus de production de Nourriture x2 pendant 2 minutes. |
 | I Fondation | Le Mythe d'Énée | **GATE** | Effectuer au moins 3 migrations avant l'effondrement. | Migration fondatrice : chaque nouveau cycle démarre avec un boost de production globale (+10% par effondrement passé, jusqu'à +100%) pendant |
 | I Fondation | Le Mythe de Cadmos | **GATE** | Avoir nomme au moins 3 Ages dans la Chronique avant l'effondrement. | Noms de Pouvoir : apres chaque run, graver un Age de la Chronique comme Epitaphe Permanente. Chaque Epitaphe donne +2% permanent a son orien |
-| I Fondation | Le Mythe d'Héphaïstos | **GATE** | Atteindre 1500 d'Infrastructure avec une Population ayant décliné d'au moins 25% depuis son pic. | Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs fu |
+| I Fondation | Le Mythe d'Héphaïstos | **GATE** | Bâtir une Infrastructure d'au moins 1x le pic de Population, pendant que la Population décline d'au moins 20% depuis ce  | Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs fu |
 | II Domination | Le Mythe de Sisyphe | multiplicateur | Accumuler 50 000 de Trésor malgré l'inflation des coûts. | Réduit de façon permanente le facteur de scaling des coûts de tous les bâtiments de 10% (l'inflation naturelle croît plus lentement pour tou |
 | II Domination | Le Mythe de Babel | multiplicateur | Porter le multiplicateur exponentiel jusqu'à x5 (~33 bâtiments du type choisi). | Synergie d'Urbanisme : sur la carte, chaque bâtiment du même type placé côte à côte accorde +10% de production par voisin du même type (halo |
-| II Domination | Le Mythe de l'Âge d'Or | multiplicateur | Accumuler 75 000 de Trésor en ayant la population qui n'a jamais dépassé 300 habitants. | Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à 15%, l'Usure monte 20% plus lentement — en permanence, dans toutes |
+| II Domination | Le Mythe de l'Âge d'Or | multiplicateur | Accumuler 75 000 de Trésor sans laisser la population croître de plus de 25% depuis le début du cycle (une cité dorée qu | Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à 15%, l'Usure monte 20% plus lentement — en permanence, dans toutes |
 | III Apocalypse | Le Mythe d'Atlas | **GATE** | Survivre au moins 45 minutes de cycle actif, OU résister à 10 vagues de crises avant l'effondrement. | 1) L'Usure de base est réduite de 15% en permanence. 2) Débloque la jauge "Légitimité" (0-100, démarre à 50 chaque cycle). Quand elle est ha |
 | III Apocalypse | Le Mythe d'Icare | **GATE** | Atteindre 5000 d'Infrastructure avant l'effondrement automatique. | Surchauffe : débloque un bouton activable pendant les runs normaux. Active x5 production pendant 30s (+25% Rupture instant). Cooldown : 2 mi |
 | III Apocalypse | Le Mythe du Phénix | **GATE** | Sur 20 cycles, accumuler un total de 400 Ruines. | Script d'Automatisation : débloque un panneau dans les Options pour définir des conditions d'effondrement automatique dans toutes les runs f |
@@ -56,37 +58,20 @@
 
 ### Deltas mesures en simulation
 
-| Acte | Mythe | Statut sim. | Type | Delta mult. global | Verdict |
-|---|---|---|---|---|---|
-| 1 | Le Mythe du Chaos | OK | multiplicateur | x2.38 | Multiplicateur significatif |
-| 1 | Le Mythe de Prométhée | OK | multiplicateur | x1.05 | Multiplicateur significatif |
-| 1 | Le Mythe d'Énée | echec (non complete en sim) | gate (debloque une mecanique) | x1.19 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe de Cadmos | echec (non complete en sim) | gate (debloque une mecanique) | x1.13 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Héphaïstos | echec (non complete en sim) | gate (debloque une mecanique) | x1.10 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Énée | echec (non complete en sim) | gate (debloque une mecanique) | x26.99 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe de Cadmos | echec (non complete en sim) | gate (debloque une mecanique) | x27368.88 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Héphaïstos | echec (non complete en sim) | gate (debloque une mecanique) | x244.02 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Énée | echec (non complete en sim) | gate (debloque une mecanique) | x2635156264.16 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe de Cadmos | echec (non complete en sim) | gate (debloque une mecanique) | x655.92 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Héphaïstos | echec (non complete en sim) | gate (debloque une mecanique) | x20.44 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Énée | echec (non complete en sim) | gate (debloque une mecanique) | x4230122022265.53 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe de Cadmos | echec (non complete en sim) | gate (debloque une mecanique) | x70312.07 | **Gate reel** - debloque une mecanique persistante |
-| 1 | Le Mythe d'Héphaïstos | echec (non complete en sim) | gate (debloque une mecanique) | x155.13 | **Gate reel** - debloque une mecanique persistante |
-
-> **Limite de simulation.** Chaque Mythe a une condition `onCollapse()` sur-mesure (cf. `src/game/data/myths.js`)
-> souvent a satisfaire **avant** l'effondrement (ex. Sisyphe 50 000 tresor, Icare 5 000 infra, Age d'Or 75 000 tresor pop<300).
-> Le pilote automatique joue agressivement mais n'egale pas un humain optimal : un "echec" signale un objectif **non atteint par le bot**,
-> pas necessairement un Mythe impossible.
+> **Aucun Mythe tente** : le scenario n'a pas atteint le **Grand Reset 1** dans le budget de 24 h
+> (les Mythes sont verrouilles tant que `grandResetCount < 1`, cf. `isMythUnlocked` dans `myths.js`).
+> Augmente `--hours` pour franchir ce verrou.
 
 ## Zones mortes de progression (> 10 min, < 5 % de gain de production)
 Aucune zone morte detectee sur la fenetre echantillonnee.
 
 ## Recommandations de reequilibrage
-- [^] **dynasty_1** atteint en 10h 11m (cible ~60 min) - **trop lent**. Adoucir la courbe (couts, gain de ruines/legitimite).
-- [^] **dynasty_10** atteint en 1j 14h 12m (cible ~600 min) - **trop lent**. Adoucir la courbe (couts, gain de ruines/legitimite).
-- [!] **gr_10** non atteint (sim tronquee a 3j 13h 55m virtuel par le temps reel, cible indicative ~14400 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
-- [!] **gr_11** non atteint (sim tronquee a 3j 13h 55m virtuel par le temps reel, cible indicative ~20000 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
-- [!] **all_myths** non atteint (sim tronquee a 3j 13h 55m virtuel par le temps reel, cible indicative ~12000 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
+- [^] **dynasty_1** atteint en 9h 47m (cible ~60 min) - **trop lent**. Adoucir la courbe (couts, gain de ruines/legitimite).
+- [!] **dynasty_10** non atteint (sim budget, cible indicative ~600 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
+- [!] **gr_1** non atteint (sim budget, cible indicative ~1440 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
+- [!] **gr_10** non atteint (sim budget, cible indicative ~14400 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
+- [!] **gr_11** non atteint (sim budget, cible indicative ~20000 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
+- [!] **all_myths** non atteint (sim budget, cible indicative ~12000 min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.
 - [?] Objectifs de Mythes non calibres (marques "placeholder") : Le Mythe d'Antee - valeurs cibles a finaliser dans data/myths.js.
 - [i] Repartition des heritages : 9 gates (mecanique persistante) vs 5 multiplicateurs (du Chaos, de Prométhée, de Sisyphe, de Babel, de l'Âge d'Or). Les multiplicateurs purs sont les candidats a un enrichissement s'ils paraissent cosmetiques.
 
