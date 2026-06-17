@@ -1,0 +1,74 @@
+profil	temps_virtuel	jalon	cycle	age	GR	dynasties	legitimite	ruines
+theoricien	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
+theoricien	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+theoricien	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
+theoricien	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+theoricien	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
+theoricien	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
+theoricien	15h 14m	Dynastie 1 fondee	16	Campement	0	1	2.0	0.0
+theoricien	1j 2h 30m	Age : Hameau protégé	106	Hameau protégé	0	6	0.6	617
+theoricien	1j 6h 38m	Dynastie 10 fondee	149	Campement	0	10	19	0.0
+theoricien	1j 7h 29m	Age : Village	157	Village	0	10	18	1.50K
+theoricien	1j 9h 47m	Age : Les Entrepôts	185	Les Entrepôts	0	12	59	5.25K
+theoricien	1j 11h 4m	Age : Bourg agricole	200	Bourg agricole	0	13	81	9.22K
+theoricien	1j 14h 19m	Age : Bourg des artisans	234	Bourg des artisans	0	18	247	44.3K
+theoricien	1j 15h 6m	Grand Reset 1	0	Campement	1	20	42	0.0
+theoricien	1j 21h 12m	Acte I (Fondation) complete	6	Clans	1	20	42	5.64K
+theoricien	1j 21h 22m	Acte II (Domination) complete	9	Campement	1	20	42	5.67K
+theoricien	2j 6h 18m	Age : Bourg marchand	114	Bourg marchand	1	43	252	246.5K
+theoricien	2j 6h 59m	Age : Cité marchande	120	Cité marchande	1	45	402	218.9K
+theoricien	2j 15h 0m	Age : Cité commerciale	86	Cité commerciale	2	75	898	412.1K
+theoricien	2j 15h 20m	Age : Cité portuaire	88	Cité portuaire	2	76	1.02K	949.4K
+theoricien	2j 15h 41m	Grand Reset 3	0	Campement	3	78	414	0.0
+theoricien	3j 2h 52m	Age : Cité fortifiée	49	Cité fortifiée	4	141	2.35K	3.24M
+theoricien	3j 3h 41m	Grand Reset 5	0	Campement	5	145	409	0.0
+theoricien	3j 15h 41m	Age : Cité administrative	38	Cité administrative	6	216	8.88K	10.5M
+theoricien	3j 15h 42m	Age : Principauté	38	Principauté	6	216	8.88K	10.5M
+theoricien	3j 22h 40m	Age : Principauté marchande	38	Principauté marchande	7	258	14.8K	20.8M
+theoricien	4j 18h 17m	Grand Reset 10	0	Campement	10	311	675	0.0
+theoricien	5j 1h 17m	Age : Royaume	2	Royaume	10	313	46.5K	0.0
+theoricien	5j 3h 59m	Age : Royaume diplomate	3	Royaume diplomate	10	314	123.1K	0.0
+theoricien	5j 10h 32m	Age : Royaume savant	45	Royaume savant	10	355	548.0K	234.1M
+theoricien	5j 10h 33m	Arbre de Ruines complet	46	Royaume	10	356	740.7K	0.0
+theoricien	5j 11h 58m	Age : Royaume conquérant	54	Royaume conquérant	10	363	1.55M	3.47B
+theoricien	5j 11h 58m	Age : Empire naissant	54	Empire naissant	10	363	1.55M	3.47B
+theoricien	5j 11h 59m	Age : Empire provincial	54	Empire provincial	10	363	1.55M	3.47B
+theoricien	5j 12h 0m	Age : Empire	54	Empire	10	363	1.55M	3.47B
+theoricien	5j 14h 9m	Age : Capitale impériale	64	Capitale impériale	10	372	7.31M	52.7B
+theoricien	5j 14h 10m	Age : Capitale monumentale	64	Capitale monumentale	10	372	7.31M	52.7B
+theoricien	5j 16h 50m	Age : Agglomération impériale	75	Agglomération impériale	10	382	21.7M	293.5B
+theoricien	5j 16h 51m	Age : Métropole	75	Métropole	10	382	21.7M	293.5B
+theoricien	5j 19h 21m	Age : Mégalopole	84	Mégalopole	10	390	58.9M	31.5T
+theoricien	5j 19h 21m	Age : Mégalopole stratifiée	84	Mégalopole stratifiée	10	390	58.9M	31.5T
+theoricien	5j 19h 22m	Age : Réseau continental	84	Réseau continental	10	390	58.9M	31.5T
+theoricien	5j 22h 40m	Age : Machination	94	Machination	10	399	235.7M	587.4T
+theoricien	5j 22h 40m	Age : Singularité	94	Singularité	10	399	235.7M	587.4T
+theoricien	5j 22h 41m	Age : Singularité · II	94	Singularité · II	10	399	235.7M	587.4T
+theoricien	5j 22h 42m	Age : Singularité · III	94	Singularité · III	10	399	235.7M	587.4T
+theoricien	5j 22h 42m	Age : Singularité · IV	94	Singularité · IV	10	399	235.7M	587.4T
+theoricien	6j 2h 24m	Age : Singularité · V	103	Singularité · V	10	407	989.1M	1.57Qa
+theoricien	6j 2h 24m	Age : Singularité · VI	103	Singularité · VI	10	407	989.1M	1.57Qa
+theoricien	6j 5h 33m	Age : Singularité · VIII	110	Singularité · VIII	10	413	2.22B	53.3Qa
+theoricien	6j 5h 34m	Age : Singularité · IX	110	Singularité · IX	10	413	2.22B	53.3Qa
+theoricien	6j 5h 34m	Age : Singularité · X	110	Singularité · X	10	413	2.22B	53.3Qa
+theoricien	6j 5h 35m	Age : Singularité · XI	110	Singularité · XI	10	413	2.22B	53.3Qa
+theoricien	6j 9h 47m	Age : Conscience planétaire	118	Conscience planétaire	10	420	7.38B	193.5Qa
+theoricien	6j 9h 48m	Age : Conscience planétaire · II	118	Conscience planétaire · II	10	420	7.38B	193.5Qa
+theoricien	6j 11h 13m	Age : Singularité · VII	120	Singularité · VII	10	422	14.4B	0.0
+theoricien	6j 14h 0m	Age : Conscience planétaire · III	125	Conscience planétaire · III	10	426	17.1B	4.56Qi
+theoricien	6j 14h 1m	Age : Conscience planétaire · IV	125	Conscience planétaire · IV	10	426	17.1B	4.56Qi
+theoricien	6j 14h 1m	Age : Conscience planétaire · V	125	Conscience planétaire · V	10	426	17.1B	4.56Qi
+theoricien	6j 14h 2m	Age : Conscience planétaire · VI	125	Conscience planétaire · VI	10	426	17.1B	4.56Qi
+theoricien	6j 18h 46m	Age : Conscience planétaire · VII	132	Conscience planétaire · VII	10	432	51.7B	22.4Qi
+theoricien	7j 0h 16m	Age : Conscience planétaire · VIII	139	Conscience planétaire · VIII	10	438	108.6B	158.7Qi
+theoricien	7j 0h 17m	Age : Conscience planétaire · IX	139	Conscience planétaire · IX	10	438	108.6B	158.7Qi
+theoricien	7j 0h 17m	Age : Conscience planétaire · X	139	Conscience planétaire · X	10	438	108.6B	158.7Qi
+theoricien	7j 5h 1m	Age : Conscience planétaire · XI	145	Conscience planétaire · XI	10	443	270.2B	1.27Sx
+theoricien	7j 5h 2m	Age : Noosphère	145	Noosphère	10	443	270.2B	1.27Sx
+theoricien	7j 5h 3m	Age : Noosphère · II	145	Noosphère · II	10	443	270.2B	1.27Sx
+theoricien	7j 10h 17m	Age : Noosphère · III	151	Noosphère · III	10	448	703.4B	9.87Sx
+theoricien	7j 10h 18m	Age : Noosphère · IV	151	Noosphère · IV	10	448	703.4B	9.87Sx
+theoricien	7j 15h 34m	Age : Noosphère · V	157	Noosphère · V	10	453	1.72T	28.2Sx
+theoricien	7j 19h 46m	Age : Noosphère · VI	162	Noosphère · VI	10	457	3.52T	170.8Sx
+theoricien	7j 19h 48m	Age : Noosphère · VII	162	Noosphère · VII	10	457	3.52T	170.8Sx
+theoricien	8j 0h 0m	Age : Noosphère · VIII	167	Noosphère · VIII	10	461	7.50T	725.1Sx

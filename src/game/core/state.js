@@ -21,7 +21,8 @@ export const CURRENT_SAVE_VERSION = 2;
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
-  "chaosRuinsBonus", "phoenixTotalRuins", "orStartPop", "orPopPeak", "hephPopPeak"
+  "chaosRuinsBonus", "phoenixTotalRuins", "phoenixRebirthTargetPop", "orStartPop", "orPopPeak", "hephPopPeak",
+  "mythStartGold", "mythStartInfra", "mythStartPop", "ragnarokStartPower"
 ];
 
 export const defaultAutoScriptRules = () => [
@@ -84,6 +85,7 @@ export const defaultState = () => ({
   mythActsAnnounced: {},
   chaosRuinsDouble: false,
   chaosRuinsBonus: new Decimal(0),
+  chaosReached: false,
   prometheeFailed: false,
   prometheePopReached: false,
   prometheeBraisiers: false,
@@ -103,13 +105,21 @@ export const defaultState = () => ({
   phoenixHeritage: false,
   phoenixCycleCount: 0,
   phoenixTotalRuins: new Decimal(0),
+  phoenixRenaissances: 0,
+  phoenixRebirthTargetPop: new Decimal(0),
   phoenixNextForceAt: null,
+  ragnarokStartPower: new Decimal(0),
   hephHeritage: false,
   hephPopPeak: new Decimal(0),
   hephGoalReached: false,
   autoScriptRules: null,
   automateRules: null,
   icareInfraReached: false,
+  sisypheReached: false,
+  atridesReached: false,
+  mythStartGold: new Decimal(0),
+  mythStartInfra: new Decimal(0),
+  mythStartPop: new Decimal(0),
   icareHeritage: false,
   surchauffeEndTime: 0,
   surchauffeCooldownEnd: 0,
@@ -713,6 +723,7 @@ export function hydrateState(parsed = {}) {
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
     chaosRuinsDouble: Boolean(source.chaosRuinsDouble),
     chaosRuinsBonus: decimalField(source.chaosRuinsBonus, 0),
+    chaosReached: Boolean(source.chaosReached),
     prometheeFailed: Boolean(source.prometheeFailed),
     prometheePopReached: Boolean(source.prometheePopReached),
     prometheeBraisiers: Boolean(source.prometheeBraisiers),
@@ -732,6 +743,9 @@ export function hydrateState(parsed = {}) {
     phoenixHeritage: Boolean(source.phoenixHeritage),
     phoenixCycleCount: finiteInteger(source.phoenixCycleCount, 0),
     phoenixTotalRuins: decimalField(source.phoenixTotalRuins, 0),
+    phoenixRenaissances: finiteInteger(source.phoenixRenaissances, 0),
+    phoenixRebirthTargetPop: decimalField(source.phoenixRebirthTargetPop, 0),
+    ragnarokStartPower: decimalField(source.ragnarokStartPower, 0),
     phoenixNextForceAt: source.phoenixNextForceAt ? finiteNumber(source.phoenixNextForceAt, 0, 0) : null,
     hephHeritage: Boolean(source.hephHeritage),
     hephPopPeak: decimalField(source.hephPopPeak, 0),
@@ -739,6 +753,11 @@ export function hydrateState(parsed = {}) {
     autoScriptRules: normalizeRuleList(source.autoScriptRules, defaultAutoScriptRules(), 1, 9999),
     automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99),
     icareInfraReached: Boolean(source.icareInfraReached),
+    sisypheReached: Boolean(source.sisypheReached),
+    atridesReached: Boolean(source.atridesReached),
+    mythStartGold: decimalField(source.mythStartGold, 0),
+    mythStartInfra: decimalField(source.mythStartInfra, 0),
+    mythStartPop: decimalField(source.mythStartPop, 0),
     icareHeritage: Boolean(source.icareHeritage),
     surchauffeEndTime: finiteNumber(source.surchauffeEndTime || 0, 0, 0),
     surchauffeCooldownEnd: finiteNumber(source.surchauffeCooldownEnd || 0, 0, 0),
@@ -974,8 +993,11 @@ export function resetTemporaryRunState(s) {
   s.hephGoalReached  = false;
   
   s.icareInfraReached   = false;
+  s.sisypheReached      = false;
+  s.atridesReached      = false;
   s.prometheePopReached = false;
   s.prometheeFailed     = false;
+  s.chaosReached        = false;
   s.prometheeBraisiers  = false;
 
   s.eneeMigrations         = 0;

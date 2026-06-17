@@ -5,8 +5,11 @@ export const ACTIVE_RUIN_FOOD_ENGINE_COST_MULT = 1.20;
 export const ACTIVE_RUIN_GOLD_PROD_MULT = 0.75;
 export const ACTIVE_RUIN_USURE_MULT = 1.10;
 export const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
-export const ANTEE_MIN_ACTIVE_RUINS = 2;
-export const ANTEE_POWER_THRESHOLD = 10_000;
+// Antée — « la force des fardeaux » : porter PLUSIEURS maluses simultanés (4) ET
+// prospérer malgré eux (faire croître la pop ×ANTEE_POP_MULT depuis le départ).
+export const ANTEE_MIN_ACTIVE_RUINS = 4;       // 4 maluses simultanés (était 2)
+export const ANTEE_POWER_THRESHOLD = 10_000;   // (obsolète — remplacé par la croissance relative)
+export const ANTEE_POP_MULT = 50;              // Réussite : pic de pop ≥ 50× le départ, sous le poids des 4 maluses
 
 export const ACTIVE_RUIN_DEFINITIONS = [
   {

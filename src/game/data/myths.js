@@ -16,21 +16,34 @@ function mythPowerScore() {
 import {
   ANTEE_MIN_ACTIVE_RUINS,
   ANTEE_POWER_THRESHOLD,
+  ANTEE_POP_MULT,
   activeRuinCount
 } from './activeRuins.js';
 
-// Seuil de Ruines requis pour réussir le Mythe du Chaos — à calibrer.
-export const CHAOS_RUIN_THRESHOLD = 50;
+// Mythe du Chaos : tous les bonus de méta étant neutralisés, on joue à la
+// puissance de BASE → un seuil PLAT de Ruines gagnées ce cycle est une difficulté
+// constante et juste (≠ l'ancienne « banque ≥ 50 » qui ne testait rien).
+export const CHAOS_RUIN_THRESHOLD = 50;          // (conservé pour compat)
+export const CHAOS_RAW_RUIN_TARGET = 12;         // Ruines BRUTES à gagner ce cycle (sans aucun bonus → un seul chiffre/dizaine est déjà un vrai cycle)
 export const RAGNAROK_ID = "mythe_du_ragnarok";
-export const RAGNAROK_POWER_THRESHOLD = 1_000_000;
-export const RAGNAROK_RUIN_THRESHOLD = 10_000;
+export const RAGNAROK_POWER_THRESHOLD = 1_000_000; // (obsolète — remplacé par survie + sursaut)
+export const RAGNAROK_RUIN_THRESHOLD = 10_000;     // (obsolète)
+// Finale « survie + sursaut » sous les 13 contraintes : tenir un plancher de
+// temps ET faire surgir la puissance ×K depuis le départ (il faut bâtir vite
+// dans la fenêtre ~2 min que laisse la Rupture ×30 irréductible d'Atlas/Icare).
+export const RAGNAROK_MIN_SURVIVAL_MS  = 90_000;   // tenir ≥ 90 s
+// La fenêtre forcée (~2 min, Rupture ×30 irréductible) + l'économie déjà au pic
+// (ressources gardées) ne laissent croître la puissance que ~×2-4 ; ×3 exige donc
+// d'optimiser sa croissance malgré les 13 contraintes, sans être injouable.
+export const RAGNAROK_POWER_SURGE_MULT = 3;        // puissance ≥ 3× le départ du cycle (sursaut sous le chaos)
 export const RAGNAROK_FINAL_TITLE = "Sous le regard du Ragnarok";
 
 // ── Constantes Mythe d'Icare ─────────────────────────────────────────────────
 export const ICARE_PROD_MULT     = 100;      // Multiplicateur global de production
 export const ICARE_RUPTURE_MULT  = 30;       // Multiplicateur de vitesse de Rupture
 export const ICARE_USURE_MULT    = 15;       // Multiplicateur de vitesse d'Usure
-export const ICARE_INFRA_TARGET  = 5000;     // Infrastructure cible pour réussir le Mythe
+export const ICARE_INFRA_TARGET  = 5000;     // (obsolète — remplacé par le gain relatif ci-dessous)
+export const ICARE_GAIN_SECONDS  = 40;       // Réussite : accumuler ce cycle ≥ 40 s de production d'Infra avant l'effondrement rapide (Rupture ×30 !)
 export const SURCHAUFFE_PROD_MULT    = 5;       // Multiplicateur de production pendant Surchauffe
 export const SURCHAUFFE_DURATION_MS  = 30_000;  // Durée de l'effet Surchauffe (30 secondes)
 export const SURCHAUFFE_RUPTURE      = 0.25;    // Rupture instantanée à l'activation (+25%)
@@ -46,7 +59,8 @@ export const ATLAS_LEGIT_MAX_REDUCTION = 0.25;        // Réduction max des effe
 
 // ── Constantes Mythe de Sisyphe ──────────────────────────────────────────────
 export const SISYPHE_MULT_PER_PURCHASE = 1.03;  // ×1.03 par achat de bâtiment
-export const SISYPHE_GOLD_TARGET       = 50_000; // Trésor cible pour réussir (placeholder)
+export const SISYPHE_GOLD_TARGET       = 50_000; // (obsolète)
+export const SISYPHE_BUILDING_TARGET   = 180;   // Réussite : pousser le rocher jusqu'à 180 bâtiments malgré l'inflation (×1.03^180 ≈ 230× le coût de base)
 export const SISYPHE_SCALE_REDUCTION   = 0.10;  // Héritage : -10% sur le facteur de scaling
 
 // ── Constantes Mythe de l'Âge d'Or ──────────────────────────────────────────
@@ -55,7 +69,8 @@ export const OR_POP_THRESHOLD         = 200;     // Seuil de rendements décrois
 export const OR_POP_PENALTY_PCT       = 0.005;   // -0.5% de production par habitant au-delà du seuil
 export const OR_BALANCE_RATIO         = 0.25;    // Écart Nourriture/Trésor au-delà duquel il y a déséquilibre
 export const OR_USURE_IMBALANCE_MULT  = 3;       // Usure ×3 pendant le déséquilibre
-export const OR_GOLD_TARGET           = 75_000;  // Trésor cible pour réussir
+export const OR_GOLD_TARGET           = 75_000;  // (obsolète — remplacé par le gain relatif ci-dessous)
+export const OR_GAIN_SECONDS          = 120;     // Réussite : accumuler ce cycle ≥ 120 s de production d'Or, pop plafonnée
 export const OR_POP_CAP               = 300;     // Plancher absolu du plafond de pop (early game)
 // Plafond de population RELATIF au départ du cycle : la pop ne doit pas croître
 // de plus de (facteur-1) depuis le début. Corrige l'injouabilité post-GR (la pop
@@ -68,14 +83,19 @@ export const OR_HERITAGE_USURE_RED    = 0.20;   // Héritage : -20% Usure quand 
 // ── Constantes Mythe de Babel ─────────────────────────────────────────────────
 export const BABEL_RUPTURE_MULT   = 2;       // Rupture ×2 pendant le cycle
 export const BABEL_PROD_BASE_MULT = 1.05;    // Exponentielle par bâtiment du type choisi
-export const BABEL_MULT_TARGET    = 5;       // Multiplicateur cible pour réussite
+export const BABEL_MULT_TARGET    = 30;      // Multiplicateur cible (~70 bâtiments du type) — la tour doit monter HAUT
 export const BABEL_ADJ_BONUS      = 0.10;    // Héritage : +10% par voisin du même type
 export const BABEL_CAT_LABELS     = { city: "Cité", knowledge: "Savoir", infra: "Infrastructure" };
 
-// ── Constantes Mythe du Phénix ───────────────────────────────────────────────
-export const PHENIX_CYCLE_COUNT    = 20;           // Nombre total de cycles forcés
-export const PHENIX_FORCE_INTERVAL = 5 * 60_000;  // 5 minutes entre chaque effondrement forcé
-export const PHENIX_RUIN_TARGET    = 400;          // Ruines cumulées pour réussir
+// ── Constantes Mythe du Phénix (refonte : « Renaissances chronométrées ») ─────
+// Renaître de ses cendres, vite, plusieurs fois D'AFFILÉE. Après chaque
+// effondrement, reconstruire la cité à PHENIX_REBIRTH_POP_MULT × la population de
+// redémarrage (le reliquat post-effondrement) en moins de PHENIX_REBIRTH_WINDOW_MS.
+// Réussir PHENIX_RENAISSANCE_TARGET renaissances de suite. Rater une fenêtre brise
+// la chaîne (retour à 0). Auto-échelonné (cible relative au reliquat) et borné.
+export const PHENIX_RENAISSANCE_TARGET = 3;          // 3 renaissances réussies consécutives
+export const PHENIX_REBIRTH_WINDOW_MS  = 3 * 60_000; // fenêtre de reconstruction (3 min)
+export const PHENIX_REBIRTH_POP_MULT   = 60;         // reconstruire à 60× le reliquat post-effondrement
 
 // ── Constantes Mythe d'Héphaïstos ────────────────────────────────────────────
 // Refonte (le calibrage d'origine était devenu injouable : la production de pop
@@ -91,7 +111,10 @@ export const HEPH_POP_DECAY_RATE       = 0.008;  // 0.8% de la pop actuelle perd
 export const HEPH_POP_PROD_MULT        = 0.0;    // Production de pop étouffée pendant le déclin (0 = les machines remplacent les hommes)
 export const HEPH_INFRA_MULT_BASE      = 2.0;    // Bonus infra x2 au départ
 export const HEPH_INFRA_MULT_GROWTH    = 0.15;   // +0.15 par minute de cycle
-export const HEPH_USURE_MULT           = 2.5;    // Usure x2.5
+// Usure abaissée 2,5 → 1,6 : à 2,5 la cité tombait par l'Usure (~14 min) AVANT
+// que le déclin de 20% (~28 min) ne soit atteint → Mythe injouable. À 1,6, un
+// cycle bien mité (infra/légitimité) survit les ~25-30 min nécessaires.
+export const HEPH_USURE_MULT           = 1.6;    // Usure x1.6 (était 2.5)
 export const HEPH_POP_CRISIS_THRESHOLD = 50;     // Pop en-dessous de ce seuil → crises irrésolubles
 export const HEPH_INFRA_PER_PEAK       = 1.0;    // Ratio cible infra / pic de population (placeholder, calibré par simulation)
 export const HEPH_POP_DECLINE_PCT      = 0.20;   // Déclin requis depuis le pic (20% ≈ 25 min à 0,8%/min après le départ)
@@ -99,7 +122,8 @@ export const HEPH_POP_DECLINE_PCT      = 0.20;   // Déclin requis depuis le pic
 // ── Constantes Mythe de Prométhée ────────────────────────────────────────────
 export const PROMETHEE_FOOD_MULT       = 3;      // Multiplicateur de production de Nourriture
 export const PROMETHEE_RUPTURE_PER_FOOD = 0.02;  // Rupture ajoutée par moteur de nourriture acheté (2%)
-export const PROMETHEE_POP_TARGET      = 500;    // Population cible pour réussir le Mythe
+export const PROMETHEE_POP_TARGET      = 500;    // (obsolète — remplacé par le multiplicateur relatif)
+export const PROMETHEE_POP_MULT        = 100;    // Réussite : croître la pop ×100 depuis le départ AVANT la Rupture fatale (course du feu)
 export const PROMETHEE_FATAL_RUPTURE   = 0.80;   // Seuil de Rupture fatal (80%)
 export const BRAISIERS_DURATION_MS     = 120_000; // Durée du bonus Braisiers en ms (2 minutes)
 export const BRAISIERS_FOOD_MULT       = 2;      // Multiplicateur Nourriture pendant les Braisiers
@@ -111,7 +135,8 @@ export const ATRIDES_DEBT_PAYBACK_FACTOR    = 1.2;
 export const ATRIDES_RENEGOTIATE_COOLDOWN_MS = 120_000;
 export const ATRIDES_RENEGOTIATE_DURATION_MS = 30_000;
 export const ATRIDES_RENEGOTIATE_MULT        = 0.3;
-export const ATRIDES_GOAL_NET_GOLD          = 100_000;
+export const ATRIDES_GOAL_NET_GOLD          = 100_000; // (obsolète — remplacé par le gain net relatif ci-dessous)
+export const ATRIDES_GAIN_SECONDS           = 150;     // Réussite : Trésor NET gagné ce cycle ≥ 150 s de production d'Or (malgré la dette)
 export const ATRIDES_NEXT_RUN_PENALTY_MULT  = 0.8;
 
 // ── Constantes Mythe d'Énée ──────────────────────────────────────────────────
@@ -174,18 +199,17 @@ export const MYTHS = [
     name: "Le Mythe du Chaos",
     description: "Tous les bonus de méta-progression sont désactivés pour ce cycle : Ruines, Légitimité, Grand Reset. Chaque multiplicateur retombe à sa valeur de base (1x). Les upgrades restent achetés — ils sont simplement ignorés.",
     ragnarokSummary: "tous les bonus de méta-progression sont neutralisés ; appliqué en dernier.",
-    objectif: `Atteindre ${CHAOS_RUIN_THRESHOLD} Ruines sans aucun bonus de méta-progression.`,
+    objectif: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines BRUTES en un seul cycle, tous bonus de méta-progression coupés (bâtir sans béquilles).`,
     heritageDescription: "Les Ruines gagnées lors d'un cycle Chaos comptent double dans le calcul du multiplicateur global de Ruines, en permanence.",
 
     onActivate() {
       // mechanics.js detecte state.activeMythId === "mythe_du_chaos" et neutralise
       // ruinEffects(), ruinMultiplier(), institutionMultiplier(), grandResetMultiplier().
-      // On invalide uniquement le cache pour forcer un recalcul immédiat.
-      // Modifié en export pour mechanics.js
+      state.chaosReached = false;
     },
 
     onCollapse() {
-      return D(state.ruins).gte(CHAOS_RUIN_THRESHOLD);
+      return Boolean(state.chaosReached);
     },
 
     applyHeritage() {
@@ -199,12 +223,13 @@ export const MYTHS = [
     name: "Le Mythe de Prométhée",
     description: `La production de Nourriture est multipliée par ${PROMETHEE_FOOD_MULT}x. Mais chaque moteur de Nourriture acheté ajoute ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% de Rupture instantanément. Plus la cité grandit, plus elle brûle.`,
     ragnarokSummary: `nourriture x${PROMETHEE_FOOD_MULT}, chaque moteur de nourriture ajoute de la Rupture.`,
-    objectif: `Atteindre ${PROMETHEE_POP_TARGET} habitants AVANT que la Rupture ne dépasse ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%. Dépasser le seuil fatal en premier = échec.`,
+    objectif: `Faire croître la population ×${PROMETHEE_POP_MULT} depuis le début du cycle AVANT que la Rupture ne dépasse ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%. Dépasser le seuil fatal en premier = échec (la course du feu).`,
     heritageDescription: `Braisiers ancestraux : chaque cycle démarre avec un bonus de production de Nourriture x${BRAISIERS_FOOD_MULT} pendant ${BRAISIERS_DURATION_MS / 60_000} minutes.`,
 
     onActivate() {
       state.prometheeFailed    = false;
       state.prometheePopReached = false;
+      state.mythStartPop        = D(state.population).max(1);
     },
 
     onCollapse() {
@@ -302,15 +327,16 @@ export const MYTHS = [
     name: "Le Mythe de Sisyphe",
     description: `Chaque achat de bâtiment augmente le coût de tous les bâtiments de +${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}% de façon cumulative. Ce multiplicateur de malédiction ne se réinitialise jamais en cours de cycle.`,
     ragnarokSummary: `chaque achat augmente tous les coûts de ${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}%.`,
-    objectif: `Accumuler ${SISYPHE_GOLD_TARGET.toLocaleString()} de Trésor malgré l'inflation des coûts.`,
+    objectif: `Pousser le rocher jusqu'à ${SISYPHE_BUILDING_TARGET} bâtiments au total malgré l'inflation des coûts (chaque achat alourdit le suivant).`,
     heritageDescription: `Réduit de façon permanente le facteur de scaling des coûts de tous les bâtiments de ${Math.round(SISYPHE_SCALE_REDUCTION * 100)}% (l'inflation naturelle croît plus lentement pour toujours).`,
 
     onActivate() {
       state.sisypheMult = 1;
+      state.sisypheReached = false;
     },
 
     onCollapse() {
-      return D(state.gold).gte(SISYPHE_GOLD_TARGET);
+      return Boolean(state.sisypheReached);
     },
 
     applyHeritage() {
@@ -381,6 +407,7 @@ export const MYTHS = [
       state.orPopPeak      = state.population;
       state.orGoldReached  = false;
       state.orUsureImbalance = false;
+      state.mythStartGold  = D(state.gold);
     },
 
     onCollapse() {
@@ -429,6 +456,7 @@ export const MYTHS = [
 
     onActivate() {
       state.icareInfraReached = false;
+      state.mythStartInfra = D(state.infrastructure);
     },
 
     onCollapse() {
@@ -444,20 +472,22 @@ export const MYTHS = [
     id: "mythe_du_phenix",
     act: 3,
     name: "Le Mythe du Phénix",
-    description: `La civilisation s'effondre de force toutes les ${PHENIX_FORCE_INTERVAL / 60_000} minutes (temps réel), quoi qu'il arrive. Le pacte dure ${PHENIX_CYCLE_COUNT} cycles (forcés ou manuels). L'effondrement manuel reste disponible.`,
-    ragnarokSummary: `effondrement forcé toutes les ${PHENIX_FORCE_INTERVAL / 60_000} minutes ; Ragnarok se juge sur ce cycle unique.`,
-    objectif: `Sur ${PHENIX_CYCLE_COUNT} cycles, accumuler un total de ${PHENIX_RUIN_TARGET} Ruines.`,
+    description: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances D'AFFILÉE — rater une fenêtre brise la chaîne et vous repartez de zéro.`,
+    ragnarokSummary: `reconstruction express à ${PHENIX_REBIRTH_POP_MULT}× la population en ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, ${PHENIX_RENAISSANCE_TARGET} fois de suite.`,
+    objectif: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× la population de départ en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, puis s'effondrer pour renaître.`,
     heritageDescription: `Script d'Automatisation : débloque un panneau dans les Options pour définir des conditions d'effondrement automatique dans toutes les runs futures (seuil de Rupture, seuil d'Usure, durée du cycle).`,
 
     onActivate() {
       state.phoenixCycleCount  = 0;
       state.phoenixTotalRuins  = D(0);
-      state.phoenixNextForceAt = Date.now() + PHENIX_FORCE_INTERVAL;
+      state.phoenixRenaissances = 0;
+      // Cible de la 1re renaissance : 60× la population de démarrage actuelle.
+      state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT);
+      state.phoenixNextForceAt = null;
     },
 
     onCollapse() {
-      return state.phoenixCycleCount >= PHENIX_CYCLE_COUNT &&
-             D(state.phoenixTotalRuins).gte(PHENIX_RUIN_TARGET);
+      return (state.phoenixRenaissances || 0) >= PHENIX_RENAISSANCE_TARGET;
     },
 
     applyHeritage() {
@@ -471,7 +501,7 @@ export const MYTHS = [
     name: "Le Mythe des Atrides",
     description: "Une dette maudite pèse sur la cité. La dette croît chaque seconde (+1% de la production par minute) et draine 10% de chaque ressource produite. Heureusement, vous commencez avec un trésor initial et un bonus global x3 de production pendant les 2 premières minutes.",
     ragnarokSummary: "dette initiale, croissance de dette et drain de ressources.",
-    objectif: `Atteindre un Trésor net (Trésor moins Dette) de ${ATRIDES_GOAL_NET_GOLD.toLocaleString()} Or avant de vous effondrer.`,
+    objectif: `Atteindre un Trésor net (Trésor moins Dette) de ${ATRIDES_GOAL_NET_GOLD.toLocaleString()} Or (× la puissance économique courante) avant de vous effondrer.`,
     heritageDescription: "Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",
 
     onActivate() {
@@ -481,11 +511,12 @@ export const MYTHS = [
       state.atridesDebtGrowthMultiplier = 1;
       state.atridesRenegotiateActiveUntil = 0;
       state.atridesRenegotiateCooldownEnd = 0;
+      state.atridesReached = false;
+      state.mythStartGold = D(state.gold);
     },
 
     onCollapse() {
-      const netGold = D(state.gold).sub(state.atridesDebt || 0);
-      return netGold.gte(ATRIDES_GOAL_NET_GOLD);
+      return Boolean(state.atridesReached);
     },
 
     applyHeritage() {
@@ -499,19 +530,21 @@ export const MYTHS = [
     name: "Le Mythe d'Antee",
     description: "Au demarrage, choisissez parmi vos Heritages debloques ceux qui deviennent des Ruines actives. Chaque Ruine active conserve son bonus habituel mais ajoute son malus associe pour ce cycle.",
     ragnarokSummary: "les Ruines actives doivent être choisies et comptent comme malus de cycle.",
-    objectif: `Activer au moins ${ANTEE_MIN_ACTIVE_RUINS} Heritages avec leur malus (placeholder) et atteindre ${ANTEE_POWER_THRESHOLD.toLocaleString()} de puissance (placeholder).`,
+    objectif: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) ET, sous ce poids, faire croître la population ×${ANTEE_POP_MULT} depuis le départ — la force naît des fardeaux.`,
     heritageDescription: "Ruines actives : dans les runs futures, chaque debut de cycle propose de choisir volontairement des Heritages avec leur malus. Les Ruines gagnees a l'effondrement recoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",
     requiresActiveRuinsChoice: true,
 
     onActivate() {
       state.activeRuinIds = [];
       state.pendingActiveRuinsChoice = true;
+      state.mythStartPop = D(state.population).max(1);
     },
 
     onCollapse() {
-      const power = mythPowerScore();
+      // Porter ≥4 maluses ET prospérer malgré eux : pic de pop ≥ 50× le départ.
+      const peakPop = D(state.cyclePeaks?.population || state.population);
       return activeRuinCount(state) >= ANTEE_MIN_ACTIVE_RUINS &&
-             power.gte(ANTEE_POWER_THRESHOLD);
+             peakPop.gte(D(state.mythStartPop || 1).mul(ANTEE_POP_MULT));
     },
 
     applyHeritage() {
@@ -524,7 +557,7 @@ export const MYTHS = [
     act: "ragnarok",
     name: "Ragnarok",
     description: "Le Mythe terminal. Toutes les contraintes des treize Mythes precedents s'appliquent simultanement en un seul cycle; Chaos ferme la marche et neutralise les bonus de meta-progression.",
-    objectif: `En un seul cycle, atteindre ${RAGNAROK_POWER_THRESHOLD.toLocaleString()} de puissance ou posseder ${RAGNAROK_RUIN_THRESHOLD.toLocaleString()} Ruines avant l'effondrement.`,
+    objectif: `Sous les 13 contraintes réunies : tenir au moins ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s ET faire surgir la puissance ×${RAGNAROK_POWER_SURGE_MULT} depuis le début du cycle — un dernier embrasement avant la fin de toutes choses.`,
     heritageDescription: "La Fin des Dieux : debloque le 11e Grand Reset, qui donne un multiplicateur x4 aux Ruines, et grave un titre final permanent dans la Chronique.",
     requiresActiveRuinsChoice: true,
 
@@ -550,10 +583,18 @@ export const MYTHS = [
       if (chaos && typeof chaos.onActivate === "function") await chaos.onActivate();
       state.activeMythId = RAGNAROK_ID;
       state.ragnarokEffectsApplied = true;
+      // Le cycle (et le chrono de survie) démarre maintenant ; on fige la
+      // puissance de départ pour mesurer le sursaut ×K.
+      state.cycleStartedAt = Date.now();
+      state.ragnarokStartPower = mythPowerScore().max(1);
     },
 
     onCollapse() {
-      return mythPowerScore().gte(RAGNAROK_POWER_THRESHOLD) || D(state.ruins).gte(RAGNAROK_RUIN_THRESHOLD);
+      // Survie + sursaut : tenir le plancher de temps ET avoir multiplié la
+      // puissance ×RAGNAROK_POWER_SURGE_MULT depuis le départ du cycle.
+      const age = Date.now() - (state.cycleStartedAt || Date.now());
+      const surged = mythPowerScore().gte(D(state.ragnarokStartPower || 1).mul(RAGNAROK_POWER_SURGE_MULT));
+      return age >= RAGNAROK_MIN_SURVIVAL_MS && surged;
     },
 
     applyHeritage() {

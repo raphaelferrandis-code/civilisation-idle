@@ -117,6 +117,30 @@ Le reste des échecs n'était **pas** de l'équilibrage mais des **limites du pi
 
 **Validation `--mythtest` : 14/14, Ragnarok inclus.** Tests : 95/95 verts. Le bot peut donc atteindre le **GR11**.
 
-### Ce qui reste (décisions d'équilibrage = ton appel)
-- **Ratio infra d'Héphaïstos** (§6) : A rend B décoratif. Reformuler en « infra ≥ K × infra de départ » (exigeant et compatible) — à valider.
-- **Mythes triviaux** (Chaos, Sisyphe, Babel, Icare, Atrides, Antée, Ragnarok) : réussis en quelques secondes/minutes car leurs seuils absolus sont minuscules face à l'économie post-GR. Les rendre **exigeants** = passer chaque objectif en relatif. Tableau de propositions à établir avant implémentation (chacune change le ressenti d'un Mythe → ta validation).
+### Ce qui restait (traité en §9)
+- Ratio infra d'Héphaïstos décoratif ; Mythes triviaux (Chaos, Sisyphe, Babel, Icare, Atrides, Antée, Ragnarok).
+
+## 9. Refonte complète des objectifs de Mythes — chacun son identité
+
+Audit terminé : chaque objectif a été repensé pour avoir un **type distinct** et une **difficulté délibérée**, et tous restent **complétables** (validé `--mythtest` : 14/14). Principe directeur : seuils **relatifs** (× départ de cycle) ou **comptes** (bâtiments) plutôt qu'absolus — un multiplicateur ne suffit pas car le **stock gardé** à l'effondrement franchit n'importe quelle cible (d'où la mesure « gain de CE cycle » ou « × départ »).
+
+| Mythe | Acte | Objectif (final) | Type | Constante(s) |
+|---|---|---|---|---|
+| Chaos | I | gagner **12 Ruines brutes**/cycle (bonus coupés) | gain bridé | `CHAOS_RAW_RUIN_TARGET` |
+| Prométhée | I | pop **×100** depuis le départ avant Rupture 80 % | course vs jauge | `PROMETHEE_POP_MULT` |
+| Énée | I | 3 migrations | actions chronométrées | (inchangé) |
+| Cadmos | I | nommer 3 Âges | choix répétés | (fix dialogue headless) |
+| Héphaïstos | I | infra ≥ 1× pic de pop **+ pop −20 %** ; Usure ×2,5→**1,6** | survie + déclin | `HEPH_POP_PROD_MULT`, `HEPH_*` |
+| Sisyphe | II | **180 bâtiments** malgré +3 %/achat | compte vs inflation | `SISYPHE_BUILDING_TARGET` |
+| Babel | II | mult **×30** (~70 bât. d'un type) | hauteur mono-type | `BABEL_MULT_TARGET` |
+| Âge d'Or | II | Trésor (gain de cycle) pop **clampée** ≤ départ×1,25 | accumulation sous plafond | `OR_*`, `OR_GAIN_SECONDS` |
+| Atlas | III | 10 vagues de crise | endurance/spam | (inchangé) |
+| Icare | III | gagner **40 s** de prod d'infra (Rupture ×30) | gain express sous pression | `ICARE_GAIN_SECONDS` |
+| Phénix | III | **3 renaissances** (×60 pop en <3 min, d'affilée) | reconstruction chronométrée | `PHENIX_RENAISSANCE_TARGET`, `PHENIX_REBIRTH_*` |
+| Atrides | III | Trésor **net** gagné ≥ 150 s de prod malgré la dette | accumulation nette | `ATRIDES_GAIN_SECONDS` |
+| Antée | III | **≥4 maluses** simultanés + pop **×50** | cumul de fardeaux | `ANTEE_MIN_ACTIVE_RUINS`, `ANTEE_POP_MULT` |
+| **Ragnarok** | — | **survie ≥90 s + puissance ×3** sous les 13 contraintes | finale combo | `RAGNAROK_MIN_SURVIVAL_MS`, `RAGNAROK_POWER_SURGE_MULT` |
+
+**Faisabilité Ragnarok (sondée)** : les 13 contraintes forcent l'effondrement vers ~2 min (Rupture ×30 irréductible) et l'économie part au pic (ressources gardées) → la croissance plafonne à ~×2-4. La cible **×3** est donc faisable mais exige d'optimiser sous le chaos (×1000 était impossible). *Le simulateur contourne la restriction mono-type de Babel → il surestime un peu la croissance ; ×3 est conservateur, à confirmer au playtest.*
+
+**Limite assumée** : le simulateur prouve **faisabilité + classement**, pas le **ressenti**. Toutes les valeurs (×100, 180, ×3, 12 ruines, etc.) sont à confirmer **manette en main**. Tests unitaires : **107/107 verts**.

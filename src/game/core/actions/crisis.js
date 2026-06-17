@@ -46,7 +46,7 @@ import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
-import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_CYCLE_COUNT, PHENIX_FORCE_INTERVAL, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
+import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
   olympusRuinBonus,
@@ -266,15 +266,23 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (wasPhoenix) {
     state.phoenixTotalRuins = D(state.phoenixTotalRuins).add(gain);
     state.phoenixCycleCount = (state.phoenixCycleCount || 0) + 1;
+    // Renaissance chronométrée : le cycle qui s'achève compte s'il a atteint la
+    // cible de population (60× le reliquat) DANS la fenêtre. Sinon la chaîne se
+    // brise et on repart de zéro.
+    const cycleAgeMs = Date.now() - (state.cycleStartedAt || Date.now());
+    const cyclePeakPop = D(state.cyclePeaks?.population || state.population);
+    const rebirthTarget = D(state.phoenixRebirthTargetPop || 0);
+    const renaissanceOk = rebirthTarget.gt(0) && cyclePeakPop.gte(rebirthTarget) && cycleAgeMs <= PHENIX_REBIRTH_WINDOW_MS;
+    state.phoenixRenaissances = renaissanceOk ? (state.phoenixRenaissances || 0) + 1 : 0;
   }
-  const phoenixDone = wasPhoenix && state.phoenixCycleCount >= PHENIX_CYCLE_COUNT;
+  const phoenixDone = wasPhoenix && (state.phoenixRenaissances || 0) >= PHENIX_RENAISSANCE_TARGET;
 
   if (!wasPhoenix || phoenixDone) {
     checkMythOnCollapse();
     state.activeMythId = null;
     state.ragnarokEffectsApplied = false;
   } else {
-    log(`Phoenix : cycle ${state.phoenixCycleCount}/${PHENIX_CYCLE_COUNT} acheve. Ruines cumulees : ${fmt(state.phoenixTotalRuins)}.`);
+    log(`Phenix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}${(state.phoenixRenaissances || 0) === 0 ? " — chaine brisee, on repart de zero" : ""}.`);
   }
 
   if (state.eneeHeritage) {
@@ -370,11 +378,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     chronicle(`La mémoire des cycles anciens imprègne nos esprits : nous recueillons +${fmt(memoireSavoirBonus)} savoirs tirés des écrits oubliés.`);
   }
 
+  // Phénix : si le pacte continue, fixer la cible de la PROCHAINE renaissance,
+  // relative au reliquat de population qu'on vient de garder (state.population
+  // est déjà réinitialisé à keptPop à ce stade). Le chrono repart du cycleStartedAt
+  // remis juste au-dessus.
   if (wasPhoenix && !phoenixDone) {
-    state.phoenixNextForceAt = Date.now() + PHENIX_FORCE_INTERVAL;
-  } else {
-    state.phoenixNextForceAt = null;
+    state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT);
   }
+  state.phoenixNextForceAt = null;
 
   resetCameraCenter();
 }

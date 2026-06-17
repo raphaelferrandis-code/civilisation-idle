@@ -1,14 +1,11 @@
 "use strict";
 
 import {
-  collapseInProgress,
-  gamePaused,
   invalidateRenderCache
 } from '../state.js';
 
-import { babelExponentialMult } from '../mechanics.js';
+import { babelExponentialMult, rates, ruinGain, totalBuildingCount } from '../mechanics.js';
 
-import { collapse } from './crisis.js';
 import { promptCadmosAgeName } from './myths.js';
 
 import { log } from './utils.js';
@@ -16,12 +13,10 @@ import { fmt } from '../utils.js';
 import { D } from '../num.js';
 
 import {
-  ICARE_INFRA_TARGET,
-  PROMETHEE_POP_TARGET,
+  PROMETHEE_POP_MULT,
   PROMETHEE_FATAL_RUPTURE,
   OR_POP_CAP,
   OR_POP_CAP_GROWTH,
-  OR_GOLD_TARGET,
   OR_BALANCE_RATIO,
   BABEL_MULT_TARGET,
   BABEL_CAT_LABELS,
@@ -32,8 +27,21 @@ import {
   ENEE_TERRITORY_INTERVAL_MS,
   CADMOS_POPULATION_THRESHOLDS,
   CADMOS_INFRASTRUCTURE_THRESHOLDS,
+  CHAOS_RAW_RUIN_TARGET,
+  SISYPHE_BUILDING_TARGET,
+  ATRIDES_GAIN_SECONDS,
+  OR_GAIN_SECONDS,
+  ICARE_GAIN_SECONDS,
   isMythEffectActive
 } from '../../data/myths.js';
+
+// ── Objectifs « gain de CE cycle ≥ N secondes de production » ─────────────────
+// Les seuils absolus d'origine (50k Or, 5000 infra…) sont triviaux post-GR, et
+// les MULTIPLIER ne suffit pas : le stock GARDÉ à l'effondrement (fraction d'un
+// stock déjà énorme) franchit n'importe quelle cible. On mesure donc le GAIN
+// réalisé PENDANT le cycle (current − départ), et on exige ≥ N secondes de la
+// production courante de la ressource → difficulté ≈ constante (N s d'effort) à
+// toutes les échelles, insensible au reliquat. Cf. analyse-mythe-hephaistos.md.
 
 // Chaque handler reçoit (state, dt) et reprend exactement le bloc correspondant
 // de tick(). Le prédicat isMythEffectActive(id) est testé en amont par runMythTicks.
@@ -41,17 +49,50 @@ import {
 export const MYTH_TICK_HANDLERS = {
   mythe_d_icare: (state) => {
     if (!state.icareInfraReached) {
-      if (D(state.infrastructure).gte(ICARE_INFRA_TARGET)) {
+      const gained = D(state.infrastructure).sub(state.mythStartInfra || 0);
+      const need = D(rates().infrastructure).max(0).mul(ICARE_GAIN_SECONDS);
+      if (gained.gte(need) && gained.gt(0)) {
         state.icareInfraReached = true;
-        log(`Icare : l'infrastructure a atteint ${fmt(ICARE_INFRA_TARGET)} ! Le soleil est touche.`);
+        log(`Icare : +${fmt(gained)} d'infrastructure batie ce cycle (${ICARE_GAIN_SECONDS}s de production) ! Le soleil est touche.`);
+      }
+    }
+  },
+
+  mythe_du_chaos: (state) => {
+    // Bâtir sans béquilles : les bonus de méta étant coupés, ruinGain(projeté)
+    // renvoie la valeur BRUTE → seuil plat = difficulté constante.
+    if (!state.chaosReached && D(ruinGain(true)).gte(CHAOS_RAW_RUIN_TARGET)) {
+      state.chaosReached = true;
+      log(`Chaos : ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en vue, sans le moindre bonus. Le monde se construit du néant.`);
+    }
+  },
+
+  mythe_de_sisyphe: (state) => {
+    // Le rocher : pousser jusqu'à SISYPHE_BUILDING_TARGET bâtiments malgré
+    // l'inflation cumulative des coûts (+3% par achat).
+    if (!state.sisypheReached && totalBuildingCount() >= SISYPHE_BUILDING_TARGET) {
+      state.sisypheReached = true;
+      log(`Sisyphe : ${SISYPHE_BUILDING_TARGET} bâtiments érigés malgré la malédiction des coûts. Le rocher atteint le sommet.`);
+    }
+  },
+
+  mythe_atrides: (state) => {
+    if (!state.atridesReached) {
+      const netGained = D(state.gold).sub(state.atridesDebt || 0).sub(state.mythStartGold || 0);
+      const need = D(rates().gold).max(0).mul(ATRIDES_GAIN_SECONDS);
+      if (netGained.gte(need) && netGained.gt(0)) {
+        state.atridesReached = true;
+        log(`Atrides : +${fmt(netGained)} de Tresor net gagne ce cycle malgre la dette maudite. La malediction est conjuree.`);
       }
     }
   },
 
   mythe_de_promethee: (state) => {
-    if (!state.prometheePopReached && D(state.population).gte(PROMETHEE_POP_TARGET)) {
+    // La course du feu : croître ×PROMETHEE_POP_MULT depuis le départ AVANT la Rupture fatale.
+    const target = D(state.mythStartPop || 1).mul(PROMETHEE_POP_MULT);
+    if (!state.prometheePopReached && D(state.population).gte(target)) {
       state.prometheePopReached = true;
-      log(`Promethee : la population a atteint ${fmt(PROMETHEE_POP_TARGET)} habitants ! L'epopee est accomplie.`);
+      log(`Promethee : la population a ete multipliee par ${PROMETHEE_POP_MULT} (${fmt(target)} hab) ! L'epopee est accomplie.`);
     }
     if (!state.prometheePopReached && !state.prometheeFailed && state.instability >= PROMETHEE_FATAL_RUPTURE) {
       state.prometheeFailed = true;
@@ -70,9 +111,11 @@ export const MYTH_TICK_HANDLERS = {
     const _orF = D(state.food);
     const _orG = D(state.gold);
     state.orUsureImbalance = _orF.sub(_orG).abs().div(_orF.max(_orG).max(1)).toNumber() > OR_BALANCE_RATIO;
-    if (!state.orGoldReached && D(state.gold).gte(OR_GOLD_TARGET) && D(state.orPopPeak || 0).lte(orPopCap)) {
+    const orGained = D(state.gold).sub(state.mythStartGold || 0);
+    const orNeed = D(rates().gold).max(0).mul(OR_GAIN_SECONDS);
+    if (!state.orGoldReached && orGained.gte(orNeed) && orGained.gt(0) && D(state.orPopPeak || 0).lte(orPopCap)) {
       state.orGoldReached = true;
-      log(`Age d'Or : le Tresor a atteint ${fmt(OR_GOLD_TARGET)} sans laisser la cite s'etaler ! La prosperite est etablie — que le pacte soit scelle.`);
+      log(`Age d'Or : +${fmt(orGained)} de Tresor accumule ce cycle sans laisser la cite s'etaler ! La prosperite est etablie — que le pacte soit scelle.`);
     }
   },
 
@@ -83,15 +126,6 @@ export const MYTH_TICK_HANDLERS = {
         const catLabel = BABEL_CAT_LABELS?.[state.babelCategory] || state.babelCategory;
         log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET} — le pacte est en passe d'etre honore.`);
       }
-    }
-  },
-
-  mythe_du_phenix: (state) => {
-    if (state.phoenixNextForceAt &&
-        Date.now() >= state.phoenixNextForceAt && !collapseInProgress && !gamePaused) {
-      state.phoenixNextForceAt = null;
-      collapse("forced");
-      return "abort";
     }
   },
 
@@ -147,11 +181,13 @@ export const MYTH_TICK_HANDLERS = {
 
 // Ordre d'exécution identique aux anciens blocs en ligne dans tick().
 const MYTH_TICK_ORDER = [
+  "mythe_du_chaos",
   "mythe_d_icare",
+  "mythe_de_sisyphe",
+  "mythe_atrides",
   "mythe_de_promethee",
   "mythe_age_or",
   "mythe_de_babel",
-  "mythe_du_phenix",
   "mythe_d_hephaistos",
   "mythe_d_enee",
   "mythe_de_cadmos"

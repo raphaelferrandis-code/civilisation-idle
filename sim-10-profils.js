@@ -525,25 +525,34 @@ const powerNum = () => num(state.population) + num(state.food) * 0.05 + num(stat
 
 const MYTH_TACTICS = {
   // ── Acte I ────────────────────────────────────────────────────────────────
-  mythe_du_chaos:      { grow: 700,  below: 0.8 }, // ruines banque >= 50 : trivial post-GR1
+  mythe_du_chaos:      { grow: 6000, below: 0.8, // REFONTE : 12 Ruines BRUTES ce cycle (bonus coupes)
+    // Sans bonus, ruinGain est faible -> on construit ET on tient longtemps la
+    // Rupture pour cumuler pop + patience + sediment (facteurs d'age, non-bonus).
+    met() { return state.chaosReached === true; } },
   mythe_de_cadmos:     { grow: 700,  below: 0.8 }, // nommer 3 Ages : le handler de dialogue repond aux prompts
   mythe_d_enee:        { grow: 1700, below: 0.7,  // >=3 migrations (territoire degrade /6 min)
     onTick() { if (state.eneeDegraded) { try { migrerEnee(); } catch { /* */ } } },
     met() { return (state.eneeMigrations || 0) >= 3; } },
-  mythe_de_promethee:  { grow: 2400, below: 0.6,  // pop>=500 AVANT Rupture 80% -> surtout NE PAS spammer la Nourriture
-    buyOpts: { noFood: true },
+  mythe_de_promethee:  { grow: 2400, below: 0.7,  // REFONTE : croitre la pop x100 AVANT Rupture 80%
+    // Il FAUT de la Nourriture pour faire x100 la pop (food x3 du Mythe aide),
+    // mais chaque moteur ajoute de la Rupture -> on batit ET on gere sous 0,7
+    // pour ne pas franchir le seuil fatal de 80% avant d'avoir multiplie x100.
     met() { return state.prometheePopReached === true; } },
-  mythe_d_hephaistos:  { grow: 2400, below: 0.85, // REFONTE : infra >= 1x pic de pop + pop declinee de 20%
-    // La production de pop est etouffee par le Mythe -> la pop chute toute seule
-    // (~0,8%/min). On construit donc NORMALEMENT (pic de pop fixe dans les 3
-    // premieres min, puis on pompe l'infra) et on tient la Rupture pour survivre
-    // les ~28 min que dure le declin de 20%. C'est le defi : tenir sous Usure x2.5.
+  mythe_d_hephaistos:  { grow: 3000, below: 0.6,  // REFONTE : infra >= 1x pic de pop + pop declinee de 20%
+    // L'infra depasse 1000x le pic de pop quasi instantanement -> inutile de
+    // construire longtemps. On batit ~2,5 min (infra + pic) PUIS on cesse tout
+    // achat et on tient la Rupture bas : plus de nouvelles sources de pression,
+    // pop etouffee qui ne fait que decliner -> on survit les ~25 min du declin de 20%.
+    buy({ ageSec }) { if (ageSec < 150) buyBuildings(); },
     met() { return state.hephGoalReached === true; } },
 
   // ── Acte II ─────────────────────────────────────────────────────────────────
-  mythe_de_sisyphe:    { grow: 2200, below: 0.75, // 50 000 Tresor malgre l'inflation des couts
-    met() { return goldNum() >= 50000; } },
-  mythe_de_babel:      { grow: 2200, below: 0.8,  // mult exponentiel x5 (~33 batiments du type choisi)
+  mythe_de_sisyphe:    { grow: 3000, below: 0.8,  // REFONTE : 180 batiments au total malgre l'inflation +3%/achat
+    // On CONSTRUIT en continu, le plus possible : le defi est d'avoir l'economie
+    // pour s'offrir les derniers batiments (cout x1.03^180 ~ 230x). On tient la
+    // Rupture pour rester en vie le temps d'eriger les 180.
+    met() { return state.sisypheReached === true; } },
+  mythe_de_babel:      { grow: 2600, below: 0.8,  // mult exponentiel x30 (~70 batiments du type choisi)
     setup() { state.babelCategory = "city"; },
     buyOpts: { onlyCategory: "city" },
     met() { return state.babelProdReached === true; } },
@@ -557,28 +566,42 @@ const MYTH_TACTICS = {
   mythe_d_atlas:       { grow: 200,  below: 1,    // survivre 45 min OU 10 vagues de crise -> on spamme 10 crises
     onTick() { if ((state.atlasCrisisCount || 0) < 12) { for (const id of ["census", "rationing", "festivals", "reforms"]) { try { runCrisisAction(id, { render: false, force: true }); } catch { /* */ } } } },
     met() { return (state.atlasCrisisCount || 0) >= 10; } },
-  mythe_d_icare:       { grow: 1200, below: 0.85, // infra>=5000 (prod x100 aide, mais Rupture x30) -> on tient la Rupture + rush infra
+  mythe_d_icare:       { grow: 1200, below: 0.55, // accumuler 40s de prod d'infra (prod x100 aide, Rupture x30 menace) -> on tient TRES bas
     met() { return state.icareInfraReached === true; } },
-  mythe_du_phenix:     { grow: 200, below: 0.85, maxCycles: 24, collapseAtAge: 180 }, // 400 ruines cumulees sur 20 cycles (on effondre a la main avant le force in-game)
-  mythe_atrides:       { grow: 2600, below: 0.8,  // Tresor net (Tresor - Dette) >= 100 000
-    met() { return goldNum() - (state.atridesDebt || 0) >= 100000; } },
-  mythe_d_antee:       { grow: 900,  below: 0.8,  // >=2 Ruines actives + puissance >= 10 000
+  mythe_du_phenix:     { grow: 200, below: 0.95, maxCycles: 40, // REFONTE : 3 renaissances chronometrees (60x pop en <3min, d'affilee)
+    // On RUSH la population (batiments producteurs de pop uniquement) pour atteindre
+    // 60x la pop de depart au plus vite, puis on effondre pour verrouiller la
+    // renaissance ; fenetre (~3min) expiree avant la cible -> on effondre quand meme
+    // (chaine remise a 0). Completion jugee a l'effondrement (phoenixRenaissances>=3).
+    buy() { buyMatching((bd) => (bd.pop || 0) > 0, { maxBuys: 50 }); },
+    collapseWhen: () => num(state.population) >= num(state.phoenixRebirthTargetPop || Infinity),
+    collapseAtAge: 175 },
+  mythe_atrides:       { grow: 2000, below: 0.8,  // ACCUMULER 150s de prod d'Or NET ce cycle malgre la dette
+    // Batir puis thesauriser (la dette draine, donc le gain net monte lentement
+    // -> on cesse d'acheter et on laisse l'Or net grimper).
+    buy({ ageSec }) { if (ageSec < 120) buyBuildings(); },
+    met() { return state.atridesReached === true; } },
+  mythe_d_antee:       { grow: 1400, below: 0.8,  // REFONTE : >=4 maluses simultanes + pop x50 sous ce poids
     setup() {
       const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
-      state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
+      state.activeRuinIds = ids.slice(0, Math.min(ids.length, 6)); // porter le maximum de fardeaux (>=4 requis)
       state.pendingActiveRuinsChoice = false;
     },
-    met() { return (state.activeRuinIds || []).length >= 2 && powerNum() >= 10000; } },
+    met() { return (state.activeRuinIds || []).length >= 4 && num(state.population) >= num(state.mythStartPop || 0) * 50; } },
 
   // ── Ragnarok (debloque le GR11) ───────────────────────────────────────────────
-  mythe_du_ragnarok:   { grow: 600,  below: 0.85, // puissance >= 1e6 OU banque de ruines >= 10 000 (vraie post-GR10)
+  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE : survie >=90s + sursaut de puissance x1000
+    // La Rupture x30 irreductible force l'effondrement vers ~2 min ; on ne peut
+    // donc que BATIR vite dans cette fenetre pour faire surgir la puissance x1000.
+    // On ne force pas d'effondrement (met=false) : l'effondrement naturel (~120s,
+    // >=90s) declenche onCollapse qui juge survie + sursaut.
     setup() {
       const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
       state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
       state.pendingActiveRuinsChoice = false;
       state.babelCategory = state.babelCategory || "city";
     },
-    met() { return powerNum() >= 1e6 || num(state.ruins) >= 10000; } }
+    met() { return false; } }
 };
 
 // Declenche un effondrement immediat (l'objectif du Mythe est atteint) : on
@@ -629,9 +652,10 @@ async function tryCompleteMyth(m, rec, prof) {
       if (stateModule.gamePaused && !crisisOpen()) await resolvePause();
       // Objectif atteint : on effondre tout de suite pour le verrouiller.
       if (tac.met && tac.met()) { objectiveHit = true; break; }
-      // Effondrement manuel à âge fixe (Phénix : enchaîner 20 cycles courts SANS
-      // attendre l'effondrement forcé in-game, qui passe par la séquence animée
-      // non résolue en headless).
+      // Effondrement manuel quand une condition de tactique est remplie (Phénix :
+      // dès que la cible de reconstruction est atteinte, on effondre pour verrouiller
+      // la renaissance) ou à âge fixe (fenêtre expirée → on retente).
+      if (tac.collapseWhen && tac.collapseWhen()) break;
       if (tac.collapseAtAge && (VT - startVT) >= tac.collapseAtAge) break;
     }
     if (argv.debug && m.id === "mythe_d_hephaistos") {
@@ -644,8 +668,13 @@ async function tryCompleteMyth(m, rec, prof) {
       const cap = num(state.orStartPop || 0) * 1.25;
       process.stderr.write(`    [or] cyc${c} gold=${fmt(goldNum())}/75000 reached=${state.orGoldReached} startPop=${fmt(num(state.orStartPop || 0))} popPeak=${fmt(num(state.orPopPeak || 0))} cap=${fmt(cap)} depasse=${num(state.orPopPeak || 0) > cap} age=${fmtDuration(VT - startVT)}\n`);
     }
-    if (argv.debug && ["mythe_du_phenix", "mythe_atrides", "mythe_d_antee"].includes(m.id)) {
-      process.stderr.write(`    [${m.id}] cyc${c} active=${state.activeMythId} crise=${crisisOpen()} net=${fmt(goldNum() - (state.atridesDebt || 0))} activeRuins=${(state.activeRuinIds || []).length} power=${fmt(powerNum())} phxCyc=${state.phoenixCycleCount || 0} phxRuins=${fmt(num(state.phoenixTotalRuins || 0))} age=${fmtDuration(VT - startVT)}\n`);
+    if (argv.debug && m.id === "mythe_du_phenix") {
+      process.stderr.write(`    [phenix] cyc${c} renais=${state.phoenixRenaissances || 0}/3 pop=${fmt(num(state.population))} pic=${fmt(num(state.cyclePeaks?.population || 0))} cible=${fmt(num(state.phoenixRebirthTargetPop || 0))} age=${fmtDuration(VT - startVT)}\n`);
+    }
+    if (argv.debug && m.id === "mythe_du_ragnarok") {
+      const sp = num(state.ragnarokStartPower || 1);
+      const surge = sp > 0 ? powerNum() / sp : 0;
+      process.stderr.write(`    [ragnarok] cyc${c} survie=${fmtDuration(VT - startVT)} (>=90s? ${VT - startVT >= 90}) surge=${surge.toFixed(0)}x/1000x power=${fmt(powerNum())} start=${fmt(sp)} maluses=${(state.activeRuinIds || []).length} crise=${crisisOpen()}\n`);
     }
     if (objectiveHit) { forceCollapseNow("manual"); rec.check(); if (isMythCompleted(m.id)) break; }
     else {
