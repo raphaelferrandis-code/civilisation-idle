@@ -255,7 +255,7 @@
   transition: width 0.4s ease;
 }
 .csp-bar-fill--era   { background: var(--gold); }
-.csp-bar-fill--wear  { background: #9b6ae8; }
+.csp-bar-fill--wear  { background: var(--state-usure); }
 .csp-bar-fill--legit { background: #5dcaa5; }
 
 .csp-divider {

@@ -309,9 +309,9 @@ main {
 .ruin-path {
   min-width: 0;
   padding: 0.85rem;
-  border: 1px solid #4d3920;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(31, 21, 11, 0.72);
+  background: rgba(30, 37, 54, 0.72);
 }
 
 .ruin-path-heading {
@@ -344,7 +344,7 @@ main {
   left: -0.87rem;
   top: 50%;
   width: 0.55rem;
-  border-top: 1px solid #536342;
+  border-top: 1px solid var(--border);
 }
 
 .chip {
@@ -445,9 +445,9 @@ textarea {
   width: 100%;
   min-height: 11rem;
   margin: 1rem 0;
-  border: 1px solid #536342;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #120c05;
+  background: var(--bg-inset);
   color: var(--text);
   font: 0.9rem ui-monospace, SFMono-Regular, Consolas, monospace;
 }
@@ -611,7 +611,7 @@ menu {
 .grand-reset-panel {
   border-color: rgba(215, 109, 86, 0.35);
   background: linear-gradient(135deg, rgba(215, 109, 86, 0.06) 0%, transparent 55%),
-    rgba(22, 14, 12, 0.96);
+    rgba(22, 28, 43, 0.96);
 }
 
 .auto-collapse-countdown {
@@ -926,7 +926,7 @@ body::before {
 
 .options-tab.active {
   border-color: rgba(var(--era-rgb), 0.55);
-  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(40, 50, 74, 0.85) 100%);
   color: #fff3c4;
 }
 
@@ -935,7 +935,7 @@ body::before {
   flex-direction: column;
   gap: 0;
   margin: 1rem 0;
-  border: 1px solid #3a2a10;
+  border: 1px solid var(--border);
   border-radius: 6px;
   overflow: auto;
 }
@@ -946,7 +946,7 @@ body::before {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid #2a1d0c;
+  border-bottom: 1px solid var(--border);
 }
 
 .options-row:last-child { border-bottom: none; }
@@ -988,7 +988,7 @@ body::before {
 
 .format-option.active {
   border-color: rgba(var(--era-rgb), 0.55);
-  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(42, 34, 15, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.14) 0%, rgba(40, 50, 74, 0.85) 100%);
   color: #fff3c4;
 }
 

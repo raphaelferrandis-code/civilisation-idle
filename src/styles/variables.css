@@ -1,60 +1,102 @@
 :root {
   /* ============================================================
-     DESIGN TOKENS — source de vérité unique (Audit UI Phase 1)
+     DESIGN TOKENS — SOURCE DE VÉRITÉ UNIQUE
+     ------------------------------------------------------------
+     Tout le système de couleurs vit ici. Les composants et les
+     autres feuilles CSS référencent ces tokens, jamais des hex.
+     Deux familles :
+       1. Tokens canoniques (la spec) — à utiliser dans le neuf.
+       2. Alias historiques — re-pointés sur les canoniques, le
+          temps que tout le CSS migre vers les noms canoniques.
+     ============================================================ */
+
+  /* ----- Neutres (base bleu-nuit unifiée) ----- */
+  --surface-app:    #0E1320;
+  --surface-panel:  #161C2B;
+  --surface-card:   #1E2536;
+  --surface-raised: #28324A;
+  --border:         #2E3852;
+  --text-strong:    #ECEFF7;
+  --text-mid:       #9AA4BC;
+  --text-weak:      #5B6580;
+
+  /* ----- Marque (or patiné, recule) ----- */
+  --brand-gold:     #C9A968;
+
+  /* ----- Ressources ----- */
+  --res-population:     #DD7A5E;
+  --res-food:           #36B37E;
+  --res-treasure:       #F0B429;
+  --res-knowledge:      #4C9DE8;
+  --res-infrastructure: #8893B8;
+
+  /* ----- États (réservés au signal) ----- */
+  --state-rupture: #EF4444;
+  --state-usure:   #9B5DE5;
+
+  /* ----- Dérivés de marque -----
+     Triplet RGB de l'or de marque : l'ancienne « peau d'ère » est
+     neutralisée (style universel), --era-rgb reste donc constant = l'or
+     de marque. Toutes les teintes rgba(var(--era-rgb), …) = voile or. */
+  --era-rgb: 201, 169, 104;
+  --brand-gold-bright: #E4C77E;   /* accent vif de marque : actif / hover (≠ or vif du Trésor) */
+  --brand-gold-deep:   #8A7340;   /* bronze profond : bordures discrètes */
+  --brand-gold-ivory:  #F3E8CC;   /* texte crème sur fond doré sombre */
+  --brand-gold-dim:    #A89162;   /* labels dorés atténués */
+
+  /* ============================================================
+     ALIAS HISTORIQUES → tokens canoniques (point de vérité unique)
      ============================================================ */
 
   /* ----- Fonds ----- */
-  --bg: #0d1018;
-  --bg-main: var(--bg);
-  --ink: #080910;
-  --bg-panel: #161a26;
-  --bg-card: #1d2231;
-  --bg-card-2: #242a3c;          /* survol / surélevé */
-  --bg-inset: #0a0d13;           /* pistes de barres, champs */
-  --panel: rgba(24, 27, 38, 0.82);
-  --panel-2: rgba(34, 38, 54, 0.90);
+  --bg: var(--surface-app);
+  --bg-main: var(--surface-app);
+  --ink: #080A12;                /* ombre la plus profonde, sous --surface-app */
+  --bg-panel: var(--surface-panel);
+  --bg-card: var(--surface-card);
+  --bg-card-2: var(--surface-raised);   /* survol / surélevé */
+  --bg-inset: #0A0E18;           /* pistes de barres, champs */
+  --panel: rgba(22, 28, 43, 0.82);      /* = --surface-panel @ 82% */
+  --panel-2: rgba(40, 50, 74, 0.90);    /* = --surface-raised @ 90% */
 
   /* ----- Bordures ----- */
-  --line: rgba(255, 255, 255, 0.10);
+  --line: var(--border);
   --border-soft: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
   --panel-border: rgba(255, 255, 255, 0.08);
 
   /* ----- Textes ----- */
-  --text: #f2f4f7;
-  --text-main: var(--text);
-  --text-secondary: #c8cfda;
-  --muted: #b0b9c4;
-  --text-muted: var(--muted);
-  --text-dim: var(--muted);      /* alias (utilisé par CityView) */
-  --text-disabled: #6a7180;
+  --text: var(--text-strong);
+  --text-main: var(--text-strong);
+  --text-secondary: #C4CCDD;
+  --muted: var(--text-mid);
+  --text-muted: var(--text-mid);
+  --text-dim: var(--text-mid);   /* alias (utilisé par CityView) */
+  --text-disabled: var(--text-weak);
 
-  /* ----- Or unifié (un seul or dans tout le jeu) ----- */
-  /* Triplet RGB de l'accent d'époque : redéfini par ère via App.jsx
-     (peau d'époque). Par défaut : l'or canonique. */
-  --era-rgb: 214, 168, 75;
-  --gold: #d6a84b;               /* or canonique : interactif & disponible */
-  --gold-bright: #f0c860;        /* accent vif : actif / affordable */
-  --gold-deep: #8f6b25;          /* bronze profond : bordures discrètes */
-  --gold-ivory: #f5e7c0;         /* textes crème sur fonds dorés sombres */
-  --gold-dim: #b3925c;           /* labels dorés atténués */
-  --accent-gold: var(--gold);
-  --accent-gold-bright: var(--gold-bright);
+  /* ----- Or (chrome de marque, recule) ----- */
+  --gold: var(--brand-gold);            /* or canonique : interactif & disponible */
+  --gold-bright: var(--brand-gold-bright);
+  --gold-deep: var(--brand-gold-deep);
+  --gold-ivory: var(--brand-gold-ivory);
+  --gold-dim: var(--brand-gold-dim);
+  --accent-gold: var(--brand-gold);
+  --accent-gold-bright: var(--brand-gold-bright);
 
   /* ----- Couleurs fonctionnelles ----- */
-  --green: #10b981;              /* flux positifs / résilience */
-  --blue: #3b82f6;               /* savoir / mémoire */
-  --red: #ef4444;                /* crise / rupture / irréversible */
-  --violet: #8b5cf6;             /* infrastructure */
-  --orange: #e8943a;             /* achat / alerte douce (fix: était indéfini) */
-  --cyan: #5fd4e0;               /* chronique / journal uniquement */
+  --green: var(--res-food);             /* flux positifs / résilience */
+  --blue: var(--res-knowledge);         /* savoir / mémoire */
+  --red: var(--state-rupture);          /* crise / rupture / irréversible */
+  --violet: var(--state-usure);         /* usure (plus jamais l'infrastructure) */
+  --orange: #E8943A;                    /* achat / alerte douce */
+  --cyan: #5FD4E0;                       /* chronique / journal uniquement */
 
   /* ----- Tokens ressources (topbar, coûts, carte, boutique) ----- */
-  --res-pop: #d9c27f;
-  --res-food: var(--green);
-  --res-gold: #f0a94a;
-  --res-know: var(--blue);
-  --res-infra: var(--violet);
+  --res-pop: var(--res-population);
+  /* --res-food : déjà le nom canonique ci-dessus (#36B37E), aucun alias requis */
+  --res-gold: var(--res-treasure);      /* or vif #F0B429 : réservé au Trésor */
+  --res-know: var(--res-knowledge);
+  --res-infra: var(--res-infrastructure);
 
   /* ----- Ombres / brillances ----- */
   --shadow: rgba(0, 0, 0, 0.65);

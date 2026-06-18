@@ -291,7 +291,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
       actions: [act('census', 'Recenser'), act('reforms', 'Réformes'), ref('complexity'), ...regFor('complexity')]
     },
     {
-      key: 'dissent', icon: '📜', label: 'Dissidence', tone: 'infra', value: pressure.dissent,
+      key: 'dissent', icon: '📜', label: 'Dissidence', tone: 'usure', value: pressure.dissent,
       desc: "Les récits et la mémoire des cycles divisent l'opinion.",
       actions: [
         showAncestorBtn && act('ancestorCrisis', 'Culte des ancêtres'),
@@ -401,7 +401,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
       <div className="tactical-board">
         <div className="tactical-grid">
           {foyers.map((f) => (
-            <article key={f.key} className={`tactical-card${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`} title="Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.">
+            <article key={f.key} className={`tactical-card tactical-card--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`} title="Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.">
               <div className="tactical-info">
                 <header>
                   <span className="tactical-htitle">

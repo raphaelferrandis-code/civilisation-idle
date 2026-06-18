@@ -15,7 +15,7 @@ body {
   height: clamp(18rem, 43vw, 32rem);
   padding: 0;
   overflow: hidden;
-  border: 1px solid #4f3c22;
+  border: 1px solid var(--border);
   border-radius: 8px;
   --sky-top: #1f1206;
   --sky-mid: #2a1a0a;
@@ -139,13 +139,15 @@ body {
   color: var(--text);
   letter-spacing: 0;
   font-family: var(--font-body);
+  /* Fond de jeu unifié sur la base bleu-nuit (--surface-*) : on abandonne
+     l'ancienne teinte parchemin/ambre. Vignette douce + grain neutre. */
   background:
-    radial-gradient(ellipse at 50% -5%, rgba(120, 88, 36, 0.16), transparent 55%),
-    radial-gradient(ellipse at 12% 18%, rgba(74, 53, 16, 0.14), transparent 42%),
-    radial-gradient(ellipse at 88% 82%, rgba(58, 42, 16, 0.12), transparent 46%),
-    repeating-linear-gradient(0deg,  rgba(0,0,0,0.13)        0 2px, transparent 2px 4px),
-    repeating-linear-gradient(90deg, rgba(150,110,50,0.022)  0 3px, transparent 3px 6px),
-    radial-gradient(ellipse at 50% 40%, #15100a 0%, #0d0a07 60%, #080603 100%);
+    radial-gradient(ellipse at 50% -5%, rgba(46, 56, 82, 0.30), transparent 55%),
+    radial-gradient(ellipse at 12% 18%, rgba(40, 50, 74, 0.22), transparent 42%),
+    radial-gradient(ellipse at 88% 82%, rgba(30, 37, 54, 0.20), transparent 46%),
+    repeating-linear-gradient(0deg,  rgba(0,0,0,0.13)         0 2px, transparent 2px 4px),
+    repeating-linear-gradient(90deg, rgba(110,130,180,0.020)  0 3px, transparent 3px 6px),
+    radial-gradient(ellipse at 50% 40%, var(--surface-panel) 0%, var(--surface-app) 60%, var(--ink) 100%);
   background-attachment: fixed;
 }
 
@@ -185,7 +187,7 @@ h1, h2, h3,
    CARTE SVG PROCEDURALE (remplace l'ancien diorama)
    ============================================================================ */
 
-.civilization-map { background: #0d0a07 !important; }
+.civilization-map { background: var(--surface-app) !important; }
 
 .civilization-map::before,
 .civilization-map::after { content: none !important; display: none !important; }
@@ -259,7 +261,7 @@ h1, h2, h3,
   height: 150px;
   border: 1px solid var(--gold-deep);
   border-radius: 4px;
-  background: rgba(13, 10, 7, 0.8);
+  background: rgba(14, 19, 32, 0.8);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   z-index: 6;
@@ -272,7 +274,7 @@ h1, h2, h3,
   padding: 0.55rem 0.7rem;
   border: 1px solid rgba(var(--era-rgb), 0.55);
   border-radius: 6px;
-  background: rgba(13, 10, 7, 0.92);
+  background: rgba(22, 28, 43, 0.92);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48);
   color: #f6e7bf;
   pointer-events: none;
