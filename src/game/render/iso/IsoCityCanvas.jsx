@@ -26,15 +26,21 @@ export default function IsoCityCanvas() {
       .then((s) => {
         if (cancelled) { s.destroy(); return; }
         scene = s;
+        // Poignée de debug posée UNIQUEMENT sur la scène conservée (dev).
+        if (import.meta.env.DEV) window.__iso = s;
       })
       .catch((err) => {
-        // En Phase 1 on veut voir l'échec tout de suite (init Pixi, WebGL…).
+        // On veut voir l'échec tout de suite (init Pixi, WebGL…).
         console.error("[iso] échec d'initialisation de la scène :", err);
       });
 
     return () => {
       cancelled = true;
-      if (scene) { scene.destroy(); scene = null; }
+      if (scene) {
+        if (import.meta.env.DEV && window.__iso === scene) delete window.__iso;
+        scene.destroy();
+        scene = null;
+      }
     };
   }, []);
 
