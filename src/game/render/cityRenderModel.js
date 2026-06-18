@@ -21,6 +21,9 @@ import { visualTierOf } from "./eraTiers.js";
 import { kindOf } from "./buildingKinds.js";
 
 const BUILDING_BY_ID = new Map(buildings.map((b) => [b.id, b]));
+// Rang de progression (ordre du fichier data) : sert d'ordre stable ET signifiant
+// — les bâtiments anciens d'abord, ce que le placement iso met au centre.
+const BUILDING_ORDER = new Map(buildings.map((b, i) => [b.id, i]));
 
 // Index d'ère atteint par une population donnée. Miroir PUR de
 // mechanics/shared.js `currentEraIndex()` (qui, lui, lit le singleton) : mêmes
@@ -65,9 +68,10 @@ export function getCityRenderModel(state) {
       count
     });
   }
-  // Ordre déterministe (par id) : le rendu n'est pas tributaire de l'ordre des
-  // clés de l'objet state.buildings.
-  list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  // Ordre déterministe (par progression) : le rendu n'est pas tributaire de
+  // l'ordre des clés de l'objet state.buildings, et les anciens bâtiments passent
+  // en premier (placés au centre de la ville).
+  list.sort((a, b) => (BUILDING_ORDER.get(a.id) ?? 999) - (BUILDING_ORDER.get(b.id) ?? 999));
 
   return {
     era: { index: eraIndex, band, tier },
