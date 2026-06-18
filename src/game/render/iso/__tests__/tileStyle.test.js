@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { tileKey, tileStyle, KIND_BASE_COLOR } from "../tileStyle.js";
+import { tileKey, tileStyle, KIND_BASE_COLOR, KIND_BASE_HEIGHT } from "../tileStyle.js";
+import { KINDS } from "../../buildingKinds.js";
 
 describe("tileStyle — table type × palier", () => {
   it("génère la clé logique type × palier (future clé de sprite)", () => {
@@ -35,5 +36,13 @@ describe("tileStyle — table type × palier", () => {
   it("borne les paliers hors plage sans planter", () => {
     expect(tileStyle("food", 0).height).toBe(tileStyle("food", 1).height);
     expect(tileStyle("food", 99).height).toBe(tileStyle("food", 5).height);
+  });
+
+  it("chaque famille (15) a une couleur ET une hauteur de base", () => {
+    expect(KINDS).toHaveLength(15);
+    for (const kind of KINDS) {
+      expect(KIND_BASE_COLOR, kind).toHaveProperty(kind);
+      expect(KIND_BASE_HEIGHT, kind).toHaveProperty(kind);
+    }
   });
 });

@@ -12,15 +12,17 @@
  *   et glisse d'une ambiance terreuse (primitif) vers lumineuse (cosmique).
  * ========================================================================== */
 
-// Teinte d'identité par famille (l'axe « type »).
+// Teinte d'identité par famille (l'axe « type »). 15 familles (cf. manifeste).
 export const KIND_BASE_COLOR = {
   food: 0x6fae5a, granary: 0xc8a24a, farm: 0x8a9a3a, market: 0xd98a3a, craft: 0x9a6a3a,
-  port: 0x3a9aa0, mint: 0xd6b84b, knowledge: 0x5a7fb0, observatory: 0x7a6ab0, civic: 0x8a8f99
+  mill: 0x6f8f7a, port: 0x3a9aa0, mint: 0xd6b84b, bank: 0xc9c19a, knowledge: 0x5a7fb0,
+  temple: 0xc79ad2, observatory: 0x7a6ab0, civic: 0x8a8f99, aqueduct: 0x86b3c0, watchtower: 0x9a7d6a
 };
 // Hauteur de référence (palier 3) par famille : silhouette variée.
 export const KIND_BASE_HEIGHT = {
   food: 22, granary: 34, farm: 12, market: 30, craft: 30,
-  port: 26, mint: 40, knowledge: 46, observatory: 56, civic: 34
+  mill: 38, port: 26, mint: 40, bank: 48, knowledge: 46,
+  temple: 52, observatory: 56, civic: 34, aqueduct: 36, watchtower: 58
 };
 
 // Glissement d'ambiance par palier (l'axe « âge ») : terre → pierre → marbre →

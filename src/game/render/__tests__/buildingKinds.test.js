@@ -26,6 +26,14 @@ describe("buildingKinds — familles visuelles des bâtiments", () => {
     expect(kindOf("mint_houses")).toBe("mint");
   });
 
+  it("applique les splits de la Phase 5 (familles distinctes)", () => {
+    expect(kindOf("water_mills")).toBe("mill");
+    expect(kindOf("imperial_exchanges")).toBe("bank");
+    expect(kindOf("ancestral_cult")).toBe("temple");
+    expect(kindOf("aqueducts")).toBe("aqueduct");
+    expect(kindOf("watch")).toBe("watchtower");
+  });
+
   it("retombe sur la catégorie de gameplay pour un id inconnu", () => {
     expect(kindOf("nouveau_batiment", "knowledge")).toBe("knowledge");
     expect(kindOf("nouveau_batiment", "infra")).toBe("civic");
