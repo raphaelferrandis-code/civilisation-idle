@@ -1,19 +1,20 @@
 /* ============================================================================
- * isoScene.js — Scène PixiJS isométrique (impératif), Phase 3.
+ * isoScene.js — Scène PixiJS isométrique (impératif), Phase 4.
  *
  *   Pixi est piloté en mode IMPÉRATIF (créé dans un useEffect, jamais reconstruit
  *   par React) : plus simple à déboguer et plus stable pour un jeu à boucle de
  *   rendu. React ne fait qu'héberger le <canvas> et POUSSER le modèle de rendu.
  *
- *   Phase 3 = poser les BÂTIMENTS. Le hôte React appelle `setModel(model)` (issu
- *   de getCityRenderModel) à chaque changement d'achat ; on (re)dessine des boîtes
- *   iso greybox, une par tuile, triées en profondeur. Toujours zéro art.
+ *   Phase 3 = poser les BÂTIMENTS (setModel). Phase 4 = leur APPARENCE évolue avec
+ *   l'âge : chaque boîte est dessinée via tileStyle(kind, palier). `setTierOverride`
+ *   force un palier pour tester le vieillissement (bouton debug). Toujours zéro art.
  * ========================================================================== */
 
 import { Application, Container, Graphics, TextureSource } from "pixi.js";
 import { TILE_W, TILE_H, gridToScreen } from "./isoProjection.js";
 import { createIsoCamera } from "./isoCamera.js";
 import { computeCityPlacements } from "./cityLayout.js";
+import { tileStyle } from "./tileStyle.js";
 
 const BG_COLOR = 0x0d1018;     // bleu nuit canonique (cohérent avec l'ambiance)
 const GROUND_A = 0x161c28;     // damier sombre (case paire)
@@ -21,19 +22,6 @@ const GROUND_B = 0x1b2230;     // damier sombre (case impaire) — lit le relief
 const GRID_LINE = 0x2a3346;    // joint discret entre tuiles
 
 const GRID_N = 20;             // grille N×N (greybox) — capacité du plan de ville
-
-// Couleurs greybox par famille visuelle (axe « type »). Distinctes pour lire la
-// ville sans art. Remplacées par des sprites en Phase 7.
-const KIND_COLORS = {
-  food: 0x6fae5a, granary: 0xc8a24a, farm: 0x8a9a3a, market: 0xd98a3a, craft: 0x9a6a3a,
-  port: 0x3a9aa0, mint: 0xd6b84b, knowledge: 0x5a7fb0, observatory: 0x7a6ab0, civic: 0x8a8f99
-};
-// Hauteur greybox par famille : une silhouette variée → les chevauchements de
-// profondeur se voient (c'est ce que la Phase 3 doit prouver).
-const KIND_HEIGHT = {
-  food: 22, granary: 34, farm: 12, market: 30, craft: 30,
-  port: 26, mint: 40, knowledge: 46, observatory: 56, civic: 34
-};
 
 // Sommets d'un losange iso plein (tuile de sol) centré sur (x,y).
 function groundDiamond(x, y) {
@@ -48,13 +36,12 @@ function shade(color, f) {
   return (r << 16) | (g << 8) | b;
 }
 
-// Dessine une boîte iso (cube extrudé) posée AU SOL sur la tuile (col,row).
-// Empreinte légèrement réduite pour laisser voir le sol autour.
-function drawBuilding(g, col, row, kind) {
+// Dessine une boîte iso (cube extrudé) posée AU SOL sur la tuile (col,row), avec
+// l'apparence type × palier. Empreinte réduite pour laisser voir le sol autour.
+function drawBuilding(g, col, row, kind, tier) {
   const { x, y } = gridToScreen(col, row);
-  const base = KIND_COLORS[kind] ?? 0x8a8f99;
-  const h = KIND_HEIGHT[kind] ?? 32;
-  const hw = TILE_W * 0.42, hh = TILE_H * 0.42;
+  const { color: base, height: h, foot } = tileStyle(kind, tier);
+  const hw = TILE_W * foot, hh = TILE_H * foot;
 
   // Coins au sol (élévation 0) et coins du toit (élévation h).
   const Bx = x, By = y + hh, Lx = x - hw, Ly = y, Rx = x + hw, Ry = y;
@@ -120,15 +107,26 @@ export async function createIsoScene(host) {
   const buildingsG = new Graphics();
   world.addChild(buildingsG);
 
-  // (Re)construit la ville depuis le modèle de rendu (getCityRenderModel).
-  function setModel(model) {
+  // État de rendu : dernier modèle reçu + override de palier (debug « avancer d'un
+  // palier »). Palier effectif = override s'il existe, sinon celui du modèle.
+  let lastModel = null;
+  let tierOverride = null;
+  const effectiveTier = () => tierOverride ?? lastModel?.era?.tier?.index ?? 1;
+
+  function redraw() {
     buildingsG.clear();
-    if (model && model.buildings && model.buildings.length) {
-      const placements = computeCityPlacements(model, { gridN: GRID_N });
-      for (const p of placements) drawBuilding(buildingsG, p.col, p.row, p.kind);
+    if (lastModel && lastModel.buildings && lastModel.buildings.length) {
+      const tier = effectiveTier();
+      const placements = computeCityPlacements(lastModel, { gridN: GRID_N });
+      for (const p of placements) drawBuilding(buildingsG, p.col, p.row, p.kind, tier);
     }
     render();
   }
+
+  // (Re)construit la ville depuis le modèle de rendu (getCityRenderModel).
+  function setModel(model) { lastModel = model; redraw(); }
+  // Force un palier visuel (1..5) ; null = palier réel du modèle (debug).
+  function setTierOverride(tier) { tierOverride = tier == null ? null : tier; redraw(); }
 
   // Caméra : pan + zoom. Vue initiale centrée sur la case centrale (cœur de ville).
   const camera = createIsoCamera({ host, world, render, initialZoom: 0.5 });
@@ -144,7 +142,7 @@ export async function createIsoScene(host) {
   // Internes exposés : le hôte React pose la poignée de debug `window.__iso`
   // uniquement sur la scène CONSERVÉE, pousse le modèle, et réutilise ces refs.
   return {
-    app, world, ground, buildingsG, camera, render, setModel,
+    app, world, ground, buildingsG, camera, render, setModel, setTierOverride,
     destroy() {
       if (destroyed) return;
       destroyed = true;
