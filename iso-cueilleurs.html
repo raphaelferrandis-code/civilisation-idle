@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Cueilleurs — composition iso (Kenney)</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0d1018;color:#f5e7c0;font:13px system-ui}
+    #wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
+    canvas{background:#0d1018;image-rendering:auto}
+    #hud{font:12px Consolas,monospace;white-space:pre;opacity:.8}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="c" width="900" height="700"></canvas>
+    <div id="hud">chargement…</div>
+  </div>
+  <script>
+  const FARM = '/iso-assets/farm/';
+  const NAT  = '/iso-assets/nature/';
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const hud = document.getElementById('hud');
+
+  // Origine "sol" = point au sol au centre de la tuile d'herbe.
+  const GX = 450, GY = 470;
+
+  // Pile de calques. Ordre = profondeur (premier dessiné = derrière).
+  // anchor bottom-center : (dx,dy) déplace par rapport à (GX,GY).
+  // scale relatif. Réglable à chaud via window.set(i,{...}).
+  let layers = [
+    // sol
+    { id:'ground', src:NAT+'naturePack_001_0.png', dx:0,   dy:40,  s:2.10 },
+    // arbre unique DERRIÈRE le bâtiment
+    { id:'tree',   src:NAT+'naturePack_130_0.png', dx:-120,dy:-6, s:1.25 },
+    // bâtiment : 4 murs (les 2 arrière d'abord, puis les 2 avant), puis toit
+    { id:'wallN',  src:FARM+'planksHigh_N.png',    dx:0, dy:0, s:0.62 },
+    { id:'wallW',  src:FARM+'planksHigh_W.png',    dx:0, dy:0, s:0.62 },
+    { id:'wallE',  src:FARM+'planksHigh_E.png',    dx:0, dy:0, s:0.62 },
+    { id:'wallS',  src:FARM+'planksHigh_S.png',    dx:0, dy:0, s:0.62 },
+    { id:'roofS',  src:FARM+'roofSingle_S.png',    dx:0, dy:0, s:0.62 },
+    { id:'roofE',  src:FARM+'roofSingle_E.png',    dx:0, dy:0, s:0.62 },
+    // fleurs / champignons DEVANT
+    { id:'mush1',  src:NAT+'naturePack_111_0.png', dx:70, dy:60, s:0.55 },
+    { id:'mush2',  src:NAT+'naturePack_113_0.png', dx:110,dy:78, s:0.5 },
+    { id:'flower', src:NAT+'naturePack_flat_008_0.png', dx:30, dy:80, s:0.7 },
+    { id:'tuft',   src:NAT+'naturePack_040_0.png', dx:-40,dy:74, s:0.55 },
+  ];
+
+  const imgs = {};
+  function load(src){ return new Promise(r=>{ if(imgs[src])return r(imgs[src]); const im=new Image(); im.onload=()=>{imgs[src]=im;r(im);}; im.onerror=()=>{console.warn('miss',src);r(null);}; im.src=src; }); }
+
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(const L of layers){
+      const im = imgs[L.src]; if(!im) continue;
+      const w = im.width*L.s, h = im.height*L.s;
+      ctx.drawImage(im, GX + L.dx - w/2, GY + L.dy - h, w, h);
+    }
+    hud.textContent = layers.map((L,i)=>`${i} ${L.id}: dx=${L.dx} dy=${L.dy} s=${L.s}`).join('\n');
+  }
+
+  // API live (preview_eval) :
+  window.L = layers;
+  window.draw = draw;
+  window.set = (i,patch)=>{ Object.assign(layers[i],patch); draw(); };
+  window.byId = (id,patch)=>{ const L=layers.find(x=>x.id===id); if(L){Object.assign(L,patch);draw();} };
+
+  Promise.all(layers.map(L=>load(L.src))).then(draw);
+  </script>
+</body>
+</html>

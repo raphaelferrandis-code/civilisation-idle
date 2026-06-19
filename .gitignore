@@ -33,3 +33,8 @@ scratch/
 simulation-report.html
 sim_results.json
 sim_long_results.json
+
+# Assets bruts (packs tiers Kenney, ~65k fichiers) : on versionne l'atlas DÉRIVÉ
+# (dans public/) + la revue de curation (revue-assets-kenney-CE.md), pas les sources.
+assets/
+*.zip

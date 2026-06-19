@@ -5,11 +5,17 @@
 > Les clés de fichiers correspondent à `tileKey(kind, tier)` déjà dans le code
 > (`src/game/render/iso/tileStyle.js`) → l'intégration (Phase 7) sera un simple branchement.
 
+> ⚠️ **PIVOT D'ART (en cours).** On abandonne le pixel art crabcrabcrabs (mono-époque,
+> calait sur l'évolution) au profit de **Kenney Game Assets (CC0, style vectoriel propre)**.
+> Les **15 familles** et les **5 paliers** ci-dessous restent valides ; le **style** et la
+> **stratégie de sourcing** sont à réviser une fois la couverture iso de Kenney inspectée
+> (tuile / résolution à reconfirmer ; primitif + cosmique resteront probablement à combler).
+
 ## Spécifications globales (figées)
 
 | Paramètre | Valeur |
 |---|---|
-| Style | Pixel art net & lisible (city-builder classique) |
+| Style | **Iso vectoriel propre (Kenney, CC0)** — *pivot depuis le pixel art* |
 | Tuile de sol | **64×32 px** (losange iso 2:1) |
 | Empreinte bâtiment | **1 tuile** (la grandeur passe par la HAUTEUR ; la silhouette peut déborder au-dessus/sur les côtés, l'empreinte au sol reste 1 case) |
 | Direction de lumière | **Haut-gauche** (toutes les faces, packs comme sur-mesure) |
