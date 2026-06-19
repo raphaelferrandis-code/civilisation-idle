@@ -25,7 +25,7 @@ import {
   migrerEnee,
   rewardCitizenThought
 } from '../../game/core/actions.js';
-import { save, setCityName, state } from '../../game/core/state.js';
+import { save, setCityName, commitCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { fmt, clamp01 } from '../../game/core/utils.js';
@@ -145,6 +145,7 @@ export default function CityView() {
   };
 
   const handleNameBlur = () => {
+    commitCityName();
     save();
   };
 

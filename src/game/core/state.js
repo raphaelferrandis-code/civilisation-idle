@@ -8,6 +8,8 @@ import { Decimal, D } from './num.js';
 import { COLLAPSE_PREP_MAX } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
+import { newCitySeed } from '../map/procedural/seedManager.js';
+import { generateCityName } from '../map/procedural/cityName.js';
 
 export const SAVE_KEY = "civilization-collapse-idle-v1";
 
@@ -224,7 +226,11 @@ export const defaultState = () => ({
   playTimeSec: 0,
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   upgrades: {},
-  cityName: "NomVille",
+  // Nom procédural tiré à la création de partie (et régénéré à chaque cycle
+  // tant que le joueur ne l'a pas renommé à la main — cf. cityNameCustom).
+  cityName: generateCityName(newCitySeed()),
+  // true dès que le joueur saisit un nom : il survit alors aux effondrements.
+  cityNameCustom: false,
   history: ["An 0: une premiere communaute allume ses feux."],
   bestEraIndex: 0,
   cyclePeaks: {
@@ -847,9 +853,13 @@ export function hydrateState(parsed = {}) {
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
     chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),
     chronicleCooldown: finiteNumber(source.chronicleCooldown, 0, 0),
+    // On garde le nom sauvegardé, sauf l'ancien placeholder « NomVille » non
+    // renommé : il est migré vers un nom procédural frais (base.cityName).
     cityName: typeof source.cityName === "string" && source.cityName.trim()
+      && (Boolean(source.cityNameCustom) || source.cityName.trim() !== "NomVille")
       ? source.cityName.trim().slice(0, 42)
       : base.cityName,
+    cityNameCustom: Boolean(source.cityNameCustom),
     history: normalizeHistory(source.history, base.history),
     bestEraIndex: finiteInteger(source.bestEraIndex, base.bestEraIndex, 0, Math.max(0, eras.length - 1)),
     cyclePeaks: normalizeCyclePeaks(source.cyclePeaks, base.cyclePeaks),
@@ -939,8 +949,23 @@ export function setCollapseInProgress(val) {
   collapseInProgress = val;
   notify();
 }
+// Saisie en cours : on stocke la valeur telle quelle (pas de trim, sinon
+// impossible de taper une espace) et on bascule en mode « renommé à la main ».
 export function setCityName(name) {
-  state.cityName = name.trim() || "NomVille";
+  state.cityName = String(name).slice(0, 42);
+  state.cityNameCustom = true;
+  notify();
+}
+// Validation (perte de focus) : un nom vidé repasse en mode procédural et
+// reçoit un nom frais — il sera donc à nouveau régénéré à chaque civilisation.
+export function commitCityName() {
+  const trimmed = state.cityName.trim();
+  if (trimmed) {
+    state.cityName = trimmed.slice(0, 42);
+  } else {
+    state.cityName = generateCityName(state.mapSeed || newCitySeed());
+    state.cityNameCustom = false;
+  }
   notify();
 }
 export function setMourning(val) {

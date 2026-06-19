@@ -43,6 +43,7 @@ import { eras, eraTier, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
+import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
@@ -320,6 +321,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.cycles += 1;
   // Nouvelle civilisation : nouveau plan procédural (seed + rivière + enceinte régénérés).
   state.mapSeed = newCitySeed();
+  // ...et un nouveau nom de cité, sauf si le joueur l'a renommé à la main.
+  if (!state.cityNameCustom) state.cityName = generateCityName(state.mapSeed);
   state.riverWP = null;
   state.wallRadius = null;
   state.population = keptPop.max(10);

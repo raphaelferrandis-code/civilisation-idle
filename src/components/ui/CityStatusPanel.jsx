@@ -27,6 +27,20 @@ function fmtSecs(s) {
   return `${Math.floor(s / 60)}min`;
 }
 
+// Durée du cycle en j/h/m/s : on n'affiche que les unités utiles, en zéro-paddant
+// les unités inférieures dès qu'une unité supérieure est présente (style horloge).
+function fmtCycleTime(totalSecs) {
+  const s = totalSecs % 60;
+  const m = Math.floor(totalSecs / 60) % 60;
+  const h = Math.floor(totalSecs / 3600) % 24;
+  const j = Math.floor(totalSecs / 86400);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (j > 0) return `${j}j ${pad(h)}h ${pad(m)}m ${pad(s)}s`;
+  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+  if (m > 0) return `${m}m ${pad(s)}s`;
+  return `${s}s`;
+}
+
 export default function CityStatusPanel() {
   const {
     cycles, dynastyCount, bestEraIndex, cycleStartedAt,
@@ -40,9 +54,7 @@ export default function CityStatusPanel() {
   const globalMult = globalMultiplier();
 
   const cycleSeconds = Math.floor((tickNow - (cycleStartedAt || tickNow)) / 1000);
-  const cycleTimeLabel = cycleSeconds >= 60
-    ? `${Math.floor(cycleSeconds / 60)}m ${String(cycleSeconds % 60).padStart(2, '0')}s`
-    : `${cycleSeconds}s`;
+  const cycleTimeLabel = fmtCycleTime(cycleSeconds);
 
   const cycleElapsed = (tickNow - cycleStartedAt) / 1000;
   let sedimentIdx = -1;
