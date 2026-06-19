@@ -712,7 +712,15 @@ function cityCounts(s) {
   const lateSurge   = Math.pow(Math.max(0, eraIndex - 12), 2.08);
   // Multiplicateur progressif : village compact (×1) → mégalopole étendue (×2.5)
   const lateScale   = 1 + Math.pow(eraFrac, 2) * 1.5;
-  const houseCap    = Math.round((8 + Math.pow(eraFrac, 1.72) * 650) * lateScale);
+  // Remplissage par la population : le plafond de maisons était piloté par le
+  // SEUL âge (eraFrac) → une population qui gonfle AU SEIN d'un âge ne densifiait
+  // jamais la ville (224 K habitants restaient un camp clairsemé de ~18 toits).
+  // On ajoute un terme de pop SATURÉ (popDepth borné à 10) et PONDÉRÉ par
+  // l'avancée d'âge (1−eraFrac) : il remplit la ville en early/mid — là où la pop
+  // dépasse vite le décor — et s'efface en fin de partie, où l'âge fournit déjà
+  // un grand plafond. Purement visuel : n'affecte que le nombre de toits dessinés.
+  const popFill     = Math.pow(Math.min(popDepth, 10), 1.45) * (1 - eraFrac * 0.85);
+  const houseCap    = Math.round((8 + Math.pow(eraFrac, 1.72) * 650) * lateScale + popFill * 10);
   const farmCap     = Math.round((3 + Math.pow(eraFrac, 1.02) * 190) * Math.sqrt(lateScale));
   const publicCap   = Math.round(Math.max(0, -3 + Math.pow(eraFrac, 1.32) * 180) * lateScale);
   const libCap      = Math.round(Math.max(0, -2 + Math.pow(eraFrac, 1.42) * 140) * lateScale);
@@ -769,7 +777,7 @@ function computeCityLayout(s) {
     const bandY = cy + N * (0.16 + rrng() * 0.16);
     WP = [];
     for (let i = 0; i < WN; i += 1) {
-      WP.push({ x: xStart + (xEnd - xStart) * (i / (WN - 1)), y: cmClamp(bandY + (rrng() - 0.5) * N * 0.22, cy + N * 0.08, N - 1.5) });
+      WP.push({ x: xStart + (xEnd - xStart) * (i / (WN - 1)), y: cmClamp(bandY + (rrng() - 0.5) * N * 0.32, cy + N * 0.08, N - 1.5) });
     }
     s.riverWP = WP.map((p) => ({ dy: p.y - cy }));
   }
@@ -781,10 +789,10 @@ function computeCityLayout(s) {
       const t = st / 12;
       const x = cr(p0.x, p1.x, p2.x, p3.x, t), y = cr(p0.y, p1.y, p2.y, p3.y, t);
       const u = Math.max(0, Math.min(1, (x - xStart) / (xEnd - xStart)));
-      riverSamples.push({ x, y, hw: 1.5 + 0.5 * Math.sin(Math.PI * u) });
+      riverSamples.push({ x, y, hw: 2.0 + 1.1 * Math.sin(Math.PI * u) });
     }
   }
-  riverSamples.push({ x: WP[WN - 1].x, y: WP[WN - 1].y, hw: 1.5 });
+  riverSamples.push({ x: WP[WN - 1].x, y: WP[WN - 1].y, hw: 2.0 });
   const riverSet = new Set(), bankSet = new Set(), nearSet = new Set();
   for (const sp of riverSamples) {
     const R = sp.hw;

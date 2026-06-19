@@ -446,9 +446,196 @@ function cityMapDrawVestiges() {
   ctx.globalAlpha = 1;
 }
 
+// Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
+// Helper partagé par le fleuve, le gating des quais et le tracé des quais.
+function cmRiverNormalAt(sm, i) {
+  const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
+  let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
+  return { nx: -ty / tl, ny: tx / tl };
+}
+
+// Gating des quais : pour chaque sample du fleuve et chaque rive (+n / -n), la berge
+// est-elle "urbaine" (proche d'une route) ? Calculé UNE fois par layout (clé =
+// CM.layoutRecomputeAt), jamais par frame. Sert au tracé (cityMapDrawQuays) ET à
+// retirer les roseaux sous le quai (boucle roseaux de cityMapDrawRiver).
+// NB : gating PUR (urbain ou non) — la décision de dessiner dépend de l'ère/usure,
+// évaluée par frame côté appelant (pas figée dans ce cache).
+const QUAY_GATE_LAND = 1.0;   // échantillonnage : ~1 tuile au-delà du bord d'eau
+function ensureQuayGate() {
+  const L = CM.layout;
+  if (!L || !L.river || !L.river.present || !L.river.samples) { CM.quayGate = null; CM.quayBankCells = null; return; }
+  if (CM.quayGate && CM.quayGate.key === CM.layoutRecomputeAt) return;
+  const sm = L.river.samples, n0 = sm.length, roadSet = L.roadSet;
+  const urbanAt = (px, py) => {
+    if (!roadSet) return false;
+    const cgx = Math.floor(px), cgy = Math.floor(py);
+    for (let dx = -1; dx <= 1; dx += 1)
+      for (let dy = -1; dy <= 1; dy += 1)
+        if (roadSet.has((cgx + dx) + "," + (cgy + dy))) return true;
+    return false;
+  };
+  const rawPlus = new Uint8Array(n0), rawMinus = new Uint8Array(n0);
+  for (let i = 0; i < n0; i += 1) {
+    const n = cmRiverNormalAt(sm, i), s = sm[i];
+    for (let si = 0; si < 2; si += 1) {
+      const side = si ? -1 : 1;
+      const ewx = s.x + side * n.nx * s.hw, ewy = s.y + side * n.ny * s.hw;            // bord d'eau peint
+      const lndx = ewx + side * n.nx * QUAY_GATE_LAND, lndy = ewy + side * n.ny * QUAY_GATE_LAND; // côté terre
+      (si ? rawMinus : rawPlus)[i] = (urbanAt(ewx, ewy) || urbanAt(lndx, lndy)) ? 1 : 0;
+    }
+  }
+  // Lissage : dilatation rayon 1 (continuité) + purge des runs d'un seul sample.
+  const smoothSide = (arr) => {
+    const d = new Uint8Array(n0);
+    for (let i = 0; i < n0; i += 1) d[i] = (arr[i] || (i > 0 && arr[i - 1]) || (i < n0 - 1 && arr[i + 1])) ? 1 : 0;
+    let i = 0;
+    while (i < n0) {
+      if (!d[i]) { i += 1; continue; }
+      let j = i; while (j + 1 < n0 && d[j + 1]) j += 1;
+      if (j === i) d[i] = 0;   // run d'un seul sample -> off
+      i = j + 1;
+    }
+    return d;
+  };
+  const plus = smoothSide(rawPlus), minus = smoothSide(rawMinus);
+  // Cellules couvertes par le quai -> pas de roseaux dessus.
+  const bankCells = new Set();
+  for (let i = 0; i < n0; i += 1) {
+    const n = cmRiverNormalAt(sm, i), s = sm[i];
+    for (let si = 0; si < 2; si += 1) {
+      if (!(si ? minus : plus)[i]) continue;
+      const side = si ? -1 : 1;
+      for (const off of [s.hw, s.hw + QUAY_GATE_LAND * 0.5, s.hw + QUAY_GATE_LAND])
+        bankCells.add(Math.floor(s.x + side * n.nx * off) + "," + Math.floor(s.y + side * n.ny * off));
+    }
+  }
+  CM.quayGate = { key: CM.layoutRecomputeAt, plus, minus };
+  CM.quayBankCells = bankCells;
+}
+
+// Quais : berge construite (promenade + lèvre humide) là où la ville borde l'eau.
+// Tracé en SUIVANT le ruban lisse (samples + normale), exactement comme le fleuve —
+// JAMAIS par cellule (le bankSet diverge du bleu peint dans les courbes => escalier).
+// Dessiné live, juste après le fleuve et avant la brume/les bateaux/le blit statique
+// (ponts/routes/bâtiments le recouvrent donc gratuitement aux croisements).
+function cityMapDrawQuays(now) {
+  const L = CM.layout;
+  if (!L || !L.river || !L.river.present || !L.river.samples) return;
+  const band = L.counts ? (L.counts.eraBand | 0) : 0;
+  if (band <= 1) return;                                   // campement primitif : pas de quai
+  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return; // fleuve ruiné : pas de quai
+  ensureQuayGate();
+  const g = CM.quayGate;
+  if (!g) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, sm = L.river.samples, n0 = sm.length;
+  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
+  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
+  const night = CM.nightF || 0;
+  const lod = CM.lodActive;          // zoom lointain : strates seules, pas de mobilier/joints
+  const TAPER = 2;
+
+  // Style de quai par ère : promenade qui évolue pierre -> marbre -> béton/fonte ->
+  // néon -> énergie cosmique. (Palette cosmique inlinée pour éviter un import croisé.)
+  const COSMIC = {
+    7: { mid: "#1d5640", core: "#0c241a", glow: "90,240,180" },
+    8: { mid: "#4a3a1c", core: "#221808", glow: "255,205,120" },
+    9: { mid: "#322a52", core: "#161226", glow: "170,140,255" }
+  };
+  let st;
+  if (band <= 4) {                   // pierre (2-3) / marbre (4)
+    const marble = band >= 4;
+    st = {
+      W: 0.7, walk: marble ? "#cdc6b2" : "#a89a78", face: marble ? "#8f8770" : "#6e6044",
+      lip: "rgba(0,0,0,0.40)", edge: marble ? "rgba(255,250,235,0.30)" : "rgba(255,240,205,0.20)",
+      rail: null, joints: "rgba(0,0,0,0.16)", lamp: "255,214,150", glow: null
+    };
+  } else if (band <= 6) {            // fonte (5) / néon (6)
+    const neon = band >= 6;
+    st = {
+      W: 0.85, walk: neon ? "#6f7480" : "#827a6e", face: neon ? "#3e424c" : "#4f4940",
+      lip: "rgba(0,0,0,0.44)", edge: "rgba(222,230,240,0.16)",
+      rail: "rgba(16,20,26,0.85)", joints: null, lamp: neon ? "150,225,255" : "255,208,150",
+      glow: neon ? "120,220,255" : null
+    };
+  } else {                           // cosmique 7-9 : quai d'énergie
+    const cp = COSMIC[band] || COSMIC[9];
+    st = { W: 0.9, walk: cp.mid, face: cp.core, lip: "rgba(0,0,0,0.45)", edge: null, rail: null, joints: null, lamp: cp.glow, glow: cp.glow };
+  }
+  const W = st.W, faceW = W * 0.30;  // bande côté eau (ombre) vs promenade (côté terre)
+
+  // Effilement smoothstep aux deux bouts d'un run (W->0) — pas de biseau net.
+  const tt = (i, a, b) => { const t = Math.max(0, Math.min(1, Math.min(i - a, b - i) / TAPER)); return t * t * (3 - 2 * t); };
+  // Point écran à l'offset additif `base` (tapered) du sample i, sur la rive `side`.
+  const pt = (i, side, base, tap) => { const s = sm[i], n = cmRiverNormalAt(sm, i), off = s.hw + base * tap; return [SX(s.x + side * n.nx * off), SY(s.y + side * n.ny * off)]; };
+  const fillStrip = (a, b, side, baseIn, baseOut, col) => {
+    ctx.beginPath();
+    for (let i = a; i <= b; i += 1) { const p = pt(i, side, baseIn, tt(i, a, b)); if (i === a) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+    for (let i = b; i >= a; i -= 1) { const p = pt(i, side, baseOut, tt(i, a, b)); ctx.lineTo(p[0], p[1]); }
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+  };
+  const strokeAt = (a, b, side, base, col, lw, additive) => {
+    if (!col) return;
+    if (additive) { ctx.save(); ctx.globalCompositeOperation = "lighter"; }
+    ctx.beginPath();
+    for (let i = a; i <= b; i += 1) { const p = pt(i, side, base, tt(i, a, b)); if (i === a) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke();
+    if (additive) ctx.restore();
+  };
+
+  const drawRun = (a, b, side) => {
+    // Strates : tout en "face" (ombre côté eau) puis la promenade par-dessus la part terre.
+    fillStrip(a, b, side, 0, W, st.face);
+    fillStrip(a, b, side, faceW, W, st.walk);
+    // Joints de dalles (pierre/marbre) : ticks perpendiculaires sur la promenade.
+    if (st.joints && !lod) {
+      ctx.strokeStyle = st.joints; ctx.lineWidth = Math.max(1, z * 0.5);
+      for (let i = a; i <= b; i += 1) {
+        const ta = tt(i, a, b); if (ta < 0.4) continue;
+        const p1 = pt(i, side, faceW, ta), p2 = pt(i, side, W, ta);
+        ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+      }
+    }
+    // Côté terre : garde-corps (fonte/néon) sinon liseré clair.
+    if (st.rail) strokeAt(a, b, side, W, st.rail, Math.max(1, z * 0.7));
+    else strokeAt(a, b, side, W, st.edge, Math.max(1, z * 0.5));
+    // Lèvre humide sombre pile au bord d'eau.
+    strokeAt(a, b, side, 0, st.lip, Math.max(1, z * 0.9));
+    // Bord lumineux (néon / énergie cosmique), avivé la nuit.
+    if (st.glow) strokeAt(a, b, side, 0, `rgba(${st.glow},${(0.30 + 0.45 * night).toFixed(2)})`, Math.max(1, z * 0.7), true);
+    // Mobilier : lampadaires/bornes le long de la promenade ; lueur chaude la nuit.
+    if (!lod && st.lamp) {
+      for (let i = a; i <= b; i += 1) {
+        if (i % 2 !== 0) continue;
+        const ta = tt(i, a, b); if (ta < 0.6) continue;
+        const p = pt(i, side, W * 0.8, ta), lx = p[0], ly = p[1];
+        if (night > 0.25) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const r = Math.max(4, z * 1.7), g2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+          g2.addColorStop(0, `rgba(${st.lamp},${(0.5 * night).toFixed(2)})`); g2.addColorStop(1, `rgba(${st.lamp},0)`);
+          ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        ctx.fillStyle = night > 0.25 ? `rgba(${st.lamp},0.95)` : "rgba(28,24,18,0.8)";
+        ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, z * 0.35), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  };
+
+  for (let si = 0; si < 2; si += 1) {
+    const side = si ? -1 : 1, gate = si ? g.minus : g.plus;
+    let i = 0;
+    while (i < n0) {
+      if (!gate[i]) { i += 1; continue; }
+      const a = i; while (i + 1 < n0 && gate[i + 1]) i += 1;
+      if (i > a) drawRun(a, i, side);   // run d'au moins 2 samples
+      i += 1;
+    }
+  }
+}
+
 function cityMapDrawRiver(now) {
   const L = CM.layout;
   if (!L || !L.river || !L.river.present || !L.river.samples) return;
+  ensureQuayGate();   // prêt avant la boucle roseaux (qui s'efface sous le quai)
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
   const sm = L.river.samples;
   const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
@@ -459,7 +646,7 @@ function cityMapDrawRiver(now) {
   let edge, mid, refA;
   if (collapsed) { edge = "#0a1a0a"; mid = "#0a1a0a"; refA = 0; }
   else if (tw > 0.7) { edge = "#142a1e"; mid = "#1a3a2a"; refA = 0.05; }
-  else { edge = "#1a3a5c"; mid = "#2a5a8b"; refA = 0.16; }
+  else { edge = "#1a2e3a"; mid = "#2c4a5e"; refA = 0.16; } // eau saine : ardoise bleu-nuit désaturée, accordée à la palette UI (--surface-raised)
 
   const normalAt = (i) => {
     const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
@@ -505,7 +692,10 @@ function cityMapDrawRiver(now) {
   }
 
   const reedOk = tw < 0.7 && !collapsed;
+  const band = L.counts ? (L.counts.eraBand | 0) : 0;
+  const quaysActive = band >= 2 && reedOk;   // un quai est tracé là où la berge est urbaine
   for (const k of L.river.banks) {
+    if (quaysActive && CM.quayBankCells && CM.quayBankCells.has(k)) continue; // pas de roseaux sous le quai
     const c = k.indexOf(","); const bgx = +k.slice(0, c), bgy = +k.slice(c + 1);
     const px = SX(bgx), py = SY(bgy), ts = T * z;
     if (px < -ts || px > CM.cw || py < -ts || py > CM.ch) continue;
@@ -2563,6 +2753,7 @@ export {
   cityMapDrawNight,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
+  cityMapDrawQuays,
   cityMapDrawRiver,
   cityMapDrawRoad,
   cityMapDrawStreetLights,

@@ -40,6 +40,7 @@ import {
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
   cityMapDrawMist,
+  cityMapDrawQuays,
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
   cityMapDrawEraDetails,
@@ -116,6 +117,39 @@ function cityMapCenterCamera(layout) {
   // Zoom recule avec la taille de la ville : village (22 tuiles visibles) → mégalopole (36 tuiles)
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
   CM.cam.zoom = Math.max(0.35, Math.min(1.6, CM.cw / (targetTiles * CM.TILE)));
+}
+
+// Borne la caméra sur la zone de contenu : fleuve (amont→aval) en X, grille
+// jouable en Y. Empêche de paner ou de dézoomer au point de voir le bout net du
+// ruban OU de dériver dans la nature infinie — le contenu remplit toujours le
+// cadre. Marge en X pour garder le biseau du bout hors-champ ; léger anneau de
+// nature en Y. (Pas de fleuve = boîte X repliée sur la grille.)
+function cmClampCamera() {
+  const L = CM.layout;
+  if (!L || !CM.cw || !CM.ch) return;
+  const T = CM.TILE, N = L.gridN || 0;
+  const sm = (L.river && L.river.present && L.river.samples && L.river.samples.length) ? L.river.samples : null;
+  // Boîte de cadrage (px monde).
+  const bx0 = (sm ? sm[0].x * T : 0) + (sm ? 3 * T : 0);
+  const bx1 = (sm ? sm[sm.length - 1].x * T : N * T) - (sm ? 3 * T : 0);
+  // Marge verticale ample : largement au-dessus de la hauteur d'un sprite de
+  // bâtiment (les bâtiments montent au-dessus de leur tuile) -> aucun n'est rogné
+  // en haut/bas, et on garde du mou pour ne pas se sentir coincé.
+  const by0 = -0.5 * N * T;       // ~½ grille de nature au-dessus
+  const by1 = (N + 0.5 * N) * T;  // ... et en dessous
+  const boxW = bx1 - bx0, boxH = by1 - by0;
+  if (boxW <= 0 || boxH <= 0) return;
+  // Plancher de zoom : la boîte contient toujours le viewport (axe contraignant
+  // ajusté pile -> on prend le max des deux ajustements).
+  const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
+  if (CM.cam.zoom < zoomFloor) CM.cam.zoom = zoomFloor;
+  // Pan : chaque bord d'écran reste dans la boîte (centré si l'écran dépasse la
+  // boîte sur cet axe).
+  const halfW = (CM.cw / 2) / CM.cam.zoom, halfH = (CM.ch / 2) / CM.cam.zoom;
+  const loX = bx0 + halfW, hiX = bx1 - halfW;
+  const loY = by0 + halfH, hiY = by1 - halfH;
+  CM.cam.x = loX > hiX ? (bx0 + bx1) / 2 : Math.max(loX, Math.min(hiX, CM.cam.x));
+  CM.cam.y = loY > hiY ? (by0 + by1) / 2 : Math.max(loY, Math.min(hiY, CM.cam.y));
 }
 
 function cityMapEnsureTooltip(mapRoot, tooltipElement = null) {
@@ -684,6 +718,7 @@ function initCityMap(canvas, options = {}) {
     if (active && CM.canvas && CM.cw > 0) {
       if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
+      cmClampCamera();
       cmCheckWonders(now);
 
       // Arrivée progressive des citoyens : cadence selon l'ère et la population
@@ -762,6 +797,9 @@ function initCityMap(canvas, options = {}) {
       // + berges, SOUS le fleuve et la ville (qui restent plats).
       cityMapDrawTerrain();
       cityMapDrawRiver(now);
+      // Quais : berge construite (pierre/béton/énergie) là où la ville borde l'eau,
+      // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
+      cityMapDrawQuays(now);
       // Brume/reflets : voiles clippés à l'eau, sous les bateaux, ponts,
       // routes et bâtiments.
       cityMapDrawMist(now);
