@@ -1,0 +1,32 @@
+/* ============================================================================
+   CADRE OR UNIVERSEL — Kenney « Fantasy UI Borders » #030 (clé grecque), 9-slice
+   ----------------------------------------------------------------------------
+   Source unique du cadre de TOUS les panneaux du jeu. Asset teinté or :
+   src/assets/ui/topbar-frame.png. Voir docs/ui-references.md.
+
+   Réglage global : --ui-frame-w (épaisseur du cadre rendu). « On ajuste ensuite ».
+   !important : c'est un skin global volontaire qui doit gagner sur les bordures
+   héritées (1px, couleurs de mythes, overrides city…). Pour exclure un panneau :
+   `border-image: none !important;` sur son sélecteur.
+
+   Importé EN DERNIER dans index.css pour primer sur les feuilles précédentes.
+   ============================================================================ */
+
+:root {
+  --ui-frame-w: 10px;
+  --ui-frame-src: url(../assets/ui/topbar-frame.png);
+  --ui-frame-slice: 12;
+}
+
+.panel,
+.hud-panel,
+.city-status-panel,
+.city-stage-hud,
+.topbar-resources {
+  border-style: solid !important;
+  border-width: var(--ui-frame-w) !important;
+  border-color: transparent !important;
+  border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
+  /* Le cadre porte ses propres coins (clé grecque) : pas de rayon arrondi. */
+  border-radius: 0 !important;
+}

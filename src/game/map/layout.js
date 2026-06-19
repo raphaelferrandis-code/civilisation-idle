@@ -185,27 +185,27 @@ function cmWaterAffine(affinity) {
 // monument et l'orne de nouveaux attributs. `metric` extrait la valeur de
 // progression, `tiers` liste les 5 seuils, `tierLabel` nomme le jalon.
 const CM_WONDERS = [
-  { id: "dynasty1",       name: "Le Mausolée du Fondateur",   icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 },
+  { id: "dynasty1",       name: "Le Mausolée du Fondateur",   icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
     unlockedBy: "Première dynastie fondée.",
     metric: (s) => s.dynastyCount || 0, tiers: [1, 3, 5, 8, 12],
     tierLabel: (v) => `${v} dynastie${v > 1 ? "s" : ""}` },
-  { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 },
+  { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
     unlockedBy: "Population d'au moins 1 000 000.",
     metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e7, 1e8, 1e9, 1e10],
     tierLabel: (v) => v >= 1e9 ? `${v / 1e9} milliard${v >= 2e9 ? "s" : ""} d'habitants` : `${v / 1e6} million${v >= 2e6 ? "s" : ""} d'habitants` },
-  { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 },
+  { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
     unlockedBy: "Âge du royaume atteint.",
     metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
-  { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 },
+  { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
     unlockedBy: "500 achats accomplis (bâtiments et décrets).",
     metric: (s) => s.lifetimePurchases || 0, tiers: [500, 2500, 10000, 15000, 20000],
     tierLabel: (v) => `${v >= 1000 ? (v / 1000) + " 000" : v} achats accomplis` },
-  { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 },
+  { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 }, reEra: 17,
     unlockedBy: "30 minutes passées à veiller sur la cité.",
     metric: (s) => s.playTimeSec || 0, tiers: [1800, 7200, 28800, 86400, 259200],
     tierLabel: (v) => v >= 3600 ? `${Math.round(v / 3600)} heures de veille` : `${Math.round(v / 60)} minutes de veille` },
-  { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 },
+  { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 }, reEra: 21,
     unlockedBy: "Premier mythe accompli.",
     metric: (s) => Object.keys(s.mythsCompleted || {}).length, tiers: [1, 3, 5, 8, 12],
     tierLabel: (v) => `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}` }
@@ -218,7 +218,27 @@ function cmWonderTier(w, s) {
   for (const threshold of w.tiers) { if (v >= threshold) tier += 1; else break; }
   return tier;
 }
-const WONDER_CLEAR_R = 4; // rayon libre (tuiles) autour de chaque merveille
+// ── Réérection progressive ──────────────────────────────────────────────────
+// state.wonders / state.wonderTiers = MÉMOIRE PERMANENTE (le rang atteint, jamais
+// perdu, survit aux cycles). Mais une merveille débloquée ne se redresse
+// PHYSIQUEMENT sur la carte du cycle courant que lorsque la civilisation a
+// regrandi jusqu'à l'ère qui la justifie (`reEra`, indexé sur l'ère COURANTE qui,
+// elle, repart de zéro à chaque effondrement). La pierre se souvient ; le
+// monument attend que la cité soit de nouveau à sa hauteur. C'est ce qui évite le
+// « village minuscule cerné de 6 monuments » en début de cycle.
+function cmWonderActive(w, s) {
+  if (!w || !s || !Array.isArray(s.wonders) || !s.wonders.includes(w.id)) return false;
+  const reEra = typeof w.reEra === "number" ? w.reEra : 0;
+  return cmEraIndexFor(s) >= reEra;
+}
+function cmWonderActiveIds(s) {
+  const out = new Set();
+  if (!s || !Array.isArray(s.wonders)) return out;
+  for (const w of CM_WONDERS) if (cmWonderActive(w, s)) out.add(w.id);
+  return out;
+}
+const WONDER_CLEAR_R = 5; // rayon libre (tuiles) autour de chaque merveille ;
+// couvre l'emprise du parvis du plus gros sprite au palier V (cf. drawWonder).
 
 // ── Utilitaires purs ─────────────────────────────────────────────────────────
 function cmClamp(v, a, b) { return Math.max(a, Math.min(b, Math.round(v))); }
@@ -393,15 +413,26 @@ function cmRoadName(gx, gy) {
 }
 
 // ── Merveilles : slots et vérification ──────────────────────────────────────
-function cmBaseWonderSlot(idx, gridN, cx, cy) {
+function cmBaseWonderSlot(idx, gridN, cx, cy, ringTarget) {
   // Emplacement thématique propre à chaque merveille (angle/anneau dédiés),
   // avec un léger jitter seedé pour que deux parties ne soient pas identiques.
   const w = CM_WONDERS[idx] || CM_WONDERS[0];
   const seed = (typeof state !== "undefined" && state && state.mapSeed) ? state.mapSeed : 0;
   const jit = seed ? (((cmHash(seed + ":wslot:" + w.id) % 100) / 100) - 0.5) * 0.5 : 0;
   const angle = (w.slot ? w.slot.angle : idx * (Math.PI * 2 / CM_WONDERS.length) - Math.PI / 2) + jit;
-  const ringBase = Math.max(WONDER_CLEAR_R + 2, Math.min(Math.round(gridN * 0.3), 34));
-  const ring = Math.max(WONDER_CLEAR_R + 2, Math.round(ringBase * (w.slot ? w.slot.ring : 1)));
+  // Anneau de base : si la portée urbaine réelle est fournie (calcul du plan), on
+  // l'utilise pour que les merveilles suivent le périmètre de la cité au lieu de
+  // rester collées à un plafond fixe (34) que les mégalopoles débordent — sinon
+  // elles finissent enfouies au cœur dense. À défaut (rendu), repli sur la grille.
+  const ringBase = ringTarget && ringTarget > 0
+    ? Math.max(WONDER_CLEAR_R + 2, ringTarget)
+    : Math.max(WONDER_CLEAR_R + 2, Math.min(Math.round(gridN * 0.3), 34));
+  let ring = Math.max(WONDER_CLEAR_R + 2, Math.round(ringBase * (w.slot ? w.slot.ring : 1)));
+  // Plafonne (sans jamais réduire les petits anneaux) pour que la position reste
+  // dans la grille : center ± ring doit tenir dans [3, gridN-3] (cf. blocked()).
+  // Indispensable car ringTarget × ring 1.18 peut dépasser le bord sur les mégalopoles.
+  const maxRing = Math.max(WONDER_CLEAR_R + 2, Math.floor(gridN / 2) - 3);
+  ring = Math.min(ring, maxRing);
   return { gx: Math.round(cx + Math.cos(angle) * ring), gy: Math.round(cy + Math.sin(angle) * ring) };
 }
 
@@ -411,8 +442,8 @@ function cmWonderSlot(idx, gridN, cx, cy) {
   return cmBaseWonderSlot(idx, gridN, cx, cy);
 }
 
-function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas) {
-  const base = cmBaseWonderSlot(idx, gridN, cx, cy);
+function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas, ringTarget) {
+  const base = cmBaseWonderSlot(idx, gridN, cx, cy, ringTarget);
   const waterR = Math.max(2, WONDER_CLEAR_R - 1);
   const blocked = (gx, gy) => {
     if (gx < 2 || gy < 2 || gx > gridN - 3 || gy > gridN - 3) return true;
@@ -714,7 +745,10 @@ function computeCityLayout(s) {
   const packFactor = 0.27 - c.eraFrac * 0.14;
   // Grille minimale selon le nombre de merveilles : chacune réclame un rayon libre,
   // il faut assez d'espace pour les espacer correctement en cercle.
-  const wonderCount = Array.isArray(s.wonders) ? s.wonders.length : 0;
+  // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) réclament de
+  // l'espace : un village en début de cycle ne gonfle plus sa grille pour des
+  // monuments encore en sommeil.
+  const wonderCount = cmWonderActiveIds(s).size;
   const minNWonders = wonderCount >= 5 ? 36 : wonderCount >= 3 ? 30 : wonderCount >= 1 ? 24 : 20;
   let N = minNWonders;
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < 300) N += 2;
@@ -843,8 +877,10 @@ function computeCityLayout(s) {
   // Districts (anti-collision merveilles + fleuve)
   const districts = [];
   const occupiedFoot = new Set();
-  const builtWonderIds = new Set(Array.isArray(s.wonders) ? s.wonders : []);
-  const wonderSlots = CM_WONDERS.map((_, wi) => cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas));
+  const builtWonderIds = cmWonderActiveIds(s);
+  // ringTarget = portée urbaine réelle → les merveilles se posent sur le périmètre
+  // de la cité et s'écartent à mesure qu'elle grandit (plus de cap fixe à 34).
+  const wonderSlots = CM_WONDERS.map((_, wi) => cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     if (!builtWonderIds.has(CM_WONDERS[wi].id)) continue;
     const slot = wonderSlots[wi];
@@ -1472,6 +1508,8 @@ export {
   cmRoadName,
   cmWonderSlot,
   cmWonderTier,
+  cmWonderActive,
+  cmWonderActiveIds,
   WONDER_TIER_NAMES,
   cmDryWonderSlot,
   computeCityLayout

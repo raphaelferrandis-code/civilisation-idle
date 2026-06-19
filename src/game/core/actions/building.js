@@ -32,10 +32,12 @@ import {
   globalMultiplierDec,
   grandResetLegitimacyCost,
   grandResetMythsRequired,
-  completedMythCount
+  completedMythCount,
+  buildingMilestoneInfo
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
+import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
@@ -61,6 +63,9 @@ export function buyBuilding(id) {
   const currentMilestone = Math.floor(state.buildings[id] / 25);
   if (currentMilestone > previousMilestone) {
     recentBuildingMilestones[id] = currentMilestone;
+    // B1 — Float doré de palier : récompense visible à chaque tranche de 25.
+    const info = buildingMilestoneInfo(building, state.buildings[id]);
+    pushOutcomeFloat({ label: `⭐ ${building.name} ×${fmt(info ? info.bonus : 1)}`, kind: "gain" });
   }
   if (isMythEffectActive("mythe_de_sisyphe")) {
     state.sisypheMult = (state.sisypheMult || 1) * SISYPHE_MULT_PER_PURCHASE;

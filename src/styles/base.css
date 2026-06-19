@@ -90,6 +90,25 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Barres de défilement : fines et dans le thème (or patiné sur fond sombre),
+   cohérentes partout (boutique, popovers, panneaux). ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--gold), transparent 50%) transparent;
+}
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gold), transparent 55%);
+  border: 2px solid transparent;
+  border-radius: var(--r-pill);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--gold), transparent 25%);
+  background-clip: padding-box;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: var(--r-panel);

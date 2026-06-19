@@ -8,3 +8,5 @@
 @import './styles/map.css';
 @import './styles/typography.css';
 @import './styles/eras.css';
+/* Cadre or universel : importé en dernier pour primer sur les bordures héritées. */
+@import './styles/frames.css';

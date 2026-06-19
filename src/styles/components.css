@@ -17,33 +17,59 @@
   margin-bottom: 0.75rem;
 }
 
+/* Bandeau de ressources : une seule plaque antique encadrée (cf. north star
+   « le moins de panneaux possible »). Le cadre ornemental est l'asset Kenney
+   « Fantasy UI Borders » #030 (clé grecque), teinté or et posé en 9-slice.
+   Voir docs/ui-references.md. Les 5 ressources deviennent des cellules
+   transparentes séparées par un filet or, la lisibilité venant de la plaque. */
 .topbar-resources {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0;
+  padding: 0.3rem 0.85rem 0.38rem;
+  /* Voile sombre du bandeau (lisibilité sur la carte) */
+  background: linear-gradient(180deg, rgba(13, 15, 23, 0.80), rgba(13, 15, 23, 0.62));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  /* Le cadre or vient de frames.css (cadre universel, réglable via --ui-frame-w). */
 }
 
 .topbar .resource-card-unified {
   position: relative;
   min-height: 0;
-  gap: 0.3rem;
-  padding: 0.55rem 0.7rem 0.7rem;
-  border-radius: 8px;
+  gap: 0.18rem;
+  padding: 0.25rem 0.8rem 0.32rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   overflow: hidden;
   cursor: default;
 }
 
-/* Cartes non interactives : pas d'élévation ni de bordure or au survol */
+/* Filet or vertical entre cellules (dégradé qui s'efface en haut/bas) */
+.topbar .resource-card-unified:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16%;
+  bottom: 16%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--gold), transparent 55%) 22% 78%, transparent);
+}
+
+/* Cartes non interactives : pas d'élévation ni de bordure au survol */
 .topbar .resource-card-unified:hover {
   transform: none;
-  border-color: rgba(255, 255, 255, 0.05);
-  background: var(--panel);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: transparent;
+  box-shadow: none;
 }
 
 .topbar .resource-card-unified .card-header {
   gap: 0.35rem;
-  padding-bottom: 0.3rem;
+  padding-bottom: 0.2rem;
 }
 
 .topbar .resource-title-wrapper {
@@ -64,11 +90,11 @@
   white-space: nowrap;
 }
 
-/* La valeur domine sa carte */
+/* La valeur domine sa carte (compacte : fmtShort la garde courte) */
 .topbar .resource-value {
   flex-shrink: 0;
   font-family: var(--font-number);
-  font-size: 1.7rem;
+  font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -552,10 +578,10 @@ small, .chip, .doctrine-display small {
 }
 
 .buy-mode.active, .buy-mode-max.active {
-  background: var(--gold);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 18%);
   border-color: var(--gold);
-  color: #1a0f00;
-  box-shadow: 0 0 10px rgba(var(--era-rgb),0.4);
+  color: var(--gold-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ---------- BARRES DE PROGRESSION (rupture/usure + jauges ville) ---------- */

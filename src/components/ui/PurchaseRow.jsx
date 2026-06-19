@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
-import { fmt, signed, labelFor } from '../../game/core/utils.js';
+import { fmt, fmtShort, signed, signedShort, labelFor } from '../../game/core/utils.js';
 import { RES_ICONS } from './resourceIcons.js';
 
 const RES_CLASS = {
@@ -13,6 +13,42 @@ const RES_CLASS = {
 };
 
 const CATEGORY_ICONS = { city: "fa-gears", knowledge: "fa-book-open", infra: "fa-archway" };
+
+/* Icône propre à CHAQUE bâtiment (scannabilité — fini les icônes partagées par
+   ressource où 6 bâtiments montraient la même pièce d'or). La couleur, elle,
+   reste celle de la ressource dominante (cf. cls dans buildingIcon). */
+const BUILDING_ICONS = {
+  foragers: "fa-seedling",
+  granaries_city: "fa-warehouse",
+  caravans: "fa-route",
+  scribes: "fa-feather-pointed",
+  storytellers: "fa-comments",
+  schools: "fa-chalkboard",
+  aqueducts: "fa-bridge-water",
+  roads: "fa-road",
+  watch: "fa-eye",
+  markets: "fa-store",
+  guilds: "fa-people-group",
+  irrigated_fields: "fa-wheat-awn",
+  river_ports: "fa-anchor",
+  water_mills: "fa-fan",
+  mint_houses: "fa-coins",
+  imperial_exchanges: "fa-building-columns",
+  academies: "fa-user-graduate",
+  observatories: "fa-binoculars",
+  libraries: "fa-book-bookmark",
+  bureaucracy: "fa-stamp",
+  sewers: "fa-water",
+  courthouses: "fa-gavel",
+  public_works: "fa-person-digging",
+  ministries: "fa-landmark",
+  archive_grids: "fa-box-archive",
+  ruin_architects: "fa-compass-drafting",
+  ancestral_cult: "fa-hands-praying",
+  universities: "fa-graduation-cap",
+  printing_houses: "fa-print",
+  think_tanks: "fa-brain"
+};
 
 /* Valeur exacte pour le tooltip des suffixes (Sx, Oc, Qi…) */
 function exactLabel(value) {
@@ -33,10 +69,16 @@ function buildingIcon(b) {
     ["knowledge", b.knowledge],
     ["infrastructure", b.infra]
   ].filter(([, v]) => Math.abs(v) > 0.0001);
-  if (!outputs.length) return { icon: CATEGORY_ICONS[b.category] || "fa-gears", cls: "" };
-  outputs.sort((a, c) => Math.abs(c[1]) - Math.abs(a[1]));
-  const key = outputs[0][0];
-  return { icon: RES_ICONS[key], cls: RES_CLASS[key] || "" };
+  // Couleur = ressource dominante ; icône = propre au bâtiment (sinon repli).
+  let cls = "";
+  let fallback = CATEGORY_ICONS[b.category] || "fa-gears";
+  if (outputs.length) {
+    outputs.sort((a, c) => Math.abs(c[1]) - Math.abs(a[1]));
+    const key = outputs[0][0];
+    cls = RES_CLASS[key] || "";
+    fallback = RES_ICONS[key];
+  }
+  return { icon: BUILDING_ICONS[b.id] || fallback, cls };
 }
 
 /**
@@ -58,8 +100,9 @@ function PurchaseRow({
   lackingKey,
   pulse
 }) {
-  // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0")
-  const countLabel = count < 1000 ? String(count) : fmt(count);
+  // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0").
+  // Au-delà, compact forcé (fmtShort) : un compteur « full » déborderait la pastille.
+  const countLabel = count < 1000 ? String(count) : fmtShort(count);
   const stepLabel = b.category === "city" ? "×2" : "×1.5";
   const inStep = count % 25;
   const nextIn = 25 - inStep;
@@ -130,9 +173,10 @@ function PurchaseRow({
           {milestoneInfo && (
             <span
               className="pr-milestone-badge"
-              title={`Bonus de palier actuel : ${milestoneInfo.label}`}
+              title={`Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`}
             >
-              {"×"}{fmt(milestoneInfo.bonus)}
+              <i className="fa-solid fa-bolt" aria-hidden="true"></i>
+              {"×"}{fmtShort(milestoneInfo.bonus)}
             </span>
           )}
         </div>
@@ -148,7 +192,7 @@ function PurchaseRow({
                 title={`${labelFor(key)} : ${signed(value)}/s`}
               >
                 <i className={`fa-solid ${RES_ICONS[key]}`} aria-hidden="true"></i>
-                {signed(value)}/s
+                {signedShort(value)}/s
               </span>
             ))
           )}
@@ -163,8 +207,8 @@ function PurchaseRow({
         </div>
       </div>
 
-      <span className="pr-count" title={`Niveau ${countLabel}`} aria-label={`Niveau ${countLabel}`}>
-        {countLabel}
+      <span className="pr-count" title={`Possédés : ${countLabel}`} aria-label={`${countLabel} possédés`}>
+        <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
       </span>
 
       <button
@@ -187,7 +231,7 @@ function PurchaseRow({
               title={`${exactLabel(amount)} ${labelFor(currency)}`}
             >
               <i className={`fa-solid ${RES_ICONS[currency] || "fa-circle"}`} aria-hidden="true"></i>
-              {fmt(amount)}
+              {fmtShort(amount)}
             </span>
           ))}
         </span>

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
+import { useGameState } from '../../hooks/useGameState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
@@ -43,6 +44,7 @@ import {
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
+import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 
 export default function CityView() {
   const {
@@ -63,6 +65,10 @@ export default function CityView() {
   // Horloge du tick (1 Hz) : évite un timer local qui doublerait les rendus.
   const now = tickNow;
   const [bubbleMessage, setBubbleMessage] = useState(null);
+  // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
+  const [openDock, setOpenDock] = useState(null);
+  const toggleDock = (id) => setOpenDock((cur) => (cur === id ? null : id));
+  const latestChronicle = useGameState((s) => (s.chronicleEntries || [])[0]);
 
   // Personnalité procédurale de la ville (stable par cycle ; la surcouche
   // crise/effondrement évolue avec instability/timeWear, recalcul léger).
@@ -178,6 +184,16 @@ export default function CityView() {
 
   const showMythsPanel = isSisyphe || isIcare || isBabel || isOr || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
 
+  // Pastille de la chronique : dépêche encore dans sa fenêtre d'affichage.
+  const chronicleVisible = Boolean(latestChronicle && now - (latestChronicle.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
+  const chronicleNew = Boolean(latestChronicle?.isNew);
+  // Badge du dock Mythes : nombre de cartes de statut actuellement actives.
+  const mythCount = [
+    isSisyphe, isIcare, isBabel, isOr, isPhoenix, isHeph, isAtrides,
+    atridesPactActive, atridesNextRunPenaltyActive, isMythEffectActive("mythe_d_enee"),
+    eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
+  ].filter(Boolean).length;
+
   return (
     <section className="view active" id="city">
       <div className="city-left-col">
@@ -258,8 +274,9 @@ export default function CityView() {
               "Sources de pression :",
               `Rareté ${pp(pressure.scarcity)} · Inégalités ${pp(pressure.inequality)}`,
               `Complexité ${pp(pressure.complexity)} · Dissidence ${pp(pressure.dissent)}`,
-              `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`
-            ].join("\n");
+              `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`,
+              pressure.demesure > 0 ? `Démesure ${pp(pressure.demesure)} (irréductible)` : null
+            ].filter(Boolean).join("\n");
             return (
               <div
                 className={`stability-gauge ${tier.cls}`}
@@ -328,18 +345,51 @@ export default function CityView() {
           <CrisisActionBar variant="compact" />
         </HudPanel>
 
-        {/* Rail gauche : chronique (sur notif) puis panneaux secondaires (mythes/exhume) */}
+        {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
         <div className="city-aux">
-          <ChronicleTicker />
-        {showExhume && (
-          <button id="exhumeBtn" className="exhume-btn-redesigned" onClick={exhumeVestige}>
-            ⛏ Exhumer un vestige archéologique
-          </button>
-        )}
+          <div className="hud-dock" role="toolbar" aria-label="Outils de la cité">
+            {chronicleVisible && (
+              <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label="Chronique de l'effondrement" aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>
+                <i className="fa-solid fa-newspaper" aria-hidden="true"></i>
+                {chronicleNew && <span className="hud-dock-dot" aria-hidden="true"></span>}
+              </button>
+            )}
+            {showExhume && (
+              <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label="Exhumer un vestige archéologique" aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
+                <i className="fa-solid fa-trowel" aria-hidden="true"></i>
+                <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>
+              </button>
+            )}
+            {showMythsPanel && (
+              <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label="Mythes actifs et bénédictions" aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
+                <i className="fa-solid fa-scroll" aria-hidden="true"></i>
+                {mythCount > 0 && <span className="hud-dock-badge">{mythCount}</span>}
+              </button>
+            )}
+          </div>
+
+          {openDock === 'chronique' && chronicleVisible && (
+            <div className="panel hud-pop hud-pop--chronique">
+              <ChronicleTicker />
+            </div>
+          )}
+
+          {openDock === 'exhume' && showExhume && (
+            <div className="panel hud-pop">
+              <h3 className="hud-pop-title">Vestige archéologique</h3>
+              <p className="hud-pop-desc">Fouille les décombres d'un cycle passé pour en exhumer un bonus unique.</p>
+              <button id="exhumeBtn" className="btn-primary" onClick={() => { exhumeVestige(); setOpenDock(null); }}>
+                ⛏ Exhumer un vestige
+              </button>
+            </div>
+          )}
+
+          {openDock === 'myths' && showMythsPanel && (
+          <div className="panel hud-pop hud-pop--myths">
 
         {/* 5. Atrides Debt Panel */}
         {isAtrides && (
-          <div className="panel myth-panel myth-panel--atrides atrides-debt-panel">
+          <div className="myth-panel myth-panel--atrides atrides-debt-panel">
             <div className="panel-heading">
               <div>
                 <span className="label label-red">Acte III · Le Fardeau des Atrides</span>
@@ -411,7 +461,7 @@ export default function CityView() {
 
         {/* 6. Enee Panel */}
         {isMythEffectActive("mythe_d_enee") && (
-          <div className={`panel myth-panel myth-panel--enee enee-panel${eneeDegraded ? ' is-degraded' : ''}`}>
+          <div className={`myth-panel myth-panel--enee enee-panel${eneeDegraded ? ' is-degraded' : ''}`}>
             <div className="panel-heading">
               <div>
                 <span className={`label ${eneeDegraded ? 'label-red' : 'label-green'}`}>Acte I · Le Mythe d'Énée</span>
@@ -461,9 +511,7 @@ export default function CityView() {
           </div>
         )}
 
-        {/* 7. Panneau des défis mythologiques et puissance latente */}
-        {showMythsPanel && (
-          <HudPanel className="active-myths-panel" storageKey="myths" title="📜 Mythes actifs & bénédictions">
+            {/* Cartes de statut des mythes & puissance latente */}
             <div className="myths-grid-redesigned">
               {isSisyphe && (
                 <div className="myth-status-card sisyphus" title="Le mythe de Sisyphe est actif">
@@ -596,8 +644,8 @@ export default function CityView() {
                 </div>
               )}
             </div>
-          </HudPanel>
-        )}
+          </div>
+          )}
         </div>{/* /city-aux */}
       </div>
     </section>

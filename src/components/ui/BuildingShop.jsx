@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
+import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import {
   globalMultiplier,
   isUnlocked,
@@ -29,11 +30,14 @@ function buildingProductionSegments(building, outputCount, globalMult, sqrtGloba
 const TABS = [
   { id: "city", label: "Moteurs" },
   { id: "knowledge", label: "Savoir" },
-  { id: "infra", label: "Infra" }
+  { id: "infra", label: "Infrastructure" }
 ];
 
 function BuildingShop() {
   const [activeTab, setActiveTab] = useState("city"); // "city", "knowledge", "infra"
+  // Encart pliable (même mécanique que la Régulation des tensions) : on peut
+  // réduire la boutique à son seul bandeau-titre pour rendre la carte au regard.
+  const [open, toggleOpen] = useCollapsiblePanel("shop", true);
 
   // Subscriptions to trigger component update on state mutations
   const stateBuildings = useGameState(s => ({ ...s.buildings }));
@@ -118,14 +122,22 @@ function BuildingShop() {
   )?.id;
 
   return (
-    <div className="panel shop-panel">
+    <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`}>
       <div className="panel-heading">
-        <div>
+        <button
+          type="button"
+          className="shop-collapse-toggle"
+          aria-expanded={open}
+          onClick={toggleOpen}
+          title={open ? "Réduire la boutique" : "Déplier la boutique"}
+        >
           <h2>Bâtiments</h2>
-        </div>
-        <BuyToolbar />
+          <span className="hud-panel-chevron" aria-hidden="true"></span>
+        </button>
+        {open && <BuyToolbar />}
       </div>
 
+      {open && (<>
       <div className="shop-controls-row">
         <div className="shop-subtabs" role="tablist" aria-label="Catégories de bâtiments">
           {TABS.map((tab) => {
@@ -140,7 +152,7 @@ function BuildingShop() {
                 role="tab"
                 aria-selected={activeTab === tab.id}
               >
-                {tab.label}
+                <span className="subtab-label">{tab.label}</span>
                 {n > 0 && <span className="subtab-badge" title={`${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`}>{n}</span>}
               </button>
             );
@@ -216,6 +228,7 @@ function BuildingShop() {
           );
         })()}
       </div>
+      </>)}
     </div>
   );
 }

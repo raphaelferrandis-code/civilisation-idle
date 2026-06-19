@@ -6,7 +6,17 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, clamp01, multLabel } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
+import RollingNumber from './RollingNumber.jsx';
+
+/* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
+function exactLabel(value) {
+  const n = typeof value?.toNumber === "function" ? value.toNumber() : value;
+  if (!Number.isFinite(n)) {
+    return typeof value?.toExponential === "function" ? value.toExponential(3) : String(value);
+  }
+  return Math.round(n).toLocaleString("fr-FR");
+}
 
 function mood(value, labels) {
   if (value >= 0.95) return labels[3];
@@ -94,14 +104,16 @@ export default function Topbar() {
                 <span className="resource-icon"><i className={`fa-solid ${c.icon}`}></i></span>
                 <span className="resource-name">{c.name}</span>
               </div>
-              <span className="resource-value" id={c.valueId}>{fmt(c.value)}</span>
+              <span className="resource-value" id={c.valueId} title={`${c.name} : ${exactLabel(c.value)}`}>
+                <RollingNumber value={c.value} format={fmtShort} />
+              </span>
             </div>
             <div className="resource-rate-row">
               <span className={`rate-value ${rateClass(c.rate)}`}>
                 <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
                 <strong id={c.rateId}>
-                  {rateSign(c.rate)}{fmt(c.rate)}
-                  {c.key === "infrastructure" && showNomadCap ? ` (cap ${fmt(nomadCap)})` : ""}
+                  {rateSign(c.rate)}{fmtShort(c.rate)}
+                  {c.key === "infrastructure" && showNomadCap ? ` (cap ${fmtShort(nomadCap)})` : ""}
                 </strong> / sec
               </span>
             </div>

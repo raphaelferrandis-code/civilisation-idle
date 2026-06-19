@@ -4,7 +4,8 @@ import {
   state,
   gamePaused,
   collapseInProgress,
-  bumpFrame
+  bumpFrame,
+  isNotifyPaused
 } from '../state.js';
 
 import {
@@ -19,8 +20,12 @@ import {
   has,
   policyRiseSlow,
   policyOvershootDamp,
-  scarcityRawInstant
+  scarcityRawInstant,
+  totalBuildingCount
 } from '../mechanics.js';
+
+import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { BOONS } from '../../data/boons.js';
 
 import {
   checkCrisisThresholds,
@@ -36,9 +41,9 @@ import {
   checkAutoScriptRules
 } from './automation.js';
 
-import { log } from './utils.js';
+import { log, chronicle } from './utils.js';
 import { eras, eraTier } from '../../data/world.js';
-import { clamp01, canPayCost } from '../utils.js';
+import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
 import {
@@ -50,7 +55,16 @@ import {
   FATIGUE_HALF_LIFE_S,
   SCARCITY_EASE_HALF_LIFE_S,
   INEQUALITY_EASE_HALF_LIFE_S,
-  INEQUALITY_RESERVE_CAP_S
+  INEQUALITY_RESERVE_CAP_S,
+  INFRA_COVERAGE_POP_FACTOR,
+  INFRA_COVERAGE_BUILDING_FACTOR,
+  INFRA_COVERAGE_MIN_BASE,
+  INFRA_UPKEEP_TOLERANCE,
+  INFRA_UPKEEP_DECAY_RATE,
+  STAGNATION_RUPTURE_THRESHOLD,
+  STAGNATION_RECOVER_MULT,
+  BOON_INTERVAL_MIN_SEC,
+  BOON_INTERVAL_MAX_SEC
 } from '../balance.js';
 import {
   ATLAS_LEGIT_PASSIVE_RATE,
@@ -85,6 +99,22 @@ export function tick(dt) {
 
   enforceInfrastructureCap();
 
+  // A2 — Entretien : l'infra excédentaire (au-delà de INFRA_UPKEEP_TOLERANCE × la
+  // demande de couverture) se dégrade. Le stock n'étant jamais consommé, il
+  // saturait sinon la couverture et éteignait la Rupture. La part « utile » (sous
+  // le seuil) n'est JAMAIS touchée → aucune spirale de mort pour une cité
+  // sous-équipée. Calcul Decimal : sûr au-delà du float.
+  {
+    const infraDemand = D(state.population).mul(INFRA_COVERAGE_POP_FACTOR)
+      .max(totalBuildingCount() * INFRA_COVERAGE_BUILDING_FACTOR)
+      .max(INFRA_COVERAGE_MIN_BASE);
+    const surplus = D(state.infrastructure).sub(infraDemand.mul(INFRA_UPKEEP_TOLERANCE));
+    if (surplus.gt(0)) {
+      const decay = surplus.mul(Math.min(1, INFRA_UPKEEP_DECAY_RATE * dt));
+      state.infrastructure = D(state.infrastructure).sub(decay).max(0);
+    }
+  }
+
   if (isMythEffectActive("mythe_atrides")) {
     // La dette Atrides reste un number natif (mythe de milieu de partie) :
     // on borne à MAX_VALUE pour ne jamais propager Infinity.
@@ -96,6 +126,15 @@ export function tick(dt) {
       state.atridesDebtGrowthMultiplier = 1;
       log("Les accords de renegociation ont expire. La dette de la cite reprend sa croissance normale.");
     }
+  }
+
+  // A6 — Stagnation : tant que la Rupture reste sous le seuil, la cité « stagne »
+  // et le compteur monte (timeWearRate l'utilise pour accélérer l'Usure) ; dès
+  // que la tension repasse au-dessus, il retombe STAGNATION_RECOVER_MULT× plus vite.
+  if (state.instability < STAGNATION_RUPTURE_THRESHOLD) {
+    state.stagnationSec = (state.stagnationSec || 0) + dt;
+  } else {
+    state.stagnationSec = Math.max(0, (state.stagnationSec || 0) - dt * STAGNATION_RECOVER_MULT);
   }
 
   state.timeWear = clamp01((state.timeWear || 0) + timeWearRate() * dt);
@@ -172,6 +211,8 @@ export function tick(dt) {
   const currentEra = currentEraIndex();
   if (currentEra > peaks.eraIndex) {
     peaks.eraIndex = currentEra;
+    // B1 — Célébration : chaque nouvelle ère franchie ce cycle (float doré).
+    if (!isNotifyPaused()) pushOutcomeFloat({ label: `🏛️ Ère : ${eras[currentEra].name}`, kind: "gain" });
     if (currentEra > (state.bestEraIndex || 0)) {
       const prevTier = eraTier(state.bestEraIndex || 0);
       state.bestEraIndex = currentEra;
@@ -187,6 +228,14 @@ export function tick(dt) {
 
   if (state.atlasHeritage) {
     state.atlasLegitimite = Math.min(100, (state.atlasLegitimite || 50) + ATLAS_LEGIT_PASSIVE_RATE * dt);
+  }
+
+  // B1/B2 — Récompenses régulières (jalon de population doré + aubaines). Sautées
+  // pendant la simulation hors-ligne (notifications suspendues) pour ne pas
+  // créditer des milliers d'aubaines ni empiler les floats au retour.
+  if (!isNotifyPaused()) {
+    celebratePopMilestone();
+    maybeFireBoon(r);
   }
 
   if (runMythTicks(state, dt) === "abort") return;
@@ -222,4 +271,40 @@ export function tick(dt) {
   if (crisisOpen() && !state.crisisLimitAnnounced && !collapseInProgress) {
     triggerCollapseChoices(false);
   }
+}
+
+// B1 — Célèbre chaque puissance de 10 de population franchie ce cycle (float
+// doré). `popMilestoneExp` retient le dernier palier fêté (reset au cycle) pour
+// ne pas répéter le même. Seuil ≥ 2 (100 hab) pour ignorer les pics minuscules.
+function celebratePopMilestone() {
+  const popF = toNum(state.population);
+  const popExp = Number.isFinite(popF)
+    ? Math.floor(Math.log10(Math.max(1, popF)))
+    : Math.floor(toNum(D(state.population).max(1).log10()));
+  if (popExp >= 2 && popExp > (state.popMilestoneExp || 0)) {
+    state.popMilestoneExp = popExp;
+    pushOutcomeFloat({ label: `👥 ${fmt(state.population)} habitants !`, kind: "gain" });
+  }
+}
+
+// B2 — Délai aléatoire (ms) avant la prochaine aubaine (fenêtre douce).
+function scheduleBoonDelay() {
+  const span = BOON_INTERVAL_MAX_SEC - BOON_INTERVAL_MIN_SEC;
+  return (BOON_INTERVAL_MIN_SEC + Math.random() * span) * 1000;
+}
+
+// B2 — Déclenche une aubaine quand son horloge est échue : une ressource est
+// créditée de N secondes de sa PRODUCTION COURANTE (pertinent à toute échelle),
+// avec un float doré et une dépêche de Chronique. Reprogramme l'horloge ensuite.
+function maybeFireBoon(r) {
+  const now = Date.now();
+  if (!state.nextBoonAt) { state.nextBoonAt = now + scheduleBoonDelay(); return; }
+  if (now < state.nextBoonAt) return;
+  state.nextBoonAt = now + scheduleBoonDelay();
+  const boon = BOONS[Math.floor(Math.random() * BOONS.length)];
+  const gain = D(r[boon.resource]).max(0).mul(boon.seconds).floor();
+  if (gain.lte(0)) return; // production nulle sur cette ressource : pas d'aubaine vide
+  state[boon.resource] = D(state[boon.resource]).add(gain);
+  pushOutcomeFloat({ label: `${boon.icon} +${fmt(gain)}`, kind: "gain" });
+  chronicle(boon.chronicle(fmt(gain)));
 }

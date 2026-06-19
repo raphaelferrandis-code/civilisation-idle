@@ -100,6 +100,7 @@
 
 .shop-list {
   display: grid;
+  align-content: start;
   gap: 0.65rem;
 }
 
@@ -897,6 +898,7 @@
 
 .shop-panel .shop-subtabs {
   display: flex;
+  width: 100%;
   gap: 0.4rem;
   margin-bottom: 0;
   padding: 0.25rem;
@@ -906,24 +908,37 @@
 }
 
 .shop-subtab {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 2.45rem;
-  padding: 0 0.85rem;
+  padding: 0 0.4rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.01em;
+  /* overflow visible : la pastille de notif (absolue, au-dessus) ne doit PAS
+     être rognée. L'ellipse éventuelle du libellé est gérée par .subtab-label. */
+  overflow: visible;
+}
+
+/* Libellé d'onglet : c'est lui qui s'élide si la fenêtre est trop étroite,
+   pas l'onglet (sinon il rognerait la pastille). */
+.subtab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shop-subtab.active {
   border-color: var(--gold);
-  background: color-mix(in srgb, var(--gold), transparent 82%);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 16%);
   color: var(--gold-bright);
-  box-shadow: 0 0 10px rgba(var(--era-rgb), 0.28), inset 0 1px 0 rgba(var(--era-rgb), 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .shop-cat { display: none; }
@@ -3695,24 +3710,126 @@
   padding-right: 0.3rem;
 }
 
+/* ── Boutique pliable (même geste que la Régulation des tensions) ──
+   Le titre « Bâtiments » devient un bouton-chevron : il replie la boutique à
+   son seul bandeau, libérant la carte. */
+.shop-panel .shop-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-panel .shop-collapse-toggle:hover:not(:disabled),
+.shop-panel .shop-collapse-toggle:focus-visible {
+  background: none;
+  box-shadow: none;
+  transform: none;
+  color: inherit;
+}
+.shop-panel .shop-collapse-toggle h2 {
+  margin: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+/* La barre de modes (x1…Max) passe SOUS le titre → le titre « Bâtiments » n'est
+   jamais tronqué, même quand « Max » apparaît (réforme administrative). */
+.shop-panel .panel-heading {
+  flex-wrap: wrap;
+  row-gap: 0.55rem;
+}
+.shop-panel .panel-heading .buy-toolbar {
+  flex: 1 1 100%;
+  width: auto;
+}
+.shop-panel .panel-heading .buy-modes {
+  display: flex;
+  width: 100%;
+  gap: 0.3rem;
+}
+.shop-panel .panel-heading .buy-mode {
+  flex: 1;
+  min-width: 0;
+}
+.shop-panel .shop-collapse-toggle .hud-panel-chevron {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  transition: transform 0.2s ease;
+}
+.shop-panel.is-collapsed .shop-collapse-toggle .hud-panel-chevron {
+  transform: rotate(-90deg);
+}
+/* Replié : on annule la marge qui réservait l'espace du corps et le filet du
+   bas (rien dessous) → bandeau-titre net, comme la Régulation repliée. */
+.shop-panel.is-collapsed .panel-heading {
+  margin-bottom: -1rem;
+  border-bottom: 0;
+  padding-bottom: 0.7rem;
+}
+
 /* ── Îlots d'achat allégés : moins de cadres, coins doux ──
    On retire la bordure + le fond opaque des rangées ; seule la rangée
    ACHETABLE prend un léger voile doré, le reste s'efface. */
-.city-shop-dock .shop-list { gap: 0.3rem; }
+/* Rangées hautes (info + bouton empilés) : forcer chaque piste de la grille à la
+   hauteur du contenu. Sinon la piste auto retombe sur le min-height 4rem de la
+   rangée → le bouton déborde de 65px et chevauche le bâtiment suivant (visible
+   seulement une fois plusieurs bâtiments empilés). */
+.city-shop-dock .shop-list { gap: 1rem; grid-auto-rows: max-content; }
 .city-shop-dock .purchase-row {
-  border: 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.022);
-  transition: background 150ms ease;
+  /* Contour ornemental (asset Kenney, cf. frames.css) autour de CHAQUE carte —
+     8px : un peu plus fin que les panneaux pour ne pas alourdir. */
+  border: 8px solid transparent;
+  border-image: url(../assets/ui/topbar-frame.png) 12 stretch;
+  border-radius: 0;
+  /* Fond bleu-nuit comme la headbar (onglets) → cartes solides et lisibles. */
+  background: color-mix(in srgb, var(--surface-panel), transparent 10%);
+  transition: background 150ms ease, opacity 150ms ease;
 }
+
+/* Dock étroit (~290px) : le @media viewport ne se déclenche pas (viewport large,
+   colonne étroite). On stacke ici le bouton SOUS l'info pour rendre toute la
+   largeur au nom du bâtiment → plus de troncature « CUEIL… ». Hauteur identique
+   d'une rangée à l'autre (même structure partout). */
+.city-shop-dock .purchase-row:not(.pr-locked) {
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  row-gap: 0.7rem;
+  align-items: center;
+  min-height: 0;
+  padding: 0.8rem 0.8rem 0.9rem;
+}
+.city-shop-dock .purchase-row:not(.pr-locked) .btn-purchase {
+  /* Décalé à droite : démarre sous le NOM (colonne icône laissée vide) → casse la
+     symétrie « tout centré ». Contenu réparti : action à gauche, coût à droite. */
+  grid-column: 2 / -1;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.3rem;
+  height: auto;
+  padding: 0.35rem 0.85rem;
+}
+
 .city-shop-dock .purchase-row.is-affordable {
-  background: color-mix(in srgb, var(--gold), transparent 90%);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
 }
 .city-shop-dock .purchase-row.is-affordable:hover {
-  background: color-mix(in srgb, var(--gold), transparent 82%);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 15%);
 }
 .city-shop-dock .purchase-row.is-locked-cost {
-  background: rgba(255, 255, 255, 0.012);
+  background: color-mix(in srgb, var(--surface-panel), transparent 22%);
 }
 .city-shop-dock .purchase-row[data-tier="5"] {
   box-shadow: none;
@@ -3727,6 +3844,52 @@
 .city-shop-dock .btn-purchase {
   border-radius: 13px;
 }
+
+/* ── Bouton d'achat : laiton patiné élégant (PAS un jaune pétard), texte sombre,
+   léger relief. Clairement actif vs désactivé, sans crier. Le 1er achat possible
+   garde le pulse comme repère (hiérarchie : un seul point focal). ── */
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) {
+  background: linear-gradient(180deg,
+              color-mix(in srgb, var(--gold), #fff 6%),
+              color-mix(in srgb, var(--gold), #000 18%));
+  border: 1px solid color-mix(in srgb, var(--gold-bright), transparent 50%);
+  color: #2a1d08;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.32);
+}
+/* Hiérarchie interne : l'action prime, le coût recule (texte plus clair). */
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-action {
+  font-weight: 800;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-cost-item {
+  color: #4a360f;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-cost-item i {
+  opacity: 0.65;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled):hover {
+  background: linear-gradient(180deg,
+              color-mix(in srgb, var(--gold-bright), #fff 4%),
+              var(--gold));
+  border-color: var(--gold-bright);
+  transform: translateY(-1px);
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.city-shop-dock .btn-purchase:disabled {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: var(--text-disabled);
+  box-shadow: none;
+}
+
+/* Hiérarchie : l'abordable ressort, l'inabordable s'efface davantage. */
+.city-shop-dock .purchase-row.is-locked-cost { opacity: 0.58; }
+
+/* Rareté de palier : portée par le badge ⚡ coloré (le cadre fait désormais la
+   définition de la carte ; un liseré en plus ferait doublon avec son bord). */
 
 /* « Cité modeste » se loge juste à droite du nom (plus en bout de ligne). */
 .city-stage-hud .city-title-wrapper {
@@ -3811,33 +3974,39 @@
   height: 100% !important;
 }
 
-/* ---- Ressources : barre haute en overlay translucide ---- */
+/* ---- Ressources : plaque antique encadrée flottant en haut de la carte ----
+   La plaque (.topbar-resources, cf. components.css) porte le voile + le cadre or ;
+   le conteneur .topbar ne sert plus qu'au positionnement et à la marge de bord. */
 .app[data-active-view="city"] .topbar {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 30;
   margin: 0;
-  padding: 0.55rem 0.8rem 1.4rem;
-  background: linear-gradient(180deg, rgba(18, 20, 26, 0.5) 0%, rgba(18, 20, 26, 0.1) 60%, transparent 100%);
+  padding: 0.7rem 0.9rem 0;
+  background: none;
   pointer-events: none;
 }
-.app[data-active-view="city"] .topbar .resource-card-unified {
+.app[data-active-view="city"] .topbar-resources {
   pointer-events: auto;
-  background: rgba(32, 37, 48, 0.42) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(255, 255, 255, 0.09);
+}
+.app[data-active-view="city"] .topbar .resource-card-unified {
+  background: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
 }
 
-/* ---- Identité : nom + jauge, juste sous les ressources ---- */
+/* ---- Identité : encart encadré (nom + jauge de rupture), sous les ressources.
+   Le cadre or vient de frames.css (.city-stage-hud y est listé). ---- */
 .app[data-active-view="city"] .city-stage-hud {
-  inset: 5.2rem auto auto 0;
-  width: min(42rem, 62%);
-  padding: 0.7rem 1.7rem 1.7rem 1.4rem;
-  /* Voile sombre doux (sans bord franc) derrière le nom + la jauge, pour les
-     décoller de la carte chargée. */
-  background: radial-gradient(135% 155% at 5% 26%, rgba(5, 7, 9, 0.88) 0%, rgba(5, 7, 9, 0.52) 38%, rgba(5, 7, 9, 0) 72%);
+  inset: 5.4rem auto auto 1rem;
+  width: clamp(22rem, 32vw, 32rem);
+  padding: 0.5rem 1rem 0.65rem;
+  background: rgba(13, 15, 23, 0.66);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
+.app[data-active-view="city"] .city-stage-hud .stability-gauge { width: 100%; }
 
 /* ---- Chronique : carte du rail gauche, n'apparaît que sur notif (slide-in) ---- */
 .app[data-active-view="city"] .chronicle-ticker {
@@ -3887,26 +4056,122 @@
   to   { opacity: 1; transform: none; }
 }
 
-/* ---- Mythes / exhume : pile gauche, sous la chronique ---- */
+/* ---- Rail gauche : dock d'icônes + popover, sous l'encart identité ---- */
 .app[data-active-view="city"] .city-aux {
   position: absolute;
   left: 1rem;
-  top: 12rem;
-  bottom: 6.5rem;
-  width: clamp(18rem, 24vw, 24rem);
+  top: 15.5rem;
   z-index: 20;
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.55rem;
+  pointer-events: none;
+}
+
+.hud-dock {
+  display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+.hud-dock:empty { display: none; }
+
+.hud-dock-btn {
+  position: relative;
+  width: 2.9rem;
+  height: 2.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-card);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  background: rgba(13, 15, 23, 0.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--gold-bright);
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.hud-dock-btn:hover { border-color: var(--gold); background: rgba(20, 23, 33, 0.82); }
+.hud-dock-btn:active { transform: scale(0.95); }
+.hud-dock-btn.is-active {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold), transparent 80%);
+}
+
+.hud-dock-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  color: #16100a;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-dock-dot {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--r-pill);
+  background: var(--res-know);
+  box-shadow: 0 0 0 2px rgba(13, 15, 23, 0.85);
+}
+.hud-dock-dot--gold { background: var(--gold-bright); }
+
+.hud-pop {
+  width: clamp(18rem, 24vw, 24rem);
+  max-height: calc(100vh - 16rem);
   overflow-y: auto;
   pointer-events: auto;
 }
-.app[data-active-view="city"] .city-aux:empty { display: none; }
+.hud-pop-title {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-title);
+  font-size: 1rem;
+  color: var(--gold-bright);
+}
+.hud-pop-desc {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.hud-pop--myths {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+/* Chronique dans le popover : à plat (l'encart .panel fournit le cadre) */
+.app[data-active-view="city"] .hud-pop .chronicle-ticker {
+  position: static;
+  width: 100%;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  animation: none;
+}
 
 /* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */
 .app[data-active-view="city"] .city-shop-dock {
   top: 5.2rem;
   bottom: 1rem;
+}
+/* Boutique repliée : le dock se dé-stretch et se contracte sur la hauteur du
+   seul bandeau-titre, libérant la carte (au lieu d'un panneau de verre vide). */
+.app[data-active-view="city"] .city-shop-dock:has(.shop-panel.is-collapsed) {
+  bottom: auto;
 }
 
 /* ---- Régulation : barre basse en overlay (libère la place du dock à droite) ---- */

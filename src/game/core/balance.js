@@ -329,3 +329,48 @@ export const IDLE_CAP_PALIERS = {
 // Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
 // Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
 export const OFFLINE_MAX_COLLAPSES = 20;
+
+// ── A1 · Démesure (hubris d'échelle) ─────────────────────────────────────────
+// Problème : tous les foyers de Rupture sont plafonnés en doux et la mitigation
+// (couverture d'infra + légitimité) peut ramener la cible sous 1.0 → « tout
+// acheter » fige la jauge et l'effondrement par Rupture devient impossible.
+// La Démesure est un SOCLE d'instabilité qui croît avec la taille de la cité,
+// ajouté APRÈS la mitigation (la couverture/légitimité ne peut pas l'effacer) et
+// SANS plafond : la grandeur elle-même engendre une tension irréductible. Sous
+// DEMESURE_FREE_LOG_POP habitants (10^4 = 10 000), aucune Démesure → l'early game
+// et le début de chaque cycle restent intacts.
+export const DEMESURE_FREE_LOG_POP = 4;   // pop sous 10^4 : Démesure nulle
+export const DEMESURE_COEF = 0.06;        // pression par décade de population au-delà du seuil
+
+// ── A2 · Entretien de l'infrastructure (résorption du surplus) ───────────────
+// L'infra n'est jamais consommée : sur un long cycle, son stock dépasse
+// mécaniquement la demande et sature la couverture (Rupture éteinte, cf.
+// INFRA_COVERAGE_EFFECTIVE_CAP). On fait DÉGRADER l'infra excédentaire — au-delà
+// de INFRA_UPKEEP_TOLERANCE × la demande de couverture — à INFRA_UPKEEP_DECAY_RATE
+// par seconde. Une cité bien dimensionnée n'est pas touchée ; une cité
+// sur-équipée (ou laissée seule pendant que sa population fond) perd son surplus
+// → la couverture ne peut plus trivialiser la jauge, et l'entretien redevient
+// une préoccupation active. Ne touche JAMAIS l'infra « utile » (sous le seuil) :
+// pas de spirale de mort pour une cité sous-équipée.
+export const INFRA_UPKEEP_TOLERANCE = 3;     // surplus toléré : 3× la demande (aligné sur la couverture effective max)
+export const INFRA_UPKEEP_DECAY_RATE = 0.03; // 3 %/s de résorption de la part excédentaire
+
+// ── A6 · Stagnation (Usure accélérée d'une cité sur-stabilisée) ──────────────
+// Une cité qui maintient sa Rupture durablement basse se sclérose : le temps
+// (Usure) s'accélère. Punir la « tortue » sur-stabilisée, complément de la
+// Démesure (qui, elle, vise les grosses cités). La jauge de stagnation monte
+// d'1 s par seconde passée sous le seuil de Rupture, et redescend
+// STAGNATION_RECOVER_MULT× plus vite dès que la tension repasse au-dessus.
+export const STAGNATION_RUPTURE_THRESHOLD = 0.5; // sous ce niveau de Rupture, la cité « stagne »
+export const STAGNATION_USURE_RAMP_SEC = 300;    // 5 min de calme ⇒ +1.0 au multiplicateur d'Usure
+export const STAGNATION_USURE_MAX_BONUS = 2;     // plafond : Usure ×3 au maximum
+export const STAGNATION_RECOVER_MULT = 3;        // vitesse de retombée de la jauge quand la Rupture remonte
+
+// ── B2 · Aubaines (petites récompenses ponctuelles) ──────────────────────────
+// Fenêtre aléatoire entre deux aubaines : un cadeau « gratuit » toutes les
+// ~5-30 min, indexé sur la production courante (cf. boons.js) → pertinent à
+// toutes les échelles. Rythme volontairement espacé pour rester un petit
+// événement qu'on remarque, pas un flux. L'horloge (state.nextBoonAt) court en
+// temps RÉEL et n'est PAS réinitialisée à l'effondrement : indépendante du cycle.
+export const BOON_INTERVAL_MIN_SEC = 300;   // 5 min
+export const BOON_INTERVAL_MAX_SEC = 1800;  // 30 min

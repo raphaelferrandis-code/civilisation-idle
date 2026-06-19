@@ -48,6 +48,10 @@ export const subscribe = (listener) => {
 // — on ne re-rend qu'une fois à la fin, sinon le boot se fige.
 let notifyPaused = false;
 export const setNotifyPaused = (paused) => { notifyPaused = Boolean(paused); };
+// Lecture du drapeau : les effets cosmétiques/aléatoires du tick (aubaines,
+// floats de jalons) sont sautés pendant la simulation hors-ligne, qui suspend
+// les notifications et rejoue des milliers de ticks d'un coup.
+export const isNotifyPaused = () => notifyPaused;
 export const notify = () => {
   if (notifyPaused) return;
   listeners.forEach(l => l());
@@ -125,6 +129,14 @@ export const defaultState = () => ({
   surchauffeCooldownEnd: 0,
   instability: 0,
   timeWear: 0,
+  // A6 — Temps cumulé (s) passé sous le seuil de Rupture « stagnation » : monte
+  // l'Usure d'une cité sur-stabilisée. Monte/descend dans le tick, reset au cycle.
+  stagnationSec: 0,
+  // B1 — Plus grande puissance de 10 de population déjà célébrée ce cycle (évite
+  // de re-déclencher le même jalon). Reset au cycle → la croissance se re-fête.
+  popMilestoneExp: 0,
+  // B2 — Horodatage (ms) de la prochaine aubaine. 0 = à programmer au 1er tick.
+  nextBoonAt: 0,
   crisisActions: {
     rationing: 0,
     festivals: 0,
@@ -798,6 +810,11 @@ export function hydrateState(parsed = {}) {
     nextEpitaphLegacy: normalizeEpitaphLegacy(source.nextEpitaphLegacy),
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
+    stagnationSec: finiteNumber(source.stagnationSec, base.stagnationSec, 0),
+    popMilestoneExp: finiteInteger(source.popMilestoneExp, base.popMilestoneExp, 0),
+    // Horodatage futur (Date.now()+délai) : surtout PAS finiteTimestamp (qui
+    // plafonne à « maintenant » et casserait la programmation à venir).
+    nextBoonAt: finiteNumber(source.nextBoonAt, base.nextBoonAt, 0),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
@@ -948,6 +965,10 @@ export function resetTemporaryRunState(s) {
   if (s === state) buyAmount = 1;
   s.instability = 0;
   s.timeWear = 0;
+  // A6/B1 — repartent de zéro à chaque cycle : la stagnation se mesure sur le
+  // cycle courant, et la croissance de population se re-célèbre depuis le début.
+  s.stagnationSec = 0;
+  s.popMilestoneExp = 0;
   s.activeRuinIds = [];
   s.pendingActiveRuinsChoice = false;
   // defaultState() est l'unique source de vérité pour la forme de ces deux

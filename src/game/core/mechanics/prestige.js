@@ -18,7 +18,9 @@ import {
   GRAND_RESET_LEGIT_BASE,
   MYTH_GATE_START_GR,
   TIME_WEAR_BASE_RATE,
-  TIME_WEAR_MITIGATION_CAP
+  TIME_WEAR_MITIGATION_CAP,
+  STAGNATION_USURE_RAMP_SEC,
+  STAGNATION_USURE_MAX_BONUS
 } from '../balance.js';
 import {
   isMythEffectActive,
@@ -160,7 +162,12 @@ export function timeWearRate() {
   const hephMult         = isMythEffectActive("mythe_d_hephaistos") ? HEPH_USURE_MULT : 1;
   const eneeUsureMult    = (isMythEffectActive("mythe_d_enee") && state.eneeDegraded) ? ENEE_USURE_DEGRADED_MULT : 1;
   const activeRuinUsureMult = hasActiveRuin(state, "hephaistos") ? ACTIVE_RUIN_USURE_MULT : 1;
-  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
+  // A6 — Stagnation : une cité maintenue durablement sous le seuil de Rupture se
+  // sclérose, et le temps la rattrape d'autant plus vite. `stagnationSec` est
+  // accumulé dans le tick ; ici il majore l'Usure (jusqu'à ×(1+MAX)). À 0
+  // (cité jeune ou agitée) le facteur vaut exactement 1 → aucune régression.
+  const stagnationMult = 1 + Math.min(STAGNATION_USURE_MAX_BONUS, (state.stagnationSec || 0) / STAGNATION_USURE_RAMP_SEC);
+  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 
 export function legitimacyGain() {

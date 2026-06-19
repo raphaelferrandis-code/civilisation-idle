@@ -11,6 +11,7 @@ import {
   cmHash,
   cmIsBridgeRoad,
   cmWonderSlot,
+  cmWonderActive,
   WONDER_CLEAR_R
 } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
@@ -230,6 +231,154 @@ function cityMapDrawGround(layout) {
   g.addColorStop(1, "rgba(45,58,30,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, CM.cw, CM.ch);
+}
+
+/* ============================================================================
+ * Relief en trompe-l'œil — PROTOTYPE (option B)
+ *   La carte reste une grille plate vue de dessus. On ne FABRIQUE pas de vraie
+ *   altitude : on peint un *hillshade* (ombrage de pente) discret en soft-light
+ *   UNIQUEMENT sur le sol sauvage hors du cœur urbain + les berges du fleuve.
+ *   La ville (routes droites, bâtiments alignés) reste plate — sinon le relief
+ *   peint lirait comme un papier peint sous des objets plats.
+ *
+ *   Technique : champ de hauteur H(gx,gy) = vallée du fleuve + bruit de collines
+ *   (atténué dans la ville). On rend un petit buffer basse résolution (1 texel ≈
+ *   TERR_TEXEL px), recalculé seulement quand la caméra/le plan bouge, puis blit
+ *   upscalé (lissage bilinéaire = pentes douces) en composite "soft-light".
+ *   Curseurs en tête de fonction pour ajuster l'intensité.
+ * ============================================================================ */
+const CM_TERRAIN = { buf: null, bctx: null, W: 0, H: 0, key: "" };
+
+// Hash entier 2D sans allocation (≠ cmHash qui concatène une chaîne) : sûr en
+// boucle chaude sur des milliers de texels par recalcul.
+function cmIHash2(ix, iy, seed) {
+  let h = (Math.imul(ix | 0, 73856093) ^ Math.imul(iy | 0, 19349663) ^ (seed | 0)) >>> 0;
+  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15;
+  return (h >>> 0) / 4294967295;
+}
+// Value-noise 2D lissé (smoothstep) sur réseau entier — ondulations continues.
+function cmValueNoise(x, y, seed) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = cmIHash2(xi, yi, seed),     b = cmIHash2(xi + 1, yi, seed);
+  const c = cmIHash2(xi, yi + 1, seed), d = cmIHash2(xi + 1, yi + 1, seed);
+  const ab = a + (b - a) * u, cd = c + (d - c) * u;
+  return ab + (cd - ab) * v; // 0..1
+}
+
+function cityMapDrawTerrain() {
+  const L = CM.layout;
+  if (!L) return;
+
+  // ── Curseurs (à régler à l'œil) ──────────────────────────────────────────
+  const TERR_TEXEL   = 9;    // px écran par texel du buffer (petit = plus net, + cher)
+  const HILL_AMP     = 1.35; // amplitude des collines (unités-tuile arbitraires)
+  const HILL_BIG     = 9.0;  // taille des grandes ondulations (tuiles)
+  const HILL_DETAIL  = 3.3;  // taille du détail (tuiles)
+  const VALLEY_AMP   = 1.25; // creux de la vallée du fleuve
+  const VALLEY_WIDTH = 6.5;  // largeur du flanc de vallée (tuiles)
+  const CONTRAST     = 115;  // écart de gris du hillshade (0..255 autour de 128)
+  const STRENGTH     = 0.55; // intensité globale du soft-light (0 = rien)
+
+  const z = CM.cam.zoom, T = CM.TILE;
+  const seed = (state && state.mapSeed) ? (state.mapSeed | 0) : 1234567;
+  const eraIndex = (L.counts && L.counts.eraIndex) || 0;
+  const urbanTier = (L.counts && L.counts.urbanTier) || 0;
+  const coreX = (L.plan && L.plan.core ? L.plan.core.x : L.cx);
+  const coreY = (L.plan && L.plan.core ? L.plan.core.y : L.cy);
+  // Rayon « plat » : on calque sur le halo urbain (cf. cityMapDrawUrbanMass) pour
+  // que les collines ne démarrent qu'au-delà de la masse bâtie.
+  const flatR = 6 + eraIndex * 3.8 + urbanTier * 7;
+  const fadeEnd = flatR + 8;
+  const river = L.river;
+  const hasRiver = !!(river && river.present);
+  const riverYAt = hasRiver && river.riverYAt ? river.riverYAt : null;
+
+  // smoothstep(edge0, edge1, x)
+  const ss = (e0, e1, x) => {
+    const t = Math.max(0, Math.min(1, (x - e0) / Math.max(0.0001, e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  const hillStrengthAt = (gx, gy) => ss(flatR, fadeEnd, Math.hypot(gx - coreX, gy - coreY));
+  const valleyHAt = (gx, gy) => {
+    if (!riverYAt) return 0;
+    const d = Math.abs(gy - riverYAt(gx));
+    return VALLEY_AMP * Math.min(1, d / VALLEY_WIDTH); // 0 au fleuve → plateau au loin
+  };
+  // Champ de hauteur : vallée (toujours) + collines atténuées dans la ville.
+  const heightAt = (gx, gy) => {
+    const hs = hillStrengthAt(gx, gy);
+    let hills = 0;
+    if (hs > 0.001) {
+      hills = (cmValueNoise(gx / HILL_BIG, gy / HILL_BIG, seed) * 0.7
+        + cmValueNoise(gx / HILL_DETAIL, gy / HILL_DETAIL, seed + 101) * 0.3) * HILL_AMP * hs;
+    }
+    return valleyHAt(gx, gy) + hills;
+  };
+  // Présence (alpha) : périphérie (collines) OU proximité du fleuve (vallée).
+  const presenceAt = (gx, gy) => {
+    const hill = hillStrengthAt(gx, gy);
+    let valley = 0;
+    if (riverYAt) valley = Math.max(0, 1 - Math.abs(gy - riverYAt(gx)) / (VALLEY_WIDTH + 1.5)) * 0.7;
+    return Math.min(1, Math.max(hill, valley));
+  };
+
+  // ── Buffer basse résolution (recalcul mis en cache sur la clé caméra/plan) ─
+  const W = Math.max(2, Math.ceil(CM.cw / TERR_TEXEL));
+  const H = Math.max(2, Math.ceil(CM.ch / TERR_TEXEL));
+  const key = `${Math.round(CM.cam.x)}:${Math.round(CM.cam.y)}:${z.toFixed(3)}:${CM.layoutRecomputeAt}:${W}x${H}`;
+  if (key !== CM_TERRAIN.key || !CM_TERRAIN.buf) {
+    if (!CM_TERRAIN.buf || CM_TERRAIN.W !== W || CM_TERRAIN.H !== H) {
+      CM_TERRAIN.buf = typeof OffscreenCanvas !== "undefined"
+        ? new OffscreenCanvas(W, H)
+        : (() => { const el = document.createElement("canvas"); el.width = W; el.height = H; return el; })();
+      CM_TERRAIN.buf.width = W; CM_TERRAIN.buf.height = H;
+      CM_TERRAIN.bctx = CM_TERRAIN.buf.getContext("2d");
+      CM_TERRAIN.W = W; CM_TERRAIN.H = H;
+    }
+    const bctx = CM_TERRAIN.bctx;
+    const img = bctx.createImageData(W, H);
+    const data = img.data;
+    const dd = 0.8; // pas de différence finie pour la pente (tuiles)
+    // texel → écran → monde(tuiles)
+    const sxPerTexel = CM.cw / W, syPerTexel = CM.ch / H;
+    const worldGxAt = (px) => ((px - CM.cw / 2) / z + CM.cam.x) / T;
+    const worldGyAt = (py) => ((py - CM.ch / 2) / z + CM.cam.y) / T;
+    for (let ty = 0; ty < H; ty += 1) {
+      const gy = worldGyAt((ty + 0.5) * syPerTexel);
+      for (let tx = 0; tx < W; tx += 1) {
+        const gx = worldGxAt((tx + 0.5) * sxPerTexel);
+        const a = presenceAt(gx, gy);
+        const o = (ty * W + tx) * 4;
+        if (a <= 0.003) { data[o + 3] = 0; continue; }
+        // Pente : lumière en haut-gauche (cohérent avec les ombres d'arbres/murs).
+        const dHdx = heightAt(gx + dd, gy) - heightAt(gx - dd, gy);
+        const dHdy = heightAt(gx, gy + dd) - heightAt(gx, gy - dd);
+        const shade = dHdx + dHdy; // >0 face à la lumière (clair), <0 ombre
+        let grey = 128 + shade * CONTRAST;
+        grey = grey < 0 ? 0 : grey > 255 ? 255 : grey;
+        data[o] = data[o + 1] = data[o + 2] = grey;
+        data[o + 3] = Math.round(a * 255);
+      }
+    }
+    bctx.putImageData(img, 0, 0);
+    CM_TERRAIN.key = key;
+  }
+
+  // Blit upscalé + lissé (pentes douces) en soft-light : gris 128 = neutre,
+  // >128 éclaire le sol, <128 l'assombrit.
+  const ctx = CM.ctx;
+  const prevOp = ctx.globalCompositeOperation;
+  const prevSmooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.globalAlpha = STRENGTH;
+  ctx.drawImage(CM_TERRAIN.buf, 0, 0, CM.cw, CM.ch);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = prevOp;
+  ctx.imageSmoothingEnabled = prevSmooth;
 }
 
 function cityMapDrawVestiges() {
@@ -1676,7 +1825,7 @@ function cityMapRiotBlocked(gx, gy) {
   if (!CM.layout || !Array.isArray(state.wonders) || !state.wonders.length) return false;
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
-    if (!state.wonders.includes(w.id)) continue;
+    if (!cmWonderActive(w, state)) continue;
     const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
     if (Math.hypot(gx - slot.gx, gy - slot.gy) <= RIOT_WONDER_CLEAR_R) return true;
   }
@@ -2407,6 +2556,7 @@ export {
   baseColor,
   cityMapDrawBridges,
   cityMapDrawGround,
+  cityMapDrawTerrain,
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
   cityMapDrawMist,

@@ -11,6 +11,7 @@ import {
   ROAD_S,
   ROAD_W,
   cmWonderSlot,
+  cmWonderActiveIds,
   cmRoadName,
   computeCityLayout,
   cmCheckWonders,
@@ -27,6 +28,7 @@ import {
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import {
   cityMapDrawGround,
+  cityMapDrawTerrain,
   cityMapDrawRiver,
   cityMapDrawTrees,
   cityMapDrawVestiges,
@@ -211,9 +213,10 @@ function cityMapHitTest(sx, sy) {
     return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant" };
   }
   if (Array.isArray(state.wonders)) {
+    const activeWonders = cmWonderActiveIds(state);
     for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
       const w = CM_WONDERS[wi];
-      if (!state.wonders.includes(w.id)) continue;
+      if (!activeWonders.has(w.id)) continue;
       const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
       const wsx = (slot.gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
       const wsy = (slot.gy * CM.TILE + CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
@@ -411,7 +414,7 @@ function cityMapEnsureLayout(now, deps = {}) {
   // Les merveilles réservent leur clairière au prochain calcul du plan : leur
   // érection doit donc invalider le layout, sinon elles s'affichent par-dessus
   // les bâtiments existants jusqu'à la régénération suivante.
-  const wonderSig = Array.isArray(state.wonders) ? state.wonders.length : 0;
+  const wonderSig = cmWonderActiveIds(state).size;
   const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
@@ -436,7 +439,11 @@ function cityMapEnsureLayout(now, deps = {}) {
     seen[d.key] = true;
     if (!CM.born[d.key]) CM.born[d.key] = now;
   }
-  for (const k in CM.born) if (!seen[k]) delete CM.born[k];
+  // Les clés "wonder:*" sont gérées par la boucle de rendu (animation de levée à
+  // la (ré)érection) et NON par cette comptabilité de naissance des tuiles : ne
+  // pas les purger ici, sinon l'horodatage de naissance est effacé à chaque
+  // recalcul (donc à chaque achat) et l'animation d'apparition rejoue.
+  for (const k in CM.born) if (!seen[k] && !k.startsWith("wonder:")) delete CM.born[k];
 
   CM.layout = L;
   setCityMapEngineTileMap(L.engineTileMap);
@@ -502,7 +509,9 @@ function cityMapEnsureLayout(now, deps = {}) {
   for (const d of (L.districts || [])) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) occ.add((d.gx + ax) + "," + (d.gy + ay));
   }
+  const activeWonderOcc = cmWonderActiveIds(state);
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+    if (!activeWonderOcc.has(CM_WONDERS[wi].id)) continue;
     const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
     for (let dy = -WONDER_CLEAR_R; dy <= WONDER_CLEAR_R; dy += 1)
       for (let dx = -WONDER_CLEAR_R; dx <= WONDER_CLEAR_R; dx += 1)
@@ -749,6 +758,9 @@ function initCityMap(canvas, options = {}) {
       }
       // Sol + rivière d'abord (sous le canvas statique), puis blit
       cityMapDrawGround(CM.layout);
+      // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
+      // + berges, SOUS le fleuve et la ville (qui restent plats).
+      cityMapDrawTerrain();
       cityMapDrawRiver(now);
       // Brume/reflets : voiles clippés à l'eau, sous les bateaux, ponts,
       // routes et bâtiments.
@@ -820,9 +832,20 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawEraGlow(now);
       drawCrisis(dt, now);
       // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
+      // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) sont dessinées ;
+      // une merveille en sommeil (cité pas encore assez grande) rejouera son
+      // animation de levée quand l'ère atteindra son seuil — on (re)cale alors son
+      // horodatage de naissance, et on l'efface quand elle redevient dormante.
       if (CM.layout && Array.isArray(state.wonders)) {
+        const activeWonders = cmWonderActiveIds(state);
         for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-          if (state.wonders.includes(CM_WONDERS[wi].id)) drawWonder(CM_WONDERS[wi], wi, now);
+          const w = CM_WONDERS[wi];
+          if (activeWonders.has(w.id)) {
+            if (!CM.born["wonder:" + w.id]) CM.born["wonder:" + w.id] = now;
+            drawWonder(w, wi, now);
+          } else if (CM.born["wonder:" + w.id]) {
+            delete CM.born["wonder:" + w.id];
+          }
         }
       }
       drawVehicles(now, "air"); // drones au-dessus

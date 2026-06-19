@@ -41,6 +41,22 @@ export function formatScientificNumber(value) {
   return value.toExponential(2).replace("e+", "e");
 }
 
+// Compact à suffixes (K/M/B…Dc), puis scientifique au-delà du décillion (1e36).
+// Empiler des suffixes exotiques plus loin n'aide personne.
+export function formatCompactNumber(value) {
+  const sign = value < 0 ? "-" : "";
+  let v = Math.abs(value);
+  if (v < 1000) return `${sign}${v.toFixed(v < 10 ? 1 : 0)}`;
+  if (v >= 1e36) return formatScientificNumber(value);
+  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+  let i = -1;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i += 1;
+  }
+  return `${sign}${v.toFixed(v < 10 ? 2 : 1)}${units[i]}`;
+}
+
 export const fmt = (value) => {
   if (value instanceof Decimal) {
     const n = value.toNumber();
@@ -52,19 +68,21 @@ export const fmt = (value) => {
   if (!Number.isFinite(value)) return "inf";
   if (numberFormatMode === "full") return formatFullNumber(value);
   if (numberFormatMode === "scientific") return formatScientificNumber(value);
-  const sign = value < 0 ? "-" : "";
-  let v = Math.abs(value);
-  if (v < 1000) return `${sign}${v.toFixed(v < 10 ? 1 : 0)}`;
-  // Suffixes jusqu'au décillion (1e36), puis notation scientifique : empiler
-  // des suffixes exotiques au-delà n'aide personne.
-  if (v >= 1e36) return formatScientificNumber(value);
-  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
-  let i = -1;
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000;
-    i += 1;
+  return formatCompactNumber(value);
+};
+
+// Toujours compact, quel que soit le mode global (compact/full/scientific).
+// Réservé aux zones denses à largeur contrainte (rangées de la boutique) où un
+// nombre « full » de 20 chiffres déborderait sa cellule et chevaucherait les
+// rangées voisines. La valeur exacte reste accessible via les tooltips (title).
+export const fmtShort = (value) => {
+  if (value instanceof Decimal) {
+    const n = value.toNumber();
+    if (Number.isFinite(n)) return formatCompactNumber(n);
+    return value.toExponential(2).replace("e+", "e");
   }
-  return `${sign}${v.toFixed(v < 10 ? 2 : 1)}${units[i]}`;
+  if (!Number.isFinite(value)) return "inf";
+  return formatCompactNumber(value);
 };
 
 export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed(1)}%`;
@@ -93,6 +111,12 @@ export function clamp(value, min, max) {
 export function signed(value) {
   const isNegative = value instanceof Decimal ? value.lt(0) : value < 0;
   return `${isNegative ? "" : "+"}${fmt(value)}`;
+}
+
+// Variante toujours compacte (cf. fmtShort) pour les zones denses.
+export function signedShort(value) {
+  const isNegative = value instanceof Decimal ? value.lt(0) : value < 0;
+  return `${isNegative ? "" : "+"}${fmtShort(value)}`;
 }
 
 export function multLabel(value) {

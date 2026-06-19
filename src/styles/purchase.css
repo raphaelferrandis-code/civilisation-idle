@@ -96,9 +96,13 @@
   white-space: nowrap;
 }
 
-/* Badge palier unique (remplace "x256 atteint" + chip) */
+/* Badge palier unique (remplace "x256 atteint" + chip).
+   Icône ⚡ = signal « bonus de PRODUCTION » (sinon ×N ambigu : coût ? niveau ?) */
 .pr-milestone-badge {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
   padding: 0.08rem 0.4rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
   border-radius: var(--r-pill);
@@ -109,6 +113,8 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+.pr-milestone-badge i { font-size: 0.62rem; }
 
 /* Production : segments icône + valeur */
 .pr-prod {
@@ -158,21 +164,35 @@
   transition: width 200ms ease;
 }
 
-/* ----- Compteur fantôme (niveau possédé) ----- */
+/* ----- Compteur possédé (nb de bâtiments) : chip "×N" ancré -----
+   Avant : gros nombre gris flottant, confondu avec un coût/niveau.
+   Le préfixe × + le léger fond inset l'ancrent comme « quantité possédée ». */
 .pr-count {
   align-self: center;
-  min-width: 2.2rem;
+  justify-self: end;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.02rem;
+  padding: 0.06rem 0.42rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bg-inset), transparent 30%);
   font-family: var(--font-title);
-  font-size: 1.5rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  text-align: right;
-  color: color-mix(in srgb, var(--gold-bright), transparent 70%);
+  color: color-mix(in srgb, var(--gold-bright), transparent 45%);
   font-variant-numeric: tabular-nums;
   cursor: default;
 }
 
+.pr-count-x {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
 .purchase-row.is-affordable .pr-count {
-  color: color-mix(in srgb, var(--gold-bright), transparent 55%);
+  color: color-mix(in srgb, var(--gold-bright), transparent 25%);
+  background: color-mix(in srgb, var(--gold), transparent 85%);
 }
 
 /* ----- Bouton d'achat : action + coût intégré ----- */
@@ -194,7 +214,11 @@
   transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
 }
 
+/* min-width:0 : les enfants flex ne forcent pas la largeur de leur contenu au-delà
+   de la colonne fixe du bouton — garde-fou contre tout débordement sur les rangées
+   voisines (les nombres restent compacts via fmtShort, cf. PurchaseRow). */
 .btn-purchase .bp-action {
+  max-width: 100%;
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -206,6 +230,8 @@
   gap: 0.15rem 0.5rem;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
   font-size: var(--fs-cost);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -316,11 +342,14 @@
 }
 
 .subtab-badge {
-  display: inline-grid;
+  position: absolute;
+  top: -0.4rem;
+  right: 0.3rem;
+  display: grid;
   place-items: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.25rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.22rem;
   border-radius: var(--r-pill);
   background: var(--gold);
   color: #16100a;
@@ -329,12 +358,19 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  /* anneau sombre : la pastille se détache du bord de l'onglet (style notif) */
+  box-shadow: 0 0 0 2px var(--surface-panel);
 }
 
-.shop-subtab[data-cat="knowledge"].active { border-color: var(--res-know); color: #9cc3f0; box-shadow: 0 0 10px rgba(95, 163, 240, 0.22), inset 0 1px 0 rgba(95, 163, 240, 0.12); }
+/* Chaque catégorie a SON identité (l'actif n'est plus l'or, trop omniprésent) :
+   Moteurs = terracotta, Savoir = bleu, Infrastructure = ardoise. */
+.shop-subtab[data-cat="city"].active { border-color: var(--res-pop); background: color-mix(in srgb, var(--surface-panel), var(--res-pop) 16%); color: #f0a98e; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.shop-subtab[data-cat="city"] .subtab-badge { background: var(--res-pop); }
+
+.shop-subtab[data-cat="knowledge"].active { border-color: var(--res-know); background: color-mix(in srgb, var(--surface-panel), var(--res-know) 16%); color: #9cc3f0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .shop-subtab[data-cat="knowledge"] .subtab-badge { background: var(--res-know); }
 
-.shop-subtab[data-cat="infra"].active { border-color: var(--res-infra); color: #b8c0da; box-shadow: 0 0 10px rgba(136, 147, 184, 0.28), inset 0 1px 0 rgba(136, 147, 184, 0.14); }
+.shop-subtab[data-cat="infra"].active { border-color: var(--res-infra); background: color-mix(in srgb, var(--surface-panel), var(--res-infra) 16%); color: #b8c0da; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .shop-subtab[data-cat="infra"] .subtab-badge { background: var(--res-infra); }
 
 /* Multiplicateurs ×1/×10/×25/×100 : cibles 32px */

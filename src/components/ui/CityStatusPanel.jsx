@@ -4,6 +4,7 @@ import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { fmt, pct, roman, clamp01 } from '../../game/core/utils.js';
+import RollingNumber from './RollingNumber.jsx';
 
 /**
  * Encart d'état de la civilisation, logé dans la barre latérale au-dessus des
@@ -94,7 +95,7 @@ export default function CityStatusPanel() {
         <div className="csp-block" title="Légitimité d'Atlas">
           <div className="csp-block-head">
             <span className="csp-label">Légitimité</span>
-            <strong className="csp-value">{fmt(atlasLegitimite)}</strong>
+            <strong className="csp-value"><RollingNumber value={atlasLegitimite} /></strong>
           </div>
           <span className="csp-bar">
             <span className="csp-bar-fill csp-bar-fill--legit" style={{ width: `${clamp01((atlasLegitimite || 0) / 100) * 100}%` }}></span>
@@ -108,7 +109,7 @@ export default function CityStatusPanel() {
         <div className="csp-stat" title="Cycles accomplis">
           <span className="csp-stat-icon" aria-hidden="true">🔄</span>
           <span className="csp-stat-label">Cycles</span>
-          <strong>{fmt(cycles)}</strong>
+          <strong><RollingNumber value={cycles} /></strong>
         </div>
         <div className="csp-stat" title="Numéro de la dynastie actuelle">
           <span className="csp-stat-icon" aria-hidden="true">👑</span>
@@ -118,7 +119,7 @@ export default function CityStatusPanel() {
         <div className="csp-stat" title="Multiplicateur global de production">
           <span className="csp-stat-icon" aria-hidden="true">⚡</span>
           <span className="csp-stat-label">Multiplic.</span>
-          <strong>x{fmt(globalMult)}</strong>
+          <strong>x<RollingNumber value={globalMult} /></strong>
         </div>
         <div className="csp-stat" title="Meilleure ère atteinte à ce jour">
           <span className="csp-stat-icon" aria-hidden="true">🏆</span>

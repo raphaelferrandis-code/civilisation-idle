@@ -30,7 +30,9 @@ import {
   COMPLEXITY_COVERAGE_ABSORB,
   FOYER_RELIEF_CAP,
   INEQUALITY_RESERVE_REF_S,
-  INEQUALITY_RESERVE_SCALE_S
+  INEQUALITY_RESERVE_SCALE_S,
+  DEMESURE_FREE_LOG_POP,
+  DEMESURE_COEF
 } from '../balance.js';
 import {
   ICARE_PROD_MULT,
@@ -569,10 +571,18 @@ export function pressureBreakdown() {
   const structural = softCap(structuralNet * 2.2 / (1 + effCoverage * STRUCTURAL_COVERAGE_DAMP), 0.75);
   const institutionalLog = Math.log10(1 + effCoverage * INFRA_COVERAGE_MITIGATION_MULT + state.legitimacy * 0.16);
   const mitigation = Math.min(MITIGATION_CAP, institutionalLog * MITIGATION_LOG_COEF + ruinEffectSum("stability") + foundingGrace + settlingGrace);
+  // A1 — Démesure (hubris d'échelle) : socle d'instabilité NON mitigé qui croît
+  // avec la taille de la cité. Ajouté APRÈS la mitigation (la couverture d'infra
+  // et la légitimité ne peuvent pas l'effacer) et sans plafond : au-delà de
+  // DEMESURE_FREE_LOG_POP décades d'habitants, « tout acheter » ne stabilise plus
+  // — la grandeur elle-même engendre une tension irréductible. Sûr au-delà du
+  // float (log10 Decimal reste fini). Reste à 0 sous le seuil → early game intact.
+  const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : D(state.population).max(10).log10();
+  const demesure = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF);
   const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowthMultiplier() - mitigation);
-  const total = hasDoctrine("acier") ? baseTotal * 1.25 : baseTotal;
+  const total = (hasDoctrine("acier") ? baseTotal * 1.25 : baseTotal) + demesure;
 
-  renderCache._framePressure = { scarcity, inequality, complexity, dissent, structural, mitigation, total };
+  renderCache._framePressure = { scarcity, inequality, complexity, dissent, structural, demesure, mitigation, total };
   renderCache._framePressureVer = renderCache.frameVersion;
   return renderCache._framePressure;
 }
