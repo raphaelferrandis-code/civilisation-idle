@@ -14,7 +14,7 @@ import {
   cmWonderActive,
   WONDER_CLEAR_R
 } from './layout.js';
-import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
+import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset } from './agents.js';
 import { mapThemeForBand, activeEraDetails, getEraTheme } from '../data/eraThemes.js';
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
@@ -147,11 +147,14 @@ function getRoadVisualStyle(eraIndex, rank, ruined, major) {
   // Hiérarchie viaire lisible d'un coup d'œil : sentier discret (presque un
   // trait) → rue → avenue → boulevard large et pavé. L'écart entre rangs est
   // volontairement marqué — c'est lui qui structure la lecture de la ville.
+  // avenue/main sont volontairement larges aux ères modernes : il faut la place
+  // pour une coupe divisée (rive | voie | terre-plein | voie | rive) sans déborder
+  // de la cellule (< 1 tuile). Sentier/rue restent fins.
   const widthByRank = {
     path: eraIndex >= 7 ? 0.16 : 0.13,
-    secondary: eraIndex >= 12 ? 0.3 : eraIndex >= 7 ? 0.28 : 0.24,
-    avenue: eraIndex >= 12 ? 0.46 : eraIndex >= 7 ? 0.42 : 0.36,
-    main: eraIndex >= 12 ? 0.62 : eraIndex >= 7 ? 0.56 : 0.48
+    secondary: eraIndex >= 12 ? 0.32 : eraIndex >= 7 ? 0.28 : 0.24,
+    avenue: eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38,
+    main: eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5
   };
   const detailRate = rank === "main" ? 5 : rank === "avenue" ? 7 : rank === "secondary" ? 9 : 13;
   return {
@@ -1761,8 +1764,13 @@ function cityMapDrawRoad(r) {
   ctx.save();
   drawAxis(pal.edge, half * 2 + shoulder);
   drawAxis(pal.core, half * 2);
-  // Boulevard : bande centrale pavée plus claire, signature des grands axes.
-  if (roadRank === "main") drawAxis(pal.detail, half * 1.05);
+
+  // Grands axes (avenue / boulevard) : leurs marquages — terre-plein, bandes de
+  // voie et lignes de rive — sont peints en CONTINU par cityMapDrawRoadMarkings
+  // (passe par segments, façon ruban du fleuve), et NON ici cellule par cellule.
+  // cityMapDrawRoad ne pose donc que le CORPS de la chaussée pour ces rangs ; les
+  // sentiers/rues (path/secondary) gardent leurs marquages d'époque par cellule.
+  const bigAxis = roadRank === "main" || roadRank === "avenue";
 
   const drawPebble = (px, py, rScale, color) => {
     const r = s * rScale;
@@ -1796,6 +1804,7 @@ function cityMapDrawRoad(r) {
     ctx.stroke();
   }
 
+  if (!bigAxis) {
   ctx.lineWidth = Math.max(1, s * 0.016);
   if (eraIndex < 7) {
     ctx.strokeStyle = pal.track;
@@ -1824,6 +1833,7 @@ function cityMapDrawRoad(r) {
     if ((mask.e || mask.w) && major) { ctx.beginPath(); ctx.moveTo(sx + s * 0.26, cyp); ctx.lineTo(sx + s * 0.5, cyp); ctx.stroke(); }
     if ((mask.n || mask.s) && major) { ctx.beginPath(); ctx.moveTo(cxp, sy + s * 0.26); ctx.lineTo(cxp, sy + s * 0.5); ctx.stroke(); }
   }
+  }
   ctx.restore();
   ctx.lineJoin = "miter"; // reset explicite — drawAxis pose "round" dans le save block
 
@@ -1850,6 +1860,216 @@ function cityMapDrawRoad(r) {
     ctx.fillStyle = r.roadType === "intersection" ? "rgba(255,90,90,0.9)" : r.roadType === "junction" ? "rgba(255,210,80,0.9)" : "rgba(80,220,255,0.9)";
     ctx.fillRect(cxp - Math.max(1, s * 0.045), cyp - Math.max(1, s * 0.045), Math.max(2, s * 0.09), Math.max(2, s * 0.09));
     ctx.restore();
+  }
+}
+
+/* ============================================================================
+ * Palier 1 — marquages des grands axes en CONTINU (par segments)
+ *   cityMapDrawRoad pose le corps de chaque cellule. Les marquages des grands
+ *   axes (terre-plein, bandes de voie pointillées, lignes de rive) sont peints
+ *   ici, segment par segment, comme un ruban : une seule polyligne court sur tout
+ *   le boulevard → pointillés réellement continus (plus de phase qui se réinitialise
+ *   par case), terre-plein lisse. Les segments se BRISENT aux vrais croisements de
+ *   grands axes (le voisin transversal est lui-même avenue/main) — pas aux petites
+ *   rues qui s'y greffent — et ces nœuds reçoivent des lignes d'arrêt propres.
+ *   L'extraction des segments est mise en cache par layout (clé layoutRecomputeAt) ;
+ *   le rendu vit dans le bake statique (recalculé seulement si caméra/layout change).
+ * ============================================================================ */
+function ensureRoadRuns() {
+  const L = CM.layout;
+  if (!L || !L.roadMap) { CM.roadRuns = null; return; }
+  if (CM.roadRuns && CM.roadRuns.key === CM.layoutRecomputeAt) return;
+  const roadMap = L.roadMap;
+  const get = (gx, gy) => roadMap.get(gx + "," + gy);
+  const big = (c) => !!(c && (c.rank === "main" || c.rank === "avenue") && c.roadSurface !== "bridge");
+  const connH = (c) => !!(c && (c.mask & ROAD_E || c.mask & ROAD_W));
+  const connV = (c) => !!(c && (c.mask & ROAD_N || c.mask & ROAD_S));
+  // Croisement d'un GRAND axe transversal (et non d'une simple rue) : c'est là —
+  // et là seulement — qu'un segment se brise et qu'un nœud apparaît.
+  const bigCrossV = (gx, gy, c) =>
+    !!((c.mask & ROAD_N && big(get(gx, gy - 1))) || (c.mask & ROAD_S && big(get(gx, gy + 1))));
+  const bigCrossH = (gx, gy, c) =>
+    !!((c.mask & ROAD_E && big(get(gx + 1, gy))) || (c.mask & ROAD_W && big(get(gx - 1, gy))));
+
+  const hRuns = [], vRuns = [], junctions = [];
+  const seenH = new Set(), seenV = new Set();
+  for (const [key, cell] of roadMap) {
+    if (!big(cell)) continue;
+    const ci = key.indexOf(",");
+    const gx = +key.slice(0, ci), gy = +key.slice(ci + 1);
+    // Segment horizontal : cellules contiguës de même rang, connectées E-O, sans
+    // grand axe vertical qui les traverse.
+    if (connH(cell) && !bigCrossV(gx, gy, cell) && !seenH.has(key)) {
+      let x0 = gx, x1 = gx;
+      for (let x = gx - 1; ; x -= 1) { const c = get(x, gy); if (big(c) && c.rank === cell.rank && connH(c) && !bigCrossV(x, gy, c)) x0 = x; else break; }
+      for (let x = gx + 1; ; x += 1) { const c = get(x, gy); if (big(c) && c.rank === cell.rank && connH(c) && !bigCrossV(x, gy, c)) x1 = x; else break; }
+      for (let x = x0; x <= x1; x += 1) seenH.add(x + "," + gy);
+      if (x1 > x0) hRuns.push({ gy, x0, x1, rank: cell.rank });
+    }
+    // Segment vertical (symétrique).
+    if (connV(cell) && !bigCrossH(gx, gy, cell) && !seenV.has(key)) {
+      let y0 = gy, y1 = gy;
+      for (let y = gy - 1; ; y -= 1) { const c = get(gx, y); if (big(c) && c.rank === cell.rank && connV(c) && !bigCrossH(gx, y, c)) y0 = y; else break; }
+      for (let y = gy + 1; ; y += 1) { const c = get(gx, y); if (big(c) && c.rank === cell.rank && connV(c) && !bigCrossH(gx, y, c)) y1 = y; else break; }
+      for (let y = y0; y <= y1; y += 1) seenV.add(gx + "," + y);
+      if (y1 > y0) vRuns.push({ gx, y0, y1, rank: cell.rank });
+    }
+    // Nœud : deux grands axes se croisent ici → mobilier de carrefour (passages
+    // piétons, lignes d'arrêt, flèches) sur les approches qui mènent à un grand axe.
+    if (bigCrossH(gx, gy, cell) && bigCrossV(gx, gy, cell)) {
+      const m = cell.mask;
+      let armsBig = 0;
+      if ((m & ROAD_N) && big(get(gx, gy - 1))) armsBig |= ROAD_N;
+      if ((m & ROAD_S) && big(get(gx, gy + 1))) armsBig |= ROAD_S;
+      if ((m & ROAD_E) && big(get(gx + 1, gy))) armsBig |= ROAD_E;
+      if ((m & ROAD_W) && big(get(gx - 1, gy))) armsBig |= ROAD_W;
+      junctions.push({ gx, gy, rank: cell.rank, mask: m, armsBig });
+    }
+  }
+  CM.roadRuns = { key: CM.layoutRecomputeAt, hRuns, vRuns, junctions };
+}
+
+// Largeur de chaussée par rang/ère — DOIT suivre widthByRank de getRoadVisualStyle.
+function roadBodyWidth(rank, eraIndex) {
+  if (rank === "main") return eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5;
+  return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38;
+}
+
+function cityMapDrawRoadMarkings() {
+  const L = CM.layout;
+  if (!L || CM.lodActive || CM.frameRuined || CM.collapseAt) return;
+  const eraIndex = CM.frameEraIndex || 0;
+  if (eraIndex < 7) return;                       // chaussée moderne : pas avant
+  ensureRoadRuns();
+  const R = CM.roadRuns;
+  if (!R) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, s = T * z;
+  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
+  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
+  const painted = eraIndex >= 11;
+  const markCol = eraIndex >= 18 ? "rgba(150,225,255,0.6)"       // néon / cosmique
+    : painted ? "rgba(232,226,204,0.78)"                          // peinture claire
+    : "rgba(214,194,140,0.32)";                                   // liseré pierre discret
+  const medianCol = eraIndex >= 22 ? "#3a3d52"                    // dalle énergétique
+    : eraIndex >= 14 ? "#6a6e75"                                  // terre-plein béton
+    : "#586034";                                                  // terre-plein planté
+  const lw = Math.max(1, s * 0.018);
+  const dash = [s * 0.9, s * 0.7];   // tiret continu sur tout le segment (plus de phase par case)
+  const night = CM.nightF || 0;
+  // Pointillés réfléchissants : la nuit, la peinture rétroéclairée vire au blanc vif
+  // (+ un léger halo additif posé séparément). Le bake statique est rebaké par
+  // palier de nuit (clé _camKey ~ nightF.toFixed(1)), donc c'est gratuit par frame.
+  const reflect = painted && night > 0.2;
+  const dashCol = reflect ? `rgba(255,250,232,${(0.82 + 0.16 * night).toFixed(2)})` : markCol;
+  const onScreen = (xa, ya, xb, yb) =>
+    !(Math.max(xa, xb) < -s || Math.min(xa, xb) > CM.cw + s || Math.max(ya, yb) < -s || Math.min(ya, yb) > CM.ch + s);
+
+  // Lampadaires sur le terre-plein des boulevards : poteau sombre vu de dessus +
+  // bulbe chaud qui rayonne la nuit. Espacés, sautent les bouts (près des nœuds).
+  const drawMedianLamps = (axis, fixed, a0, a1, cen) => {
+    if (eraIndex < 11) return;
+    for (let c = a0 + 1; c < a1; c += 4) {
+      const along = axis === "h" ? SX(c + 0.5) : SY(c + 0.5);
+      const lx = axis === "h" ? along : cen;
+      const ly = axis === "h" ? cen : along;
+      if (lx < -s || lx > CM.cw + s || ly < -s || ly > CM.ch + s) continue;
+      if (night > 0.25) cmDrawGlow(ctx, lx, ly, Math.max(3, s * 0.55), 255, 222, 150, 0.42 * night);
+      ctx.fillStyle = "rgba(18,16,12,0.85)";
+      ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, s * 0.035), 0, Math.PI * 2); ctx.fill();
+      if (night > 0.25) {
+        ctx.fillStyle = "rgba(255,236,180,0.9)";
+        ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, s * 0.05), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  };
+
+  const drawRun = (axis, fixed, a0, a1, rank) => {
+    const half = s * roadBodyWidth(rank, eraIndex) * 0.5;
+    const isMain = rank === "main";
+    const cen = axis === "h" ? SY(fixed + 0.5) : SX(fixed + 0.5);
+    const pa = axis === "h" ? SX(a0) : SY(a0);
+    const pb = axis === "h" ? SX(a1 + 1) : SY(a1 + 1);
+    if (axis === "h" ? !onScreen(pa, cen, pb, cen) : !onScreen(cen, pa, cen, pb)) return;
+    const line = (off, col, width, dashes) => {
+      ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dashes || []);
+      ctx.beginPath();
+      if (axis === "h") { ctx.moveTo(pa, cen + off); ctx.lineTo(pb, cen + off); }
+      else { ctx.moveTo(cen + off, pa); ctx.lineTo(cen + off, pb); }
+      ctx.stroke();
+    };
+    // Bande pointillée + halo additif réfléchissant la nuit.
+    const laneDash = (off) => {
+      if (reflect) {
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        line(off, `rgba(255,242,205,${(0.16 + 0.24 * night).toFixed(2)})`, lw * 2.4, dash);
+        ctx.restore();
+      }
+      line(off, dashCol, lw, dash);
+    };
+    const rive = half - Math.max(1, s * 0.03);
+    line(-rive, markCol, lw);                       // lignes de rive continues
+    line(rive, markCol, lw);
+    if (isMain) {
+      ctx.fillStyle = medianCol;                    // terre-plein central lisse
+      const mt = Math.max(1.5, s * 0.085);
+      if (axis === "h") ctx.fillRect(pa, cen - mt / 2, pb - pa, mt);
+      else ctx.fillRect(cen - mt / 2, pa, mt, pb - pa);
+      if (painted) { laneDash(-half * 0.5); laneDash(half * 0.5); }
+      drawMedianLamps(axis, fixed, a0, a1, cen);    // lampadaires sur le terre-plein
+    } else if (painted) {
+      laneDash(0);                                  // avenue : axe pointillé unique
+    }
+    ctx.setLineDash([]);
+  };
+
+  for (const r of R.hRuns) drawRun("h", r.gy, r.x0, r.x1, r.rank);
+  for (const r of R.vRuns) drawRun("v", r.gx, r.y0, r.y1, r.rank);
+
+  // Mobilier de carrefour — au BORD du nœud seulement, CENTRE laissé OUVERT (pas de
+  // cadre) : passages piétons rayés (ajourés ≠ contour plein), lignes d'arrêt sur la
+  // seule moitié ENTRANTE (conduite à droite → jamais un rectangle fermé), flèches au
+  // sol pointant vers le carrefour. Passages piétons sur TOUS les carrefours de grands
+  // axes (boulevards ET avenues) ; lignes d'arrêt + flèches sur les boulevards seuls.
+  if (painted) {
+    const DIRS4 = [[ROAD_N, 0, -1], [ROAD_S, 0, 1], [ROAD_E, 1, 0], [ROAD_W, -1, 0]];
+    for (const j of R.junctions) {
+      if (j.rank !== "main" && j.rank !== "avenue") continue;
+      const cx = SX(j.gx + 0.5), cy = SY(j.gy + 0.5);
+      if (cx < -s * 1.6 || cx > CM.cw + s * 1.6 || cy < -s * 1.6 || cy > CM.ch + s * 1.6) continue;
+      const half = s * roadBodyWidth(j.rank, eraIndex) * 0.5;   // largeur selon le rang du nœud
+      const carHalf = half * 0.92;
+      const heavyMobilier = j.rank === "main";                  // lignes d'arrêt + flèches : boulevards
+      for (const [bit, ox, oy] of DIRS4) {
+        if (!(j.armsBig & bit)) continue;
+        const px = -oy, py = ox;                          // perpendiculaire (largeur de chaussée)
+        const at = (d, t) => [cx + ox * d + px * t, cy + oy * d + py * t];
+        // Passage piéton : zébrures parallèles au sens, espacées (motif ajouré).
+        ctx.lineCap = "butt"; ctx.setLineDash([]);
+        ctx.strokeStyle = `rgba(236,230,208,${(0.5 + 0.32 * night).toFixed(2)})`;
+        ctx.lineWidth = Math.max(1, s * 0.05);
+        for (let t = -carHalf + s * 0.05; t < carHalf; t += s * 0.13) {
+          const a = at(s * 0.54, t), b = at(s * 0.72, t);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        }
+        if (!heavyMobilier) continue;
+        // Ligne d'arrêt : moitié entrante (perp < 0) seulement → pas de cadre.
+        ctx.lineWidth = Math.max(1.5, s * 0.06);
+        const sa = at(s * 0.8, -carHalf), sb = at(s * 0.8, -s * 0.02);
+        ctx.beginPath(); ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]); ctx.stroke();
+        // Flèche au sol, voie entrante, pointe vers le carrefour.
+        const tc = -carHalf * 0.5;
+        const tip = at(s * 0.96, tc), tail = at(s * 1.24, tc), hb = at(s * 1.06, tc);
+        ctx.fillStyle = `rgba(232,226,204,${(0.55 + 0.22 * night).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.moveTo(tip[0], tip[1]);
+        ctx.lineTo(hb[0] + px * s * 0.07, hb[1] + py * s * 0.07);
+        ctx.lineTo(hb[0] - px * s * 0.07, hb[1] - py * s * 0.07);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath(); ctx.moveTo(hb[0], hb[1]); ctx.lineTo(tail[0], tail[1]); ctx.stroke();
+      }
+    }
+    ctx.lineCap = "butt"; ctx.setLineDash([]);
   }
 }
 
@@ -2518,8 +2738,10 @@ function cityMapDrawCityLights(now) {
     for (const v of CM.vehicles) {
       if (v.type !== "car" && v.type !== "tram") continue;
       if ((v.parkT || 0) > 0 || v.pauseT > 0) continue; // garé/arrêté : phares éteints
-      const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
-      const sy = (v.y - CM.cam.y) * z + CM.ch / 2;
+      // Même décalage de file que la carrosserie → phares solidaires de la voiture.
+      const lo = vehicleLaneOffset(v, T * z);
+      const sx = (v.x - CM.cam.x) * z + CM.cw / 2 + lo.x;
+      const sy = (v.y - CM.cam.y) * z + CM.ch / 2 + lo.y;
       if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) continue;
       // Cap réel du véhicule (vitesse, sinon direction de grille : 0=E 1=W 2=S 3=N).
       let hx = v.tx - v.x, hy = v.ty - v.y;
@@ -2883,6 +3105,7 @@ export {
   cityMapDrawQuays,
   cityMapDrawRiver,
   cityMapDrawRoad,
+  cityMapDrawRoadMarkings,
   cityMapDrawStreetLights,
   cityMapDrawTrees,
   cityMapDrawUrbanMass,

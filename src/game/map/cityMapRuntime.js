@@ -49,6 +49,7 @@ import {
   cityMapDrawEraGlow,
   drawCrisis,
   cityMapDrawRoad,
+  cityMapDrawRoadMarkings,
   cityMapCalmRioterAt
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
@@ -866,6 +867,7 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
         for (const r of CM.roadList) cityMapDrawRoad(r);
+        cityMapDrawRoadMarkings();
         cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);
@@ -899,6 +901,7 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
         for (const r of CM.roadList) cityMapDrawRoad(r);
+        cityMapDrawRoadMarkings();
         cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);

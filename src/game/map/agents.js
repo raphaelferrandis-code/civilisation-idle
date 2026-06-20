@@ -332,6 +332,28 @@ function vehicleRoadRank(gx, gy) {
   return road ? (road.rank || "path") : "path";
 }
 
+// Décalage de file (conduite à DROITE) appliqué AU RENDU sur les grands axes :
+// chaque véhicule tient sa moitié de chaussée → deux sens de circulation séparés
+// (un sens de chaque côté du terre-plein), sans rouler sur l'axe central. Pur, sans
+// effet sur le trajet (le pathfinding reste centré sur la cellule). PARTAGÉ entre la
+// carrosserie (drawVehicles) et les phares au sol (cityMapDrawCityLights) pour qu'ils
+// restent solidaires. `s` = taille tuile écran (CM.TILE * zoom).
+function vehicleLaneOffset(v, s) {
+  if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
+  const ei = CM.frameEraIndex || 0;
+  if (ei < 7) return { x: 0, y: 0 };                   // routes non divisées : centré
+  const rank = vehicleRoadRank(v.gx, v.gy);
+  if (rank !== "main" && rank !== "avenue") return { x: 0, y: 0 };
+  // Largeur de chaussée (suit roadBodyWidth) → décalage à mi-chaussée de sa moitié.
+  const w = rank === "main" ? (ei >= 12 ? 0.84 : 0.66) : (ei >= 12 ? 0.58 : 0.48);
+  const mag = s * w * 0.26;
+  if (v.dir === 0) return { x: 0, y: mag };            // est  → file sud (à droite)
+  if (v.dir === 1) return { x: 0, y: -mag };           // ouest → file nord
+  if (v.dir === 2) return { x: -mag, y: 0 };           // sud  → file ouest
+  if (v.dir === 3) return { x: mag, y: 0 };            // nord → file est
+  return { x: 0, y: 0 };
+}
+
 // Conduite des véhicules — distincte de la flânerie des piétons :
 //   - jamais sur une esplanade (rang "plaza", réservé aux piétons) ;
 //   - tient fortement sa ligne (pas de zigzag à chaque carrefour) ;
@@ -530,8 +552,17 @@ function drawVehicles(now, pass) {
     // Stationnement : la voiture se range sur le côté de la chaussée.
     const parked = (v.parkT || 0) > 0;
     const horiz = v.dir === 0 || v.dir === 1;
-    const parkOff = parked ? s * 0.3 * (v.parkSide || 1) : 0;
-    ctx.translate(sx + (horiz ? 0 : parkOff), sy + (horiz ? parkOff : 0));
+    // Décalage de file (conduite à droite) — même calcul que les phares au sol
+    // pour que faisceaux et carrosserie restent solidaires. Rendu seulement.
+    let offX = 0, offY = 0;
+    if (parked) {
+      const parkOff = s * 0.3 * (v.parkSide || 1);
+      if (horiz) offY = parkOff; else offX = parkOff;
+    } else {
+      const lo = vehicleLaneOffset(v, s);
+      offX = lo.x; offY = lo.y;
+    }
+    ctx.translate(sx + offX, sy + offY);
     const vdx = v.tx - v.x, vdy = v.ty - v.y;
     const targetAngle = (!parked && (Math.abs(vdx) > 0.5 || Math.abs(vdy) > 0.5))
       ? Math.atan2(vdy, vdx)
@@ -936,4 +967,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts };
+export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset };
