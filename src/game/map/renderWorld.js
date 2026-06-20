@@ -1891,12 +1891,26 @@ function ensureRoadRuns() {
   const bigCrossH = (gx, gy, c) =>
     !!((c.mask & ROAD_E && big(get(gx + 1, gy))) || (c.mask & ROAD_W && big(get(gx - 1, gy))));
 
-  const hRuns = [], vRuns = [], junctions = [];
+  const hRuns = [], vRuns = [], junctions = [], minorJunctions = [];
   const seenH = new Set(), seenV = new Set();
+  const sec = (c) => !!(c && c.rank === "secondary" && c.roadSurface !== "bridge");
+  const popcount = (m) => ((m & ROAD_N) ? 1 : 0) + ((m & ROAD_E) ? 1 : 0) + ((m & ROAD_S) ? 1 : 0) + ((m & ROAD_W) ? 1 : 0);
   for (const [key, cell] of roadMap) {
-    if (!big(cell)) continue;
     const ci = key.indexOf(",");
     const gx = +key.slice(0, ci), gy = +key.slice(ci + 1);
+    // Petit carrefour de rues (secondary) : croisement réel (degré ≥ 3) avec ≥ 2 bras
+    // secondaires. Un sous-ensemble seedé reçoit un passage piéton — pas tous, mais
+    // quand même, pour que les quartiers loin du centre en aient aussi.
+    if (cell.rank === "secondary" && cell.roadSurface !== "bridge" && popcount(cell.mask) >= 3) {
+      let armsMinor = 0;
+      if ((cell.mask & ROAD_N) && sec(get(gx, gy - 1))) armsMinor |= ROAD_N;
+      if ((cell.mask & ROAD_S) && sec(get(gx, gy + 1))) armsMinor |= ROAD_S;
+      if ((cell.mask & ROAD_E) && sec(get(gx + 1, gy))) armsMinor |= ROAD_E;
+      if ((cell.mask & ROAD_W) && sec(get(gx - 1, gy))) armsMinor |= ROAD_W;
+      if (popcount(armsMinor) >= 2 && cmHash("xwalk:" + gx + ":" + gy) % 3 === 0)
+        minorJunctions.push({ gx, gy, mask: armsMinor });
+    }
+    if (!big(cell)) continue;
     // Segment horizontal : cellules contiguës de même rang, connectées E-O, sans
     // grand axe vertical qui les traverse.
     if (connH(cell) && !bigCrossV(gx, gy, cell) && !seenH.has(key)) {
@@ -1926,13 +1940,15 @@ function ensureRoadRuns() {
       junctions.push({ gx, gy, rank: cell.rank, mask: m, armsBig });
     }
   }
-  CM.roadRuns = { key: CM.layoutRecomputeAt, hRuns, vRuns, junctions };
+  CM.roadRuns = { key: CM.layoutRecomputeAt, hRuns, vRuns, junctions, minorJunctions };
 }
 
 // Largeur de chaussée par rang/ère — DOIT suivre widthByRank de getRoadVisualStyle.
 function roadBodyWidth(rank, eraIndex) {
   if (rank === "main") return eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5;
-  return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38;
+  if (rank === "secondary") return eraIndex >= 12 ? 0.32 : eraIndex >= 7 ? 0.28 : 0.24;
+  if (rank === "path") return eraIndex >= 7 ? 0.16 : 0.13;
+  return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38; // avenue
 }
 
 function cityMapDrawRoadMarkings() {
@@ -1963,6 +1979,28 @@ function cityMapDrawRoadMarkings() {
   const dashCol = reflect ? `rgba(255,250,232,${(0.82 + 0.16 * night).toFixed(2)})` : markCol;
   const onScreen = (xa, ya, xb, yb) =>
     !(Math.max(xa, xb) < -s || Math.min(xa, xb) > CM.cw + s || Math.max(ya, yb) < -s || Math.min(ya, yb) > CM.ch + s);
+
+  // Passage piéton : zébrures ajourées (// au sens) sur chaque approche du masque
+  // `arms`, juste hors de la boîte. Centre laissé vide. Partagé grands axes / petites
+  // rues (la largeur `half` s'adapte au rang) ; nombre de barres stable même étroit.
+  const DIRS4 = [[ROAD_N, 0, -1], [ROAD_S, 0, 1], [ROAD_E, 1, 0], [ROAD_W, -1, 0]];
+  const drawCrosswalk = (cx, cy, arms, half) => {
+    const carHalf = half * 0.92;
+    const step = Math.max(s * 0.07, (carHalf * 2) / 5);
+    ctx.lineCap = "butt"; ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(236,230,208,${(0.5 + 0.32 * night).toFixed(2)})`;
+    ctx.lineWidth = Math.max(1, s * 0.045);
+    for (const [bit, ox, oy] of DIRS4) {
+      if (!(arms & bit)) continue;
+      const px = -oy, py = ox;
+      for (let t = -carHalf + step * 0.5; t < carHalf; t += step) {
+        ctx.beginPath();
+        ctx.moveTo(cx + ox * s * 0.54 + px * t, cy + oy * s * 0.54 + py * t);
+        ctx.lineTo(cx + ox * s * 0.72 + px * t, cy + oy * s * 0.72 + py * t);
+        ctx.stroke();
+      }
+    }
+  };
 
   // Lampadaires sur le terre-plein des boulevards : poteau sombre vu de dessus +
   // bulbe chaud qui rayonne la nuit. Espacés, sautent les bouts (près des nœuds).
@@ -2031,28 +2069,21 @@ function cityMapDrawRoadMarkings() {
   // sol pointant vers le carrefour. Passages piétons sur TOUS les carrefours de grands
   // axes (boulevards ET avenues) ; lignes d'arrêt + flèches sur les boulevards seuls.
   if (painted) {
-    const DIRS4 = [[ROAD_N, 0, -1], [ROAD_S, 0, 1], [ROAD_E, 1, 0], [ROAD_W, -1, 0]];
     for (const j of R.junctions) {
       if (j.rank !== "main" && j.rank !== "avenue") continue;
       const cx = SX(j.gx + 0.5), cy = SY(j.gy + 0.5);
       if (cx < -s * 1.6 || cx > CM.cw + s * 1.6 || cy < -s * 1.6 || cy > CM.ch + s * 1.6) continue;
       const half = s * roadBodyWidth(j.rank, eraIndex) * 0.5;   // largeur selon le rang du nœud
+      drawCrosswalk(cx, cy, j.armsBig, half);                   // passages piétons (boulevards + avenues)
+      if (j.rank !== "main") continue;                          // lignes d'arrêt + flèches : boulevards
       const carHalf = half * 0.92;
-      const heavyMobilier = j.rank === "main";                  // lignes d'arrêt + flèches : boulevards
       for (const [bit, ox, oy] of DIRS4) {
         if (!(j.armsBig & bit)) continue;
-        const px = -oy, py = ox;                          // perpendiculaire (largeur de chaussée)
+        const px = -oy, py = ox;
         const at = (d, t) => [cx + ox * d + px * t, cy + oy * d + py * t];
-        // Passage piéton : zébrures parallèles au sens, espacées (motif ajouré).
+        // Ligne d'arrêt : moitié entrante (perp < 0) seulement → pas de cadre.
         ctx.lineCap = "butt"; ctx.setLineDash([]);
         ctx.strokeStyle = `rgba(236,230,208,${(0.5 + 0.32 * night).toFixed(2)})`;
-        ctx.lineWidth = Math.max(1, s * 0.05);
-        for (let t = -carHalf + s * 0.05; t < carHalf; t += s * 0.13) {
-          const a = at(s * 0.54, t), b = at(s * 0.72, t);
-          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-        }
-        if (!heavyMobilier) continue;
-        // Ligne d'arrêt : moitié entrante (perp < 0) seulement → pas de cadre.
         ctx.lineWidth = Math.max(1.5, s * 0.06);
         const sa = at(s * 0.8, -carHalf), sb = at(s * 0.8, -s * 0.02);
         ctx.beginPath(); ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]); ctx.stroke();
@@ -2068,6 +2099,13 @@ function cityMapDrawRoadMarkings() {
         ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = Math.max(1, s * 0.03);
         ctx.beginPath(); ctx.moveTo(hb[0], hb[1]); ctx.lineTo(tail[0], tail[1]); ctx.stroke();
       }
+    }
+    // Petits carrefours de rues : passage piéton seul (sous-ensemble seedé).
+    const secHalf = s * roadBodyWidth("secondary", eraIndex) * 0.5;
+    for (const j of R.minorJunctions) {
+      const cx = SX(j.gx + 0.5), cy = SY(j.gy + 0.5);
+      if (cx < -s * 1.6 || cx > CM.cw + s * 1.6 || cy < -s * 1.6 || cy > CM.ch + s * 1.6) continue;
+      drawCrosswalk(cx, cy, j.mask, secHalf);
     }
     ctx.lineCap = "butt"; ctx.setLineDash([]);
   }

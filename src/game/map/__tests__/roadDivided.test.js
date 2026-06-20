@@ -201,3 +201,57 @@ describe("cityMapDrawRoadMarkings — nœuds & coupures", () => {
     expect(CM.roadRuns.hRuns[0]).toMatchObject({ x0: 3, x1: 7 }); // boulevard continu
   });
 });
+
+describe("cityMapDrawRoadMarkings — passages piétons de quartier", () => {
+  const ALL = ROAD_N | ROAD_E | ROAD_S | ROAD_W;
+  const pc = (m) => ((m & ROAD_N) ? 1 : 0) + ((m & ROAD_E) ? 1 : 0) + ((m & ROAD_S) ? 1 : 0) + ((m & ROAD_W) ? 1 : 0);
+
+  it("un sous-ensemble des croisements de rues secondaires reçoit un passage piéton", () => {
+    const cells = [];
+    for (let i = 0; i < 24; i += 1) {                 // 24 carrefours en + bien séparés
+      const gx = 10 + (i % 6) * 6, gy = 10 + Math.floor(i / 6) * 6;
+      cells.push({ gx, gy, mask: ALL, rank: "secondary" });
+      cells.push({ gx, gy: gy - 1, mask: ROAD_S, rank: "secondary" });
+      cells.push({ gx, gy: gy + 1, mask: ROAD_N, rank: "secondary" });
+      cells.push({ gx: gx - 1, gy, mask: ROAD_E, rank: "secondary" });
+      cells.push({ gx: gx + 1, gy, mask: ROAD_W, rank: "secondary" });
+    }
+    setupLayout(cells, { ei: 14 });
+    cityMapDrawRoadMarkings();
+    const mj = CM.roadRuns.minorJunctions;
+    expect(mj.length).toBeGreaterThan(0);            // quand même quelques-uns
+    expect(mj.length).toBeLessThan(24);              // mais pas tous
+    for (const j of mj) {
+      expect(j.gx % 6).toBe(4);                      // uniquement les centres (pas les bras)
+      expect(pc(j.mask)).toBeGreaterThanOrEqual(2);  // bras secondaires retenus
+    }
+  });
+
+  it("un + de rues bordé de boulevards n'est PAS un petit carrefour", () => {
+    const cells = [
+      { gx: 50, gy: 50, mask: ALL, rank: "secondary" },
+      { gx: 50, gy: 49, mask: ROAD_S, rank: "main" },
+      { gx: 50, gy: 51, mask: ROAD_N, rank: "main" },
+      { gx: 49, gy: 50, mask: ROAD_E, rank: "main" },
+      { gx: 51, gy: 50, mask: ROAD_W, rank: "main" },
+    ];
+    setupLayout(cells, { ei: 14 });
+    cityMapDrawRoadMarkings();
+    // Aucun bras secondaire → armsMinor vide → jamais recensé (déterministe).
+    expect(CM.roadRuns.minorJunctions.filter((j) => j.gx === 50 && j.gy === 50)).toHaveLength(0);
+  });
+
+  it("avant l'ère peinte (< 11), pas de passage piéton de quartier dessiné", () => {
+    const cells = [
+      { gx: 5, gy: 5, mask: ROAD_N | ROAD_E | ROAD_S | ROAD_W, rank: "secondary" },
+      { gx: 5, gy: 4, mask: ROAD_S, rank: "secondary" },
+      { gx: 5, gy: 6, mask: ROAD_N, rank: "secondary" },
+      { gx: 4, gy: 5, mask: ROAD_E, rank: "secondary" },
+      { gx: 6, gy: 5, mask: ROAD_W, rank: "secondary" },
+    ];
+    const ctx = setupLayout(cells, { ei: 8 });       // < 11 : non peint
+    cityMapDrawRoadMarkings();
+    expect(ctx._dashed).toBe(false);
+    // La détection peut recenser, mais rien n'est peint avant l'ère 11.
+  });
+});
