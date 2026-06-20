@@ -36,11 +36,13 @@ import {
   cityMapDrawNight,
   cityMapDrawStreetLights,
   cityMapDrawBridges,
+  cityMapDrawBridgeLights,
   cityMapDrawWalls,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
   cityMapDrawMist,
   cityMapDrawQuays,
+  cityMapDrawCityReflections,
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
   cityMapDrawEraDetails,
@@ -528,6 +530,52 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
   // Ponts précalculés : évite Array.filter à chaque frame dans cityMapDrawBridges
   CM.bridgeList = CM.roadList.filter((r) => r.roadSurface === "bridge");
+  // Spans de pont (composantes connexes) + repérage du pont HISTORIQUE (le plus
+  // proche du cœur, cf. river.bridge). Partagé par le rendu statique ET les
+  // lampes nocturnes live. Adjacence orthogonale sur l'ensemble des cellules-pont.
+  CM.bridgeSpans = [];
+  CM.historicBridgeCells = new Set();
+  {
+    const bmap = new Map();
+    for (const r of CM.bridgeList) bmap.set(r.gx + "," + r.gy, r);
+    const seen = new Set();
+    const ortho = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const start of CM.bridgeList) {
+      const sk = start.gx + "," + start.gy;
+      if (seen.has(sk)) continue;
+      seen.add(sk);
+      const stack = [start], cells = [], exits = [];
+      while (stack.length) {
+        const r = stack.pop(); cells.push(r);
+        for (const [dx, dy] of ortho) {
+          const nk = (r.gx + dx) + "," + (r.gy + dy);
+          const nb = bmap.get(nk);
+          if (nb) { if (!seen.has(nk)) { seen.add(nk); stack.push(nb); } }
+          else { const nr = L.roadMap && L.roadMap.get(nk); if (nr) exits.push(nr); }
+        }
+      }
+      let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity;
+      for (const c of cells) { if (c.gx < gx0) gx0 = c.gx; if (c.gx > gx1) gx1 = c.gx; if (c.gy < gy0) gy0 = c.gy; if (c.gy > gy1) gy1 = c.gy; }
+      CM.bridgeSpans.push({ cells, exits, gx0, gx1, gy0, gy1, vertical: (gy1 - gy0) >= (gx1 - gx0), historic: false, cx: (gx0 + gx1) / 2 });
+    }
+    if (CM.bridgeSpans.length && L.river && L.river.bridge) {
+      const bx = L.river.bridge.x;
+      let best = CM.bridgeSpans[0], bd = Infinity;
+      for (const sp of CM.bridgeSpans) { const d = Math.abs(sp.cx - bx); if (d < bd) { bd = d; best = sp; } }
+      best.historic = true;
+      for (const c of best.cells) CM.historicBridgeCells.add(c.gx + "," + c.gy);
+    }
+  }
+  // Routes par rive (hors cellules-pont) : cibles pour biaiser le trafic vers la
+  // rive opposée → traversées de pont fréquentes et visibles.
+  CM.bankRoads = { n: [], s: [] };
+  if (L.river && L.river.present && L.river.riverYAt) {
+    const ry = L.river.riverYAt;
+    for (const r of CM.walkRoadList) {
+      if (L.river.cells && L.river.cells.has(r.gx + "," + r.gy)) continue;
+      (r.gy < ry(r.gx) ? CM.bankRoads.n : CM.bankRoads.s).push(r);
+    }
+  }
   // Précalcul des seeds de route — évite la string `road:${gx}:${gy}:${era}` à chaque frame
   const _eraForSeed = L.counts ? L.counts.eraIndex : 0;
   for (const r of CM.roadList) {
@@ -613,11 +661,44 @@ function cityMapEnsureLayout(now, deps = {}) {
     }
   }
 
-  const wantShips = (L.river && L.river.present && L.counts.eraBand >= 3) ? cmClamp(2 + L.counts.eraIndex * 0.5, 2, 10) : 0;
+  // Trafic fluvial lié au PORT : la flotte grandit avec le niveau de river_ports
+  // (+ un peu de marchés/ère pour la variété). Sans port, juste une barque isolée
+  // sur un fleuve de village. Pas de fleuve → rien.
+  const hasRiver = !!(L.river && L.river.present);
+  const portLvl = hasRiver ? Math.floor((state.buildings && state.buildings.river_ports) || 0) : 0;
+  const mktLvl = Math.floor((state.buildings && state.buildings.markets) || 0);
+  let wantShips = 0;
+  if (hasRiver) {
+    if (portLvl > 0) wantShips = cmClamp(Math.round(1 + portLvl * 0.7 + mktLvl * 0.12 + L.counts.eraIndex * 0.2), 2, 12);
+    else if (L.counts.eraBand >= 2) wantShips = 1;
+  }
   if (CM.ships.length !== wantShips) {
     CM.ships = [];
     for (let n = 0; n < wantShips; n += 1) {
       CM.ships.push({ t: (n / Math.max(1, wantShips)), dir: n % 2 ? 1 : -1, speed: 0.008 + (n % 4) * 0.003 });
+    }
+  }
+
+  // Quais d'escale : position sur le ruban de chaque PORT fluvial (pas les moulins),
+  // mis en cache par layout. side = vers quelle berge le bateau dérive pour accoster
+  // (normale en convention increasing-sample, identique à celle de drawShips).
+  if (CM.shipDocksKey !== CM.layoutRecomputeAt) {
+    CM.shipDocksKey = CM.layoutRecomputeAt;
+    CM.shipDocks = [];
+    if (hasRiver && portLvl > 0 && L.river.samples) {
+      const sm = L.river.samples, len = sm.length;
+      for (const tile of (L.tiles || [])) {
+        if (tile.buildingId !== "river_ports") continue;
+        const px = tile.gx + (tile.spanX || tile.size || 1) / 2;
+        const py = tile.gy + (tile.spanY || tile.size || 1) / 2;
+        let bi = 0, bd = Infinity;
+        for (let i = 0; i < len; i += 1) { const dd = (sm[i].x - px) ** 2 + (sm[i].y - py) ** 2; if (dd < bd) { bd = dd; bi = i; } }
+        const a = sm[Math.max(0, bi - 1)], b = sm[Math.min(len - 1, bi + 1)];
+        let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+        const nx = -ty, ny = tx;
+        const side = ((px - sm[bi].x) * nx + (py - sm[bi].y) * ny) >= 0 ? 1 : -1;
+        CM.shipDocks.push({ t: bi / Math.max(1, len - 1), side });
+      }
     }
   }
 }
@@ -800,6 +881,9 @@ function initCityMap(canvas, options = {}) {
       // Quais : berge construite (pierre/béton/énergie) là où la ville borde l'eau,
       // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
       cityMapDrawQuays(now);
+      // Reflets nocturnes des bâtiments riverains sur l'eau (nappes lumineuses
+      // clippées au ruban), sous la brume/bateaux/blit statique.
+      cityMapDrawCityReflections(now);
       // Brume/reflets : voiles clippés à l'eau, sous les bateaux, ponts,
       // routes et bâtiments.
       cityMapDrawMist(now);
@@ -866,6 +950,8 @@ function initCityMap(canvas, options = {}) {
       drawCentralFireGlow(now);
       // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
       cityMapDrawCityLights(now);
+      // Lampes de pont (additif) : par-dessus le voile de nuit, comme les fenêtres.
+      cityMapDrawBridgeLights(now);
       // Lueurs signature d'ère : feux satellites, grille néon, cœur qui respire.
       cityMapDrawEraGlow(now);
       drawCrisis(dt, now);

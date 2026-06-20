@@ -782,11 +782,17 @@ function computeCityLayout(s) {
     s.riverWP = WP.map((p) => ({ dy: p.y - cy }));
   }
   const cr = (a, b, c2, d, t) => { const t2 = t * t, t3 = t2 * t; return 0.5 * (2 * b + (-a + c2) * t + (2 * a - 5 * b + 4 * c2 - d) * t2 + (-a + 3 * b - 3 * c2 + d) * t3); };
+  // Densité d'échantillonnage proportionnelle à la taille : l'espacement entre
+  // samples doit rester << rayon des disques riverSet/bankSet (~hw+1.4), sinon
+  // de grands trous s'ouvrent entre samples sur les grandes cartes et le RUBAN
+  // PEINT (spline continue) recouvre des cellules classées « sèches » → des
+  // bâtiments se posent sous l'eau peinte. Pas de fixe : ~1.5 cellule par pas.
+  const STEPS = Math.max(12, Math.ceil((N * 3.6 / (WN - 1)) / 1.5));
   const riverSamples = [];
   for (let i = 0; i < WN - 1; i += 1) {
     const p0 = WP[Math.max(0, i - 1)], p1 = WP[i], p2 = WP[i + 1], p3 = WP[Math.min(WN - 1, i + 2)];
-    for (let st = 0; st < 12; st += 1) {
-      const t = st / 12;
+    for (let st = 0; st < STEPS; st += 1) {
+      const t = st / STEPS;
       const x = cr(p0.x, p1.x, p2.x, p3.x, t), y = cr(p0.y, p1.y, p2.y, p3.y, t);
       const u = Math.max(0, Math.min(1, (x - xStart) / (xEnd - xStart)));
       riverSamples.push({ x, y, hw: 2.0 + 1.1 * Math.sin(Math.PI * u) });
@@ -819,7 +825,10 @@ function computeCityLayout(s) {
 
   const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25));
   // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
-  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt });
+  // Corridor du fleuve = eau ∪ berge : les places ne s'y posent jamais (seuls
+  // routes/ponts traversent l'eau). Le reste (quartiers, merveilles) l'évite déjà.
+  const corridorAt = (gx, gy) => { const k = gx + "," + gy; return riverSet.has(k) || bankSet.has(k); };
+  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt, corridorAt });
   plan.reachBase = cityReachBase;
   plan.finalize({ reachBase: cityReachBase });
   const quarterAnchors = plan.anchors;

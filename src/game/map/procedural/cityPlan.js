@@ -99,7 +99,7 @@ function buildAnchors({ seed, counts, personality, archetype, core, reachBase, N
 //   parvis   — devant le quartier religieux (statue votive, braseros) ;
 //   jardin   — square public du quartier de prestige (ères avancées).
 // Espacement minimal pour éviter deux places collées.
-function buildPlazas({ seed, counts, ageCfg, personality, core, anchors }) {
+function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corridorAt }) {
   const plazas = [];
   if (ageCfg.plazaSize <= 0) return plazas;
   // Une vraie place : jamais moins de 2×2, jusqu'à 5×5 en mégalopole fastueuse.
@@ -107,12 +107,23 @@ function buildPlazas({ seed, counts, ageCfg, personality, core, anchors }) {
   const rng = rngFrom(seed, "plazas");
   const farEnough = (gx, gy) =>
     plazas.every((p) => Math.hypot(gx - p.gx, gy - p.gy) > (p.size + size) * 1.6);
-  plazas.push({
-    gx: Math.round(core.x + (rng() - 0.5) * 3),
-    gy: Math.round(core.y + (rng() - 0.5) * 3),
-    size,
-    kind: "centrale"
-  });
+  // Une place ne se pose jamais sur l'eau/la berge : on teste son emprise
+  // (même convention que roadGraph.plaza : centre gx,gy, demi-taille floor(size/2))
+  // + 1 cellule de marge pour ne pas coller au quai.
+  const touchesCorridor = (gx, gy, sz) => {
+    if (!corridorAt) return false;
+    const half = Math.floor(sz / 2);
+    for (let dx = -half - 1; dx <= sz - half; dx += 1)
+      for (let dy = -half - 1; dy <= sz - half; dy += 1)
+        if (corridorAt(gx + dx, gy + dy)) return true;
+    return false;
+  };
+  // Place centrale : si elle mord le corridor, on la repousse vers l'intérieur
+  // (le fleuve coule au sud → on remonte vers le nord jusqu'au dégagement).
+  let cgx = Math.round(core.x + (rng() - 0.5) * 3);
+  let cgy = Math.round(core.y + (rng() - 0.5) * 3);
+  for (let guard = 0; guard < 24 && touchesCorridor(cgx, cgy, size); guard += 1) cgy -= 1;
+  plazas.push({ gx: cgx, gy: cgy, size, kind: "centrale" });
   if (counts.eraBand >= 2) {
     const kindFor = { marchand: "marche", religieux: "parvis", prestige: "jardin" };
     const maxExtra = 1 + Math.round(2 * personality.plazaBias);
@@ -123,14 +134,16 @@ function buildPlazas({ seed, counts, ageCfg, personality, core, anchors }) {
       if (!kind) continue;
       if (kind === "jardin" && counts.eraBand < 4) continue; // squares publics : ères avancées
       const gx = Math.round(a.gx), gy = Math.round(a.gy);
+      const pSize = Math.max(2, size - 1);
       if (!farEnough(gx, gy)) continue;
-      plazas.push({ gx, gy, size: Math.max(2, size - 1), kind });
+      if (touchesCorridor(gx, gy, pSize)) continue;          // jamais sur le fleuve/quai
+      plazas.push({ gx, gy, size: pSize, kind });
     }
   }
   return plazas;
 }
 
-export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt }) {
+export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt, corridorAt }) {
   const rng = rngFrom(seed, "plan");
   const archetype = pickArchetype(seed, ageCfg, personality);
   const order = Math.max(0, Math.min(1, ageCfg.order + personality.orderDelta));
@@ -165,7 +178,7 @@ export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy,
     },
     finalize({ reachBase }) {
       this.anchors = buildAnchors({ seed, counts, personality, archetype, core, reachBase, N, riverYAt });
-      this.plazas = buildPlazas({ seed, counts, ageCfg, personality, core, anchors: this.anchors });
+      this.plazas = buildPlazas({ seed, counts, ageCfg, personality, core, anchors: this.anchors, corridorAt });
       return this;
     }
   };

@@ -75,6 +75,18 @@ function roadStepAllowed(gx, gy, dirIndex) {
   return CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny));
 }
 
+// But sur la RIVE OPPOSÉE (force une traversée de pont, l'unique passage). null
+// si pas de fleuve ou rive opposée vide. Listes précalculées dans CM.bankRoads.
+function crossBankGoal(gx, gy) {
+  const banks = CM.bankRoads;
+  const ry = CM.layout && CM.layout.river && CM.layout.river.riverYAt;
+  if (!banks || !ry) return null;
+  const list = gy < ry(gx) ? banks.s : banks.n;
+  if (!list || !list.length) return null;
+  const r = list[(Math.random() * list.length) | 0];
+  return { gx: r.gx, gy: r.gy };
+}
+
 function citizenChooseNext(p) {
   if (!CM.walkRoadList.length) return;
   if (Math.random() < 0.12) {
@@ -91,7 +103,11 @@ function citizenChooseNext(p) {
     // Le jour, une partie des piétons converge vers les places publiques.
     const day = (CM.nightF || 0) < 0.45;
     const plazaCells = CM.plazaRoadCells;
-    if (day && plazaCells && plazaCells.length && Math.random() < 0.3) {
+    const cross = Math.random() < 0.22 ? crossBankGoal(p.gx, p.gy) : null;
+    if (cross) {
+      p.goal = cross;
+      p.social = false;
+    } else if (day && plazaCells && plazaCells.length && Math.random() < 0.3) {
       const r = plazaCells[Math.floor(Math.random() * plazaCells.length)];
       p.goal = { gx: r.gx, gy: r.gy };
       p.social = true;
@@ -333,11 +349,16 @@ function vehicleChooseNext(v) {
   }
   const arrived = v.goal && v.goal.gx === v.gx && v.goal.gy === v.gy;
   if (!v.goal || arrived || Math.random() < 0.03) {
-    for (let tries = 0; tries < 8; tries += 1) {
-      const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
-      if (vehicleRoadRank(r.gx, r.gy) !== "plaza") { v.goal = { gx: r.gx, gy: r.gy }; break; }
+    const cross = Math.random() < 0.22 ? crossBankGoal(v.gx, v.gy) : null;
+    if (cross && vehicleRoadRank(cross.gx, cross.gy) !== "plaza") {
+      v.goal = cross;
+    } else {
+      for (let tries = 0; tries < 8; tries += 1) {
+        const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+        if (vehicleRoadRank(r.gx, r.gy) !== "plaza") { v.goal = { gx: r.gx, gy: r.gy }; break; }
+      }
+      if (!v.goal) return;
     }
-    if (!v.goal) return;
   }
   const rev = v.dir >= 0 ? (v.dir ^ 1) : -1;
   const opts = [];
@@ -651,65 +672,160 @@ function drawShips(dt) {
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
   const ei = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
   const now = performance.now();
+  const docks = CM.shipDocks || [];
+  const DOCK_RANGE = 0.05;   // demi-zone d'escale autour d'un port (unités de t)
+  const DOCK_DWELL = 2.5;    // durée d'arrêt à quai (s)
   for (const sh of CM.ships) {
-    sh.t += sh.dir * sh.speed * dt;
-    if (sh.t > 1) sh.t = 0;
-    if (sh.t < 0) sh.t = 1;
+    if (sh.dwellT === undefined) { sh.dwellT = 0; sh.lastDock = -1; }
+    // ── Escale : proximité au quai le plus proche (distance circulaire en t) ──
+    let prox = 0, dockSide = 0, bestIdx = -1, bestD = Infinity;
+    for (let di = 0; di < docks.length; di += 1) {
+      let dd = Math.abs(sh.t - docks[di].t); if (dd > 0.5) dd = 1 - dd;
+      if (dd < bestD) { bestD = dd; bestIdx = di; dockSide = docks[di].side; }
+    }
+    if (bestIdx >= 0) { const p = Math.max(0, 1 - bestD / DOCK_RANGE); prox = p * p * (3 - 2 * p); }
+    let moveF;
+    if (sh.dwellT > 0) {
+      sh.dwellT -= dt; moveF = 0;                            // arrêt à quai
+    } else {
+      moveF = 1 - 0.85 * prox;                               // ralentit en approchant
+      sh.t += sh.dir * sh.speed * moveF * dt;
+      if (sh.t > 1) sh.t -= 1; if (sh.t < 0) sh.t += 1;
+      if (prox > 0.9 && bestIdx !== sh.lastDock) { sh.dwellT = DOCK_DWELL; sh.lastDock = bestIdx; }
+      else if (bestD > DOCK_RANGE * 1.6) sh.lastDock = -1;   // assez loin : ré-escale possible
+    }
     const fi = sh.t * (sm.length - 1);
     const i0 = Math.max(0, Math.min(sm.length - 1, Math.floor(fi)));
     const i1 = Math.min(sm.length - 1, i0 + 1);
     const f = fi - i0;
-    const wx = (sm[i0].x + (sm[i1].x - sm[i0].x) * f) * T;
-    const wy = (sm[i0].y + (sm[i1].y - sm[i0].y) * f) * T;
-    const sx = (wx - CM.cam.x) * z + CM.cw / 2;
-    const sy = (wy - CM.cam.y) * z + CM.ch / 2;
-    if (sx < -s || sx > CM.cw + s || sy < -s || sy > CM.ch + s) continue;
+    let cgx = sm[i0].x + (sm[i1].x - sm[i0].x) * f;
+    let cgy = sm[i0].y + (sm[i1].y - sm[i0].y) * f;
+    // Dérive latérale vers le quai (normale increasing-sample), bornée dans l'eau.
+    if (prox > 0.001 && dockSide) {
+      let tnx = -(sm[i1].y - sm[i0].y), tny = sm[i1].x - sm[i0].x;
+      const tnl = Math.hypot(tnx, tny) || 1; tnx /= tnl; tny /= tnl;
+      const drift = prox * 0.6 * (sm[i0].hw || 2) * dockSide;
+      cgx += tnx * drift; cgy += tny * drift;
+    }
+    const sx = (cgx * T - CM.cam.x) * z + CM.cw / 2;
+    const sy = (cgy * T - CM.cam.y) * z + CM.ch / 2;
+    if (sx < -s * 2 || sx > CM.cw + s * 2 || sy < -s * 2 || sy > CM.ch + s * 2) continue;
+    const night = CM.nightF || 0;
+    // Stade de bateau ALIGNÉ sur le port (cf. river_ports dans cityEngineSprites) :
+    // radeau → voilier → vapeur → porte-conteneurs par ère, vaisseau cosmique en
+    // band ≥ 7. Mêmes seuils d'ère que le port pour que les deux concordent.
+    const vstage = band >= 7 ? "cosmic" : ei >= 30 ? "container" : ei >= 20 ? "steam" : ei >= 10 ? "sail" : "raft";
+    const sizeMul = vstage === "cosmic" ? 2.3 : vstage === "container" ? 2.2 : vstage === "steam" ? 1.95 : vstage === "sail" ? 1.8 : 1.55;
+    // Cap = tangente locale du fleuve : la coque ET le sillage suivent le
+    // courant. On garde « le haut en haut » (tilt seul + miroir selon le sens)
+    // pour ne pas retourner mât/cheminée quand le bateau remonte le fleuve.
+    const tilt = Math.atan2(sm[i1].y - sm[i0].y, Math.abs(sm[i1].x - sm[i0].x) || 1e-6);
     ctx.save();
     ctx.translate(sx, sy);
-    if (sh.dir < 0) ctx.scale(-1, 1);
+    ctx.rotate(tilt);
+    ctx.scale((sh.dir < 0 ? -1 : 1) * sizeMul, sizeMul);
+
+    // ── Sillage : traînée de turbulence + V d'écume, DERRIÈRE la poupe (-x),
+    // additif. Le bateau suit la ligne centrale (eau profonde) → le sillage
+    // (court, ~1 tuile) reste dans l'eau sans qu'on ait à clipper au ruban.
+    {
+      const spd01 = Math.max(0, Math.min(1, (sh.speed - 0.008) / 0.012));
+      const WL = s * (0.85 + spd01 * 0.8) * (0.35 + 0.65 * moveF); // longueur ∝ vitesse, raccourcit à l'arrêt
+      const foam = vstage === "cosmic" ? "150,220,255" : "225,238,245"; // cyan pour le vaisseau cosmique
+      const wa = (0.10 + spd01 * 0.10) * moveF;            // s'efface quand le bateau ralentit/accoste
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const gt = ctx.createLinearGradient(-s * 0.18, 0, -WL, 0);
+      gt.addColorStop(0, `rgba(${foam},${wa.toFixed(2)})`);
+      gt.addColorStop(1, `rgba(${foam},0)`);
+      ctx.fillStyle = gt;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.18, -s * 0.045);
+      ctx.lineTo(-WL, -s * 0.02);
+      ctx.lineTo(-WL, s * 0.02);
+      ctx.lineTo(-s * 0.18, s * 0.045);
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineCap = "round";
+      ctx.lineWidth = Math.max(1, s * 0.03);
+      for (let side = -1; side <= 1; side += 2) {
+        const gv = ctx.createLinearGradient(-s * 0.1, 0, -WL, 0);
+        gv.addColorStop(0, `rgba(${foam},${(wa * 1.7).toFixed(2)})`);
+        gv.addColorStop(1, `rgba(${foam},0)`);
+        ctx.strokeStyle = gv;
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.1, side * s * 0.04);
+        ctx.quadraticCurveTo(-WL * 0.6, side * s * 0.1, -WL, side * s * 0.2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     ctx.fillStyle = "rgba(10,25,35,0.20)";
     ctx.beginPath();
     ctx.ellipse(0, s * 0.1, s * 0.22, s * 0.07, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    if (ei >= 11) {
-      const pulse = 0.5 + 0.3 * Math.sin(now / 400 + sh.t * 8);
-      ctx.fillStyle = ei >= 14 ? "#2a3848" : "#4a5060";
+    if (vstage === "cosmic") {
+      // Vaisseau cosmique : coque profilée + canopée + propulseur d'ère pulsé
+      // (écho du fboat du GRAND PORT). Palette d'ère inlinée (pas d'import croisé).
+      const COS = {
+        7: { mid: "#1d5640", lite: "#7fe9c0", glow: "90,240,180" },
+        8: { mid: "#4a3a1c", lite: "#ffd78a", glow: "255,205,120" },
+        9: { mid: "#322a52", lite: "#b9a3ff", glow: "170,140,255" }
+      };
+      const cp = COS[band] || COS[9];
+      const pulse = 0.5 + 0.3 * Math.sin(now / 320 + sh.t * 8);
+      ctx.fillStyle = cp.mid;                          // coque profilée, nez vers l'avant (+x)
       ctx.beginPath();
-      ctx.moveTo(-s * 0.28, s * 0.05);
-      ctx.lineTo(-s * 0.32, s * 0.14);
-      ctx.lineTo(s * 0.32, s * 0.14);
-      ctx.lineTo(s * 0.28, s * 0.05);
+      ctx.moveTo(s * 0.34, 0);
+      ctx.lineTo(s * 0.06, -s * 0.11);
+      ctx.lineTo(-s * 0.30, -s * 0.08);
+      ctx.lineTo(-s * 0.32, s * 0.05);
+      ctx.lineTo(s * 0.06, s * 0.12);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = ei >= 14 ? "#1e2838" : "#38424e";
-      ctx.fillRect(-s * 0.12, -s * 0.06, s * 0.28, s * 0.12);
-      ctx.fillStyle = `rgba(100,200,255,${(0.5 + pulse * 0.3).toFixed(2)})`;
-      for (let i = 0; i < 3; i += 1) ctx.fillRect(-s * 0.08 + i * s * 0.09, -s * 0.03, s * 0.05, s * 0.04);
-      ctx.fillStyle = "#606878";
-      ctx.fillRect(s * 0.08, -s * 0.18, s * 0.04, s * 0.14);
-      if (ei >= 14) {
-        ctx.strokeStyle = `rgba(60,200,255,${pulse.toFixed(2)})`;
-        ctx.lineWidth = Math.max(1.5, s * 0.025);
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.3, s * 0.10);
-        ctx.lineTo(-s * 0.5, s * 0.10);
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(80,160,255,${(pulse * 0.5).toFixed(2)})`;
-        ctx.lineWidth = Math.max(1, s * 0.016);
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.28, s * 0.14);
-        ctx.lineTo(s * 0.28, s * 0.14);
-        ctx.stroke();
-      } else {
-        const smk = (now / 600) % 1;
-        ctx.fillStyle = `rgba(160,150,140,${((1 - smk) * 0.28).toFixed(2)})`;
-        ctx.beginPath();
-        ctx.arc(s * 0.10, -s * (0.18 + smk * 0.18), s * (0.04 + smk * 0.07), 0, Math.PI * 2);
-        ctx.fill();
+      ctx.fillStyle = cp.mid;                          // aileron
+      ctx.fillRect(-s * 0.22, -s * 0.18, s * 0.12, Math.max(1, s * 0.03));
+      ctx.fillStyle = cp.lite;                         // canopée
+      ctx.beginPath();
+      ctx.ellipse(s * 0.02, -s * 0.01, s * 0.10, s * 0.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();                                      // propulseur (poupe -x), additif
+      ctx.globalCompositeOperation = "lighter";
+      const gpr = ctx.createRadialGradient(-s * 0.34, 0, 0, -s * 0.34, 0, s * 0.18);
+      gpr.addColorStop(0, `rgba(${cp.glow},${(0.55 + pulse * 0.3).toFixed(2)})`);
+      gpr.addColorStop(1, `rgba(${cp.glow},0)`);
+      ctx.fillStyle = gpr;
+      ctx.beginPath(); ctx.arc(-s * 0.34, 0, s * 0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = `rgba(${cp.glow},${(0.6 + pulse * 0.3).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(-s * 0.30, 0, Math.max(1, s * 0.035), 0, Math.PI * 2); ctx.fill();
+    } else if (vstage === "container") {
+      // Porte-conteneurs : coque acier + conteneurs empilés colorés + château.
+      ctx.fillStyle = "#39414b";
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.32, -s * 0.02);
+      ctx.lineTo(s * 0.34, -s * 0.02);
+      ctx.lineTo(s * 0.26, s * 0.12);
+      ctx.lineTo(-s * 0.26, s * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,235,195,0.10)";
+      ctx.fillRect(-s * 0.32, -s * 0.02, s * 0.66, Math.max(1, s * 0.012));
+      const CC = ["#b5503a", "#3a78a8", "#c8a23a", "#4a9a5a", "#8a4a6a"];
+      for (let c = 0; c < 5; c += 1) {
+        const stacks = 1 + ((c * 7 + (sh.dir > 0 ? 1 : 2)) % 2);
+        for (let lv = 0; lv < stacks; lv += 1) {
+          ctx.fillStyle = CC[(c * 3 + lv) % CC.length];
+          ctx.fillRect(-s * 0.235 + c * s * 0.092, -s * 0.05 - lv * s * 0.06, s * 0.078, s * 0.052);
+        }
       }
-    } else if (band >= 4) {
+      ctx.fillStyle = "#cfd6dc";                       // château / passerelle (arrière)
+      ctx.fillRect(-s * 0.31, -s * 0.14, s * 0.08, s * 0.12);
+      ctx.fillStyle = night > 0.2 ? `rgba(120,200,255,${(0.4 + night * 0.4).toFixed(2)})` : "rgba(40,48,56,0.8)";
+      ctx.fillRect(-s * 0.30, -s * 0.115, s * 0.06, s * 0.03);
+    } else if (vstage === "steam") {
       ctx.fillStyle = "#5a4838";
       ctx.beginPath();
       ctx.moveTo(-s * 0.26, s * 0.02);
@@ -740,7 +856,7 @@ function drawShips(dt) {
       ctx.beginPath();
       ctx.arc(s * 0.07, -s * (0.22 + smk * 0.20), s * (0.04 + smk * 0.08), 0, Math.PI * 2);
       ctx.fill();
-    } else if (band >= 2) {
+    } else if (vstage === "sail") {
       ctx.fillStyle = "#4a3320";
       ctx.beginPath();
       ctx.moveTo(-s * 0.24, s * 0.02);
@@ -764,7 +880,7 @@ function drawShips(dt) {
       ctx.lineTo(s * 0.015, -s * 0.02);
       ctx.closePath();
       ctx.fill();
-      if (band >= 3) {
+      if (ei >= 14) {
         ctx.fillStyle = "rgba(210,195,158,0.65)";
         ctx.beginPath();
         ctx.moveTo(s * 0.015, -s * 0.22);
@@ -800,6 +916,21 @@ function drawShips(dt) {
       ctx.lineTo(s * 0.010, -s * 0.01);
       ctx.closePath();
       ctx.fill();
+    }
+
+    // Escale : pendant l'arrêt à quai, petites lueurs de chargement sur le pont.
+    if (sh.dwellT > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (let k = 0; k < 2; k += 1) {
+        const a = 0.20 + 0.22 * Math.sin(now / 480 + k * 2.3 + sh.t * 6);
+        if (a <= 0.02) continue;
+        ctx.fillStyle = `rgba(255,212,150,${a.toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(s * (-0.07 + k * 0.15), -s * 0.07, Math.max(1, s * 0.045), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
     ctx.restore();
   }

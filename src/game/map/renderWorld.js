@@ -1598,6 +1598,74 @@ function cityMapDrawMist(now) {
   ctx.restore();
 }
 
+// ── Reflets de la ville sur l'eau (nuit) ───────────────────────────────────
+// Traînées de lumière chaude des bâtiments riverains projetées sur l'eau, la
+// nuit. Dessinées juste après les quais (avant brume/bateaux/blit statique) et
+// CLIPPÉES au ruban du fleuve, comme la brume : la nappe lumineuse reste sur
+// l'eau, et ponts/bâtiments recouvrent la base au croisement. Rendu PUR.
+// Réutilise quayGate (rives "urbaines") : un reflet ne naît QUE là où la ville
+// borde l'eau — donc pile sous les bâtiments riverains, sans donnée nouvelle.
+function cityMapDrawCityReflections(now) {
+  const night = CM.nightF || 0;
+  if (night < 0.2) return;                                   // effet strictement nocturne
+  const L = CM.layout;
+  if (!L || !L.river || !L.river.present || !L.river.samples) return;
+  const band = L.counts ? (L.counts.eraBand | 0) : 0;
+  if (band <= 1) return;                                     // campement : pas de ville riveraine
+  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return; // fleuve ruiné : pas de reflet
+  ensureQuayGate();
+  const g = CM.quayGate;
+  if (!g) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, sm = L.river.samples, n0 = sm.length;
+  const t = now || 0;
+  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
+  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
+
+  // Couleur des lumières riveraines selon l'ère (accordée aux lampes de quai) :
+  // chaud (pierre/marbre/fonte) -> cyan (néon) -> teinte d'ère (cosmique).
+  const glow = band <= 5 ? "255,210,140"
+    : band === 6 ? "150,225,255"
+      : band === 7 ? "90,240,180" : band === 8 ? "255,205,120" : "170,140,255";
+
+  ctx.save();
+  // Clip au ruban du fleuve : les nappes lumineuses restent SUR l'eau (même
+  // contour que la brume), elles ne débordent jamais sur la berge/le quai.
+  ctx.beginPath();
+  for (let i = 0; i < n0; i += 1) { const n = cmRiverNormalAt(sm, i), s = sm[i]; const x = SX(s.x + n.nx * s.hw), y = SY(s.y + n.ny * s.hw); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+  for (let i = n0 - 1; i >= 0; i -= 1) { const n = cmRiverNormalAt(sm, i), s = sm[i]; ctx.lineTo(SX(s.x - n.nx * s.hw), SY(s.y - n.ny * s.hw)); }
+  ctx.closePath();
+  ctx.clip();
+  ctx.globalCompositeOperation = "lighter";                 // lumière additive sur l'eau sombre
+
+  const STRIDE = 2;                                          // une nappe tous les 2 samples
+  for (let si = 0; si < 2; si += 1) {
+    const side = si ? -1 : 1, gate = si ? g.minus : g.plus;
+    for (let i = 0; i < n0; i += STRIDE) {
+      if (!gate[i]) continue;
+      const s = sm[i], n = cmRiverNormalAt(sm, i);
+      // Scintillement lent, désynchronisé d'une nappe à l'autre (eau qui ride).
+      const shimmer = 0.45 + 0.55 * Math.sin(t / 1300 + i * 0.9 + si * 2.1);
+      const a = night * (0.10 + 0.07 * (i % 3)) * Math.max(0, shimmer);
+      if (a < 0.012) continue;
+      // Longueur de la traînée qui "respire" ; ancrée côté berge, file vers le centre.
+      const reach = s.hw * (0.50 + 0.18 * Math.sin(t / 2000 + i * 0.5));
+      const off = s.hw - reach * 0.5;
+      const cx = SX(s.x + side * n.nx * off), cy = SY(s.y + side * n.ny * off);
+      const RL = Math.max(3, reach * T * z);                 // long axe (le long de la normale)
+      if (cx < -RL || cx > CM.cw + RL || cy < -RL || cy > CM.ch + RL) continue;
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(Math.atan2(n.ny, n.nx)); ctx.scale(1, 0.42); // étiré vers le centre, fin le long de la rive
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, RL);
+      grad.addColorStop(0, `rgba(${glow},${a.toFixed(3)})`);
+      grad.addColorStop(1, `rgba(${glow},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(0, 0, RL, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
 /* ---- legacy citymap rendering\roads.js ---- */
 
 
@@ -1785,19 +1853,24 @@ function cityMapDrawRoad(r) {
   }
 }
 
-function cityMapDrawBridgeSpan(component, exits) {
+// Style de pont par ère : bois → pierre → fer → béton → travée d'énergie.
+function bridgeStyleFor(ei) {
+  if (ei >= 30) return { kind: "cosmic", deck: "#2a2c3a", rail: "#454a64", post: "#1e2030", line: "rgba(120,205,255,0.55)" };
+  if (ei >= 22) return { kind: "concrete", deck: "#8d9097", rail: "#6c7076", post: "#5a5e64", line: "rgba(245,240,225,0.45)" };
+  if (ei >= 14) return { kind: "iron", deck: "#595e66", rail: "#3c4048", post: "#2f323a", line: "rgba(18,20,24,0.6)" };
+  if (ei >= 6) return { kind: "stone", deck: "#9b9486", rail: "#7c7466", post: "#6b6354", line: "rgba(48,42,34,0.5)" };
+  return { kind: "wood", deck: "#a07830", rail: "#6a4a10", post: "#5a3a10", line: "rgba(74,44,12,0.6)" };
+}
+
+function cityMapDrawBridgeSpan(sp) {
   const layout = CM.layout;
-  if (!layout || !component || !component.length) return;
-  const xs = component.map((r) => r.gx);
-  const ys = component.map((r) => r.gy);
-  const gx0 = Math.min(...xs), gx1 = Math.max(...xs);
-  const gy0 = Math.min(...ys), gy1 = Math.max(...ys);
-  const vertical = (gy1 - gy0) >= (gx1 - gx0);
-  let drawGx0 = gx0, drawGx1 = gx1, drawGy0 = gy0, drawGy1 = gy1;
+  if (!layout || !sp || !sp.cells || !sp.cells.length) return;
+  const component = sp.cells, exits = sp.exits, vertical = sp.vertical, historic = sp.historic;
+  let drawGx0 = sp.gx0, drawGx1 = sp.gx1, drawGy0 = sp.gy0, drawGy1 = sp.gy1;
   if (exits && exits.length) {
     const exXs = exits.map((r) => r.gx), exYs = exits.map((r) => r.gy);
-    if (vertical) { drawGy0 = Math.min(gy0, ...exYs); drawGy1 = Math.max(gy1, ...exYs); }
-    else           { drawGx0 = Math.min(gx0, ...exXs); drawGx1 = Math.max(gx1, ...exXs); }
+    if (vertical) { drawGy0 = Math.min(drawGy0, ...exYs); drawGy1 = Math.max(drawGy1, ...exYs); }
+    else { drawGx0 = Math.min(drawGx0, ...exXs); drawGx1 = Math.max(drawGx1, ...exXs); }
   }
   const s = CM.TILE * CM.cam.zoom;
   const sx = (drawGx0 * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
@@ -1806,69 +1879,107 @@ function cityMapDrawBridgeSpan(component, exits) {
   const totalH = (drawGy1 - drawGy0 + 1) * s;
   if (sx < -totalW - s || sy < -totalH - s || sx > CM.cw + s || sy > CM.ch + s) return;
   const ctx = CM.ctx;
-  const eraIndex = layout.counts ? layout.counts.eraIndex : 0;
+  const ei = layout.counts ? layout.counts.eraIndex : 0;
+  const st = bridgeStyleFor(ei);
 
-  const deckFrac = 0.54;
+  const deckFrac = historic ? 0.74 : 0.54;
   const bw = s * deckFrac;
   const bx = vertical ? sx + (totalW - bw) / 2 : sx;
   const by = vertical ? sy : sy + (totalH - bw) / 2;
   const deckW = vertical ? bw : totalW;
   const deckH = vertical ? totalH : bw;
 
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  // Ombre portée sur l'eau. Historique : ombre élargie + piles = pont à arches.
   const shOff = s * 0.06;
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.fillRect(bx + shOff, by + shOff, deckW, deckH);
+  if (historic) {
+    const ext = s * 0.22;
+    ctx.fillStyle = "rgba(0,0,0,0.16)";
+    if (vertical) ctx.fillRect(bx - ext, by + shOff, deckW + ext * 2, deckH);
+    else ctx.fillRect(bx + shOff, by - ext, deckW, deckH + ext * 2);
+    ctx.fillStyle = st.post;
+    for (let q = 1; q <= 2; q += 1) {
+      if (vertical) { const pierW = bw * 1.34, pierH = s * 0.32, py = by + (deckH * q) / 3 - pierH / 2; ctx.fillRect(bx + (deckW - pierW) / 2, py, pierW, pierH); }
+      else { const pierH = bw * 1.34, pierW = s * 0.32, px = bx + (deckW * q) / 3 - pierW / 2; ctx.fillRect(px, by + (deckH - pierH) / 2, pierW, pierH); }
+    }
+  }
 
-  const woodMain = eraIndex >= 16 ? "#6b6050" : eraIndex >= 10 ? "#9a7428" : "#a07830";
-  ctx.fillStyle = woodMain;
+  // Tablier
+  ctx.fillStyle = st.deck;
   ctx.fillRect(bx, by, deckW, deckH);
 
-  const plankColor = eraIndex >= 16 ? "rgba(40,34,28,0.65)" : "rgba(74,44,12,0.6)";
-  ctx.strokeStyle = plankColor;
-  ctx.lineWidth = Math.max(1, s * 0.04);
-  const plankSpacing = s * 0.18;
-  if (vertical) {
-    const plankStart = by + plankSpacing * 0.5;
-    for (let p = plankStart; p < by + deckH; p += plankSpacing) {
-      ctx.beginPath(); ctx.moveTo(bx, p); ctx.lineTo(bx + deckW, p); ctx.stroke();
+  // Détail de surface selon le matériau.
+  if (st.kind === "concrete" || st.kind === "cosmic") {
+    ctx.strokeStyle = st.line; ctx.lineWidth = Math.max(1, s * 0.03);
+    ctx.setLineDash([s * 0.12, s * 0.12]);
+    ctx.beginPath();
+    if (vertical) { ctx.moveTo(bx + deckW / 2, by); ctx.lineTo(bx + deckW / 2, by + deckH); }
+    else { ctx.moveTo(bx, by + deckH / 2); ctx.lineTo(bx + deckW, by + deckH / 2); }
+    ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle = st.line; ctx.lineWidth = Math.max(1, s * 0.04);
+    const spacing = s * (st.kind === "stone" ? 0.28 : st.kind === "iron" ? 0.5 : 0.18);
+    if (vertical) { for (let p = by + spacing * 0.5; p < by + deckH; p += spacing) { ctx.beginPath(); ctx.moveTo(bx, p); ctx.lineTo(bx + deckW, p); ctx.stroke(); } }
+    else { for (let p = bx + spacing * 0.5; p < bx + deckW; p += spacing) { ctx.beginPath(); ctx.moveTo(p, by); ctx.lineTo(p, by + deckH); ctx.stroke(); } }
+  }
+
+  // Bombement (camber) du pont historique : crête centrale éclairée = « cintré ».
+  if (historic) {
+    const g = vertical ? ctx.createLinearGradient(bx, 0, bx + deckW, 0) : ctx.createLinearGradient(0, by, 0, by + deckH);
+    g.addColorStop(0, "rgba(0,0,0,0.18)"); g.addColorStop(0.5, "rgba(255,245,220,0.20)"); g.addColorStop(1, "rgba(0,0,0,0.18)");
+    ctx.fillStyle = g; ctx.fillRect(bx, by, deckW, deckH);
+    const crownW = Math.max(2, bw * 0.18);
+    ctx.fillStyle = "rgba(255,248,228,0.16)";
+    if (vertical) ctx.fillRect(bx + (deckW - crownW) / 2, by, crownW, deckH);
+    else ctx.fillRect(bx, by + (deckH - crownW) / 2, deckW, crownW);
+  }
+
+  // Garde-corps (rampes)
+  const railW = Math.max(2, s * (historic ? 0.10 : 0.085));
+  ctx.fillStyle = st.rail;
+  if (vertical) { ctx.fillRect(bx, by, railW, deckH); ctx.fillRect(bx + deckW - railW, by, railW, deckH); }
+  else { ctx.fillRect(bx, by, deckW, railW); ctx.fillRect(bx, by + deckH - railW, deckW, railW); }
+
+  // Liseré : glow néon (cosmic) sinon liseré chaud sur le bord intérieur.
+  const hilW = Math.max(1, s * (st.kind === "cosmic" ? 0.03 : 0.022));
+  ctx.fillStyle = st.kind === "cosmic" ? st.line : "rgba(255,220,150,0.24)";
+  if (vertical) { ctx.fillRect(bx + railW, by, hilW, deckH); ctx.fillRect(bx + deckW - railW - hilW, by, hilW, deckH); }
+  else { ctx.fillRect(bx, by + railW, deckW, hilW); ctx.fillRect(bx, by + deckH - railW - hilW, deckW, hilW); }
+
+  // Balustrade (balustres réguliers) : historique + pierre/béton.
+  if (historic || st.kind === "stone" || st.kind === "concrete") {
+    ctx.fillStyle = "rgba(255,245,225,0.18)";
+    const bspc = s * 0.26, bsz = Math.max(1, s * 0.05);
+    if (vertical) { for (let p = by + bspc * 0.5; p < by + deckH; p += bspc) { ctx.fillRect(bx + railW * 0.3, p, bsz, bsz); ctx.fillRect(bx + deckW - railW * 0.3 - bsz, p, bsz, bsz); } }
+    else { for (let p = bx + bspc * 0.5; p < bx + deckW; p += bspc) { ctx.fillRect(p, by + railW * 0.3, bsz, bsz); ctx.fillRect(p, by + deckH - railW * 0.3 - bsz, bsz, bsz); } }
+  }
+
+  // Joint médian (séparateur) pour les ponts non-historiques larges.
+  if (!historic) {
+    ctx.fillStyle = "rgba(20,14,8,0.30)";
+    const jointW = Math.max(1, s * 0.028);
+    if (vertical) ctx.fillRect(bx + (deckW - jointW) / 2, by, jointW, deckH);
+    else ctx.fillRect(bx, by + (deckH - jointW) / 2, deckW, jointW);
+  }
+
+  // Poteaux d'angle (ponts multi-cellules) OU pylônes-monument (historique).
+  if (historic) {
+    const pyW = Math.max(3, bw * 0.34), pyH = Math.max(4, s * 0.42);
+    const pylon = (px, py) => {
+      ctx.fillStyle = st.post; ctx.fillRect(px - pyW / 2, py - pyH / 2, pyW, pyH);
+      ctx.fillStyle = "rgba(255,245,225,0.20)"; ctx.fillRect(px - pyW / 2, py - pyH / 2, pyW, Math.max(1, pyH * 0.14));
+    };
+    if (vertical) {
+      const lx = bx + railW / 2, rx = bx + deckW - railW / 2;
+      pylon(lx, by); pylon(rx, by); pylon(lx, by + deckH); pylon(rx, by + deckH);
+    } else {
+      const ty = by + railW / 2, byy = by + deckH - railW / 2;
+      pylon(bx, ty); pylon(bx, byy); pylon(bx + deckW, ty); pylon(bx + deckW, byy);
     }
-  } else {
-    const plankStart = bx + plankSpacing * 0.5;
-    for (let p = plankStart; p < bx + deckW; p += plankSpacing) {
-      ctx.beginPath(); ctx.moveTo(p, by); ctx.lineTo(p, by + deckH); ctx.stroke();
-    }
-  }
-
-  const railW = Math.max(2, s * 0.085);
-  const railColor = eraIndex >= 16 ? "#504844" : eraIndex >= 10 ? "#7a5a1a" : "#6a4a10";
-  ctx.fillStyle = railColor;
-  if (vertical) {
-    ctx.fillRect(bx, by, railW, deckH);
-    ctx.fillRect(bx + deckW - railW, by, railW, deckH);
-  } else {
-    ctx.fillRect(bx, by, deckW, railW);
-    ctx.fillRect(bx, by + deckH - railW, deckW, railW);
-  }
-
-  ctx.fillStyle = "rgba(20,14,8,0.30)";
-  const jointW = Math.max(1, s * 0.028);
-  if (vertical) ctx.fillRect(bx + (deckW - jointW) / 2, by, jointW, deckH);
-  else ctx.fillRect(bx, by + (deckH - jointW) / 2, deckW, jointW);
-
-  ctx.fillStyle = "rgba(255,220,150,0.28)";
-  const hilW = Math.max(1, s * 0.022);
-  if (vertical) {
-    ctx.fillRect(bx + railW, by, hilW, deckH);
-    ctx.fillRect(bx + deckW - railW - hilW, by, hilW, deckH);
-  } else {
-    ctx.fillRect(bx, by + railW, deckW, hilW);
-    ctx.fillRect(bx, by + deckH - railW - hilW, deckW, hilW);
-  }
-
-  if (component.length > 1) {
-    const postColor = eraIndex >= 14 ? "#3a3230" : "#5a3a10";
+  } else if (component.length > 1) {
     const postSize = Math.max(2, s * 0.11);
-    ctx.fillStyle = postColor;
+    ctx.fillStyle = st.post;
     ctx.fillRect(bx, by, postSize, postSize);
     ctx.fillRect(bx + deckW - postSize, by, postSize, postSize);
     ctx.fillRect(bx, by + deckH - postSize, postSize, postSize);
@@ -1877,38 +1988,52 @@ function cityMapDrawBridgeSpan(component, exits) {
 }
 
 function cityMapDrawBridges() {
-  if (!CM.layout || !CM.roadList.length) return;
-  const bridges = CM.bridgeList || CM.roadList.filter((r) => r.roadSurface === "bridge");
-  const seen = new Set();
-  const key = (r) => r.gx + "," + r.gy;
-  const dirs = [
-    { bit: ROAD_N, dx: 0, dy: -1 },
-    { bit: ROAD_E, dx: 1, dy: 0 },
-    { bit: ROAD_S, dx: 0, dy: 1 },
-    { bit: ROAD_W, dx: -1, dy: 0 }
-  ];
-  for (const start of bridges) {
-    const sk = key(start);
-    if (seen.has(sk)) continue;
-    const stack = [start], component = [];
-    seen.add(sk);
-    const exits = [];
-    while (stack.length) {
-      const r = stack.pop();
-      component.push(r);
-      for (const d of dirs) {
-        if (!(r.mask & d.bit)) continue;
-        const nr = CM.layout.roadMap.get((r.gx + d.dx) + "," + (r.gy + d.dy));
-        if (nr && nr.roadSurface === "bridge") {
-          const nk = key(nr);
-          if (!seen.has(nk)) { seen.add(nk); stack.push(nr); }
-        } else if (nr) {
-          exits.push(nr);
-        }
+  const spans = CM.bridgeSpans;
+  if (!CM.layout || !spans || !spans.length) return;
+  for (const sp of spans) cityMapDrawBridgeSpan(sp);
+}
+
+// Lampes de pont, allumées la nuit. Couche ADDITIVE dessinée APRÈS le voile de
+// nuit (sinon assombrie) : lampes le long des rampes, teinte d'ère (chaud → cyan
+// → cosmique), plus denses/grandes sur le pont historique. Spans précalculés.
+function cityMapDrawBridgeLights(now) {
+  const L = CM.layout;
+  if (!L || !L.counts || CM.lodActive) return;
+  const night = CM.nightF || 0;
+  if (night < 0.12) return;
+  const spans = CM.bridgeSpans;
+  if (!spans || !spans.length) return;
+  const ei = L.counts.eraIndex || 0;
+  if (ei < 4) return;                                  // pas de lampes avant l'antiquité
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, s = T * z;
+  const col = ei >= 30 ? "170,225,255" : ei >= 24 ? "150,225,255" : "255,205,140";
+  const [cr, cg, cb] = col.split(",").map(Number);
+  const a = Math.min(1, (night - 0.12) / 0.6);
+  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
+  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  for (const sp of spans) {
+    const hist = sp.historic;
+    const edge = ((hist ? 0.74 : 0.54) / 2) * 0.86;    // position de la rampe (fraction tuile)
+    const step = hist ? 1 : 2;
+    for (let ci = 0; ci < sp.cells.length; ci += step) {
+      const c = sp.cells[ci];
+      const cx = SX(c.gx + 0.5), cy = SY(c.gy + 0.5);
+      if (cx < -s || cx > CM.cw + s || cy < -s || cy > CM.ch + s) continue;
+      const flick = 0.85 + 0.15 * Math.sin((now || 0) / 900 + c.gx * 7 + c.gy * 13);
+      const al = a * (hist ? 0.95 : 0.7) * flick;
+      const r = s * (hist ? 0.42 : 0.32);
+      for (let sgn = -1; sgn <= 1; sgn += 2) {
+        const lx = sp.vertical ? cx + sgn * edge * s : cx;
+        const ly = sp.vertical ? cy : cy + sgn * edge * s;
+        cmDrawGlow(ctx, lx, ly, r, cr, cg, cb, al * 0.5);
+        ctx.fillStyle = `rgba(${col},${(al * 0.9).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, s * 0.05), 0, Math.PI * 2); ctx.fill();
       }
     }
-    cityMapDrawBridgeSpan(component, exits);
   }
+  ctx.globalCompositeOperation = prev;
 }
 
 function cityMapDrawStreetLights(now) {
@@ -2745,10 +2870,12 @@ function cityMapDrawEraGlow(now) {
 export {
   baseColor,
   cityMapDrawBridges,
+  cityMapDrawBridgeLights,
   cityMapDrawGround,
   cityMapDrawTerrain,
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
+  cityMapDrawCityReflections,
   cityMapDrawMist,
   cityMapDrawNight,
   cityMapDrawPlazaSurface,
