@@ -186,16 +186,6 @@ export default function PrestigeView() {
 
         {isCrisisActive ? (
           <div className="crisis-focus-layout">
-            {crisisLimitAnnounced && (
-              <div className="crisis-alert" id="crisisAlert">
-                <div className="crisis-alert-icon">⚠️</div>
-                <div className="crisis-alert-body">
-                  <strong>La cité s'est effondrée sous {timeWear >= 1 ? "l'usure" : "la rupture"}.</strong>
-                  <p>Choisissez comment organiser sa chute pour maximiser l'héritage, ou terminez le cycle immédiatement.</p>
-                </div>
-              </div>
-            )}
-
             <div className="crisis-choices-grid">
               <div className="crisis-preparation-actions">
                 <h4>Préparations terminales (Tenir la crise)</h4>

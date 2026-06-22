@@ -38,20 +38,6 @@
   -webkit-text-fill-color: transparent;
 }
 
-/* Fleuron de fin de titre de panneau : losange doré dessiné en CSS
-   (pas de glyphe Unicode — rendu identique quelle que soit la police) */
-.panel-heading h2::after {
-  content: "";
-  display: inline-block;
-  width: 0.38em;
-  height: 0.38em;
-  margin-left: 0.55em;
-  vertical-align: 0.22em;
-  background: linear-gradient(135deg, var(--gold-bright), var(--gold-deep));
-  transform: rotate(45deg);
-  opacity: 0.85;
-}
-
 .panel-heading h2 {
   font-size: 1.35rem;
 }

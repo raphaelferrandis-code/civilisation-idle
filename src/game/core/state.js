@@ -254,6 +254,9 @@ export const defaultState = () => ({
   activeView: "city",
   notifEnabled: true,
   mourning: false,
+  // UI seulement : ids de nœuds de ruines déjà « vus » (animation de croissance
+  // jouée une seule fois). Hors GR_PERSISTENT_FIELDS → l'arbre re-pousse au GR.
+  ruinsSeenNodes: [],
   atridesDebt: 0,
   atridesDrainDisabled: false,
   atridesDebtGrowthMultiplier: 1,
@@ -869,7 +872,10 @@ export function hydrateState(parsed = {}) {
     buyAmount: source.buyAmount === "max" ? "max" : finiteInteger(source.buyAmount, 1, 1, 500),
     activeView: ["city", "prestige", "ruinsView", "tech", "mythView", "history"].includes(source.activeView)
       ? source.activeView
-      : "city"
+      : "city",
+    ruinsSeenNodes: Array.isArray(source.ruinsSeenNodes)
+      ? source.ruinsSeenNodes.filter((x) => typeof x === "string")
+      : []
   };
   if (!stateOut.crisisLimitAnnounced) stateOut.crisisOpenedAt = null;
   // Migration : les anciens upgrades d'auto-effondrement (intendant/conseil/memoire)

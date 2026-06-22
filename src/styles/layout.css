@@ -108,7 +108,9 @@
 .tab {
   position: relative;
   justify-content: flex-start;
-  padding: 0.75rem 0.9rem;
+  /* Marges resserrées : le cadre or (frames.css) ajoute un anneau de 6px ;
+     sans ça la liste d'onglets gonflerait en hauteur. */
+  padding: 0.5rem 0.85rem;
   text-align: left;
   border: 1px solid var(--line);
   border-radius: 6px;

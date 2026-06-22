@@ -1,0 +1,554 @@
+/* ============================================================================
+ * Arbre des Ruines — vue « skill-tree » radiale.
+ * SVG (troncs/arêtes/portes) + boutons HTML (nœuds) avec cadre Kenney biseauté
+ * teinté par branche + icône Font Awesome. Voir REFONTE-arbre-ruines-skill-tree.md.
+ * ========================================================================== */
+
+/* Conteneur-cadre : entoure la zone de ruines ; déborde pour laisser les
+   ornements de coin dépasser. */
+.ruins-tree-frame {
+  position: relative;
+  margin: 0.8rem 12px 0;
+}
+
+.ruins-tree {
+  position: relative;
+  width: 100%;
+  height: clamp(460px, 78vh, 1120px);
+  overflow: hidden;
+  /* Double filet or qui ENTOURE la zone (les coins ornés sont posés par-dessus,
+     et débordent — cf. .rt-corner). Identité propre à l'onglet Ruines. */
+  border: 2px solid rgba(214, 188, 130, 0.85);
+  border-radius: 3px;
+  /* « Torche dans un temple en ruine » : pierre excavée sépia chaude (centre
+     éclairé → bords sombres), glow ambré central qui s'éteint vers ~40 %, grain
+     organique non-directionnel (turbulence), vignette lourde. */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.62 0 0 0 0 0.5 0 0 0 0 0.36 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(122, 42, 32, calc(var(--rt-usure, 0) * 0.26)) 100%),
+    radial-gradient(circle at 50% 46%, rgba(var(--rt-glow, 216, 150, 74), var(--rt-glow-a, 0.14)), rgba(var(--rt-glow, 216, 150, 74), 0) 42%),
+    radial-gradient(circle at 50% 50%, #1b1512 0%, #15100e 55%, #0b0908 100%);
+  box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.82);
+  isolation: isolate;
+  touch-action: none; /* le drag pilote le pan, pas le scroll de page */
+}
+/* filet intérieur (2e ligne du double filet) */
+.ruins-tree::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1.5px solid rgba(214, 188, 130, 0.4);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
+}
+.ruins-tree.is-zoomed { cursor: grab; }
+.ruins-tree.is-zoomed:active { cursor: grabbing; }
+
+/* Ornements de coin entrelacés (clé grecque), POSÉS aux 4 angles et débordant. */
+.rt-corner {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  background: url(../assets/ui/ruins-corner.png) center/contain no-repeat;
+  pointer-events: none;
+  z-index: 4;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+}
+.rt-corner--tl { top: -13px; left: -13px; }
+.rt-corner--tr { top: -13px; right: -13px; transform: scaleX(-1); }
+.rt-corner--bl { bottom: -13px; left: -13px; transform: scaleY(-1); }
+.rt-corner--br { bottom: -13px; right: -13px; transform: scale(-1, -1); }
+
+/* ---- Contrôles de zoom ---- */
+/* Décalés sous l'ornement de coin (56px à -13px → couvre ~43px depuis les bords)
+   pour ne pas le chevaucher. */
+.rt-zoom-controls {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rt-zoom-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(16, 19, 30, 0.88);
+  color: var(--gold-ivory);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.rt-zoom-btn:hover {
+  border-color: var(--gold);
+  background: rgba(40, 50, 74, 0.92);
+}
+.rt-zoom-btn:focus-visible {
+  outline: 2px solid var(--brand-gold-bright);
+  outline-offset: 2px;
+}
+
+/* Monde à l'échelle 1:1 (world units = px), mis à l'échelle du conteneur. */
+.rt-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+.rt-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ---- Chaîne, rayons, sceaux, portes, exclusion ---- */
+/* Lien gravé = rainure sombre creusée (.rt-trunk-groove) + rail métallique teinté
+   par branche (.rt-trunk) posé dedans. Plus de trait néon. */
+.rt-trunk-groove {
+  stroke: #0a0b0f;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.rt-trunk {
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+/* Rayons internes cœur ↔ nœud (« roue »), clippés : rainure noire (contour) + rail. */
+.rt-edge-groove {
+  fill: none;
+  stroke: #0a0b0f;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.82;
+}
+.rt-edge {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.rt-edge--gated { opacity: 0.18; stroke-dasharray: 4 7; }
+.rt-edge--open { opacity: 0.45; }
+.rt-edge--on { opacity: 0.78; stroke-width: 3; }
+
+/* Lien d'exclusion : affiché UNIQUEMENT au survol d'un des 2 nœuds (cf. JSX) →
+   on peut le rendre franc + apparition douce, plus de bruit permanent. */
+.rt-exclusion {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 3.5;
+  stroke-dasharray: 4 7;
+  opacity: 0.92;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+  animation: rt-excl-in 160ms ease;
+}
+@keyframes rt-excl-in { from { opacity: 0; } }
+
+.rt-gate circle {
+  fill: rgba(10, 14, 24, 0.92);
+  stroke-width: 2.5;
+}
+.rt-gate.is-closed circle { opacity: 0.55; }
+.rt-gate.is-open circle { opacity: 0.95; }
+.rt-gate-text {
+  fill: var(--text-mid);
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* Le disque SVG du moyeu est remplacé par le médaillon HTML (cf. .rt-hub). */
+.rt-hub-disc { display: none; }
+
+/* Anneaux de strates : cercles concentriques très discrets rayonnant du moyeu,
+   ancrés au monde (suivent le pan/zoom) — donnent de la profondeur au fond. */
+.rt-strata {
+  fill: none;
+  stroke: rgba(var(--rt-strata, 174, 150, 118), var(--rt-strata-a, 0.06));
+  stroke-width: 1.5;
+  stroke-dasharray: 36 24 10 46 78 16 6 30;
+  stroke-linecap: round;
+}
+
+/* Cœur-sceau (HTML) d'un rond sans dogme/capstone : sceau de PIERRE & OR, comme
+   les nœuds. Rebord d'or terne + pierre creusée tant que le rond n'est pas fini ;
+   rebord d'or vif + visage doré + cabochon lumineux une fois SCELLÉ. */
+.rt-seal2 {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(145deg, #b7a06a, #564626);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.28);
+}
+.rt-seal2::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, rgba(var(--b-rgb), 0.3), rgba(8, 10, 14, 0.98) 72%);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.72), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+}
+.rt-seal2.is-complete {
+  background: linear-gradient(145deg, #f4e2a0, #8a6a30);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.55), 0 0 16px rgba(214, 173, 95, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+.rt-seal2.is-complete::before {
+  background: radial-gradient(circle at 40% 32%, #6a5524, #241b0e 72%);
+  box-shadow: inset 0 0 0 2px rgba(240, 220, 150, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.12);
+}
+.rt-seal2.is-complete::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 34%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fbeebb, #c9a352);
+  box-shadow: 0 0 9px rgba(240, 220, 160, 0.65);
+}
+
+/* ---- Moyeu : médaillon monumental d'or (HTML) ---- */
+.rt-hub {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 150px;
+  height: 150px;
+  box-sizing: border-box;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  text-align: center;
+  pointer-events: none;
+  border-radius: 50%;
+  /* Rebord d'or massif biseauté (conique = reflets) + halo + relief. */
+  background: conic-gradient(from 215deg, #f2dfa3, #94702f, #f2dfa3, #79592a, #f2dfa3);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.6),
+    0 0 44px rgba(201, 169, 104, 0.22),
+    inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+/* Visage de pierre gravé (creux, liseré d'or interne). */
+.rt-hub::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  z-index: 0;
+  background: radial-gradient(circle at 42% 32%, #2c2e36, #131419 72%);
+  box-shadow:
+    inset 0 0 0 2px rgba(201, 169, 104, 0.5),
+    inset 0 3px 7px rgba(255, 255, 255, 0.08),
+    inset 0 -7px 13px rgba(0, 0, 0, 0.66);
+}
+.rt-hub-icon { position: relative; z-index: 1; font-size: 30px; color: #ecd79c; text-shadow: 0 2px 1px rgba(0, 0, 0, 0.7); }
+.rt-hub-count { position: relative; z-index: 1; font-family: var(--font-number); font-size: 28px; color: #f3e2ab; line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.rt-hub-label { position: relative; z-index: 1; font-family: var(--font-body); font-size: 13px; color: #b8b09a; letter-spacing: 0.02em; }
+
+/* ---- Nœuds (boutons) ---- */
+.rt-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+  color: var(--b, var(--gold));
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.rt-node:focus-visible {
+  outline: none;
+}
+.rt-node:focus-visible .rt-frame {
+  box-shadow: 0 0 0 3px var(--brand-gold-bright), 0 0 16px rgba(201, 169, 104, 0.5);
+}
+
+/* Disque dessiné en CSS (pas de raster) : pastille pleine teintée par branche,
+   léger bombé (highlight haut + ombre basse) + anneau net. Aucun cadre sombre. */
+/* Sceau de pierre & or : rebord d'or biseauté (.rt-frame) + visage de pierre
+   creusé teinté par branche (::before). Aucun aplat. */
+.rt-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e8d293, #79592a);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: box-shadow 130ms ease, filter 130ms ease, background 130ms ease;
+}
+.rt-frame::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, rgba(var(--b-rgb), 0.42), rgba(11, 13, 17, 0.97) 74%);
+  box-shadow: inset 0 3px 5px rgba(255, 255, 255, 0.08), inset 0 -5px 10px rgba(0, 0, 0, 0.62);
+  transition: background 130ms ease, box-shadow 130ms ease;
+}
+.rt-node--dogma .rt-frame { border-radius: 26%; }
+.rt-node--dogma .rt-frame::before { border-radius: 22%; }
+
+/* Icône CREUSÉE dans la pierre (couleur chaude teintée branche + emboss). */
+.rt-icon {
+  position: relative;
+  z-index: 2;
+  line-height: 1;
+  color: #ece0c6;
+  color: color-mix(in srgb, rgb(var(--b-rgb)) 46%, #f1e7ce);
+  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.82), 0 -1px 0 rgba(255, 255, 255, 0.13);
+  transition: color 130ms ease, text-shadow 130ms ease;
+}
+
+.rt-crown {
+  position: absolute;
+  z-index: 3;
+  top: -0.42em;
+  font-size: 0.5em;
+  color: var(--brand-gold-bright);
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.7));
+}
+
+.rt-pip {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  font-size: 0.42em;
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(10, 14, 24, 0.95);
+}
+.rt-pip--ok { color: var(--green); box-shadow: 0 0 0 1.5px rgba(54, 179, 126, 0.7); }
+.rt-pip--no { color: var(--red); box-shadow: 0 0 0 1.5px rgba(239, 68, 68, 0.7); }
+
+/* ---- États (hiérarchie : achetable ≫ acheté ≫ verrouillé) ---- */
+
+/* Verrouillé : désaturé/atténué (PAS le call-to-action), mais un anneau clair le
+   garde visible sur le navy — règle le « brun/gris invisible ». */
+.rt-locked { opacity: 0.52; }
+.rt-locked .rt-frame {
+  background: linear-gradient(145deg, #6f6a5a, #34322a);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+  animation: none;
+}
+.rt-locked .rt-frame::before {
+  background: radial-gradient(circle at 38% 30%, #3b3b40, #141519 74%);
+}
+.rt-locked .rt-icon { color: rgba(222, 218, 206, 0.5); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
+
+/* Achetable = l'élément le PLUS saillant : couleur vive + anneau plein + halo
+   large qui respire. */
+.rt-available { cursor: pointer; }
+.rt-available .rt-frame {
+  background: linear-gradient(145deg, #f6e3a4, #9a7636);
+  box-shadow:
+    0 3px 9px rgba(0, 0, 0, 0.55),
+    0 0 16px rgba(var(--b-rgb), 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  animation: rt-avail-pulse 2.6s ease-in-out infinite;
+}
+.rt-available .rt-frame::before {
+  background: radial-gradient(circle at 38% 30%, rgba(var(--b-rgb), 0.6), rgba(14, 18, 22, 0.95) 76%);
+}
+@keyframes rt-avail-pulse {
+  0%, 100% {
+    box-shadow:
+      0 3px 9px rgba(0, 0, 0, 0.55),
+      0 0 12px rgba(var(--b-rgb), 0.4),
+      inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 3px 9px rgba(0, 0, 0, 0.55),
+      0 0 27px rgba(var(--b-rgb), 0.85),
+      inset 0 1px 1px rgba(255, 255, 255, 0.55);
+  }
+}
+/* Survol : AUCUN mouvement — le nœud s'illumine (pleine opacité + icône blanche
+   qui rayonne). La spécificité `.ruins-tree .rt-node:hover` (et le transform
+   ré-imposé) neutralise la règle GLOBALE `button:hover { transform: translateY(-1px) }`
+   de base.css qui, sinon, écrase le centrage et fait sauter le nœud. */
+/* Anti-saut (TOUS les nœuds) : ré-impose le centrage, neutralise button:hover global. */
+.ruins-tree .rt-node:hover {
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  border-color: transparent;
+}
+/* Illumination UNIQUEMENT sur les ruines achetables. */
+.ruins-tree .rt-available:hover { opacity: 1; }
+.ruins-tree .rt-available:hover .rt-icon {
+  color: #fff6e2;
+  text-shadow: 0 0 9px rgba(255, 240, 200, 0.55), 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.ruins-tree .rt-available:hover .rt-frame { filter: brightness(1.12); }
+
+/* Acheté : il a fait son job → s'efface en arrière-plan (calme, désaturé, sans
+   halo) mais reste reconnaissable (teinte de branche + pastille ✓). */
+/* Acheté : sceau ENFONCÉ et terni (or assombri, pierre creusée), pastille ✓. */
+.rt-purchased { opacity: 0.72; }
+.rt-purchased .rt-frame {
+  background: linear-gradient(145deg, #9a824a, #463619);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.16);
+  animation: none;
+}
+.rt-purchased .rt-frame::before {
+  background: radial-gradient(circle at 38% 34%, rgba(var(--b-rgb), 0.22), rgba(9, 11, 15, 0.98) 70%);
+  box-shadow: inset 0 4px 9px rgba(0, 0, 0, 0.72), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
+}
+.rt-purchased .rt-icon {
+  color: #b3a98f;
+  color: color-mix(in srgb, rgb(var(--b-rgb)) 32%, #b3a98f);
+}
+
+.rt-blocked { opacity: 0.6; }
+.rt-blocked .rt-frame {
+  background: linear-gradient(145deg, #b06a52, #561f17);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+  animation: none;
+}
+.rt-blocked .rt-frame::before { background: radial-gradient(circle at 38% 30%, #5a2422, #190f0f 74%); }
+.rt-blocked .rt-icon { color: #f1c6bd; }
+
+/* Nœud INCOMPATIBLE avec celui qu'on survole : surligné en rouge (« ses
+   incompatibilités s'illuminent »). Écrase l'état courant + coupe le pulse. */
+.ruins-tree .rt-node.rt-conflict { opacity: 1; z-index: 4; }
+.ruins-tree .rt-node.rt-conflict .rt-frame {
+  animation: none;
+  background: linear-gradient(145deg, #e88a72, #7a3424);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.92), 0 0 18px rgba(239, 68, 68, 0.55);
+}
+.ruins-tree .rt-node.rt-conflict .rt-frame::before { background: radial-gradient(circle at 38% 30%, #6a2a24, #1a0f0f 74%); }
+.ruins-tree .rt-node.rt-conflict .rt-icon { color: #fff; }
+
+/* Capstone : objectif final de l'axe — toujours encadré OR (double anneau +
+   halo), jamais le pulse de branche. Couronne + label persistant le nomment. */
+.rt-capstone .rt-frame {
+  animation: none;
+  background: linear-gradient(145deg, #f4e2a0, #8a6a30);
+  box-shadow:
+    0 4px 13px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(255, 238, 198, 0.5),
+    0 0 26px rgba(214, 173, 95, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.55);
+}
+.rt-capstone .rt-frame::before {
+  background: radial-gradient(circle at 40% 30%, rgba(var(--b-rgb), 0.42), #13151b 76%);
+}
+.rt-capstone .rt-icon { color: #fff3d8; }
+.rt-capstone.rt-purchased { opacity: 1; }
+.rt-capstone.rt-purchased .rt-frame { filter: none; }
+.rt-crown { font-size: 0.56em; top: -0.46em; }
+
+/* ---- Tooltip ---- */
+.rt-tooltip {
+  position: absolute;
+  z-index: 20;
+  max-width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  transform: translate(14px, 14px);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--b, var(--gold));
+  border-radius: 8px;
+  background: rgba(14, 18, 28, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.rt-tooltip--flip { transform: translate(calc(-100% - 14px), 14px); }
+.rt-tip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.rt-tip-name { font-size: 0.9rem; color: var(--text-strong); line-height: 1.2; }
+.rt-tip-kind {
+  font-family: var(--font-body);
+  font-size: 0.56rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--b, var(--gold));
+  white-space: nowrap;
+}
+.rt-tip-effect { font-family: var(--font-body); font-size: 0.79rem; color: var(--text-secondary); line-height: 1.3; }
+.rt-tip-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.55rem; margin-top: 0.1rem; }
+.rt-tip-cost { font-family: var(--font-number); font-size: 0.82rem; color: var(--gold-ivory); white-space: nowrap; }
+.rt-tip-cost i { font-size: 0.72em; opacity: 0.85; }
+.rt-tip-status { font-family: var(--font-body); font-size: 0.72rem; font-weight: 700; line-height: 1.25; }
+.rt-status--available,
+.rt-status--owned { color: var(--green, #36b37e); }
+.rt-status--cost { color: #e0b057; }
+.rt-status--locked { color: var(--text-mid); }
+.rt-status--blocked { color: var(--red, #ef4444); }
+
+/* ---- Région d'annonce a11y (visuellement masquée) ---- */
+.rt-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Dogmes : même disque bombé mais en médaillon arrondi (border-radius 26 %
+   défini plus haut) — distinct des nœuds ronds, sans cadre sombre. */
+
+/* ---- Croissance « l'arbre pousse » ---- */
+@keyframes rt-grow-in {
+  from { opacity: 0; scale: 0.42; }
+  60% { opacity: 1; }
+  to { opacity: 1; scale: 1; }
+}
+.rt-entering {
+  animation: rt-grow-in 650ms cubic-bezier(0.2, 0.85, 0.3, 1.25) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+@keyframes rt-fade-in { from { opacity: 0; } }
+.is-growing .rt-trunk { animation: rt-fade-in 750ms ease both; }
+.is-growing .rt-edge { animation: rt-fade-in 850ms ease both; }
+
+/* ---- Flash d'achat ---- */
+@keyframes rt-pop {
+  0% { scale: 1; }
+  40% { scale: 1.34; }
+  100% { scale: 1; }
+}
+@keyframes rt-bought-glow {
+  0% { box-shadow: 0 0 0 3px rgba(var(--b-rgb), 1), 0 0 28px rgba(var(--b-rgb), 0.85); }
+  100% { box-shadow: 0 0 0 2px rgba(var(--b-rgb), 0.85), inset 0 0 14px rgba(var(--b-rgb), 0.5); }
+}
+.rt-bought { animation: rt-pop 480ms ease; z-index: 6; }
+.rt-bought .rt-frame { animation: rt-bought-glow 480ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-node,
+  .rt-frame { transition: none; }
+  .rt-available:hover { transform: translate(-50%, -50%); }
+  .rt-entering,
+  .rt-bought,
+  .rt-bought .rt-frame,
+  .rt-available .rt-frame,
+  .is-growing .rt-trunk,
+  .is-growing .rt-edge { animation: none; }
+}

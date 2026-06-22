@@ -16,6 +16,9 @@
   --ui-frame-w: 10px;
   --ui-frame-src: url(../assets/ui/topbar-frame.png);
   --ui-frame-slice: 12;
+  /* Version plus fine du même cadre, pour les contrôles (onglets, boutons de
+     choix) : un cadre de 10px écraserait le texte de boutons compacts. */
+  --ui-frame-w-ctrl: 6px;
 }
 
 .panel,
@@ -28,5 +31,29 @@
   border-color: transparent !important;
   border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
   /* Le cadre porte ses propres coins (clé grecque) : pas de rayon arrondi. */
+  border-radius: 0 !important;
+}
+
+/* ----------------------------------------------------------------------------
+   MÊME CADRE sur les contrôles — onglets de navigation + boutons de choix de
+   gestion de crise et d'effondrement. Demandé pour unifier le contour partout
+   (2026-06-22). Le fond/teinte propre à chaque contrôle reste visible au centre
+   (le cadre ne dessine que l'anneau) ; l'état actif/sélectionné reste distingué
+   par son fond et son halo, pas par le cadre.
+   ---------------------------------------------------------------------------- */
+.tab,
+/* Régulation de crise : variante compacte + tableau tactique (full) + politiques */
+.crisis-regul-btn,
+.tactical-actions button,
+.policy-btn,
+/* Choix d'effondrement : préparations terminales + boutons d'effondrement */
+.prep-tier-buttons button,
+.collapse-btn-primary,
+.manual-collapse-btn,
+.surchauffe-btn-action {
+  border-style: solid !important;
+  border-width: var(--ui-frame-w-ctrl) !important;
+  border-color: transparent !important;
+  border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
   border-radius: 0 !important;
 }
