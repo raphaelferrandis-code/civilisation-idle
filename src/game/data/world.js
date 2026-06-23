@@ -143,7 +143,6 @@ function majorText(m) {
 }
 
 let prevLog = 35;                 // log10 du seuil de l'ère 34 (Singularité = 10^35)
-let namedEraCount = eras.length;  // mémorise la fin des paliers nommés à la main
 for (let m = 1; m <= TRANSCENDENT_MAJOR_CAP; m += 1) {
   const mLog = majorLog(m);
   const lowerName = majorName(m - 1);
@@ -156,7 +155,6 @@ for (let m = 1; m <= TRANSCENDENT_MAJOR_CAP; m += 1) {
   // Palier MAJEUR : incrémente le tier (seul lui paie).
   eras.push({ name: majorName(m), at: popFromLog(mLog), text: majorText(m), tier: 34 + m });
   prevLog = mLog;
-  if (m === HANDCRAFTED_MAJORS.length) namedEraCount = eras.length;
 }
 
 // Tier (= index de palier MAJEUR équivalent) d'une ère : source de vérité des
@@ -166,11 +164,6 @@ export const eraTier = (index) => {
   const e = eras[index];
   return e && typeof e.tier === "number" ? e.tier : (index || 0);
 };
-
-// Nombre d'ères NOMMÉES (jusqu'au dernier palier handcraft « Démiurge », factices
-// incluses). Au-delà : paliers procéduraux. L'UI affiche un horizon fini jusqu'ici
-// puis un texte « sans fin » (évite d'exposer le cap procédural).
-export const NAMED_ERA_COUNT = namedEraCount;
 
 export const DOCTRINES = [
   {

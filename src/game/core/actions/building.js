@@ -27,8 +27,6 @@ import {
   enforceInfrastructureCap,
   canBuyUpgrade,
   has,
-  globalMultiplier,
-  globalMultiplierDec,
   grandResetLegitimacyCost,
   grandResetMythsRequired,
   completedMythCount,
@@ -38,7 +36,7 @@ import {
 import { openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
-import { D, toNum } from '../num.js';
+import { D } from '../num.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -181,30 +179,6 @@ export function buyUpgrade(id) {
   renderCache.cachedRuinEffectsSignature = "";
   invalidateRenderCache("all");
   chronicle(`Nos dirigeants ont décrété une nouvelle avancée pour la cité : ${upgrade.name}.`);
-  render();
-}
-
-export function gather() {
-  if (gamePaused || collapseInProgress) return;
-  // Chemin float tant que tout est fini ; sinon équivalent Decimal.
-  const globalMult = globalMultiplier();
-  const popF = toNum(state.population);
-  if (Number.isFinite(globalMult) && Number.isFinite(popF)) {
-    const manualScale = Math.sqrt(globalMult);
-    const salvage = has("salvage_crews") ? 1.6 : 1;
-    state.population = D(state.population).add((0.15 + Math.sqrt(popF) * 0.018) * manualScale);
-    state.food = D(state.food).add((1.1 + Math.sqrt(toNum(state.population)) * 0.08) * manualScale * salvage);
-    state.gold = D(state.gold).add(Math.max(0, Math.log10(toNum(state.population)) - 1) * 0.012 * salvage);
-    state.knowledge = D(state.knowledge).add(Math.max(0, Math.log10(toNum(state.population)) - 1.5) * 0.006 * manualScale);
-  } else {
-    const manualScaleD = globalMultiplierDec().sqrt();
-    const salvage = has("salvage_crews") ? 1.6 : 1;
-    state.population = D(state.population).add(D(state.population).sqrt().mul(0.018).add(0.15).mul(manualScaleD));
-    const popLog = D(state.population).log10();
-    state.food = D(state.food).add(D(state.population).sqrt().mul(0.08).add(1.1).mul(manualScaleD).mul(salvage));
-    state.gold = D(state.gold).add(Math.max(0, popLog - 1) * 0.012 * salvage);
-    state.knowledge = D(state.knowledge).add(manualScaleD.mul(Math.max(0, popLog - 1.5) * 0.006));
-  }
   render();
 }
 

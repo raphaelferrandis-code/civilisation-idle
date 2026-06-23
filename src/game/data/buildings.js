@@ -1,7 +1,7 @@
 "use strict";
 
 /* ============================================================================
- * data-buildings.js - Donnees statiques: buildings, buildingDisplayOrder, dynastyNames, dynastyMottos.
+ * data-buildings.js - Donnees statiques: buildings, buildingDisplayOrder, dynastyNames.
  * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
  * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
  * ============================================================================ */
@@ -519,17 +519,6 @@ export const dynastyNames = [
   "Lignee du Fleuve Double",
   "Dynastie des Tours Longues",
   "Maison de la Derniere Aube"
-];
-
-export const dynastyMottos = [
-  "Tenir assez longtemps pour que quelqu'un d'autre s'en souvienne.",
-  "Le ventre avant le trone.",
-  "Ce qu'on construit apres soi est la seule eternite qui existe.",
-  "Les mots durent plus longtemps que les empires qui les ont commandes.",
-  "La dette d'hier devient la regle d'aujourd'hui.",
-  "Relier, c'est toujours conquerir quelque chose sans arme.",
-  "La patience construit ce que l'ambition seule ne peut pas terminer.",
-  "Tomber n'est pas mourir si quelqu'un ramasse ce que tu as pose."
 ];
 
 export const buildingDisplayOrder = {

@@ -11,9 +11,10 @@ import {
   grandResetMythsRequired,
   completedMythCount
 } from '../../game/core/mechanics.js';
-import { foundDynasty, buyUpgrade, performGrandReset } from '../../game/core/actions.js';
+import { foundDynasty, buyUpgrade, performGrandReset, engraveCadmosEpitaph } from '../../game/core/actions.js';
 import { upgrades } from '../../game/data/upgrades.js';
 import { DOCTRINES } from '../../game/data/world.js';
+import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
 import { fmt } from '../../game/core/utils.js';
 import { D } from '../../game/core/num.js';
 
@@ -24,6 +25,19 @@ export default function HeritageView() {
   const dynastyDoctrine = useGameState(s => s.dynastyDoctrine);
   const grandResetCount = useGameState(s => s.grandResetCount) || 0;
   const ragnarokHeritage = useGameState(s => Boolean(s.ragnarokHeritage));
+  const cadmosHeritage = useGameState(s => Boolean(s.cadmosHeritage));
+  const cadmosPermanentEpitaphs = useGameState(s => s.cadmosPermanentEpitaphs) || [];
+  const cadmosLastRunChronicle = useGameState(s => s.cadmosLastRunChronicle) || [];
+  const cadmosChronicle = useGameState(s => s.cadmosChronicle) || [];
+
+  // Âges chroniqués (cycle courant + dernier run) encore gravables : dédupliqués
+  // par id et privés de ceux déjà gravés.
+  const cadmosEngravedIds = new Set(cadmosPermanentEpitaphs.map((e) => e.id));
+  const cadmosCandidates = [...cadmosLastRunChronicle, ...cadmosChronicle]
+    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
+    .filter((e) => !cadmosEngravedIds.has(e.id));
+  const cadmosFull = cadmosPermanentEpitaphs.length >= CADMOS_MAX_PERMANENT_EPITAPHS;
+  const cadmosBonusPct = Math.round(CADMOS_EPITAPH_BONUS_PCT * 100);
 
   const legitGain = legitimacyGain();
   const dynCount = dynastyCount || 0;
@@ -155,6 +169,67 @@ export default function HeritageView() {
           })}
         </div>
       </div>
+
+      {/* Cadmos — Épitaphes permanentes (visible une fois l'héritage Cadmos acquis) */}
+      {cadmosHeritage && (
+        <div className="panel cadmos-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Cadmos — Épitaphes permanentes</h2>
+            </div>
+          </div>
+          <p className="body-copy">
+            Grave un Âge inscrit à la Chronique comme Nom de Pouvoir permanent : chaque
+            épitaphe accorde <strong>+{cadmosBonusPct}%</strong> à son orientation (Nourriture,
+            Trésor ou Stabilité), pour toujours. Maximum {CADMOS_MAX_PERMANENT_EPITAPHS}.
+          </p>
+          <div className="prestige-stats">
+            <div>
+              <span>Épitaphes gravées</span>
+              <strong>{cadmosPermanentEpitaphs.length} / {CADMOS_MAX_PERMANENT_EPITAPHS}</strong>
+            </div>
+          </div>
+
+          {cadmosPermanentEpitaphs.length > 0 && (
+            <div className="upgrade-grid">
+              {cadmosPermanentEpitaphs.map((entry) => (
+                <article key={entry.id} className="upgrade bought">
+                  <div>
+                    <h3>{entry.name}</h3>
+                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% permanent</p>
+                  </div>
+                  <button disabled>Gravé</button>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <p className="body-copy" style={{ marginTop: '0.6rem' }}>Âges disponibles à graver :</p>
+          {cadmosCandidates.length === 0 ? (
+            <p className="body-copy">
+              <em>Aucun Âge à graver — nomme des Âges pendant un cycle sous le Mythe de Cadmos, puis reviens ici après l'effondrement.</em>
+            </p>
+          ) : (
+            <div className="upgrade-grid">
+              {cadmosCandidates.map((entry) => (
+                <article key={entry.id} className="upgrade">
+                  <div>
+                    <h3>{entry.name}</h3>
+                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% permanent</p>
+                  </div>
+                  <button
+                    disabled={cadmosFull}
+                    onClick={() => engraveCadmosEpitaph(entry.id)}
+                    title={cadmosFull ? `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint` : "Graver cette épitaphe de façon permanente"}
+                  >
+                    {cadmosFull ? "Complet" : "Graver"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Grand Reset Panel */}
       <div className="panel grand-reset-panel" id="grandResetPanel">

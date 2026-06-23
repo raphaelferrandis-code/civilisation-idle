@@ -13,7 +13,6 @@ export {
   exhumeVestige,
   performGrandReset,
   buyUpgrade,
-  gather,
   rewardCitizenThought
 } from './actions/building.js';
 
