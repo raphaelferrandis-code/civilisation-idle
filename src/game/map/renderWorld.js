@@ -12,7 +12,8 @@ import {
   cmIsBridgeRoad,
   cmWonderSlot,
   cmWonderActive,
-  WONDER_CLEAR_R
+  WONDER_CLEAR_R,
+  roadWidthFor
 } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset } from './agents.js';
 import { mapThemeForBand, activeEraDetails, getEraTheme } from '../data/eraThemes.js';
@@ -151,10 +152,10 @@ function getRoadVisualStyle(eraIndex, rank, ruined, major) {
   // pour une coupe divisée (rive | voie | terre-plein | voie | rive) sans déborder
   // de la cellule (< 1 tuile). Sentier/rue restent fins.
   const widthByRank = {
-    path: eraIndex >= 7 ? 0.16 : 0.13,
-    secondary: eraIndex >= 12 ? 0.32 : eraIndex >= 7 ? 0.28 : 0.24,
-    avenue: eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38,
-    main: eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5
+    path: roadWidthFor("path", eraIndex),
+    secondary: roadWidthFor("secondary", eraIndex),
+    avenue: roadWidthFor("avenue", eraIndex),
+    main: roadWidthFor("main", eraIndex)
   };
   const detailRate = rank === "main" ? 5 : rank === "avenue" ? 7 : rank === "secondary" ? 9 : 13;
   return {
@@ -945,7 +946,7 @@ function cityMapDrawNight(now) {
   const ctx = CM.ctx;
   ctx.fillStyle = `rgba(10,16,34,${(n * 0.5).toFixed(3)})`;
   ctx.fillRect(0, 0, CM.cw, CM.ch);
-  if (CM.layout && CM.layout.counts.eraBand >= 2) {
+  if (CM.layout && CM.layout.counts && CM.layout.counts.eraBand >= 2) {
     const sx = (CM.layout.cx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
     const sy = (CM.layout.cy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
     const r = (8 + CM.layout.counts.eraIndex * 2.4) * CM.TILE * CM.cam.zoom;
@@ -1943,12 +1944,9 @@ function ensureRoadRuns() {
   CM.roadRuns = { key: CM.layoutRecomputeAt, hRuns, vRuns, junctions, minorJunctions };
 }
 
-// Largeur de chaussée par rang/ère — DOIT suivre widthByRank de getRoadVisualStyle.
+// Largeur de chaussée par rang/ère — alias de la source unique roadWidthFor.
 function roadBodyWidth(rank, eraIndex) {
-  if (rank === "main") return eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5;
-  if (rank === "secondary") return eraIndex >= 12 ? 0.32 : eraIndex >= 7 ? 0.28 : 0.24;
-  if (rank === "path") return eraIndex >= 7 ? 0.16 : 0.13;
-  return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38; // avenue
+  return roadWidthFor(rank, eraIndex);
 }
 
 function cityMapDrawRoadMarkings() {

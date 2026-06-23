@@ -15,6 +15,11 @@ import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.
 import { generateWalls } from './procedural/wallGenerator.js';
 import { createBuildingPlacer } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
+import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
+import {
+  CM_ENGINE_BUILDINGS, CM_KNOWLEDGE_BUILDINGS, CM_INFRA_BUILDINGS, CM_MAP_BUILDINGS,
+  CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
+} from './cityBuildings.js';
 
 /* ---- legacy citymap core\layout.js ---- */
 
@@ -70,88 +75,21 @@ const ROAD_N = 1;
 const ROAD_E = 2;
 const ROAD_S = 4;
 const ROAD_W = 8;
-const ROAD_RANK_WEIGHT = { path: 0, secondary: 1, avenue: 2, main: 3 };
-function cmBetterRoadRank(a, b) {
-  return (ROAD_RANK_WEIGHT[b] || 0) > (ROAD_RANK_WEIGHT[a] || 0) ? b : a;
+
+// SOURCE UNIQUE de la largeur de chaussée par rang/ère, partagée par le rendu
+// (corps de route + marquages, renderWorld) et les véhicules (décalage de file,
+// agents) pour garantir l'alignement. Tout changement de largeur se fait ICI.
+function roadWidthFor(rank, eraIndex) {
+  if (rank === "main") return eraIndex >= 12 ? 0.84 : eraIndex >= 7 ? 0.66 : 0.5;
+  if (rank === "secondary") return eraIndex >= 12 ? 0.32 : eraIndex >= 7 ? 0.28 : 0.24;
+  if (rank === "path") return eraIndex >= 7 ? 0.16 : 0.13;
+  return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38; // avenue
 }
 
 // ── Palettes et données visuelles ────────────────────────────────────────────
 const CM_TINTS = ["#c9a84c", "#d8a24a", "#caa05a", "#d6b257", "#cf9a4a", "#d1c06a", "#b98f6a", "#cf8a5a"];
-const CM_GIVEN = [
-  "Aldric", "Sibylle", "Garin", "Mahaut", "Renaud", "Ysoria", "Tassin", "Oda",
-  "Doran", "Maelis", "Albin", "Nessa", "Corin", "Aveline", "Estor", "Linnea",
-  "Bertran", "Edith", "Gauvin", "Soraya", "Merin", "Talia", "Aldis", "Bruna",
-  "Eda", "Tovan", "Sira", "Nehm", "Ilya", "Orun", "Khael", "Solen"
-];
-const CM_EPITHETS = [
-  "le Veilleur", "la Patiente", "l'Ancien", "la Vive", "le Taciturne", "la Rousse",
-  "le Boiteux", "la Sage", "le Cadet", "l'Aieule", "le Guetteur", "la Nomade"
-];
-const CM_TRADES = [
-  "du Moulin", "des Granges", "la Potiere", "le Forgeron", "du Puits", "des Halles",
-  "le Tisserand", "la Meuniere", "du Four", "des Tanneurs", "le Charpentier", "la Brodeuse",
-  "du Marche", "des Vignes", "le Tonnelier", "la Verriere"
-];
-const CM_HOUSES = [
-  "Valmoren", "Castaigne", "des Hauts-Quartiers", "Tessandier", "du Levant", "Brassac",
-  "des Ponts", "Aldenne", "Virelane", "Montargis", "de Sorel", "Carrac",
-  "des Archives", "Vauquelin", "de Roanne", "Esterlin"
-];
-const CM_ROLES = [
-  ["veille le feu", "cherche du bois", "rentre au camp"],
-  ["porte un panier", "revient des champs", "parle au puits"],
-  ["traverse le marche", "livre des sacs", "suit les remparts"],
-  ["rejoint l'atelier", "passe par la halle", "porte un message"],
-  ["sort d'une avenue", "compte les chariots", "file vers les quais"],
-  ["prend une ligne rapide", "traverse un quartier haut", "sort d'une tour"],
-  ["suit le flux civique", "rejoint une station", "marche sous les arches"]
-];
-const CM_STREET_OF = [
-  "des Tanneurs", "du Levant", "des Halles", "du Puits", "des Granges", "des Forges",
-  "du Marche", "des Ponts", "du Vieux Mur", "des Lampes", "du Sillon", "des Cendres",
-  "du Fleuve", "des Archives", "du Rempart", "des Greniers", "du Couchant", "des Orfevres"
-];
 
-// ── Bâtiments (registre pour la carte) ──────────────────────────────────────
-const CM_ENGINE_BUILDINGS = [
-  { id: "foragers",          name: "Cueilleurs",          zone: "outer"   },
-  { id: "granaries_city",    name: "Entrepots",            zone: "outer"   },
-  { id: "caravans",          name: "Caravanes",            zone: "caravan" },
-  { id: "markets",           name: "Marches",              zone: "mid"     },
-  { id: "guilds",            name: "Guildes",              zone: "center"  },
-  { id: "irrigated_fields",  name: "Champs",               zone: "outer"   },
-  { id: "river_ports",       name: "Ports",                zone: "river",   water: "bank" },
-  { id: "water_mills",       name: "Moulins",              zone: "river",   water: "bank" },
-  { id: "mint_houses",       name: "Hotels des monnaies",  zone: "center"  },
-  { id: "imperial_exchanges",name: "Banques Nationnales",  zone: "center"  }
-];
-const CM_KNOWLEDGE_BUILDINGS = [
-  { id: "storytellers",   name: "Conteurs",              zone: "outer"  },
-  { id: "scribes",        name: "Scribes",               zone: "outer"  },
-  { id: "schools",        name: "Ecoles",                zone: "mid"    },
-  { id: "academies",      name: "Academies",             zone: "center" },
-  { id: "ancestral_cult", name: "Culte des ancetres",    zone: "center" },
-  { id: "observatories",  name: "Observatoires",         zone: "edge"   },
-  { id: "libraries",      name: "Bibliotheques",         zone: "mid"    },
-  { id: "universities",   name: "Universites",           zone: "center" },
-  { id: "printing_houses",name: "Imprimeries",           zone: "mid"    },
-  { id: "think_tanks",    name: "Instituts strategiques",zone: "edge"   }
-];
-const CM_INFRA_BUILDINGS = [
-  { id: "aqueducts",     name: "Aqueducs",             zone: "outside"   },
-  { id: "watch",         name: "Veilleurs",            zone: "edge"      },
-  { id: "sewers",        name: "Egouts",               zone: "mid"       },
-  { id: "bureaucracy",   name: "Bureaucratie",         zone: "center"    },
-  { id: "courthouses",   name: "Tribunaux",            zone: "center"    },
-  { id: "public_works",  name: "Grands travaux",       zone: "outer"     },
-  { id: "ministries",    name: "Ministeres",           zone: "center"    },
-  { id: "archive_grids", name: "Reseaux d'archives",   zone: "knowledge" },
-  { id: "ruin_architects",name:"Architectes des ruines",zone: "ruin"     }
-];
-const CM_MAP_BUILDINGS = CM_ENGINE_BUILDINGS.concat(CM_KNOWLEDGE_BUILDINGS, CM_INFRA_BUILDINGS);
-const CM_KNOWLEDGE_IDS = new Set(CM_KNOWLEDGE_BUILDINGS.map((b) => b.id));
-const CM_INFRA_IDS     = new Set(CM_INFRA_BUILDINGS.map((b) => b.id));
-const CM_SLOT_PRIORITIES = { aqueducts: 0, infra: 1, knowledge: 2, engine: 3 };
+// Registre des bâtiments carte → ./cityBuildings.js (données pures extraites).
 
 // Affinité à l'eau d'un bâtiment moteur : où son emprise a le droit de se poser.
 //   "dry" (défaut) = jamais sur l'eau ni sur la berge ;
@@ -875,7 +813,7 @@ function computeCityLayout(s) {
   // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
   // Moteur graphe : réseau connexe par construction (cf. roadGraph.js).
   const { roads, roadKey, roadMeta } = generateRoadsGraph({
-    plan, seed: mapSeed, counts: c, ageCfg, N, cx, cy,
+    plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
   });
 
@@ -1512,8 +1450,8 @@ export {
   ROAD_N,
   ROAD_S,
   ROAD_W,
+  roadWidthFor,
   WONDER_CLEAR_R,
-  captureVestige,
   cityCounts,
   cmCitizenName,
   cmCheckWonders,
@@ -1524,10 +1462,8 @@ export {
   cmPick,
   cmRoadName,
   cmWonderSlot,
-  cmWonderTier,
   cmWonderActive,
   cmWonderActiveIds,
   WONDER_TIER_NAMES,
-  cmDryWonderSlot,
   computeCityLayout
 };

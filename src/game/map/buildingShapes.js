@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { CM } from './layout.js';
 import { cmLitColor } from './renderWorld.js';
 import { drawEngineSprite } from './engineSprites.js';
@@ -473,21 +472,6 @@ function drawPublicShape(type, x, y, w, h, pad, tier, variant, now) {
     ctx.fillStyle = "#caa14a";
     ctx.beginPath(); ctx.ellipse(x + w * 0.34, y + h * 0.72, w * 0.045, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x + w * 0.66, y + h * 0.72, w * 0.045, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
-    return;
-
-    // ── SANCTUAIRE — pierre dressée fleurie + offrandes + lueur ────────
-    ctx.fillStyle = "#6a6254"; ctx.fillRect(x+w*0.36, y+h*0.62, w*0.28, h*0.12);
-    ctx.fillStyle = "#8d8472";
-    ctx.beginPath(); ctx.moveTo(x+w*0.42, y+h*0.62); ctx.lineTo(x+w*0.44, y+h*0.24); ctx.lineTo(x+w*0.56, y+h*0.24); ctx.lineTo(x+w*0.58, y+h*0.62); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(x+w*0.44, y+h*0.26, w*0.04, h*0.34);
-    // Gravure
-    ctx.strokeStyle = "rgba(40,30,16,0.55)"; ctx.lineWidth = Math.max(0.5, w*0.02);
-    ctx.beginPath(); ctx.arc(x+w*0.5, y+h*0.38, w*0.045, 0, Math.PI*2); ctx.stroke();
-    // Offrandes (lueur chaude)
-    const gl = 0.35+0.2*Math.sin(t/450);
-    ctx.fillStyle = `rgba(255,205,90,${gl.toFixed(2)})`;
-    ctx.beginPath(); ctx.arc(x+w*0.36, y+h*0.7, w*0.05, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x+w*0.64, y+h*0.7, w*0.05, 0, Math.PI*2); ctx.fill();
     return;
   }
 

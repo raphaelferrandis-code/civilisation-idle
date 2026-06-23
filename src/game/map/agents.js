@@ -1,6 +1,6 @@
  
 import { state } from '../core/state.js';
-import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from './layout.js';
+import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor } from './layout.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -344,8 +344,8 @@ function vehicleLaneOffset(v, s) {
   if (ei < 7) return { x: 0, y: 0 };                   // routes non divisées : centré
   const rank = vehicleRoadRank(v.gx, v.gy);
   if (rank !== "main" && rank !== "avenue") return { x: 0, y: 0 };
-  // Largeur de chaussée (suit roadBodyWidth) → décalage à mi-chaussée de sa moitié.
-  const w = rank === "main" ? (ei >= 12 ? 0.84 : 0.66) : (ei >= 12 ? 0.58 : 0.48);
+  // Largeur de chaussée via la source unique roadWidthFor → décalage à mi-file.
+  const w = roadWidthFor(rank, ei);
   const mag = s * w * 0.26;
   if (v.dir === 0) return { x: 0, y: mag };            // est  → file sud (à droite)
   if (v.dir === 1) return { x: 0, y: -mag };           // ouest → file nord

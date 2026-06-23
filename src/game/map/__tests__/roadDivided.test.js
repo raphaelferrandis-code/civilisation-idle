@@ -59,7 +59,7 @@ describe("cityMapDrawRoad — corps seul sur les grands axes (Palier 1)", () => 
     const ctx = setupLayout([{ gx: 5, gy: 5, mask: STRAIGHT_H, rank: "main" }], { ei: 14 });
     let threw = false;
     try { cityMapDrawRoad({ gx: 5, gy: 5, rank: "main", roadSurface: "road", roadType: "straight", _seed: 0 }); }
-    catch (e) { threw = true; }
+    catch { threw = true; }
     expect(threw).toBe(false);
     expect(ctx._fills).toBe(0);     // pas de terre-plein par cellule
     expect(ctx._dashed).toBe(false); // pas de pointillé par cellule

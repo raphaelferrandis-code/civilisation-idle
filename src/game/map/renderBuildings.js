@@ -1,5 +1,4 @@
-﻿/* eslint-disable */
-import { state } from '../core/state.js';
+﻿import { state, buildingById } from '../core/state.js';
 import {
   CM,
   CM_INFRA_IDS,
@@ -8,9 +7,8 @@ import {
   cmHash,
   cmWonderSlot
 } from './layout.js';
-import { cityMapTileScreen } from './cityMapRuntime.js';
 import { drawEngineSprite, drawHouseShape, drawPublicShape, BUILDING_HEIGHTS } from './buildingShapes.js';
-import { baseColor, cmLitColor } from './renderWorld.js';
+import { baseColor } from './renderWorld.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 

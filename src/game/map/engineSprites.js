@@ -12,20 +12,6 @@ import { CM } from './layout.js';
  *   - Amplitudes faibles (< 2% du sprite) et périodes désynchronisées
  *     (offset par index) pour éviter l'effet métronome. */
 
-// Emblème par bâtiment : pictogramme sur médaillon, lisible d'un coup d'œil
-// même quand le sprite est petit. Affiché au-dessus du sprite (wrapper en bas
-// de fichier) dès que le zoom le permet.
-const ENGINE_EMBLEMS = {
-  foragers: "🍇", granaries_city: "🌾", caravans: "🐪", markets: "🧺",
-  guilds: "🛡️", irrigated_fields: "💧", river_ports: "⚓", water_mills: "💦",
-  mint_houses: "🪙", imperial_exchanges: "💰",
-  storytellers: "💬", scribes: "✍️", schools: "📚", academies: "🦉",
-  ancestral_cult: "🕯️", observatories: "🔭", libraries: "📖",
-  universities: "🎓", printing_houses: "📜", think_tanks: "💡",
-  aqueducts: "⛲", watch: "👁️", sewers: "🐀", bureaucracy: "📋",
-  courthouses: "⚖️", public_works: "🏗️", ministries: "🏛️",
-  archive_grids: "🗄️", ruin_architects: "🏚️"
-};
 
 // Stade cosmique (ères 35+, bands 7–9) des 19 bâtiments SAVOIR/INFRA. Corps OPAQUE
 // (cp.mid/edge/lite) pour survivre au voile de nuit ; matière selon l'époque ;
