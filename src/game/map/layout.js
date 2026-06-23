@@ -13,7 +13,7 @@ import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.js';
 import { generateWalls } from './procedural/wallGenerator.js';
-import { createBuildingPlacer } from './procedural/buildingGenerator.js';
+import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
 import {
@@ -34,6 +34,10 @@ import {
  *   - seededRng()   (utils.js)
  *   - state, eras   (state.js, data-world.js)
  * ============================================================================ */
+
+// Bascule du placement décoratif PERSISTANT (slots, comme les moteurs) vs legacy
+// (tri positionnel re-tiré à chaque recompute). À false = ancien comportement.
+const CM_SLOTTED_DECOR = true;
 
 // ── Objet état du canvas (partagé avec citymap.js) ──────────────────────────
 const CM = {
@@ -766,7 +770,10 @@ function computeCityLayout(s) {
   // Corridor du fleuve = eau ∪ berge : les places ne s'y posent jamais (seuls
   // routes/ponts traversent l'eau). Le reste (quartiers, merveilles) l'évite déjà.
   const corridorAt = (gx, gy) => { const k = gx + "," + gy; return riverSet.has(k) || bankSet.has(k); };
-  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt, corridorAt });
+  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt, corridorAt, forcedArchetype: s.cityArchetype });
+  // Fige l'archétype à la 1re génération : la ville garde son plan de rues toute
+  // la partie (cœur figé), seuls les faubourgs s'ajoutent. Reset au nouveau cycle.
+  if (!s.cityArchetype) s.cityArchetype = plan.archetype;
   plan.reachBase = cityReachBase;
   plan.finalize({ reachBase: cityReachBase });
   const quarterAnchors = plan.anchors;
@@ -1339,9 +1346,8 @@ function computeCityLayout(s) {
   });
   for (const req of savedRequests) if (slotStore[req.slotKey]) placeRequest(req, true);
   for (const req of requests)       if (!placedSlotKeys.has(req.slotKey)) placeRequest(req, false);
-  for (const key of Object.keys(slotStore)) {
-    if (!key.startsWith(cycleSlotPrefix) || !liveSlotKeys.has(key)) delete slotStore[key];
-  }
+  // NB: la purge des slots morts est déplacée APRÈS le placement décoratif (qui
+  // crée des slots `dec_*`) — sinon, ajoutés après la purge, ils fuiteraient.
 
   const placeCentralFirepit = () => {
     if (c.eraBand > 0) return false;
@@ -1373,10 +1379,40 @@ function computeCityLayout(s) {
   const centralFirepitPlaced = placeCentralFirepit();
 
   const bias = personality.buildingBias || {};
-  placer.placeCategory("public", biasedCount(Math.max(0, c.publics - (centralFirepitPlaced ? 1 : 0)), bias.public), usedKeys, pushTile);
-  placer.placeCategory("library", biasedCount(c.libs, bias.library), usedKeys, pushTile);
-  placer.placeCategory("house", biasedCount(c.houses, bias.house), usedKeys, pushTile);
-  placer.placeCategory("farm", biasedCount(c.farms, bias.farm), usedKeys, pushTile);
+  // Cellule libre pour un décoratif 1×1 : dans la grille, non occupée, constructible
+  // (footprintFits = pas route/eau/berge/réservé), et bordant une rue si requis.
+  const decCellFree = (gx, gy) => {
+    if (gx < 0 || gy < 0 || gx >= N || gy >= N) return false;
+    if (usedKeys.has(gx + "," + gy)) return false;
+    if (!footprintFits(gx, gy, 1)) return false;
+    if (placer.requireRoad && placer.roadAdj(gx, gy) < 1) return false;
+    return true;
+  };
+  const placeDecor = (category, count) => {
+    if (!CM_SLOTTED_DECOR) { placer.placeCategory(category, count, usedKeys, pushTile); return; }
+    placeCategorySlotted(category, count, {
+      ordered: placer.orderedList(category),
+      store: slotStore, live: liveSlotKeys,
+      cx, cy, N, cycle: s.cycles || 0,
+      cellFree: decCellFree,
+      chooseVariant: placer.chooseVariant,
+      quarterKindAt: placer.quarterKindAt,
+      quarterIdAt: placer.quarterIdAt,
+      pushTile: (t) => { tiles.push(t); usedKeys.add(t.gx + "," + t.gy); },
+      clamp: cmClamp
+    });
+  };
+  placeDecor("public", biasedCount(Math.max(0, c.publics - (centralFirepitPlaced ? 1 : 0)), bias.public));
+  placeDecor("library", biasedCount(c.libs, bias.library));
+  placeDecor("house", biasedCount(c.houses, bias.house));
+  placeDecor("farm", biasedCount(c.farms, bias.farm));
+
+  // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
+  // courant ET les slots réellement posés cette frame (émonde la frange quand la
+  // population baisse, et les slots des cycles précédents).
+  for (const key of Object.keys(slotStore)) {
+    if (!key.startsWith(cycleSlotPrefix) || !liveSlotKeys.has(key)) delete slotStore[key];
+  }
 
   // ── Trim à la demande : émonde les routes qui ne bordent aucun bâtiment
   //    (approche de pont vers le vide, antennes mortes des secteurs sous-bâtis).

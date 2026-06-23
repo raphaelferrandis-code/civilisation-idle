@@ -221,5 +221,73 @@ export function createBuildingPlacer({
     return placed;
   };
 
-  return { placeCategory, chooseVariant, orderedList };
+  return { placeCategory, chooseVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, requireRoad };
+}
+
+// ── Placement décoratif PERSISTANT (slots) ──────────────────────────────────
+// Étend aux décoratifs le mécanisme de slots déjà utilisé par les moteurs : chaque
+// index reçoit une position sauvée UNE FOIS (offset core-relatif dans `store`) et
+// réutilisée tant qu'elle tient. Le bâtiment ne bouge plus jamais ; seul son design
+// (variant, piloté par eraBand) évolue. Pur/testable : toutes les dépendances au
+// monde (cellFree, pushTile, store, chooseVariant…) sont injectées. Renvoie le
+// nombre de bâtiments posés.
+//
+// Deux passes :
+//   1. réutilise les positions sauvées (épingle l'existant) ;
+//   2. comble les index manquants depuis le tri `ordered` (nouveaux à la frange).
+// Sur une partie fraîche (aucun slot), la passe 1 ne fait rien et la passe 2
+// reproduit à l'identique le placement positionnel d'origine.
+export function placeCategorySlotted(category, count, ctx) {
+  const {
+    ordered, store, live, cx, cy, N, cycle,
+    cellFree, chooseVariant, quarterKindAt, quarterIdAt, pushTile, clamp
+  } = ctx;
+  const slotKey = (i) => cycle + ":dec_" + category + ":" + i;
+  const shrineQuarters = category === "library" ? new Set() : null;
+  let placed = 0;
+
+  const finalize = (i, cell) => {
+    // L'index PERSISTANT `i` (pas le rang d'attribution) pilote chooseVariant :
+    // le design reste stable à position fixe et n'évolue que par eraBand.
+    const variant = chooseVariant(category, i, cell);
+    if (shrineQuarters && variant === "shrine") {
+      const qid = quarterIdAt(cell.gx, cell.gy);
+      if (shrineQuarters.has(qid)) return false; // un seul sanctuaire par quartier
+      shrineQuarters.add(qid);
+    }
+    const dx = cell.gx - cx, dy = cell.gy - cy;
+    pushTile({
+      gx: cell.gx, gy: cell.gy, type: category, variant,
+      qkind: quarterKindAt(cell.gx, cell.gy),
+      key: cell.gx + "," + cell.gy,
+      d2: cell.d2 != null ? cell.d2 : dx * dx + dy * dy
+    });
+    store[slotKey(i)] = { dx, dy, zone: "dec", id: category };
+    live.add(slotKey(i));
+    placed += 1;
+    return true;
+  };
+
+  // Passe 1 — réutiliser les positions sauvées.
+  const reused = new Set();
+  for (let i = 0; i < count; i += 1) {
+    const slot = store[slotKey(i)];
+    if (!slot) continue;
+    const gx = clamp(cx + (Number(slot.dx) || 0), 0, N - 1);
+    const gy = clamp(cy + (Number(slot.dy) || 0), 0, N - 1);
+    if (!cellFree(gx, gy)) continue; // devenue route/eau/occupée → refit en passe 2
+    if (finalize(i, { gx, gy })) reused.add(i);
+  }
+
+  // Passe 2 — combler les index manquants depuis le tri.
+  let cursor = 0;
+  for (let i = 0; i < count; i += 1) {
+    if (reused.has(i)) continue;
+    while (cursor < ordered.length) {
+      const cell = ordered[cursor++];
+      if (!cellFree(cell.gx, cell.gy)) continue;
+      if (finalize(i, cell)) break;
+    }
+  }
+  return placed;
 }

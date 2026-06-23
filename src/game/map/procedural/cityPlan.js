@@ -36,7 +36,12 @@ function anchorKindWeights(personality) {
 // L'archétype est choisi parmi ceux que l'âge autorise, selon une préférence
 // seedée STABLE sur toute la partie : une ville "linéaire" le reste tant que
 // l'âge le permet, puis évolue vers le plan le plus proche de son tempérament.
-function pickArchetype(seed, ageCfg, personality) {
+function pickArchetype(seed, ageCfg, personality, forced) {
+  // Archétype FIGÉ pour la partie (state.cityArchetype) : la ville garde son
+  // plan de rues d'origine — seuls les faubourgs s'ajoutent. On respecte le
+  // figé tant que l'âge l'autorise (les ensembles d'âge grandissent, donc un
+  // archétype figé tôt reste valide), sinon repli sur le calcul seedé.
+  if (forced && ageCfg.archetypes.includes(forced)) return forced;
   let best = ageCfg.archetypes[0];
   let bestScore = -1;
   for (const name of ageCfg.archetypes) {
@@ -143,9 +148,9 @@ function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corrido
   return plazas;
 }
 
-export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt, corridorAt }) {
+export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt, corridorAt, forcedArchetype }) {
   const rng = rngFrom(seed, "plan");
-  const archetype = pickArchetype(seed, ageCfg, personality);
+  const archetype = pickArchetype(seed, ageCfg, personality, forcedArchetype);
   const order = Math.max(0, Math.min(1, ageCfg.order + personality.orderDelta));
   const chaos = Math.max(0, Math.min(1, personality.chaos + (1 - order) * 0.12));
 

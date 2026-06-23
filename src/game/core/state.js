@@ -217,6 +217,9 @@ export const defaultState = () => ({
   wonderTiers: {},
   cityMapSlots: {},
   riverWP: null,
+  // Archétype de plan figé pour la partie : la ville garde son type de rues
+  // d'origine (seuls les faubourgs s'ajoutent). Reset au nouveau cycle.
+  cityArchetype: null,
   // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
   mapSeed: null,
   // Rayon de l'enceinte, figé au moment de sa construction (null = pas bâtie).
@@ -338,7 +341,10 @@ export function normalizeWonderTiers(raw) {
 export function normalizeCityMapSlots(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out = {};
-  for (const [key, slot] of Object.entries(raw).slice(0, 500)) {
+  // Plafond relevé (était 500) : les bâtiments DÉCORATIFS persistants (clés
+  // `${cycle}:dec_<cat>:<idx>`) peuvent se compter en centaines sur une grande
+  // ville, en plus des slots moteurs.
+  for (const [key, slot] of Object.entries(raw).slice(0, 6000)) {
     if (!/^\d+:[a-z_]+:\d+$/.test(key) || !slot || typeof slot !== "object") continue;
     const dx = Number(slot.dx);
     const dy = Number(slot.dy);
@@ -840,6 +846,7 @@ export function hydrateState(parsed = {}) {
     wonderTiers: normalizeWonderTiers(source.wonderTiers),
     cityMapSlots: normalizeCityMapSlots(source.cityMapSlots),
     riverWP: normalizeRiverWaypoints(source.riverWP),
+    cityArchetype: typeof source.cityArchetype === "string" && /^[a-z]+$/.test(source.cityArchetype) ? source.cityArchetype : null,
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
     wallRadius: Number.isFinite(source.wallRadius) && source.wallRadius > 0 ? Math.min(150, source.wallRadius) : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
@@ -1024,6 +1031,7 @@ export function resetTemporaryRunState(s) {
   s.crisisOpenedAt = null;
   s.archaeologyUsed = false;
   s.cityMapSlots = {};
+  s.cityArchetype = null;
   
   if (s.atlasHeritage) s.atlasLegitimite = 50;
   s.atlasCrisisCount = 0;
