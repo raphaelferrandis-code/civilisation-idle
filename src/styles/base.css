@@ -85,7 +85,6 @@ h1 {
 .sg-pct,
 .era-progress-percentage,
 .auto-collapse-countdown,
-.metrics-grid strong,
 .prestige-stats strong {
   font-variant-numeric: tabular-nums;
 }
@@ -319,52 +318,6 @@ main {
   font-weight: 700;
 }
 
-.ruin-paths {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.ruin-path {
-  min-width: 0;
-  padding: 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(30, 37, 54, 0.72);
-}
-
-.ruin-path-heading {
-  margin-bottom: 0.75rem;
-}
-
-.ruin-path-heading h3 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.ruin-path-heading p {
-  margin-top: 0.25rem;
-  color: var(--muted);
-  font-size: 0.84rem;
-}
-
-.ruin-path-list {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.ruin-path .upgrade {
-  position: relative;
-}
-
-.ruin-path .upgrade::before {
-  content: "";
-  position: absolute;
-  left: -0.87rem;
-  top: 50%;
-  width: 0.55rem;
-  border-top: 1px solid var(--border);
-}
 
 .chip {
   padding: 0.18rem 0.5rem;
@@ -503,9 +456,6 @@ menu {
   .topbar,
   .view.active,
   .upgrade-grid,
-  .dogma-grid,
-  .prestige-tree,
-  .ruin-paths,
   .crisis-outcomes {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -514,7 +464,6 @@ menu {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .metrics-grid,
   .prestige-stats {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -547,7 +496,6 @@ menu {
     width: 100%;
   }
 
-  .metrics-grid,
   .city-production-strip,
   .prestige-stats {
     grid-template-columns: 1fr;
@@ -777,96 +725,6 @@ body::before {
   .myth-act-lock-hint { margin-left: 0; }
 }
 
-/* Malédiction Sisyphe dans la grille de métriques */
-
-
-.sisyphe-mult-row {
-  grid-column: 1 / -1;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(154, 126, 192, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(154, 126, 192, 0.55);
-}
-
-.sisyphe-mult-row span { color: rgba(154, 126, 192, 0.85); font-size: 0.78rem; }
-
-.sisyphe-mult-row strong { color: #c4a8e8; font-size: 0.9rem; }
-
-.icare-timer-row span { color: rgba(194, 96, 58, 0.9); font-size: 0.78rem; }
-
-@keyframes icarePulse {
-  0%, 100% { border-left-color: rgba(194, 96, 58, 0.4); }
-  50%       { border-left-color: rgba(194, 96, 58, 1); box-shadow: 0 0 8px rgba(194, 96, 58, 0.25); }
-}
-
-.babel-status-row > span:first-child { color: rgba(100, 160, 230, 0.85); font-size: 0.78rem; }
-
-.or-status-row > span:first-child { color: rgba(220, 190, 80, 0.85); font-size: 0.78rem; min-width: 5.5rem; }
-
-.or-status-row #orGoldValue  { color: #f0d070; font-size: 0.78rem; flex: 1; }
-
-.or-status-row #orPopValue   { color: #c8b070; font-size: 0.78rem; flex: 1; }
-
-/* Statut Phénix dans la grille de métriques */
-
-
-.phoenix-status-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(200, 80, 40, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(220, 100, 50, 0.60);
-  animation: phenixPulse 3s ease-in-out infinite;
-}
-
-.phoenix-status-row > span:first-child { color: rgba(230, 120, 60, 0.9); font-size: 0.78rem; min-width: 4.5rem; }
-
-.phoenix-status-row #phoenixCycleValue  { color: #e0a060; font-size: 0.78rem; flex: 1; }
-
-.phoenix-status-row #phoenixRuinsValue  { color: #c08050; font-size: 0.78rem; flex: 1; }
-
-.phoenix-status-row strong              { color: #e06040; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
-
-@keyframes phenixPulse {
-  0%, 100% { border-left-color: rgba(220, 100, 50, 0.40); }
-  50%       { border-left-color: rgba(220, 100, 50, 0.85); }
-}
-
-/* Statut Héphaïstos dans la grille de métriques */
-
-
-.heph-status-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(90, 160, 120, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(100, 180, 130, 0.55);
-}
-
-.heph-status-row > span:first-child { color: rgba(120, 200, 150, 0.85); font-size: 0.78rem; min-width: 5.5rem; }
-
-.heph-status-row #hephInfraValue    { color: #80d4a0; font-size: 0.78rem; flex: 1; }
-
-.heph-status-row #hephPopValue      { color: #a0c090; font-size: 0.78rem; flex: 1; }
-
-.heph-crisis-lock {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #e05050;
-  letter-spacing: 0.04em;
-  animation: hephLockPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes hephLockPulse {
-  0%, 100% { opacity: 0.7; }
-  50%       { opacity: 1; }
-}
 
 /* Script d'Automatisation dans les Options */
 

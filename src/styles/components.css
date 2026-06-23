@@ -551,7 +551,7 @@ h1, .panel-heading h2, .era-name, .event-dialog h2 {
 
 .body-copy, .shop-item p, .upgrade p, .upgrade .effect-line,
 .tension-card p, .tension-note, .health-effect, .locked-hint,
-.event-dialog p, .villager-text, .choice-menu small, .archive-entry p,
+.event-dialog p, .villager-text, .choice-menu small,
 small, .chip, .doctrine-display small {
   font-family: var(--font-body);
 }
@@ -636,67 +636,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 
 
 
-.legitimite-gauge {
-  background: rgba(0, 0, 0, 0.35);
-  border: none;
-}
-
-.legitimite-gauge span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #5a6e9a, #8fa8d8, #b8caf0);
-  box-shadow: 0 0 6px rgba(143, 168, 216, 0.3);
-  transition: width 600ms ease;
-}
-
-/* Timer dans la grille de métriques */
-
-
-.icare-timer-row {
-  grid-column: 1 / -1;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(194, 96, 58, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(194, 96, 58, 0.6);
-  animation: icarePulse 2s ease-in-out infinite;
-}
-
-.icare-timer-row strong { color: #e8a06a; font-size: 0.9rem; }
-
-/* Statut Babel dans la grille de métriques */
-
-
-.babel-status-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(58, 110, 180, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(80, 140, 220, 0.55);
-}
-
-.babel-status-row #babelCategoryValue { color: #8ab4e0; font-size: 0.78rem; flex: 1; }
-
-.babel-status-row strong { color: #6ab4f0; font-size: 0.9rem; }
-
-/* Statut Âge d'Or dans la grille de métriques */
-
-
-.or-status-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(201, 168, 64, 0.12) 0%, transparent 100%);
-  border-left: 2px solid rgba(201, 168, 64, 0.55);
-}
-
-.or-status-row #orImbalValue { font-size: 0.78rem; font-weight: 600; }
 
 .babel-cat-name { font-weight: 600; color: var(--gold-ivory); font-size: 0.88rem; min-width: 7rem; }
 
