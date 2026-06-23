@@ -23,6 +23,7 @@ export {
   hasDoctrine,
   ruinEffectSum,
   ruinEffectMultiplier,
+  computeStartFloor,
   crisisOpen,
   currentEraIndex,
   nextEraProgress,

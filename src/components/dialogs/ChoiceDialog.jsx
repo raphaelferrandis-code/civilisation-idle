@@ -13,7 +13,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
       if (dialog.preventClose) event.preventDefault();
     };
     const handleClose = () => {
-      if (!dialog.preventClose) onChoose(dialog.options[0]);
+      if (!dialog.preventClose && dialog.options?.length) onChoose(dialog.options[0]);
     };
 
     node.addEventListener("cancel", handleCancel);
@@ -80,7 +80,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
           </div>
         )}
         <menu className="choice-menu">
-          {dialog.options.map((option, index) => {
+          {(dialog.options || []).map((option, index) => {
             const hasStructure = option.headline || option.badge || (Array.isArray(option.effects) && option.effects.length > 0);
             return (
               <button

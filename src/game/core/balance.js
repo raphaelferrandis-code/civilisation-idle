@@ -53,11 +53,6 @@ export const INSTABILITY_OVERSHOOT_CAP = 3;
 // pics (population) se reconstruisent et que la patience de ruinGain() compte.
 export const INSTABILITY_MAX_RISE_PER_SEC = 0.01;
 
-// Rendements décroissants des actions de crise : chaque usage du même type
-// multiplie la baisse de Rupture par ce facteur (0.9^n). Tenir la jauge devient
-// une stratégie de délai, plus une stratégie d'immortalité.
-export const CRISIS_ACTION_DECAY = 0.9;
-
 // ── Coût des actions de régulation : ancré sur la PRODUCTION, pas la population ──
 // Ancien défaut : coût ∝ population (croissance lente) alors que les stocks
 // suivent la production exponentielle → le coût devenait dérisoire (mesuré

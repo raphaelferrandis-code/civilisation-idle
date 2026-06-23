@@ -15,7 +15,7 @@ import {
 
 import {
   legitimacyGain,
-  ruinEffectSum,
+  computeStartFloor,
   enforceInfrastructureCap
 } from '../mechanics.js';
 
@@ -325,11 +325,8 @@ export function activateAtridesPact() {
 }
 
 export function resetCivilization() {
-  // Socle de départ indexé sur l'échelle (effectType *PctPeak) : lit les pics du
-  // cycle précédent encore présents dans cyclePeaks (reset en fin de fonction).
-  const peaks = state.cyclePeaks || {};
-  const startFloor = (resource, flat) =>
-    D(flat + ruinEffectSum(`start${resource}`)).add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+  // Socle de départ indexé sur l'échelle (effectType *PctPeak) — source unique.
+  const startFloor = computeStartFloor;
   state.population = startFloor("Population", 10);
   state.food = startFloor("Food", 35);
   state.gold = startFloor("Gold", 0);
@@ -359,7 +356,7 @@ export function migrerEnee() {
   state.buildings = { ...defaultState().buildings };
   state.cityMapSlots = {};
   state.infrastructure = D(0);
-  state.food = D(35 + ruinEffectSum("startFood"));
+  state.food = computeStartFloor("Food", 35);
 
   state.eneeMigrations = (state.eneeMigrations || 0) + 1;
   state.eneeDegraded = false;

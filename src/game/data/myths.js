@@ -15,7 +15,6 @@ function mythPowerScore() {
 }
 import {
   ANTEE_MIN_ACTIVE_RUINS,
-  ANTEE_POWER_THRESHOLD,
   ANTEE_POP_MULT,
   activeRuinCount
 } from './activeRuins.js';
@@ -23,11 +22,8 @@ import {
 // Mythe du Chaos : tous les bonus de méta étant neutralisés, on joue à la
 // puissance de BASE → un seuil PLAT de Ruines gagnées ce cycle est une difficulté
 // constante et juste (≠ l'ancienne « banque ≥ 50 » qui ne testait rien).
-export const CHAOS_RUIN_THRESHOLD = 50;          // (conservé pour compat)
 export const CHAOS_RAW_RUIN_TARGET = 12;         // Ruines BRUTES à gagner ce cycle (sans aucun bonus → un seul chiffre/dizaine est déjà un vrai cycle)
 export const RAGNAROK_ID = "mythe_du_ragnarok";
-export const RAGNAROK_POWER_THRESHOLD = 1_000_000; // (obsolète — remplacé par survie + sursaut)
-export const RAGNAROK_RUIN_THRESHOLD = 10_000;     // (obsolète)
 // Finale « survie + sursaut » sous les 13 contraintes : tenir un plancher de
 // temps ET faire surgir la puissance ×K depuis le départ (il faut bâtir vite
 // dans la fenêtre ~2 min que laisse la Rupture ×30 irréductible d'Atlas/Icare).
@@ -59,7 +55,6 @@ export const ATLAS_LEGIT_MAX_REDUCTION = 0.25;        // Réduction max des effe
 
 // ── Constantes Mythe de Sisyphe ──────────────────────────────────────────────
 export const SISYPHE_MULT_PER_PURCHASE = 1.03;  // ×1.03 par achat de bâtiment
-export const SISYPHE_GOLD_TARGET       = 50_000; // (obsolète)
 export const SISYPHE_BUILDING_TARGET   = 180;   // Réussite : pousser le rocher jusqu'à 180 bâtiments malgré l'inflation (×1.03^180 ≈ 230× le coût de base)
 export const SISYPHE_SCALE_REDUCTION   = 0.10;  // Héritage : -10% sur le facteur de scaling
 
@@ -122,7 +117,6 @@ export const HEPH_POP_DECLINE_PCT      = 0.20;   // Déclin requis depuis le pic
 // ── Constantes Mythe de Prométhée ────────────────────────────────────────────
 export const PROMETHEE_FOOD_MULT       = 3;      // Multiplicateur de production de Nourriture
 export const PROMETHEE_RUPTURE_PER_FOOD = 0.02;  // Rupture ajoutée par moteur de nourriture acheté (2%)
-export const PROMETHEE_POP_TARGET      = 500;    // (obsolète — remplacé par le multiplicateur relatif)
 export const PROMETHEE_POP_MULT        = 100;    // Réussite : croître la pop ×100 depuis le départ AVANT la Rupture fatale (course du feu)
 export const PROMETHEE_FATAL_RUPTURE   = 0.80;   // Seuil de Rupture fatal (80%)
 export const BRAISIERS_DURATION_MS     = 120_000; // Durée du bonus Braisiers en ms (2 minutes)

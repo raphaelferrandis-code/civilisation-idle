@@ -66,6 +66,16 @@ export function ruinEffectMultiplier(type) {
   return 1 + ruinEffectSum(type);
 }
 
+// Socle de départ d'une ressource après effondrement/migration : un plancher PLAT
+// (+ effectType startX) augmenté d'une fraction du pic du cycle précédent
+// (startXPctPeak × cyclePeaks.x). SOURCE UNIQUE pour completeCollapse,
+// resetCivilization et migrerEnee — évite la divergence du socle entre resets.
+export function computeStartFloor(resource, flat) {
+  const peaks = state.cyclePeaks || {};
+  return D(flat + ruinEffectSum(`start${resource}`))
+    .add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+}
+
 // Exporté pour chronicleEngineMultiplier (production.js) ; volontairement NON
 // re-exporté par le baril mechanics.js (helper interne au paquet).
 export function ownedRuinUpgradeCount() {

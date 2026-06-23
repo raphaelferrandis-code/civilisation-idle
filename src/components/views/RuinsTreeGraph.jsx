@@ -107,6 +107,9 @@ export default function RuinsTreeGraph() {
   // annonce a11y. Le set « déjà-vu » vit dans state.ruinsSeenNodes (survit au
   // démontage en crise) → l'anim ne joue qu'UNE fois (au 1er montage post-révélation).
   const [justBought, setJustBought] = useState(null);
+  // Timer du flash « acquis » nettoyé au démontage (évite un setState orphelin).
+  const justBoughtTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(justBoughtTimerRef.current), []);
   const [liveMsg, setLiveMsg] = useState("");
   const [seen, setSeen] = useState(() => new Set(state.ruinsSeenNodes || []));
 
@@ -282,7 +285,8 @@ export default function RuinsTreeGraph() {
       const u = upgradeById[id];
       setJustBought(id);
       setLiveMsg(`${u?.name || id} acquis.`);
-      setTimeout(() => setJustBought((cur) => (cur === id ? null : cur)), 520);
+      clearTimeout(justBoughtTimerRef.current);
+      justBoughtTimerRef.current = setTimeout(() => setJustBought((cur) => (cur === id ? null : cur)), 520);
     }
   }, []);
 

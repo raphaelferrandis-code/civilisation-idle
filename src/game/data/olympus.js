@@ -132,7 +132,7 @@ export function olympusMetrics(olympus) {
   };
 }
 
-export function olympusProfileScores(olympus) {
+function olympusProfileScores(olympus) {
   const m = olympusMetrics(olympus);
   const freqScore = scoreClamp((m.collapseFrequency / 3) * 100);
   const rareCollapseScore = scoreClamp(100 - (m.collapseFrequency / 1.2) * 100);

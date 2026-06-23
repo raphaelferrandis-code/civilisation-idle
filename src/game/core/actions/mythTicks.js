@@ -35,6 +35,22 @@ import {
   isMythEffectActive
 } from '../../data/myths.js';
 
+// Paliers Cadmos (type + seuil) construits UNE fois puis mis en cache : évite de
+// réallouer un tableau de spreads/maps à CHAQUE tick. Init paresseuse (et non un
+// const top-level) car CADMOS_*_THRESHOLDS arrivent via un import circulaire et
+// ne sont pas encore initialisés au chargement de ce module. L'ordre (population
+// puis infrastructure) reproduit le .find() d'origine.
+let _cadmosMilestoneSpecs = null;
+function cadmosMilestoneSpecs() {
+  if (!_cadmosMilestoneSpecs) {
+    _cadmosMilestoneSpecs = [
+      ...CADMOS_POPULATION_THRESHOLDS.map((threshold) => ({ type: "population", threshold })),
+      ...CADMOS_INFRASTRUCTURE_THRESHOLDS.map((threshold) => ({ type: "infrastructure", threshold }))
+    ];
+  }
+  return _cadmosMilestoneSpecs;
+}
+
 // ── Objectifs « gain de CE cycle ≥ N secondes de production » ─────────────────
 // Les seuils absolus d'origine (50k Or, 5000 infra…) sont triviaux post-GR, et
 // les MULTIPLIER ne suffit pas : le stock GARDÉ à l'effondrement (fraction d'un
@@ -161,19 +177,14 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_de_cadmos: (state) => {
-    if (!state.cadmosPromptPending) {
-      const milestones = [
-        ...CADMOS_POPULATION_THRESHOLDS.map((threshold) => ({ type: "population", threshold, value: state.population })),
-        ...CADMOS_INFRASTRUCTURE_THRESHOLDS.map((threshold) => ({ type: "infrastructure", threshold, value: state.infrastructure }))
-      ];
-      const reached = milestones.find((milestone) => {
-        const key = `${milestone.type}:${milestone.threshold}`;
-        return D(milestone.value).gte(milestone.threshold) && !state.cadmosTriggeredMilestones?.[key];
-      });
-      if (reached) {
-        const key = `${reached.type}:${reached.threshold}`;
+    if (state.cadmosPromptPending) return;
+    for (const spec of cadmosMilestoneSpecs()) {
+      const value = spec.type === "population" ? state.population : state.infrastructure;
+      const key = `${spec.type}:${spec.threshold}`;
+      if (D(value).gte(spec.threshold) && !state.cadmosTriggeredMilestones?.[key]) {
         state.cadmosTriggeredMilestones = { ...(state.cadmosTriggeredMilestones || {}), [key]: true };
-        promptCadmosAgeName(reached);
+        promptCadmosAgeName({ type: spec.type, threshold: spec.threshold, value });
+        break;
       }
     }
   }

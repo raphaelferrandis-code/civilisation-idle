@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   MYTHS,
+  RAGNAROK_ID,
   getMythById,
   isMythCompleted,
   isMythActive,
@@ -48,7 +49,7 @@ export default function MythsView() {
   const [selectedBabelCat, setSelectedBabelCat] = useState("city");
 
   const activeMyth = activeMythId ? getMythById(activeMythId) : null;
-  const ragnarokCompleted = isMythCompleted("mythe_du_ragnarok");
+  const ragnarokCompleted = isMythCompleted(RAGNAROK_ID);
   const olympus = olympusState || FALLBACK_OLYMPUS;
   const olympusDominant = dominantOlympusProfile(olympus);
   const olympusUnlocked = unlockedOlympusProfile(olympus);
@@ -91,7 +92,7 @@ export default function MythsView() {
             </div>
           )}
 
-          {activeMythId === "mythe_du_ragnarok" && ragnarokActiveConstraints.length > 0 && (
+          {activeMythId === RAGNAROK_ID && ragnarokActiveConstraints.length > 0 && (
             <div className="ragnarok-constraints-panel">
               <div className="ragnarok-constraints-heading">
                 <span className="label">Contraintes simultanees</span>
@@ -331,7 +332,7 @@ export default function MythsView() {
 
               <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
                 {activeMythId && activeMythId !== modalMyth.id
-                  ? `Le pacte "${activeMyth.name}" est deja actif ce cycle et sera abandonne. Le cycle sera reinitialise.`
+                  ? `Le pacte "${activeMyth?.name ?? 'en cours'}" est deja actif ce cycle et sera abandonne. Le cycle sera reinitialise.`
                   : activeMythId === modalMyth.id
                   ? `Ce pacte est deja actif. Confirmer va reinitialiser entierement le cycle en cours.`
                   : `Le cycle en cours sera entierement reinitialise (ressources, batiments, jauges).`}

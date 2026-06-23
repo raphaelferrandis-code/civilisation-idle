@@ -46,6 +46,14 @@ describe("Grand Reset — préservation des héritages", () => {
     }
   });
 
+  it("préserve la méta-progression Olympe (profil débloqué) à travers un GR", () => {
+    // Régression: olympus était absent de GR_PERSISTENT_FIELDS → effacé au GR.
+    state.olympus = { ...state.olympus, unlockedProfile: "batisseur", totalPlayedSeconds: 9999 };
+    const fresh = buildGrandResetState(2, 0);
+    expect(fresh.olympus.unlockedProfile).toBe("batisseur");
+    expect(fresh.olympus.totalPlayedSeconds).toBe(9999);
+  });
+
   it("réinitialise ce qui n'est PAS un héritage permanent (ruines, bâtiments)", () => {
     state.ruins = new Decimal(99999);
     state.buildings = { ...state.buildings, foragers: 50 };

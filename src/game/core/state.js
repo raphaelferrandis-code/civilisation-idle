@@ -5,7 +5,7 @@ import { upgrades } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
@@ -292,15 +292,7 @@ export const defaultState = () => ({
 });
 
 export let state = load();
-export let renderedCrowdCount = -1;
-export let renderedMapStage = -1;
-export let renderedDynastyStyle = -1;
-export let renderedLogSignature = "";
-export let renderedArchiveSignature = "";
-export let renderedCityCounters = {};
-export let renderedVillagerMessage = "";
 export let buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
-export let recentBuildingMilestones = {};
 export let renderCache = {
   cachedRuinEffectsSignature: "",
   cachedRuinEffects: null,
@@ -827,7 +819,7 @@ export function hydrateState(parsed = {}) {
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
-    activePolicies: normalizeStringArray(source.activePolicies, 4, 40),
+    activePolicies: normalizeStringArray(source.activePolicies, POLICY_MAX_ACTIVE, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
     goldReserveEase: source.goldReserveEase == null ? null : finiteNumber(source.goldReserveEase, 0, 0, 1e9),
@@ -1084,7 +1076,8 @@ export const GR_PERSISTENT_FIELDS = [
   "autoScriptRules", "hephHeritage", "automateRules",
   "surchauffeEndTime", "surchauffeCooldownEnd", "dynastyCount", "dynastyDoctrine",
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
-  "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle"
+  "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle",
+  "olympus"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)

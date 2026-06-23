@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { markChronicleEntryRead, renderCache } from '../../game/core/state.js';
 import { currentEraIndex, crisisOpen } from '../../game/core/mechanics.js';
@@ -24,7 +24,14 @@ export default function ChronicleTicker() {
   // Par défaut on n'affiche que le titre ; un clic déplie la dépêche complète.
   // On replie automatiquement dès qu'une nouvelle dépêche arrive.
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => { setExpanded(false); }, [latest?.id]);
+  // Repli à chaque nouvelle dépêche : ajustement d'état PENDANT le rendu
+  // (pattern React recommandé) plutôt qu'un setState dans un effet — évite le
+  // rendu en cascade signalé par react-hooks/set-state-in-effect.
+  const lastSeenId = useRef(latest?.id);
+  if (lastSeenId.current !== latest?.id) {
+    lastSeenId.current = latest?.id;
+    setExpanded(false);
+  }
 
   // Fenêtre d'affichage : 1 min après publication. Les dépêches d'anciens
   // saves (publishedAt = 0) restent masquées. Hors fenêtre, le bandeau reste

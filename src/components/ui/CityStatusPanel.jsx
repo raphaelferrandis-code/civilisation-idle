@@ -3,7 +3,7 @@ import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/c
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
-import { fmt, pct, roman, clamp01 } from '../../game/core/utils.js';
+import { pct, roman, clamp01 } from '../../game/core/utils.js';
 import RollingNumber from './RollingNumber.jsx';
 
 /**

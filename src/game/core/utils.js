@@ -3,7 +3,7 @@
 import { state } from './state.js';
 import { Decimal, D } from './num.js';
 
-export const NUMBER_FORMAT_KEY = "civ-opt-number-format";
+const NUMBER_FORMAT_KEY = "civ-opt-number-format";
 
 export let numberFormatMode = (() => {
   try {
@@ -23,7 +23,7 @@ export function setNumberFormatMode(mode) {
   }
 }
 
-export function formatFullNumber(value) {
+function formatFullNumber(value) {
   const abs = Math.abs(value);
   // Au-delà de 1e21, toFixed bascule de lui-même en notation exponentielle :
   // autant le faire proprement.
@@ -35,7 +35,7 @@ export function formatFullNumber(value) {
   return fraction ? `${sign}${grouped}.${fraction}` : `${sign}${grouped}`;
 }
 
-export function formatScientificNumber(value) {
+function formatScientificNumber(value) {
   const abs = Math.abs(value);
   if (abs < 1000) return value.toFixed(abs < 10 ? 1 : 0);
   return value.toExponential(2).replace("e+", "e");
@@ -43,7 +43,7 @@ export function formatScientificNumber(value) {
 
 // Compact à suffixes (K/M/B…Dc), puis scientifique au-delà du décillion (1e36).
 // Empiler des suffixes exotiques plus loin n'aide personne.
-export function formatCompactNumber(value) {
+function formatCompactNumber(value) {
   const sign = value < 0 ? "-" : "";
   let v = Math.abs(value);
   if (v < 1000) return `${sign}${v.toFixed(v < 10 ? 1 : 0)}`;

@@ -23,6 +23,7 @@ import {
   terminalCrisisCost,
   TERMINAL_PREP_TIERS,
   ruinEffectSum,
+  computeStartFloor,
   enforceInfrastructureCap,
   totalBuildingCount,
   crisisOpen,
@@ -145,19 +146,6 @@ export async function openCrisisEvent(event) {
   render();
 }
 
-export function clearProductionPenalties(key) {
-  if (key) {
-    if (key in state.crisisProduction) {
-      state.crisisProduction[key] = 1;
-    }
-  } else {
-    const base = defaultState().crisisProduction;
-    for (const k of Object.keys(base)) {
-      state.crisisProduction[k] = base[k];
-    }
-  }
-}
-
 export function triggerCollapseChoices(shouldRender = true) {
   if (collapseInProgress) return;
   if (!state.crisisLimitAnnounced) {
@@ -178,17 +166,6 @@ export function resumeAfterCrisisOutcome() {
   setGamePaused(false);
   state.crisisLimitAnnounced = false;
   state.crisisOpenedAt = null;
-}
-
-export function lowerTerminalPressure(targetInstability, targetWear) {
-  if (state.crisisLimitAnnounced) {
-    if (state.instability >= 1) state.instability = 1;
-    if ((state.timeWear || 0) >= 1) state.timeWear = 1;
-    return;
-  }
-  if (state.instability >= 1) state.instability = Math.min(state.instability, targetInstability);
-  if ((state.timeWear || 0) >= 1) state.timeWear = Math.min(state.timeWear, targetWear);
-  if (!crisisOpen()) resumeAfterCrisisOutcome();
 }
 
 const TERMINAL_PREP_CHRONICLES = {
@@ -292,8 +269,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // Pics du cycle qui vient de tomber (cyclePeaks n'est remis à zéro qu'en fin de
   // fonction) : socle de départ indexé sur l'ÉCHELLE via les effectType *PctPeak.
   const peaks = state.cyclePeaks || {};
-  const startFloor = (resource, flat) =>
-    D(flat + ruinEffectSum(`start${resource}`)).add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+  const startFloor = computeStartFloor;
   const doctrinePopBonus = hasDoctrine("acier") ? D(peaks.population || 0).mul(0.08).floor() : D(0);
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
     .max(startFloor("Population", 10))

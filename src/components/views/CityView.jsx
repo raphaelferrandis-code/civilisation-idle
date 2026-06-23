@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { useGameState } from '../../hooks/useGameState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
@@ -41,6 +41,7 @@ import {
   ATRIDES_GOAL_NET_GOLD,
   ATRIDES_DEBT_PAYBACK_FACTOR,
   ENEE_MIGRATIONS_TARGET,
+  ENEE_TERRITORY_INTERVAL_MS,
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
@@ -65,6 +66,10 @@ export default function CityView() {
   // Horloge du tick (1 Hz) : évite un timer local qui doublerait les rendus.
   const now = tickNow;
   const [bubbleMessage, setBubbleMessage] = useState(null);
+  // Timer de la bulle de pensée : tracé en ref pour être nettoyé au démontage
+  // (la vie/effondrement démonte fréquemment CityView → pas de timer orphelin).
+  const bubbleTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(bubbleTimerRef.current), []);
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
   const toggleDock = (id) => setOpenDock((cur) => (cur === id ? null : id));
@@ -119,8 +124,9 @@ export default function CityView() {
       reward: rewardText
     });
     
-    // Fermer le message après 4 secondes
-    setTimeout(() => {
+    // Fermer le message après 4 secondes (timer nettoyé au démontage via la ref)
+    clearTimeout(bubbleTimerRef.current);
+    bubbleTimerRef.current = setTimeout(() => {
       setBubbleMessage(current => {
         if (current && current.name === citizen.name && current.text === text) {
           return null;
@@ -179,7 +185,7 @@ export default function CityView() {
   const isRenegotiationActive = renegocierActiveSecs > 0;
   const isRenegotiationOnCooldown = renegocierCooldownSecs > 0;
 
-  const eneeIntervalMs = 6 * 60_000;
+  const eneeIntervalMs = ENEE_TERRITORY_INTERVAL_MS;
   const eneeElapsedMs = eneeTerritoryStartedAt ? Math.max(0, now - eneeTerritoryStartedAt) : 0;
   const eneeRemainingSecs = Math.max(0, Math.ceil((eneeIntervalMs - eneeElapsedMs) / 1000));
 

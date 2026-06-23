@@ -297,48 +297,13 @@ export function infraMultiplierDec() {
   return new Decimal(infraMultFromLog(D(state.infrastructure).add(1).log10()));
 }
 
-export function globalMultiplier() {
-  if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
-  // Ancré sur RECURRING_AGE_ERA_ANCHOR (34, longueur d'origine) et NON sur
-  // eras.length : les ères transcendantes ajoutées paient en prod au lieu de
-  // diluer l'incrément. Délié (pas de plafond) → tier > 34 continue de monter
-  // linéairement. Calé sur eraTier (palier MAJEUR équivalent) et non l'index
-  // brut : les ères « factices » ne gonflent pas le bonus. Identique bit-à-bit à
-  // l'ancien pour bestEraIndex ≤ 34 (tier = index).
-  const normalizedBestEraIndex = eraTier(state.bestEraIndex || 0) * (19 / RECURRING_AGE_ERA_ANCHOR);
-  const recurringAgeBonus = has("recurring_ages") ? 1 + normalizedBestEraIndex * 0.035 : 1;
-  const icareMult       = isMythEffectActive("mythe_d_icare") ? ICARE_PROD_MULT : 1;
-  const surchauffeMult  = (state.surchauffeEndTime && Date.now() < state.surchauffeEndTime) ? SURCHAUFFE_PROD_MULT : 1;
-
-  const elapsed = Date.now() - (state.cycleStartedAt || Date.now());
-  const atridesMult = (isMythEffectActive("mythe_atrides") && elapsed < 120_000) ? 3 : 1;
-
-  let pactMult = 1;
-  if (state.atridesPactActive) {
-    if (elapsed < 120_000) {
-      pactMult = 2.0;
-    } else if (crisisOpen()) {
-      pactMult = 0.5;
-    }
-  }
-
-  const nextRunPenaltyMult = state.atridesNextRunPenaltyActive ? ATRIDES_NEXT_RUN_PENALTY_MULT : 1;
-
-  let eneeBoost = 1;
-  if (state.eneeHeritage && elapsed < ENEE_HERITAGE_DURATION_MS) {
-    eneeBoost = 1 + ENEE_HERITAGE_BOOST_PER_COLLAPSE * Math.min(10, state.eneeCollapseCount || 0);
-  }
-
-  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
-  renderCache._frameGlobalMultVer = renderCache.frameVersion;
-  return renderCache._frameGlobalMult;
-}
-
-// Miroir Decimal de globalMultiplier pour le chemin tardif (au-delà du float).
-// Seuls ruinMultiplier, institutionMultiplier et unspentRuinsPowerMultiplier
-// peuvent déborder : ils ont leur variante Decimal, le reste est borné.
-export function globalMultiplierDec() {
-  if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
+// Facteurs scalaires bornés du multiplicateur global, communs aux chemins float
+// ET Decimal. Source unique : un futur modificateur de prod global ne s'ajoute
+// qu'ICI (avant, le bloc était dupliqué entre globalMultiplier/globalMultiplierDec
+// et un oubli côté Decimal créait une divergence silencieuse). Tous bornés (pas
+// de débordement) → number. Les produits finaux conservent leur ordre exact pour
+// préserver la parité bit-à-bit (cf. decimal.parity / economy.golden).
+function globalScalarFactors() {
   // Ancré sur RECURRING_AGE_ERA_ANCHOR (34, longueur d'origine) et NON sur
   // eras.length : les ères transcendantes ajoutées paient en prod au lieu de
   // diluer l'incrément. Délié (pas de plafond) → tier > 34 continue de monter
@@ -361,6 +326,23 @@ export function globalMultiplierDec() {
   if (state.eneeHeritage && elapsed < ENEE_HERITAGE_DURATION_MS) {
     eneeBoost = 1 + ENEE_HERITAGE_BOOST_PER_COLLAPSE * Math.min(10, state.eneeCollapseCount || 0);
   }
+  return { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost };
+}
+
+export function globalMultiplier() {
+  if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
+  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost } = globalScalarFactors();
+  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  renderCache._frameGlobalMultVer = renderCache.frameVersion;
+  return renderCache._frameGlobalMult;
+}
+
+// Miroir Decimal de globalMultiplier pour le chemin tardif (au-delà du float).
+// Seuls ruinMultiplier, institutionMultiplier et unspentRuinsPowerMultiplier
+// peuvent déborder : ils ont leur variante Decimal, le reste est borné.
+export function globalMultiplierDec() {
+  if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
+  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost } = globalScalarFactors();
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
     .mul(institutionMultiplierDec())
     .mul(unspentRuinsPowerMultiplierDec())

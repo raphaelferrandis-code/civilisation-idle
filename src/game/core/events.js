@@ -41,7 +41,7 @@ export function collapseCause() {
   const pressure = pressureBreakdown();
   const inequalityWithoutInfra = D(state.gold).gt(D(state.infrastructure).mul(400).add(D(state.population).mul(0.7)).max(500));
   if ((state.timeWear || 0) >= 1) return "time";
-  if (vitals.foodScore < 0.16 || pressure.scarcity >= pressure.inequality && pressure.scarcity >= pressure.complexity) return "famine";
+  if (vitals.foodScore < 0.16 || (pressure.scarcity >= pressure.inequality && pressure.scarcity >= pressure.complexity)) return "famine";
   if (inequalityWithoutInfra || pressure.inequality > Math.max(pressure.scarcity, pressure.complexity, pressure.structural)) return "avarice";
   return "rupture";
 }

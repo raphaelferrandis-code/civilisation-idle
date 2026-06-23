@@ -2,7 +2,6 @@
 
 import {
   state,
-  recentBuildingMilestones,
   renderCache,
   buildGrandResetState,
   invalidateRenderCache,
@@ -62,7 +61,6 @@ export function buyBuilding(id) {
   const previousMilestone = Math.floor(previousCount / 25);
   const currentMilestone = Math.floor(state.buildings[id] / 25);
   if (currentMilestone > previousMilestone) {
-    recentBuildingMilestones[id] = currentMilestone;
     // B1 — Float doré de palier : récompense visible à chaque tranche de 25.
     const info = buildingMilestoneInfo(building, state.buildings[id]);
     pushOutcomeFloat({ label: `⭐ ${building.name} ×${fmt(info ? info.bonus : 1)}`, kind: "gain" });
