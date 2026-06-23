@@ -1,0 +1,17 @@
+{
+  "food": "9ff6526d-69ee-42bf-9126-fd9682d0d0d8",
+  "granary": "f30d9c2c-6cc5-46a8-a63f-3be896ee3c45",
+  "farm": "c2c5c094-2b04-4de6-811b-2b27f9dab925",
+  "market": "8ae31310-7a8d-4333-9525-66345947e541",
+  "craft": "f6f78d0a-e8bd-40fa-9ded-78d2d8ce9c48",
+  "mill": "099b1860-04c3-4a87-8cfa-50aa5b018caf",
+  "knowledge": "ab3279ab-6fd2-476c-be01-fa4b8342bd9b",
+  "temple": "0d770f51-53d5-4a68-ab00-edc5ccafbbe2",
+  "port": "062c07ef-a7d5-4566-a5f5-4ec0a40bc5b8",
+  "mint": "2261cb2e-018e-4cc7-8fb5-1a02507c2757",
+  "bank": "fcd0db99-b853-4ad0-88f0-6e23ceec9091",
+  "observatory": "473a7efd-6f21-44d9-81b8-96b98f9a1002",
+  "civic": "c0569601-e40e-47ca-b9ac-84665152e28f",
+  "aqueduct": "a05c9c35-b58e-431c-9778-2ad50a20657b",
+  "watchtower": "2b73f3a8-a024-4cc7-8366-6286bef1c334"
+}

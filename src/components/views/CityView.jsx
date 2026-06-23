@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { useGameState } from '../../hooks/useGameState.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
+import IsoCityCanvas from '../../game/render/iso/IsoCityCanvas.jsx';
+import { isoRenderEnabled } from '../../game/render/iso/featureFlag.js';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
@@ -324,7 +326,11 @@ export default function CityView() {
             id="civilizationMap"
             aria-label="Diorama de la cité"
           >
-            <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
+            {/* Feature flag (?iso=1) : nouveau moteur isométrique en chantier.
+                Par défaut, la carte actuelle reste affichée et jouable. */}
+            {isoRenderEnabled()
+              ? <IsoCityCanvas />
+              : <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />}
           </div>
           {bubbleMessage && (
             <div className="map-bubble-alert">
