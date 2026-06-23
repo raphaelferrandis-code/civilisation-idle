@@ -319,7 +319,6 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "universities") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "universities"); return; }
-    const band = CM.layout?.counts?.eraBand ?? 0;
     const t2 = now || 0;
 
     if (band <= 3) {
