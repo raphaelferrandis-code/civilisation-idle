@@ -1,0 +1,350 @@
+/* ============================================================================
+   VUE CITÉ — MODE HUD PLEIN ÉCRAN
+   La carte occupe tout l'écran ; l'UI flotte sur les bords : ressources en
+   haut, régulation en bas, chronique (sur notif) + mythes à gauche, boutique
+   à droite. Tout est scopé à [data-active-view="city"] : les autres onglets
+   gardent leur mise en page normale (topbar en flux, etc.).
+   ============================================================================ */
+.app[data-active-view="city"] main {
+  position: relative;
+  height: 100vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* La vue remplit la scène et sert de contexte de positionnement au HUD. */
+.app[data-active-view="city"] .view.active#city {
+  position: absolute;
+  inset: 0;
+}
+
+.app[data-active-view="city"] .city-left-col {
+  position: absolute;
+  inset: 0;
+  gap: 0;
+}
+
+/* ---- Le monde, bord à bord (plus de cadre) ---- */
+.app[data-active-view="city"] .city-stage {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.app[data-active-view="city"] .city-map-container {
+  height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.app[data-active-view="city"] .city-stage .civilization-map-interactive {
+  height: 100% !important;
+}
+
+/* ---- Ressources : plaque antique encadrée flottant en haut de la carte ----
+   La plaque (.topbar-resources, cf. components.css) porte le voile + le cadre or ;
+   le conteneur .topbar ne sert plus qu'au positionnement et à la marge de bord. */
+.app[data-active-view="city"] .topbar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 30;
+  margin: 0;
+  padding: 0.7rem 0.9rem 0;
+  background: none;
+  pointer-events: none;
+}
+.app[data-active-view="city"] .topbar-resources {
+  pointer-events: auto;
+}
+.app[data-active-view="city"] .topbar .resource-card-unified {
+  background: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+}
+
+/* ---- Identité : encart encadré (nom + jauge de rupture), sous les ressources.
+   Le cadre or vient de frames.css (.city-stage-hud y est listé). ---- */
+.app[data-active-view="city"] .city-stage-hud {
+  inset: 5.4rem auto auto 1rem;
+  width: clamp(22rem, 32vw, 32rem);
+  padding: 0.5rem 1rem 0.65rem;
+  background: rgba(13, 15, 23, 0.66);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.app[data-active-view="city"] .city-stage-hud .stability-gauge { width: 100%; }
+
+/* ---- Chronique : carte du rail gauche, n'apparaît que sur notif (slide-in) ---- */
+.app[data-active-view="city"] .chronicle-ticker {
+  position: static;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(30, 35, 45, 0.5);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  animation: city-chronicle-in 360ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-sep { display: none; }
+.app[data-active-view="city"] .chronicle-ticker .ticker-line {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+/* Repliée : juste le titre, cliquable pour déplier (indice « › »). */
+.app[data-active-view="city"] .chronicle-ticker {
+  cursor: pointer;
+}
+.app[data-active-view="city"] .chronicle-ticker:hover {
+  border-color: rgba(var(--era-rgb), 0.45);
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-masthead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.app[data-active-view="city"] .chronicle-ticker .ticker-title {
+  white-space: normal;
+}
+.app[data-active-view="city"] .chronicle-ticker:not(.is-expanded) .ticker-title::after {
+  content: " ›";
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+@keyframes city-chronicle-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- Rail gauche : dock d'icônes + popover, sous l'encart identité ---- */
+.app[data-active-view="city"] .city-aux {
+  position: absolute;
+  left: 1rem;
+  top: 15.5rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.55rem;
+  pointer-events: none;
+}
+
+.hud-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+.hud-dock:empty { display: none; }
+
+.hud-dock-btn {
+  position: relative;
+  width: 2.9rem;
+  height: 2.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-card);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  background: rgba(13, 15, 23, 0.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--gold-bright);
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.hud-dock-btn:hover { border-color: var(--gold); background: rgba(20, 23, 33, 0.82); }
+.hud-dock-btn:active { transform: scale(0.95); }
+.hud-dock-btn.is-active {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold), transparent 80%);
+}
+
+.hud-dock-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  color: #16100a;
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-dock-dot {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: var(--r-pill);
+  background: var(--res-know);
+  box-shadow: 0 0 0 2px rgba(13, 15, 23, 0.85);
+}
+.hud-dock-dot--gold { background: var(--gold-bright); }
+
+.hud-pop {
+  width: clamp(18rem, 24vw, 24rem);
+  max-height: calc(100vh - 16rem);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+.hud-pop-title {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-title);
+  font-size: 1rem;
+  color: var(--gold-bright);
+}
+.hud-pop-desc {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.hud-pop--myths {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+/* Chronique dans le popover : à plat (l'encart .panel fournit le cadre) */
+.app[data-active-view="city"] .hud-pop .chronicle-ticker {
+  position: static;
+  width: 100%;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  animation: none;
+}
+
+/* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */
+.app[data-active-view="city"] .city-shop-dock {
+  top: 5.2rem;
+  bottom: 1rem;
+}
+/* Boutique repliée : le dock se dé-stretch et se contracte sur la hauteur du
+   seul bandeau-titre, libérant la carte (au lieu d'un panneau de verre vide). */
+.app[data-active-view="city"] .city-shop-dock:has(.shop-panel.is-collapsed) {
+  bottom: auto;
+}
+
+/* ---- Régulation : barre basse en overlay (libère la place du dock à droite) ---- */
+.app[data-active-view="city"] .city-controls-panel {
+  position: absolute;
+  left: 1rem;
+  right: calc(2.8rem + clamp(20rem, 26vw, 26rem));
+  bottom: 1rem;
+  z-index: 20;
+  margin: 0;
+  background: rgba(30, 35, 45, 0.44);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+}
+/* En bas d'écran, le menu d'un foyer s'ouvre vers le HAUT. */
+.app[data-active-view="city"] .city-controls-panel .crisis-foyer-actions {
+  top: auto;
+  bottom: calc(100% + 0.3rem);
+}
+
+/* On resserre la barre : politiques sur une rangée, padding réduit. */
+.app[data-active-view="city"] .city-controls-panel {
+  padding: 0.7rem 1rem 0.8rem;
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-regul-head,
+.app[data-active-view="city"] .city-controls-panel .crisis-policies-head {
+  margin-bottom: 0.4rem;
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-policies {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.app[data-active-view="city"] .city-controls-panel .crisis-policies-grid {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+/* Les libellés ne débordent plus des cartes en réduit : ils passent à la ligne. */
+.app[data-active-view="city"] .city-controls-panel .policy-btn {
+  min-width: 0;
+  overflow: hidden;
+}
+.app[data-active-view="city"] .city-controls-panel .regul-btn-line {
+  flex-wrap: wrap;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn strong,
+.app[data-active-view="city"] .city-controls-panel .policy-effect,
+.app[data-active-view="city"] .city-controls-panel .regul-cost,
+.app[data-active-view="city"] .city-controls-panel .crisis-regul-btn strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-effect,
+.app[data-active-view="city"] .city-controls-panel .regul-cost {
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+/* ── Encart Politiques retravaillé : hiérarchie claire ──
+   Les politiques utilisables ressortent, les verrouillées s'effacent ;
+   bénéfice en vert, coût en rouge atténué, active en liseré vert. */
+.app[data-active-view="city"] .city-controls-panel .policy-btn {
+  gap: 0.3rem;
+  padding: 0.5rem 0.62rem;
+  background: rgba(30, 35, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--gold-ivory);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-effect {
+  color: #86efac;            /* bénéfice = vert */
+  font-weight: 600;
+}
+.app[data-active-view="city"] .city-controls-panel .regul-cost {
+  color: #e6a18f;            /* coût = rouge atténué */
+}
+/* Verrouillée : s'efface (le regard va aux politiques activables) */
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked strong {
+  color: var(--muted);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked .policy-effect {
+  color: var(--muted);
+  font-weight: 500;
+}
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked .regul-cost {
+  color: var(--gold-dim);    /* condition de déblocage (🔒) en doré atténué */
+}
+/* Active : liseré vert net + pastille */
+.app[data-active-view="city"] .city-controls-panel .policy-btn.is-active {
+  opacity: 1;
+  border-color: rgba(16, 185, 129, 0.7);
+  background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.18), transparent 60%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+.app[data-active-view="city"] .city-controls-panel .policy-active-tag {
+  color: #86efac;
+}
+

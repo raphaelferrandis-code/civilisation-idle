@@ -1,0 +1,116 @@
+/* ============================================================================
+   HUD PANEL — encart pliable réutilisable (titre cliquable + corps repliable).
+   ============================================================================ */
+.hud-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0.45rem;
+  border: 0;
+  border-bottom: 1px solid rgba(var(--era-rgb), 0.15);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.hud-panel-toggle:hover:not(:disabled),
+.hud-panel-toggle:focus-visible {
+  transform: none;
+  background: none;
+  box-shadow: none;
+  border-color: rgba(var(--era-rgb), 0.15);
+  color: var(--gold-ivory);
+}
+.hud-panel-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-panel-chevron {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  transition: transform 0.2s ease;
+}
+.hud-panel-chevron::before { content: "\25BE"; }
+.hud-panel.is-collapsed .hud-panel-chevron { transform: rotate(-90deg); }
+.hud-panel.is-collapsed .hud-panel-toggle {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Régulation enveloppée : on masque le titre interne dupliqué (le HudPanel le
+   porte déjà), on garde le bandeau « Institutions : … ». */
+.app[data-active-view="city"] .city-controls-panel.hud-panel .crisis-regul-head .crisis-regul-title {
+  display: none;
+}
+.app[data-active-view="city"] .city-controls-panel.hud-panel.is-collapsed {
+  padding-bottom: 0.7rem;
+}
+/* Panneau Mythes : un peu plus compact dans le rail. */
+.app[data-active-view="city"] .active-myths-panel.hud-panel {
+  padding: 0.75rem 0.9rem;
+}
+
+/* ---- Bannières d'héritage (Énée/Atrides) : toasts centrés en haut ---- */
+.app[data-active-view="city"] .enee-boost-banner,
+.app[data-active-view="city"] .atrides-pact-banner {
+  position: absolute;
+  top: 6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(42rem, 56%);
+  z-index: 26;
+}
+
+/* ============================================================================
+   Identité typographique (Audit UI Phase 7)
+   Trois voix : Cinzel = le monument (titres), Crimson Text = le chroniqueur
+   (toute la prose), Inter = le scribe comptable (UI, chiffres, boutons).
+   Déclaré ici (après components.css) pour primer sur le groupe historique.
+   ============================================================================ */
+.body-copy,
+.event-dialog p,
+.era-description-text,
+.shop-item p,
+.upgrade p,
+.archive-entry p,
+.myth-rule,
+.myth-objectif,
+.myth-heritage-desc,
+.locked-hint,
+.pr-locked-hint,
+.enee-boost-banner p,
+.atrides-pact-banner p,
+.outcome-card p,
+.tree-branch-heading p,
+.ruin-path-heading p,
+.crisis-alert-body p,
+.choice-menu small,
+.chronicle-ticker:not(.is-press):not(.is-cyber-feed) .ticker-text {
+  font-family: var(--font-serif);
+  font-size: 1.06em;
+  letter-spacing: 0.005em;
+}
+
+/* La personnalité de la cité parle aussi en chroniqueur */
+.city-personality-label,
+.era-flavor {
+  font-family: var(--font-serif);
+  font-size: 0.88rem;
+}
+

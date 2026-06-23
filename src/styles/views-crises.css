@@ -1,0 +1,642 @@
+/* ==========================================================================
+   Refonte de l'onglet Crises (Prestige)
+   ========================================================================== */
+
+/* 1. Baromètres de la Cité */
+.barometers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.barometer-card {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 20, 30, 0.45);
+  box-shadow: inset 0 1px 0 var(--shine);
+}
+
+.barometer-card.instability {
+  border-left: 3px solid rgba(220, 95, 75, 0.7);
+}
+
+.barometer-card.time-wear {
+  border-left: 3px solid rgba(135, 100, 180, 0.7);
+}
+
+.barometer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.barometer-header span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.barometer-header strong {
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.barometer-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+/* Rework 2 — fantôme de la cible : marqueur lumineux à la position pressure.total. */
+.barometer-target-ghost {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 2px;
+  transition: left 0.30s ease;
+}
+
+.barometer-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.30s ease;
+}
+
+.instability .barometer-fill {
+  background: linear-gradient(90deg, #dc5f4b, #ef4444);
+}
+
+.time-wear .barometer-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--state-usure), #14102a 28%), var(--state-usure));
+}
+
+.barometer-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Rework 1 — gain projeté « si effondrement maintenant ». */
+.barometer-collapse-hint {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.barometer-collapse-hint strong {
+  color: var(--gold);
+}
+
+/* 2. Tableau Tactique (Tensions & Actions) */
+.tactical-board {
+  margin-top: 1rem;
+}
+
+.tactical-board h3 {
+  margin-bottom: 1.25rem;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.tactical-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.tactical-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(10, 15, 25, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tactical-info header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tactical-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tactical-value {
+  font-size: 1.1rem;
+  color: var(--gold-bright);
+}
+
+.tactical-info p {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.4;
+  min-height: 2.8rem;
+}
+
+.tactical-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.tactical-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--foyer-color, var(--gold));
+  transition: width 0.3s ease;
+}
+
+.tactical-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tactical-actions button {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 62%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 90%);
+  color: var(--text-strong);
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.tactical-actions button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 80%);
+  border-color: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 30%);
+  transform: translateY(-1px);
+}
+
+.tactical-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-cost {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  font-weight: normal;
+}
+
+/* 3. Déclin, Effondrement & Mode Crise Focus */
+.cycle-outcome-panel {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cycle-outcome-panel.crisis-focus-active {
+  border-color: rgba(220, 95, 75, 0.6);
+  background: rgba(30, 15, 15, 0.65);
+  box-shadow: 0 0 30px rgba(220, 95, 75, 0.15);
+}
+
+/* Mode Crise Active */
+.crisis-focus-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.crisis-banner {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid rgba(220, 95, 75, 0.4);
+  border-radius: 8px;
+  background: rgba(220, 95, 75, 0.08);
+}
+
+.banner-icon {
+  font-size: 1.5rem;
+}
+
+.crisis-banner strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #f87171;
+  margin-bottom: 0.25rem;
+}
+
+.crisis-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #fca5a5;
+}
+
+.crisis-choices-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .crisis-choices-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.crisis-preparation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.crisis-preparation-actions h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.crisis-preparation-actions .sub-text {
+  margin: 0 0 1rem 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+
+.crisis-prep-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.prep-choice-card {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.prep-choice-card h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--gold-bright);
+}
+
+.prep-choice-card p {
+  margin: 0 0 1rem 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.prep-choice-card button {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  background: rgba(var(--era-rgb), 0.1);
+  color: var(--gold-bright);
+  font-weight: 600;
+  border: 1px solid rgba(var(--era-rgb), 0.3);
+}
+
+.prep-choice-card button:hover:not(:disabled) {
+  background: rgba(var(--era-rgb), 0.2);
+  border-color: var(--gold);
+}
+
+/* ── Préparations terminales : paliers et malus actifs ── */
+.prep-active-maluses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(220, 95, 75, 0.35);
+  background: rgba(220, 95, 75, 0.08);
+  font-size: 0.78rem;
+  color: #fca5a5;
+  margin-bottom: 0.75rem;
+}
+
+.prep-active-maluses > span:first-child {
+  font-weight: 600;
+  color: #fff;
+}
+
+.prep-tier-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.prep-tier-buttons button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.prep-tier-buttons button {
+  gap: 0.35rem;
+}
+
+.prep-tier-buttons button strong {
+  font-size: 0.78rem;
+}
+
+.prep-tier-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.prep-tier-target {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fff;
+  text-align: right;
+}
+
+.prep-target-track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.prep-target-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(134, 239, 172, 0.7), rgba(220, 95, 75, 0.8));
+}
+
+.prep-tier-buttons button .action-cost {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.prep-tier-buttons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.prep-choice-card.prep-used {
+  opacity: 0.6;
+}
+
+.prep-used-note {
+  font-style: italic;
+  color: var(--gold-bright);
+}
+
+.collapse-action-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border: 1px solid rgba(220, 95, 75, 0.3);
+  border-radius: 10px;
+  background: rgba(220, 95, 75, 0.04);
+}
+
+.collapse-action-card h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #fff;
+  text-align: center;
+}
+
+.collapse-preview-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  margin-bottom: 1.5rem;
+}
+
+.preview-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.preview-stat span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.preview-stat strong {
+  font-size: 1.15rem;
+  color: #fff;
+}
+
+.collapse-main-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.collapse-btn-primary {
+  width: 100%;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #dc5f4b, #b91c1c);
+  color: #fff;
+  border: 1px solid #7f1d1d;
+  box-shadow: 0 4px 12px rgba(220, 95, 75, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(220, 95, 75, 0.35);
+  filter: brightness(1.1);
+}
+
+.collapse-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.surchauffe-btn-action {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  background: rgba(220, 95, 75, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(220, 95, 75, 0.4);
+  cursor: pointer;
+}
+
+.surchauffe-btn-action:hover {
+  background: rgba(220, 95, 75, 0.2);
+  border-color: #ef4444;
+}
+
+.auto-collapse-timer {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #fca5a5;
+  font-weight: 600;
+  animation: pulse 1.5s infinite;
+}
+
+/* Mode Calme (Standard) */
+.prestige-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.prestige-stat-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.prestige-stat-card span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.prestige-stat-card strong {
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.standard-collapse-action {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.manual-collapse-btn {
+  padding: 0.8rem 2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.manual-collapse-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--gold);
+}
+
+.manual-collapse-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ragnarok-constraints-panel,
+.ragnarok-fresco-banner {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--era-rgb), 0.42);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.12), rgba(255, 255, 255, 0.025));
+  box-shadow: inset 0 0 0 1px rgba(var(--era-rgb), 0.08);
+}
+
+.ragnarok-constraints-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ragnarok-constraints-heading strong,
+.ragnarok-fresco-banner strong {
+  color: #f2dfaa;
+  font-family: var(--font-title);
+  font-size: 1rem;
+}
+
+.ragnarok-constraints-panel ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: #d6c59b;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.myth-fresco-complete .myth-card.myth-completed {
+  border-color: rgba(242, 217, 122, 0.82);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 217, 122, 0.22),
+    0 0 34px rgba(var(--era-rgb), 0.18);
+}
+
+.final-chronicle-title {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(var(--era-rgb), 0.34);
+  border-radius: 8px;
+  color: rgba(242, 217, 122, 0.92);
+  background: rgba(12, 10, 8, 0.86);
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+

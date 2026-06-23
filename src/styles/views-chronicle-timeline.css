@@ -1,0 +1,103 @@
+/* ============================================================================
+   Chronique — frise des âges traversés (avec descriptif par âge)
+   ============================================================================ */
+
+.era-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.era-timeline-item {
+  position: relative;
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.55rem 0 0.55rem 0.2rem;
+}
+
+/* Ligne verticale reliant les marqueurs */
+.era-timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(0.2rem + 5px);
+  top: 1.6rem;
+  bottom: -0.6rem;
+  width: 1px;
+  background: var(--border-soft);
+}
+
+.era-timeline-marker {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  margin-top: 0.45rem;
+  border-radius: 50%;
+  border: 1px solid var(--gold-dim);
+  background: var(--panel);
+}
+
+.era-timeline-item.is-reached .era-timeline-marker {
+  background: var(--gold);
+  border-color: var(--gold-bright);
+}
+
+.era-timeline-item.is-current .era-timeline-marker {
+  box-shadow: 0 0 8px var(--gold-bright);
+}
+
+.era-timeline-body {
+  min-width: 0;
+}
+
+.era-timeline-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.era-timeline-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.era-timeline-pop {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.era-timeline-now {
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--r-pill);
+  padding: 0.05rem 0.5rem;
+}
+
+.era-timeline-body p {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.era-timeline-item.is-next {
+  opacity: 0.55;
+}
+
+.era-timeline-item.is-next h3 {
+  color: var(--muted);
+}
+
+.era-timeline-more {
+  margin: 0.6rem 0 0;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

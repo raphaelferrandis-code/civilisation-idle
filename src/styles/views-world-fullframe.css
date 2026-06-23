@@ -1,0 +1,270 @@
+/* ============================================================================
+   MONDE PLEIN CADRE — la vue Cité passe en pleine largeur : la carte occupe
+   tout l'espace, la boutique se docke en panneau flottant sur le bord droit
+   (façon menu de construction de city-builder). Le moins de panneaux possible.
+   ============================================================================ */
+.view.active#city {
+  display: block;
+  position: relative;
+}
+
+.view.active#city > .chronicle-ticker {
+  margin-bottom: 0.85rem;
+}
+
+/* Boutique dockée : panneau de verre posé sur le bord droit de la carte. */
+.city-shop-dock {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 7;
+  display: flex;
+  width: clamp(20rem, 26vw, 26rem);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* Le panneau boutique remplit le dock et scrolle en interne (pas la page). */
+.city-shop-dock .shop-panel {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(30, 35, 45, 0.46);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.5);
+}
+
+.city-shop-dock .shop-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+/* ── Boutique pliable (même geste que la Régulation des tensions) ──
+   Le titre « Bâtiments » devient un bouton-chevron : il replie la boutique à
+   son seul bandeau, libérant la carte. */
+.shop-panel .shop-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-panel .shop-collapse-toggle:hover:not(:disabled),
+.shop-panel .shop-collapse-toggle:focus-visible {
+  background: none;
+  box-shadow: none;
+  transform: none;
+  color: inherit;
+}
+.shop-panel .shop-collapse-toggle h2 {
+  margin: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+/* La barre de modes (x1…Max) passe SOUS le titre → le titre « Bâtiments » n'est
+   jamais tronqué, même quand « Max » apparaît (réforme administrative). */
+.shop-panel .panel-heading {
+  flex-wrap: wrap;
+  row-gap: 0.55rem;
+}
+.shop-panel .panel-heading .buy-toolbar {
+  flex: 1 1 100%;
+  width: auto;
+}
+.shop-panel .panel-heading .buy-modes {
+  display: flex;
+  width: 100%;
+  gap: 0.3rem;
+}
+.shop-panel .panel-heading .buy-mode {
+  flex: 1;
+  min-width: 0;
+}
+.shop-panel .shop-collapse-toggle .hud-panel-chevron {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--gold-bright);
+  transition: transform 0.2s ease;
+}
+.shop-panel.is-collapsed .shop-collapse-toggle .hud-panel-chevron {
+  transform: rotate(-90deg);
+}
+/* Replié : on annule la marge qui réservait l'espace du corps et le filet du
+   bas (rien dessous) → bandeau-titre net, comme la Régulation repliée. */
+.shop-panel.is-collapsed .panel-heading {
+  margin-bottom: -1rem;
+  border-bottom: 0;
+  padding-bottom: 0.7rem;
+}
+
+/* ── Îlots d'achat allégés : moins de cadres, coins doux ──
+   On retire la bordure + le fond opaque des rangées ; seule la rangée
+   ACHETABLE prend un léger voile doré, le reste s'efface. */
+/* Rangées hautes (info + bouton empilés) : forcer chaque piste de la grille à la
+   hauteur du contenu. Sinon la piste auto retombe sur le min-height 4rem de la
+   rangée → le bouton déborde de 65px et chevauche le bâtiment suivant (visible
+   seulement une fois plusieurs bâtiments empilés). */
+.city-shop-dock .shop-list { gap: 1rem; grid-auto-rows: max-content; }
+.city-shop-dock .purchase-row {
+  /* Contour ornemental (asset Kenney, cf. frames.css) autour de CHAQUE carte —
+     8px : un peu plus fin que les panneaux pour ne pas alourdir. */
+  border: 8px solid transparent;
+  border-image: url(../assets/ui/topbar-frame.png) 12 stretch;
+  border-radius: 0;
+  /* Fond bleu-nuit comme la headbar (onglets) → cartes solides et lisibles. */
+  background: color-mix(in srgb, var(--surface-panel), transparent 10%);
+  transition: background 150ms ease, opacity 150ms ease;
+}
+
+/* Dock étroit (~290px) : le @media viewport ne se déclenche pas (viewport large,
+   colonne étroite). On stacke ici le bouton SOUS l'info pour rendre toute la
+   largeur au nom du bâtiment → plus de troncature « CUEIL… ». Hauteur identique
+   d'une rangée à l'autre (même structure partout). */
+.city-shop-dock .purchase-row:not(.pr-locked) {
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  row-gap: 0.7rem;
+  align-items: center;
+  min-height: 0;
+  padding: 0.8rem 0.8rem 0.9rem;
+}
+.city-shop-dock .purchase-row:not(.pr-locked) .btn-purchase {
+  /* Décalé à droite : démarre sous le NOM (colonne icône laissée vide) → casse la
+     symétrie « tout centré ». Contenu réparti : action à gauche, coût à droite. */
+  grid-column: 2 / -1;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.3rem;
+  height: auto;
+  padding: 0.35rem 0.85rem;
+}
+
+.city-shop-dock .purchase-row.is-affordable {
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
+}
+.city-shop-dock .purchase-row.is-affordable:hover {
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 15%);
+}
+.city-shop-dock .purchase-row.is-locked-cost {
+  background: color-mix(in srgb, var(--surface-panel), transparent 22%);
+}
+.city-shop-dock .purchase-row[data-tier="5"] {
+  box-shadow: none;
+}
+/* Icône ronde : casse l'effet « carré » */
+.city-shop-dock .pr-icon {
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+/* Bouton d'achat : coins francs → arrondi généreux */
+.city-shop-dock .btn-purchase {
+  border-radius: 13px;
+}
+
+/* ── Bouton d'achat : laiton patiné élégant (PAS un jaune pétard), texte sombre,
+   léger relief. Clairement actif vs désactivé, sans crier. Le 1er achat possible
+   garde le pulse comme repère (hiérarchie : un seul point focal). ── */
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) {
+  background: linear-gradient(180deg,
+              color-mix(in srgb, var(--gold), #fff 6%),
+              color-mix(in srgb, var(--gold), #000 18%));
+  border: 1px solid color-mix(in srgb, var(--gold-bright), transparent 50%);
+  color: #2a1d08;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 3px rgba(0, 0, 0, 0.32);
+}
+/* Hiérarchie interne : l'action prime, le coût recule (texte plus clair). */
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-action {
+  font-weight: 800;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-cost-item {
+  color: #4a360f;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) .bp-cost-item i {
+  opacity: 0.65;
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled):hover {
+  background: linear-gradient(180deg,
+              color-mix(in srgb, var(--gold-bright), #fff 4%),
+              var(--gold));
+  border-color: var(--gold-bright);
+  transform: translateY(-1px);
+}
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.city-shop-dock .btn-purchase:disabled {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: var(--text-disabled);
+  box-shadow: none;
+}
+
+/* Hiérarchie : l'abordable ressort, l'inabordable s'efface davantage. */
+.city-shop-dock .purchase-row.is-locked-cost { opacity: 0.58; }
+
+/* Rareté de palier : portée par le badge ⚡ coloré (le cadre fait désormais la
+   définition de la carte ; un liseré en plus ferait doublon avec son bord). */
+
+/* « Cité modeste » se loge juste à droite du nom (plus en bout de ligne). */
+.city-stage-hud .city-title-wrapper {
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.city-stage-hud .city-name-input {
+  field-sizing: content;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 4rem;
+  max-width: 100%;
+}
+
+.city-stage-hud .city-personality-label {
+  flex: 0 0 auto;
+  align-self: baseline;
+  text-align: left;
+}
+
+/* ── Tablette (≤980px) : carte réduite (déclaré ici pour primer sur la règle
+   de base, views.css étant chargé après layout.css) ── */
+@media (max-width: 980px) {
+  .civilization-map-interactive,
+  .city-stage .civilization-map-interactive {
+    height: clamp(16rem, 42vh, 26rem) !important;
+    min-height: 16rem;
+  }
+
+  /* Écran étroit : la boutique se dé-docke et repasse sous la carte. */
+  .city-shop-dock {
+    position: static;
+    width: auto;
+    margin-top: 0.75rem;
+    overflow: visible;
+  }
+}
+

@@ -1,0 +1,1580 @@
+/* ============================================================================
+   REFONTE VISUELLE DE L'ONGLET CITÉ
+   ============================================================================ */
+
+/* En-tête de la Cité */
+.city-header-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid rgba(var(--era-rgb), 0.22);
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.12), transparent 75%), var(--panel);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  margin-bottom: 1rem;
+}
+
+.city-title-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-bottom: 2px solid rgba(var(--era-rgb), 0.42);
+  padding-bottom: 0.3rem;
+  transition: border-color 0.25s ease;
+}
+
+.city-title-wrapper:focus-within {
+  border-color: var(--gold-bright);
+}
+
+.city-inline-era {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: none;
+  margin-top: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(var(--era-rgb), 0.16);
+}
+
+.city-inline-era-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.city-inline-era-head span,
+.city-inline-era-head small,
+.city-inline-era-progress span {
+  color: rgba(var(--era-rgb), 0.68);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.city-inline-era-head strong {
+  overflow: hidden;
+  color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-size: 1rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.city-inline-era-head small {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.city-inline-era-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.city-title-label {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  letter-spacing: 0.08em;
+}
+
+.city-title-wrapper .city-name-input {
+  border: 0;
+  padding: 0.2rem 0;
+  color: var(--gold-ivory);
+  font-family: var(--font-title);
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+  font-weight: 700;
+  background: transparent;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.city-title-wrapper .city-name-input:focus {
+  outline: none;
+}
+
+/* ── Régulation des tensions : barre compacte permanente (en-tête de la Cité) ── */
+.crisis-regul {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 0.7rem;
+}
+
+.crisis-regul-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.crisis-regul-title {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+.crisis-policies-count {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.crisis-regul-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  align-items: start;
+}
+
+/* Chaque foyer = un menu déroulant (replié par défaut) : seul l'en-tête + la
+   jauge restent visibles, les actions (extensibles) se déplient au clic. */
+.crisis-foyer {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.crisis-foyer[open] {
+  border-color: rgba(var(--era-rgb), 0.45);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.crisis-foyer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.crisis-foyer-head::-webkit-details-marker { display: none; }
+
+.crisis-foyer-head:hover .crisis-foyer-name { color: var(--gold-ivory); }
+
+.crisis-foyer-icon { font-size: 0.9rem; }
+
+.crisis-foyer-name {
+  font-size: 0.8rem;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+
+.crisis-foyer-pct {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--foyer-color, var(--gold-bright));
+}
+
+.crisis-foyer-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.62rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.crisis-foyer-chevron::before { content: "\25BE"; }
+
+.crisis-foyer[open] .crisis-foyer-chevron::before { content: "\25B4"; }
+
+.crisis-foyer-track {
+  flex: 0 0 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.crisis-foyer-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--foyer-color, var(--gold));
+  transition: width 0.4s ease;
+}
+
+/* Repli explicite : on force le masquage hors état [open] car le menu, mis en
+   position absolue, échappe au masquage natif du <details> fermé. */
+.crisis-foyer:not([open]) .crisis-foyer-actions {
+  display: none;
+}
+
+/* Le menu d'actions flotte par-dessus la carte (hors flux) : ouvrir un foyer
+   ne décale plus l'en-tête ni la carte. */
+.crisis-foyer-actions {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(var(--era-rgb), 0.32);
+  border-radius: 8px;
+  background: var(--surface-panel);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.crisis-regul-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 58%);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 90%);
+  color: var(--text-strong);
+  font-family: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.crisis-regul-btn strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.crisis-regul-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 80%);
+  border-color: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 28%);
+}
+
+.crisis-regul-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.crisis-regul-cost {
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crisis-foyer-locked {
+  display: block;
+  padding-top: 0.1rem;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Identité couleur de chaque foyer = la ressource qu'il consomme (Étape 4).
+   Partagée par la variante compacte (.crisis-foyer--*) et la variante full
+   (.tactical-card--*). Dissidence = usure (violet d'état), plus l'ancien
+   violet « infra » qui entrait en collision avec l'infrastructure. */
+.crisis-foyer--food,  .tactical-card--food  { --foyer-color: var(--res-food); }
+.crisis-foyer--gold,  .tactical-card--gold  { --foyer-color: var(--res-treasure); }
+.crisis-foyer--know,  .tactical-card--know  { --foyer-color: var(--res-knowledge); }
+.crisis-foyer--usure, .tactical-card--usure { --foyer-color: var(--state-usure); }
+
+/* Carte tactique (variante full) : liseré gauche teinté par la ressource. */
+.tactical-card[class*="tactical-card--"] {
+  border-left: 3px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 45%);
+}
+
+/* ── Étape 4 : boutons de régulation enrichis (effet · contrepartie · coût) ── */
+.regul-btn-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.regul-gain {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #9bd17a;            /* bénéfice : ce que l'action calme */
+  white-space: nowrap;
+}
+
+.regul-malus {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #e0934a;            /* contrepartie : malus de production */
+  white-space: nowrap;
+}
+
+.regul-cost {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Badge « apaisé » + état adouci d'un foyer en cours de régulation. */
+.crisis-foyer-soothed {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9bd17a;
+  background: rgba(155, 209, 122, 0.12);
+  border: 1px solid rgba(155, 209, 122, 0.35);
+  border-radius: 999px;
+  padding: 0.02rem 0.34rem;
+  line-height: 1.4;
+}
+
+.tactical-htitle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.is-soothed .crisis-foyer-fill,
+.is-soothed .tactical-fill {
+  filter: saturate(0.7) brightness(1.05);
+  box-shadow: 0 0 6px rgba(155, 209, 122, 0.45);
+}
+
+/* ── Réforme de fond : recul DURABLE (ton or/parchemin, vs le vert temporaire) ── */
+.regul-reform-tag {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gold);        /* gain durable : se distingue du vert « apaisé » */
+  white-space: nowrap;
+}
+
+.regul-reform {
+  border-color: color-mix(in srgb, var(--gold), transparent 50%) !important;
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--gold), transparent 90%), transparent 60%);
+}
+.regul-reform:disabled {
+  opacity: 0.55;
+}
+
+/* Badge « réformé » : recul durable acquis sur le foyer. */
+.crisis-foyer-reformed {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 60%);
+  border-radius: 999px;
+  padding: 0.02rem 0.34rem;
+  line-height: 1.4;
+}
+
+.is-reformed .crisis-foyer-fill,
+.is-reformed .tactical-fill {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--gold), transparent 50%);
+}
+
+/* Bonus économique d'une action (infra/légitimité) — ton azur, vs malus orange. */
+.regul-bonus {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #6fb8d8;
+  white-space: nowrap;
+}
+
+/* Action verrouillée (palier non atteint) : aperçu grisé « 🔒 Ère / mythe ». */
+.regul-locked {
+  opacity: 0.42;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+}
+
+/* Levier B — tampon institutionnel : pression absorbée par infra + légitimité. */
+.crisis-regul-buffer {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #7fc6e6;
+  letter-spacing: 0.02em;
+}
+.crisis-regul-buffer--full {
+  font-size: 0.82rem;
+  margin: 0.1rem 0 0.6rem;
+  color: var(--muted);
+}
+.crisis-regul-buffer--full strong {
+  color: #7fc6e6;
+}
+
+/* ── Levier C — Politiques permanentes (toggles) ─────────────────────────────── */
+.crisis-policies {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(var(--era-rgb), 0.18);
+}
+.crisis-policies-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.crisis-policies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.5rem;
+}
+.policy-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(127, 198, 230, 0.28);
+  border-radius: 8px;
+  background: rgba(20, 30, 40, 0.5);
+  cursor: pointer;
+}
+.policy-btn:disabled {
+  cursor: not-allowed;
+}
+.policy-btn.is-active {
+  border-color: rgba(127, 198, 230, 0.85);
+  background-image: linear-gradient(135deg, rgba(127, 198, 230, 0.16), transparent 60%);
+  box-shadow: 0 0 8px rgba(127, 198, 230, 0.35);
+}
+.policy-effect {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #7fc6e6;
+  white-space: nowrap;
+}
+.policy-active-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7fc6e6;
+}
+
+/* ── Actions pari / RNG ──────────────────────────────────────────────────────── */
+.regul-gamble {
+  border-color: rgba(178, 138, 222, 0.45) !important;
+  background-image: linear-gradient(135deg, rgba(178, 138, 222, 0.10), transparent 60%);
+}
+.regul-gamble-tag {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #c0a0e8;
+  white-space: nowrap;
+}
+
+/* ── Fatigue de régulation ───────────────────────────────────────────────────── */
+.crisis-fatigue {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0.6rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.crisis-fatigue-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.crisis-fatigue-track {
+  flex: 1 1 auto;
+  max-width: 180px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.crisis-fatigue-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #e0934a, #d8632b);
+  transition: width 0.3s ease;
+}
+.crisis-fatigue-val {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: #e0934a;
+}
+
+/* Panneau de progression de l'Ère / Rupture */
+.era-progress-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(var(--era-rgb), 0.28);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+  background: 
+    linear-gradient(135deg, rgba(var(--era-rgb), 0.06) 0%, transparent 45%),
+    rgba(22, 28, 43, 0.96);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  margin-bottom: 1rem;
+}
+
+.era-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.era-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.era-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: rgba(var(--era-rgb), 0.6);
+  letter-spacing: 0.08em;
+}
+
+.era-title-name {
+  font-family: var(--font-title);
+  font-size: 1.55rem;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px rgba(var(--era-rgb), 0.25);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.era-next-pointer {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(var(--era-rgb), 0.7);
+  background: rgba(var(--era-rgb), 0.1);
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--era-rgb), 0.15);
+}
+
+.era-progress-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.era-progress-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(var(--era-rgb), 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.era-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a8a14e, var(--gold), #c2603a);
+  box-shadow: 0 0 12px rgba(var(--era-rgb), 0.35);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.era-progress-percentage {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  min-width: 2.2rem;
+  text-align: right;
+}
+
+.era-description-text {
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #c4bca6;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Jauge fine de pression civilisationnelle (intégrée à l'en-tête de la cité) */
+.stability-gauge {
+  --sg-color: #2fc8a8;
+  --sg-glow: rgba(47, 200, 168, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.stability-gauge.sg-tension  { --sg-color: #e8b339; --sg-glow: rgba(232, 179, 57, 0.32); }
+.stability-gauge.sg-strain   { --sg-color: #ef8434; --sg-glow: rgba(239, 132, 52, 0.35); }
+.stability-gauge.sg-crisis   { --sg-color: var(--red); --sg-glow: rgba(239, 68, 68, 0.4); }
+.stability-gauge.sg-collapse { --sg-color: var(--red); --sg-glow: rgba(239, 68, 68, 0.55); }
+
+.sg-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1;
+}
+
+.sg-icon {
+  font-size: 0.82rem;
+}
+
+.sg-label {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--sg-color);
+  transition: color 0.6s ease;
+}
+
+.sg-pct {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sg-color);
+  transition: color 0.6s ease;
+}
+
+.sg-track {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sg-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: block;
+  border-radius: inherit;
+  background: var(--sg-color);
+  box-shadow: 0 0 8px var(--sg-glow);
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.6s ease,
+    box-shadow 0.6s ease;
+}
+
+/* Rework §5.2 — fantôme de la cible sur la jauge du header Cité. */
+.sg-target-ghost {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+  transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+}
+
+/* Rework §5.1 — gain projeté « si effondrement » dans l'en-tête. */
+.sg-collapse-gain {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.sg-collapse .sg-fill {
+  animation: sgCollapsePulse 2.4s ease-in-out infinite;
+}
+
+.sg-collapse .sg-label,
+.sg-collapse .sg-pct {
+  animation: sgLabelPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes sgCollapsePulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); filter: brightness(1); }
+  50%      { box-shadow: 0 0 16px rgba(239, 68, 68, 0.85); filter: brightness(1.3); }
+}
+
+@keyframes sgLabelPulse {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+/* Réseau de fissures en surimpression (révélé par paliers au-delà de 70%) */
+.sg-cracks {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 18px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sg-crack-group {
+  transition: opacity 0.8s ease;
+}
+
+.sg-crack-group path {
+  fill: none;
+  stroke-linejoin: miter;
+}
+
+.sg-crack-light {
+  stroke: rgba(255, 215, 190, 0.4);
+  stroke-width: 1.6;
+}
+
+.sg-crack-dark {
+  stroke: rgba(16, 6, 4, 0.9);
+  stroke-width: 1.3;
+}
+
+/* Diorama / Carte de la Cité */
+.city-map-container {
+  position: relative;
+  border: 1px solid rgba(var(--era-rgb), 0.2);
+  border-radius: 12px;
+  background: var(--surface-app);
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  margin-bottom: 0.75rem;
+}
+
+.civilization-map-interactive {
+  position: relative;
+  display: grid;
+  place-items: stretch;
+  width: 100%;
+  /* La carte remplit la hauteur restante du viewport : 100vh moins
+     topbar + ticker + en-tête de cité (titre + jauge + barre de régulation
+     repliée) + marges. Les menus de régulation s'ouvrent en surimpression
+     (hors flux), donc l'en-tête garde une hauteur constante. Le canvas suit
+     via son ResizeObserver. */
+  height: clamp(22rem, calc(100vh - 28rem), 70rem) !important;
+  min-height: 22rem;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  cursor: grab;
+  text-align: left;
+}
+
+.map-interaction-hint {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(13, 10, 7, 0.78);
+  border: 1px solid rgba(var(--era-rgb), 0.3);
+  backdrop-filter: blur(6px);
+  font-size: 0.72rem;
+  color: #fff1bd;
+  pointer-events: none;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.hint-pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--gold-bright);
+  border-radius: 50%;
+  animation: hintPulse 2s infinite ease-in-out;
+}
+
+@keyframes hintPulse {
+  0%, 100% { transform: scale(1); opacity: 0.3; box-shadow: 0 0 0 0 rgba(240, 200, 96, 0); }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 8px 2px rgba(240, 200, 96, 0.6); }
+}
+
+/* Grille des Ressources Unifiées */
+.unified-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.resource-card-unified {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.resource-card-unified:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--era-rgb), 0.28);
+  background: rgba(28, 32, 44, 0.8);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(var(--era-rgb), 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.resource-card-unified.card-pop { border-left: 3px solid var(--res-pop); }
+.resource-card-unified.card-food { border-left: 3px solid var(--res-food); }
+.resource-card-unified.card-gold { border-left: 3px solid var(--res-gold); }
+.resource-card-unified.card-knowledge { border-left: 3px solid var(--res-know); }
+.resource-card-unified.card-infra { border-left: 3px solid var(--res-infra); }
+.resource-card-unified.stability-vitals-card { border-left: 3px solid var(--red); }
+
+.resource-card-unified .card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.resource-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.resource-icon {
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resource-icon i {
+  font-size: 0.92rem;
+}
+
+.resource-card-unified.card-pop .resource-icon i { color: var(--res-pop); }
+.resource-card-unified.card-food .resource-icon i { color: var(--res-food); }
+.resource-card-unified.card-gold .resource-icon i { color: var(--res-gold); }
+.resource-card-unified.card-knowledge .resource-icon i { color: var(--res-know); }
+.resource-card-unified.card-infra .resource-icon i { color: var(--res-infra); }
+.resource-card-unified.stability-vitals-card .resource-icon i { color: var(--red); }
+
+.resource-name {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.resource-card-unified.card-pop .resource-name { color: var(--res-pop); }
+.resource-card-unified.card-food .resource-name { color: var(--res-food); }
+.resource-card-unified.card-gold .resource-name { color: var(--res-gold); }
+.resource-card-unified.card-knowledge .resource-name { color: var(--res-know); }
+.resource-card-unified.card-infra .resource-name { color: var(--res-infra); }
+.resource-card-unified.stability-vitals-card .resource-name { color: var(--red); }
+
+.resource-value {
+  font-family: var(--font-title);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(240, 200, 96, 0.15);
+}
+
+.resource-card-unified.card-pop .resource-value { color: var(--res-pop); text-shadow: 0 0 10px rgba(221, 122, 94, 0.15); }
+.resource-card-unified.card-food .resource-value { color: var(--res-food); text-shadow: 0 0 10px rgba(54, 179, 126, 0.15); }
+.resource-card-unified.card-gold .resource-value { color: var(--res-gold); text-shadow: 0 0 10px rgba(240, 180, 41, 0.15); }
+.resource-card-unified.card-knowledge .resource-value { color: var(--res-know); text-shadow: 0 0 10px rgba(76, 157, 232, 0.15); }
+.resource-card-unified.card-infra .resource-value { color: var(--res-infra); text-shadow: 0 0 10px rgba(136, 147, 184, 0.18); }
+
+.resource-card-unified .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.resource-rate-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.rate-label {
+  color: var(--muted);
+  font-family: var(--font-body);
+}
+
+.rate-value {
+  font-weight: 700;
+}
+
+.rate-value.positive { color: var(--green); }
+.rate-value.negative { color: var(--red); }
+
+.resource-gauge-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.gauge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+}
+
+.gauge-label {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-family: var(--font-body);
+}
+
+.gauge-mood-text {
+  font-weight: 700;
+  font-size: 0.74rem;
+  font-family: var(--font-body);
+}
+
+.resource-card-unified.card-food .gauge-mood-text { color: #a8a14e; }
+.resource-card-unified.card-gold .gauge-mood-text { color: #e8a84a; }
+.resource-card-unified.card-knowledge .gauge-mood-text { color: #5f93b0; }
+
+.mini-gauge-bar {
+  height: 5px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.food-bar .gauge-fill { background: linear-gradient(90deg, #a8a14e, var(--green)); }
+.gold-bar .gauge-fill { background: linear-gradient(90deg, #e8a84a, var(--res-gold)); }
+.knowledge-bar .gauge-fill { background: linear-gradient(90deg, #5f93b0, var(--blue)); }
+
+.resource-card-unified .card-footer {
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.resource-desc {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* Jauges de Stabilité & Vitalité (Carte 6) */
+.stability-vitals-body {
+  justify-content: center;
+}
+
+.stability-gauge-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.gauge-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.72rem;
+}
+
+.gauge-title {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.gauge-meta-right {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.gauge-meta strong {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gauge-meta strong.danger-pulse {
+  color: var(--red) !important;
+  animation: redAlertPulse 1.2s infinite alternate;
+}
+
+@keyframes redAlertPulse {
+  0% { opacity: 0.6; text-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+  100% { opacity: 1; text-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
+}
+
+/* Bouton Exhumer */
+.exhume-btn-redesigned {
+  width: 100%;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.18) 0%, rgba(22, 28, 43, 0.95) 100%);
+  color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.exhume-btn-redesigned:hover:not(:disabled) {
+  border-color: var(--gold-bright);
+  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.28) 0%, rgba(40, 50, 74, 0.98) 100%);
+  box-shadow: 0 6px 18px rgba(var(--era-rgb), 0.15), 0 0 12px rgba(var(--era-rgb), 0.1);
+  transform: translateY(-1px);
+}
+
+/* Panneau des Mythes Actifs */
+.active-myths-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid rgba(var(--era-rgb), 0.18);
+  border-radius: 12px;
+  background: rgba(18, 20, 28, 0.45);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
+  margin-bottom: 1rem;
+}
+
+.panel-heading-myths {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid rgba(var(--era-rgb), 0.15);
+  padding-bottom: 0.45rem;
+}
+
+.myths-grid-redesigned {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.65rem;
+}
+
+.myth-status-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.myth-card-icon {
+  font-size: 1.15rem;
+}
+
+.myth-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.myth-card-info span {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.myth-card-info strong {
+  font-size: 0.78rem;
+  color: var(--text) !important;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  text-shadow: none !important;
+}
+
+.myth-status-card.sisyphus { border-left: 2px solid #8b7d6a; }
+.myth-status-card.icare { border-left: 2px solid var(--gold); }
+.myth-status-card.babel { border-left: 2px solid var(--violet); }
+.myth-status-card.age-or { border-left: 2px solid var(--gold-bright); }
+.myth-status-card.phoenix { border-left: 2px solid var(--red); }
+.myth-status-card.heph { border-left: 2px solid var(--gold); }
+.myth-status-card.atrides { border-left: 2px solid #ef4444; }
+.myth-status-card.atrides-pact { border-left: 2px solid var(--gold); }
+.myth-status-card.enee { border-left: 2px solid var(--green); }
+.myth-status-card.enee-heritage { border-left: 2px solid #34d399; }
+.myth-status-card.epitaph-legacy { border-left: 2px solid #d6a94a; }
+.myth-status-card.latent { border-left: 2px solid #c084fc; }
+
+.myth-card-info .danger-text { color: var(--red) !important; }
+.myth-card-info .positive-text { color: var(--green) !important; }
+
+/* Ajustements responsive */
+@media (max-width: 1200px) {
+  .unified-resource-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .unified-resource-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   BULLLES DE PENSÉES & MULTIPLICATEUR DE BOOST
+   ============================================================================ */
+
+.map-bubble-alert {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  background: rgba(12, 10, 8, 0.95);
+  border: 1px solid var(--gold);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(var(--era-rgb), 0.2);
+  max-width: 85%;
+  text-align: center;
+  pointer-events: none;
+  font-size: 0.8rem;
+  animation: slideUpFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.bubble-alert-name {
+  font-family: var(--font-body);
+  color: var(--gold-bright);
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bubble-alert-text {
+  color: #c4bca6;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.bubble-alert-reward {
+  color: #10b981;
+  font-weight: 800;
+  font-size: 0.78rem;
+  margin-top: 0.1rem;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+@keyframes slideUpFadeIn {
+  0% { opacity: 0; transform: translate(-50%, 12px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ============================================================================
+   Panneaux de mythes actifs (Atrides / Énée) + bannières de cycle
+   Ex-styles inline de CityView.jsx (Audit UI Phase 4)
+   ============================================================================ */
+
+.myth-panel {
+  margin-top: 1rem;
+  border-radius: var(--r-panel);
+  overflow: hidden;
+}
+
+.myth-panel--atrides {
+  border: 1px solid rgba(220, 50, 50, 0.3);
+  background: rgba(20, 10, 10, 0.45);
+  box-shadow: inset 0 0 10px rgba(220, 50, 50, 0.15);
+}
+
+.myth-panel--enee {
+  border: 1px solid rgba(76, 201, 168, 0.3);
+  background: rgba(10, 25, 20, 0.45);
+  box-shadow: inset 0 0 10px rgba(76, 201, 168, 0.1);
+}
+
+.myth-panel--enee.is-degraded {
+  border-color: rgba(220, 50, 50, 0.5);
+  background: rgba(30, 10, 10, 0.45);
+  box-shadow: inset 0 0 10px rgba(220, 50, 50, 0.2);
+}
+
+.myth-panel .panel-heading {
+  margin: 0;
+  padding: 1rem;
+  background: none;
+  border-radius: 0;
+}
+
+.myth-panel--atrides .panel-heading { border-bottom: 1px solid rgba(220, 50, 50, 0.15); }
+.myth-panel--enee .panel-heading { border-bottom: 1px solid rgba(76, 201, 168, 0.15); }
+.myth-panel--enee.is-degraded .panel-heading { border-bottom-color: rgba(220, 50, 50, 0.2); }
+
+.myth-panel .panel-heading .label-red { color: var(--red); }
+.myth-panel .panel-heading .label-green { color: var(--green); }
+
+.myth-panel .panel-heading h2 {
+  margin: 0.2rem 0 0;
+  font-size: 1.25rem;
+}
+
+.myth-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.myth-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1rem;
+}
+
+.myth-stat {
+  --stat-color: var(--gold);
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  border-left: 3px solid var(--stat-color);
+  border-radius: var(--r-tiny);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.myth-stat.is-red    { --stat-color: var(--red); }
+.myth-stat.is-orange { --stat-color: var(--orange); }
+.myth-stat.is-green  { --stat-color: var(--green); }
+
+.myth-stat span {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.myth-stat strong {
+  font-size: 1.25rem;
+  color: var(--stat-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.myth-stat small {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.myth-stat .stat-green { color: var(--green); }
+.myth-stat .stat-gold  { color: var(--gold); }
+.myth-stat .stat-red   { color: var(--red); }
+.myth-stat .stat-text  { color: var(--text); }
+.myth-stat small.stat-green { opacity: 1; color: var(--green); }
+
+.myth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.myth-actions > button {
+  flex: 1 1 120px;
+  font-size: 0.85rem;
+}
+
+.myth-alert {
+  padding: 0.75rem;
+  border: 1px solid rgba(220, 50, 50, 0.3);
+  border-radius: var(--r-tiny);
+  background: rgba(220, 50, 50, 0.1);
+  font-size: 0.85rem;
+  color: var(--red);
+  line-height: 1.4;
+}
+
+.enee-migrate-btn {
+  width: 100%;
+}
+
+/* Bannières de début de cycle */
+.enee-boost-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--green);
+  border-radius: var(--r-card);
+  background: rgba(76, 201, 168, 0.15);
+}
+
+.enee-boost-banner > strong {
+  color: var(--green);
+  font-size: 1rem;
+}
+
+.enee-boost-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.atrides-pact-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-card);
+  background: rgba(201, 100, 76, 0.1);
+  overflow: hidden;
+}
+
+.atrides-pact-banner.is-sealed {
+  background: rgba(var(--era-rgb), 0.15);
+}
+
+.pact-banner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pact-banner-head strong {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.pact-banner-time {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.atrides-pact-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.pact-activate-btn {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+}
+
+.city-personality-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  align-self: baseline;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-style: italic;
+  opacity: 0.75;
+  letter-spacing: 0.03em;
+}
+
+/* ── Crise sur la carte de ville (Audit UI Phase 5) ──
+   Lueur rouge montant du sol au-delà de 75% de pression (--crisis-level
+   hérité de .app). La carte devient le baromètre émotionnel de la cité. */
+.city-map-container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 115%, rgba(185, 42, 32, 0.42), transparent 62%);
+  opacity: clamp(0, (var(--crisis-level, 0) - 0.75) * 4, 1);
+  transition: opacity 1.5s ease;
+}
+
+/* Graduations de seuil sur la jauge de rupture (25/50/75/90%) */
+.sg-tick {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  z-index: 2;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ============================================================================
+   CITÉ EN HÉROS — la carte occupe le cadre, l'identité + la jauge de stabilité
+   se posent en HUD par-dessus. Le monde d'abord, l'UI en habillage autour.
+   ============================================================================ */
+.city-stage {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+/* La carte ne porte plus sa marge : c'est le stage qui cadre, et on enrichit
+   un peu le liseré (le "diorama" devient le sujet de l'écran). */
+.city-stage .city-map-container {
+  margin-bottom: 0;
+  border-color: rgba(var(--era-rgb), 0.28);
+  border-radius: 14px;
+}
+
+/* Carte plus haute : c'est le héros. La régulation est passée DESSOUS, donc on
+   récupère la hauteur qu'elle réservait dans l'ancien en-tête (≈ 8rem). */
+.city-stage .civilization-map-interactive {
+  height: clamp(26rem, calc(100vh - 13rem), 82rem) !important;
+}
+
+/* HUD posé sur le haut de la carte : un scrim dégradé, pas une boîte. Le texte
+   reste lisible sur le ciel puis se fond dans la scène. */
+.city-stage-hud {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.05rem 1.4rem 2.6rem;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(8, 6, 3, 0.88) 0%,
+    rgba(8, 6, 3, 0.55) 50%,
+    transparent 100%);
+  border-radius: 14px 14px 0 0;
+}
+
+/* Seuls les éléments interactifs captent la souris ; ailleurs le clic/drag
+   traverse vers la carte. */
+.city-stage-hud .city-title-wrapper,
+.city-stage-hud .stability-gauge {
+  pointer-events: auto;
+}
+
+/* Le nom de la cité devient un vrai titre de jeu : grand Cinzel gravé. */
+.city-stage-hud .city-title-wrapper {
+  border-bottom: none;
+  align-items: flex-end;
+}
+
+.city-stage-hud .city-name-input {
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem) !important;
+  line-height: 1.04;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75), 0 0 26px rgba(var(--era-rgb), 0.25);
+}
+
+.city-stage-hud .city-personality-label {
+  color: var(--gold-ivory);
+  opacity: 0.92;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+
+/* La jauge de stabilité = la "barre de vie" de la cité, posée sous le nom. */
+.city-stage-hud .stability-gauge {
+  max-width: 32rem;
+}
+
+.city-stage-hud .sg-label,
+.city-stage-hud .sg-pct,
+.city-stage-hud .sg-collapse-gain {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* Régulation + politiques : un seul groupe fonctionnel, sous la carte. */
+.city-controls-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem 1.15rem;
+  border: 1px solid rgba(var(--era-rgb), 0.14);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.08), transparent 70%),
+    var(--panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Le panneau fait déjà le cadre : on retire le filet supérieur interne. */
+.city-controls-panel .crisis-regul {
+  border-top: none;
+  padding-top: 0;
+}
+
