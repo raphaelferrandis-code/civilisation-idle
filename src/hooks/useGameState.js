@@ -2,7 +2,7 @@ import { useSyncExternalStore, useRef } from 'react';
 import { subscribe, state } from '../game/core/state.js';
 
 // Shallow comparison helper to prevent unnecessary re-renders of object/array selectors
-function shallowEqual(a, b) {
+export function shallowEqual(a, b) {
   if (Object.is(a, b)) return true;
   if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
   

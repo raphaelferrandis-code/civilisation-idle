@@ -169,7 +169,7 @@ export const CADMOS_ORIENTATIONS = {
   }
 };
 
-const RAGNAROK_CONSTRAINTS = [
+export const RAGNAROK_CONSTRAINTS = [
   "mythe_de_promethee",
   "mythe_d_enee",
   "mythe_de_cadmos",
