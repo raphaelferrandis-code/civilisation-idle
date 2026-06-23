@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Secrets (clé API PixelLab, etc.) — ne JAMAIS versionner
+.env
+
 # Electron build output
 release
 
@@ -45,3 +48,7 @@ sim_long_results.json
 
 # Captures du harnais de vérification visuelle (window.__cityShot -> middleware Vite)
 .preview-shots/
+
+# Expériences pixel-art jetables (tilesets de test). Les assets UTILISÉS
+# (public/pixelart/roads/, grass-ref) restent versionnés.
+public/pixelart/_archive/

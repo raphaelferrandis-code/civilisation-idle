@@ -54,6 +54,7 @@ import {
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
+import { drawPixelTerrain, pixelTerrainFlag, setPixelTileset } from './pixelTerrain.js';
 
 
 // Plafond de résolution de rendu : sur écrans HiDPI (dpr 2/3), dessiner à pleine
@@ -871,8 +872,10 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
-        for (const r of CM.roadList) cityMapDrawRoad(r);
-        cityMapDrawRoadMarkings();
+        if (!pixelTerrainFlag.on) { // pixel-art : routes dessinées en tuiles de terre
+          for (const r of CM.roadList) cityMapDrawRoad(r);
+          cityMapDrawRoadMarkings();
+        }
         cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);
@@ -881,9 +884,12 @@ function initCityMap(canvas, options = {}) {
       }
       // Sol + rivière d'abord (sous le canvas statique), puis blit
       cityMapDrawGround(CM.layout);
+      // Prototype pixel-art : couche terrain en tuiles Wang (herbe + routes de
+      // terre) par-dessus le sol procédural, derrière le flag pixelTerrainFlag.
+      const _pixelGround = pixelTerrainFlag.on && drawPixelTerrain(CM);
       // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
       // + berges, SOUS le fleuve et la ville (qui restent plats).
-      cityMapDrawTerrain();
+      if (!_pixelGround) cityMapDrawTerrain();
       cityMapDrawRiver(now);
       // Quais : berge construite (pierre/béton/énergie) là où la ville borde l'eau,
       // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
@@ -905,8 +911,10 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
-        for (const r of CM.roadList) cityMapDrawRoad(r);
-        cityMapDrawRoadMarkings();
+        if (!pixelTerrainFlag.on) { // pixel-art : routes dessinées en tuiles de terre
+          for (const r of CM.roadList) cityMapDrawRoad(r);
+          cityMapDrawRoadMarkings();
+        }
         cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);
@@ -1029,6 +1037,9 @@ function initCityMap(canvas, options = {}) {
     window.__state = state;
     window.__D = D;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
   }
   CM.raf = requestAnimationFrame(frame);
 }
