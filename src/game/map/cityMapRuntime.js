@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { state, collapseInProgress, buildingById, renderCache } from '../core/state.js';
-import { toNum } from '../core/num.js';
+import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 import {
   CM,
@@ -794,7 +794,7 @@ function initCityMap(canvas, options = {}) {
   let lastCitizenSpawn = 0;
   function frame(now) {
     CM.raf = requestAnimationFrame(frame);
-    if (now - last < FRAME_MS) return;
+    if (now - last < FRAME_MS && !CM.capture) return; // capture : court-circuite le throttle
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
     const active = isActive();
     if (active && CM.canvas && CM.cw > 0) {
@@ -816,14 +816,19 @@ function initCityMap(canvas, options = {}) {
       }
       // Cycle jour/nuit lent (~5 min) + phase (montante = crépuscule,
       // descendante = aube) + brume matinale autour de l'aube.
-      const dayP = ((now || 0) / 300000) % 1;
-      CM.nightF = 0.5 - 0.5 * Math.cos(dayP * Math.PI * 2);
-      CM.dayRising = dayP < 0.5;
-      CM.mistF = !CM.dayRising && CM.nightF > 0.1 && CM.nightF < 0.62
-        ? Math.sin(((0.62 - CM.nightF) / 0.52) * Math.PI) : 0;
+      if (CM.capture) {
+        // Capture déterministe : plein jour (ou nuit forcée), pas de brume.
+        CM.nightF = CM.capture.night; CM.dayRising = false; CM.mistF = 0;
+      } else {
+        const dayP = ((now || 0) / 300000) % 1;
+        CM.nightF = 0.5 - 0.5 * Math.cos(dayP * Math.PI * 2);
+        CM.dayRising = dayP < 0.5;
+        CM.mistF = !CM.dayRising && CM.nightF > 0.1 && CM.nightF < 0.62
+          ? Math.sin(((0.62 - CM.nightF) / 0.52) * Math.PI) : 0;
+      }
       // Indice de santé de la cité (0 = agonie, 1 = prospérité) : la taille
       // pilote l'échelle, la santé pilote l'ambiance (palette, lumières).
-      {
+      if (CM.capture) { CM.healthF = CM.capture.health; } else {
         let healthT;
         try {
           const pr = pressureBreakdown();
@@ -983,6 +988,48 @@ function initCityMap(canvas, options = {}) {
   if (CM.cw === 0) resize();
   // Hook de diagnostic : force une frame (utile quand rAF est gele en arriere-plan).
   CM.forceFrame = () => { resize(); frame(performance.now()); };
+  // Capture DÉTERMINISTE d'une frame (vérif visuelle) : court-circuite le throttle,
+  // force le plein jour (pas de voile nuit qui fausse les pixels) et une santé fixe,
+  // fige le temps d'animation. N'altère PAS le rendu normal (tout est gardé par le
+  // flag CM.capture, nul en fonctionnement). Renvoie un dataURL (PNG par défaut).
+  CM.captureFrame = (opts = {}) => {
+    if (!CM.canvas) return null;
+    const saved = { night: CM.nightF, mist: CM.mistF, health: CM.healthF, last };
+    CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1 };
+    if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
+    last = -1e9; // by-passe le throttle pour forcer un vrai rendu
+    resize();
+    frame(opts.now ?? 0);
+    CM.capture = null;
+    let out = CM.canvas;
+    const scale = opts.scale || 1;
+    if (scale !== 1) {
+      out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(CM.canvas.width * scale));
+      out.height = Math.max(1, Math.round(CM.canvas.height * scale));
+      const g = out.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(CM.canvas, 0, 0, out.width, out.height);
+    }
+    const url = opts.jpeg ? out.toDataURL('image/jpeg', opts.quality || 0.82) : out.toDataURL('image/png');
+    CM.nightF = saved.night; CM.mistF = saved.mist; CM.healthF = saved.health; last = saved.last;
+    return url;
+  };
+  // Hook dev : capture puis POST au middleware Vite -> écrit .preview-shots/<name>.png.
+  if (typeof window !== 'undefined' && import.meta && import.meta.env && import.meta.env.DEV) {
+    window.__cityShot = async (opts = {}) => {
+      const url = CM.captureFrame(opts);
+      if (!url) return { err: 'no frame' };
+      const blob = await (await fetch(url)).blob();
+      const res = await fetch('/__shot?name=' + encodeURIComponent(opts.name || 'shot'), { method: 'POST', body: blob });
+      return res.ok ? await res.json() : { err: 'post ' + res.status };
+    };
+    // Aides de vérif : accès à l'état + forçage d'un recalcul de carte. Permet de
+    // monter une ville de démo (population/bâtiments) puis de capturer une frame.
+    window.__state = state;
+    window.__D = D;
+    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; };
+  }
   CM.raf = requestAnimationFrame(frame);
 }
 

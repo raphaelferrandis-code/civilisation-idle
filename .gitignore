@@ -42,3 +42,6 @@ sim_long_results.json
 # Tuiles prototype Kenney (reliquat de l'expérience iso annulée le 2026-06-18,
 # non utilisées par le code) : hors versionnement.
 /kenney_isometricPrototypeTiles/
+
+# Captures du harnais de vérification visuelle (window.__cityShot -> middleware Vite)
+.preview-shots/
