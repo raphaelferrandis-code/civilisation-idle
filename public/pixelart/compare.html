@@ -1,0 +1,304 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Routes pixel-art — planche de comparaison</title>
+<style>
+  :root {
+    --bg: #14110c; --panel: #1d1810; --ink: #e8dcc0; --dim: #9a8c6e;
+    --gold: #d4af56; --line: #3a3020;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; color: var(--gold); letter-spacing: .5px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--dim); margin: 28px 24px 12px; }
+  .hint { color: var(--dim); font-size: 12px; }
+  .controls { margin-left: auto; display: flex; gap: 16px; align-items: center; }
+  label.ctl { color: var(--dim); font-size: 12px; cursor: pointer; user-select: none; }
+  .grid { display: grid; gap: 14px; padding: 0 24px 24px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px; }
+  .card .cap { display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px; }
+  .card .band { color: var(--gold); font-weight: 600; font-size: 13px; }
+  .card .style { color: var(--dim); font-size: 11px; font-style: italic; }
+  canvas { image-rendering: pixelated; display: block; width: 100%; height: auto;
+    background:
+      repeating-conic-gradient(#222 0 25%, #2a2a2a 0 50%) 0 0 / 16px 16px;
+    border-radius: 4px; }
+  .flag { font-size: 11px; margin-top: 8px; padding: 4px 8px; border-radius: 4px; }
+  .flag.warn { background: #3a2a0e; color: #e6b450; }
+  .flag.bad  { background: #3a1414; color: #e87878; }
+  .flag.ok   { background: #16240f; color: #9bd66a; }
+</style>
+
+<header>
+  <h1>Routes pixel-art</h1>
+  <span class="hint">F5 après chaque édition · top-down 32px · logique Wang du moteur</span>
+  <div class="controls">
+    <label class="ctl"><input type="checkbox" id="edge" checked /> bord</label>
+    <label class="ctl"><input type="checkbox" id="streets" checked /> rues</label>
+    <label class="ctl"><input type="checkbox" id="grid" /> grille</label>
+    <label class="ctl"><input type="checkbox" id="onlygrass" /> herbe seule</label>
+    <label class="ctl">zoom
+      <input type="range" id="zoom" min="6" max="22" value="13" /></label>
+  </div>
+</header>
+
+<h2>Ville composée par ère <span class="hint">— sol urbain + frange + rues (4 couches)</span></h2>
+<div class="grid" id="netGrid"></div>
+
+<h2>Planches brutes <span class="hint">— les 16 tuiles Wang sur fond herbe (×3)</span></h2>
+<div class="grid" id="sheetGrid"></div>
+
+<h2>Habitants — marche <span class="hint">— ères : préhistoire · médiéval · antiquité · industriel, homme/femme/enfant × 4 dir</span></h2>
+<div style="padding:0 24px 24px">
+  <canvas id="agentCv" style="image-rendering:pixelated;background:var(--panel);border:1px solid var(--line);border-radius:8px"></canvas>
+</div>
+
+<h2>Véhicules <span class="hint">— objets directionnels (4 cardinales), par ère</span></h2>
+<div style="padding:0 24px 24px">
+  <canvas id="vehCv" style="image-rendering:pixelated;background:var(--panel);border:1px solid var(--line);border-radius:8px"></canvas>
+</div>
+
+<script>
+// --- bandes (miroir de ROAD_STAGES dans pixelTerrain.js) -------------------
+const BANDS = [
+  { f: 'roads/band0-feu',         b: '0 · feu',         s: 'terre battue',        flag: ['warn','taches sombres parasites'] },
+  { f: 'roads/band1-bois',        b: '1 · bois',        s: 'terre + planches',    flag: ['warn','sens des planches à uniformiser'] },
+  { f: 'roads/band2-pierre',      b: '2 · pierre',      s: 'gravier',             flag: ['bad','≈ identique à la bande 3'] },
+  { f: 'roads/band3-couronne',    b: '3 · couronne',    s: 'pavé rustique',       flag: ['bad','≈ identique à la bande 2 → pavé rectangulaire'] },
+  { f: 'roads/band4-marbre',      b: '4 · marbre',      s: 'dalles claires',      flag: ['bad','fantomatique : manque bord + contraste'] },
+  { f: 'roads/band5-fonte',       b: '5 · fonte',       s: 'pavé industriel',     flag: ['ok','référence de lisibilité'] },
+  { f: 'roads/band6-singularite', b: '6 · singularité', s: 'béton',               flag: ['bad','fantomatique : manque bord + contraste'] },
+  { f: 'roads/band7-noosphere',   b: '7 · noosphère',   s: 'pierre lumineuse',    flag: ['warn','un peu pâle'] },
+  { f: 'roads/band8-stellaire',   b: '8 · stellaire',   s: 'métal bleu',          flag: ['ok','marquages de voie'] },
+  { f: 'roads/band9-demiurge',    b: '9 · démiurge',    s: 'or à runes',          flag: ['ok','marquages + runes'] },
+];
+
+// --- réseau de test : exerce droite/2-voies/croix/T/virage/cul-de-sac/diag/place
+const N = 18;
+function buildRoadSet() {
+  const s = new Set();
+  const add = (x, y) => { if (x >= 0 && y >= 0 && x < N && y < N) s.add(x + ',' + y); };
+  for (let x = 1; x < N - 1; x++) { add(x, 6); add(x, 7); }   // boulevard 2 voies
+  for (let y = 1; y < N - 1; y++) add(9, y);                   // avenue verticale (croix)
+  for (let y = 7; y < N - 1; y++) add(4, y);                   // rue secondaire (T)
+  for (let y = 2; y <= 5; y++) add(13, y);                     // cul-de-sac (impasse)
+  add(13, 11); add(14, 11); add(13, 12); add(14, 12);          // petite place 2×2
+  add(15, 9); add(16, 10); add(16, 11);                        // virages
+  return s;
+}
+const ROAD = buildRoadSet();          // réseau de RUES
+// Zone urbaine (le SOL) = dilatation du réseau de 2 cellules → un blob qui englobe
+// les rues (mime le modèle du jeu : sol = zone bâtie, rues = réseau par-dessus).
+function dilate(set, r) {
+  const out = new Set();
+  for (const k of set) {
+    const c = k.indexOf(','), x = +k.slice(0, c), y = +k.slice(c + 1);
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < N && ny < N) out.add(nx + ',' + ny);
+    }
+  }
+  return out;
+}
+const AREA = dilate(ROAD, 2);
+const inArea = (x, y) => x >= 0 && y >= 0 && x < N && y < N && AREA.has(x + ',' + y);
+const isStreet = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ROAD.has(x + ',' + y);
+// vertex = sol(0) si une des 4 cellules voisines est zone urbaine, sinon herbe(1)
+const vtx = (vx, vy) =>
+  (inArea(vx - 1, vy - 1) || inArea(vx, vy - 1) || inArea(vx - 1, vy) || inArea(vx, vy)) ? 0 : 1;
+
+// --- chargement assets ------------------------------------------------------
+function cornerKey(c) {
+  const u = v => (v === 'upper' ? 1 : 0);
+  return u(c.NW) * 8 + u(c.NE) * 4 + u(c.SE) * 2 + u(c.SW);
+}
+function loadImg(src) {
+  return new Promise((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
+  });
+}
+async function loadBand(b, i) {
+  const meta = await fetch('/pixelart/' + b.f + '.json?' + Date.now()).then(r => r.json());
+  const uv = new Array(16);
+  for (const t of meta.tileset_data.tiles)
+    uv[cornerKey(t.corners)] = [t.bounding_box.x, t.bounding_box.y];
+  const img = await loadImg('/pixelart/' + b.f + '.png?' + Date.now());
+  const edge = await loadImg('/pixelart/' + b.f + '.edge.png?' + Date.now()).catch(() => null);
+  const streetSheet = await loadImg('/pixelart/streets-band' + i + '.png?' + Date.now()).catch(() => null);
+  return { ...b, uv, img, edge, streetSheet };
+}
+
+let grass, bands, opts = { edge: true, streets: true, grid: false, onlygrass: false, zoom: 13 };
+
+function drawNetwork(cv, band) {
+  const T = opts.zoom;
+  cv.width = N * T; cv.height = N * T;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  for (let gy = 0; gy < N; gy++) {
+    for (let gx = 0; gx < N; gx++) {
+      const dx = gx * T, dy = gy * T;
+      ctx.drawImage(grass, 0, 0, 32, 32, dx, dy, T, T);
+      if (opts.onlygrass) continue;
+      const key = vtx(gx, gy) * 8 + vtx(gx + 1, gy) * 4 + vtx(gx + 1, gy + 1) * 2 + vtx(gx, gy + 1);
+      if (key !== 15) {
+        const uv = band.uv[key];
+        if (uv) {
+          ctx.drawImage(band.img, uv[0], uv[1], 32, 32, dx, dy, T, T);
+          if (opts.edge && band.edge && key !== 0) ctx.drawImage(band.edge, uv[0], uv[1], 32, 32, dx, dy, T, T);
+        }
+      }
+      // Couche 4 — RUES (edge-Wang, surface de l'ère) par-dessus le sol.
+      if (opts.streets && band.streetSheet && isStreet(gx, gy)) {
+        const m = (isStreet(gx, gy - 1) ? 1 : 0) | (isStreet(gx + 1, gy) ? 2 : 0)
+                | (isStreet(gx, gy + 1) ? 4 : 0) | (isStreet(gx - 1, gy) ? 8 : 0);
+        ctx.drawImage(band.streetSheet, (m & 3) * 32, (m >> 2) * 32, 32, 32, dx, dy, T, T);
+      }
+    }
+  }
+  if (opts.grid) {
+    ctx.strokeStyle = 'rgba(212,175,86,.18)'; ctx.lineWidth = 1;
+    for (let i = 0; i <= N; i++) {
+      ctx.beginPath(); ctx.moveTo(i * T + .5, 0); ctx.lineTo(i * T + .5, N * T); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * T + .5); ctx.lineTo(N * T, i * T + .5); ctx.stroke();
+    }
+  }
+}
+
+function drawSheet(cv, band) {
+  const S = 3; // ×3
+  cv.width = 128 * S; cv.height = 128 * S;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++)
+    ctx.drawImage(grass, 0, 0, 32, 32, x * 32 * S, y * 32 * S, 32 * S, 32 * S);
+  if (!opts.onlygrass) ctx.drawImage(band.img, 0, 0, 128, 128, 0, 0, 128 * S, 128 * S);
+  if (!opts.onlygrass && opts.edge && band.edge) ctx.drawImage(band.edge, 0, 0, 128, 128, 0, 0, 128 * S, 128 * S);
+}
+
+function card(band, drawer) {
+  const el = document.createElement('div'); el.className = 'card';
+  const [lvl, txt] = band.flag;
+  el.innerHTML =
+    '<div class="cap"><span class="band">' + band.b + '</span>' +
+    '<span class="style">' + band.s + '</span></div>' +
+    '<div class="flag ' + lvl + '">' + txt + '</div>';
+  const cv = document.createElement('canvas');
+  el.insertBefore(cv, el.querySelector('.flag'));
+  drawer(cv, band);
+  return el;
+}
+
+function renderAll() {
+  const ng = document.getElementById('netGrid'), sg = document.getElementById('sheetGrid');
+  ng.innerHTML = ''; sg.innerHTML = '';
+  for (const band of bands) ng.appendChild(card(band, drawNetwork));
+  for (const band of bands) sg.appendChild(card(band, drawSheet));
+}
+
+document.getElementById('edge').onchange = e => { opts.edge = e.target.checked; renderAll(); };
+document.getElementById('streets').onchange = e => { opts.streets = e.target.checked; renderAll(); };
+document.getElementById('grid').onchange = e => { opts.grid = e.target.checked; renderAll(); };
+document.getElementById('onlygrass').onchange = e => { opts.onlygrass = e.target.checked; renderAll(); };
+document.getElementById('zoom').oninput = e => { opts.zoom = +e.target.value; renderAll(); };
+
+(async () => {
+  grass = await loadImg('/pixelart/grass.png?' + Date.now());
+  bands = await Promise.all(BANDS.map((b, i) => loadBand(b, i)));
+  renderAll();
+})().catch(err => {
+  document.body.insertAdjacentHTML('beforeend',
+    '<p style="color:#e87878;padding:24px">Erreur de chargement : ' + err +
+    '<br>Ouvre cette page via le serveur dev (pas en file://).</p>');
+});
+
+// ── Aperçu animé des habitants (marche, par perso × 4 directions) ───────────
+(function () {
+  const DIRS = ['east', 'west', 'south', 'north'];
+  const CHARS = [
+    { name: 'caveman', label: 'ère1 · homme' },
+    { name: 'cavewoman', label: 'ère1 · femme' },
+    { name: 'cavechild', label: 'ère1 · enfant' },
+    { name: 'villager', label: 'ère2 · homme' },
+    { name: 'villagerwoman', label: 'ère2 · femme' },
+    { name: 'villagerchild', label: 'ère2 · enfant' },
+    { name: 'greekman', label: 'ère3 · homme' },
+    { name: 'greekwoman', label: 'ère3 · femme' },
+    { name: 'greekchild', label: 'ère3 · enfant' },
+    { name: 'industrialman', label: 'ère4 · homme' },
+    { name: 'industrialwoman', label: 'ère4 · femme' },
+    { name: 'industrialchild', label: 'ère4 · enfant' },
+    { name: 'futureman', label: 'ère5 · homme' },
+    { name: 'futurewoman', label: 'ère5 · femme' },
+    { name: 'futurechild', label: 'ère5 · enfant' },
+  ];
+  const NF = 6, FW = 68, FH = 68, SC = 1.7, GAP = 14, LBLW = 120;
+  const need = CHARS.length * DIRS.length; let ready = 0; const imgs = {};
+  for (const c of CHARS) {
+    imgs[c.name] = {};
+    for (const d of DIRS) {
+      const i = new Image(); i.onload = () => { ready += 1; }; i.onerror = () => { ready += 1; };
+      i.src = '/pixelart/agents/' + c.name + '-' + d + '.png?' + Date.now();
+      imgs[c.name][d] = i;
+    }
+  }
+  const cv = document.getElementById('agentCv'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const cellW = FW * SC + GAP, rowH = FH * SC + 6;
+  cv.width = LBLW + cellW * DIRS.length; cv.height = rowH * CHARS.length + 6;
+  (function loop(t) {
+    if (ready >= need) {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.imageSmoothingEnabled = false;
+      const f = Math.floor((t || 0) / 130) % NF;
+      CHARS.forEach((c, r) => {
+        const y = r * rowH + 4;
+        ctx.fillStyle = '#d4af56'; ctx.font = '13px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(c.label, 10, y + FH * SC / 2);
+        DIRS.forEach((d, i) => {
+          const im = imgs[c.name][d]; if (!im.width) return;
+          ctx.drawImage(im, f * FW, 0, FW, FH, LBLW + i * cellW, y, FW * SC, FH * SC);
+        });
+      });
+    }
+    requestAnimationFrame(loop);
+  })();
+})();
+
+// ── Aperçu des véhicules (objets directionnels, statique) ───────────────────
+(function () {
+  const DIRS = ['east', 'west', 'south', 'north'];
+  const VEHS = [
+    { name: 'cart', label: 'charrette' },
+    { name: 'barrow', label: 'brouette' },
+    { name: 'wagon', label: 'wagon' },
+    { name: 'chariot', label: 'char' },
+    { name: 'caravan', label: 'caravane' },
+    { name: 'car', label: 'voiture' },
+    { name: 'tram', label: 'tram' },
+  ];
+  const FW = 68, SC = 1.4, GAP = 14, LBLW = 110;
+  const imgs = {}; let total = 0, loaded = 0;
+  for (const v of VEHS) { imgs[v.name] = {}; for (const d of DIRS) { total += 1; const i = new Image(); i.onload = () => { loaded += 1; }; i.onerror = () => { loaded += 1; }; i.src = '/pixelart/agents/veh-' + v.name + '-' + d + '.png?' + Date.now(); imgs[v.name][d] = i; } }
+  const cv = document.getElementById('vehCv'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const cellW = FW * SC + GAP, rowH = FW * SC + 6;
+  cv.width = LBLW + cellW * DIRS.length; cv.height = rowH * VEHS.length + 6;
+  (function draw() {
+    if (loaded < total) { requestAnimationFrame(draw); return; }
+    ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
+    VEHS.forEach((v, r) => {
+      const y = r * rowH + 4;
+      ctx.fillStyle = '#d4af56'; ctx.font = '13px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(v.label, 10, y + FW * SC / 2);
+      DIRS.forEach((d, i) => { const im = imgs[v.name][d]; if (!im.width) return; ctx.drawImage(im, LBLW + i * cellW, y, FW * SC, FW * SC); });
+    });
+  })();
+})();
+</script>

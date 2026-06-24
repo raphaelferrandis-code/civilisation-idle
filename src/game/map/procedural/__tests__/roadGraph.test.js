@@ -155,8 +155,8 @@ describe("trimDemandlessRoads — émondage à la demande (PR3)", () => {
     trimDemandlessRoads({ ...g, demand: new Set(["6,7"]) }); // bâtiment en (6,7)
     expect(g.roadKey.has("5,2")).toBe(false);                // bout mort émondé
     expect(g.roadKey.has("5,5")).toBe(false);
-    expect(g.roadKey.has("5,6")).toBe(true);                 // borde le bâtiment (diag)
-    expect(g.roadKey.has("5,7")).toBe(true);
+    expect(g.roadKey.has("5,6")).toBe(false);                // ne borde le bâtiment qu'en DIAGONALE → émondé (plus de stub à 1 cellule)
+    expect(g.roadKey.has("5,7")).toBe(true);                 // borde le bâtiment en ORTHOGONAL → conservé
     expect(g.roads.every((r) => g.roadKey.has(r.gx + "," + r.gy))).toBe(true); // roads compacté
   });
 

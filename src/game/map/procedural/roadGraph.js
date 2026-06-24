@@ -430,11 +430,12 @@ export function generateRoadsGraph({
  * -------------------------------------------------------------------------- */
 export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand }) {
   const isPlaza = (k) => { const m = roadMeta.get(k); return !!(m && m.rank === "plaza"); };
+  // Voisinage ORTHOGONAL (pas diagonal) : une feuille n'est conservée que si elle
+  // borde DIRECTEMENT un bâtiment. En 8-voisins, une antenne qui ne desservait un
+  // bâtiment qu'en DIAGONALE laissait un stub à 1 cellule du bâtiment (chemin qui
+  // s'arrête « dans le vide »). En ortho-seul, cette antenne est émondée en entier.
   const touchesDemand = (gx, gy) => {
-    for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) {
-      if (dx === 0 && dy === 0) continue;
-      if (demand.has((gx + dx) + "," + (gy + dy))) return true;
-    }
+    for (const [dx, dy] of ORTHO) if (demand.has((gx + dx) + "," + (gy + dy))) return true;
     return false;
   };
   const degree = (gx, gy) => {

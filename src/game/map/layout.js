@@ -1450,8 +1450,19 @@ function computeCityLayout(s) {
     tiles.filter((t) => t.type === "engine" && t.buildingId)
          .map((t) => [t.gx + "," + t.gy, t])
   );
+  // ── Zone urbaine = SOL de la ville (distinct du réseau de rues) ───────────
+  // Frontière organique de la cité (organicLimit, petite marge pour englober les
+  // rues/bâtis de lisière) ∪ emprises bâties, hors fleuve. PAS le roadSet complet :
+  // les routes qui sortent vers la campagne restent sur l'herbe (pas de tentacule).
+  // Consommée par le sol pixel-art (pixelTerrain) ; les rues se dessinent PAR-DESSUS.
+  const urbanSet = new Set();
+  for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
+    const k = gx + "," + gy;
+    if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
+  }
+  for (const k of occupiedFoot) if (!riverSet.has(k)) urbanSet.add(k);
   return {
-    gridN: N, cx, cy, tiles,
+    gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
     districts, trees, maxD2, counts: c, river, water, engineTileMap, wonderSlots, walls,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :

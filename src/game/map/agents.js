@@ -60,6 +60,97 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
 
 const CM_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+// ── Habitants pixel-art animés (PixelLab) ────────────────────────────────────
+// Bandes de marche (6 frames de 68px) : public/pixelart/agents/{name}-{dir}.png.
+// dir = index p.dir (CM_DIRS) : 0=east, 1=west, 2=south, 3=north.
+// Set de persos PAR ÈRE [homme, femme, enfant] ; type tiré par citoyen (p.charType).
+// Repli sur le villageois si une ère n'a pas (encore) ses sprites ; sinon silhouette
+// vectorielle tant que rien n'est chargé.
+const VILLAGER_DIRS = ['east', 'west', 'south', 'north'];
+const AGENT_NF = 6, AGENT_FW = 68, AGENT_FH = 68;
+const AGENT_FEET = 0.88; // pieds à ~88% du cadre → ancrage au sol
+let AGENT_SCALE = 1;     // multiplicateur global de taille (réglage live __villagerScale)
+
+// Cache générique : name -> { img:{dir->Image}, ready:n }
+const agentChars = {};
+function ensureAgentChar(name) {
+  let c = agentChars[name];
+  if (c) return c;
+  c = { img: {}, ready: 0 };
+  agentChars[name] = c;
+  if (typeof Image !== 'undefined') for (const d of VILLAGER_DIRS) {
+    const im = new Image();
+    im.onload = () => { c.ready += 1; };
+    im.src = '/pixelart/agents/' + name + '-' + d + '.png';
+    c.img[d] = im;
+  }
+  return c;
+}
+const agentReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
+
+// scale = hauteur de rendu en tuiles (enfants plus petits).
+const AGENT_PREHISTORIC = [
+  { name: 'caveman', scale: 0.9 },
+  { name: 'cavewoman', scale: 0.86 },
+  { name: 'cavechild', scale: 0.62 },
+];
+const AGENT_MEDIEVAL = [ // ère 2 (band 2-3) : paysans médiévaux
+  { name: 'villager', scale: 0.85 },
+  { name: 'villagerwoman', scale: 0.85 },
+  { name: 'villagerchild', scale: 0.6 },
+];
+const AGENT_ANTIQUITY = [ // ère 3 (band 4) : gréco-romain (tunique, drapé)
+  { name: 'greekman', scale: 0.85 },
+  { name: 'greekwoman', scale: 0.85 },
+  { name: 'greekchild', scale: 0.6 },
+];
+const AGENT_INDUSTRIAL = [ // ère 4 (band 5-6) : XIXe industriel (redingote, ouvriers)
+  { name: 'industrialman', scale: 0.85 },
+  { name: 'industrialwoman', scale: 0.85 },
+  { name: 'industrialchild', scale: 0.6 },
+];
+const AGENT_FUTURE = [ // ère 5 (band ≥ 7) : cyberpunk néon sci-fi
+  { name: 'futureman', scale: 0.85 },
+  { name: 'futurewoman', scale: 0.85 },
+  { name: 'futurechild', scale: 0.6 },
+];
+function agentSetForBand(band) {
+  return band <= 1 ? AGENT_PREHISTORIC
+    : band <= 3 ? AGENT_MEDIEVAL
+      : band <= 4 ? AGENT_ANTIQUITY
+        : band <= 6 ? AGENT_INDUSTRIAL
+          : AGENT_FUTURE;
+}
+const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
+
+ensureAgentChar('villager');
+for (const s of [...AGENT_PREHISTORIC, ...AGENT_MEDIEVAL, ...AGENT_ANTIQUITY, ...AGENT_INDUSTRIAL, ...AGENT_FUTURE]) ensureAgentChar(s.name);
+if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
+
+// ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
+// Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
+// Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
+const VEH_SIZES = { cart: 0.6, barrow: 0.5, wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.85, tram: 1.4 };
+const VEH_PUSH = { cart: 1, barrow: 1 }; // poussés par un humain (de l'ère) placé derrière
+let VEH_SCALE = 1; // multiplicateur global (réglage live)
+const vehImg = {};
+function ensureVeh(type) {
+  let c = vehImg[type];
+  if (c) return c;
+  c = { img: {}, ready: 0 };
+  vehImg[type] = c;
+  if (typeof Image !== 'undefined') for (const d of VILLAGER_DIRS) {
+    const im = new Image();
+    im.onload = () => { c.ready += 1; };
+    im.src = '/pixelart/agents/veh-' + type + '-' + d + '.png';
+    c.img[d] = im;
+  }
+  return c;
+}
+const vehReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
+for (const t of Object.keys(VEH_SIZES)) ensureVeh(t);
+if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
+
 function cityMapWalkRoadKey(gx, gy) {
   return gx * 10000 + gy;
 }
@@ -237,42 +328,58 @@ function drawCitizens(dt, now) {
       }
     }
 
-    // ── Silhouette humaine lisible : ombre, jambes, tunique, tête ──────
-    const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur du personnage
+    // ── Habitant : sprite pixel-art animé par ère + type (repli villageois/vectoriel) ──
+    const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur (repli vectoriel)
     const walking = p.pauseT <= 0;
+    const groundY = sy + ph * 1.35;               // ligne de sol (sous les pieds)
+    // Type de citoyen (0=homme, 1=femme, 2=enfant), tiré une fois.
+    if (p.charType === undefined) { const rr = Math.random(); p.charType = rr < 0.42 ? 0 : rr < 0.84 ? 1 : 2; }
+    const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+    let spec = agentSetForBand(band)[p.charType] || AGENT_FALLBACK;
+    let chr = ensureAgentChar(spec.name);
+    if (!agentReady(chr)) { spec = AGENT_FALLBACK; chr = ensureAgentChar(AGENT_FALLBACK.name); }
+    const useSprite = agentReady(chr);
+    const drawH = CM.TILE * z * spec.scale * AGENT_SCALE, drawW = drawH; // taille du sprite
     if (p.fade < 1) ctx.globalAlpha = p.fade;
-    // Ombre au sol
+    // Ombre au sol — dimensionnée au personnage (ancre)
+    const shR = useSprite ? drawW * 0.2 : ph * 0.85;
     ctx.fillStyle = "rgba(0,0,0,0.22)";
-    ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
-    // Jambes alternées quand il marche
-    if (ph > 2 && walking) {
-      const step = Math.sin((now || 0) / 110 + (p.phase || 0) * 3) * ph * 0.45;
-      ctx.strokeStyle = "#241a10";
-      ctx.lineWidth = Math.max(1, ph * 0.28);
-      ctx.beginPath(); ctx.moveTo(sx - ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx - ph * 0.15 + step * 0.5, sy + ph * 1.3); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(sx + ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx + ph * 0.15 - step * 0.5, sy + ph * 1.3); ctx.stroke();
-    }
-    // Corps (tunique colorée, épaules plus larges que la taille)
-    ctx.fillStyle = p.col;
-    ctx.beginPath();
-    ctx.moveTo(sx - ph * 0.62, sy - ph * 0.45);
-    ctx.quadraticCurveTo(sx - ph * 0.5, sy + ph * 0.65, sx - ph * 0.3, sy + ph * 0.62);
-    ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
-    ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
-    ctx.closePath(); ctx.fill();
-    // Liseré d'épaule (volume) — seulement quand la silhouette est assez
-    // grande : sur 2-3 px, ce blanc transformait le personnage en point clair.
-    if (ph >= 3) {
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
-    }
-    // Tête (teint de peau)
-    ctx.fillStyle = p.skin || "#e0b890";
-    ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
-    // Couvre-chef selon le rôle/l'ère (capuche, casque, chapeau)
-    if (p.hat && ph > 1.8) {
-      ctx.fillStyle = p.hat;
-      ctx.beginPath(); ctx.arc(sx, sy - ph * 0.95, ph * 0.48, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sx, groundY, shR, shR * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+
+    if (useSprite) {
+      // Sprite animé : direction selon p.dir, frame selon la phase de marche.
+      const img = chr.img[VILLAGER_DIRS[p.dir]] || chr.img.south;
+      const frame = walking ? (Math.floor((now || 0) / 130 + (p.phase || 0) * 6) % AGENT_NF) : 0;
+      const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
+      const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
+      ctx.imageSmoothingEnabled = prevS;
+    } else {
+      // Repli vectoriel : jambes alternées quand il marche
+      if (ph > 2 && walking) {
+        const step = Math.sin((now || 0) / 110 + (p.phase || 0) * 3) * ph * 0.45;
+        ctx.strokeStyle = "#241a10";
+        ctx.lineWidth = Math.max(1, ph * 0.28);
+        ctx.beginPath(); ctx.moveTo(sx - ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx - ph * 0.15 + step * 0.5, sy + ph * 1.3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx + ph * 0.12, sy + ph * 0.35); ctx.lineTo(sx + ph * 0.15 - step * 0.5, sy + ph * 1.3); ctx.stroke();
+      }
+      ctx.fillStyle = p.col;
+      ctx.beginPath();
+      ctx.moveTo(sx - ph * 0.62, sy - ph * 0.45);
+      ctx.quadraticCurveTo(sx - ph * 0.5, sy + ph * 0.65, sx - ph * 0.3, sy + ph * 0.62);
+      ctx.lineTo(sx + ph * 0.3, sy + ph * 0.62);
+      ctx.quadraticCurveTo(sx + ph * 0.5, sy + ph * 0.65, sx + ph * 0.62, sy - ph * 0.45);
+      ctx.closePath(); ctx.fill();
+      if (ph >= 3) {
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
+      }
+      ctx.fillStyle = p.skin || "#e0b890";
+      ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
+      if (p.hat && ph > 1.8) {
+        ctx.fillStyle = p.hat;
+        ctx.beginPath(); ctx.arc(sx, sy - ph * 0.95, ph * 0.48, Math.PI, 0); ctx.fill();
+      }
     }
     if (p.fade < 1) ctx.globalAlpha = 1;
   }
@@ -467,6 +574,43 @@ function drawVehicles(now, pass) {
     if (v.fade === undefined) v.fade = 1;
     else if (v.fade < 1) v.fade = Math.min(1, v.fade + 0.045); // ~0.7s à 30fps
     if (v.fade < 1) ctx.globalAlpha = v.fade;
+    // Sprite pixel-art du véhicule (objet directionnel) ; repli procédural si absent.
+    const vchr = VEH_SIZES[v.type] ? ensureVeh(v.type) : null;
+    if (vchr && vehReady(vchr)) {
+      const dh = CM.TILE * z * VEH_SIZES[v.type] * VEH_SCALE, dw = dh;
+      // Véhicules POUSSÉS : on prend le sprite dont les BRANCARDS pointent vers
+      // l'arrière (vers le pousseur). Sur ce tileset, en vertical le timon suit le
+      // sens de la vue → on échange sud↔nord ; l'horizontal a déjà le timon à l'arrière.
+      const sdir = VEH_PUSH[v.type] ? ['east', 'west', 'north', 'south'][v.dir] : VILLAGER_DIRS[v.dir];
+      const vimg = vchr.img[sdir] || vchr.img.south;
+      const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+      const drawV = () => ctx.drawImage(vimg, sx - dw / 2, sy - dh / 2, dw, dh);
+      // Pousseur : humain de l'ère (marche) DERRIÈRE le véhicule, orienté pareil.
+      let drawP = null, pusherBelow = false;
+      if (VEH_PUSH[v.type]) {
+        const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+        const manSpec = agentSetForBand(band)[0];
+        const man = ensureAgentChar(manSpec.name);
+        if (agentReady(man)) {
+          const D = CM.TILE * z * 0.34;                  // distance véhicule↔pousseur
+          // Pousseur TOUJOURS DERRIÈRE le véhicule (opposé au sens de marche) → la
+          // charrette est toujours DEVANT lui, jamais dans son dos. Il regarde le sens.
+          const off = [[-D, 0], [D, 0], [0, -D], [0, D]][v.dir] || [0, 0];
+          pusherBelow = off[1] > 0;                       // pousseur plus bas → dessiné devant
+          const ph = CM.TILE * z * (manSpec.scale || 0.85) * AGENT_SCALE; // taille d'un citoyen normal
+          const fr = Math.floor((now || 0) / 130 + v.x * 0.1) % AGENT_NF;
+          const mimg = man.img[VILLAGER_DIRS[v.dir]] || man.img.south;
+          const pxp = sx + off[0], pyp = sy + off[1];
+          drawP = () => ctx.drawImage(mimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH, pxp - ph / 2, pyp - ph * 0.78, ph, ph);
+        }
+      }
+      if (drawP && pusherBelow) { drawV(); drawP(); }      // véhicule s'éloigne → pousseur devant
+      else if (drawP) { drawP(); drawV(); }                 // pousseur derrière
+      else drawV();
+      ctx.imageSmoothingEnabled = prevS;
+      if (v.fade < 1) ctx.globalAlpha = 1;
+      continue;
+    }
     if (v.type === "drone") {
       sy -= s * 0.5;
       const t2 = now || 0;

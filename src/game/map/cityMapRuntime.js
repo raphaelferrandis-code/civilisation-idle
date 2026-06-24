@@ -54,7 +54,7 @@ import {
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
-import { drawPixelTerrain, pixelTerrainFlag, setPixelTileset } from './pixelTerrain.js';
+import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
 
 
 // Plafond de résolution de rendu : sur écrans HiDPI (dpr 2/3), dessiner à pleine
@@ -872,7 +872,9 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
-        if (!pixelTerrainFlag.on) { // pixel-art : routes dessinées en tuiles de terre
+        // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
+        // est actif ; sinon rendu procédural (voies doubles + marquages) PAR-DESSUS le sol.
+        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
           for (const r of CM.roadList) cityMapDrawRoad(r);
           cityMapDrawRoadMarkings();
         }
@@ -911,7 +913,9 @@ function initCityMap(canvas, options = {}) {
         cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
-        if (!pixelTerrainFlag.on) { // pixel-art : routes dessinées en tuiles de terre
+        // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
+        // est actif ; sinon rendu procédural (voies doubles + marquages) PAR-DESSUS le sol.
+        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
           for (const r of CM.roadList) cityMapDrawRoad(r);
           cityMapDrawRoadMarkings();
         }
@@ -1038,6 +1042,7 @@ function initCityMap(canvas, options = {}) {
     window.__D = D;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; };
     window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
     window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; };
     window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
   }

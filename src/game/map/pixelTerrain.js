@@ -25,7 +25,7 @@ function ensure(name) {
   let e = cache[name];
   if (e) return e;
   if (typeof Image === 'undefined' || typeof fetch === 'undefined') return null;
-  e = { img: null, ready: false, uv: null };
+  e = { img: null, ready: false, uv: null, edge: null, edgeReady: false };
   cache[name] = e;
   fetch('/pixelart/' + name + '.json')
     .then((r) => r.json())
@@ -37,6 +37,12 @@ function ensure(name) {
       img.onload = () => { e.ready = true; };
       img.src = '/pixelart/' + name + '.png';
       e.img = img;
+      // Couche 3 — BORD herbe→sol (généré par scripts/makeGrassEdge.mjs). Même
+      // grille Wang ; absent = on retombe sur sol + route sans frange.
+      const edge = new Image();
+      edge.onload = () => { e.edgeReady = true; };
+      edge.src = '/pixelart/' + name + '.edge.png';
+      e.edge = edge;
     })
     .catch(() => { /* tileset absent : retombe sur le procédural */ });
   return e;
@@ -81,6 +87,26 @@ function ensureGrass() {
 }
 ensureGrass();
 
+// Couche RUES (réseau de circulation) : tileset edge-Wang PAR ÈRE
+// (public/pixelart/streets-band{0..9}.png), 16 tuiles 4×4. La tuile est choisie par les 4
+// voisins ORTHO qui sont aussi des rues (bitmask N=1,E=2,S=4,W=8 ; col = m&3, row = m>>2).
+// Surface habillée de l'art PixelLab par ère (makeStreetTiles.mjs). Indépendant du sol :
+// posé PAR-DESSUS. Repli sur le placeholder `streets.png` tant qu'une ère n'est pas générée.
+export const pixelRoadsFlag = { on: true };
+const streetCache = {}; // name -> { img, ready }
+function ensureStreet(name) {
+  let e = streetCache[name];
+  if (e) return e;
+  if (typeof Image === 'undefined') return null;
+  e = { img: new Image(), ready: false };
+  e.img.onload = () => { e.ready = true; };
+  e.img.src = '/pixelart/' + name + '.png';
+  streetCache[name] = e;
+  return e;
+}
+function streetForBand(band) { return 'streets-band' + Math.max(0, Math.min(9, band | 0)); }
+ensureStreet('streets'); // placeholder de repli
+
 export function drawPixelTerrain(CM) {
   if (!CM.layout) return false;
   ensureGrass();
@@ -88,12 +114,22 @@ export function drawPixelTerrain(CM) {
   const name = override || tilesetForBand(band);
   const ts = ensure(name);
   if (!grassReady || !ts || !ts.ready || !ts.uv) return false;
+  // Rues : tileset de l'ère, repli sur le placeholder tant qu'il n'est pas chargé.
+  let streetTs = ensureStreet(streetForBand(band));
+  if (!streetTs || !streetTs.ready) streetTs = ensureStreet('streets');
   const ctx = CM.ctx, L = CM.layout, N = L.gridN, T = CM.TILE, z = CM.cam.zoom;
   const UV = ts.uv, IMG = ts.img;
-  const road = L.roadSet || new Set();
-  const isRoad = (x, y) => x >= 0 && y >= 0 && x < N && y < N && road.has(x + ',' + y);
+  // SOL URBAIN : la zone bâtie (organicLimit ∪ routes ∪ emprises), PAS le réseau
+  // de rues. Les rues se dessinent par-dessus (routes procédurales, cityMapRuntime).
+  const area = L.urbanSet || L.roadSet || new Set();
+  const inArea = (x, y) => x >= 0 && y >= 0 && x < N && y < N && area.has(x + ',' + y);
   const v = (vx, vy) =>
-    (isRoad(vx - 1, vy - 1) || isRoad(vx, vy - 1) || isRoad(vx - 1, vy) || isRoad(vx, vy)) ? 0 : 1;
+    (inArea(vx - 1, vy - 1) || inArea(vx, vy - 1) || inArea(vx - 1, vy) || inArea(vx, vy)) ? 0 : 1;
+  // Rues : réseau viaire (cellules). Le masque edge-Wang lit les 4 voisins ORTHO.
+  const drawStreets = pixelRoadsFlag.on && streetTs && streetTs.ready && L.roadSet;
+  const STREET = streetTs && streetTs.img;
+  const roadMap = L.roadMap;
+  const isStreet = (x, y) => drawStreets && L.roadSet.has(x + ',' + y);
 
   const halfW = (CM.cw / 2) / z, halfH = (CM.ch / 2) / z;
   const gx0 = Math.floor((CM.cam.x - halfW) / T) - 1;
@@ -110,12 +146,26 @@ export function drawPixelTerrain(CM) {
       const dy = Math.floor((gy * T - CM.cam.y) * z + CM.ch / 2);
       // Couche 1 — HERBE (tuile unique répétée).
       ctx.drawImage(grassImg, 0, 0, 32, 32, dx, dy, sz, sz);
-      // Couche 2 — ROUTE (overlay Wang, herbe transparente). key 15 = tout-herbe
-      // (overlay entièrement transparent) → inutile de le dessiner.
+      // Couche 2 — SOL URBAIN (overlay Wang) + Couche 3 — FRANGE d'herbe.
+      // key 15 = tout-herbe (rien à poser) ; key 0 = tout-sol (pas de frange).
       const key = v(gx, gy) * 8 + v(gx + 1, gy) * 4 + v(gx + 1, gy + 1) * 2 + v(gx, gy + 1);
-      if (key === 15) continue;
-      const uv = UV[key];
-      if (uv) ctx.drawImage(IMG, uv[0], uv[1], 32, 32, dx, dy, sz, sz);
+      if (key !== 15) {
+        const uv = UV[key];
+        if (uv) {
+          ctx.drawImage(IMG, uv[0], uv[1], 32, 32, dx, dy, sz, sz);
+          if (key !== 0 && ts.edgeReady) ctx.drawImage(ts.edge, uv[0], uv[1], 32, 32, dx, dy, sz, sz);
+        }
+      }
+      // Couche 4 — RUES (edge-Wang) : posée par-dessus, indépendante du sol (donc
+      // visible aussi hors de la zone urbaine, ex. une route vers la campagne).
+      if (isStreet(gx, gy)) {
+        const rec = roadMap && roadMap.get(gx + ',' + gy);
+        if (!rec || rec.roadSurface !== 'bridge') { // ponts : laissés au rendu procédural
+          const m = (isStreet(gx, gy - 1) ? 1 : 0) | (isStreet(gx + 1, gy) ? 2 : 0)
+                  | (isStreet(gx, gy + 1) ? 4 : 0) | (isStreet(gx - 1, gy) ? 8 : 0);
+          ctx.drawImage(STREET, (m & 3) * 32, (m >> 2) * 32, 32, 32, dx, dy, sz, sz);
+        }
+      }
     }
   }
   ctx.imageSmoothingEnabled = prev;
