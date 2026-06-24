@@ -1175,4 +1175,127 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset };
+// ── Tram & rails : UN anneau le long de la muraille, parcouru par UN seul tram ──
+// Le tracé suit le contour de l'enceinte (L.walls.outline) décalé vers l'intérieur,
+// INDÉPENDANT du réseau de rues. Rails dessinés en polyligne (suit la courbe), le
+// tram circule en paramétrique (comme un bateau sur le fleuve). Dès la band 5.
+const TRAM_GAUGE = 0.17;    // demi-écartement des deux files (tuiles)
+const TRAM_SPEED = 2.4;     // tuiles/seconde le long de l'anneau (allure tranquille)
+
+// L'anneau (points + longueurs cumulées) est calculé dans le LAYOUT
+// (layout.js → computeTramRing), qui réserve AUSSI son couloir contre les
+// arbres/décor/bâtiments. Ici on ne fait que le lire.
+function ensureTramLoop() {
+  return (CM.layout && CM.layout.railLoop) || null;
+}
+
+// Acier (industriel/mégalopole) → rails d'énergie (cosmique, band 7+).
+function tramRailStyle(band) {
+  if (band >= 7) return { energy: true, steel: 'rgba(120,225,255,0.95)', glow: '90,210,255' };
+  return { energy: false, steel: '#c8ced8', outline: 'rgba(18,14,10,0.85)', tie: 'rgba(40,32,24,0.7)' };
+}
+
+function cityMapDrawRails(now) {
+  const loop = ensureTramLoop();
+  if (!loop) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, pts = loop.pts, n = pts.length;
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const st = tramRailStyle(band);
+  const SC = (wx, wy) => [(wx * T - CM.cam.x) * z + CM.cw / 2, (wy * T - CM.cam.y) * z + CM.ch / 2];
+  const g = TRAM_GAUGE;
+  const left = new Array(n), right = new Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const p = pts[i], a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+    let nx = -(b.y - a.y), ny = (b.x - a.x); const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    left[i] = [p.x + nx * g, p.y + ny * g]; right[i] = [p.x - nx * g, p.y - ny * g];
+  }
+  ctx.save();
+  ctx.lineJoin = 'round';
+  // 0) PONT : tablier (+ ombre portée sur l'eau) SOUS les rails là où l'anneau
+  //    franchit le fleuve (pts.water, marqué au layout). Avant traverses/rails.
+  if (pts.some((p) => p.water)) {
+    ctx.lineCap = 'round';
+    const strokeWater = (color, lw, oy) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw;
+      for (let i = 0; i < n; i += 1) {
+        const p = pts[i], q = pts[(i + 1) % n];
+        if (!p.water && !q.water) continue;
+        const s0 = SC(p.x, p.y), s1 = SC(q.x, q.y);
+        ctx.beginPath(); ctx.moveTo(s0[0], s0[1] + (oy || 0)); ctx.lineTo(s1[0], s1[1] + (oy || 0)); ctx.stroke();
+      }
+    };
+    const deckW = (g + 0.16) * 2 * T * z;
+    strokeWater('rgba(6,14,20,0.40)', deckW + Math.max(2, T * z * 0.12), Math.max(1, T * z * 0.09)); // ombre sur l'eau
+    strokeWater(st.energy ? 'rgba(45,75,105,0.95)' : 'rgba(38,26,15,0.95)', deckW + Math.max(1.5, T * z * 0.07)); // bordure
+    strokeWater(st.energy ? 'rgba(120,165,205,0.96)' : '#7b5a32', deckW);                                          // tablier
+  }
+  // 1) Traverses (sleepers) régulières — espacement CONSTANT en longueur d'arc
+  //    (indépendant de la densité d'échantillons) → vrai aspect « voie ferrée ».
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = st.energy ? `rgba(${st.glow},0.45)` : st.tie;
+  ctx.lineWidth = Math.max(1.3, T * z * 0.1);
+  const tieEvery = 1.0, ext = g + 0.05;
+  let ti = 0;
+  for (let d = 0; d < loop.total; d += tieEvery) {
+    while (ti < loop.cum.length - 2 && loop.cum[ti + 1] < d) ti += 1;
+    const seg = (loop.cum[ti + 1] - loop.cum[ti]) || 1, f = (d - loop.cum[ti]) / seg;
+    const a = pts[ti], b = pts[(ti + 1) % n];
+    const px = a.x + (b.x - a.x) * f, py = a.y + (b.y - a.y) * f;
+    let nx = -(b.y - a.y), ny = (b.x - a.x); const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const l = SC(px + nx * ext, py + ny * ext), r = SC(px - nx * ext, py - ny * ext);
+    ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(r[0], r[1]); ctx.stroke();
+  }
+  // 2) Rails : deux files (contour sombre net + acier clair), ou glow d'énergie.
+  ctx.lineCap = 'round';
+  const stroke = (arr, color, lw) => {
+    ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+    for (let i = 0; i <= n; i += 1) { const s = SC(arr[i % n][0], arr[i % n][1]); if (i === 0) ctx.moveTo(s[0], s[1]); else ctx.lineTo(s[0], s[1]); }
+    ctx.stroke();
+  };
+  const wOut = Math.max(2.4, T * z * 0.075), wIn = Math.max(1.3, T * z * 0.04);
+  if (st.energy) {
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.6 + 0.4 * Math.sin((now || 0) / 600);
+    stroke(left, `rgba(${st.glow},${(0.3 * pulse).toFixed(2)})`, wOut * 2.6);
+    stroke(right, `rgba(${st.glow},${(0.3 * pulse).toFixed(2)})`, wOut * 2.6);
+    stroke(left, st.steel, wIn); stroke(right, st.steel, wIn);
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    stroke(left, st.outline, wOut); stroke(right, st.outline, wOut);   // contour sombre net
+    stroke(left, st.steel, wIn); stroke(right, st.steel, wIn);         // acier clair
+  }
+  ctx.restore();
+}
+
+function drawTram(dt) {
+  const loop = ensureTramLoop();
+  if (!loop) { CM.tram = null; return; }
+  if (!CM.tram) CM.tram = { t: 0, dir: 1 };
+  const tram = CM.tram;
+  tram.t += (dt * TRAM_SPEED) / Math.max(1, loop.total);
+  tram.t -= Math.floor(tram.t);
+  const d = tram.t * loop.total;
+  let i = 0; while (i < loop.cum.length - 2 && loop.cum[i + 1] < d) i += 1;
+  const segLen = (loop.cum[i + 1] - loop.cum[i]) || 1, f = (d - loop.cum[i]) / segLen;
+  const a = loop.pts[i], b = loop.pts[(i + 1) % loop.pts.length];
+  const wx = a.x + (b.x - a.x) * f, wy = a.y + (b.y - a.y) * f;
+  const z = CM.cam.zoom, T = CM.TILE, s = T * z;
+  const sx = (wx * T - CM.cam.x) * z + CM.cw / 2, sy = (wy * T - CM.cam.y) * z + CM.ch / 2;
+  if (sx < -s * 2 || sy < -s * 2 || sx > CM.cw + s * 2 || sy > CM.ch + s * 2) return;
+  const dgx = (b.x - a.x) * tram.dir, dgy = (b.y - a.y) * tram.dir;  // sens de marche → sprite cardinal
+  const dir = Math.abs(dgx) >= Math.abs(dgy) ? (dgx > 0 ? 0 : 1) : (dgy > 0 ? 2 : 3);
+  const ctx = CM.ctx, veh = ensureVeh('tram');
+  const dh = T * z * (VEH_SIZES.tram || 1.4) * VEH_SCALE, dw = dh;
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(sx, sy + dh * 0.18, dw * 0.3, dh * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+  if (veh && vehReady(veh)) {
+    const img = veh.img[VILLAGER_DIRS[dir]] || veh.img.south;
+    const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx - dw / 2, sy - dh / 2, dw, dh);
+    ctx.imageSmoothingEnabled = prevS;
+  } else {
+    ctx.fillStyle = '#a8a092'; ctx.fillRect(sx - dw * 0.28, sy - dh * 0.14, dw * 0.56, dh * 0.28);
+  }
+}
+
+export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, cityMapDrawRails, drawTram };

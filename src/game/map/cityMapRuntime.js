@@ -53,7 +53,7 @@ import {
   cityMapCalmRioterAt
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
-import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
+import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, cityMapDrawRails, drawTram } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
 
 
@@ -647,7 +647,10 @@ function cityMapEnsureLayout(now, deps = {}) {
     const pool = weighted.length ? weighted : CM.walkRoadList;
     for (let n = 0; n < wantVeh && pool.length; n += 1) {
       const r = pool[(n * 53) % pool.length];
-      const vehicleType = chooseRoadVehicleType(L.counts.eraIndex, r.rank || "secondary", n);
+      let vehicleType = chooseRoadVehicleType(L.counts.eraIndex, r.rank || "secondary", n);
+      // Le TRAM est un objet à part : un seul, sur l'anneau de la muraille (cf. drawTram).
+      // On ne le met donc pas dans la flotte de grille → ce type retombe sur une voiture.
+      if (vehicleType === "tram") vehicleType = "car";
       CM.vehicles.push({
         gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
         tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
@@ -932,11 +935,13 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawPlazas(now);
       updateVehicles(dt);
       drawCentralFire(now);
+      cityMapDrawRails(now);            // anneau de rails de tram le long de la muraille (band 5+)
       // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
       // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
       if (!CM.lodActive) {
         drawCitizens(dt, now);
         drawVehicles(now, "ground");
+        drawTram(dt);                  // le tram UNIQUE qui fait le tour de la ville sur l'anneau
       }
       const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
       if (CM.layout) {

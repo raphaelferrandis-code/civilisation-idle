@@ -679,6 +679,38 @@ function cityCounts(s) {
   return { houses, farms, publics, libs, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
 }
 
+// ── Anneau de tram le long de la muraille (band 5+) ─────────────────────────
+// Tracé : contour de l'enceinte (walls.outline) décalé vers l'intérieur. Renvoie
+// la BOUCLE (points + longueurs cumulées, pour le tram paramétrique) ET un COULOIR
+// de cellules à exclure du placement (arbres/décor/bâtiments) — la voie reste nette.
+const TRAM_RING_INSET = 1.6;
+function computeTramRing(walls, core, band, N, riverSet, bankSet) {
+  if (band < 5 || !walls || !walls.outline || walls.outline.length < 8) return null;
+  const wet = (x, y) => { const rx = Math.round(x), ry = Math.round(y); return riverSet.has(rx + "," + ry) || bankSet.has(rx + "," + ry); };
+  const pts = [];
+  for (const o of walls.outline) {
+    const dx = o.x - core.x, dy = o.y - core.y, d = Math.hypot(dx, dy) || 1;
+    const x = o.x - dx / d * TRAM_RING_INSET, y = o.y - dy / d * TRAM_RING_INSET;
+    pts.push({ x, y, water: wet(x, y) });   // franchissement d'eau → pont sous les rails
+  }
+  const cum = [0]; let total = 0;
+  for (let i = 1; i <= pts.length; i += 1) { const a = pts[i - 1], b = pts[i % pts.length]; total += Math.hypot(b.x - a.x, b.y - a.y); cum.push(total); }
+  const corridor = new Set();
+  const add = (x, y) => { if (x >= 0 && y >= 0 && x < N && y < N) corridor.add(x + "," + y); };
+  for (let i = 0; i < pts.length; i += 1) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    let x = Math.round(a.x), y = Math.round(a.y); const x1 = Math.round(b.x), y1 = Math.round(b.y);
+    const dx = Math.abs(x1 - x), dy = Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
+    let err = dx - dy;
+    for (let g = 0; g < N * 2; g += 1) {
+      add(x, y); add(x + 1, y); add(x - 1, y); add(x, y + 1); add(x, y - 1); // dilatation 1 cellule
+      if (x === x1 && y === y1) break;
+      const e2 = 2 * err; if (e2 > -dy) { err -= dy; x += sx; } if (e2 < dx) { err += dx; y += sy; }
+    }
+  }
+  return { loop: { pts, cum, total }, corridor };
+}
+
 // ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
   const c = cityCounts(s);
@@ -835,6 +867,8 @@ function computeCityLayout(s) {
   });
   if (walls && !frozenWallReach) s.wallRadius = cityReachBase;
   const wallSet = walls ? walls.set : null;
+  // Anneau de tram (band 5+) : boucle le long de la muraille + couloir à dégager.
+  const tramRing = computeTramRing(walls, plan.core, c.eraBand, N, riverSet, bankSet);
 
   // Districts (anti-collision merveilles + fleuve)
   const districts = [];
@@ -928,6 +962,9 @@ function computeCityLayout(s) {
     .map((e) => e.cc);
 
   const tiles = [], usedKeys = new Set();
+  // Voie du tram (anneau le long de la muraille) : on réserve son couloir AVANT tout
+  // placement → aucun bâtiment / décor / arbre ne se posera sur les rails.
+  if (tramRing) for (const k of tramRing.corridor) usedKeys.add(k);
 
   // ── Placement par catégorie : quartiers, rues, places, personnalité ──────
   const placer = createBuildingPlacer({
@@ -1465,6 +1502,7 @@ function computeCityLayout(s) {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
     districts, trees, maxD2, counts: c, river, water, engineTileMap, wonderSlots, walls,
+    railLoop: tramRing ? tramRing.loop : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed
