@@ -733,7 +733,11 @@ function spawnOneCitizen(L) {
     tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
     fade: 0, // fondu d'apparition — pas de "point" qui surgit
     dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
-    speed: 22 + (n % 7) * 4 + L.counts.urbanTier * 1.8,
+    // Allure de marche CALME — volontairement plus lente que les véhicules (qui,
+    // eux, gardent leur vitesse, cf. CM.vehicles plus haut). La hausse avec la
+    // densité urbaine est fortement tempérée pour que les piétons ne doublent plus
+    // les charrettes en grande ville.
+    speed: 9 + (n % 7) * 1.5 + L.counts.urbanTier * 0.6,
     col: OUTFITS[seed % OUTFITS.length],
     skin: SKINS[(seed >> 3) % SKINS.length],
     hat,
@@ -1045,6 +1049,13 @@ function initCityMap(canvas, options = {}) {
     window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
     window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; };
     window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
+    // Vérif véhicules : force le type de tous les véhicules présents (attelages, etc.).
+    // __forceVehicles('chariot') | 'wagon' | 'caravan' ... ; __forceVehMix() = un de chaque.
+    window.__forceVehicles = (type) => { for (const v of CM.vehicles) { v.type = type; v.fade = 1; } return CM.vehicles.length; };
+    window.__forceVehMix = (types = ['chariot', 'wagon', 'caravan']) => { CM.vehicles.forEach((v, i) => { v.type = types[i % types.length]; v.fade = 1; }); return CM.vehicles.length; };
+    // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :
+    // ex. centrer/zoomer sur un attelage avant __cityShot.
+    window.__CM = CM;
   }
   CM.raf = requestAnimationFrame(frame);
 }

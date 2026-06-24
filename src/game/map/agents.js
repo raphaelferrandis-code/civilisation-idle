@@ -132,6 +132,15 @@ if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE
 // Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
 const VEH_SIZES = { cart: 0.6, barrow: 0.5, wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.85, tram: 1.4 };
 const VEH_PUSH = { cart: 1, barrow: 1 }; // poussés par un humain (de l'ère) placé derrière
+// Véhicules TRACTÉS : un (ou deux) animaux de trait dessinés DEVANT, dans le sens de
+// la marche, reliés par un timon procédural. animal = bande agent (horse/ox), n = nombre
+// de bêtes, scale = hauteur en tuiles, dist = distance véhicule→attelage (en tuiles).
+const VEH_PULL = {
+  // Le char N'est PAS ici : son cheval est DÉJÀ dans le sprite veh-chariot → on
+  // anime le sprite (bande multi-frames) au lieu d'ajouter un animal séparé.
+  wagon:   { animal: 'ox',    n: 1, scale: 0.74, dist: 0.44 }, // wagon lourd : un bœuf
+  caravan: { animal: 'horse', n: 1, scale: 0.72, dist: 0.46 }, // caravane : un cheval
+};
 let VEH_SCALE = 1; // multiplicateur global (réglage live)
 const vehImg = {};
 function ensureVeh(type) {
@@ -149,6 +158,8 @@ function ensureVeh(type) {
 }
 const vehReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
 for (const t of Object.keys(VEH_SIZES)) ensureVeh(t);
+// Animaux de trait (attelage) — chargés comme des bandes de marche d'agents.
+for (const a of ['horse', 'ox']) ensureAgentChar(a);
 if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
 
 function cityMapWalkRoadKey(gx, gy) {
@@ -349,7 +360,9 @@ function drawCitizens(dt, now) {
     if (useSprite) {
       // Sprite animé : direction selon p.dir, frame selon la phase de marche.
       const img = chr.img[VILLAGER_DIRS[p.dir]] || chr.img.south;
-      const frame = walking ? (Math.floor((now || 0) / 130 + (p.phase || 0) * 6) % AGENT_NF) : 0;
+      // Cadence de pas un peu plus lente (160 vs 130) : accord avec l'allure de
+      // marche réduite des habitants — évite l'effet « jambes qui patinent ».
+      const frame = walking ? (Math.floor((now || 0) / 160 + (p.phase || 0) * 6) % AGENT_NF) : 0;
       const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
       const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
@@ -583,8 +596,13 @@ function drawVehicles(now, pass) {
       // sens de la vue → on échange sud↔nord ; l'horizontal a déjà le timon à l'arrière.
       const sdir = VEH_PUSH[v.type] ? ['east', 'west', 'north', 'south'][v.dir] : VILLAGER_DIRS[v.dir];
       const vimg = vchr.img[sdir] || vchr.img.south;
+      // Sprite éventuellement ANIMÉ : une bande plus large que haute = N frames
+      // carrées (ex. le char dont le cheval intégré marche). Sinon 1 frame fixe.
+      const vfh = vimg.naturalHeight || vimg.height || AGENT_FH;
+      const vnf = Math.max(1, Math.round((vimg.naturalWidth || vimg.width || vfh) / vfh));
+      const vf = vnf > 1 ? Math.floor((now || 0) / 130 + v.x * 0.1) % vnf : 0;
       const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-      const drawV = () => ctx.drawImage(vimg, sx - dw / 2, sy - dh / 2, dw, dh);
+      const drawV = () => ctx.drawImage(vimg, vf * vfh, 0, vfh, vfh, sx - dw / 2, sy - dh / 2, dw, dh);
       // Pousseur : humain de l'ère (marche) DERRIÈRE le véhicule, orienté pareil.
       let drawP = null, pusherBelow = false;
       if (VEH_PUSH[v.type]) {
@@ -604,9 +622,55 @@ function drawVehicles(now, pass) {
           drawP = () => ctx.drawImage(mimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH, pxp - ph / 2, pyp - ph * 0.78, ph, ph);
         }
       }
+      // Attelage : un ou deux animaux de trait (marche) DEVANT le véhicule, reliés
+      // par un timon procédural. Disjoint du pousseur (un véhicule est poussé OU tracté).
+      let drawTeam = null, teamBelow = false, drawYoke = null;
+      const pull = VEH_PULL[v.type];
+      if (pull) {
+        const beast = ensureAgentChar(pull.animal);
+        if (agentReady(beast)) {
+          const D = CM.TILE * z * (pull.dist || 0.44);   // distance véhicule↔attelage
+          // DEVANT le véhicule (dans le sens de la marche) : +CM_DIRS[dir].
+          const front = [[D, 0], [-D, 0], [0, D], [0, -D]][v.dir] || [0, 0];
+          teamBelow = front[1] > 0;                       // attelage plus bas → dessiné devant
+          const ah = CM.TILE * z * (pull.scale || 0.72) * AGENT_SCALE;
+          const aimg = beast.img[VILLAGER_DIRS[v.dir]] || beast.img.south;
+          // Nombre de frames déduit de la largeur de la bande (l'animation animale
+          // n'a pas forcément 6 frames comme les habitants).
+          const anf = Math.max(1, Math.round((aimg.naturalWidth || aimg.width || AGENT_FW) / AGENT_FW));
+          const fr = Math.floor((now || 0) / 120 + v.x * 0.12) % anf;
+          const horiz = v.dir === 0 || v.dir === 1;
+          // Paire : séparation latérale (perpendiculaire au sens de marche).
+          const sep = pull.n > 1 ? ah * 0.28 : 0;
+          const slots = pull.n > 1
+            ? [[front[0] - (horiz ? 0 : sep), front[1] - (horiz ? sep : 0)],
+               [front[0] + (horiz ? 0 : sep), front[1] + (horiz ? sep : 0)]]
+            : [front];
+          drawTeam = () => {
+            for (const [ax, ay] of slots) {
+              ctx.drawImage(aimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH,
+                sx + ax - ah / 2, sy + ay - ah * 0.7, ah, ah);
+            }
+          };
+          // Timon/joug : barre sombre du cœur du véhicule vers l'attelage.
+          drawYoke = () => {
+            ctx.strokeStyle = 'rgba(38,26,15,0.72)';
+            ctx.lineWidth = Math.max(1, CM.TILE * z * 0.03);
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx + front[0] * 0.82, sy + front[1] * 0.82);
+            ctx.stroke();
+          };
+        }
+      }
       if (drawP && pusherBelow) { drawV(); drawP(); }      // véhicule s'éloigne → pousseur devant
       else if (drawP) { drawP(); drawV(); }                 // pousseur derrière
-      else drawV();
+      else if (drawTeam) {                                   // tracté : timon, puis attelage devant/derrière
+        if (drawYoke) drawYoke();
+        if (teamBelow) { drawV(); drawTeam(); }
+        else { drawTeam(); drawV(); }
+      } else drawV();
       ctx.imageSmoothingEnabled = prevS;
       if (v.fade < 1) ctx.globalAlpha = 1;
       continue;

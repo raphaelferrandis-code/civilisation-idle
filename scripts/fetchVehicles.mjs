@@ -7,13 +7,11 @@ import fs from 'node:fs';
 
 const OUT = 'public/pixelart/agents';
 const DIRS = ['east', 'west', 'south', 'north'];
+// ⚠ Ne mettre ici QUE des véhicules à 1 frame fixe. Tous les ROULANTS (char,
+// charrette, brouette, wagon, caravane, voiture) sont désormais ANIMÉS (roues qui
+// tournent) via scripts/fetchVehicleAnims.mjs ; les remettre ici les écraserait en
+// frame fixe. Le tram roule sur rails (roues cachées) → reste fixe.
 const VEHS = [
-  { name: 'cart', id: '271e95ab-c038-4899-8354-b26d510e1a7f' }, // charrette
-  { name: 'barrow', id: '510edd1e-52f9-4c81-b622-1e4ec450769d' }, // brouette
-  { name: 'wagon', id: '4f71f9b3-d89f-49dc-8109-a5d3e8af878f' }, // wagon bâché
-  { name: 'chariot', id: 'dfd60da7-6e35-4949-9fee-eb3ec116654b' }, // char romain
-  { name: 'caravan', id: '81e548dc-68ca-4cf3-bd7d-3a46703c6713' }, // caravane marchande
-  { name: 'car', id: '32c2fd7c-f5e2-4689-b909-0ea27dd3427b' }, // voiture ancienne
   { name: 'tram', id: 'a70a2942-a5f6-4ff8-a64b-d25459529d45' }, // tram
 ];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
