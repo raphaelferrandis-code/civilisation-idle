@@ -64,6 +64,11 @@
   <canvas id="vehCv" style="image-rendering:pixelated;background:var(--panel);border:1px solid var(--line);border-radius:8px"></canvas>
 </div>
 
+<h2>Bateaux <span class="hint">— objets top-down (vue est + miroir ouest), par stade : raft · sail · steam · container · cosmic ×3</span></h2>
+<div style="padding:0 24px 24px">
+  <canvas id="boatCv" style="image-rendering:pixelated;background:#0e1a24;border:1px solid var(--line);border-radius:8px"></canvas>
+</div>
+
 <script>
 // --- bandes (miroir de ROAD_STAGES dans pixelTerrain.js) -------------------
 const BANDS = [
@@ -299,6 +304,42 @@ document.getElementById('zoom').oninput = e => { opts.zoom = +e.target.value; re
       ctx.fillText(v.label, 10, y + FW * SC / 2);
       DIRS.forEach((d, i) => { const im = imgs[v.name][d]; if (!im.width) return; ctx.drawImage(im, LBLW + i * cellW, y, FW * SC, FW * SC); });
     });
+  })();
+})();
+
+// ── Aperçu des bateaux (vue est + miroir ouest ; ANIMÉ si bande multi-frames) ─
+(function () {
+  const BOATS = [
+    { name: 'raft', label: 'radeau' },
+    { name: 'sail', label: 'voilier' },
+    { name: 'steam', label: 'vapeur' },
+    { name: 'container', label: 'porte-conteneurs' },
+    { name: 'cosmic-7', label: 'cosmique · band 7' },
+    { name: 'cosmic-8', label: 'cosmique · band 8' },
+    { name: 'cosmic-9', label: 'cosmique · band 9' },
+  ];
+  const CELL = 64, SC = 1.7, GAP = 16, LBLW = 150;
+  const imgs = {};
+  for (const b of BOATS) { const i = new Image(); i.src = '/pixelart/agents/boat-' + b.name + '.png?' + Date.now(); imgs[b.name] = i; }
+  const cv = document.getElementById('boatCv'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const cellW = CELL * SC + GAP, rowH = CELL * SC + 6;
+  cv.width = LBLW + cellW * 2; cv.height = rowH * BOATS.length + 6; // 2 colonnes : est | ouest (miroir)
+  (function loop(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = false;
+    BOATS.forEach((b, r) => {
+      const im = imgs[b.name], y = r * rowH + 4;
+      ctx.fillStyle = '#d4af56'; ctx.font = '13px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.label, 10, y + CELL * SC / 2);
+      if (!im.naturalWidth) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillText('—', LBLW + 8, y + CELL * SC / 2); return; }
+      // Bande possiblement multi-frames : NF = largeur / hauteur ; lecture en boucle.
+      const FH = im.naturalHeight, NF = Math.max(1, Math.round(im.naturalWidth / FH));
+      const f = Math.floor((t || 0) / 130) % NF;
+      ctx.drawImage(im, f * FH, 0, FH, FH, LBLW, y, CELL * SC, CELL * SC);                  // vue est (proue à droite)
+      ctx.save(); ctx.translate(LBLW + cellW + CELL * SC, y); ctx.scale(-1, 1);
+      ctx.drawImage(im, f * FH, 0, FH, FH, 0, 0, CELL * SC, CELL * SC); ctx.restore();       // miroir ouest (proue à gauche)
+    });
+    requestAnimationFrame(loop);
   })();
 })();
 </script>

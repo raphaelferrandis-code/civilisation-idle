@@ -162,6 +162,36 @@ for (const t of Object.keys(VEH_SIZES)) ensureVeh(t);
 for (const a of ['horse', 'ox']) ensureAgentChar(a);
 if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
 
+// ── Bateaux pixel-art (objets top-down PixelLab, vue est unique) ─────────────
+// Fichier : agents/boat-{stage}.png (1 frame, 64px). Le fleuve étant ~horizontal,
+// drawShips applique déjà miroir est↔ouest + inclinaison au repère → une seule vue
+// (proue à droite, superstructure vers le haut) suffit. Valeur = FRACTION de remplissage
+// du sprite dans son cadre 64px (≈0.7) ; la TAILLE par stade (croissante, gigantisme
+// final) est portée par sizeMul de drawShips, PAS ici — à ajuster au cas par cas selon
+// le cadrage de chaque PNG. Repli procédural si le sprite du stade n'est pas (encore)
+// chargé. Le cosmic partage une clé de remplissage mais 3 teintes par band
+// (boat-cosmic-{7,8,9}). Chargement PARESSEUX : seul le bateau de l'ère courante est
+// demandé (pas de préchargement en masse → pas de 404 inutiles).
+const BOAT_SIZES = { raft: 0.7, sail: 0.7, steam: 0.7, container: 0.7, cosmic: 0.7 };
+const BOAT_LIFT = 0.06; // remonte un peu le sprite pour poser la coque sur l'eau
+let BOAT_SCALE = 1;     // multiplicateur global (réglage live __boatScale)
+const boatImg = {};
+function ensureBoat(name) {
+  let c = boatImg[name];
+  if (c) return c;
+  c = { img: null, ready: false };
+  boatImg[name] = c;
+  if (typeof Image !== 'undefined') {
+    const im = new Image();
+    im.onload = () => { c.ready = true; };
+    im.src = '/pixelart/agents/boat-' + name + '.png';
+    c.img = im;
+  }
+  return c;
+}
+const boatReady = (c) => !!c && c.ready && c.img && c.img.naturalWidth > 0;
+if (typeof window !== 'undefined') window.__boatScale = (m) => { BOAT_SCALE = +m || 1; };
+
 function cityMapWalkRoadKey(gx, gy) {
   return gx * 10000 + gy;
 }
@@ -914,6 +944,16 @@ function drawShips(dt) {
   const docks = CM.shipDocks || [];
   const DOCK_RANGE = 0.05;   // demi-zone d'escale autour d'un port (unités de t)
   const DOCK_DWELL = 2.5;    // durée d'arrêt à quai (s)
+  // ── Stade & échelle, CONSTANTS sur la frame (même ère pour tous les bateaux) ──
+  // Stade ALIGNÉ sur le port (river_ports, cityEngineSprites) : radeau → voilier →
+  // vapeur → porte-conteneurs par ère, vaisseau cosmique en band ≥ 7. Échelle de
+  // coque STRICTEMENT CROISSANTE (gigantisme final, cosmic ≈ 4× le radeau) : sizeMul
+  // pilote sprite + repli procédural + sillage. Réf. figée : sail = 1.8.
+  const vstage = band >= 7 ? "cosmic" : ei >= 30 ? "container" : ei >= 20 ? "steam" : ei >= 10 ? "sail" : "raft";
+  const sizeMul = vstage === "cosmic" ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
+    : vstage === "container" ? 3.2 : vstage === "steam" ? 2.4 : vstage === "sail" ? 1.8 : 1.36;
+  const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;   // taille de rendu effective (tuiles)
+  const boatKey = vstage === "cosmic" ? "cosmic-" + Math.min(9, Math.max(7, band)) : vstage;
   for (const sh of CM.ships) {
     if (sh.dwellT === undefined) { sh.dwellT = 0; sh.lastDock = -1; }
     // ── Escale : proximité au quai le plus proche (distance circulaire en t) ──
@@ -939,22 +979,25 @@ function drawShips(dt) {
     const f = fi - i0;
     let cgx = sm[i0].x + (sm[i1].x - sm[i0].x) * f;
     let cgy = sm[i0].y + (sm[i1].y - sm[i0].y) * f;
-    // Dérive latérale vers le quai (normale increasing-sample), bornée dans l'eau.
-    if (prox > 0.001 && dockSide) {
-      let tnx = -(sm[i1].y - sm[i0].y), tny = sm[i1].x - sm[i0].x;
-      const tnl = Math.hypot(tnx, tny) || 1; tnx /= tnl; tny /= tnl;
-      const drift = prox * 0.6 * (sm[i0].hw || 2) * dockSide;
-      cgx += tnx * drift; cgy += tny * drift;
+    // ── Position TRANSVERSALE : chaque bateau tient sa propre VOIE (sh.lane ∈ [-1,1])
+    // + un léger louvoiement, au lieu de tous suivre la ligne centrale. Bornée par la
+    // demi-largeur d'eau MOINS la demi-coque → les gros vaisseaux restent vers le
+    // centre (faute de place), les petits s'étalent jusqu'aux berges. Près d'un quai on
+    // glisse vers la berge d'accostage. Normale = perpendiculaire au courant local.
+    {
+      const hw = sm[i0].hw || 2;
+      let nx = -(sm[i1].y - sm[i0].y), ny = sm[i1].x - sm[i0].x;
+      const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+      const laneRoom = Math.max(0, hw - effSize * 0.25 - 0.25);          // jeu latéral dispo (tuiles)
+      const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12; // louvoiement doux
+      let lateral = ((sh.lane || 0) + wave) * laneRoom;
+      if (prox > 0.001 && dockSide) lateral = lateral * (1 - prox) + prox * 0.9 * hw * dockSide; // accostage
+      cgx += nx * lateral; cgy += ny * lateral;
     }
     const sx = (cgx * T - CM.cam.x) * z + CM.cw / 2;
     const sy = (cgy * T - CM.cam.y) * z + CM.ch / 2;
     if (sx < -s * 2 || sx > CM.cw + s * 2 || sy < -s * 2 || sy > CM.ch + s * 2) continue;
     const night = CM.nightF || 0;
-    // Stade de bateau ALIGNÉ sur le port (cf. river_ports dans cityEngineSprites) :
-    // radeau → voilier → vapeur → porte-conteneurs par ère, vaisseau cosmique en
-    // band ≥ 7. Mêmes seuils d'ère que le port pour que les deux concordent.
-    const vstage = band >= 7 ? "cosmic" : ei >= 30 ? "container" : ei >= 20 ? "steam" : ei >= 10 ? "sail" : "raft";
-    const sizeMul = vstage === "cosmic" ? 2.3 : vstage === "container" ? 2.2 : vstage === "steam" ? 1.95 : vstage === "sail" ? 1.8 : 1.55;
     // Cap = tangente locale du fleuve : la coque ET le sillage suivent le
     // courant. On garde « le haut en haut » (tilt seul + miroir selon le sens)
     // pour ne pas retourner mât/cheminée quand le bateau remonte le fleuve.
@@ -1005,7 +1048,23 @@ function drawShips(dt) {
     ctx.ellipse(0, s * 0.1, s * 0.22, s * 0.07, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    if (vstage === "cosmic") {
+    // ── Coque : sprite pixel-art du stade si chargé, sinon tracé procédural. ──
+    // Le repère est déjà incliné (courant) + miroité (sens) → on dessine la vue est
+    // centrée à l'origine, légèrement remontée pour poser la coque sur l'eau.
+    const bchr = BOAT_SIZES[vstage] ? ensureBoat(boatKey) : null;
+    if (bchr && boatReady(bchr)) {
+      const bimg = bchr.img;
+      // Bande éventuellement ANIMÉE : largeur > hauteur ⇒ N frames carrées (roue à
+      // aubes qui tourne, voile qui claque, propulseur qui pulse…) ; sinon 1 frame
+      // fixe. Phase décalée par sh.t → les bateaux ne battent pas tous à l'unisson.
+      const bfh = bimg.naturalHeight || bimg.height || AGENT_FH;
+      const bnf = Math.max(1, Math.round((bimg.naturalWidth || bimg.width || bfh) / bfh));
+      const bf = bnf > 1 ? Math.floor((now || 0) / 140 + sh.t * 7) % bnf : 0;
+      const dw = s * BOAT_SIZES[vstage] * BOAT_SCALE, dh = dw;
+      const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bimg, bf * bfh, 0, bfh, bfh, -dw / 2, -dh / 2 - dh * BOAT_LIFT, dw, dh);
+      ctx.imageSmoothingEnabled = prevSm;
+    } else if (vstage === "cosmic") {
       // Vaisseau cosmique : coque profilée + canopée + propulseur d'ère pulsé
       // (écho du fboat du GRAND PORT). Palette d'ère inlinée (pas d'import croisé).
       const COS = {

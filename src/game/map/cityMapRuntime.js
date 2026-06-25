@@ -681,7 +681,9 @@ function cityMapEnsureLayout(now, deps = {}) {
   if (CM.ships.length !== wantShips) {
     CM.ships = [];
     for (let n = 0; n < wantShips; n += 1) {
-      CM.ships.push({ t: (n / Math.max(1, wantShips)), dir: n % 2 ? 1 : -1, speed: 0.008 + (n % 4) * 0.003 });
+      // lane = voie transversale propre (∈ [-0.8, 0.8]) → les bateaux s'étalent sur la
+      // largeur du fleuve au lieu de suivre la ligne centrale ; phase = louvoiement.
+      CM.ships.push({ t: (n / Math.max(1, wantShips)), dir: n % 2 ? 1 : -1, speed: 0.008 + (n % 4) * 0.003, lane: (Math.random() * 2 - 1) * 0.8, phase: Math.random() * Math.PI * 2 });
     }
   }
 
