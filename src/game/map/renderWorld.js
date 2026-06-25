@@ -3140,6 +3140,7 @@ export {
   cityMapDrawPlazas,
   cityMapDrawQuays,
   cityMapDrawRiver,
+  ensureQuayGate,
   cityMapDrawRoad,
   cityMapDrawRoadMarkings,
   cityMapDrawStreetLights,
