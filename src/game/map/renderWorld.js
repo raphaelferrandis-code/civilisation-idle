@@ -176,6 +176,56 @@ function getRoadVisualStyle(eraIndex, rank, ruined, major) {
 
 const CITY_MAP_GREENS = ["#2d5a1b", "#3a6b22", "#4a7a2a", "#255018", "#1e4010", "#3d7220", "#5a8c2e", "#223d14"];
 
+// ── Arbres pixel-art (objets « map object » PixelLab, vue low top-down) ───────
+// Fichier : pixelart/trees/tree-{kind}.png (1 frame 96px, pied du tronc en bas du
+// cadre). 5 essences : oak/pine/birch/shrub (vivantes) + dead (déclin/ruine). Le
+// PLACEMENT, l'échelle (r) et l'ombre restent procéduraux (cf. cityMapDrawTrees) ;
+// seul le dessin de l'arbre devient un sprite. Tirage d'essence par arbre au hash.
+// Repli procédural PAR ARBRE si le sprite n'est pas (encore) chargé.
+// FILL = hauteur de dessin / r (le cadre 96² est rempli à ~85 %) — réglé au ressenti.
+const TREE_FILL = { oak: 3.25, pine: 3.75, birch: 3.5, shrub: 2.25, dead: 3.25 };
+const TREE_FOOT = 0.92;   // ligne de sol = cy + r*TREE_FOOT (bas du sprite)
+let TREE_SCALE = 1;       // multiplicateur global de taille (réglage live __treeScale)
+// Masse forestière : les fourrés denses (≥2 voisins boisés) sont rendus en
+// canopées PLATES qui se chevauchent → masse continue (≠ arbres détaillés isolés,
+// gardés pour la diversité de la frange/des arbres seuls). 2 teintes au hash.
+let CANOPY_SIZE = 1.8;    // diamètre du dôme en tuiles (overlap ⇒ masse)
+let CANOPY_LIFT = 0.75;   // remonte le dôme (tuiles) ⇒ place pour les troncs de frange
+let TRUNK_LEN = 0.26;     // longueur VISIBLE du tronc de frange (tuiles) — court & trapu
+let TRUNK_W = 0.30;       // épaisseur du tronc (tuiles)
+let pixelTreesOn = true;  // sprites ON ; OFF ⇒ repli procédural total (__pixelTrees)
+const treeImg = {};
+function ensureTree(kind) {
+  let c = treeImg[kind];
+  if (c) return c;
+  c = { img: null, ready: false };
+  treeImg[kind] = c;
+  if (typeof Image !== 'undefined') {
+    const im = new Image();
+    im.onload = () => { c.ready = true; };
+    im.src = '/pixelart/trees/tree-' + kind + '.png';
+    c.img = im;
+  }
+  return c;
+}
+const treeReady = (c) => !!c && c.ready && c.img && c.img.naturalWidth > 0;
+// Essence d'un arbre : 'dead' prioritaire (déclin), sinon conifère (~1/5 hors
+// lisière, comme le procédural), sinon feuillu/buisson. Lisière = plus de buissons.
+function treeKindFor(t) {
+  if (t.dead) return 'dead';
+  if (!t.edge && (t.h % 5) === 0) return 'pine';
+  const m = t.h % 4;
+  if (t.edge) return m === 0 ? 'shrub' : m === 1 ? 'birch' : 'oak';
+  return m === 0 ? 'birch' : m === 1 ? 'shrub' : 'oak';
+}
+for (const k of ['oak', 'pine', 'birch', 'shrub', 'dead', 'canopy', 'canopy2']) ensureTree(k);  // préchargement
+if (typeof window !== 'undefined') {
+  window.__treeScale = (m) => { TREE_SCALE = +m || 1; };
+  window.__canopy = (size, lift) => { if (size != null) CANOPY_SIZE = +size; if (lift != null) CANOPY_LIFT = +lift; };
+  window.__trunk = (len, w) => { if (len != null) TRUNK_LEN = +len; if (w != null) TRUNK_W = +w; };
+  window.__pixelTrees = (on) => { pixelTreesOn = on !== false; };
+}
+
 // Mélange linéaire de deux couleurs [r,g,b] — t=0 → a, t=1 → b.
 function cmLerpRgb(a, b, t) {
   return [
@@ -761,6 +811,11 @@ function cityMapDrawTrees() {
 
   // Parametres par arbre (stables, calcules une fois)
   const trees = [];
+  // Déclin : au-delà d'un seuil d'usure (ou instabilité totale), une fraction
+  // croissante d'arbres bascule sur le sprite « mort » → la forêt se blettit.
+  const _wear = state.timeWear || 0;
+  const _declineFrac = Math.max(0, Math.min(1, (_wear - 0.55) / 0.35));
+  const deadFrac = (state.instability || 0) >= 1 ? Math.max(_declineFrac, 0.85) : _declineFrac;
   for (let gy = gy0; gy <= gy1; gy += 1) {
     for (let gx = gx0; gx <= gx1; gx += 1) {
       if (!hasTree(gx, gy)) continue;
@@ -783,7 +838,22 @@ function cityMapDrawTrees() {
       const colTop = shiftRGB(CITY_MAP_GREENS[h % 4], dW, dG, -dW);
       // Ombre nuancee (alpha) d'un arbre a l'autre
       const shA = 0.20 + ((hv >> 8) & 7) / 7 * 0.12;
-      trees.push({ cx, cy, r, colBase, colTop, h, edge, shA });
+      // Roll d'arbre mort (bits hauts de hv, indépendants de la teinte/ombre)
+      const dead = (((hv >>> 12) & 1023) / 1023) < deadFrac;
+      // Densité locale : nb de voisins (8) boisés → fourré (masse) vs arbre isolé.
+      let nb = 0;
+      for (let oy = -1; oy <= 1; oy += 1) for (let ox = -1; ox <= 1; ox += 1) {
+        if ((ox || oy) && hasTree(gx + ox, gy + oy)) nb += 1;
+      }
+      const mass = !dead && nb >= 2;             // dans un fourré → canopée de masse
+      const frontOpen = !hasTree(gx, gy + 1);    // bord avant de la masse (vers le bas)
+      const massSkip = nb >= 7 && (h % 3) === 0; // intérieur profond : éclairci (couvert par voisins)
+      const canopyKind = (h % 4) === 0 ? 'canopy2' : 'canopy';
+      const massSize = s * CANOPY_SIZE * (0.9 + ((hh >>> 20) & 255) / 255 * 0.2);
+      // Pied du tronc de frange (et de l'ombre de lisière) = bas du feuillage
+      // (~0.34·dôme sous son centre) + longueur visible du tronc.
+      const baseY = cy - s * CANOPY_LIFT + massSize * 0.34 + s * TRUNK_LEN;
+      trees.push({ cx, cy, r, colBase, colTop, h, edge, shA, dead, mass, frontOpen, massSkip, canopyKind, massSize, baseY });
     }
   }
 
@@ -799,8 +869,18 @@ function cityMapDrawTrees() {
     return;
   }
 
-  // Passe 1 — ombres portées sous chaque arbre
+  // Passe 1 — ombres au sol. Masse forestière : pas d'ombre par arbre (le sol est
+  // caché sous la canopée) ; seulement une ombre de lisière sous le FRONT de la
+  // masse. Arbres isolés : ombre portée individuelle (sous le pied du tronc).
   for (const t of trees) {
+    if (t.mass) {
+      if (!t.frontOpen || t.massSkip) continue;
+      ctx.fillStyle = "rgba(16,11,4,0.26)";
+      ctx.beginPath();
+      ctx.ellipse(t.cx, t.baseY, s * 0.50, s * 0.17, 0, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
     // L'ombre se place sous le pied du tronc, décalée à droite
     ctx.fillStyle = "rgba(20,14,6," + t.shA.toFixed(2) + ")";
     ctx.beginPath();
@@ -812,11 +892,55 @@ function cityMapDrawTrees() {
     ctx.fill();
   }
 
-  // Passe 2 — troncs + couronnes
-  // Géométrie : couronne centrée à cy - r*0.50  →  bas de la couronne = cy + r*0.50
-  //             tronc descend jusqu'à cy + r*0.90  →  r*0.40 de tronc visible en bas
+  // Passe 2 — sprite pixel-art (PixelLab) par arbre ; repli procédural par arbre
+  // si le sprite n'est pas (encore) chargé. Géométrie procédurale de repli :
+  //   couronne centrée à cy - r*0.50 ; tronc jusqu'à cy + r*0.90.
+  const prevSmooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;   // pixel art net (pas de lissage à l'échelle)
   for (const t of trees) {
     const r = t.r, cx = t.cx, cy = t.cy;
+    if (pixelTreesOn) {
+      if (t.mass) {
+        // Fourré dense : canopée plate centrée sur la cellule, qui chevauche ses
+        // voisines → masse forestière continue (cf. image de réf). Sans ombre.
+        const c = ensureTree(t.canopyKind);
+        if (treeReady(c)) {
+          if (t.massSkip) continue;   // intérieur profond éclairci (couvert par les voisines)
+          const dh = t.massSize;
+          // Tronc de frange : seules les cellules à sol dégagé devant (frontOpen)
+          // montrent un fût ; les troncs intérieurs sont couverts par la canopée
+          // d'en face. Tracé du centre de la canopée jusqu'à l'herbe, AVANT la
+          // canopée (qui en recouvre le haut) → seul le bas, sous le feuillage, reste.
+          if (t.frontOpen) {
+            // Fût court & trapu : du cœur de la canopée (recouvert par le feuillage)
+            // jusqu'au pied (baseY) ; seul le bas, sous le feuillage, émerge.
+            const tt = cy - s * CANOPY_LIFT;   // cœur canopée (recouvert)
+            const gY = t.baseY;                // pied du tronc
+            const tw = Math.max(2, s * TRUNK_W);
+            ctx.fillStyle = "#321f0f";         // brun très sombre (réf)
+            ctx.beginPath();
+            ctx.moveTo(cx - tw * 0.46, tt);
+            ctx.lineTo(cx - tw * 0.56, gY);
+            ctx.lineTo(cx + tw * 0.56, gY);
+            ctx.lineTo(cx + tw * 0.46, tt);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "rgba(92,58,28,0.55)";   // reflet flanc gauche
+            ctx.fillRect(cx - tw * 0.46, tt, tw * 0.34, gY - tt);
+          }
+          ctx.drawImage(c.img, cx - dh / 2, cy - s * CANOPY_LIFT - dh / 2, dh, dh);
+          continue;
+        }
+      } else {
+        // Arbre isolé : sprite détaillé divers, ancré pied-en-bas.
+        const kind = treeKindFor(t);
+        const c = ensureTree(kind);
+        if (treeReady(c)) {
+          const dh = r * (TREE_FILL[kind] || 2.4) * TREE_SCALE;
+          ctx.drawImage(c.img, cx - dh / 2, cy + r * TREE_FOOT - dh, dh, dh);
+          continue;
+        }
+      }
+    }
     // Bits de hash supplementaires : casse la regularite d'un arbre a l'autre.
     const hb = Math.imul(t.h + 7, 2654435761) >>> 0;
     // ~1 arbre sauvage sur 5 (hors lisiere) est un conifere : varie la foret.
@@ -928,6 +1052,7 @@ function cityMapDrawTrees() {
       ctx.fill();
     }
   }
+  ctx.imageSmoothingEnabled = prevSmooth;
 }
 
 function cityMapDrawNight(now) {
