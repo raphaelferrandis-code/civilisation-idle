@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { drawCityEngineSprite, cosmicBase } from './cityEngineSprites.js';
 import { CM } from './layout.js';
+import { drawPixelBuilding } from './pixelBuildings.js';
 
 /* Charte d'animation des sprites (DA par âge) :
  *   - Toute animation est DIÉGÉTIQUE : un geste, une flamme, une roue — jamais
@@ -961,6 +962,11 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
 // Le médaillon n'apparaît que si le sprite est assez grand à l'écran pour ne
 // pas écraser le pixel-art au zoom minimal.
 function drawEngineSprite(t, x, y, w, h, now) {
+  // Couche pixel-art (flag) : si un sprite existe pour (id, stage, tier), il
+  // remplace le procédural ; sinon repli sur le rendu d'origine.
+  const band = CM.layout?.counts?.eraBand ?? 0;
+  const ei = CM.layout?.counts?.eraIndex ?? 0;
+  if (drawPixelBuilding(t, x, y, w, h, now, band, ei)) return;
   drawEngineSpriteCore(t, x, y, w, h, now);
 }
 

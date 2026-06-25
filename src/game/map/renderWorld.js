@@ -194,6 +194,7 @@ let CANOPY_LIFT = 0.75;   // remonte le dôme (tuiles) ⇒ place pour les troncs
 let TRUNK_LEN = 0.26;     // longueur VISIBLE du tronc de frange (tuiles) — court & trapu
 let TRUNK_W = 0.30;       // épaisseur du tronc (tuiles)
 let pixelTreesOn = true;  // sprites ON ; OFF ⇒ repli procédural total (__pixelTrees)
+let FOREST_SOL_MARGIN = 1.12;  // ×rayon du « sol » urbain : la forêt ne pousse qu'AU-DELÀ (sur l'herbe), repoussée de la ville
 const treeImg = {};
 function ensureTree(kind) {
   let c = treeImg[kind];
@@ -224,6 +225,7 @@ if (typeof window !== 'undefined') {
   window.__canopy = (size, lift) => { if (size != null) CANOPY_SIZE = +size; if (lift != null) CANOPY_LIFT = +lift; };
   window.__trunk = (len, w) => { if (len != null) TRUNK_LEN = +len; if (w != null) TRUNK_W = +w; };
   window.__pixelTrees = (on) => { pixelTreesOn = on !== false; };
+  window.__forestSol = (m) => { FOREST_SOL_MARGIN = (m == null ? 1.12 : +m); CM.staticCamKey = ''; }; // re-bake : éloignement forêt vs sol
 }
 
 // Mélange linéaire de deux couleurs [r,g,b] — t=0 → a, t=1 → b.
@@ -788,6 +790,20 @@ function cityMapDrawTrees() {
     occ.has((gx - 1) + "," + gy) || occ.has((gx + 1) + "," + gy) ||
     occ.has(gx + "," + (gy - 1)) || occ.has(gx + "," + (gy + 1));
 
+  // Forêt repoussée hors du « sol » urbain : aucun arbre dans l'ellipse de ville
+  // (mêmes axes que le halo urbain, cf. cityMapDrawUrbanMass, × FOREST_SOL_MARGIN)
+  // → la forêt dense ne pousse que sur l'herbe, plus loin de la ville.
+  const _L = CM.layout;
+  const solCX = _L?.plan?.core?.x ?? _L?.cx ?? 0;
+  const solCY = _L?.plan?.core?.y ?? _L?.cy ?? 0;
+  const solRx = _L ? Math.min(_L.gridN * 0.49, 6 + (_L.counts?.eraIndex || 0) * 3.8 + (_L.counts?.urbanTier || 0) * 7) * FOREST_SOL_MARGIN : 0;
+  const solRy = solRx * 0.78;
+  const onUrbanSol = (gx, gy) => {
+    if (!solRx) return false;
+    const dx = (gx - solCX) / solRx, dy = (gy - solCY) / solRy;
+    return dx * dx + dy * dy < 1;
+  };
+
   // Bruit de densite basse frequence : agglutine les arbres en fourres et
   // menage des trouees, au lieu d'une densite plate.
   const cellNoise = (gx, gy) => {
@@ -797,6 +813,7 @@ function cityMapDrawTrees() {
   };
   const hasTree = (gx, gy) => {
     if (isRiver(gx, gy) || occ.has(gx + "," + gy)) return false;
+    if (onUrbanSol(gx, gy)) return false;          // forêt hors du sol urbain (sur l'herbe)
     let thr = cellNoise(gx, gy) * 1.25 - 0.08;   // fourres (haut) / trouees (bas)
     if (nearCity(gx, gy)) thr -= 0.35;            // aere la lisiere de ville
     return (cmHash(gx + "f" + gy) % 1000) / 1000 < thr;
@@ -933,11 +950,15 @@ function cityMapDrawTrees() {
       } else {
         // Arbre isolé : sprite détaillé divers, ancré pied-en-bas.
         const kind = treeKindFor(t);
-        const c = ensureTree(kind);
-        if (treeReady(c)) {
-          const dh = r * (TREE_FILL[kind] || 2.4) * TREE_SCALE;
-          ctx.drawImage(c.img, cx - dh / 2, cy + r * TREE_FOOT - dh, dh, dh);
-          continue;
+        // Chênes : sprite RETIRÉ (ne va pas) → ces feuillus repassent au rendu
+        // procédural d'origine (les autres essences gardent leur sprite PixelLab).
+        if (kind !== 'oak') {
+          const c = ensureTree(kind);
+          if (treeReady(c)) {
+            const dh = r * (TREE_FILL[kind] || 2.4) * TREE_SCALE;
+            ctx.drawImage(c.img, cx - dh / 2, cy + r * TREE_FOOT - dh, dh, dh);
+            continue;
+          }
         }
       }
     }

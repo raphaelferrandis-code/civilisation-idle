@@ -52,3 +52,7 @@ sim_long_results.json
 # Expériences pixel-art jetables (tilesets de test). Les assets UTILISÉS
 # (public/pixelart/roads/, grass-ref) restent versionnés.
 public/pixelart/_archive/
+
+# Pixel-art bâtiments : dossiers de travail (backups originaux + zoom de contrôle), ne pas versionner
+public/pixelart/buildings/_orig/
+public/pixelart/buildings/_zoom/
