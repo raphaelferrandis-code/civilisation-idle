@@ -83,6 +83,70 @@ Serveur dev lancé, dans la console de la page : `await window.__cityShot({name:
 **couplés** (herbe+route) source dans `_archive/coupled/` (non versionné — re-téléchargeables
 depuis PixelLab par leur id). Méthode : il rend le vert (« dominance du vert ») **transparent**.
 
+## Fiche DA — bâtiments-moteur (sprites PixelLab faits main)
+
+**Parti pris (verrouillé) : MINIMALISTE.** De **petits volumes 3/4** simples (façon
+*Kingdom Two Crowns*) — un toit + une face ombrée, palette ultra-réduite — pensés pour
+**peupler la map en grand nombre** : lisibles tout petits, légers, répétables. PAS des
+bâtiments « héros » détaillés. La règle d'or : **cohérence absolue** sur toute la série
+(vue + lumière + palette + outline), sinon la ville devient un patchwork.
+
+### Réglages PixelLab
+| Champ | Valeur | Pourquoi |
+|---|---|---|
+| **Direction** | South-East (figé) | Sur un bâtiment statique, ne fixe que la **lumière**. Identique partout (et harmonisé avec les agents). |
+| **View** | oblique **3/4 léger** (petits volumes, pas top-down plat) | On devine une face + un toit → silhouette reconnaissable, dans l'esprit des agents 3/4. |
+| **Detail** | **Low** | Le minimalisme vient de là : peu de pixels, peu de teintes, formes franches. |
+| **Outline** | **None ou thin** (jamais Black dur) | L'outline noir = look cartoon ; sans / fin colle au minimalisme et au sombre/or antique. |
+| **Taille** | **48×48** (32–48 ; 64 max) | Petites unités denses. Dessiné nearest-neighbor au footprint → garder petit pour rester net et « tuile ». |
+| **Fond** | **transparent** (obligatoire) | Composité par-dessus le terrain. |
+
+### Palette / ambiance
+- **Minimaliste** : 2-3 teintes par matériau, pas de détail superflu (pas de fenêtres
+  ciselées, pas de matériaux riches). La force = la **silhouette**.
+- Registre **chaud antique** : argile, bois, pierre sombre, or éteint — cohérent avec le
+  terrain et les routes par ère. Toit nord éclairé / face sud plus sombre (lumière douce).
+- Pas d'objet flottant : le sprite = le **site statique**, le personnage qui marche
+  reste un **agent animé séparé** (`agents.js`). L'anim diégétique (feu, roue, tissu)
+  reste au procédural pour l'instant.
+
+### Prompt PixelLab — suffixe DA (à coller à CHAQUE prompt, inchangé)
+```
+minimalist pixel art, tiny isometric 3/4 building, facing south-east, transparent background,
+small simple volume with a clear roof and one shaded south face, very limited palette
+(2-3 shades per material), warm ancient tones (clay, timber, dark stone, muted gold),
+thin subtle outline, soft flat lighting (north roof lit / south face darker), strong readable
+silhouette, low detail, cozy storybook city-builder feel, no characters, grounded static structure
+```
+
+### Amorces par bâtiment (à mettre AVANT le suffixe)
+| buildingId | amorce |
+|---|---|
+| `foragers` | `a small primitive hut,` |
+| `granaries_city` | `a small granary with a round roof,` |
+| `caravans` | `a tiny tent and a cart,` |
+| `markets` | `a small market stall with an awning,` |
+| `guilds` | `a small workshop with a chimney,` |
+| `mint_houses` | `a small stone house with a coin sign,` |
+| `imperial_exchanges` | `a small columned hall,` |
+
+**Gigantisme t0→t3** : on reste minimaliste — on ajoute **du nombre / un étage**, jamais du
+détail. Suffixe par tier : t0 `small, single` · t1 `slightly bigger, one annex` · t2
+`a small cluster, an upper level` · t3 `a small compound, banners`.
+
+### Nommage & emplacement (sinon ça ne se branche pas)
+- Fichier : `public/pixelart/buildings/<buildingId>-s<stage>-t<tier>.png`
+- **buildingId** (ère 1, non-cosmique, `band < 7`) :
+  `foragers · granaries_city · caravans · markets · guilds · mint_houses · imperial_exchanges`
+- **stage** `s0..s3` = palier d'ère du moteur (`eraIndex` : <10→0, <20→1, <30→2, sinon 3).
+- **tier** `t0..t3` = palier d'achat (`cmEngineTier`). t0→t3 = la **station qui grandit**.
+- Ex. : `markets-s0-t1.png`, `foragers-s0-t3.png`.
+
+### Après livraison (côté code — je m'en charge)
+1. Étendre le `Set` **AVAILABLE** dans `src/game/map/pixelBuildings.js` (sinon sprite ignoré → repli procédural).
+2. **F5** dans le jeu. Toggle dev : `window.__pixelBuildings(false)` pour comparer au procédural.
+3. ⚠️ Éditer `renderWorld.js`/moteur ne se voit pas en HMR live → **full-reload** + `__CM.forceFrame()` avant `__cityShot` pour vérifier.
+
 ## Reste à faire
 
 - Affiner à la main les couleurs/styles de sols (band0 un peu orange, band3 violet…) ;

@@ -15,8 +15,8 @@ export const pixelBuildingsFlag = { on: true };
 // on ne tente de charger QUE ces clés → zéro requête 404 pour les bâtiments
 // encore en procédural.
 const AVAILABLE = new Set([
-  'foragers-s0-t0', 'foragers-s0-t1', 'foragers-s0-t2', 'foragers-s0-t3',
-  'granaries_city-s0-t0', 'granaries_city-s0-t1', 'granaries_city-s0-t2', 'granaries_city-s0-t3',
+  // foragers + granaries_city stade 0 : PAS de sprite statique — leur scène
+  // procédurale (props PixelLab + perso animé, cf. cityEngineSprites.js) reprend la main.
   'caravans-s0-t0', 'caravans-s0-t1', 'caravans-s0-t2', 'caravans-s0-t3',
   'markets-s0-t0', 'markets-s0-t1', 'markets-s0-t2', 'markets-s0-t3',
   'guilds-s0-t0', 'guilds-s0-t1', 'guilds-s0-t2', 'guilds-s0-t3',

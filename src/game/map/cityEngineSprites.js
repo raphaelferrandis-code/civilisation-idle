@@ -13,6 +13,100 @@ const COSMIC_PAL = {
   9: { core: "#161226", mid: "#262044", glow: "170,140,255", edge: "#c8aef0", lite: "#ece2ff", deep: "#08060f" }
 };
 
+// ── Cueilleur pixel-art animé (PixelLab) ─────────────────────────────────────
+// Le bonhomme du stade 0 des foragers, piloté par le code (navette panier↔buisson),
+// comme les piétons d'agents.js. On ne charge QUE les clips réellement utilisés par
+// la scène (pas de 404). Bandes /pixelart/agents/forager-<clip>.png, 68px/frame.
+// Repli sur le perso vectoriel tant que tout n'est pas chargé. Frame carré → pieds
+// ancrés à 0.88 du cadre, centré en x. Clips : walk-east/west (navette),
+// pick-east (bras tendu dans l'arbre), crouch-south (accroupi au panier).
+const FORAGER_FW = 68, FORAGER_FH = 68;
+const FORAGER_CLIPS = { 'walk-east': 6, 'walk-west': 6, 'pick-east': 7, 'crouch-south': 5 };
+const foragerImg = {};       // 'clip' -> Image
+let foragerInit = false, foragerReadyN = 0;
+function ensureForager() {
+  if (foragerInit || typeof Image === 'undefined') return;
+  foragerInit = true;
+  for (const clip of Object.keys(FORAGER_CLIPS)) {
+    const im = new Image();
+    im.onload = () => { foragerReadyN += 1; };
+    im.src = '/pixelart/agents/forager-' + clip + '.png';
+    foragerImg[clip] = im;
+  }
+}
+const foragerReady = () => { ensureForager(); return foragerReadyN >= Object.keys(FORAGER_CLIPS).length; };
+// Blit d'une frame : coords en FRACTION de tuile (cx centre, fy = ligne de pieds),
+// hFrac = hauteur du cadre en fraction de sh (le perso remplit ~70 % du cadre).
+function blitForager(ctx, ox, oy, sw, sh, cx, fy, clip, frame, hFrac) {
+  const img = foragerImg[clip]; if (!img) return;
+  const drawH = sh * hFrac, drawW = drawH;
+  const left = ox + sw * cx - drawW / 2;
+  const top = oy + sh * fy - 0.88 * drawH;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, frame * FORAGER_FW, 0, FORAGER_FW, FORAGER_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+}
+// Une navette complète : marche panier→buisson, tend le bras dans l'arbre, revient
+// (fruit en main), s'accroupit au panier pour déposer. phase = décalage du 2e cueilleur.
+function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
+  const T = 6400;
+  const cyc = (((now || 0) / T) + phase) % 1;
+  const X_BASKET = 0.26, X_BUSH = 0.56, FY = 0.78;
+  const NF = (k) => FORAGER_CLIPS[k];
+  let cx, clip, frame, carry = false;
+  if (cyc < 0.34) {                                   // marche panier → buisson
+    cx = X_BASKET + (X_BUSH - X_BASKET) * (cyc / 0.34);
+    clip = 'walk-east'; frame = Math.floor((now || 0) / 150) % NF(clip);
+  } else if (cyc < 0.5) {                             // bras tendu dans l'arbre
+    cx = X_BUSH; clip = 'pick-east';
+    frame = Math.min(NF(clip) - 1, Math.floor((cyc - 0.34) / 0.16 * NF(clip)));
+  } else if (cyc < 0.84) {                            // retour (fruit en main)
+    cx = X_BUSH + (X_BASKET - X_BUSH) * ((cyc - 0.5) / 0.34);
+    clip = 'walk-west'; frame = Math.floor((now || 0) / 150) % NF(clip); carry = true;
+  } else {                                            // accroupi au panier
+    cx = X_BASKET; clip = 'crouch-south';
+    frame = Math.min(NF(clip) - 1, Math.floor((cyc - 0.84) / 0.16 * NF(clip)));
+  }
+  // Ombre de contact
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (FY + 0.02), sw * 0.07 * hFrac / 0.46, sh * 0.022, 0, 0, Math.PI * 2); ctx.fill();
+  blitForager(ctx, ox, oy, sw, sh, cx, FY, clip, frame, hFrac);
+  // Petit fruit rapporté, tenu devant (côté ouest) au retour
+  if (carry) {
+    ctx.fillStyle = '#c83010';
+    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.06), oy + sh * (FY - 0.18), sw * 0.022, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,210,160,0.4)';
+    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.066), oy + sh * (FY - 0.188), sw * 0.008, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// Props pixel-art STATIQUES des scènes de moteur (PixelLab) — remplacent les formes
+// procédurales. Les éléments dynamiques (fruits, sacs…) sont BAKÉS dans le sprite ;
+// l'overlay procédural ne sert plus qu'en repli. Clés = nom de fichier dans
+// /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
+const propImg = {};
+let propInit = false;
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo'];
+function ensureProps() {
+  if (propInit || typeof Image === 'undefined') return;
+  propInit = true;
+  for (const k of PROP_KEYS) {
+    const im = new Image();
+    im.src = '/pixelart/agents/' + k + '.png';
+    propImg[k] = im;
+  }
+}
+const propReady = (k) => { ensureProps(); const im = propImg[k]; return !!(im && im.complete && im.naturalWidth > 0); };
+// Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
+function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
+  const im = propImg[p]; if (!im) return;
+  const drawW = sw * wFrac, drawH = sh * hFrac;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * cy - drawH / 2;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+}
+
 
 // Décor cosmique commun aux stades transcendants (ères 35+) : sol OPAQUE + ombre
 // de contact, et une fonction `glow` (halo additif localisé). Chaque bâtiment
@@ -90,11 +184,26 @@ function drawCityEngineSprite(context) {
     // hydroponie néon. tier reste la richesse intra-stade (perso/fruits/cagettes).
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (stage === 0) {
-    // Sol herbe sombre
-    px(0.0, 0.58, 1.0, 0.42, "#131a09");
+    // Terre de cueillette : tache de sol foncée qui se FOND dans le terrain (plus de
+    // rectangle net) — dégradé radial transparent sur les bords, ellipse via scale(y).
+    {
+      const cxp = ox + sw * 0.5, cyp = oy + sh * 0.76, R = sw * 0.52, ky = (sh * 0.34) / R;
+      ctx.save();
+      ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+      const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+      g.addColorStop(0, "rgba(19,26,9,0.82)");
+      g.addColorStop(0.6, "rgba(19,26,9,0.46)");
+      g.addColorStop(1, "rgba(19,26,9,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
 
     // === BUISSON / ARBRE (droite) ===
     const tx = 0.70, ty = 0.60;
+    if (propReady('forager-prop-tree')) {
+      blitProp(ctx, ox, oy, sw, sh, 'forager-prop-tree', tx, ty - 0.12, 0.74, 0.78);
+    } else {
     // Tronc
     ctx.fillStyle = "#6a3c0e";
     ctx.fillRect(ox + sw * (tx - 0.024), oy + sh * (ty - 0.1), sw * 0.048, sh * 0.2);
@@ -110,7 +219,7 @@ function drawCityEngineSprite(context) {
       ctx.fillStyle = "rgba(50,100,24,0.55)";
       ctx.beginPath(); ctx.arc(ox + sw * (fx - fr * 0.22), oy + sh * (fy - fr * 0.22), sw * fr * 0.62, 0, Math.PI * 2); ctx.fill();
     }
-    // Fruits/baies (points colorés dans le feuillage)
+    // Fruits/baies — repli SEULEMENT (sprite arbre absent) ; sinon BAKÉS dans le sprite.
     const allFruits = [
       [tx - 0.07, ty - 0.24, "#d03808"], [tx + 0.08, ty - 0.28, "#cc5010"],
       [tx - 0.01, ty - 0.32, "#c82808"], [tx + 0.13, ty - 0.20, "#d84010"],
@@ -123,30 +232,20 @@ function drawCityEngineSprite(context) {
       ctx.fillStyle = "rgba(255,210,160,0.4)";
       ctx.beginPath(); ctx.arc(ox + sw * (ffx - 0.008), oy + sh * (ffy - 0.008), sw * 0.011, 0, Math.PI * 2); ctx.fill();
     }
+    }
 
-    // === PANIER (gauche, posé au sol) ===
+    // === PANIER — ombre de contact ICI (sous tout) ; le panier lui-même est dessiné
+    // APRÈS le perso (plus bas) pour que le cueilleur passe DERRIÈRE le panier. ===
     const bkx = 0.2, bky = 0.72;
     ctx.fillStyle = "rgba(0,0,0,0.28)";
     ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * (bky + 0.045), sw * 0.13, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#8a5520";
-    ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * bky, sw * 0.12, sh * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-    // Tressage (lignes horizontales)
-    ctx.strokeStyle = "#6a3c10"; ctx.lineWidth = Math.max(0.5, sw * 0.018);
-    for (let bi = 1; bi <= 3; bi++) {
-      const by2 = bky - 0.06 + bi * 0.036;
-      const bwi = 0.12 * Math.sqrt(1 - Math.pow((by2 - bky) / 0.08, 2));
-      ctx.beginPath(); ctx.moveTo(ox + sw * (bkx - bwi), oy + sh * by2); ctx.lineTo(ox + sw * (bkx + bwi), oy + sh * by2); ctx.stroke();
-    }
-    // Rebord supérieur
-    ctx.fillStyle = "#5e3210";
-    ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * (bky - 0.045), sw * 0.12, sh * 0.038, 0, Math.PI, 0); ctx.fill();
-    // Fruits déjà récoltés dans le panier
-    if (tier >= 1) {
-      ctx.fillStyle = "#c83010"; ctx.beginPath(); ctx.arc(ox + sw * (bkx - 0.04), oy + sh * (bky - 0.04), sw * 0.026, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#d04818"; ctx.beginPath(); ctx.arc(ox + sw * (bkx + 0.03), oy + sh * (bky - 0.05), sw * 0.023, 0, Math.PI * 2); ctx.fill();
-    }
 
-    // === PERSONNAGE — navette panier (0.2) ↔ arbre (0.58) ===
+    // === PERSONNAGE — navette panier ↔ buisson ===
+    // Pixel-art animé (PixelLab) si chargé ; sinon repli sur le perso vectoriel.
+    if (foragerReady()) {
+      drawPixelForager(ctx, ox, oy, sw, sh, now, 0, 0.46);
+      if (tier >= 2) drawPixelForager(ctx, ox, oy, sw, sh, now, 0.5, 0.40);
+    } else {
     // Va vide vers l'arbre, cueille un fruit, le rapporte et le pose au panier.
     const cyc0 = (now / 3600) % 1;
     const going0 = cyc0 < 0.5;                       // panier → arbre
@@ -199,6 +298,28 @@ function drawCityEngineSprite(context) {
       ctx.lineCap = "square";
       ctx.fillStyle = "#b87848"; ctx.beginPath(); ctx.arc(ox + sw * hx1, oy + sh * hy1, sw * 0.026, 0, Math.PI * 2); ctx.fill();
       if (carry1) { ctx.fillStyle = "#d04818"; ctx.beginPath(); ctx.arc(ox + sw * hx1, oy + sh * (hy1 - 0.01), sw * 0.02, 0, Math.PI * 2); ctx.fill(); }
+    }
+    }
+
+    // === PANIER (corps) — APRÈS le perso → le cueilleur passe DERRIÈRE le panier ===
+    if (propReady('forager-prop-basket')) {
+      blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', bkx, bky - 0.01, 0.34, 0.32);
+    } else {
+      ctx.fillStyle = "#8a5520";
+      ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * bky, sw * 0.12, sh * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#6a3c10"; ctx.lineWidth = Math.max(0.5, sw * 0.018);
+      for (let bi = 1; bi <= 3; bi++) {
+        const by2 = bky - 0.06 + bi * 0.036;
+        const bwi = 0.12 * Math.sqrt(1 - Math.pow((by2 - bky) / 0.08, 2));
+        ctx.beginPath(); ctx.moveTo(ox + sw * (bkx - bwi), oy + sh * by2); ctx.lineTo(ox + sw * (bkx + bwi), oy + sh * by2); ctx.stroke();
+      }
+      ctx.fillStyle = "#5e3210";
+      ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * (bky - 0.045), sw * 0.12, sh * 0.038, 0, Math.PI, 0); ctx.fill();
+      // Fruits récoltés — repli SEULEMENT (sprite panier absent) ; sinon BAKÉS dans le sprite.
+      if (tier >= 1) {
+        ctx.fillStyle = "#c83010"; ctx.beginPath(); ctx.arc(ox + sw * (bkx - 0.04), oy + sh * (bky - 0.04), sw * 0.026, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#d04818"; ctx.beginPath(); ctx.arc(ox + sw * (bkx + 0.03), oy + sh * (bky - 0.05), sw * 0.023, 0, Math.PI * 2); ctx.fill();
+      }
     }
     } else if (stage === 1) {
       // ── STADE 1 · VERGER DOMESTIQUÉ — arbre taillé, enclos, échelle, cagettes ──
@@ -435,80 +556,44 @@ function drawCityEngineSprite(context) {
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (stage === 0) {
     // ── STADE 0 · GRENIERS — silos sur pilotis, grain doré, oiseau picoreur ──
-    // Sol en terre battue
-    px(0.0, 0.66, 1.0, 0.34, "#241a0c");
-    // Deux silos ronds sur pilotis (anti-rongeurs)
-    for (const [scx, srad] of [[0.32, 0.2], [0.68, 0.16]]) {
-      // Pilotis
+    // Sol : tache de terre battue qui se FOND dans le terrain (comme la scène cueilleur).
+    {
+      const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.56, ky = (sh * 0.3) / R;
+      ctx.save();
+      ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+      const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+      g.addColorStop(0, "rgba(36,26,12,0.82)");
+      g.addColorStop(0.6, "rgba(36,26,12,0.46)");
+      g.addColorStop(1, "rgba(36,26,12,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    // UN SEUL grand silo (sprite PixelLab « bien travaillé »), repli procédural.
+    if (propReady('granary-prop-silo')) {
+      const hFrac = 0.82;                                  // grand silo portrait (80×96)
+      // Pieds posés sur la tache d'ombre (cyp ≈ 0.82) : on ancre la BASE du cadre plus
+      // bas (0.92) pour compenser le padding transparent sous le silo dans le sprite.
+      blitProp(ctx, ox, oy, sw, sh, 'granary-prop-silo', 0.5, 0.92 - hFrac / 2, hFrac * 80 / 96, hFrac);
+    } else {
+      const scx = 0.5, srad = 0.26, base = 0.72;
       ctx.fillStyle = "#4c3414";
-      ctx.fillRect(ox + sw * (scx - srad * 0.7), oy + sh * 0.66, sw * 0.035, sh * 0.12);
-      ctx.fillRect(ox + sw * (scx + srad * 0.55), oy + sh * 0.66, sw * 0.035, sh * 0.12);
-      // Corps torchis
+      ctx.fillRect(ox + sw * (scx - srad * 0.7), oy + sh * base, sw * 0.04, sh * 0.13);
+      ctx.fillRect(ox + sw * (scx + srad * 0.55), oy + sh * base, sw * 0.04, sh * 0.13);
       ctx.fillStyle = "#b89048";
-      ctx.fillRect(ox + sw * (scx - srad), oy + sh * (0.66 - srad * 1.4), sw * srad * 2, sh * srad * 1.4);
+      ctx.fillRect(ox + sw * (scx - srad), oy + sh * (base - srad * 1.4), sw * srad * 2, sh * srad * 1.4);
       ctx.fillStyle = "rgba(0,0,0,0.16)";
-      ctx.fillRect(ox + sw * (scx + srad * 0.5), oy + sh * (0.66 - srad * 1.4), sw * srad * 0.5, sh * srad * 1.4);
-      // Grain doré qui déborde au sommet
+      ctx.fillRect(ox + sw * (scx + srad * 0.5), oy + sh * (base - srad * 1.4), sw * srad * 0.5, sh * srad * 1.4);
       ctx.fillStyle = "#e8c860";
-      ctx.beginPath(); ctx.ellipse(ox + sw * scx, oy + sh * (0.66 - srad * 1.4), sw * srad * 0.92, sh * srad * 0.4, 0, Math.PI, 0); ctx.fill();
-      // Toit conique de chaume au-dessus (sur poteaux)
+      ctx.beginPath(); ctx.ellipse(ox + sw * scx, oy + sh * (base - srad * 1.4), sw * srad * 0.92, sh * srad * 0.4, 0, Math.PI, 0); ctx.fill();
       ctx.fillStyle = "#7a5618";
       ctx.beginPath();
-      ctx.moveTo(ox + sw * (scx - srad * 1.15), oy + sh * (0.66 - srad * 1.55));
-      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 2.4));
-      ctx.lineTo(ox + sw * (scx + srad * 1.15), oy + sh * (0.66 - srad * 1.55));
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "rgba(255,235,170,0.2)";
-      ctx.beginPath();
-      ctx.moveTo(ox + sw * (scx - srad * 1.15), oy + sh * (0.66 - srad * 1.55));
-      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 2.4));
-      ctx.lineTo(ox + sw * scx, oy + sh * (0.66 - srad * 1.55));
+      ctx.moveTo(ox + sw * (scx - srad * 1.15), oy + sh * (base - srad * 1.55));
+      ctx.lineTo(ox + sw * scx, oy + sh * (base - srad * 2.4));
+      ctx.lineTo(ox + sw * (scx + srad * 1.15), oy + sh * (base - srad * 1.55));
       ctx.closePath(); ctx.fill();
     }
-    // Sacs de grain empilés (plus nombreux avec le niveau)
-    const nSacks = 2 + Math.min(3, tier + 1);
-    for (let si = 0; si < nSacks; si += 1) {
-      const sx2 = 0.42 + (si % 3) * 0.09, sy2 = 0.78 - Math.floor(si / 3) * 0.08;
-      ctx.fillStyle = si % 2 ? "#c8a058" : "#b08c48";
-      ctx.beginPath(); ctx.ellipse(ox + sw * sx2, oy + sh * sy2, sw * 0.045, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#6a4a18";
-      ctx.fillRect(ox + sw * (sx2 - 0.012), oy + sh * (sy2 - 0.065), sw * 0.024, sh * 0.02);
-    }
-    // Manutentionnaire : un ouvrier fait la navette entre la pile de sacs et
-    // le grand silo, un sac sur l'épaule à l'aller, les mains vides au retour.
-    {
-      const cyc = (now / 5200) % 1;                  // un aller-retour ~5 s
-      const going = cyc < 0.5;
-      const k = going ? cyc * 2 : (1 - cyc) * 2;     // 0 → 1 → 0
-      const wx = 0.56 - k * 0.22;                     // pile (0.56) → silo (0.34)
-      const wy = 0.8;
-      const step = Math.sin(now / 130) * 0.012;
-      // Ombre
-      ctx.fillStyle = "rgba(0,0,0,0.2)";
-      ctx.beginPath(); ctx.ellipse(ox + sw * wx, oy + sh * (wy + 0.075), sw * 0.045, sh * 0.018, 0, 0, Math.PI * 2); ctx.fill();
-      // Jambes
-      ctx.fillStyle = "#2e2010";
-      ctx.fillRect(ox + sw * (wx - 0.022 + step), oy + sh * (wy + 0.02), sw * 0.02, sh * 0.05);
-      ctx.fillRect(ox + sw * (wx + 0.004 - step), oy + sh * (wy + 0.02), sw * 0.02, sh * 0.05);
-      // Corps légèrement penché sous la charge
-      ctx.fillStyle = "#5a3c1a";
-      ctx.fillRect(ox + sw * (wx - 0.03), oy + sh * (wy - 0.06), sw * 0.06, sh * 0.085);
-      // Tête
-      ctx.fillStyle = "#c48c50";
-      ctx.beginPath(); ctx.arc(ox + sw * wx, oy + sh * (wy - 0.085), sw * 0.026, 0, Math.PI * 2); ctx.fill();
-      // Sac de grain sur l'épaule (à l'aller seulement)
-      if (going) {
-        ctx.fillStyle = "#c8a058";
-        ctx.beginPath(); ctx.ellipse(ox + sw * (wx - 0.012), oy + sh * (wy - 0.115), sw * 0.038, sh * 0.026, -0.35, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#6a4a18"; ctx.lineWidth = Math.max(0.5, sw * 0.01);
-        ctx.beginPath(); ctx.ellipse(ox + sw * (wx - 0.012), oy + sh * (wy - 0.115), sw * 0.038, sh * 0.026, -0.35, 0, Math.PI * 2); ctx.stroke();
-      }
-    }
-    // Oiseau picoreur (pivote la tête)
-    const peck = Math.sin(now / 320) > 0.4 ? 0.025 : 0;
-    ctx.fillStyle = "#3a3a44";
-    ctx.beginPath(); ctx.ellipse(ox + sw * 0.85, oy + sh * 0.82, sw * 0.035, sh * 0.025, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(ox + sw * (0.87 + peck), oy + sh * (0.795 + peck * 1.4), sw * 0.018, 0, Math.PI * 2); ctx.fill();
+    // (entrepôt = un seul silo statique : ni sacs, ni porteur, ni oiseau)
     } else if (stage === 1) {
       // ── STADE 1 · HALLE DE PIERRE — façade à arcade, toit de tuiles, fanion ──
       // La ville se pave et se fortifie : le grain se mesure en jarres, un commis
