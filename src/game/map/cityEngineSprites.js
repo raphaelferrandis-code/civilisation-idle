@@ -86,7 +86,7 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -105,6 +105,62 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+}
+
+// ── Caravane : mulet bâté pixel (PixelLab, quadrupède) MENÉ par le marchand ───
+// Le « système de transport » : un mulet chargé (cargo baké dans le sprite) marche
+// la piste en va-et-vient, le marchand (humain Forager réutilisé) le mène devant.
+// Bandes /pixelart/agents/caravan-mule-{east,west}.png (7 frames, 80px). Repli sur
+// la scène procédurale (mulet + marchand vectoriels) tant que rien n'est chargé.
+const MULE_FW = 80, MULE_FH = 80;
+const MULE_CLIPS = { east: 7, west: 7 };
+const muleImg = {};
+let muleInit = false, muleReadyN = 0;
+function ensureMule() {
+  if (muleInit || typeof Image === 'undefined') return;
+  muleInit = true;
+  for (const d of Object.keys(MULE_CLIPS)) {
+    const im = new Image();
+    im.onload = () => { muleReadyN += 1; };
+    im.src = '/pixelart/agents/caravan-mule-' + d + '.png';
+    muleImg[d] = im;
+  }
+}
+const muleReady = () => { ensureMule(); return muleReadyN >= Object.keys(MULE_CLIPS).length; };
+function blitMule(ctx, ox, oy, sw, sh, dir, frame, cx, fy, hFrac) {
+  const im = muleImg[dir]; if (!im) return;
+  const drawH = sh * hFrac, drawW = drawH;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, frame * MULE_FW, 0, MULE_FW, MULE_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+}
+// Caravane en marche : va-et-vient lent sur la piste (est puis ouest), marchand DEVANT.
+// Une ZONE DE SACS (dépôt de marchandises, statique) marque le poste de transport.
+function drawCaravan(ctx, ox, oy, sw, sh, now) {
+  // Dépôt de sacs (côté droit, au fond) — dessiné AVANT la caravane (elle passe devant).
+  if (propReady('caravan-prop-sacks')) {
+    blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.82, 0.76, 0.26 * 64 / 48, 0.26);
+  }
+  const T = 11000;
+  const cyc = ((now || 0) / T) % 1;
+  const going = cyc < 0.5;                       // est (→) puis ouest (←)
+  const k = going ? cyc * 2 : (1 - cyc) * 2;     // 0 → 1 → 0
+  const muleX = 0.22 + (0.64 - 0.22) * k, FY = 0.78;
+  const dir = going ? 'east' : 'west';
+  const lead = going ? 0.17 : -0.17;             // le marchand mène (devant)
+  // Ombre de contact du mulet
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(ox + sw * muleX, oy + sh * (FY + 0.04), sw * 0.17, sh * 0.034, 0, 0, Math.PI * 2); ctx.fill();
+  // Marchand devant (réutilise les marches Forager) ; mulet derrière.
+  if (foragerReady()) {
+    const ff = Math.floor((now || 0) / 150) % FORAGER_CLIPS['walk-' + dir];
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(ox + sw * (muleX + lead), oy + sh * (FY + 0.03), sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+    blitForager(ctx, ox, oy, sw, sh, muleX + lead, FY, 'walk-' + dir, ff, 0.4);
+  }
+  const mf = Math.floor((now || 0) / 150) % MULE_CLIPS[dir];
+  blitMule(ctx, ox, oy, sw, sh, dir, mf, muleX, FY, 0.64);
 }
 
 
@@ -869,6 +925,23 @@ function drawCityEngineSprite(context) {
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     if (stage === 0) {
+      if (muleReady()) {
+      // ── STADE 0 · CARAVANE EN MARCHE — mulet bâté pixel mené par le marchand ──
+      // Piste battue (tache fondue large) + caravane qui plie la route (va-et-vient).
+      {
+        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.62, ky = (sh * 0.2) / R;
+        ctx.save();
+        ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+        g.addColorStop(0, "rgba(36,26,12,0.72)");
+        g.addColorStop(0.65, "rgba(36,26,12,0.4)");
+        g.addColorStop(1, "rgba(36,26,12,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      drawCaravan(ctx, ox, oy, sw, sh, now);
+      } else {
       // ── STADE 0 · MULET BÂTÉ — bête de somme menée par un marchand ──────
       // Le commerce le plus ancien : on charge une bête et on part sur la piste.
       px(0.0, 0.6, 1.0, 0.4, "#241a0c");           // piste de terre
@@ -925,6 +998,7 @@ function drawCityEngineSprite(context) {
       ctx.fillStyle = "#5a3c1a"; ctx.fillRect(ox+sw*(wx-0.03), oy+sh*(wy-0.06), sw*0.06, sh*0.085);
       ctx.fillStyle = "#c48c50"; ctx.beginPath(); ctx.arc(ox+sw*wx, oy+sh*(wy-0.085), sw*0.026, 0, Math.PI*2); ctx.fill();
       if (going) { ctx.fillStyle = "#9a6a2c"; ctx.beginPath(); ctx.ellipse(ox+sw*(wx-0.012), oy+sh*(wy-0.115), sw*0.036, sh*0.026, -0.35, 0, Math.PI*2); ctx.fill(); }
+      }
     } else if (stage === 1) {
       // ── STADE 1 · CONVOI CARAVANIER — file de charrettes sur route pavée ──
       // La ville se pave et règne : le commerce s'organise en convois gardés.
