@@ -84,9 +84,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   const ei = CM.layout?.counts?.eraIndex ?? 0;
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
-  // Ombre de contact au sol — SAUF le port (riverain) : son emprise déborde sur le
-  // fleuve, l'ombre tomberait sur l'eau (les bateaux de rivière n'en ont pas non plus).
-  if (id !== "river_ports") {
+  // Ombre de contact au sol — SAUF les riverains (port, moulin) : leur emprise déborde
+  // sur le fleuve, l'ombre tomberait sur l'eau (les bateaux de rivière n'en ont pas non plus).
+  if (id !== "river_ports" && id !== "water_mills") {
     ctx.fillStyle = "rgba(0,0,0,0.26)";
     ctx.beginPath();
     ctx.ellipse(x + w * 0.5, y + h * 0.84, w * 0.42, h * 0.12, 0, 0, Math.PI * 2);

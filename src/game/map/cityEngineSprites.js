@@ -134,7 +134,7 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -153,6 +153,43 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+}
+
+// Centre des pixels OPAQUES d'un prop (fraction 0..1 du sprite), calculé une fois et
+// mis en cache. Sert de PIVOT de rotation : une roue dont le moyeu n'est pas au centre
+// exact du PNG tournerait « de travers » (orbite) si on tournait autour du centre
+// géométrique — on tourne donc autour de ce centroïde (= le moyeu d'une roue symétrique).
+const propPivotCache = {};
+function propPivot(p) {
+  if (propPivotCache[p]) return propPivotCache[p];
+  const im = propImg[p];
+  if (!im || !(im.naturalWidth > 0) || typeof document === 'undefined') return { x: 0.5, y: 0.5 };
+  try {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, w, h).data;
+    let sx = 0, sy = 0, n = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 40) { sx += x; sy += y; n++; }
+    }
+    const piv = n ? { x: (sx / n) / w, y: (sy / n) / h } : { x: 0.5, y: 0.5 };
+    propPivotCache[p] = piv; return piv;
+  } catch (e) { propPivotCache[p] = { x: 0.5, y: 0.5 }; return propPivotCache[p]; }
+}
+
+// Comme blitProp mais TOURNE le sprite d'un angle (rad) autour de son CENTROÏDE opaque,
+// placé en (cx,cy). Pour les pièces mécaniques qui tournent en continu (roue de moulin) :
+// on fait tourner UN sprite statique via ctx.rotate plutôt qu'une bande d'images.
+function blitPropRot(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, angle) {
+  const im = propImg[p]; if (!im) return false;
+  const drawW = sw * wFrac, drawH = sh * hFrac;
+  const piv = propPivot(p);
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.save(); ctx.translate(ox + sw * cx, oy + sh * cy); ctx.rotate(angle);
+  ctx.drawImage(im, -drawW * piv.x, -drawH * piv.y, drawW, drawH); ctx.restore();
+  ctx.imageSmoothingEnabled = prev;
+  return true;
 }
 
 // ── Caravane : mulet bâté pixel (PixelLab, quadrupède) MENÉ par le marchand ───
@@ -2205,9 +2242,9 @@ function drawCityEngineSprite(context) {
     //    bâtiment vue de-face-de-haut sur la berge + bateau de l'ère dans le fleuve.
     //    AUCUN procédural, aucun fond peint, aucune modif moteur (cf. leçon du carré brun).
     if (stage === 0 && propReady('port-prop-house')) {
-      const bWc = Math.min(2.0, gw * 0.92), bhF = bWc / Math.max(1, gh);   // prop carré 96×96
+      const bWc = Math.min(1.5, gw * 0.72), bhF = bWc / Math.max(1, gh);   // bâtiment RÉDUIT (prop carré 96×96)
       const bwF = bWc / Math.max(1, gw);
-      blitProp(ctx, ox, oy, sw, sh, 'port-prop-house', 0.5, bhF * 0.5 + 0.03, bwF, bhF);
+      blitProp(ctx, ox, oy, sw, sh, 'port-prop-house', 0.5, 0.4 - bhF * 0.5, bwF, bhF);   // base ancrée ~0.4 (raccord ponton inchangé)
       // ponton de planches : de la base du bâtiment (berge) vers l'eau, le bateau s'amarre au bout
       blitProp(ctx, ox, oy, sw, sh, 'port-prop-pontoon', 0.5, 0.54, 0.82 / Math.max(1, gw), 1.7 / Math.max(1, gh));
       const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
@@ -2515,6 +2552,24 @@ function drawCityEngineSprite(context) {
     // d'eau et la roue/turbine y plonge. 4 stades d'ère (bois → pierre → brique →
     // hydro), le tier enrichissant chacun (fenêtres, fumée, lueur).
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    // ── PIXEL-ART (stade 0) : remplace le moulin procédural par des SPRITES
+    //    TRANSPARENTS posés sur la tuile NATURELLE (berge+fleuve déjà rendus = base
+    //    nickel) : bâtiment de moulin sur la berge + ROUE À AUBES qui tourne en
+    //    plongeant dans le fleuve (sprite statique tourné via ctx, vitesse now/900 =
+    //    la roue procédurale). AUCUN procédural/fond peint/hack moteur (leçon du port).
+    if (stage === 0 && propReady('mill-prop-house')) {
+      // Tour-moulin (sprite vue de PROFIL) COLLÉE à l'eau : base au ras de la ligne d'eau.
+      const twW = 1.18 / Math.max(1, gw), twH = 1.85 / Math.max(1, gh);
+      const twCx = 0.6, twBaseCy = 0.54, twCy = twBaseCy - twH / 2;   // base recouvre le liseré d'herbe (tour DEVANT l'herbe)
+      blitProp(ctx, ox, oy, sw, sh, 'mill-prop-house', twCx, twCy, twW, twH);
+      // Roue COLLÉE au flanc gauche de la tour (léger chevauchement), bas dans l'eau.
+      if (propReady('mill-prop-wheel')) {
+        const wF = 1.2, wAng = -(now || 0) / 900;   // sens INVERSÉ
+        const wCx = twCx - twW * 0.12;              // MOYEU plus vers le CENTRE de la tour
+        blitPropRot(ctx, ox, oy, sw, sh, 'mill-prop-wheel', wCx, 0.5, wF / Math.max(1, gw), wF / Math.max(1, gh), wAng);
+      }
+      return true;
+    }
     const nF = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
     const minWH = Math.min(sw, sh);
     // Volume (lumière en haut-gauche) : face DROITE à l'ombre + lisère clair en

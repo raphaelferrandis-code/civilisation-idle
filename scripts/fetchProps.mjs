@@ -30,6 +30,44 @@ const flipH = (buf) => {
   png.data = out; return PNG.sync.write(png);
 };
 
+// Bouche la PORTE/arche sombre qu'un sprite de tour garde malgré la consigne :
+// repère le blob sombre dans la bande CENTRALE basse (hors bord droit à l'ombre) et
+// le recouvre en miroir vertical de la bande de mur juste au-dessus (texture pierre
+// continue). Sert pour la tour-moulin de profil (« pas de porte »).
+const coverDoor = (buf) => {
+  const png = PNG.sync.read(buf); const { width: W, height: H, data } = png;
+  const A = (x, y) => data[(y * W + x) * 4 + 3];
+  const lum = (x, y) => { const i = (y * W + x) * 4; return (data[i] + data[i + 1] + data[i + 2]) / 3; };
+  let minX = W, maxX = 0, minY = H, maxY = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (A(x, y) > 40) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const cw = maxX - minX + 1, ch = maxY - minY + 1;
+  const x0 = Math.round(minX + cw * 0.18), x1 = Math.round(minX + cw * 0.82);
+  const y0 = Math.round(maxY - ch * 0.42);
+  let dminX = W, dmaxX = 0, dminY = H, dmaxY = 0, found = false;
+  for (let y = y0; y <= maxY; y++) for (let x = x0; x <= x1; x++) {
+    if (A(x, y) > 40 && lum(x, y) < 72) { found = true; if (x < dminX) dminX = x; if (x > dmaxX) dmaxX = x; if (y < dminY) dminY = y; if (y > dmaxY) dmaxY = y; }
+  }
+  if (!found) return buf;
+  dminX = Math.max(minX, dminX - 1); dmaxX = Math.min(maxX, dmaxX + 1);
+  dminY = Math.max(minY, dminY - 1); dmaxY = Math.min(maxY, dmaxY + 1);
+  // Remplissage HORIZONTAL : chaque pixel de porte prend la pierre du mur le plus
+  // proche (gauche ou droite) sur la même ligne → texture continue, pas d'artefact.
+  for (let y = dminY; y <= dmaxY; y++) {
+    let lx = dminX - 1; while (lx > minX && (A(lx, y) <= 40 || lum(lx, y) < 72)) lx--;
+    let rx = dmaxX + 1; while (rx < maxX && (A(rx, y) <= 40 || lum(rx, y) < 72)) rx++;
+    const lOk = lx >= minX && A(lx, y) > 40, rOk = rx <= maxX && A(rx, y) > 40;
+    for (let x = dminX; x <= dmaxX; x++) {
+      if (A(x, y) <= 40) continue;
+      let si;
+      if (lOk && rOk) si = ((x - lx) <= (rx - x) ? (y * W + lx) : (y * W + rx)) * 4;
+      else if (lOk) si = (y * W + lx) * 4; else if (rOk) si = (y * W + rx) * 4; else continue;
+      const di = (y * W + x) * 4;
+      data[di] = data[si]; data[di + 1] = data[si + 1]; data[di + 2] = data[si + 2]; data[di + 3] = 255;
+    }
+  }
+  return PNG.sync.write(png);
+};
+
 const OUT = 'public/pixelart/agents';
 const PROPS = [
   // clé = nom de fichier (sans .png) ; id = objet PixelLab ; prompt = description de génération.
@@ -64,6 +102,16 @@ const PROPS = [
     id: 'ba197416-24e5-4b0a-9349-6dba800724aa', // port stade 0 — ANCIEN ponton plat (56×56), récupéré (préféré au variant à rambardes 8c7d7d8e) — relie le bâtiment de quai au bateau
     prompt: 'a wooden plank jetty pier extending straight forward over water, top-down view, completely deserted, no people, no figures, transparent background no water: parallel weathered wooden deck planks with a row of mooring posts and pilings along both edges, sturdy timber, warm brown wood, soft light from the upper-left, shadows to the lower-right',
   },
+  {
+    key: 'mill-prop-house',
+    id: 'df5b54c1-e9ee-401f-87d8-cd45b192ffe6', // moulin stade 0 — TOUR de PROFIL SANS PORTE (side, 60×60), collée à l'eau. CLÉ : prompt MINIMAL « a small stone tower, no door » — les prompts chargés (« mill/riverside ») forçaient une porte d'entrée. Versions ratées : 7c08fdfd/32246527 porte basse, f3cb0547 porte de face, 9520a1d4 de-haut, b466e26b roue cuite. Roue animée à part
+    prompt: 'a small primitive Stone Age riverside mill tower seen from the side in strict profile view, completely deserted, no people, no figures: one tall narrow vertical tower of stacked grey stone and brown timber beams, topped with a small steep pointed thatched roof, a plain solid flat side wall facing the viewer with absolutely NO door and no opening except one tiny small high window, the bare side wall ready to mount a wheel, no wheel, no circular shapes, weathered grey stone and warm brown timber palette, soft light from the upper-left casting shadows to the lower-right, transparent background',
+  },
+  {
+    key: 'mill-prop-wheel',
+    id: '70692c85-6180-4a41-a382-ba28c75ff34a', // moulin stade 0 — roue à aubes SYMÉTRIQUE & centrée (96×96, side), tournée via blitPropRot autour du centroïde (now/900) ; v1 e6bd2451 = roue de char asymétrique → wobble (rejeté)
+    prompt: 'a watermill paddle water wheel seen edge-on in flat front view, perfectly circular and centered in the frame, a small round central hub with twelve straight wooden spokes radiating evenly to a thick round outer rim, the rim lined all the way around with many evenly spaced flat rectangular paddle boards sticking outward, weathered brown timber, completely empty, no people, no figures, radially symmetric like a gear, soft even light, transparent background',
+  },
   // NB : les props du trio (forager-prop-tree/-basket, granary-prop-silo, caravan-prop-sacks)
   // ont été récupérés avant ce script — déjà sur disque, ids non consignés.
 ];
@@ -89,6 +137,7 @@ for (const p of PROPS) {
   }
   if (!png) { console.warn(p.key, '— pas prêt (timeout, objet expiré ?), skip'); continue; }
   if (p.flip === 'h') png = flipH(png);
+  if (p.patch === 'door') png = coverDoor(png);
   fs.writeFileSync(`${OUT}/${p.key}.png`, png);
   console.log(p.key, '— écrit →', p.key + '.png', (p.flip ? '(flip ' + p.flip + ') ' : '') + `(${png.length} o)`);
 }
