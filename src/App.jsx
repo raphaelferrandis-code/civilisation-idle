@@ -10,8 +10,13 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
-import { tr } from './game/core/i18n.js';
-import logoUrl from './assets/LOGO.png';
+import { tr, getLang } from './game/core/i18n.js';
+import logoFr from './assets/LOGO.png';
+import logoEn from './assets/LOGO_collapse.png';
+
+// Logo selon la langue (figée par session — la page est rechargée au changement
+// dans OptionsDialog, donc un simple choix au rendu suffit).
+const logoUrl = getLang() === 'en' ? logoEn : logoFr;
 
 const CityView = lazy(() => import('./components/views/CityView.jsx'));
 const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
@@ -145,7 +150,7 @@ export default function App() {
       {/* Sidebar de navigation */}
       <aside className="sidebar">
         <div className="brand">
-          <img src={logoUrl} alt="Effondrement Idle" className="brand-logo" />
+          <img src={logoUrl} alt={tr({ fr: "Effondrement Idle", en: "Collapse Idle" })} className="brand-logo" />
         </div>
         
         <nav className="tabs" aria-label="Vues">
