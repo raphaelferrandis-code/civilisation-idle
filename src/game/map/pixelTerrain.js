@@ -171,3 +171,24 @@ export function drawPixelTerrain(CM) {
   ctx.imageSmoothingEnabled = prev;
   return true;
 }
+
+// Pave la TUILE PLEINE de sol/route de l'ère (UV[0] = 4 coins = route : terre battue
+// band0, gravier band2, pavé band4+…) sur un rectangle écran (dx,dy,dw,dh), tuiles de
+// taille cellPx. Sert à donner au sol des CHAMPS la matière de l'âge plutôt qu'un brun
+// uni (cf. cityEngineSprites irrigated_fields). Renvoie false si le tileset pas chargé
+// (l'appelant retombe alors sur un aplat). Indépendant du flag terrain.
+export function drawEraGroundFill(ctx, dx, dy, dw, dh, band, cellPx) {
+  const ts = ensure(tilesetForBand(band));
+  if (!ts || !ts.ready || !ts.uv || !ts.uv[0]) return false;
+  const uv = ts.uv[0], img = ts.img;
+  const step = Math.max(2, cellPx);
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(dx, dy, dw, dh); ctx.clip();
+  for (let y = dy; y < dy + dh; y += step)
+    for (let x = dx; x < dx + dw; x += step)
+      ctx.drawImage(img, uv[0], uv[1], 32, 32, Math.floor(x), Math.floor(y), Math.ceil(step) + 1, Math.ceil(step) + 1);
+  ctx.restore();
+  ctx.imageSmoothingEnabled = prev;
+  return true;
+}

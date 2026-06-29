@@ -10,8 +10,7 @@
 /* Fondu doux du chrome quand la palette d'ère dérive
    (le bandeau plein écran masque les bascules d'époque). */
 .panel,
-.panel-heading,
-.mark {
+.panel-heading {
   transition: border-color 0.9s ease, background-color 0.9s ease,
     box-shadow 0.9s ease, color 0.9s ease;
 }
@@ -25,11 +24,6 @@
 
 .app[data-era-band="0"] .panel-heading {
   border-bottom-style: dashed;
-}
-
-.app[data-era-band="0"] .mark {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 18px rgba(var(--era-rgb), 0.35);
 }
 
 /* ── 1 · Âge du Bois : torchis et planches ── */

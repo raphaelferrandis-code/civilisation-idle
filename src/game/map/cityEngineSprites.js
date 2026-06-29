@@ -7,6 +7,8 @@
  * Partagé par TOUS les bâtiments achetés : `kind` choisit le motif (food, market,
  * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
  * ========================================================================== */
+import { drawEraGroundFill } from './pixelTerrain.js';
+
 const COSMIC_PAL = {
   7: { core: "#0c241a", mid: "#16442e", glow: "90,240,180", edge: "#3aeca0", lite: "#bdf8de", deep: "#040f0a" },
   8: { core: "#221808", mid: "#3e2c10", glow: "255,205,120", edge: "#f4c25c", lite: "#ffeaba", deep: "#110a03" },
@@ -46,6 +48,52 @@ function blitForager(ctx, ox, oy, sw, sh, cx, fy, clip, frame, hFrac) {
   ctx.drawImage(img, frame * FORAGER_FW, 0, FORAGER_FW, FORAGER_FH, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
 }
+
+// ── Paysan des CHAMPS : perso PixelLab dédié (chapeau de paille + fourche) qui
+// MARCHE le long du champ. 4 directions, 6 frames, 68px. /pixelart/agents/farmer-<dir>.png.
+const FARMER_FW = 68, FARMER_FH = 68, FARMER_NF = 6;
+const FARMER_DIRS = ['south', 'east', 'north', 'west'];
+const farmerImg = {};
+let farmerInit = false, farmerReadyN = 0;
+function ensureFarmer() {
+  if (farmerInit || typeof Image === 'undefined') return;
+  farmerInit = true;
+  for (const d of FARMER_DIRS) { const im = new Image(); im.onload = () => { farmerReadyN += 1; }; im.src = '/pixelart/agents/farmer-' + d + '.png'; farmerImg[d] = im; }
+}
+const farmerReady = () => { ensureFarmer(); return farmerReadyN >= FARMER_DIRS.length; };
+function blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
+  const im = farmerImg[dir]; if (!im) return;
+  const drawH = sh * hFrac, drawW = drawH;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, frame * FARMER_FW, 0, FARMER_FW, FARMER_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+}
+
+// ── Bateau de l'ÈRE pour un PORT : réutilise les sprites bateau (boat-{vstage}.png,
+// mêmes fichiers que drawShips). Bande éventuellement animée (largeur>hauteur).
+// Dimensionné en CELLULES (taille constante). Chargement paresseux par stage.
+const portBoatImg = {};
+function ensurePortBoat(name) {
+  let c = portBoatImg[name];
+  if (c) return c;
+  c = { img: null, ready: false };
+  portBoatImg[name] = c;
+  if (typeof Image !== 'undefined') { const im = new Image(); im.onload = () => { c.ready = true; }; im.src = '/pixelart/agents/boat-' + name + '.png'; c.img = im; }
+  return c;
+}
+function blitEraBoat(ctx, ox, oy, sw, sh, cx, cy, cells, name, now, gw) {
+  const c = ensurePortBoat(name); if (!c || !c.ready || !c.img || !(c.img.naturalWidth > 0)) return false;
+  const im = c.img, bfh = im.naturalHeight || 64, bnf = Math.max(1, Math.round((im.naturalWidth || bfh) / bfh));
+  const bf = bnf > 1 ? Math.floor((now || 0) / 160) % bnf : 0;
+  const dW = cells * (sw / Math.max(1, gw)), dH = dW;
+  const bob = Math.sin((now || 0) / 1050) * dH * 0.045;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, bf * bfh, 0, bfh, bfh, ox + sw * cx - dW / 2, oy + sh * cy - dH / 2 + bob, dW, dH);
+  ctx.imageSmoothingEnabled = prev;
+  return true;
+}
+
 // Une navette complète : marche panier→buisson, tend le bras dans l'arbre, revient
 // (fruit en main), s'accroupit au panier pour déposer. phase = décalage du 2e cueilleur.
 function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
@@ -86,7 +134,7 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -1244,8 +1292,53 @@ function drawCityEngineSprite(context) {
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     const goodColors = ["#e05030", "#f0c040", "#60a840", "#e8804a", "#9060c0", "#e8e080"];
     if (stage === 0) {
-      // ── STADE 0 · TROC SUR NATTES — pas de halle, échange main-à-main ──
-      // Âge du Feu/Bois : on troque à même le sol sous un auvent de peau.
+      // ── STADE 0 · TROC SUR NATTES ──
+      // Âge du Feu/Bois : étal de troc sous auvent de peau. Pixel-art = prop PixelLab
+      // (étal statique) + cueilleurs RÉUTILISÉS animés (vendeur accroupi + chaland qui
+      // s'approche et troque). Repli sur la scène procédurale d'origine tant que le
+      // prop ou les sprites du cueilleur ne sont pas chargés (zéro tuile vide).
+      if (propReady('market-prop-stall')) {
+        // Tache de sol douce qui se fond dans le terrain (sous l'étal)
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.74, R = sw * 0.5, ky = (sh * 0.3) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(40,28,14,0.5)");
+          g.addColorStop(0.6, "rgba(40,28,14,0.26)");
+          g.addColorStop(1, "rgba(40,28,14,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Étal de troc (prop PixelLab) — pièce maîtresse, aspect 96×72 préservé
+        blitProp(ctx, ox, oy, sw, sh, 'market-prop-stall', 0.5, 0.46, 0.92, 0.69);
+        // Tier 1+ : panier de marchandises latéral (réutilise le prop cueilleur)
+        if (tier >= 1) blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', 0.78, 0.82, 0.2, 0.19);
+        if (foragerReady()) {
+          // Vendeur accroupi au bord de l'étal (idle lent, face caméra)
+          const vf = Math.floor((now || 0) / 280) % FORAGER_CLIPS['crouch-south'];
+          ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.34, oy + sh * 0.69, sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+          blitForager(ctx, ox, oy, sw, sh, 0.34, 0.66, 'crouch-south', vf, 0.42);
+          // Chaland : arrive de la droite, troque au plus près, repart
+          const cyc0 = ((now || 0) / 4200) % 1;
+          const coming = cyc0 < 0.5;
+          const k0 = coming ? cyc0 * 2 : (1 - cyc0) * 2;     // 0 (bord) → 1 (étal)
+          const cpx = 0.86 - k0 * 0.28;                       // 0.86 → 0.58
+          const cdir = coming ? 'west' : 'east';
+          const cfr = Math.floor((now || 0) / 150) % FORAGER_CLIPS['walk-' + cdir];
+          ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(ox + sw * cpx, oy + sh * 0.73, sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+          blitForager(ctx, ox, oy, sw, sh, cpx, 0.7, 'walk-' + cdir, cfr, 0.42);
+          // Tier 2+ : second chaland qui flâne (gauche, opposition de phase)
+          if (tier >= 2) {
+            const cyc1 = ((now || 0) / 5200 + 0.5) % 1;
+            const coming1 = cyc1 < 0.5;
+            const k1 = coming1 ? cyc1 * 2 : (1 - cyc1) * 2;
+            const cpx1 = 0.14 + k1 * 0.22;                    // arrive de la gauche
+            const cdir1 = coming1 ? 'east' : 'west';
+            const cfr1 = Math.floor((now || 0) / 160) % FORAGER_CLIPS['walk-' + cdir1];
+            blitForager(ctx, ox, oy, sw, sh, cpx1, 0.84, 'walk-' + cdir1, cfr1, 0.38);
+          }
+        }
+      } else {
+      // ── repli procédural (scène d'origine, échange main-à-main) ──
       px(0.0, 0.52, 1.0, 0.48, "#3a2c18");          // terre battue
       px(0.06, 0.6, 0.88, 0.34, "#46361f");         // aire damée plus claire
       // Auvent de peau tendu sur deux perches (au-dessus de la natte vendeur)
@@ -1309,6 +1402,7 @@ function drawCityEngineSprite(context) {
       if (tier >= 2) {
         for (let c = 0; c < 2; c++) { ctx.fillStyle = c % 2 ? "#9a6a2c" : "#8a5a22"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.12, oy + sh * (0.8 - c * 0.05), sw * 0.05, sh * 0.03, 0, 0, Math.PI * 2); ctx.fill(); }
       }
+      } // ── fin du repli procédural ──
     } else if (stage === 1) {
       // ── STADE 1 · HALLE À TOILE RAYÉE — marché médiéval, comptoir, fanions ──
       // Âge de la Pierre/Couronne : la halle couverte canonique. Le chaland
@@ -1549,7 +1643,65 @@ function drawCityEngineSprite(context) {
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     const flap = Math.sin(now / 420) * 0.018; // bannière/enseigne au vent
     if (stage === 0) {
-      // ── L'ATELIER (campement → bourg) : halle de bois et torchis, forge ──
+      // ── LE LODGE D'ARTISANS (clos) ──
+      // Pixel-art = prop PixelLab (hall clos qui grandit) + animation par-dessus :
+      // lueur de forge à la porte + fumée du faîte + artisan RÉUTILISÉ qui livre.
+      // Bâtiment CLOS distinct des maisons (cf DA). Repli procédural (l'atelier
+      // d'origine) tant que le prop n'est pas chargé.
+      if (propReady('guild-prop-lodge')) {
+        // Tache de sol douce sous le lodge
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.8, R = sw * 0.46, ky = (sh * 0.24) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(38,26,12,0.45)");
+          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
+          g.addColorStop(1, "rgba(38,26,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Le lodge (prop PixelLab) — aspect 96×96 carré
+        blitProp(ctx, ox, oy, sw, sh, 'guild-prop-lodge', 0.5, 0.5, 0.86, 0.86);
+        // Lueur de forge à la porte (additive, vacille + monte la nuit)
+        {
+          const dgx = ox + sw * 0.58, dgy = oy + sh * 0.6;
+          // Lueur de forge DOUCE qui « sort » de l'embrasure : clignotement LENT (/1100)
+          // et de faible amplitude ; rayon resserré → reste dans la porte/le mur, pas sur la terre.
+          const fl = 0.22 + 0.05 * Math.abs(Math.sin((now || 0) / 1100)) + nF * 0.22;
+          const gr = sw * 0.065;
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const g = ctx.createRadialGradient(dgx, dgy, 0, dgx, dgy, gr);
+          g.addColorStop(0, `rgba(255,150,55,${Math.min(0.5, fl).toFixed(2)})`);
+          g.addColorStop(1, "rgba(255,150,55,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dgx, dgy, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Fumée du faîte : 3 bouffées qui montent en boucle (dérivent vers la droite)
+        for (let i = 0; i < 3; i++) {
+          const t = (((now || 0) / 2600) + i / 3) % 1;
+          const spx = 0.5 + 0.07 * t + 0.012 * Math.sin((now || 0) / 300 + i);
+          const spy = 0.3 - 0.26 * t;
+          ctx.fillStyle = `rgba(208,198,188,${(0.28 * (1 - t)).toFixed(2)})`;
+          ctx.beginPath(); ctx.arc(ox + sw * spx, oy + sh * spy, sw * (0.022 + 0.05 * t), 0, Math.PI * 2); ctx.fill();
+        }
+        // Tier 1+ : bannière de guilde sur perche (gauche) qui ondule
+        if (tier >= 1) {
+          const bpx = 0.15, bTop = 0.4, bBot = 0.82;
+          ctx.strokeStyle = "#4a3418"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * bBot); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
+          const fl2 = Math.sin((now || 0) / 420) * 0.022;
+          ctx.fillStyle = "#9a3a2c";
+          ctx.beginPath();
+          ctx.moveTo(ox + sw * bpx, oy + sh * bTop);
+          ctx.lineTo(ox + sw * (bpx + 0.12 + fl2), oy + sh * (bTop + 0.035));
+          ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.085));
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.1);
+        }
+        // Tier 2+ : ballot de marchandises livré près de la porte (prop réutilisé)
+        if (tier >= 2) blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', 0.66, 0.78, 0.18, 0.17);
+        // (pas d'artisan animé ici — retiré à la demande de l'utilisateur ; l'anim
+        //  vient de la fumée + lueur de porte + bannière au vent)
+      } else {
+      // ── repli procédural (l'atelier ouvert d'origine) ──
       px(0.08, 0.8, 0.84, 0.14, "#2f2113");                   // terrasse de travail
       px(0.18, 0.42, 0.64, 0.44, "#9a7a4e");                  // corps en torchis
       ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(ox+sw*0.68, oy+sh*0.42, sw*0.14, sh*0.44);
@@ -1615,6 +1767,7 @@ function drawCityEngineSprite(context) {
         ctx.strokeStyle = "#2c2a26"; ctx.lineWidth = Math.max(0.8, sw*0.012);
         const ga = now/240; ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx+Math.cos(ga)*gr, gy+Math.sin(ga)*gr); ctx.stroke();
       }
+      } // ── fin du repli procédural ──
     } else if (stage === 1) {
       // ── LA MAISON DE GUILDE (bourg → fortifié) : pans de bois, pignon à redans ──
       const x0 = 0.16, x1 = 0.84, yTop = 0.36, yBase = 0.86, yMid = 0.60;
@@ -1847,6 +2000,70 @@ function drawCityEngineSprite(context) {
       { crops: ["#3f9a55", "#46a85f", "#52b06a", "#4aa860"], ripe: ["#7fb84a", "#6fb040"], fallow: ["#3a6a52"], fallowRoll: 1, ripeRoll: 2 },
     ][stage];
     const pathCol = stage === 3 ? "#5a646c" : "#6a5436"; // béton clair / terre battue
+    // ── PIXEL-ART (stade 0) : SOL DE TERRE (l'ancien fond, préféré) + GRANDES
+    //    parcelles PixelLab COHÉRENTES (types groupés en clusters → identiques
+    //    côte à côte) ; paysan qui marche LENTEMENT entre les parcelles. Stades
+    //    1-3 = patchwork procédural + arroseur (plus bas). Repli sinon.
+    if (stage === 0 && propReady('field-prop-crop-green')) {
+      // Sol = MATIÈRE DE L'ÂGE (tuile pleine du tileset route de la bande : terre
+      // battue → gravier → pavé…) ; repli sur un aplat brun si pas encore chargée.
+      if (!drawEraGroundFill(ctx, ox, oy, sw, sh, band, sw / Math.max(1, gw))) px(0, 0, 1, 1, pathCol);
+      const GREEN = 'field-prop-crop-green', GOLD = 'field-prop-crop-gold', FALLOW = 'field-prop-fallow';
+      const blitTile = (key, cx, cy, w, h, rot) => {
+        const im = propImg[key]; if (!im) return;
+        const dW = sw * w, dH = sh * h, X = ox + sw * cx, Y = oy + sh * cy;
+        const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+        if (rot) { ctx.save(); ctx.translate(X, Y); ctx.rotate(rot); ctx.drawImage(im, -dH / 2, -dW / 2, dH, dW); ctx.restore(); } // dims permutées → l'empreinte écran reste dW×dH
+        else ctx.drawImage(im, X - dW / 2, Y - dH / 2, dW, dH);
+        ctx.imageSmoothingEnabled = prev;
+      };
+      // Parcelles GRANDES mais SERRÉES : assez nombreuses pour couvrir le bloc sans
+      // larges allées brunes (les sprites sont clairsemés → on déborde un peu au blit).
+      const pcols = Math.max(2, Math.round(cols * 0.85));
+      const prows = Math.max(2, Math.round(rows * 0.9));
+      for (let ri = 0; ri < prows; ri++) {
+        for (let ci = 0; ci < pcols; ci++) {
+          // Cohérence : type + sens des rangs décidés par un CLUSTER 2×2 → les
+          // parcelles identiques se retrouvent côte à côte (pas de damier aléatoire).
+          const ch = fhash(ci >> 1, ri >> 1);
+          const roll = ch % 12;
+          let key;
+          // Poids /12 (mêmes que le repli procédural) : SANS ×2, sinon le vert (roll
+          // ≥ somme) n'est JAMAIS tiré au stade 0 (fallowRoll*2 + ripeRoll*2 = 12).
+          if (roll < PAL.fallowRoll) key = propReady(FALLOW) ? FALLOW : GREEN;
+          else if (roll < PAL.fallowRoll + PAL.ripeRoll) key = propReady(GOLD) ? GOLD : GREEN;
+          else key = GREEN;
+          // Tout à l'HORIZONTAL : le sprite vert a un grain NATIF vertical (canaux
+          // bleus) → on le tourne de 90° ; doré/jachère sont déjà horizontaux.
+          const rot = (key === GREEN) ? Math.PI / 2 : 0;
+          const x0 = ci / pcols, y0 = ri / prows, pw = 1 / pcols, ph = 1 / prows;
+          // Déborde un peu (>1) : les sprites étant clairsemés (contenu centré, marge
+          // transparente), un léger chevauchement rapproche les cultures et referme
+          // les allées brunes — sans masquer complètement le sol entre les rangs.
+          blitTile(key, x0 + pw * 0.5, y0 + ph * 0.5, pw * 1.16, ph * 1.1, rot);
+        }
+      }
+      // Paysan qui MARCHE LENTEMENT entre les parcelles (allée horizontale médiane).
+      // TAILLE HUMAINE CONSTANTE : dimensionné par CELLULE (÷ gh), pas par l'emprise
+      // du champ → il ne grandit pas quand le champ s'agrandit (cohérent avec les
+      // humains des tuiles 1-cellule des autres bâtiments).
+      const fhF = 0.75 / Math.max(1, gh);
+      if (farmerReady()) {
+        const cyc = ((now || 0) / 17000) % 1;            // lent
+        const going = cyc < 0.5;
+        const k = going ? cyc * 2 : (1 - cyc) * 2;
+        const fx2 = 0.08 + 0.84 * k;
+        const fy2 = Math.round(prows / 2) / prows;        // sur l'allée entre 2 rangées
+        const dir = going ? 'east' : 'west';
+        const fr = Math.floor((now || 0) / 185) % FARMER_NF;   // cadence plus lente
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * fx2, oy + sh * fy2, sw * (0.16 / gw), sh * (0.055 / gh), 0, 0, Math.PI * 2); ctx.fill();
+        blitFarmer(ctx, ox, oy, sw, sh, fx2, fy2, dir, fr, fhF);
+      } else if (foragerReady()) {   // repli tant que le paysan n'est pas chargé
+        const fr = Math.floor((((now || 0) / 1500) % 1) * FORAGER_CLIPS['pick-east']) % FORAGER_CLIPS['pick-east'];
+        blitForager(ctx, ox, oy, sw, sh, 0.4, 0.5, 'pick-east', fr, fhF);
+      }
+      return true;
+    }
     // Fond = chemins (les écarts entre parcelles laissent voir cette couche).
     px(0, 0, 1, 1, pathCol);
     // Sillons d'une parcelle (sens & nombre variables) — translucide.
@@ -1983,6 +2200,25 @@ function drawCityEngineSprite(context) {
     // Le PORT change de design tous les 10 âges (stage) ; le BATEAU tous les 2
     // âges (bv = ei/2) — l'actif suit l'ère, le parking conserve les anciens.
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    // ── PIXEL-ART (stade 0) : remplace le port procédural par des SPRITES TRANSPARENTS
+    //    posés sur la tuile NATURELLE (berge + fleuve déjà rendus = base nickel) :
+    //    bâtiment vue de-face-de-haut sur la berge + bateau de l'ère dans le fleuve.
+    //    AUCUN procédural, aucun fond peint, aucune modif moteur (cf. leçon du carré brun).
+    if (stage === 0 && propReady('port-prop-house')) {
+      const bWc = Math.min(2.0, gw * 0.92), bhF = bWc / Math.max(1, gh);   // prop carré 96×96
+      const bwF = bWc / Math.max(1, gw);
+      blitProp(ctx, ox, oy, sw, sh, 'port-prop-house', 0.5, bhF * 0.5 + 0.03, bwF, bhF);
+      // ponton de planches : de la base du bâtiment (berge) vers l'eau, le bateau s'amarre au bout
+      blitProp(ctx, ox, oy, sw, sh, 'port-prop-pontoon', 0.5, 0.54, 0.82 / Math.max(1, gw), 1.7 / Math.max(1, gh));
+      const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
+      // taille STRICTEMENT alignée sur les bateaux de rivière (drawShips) : largeur écran
+      // = 0.7 × sizeMul cellules (sizeMul = même barème croissant par ère) → grandit avec l'ère.
+      const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
+        : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
+      const boatName = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : vstage;
+      blitEraBoat(ctx, ox, oy, sw, sh, 0.5, 0.72, 0.7 * sizeMul, boatName, now, gw);   // amarré au bout du ponton
+      return true;
+    }
     const nF = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
     // Pixels carrés quelle que soit l'emprise (large × peu profonde) : convertit
     // une fraction horizontale (de sw) en fraction verticale équivalente (de sh).

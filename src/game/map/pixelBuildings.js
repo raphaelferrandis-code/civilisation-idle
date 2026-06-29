@@ -15,12 +15,11 @@ export const pixelBuildingsFlag = { on: true };
 // on ne tente de charger QUE ces clés → zéro requête 404 pour les bâtiments
 // encore en procédural.
 const AVAILABLE = new Set([
-  // foragers + granaries_city + caravans stade 0 : PAS de sprite statique — leur scène
-  // procédurale (props PixelLab + perso/mulet animé, cf. cityEngineSprites.js) reprend la main.
-  'markets-s0-t0', 'markets-s0-t1', 'markets-s0-t2', 'markets-s0-t3',
-  'guilds-s0-t0', 'guilds-s0-t1', 'guilds-s0-t2', 'guilds-s0-t3',
-  'mint_houses-s0-t0', 'mint_houses-s0-t1', 'mint_houses-s0-t2', 'mint_houses-s0-t3',
-  'imperial_exchanges-s0-t0', 'imperial_exchanges-s0-t1', 'imperial_exchanges-s0-t2', 'imperial_exchanges-s0-t3',
+  // Approche STATIQUE abandonnée (2026-06-29) : les sprites-bâtiment plats (marchés,
+  // guildes, hôtels des monnaies, banques) ont été refusés et supprimés. Tous les
+  // bâtiments-moteur passent désormais par la SCÈNE procédurale (props PixelLab +
+  // agent animé, cf. cityEngineSprites.js), comme cueilleurs/entrepôts/caravanes.
+  // Ce manifeste reste en place (repli/extension futurs) mais est vide pour l'instant.
 ]);
 
 const cache = new Map();   // clé -> { img, ready }
