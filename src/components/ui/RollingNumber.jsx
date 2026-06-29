@@ -45,6 +45,18 @@ export default function RollingNumber({ value, format = fmt, duration = DEFAULT_
       return undefined;
     }
 
+    // Baisse de la valeur (un achat déduit la somme, un coût se paie) : on ne
+    // « roule » PAS vers le bas — la déduction doit être instantanée. Seules les
+    // hausses (production) s'animent en count-up.
+    if (target < displayRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      fromRef.current = target;
+      targetRef.current = target;
+      displayRef.current = target;
+      setDisplay(target);
+      return undefined;
+    }
+
     fromRef.current = displayRef.current; // repart de la position courante (anim en cours incluse).
     targetRef.current = target;
     startRef.current = performance.now();
