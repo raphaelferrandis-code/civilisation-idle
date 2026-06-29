@@ -2,6 +2,7 @@
 
 import { state } from './state.js';
 import { Decimal, D } from './num.js';
+import { tr } from './i18n.js';
 
 const NUMBER_FORMAT_KEY = "civ-opt-number-format";
 
@@ -89,14 +90,14 @@ export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed
 
 export function labelFor(key) {
   return {
-    population: "pop.",
-    food: "nourriture",
-    gold: "tresor",
-    knowledge: "savoir",
-    infrastructure: "infra.",
-    ruins: "ruines",
-    legitimacy: "legitimite",
-    myths: "mythes"
+    population: tr({ fr: "pop.", en: "pop." }),
+    food: tr({ fr: "nourriture", en: "food" }),
+    gold: tr({ fr: "tresor", en: "treasury" }),
+    knowledge: tr({ fr: "savoir", en: "knowledge" }),
+    infrastructure: tr({ fr: "infra.", en: "infra." }),
+    ruins: tr({ fr: "ruines", en: "ruins" }),
+    legitimacy: tr({ fr: "legitimite", en: "legitimacy" }),
+    myths: tr({ fr: "mythes", en: "myths" })
   }[key] || key;
 }
 

@@ -41,6 +41,7 @@ import {
   CADMOS_ORIENTATIONS
 } from '../../data/myths.js';
 import { clamp01, fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { D } from '../num.js';
 import { log, resetCyclePeaks } from './utils.js';
 import {
@@ -57,10 +58,10 @@ export function checkMythOnCollapse() {
   if (success && !isMythCompleted(myth.id)) {
     state.mythsCompleted[myth.id] = true;
     if (typeof myth.applyHeritage === "function") myth.applyHeritage();
-    log(`Pacte honore: "${myth.name}". Heritage accorde: ${myth.heritageDescription}`);
+    log(`Pacte honore: "${tr(myth.name)}". Heritage accorde: ${tr(myth.heritageDescription)}`);
     checkActUnlocks();
   } else if (!success) {
-    log(`Pacte brise: "${myth.name}" n'a pas ete honore ce cycle.`);
+    log(`Pacte brise: "${tr(myth.name)}" n'a pas ete honore ce cycle.`);
   }
 }
 
@@ -160,27 +161,33 @@ function shuffleCadmosOrientations() {
 
 function buildCadmosAgeOption(orientation, index, milestone) {
   const definition = CADMOS_ORIENTATIONS[orientation];
+  const label = tr(definition.label);
+  const article = tr(definition.article);
+  // Mots résolus dans la langue courante : ils servent à la fois de clé interne
+  // (dédup, cadmosRecentWords) et d'affichage — cohérents car la langue est figée
+  // pour la session.
+  const words = definition.words.map((w) => tr(w));
   const recentWords = new Set(state.cadmosRecentWords || []);
   const chosenNames = new Set((state.cadmosChronicle || []).map((entry) => entry.name));
-  const candidates = definition.words.filter((word) => !recentWords.has(word));
-  const pool = candidates.length ? candidates : definition.words;
-  let word = pool[Math.floor(Math.random() * pool.length)] || definition.words[0];
-  let name = `L'Age ${definition.article} ${word}`;
+  const candidates = words.filter((word) => !recentWords.has(word));
+  const pool = candidates.length ? candidates : words;
+  let word = pool[Math.floor(Math.random() * pool.length)] || words[0];
+  let name = `L'Age ${article} ${word}`;
   let guard = 0;
-  while (chosenNames.has(name) && guard < definition.words.length) {
-    word = definition.words[(definition.words.indexOf(word) + 1 + guard) % definition.words.length];
-    name = `L'Age ${definition.article} ${word}`;
+  while (chosenNames.has(name) && guard < words.length) {
+    word = words[(words.indexOf(word) + 1 + guard) % words.length];
+    name = `L'Age ${article} ${word}`;
     guard += 1;
   }
   return {
     label: name,
-    detail: `${definition.label} - ${definition.bonus}`,
+    detail: `${label} - ${tr(definition.bonus)}`,
     cadmosAge: {
       id: `cadmos_${Date.now()}_${index}`,
       name,
       word,
       orientation,
-      orientationLabel: definition.label,
+      orientationLabel: label,
       milestoneType: milestone.type,
       threshold: milestone.threshold,
       cycle: state.cycles || 0,
@@ -253,7 +260,7 @@ export async function activateMyth(mythId) {
     });
   }
   setGamePaused(false);
-  log(`Pacte active: ${myth.name}. ${myth.description}`);
+  log(`Pacte active: ${tr(myth.name)}. ${tr(myth.description)}`);
   invalidateRenderCache("all");
   save();
   render();

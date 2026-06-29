@@ -4,6 +4,7 @@ import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { pct, roman, clamp01 } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 
 /**
@@ -70,10 +71,13 @@ export default function CityStatusPanel() {
     <div className="city-status-panel" aria-label="État de la civilisation">
       <div
         className="csp-block"
-        title={`Progression vers l'âge suivant — ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V`}
+        title={tr({
+          fr: `Progression vers l'âge suivant — ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V`,
+          en: `Progress toward the next age — ${eraTheme.epochLabel}, era ${eraTheme.epochNumeral}/V`
+        })}
       >
         <div className="csp-block-head">
-          <span className="csp-label">Âge</span>
+          <span className="csp-label">{tr({ fr: 'Âge', en: 'Age' })}</span>
           <strong className="csp-value csp-value--era">{currentEra.name}</strong>
         </div>
         <span className="csp-bar">
@@ -84,11 +88,14 @@ export default function CityStatusPanel() {
       <div
         className="csp-block"
         title={nextPalier
-          ? `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}`
-          : 'Bonus sédiment maximum atteint'}
+          ? tr({
+              fr: `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}`,
+              en: `Next sediment tier: +${nextPalier.bonus}% in ${fmtSecs(nextPalierInSecs)}`
+            })
+          : tr({ fr: 'Bonus sédiment maximum atteint', en: 'Maximum sediment bonus reached' })}
       >
         <div className="csp-block-head">
-          <span className="csp-label">Usure</span>
+          <span className="csp-label">{tr({ fr: 'Usure', en: 'Wear' })}</span>
           <strong className={`csp-value ${timeWear >= 0.8 ? 'danger-pulse' : ''}`}>{pct(timeWear)}</strong>
           {sedimentIdx >= 0 && (
             <span className="csp-laps" aria-hidden="true">
@@ -104,9 +111,9 @@ export default function CityStatusPanel() {
       </div>
 
       {showLegitimite && (
-        <div className="csp-block" title="Légitimité d'Atlas">
+        <div className="csp-block" title={tr({ fr: "Légitimité d'Atlas", en: "Atlas's Legitimacy" })}>
           <div className="csp-block-head">
-            <span className="csp-label">Légitimité</span>
+            <span className="csp-label">{tr({ fr: 'Légitimité', en: 'Legitimacy' })}</span>
             <strong className="csp-value"><RollingNumber value={atlasLegitimite} /></strong>
           </div>
           <span className="csp-bar">
@@ -118,29 +125,29 @@ export default function CityStatusPanel() {
       <div className="csp-divider" aria-hidden="true"></div>
 
       <div className="csp-stats">
-        <div className="csp-stat" title="Cycles accomplis">
+        <div className="csp-stat" title={tr({ fr: "Cycles accomplis", en: "Cycles completed" })}>
           <span className="csp-stat-icon" aria-hidden="true">🔄</span>
-          <span className="csp-stat-label">Cycles</span>
+          <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
         </div>
-        <div className="csp-stat" title="Numéro de la dynastie actuelle">
+        <div className="csp-stat" title={tr({ fr: "Numéro de la dynastie actuelle", en: "Number of the current dynasty" })}>
           <span className="csp-stat-icon" aria-hidden="true">👑</span>
-          <span className="csp-stat-label">Dynastie</span>
+          <span className="csp-stat-label">{tr({ fr: 'Dynastie', en: 'Dynasty' })}</span>
           <strong>{roman(dynastyCount + 1)}</strong>
         </div>
-        <div className="csp-stat" title="Multiplicateur global de production">
+        <div className="csp-stat" title={tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" })}>
           <span className="csp-stat-icon" aria-hidden="true">⚡</span>
-          <span className="csp-stat-label">Multiplic.</span>
+          <span className="csp-stat-label">{tr({ fr: 'Multiplic.', en: 'Multiplier' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>
         </div>
-        <div className="csp-stat" title="Meilleure ère atteinte à ce jour">
+        <div className="csp-stat" title={tr({ fr: "Meilleure ère atteinte à ce jour", en: "Best era reached so far" })}>
           <span className="csp-stat-icon" aria-hidden="true">🏆</span>
-          <span className="csp-stat-label">Âge max</span>
+          <span className="csp-stat-label">{tr({ fr: 'Âge max', en: 'Max age' })}</span>
           <strong className="csp-stat-era">{eras[bestEraIndex].name}</strong>
         </div>
-        <div className="csp-stat" title="Durée du cycle actuel">
+        <div className="csp-stat" title={tr({ fr: "Durée du cycle actuel", en: "Duration of the current cycle" })}>
           <span className="csp-stat-icon" aria-hidden="true">⏳</span>
-          <span className="csp-stat-label">Temps</span>
+          <span className="csp-stat-label">{tr({ fr: 'Temps', en: 'Time' })}</span>
           <strong>{cycleTimeLabel}</strong>
         </div>
       </div>

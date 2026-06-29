@@ -1,5 +1,7 @@
 "use strict";
 
+import { tr } from './i18n.js';
+
 // Constantes d'équilibrage structurantes du jeu, regroupées et documentées.
 // Ne change AUCUNE valeur ici sans intention d'équilibrage : ces nombres
 // pilotent les courbes de progression et les seuils d'effondrement.
@@ -144,10 +146,10 @@ export const FOYER_MALUS_PCT = {
 // `seconds` = coût en secondes de production courante (cf. crisisCosts) ;
 // `resource` = ressource ponctionnée (trésor/savoir = « réduction du trésor »).
 export const FOYER_REFORM = {
-  scarcity:   { add: 0.15, seconds: 140, resource: 'food',      label: "Réserve d'État" },
-  inequality: { add: 0.15, seconds: 160, resource: 'gold',      label: 'Charte des communs' },
-  complexity: { add: 0.15, seconds: 180, resource: 'knowledge', label: 'Grand cadastre' },
-  dissent:    { add: 0.15, seconds: 160, resource: 'gold',      label: "Panthéon d'État" }
+  scarcity:   { add: 0.15, seconds: 140, resource: 'food',      label: { fr: "Réserve d'État", en: 'State Reserve' } },
+  inequality: { add: 0.15, seconds: 160, resource: 'gold',      label: { fr: 'Charte des communs', en: 'Charter of the Commons' } },
+  complexity: { add: 0.15, seconds: 180, resource: 'knowledge', label: { fr: 'Grand cadastre', en: 'Great Cadastre' } },
+  dissent:    { add: 0.15, seconds: 160, resource: 'gold',      label: { fr: "Panthéon d'État", en: 'State Pantheon' } }
 };
 // id d'action de réforme → foyer ciblé (miroir de ACTION_FOYER pour l'apaisement).
 export const REFORM_ACTION_FOYER = {

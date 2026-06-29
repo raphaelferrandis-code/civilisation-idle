@@ -17,59 +17,60 @@
  * ============================================================================ */
 
 import { rngFrom, seededWeightedPick } from "./seedManager.js";
+import { localizeData } from "../../core/i18n.js";
 
 const PERSONALITIES = {
   religieuse: {
-    id: "religieuse", label: "cité religieuse",
+    id: "religieuse", label: { fr: "cité religieuse", en: "religious city" },
     buildingBias: { library: 1.5, public: 1.15, house: 1, farm: 0.95 },
     variantBias: "sacred",
     densityMul: 0.95, orderDelta: 0.08, plazaBias: 1.4,
     vehicleBias: { caravan: 1.2 }, treeMul: 1
   },
   militaire: {
-    id: "militaire", label: "cité militaire",
+    id: "militaire", label: { fr: "cité militaire", en: "military city" },
     buildingBias: { public: 1.35, house: 0.95, library: 0.8, farm: 1 },
     variantBias: "military",
     densityMul: 1, orderDelta: 0.15, plazaBias: 0.8,
     vehicleBias: { chariot: 1.6, wagon: 1.2 }, treeMul: 0.85
   },
   marchande: {
-    id: "marchande", label: "cité marchande",
+    id: "marchande", label: { fr: "cité marchande", en: "merchant city" },
     buildingBias: { public: 1.3, house: 1.05, farm: 0.9, library: 0.9 },
     variantBias: "trade",
     densityMul: 1.12, orderDelta: -0.05, plazaBias: 1.5,
     vehicleBias: { caravan: 1.8, cart: 1.4, wagon: 1.3 }, treeMul: 0.9
   },
   agricole: {
-    id: "agricole", label: "cité agricole",
+    id: "agricole", label: { fr: "cité agricole", en: "agricultural city" },
     buildingBias: { farm: 1.7, house: 1, public: 0.85, library: 0.85 },
     variantBias: "rural",
     densityMul: 0.82, orderDelta: -0.12, plazaBias: 0.9,
     vehicleBias: { barrow: 1.5, cart: 1.3 }, treeMul: 1.25
   },
   imperiale: {
-    id: "imperiale", label: "cité impériale",
+    id: "imperiale", label: { fr: "cité impériale", en: "imperial city" },
     buildingBias: { public: 1.25, library: 1.1, house: 1, farm: 0.85 },
     variantBias: "prestige",
     densityMul: 1.08, orderDelta: 0.18, plazaBias: 1.3,
     vehicleBias: { chariot: 1.3, tram: 1.2 }, treeMul: 0.8
   },
   pauvre: {
-    id: "pauvre", label: "cité modeste",
+    id: "pauvre", label: { fr: "cité modeste", en: "humble city" },
     buildingBias: { house: 1.2, farm: 1.1, public: 0.75, library: 0.7 },
     variantBias: "poor",
     densityMul: 1.05, orderDelta: -0.15, plazaBias: 0.6,
     vehicleBias: { basket: 1.4, barrow: 1.4 }, treeMul: 1.05
   },
   luxueuse: {
-    id: "luxueuse", label: "cité fastueuse",
+    id: "luxueuse", label: { fr: "cité fastueuse", en: "lavish city" },
     buildingBias: { house: 0.95, public: 1.15, library: 1.15, farm: 0.85 },
     variantBias: "rich",
     densityMul: 0.9, orderDelta: 0.12, plazaBias: 1.6,
     vehicleBias: { caravan: 1.2, car: 1.2 }, treeMul: 1.15
   },
   savante: {
-    id: "savante", label: "cité savante",
+    id: "savante", label: { fr: "cité savante", en: "scholarly city" },
     buildingBias: { library: 1.7, public: 1, house: 0.95, farm: 0.9 },
     variantBias: "scholar",
     densityMul: 0.95, orderDelta: 0.1, plazaBias: 1.2,
@@ -81,12 +82,12 @@ const PERSONALITIES = {
 // réel de la partie (jamais persistées — recalculées à chaque layout).
 const OVERLAYS = {
   crise: {
-    id: "crise", label: "en crise",
+    id: "crise", label: { fr: "en crise", en: "in crisis" },
     densityMul: 0.92, orderDelta: -0.18, plazaBias: 0.8,
     chaos: 0.35, treeMul: 1.1
   },
   effondrement: {
-    id: "effondrement", label: "au bord de l'effondrement",
+    id: "effondrement", label: { fr: "au bord de l'effondrement", en: "on the brink of collapse" },
     densityMul: 0.8, orderDelta: -0.4, plazaBias: 0.5,
     chaos: 0.85, treeMul: 1.35
   }
@@ -136,5 +137,11 @@ export function computeCityPersonality(seed, s) {
   };
   return out;
 }
+
+// Aplatit les `label` { fr, en } en chaînes (cf. i18n.js) AVANT tout rendu, pour
+// que la composition `${base.label} ${overlay.label}` (computeCityPersonality)
+// opère sur des strings. id/biais numériques non touchés.
+localizeData(PERSONALITIES);
+localizeData(OVERLAYS);
 
 export { PERSONALITIES };

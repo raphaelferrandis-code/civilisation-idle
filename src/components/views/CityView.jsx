@@ -29,6 +29,7 @@ import { save, setCityName, commitCityName, state } from '../../game/core/state.
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { fmt, clamp01 } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
   ICARE_INFRA_TARGET,
@@ -89,31 +90,31 @@ export default function CityView() {
   const handleCitizenThought = useCallback((citizen, thoughtType) => {
     const quotes = {
       thought: [
-        "J'ai vu une ombre étrange dans les bois... Serait-ce un présage du cycle suivant ?",
-        "Les anciens bâtissaient avec de l'argile brute. Nous construisons sur leurs débris.",
-        "Parfois, j'ai l'impression que le temps tourne en boucle. Quelle idée absurde...",
-        "Si notre dynastie tombe, j'espère que les scribes écriront mon nom correctement.",
-        "Le pain d'aujourd'hui a un goût de cendres. Est-ce l'usure qui s'installe ?",
-        "Nos philosophes affirment que notre cité n'est qu'un grain de sable sur l'Olympe.",
-        "Quand le ciel rougeoie le soir, je prie pour que l'effondrement attende l'aube."
+        { fr: "J'ai vu une ombre étrange dans les bois... Serait-ce un présage du cycle suivant ?", en: "I saw a strange shadow in the woods... Could it be an omen of the next cycle?" },
+        { fr: "Les anciens bâtissaient avec de l'argile brute. Nous construisons sur leurs débris.", en: "The ancients built with raw clay. We build upon their rubble." },
+        { fr: "Parfois, j'ai l'impression que le temps tourne en boucle. Quelle idée absurde...", en: "Sometimes I feel like time is running in circles. What an absurd notion..." },
+        { fr: "Si notre dynastie tombe, j'espère que les scribes écriront mon nom correctement.", en: "If our dynasty falls, I hope the scribes will spell my name correctly." },
+        { fr: "Le pain d'aujourd'hui a un goût de cendres. Est-ce l'usure qui s'installe ?", en: "Today's bread tastes of ashes. Is the wear setting in?" },
+        { fr: "Nos philosophes affirment que notre cité n'est qu'un grain de sable sur l'Olympe.", en: "Our philosophers claim our city is but a grain of sand upon Olympus." },
+        { fr: "Quand le ciel rougeoie le soir, je prie pour que l'effondrement attende l'aube.", en: "When the sky glows red at dusk, I pray the collapse waits for dawn." }
       ],
       scroll: [
-        "J'ai trouvé ce vieux parchemin sous les ruines d'un temple !",
-        "Voici une formule mathématique oubliée du cycle précédent !",
-        "Cette tablette d'argile décrit la chute de notre première cité.",
-        "Un secret des anciens ingénieurs ! Nos scribes vont adorer.",
-        "Un codex cryptique... Son déchiffrement va accélérer nos recherches !"
+        { fr: "J'ai trouvé ce vieux parchemin sous les ruines d'un temple !", en: "I found this old parchment beneath the ruins of a temple!" },
+        { fr: "Voici une formule mathématique oubliée du cycle précédent !", en: "Here is a mathematical formula forgotten from the previous cycle!" },
+        { fr: "Cette tablette d'argile décrit la chute de notre première cité.", en: "This clay tablet describes the fall of our first city." },
+        { fr: "Un secret des anciens ingénieurs ! Nos scribes vont adorer.", en: "A secret of the ancient engineers! Our scribes will love it." },
+        { fr: "Un codex cryptique... Son déchiffrement va accélérer nos recherches !", en: "A cryptic codex... Deciphering it will speed up our research!" }
       ],
       lightning: [
-        "Le feu créateur coule dans nos veines ! Travaillons plus vite !",
-        "Une idée fulgurante traverse notre corporation ! En avant !",
-        "L'énergie de la jeunesse anime nos chantiers aujourd'hui !",
-        "Par Héphaïstos ! L'inspiration divine accélère nos tâches !"
+        { fr: "Le feu créateur coule dans nos veines ! Travaillons plus vite !", en: "The creative fire flows in our veins! Let us work faster!" },
+        { fr: "Une idée fulgurante traverse notre corporation ! En avant !", en: "A flash of insight sweeps through our guild! Onward!" },
+        { fr: "L'énergie de la jeunesse anime nos chantiers aujourd'hui !", en: "The energy of youth drives our worksites today!" },
+        { fr: "Par Héphaïstos ! L'inspiration divine accélère nos tâches !", en: "By Hephaestus! Divine inspiration hastens our tasks!" }
       ]
     };
-    
+
     const pool = quotes[thoughtType] || quotes.thought;
-    const text = pool[Math.floor(Math.random() * pool.length)];
+    const text = tr(pool[Math.floor(Math.random() * pool.length)]);
     
     const rewardText = rewardCitizenThought(thoughtType, citizen);
     
@@ -206,9 +207,9 @@ export default function CityView() {
       <div className="city-left-col">
         {eneeHeritage && cycleSeconds < 30 && (
           <div className="enee-boost-banner">
-            <strong>⚖ Bénédiction d'Énée</strong>
+            <strong>⚖ {tr({ fr: "Bénédiction d'Énée", en: "Aeneas's Blessing" })}</strong>
             <p>
-              Démarrage rapide : la production globale est augmentée de <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s restantes).
+              {tr({ fr: <>Démarrage rapide : la production globale est augmentée de <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s restantes).</>, en: <>Fast start: global production is increased by <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s remaining).</> })}
             </p>
           </div>
         )}
@@ -216,18 +217,18 @@ export default function CityView() {
           <div className={`atrides-pact-banner${atridesPactActive ? ' is-sealed' : ''}`}>
             <div className="pact-banner-head">
               <strong>
-                {atridesPactActive ? "⚖ Pacte des Atrides Scellé" : "📜 Pacte des Atrides Disponible"}
+                {atridesPactActive ? tr({ fr: "⚖ Pacte des Atrides Scellé", en: "⚖ Atreides Pact Sealed" }) : tr({ fr: "📜 Pacte des Atrides Disponible", en: "📜 Atreides Pact Available" })}
               </strong>
-              <span className="pact-banner-time">Temps restant: {120 - cycleSeconds}s</span>
+              <span className="pact-banner-time">{tr({ fr: "Temps restant", en: "Time remaining" })}: {120 - cycleSeconds}s</span>
             </div>
             <p>
               {atridesPactActive
-                ? "Vous avez emprunté de la production. Bonus x2 actif pendant les 2 premières minutes, puis malus x0.5 s'appliquera en phase de crise."
-                : "Empruntez un bonus de production de x2 pour les 2 premières minutes de ce cycle. En échange, la production sera réduite de 50% pendant la crise finale."}
+                ? tr({ fr: "Vous avez emprunté de la production. Bonus x2 actif pendant les 2 premières minutes, puis malus x0.5 s'appliquera en phase de crise.", en: "You have borrowed production. The x2 bonus is active for the first 2 minutes, then a x0.5 penalty will apply during the crisis phase." })
+                : tr({ fr: "Empruntez un bonus de production de x2 pour les 2 premières minutes de ce cycle. En échange, la production sera réduite de 50% pendant la crise finale.", en: "Borrow a x2 production bonus for the first 2 minutes of this cycle. In exchange, production will be reduced by 50% during the final crisis." })}
             </p>
             {!atridesPactActive && (
               <button onClick={activateAtridesPact} className="btn-primary pact-activate-btn">
-                Activer le Pacte
+                {tr({ fr: "Activer le Pacte", en: "Activate the Pact" })}
               </button>
             )}
           </div>
@@ -245,11 +246,11 @@ export default function CityView() {
               value={cityName}
               onChange={handleNameChange}
               onBlur={handleNameBlur}
-              aria-label="Nom de la ville"
+              aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
             />
             <span
               className="city-personality-label"
-              title="Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants"
+              title={tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" })}
             >
               {cityPersonalityLabel}
             </span>
@@ -260,14 +261,14 @@ export default function CityView() {
             const lvl = clamp01(instability);
             const pctValue = Math.round(lvl * 100);
             const tier = lvl >= 0.9
-              ? { cls: "sg-collapse", icon: "💀", label: "Effondrement imminent", desc: "La cité est au bord du gouffre. Résolvez la crise avant l'effondrement total." }
+              ? { cls: "sg-collapse", icon: "💀", label: { fr: "Effondrement imminent", en: "Imminent Collapse" }, desc: { fr: "La cité est au bord du gouffre. Résolvez la crise avant l'effondrement total.", en: "The city is on the brink. Resolve the crisis before total collapse." } }
               : lvl >= 0.75
-              ? { cls: "sg-crisis", icon: "🚨", label: "Crise ouverte", desc: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable." }
+              ? { cls: "sg-crisis", icon: "🚨", label: { fr: "Crise ouverte", en: "Open Crisis" }, desc: { fr: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable.", en: "Pressures are rising. Build, stabilize, or accept the inevitable." } }
               : lvl >= 0.5
-              ? { cls: "sg-strain", icon: "🔥", label: "Instabilité croissante", desc: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité." }
+              ? { cls: "sg-strain", icon: "🔥", label: { fr: "Instabilité croissante", en: "Growing Instability" }, desc: { fr: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité.", en: "The fractures widen. Progress costs ever more stability." } }
               : lvl >= 0.25
-              ? { cls: "sg-tension", icon: "⚠️", label: "Premières tensions", desc: "Les tensions s'accumulent. Le progrès coûte de la stabilité." }
-              : { cls: "sg-stable", icon: "🛡️", label: "Civilisation stable", desc: "La cité tient bon. Continuez à bâtir votre civilisation." };
+              ? { cls: "sg-tension", icon: "⚠️", label: { fr: "Premières tensions", en: "First Tensions" }, desc: { fr: "Les tensions s'accumulent. Le progrès coûte de la stabilité.", en: "Tensions are building. Progress costs stability." } }
+              : { cls: "sg-stable", icon: "🛡️", label: { fr: "Civilisation stable", en: "Stable Civilization" }, desc: { fr: "La cité tient bon. Continuez à bâtir votre civilisation.", en: "The city holds firm. Keep building your civilization." } };
             const crackOpacity = (threshold, ramp, max) =>
               lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
             // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
@@ -276,24 +277,24 @@ export default function CityView() {
             // Tooltip détaillé : sources de pression (données de pressureBreakdown)
             const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
             const pressureTooltip = [
-              tier.desc,
+              tr(tier.desc),
               "",
-              "Sources de pression :",
-              `Rareté ${pp(pressure.scarcity)} · Inégalités ${pp(pressure.inequality)}`,
-              `Complexité ${pp(pressure.complexity)} · Dissidence ${pp(pressure.dissent)}`,
-              `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`,
-              pressure.demesure > 0 ? `Démesure ${pp(pressure.demesure)} (irréductible)` : null
+              tr({ fr: "Sources de pression :", en: "Sources of pressure:" }),
+              tr({ fr: `Rareté ${pp(pressure.scarcity)} · Inégalités ${pp(pressure.inequality)}`, en: `Scarcity ${pp(pressure.scarcity)} · Inequality ${pp(pressure.inequality)}` }),
+              tr({ fr: `Complexité ${pp(pressure.complexity)} · Dissidence ${pp(pressure.dissent)}`, en: `Complexity ${pp(pressure.complexity)} · Dissent ${pp(pressure.dissent)}` }),
+              tr({ fr: `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`, en: `Structural ${pp(pressure.structural)} · Mitigation -${(pressure.mitigation * 100).toFixed(0)}%` }),
+              pressure.demesure > 0 ? tr({ fr: `Démesure ${pp(pressure.demesure)} (irréductible)`, en: `Hubris ${pp(pressure.demesure)} (irreducible)` }) : null
             ].filter(Boolean).join("\n");
             return (
               <div
                 className={`stability-gauge ${tier.cls}`}
                 title={pressureTooltip}
-                aria-label={`Pression civilisationnelle : ${pctValue}% — ${tier.label}`}
+                aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}% — ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}% — ${tr(tier.label)}` })}
               >
                 <div className="sg-meta">
                   <span className="sg-icon" aria-hidden="true">{tier.icon}</span>
-                  <span className="sg-label">{tier.label}</span>
-                  <span className="sg-collapse-gain" title="Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.">💀 +{fmt(projectedRuin)} 🏛️</span>
+                  <span className="sg-label">{tr(tier.label)}</span>
+                  <span className="sg-collapse-gain" title={tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>💀 +{fmt(projectedRuin)} 🏛️</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -301,7 +302,7 @@ export default function CityView() {
                     <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
                   ))}
                   <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
-                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={`Cible : ${Math.round(targetLvl * 100)}% — la jauge dérive vers ce niveau.`}></span>
+                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={tr({ fr: `Cible : ${Math.round(targetLvl * 100)}% — la jauge dérive vers ce niveau.`, en: `Target: ${Math.round(targetLvl * 100)}% — the gauge drifts toward this level.` })}></span>
                   {lvl >= 0.68 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
                       {[
@@ -328,7 +329,7 @@ export default function CityView() {
           <div
             className="civilization-map-interactive"
             id="civilizationMap"
-            aria-label="Diorama de la cité"
+            aria-label={tr({ fr: "Diorama de la cité", en: "City diorama" })}
           >
             <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
           </div>
@@ -342,33 +343,33 @@ export default function CityView() {
           </div>{/* /city-map-container */}
 
           {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
-          <aside className="city-shop-dock" aria-label="Construction">
+          <aside className="city-shop-dock" aria-label={tr({ fr: "Construction", en: "Construction" })}>
             <BuildingShop />
           </aside>
         </div>{/* /city-stage */}
 
         {/* Régulation des tensions + politiques : encart pliable, sous la carte */}
-        <HudPanel className="city-controls-panel" storageKey="regul" title="Régulation des tensions">
+        <HudPanel className="city-controls-panel" storageKey="regul" title={tr({ fr: "Régulation des tensions", en: "Tension Regulation" })}>
           <CrisisActionBar variant="compact" />
         </HudPanel>
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
         <div className="city-aux">
-          <div className="hud-dock" role="toolbar" aria-label="Outils de la cité">
+          <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
             {chronicleVisible && (
-              <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label="Chronique de l'effondrement" aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>
+              <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })} aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>
                 <i className="fa-solid fa-newspaper" aria-hidden="true"></i>
                 {chronicleNew && <span className="hud-dock-dot" aria-hidden="true"></span>}
               </button>
             )}
             {showExhume && (
-              <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label="Exhumer un vestige archéologique" aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
+              <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label={tr({ fr: "Exhumer un vestige archéologique", en: "Exhume an archaeological vestige" })} aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
                 <i className="fa-solid fa-trowel" aria-hidden="true"></i>
                 <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>
               </button>
             )}
             {showMythsPanel && (
-              <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label="Mythes actifs et bénédictions" aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
+              <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label={tr({ fr: "Mythes actifs et bénédictions", en: "Active myths and blessings" })} aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
                 <i className="fa-solid fa-scroll" aria-hidden="true"></i>
                 {mythCount > 0 && <span className="hud-dock-badge">{mythCount}</span>}
               </button>
@@ -383,10 +384,10 @@ export default function CityView() {
 
           {openDock === 'exhume' && showExhume && (
             <div className="panel hud-pop">
-              <h3 className="hud-pop-title">Vestige archéologique</h3>
-              <p className="hud-pop-desc">Fouille les décombres d'un cycle passé pour en exhumer un bonus unique.</p>
+              <h3 className="hud-pop-title">{tr({ fr: "Vestige archéologique", en: "Archaeological Vestige" })}</h3>
+              <p className="hud-pop-desc">{tr({ fr: "Fouille les décombres d'un cycle passé pour en exhumer un bonus unique.", en: "Dig through the rubble of a past cycle to exhume a unique bonus." })}</p>
               <button id="exhumeBtn" className="btn-primary" onClick={() => { exhumeVestige(); setOpenDock(null); }}>
-                ⛏ Exhumer un vestige
+                ⛏ {tr({ fr: "Exhumer un vestige", en: "Exhume a vestige" })}
               </button>
             </div>
           )}
@@ -399,38 +400,38 @@ export default function CityView() {
           <div className="myth-panel myth-panel--atrides atrides-debt-panel">
             <div className="panel-heading">
               <div>
-                <span className="label label-red">Acte III · Le Fardeau des Atrides</span>
-                <h2>Tragédie & Dette Active</h2>
+                <span className="label label-red">{tr({ fr: "Acte III · Le Fardeau des Atrides", en: "Act III · The Burden of the Atreides" })}</span>
+                <h2>{tr({ fr: "Tragédie & Dette Active", en: "Tragedy & Active Debt" })}</h2>
               </div>
             </div>
 
             <div className="myth-panel-body">
               <div className="myth-stats-grid">
                 <div className="myth-stat is-red">
-                  <span>Dette Cumulée</span>
+                  <span>{tr({ fr: "Dette Cumulée", en: "Accumulated Debt" })}</span>
                   <strong>{fmt(atridesDebt)}</strong>
                 </div>
 
                 <div className="myth-stat is-orange">
-                  <span>Taux de Croissance</span>
+                  <span>{tr({ fr: "Taux de Croissance", en: "Growth Rate" })}</span>
                   <strong>+{fmt(atridesDebtGrowthRate)} /s</strong>
                   {isRenegotiationActive && (
-                    <small className="stat-green">Renégociation active ({renegocierActiveSecs}s)</small>
+                    <small className="stat-green">{tr({ fr: `Renégociation active (${renegocierActiveSecs}s)`, en: `Renegotiation active (${renegocierActiveSecs}s)` })}</small>
                   )}
                 </div>
 
                 <div className="myth-stat">
-                  <span>Objectif Trésor Net</span>
+                  <span>{tr({ fr: "Objectif Trésor Net", en: "Net Treasury Goal" })}</span>
                   <strong className={netGoldReached ? "stat-green" : "stat-gold"}>
                     {fmt(netGold)} / {fmt(ATRIDES_GOAL_NET_GOLD)}
                   </strong>
-                  <small>Trésor moins Dette</small>
+                  <small>{tr({ fr: "Trésor moins Dette", en: "Treasury minus Debt" })}</small>
                 </div>
 
                 <div className={`myth-stat ${atridesDrainDisabled ? "is-green" : "is-red"}`}>
-                  <span>Drain de Ressources</span>
-                  <strong>{atridesDrainDisabled ? "Désactivé" : "-10%"}</strong>
-                  <small>{atridesDrainDisabled ? "Transmission active" : "Va à la Dette"}</small>
+                  <span>{tr({ fr: "Drain de Ressources", en: "Resource Drain" })}</span>
+                  <strong>{atridesDrainDisabled ? tr({ fr: "Désactivé", en: "Disabled" }) : "-10%"}</strong>
+                  <small>{atridesDrainDisabled ? tr({ fr: "Transmission active", en: "Transmission active" }) : tr({ fr: "Va à la Dette", en: "Goes to Debt" })}</small>
                 </div>
               </div>
 
@@ -439,27 +440,27 @@ export default function CityView() {
                   onClick={rembourserAtridesDebt}
                   disabled={!canRepayAtrides}
                   className="btn-primary"
-                  title="Rembourse la dette en payant de l'Or"
+                  title={tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" })}
                 >
-                  Rembourser ({fmt(atridesRepayCost)} Or)
+                  {tr({ fr: `Rembourser (${fmt(atridesRepayCost)} Or)`, en: `Repay (${fmt(atridesRepayCost)} Gold)` })}
                 </button>
 
                 <button
                   onClick={renegocierAtridesDebt}
                   disabled={isRenegotiationOnCooldown}
                   className="btn-secondary"
-                  title="Réduit le taux de croissance de la dette de 70% pour 30s"
+                  title={tr({ fr: "Réduit le taux de croissance de la dette de 70% pour 30s", en: "Reduces the debt growth rate by 70% for 30s" })}
                 >
-                  {isRenegotiationOnCooldown ? `Renégocier (${renegocierCooldownSecs}s)` : "Renégocier (120s CD)"}
+                  {isRenegotiationOnCooldown ? tr({ fr: `Renégocier (${renegocierCooldownSecs}s)`, en: `Renegotiate (${renegocierCooldownSecs}s)` }) : tr({ fr: "Renégocier (120s CD)", en: "Renegotiate (120s CD)" })}
                 </button>
 
                 <button
                   onClick={transmettreAtrides}
                   disabled={atridesDrainDisabled}
                   className="btn-danger"
-                  title="Désactive le drain, gains de ruines x1.5, mais malus de production de 20% au cycle suivant"
+                  title={tr({ fr: "Désactive le drain, gains de ruines x1.5, mais malus de production de 20% au cycle suivant", en: "Disables the drain, ruins gains x1.5, but a 20% production penalty on the next cycle" })}
                 >
-                  {atridesDrainDisabled ? "Transmis" : "Transmettre (Ruines x1.5)"}
+                  {atridesDrainDisabled ? tr({ fr: "Transmis", en: "Transmitted" }) : tr({ fr: "Transmettre (Ruines x1.5)", en: "Transmit (Ruins x1.5)" })}
                 </button>
               </div>
             </div>
@@ -471,30 +472,30 @@ export default function CityView() {
           <div className={`myth-panel myth-panel--enee enee-panel${eneeDegraded ? ' is-degraded' : ''}`}>
             <div className="panel-heading">
               <div>
-                <span className={`label ${eneeDegraded ? 'label-red' : 'label-green'}`}>Acte I · Le Mythe d'Énée</span>
-                <h2>Territoire & Migration</h2>
+                <span className={`label ${eneeDegraded ? 'label-red' : 'label-green'}`}>{tr({ fr: "Acte I · Le Mythe d'Énée", en: "Act I · The Myth of Aeneas" })}</span>
+                <h2>{tr({ fr: "Territoire & Migration", en: "Territory & Migration" })}</h2>
               </div>
             </div>
 
             <div className="myth-panel-body">
               <div className="myth-stats-grid">
                 <div className="myth-stat is-green">
-                  <span>Migrations Effectuées</span>
+                  <span>{tr({ fr: "Migrations Effectuées", en: "Migrations Completed" })}</span>
                   <strong className={eneeMigrations >= ENEE_MIGRATIONS_TARGET ? "stat-green" : "stat-text"}>
                     {eneeMigrations} / {ENEE_MIGRATIONS_TARGET}
                   </strong>
                 </div>
 
                 <div className={`myth-stat ${eneeDegraded ? "is-red" : ""}`}>
-                  <span>Statut du Territoire</span>
+                  <span>{tr({ fr: "Statut du Territoire", en: "Territory Status" })}</span>
                   {eneeDegraded ? (
-                    <strong>DÉGRADÉ (Invivable)</strong>
+                    <strong>{tr({ fr: "DÉGRADÉ (Invivable)", en: "DEGRADED (Uninhabitable)" })}</strong>
                   ) : (
                     <>
                       <strong>
                         {Math.floor(eneeRemainingSecs / 60)}m {String(eneeRemainingSecs % 60).padStart(2, '0')}s
                       </strong>
-                      <small>Avant dégradation</small>
+                      <small>{tr({ fr: "Avant dégradation", en: "Until degradation" })}</small>
                     </>
                   )}
                 </div>
@@ -502,7 +503,7 @@ export default function CityView() {
 
               {eneeDegraded && (
                 <div className="myth-alert">
-                  ⚠️ <strong>Alerte : Le territoire se dégrade !</strong> Nourriture à 0, Or bloqué, Usure x2. Migrez dès que possible.
+                  ⚠️ {tr({ fr: <><strong>Alerte : Le territoire se dégrade !</strong> Nourriture à 0, Or bloqué, Usure x2. Migrez dès que possible.</>, en: <><strong>Alert: The territory is degrading!</strong> Food at 0, Gold blocked, Wear x2. Migrate as soon as possible.</> })}
                 </div>
               )}
 
@@ -510,9 +511,9 @@ export default function CityView() {
                 onClick={migrerEnee}
                 disabled={!eneeDegraded}
                 className="btn-critical enee-migrate-btn"
-                title={eneeDegraded ? "Détruit tous les bâtiments mais conserve les ressources (Or, Population, Savoir)" : "Le territoire est viable pour le moment."}
+                title={eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Population, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Population, Knowledge)" }) : tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." })}
               >
-                {eneeDegraded ? "MIGRER (Nouveau Territoire)" : "Territoire viable (Attendre dégradation)"}
+                {eneeDegraded ? tr({ fr: "MIGRER (Nouveau Territoire)", en: "MIGRATE (New Territory)" }) : tr({ fr: "Territoire viable (Attendre dégradation)", en: "Territory viable (Await degradation)" })}
               </button>
             </div>
           </div>
@@ -521,109 +522,109 @@ export default function CityView() {
             {/* Cartes de statut des mythes & puissance latente */}
             <div className="myths-grid-redesigned">
               {isSisyphe && (
-                <div className="myth-status-card sisyphus" title="Le mythe de Sisyphe est actif">
+                <div className="myth-status-card sisyphus" title={tr({ fr: "Le mythe de Sisyphe est actif", en: "The myth of Sisyphus is active" })}>
                   <span className="myth-card-icon">🪨</span>
                   <div className="myth-card-info">
-                    <span>Sisyphe</span>
-                    <strong id="sisypheMultValue">Production x{fmt(sisypheMult || 1)}</strong>
+                    <span>{tr({ fr: "Sisyphe", en: "Sisyphus" })}</span>
+                    <strong id="sisypheMultValue">{tr({ fr: `Production x${fmt(sisypheMult || 1)}`, en: `Production x${fmt(sisypheMult || 1)}` })}</strong>
                   </div>
                 </div>
               )}
               {isIcare && (
-                <div className="myth-status-card icare" title="Le mythe d'Icare est actif">
+                <div className="myth-status-card icare" title={tr({ fr: "Le mythe d'Icare est actif", en: "The myth of Icarus is active" })}>
                   <span className="myth-card-icon">🪶</span>
                   <div className="myth-card-info">
-                    <span>Icare</span>
+                    <span>{tr({ fr: "Icare", en: "Icarus" })}</span>
                     <strong id="icareTimerValue">
-                      {icareInfraReached ? "Soleil touché !" : `${fmt(infrastructure)} / ${fmt(ICARE_INFRA_TARGET)} Infra`}
+                      {icareInfraReached ? tr({ fr: "Soleil touché !", en: "Sun reached!" }) : tr({ fr: `${fmt(infrastructure)} / ${fmt(ICARE_INFRA_TARGET)} Infra`, en: `${fmt(infrastructure)} / ${fmt(ICARE_INFRA_TARGET)} Infra` })}
                     </strong>
                   </div>
                 </div>
               )}
               {isBabel && (
-                <div className="myth-status-card babel" title="Le mythe de Babel est actif">
+                <div className="myth-status-card babel" title={tr({ fr: "Le mythe de Babel est actif", en: "The myth of Babel is active" })}>
                   <span className="myth-card-icon">🏗</span>
                   <div className="myth-card-info">
-                    <span>Babel ({BABEL_CAT_LABELS[babelCategory] || babelCategory || 'Non choisi'})</span>
-                    <strong id="babelMultValue">{babelProdReached ? "Tour achevée !" : "En construction"}</strong>
+                    <span>Babel ({tr(BABEL_CAT_LABELS[babelCategory]) || babelCategory || tr({ fr: 'Non choisi', en: 'Not chosen' })})</span>
+                    <strong id="babelMultValue">{babelProdReached ? tr({ fr: "Tour achevée !", en: "Tower completed!" }) : tr({ fr: "En construction", en: "Under construction" })}</strong>
                   </div>
                 </div>
               )}
               {isOr && (
-                <div className="myth-status-card age-or" title="Le mythe de l'Âge d'Or est actif">
+                <div className="myth-status-card age-or" title={tr({ fr: "Le mythe de l'Âge d'Or est actif", en: "The myth of the Golden Age is active" })}>
                   <span className="myth-card-icon">✦</span>
                   <div className="myth-card-info">
-                    <span>Âge d'Or ({orUsureImbalance ? "Déséquilibré" : "Équilibré"})</span>
-                    <strong>Or: {fmt(gold)}/{fmt(OR_GOLD_TARGET)} | Pop Peak: {fmt(orPopPeak)}/{fmt(OR_POP_CAP)}</strong>
+                    <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })} ({orUsureImbalance ? tr({ fr: "Déséquilibré", en: "Imbalanced" }) : tr({ fr: "Équilibré", en: "Balanced" })})</span>
+                    <strong>{tr({ fr: `Or: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}`, en: `Gold: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}` })}</strong>
                   </div>
                 </div>
               )}
               {isPhoenix && (
-                <div className="myth-status-card phoenix" title="Le mythe du Phénix est actif">
+                <div className="myth-status-card phoenix" title={tr({ fr: "Le mythe du Phénix est actif", en: "The myth of the Phoenix is active" })}>
                   <span className="myth-card-icon">🔥</span>
                   <div className="myth-card-info">
-                    <span>Phénix</span>
-                    <strong>Renaissances: {phoenixRenaissances || 0}/{PHENIX_RENAISSANCE_TARGET} | Pop: {fmt(population)}/{fmt(phoenixRebirthTargetPop)} | Fenêtre: {phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}</strong>
+                    <span>{tr({ fr: "Phénix", en: "Phoenix" })}</span>
+                    <strong>{tr({ fr: `Renaissances: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Fenêtre: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}`, en: `Rebirths: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Window: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}` })}</strong>
                   </div>
                 </div>
               )}
               {isHeph && (
-                <div className="myth-status-card heph" title="Le mythe d'Héphaïstos est actif">
+                <div className="myth-status-card heph" title={tr({ fr: "Le mythe d'Héphaïstos est actif", en: "The myth of Hephaestus is active" })}>
                   <span className="myth-card-icon">⚙</span>
                   <div className="myth-card-info">
-                    <span>Héphaïstos {hephGoalReached && " (Pacte accompli !)"}</span>
-                    <strong>Infra: {fmt(infrastructure)}/{fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | {D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}</strong>
+                    <span>{tr({ fr: "Héphaïstos", en: "Hephaestus" })} {hephGoalReached && tr({ fr: " (Pacte accompli !)", en: " (Pact fulfilled!)" })}</span>
+                    <strong>{tr({ fr: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}`, en: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Pop decline' : 'Stable'}` })}</strong>
                   </div>
                 </div>
               )}
               {isAtrides && (
-                <div className="myth-status-card atrides" title="Le fardeau des Atrides est actif">
+                <div className="myth-status-card atrides" title={tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" })}>
                   <span className="myth-card-icon">⚖</span>
                   <div className="myth-card-info">
-                    <span>Atrides</span>
-                    <strong>Dette: {fmt(atridesDebt)} | Net: {fmt(netGold)}</strong>
+                    <span>{tr({ fr: "Atrides", en: "Atreides" })}</span>
+                    <strong>{tr({ fr: `Dette: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}`, en: `Debt: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}` })}</strong>
                   </div>
                 </div>
               )}
               {atridesPactActive && (
-                <div className="myth-status-card atrides-pact" title="Pacte des Atrides scellé">
+                <div className="myth-status-card atrides-pact" title={tr({ fr: "Pacte des Atrides scellé", en: "Atreides Pact sealed" })}>
                   <span className="myth-card-icon">📜</span>
                   <div className="myth-card-info">
-                    <span>Pacte Atrides</span>
+                    <span>{tr({ fr: "Pacte Atrides", en: "Atreides Pact" })}</span>
                     <strong>
-                      {cycleSeconds < 120 
-                        ? "Bonus actif (x2.0)" 
-                        : crisisOpen() 
-                        ? "Malus actif (x0.5)" 
-                        : "Pacte latent"}
+                      {cycleSeconds < 120
+                        ? tr({ fr: "Bonus actif (x2.0)", en: "Bonus active (x2.0)" })
+                        : crisisOpen()
+                        ? tr({ fr: "Malus actif (x0.5)", en: "Penalty active (x0.5)" })
+                        : tr({ fr: "Pacte latent", en: "Pact latent" })}
                     </strong>
                   </div>
                 </div>
               )}
               {atridesNextRunPenaltyActive && (
-                <div className="myth-status-card atrides-penalty" title="Malus de transmission des Atrides actif">
+                <div className="myth-status-card atrides-penalty" title={tr({ fr: "Malus de transmission des Atrides actif", en: "Atreides transmission penalty active" })}>
                   <span className="myth-card-icon">⚠️</span>
                   <div className="myth-card-info">
-                    <span>Fardeau Atrides</span>
-                    <strong className="danger-text">Production globale -20%</strong>
+                    <span>{tr({ fr: "Fardeau Atrides", en: "Atreides Burden" })}</span>
+                    <strong className="danger-text">{tr({ fr: "Production globale -20%", en: "Global production -20%" })}</strong>
                   </div>
                 </div>
               )}
               {isMythEffectActive("mythe_d_enee") && (
-                <div className="myth-status-card enee" title="Le mythe d'Énée est actif">
+                <div className="myth-status-card enee" title={tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" })}>
                   <span className="myth-card-icon">⛵</span>
                   <div className="myth-card-info">
-                    <span>Énée</span>
-                    <strong>Migr: {eneeMigrations}/{ENEE_MIGRATIONS_TARGET} | {eneeDegraded ? "Invivable !" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}</strong>
+                    <span>{tr({ fr: "Énée", en: "Aeneas" })}</span>
+                    <strong>{tr({ fr: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Invivable !" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}`, en: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Uninhabitable!" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}` })}</strong>
                   </div>
                 </div>
               )}
               {eneeHeritage && cycleSeconds < 30 && (
-                <div className="myth-status-card enee-heritage" title="Bénédiction d'Énée active pour le début du cycle">
+                <div className="myth-status-card enee-heritage" title={tr({ fr: "Bénédiction d'Énée active pour le début du cycle", en: "Aeneas's Blessing active for the start of the cycle" })}>
                   <span className="myth-card-icon">⚖</span>
                   <div className="myth-card-info">
-                    <span>Bénédiction Énée</span>
-                    <strong className="positive-text">Prod globale +{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong>
+                    <span>{tr({ fr: "Bénédiction Énée", en: "Aeneas's Blessing" })}</span>
+                    <strong className="positive-text">{tr({ fr: `Prod globale +${Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%`, en: `Global prod +${Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%` })}</strong>
                   </div>
                 </div>
               )}
@@ -634,19 +635,19 @@ export default function CityView() {
                 >
                   <span className="myth-card-icon">{activeEpitaphDefinition.icon || "📜"}</span>
                   <div className="myth-card-info">
-                    <span>Legs : {activeEpitaphDefinition.logLabel}</span>
+                    <span>{tr({ fr: `Legs : ${activeEpitaphDefinition.logLabel}`, en: `Legacy: ${activeEpitaphDefinition.logLabel}` })}</span>
                     <strong>
-                      {Math.floor(epitaphRemainingSeconds / 60)}m {String(epitaphRemainingSeconds % 60).padStart(2, "0")}s restantes
+                      {tr({ fr: `${Math.floor(epitaphRemainingSeconds / 60)}m ${String(epitaphRemainingSeconds % 60).padStart(2, "0")}s restantes`, en: `${Math.floor(epitaphRemainingSeconds / 60)}m ${String(epitaphRemainingSeconds % 60).padStart(2, "0")}s remaining` })}
                     </strong>
                   </div>
                 </div>
               )}
               {hasLatent && (
-                <div className="myth-status-card latent" id="cityLatentRow" title="Bonus de ruines non dépensées">
+                <div className="myth-status-card latent" id="cityLatentRow" title={tr({ fr: "Bonus de ruines non dépensées", en: "Bonus from unspent ruins" })}>
                   <span className="myth-card-icon">✨</span>
                   <div className="myth-card-info">
-                    <span>Puissance Latente</span>
-                    <strong id="cityLatentBonus">Bonus global x{fmt(unspentMult)}</strong>
+                    <span>{tr({ fr: "Puissance Latente", en: "Latent Power" })}</span>
+                    <strong id="cityLatentBonus">{tr({ fr: `Bonus global x${fmt(unspentMult)}`, en: `Global bonus x${fmt(unspentMult)}` })}</strong>
                   </div>
                 </div>
               )}

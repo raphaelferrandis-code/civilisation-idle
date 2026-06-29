@@ -19,6 +19,7 @@ import {
 
 import { buildings } from '../../data/buildings.js';
 import { canPayCost, payCost } from '../utils.js';
+import { tr } from '../i18n.js';
 import { D } from '../num.js';
 import { collapse, runCrisisAction } from './crisis.js';
 import { log, chronicle } from './utils.js';
@@ -141,7 +142,7 @@ export function checkAutomateRules() {
           state.buildings[cheapest.id] = (state.buildings[cheapest.id] || 0) + 1;
           invalidateRenderCache("buildings");
           didBuy = true;
-          chronicle(`Les mécanismes automatiques ont discrètement érigé : ${cheapest.name.toLowerCase()}.`);
+          chronicle(`Les mécanismes automatiques ont discrètement érigé : ${tr(cheapest.name).toLowerCase()}.`);
         }
       }
     }

@@ -1,6 +1,7 @@
 "use strict";
 
 import { clamp } from "../core/utils.js";
+import { localizeData } from "../core/i18n.js";
 
 export const OLYMPUS_IDLE_THRESHOLD_MS = 3 * 60_000;
 export const OLYMPUS_HIGH_RUPTURE = 0.72;
@@ -14,31 +15,31 @@ export const OLYMPUS_ABYSS_PROD_MAX = 1.35;
 export const OLYMPUS_PROFILES = {
   apocalypse: {
     id: "apocalypse",
-    name: "Culte Apocalyptique",
-    short: "Dieu de la Fin",
-    description: "Tes habitants t'adorent comme le Dieu de la Fin. Ils construisent des temples aux ruines et comptent les annees en effondrements.",
-    heritageDescription: "Les effondrements rapides accordent un bonus de Ruines."
+    name: { fr: "Culte Apocalyptique", en: "Apocalyptic Cult" },
+    short: { fr: "Dieu de la Fin", en: "God of the End" },
+    description: { fr: "Tes habitants t'adorent comme le Dieu de la Fin. Ils construisent des temples aux ruines et comptent les annees en effondrements.", en: "Your people worship you as the God of the End. They build temples to ruins and count the years in collapses." },
+    heritageDescription: { fr: "Les effondrements rapides accordent un bonus de Ruines.", en: "Swift collapses grant a Ruins bonus." }
   },
   bureaucracy: {
     id: "bureaucracy",
-    name: "Bureaucratie Sacree",
-    short: "Dieu des Registres",
-    description: "La cite voit tes decisions comme des decrets sacres. Chaque crise classee, payee, resolue devient une priere administrative.",
-    heritageDescription: "Les crises resolues donnent un petit bonus de Savoir."
+    name: { fr: "Bureaucratie Sacree", en: "Sacred Bureaucracy" },
+    short: { fr: "Dieu des Registres", en: "God of Records" },
+    description: { fr: "La cite voit tes decisions comme des decrets sacres. Chaque crise classee, payee, resolue devient une priere administrative.", en: "The city sees your decisions as sacred decrees. Every crisis filed, paid, resolved becomes an administrative prayer." },
+    heritageDescription: { fr: "Les crises resolues donnent un petit bonus de Savoir.", en: "Resolved crises grant a small Knowledge bonus." }
   },
   sleep: {
     id: "sleep",
-    name: "Religion du Sommeil",
-    short: "Dieu qui Reve",
-    description: "Tes habitants pensent que le monde avance pendant que tu dors. Les veilleurs parlent bas pour ne pas reveiller la divinite.",
-    heritageDescription: "Les longues sessions idle generent un micro-bonus passif."
+    name: { fr: "Religion du Sommeil", en: "Religion of Sleep" },
+    short: { fr: "Dieu qui Reve", en: "Dreaming God" },
+    description: { fr: "Tes habitants pensent que le monde avance pendant que tu dors. Les veilleurs parlent bas pour ne pas reveiller la divinite.", en: "Your people believe the world moves forward while you sleep. The watchmen speak low so as not to wake the divinity." },
+    heritageDescription: { fr: "Les longues sessions idle generent un micro-bonus passif.", en: "Long idle sessions generate a passive micro-bonus." }
   },
   abyss: {
     id: "abyss",
-    name: "Secte de l'Abime",
-    short: "Dieu du Bord",
-    description: "La cite apprend a prier au bord du gouffre. Elle aime la Rupture haute, les murs qui tremblent, les decisions qui viennent trop tard.",
-    heritageDescription: "Tenir avec une Rupture haute donne un multiplicateur de production."
+    name: { fr: "Secte de l'Abime", en: "Cult of the Abyss" },
+    short: { fr: "Dieu du Bord", en: "God of the Brink" },
+    description: { fr: "La cite apprend a prier au bord du gouffre. Elle aime la Rupture haute, les murs qui tremblent, les decisions qui viennent trop tard.", en: "The city learns to pray at the edge of the chasm. It loves high Rupture, trembling walls, decisions that come too late." },
+    heritageDescription: { fr: "Tenir avec une Rupture haute donne un multiplicateur de production.", en: "Holding on with high Rupture grants a production multiplier." }
   }
 };
 
@@ -168,3 +169,6 @@ export function unlockedOlympusProfile(olympus) {
   if (!olympus?.unlockedProfile) return null;
   return OLYMPUS_PROFILES[olympus.unlockedProfile] || null;
 }
+
+// Aplatit les feuilles { fr, en } des profils en chaînes (cf. i18n.js).
+localizeData(OLYMPUS_PROFILES);

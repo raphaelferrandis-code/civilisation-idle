@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { importSave } from '../../game/core/main.js';
+import { tr } from '../../game/core/i18n.js';
 
 export default function ImportDialog({ isOpen, onClose }) {
   const dialogRef = useRef(null);
@@ -26,10 +27,10 @@ export default function ImportDialog({ isOpen, onClose }) {
 
     const success = importSave(text);
     if (success) {
-      alert("Sauvegarde importee avec succes !");
+      alert(tr({ fr: "Sauvegarde importee avec succes !", en: "Save imported successfully!" }));
       handleClose();
     } else {
-      alert("Echec de l'importation : texte de sauvegarde invalide.");
+      alert(tr({ fr: "Echec de l'importation : texte de sauvegarde invalide.", en: "Import failed: invalid save text." }));
     }
   };
 
@@ -48,18 +49,18 @@ export default function ImportDialog({ isOpen, onClose }) {
       onClose={handleClose}
     >
       <form onSubmit={handleImport}>
-        <h2>Importer une sauvegarde</h2>
+        <h2>{tr({ fr: "Importer une sauvegarde", en: "Import a save" })}</h2>
         <textarea
           id="importText"
           spellCheck="false"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Collez votre code de sauvegarde ici..."
+          placeholder={tr({ fr: "Collez votre code de sauvegarde ici...", en: "Paste your save code here..." })}
           style={{ width: '100%', minHeight: '150px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem', borderRadius: '4px', resize: 'vertical' }}
         />
         <menu style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={handleClose}>Annuler</button>
-          <button type="submit" className="confirm-btn">Importer</button>
+          <button type="button" onClick={handleClose}>{tr({ fr: "Annuler", en: "Cancel" })}</button>
+          <button type="submit" className="confirm-btn">{tr({ fr: "Importer", en: "Import" })}</button>
         </menu>
       </form>
     </dialog>

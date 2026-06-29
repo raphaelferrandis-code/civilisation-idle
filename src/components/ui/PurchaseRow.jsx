@@ -2,6 +2,7 @@ import { memo, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, signed, signedShort, labelFor } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 
 const RES_CLASS = {
@@ -169,11 +170,11 @@ function PurchaseRow({
 
       <div className="pr-main">
         <div className="pr-name-row">
-          <h3 className="pr-name" title={b.desc}>{b.name}</h3>
+          <h3 className="pr-name" title={tr(b.desc)}>{tr(b.name)}</h3>
           {milestoneInfo && (
             <span
               className="pr-milestone-badge"
-              title={`Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`}
+              title={tr({ fr: `Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`, en: `Milestone production bonus: ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})` })}
             >
               <i className="fa-solid fa-bolt" aria-hidden="true"></i>
               {"×"}{fmtShort(milestoneInfo.bonus)}
@@ -183,7 +184,7 @@ function PurchaseRow({
 
         <div className="pr-prod">
           {production.length === 0 ? (
-            <span className="pr-prod-item pr-prod-indirect">effet indirect</span>
+            <span className="pr-prod-item pr-prod-indirect">{tr({ fr: "effet indirect", en: "indirect effect" })}</span>
           ) : (
             production.map(([key, value]) => (
               <span
@@ -200,14 +201,14 @@ function PurchaseRow({
 
         <div
           className="pr-step-track"
-          title={`Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`}
+          title={tr({ fr: `Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`, en: `${stepLabel} milestone in ${nextIn} purchase${nextIn > 1 ? "s" : ""}` })}
           aria-hidden="true"
         >
           <span style={{ width: `${stepPct}%` }}></span>
         </div>
       </div>
 
-      <span className="pr-count" title={`Possédés : ${countLabel}`} aria-label={`${countLabel} possédés`}>
+      <span className="pr-count" title={tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` })} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
         <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
       </span>
 
@@ -215,13 +216,13 @@ function PurchaseRow({
         className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
         disabled={!affordable}
         onClick={handleBuy}
-        title="Shift-clic : ×10 — Ctrl-clic : ×100"
+        title={tr({ fr: "Shift-clic : ×10 — Ctrl-clic : ×100", en: "Shift-click: ×10 — Ctrl-click: ×100" })}
       >
         {floats.map((f) => (
           <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
         ))}
         <span className="bp-action">
-          {buyAmount === "max" ? "Acheter Max" : `Acheter ×${buyAmount}`}
+          {buyAmount === "max" ? tr({ fr: "Acheter Max", en: "Buy Max" }) : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
         </span>
         <span className="bp-cost">
           {Object.entries(prices).map(([currency, amount]) => (

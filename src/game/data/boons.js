@@ -1,5 +1,7 @@
 "use strict";
 
+import { tr, localizeData } from '../core/i18n.js';
+
 /* ============================================================================
  * boons.js — Aubaines (B2) : petites récompenses positives régulières.
  *
@@ -21,39 +23,43 @@ export const BOONS = [
     resource: "gold",
     seconds: 110,
     icon: "💰",
-    label: "Caravane marchande",
-    chronicle: (amt) => `Une caravane venue d'horizons lointains décharge ses coffres sur nos quais : +${amt} trésor.`
+    label: { fr: "Caravane marchande", en: "Merchant caravan" },
+    chronicle: (amt) => tr({ fr: `Une caravane venue d'horizons lointains décharge ses coffres sur nos quais : +${amt} trésor.`, en: `A caravan from distant horizons unloads its coffers on our quays: +${amt} treasury.` })
   },
   {
     id: "harvest",
     resource: "food",
     seconds: 110,
     icon: "🌾",
-    label: "Moisson généreuse",
-    chronicle: (amt) => `Les saisons nous sourient : les greniers débordent d'une récolte inespérée, +${amt} vivres.`
+    label: { fr: "Moisson généreuse", en: "Bountiful harvest" },
+    chronicle: (amt) => tr({ fr: `Les saisons nous sourient : les greniers débordent d'une récolte inespérée, +${amt} vivres.`, en: `The seasons smile upon us: the granaries overflow with an unhoped-for harvest, +${amt} food.` })
   },
   {
     id: "discovery",
     resource: "knowledge",
     seconds: 110,
     icon: "📜",
-    label: "Découverte",
-    chronicle: (amt) => `Un érudit perce un secret resté longtemps obscur ; nos archives s'enrichissent de +${amt} savoir.`
+    label: { fr: "Découverte", en: "Discovery" },
+    chronicle: (amt) => tr({ fr: `Un érudit perce un secret resté longtemps obscur ; nos archives s'enrichissent de +${amt} savoir.`, en: `A scholar unravels a secret long left obscure; our archives grow richer by +${amt} knowledge.` })
   },
   {
     id: "migrants",
     resource: "population",
     seconds: 150,
     icon: "👥",
-    label: "Vague de migrants",
-    chronicle: (amt) => `Des familles venues d'ailleurs choisissent notre cité pour foyer : +${amt} habitants.`
+    label: { fr: "Vague de migrants", en: "Wave of migrants" },
+    chronicle: (amt) => tr({ fr: `Des familles venues d'ailleurs choisissent notre cité pour foyer : +${amt} habitants.`, en: `Families from elsewhere choose our city for their home: +${amt} inhabitants.` })
   },
   {
     id: "builders",
     resource: "infrastructure",
     seconds: 110,
     icon: "🏗️",
-    label: "Corvée volontaire",
-    chronicle: (amt) => `Une corvée enthousiaste consolide nos ouvrages publics : +${amt} infrastructure.`
+    label: { fr: "Corvée volontaire", en: "Volunteer labor" },
+    chronicle: (amt) => tr({ fr: `Une corvée enthousiaste consolide nos ouvrages publics : +${amt} infrastructure.`, en: `An eager work-gang shores up our public works: +${amt} infrastructure.` })
   }
 ];
+
+// Aplatit les `label` { fr, en } en chaînes (cf. i18n.js). Les fonctions
+// chronicle() sont déjà résolues via tr() à l'appel.
+localizeData(BOONS);

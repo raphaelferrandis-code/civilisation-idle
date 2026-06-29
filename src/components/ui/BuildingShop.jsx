@@ -11,6 +11,7 @@ import {
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { buildingById, renderCache } from '../../game/core/state.js';
+import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
@@ -28,9 +29,9 @@ function buildingProductionSegments(building, outputCount, globalMult, sqrtGloba
 }
 
 const TABS = [
-  { id: "city", label: "Moteurs" },
-  { id: "knowledge", label: "Savoir" },
-  { id: "infra", label: "Infrastructure" }
+  { id: "city", label: { fr: "Moteurs", en: "Engines" } },
+  { id: "knowledge", label: { fr: "Savoir", en: "Knowledge" } },
+  { id: "infra", label: { fr: "Infrastructure", en: "Infrastructure" } }
 ];
 
 function BuildingShop() {
@@ -129,9 +130,9 @@ function BuildingShop() {
           className="shop-collapse-toggle"
           aria-expanded={open}
           onClick={toggleOpen}
-          title={open ? "Réduire la boutique" : "Déplier la boutique"}
+          title={open ? tr({ fr: "Réduire la boutique", en: "Collapse the shop" }) : tr({ fr: "Déplier la boutique", en: "Expand the shop" })}
         >
-          <h2>Bâtiments</h2>
+          <h2>{tr({ fr: "Bâtiments", en: "Buildings" })}</h2>
           <span className="hud-panel-chevron" aria-hidden="true"></span>
         </button>
         {open && <BuyToolbar />}
@@ -152,8 +153,8 @@ function BuildingShop() {
                 role="tab"
                 aria-selected={activeTab === tab.id}
               >
-                <span className="subtab-label">{tab.label}</span>
-                {n > 0 && <span className="subtab-badge" title={`${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`}>{n}</span>}
+                <span className="subtab-label">{tr(tab.label)}</span>
+                {n > 0 && <span className="subtab-badge" title={tr({ fr: `${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`, en: `${n} purchase${n > 1 ? "s" : ""} available` })}>{n}</span>}
               </button>
             );
           })}
@@ -203,12 +204,14 @@ function BuildingShop() {
           if (nextLocked.unlockBuilding) {
             const req = buildingById[nextLocked.unlockBuilding.id];
             const have = stateBuildings[nextLocked.unlockBuilding.id] || 0;
-            conditions.push(`${have}/${nextLocked.unlockBuilding.count} ${req?.name || nextLocked.unlockBuilding.id}`);
+            conditions.push(`${have}/${nextLocked.unlockBuilding.count} ${req ? tr(req.name) : nextLocked.unlockBuilding.id}`);
           }
           if (nextLocked.unlockCycles && stateCycles < nextLocked.unlockCycles) {
             conditions.push(`cycle ${nextLocked.unlockCycles}`);
           }
-          const hint = conditions.length ? `Débloqué avec : ${conditions.join(" + ")}` : "Bientôt disponible";
+          const hint = conditions.length
+            ? tr({ fr: `Débloqué avec : ${conditions.join(" + ")}`, en: `Unlocked with: ${conditions.join(" + ")}` })
+            : tr({ fr: "Bientôt disponible", en: "Available soon" });
 
           return (
             <article className="purchase-row pr-locked">
@@ -217,12 +220,12 @@ function BuildingShop() {
               </div>
               <div className="pr-main">
                 <div className="pr-name-row">
-                  <h3 className="pr-name">{nextLocked.name}</h3>
+                  <h3 className="pr-name">{tr(nextLocked.name)}</h3>
                 </div>
                 <p className="pr-locked-hint">{hint}</p>
               </div>
               <button className="btn-purchase" disabled>
-                <span className="bp-action">Bientôt</span>
+                <span className="bp-action">{tr({ fr: "Bientôt", en: "Soon" })}</span>
               </button>
             </article>
           );

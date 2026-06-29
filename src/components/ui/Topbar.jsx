@@ -7,6 +7,7 @@ import {
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
 import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
@@ -49,41 +50,71 @@ export default function Topbar() {
   const nomadCap = nomadInfrastructureCap();
 
   /* Humeurs (déplacées en tooltip) */
-  const foodMood = mood(vitals.foodScore, ["Famine proche", "Greniers modestes", "Surplus rassurant", "Abondance"]);
-  const goldMood = mood(vitals.goldScore, ["Troc local", "Bourses maigres", "Commerce actif", "Trésor florissant"]);
-  const knowledgeMood = mood(vitals.knowledgeScore, ["Traditions orales", "Archives naissantes", "Savoirs partagés", "Culture savante"]);
+  const foodMood = mood(vitals.foodScore, [
+    { fr: "Famine proche", en: "Famine looms" },
+    { fr: "Greniers modestes", en: "Modest granaries" },
+    { fr: "Surplus rassurant", en: "Reassuring surplus" },
+    { fr: "Abondance", en: "Abundance" }
+  ]);
+  const goldMood = mood(vitals.goldScore, [
+    { fr: "Troc local", en: "Local barter" },
+    { fr: "Bourses maigres", en: "Lean purses" },
+    { fr: "Commerce actif", en: "Lively trade" },
+    { fr: "Trésor florissant", en: "Flourishing treasury" }
+  ]);
+  const knowledgeMood = mood(vitals.knowledgeScore, [
+    { fr: "Traditions orales", en: "Oral traditions" },
+    { fr: "Archives naissantes", en: "Nascent archives" },
+    { fr: "Savoirs partagés", en: "Shared knowledge" },
+    { fr: "Culture savante", en: "Learned culture" }
+  ]);
 
   const tooltips = {
-    population: "Fondation démographique de votre empire.",
-    food: `Réserves : ${foodMood}\nCroissance pop ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
-    gold: `Économie : ${goldMood}\nOr ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`,
-    knowledge: `Mémoire : ${knowledgeMood}\nSavoir ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
-    infrastructure: `Réseau routier et solidité technique.${showNomadCap ? `\nCap nomade : ${fmt(nomadCap)}` : ""}`
+    population: tr({
+      fr: "Fondation démographique de votre empire.",
+      en: "Demographic foundation of your empire."
+    }),
+    food: tr({
+      fr: `Réserves : ${tr(foodMood)}\nCroissance pop ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
+      en: `Reserves: ${tr(foodMood)}\nPop growth ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
+    }),
+    gold: tr({
+      fr: `Économie : ${tr(goldMood)}\nOr ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`,
+      en: `Economy: ${tr(goldMood)}\nTreasury ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`
+    }),
+    knowledge: tr({
+      fr: `Mémoire : ${tr(knowledgeMood)}\nSavoir ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
+      en: `Memory: ${tr(knowledgeMood)}\nKnowledge ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`
+    }),
+    infrastructure: tr({
+      fr: `Réseau routier et solidité technique.${showNomadCap ? `\nCap nomade : ${fmt(nomadCap)}` : ""}`,
+      en: `Road network and technical resilience.${showNomadCap ? `\nNomad cap: ${fmt(nomadCap)}` : ""}`
+    })
   };
 
   const cards = [
     {
-      key: "population", cls: "card-pop", icon: "fa-users", name: "Population",
+      key: "population", cls: "card-pop", icon: "fa-users", name: { fr: "Population", en: "Population" },
       valueId: "population", value: population, rate: r.population, rateId: "popRate",
       gauge: null
     },
     {
-      key: "food", cls: "card-food", icon: "fa-wheat-awn", name: "Nourriture",
+      key: "food", cls: "card-food", icon: "fa-wheat-awn", name: { fr: "Nourriture", en: "Food" },
       valueId: "food", value: food, rate: r.food, rateId: "foodRate",
       gauge: { id: "foodBar", score: vitals.foodScore }
     },
     {
-      key: "gold", cls: "card-gold", icon: "fa-coins", name: "Trésor",
+      key: "gold", cls: "card-gold", icon: "fa-coins", name: { fr: "Trésor", en: "Treasury" },
       valueId: "gold", value: gold, rate: r.gold, rateId: "goldRate",
       gauge: { id: "goldBar", score: vitals.goldScore }
     },
     {
-      key: "knowledge", cls: "card-knowledge", icon: "fa-book-open", name: "Savoir",
+      key: "knowledge", cls: "card-knowledge", icon: "fa-book-open", name: { fr: "Savoir", en: "Knowledge" },
       valueId: "knowledge", value: knowledge, rate: r.knowledge, rateId: "knowledgeRate",
       gauge: { id: "knowledgeBar", score: vitals.knowledgeScore }
     },
     {
-      key: "infrastructure", cls: "card-infra", icon: "fa-archway", name: "Infrastructure",
+      key: "infrastructure", cls: "card-infra", icon: "fa-archway", name: { fr: "Infrastructure", en: "Infrastructure" },
       valueId: "infrastructure", value: infrastructure, rate: r.infrastructure, rateId: "infraRate",
       gauge: null
     }
@@ -102,9 +133,9 @@ export default function Topbar() {
             <div className="card-header">
               <div className="resource-title-wrapper">
                 <span className="resource-icon"><i className={`fa-solid ${c.icon}`}></i></span>
-                <span className="resource-name">{c.name}</span>
+                <span className="resource-name">{tr(c.name)}</span>
               </div>
-              <span className="resource-value" id={c.valueId} title={`${c.name} : ${exactLabel(c.value)}`}>
+              <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
                 <RollingNumber value={c.value} format={fmtShort} />
               </span>
             </div>

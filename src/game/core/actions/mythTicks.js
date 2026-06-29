@@ -10,6 +10,7 @@ import { promptCadmosAgeName } from './myths.js';
 
 import { log } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { D } from '../num.js';
 
 import {
@@ -139,7 +140,7 @@ export const MYTH_TICK_HANDLERS = {
     if (!state.babelProdReached) {
       if (babelExponentialMult() >= BABEL_MULT_TARGET) {
         state.babelProdReached = true;
-        const catLabel = BABEL_CAT_LABELS?.[state.babelCategory] || state.babelCategory;
+        const catLabel = tr(BABEL_CAT_LABELS?.[state.babelCategory]) || state.babelCategory;
         log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET} — le pacte est en passe d'etre honore.`);
       }
     }

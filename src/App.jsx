@@ -10,6 +10,8 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
+import { tr } from './game/core/i18n.js';
+import logoUrl from './assets/LOGO.png';
 
 const CityView = lazy(() => import('./components/views/CityView.jsx'));
 const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
@@ -107,18 +109,18 @@ export default function App() {
   const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
-    { id: 'city', label: 'Cité', icon: 'fa-city', unlocked: true },
-    { id: 'prestige', label: 'Effondrement', icon: 'fa-fire', unlocked: true },
-    { id: 'ruinsView', label: 'Ruines', icon: 'fa-landmark', unlocked: isRuinsUnlocked },
-    { id: 'tech', label: 'Héritage', icon: 'fa-monument', unlocked: isHeritageUnlocked },
-    { id: 'mythView', label: 'Mythes', icon: 'fa-bolt', unlocked: isMythsUnlocked },
-    { id: 'history', label: 'Chronique', icon: 'fa-feather', unlocked: true },
+    { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'fa-city', unlocked: true },
+    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'fa-fire', unlocked: true },
+    { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'fa-landmark', unlocked: isRuinsUnlocked },
+    { id: 'tech', label: { fr: 'Héritage', en: 'Heritage' }, icon: 'fa-monument', unlocked: isHeritageUnlocked },
+    { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'fa-bolt', unlocked: isMythsUnlocked },
+    { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'fa-feather', unlocked: true },
   ];
 
   const handleExport = async () => {
     const result = await exportSave();
     if (result.ok) {
-      alert("Sauvegarde exportee dans le presse-papiers !");
+      alert(tr({ fr: "Sauvegarde exportee dans le presse-papiers !", en: "Save exported to clipboard!" }));
     } else {
       prompt("Copie ce texte :", result.text);
     }
@@ -143,11 +145,7 @@ export default function App() {
       {/* Sidebar de navigation */}
       <aside className="sidebar">
         <div className="brand">
-          <span className="mark">CE</span>
-          <div>
-            <h1>Civilisation</h1>
-            <p>Effondrement Idle</p>
-          </div>
+          <img src={logoUrl} alt="Effondrement Idle" className="brand-logo" />
         </div>
         
         <nav className="tabs" aria-label="Vues">
@@ -157,11 +155,11 @@ export default function App() {
               className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
               disabled={crisisLocked && tab.id !== 'prestige'}
               onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
-              title={crisisLocked && tab.id !== 'prestige' ? 'Résolvez la crise en cours pour naviguer' : tab.label}
+              title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : tr(tab.label)}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
               <i className={`fa-solid ${tab.icon}`} aria-hidden="true"></i>
-              <span className="tab-label">{tab.label}</span>
+              <span className="tab-label">{tr(tab.label)}</span>
             </button>
           ))}
         </nav>
@@ -169,7 +167,7 @@ export default function App() {
         <CityStatusPanel />
 
         <div className="quick-actions">
-          <button className="btn-tiny" onClick={() => { save(); alert("Partie sauvegardée !"); }} title="Sauvegarder">
+          <button className="btn-tiny" onClick={() => { save(); alert(tr({ fr: "Partie sauvegardée !", en: "Game saved!" })); }} title="Sauvegarder">
             <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i><span className="qa-label">Save</span>
           </button>
           <button className="btn-tiny" onClick={handleExport} title="Exporter">
@@ -227,7 +225,9 @@ export default function App() {
       {eraBanner && (
         <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} role="status" aria-live="polite">
           <span className="era-banner-kicker">
-            {eraBanner.epoch ? `Une nouvelle époque s'ouvre — ${eraBanner.epoch}` : 'Un nouvel âge commence'}
+            {eraBanner.epoch
+              ? tr({ fr: `Une nouvelle époque s'ouvre — ${eraBanner.epoch}`, en: `A new epoch opens — ${eraBanner.epoch}` })
+              : tr({ fr: 'Un nouvel âge commence', en: 'A new age begins' })}
           </span>
           <strong className="era-banner-name">{eraBanner.name}</strong>
           {eraBanner.announce && (

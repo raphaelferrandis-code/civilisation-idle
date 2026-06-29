@@ -37,6 +37,7 @@ import { openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
+import { tr } from '../i18n.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -61,7 +62,7 @@ export function buyBuilding(id) {
   if (currentMilestone > previousMilestone) {
     // B1 — Float doré de palier : récompense visible à chaque tranche de 25.
     const info = buildingMilestoneInfo(building, state.buildings[id]);
-    pushOutcomeFloat({ label: `⭐ ${building.name} ×${fmt(info ? info.bonus : 1)}`, kind: "gain" });
+    pushOutcomeFloat({ label: `⭐ ${tr(building.name)} ×${fmt(info ? info.bonus : 1)}`, kind: "gain" });
   }
   if (isMythEffectActive("mythe_de_sisyphe")) {
     state.sisypheMult = (state.sisypheMult || 1) * SISYPHE_MULT_PER_PURCHASE;
@@ -88,8 +89,8 @@ export async function exhumeVestige() {
     title: "Vestige archéologique",
     body: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
     options: candidates.map((b) => ({
-      label: b.name,
-      detail: b.desc || "",
+      label: tr(b.name),
+      detail: tr(b.desc),
       buildingId: b.id
     }))
   });
@@ -107,7 +108,7 @@ export async function exhumeVestige() {
   state.archaeologyUsed = true;
   enforceInfrastructureCap();
   invalidateRenderCache("buildings");
-  chronicle(`Nos archéologues ont exhumé les ruines de : ${target.name}. Ses fondations antiques ont été restaurées.`);
+  chronicle(`Nos archéologues ont exhumé les ruines de : ${tr(target.name)}. Ses fondations antiques ont été restaurées.`);
   render();
 }
 

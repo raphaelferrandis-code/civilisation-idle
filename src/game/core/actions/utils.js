@@ -4,6 +4,7 @@ import { state } from '../state.js';
 import { currentEraIndex } from '../mechanics.js';
 import { eras } from '../../data/world.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 
 export function log(message) {
   state.history = [...(state.history || []), message].slice(-48);
@@ -30,9 +31,9 @@ export function chronicleBuilding(building, previousCount, newCount) {
     } else if (building.id === "bureaucracy") {
       chronicle(`Une bureaucratie naissante commence à enregistrer nos lois et décrets (+${fmt(amount)}).`);
     } else if (["foragers", "storytellers", "scribes", "ruin_architects"].includes(building.id)) {
-      chronicle(`Les premiers ${building.name.toLowerCase()} offrent leurs services et se joignent à notre destinée (+${fmt(amount)}).`);
+      chronicle(`Les premiers ${tr(building.name).toLowerCase()} offrent leurs services et se joignent à notre destinée (+${fmt(amount)}).`);
     } else {
-      chronicle(`Les premiers ${building.name.toLowerCase()} s'élèvent dans nos quartiers (+${fmt(amount)}).`);
+      chronicle(`Les premiers ${tr(building.name).toLowerCase()} s'élèvent dans nos quartiers (+${fmt(amount)}).`);
     }
   } else if (amount >= 25 || newCount % 25 === 0) {
     if (building.id === "watch") {
@@ -40,9 +41,9 @@ export function chronicleBuilding(building, previousCount, newCount) {
     } else if (building.id === "bureaucracy") {
       chronicle(`L'administration de la cité s'alourdit, comptant plus de fonctionnaires (${fmt(newCount)} unités, +${fmt(amount)}).`);
     } else if (["foragers", "storytellers", "scribes", "ruin_architects"].includes(building.id)) {
-      chronicle(`Notre corporation de ${building.name.toLowerCase()} s'agrandit pour atteindre ${fmt(newCount)} membres (+${fmt(amount)}).`);
+      chronicle(`Notre corporation de ${tr(building.name).toLowerCase()} s'agrandit pour atteindre ${fmt(newCount)} membres (+${fmt(amount)}).`);
     } else {
-      chronicle(`Le nombre de ${building.name.toLowerCase()} construits atteint désormais ${fmt(newCount)} édifices (+${fmt(amount)}).`);
+      chronicle(`Le nombre de ${tr(building.name).toLowerCase()} construits atteint désormais ${fmt(newCount)} édifices (+${fmt(amount)}).`);
     }
   }
 }

@@ -16,6 +16,7 @@ import {
   PRESTIGE_DOGMAS,
 } from "../../game/data/upgrades.js";
 import { fmt } from "../../game/core/utils.js";
+import { tr } from "../../game/core/i18n.js";
 import { computeRuinTreeLayout, LAYOUT } from "./ruinsTree/layout.js";
 import { branchTheme } from "./ruinsTree/branchTheme.js";
 import { iconFor } from "./ruinsTree/nodeIcon.js";
@@ -23,18 +24,18 @@ import TreeNode from "./ruinsTree/TreeNode.jsx";
 import NodeTooltip from "./ruinsTree/NodeTooltip.jsx";
 
 const STATUS_LABEL = {
-  purchased: "Acheté",
-  available: "Disponible",
-  blocked: "Exclu",
-  locked: "Verrouillé",
+  purchased: { fr: "Acheté", en: "Owned" },
+  available: { fr: "Disponible", en: "Available" },
+  blocked: { fr: "Exclu", en: "Excluded" },
+  locked: { fr: "Verrouillé", en: "Locked" },
 };
 
 const UNLOCK = Object.fromEntries(PRESTIGE_TREE_BRANCHES.map((b) => [b.id, b.unlock || []]));
 
 function dogmaKind(id) {
-  if (id.startsWith("trait_")) return "Trait";
-  if (id.startsWith("skill_")) return "Compétence";
-  return "Dogme";
+  if (id.startsWith("trait_")) return tr({ fr: "Trait", en: "Trait" });
+  if (id.startsWith("skill_")) return tr({ fr: "Compétence", en: "Skill" });
+  return tr({ fr: "Dogme", en: "Dogma" });
 }
 
 function tierOpen(branch, tier) {
@@ -169,7 +170,10 @@ export default function RuinsTreeGraph() {
   const entering = fresh.length ? new Set(fresh) : EMPTY_SET;
   const growing = fresh.length > 0;
   const revealMsg = growing
-    ? `${fresh.length} nœud${fresh.length > 1 ? "s" : ""} se révèle${fresh.length > 1 ? "nt" : ""}.`
+    ? tr({
+        fr: `${fresh.length} nœud${fresh.length > 1 ? "s" : ""} se révèle${fresh.length > 1 ? "nt" : ""}.`,
+        en: `${fresh.length} node${fresh.length > 1 ? "s" : ""} revealed.`,
+      })
     : "";
 
   // Fige les nœuds « vus » après leur apparition (persiste pour ne pas rejouer).
@@ -284,7 +288,7 @@ export default function RuinsTreeGraph() {
     if (has(id)) {
       const u = upgradeById[id];
       setJustBought(id);
-      setLiveMsg(`${u?.name || id} acquis.`);
+      setLiveMsg(tr({ fr: `${u?.name || id} acquis.`, en: `${u?.name || id} acquired.` }));
       clearTimeout(justBoughtTimerRef.current);
       justBoughtTimerRef.current = setTimeout(() => setJustBought((cur) => (cur === id ? null : cur)), 520);
     }
@@ -333,13 +337,13 @@ export default function RuinsTreeGraph() {
 
     let statusLine;
     let statusKind;
-    if (status === "purchased") { statusLine = "Acquis"; statusKind = "owned"; }
-    else if (status === "blocked") { statusLine = `Exclu par : ${conflictName}`; statusKind = "blocked"; }
-    else if (status === "available") { statusLine = "Disponible"; statusKind = "available"; }
-    else if (!open) { statusLine = `Palier verrouillé · ${ownedBelow}/${need}`; statusKind = "locked"; }
-    else { statusLine = "Pas assez de ruines"; statusKind = "cost"; }
+    if (status === "purchased") { statusLine = tr({ fr: "Acquis", en: "Acquired" }); statusKind = "owned"; }
+    else if (status === "blocked") { statusLine = tr({ fr: `Exclu par : ${conflictName}`, en: `Excluded by: ${conflictName}` }); statusKind = "blocked"; }
+    else if (status === "available") { statusLine = tr({ fr: "Disponible", en: "Available" }); statusKind = "available"; }
+    else if (!open) { statusLine = tr({ fr: `Palier verrouillé · ${ownedBelow}/${need}`, en: `Tier locked · ${ownedBelow}/${need}` }); statusKind = "locked"; }
+    else { statusLine = tr({ fr: "Pas assez de ruines", en: "Not enough ruins" }); statusKind = "cost"; }
 
-    const costText = status === "purchased" ? "Acquis" : `${fmt(u?.cost?.ruins ?? 0)}`;
+    const costText = status === "purchased" ? tr({ fr: "Acquis", en: "Acquired" }) : `${fmt(u?.cost?.ruins ?? 0)}`;
 
     return {
       id: n.id,
@@ -356,7 +360,7 @@ export default function RuinsTreeGraph() {
       bought: justBought === n.id,
       conflict: conflictIds.has(n.id),
       enterDelay: n.tier * ENTER_STAGGER,
-      aria: `${u?.name || n.id} — ${STATUS_LABEL[status]} — ${costText}`,
+      aria: `${u?.name || n.id} — ${tr(STATUS_LABEL[status])} — ${costText}`,
       tip: {
         branch: n.branch,
         kindLabel: n.capstone ? "Capstone" : null,
@@ -379,10 +383,10 @@ export default function RuinsTreeGraph() {
     const reached = count >= d.requiredPurchases;
     const dStatusKind = owned ? "owned" : reached ? "available" : "locked";
     let statusLine = owned
-      ? "Adopté"
+      ? tr({ fr: "Adopté", en: "Adopted" })
       : reached
-        ? "Palier atteint — gratuit"
-        : `${count}/${d.requiredPurchases} achats`;
+        ? tr({ fr: "Palier atteint — gratuit", en: "Tier reached — free" })
+        : tr({ fr: `${count}/${d.requiredPurchases} achats`, en: `${count}/${d.requiredPurchases} purchases` });
     return {
       id: d.id,
       kind: "dogma",
@@ -397,7 +401,7 @@ export default function RuinsTreeGraph() {
       entering: entering.has(d.id),
       bought: justBought === d.id,
       enterDelay: 6 * ENTER_STAGGER,
-      aria: `${kindLabel} ${u?.name || d.id} — ${owned ? "Adopté" : statusLine}`,
+      aria: `${kindLabel} ${u?.name || d.id} — ${owned ? tr({ fr: "Adopté", en: "Adopted" }) : statusLine}`,
       tip: {
         branch: d.branch,
         kindLabel,

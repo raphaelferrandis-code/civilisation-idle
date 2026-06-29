@@ -1,5 +1,7 @@
 "use strict";
 
+import { localizeData } from "../core/i18n.js";
+
 /**
  * eraThemes.js — source de vérité unique du thème visuel par ère/époque.
  *
@@ -44,7 +46,7 @@ export function eraBandOf(eraIndex) {
 
 export const EPOCHS = [
   {
-    id: "feu", label: "Âge du Feu",
+    id: "feu", label: { fr: "Âge du Feu", en: "Age of Fire" },
     // Accent braise : orange profond, chrome rugueux.
     hue: 24, sat: 62, lum: 55,
     map: {
@@ -54,7 +56,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "bois", label: "Âge du Bois",
+    id: "bois", label: { fr: "Âge du Bois", en: "Age of Wood" },
     // Paille et torchis : ocre chaud.
     hue: 37, sat: 58, lum: 53,
     map: {
@@ -64,7 +66,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "pierre", label: "Âge de la Pierre taillée",
+    id: "pierre", label: { fr: "Âge de la Pierre taillée", en: "Age of Hewn Stone" },
     // Or parchemin : proche de l'or canonique actuel.
     hue: 42, sat: 56, lum: 57,
     map: {
@@ -74,7 +76,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "couronne", label: "Âge de la Couronne",
+    id: "couronne", label: { fr: "Âge de la Couronne", en: "Age of the Crown" },
     // Héraldique : pourpre royal feutré (saturation contenue — un violet
     // trop vif rend le chrome agressif sur les boutons d'achat).
     hue: 292, sat: 22, lum: 66,
@@ -85,7 +87,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "marbre", label: "Âge du Marbre",
+    id: "marbre", label: { fr: "Âge du Marbre", en: "Age of Marble" },
     // Gravure classique : bleu lapis sur marbre.
     hue: 214, sat: 55, lum: 64,
     map: {
@@ -95,7 +97,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "fonte", label: "Âge de la Fonte",
+    id: "fonte", label: { fr: "Âge de la Fonte", en: "Age of Iron" },
     // Gazette et métal : cuivre patiné.
     hue: 17, sat: 48, lum: 58,
     map: {
@@ -105,7 +107,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "neon", label: "Âge du Néon",
+    id: "neon", label: { fr: "Âge du Néon", en: "Age of Neon" },
     // Flux : cyan froid, la nuit elle-même change de couleur.
     hue: 185, sat: 64, lum: 58,
     map: {
@@ -120,7 +122,7 @@ export const EPOCHS = [
   // S'éloignent du cyan néon (band 6). Les ères « factices » héritent de la bande
   // de leur palier majeur (cf. eraBandOf via eraTier).
   {
-    id: "noosphere", label: "Âge de la Noosphère",
+    id: "noosphere", label: { fr: "Âge de la Noosphère", en: "Age of the Noosphere" },
     // La planète vivante s'éclaire de l'intérieur : jade bioluminescent.
     hue: 155, sat: 68, lum: 52,
     map: {
@@ -130,7 +132,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "stellaire", label: "Âge stellaire",
+    id: "stellaire", label: { fr: "Âge stellaire", en: "Stellar Age" },
     // Essaimage d'étoile en étoile : or stellaire chaud.
     hue: 42, sat: 80, lum: 58,
     map: {
@@ -140,7 +142,7 @@ export const EPOCHS = [
     }
   },
   {
-    id: "demiurge", label: "Âge du Démiurge",
+    id: "demiurge", label: { fr: "Âge du Démiurge", en: "Age of the Demiurge" },
     // Manipulation du vide et de la réalité : blanc-violet iridescent sur noir.
     hue: 282, sat: 30, lum: 76,
     map: {
@@ -279,3 +281,6 @@ export function mapThemeForBand(band) {
   const b = Math.max(0, Math.min(EPOCHS.length - 1, band | 0));
   return EPOCHS[b].map;
 }
+
+// Aplatit les `label` { fr, en } des époques en chaînes (cf. i18n.js).
+localizeData(EPOCHS);

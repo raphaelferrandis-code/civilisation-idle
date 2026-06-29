@@ -1,5 +1,7 @@
 "use strict";
 
+import { localizeData } from '../core/i18n.js';
+
 /* ============================================================================
  * data-buildings.js - Donnees statiques: buildings, buildingDisplayOrder, dynastyNames.
  * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
@@ -10,8 +12,8 @@ export const buildings = [
   {
     id: "foragers",
     category: "city",
-    name: "Cueilleurs",
-    desc: "Ils marchent avant le jour et savent ce que la foret cede sans qu'on le lui demande.",
+    name: { fr: "Cueilleurs", en: "Foragers" },
+    desc: { fr: "Ils marchent avant le jour et savent ce que la foret cede sans qu'on le lui demande.", en: "They walk before dawn and know what the forest yields without being asked." },
     base: 10,
     scale: 1.18,
     currency: "food",
@@ -25,8 +27,8 @@ export const buildings = [
   {
     id: "granaries_city",
     category: "city",
-    name: "Entrepots",
-    desc: "La premiere victoire contre la famine, c'est d'avoir quelque chose a perdre.",
+    name: { fr: "Entrepots", en: "Warehouses" },
+    desc: { fr: "La premiere victoire contre la famine, c'est d'avoir quelque chose a perdre.", en: "The first victory over famine is having something to lose." },
     unlockBuilding: { id: "foragers", count: 3 },
     base: 100,
     scale: 1.19,
@@ -41,8 +43,8 @@ export const buildings = [
   {
     id: "caravans",
     category: "city",
-    name: "Caravanes",
-    desc: "Ils partent avec du surplus et rentrent avec des habitudes etrangeres.",
+    name: { fr: "Caravanes", en: "Caravans" },
+    desc: { fr: "Ils partent avec du surplus et rentrent avec des habitudes etrangeres.", en: "They leave with surplus and return with foreign habits." },
     unlockBuilding: { id: "granaries_city", count: 3 },
     base: 1000,
     scale: 1.2,
@@ -57,8 +59,8 @@ export const buildings = [
   {
     id: "scribes",
     category: "knowledge",
-    name: "Scribes",
-    desc: "Chaque tablette copiee est un mort qui continue de parler.",
+    name: { fr: "Scribes", en: "Scribes" },
+    desc: { fr: "Chaque tablette copiee est un mort qui continue de parler.", en: "Every tablet copied is a dead man who goes on speaking." },
     unlockBuilding: { id: "storytellers", count: 3 },
     base: 10000,
     scale: 1.29,
@@ -73,8 +75,8 @@ export const buildings = [
   {
     id: "storytellers",
     category: "knowledge",
-    name: "Conteurs",
-    desc: "Ils sont la memoire de ceux qui ne lisent pas. Leur silence efface des generations.",
+    name: { fr: "Conteurs", en: "Storytellers" },
+    desc: { fr: "Ils sont la memoire de ceux qui ne lisent pas. Leur silence efface des generations.", en: "They are the memory of those who cannot read. Their silence erases generations." },
     base: 1000,
     scale: 1.28,
     currency: "gold",
@@ -88,8 +90,8 @@ export const buildings = [
   {
     id: "schools",
     category: "knowledge",
-    name: "Ecoles",
-    desc: "Pour la premiere fois, le savoir peut traverser une vie sans se perdre dans la suivante.",
+    name: { fr: "Ecoles", en: "Schools" },
+    desc: { fr: "Pour la premiere fois, le savoir peut traverser une vie sans se perdre dans la suivante.", en: "For the first time, knowledge can cross one lifetime without being lost in the next." },
     unlockBuilding: { id: "scribes", count: 3 },
     base: 100000,
     scale: 1.31,
@@ -105,8 +107,8 @@ export const buildings = [
   {
     id: "aqueducts",
     category: "infra",
-    name: "Aqueducs",
-    desc: "L'eau est arrivee en ville. Les maladies des bas quartiers ont mis du temps a l'apprendre.",
+    name: { fr: "Aqueducs", en: "Aqueducts" },
+    desc: { fr: "L'eau est arrivee en ville. Les maladies des bas quartiers ont mis du temps a l'apprendre.", en: "Water has come to the city. The diseases of the low quarters were slow to hear of it." },
     unlockBuilding: { id: "roads", count: 3 },
     base: 1000,
     scale: 1.34,
@@ -121,8 +123,8 @@ export const buildings = [
   {
     id: "roads",
     category: "infra",
-    name: "Routes",
-    desc: "La distance n'a pas change. Le temps qu'elle prend, si.",
+    name: { fr: "Routes", en: "Roads" },
+    desc: { fr: "La distance n'a pas change. Le temps qu'elle prend, si.", en: "The distance hasn't changed. The time it takes has." },
     base: 100,
     scale: 1.33,
     currency: "knowledge",
@@ -136,8 +138,8 @@ export const buildings = [
   {
     id: "watch",
     category: "infra",
-    name: "Veilleurs",
-    desc: "Ils rendent la nuit un peu moins dangereuse pour ceux qui dorment.",
+    name: { fr: "Veilleurs", en: "Watchmen" },
+    desc: { fr: "Ils rendent la nuit un peu moins dangereuse pour ceux qui dorment.", en: "They make the night a little less dangerous for those who sleep." },
     unlockBuilding: { id: "aqueducts", count: 3 },
     base: 10000,
     scale: 1.35,
@@ -152,8 +154,8 @@ export const buildings = [
   {
     id: "markets",
     category: "city",
-    name: "Marches",
-    desc: "La ou les gens se retrouvent librement, le prix des choses revele ce qu'ils veulent vraiment.",
+    name: { fr: "Marches", en: "Markets" },
+    desc: { fr: "La ou les gens se retrouvent librement, le prix des choses revele ce qu'ils veulent vraiment.", en: "Where people gather freely, the price of things reveals what they truly want." },
     unlockBuilding: { id: "caravans", count: 5 },
     base: 10000,
     scale: 1.21,
@@ -168,8 +170,8 @@ export const buildings = [
   {
     id: "guilds",
     category: "city",
-    name: "Guildes",
-    desc: "Des freres de metier, des secrets partages, et des mains qui savent ce que les autres ignorent.",
+    name: { fr: "Guildes", en: "Guilds" },
+    desc: { fr: "Des freres de metier, des secrets partages, et des mains qui savent ce que les autres ignorent.", en: "Brothers of the trade, shared secrets, and hands that know what others do not." },
     unlockBuilding: { id: "markets", count: 5 },
     base: 100000,
     scale: 1.22,
@@ -184,8 +186,8 @@ export const buildings = [
   {
     id: "irrigated_fields",
     category: "city",
-    name: "Champs",
-    desc: "Quand l'eau obeit, la terre peut enfin tenir ses promesses.",
+    name: { fr: "Champs", en: "Fields" },
+    desc: { fr: "Quand l'eau obeit, la terre peut enfin tenir ses promesses.", en: "When water obeys, the land can finally keep its promises." },
     unlockBuilding: { id: "guilds", count: 5 },
     base: 1000000,
     scale: 1.23,
@@ -200,8 +202,8 @@ export const buildings = [
   {
     id: "river_ports",
     category: "city",
-    name: "Ports",
-    desc: "Le fleuve est devenu une route. Ce qui part d'ici revient en or et en nouvelles.",
+    name: { fr: "Ports", en: "Ports" },
+    desc: { fr: "Le fleuve est devenu une route. Ce qui part d'ici revient en or et en nouvelles.", en: "The river has become a road. What leaves here returns as gold and news." },
     unlockBuilding: { id: "irrigated_fields", count: 3 },
     unlockCycles: 1,
     base: 10000000,
@@ -217,8 +219,8 @@ export const buildings = [
   {
     id: "water_mills",
     category: "city",
-    name: "Moulins",
-    desc: "La riviere travaille aussi la nuit. C'est une idee qui change tout.",
+    name: { fr: "Moulins", en: "Mills" },
+    desc: { fr: "La riviere travaille aussi la nuit. C'est une idee qui change tout.", en: "The river works through the night too. An idea that changes everything." },
     unlockBuilding: { id: "river_ports", count: 3 },
     unlockCycles: 2,
     base: 100000000,
@@ -234,8 +236,8 @@ export const buildings = [
   {
     id: "mint_houses",
     category: "city",
-    name: "Hotels des monnaies",
-    desc: "L'or circulait deja. Maintenant il porte un nom, un sceau, une autorite.",
+    name: { fr: "Hotels des monnaies", en: "Mints" },
+    desc: { fr: "L'or circulait deja. Maintenant il porte un nom, un sceau, une autorite.", en: "Gold already circulated. Now it bears a name, a seal, an authority." },
     unlockBuilding: { id: "water_mills", count: 3 },
     unlockCycles: 3,
     base: 1000000000,
@@ -251,8 +253,8 @@ export const buildings = [
   {
     id: "imperial_exchanges",
     category: "city",
-    name: "Banques Nationnales",
-    desc: "Ici les chiffres ont remplace les visages. Les fortunes bougent plus vite que les armees.",
+    name: { fr: "Banques Nationnales", en: "National Banks" },
+    desc: { fr: "Ici les chiffres ont remplace les visages. Les fortunes bougent plus vite que les armees.", en: "Here numbers have replaced faces. Fortunes move faster than armies." },
     unlockBuilding: { id: "mint_houses", count: 3 },
     unlockCycles: 5,
     base: 10000000000,
@@ -268,8 +270,8 @@ export const buildings = [
   {
     id: "academies",
     category: "knowledge",
-    name: "Academies",
-    desc: "On n'y apprend pas a avoir raison. On y apprend a douter proprement.",
+    name: { fr: "Academies", en: "Academies" },
+    desc: { fr: "On n'y apprend pas a avoir raison. On y apprend a douter proprement.", en: "They do not teach you to be right. They teach you to doubt properly." },
     unlockBuilding: { id: "schools", count: 3 },
     base: 1000000,
     scale: 1.33,
@@ -285,8 +287,8 @@ export const buildings = [
   {
     id: "observatories",
     category: "knowledge",
-    name: "Observatoires",
-    desc: "La nuit est devenue lisible. Ce qui semblait arbitraire obeissait a des regles.",
+    name: { fr: "Observatoires", en: "Observatories" },
+    desc: { fr: "La nuit est devenue lisible. Ce qui semblait arbitraire obeissait a des regles.", en: "The night has become legible. What seemed arbitrary obeyed rules." },
     unlockBuilding: { id: "ancestral_cult", count: 3 },
     unlockCycles: 2,
     base: 100000000,
@@ -303,8 +305,8 @@ export const buildings = [
   {
     id: "libraries",
     category: "knowledge",
-    name: "Bibliotheques",
-    desc: "Toutes les erreurs passees sont ici, archivees et consultables. Rarement lues.",
+    name: { fr: "Bibliotheques", en: "Libraries" },
+    desc: { fr: "Toutes les erreurs passees sont ici, archivees et consultables. Rarement lues.", en: "Every past mistake is here, archived and available. Rarely read." },
     unlockBuilding: { id: "observatories", count: 3 },
     unlockCycles: 3,
     base: 1000000000,
@@ -321,8 +323,8 @@ export const buildings = [
   {
     id: "bureaucracy",
     category: "infra",
-    name: "Bureaucratie",
-    desc: "L'Etat a maintenant une memoire. Lente, parfois absurde, mais indispensable.",
+    name: { fr: "Bureaucratie", en: "Bureaucracy" },
+    desc: { fr: "L'Etat a maintenant une memoire. Lente, parfois absurde, mais indispensable.", en: "The State now has a memory. Slow, sometimes absurd, but indispensable." },
     unlockBuilding: { id: "sewers", count: 3 },
     base: 1000000,
     scale: 1.41,
@@ -337,8 +339,8 @@ export const buildings = [
   {
     id: "sewers",
     category: "infra",
-    name: "Egouts",
-    desc: "La civilisation, c'est peut-etre surtout ca : s'organiser pour faire partir les mauvaises choses.",
+    name: { fr: "Egouts", en: "Sewers" },
+    desc: { fr: "La civilisation, c'est peut-etre surtout ca : s'organiser pour faire partir les mauvaises choses.", en: "Civilization may be mostly this: organizing to carry the bad things away." },
     unlockBuilding: { id: "watch", count: 3 },
     base: 100000,
     scale: 1.39,
@@ -353,8 +355,8 @@ export const buildings = [
   {
     id: "courthouses",
     category: "infra",
-    name: "Tribunaux",
-    desc: "La vengeance est toujours la, mais avec un formulaire et un delai raisonnable.",
+    name: { fr: "Tribunaux", en: "Courts" },
+    desc: { fr: "La vengeance est toujours la, mais avec un formulaire et un delai raisonnable.", en: "Vengeance is still here, but with a form to fill and a reasonable delay." },
     unlockBuilding: { id: "bureaucracy", count: 3 },
     unlockCycles: 1,
     base: 10000000,
@@ -370,8 +372,8 @@ export const buildings = [
   {
     id: "public_works",
     category: "infra",
-    name: "Grands travaux",
-    desc: "Des milliers de mains pour transformer ce que personne n'oserait imaginer seul.",
+    name: { fr: "Grands travaux", en: "Public Works" },
+    desc: { fr: "Des milliers de mains pour transformer ce que personne n'oserait imaginer seul.", en: "Thousands of hands to reshape what no one would dare imagine alone." },
     unlockBuilding: { id: "courthouses", count: 3 },
     unlockCycles: 2,
     base: 100000000,
@@ -387,8 +389,8 @@ export const buildings = [
   {
     id: "ministries",
     category: "infra",
-    name: "Ministeres",
-    desc: "L'empire est devenu trop grand pour une seule tete. Il en faut une pour chaque probleme.",
+    name: { fr: "Ministeres", en: "Ministries" },
+    desc: { fr: "L'empire est devenu trop grand pour une seule tete. Il en faut une pour chaque probleme.", en: "The empire has grown too large for a single head. It needs one for every problem." },
     unlockBuilding: { id: "public_works", count: 3 },
     unlockCycles: 3,
     base: 1000000000,
@@ -404,8 +406,8 @@ export const buildings = [
   {
     id: "archive_grids",
     category: "infra",
-    name: "Reseaux d'archives",
-    desc: "Gouverner sans memoire, c'est commettre les memes erreurs avec plus d'efficacite.",
+    name: { fr: "Reseaux d'archives", en: "Archive Networks" },
+    desc: { fr: "Gouverner sans memoire, c'est commettre les memes erreurs avec plus d'efficacite.", en: "To govern without memory is to make the same mistakes more efficiently." },
     unlockBuilding: { id: "ministries", count: 3 },
     unlockCycles: 5,
     base: 10000000000,
@@ -421,8 +423,8 @@ export const buildings = [
   {
     id: "ruin_architects",
     category: "infra",
-    name: "Architectes des ruines",
-    desc: "Ils construisent sur les cendres avec la precision de ceux qui savent ce qui revient toujours.",
+    name: { fr: "Architectes des ruines", en: "Architects of Ruins" },
+    desc: { fr: "Ils construisent sur les cendres avec la precision de ceux qui savent ce qui revient toujours.", en: "They build on ashes with the precision of those who know what always returns." },
     unlockBuilding: { id: "archive_grids", count: 3 },
     unlockCycles: 8,
     base: 100000000000,
@@ -439,8 +441,8 @@ export const buildings = [
   {
     id: "ancestral_cult",
     category: "knowledge",
-    name: "Culte des ancetres",
-    desc: "Les ancetres siegent encore dans cette cite. Leur opinion pese lourd.",
+    name: { fr: "Culte des ancetres", en: "Ancestor Cult" },
+    desc: { fr: "Les ancetres siegent encore dans cette cite. Leur opinion pese lourd.", en: "The ancestors still hold their seats in this city. Their opinion carries weight." },
     unlockBuilding: { id: "academies", count: 3 },
     unlockCycles: 1,
     base: 10000000,
@@ -457,8 +459,8 @@ export const buildings = [
   {
     id: "universities",
     category: "knowledge",
-    name: "Universites",
-    desc: "Les idees y fermentent plus vite que les civilisations ne s'effondrent. Parfois.",
+    name: { fr: "Universites", en: "Universities" },
+    desc: { fr: "Les idees y fermentent plus vite que les civilisations ne s'effondrent. Parfois.", en: "Ideas ferment there faster than civilizations collapse. Sometimes." },
     unlockBuilding: { id: "libraries", count: 3 },
     unlockCycles: 5,
     base: 10000000000,
@@ -475,8 +477,8 @@ export const buildings = [
   {
     id: "printing_houses",
     category: "knowledge",
-    name: "Imprimeries",
-    desc: "Une idee dangereuse peut desormais traverser un empire avant que le roi en entende parler.",
+    name: { fr: "Imprimeries", en: "Printing Houses" },
+    desc: { fr: "Une idee dangereuse peut desormais traverser un empire avant que le roi en entende parler.", en: "A dangerous idea can now cross an empire before the king ever hears of it." },
     unlockBuilding: { id: "universities", count: 3 },
     unlockCycles: 7,
     base: 100000000000,
@@ -493,8 +495,8 @@ export const buildings = [
   {
     id: "think_tanks",
     category: "knowledge",
-    name: "Instituts strategiques",
-    desc: "Ils ne savent pas ce qui va arriver. Mais ils ont des modeles pour tout.",
+    name: { fr: "Instituts strategiques", en: "Strategic Institutes" },
+    desc: { fr: "Ils ne savent pas ce qui va arriver. Mais ils ont des modeles pour tout.", en: "They don't know what's coming. But they have models for everything." },
     unlockBuilding: { id: "printing_houses", count: 3 },
     unlockCycles: 10,
     base: 1000000000000,
@@ -511,14 +513,14 @@ export const buildings = [
 ];
 
 export const dynastyNames = [
-  "Maison des Premiers Feux",
-  "Lignee des Greniers",
-  "Dynastie des Sept Routes",
-  "Maison de la Couronne Claire",
-  "Empire des Archives",
-  "Lignee du Fleuve Double",
-  "Dynastie des Tours Longues",
-  "Maison de la Derniere Aube"
+  { fr: "Maison des Premiers Feux", en: "House of the First Fires" },
+  { fr: "Lignee des Greniers", en: "Line of the Granaries" },
+  { fr: "Dynastie des Sept Routes", en: "Dynasty of the Seven Roads" },
+  { fr: "Maison de la Couronne Claire", en: "House of the Bright Crown" },
+  { fr: "Empire des Archives", en: "Empire of the Archives" },
+  { fr: "Lignee du Fleuve Double", en: "Line of the Double River" },
+  { fr: "Dynastie des Tours Longues", en: "Dynasty of the Long Towers" },
+  { fr: "Maison de la Derniere Aube", en: "House of the Last Dawn" }
 ];
 
 export const buildingDisplayOrder = {
@@ -526,3 +528,9 @@ export const buildingDisplayOrder = {
   knowledge: ["storytellers", "scribes", "schools", "academies", "ancestral_cult", "observatories", "libraries", "universities", "printing_houses", "think_tanks"],
   infra: ["roads", "aqueducts", "watch", "sewers", "bureaucracy", "courthouses", "public_works", "ministries", "archive_grids", "ruin_architects"]
 };
+
+// Aplatit les feuilles { fr, en } en chaînes de la langue courante, une fois au
+// chargement (cf. localizeData dans i18n.js). À FAIRE pour tout export portant
+// du texte joueur ; buildingDisplayOrder ne contient que des ids → rien à faire.
+localizeData(buildings);
+localizeData(dynastyNames);

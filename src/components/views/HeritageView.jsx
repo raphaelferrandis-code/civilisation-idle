@@ -16,6 +16,7 @@ import { upgrades } from '../../game/data/upgrades.js';
 import { DOCTRINES } from '../../game/data/world.js';
 import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
 import { fmt } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
 
 export default function HeritageView() {
@@ -45,8 +46,8 @@ export default function HeritageView() {
   const dynastiesToNextPalier = 5 - (dynCount % 5);
 
   const nextPalierText = dynastiesToNextPalier === 5
-    ? `palier atteint (+${dynPalier})`
-    : `dans ${dynastiesToNextPalier} dynasties (+${dynPalier + 1})`;
+    ? tr({ fr: `palier atteint (+${dynPalier})`, en: `tier reached (+${dynPalier})` })
+    : tr({ fr: `dans ${dynastiesToNextPalier} dynasties (+${dynPalier + 1})`, en: `in ${dynastiesToNextPalier} dynasties (+${dynPalier + 1})` });
 
   const activeDoctrine = DOCTRINES.find(d => d.id === dynastyDoctrine);
 
@@ -72,60 +73,62 @@ export default function HeritageView() {
       <div className="panel prestige-panel">
         <div className="panel-heading">
           <div>
-            <h2>Dynastie</h2>
+            <h2>{tr({ fr: "Dynastie", en: "Dynasty" })}</h2>
           </div>
           <button
             id="dynastyBtn"
             onClick={foundDynasty}
             disabled={legitGain <= 0}
           >
-            Fonder
+            {tr({ fr: "Fonder", en: "Found" })}
           </button>
         </div>
         <p className="body-copy">
-          Plusieurs effondrements racontent une légende.
-          Une dynastie se fonde quand les chroniques ont assez de matière pour fabriquer une légitimité durable.
+          {tr({
+            fr: "Plusieurs effondrements racontent une légende. Une dynastie se fonde quand les chroniques ont assez de matière pour fabriquer une légitimité durable.",
+            en: "Several collapses tell a legend. A dynasty is founded when the chronicles hold enough material to forge lasting legitimacy."
+          })}
         </p>
         <div className="prestige-stats">
           <div>
-            <span>Prochaine fondation</span>
-            <strong>{fmt(dynastyThreshold)} ruines</strong>
+            <span>{tr({ fr: "Prochaine fondation", en: "Next founding" })}</span>
+            <strong>{tr({ fr: `${fmt(dynastyThreshold)} ruines`, en: `${fmt(dynastyThreshold)} ruins` })}</strong>
           </div>
           <div>
-            <span>Progression</span>
+            <span>{tr({ fr: "Progression", en: "Progress" })}</span>
             <strong>
               {legitGain > 0
-                ? `+${fmt(legitGain)} légitimité possible`
-                : `Manque ${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruines`}
+                ? tr({ fr: `+${fmt(legitGain)} légitimité possible`, en: `+${fmt(legitGain)} legitimacy possible` })
+                : tr({ fr: `Manque ${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruines`, en: `${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruins short` })}
             </strong>
           </div>
           <div>
-            <span>Légitimité gagnée</span>
+            <span>{tr({ fr: "Légitimité gagnée", en: "Legitimacy gained" })}</span>
             <strong>{fmt(legitGain)}</strong>
           </div>
           <div>
-            <span>Légitimité</span>
+            <span>{tr({ fr: "Légitimité", en: "Legitimacy" })}</span>
             <strong>{fmt(legitimacy)}</strong>
           </div>
           <div>
-            <span>Palier dynastique</span>
-            <strong>{dynPalier > 0 ? `+${dynPalier} / fondation` : "+0 / fondation"}</strong>
+            <span>{tr({ fr: "Palier dynastique", en: "Dynastic tier" })}</span>
+            <strong>{dynPalier > 0 ? tr({ fr: `+${dynPalier} / fondation`, en: `+${dynPalier} / founding` }) : tr({ fr: "+0 / fondation", en: "+0 / founding" })}</strong>
           </div>
           <div>
-            <span>Prochain palier</span>
+            <span>{tr({ fr: "Prochain palier", en: "Next tier" })}</span>
             <strong>{nextPalierText}</strong>
           </div>
           <div>
-            <span>Institutions</span>
+            <span>{tr({ fr: "Institutions", en: "Institutions" })}</span>
             <strong>x{fmt(institutionMultiplier())}</strong>
           </div>
         </div>
         <div className="doctrine-display">
-          <span>{activeDoctrine ? activeDoctrine.name : "Aucune doctrine"}</span>
+          <span>{activeDoctrine ? activeDoctrine.name : tr({ fr: "Aucune doctrine", en: "No doctrine" })}</span>
           <small>
             {activeDoctrine
               ? `${activeDoctrine.bonus} | ${activeDoctrine.penalty}`
-              : "À choisir lors de la prochaine fondation"}
+              : tr({ fr: "À choisir lors de la prochaine fondation", en: "To be chosen at the next founding" })}
           </small>
         </div>
       </div>
@@ -134,12 +137,14 @@ export default function HeritageView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Héritage</h2>
+            <h2>{tr({ fr: "Héritage", en: "Heritage" })}</h2>
           </div>
         </div>
         <p className="body-copy">
-          Ces améliorations survivent aux cycles et s'appliquent immédiatement.
-          Achetées avec la légitimité gagnée lors des fondations de dynasties.
+          {tr({
+            fr: "Ces améliorations survivent aux cycles et s'appliquent immédiatement. Achetées avec la légitimité gagnée lors des fondations de dynasties.",
+            en: "These upgrades survive across cycles and apply immediately. Bought with the legitimacy gained when founding dynasties."
+          })}
         </p>
         <div className="upgrade-grid">
           {visibleHeritageUpgrades.map(upgrade => {
@@ -154,7 +159,7 @@ export default function HeritageView() {
                   <p className="effect-line">{upgrade.effect}</p>
                   <div className="shop-meta">
                     <span className="chip">
-                      {isOwned ? "Acquis" : upgradeCostText(upgrade)}
+                      {isOwned ? tr({ fr: "Acquis", en: "Owned" }) : upgradeCostText(upgrade)}
                     </span>
                   </div>
                 </div>
@@ -162,7 +167,7 @@ export default function HeritageView() {
                   disabled={isOwned || !canBuy}
                   onClick={() => buyUpgrade(upgrade.id)}
                 >
-                  {isOwned ? "Actif" : "Acheter"}
+                  {isOwned ? tr({ fr: "Actif", en: "Active" }) : tr({ fr: "Acheter", en: "Buy" })}
                 </button>
               </article>
             );
@@ -175,17 +180,23 @@ export default function HeritageView() {
         <div className="panel cadmos-panel">
           <div className="panel-heading">
             <div>
-              <h2>Cadmos — Épitaphes permanentes</h2>
+              <h2>{tr({ fr: "Cadmos — Épitaphes permanentes", en: "Cadmus — Permanent Epitaphs" })}</h2>
             </div>
           </div>
           <p className="body-copy">
-            Grave un Âge inscrit à la Chronique comme Nom de Pouvoir permanent : chaque
-            épitaphe accorde <strong>+{cadmosBonusPct}%</strong> à son orientation (Nourriture,
-            Trésor ou Stabilité), pour toujours. Maximum {CADMOS_MAX_PERMANENT_EPITAPHS}.
+            {tr({
+              fr: "Grave un Âge inscrit à la Chronique comme Nom de Pouvoir permanent : chaque épitaphe accorde ",
+              en: "Engrave an Age recorded in the Chronicle as a permanent Name of Power: each epitaph grants "
+            })}
+            <strong>+{cadmosBonusPct}%</strong>
+            {tr({
+              fr: ` à son orientation (Nourriture, Trésor ou Stabilité), pour toujours. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`,
+              en: ` to its orientation (Food, Treasury or Stability), forever. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`
+            })}
           </p>
           <div className="prestige-stats">
             <div>
-              <span>Épitaphes gravées</span>
+              <span>{tr({ fr: "Épitaphes gravées", en: "Epitaphs engraved" })}</span>
               <strong>{cadmosPermanentEpitaphs.length} / {CADMOS_MAX_PERMANENT_EPITAPHS}</strong>
             </div>
           </div>
@@ -196,18 +207,18 @@ export default function HeritageView() {
                 <article key={entry.id} className="upgrade bought">
                   <div>
                     <h3>{entry.name}</h3>
-                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% permanent</p>
+                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% {tr({ fr: "permanent", en: "permanent" })}</p>
                   </div>
-                  <button disabled>Gravé</button>
+                  <button disabled>{tr({ fr: "Gravé", en: "Engraved" })}</button>
                 </article>
               ))}
             </div>
           )}
 
-          <p className="body-copy" style={{ marginTop: '0.6rem' }}>Âges disponibles à graver :</p>
+          <p className="body-copy" style={{ marginTop: '0.6rem' }}>{tr({ fr: "Âges disponibles à graver :", en: "Ages available to engrave:" })}</p>
           {cadmosCandidates.length === 0 ? (
             <p className="body-copy">
-              <em>Aucun Âge à graver — nomme des Âges pendant un cycle sous le Mythe de Cadmos, puis reviens ici après l'effondrement.</em>
+              <em>{tr({ fr: "Aucun Âge à graver — nomme des Âges pendant un cycle sous le Mythe de Cadmos, puis reviens ici après l'effondrement.", en: "No Age to engrave — name Ages during a cycle under the Myth of Cadmus, then come back here after the collapse." })}</em>
             </p>
           ) : (
             <div className="upgrade-grid">
@@ -215,14 +226,14 @@ export default function HeritageView() {
                 <article key={entry.id} className="upgrade">
                   <div>
                     <h3>{entry.name}</h3>
-                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% permanent</p>
+                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% {tr({ fr: "permanent", en: "permanent" })}</p>
                   </div>
                   <button
                     disabled={cadmosFull}
                     onClick={() => engraveCadmosEpitaph(entry.id)}
-                    title={cadmosFull ? `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint` : "Graver cette épitaphe de façon permanente"}
+                    title={cadmosFull ? tr({ fr: `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint`, en: `Maximum of ${CADMOS_MAX_PERMANENT_EPITAPHS} epitaphs reached` }) : tr({ fr: "Graver cette épitaphe de façon permanente", en: "Engrave this epitaph permanently" })}
                   >
-                    {cadmosFull ? "Complet" : "Graver"}
+                    {cadmosFull ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Graver", en: "Engrave" })}
                   </button>
                 </article>
               ))}
@@ -243,13 +254,14 @@ export default function HeritageView() {
             disabled={!isGrandResetUnlocked || grandResetCapped || grandResetBlocked}
             onClick={performGrandReset}
           >
-            {grandResetCapped ? "Complet" : "Reinitialiser"}
+            {grandResetCapped ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Reinitialiser", en: "Reset" })}
           </button>
         </div>
         <p className="body-copy">
-          Efface toute progression : bâtiments, ruines, cycles, upgrades de ruines.
-          En échange, chaque Grand Reset normal ajoute un bonus permanent x2 sur toute la production et les Ruines gagnées.
-          Après Ragnarok, un 11e Grand Reset unique ajoute x4 supplémentaire aux Ruines gagnées.
+          {tr({
+            fr: "Efface toute progression : bâtiments, ruines, cycles, upgrades de ruines. En échange, chaque Grand Reset normal ajoute un bonus permanent x2 sur toute la production et les Ruines gagnées. Après Ragnarok, un 11e Grand Reset unique ajoute x4 supplémentaire aux Ruines gagnées.",
+            en: "Wipes all progress: buildings, ruins, cycles, ruins upgrades. In exchange, each normal Grand Reset adds a permanent x2 bonus to all production and Ruins earned. After Ragnarok, a unique 11th Grand Reset adds an extra x4 to Ruins earned."
+          })}
         </p>
         <div className="prestige-stats">
           <div>
@@ -257,23 +269,23 @@ export default function HeritageView() {
             <strong>{grandResetCount} / {maxGrandResets}</strong>
           </div>
           <div>
-            <span>Bonus actuel</span>
-            <strong>x{Math.pow(2, grandResetCount).toFixed(0)} prod & ruines{ragnarokHeritage && grandResetCount >= 11 ? " | x4 Ruines extra" : ""}</strong>
+            <span>{tr({ fr: "Bonus actuel", en: "Current bonus" })}</span>
+            <strong>x{Math.pow(2, grandResetCount).toFixed(0)} {tr({ fr: "prod & ruines", en: "prod & ruins" })}{ragnarokHeritage && grandResetCount >= 11 ? tr({ fr: " | x4 Ruines extra", en: " | x4 Ruins extra" }) : ""}</strong>
           </div>
           <div>
-            <span>Bonus après</span>
-            <strong>{grandResetCapped ? "Maximum" : nextResetIsRagnarok ? `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines | x4 Ruines extra` : `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines`}</strong>
+            <span>{tr({ fr: "Bonus après", en: "Bonus after" })}</span>
+            <strong>{grandResetCapped ? tr({ fr: "Maximum", en: "Maximum" }) : nextResetIsRagnarok ? tr({ fr: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines | x4 Ruines extra`, en: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruins | x4 Ruins extra` }) : tr({ fr: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines`, en: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruins` })}</strong>
           </div>
           <div>
-            <span>Requis</span>
+            <span>{tr({ fr: "Requis", en: "Required" })}</span>
             <strong>
-              {grandResetCapped ? "Maximum atteint"
-                : nextResetIsRagnarok ? "La Fin des Dieux"
-                : !isGrandResetUnlocked ? "Upgrade Grand Reset (300 légitimité)"
+              {grandResetCapped ? tr({ fr: "Maximum atteint", en: "Maximum reached" })
+                : nextResetIsRagnarok ? tr({ fr: "La Fin des Dieux", en: "The End of the Gods" })
+                : !isGrandResetUnlocked ? tr({ fr: "Upgrade Grand Reset (300 légitimité)", en: "Grand Reset upgrade (300 legitimacy)" })
                 : [
-                    nextResetLegitCost > 0 ? `${fmt(nextResetLegitCost)} légitimité` : null,
-                    nextResetMythsRequired > 0 ? `${mythsDone}/${nextResetMythsRequired} Mythes complétés` : null
-                  ].filter(Boolean).join(" + ") || "Prêt"}
+                    nextResetLegitCost > 0 ? tr({ fr: `${fmt(nextResetLegitCost)} légitimité`, en: `${fmt(nextResetLegitCost)} legitimacy` }) : null,
+                    nextResetMythsRequired > 0 ? tr({ fr: `${mythsDone}/${nextResetMythsRequired} Mythes complétés`, en: `${mythsDone}/${nextResetMythsRequired} Myths completed` }) : null
+                  ].filter(Boolean).join(" + ") || tr({ fr: "Prêt", en: "Ready" })}
             </strong>
           </div>
         </div>

@@ -12,6 +12,7 @@ import {
   idleCapSeconds
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
+import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
   getAutoScriptRules,
   toggleAutoScriptRule,
@@ -22,7 +23,7 @@ import {
   setCrisisPosture,
   setAutoCollapseConfig
 } from '../../game/core/actions.js';
-import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render } from '../../game/core/state.js';
+import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useRef(null);
@@ -61,7 +62,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
   }, [isOpen]);
 
   const handleWipe = () => {
-    if (!confirm("Recommencer depuis le tout premier feu ?")) return;
+    if (!confirm(tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }))) return;
     localStorage.removeItem(SAVE_KEY);
     invalidateRenderCache("all");
     setState(defaultState());
@@ -74,6 +75,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
     setOptionRevision((revision) => revision + 1);
     invalidateRenderCache("all");
     render();
+  };
+
+  const handleLangChange = (next) => {
+    if (next === getLang()) return;
+    setLang(next);
+    // On sauvegarde avant de recharger : le rechargement garantit que TOUT le
+    // texte (y compris les composants mémoïsés qui ne réagissent pas à un simple
+    // render()) reprend la nouvelle langue, sans risque d'affichage mixte.
+    save();
+    window.location.reload();
   };
 
   const handleNotifToggle = () => {
@@ -153,29 +164,29 @@ export default function OptionsDialog({ isOpen, onClose }) {
       onClose={onClose}
     >
       <form method="dialog" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
-        <h2>Options</h2>
+        <h2>{tr({ fr: "Options", en: "Options" })}</h2>
 
-        <div className="options-tabs" aria-label="Categories d'options">
+        <div className="options-tabs" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })}>
           <button
             className={`options-tab ${activeGroup === 'display' ? 'active' : ''}`}
             type="button"
             onClick={() => setActiveGroup('display')}
           >
-            Affichage
+            {tr({ fr: "Affichage", en: "Display" })}
           </button>
           <button
             className={`options-tab ${activeGroup === 'sound' ? 'active' : ''}`}
             type="button"
             onClick={() => setActiveGroup('sound')}
           >
-            Son
+            {tr({ fr: "Son", en: "Sound" })}
           </button>
           <button
             className={`options-tab ${activeGroup === 'other' ? 'active' : ''}`}
             type="button"
             onClick={() => setActiveGroup('other')}
           >
-            Autre
+            {tr({ fr: "Autre", en: "Other" })}
           </button>
           
           {phoenixHeritage && (
@@ -184,7 +195,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
               type="button"
               onClick={() => setActiveGroup('script')}
             >
-              Automatisation
+              {tr({ fr: "Automatisation", en: "Automation" })}
             </button>
           )}
 
@@ -194,7 +205,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
               type="button"
               onClick={() => setActiveGroup('automates')}
             >
-              Automates
+              {tr({ fr: "Automates", en: "Automatons" })}
             </button>
           )}
 
@@ -204,7 +215,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
               type="button"
               onClick={() => setActiveGroup('doctrine')}
             >
-              Doctrine de crise
+              {tr({ fr: "Doctrine de crise", en: "Crisis Doctrine" })}
             </button>
           )}
         </div>
@@ -215,22 +226,45 @@ export default function OptionsDialog({ isOpen, onClose }) {
             <>
               <div className="options-row">
                 <div>
-                  <span>Notifications du fil</span>
-                  <small>Messages des habitants en haut de l'ecran</small>
+                  <span>{t('language')}</span>
+                  <small>{t('languageHint')}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${getLang() === 'fr' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleLangChange('fr')}
+                  >
+                    Français
+                  </button>
+                  <button
+                    className={`format-option ${getLang() === 'en' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleLangChange('en')}
+                  >
+                    English
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Notifications du fil", en: "Feed notifications" })}</span>
+                  <small>{tr({ fr: "Messages des habitants en haut de l'ecran", en: "Citizen messages at the top of the screen" })}</small>
                 </div>
                 <button
                   type="button"
                   className={`toggle-btn ${notifEnabled ? 'on' : 'off'}`}
                   onClick={handleNotifToggle}
                 >
-                  {notifEnabled ? "Active" : "Desactive"}
+                  {notifEnabled ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
                 </button>
               </div>
 
               <div className="options-row">
                 <div>
-                  <span>Format des nombres</span>
-                  <small>Affichage compact, complet ou scientifique des ressources</small>
+                  <span>{tr({ fr: "Format des nombres", en: "Number format" })}</span>
+                  <small>{tr({ fr: "Affichage compact, complet ou scientifique des ressources", en: "Compact, full or scientific display of resources" })}</small>
                 </div>
                 <div className="number-format-control">
                   <button
@@ -264,22 +298,22 @@ export default function OptionsDialog({ isOpen, onClose }) {
             <>
               <div className="options-row">
                 <div>
-                  <span>Musique</span>
-                  <small>Ambiance sonore de fond</small>
+                  <span>{tr({ fr: "Musique", en: "Music" })}</span>
+                  <small>{tr({ fr: "Ambiance sonore de fond", en: "Background ambient sound" })}</small>
                 </div>
                 <button
                   type="button"
                   className={`toggle-btn ${musicEnabled ? 'on' : 'off'}`}
                   onClick={handleMusicToggle}
                 >
-                  {musicEnabled ? "Active" : "Desactive"}
+                  {musicEnabled ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
                 </button>
               </div>
 
               <div className="options-row options-row-volume">
                 <div>
-                  <span>Volume</span>
-                  <small>Niveau de la musique de fond</small>
+                  <span>{tr({ fr: "Volume", en: "Volume" })}</span>
+                  <small>{tr({ fr: "Niveau de la musique de fond", en: "Background music level" })}</small>
                 </div>
                 <div className="volume-control" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <input
@@ -289,7 +323,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     step="5"
                     value={Math.round(musicVolume * 100)}
                     onChange={handleVolumeChange}
-                    aria-label="Volume de la musique"
+                    aria-label={tr({ fr: "Volume de la musique", en: "Music volume" })}
                   />
                   <strong style={{ minWidth: '40px', textAlign: 'right' }}>
                     {Math.round(musicVolume * 100)}%
@@ -299,15 +333,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
               <div className="options-row">
                 <div>
-                  <span>Musique seulement en onglet actif</span>
-                  <small>Met la musique en pause quand le jeu est en arriere-plan</small>
+                  <span>{tr({ fr: "Musique seulement en onglet actif", en: "Music only in active tab" })}</span>
+                  <small>{tr({ fr: "Met la musique en pause quand le jeu est en arriere-plan", en: "Pauses the music when the game is in the background" })}</small>
                 </div>
                 <button
                   type="button"
                   className={`toggle-btn ${musicActiveTabOnly ? 'on' : 'off'}`}
                   onClick={handleActiveTabToggle}
                 >
-                  {musicActiveTabOnly ? "Actif" : "Inactif"}
+                  {musicActiveTabOnly ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                 </button>
               </div>
             </>
@@ -317,15 +351,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>
-                <span>Reinitialiser la partie</span>
-                <small>Efface toute la progression - irreversible</small>
+                <span>{tr({ fr: "Reinitialiser la partie", en: "Reset the game" })}</span>
+                <small>{tr({ fr: "Efface toute la progression - irreversible", en: "Erases all progress - irreversible" })}</small>
               </div>
               <button
                 type="button"
                 className="danger"
                 onClick={handleWipe}
               >
-                Reset
+                {tr({ fr: "Reset", en: "Reset" })}
               </button>
             </div>
           )}
@@ -401,20 +435,20 @@ export default function OptionsDialog({ isOpen, onClose }) {
           {activeGroup === 'doctrine' && conseilDeCrise && (
             <div id="crisisDoctrinePanel">
               {[
-                { key: 'p25', label: 'Crise à 25 % de Rupture' },
-                { key: 'p50', label: 'Crise à 50 % de Rupture' },
-                { key: 'p75', label: 'Crise à 75 % de Rupture' }
+                { key: 'p25', label: { fr: 'Crise à 25 % de Rupture', en: 'Crisis at 25% Rupture' } },
+                { key: 'p50', label: { fr: 'Crise à 50 % de Rupture', en: 'Crisis at 50% Rupture' } },
+                { key: 'p75', label: { fr: 'Crise à 75 % de Rupture', en: 'Crisis at 75% Rupture' } }
               ].map(({ key, label }) => (
                 <div key={key} className="options-row">
                   <div>
-                    <span>{label}</span>
-                    <small>Réponse automatique (sans interruption)</small>
+                    <span>{tr(label)}</span>
+                    <small>{tr({ fr: "Réponse automatique (sans interruption)", en: "Automatic response (no interruption)" })}</small>
                   </div>
                   <div className="number-format-control">
                     {[
-                      { v: 'ask', t: 'Demander' },
-                      { v: 'stabiliser', t: 'Stabiliser' },
-                      { v: 'temporiser', t: 'Temporiser' }
+                      { v: 'ask', t: { fr: 'Demander', en: 'Ask' } },
+                      { v: 'stabiliser', t: { fr: 'Stabiliser', en: 'Stabilize' } },
+                      { v: 'temporiser', t: { fr: 'Temporiser', en: 'Delay' } }
                     ].map(({ v, t }) => (
                       <button
                         key={v}
@@ -422,7 +456,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                         className={`format-option ${(crisisDoctrine[key] || 'ask') === v ? 'active' : ''}`}
                         onClick={() => handleSetPosture(key, v)}
                       >
-                        {t}
+                        {tr(t)}
                       </button>
                     ))}
                   </div>
@@ -433,15 +467,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
                 <>
                   <div className="options-row">
                     <div>
-                      <span>Effondrement automatique</span>
-                      <small>La cité tombe seule au moment choisi (héritage préservé)</small>
+                      <span>{tr({ fr: "Effondrement automatique", en: "Automatic collapse" })}</span>
+                      <small>{tr({ fr: "La cité tombe seule au moment choisi (héritage préservé)", en: "The city collapses on its own at the chosen moment (heritage preserved)" })}</small>
                     </div>
                     <button
                       type="button"
                       className={`toggle-btn ${autoCollapse.enabled ? 'on' : 'off'}`}
                       onClick={() => handleAutoCollapse({ enabled: !autoCollapse.enabled })}
                     >
-                      {autoCollapse.enabled ? 'Actif' : 'Inactif'}
+                      {autoCollapse.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                     </button>
                   </div>
 
@@ -449,14 +483,14 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     <>
                       <div className="options-row">
                         <div>
-                          <span>Déclencheur</span>
-                          <small>Quand effondrer automatiquement</small>
+                          <span>{tr({ fr: "Déclencheur", en: "Trigger" })}</span>
+                          <small>{tr({ fr: "Quand effondrer automatiquement", en: "When to collapse automatically" })}</small>
                         </div>
                         <div className="number-format-control">
                           {[
-                            { v: 'rupture100', t: 'Rupture 100 %' },
-                            { v: 'usure', t: 'Usure' },
-                            { v: 'temps', t: 'Durée' }
+                            { v: 'rupture100', t: { fr: 'Rupture 100 %', en: 'Rupture 100%' } },
+                            { v: 'usure', t: { fr: 'Usure', en: 'Wear' } },
+                            { v: 'temps', t: { fr: 'Durée', en: 'Duration' } }
                           ].map(({ v, t }) => (
                             <button
                               key={v}
@@ -464,7 +498,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                               className={`format-option ${autoCollapse.trigger === v ? 'active' : ''}`}
                               onClick={() => handleAutoCollapse({ trigger: v })}
                             >
-                              {t}
+                              {tr(t)}
                             </button>
                           ))}
                         </div>
@@ -473,8 +507,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
                       {autoCollapse.trigger === 'usure' && (
                         <div className="options-row">
                           <div>
-                            <span>Seuil d'Usure</span>
-                            <small>Effondre dès que l'Usure atteint ce pourcentage</small>
+                            <span>{tr({ fr: "Seuil d'Usure", en: "Wear threshold" })}</span>
+                            <small>{tr({ fr: "Effondre dès que l'Usure atteint ce pourcentage", en: "Collapses as soon as Wear reaches this percentage" })}</small>
                           </div>
                           <div className="auto-script-threshold">
                             <input
@@ -493,8 +527,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
                       {autoCollapse.trigger === 'temps' && (
                         <div className="options-row">
                           <div>
-                            <span>Durée de cycle</span>
-                            <small>Effondre après ce nombre de minutes</small>
+                            <span>{tr({ fr: "Durée de cycle", en: "Cycle duration" })}</span>
+                            <small>{tr({ fr: "Effondre après ce nombre de minutes", en: "Collapses after this number of minutes" })}</small>
                           </div>
                           <div className="auto-script-threshold">
                             <input
@@ -512,15 +546,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
                       <div className="options-row">
                         <div>
-                          <span>Tenter de sauver avant</span>
-                          <small>Rationner / Réformes avant d'effondrer si la crise est résoluble</small>
+                          <span>{tr({ fr: "Tenter de sauver avant", en: "Try to save first" })}</span>
+                          <small>{tr({ fr: "Rationner / Réformes avant d'effondrer si la crise est résoluble", en: "Ration / Reforms before collapsing if the crisis is solvable" })}</small>
                         </div>
                         <button
                           type="button"
                           className={`toggle-btn ${autoCollapse.prepare ? 'on' : 'off'}`}
                           onClick={() => handleAutoCollapse({ prepare: !autoCollapse.prepare })}
                         >
-                          {autoCollapse.prepare ? 'Oui' : 'Non'}
+                          {autoCollapse.prepare ? tr({ fr: "Oui", en: "Yes" }) : tr({ fr: "Non", en: "No" })}
                         </button>
                       </div>
                     </>
@@ -529,16 +563,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
               ) : (
                 <div className="options-row">
                   <div>
-                    <span>Effondrement automatique</span>
-                    <small>Débloqué par l'upgrade de ruines « Édit d'effondrement ».</small>
+                    <span>{tr({ fr: "Effondrement automatique", en: "Automatic collapse" })}</span>
+                    <small>{tr({ fr: "Débloqué par l'upgrade de ruines « Édit d'effondrement ».", en: "Unlocked by the ruins upgrade « Collapse Edict »." })}</small>
                   </div>
                 </div>
               )}
 
               <div className="options-row">
                 <div>
-                  <span>Gain hors-ligne</span>
-                  <small>La cité produit et vieillit en ton absence, jusqu'à ce plafond. Étends-le avec « Veilleurs de nuit ».</small>
+                  <span>{tr({ fr: "Gain hors-ligne", en: "Offline gain" })}</span>
+                  <small>{tr({ fr: "La cité produit et vieillit en ton absence, jusqu'à ce plafond. Étends-le avec « Veilleurs de nuit ».", en: "The city produces and ages while you're away, up to this cap. Extend it with « Night Watchers »." })}</small>
                 </div>
                 <strong>{Math.round(idleCapSeconds() / 3600)} h</strong>
               </div>
@@ -547,7 +581,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
         </div>
 
         <menu style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={onClose}>Fermer</button>
+          <button type="button" onClick={onClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
         </menu>
       </form>
     </dialog>

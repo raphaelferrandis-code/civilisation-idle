@@ -2,6 +2,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { fmt } from '../../game/core/utils.js';
+import { tr } from '../../game/core/i18n.js';
 
 export default function ChronicleView() {
   const bestEraIndex = useGameState(s => s.bestEraIndex || 0);
@@ -16,7 +17,7 @@ export default function ChronicleView() {
       <div className="panel">
         <div className="panel-heading">
           <div>
-            <h2>Les Âges traversés</h2>
+            <h2>{tr({ fr: 'Les Âges traversés', en: 'The Ages Traversed' })}</h2>
           </div>
         </div>
 
@@ -34,19 +35,19 @@ export default function ChronicleView() {
                 <div className="era-timeline-body">
                   <div className="era-timeline-head">
                     <h3>{reached ? era.name : '— ? —'}</h3>
-                    <span className="era-timeline-pop" title="Population requise">
-                      {fmt(era.at)} habitants
+                    <span className="era-timeline-pop" title={tr({ fr: 'Population requise', en: 'Population required' })}>
+                      {fmt(era.at)} {tr({ fr: 'habitants', en: 'inhabitants' })}
                     </span>
-                    {isCurrent && <span className="era-timeline-now">Âge actuel</span>}
+                    {isCurrent && <span className="era-timeline-now">{tr({ fr: 'Âge actuel', en: 'Current Age' })}</span>}
                   </div>
-                  <p>{reached ? era.text : "Cet âge reste à découvrir : la population doit encore croître."}</p>
+                  <p>{reached ? era.text : tr({ fr: "Cet âge reste à découvrir : la population doit encore croître.", en: "This age remains to be discovered: the population must still grow." })}</p>
                 </div>
               </li>
             );
           })}
         </ol>
         {revealedMax + 1 < eras.length - 1 && (
-          <p className="era-timeline-more">… et encore de nombreux âges à traverser.</p>
+          <p className="era-timeline-more">{tr({ fr: '… et encore de nombreux âges à traverser.', en: '… and many more ages yet to traverse.' })}</p>
         )}
       </div>
     </section>

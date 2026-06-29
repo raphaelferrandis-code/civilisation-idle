@@ -1,5 +1,7 @@
 "use strict";
 
+import { localizeData } from '../core/i18n.js';
+
 export const ACTIVE_RUIN_RUPTURE_START = 0.10;
 export const ACTIVE_RUIN_FOOD_ENGINE_COST_MULT = 1.20;
 export const ACTIVE_RUIN_GOLD_PROD_MULT = 0.75;
@@ -15,87 +17,87 @@ export const ACTIVE_RUIN_DEFINITIONS = [
   {
     id: "enee",
     stateKey: "eneeHeritage",
-    title: "Migration fondatrice",
-    source: "Énée",
-    bonus: "Boost de départ actif (+10% par effondrement, jusqu'à +100%).",
-    malus: `Rupture initiale +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.`
+    title: { fr: "Migration fondatrice", en: "Founding Migration" },
+    source: { fr: "Énée", en: "Énée" },
+    bonus: { fr: "Boost de départ actif (+10% par effondrement, jusqu'à +100%).", en: "Active starting boost (+10% per collapse, up to +100%)." },
+    malus: { fr: `Rupture initiale +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.`, en: `Initial Rupture +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.` }
   },
   {
     id: "promethee",
     stateKey: "prometheeBraisiers",
-    title: "Braisiers ancestraux",
-    source: "Prométhée",
-    bonus: "Bonus Nourriture x2 actif en début de cycle.",
-    malus: `Chaque moteur de Nourriture coûte ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% plus cher.`
+    title: { fr: "Braisiers ancestraux", en: "Ancestral Braziers" },
+    source: { fr: "Prométhée", en: "Prométhée" },
+    bonus: { fr: "Bonus Nourriture x2 actif en début de cycle.", en: "Active Food bonus x2 at the start of the cycle." },
+    malus: { fr: `Chaque moteur de Nourriture coûte ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% plus cher.`, en: `Each Food engine costs ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% more.` }
   },
   {
     id: "age_or",
     stateKey: "orHeritage",
-    title: "Equilibre Dore",
-    source: "Âge d'Or",
-    bonus: "Bonus d'Usure actif (-20% quand Nourriture et Trésor sont équilibrés).",
-    malus: `La production de Trésor démarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`
+    title: { fr: "Equilibre Dore", en: "Golden Balance" },
+    source: { fr: "Âge d'Or", en: "Golden Age" },
+    bonus: { fr: "Bonus d'Usure actif (-20% quand Nourriture et Trésor sont équilibrés).", en: "Active Wear bonus (-20% when Food and Treasury are balanced)." },
+    malus: { fr: `La production de Trésor démarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`, en: `Treasury production starts ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% slower.` }
   },
   {
     id: "hephaistos",
     stateKey: "hephHeritage",
-    title: "Automates ancestraux",
-    source: "Héphaïstos",
-    bonus: "Automatisations permanentes actives.",
-    malus: `L'Usure monte ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% plus vite.`
+    title: { fr: "Automates ancestraux", en: "Ancestral Automatons" },
+    source: { fr: "Héphaïstos", en: "Héphaïstos" },
+    bonus: { fr: "Automatisations permanentes actives.", en: "Permanent automations active." },
+    malus: { fr: `L'Usure monte ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% plus vite.`, en: `Wear rises ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% faster.` }
   },
   {
     id: "atlas",
     stateKey: "atlasHeritage",
-    title: "Slot futur",
-    source: "Atlas",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Atlas", en: "Atlas" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   },
   {
     id: "sisyphe",
     stateKey: "sisypheHeritage",
-    title: "Slot futur",
-    source: "Sisyphe",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Sisyphe", en: "Sisyphe" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   },
   {
     id: "babel",
     stateKey: "babelHeritage",
-    title: "Slot futur",
-    source: "Babel",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Babel", en: "Babel" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   },
   {
     id: "icare",
     stateKey: "icareHeritage",
-    title: "Slot futur",
-    source: "Icare",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Icare", en: "Icare" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   },
   {
     id: "phenix",
     stateKey: "phoenixHeritage",
-    title: "Slot futur",
-    source: "Phénix",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Phénix", en: "Phénix" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   },
   {
     id: "atrides",
     stateKey: "atridesHeritage",
-    title: "Slot futur",
-    source: "Atrides",
-    bonus: "Bonus à définir.",
-    malus: "Malus à définir.",
+    title: { fr: "Slot futur", en: "Future slot" },
+    source: { fr: "Atrides", en: "Atrides" },
+    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
+    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
     pending: true
   }
 ];
@@ -119,3 +121,6 @@ export function activeRuinCount(state) {
 export function activeRuinMultiplier(state) {
   return 1 + activeRuinCount(state) * ACTIVE_RUIN_RUIN_GAIN_PER_MALUS;
 }
+
+// Aplatit les feuilles { fr, en } (title/source/bonus/malus) en chaînes (i18n.js).
+localizeData(ACTIVE_RUIN_DEFINITIONS);

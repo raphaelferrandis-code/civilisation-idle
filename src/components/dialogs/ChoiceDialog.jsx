@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { tr } from '../../game/core/i18n.js';
 
 export default function ChoiceDialog({ dialog, onChoose }) {
   const dialogRef = useRef(null);
@@ -30,12 +31,12 @@ export default function ChoiceDialog({ dialog, onChoose }) {
   if (!dialog) return null;
 
   const labelText = dialog.mourning
-    ? "Epitaphe"
+    ? tr({ fr: "Epitaphe", en: "Epitaph" })
     : dialog.variant === "dynasty"
-      ? "Fondation"
+      ? tr({ fr: "Fondation", en: "Founding" })
       : dialog.variant === "cadmos"
-        ? "Cadmos"
-        : "Crise active";
+        ? tr({ fr: "Cadmos", en: "Cadmos" })
+        : tr({ fr: "Crise active", en: "Active Crisis" });
   const className = dialog.mourning
     ? "event-dialog epitaph-dialog"
     : dialog.variant
