@@ -6,7 +6,7 @@ import { PNG } from 'pngjs';
 import AdmZip from 'adm-zip';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/inhabitants';
 const DIRS = ['south', 'east', 'north', 'west'];
 const FRAMES = 6;
 const CHARS = [

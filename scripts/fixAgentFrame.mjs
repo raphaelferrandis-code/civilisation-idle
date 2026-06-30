@@ -6,7 +6,7 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const FILE = 'public/pixelart/agents/industrialwoman-south.png';
+const FILE = 'public/pixelart/agents/inhabitants/industrialwoman-south.png';
 const FRAMES = 6;     // nb de frames de la bande
 const BAD = 4;        // frame à corriger (0-indexée) — ici la frame de dos
 const SRC = 1;        // frame source (demi-cycle plus tôt = pied opposé)

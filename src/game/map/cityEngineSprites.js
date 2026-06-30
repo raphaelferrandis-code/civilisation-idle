@@ -32,7 +32,7 @@ function ensureForager() {
   for (const clip of Object.keys(FORAGER_CLIPS)) {
     const im = new Image();
     im.onload = () => { foragerReadyN += 1; };
-    im.src = '/pixelart/agents/forager-' + clip + '.png';
+    im.src = '/pixelart/agents/buildings/forager-' + clip + '.png';
     foragerImg[clip] = im;
   }
 }
@@ -58,7 +58,7 @@ let farmerInit = false, farmerReadyN = 0;
 function ensureFarmer() {
   if (farmerInit || typeof Image === 'undefined') return;
   farmerInit = true;
-  for (const d of FARMER_DIRS) { const im = new Image(); im.onload = () => { farmerReadyN += 1; }; im.src = '/pixelart/agents/farmer-' + d + '.png'; farmerImg[d] = im; }
+  for (const d of FARMER_DIRS) { const im = new Image(); im.onload = () => { farmerReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/farmer-' + d + '.png'; farmerImg[d] = im; }
 }
 const farmerReady = () => { ensureFarmer(); return farmerReadyN >= FARMER_DIRS.length; };
 function blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
@@ -79,7 +79,7 @@ function ensurePortBoat(name) {
   if (c) return c;
   c = { img: null, ready: false };
   portBoatImg[name] = c;
-  if (typeof Image !== 'undefined') { const im = new Image(); im.onload = () => { c.ready = true; }; im.src = '/pixelart/agents/boat-' + name + '.png'; c.img = im; }
+  if (typeof Image !== 'undefined') { const im = new Image(); im.onload = () => { c.ready = true; }; im.src = '/pixelart/agents/boats/boat-' + name + '.png'; c.img = im; }
   return c;
 }
 function blitEraBoat(ctx, ox, oy, sw, sh, cx, cy, cells, name, now, gw) {
@@ -134,13 +134,13 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
   for (const k of PROP_KEYS) {
     const im = new Image();
-    im.src = '/pixelart/agents/' + k + '.png';
+    im.src = '/pixelart/agents/buildings/' + k + '.png';
     propImg[k] = im;
   }
 }
@@ -207,7 +207,7 @@ function ensureMule() {
   for (const d of Object.keys(MULE_CLIPS)) {
     const im = new Image();
     im.onload = () => { muleReadyN += 1; };
-    im.src = '/pixelart/agents/caravan-mule-' + d + '.png';
+    im.src = '/pixelart/agents/buildings/caravan-mule-' + d + '.png';
     muleImg[d] = im;
   }
 }
@@ -246,6 +246,40 @@ function drawCaravan(ctx, ox, oy, sw, sh, now) {
   }
   const mf = Math.floor((now || 0) / 150) % MULE_CLIPS[dir];
   blitMule(ctx, ox, oy, sw, sh, dir, mf, muleX, FY, 0.64);
+}
+
+// ── Bandes animées « feu pixel » (PixelLab animate_object → composite qui FIGE le
+// bâtiment, seul le feu bouge). Bande horizontale N×FW, un Image par clé. Le feu
+// animé est PIXEL (baké image par image) → il ne « dénote » pas comme un overlay
+// procédural. Registry PARTAGÉ (mint forge, conteurs…) ; exporté pour engineSprites.js.
+// Repli : prop statique correspondant, puis la scène procédurale d'origine.
+const ANIM_BANDS = {
+  'mint-forge-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+  'storyteller-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+};
+const animImg = {};
+let animInit = false;
+const animReadyN = {};
+function ensureAnim() {
+  if (animInit || typeof Image === 'undefined') return;
+  animInit = true;
+  for (const k of Object.keys(ANIM_BANDS)) {
+    const im = new Image();
+    im.onload = () => { animReadyN[k] = 1; };
+    im.src = '/pixelart/agents/buildings/' + k + '.png';
+    animImg[k] = im;
+  }
+}
+const animReady = (k) => { ensureAnim(); return animReadyN[k] === 1; };
+// Blit de la frame courante d'une bande, centrée sur (cx,cy) en fraction de tuile.
+function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
+  const meta = ANIM_BANDS[key], im = animImg[key]; if (!meta || !im) return;
+  const frame = Math.floor((now || 0) / meta.ms) % meta.frames;   // ~7.7 fps
+  const drawW = sw * wFrac, drawH = sh * hFrac;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * cy - drawH / 2;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, frame * meta.fw, 0, meta.fw, meta.fh, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
 }
 
 
@@ -1337,7 +1371,7 @@ function drawCityEngineSprite(context) {
       if (propReady('market-prop-stall')) {
         // Tache de sol douce qui se fond dans le terrain (sous l'étal)
         {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.74, R = sw * 0.5, ky = (sh * 0.3) / R;
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.73, R = sw * 0.5, ky = (sh * 0.3) / R;
           ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
           const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
           g.addColorStop(0, "rgba(40,28,14,0.5)");
@@ -1688,7 +1722,7 @@ function drawCityEngineSprite(context) {
       if (propReady('guild-prop-lodge')) {
         // Tache de sol douce sous le lodge
         {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.8, R = sw * 0.46, ky = (sh * 0.24) / R;
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
           ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
           const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
           g.addColorStop(0, "rgba(38,26,12,0.45)");
@@ -2558,15 +2592,17 @@ function drawCityEngineSprite(context) {
     //    plongeant dans le fleuve (sprite statique tourné via ctx, vitesse now/900 =
     //    la roue procédurale). AUCUN procédural/fond peint/hack moteur (leçon du port).
     if (stage === 0 && propReady('mill-prop-house')) {
-      // Tour-moulin (sprite vue de PROFIL) COLLÉE à l'eau : base au ras de la ligne d'eau.
-      const twW = 1.18 / Math.max(1, gw), twH = 1.85 / Math.max(1, gh);
-      const twCx = 0.6, twBaseCy = 0.54, twCy = twBaseCy - twH / 2;   // base recouvre le liseré d'herbe (tour DEVANT l'herbe)
+      // Cabane-moulin EN BOIS (vue 3/4) posée sur la berge : base au ras de la ligne
+      // d'eau, roue à aubes montée sur le flanc GAUCHE qui plonge dans le fleuve.
+      // Boîte ~CARRÉE (la cabane, ≠ l'ancienne tour étroite 1.18×1.85) → pas de distorsion.
+      const twW = 1.5 / Math.max(1, gw), twH = 1.5 / Math.max(1, gh);
+      const twCx = 0.58, twBaseCy = 0.53, twCy = twBaseCy - twH / 2;   // cabane légèrement relevée sur la berge (au-dessus du liseré d'herbe) ; la roue plonge plus bas dans l'eau
       blitProp(ctx, ox, oy, sw, sh, 'mill-prop-house', twCx, twCy, twW, twH);
-      // Roue COLLÉE au flanc gauche de la tour (léger chevauchement), bas dans l'eau.
+      // Roue COLLÉE au flanc gauche de la cabane (chevauchement = montée sur le mur), bas dans l'eau.
       if (propReady('mill-prop-wheel')) {
-        const wF = 1.2, wAng = -(now || 0) / 900;   // sens INVERSÉ
-        const wCx = twCx - twW * 0.12;              // MOYEU plus vers le CENTRE de la tour
-        blitPropRot(ctx, ox, oy, sw, sh, 'mill-prop-wheel', wCx, 0.5, wF / Math.max(1, gw), wF / Math.max(1, gh), wAng);
+        const wF = 1.06, wAng = -(now || 0) / 900;   // sens INVERSÉ
+        const wCx = twCx - twW * 0.27;               // MOYEU sur le flanc gauche
+        blitPropRot(ctx, ox, oy, sw, sh, 'mill-prop-wheel', wCx, 0.46, wF / Math.max(1, gw), wF / Math.max(1, gh), wAng);
       }
       return true;
     }
@@ -2739,6 +2775,28 @@ function drawCityEngineSprite(context) {
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (stage === 0) {
       // ── STADE 0 · ATELIER DE FRAPPE — four à creuset, enclume, coin gravé ──
+      // Pixel-art = atelier PixelLab : le BÂTIMENT reste figé, seul le FEU de forge
+      // est ANIMÉ (bande de 7 frames, cf. blitForge — feu PIXEL baké, pas d'overlay
+      // procédural). Repli : prop statique mint-prop-forge, puis l'atelier vectoriel
+      // d'origine tant que rien n'est chargé.
+      if (animReady('mint-forge-fire') || propReady('mint-prop-forge')) {
+        // Tache de sol douce qui se fond dans le terrain (sous l'atelier)
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.83, R = sw * 0.46, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(38,26,12,0.45)");
+          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
+          g.addColorStop(1, "rgba(38,26,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // L'atelier (PixelLab) — aspect 96×80 préservé ; feu animé si la bande est prête,
+        // sinon prop statique (frame figée équivalente).
+        if (animReady('mint-forge-fire')) blitAnim(ctx, ox, oy, sw, sh, 'mint-forge-fire', now, 0.5, 0.53, 0.88, 0.73);
+        else blitProp(ctx, ox, oy, sw, sh, 'mint-prop-forge', 0.5, 0.53, 0.88, 0.73);
+        return true;
+      }
+      // ── repli procédural (l'atelier de frappe vectoriel d'origine) ──
       // L'or se monnaie déjà mais à la main : on fond le flan au creuset puis on
       // le frappe entre deux coins à coups de masse. Pierre brute + braises.
       px(0.0, 0.66, 1.0, 0.34, "#241a10");                   // sol de terre battue
@@ -2798,6 +2856,27 @@ function drawCityEngineSprite(context) {
     }
     if (stage === 1) {
     // ── STADE 1 · HÔTEL DES MONNAIES — coffre, balance, monnayeur au marteau ──
+    // Pixel-art = prop PixelLab STATIQUE (le BÂTIMENT médiéval — pierre/colombages,
+    // toit, fenêtres à barreaux et emblème pièce sont BAKÉS dans le sprite). Aucun
+    // overlay procédural (pas de pièces jaunes ni de lueur clignotante — retirés à la
+    // demande). Repli sur l'hôtel des monnaies vectoriel d'origine tant que le prop
+    // n'est pas chargé (zéro tuile vide).
+    if (propReady('mint-prop-house')) {
+      // Tache de sol douce qui se fond dans le terrain (sous le bâtiment)
+      {
+        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
+        ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+        g.addColorStop(0, "rgba(38,26,12,0.45)");
+        g.addColorStop(0.6, "rgba(38,26,12,0.22)");
+        g.addColorStop(1, "rgba(38,26,12,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      // Le bâtiment (prop PixelLab) — aspect 96×96 carré, calé comme guild-prop-lodge
+      blitProp(ctx, ox, oy, sw, sh, 'mint-prop-house', 0.5, 0.5, 0.86, 0.86);
+      return true;
+    }
+    // ── repli procédural (l'hôtel des monnaies vectoriel d'origine) ──
     // Bâtiment sécurisé (murs épais, pierre)
     ctx.fillStyle = "#a89060"; ctx.fillRect(ox+sw*0.14, oy+sh*0.24, sw*0.72, sh*0.6);
     ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(ox+sw*0.7, oy+sh*0.24, sw*0.16, sh*0.6);
@@ -3006,6 +3085,25 @@ function drawCityEngineSprite(context) {
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (stage === 0) {
       // ── STADE 0 · COMPTOIR DE CHANGE — table de changeur, trébuchet, abaque ──
+      // Pixel-art = prop PixelLab STATIQUE (auvent rouge + table-balance + or + coffre
+      // BAKÉS dans le sprite). Repli sur le comptoir vectoriel d'origine tant que le
+      // prop n'est pas chargé.
+      if (propReady('exchange-prop-stall')) {
+        // Tache de sol douce sous le comptoir (cyp calé sur la base opaque mesurée)
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.5, ky = (sh * 0.24) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(38,26,12,0.45)");
+          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
+          g.addColorStop(1, "rgba(38,26,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Le comptoir (prop PixelLab) — aspect 96×80 préservé
+        blitProp(ctx, ox, oy, sw, sh, 'exchange-prop-stall', 0.5, 0.53, 0.88, 0.73);
+        return true;
+      }
+      // ── repli procédural (le comptoir de change vectoriel d'origine) ──
       // Avant la banque, le trapézite : sous un auvent, on pèse l'or au fléau et
       // on compte sur les lignes gravées de la table. Le change précède le crédit.
       px(0.0, 0.68, 1.0, 0.32, "#241a0c");                  // terre battue
@@ -3311,4 +3409,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, cosmicBase };
+export { drawCityEngineSprite, cosmicBase, propReady, blitProp, animReady, blitAnim };

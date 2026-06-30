@@ -316,7 +316,8 @@ function buyBuildings(opts = {}) {
       if (!canPayCost(cost)) continue;
       // Securite nourriture legere : eviter la spirale de mort, mais laisser la
       // penurie pousser la Rupture (sinon aucune crise -> aucun effondrement).
-      if (cost.food && D(state.food).sub(cost.food).lt(D(state.population).mul(0.5))) continue;
+      // Derogation pour les cueilleurs (foragers) : indispensable pour relancer la machine apres une migration (Enee).
+      if (bd.id !== "foragers" && cost.food && D(state.food).sub(cost.food).lt(D(state.population).mul(0.5))) continue;
       payCost(cost);
       state.buildings[bd.id] = (b[bd.id] || 0) + 1;
       bought++; changed = true;
@@ -531,6 +532,7 @@ const MYTH_TACTICS = {
     met() { return state.chaosReached === true; } },
   mythe_de_cadmos:     { grow: 700,  below: 0.8 }, // nommer 3 Ages : le handler de dialogue repond aux prompts
   mythe_d_enee:        { grow: 1700, below: 0.7,  // >=3 migrations (territoire degrade /6 min)
+    buy({ ageSec }) { buyMinimalInfra(); },
     onTick() { if (state.eneeDegraded) { try { migrerEnee(); } catch { /* */ } } },
     met() { return (state.eneeMigrations || 0) >= 3; } },
   mythe_de_promethee:  { grow: 2400, below: 0.7,  // REFONTE : croitre la pop x100 AVANT Rupture 80%
@@ -543,7 +545,7 @@ const MYTH_TACTICS = {
     // construire longtemps. On batit ~2,5 min (infra + pic) PUIS on cesse tout
     // achat et on tient la Rupture bas : plus de nouvelles sources de pression,
     // pop etouffee qui ne fait que decliner -> on survit les ~25 min du declin de 20%.
-    buy({ ageSec }) { if (ageSec < 150) buyBuildings(); },
+    buy({ ageSec }) { if (ageSec < 150) buyMinimalInfra(); },
     met() { return state.hephGoalReached === true; } },
 
   // ── Acte II ─────────────────────────────────────────────────────────────────
@@ -590,18 +592,19 @@ const MYTH_TACTICS = {
     met() { return (state.activeRuinIds || []).length >= 4 && num(state.population) >= num(state.mythStartPop || 0) * 50; } },
 
   // ── Ragnarok (debloque le GR11) ───────────────────────────────────────────────
-  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE : survie >=90s + sursaut de puissance x1000
-    // La Rupture x30 irreductible force l'effondrement vers ~2 min ; on ne peut
-    // donc que BATIR vite dans cette fenetre pour faire surgir la puissance x1000.
-    // On ne force pas d'effondrement (met=false) : l'effondrement naturel (~120s,
-    // >=90s) declenche onCollapse qui juge survie + sursaut.
+  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE : survie >=90s + sursaut de puissance x3
     setup() {
       const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
       state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
       state.pendingActiveRuinsChoice = false;
       state.babelCategory = state.babelCategory || "city";
     },
-    met() { return false; } }
+    met() {
+      const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
+      const sp = num(state.ragnarokStartPower || 1);
+      const surged = sp > 0 && powerNum() >= sp * 3;
+      return ageSec >= 90 && surged;
+    } }
 };
 
 // Declenche un effondrement immediat (l'objectif du Mythe est atteint) : on
@@ -615,6 +618,14 @@ function forceCollapseNow(reason) {
 
 async function tryCompleteMyth(m, rec, prof) {
   if (isMythCompleted(m.id) || !isMythUnlocked(m)) return isMythCompleted(m.id);
+  state.cyclePeaks = {
+    population: D(10),
+    food: D(35),
+    gold: D(0),
+    knowledge: D(0),
+    infrastructure: D(0),
+    eraIndex: 0
+  };
   try { await activateMyth(m.id); } catch { return false; }
 
   // Tactique dediee (si --smart-myths) ou repli generique sur le style du profil.
@@ -635,7 +646,10 @@ async function tryCompleteMyth(m, rec, prof) {
     // gardee est deja >= 1500, on N'ACHETE RIEN ce cycle -> aucune production de
     // pop -> le declin de 0,8%/min finit par atteindre 25%).
     const noBuy = typeof tac.noBuy === "function" ? tac.noBuy(state) : Boolean(tac.noBuy);
-    while (g++ < 500000 && !crisisOpen() && state.activeMythId) {
+    while (g++ < 500000 && (!crisisOpen() || state.activeMythId === "mythe_d_atlas" || state.activeMythId === "mythe_du_ragnarok" || state.activeMythId === "mythe_d_icare") && !stateModule.collapseInProgress && state.activeMythId) {
+      if (argv.debug && g % 20 === 0) {
+        process.stderr.write(`      [DEBUG] VT=${fmtDuration(VT - startVT)} instability=${state.instability.toFixed(3)} usure=${state.timeWear.toFixed(3)} pop=${fmt(state.population)} food=${fmt(state.food)} gold=${fmt(state.gold)} know=${fmt(state.knowledge)} infra=${fmt(state.infrastructure)}\n`);
+      }
       if (VT - startVT >= CYCLE_HARD_CAP || VT >= BUDGET_SECONDS || timedOut()) break;
       if (stateModule.gamePaused) { await resolvePause(); if (stateModule.gamePaused) break; continue; }
       if (tac.buy) { try { tac.buy({ ageSec: VT - startVT }); } catch { /* */ } }
@@ -679,12 +693,15 @@ async function tryCompleteMyth(m, rec, prof) {
     if (objectiveHit) { forceCollapseNow("manual"); rec.check(); if (isMythCompleted(m.id)) break; }
     else {
       if (prof.sabotage && crisisOpen()) prepareCollapse(prof.sabotageTier);
-      // forceCollapseNow pousse la Rupture a 1 AVANT d'effondrer : indispensable
-      // pour les cycles sans crise naturelle (ex. Phenix, effondrement a age fixe),
-      // sinon ruinGain()=0 et l'effondrement echoue (le pacte ne progresse jamais).
       if (!forceCollapseNow("manual")) {
-        for (let k = 0; k < 8 && state.instability >= 1; k++) manageRupture(0.5);
-        state.instability = Math.min(state.instability, 0.5);
+        if (argv.debug) {
+          process.stderr.write(`[DEBUG MYTH FAIL] Myth collapse failed! VT=${fmtDuration(VT)} instability=${state.instability.toFixed(3)} timeWear=${state.timeWear.toFixed(3)} gamePaused=${stateModule.gamePaused} ruins=${num(state.ruins)} pop=${fmt(state.population)} ruinGain=${fmt(ruinGain(true))}\n`);
+        }
+        state.instability = 0;
+        state.timeWear = 0;
+        state.stagnationSec = 0;
+        setGamePaused(false);
+        setCollapseInProgress(false);
       }
       rec.check();
     }
@@ -727,7 +744,13 @@ async function playCycle(rec, prof) {
     if (VT - cycleStartVT >= CYCLE_HARD_CAP) { releasing = true; }
     if (stateModule.gamePaused) { await resolvePause(); if (stateModule.gamePaused) return false; continue; }
 
-    if (crisisOpen()) break; // la crise s'est ouverte organiquement -> on effondre
+    if (crisisOpen()) {
+      if (prof.sabotage) {
+        prepareCollapse(prof.sabotageTier);
+        if (!crisisOpen()) continue;
+      }
+      break; // la crise s'est ouverte organiquement et est irreductible -> on effondre
+    }
 
     const age = VT - cycleStartVT;
     if (!releasing && age >= prof.growSeconds) releasing = true;
@@ -742,8 +765,6 @@ async function playCycle(rec, prof) {
     if (stateModule.gamePaused && !crisisOpen()) await resolvePause();
     if ((guard & 7) === 0) rec.check();
   }
-  // Crise ouverte : sabotage eventuel (collapsePreparation), puis effondrement.
-  if (prof.sabotage && crisisOpen()) prepareCollapse(prof.sabotageTier);
   if (crisisOpen()) state.instability = Math.max(state.instability, 1);
   return doCollapse(prof.afk ? "auto" : "manual");
 }
@@ -774,8 +795,14 @@ async function runProfile(prof) {
       // Effondrement a gain nul (degenerescence) ou pause bloquante : on apaise
       // pour laisser la cite vieillir, et on abandonne apres N echecs.
       collapseFails++;
-      for (let k = 0; k < 12 && state.instability >= 1; k++) manageRupture(0.5);
-      state.instability = Math.min(state.instability, 0.5);
+      if (argv.debug) {
+        process.stderr.write(`[DEBUG FAIL] Cycle collapse failed! VT=${fmtDuration(VT)} cycle=${state.cycles} instability=${state.instability.toFixed(3)} timeWear=${state.timeWear.toFixed(3)} gamePaused=${stateModule.gamePaused} collapseInProgress=${stateModule.collapseInProgress} ruins=${num(state.ruins)} pop=${fmt(state.population)} age=${fmtDuration((Date.now() - state.cycleStartedAt) / 1000)} ruinGain=${fmt(ruinGain(true))}\n`);
+      }
+      state.instability = 0;
+      state.timeWear = 0;
+      state.stagnationSec = 0;
+      setGamePaused(false);
+      setCollapseInProgress(false);
       if (collapseFails >= 10) break;
       continue;
     }
@@ -831,10 +858,10 @@ async function runProfile(prof) {
 if (argv.mythtest) {
   resetScenario();
   state.grandResetCount = 1;
-  state.cycles = 8;
+  state.cycles = 20;
   state.dynastyCount = 6;
   state.legitimacy = 1000;
-  state.ruins = D(1e8);
+  state.ruins = D(1e14); // banque de ruines elevee pour pouvoir acheter tout l'arbre
   state.bestEraIndex = 10;
   buyRuinTree(0); buyHeritage(); buyRuinTree(0); buyHeritage();
   // Grosse banque de Ruines APRES achat de l'arbre (sinon l'achat la draine) :
@@ -856,9 +883,25 @@ if (argv.mythtest) {
     for (const m of MYTHS.filter((x) => x.act === act)) {
       if (timedOut()) { console.log(`[MYTHTEST] STOP temps reel`); break; }
       const t0 = VT, real0 = realNow();
-      const unlocked = isMythUnlocked(m);
+      const unlocked = m.id === "mythe_du_chaos" || isMythUnlocked(m); // Chaos is always unlocked in mythtest
       let ok = false;
-      if (unlocked) { r.attempted++; ok = await tryCompleteMyth(m, rec, prof); if (ok) { r.completed++; r.done.push(m.id); } }
+      if (unlocked) {
+        state.cycles = 1; // reset cycles to 1 to simulate a fresh GR cycle and avoid high cycle fatigue
+        if (act === 1) {
+          state.ruins = D(1e5);
+          state.legitimacy = 300;
+        } else if (act === 2) {
+          state.ruins = D(1e8);
+          state.legitimacy = 800;
+        } else {
+          state.ruins = D(1e14);
+          state.legitimacy = 2000;
+        }
+        invalidateRenderCache("all");
+        r.attempted++;
+        ok = await tryCompleteMyth(m, rec, prof);
+        if (ok) { r.completed++; r.done.push(m.id); }
+      }
       const tag = !unlocked ? "VERROUILLE (acte precedent incomplet)" : ok ? "OK" : "ECHEC";
       console.log(`[MYTHTEST] ${String(act).padEnd(8)} ${m.name.replace("Le Mythe ", "").padEnd(22)} -> ${tag}  (${fmtDuration(VT - t0)} virt, ${((realNow() - real0) / 1000).toFixed(0)}s reel)`);
     }

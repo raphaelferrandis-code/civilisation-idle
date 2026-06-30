@@ -8,7 +8,7 @@ import AdmZip from 'adm-zip';
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/animals';
 const DIRS = ['south', 'north', 'east', 'west'];
 const ANIMALS = [
   { name: 'horse', id: '19ada8a2-dae0-4dda-9050-fc3eeda57ee9' }, // cheval de trait

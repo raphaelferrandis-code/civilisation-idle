@@ -5,7 +5,7 @@
 import AdmZip from 'adm-zip';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/vehicles';
 const DIRS = ['east', 'west', 'south', 'north'];
 // ⚠ Ne mettre ici QUE des véhicules à 1 frame fixe. Tous les ROULANTS (char,
 // charrette, brouette, wagon, caravane, voiture) sont désormais ANIMÉS (roues qui

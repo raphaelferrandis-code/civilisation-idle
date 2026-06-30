@@ -1,6 +1,6 @@
 # Course au Grand Reset (et au-dela) — 10 profils de joueur
 
-> Genere par `sim-10-profils.js` — budget 600 h virtuelles/profil, pas 5 s, plafond temps reel 6 min/profil.
+> Genere par `sim-10-profils.js` — budget 288 h virtuelles/profil, pas 30 s, plafond temps reel 3 min/profil.
 > **Toutes les valeurs viennent des vraies formules du jeu** (`src/game/**`), pilotees par le moteur reel
 > (tick -> crise -> effondrement -> ruines -> dynastie -> Grand Reset -> Mythes). Aucune formule recopiee.
 > Effondrement FIDELE : on tient la Rupture pendant la croissance, on lache au moment voulu et la jauge
@@ -11,31 +11,31 @@
 
 | Profil | Grand Reset 1 | Arbre de Ruines complet | Acte I des Mythes | Acte II des Mythes | Acte III des Mythes | Tous les Mythes | Grand Reset 10 | Grand Reset 11 (Ragnarok) |
 |---|---|---|---|---|---|---|---|---|
-| 1. AFK assume | 1j 18h 25m | 7j 12h 25m | 2j 1h 21m | 2j 2h 17m | — | — | 5j 20h 9m | — |
-| 2. Optimiseur de timing | 1j 16h 1m | 7j 5h 45m | 2j 0h 30m | 2j 1h 25m | — | — | 5j 22h 49m | — |
-| 3. Architecte des Mythes | 1j 15h 10m | 7j 5h 0m | 2j 1h 2m | 2j 1h 59m | — | — | 5j 10h 23m | — |
-| 4. Casse-cou | 1j 18h 36m | 8j 21h 27m | 2j 4h 38m | 2j 5h 30m | — | — | 7j 5h 32m | — |
-| 5. Prudent | 1j 12h 32m | 8j 4h 12m | 1j 20h 51m | 1j 21h 45m | — | — | 6j 9h 57m | — |
-| 6. Completionniste | 1j 15h 10m | 8j 6h 58m | 1j 23h 20m | 2j 0h 18m | — | — | 6j 12h 15m | — |
-| 7. Theoricien (tenir puis saborder) | 1j 14h 35m | 7j 11h 14m | 1j 21h 46m | 1j 22h 37m | — | — | 5j 16h 38m | — |
-| 8. Lecteur | 1j 17h 36m | 5j 6h 14m | 1j 23h 33m | 2j 0h 29m | — | — | 6j 14h 13m | — |
-| 9. Chasseur de meta | 1j 15h 17m | 7j 16h 32m | 2j 1h 0m | 2j 1h 57m | — | — | 5j 21h 47m | — |
-| 10. Relanceur compulsif | 1j 18h 36m | 8j 1h 7m | 2j 0h 40m | 2j 1h 34m | — | — | 6j 9h 23m | — |
+| 1. AFK assume | 3j 9h 30m | 10j 12h 4m | 3j 11h 40m | 3j 12h 3m | 3j 18h 9m | 3j 18h 11m | 10j 12h 10m | 10j 18h 33m |
+| 2. Optimiseur de timing | 2j 13h 4m | 9j 0h 45m | 2j 15h 43m | 2j 16h 22m | 2j 22h 29m | 2j 22h 31m | 9j 5h 57m | 9j 12h 5m |
+| 3. Architecte des Mythes | 2j 6h 57m | 7j 22h 26m | 2j 10h 38m | 2j 11h 34m | 2j 17h 41m | 2j 17h 43m | 8j 9h 24m | 8j 18h 31m |
+| 4. Casse-cou | 2j 22h 52m | 10j 7h 41m | 3j 0h 47m | 3j 1h 30m | 3j 19h 37m | 3j 19h 39m | 10j 7h 43m | 10j 13h 37m |
+| 5. Prudent | 2j 20h 33m | 10j 6h 58m | 2j 22h 26m | 2j 23h 4m | 3j 11h 11m | 3j 11h 13m | 10j 6h 58m | 10j 19h 56m |
+| 6. Completionniste | 2j 5h 26m | 8j 3h 7m | 2j 7h 58m | 2j 8h 5m | 2j 20h 15m | 2j 20h 16m | 8j 12h 57m | 8j 22h 29m |
+| 7. Theoricien (tenir puis saborder) | 2j 4h 53m | 8j 12h 33m | 2j 6h 43m | 2j 7h 31m | 2j 19h 40m | 2j 19h 42m | 8j 13h 45m | 8j 23h 0m |
+| 8. Lecteur | 2j 21h 52m | 10j 4h 1m | 2j 23h 50m | 3j 0h 47m | 3j 12h 54m | 3j 12h 56m | 10j 4h 1m | 10j 10h 25m |
+| 9. Chasseur de meta | 2j 4h 52m | 8j 17h 4m | 2j 6h 28m | 2j 7h 15m | 3j 1h 25m | 3j 1h 26m | 8j 17h 40m | 9j 2h 45m |
+| 10. Relanceur compulsif | 2j 22h 2m | 10j 2h 40m | 3j 0h 1m | 3j 0h 42m | 3j 18h 49m | 3j 18h 50m | 10j 2h 46m | 10j 8h 40m |
 
 ## Synthese finale par profil
 
 | Profil | Temps simule | Cycles | Dynasties | GR | Arbre | Mythes | Legitimite | Ruines | Mult global | Calcul reel |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1. AFK assume | 7j 22h 17m (tronque) | 254 | 514 | 10 | 100/100 | 12/14 | 25.3Qa | 6.45Dc | x2.37e67 | 361 s |
-| 2. Optimiseur de timing | 8j 0h 15m (tronque) | 170 | 421 | 10 | 100/100 | 12/14 | 4.15T | 6.84Sp | x8.32e49 | 361 s |
-| 3. Architecte des Mythes | 8j 22h 27m (tronque) | 147 | 390 | 10 | 100/100 | 12/14 | 542.2B | 0.0 | x51.6T | 360 s |
-| 4. Casse-cou | 9j 5h 28m (tronque) | 219 | 454 | 10 | 100/100 | 12/14 | 642.0T | 8.74Oc | x3.18e56 | 360 s |
-| 5. Prudent | 9j 22h 17m (tronque) | 141 | 400 | 10 | 100/100 | 12/14 | 238.6B | 8.85Sx | x2.72e44 | 361 s |
-| 6. Completionniste | 9j 23h 41m (tronque) | 146 | 408 | 10 | 100/100 | 12/14 | 437.4B | 0.0 | x54.8T | 360 s |
-| 7. Theoricien (tenir puis saborder) | 9j 3h 12m (tronque) | 142 | 380 | 10 | 100/100 | 12/14 | 249.7B | 0.0 | x39.1T | 360 s |
-| 8. Lecteur | 10j 16h 21m (tronque) | 192 | 447 | 10 | 100/100 | 12/14 | 120.0T | 124.5Oc | x8.19e57 | 361 s |
-| 9. Chasseur de meta | 11j 22h 41m | 201 | 453 | 10 | 100/100 | 12/14 | 784.0T | 0.0 | x16.7Qa | 300 s |
-| 10. Relanceur compulsif | 8j 16h 17m (tronque) | 422 | 595 | 10 | 100/100 | 12/14 | 68.2Sx | 1.35e46 | x9.74e91 | 361 s |
+| 1. AFK assume | 11j 8h 0m (tronque) | 251 | 634 | 11 | 100/100 | 14/14 | 23.6Qa | 63.0No | x1.41e64 | 181 s |
+| 2. Optimiseur de timing | 9j 20h 32m (tronque) | 130 | 540 | 11 | 100/100 | 14/14 | 19.9B | 90.5Qi | x4.03e40 | 181 s |
+| 3. Architecte des Mythes | 10j 4h 37m (tronque) | 124 | 559 | 11 | 100/100 | 14/14 | 10.5B | 0.0 | x1.79T | 180 s |
+| 4. Casse-cou | 11j 0h 3m (tronque) | 199 | 594 | 11 | 100/100 | 14/14 | 56.5T | 82.5Sp | x5.45e52 | 180 s |
+| 5. Prudent | 12j 0h 0m | 102 | 545 | 11 | 100/100 | 14/14 | 678.6M | 0.0 | x151.1B | 92 s |
+| 6. Completionniste | 10j 17h 24m (tronque) | 140 | 573 | 11 | 100/100 | 14/14 | 85.7B | 5.00Sx | x8.28e43 | 181 s |
+| 7. Theoricien (tenir puis saborder) | 10j 11h 46m (tronque) | 125 | 563 | 11 | 100/100 | 14/14 | 12.0B | 0.0 | x1.94T | 180 s |
+| 8. Lecteur | 10j 23h 14m (tronque) | 256 | 634 | 11 | 100/100 | 14/14 | 34.4Qa | 116.4No | x4.98e64 | 180 s |
+| 9. Chasseur de meta | 10j 22h 55m (tronque) | 146 | 580 | 11 | 100/100 | 14/14 | 211.7B | 256.2Sx | x9.13e46 | 181 s |
+| 10. Relanceur compulsif | 10j 16h 51m (tronque) | 133 | 540 | 11 | 100/100 | 14/14 | 21.2B | 15.0Sx | x2.39e44 | 180 s |
 
 ## Definition des profils (les "boutons" de comportement)
 
@@ -58,16 +58,16 @@
 
 | Profil | Mythes completes (bot) | Lesquels |
 |---|---|---|
-| 1. AFK assume | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 2. Optimiseur de timing | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 3. Architecte des Mythes | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 4. Casse-cou | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 5. Prudent | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 6. Completionniste | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 7. Theoricien (tenir puis saborder) | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 8. Lecteur | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 9. Chasseur de meta | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
-| 10. Relanceur compulsif | 12/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Icare, du Phénix, des Atrides, d'Antee |
+| 1. AFK assume | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 2. Optimiseur de timing | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 3. Architecte des Mythes | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 4. Casse-cou | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 5. Prudent | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 6. Completionniste | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 7. Theoricien (tenir puis saborder) | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 8. Lecteur | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 9. Chasseur de meta | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
+| 10. Relanceur compulsif | 14/14 | du Chaos, de Prométhée, d'Énée, de Cadmos, d'Héphaïstos, de Sisyphe, de Babel, de l'Âge d'Or, d'Atlas, d'Icare, du Phénix, des Atrides, d'Antee, Ragnarok |
 
 ## Lecture
 - **Effondrement (`ruinGain`)** recompense l'age du cycle (patience), la profondeur de population et la **preparation a l'effondrement** (`collapsePreparation`, plafonnee a 2.4). Les profils qui *tiennent puis sabordent* (Theoricien, Chasseur de meta, Prudent) doivent donc gagner plus de Ruines par cycle que ceux qui spamment (Casse-cou, Relanceur).
@@ -78,4 +78,4 @@
 
 ## Limites honnetes
 - Le pilote de Mythes joue agressivement mais n'egale pas un humain : un Mythe non complete signale un objectif non atteint *par le bot*, pas forcement un Mythe impossible (chaque `onCollapse()` a une condition sur-mesure, cf. `data/myths.js`).
-- Le pas de 5 s rend les temps absolus approximatifs (±1 tick par transition) ; le **classement** entre profils est robuste.
+- Le pas de 30 s rend les temps absolus approximatifs (±1 tick par transition) ; le **classement** entre profils est robuste.

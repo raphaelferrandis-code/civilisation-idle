@@ -15,7 +15,7 @@ import {
   WONDER_CLEAR_R,
   roadWidthFor
 } from './layout.js';
-import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset } from './agents.js';
+import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset, drawNamedAgent } from './agents.js';
 import { mapThemeForBand, activeEraDetails, getEraTheme } from '../data/eraThemes.js';
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
@@ -2574,6 +2574,39 @@ function cityMapRiotGroupCenter(rioters) {
   return { gx: gx / rioters.length, gy: gy / rioters.length };
 }
 
+// Arme brandie d'un émeutier (torche ou fourche), bras levé qui s'agite. Ancrée à
+// une main (hx,hy) avec une unité d'échelle u — partagée par le rendu PIXEL (ancré
+// au sprite d'habitant) et le repli vectoriel (ancré à la silhouette).
+function drawRiotWeapon(ctx, hx, hy, u, weapon, now, phase, pulse) {
+  const wave = Math.sin(now / 200 + (phase || 0) * 2) * u * 0.18;
+  ctx.strokeStyle = "#6b4a26";
+  ctx.lineWidth = Math.max(1, u * 0.18);
+  if (weapon === "fork") {
+    // Manche de fourche + trois dents métalliques
+    const tipX = hx + u * 0.25 + wave, tipY = hy - u * 1.7;
+    ctx.beginPath(); ctx.moveTo(hx - u * 0.15, hy + u * 0.5); ctx.lineTo(tipX, tipY); ctx.stroke();
+    ctx.strokeStyle = "#aab2bc";
+    ctx.lineWidth = Math.max(0.8, u * 0.12);
+    for (let d = -1; d <= 1; d += 1) {
+      ctx.beginPath();
+      ctx.moveTo(tipX + d * u * 0.22, tipY);
+      ctx.lineTo(tipX + d * u * 0.22, tipY - u * 0.45);
+      ctx.stroke();
+    }
+  } else {
+    // Manche de torche + flamme vacillante et halo chaud
+    const tipX = hx + u * 0.2 + wave, tipY = hy - u * 1.2;
+    ctx.beginPath(); ctx.moveTo(hx - u * 0.1, hy + u * 0.3); ctx.lineTo(tipX, tipY); ctx.stroke();
+    const flick = 0.75 + 0.25 * Math.sin(now / 90 + (phase || 0) * 5);
+    ctx.fillStyle = `rgba(255,170,40,${(0.18 * flick).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.2, u * 0.9 * flick, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(255,150,40,${(0.65 + 0.3 * pulse).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.15, u * 0.32 * flick, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,230,120,0.9)";
+    ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.12, u * 0.16 * flick, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 // Apaisement au clic : retire l'émeutier visé, fait retomber un peu la rupture
 // et empêche le groupe de se re-remplir aussitôt (compteur à décroissance).
 function cityMapCalmRioterAt(sx, sy) {
@@ -2648,7 +2681,8 @@ function drawCrisis(dt, now) {
         lane: (Math.random() - 0.5) * CM.TILE * 0.38,
         col: RIOT_OUTFITS[n % RIOT_OUTFITS.length],
         skin: RIOT_SKINS[(n * 7 + 3) % RIOT_SKINS.length],
-        weapon: n % 2 === 0 ? "torch" : "fork"
+        weapon: n % 2 === 0 ? "torch" : "fork",
+        charType: n % 3 === 0 ? 1 : 0 // émeutiers adultes : ~1/3 de femmes, pas d'enfants
       });
     }
     if (CM.rioters.length > want) CM.rioters.length = want;
@@ -2738,11 +2772,34 @@ function drawCrisis(dt, now) {
         const sy = (p.y + laneY - CM.cam.y) * z + CM.ch / 2 + wob * z;
         if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) continue;
 
-        // ── Même silhouette que les habitants : ombre, jambes, tunique, tête ──
+        // ── Même design que les habitants : sprite PIXEL de l'ère + arme brandie ;
+        //    repli sur la silhouette vectorielle tant que les sprites ne chargent pas. ──
         const ph = Math.max(1.5, 2.1 * z);
         const walking = p.pauseT <= 0;
         ctx.fillStyle = "rgba(0,0,0,0.22)";
         ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+        const groundY = sy + ph * 1.35;
+        // Sprite ÉMEUTIER dédié (arme bakée) selon genre (charType) + arme (torche/fourche).
+        const rname = 'rioter-' + ((p.charType || 0) === 1 ? 'woman' : 'man') + '-' + (p.weapon === 'fork' ? 'fork' : 'torch');
+        const dim = drawNamedAgent(ctx, sx, groundY, z, rname, 0.85, p.dir, walking, now, p.phase);
+        if (dim) {
+          // Flamme bakée ; on n'ajoute qu'un halo chaud additif la NUIT pour les
+          // torches (haut du sprite) → la menace nocturne reste lisible.
+          if (p.weapon !== "fork" && (CM.nightF || 0) > 0.05) {
+            const flick = 0.8 + 0.2 * Math.sin(now / 90 + (p.phase || 0) * 5);
+            const gx2 = sx + dim.drawW * 0.18, gy2 = dim.top + dim.drawH * 0.16, gr = Math.max(1, dim.drawW * 0.5 * flick);
+            const prevOp = ctx.globalCompositeOperation;
+            ctx.globalCompositeOperation = "lighter";
+            const g2 = ctx.createRadialGradient(gx2, gy2, 0, gx2, gy2, gr);
+            g2.addColorStop(0, `rgba(255,180,70,${(0.2 * (CM.nightF || 0) * flick).toFixed(2)})`);
+            g2.addColorStop(1, "rgba(255,150,40,0)");
+            ctx.fillStyle = g2;
+            ctx.beginPath(); ctx.arc(gx2, gy2, gr, 0, Math.PI * 2); ctx.fill();
+            ctx.globalCompositeOperation = prevOp;
+          }
+          continue;
+        }
+        // ── Repli vectoriel : sprites pas encore chargés ──
         if (ph > 2 && walking) {
           const step = Math.sin(now / 110 + (p.phase || 0) * 3) * ph * 0.45;
           ctx.strokeStyle = "#241a10";
@@ -2761,41 +2818,7 @@ function drawCrisis(dt, now) {
         ctx.fillRect(sx - ph * 0.5, sy - ph * 0.45, ph, Math.max(0.5, ph * 0.2));
         ctx.fillStyle = p.skin || "#e0b890";
         ctx.beginPath(); ctx.arc(sx, sy - ph * 0.85, ph * 0.5, 0, Math.PI * 2); ctx.fill();
-
-        // ── Torche ou fourche brandie, bras levé qui s'agite ──────────────
-        if (ph > 1.8) {
-          const wave = Math.sin(now / 200 + (p.phase || 0) * 2) * ph * 0.18;
-          const hx = sx + ph * 0.55;                // main côté droit
-          const hy = sy - ph * 0.2;
-          ctx.strokeStyle = "#6b4a26";
-          ctx.lineWidth = Math.max(1, ph * 0.18);
-          if (p.weapon === "fork") {
-            // Manche de fourche
-            const tipX = hx + ph * 0.25 + wave, tipY = hy - ph * 1.7;
-            ctx.beginPath(); ctx.moveTo(hx - ph * 0.15, hy + ph * 0.5); ctx.lineTo(tipX, tipY); ctx.stroke();
-            // Trois dents métalliques
-            ctx.strokeStyle = "#aab2bc";
-            ctx.lineWidth = Math.max(0.8, ph * 0.12);
-            for (let d = -1; d <= 1; d += 1) {
-              ctx.beginPath();
-              ctx.moveTo(tipX + d * ph * 0.22, tipY);
-              ctx.lineTo(tipX + d * ph * 0.22, tipY - ph * 0.45);
-              ctx.stroke();
-            }
-          } else {
-            // Manche de torche
-            const tipX = hx + ph * 0.2 + wave, tipY = hy - ph * 1.2;
-            ctx.beginPath(); ctx.moveTo(hx - ph * 0.1, hy + ph * 0.3); ctx.lineTo(tipX, tipY); ctx.stroke();
-            // Flamme vacillante + halo chaud
-            const flick = 0.75 + 0.25 * Math.sin(now / 90 + (p.phase || 0) * 5);
-            ctx.fillStyle = `rgba(255,170,40,${(0.18 * flick).toFixed(2)})`;
-            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.2, ph * 0.9 * flick, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = `rgba(255,150,40,${(0.65 + 0.3 * pulse).toFixed(2)})`;
-            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.15, ph * 0.32 * flick, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "rgba(255,230,120,0.9)";
-            ctx.beginPath(); ctx.arc(tipX, tipY - ph * 0.12, ph * 0.16 * flick, 0, Math.PI * 2); ctx.fill();
-          }
-        }
+        if (ph > 1.8) drawRiotWeapon(ctx, sx + ph * 0.55, sy - ph * 0.2, ph, p.weapon, now, p.phase, pulse);
       }
     }
   }

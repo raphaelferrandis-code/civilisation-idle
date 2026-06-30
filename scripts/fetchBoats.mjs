@@ -10,7 +10,7 @@
 import AdmZip from 'adm-zip';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/boats';
 // stage = clé de sprite (cf. BOAT_SIZES dans agents.js). Le cosmic a 3 teintes par
 // band → stages 'cosmic-7' / 'cosmic-8' / 'cosmic-9' (band 8/9 dérivés par recolor
 // create_object_state, même silhouette). Ajoute un id quand l'objet est généré.

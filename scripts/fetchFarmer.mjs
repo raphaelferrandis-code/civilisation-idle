@@ -9,7 +9,7 @@ import { PNG } from 'pngjs';
 import AdmZip from 'adm-zip';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/inhabitants';
 const DIRS = ['south', 'east', 'north', 'west'];
 const FRAMES = 6;
 const ID = '4d7126d8-7c29-4d7a-94a4-85d27c99f8ac'; // « Field Farmer » — chapeau de paille + fourche

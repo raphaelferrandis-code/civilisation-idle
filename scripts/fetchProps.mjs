@@ -68,7 +68,7 @@ const coverDoor = (buf) => {
   return PNG.sync.write(png);
 };
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/buildings';
 const PROPS = [
   // clé = nom de fichier (sans .png) ; id = objet PixelLab ; prompt = description de génération.
   {
@@ -104,8 +104,17 @@ const PROPS = [
   },
   {
     key: 'mill-prop-house',
-    id: 'df5b54c1-e9ee-401f-87d8-cd45b192ffe6', // moulin stade 0 — TOUR de PROFIL SANS PORTE (side, 60×60), collée à l'eau. CLÉ : prompt MINIMAL « a small stone tower, no door » — les prompts chargés (« mill/riverside ») forçaient une porte d'entrée. Versions ratées : 7c08fdfd/32246527 porte basse, f3cb0547 porte de face, 9520a1d4 de-haut, b466e26b roue cuite. Roue animée à part
-    prompt: 'a small primitive Stone Age riverside mill tower seen from the side in strict profile view, completely deserted, no people, no figures: one tall narrow vertical tower of stacked grey stone and brown timber beams, topped with a small steep pointed thatched roof, a plain solid flat side wall facing the viewer with absolutely NO door and no opening except one tiny small high window, the bare side wall ready to mount a wheel, no wheel, no circular shapes, weathered grey stone and warm brown timber palette, soft light from the upper-left casting shadows to the lower-right, transparent background',
+    // moulin stade 0 — CABANE-MOULIN EN BOIS (vue 3/4, 64×64) posée sur la berge ;
+    // roue à aubes montée sur le flanc GAUCHE (cadrage moteur : boîte ~carrée 1.5×1.5,
+    // cf. cityEngineSprites.js, branche `if (stage === 0 && propReady('mill-prop-house'))`).
+    id: '18515690-7517-4c3d-aead-91541a9be8e0', // cabane bois VALIDÉE (2026-06-30). NB : objet né d'un prompt « tour » — PixelLab a rendu cette cabane, qu'on a adoptée. Variante plus LARGE dispo : 2e2d2b83-eb67-4857-9736-a7670a354d5c (72×64, prompt = celui ci-dessous).
+    // ⚠ POST-TRAITEMENT obligatoire : verrou palette d'âge « bois » via
+    //   `node scripts/remapPalette.mjs <fichier> --epoch bois` (~19 teintes). Pas de
+    //   coverDoor (la cabane a une porte assumée). Piste abandonnée : tour de PIERRE
+    //   df5b54c1 recolorée bois (silhouette tour trop étroite — l'utilisateur a préféré
+    //   la cabane). Le prompt ci-dessous est la consigne de RÉGÉN cabane (≠ prompt tour
+    //   d'origine de 18515690) ; régénérer → remap bois.
+    prompt: 'a small cozy wooden riverside watermill house, three-quarter side view, completely deserted, no people, no figures, NO water wheel and no circular shapes: a compact log cabin mill building with brown timber plank walls, exposed corner beams and a steep wooden shingle gabled roof, a low stone foundation along the bottom, a small wooden door and one small window on the right-hand front, the LEFT side wall kept flat and bare ready to mount a water wheel, built of warm weathered brown timber and wood planks, soft light from the upper-left casting shadows to the lower-right, transparent background',
   },
   {
     key: 'mill-prop-wheel',

@@ -320,13 +320,6 @@ function drawTile(t, now, timeWear, maxD2) {
     }
   }
 
-  // Surcouche de degradation (usure > 60% : assombrissement + fissures diagonales).
-  if (degraded) {
-    ctx.fillStyle = "rgba(20,14,8,0.45)"; ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
-    ctx.strokeStyle = "rgba(10,6,3,0.7)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x + w * 0.3, y + pad); ctx.lineTo(x + w * 0.55, y + h - pad); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + w * 0.62, y + pad); ctx.lineTo(x + w * 0.42, y + h - pad); ctx.stroke();
-  }
   ctx.globalAlpha = 1;
 
   // Fumee industrielle (ere avancee) sur certains batiments.

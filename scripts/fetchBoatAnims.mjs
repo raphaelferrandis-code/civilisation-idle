@@ -9,7 +9,7 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/boats';
 const PROJECT = 'f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const DIR = 'east';
 // ⚠ anim = animId du SEGMENT D'URL (≠ animation_group_id renvoyé par animate_object).

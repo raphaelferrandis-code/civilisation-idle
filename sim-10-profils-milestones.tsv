@@ -1,676 +1,599 @@
 profil	temps_virtuel	jalon	cycle	age	GR	dynasties	legitimite	ruines
 afk_assume	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-afk_assume	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-afk_assume	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-afk_assume	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-afk_assume	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-afk_assume	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-afk_assume	5h 48m	Dynastie 1 fondee	2	Campement	0	1	1.0	0.0
-afk_assume	2j 4h 49m	Age : Hameau protégé	787	Hameau protégé	0	9	90	2.14K
-afk_assume	2j 4h 52m	Dynastie 10 fondee	789	Campement	0	10	160	0.0
-afk_assume	2j 7h 31m	Age : Village	849	Village	0	11	230	4.41K
-afk_assume	2j 8h 14m	Grand Reset 1	0	Campement	1	12	7.1	0.0
-afk_assume	2j 18h 11m	Acte I (Fondation) complete	7	Abris	1	12	6.3	6.85K
-afk_assume	2j 18h 17m	Acte II (Domination) complete	10	Campement	1	12	6.3	6.87K
-afk_assume	3j 9h 8m	Age : Les Entrepôts	313	Les Entrepôts	1	27	247	12.8K
-afk_assume	3j 14h 40m	Age : Bourg agricole	435	Bourg agricole	1	31	139	59.3K
-afk_assume	3j 18h 29m	Age : Bourg des artisans	516	Bourg des artisans	1	34	346	172.3K
-afk_assume	4j 8h 42m	Age : Bourg marchand	235	Bourg marchand	2	62	423	442.3K
-afk_assume	4j 11h 29m	Age : Cité marchande	292	Cité marchande	2	66	920	1.58M
-afk_assume	4j 12h 14m	Grand Reset 3	0	Campement	3	68	57	0.0
-afk_assume	4j 19h 45m	Age : Cité commerciale	143	Cité commerciale	3	100	1.63K	4.00M
-afk_assume	4j 20h 34m	Age : Cité portuaire	160	Cité portuaire	3	102	2.25K	9.25M
-afk_assume	5j 4h 17m	Grand Reset 5	0	Campement	5	141	282	0.0
-afk_assume	5j 10h 43m	Age : Cité fortifiée	54	Cité fortifiée	5	176	6.40K	4.93M
-afk_assume	5j 18h 43m	Age : Cité administrative	33	Cité administrative	6	210	7.88K	2.38M
-afk_assume	6j 2h 44m	Age : Principauté	8	Principauté	7	225	13.9K	0.0
-afk_assume	6j 4h 34m	Age : Principauté marchande	9	Principauté marchande	7	226	20.4K	0.0
-afk_assume	6j 12h 54m	Age : Royaume	10	Royaume	8	243	28.3K	0.0
-afk_assume	6j 22h 1m	Age : Royaume diplomate	9	Royaume diplomate	9	273	110.1K	0.0
-afk_assume	6j 22h 30m	Grand Reset 10	0	Campement	10	274	35.9K	0.0
-afk_assume	8j 1h 11m	Age : Royaume savant	1	Royaume savant	10	275	150.5K	0.0
-afk_assume	8j 18h 6m	Age : Royaume conquérant	8	Royaume conquérant	10	282	1.36M	0.0
-afk_assume	8j 19h 51m	Arbre de Ruines complet	16	Campement	10	290	1.96M	0.0
-afk_assume	8j 23h 16m	Age : Empire naissant	48	Empire naissant	10	321	2.14M	711.0M
-afk_assume	8j 23h 17m	Age : Empire provincial	48	Empire provincial	10	321	2.14M	711.0M
-afk_assume	9j 2h 48m	Age : Mégalopole	113	Mégalopole	10	353	20.1M	35.7T
-afk_assume	9j 2h 49m	Age : Mégalopole stratifiée	113	Mégalopole stratifiée	10	353	20.1M	35.7T
-afk_assume	9j 2h 50m	Age : Réseau continental	113	Réseau continental	10	353	20.1M	35.7T
-afk_assume	9j 2h 57m	Age : Empire	115	Empire	10	354	69.7M	564.0M
-afk_assume	9j 3h 18m	Age : Machination	122	Machination	10	357	72.5M	134.5T
-afk_assume	9j 3h 20m	Age : Singularité	122	Singularité	10	357	72.5M	134.5T
-afk_assume	9j 3h 29m	Age : Singularité · II	125	Singularité · II	10	358	180.6M	143.1T
-afk_assume	9j 3h 35m	Age : Capitale impériale	127	Capitale impériale	10	359	301.0M	932.6M
-afk_assume	9j 3h 45m	Age : Singularité · III	130	Singularité · III	10	360	302.5M	314.7T
-afk_assume	9j 4h 10m	Age : Capitale monumentale	138	Capitale monumentale	10	363	863.0M	2.03B
-afk_assume	9j 4h 12m	Age : Singularité · IV	139	Singularité · IV	10	363	863.0M	940.0T
-afk_assume	9j 4h 13m	Age : Singularité · V	139	Singularité · V	10	363	863.0M	940.0T
-afk_assume	9j 4h 51m	Age : Singularité · VI	151	Singularité · VI	10	367	2.08B	1.56Qa
-afk_assume	9j 5h 30m	Age : Singularité · VII	163	Singularité · VII	10	371	3.68B	2.18Qa
-afk_assume	9j 6h 32m	Age : Agglomération impériale	183	Agglomération impériale	10	378	7.30B	2.71B
-afk_assume	9j 6h 45m	Age : Singularité · VIII	187	Singularité · VIII	10	379	7.78B	2.22Qa
-afk_assume	9j 9h 15m	Age : Singularité · IX	235	Singularité · IX	10	395	18.8B	3.71Qa
-afk_assume	9j 9h 34m	Age : Conscience planétaire · V	242	Conscience planétaire · V	10	397	20.7B	86.1Qi
-afk_assume	9j 9h 35m	Age : Conscience planétaire · VII	242	Conscience planétaire · VII	10	397	20.7B	86.1Qi
-afk_assume	9j 9h 36m	Age : Conscience planétaire · VIII	242	Conscience planétaire · VIII	10	397	20.7B	86.1Qi
-afk_assume	9j 9h 37m	Age : Conscience planétaire · IX	242	Conscience planétaire · IX	10	397	20.7B	86.1Qi
-afk_assume	9j 9h 52m	Age : Métropole	247	Métropole	10	399	63.1B	5.29B
-afk_assume	9j 9h 56m	Age : Conscience planétaire · VI	249	Conscience planétaire · VI	10	399	63.1B	192.4Qi
-afk_assume	9j 9h 59m	Age : Conscience planétaire · X	249	Conscience planétaire · X	10	399	63.1B	192.4Qi
-afk_assume	9j 10h 8m	Age : Singularité · X	252	Singularité · X	10	400	125.6B	11.8Qa
-afk_assume	9j 10h 17m	Age : Singularité · XI	255	Singularité · XI	10	401	127.1B	11.3Qa
-afk_assume	9j 10h 30m	Age : Conscience planétaire · XI	259	Conscience planétaire · XI	10	402	129.0B	558.9Qi
-afk_assume	9j 10h 30m	Age : Noosphère	259	Noosphère	10	402	129.0B	558.9Qi
-afk_assume	9j 10h 40m	Age : Conscience planétaire	262	Conscience planétaire	10	403	240.8B	14.8Qa
-afk_assume	9j 11h 17m	Age : Noosphère · II	274	Noosphère · II	10	406	515.9B	983.7Qi
-afk_assume	9j 11h 39m	Age : Conscience planétaire · II	281	Conscience planétaire · II	10	408	886.1B	19.4Qa
-afk_assume	9j 11h 55m	Age : Noosphère · III	286	Noosphère · III	10	409	1.11T	1.75Sx
-afk_assume	9j 12h 28m	Age : Conscience planétaire · III	297	Conscience planétaire · III	10	412	1.90T	30.2Qa
-afk_assume	9j 13h 9m	Age : Noosphère · IV	310	Noosphère · IV	10	415	2.90T	3.63Sx
-afk_assume	9j 14h 8m	Age : Conscience planétaire · IV	329	Conscience planétaire · IV	10	420	4.96T	52.4Qa
-afk_assume	9j 15h 26m	Age : Noosphère · V	354	Noosphère · V	10	426	8.10T	7.91Sx
-afk_assume	9j 17h 55m	Age : Noosphère · X	403	Noosphère · X	10	438	16.4T	103.5Sp
-afk_assume	9j 17h 56m	Age : Noosphère · XI	403	Noosphère · XI	10	438	16.4T	103.5Sp
-afk_assume	9j 17h 57m	Age : Essaim orbital	403	Essaim orbital	10	438	16.4T	103.5Sp
-afk_assume	9j 17h 58m	Age : Essaim orbital · II	403	Essaim orbital · II	10	438	16.4T	103.5Sp
-afk_assume	9j 18h 11m	Age : Noosphère · VI	407	Noosphère · VI	10	439	39.1T	43.3Sx
-afk_assume	9j 18h 11m	Age : Noosphère · VII	407	Noosphère · VII	10	439	39.1T	43.3Sx
-afk_assume	9j 19h 9m	Age : Essaim orbital · III	425	Essaim orbital · III	10	443	74.5T	327.4Sp
-afk_assume	9j 19h 25m	Age : Essaim orbital · IV	430	Essaim orbital · IV	10	444	116.3T	514.4Sp
-afk_assume	9j 19h 38m	Age : Noosphère · VIII	434	Noosphère · VIII	10	445	173.1T	81.0Sx
-afk_assume	9j 19h 54m	Age : Noosphère · IX	439	Noosphère · IX	10	446	246.0T	173.5Sx
-afk_assume	9j 20h 42m	Age : Essaim orbital · V	454	Essaim orbital · V	10	449	408.0T	1.56Oc
-afk_assume	9j 21h 46m	Age : Essaim orbital · VI	474	Essaim orbital · VI	10	453	883.0T	3.09Oc
-afk_assume	9j 23h 53m	Age : Essaim orbital · VII	514	Essaim orbital · VII	10	461	2.39Qa	7.46Oc
-afk_assume	10j 3h 20m	Age : Essaim orbital · VIII	579	Essaim orbital · VIII	10	474	6.44Qa	20.8Oc
+afk_assume	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+afk_assume	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+afk_assume	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+afk_assume	4h 56m	Age : Maîtrise du bois	8	Maîtrise du bois	0	0	0.0	76
+afk_assume	5h 48m	Dynastie 1 fondee	11	Campement	0	1	1.0	0.0
+afk_assume	3j 4h 49m	Dynastie 10 fondee	1497	Campement	0	10	289	0.0
+afk_assume	3j 9h 30m	Grand Reset 1	0	Campement	1	11	111	0.0
+afk_assume	3j 11h 9m	Age : Hameau	4	Hameau	1	11	111	1.46K
+afk_assume	3j 11h 40m	Acte I (Fondation) complete	5	Grand Feu	1	11	111	1.47K
+afk_assume	3j 12h 3m	Acte II (Domination) complete	8	Campement	1	11	111	1.53K
+afk_assume	3j 18h 9m	Acte III (Apocalypse) complete	15	Campement	1	11	111	2.30K
+afk_assume	3j 18h 11m	TOUS les Mythes completes	16	Grand Feu	1	11	111	2.31K
+afk_assume	5j 20h 2m	Age : Hameau protégé	1338	Hameau protégé	1	28	354	21.7K
+afk_assume	7j 10h 13m	Age : Village	832	Village	2	50	409	68.2K
+afk_assume	7j 16h 50m	Age : Les Entrepôts	1008	Les Entrepôts	2	53	732	5.64K
+afk_assume	7j 21h 53m	Grand Reset 3	0	Campement	3	57	138	0.0
+afk_assume	8j 13h 43m	Age : Bourg agricole	351	Bourg agricole	3	84	807	809.6K
+afk_assume	8j 15h 19m	Age : Bourg des artisans	394	Bourg des artisans	3	86	1.08K	382.9K
+afk_assume	8j 17h 43m	Age : Bourg marchand	458	Bourg marchand	3	89	1.66K	452.0K
+afk_assume	9j 5h 22m	Age : Cité marchande	210	Cité marchande	4	127	2.62K	9.62M
+afk_assume	9j 6h 21m	Age : Cité commerciale	236	Cité commerciale	4	130	3.98K	14.4M
+afk_assume	9j 6h 50m	Grand Reset 5	0	Campement	5	132	530	0.0
+afk_assume	9j 14h 5m	Age : Cité portuaire	113	Cité portuaire	5	173	7.25K	84.3M
+afk_assume	9j 19h 54m	Age : Cité fortifiée	99	Cité fortifiée	6	222	18.6K	189.2M
+afk_assume	10j 7h 2m	Age : Cité administrative	75	Cité administrative	8	324	56.9K	0.0
+afk_assume	10j 12h 4m	Age : Principauté	70	Principauté	9	379	119.8K	0.0
+afk_assume	10j 12h 4m	Arbre de Ruines complet	70	Principauté	9	379	119.8K	0.0
+afk_assume	10j 12h 10m	Age : Royaume	73	Royaume	9	381	279.1K	0.0
+afk_assume	10j 12h 10m	Grand Reset 10	0	Campement	10	381	125.5K	0.0
+afk_assume	10j 18h 33m	Age : Principauté marchande	57	Principauté marchande	10	430	392.9K	0.0
+afk_assume	10j 18h 33m	Grand Reset 11	0	Campement	11	430	85.7K	0.0
+afk_assume	11j 0h 51m	Age : Royaume diplomate	58	Royaume diplomate	11	484	2.19M	0.0
+afk_assume	11j 1h 2m	Age : Royaume conquérant	63	Royaume conquérant	11	488	4.97M	0.0
+afk_assume	11j 1h 26m	Age : Empire	74	Empire	11	497	19.9M	0.0
+afk_assume	11j 1h 28m	Age : Empire naissant	75	Empire naissant	11	498	23.2M	0.0
+afk_assume	11j 1h 44m	Age : Royaume savant	82	Royaume savant	11	504	42.0M	0.0
+afk_assume	11j 1h 51m	Age : Capitale monumentale	85	Capitale monumentale	11	506	73.8M	0.0
+afk_assume	11j 2h 2m	Age : Métropole	90	Métropole	11	510	165.4M	0.0
+afk_assume	11j 2h 26m	Age : Mégalopole stratifiée	101	Mégalopole stratifiée	11	519	523.2M	0.0
+afk_assume	11j 2h 33m	Age : Empire provincial	104	Empire provincial	11	522	625.0M	0.0
+afk_assume	11j 2h 37m	Age : Réseau continental	106	Réseau continental	11	523	1.04B	0.0
+afk_assume	11j 2h 39m	Age : Mégalopole	107	Mégalopole	11	524	1.18B	0.0
+afk_assume	11j 2h 42m	Age : Agglomération impériale	108	Agglomération impériale	11	525	1.23B	0.0
+afk_assume	11j 2h 44m	Age : Capitale impériale	109	Capitale impériale	11	526	1.25B	0.0
+afk_assume	11j 2h 48m	Age : Machination	111	Machination	11	527	2.07B	0.0
+afk_assume	11j 3h 0m	Age : Singularité · III	116	Singularité · III	11	531	4.17B	0.0
+afk_assume	11j 3h 11m	Age : Singularité · V	121	Singularité · V	11	535	8.01B	0.0
+afk_assume	11j 3h 13m	Age : Singularité	122	Singularité	11	536	9.07B	0.0
+afk_assume	11j 3h 22m	Age : Singularité · VII	126	Singularité · VII	11	539	14.6B	0.0
+afk_assume	11j 3h 33m	Age : Singularité · IX	131	Singularité · IX	11	543	25.5B	0.0
+afk_assume	11j 3h 44m	Age : Singularité · XI	136	Singularité · XI	11	547	44.0B	0.0
+afk_assume	11j 3h 55m	Age : Conscience planétaire	141	Conscience planétaire	11	551	73.2B	0.0
+afk_assume	11j 3h 57m	Age : Singularité · VIII	142	Singularité · VIII	11	552	80.9B	0.0
+afk_assume	11j 4h 6m	Age : Conscience planétaire · II	146	Conscience planétaire · II	11	555	116.5B	0.0
+afk_assume	11j 4h 8m	Age : Singularité · X	147	Singularité · X	11	556	127.9B	0.0
+afk_assume	11j 4h 11m	Age : Singularité · VI	148	Singularité · VI	11	557	131.9B	0.0
+afk_assume	11j 4h 13m	Age : Singularité · IV	149	Singularité · IV	11	557	131.9B	329.2Qi
+afk_assume	11j 4h 15m	Age : Conscience planétaire · V	150	Conscience planétaire · V	11	558	231.7B	0.0
+afk_assume	11j 4h 26m	Age : Conscience planétaire · VI	155	Conscience planétaire · VI	11	562	407.1B	0.0
+afk_assume	11j 4h 29m	Age : Conscience planétaire · III	156	Conscience planétaire · III	11	563	450.7B	0.0
+afk_assume	11j 4h 38m	Age : Conscience planétaire · VII	160	Conscience planétaire · VII	11	566	652.6B	0.0
+afk_assume	11j 4h 40m	Age : Conscience planétaire · IV	161	Conscience planétaire · IV	11	567	717.1B	0.0
+afk_assume	11j 4h 47m	Age : Conscience planétaire · X	164	Conscience planétaire · X	11	569	1.27T	0.0
+afk_assume	11j 5h 6m	Age : Noosphère	173	Noosphère	11	576	3.77T	0.0
+afk_assume	11j 5h 26m	Age : Noosphère · III	182	Noosphère · III	11	583	9.64T	0.0
+afk_assume	11j 5h 31m	Age : Conscience planétaire · IX	184	Conscience planétaire · IX	11	585	11.1T	0.0
+afk_assume	11j 5h 33m	Age : Conscience planétaire · VIII	185	Conscience planétaire · VIII	11	585	11.1T	3.17Sp
+afk_assume	11j 5h 35m	Age : Noosphère · V	186	Noosphère · V	11	586	17.5T	0.0
+afk_assume	11j 5h 40m	Age : Conscience planétaire · XI	188	Conscience planétaire · XI	11	588	20.5T	0.0
+afk_assume	11j 5h 44m	Age : Noosphère · VI	190	Noosphère · VI	11	589	32.3T	0.0
+afk_assume	11j 5h 46m	Age : Noosphère · IV	191	Noosphère · IV	11	590	36.5T	0.0
+afk_assume	11j 5h 49m	Age : Noosphère · II	192	Noosphère · II	11	591	38.0T	0.0
+afk_assume	11j 6h 4m	Age : Noosphère · VII	199	Noosphère · VII	11	596	71.6T	0.0
+afk_assume	11j 6h 13m	Age : Noosphère · IX	203	Noosphère · IX	11	599	114.1T	0.0
+afk_assume	11j 6h 22m	Age : Noosphère · X	207	Noosphère · X	11	602	185.3T	0.0
+afk_assume	11j 6h 25m	Age : Noosphère · VIII	208	Noosphère · VIII	11	603	204.9T	0.0
+afk_assume	11j 6h 31m	Age : Noosphère · XI	211	Noosphère · XI	11	605	298.8T	0.0
+afk_assume	11j 6h 40m	Age : Essaim orbital	215	Essaim orbital	11	608	472.3T	0.0
+afk_assume	11j 6h 49m	Age : Essaim orbital · II	219	Essaim orbital · II	11	611	728.9T	0.0
+afk_assume	11j 7h 7m	Age : Essaim orbital · III	227	Essaim orbital · III	11	617	1.61Qa	0.0
+afk_assume	11j 7h 16m	Age : Essaim orbital · IV	231	Essaim orbital · IV	11	620	2.31Qa	0.0
+afk_assume	11j 7h 23m	Age : Essaim orbital · VI	234	Essaim orbital · VI	11	622	3.97Qa	0.0
+afk_assume	11j 7h 48m	Age : Essaim orbital · VIII	245	Essaim orbital · VIII	11	630	14.6Qa	0.0
 optimiseur_timing	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-optimiseur_timing	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-optimiseur_timing	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-optimiseur_timing	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-optimiseur_timing	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-optimiseur_timing	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-optimiseur_timing	16h 43m	Dynastie 1 fondee	21	Campement	0	1	2.0	0.0
-optimiseur_timing	1j 16h 17m	Age : Hameau protégé	561	Hameau protégé	0	8	93	1.10K
-optimiseur_timing	1j 19h 45m	Dynastie 10 fondee	638	Campement	0	10	198	0.0
-optimiseur_timing	1j 22h 9m	Age : Village	689	Village	0	11	255	1.79K
-optimiseur_timing	1j 23h 11m	Grand Reset 1	0	Campement	1	12	19	0.0
-optimiseur_timing	2j 7h 21m	Acte I (Fondation) complete	7	Clans	1	12	19	5.87K
-optimiseur_timing	2j 7h 27m	Acte II (Domination) complete	10	Campement	1	12	19	5.89K
-optimiseur_timing	2j 19h 35m	Age : Les Entrepôts	248	Les Entrepôts	1	26	204	8.48K
-optimiseur_timing	3j 1h 36m	Age : Bourg agricole	370	Bourg agricole	1	31	108	70.2K
-optimiseur_timing	3j 4h 8m	Age : Bourg des artisans	419	Bourg des artisans	1	33	228	123.2K
-optimiseur_timing	3j 7h 38m	Age : Bourg marchand	483	Bourg marchand	1	36	464	363.4K
-optimiseur_timing	3j 21h 18m	Age : Cité marchande	226	Cité marchande	2	67	889	683.8K
-optimiseur_timing	3j 22h 10m	Grand Reset 3	0	Campement	3	69	27	0.0
-optimiseur_timing	4j 5h 53m	Age : Cité commerciale	141	Cité commerciale	3	100	1.42K	3.20M
-optimiseur_timing	4j 6h 19m	Age : Cité portuaire	150	Cité portuaire	3	101	1.65K	3.76M
-optimiseur_timing	4j 14h 30m	Grand Reset 5	0	Campement	5	141	75	0.0
-optimiseur_timing	4j 19h 59m	Age : Cité fortifiée	77	Cité fortifiée	5	181	8.21K	9.28M
-optimiseur_timing	5j 2h 58m	Age : Cité administrative	33	Cité administrative	6	213	6.58K	2.22M
-optimiseur_timing	5j 13h 2m	Age : Principauté	8	Principauté	7	229	19.7K	0.0
-optimiseur_timing	5j 14h 45m	Age : Principauté marchande	9	Principauté marchande	7	230	27.0K	0.0
-optimiseur_timing	6j 17h 9m	Age : Royaume	1	Royaume	9	242	16.8K	0.0
-optimiseur_timing	7j 4h 35m	Grand Reset 10	0	Campement	10	245	17.8K	0.0
-optimiseur_timing	8j 0h 24m	Age : Royaume diplomate	1	Royaume diplomate	10	246	107.7K	0.0
-optimiseur_timing	8j 6h 10m	Age : Royaume savant	1	Royaume savant	10	246	107.7K	0.0
-optimiseur_timing	8j 23h 43m	Age : Royaume conquérant	8	Royaume conquérant	10	253	1.31M	0.0
-optimiseur_timing	9j 2h 24m	Arbre de Ruines complet	16	Campement	10	261	2.18M	0.0
-optimiseur_timing	9j 5h 45m	Age : Empire naissant	48	Empire naissant	10	292	2.36M	580.7M
-optimiseur_timing	9j 9h 12m	Age : Mégalopole	115	Mégalopole	10	325	18.0M	57.5T
-optimiseur_timing	9j 9h 13m	Age : Mégalopole stratifiée	115	Mégalopole stratifiée	10	325	18.0M	57.5T
-optimiseur_timing	9j 9h 13m	Age : Réseau continental	115	Réseau continental	10	325	18.0M	57.5T
-optimiseur_timing	9j 9h 19m	Age : Empire provincial	117	Empire provincial	10	326	65.5M	657.1M
-optimiseur_timing	9j 9h 29m	Age : Machination	120	Machination	10	327	66.3M	108.2T
-optimiseur_timing	9j 9h 35m	Age : Empire	122	Empire	10	328	145.1M	967.3M
-optimiseur_timing	9j 9h 45m	Age : Singularité	125	Singularité	10	329	146.2M	162.3T
-optimiseur_timing	9j 10h 3m	Age : Singularité · II	131	Singularité · II	10	331	387.1M	382.7T
-optimiseur_timing	9j 10h 9m	Age : Capitale impériale	133	Capitale impériale	10	332	547.6M	1.36B
-optimiseur_timing	9j 10h 12m	Age : Singularité · III	134	Singularité · III	10	332	547.6M	429.3T
-optimiseur_timing	9j 10h 39m	Age : Singularité · IV	143	Singularité · IV	10	335	1.17B	685.9T
-optimiseur_timing	9j 11h 16m	Age : Singularité · V	155	Singularité · V	10	339	2.26B	1.01Qa
-optimiseur_timing	9j 11h 40m	Age : Capitale monumentale	163	Capitale monumentale	10	342	3.26B	2.56B
-optimiseur_timing	9j 12h 28m	Age : Singularité · VI	179	Singularité · VI	10	347	5.19B	1.63Qa
-optimiseur_timing	9j 13h 41m	Age : Singularité · VII	203	Singularité · VII	10	355	8.99B	2.25Qa
-optimiseur_timing	9j 15h 27m	Age : Agglomération impériale	238	Agglomération impériale	10	367	16.1B	4.34B
-optimiseur_timing	9j 15h 31m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	367	16.1B	67.6Qi
-optimiseur_timing	9j 15h 32m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	367	16.1B	67.6Qi
-optimiseur_timing	9j 15h 32m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	367	16.1B	67.6Qi
-optimiseur_timing	9j 15h 33m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	367	16.1B	67.6Qi
-optimiseur_timing	9j 15h 41m	Age : Singularité · VIII	243	Singularité · VIII	10	368	45.2B	5.78Qa
-optimiseur_timing	9j 15h 42m	Age : Singularité · IX	243	Singularité · IX	10	368	45.2B	5.78Qa
+optimiseur_timing	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+optimiseur_timing	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+optimiseur_timing	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+optimiseur_timing	1h 21m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	1.0
+optimiseur_timing	18h 44m	Dynastie 1 fondee	82	Campement	0	1	7.0	0.0
+optimiseur_timing	2j 13h 1m	Dynastie 10 fondee	1331	Campement	0	10	382	0.0
+optimiseur_timing	2j 13h 4m	Grand Reset 1	0	Campement	1	10	82	0.0
+optimiseur_timing	2j 15h 12m	Age : Hameau	4	Hameau	1	10	81	2.10K
+optimiseur_timing	2j 15h 43m	Acte I (Fondation) complete	5	Grand Feu	1	10	81	2.12K
+optimiseur_timing	2j 16h 22m	Acte II (Domination) complete	8	Campement	1	10	81	2.18K
+optimiseur_timing	2j 22h 29m	Acte III (Apocalypse) complete	15	Campement	1	10	81	2.94K
+optimiseur_timing	2j 22h 31m	TOUS les Mythes completes	16	Grand Feu	1	10	81	2.95K
+optimiseur_timing	4j 17h 20m	Age : Hameau protégé	1274	Hameau protégé	1	26	277	279
+optimiseur_timing	6j 5h 24m	Age : Village	805	Village	2	49	377	56.5K
+optimiseur_timing	6j 11h 37m	Age : Les Entrepôts	991	Les Entrepôts	2	52	703	27.4K
+optimiseur_timing	6j 16h 19m	Grand Reset 3	0	Campement	3	56	112	0.0
+optimiseur_timing	7j 7h 45m	Age : Bourg agricole	381	Bourg agricole	3	82	706	42.9K
+optimiseur_timing	7j 11h 7m	Age : Bourg des artisans	482	Bourg des artisans	3	87	1.47K	172.9K
+optimiseur_timing	7j 13h 21m	Age : Bourg marchand	549	Bourg marchand	3	90	2.24K	8.45M
+optimiseur_timing	7j 23h 39m	Age : Cité marchande	224	Cité marchande	4	127	3.00K	9.20M
+optimiseur_timing	8j 0h 31m	Age : Cité commerciale	250	Cité commerciale	4	130	4.61K	25.6M
+optimiseur_timing	8j 0h 35m	Grand Reset 5	0	Campement	5	131	552	0.0
+optimiseur_timing	8j 7h 33m	Age : Cité portuaire	124	Cité portuaire	5	172	7.56K	29.4M
+optimiseur_timing	8j 13h 8m	Age : Cité fortifiée	88	Cité fortifiée	6	218	11.3K	179.9M
+optimiseur_timing	8j 19h 26m	Age : Cité administrative	82	Cité administrative	7	271	33.5K	1.21B
+optimiseur_timing	9j 0h 21m	Age : Principauté	68	Principauté	8	318	27.2K	504.6M
+optimiseur_timing	9j 0h 45m	Arbre de Ruines complet	80	Principauté	8	326	78.6K	0.0
+optimiseur_timing	9j 5h 57m	Age : Royaume	72	Royaume	9	380	243.1K	0.0
+optimiseur_timing	9j 5h 57m	Grand Reset 10	0	Campement	10	380	89.5K	0.0
+optimiseur_timing	9j 12h 3m	Age : Principauté marchande	56	Principauté marchande	10	428	301.0K	0.0
+optimiseur_timing	9j 12h 5m	Grand Reset 11	0	Campement	11	429	34.8K	0.0
+optimiseur_timing	9j 18h 12m	Age : Royaume savant	60	Royaume savant	11	484	2.95M	0.0
+optimiseur_timing	9j 18h 24m	Age : Royaume conquérant	66	Royaume conquérant	11	489	5.71M	0.0
+optimiseur_timing	9j 18h 34m	Age : Empire provincial	71	Empire provincial	11	493	12.6M	0.0
+optimiseur_timing	9j 18h 50m	Age : Royaume diplomate	79	Royaume diplomate	11	500	26.4M	0.0
+optimiseur_timing	9j 18h 56m	Age : Capitale impériale	82	Capitale impériale	11	502	46.3M	0.0
+optimiseur_timing	9j 19h 8m	Age : Capitale monumentale	88	Capitale monumentale	11	507	79.2M	0.0
+optimiseur_timing	9j 19h 18m	Age : Agglomération impériale	93	Agglomération impériale	11	511	148.5M	0.0
+optimiseur_timing	9j 19h 28m	Age : Mégalopole	98	Mégalopole	11	515	311.3M	0.0
+optimiseur_timing	9j 19h 36m	Age : Empire naissant	102	Empire naissant	11	518	381.2M	705.6T
+optimiseur_timing	9j 19h 38m	Age : Mégalopole stratifiée	103	Mégalopole stratifiée	11	519	666.5M	0.0
+optimiseur_timing	9j 19h 40m	Age : Métropole	104	Métropole	11	520	768.5M	0.0
+optimiseur_timing	9j 19h 44m	Age : Empire	106	Empire	11	522	817.4M	0.0
+optimiseur_timing	9j 19h 48m	Age : Machination	108	Machination	11	523	1.40B	0.0
+optimiseur_timing	9j 19h 58m	Age : Singularité	113	Singularité	11	527	2.81B	0.0
+optimiseur_timing	9j 20h 0m	Age : Réseau continental	114	Réseau continental	11	528	3.20B	0.0
+optimiseur_timing	9j 20h 8m	Age : Singularité · IV	118	Singularité · IV	11	531	5.39B	0.0
+optimiseur_timing	9j 20h 18m	Age : Singularité · VI	123	Singularité · VI	11	535	9.96B	0.0
+optimiseur_timing	9j 20h 20m	Age : Singularité · II	124	Singularité · II	11	536	11.2B	0.0
+optimiseur_timing	9j 20h 28m	Age : Singularité · VII	128	Singularité · VII	11	539	17.7B	0.0
 architecte_mythes	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-architecte_mythes	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-architecte_mythes	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-architecte_mythes	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-architecte_mythes	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-architecte_mythes	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-architecte_mythes	16h 44m	Dynastie 1 fondee	15	Campement	0	1	2.0	0.0
-architecte_mythes	1j 7h 0m	Age : Hameau protégé	111	Hameau protégé	0	7	11	634
-architecte_mythes	1j 11h 24m	Dynastie 10 fondee	159	Campement	0	10	19	0.0
-architecte_mythes	1j 12h 22m	Age : Village	167	Village	0	10	19	1.69K
-architecte_mythes	1j 14h 33m	Age : Les Entrepôts	191	Les Entrepôts	0	12	60	4.27K
-architecte_mythes	1j 16h 39m	Age : Bourg agricole	214	Bourg agricole	0	14	112	8.87K
-architecte_mythes	1j 16h 45m	Age : Bourg des artisans	215	Bourg des artisans	0	14	112	10.9K
-architecte_mythes	1j 19h 20m	Age : Bourg marchand	241	Bourg marchand	0	18	251	24.8K
-architecte_mythes	1j 20h 14m	Grand Reset 1	0	Campement	1	20	43	0.0
-architecte_mythes	2j 3h 16m	Acte I (Fondation) complete	6	Clans	1	20	43	9.41K
-architecte_mythes	2j 3h 20m	Acte II (Domination) complete	9	Campement	1	20	43	9.44K
-architecte_mythes	2j 14h 54m	Age : Cité marchande	147	Cité marchande	1	44	358	183.3K
-architecte_mythes	2j 16h 0m	Age : Cité commerciale	159	Cité commerciale	1	46	567	732.1K
-architecte_mythes	2j 23h 38m	Age : Cité portuaire	79	Cité portuaire	2	75	956	1.02M
-architecte_mythes	2j 23h 57m	Grand Reset 3	0	Campement	3	77	114	0.0
-architecte_mythes	3j 13h 4m	Age : Cité fortifiée	59	Cité fortifiée	4	143	3.77K	2.60M
-architecte_mythes	3j 13h 39m	Grand Reset 5	0	Campement	5	146	676	0.0
-architecte_mythes	3j 20h 5m	Age : Cité administrative	28	Cité administrative	5	172	3.46K	562.9K
-architecte_mythes	4j 2h 48m	Age : Principauté	55	Principauté	6	219	12.2K	74.6M
-architecte_mythes	4j 3h 13m	Age : Principauté marchande	63	Principauté marchande	6	222	16.9K	133.4M
-architecte_mythes	5j 9h 58m	Age : Royaume	0	Royaume	9	275	18.4K	0.0
-architecte_mythes	5j 22h 41m	Age : Royaume diplomate	1	Royaume diplomate	9	276	65.5K	0.0
-architecte_mythes	6j 5h 40m	Grand Reset 10	0	Campement	10	277	1.23K	0.0
-architecte_mythes	7j 7h 45m	Age : Royaume savant	6	Royaume savant	10	283	621.0K	0.0
-architecte_mythes	7j 10h 47m	Age : Royaume conquérant	8	Royaume conquérant	10	285	984.6K	0.0
-architecte_mythes	7j 13h 27m	Arbre de Ruines complet	17	Campement	10	294	1.81M	0.0
-architecte_mythes	7j 16h 40m	Age : Empire naissant	48	Empire naissant	10	324	1.98M	556.0M
-architecte_mythes	7j 20h 8m	Age : Mégalopole	115	Mégalopole	10	357	17.4M	56.9T
-architecte_mythes	7j 20h 8m	Age : Mégalopole stratifiée	115	Mégalopole stratifiée	10	357	17.4M	56.9T
-architecte_mythes	7j 20h 9m	Age : Réseau continental	115	Réseau continental	10	357	17.4M	56.9T
-architecte_mythes	7j 20h 15m	Age : Empire provincial	117	Empire provincial	10	358	64.3M	663.8M
-architecte_mythes	7j 20h 24m	Age : Machination	120	Machination	10	359	65.2M	108.4T
-architecte_mythes	7j 20h 31m	Age : Empire	122	Empire	10	360	143.8M	979.9M
-architecte_mythes	7j 20h 40m	Age : Singularité	125	Singularité	10	361	144.9M	163.5T
-architecte_mythes	7j 20h 58m	Age : Singularité · II	131	Singularité · II	10	363	386.3M	386.9T
-architecte_mythes	7j 21h 4m	Age : Capitale impériale	133	Capitale impériale	10	364	547.5M	1.38B
-architecte_mythes	7j 21h 7m	Age : Singularité · III	134	Singularité · III	10	364	547.5M	434.5T
-architecte_mythes	7j 21h 35m	Age : Singularité · IV	143	Singularité · IV	10	367	1.17B	695.3T
-architecte_mythes	7j 22h 11m	Age : Singularité · V	155	Singularité · V	10	371	2.27B	1.02Qa
-architecte_mythes	7j 22h 35m	Age : Capitale monumentale	163	Capitale monumentale	10	374	3.28B	2.61B
-architecte_mythes	7j 23h 24m	Age : Singularité · VI	179	Singularité · VI	10	379	5.22B	1.66Qa
-architecte_mythes	8j 0h 36m	Age : Singularité · VII	203	Singularité · VII	10	387	9.05B	2.28Qa
-architecte_mythes	8j 2h 13m	Age : Agglomération impériale	235	Agglomération impériale	10	398	15.6B	4.39B
-architecte_mythes	8j 2h 26m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	399	16.2B	68.5Qi
-architecte_mythes	8j 2h 27m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	399	16.2B	68.5Qi
-architecte_mythes	8j 2h 28m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	399	16.2B	68.5Qi
-architecte_mythes	8j 2h 28m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	399	16.2B	68.5Qi
-architecte_mythes	8j 2h 37m	Age : Singularité · VIII	243	Singularité · VIII	10	400	45.5B	5.88Qa
-architecte_mythes	8j 2h 38m	Age : Singularité · IX	243	Singularité · IX	10	400	45.5B	5.88Qa
-architecte_mythes	8j 2h 58m	Age : Conscience planétaire · IX	250	Conscience planétaire · IX	10	402	47.6B	158.2Qi
-architecte_mythes	8j 3h 8m	Age : Singularité · X	253	Singularité · X	10	403	98.1B	6.90Qa
-architecte_mythes	8j 3h 11m	Age : Conscience planétaire · X	254	Conscience planétaire · X	10	403	98.1B	274.0Qi
-architecte_mythes	8j 3h 17m	Age : Métropole	256	Métropole	10	404	167.7B	7.76B
-architecte_mythes	8j 3h 23m	Age : Conscience planétaire · XI	258	Conscience planétaire · XI	10	404	167.7B	411.8Qi
-architecte_mythes	8j 3h 32m	Age : Singularité · XI	261	Singularité · XI	10	405	256.2B	12.1Qa
-architecte_mythes	8j 3h 47m	Age : Noosphère	266	Noosphère	10	406	363.2B	749.3Qi
-architecte_mythes	8j 3h 56m	Age : Conscience planétaire	269	Conscience planétaire	10	407	488.9B	17.7Qa
-architecte_mythes	8j 4h 23m	Age : Noosphère · II	278	Noosphère · II	10	409	793.5B	1.35Sx
-architecte_mythes	8j 4h 44m	Age : Conscience planétaire · II	285	Conscience planétaire · II	10	411	1.17T	29.2Qa
-architecte_mythes	8j 5h 36m	Age : Noosphère · III	302	Noosphère · III	10	415	2.11T	2.84Sx
+architecte_mythes	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+architecte_mythes	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+architecte_mythes	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+architecte_mythes	1h 30m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	2.0
+architecte_mythes	15h 42m	Dynastie 1 fondee	31	Campement	0	1	3.0	0.0
+architecte_mythes	1j 5h 47m	Age : Hameau	132	Hameau	0	6	7.4	678
+architecte_mythes	1j 13h 2m	Dynastie 10 fondee	176	Campement	0	10	51	0.0
+architecte_mythes	1j 14h 22m	Age : Hameau protégé	183	Hameau protégé	0	10	50	2.70K
+architecte_mythes	1j 19h 58m	Age : Village	216	Village	0	13	119	8.61K
+architecte_mythes	2j 4h 19m	Age : Les Entrepôts	267	Les Entrepôts	0	17	245	24.8K
+architecte_mythes	2j 6h 57m	Grand Reset 1	0	Campement	1	19	31	0.0
+architecte_mythes	2j 10h 38m	Acte I (Fondation) complete	5	Grand Feu	1	19	31	2.58K
+architecte_mythes	2j 11h 34m	Acte II (Domination) complete	8	Campement	1	19	31	2.64K
+architecte_mythes	2j 17h 41m	Acte III (Apocalypse) complete	15	Campement	1	19	31	3.06K
+architecte_mythes	2j 17h 43m	TOUS les Mythes completes	16	Grand Feu	1	19	31	3.06K
+architecte_mythes	3j 17h 5m	Age : Bourg agricole	184	Bourg agricole	1	41	106	127.7K
+architecte_mythes	3j 23h 55m	Age : Bourg des artisans	239	Bourg des artisans	1	45	406	438.6K
+architecte_mythes	4j 22h 31m	Age : Bourg marchand	156	Bourg marchand	2	77	944	1.29M
+architecte_mythes	4j 23h 16m	Grand Reset 3	0	Campement	3	79	118	0.0
+architecte_mythes	5j 12h 10m	Age : Cité marchande	100	Cité marchande	3	110	1.49K	2.73M
+architecte_mythes	5j 13h 37m	Age : Cité commerciale	113	Cité commerciale	3	113	2.25K	9.49M
+architecte_mythes	6j 1h 47m	Grand Reset 5	0	Campement	5	152	24	0.0
+architecte_mythes	6j 10h 18m	Age : Cité portuaire	72	Cité portuaire	5	188	3.56K	21.1M
+architecte_mythes	6j 12h 8m	Age : Cité fortifiée	85	Cité fortifiée	5	194	8.56K	75.9M
+architecte_mythes	6j 22h 44m	Age : Cité administrative	69	Cité administrative	6	241	17.8K	232.4M
+architecte_mythes	7j 22h 20m	Age : Principauté	66	Principauté	8	343	67.9K	0.0
+architecte_mythes	7j 22h 26m	Arbre de Ruines complet	67	Cité fortifiée	8	344	88.8K	0.0
+architecte_mythes	8j 9h 24m	Age : Royaume	63	Royaume	9	397	236.8K	0.0
+architecte_mythes	8j 9h 24m	Grand Reset 10	0	Campement	10	397	83.2K	0.0
+architecte_mythes	8j 18h 31m	Age : Principauté marchande	57	Principauté marchande	10	448	371.9K	0.0
+architecte_mythes	8j 18h 31m	Grand Reset 11	0	Campement	11	448	64.7K	0.0
+architecte_mythes	9j 2h 11m	Age : Royaume savant	59	Royaume savant	11	503	2.67M	0.0
+architecte_mythes	9j 3h 58m	Age : Royaume conquérant	67	Royaume conquérant	11	510	6.76M	0.0
+architecte_mythes	9j 4h 0m	Age : Royaume diplomate	68	Royaume diplomate	11	511	7.88M	0.0
+architecte_mythes	9j 5h 47m	Age : Empire	74	Empire	11	516	17.4M	0.0
+architecte_mythes	9j 8h 10m	Age : Capitale impériale	81	Capitale impériale	11	522	45.4M	0.0
+architecte_mythes	9j 8h 13m	Age : Empire provincial	82	Empire provincial	11	523	53.5M	0.0
+architecte_mythes	9j 11h 2m	Age : Agglomération impériale	88	Agglomération impériale	11	528	113.0M	0.0
+architecte_mythes	9j 14h 9m	Age : Mégalopole	95	Mégalopole	11	534	259.9M	0.0
+architecte_mythes	9j 14h 33m	Age : Empire naissant	98	Empire naissant	11	537	338.4M	0.0
+architecte_mythes	9j 16h 30m	Age : Réseau continental	101	Réseau continental	11	539	685.6M	0.0
+architecte_mythes	9j 20h 38m	Age : Machination	108	Machination	11	545	1.59B	0.0
+architecte_mythes	9j 20h 41m	Age : Mégalopole stratifiée	109	Mégalopole stratifiée	11	546	1.84B	0.0
+architecte_mythes	9j 20h 47m	Age : Métropole	110	Métropole	11	547	1.98B	0.0
+architecte_mythes	9j 20h 59m	Age : Capitale monumentale	111	Capitale monumentale	11	548	2.05B	0.0
+architecte_mythes	9j 22h 42m	Age : Singularité · II	114	Singularité · II	11	550	3.36B	0.0
+architecte_mythes	10j 1h 47m	Age : Singularité · V	120	Singularité · V	11	555	7.77B	0.0
 casse_cou	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-casse_cou	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-casse_cou	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-casse_cou	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-casse_cou	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-casse_cou	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-casse_cou	5h 48m	Dynastie 1 fondee	2	Campement	0	1	1.0	0.0
-casse_cou	2j 4h 47m	Age : Hameau protégé	787	Hameau protégé	0	9	90	2.46K
-casse_cou	2j 4h 48m	Dynastie 10 fondee	788	Campement	0	10	160	0.0
-casse_cou	2j 8h 18m	Grand Reset 1	0	Campement	1	12	7.5	0.0
-casse_cou	2j 16h 21m	Acte I (Fondation) complete	7	Abris	1	12	7.1	3.53K
-casse_cou	2j 16h 27m	Acte II (Domination) complete	10	Campement	1	12	7.1	3.55K
-casse_cou	3j 5h 35m	Age : Village	273	Village	1	24	144	6.31K
-casse_cou	3j 8h 51m	Age : Les Entrepôts	351	Les Entrepôts	1	28	293	20.1K
-casse_cou	3j 15h 33m	Age : Bourg agricole	515	Bourg agricole	1	32	212	88.7K
-casse_cou	3j 20h 54m	Age : Bourg des artisans	641	Bourg des artisans	1	36	549	267.3K
-casse_cou	4j 8h 57m	Age : Bourg marchand	267	Bourg marchand	2	63	524	747.3K
-casse_cou	4j 10h 48m	Age : Cité marchande	309	Cité marchande	2	66	900	1.53M
-casse_cou	4j 11h 44m	Grand Reset 3	0	Campement	3	68	42	0.0
-casse_cou	4j 19h 56m	Age : Cité commerciale	172	Cité commerciale	3	101	1.78K	7.58M
-casse_cou	5j 1h 42m	Age : Cité portuaire	97	Cité portuaire	4	138	2.90K	8.62M
-casse_cou	5j 2h 29m	Grand Reset 5	0	Campement	5	142	558	0.0
-casse_cou	5j 10h 4m	Age : Cité fortifiée	65	Cité fortifiée	5	181	9.01K	46.1M
-casse_cou	5j 10h 6m	Age : Cité administrative	65	Cité administrative	5	181	9.01K	46.1M
-casse_cou	5j 18h 18m	Age : Principauté	54	Principauté	6	221	16.1K	50.2M
-casse_cou	6j 4h 11m	Age : Principauté marchande	9	Principauté marchande	7	232	24.5K	0.0
-casse_cou	7j 3h 43m	Age : Royaume	4	Royaume	9	250	89.7K	0.0
-casse_cou	7j 5h 53m	Grand Reset 10	0	Campement	10	252	36.9K	0.0
-casse_cou	7j 17h 31m	Age : Royaume diplomate	0	Royaume diplomate	10	252	36.9K	0.0
-casse_cou	8j 5h 40m	Age : Royaume savant	1	Royaume savant	10	253	152.5K	0.0
-casse_cou	9j 1h 7m	Age : Royaume conquérant	8	Royaume conquérant	10	260	1.43M	0.0
-casse_cou	9j 6h 48m	Age : Empire naissant	46	Empire naissant	10	297	2.45M	375.1M
-casse_cou	9j 6h 49m	Arbre de Ruines complet	47	Campement	10	298	2.76M	0.0
-casse_cou	9j 9h 54m	Age : Métropole	113	Métropole	10	330	14.0M	24.7T
-casse_cou	9j 9h 54m	Age : Mégalopole	113	Mégalopole	10	330	14.0M	24.7T
-casse_cou	9j 9h 55m	Age : Mégalopole stratifiée	113	Mégalopole stratifiée	10	330	14.0M	24.7T
-casse_cou	9j 9h 56m	Age : Réseau continental	113	Réseau continental	10	330	14.0M	24.7T
-casse_cou	9j 10h 1m	Age : Empire provincial	115	Empire provincial	10	331	45.1M	459.8M
-casse_cou	9j 10h 22m	Age : Machination	123	Machination	10	334	97.5M	91.8T
-casse_cou	9j 10h 28m	Age : Empire	125	Empire	10	335	165.5M	653.5M
-casse_cou	9j 10h 39m	Age : Singularité	129	Singularité	10	336	249.8M	147.7T
-casse_cou	9j 10h 55m	Age : Singularité · II	135	Singularité · II	10	338	459.0M	231.3T
-casse_cou	9j 11h 16m	Age : Capitale impériale	143	Capitale impériale	10	341	866.4M	1.19B
-casse_cou	9j 11h 19m	Age : Singularité · III	144	Singularité · III	10	341	866.4M	300.9T
-casse_cou	9j 11h 59m	Age : Singularité · IV	159	Singularité · IV	10	346	1.75B	504.2T
-casse_cou	9j 13h 3m	Age : Singularité · V	183	Singularité · V	10	354	3.63B	737.3T
-casse_cou	9j 13h 32m	Age : Capitale monumentale	194	Capitale monumentale	10	358	4.76B	2.09B
-casse_cou	9j 14h 47m	Age : Singularité · VI	222	Singularité · VI	10	367	7.70B	1.11Qa
-casse_cou	9j 15h 20m	Age : Conscience planétaire · III	235	Conscience planétaire · III	10	371	9.18B	24.7Qi
-casse_cou	9j 15h 20m	Age : Conscience planétaire · V	235	Conscience planétaire · V	10	371	9.18B	24.7Qi
-casse_cou	9j 15h 21m	Age : Conscience planétaire · VI	235	Conscience planétaire · VI	10	371	9.18B	24.7Qi
-casse_cou	9j 15h 27m	Age : Agglomération impériale	237	Agglomération impériale	10	372	25.0B	3.53B
-casse_cou	9j 15h 30m	Age : Singularité · VII	238	Singularité · VII	10	372	25.0B	2.22Qa
-casse_cou	9j 15h 40m	Age : Conscience planétaire · VII	242	Conscience planétaire · VII	10	373	25.6B	52.1Qi
-casse_cou	9j 15h 40m	Age : Conscience planétaire · VIII	242	Conscience planétaire · VIII	10	373	25.6B	52.1Qi
-casse_cou	9j 15h 48m	Age : Singularité · VIII	245	Singularité · VIII	10	374	51.0B	3.18Qa
-casse_cou	9j 15h 59m	Age : Conscience planétaire · IX	249	Conscience planétaire · IX	10	375	51.8B	87.6Qi
-casse_cou	9j 16h 7m	Age : Singularité · IX	252	Singularité · IX	10	376	86.4B	4.40Qa
-casse_cou	9j 16h 20m	Age : Conscience planétaire · X	257	Conscience planétaire · X	10	377	130.0B	176.4Qi
-casse_cou	9j 16h 28m	Age : Singularité · X	260	Singularité · X	10	378	182.2B	6.77Qa
-casse_cou	9j 16h 42m	Age : Conscience planétaire · XI	265	Conscience planétaire · XI	10	379	242.9B	283.8Qi
-casse_cou	9j 16h 50m	Age : Singularité · XI	268	Singularité · XI	10	380	312.0B	9.23Qa
+casse_cou	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+casse_cou	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+casse_cou	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+casse_cou	5h 28m	Age : Maîtrise du bois	10	Maîtrise du bois	0	0	0.0	96
+casse_cou	5h 56m	Dynastie 1 fondee	12	Campement	0	1	1.0	0.0
+casse_cou	2j 22h 49m	Dynastie 10 fondee	1530	Campement	0	10	345	0.0
+casse_cou	2j 22h 52m	Grand Reset 1	0	Campement	1	10	45	0.0
+casse_cou	3j 0h 47m	Acte I (Fondation) complete	5	Grand Feu	1	10	44	500
+casse_cou	3j 1h 30m	Acte II (Domination) complete	8	Campement	1	10	44	541
+casse_cou	3j 19h 37m	Acte III (Apocalypse) complete	17	Campement	1	10	44	1.49K
+casse_cou	3j 19h 39m	TOUS les Mythes completes	18	Grand Feu	1	10	44	1.50K
+casse_cou	5j 10h 3m	Age : Hameau	1148	Hameau	1	23	93	7.59K
+casse_cou	6j 1h 16m	Age : Hameau protégé	1603	Hameau protégé	1	26	436	24.8K
+casse_cou	7j 5h 31m	Age : Village	712	Village	2	48	350	87.9K
+casse_cou	7j 11h 50m	Age : Les Entrepôts	901	Les Entrepôts	2	51	652	17.8K
+casse_cou	7j 16h 52m	Grand Reset 3	0	Campement	3	55	29	0.0
+casse_cou	8j 9h 35m	Age : Bourg agricole	448	Bourg agricole	3	82	804	26.7K
+casse_cou	8j 11h 57m	Age : Bourg des artisans	519	Bourg des artisans	3	85	1.27K	57.7K
+casse_cou	8j 14h 15m	Age : Bourg marchand	588	Bourg marchand	3	88	1.97K	7.61M
+casse_cou	9j 0h 55m	Age : Cité marchande	237	Cité marchande	4	126	3.15K	7.80M
+casse_cou	9j 1h 55m	Grand Reset 5	0	Campement	5	130	628	0.0
+casse_cou	9j 8h 27m	Age : Cité commerciale	110	Cité commerciale	5	168	5.14K	26.4M
+casse_cou	9j 8h 51m	Age : Cité portuaire	122	Cité portuaire	5	171	7.59K	81.6M
+casse_cou	9j 20h 35m	Age : Cité fortifiée	77	Cité fortifiée	7	268	38.4K	0.0
+casse_cou	10j 2h 41m	Age : Cité administrative	70	Cité administrative	8	319	51.3K	0.0
+casse_cou	10j 7h 41m	Age : Principauté marchande	70	Principauté marchande	9	375	137.5K	0.0
+casse_cou	10j 7h 41m	Arbre de Ruines complet	70	Principauté marchande	9	375	137.5K	0.0
+casse_cou	10j 7h 43m	Grand Reset 10	0	Campement	10	376	9.42K	0.0
+casse_cou	10j 13h 29m	Age : Principauté	60	Principauté	10	426	149.8K	0.0
+casse_cou	10j 13h 37m	Age : Royaume	64	Royaume	10	429	333.5K	0.0
+casse_cou	10j 13h 37m	Grand Reset 11	0	Campement	11	429	26.3K	0.0
+casse_cou	10j 19h 25m	Age : Royaume savant	60	Royaume savant	11	484	2.73M	0.0
+casse_cou	10j 19h 47m	Age : Empire provincial	71	Empire provincial	11	493	11.8M	0.0
+casse_cou	10j 19h 49m	Age : Royaume conquérant	72	Royaume conquérant	11	494	13.8M	0.0
+casse_cou	10j 20h 3m	Age : Royaume diplomate	79	Royaume diplomate	11	500	24.8M	0.0
+casse_cou	10j 20h 9m	Age : Capitale impériale	82	Capitale impériale	11	502	43.8M	0.0
+casse_cou	10j 20h 19m	Age : Agglomération impériale	87	Agglomération impériale	11	506	100.2M	0.0
+casse_cou	10j 20h 41m	Age : Mégalopole	98	Mégalopole	11	515	318.1M	0.0
+casse_cou	10j 20h 47m	Age : Empire naissant	101	Empire naissant	11	518	380.7M	0.0
+casse_cou	10j 20h 51m	Age : Mégalopole stratifiée	103	Mégalopole stratifiée	11	519	643.0M	0.0
+casse_cou	10j 20h 53m	Age : Métropole	104	Métropole	11	520	736.7M	0.0
+casse_cou	10j 20h 55m	Age : Capitale monumentale	105	Capitale monumentale	11	521	769.9M	0.0
+casse_cou	10j 20h 57m	Age : Empire	106	Empire	11	522	781.7M	0.0
+casse_cou	10j 21h 1m	Age : Machination	108	Machination	11	523	1.32B	0.0
+casse_cou	10j 21h 11m	Age : Singularité	113	Singularité	11	527	2.65B	0.0
+casse_cou	10j 21h 13m	Age : Réseau continental	114	Réseau continental	11	528	3.02B	0.0
+casse_cou	10j 21h 21m	Age : Singularité · III	118	Singularité · III	11	531	5.08B	0.0
+casse_cou	10j 21h 31m	Age : Singularité · V	123	Singularité · V	11	535	9.42B	0.0
+casse_cou	10j 21h 33m	Age : Singularité · II	124	Singularité · II	11	536	10.6B	0.0
+casse_cou	10j 21h 41m	Age : Singularité · VII	128	Singularité · VII	11	539	16.8B	0.0
+casse_cou	10j 21h 51m	Age : Singularité · IX	133	Singularité · IX	11	543	29.0B	0.0
+casse_cou	10j 22h 1m	Age : Singularité · XI	138	Singularité · XI	11	547	48.1B	0.0
+casse_cou	10j 22h 11m	Age : Conscience planétaire	143	Conscience planétaire	11	551	77.5B	0.0
+casse_cou	10j 22h 13m	Age : Singularité · VIII	144	Singularité · VIII	11	552	85.3B	0.0
+casse_cou	10j 22h 19m	Age : Conscience planétaire · IV	147	Conscience planétaire · IV	11	554	158.7B	0.0
+casse_cou	10j 22h 29m	Age : Conscience planétaire · V	152	Conscience planétaire · V	11	558	285.2B	0.0
+casse_cou	10j 22h 31m	Age : Conscience planétaire · II	153	Conscience planétaire · II	11	559	317.1B	0.0
+casse_cou	10j 22h 33m	Age : Singularité · X	154	Singularité · X	11	560	328.4B	0.0
+casse_cou	10j 22h 35m	Age : Singularité · VI	155	Singularité · VI	11	561	332.5B	0.0
+casse_cou	10j 22h 37m	Age : Singularité · IV	156	Singularité · IV	11	561	332.5B	327.2Qi
+casse_cou	10j 22h 39m	Age : Conscience planétaire · VI	157	Conscience planétaire · VI	11	562	447.1B	0.0
+casse_cou	10j 22h 41m	Age : Conscience planétaire · III	158	Conscience planétaire · III	11	563	488.1B	0.0
+casse_cou	10j 22h 47m	Age : Conscience planétaire · IX	161	Conscience planétaire · IX	11	565	824.1B	0.0
+casse_cou	10j 23h 5m	Age : Conscience planétaire · XI	170	Conscience planétaire · XI	11	572	2.42T	0.0
+casse_cou	10j 23h 7m	Age : Conscience planétaire · VIII	171	Conscience planétaire · VIII	11	573	2.73T	0.0
+casse_cou	10j 23h 23m	Age : Noosphère · II	179	Noosphère · II	11	579	6.44T	0.0
+casse_cou	10j 23h 29m	Age : Conscience planétaire · VII	182	Conscience planétaire · VII	11	581	7.49T	1.56Sp
+casse_cou	10j 23h 31m	Age : Noosphère · IV	183	Noosphère · IV	11	582	12.0T	0.0
+casse_cou	10j 23h 35m	Age : Conscience planétaire · X	185	Conscience planétaire · X	11	584	14.2T	0.0
+casse_cou	10j 23h 43m	Age : Noosphère	189	Noosphère	11	587	19.9T	0.0
+casse_cou	10j 23h 49m	Age : Noosphère · VI	192	Noosphère · VI	11	589	28.9T	0.0
+casse_cou	10j 23h 51m	Age : Noosphère · III	193	Noosphère · III	11	590	31.9T	0.0
+casse_cou	10j 23h 57m	Age : Noosphère · VII	196	Noosphère · VII	11	592	48.8T	0.0
+casse_cou	10j 23h 59m	Age : Noosphère · V	197	Noosphère · V	11	593	54.5T	0.0
 prudent	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-prudent	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-prudent	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-prudent	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-prudent	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-prudent	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-prudent	14h 48m	Dynastie 1 fondee	12	Campement	0	1	2.0	0.0
-prudent	1j 4h 31m	Age : Hameau protégé	107	Hameau protégé	0	6	7.1	711
-prudent	1j 8h 30m	Age : Village	148	Village	0	8	15	1.67K
-prudent	1j 9h 41m	Dynastie 10 fondee	161	Campement	0	10	29	0.0
-prudent	1j 12h 38m	Age : Les Entrepôts	192	Les Entrepôts	0	12	71	2.89K
-prudent	1j 13h 47m	Age : Bourg agricole	205	Bourg agricole	0	13	96	8.44K
-prudent	1j 15h 28m	Age : Bourg des artisans	223	Bourg des artisans	0	15	154	15.9K
-prudent	1j 17h 33m	Age : Bourg marchand	244	Bourg marchand	0	18	262	49.7K
-prudent	1j 17h 41m	Grand Reset 1	0	Campement	1	19	14	0.0
-prudent	2j 0h 43m	Acte I (Fondation) complete	6	Abris	1	19	13	5.17K
-prudent	2j 0h 49m	Acte II (Domination) complete	9	Campement	1	19	13	5.20K
-prudent	2j 12h 22m	Age : Cité marchande	142	Cité marchande	1	42	221	114.9K
-prudent	2j 13h 17m	Age : Cité commerciale	152	Cité commerciale	1	44	392	428.9K
-prudent	2j 21h 44m	Age : Cité portuaire	86	Cité portuaire	2	75	1.04K	1.97M
-prudent	2j 21h 45m	Grand Reset 3	0	Campement	3	76	46	0.0
-prudent	3j 10h 16m	Age : Cité fortifiée	72	Cité fortifiée	4	143	3.36K	6.47M
-prudent	3j 10h 31m	Grand Reset 5	0	Campement	5	145	119	0.0
-prudent	3j 15h 29m	Age : Cité administrative	58	Cité administrative	5	179	5.47K	4.53M
-prudent	3j 22h 44m	Age : Principauté	59	Principauté	6	222	16.5K	57.3M
-prudent	4j 8h 49m	Age : Principauté marchande	9	Principauté marchande	7	234	25.4K	0.0
-prudent	5j 13h 30m	Age : Royaume	0	Royaume	9	247	16.9K	0.0
-prudent	6j 1h 47m	Age : Royaume diplomate	1	Royaume diplomate	9	248	62.9K	0.0
-prudent	6j 10h 54m	Grand Reset 10	0	Campement	10	250	57.2K	0.0
-prudent	7j 9h 30m	Age : Royaume savant	1	Royaume savant	10	251	191.1K	0.0
-prudent	8j 6h 3m	Age : Royaume conquérant	8	Royaume conquérant	10	258	1.51M	0.0
-prudent	8j 8h 50m	Age : Empire naissant	10	Empire naissant	10	260	2.20M	0.0
-prudent	8j 9h 24m	Arbre de Ruines complet	14	Campement	10	264	2.68M	0.0
-prudent	8j 16h 32m	Age : Mégalopole	115	Mégalopole	10	330	19.2M	51.1T
-prudent	8j 16h 33m	Age : Mégalopole stratifiée	115	Mégalopole stratifiée	10	330	19.2M	51.1T
-prudent	8j 16h 34m	Age : Réseau continental	115	Réseau continental	10	330	19.2M	51.1T
-prudent	8j 16h 40m	Age : Empire provincial	117	Empire provincial	10	331	70.3M	685.8M
-prudent	8j 16h 55m	Age : Machination	122	Machination	10	333	72.0M	105.3T
-prudent	8j 17h 2m	Age : Empire	124	Empire	10	334	155.5M	1.01B
-prudent	8j 17h 5m	Age : Singularité	125	Singularité	10	334	155.5M	201.9T
-prudent	8j 17h 14m	Age : Singularité · II	128	Singularité · II	10	335	264.2M	293.4T
-prudent	8j 17h 29m	Age : Capitale impériale	133	Capitale impériale	10	337	580.5M	1.41B
-prudent	8j 17h 32m	Age : Singularité · III	134	Singularité · III	10	337	580.5M	362.5T
-prudent	8j 17h 50m	Age : Singularité · IV	140	Singularité · IV	10	339	964.4M	623.4T
-prudent	8j 18h 27m	Age : Singularité · V	152	Singularité · V	10	343	1.99B	951.0T
-prudent	8j 18h 51m	Age : Capitale monumentale	160	Capitale monumentale	10	346	2.97B	2.51B
-prudent	8j 19h 39m	Age : Singularité · VI	176	Singularité · VI	10	351	4.84B	1.59Qa
-prudent	8j 20h 52m	Age : Singularité · VII	200	Singularité · VII	10	359	8.58B	2.22Qa
-prudent	8j 22h 29m	Age : Agglomération impériale	232	Agglomération impériale	10	370	15.0B	4.32B
-prudent	8j 22h 51m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	372	16.3B	79.0Qi
-prudent	8j 22h 52m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	372	16.3B	79.0Qi
-prudent	8j 22h 53m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	372	16.3B	79.0Qi
-prudent	8j 22h 53m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	372	16.3B	79.0Qi
-prudent	8j 23h 2m	Age : Singularité · VIII	243	Singularité · VIII	10	373	47.3B	5.09Qa
-prudent	8j 23h 2m	Age : Singularité · IX	243	Singularité · IX	10	373	47.3B	5.09Qa
-prudent	8j 23h 14m	Age : Conscience planétaire · IX	247	Conscience planétaire · IX	10	374	48.3B	158.1Qi
-prudent	8j 23h 23m	Age : Singularité · X	250	Singularité · X	10	375	98.9B	6.80Qa
-prudent	8j 23h 29m	Age : Métropole	252	Métropole	10	376	100.2B	8.18B
-prudent	8j 23h 35m	Age : Conscience planétaire · X	254	Conscience planétaire · X	10	376	100.2B	254.8Qi
-prudent	8j 23h 47m	Age : Conscience planétaire · XI	258	Conscience planétaire · XI	10	377	168.2B	377.7Qi
-prudent	8j 23h 57m	Age : Singularité · XI	261	Singularité · XI	10	378	253.9B	14.2Qa
-prudent	9j 0h 12m	Age : Noosphère	266	Noosphère	10	379	356.9B	676.7Qi
-prudent	9j 0h 21m	Age : Conscience planétaire	269	Conscience planétaire	10	380	477.6B	20.7Qa
-prudent	9j 1h 0m	Age : Noosphère · II	282	Noosphère · II	10	383	938.7B	1.41Sx
-prudent	9j 1h 9m	Age : Conscience planétaire · II	285	Conscience planétaire · II	10	384	1.12T	33.9Qa
+prudent	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+prudent	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+prudent	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+prudent	1h 32m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	3.0
+prudent	14h 53m	Dynastie 1 fondee	30	Campement	0	1	3.0	0.0
+prudent	1j 11h 18m	Age : Hameau	169	Hameau	0	7	16	703
+prudent	1j 20h 0m	Dynastie 10 fondee	225	Campement	0	10	55	0.0
+prudent	1j 21h 54m	Age : Hameau protégé	236	Hameau protégé	0	10	54	2.46K
+prudent	2j 7h 13m	Age : Village	298	Village	0	13	135	7.99K
+prudent	2j 20h 22m	Age : Les Entrepôts	384	Les Entrepôts	0	17	291	32.3K
+prudent	2j 20h 33m	Grand Reset 1	0	Campement	1	18	41	0.0
+prudent	2j 22h 26m	Acte I (Fondation) complete	5	Grand Feu	1	18	40	428
+prudent	2j 23h 4m	Acte II (Domination) complete	8	Campement	1	18	40	469
+prudent	3j 11h 11m	Acte III (Apocalypse) complete	16	Campement	1	18	40	1.02K
+prudent	3j 11h 13m	TOUS les Mythes completes	17	Grand Feu	1	18	40	1.03K
+prudent	4j 17h 53m	Age : Bourg agricole	234	Bourg agricole	1	40	139	153.8K
+prudent	5j 0h 19m	Age : Bourg des artisans	286	Bourg des artisans	1	43	356	445.8K
+prudent	6j 3h 40m	Age : Bourg marchand	163	Bourg marchand	2	75	871	1.65M
+prudent	6j 5h 5m	Grand Reset 3	0	Campement	3	77	11	0.0
+prudent	6j 21h 11m	Age : Cité marchande	118	Cité marchande	3	110	1.79K	4.52M
+prudent	6j 22h 28m	Age : Cité commerciale	127	Cité commerciale	3	112	2.38K	12.3M
+prudent	7j 12h 13m	Grand Reset 5	0	Campement	5	152	534	0.0
+prudent	7j 22h 44m	Age : Cité portuaire	63	Cité portuaire	5	188	4.47K	20.0M
+prudent	8j 11h 6m	Age : Cité administrative	62	Cité administrative	6	236	10.2K	157.5M
+prudent	8j 12h 17m	Age : Cité fortifiée	66	Cité fortifiée	6	238	14.0K	294.4M
+prudent	8j 12h 20m	Age : Principauté	66	Principauté	6	238	14.0K	294.4M
+prudent	10j 6h 58m	Age : Principauté marchande	60	Principauté marchande	9	397	171.9K	0.0
+prudent	10j 6h 58m	Arbre de Ruines complet	60	Principauté marchande	9	397	171.9K	0.0
+prudent	10j 6h 58m	Grand Reset 10	0	Campement	10	397	18.3K	0.0
+prudent	10j 19h 56m	Age : Royaume diplomate	62	Royaume diplomate	10	452	609.4K	0.0
+prudent	10j 19h 56m	Grand Reset 11	0	Campement	11	452	302.2K	0.0
+prudent	11j 6h 6m	Age : Royaume savant	63	Royaume savant	11	511	4.47M	0.0
+prudent	11j 6h 9m	Age : Royaume	64	Royaume	11	512	5.10M	0.0
+prudent	11j 8h 14m	Age : Empire provincial	70	Empire provincial	11	517	12.3M	0.0
+prudent	11j 8h 18m	Age : Royaume conquérant	71	Royaume conquérant	11	518	14.7M	0.0
+prudent	11j 11h 4m	Age : Capitale impériale	77	Capitale impériale	11	523	36.0M	0.0
+prudent	11j 14h 9m	Age : Agglomération impériale	84	Agglomération impériale	11	529	95.8M	0.0
+prudent	11j 17h 42m	Age : Métropole	91	Métropole	11	535	231.9M	0.0
+prudent	11j 17h 46m	Age : Capitale monumentale	92	Capitale monumentale	11	536	268.8M	0.0
+prudent	11j 17h 57m	Age : Empire	93	Empire	11	537	293.7M	0.0
+prudent	11j 18h 20m	Age : Empire naissant	94	Empire naissant	11	538	306.1M	0.0
+prudent	11j 21h 31m	Age : Mégalopole stratifiée	98	Mégalopole stratifiée	11	541	515.8M	0.0
 completionniste	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-completionniste	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-completionniste	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-completionniste	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-completionniste	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-completionniste	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-completionniste	16h 44m	Dynastie 1 fondee	15	Campement	0	1	2.0	0.0
-completionniste	1j 7h 0m	Age : Hameau protégé	111	Hameau protégé	0	7	11	634
-completionniste	1j 11h 24m	Dynastie 10 fondee	159	Campement	0	10	19	0.0
-completionniste	1j 12h 22m	Age : Village	167	Village	0	10	19	1.69K
-completionniste	1j 14h 33m	Age : Les Entrepôts	191	Les Entrepôts	0	12	60	4.27K
-completionniste	1j 16h 39m	Age : Bourg agricole	214	Bourg agricole	0	14	112	8.87K
-completionniste	1j 16h 45m	Age : Bourg des artisans	215	Bourg des artisans	0	14	112	10.9K
-completionniste	1j 19h 20m	Age : Bourg marchand	241	Bourg marchand	0	18	251	24.8K
-completionniste	1j 20h 14m	Grand Reset 1	0	Campement	1	20	43	0.0
-completionniste	2j 3h 16m	Acte I (Fondation) complete	6	Clans	1	20	43	9.43K
-completionniste	2j 3h 21m	Acte II (Domination) complete	9	Campement	1	20	43	9.46K
-completionniste	2j 14h 38m	Age : Cité marchande	143	Cité marchande	1	44	341	377.7K
-completionniste	2j 14h 45m	Age : Cité commerciale	144	Cité commerciale	1	44	340	368.0K
-completionniste	2j 23h 41m	Grand Reset 3	0	Campement	3	77	175	0.0
-completionniste	3j 7h 13m	Age : Cité portuaire	78	Cité portuaire	3	108	2.02K	2.27M
-completionniste	3j 7h 18m	Age : Cité fortifiée	79	Cité fortifiée	3	108	2.02K	2.02M
-completionniste	3j 14h 35m	Grand Reset 5	0	Campement	5	147	3.8	0.0
-completionniste	3j 18h 43m	Age : Cité administrative	55	Cité administrative	5	180	3.82K	3.75M
-completionniste	4j 0h 49m	Age : Principauté	60	Principauté	6	223	17.2K	52.8M
-completionniste	4j 10h 31m	Age : Principauté marchande	9	Principauté marchande	7	233	24.7K	0.0
-completionniste	5j 11h 1m	Age : Royaume	1	Royaume	9	248	11.2K	0.0
-completionniste	5j 21h 59m	Grand Reset 10	0	Campement	10	252	56.5K	0.0
-completionniste	6j 6h 45m	Age : Royaume diplomate	0	Royaume diplomate	10	252	56.5K	0.0
-completionniste	6j 20h 38m	Age : Royaume savant	1	Royaume savant	10	253	189.6K	0.0
-completionniste	7j 17h 1m	Age : Royaume conquérant	8	Royaume conquérant	10	260	1.52M	0.0
-completionniste	7j 19h 49m	Arbre de Ruines complet	16	Campement	10	268	2.44M	0.0
-completionniste	7j 23h 10m	Age : Empire naissant	48	Empire naissant	10	299	2.63M	612.0M
-completionniste	8j 2h 43m	Age : Mégalopole	117	Mégalopole	10	333	19.2M	45.8T
-completionniste	8j 2h 44m	Age : Mégalopole stratifiée	117	Mégalopole stratifiée	10	333	19.2M	45.8T
-completionniste	8j 2h 44m	Age : Réseau continental	117	Réseau continental	10	333	19.2M	45.8T
-completionniste	8j 2h 51m	Age : Empire provincial	119	Empire provincial	10	334	68.3M	763.7M
-completionniste	8j 2h 54m	Age : Machination	120	Machination	10	334	68.3M	111.3T
-completionniste	8j 3h 0m	Age : Empire	122	Empire	10	335	148.2M	990.0M
-completionniste	8j 3h 9m	Age : Singularité	125	Singularité	10	336	149.4M	166.4T
-completionniste	8j 3h 28m	Age : Singularité · II	131	Singularité · II	10	338	393.2M	390.9T
-completionniste	8j 3h 34m	Age : Capitale impériale	133	Capitale impériale	10	339	555.4M	1.38B
-completionniste	8j 3h 37m	Age : Singularité · III	134	Singularité · III	10	339	555.4M	438.1T
-completionniste	8j 4h 4m	Age : Singularité · IV	143	Singularité · IV	10	342	1.18B	699.0T
-completionniste	8j 4h 41m	Age : Singularité · V	155	Singularité · V	10	346	2.28B	1.02Qa
-completionniste	8j 5h 5m	Age : Capitale monumentale	163	Capitale monumentale	10	349	3.29B	2.61B
-completionniste	8j 5h 53m	Age : Singularité · VI	179	Singularité · VI	10	354	5.24B	1.66Qa
-completionniste	8j 7h 6m	Age : Singularité · VII	203	Singularité · VII	10	362	9.07B	2.28Qa
-completionniste	8j 8h 16m	Age : Agglomération impériale	226	Agglomération impériale	10	370	13.7B	4.18B
-completionniste	8j 8h 56m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	374	16.2B	68.6Qi
-completionniste	8j 8h 57m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	374	16.2B	68.6Qi
-completionniste	8j 8h 57m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	374	16.2B	68.6Qi
-completionniste	8j 8h 58m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	374	16.2B	68.6Qi
-completionniste	8j 9h 6m	Age : Singularité · VIII	243	Singularité · VIII	10	375	45.6B	5.88Qa
-completionniste	8j 9h 7m	Age : Singularité · IX	243	Singularité · IX	10	375	45.6B	5.88Qa
-completionniste	8j 9h 27m	Age : Conscience planétaire · IX	250	Conscience planétaire · IX	10	377	47.6B	158.4Qi
-completionniste	8j 9h 37m	Age : Singularité · X	253	Singularité · X	10	378	98.1B	6.91Qa
-completionniste	8j 9h 40m	Age : Conscience planétaire · X	254	Conscience planétaire · X	10	378	98.1B	274.2Qi
-completionniste	8j 9h 46m	Age : Métropole	256	Métropole	10	379	167.8B	7.76B
-completionniste	8j 9h 52m	Age : Conscience planétaire · XI	258	Conscience planétaire · XI	10	379	167.8B	412.0Qi
-completionniste	8j 10h 1m	Age : Singularité · XI	261	Singularité · XI	10	380	256.3B	12.1Qa
-completionniste	8j 10h 16m	Age : Noosphère	266	Noosphère	10	381	363.4B	749.5Qi
-completionniste	8j 10h 25m	Age : Conscience planétaire	269	Conscience planétaire	10	382	489.1B	17.7Qa
-completionniste	8j 10h 53m	Age : Noosphère · II	278	Noosphère · II	10	384	793.7B	1.36Sx
-completionniste	8j 11h 14m	Age : Conscience planétaire · II	285	Conscience planétaire · II	10	386	1.17T	29.3Qa
-completionniste	8j 12h 5m	Age : Noosphère · III	302	Noosphère · III	10	390	2.11T	2.84Sx
-completionniste	8j 12h 26m	Age : Conscience planétaire · III	309	Conscience planétaire · III	10	392	2.67T	47.2Qa
-completionniste	8j 14h 6m	Age : Noosphère · IV	342	Noosphère · IV	10	400	5.53T	5.89Sx
-completionniste	8j 14h 39m	Age : Conscience planétaire · IV	353	Conscience planétaire · IV	10	403	6.84T	81.2Qa
-completionniste	8j 17h 8m	Age : Noosphère · IX	403	Noosphère · IX	10	415	13.3T	62.0Sp
-completionniste	8j 17h 9m	Age : Noosphère · XI	403	Noosphère · XI	10	415	13.3T	62.0Sp
-completionniste	8j 17h 10m	Age : Essaim orbital	403	Essaim orbital	10	415	13.3T	62.0Sp
-completionniste	8j 17h 22m	Age : Noosphère · V	407	Noosphère · V	10	416	27.2T	23.1Sx
-completionniste	8j 17h 23m	Age : Noosphère · X	408	Noosphère · X	10	416	27.2T	106.6Sp
-completionniste	8j 17h 37m	Age : Noosphère · VI	412	Noosphère · VI	10	417	47.3T	30.0Sx
-completionniste	8j 17h 52m	Age : Essaim orbital · II	417	Essaim orbital · II	10	418	48.4T	176.1Sp
-completionniste	8j 18h 8m	Age : Essaim orbital · III	422	Essaim orbital · III	10	419	76.5T	283.4Sp
-completionniste	8j 18h 20m	Age : Noosphère · VII	426	Noosphère · VII	10	420	112.7T	58.2Sx
-completionniste	8j 19h 8m	Age : Essaim orbital · IV	442	Essaim orbital · IV	10	423	256.0T	825.1Sp
-completionniste	8j 19h 20m	Age : Noosphère · VIII	446	Noosphère · VIII	10	424	321.5T	128.3Sx
-completionniste	8j 20h 24m	Age : Essaim orbital · V	467	Essaim orbital · V	10	428	642.9T	1.96Oc
-completionniste	8j 20h 40m	Age : Essaim orbital · VI	472	Essaim orbital · VI	10	429	736.7T	1.98Oc
-completionniste	8j 22h 15m	Age : Essaim orbital · VII	502	Essaim orbital · VII	10	435	1.93Qa	4.93Oc
-completionniste	8j 22h 16m	Age : Essaim orbital · VIII	502	Essaim orbital · VIII	10	435	1.93Qa	4.93Oc
+completionniste	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+completionniste	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+completionniste	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+completionniste	1h 30m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	1.0
+completionniste	15h 28m	Dynastie 1 fondee	31	Campement	0	1	3.0	0.0
+completionniste	1j 6h 33m	Age : Hameau	138	Hameau	0	7	14	814
+completionniste	1j 10h 48m	Dynastie 10 fondee	164	Campement	0	10	43	0.0
+completionniste	1j 12h 15m	Age : Hameau protégé	172	Hameau protégé	0	10	42	2.28K
+completionniste	1j 18h 9m	Age : Village	206	Village	0	13	109	4.87K
+completionniste	2j 2h 48m	Age : Les Entrepôts	259	Les Entrepôts	0	17	229	32.0K
+completionniste	2j 5h 26m	Grand Reset 1	0	Campement	1	19	13	0.0
+completionniste	2j 7h 58m	Acte I (Fondation) complete	5	Grand Feu	1	19	12	647
+completionniste	2j 8h 5m	Acte II (Domination) complete	8	Campement	1	19	12	685
+completionniste	2j 20h 15m	Acte III (Apocalypse) complete	16	Grand Feu	1	19	12	1.08K
+completionniste	2j 20h 16m	TOUS les Mythes completes	17	Grand Feu	1	19	12	1.08K
+completionniste	3j 21h 45m	Age : Bourg agricole	200	Bourg agricole	1	41	102	151.3K
+completionniste	4j 2h 24m	Age : Bourg des artisans	238	Bourg des artisans	1	44	311	420.8K
+completionniste	5j 2h 27m	Age : Bourg marchand	157	Bourg marchand	2	76	847	1.99M
+completionniste	5j 4h 9m	Grand Reset 3	0	Campement	3	79	150	0.0
+completionniste	5j 17h 54m	Age : Cité marchande	106	Cité marchande	3	111	1.77K	4.65M
+completionniste	5j 18h 59m	Age : Cité commerciale	115	Cité commerciale	3	113	2.33K	10.6M
+completionniste	6j 6h 34m	Grand Reset 5	0	Campement	5	152	175	0.0
+completionniste	6j 15h 13m	Age : Cité portuaire	71	Cité portuaire	5	189	4.60K	26.2M
+completionniste	6j 16h 3m	Age : Cité fortifiée	77	Cité fortifiée	5	192	7.01K	74.6M
+completionniste	7j 1h 37m	Age : Cité administrative	66	Cité administrative	6	237	11.3K	135.3M
+completionniste	7j 15h 23m	Age : Principauté	68	Principauté	7	290	32.9K	1.04B
+completionniste	8j 3h 5m	Age : Principauté marchande	68	Principauté marchande	8	343	65.8K	816.4M
+completionniste	8j 3h 7m	Arbre de Ruines complet	69	Principauté	8	344	77.7K	0.0
+completionniste	8j 12h 57m	Grand Reset 10	0	Campement	10	398	13.8K	0.0
+completionniste	8j 22h 29m	Age : Royaume	59	Royaume	10	450	329.0K	0.0
+completionniste	8j 22h 29m	Grand Reset 11	0	Campement	11	450	21.8K	0.0
+completionniste	9j 6h 12m	Age : Royaume diplomate	59	Royaume diplomate	11	505	2.09M	0.0
+completionniste	9j 7h 42m	Age : Empire naissant	66	Empire naissant	11	511	6.11M	0.0
+completionniste	9j 9h 36m	Age : Empire	73	Empire	11	517	17.5M	0.0
+completionniste	9j 9h 38m	Age : Royaume conquérant	74	Royaume conquérant	11	518	20.9M	0.0
+completionniste	9j 11h 58m	Age : Capitale impériale	80	Capitale impériale	11	523	46.4M	0.0
+completionniste	9j 12h 1m	Age : Empire provincial	81	Empire provincial	11	524	54.5M	0.0
+completionniste	9j 14h 43m	Age : Agglomération impériale	87	Agglomération impériale	11	529	113.0M	0.0
+completionniste	9j 16h 49m	Age : Royaume savant	91	Royaume savant	11	533	150.8M	0.0
+completionniste	9j 17h 49m	Age : Mégalopole	94	Mégalopole	11	535	256.8M	0.0
+completionniste	9j 21h 21m	Age : Mégalopole stratifiée	101	Mégalopole stratifiée	11	541	559.1M	0.0
+completionniste	9j 21h 24m	Age : Métropole	102	Métropole	11	542	645.0M	0.0
+completionniste	9j 21h 32m	Age : Capitale monumentale	103	Capitale monumentale	11	543	696.3M	0.0
+completionniste	9j 23h 56m	Age : Machination	107	Machination	11	546	1.41B	0.0
+completionniste	10j 2h 47m	Age : Singularité · III	113	Singularité · III	11	551	3.75B	0.0
+completionniste	10j 7h 47m	Age : Singularité · V	120	Singularité · V	11	557	8.25B	0.0
+completionniste	10j 7h 50m	Age : Singularité	121	Singularité	11	558	9.43B	0.0
+completionniste	10j 7h 58m	Age : Réseau continental	122	Réseau continental	11	559	10.1B	0.0
+completionniste	10j 11h 6m	Age : Singularité · VIII	126	Singularité · VIII	11	562	17.5B	0.0
+completionniste	10j 11h 9m	Age : Singularité · IV	127	Singularité · IV	11	563	20.4B	0.0
+completionniste	10j 14h 42m	Age : Singularité · XI	132	Singularité · XI	11	567	38.6B	0.0
+completionniste	10j 14h 46m	Age : Singularité · VII	133	Singularité · VII	11	568	44.9B	0.0
+completionniste	10j 17h 14m	Age : Conscience planétaire	138	Conscience planétaire	11	572	75.5B	0.0
+completionniste	10j 17h 18m	Age : Singularité · IX	139	Singularité · IX	11	573	85.7B	0.0
 theoricien	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-theoricien	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-theoricien	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-theoricien	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-theoricien	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-theoricien	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-theoricien	14h 58m	Dynastie 1 fondee	13	Campement	0	1	2.0	0.0
-theoricien	1j 5h 12m	Age : Hameau protégé	109	Hameau protégé	0	6	2.1	785
-theoricien	1j 9h 49m	Age : Village	154	Village	0	8	13	1.67K
-theoricien	1j 11h 0m	Dynastie 10 fondee	167	Campement	0	10	27	0.0
-theoricien	1j 14h 2m	Age : Les Entrepôts	199	Les Entrepôts	0	12	69	5.18K
-theoricien	1j 15h 39m	Age : Bourg agricole	218	Bourg agricole	0	13	93	6.05K
-theoricien	1j 17h 48m	Age : Bourg des artisans	241	Bourg des artisans	0	16	191	24.5K
-theoricien	1j 17h 49m	Age : Bourg marchand	241	Bourg marchand	0	16	191	24.5K
-theoricien	1j 19h 17m	Grand Reset 1	0	Campement	1	19	20	0.0
-theoricien	2j 4h 3m	Acte I (Fondation) complete	6	Clans	1	19	20	10.8K
-theoricien	2j 4h 7m	Acte II (Domination) complete	9	Campement	1	19	20	10.9K
-theoricien	2j 16h 19m	Age : Cité marchande	153	Cité marchande	1	43	319	377.9K
-theoricien	3j 0h 26m	Age : Cité commerciale	88	Cité commerciale	2	72	671	568.1K
-theoricien	3j 1h 17m	Age : Cité portuaire	98	Cité portuaire	2	75	1.02K	1.46M
-theoricien	3j 1h 22m	Grand Reset 3	0	Campement	3	76	143	0.0
-theoricien	3j 8h 12m	Age : Cité fortifiée	80	Cité fortifiée	3	108	2.19K	5.42M
-theoricien	3j 15h 0m	Grand Reset 5	0	Campement	5	145	687	0.0
-theoricien	3j 21h 0m	Age : Cité administrative	26	Cité administrative	5	170	2.66K	429.1K
-theoricien	4j 3h 32m	Age : Principauté	57	Principauté	6	221	14.9K	60.1M
-theoricien	4j 13h 58m	Age : Principauté marchande	9	Principauté marchande	7	233	26.9K	0.0
-theoricien	5j 18h 16m	Age : Royaume	0	Royaume	9	242	14.8K	0.0
-theoricien	6j 5h 49m	Age : Royaume diplomate	1	Royaume diplomate	9	243	59.5K	0.0
-theoricien	6j 14h 45m	Grand Reset 10	0	Campement	10	245	51.2K	0.0
-theoricien	7j 13h 19m	Age : Royaume savant	1	Royaume savant	10	246	180.3K	0.0
-theoricien	8j 9h 48m	Age : Royaume conquérant	8	Royaume conquérant	10	253	1.53M	0.0
-theoricien	8j 12h 33m	Arbre de Ruines complet	16	Campement	10	261	2.45M	0.0
-theoricien	8j 15h 55m	Age : Empire naissant	48	Empire naissant	10	292	2.65M	589.5M
-theoricien	8j 19h 22m	Age : Empire provincial	114	Empire provincial	10	325	18.8M	474.7M
-theoricien	8j 19h 29m	Age : Mégalopole	117	Mégalopole	10	326	19.4M	46.6T
-theoricien	8j 19h 29m	Age : Mégalopole stratifiée	117	Mégalopole stratifiée	10	326	19.4M	46.6T
-theoricien	8j 19h 30m	Age : Réseau continental	117	Réseau continental	10	326	19.4M	46.6T
-theoricien	8j 19h 39m	Age : Machination	120	Machination	10	327	68.8M	113.4T
-theoricien	8j 19h 46m	Age : Empire	122	Empire	10	328	149.4M	1.01B
-theoricien	8j 19h 55m	Age : Singularité	125	Singularité	10	329	150.6M	169.4T
-theoricien	8j 20h 4m	Age : Singularité · II	128	Singularité · II	10	330	263.4M	238.3T
-theoricien	8j 20h 19m	Age : Capitale impériale	133	Capitale impériale	10	332	560.0M	1.41B
-theoricien	8j 20h 22m	Age : Singularité · III	134	Singularité · III	10	332	560.0M	446.2T
-theoricien	8j 20h 50m	Age : Singularité · IV	143	Singularité · IV	10	335	1.19B	711.9T
-theoricien	8j 21h 26m	Age : Singularité · V	155	Singularité · V	10	339	2.30B	1.04Qa
-theoricien	8j 21h 50m	Age : Capitale monumentale	163	Capitale monumentale	10	342	3.32B	2.66B
-theoricien	8j 22h 39m	Age : Singularité · VI	179	Singularité · VI	10	347	5.28B	1.69Qa
-theoricien	8j 23h 52m	Age : Singularité · VII	203	Singularité · VII	10	355	9.15B	2.33Qa
-theoricien	9j 1h 1m	Age : Agglomération impériale	226	Agglomération impériale	10	363	13.8B	4.26B
-theoricien	9j 1h 41m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	367	16.4B	69.7Qi
-theoricien	9j 1h 42m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	367	16.4B	69.7Qi
-theoricien	9j 1h 43m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	367	16.4B	69.7Qi
-theoricien	9j 1h 43m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	367	16.4B	69.7Qi
-theoricien	9j 1h 52m	Age : Singularité · VIII	243	Singularité · VIII	10	368	45.9B	5.99Qa
-theoricien	9j 1h 53m	Age : Singularité · IX	243	Singularité · IX	10	368	45.9B	5.99Qa
-theoricien	9j 2h 13m	Age : Conscience planétaire · IX	250	Conscience planétaire · IX	10	370	48.0B	160.9Qi
-theoricien	9j 2h 23m	Age : Singularité · X	253	Singularité · X	10	371	98.9B	7.03Qa
-theoricien	9j 2h 26m	Age : Conscience planétaire · X	254	Conscience planétaire · X	10	371	98.9B	278.5Qi
-theoricien	9j 2h 32m	Age : Métropole	256	Métropole	10	372	169.1B	7.92B
-theoricien	9j 2h 38m	Age : Conscience planétaire · XI	258	Conscience planétaire · XI	10	372	169.1B	418.5Qi
-theoricien	9j 2h 47m	Age : Singularité · XI	261	Singularité · XI	10	373	258.2B	12.3Qa
-theoricien	9j 3h 2m	Age : Noosphère	266	Noosphère	10	374	366.0B	761.3Qi
-theoricien	9j 3h 11m	Age : Conscience planétaire	269	Conscience planétaire	10	375	492.6B	18.0Qa
-theoricien	9j 3h 38m	Age : Noosphère · II	278	Noosphère · II	10	377	799.4B	1.38Sx
-theoricien	9j 3h 59m	Age : Conscience planétaire · II	285	Conscience planétaire · II	10	379	1.17T	29.8Qa
-theoricien	9j 4h 51m	Age : Noosphère · III	302	Noosphère · III	10	383	2.12T	2.88Sx
-theoricien	9j 5h 12m	Age : Conscience planétaire · III	309	Conscience planétaire · III	10	385	2.69T	48.0Qa
-theoricien	9j 6h 52m	Age : Noosphère · IV	342	Noosphère · IV	10	393	5.57T	5.98Sx
-theoricien	9j 7h 25m	Age : Conscience planétaire · IV	353	Conscience planétaire · IV	10	396	6.89T	82.6Qa
-theoricien	9j 9h 54m	Age : Noosphère · IX	403	Noosphère · IX	10	408	13.4T	62.8Sp
-theoricien	9j 9h 55m	Age : Noosphère · XI	403	Noosphère · XI	10	408	13.4T	62.8Sp
-theoricien	9j 9h 56m	Age : Essaim orbital	403	Essaim orbital	10	408	13.4T	62.8Sp
-theoricien	9j 10h 7m	Age : Noosphère · V	407	Noosphère · V	10	409	27.4T	23.4Sx
-theoricien	9j 10h 9m	Age : Noosphère · X	408	Noosphère · X	10	409	27.4T	108.0Sp
-theoricien	9j 10h 23m	Age : Noosphère · VI	412	Noosphère · VI	10	410	47.6T	30.5Sx
-theoricien	9j 10h 37m	Age : Essaim orbital · II	417	Essaim orbital · II	10	411	48.7T	178.4Sp
-theoricien	9j 10h 53m	Age : Essaim orbital · III	422	Essaim orbital · III	10	412	77.0T	287.1Sp
-theoricien	9j 11h 5m	Age : Noosphère · VII	426	Noosphère · VII	10	413	113.3T	59.0Sx
-theoricien	9j 11h 54m	Age : Essaim orbital · IV	442	Essaim orbital · IV	10	416	257.5T	835.6Sp
-theoricien	9j 12h 6m	Age : Noosphère · VIII	446	Noosphère · VIII	10	417	323.4T	130.2Sx
-theoricien	9j 13h 9m	Age : Essaim orbital · V	467	Essaim orbital · V	10	421	646.5T	1.98Oc
-theoricien	9j 13h 26m	Age : Essaim orbital · VI	472	Essaim orbital · VI	10	422	740.9T	2.01Oc
-theoricien	9j 15h 1m	Age : Essaim orbital · VII	502	Essaim orbital · VII	10	428	1.94Qa	4.99Oc
-theoricien	9j 15h 1m	Age : Essaim orbital · VIII	502	Essaim orbital · VIII	10	428	1.94Qa	4.99Oc
-theoricien	9j 17h 44m	Age : Essaim orbital · IX	552	Essaim orbital · IX	10	438	6.47Qa	13.6Oc
-theoricien	9j 20h 13m	Age : Essaim orbital · XI	598	Essaim orbital · XI	10	447	14.4Qa	33.9No
-theoricien	9j 20h 14m	Age : Sphère de Dyson	598	Sphère de Dyson	10	447	14.4Qa	33.9No
-theoricien	9j 20h 15m	Age : Sphère de Dyson · II	598	Sphère de Dyson · II	10	447	14.4Qa	33.9No
-theoricien	9j 20h 17m	Age : Sphère de Dyson · III	598	Sphère de Dyson · III	10	447	14.4Qa	33.9No
-theoricien	9j 20h 51m	Age : Essaim orbital · X	608	Essaim orbital · X	10	449	27.9Qa	50.2Oc
-theoricien	9j 22h 3m	Age : Sphère de Dyson · IV	629	Sphère de Dyson · IV	10	453	35.4Qa	265.7No
-theoricien	9j 22h 59m	Age : Sphère de Dyson · V	645	Sphère de Dyson · V	10	456	71.0Qa	693.1No
-theoricien	10j 0h 33m	Age : Sphère de Dyson · VI	672	Sphère de Dyson · VI	10	461	188.3Qa	1.35Dc
+theoricien	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+theoricien	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+theoricien	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+theoricien	1h 25m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	2.0
+theoricien	15h 29m	Dynastie 1 fondee	31	Campement	0	1	3.0	0.0
+theoricien	1j 5h 16m	Age : Hameau	132	Hameau	0	6	7.4	683
+theoricien	1j 11h 38m	Dynastie 10 fondee	171	Campement	0	10	51	0.0
+theoricien	1j 12h 56m	Age : Hameau protégé	178	Hameau protégé	0	10	50	2.11K
+theoricien	1j 18h 42m	Age : Village	212	Village	0	13	117	9.16K
+theoricien	2j 4h 1m	Age : Les Entrepôts	269	Les Entrepôts	0	18	280	37.2K
+theoricien	2j 4h 53m	Grand Reset 1	0	Campement	1	19	23	0.0
+theoricien	2j 6h 43m	Acte I (Fondation) complete	5	Grand Feu	1	19	23	299
+theoricien	2j 7h 31m	Acte II (Domination) complete	8	Campement	1	19	23	333
+theoricien	2j 19h 40m	Acte III (Apocalypse) complete	16	Grand Feu	1	19	23	733
+theoricien	2j 19h 42m	TOUS les Mythes completes	17	Grand Feu	1	19	23	739
+theoricien	3j 21h 30m	Age : Bourg agricole	203	Bourg agricole	1	41	117	169.4K
+theoricien	4j 1h 31m	Age : Bourg des artisans	236	Bourg des artisans	1	44	329	419.6K
+theoricien	5j 1h 10m	Age : Bourg marchand	162	Bourg marchand	2	76	819	2.06M
+theoricien	5j 2h 42m	Grand Reset 3	0	Campement	3	79	150	0.0
+theoricien	5j 15h 31m	Age : Cité marchande	96	Cité marchande	3	110	1.56K	3.67M
+theoricien	6j 3h 46m	Age : Cité commerciale	96	Cité commerciale	4	148	2.74K	8.25M
+theoricien	6j 5h 4m	Age : Cité portuaire	106	Cité portuaire	4	152	4.74K	39.0M
+theoricien	6j 5h 5m	Grand Reset 5	0	Campement	5	153	641	0.0
+theoricien	6j 15h 3m	Age : Cité fortifiée	70	Cité fortifiée	5	193	7.47K	60.1M
+theoricien	7j 0h 22m	Age : Cité administrative	66	Cité administrative	6	238	11.4K	174.4M
+theoricien	7j 1h 33m	Age : Principauté	71	Principauté	6	240	16.0K	432.1M
+theoricien	8j 12h 33m	Arbre de Ruines complet	59	Principauté	9	396	75.6K	0.0
+theoricien	8j 13h 45m	Age : Royaume	64	Royaume	9	400	233.4K	0.0
+theoricien	8j 13h 45m	Grand Reset 10	0	Campement	10	400	79.8K	0.0
+theoricien	8j 23h 0m	Age : Principauté marchande	57	Principauté marchande	10	451	374.8K	0.0
+theoricien	8j 23h 0m	Grand Reset 11	0	Campement	11	451	67.6K	0.0
+theoricien	9j 6h 54m	Age : Royaume savant	60	Royaume savant	11	507	2.52M	0.0
+theoricien	9j 8h 25m	Age : Empire naissant	67	Empire naissant	11	513	7.81M	0.0
+theoricien	9j 10h 24m	Age : Empire	74	Empire	11	519	22.2M	0.0
+theoricien	9j 12h 56m	Age : Capitale monumentale	81	Capitale monumentale	11	525	57.8M	0.0
+theoricien	9j 13h 18m	Age : Royaume diplomate	84	Royaume diplomate	11	528	77.1M	0.0
+theoricien	9j 15h 46m	Age : Métropole	88	Métropole	11	531	140.6M	0.0
+theoricien	9j 15h 49m	Age : Capitale impériale	89	Capitale impériale	11	532	163.7M	0.0
+theoricien	9j 15h 55m	Age : Empire provincial	90	Empire provincial	11	533	177.7M	0.0
+theoricien	9j 16h 9m	Age : Royaume conquérant	91	Royaume conquérant	11	534	185.1M	0.0
+theoricien	9j 19h 0m	Age : Mégalopole	95	Mégalopole	11	537	321.3M	0.0
+theoricien	9j 19h 3m	Age : Agglomération impériale	96	Agglomération impériale	11	538	373.3M	0.0
+theoricien	9j 22h 35m	Age : Mégalopole stratifiée	102	Mégalopole stratifiée	11	543	688.5M	0.0
+theoricien	10j 1h 11m	Age : Machination	108	Machination	11	548	1.69B	0.0
+theoricien	10j 4h 4m	Age : Singularité · IV	114	Singularité · IV	11	553	4.37B	0.0
+theoricien	10j 9h 10m	Age : Singularité · V	121	Singularité · V	11	559	9.37B	0.0
+theoricien	10j 9h 13m	Age : Singularité · II	122	Singularité · II	11	560	10.7B	0.0
+theoricien	10j 9h 20m	Age : Réseau continental	123	Réseau continental	11	561	11.5B	0.0
 lecteur	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-lecteur	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-lecteur	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-lecteur	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-lecteur	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-lecteur	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-lecteur	5h 48m	Dynastie 1 fondee	2	Campement	0	1	1.0	0.0
-lecteur	2j 3h 47m	Age : Hameau protégé	764	Hameau protégé	0	9	93	1.17K
-lecteur	2j 4h 4m	Dynastie 10 fondee	771	Campement	0	10	161	0.0
-lecteur	2j 6h 14m	Age : Village	817	Village	0	11	230	2.24K
-lecteur	2j 7h 0m	Grand Reset 1	0	Campement	1	12	5.9	0.0
-lecteur	2j 14h 14m	Acte I (Fondation) complete	7	Abris	1	12	5.1	1.92K
-lecteur	2j 14h 21m	Acte II (Domination) complete	10	Campement	1	12	5.1	1.94K
-lecteur	3j 5h 12m	Age : Les Entrepôts	293	Les Entrepôts	1	27	231	14.2K
-lecteur	3j 9h 45m	Age : Bourg agricole	385	Bourg agricole	1	30	59	50.3K
-lecteur	3j 12h 46m	Age : Bourg des artisans	445	Bourg des artisans	1	33	241	105.2K
-lecteur	3j 16h 20m	Age : Bourg marchand	511	Bourg marchand	1	36	486	300.0K
-lecteur	4j 4h 52m	Age : Cité marchande	190	Cité marchande	2	66	775	973.7K
-lecteur	4j 5h 42m	Age : Cité commerciale	205	Cité commerciale	2	67	912	2.06M
-lecteur	4j 6h 13m	Grand Reset 3	0	Campement	3	69	68	0.0
-lecteur	4j 14h 34m	Age : Cité portuaire	147	Cité portuaire	3	102	2.05K	6.84M
-lecteur	4j 20h 35m	Age : Cité fortifiée	98	Cité fortifiée	4	140	4.00K	26.2M
-lecteur	4j 20h 50m	Grand Reset 5	0	Campement	5	142	387	0.0
-lecteur	5j 9h 14m	Age : Cité administrative	38	Cité administrative	6	212	10.3K	2.65M
-lecteur	5j 22h 11m	Age : Principauté	6	Principauté	7	223	26.0K	0.0
-lecteur	6j 12h 10m	Age : Principauté marchande	1	Principauté marchande	8	226	13.8K	0.0
-lecteur	7j 13h 30m	Age : Royaume	1	Royaume	9	230	22.8K	0.0
-lecteur	8j 2h 35m	Grand Reset 10	0	Campement	10	233	34.0K	0.0
-lecteur	8j 15h 16m	Age : Royaume diplomate	0	Royaume diplomate	10	233	34.0K	0.0
-lecteur	9j 2h 32m	Age : Royaume savant	1	Royaume savant	10	234	144.5K	0.0
-lecteur	9j 21h 47m	Age : Royaume conquérant	8	Royaume conquérant	10	241	1.41M	0.0
-lecteur	10j 0h 32m	Age : Empire naissant	10	Empire naissant	10	243	2.09M	0.0
-lecteur	10j 1h 21m	Arbre de Ruines complet	16	Campement	10	249	2.59M	0.0
-lecteur	10j 4h 46m	Age : Empire provincial	48	Empire provincial	10	280	2.79M	728.6M
-lecteur	10j 8h 28m	Age : Mégalopole	117	Mégalopole	10	314	21.7M	54.6T
-lecteur	10j 8h 29m	Age : Mégalopole stratifiée	117	Mégalopole stratifiée	10	314	21.7M	54.6T
-lecteur	10j 8h 30m	Age : Réseau continental	117	Réseau continental	10	314	21.7M	54.6T
-lecteur	10j 8h 31m	Age : Machination	117	Machination	10	314	21.7M	54.6T
-lecteur	10j 8h 37m	Age : Empire	119	Empire	10	315	84.6M	607.9M
-lecteur	10j 9h 2m	Age : Singularité	127	Singularité	10	318	171.7M	262.1T
-lecteur	10j 9h 2m	Age : Singularité · II	127	Singularité · II	10	318	171.7M	262.1T
-lecteur	10j 9h 9m	Age : Capitale impériale	129	Capitale impériale	10	319	321.7M	918.1M
-lecteur	10j 9h 12m	Age : Singularité · III	130	Singularité · III	10	319	321.7M	371.2T
-lecteur	10j 9h 22m	Age : Singularité · IV	133	Singularité · IV	10	320	524.1M	386.5T
-lecteur	10j 9h 41m	Age : Singularité · V	139	Singularité · V	10	322	941.0M	713.0T
-lecteur	10j 10h 6m	Age : Capitale monumentale	147	Capitale monumentale	10	325	1.90B	1.73B
-lecteur	10j 10h 19m	Age : Singularité · VI	151	Singularité · VI	10	326	2.18B	1.16Qa
-lecteur	10j 10h 57m	Age : Singularité · VII	163	Singularité · VII	10	330	3.80B	1.60Qa
-lecteur	10j 12h 9m	Age : Agglomération impériale	186	Agglomération impériale	10	338	7.92B	2.77B
-lecteur	10j 12h 13m	Age : Singularité · VIII	187	Singularité · VIII	10	338	7.92B	2.46Qa
-lecteur	10j 14h 15m	Age : Singularité · IX	226	Singularité · IX	10	351	16.8B	3.54Qa
-lecteur	10j 15h 3m	Age : Conscience planétaire · V	242	Conscience planétaire · V	10	356	20.9B	92.2Qi
-lecteur	10j 15h 3m	Age : Conscience planétaire · VII	242	Conscience planétaire · VII	10	356	20.9B	92.2Qi
-lecteur	10j 15h 4m	Age : Conscience planétaire · VIII	242	Conscience planétaire · VIII	10	356	20.9B	92.2Qi
-lecteur	10j 15h 5m	Age : Conscience planétaire · IX	242	Conscience planétaire · IX	10	356	20.9B	92.2Qi
-lecteur	10j 15h 14m	Age : Singularité · X	245	Singularité · X	10	357	63.4B	3.97Qa
-lecteur	10j 15h 21m	Age : Métropole	247	Métropole	10	358	64.5B	5.33B
-lecteur	10j 15h 24m	Age : Conscience planétaire · VI	249	Conscience planétaire · VI	10	358	64.5B	177.7Qi
-lecteur	10j 15h 27m	Age : Conscience planétaire · X	249	Conscience planétaire · X	10	358	64.5B	177.7Qi
-lecteur	10j 15h 39m	Age : Conscience planétaire · XI	253	Conscience planétaire · XI	10	359	129.5B	301.7Qi
-lecteur	10j 15h 48m	Age : Singularité · XI	256	Singularité · XI	10	360	218.3B	14.3Qa
-lecteur	10j 15h 58m	Age : Conscience planétaire	259	Conscience planétaire	10	361	220.0B	16.3Qa
-lecteur	10j 16h 20m	Age : Noosphère	266	Noosphère	10	363	224.6B	566.9Qi
-lecteur	10j 16h 45m	Age : Noosphère · II	274	Noosphère · II	10	365	498.1B	1.05Sx
-lecteur	10j 17h 6m	Age : Conscience planétaire · II	281	Conscience planétaire · II	10	367	876.6B	18.4Qa
-lecteur	10j 17h 22m	Age : Noosphère · III	286	Noosphère · III	10	368	1.10T	1.92Sx
-lecteur	10j 17h 56m	Age : Conscience planétaire · III	297	Conscience planétaire · III	10	371	1.93T	29.0Qa
-lecteur	10j 18h 37m	Age : Noosphère · IV	310	Noosphère · IV	10	374	2.96T	4.06Sx
-lecteur	10j 19h 24m	Age : Conscience planétaire · IV	325	Conscience planétaire · IV	10	378	4.66T	48.1Qa
-lecteur	10j 20h 30m	Age : Noosphère · V	346	Noosphère · V	10	383	7.25T	7.98Sx
-lecteur	10j 23h 38m	Age : Noosphère · X	407	Noosphère · X	10	398	18.0T	120.9Sp
-lecteur	10j 23h 39m	Age : Noosphère · XI	407	Noosphère · XI	10	398	18.0T	120.9Sp
-lecteur	10j 23h 40m	Age : Essaim orbital	407	Essaim orbital	10	398	18.0T	120.9Sp
-lecteur	10j 23h 41m	Age : Essaim orbital · II	407	Essaim orbital · II	10	398	18.0T	120.9Sp
-lecteur	10j 23h 53m	Age : Noosphère · VI	411	Noosphère · VI	10	399	41.0T	49.4Sx
-lecteur	10j 23h 54m	Age : Noosphère · VII	411	Noosphère · VII	10	399	41.0T	49.4Sx
-lecteur	11j 0h 38m	Age : Essaim orbital · III	425	Essaim orbital · III	10	402	74.3T	304.8Sp
-lecteur	11j 0h 55m	Age : Essaim orbital · IV	430	Essaim orbital · IV	10	403	117.7T	550.0Sp
-lecteur	11j 1h 7m	Age : Noosphère · VIII	434	Noosphère · VIII	10	404	176.1T	90.0Sx
-lecteur	11j 1h 24m	Age : Noosphère · IX	439	Noosphère · IX	10	405	246.8T	191.5Sx
-lecteur	11j 1h 59m	Age : Essaim orbital · V	450	Essaim orbital · V	10	407	406.5T	1.65Oc
-lecteur	11j 3h 2m	Age : Essaim orbital · VI	470	Essaim orbital · VI	10	411	880.6T	3.27Oc
-lecteur	11j 5h 10m	Age : Essaim orbital · VII	510	Essaim orbital · VII	10	419	2.39Qa	7.89Oc
-lecteur	11j 8h 37m	Age : Essaim orbital · VIII	575	Essaim orbital · VIII	10	432	6.44Qa	22.3Oc
-lecteur	11j 9h 9m	Age : Essaim orbital · X	586	Essaim orbital · X	10	434	7.22Qa	26.7No
-lecteur	11j 9h 10m	Age : Essaim orbital · XI	586	Essaim orbital · XI	10	434	7.22Qa	26.7No
-lecteur	11j 9h 11m	Age : Sphère de Dyson	586	Sphère de Dyson	10	434	7.22Qa	26.7No
-lecteur	11j 9h 12m	Age : Sphère de Dyson · II	586	Sphère de Dyson · II	10	434	7.22Qa	26.7No
-lecteur	11j 10h 3m	Age : Essaim orbital · IX	602	Essaim orbital · IX	10	437	22.5Qa	58.0Oc
-lecteur	11j 10h 41m	Age : Sphère de Dyson · III	614	Sphère de Dyson · III	10	439	32.2Qa	117.5No
-lecteur	11j 11h 19m	Age : Sphère de Dyson · IV	626	Sphère de Dyson · IV	10	441	58.9Qa	211.9No
+lecteur	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+lecteur	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+lecteur	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+lecteur	4h 13m	Age : Maîtrise du bois	7	Maîtrise du bois	0	0	0.0	59
+lecteur	5h 43m	Dynastie 1 fondee	11	Campement	0	1	1.0	0.0
+lecteur	2j 21h 49m	Dynastie 10 fondee	1526	Campement	0	10	345	0.0
+lecteur	2j 21h 52m	Grand Reset 1	0	Campement	1	10	45	0.0
+lecteur	2j 23h 50m	Acte I (Fondation) complete	5	Grand Feu	1	10	45	585
+lecteur	3j 0h 47m	Acte II (Domination) complete	8	Campement	1	10	45	629
+lecteur	3j 12h 54m	Acte III (Apocalypse) complete	16	Campement	1	10	45	1.24K
+lecteur	3j 12h 56m	TOUS les Mythes completes	17	Grand Feu	1	10	45	1.25K
+lecteur	5j 6h 30m	Age : Hameau	1243	Hameau	1	24	188	7.60K
+lecteur	5j 17h 17m	Age : Hameau protégé	1566	Hameau protégé	1	26	421	25.6K
+lecteur	7j 0h 17m	Age : Village	785	Village	2	48	348	85.1K
+lecteur	7j 6h 32m	Age : Les Entrepôts	972	Les Entrepôts	2	51	668	19.8K
+lecteur	7j 11h 18m	Grand Reset 3	0	Campement	3	55	69	0.0
+lecteur	8j 4h 33m	Age : Bourg agricole	437	Bourg agricole	3	82	806	64.8K
+lecteur	8j 6h 57m	Age : Bourg des artisans	509	Bourg des artisans	3	85	1.27K	48.4K
+lecteur	8j 9h 13m	Age : Bourg marchand	577	Bourg marchand	3	88	1.96K	7.56M
+lecteur	8j 20h 0m	Age : Cité marchande	214	Cité marchande	4	126	3.08K	7.99M
+lecteur	8j 20h 58m	Age : Cité commerciale	243	Cité commerciale	4	129	4.65K	9.72M
+lecteur	8j 21h 4m	Grand Reset 5	0	Campement	5	130	579	0.0
+lecteur	9j 4h 18m	Age : Cité portuaire	122	Cité portuaire	5	172	8.58K	116.5M
+lecteur	9j 16h 10m	Age : Cité fortifiée	83	Cité fortifiée	7	271	42.3K	0.0
+lecteur	9j 22h 7m	Age : Cité administrative	76	Cité administrative	8	324	79.3K	0.0
+lecteur	10j 4h 1m	Age : Principauté marchande	71	Principauté marchande	9	377	190.1K	0.0
+lecteur	10j 4h 1m	Arbre de Ruines complet	71	Principauté marchande	9	377	190.1K	0.0
+lecteur	10j 4h 1m	Grand Reset 10	0	Campement	10	377	36.5K	0.0
+lecteur	10j 10h 25m	Grand Reset 11	0	Campement	11	427	16.7K	0.0
+lecteur	10j 16h 42m	Age : Royaume savant	60	Royaume savant	11	482	2.63M	0.0
+lecteur	10j 16h 44m	Age : Royaume	61	Royaume	11	483	3.12M	0.0
+lecteur	10j 16h 46m	Age : Principauté	62	Principauté	11	484	3.29M	0.0
+lecteur	10j 17h 4m	Age : Empire provincial	71	Empire provincial	11	491	11.5M	0.0
+lecteur	10j 17h 18m	Age : Royaume conquérant	78	Royaume conquérant	11	497	23.3M	0.0
+lecteur	10j 17h 20m	Age : Royaume diplomate	79	Royaume diplomate	11	498	24.2M	0.0
+lecteur	10j 17h 26m	Age : Capitale impériale	82	Capitale impériale	11	500	42.7M	0.0
+lecteur	10j 17h 36m	Age : Agglomération impériale	87	Agglomération impériale	11	504	98.0M	0.0
+lecteur	10j 17h 58m	Age : Mégalopole	98	Mégalopole	11	513	312.0M	0.0
+lecteur	10j 18h 4m	Age : Empire naissant	101	Empire naissant	11	516	373.5M	0.0
+lecteur	10j 18h 8m	Age : Mégalopole stratifiée	103	Mégalopole stratifiée	11	517	631.8M	0.0
+lecteur	10j 18h 10m	Age : Métropole	104	Métropole	11	518	724.0M	0.0
+lecteur	10j 18h 12m	Age : Capitale monumentale	105	Capitale monumentale	11	519	756.7M	0.0
+lecteur	10j 18h 14m	Age : Empire	106	Empire	11	520	768.3M	0.0
+lecteur	10j 18h 18m	Age : Machination	108	Machination	11	521	1.30B	0.0
+lecteur	10j 18h 28m	Age : Singularité	113	Singularité	11	525	2.61B	0.0
+lecteur	10j 18h 30m	Age : Réseau continental	114	Réseau continental	11	526	2.97B	0.0
+lecteur	10j 18h 38m	Age : Singularité · III	118	Singularité · III	11	529	5.01B	0.0
+lecteur	10j 18h 48m	Age : Singularité · V	123	Singularité · V	11	533	9.29B	0.0
+lecteur	10j 18h 50m	Age : Singularité · II	124	Singularité · II	11	534	10.5B	0.0
+lecteur	10j 18h 58m	Age : Singularité · VII	128	Singularité · VII	11	537	16.6B	0.0
+lecteur	10j 19h 0m	Age : Singularité · IV	129	Singularité · IV	11	538	18.7B	0.0
+lecteur	10j 19h 8m	Age : Singularité · IX	133	Singularité · IX	11	541	28.9B	0.0
+lecteur	10j 19h 18m	Age : Singularité · XI	138	Singularité · XI	11	545	48.3B	0.0
+lecteur	10j 19h 28m	Age : Conscience planétaire	143	Conscience planétaire	11	549	78.0B	0.0
+lecteur	10j 19h 30m	Age : Singularité · VIII	144	Singularité · VIII	11	550	85.9B	0.0
+lecteur	10j 19h 38m	Age : Conscience planétaire · II	148	Conscience planétaire · II	11	553	122.5B	0.0
+lecteur	10j 19h 40m	Age : Singularité · X	149	Singularité · X	11	554	134.2B	0.0
+lecteur	10j 19h 42m	Age : Singularité · VI	150	Singularité · VI	11	555	138.4B	0.0
+lecteur	10j 19h 46m	Age : Conscience planétaire · V	152	Conscience planétaire · V	11	556	241.3B	0.0
+lecteur	10j 19h 56m	Age : Conscience planétaire · VI	157	Conscience planétaire · VI	11	560	421.1B	0.0
+lecteur	10j 19h 58m	Age : Conscience planétaire · III	158	Conscience planétaire · III	11	561	465.9B	0.0
+lecteur	10j 20h 4m	Age : Conscience planétaire · IX	161	Conscience planétaire · IX	11	563	823.1B	0.0
+lecteur	10j 20h 22m	Age : Conscience planétaire · XI	170	Conscience planétaire · XI	11	570	2.49T	0.0
+lecteur	10j 20h 32m	Age : Noosphère	175	Noosphère	11	574	3.94T	0.0
+lecteur	10j 20h 38m	Age : Conscience planétaire · IV	178	Conscience planétaire · IV	11	576	4.40T	299.2Sx
+lecteur	10j 20h 40m	Age : Noosphère · III	179	Noosphère · III	11	577	6.65T	0.0
+lecteur	10j 20h 44m	Age : Conscience planétaire · VIII	181	Conscience planétaire · VIII	11	579	7.74T	0.0
+lecteur	10j 20h 46m	Age : Conscience planétaire · VII	182	Conscience planétaire · VII	11	579	7.74T	1.66Sp
+lecteur	10j 20h 48m	Age : Noosphère · IV	183	Noosphère · IV	11	580	12.4T	0.0
+lecteur	10j 20h 50m	Age : Noosphère · II	184	Noosphère · II	11	581	14.1T	0.0
+lecteur	10j 20h 52m	Age : Conscience planétaire · X	185	Conscience planétaire · X	11	582	14.7T	0.0
+lecteur	10j 21h 6m	Age : Noosphère · VI	192	Noosphère · VI	11	587	29.7T	0.0
+lecteur	10j 21h 14m	Age : Noosphère · VII	196	Noosphère · VII	11	590	50.1T	0.0
+lecteur	10j 21h 16m	Age : Noosphère · V	197	Noosphère · V	11	591	55.9T	0.0
+lecteur	10j 21h 22m	Age : Noosphère · VIII	200	Noosphère · VIII	11	593	86.1T	0.0
+lecteur	10j 21h 30m	Age : Noosphère · X	204	Noosphère · X	11	596	148.1T	0.0
+lecteur	10j 21h 38m	Age : Noosphère · XI	208	Noosphère · XI	11	599	246.7T	0.0
+lecteur	10j 21h 46m	Age : Essaim orbital	212	Essaim orbital	11	602	398.3T	0.0
+lecteur	10j 21h 48m	Age : Noosphère · IX	213	Noosphère · IX	11	603	439.5T	0.0
+lecteur	10j 22h 2m	Age : Essaim orbital · II	220	Essaim orbital · II	11	608	950.1T	0.0
+lecteur	10j 22h 10m	Age : Essaim orbital · III	224	Essaim orbital · III	11	611	1.41Qa	0.0
+lecteur	10j 22h 26m	Age : Essaim orbital · IV	232	Essaim orbital · IV	11	617	2.89Qa	0.0
+lecteur	10j 22h 34m	Age : Essaim orbital · V	236	Essaim orbital · V	11	620	4.02Qa	0.0
+lecteur	10j 22h 40m	Age : Essaim orbital · VII	239	Essaim orbital · VII	11	622	6.58Qa	0.0
+lecteur	10j 23h 2m	Age : Essaim orbital · IX	250	Essaim orbital · IX	11	630	22.0Qa	0.0
 chasseur_meta	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
-chasseur_meta	1m 20s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
-chasseur_meta	3m 20s	Age : Abris	0	Abris	0	0	0.0	0.0
-chasseur_meta	14m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
-chasseur_meta	50m 0s	Age : Maîtrise du bois	0	Maîtrise du bois	0	0	0.0	0.0
-chasseur_meta	2h 36m	Age : Hameau	0	Hameau	0	0	0.0	0.0
-chasseur_meta	16h 29m	Dynastie 1 fondee	14	Campement	0	1	2.0	0.0
-chasseur_meta	1j 5h 45m	Age : Hameau protégé	105	Hameau protégé	0	6	4.6	692
-chasseur_meta	1j 11h 10m	Age : Village	161	Village	0	9	9.8	1.85K
-chasseur_meta	1j 11h 11m	Dynastie 10 fondee	162	Campement	0	10	28	0.0
-chasseur_meta	1j 13h 1m	Age : Les Entrepôts	180	Les Entrepôts	0	11	47	4.45K
-chasseur_meta	1j 15h 17m	Age : Bourg agricole	206	Bourg agricole	0	13	94	7.58K
-chasseur_meta	1j 18h 14m	Age : Bourg des artisans	236	Bourg des artisans	0	17	221	24.0K
-chasseur_meta	1j 18h 14m	Age : Bourg marchand	236	Bourg marchand	0	17	221	24.0K
-chasseur_meta	1j 19h 23m	Grand Reset 1	0	Campement	1	19	18	0.0
-chasseur_meta	2j 3h 36m	Acte I (Fondation) complete	7	Abris	1	19	17	5.70K
-chasseur_meta	2j 3h 41m	Acte II (Domination) complete	10	Campement	1	19	17	5.73K
-chasseur_meta	2j 15h 37m	Age : Cité marchande	150	Cité marchande	1	42	273	243.5K
-chasseur_meta	2j 17h 12m	Age : Cité commerciale	166	Cité commerciale	1	45	569	553.4K
-chasseur_meta	3j 0h 53m	Grand Reset 3	0	Campement	3	76	38	0.0
-chasseur_meta	3j 7h 33m	Age : Cité portuaire	85	Cité portuaire	3	107	1.80K	1.91M
-chasseur_meta	3j 13h 55m	Age : Cité fortifiée	77	Cité fortifiée	4	146	4.72K	2.33M
-chasseur_meta	3j 13h 59m	Age : Cité administrative	78	Cité administrative	4	146	4.72K	12.0M
-chasseur_meta	3j 14h 0m	Grand Reset 5	0	Campement	5	147	1.18K	0.0
-chasseur_meta	3j 22h 12m	Age : Principauté	29	Principauté	5	175	4.65K	1.32M
-chasseur_meta	4j 15h 11m	Age : Principauté marchande	9	Principauté marchande	7	228	25.3K	0.0
-chasseur_meta	4j 23h 40m	Age : Royaume	40	Royaume	8	276	28.8K	32.1M
-chasseur_meta	4j 23h 49m	Arbre de Ruines complet	43	Campement	8	278	60.7K	0.0
-chasseur_meta	6j 0h 54m	Age : Royaume diplomate	1	Royaume diplomate	9	280	69.2K	0.0
-chasseur_meta	6j 7h 55m	Grand Reset 10	0	Campement	10	281	5.03K	0.0
-chasseur_meta	7j 11h 32m	Age : Royaume savant	5	Royaume savant	10	286	564.6K	0.0
-chasseur_meta	7j 15h 42m	Age : Royaume conquérant	8	Royaume conquérant	10	289	1.09M	0.0
-chasseur_meta	7j 21h 38m	Age : Empire naissant	48	Empire naissant	10	328	2.09M	557.4M
-chasseur_meta	8j 1h 5m	Age : Mégalopole	115	Mégalopole	10	361	17.5M	56.5T
-chasseur_meta	8j 1h 6m	Age : Mégalopole stratifiée	115	Mégalopole stratifiée	10	361	17.5M	56.5T
-chasseur_meta	8j 1h 7m	Age : Réseau continental	115	Réseau continental	10	361	17.5M	56.5T
-chasseur_meta	8j 1h 13m	Age : Empire provincial	117	Empire provincial	10	362	64.4M	653.6M
-chasseur_meta	8j 1h 22m	Age : Machination	120	Machination	10	363	65.3M	107.2T
-chasseur_meta	8j 1h 29m	Age : Empire	122	Empire	10	364	143.6M	963.9M
-chasseur_meta	8j 1h 38m	Age : Singularité	125	Singularité	10	365	144.7M	161.3T
-chasseur_meta	8j 1h 56m	Age : Singularité · II	131	Singularité · II	10	367	384.8M	381.3T
-chasseur_meta	8j 2h 2m	Age : Capitale impériale	133	Capitale impériale	10	368	544.9M	1.35B
-chasseur_meta	8j 2h 5m	Age : Singularité · III	134	Singularité · III	10	368	544.9M	428.1T
-chasseur_meta	8j 2h 33m	Age : Singularité · IV	143	Singularité · IV	10	371	1.16B	684.6T
-chasseur_meta	8j 3h 9m	Age : Singularité · V	155	Singularité · V	10	375	2.25B	1.00Qa
-chasseur_meta	8j 3h 33m	Age : Capitale monumentale	163	Capitale monumentale	10	378	3.26B	2.56B
-chasseur_meta	8j 4h 22m	Age : Singularité · VI	179	Singularité · VI	10	383	5.18B	1.63Qa
-chasseur_meta	8j 5h 34m	Age : Singularité · VII	203	Singularité · VII	10	391	8.99B	2.24Qa
-chasseur_meta	8j 7h 20m	Age : Agglomération impériale	238	Agglomération impériale	10	403	16.1B	4.34B
-chasseur_meta	8j 7h 24m	Age : Conscience planétaire · V	240	Conscience planétaire · V	10	403	16.1B	67.5Qi
-chasseur_meta	8j 7h 25m	Age : Conscience planétaire · VI	240	Conscience planétaire · VI	10	403	16.1B	67.5Qi
-chasseur_meta	8j 7h 26m	Age : Conscience planétaire · VII	240	Conscience planétaire · VII	10	403	16.1B	67.5Qi
-chasseur_meta	8j 7h 26m	Age : Conscience planétaire · VIII	240	Conscience planétaire · VIII	10	403	16.1B	67.5Qi
-chasseur_meta	8j 7h 35m	Age : Singularité · VIII	243	Singularité · VIII	10	404	45.2B	5.78Qa
-chasseur_meta	8j 7h 35m	Age : Singularité · IX	243	Singularité · IX	10	404	45.2B	5.78Qa
-chasseur_meta	8j 7h 57m	Age : Conscience planétaire · IX	250	Conscience planétaire · IX	10	406	47.3B	156.0Qi
-chasseur_meta	8j 8h 6m	Age : Singularité · X	253	Singularité · X	10	407	97.4B	6.80Qa
-chasseur_meta	8j 8h 9m	Age : Conscience planétaire · X	254	Conscience planétaire · X	10	407	97.4B	270.2Qi
-chasseur_meta	8j 8h 15m	Age : Métropole	256	Métropole	10	408	166.6B	7.62B
-chasseur_meta	8j 8h 21m	Age : Conscience planétaire · XI	258	Conscience planétaire · XI	10	408	166.6B	406.1Qi
-chasseur_meta	8j 8h 30m	Age : Singularité · XI	261	Singularité · XI	10	409	254.6B	11.9Qa
-chasseur_meta	8j 8h 45m	Age : Noosphère	266	Noosphère	10	410	360.9B	739.0Qi
-chasseur_meta	8j 8h 54m	Age : Conscience planétaire	269	Conscience planétaire	10	411	485.9B	17.4Qa
-chasseur_meta	8j 9h 21m	Age : Noosphère · II	278	Noosphère · II	10	413	788.5B	1.34Sx
-chasseur_meta	8j 9h 42m	Age : Conscience planétaire · II	285	Conscience planétaire · II	10	415	1.16T	28.8Qa
-chasseur_meta	8j 10h 34m	Age : Noosphère · III	302	Noosphère · III	10	419	2.10T	2.80Sx
-chasseur_meta	8j 11h 7m	Age : Conscience planétaire · III	313	Conscience planétaire · III	10	422	2.96T	49.4Qa
-chasseur_meta	8j 12h 34m	Age : Noosphère · IV	342	Noosphère · IV	10	429	5.50T	5.81Sx
-chasseur_meta	8j 13h 20m	Age : Conscience planétaire · IV	357	Conscience planétaire · IV	10	433	7.26T	83.0Qa
-chasseur_meta	8j 15h 37m	Age : Noosphère · IX	403	Noosphère · IX	10	444	13.2T	61.3Sp
-chasseur_meta	8j 15h 37m	Age : Noosphère · XI	403	Noosphère · XI	10	444	13.2T	61.3Sp
-chasseur_meta	8j 15h 39m	Age : Essaim orbital	403	Essaim orbital	10	444	13.2T	61.3Sp
-chasseur_meta	8j 15h 50m	Age : Noosphère · V	407	Noosphère · V	10	445	27.0T	22.8Sx
-chasseur_meta	8j 15h 52m	Age : Noosphère · X	408	Noosphère · X	10	445	27.0T	105.3Sp
-chasseur_meta	8j 16h 6m	Age : Noosphère · VI	412	Noosphère · VI	10	446	47.1T	29.6Sx
+chasseur_meta	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+chasseur_meta	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+chasseur_meta	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+chasseur_meta	1h 31m	Age : Maîtrise du bois	1	Maîtrise du bois	0	0	0.0	0.0
+chasseur_meta	14h 34m	Dynastie 1 fondee	28	Campement	0	1	3.0	0.0
+chasseur_meta	1j 8h 8m	Age : Hameau	152	Hameau	0	8	15	561
+chasseur_meta	1j 10h 57m	Dynastie 10 fondee	170	Campement	0	10	50	0.0
+chasseur_meta	1j 12h 15m	Age : Hameau protégé	177	Hameau protégé	0	10	49	2.21K
+chasseur_meta	1j 17h 25m	Age : Village	208	Village	0	13	116	7.83K
+chasseur_meta	2j 2h 9m	Age : Les Entrepôts	261	Les Entrepôts	0	17	241	22.6K
+chasseur_meta	2j 4h 52m	Grand Reset 1	0	Campement	1	19	24	0.0
+chasseur_meta	2j 6h 28m	Acte I (Fondation) complete	5	Grand Feu	1	19	23	183
+chasseur_meta	2j 7h 15m	Acte II (Domination) complete	8	Campement	1	19	23	218
+chasseur_meta	3j 1h 25m	Acte III (Apocalypse) complete	17	Grand Feu	1	19	23	818
+chasseur_meta	3j 1h 26m	TOUS les Mythes completes	18	Grand Feu	1	19	23	824
+chasseur_meta	4j 1h 55m	Age : Bourg agricole	192	Bourg agricole	1	41	119	131.5K
+chasseur_meta	4j 6h 19m	Age : Bourg des artisans	228	Bourg des artisans	1	44	331	402.7K
+chasseur_meta	5j 4h 59m	Age : Bourg marchand	148	Bourg marchand	2	75	717	1.33M
+chasseur_meta	5j 6h 42m	Grand Reset 3	0	Campement	3	78	26	0.0
+chasseur_meta	5j 20h 6m	Age : Cité marchande	103	Cité marchande	3	110	1.48K	2.18M
+chasseur_meta	6j 8h 23m	Age : Cité commerciale	82	Cité commerciale	4	148	2.81K	10.4M
+chasseur_meta	6j 9h 59m	Grand Reset 5	0	Campement	5	153	471	0.0
+chasseur_meta	6j 18h 51m	Age : Cité portuaire	65	Cité portuaire	5	190	4.62K	18.2M
+chasseur_meta	6j 19h 50m	Age : Cité fortifiée	73	Cité fortifiée	5	193	7.93K	67.6M
+chasseur_meta	7j 6h 42m	Age : Cité administrative	71	Cité administrative	6	240	15.2K	233.4M
+chasseur_meta	8j 16h 15m	Age : Principauté	56	Principauté	9	393	40.9K	96.3M
+chasseur_meta	8j 17h 4m	Arbre de Ruines complet	62	Cité fortifiée	9	397	73.2K	145.8M
+chasseur_meta	8j 17h 40m	Age : Royaume	67	Royaume	9	401	264.0K	0.0
+chasseur_meta	8j 17h 40m	Grand Reset 10	0	Campement	10	401	110.4K	0.0
+chasseur_meta	9j 2h 45m	Age : Principauté marchande	57	Principauté marchande	10	452	435.1K	0.0
+chasseur_meta	9j 2h 45m	Grand Reset 11	0	Campement	11	452	127.9K	0.0
+chasseur_meta	9j 10h 59m	Age : Royaume conquérant	61	Royaume conquérant	11	509	3.83M	0.0
+chasseur_meta	9j 12h 57m	Age : Empire naissant	69	Empire naissant	11	516	9.35M	0.0
+chasseur_meta	9j 12h 59m	Age : Royaume savant	70	Royaume savant	11	517	10.8M	0.0
+chasseur_meta	9j 14h 58m	Age : Empire	76	Empire	11	522	23.3M	0.0
+chasseur_meta	9j 17h 23m	Age : Capitale monumentale	83	Capitale monumentale	11	528	59.1M	0.0
+chasseur_meta	9j 17h 46m	Age : Royaume diplomate	86	Royaume diplomate	11	531	79.0M	0.0
+chasseur_meta	9j 20h 20m	Age : Métropole	90	Métropole	11	534	144.7M	0.0
+chasseur_meta	9j 20h 30m	Age : Empire provincial	92	Empire provincial	11	536	183.4M	0.0
+chasseur_meta	9j 23h 37m	Age : Mégalopole	97	Mégalopole	11	540	331.8M	0.0
+chasseur_meta	9j 23h 40m	Age : Agglomération impériale	98	Agglomération impériale	11	541	385.4M	0.0
+chasseur_meta	9j 23h 47m	Age : Capitale impériale	99	Capitale impériale	11	542	416.7M	0.0
+chasseur_meta	10j 2h 2m	Age : Réseau continental	103	Réseau continental	11	545	874.2M	0.0
+chasseur_meta	10j 4h 4m	Age : Singularité	109	Singularité	11	550	2.11B	0.0
+chasseur_meta	10j 7h 4m	Age : Singularité · IV	115	Singularité · IV	11	555	5.24B	0.0
+chasseur_meta	10j 7h 7m	Age : Machination	116	Machination	11	556	6.20B	0.0
+chasseur_meta	10j 7h 15m	Age : Mégalopole stratifiée	117	Mégalopole stratifiée	11	557	6.76B	0.0
+chasseur_meta	10j 12h 12m	Age : Singularité · VI	122	Singularité · VI	11	561	11.0B	0.0
+chasseur_meta	10j 12h 15m	Age : Singularité · II	123	Singularité · II	11	562	12.6B	0.0
+chasseur_meta	10j 15h 37m	Age : Singularité · IX	128	Singularité · IX	11	566	23.3B	0.0
+chasseur_meta	10j 15h 40m	Age : Singularité · V	129	Singularité · V	11	567	27.1B	0.0
+chasseur_meta	10j 19h 15m	Age : Conscience planétaire	134	Conscience planétaire	11	571	49.6B	0.0
+chasseur_meta	10j 19h 19m	Age : Singularité · VIII	135	Singularité · VIII	11	572	57.5B	0.0
+chasseur_meta	10j 21h 54m	Age : Conscience planétaire · II	140	Conscience planétaire · II	11	576	95.0B	0.0
+chasseur_meta	10j 22h 51m	Age : Conscience planétaire · V	145	Conscience planétaire · V	11	580	211.7B	0.0
+relanceur_compulsif	0m 0s	Age : Campement	0	Campement	0	0	0.0	0.0
+relanceur_compulsif	4m 0s	Age : Grand Feu	0	Grand Feu	0	0	0.0	0.0
+relanceur_compulsif	8m 0s	Age : Abris	0	Abris	0	0	0.0	0.0
+relanceur_compulsif	16m 0s	Age : Clans	0	Clans	0	0	0.0	0.0
+relanceur_compulsif	4h 27m	Age : Maîtrise du bois	7	Maîtrise du bois	0	0	0.0	55
+relanceur_compulsif	5h 46m	Dynastie 1 fondee	11	Campement	0	1	1.0	0.0
+relanceur_compulsif	2j 21h 59m	Dynastie 10 fondee	1521	Campement	0	10	345	0.0
+relanceur_compulsif	2j 22h 2m	Grand Reset 1	0	Campement	1	10	45	0.0
+relanceur_compulsif	2j 23h 30m	Age : Hameau	4	Hameau	1	10	44	618
+relanceur_compulsif	3j 0h 1m	Acte I (Fondation) complete	5	Grand Feu	1	10	44	628
+relanceur_compulsif	3j 0h 42m	Acte II (Domination) complete	8	Campement	1	10	44	672
+relanceur_compulsif	3j 18h 49m	Acte III (Apocalypse) complete	17	Campement	1	10	44	1.67K
+relanceur_compulsif	3j 18h 50m	TOUS les Mythes completes	18	Grand Feu	1	10	44	1.68K
+relanceur_compulsif	5j 20h 16m	Age : Hameau protégé	1476	Hameau protégé	1	27	445	25.4K
+relanceur_compulsif	7j 2h 36m	Age : Village	713	Village	2	49	349	91.0K
+relanceur_compulsif	7j 10h 38m	Age : Les Entrepôts	954	Les Entrepôts	2	53	776	283.8K
+relanceur_compulsif	7j 13h 50m	Grand Reset 3	0	Campement	3	56	26	0.0
+relanceur_compulsif	8j 6h 24m	Age : Bourg agricole	443	Bourg agricole	3	83	810	81.2K
+relanceur_compulsif	8j 8h 50m	Age : Bourg des artisans	516	Bourg des artisans	3	86	1.28K	165.2K
+relanceur_compulsif	8j 11h 32m	Age : Bourg marchand	597	Bourg marchand	3	90	2.28K	8.46M
+relanceur_compulsif	8j 21h 32m	Age : Cité marchande	218	Cité marchande	4	126	2.77K	2.61M
+relanceur_compulsif	8j 22h 24m	Grand Reset 5	0	Campement	5	130	9.2	0.0
+relanceur_compulsif	9j 4h 51m	Age : Cité commerciale	134	Cité commerciale	5	168	4.41K	5.55M
+relanceur_compulsif	9j 5h 29m	Age : Cité portuaire	153	Cité portuaire	5	172	8.19K	54.8M
+relanceur_compulsif	9j 22h 8m	Age : Cité fortifiée	69	Cité fortifiée	8	318	39.3K	0.0
+relanceur_compulsif	9j 22h 18m	Age : Cité administrative	74	Cité administrative	8	321	58.3K	0.0
+relanceur_compulsif	9j 22h 24m	Age : Principauté	77	Principauté	8	323	76.9K	0.0
+relanceur_compulsif	10j 2h 40m	Arbre de Ruines complet	71	Principauté	9	376	121.0K	0.0
+relanceur_compulsif	10j 2h 46m	Age : Royaume	74	Royaume	9	378	274.0K	0.0
+relanceur_compulsif	10j 2h 46m	Grand Reset 10	0	Campement	10	378	120.4K	0.0
+relanceur_compulsif	10j 8h 40m	Age : Principauté marchande	57	Principauté marchande	10	427	366.2K	0.0
+relanceur_compulsif	10j 8h 40m	Grand Reset 11	0	Campement	11	427	59.0K	0.0
+relanceur_compulsif	10j 14h 25m	Age : Royaume savant	60	Royaume savant	11	482	3.08M	0.0
+relanceur_compulsif	10j 14h 37m	Age : Royaume conquérant	66	Royaume conquérant	11	487	5.93M	0.0
+relanceur_compulsif	10j 14h 47m	Age : Empire provincial	71	Empire provincial	11	491	13.1M	0.0
+relanceur_compulsif	10j 14h 51m	Age : Royaume diplomate	73	Royaume diplomate	11	493	16.0M	0.0
+relanceur_compulsif	10j 15h 9m	Age : Capitale impériale	82	Capitale impériale	11	500	47.7M	0.0
+relanceur_compulsif	10j 15h 21m	Age : Capitale monumentale	88	Capitale monumentale	11	505	81.4M	0.0
+relanceur_compulsif	10j 15h 31m	Age : Agglomération impériale	93	Agglomération impériale	11	509	152.4M	0.0
+relanceur_compulsif	10j 15h 41m	Age : Mégalopole	98	Mégalopole	11	513	318.8M	0.0
+relanceur_compulsif	10j 15h 49m	Age : Empire naissant	102	Empire naissant	11	516	390.4M	737.4T
+relanceur_compulsif	10j 15h 51m	Age : Mégalopole stratifiée	103	Mégalopole stratifiée	11	517	681.6M	0.0
+relanceur_compulsif	10j 15h 53m	Age : Métropole	104	Métropole	11	518	785.6M	0.0
+relanceur_compulsif	10j 15h 57m	Age : Empire	106	Empire	11	520	835.6M	0.0
+relanceur_compulsif	10j 16h 1m	Age : Machination	108	Machination	11	521	1.43B	0.0
+relanceur_compulsif	10j 16h 11m	Age : Singularité	113	Singularité	11	525	2.86B	0.0
+relanceur_compulsif	10j 16h 13m	Age : Réseau continental	114	Réseau continental	11	526	3.26B	0.0
+relanceur_compulsif	10j 16h 21m	Age : Singularité · IV	118	Singularité · IV	11	529	5.49B	0.0
+relanceur_compulsif	10j 16h 31m	Age : Singularité · VI	123	Singularité · VI	11	533	10.1B	0.0
+relanceur_compulsif	10j 16h 33m	Age : Singularité · II	124	Singularité · II	11	534	11.4B	0.0
+relanceur_compulsif	10j 16h 41m	Age : Singularité · VII	128	Singularité · VII	11	537	18.0B	0.0

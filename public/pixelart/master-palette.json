@@ -1,0 +1,839 @@
+{
+  "meta": {
+    "generatedBy": "scripts/buildPalette.mjs",
+    "coupledTo": "src/game/data/eraThemes.js (EPOCHS hsl)",
+    "coreCount": 36,
+    "perSpriteTarget": [
+      16,
+      24
+    ],
+    "note": "UNE palette : cœur partagé (cohésion) + accent par époque (calculé depuis eraThemes). Cible 16-24 teintes/sprite via scripts/remapPalette.mjs."
+  },
+  "core": {
+    "inkShadow": [
+      {
+        "hex": "#0d0b0c",
+        "name": "ink"
+      },
+      {
+        "hex": "#211a1d",
+        "name": "umbra"
+      },
+      {
+        "hex": "#2a1c16",
+        "name": "bistre"
+      },
+      {
+        "hex": "#3a3534",
+        "name": "ash"
+      }
+    ],
+    "timberClay": [
+      {
+        "hex": "#4a2f22",
+        "name": "wood-deep"
+      },
+      {
+        "hex": "#6b4530",
+        "name": "wood-dark"
+      },
+      {
+        "hex": "#8a5a3d",
+        "name": "wood"
+      },
+      {
+        "hex": "#a8704a",
+        "name": "wood-lit"
+      },
+      {
+        "hex": "#c98f5c",
+        "name": "clay-lit"
+      }
+    ],
+    "earthStone": [
+      {
+        "hex": "#4d4338",
+        "name": "earth-dark"
+      },
+      {
+        "hex": "#6f6354",
+        "name": "earth"
+      },
+      {
+        "hex": "#8f8475",
+        "name": "stone"
+      },
+      {
+        "hex": "#b4a890",
+        "name": "stone-lit"
+      },
+      {
+        "hex": "#d8cdb4",
+        "name": "stone-pale"
+      }
+    ],
+    "goldSand": [
+      {
+        "hex": "#b8995f",
+        "name": "gold-dim"
+      },
+      {
+        "hex": "#d8b873",
+        "name": "gold"
+      },
+      {
+        "hex": "#ecd29a",
+        "name": "gold-lit"
+      },
+      {
+        "hex": "#f6eccf",
+        "name": "parchment"
+      }
+    ],
+    "skin": [
+      {
+        "hex": "#7a4a39",
+        "name": "skin-shadow"
+      },
+      {
+        "hex": "#c98a68",
+        "name": "skin"
+      },
+      {
+        "hex": "#f2c2a3",
+        "name": "skin-lit"
+      }
+    ],
+    "foliage": [
+      {
+        "hex": "#243a22",
+        "name": "leaf-deep"
+      },
+      {
+        "hex": "#3c5a2c",
+        "name": "leaf-dark"
+      },
+      {
+        "hex": "#5c7d38",
+        "name": "leaf"
+      },
+      {
+        "hex": "#8aa24a",
+        "name": "leaf-lit"
+      }
+    ],
+    "water": [
+      {
+        "hex": "#1f3a44",
+        "name": "water-deep"
+      },
+      {
+        "hex": "#356b78",
+        "name": "water"
+      },
+      {
+        "hex": "#6fb0b8",
+        "name": "water-lit"
+      }
+    ],
+    "metalSlate": [
+      {
+        "hex": "#2c2f36",
+        "name": "iron-dark"
+      },
+      {
+        "hex": "#4f545e",
+        "name": "iron"
+      },
+      {
+        "hex": "#7c828c",
+        "name": "steel"
+      },
+      {
+        "hex": "#aab0b8",
+        "name": "steel-lit"
+      }
+    ],
+    "boneWhite": [
+      {
+        "hex": "#e9e4d6",
+        "name": "bone"
+      },
+      {
+        "hex": "#fbfaf4",
+        "name": "white"
+      }
+    ],
+    "universal": [
+      {
+        "hex": "#15161f",
+        "name": "night-base"
+      },
+      {
+        "hex": "#8c3b2a",
+        "name": "terracotta"
+      }
+    ]
+  },
+  "coreFlat": [
+    "#0d0b0c",
+    "#211a1d",
+    "#2a1c16",
+    "#3a3534",
+    "#4a2f22",
+    "#6b4530",
+    "#8a5a3d",
+    "#a8704a",
+    "#c98f5c",
+    "#4d4338",
+    "#6f6354",
+    "#8f8475",
+    "#b4a890",
+    "#d8cdb4",
+    "#b8995f",
+    "#d8b873",
+    "#ecd29a",
+    "#f6eccf",
+    "#7a4a39",
+    "#c98a68",
+    "#f2c2a3",
+    "#243a22",
+    "#3c5a2c",
+    "#5c7d38",
+    "#8aa24a",
+    "#1f3a44",
+    "#356b78",
+    "#6fb0b8",
+    "#2c2f36",
+    "#4f545e",
+    "#7c828c",
+    "#aab0b8",
+    "#e9e4d6",
+    "#fbfaf4",
+    "#15161f",
+    "#8c3b2a"
+  ],
+  "bandToEpoch": {
+    "0": "feu",
+    "1": "bois",
+    "2": "pierre",
+    "3": "couronne",
+    "4": "marbre",
+    "5": "fonte",
+    "6": "neon",
+    "7": "noosphere",
+    "8": "stellaire",
+    "9": "demiurge"
+  },
+  "spriteEpochTags": {
+    "forager-prop-tree": "feu",
+    "forager-prop-basket": "feu",
+    "market-prop-stall": "feu",
+    "guild-prop-lodge": "feu",
+    "granary-prop-silo": "bois",
+    "caravan-prop-sacks": "bois",
+    "field-prop-crop-green": "bois",
+    "field-prop-crop-gold": "bois",
+    "field-prop-fallow": "bois",
+    "mill-prop-house": "bois",
+    "mill-prop-wheel": "bois",
+    "port-prop-house": "bois",
+    "port-prop-pontoon": "bois",
+    "mint-prop-house": "pierre",
+    "mint-prop-forge": "feu",
+    "exchange-prop-stall": "feu",
+    "storyteller-prop-fire": "feu",
+    "storyteller-fire": "feu",
+    "storyteller-reader": "feu",
+    "storyteller-back": "feu",
+    "scribes-prop-hall": "feu",
+    "caveman": "feu",
+    "cavewoman": "feu",
+    "cavechild": "feu",
+    "forager": "feu",
+    "villager": "bois",
+    "villagerwoman": "bois",
+    "villagerchild": "bois",
+    "farmer": "bois",
+    "ox": "bois",
+    "horse": "bois",
+    "greekman": "marbre",
+    "greekwoman": "marbre",
+    "greekchild": "marbre",
+    "industrialman": "fonte",
+    "industrialwoman": "fonte",
+    "industrialchild": "fonte",
+    "futureman": "neon",
+    "futurewoman": "neon",
+    "futurechild": "neon",
+    "boat-raft": "feu",
+    "boat-sail": "pierre",
+    "boat-steam": "fonte",
+    "boat-container": "neon",
+    "boat-cosmic-7": "noosphere",
+    "boat-cosmic-8": "stellaire",
+    "boat-cosmic-9": "demiurge"
+  },
+  "epochs": [
+    {
+      "band": 0,
+      "id": "feu",
+      "label": "Âge du Feu",
+      "srcHsl": [
+        24,
+        62,
+        55
+      ],
+      "accent": {
+        "deep": "#763b13",
+        "mid": "#d37e45",
+        "bright": "#e6c4ad"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#763b13",
+        "#d37e45",
+        "#e6c4ad"
+      ]
+    },
+    {
+      "band": 1,
+      "id": "bois",
+      "label": "Âge du Bois",
+      "srcHsl": [
+        37,
+        58,
+        53
+      ],
+      "accent": {
+        "deep": "#6b4a14",
+        "mid": "#cd9742",
+        "bright": "#e2cba7"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#6b4a14",
+        "#cd9742",
+        "#e2cba7"
+      ]
+    },
+    {
+      "band": 2,
+      "id": "pierre",
+      "label": "Âge de la Pierre",
+      "srcHsl": [
+        42,
+        56,
+        57
+      ],
+      "accent": {
+        "deep": "#7b5d19",
+        "mid": "#cfaa54",
+        "bright": "#e6d8b7"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#7b5d19",
+        "#cfaa54",
+        "#e6d8b7"
+      ]
+    },
+    {
+      "band": 3,
+      "id": "couronne",
+      "label": "Âge de la Couronne",
+      "srcHsl": [
+        292,
+        22,
+        66
+      ],
+      "accent": {
+        "deep": "#784280",
+        "mid": "#b695bb",
+        "bright": "#e9e1ea"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#784280",
+        "#b695bb",
+        "#e9e1ea"
+      ]
+    },
+    {
+      "band": 4,
+      "id": "marbre",
+      "label": "Âge du Marbre",
+      "srcHsl": [
+        214,
+        55,
+        64
+      ],
+      "accent": {
+        "deep": "#205497",
+        "mid": "#719cd6",
+        "bright": "#d2deef"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#205497",
+        "#719cd6",
+        "#d2deef"
+      ]
+    },
+    {
+      "band": 5,
+      "id": "fonte",
+      "label": "Âge de la Fonte",
+      "srcHsl": [
+        17,
+        48,
+        58
+      ],
+      "accent": {
+        "deep": "#793920",
+        "mid": "#c77e60",
+        "bright": "#e3c9bf"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#793920",
+        "#c77e60",
+        "#e3c9bf"
+      ]
+    },
+    {
+      "band": 6,
+      "id": "neon",
+      "label": "Âge du Néon",
+      "srcHsl": [
+        185,
+        64,
+        58
+      ],
+      "accent": {
+        "deep": "#147c85",
+        "mid": "#4fcdd8",
+        "bright": "#b7e7eb"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#147c85",
+        "#4fcdd8",
+        "#b7e7eb"
+      ]
+    },
+    {
+      "band": 7,
+      "id": "noosphere",
+      "label": "Âge de la Noosphère",
+      "srcHsl": [
+        155,
+        68,
+        52
+      ],
+      "accent": {
+        "deep": "#0d6d45",
+        "mid": "#31d892",
+        "bright": "#9de7c8"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#0d6d45",
+        "#31d892",
+        "#9de7c8"
+      ]
+    },
+    {
+      "band": 8,
+      "id": "stellaire",
+      "label": "Âge stellaire",
+      "srcHsl": [
+        42,
+        80,
+        58
+      ],
+      "accent": {
+        "deep": "#916808",
+        "mid": "#eab63e",
+        "bright": "#f2deb0"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#916808",
+        "#eab63e",
+        "#f2deb0"
+      ]
+    },
+    {
+      "band": 9,
+      "id": "demiurge",
+      "label": "Âge du Démiurge",
+      "srcHsl": [
+        282,
+        30,
+        76
+      ],
+      "accent": {
+        "deep": "#8e49ab",
+        "mid": "#c9afd4",
+        "bright": "#e8e0eb"
+      },
+      "usable": [
+        "#0d0b0c",
+        "#211a1d",
+        "#2a1c16",
+        "#3a3534",
+        "#4a2f22",
+        "#6b4530",
+        "#8a5a3d",
+        "#a8704a",
+        "#c98f5c",
+        "#4d4338",
+        "#6f6354",
+        "#8f8475",
+        "#b4a890",
+        "#d8cdb4",
+        "#b8995f",
+        "#d8b873",
+        "#ecd29a",
+        "#f6eccf",
+        "#7a4a39",
+        "#c98a68",
+        "#f2c2a3",
+        "#243a22",
+        "#3c5a2c",
+        "#5c7d38",
+        "#8aa24a",
+        "#1f3a44",
+        "#356b78",
+        "#6fb0b8",
+        "#2c2f36",
+        "#4f545e",
+        "#7c828c",
+        "#aab0b8",
+        "#e9e4d6",
+        "#fbfaf4",
+        "#15161f",
+        "#8c3b2a",
+        "#8e49ab",
+        "#c9afd4",
+        "#e8e0eb"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+GIMP Palette
+Name: Civilisation Idle — Master
+Columns: 8
+#
+ 13  11  12	ink
+ 33  26  29	umbra
+ 42  28  22	bistre
+ 58  53  52	ash
+ 74  47  34	wood-deep
+107  69  48	wood-dark
+138  90  61	wood
+168 112  74	wood-lit
+201 143  92	clay-lit
+ 77  67  56	earth-dark
+111  99  84	earth
+143 132 117	stone
+180 168 144	stone-lit
+216 205 180	stone-pale
+184 153  95	gold-dim
+216 184 115	gold
+236 210 154	gold-lit
+246 236 207	parchment
+122  74  57	skin-shadow
+201 138 104	skin
+242 194 163	skin-lit
+ 36  58  34	leaf-deep
+ 60  90  44	leaf-dark
+ 92 125  56	leaf
+138 162  74	leaf-lit
+ 31  58  68	water-deep
+ 53 107 120	water
+111 176 184	water-lit
+ 44  47  54	iron-dark
+ 79  84  94	iron
+124 130 140	steel
+170 176 184	steel-lit
+233 228 214	bone
+251 250 244	white
+ 21  22  31	night-base
+140  59  42	terracotta
+118  59  19	feu-deep
+211 126  69	feu-mid
+230 196 173	feu-bright
+107  74  20	bois-deep
+205 151  66	bois-mid
+226 203 167	bois-bright
+123  93  25	pierre-deep
+207 170  84	pierre-mid
+230 216 183	pierre-bright
+120  66 128	couronne-deep
+182 149 187	couronne-mid
+233 225 234	couronne-bright
+ 32  84 151	marbre-deep
+113 156 214	marbre-mid
+210 222 239	marbre-bright
+121  57  32	fonte-deep
+199 126  96	fonte-mid
+227 201 191	fonte-bright
+ 20 124 133	neon-deep
+ 79 205 216	neon-mid
+183 231 235	neon-bright
+ 13 109  69	noosphere-deep
+ 49 216 146	noosphere-mid
+157 231 200	noosphere-bright
+145 104   8	stellaire-deep
+234 182  62	stellaire-mid
+242 222 176	stellaire-bright
+142  73 171	demiurge-deep
+201 175 212	demiurge-mid
+232 224 235	demiurge-bright

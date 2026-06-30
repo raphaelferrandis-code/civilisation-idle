@@ -249,7 +249,7 @@ document.getElementById('zoom').oninput = e => { opts.zoom = +e.target.value; re
     imgs[c.name] = {};
     for (const d of DIRS) {
       const i = new Image(); i.onload = () => { ready += 1; }; i.onerror = () => { ready += 1; };
-      i.src = '/pixelart/agents/' + c.name + '-' + d + '.png?' + Date.now();
+      i.src = '/pixelart/agents/inhabitants/' + c.name + '-' + d + '.png?' + Date.now();
       imgs[c.name][d] = i;
     }
   }
@@ -290,7 +290,7 @@ document.getElementById('zoom').oninput = e => { opts.zoom = +e.target.value; re
   ];
   const FW = 68, SC = 1.4, GAP = 14, LBLW = 110;
   const imgs = {}; let total = 0, loaded = 0;
-  for (const v of VEHS) { imgs[v.name] = {}; for (const d of DIRS) { total += 1; const i = new Image(); i.onload = () => { loaded += 1; }; i.onerror = () => { loaded += 1; }; i.src = '/pixelart/agents/veh-' + v.name + '-' + d + '.png?' + Date.now(); imgs[v.name][d] = i; } }
+  for (const v of VEHS) { imgs[v.name] = {}; for (const d of DIRS) { total += 1; const i = new Image(); i.onload = () => { loaded += 1; }; i.onerror = () => { loaded += 1; }; i.src = '/pixelart/agents/vehicles/veh-' + v.name + '-' + d + '.png?' + Date.now(); imgs[v.name][d] = i; } }
   const cv = document.getElementById('vehCv'); if (!cv) return;
   const ctx = cv.getContext('2d');
   const cellW = FW * SC + GAP, rowH = FW * SC + 6;
@@ -320,7 +320,7 @@ document.getElementById('zoom').oninput = e => { opts.zoom = +e.target.value; re
   ];
   const CELL = 64, SC = 1.7, GAP = 16, LBLW = 150;
   const imgs = {};
-  for (const b of BOATS) { const i = new Image(); i.src = '/pixelart/agents/boat-' + b.name + '.png?' + Date.now(); imgs[b.name] = i; }
+  for (const b of BOATS) { const i = new Image(); i.src = '/pixelart/agents/boats/boat-' + b.name + '.png?' + Date.now(); imgs[b.name] = i; }
   const cv = document.getElementById('boatCv'); if (!cv) return;
   const ctx = cv.getContext('2d');
   const cellW = CELL * SC + GAP, rowH = CELL * SC + 6;

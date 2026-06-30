@@ -5,7 +5,7 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/inhabitants';
 const CHAR = 'cb56bcdc-eb92-4298-a085-ddde3bcc05db';
 const BASE = `https://backblaze.pixellab.ai/file/pixellab-characters/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0/${CHAR}/animations`;
 const FRAMES = 6;

@@ -5,6 +5,22 @@ Prototype de terrain pixel-art de la carte (derrière un flag). Rendu en **4 cou
 3. **frange d'herbe** (bord herbe→sol : liseré, ombre directionnelle, touffes) auto-générée ;
 4. **rues** (réseau viaire en tuiles edge-Wang) posées par-dessus le sol urbain.
 
+## Rangement des sprites `agents/` (par catégorie)
+
+Les sprites (habitants ET bâtiments) sont rangés en **sous-dossiers** de `public/pixelart/agents/` — plus de fourre-tout à plat :
+
+| Dossier | Contenu | Chargé par |
+|---|---|---|
+| `inhabitants/` | habitants par ère (`caveman`→`future`, + femmes/enfants), `farmer`, porteurs (`basket-*`) | `agents.js` (`ensureAgentChar`), `cityEngineSprites.js` (farmer) |
+| `animals/` | bêtes de trait : `ox`, `horse` | `agents.js` (`ensureAgentChar`) |
+| `vehicles/` | véhicules : `veh-*` (cart, wagon, chariot, caravan, car, tram, barrow) | `agents.js` (`ensureVeh`) |
+| `boats/` | bateaux par ère : `boat-*` (raft, sail, steam, container, cosmic-7/8/9) | `agents.js` / `cityEngineSprites.js` |
+| `events/` | agents de crise : `rioter-*` | `agents.js` (`drawNamedAgent`) |
+| `buildings/` | props + scènes des **bâtiments-moteur** + acteurs de scène (`forager-*` clips, `caravan-mule-*`, `*-prop-*`, `*-fire`, `*-back`) | `cityEngineSprites.js` (`PROP_KEYS`, `ANIM_BANDS`, forager, mule), `engineSprites.js` |
+
+Le routage est **codé** : `agentDir(name)` dans `agents.js` (nom→dossier : ox/horse→`animals`, rioter→`events`, sinon `inhabitants`) ; chaque chargeur pointe sur son sous-dossier. Les scripts `fetch*` écrivent dans le bon sous-dossier (`OUT`). Remap en lot (scan **récursif**) : `node scripts/remapPalette.mjs --dir public/pixelart/agents`.
+⚠️ `scripts/contactSheet.mjs` lit `agents/` **à plat** → à passer en récursif si réutilisé.
+
 ## Fichiers à retravailler (à la main, dans Aseprite / Piskel / GIMP…)
 
 - **`grass.png`** — l'HERBE (1 tuile 32×32). Tu l'édites **une seule fois**, ça s'applique partout.
@@ -146,6 +162,56 @@ détail. Suffixe par tier : t0 `small, single` · t1 `slightly bigger, one annex
 1. Étendre le `Set` **AVAILABLE** dans `src/game/map/pixelBuildings.js` (sinon sprite ignoré → repli procédural).
 2. **F5** dans le jeu. Toggle dev : `window.__pixelBuildings(false)` pour comparer au procédural.
 3. ⚠️ Éditer `renderWorld.js`/moteur ne se voit pas en HMR live → **full-reload** + `__CM.forceFrame()` avant `__cityShot` pour vérifier.
+
+## Palette maître — anti-bloat couleurs
+
+**Problème** : les sprites PixelLab arrivent avec un **bloat** de teintes (mesuré : `market-prop-stall`
+= 153 couleurs pour 2606 px ; moyenne ~37/sprite, ~2550 distinctes sur tout le set). Du bruit
+anti-aliasé, pas du pixel-art propre. **Cible : 16-24 teintes par sprite**, toutes tirées d'**une
+seule palette pour tout le jeu**.
+
+### La palette (source de vérité)
+- **`scripts/buildPalette.mjs`** génère tout. Lancer : `node scripts/buildPalette.mjs`.
+- **`master-palette.json`** = la liste. Structure :
+  - **`core`** (36 teintes) — rampes PARTAGÉES par tous les sprites : `inkShadow` · `timberClay` ·
+    `earthStone` · `goldSand` (l'« or » antique) · `skin` · `foliage` · `water` · `metalSlate` ·
+    `boneWhite` · `universal`. C'est le cœur qui garantit la cohésion.
+  - **`epochs[]`** — un **accent** par époque (3 pas deep/mid/bright), **calculé depuis les ancres
+    HSL de `src/game/data/eraThemes.js`** (donc sprite + chrome UI + sol de carte = même couleur).
+    `usable` = cœur (36) + accent (3) = **39 teintes** par époque (≤ 48).
+  - **`spriteEpochTags`** — tag **sprite → époque** (la cohérence intra-époque demandée).
+- **`master-palette.gpl`** — palette GIMP/Aseprite/**Lospec** (et « Target Palette » côté PixelLab).
+- **`palettes/epoch-<id>.png`** + `core.png` — les **`color_image`** (cf. génération). `_contact.png`
+  = planche-contact visuelle de contrôle.
+
+| band | époque | accent mid | band | époque | accent mid |
+|---:|---|---|---:|---|---|
+| 0 | feu | ember `#d37e45` | 5 | fonte | copper `#c77e60` |
+| 1 | bois | straw `#cd9742` | 6 | neon | cyan `#4fcdd8` |
+| 2 | pierre | gold `#cfaa54` | 7 | noosphere | jade `#31d892` |
+| 3 | couronne | purple `#b695bb` | 8 | stellaire | gold `#eab63e` |
+| 4 | marbre | lapis `#719cd6` | 9 | demiurge | iris `#c9afd4` |
+
+### Forcer la palette à la GÉNÉRATION (biais)
+L'API REST `create-image-pixflux` / `create-image-bitforge` accepte un champ **`color_image`**
+(`Base64Image`, *« Forced color palette, image containing colors used for palette »*) → lui passer
+`palettes/epoch-<id>.png`. ⚠️ C'est un **biais, pas un verrou**, et **le MCP `create_map_object`
+n'expose PAS ce champ** (il faut taper l'API REST directement). Donc on ne s'y fie pas seul.
+
+### Verrouiller la palette en POST (fiable)
+- **`scripts/remapPalette.mjs`** — rabat chaque pixel sur la palette utilisable de l'époque du
+  sprite (plus proche voisin perceptuel « redmean »), puis **plafonne à K teintes** (défaut 22),
+  tue le halo AA, et préserve l'alpha. C'est le **verrou dur** (Python/Aseprite absents → node+pngjs).
+  - Un fichier : `node scripts/remapPalette.mjs <f.png> [--epoch feu] [--max 22] [--inplace]`
+  - Lot (époque auto par tag) : `node scripts/remapPalette.mjs --dir public/pixelart/agents`
+  - `--dry` = rapport seul. Sans `--inplace` → écrit `<nom>.remap.png` à côté.
+- Validé : `market-prop-stall` 153→22, `granary-prop-silo` 120→14, `field-prop-crop-gold` 100→11 —
+  silhouettes intactes, moyenne **107→17** sur les pires sprites.
+
+### Pipeline recommandé (à chaque nouveau sprite)
+1. Générer (idéalement via REST + `color_image = palettes/epoch-<id>.png`) ; sinon MCP comme avant.
+2. **`node scripts/remapPalette.mjs <fichier> --epoch <id> --inplace`** → 16-24 teintes garanties.
+3. Tagger le sprite dans `spriteEpochTags` (buildPalette.mjs) pour que le lot auto le retrouve.
 
 ## Reste à faire
 

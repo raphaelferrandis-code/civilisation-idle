@@ -73,6 +73,12 @@ let AGENT_SCALE = 1;     // multiplicateur global de taille (réglage live __vil
 
 // Cache générique : name -> { img:{dir->Image}, ready:n }
 const agentChars = {};
+// Rangement par catégorie : nom d'agent → sous-dossier de /pixelart/agents/.
+function agentDir(name) {
+  if (name === 'ox' || name === 'horse') return 'animals';
+  if (name.startsWith('rioter-')) return 'events';
+  return 'inhabitants';   // gens par ère + porteurs (basket-*)
+}
 function ensureAgentChar(name) {
   let c = agentChars[name];
   if (c) return c;
@@ -81,7 +87,7 @@ function ensureAgentChar(name) {
   if (typeof Image !== 'undefined') for (const d of VILLAGER_DIRS) {
     const im = new Image();
     im.onload = () => { c.ready += 1; };
-    im.src = '/pixelart/agents/' + name + '-' + d + '.png';
+    im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png';
     c.img[d] = im;
   }
   return c;
@@ -127,6 +133,36 @@ ensureAgentChar('villager');
 for (const s of [...AGENT_PREHISTORIC, ...AGENT_MEDIEVAL, ...AGENT_ANTIQUITY, ...AGENT_INDUSTRIAL, ...AGENT_FUTURE]) ensureAgentChar(s.name);
 if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
+// ── Helper PARTAGÉ : dessine un personnage PIXEL NOMMÉ (bande de marche 4 dirs,
+// AGENT_NF frames) à une position écran (sx = centre horizontal, groundY = ligne de
+// pieds). Charge paresseusement /pixelart/agents/{name}-{dir}.png. Réutilisé par les
+// porteurs de panier (ci-dessous), les émeutiers (renderWorld.js) et les habitants
+// d'ère — fini le vieux blob vectoriel. Renvoie { drawW, drawH, top } si un sprite a
+// été posé, ou false si le sprite n'est pas prêt (l'appelant garde son repli vectoriel).
+function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1) {
+  const chr = ensureAgentChar(name);
+  if (!agentReady(chr)) return false;
+  const d = (dir >= 0 && dir < 4) ? dir : 2;
+  const drawH = CM.TILE * z * scale * AGENT_SCALE * scaleMul, drawW = drawH;
+  const img = chr.img[VILLAGER_DIRS[d]] || chr.img.south;
+  const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % AGENT_NF) : 0;
+  const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
+  const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prevS;
+  return { drawW, drawH, top };
+}
+
+// Habitant PIXEL de l'ère courante (set par eraBand, repli villager). Même contrat
+// que drawNamedAgent. charType: 0=homme 1=femme 2=enfant. À réutiliser pour migrer
+// les ouvriers de scènes de bâtiments encore vectoriels.
+function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1) {
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const spec = agentSetForBand(band)[charType] || AGENT_FALLBACK;
+  return drawNamedAgent(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul)
+      || drawNamedAgent(ctx, sx, groundY, z, AGENT_FALLBACK.name, AGENT_FALLBACK.scale, dir, walking, now, phase, scaleMul);
+}
+
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
 // Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
@@ -151,7 +187,7 @@ function ensureVeh(type) {
   if (typeof Image !== 'undefined') for (const d of VILLAGER_DIRS) {
     const im = new Image();
     im.onload = () => { c.ready += 1; };
-    im.src = '/pixelart/agents/veh-' + type + '-' + d + '.png';
+    im.src = '/pixelart/agents/vehicles/veh-' + type + '-' + d + '.png';
     c.img[d] = im;
   }
   return c;
@@ -184,7 +220,7 @@ function ensureBoat(name) {
   if (typeof Image !== 'undefined') {
     const im = new Image();
     im.onload = () => { c.ready = true; };
-    im.src = '/pixelart/agents/boat-' + name + '.png';
+    im.src = '/pixelart/agents/boats/boat-' + name + '.png';
     c.img = im;
   }
   return c;
@@ -759,6 +795,13 @@ function drawVehicles(now, pass) {
       // Ombre au sol
       ctx.fillStyle = "rgba(0,0,0,0.22)";
       ctx.beginPath(); ctx.ellipse(sx, sy + ph * 1.35, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+      // Porteur de panier : sprite PIXEL dédié (panier baké dans le dos). Genre tiré
+      // une fois et figé sur le véhicule. Repli vectoriel plus bas si pas chargé.
+      const groundY = sy + ph * 1.35;
+      if (v.woman === undefined) v.woman = Math.random() < 0.5;
+      const dim = drawNamedAgent(ctx, sx, groundY, z, v.woman ? 'basket-woman' : 'basket-man', 0.85, v.dir, (v.pauseT || 0) <= 0, now, v.x * 0.02);
+      if (dim) { if (v.fade < 1) ctx.globalAlpha = 1; continue; }
+      // ── Repli vectoriel : sprites pas encore chargés ──
       // Jambes alternées
       if (ph > 2) {
         const step = Math.sin((now || 0) / 120 + v.x * 0.08) * ph * 0.45;
@@ -1357,4 +1400,4 @@ function drawTram(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, cityMapDrawRails, drawTram };
+export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, cityMapDrawRails, drawTram, drawEraAgent, drawNamedAgent };

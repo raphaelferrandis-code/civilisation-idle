@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, cosmicBase } from './cityEngineSprites.js';
+import { drawCityEngineSprite, cosmicBase, propReady, blitProp, animReady, blitAnim } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -95,6 +95,21 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
 
   if (id === "storytellers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "storytellers"); return; }
+    // Pixel-art = scène PixelLab en 2 COUCHES pour glisser la lectrice ENTRE le sol et
+    // le feu : `storyteller-back` (sol/pierres/livre, SANS feu) → lectrice assise →
+    // `storyteller-fire` (bande feu SEUL, animée, par-dessus). Repli = scène pleine
+    // `storyteller-prop-fire` (lectrice par-dessus), puis scène procédurale d'origine.
+    if (animReady('storyteller-fire') || propReady('storyteller-back') || propReady('storyteller-prop-fire')) {
+      if (propReady('storyteller-back')) {
+        blitProp(ctx, ox, oy, sw, sh, 'storyteller-back', 0.5, 0.52, 0.92, 0.77);                            // sol/pierres/livre (sans feu)
+        if (propReady('storyteller-reader')) blitProp(ctx, ox, oy, sw, sh, 'storyteller-reader', 0.316, 0.347, 0.345, 0.345); // lectrice ENTRE sol et feu
+        if (animReady('storyteller-fire')) blitAnim(ctx, ox, oy, sw, sh, 'storyteller-fire', now, 0.5, 0.52, 0.92, 0.77);     // feu SEUL, DEVANT (animé)
+      } else {
+        blitProp(ctx, ox, oy, sw, sh, 'storyteller-prop-fire', 0.5, 0.52, 0.92, 0.77);                       // repli : scène pleine
+        if (propReady('storyteller-reader')) blitProp(ctx, ox, oy, sw, sh, 'storyteller-reader', 0.316, 0.347, 0.345, 0.345);
+      }
+      return;
+    }
     // Sol
     px(0.0, 0.58, 1.0, 0.42, "#16100a");
 
@@ -167,6 +182,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "scribes") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "scribes"); return; }
+    // Pixel-art = scène PixelLab STATIQUE (abri PRIMITIF : auvent de peau + table à
+    // tablettes/rouleaux, registre feu/stade 0 ; ombre de contact déjà posée en amont).
+    // Repli sur le scriptorium procédural.
+    if (propReady('scribes-prop-hall')) {
+      blitProp(ctx, ox, oy, sw, sh, 'scribes-prop-hall', 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
     // Scriptorium : salle voûtée médiévale, scribes à la lueur des bougies
     px(0.08, 0.34, 0.84, 0.48, "#705230");
     ctx.fillStyle = "#4a3218";

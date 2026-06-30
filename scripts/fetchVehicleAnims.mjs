@@ -8,7 +8,7 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const OUT = 'public/pixelart/agents';
+const OUT = 'public/pixelart/agents/vehicles';
 const PROJECT = 'f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const FRAMES = 7; // v3 : 1 réf + 6 animées
 const DIRS = ['south', 'north', 'east', 'west'];
