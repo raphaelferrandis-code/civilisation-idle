@@ -217,6 +217,12 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "schools") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "schools"); return; }
+    // Pixel-art = scène PixelLab STATIQUE (coin de leçon PRIMITIF : tableau sur chevalet
+    // + sièges, registre feu/stade 0 ; ombre de contact déjà posée). Repli procédural.
+    if (propReady('schools-prop-yard')) {
+      blitProp(ctx, ox, oy, sw, sh, 'schools-prop-yard', 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
     // École : cour à colonnades, rangées d'élèves, maître à l'avant
     px(0.08, 0.26, 0.84, 0.50, "#b8944a");
     ctx.fillStyle = "#6a4a10";

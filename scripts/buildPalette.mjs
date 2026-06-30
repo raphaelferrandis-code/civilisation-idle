@@ -99,7 +99,7 @@ const SPRITE_EPOCH_TAGS = {
   'port-prop-house': 'bois', 'port-prop-pontoon': 'bois',
   'mint-prop-house': 'pierre', 'mint-prop-forge': 'feu', 'exchange-prop-stall': 'feu',
   'storyteller-prop-fire': 'feu', 'storyteller-fire': 'feu', 'storyteller-reader': 'feu', 'storyteller-back': 'feu',
-  'scribes-prop-hall': 'feu',
+  'scribes-prop-hall': 'feu', 'schools-prop-yard': 'feu',
   // Agents (bonus — même cohérence par époque)
   'caveman': 'feu', 'cavewoman': 'feu', 'cavechild': 'feu', 'forager': 'feu',
   'villager': 'bois', 'villagerwoman': 'bois', 'villagerchild': 'bois', 'farmer': 'bois', 'ox': 'bois', 'horse': 'bois',
