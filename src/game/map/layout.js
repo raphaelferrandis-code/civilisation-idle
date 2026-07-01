@@ -1632,6 +1632,22 @@ function computeCityLayout(s) {
 
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
+  // Cellules de SOL (ni route, ni bâti, ni eau) coincées ENTRE deux routes (route à l'ouest
+  // ET à l'est, OU au nord ET au sud) : ce sont les « carrés de sol » qui apparaissent au
+  // milieu quand deux routes passent près l'une de l'autre (faux carrefours). On les
+  // recense pour les PAVER (drawPixelTerrain les traite comme des rues) → une grande route
+  // pleine au lieu d'une grille avec des trous de sol. EXCLUT les emprises bâties.
+  const roadMedian = (() => {
+    const rset = roadGraph.roadSet, out = new Set(), bf = new Set();
+    for (const t of tiles) { const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1; for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) bf.add((t.gx + ax) + "," + (t.gy + ay)); }
+    const R = (x, y) => rset.has(x + "," + y);
+    for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
+      const k = gx + "," + gy;
+      if (rset.has(k) || bf.has(k) || riverSet.has(k)) continue;
+      if ((R(gx - 1, gy) && R(gx + 1, gy)) || (R(gx, gy - 1) && R(gx, gy + 1))) out.add(k);
+    }
+    return out;
+  })();
   const engineTileMap = new Map(
     tiles.filter((t) => t.type === "engine" && t.buildingId)
          .map((t) => [t.gx + "," + t.gy, t])
@@ -1650,7 +1666,7 @@ function computeCityLayout(s) {
   return {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, river, water, engineTileMap, wonderSlots, walls,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, river, water, engineTileMap, wonderSlots, walls,
     railLoop: tramRing ? tramRing.loop : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },

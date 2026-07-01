@@ -1912,6 +1912,30 @@ function cityMapDrawRoad(r) {
   drawAxis(pal.edge, half * 2 + shoulder);
   drawAxis(pal.core, half * 2);
 
+  // ── Voies parallèles adjacentes → BOULEVARD : deux routes côte à côte laissaient
+  //    une bande de sol entre elles. On COMBLE ce sol (chaque cellule remplit sa moitié
+  //    jusqu'à la couture avec la couleur de chaussée) et on glisse un TERRE-PLEIN
+  //    végétalisé sur la couture — dès l'ère 0. Le terre-plein n'est peint que côté
+  //    dq=+1 (par la cellule "amont") pour ne pas le tracer deux fois.
+  const parRoad = (gx, gy, wantH) => { const c = layout && layout.roadMap && layout.roadMap.get(gx + "," + gy); return !!c && (wantH ? !!(c.mask & ROAD_E || c.mask & ROAD_W) : !!(c.mask & ROAD_N || c.mask & ROAD_S)); };
+  const isH = !!(mask.e || mask.w), isV = !!(mask.n || mask.s);
+  const medianCol0 = eraIndex >= 22 ? "#3a3d52" : eraIndex >= 14 ? "#6a6e75" : "#586034"; // planté (ère 0) → béton → énergie
+  const mth = Math.max(1.5, s * 0.10);
+  const fuseGap = (dq, horiz) => {
+    if (horiz ? !parRoad(r.gx, r.gy + dq, true) : !parRoad(r.gx + dq, r.gy, false)) return;
+    if (horiz) {
+      const be = cyp + dq * half, bd = cyp + dq * (s / 2);
+      ctx.fillStyle = pal.core; ctx.fillRect(sx, Math.min(be, bd), s, Math.abs(bd - be));
+      if (dq === 1) { ctx.fillStyle = medianCol0; ctx.fillRect(sx, bd - mth / 2, s, mth); }
+    } else {
+      const be = cxp + dq * half, bd = cxp + dq * (s / 2);
+      ctx.fillStyle = pal.core; ctx.fillRect(Math.min(be, bd), sy, Math.abs(bd - be), s);
+      if (dq === 1) { ctx.fillStyle = medianCol0; ctx.fillRect(bd - mth / 2, sy, mth, s); }
+    }
+  };
+  if (isH) { fuseGap(-1, true); fuseGap(1, true); }
+  if (isV) { fuseGap(-1, false); fuseGap(1, false); }
+
   // Grands axes (avenue / boulevard) : leurs marquages — terre-plein, bandes de
   // voie et lignes de rive — sont peints en CONTINU par cityMapDrawRoadMarkings
   // (passe par segments, façon ruban du fleuve), et NON ici cellule par cellule.

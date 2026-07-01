@@ -107,6 +107,25 @@ function ensureStreet(name) {
 function streetForBand(band) { return 'streets-band' + Math.max(0, Math.min(9, band | 0)); }
 ensureStreet('streets'); // placeholder de repli
 
+// Couleur de chaussée, échantillonnée au CENTRE de la tuile PLEINE (mask 15 = croix, opaque)
+// du tileset des rues, mise en cache par tileset. La tuile pleine a ses 4 COINS transparents :
+// dans un bloc de routes, les coins de 4 tuiles voisines se rejoignent en un « carré de sol »
+// à chaque jonction 2×2. On comble ces coins avec cette couleur → grande route pleine.
+function streetRoadFill(ts) {
+  if (!ts || !ts.img) return null;
+  if (ts._roadFill !== undefined) return ts._roadFill;
+  ts._roadFill = null;
+  try {
+    const img = ts.img, c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const tw = Math.floor(img.width / 4);
+    const d = g.getImageData(3 * tw + (tw >> 1), 3 * tw + (tw >> 1), 1, 1).data;
+    if (d[3] > 40) ts._roadFill = 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')';
+  } catch (e) { ts._roadFill = null; }
+  return ts._roadFill;
+}
+
 export function drawPixelTerrain(CM) {
   if (!CM.layout) return false;
   ensureGrass();
@@ -128,8 +147,13 @@ export function drawPixelTerrain(CM) {
   // Rues : réseau viaire (cellules). Le masque edge-Wang lit les 4 voisins ORTHO.
   const drawStreets = pixelRoadsFlag.on && streetTs && streetTs.ready && L.roadSet;
   const STREET = streetTs && streetTs.img;
+  const roadFill = drawStreets ? streetRoadFill(streetTs) : null; // comble les coins de jonction
   const roadMap = L.roadMap;
-  const isStreet = (x, y) => drawStreets && L.roadSet.has(x + ',' + y);
+  // Les cellules `roadMedian` (sol coincé ENTRE deux routes) sont PAVÉES : traitées comme
+  // des rues → l'edge-Wang fusionne le tout en une GRANDE route pleine (plus de « carrés de
+  // sol » au milieu, plus de faux carrefours). Exclut déjà les bâtiments (calcul layout).
+  const roadMedian = L.roadMedian || null;
+  const isStreet = (x, y) => drawStreets && (L.roadSet.has(x + ',' + y) || (roadMedian && roadMedian.has(x + ',' + y)));
 
   const halfW = (CM.cw / 2) / z, halfH = (CM.ch / 2) / z;
   const gx0 = Math.floor((CM.cam.x - halfW) / T) - 1;
@@ -161,13 +185,26 @@ export function drawPixelTerrain(CM) {
       if (isStreet(gx, gy)) {
         const rec = roadMap && roadMap.get(gx + ',' + gy);
         if (!rec || rec.roadSurface !== 'bridge') { // ponts : laissés au rendu procédural
-          const m = (isStreet(gx, gy - 1) ? 1 : 0) | (isStreet(gx + 1, gy) ? 2 : 0)
-                  | (isStreet(gx, gy + 1) ? 4 : 0) | (isStreet(gx - 1, gy) ? 8 : 0);
+          const n = isStreet(gx, gy - 1), e = isStreet(gx + 1, gy),
+                s = isStreet(gx, gy + 1), w = isStreet(gx - 1, gy);
+          // Comble les COINS de jonction intérieurs (route sur les DEUX côtés ortho du coin) :
+          // la tuile pleine y est transparente → sans ça, un « carré de sol » au milieu. Posé
+          // SOUS la tuile (les arms opaques repassent dessus, seuls les coins vides montrent le fond).
+          if (roadFill && ((n && e) || (n && w) || (s && e) || (s && w))) {
+            const h = Math.ceil(sz / 2);
+            ctx.fillStyle = roadFill;
+            if (n && w) ctx.fillRect(dx, dy, h, h);
+            if (n && e) ctx.fillRect(dx + sz - h, dy, h, h);
+            if (s && w) ctx.fillRect(dx, dy + sz - h, h, h);
+            if (s && e) ctx.fillRect(dx + sz - h, dy + sz - h, h, h);
+          }
+          const m = (n ? 1 : 0) | (e ? 2 : 0) | (s ? 4 : 0) | (w ? 8 : 0);
           ctx.drawImage(STREET, (m & 3) * 32, (m >> 2) * 32, 32, 32, dx, dy, sz, sz);
         }
       }
     }
   }
+
   ctx.imageSmoothingEnabled = prev;
   return true;
 }

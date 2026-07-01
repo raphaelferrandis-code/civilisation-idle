@@ -65,6 +65,22 @@ describe("cityMapDrawRoad — corps seul sur les grands axes (Palier 1)", () => 
     expect(ctx._fills).toBe(0);     // pas de terre-plein par cellule
     expect(ctx._dashed).toBe(false); // pas de pointillé par cellule
   });
+
+  it("deux routes parallèles adjacentes → comble le sol + terre-plein entre elles (fusion, dès ère basse)", () => {
+    // Deux routes VERTICALES côte à côte (gx 5 et 6). Sans marquage d'ère (ei 4) : c'est
+    // bien la FUSION (corps qui comble le sol + terre-plein sur la couture) qui peint.
+    const ctx = setupLayout([
+      { gx: 5, gy: 5, mask: ROAD_N | ROAD_S, rank: "secondary" },
+      { gx: 6, gy: 5, mask: ROAD_N | ROAD_S, rank: "secondary" },
+    ], { ei: 4 });
+    cityMapDrawRoad({ gx: 5, gy: 5, rank: "secondary", roadSurface: "road", _seed: 0 });
+    expect(ctx._fills).toBeGreaterThan(0);   // sol comblé + terre-plein glissé entre les 2 voies
+
+    // Une route SEULE (pas de voisine parallèle) ne déclenche pas la fusion.
+    const ctx2 = setupLayout([{ gx: 5, gy: 5, mask: ROAD_N | ROAD_S, rank: "secondary" }], { ei: 4 });
+    cityMapDrawRoad({ gx: 5, gy: 5, rank: "secondary", roadSurface: "road", _seed: 0 });
+    expect(ctx2._fills).toBe(0);
+  });
 });
 
 describe("cityMapDrawRoadMarkings — segments continus", () => {
