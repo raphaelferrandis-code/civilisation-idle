@@ -183,10 +183,7 @@ function drawTile(t, now, timeWear, maxD2) {
     return;
   }
 
-  // Degradation peripherique (usure > 50%).
-  const degradeFrac = timeWear > 0.5 ? (timeWear - 0.5) / 0.5 : 0;
   const norm = t.d2 / maxD2;
-  const degraded = degradeFrac > 0 && norm > (1 - degradeFrac);
 
   // Anim de construction.
   const born = CM.born[t.key] || now;
@@ -334,27 +331,6 @@ function drawTile(t, now, timeWear, maxD2) {
     }
   }
 
-  // Feu (usure > 80% sur batiments degrades).
-  if (timeWear > 0.8 && degraded && t.type !== "farm") {
-    const fireSeed = (t.gx * 31 + t.gy * 17);
-    if ((fireSeed % 5) < 3) {
-      const fl = 0.55 + 0.45 * Math.abs(Math.sin(now / 130 + fireSeed));
-      const fx = x + w / 2, fy = y + h * 0.55, fr = w * 0.42;
-      // Cache gradient par position écran — recréé seulement si la caméra bouge
-      const fxR = Math.round(fx), fyR = Math.round(fy), frR = Math.round(fr * 10);
-      if (!t._fireGrad || t._fireGrad.x !== fxR || t._fireGrad.y !== fyR || t._fireGrad.r !== frR) {
-        const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-        g.addColorStop(0, "rgba(255,228,120,1)");
-        g.addColorStop(0.5, "rgba(240,120,30,0.8)");
-        g.addColorStop(1, "rgba(180,40,20,0)");
-        t._fireGrad = { x: fxR, y: fyR, r: frR, g };
-      }
-      ctx.globalAlpha = fl;
-      ctx.fillStyle = t._fireGrad.g;
-      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = e;
-    }
-  }
 }
 
 function drawCentralFire(now) {

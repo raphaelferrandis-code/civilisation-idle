@@ -120,7 +120,7 @@ bâtiments « héros » détaillés. La règle d'or : **cohérence absolue** sur
 ### Palette / ambiance
 - **Minimaliste** : 2-3 teintes par matériau, pas de détail superflu (pas de fenêtres
   ciselées, pas de matériaux riches). La force = la **silhouette**.
-- Registre **chaud antique** : argile, bois, pierre sombre, or éteint — cohérent avec le
+- Registre **chaud antique** : argile, terre cuite, cuivre, bois, pierre sombre — cohérent avec le
   terrain et les routes par ère. Toit nord éclairé / face sud plus sombre (lumière douce).
 - Pas d'objet flottant : le sprite = le **site statique**, le personnage qui marche
   reste un **agent animé séparé** (`agents.js`). L'anim diégétique (feu, roue, tissu)
@@ -130,7 +130,7 @@ bâtiments « héros » détaillés. La règle d'or : **cohérence absolue** sur
 ```
 minimalist pixel art, tiny isometric 3/4 building, facing south-east, transparent background,
 small simple volume with a clear roof and one shaded south face, very limited palette
-(2-3 shades per material), warm ancient tones (clay, timber, dark stone, muted gold),
+(2-3 shades per material), warm ancient tones (clay, terracotta, copper, timber, dark stone),
 thin subtle outline, soft flat lighting (north roof lit / south face darker), strong readable
 silhouette, low detail, cozy storybook city-builder feel, no characters, grounded static structure
 ```
@@ -174,7 +174,7 @@ seule palette pour tout le jeu**.
 - **`scripts/buildPalette.mjs`** génère tout. Lancer : `node scripts/buildPalette.mjs`.
 - **`master-palette.json`** = la liste. Structure :
   - **`core`** (36 teintes) — rampes PARTAGÉES par tous les sprites : `inkShadow` · `timberClay` ·
-    `earthStone` · `goldSand` (l'« or » antique) · `skin` · `foliage` · `water` · `metalSlate` ·
+    `earthStone` · `clayCopper` (terre cuite / cuivre — a remplacé l'ancien or/sable jaune) · `skin` · `foliage` · `water` · `metalSlate` ·
     `boneWhite` · `universal`. C'est le cœur qui garantit la cohésion.
   - **`epochs[]`** — un **accent** par époque (3 pas deep/mid/bright), **calculé depuis les ancres
     HSL de `src/game/data/eraThemes.js`** (donc sprite + chrome UI + sol de carte = même couleur).
@@ -187,8 +187,8 @@ seule palette pour tout le jeu**.
 | band | époque | accent mid | band | époque | accent mid |
 |---:|---|---|---:|---|---|
 | 0 | feu | ember `#d37e45` | 5 | fonte | copper `#c77e60` |
-| 1 | bois | straw `#cd9742` | 6 | neon | cyan `#4fcdd8` |
-| 2 | pierre | gold `#cfaa54` | 7 | noosphere | jade `#31d892` |
+| 1 | bois | terracotta `#c2653d` | 6 | neon | cyan `#4fcdd8` |
+| 2 | pierre | clay `#c17057` | 7 | noosphere | jade `#31d892` |
 | 3 | couronne | purple `#b695bb` | 8 | stellaire | gold `#eab63e` |
 | 4 | marbre | lapis `#719cd6` | 9 | demiurge | iris `#c9afd4` |
 

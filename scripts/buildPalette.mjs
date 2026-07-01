@@ -45,8 +45,8 @@ const CORE = {
   timberClay:  [['#4a2f22', 'wood-deep'], ['#6b4530', 'wood-dark'], ['#8a5a3d', 'wood'], ['#a8704a', 'wood-lit'], ['#c98f5c', 'clay-lit']],
   // Terre & pierre — neutres grège. 5
   earthStone:  [['#4d4338', 'earth-dark'], ['#6f6354', 'earth'], ['#8f8475', 'stone'], ['#b4a890', 'stone-lit'], ['#d8cdb4', 'stone-pale']],
-  // Sable / parchemin / OR antique — l'identité « or » de la DA. 4
-  goldSand:    [['#b8995f', 'gold-dim'], ['#d8b873', 'gold'], ['#ecd29a', 'gold-lit'], ['#f6eccf', 'parchment']],
+  // Argile / terre cuite / cuivre — la chaleur « brûlée » de la DA (remplace l'ancien or/sable jaune). 4
+  clayCopper:  [['#8a4c33', 'clay-deep'], ['#b06a48', 'copper'], ['#cf9068', 'copper-lit'], ['#ecc6a8', 'clay-pale']],
   // Peau (agents). 3
   skin:        [['#7a4a39', 'skin-shadow'], ['#c98a68', 'skin'], ['#f2c2a3', 'skin-lit']],
   // Feuillage / cultures vertes / parcs. 4
@@ -66,8 +66,8 @@ const CORE_FLAT = Object.values(CORE).flat(); // [[hex,name], ...] 36
 // ⚠ Si tu modifies une teinte d'époque dans eraThemes.js, reporte-la ici (couplage assumé).
 const EPOCHS = [
   { band: 0, id: 'feu',       label: 'Âge du Feu',        hsl: [24, 62, 55] },
-  { band: 1, id: 'bois',      label: 'Âge du Bois',       hsl: [37, 58, 53] },
-  { band: 2, id: 'pierre',    label: 'Âge de la Pierre',  hsl: [42, 56, 57] },
+  { band: 1, id: 'bois',      label: 'Âge du Bois',       hsl: [18, 52, 50] },
+  { band: 2, id: 'pierre',    label: 'Âge de la Pierre',  hsl: [14, 46, 55] },
   { band: 3, id: 'couronne',  label: 'Âge de la Couronne',hsl: [292, 22, 66] },
   { band: 4, id: 'marbre',    label: 'Âge du Marbre',     hsl: [214, 55, 64] },
   { band: 5, id: 'fonte',     label: 'Âge de la Fonte',   hsl: [17, 48, 58] },
@@ -99,7 +99,10 @@ const SPRITE_EPOCH_TAGS = {
   'port-prop-house': 'bois', 'port-prop-pontoon': 'bois',
   'mint-prop-house': 'pierre', 'mint-prop-forge': 'feu', 'exchange-prop-stall': 'feu',
   'storyteller-prop-fire': 'feu', 'storyteller-fire': 'feu', 'storyteller-reader': 'feu', 'storyteller-back': 'feu',
-  'scribes-prop-hall': 'feu', 'schools-prop-yard': 'feu',
+  'scribes-prop-hall': 'feu', 'schools-prop-yard': 'feu', 'academies-prop-yard': 'feu',
+  'ancestralcult-back': 'feu', 'ancestralcult-fire': 'feu', 'ancestralcult-prop': 'feu',
+  'observatories-prop-dial': 'feu', 'libraries-prop-archive': 'feu', 'universities-prop-hall': 'feu',
+  'printing-prop-workshop': 'feu', 'think-prop-council': 'feu',
   // Agents (bonus — même cohérence par époque)
   'caveman': 'feu', 'cavewoman': 'feu', 'cavechild': 'feu', 'forager': 'feu',
   'villager': 'bois', 'villagerwoman': 'bois', 'villagerchild': 'bois', 'farmer': 'bois', 'ox': 'bois', 'horse': 'bois',

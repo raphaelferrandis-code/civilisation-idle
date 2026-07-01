@@ -134,7 +134,7 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall', 'schools-prop-yard'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall', 'schools-prop-yard', 'academies-prop-yard', 'ancestralcult-back', 'ancestralcult-prop', 'observatories-prop-dial', 'libraries-prop-archive', 'universities-prop-hall', 'printing-prop-workshop', 'think-prop-council'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -256,6 +256,7 @@ function drawCaravan(ctx, ox, oy, sw, sh, now) {
 const ANIM_BANDS = {
   'mint-forge-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
   'storyteller-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+  'ancestralcult-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
 };
 const animImg = {};
 let animInit = false;

@@ -246,6 +246,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "academies") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "academies"); return; }
+    // Pixel-art = scène PixelLab STATIQUE (cercle de débat PRIMITIF : bancs en rondins +
+    // estrade de parole + totem du savoir sous auvent, registre feu/stade 0 ; ombre de
+    // contact déjà posée en amont). Repli sur le péristyle procédural.
+    if (propReady('academies-prop-yard')) {
+      blitProp(ctx, ox, oy, sw, sh, 'academies-prop-yard', 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
     // Académie : péristyle, jardin, philosophes en cercle de discussion
     px(0.06, 0.28, 0.88, 0.52, "#d4c5a0");
     ctx.fillStyle = "#b8a882";
@@ -269,6 +276,19 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "ancestral_cult") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ancestral_cult"); return; }
+    // Pixel-art = cercle de mégalithes PRIMITIF (pierres levées + autel + feu rituel).
+    // Feu ANIMÉ en 2 COUCHES (comme conteur/mint) pour ne pas faire gigoter les pierres :
+    // `ancestralcult-back` (pierres/autel SANS feu) → `ancestralcult-fire` (bande feu SEUL,
+    // animée). Repli = scène pleine `ancestralcult-prop` (feu baké), puis procédural.
+    if (animReady('ancestralcult-fire') && propReady('ancestralcult-back')) {
+      blitProp(ctx, ox, oy, sw, sh, 'ancestralcult-back', 0.5, 0.53, 0.88, 0.73);
+      blitAnim(ctx, ox, oy, sw, sh, 'ancestralcult-fire', now, 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
+    if (propReady('ancestralcult-prop')) {
+      blitProp(ctx, ox, oy, sw, sh, 'ancestralcult-prop', 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
     // Culte des ancêtres : mégalithes en cercle, autel central, flamme rituelle
     px(0.0, 0.48, 1.0, 0.52, "#2e2416");
     const nStones = 5 + Math.min(tier, 3);
@@ -301,6 +321,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "observatories") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "observatories"); return; }
+    // Pixel-art = terrain d'observation PRIMITIF (gnomon central + cadran de pierre à
+    // encoches pour mesurer l'ombre du soleil, pierres de visée, cartes du ciel), registre
+    // feu/stade 0 ; ombre de contact déjà posée. Repli = le dôme/télescope procédural.
+    if (propReady('observatories-prop-dial')) {
+      blitProp(ctx, ox, oy, sw, sh, 'observatories-prop-dial', 0.5, 0.53, 0.88, 0.73);
+      return;
+    }
     // Observatoire : dôme avec fente animée, bras de télescope pivotant, rose des vents
     ctx.fillStyle = "#3a3050"; ctx.beginPath(); ctx.ellipse(ox+sw*0.5, oy+sh*0.64, sw*0.42, sh*0.18, 0, 0, Math.PI*2); ctx.fill();
     px(0.36, 0.24, 0.28, 0.40, "#2a2840");
@@ -329,6 +356,15 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "libraries") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "libraries"); return; }
+    // Pixel-art = BÂTIMENT-archive PRIMITIF (hutte CARRÉE toit+murs, grande façade en arc
+    // laissant voir des étagères pleines de rouleaux + jarres/tas de parchemins), registre
+    // feu/stade 0 ; ombre de contact déjà posée. STOCKAGE (distinct des scribes qui écrivent).
+    // Sprite 96×88 (plus haut) → blit hFrac 0.80 pour ne pas écraser le toit. Bâtiment fermé
+    // = forme CARRÉE, pas ronde (règle DA). Repli = hall néoclassique procédural.
+    if (propReady('libraries-prop-archive')) {
+      blitProp(ctx, ox, oy, sw, sh, 'libraries-prop-archive', 0.5, 0.50, 0.88, 0.80);
+      return;
+    }
     // Bibliothèque : hall néoclassique, rayonnages colorés par rangées, lecteurs aux tables
     px(0.08, 0.26, 0.84, 0.54, "#c8b882");
     ctx.fillStyle = "#b0a070";
@@ -352,6 +388,15 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "universities") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "universities"); return; }
+    // Pixel-art = BÂTIMENT-halle du savoir PRIMITIF (halle carrée sur socle de pierre,
+    // façade à portique laissant voir un totem du savoir + emblème), registre feu/stade 0 ;
+    // ombre déjà posée. Grande halle institutionnelle (distincte de l'école/académie/biblio).
+    // Bâtiment fermé = zone CARRÉE (règle DA). Sprite 96×88 → hFrac 0.80. Couvre bands 0-6
+    // (stade 0) ; le staging par ère procédural ci-dessous sert de repli. Repli si non chargé.
+    if (propReady('universities-prop-hall')) {
+      blitProp(ctx, ox, oy, sw, sh, 'universities-prop-hall', 0.5, 0.50, 0.88, 0.80);
+      return;
+    }
     const t2 = now || 0;
 
     if (band <= 3) {
@@ -521,6 +566,14 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "printing_houses") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "printing_houses"); return; }
+    // Pixel-art = atelier de REPRODUCTION PRIMITIF (bâtiment carré, façade ouverte : cylindre-
+    // sceau + tampons gravés + pots de pigment + tablettes identiques), registre feu/stade 0 ;
+    // ombre déjà posée. Reproduire des marques (distinct des scribes qui écrivent à la main).
+    // Bâtiment fermé = zone CARRÉE. Sprite 96×88 → hFrac 0.80. Repli = presse procédurale.
+    if (propReady('printing-prop-workshop')) {
+      blitProp(ctx, ox, oy, sw, sh, 'printing-prop-workshop', 0.5, 0.50, 0.88, 0.80);
+      return;
+    }
     // Imprimerie : grande presse mécanique animée, feuilles, encriers, cheminée industrielle
     px(0.06, 0.24, 0.88, 0.56, "#6a5030");
     ctx.fillStyle = "#3a2818";
@@ -553,6 +606,15 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "think_tanks") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "think_tanks"); return; }
+    // Pixel-art = halle du CONSEIL STRATÉGIQUE PRIMITIF (bâtiment carré, façade ouverte :
+    // grande carte du territoire au mur + table à jetons/pions + rouleaux de plans),
+    // registre feu/stade 0 ; ombre déjà posée. « Des modèles pour tout » — distinct de
+    // l'académie (débat)/université (apprentissage). Bâtiment fermé = zone CARRÉE. 96×88 →
+    // hFrac 0.80. Repli = institut verre/acier procédural (ères hautes).
+    if (propReady('think-prop-council')) {
+      blitProp(ctx, ox, oy, sw, sh, 'think-prop-council', 0.5, 0.50, 0.88, 0.80);
+      return;
+    }
     // Institut stratégique : verre et acier, écrans holographiques, antennes, hologramme
     px(0.08, 0.18, 0.84, 0.64, "#1e2434");
     px(0.06, 0.12, 0.88, 0.08, "#2a3248");

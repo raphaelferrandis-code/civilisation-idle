@@ -57,22 +57,22 @@ export const EPOCHS = [
   },
   {
     id: "bois", label: { fr: "Âge du Bois", en: "Age of Wood" },
-    // Paille et torchis : ocre chaud.
-    hue: 37, sat: 58, lum: 53,
+    // Argile et cuivre : terre cuite chaude (remplace l'ancien ocre jaune).
+    hue: 18, sat: 52, lum: 50,
     map: {
-      urbanGround: [88, 72, 42],
+      urbanGround: [98, 64, 44],
       wildGround: "#2d3a1e",
-      nightWarm: "255,188,104"
+      nightWarm: "255,170,120"
     }
   },
   {
     id: "pierre", label: { fr: "Âge de la Pierre taillée", en: "Age of Hewn Stone" },
-    // Or parchemin : proche de l'or canonique actuel.
-    hue: 42, sat: 56, lum: 57,
+    // Terre cuite claire : argile taillée (remplace l'ancien or parchemin jaune).
+    hue: 14, sat: 46, lum: 55,
     map: {
-      urbanGround: [102, 88, 58],
+      urbanGround: [110, 78, 56],
       wildGround: "#2d3a1e",
-      nightWarm: "255,200,120"
+      nightWarm: "255,186,132"
     }
   },
   {
