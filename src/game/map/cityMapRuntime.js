@@ -454,7 +454,11 @@ function cityMapEnsureLayout(now, deps = {}) {
   // érection doit donc invalider le layout, sinon elles s'affichent par-dessus
   // les bâtiments existants jusqu'à la régénération suivante.
   const wonderSig = cmWonderActiveIds(state).size;
-  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineSig;
+  // Routes achetées → budget de connexion du réseau (connectBuildingsToNetwork) : un
+  // achat change la signature → recompute. Dans `sig` seulement (pas `coreSig`) → mis à
+  // jour sur le chemin throttlé (≤1/1500ms), sûr même si une automation en achète en rafale.
+  const roadCount = Math.floor((state.buildings && state.buildings.roads) || 0);
+  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
   // Pour les changements de eraFrac seuls, on limite à 1 recompute par 1500ms.
@@ -467,6 +471,13 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
   CM.tileCamKey = '';             // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
+  // Couverture du réseau routier (bâtiments-moteur reliés / total) → cache lu par le sim
+  // (roadNetworkMultiplier, +10% max). GÉOMÉTRIQUE → ne peut venir que de la carte ; persiste
+  // dans state (dernière valeur si la carte n'est pas montée / hors-ligne).
+  {
+    const rc = L.roadCover;
+    state.roadCoverage = (rc && rc.engineTotal > 0) ? rc.engineConnected / rc.engineTotal : 0;
+  }
 
   // Naissance des nouvelles tuiles (anim de construction 0.5s).
   const seen = {};

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { CM, ROAD_N, ROAD_E, ROAD_S, ROAD_W } from "../layout.js";
+import { CM, ROAD_N, ROAD_E, ROAD_S, ROAD_W, computeMedianSegments } from "../layout.js";
 import { cityMapDrawRoad, cityMapDrawRoadMarkings } from "../renderWorld.js";
 import { vehicleLaneOffset } from "../agents.js";
 
@@ -50,7 +50,8 @@ function setupLayout(cells, { ei = 14, lod = false, ruined = false, collapse = f
   CM.ctx = ctx;
   CM.roadRuns = null;
   CM.layoutRecomputeAt = recomputeSeq++;     // force une reconstruction du cache
-  CM.layout = { cx: 100, cy: 100, roadMap, roadSet, river: { isWater: () => false } };
+  // Terre-plein = entité de layout (calculée comme en prod) → la passe continue le lit.
+  CM.layout = { cx: 100, cy: 100, roadMap, roadSet, median: computeMedianSegments(roadMap), river: { isWater: () => false } };
   return ctx;
 }
 
@@ -108,10 +109,10 @@ describe("cityMapDrawRoadMarkings — segments continus", () => {
     }
   });
 
-  it("avenue : bandes peintes, sans terre-plein", () => {
+  it("avenue : terre-plein continu + bandes peintes (terre-plein DÈS avenue)", () => {
     const ctx = setupLayout(boulevard.map((c) => ({ ...c, rank: "avenue" })), { ei: 14 });
     cityMapDrawRoadMarkings();
-    expect(ctx._fills).toBe(0);     // chaussée non séparée
+    expect(ctx._fills).toBe(1);     // terre-plein activé dès avenue (règle DA : avenue+)
     expect(ctx._dashed).toBe(true);
   });
 });

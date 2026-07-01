@@ -2191,21 +2191,51 @@ function cityMapDrawRoadMarkings() {
     const rive = half - Math.max(1, s * 0.03);
     line(-rive, markCol, lw);                       // lignes de rive continues
     line(rive, markCol, lw);
-    if (isMain) {
-      ctx.fillStyle = medianCol;                    // terre-plein central lisse
-      const mt = Math.max(1.5, s * 0.085);
-      if (axis === "h") ctx.fillRect(pa, cen - mt / 2, pb - pa, mt);
-      else ctx.fillRect(cen - mt / 2, pa, mt, pb - pa);
-      if (painted) { laneDash(-half * 0.5); laneDash(half * 0.5); }
-      drawMedianLamps(axis, fixed, a0, a1, cen);    // lampadaires sur le terre-plein
-    } else if (painted) {
-      laneDash(0);                                  // avenue : axe pointillé unique
-    }
+    // Le TERRE-PLEIN (avenue+) est dessiné en CONTINU dans une passe dédiée
+    // (depuis L.median), APRÈS les runs — voir plus bas. Ici : rien de plus que
+    // les lignes de rive (évite les coupures/carrés aux croisements).
     ctx.setLineDash([]);
   };
 
   for (const r of R.hRuns) drawRun("h", r.gy, r.x0, r.x1, r.rank);
   for (const r of R.vRuns) drawRun("v", r.gx, r.y0, r.y1, r.rank);
+
+  // ── Terre-plein CONTINU (avenue+), depuis l'entité de layout L.median ────────
+  // Ruban lisse le long de chaque segment (traverse les croisements sans coupure) +
+  // bandes pointillées de part et d'autre + lampadaires. C'est la couche « décorable »
+  // (une passe de décor future n'a qu'à parcourir L.median.medianSet).
+  if (L.median && L.median.segments) {
+    const mt = Math.max(1.5, s * 0.085);
+    const mLine = (seg, pa, pb, cen, off, col, width, dashes) => {
+      ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dashes || []);
+      ctx.beginPath();
+      if (seg.axis === "h") { ctx.moveTo(pa, cen + off); ctx.lineTo(pb, cen + off); }
+      else { ctx.moveTo(cen + off, pa); ctx.lineTo(cen + off, pb); }
+      ctx.stroke();
+    };
+    for (const seg of L.median.segments) {
+      const half = s * roadBodyWidth(seg.rank, eraIndex) * 0.5;
+      const cen = seg.axis === "h" ? SY(seg.fixed + 0.5) : SX(seg.fixed + 0.5);
+      const pa = seg.axis === "h" ? SX(seg.a0) : SY(seg.a0);
+      const pb = seg.axis === "h" ? SX(seg.a1 + 1) : SY(seg.a1 + 1);
+      if (seg.axis === "h" ? !onScreen(pa, cen, pb, cen) : !onScreen(cen, pa, cen, pb)) continue;
+      ctx.fillStyle = medianCol;                       // ruban continu
+      if (seg.axis === "h") ctx.fillRect(pa, cen - mt / 2, pb - pa, mt);
+      else ctx.fillRect(cen - mt / 2, pa, mt, pb - pa);
+      if (painted) {                                   // bandes de voie de part et d'autre
+        const off = half * (seg.rank === "main" ? 0.5 : 0.42);
+        if (reflect) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const rc = `rgba(255,242,205,${(0.16 + 0.24 * night).toFixed(2)})`;
+          mLine(seg, pa, pb, cen, -off, rc, lw * 2.4, dash); mLine(seg, pa, pb, cen, off, rc, lw * 2.4, dash);
+          ctx.restore();
+        }
+        mLine(seg, pa, pb, cen, -off, dashCol, lw, dash); mLine(seg, pa, pb, cen, off, dashCol, lw, dash);
+      }
+      drawMedianLamps(seg.axis, seg.fixed, seg.a0, seg.a1, cen);   // lampadaires sur le terre-plein
+    }
+    ctx.setLineDash([]);
+  }
 
   // Mobilier de carrefour — au BORD du nœud seulement, CENTRE laissé OUVERT (pas de
   // cadre) : passages piétons rayés (ajourés ≠ contour plein), lignes d'arrêt sur la

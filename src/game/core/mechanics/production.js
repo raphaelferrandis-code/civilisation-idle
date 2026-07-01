@@ -140,6 +140,17 @@ function marketMultiplier() {
   return 1 + state.buildings.bureaucracy * 0.08;
 }
 
+// Réseau routier : couverture (bâtiments-moteur reliés au réseau / total) → jusqu'à
+// +10 % de production globale. La couverture est GÉOMÉTRIQUE (dépend des distances
+// réelles → « 1 route achetée = 1 tuile de connecteur, du plus proche au plus loin »),
+// donc calculée par la carte (connectBuildingsToNetwork) et déposée dans
+// `state.roadCoverage` ; le sim ne fait que la lire (défaut 0 : pas encore calculée).
+function roadNetworkMultiplier() {
+  const cov = state.roadCoverage;
+  const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
+  return 1 + c * 0.10;
+}
+
 export function addProductionPenalty(type, amount) {
   let effectiveAmount = amount;
   // Héritage Atlas — Légitimité haute atténue les effets négatifs des crises
@@ -332,7 +343,7 @@ function globalScalarFactors() {
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
   const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
@@ -347,7 +358,7 @@ export function globalMultiplierDec() {
     .mul(institutionMultiplierDec())
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
-    .mul(marketMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
+    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
   renderCache._frameGlobalMultDecVer = renderCache.frameVersion;
   return renderCache._frameGlobalMultDec;
 }

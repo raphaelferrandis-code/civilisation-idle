@@ -711,6 +711,139 @@ function computeTramRing(walls, core, band, N, riverSet, bankSet) {
   return { loop: { pts, cum, total }, corridor };
 }
 
+// ── Connexion des bâtiments au réseau ────────────────────────────────────────
+// Trace des rues DEPUIS le réseau existant JUSQU'aux bâtiments qui n'en touchent
+// aucune. Deux régimes :
+//   - décoratifs (maisons/tentes, non achetés) : reliés GRATUITEMENT (le réseau de
+//     base suit la ville) — coût plafonné (sécurité, ils sont déjà ~adjacents) ;
+//   - moteurs (achetés) : reliés au BUDGET de tuiles = nb de routes achetées
+//     (1 route = 1 tuile de connecteur), du PLUS PROCHE au plus loin.
+// Pose les cellules dans roads/roadKey/roadMeta avec les flags h/v pour que
+// cmBuildRoadGraph les relie. Renvoie { engineTotal, engineConnected }.
+function connectBuildingsToNetwork(o) {
+  const { roads, roadKey, roadMeta, tiles, N, riverSet, bankSet, claimed, engineFootprint, occupiedFoot } = o;
+  const RW = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
+  const O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const K = (x, y) => x + "," + y;
+  const inB = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+  const footCells = (t) => { const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1, out = []; for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) out.push([t.gx + ax, t.gy + ay]); return out; };
+  // Empreintes de TOUS les bâtiments (aucun connecteur ne les traverse), + eau + réservé.
+  const buildFoot = new Set();
+  for (const t of tiles) for (const [x, y] of footCells(t)) buildFoot.add(K(x, y));
+  const blocked = (x, y) => { const k = K(x, y); return riverSet.has(k) || bankSet.has(k) || buildFoot.has(k) || claimed.has(k) || engineFootprint.has(k) || occupiedFoot.has(k); };
+  const touchesRoad = (t) => footCells(t).some(([x, y]) => O4.some(([dx, dy]) => roadKey.has(K(x + dx, y + dy))));
+
+  // Pose (ou complète) une cellule de route avec un flag d'axe + un rang.
+  const lay = (x, y, axis, rank) => {
+    const k = K(x, y);
+    const m = roadMeta.get(k) || { h: false, v: false, rank: "path" };
+    if (axis === "h") m.h = true; else m.v = true;
+    if ((RW[rank] || 0) > (RW[m.rank] || 0)) m.rank = rank;
+    roadMeta.set(k, m);
+    if (!roadKey.has(k)) { roadKey.add(k); roads.push({ gx: x, gy: y }); }
+  };
+
+  // Champ de distance : BFS multi-source depuis TOUTES les routes, sur cases libres.
+  const computeField = () => {
+    const dist = new Map(), from = new Map(), q = [];
+    for (const k of roadKey) { dist.set(k, 0); q.push(k); }
+    for (let qi = 0; qi < q.length; qi += 1) {
+      const k = q[qi], ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1), d = dist.get(k);
+      for (const [dx, dy] of O4) {
+        const nx = x + dx, ny = y + dy; if (!inB(nx, ny)) continue;
+        const nk = K(nx, ny);
+        if (dist.has(nk) || blocked(nx, ny)) continue;
+        dist.set(nk, d + 1); from.set(nk, [x, y]); q.push(nk);
+      }
+    }
+    return { dist, from };
+  };
+
+  // Meilleur seuil (case libre adjacente à l'emprise) + chemin remonté jusqu'au réseau.
+  const plan = (t, field) => {
+    let best = null;
+    for (const [fx, fy] of footCells(t)) for (const [dx, dy] of O4) {
+      const sx = fx + dx, sy = fy + dy, sk = K(sx, sy);
+      if (!inB(sx, sy) || roadKey.has(sk)) continue;
+      const d = field.dist.get(sk); if (d == null) continue;
+      if (!best || d < best.d) best = { x: sx, y: sy, d };
+    }
+    if (!best) return null;
+    const path = []; let cx = best.x, cy = best.y;
+    for (let steps = 0; steps <= N * N; steps += 1) { // garde-fou absolu
+      const ck = K(cx, cy); if (roadKey.has(ck)) break;
+      path.push([cx, cy]); const p = field.from.get(ck); if (!p) break; cx = p[0]; cy = p[1];
+    }
+    const attach = field.from.get(K(path[path.length - 1][0], path[path.length - 1][1])) || [cx, cy];
+    return { path, attach, cost: path.length };
+  };
+
+  const carve = (p, rank) => {
+    const ordered = [p.attach, ...p.path.slice().reverse()]; // route → ... → seuil
+    for (let i = 0; i + 1 < ordered.length; i += 1) {
+      const [ax, ay] = ordered[i], [bx, by] = ordered[i + 1], axis = ay === by ? "h" : "v";
+      lay(ax, ay, axis, rank); lay(bx, by, axis, rank);
+    }
+  };
+
+  let budget = Math.max(0, o.roadBudget | 0);
+  const rank = o.connectorRank || "secondary";
+  const MAX_FREE = 4; // plafond de connexion gratuite d'un décoratif (sécurité)
+  let guard = tiles.length + 8;
+  while (guard-- > 0) {
+    const field = computeField();
+    let pick = null;
+    for (const t of tiles) {
+      if (touchesRoad(t)) continue;
+      const isEngine = t.type === "engine";
+      const p = plan(t, field); if (!p || p.cost === 0) continue;
+      if (isEngine) { if (p.cost > budget) continue; }
+      else if (p.cost > MAX_FREE) continue;
+      const rk = (isEngine ? 1e6 : 0) + p.cost; // décoratifs d'abord, puis coût croissant
+      if (!pick || rk < pick.rk) pick = { t, p, isEngine, rk };
+    }
+    if (!pick) break;
+    carve(pick.p, rank);
+    if (pick.isEngine) budget -= pick.p.cost;
+  }
+
+  const engines = tiles.filter((t) => t.type === "engine");
+  return { engineTotal: engines.length, engineConnected: engines.filter(touchesRoad).length };
+}
+
+// ── Terre-plein central = ENTITÉ décorable ──────────────────────────────────
+// Le terre-plein n'est plus peint « en dur » par cellule (→ carrés) : on calcule
+// ses SEGMENTS CONTINUS le long de chaque axe pour les routes de rang `avenue`+ ,
+// + un `medianSet` de cellules centrales. Continu À TRAVERS les croisements (pas de
+// coupure → ruban lisse). Sert au rendu du terre-plein ET, plus tard, à y poser du
+// décor (fleurs/arbres/lampadaires) : une passe de décor n'a qu'à parcourir medianSet.
+function computeMedianSegments(roadMap) {
+  const get = (gx, gy) => roadMap.get(gx + "," + gy);
+  const hasMedian = (c) => !!(c && (c.rank === "avenue" || c.rank === "main") && c.roadSurface !== "bridge");
+  const connH = (c) => !!(c && (c.mask & ROAD_E || c.mask & ROAD_W));
+  const connV = (c) => !!(c && (c.mask & ROAD_N || c.mask & ROAD_S));
+  const segments = [], medianSet = new Set(), seenH = new Set(), seenV = new Set();
+  for (const [key, cell] of roadMap) {
+    if (!hasMedian(cell)) continue;
+    const ci = key.indexOf(","), gx = +key.slice(0, ci), gy = +key.slice(ci + 1);
+    if (connH(cell) && !seenH.has(key)) {
+      let x0 = gx, x1 = gx;
+      for (let x = gx - 1; ; x -= 1) { const c = get(x, gy); if (hasMedian(c) && connH(c)) x0 = x; else break; }
+      for (let x = gx + 1; ; x += 1) { const c = get(x, gy); if (hasMedian(c) && connH(c)) x1 = x; else break; }
+      for (let x = x0; x <= x1; x += 1) { seenH.add(x + "," + gy); medianSet.add(x + "," + gy); }
+      if (x1 > x0) segments.push({ axis: "h", fixed: gy, a0: x0, a1: x1, rank: cell.rank });
+    }
+    if (connV(cell) && !seenV.has(key)) {
+      let y0 = gy, y1 = gy;
+      for (let y = gy - 1; ; y -= 1) { const c = get(gx, y); if (hasMedian(c) && connV(c)) y0 = y; else break; }
+      for (let y = gy + 1; ; y += 1) { const c = get(gx, y); if (hasMedian(c) && connV(c)) y1 = y; else break; }
+      for (let y = y0; y <= y1; y += 1) { seenV.add(gx + "," + y); medianSet.add(gx + "," + y); }
+      if (y1 > y0) segments.push({ axis: "v", fixed: gx, a0: y0, a1: y1, rank: cell.rank });
+    }
+  }
+  return { segments, medianSet };
+}
+
 // ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
   const c = cityCounts(s);
@@ -1466,6 +1599,21 @@ function computeCityLayout(s) {
   }
   trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
 
+  // ── Connexion : relie enfin les bâtiments au réseau. Décoratifs gratuits (réseau
+  //    de base qui suit la ville) ; moteurs au budget = nb de routes achetées
+  //    (1 route = 1 tuile), du plus proche au plus loin. Posé APRÈS le trim pour
+  //    que les connecteurs ne soient pas émondés, AVANT cmBuildRoadGraph.
+  const roadBudget = Math.floor((s.buildings && s.buildings.roads) || 0);
+  // Rang des connecteurs = mêmes seuils d'ère que les stades de bâtiment
+  // (eraIndex <10/<20/<30/≥30) → sentier / route / avenue / boulevard : les tuiles
+  // s'élargissent avec l'ère (largeur au rendu via roadWidthFor(rank, eraIndex)).
+  const ei = c.eraIndex;
+  const connectorRank = ei >= 30 ? "main" : ei >= 20 ? "avenue" : ei >= 10 ? "secondary" : "path";
+  const netCover = connectBuildingsToNetwork({
+    roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
+    claimed, engineFootprint, occupiedFoot, roadBudget, connectorRank
+  });
+
   let maxD2 = 1;
   for (const t of tiles) if (t.d2 > maxD2) maxD2 = t.d2;
 
@@ -1483,6 +1631,7 @@ function computeCityLayout(s) {
   }
 
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
+  const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
   const engineTileMap = new Map(
     tiles.filter((t) => t.type === "engine" && t.buildingId)
          .map((t) => [t.gx + "," + t.gy, t])
@@ -1501,7 +1650,7 @@ function computeCityLayout(s) {
   return {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, river, water, engineTileMap, wonderSlots, walls,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, river, water, engineTileMap, wonderSlots, walls,
     railLoop: tramRing ? tramRing.loop : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
@@ -1550,5 +1699,6 @@ export {
   cmWonderActive,
   cmWonderActiveIds,
   WONDER_TIER_NAMES,
-  computeCityLayout
+  computeCityLayout,
+  computeMedianSegments
 };
