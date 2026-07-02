@@ -796,6 +796,20 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "sewers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "sewers"); return; }
+    // Scène pixel stade 0 (PixelLab) : station d'évacuation — hutte trapue en
+    // pierre sèche, toit bois, arche sombre grillagée, filet d'eau croupie ANIMÉ
+    // en sortie (bande composée hors-ligne, pipeline aqueduc). Le RÉSEAU, lui,
+    // se voit sur la chaussée (L.sewerDeco, cf. layout/pixelTerrain). Couvre
+    // bands 0-6 ; repli = prop statique, puis le procédural étagé d'origine.
+    if (animReady('sewers-water') && propReady('sewers-prop')) {
+      blitProp(ctx, ox, oy, sw, sh, 'sewers-prop', 0.5, 0.52, 0.92, 0.77);
+      blitAnim(ctx, ox, oy, sw, sh, 'sewers-water', now, 0.5, 0.52, 0.92, 0.77);
+      return;
+    }
+    if (propReady('sewers-prop')) {
+      blitProp(ctx, ox, oy, sw, sh, 'sewers-prop', 0.5, 0.52, 0.92, 0.77);
+      return;
+    }
     // Égouts : canaux ouverts → réseau de pierres → conduites modernes
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     const band2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;

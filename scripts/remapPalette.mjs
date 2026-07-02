@@ -17,9 +17,13 @@
 //   • --fringe seuil alpha sous lequel le pixel devient transparent (défaut 16) — tue le halo AA.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+// fileURLToPath (PAS url.pathname) : avec un espace dans le chemin du projet,
+// pathname garde le %20 encodé → les écritures partaient dans un répertoire
+// fantôme « Civilisation%20idle » (bug corrigé 2026-07-02).
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const PUB = path.join(ROOT, 'public', 'pixelart');
 const PAL = JSON.parse(fs.readFileSync(path.join(PUB, 'master-palette.json'), 'utf8'));

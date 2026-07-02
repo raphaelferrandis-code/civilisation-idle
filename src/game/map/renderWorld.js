@@ -701,10 +701,10 @@ function cityMapDrawRiver(now) {
 
   const tw = state.timeWear || 0;
   const collapsed = CM.collapseAt ? true : false;
-  let edge, mid, refA;
-  if (collapsed) { edge = "#0a1a0a"; mid = "#0a1a0a"; refA = 0; }
-  else if (tw > 0.7) { edge = "#142a1e"; mid = "#1a3a2a"; refA = 0.05; }
-  else { edge = "#1a2e3a"; mid = "#2c4a5e"; refA = 0.16; } // eau saine : ardoise bleu-nuit désaturée, accordée à la palette UI (--surface-raised)
+  let edge, mid;
+  if (collapsed) { edge = "#0a1a0a"; mid = "#0a1a0a"; }
+  else if (tw > 0.7) { edge = "#142a1e"; mid = "#1a3a2a"; }
+  else { edge = "#1a2e3a"; mid = "#2c4a5e"; } // eau saine : ardoise bleu-nuit désaturée, accordée à la palette UI (--surface-raised)
 
   const normalAt = (i) => {
     const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
@@ -719,35 +719,8 @@ function cityMapDrawRiver(now) {
   };
   ribbon(1, edge);
   ribbon(0.55, mid);
-
-  if (!collapsed) {
-    // Filets de courant : ondulation lente et ample, presque paresseuse.
-    ctx.strokeStyle = `rgba(255,255,255,${(refA * 0.5).toFixed(3)})`; ctx.lineWidth = 1;
-    for (let w2 = 0; w2 < 3; w2 += 1) {
-      ctx.beginPath();
-      for (let i = 0; i < sm.length; i += 1) {
-        const n = normalAt(i);
-        const off = (w2 - 1) * sm[i].hw * 0.45 + Math.sin(i * 0.35 + (now || 0) / 2400 + w2 * 2) * sm[i].hw * 0.22;
-        const x = SX(sm[i].x + n.nx * off), y = SY(sm[i].y + n.ny * off);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
-    // Étincelles : points doux qui glissent lentement avec le courant.
-    for (let i = 0; i < 9; i += 1) {
-      const t = (((now || 0) / 1000 * (0.012 + (i % 3) * 0.006)) + i * 0.11) % 1;
-      const idx = Math.floor(t * (sm.length - 1));
-      const flick = 0.4 + 0.6 * Math.abs(Math.sin((now || 0) / 1100 + i * 1.7));
-      // La nuit, l'eau reflète les lumières chaudes de la ville.
-      const nf = CM.nightF || 0;
-      ctx.fillStyle = nf > 0.3
-        ? `rgba(255,210,130,${(refA * flick * (0.8 + nf)).toFixed(3)})`
-        : `rgba(255,255,255,${(refA * flick).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(SX(sm[idx].x), SY(sm[idx].y), Math.max(1, 1.3 * z), 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  // (Filets de courant + étincelles vectoriels RETIRÉS le 2026-07-02 à la
+  // demande — même décision que dans pixelRiver.js, le rendu principal.)
 
   const reedOk = tw < 0.7 && !collapsed;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;

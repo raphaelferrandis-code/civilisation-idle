@@ -440,6 +440,78 @@ function drawMinimap() {
   m.strokeRect(vx, vy, vw, vh);
 }
 
+// ── Merveilles pixel-art ─────────────────────────────────────────────────────
+// Sprites 5 rangs (public/pixelart/wonders/<id>-t<rang>.png) + flammes animées
+// en overlay, positionnées par <id>-flames.json (ancres curées à la main).
+// Manifeste : seules les merveilles listées ici sont migrées, les autres
+// restent procédurales. Repli procédural tant que le sprite n'est pas chargé.
+const WONDER_PX_IDS = new Set(["dynasty1"]);
+const wonderPxCache = new Map(); // "dynasty1-t3" -> { img, ready, nw, nh }
+function wonderPixelSprite(id, tier) {
+  if (!WONDER_PX_IDS.has(id)) return null;
+  const key = id + "-t" + tier;
+  let e = wonderPxCache.get(key);
+  if (!e) {
+    e = { img: new Image(), ready: false, nw: 0, nh: 0 };
+    e.img.onload = () => { e.nw = e.img.naturalWidth; e.nh = e.img.naturalHeight; e.ready = true; };
+    e.img.src = "/pixelart/wonders/" + key + ".png";
+    wonderPxCache.set(key, e);
+  }
+  return e.ready ? e : null;
+}
+let wonderFlamesCfg = null, wonderFlamesAsked = false;
+const wonderFlameStrips = new Map(); // fichier -> { img, ready }
+function wonderFlamesData() {
+  if (!wonderFlamesAsked) {
+    wonderFlamesAsked = true;
+    fetch("/pixelart/wonders/dynasty1-flames.json").then((r) => r.json()).then((j) => {
+      wonderFlamesCfg = j;
+      for (const a of Object.values(j.asset)) {
+        if (wonderFlameStrips.has(a.file)) continue;
+        const st = { img: new Image(), ready: false };
+        st.img.onload = () => { st.ready = true; };
+        st.img.src = "/pixelart/wonders/" + a.file;
+        wonderFlameStrips.set(a.file, st);
+      }
+    }).catch(() => {});
+  }
+  return wonderFlamesCfg;
+}
+// Blit du sprite de merveille + flammes animées à leurs ancres. Chaque foyer
+// boucle en ping-pong (0..n-1..1) avec un déphasage propre pour ne pas battre
+// à l'unisson. Pendant l'érection (e<0.98) le sprite pousse écrasé, sans
+// flammes overlay (les flammes cuites du sprite assurent l'intérim).
+function drawWonderPixelSprite(px, tier, cxs, baseY, W, H, e, now) {
+  const ctx = CM.ctx;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(px.img, cxs - W / 2, baseY - H, W, H);
+  const cfg = wonderFlamesData();
+  const tierCfg = cfg && cfg.tiers && cfg.tiers["t" + tier];
+  if (tierCfg && e >= 0.98) {
+    const sx = W / px.nw, sy = H / px.nh;
+    const left = cxs - W / 2, top = baseY - H;
+    for (let i = 0; i < tierCfg.flames.length; i += 1) {
+      const f = tierCfg.flames[i];
+      const a = cfg.asset[f.kind];
+      const strip = a && wonderFlameStrips.get(a.file);
+      if (!strip || !strip.ready) continue;
+      const seq = a.frames * 2 - 2;
+      const st = Math.floor(now / 90 + i * 2.63) % seq;
+      const k = st < a.frames ? st : seq - st;
+      // Nettement plus grande que la flamme cuite : même dans les frames où la
+      // flamme animée penche, sa silhouette recouvre la flamme du sprite (sinon
+      // les deux se voient en double). La flamme de porte reste bridée pour ne
+      // pas déborder de l'encadrement.
+      const sc = f.kind === "door" ? 1.15 : 1.7;
+      const dw = (f.w * sc + 2) * sx, dh = (f.h * sc + 2) * sy;
+      ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh,
+        left + f.x * sx - dw / 2, top + f.y * sy - dh + sy, dw, dh);
+    }
+  }
+  ctx.imageSmoothingEnabled = prev;
+}
+
 function drawWonder(w, idx, now) {
   const L = CM.layout; if (!L) return;
   const slot = cmWonderSlot(idx, L.gridN, L.cx, L.cy);
@@ -454,9 +526,18 @@ function drawWonder(w, idx, now) {
   if (w.id === "era_singularity"){ H_MAX = s * 8.5; W = s * 3.2; }
   // Palier d'évolution (1..5) : le monument grandit à chaque jalon franchi.
   const tier = Math.max(1, Math.min(5, (state && state.wonderTiers && state.wonderTiers[w.id]) || 1));
-  const tierMul = 0.78 + tier * 0.11; // rang I : ×0.89 → rang V : ×1.33
-  H_MAX *= tierMul;
-  W *= tierMul;
+  // Sprite pixel-art dédié ? Dimensionné à densité constante (~34 px de sprite
+  // par tuile) : la taille en jeu suit la taille native du rang (112→400 px).
+  const px = wonderPixelSprite(w.id, tier);
+  if (px) {
+    const PPT = 34;
+    W = s * (px.nw / PPT);
+    H_MAX = s * (px.nh / PPT);
+  } else {
+    const tierMul = 0.78 + tier * 0.11; // rang I : ×0.89 → rang V : ×1.33
+    H_MAX *= tierMul;
+    W *= tierMul;
+  }
   if (cxs < -W * 3 || cxs > CM.cw + W * 3 || baseY < -H_MAX * 1.5 || baseY > CM.ch + s * 3) return;
 
   const born = CM.born["wonder:" + w.id];
@@ -467,6 +548,18 @@ function drawWonder(w, idx, now) {
   const ctx = CM.ctx;
   const glow = 0.5 + 0.25 * Math.sin(now / 700 + idx * 1.3);
   const tint = CM_TINTS[CM.dynastyIdx % CM_TINTS.length];
+
+  // Merveille pixel-art : le sprite EST tout le monument. Aucun habillage
+  // procédural (esplanade, aura, ombre portée, torches, stèles, particules,
+  // couronne orbitale, faisceau nocturne, bannière) — seules les flammes
+  // overlay animent la scène. L'érection (e<1) écrase le sprite qui pousse.
+  if (px) {
+    if (H < 3) return;
+    ctx.globalAlpha = e;
+    drawWonderPixelSprite(px, tier, cxs, baseY, W, H, e, now);
+    ctx.globalAlpha = 1;
+    return;
+  }
 
   // Esplanade pavée
   const plazaRx = W * 1.15, plazaRy = plazaRx * 0.36;

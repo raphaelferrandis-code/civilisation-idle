@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { state } from '../core/state.js';
 import { eras } from '../data/world.js';
-import { seededRng } from '../core/utils.js';
+import { seededRng, fmtShort } from '../core/utils.js';
 import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
@@ -129,12 +129,12 @@ function cmWaterAffine(affinity) {
 const CM_WONDERS = [
   { id: "dynasty1",       name: "Le Mausolée du Fondateur",   icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
     unlockedBy: "Première dynastie fondée.",
-    metric: (s) => s.dynastyCount || 0, tiers: [1, 3, 5, 8, 12],
+    metric: (s) => s.dynastyCount || 0, tiers: [1, 50, 200, 400, 750],
     tierLabel: (v) => `${v} dynastie${v > 1 ? "s" : ""}` },
   { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
     unlockedBy: "Population d'au moins 1 000 000.",
-    metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e7, 1e8, 1e9, 1e10],
-    tierLabel: (v) => v >= 1e9 ? `${v / 1e9} milliard${v >= 2e9 ? "s" : ""} d'habitants` : `${v / 1e6} million${v >= 2e6 ? "s" : ""} d'habitants` },
+    metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e13, 1e20, 1e27, 1e34],
+    tierLabel: (v) => `${fmtShort(v)} habitants` },
   { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
     unlockedBy: "Âge du royaume atteint.",
     metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],

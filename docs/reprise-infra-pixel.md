@@ -13,8 +13,8 @@ La série **INFRA** vient de démarrer :
 |---|---|---|---|
 | Aqueducs | `aqueducts` | ✅ fait | eau qui coule |
 | Veilleurs | `watch` | ✅ fait | feu de signal |
-| Égouts | `sewers` | ▶️ à faire (proposition ci-dessous) | — |
-| Bureaucratie | `bureaucracy` | à faire | — |
+| Égouts | `sewers` | ✅ fait (2026-07-02) | filet d'eau croupie (bande procédurale) |
+| Bureaucratie | `bureaucracy` | ▶️ à faire | — |
 | Tribunaux | `courthouses` | à faire | — |
 | Grands travaux | `public_works` | à faire | — |
 | Ministères | `ministries` | à faire | — |
@@ -54,18 +54,27 @@ La série **INFRA** vient de démarrer :
 6. Câbler (rendu + PROP_KEYS/ANIM_BANDS + tag buildPalette).
 7. Vérifier live (voir plus bas), puis `npx vitest run src/game/map`.
 
-## Proposition ÉGOUTS (`sewers`) — validée dans le principe, pas encore faite
+## ÉGOUTS (`sewers`) — fait 2026-07-02, leçons
 
-Deux couches :
-1. **Station** sur la/les tuile(s) `sewers` existante(s) : bouche d'évacuation
-   voûtée en pierre sèche (arche basse + caniveau sombre + grille de bois),
-   bâtiment fermé toit visible. Statique, éventuel filet d'eau animé en sortie.
-2. **Plaques d'égout sur les routes** : PAS des sprites posés un par un, mais une
-   **déco de chaussée bakée** (comme les rubans du terre-plein, cf. `layout.js`
-   `computeTerrePleinSegments` + rendu dans `renderWorld.js`). Motif 4-6 px par
-   cellule de route, choisi par hash déterministe, densité ∝ nombre d'égouts,
-   qui s'étend depuis la station (rues proches d'abord). Staging par ère :
-   caniveaux transversaux (primitif) → plaques rondes en fonte (pierre/industriel).
+- **Station** ✅ : hutte trapue en pierre sèche, toit bois, arche sombre + grille,
+  filet d'eau croupie en sortie. Sprites `sewers-prop.png` (96×80) +
+  `sewers-water.png` (bande 7 frames). Blit `0.5, 0.52, 0.92, 0.77`.
+- **⚠ `animate_object` v3 a échoué 3/3** (« Generation failed ») sur ce map-object →
+  la bande d'eau est composée PROCÉDURALEMENT par `scripts/sewerWaterBand.mjs`
+  (VERSIONNÉ, contrairement aux scripts perdus de l'ancienne session) : masque =
+  verts vifs (g>r+40 && g>b+90) dans une fenêtre GATE sur le sprite RAW, onde de
+  brillance le long du flux en cyclant la rampe foliage + écume boneWhite ; les
+  couleurs sortent déjà dans la palette → aucun remap après. Réutilisable pour
+  tout filet/flux du même genre.
+- **Plaques/caniveaux sur les routes : REJETÉ par Raph** (2026-07-02, « c'est
+  nul ») après essai complet (BFS depuis les stations + motifs par ère). Code
+  retiré (layout + pixelTerrain + test). NE PAS refaire sans nouvelle demande —
+  la scène égouts = les stations seules.
+- **⚠ Gotcha capture** : la clé de `CM.born` est **`t.key`**
+  (`engine:sewers:0:0:…`), PAS `gx,gy`. Et `captureFrame` rend avec un `now`
+  déterministe ≈0 → born « récent » = âge négatif = opacité 0. Toujours
+  `for (const t of CM.layout.tiles) CM.born[t.key] = -1e6` avant capture, puis
+  invalider `CM.staticCamKey/tileCamKey/groundCamKey = ''`.
 
 ## Aqueduc — historique utile
 
@@ -95,8 +104,12 @@ Deux couches :
 
 ## À NE PAS OUBLIER
 
-- **`master-palette.json` / `.gpl` / `palettes/` PAS régénérés** : les tags des
-  nouveaux sprites sont dans la SOURCE `buildPalette.mjs` mais pas figés, parce
-  qu'une refonte terre-cuite d'`eraThemes.js` est en cours. Quand les teintes sont
-  figées : `node scripts/buildPalette.mjs`.
+- **Palette maîtresse FIGÉE le 2026-07-02** (terracotta validé par Raph) :
+  `master-palette.json/.gpl` + `palettes/*.png` régénérés avec les 68 tags.
+  ⚠ Bug corrigé au passage : `buildPalette.mjs`/`remapPalette.mjs` calculaient
+  leur racine via `new URL(...).pathname` → avec l'ESPACE du chemin du projet,
+  toutes les écritures partaient dans un répertoire fantôme
+  `Civilisation%20idle\` (supprimé). Le vrai `master-palette.json` était resté
+  périmé pendant que les régénérations « réussissaient ». Corrigé en
+  `fileURLToPath`. Si un script d'asset semble « écrire sans effet », vérifier ça.
 - Le repli procédural de chaque bâtiment reste en place — ne pas le supprimer.

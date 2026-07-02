@@ -16,9 +16,9 @@
  *   PixelLab (create_1_direction_object + animate_object) ne sait PAS produire de
  *   texture pleine-cadre tileable (elle fabrique des objets centrés à marge
  *   transparente : 16 candidats vides/blob vérifiés). On anime donc en code :
- *   deux couches de la tuile défilant à vitesses différentes (parallaxe/courant)
- *   + les overlays vectoriels de cityMapDrawRiver (filets + étincelles), fins,
- *   qui animent la surface sans masquer le pixel-art.
+ *   deux couches de la tuile défilant à vitesses différentes (parallaxe/courant).
+ *   Les overlays vectoriels (filets sinusoïdaux + étincelles) ont été RETIRÉS
+ *   le 2026-07-02 à la demande de Raph.
  *
  *   Déclin (Phase 4) : en cité usée (timeWear>0.7) ou effondrée (CM.collapseAt) on
  *   GARDE le pixel-art et on le TEINTE en multiply — vert stagnant / noir — sans
@@ -197,6 +197,9 @@ export function drawPixelRiver(CM, now) {
     strokeEdge(-0.14, 'rgba(114,160,178,0.40)', Math.max(2, z * 3.6)); // eau peu profonde
     strokeEdge(-0.04, 'rgba(150,190,204,0.55)', Math.max(2, z * 2.2)); // écume large
     strokeEdge(-0.01, 'rgba(200,228,236,0.78)', Math.max(1, z * 1.4)); // liseré d'écume vif
+    // Étincelles « + » pixel (seul survivant de la refonte 2026-07-02 avec la
+    // teinte teal de la tuile — écume/reflets de berge annulés par Raph).
+    drawWaterSparkles(CM, now, sm, SX, SY);
   } else if (worn) {                                  // eau stagnante : bord assombri, pas d'écume
     strokeEdge(-0.10, 'rgba(12,22,14,0.32)', Math.max(2, z * 3));
   }                                                   // effondré : aucun bord (eau morte)
@@ -209,8 +212,8 @@ export function drawPixelRiver(CM, now) {
   // juste après (hygiène — inoffensif aujourd'hui car ils réassignent, mais c'est
   // la convention du projet).
   ctx.save();
-  // Filets/étincelles : pleins en eau saine, atténués en usé, rien en effondré.
-  if (!collapsed) drawRiverOverlays(CM, now, sm, SX, SY, worn ? 0.05 : 0.16);
+  // (Les filets de courant + étincelles vectoriels ont été RETIRÉS le 2026-07-02
+  // à la demande — la surface vit par la texture animée seule.)
   // Roseaux : seulement en eau saine (secs/absents en déclin), sur les berges NON
   // urbaines (le gate du quai les masque là où il y a une promenade).
   if (!collapsed && !worn) drawRiverReeds(CM, sm, SX, SY);
@@ -275,33 +278,52 @@ function drawRiverReeds(CM, sm, SX, SY) {
   ctx.imageSmoothingEnabled = prevS;
 }
 
-// Filets de courant + étincelles — copie de cityMapDrawRiver (état sain), tracés
-// PAR-DESSUS la texture. refA = 0.16 (eau saine).
-function drawRiverOverlays(CM, now, sm, SX, SY, refA) {
-  const ctx = CM.ctx, z = CM.cam.zoom;
-  // Filets : 3 ondulations lentes le long de la normale.
-  ctx.strokeStyle = `rgba(255,255,255,${(refA * 0.5).toFixed(3)})`; ctx.lineWidth = 1;
-  for (let w2 = 0; w2 < 3; w2 += 1) {
-    ctx.beginPath();
-    for (let i = 0; i < sm.length; i += 1) {
-      const n = riverNormalAt(sm, i);
-      const off = (w2 - 1) * sm[i].hw * 0.45 + Math.sin(i * 0.35 + (now || 0) / 2400 + w2 * 2) * sm[i].hw * 0.22;
-      const x = SX(sm[i].x + n.nx * off), y = SY(sm[i].y + n.ny * off);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  // Étincelles : 9 points doux qui glissent ; chauds (reflets ville) la nuit.
-  const nf = CM.nightF || 0;
-  for (let i = 0; i < 9; i += 1) {
-    const t = (((now || 0) / 1000 * (0.012 + (i % 3) * 0.006)) + i * 0.11) % 1;
-    const idx = Math.floor(t * (sm.length - 1));
-    const flick = 0.4 + 0.6 * Math.abs(Math.sin((now || 0) / 1100 + i * 1.7));
-    ctx.fillStyle = nf > 0.3
-      ? `rgba(255,210,130,${(refA * flick * (0.8 + nf)).toFixed(3)})`
-      : `rgba(255,255,255,${(refA * flick).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(SX(sm[idx].x), SY(sm[idx].y), Math.max(1, 1.3 * z), 0, Math.PI * 2);
-    ctx.fill();
+/* ---------------------------------------------------------------------------
+ * Étincelles pixel de la surface — seul survivant (avec la teinte teal de la
+ * tuile, cf. scripts/retintWater.mjs) de la refonte « wahou » du 2026-07-02 :
+ * l'écume de berge irrégulière et les reflets sous la rive ont été ANNULÉS par
+ * Raph. Déterministe (hash, pas de Math.random) ; rien sous zoom 0.8.
+ * ------------------------------------------------------------------------- */
+
+// Hash spatial entier → uint32 stable.
+function pxHash(x, y, salt) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(salt, 97)) | 0;
+  h ^= h >> 13; h = Math.imul(h, 1274126177);
+  return (h ^ (h >> 16)) >>> 0;
+}
+// Position interpolée le long du fleuve (u en samples, lat en fraction de hw).
+function riverPosAt(sm, u, lat) {
+  const len = sm.length;
+  const i0 = Math.max(0, Math.min(len - 2, Math.floor(u))), f = u - i0;
+  const a = sm[i0], b = sm[i0 + 1], n = riverNormalAt(sm, i0);
+  const hw = (a.hw + (b.hw - a.hw) * f) * lat;
+  return { x: a.x + (b.x - a.x) * f + n.nx * hw, y: a.y + (b.y - a.y) * f + n.ny * hw, n, hw: a.hw + (b.hw - a.hw) * f };
+}
+
+// ÉTINCELLES « + » : rares, en eau libre, apparition/disparition lente
+// (sinusoïde par hash — déterministe à `now` fixé, scintille en live).
+function drawWaterSparkles(CM, now, sm, SX, SY) {
+  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, len = sm.length;
+  if (z < 0.8 || len < 3) return;
+  const pw = Math.max(1, Math.round(T * z / 16));
+  const K = Math.max(6, Math.min(16, Math.round(len / 5)));
+  for (let k = 0; k < K; k += 1) {
+    const h = pxHash(k + 1, 91, 41);
+    const tw = Math.abs(Math.sin((now || 0) / 1600 + (h & 15)));
+    if (tw < 0.55) continue;                         // n'existe qu'au pic
+    const u = (h >> 4) % ((len - 1) * 8) / 8;
+    const lat = (((h >> 8) & 255) / 255 - 0.5) * 1.1;
+    const p0 = riverPosAt(sm, u, lat);
+    const sx = SX(p0.x), sy = SY(p0.y);
+    if (sx < -pw * 4 || sx > CM.cw + pw * 4 || sy < -pw * 4 || sy > CM.ch + pw * 4) continue;
+    const a = ((tw - 0.55) / 0.45) * 0.9;
+    ctx.fillStyle = `rgba(251,250,244,${a.toFixed(2)})`;
+    ctx.fillRect(sx - (pw >> 1), sy - (pw >> 1), pw, pw);            // cœur
+    ctx.fillStyle = `rgba(233,228,214,${(a * 0.7).toFixed(2)})`;
+    ctx.fillRect(sx - (pw >> 1) - pw, sy - (pw >> 1), pw, pw);       // bras O
+    ctx.fillRect(sx - (pw >> 1) + pw, sy - (pw >> 1), pw, pw);       // bras E
+    ctx.fillRect(sx - (pw >> 1), sy - (pw >> 1) - pw, pw, pw);       // bras N
+    ctx.fillRect(sx - (pw >> 1), sy - (pw >> 1) + pw, pw, pw);       // bras S
   }
 }
+

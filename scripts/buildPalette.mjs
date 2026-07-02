@@ -16,9 +16,13 @@
 //       Cible APRÈS remap : 16-24 teintes par sprite (cf. remapPalette.mjs).
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+// fileURLToPath (PAS url.pathname) : avec un espace dans le chemin du projet,
+// pathname garde le %20 encodé → les écritures partaient dans un répertoire
+// fantôme « Civilisation%20idle » (bug corrigé 2026-07-02).
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const PUB = path.join(ROOT, 'public', 'pixelart');
 const PAL_DIR = path.join(PUB, 'palettes');
@@ -106,6 +110,7 @@ const SPRITE_EPOCH_TAGS = {
   'aqueduct-outlet': 'feu', 'aqueduct-seg': 'feu', 'aqueduct-intake': 'feu',
   'aqueduct-water-outlet': 'feu', 'aqueduct-water-seg': 'feu', 'aqueduct-water-intake': 'feu',
   'watch-back': 'feu', 'watch-fire': 'feu', 'watch-prop': 'feu',
+  'sewers-prop': 'feu', 'sewers-water': 'feu',
   // Agents (bonus — même cohérence par époque)
   'caveman': 'feu', 'cavewoman': 'feu', 'cavechild': 'feu', 'forager': 'feu',
   'villager': 'bois', 'villagerwoman': 'bois', 'villagerchild': 'bois', 'farmer': 'bois', 'ox': 'bois', 'horse': 'bois',
