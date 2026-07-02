@@ -13,9 +13,11 @@ Ce fichier remplace la mémoire locale (qui ne suit pas d'un poste à l'autre).
 - **UI** : rangée `Routes` de la boutique → ligne « {Sentiers|Routes|Avenues|Boulevards} · X% relié (+Y%) » + tooltip (PurchaseRow.jsx, `roadNetworkInfo()`). Se rafraîchit via `globalMult` (le bonus routes y est composé).
 - **Desc** `roads` (buildings.js) : mentionne le réseau et le +10 %.
 
+- **Terre-plein décorable** ✅ : ruban végétalisé (kerb + gazon `#586034` + buissons/fleurs terracotta déterministes) rendu dans `pixelTerrain.js` depuis DEUX entités pures du layout : `L.median` (axes de rang avenue/main — apparaît au palier « Avenues », ei≥20, continu à travers les croisements) et `L.terrePlein` (couture entre deux voies exactement collées, `computeTerrePleinSegments`, géométrie rare mais couverte + testée). Toute déco future (arbres, lampadaires) itère ces mêmes entités.
+
 ### Restes optionnels (non bloquants)
-- Terre-plein décorable (`L.roadMedian` / `medianSet` déjà calculés) pour poser fleurs/arbres.
 - Routes construites tuile-par-tuile à l'achat (proposé, jamais demandé).
+- Déco de terre-plein plus riche (arbres/lampadaires sur `L.median`/`L.terrePlein`).
 
 ---
 

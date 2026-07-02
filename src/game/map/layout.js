@@ -844,6 +844,41 @@ function computeMedianSegments(roadMap) {
   return { segments, medianSet };
 }
 
+// ── Terre-plein DÉCORABLE des boulevards (rendu pixel) ──────────────────────
+// Deux voies EXACTEMENT collées (2 de large, pas 3+) = boulevard : un terre-plein
+// se glisse sur la COUTURE entre les deux voies, en runs continus (≥ MIN_RUN, sinon
+// miettes). Il s'interrompt naturellement AUX intersections (le croisement rend le
+// couloir « plus large que 2 » → la traversée reste dégagée), et exclut ponts et
+// places. Entité PURE exposée en `L.terrePlein` : le rendu (pixelTerrain) ET toute
+// déco future (fleurs/arbres/lampadaires) itèrent ces segments.
+//   { axis:"v", x,  y0, y1 } = couture verticale entre les colonnes x et x+1 ;
+//   { axis:"h", y,  x0, x1 } = couture horizontale entre les rangées y et y+1.
+function computeTerrePleinSegments(roadMap, N) {
+  const MIN_RUN = 3;
+  const get = (x, y) => roadMap.get(x + "," + y);
+  const lane = (c) => !!c && c.roadSurface !== "bridge" && c.rank !== "plaza";
+  const segments = [];
+  // Coutures VERTICALES : colonnes x|x+1 en voies, rien en x-1 ni x+2.
+  for (let x = 0; x < N - 1; x += 1) {
+    let y0 = -1;
+    for (let y = 0; y <= N; y += 1) {
+      const ok = y < N && lane(get(x, y)) && lane(get(x + 1, y)) && !lane(get(x - 1, y)) && !lane(get(x + 2, y));
+      if (ok && y0 < 0) y0 = y;
+      else if (!ok && y0 >= 0) { if (y - y0 >= MIN_RUN) segments.push({ axis: "v", x, y0, y1: y - 1 }); y0 = -1; }
+    }
+  }
+  // Coutures HORIZONTALES : rangées y|y+1 en voies, rien en y-1 ni y+2.
+  for (let y = 0; y < N - 1; y += 1) {
+    let x0 = -1;
+    for (let x = 0; x <= N; x += 1) {
+      const ok = x < N && lane(get(x, y)) && lane(get(x, y + 1)) && !lane(get(x, y - 1)) && !lane(get(x, y + 2));
+      if (ok && x0 < 0) x0 = x;
+      else if (!ok && x0 >= 0) { if (x - x0 >= MIN_RUN) segments.push({ axis: "h", y, x0, x1: x - 1 }); x0 = -1; }
+    }
+  }
+  return segments;
+}
+
 // ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
   const c = cityCounts(s);
@@ -1632,6 +1667,7 @@ function computeCityLayout(s) {
 
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
+  const terrePlein = computeTerrePleinSegments(roadGraph.roadMap, N); // couture des voies collées
   // Cellules de SOL (ni route, ni bâti, ni eau) coincées ENTRE deux routes (route à l'ouest
   // ET à l'est, OU au nord ET au sud) : ce sont les « carrés de sol » qui apparaissent au
   // milieu quand deux routes passent près l'une de l'autre (faux carrefours). On les
@@ -1666,7 +1702,7 @@ function computeCityLayout(s) {
   return {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, river, water, engineTileMap, wonderSlots, walls,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, walls,
     railLoop: tramRing ? tramRing.loop : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
@@ -1716,5 +1752,6 @@ export {
   cmWonderActiveIds,
   WONDER_TIER_NAMES,
   computeCityLayout,
-  computeMedianSegments
+  computeMedianSegments,
+  computeTerrePleinSegments
 };
