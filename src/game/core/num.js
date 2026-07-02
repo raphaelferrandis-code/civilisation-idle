@@ -33,8 +33,17 @@ if (import.meta.env?.DEV) {
   };
 }
 
-// Convertit toute valeur (Decimal, number, string sérialisée) en Decimal,
-// sans réallocation si c'en est déjà un. Valeur invalide → 0.
+// Objet plat { mantissa, exponent } : un Decimal DÉSHYDRATÉ (save JSON d'une
+// autre version, set direct en test/console). Sans détection dédiée il coerce
+// en NaN (toNum) ou en 0 (D) — le NaN se propage aux caps/coordonnées du layout
+// et FIGE le placement dans une boucle infinie (thread bloqué, reload impossible).
+function plainDecimal(value) {
+  return value !== null && typeof value === "object"
+    && typeof value.mantissa === "number" && typeof value.exponent === "number";
+}
+
+// Convertit toute valeur (Decimal, number, string sérialisée, Decimal déshydraté)
+// en Decimal, sans réallocation si c'en est déjà un. Valeur invalide → 0.
 export function D(value) {
   if (value instanceof Decimal) return value;
   if (typeof value === "number") {
@@ -44,12 +53,22 @@ export function D(value) {
     const parsed = new Decimal(value);
     return Number.isFinite(parsed.mantissa) ? parsed : new Decimal(0);
   }
+  if (plainDecimal(value)) {
+    return Number.isFinite(value.mantissa)
+      ? Decimal.fromMantissaExponent(value.mantissa, value.exponent)
+      : new Decimal(0);
+  }
   return new Decimal(0);
 }
 
 // Ramène une valeur potentiellement Decimal vers un number natif.
 // Au-delà de ~1.8e308 le résultat est Infinity : à n'utiliser que pour des
 // valeurs bornées par construction (ratios, jauges) ou tolérantes à Infinity.
+// Jamais NaN : une valeur inconvertible vaut 0 (cf. gel du layout ci-dessus).
 export function toNum(value) {
-  return value instanceof Decimal ? value.toNumber() : Number(value);
+  if (value instanceof Decimal) return value.toNumber();
+  const n = plainDecimal(value)
+    ? value.mantissa * Math.pow(10, value.exponent)
+    : Number(value);
+  return Number.isNaN(n) ? 0 : n;
 }

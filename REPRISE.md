@@ -58,16 +58,23 @@ Ce fichier remplace la mémoire locale (qui ne suit pas d'un poste à l'autre).
 
 ---
 
-## Audit perf/robustesse — prompt pour une nouvelle conversation
+## Audit perf/robustesse — ✅ FAIT 2026-07-02
 
-> Audit perf + robustesse du moteur de carte de « Civilisation: Effondrement Idle » (idle game React + Canvas 2D). Le rendu ville est dans `src/game/map/` : `cityMapRuntime.js` (boucle frame + caches offscreen static/tile), `layout.js` (calcul du plan, censé pur), `pixelTerrain.js` (sol/rues pixel edge-Wang), `renderWorld.js` (routes/eau procédurales), `production.js` (simulation pure).
->
-> Fais un audit approfondi (perf, robustesse, couplages) puis IMPLÉMENTE les correctifs à fort ratio impact/effort, avec vérification (`npx vitest run` + instrumentation). Pistes prioritaires :
-> 1. **Sol pixel redessiné LIVE chaque frame** : `pixelTerrain.js drawPixelTerrain` appelé à chaque frame depuis `cityMapRuntime.js` (~l.890, « sol ET rivière ne sont PAS dans ce canvas ») — boucle 4 couches/cellule sur le viewport alors que c'est statique entre mouvements caméra. Envisager un cache offscreen blitté en préservant l'ordre sol→rivière→blit.
-> 2. **Freeze thread si `state.population` n'est pas un Decimal valide** : objet plat `{mantissa,exponent}` casse le dimensionnement de grille → boucle infinie (layout.js). Ajouter garde/normalisation à l'entrée de `computeCityLayout`.
-> 3. **Crash `setTransform` null** sur grandes villes (pop ≥ ~2e5) : vérifier `CM.ctx/sctx/tctx` (`cityMapRuntime.js` l.76/790/887). Reproduire puis corriger, ou confirmer artefact.
-> 4. **Couplage sim↔rendu** : `production.js roadNetworkMultiplier()` lit `state.roadCoverage`, écrit seulement par la carte (`cityMapEnsureLayout`). Hors carte/offline la valeur est figée → bonus faux. Évaluer un calcul de couverture côté sim (pur).
-> 5. **HMR périmé** sur les modules carte : ajouter `import.meta.hot.accept` pour ré-importer les fns de rendu.
-> 6. **Coûts/frame secondaires** : corner-fill des routes (pixelTerrain.js), BFS `connectBuildingsToNetwork` O(N²) (layout.js), recompute complet du layout à l'achat d'une route.
->
-> Livrable : diagnostic priorisé (impact × effort), correctifs implémentés + tests verts + note sur le reste. Attention : le preview blanchit au zoom (bug connu, pas la cible).
+**Corrigé (tests 191/191, build prod OK)** :
+1. **Sol pixel en cache offscreen** (`CM.groundCanvas`, cityMapRuntime) — le sol (procédural + tuiles pixel + relief) était redessiné live chaque frame (~7 ms/frame, indépendant de la taille de ville). Bake keyé caméra/layout/flags, blit par frame, retry tant que les tilesets chargent (`CM._groundBakeStable`), ordre sol→rivière (live)→blit intact. **Frame mesurée : 18,5 → 4,8 ms.** Bonus : `resize()` no-op à dimensions inchangées (réallouer un canvas l'efface et cassait tous les caches à chaque `forceFrame`).
+2. **Anti-freeze** (num.js) : `toNum({mantissa,exponent})` → NaN → boucle infinie du placement → thread figé. `toNum` ne renvoie plus jamais NaN ; `D()` reconstruit les Decimals déshydratés. + `num.boundary.test.js`. Scénario du gel rejoué en live : layout valide en 55 ms.
+3. **Crash `setTransform` null** : c'était la carte DÉMONTÉE (`resetCityMapRuntime` nullifie ctx/canvas ; l'écran de crise à pop ≥2e5 démonte la vue) + `forceFrame`/frame rAF attardés. Gardes aux 3 points ; une frame orpheline ne se replanifie plus.
+4. **`state.roadCoverage` persisté** (hydrateState) : il était perdu au chargement → l'offline se calculait sans le bonus routes.
+5. **HMR carte fiable** : plugin `mapFullReloadPlugin` (vite.config.js) → tout edit de `src/game/map/` = FULL RELOAD auto (vérifié au canari). Le mécanisme du piège : les hot-updates s'arrêtaient au boundary React `CityMapCanvas.jsx` pendant que la boucle rAF gardait l'ancien code. `import.meta.hot.decline()` est un NO-OP dans Vite moderne — ne pas s'y fier.
+
+**Mesures utiles** (petite ville, viewport ~1270×1300, zoom 1,6) : frame chaude 4,8 ms ; bake arbres 11,4 ms (payé au mouvement caméra) ; sol pixel isolé 6,6-7,1 ms (désormais amorti par le cache).
+
+**⚠️ CHANTIER RESTANT — `computeCityLayout` explose en late game** (mesuré, médiane sur 3 runs) :
+| pop | gridN | temps |
+|---|---|---|
+| 1e12 | 48 | 237 ms |
+| 1e18 | 68 | 346 ms |
+| 1e23 | 92 | **1,38 s** |
+| 1e30 | 148 | **4,39 s** |
+
+Chaque recompute (achat de route, passage d'ère, throttlé ≤1/1500 ms) GÈLE le thread pendant ce temps. Prochaine étape : profiler l'INTÉRIEUR de computeCityLayout (placement, fleuve/échantillonnage, `connectBuildingsToNetwork`, `cmBuildRoadGraph`…) sur une ville gridN ≥ 92, optimiser les sous-étapes dominantes, ou déplacer le calcul dans un Web Worker (le layout est PUR → worker-friendly ; attention : il lit `state` global et `ensureMapSeed` mute — à décorréler d'abord).

@@ -38,8 +38,27 @@ function previewShotPlugin() {
   };
 }
 
+// Plugin DEV-ONLY : FULL RELOAD sur tout edit d'un module de la CARTE.
+// La boucle rAF de cityMapRuntime capture les fonctions de rendu à l'init ; les
+// hot-updates s'arrêtent au boundary React (CityMapCanvas.jsx) → le composant se
+// re-rend mais l'ANCIEN code de rendu continue de tourner en silence (piège
+// récurrent : « mon edit ne se voit pas »). NB : import.meta.hot.decline() est un
+// no-op dans Vite moderne — d'où ce plugin serveur.
+function mapFullReloadPlugin() {
+  return {
+    name: 'map-full-reload',
+    apply: 'serve',
+    handleHotUpdate({ file, server }) {
+      if (file.includes('/src/game/map/') && !file.includes('__tests__')) {
+        server.ws.send({ type: 'full-reload' });
+        return []; // stoppe la propagation HMR normale
+      }
+    }
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [react(), previewShotPlugin()],
+  plugins: [react(), previewShotPlugin(), mapFullReloadPlugin()],
 })

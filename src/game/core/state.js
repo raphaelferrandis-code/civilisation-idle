@@ -131,6 +131,11 @@ export const defaultState = () => ({
   surchauffeCooldownEnd: 0,
   instability: 0,
   timeWear: 0,
+  // Couverture du réseau routier (bâtiments-moteur reliés / total, 0..1), écrite
+  // par la CARTE à chaque recompute du layout et lue par roadNetworkMultiplier().
+  // Persistée : sans elle, un reload calculait la progression OFFLINE sans le
+  // bonus routes (la carte n'est pas encore montée à ce moment-là).
+  roadCoverage: 0,
   // A6 — Temps cumulé (s) passé sous le seuil de Rupture « stagnation » : monte
   // l'Usure d'une cité sur-stabilisée. Monte/descend dans le tick, reset au cycle.
   stagnationSec: 0,
@@ -816,6 +821,9 @@ export function hydrateState(parsed = {}) {
     activeEpitaphLegacy: normalizeEpitaphLegacy(source.activeEpitaphLegacy),
     nextEpitaphLegacy: normalizeEpitaphLegacy(source.nextEpitaphLegacy),
     instability: clamp01(finiteNumber(source.instability, base.instability)),
+    // Couverture routière : persiste le dernier calcul de la carte (l'offline au
+    // chargement applique ainsi le bonus routes d'avant-fermeture).
+    roadCoverage: clamp01(finiteNumber(source.roadCoverage, base.roadCoverage)),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     stagnationSec: finiteNumber(source.stagnationSec, base.stagnationSec, 0),
     popMilestoneExp: finiteInteger(source.popMilestoneExp, base.popMilestoneExp, 0),

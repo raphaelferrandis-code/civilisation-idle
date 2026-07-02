@@ -65,27 +65,42 @@ import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
 const CM_MAX_RENDER_DPR = 1.5;
 
 function cityMapResizeCanvas(canvas) {
+  // Carte démontée (resetCityMapRuntime a nullifié ctx) : un forceFrame/resize
+  // attardé crashait sur CM.ctx.setTransform (null). No-op propre.
+  if (!CM.ctx) return;
   const dpr = Math.min(window.devicePixelRatio || 1, CM_MAX_RENDER_DPR);
   const w = canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || 600;
   const h = canvas.clientHeight || 320;
   CM.dpr = dpr;
   CM.cw = w;
   CM.ch = h;
-  canvas.width = Math.max(1, Math.round(w * dpr));
-  canvas.height = Math.max(1, Math.round(h * dpr));
+  const nw = Math.max(1, Math.round(w * dpr));
+  const nh = Math.max(1, Math.round(h * dpr));
+  // Réallouer un canvas — même à taille IDENTIQUE — l'efface et invalidait tous
+  // les caches offscreen : forceFrame() (resize + frame) rebakait donc arbres,
+  // tuiles et sol à CHAQUE appel. No-op si rien n'a changé.
+  if (canvas.width === nw && canvas.height === nh) return;
+  canvas.width = nw;
+  canvas.height = nh;
   CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   // Sync static (offscreen) canvas dimensions on resize
   if (CM.staticCanvas) {
-    CM.staticCanvas.width = Math.max(1, Math.round(w * dpr));
-    CM.staticCanvas.height = Math.max(1, Math.round(h * dpr));
+    CM.staticCanvas.width = nw;
+    CM.staticCanvas.height = nh;
     CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     CM.staticCamKey = ""; // force re-bake after resize
   }
   if (CM.tileCanvas) {
-    CM.tileCanvas.width = Math.max(1, Math.round(w * dpr));
-    CM.tileCanvas.height = Math.max(1, Math.round(h * dpr));
+    CM.tileCanvas.width = nw;
+    CM.tileCanvas.height = nh;
     CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     CM.tileCamKey = '';
+  }
+  if (CM.groundCanvas) {
+    CM.groundCanvas.width = nw;
+    CM.groundCanvas.height = nh;
+    CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    CM.groundCamKey = '';
   }
 }
 
@@ -794,6 +809,12 @@ function initCityMap(canvas, options = {}) {
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tileDirtyUntil = 0;
     CM.tileCamKey = '';
+    // Sol (procédural + pixel + relief) : statique à caméra fixe → baké ici,
+    // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
+    CM.groundCanvas = _mkOC(_pw, _ph);
+    CM.gctx = CM.groundCanvas.getContext('2d');
+    CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+    CM.groundCamKey = '';
   }
   const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
   if (resizeObserver) resizeObserver.observe(canvas);
@@ -815,6 +836,9 @@ function initCityMap(canvas, options = {}) {
   let last = performance.now();
   let lastCitizenSpawn = 0;
   function frame(now) {
+    // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
+    // initCityMap relance une boucle neuve au prochain montage).
+    if (!CM.ctx || !CM.canvas) return;
     CM.raf = requestAnimationFrame(frame);
     if (now - last < FRAME_MS && !CM.capture) return; // capture : court-circuite le throttle
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
@@ -905,14 +929,41 @@ function initCityMap(canvas, options = {}) {
         CM.ctx = _mainCtx;
         CM.staticCamKey = _camKey;
       }
-      // Sol + rivière d'abord (sous le canvas statique), puis blit
-      cityMapDrawGround(CM.layout);
-      // Prototype pixel-art : couche terrain en tuiles Wang (herbe + routes de
-      // terre) par-dessus le sol procédural, derrière le flag pixelTerrainFlag.
-      const _pixelGround = pixelTerrainFlag.on && drawPixelTerrain(CM);
-      // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
-      // + berges, SOUS le fleuve et la ville (qui restent plats).
-      if (!_pixelGround) cityMapDrawTerrain();
+      // Sol + rivière d'abord (sous le canvas statique), puis blit.
+      // Le SOL (procédural + tuiles pixel + relief) est statique à caméra fixe :
+      // baké dans un canvas offscreen et blitté chaque frame (en live, le sol
+      // pixel coûtait ~7 ms/frame). La rivière et les couches animées restent
+      // live PAR-DESSUS le blit — ordre inchangé.
+      if (CM.groundCanvas) {
+        const _groundKey = Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':'
+          + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':' + (state.timeWear || 0).toFixed(2) + ':'
+          + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0);
+        if (_groundKey !== CM.groundCamKey) {
+          const _mainCtx3 = CM.ctx;
+          CM.ctx = CM.gctx;
+          CM.gctx.setTransform(1, 0, 0, 1, 0, 0);
+          CM.gctx.clearRect(0, 0, CM.groundCanvas.width, CM.groundCanvas.height);
+          CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+          CM._groundBakeStable = true; // drawPixelTerrain le baisse si tileset de repli
+          cityMapDrawGround(CM.layout);
+          const _pg = pixelTerrainFlag.on && drawPixelTerrain(CM);
+          if (!_pg) cityMapDrawTerrain();
+          CM.ctx = _mainCtx3;
+          // Tilesets encore en chargement (sol pixel pas prêt, rues en repli) :
+          // clé PAS figée → rebake à la frame suivante jusqu'à stabilité.
+          if ((_pg || !pixelTerrainFlag.on) && CM._groundBakeStable) CM.groundCamKey = _groundKey;
+        }
+        CM.ctx.drawImage(CM.groundCanvas, 0, 0, CM.cw, CM.ch);
+      } else {
+        // Repli sans canvas offscreen : rendu live historique.
+        cityMapDrawGround(CM.layout);
+        // Prototype pixel-art : couche terrain en tuiles Wang (herbe + routes de
+        // terre) par-dessus le sol procédural, derrière le flag pixelTerrainFlag.
+        const _pixelGround = pixelTerrainFlag.on && drawPixelTerrain(CM);
+        // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
+        // + berges, SOUS le fleuve et la ville (qui restent plats).
+        if (!_pixelGround) cityMapDrawTerrain();
+      }
       // Prototype pixel-art : corps d'eau clippé au ruban (Approche A), derrière
       // le flag pixelWaterFlag. Renvoie false (layout/fleuve absent) -> fallback
       // sur le rendu vectoriel intact. Inséré à la place exacte de l'ancien appel
@@ -1026,7 +1077,7 @@ function initCityMap(canvas, options = {}) {
   // Premiere mise en page immediate puis boucle.
   if (CM.cw === 0) resize();
   // Hook de diagnostic : force une frame (utile quand rAF est gele en arriere-plan).
-  CM.forceFrame = () => { resize(); frame(performance.now()); };
+  CM.forceFrame = () => { if (!CM.ctx || !CM.canvas) return false; resize(); frame(performance.now()); return true; };
   // Capture DÉTERMINISTE d'une frame (vérif visuelle) : court-circuite le throttle,
   // force le plein jour (pas de voile nuit qui fausse les pixels) et une santé fixe,
   // fige le temps d'animation. N'altère PAS le rendu normal (tout est gardé par le
@@ -1067,14 +1118,14 @@ function initCityMap(canvas, options = {}) {
     // monter une ville de démo (population/bâtiments) puis de capturer une frame.
     window.__state = state;
     window.__D = D;
-    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; };
-    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
-    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; };
-    window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; };
-    window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
-    window.__collapse = (on) => { setCollapseInProgress(!!on); CM.staticCamKey = ''; CM.tileCamKey = ''; };
+    window.__collapse = (on) => { setCollapseInProgress(!!on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
     // Vérif véhicules : force le type de tous les véhicules présents (attelages, etc.).
     // __forceVehicles('chariot') | 'wagon' | 'caravan' ... ; __forceVehMix() = un de chaque.
@@ -1089,5 +1140,10 @@ function initCityMap(canvas, options = {}) {
 
 
 setResetCameraCenterHandler(() => { CM.centered = false; });
+
+// HMR : la boucle rAF et ses closures capturent les fonctions de rendu à l'init —
+// un hot-update laissait tourner l'ANCIEN code en silence. Le full-reload des
+// modules carte est forcé CÔTÉ SERVEUR par mapFullReloadPlugin (vite.config.js) ;
+// import.meta.hot.decline() serait un no-op dans Vite moderne.
 
 export { CM, initCityMap, cityMapTileScreen };

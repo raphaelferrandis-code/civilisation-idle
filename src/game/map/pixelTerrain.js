@@ -139,7 +139,11 @@ export function drawPixelTerrain(CM) {
   if (!grassReady || !ts || !ts.ready || !ts.uv) return false;
   // Rues : tileset de l'ère, repli sur le placeholder tant qu'il n'est pas chargé.
   let streetTs = ensureStreet(streetForBand(band));
-  if (!streetTs || !streetTs.ready) streetTs = ensureStreet('streets');
+  const streetExact = !!(streetTs && streetTs.ready);
+  if (!streetExact) streetTs = ensureStreet('streets');
+  // Signal pour le CACHE du sol (cityMapRuntime) : tant qu'on dessine avec le
+  // tileset de rues de REPLI, le rendu va encore changer → ne pas figer le bake.
+  CM._groundBakeStable = streetExact;
   const ctx = CM.ctx, L = CM.layout, N = L.gridN, T = CM.TILE, z = CM.cam.zoom;
   const UV = ts.uv, IMG = ts.img;
   // SOL URBAIN : la zone bâtie (organicLimit ∪ routes ∪ emprises), PAS le réseau
