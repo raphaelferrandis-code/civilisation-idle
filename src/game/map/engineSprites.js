@@ -658,8 +658,32 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "aqueducts") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "aqueducts"); return; }
+    // (L'orientation verticale « bout-à-l'eau » a été essayée puis retirée — rendu
+    // jugé pas terrible. Pipeline documenté en mémoire si on veut la ressusciter.)
     // Structure linéaire : spanX arches, 1 tile de haut. sw = largeur totale.
     const spanX = t.spanX || 3;
+    // Scène pixel MODULAIRE (PixelLab, stade 0) : gouttière de troncs sur tréteaux en X.
+    // 3 modules d'une tuile (48×72 src) découpés d'UNE scène cohérente : outlet (déversoir
+    // + tonnelet, ouest) · seg (travée, répété pour les spans 5/7/10 — coupes calées entre
+    // les tréteaux, coutures sur les ligatures) · intake (tonneau de captage, est, côté eau
+    // à terme). Eau = bande 7 frames PAR module (blitAnim, horloge globale → même frame sur
+    // toutes les tuiles, le flux reste continu). Repli : le procédural à arches ci-dessous.
+    if (propReady('aqueduct-outlet') && propReady('aqueduct-seg') && propReady('aqueduct-intake')) {
+      // waterEnd 'W' (fleuve à l'ouest) : miroir horizontal de TOUT le span autour de
+      // son centre → le captage (est dans le sprite) passe côté eau, la gouttière reste
+      // continue. La lumière s'inverse, assumé (précédent : granary-prop-silo flippé).
+      const flip = t.waterEnd === 'W';
+      if (flip) { ctx.save(); ctx.translate(2 * ox + sw, 0); ctx.scale(-1, 1); }
+      const cw = 1 / spanX;
+      for (let i = 0; i < spanX; i++) {
+        const mod = i === 0 ? 'outlet' : (i === spanX - 1 ? 'intake' : 'seg');
+        const mcx = (i + 0.5) * cw;
+        blitProp(ctx, ox, oy, sw, sh, 'aqueduct-' + mod, mcx, 0.59, cw, 1.5);
+        if (animReady('aqueduct-water-' + mod)) blitAnim(ctx, ox, oy, sw, sh, 'aqueduct-water-' + mod, now, mcx, 0.59, cw, 1.5);
+      }
+      if (flip) ctx.restore();
+      return;
+    }
     const aw = 1 / spanX;          // fraction de sw par travée
     const pw = Math.max(0.008, aw * 0.20); // largeur relative d'un pilier
 
@@ -710,6 +734,19 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "watch") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "watch"); return; }
+    // Scène pixel stade 0 (PixelLab, feu ANIMÉ — pipeline cult/forge) : tour de guet
+    // primitive en bois (plateforme sur poteaux croisés, échelle, feu de signal au
+    // sommet). Couvre bands 0-6 comme la série savoir (une seule scène) ; repli =
+    // prop statique pleine, puis le procédural étagé d'origine.
+    if (animReady('watch-fire') && propReady('watch-back')) {
+      blitProp(ctx, ox, oy, sw, sh, 'watch-back', 0.5, 0.40, 0.78, 0.94);
+      blitAnim(ctx, ox, oy, sw, sh, 'watch-fire', now, 0.5, 0.40, 0.78, 0.94);
+      return;
+    }
+    if (propReady('watch-prop')) {
+      blitProp(ctx, ox, oy, sw, sh, 'watch-prop', 0.5, 0.40, 0.78, 0.94);
+      return;
+    }
     // Veilleurs : tour de guet qui évolue du poste de feu primitif à la tourelle de surveillance
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {

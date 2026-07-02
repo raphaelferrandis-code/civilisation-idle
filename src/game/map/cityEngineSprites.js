@@ -134,7 +134,7 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall', 'schools-prop-yard', 'academies-prop-yard', 'ancestralcult-back', 'ancestralcult-prop', 'observatories-prop-dial', 'libraries-prop-archive', 'universities-prop-hall', 'printing-prop-workshop', 'think-prop-council'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall', 'schools-prop-yard', 'academies-prop-yard', 'ancestralcult-back', 'ancestralcult-prop', 'observatories-prop-dial', 'libraries-prop-archive', 'universities-prop-hall', 'printing-prop-workshop', 'think-prop-council', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'watch-back', 'watch-prop'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -257,6 +257,12 @@ const ANIM_BANDS = {
   'mint-forge-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
   'storyteller-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
   'ancestralcult-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+  // Eau de l'aqueduc : un module = une tuile ; même horloge (ms) partout → le flux
+  // se raccorde entre tuiles adjacentes (la frame est globale, pas par tuile).
+  'aqueduct-water-outlet': { fw: 48, fh: 72, frames: 7, ms: 140 },
+  'aqueduct-water-seg': { fw: 48, fh: 72, frames: 7, ms: 140 },
+  'aqueduct-water-intake': { fw: 48, fh: 72, frames: 7, ms: 140 },
+  'watch-fire': { fw: 80, fh: 96, frames: 7, ms: 130 },
 };
 const animImg = {};
 let animInit = false;

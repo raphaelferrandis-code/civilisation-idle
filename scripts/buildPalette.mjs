@@ -103,6 +103,9 @@ const SPRITE_EPOCH_TAGS = {
   'ancestralcult-back': 'feu', 'ancestralcult-fire': 'feu', 'ancestralcult-prop': 'feu',
   'observatories-prop-dial': 'feu', 'libraries-prop-archive': 'feu', 'universities-prop-hall': 'feu',
   'printing-prop-workshop': 'feu', 'think-prop-council': 'feu',
+  'aqueduct-outlet': 'feu', 'aqueduct-seg': 'feu', 'aqueduct-intake': 'feu',
+  'aqueduct-water-outlet': 'feu', 'aqueduct-water-seg': 'feu', 'aqueduct-water-intake': 'feu',
+  'watch-back': 'feu', 'watch-fire': 'feu', 'watch-prop': 'feu',
   // Agents (bonus — même cohérence par époque)
   'caveman': 'feu', 'cavewoman': 'feu', 'cavechild': 'feu', 'forager': 'feu',
   'villager': 'bois', 'villagerwoman': 'bois', 'villagerchild': 'bois', 'farmer': 'bois', 'ox': 'bois', 'horse': 'bois',

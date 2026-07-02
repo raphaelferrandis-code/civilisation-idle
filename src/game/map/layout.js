@@ -1394,27 +1394,50 @@ function computeCityLayout(s) {
   }
   const placedSlotKeys = new Set();
   const placeRequest   = (req, preferSavedSlot) => {
-    // ── Aqueduc : structure linéaire (spanX tiles × 1 tile) ─────────────────
+    // ── Aqueduc : structure linéaire UNIQUE (span×1), le long de la berge ────
+    // L'orientation VERTICALE « bout-à-l'eau » a été essayée puis RETIRÉE (rendu
+    // jugé pas terrible) : l'aqueduc longe la berge, captage E/O au bord (miroir
+    // au rendu via waterEnd).
     if (req.meta.id === "aqueducts") {
       const spanX = cmAqueductSpan(req.level), spanY = 1;
       let placed = null;
+      // Prise d'eau : distance de la MEILLEURE extrémité au bord du ruban PEINT
+      // (riverYAt/riverHwByCol — pas les Sets euclidiens plus larges). Cible =
+      // pile au bord (hw + 0.6 : cellule d'extrémité sur la berge, cf. aqFits).
+      const aqHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))] || 2;
+      const aqEndWater = (gx, gy) => {
+        const dW = Math.abs(Math.abs(gy + 0.5 - riverYAt(gx)) - (aqHwAt(gx) + 0.6));
+        const dE = Math.abs(Math.abs(gy + 0.5 - riverYAt(gx + spanX - 1)) - (aqHwAt(gx + spanX - 1) + 0.6));
+        return dW <= dE ? { d: dW, end: "W" } : { d: dE, end: "E" };
+      };
+      // Comme footprintFits mais les 2 cellules d'EXTRÉMITÉ peuvent mordre la berge
+      // (bankSet) — jamais l'eau : le captage/déversoir touche le bord, le corps non.
+      const aqFits = (gx, gy) => {
+        if (!footprintFits(gx, gy, spanX, true, false, spanY)) return false;
+        for (let ax = 1; ax < spanX - 1; ax += 1) if (bankSet.has((gx + ax) + "," + gy)) return false;
+        return true;
+      };
+      // slot.vert = vestige de l'orientation verticale retirée : on l'ignore pour
+      // forcer un re-placement horizontal propre (une fois, puis le slot est réécrit).
       const slot = slotStore[req.slotKey];
-      if (preferSavedSlot && slot) {
+      if (preferSavedSlot && slot && !slot.vert) {
         const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - spanX), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - spanY) };
-        if (footprintFits(saved.gx, saved.gy, spanX, false, false, spanY)) placed = saved;
+        if (aqFits(saved.gx, saved.gy)) placed = saved;
       }
       if (!placed) {
-        // Décore-trie-retire : score calculé une fois par cellule.
-        // L'aqueduc longe la lisière de la ville (reach + 2.5), pas le bord de
-        // la grille : à N*0.46 il finissait hors de la zone que le joueur
-        // regarde, visible seulement en dézoom LOD (gros pavés).
+        // Décore-trie-retire : score calculé une fois par cellule. L'aqueduc longe
+        // la lisière de la ville (reach + 2.5, pas le bord de grille) ; le terme
+        // « prise d'eau » (pondéré plus fort) tire vers les points où la lisière
+        // croise le fleuve : l'aqueduc se CONNECTE à l'eau.
         const aqRing = Math.min(N * 0.44, (frozenWallReach || cityReachBase) + 2.5);
         const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
-          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) * 0.5
+            + aqEndWater(c2.gx, c2.gy).d * 1.2
+            + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
           .sort((a, b) => a.s - b.s)
           .map((e) => e.c2);
         for (const c2 of aqCells) {
-          if (footprintFits(c2.gx, c2.gy, spanX, false, false, spanY)) { placed = c2; break; }
+          if (aqFits(c2.gx, c2.gy)) { placed = c2; break; }
         }
       }
       if (!placed) return false;
@@ -1424,9 +1447,14 @@ function computeCityLayout(s) {
         usedKeys.add((placed.gx + ax) + "," + (placed.gy + ay));
       }
       const dx = placed.gx + spanX / 2 - cx, dy = placed.gy + 0.5 - cy;
+      // waterEnd : quelle extrémité porte la PRISE D'EAU (sprite : captage à l'est,
+      // miroir horizontal au rendu si 'W'). Marquée seulement si le fleuve est
+      // vraiment à portée (≤ 2.5 tuiles du bord d'eau), sinon orientation par défaut.
+      const aqWat = aqEndWater(placed.gx, placed.gy);
       tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: "aqueducts", buildingId: "aqueducts",
         buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
         groupIndex: 1, groupTotal: 1, tier: req.tier, size: spanX, spanX, spanY,
+        waterEnd: aqWat.d <= 2.5 ? aqWat.end : "E",
         key: `engine:aqueducts:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
       slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.meta.zone, id: req.meta.id };
       liveSlotKeys.add(req.slotKey);
