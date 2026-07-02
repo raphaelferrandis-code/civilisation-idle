@@ -725,13 +725,36 @@ function connectBuildingsToNetwork(o) {
   const RW = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
   const O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const K = (x, y) => x + "," + y;
+  const NN = N * N;
   const inB = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
   const footCells = (t) => { const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1, out = []; for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) out.push([t.gx + ax, t.gy + ay]); return out; };
-  // Empreintes de TOUS les bâtiments (aucun connecteur ne les traverse), + eau + réservé.
-  const buildFoot = new Set();
-  for (const t of tiles) for (const [x, y] of footCells(t)) buildFoot.add(K(x, y));
-  const blocked = (x, y) => { const k = K(x, y); return riverSet.has(k) || bankSet.has(k) || buildFoot.has(k) || claimed.has(k) || engineFootprint.has(k) || occupiedFoot.has(k); };
-  const touchesRoad = (t) => footCells(t).some(([x, y]) => O4.some(([dx, dy]) => roadKey.has(K(x + dx, y + dy))));
+
+  // ── Grilles TYPÉES (perf) ──────────────────────────────────────────────────
+  // Cette fonction dominait le layout entier (~65 % du temps, ~2,9 s à gridN 148) :
+  // le BFS multi-source utilisait Map/Set de clés "x,y" (concat + hash de string
+  // par cellule) et était relancé À CHAQUE bâtiment connecté. On passe la grille
+  // en tableaux typés — même parcours, mêmes égalités, mêmes chemins (le hash de
+  // layout est identique avant/après), juste sans strings dans le chemin chaud.
+  // `blockedG` fusionne les 6 sets d'obstacles (eau/berge/bâti/réservé) en une
+  // seule lecture ; `roadG` reflète roadKey pour les cellules DANS la grille.
+  const blockedG = new Uint8Array(NN);
+  const markSet = (set) => {
+    for (const k of set) {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      if (inB(x, y)) blockedG[y * N + x] = 1;
+    }
+  };
+  markSet(riverSet); markSet(bankSet); markSet(claimed); markSet(engineFootprint); markSet(occupiedFoot);
+  for (const t of tiles) for (const [x, y] of footCells(t)) if (inB(x, y)) blockedG[y * N + x] = 1;
+  const roadG = new Uint8Array(NN);
+  for (const k of roadKey) {
+    const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+    if (inB(x, y)) roadG[y * N + x] = 1;
+  }
+  // Une cellule de route peut vivre HORS grille (sortie de carte) : roadG ne la
+  // couvre pas, on retombe alors sur le Set (rare, hors du chemin chaud).
+  const isRoadAt = (x, y) => (inB(x, y) ? roadG[y * N + x] === 1 : roadKey.has(K(x, y)));
+  const touchesRoad = (t) => footCells(t).some(([x, y]) => O4.some(([dx, dy]) => isRoadAt(x + dx, y + dy)));
 
   // Pose (ou complète) une cellule de route avec un flag d'axe + un rang.
   const lay = (x, y, axis, rank) => {
@@ -741,40 +764,73 @@ function connectBuildingsToNetwork(o) {
     if ((RW[rank] || 0) > (RW[m.rank] || 0)) m.rank = rank;
     roadMeta.set(k, m);
     if (!roadKey.has(k)) { roadKey.add(k); roads.push({ gx: x, gy: y }); }
+    if (inB(x, y)) roadG[y * N + x] = 1;
   };
 
-  // Champ de distance : BFS multi-source depuis TOUTES les routes, sur cases libres.
+  // Champ de distance : BFS multi-source depuis TOUTES les routes, sur cases
+  // libres. dist/from en Int32Array réutilisés entre itérations (fill = memset).
+  // `from` encode le parent : ≥0 = index grille ; ≤ -2 = position HORS grille
+  // (source de route en bord de carte), bijection (x+512)*4096+(y+512).
+  const dist = new Int32Array(NN), from = new Int32Array(NN);
+  let qxA = new Int32Array(0), qyA = new Int32Array(0);
+  const encOut = (x, y) => -(2 + (x + 512) * 4096 + (y + 512));
   const computeField = () => {
-    const dist = new Map(), from = new Map(), q = [];
-    for (const k of roadKey) { dist.set(k, 0); q.push(k); }
-    for (let qi = 0; qi < q.length; qi += 1) {
-      const k = q[qi], ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1), d = dist.get(k);
-      for (const [dx, dy] of O4) {
-        const nx = x + dx, ny = y + dy; if (!inB(nx, ny)) continue;
-        const nk = K(nx, ny);
-        if (dist.has(nk) || blocked(nx, ny)) continue;
-        dist.set(nk, d + 1); from.set(nk, [x, y]); q.push(nk);
+    dist.fill(-1); from.fill(-1);
+    // Capacité garantie : sources (roadKey, y compris hors grille) + cellules
+    // libres visitées (< NN). Jamais de drop silencieux.
+    const need = NN + roadKey.size + 8;
+    if (qxA.length < need) { qxA = new Int32Array(need); qyA = new Int32Array(need); }
+    // Sources dans l'ORDRE D'INSERTION de roadKey (comme l'ancienne version : en
+    // cas d'égalité de distance, le parent — donc le chemin carved — en dépend).
+    let qn = 0;
+    for (const k of roadKey) {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      qxA[qn] = x; qyA[qn] = y; qn += 1;
+      if (inB(x, y)) dist[y * N + x] = 0;
+    }
+    for (let qi = 0; qi < qn; qi += 1) {
+      const x = qxA[qi], y = qyA[qi];
+      const d = inB(x, y) ? dist[y * N + x] : 0;
+      const parentEnc = inB(x, y) ? y * N + x : encOut(x, y);
+      for (let oi = 0; oi < 4; oi += 1) {
+        const nx = x + O4[oi][0], ny = y + O4[oi][1];
+        if (!inB(nx, ny)) continue;
+        const ni = ny * N + nx;
+        if (dist[ni] !== -1 || blockedG[ni] === 1) continue;
+        dist[ni] = d + 1; from[ni] = parentEnc;
+        qxA[qn] = nx; qyA[qn] = ny; qn += 1;
       }
     }
-    return { dist, from };
+  };
+  const decodeFrom = (v) => {
+    if (v >= 0) return [v % N, (v / N) | 0];
+    const m = -v - 2;
+    return [((m / 4096) | 0) - 512, (m % 4096) - 512];
   };
 
   // Meilleur seuil (case libre adjacente à l'emprise) + chemin remonté jusqu'au réseau.
-  const plan = (t, field) => {
+  const plan = (t) => {
     let best = null;
     for (const [fx, fy] of footCells(t)) for (const [dx, dy] of O4) {
-      const sx = fx + dx, sy = fy + dy, sk = K(sx, sy);
-      if (!inB(sx, sy) || roadKey.has(sk)) continue;
-      const d = field.dist.get(sk); if (d == null) continue;
+      const sx = fx + dx, sy = fy + dy;
+      if (!inB(sx, sy)) continue;
+      const si = sy * N + sx;
+      if (roadG[si] === 1) continue;
+      const d = dist[si]; if (d === -1) continue;
       if (!best || d < best.d) best = { x: sx, y: sy, d };
     }
     if (!best) return null;
     const path = []; let cx = best.x, cy = best.y;
-    for (let steps = 0; steps <= N * N; steps += 1) { // garde-fou absolu
-      const ck = K(cx, cy); if (roadKey.has(ck)) break;
-      path.push([cx, cy]); const p = field.from.get(ck); if (!p) break; cx = p[0]; cy = p[1];
+    for (let steps = 0; steps <= NN; steps += 1) { // garde-fou absolu
+      if (isRoadAt(cx, cy)) break;
+      path.push([cx, cy]);
+      const enc = inB(cx, cy) ? from[cy * N + cx] : -1;
+      if (enc === -1) break;
+      const p = decodeFrom(enc); cx = p[0]; cy = p[1];
     }
-    const attach = field.from.get(K(path[path.length - 1][0], path[path.length - 1][1])) || [cx, cy];
+    const last = path[path.length - 1];
+    const lastEnc = inB(last[0], last[1]) ? from[last[1] * N + last[0]] : -1;
+    const attach = lastEnc !== -1 ? decodeFrom(lastEnc) : [cx, cy];
     return { path, attach, cost: path.length };
   };
 
@@ -789,22 +845,30 @@ function connectBuildingsToNetwork(o) {
   let budget = Math.max(0, o.roadBudget | 0);
   const rank = o.connectorRank || "secondary";
   const MAX_FREE = 4; // plafond de connexion gratuite d'un décoratif (sécurité)
+  // Candidats = tuiles PAS ENCORE reliées, maintenus entre itérations (l'ancienne
+  // version rescannait TOUTES les tuiles à chaque bâtiment connecté). L'ordre
+  // relatif de `tiles` est préservé → mêmes ex æquo, même pick.
+  let pending = tiles.filter((t) => !touchesRoad(t));
   let guard = tiles.length + 8;
-  while (guard-- > 0) {
-    const field = computeField();
+  while (guard-- > 0 && pending.length > 0) {
+    computeField();
     let pick = null;
-    for (const t of tiles) {
-      if (touchesRoad(t)) continue;
+    const still = [];
+    for (const t of pending) {
+      if (touchesRoad(t)) continue; // reliée par un carve précédent → sort des candidats
+      still.push(t);
       const isEngine = t.type === "engine";
-      const p = plan(t, field); if (!p || p.cost === 0) continue;
+      const p = plan(t); if (!p || p.cost === 0) continue;
       if (isEngine) { if (p.cost > budget) continue; }
       else if (p.cost > MAX_FREE) continue;
       const rk = (isEngine ? 1e6 : 0) + p.cost; // décoratifs d'abord, puis coût croissant
       if (!pick || rk < pick.rk) pick = { t, p, isEngine, rk };
     }
+    pending = still;
     if (!pick) break;
     carve(pick.p, rank);
     if (pick.isEngine) budget -= pick.p.cost;
+    pending = pending.filter((t) => t !== pick.t || !touchesRoad(t));
   }
 
   const engines = tiles.filter((t) => t.type === "engine");
@@ -879,8 +943,32 @@ function computeTerrePleinSegments(roadMap, N) {
   return segments;
 }
 
+// ── Profilage DEV du layout ──────────────────────────────────────────────────
+// Activer : `globalThis.__layoutProfile = true` → chaque computeCityLayout
+// remplit `globalThis.__layoutProfileLast = { total, <phase>: ms }`. Coût nul
+// éteint (un test de booléen par marque). Chantier perf late game (REPRISE.md) :
+// le layout gelait 1,4 s (gridN 92) à 4,4 s (gridN 148) par recompute.
+let _lpT0 = 0, _lpLast = 0, _lpOut = null;
+const lpBegin = () => {
+  _lpOut = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? {} : null;
+  if (_lpOut) { _lpT0 = _lpLast = performance.now(); }
+};
+const lp = (phase) => {
+  if (!_lpOut) return;
+  const t = performance.now();
+  _lpOut[phase] = (_lpOut[phase] || 0) + (t - _lpLast);
+  _lpLast = t;
+};
+const lpEnd = () => {
+  if (!_lpOut) return;
+  _lpOut.total = performance.now() - _lpT0;
+  globalThis.__layoutProfileLast = _lpOut;
+  _lpOut = null;
+};
+
 // ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
+  lpBegin();
   const c = cityCounts(s);
   // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
   const mapSeed = ensureMapSeed(s);
@@ -903,6 +991,7 @@ function computeCityLayout(s) {
   let N = minNWonders;
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < 300) N += 2;
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
+  lp("dimension");
 
   // Rivière fixe — stockée dans state.riverWP, la ville s'étend autour
   const xStart = cx - N * 1.8, xEnd = cx + N * 1.8;
@@ -964,6 +1053,7 @@ function computeCityLayout(s) {
   // Demi-largeur visible du ruban au droit d'une colonne (pour caler un riverain
   // sur le bord d'eau RÉELLEMENT peint, pas sur le riverSet euclidien plus large).
   const riverHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
+  lp("riviere");
 
   const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25));
   // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
@@ -990,6 +1080,7 @@ function computeCityLayout(s) {
     samples: riverSamples, bridge: riverBridge, riverYAt, present: true
   });
   const river = water;
+  lp("plan-eau");
 
   // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon
   // de route + chaque tentative de district. Boucle simple et hash entier
@@ -1023,6 +1114,7 @@ function computeCityLayout(s) {
     plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
   });
+  lp("routes-gen");
 
   // ── Enceinte urbaine (ère fortifiée+) ─────────────────────────────────────
   // Le rayon est FIGÉ à la construction (state.wallRadius) : la muraille ne
@@ -1037,6 +1129,7 @@ function computeCityLayout(s) {
   const wallSet = walls ? walls.set : null;
   // Anneau de tram (band 5+) : boucle le long de la muraille + couloir à dégager.
   const tramRing = computeTramRing(walls, plan.core, c.eraBand, N, riverSet, bankSet);
+  lp("murailles");
 
   // Districts (anti-collision merveilles + fleuve)
   const districts = [];
@@ -1098,6 +1191,7 @@ function computeCityLayout(s) {
       for (let dx = -WONDER_CLEAR_R; dx <= WONDER_CLEAR_R; dx += 1)
         if (Math.hypot(dx, dy) <= WONDER_CLEAR_R) reserved.add((slot.gx + dx) + "," + (slot.gy + dy));
   }
+  lp("districts");
 
   // Cellules (bâtissables + arbres)
   const cells = [];
@@ -1128,6 +1222,7 @@ function computeCityLayout(s) {
     .map((cc) => ({ cc, s: cc.score * 100 + cc.d2 * 0.012 - quarterScore(cc) * 15 + (cmHash("build:" + cc.gx + ":" + cc.gy) % 17) / 40 }))
     .sort((a, b) => a.s - b.s)
     .map((e) => e.cc);
+  lp("cellules");
 
   const tiles = [], usedKeys = new Set();
   // Voie du tram (anneau le long de la muraille) : on réserve son couloir AVANT tout
@@ -1551,6 +1646,7 @@ function computeCityLayout(s) {
   });
   for (const req of savedRequests) if (slotStore[req.slotKey]) placeRequest(req, true);
   for (const req of requests)       if (!placedSlotKeys.has(req.slotKey)) placeRequest(req, false);
+  lp("moteurs");
   // NB: la purge des slots morts est déplacée APRÈS le placement décoratif (qui
   // crée des slots `dec_*`) — sinon, ajoutés après la purge, ils fuiteraient.
 
@@ -1618,6 +1714,7 @@ function computeCityLayout(s) {
   for (const key of Object.keys(slotStore)) {
     if (!key.startsWith(cycleSlotPrefix) || !liveSlotKeys.has(key)) delete slotStore[key];
   }
+  lp("decor");
 
   // ── Trim à la demande : émonde les routes qui ne bordent aucun bâtiment
   //    (approche de pont vers le vide, antennes mortes des secteurs sous-bâtis).
@@ -1633,6 +1730,7 @@ function computeCityLayout(s) {
     else demand.add(t.gx + "," + t.gy);
   }
   trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
+  lp("trim");
 
   // ── Connexion : relie enfin les bâtiments au réseau. Décoratifs gratuits (réseau
   //    de base qui suit la ville) ; moteurs au budget = nb de routes achetées
@@ -1648,6 +1746,7 @@ function computeCityLayout(s) {
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
     claimed, engineFootprint, occupiedFoot, roadBudget, connectorRank
   });
+  lp("connexion");
 
   let maxD2 = 1;
   for (const t of tiles) if (t.d2 > maxD2) maxD2 = t.d2;
@@ -1664,8 +1763,10 @@ function computeCityLayout(s) {
     const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul;
     if (hsh < prob) trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 });
   }
+  lp("arbres");
 
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
+  lp("graphe");
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
   const terrePlein = computeTerrePleinSegments(roadGraph.roadMap, N); // couture des voies collées
   // Cellules de SOL (ni route, ni bâti, ni eau) coincées ENTRE deux routes (route à l'ouest
@@ -1684,6 +1785,7 @@ function computeCityLayout(s) {
     }
     return out;
   })();
+  lp("median");
   const engineTileMap = new Map(
     tiles.filter((t) => t.type === "engine" && t.buildingId)
          .map((t) => [t.gx + "," + t.gy, t])
@@ -1699,6 +1801,8 @@ function computeCityLayout(s) {
     if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
   }
   for (const k of occupiedFoot) if (!riverSet.has(k)) urbanSet.add(k);
+  lp("urbain");
+  lpEnd();
   return {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,

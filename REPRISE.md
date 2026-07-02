@@ -69,12 +69,13 @@ Ce fichier remplace la mémoire locale (qui ne suit pas d'un poste à l'autre).
 
 **Mesures utiles** (petite ville, viewport ~1270×1300, zoom 1,6) : frame chaude 4,8 ms ; bake arbres 11,4 ms (payé au mouvement caméra) ; sol pixel isolé 6,6-7,1 ms (désormais amorti par le cache).
 
-**⚠️ CHANTIER RESTANT — `computeCityLayout` explose en late game** (mesuré, médiane sur 3 runs) :
-| pop | gridN | temps |
-|---|---|---|
-| 1e12 | 48 | 237 ms |
-| 1e18 | 68 | 346 ms |
-| 1e23 | 92 | **1,38 s** |
-| 1e30 | 148 | **4,39 s** |
+**✅ CHANTIER LAYOUT LATE GAME — FAIT 2026-07-02** : `connectBuildingsToNetwork` (le BFS de connexion des routes) dominait à ~65 % — il refaisait un BFS complet en Map/Set de clés STRING pour CHAQUE bâtiment connecté, en rescannant toutes les tuiles. Réécrit en grilles typées (`Uint8Array` obstacles/routes, `Int32Array` dist/from, file plate, parents encodés même hors-grille) en préservant l'ordre BFS exact → **layout bit-à-bit identique** (hash FNV des tuiles+routes inchangé sur 3 tailles). Mesures browser réelles (médiane ×3) :
+| pop | gridN | avant | après |
+|---|---|---|---|
+| 1e12 | 48 | 237 ms | **107 ms** |
+| 1e23 | 92 | 1,38 s | **327 ms** |
+| 1e30 | 148 | 4,39 s | **780 ms** |
 
-Chaque recompute (achat de route, passage d'ère, throttlé ≤1/1500 ms) GÈLE le thread pendant ce temps. Prochaine étape : profiler l'INTÉRIEUR de computeCityLayout (placement, fleuve/échantillonnage, `connectBuildingsToNetwork`, `cmBuildRoadGraph`…) sur une ville gridN ≥ 92, optimiser les sous-étapes dominantes, ou déplacer le calcul dans un Web Worker (le layout est PUR → worker-friendly ; attention : il lit `state` global et `ensureMapSeed` mute — à décorréler d'abord).
+**Outillage laissé en place** : profileur de phases dans `computeCityLayout` (`globalThis.__layoutProfile = true` → `globalThis.__layoutProfileLast = {total, <phase>: ms}`, coût nul éteint). Breakdown gridN 148 restant : decor ~78 ms, cellules ~45, connexion ~38, routes-gen ~32, riviere ~24, median ~23, urbain ~19 (node ; ×~2,7 en browser).
+
+**Si un jour il faut encore gagner** (dans l'ordre de rendement) : (1) précalculer le SEUIL d'`organicLimit` par cellule (Float64Array, une passe N² — sert cellules/urbain/placement) ; (2) `roadMedian`/`median` sur grilles typées ; (3) profiler `decor` (placeCategorySlotted / footprintFits en Set-string) ; (4) Web Worker (layout pur, mais lit `state` global + `ensureMapSeed`/slots mutent → à décorréler d'abord).
