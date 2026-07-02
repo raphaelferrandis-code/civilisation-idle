@@ -1,31 +1,21 @@
-# Point de reprise — 2026-07-01
+# Point de reprise — 2026-07-02
 
 Branche : `feat/routes-reseau-connecte` (part de `main`, **pas** mergée).
 Ce fichier remplace la mémoire locale (qui ne suit pas d'un poste à l'autre).
 
 ---
 
-## 1. Chantier ROUTES — principal, en cours
+## 1. Chantier ROUTES — ✅ TERMINÉ (validé en jeu par Raph)
 
-### Déjà commité
 - `8a1d275` — les routes **relient vraiment les bâtiments** (BFS multi-source, budget = nb de routes achetées) + **largeur par ère** + **bonus de production** (+10 % × couverture, `state.roadCoverage` lu par `roadNetworkMultiplier()` dans `production.js`). Étapes 1-5.
-- `3830afb` — **comblage des coins de jonction** : les tuiles de rue edge-Wang ont les 4 coins transparents → un « carré de sol » à chaque jonction 2×2. On comble les coins intérieurs avec la couleur de chaussée échantillonnée. Vérifié par instrumentation (5/5 coins).
+- `3830afb` — comblage des coins de jonction (étape intermédiaire, remplacée par le rendu final ci-dessous).
+- **Rendu final** : chaussée en **APLAT continu** (couleur échantillonnée du tileset de l'ère, `streetRoadColors()` dans `pixelTerrain.js`) + **liseré tracé UNIQUEMENT contre le non-route** → les routes adjacentes fusionnent sans grille interne, à toutes les largeurs. Repli tuiles edge-Wang si l'échantillonnage échoue. Décision : procédural sans asset (la tentative d'asset de Raph était un aplat tan = le même rendu).
+- **UI** : rangée `Routes` de la boutique → ligne « {Sentiers|Routes|Avenues|Boulevards} · X% relié (+Y%) » + tooltip (PurchaseRow.jsx, `roadNetworkInfo()`). Se rafraîchit via `globalMult` (le bonus routes y est composé).
+- **Desc** `roads` (buildings.js) : mentionne le réseau et le +10 %.
 
-### Problème RESTANT (non résolu) : liseré des routes larges
-Le comblage des coins enlève les trous, **mais le liseré sombre baké sur les 4 arêtes de CHAQUE tuile** ressort en **grille** dans un bloc de routes.
-
-- Cause exacte : `public/pixelart/streets-band{0..9}.png` = tuiles edge-Wang avec bordure sur toutes les arêtes + coins transparents.
-- **Option B (remplissage intérieur 8-voisins) ne suffit PAS** : elle ne corrige pas « 2 routes côte à côte » (2 voies), car les 2 cellules touchent l'herbe → aucune n'est « intérieure ».
-- **Décision en suspens** — deux rendus possibles :
-  - **PLAT (procédural, sans asset)** : poser un aplat de chaussée (`#c9a369`, déjà échantillonné par `streetRoadFill()`) sur TOUTES les cellules-route + liseré **seulement contre l'herbe/sol**. Règle toutes les largeurs. Perd la texture pixel des routes.
-  - **TEXTURÉ (asset)** : une tuile `streets-band{N}-fill.png` 32×32 pleine, opaque, **sans bordure**, même teinte/grain que la chaussée, tileable seamless. Base sur toutes les cellules-route + liseré contre l'herbe. Meilleur rendu, demande l'asset (un par ère).
-- Essai d'asset de Raph = **aplat tan pur** (= le rendu plat), puis **édition annulée** (tileset remis d'origine).
-
-### À FAIRE (routes)
-1. **Câbler le rendu choisi** dans `src/game/map/pixelTerrain.js` → `drawPixelTerrain()`. Le helper `streetRoadFill()` fournit déjà la couleur par ère. Repli : si pas d'asset, garder le comblage de coins actuel.
-2. **UI** : « Réseau : Avenue — X % relié (+Y %) » (afficher `state.roadCoverage`).
-3. **Description** du bâtiment `roads` dans `src/game/core/data/buildings.js` (~ligne 124, l'ancien texte parle d'un producteur d'infra générique).
-4. (option) terre-plein décorable (`L.roadMedian` / `medianSet` déjà calculés) pour poser fleurs/arbres.
+### Restes optionnels (non bloquants)
+- Terre-plein décorable (`L.roadMedian` / `medianSet` déjà calculés) pour poser fleurs/arbres.
+- Routes construites tuile-par-tuile à l'achat (proposé, jamais demandé).
 
 ---
 

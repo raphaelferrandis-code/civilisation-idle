@@ -2,6 +2,7 @@ import { memo, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, signed, signedShort, labelFor } from '../../game/core/utils.js';
+import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 
@@ -59,6 +60,22 @@ function exactLabel(value) {
   }
   if (Math.abs(n) >= 1e15) return n.toExponential(3);
   return Math.round(n).toLocaleString("fr-FR");
+}
+
+/* État du réseau routier pour la rangée `roads` : les routes RELIENT les bâtiments
+   (couverture = bâtiments-moteur reliés / total, écrite par la carte dans
+   state.roadCoverage) et donnent jusqu'à +10 % de production (roadNetworkMultiplier).
+   Le rang suit l'ère, mêmes seuils que le rang des connecteurs (layout.js). */
+function roadNetworkInfo() {
+  const cov = state.roadCoverage;
+  const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
+  const ei = currentEraIndex();
+  const rank = ei >= 30
+    ? { fr: "Boulevards", en: "Boulevards" }
+    : ei >= 20 ? { fr: "Avenues", en: "Avenues" }
+    : ei >= 10 ? { fr: "Routes", en: "Roads" }
+    : { fr: "Sentiers", en: "Paths" };
+  return { pct: Math.round(c * 100), bonus: Math.round(c * 100) / 10, rank: tr(rank) };
 }
 
 /* Icône de la rangée : la ressource dominante produite, sinon la catégorie */
@@ -197,6 +214,21 @@ function PurchaseRow({
               </span>
             ))
           )}
+          {b.id === "roads" && (() => {
+            const net = roadNetworkInfo();
+            return (
+              <span
+                className="pr-prod-item res-infra"
+                title={tr({
+                  fr: `${net.rank} : ${net.pct} % des bâtiments-moteur sont reliés au réseau. Bonus de production global : +${net.bonus} % (maximum +10 % quand tout est relié). Chaque route achetée étend le réseau d'une tuile vers le bâtiment le plus proche.`,
+                  en: `${net.rank}: ${net.pct}% of engine buildings are linked to the network. Global production bonus: +${net.bonus}% (up to +10% when everything is linked). Each road purchased extends the network one tile toward the nearest building.`
+                })}
+              >
+                <i className="fa-solid fa-diagram-project" aria-hidden="true"></i>
+                {net.rank} · {net.pct}% {tr({ fr: "relié", en: "linked" })} (+{net.bonus}%)
+              </span>
+            );
+          })()}
         </div>
 
         <div

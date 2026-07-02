@@ -107,23 +107,27 @@ function ensureStreet(name) {
 function streetForBand(band) { return 'streets-band' + Math.max(0, Math.min(9, band | 0)); }
 ensureStreet('streets'); // placeholder de repli
 
-// Couleur de chaussée, échantillonnée au CENTRE de la tuile PLEINE (mask 15 = croix, opaque)
-// du tileset des rues, mise en cache par tileset. La tuile pleine a ses 4 COINS transparents :
-// dans un bloc de routes, les coins de 4 tuiles voisines se rejoignent en un « carré de sol »
-// à chaque jonction 2×2. On comble ces coins avec cette couleur → grande route pleine.
-function streetRoadFill(ts) {
+// Couleurs de la chaussée, échantillonnées au CENTRE de la tuile PLEINE (mask 15 = croix,
+// opaque) du tileset des rues, mises en cache par tileset. `fill` = matière de la route ;
+// `edge` = liseré (même teinte assombrie). Les tuiles edge-Wang ont leur bordure BAKÉE sur
+// les 4 arêtes → une GRILLE de liserés dans un bloc de routes adjacentes ; on rend donc la
+// chaussée en APLAT continu et le liseré n'est tracé QUE contre le non-route (herbe/sol).
+function streetRoadColors(ts) {
   if (!ts || !ts.img) return null;
-  if (ts._roadFill !== undefined) return ts._roadFill;
-  ts._roadFill = null;
+  if (ts._roadCol !== undefined) return ts._roadCol;
+  ts._roadCol = null;
   try {
     const img = ts.img, c = document.createElement('canvas');
     c.width = img.width; c.height = img.height;
     const g = c.getContext('2d'); g.drawImage(img, 0, 0);
     const tw = Math.floor(img.width / 4);
     const d = g.getImageData(3 * tw + (tw >> 1), 3 * tw + (tw >> 1), 1, 1).data;
-    if (d[3] > 40) ts._roadFill = 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')';
-  } catch (e) { ts._roadFill = null; }
-  return ts._roadFill;
+    if (d[3] > 40) ts._roadCol = {
+      fill: 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')',
+      edge: 'rgb(' + Math.round(d[0] * 0.42) + ',' + Math.round(d[1] * 0.42) + ',' + Math.round(d[2] * 0.42) + ')'
+    };
+  } catch (e) { ts._roadCol = null; }
+  return ts._roadCol;
 }
 
 export function drawPixelTerrain(CM) {
@@ -147,7 +151,7 @@ export function drawPixelTerrain(CM) {
   // Rues : réseau viaire (cellules). Le masque edge-Wang lit les 4 voisins ORTHO.
   const drawStreets = pixelRoadsFlag.on && streetTs && streetTs.ready && L.roadSet;
   const STREET = streetTs && streetTs.img;
-  const roadFill = drawStreets ? streetRoadFill(streetTs) : null; // comble les coins de jonction
+  const roadCol = drawStreets ? streetRoadColors(streetTs) : null; // aplat + liseré procéduraux
   const roadMap = L.roadMap;
   // Les cellules `roadMedian` (sol coincé ENTRE deux routes) sont PAVÉES : traitées comme
   // des rues → l'edge-Wang fusionne le tout en une GRANDE route pleine (plus de « carrés de
@@ -187,19 +191,25 @@ export function drawPixelTerrain(CM) {
         if (!rec || rec.roadSurface !== 'bridge') { // ponts : laissés au rendu procédural
           const n = isStreet(gx, gy - 1), e = isStreet(gx + 1, gy),
                 s = isStreet(gx, gy + 1), w = isStreet(gx - 1, gy);
-          // Comble les COINS de jonction intérieurs (route sur les DEUX côtés ortho du coin) :
-          // la tuile pleine y est transparente → sans ça, un « carré de sol » au milieu. Posé
-          // SOUS la tuile (les arms opaques repassent dessus, seuls les coins vides montrent le fond).
-          if (roadFill && ((n && e) || (n && w) || (s && e) || (s && w))) {
-            const h = Math.ceil(sz / 2);
-            ctx.fillStyle = roadFill;
-            if (n && w) ctx.fillRect(dx, dy, h, h);
-            if (n && e) ctx.fillRect(dx + sz - h, dy, h, h);
-            if (s && w) ctx.fillRect(dx, dy + sz - h, h, h);
-            if (s && e) ctx.fillRect(dx + sz - h, dy + sz - h, h, h);
+          if (roadCol) {
+            // Chaussée PLEINE (couleur du tileset de l'ère) + liseré UNIQUEMENT contre le
+            // non-route : les routes adjacentes fusionnent sans grille interne (les tuiles
+            // edge-Wang bakent leur bordure sur les 4 arêtes → coutures dans les blocs).
+            // Les coins (dont les L intérieurs) se ferment tout seuls : chaque cellule trace
+            // ses propres côtés exposés, les bandes voisines se rejoignent au pixel près.
+            ctx.fillStyle = roadCol.fill;
+            ctx.fillRect(dx, dy, sz, sz);
+            const t = Math.max(1, Math.round(sz * 2 / 32));
+            ctx.fillStyle = roadCol.edge;
+            if (!n) ctx.fillRect(dx, dy, sz, t);
+            if (!s) ctx.fillRect(dx, dy + sz - t, sz, t);
+            if (!w) ctx.fillRect(dx, dy, t, sz);
+            if (!e) ctx.fillRect(dx + sz - t, dy, t, sz);
+          } else {
+            // Repli (échantillonnage indisponible) : tuiles edge-Wang historiques.
+            const m = (n ? 1 : 0) | (e ? 2 : 0) | (s ? 4 : 0) | (w ? 8 : 0);
+            ctx.drawImage(STREET, (m & 3) * 32, (m >> 2) * 32, 32, 32, dx, dy, sz, sz);
           }
-          const m = (n ? 1 : 0) | (e ? 2 : 0) | (s ? 4 : 0) | (w ? 8 : 0);
-          ctx.drawImage(STREET, (m & 3) * 32, (m >> 2) * 32, 32, 32, dx, dy, sz, sz);
         }
       }
     }

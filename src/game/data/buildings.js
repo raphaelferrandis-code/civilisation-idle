@@ -124,7 +124,7 @@ export const buildings = [
     id: "roads",
     category: "infra",
     name: { fr: "Routes", en: "Roads" },
-    desc: { fr: "La distance n'a pas change. Le temps qu'elle prend, si.", en: "The distance hasn't changed. The time it takes has." },
+    desc: { fr: "La distance n'a pas change. Le temps qu'elle prend, si. Chaque route relie un batiment de plus au reseau : une ville bien reliee produit jusqu'a +10 %.", en: "The distance hasn't changed. The time it takes has. Each road links one more building to the network: a well-connected city produces up to +10% more." },
     base: 100,
     scale: 1.33,
     currency: "knowledge",
