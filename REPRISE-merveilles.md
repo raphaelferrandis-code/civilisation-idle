@@ -93,7 +93,7 @@ convention `<id>-t<rang>.png`, suivi).
   Slot merveille : `__CM.layout.wonderSlots[1]` (idx = position dans CM_WONDERS, pas dans
   state.wonders).
 
-## Merveille 3 — La Couronne de Pierre (`era_kingdom`) : 🟡 SPRITES EN JEU, reste anims
+## Merveille 3 — La Couronne de Pierre (`era_kingdom`) : ✅ TERMINÉE (2026-07-03)
 
 - Concept « **Cercle du Serment** » (validé) : accrétion RADIALE — la géologie devient
   orfèvrerie. I cromlech brut sur butte → II anneau taillé à fleurons bronze → III
@@ -110,9 +110,19 @@ convention `<id>-t<rang>.png`, suivi).
   la base de muraille MESURÉE (un flood-fill fuit par le bas du canvas) ; herbe/dallage/
   silhouette humaine effacés. Vérifiée en jeu rangs I-V (⚠ premier accès = repli
   procédural ~1 s, precharger avant capture).
-- **RESTE** : animations. L'« escarboucle pulsante » proposée visait la variante non
-  retenue ; à re-proposer → piste : SCINTILLEMENT DES GEMMES (patchs custom-start sur les
-  rubis, t3-t5) + éventuel reflet qui court sur l'or du bandeau.
+- **t4 remplacé à la demande de Raph** par le 1er tirage « diadème-forteresse » (celui à
+  ciel complet baké) : fond retiré par REGION-GROWING depuis les bords avec garde-fous
+  couleur (pierre chaude/or/grenat jamais mangés) + coupe plate sous la base (y>=166) +
+  porte repeinte en aplat sombre. La croix d'or au sommet est gardée.
+- **Animations : SCINTILLEMENT DES GEMMES** (t3: 7, t4: 6, t5: 9 ancres curées à la main
+  parmi les dizaines de clusters détectés). Asset `gem-glint.png` DESSINÉ EN CODE
+  (scripts non nécessaires : scratch make-glint) : 16 frames 9×9 dont 12 VIDES →
+  éclat épisodique en ping-pong (point→croix→étoile 4 branches→croix→point), déphasé
+  par gemme. Nouveau `anchor:"center"` dans drawWonderPixelSprite (éclat centré sur sa
+  gemme). `era_kingdom-flames.json` : asset glint ms 120, sc 1.5.
+- ⚠ PIÈGE DEV : `wonderFlamesData` met en cache l'ÉCHEC de fetch du JSON (catch → entrée
+  null à jamais). Si le `<id>-flames.json` est créé APRÈS le chargement de la page,
+  RECHARGER LA PAGE avant de vérifier, sinon les overlays n'apparaissent jamais.
 
 ## Merveilles 4-6 : ⬜ À FAIRE
 

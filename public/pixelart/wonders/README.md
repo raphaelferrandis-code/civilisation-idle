@@ -62,12 +62,16 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       2026-07-03 (`era_kingdom-t1..t5.png`, 128×88 → 400×256, la seule merveille plus LARGE
       que haute). Seuils rééchelonnés ères 19/22/25/29/33 (« Royaume » = ère 19 depuis la
       refonte des ères ; les anciens seuils [9..25] tombaient au Bourg agricole).
-      Post-traitement : strip-bg (t4/t5 fond uni) + nettoyage (herbe/dallage/silhouette
-      humaine effacés, portes re-remplies en dégradé sombre — l'intérieur PixelLab était
-      blanc/gris opaque ou transparent selon le tirage). Intégrée à WONDER_PX_IDS,
-      vérifiée en jeu rangs I-V. Reste : animations (scintillement des gemmes en patch ?)
-      à valider avec Raphaël — l'ancienne proposition « escarboucle pulsante » visait la
-      variante forteresse, non retenue.
+      Post-traitement : strip-bg (t5 fond uni), region-growing avec garde-fous couleur
+      (t4 diadème-forteresse, choisi par Raphaël, ciel/nuages/herbe bakés), nettoyage
+      (herbe/dallage/silhouette humaine effacés, portes re-remplies en dégradé sombre —
+      l'intérieur PixelLab sort blanc/gris opaque ou transparent selon le tirage).
+      ANIMÉE (2026-07-03) : SCINTILLEMENT DES GEMMES — `gem-glint.png` dessiné en code
+      (16 fr. 9×9 dont 12 vides → éclat épisodique, point→croix→étoile→croix→point),
+      ancres curées à la main (t3:7, t4:6, t5:9), nouvel `anchor:"center"`, déphasage
+      par gemme (`era_kingdom-flames.json`). Intégrée à WONDER_PX_IDS, vérifiée en jeu
+      rangs I-V + éclats confirmés aux 3 rangs gemmés. ⚠ piège dev : recharger la page
+      si le JSON est créé après le chargement (le 404 est mis en cache).
 - [ ] 4. L'Arc de Triomphe Éternel (`era_empire`)
 - [ ] 5. L'Aiguille Céleste (`era_mega`)
 - [ ] 6. L'Œil de la Singularité (`era_singularity`)

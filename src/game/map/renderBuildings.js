@@ -520,7 +520,9 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
         dx = left + f.x * sx - dw / 2;
         dy = a.anchor === "top"
           ? top + f.y * sy - sy // tissu : accroché sous sa traverse, pend vers le bas
-          : top + f.y * sy - dh + sy; // flamme : posée sur son foyer, monte
+          : a.anchor === "center"
+            ? top + f.y * sy - dh / 2 // éclat : centré sur sa gemme
+            : top + f.y * sy - dh + sy; // flamme : posée sur son foyer, monte
       }
       ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
     }
