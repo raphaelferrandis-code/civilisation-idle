@@ -7,6 +7,24 @@ Chaque merveille a **5 paliers** (rang I → V). Le sprite doit grandir à chaqu
 palier et être **très grand au palier V**. Évolutions + animations conservées.
 Lumière en HAUT-GAUCHE → ombres en BAS-DROITE (règle globale de la carte).
 
+## RÈGLE DE PROJECTION (2026-07-03, après l'audit d'angle)
+La carte regarde vers le BAS ; un monument vu en CONTRE-PLONGÉE la contredit.
+1. **JAMAIS de contre-plongée** : verticales strictement parallèles, aucun
+   dessous de corniche/attique visible, pas de point de fuite vers le haut.
+2. **Orthographique frontal, idéalement un soupçon de plongée** : les surfaces
+   horizontales HAUTES (dessus de corniches, intérieur d'un anneau, dos d'un
+   quadrige) légèrement visibles — comme les toits des maisons de la carte.
+3. Prompt type : « seen from slightly above, the camera a little higher than
+   the monument looking gently down, top surfaces slightly visible, vertical
+   lines strictly parallel, no upward perspective » (view "side" PixelLab).
+4. **Ancrage au sol** : le moteur dessine une OMBRE DE CONTACT elliptique sous
+   chaque merveille pixel-art (même convention que les arbres, décalée
+   bas-droite) — c'est la seule exception à « aucun habillage procédural ».
+5. Les ouvertures traversantes (arches, intérieur d'anneau) restent
+   TRANSPARENTES : voir le sol de la carte à travers renforce l'intégration.
+   ⚠ strip-bg ne vide pas les zones encloses (intérieur d'anneau) — flood
+   dédié nécessaire.
+
 | # | id | Nom | Icône | Débloquée par | Paliers (seuils métrique) | Réapparaît à l'ère |
 |---|----|-----|-------|----------------|---------------------------|--------------------|
 | 1 | `dynasty1` | Le Mausolée du Fondateur | mausoleum | Première dynastie fondée | 1 / 50 / 200 / 400 / 750 dynasties (rééchelonné 2026-07-02, sim ~540-634 dyn/partie) | 2 |

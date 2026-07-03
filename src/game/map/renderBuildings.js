@@ -467,12 +467,20 @@ function drawWonder(w, idx, now) {
   const tint = CM_TINTS[CM.dynastyIdx % CM_TINTS.length];
 
   // Merveille pixel-art : le sprite EST tout le monument. Aucun habillage
-  // procédural (esplanade, aura, ombre portée, torches, stèles, particules,
-  // couronne orbitale, faisceau nocturne, bannière) — seules les flammes
-  // overlay animent la scène. L'érection (e<1) écrase le sprite qui pousse.
+  // procédural (esplanade, aura, torches, stèles, particules, couronne
+  // orbitale, faisceau nocturne, bannière) — seules les flammes overlay
+  // animent la scène. L'érection (e<1) écrase le sprite qui pousse.
+  // UNE exception : l'ombre de contact au sol, même convention que les
+  // arbres pixel-art (ellipse plate décalée bas-droite, lumière haut-gauche).
+  // C'est elle qui « pose » le billboard frontal sur la carte top-down —
+  // sans elle le monument flotte comme un décor de carton.
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
+    ctx.fillStyle = "rgba(18,13,6,0.24)";
+    ctx.beginPath();
+    ctx.ellipse(cxs + W * 0.05, baseY - s * 0.04, W * 0.46, W * 0.10, 0, 0, Math.PI * 2);
+    ctx.fill();
     drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
     ctx.globalAlpha = 1;
     return;

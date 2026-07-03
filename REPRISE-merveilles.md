@@ -12,6 +12,23 @@ convention `<id>-t<rang>.png`, suivi).
 
 ---
 
+## RÈGLE DE PROJECTION (2026-07-03 — retour de Raphaël sur les contre-plongées)
+
+La carte regarde vers le BAS. Verdicts et remèdes appliqués :
+- **JAMAIS de contre-plongée** (verticales convergentes, dessous de corniches) —
+  c'était le cas des t3/t4 kingdom et t3/t4 empire → tous RÉGÉNÉRÉS en
+  « léger surplomb » (prompt : seen from slightly above… vertical lines strictly
+  parallel, no upward perspective ; view "side" marche mieux que "low top-down"
+  qui change trop la composition).
+- **Ombre de contact** dessinée par le moteur sous chaque merveille px (même
+  convention que les arbres : ellipse plate, décalée bas-droite) — SEULE
+  exception à « aucun habillage procédural ». C'est elle qui pose le billboard.
+- **Ouvertures traversantes transparentes** (arches, intérieur d'anneau du
+  kingdom t4) : le sol de la carte se voit à travers → intégration forte.
+  ⚠ strip-bg ne vide pas les zones ENCLOSES → flood dédié depuis le centre.
+- Proposition d'étage 3 NON réalisée (en réserve si besoin) : peindre un PARVIS
+  dallé au niveau du SOL de la carte sous l'emprise (couche terrain, pas sprite).
+
 ## Règles verrouillées (validées par Raphaël)
 
 1. **Toutes les merveilles DE FACE** : prompt PixelLab = « seen directly from the front,
