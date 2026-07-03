@@ -45,8 +45,6 @@ import {
   cityMapDrawCityReflections,
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
-  cityMapDrawEraDetails,
-  cityMapDrawEraGlow,
   drawCrisis,
   cityMapDrawRoad,
   cityMapDrawRoadMarkings,
@@ -1019,9 +1017,6 @@ function initCityMap(canvas, options = {}) {
           for (const t of CM.layout.tiles) drawTile(t, now, tw, maxD2);
         }
       }
-      // Détails signature d'ère (totem, puits, bannières...) : objets physiques,
-      // ils subissent le voile santé/nuit comme le reste de la ville.
-      cityMapDrawEraDetails(now);
       // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
       // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.
       cityMapDrawHealthTint();
@@ -1031,8 +1026,6 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawCityLights(now);
       // Lampes de pont (additif) : par-dessus le voile de nuit, comme les fenêtres.
       cityMapDrawBridgeLights(now);
-      // Lueurs signature d'ère : feux satellites, grille néon, cœur qui respire.
-      cityMapDrawEraGlow(now);
       drawCrisis(dt, now);
       // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
       // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) sont dessinées ;

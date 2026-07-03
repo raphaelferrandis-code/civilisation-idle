@@ -154,54 +154,6 @@ export const EPOCHS = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* Les 35 ères : détail signature carte + annonce de transition        */
-/* detail: identifiant consommé par renderWorld (cumulatif : un détail */
-/* introduit à l'ère N reste visible ensuite).                         */
-/* ------------------------------------------------------------------ */
-
-// Chaque annonce décrit un changement RÉELLEMENT visible sur la carte à
-// cette ère : soit un détail dessiné ici (detail non nul), soit un système
-// existant qui bascule à ce seuil exact (véhicules, routes, lanternes,
-// murailles, sols et peaux d'époque, croissance des monuments/quartiers).
-export const ERA_SIGNATURES = [
-  { detail: null,              announce: "Un cercle de pierres, quelques braises." },
-  { detail: "satellite_fires", announce: "Des feux s'allument autour du campement." },
-  { detail: "drying_racks",    announce: "Des claies de séchage entourent les abris." },
-  { detail: "totem",           announce: "Un totem se dresse au centre du cercle." },
-  { detail: null,              announce: "Les huttes se multiplient autour du foyer." },
-  { detail: "well",            announce: "Un puits est creusé au cœur du hameau." },
-  { detail: null,              announce: "Chariots et attelages remplacent les paniers." },
-  { detail: "haystacks",       announce: "Meules de foin et lanternes apparaissent." },
-  { detail: "scarecrows",      announce: "Des épouvantails veillent sur les champs." },
-  { detail: null,              announce: "Des caravanes sillonnent la grand-route." },
-  { detail: null,              announce: "La pierre claire remplace le bois." },
-  { detail: null,              announce: "Les rues s'élargissent et se pavent." },
-  { detail: "market_stalls",   announce: "Des étals colorés couvrent les places." },
-  { detail: null,              announce: "Le trafic s'intensifie sur les avenues." },
-  { detail: null,              announce: "Des navires accostent au fil de l'eau." },
-  { detail: "wall_banners",    announce: "Murailles et bannières ceignent la cité." },
-  { detail: null,              announce: "De nouveaux étendards fleurissent sur les places." },
-  { detail: "keep_standard",   announce: "L'étendard seigneurial domine le cœur de la ville." },
-  { detail: null,              announce: "Les comptoirs marchands gagnent les routes." },
-  { detail: null,              announce: "L'oriflamme royale double chaque pennon." },
-  { detail: null,              announce: "Le marbre blanchit les esplanades." },
-  { detail: null,              announce: "De nouveaux monuments s'élèvent." },
-  { detail: null,              announce: "Les colonnades gagnent les avenues." },
-  { detail: null,              announce: "Les quartiers se densifient." },
-  { detail: null,              announce: "Des réverbères d'un nouvel âge bordent les avenues." },
-  { detail: null,              announce: "La brique sombre et le métal grisent la ville." },
-  { detail: null,              announce: "Les nuits brillent de mille fenêtres." },
-  { detail: null,              announce: "Les faubourgs avalent la campagne." },
-  { detail: null,              announce: "Les villes voisines se fondent en une seule." },
-  { detail: null,              announce: "Les artères scintillent de trafic nocturne." },
-  { detail: null,              announce: "Le néon froid remplace l'or des nuits." },
-  { detail: null,              announce: "Les arcologies percent le smog." },
-  { detail: null,              announce: "Des lignes de lumière strient les quartiers." },
-  { detail: "neon_grid",       announce: "Une grille pulse sous les rues." },
-  { detail: "breathing_core",  announce: "Le cœur de la cité respire seul." }
-];
-
-/* ------------------------------------------------------------------ */
 /* Dérivation des couleurs                                             */
 /* ------------------------------------------------------------------ */
 
@@ -234,7 +186,6 @@ export function getEraTheme(eraIndex) {
 
   const band = eraBandOf(i);
   const epoch = EPOCHS[band];
-  const sig = ERA_SIGNATURES[i] || { detail: null, announce: "" };
 
   // Micro-dérive intra-époque : la teinte glisse légèrement à chaque ère,
   // la lumière monte — chaque ère est une variation sensible mais douce.
@@ -251,8 +202,6 @@ export function getEraTheme(eraIndex) {
     epochId: epoch.id,
     epochLabel: epoch.label,
     epochNumeral: ROMANS[stepInEpoch],
-    detail: sig.detail,
-    announce: sig.announce,
     // Famille chrome : remplace --gold/--gold-bright/--gold-dim/--gold-deep.
     accent: rgbHex(accent),
     accentBright: rgbHex(hslToRgb(hue, sat, Math.min(82, lum + 12))),
@@ -263,17 +212,6 @@ export function getEraTheme(eraIndex) {
   };
   themeCache.set(i, theme);
   return theme;
-}
-
-/** Détails signature actifs à une ère donnée (cumulatifs). */
-export function activeEraDetails(eraIndex) {
-  const out = new Set();
-  const max = Math.max(0, Math.min(eras.length - 1, eraIndex | 0));
-  for (let i = 0; i <= max; i++) {
-    const d = ERA_SIGNATURES[i] && ERA_SIGNATURES[i].detail;
-    if (d) out.add(d);
-  }
-  return out;
 }
 
 /** Ambiance carte d'une bande (sol urbain, fond sauvage, chaleur nocturne). */

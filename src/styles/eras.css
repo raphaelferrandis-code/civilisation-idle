@@ -153,20 +153,9 @@
 }
 
 /* ============================================================
-   Bandeau de transition : annonce du détail signature + variante
-   "époque" (cérémonie renforcée toutes les 5 ères).
+   Bandeau de transition : variante "époque" (cérémonie renforcée
+   toutes les 5 ères).
    ============================================================ */
-
-.era-banner-announce {
-  max-width: min(34rem, 80vw);
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-style: italic;
-  line-height: 1.4;
-  text-align: center;
-  color: var(--text-secondary);
-  opacity: 0.92;
-}
 
 .era-banner--epoch {
   background: radial-gradient(ellipse at center,

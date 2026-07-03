@@ -12,22 +12,28 @@ convention `<id>-t<rang>.png`, suivi).
 
 ---
 
-## RÈGLE DE PROJECTION (2026-07-03 — retour de Raphaël sur les contre-plongées)
+## RÈGLE DE PROJECTION (2026-07-03 — précisée en 2 temps par Raphaël)
 
-La carte regarde vers le BAS. Verdicts et remèdes appliqués :
-- **JAMAIS de contre-plongée** (verticales convergentes, dessous de corniches) —
-  c'était le cas des t3/t4 kingdom et t3/t4 empire → tous RÉGÉNÉRÉS en
-  « léger surplomb » (prompt : seen from slightly above… vertical lines strictly
-  parallel, no upward perspective ; view "side" marche mieux que "low top-down"
-  qui change trop la composition).
+1er retour : « pas de contre-plongée » → j'ai d'abord régénéré en « léger
+surplomb » frontal. 2e retour : **PAS un portrait frontal — une VUE DE DESSUS**
+type bâtiment RTS. Verdicts finaux :
+- **kingdom t3/t4 + empire t1-t5 RÉGÉNÉRÉS en view "low top-down"** PixelLab
+  (prompt : « seen from above, three-quarter top-down view like a classic
+  strategy game building, the flat top clearly visible »). Un « seen from
+  slightly above » en view "side" ne suffit PAS.
 - **Ombre de contact** dessinée par le moteur sous chaque merveille px (même
-  convention que les arbres : ellipse plate, décalée bas-droite) — SEULE
-  exception à « aucun habillage procédural ». C'est elle qui pose le billboard.
-- **Ouvertures traversantes transparentes** (arches, intérieur d'anneau du
-  kingdom t4) : le sol de la carte se voit à travers → intégration forte.
-  ⚠ strip-bg ne vide pas les zones ENCLOSES → flood dédié depuis le centre.
-- Proposition d'étage 3 NON réalisée (en réserve si besoin) : peindre un PARVIS
-  dallé au niveau du SOL de la carte sous l'emprise (couche terrain, pas sprite).
+  convention que les arbres) — SEULE exception à « aucun habillage procédural ».
+  ⚠ retirer les ombres au sol BAKED des tirages low top-down (doublon).
+- **Ouvertures traversantes transparentes** (arches, cour intérieure d'anneau) :
+  le sol de la carte se voit à travers. ⚠ strip-bg ne vide pas les zones
+  ENCLOSES (flood dédié) ; ⚠ les sols intérieurs quasi couleur-fond se font
+  manger au strip (le couloir de l'Arc t5 a été REPEINT en dégradé doré).
+- Exceptions assumées : Mausolée, Colonne, Couronne-t5 « posée » restent des
+  silhouettes frontales (validées, lisent bien sans contre-plongée).
+- Étage 3 en réserve : PARVIS dallé au sol de la carte sous l'emprise.
+- Toutes les ancres d'anims kingdom/empire RECALÉES sur les tirages top-down
+  (gemmes re-détectées/curées, lambrequins pourpres re-croppés/re-animés en
+  patch, glow du couloir déplacé, glints statue équestre).
 
 ## Règles verrouillées (validées par Raphaël)
 

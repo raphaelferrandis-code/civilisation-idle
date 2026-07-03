@@ -64,7 +64,6 @@ export default function App() {
       const isEpochShift = getEraTheme(prev).band !== theme.band;
       setEraBanner({
         name: eras[eraIdx]?.name || "",
-        announce: theme.announce,
         epoch: isEpochShift ? theme.epochLabel : null
       });
       const t = setTimeout(() => setEraBanner(null), isEpochShift ? 4800 : 3200);
@@ -235,9 +234,6 @@ export default function App() {
               : tr({ fr: 'Un nouvel âge commence', en: 'A new age begins' })}
           </span>
           <strong className="era-banner-name">{eraBanner.name}</strong>
-          {eraBanner.announce && (
-            <span className="era-banner-announce">{eraBanner.announce}</span>
-          )}
         </div>
       )}
     </div>

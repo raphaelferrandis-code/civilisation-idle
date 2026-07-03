@@ -2,25 +2,21 @@
   "asset": {
     "glow":  { "file": "arc-glow.png",  "fw": 28, "fh": 36, "frames": 12, "ms": 150, "sc": 3.2, "anchor": "center", "blend": "lighter" },
     "glint": { "file": "gem-glint.png", "fw": 9,  "fh": 9,  "frames": 16, "ms": 120, "sc": 1.5, "anchor": "center" },
-    "bang":  { "file": "arc-ban-g.png", "fw": 34, "fh": 22, "frames": 9, "mode": "patch", "ms": 150 },
-    "band":  { "file": "arc-ban-d.png", "fw": 33, "fh": 22, "frames": 9, "mode": "patch", "ms": 150 }
+    "bang":  { "file": "arc-ban-g.png", "fw": 32, "fh": 19, "frames": 9, "mode": "patch", "ms": 150 },
+    "band":  { "file": "arc-ban-d.png", "fw": 32, "fh": 20, "frames": 9, "mode": "patch", "ms": 150 }
   },
   "tiers": {
     "t4": { "flames": [
-      { "x": 74,  "y": 98, "w": 34, "h": 22, "kind": "bang" },
-      { "x": 213, "y": 98, "w": 33, "h": 22, "kind": "band" },
-      { "x": 137, "y": 26, "w": 6, "h": 6, "kind": "glint" },
-      { "x": 160, "y": 15, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 171, "y": 24, "w": 6, "h": 6, "kind": "glint" },
-      { "x": 184, "y": 27, "w": 6, "h": 6, "kind": "glint" }
+      { "x": 74,  "y": 108, "w": 32, "h": 19, "kind": "bang" },
+      { "x": 215, "y": 107, "w": 32, "h": 20, "kind": "band" },
+      { "x": 150, "y": 28, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 163, "y": 20, "w": 7, "h": 7, "kind": "glint" },
+      { "x": 175, "y": 28, "w": 6, "h": 6, "kind": "glint" }
     ] },
     "t5": { "flames": [
-      { "x": 200, "y": 222, "w": 12, "h": 16, "kind": "glow" },
-      { "x": 144, "y": 20, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 175, "y": 18, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 202, "y": 16, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 228, "y": 18, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 255, "y": 20, "w": 7, "h": 7, "kind": "glint" }
+      { "x": 200, "y": 203, "w": 10, "h": 12, "kind": "glow" },
+      { "x": 180, "y": 40, "w": 8, "h": 8, "kind": "glint" },
+      { "x": 220, "y": 30, "w": 8, "h": 8, "kind": "glint" }
     ] }
   }
 }

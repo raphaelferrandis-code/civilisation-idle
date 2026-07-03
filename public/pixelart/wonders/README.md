@@ -7,23 +7,30 @@ Chaque merveille a **5 paliers** (rang I → V). Le sprite doit grandir à chaqu
 palier et être **très grand au palier V**. Évolutions + animations conservées.
 Lumière en HAUT-GAUCHE → ombres en BAS-DROITE (règle globale de la carte).
 
-## RÈGLE DE PROJECTION (2026-07-03, après l'audit d'angle)
-La carte regarde vers le BAS ; un monument vu en CONTRE-PLONGÉE la contredit.
+## RÈGLE DE PROJECTION (2026-07-03, précisée par Raphaël : VUE DE DESSUS)
+La carte regarde vers le BAS ; les monuments doivent être VUS DE DESSUS,
+comme des bâtiments de jeu de stratégie — pas des portraits frontaux.
 1. **JAMAIS de contre-plongée** : verticales strictement parallèles, aucun
    dessous de corniche/attique visible, pas de point de fuite vers le haut.
-2. **Orthographique frontal, idéalement un soupçon de plongée** : les surfaces
-   horizontales HAUTES (dessus de corniches, intérieur d'un anneau, dos d'un
-   quadrige) légèrement visibles — comme les toits des maisons de la carte.
-3. Prompt type : « seen from slightly above, the camera a little higher than
-   the monument looking gently down, top surfaces slightly visible, vertical
-   lines strictly parallel, no upward perspective » (view "side" PixelLab).
-4. **Ancrage au sol** : le moteur dessine une OMBRE DE CONTACT elliptique sous
+2. **Vue de dessus 3/4 (type RTS)** : les surfaces horizontales HAUTES
+   dominent — dessus d'attique, cour intérieure d'un anneau, dos des statues.
+   PixelLab : view **"low top-down"** + « seen from above, three-quarter
+   top-down view like a classic strategy game building, the flat top clearly
+   visible ». (Un simple « seen from slightly above » en view "side" ne
+   suffit PAS — ça reste un portrait frontal.)
+3. **Ancrage au sol** : le moteur dessine une OMBRE DE CONTACT elliptique sous
    chaque merveille pixel-art (même convention que les arbres, décalée
    bas-droite) — c'est la seule exception à « aucun habillage procédural ».
-5. Les ouvertures traversantes (arches, intérieur d'anneau) restent
+   ⚠ retirer les ombres au sol BAKED des tirages (doublon), et les décors
+   (herbe/dallage) hors de l'emprise.
+4. Les ouvertures traversantes (arches, cour intérieure d'anneau) restent
    TRANSPARENTES : voir le sol de la carte à travers renforce l'intégration.
-   ⚠ strip-bg ne vide pas les zones encloses (intérieur d'anneau) — flood
-   dédié nécessaire.
+   ⚠ strip-bg ne vide pas les zones encloses — flood dédié nécessaire ; et
+   gare aux sols intérieurs quasi couleur-fond (le couloir de l'Arc t5 a dû
+   être repeint après strip).
+Exceptions assumées (validées) : le Mausolée, la Colonne et la Couronne-t5
+« posée » restent des silhouettes frontales/objets — leurs formes (masse,
+fût, couronne) lisent bien sans contre-plongée. En cas de doute : low top-down.
 
 | # | id | Nom | Icône | Débloquée par | Paliers (seuils métrique) | Réapparaît à l'ère |
 |---|----|-----|-------|----------------|---------------------------|--------------------|
