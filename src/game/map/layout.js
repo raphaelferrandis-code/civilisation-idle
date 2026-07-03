@@ -643,9 +643,6 @@ function cmIsWalkableRoad(layout, gx, gy) {
 
 // ── Compteurs et disposition ─────────────────────────────────────────────────
 function cityCounts(s) {
-  const b = s.buildings || {};
-  const get = (id) => b[id] || 0;
-  const foodB = get("foragers") + get("granaries_city") + get("irrigated_fields") + get("water_mills") + get("river_ports");
   const lg = (v) => Math.log10(Math.max(0, v) + 1);
   const eraIndex    = cmEraIndexFor(s);
   const eraFrac     = cmEraFrac(eraIndex);
@@ -667,20 +664,14 @@ function cityCounts(s) {
   // un grand plafond. Purement visuel : n'affecte que le nombre de toits dessinés.
   const popFill     = Math.pow(Math.min(popDepth, 10), 1.45) * (1 - eraFrac * 0.85);
   const houseCap    = Math.round((8 + Math.pow(eraFrac, 1.72) * 650) * lateScale + popFill * 10);
-  const farmCap     = Math.round((3 + Math.pow(eraFrac, 1.02) * 190) * Math.sqrt(lateScale));
-  const publicCap   = Math.round(Math.max(0, -3 + Math.pow(eraFrac, 1.32) * 180) * lateScale);
-  const libCap      = Math.round(Math.max(0, -2 + Math.pow(eraFrac, 1.42) * 140) * lateScale);
   const ringCap     = Math.round(1 + eraFrac * 15);
   const districtCap = Math.round(Math.max(0, Math.pow(Math.max(0, eraFrac - 0.34) / 0.66, 1.25) * 50) * lateScale);
   const monumentCap = Math.round(Math.max(0, Math.pow(Math.max(0, eraFrac - 0.22) / 0.78, 1.14) * 34) * lateScale);
   const houses         = cmClamp(2 + Math.pow(popDepth, 1.48) * 4.7 + Math.pow(eraIndex, 1.62) * 3.05 + lateSurge * 4.5, 1, houseCap);
-  const farms          = cmClamp(Math.sqrt(foodB) * 1.4 + eraIndex * 1.75, 0, farmCap);
-  const publics        = eraBand < 1 ? 0 : cmClamp(infraDepth * 3.9 + (get("markets") + get("guilds")) / 3.2 + eraIndex * 2.15 + lateSurge * 1.4, 0, publicCap);
-  const libs           = eraBand < 1 ? 0 : cmClamp(knowledgeDepth * 3.2 + eraIndex * 1.55 + lateSurge * 1.05, 0, libCap);
   const infraRings     = cmClamp(infraDepth * 0.5 + eraIndex * 0.18, 0, ringCap);
   const megaDistricts  = eraBand < 3 ? 0 : cmClamp(Math.pow(Math.max(0, eraIndex - 7), 1.35) * 1.25 + Math.max(0, popDepth - 6.2) * 2 + Math.max(0, infraDepth - 5.5) * 1.45, 0, districtCap);
   const civicMonuments = eraBand < 2 ? 0 : cmClamp(Math.pow(Math.max(0, eraIndex - 4), 1.18) * 1.05 + Math.max(0, infraDepth - 4.5) * 1.15 + Math.max(0, knowledgeDepth - 4.5) * 1.1, 0, monumentCap);
-  return { houses, farms, publics, libs, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
+  return { houses, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
 }
 
 // ── Anneau de tram le long de la muraille (band 5+) ─────────────────────────
@@ -978,7 +969,7 @@ function computeCityLayout(s) {
   const mapSeed = ensureMapSeed(s);
   const personality = computeCityPersonality(mapSeed, s);
   const ageCfg = ageConfigFor(c.eraBand);
-  const total = c.houses + c.farms + c.publics + c.libs;
+  const total = c.houses;
   const enginePressure = CM_MAP_BUILDINGS.reduce((sum, meta) => {
     const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
     return sum + cmEngineInstances(level).reduce((acc, group) => acc + Math.max(1, cmEngineFootprint(meta.id, group) ** 2), 0);
@@ -1682,35 +1673,6 @@ function computeCityLayout(s) {
   // NB: la purge des slots morts est déplacée APRÈS le placement décoratif (qui
   // crée des slots `dec_*`) — sinon, ajoutés après la purge, ils fuiteraient.
 
-  const placeCentralFirepit = () => {
-    if (c.eraBand > 0) return false;
-    // Le foyer fondateur s'installe près du cœur urbain choisi par le plan.
-    const fx = Math.round(plan.core.x), fy = Math.round(plan.core.y);
-    const preferred = [
-      { gx: fx + 3, gy: fy - 1 },
-      { gx: fx + 2, gy: fy + 2 },
-      { gx: fx - 2, gy: fy + 2 },
-      { gx: fx + 2, gy: fy - 2 },
-      { gx: fx - 2, gy: fy - 2 },
-      { gx: fx + 3, gy: fy + 1 },
-      { gx: fx - 3, gy: fy + 1 },
-      { gx: fx + 1, gy: fy - 3 },
-      { gx: fx - 1, gy: fy - 3 }
-    ];
-    const canUse = (cell) => {
-      const k = cell.gx + "," + cell.gy;
-      return cell.gx >= 0 && cell.gy >= 0 && cell.gx < N && cell.gy < N
-        && !usedKeys.has(k) && !roadKey.has(k) && !riverSet.has(k) && !bankSet.has(k);
-    };
-    const cell = preferred.find(canUse) || buildable.find((c2) => !usedKeys.has(c2.gx + "," + c2.gy));
-    if (!cell) return false;
-    const dx = cell.gx - cx, dy = cell.gy - cy;
-    tiles.push({ gx: cell.gx, gy: cell.gy, type: "public", variant: "firepit", key: "firepit:" + cell.gx + "," + cell.gy, d2: cell.d2 ?? dx * dx + dy * dy });
-    usedKeys.add(cell.gx + "," + cell.gy);
-    return true;
-  };
-  const centralFirepitPlaced = placeCentralFirepit();
-
   const bias = personality.buildingBias || {};
   // Cellule libre pour un décoratif 1×1 : dans la grille, non occupée, constructible
   // (footprintFits = pas route/eau/berge/réservé), et bordant une rue si requis.
@@ -1735,10 +1697,7 @@ function computeCityLayout(s) {
       clamp: cmClamp
     });
   };
-  placeDecor("public", biasedCount(Math.max(0, c.publics - (centralFirepitPlaced ? 1 : 0)), bias.public));
-  placeDecor("library", biasedCount(c.libs, bias.library));
   placeDecor("house", biasedCount(c.houses, bias.house));
-  placeDecor("farm", biasedCount(c.farms, bias.farm));
 
   // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
   // courant ET les slots réellement posés cette frame (émonde la frange quand la

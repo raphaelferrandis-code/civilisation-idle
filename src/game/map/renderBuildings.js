@@ -7,7 +7,7 @@ import {
   cmHash,
   cmWonderSlot
 } from './layout.js';
-import { drawEngineSprite, drawHouseShape, drawPublicShape, BUILDING_HEIGHTS } from './buildingShapes.js';
+import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingShapes.js';
 import { baseColor } from './renderWorld.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
@@ -15,8 +15,8 @@ import { baseColor } from './renderWorld.js';
 
 /* ============================================================================
  * citymap-render-buildings.js - Rendu des tuiles, batiments, districts et merveilles.
- *   drawTile et helpers de forme (drawHouseShape, drawPublicShape,
- *   drawEngineSprite, drawTinyCamp). Depend de CM, citymap-camera et citymap-draw-utils.
+ *   drawTile et helpers de forme (drawHouseShape, drawEngineSprite,
+ *   drawTinyCamp). Depend de CM, citymap-camera et citymap-draw-utils.
  * ============================================================================ */
 
 // Teintes de quartier (qkind) : palette harmonisée sur une dominante chaude
@@ -46,9 +46,6 @@ const CM_LOD_COLORS = {
 };
 const CM_LOD_BY_TYPE = {
   house: "#97704f",
-  public: "#b3955c",
-  library: "#8a8f99",
-  farm: "#6d7f42",
   engine: "#b59e5e"
 };
 
@@ -93,14 +90,11 @@ function cmLodRamp(col) {
 // directement sur la couleur du terrain. On supprime pour elles tout rectangle
 // de fond (ombre portée carrée, surcouche de luminosité, teinte de quartier) ;
 // seule une petite ombre ovale naturelle est conservée.
-const CM_SOFT_FOOTPRINT = new Set(["tent", "firepit", "hut", "longhouse", "granary", "shrine"]);
+const CM_SOFT_FOOTPRINT = new Set(["tent", "hut", "longhouse"]);
 const CM_SOFT_SHADOW = {
   tent:      { cx: 0.50, cy: 0.84, rx: 0.27, ry: 0.075, a: 0.20 },
-  firepit:   { cx: 0.50, cy: 0.82, rx: 0.32, ry: 0.080, a: 0.16 },
   hut:       { cx: 0.50, cy: 0.59, rx: 0.40, ry: 0.310, a: 0.22 },
-  longhouse: { cx: 0.50, cy: 0.86, rx: 0.43, ry: 0.080, a: 0.19 },
-  granary:   { cx: 0.50, cy: 0.85, rx: 0.36, ry: 0.075, a: 0.18 },
-  shrine:    { cx: 0.50, cy: 0.76, rx: 0.23, ry: 0.055, a: 0.18 }
+  longhouse: { cx: 0.50, cy: 0.86, rx: 0.43, ry: 0.080, a: 0.19 }
 };
 
 function drawSoftFootprintShadow(ctx, variant, x, y, w, h) {
@@ -132,7 +126,7 @@ function drawSoftFootprintShadow(ctx, variant, x, y, w, h) {
 // métropole vue de haut devient un tableau pavé, pas une grille d'aplats.
 function drawTileLOD(t, ctx, x, y, w, h) {
   const col = t.type === "engine" ? cmLodEngineColor(t.buildingId)
-    : (t.type !== "farm" && t.qkind && CM_LOD_COLORS[t.qkind])
+    : (t.qkind && CM_LOD_COLORS[t.qkind])
     || CM_LOD_BY_TYPE[t.type] || "#97704f";
   ctx.fillStyle = CM_LOD_MORTAR;
   ctx.fillRect(x, y, w, h);
@@ -220,7 +214,7 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   // Variation par batiment (seed stable sur x,y) : taille, decalage 1px, luminosite, micro-ombre.
-  if (t.type !== "farm" && t.type !== "engine") {
+  if (t.type !== "engine") {
     const seedV = cmHash(t.gx + ":" + t.gy);
     const sizeVar = 0.82 + (seedV % 37) / 37 * 0.28;   // 0.82..1.10
     const offX = (((seedV >> 5) % 3) - 1);             // -1..1 px
@@ -272,29 +266,10 @@ function drawTile(t, now, timeWear, maxD2) {
         }
       }
     }
-  } else if (t.type === "farm") {
-    ctx.fillStyle = t.variant === "industrial" ? "#657239" : t.variant === "patch" ? "#3f6424" : "#4a7a2a";
-    ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
-    ctx.strokeStyle = t.variant === "industrial" ? "#9a8f48" : "#3a6a1a";
-    ctx.lineWidth = Math.max(1, s * 0.05);
-    if (t.variant === "industrial") {
-      ctx.strokeRect(x + w * 0.24, y + h * 0.24, w * 0.52, h * 0.52);
-      ctx.fillStyle = "rgba(25,18,8,0.35)";
-      ctx.fillRect(x + w * 0.4, y + h * 0.12, w * 0.2, h * 0.74);
-    } else {
-      for (let li = 1; li <= 3; li += 1) {
-        const ly = y + pad + (h - pad * 2) * li / 4;
-        ctx.beginPath(); ctx.moveTo(x + pad, ly); ctx.lineTo(x + w - pad, ly); ctx.stroke();
-      }
-    }
   } else {
     // Corps du batiment
     if (t.type === "house") {
       drawHouseShape(x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.gx * 13 + t.gy * 7, t.variant, now);
-    } else if (t.type === "public") {
-      drawPublicShape(t.type, x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.variant, now);
-    } else if (t.type === "library") {
-      drawPublicShape(t.type, x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.variant, now);
     } else {
       ctx.fillStyle = baseColor(t.type, t.variant);
       ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
@@ -302,14 +277,14 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   // Variation de luminosite (clair/sombre selon le seed).
-  if (t.type !== "farm" && !CM_SOFT_FOOTPRINT.has(t.variant) && Math.abs(tileLumDelta) > 0.02) {
+  if (!CM_SOFT_FOOTPRINT.has(t.variant) && Math.abs(tileLumDelta) > 0.02) {
     ctx.fillStyle = tileLumDelta > 0 ? `rgba(255,240,210,${tileLumDelta.toFixed(2)})` : `rgba(0,0,0,${(-tileLumDelta).toFixed(2)})`;
     ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
   }
 
   // Teinte de quartier : dominante selon le quartier d'appartenance
   // (rend la structure procédurale lisible : souk doré, quartier savant bleuté...).
-  if (t.qkind && t.type !== "engine" && t.type !== "farm" && !CM_SOFT_FOOTPRINT.has(t.variant)) {
+  if (t.qkind && t.type !== "engine" && !CM_SOFT_FOOTPRINT.has(t.variant)) {
     const tint = CM_QTINT[t.qkind];
     if (tint) {
       ctx.fillStyle = tint;
@@ -321,7 +296,7 @@ function drawTile(t, now, timeWear, maxD2) {
 
   // Fumee industrielle (ere avancee) sur certains batiments.
   const eb = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 0;
-  if (eb >= 4 && (t.variant === "block" || t.variant === "tenement" || t.variant === "industrial" || t.type === "public") && ((t.gx * 7 + t.gy * 13) % 3 === 0)) {
+  if (eb >= 4 && (t.variant === "block" || t.variant === "tenement") && ((t.gx * 7 + t.gy * 13) % 3 === 0)) {
     const cxs = x + w * 0.5;
     for (let k = 0; k < 2; k += 1) {
       const ph = ((now / 1400) + k * 0.5 + t.gx * 0.13) % 1;
@@ -333,91 +308,6 @@ function drawTile(t, now, timeWear, maxD2) {
 
 }
 
-function drawCentralFire(now) {
-  const L = CM.layout;
-  if (!L || !L.counts || L.counts.eraBand > 0) return;
-  const z = CM.cam.zoom, s = CM.TILE * z;
-  // Le grand feu brûle au cœur de ville du plan (décalé du centre de grille).
-  const coreX = L.plan?.core?.x ?? L.cx;
-  const coreY = L.plan?.core?.y ?? L.cy;
-  const cx = ((coreX + 0.5) * CM.TILE - CM.cam.x) * z + CM.cw / 2;
-  const cy = ((coreY + 0.5) * CM.TILE - CM.cam.y) * z + CM.ch / 2;
-  if (cx < -s * 2 || cx > CM.cw + s * 2 || cy < -s * 2 || cy > CM.ch + s * 2) return;
-  const ctx = CM.ctx;
-  const t = now || 0;
-  const r = s * 0.55; // rayon du feu proportionnel au zoom
-
-  // Halo rayonnant — plus intense et plus large la nuit (le foyer domine le
-  // campement nocturne). La lumière projetée sur les alentours est, elle,
-  // dessinée par drawCentralFireGlow APRÈS le voile de nuit (sinon assombrie).
-  const nf = CM.nightF || 0;
-  const haloR = r * (2.2 + nf * 1.6);
-  const halo = 0.14 + 0.06 * Math.abs(Math.sin(t / 520)) + nf * 0.18;
-  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
-  rg.addColorStop(0, `rgba(255,175,55,${halo.toFixed(2)})`);
-  rg.addColorStop(0.6, `rgba(255,90,15,${(halo * 0.38).toFixed(2)})`);
-  rg.addColorStop(1, "rgba(255,60,5,0)");
-  ctx.fillStyle = rg;
-  ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
-
-  // Cercle de pierres
-  ctx.fillStyle = "#5a4830";
-  for (let i = 0; i < 7; i++) {
-    const a = i * Math.PI * 2 / 7;
-    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.48, cy + Math.sin(a) * r * 0.4, Math.max(1.5, r * 0.1), 0, Math.PI * 2); ctx.fill();
-  }
-  // Bûches en croix
-  ctx.lineWidth = Math.max(2, r * 0.14); ctx.lineCap = "round";
-  ctx.strokeStyle = "#6a3c0c";
-  ctx.beginPath(); ctx.moveTo(cx - r*0.38, cy + r*0.14); ctx.lineTo(cx + r*0.38, cy - r*0.14); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx + r*0.38, cy + r*0.14); ctx.lineTo(cx - r*0.38, cy - r*0.14); ctx.stroke();
-  ctx.lineCap = "square";
-  // Braises
-  ctx.fillStyle = "rgba(200,60,5,0.82)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + r*0.05, r*0.28, r*0.2, 0, 0, Math.PI*2); ctx.fill();
-  // 3 flammes animées
-  const f1 = 0.5+0.5*Math.sin(t/170), f2 = 0.5+0.5*Math.sin(t/140+1.3), f3 = 0.5+0.5*Math.sin(t/200+2.7);
-  ctx.fillStyle = `rgba(255,88,10,${(0.78+f1*0.22).toFixed(2)})`;
-  ctx.beginPath(); ctx.moveTo(cx-r*0.22,cy+r*0.1); ctx.quadraticCurveTo(cx-r*0.32,cy-r*(0.38+f1*0.18),cx,cy-r*(0.55+f1*0.15)); ctx.quadraticCurveTo(cx+r*0.32,cy-r*(0.38+f2*0.14),cx+r*0.22,cy+r*0.1); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = `rgba(255,200,22,${(0.82+f2*0.18).toFixed(2)})`;
-  ctx.beginPath(); ctx.moveTo(cx-r*0.14,cy+r*0.1); ctx.quadraticCurveTo(cx-r*0.08,cy-r*(0.44+f2*0.22),cx,cy-r*(0.66+f2*0.18)); ctx.quadraticCurveTo(cx+r*0.08,cy-r*(0.44+f3*0.15),cx+r*0.14,cy+r*0.1); ctx.closePath(); ctx.fill();
-  // Étincelle au sommet
-  ctx.fillStyle = `rgba(255,252,210,${(0.65+f3*0.35).toFixed(2)})`;
-  ctx.beginPath(); ctx.arc(cx, cy - r*(0.64+f2*0.17), Math.max(1, r*0.09), 0, Math.PI*2); ctx.fill();
-}
-
-// Lumière nocturne projetée par le grand feu : large halo chaud ADDITIF dessiné
-// APRÈS le voile de nuit (sinon il serait assombri comme le reste). C'est cette
-// passe qui « éclaire les alentours » — flamme vacillante, rayon qui respire.
-function drawCentralFireGlow(now) {
-  const L = CM.layout;
-  if (!L || !L.counts || L.counts.eraBand > 0) return;
-  const nf = CM.nightF || 0;
-  if (nf < 0.04) return;
-  const z = CM.cam.zoom, s = CM.TILE * z;
-  const coreX = L.plan?.core?.x ?? L.cx;
-  const coreY = L.plan?.core?.y ?? L.cy;
-  const cx = ((coreX + 0.5) * CM.TILE - CM.cam.x) * z + CM.cw / 2;
-  const cy = ((coreY + 0.5) * CM.TILE - CM.cam.y) * z + CM.ch / 2;
-  const t = now || 0;
-  // Vacillement : combinaison de deux sinus rapides → la lueur n'est jamais figée.
-  const flick = 0.86 + 0.1 * Math.sin(t / 150) + 0.06 * Math.sin(t / 67 + 1.7);
-  const lightR = s * (3.2 + nf * 3.8) * flick;
-  if (cx < -lightR || cx > CM.cw + lightR || cy < -lightR || cy > CM.ch + lightR) return;
-  const ctx = CM.ctx;
-  const prev = ctx.globalCompositeOperation;
-  ctx.globalCompositeOperation = "lighter";
-  const a = (0.115 + nf * 0.27) * flick;
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, lightR);
-  g.addColorStop(0, `rgba(255,196,100,${a.toFixed(3)})`);
-  g.addColorStop(0.32, `rgba(255,150,55,${(a * 0.5).toFixed(3)})`);
-  g.addColorStop(0.7, `rgba(255,110,30,${(a * 0.18).toFixed(3)})`);
-  g.addColorStop(1, "rgba(255,100,25,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(cx, cy, lightR, 0, Math.PI * 2); ctx.fill();
-  ctx.globalCompositeOperation = prev;
-}
-
 function drawMinimap() {
   if (!CM.mctx) return;
   const m = CM.mctx, size = 150, world = CM.gridN * CM.TILE, sc = size / world;
@@ -427,7 +317,7 @@ function drawMinimap() {
     m.fillStyle = "#3a3326";
     for (const r of CM.layout.roads) m.fillRect(r.gx * CM.TILE * sc, r.gy * CM.TILE * sc, Math.max(1, CM.TILE * sc), Math.max(1, CM.TILE * sc));
     for (const t of CM.layout.tiles) {
-      m.fillStyle = t.type === "engine" ? (CM_INFRA_IDS.has(t.buildingId) ? "#b8a882" : CM_KNOWLEDGE_IDS.has(t.buildingId) ? "#6bb6ff" : "#d4a017") : t.type === "farm" ? "#4a7a2a" : t.type === "public" || t.type === "library" ? "#c9a84c" : "#8b6914";
+      m.fillStyle = t.type === "engine" ? (CM_INFRA_IDS.has(t.buildingId) ? "#b8a882" : CM_KNOWLEDGE_IDS.has(t.buildingId) ? "#6bb6ff" : "#d4a017") : "#8b6914";
       const span = t.size || 1;
       m.fillRect(t.gx * CM.TILE * sc, t.gy * CM.TILE * sc, Math.max(1, span * CM.TILE * sc), Math.max(1, span * CM.TILE * sc));
     }
@@ -985,4 +875,4 @@ function drawWonder(w, idx, now) {
   ctx.globalAlpha = 1;
 }
 
-export { drawCentralFire, drawCentralFireGlow, drawMinimap, drawTile, drawWonder };
+export { drawMinimap, drawTile, drawWonder };

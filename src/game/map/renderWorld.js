@@ -26,12 +26,9 @@ import { mapThemeForBand, activeEraDetails, getEraTheme } from '../data/eraTheme
  *   Pas de boucle, pas de listeners, pas de gros rendu de scene.
  * ============================================================================ */
 
-function baseColor(type, variant) {
-  return type === "house" ? "#8b6914"
-    : type === "farm" ? (variant === "industrial" ? "#6b7b33" : "#4a7a2a")
-    : type === "public" ? "#c9a84c"
-    : type === "library" ? "#b58f3a"
-    : "#8b6914";
+function baseColor() {
+  // Couleur de repli neutre pour les tuiles décoratives (habitations).
+  return "#8b6914";
 }
 
 function cmLitColor(band) {
@@ -2880,7 +2877,7 @@ function drawCrisis(dt, now) {
 
   const famine = toNum(state.population) > 60 && toNum(state.food) < toNum(state.population) * 1.1;
   if (famine) {
-    const target = CM.layout.tiles.find((t) => t.type === "public") || CM.layout.tiles.find((t) => t.type === "house");
+    const target = CM.layout.tiles.find((t) => t.type === "house");
     if (target) {
       for (let i = 0; i < 10; i += 1) {
         const p = cs((target.gx + 0.5) * CM.TILE + (i + 1) * CM.TILE * 0.5, (target.gy + 0.5) * CM.TILE + Math.sin(i * 1.3) * 3);
@@ -2949,10 +2946,9 @@ function cityMapDrawCityLights(now) {
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
 
-  // Fenêtres des bâtiments (maisons, publics, savoirs — pas les champs).
+  // Fenêtres des bâtiments (habitations et moteurs).
   const t9 = now / 5200;
   for (const t of L.tiles) {
-    if (t.type === "farm") continue;
     const span = t.size || 1;
     const sx = (t.gx * T - CM.cam.x) * z + CM.cw / 2;
     const sy = (t.gy * T - CM.cam.y) * z + CM.ch / 2;
@@ -3169,52 +3165,6 @@ function cityMapDrawEraDetails(now) {
       for (let k = 0; k < 3; k++) {
         const px = sx - w / 2 + w * (0.25 + k * 0.25);
         ctx.beginPath(); ctx.moveTo(px, sy - hgt); ctx.lineTo(px, sy - hgt * 0.45); ctx.stroke();
-      }
-    }
-  }
-
-  // ── Meules de foin et épouvantails dans les champs (ères 7/8, âges Bois-Pierre) ──
-  if ((det.has("haystacks") || det.has("scarecrows")) && band >= 1 && band <= 2) {
-    // Cache des emplacements par layout (les tuiles ne bougent pas entre rebuilds).
-    if (CM._eraFarmKey !== CM.layoutRecomputeAt) {
-      CM._eraFarmKey = CM.layoutRecomputeAt;
-      const hay = [], crows = [];
-      for (const t of (L.tiles || [])) {
-        if (t.type !== "farm") continue;
-        const h = cmHash(`fdet:${t.gx}:${t.gy}`);
-        if (h % 5 === 0 && hay.length < 14) hay.push({ gx: t.gx, gy: t.gy, h });
-        else if (h % 7 === 3 && crows.length < 8) crows.push({ gx: t.gx, gy: t.gy, h });
-      }
-      CM._eraFarmHay = hay;
-      CM._eraFarmCrows = crows;
-    }
-    if (det.has("haystacks")) {
-      for (const f of (CM._eraFarmHay || [])) {
-        const sx = toSX(f.gx * T + T * (0.25 + (f.h % 5) / 10));
-        const sy = toSY(f.gy * T + T * (0.3 + ((f.h >> 3) % 5) / 10));
-        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
-        ctx.fillStyle = "#c9a23e";
-        ctx.beginPath();
-        ctx.arc(sx, sy, s * 0.11, Math.PI, 0);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "rgba(90,66,20,0.5)";
-        ctx.fillRect(sx - s * 0.11, sy - s * 0.012, s * 0.22, s * 0.024);
-      }
-    }
-    if (det.has("scarecrows")) {
-      for (const f of (CM._eraFarmCrows || [])) {
-        const sx = toSX(f.gx * T + T * (0.3 + (f.h % 4) / 10));
-        const sy = toSY(f.gy * T + T * (0.35 + ((f.h >> 2) % 4) / 10));
-        if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
-        const hgt = s * 0.32;
-        ctx.strokeStyle = "#5a3a14";
-        ctx.lineWidth = Math.max(0.8, s * 0.035);
-        ctx.beginPath();
-        ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - hgt);
-        ctx.moveTo(sx - s * 0.1, sy - hgt * 0.7); ctx.lineTo(sx + s * 0.1, sy - hgt * 0.7);
-        ctx.stroke();
-        ctx.fillStyle = "#c9b48a";
-        ctx.beginPath(); ctx.arc(sx, sy - hgt, Math.max(0.8, s * 0.045), 0, Math.PI * 2); ctx.fill();
       }
     }
   }

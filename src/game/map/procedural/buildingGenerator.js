@@ -26,26 +26,6 @@ const VARIANTS_HOUSE = [
   { base: ["tower", "block", "megablock", "arcologyhome"], poor: ["megablock", "tenement", "tower"], rich: ["arcologyhome", "tower"] }
 ];
 
-const VARIANTS_PUBLIC = [
-  { base: ["firepit"] },
-  { base: ["market", "granary"], sacred: ["granary", "market"], trade: ["market", "market", "granary"] },
-  { base: ["temple", "market", "hall"], sacred: ["temple", "temple", "hall"], military: ["hall", "market"], trade: ["market", "hall", "temple"] },
-  { base: ["keep", "hall", "temple"], sacred: ["temple", "hall", "keep"], military: ["keep", "keep", "hall"], trade: ["market", "hall", "keep"], prestige: ["palace", "keep", "hall"] },
-  { base: ["forum", "palace", "market"], sacred: ["temple", "forum", "palace"], military: ["keep", "forum"], prestige: ["palace", "forum", "palace"] },
-  { base: ["station", "tower", "forum"], prestige: ["palace", "station", "forum"], military: ["keep", "station"] },
-  { base: ["spire", "station", "archive"], prestige: ["spire", "spire", "station"] }
-];
-
-const VARIANTS_LIBRARY = [
-  { base: ["shrine"] },
-  { base: ["shrine"], scholar: ["shrine", "school"] },
-  { base: ["school", "temple"], sacred: ["temple", "shrine"], scholar: ["school", "school", "library"] },
-  { base: ["library", "scribehall"], sacred: ["temple", "library"], scholar: ["library", "scribehall", "academy"] },
-  { base: ["academy", "archive"], scholar: ["academy", "university", "archive"] },
-  { base: ["university", "observatory"], scholar: ["university", "observatory", "academy"] },
-  { base: ["datavault", "observatory"], scholar: ["datavault", "observatory", "university"] }
-];
-
 function variantList(table, band, bias) {
   const row = table[Math.max(0, Math.min(table.length - 1, band))];
   return (bias && row[bias]) || row.base;
@@ -54,10 +34,7 @@ function variantList(table, band, bias) {
 // Affinité catégorie ↔ type de quartier : un bonus de placement quand la
 // cellule est dans le rayon d'une ancre du bon kind.
 const CATEGORY_AFFINITY = {
-  house: { habitat: 1.4, marchand: 0.6, agricole: 0.5, prestige: 0.4 },
-  public: { marchand: 1.4, prestige: 1.2, militaire: 1.1, religieux: 0.7, habitat: 0.4 },
-  library: { savant: 1.6, religieux: 1.3, prestige: 0.7 },
-  farm: { agricole: 1.8, habitat: 0.3 }
+  house: { habitat: 1.4, marchand: 0.6, agricole: 0.5, prestige: 0.4 }
 };
 
 export function createBuildingPlacer({
@@ -94,16 +71,6 @@ export function createBuildingPlacer({
     return best;
   };
 
-  const plazaProximity = (gx, gy) => {
-    let best = 0;
-    for (const p of plan.plazas || []) {
-      const d = Math.hypot(gx - p.gx, gy - p.gy);
-      const prox = Math.max(0, 5 - d) / 5;
-      if (prox > best) best = prox;
-    }
-    return best;
-  };
-
   // Désordre contrôlé : plus la ville est organique (order bas) ou en chaos,
   // plus le tirage cellule par cellule est bruité. Hash entier (fonction
   // chaude : une évaluation par cellule et par catégorie).
@@ -123,21 +90,7 @@ export function createBuildingPlacer({
     house: (c) => coreDist(c) * 0.9
       - roadAdj(c.gx, c.gy) * 26
       - anchorAffinity(c.gx, c.gy, "house") * 18
-      + jitter(c.gx, c.gy, "house"),
-    public: (c) => coreDist(c) * 1.1
-      - roadAdj(c.gx, c.gy) * 20
-      - anchorAffinity(c.gx, c.gy, "public") * 24
-      - plazaProximity(c.gx, c.gy) * 30
-      + jitter(c.gx, c.gy, "public"),
-    library: (c) => coreDist(c) * 1.0
-      - roadAdj(c.gx, c.gy) * 14
-      - anchorAffinity(c.gx, c.gy, "library") * 26
-      - plazaProximity(c.gx, c.gy) * 12
-      + jitter(c.gx, c.gy, "library"),
-    farm: (c) => -coreDist(c) * 0.6
-      - anchorAffinity(c.gx, c.gy, "farm") * 30
-      - (nearSet.has(c.gx + "," + c.gy) ? 24 : 0)
-      + jitter(c.gx, c.gy, "farm")
+      + jitter(c.gx, c.gy, "house")
   };
 
   const orderedFor = {};
@@ -155,14 +108,7 @@ export function createBuildingPlacer({
   };
 
   const chooseVariant = (category, n, cell) => {
-    if (category === "farm") {
-      const rural = bias === "rural";
-      if (counts.eraBand >= 4) return rural && n % 3 === 0 ? "field" : "industrial";
-      if (counts.eraBand >= 2) return "field";
-      return rural && n % 2 === 0 ? "field" : "patch";
-    }
-    const table = category === "house" ? VARIANTS_HOUSE : category === "public" ? VARIANTS_PUBLIC : VARIANTS_LIBRARY;
-    const list = variantList(table, counts.eraBand, bias);
+    const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
     const h = hashString(seed + ":" + category + ":" + cell.gx + ":" + cell.gy);
     return list[(n + h) % list.length];
   };
@@ -193,7 +139,6 @@ export function createBuildingPlacer({
   // placement moteur pour éviter tout chevauchement.
   const placeCategory = (category, count, usedKeys, pushTile) => {
     const list = orderedList(category);
-    const shrineQuarters = category === "library" ? new Set() : null;
     let placed = 0;
     for (let i = 0; i < list.length && placed < count; i += 1) {
       const cell = list[i];
@@ -204,11 +149,6 @@ export function createBuildingPlacer({
       // → plus d'orphelins « au milieu de nulle part », plus de sentier à tracer.
       if (requireRoad && roadAdj(cell.gx, cell.gy) < 1) continue;
       const variant = chooseVariant(category, placed, cell);
-      if (category === "library" && variant === "shrine") {
-        const qid = quarterIdAt(cell.gx, cell.gy);
-        if (shrineQuarters.has(qid)) continue;
-        shrineQuarters.add(qid);
-      }
       pushTile({
         gx: cell.gx, gy: cell.gy, type: category,
         variant,
@@ -240,21 +180,15 @@ export function createBuildingPlacer({
 export function placeCategorySlotted(category, count, ctx) {
   const {
     ordered, store, live, cx, cy, N, cycle,
-    cellFree, chooseVariant, quarterKindAt, quarterIdAt, pushTile, clamp
+    cellFree, chooseVariant, quarterKindAt, pushTile, clamp
   } = ctx;
   const slotKey = (i) => cycle + ":dec_" + category + ":" + i;
-  const shrineQuarters = category === "library" ? new Set() : null;
   let placed = 0;
 
   const finalize = (i, cell) => {
     // L'index PERSISTANT `i` (pas le rang d'attribution) pilote chooseVariant :
     // le design reste stable à position fixe et n'évolue que par eraBand.
     const variant = chooseVariant(category, i, cell);
-    if (shrineQuarters && variant === "shrine") {
-      const qid = quarterIdAt(cell.gx, cell.gy);
-      if (shrineQuarters.has(qid)) return false; // un seul sanctuaire par quartier
-      shrineQuarters.add(qid);
-    }
     const dx = cell.gx - cx, dy = cell.gy - cy;
     pushTile({
       gx: cell.gx, gy: cell.gy, type: category, variant,

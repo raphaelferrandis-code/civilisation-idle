@@ -52,7 +52,7 @@ import {
   cityMapDrawRoadMarkings,
   cityMapCalmRioterAt
 } from './renderWorld.js';
-import { drawTile, drawWonder, drawCentralFire, drawCentralFireGlow, drawMinimap } from './renderBuildings.js';
+import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, cityMapDrawRails, drawTram } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
@@ -178,7 +178,6 @@ function cityMapEnsureTooltip(mapRoot, tooltipElement = null) {
 
 function cityMapVariantLabel(type, variant) {
   const labels = {
-    firepit: "Grange commune",
     tent: "Tente",
     hut: "Cabane",
     longhouse: "Longue maison",
@@ -191,36 +190,22 @@ function cityMapVariantLabel(type, variant) {
     tower: "Tour d'habitation",
     megablock: "Grand ensemble",
     arcologyhome: "Logement d'arcologie",
-    patch: "Lopin cultive",
-    field: "Champ organise",
-    industrial: "Ferme mecanisee",
+    // Grands complexes (districts) conservés :
     market: "Marche",
-    granary: "Grenier public",
     temple: "Temple",
-    hall: "Halle civique",
     keep: "Donjon",
     forum: "Forum",
     palace: "Palais",
     station: "Station civique",
     spire: "Fleche administrative",
-    shrine: "Sanctuaire",
-    school: "Ecole de scribes",
-    library: "Bibliotheque",
-    scribehall: "Salle des scribes",
-    academy: "Academie",
     archive: "Archives",
-    university: "Universite",
     observatory: "Observatoire",
-    datavault: "Coffre de donnees",
     dense: "Quartier dense",
     arcology: "Arcologie",
     grid: "Quartier en grille"
   };
   if (labels[variant]) return labels[variant];
   if (type === "house") return "Logement";
-  if (type === "farm") return "Zone agricole";
-  if (type === "library") return "Lieu de savoir";
-  if (type === "public") return "Batiment public";
   return "Batiment";
 }
 
@@ -1003,7 +988,6 @@ function initCityMap(canvas, options = {}) {
       // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
       cityMapDrawPlazas(now);
       updateVehicles(dt);
-      drawCentralFire(now);
       cityMapDrawRails(now);            // anneau de rails de tram le long de la muraille (band 5+)
       // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
       // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
@@ -1043,9 +1027,6 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawHealthTint();
       // Nuit : assombrit la scene, les villes avancees se mettent a briller.
       cityMapDrawNight(now);
-      // Lumière du grand feu de camp (âge 0) : éclaire les alentours par-dessus
-      // le voile de nuit (additif).
-      drawCentralFireGlow(now);
       // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
       cityMapDrawCityLights(now);
       // Lampes de pont (additif) : par-dessus le voile de nuit, comme les fenêtres.
