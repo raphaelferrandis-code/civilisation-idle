@@ -138,10 +138,21 @@ convention `<id>-t<rang>.png`, suivi).
   `public/pixelart/wonders/arc-t5-candidats/`** (a-enfilade ★ le plus proche du concept,
   b-recursion = arc-dans-l'arc à fond transparent à combler, c-colonnade brut hors-DA,
   d-lueur) → Raphaël retravaille dans ASEPRITE puis remplace `era_empire-t5.png`.
-- **RESTE après le t5 final** : anims — flammes votives des vasques (t4-t5, patch),
-  bannières pourpres sous l'arche (patch custom-start, cf. pop1m), glints du quadrige
-  (gem-glint.png réutilisable tel quel), et la signature rang V : la lueur au fond de
-  l'enfilade qui RESPIRE. + retouches : inscription gibberish du t2.
+- **ANIMÉE (2026-07-03)**, t5 provisoire validé par Raph pour l'anim :
+  - t4 : 2 bannières pourpres en PATCH custom-start (fond mur opaque → aucun effacement ;
+    `arc-ban-g/d.png`) + 3 glints or sur le quadrige (gem-glint partagé).
+    NB : PAS de vasques de feu sur ce t4 — les hits orange du détecteur = panneaux d'or
+    des socles (statiques). L'objet PixelLab hôte des bannières pop1m avait EXPIRÉ (8 h)
+    → un petit objet bannière violette recréé comme hôte des anims custom-start.
+  - t5 : **la lueur du fond de l'enfilade qui RESPIRE** (`arc-glow.png`, 10 fr. 24×32
+    dessinées en code, anneaux quantifiés, ping-pong ms 170, anchor center sc 3.2)
+    + 5 glints sur les chevaux d'or du fronton. ⚠ v1 du glow invisible : halo
+    blanc-crème sur corridor déjà blanc → v2 plus CHAUDE (255,214,120), alpha
+    0.18→0.60 et sc 3.2 pour déborder sur l'or (c'est le bord du halo qui se voit).
+  - Vérifs par DIFF de shots à `now` différents ; penser aux témoins fixes.
+  - RESTE : retouche Aseprite du t5 par Raph (remplacer era_empire-t5.png ; les ancres
+    du JSON — glow 200,214 et chevaux — seront à recaler sur sa version) + inscription
+    gibberish du t2.
 - Piège vérif : pop ≥ ~1.1e15 (reEra 13) fait exploser la rupture EN LIGNE et l'offline
   au chargement → patcher AUSSI `lastTick: Date.now()` dans le save (sinon la vue Cité
   ne monte jamais) puis geler `instability` par setInterval une fois `__state` exposé.

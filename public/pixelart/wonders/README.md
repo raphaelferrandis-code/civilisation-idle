@@ -72,16 +72,20 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       par gemme (`era_kingdom-flames.json`). Intégrée à WONDER_PX_IDS, vérifiée en jeu
       rangs I-V + éclats confirmés aux 3 rangs gemmés. ⚠ piège dev : recharger la page
       si le JSON est créé après le chargement (le 404 est mis en cache).
-- [ ] 4. L'Arc de Triomphe Éternel (`era_empire`) — concept « Porte des Œuvres » (le seul
+- [x] 4. L'Arc de Triomphe Éternel (`era_empire`) — concept « Porte des Œuvres » (le seul
       monument PERCÉ : on voit la carte à travers les arches ; le rang V dit « Éternel »
       par la mise en abyme). Seuils ×10 rééchelonnés 2026-07-03 (500 → 5 M, cf. table).
       Évolution : porte simple → arc à attique (inscription) → triple arc → colossal à
       quadrige doré + bannières pourpres → Arc Éternel (enfilade d'arcs vers la lumière).
-      t1-t4 générés/nettoyés/installés + vérifiés en jeu 2026-07-03. t5 : PROVISOIRE
-      (`era_empire-t5.png` = candidat « enfilade », dallage coupé) — 4 candidats livrés
-      dans `arc-t5-candidats/` (a-enfilade, b-recursion, c-colonnade-brut, d-lueur) pour
-      RETRAVAIL ASEPRITE par Raphaël. Anims (flammes votives, bannières patch, glints
-      quadrige, lueur du fond qui respire) EN ATTENTE du t5 final. À retoucher aussi :
-      inscription gibberish du t2, style un peu 3D des t5.
+      t1-t4 générés/nettoyés/installés + vérifiés en jeu 2026-07-03.
+      ANIMÉ (2026-07-03) : bannières pourpres du t4 en patch custom-start
+      (`arc-ban-g/d.png`, fond mur opaque, zéro effacement) + glints or quadrige (t4) et
+      chevaux du fronton (t5, gem-glint partagé) + **lueur du fond de l'enfilade qui
+      RESPIRE** (`arc-glow.png` dessiné en code, ping-pong lent, anchor center — v2
+      chaude/large, la v1 blanche était invisible sur le corridor déjà blanc).
+      t5 : PROVISOIRE (candidat « enfilade ») — 4 candidats dans `arc-t5-candidats/`
+      pour RETRAVAIL ASEPRITE par Raphaël ; après remplacement d'era_empire-t5.png,
+      recaler les ancres t5 du JSON (glow + chevaux). Retouche possible : inscription
+      gibberish du t2.
 - [ ] 5. L'Aiguille Céleste (`era_mega`)
 - [ ] 6. L'Œil de la Singularité (`era_singularity`)

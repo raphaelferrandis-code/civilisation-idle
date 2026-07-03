@@ -1,0 +1,25 @@
+{
+  "asset": {
+    "glow":  { "file": "arc-glow.png",  "fw": 24, "fh": 32, "frames": 10, "ms": 170, "sc": 3.2, "anchor": "center" },
+    "glint": { "file": "gem-glint.png", "fw": 9,  "fh": 9,  "frames": 16, "ms": 120, "sc": 1.5, "anchor": "center" },
+    "bang":  { "file": "arc-ban-g.png", "fw": 14, "fh": 46, "frames": 9, "mode": "patch", "ms": 150 },
+    "band":  { "file": "arc-ban-d.png", "fw": 17, "fh": 46, "frames": 9, "mode": "patch", "ms": 150 }
+  },
+  "tiers": {
+    "t4": { "flames": [
+      { "x": 108, "y": 143, "w": 14, "h": 46, "kind": "bang" },
+      { "x": 199, "y": 143, "w": 17, "h": 46, "kind": "band" },
+      { "x": 140, "y": 22, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 159, "y": 12, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 176, "y": 22, "w": 6, "h": 6, "kind": "glint" }
+    ] },
+    "t5": { "flames": [
+      { "x": 200, "y": 214, "w": 14, "h": 20, "kind": "glow" },
+      { "x": 178, "y": 25, "w": 7, "h": 7, "kind": "glint" },
+      { "x": 200, "y": 13, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 222, "y": 25, "w": 7, "h": 7, "kind": "glint" },
+      { "x": 122, "y": 30, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 278, "y": 30, "w": 6, "h": 6, "kind": "glint" }
+    ] }
+  }
+}
