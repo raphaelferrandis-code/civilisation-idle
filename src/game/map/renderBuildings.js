@@ -335,7 +335,7 @@ function drawMinimap() {
 // en overlay, positionnées par <id>-flames.json (ancres curées à la main).
 // Manifeste : seules les merveilles listées ici sont migrées, les autres
 // restent procédurales. Repli procédural tant que le sprite n'est pas chargé.
-const WONDER_PX_IDS = new Set(["dynasty1", "pop1m", "era_kingdom"]);
+const WONDER_PX_IDS = new Set(["dynasty1", "pop1m", "era_kingdom", "era_empire"]);
 const wonderPxCache = new Map(); // "dynasty1-t3" -> { img, ready, nw, nh }
 function wonderPixelSprite(id, tier) {
   if (!WONDER_PX_IDS.has(id)) return null;

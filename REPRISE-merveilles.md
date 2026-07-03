@@ -124,14 +124,33 @@ convention `<id>-t<rang>.png`, suivi).
   null à jamais). Si le `<id>-flames.json` est créé APRÈS le chargement de la page,
   RECHARGER LA PAGE avant de vérifier, sinon les overlays n'apparaissent jamais.
 
-## Merveilles 4-6 : ⬜ À FAIRE
+## Merveille 4 — L'Arc de Triomphe Éternel (`era_empire`) : 🟡 t5 CHEZ RAPH (Aseprite)
 
-`era_empire` (Arc de Triomphe), `era_mega` (Aiguille Céleste), `era_singularity` (Œil de
-la Singularité). Pour chacune : **d'abord vérifier/rééchelonner les seuils** dans
-`CM_WONDERS` (l'Arc « 500..20000 achats » et l'Aiguille « 30min..72h » semblent plausibles
-mais à recouper avec les sims ; l'Œil « 1..12 mythes » à recouper avec le rythme des
-mythes), puis design → 5 sprites frontaux → animations → ajout à `WONDER_PX_IDS`.
-Concepts pas encore arrêtés.
+- Concept « **Porte des Œuvres** » (validé) : le seul monument PERCÉ (la carte se voit à
+  travers les arches) ; le rang V dit « Éternel » par la MISE EN ABYME (enfilade d'arcs).
+- **Seuils ×10** : `[500, 5e3, 5e4, 5e5, 5e6]` achats. Justification : un achat ×100
+  compte 100 (`lifetimePurchases += amount`, building.js) et Héphaïstos auto-achète en
+  fin de méta → les anciens seuils [500..20000] tombaient avant GR1. ⚠ pas de mesure
+  sim réelle du rythme d'achats — à affiner au ressenti sur un vrai save.
+- **Sprites** : t1-t4 générés/nettoyés/installés/vérifiés (porte simple → attique →
+  triple arc → colossal à quadrige doré + bannières pourpres bakées). t5 = PROVISOIRE
+  (candidat « enfilade », plateforme coupée y>=273). **4 candidats t5 livrés dans
+  `public/pixelart/wonders/arc-t5-candidats/`** (a-enfilade ★ le plus proche du concept,
+  b-recursion = arc-dans-l'arc à fond transparent à combler, c-colonnade brut hors-DA,
+  d-lueur) → Raphaël retravaille dans ASEPRITE puis remplace `era_empire-t5.png`.
+- **RESTE après le t5 final** : anims — flammes votives des vasques (t4-t5, patch),
+  bannières pourpres sous l'arche (patch custom-start, cf. pop1m), glints du quadrige
+  (gem-glint.png réutilisable tel quel), et la signature rang V : la lueur au fond de
+  l'enfilade qui RESPIRE. + retouches : inscription gibberish du t2.
+- Piège vérif : pop ≥ ~1.1e15 (reEra 13) fait exploser la rupture EN LIGNE et l'offline
+  au chargement → patcher AUSSI `lastTick: Date.now()` dans le save (sinon la vue Cité
+  ne monte jamais) puis geler `instability` par setInterval une fois `__state` exposé.
+
+## Merveilles 5-6 : ⬜ À FAIRE
+
+`era_mega` (Aiguille Céleste, « 30min..72h » plausible mais à recouper) et
+`era_singularity` (Œil de la Singularité, « 1..12 mythes » à recouper avec le rythme des
+mythes). Pour chacune : seuils → design → 5 sprites frontaux → anims → WONDER_PX_IDS.
 
 ---
 

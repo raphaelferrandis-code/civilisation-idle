@@ -12,7 +12,7 @@ Lumière en HAUT-GAUCHE → ombres en BAS-DROITE (règle globale de la carte).
 | 1 | `dynasty1` | Le Mausolée du Fondateur | mausoleum | Première dynastie fondée | 1 / 50 / 200 / 400 / 750 dynasties (rééchelonné 2026-07-02, sim ~540-634 dyn/partie) | 2 |
 | 2 | `pop1m` | La Colonne du Million | column | Population ≥ 1 000 000 | 1e6 / 1e13 / 1e20 / 1e27 / 1e34 habitants (rééchelonné 2026-07-02 : +7 ordres de grandeur par rang, rang V ≈ ère 33-34) | 6 |
 | 3 | `era_kingdom` | La Couronne de Pierre | crown | Âge du royaume atteint | ères 19 / 22 / 25 / 29 / 33 — Royaume / Conquérant / Empire / Métropole / Machination (rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères) | 9 |
-| 4 | `era_empire` | L'Arc de Triomphe Éternel | arch | 500 achats accomplis | 500 / 2 500 / 10 000 / 15 000 / 20 000 achats | 13 |
+| 4 | `era_empire` | L'Arc de Triomphe Éternel | arch | 500 achats accomplis | 500 / 5 000 / 50 000 / 500 000 / 5 000 000 achats (rééchelonné 2026-07-03, ×10/rang : un achat ×100 compte 100 et Héphaïstos auto-achète — les anciens seuils tombaient avant GR1) | 13 |
 | 5 | `era_mega` | L'Aiguille Céleste | needle | 30 min de veille | 30 min / 2 h / 8 h / 24 h / 72 h de jeu | 17 |
 | 6 | `era_singularity` | L'Œil de la Singularité | eye | Premier mythe accompli | 1 / 3 / 5 / 8 / 12 mythes | 21 |
 
@@ -72,6 +72,16 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       par gemme (`era_kingdom-flames.json`). Intégrée à WONDER_PX_IDS, vérifiée en jeu
       rangs I-V + éclats confirmés aux 3 rangs gemmés. ⚠ piège dev : recharger la page
       si le JSON est créé après le chargement (le 404 est mis en cache).
-- [ ] 4. L'Arc de Triomphe Éternel (`era_empire`)
+- [ ] 4. L'Arc de Triomphe Éternel (`era_empire`) — concept « Porte des Œuvres » (le seul
+      monument PERCÉ : on voit la carte à travers les arches ; le rang V dit « Éternel »
+      par la mise en abyme). Seuils ×10 rééchelonnés 2026-07-03 (500 → 5 M, cf. table).
+      Évolution : porte simple → arc à attique (inscription) → triple arc → colossal à
+      quadrige doré + bannières pourpres → Arc Éternel (enfilade d'arcs vers la lumière).
+      t1-t4 générés/nettoyés/installés + vérifiés en jeu 2026-07-03. t5 : PROVISOIRE
+      (`era_empire-t5.png` = candidat « enfilade », dallage coupé) — 4 candidats livrés
+      dans `arc-t5-candidats/` (a-enfilade, b-recursion, c-colonnade-brut, d-lueur) pour
+      RETRAVAIL ASEPRITE par Raphaël. Anims (flammes votives, bannières patch, glints
+      quadrige, lueur du fond qui respire) EN ATTENTE du t5 final. À retoucher aussi :
+      inscription gibberish du t2, style un peu 3D des t5.
 - [ ] 5. L'Aiguille Céleste (`era_mega`)
 - [ ] 6. L'Œil de la Singularité (`era_singularity`)

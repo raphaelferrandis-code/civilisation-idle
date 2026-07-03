@@ -145,8 +145,12 @@ const CM_WONDERS = [
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
   { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
     unlockedBy: "500 achats accomplis (bâtiments et décrets).",
-    metric: (s) => s.lifetimePurchases || 0, tiers: [500, 2500, 10000, 15000, 20000],
-    tierLabel: (v) => `${v >= 1000 ? (v / 1000) + " 000" : v} achats accomplis` },
+    // Rééchelonné 2026-07-03 (×10 par rang) : un achat ×100 compte 100
+    // (lifetimePurchases += amount) et Héphaïstos auto-achète en fin de méta —
+    // les anciens seuils [500..20000] tombaient avant GR1. Le rang V (5 M)
+    // récompense l'automatisation de la construction sur la durée.
+    metric: (s) => s.lifetimePurchases || 0, tiers: [500, 5000, 50000, 500000, 5000000],
+    tierLabel: (v) => `${v.toLocaleString("fr-FR")} achats accomplis` },
   { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 }, reEra: 17,
     unlockedBy: "30 minutes passées à veiller sur la cité.",
     metric: (s) => s.playTimeSec || 0, tiers: [1800, 7200, 28800, 86400, 259200],
