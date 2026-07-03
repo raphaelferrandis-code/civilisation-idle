@@ -48,26 +48,50 @@ convention `<id>-t<rang>.png`, suivi).
   native / 34 × tuile), flammes overlay déphasées, repli procédural si sprite pas chargé.
   Vérifié en jeu rangs I/IV/V.
 
-## Merveille 2 — La Colonne du Million (`pop1m`) : 🟡 SPRITES FAITS, reste anim + intégration
+## Merveille 2 — La Colonne du Million (`pop1m`) : ✅ ANIMÉE & INTÉGRÉE (2026-07-03)
 
 - Concept « **Colonne Innombrable** » : accrétion VERTICALE (recensement de pierre), marbre
   crème + spirale/accents OR + bronze→or + bannières pourpres. L'anti-mausolée. Rang V = la
-  plus HAUTE silhouette du jeu.
+  plus HAUTE silhouette du jeu. Designs **VALIDÉS** par Raphaël.
 - **Seuils rééchelonnés** : `[1e6, 1e13, 1e20, 1e27, 1e34]` habitants (+7 ordres/rang ; la
   courbe d'ères va à 1e34 = Singularité, cf. `world.js eraPopulationThreshold`). `tierLabel`
   passe maintenant par `fmtShort` (import ajouté dans `layout.js`) — plus de « millions » codés.
 - **Sprites** : `pop1m-t1..t5.png` (96×144 → 176×400), frontaux, fonds retirés.
   ⚠ Le t5 avait un fond en **DÉGRADÉ** → nettoyé avec `scripts/wonders/strip-bg-gradient.cjs`
   (estimation du fond ligne par ligne).
-- **RESTE À FAIRE** :
-  1. (option) faire valider les designs par Raph — écart connu : la spirale dorée signature
-     est nette au rang I mais s'estompe en cannelures aux grands rangs ; régénérer t5 si besoin.
-  2. Générer les overlays animés : **bannières pourpres flottantes** (dès rang II) +
-     **phare doré pulsant** (rangs IV-V). Même pipeline que les flammes (cf. ci-dessous).
-  3. Créer `pop1m-flames.json` (ancres curées) — réutiliser `detect-flames.cjs` pour le feu
-     du phare ; les bannières demanderont sûrement des ancres posées à la main.
-  4. Ajouter `pop1m` à `WONDER_PX_IDS` dans `renderBuildings.js`.
-  5. Vérifier en jeu (voir « Vérif » plus bas).
+- **Animations (2026-07-03)** — deux techniques :
+  1. **Flamme hélicoïdale du t5** (demande de Raph : la flamme suit la torsade de la colonne) :
+     asset dédié `pop1m-flame-spiral.png` (8 fr. 28×80, PixelLab « corkscrew flame » animé en
+     rotation continue). ⚠ Une rotation ne se ping-pong PAS (sens de vrille inversé) →
+     nouveau mode `loop:"forward"` par asset dans le JSON. Overlay classique ancre-bas, sc 1.6.
+     NB : une 1re variante de flamme animée « rotation » CYCLAIT LES COULEURS (strobe) → rejetée ;
+     c'est la variante à chevrons hélicoïdaux qui vend la rotation.
+  2. **Tissus + torche = mode « PATCH » (custom start frame PixelLab)** : on croppe la zone du
+     sprite cuit, on la passe à `animate_object` en `custom_start_frame_base64` → les frames
+     GARDENT le fond du crop et se re-blittent pixel-pour-pixel à la même place (`mode:"patch"`
+     dans le JSON : pas d'échelle, pas de +2, coin haut-gauche). Frame 0 = le cuit exact →
+     zéro vision double, zéro test de couverture. Ping-pong OK pour du tissu.
+     - t5 : 5 bannières (`pop1m-b1..b5.png`, 9 fr. chacune) — crops OPAQUES (mur derrière),
+       aucun effacement nécessaire.
+     - t2 : 2 gonfalons (`pop1m-t2cloth.png`, même strip aux 2 ancres, déphasé) ; t4 : flamme
+       de torche (`pop1m-torch.png`). Crops à fond TRANSPARENT → le cuit sous les trous d'alpha
+       ferait vision double → **effacé des sprites** par `scripts/wonders/erase-baked-pop1m.cjs`
+       (t2 : tissu entre les mâts ; t4 : flamme au-dessus de la vasque). Réversible via git.
+  - `pop1m-flames.json` : nouvelles options par asset `mode:"patch"`, `loop:"forward"`,
+    `anchor:"top"`, `sc`, `ms`. Code générique dans `drawWonderPixelSprite` (renderBuildings.js),
+    un fetch `<id>-flames.json` PAR merveille du manifeste (plus codé dynasty1 seul).
+  - ⚠ PixelLab : les jobs `custom_start_frame` peuvent DISPARAÎTRE silencieusement (b3 ×2) ;
+    et les gros base64 se corrompent en transit — retailler/quantifier le crop qui coince.
+- **Intégré** : `pop1m` ajouté à `WONDER_PX_IDS`. Vérifié en jeu rangs II/IV/V (shots à `now`
+  différents : flamme tourne, torche flambe, drapeaux/bannières ondulent, patchs sans couture).
+- **Vérif — pièges rencontrés** (en plus de ceux du bas de ce fichier) : forcer
+  `__state.population` avec un NOMBRE JS casse le Decimal → rupture 100 % → l'app se
+  VERROUILLE sur la vue Effondrement (plus de canvas). Remède : réécrire le save localStorage
+  (`population:"1e8"`, `instability:0`, `crisisLimitAnnounced:false`) en neutralisant
+  l'autosave (`Storage.prototype.setItem = noop` juste avant `location.reload()`).
+  Il faut une pop ≥ ère 6 (`reEra` de pop1m) sinon la merveille n'est pas active.
+  Slot merveille : `__CM.layout.wonderSlots[1]` (idx = position dans CM_WONDERS, pas dans
+  state.wonders).
 
 ## Merveilles 3-6 : ⬜ À FAIRE
 

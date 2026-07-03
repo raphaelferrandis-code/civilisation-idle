@@ -4,7 +4,7 @@
 // Usage: node trim-strip.cjs <strip.png> <fw> <fh> <frames> <out.png>
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , inPath, fwA, fhA, nA, outPath] = process.argv;
 const fw = +fwA, fh = +fhA, n = +nA;
 const src = PNG.sync.read(fs.readFileSync(inPath));

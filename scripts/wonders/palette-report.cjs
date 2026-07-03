@@ -1,7 +1,7 @@
 // Compare les couleurs dominantes d'une zone d'un PNG. Usage: node palette-report.cjs <png> [x y w h]
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , file, xa, ya, wa, ha] = process.argv;
 const png = PNG.sync.read(fs.readFileSync(file));
 const x0 = Number(xa) || 0, y0 = Number(ya) || 0;

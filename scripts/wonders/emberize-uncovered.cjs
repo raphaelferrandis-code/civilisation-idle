@@ -4,8 +4,8 @@
 // flamme cuite / flamme animée possible, quel que soit le déphasage.
 const fs = require("fs");
 const path = require("path");
-const ROOT = "C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/public/pixelart/wonders";
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const ROOT = path.join(__dirname, "..", "..", "public", "pixelart", "wonders");
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "dynasty1-flames.json"), "utf8"));
 const strips = {};

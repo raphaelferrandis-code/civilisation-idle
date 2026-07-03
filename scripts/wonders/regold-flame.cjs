@@ -4,7 +4,7 @@
 // Usage: node regold-flame.cjs in.png out.png
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , inPath, outPath] = process.argv;
 const png = PNG.sync.read(fs.readFileSync(inPath));
 let salmon = 0, gold = 0;

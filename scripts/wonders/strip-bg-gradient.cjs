@@ -4,7 +4,7 @@
 // Usage: node strip-bg-gradient.cjs <in.png> <out.png> [tolerance] [maxChroma]
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 
 const [, , inPath, outPath, tolArg, chromaArg] = process.argv;
 const TOL = Number(tolArg) || 22;

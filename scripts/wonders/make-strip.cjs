@@ -1,7 +1,7 @@
 // Assemble des frames PNG en bande horizontale. Usage: node make-strip.cjs <dossier> <out.png> [i0 i1 ...]
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join(__dirname, "..", "node_modules", "pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , dir, outPath, ...idxArgs] = process.argv;
 const files = idxArgs.length
   ? idxArgs.map(i => path.join(dir, `${i}.png`))

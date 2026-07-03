@@ -1,0 +1,29 @@
+{
+  "asset": {
+    "spiral":  { "file": "pop1m-flame-spiral.png", "fw": 28, "fh": 80, "frames": 8, "loop": "forward", "ms": 110, "sc": 1.6 },
+    "torch":   { "file": "pop1m-torch.png",   "fw": 21, "fh": 36, "frames": 9, "mode": "patch", "ms": 100 },
+    "t2cloth": { "file": "pop1m-t2cloth.png", "fw": 16, "fh": 23, "frames": 9, "mode": "patch", "ms": 140 },
+    "b1": { "file": "pop1m-b1.png", "fw": 20, "fh": 61, "frames": 9, "mode": "patch", "ms": 140 },
+    "b2": { "file": "pop1m-b2.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
+    "b3": { "file": "pop1m-b3.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
+    "b4": { "file": "pop1m-b4.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
+    "b5": { "file": "pop1m-b5.png", "fw": 17, "fh": 61, "frames": 9, "mode": "patch", "ms": 140 }
+  },
+  "tiers": {
+    "t2": { "flames": [
+      { "x": 12, "y": 125, "w": 16, "h": 23, "kind": "t2cloth" },
+      { "x": 86, "y": 125, "w": 16, "h": 23, "kind": "t2cloth" }
+    ] },
+    "t4": { "flames": [
+      { "x": 70, "y": 8, "w": 21, "h": 36, "kind": "torch" }
+    ] },
+    "t5": { "flames": [
+      { "x": 87, "y": 33, "w": 13, "h": 37, "kind": "spiral" },
+      { "x": 39, "y": 307, "w": 20, "h": 61, "kind": "b1" },
+      { "x": 62, "y": 310, "w": 18, "h": 58, "kind": "b2" },
+      { "x": 79, "y": 309, "w": 18, "h": 58, "kind": "b3" },
+      { "x": 97, "y": 308, "w": 18, "h": 58, "kind": "b4" },
+      { "x": 117, "y": 307, "w": 17, "h": 61, "kind": "b5" }
+    ] }
+  }
+}

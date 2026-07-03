@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const SP = __dirname;
-const OUT = "C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/public/pixelart/wonders/dynasty1-flames.json";
+const OUT = path.join(__dirname, "..", "..", "public", "pixelart", "wonders", "dynasty1-flames.json");
 
 const raw = {};
 for (const t of [2, 3, 4, 5]) raw[t] = JSON.parse(fs.readFileSync(path.join(SP, `t${t}-flames.json`), "utf8"));

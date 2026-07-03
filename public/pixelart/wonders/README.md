@@ -42,13 +42,19 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       RÈGLE : aucun habillage procédural autour d'une merveille pixel-art (pas d'esplanade,
       aura, ombre, torches, bannière…) — le sprite est tout le monument. Couronne t5 =
       1 grande flamme centrale + 2 petites latérales (29 flammes).
-- [ ] 2. La Colonne du Million (`pop1m`) — concept « Colonne Innombrable » (accrétion
+- [x] 2. La Colonne du Million (`pop1m`) — concept « Colonne Innombrable » (accrétion
       VERTICALE, recensement de pierre : marbre crème + or + bronze→or + bannières pourpres,
       l'anti-mausolée). 5 sprites générés 2026-07-02 (`pop1m-t1..t5.png`, 96×144 → 176×400,
       la plus HAUTE silhouette du jeu). Fonds retirés (t5 = fond DÉGRADÉ →
-      scratch/strip-bg-gradient.cjs, estimation par ligne). EN ATTENTE DE VALIDATION.
-      Reste : bannières animées (flottement) + phare doré pulsant (t4-t5) en overlay
-      + ajout au manifeste WONDER_PX_IDS de drawWonder.
+      scripts/wonders/strip-bg-gradient.cjs, estimation par ligne). Designs VALIDÉS.
+      ANIMÉE & INTÉGRÉE (2026-07-03) : flamme hélicoïdale du t5 (`pop1m-flame-spiral.png`,
+      8 fr., boucle FORWARD — un ping-pong inverserait le sens de vrille) + torche t4 et
+      tissus (2 gonfalons t2, 5 bannières t5) en mode **PATCH** : frames générées par
+      PixelLab DEPUIS le crop du sprite (custom start frame) et re-blittées pixel-pour-pixel
+      (`pop1m-torch/t2cloth/b1..b5.png`). t2/t4 : éléments cuits effacés des sprites
+      (erase-baked-pop1m.cjs) car crops à fond transparent. `pop1m-flames.json` porte les
+      options par asset (mode/loop/anchor/sc/ms). Ajoutée à WONDER_PX_IDS. Vérifiée en jeu
+      rangs II/IV/V (rotation, flambée, flottements OK, patchs sans couture).
 - [ ] 3. La Couronne de Pierre (`era_kingdom`)
 - [ ] 4. L'Arc de Triomphe Éternel (`era_empire`)
 - [ ] 5. L'Aiguille Céleste (`era_mega`)

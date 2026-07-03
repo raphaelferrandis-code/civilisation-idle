@@ -1,7 +1,7 @@
 // Crop + upscale. Usage: node crop.cjs in.png out.png x y w h facteur
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join("C:/Users/Hardware31/Desktop/Civilisation idle/CE 0.3/node_modules/pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , inPath, outPath, xa, ya, wa, ha, fa] = process.argv;
 const src = PNG.sync.read(fs.readFileSync(inPath));
 const x0 = +xa, y0 = +ya, w = +wa, h = +ha, F = +fa || 6;

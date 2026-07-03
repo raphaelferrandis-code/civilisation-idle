@@ -1,7 +1,7 @@
 // Upscale nearest-neighbor pour inspection visuelle. Usage: node upscale.cjs in.png out.png [facteur]
 const fs = require("fs");
 const path = require("path");
-const { PNG } = require(path.join(__dirname, "..", "node_modules", "pngjs"));
+const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"));
 const [, , inPath, outPath, fArg] = process.argv;
 const F = Number(fArg) || 4;
 const src = PNG.sync.read(fs.readFileSync(inPath));

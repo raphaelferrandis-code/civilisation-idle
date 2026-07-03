@@ -445,7 +445,7 @@ function drawMinimap() {
 // en overlay, positionnées par <id>-flames.json (ancres curées à la main).
 // Manifeste : seules les merveilles listées ici sont migrées, les autres
 // restent procédurales. Repli procédural tant que le sprite n'est pas chargé.
-const WONDER_PX_IDS = new Set(["dynasty1"]);
+const WONDER_PX_IDS = new Set(["dynasty1", "pop1m"]);
 const wonderPxCache = new Map(); // "dynasty1-t3" -> { img, ready, nw, nh }
 function wonderPixelSprite(id, tier) {
   if (!WONDER_PX_IDS.has(id)) return null;
@@ -459,13 +459,13 @@ function wonderPixelSprite(id, tier) {
   }
   return e.ready ? e : null;
 }
-let wonderFlamesCfg = null, wonderFlamesAsked = false;
+const wonderFlamesCfgs = new Map(); // id -> cfg (null = demandé, pas encore reçu)
 const wonderFlameStrips = new Map(); // fichier -> { img, ready }
-function wonderFlamesData() {
-  if (!wonderFlamesAsked) {
-    wonderFlamesAsked = true;
-    fetch("/pixelart/wonders/dynasty1-flames.json").then((r) => r.json()).then((j) => {
-      wonderFlamesCfg = j;
+function wonderFlamesData(id) {
+  if (!wonderFlamesCfgs.has(id)) {
+    wonderFlamesCfgs.set(id, null);
+    fetch("/pixelart/wonders/" + id + "-flames.json").then((r) => r.json()).then((j) => {
+      wonderFlamesCfgs.set(id, j);
       for (const a of Object.values(j.asset)) {
         if (wonderFlameStrips.has(a.file)) continue;
         const st = { img: new Image(), ready: false };
@@ -475,18 +475,22 @@ function wonderFlamesData() {
       }
     }).catch(() => {});
   }
-  return wonderFlamesCfg;
+  return wonderFlamesCfgs.get(id);
 }
-// Blit du sprite de merveille + flammes animées à leurs ancres. Chaque foyer
-// boucle en ping-pong (0..n-1..1) avec un déphasage propre pour ne pas battre
-// à l'unisson. Pendant l'érection (e<0.98) le sprite pousse écrasé, sans
-// flammes overlay (les flammes cuites du sprite assurent l'intérim).
-function drawWonderPixelSprite(px, tier, cxs, baseY, W, H, e, now) {
+// Blit du sprite de merveille + overlays animés (flammes, bannières) à leurs
+// ancres. Par défaut chaque foyer boucle en ping-pong (0..n-1..1) avec un
+// déphasage propre pour ne pas battre à l'unisson ; un asset peut demander
+// `loop:"forward"` (rotation continue — un ping-pong inverserait le sens de
+// vrille), `anchor:"top"` (tissu suspendu : le point fixe est la traverse),
+// `sc` (échelle overlay/élément cuit) et `ms` (durée d'une frame). Pendant
+// l'érection (e<0.98) le sprite pousse écrasé, sans overlays (les éléments
+// cuits du sprite assurent l'intérim).
+function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
   const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(px.img, cxs - W / 2, baseY - H, W, H);
-  const cfg = wonderFlamesData();
+  const cfg = wonderFlamesData(wid);
   const tierCfg = cfg && cfg.tiers && cfg.tiers["t" + tier];
   if (tierCfg && e >= 0.98) {
     const sx = W / px.nw, sy = H / px.nh;
@@ -496,17 +500,29 @@ function drawWonderPixelSprite(px, tier, cxs, baseY, W, H, e, now) {
       const a = cfg.asset[f.kind];
       const strip = a && wonderFlameStrips.get(a.file);
       if (!strip || !strip.ready) continue;
-      const seq = a.frames * 2 - 2;
-      const st = Math.floor(now / 90 + i * 2.63) % seq;
-      const k = st < a.frames ? st : seq - st;
-      // Nettement plus grande que la flamme cuite : même dans les frames où la
-      // flamme animée penche, sa silhouette recouvre la flamme du sprite (sinon
-      // les deux se voient en double). La flamme de porte reste bridée pour ne
-      // pas déborder de l'encadrement.
-      const sc = f.kind === "door" ? 1.15 : 1.7;
-      const dw = (f.w * sc + 2) * sx, dh = (f.h * sc + 2) * sy;
-      ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh,
-        left + f.x * sx - dw / 2, top + f.y * sy - dh + sy, dw, dh);
+      const seq = a.loop === "forward" ? a.frames : a.frames * 2 - 2;
+      const st = Math.floor(now / (a.ms || 90) + i * 2.63) % seq;
+      const k = a.loop === "forward" || st < a.frames ? st : seq - st;
+      let dx, dy, dw, dh;
+      if (a.mode === "patch") {
+        // Rustine : la frame a été générée DEPUIS le crop du sprite (custom
+        // start frame PixelLab) et recouvre exactement sa zone, pixel pour
+        // pixel — f.x/f.y = coin haut-gauche du crop, aucune échelle.
+        dw = f.w * sx; dh = f.h * sy;
+        dx = left + f.x * sx; dy = top + f.y * sy;
+      } else {
+        // Nettement plus grand que l'élément cuit : même dans les frames où la
+        // flamme animée penche, sa silhouette recouvre celle du sprite (sinon
+        // les deux se voient en double). La flamme de porte reste bridée pour
+        // ne pas déborder de l'encadrement.
+        const sc = a.sc != null ? a.sc : f.kind === "door" ? 1.15 : 1.7;
+        dw = (f.w * sc + 2) * sx; dh = (f.h * sc + 2) * sy;
+        dx = left + f.x * sx - dw / 2;
+        dy = a.anchor === "top"
+          ? top + f.y * sy - sy // tissu : accroché sous sa traverse, pend vers le bas
+          : top + f.y * sy - dh + sy; // flamme : posée sur son foyer, monte
+      }
+      ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
     }
   }
   ctx.imageSmoothingEnabled = prev;
@@ -556,7 +572,7 @@ function drawWonder(w, idx, now) {
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
-    drawWonderPixelSprite(px, tier, cxs, baseY, W, H, e, now);
+    drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
     ctx.globalAlpha = 1;
     return;
   }
