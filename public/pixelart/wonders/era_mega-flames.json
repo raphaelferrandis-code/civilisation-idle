@@ -1,0 +1,28 @@
+{
+  "asset": {
+    "beam":    { "file": "needle-beam.png",    "fw": 80, "fh": 80, "frames": 16, "ms": 200, "sc": 4.5, "anchor": "center", "loop": "forward", "blend": "lighter" },
+    "glow":    { "file": "arc-glow.png",        "fw": 28, "fh": 36, "frames": 12, "ms": 160, "sc": 2.0, "anchor": "center", "blend": "lighter" },
+    "glint":   { "file": "gem-glint.png",       "fw": 9,  "fh": 9,  "frames": 16, "ms": 120, "sc": 1.3, "anchor": "center" },
+    "brazier": { "file": "needle-brazier.png",  "fw": 34, "fh": 32, "frames": 9,  "mode": "patch", "ms": 100 }
+  },
+  "tiers": {
+    "t1": { "flames": [
+      { "x": 14, "y": 0, "w": 34, "h": 32, "kind": "brazier" }
+    ] },
+    "t3": { "flames": [
+      { "x": 74, "y": 40, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 74, "y": 33, "w": 5, "h": 5, "kind": "glint" }
+    ] },
+    "t4": { "flames": [
+      { "x": 73, "y": 28, "w": 10, "h": 10, "kind": "glow" },
+      { "x": 60, "y": 128, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 78, "y": 135, "w": 6, "h": 6, "kind": "glint" }
+    ] },
+    "t5": { "flames": [
+      { "x": 98, "y": 24, "w": 80, "h": 80, "kind": "beam" },
+      { "x": 98, "y": 24, "w": 10, "h": 10, "kind": "glow" },
+      { "x": 85, "y": 146, "w": 6, "h": 6, "kind": "glint" },
+      { "x": 113, "y": 138, "w": 6, "h": 6, "kind": "glint" }
+    ] }
+  }
+}

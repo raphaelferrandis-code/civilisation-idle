@@ -153,7 +153,10 @@ const CM_WONDERS = [
     tierLabel: (v) => `${v.toLocaleString("fr-FR")} achats accomplis` },
   { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 }, reEra: 17,
     unlockedBy: "30 minutes passées à veiller sur la cité.",
-    metric: (s) => s.playTimeSec || 0, tiers: [1800, 7200, 28800, 86400, 259200],
+    // Rééchelonné 2026-07-03 : playTimeSec = temps ACTIF à vie (pas d'offline).
+    // Rang IV ≈ la course GR1 accomplie (~44 h sim), rang V = une semaine
+    // entière de veille — aligné sur les rangs V « fin de méta » des autres.
+    metric: (s) => s.playTimeSec || 0, tiers: [1800, 10800, 43200, 172800, 604800],
     tierLabel: (v) => v >= 3600 ? `${Math.round(v / 3600)} heures de veille` : `${Math.round(v / 60)} minutes de veille` },
   { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 }, reEra: 21,
     unlockedBy: "Premier mythe accompli.",

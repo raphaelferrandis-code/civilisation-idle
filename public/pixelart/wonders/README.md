@@ -38,7 +38,7 @@ fût, couronne) lisent bien sans contre-plongée. En cas de doute : low top-down
 | 2 | `pop1m` | La Colonne du Million | column | Population ≥ 1 000 000 | 1e6 / 1e13 / 1e20 / 1e27 / 1e34 habitants (rééchelonné 2026-07-02 : +7 ordres de grandeur par rang, rang V ≈ ère 33-34) | 6 |
 | 3 | `era_kingdom` | La Couronne de Pierre | crown | Âge du royaume atteint | ères 19 / 22 / 25 / 29 / 33 — Royaume / Conquérant / Empire / Métropole / Machination (rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères) | 9 |
 | 4 | `era_empire` | L'Arc de Triomphe Éternel | arch | 500 achats accomplis | 500 / 5 000 / 50 000 / 500 000 / 5 000 000 achats (rééchelonné 2026-07-03, ×10/rang : un achat ×100 compte 100 et Héphaïstos auto-achète — les anciens seuils tombaient avant GR1) | 13 |
-| 5 | `era_mega` | L'Aiguille Céleste | needle | 30 min de veille | 30 min / 2 h / 8 h / 24 h / 72 h de jeu | 17 |
+| 5 | `era_mega` | L'Aiguille Céleste | needle | 30 min de veille | 30 min / 3 h / 12 h / 48 h / 168 h de veille ACTIVE (rééchelonné 2026-07-03 : rang IV ≈ GR1 accompli, rang V = une semaine de veille ; playTimeSec = temps actif à vie, pas d'offline) | 17 |
 | 6 | `era_singularity` | L'Œil de la Singularité | eye | Premier mythe accompli | 1 / 3 / 5 / 8 / 12 mythes | 21 |
 
 Convention de nommage des fichiers ici :
@@ -112,5 +112,18 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       pour RETRAVAIL ASEPRITE par Raphaël ; après remplacement d'era_empire-t5.png,
       recaler les ancres t5 du JSON (glow + chevaux). Retouche possible : inscription
       gibberish du t2.
-- [ ] 5. L'Aiguille Céleste (`era_mega`)
+- [x] 5. L'Aiguille Céleste (`era_mega`) — concept « La Tour du Veilleur » (la merveille la
+      plus MÉTA : elle honore le joueur-veilleur, pas la cité). Évolution : Vigie de bois à
+      brasero → Tour des Heures (cadran solaire, cloche) → Observatoire (dôme de bronze,
+      lunette) → Flèche des Astres (horloge astronomique, or) → **Aiguille Céleste** (flèche
+      de cristal et d'or, la plus fine silhouette du jeu). 5 sprites générés 2026-07-03 en
+      view "low top-down" (64×112 → 192×400), fonds/ombres bakées/socle glacé nettoyés.
+      Seuils rééchelonnés playTimeSec : 30 min / 3 h / 12 h / 48 h / 168 h (veille ACTIVE, pas
+      d'offline ; rang IV ≈ GR1, rang V = 1 semaine). ANIMÉ : brasero du t1 (patch
+      custom-start), glints instruments t3 + horloge t4, fanal PULSANT (arc-glow) t4/t5, et
+      la SIGNATURE rang V : **le rayon de phare qui TOURNE et balaie la cité** (needle-beam.png
+      dessiné en code, 16 fr. cône rotatif, loop forward, blend additif — c'est la 1re anim à
+      grande échelle spatiale du jeu). ⚠ pour un overlay PLEINE FRAME (pas une petite ancre),
+      mettre f.w/f.h = taille de la frame dans le JSON, sinon il est écrasé à la taille de
+      l'ancre. Intégrée à WONDER_PX_IDS, vérifiée en jeu rangs I-V (rayon confirmé rotatif).
 - [ ] 6. L'Œil de la Singularité (`era_singularity`)

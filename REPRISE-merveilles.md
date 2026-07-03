@@ -180,11 +180,35 @@ type bâtiment RTS. Verdicts finaux :
   au chargement → patcher AUSSI `lastTick: Date.now()` dans le save (sinon la vue Cité
   ne monte jamais) puis geler `instability` par setInterval une fois `__state` exposé.
 
-## Merveilles 5-6 : ⬜ À FAIRE
+## Merveille 5 — L'Aiguille Céleste (`era_mega`) : ✅ TERMINÉE (2026-07-03)
 
-`era_mega` (Aiguille Céleste, « 30min..72h » plausible mais à recouper) et
-`era_singularity` (Œil de la Singularité, « 1..12 mythes » à recouper avec le rythme des
-mythes). Pour chacune : seuils → design → 5 sprites frontaux → anims → WONDER_PX_IDS.
+- Concept « **La Tour du Veilleur** » (validé) : la merveille la plus MÉTA — elle honore le
+  JOUEUR-veilleur (temps de veille), pas la cité. Fil : veiller → mesurer le temps → le
+  dominer ; matière bois → pierre → bronze → cristal/or.
+  I Vigie de bois (brasero) → II Tour des Heures (cadran solaire, cloche) → III Observatoire
+  (dôme bronze, lunette) → IV Flèche des Astres (horloge astronomique, or) → V **Aiguille
+  Céleste** (cristal + or, la plus fine silhouette du jeu, volutes de nuage).
+- **Seuils** `playTimeSec` : `[1800, 10800, 43200, 172800, 604800]` = 30 min / 3 h / 12 h /
+  48 h / 168 h. playTimeSec = temps ACTIF cumulé à vie (main.js, PAS d'offline, survit aux
+  cycles) → métrique saine. Rang IV ≈ GR1 accompli (~44 h sim), rang V = 1 semaine de veille.
+- **Sprites** : `era_mega-t1..t5.png` (64×112 → 192×400), view "low top-down". Nettoyages :
+  fonds unis, ombres au sol bakées (doublon), socle glacé + boîte-pointillés du t5.
+- **Animations** : brasero t1 (patch custom-start), glints instruments t3 + horloge t4,
+  fanal pulsant (arc-glow réutilisé) t4/t5, et la SIGNATURE : **rayon de phare ROTATIF** au
+  t5 (`needle-beam.png` dessiné en code — cône lumineux, 16 fr., loop:"forward", blend
+  additif, sc 4.5 pour balayer la carte autour de la pointe). 1re anim à grande échelle
+  spatiale du jeu.
+  ⚠ GOTCHA overlay pleine-frame : `dw = (f.w*sc+2)*sx` → pour un cône/halo qui doit occuper
+  toute sa frame (pas une petite ancre), mettre **f.w/f.h = dimension de la frame** dans le
+  JSON. Au début f.w=8 a écrasé le rayon de 80 px à ~40 px (tuft minuscule).
+- Vérifiée en jeu rangs I-V ; rayon confirmé rotatif (captures à now différents), tours
+  posées avec ombre de contact. ⚠ précharger les tiers (1 frame + wait) avant capture sinon
+  repli procédural le temps que l'Image charge.
+
+## Merveille 6 — L'Œil de la Singularité (`era_singularity`) : ⬜ À FAIRE
+
+Seuils actuels « 1..12 mythes » à recouper avec le rythme des mythes. Puis concept → 5
+sprites low top-down → anims → WONDER_PX_IDS. C'est la dernière.
 
 ---
 
