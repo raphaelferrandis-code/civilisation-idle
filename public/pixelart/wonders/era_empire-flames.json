@@ -1,6 +1,6 @@
 {
   "asset": {
-    "glow":  { "file": "arc-glow.png",  "fw": 24, "fh": 32, "frames": 10, "ms": 170, "sc": 3.2, "anchor": "center" },
+    "glow":  { "file": "arc-glow.png",  "fw": 28, "fh": 36, "frames": 12, "ms": 150, "sc": 3.2, "anchor": "center", "blend": "lighter" },
     "glint": { "file": "gem-glint.png", "fw": 9,  "fh": 9,  "frames": 16, "ms": 120, "sc": 1.5, "anchor": "center" },
     "bang":  { "file": "arc-ban-g.png", "fw": 14, "fh": 46, "frames": 9, "mode": "patch", "ms": 150 },
     "band":  { "file": "arc-ban-d.png", "fw": 17, "fh": 46, "frames": 9, "mode": "patch", "ms": 150 }

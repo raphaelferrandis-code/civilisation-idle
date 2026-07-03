@@ -414,7 +414,16 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
             ? top + f.y * sy - dh / 2 // éclat : centré sur sa gemme
             : top + f.y * sy - dh + sy; // flamme : posée sur son foyer, monte
       }
-      ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
+      if (a.blend) {
+        // Halo lumineux : blending additif — le voile pousse la scène vers la
+        // surexposition au lieu de se fondre dans un fond déjà clair.
+        const prevOp = ctx.globalCompositeOperation;
+        ctx.globalCompositeOperation = a.blend;
+        ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
+        ctx.globalCompositeOperation = prevOp;
+      } else {
+        ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
+      }
     }
   }
   ctx.imageSmoothingEnabled = prev;
