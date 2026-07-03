@@ -137,7 +137,11 @@ const CM_WONDERS = [
     tierLabel: (v) => `${fmtShort(v)} habitants` },
   { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
     unlockedBy: "Âge du royaume atteint.",
-    metric: (s) => cmEraIndexFor(s), tiers: [9, 13, 17, 21, 25],
+    // Rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères
+    // (les anciens seuils [9..25] faisaient naître la couronne au Bourg agricole).
+    // Chaque rang tombe sur une ère iconique : Royaume, Royaume conquérant,
+    // Empire, Métropole, Machination (fin de course juste avant la Singularité).
+    metric: (s) => cmEraIndexFor(s), tiers: [19, 22, 25, 29, 33],
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
   { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
     unlockedBy: "500 achats accomplis (bâtiments et décrets).",

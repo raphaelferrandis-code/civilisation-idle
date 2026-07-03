@@ -11,7 +11,7 @@ Lumière en HAUT-GAUCHE → ombres en BAS-DROITE (règle globale de la carte).
 |---|----|-----|-------|----------------|---------------------------|--------------------|
 | 1 | `dynasty1` | Le Mausolée du Fondateur | mausoleum | Première dynastie fondée | 1 / 50 / 200 / 400 / 750 dynasties (rééchelonné 2026-07-02, sim ~540-634 dyn/partie) | 2 |
 | 2 | `pop1m` | La Colonne du Million | column | Population ≥ 1 000 000 | 1e6 / 1e13 / 1e20 / 1e27 / 1e34 habitants (rééchelonné 2026-07-02 : +7 ordres de grandeur par rang, rang V ≈ ère 33-34) | 6 |
-| 3 | `era_kingdom` | La Couronne de Pierre | crown | Âge du royaume atteint | ères 9 / 13 / 17 / 21 / 25 | 9 |
+| 3 | `era_kingdom` | La Couronne de Pierre | crown | Âge du royaume atteint | ères 19 / 22 / 25 / 29 / 33 — Royaume / Conquérant / Empire / Métropole / Machination (rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères) | 9 |
 | 4 | `era_empire` | L'Arc de Triomphe Éternel | arch | 500 achats accomplis | 500 / 2 500 / 10 000 / 15 000 / 20 000 achats | 13 |
 | 5 | `era_mega` | L'Aiguille Céleste | needle | 30 min de veille | 30 min / 2 h / 8 h / 24 h / 72 h de jeu | 17 |
 | 6 | `era_singularity` | L'Œil de la Singularité | eye | Premier mythe accompli | 1 / 3 / 5 / 8 / 12 mythes | 21 |
@@ -55,7 +55,19 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       (erase-baked-pop1m.cjs) car crops à fond transparent. `pop1m-flames.json` porte les
       options par asset (mode/loop/anchor/sc/ms). Ajoutée à WONDER_PX_IDS. Vérifiée en jeu
       rangs II/IV/V (rotation, flambée, flottements OK, patchs sans couture).
-- [ ] 3. La Couronne de Pierre (`era_kingdom`)
+- [x] 3. La Couronne de Pierre (`era_kingdom`) — concept « Cercle du Serment » (accrétion
+      RADIALE, la géologie devient orfèvrerie : cromlech brut → anneau taillé à fleurons →
+      forteresse-couronne à gemmes → couronne d'or sur muraille → COURONNE PURE colossale,
+      choix de Raphaël vs variante « couronne-forteresse à porte »). 5 sprites générés
+      2026-07-03 (`era_kingdom-t1..t5.png`, 128×88 → 400×256, la seule merveille plus LARGE
+      que haute). Seuils rééchelonnés ères 19/22/25/29/33 (« Royaume » = ère 19 depuis la
+      refonte des ères ; les anciens seuils [9..25] tombaient au Bourg agricole).
+      Post-traitement : strip-bg (t4/t5 fond uni) + nettoyage (herbe/dallage/silhouette
+      humaine effacés, portes re-remplies en dégradé sombre — l'intérieur PixelLab était
+      blanc/gris opaque ou transparent selon le tirage). Intégrée à WONDER_PX_IDS,
+      vérifiée en jeu rangs I-V. Reste : animations (scintillement des gemmes en patch ?)
+      à valider avec Raphaël — l'ancienne proposition « escarboucle pulsante » visait la
+      variante forteresse, non retenue.
 - [ ] 4. L'Arc de Triomphe Éternel (`era_empire`)
 - [ ] 5. L'Aiguille Céleste (`era_mega`)
 - [ ] 6. L'Œil de la Singularité (`era_singularity`)

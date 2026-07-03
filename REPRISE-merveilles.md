@@ -93,12 +93,35 @@ convention `<id>-t<rang>.png`, suivi).
   Slot merveille : `__CM.layout.wonderSlots[1]` (idx = position dans CM_WONDERS, pas dans
   state.wonders).
 
-## Merveilles 3-6 : ⬜ À FAIRE
+## Merveille 3 — La Couronne de Pierre (`era_kingdom`) : 🟡 SPRITES EN JEU, reste anims
 
-`era_kingdom` (Couronne de Pierre), `era_empire` (Arc de Triomphe), `era_mega` (Aiguille
-Céleste), `era_singularity` (Œil de la Singularité). Pour chacune : **d'abord vérifier/
-rééchelonner les seuils** dans `CM_WONDERS` (comparer aux sims), puis design → 5 sprites
-frontaux → animations overlay → ajout à `WONDER_PX_IDS`. Concepts pas encore arrêtés.
+- Concept « **Cercle du Serment** » (validé) : accrétion RADIALE — la géologie devient
+  orfèvrerie. I cromlech brut sur butte → II anneau taillé à fleurons bronze → III
+  forteresse-couronne à gemmes grenat → IV couronne d'or sur muraille ronde (porte sombre)
+  → V **couronne pure colossale** (choix de Raph contre la variante « forteresse à porte +
+  escarboucle » ; les deux tirages sont dans le scratchpad de session si besoin).
+- **Seuils rééchelonnés** : ères `[19, 22, 25, 29, 33]` = Royaume / Conquérant / Empire /
+  Métropole / Machination. ⚠ Les anciens seuils [9,13,17,21,25] dataient d'AVANT la
+  refonte des ères (« Royaume » était l'ère 9, c'est maintenant la 19). reEra reste 9
+  (échelle de réapparition par cycle, indépendante du 1er déblocage).
+- **Sprites** : `era_kingdom-t1..t5.png` (128×88 → 400×256), la seule merveille plus
+  LARGE que haute. Post-traitement notable : les PORTES PixelLab sortent blanches/grises
+  (opaque OU transparent selon tirage) → re-remplies en dégradé sombre par boîte bornée à
+  la base de muraille MESURÉE (un flood-fill fuit par le bas du canvas) ; herbe/dallage/
+  silhouette humaine effacés. Vérifiée en jeu rangs I-V (⚠ premier accès = repli
+  procédural ~1 s, precharger avant capture).
+- **RESTE** : animations. L'« escarboucle pulsante » proposée visait la variante non
+  retenue ; à re-proposer → piste : SCINTILLEMENT DES GEMMES (patchs custom-start sur les
+  rubis, t3-t5) + éventuel reflet qui court sur l'or du bandeau.
+
+## Merveilles 4-6 : ⬜ À FAIRE
+
+`era_empire` (Arc de Triomphe), `era_mega` (Aiguille Céleste), `era_singularity` (Œil de
+la Singularité). Pour chacune : **d'abord vérifier/rééchelonner les seuils** dans
+`CM_WONDERS` (l'Arc « 500..20000 achats » et l'Aiguille « 30min..72h » semblent plausibles
+mais à recouper avec les sims ; l'Œil « 1..12 mythes » à recouper avec le rythme des
+mythes), puis design → 5 sprites frontaux → animations → ajout à `WONDER_PX_IDS`.
+Concepts pas encore arrêtés.
 
 ---
 
