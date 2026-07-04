@@ -313,20 +313,17 @@ function cityMapHitTestCitizenWithThought(sx, sy) {
   let best = null;
   let bestDist = Infinity;
   const clickRadius = Math.max(16, 14 * z);
-  const now = performance.now();
-  const eraI = CM.layout?.counts?.eraIndex ?? 0;
   for (const p of CM.citizens) {
-    if (!p.thoughtType || p.thoughtTimer <= 0) continue;
-    const wob = p.pauseT > 0 ? 0 : Math.sin(now / 240 + (p.phase || 0)) * 1.1;
-    const perpX = (p.dir === 2 || p.dir === 3) ? 1 : 0;
-    const perpY = perpX ? 0 : 1;
-    const swSign = (p.phase > Math.PI) ? 1 : -1;
-    const swOff = eraI >= 5 ? swSign * 0.27 * CM.TILE * z : 0;
-    const px = (p.x - CM.cam.x) * z + CM.cw / 2 + wob * perpX * z + swOff * perpX;
-    const py = (p.y - CM.cam.y) * z + CM.ch / 2 + wob * perpY * z + swOff * perpY;
+    if (!p.thoughtType || p.thoughtTimer <= 0 || p._nightHidden) continue;
+    // Position écran IDENTIQUE au rendu (drawCitizens/drawCitizenThoughts) : décalage-
+    // trottoir lissé p.lox/p.loy. L'ancien modèle wob/swOff n'existe plus au rendu →
+    // sans cet alignement, le clic sur bulle tombe à côté (surtout ère ≥ 5, où le
+    // « swagger » décalait le sprite de ~9 px sans que le hit-test le sache).
+    const px = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
+    const py = (p.y + (p.loy || 0) - CM.cam.y) * z + CM.ch / 2;
     const distBody = Math.hypot(px - sx, py - sy);
     const bx = px;
-    const by = py - 14 * Math.max(0.6, z);
+    const by = py - 18;
     const distBubble = Math.hypot(bx - sx, by - sy);
     const minDist = Math.min(distBody, distBubble);
     if (minDist < clickRadius && minDist < bestDist) {
@@ -543,6 +540,27 @@ function cityMapEnsureLayout(now, deps = {}) {
   }
   // Clés numériques : évite les allocations string à chaque lookup dans les boucles agents
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
+  // ── Ancres domicile / travail ──────────────────────────────────────────────
+  // Cellules-route bordant les LOGEMENTS (toute tuile non-moteur) vs les LIEUX
+  // D'ACTIVITÉ (bâtiments-moteur « engine »). Cibles des trajets journaliers des
+  // habitants (cf. citizenChooseNext) : le jour vers le travail et les places, le
+  // soir vers le domicile. Les doublons sont volontairement gardés → les cellules
+  // très bordées (cœur résidentiel, parvis d'atelier) sortent plus souvent au tirage.
+  CM.homeRoadCells = [];
+  CM.workRoadCells = [];
+  if (Array.isArray(L.tiles)) {
+    const edgeRoads = (t, out) => {
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let ax = -1; ax <= sx; ax += 1) {
+        for (let ay = -1; ay <= sy; ay += 1) {
+          if (ax >= 0 && ax < sx && ay >= 0 && ay < sy) continue; // intérieur du bâti
+          const gx = t.gx + ax, gy = t.gy + ay;
+          if (CM.walkRoadSet.has(gx * 10000 + gy)) out.push({ gx, gy });
+        }
+      }
+    };
+    for (const t of L.tiles) edgeRoads(t, t.type === "engine" ? CM.workRoadCells : CM.homeRoadCells);
+  }
   // Ponts précalculés : évite Array.filter à chaque frame dans cityMapDrawBridges
   CM.bridgeList = CM.roadList.filter((r) => r.roadSurface === "bridge");
   // Spans de pont (composantes connexes) + repérage du pont HISTORIQUE (le plus
@@ -745,17 +763,30 @@ function spawnOneCitizen(L) {
   const hat = hatRoll === 0 ? (band <= 1 ? "#5d4226" : "#3c3228")
     : hatRoll === 1 ? (band >= 3 ? "#8a8a92" : "#c8a85a")
     : null;
+  // Type d'habitant : 0 homme (42 %) / 1 femme (42 %) / 2 enfant (16 %). Tiré via le
+  // seed (déterministe, plus de scintillement) et fixé DÈS le spawn — nécessaire pour
+  // moduler la vitesse des enfants et garder l'identité stable dès la 1re frame.
+  const cr = (seed >> 6) % 100;
+  const charType = cr < 42 ? 0 : cr < 84 ? 1 : 2;
+  // Domicile & lieu de travail : ancres fixes tirées via le seed (stables dans le
+  // temps). Repli null tant que la ville n'a ni logement ni atelier bordé de route →
+  // le piéton garde alors la flânerie libre (cf. citizenChooseNext).
+  const homeCells = CM.homeRoadCells, workCells = CM.workRoadCells;
+  const home = homeCells && homeCells.length ? homeCells[seed % homeCells.length] : null;
+  const work = workCells && workCells.length ? workCells[(seed >> 8) % workCells.length] : null;
   CM.citizens.push({
     gx: r.gx, gy: r.gy,
     x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
     tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
     fade: 0, // fondu d'apparition — pas de "point" qui surgit
     dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
+    charType, home, work,
     // Allure de marche CALME — volontairement plus lente que les véhicules (qui,
     // eux, gardent leur vitesse, cf. CM.vehicles plus haut). La hausse avec la
     // densité urbaine est fortement tempérée pour que les piétons ne doublent plus
-    // les charrettes en grande ville.
-    speed: 9 + (n % 7) * 1.5 + L.counts.urbanTier * 0.6,
+    // les charrettes en grande ville. Les enfants trottinent un peu moins vite (×0.85)
+    // → les grappes familiales se lisent mieux à l'écran.
+    speed: (9 + (n % 7) * 1.5 + L.counts.urbanTier * 0.6) * (charType === 2 ? 0.85 : 1),
     col: OUTFITS[seed % OUTFITS.length],
     skin: SKINS[(seed >> 3) % SKINS.length],
     hat,
@@ -1047,7 +1078,7 @@ function initCityMap(canvas, options = {}) {
         }
       }
       drawVehicles(now, "air"); // drones au-dessus
-      if (!CM.lodActive) drawCitizenThoughts(now);
+      if (!CM.lodActive) drawCitizenThoughts();
     }
   }
   // Premiere mise en page immediate puis boucle.

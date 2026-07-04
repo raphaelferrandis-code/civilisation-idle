@@ -257,25 +257,42 @@ function crossBankGoal(gx, gy) {
 
 function citizenChooseNext(p) {
   if (!CM.walkRoadList.length) return;
-  if (Math.random() < 0.12) {
-    p.pauseT = 0.3 + Math.random() * 1.5;
-    return;
-  }
+  const reachable = (c) => !!c && CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy));
+  // But devenu inatteignable (cellule rasée par un recalcul : domicile/atelier supprimé,
+  // route émondée) : on le lâche et on en reprend un autre juste après → mouvement continu.
+  if (p.goal && !reachable(p.goal)) p.goal = null;
   const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
-  // Arrivé sur une place : on s'attarde (discussions, marché, badauds).
   if (arrived && p.social) {
+    // SEULE halte : la flânerie sur une PLACE (badauds, marché, discussions). Partout
+    // ailleurs les habitants ne s'arrêtent JAMAIS — ils repartent aussitôt (plus bas).
     p.social = false;
     p.pauseT = 2.5 + Math.random() * 5;
+    p.goal = null;
+    return;
   }
-  if (!p.goal || Math.random() < 0.05 || arrived) {
-    // Le jour, une partie des piétons converge vers les places publiques.
-    const day = (CM.nightF || 0) < 0.45;
+  if (arrived) p.goal = null; // hors place : on repart immédiatement, sans halte ni pas parasite
+  if (!p.goal || Math.random() < 0.05) {
+    const nf = CM.nightF || 0;
+    const day = nf < 0.45;
+    // Envie de rentrer : nulle en plein jour, croissante à la tombée du soir (0 quand
+    // nightF ≤ 0.40, 1 dès nightF ≥ 0.70) → le soir, la foule reflue vers les quartiers
+    // résidentiels ; le jour, elle gagne ateliers et places.
+    const homeBias = Math.max(0, Math.min(1, (nf - 0.4) / 0.3));
     const plazaCells = CM.plazaRoadCells;
-    const cross = Math.random() < 0.22 ? crossBankGoal(p.gx, p.gy) : null;
+    const cross = Math.random() < 0.18 ? crossBankGoal(p.gx, p.gy) : null;
     if (cross) {
       p.goal = cross;
       p.social = false;
-    } else if (day && plazaCells && plazaCells.length && Math.random() < 0.3) {
+    } else if (reachable(p.home) && Math.random() < homeBias) {
+      // Rentrer au domicile (cellule-route bordant un logement, encore présente).
+      p.goal = p.home;
+      p.social = false;
+    } else if (reachable(p.work) && day && Math.random() < 0.5) {
+      // Gagner son lieu de travail (bordure d'un bâtiment-moteur).
+      p.goal = p.work;
+      p.social = false;
+    } else if (day && plazaCells && plazaCells.length && Math.random() < 0.35) {
+      // Flânerie diurne vers une place publique (marché, parvis, jardin).
       const r = plazaCells[Math.floor(Math.random() * plazaCells.length)];
       p.goal = { gx: r.gx, gy: r.gy };
       p.social = true;
@@ -285,20 +302,34 @@ function citizenChooseNext(p) {
       p.social = false;
     }
   }
+  // Sécurité anti-piétinement : ne JAMAIS viser sa propre cellule (ex. domicile atteint la
+  // nuit avec homeBias=1) — sinon le pas suivant tournerait en rond sur place. On repique
+  // alors une cellule lointaine au hasard pour garantir un déplacement net et continu.
+  if (p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy) {
+    const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+    p.goal = { gx: r.gx, gy: r.gy };
+    p.social = false;
+  }
   const rev = p.dir >= 0 ? (p.dir ^ 1) : -1;
   const opts = [];
   for (let i = 0; i < 4; i += 1) {
     const nx = p.gx + CM_DIRS[i][0], ny = p.gy + CM_DIRS[i][1];
     if (CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny)) && roadStepAllowed(p.gx, p.gy, i)) opts.push({ i, nx, ny });
   }
-  if (!opts.length) return;
+  if (!opts.length) { p.pauseT = 0.5 + Math.random() * 1.5; p.goal = null; return; } // cellule isolée : halte (pas de marche sur place)
   const forward = opts.filter((o) => o.i !== rev);
   const pool = forward.length ? forward : opts;
+  // Cap tenu (adapté aux sprites pixel à 4 directions) : on vise le but en distance de
+  // Manhattan et on garde sa direction dans les couloirs. Fini le gros bruit aléatoire
+  // qui faisait pivoter le sprite à chaque cellule (« zigzag »). Invariant : bonus de
+  // cap (0.7) + départage (≤ 0.25) < 1 (le gain d'un pas vers le but) → jamais de
+  // détour ; à distance égale on continue tout droit plutôt que de tourner. Le petit
+  // aléa ne sert qu'à départager les virages forcés (désynchronise les foules).
   let best = pool[0], bestScore = -Infinity;
   for (const o of pool) {
     let score = -(Math.abs(p.goal.gx - o.nx) + Math.abs(p.goal.gy - o.ny));
-    if (o.i === p.dir) score += 1.6;
-    score += Math.random() * 2.4;
+    if (o.i === p.dir) score += 0.7;
+    score += Math.random() * 0.25;
     if (score > bestScore) {
       bestScore = score;
       best = o;
@@ -309,12 +340,20 @@ function citizenChooseNext(p) {
   p.dir = best.i;
   p.tx = (p.gx + 0.5) * CM.TILE;
   p.ty = (p.gy + 0.5) * CM.TILE;
+  // Cible de décalage-trottoir : bord DROIT du sens de marche (E→S, W→N, S→W, N→E),
+  // amplitude ∝ largeur de la route de la cellule → sentier ≈ centré, grand axe = vrai
+  // bord. Calculé une fois par pas (pas par frame) ; le rendu lisse la transition.
+  const ei = (CM.layout && CM.layout.counts) ? (CM.layout.counts.eraIndex || 0) : 0;
+  const rank = vehicleRoadRank(p.gx, p.gy);
+  // Sur une esplanade (place ouverte, piétonne) : pas de bord de chaussée → resté centré.
+  const edge = rank === "plaza" ? 0 : CM.TILE * roadWidthFor(rank, ei) * 0.42;
+  p.tox = p.dir === 2 ? -edge : p.dir === 3 ? edge : 0;
+  p.toy = p.dir === 0 ? edge : p.dir === 1 ? -edge : 0;
 }
 
 function drawCitizens(dt, now) {
   if (!CM.walkRoadList.length) return;
   const ctx = CM.ctx, z = CM.cam.zoom;
-  const eraI = CM.layout?.counts?.eraIndex ?? 0;
 
   // Gestion globale de l'apparition des bulles de pensée pour éviter le spam dû au nombre de citoyens
   if (CM.globalBubbleCooldown === undefined) {
@@ -349,6 +388,15 @@ function drawCitizens(dt, now) {
   for (const p of CM.citizens) {
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
     if (p.thoughtType === undefined) p.thoughtType = null;
+    // Minuteur de bulle décrémenté EN TÊTE de boucle (avant tout `continue`) : sinon un
+    // porteur de bulle devenu dormeur nocturne gèle son minuteur → bulle figée suspendue.
+    // p._nightHidden marque un dormeur estompé pour que sa bulle ne soit ni dessinée
+    // (drawCitizenThoughts) ni cliquable (hit-test).
+    p._nightHidden = false;
+    if (p.thoughtType && p.thoughtTimer > 0) {
+      p.thoughtTimer -= dt;
+      if (p.thoughtTimer <= 0) p.thoughtType = null;
+    }
 
     if (!CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
       // PR3 — remap vers la route SURVIVANTE la plus proche (pas un saut
@@ -367,11 +415,12 @@ function drawCitizens(dt, now) {
       p.tx = p.x;
       p.ty = p.y;
       p.dir = -1;
+      p.tox = 0; p.toy = 0; // recentre la file après un remap (glisse en douceur)
       // Fondu d'apparition pour éviter les "points" qui surgissent sur la carte.
       p.fade = 0;
     }
     if (p.fade === undefined) p.fade = 1;
-    else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 0.7);
+    else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 4); // apparition rapide (~0,25 s) : plus d'effet « fantôme »
     if (p.pauseT > 0) {
       p.pauseT -= dt;
     } else {
@@ -384,40 +433,43 @@ function drawCitizens(dt, now) {
         p.y += dy / dist * sp;
       }
     }
-    // La nuit, une partie de la population rentre dormir.
+    // La nuit, une partie de la population rentre dormir : plutôt que de disparaître
+    // net au passage du seuil, le tiers « dormeur » s'estompe progressivement quand
+    // la nuit s'installe (nightF 0.55 → 0.75), puis cesse d'être dessiné.
     const nightF = CM.nightF || 0;
-    if (nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0) continue;
-
-    const wob = p.pauseT > 0 ? 0 : Math.sin((now || 0) / 240 + (p.phase || 0)) * 1.1;
-    const perpX = (p.dir === 2 || p.dir === 3) ? 1 : 0;
-    const perpY = perpX ? 0 : 1;
-    const swSign = (p.phase > Math.PI) ? 1 : -1;
-    const swOff = eraI >= 5 ? swSign * 0.27 * CM.TILE * z : 0;
-    const sx = (p.x - CM.cam.x) * z + CM.cw / 2 + wob * perpX * z + swOff * perpX;
-    const sy = (p.y - CM.cam.y) * z + CM.ch / 2 + wob * perpY * z + swOff * perpY;
-    if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
-
-    // Met à jour la bulle de pensée au-dessus du citoyen si active
-    if (p.thoughtType && p.thoughtTimer > 0) {
-      p.thoughtTimer -= dt;
-      if (p.thoughtTimer <= 0) {
-        p.thoughtType = null;
-      }
+    let sleepFade = 1;
+    if (nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0) {
+      sleepFade = Math.max(0, 1 - (nightF - 0.55) / 0.2);
+      if (sleepFade <= 0) { p._nightHidden = true; continue; }
     }
+
+    // Marche au BORD de la chaussée : décalage latéral (unités monde) lissé vers sa
+    // cible « trottoir » (p.tox/p.toy, bord droit du sens). Le lissage fait GLISSER le
+    // piéton d'un bord à l'autre dans les virages au lieu de sauter → plus de zigzag,
+    // et deux sens de marche = deux files le long de chaque bord. Remplace l'ancien
+    // dandinement + « swagger » qui tremblaient à chaque changement de cap.
+    const tox = p.tox || 0, toy = p.toy || 0;
+    if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
+    else { const k = dt * 6 < 1 ? dt * 6 : 1; p.lox += (tox - p.lox) * k; p.loy += (toy - p.loy) * k; }
+    const sx = (p.x + p.lox - CM.cam.x) * z + CM.cw / 2;
+    const sy = (p.y + p.loy - CM.cam.y) * z + CM.ch / 2;
+    if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
 
     // ── Habitant : sprite pixel-art animé par ère + type (repli villageois/vectoriel) ──
     const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur (repli vectoriel)
     const walking = p.pauseT <= 0;
     const groundY = sy + ph * 1.35;               // ligne de sol (sous les pieds)
-    // Type de citoyen (0=homme, 1=femme, 2=enfant), tiré une fois.
-    if (p.charType === undefined) { const rr = Math.random(); p.charType = rr < 0.42 ? 0 : rr < 0.84 ? 1 : 2; }
+    // Type de citoyen (0=homme, 1=femme, 2=enfant) — fixé au spawn (spawnOneCitizen).
+    if (p.charType === undefined) p.charType = 0; // filet défensif : ne devrait plus arriver
     const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
     let spec = agentSetForBand(band)[p.charType] || AGENT_FALLBACK;
     let chr = ensureAgentChar(spec.name);
     if (!agentReady(chr)) { spec = AGENT_FALLBACK; chr = ensureAgentChar(AGENT_FALLBACK.name); }
     const useSprite = agentReady(chr);
     const drawH = CM.TILE * z * spec.scale * AGENT_SCALE, drawW = drawH; // taille du sprite
-    if (p.fade < 1) ctx.globalAlpha = p.fade;
+    // Alpha effectif : min du fondu d'apparition (0→1) et du fondu de coucher (1→0).
+    const alpha = p.fade < sleepFade ? p.fade : sleepFade;
+    if (alpha < 1) ctx.globalAlpha = alpha;
     // Ombre au sol — dimensionnée au personnage (ancre)
     const shR = useSprite ? drawW * 0.2 : ph * 0.85;
     ctx.fillStyle = "rgba(0,0,0,0.22)";
@@ -460,23 +512,18 @@ function drawCitizens(dt, now) {
         ctx.beginPath(); ctx.arc(sx, sy - ph * 0.95, ph * 0.48, Math.PI, 0); ctx.fill();
       }
     }
-    if (p.fade < 1) ctx.globalAlpha = 1;
+    if (alpha < 1) ctx.globalAlpha = 1;
   }
 }
 
-function drawCitizenThoughts(now) {
+function drawCitizenThoughts() {
   if (!CM.walkRoadList.length || !CM.citizens) return;
   const ctx = CM.ctx, z = CM.cam.zoom;
-  const eraI = CM.layout?.counts?.eraIndex ?? 0;
   for (const p of CM.citizens) {
-    if (p.thoughtType && p.thoughtTimer > 0) {
-      const wob = p.pauseT > 0 ? 0 : Math.sin((now || 0) / 240 + (p.phase || 0)) * 1.1;
-      const perpX = (p.dir === 2 || p.dir === 3) ? 1 : 0;
-      const perpY = perpX ? 0 : 1;
-      const swSign = (p.phase > Math.PI) ? 1 : -1;
-      const swOff = eraI >= 5 ? swSign * 0.27 * CM.TILE * z : 0;
-      const sx = (p.x - CM.cam.x) * z + CM.cw / 2 + wob * perpX * z + swOff * perpX;
-      const sy = (p.y - CM.cam.y) * z + CM.ch / 2 + wob * perpY * z + swOff * perpY;
+    if (p.thoughtType && p.thoughtTimer > 0 && !p._nightHidden) {
+      // Même position que le sprite : décalage-trottoir lissé (calculé dans drawCitizens).
+      const sx = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
+      const sy = (p.y + (p.loy || 0) - CM.cam.y) * z + CM.ch / 2;
       if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
 
       const emoji = p.thoughtType === "thought" ? "💭" : p.thoughtType === "scroll" ? "📜" : "⚡";
