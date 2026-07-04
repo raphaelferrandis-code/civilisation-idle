@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
-import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, CURRENT_SAVE_VERSION } from "../state.js";
 import { Decimal, D } from "../num.js";
 import { rates, buildingBatchCost, maxBuyAmount, ruinMultiplierDec, currentEraIndex } from "../mechanics.js";
 import { tick } from "../actions/tick.js";
@@ -121,7 +121,7 @@ describe("migration Decimal — fumée", () => {
       buildings: { foragers: 20 }
     };
     const loaded = hydrateState(oldSave);
-    expect(loaded.saveVersion).toBe(2);
+    expect(loaded.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(loaded.population.eq(9_007_199_254_740_991)).toBe(true);
     expect(loaded.food.eq(123456.789)).toBe(true);
     expect(loaded.ruins.eq(5000)).toBe(true);
@@ -133,9 +133,9 @@ describe("migration Decimal — fumée", () => {
     expect(loaded.buildings.foragers).toBe(20);
   });
 
-  it("migration v0 (sans saveVersion) : estampillé v2, données conservées", () => {
+  it("migration v0 (sans saveVersion) : estampillé à la version courante, données conservées", () => {
     const loaded = hydrateState({ gold: 42, buildings: { foragers: 3 } });
-    expect(loaded.saveVersion).toBe(2);
+    expect(loaded.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(loaded.gold.eq(42)).toBe(true);
     expect(loaded.buildings.foragers).toBe(3);
   });

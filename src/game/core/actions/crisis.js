@@ -287,7 +287,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   
   state.lastCollapsedBuildings = { ...state.buildings };
   
-  captureCurrentVestige();
+  // Métadonnées de la civ qui tombe, figées AVANT le reset (cycles/seed/nom réécrits plus bas).
+  captureCurrentVestige({
+    cityName: state.cityName,
+    year: age,
+    eraName: era,
+    eraIndex: currentEraIndex(),
+    cycleIndex: state.cycles,
+  });
   
   state.ruins = D(state.ruins).add(gain);
   if (wasChaos && state.chaosRuinsDouble) {

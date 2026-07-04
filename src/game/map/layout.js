@@ -1842,13 +1842,30 @@ function computeCityLayout(s) {
 }
 
 // ── Vestiges (pur, sans Canvas) ──────────────────────────────────────────────
-function captureVestige() {
+// Capture un « record de cité morte » compact au moment de l'effondrement. `meta`
+// (figée dans crisis.js AVANT le reset : nom/année/ère de la civ qui tombe) est
+// fusionnée avec un footprint dérivé du layout — pas de milliers de cellules.
+function captureVestige(meta) {
   if (typeof state === "undefined" || !state) return;
   try {
     const L = computeCityLayout(state);
     if (!L.tiles.length) return;
     if (!Array.isArray(state.vestiges)) state.vestiges = [];
-    state.vestiges.push({ gridN: L.gridN, ruins: L.tiles.map((t) => ({ x: t.gx, y: t.gy })) });
+    const m = meta || {};
+    const core = (L.plan && L.plan.core) ? L.plan.core : { x: L.cx, y: L.cy };
+    const radius = Math.max(1, Math.round(Math.sqrt(L.maxD2 || 0)) || Math.floor(L.gridN / 4));
+    const eraIndex = Number.isFinite(m.eraIndex) ? m.eraIndex : (L.counts ? L.counts.eraIndex : 0);
+    const eraBand = eraBandOf(eraIndex); // cohérent avec l'eraIndex stocké
+    state.vestiges.push({
+      cityName: String(m.cityName || ""),
+      year: Math.max(1, Math.floor(Number(m.year) || 1)),
+      eraName: String(m.eraName || ""),
+      eraIndex,
+      eraBand,
+      mapSeed: Number(L.mapSeed != null ? L.mapSeed : state.mapSeed) || 0,
+      cycleIndex: Number.isFinite(m.cycleIndex) ? m.cycleIndex : (state.cycles || 0),
+      footprint: { gridN: L.gridN, cx: Math.round(core.x), cy: Math.round(core.y), radius }
+    });
     while (state.vestiges.length > 3) state.vestiges.shift();
   } catch (e) { /* sans effet */ }
 }

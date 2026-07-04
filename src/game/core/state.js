@@ -3,6 +3,7 @@
 import { buildings } from '../data/buildings.js';
 import { upgrades } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
+import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
 import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE } from './balance.js';
@@ -18,7 +19,10 @@ export const SAVE_KEY = "civilization-collapse-idle-v1";
 // CURRENT_SAVE_VERSION + ajouter une migration les fait évoluer sans perte.
 // v2 : les champs sans plafond (ressources, ruines, pics…) sont sérialisés en
 // strings Decimal ("1.5e+30") au lieu de numbers (migration Phase 3).
-export const CURRENT_SAVE_VERSION = 2;
+// v3 : les vestiges deviennent des « records de cité morte » compacts (footprint +
+// métadonnées nom/année/ère) au lieu de milliers de cellules ; la rétro-conversion
+// des anciens {gridN, ruins[]} est faite sans perte par normalizeVestiges.
+export const CURRENT_SAVE_VERSION = 3;
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
@@ -557,19 +561,53 @@ export function normalizeCyclePeaks(raw, fallback) {
   };
 }
 
+// Vestige = « record de cité morte » compact (v3). On garde 3 civilisations max.
+// Rétro-compat : un vestige v2 { gridN, ruins:[{x,y}] } est converti en footprint
+// (bbox des ruines) + métadonnées par défaut ; le lourd tableau ruins est jeté.
 export function normalizeVestiges(raw) {
   if (!Array.isArray(raw)) return [];
+  const maxEra = Math.max(0, eras.length - 1);
   return raw.slice(-3).map((vestige) => {
     if (!isPlainObject(vestige)) return null;
-    const ruins = Array.isArray(vestige.ruins)
-      ? vestige.ruins
-        .filter((cell) => isPlainObject(cell) && Number.isFinite(Number(cell.x)) && Number.isFinite(Number(cell.y)))
-        .slice(0, 2500)
-        .map((cell) => ({ x: Number(cell.x), y: Number(cell.y) }))
-      : [];
+    // Footprint : présent (v3), sinon dérivé de l'ancien format {gridN, ruins[]} (v2).
+    let footprint = vestige.footprint;
+    if (!isPlainObject(footprint)) {
+      const gridN = finiteInteger(vestige.gridN, 20, 1, 500);
+      let cx = Math.floor(gridN / 2), cy = Math.floor(gridN / 2), radius = Math.max(1, Math.floor(gridN / 4));
+      if (Array.isArray(vestige.ruins) && vestige.ruins.length) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const cell of vestige.ruins) {
+          if (!isPlainObject(cell)) continue;
+          const x = Number(cell.x), y = Number(cell.y);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        if (Number.isFinite(minX)) {
+          cx = Math.round((minX + maxX) / 2);
+          cy = Math.round((minY + maxY) / 2);
+          radius = Math.max(1, Math.ceil(Math.max(maxX - minX, maxY - minY) / 2));
+        }
+      }
+      footprint = { gridN, cx, cy, radius };
+    } else {
+      footprint = {
+        gridN: finiteInteger(footprint.gridN, 20, 1, 500),
+        cx: finiteInteger(footprint.cx, 10, 0, 500),
+        cy: finiteInteger(footprint.cy, 10, 0, 500),
+        radius: finiteInteger(footprint.radius, 5, 1, 500)
+      };
+    }
+    const eraIndex = finiteInteger(vestige.eraIndex, 0, 0, maxEra);
     return {
-      gridN: finiteInteger(vestige.gridN, 20, 1, 500),
-      ruins
+      cityName: typeof vestige.cityName === "string" ? vestige.cityName.slice(0, 64) : "",
+      year: finiteInteger(vestige.year, 0, 0, 1e9),
+      eraName: typeof vestige.eraName === "string" ? vestige.eraName.slice(0, 64) : "",
+      eraIndex,
+      eraBand: finiteInteger(vestige.eraBand, eraBandOf(eraIndex), 0, 9),
+      mapSeed: Number.isFinite(Number(vestige.mapSeed)) ? Number(vestige.mapSeed) : 0,
+      cycleIndex: finiteInteger(vestige.cycleIndex, 0, 0, 1e9),
+      footprint
     };
   }).filter(Boolean);
 }
@@ -704,6 +742,8 @@ const MIGRATIONS = {
       }
     }
   }
+  // 2 -> 3 : vestiges compacts (footprint + métadonnées). Aucune transformation
+  // ici : normalizeVestiges (hydrateState) rétro-convertit les anciens {gridN, ruins[]}.
 };
 
 // Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à

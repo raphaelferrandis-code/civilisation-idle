@@ -14,8 +14,8 @@ export function setCaptureVestigeHandler(handler) {
   captureVestigeHandler = typeof handler === "function" ? handler : null;
 }
 
-export function captureCurrentVestige() {
-  if (captureVestigeHandler) captureVestigeHandler();
+export function captureCurrentVestige(meta) {
+  if (captureVestigeHandler) captureVestigeHandler(meta);
 }
 
 export function setResetCameraCenterHandler(handler) {
