@@ -342,29 +342,8 @@ function wonderPixelSprite(id, tier) {
   const key = id + "-t" + tier;
   let e = wonderPxCache.get(key);
   if (!e) {
-    e = { img: new Image(), ready: false, nw: 0, nh: 0, baseFrac: 1, baseCxFrac: 0.5 };
-    e.img.onload = () => {
-      e.nw = e.img.naturalWidth; e.nh = e.img.naturalHeight;
-      // Base opaque RÉELLE du sprite : sert à poser l'ombre de contact pile
-      // sous le monument malgré le padding transparent du canvas (sinon l'ombre
-      // tombe trop bas). On scanne l'alpha : dernière ligne opaque (bas du
-      // contenu) + centre horizontal de la bande basse.
-      try {
-        const oc = document.createElement("canvas");
-        oc.width = e.nw; oc.height = e.nh;
-        const octx = oc.getContext("2d", { willReadFrequently: true });
-        octx.drawImage(e.img, 0, 0);
-        const d = octx.getImageData(0, 0, e.nw, e.nh).data;
-        let br = e.nh - 1;
-        for (; br >= 0; br -= 1) { let any = false; for (let x = 0; x < e.nw; x += 1) { if (d[(br * e.nw + x) * 4 + 3] > 40) { any = true; break; } } if (any) break; }
-        const bandTop = Math.max(0, br - Math.round(e.nh * 0.12));
-        let sx = 0, n = 0;
-        for (let y = bandTop; y <= br; y += 1) for (let x = 0; x < e.nw; x += 1) { if (d[(y * e.nw + x) * 4 + 3] > 40) { sx += x; n += 1; } }
-        e.baseFrac = (br + 1) / e.nh;
-        e.baseCxFrac = n ? (sx / n) / e.nw : 0.5;
-      } catch (err) { e.baseFrac = 1; e.baseCxFrac = 0.5; }
-      e.ready = true;
-    };
+    e = { img: new Image(), ready: false, nw: 0, nh: 0 };
+    e.img.onload = () => { e.nw = e.img.naturalWidth; e.nh = e.img.naturalHeight; e.ready = true; };
     e.img.src = "/pixelart/wonders/" + key + ".png";
     wonderPxCache.set(key, e);
   }
@@ -488,46 +467,12 @@ function drawWonder(w, idx, now) {
   const tint = CM_TINTS[CM.dynastyIdx % CM_TINTS.length];
 
   // Merveille pixel-art : le sprite EST tout le monument. Aucun habillage
-  // procédural (esplanade, aura, torches, stèles, particules, couronne
-  // orbitale, faisceau nocturne, bannière) — seules les flammes overlay
-  // animent la scène. L'érection (e<1) écrase le sprite qui pousse.
-  // UNE exception : l'ombre de contact au sol, même convention que les
-  // arbres pixel-art (ellipse plate décalée bas-droite, lumière haut-gauche).
-  // C'est elle qui « pose » le billboard frontal sur la carte top-down —
-  // sans elle le monument flotte comme un décor de carton.
+  // procédural (esplanade, aura, ombre de contact, écume, torches, stèles,
+  // particules, couronne orbitale, faisceau nocturne, bannière) — seules les
+  // flammes overlay animent la scène. L'érection (e<1) écrase le sprite qui pousse.
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
-    // Base opaque réelle du sprite (pas le bas du canvas) : l'ombre/écume se pose
-    // pile sous le monument, centrée sur son pied, même s'il y a du padding.
-    const shX = (cxs - W / 2) + px.baseCxFrac * W;
-    const shY = (baseY - H) + px.baseFrac * H;
-    if (w.id === "era_mega") {
-      // Phare planté DANS le fleuve : une ombre portée sombre jurerait sur
-      // l'eau. À la place, un reflet bleuté sous la base + deux anneaux
-      // d'ÉCUME clairs concentriques qui battent à la ligne de flottaison.
-      ctx.fillStyle = "rgba(18,38,66,0.22)";
-      ctx.beginPath();
-      ctx.ellipse(shX, shY, W * 0.34, W * 0.10, 0, 0, Math.PI * 2);
-      ctx.fill();
-      const foam = 0.34 + 0.22 * Math.sin(now / 620 + idx);
-      ctx.lineWidth = Math.max(1, s * 0.05);
-      ctx.strokeStyle = `rgba(224,242,255,${foam.toFixed(2)})`;
-      ctx.beginPath();
-      ctx.ellipse(shX, shY, W * 0.30, W * 0.095, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = `rgba(198,228,255,${(foam * 0.55).toFixed(2)})`;
-      ctx.beginPath();
-      ctx.ellipse(shX, shY + s * 0.06, W * 0.44, W * 0.135, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    } else {
-      // Ombre de contact au sol : centrée sous le pied, léger décalé bas-droite
-      // (lumière haut-gauche).
-      ctx.fillStyle = "rgba(18,13,6,0.24)";
-      ctx.beginPath();
-      ctx.ellipse(shX + s * 0.06, shY + s * 0.02, W * 0.42, W * 0.095, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
     drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
     ctx.globalAlpha = 1;
     return;

@@ -208,10 +208,13 @@ type bâtiment RTS. Verdicts finaux :
   (layout.js) cale era_mega au CENTRE du fleuve (`riverYAt`) au lieu de l'éviter comme les
   autres (`cmDryWonderSlot`), en s'écartant du pont historique. Branché dans le `wonderSlots
   .map` (cas spécial `w.id === "era_mega"`). Le faisceau qui balaie l'eau = superbe.
-  Ombre de contact remplacée pour era_mega par un **reflet bleuté + 2 anneaux d'écume** qui
-  battent (une ombre sombre jurerait sur l'eau) — dans drawWonder (renderBuildings.js).
   Le rayon rebondit visuellement sur l'eau. ⚠ faire `__cityRecompute()` pour appliquer le
   nouveau placement (wonderSlots recalculé, non persisté dans le save).
+- ⚠ OMBRES/CERCLES SOUS LES MERVEILLES : SUPPRIMÉS (choix de Raph). Il n'y a plus AUCUN
+  habillage procédural sous les sprites px (ni ombre de contact au sol, ni écume/anneaux
+  pour l'Aiguille). Le bloc et le calcul de base opaque (baseFrac/baseCxFrac) ont été
+  retirés de drawWonder / wonderPixelSprite. Si on veut ré-ancrer un jour, l'historique git
+  (autour de e3412ce) a la version « base opaque scannée à l'onload ».
 
 ## Merveille 6 — L'Œil de la Singularité (`era_singularity`) : ⬜ À FAIRE
 
