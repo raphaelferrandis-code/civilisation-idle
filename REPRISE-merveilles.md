@@ -204,6 +204,14 @@ type bâtiment RTS. Verdicts finaux :
 - Vérifiée en jeu rangs I-V ; rayon confirmé rotatif (captures à now différents), tours
   posées avec ombre de contact. ⚠ précharger les tiers (1 frame + wait) avant capture sinon
   repli procédural le temps que l'Image charge.
+- **PLANTÉE DANS LE FLEUVE** (2026-07-03, demande de Raph) : phare sur l'eau. `cmWetWonderSlot`
+  (layout.js) cale era_mega au CENTRE du fleuve (`riverYAt`) au lieu de l'éviter comme les
+  autres (`cmDryWonderSlot`), en s'écartant du pont historique. Branché dans le `wonderSlots
+  .map` (cas spécial `w.id === "era_mega"`). Le faisceau qui balaie l'eau = superbe.
+  Ombre de contact remplacée pour era_mega par un **reflet bleuté + 2 anneaux d'écume** qui
+  battent (une ombre sombre jurerait sur l'eau) — dans drawWonder (renderBuildings.js).
+  Le rayon rebondit visuellement sur l'eau. ⚠ faire `__cityRecompute()` pour appliquer le
+  nouveau placement (wonderSlots recalculé, non persisté dans le save).
 
 ## Merveille 6 — L'Œil de la Singularité (`era_singularity`) : ⬜ À FAIRE
 

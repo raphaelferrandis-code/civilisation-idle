@@ -438,6 +438,29 @@ function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas, ringTarg
   }
   return { ...base, gridN, cx, cy };
 }
+// Placement « sur l'eau » (l'Aiguille Céleste = phare) : au lieu d'ÉVITER le
+// fleuve, on cale la merveille en PLEIN dessus. On part de sa position
+// angulaire, on balaie quelques colonnes autour et on prend le centre du fleuve
+// (riverYAt) le plus proche qui soit une vraie cellule d'eau (riverSet), en
+// s'écartant du pont historique pour ne pas couper la traversée.
+function cmWetWonderSlot(idx, gridN, cx, cy, riverYAt, riverSet, ringTarget, bridgeGx) {
+  const base = cmBaseWonderSlot(idx, gridN, cx, cy, ringTarget);
+  let best = null, bestScore = Infinity;
+  for (let dx = -8; dx <= 8; dx += 1) {
+    const gx = base.gx + dx;
+    if (gx < 3 || gx > gridN - 3) continue;
+    const gy = Math.round(riverYAt(gx));
+    if (gy < 3 || gy > gridN - 3) continue;
+    if (!riverSet.has(gx + "," + gy)) continue; // doit être en eau profonde (centre)
+    const nearBridge = typeof bridgeGx === "number" ? Math.max(0, 5 - Math.abs(gx - bridgeGx)) : 0;
+    const score = Math.abs(dx) + Math.abs(gy - base.gy) * 0.15 + nearBridge * 2;
+    if (score < bestScore) { bestScore = score; best = { gx, gy }; }
+  }
+  if (best) return { ...best, gridN, cx, cy };
+  // repli : centre du fleuve à la colonne de base
+  const gx = Math.max(3, Math.min(gridN - 3, base.gx));
+  return { gx, gy: Math.max(3, Math.min(gridN - 3, Math.round(riverYAt(gx)))), gridN, cx, cy };
+}
 function cmCheckWonders(now) {
   if (typeof state === "undefined" || !state) return;
   if (!Array.isArray(state.wonders)) state.wonders = [];
@@ -1139,7 +1162,10 @@ function computeCityLayout(s) {
   const builtWonderIds = cmWonderActiveIds(s);
   // ringTarget = portée urbaine réelle → les merveilles se posent sur le périmètre
   // de la cité et s'écartent à mesure qu'elle grandit (plus de cap fixe à 34).
-  const wonderSlots = CM_WONDERS.map((_, wi) => cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
+  const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
+  const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
+    ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
+    : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     if (!builtWonderIds.has(CM_WONDERS[wi].id)) continue;
     const slot = wonderSlots[wi];

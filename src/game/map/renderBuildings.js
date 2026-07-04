@@ -477,10 +477,30 @@ function drawWonder(w, idx, now) {
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
-    ctx.fillStyle = "rgba(18,13,6,0.24)";
-    ctx.beginPath();
-    ctx.ellipse(cxs + W * 0.05, baseY - s * 0.04, W * 0.46, W * 0.10, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (w.id === "era_mega") {
+      // Phare planté DANS le fleuve : une ombre portée sombre jurerait sur
+      // l'eau. À la place, un reflet bleuté sous la base + deux anneaux
+      // d'ÉCUME clairs qui battent doucement à la ligne de flottaison.
+      ctx.fillStyle = "rgba(18,38,66,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(cxs + W * 0.05, baseY - s * 0.02, W * 0.40, W * 0.11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const foam = 0.34 + 0.22 * Math.sin(now / 620 + idx);
+      ctx.lineWidth = Math.max(1, s * 0.05);
+      ctx.strokeStyle = `rgba(224,242,255,${foam.toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(cxs, baseY - s * 0.02, W * 0.38, W * 0.12, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(198,228,255,${(foam * 0.55).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(cxs, baseY + s * 0.07, W * 0.50, W * 0.15, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(18,13,6,0.24)";
+      ctx.beginPath();
+      ctx.ellipse(cxs + W * 0.05, baseY - s * 0.04, W * 0.46, W * 0.10, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
     ctx.globalAlpha = 1;
     return;
