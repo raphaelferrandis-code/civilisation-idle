@@ -17,6 +17,7 @@ Les sprites (habitants ET bâtiments) sont rangés en **sous-dossiers** de `publ
 | `boats/` | bateaux par ère : `boat-*` (raft, sail, steam, container, cosmic-7/8/9) | `agents.js` / `cityEngineSprites.js` |
 | `events/` | agents de crise : `rioter-*` | `agents.js` (`drawNamedAgent`) |
 | `buildings/` | props + scènes des **bâtiments-moteur** + acteurs de scène (`forager-*` clips, `caravan-mule-*`, `*-prop-*`, `*-fire`, `*-back`) | `cityEngineSprites.js` (`PROP_KEYS`, `ANIM_BANDS`, forager, mule), `engineSprites.js` |
+| `plazas/` | mobilier des **places** en 5 grappes d'ère : `‹prop›-‹ère›.png` (props `lamppost·bench·fountain·flag·planter` × ères `antique·classique·industrielle·moderne·futuriste`) | `plazaProps.js` (registre + `plazaEraForBand`), appelé par les fns plaza de `renderWorld.js` |
 
 Le routage est **codé** : `agentDir(name)` dans `agents.js` (nom→dossier : ox/horse→`animals`, rioter→`events`, sinon `inhabitants`) ; chaque chargeur pointe sur son sous-dossier. Les scripts `fetch*` écrivent dans le bon sous-dossier (`OUT`). Remap en lot (scan **récursif**) : `node scripts/remapPalette.mjs --dir public/pixelart/agents`.
 ⚠️ `scripts/contactSheet.mjs` lit `agents/` **à plat** → à passer en récursif si réutilisé.

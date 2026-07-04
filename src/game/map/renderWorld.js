@@ -17,6 +17,7 @@ import {
 } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset, drawNamedAgent } from './agents.js';
 import { mapThemeForBand } from '../data/eraThemes.js';
+import { plazaPropReady, blitPlazaProp } from './plazaProps.js';
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
 
@@ -1453,49 +1454,75 @@ function cityMapDrawPlazaFurniture(ctx, cx, cy, ext, s, band, night, seedH, kind
   // Bancs (dès le bourg) : à intervalles RÉGULIERS et symétriques le long des
   // quatre bords, tournés vers le centre — une place est un espace ordonné.
   if (band >= 2) {
-    ctx.fillStyle = "#5d4226";
+    const pixBench = plazaPropReady('bench', band);
     const bw = s * 0.34, bh = s * 0.09;
     const off = ext * 0.74; // distance du bord (laisse les angles aux lanternes)
     // Grandes places : deux bancs par côté (±), petites : un banc centré.
     const slots = ext > s * 1.2 ? [-0.56, 0.56] : [0];
     for (const t of slots) {
       const along = t * ext;
-      ctx.fillRect(cx + along - bw / 2, cy - off, bw, bh);      // bord nord
-      ctx.fillRect(cx + along - bw / 2, cy + off - bh, bw, bh); // bord sud
-      ctx.fillRect(cx - off, cy + along - bw / 2, bh, bw);      // bord ouest
-      ctx.fillRect(cx + off - bh, cy + along - bw / 2, bh, bw); // bord est
+      if (pixBench) {
+        // Sprite pixel ancré au sol à chaque bord (facing SE uniforme, comme les bâtiments).
+        blitPlazaProp(ctx, 'bench', band, cx + along, cy - off + s * 0.06, s * 0.42); // bord nord
+        blitPlazaProp(ctx, 'bench', band, cx + along, cy + off + s * 0.06, s * 0.42); // bord sud
+        blitPlazaProp(ctx, 'bench', band, cx - off, cy + along + s * 0.06, s * 0.42); // bord ouest
+        blitPlazaProp(ctx, 'bench', band, cx + off, cy + along + s * 0.06, s * 0.42); // bord est
+      } else {
+        ctx.fillStyle = "#5d4226";
+        ctx.fillRect(cx + along - bw / 2, cy - off, bw, bh);      // bord nord
+        ctx.fillRect(cx + along - bw / 2, cy + off - bh, bw, bh); // bord sud
+        ctx.fillRect(cx - off, cy + along - bw / 2, bh, bw);      // bord ouest
+        ctx.fillRect(cx + off - bh, cy + along - bw / 2, bh, bw); // bord est
+      }
     }
   }
   // Lanternes d'angle (dès la cité fortifiée) : éteintes le jour (verre
-  // sombre), émission additive qui monte avec la nuit.
+  // sombre), émission additive qui monte avec la nuit. Base PIXEL si le sprite
+  // `plaza-lamppost` est chargé, sinon repli sur le mât+tête procéduraux. Le
+  // HALO de nuit reste procédural dans les deux cas (posé sur le foyer).
   if (band >= 3) {
+    const pixLamp = plazaPropReady('lamppost', band);
     for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
       const px = cx + lx * ext * 0.62, py = cy + ly * ext * 0.62;
-      ctx.strokeStyle = "#3c342a"; ctx.lineWidth = Math.max(1, s * 0.045);
-      ctx.beginPath(); ctx.moveTo(px, py + s * 0.1); ctx.lineTo(px, py - s * 0.26); ctx.stroke();
-      // Tête physique de la lanterne : verre sombre, toujours visible.
-      ctx.fillStyle = "#4a4034";
-      ctx.beginPath(); ctx.arc(px, py - s * 0.3, Math.max(1.2, s * 0.06), 0, Math.PI * 2); ctx.fill();
+      let headY;
+      if (pixLamp) {
+        // Sprite ancré au sol (base au point d'angle) ; foyer près du sommet.
+        blitPlazaProp(ctx, 'lamppost', band, px, py + s * 0.12, s * 0.66);
+        headY = py - s * 0.42;
+      } else {
+        ctx.strokeStyle = "#3c342a"; ctx.lineWidth = Math.max(1, s * 0.045);
+        ctx.beginPath(); ctx.moveTo(px, py + s * 0.1); ctx.lineTo(px, py - s * 0.26); ctx.stroke();
+        // Tête physique de la lanterne : verre sombre, toujours visible.
+        ctx.fillStyle = "#4a4034";
+        ctx.beginPath(); ctx.arc(px, py - s * 0.3, Math.max(1.2, s * 0.06), 0, Math.PI * 2); ctx.fill();
+        headY = py - s * 0.3;
+      }
       // Émission : cœur vif + halo radial, tous deux ∝ nightF (0 le jour).
-      cmDrawGlow(ctx, px, py - s * 0.3, Math.max(2, s * 0.1), 255, 215, 120, night * 1.1);
-      cmDrawGlow(ctx, px, py - s * 0.3, s * 0.36, 255, 195, 90, night * 0.55);
+      cmDrawGlow(ctx, px, headY, Math.max(2, s * 0.1), 255, 215, 120, night * 1.1);
+      cmDrawGlow(ctx, px, headY, s * 0.36, 255, 195, 90, night * 0.55);
     }
   }
-  // Parterres de fleurs (ères riches, et toujours dans les jardins)
+  // Parterres / bacs à fleurs (ères riches, et toujours dans les jardins).
+  // Sprite `planter` pixel si chargé, sinon parterre procédural (ellipse + fleurs).
   if (band >= 4 || kind === "jardin") {
+    const pixPlanter = plazaPropReady('planter', band);
     const FLOWERS = ["#d05a8a", "#e8c64a", "#c84a3a", "#9a6ac8", "#e88a3a"];
     const nBeds = kind === "jardin" ? 5 : 2;
     for (let b = 0; b < nBeds; b += 1) {
       const a = rr(b + 11) * Math.PI * 2;
       const d = ext * (kind === "jardin" ? 0.3 + rr(b + 17) * 0.3 : 0.55);
       const fx = cx + Math.cos(a) * d, fy = cy + Math.sin(a) * d;
-      ctx.fillStyle = "rgba(74,98,44,0.8)";
-      ctx.beginPath(); ctx.ellipse(fx, fy, s * 0.13, s * 0.09, a, 0, Math.PI * 2); ctx.fill();
-      for (let f = 0; f < 4; f += 1) {
-        ctx.fillStyle = FLOWERS[(b * 3 + f + (seedH % 5)) % FLOWERS.length];
-        ctx.beginPath();
-        ctx.arc(fx + (rr(b * 7 + f) - 0.5) * s * 0.2, fy + (rr(b * 9 + f) - 0.5) * s * 0.13, Math.max(0.8, s * 0.025), 0, Math.PI * 2);
-        ctx.fill();
+      if (pixPlanter) {
+        blitPlazaProp(ctx, 'planter', band, fx, fy + s * 0.05, s * 0.36);
+      } else {
+        ctx.fillStyle = "rgba(74,98,44,0.8)";
+        ctx.beginPath(); ctx.ellipse(fx, fy, s * 0.13, s * 0.09, a, 0, Math.PI * 2); ctx.fill();
+        for (let f = 0; f < 4; f += 1) {
+          ctx.fillStyle = FLOWERS[(b * 3 + f + (seedH % 5)) % FLOWERS.length];
+          ctx.beginPath();
+          ctx.arc(fx + (rr(b * 7 + f) - 0.5) * s * 0.2, fy + (rr(b * 9 + f) - 0.5) * s * 0.13, Math.max(0.8, s * 0.025), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
   }
@@ -1595,6 +1622,9 @@ function cityMapDrawPlazas(now) {
       ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.18, s * 0.24, s * 0.09, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.18, s * 0.09, s * 0.24, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = "#6a6458"; ctx.fillRect(cx - s * 0.07, cy + s * 0.02, s * 0.14, s * 0.16);
+    } else if (plazaPropReady('fountain', band)) {
+      // Fontaine PIXEL (luxueuse / impériale / défaut), ancrée au sol.
+      blitPlazaProp(ctx, 'fountain', band, cx, cy + s * 0.22, s * 0.98);
     } else {
       // Fontaine (luxueuse / impériale / défaut) : bassin + jets animés
       ctx.fillStyle = "#7d7668"; ctx.beginPath(); ctx.arc(cx, cy, s * 0.34, 0, Math.PI * 2); ctx.fill();
@@ -1608,6 +1638,15 @@ function cityMapDrawPlazas(now) {
         ctx.beginPath();
         ctx.arc(cx + Math.cos(a) * jr, cy + Math.sin(a) * jr * 0.7 - s * (0.1 - ph * 0.1), Math.max(1, s * 0.035), 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
+    // Drapeaux pixel (nouveau) : une paire encadrant le centre, sur une partie
+    // des places (déterministe par seedH, systématique pour la place militaire).
+    if (plazaPropReady('flag', band)) {
+      const flagRoll = ((Math.imul(seedH, 2654435761 + 313) >>> 0) % 1000) / 1000;
+      if (pid === "militaire" || flagRoll < 0.5) {
+        blitPlazaProp(ctx, 'flag', band, cx - ext * 0.52, cy - s * 0.04, s * 0.72);
+        blitPlazaProp(ctx, 'flag', band, cx + ext * 0.52, cy - s * 0.04, s * 0.72);
       }
     }
     // Mobilier urbain : bancs, lanternes, parterres (selon l'ère et le type)
