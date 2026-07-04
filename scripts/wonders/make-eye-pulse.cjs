@@ -42,5 +42,6 @@ function build(core, outName) {
   console.log(outName, "->", FW * FRAMES + "x" + FH, FRAMES + " frames");
 }
 
-build([90, 224, 255], "eye-pulse-cyan.png");   // iris teal/cyan (t1..t4)
+build([90, 224, 255], "eye-pulse-cyan.png");   // iris teal/cyan (LEGACY — remplacé par amber en t1..t4)
 build([255, 216, 130], "eye-pulse-gold.png");  // iris solaire (t5)
+build([255, 168, 74], "eye-pulse-amber.png");  // iris ambre organique (t1..t4, refonte œil cybernétique)

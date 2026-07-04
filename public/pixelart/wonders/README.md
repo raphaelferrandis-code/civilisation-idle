@@ -147,3 +147,14 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       régénéré fait racer la caméra) ; éditer un `-flames.json` déclenche un full reload (plugin
       Vite carte) → recliquer « Cité » pour re-monter le canvas + helpers. **DERNIÈRE des 6 —
       rework pixel-art des merveilles COMPLET.**
+      **REFONTE T1–T4 « œil cybernétique + chair » (2026-07-04, demandée par Raphaël : les
+      t1-t4 faisaient « trop IA »)** : orbes lisses + portail lumineux remplacés par du
+      BIOMÉCANIQUE — vrai globe oculaire (sclère, iris, veines) serti dans du métal :
+      t1 socle de laiton rivé → t2 carter articulé → t3 diaphragme de lames (paupière-
+      machine) → t4 carter obsidienne+or à treillis concentrique (transition assumée vers
+      l'astrolabe t5). Générés PixelLab view low top-down (80/128/176/224), fond gris du t4
+      retiré (strip-bg), iris recalés en AMBRE (recolor HSL + région ciblée, scripts en
+      scratchpad) pour matcher l'iris solaire du t5. Overlays ALLÉGÉS : pulse cyan → ambre
+      (`eye-pulse-amber.png`, kind `pulseA` ; cyan gardé LEGACY) et anneaux gyro RETIRÉS des
+      t1-4 (l'élément le plus « IA ») — ne reste que l'iris qui respire ; **t5 INCHANGÉ**
+      (pulse or + gyro + glints). Ancres pulse ré-curées par iris dans le JSON.
