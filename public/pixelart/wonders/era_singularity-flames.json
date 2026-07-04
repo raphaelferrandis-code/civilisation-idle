@@ -1,0 +1,34 @@
+{
+  "asset": {
+    "pulseC": { "file": "eye-pulse-cyan.png", "fw": 40, "fh": 40, "frames": 16, "ms": 150, "sc": 1.0, "anchor": "center", "blend": "lighter" },
+    "pulseG": { "file": "eye-pulse-gold.png", "fw": 40, "fh": 40, "frames": 16, "ms": 150, "sc": 1.0, "anchor": "center", "blend": "lighter" },
+    "gyro":   { "file": "eye-gyro.png", "fw": 96, "fh": 96, "frames": 24, "ms": 200, "sc": 1.0, "anchor": "center", "loop": "forward", "blend": "lighter" },
+    "glint":  { "file": "gem-glint.png", "fw": 9, "fh": 9, "frames": 16, "ms": 120, "sc": 1.3, "anchor": "center" }
+  },
+  "tiers": {
+    "t1": { "flames": [
+      { "x": 34, "y": 29, "w": 24, "h": 24, "kind": "pulseC" }
+    ] },
+    "t2": { "flames": [
+      { "x": 55, "y": 48, "w": 30, "h": 30, "kind": "pulseC" },
+      { "x": 20, "y": 52, "w": 7, "h": 7, "kind": "glint" },
+      { "x": 105, "y": 50, "w": 7, "h": 7, "kind": "glint" }
+    ] },
+    "t3": { "flames": [
+      { "x": 88, "y": 82, "w": 150, "h": 150, "kind": "gyro" },
+      { "x": 88, "y": 79, "w": 40, "h": 40, "kind": "pulseC" }
+    ] },
+    "t4": { "flames": [
+      { "x": 111, "y": 92, "w": 250, "h": 250, "kind": "gyro" },
+      { "x": 112, "y": 90, "w": 52, "h": 52, "kind": "pulseC" },
+      { "x": 78, "y": 178, "w": 7, "h": 7, "kind": "glint" },
+      { "x": 148, "y": 186, "w": 7, "h": 7, "kind": "glint" }
+    ] },
+    "t5": { "flames": [
+      { "x": 144, "y": 143, "w": 310, "h": 310, "kind": "gyro" },
+      { "x": 144, "y": 141, "w": 78, "h": 78, "kind": "pulseG" },
+      { "x": 144, "y": 52, "w": 8, "h": 8, "kind": "glint" },
+      { "x": 144, "y": 234, "w": 8, "h": 8, "kind": "glint" }
+    ] }
+  }
+}

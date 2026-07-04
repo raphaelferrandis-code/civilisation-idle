@@ -39,7 +39,7 @@ fût, couronne) lisent bien sans contre-plongée. En cas de doute : low top-down
 | 3 | `era_kingdom` | La Couronne de Pierre | crown | Âge du royaume atteint | ères 19 / 22 / 25 / 29 / 33 — Royaume / Conquérant / Empire / Métropole / Machination (rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères) | 9 |
 | 4 | `era_empire` | L'Arc de Triomphe Éternel | arch | 500 achats accomplis | 500 / 5 000 / 50 000 / 500 000 / 5 000 000 achats (rééchelonné 2026-07-03, ×10/rang : un achat ×100 compte 100 et Héphaïstos auto-achète — les anciens seuils tombaient avant GR1) | 13 |
 | 5 | `era_mega` | L'Aiguille Céleste | needle | 30 min de veille | 30 min / 3 h / 12 h / 48 h / 168 h de veille ACTIVE (rééchelonné 2026-07-03 : rang IV ≈ GR1 accompli, rang V = une semaine de veille ; playTimeSec = temps actif à vie, pas d'offline) | 17 |
-| 6 | `era_singularity` | L'Œil de la Singularité | eye | Premier mythe accompli | 1 / 3 / 5 / 8 / 12 mythes | 21 |
+| 6 | `era_singularity` | L'Œil de la Singularité | eye | Premier mythe accompli | 1 / 4 / 7 / 10 / 14 mythes (rééchelonné 2026-07-03 : 14 mythes au total, rang V = TOUS accomplis dont Ragnarök le terminal ; mythsCompleted survit aux GR) — **bâtiment VOLANT** | 21 |
 
 Convention de nommage des fichiers ici :
 `<id>-t<palier>.png` (ex. `dynasty1-t3.png`), frames d'animation en
@@ -126,4 +126,24 @@ Suivi du rework (une ligne par merveille, cocher quand validée) :
       grande échelle spatiale du jeu). ⚠ pour un overlay PLEINE FRAME (pas une petite ancre),
       mettre f.w/f.h = taille de la frame dans le JSON, sinon il est écrasé à la taille de
       l'ancre. Intégrée à WONDER_PX_IDS, vérifiée en jeu rangs I-V (rayon confirmé rotatif).
-- [ ] 6. L'Œil de la Singularité (`era_singularity`)
+- [x] 6. L'Œil de la Singularité (`era_singularity`) — concept « L'Œil qui veille » (la seule
+      merveille VOLANTE : elle lévite au-dessus de sa case et projette une ombre portée AU SOL,
+      l'écart Œil↔ombre PROUVE le vol — ici l'ombre SERT le design, exception assumée à « plus
+      d'ombres sous les merveilles »). Évolution : orbe de bronze à lentille cyan → sphère à iris
+      d'émeraude + 2 satellites → œil radiant à halo d'or → Œil-titan à pupille-fente rayonnante
+      et vrilles d'or qui coulent → **machine astronomique cosmique** (obsidienne + or, iris
+      solaire dans des anneaux concentriques). 5 sprites générés 2026-07-04 en view "low top-down"
+      (80×80 → 288×288), fonds gris des t4/t5 retirés au flood-fill. Seuils rééchelonnés
+      mythsCompleted : 1 / 4 / 7 / 10 / 14 mythes (à vie, survit aux GR ; rang V = TOUS accomplis
+      dont Ragnarök). Option A validée par Raphaël (vol AVEC ombre portée). RENDU VOLANT dans
+      drawWonder : lévitation `hoverH = H*0.34 + bob·s`, bob sinusoïdal, ombre elliptique au sol
+      qui rétrécit quand l'Œil monte. ANIMÉ : **iris qui RESPIRE** (`eye-pulse-cyan.png` t1-t4 /
+      `eye-pulse-gold.png` t5, halo radial dessiné en code 16 fr., blend additif) + **anneaux
+      gyroscopiques qui TOURNENT** autour de l'Œil (`eye-gyro.png` 24 fr. 96×96, loop forward,
+      blend additif, dimensionnés ~1.23× le disque pour orbiter HORS du cadre — t3/t4/t5) +
+      glints or sur les satellites/vrilles (t2/t4/t5). Intégrée à WONDER_PX_IDS, vérifiée en jeu
+      rangs I-V via `__showWonder` (vol + bob + ombre + pulse + rotation confirmés).
+      ⚠ pour l'aperçu : ne PAS appeler `__cityRecompute` juste avant `__showWonder` (le layout
+      régénéré fait racer la caméra) ; éditer un `-flames.json` déclenche un full reload (plugin
+      Vite carte) → recliquer « Cité » pour re-monter le canvas + helpers. **DERNIÈRE des 6 —
+      rework pixel-art des merveilles COMPLET.**

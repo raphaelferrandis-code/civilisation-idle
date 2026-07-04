@@ -160,7 +160,10 @@ const CM_WONDERS = [
     tierLabel: (v) => v >= 3600 ? `${Math.round(v / 3600)} heures de veille` : `${Math.round(v / 60)} minutes de veille` },
   { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 }, reEra: 21,
     unlockedBy: "Premier mythe accompli.",
-    metric: (s) => Object.keys(s.mythsCompleted || {}).length, tiers: [1, 3, 5, 8, 12],
+    // Rééchelonné 2026-07-03 : 14 mythes au total (le 14e = Ragnarök, terminal).
+    // mythsCompleted survit aux Grand Resets (à vie). Rang V = TOUS les mythes
+    // accomplis (Ragnarök compris) : la merveille finale culmine à la fin de tout.
+    metric: (s) => Object.values(s.mythsCompleted || {}).filter(Boolean).length, tiers: [1, 4, 7, 10, 14],
     tierLabel: (v) => `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}` }
 ];
 const WONDER_TIER_NAMES = ["", "I", "II", "III", "IV", "V"];

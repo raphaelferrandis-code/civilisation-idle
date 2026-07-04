@@ -335,7 +335,7 @@ function drawMinimap() {
 // en overlay, positionnées par <id>-flames.json (ancres curées à la main).
 // Manifeste : seules les merveilles listées ici sont migrées, les autres
 // restent procédurales. Repli procédural tant que le sprite n'est pas chargé.
-const WONDER_PX_IDS = new Set(["dynasty1", "pop1m", "era_kingdom", "era_empire", "era_mega"]);
+const WONDER_PX_IDS = new Set(["dynasty1", "pop1m", "era_kingdom", "era_empire", "era_mega", "era_singularity"]);
 const wonderPxCache = new Map(); // "dynasty1-t3" -> { img, ready, nw, nh }
 function wonderPixelSprite(id, tier) {
   if (!WONDER_PX_IDS.has(id)) return null;
@@ -476,7 +476,21 @@ function drawWonder(w, idx, now) {
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
-    drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
+    if (w.id === "era_singularity") {
+      // Bâtiment VOLANT : l'Œil lévite au-dessus de sa case avec un léger bob,
+      // et projette une ombre portée AU SOL en dessous — l'écart entre l'Œil et
+      // son ombre prouve le vol (seule merveille où l'ombre SERT le design).
+      const bob = Math.sin(now / 1300 + idx);
+      const hoverH = H * 0.34 + bob * s * 0.35;
+      const shr = 1 - bob * 0.10; // l'ombre rétrécit un peu quand l'Œil monte
+      ctx.fillStyle = "rgba(10,8,20,0.26)";
+      ctx.beginPath();
+      ctx.ellipse(cxs + s * 0.08, baseY - s * 0.02, W * 0.26 * shr, W * 0.08 * shr, 0, 0, Math.PI * 2);
+      ctx.fill();
+      drawWonderPixelSprite(w.id, px, tier, cxs, baseY - hoverH, W, H, e, now);
+    } else {
+      drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
+    }
     ctx.globalAlpha = 1;
     return;
   }

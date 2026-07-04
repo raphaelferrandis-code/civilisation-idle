@@ -10,6 +10,11 @@ chacune, **de face** et **très grandes au rang V** (« qui sortent du lot »), 
 Dossier des assets : `public/pixelart/wonders/` (+ son `README.md` = table des 6 merveilles,
 convention `<id>-t<rang>.png`, suivi).
 
+> **✅ ÉTAT 2026-07-04 : les 6 merveilles sont TERMINÉES** (Mausolée, Colonne, Couronne, Arc,
+> Aiguille, Œil). Chaque merveille : seuils rééchelonnés + 5 sprites low top-down + évolution +
+> animations overlay + intégration `WONDER_PX_IDS`, vérifiées en jeu rangs I-V. Le rework
+> pixel-art des merveilles est complet. (Détail par merveille plus bas.)
+
 ---
 
 ## RÈGLE DE PROJECTION (2026-07-03 — précisée en 2 temps par Raphaël)
@@ -216,10 +221,41 @@ type bâtiment RTS. Verdicts finaux :
   retirés de drawWonder / wonderPixelSprite. Si on veut ré-ancrer un jour, l'historique git
   (autour de e3412ce) a la version « base opaque scannée à l'onload ».
 
-## Merveille 6 — L'Œil de la Singularité (`era_singularity`) : ⬜ À FAIRE
+## Merveille 6 — L'Œil de la Singularité (`era_singularity`) : ✅ TERMINÉE (2026-07-04)
 
-Seuils actuels « 1..12 mythes » à recouper avec le rythme des mythes. Puis concept → 5
-sprites low top-down → anims → WONDER_PX_IDS. C'est la dernière.
+La DERNIÈRE. Rework pixel-art des 6 merveilles désormais **COMPLET**.
+
+- **Seuils** : `mythsCompleted` (nb de mythes accomplis, à vie, survit aux Grand Resets) →
+  `[1, 4, 7, 10, 14]` (14 mythes au total, le 14e = Ragnarök terminal ; rang V = TOUS
+  accomplis). `metric = Object.values(s.mythsCompleted||{}).filter(Boolean).length` — compter
+  les valeurs `true`, PAS `Object.keys` (des clés à `false` fausseraient le compte).
+- **Concept** : « L'Œil qui veille », la seule merveille **VOLANTE**. Évolution : I orbe de
+  bronze à lentille cyan → II sphère à iris d'émeraude + 2 satellites → III œil radiant à halo
+  d'or → IV Œil-titan à pupille-fente rayonnante + vrilles d'or qui coulent → V **machine
+  astronomique cosmique** (obsidienne + or, iris solaire dans des anneaux concentriques).
+- **Sprites** : `era_singularity-t1..t5.png` (80×80 → 288×288), view "low top-down". Fonds gris
+  des t4/t5 retirés au flood-fill (t1/t2/t3 déjà transparents).
+- **Rendu VOLANT** (Option A validée par Raphaël : vol AVEC ombre portée) dans `drawWonder`,
+  branche px, cas `w.id === "era_singularity"` : l'Œil lévite (`hoverH = H*0.34 + bob·s·0.35`,
+  `bob = sin(now/1300 + idx)`) et une ombre elliptique est peinte AU SOL sous la case (qui
+  rétrécit un peu quand l'Œil monte). L'écart Œil↔ombre PROUVE le vol — ici l'ombre SERT le
+  design (exception assumée à « plus d'ombres sous les merveilles »).
+- **Animations** (`era_singularity-flames.json`, `make-eye-pulse.cjs`) :
+  - **Iris qui respire** : `eye-pulse-cyan.png` (t1-t4) / `eye-pulse-gold.png` (t5), halo radial
+    dessiné en code (16 fr. 40×40, sinus 0.18→1.0), blend additif (`lighter`) — le cœur de
+    l'iris s'illumine puis retombe.
+  - **Anneaux gyroscopiques qui tournent** : `eye-gyro.png` (24 fr. 96×96, arcs orbitaux dorés/
+    bleus pointillés), `loop:"forward"`, blend additif, `anchor:"center"`, dimensionnés ~1.23× le
+    disque (t3 w150, t4 w250, t5 w310) pour orbiter HORS du cadre — c'est ce qui vend le vol
+    arcanique. Trop petit (= taille du cadre) et ils disparaissent derrière l'orfèvrerie cuite.
+  - Glints or partagés (`gem-glint.png`) sur les 2 satellites (t2), vrilles/cadre (t4), perles
+    haut/bas (t5).
+- Intégrée à `WONDER_PX_IDS`. Vérifiée en jeu rangs I-V via `__showWonder` (vol + bob + ombre +
+  respiration de l'iris + rotation des anneaux confirmés).
+- ⚠ **pièges aperçu** : (a) NE PAS appeler `__cityRecompute` juste avant `__showWonder` — le
+  layout régénéré fait racer la caméra et le tir tombe sur une autre merveille ; (b) éditer un
+  `-flames.json` déclenche un full reload (plugin Vite carte) → recliquer « Cité » pour re-monter
+  le canvas + réexposer `__showWonder`/`__cityShot`.
 
 ---
 
