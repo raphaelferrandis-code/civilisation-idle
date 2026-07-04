@@ -26,6 +26,7 @@ import {
   WONDER_TIER_NAMES
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
+import { buildNecropolis } from './necropolis.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -495,6 +496,9 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.layout = L;
   setCityMapEngineTileMap(L.engineTileMap);
   CM.gridN = L.gridN;
+  // Géométrie de la nécropole (cités mortes à l'ouest) — recalculée avec le layout
+  // (mémoïsé par le throttle ci-dessus ; un effondrement change state.cycles → recompute).
+  L.necropolis = buildNecropolis(state, L, CM.TILE);
 
   // Map précalculée pour le hitTest — O(1) au lieu de deux find() O(n) à chaque mousemove
   CM.tileGrid = new Map();
