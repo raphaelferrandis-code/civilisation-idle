@@ -1034,9 +1034,10 @@ function initCityMap(canvas, options = {}) {
       // horodatage de naissance, et on l'efface quand elle redevient dormante.
       if (CM.layout && Array.isArray(state.wonders)) {
         const activeWonders = cmWonderActiveIds(state);
+        const pv = CM.previewWonder; // aperçu dev (__showWonder) : force le rendu
         for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
           const w = CM_WONDERS[wi];
-          if (activeWonders.has(w.id)) {
+          if (activeWonders.has(w.id) || (pv && pv.id === w.id)) {
             if (!CM.born["wonder:" + w.id]) CM.born["wonder:" + w.id] = now;
             drawWonder(w, wi, now);
           } else if (CM.born["wonder:" + w.id]) {
@@ -1105,6 +1106,32 @@ function initCityMap(canvas, options = {}) {
     // __forceVehicles('chariot') | 'wagon' | 'caravan' ... ; __forceVehMix() = un de chaque.
     window.__forceVehicles = (type) => { for (const v of CM.vehicles) { v.type = type; v.fade = 1; } return CM.vehicles.length; };
     window.__forceVehMix = (types = ['chariot', 'wagon', 'caravan']) => { CM.vehicles.forEach((v, i) => { v.type = types[i % types.length]; v.fade = 1; }); return CM.vehicles.length; };
+    // Aperçu des MERVEILLES à n'importe quel rang, sans toucher au save ni
+    // attendre l'ère : __showWonder(id|index, rang 1..5) force le rendu de la
+    // merveille (CM.previewWonder, runtime seulement) et centre la caméra.
+    //   __showWonder("era_mega", 5)   __showWonder(2, 3)   __showWonder("arc", 4)
+    //   __hideWonder()  pour arrêter.  ids : dynasty1 pop1m era_kingdom
+    //   era_empire era_mega era_singularity.
+    window.__showWonder = (id, tier = 5) => {
+      const wi = typeof id === "number" ? id
+        : CM_WONDERS.findIndex((w) => w.id === id || w.id.indexOf(id) === 0 || w.id.indexOf("_" + id) >= 0);
+      if (wi < 0 || wi >= CM_WONDERS.length) return "inconnu. " + CM_WONDERS.map((w, i) => i + ":" + w.id).join("  ");
+      const w = CM_WONDERS[wi];
+      const t = Math.max(1, Math.min(5, tier | 0));
+      CM.previewWonder = { id: w.id, tier: t };
+      CM.born["wonder:" + w.id] = -1e6; // déjà érigée : pas d'animation de poussée
+      const center = () => {
+        if (!CM.layout || !CM.layout.wonderSlots) { requestAnimationFrame(center); return; }
+        const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
+        CM.cam.x = slot.gx * CM.TILE + CM.TILE / 2;
+        CM.cam.y = slot.gy * CM.TILE - CM.TILE * 4;
+        CM.cam.zoom = 1.3;
+        CM.centered = true;
+      };
+      center();
+      return w.name + " — rang " + WONDER_TIER_NAMES[t] + "  (rangs 1..5 ; __hideWonder() pour arrêter)";
+    };
+    window.__hideWonder = () => { CM.previewWonder = null; CM.centered = false; return "aperçu arrêté"; };
     // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :
     // ex. centrer/zoomer sur un attelage avant __cityShot.
     window.__CM = CM;

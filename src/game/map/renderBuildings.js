@@ -442,7 +442,10 @@ function drawWonder(w, idx, now) {
   if (w.id === "era_mega")       { H_MAX = s * 9;   W = s * 2.6; }
   if (w.id === "era_singularity"){ H_MAX = s * 8.5; W = s * 3.2; }
   // Palier d'évolution (1..5) : le monument grandit à chaque jalon franchi.
-  const tier = Math.max(1, Math.min(5, (state && state.wonderTiers && state.wonderTiers[w.id]) || 1));
+  // Aperçu dev (__showWonder) : force le rang demandé sans toucher au save.
+  const tier = (CM.previewWonder && CM.previewWonder.id === w.id)
+    ? CM.previewWonder.tier
+    : Math.max(1, Math.min(5, (state && state.wonderTiers && state.wonderTiers[w.id]) || 1));
   // Sprite pixel-art dédié ? Dimensionné à densité constante (~34 px de sprite
   // par tuile) : la taille en jeu suit la taille native du rang (112→400 px).
   const px = wonderPixelSprite(w.id, tier);

@@ -251,6 +251,16 @@ avec `flames:[{x,y,w,h,kind}]` (x,y = ancre bas-centre). Consommé par `drawWond
 
 ---
 
+## Voir une merveille à un rang donné (console navigateur, build `npm run dev`)
+
+`__showWonder(id, rang)` force le rendu d'une merveille au rang voulu SANS toucher au save
+ni attendre l'ère (champ runtime `CM.previewWonder`, consommé par la boucle de rendu +
+drawWonder ; `born` mis à -1e6 → pleine tout de suite). Centre la caméra dessus.
+- `__showWonder("era_mega", 5)` · `__showWonder(2, 3)` (index) · `__showWonder("arc", 4)` (préfixe)
+- `__hideWonder()` pour arrêter.
+- ids : `dynasty1` `pop1m` `era_kingdom` `era_empire` `era_mega` `era_singularity`.
+Non destructif : rien n'est écrit dans `state.wonders` — au rechargement tout revient normal.
+
 ## Vérif en jeu (preview MCP)
 
 `.claude/launch.json` est réglé sur **port 5183** (5181 pris par une autre session).
