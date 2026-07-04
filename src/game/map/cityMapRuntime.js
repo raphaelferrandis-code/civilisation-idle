@@ -31,7 +31,6 @@ import {
   cityMapDrawTerrain,
   cityMapDrawRiver,
   cityMapDrawTrees,
-  cityMapDrawVestiges,
   cityMapDrawUrbanMass,
   cityMapDrawNight,
   cityMapDrawStreetLights,
@@ -897,7 +896,6 @@ function initCityMap(canvas, options = {}) {
         // NB: sol ET rivière ne sont PAS dans ce canvas — ils sont dessinés live
         // pour maintenir l'ordre : sol → rivière → (blit: arbres/routes/ponts/lumières)
         cityMapDrawTrees();
-        cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
         // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
@@ -969,7 +967,6 @@ function initCityMap(canvas, options = {}) {
       } else {
         // sol + rivière déjà dessinés live au-dessus
         cityMapDrawTrees();
-        cityMapDrawVestiges();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
         // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag

@@ -436,71 +436,6 @@ function cityMapDrawTerrain() {
   ctx.imageSmoothingEnabled = prevSmooth;
 }
 
-function cityMapDrawVestiges() {
-  // Ruines des civilisations passées : colonnes brisées, pans de murs,
-  // gravats et végétation qui reprend ses droits — pas de simples carrés.
-  if (!Array.isArray(state.vestiges) || !state.vestiges.length) return;
-  const ctx = CM.ctx, s = CM.TILE * CM.cam.zoom;
-  // Le fleuve est seedé par partie mais son tracé absolu dépend de la taille de
-  // grille (qui varie d'un cycle à l'autre) : une ruine d'une cité passée peut
-  // donc tomber sur l'eau actuelle. On masque les vestiges qui retombent dans le
-  // fleuve ou sur la berge — sinon ils flottent dans l'eau (cf. « morceaux dans
-  // l'eau »). cityMapDrawVestiges est dessiné APRÈS le fleuve, d'où la visibilité.
-  const water = CM.layout && CM.layout.water;
-  for (let v = 0; v < state.vestiges.length; v += 1) {
-    const ves = state.vestiges[v];
-    if (!ves || !ves.ruins) continue;
-    const off = (CM.gridN - (ves.gridN || CM.gridN)) / 2;
-    // Les vestiges récents (v élevé) sont plus visibles que les anciens.
-    const age = 0.3 + v * 0.16;
-    for (const c of ves.ruins) {
-      const gx = c.x + off, gy = c.y + off;
-      if (water && !water.isDry(Math.round(gx), Math.round(gy))) continue;
-      const sx = (gx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
-      const sy = (gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
-      if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
-      const h = ((gx * 31 + gy * 17 + v * 7) >>> 0) % 5;
-      ctx.globalAlpha = age;
-      if (h === 0) {
-        // Colonne brisée : fût clair + chapiteau tombé
-        ctx.fillStyle = "#8a8070";
-        ctx.fillRect(sx + s * 0.38, sy + s * 0.3, s * 0.16, s * 0.4);
-        ctx.fillStyle = "rgba(255,255,255,0.25)";
-        ctx.fillRect(sx + s * 0.38, sy + s * 0.3, s * 0.06, s * 0.4);
-        ctx.fillStyle = "#6e6455";
-        ctx.fillRect(sx + s * 0.58, sy + s * 0.6, s * 0.2, s * 0.12);
-      } else if (h === 1) {
-        // Pan de mur en L
-        ctx.fillStyle = "#5d564a";
-        ctx.fillRect(sx + s * 0.2, sy + s * 0.26, s * 0.5, s * 0.14);
-        ctx.fillRect(sx + s * 0.2, sy + s * 0.26, s * 0.14, s * 0.46);
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.fillRect(sx + s * 0.2, sy + s * 0.36, s * 0.5, s * 0.04);
-      } else if (h === 2) {
-        // Gravats épars
-        ctx.fillStyle = "#534c40";
-        ctx.fillRect(sx + s * 0.25, sy + s * 0.5, s * 0.18, s * 0.14);
-        ctx.fillRect(sx + s * 0.52, sy + s * 0.34, s * 0.14, s * 0.12);
-        ctx.fillRect(sx + s * 0.45, sy + s * 0.62, s * 0.1, s * 0.09);
-      } else if (h === 3) {
-        // Fondations envahies de végétation
-        ctx.fillStyle = "#473f33";
-        ctx.fillRect(sx + s * 0.22, sy + s * 0.22, s * 0.56, s * 0.56);
-        ctx.fillStyle = "rgba(74,110,42,0.55)";
-        ctx.beginPath(); ctx.arc(sx + s * 0.36, sy + s * 0.4, s * 0.16, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(sx + s * 0.62, sy + s * 0.6, s * 0.12, 0, Math.PI * 2); ctx.fill();
-      } else {
-        // Dalle fissurée
-        ctx.fillStyle = "#4e4639";
-        ctx.fillRect(sx + s * 0.24, sy + s * 0.28, s * 0.52, s * 0.46);
-        ctx.strokeStyle = "rgba(20,14,8,0.6)"; ctx.lineWidth = Math.max(1, s * 0.03);
-        ctx.beginPath(); ctx.moveTo(sx + s * 0.32, sy + s * 0.3); ctx.lineTo(sx + s * 0.6, sy + s * 0.7); ctx.stroke();
-      }
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
 // Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
 // Helper partagé par le fleuve, le gating des quais et le tracé des quais.
 function cmRiverNormalAt(sm, i) {
@@ -3032,7 +2967,6 @@ export {
   cityMapDrawStreetLights,
   cityMapDrawTrees,
   cityMapDrawUrbanMass,
-  cityMapDrawVestiges,
   cityMapDrawWalls,
   cmLitColor,
   drawCrisis,
