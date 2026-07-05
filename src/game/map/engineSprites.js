@@ -34,6 +34,19 @@ function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind) {
   const rrect = (x0, y0, x1, y1, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(X(x0), Y(y0), sw * (x1 - x0), sh * (y1 - y0), sw * r); ctx.fill(); };
   const dot = (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(x), Y(y), sw * r, 0, Math.PI * 2); ctx.fill(); };
   const fam = COSMIC_SAVOIR_FAM[kind] || "hall";
+  // ── COSMIQUE PIXEL (2026-07-05) : si le prop cristallin de la famille×band est chargé,
+  //    structure PixelLab flottante (fond sombre déjà posé par cosmicBase) + mote/halo/anneau
+  //    animés réutilisés. Repli = silhouette procédurale ci-dessous. Emblème médaillon = identité.
+  const pxKey = `cosmic-${fam}-${band}`;
+  if (propReady(pxKey)) {
+    const lev = Math.sin(now / 700) * 0.02;
+    blitProp(ctx, ox, oy, sw, sh, pxKey, 0.5, 0.5 + lev, 0.84, 0.72);
+    const a0 = now / 1300, mx0 = 0.5 + Math.cos(a0) * 0.34, my0 = 0.5 + Math.sin(a0) * 0.16;
+    dot(mx0, my0, 0.02, cp.lite); glow(mx0, my0, 0.05, 0.45);
+    if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.4)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.42), sw * 0.36, sh * 0.08, 0.15 * Math.sin(now / 900), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+    glow(0.5, 0.52, 0.2, 0.12 + 0.08 * pulse);
+    return;
+  }
   if (fam === "dome") {
     rrect(0.28, 0.5, 0.72, 0.84, 0.03, cp.mid);
     ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.5), sw * 0.24, sh * 0.2, 0, Math.PI, 0); ctx.fill();
@@ -95,6 +108,38 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
 
   if (id === "storytellers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "storytellers"); return; }
+    // ── ÉVOLUTION 4 STADES (ajoutée 2026-07-05) : le conteur suit l'ère comme les bâtiments
+    //    économiques (1er savoir à recevoir un dispatch de stade). Stade 0 = feu de camp (scène
+    //    pixel existante, plus bas) ; stades 1-3 = décor PixelLab par ère (veillée médiévale →
+    //    théâtre/lecture publique → média néon) + lectrice réutilisée + lueur. Repli = feu de camp.
+    const stStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (stStage >= 1) {
+      const scene = ['', 'storyteller-hall', 'storyteller-theater', 'storyteller-media'][stStage];
+      if (propReady(scene)) {
+        { // sol doux qui se fond dans le terrain
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(24,16,8,0.4)"); g.addColorStop(0.6, "rgba(24,16,8,0.2)"); g.addColorStop(1, "rgba(24,16,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, scene, 0.5, 0.52, 0.92, 0.72);
+        // Lueur (foyer/lampes chaudes aux stades 1-2 ; néon cyan au stade 3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = stStage === 3 ? "90,220,235" : "255,175,70";
+          const a = (stStage === 3 ? (0.14 + gnF * 0.4) : (0.16 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.34);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Pas de perso réutilisé aux stades 1-3 (retiré à la demande : position mauvaise) —
+        // les décors se lisent seuls (veillée = foyer+livre+bancs ; S2 = bâtiment fermé ; S3 = média).
+        return;
+      }
+      // sinon : repli sur la scène feu de camp (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = scène PixelLab en 2 COUCHES pour glisser la lectrice ENTRE le sol et
     // le feu : `storyteller-back` (sol/pierres/livre, SANS feu) → lectrice assise →
     // `storyteller-fire` (bande feu SEUL, animée, par-dessus). Repli = scène pleine
@@ -182,6 +227,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "scribes") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "scribes"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 2e savoir après conteurs) : BÂTIMENTS CLOS par ère
+    //    (leçon conteur = décor autoporteur, PAS de perso réutilisé). Thème écriture/archives :
+    //    abri primitif (S0, plus bas) → scriptorium médiéval → hall d'archives → data hall.
+    const scStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (scStage >= 1) {
+      const scb = ['', 'scribes-scriptorium', 'scribes-archive', 'scribes-data'][scStage];
+      if (propReady(scb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, scb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes bougies/lampes S1-2 ; racks serveurs cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = scStage === 3 ? "80,210,235" : "255,180,80";
+          const a = (scStage === 3 ? (0.13 + gnF * 0.4) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.1));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur l'abri primitif (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = scène PixelLab STATIQUE (abri PRIMITIF : auvent de peau + table à
     // tablettes/rouleaux, registre feu/stade 0 ; ombre de contact déjà posée en amont).
     // Repli sur le scriptorium procédural.
@@ -217,6 +291,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "schools") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "schools"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 3e savoir) : BÂTIMENTS CLOS par ère, PAS de perso
+    //    (moule conteur/scribes). Thème éducation : coin de leçon primitif (S0, plus bas) →
+    //    école médiévale → école victorienne à beffroi → campus moderne.
+    const schStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (schStage >= 1) {
+      const schb = ['', 'schools-schoolhouse', 'schools-victorian', 'schools-campus'][schStage];
+      if (propReady(schb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, schb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes S1-2 ; écrans/LED cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = schStage === 3 ? "120,220,235" : "255,182,84";
+          const a = (schStage === 3 ? (0.12 + gnF * 0.38) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300 + 0.6));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur le coin de leçon primitif (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = scène PixelLab STATIQUE (coin de leçon PRIMITIF : tableau sur chevalet
     // + sièges, registre feu/stade 0 ; ombre de contact déjà posée). Repli procédural.
     if (propReady('schools-prop-yard')) {
@@ -246,6 +349,36 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "academies") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "academies"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 4e savoir) : BÂTIMENTS CLOS par ère, PAS de perso
+    //    (moule conteur/scribes/écoles). Identité marbre classique + coupole + lauriers :
+    //    cercle de débat primitif (S0, plus bas) → académie Renaissance → néoclassique à
+    //    rotonde → institut moderne circulaire.
+    const acStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (acStage >= 1) {
+      const acb = ['', 'academies-renaissance', 'academies-institute', 'academies-modern'][acStage];
+      if (propReady(acb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, acb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes marbre S1-2 ; dôme cyan-or S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = acStage === 3 ? "150,220,235" : "255,196,110";
+          const a = (acStage === 3 ? (0.12 + gnF * 0.38) : (0.11 + gnF * 0.33)) * (0.85 + 0.15 * Math.sin(now / 310 + 2.2));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur le cercle de débat primitif (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = scène PixelLab STATIQUE (cercle de débat PRIMITIF : bancs en rondins +
     // estrade de parole + totem du savoir sous auvent, registre feu/stade 0 ; ombre de
     // contact déjà posée en amont). Repli sur le péristyle procédural.
@@ -276,6 +409,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "ancestral_cult") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ancestral_cult"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 10e et DERNIER savoir) : BÂTIMENTS CLOS par ère, PAS
+    //    de perso. Identité spirituel/mémoriel, fil de la FLAMME ÉTERNELLE : mégalithes+feu animé
+    //    (S0, plus bas) → sanctuaire tribal → mausolée à coupole → hall du souvenir moderne.
+    const ancStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (ancStage >= 1) {
+      const ancb = ['', 'cult-shrine', 'cult-mausoleum', 'cult-memorial'][ancStage];
+      if (propReady(ancb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(18,12,8,0.42)"); g.addColorStop(0.6, "rgba(18,12,8,0.2)"); g.addColorStop(1, "rgba(18,12,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, ancb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur de FLAMME (chaude S1-2 ; chaud-violet S3), scintillement un peu plus vif (rituel).
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = ancStage === 3 ? "185,150,255" : "255,150,45";
+          const a = (ancStage === 3 ? (0.12 + gnF * 0.36) : (0.14 + gnF * 0.36)) * (0.8 + 0.2 * Math.sin(now / 190 + 0.7));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.54, 0, ox + sw * 0.5, oy + sh * 0.54, sw * 0.32);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.54, sw * 0.32, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur le cercle de mégalithes (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = cercle de mégalithes PRIMITIF (pierres levées + autel + feu rituel).
     // Feu ANIMÉ en 2 COUCHES (comme conteur/mint) pour ne pas faire gigoter les pierres :
     // `ancestralcult-back` (pierres/autel SANS feu) → `ancestralcult-fire` (bande feu SEUL,
@@ -321,6 +483,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "observatories") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "observatories"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 5e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
+    //    Identité dômes + télescopes : gnomon/cadran primitif (S0, plus bas) → tour d'observation
+    //    médiévale → observatoire à coupole 19e → observatoire moderne à antenne.
+    const obStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (obStage >= 1) {
+      const obb = ['', 'observatories-tower', 'observatories-dome', 'observatories-array'][obStage];
+      if (propReady(obb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(14,14,24,0.4)"); g.addColorStop(0.6, "rgba(14,14,24,0.2)"); g.addColorStop(1, "rgba(14,14,24,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, obb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes S1-2 ; instruments cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = obStage === 3 ? "90,215,235" : "255,190,95";
+          const a = (obStage === 3 ? (0.13 + gnF * 0.4) : (0.1 + gnF * 0.32)) * (0.85 + 0.15 * Math.sin(now / 330 + 3.0));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.46, 0, ox + sw * 0.5, oy + sh * 0.46, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.46, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur le terrain d'observation primitif (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = terrain d'observation PRIMITIF (gnomon central + cadran de pierre à
     // encoches pour mesurer l'ombre du soleil, pierres de visée, cartes du ciel), registre
     // feu/stade 0 ; ombre de contact déjà posée. Repli = le dôme/télescope procédural.
@@ -356,6 +547,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "libraries") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "libraries"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 6e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
+    //    Identité grands halls de LIVRES : archive primitive (S0, plus bas) → bibliothèque
+    //    monastique → grande bibliothèque à coupole → médiathèque moderne.
+    const liStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (liStage >= 1) {
+      const lib = ['', 'libraries-monastic', 'libraries-grand', 'libraries-modern'][liStage];
+      if (propReady(lib)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, lib, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes/rayonnages S1-2 ; chaud+cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = liStage === 3 ? "180,205,180" : "255,186,90";
+          const a = (liStage === 3 ? (0.11 + gnF * 0.33) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 340 + 1.7));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur l'archive primitive (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = BÂTIMENT-archive PRIMITIF (hutte CARRÉE toit+murs, grande façade en arc
     // laissant voir des étagères pleines de rouleaux + jarres/tas de parchemins), registre
     // feu/stade 0 ; ombre de contact déjà posée. STOCKAGE (distinct des scribes qui écrivent).
@@ -388,6 +608,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "universities") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "universities"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 7e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
+    //    Identité GOTHIQUE/collégial : halle primitive (S0, plus bas) → collège gothique →
+    //    université collégiale à tour → campus moderne à tour de verre.
+    const unStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (unStage >= 1) {
+      const unb = ['', 'universities-gothic', 'universities-collegiate', 'universities-modern'][unStage];
+      if (propReady(unb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, unb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes/vitraux S1-2 ; verre bleu S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = unStage === 3 ? "120,180,235" : "255,186,90";
+          const a = (unStage === 3 ? (0.12 + gnF * 0.36) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 350 + 0.9));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur la halle du savoir primitive (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = BÂTIMENT-halle du savoir PRIMITIF (halle carrée sur socle de pierre,
     // façade à portique laissant voir un totem du savoir + emblème), registre feu/stade 0 ;
     // ombre déjà posée. Grande halle institutionnelle (distincte de l'école/académie/biblio).
@@ -566,6 +815,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "printing_houses") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "printing_houses"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 8e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
+    //    Identité presse/reproduction : atelier primitif (S0, plus bas) → imprimerie Renaissance →
+    //    imprimerie industrielle (cheminée) → maison de médias moderne (écrans d'actu).
+    const prStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (prStage >= 1) {
+      const prb = ['', 'printing-press-shop', 'printing-factory', 'printing-media'][prStage];
+      if (propReady(prb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, prb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes S1-2 ; écrans cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = prStage === 3 ? "110,205,235" : "255,180,80";
+          const a = (prStage === 3 ? (0.13 + gnF * 0.38) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300 + 2.5));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur l'atelier de reproduction primitif (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = atelier de REPRODUCTION PRIMITIF (bâtiment carré, façade ouverte : cylindre-
     // sceau + tampons gravés + pots de pigment + tablettes identiques), registre feu/stade 0 ;
     // ombre déjà posée. Reproduire des marques (distinct des scribes qui écrivent à la main).
@@ -606,6 +884,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "think_tanks") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "think_tanks"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 9e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
+    //    Identité stratégie/modélisation (globe+données) : conseil primitif (S0, plus bas) →
+    //    chancellerie Renaissance → institut stratégique 19e (globe bronze) → think-tank moderne.
+    const thStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (thStage >= 1) {
+      const thb = ['', 'think-chancellery', 'think-institute', 'think-modern'][thStage];
+      if (propReady(thb)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(16,16,24,0.4)"); g.addColorStop(0.6, "rgba(16,16,24,0.2)"); g.addColorStop(1, "rgba(16,16,24,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, thb, 0.5, 0.52, 0.9, 0.74);
+        // Lueur (fenêtres chaudes S1-2 ; globe/données cyan S3), pulse douce.
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = thStage === 3 ? "95,210,235" : "255,184,88";
+          const a = (thStage === 3 ? (0.13 + gnF * 0.4) : (0.11 + gnF * 0.33)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.4));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.48, 0, ox + sw * 0.5, oy + sh * 0.48, sw * 0.33);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.48, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur la halle de conseil primitive (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Pixel-art = halle du CONSEIL STRATÉGIQUE PRIMITIF (bâtiment carré, façade ouverte :
     // grande carte du territoire au mur + table à jetons/pions + rouleaux de plans),
     // registre feu/stade 0 ; ombre déjà posée. « Des modèles pour tout » — distinct de

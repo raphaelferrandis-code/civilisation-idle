@@ -128,13 +128,70 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
   }
 }
 
+// Paysan RÉUTILISÉ (blitFarmer) en navette entre deux abscisses (xA gauche ↔ xB droite)
+// sur la ligne de pieds fy : marche est (aller) puis ouest (retour, petit fruit en main).
+// T = période ms ; phase décale un 2e paysan ; hFrac = hauteur humaine PAR CELLULE.
+// Sert aux stades 1-2 du cueilleur (verger / serre), à la place du perso caveman du stade 0.
+function drawFarmerShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac) {
+  const cyc = ((((now || 0) / T) + phase) % 1 + 1) % 1;
+  const going = cyc < 0.5;                          // xA → xB (est) puis xB → xA (ouest)
+  const k = going ? cyc * 2 : (1 - cyc) * 2;        // 0 (xA) → 1 (xB)
+  const cx = xA + (xB - xA) * k;
+  const dir = going ? 'east' : 'west';
+  const carry = !going;                             // fruit rapporté vers xA
+  const frame = Math.floor((now || 0) / 150) % FARMER_NF;
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (fy + 0.02), sw * 0.06 * hFrac / 0.5, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
+  if (carry) { // fruit tenu devant, côté ouest
+    ctx.fillStyle = '#c83010';
+    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.05), oy + sh * (fy - hFrac * 0.42), sw * 0.02, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,210,160,0.4)';
+    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.056), oy + sh * (fy - hFrac * 0.42 - 0.008), sw * 0.008, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ── Chaland des MARCHÉS : personne au PANIER réutilisée (inhabitant `basket-man`, 4 dir ×
+// 6 frames 68px, /pixelart/agents/inhabitants/basket-man-<dir>.png ; panier BAKÉ dans le
+// sprite) qui fait la navette bord ↔ comptoir. Même structure que le paysan (blitFarmer).
+const BASKET_FW = 68, BASKET_FH = 68, BASKET_NF = 6;
+const BASKET_DIRS = ['south', 'east', 'north', 'west'];
+const basketImg = {};
+let basketInit = false, basketReadyN = 0;
+function ensureBasket() {
+  if (basketInit || typeof Image === 'undefined') return;
+  basketInit = true;
+  for (const d of BASKET_DIRS) { const im = new Image(); im.onload = () => { basketReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/basket-man-' + d + '.png'; basketImg[d] = im; }
+}
+const basketReady = () => { ensureBasket(); return basketReadyN >= BASKET_DIRS.length; };
+function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
+  const im = basketImg[dir]; if (!im) return;
+  const drawH = sh * hFrac, drawW = drawH, left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, frame * BASKET_FW, 0, BASKET_FW, BASKET_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+}
+// Chaland en navette entre xA (bord) et xB (comptoir) sur la ligne de pieds fy ; T période,
+// phase décale un 2e chaland. hFrac = hauteur humaine par cellule. (Panier déjà dans le sprite.)
+function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac) {
+  const cyc = ((((now || 0) / T) + phase) % 1 + 1) % 1;
+  const going = cyc < 0.5;
+  const k = going ? cyc * 2 : (1 - cyc) * 2;
+  const cx = xA + (xB - xA) * k;
+  const dir = going ? 'west' : 'east';                  // va vers le comptoir (gauche) puis repart
+  const frame = Math.floor((now || 0) / 150) % BASKET_NF;
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (fy + 0.02), sw * 0.06 * hFrac / 0.5, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
+}
+
 // Props pixel-art STATIQUES des scènes de moteur (PixelLab) — remplacent les formes
 // procédurales. Les éléments dynamiques (fruits, sacs…) sont BAKÉS dans le sprite ;
 // l'overlay procédural ne sert plus qu'en repli. Clés = nom de fichier dans
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'granary-prop-silo', 'caravan-prop-sacks', 'market-prop-stall', 'guild-prop-lodge', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'port-prop-house', 'port-prop-pontoon', 'mill-prop-house', 'mill-prop-wheel', 'mint-prop-house', 'mint-prop-forge', 'exchange-prop-stall', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'scribes-prop-hall', 'schools-prop-yard', 'academies-prop-yard', 'ancestralcult-back', 'ancestralcult-prop', 'observatories-prop-dial', 'libraries-prop-archive', 'universities-prop-hall', 'printing-prop-workshop', 'think-prop-council', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'watch-back', 'watch-prop', 'sewers-prop'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'watch-back', 'watch-prop', 'sewers-prop', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -153,6 +210,57 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+}
+
+// Comme blitProp mais avec MIROIR horizontal optionnel : pour un véhicule de profil qui
+// fait la navette (sprite orienté vers la DROITE par défaut → retourné pour aller à gauche).
+function blitPropH(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, flip) {
+  const im = propImg[p]; if (!im) return;
+  const drawW = sw * wFrac, drawH = sh * hFrac;
+  const cxp = ox + sw * cx, top = oy + sh * cy - drawH / 2;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  if (flip) {
+    ctx.save(); ctx.translate(cxp, 0); ctx.scale(-1, 1);
+    ctx.drawImage(im, -drawW / 2, top, drawW, drawH); ctx.restore();
+  } else {
+    ctx.drawImage(im, cxp - drawW / 2, top, drawW, drawH);
+  }
+  ctx.imageSmoothingEnabled = prev;
+}
+
+// ── Véhicules des caravanes ANIMÉS (bandes multi-frames PixelLab animate_object) ──
+// Bande /pixelart/agents/buildings/veh-<key>.png = N frames CARRÉES-du-canvas (112×64)
+// côte à côte : roues qui tournent, cheval qui trotte, fumée, lueurs. Joué en boucle,
+// avec miroir H selon le sens (comme blitPropH). Repli sur le prop STATIQUE si pas chargé.
+const VEH_ANIM = { 'caravan-wagon': 9, 'caravan-truck': 9, 'caravan-pod': 9 }; // frames/bande (v3: 8 + réf)
+const vehAnimImg = {};
+let vehAnimInit = false;
+function ensureVehAnim() {
+  if (vehAnimInit || typeof Image === 'undefined') return;
+  vehAnimInit = true;
+  for (const k in VEH_ANIM) { const im = new Image(); im.src = '/pixelart/agents/buildings/veh-' + k + '.png'; vehAnimImg[k] = im; }
+}
+const vehAnimReady = (k) => { ensureVehAnim(); const im = vehAnimImg[k]; return !!(im && im.complete && im.naturalWidth > 0); };
+// Blit d'une frame de la bande, centré en (cx,cy), taille wFrac×hFrac, miroir optionnel.
+function blitVehAnim(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip) {
+  const im = vehAnimImg[k]; if (!im || !(im.naturalWidth > 0)) return false;
+  const nf = VEH_ANIM[k] || 1, fw = im.naturalWidth / nf, fh = im.naturalHeight;
+  const frame = Math.floor((now || 0) / 110) % nf;
+  const drawW = sw * wFrac, drawH = sh * hFrac, cxp = ox + sw * cx, top = oy + sh * cy - drawH / 2;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  if (flip) {
+    ctx.save(); ctx.translate(cxp, 0); ctx.scale(-1, 1);
+    ctx.drawImage(im, frame * fw, 0, fw, fh, -drawW / 2, top, drawW, drawH); ctx.restore();
+  } else {
+    ctx.drawImage(im, frame * fw, 0, fw, fh, cxp - drawW / 2, top, drawW, drawH);
+  }
+  ctx.imageSmoothingEnabled = prev;
+  return true;
+}
+// Véhicule : bande animée si chargée, sinon prop statique (blitPropH). Même cadre/miroir.
+function blitVehicle(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip) {
+  if (vehAnimReady(k)) { blitVehAnim(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip); return; }
+  blitPropH(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, flip);
 }
 
 // Centre des pixels OPAQUES d'un prop (fraction 0..1 du sprite), calculé une fois et
@@ -304,6 +412,43 @@ function cosmicBase(ctx, ox, oy, sw, sh, px, band) {
   return { cp, glow };
 }
 
+// Arroseur rotatif central des CHAMPS : un jet en arc qui balaie en tournant. Évolue par
+// stade (socle bois→pierre→métal→hi-tech + teinte d'eau + lueur de nuit). Extrait en helper
+// pour être réutilisé par le pixel-art (stades 1-3) ET le repli procédural.
+function drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold) {
+  const ST = [
+    { base: "#6a4a1a", post: "#5a3810", jet: "200,225,250", glow: "255,150,70" },  // bois (primitif)
+    { base: "#8a7c62", post: "#6a5c44", jet: "175,215,255", glow: "255,200,120" }, // pierre (médiéval)
+    { base: "#7a7468", post: "#5a564c", jet: "160,220,255", glow: "255,210,130" }, // métal (mécanique)
+    { base: "#9aa4aa", post: "#6a747a", jet: "120,225,255", glow: "80,210,255" },  // hi-tech (auto)
+  ][stage];
+  const sCx = ox + sw * 0.5, sCy = oy + sh * 0.5;
+  const reach = Math.min(sw, sh) * 0.42, baseR = Math.min(sw, sh) * 0.05, rot = now / 1100;
+  const nF = stage === 3
+    ? (parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0)
+    : (parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0);
+  ctx.fillStyle = `rgba(${ST.jet},0.10)`;
+  ctx.beginPath(); ctx.ellipse(sCx, sCy, reach * 0.95, reach * 0.66, 0, 0, Math.PI * 2); ctx.fill();
+  for (let j = 0; j < 3; j++) {
+    const ang = rot + (j * Math.PI * 2) / 3, ca = Math.cos(ang), sa = Math.sin(ang) * 0.62;
+    for (let k = 1; k <= 6; k++) {
+      const t = k / 6, dist = t * reach, lift = Math.sin(Math.PI * t) * reach * 0.34, a = (1 - t) * 0.85;
+      ctx.fillStyle = `rgba(${ST.jet},${a.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(sCx + ca * dist, sCy + sa * dist - lift, baseR * (0.7 - t * 0.4), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.fillStyle = ST.post; ctx.fillRect(sCx - baseR * 0.32, sCy - baseR * 0.1, baseR * 0.64, baseR * 1.7);
+  ctx.fillStyle = ST.base; ctx.beginPath(); ctx.arc(sCx, sCy - baseR * 0.2, baseR * 0.85, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = ST.post; ctx.lineWidth = Math.max(1, baseR * 0.3);
+  ctx.beginPath(); ctx.moveTo(sCx, sCy - baseR * 0.2); ctx.lineTo(sCx + Math.cos(rot) * baseR * 1.15, sCy - baseR * 0.2 + Math.sin(rot) * baseR * 0.72); ctx.stroke();
+  if (nF > 0.02) {
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = `rgba(${ST.glow},${(nF * 0.5).toFixed(2)})`;
+    ctx.beginPath(); ctx.arc(sCx, sCy - baseR * 0.2, baseR * 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
 function drawCityEngineSprite(context) {
   const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1 } = context;
   if (id === "foragers") {
@@ -312,6 +457,20 @@ function drawCityEngineSprite(context) {
       // orbitale (stellaire) → jardin cristallin (Démiurge). Dessiné OPAQUE comme
       // les stades 0-3 (corps pleins) pour survivre au voile de nuit ; palette par époque.
       const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
+      // Pixel-art cosmique (prop PixelLab + halo additif qui respire) ; repli procédural dessous.
+      const ckey = 'forager-cosmic-' + band;
+      if (propReady(ckey)) {
+        px(0, 0.5, 1, 0.5, cp.deep); // sol cosmique opaque (survit au voile de nuit)
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.32, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+        const cbob = Math.sin(now / 1150 + band) * 0.02; // lévitation douce
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; // halo additif TOUJOURS actif (énergie cosmique), respire
+        const cpulse = 0.24 + 0.12 * Math.sin(now / 720 + band);
+        const cg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * (0.52 + cbob), 0, ox + sw * 0.5, oy + sh * (0.52 + cbob), sw * 0.44);
+        cg.addColorStop(0, `rgba(${cp.glow},${cpulse.toFixed(2)})`); cg.addColorStop(1, `rgba(${cp.glow},0)`);
+        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * (0.52 + cbob), sw * 0.44, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        return true;
+      }
       px(0, 0.5, 1, 0.5, cp.deep); // sol cosmique opaque
       ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.34, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
       const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
@@ -508,6 +667,31 @@ function drawCityEngineSprite(context) {
     } else if (stage === 1) {
       // ── STADE 1 · VERGER DOMESTIQUÉ — arbre taillé, enclos, échelle, cagettes ──
       // La ville se pave et a des marchés : la récolte s'organise et se stocke.
+      // Pixel-art (props PixelLab + paysan réutilisé) ; repli procédural en dessous.
+      if (propReady('forager-orchard-tree')) {
+        // Sol tendu : lavis radial doux qui se fond dans le terrain (comme stade 0).
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.78, R = sw * 0.5, ky = (sh * 0.32) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(26,34,14,0.72)"); g.addColorStop(0.6, "rgba(26,34,14,0.4)"); g.addColorStop(1, "rgba(26,34,14,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Arbre taillé (échelle + clôture bakées) — droite ; ombre de contact puis prop.
+        const otx = 0.64, oty = 0.5;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * otx, oy + sh * 0.82, sw * 0.24, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'forager-orchard-tree', otx, oty, 0.78, 0.78);
+        // Paysan réutilisé : navette cagettes ↔ arbre (2e paysan au tier 2).
+        if (farmerReady()) {
+          drawFarmerShuttle(ctx, ox, oy, sw, sh, now, 0.28, 0.5, 0.8, 6400, 0, 0.5);
+          if (tier >= 2) drawFarmerShuttle(ctx, ox, oy, sw, sh, now, 0.32, 0.46, 0.72, 7200, 0.5, 0.44);
+        }
+        // Cagettes (gauche) — DEVANT le paysan (il passe derrière) ; ombre puis prop.
+        const ocx = 0.2, ocy = 0.72;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * ocx, oy + sh * (ocy + 0.08), sw * 0.14, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'forager-orchard-crates', ocx, ocy, 0.34, 0.34);
+        return true;
+      }
       px(0.0, 0.58, 1.0, 0.42, "#16200c");        // herbe entretenue
       px(0.46, 0.66, 0.5, 0.2, "#2a1f10");        // terre retournée au pied de l'arbre
       // Clôture d'enclos (poteaux + lisse)
@@ -593,6 +777,31 @@ function drawCityEngineSprite(context) {
     } else if (stage === 2) {
       // ── STADE 2 · RÉCOLTE INDUSTRIELLE — châssis de serre vitré, chariot, outils métal ──
       // Brique sombre & métal, faubourgs : la production est mise à l'échelle.
+      // Pixel-art (serre + brouette + paysan) ; repli procédural en dessous.
+      if (propReady('forager-greenhouse')) {
+        // Sol travaillé : lavis sombre qui se fond.
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.8, R = sw * 0.52, ky = (sh * 0.3) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(20,26,14,0.7)"); g.addColorStop(0.6, "rgba(20,26,14,0.38)"); g.addColorStop(1, "rgba(20,26,14,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Serre vitrée (centre-droit, 128×96 → large) ; ombre puis prop (aspect ~4:3).
+        const ghx = 0.58, ghy = 0.48;
+        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * ghx, oy + sh * 0.78, sw * 0.34, sh * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'forager-greenhouse', ghx, ghy, 0.9, 0.675);
+        // Paysan réutilisé : navette brouette ↔ serre.
+        if (farmerReady()) {
+          drawFarmerShuttle(ctx, ox, oy, sw, sh, now, 0.24, 0.44, 0.84, 6800, 0, 0.48);
+          if (tier >= 2) drawFarmerShuttle(ctx, ox, oy, sw, sh, now, 0.3, 0.46, 0.76, 7600, 0.5, 0.42);
+        }
+        // Brouette (gauche-devant) ; ombre puis prop.
+        const hcx = 0.2, hcy = 0.74;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * hcx, oy + sh * (hcy + 0.06), sw * 0.15, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'forager-handcart', hcx, hcy, 0.36, 0.32);
+        return true;
+      }
       px(0.0, 0.62, 1.0, 0.38, "#1c2412");        // sol travaillé
       px(0.0, 0.78, 1.0, 0.22, "#241a0e");        // allée de terre
       // Châssis de serre : structure basse vitrée à montants métal
@@ -646,6 +855,25 @@ function drawCityEngineSprite(context) {
       // Néon froid, arcologies, automatisation : plus aucun humain, la récolte
       // est entièrement robotisée. Facteur nuit dérivé de litGold (alpha = CM.nightF*0.95).
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+      // Pixel-art (rack hydroponique PixelLab + bras robot procédural conservé) ; repli en dessous.
+      if (propReady('forager-hydro-rack')) {
+        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.82, 1.0, 0.18, "#0c1014"); // dalle sombre
+        px(0.1, 0.74, 0.18, 0.1, "#1a2228"); strokeRect(0.1, 0.74, 0.18, 0.1, "#2c3a44"); // bac récepteur (gauche)
+        // Rack (centre, 96×128 → haut) : ombre + prop ; taille montante selon le tier.
+        const prkH = 0.78 + Math.min(2, tier) * 0.03, prx = 0.52, pry = 0.5;
+        ctx.fillStyle = "rgba(0,0,0,0.32)"; ctx.beginPath(); ctx.ellipse(ox + sw * prx, oy + sh * 0.86, sw * 0.2, sh * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'forager-hydro-rack', prx, pry, prkH * 0.75, prkH);
+        // Halo néon additif qui RESPIRE, piloté par la nuit (le prop porte déjà le glow
+        // baké) — seule « vie » de la scène désormais (bras robot retiré à la demande).
+        if (nF > 0.02) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const pulse = nF * (0.26 + 0.08 * Math.sin(now / 900));
+          const gg = ctx.createRadialGradient(ox + sw * prx, oy + sh * pry, 0, ox + sw * prx, oy + sh * pry, sw * 0.42);
+          gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * prx, oy + sh * pry, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return true;
+      }
       px(0.0, 0.6, 1.0, 0.4, "#10161a");          // dalle sombre
       px(0.0, 0.82, 1.0, 0.18, "#0c1014");
       // Bac récepteur automatisé (à gauche)
@@ -696,6 +924,14 @@ function drawCityEngineSprite(context) {
   if (id === "granaries_city") {
     if (band >= 7) { // silos/coffres opaques — organiques (Noo.) / orbitaux (Stel.) / cristallins (Dém.)
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band, now);
+      // Pixel-art cosmique (prop PixelLab + halo qui respire) ; repli procédural dessous.
+      const ckey = 'granary-cosmic-' + band;
+      if (propReady(ckey)) {
+        const cbob = Math.sin(now / 1150 + band) * 0.02;   // lévitation douce
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
+        glow(0.5, 0.5 + cbob, 0.42, 0.24 + 0.12 * Math.sin(now / 720 + band));
+        return true;
+      }
       for (let i = 0; i < 3; i++) {
         const x = 0.32 + i * 0.18, w = 0.07;
         const bob = band === 9 ? Math.sin(now / 950 + i * 1.4) * 0.022 : 0;   // lévitation Démiurge
@@ -782,6 +1018,26 @@ function drawCityEngineSprite(context) {
       // ── STADE 1 · HALLE DE PIERRE — façade à arcade, toit de tuiles, fanion ──
       // La ville se pave et se fortifie : le grain se mesure en jarres, un commis
       // tient le registre. Pierre claire + tuiles (Âge de la Pierre/Couronne).
+      // Pixel-art (halle + amphores) ; repli procédural en dessous.
+      if (propReady('granary-hall')) {
+        // Sol pavé : lavis sombre qui se fond.
+        {
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.54, ky = (sh * 0.28) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(30,28,22,0.68)"); g.addColorStop(0.6, "rgba(30,28,22,0.36)"); g.addColorStop(1, "rgba(30,28,22,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Halle de pierre (centre-droit, 112×96) ; ombre + prop.
+        const ghx = 0.56, ghy = 0.46;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * ghx, oy + sh * 0.8, sw * 0.32, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'granary-hall', ghx, ghy, 0.82, 0.7);
+        // Amphores à grain (gauche-devant) ; ombre + prop.
+        const gjx = 0.19, gjy = 0.76;
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * gjx, oy + sh * (gjy + 0.05), sw * 0.14, sh * 0.035, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'granary-jars', gjx, gjy, 0.3, 0.24);
+        return true;
+      }
       px(0.0, 0.66, 1.0, 0.34, "#2a2620");            // pavé sombre
       const bx = 0.26, bw = 0.5, by = 0.38, bh = 0.32;
       // Corps maçonné
@@ -876,6 +1132,27 @@ function drawCityEngineSprite(context) {
       // ── STADE 2 · ENTREPÔT INDUSTRIEL — brique, charpente fer, palan à poulie ──
       // Mise à l'échelle : un palan hisse des caisses vers la porte de chargement.
       // Brique sombre & métal (Âge du Marbre/Fonte) ; réverbère à gaz la nuit.
+      // Pixel-art (entrepôt + caisses + halo chaud fenêtres la nuit) ; repli procédural dessous.
+      if (propReady('granary-warehouse')) {
+        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
+        px(0.0, 0.6, 1.0, 0.4, "#161412"); px(0.0, 0.82, 1.0, 0.18, "#100e0c"); // sol travaillé sombre
+        // Entrepôt (centre-droit, 112×96) ; ombre + prop.
+        const whx = 0.56, why = 0.46;
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * whx, oy + sh * 0.8, sw * 0.33, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'granary-warehouse', whx, why, 0.82, 0.7);
+        // Halo chaud des fenêtres la nuit (le prop porte les fenêtres bakées).
+        if (nFw > 0.02) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `rgba(255,196,112,${(nFw * 0.32).toFixed(2)})`;
+          ctx.beginPath(); ctx.ellipse(ox + sw * whx, oy + sh * (why + 0.04), sw * 0.26, sh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+        // Caisses palettisées (gauche-devant) ; ombre + prop.
+        const gcx = 0.2, gcy = 0.75;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * gcx, oy + sh * (gcy + 0.055), sw * 0.14, sh * 0.035, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'granary-crates', gcx, gcy, 0.3, 0.27);
+        return true;
+      }
       px(0.0, 0.62, 1.0, 0.38, "#1c1a18");            // sol travaillé
       px(0.0, 0.82, 1.0, 0.18, "#141210");
       const bx = 0.24, bw = 0.52, by = 0.3, bh = 0.42;
@@ -956,6 +1233,21 @@ function drawCityEngineSprite(context) {
       // Néon froid, plus aucun humain : un portique-navette déplace les palettes
       // le long d'un rail. Halo cyan piloté par la nuit (litGold → CM.nightF).
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+      // Pixel-art (hub logistique + halo cyan qui respire la nuit) ; repli procédural dessous.
+      if (propReady('granary-hub')) {
+        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.82, 1.0, 0.18, "#0c1014"); // dalle sombre
+        const hbx = 0.5, hby = 0.5, hbH = 0.7 + Math.min(2, tier) * 0.03;
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * hbx, oy + sh * 0.84, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'granary-hub', hbx, hby, hbH * 1.333, hbH); // 128×96 → large
+        if (nF > 0.02) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const pulse = nF * (0.24 + 0.08 * Math.sin(now / 900));
+          const gg = ctx.createRadialGradient(ox + sw * hbx, oy + sh * hby, 0, ox + sw * hbx, oy + sh * hby, sw * 0.44);
+          gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * hbx, oy + sh * hby, sw * 0.44, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return true;
+      }
       px(0.0, 0.6, 1.0, 0.4, "#10161a");
       px(0.0, 0.82, 1.0, 0.18, "#0c1014");
       // Pile de modules-conteneurs (hauteur selon tier)
@@ -1012,6 +1304,17 @@ function drawCityEngineSprite(context) {
   if (id === "caravans") {
     if (band >= 7) { // PORTAIL DE TRANSIT cosmique : pod de fret qui traverse (motion franche)
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      // Pixel-art cosmique (portail PixelLab + pod de fret qui traverse) ; repli procédural dessous.
+      const ckey = 'caravan-cosmic-' + band;
+      if (propReady(ckey)) {
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5, 0.82, 0.82);
+        glow(0.5, 0.42, 0.34, 0.22 + 0.12 * Math.sin(now / 700 + band));  // halo du portail qui respire
+        const ctt = (now / 2600) % 1, ck = ctt < 0.5 ? ctt * 2 : (1 - ctt) * 2, cpodx = 0.2 + ck * 0.6;
+        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.roundRect(ox + sw * cpodx - sw * 0.05, oy + sh * 0.72, sw * 0.1, sh * 0.07, sw * 0.02); ctx.fill();
+        ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * cpodx - sw * 0.03, oy + sh * 0.735, sw * 0.06, sh * 0.016);
+        glow(cpodx, 0.75, 0.07, 0.4);
+        return true;
+      }
       const tt = (now / 2600) % 1, k = tt < 0.5 ? tt * 2 : (1 - tt) * 2; // navette triangle 0..1..0
       const podx = 0.2 + k * 0.6;
       if (band === 7) { // arche organique vivante : 2 piliers courbes + linteau
@@ -1130,6 +1433,16 @@ function drawCityEngineSprite(context) {
     } else if (stage === 1) {
       // ── STADE 1 · CONVOI CARAVANIER — file de charrettes sur route pavée ──
       // La ville se pave et règne : le commerce s'organise en convois gardés.
+      // Pixel-art (dépôt réutilisé + chariot bâché en navette) ; repli procédural dessous.
+      if (propReady('caravan-wagon')) {
+        px(0.0, 0.58, 1.0, 0.42, "#241f16"); px(0.0, 0.66, 1.0, 0.16, "#3a3428"); // accotement + chaussée
+        if (propReady('caravan-prop-sacks')) blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.85, 0.74, 0.28 * 64 / 48, 0.28); // dépôt réutilisé
+        const vcyc = (now / 9000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
+        const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 220) * 0.006;
+        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.76, sw * 0.26, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-wagon', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
+        return true;
+      }
       px(0.0, 0.58, 1.0, 0.42, "#2a2418");          // accotement
       px(0.0, 0.68, 1.0, 0.24, "#4a4438");          // route pavée
       for (let r = 0; r < 3; r++) for (let c = 0; c < 7; c++) {  // pavés
@@ -1205,6 +1518,19 @@ function drawCityEngineSprite(context) {
     } else if (stage === 2) {
       // ── STADE 2 · FRET INDUSTRIEL — wagon à vapeur sur rails + quai ──────
       // Fonte et vapeur : la marchandise roule sur rail, fumée et acier.
+      // Pixel-art (camion à vapeur en navette + caisses + fumée) ; repli procédural dessous.
+      if (propReady('caravan-truck')) {
+        px(0.0, 0.6, 1.0, 0.4, "#18140f"); px(0.0, 0.82, 1.0, 0.18, "#120f0b"); px(0.0, 0.7, 1.0, 0.1, "#2a251d"); // sol + chaussée
+        if (propReady('granary-crates')) blitProp(ctx, ox, oy, sw, sh, 'granary-crates', 0.85, 0.73, 0.26, 0.24); // dépôt réutilisé
+        const vcyc = (now / 8000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
+        const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 200) * 0.005;
+        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.78, sw * 0.26, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-truck', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
+        // Fumée qui monte de la cheminée (côté avant selon le sens).
+        const stx = vx + (vgoing ? 0.15 : -0.15);
+        for (let s = 0; s < 3; s++) { const sp = ((now / 1500) + s * 0.33) % 1; ctx.fillStyle = `rgba(120,116,110,${(0.32 * (1 - sp)).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox + sw * (stx + Math.sin(sp * 3) * 0.02), oy + sh * (0.44 - sp * 0.22), sw * (0.015 + sp * 0.035), 0, Math.PI * 2); ctx.fill(); }
+        return true;
+      }
       px(0.0, 0.6, 1.0, 0.4, "#1c1a16");            // ballast sombre
       ctx.fillStyle = "#3a352e";                     // rails
       ctx.fillRect(ox, oy+sh*0.72, sw, sh*0.012); ctx.fillRect(ox, oy+sh*0.78, sw, sh*0.012);
@@ -1265,6 +1591,24 @@ function drawCityEngineSprite(context) {
     } else {
       // ── STADE 3 · LOGISTIQUE AUTONOME — pod cargo à sustentation néon ──
       // Néon froid, automatisation : plus aucun humain, le fret se charge seul.
+      // Pixel-art (pod cargo néon qui glisse + halo qui respire) ; repli procédural dessous. (Pas de bras robot.)
+      if (propReady('caravan-pod')) {
+        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0c1014"); // dalle sombre
+        px(0.04, 0.8, 0.92, 0.02, "#16323a");
+        ctx.fillStyle = "#2f8fa0"; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.805, sw * 0.92, Math.max(1, sh * 0.006)); // rail cyan
+        const vglide = Math.sin(now / 5000) * 0.28, vbob = Math.sin(now / 900) * 0.01;
+        const vx = 0.5 + vglide, vgoing = Math.cos(now / 5000) > 0;
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.8, sw * 0.2, sh * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-pod', vx, 0.56 + vbob, 0.62, 0.62 * 64 / 112, now, !vgoing);
+        if (nF > 0.02) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const pulse = nF * (0.24 + 0.08 * Math.sin(now / 240));
+          const gg = ctx.createRadialGradient(ox + sw * vx, oy + sh * 0.68, 0, ox + sw * vx, oy + sh * 0.68, sw * 0.34);
+          gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * vx, oy + sh * 0.68, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return true;
+      }
       px(0.0, 0.6, 1.0, 0.4, "#10161a");
       px(0.0, 0.84, 1.0, 0.16, "#0c1014");
       // Rail lumineux au sol + liseré cyan
@@ -1323,6 +1667,18 @@ function drawCityEngineSprite(context) {
   if (id === "markets") {
     if (band >= 7) { // NEXUS D'ÉCHANGE cosmique : cœur relié à des nœuds (réseau qui pulse)
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      // Pixel-art cosmique (nexus PixelLab + halo qui respire + paquet qui file vers un nœud) ; repli dessous.
+      const ckey = 'market-cosmic-' + band;
+      if (propReady(ckey)) {
+        const cbob = Math.sin(now / 1150 + band) * 0.015;
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5 + cbob, 0.82, 0.82);
+        glow(0.5, 0.5 + cbob, 0.4, 0.24 + 0.12 * Math.sin(now / 720 + band));
+        const pk = (now / 1400) % 1, nx = 0.5 + Math.cos(band * 2.1) * 0.28, ny = 0.42 + Math.sin(band * 2.1) * 0.2;
+        const pkx = 0.5 + (nx - 0.5) * pk, pky = (0.5 + cbob) + (ny - (0.5 + cbob)) * pk;
+        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * pkx, oy + sh * pky, sw * 0.018, 0, Math.PI * 2); ctx.fill();
+        glow(pkx, pky, 0.05, 0.45);
+        return true;
+      }
       const cxc = 0.5, cyc = 0.52;
       if (band === 7) { // tendrils organiques + paquet lumineux qui file vers un nœud
         const nodes = [[0.2, 0.4], [0.8, 0.4], [0.26, 0.72], [0.74, 0.72]];
@@ -1487,6 +1843,24 @@ function drawCityEngineSprite(context) {
       // ── STADE 1 · HALLE À TOILE RAYÉE — marché médiéval, comptoir, fanions ──
       // Âge de la Pierre/Couronne : la halle couverte canonique. Le chaland
       // repart du comptoir avec un panier rempli (transport de marchandises).
+      // Pixel-art (halle à toile + chaland au panier en navette) ; repli procédural dessous.
+      if (propReady('market-hall-tent')) {
+        {  // sol : lavis doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.5, ky = (sh * 0.26) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(40,32,20,0.5)"); g.addColorStop(0.6, "rgba(40,32,20,0.28)"); g.addColorStop(1, "rgba(40,32,20,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        const mhx = 0.5, mhy = 0.42;
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.72, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'market-hall-tent', mhx, mhy, 0.86, 0.74);
+        if (basketReady()) { // chaland au panier : navette bord droit ↔ comptoir
+          drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.84, 0.42, 0.82, 5200, 0, 0.5);
+          if (tier >= 2) drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.8, 0.5, 0.74, 6000, 0.5, 0.44);
+        }
+        return true;
+      }
       px(0.02, 0.34, 0.96, 0.62, "#5a4a34");        // esplanade pavée
       // Grande toile rayée à double pente (vue de dessus)
       const awnA = "#c03828", awnB = "#e8e0cc";
@@ -1555,6 +1929,24 @@ function drawCityEngineSprite(context) {
       // ── STADE 2 · HALLES DE FONTE VITRÉES — charpente Baltard, verrière ──
       // Âge du Marbre/Fonte : nef vitrée à montants de fonte. Un porteur pousse
       // un diable de caisses qui fait la navette le long de l'allée.
+      // Pixel-art (halles vitrées + chaland + verrière éclairée la nuit) ; repli procédural dessous.
+      if (propReady('market-hall-glass')) {
+        const nFw = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+        px(0.0, 0.5, 1.0, 0.5, "#20190f"); px(0.0, 0.82, 1.0, 0.18, "#181109"); // pavé + allée
+        const mhx = 0.5, mhy = 0.44;
+        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.76, sw * 0.36, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'market-hall-glass', mhx, mhy, 0.86, 0.74); // v2 top-down (112×96)
+        if (nFw > 0.02) { // verrière chaude la nuit (vitres bakées + halo additif)
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `rgba(255,210,140,${(nFw * 0.26).toFixed(2)})`;
+          ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * mhy, sw * 0.3, sh * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        if (basketReady()) { // chaland au panier en navette
+          drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.84, 0.46, 0.84, 5400, 0, 0.48);
+          if (tier >= 2) drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.78, 0.5, 0.77, 6200, 0.5, 0.42);
+        }
+        return true;
+      }
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
       px(0.0, 0.5, 1.0, 0.5, "#241d14");            // pavé sombre
       px(0.0, 0.82, 1.0, 0.18, "#1c1610");          // allée
@@ -1612,6 +2004,27 @@ function drawCityEngineSprite(context) {
       // Âge du Néon : dalle sombre, kiosques à liserés cyan et prix défilants,
       // hologramme flottant, drone de livraison qui glisse sur un rail. Lumières
       // additives pilotées par la nuit (litGold → CM.nightF).
+      // Pixel-art (place néon : kiosques + hologramme + halo qui respire) ; repli procédural dessous.
+      if (propReady('market-plaza-neon')) {
+        const nFk = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+        px(0.0, 0.5, 1.0, 0.5, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0b0f13"); // dalle
+        const mhx = 0.5, mhy = 0.46;
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.8, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        blitProp(ctx, ox, oy, sw, sh, 'market-plaza-neon', mhx, mhy, 0.86, 0.74);
+        if (nFk > 0.02) { // halo cyan qui respire (néons bakés)
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const pulse = nFk * (0.22 + 0.08 * Math.sin(now / 700));
+          const gg = ctx.createRadialGradient(ox + sw * mhx, oy + sh * mhy, 0, ox + sw * mhx, oy + sh * mhy, sw * 0.42);
+          gg.addColorStop(0, `rgba(110,230,240,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(110,230,240,0)");
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * mhx, oy + sh * mhy, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          // Hologramme de prix flottant (scintille)
+          const hy = 0.24 + Math.sin(now / 700) * 0.01;
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `rgba(120,240,200,${(nFk * 0.5).toFixed(2)})`;
+          ctx.fillRect(ox + sw * 0.44, oy + sh * hy, sw * 0.12, sh * 0.03); ctx.restore();
+        }
+        return true;
+      }
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
       px(0.0, 0.5, 1.0, 0.5, "#10161a");            // dalle
       px(0.0, 0.84, 1.0, 0.16, "#0b0f13");
@@ -1667,6 +2080,15 @@ function drawCityEngineSprite(context) {
   if (id === "guilds") {
     if (band >= 7) { // ASSEMBLEUR cosmique : corps + bras qui forgent (contre-phase) + cœur
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      // Pixel-art cosmique (assembleur PixelLab + halo/cœur qui pulse) ; repli procédural dessous.
+      const ckey = 'guild-cosmic-' + band;
+      if (propReady(ckey)) {
+        const cbob = Math.sin(now / 1150 + band) * 0.012;
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
+        const beat = 0.5 + 0.5 * Math.sin(now / 400); // pulsation de la forge
+        glow(0.5, 0.55 + cbob, 0.38, 0.2 + 0.18 * beat);
+        return true;
+      }
       const swing = Math.sin(now / 600);            // va-et-vient des bras (forge)
       const beat = 0.5 + 0.5 * Math.sin(now / 400); // pulsation du cœur
       if (band === 7) { // pod-forge organique + 2 bras-tendrils qui pompent
@@ -1850,6 +2272,35 @@ function drawCityEngineSprite(context) {
       } // ── fin du repli procédural ──
     } else if (stage === 1) {
       // ── LA MAISON DE GUILDE (bourg → fortifié) : pans de bois, pignon à redans ──
+      // Pixel-art (maison de guilde + forge/fumée/bannière) ; repli procédural dessous.
+      if (propReady('guild-house')) {
+        {  // sol doux sous le bâtiment
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(38,26,12,0.45)"); g.addColorStop(0.6, "rgba(38,26,12,0.22)"); g.addColorStop(1, "rgba(38,26,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, 'guild-house', 0.5, 0.5, 0.86, 0.86);
+        // Lueur de forge à la porte (additive, vacille + monte la nuit)
+        { const dgx = ox + sw * 0.56, dgy = oy + sh * 0.64, fl = 0.2 + 0.05 * Math.abs(Math.sin(now / 1100)) + nF * 0.2, gr = sw * 0.06;
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const g = ctx.createRadialGradient(dgx, dgy, 0, dgx, dgy, gr);
+          g.addColorStop(0, `rgba(255,150,55,${Math.min(0.5, fl).toFixed(2)})`); g.addColorStop(1, "rgba(255,150,55,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dgx, dgy, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+        // Fumée du faîte : 3 bouffées qui montent
+        for (let i = 0; i < 3; i++) { const t = ((now / 2600) + i / 3) % 1;
+          ctx.fillStyle = `rgba(208,198,188,${(0.26 * (1 - t)).toFixed(2)})`;
+          ctx.beginPath(); ctx.arc(ox + sw * (0.62 + 0.06 * t + 0.012 * Math.sin(now / 300 + i)), oy + sh * (0.3 - 0.24 * t), sw * (0.02 + 0.045 * t), 0, Math.PI * 2); ctx.fill(); }
+        // Bannière de guilde sur perche (gauche) qui ondule (tier 1+)
+        if (tier >= 1) { const bpx = 0.14, bTop = 0.4, fl2 = Math.sin(now / 420) * 0.022;
+          ctx.strokeStyle = "#4a3418"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * 0.82); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
+          ctx.fillStyle = "#9a3a2c"; ctx.beginPath();
+          ctx.moveTo(ox + sw * bpx, oy + sh * bTop); ctx.lineTo(ox + sw * (bpx + 0.12 + fl2), oy + sh * (bTop + 0.035)); ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.085)); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.1); }
+        return true;
+      }
       const x0 = 0.16, x1 = 0.84, yTop = 0.36, yBase = 0.86, yMid = 0.60;
       px(x0, yTop, x1 - x0, yBase - yTop, "#b89a68");          // mur (torchis)
       ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(ox+sw*0.74, oy+sh*yTop, sw*0.1, sh*(yBase-yTop));
@@ -1952,6 +2403,33 @@ function drawCityEngineSprite(context) {
       ctx.closePath(); ctx.fill();
     } else if (stage === 2) {
       // ── LA CHAMBRE DES CORPORATIONS (impérial → monumental) : pierre néoclassique ──
+      // Pixel-art (chambre des corporations + lueur d'entrée la nuit + bannière) ; repli dessous.
+      if (propReady('guild-chamber')) {
+        {  // sol doux
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(30,28,22,0.42)"); g.addColorStop(0.6, "rgba(30,28,22,0.2)"); g.addColorStop(1, "rgba(30,28,22,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, 'guild-chamber', 0.5, 0.5, 0.86, 0.86);
+        // Lueur chaude à l'entrée la nuit (pas de forge : c'est une chambre de pierre)
+        if (nF > 0.02) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const dgx = ox + sw * 0.5, dgy = oy + sh * 0.66, gr = sw * 0.08;
+          const g = ctx.createRadialGradient(dgx, dgy, 0, dgx, dgy, gr);
+          g.addColorStop(0, `rgba(255,210,140,${(nF * 0.34).toFixed(2)})`); g.addColorStop(1, "rgba(255,210,140,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dgx, dgy, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Bannière de guilde (tier 1+)
+        if (tier >= 1) { const bpx = 0.13, bTop = 0.42, fl2 = Math.sin(now / 420) * 0.022;
+          ctx.strokeStyle = "#5a5044"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * 0.82); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
+          ctx.fillStyle = "#8a2f2c"; ctx.beginPath();
+          ctx.moveTo(ox + sw * bpx, oy + sh * bTop); ctx.lineTo(ox + sw * (bpx + 0.11 + fl2), oy + sh * (bTop + 0.032)); ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.078)); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.09); }
+        return true;
+      }
       px(0.1, 0.84, 0.8, 0.06, "#9a9488");                    // soubassement
       px(0.16, 0.4, 0.68, 0.46, "#c4bdaa");                   // corps en pierre claire
       ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(ox+sw*0.74, oy+sh*0.4, sw*0.1, sh*0.46);
@@ -1999,6 +2477,19 @@ function drawCityEngineSprite(context) {
     } else {
       // ── LE CONSORTIUM (mégalopole / singularité) : tour de verre + néon ──
       // Hauteur du fût croît avec tier (clin d'œil à BUILDING_HEIGHTS.tower = 3.2).
+      // Pixel-art (consortium verre/néon + halo cyan qui respire) ; repli procédural dessous.
+      if (propReady('guild-consortium')) {
+        px(0.0, 0.5, 1.0, 0.5, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0b0f13"); // dalle sombre
+        blitProp(ctx, ox, oy, sw, sh, 'guild-consortium', 0.5, 0.5, 0.86, 0.86);
+        if (nF > 0.02) { // halo cyan qui respire (néons + emblème holo bakés)
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
+          gg.addColorStop(0, `rgba(90,220,255,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,255,0)");
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return true;
+      }
       const top = 0.12 - Math.min(0.06, tier*0.025);
       const fh = 0.86 - top;
       px(0.26, top, 0.48, fh, "#1e2b38");                     // fût vitré
@@ -2084,11 +2575,12 @@ function drawCityEngineSprite(context) {
     //    parcelles PixelLab COHÉRENTES (types groupés en clusters → identiques
     //    côte à côte) ; paysan qui marche LENTEMENT entre les parcelles. Stades
     //    1-3 = patchwork procédural + arroseur (plus bas). Repli sinon.
-    if (stage === 0 && propReady('field-prop-crop-green')) {
+    if (propReady('field-prop-crop-green')) {   // pixel-art TOUS STADES (stade 3 = néon)
       // Sol = MATIÈRE DE L'ÂGE (tuile pleine du tileset route de la bande : terre
       // battue → gravier → pavé…) ; repli sur un aplat brun si pas encore chargée.
       if (!drawEraGroundFill(ctx, ox, oy, sw, sh, band, sw / Math.max(1, gw))) px(0, 0, 1, 1, pathCol);
-      const GREEN = 'field-prop-crop-green', GOLD = 'field-prop-crop-gold', FALLOW = 'field-prop-fallow';
+      const GREEN = 'field-prop-crop-green', GOLD = 'field-prop-crop-gold', FALLOW = 'field-prop-fallow', NEON = 'field-crop-neon';
+      const neonOn = stage === 3 && propReady(NEON);   // stade 3 = hydroponie néon
       const blitTile = (key, cx, cy, w, h, rot) => {
         const im = propImg[key]; if (!im) return;
         const dW = sw * w, dH = sh * h, X = ox + sw * cx, Y = oy + sh * cy;
@@ -2108,9 +2600,10 @@ function drawCityEngineSprite(context) {
           const ch = fhash(ci >> 1, ri >> 1);
           const roll = ch % 12;
           let key;
-          // Poids /12 (mêmes que le repli procédural) : SANS ×2, sinon le vert (roll
-          // ≥ somme) n'est JAMAIS tiré au stade 0 (fallowRoll*2 + ripeRoll*2 = 12).
-          if (roll < PAL.fallowRoll) key = propReady(FALLOW) ? FALLOW : GREEN;
+          // Poids /12 (mêmes que le repli procédural) : SANS ×2, sinon le vert n'est
+          // JAMAIS tiré (fallowRoll*2 + ripeRoll*2 = 12). Stade 3 = néon partout.
+          if (neonOn) key = NEON;
+          else if (roll < PAL.fallowRoll) key = propReady(FALLOW) ? FALLOW : GREEN;
           else if (roll < PAL.fallowRoll + PAL.ripeRoll) key = propReady(GOLD) ? GOLD : GREEN;
           else key = GREEN;
           // Tout à l'HORIZONTAL : le sprite vert a un grain NATIF vertical (canaux
@@ -2127,8 +2620,10 @@ function drawCityEngineSprite(context) {
       // TAILLE HUMAINE CONSTANTE : dimensionné par CELLULE (÷ gh), pas par l'emprise
       // du champ → il ne grandit pas quand le champ s'agrandit (cohérent avec les
       // humains des tuiles 1-cellule des autres bâtiments).
+      // Arroseur central : stades 1-3 seulement (le stade 0 validé n'en a pas).
+      if (stage >= 1) drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold);
       const fhF = 0.75 / Math.max(1, gh);
-      if (farmerReady()) {
+      if (stage !== 3 && farmerReady()) {   // stade 3 = hydroponie automatisée (pas d'humain)
         const cyc = ((now || 0) / 17000) % 1;            // lent
         const going = cyc < 0.5;
         const k = going ? cyc * 2 : (1 - cyc) * 2;
@@ -2138,7 +2633,7 @@ function drawCityEngineSprite(context) {
         const fr = Math.floor((now || 0) / 185) % FARMER_NF;   // cadence plus lente
         ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * fx2, oy + sh * fy2, sw * (0.16 / gw), sh * (0.055 / gh), 0, 0, Math.PI * 2); ctx.fill();
         blitFarmer(ctx, ox, oy, sw, sh, fx2, fy2, dir, fr, fhF);
-      } else if (foragerReady()) {   // repli tant que le paysan n'est pas chargé
+      } else if (stage !== 3 && foragerReady()) {   // repli tant que le paysan n'est pas chargé
         const fr = Math.floor((((now || 0) / 1500) % 1) * FORAGER_CLIPS['pick-east']) % FORAGER_CLIPS['pick-east'];
         blitForager(ctx, ox, oy, sw, sh, 0.4, 0.5, 'pick-east', fr, fhF);
       }
@@ -2174,51 +2669,8 @@ function drawCityEngineSprite(context) {
       }
     }
 
-    // ── ARROSEUR ROTATIF CENTRAL — un seul jet en arc qui balaie en tournant ──
-    // Remplace l'ancien réseau de canaux (trop chargé) : un arroseur à impact,
-    // au centre du bloc, projette de petits jets en arc qui tournent (cf. réf.).
-    // Évolution douce par stade : matériau du socle + teinte de l'eau + lumière.
-    const ST = [
-      { base: "#6a4a1a", post: "#5a3810", jet: "200,225,250", glow: "255,150,70" },  // bois (primitif)
-      { base: "#8a7c62", post: "#6a5c44", jet: "175,215,255", glow: "255,200,120" }, // pierre (médiéval)
-      { base: "#7a7468", post: "#5a564c", jet: "160,220,255", glow: "255,210,130" }, // métal (mécanique)
-      { base: "#9aa4aa", post: "#6a747a", jet: "120,225,255", glow: "80,210,255" },  // hi-tech (auto)
-    ][stage];
-    const sCx = ox + sw * 0.5, sCy = oy + sh * 0.5;
-    const reach = Math.min(sw, sh) * 0.42;       // portée d'un jet (petit)
-    const baseR = Math.min(sw, sh) * 0.05;
-    const rot = now / 1100;                       // rotation de la tête
-    const nF = stage === 3
-      ? (parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0)
-      : (parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0);
-    // Tache d'humidité au sol sous l'arroseur.
-    ctx.fillStyle = `rgba(${ST.jet},0.10)`;
-    ctx.beginPath(); ctx.ellipse(sCx, sCy, reach * 0.95, reach * 0.66, 0, 0, Math.PI * 2); ctx.fill();
-    // 3 bras de gouttelettes en arc (parabole : montent puis retombent), décalés.
-    for (let j = 0; j < 3; j++) {
-      const ang = rot + (j * Math.PI * 2) / 3;
-      const ca = Math.cos(ang), sa = Math.sin(ang) * 0.62; // aplatissement iso
-      for (let k = 1; k <= 6; k++) {
-        const t = k / 6;
-        const dist = t * reach;
-        const lift = Math.sin(Math.PI * t) * reach * 0.34; // arc
-        const a = (1 - t) * 0.85;
-        ctx.fillStyle = `rgba(${ST.jet},${a.toFixed(2)})`;
-        ctx.beginPath(); ctx.arc(sCx + ca * dist, sCy + sa * dist - lift, baseR * (0.7 - t * 0.4), 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    // Socle + tube + tête pivotante.
-    ctx.fillStyle = ST.post; ctx.fillRect(sCx - baseR * 0.32, sCy - baseR * 0.1, baseR * 0.64, baseR * 1.7);
-    ctx.fillStyle = ST.base; ctx.beginPath(); ctx.arc(sCx, sCy - baseR * 0.2, baseR * 0.85, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = ST.post; ctx.lineWidth = Math.max(1, baseR * 0.3);
-    ctx.beginPath(); ctx.moveTo(sCx, sCy - baseR * 0.2); ctx.lineTo(sCx + Math.cos(rot) * baseR * 1.15, sCy - baseR * 0.2 + Math.sin(rot) * baseR * 0.72); ctx.stroke();
-    // Lueur nocturne (chaude stades 0-2, cyan stade 3) via CM.nightF.
-    if (nF > 0.02) {
-      ctx.save(); ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(${ST.glow},${(nF * 0.5).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(sCx, sCy - baseR * 0.2, baseR * 2.2, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    // ── ARROSEUR ROTATIF CENTRAL (helper réutilisé aussi par le pixel-art) ──
+    drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold);
     return true;
   }
   if (id === "river_ports") {
@@ -2284,19 +2736,37 @@ function drawCityEngineSprite(context) {
     //    posés sur la tuile NATURELLE (berge + fleuve déjà rendus = base nickel) :
     //    bâtiment vue de-face-de-haut sur la berge + bateau de l'ère dans le fleuve.
     //    AUCUN procédural, aucun fond peint, aucune modif moteur (cf. leçon du carré brun).
-    if (stage === 0 && propReady('port-prop-house')) {
-      const bWc = Math.min(1.5, gw * 0.72), bhF = bWc / Math.max(1, gh);   // bâtiment RÉDUIT (prop carré 96×96)
-      const bwF = bWc / Math.max(1, gw);
-      blitProp(ctx, ox, oy, sw, sh, 'port-prop-house', 0.5, 0.4 - bhF * 0.5, bwF, bhF);   // base ancrée ~0.4 (raccord ponton inchangé)
-      // ponton de planches : de la base du bâtiment (berge) vers l'eau, le bateau s'amarre au bout
-      blitProp(ctx, ox, oy, sw, sh, 'port-prop-pontoon', 0.5, 0.54, 0.82 / Math.max(1, gw), 1.7 / Math.max(1, gh));
+    // Bâtiment de quai par STADE (0 = hutte validée ; 1 = entrepôt médiéval ; 2 = dock
+    // brique ; 3 = terminal verre/néon). Repli sur la hutte si le prop du stade n'est pas
+    // chargé → JAMAIS de procédural (leçon carré brun : uniquement des sprites transparents
+    // sur berge+fleuve naturels). Le ponton et le bateau de l'ère sont réutilisés tels quels.
+    const stageHouse = ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
+    const PORT_HOUSE = propReady(stageHouse) ? stageHouse : (propReady('port-prop-house') ? 'port-prop-house' : null);
+    if (PORT_HOUSE) {
+      // Ère du bateau (drawShips) — sert AUSSI à dimensionner bâtiment + dock : TOUT
+      // grandit ensemble avec l'ère (radeau → conteneur), pour la cohérence d'échelle.
       const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
-      // taille STRICTEMENT alignée sur les bateaux de rivière (drawShips) : largeur écran
-      // = 0.7 × sizeMul cellules (sizeMul = même barème croissant par ère) → grandit avec l'ère.
       const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
         : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
       const boatName = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : vstage;
-      blitEraBoat(ctx, ox, oy, sw, sh, 0.5, 0.72, 0.7 * sizeMul, boatName, now, gw);   // amarré au bout du ponton
+      // DOCK (dessiné AVANT le bâtiment → le bâtiment recouvre proprement le raccord à la
+      // berge) : matériau par ère (bois 0-1 → pierre 2 → béton/métal 3) + LARGEUR qui suit
+      // le bateau. Repli sur le ponton bois si le dock du stade n'est pas chargé.
+      const stageDock = ['port-prop-pontoon', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern'][stage];
+      const DOCK = propReady(stageDock) ? stageDock : 'port-prop-pontoon';
+      const dockWc = stage === 0 ? 0.82 : Math.min(gw * 0.55, 0.9 + sizeMul * 0.24);
+      // Longueur/position : stades 1-3 RALLONGÉS et remontés pour bien relier la base du
+      // bâtiment (qui les recouvre en haut) à l'eau. Stade 0 = valeurs validées inchangées.
+      const dockLen = stage === 0 ? 1.7 : 2.7;
+      const dockCy = stage === 0 ? 0.54 : 0.46;
+      blitProp(ctx, ox, oy, sw, sh, DOCK, 0.5, dockCy, dockWc / Math.max(1, gw), dockLen / Math.max(1, gh));
+      // BÂTIMENT de quai : GRANDIT avec l'ère (suit le bateau, toujours plus grand que lui).
+      // Stade 0 = taille validée inchangée. Base ancrée ~0.4 (raccord dock constant).
+      const bWc = stage === 0 ? Math.min(1.5, gw * 0.72) : Math.min(gw * 0.94, 1.25 + sizeMul * 0.42);
+      const bhF = bWc / Math.max(1, gh), bwF = bWc / Math.max(1, gw);
+      blitProp(ctx, ox, oy, sw, sh, PORT_HOUSE, 0.5, 0.4 - bhF * 0.5, bwF, bhF);
+      // Bateau de l'ère amarré au bout du dock.
+      blitEraBoat(ctx, ox, oy, sw, sh, 0.5, 0.72, 0.7 * sizeMul, boatName, now, gw);
       return true;
     }
     const nF = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
@@ -2600,18 +3070,31 @@ function drawCityEngineSprite(context) {
     //    nickel) : bâtiment de moulin sur la berge + ROUE À AUBES qui tourne en
     //    plongeant dans le fleuve (sprite statique tourné via ctx, vitesse now/900 =
     //    la roue procédurale). AUCUN procédural/fond peint/hack moteur (leçon du port).
-    if (stage === 0 && propReady('mill-prop-house')) {
-      // Cabane-moulin EN BOIS (vue 3/4) posée sur la berge : base au ras de la ligne
-      // d'eau, roue à aubes montée sur le flanc GAUCHE qui plonge dans le fleuve.
-      // Boîte ~CARRÉE (la cabane, ≠ l'ancienne tour étroite 1.18×1.85) → pas de distorsion.
-      const twW = 1.5 / Math.max(1, gw), twH = 1.5 / Math.max(1, gh);
-      const twCx = 0.58, twBaseCy = 0.53, twCy = twBaseCy - twH / 2;   // cabane légèrement relevée sur la berge (au-dessus du liseré d'herbe) ; la roue plonge plus bas dans l'eau
-      blitProp(ctx, ox, oy, sw, sh, 'mill-prop-house', twCx, twCy, twW, twH);
-      // Roue COLLÉE au flanc gauche de la cabane (chevauchement = montée sur le mur), bas dans l'eau.
-      if (propReady('mill-prop-wheel')) {
-        const wF = 1.06, wAng = -(now || 0) / 900;   // sens INVERSÉ
-        const wCx = twCx - twW * 0.27;               // MOYEU sur le flanc gauche
-        blitPropRot(ctx, ox, oy, sw, sh, 'mill-prop-wheel', wCx, 0.46, wF / Math.max(1, gw), wF / Math.max(1, gh), wAng);
+    if (propReady('mill-prop-house')) {   // pixel-art TOUS STADES (riverain, clean, comme le port)
+      // Bâtiment de moulin par STADE (0 = cabane bois validée ; 1 = pierre ; 2 = minoterie
+      // brique ; 3 = centrale hydro). Repli sur la cabane → JAMAIS de procédural (carré brun).
+      // ⚠ GRANDIT par ère (anticipé du port : bâtiment + roue croissent ENSEMBLE) ; boîte
+      // ~carrée (pas de distorsion) ; base ~0.53 constante (raccord roue).
+      const stageHouse = ['mill-prop-house', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro'][stage];
+      const HOUSE = propReady(stageHouse) ? stageHouse : 'mill-prop-house';
+      // TOUR (stades 1-3) : haute et étroite (sprite 80×128, aspect ~1.6) ; stade 0 =
+      // cabane carrée validée. Largeur+hauteur grandissent par ère ; base ~0.53 constante.
+      const isTower = stage >= 1;
+      const twWc = [1.5, 1.7, 1.95, 2.2][stage];
+      const twW = twWc / Math.max(1, gw);
+      const twH = (isTower ? twWc * 1.6 : twWc) / Math.max(1, gh);
+      const twCx = 0.58, twBaseCy = 0.53, twCy = twBaseCy - twH / 2;
+      blitProp(ctx, ox, oy, sw, sh, HOUSE, twCx, twCy, twW, twH);
+      // Roue/turbine par STADE (bois 0-1 → fer 2 → turbine 3), qui GRANDIT, montée sur le
+      // flanc GAUCHE et plongeant dans le fleuve. Tournée via blitPropRot (sprite symétrique
+      // → pas de wobble) ; la turbine tourne plus vite. Repli sur la roue bois → jamais de procédural.
+      const stageWheel = ['mill-prop-wheel', 'mill-prop-wheel', 'mill-wheel-metal', 'mill-turbine'][stage];
+      const WHEEL = propReady(stageWheel) ? stageWheel : (propReady('mill-prop-wheel') ? 'mill-prop-wheel' : null);
+      if (WHEEL) {
+        const wFc = [1.06, 1.4, 1.75, 2.1][stage];
+        const wAng = -(now || 0) / (stage === 3 ? 320 : 900);   // sens inversé ; turbine + rapide
+        const wCx = twCx - twW * (stage === 0 ? 0.27 : 0.45);   // MOYEU sur le flanc gauche (tour = plus au bord)
+        blitPropRot(ctx, ox, oy, sw, sh, WHEEL, wCx, 0.46, wFc / Math.max(1, gw), wFc / Math.max(1, gh), wAng);
       }
       return true;
     }
@@ -2766,6 +3249,14 @@ function drawCityEngineSprite(context) {
   if (id === "mint_houses") {
     if (band >= 7) { // CHAMBRE FORTE cosmique : voûte + pièces + frappe qui bat + pièce en orbite
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      // Pixel-art cosmique (coffre PixelLab + halo qui respire) ; repli procédural dessous.
+      const ckey = 'mint-cosmic-' + band;
+      if (propReady(ckey)) {
+        const cbob = Math.sin(now / 1150 + band) * 0.015;
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
+        glow(0.5, 0.55 + cbob, 0.4, 0.22 + 0.12 * Math.sin(now / 720 + band));
+        return true;
+      }
       ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.28, oy + sh * 0.46, sw * 0.44, sh * 0.38, sw * 0.05); ctx.fill();
       ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.46, sw * 0.22, sh * 0.1, 0, Math.PI, 0); ctx.fill();
       if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.28, oy + sh * 0.46); ctx.lineTo(ox + sw * 0.5, oy + sh * 0.34); ctx.lineTo(ox + sw * 0.72, oy + sh * 0.46); ctx.closePath(); ctx.fill(); }
@@ -2960,6 +3451,26 @@ function drawCityEngineSprite(context) {
       // ── STADE 2 · MANUFACTURE À VAPEUR — brique, cheminée, balancier mécanisé ──
       // La frappe s'industrialise : un balancier monétaire entraîné par volant
       // d'inertie bat la monnaie en cadence, la vapeur fume, les pièces défilent.
+      // Pixel-art (manufacture PixelLab + fumée + fenêtres chaudes la nuit) ; repli procédural dessous.
+      if (propReady('mint-house-steam')) {
+        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
+        {  // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.46, ky = (sh * 0.22) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(28,22,14,0.5)"); g.addColorStop(0.6, "rgba(28,22,14,0.24)"); g.addColorStop(1, "rgba(28,22,14,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, 'mint-house-steam', 0.5, 0.5, 0.86, 0.86);
+        if (nFw > 0.02) { // halo chaud des verrières la nuit
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `rgba(255,200,120,${(nFw * 0.28).toFixed(2)})`;
+          ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.52, sw * 0.3, sh * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        // Fumée de la cheminée (le prop porte la cheminée bakée ; bouffées qui montent).
+        for (let s = 0; s < 3; s++) { const t = ((now / 1500) + s * 0.33) % 1; ctx.fillStyle = `rgba(110,102,94,${(0.3 * (1 - t)).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox + sw * (0.2 + 0.03 * Math.sin(now / 400 + s)), oy + sh * (0.2 - t * 0.2), sw * (0.02 + t * 0.04), 0, Math.PI * 2); ctx.fill(); }
+        return true;
+      }
       px(0.0, 0.7, 1.0, 0.3, "#1c1812");                     // sol d'atelier
       // Corps de brique
       px(0.12, 0.3, 0.76, 0.46, "#7a3c2a");
@@ -3015,6 +3526,27 @@ function drawCityEngineSprite(context) {
     // La monnaie devient signal : un bras automatisé estampe des jetons qui
     // glissent sous un hologramme de devise. Lueur cyan/or pilotée par la nuit.
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+    // Pixel-art (monolithe néon PixelLab + hologramme pièce + halo cyan) ; repli procédural dessous.
+    if (propReady('mint-house-digital')) {
+      px(0.0, 0.66, 1.0, 0.34, "#0c1016"); px(0.0, 0.84, 1.0, 0.16, "#080b10"); // dalle sombre
+      blitProp(ctx, ox, oy, sw, sh, 'mint-house-digital', 0.5, 0.5, 0.86, 0.86);
+      if (nF > 0.02) {
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+        const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
+        gg.addColorStop(0, `rgba(90,220,230,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,230,0)");
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        // Hologramme de devise pivotant au-dessus du toit (procédural, gardé).
+        const hw = Math.abs(Math.cos(now / 700)), hcx = 0.5, hcy = 0.14;
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = `rgba(130,245,225,${(0.5 + nF * 0.4).toFixed(2)})`; ctx.lineWidth = Math.max(1, sw * 0.02);
+        ctx.beginPath(); ctx.ellipse(ox + sw * hcx, oy + sh * hcy, sw * (0.012 + 0.05 * hw), sh * 0.06, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = `rgba(180,250,235,${(0.35 + nF * 0.4).toFixed(2)})`; ctx.font = `${Math.max(6, sw * 0.09)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        if (hw > 0.4) ctx.fillText("¤", ox + sw * hcx, oy + sh * hcy);
+        ctx.restore();
+      }
+      return true;
+    }
     px(0.0, 0.66, 1.0, 0.34, "#0c1016");                     // dalle sombre
     px(0.0, 0.84, 1.0, 0.16, "#080b10");
     // Monolithe (bloc sombre à façade lisse + liseré néon)
@@ -3074,6 +3606,14 @@ function drawCityEngineSprite(context) {
   if (id === "imperial_exchanges") {
     if (band >= 7) { // GRAND AXE cosmique : flèche monumentale + anneaux qui tournent
       const { cp, glow } = cosmicBase(ctx, ox, oy, sw, sh, px, band);
+      // Pixel-art cosmique (flèche PixelLab haute + halo qui respire) ; repli procédural dessous.
+      const ckey = 'bank-cosmic-' + band;
+      if (propReady(ckey)) {
+        const cbob = Math.sin(now / 1150 + band) * 0.012;
+        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5 + cbob, 0.66, 0.84);   // flèche haute (88×112)
+        glow(0.5, 0.36 + cbob, 0.32, 0.22 + 0.12 * Math.sin(now / 720 + band));   // halo à l'apex
+        return true;
+      }
       ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(ox + sw * 0.38, oy + sh * 0.84); ctx.lineTo(ox + sw * 0.47, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.53, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.62, oy + sh * 0.84); ctx.closePath(); ctx.fill();
       ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.moveTo(ox + sw * 0.47, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.53, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.5, oy + sh * 0.18); ctx.closePath(); ctx.fill();
       ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.22, sw * (0.03 + 0.012 * Math.sin(now / 400)), 0, Math.PI * 2); ctx.fill();
@@ -3177,6 +3717,24 @@ function drawCityEngineSprite(context) {
       // ── STADE 1 · BANCO RENAISSANCE — palais marchand, banc drapé, grand livre ──
       // « Banco » : le banc drapé de vert où le changeur florentin tient ses
       // comptes. Loggia à arcades, registre et plume, coffre cerclé de fer.
+      // Pixel-art (palazzo Renaissance + lueur d'entrée la nuit) ; repli procédural dessous.
+      if (propReady('bank-house-renaissance')) {
+        {  // sol doux
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(30,22,12,0.45)"); g.addColorStop(0.6, "rgba(30,22,12,0.22)"); g.addColorStop(1, "rgba(30,22,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, 'bank-house-renaissance', 0.5, 0.5, 0.86, 0.86);
+        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
+        if (nFw > 0.02) { // lueur chaude des fenêtres/loggia la nuit
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = `rgba(255,205,130,${(nFw * 0.3).toFixed(2)})`;
+          ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.56, sw * 0.28, sh * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return true;
+      }
       px(0.0, 0.74, 1.0, 0.26, "#241c12");                  // dallage
       // Corps du palais (pierre ocre)
       px(0.1, 0.22, 0.8, 0.56, "#b89c66");
@@ -3251,6 +3809,24 @@ function drawCityEngineSprite(context) {
     // Composition classique : deux ailes de pierre percées de fenêtres encadrées,
     // un portique central à colonnes creusé d'ombre, grande porte de bronze.
     // Lumière au haut-gauche → faces gauches claires, faces droites ombrées.
+    // Pixel-art (banque néoclassique + lueur d'entrée la nuit) ; repli procédural dessous.
+    if (propReady('bank-house-neoclassical')) {
+      {  // sol doux
+        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
+        ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+        g.addColorStop(0, "rgba(30,28,22,0.42)"); g.addColorStop(0.6, "rgba(30,28,22,0.2)"); g.addColorStop(1, "rgba(30,28,22,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      blitProp(ctx, ox, oy, sw, sh, 'bank-house-neoclassical', 0.5, 0.5, 0.86, 0.86);
+      const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
+      if (nFw > 0.02) { // lueur chaude de l'entrée/portique la nuit
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = `rgba(255,210,140,${(nFw * 0.28).toFixed(2)})`;
+        ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.6, sw * 0.26, sh * 0.18, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      return true;
+    }
     const podY = 0.6, bodyH = 0.28;
     // Fenêtre encadrée : chambranle + embrasure sombre + vitre chaude + croisillon
     const litWindow = (x, y, w, h) => {
@@ -3342,6 +3918,19 @@ function drawCityEngineSprite(context) {
     // ruban de cotations qui file et un graphique en chandeliers qui monte et
     // chute. Lueur cyan/or pilotée par la nuit (nF dérivé de litGold).
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
+    // Pixel-art (bourse de verre PixelLab + halo cyan qui respire) ; repli procédural dessous.
+    if (propReady('bank-house-glass')) {
+      px(0.0, 0.72, 1.0, 0.28, "#0c1016"); px(0.0, 0.88, 1.0, 0.12, "#080b10"); // parvis sombre
+      blitProp(ctx, ox, oy, sw, sh, 'bank-house-glass', 0.5, 0.5, 0.86, 0.86);
+      if (nF > 0.02) {
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+        const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
+        gg.addColorStop(0, `rgba(90,220,230,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,230,0)");
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      return true;
+    }
     px(0.0, 0.72, 1.0, 0.28, "#0c1016");                    // parvis sombre
     px(0.0, 0.88, 1.0, 0.12, "#080b10");
     // Tour-rideau de verre (mur-rideau bleu nuit + ombre côté droit)
