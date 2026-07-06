@@ -849,6 +849,24 @@ body::before {
   font-family: var(--font-body);
 }
 
+/* Touche de raccourci affichée dans l'onglet Options « Raccourcis ». */
+.shortcut-kbd {
+  flex-shrink: 0;
+  display: inline-block;
+  min-width: 2.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--gold-ivory);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
 .number-format-control {
   display: grid;
   grid-template-columns: repeat(3, minmax(5.2rem, 1fr));

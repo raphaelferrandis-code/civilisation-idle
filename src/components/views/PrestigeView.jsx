@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PixelIcon from '../ui/PixelIcon.jsx';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   ruinGain,
@@ -95,7 +96,7 @@ export default function PrestigeView() {
   const prepDefs = [
     {
       type: "exodus",
-      icon: "🏳️",
+      iconName: "prep/exode",
       title: tr({ fr: "Organiser l'exode", en: "Organize the exodus" }),
       desc: tr({
         fr: "Des familles quittent la cité : moins de bras aux champs, mais la pression retombe.",
@@ -107,7 +108,7 @@ export default function PrestigeView() {
     },
     {
       type: "prepareArchives",
-      icon: "📜",
+      iconName: "prep/archives",
       title: tr({ fr: "Préparer les archives", en: "Prepare the archives" }),
       desc: tr({
         fr: "Scribes et ateliers se consacrent à la mémoire : savoir et trésor ralentissent, l'infrastructure profite des plans consignés.",
@@ -120,7 +121,7 @@ export default function PrestigeView() {
     },
     {
       type: "holdOrder",
-      icon: "🛡️",
+      iconName: "prep/ordre",
       title: tr({ fr: "Maintenir l'ordre", en: "Maintain order" }),
       desc: tr({
         fr: "La garde verrouille la cité : toute l'économie ralentit, mais la rupture monte plus lentement.",
@@ -174,7 +175,7 @@ export default function PrestigeView() {
             </div>
             {/* Rework 1 — gain projeté si effondrement maintenant (aide à la décision). */}
             <div className="barometer-collapse-hint" title={tr({ fr: "Ruines obtenues si la cité s'effondrait à cet instant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>
-              💀 {tr({ fr: "Si effondrement maintenant :", en: "If collapse now:" })} <strong>+{fmt(projectedRuin)} 🏛️</strong>
+              {tr({ fr: "Si effondrement maintenant :", en: "If collapse now:" })} <strong>+{fmt(projectedRuin)}</strong>
             </div>
           </div>
 
@@ -232,7 +233,7 @@ export default function PrestigeView() {
                     const used = Boolean(tp.used?.[def.type]);
                     return (
                       <article className={`prep-choice-card${used ? " prep-used" : ""}`} key={def.type}>
-                        <h5>{def.icon} {def.title}</h5>
+                        <h5><PixelIcon name={def.iconName} /> {def.title}</h5>
                         <p>{def.desc}</p>
                         {used ? (
                           <p className="prep-used-note">{tr({ fr: "Déjà engagée pour cette crise.", en: "Already committed for this crisis." })}</p>
@@ -272,7 +273,7 @@ export default function PrestigeView() {
                 <div className="collapse-preview-box">
                   <div className="preview-stat">
                     <span>{tr({ fr: "Ruines récupérées", en: "Ruins recovered" })}</span>
-                    <strong>+{fmt(ruinGainVal)} 🏛️</strong>
+                    <strong>+{fmt(ruinGainVal)} <PixelIcon name="glyphs/ruines" /></strong>
                   </div>
                   <div className="preview-stat">
                     <span>{tr({ fr: "Qualité de transmission", en: "Transmission quality" })}</span>
@@ -303,7 +304,7 @@ export default function PrestigeView() {
 
                 {remainingTime && (
                   <div className="auto-collapse-timer" id="autoCollapseCountdown">
-                    ⏳ {remainingTime}
+                    <PixelIcon name="glyphs/temps" /> {remainingTime}
                   </div>
                 )}
               </div>
@@ -311,12 +312,10 @@ export default function PrestigeView() {
           </div>
         ) : (
           <div className="standard-prestige-layout">
-            <p className="body-copy">{tr({ fr: "Vos choix préparent la transmission. Attendre que la rupture approche rend le déclin plus instructif.", en: "Your choices prepare the transmission. Waiting until Rupture nears makes the decline more instructive." })}</p>
-
             <div className="prestige-stats-grid">
               <div className="prestige-stat-card">
                 <span>{tr({ fr: "Ruines si effondrement", en: "Ruins if collapse" })}</span>
-                <strong>{fmt(projectedRuin)} 🏛️</strong>
+                <strong>{fmt(projectedRuin)} <PixelIcon name="glyphs/ruines" /></strong>
               </div>
               <div className="prestige-stat-card">
                 <span>{tr({ fr: "Héritage préparé", en: "Heritage prepared" })}</span>

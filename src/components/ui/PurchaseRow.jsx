@@ -5,6 +5,7 @@ import { fmt, fmtShort, signed, signedShort, labelFor } from '../../game/core/ut
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
+import { splashSrcFor } from '../../game/data/pixelSplash.js';
 
 const RES_CLASS = {
   population: "res-pop",
@@ -12,44 +13,6 @@ const RES_CLASS = {
   gold: "res-gold",
   knowledge: "res-know",
   infrastructure: "res-infra"
-};
-
-const CATEGORY_ICONS = { city: "fa-gears", knowledge: "fa-book-open", infra: "fa-archway" };
-
-/* Icône propre à CHAQUE bâtiment (scannabilité — fini les icônes partagées par
-   ressource où 6 bâtiments montraient la même pièce d'or). La couleur, elle,
-   reste celle de la ressource dominante (cf. cls dans buildingIcon). */
-const BUILDING_ICONS = {
-  foragers: "fa-seedling",
-  granaries_city: "fa-warehouse",
-  caravans: "fa-route",
-  scribes: "fa-feather-pointed",
-  storytellers: "fa-comments",
-  schools: "fa-chalkboard",
-  aqueducts: "fa-bridge-water",
-  roads: "fa-road",
-  watch: "fa-eye",
-  markets: "fa-store",
-  guilds: "fa-people-group",
-  irrigated_fields: "fa-wheat-awn",
-  river_ports: "fa-anchor",
-  water_mills: "fa-fan",
-  mint_houses: "fa-coins",
-  imperial_exchanges: "fa-building-columns",
-  academies: "fa-user-graduate",
-  observatories: "fa-binoculars",
-  libraries: "fa-book-bookmark",
-  bureaucracy: "fa-stamp",
-  sewers: "fa-water",
-  courthouses: "fa-gavel",
-  public_works: "fa-person-digging",
-  ministries: "fa-landmark",
-  archive_grids: "fa-box-archive",
-  ruin_architects: "fa-compass-drafting",
-  ancestral_cult: "fa-hands-praying",
-  universities: "fa-graduation-cap",
-  printing_houses: "fa-print",
-  think_tanks: "fa-brain"
 };
 
 /* Valeur exacte pour le tooltip des suffixes (Sx, Oc, Qi…) */
@@ -78,27 +41,6 @@ function roadNetworkInfo() {
   return { pct: Math.round(c * 100), bonus: Math.round(c * 100) / 10, rank: tr(rank) };
 }
 
-/* Icône de la rangée : la ressource dominante produite, sinon la catégorie */
-function buildingIcon(b) {
-  const outputs = [
-    ["population", b.pop],
-    ["food", b.food],
-    ["gold", b.gold],
-    ["knowledge", b.knowledge],
-    ["infrastructure", b.infra]
-  ].filter(([, v]) => Math.abs(v) > 0.0001);
-  // Couleur = ressource dominante ; icône = propre au bâtiment (sinon repli).
-  let cls = "";
-  let fallback = CATEGORY_ICONS[b.category] || "fa-gears";
-  if (outputs.length) {
-    outputs.sort((a, c) => Math.abs(c[1]) - Math.abs(a[1]));
-    const key = outputs[0][0];
-    cls = RES_CLASS[key] || "";
-    fallback = RES_ICONS[key];
-  }
-  return { icon: BUILDING_ICONS[b.id] || fallback, cls };
-}
-
 /**
  * Rangée d'achat de bâtiment (Audit UI Phase 3).
  * — coût intégré au bouton, état affordable au niveau de la ligne,
@@ -125,7 +67,10 @@ function PurchaseRow({
   const inStep = count % 25;
   const nextIn = 25 - inStep;
   const stepPct = (inStep / 25) * 100;
-  const { icon, cls } = buildingIcon(b);
+
+  // Splash-art de fond (filigrane), résolu selon le bâtiment ET l'ère en cours.
+  // null tant qu'aucun splash n'existe pour ce bâtiment → carte normale.
+  const splash = splashSrcFor(b.id, currentEraIndex());
 
   // Devises manquantes : signature fournie par le parent (abonné aux ressources).
   const lackingSet = lackingKey ? new Set(lackingKey.split(",")) : null;
@@ -172,34 +117,31 @@ function PurchaseRow({
     affordable ? "is-affordable" : "is-locked-cost",
     babelBlocked ? "babel-blocked" : "",
     pulse ? "pr-pulse" : "",
-    shaking ? "pr-shake" : ""
+    shaking ? "pr-shake" : "",
+    splash ? "pr-has-splash" : ""
   ].filter(Boolean).join(" ");
 
   return (
     <article
       className={rowClass}
       data-tier={tier > 0 ? tier : undefined}
+      style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
       onPointerDown={handleRowPointerDown}
     >
-      <div className={`pr-icon ${cls}`} aria-hidden="true">
-        <i className={`fa-solid ${icon}`}></i>
+      <div className="pr-name-row">
+        <h3 className="pr-name" title={tr(b.desc)}>{tr(b.name)}</h3>
+        {milestoneInfo && (
+          <span
+            className="pr-milestone-badge"
+            title={tr({ fr: `Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`, en: `Milestone production bonus: ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})` })}
+          >
+            <i className="fa-solid fa-bolt" aria-hidden="true"></i>
+            {"×"}{fmtShort(milestoneInfo.bonus)}
+          </span>
+        )}
       </div>
 
-      <div className="pr-main">
-        <div className="pr-name-row">
-          <h3 className="pr-name" title={tr(b.desc)}>{tr(b.name)}</h3>
-          {milestoneInfo && (
-            <span
-              className="pr-milestone-badge"
-              title={tr({ fr: `Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`, en: `Milestone production bonus: ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})` })}
-            >
-              <i className="fa-solid fa-bolt" aria-hidden="true"></i>
-              {"×"}{fmtShort(milestoneInfo.bonus)}
-            </span>
-          )}
-        </div>
-
-        <div className="pr-prod">
+      <div className="pr-prod">
           {production.length === 0 ? (
             <span className="pr-prod-item pr-prod-indirect">{tr({ fr: "effet indirect", en: "indirect effect" })}</span>
           ) : (
@@ -209,7 +151,6 @@ function PurchaseRow({
                 className={`pr-prod-item ${RES_CLASS[key] || ""}`}
                 title={`${labelFor(key)} : ${signed(value)}/s`}
               >
-                <i className={`fa-solid ${RES_ICONS[key]}`} aria-hidden="true"></i>
                 {signedShort(value)}/s
               </span>
             ))
@@ -224,7 +165,6 @@ function PurchaseRow({
                   en: `${net.rank}: ${net.pct}% of engine buildings are linked to the network. Global production bonus: +${net.bonus}% (up to +10% when everything is linked). Each road purchased extends the network one tile toward the nearest building.`
                 })}
               >
-                <i className="fa-solid fa-diagram-project" aria-hidden="true"></i>
                 {net.rank} · {net.pct}% {tr({ fr: "relié", en: "linked" })} (+{net.bonus}%)
               </span>
             );
@@ -238,37 +178,37 @@ function PurchaseRow({
         >
           <span style={{ width: `${stepPct}%` }}></span>
         </div>
-      </div>
 
-      <span className="pr-count" title={tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` })} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
-        <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
-      </span>
-
-      <button
-        className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
-        disabled={!affordable}
-        onClick={handleBuy}
-        title={tr({ fr: "Shift-clic : ×10 — Ctrl-clic : ×100", en: "Shift-click: ×10 — Ctrl-click: ×100" })}
-      >
-        {floats.map((f) => (
-          <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
-        ))}
-        <span className="bp-action">
-          {buyAmount === "max" ? tr({ fr: "Acheter Max", en: "Buy Max" }) : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
-        </span>
-        <span className="bp-cost">
-          {Object.entries(prices).map(([currency, amount]) => (
-            <span
-              key={currency}
-              className={`bp-cost-item${lackingSet?.has(currency) ? " is-lacking" : ""}`}
-              title={`${exactLabel(amount)} ${labelFor(currency)}`}
-            >
-              <i className={`fa-solid ${RES_ICONS[currency] || "fa-circle"}`} aria-hidden="true"></i>
-              {fmtShort(amount)}
+        <div className="pr-footer">
+          <button
+            className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
+            disabled={!affordable}
+            onClick={handleBuy}
+            title={tr({ fr: "Shift-clic : ×10 — Ctrl-clic : ×100", en: "Shift-click: ×10 — Ctrl-click: ×100" })}
+          >
+            {floats.map((f) => (
+              <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
+            ))}
+            <span className="bp-action">
+              {buyAmount === "max" ? tr({ fr: "Acheter Max", en: "Buy Max" }) : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
             </span>
-          ))}
-        </span>
-      </button>
+            <span className="bp-cost">
+              {Object.entries(prices).map(([currency, amount]) => (
+                <span
+                  key={currency}
+                  className={`bp-cost-item${lackingSet?.has(currency) ? " is-lacking" : ""}`}
+                  title={`${exactLabel(amount)} ${labelFor(currency)}`}
+                >
+                  <i className={`fa-solid ${RES_ICONS[currency] || "fa-circle"}`} aria-hidden="true"></i>
+                  {fmtShort(amount)}
+                </span>
+              ))}
+            </span>
+          </button>
+          <span className="pr-count" title={tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` })} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
+            <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
+          </span>
+        </div>
     </article>
   );
 }

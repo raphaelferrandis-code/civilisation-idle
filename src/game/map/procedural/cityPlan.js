@@ -107,8 +107,9 @@ function buildAnchors({ seed, counts, personality, archetype, core, reachBase, N
 function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corridorAt }) {
   const plazas = [];
   if (ageCfg.plazaSize <= 0) return plazas;
-  // Une vraie place : jamais moins de 2×2, jusqu'à 5×5 en mégalopole fastueuse.
-  const size = Math.max(2, Math.min(5, Math.round(ageCfg.plazaSize * Math.min(1.5, personality.plazaBias)) + 1));
+  // Une vraie place a besoin d'espace pour bien rendre (fontaine centrale + bancs
+  // + décors sans se chevaucher) : PLANCHER à 4×4, jusqu'à 5×5 en mégalopole.
+  const size = Math.max(4, Math.min(5, Math.round(ageCfg.plazaSize * Math.min(1.5, personality.plazaBias)) + 1));
   const rng = rngFrom(seed, "plazas");
   const farEnough = (gx, gy) =>
     plazas.every((p) => Math.hypot(gx - p.gx, gy - p.gy) > (p.size + size) * 1.6);
@@ -139,7 +140,7 @@ function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corrido
       if (!kind) continue;
       if (kind === "jardin" && counts.eraBand < 4) continue; // squares publics : ères avancées
       const gx = Math.round(a.gx), gy = Math.round(a.gy);
-      const pSize = Math.max(2, size - 1);
+      const pSize = Math.max(4, size - 1);   // places de quartier : même plancher 4×4
       if (!farEnough(gx, gy)) continue;
       if (touchesCorridor(gx, gy, pSize)) continue;          // jamais sur le fleuve/quai
       plazas.push({ gx, gy, size: pSize, kind });

@@ -121,6 +121,19 @@ type bâtiment RTS. Verdicts finaux :
   Slot merveille : `__CM.layout.wonderSlots[1]` (idx = position dans CM_WONDERS, pas dans
   state.wonders).
 
+### Œil de la Singularité (`era_singularity`) — REFONTE DU REGARD (2026-07-04)
+Raph : « l'œil doit REGARDER le joueur, être central, et t5 doit en avoir un aussi ».
+Les 5 rangs RÉGÉNÉRÉS (PixelLab view "side", prompt « front view, single eye in the exact
+center staring directly at the viewer, round pupil looking straight at the camera ») :
+t1 petit œil laiton (80) → t2 mécanisme oculaire (128) → t3 mandala cuivre (176) → t4 orbe
+cosmique/iris bleu sur cardan (224) → **t5 œil cosmique COLOSSAL (288)** : l'œil géant
+REMPLACE le soleil de l'astrolabe, cerclé des anneaux navy+or runiques. Fonds gris/navy
+retirés (strip-bg tol 22 chroma 18 — n'a PAS mangé l'anneau navy plus saturé). Anims
+recalées sur chaque pupille dans `era_singularity-flames.json` : t1-t4 = `pulseA` sur l'iris ;
+t5 = `gyro` (anneau tournant) + `pulseG` (pulse doré sur le grand œil, centre ~144,143) +
+2 `glint` sur les nœuds haut/bas de l'anneau. Piège détection : le centroïde amber est
+faussé par les reflets → détecter la PUPILLE (pixels sombres de la région centrale).
+
 ## Merveille 3 — La Couronne de Pierre (`era_kingdom`) : ✅ TERMINÉE (2026-07-03)
 
 - Concept « **Cercle du Serment** » (validé) : accrétion RADIALE — la géologie devient

@@ -90,6 +90,14 @@ function roadWidthFor(rank, eraIndex) {
   return eraIndex >= 12 ? 0.58 : eraIndex >= 7 ? 0.48 : 0.38; // avenue
 }
 
+// Demi-largeur (en tuiles) du REFUGE CENTRAL PLANTÉ des grands axes ; 0 hors
+// avenue/main. SOURCE UNIQUE : le rendu du terre-plein (pixelMedian / pixelTerrain)
+// ET le décalage de voie des agents (agents.js) s'y calent → les voies sont de
+// chaque côté et PERSONNE ne roule/marche sur le refuge.
+function medianHalfFor(rank, eraIndex) {
+  return (rank === "avenue" || rank === "main") ? roadWidthFor(rank, eraIndex) * 0.24 : 0;
+}
+
 // ── Palettes et données visuelles ────────────────────────────────────────────
 const CM_TINTS = ["#c9a84c", "#d8a24a", "#caa05a", "#d6b257", "#cf9a4a", "#d1c06a", "#b98f6a", "#cf8a5a"];
 
@@ -193,8 +201,48 @@ function cmWonderActiveIds(s) {
   for (const w of CM_WONDERS) if (cmWonderActive(w, s)) out.add(w.id);
   return out;
 }
-const WONDER_CLEAR_R = 5; // rayon libre (tuiles) autour de chaque merveille ;
-// couvre l'emprise du parvis du plus gros sprite au palier V (cf. drawWonder).
+const WONDER_CLEAR_R = 5; // rayon libre (tuiles) — repli pour merveille sans sprite pixel.
+
+// ── Emprise des merveilles pixel-art ─────────────────────────────────────────
+// Les sprites pixel-art sont BIEN plus grands que l'ancien art procédural : ils
+// s'ancrent au BAS de la tuile du slot et montent vers le NORD (haut de l'écran)
+// — cf. drawWonder (renderBuildings.js). L'ancien disque de rayon 5 ne couvrait
+// donc pas l'emprise réelle, laissant routes/bâtiments/arbres/props apparaître
+// sous/autour du monument. On dérive une emprise rectangulaire NORD-BIAISÉE des
+// dimensions natives MAX (tier V) de chaque sprite. era_mega (L'Aiguille) est
+// DANS L'EAU : elle est de facto seule, on ne la dégage pas (pont/riverains).
+// PPT doit rester synchronisé avec renderBuildings.js (WONDER_PPT / PPT = 34).
+const WONDER_PPT = 34;
+const WONDER_SPRITE_MAX = {
+  dynasty1:        { nw: 400, nh: 368 },
+  pop1m:           { nw: 176, nh: 400 },
+  era_kingdom:     { nw: 400, nh: 256 },
+  era_empire:      { nw: 400, nh: 300 },
+  era_mega:        { nw: 192, nh: 400 },
+  era_singularity: { nw: 288, nh: 288 }
+};
+// Emprise au sol en tuiles autour du slot : demi-largeur E/O (nw/68 +1),
+// extension NORD (nh/34 +1), et un peu de SUD (pied du sprite + socle).
+function cmWonderExtent(id) {
+  const d = WONDER_SPRITE_MAX[id];
+  if (!d) return { halfW: WONDER_CLEAR_R, north: WONDER_CLEAR_R, south: 2 };
+  return {
+    halfW: Math.ceil(d.nw / (2 * WONDER_PPT)) + 1,
+    north: Math.ceil(d.nh / WONDER_PPT) + 1,
+    south: 2
+  };
+}
+// Itère les clés "gx,gy" de l'emprise d'un slot (bornées à la grille N×N).
+function cmForEachWonderCell(slot, id, N, fn) {
+  const { halfW, north, south } = cmWonderExtent(id);
+  for (let dy = -north; dy <= south; dy += 1) {
+    const gy = slot.gy + dy; if (gy < 0 || gy >= N) continue;
+    for (let dx = -halfW; dx <= halfW; dx += 1) {
+      const gx = slot.gx + dx; if (gx < 0 || gx >= N) continue;
+      fn(gx, gy, gx + "," + gy);
+    }
+  }
+}
 
 // ── Utilitaires purs ─────────────────────────────────────────────────────────
 function cmClamp(v, a, b) { return Math.max(a, Math.min(b, Math.round(v))); }
@@ -496,10 +544,17 @@ function cmIsBridgeRoad(layout, gx, gy) {
   return !!(road && road.roadSurface === "bridge");
 }
 
-function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
+function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW = 1) {
   const key = (gx, gy) => gx + "," + gy;
   const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const isWater = (gx, gy) => !!(river && river.isWater && river.isWater(gx, gy));
+  // Pont central (historique) : sa colonne est SANCTUARISÉE — jamais invalidée par
+  // la validation « pont droit », jamais émondée par l'élagage de connectivité. Il
+  // reste ainsi TOUJOURS présent, même si une rive n'a encore aucun bâtiment (son
+  // approche est aussi protégée du trim en amont via le set `demand`, cf. layout).
+  // La sanctuarisation couvre les `bridgeLaneW` colonnes du pont (2 en double-voie).
+  const protectedBridgeX = river && river.bridge ? Math.round(river.bridge.x) : null;
+  const isProtectedBridgeCol = (x) => protectedBridgeX !== null && x >= protectedBridgeX && x < protectedBridgeX + (bridgeLaneW || 1);
   const buildGraph = (activeSet) => {
     const isCore  = (gx, gy) => activeSet.has(key(gx, gy));
     const metaAt  = (gx, gy) => {
@@ -587,11 +642,13 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
     if (seen.has(startKey)) continue;
     const stack = [startKey], component = [], exits = [];
     seen.add(startKey);
+    let isProtected = false;
     while (stack.length) {
       const k = stack.pop();
       const r = graph.roadMap.get(k);
       if (!r) continue;
       component.push(r);
+      if (isProtectedBridgeCol(r.gx)) isProtected = true;
       for (const d of dirInfo) {
         if (!(r.mask & d.bit)) continue;
         const nk = key(r.gx + d.dx, r.gy + d.dy);
@@ -600,7 +657,9 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
         else if (nr && nr.roadSurface === "road") exits.push({ name: d.name, from: r, to: nr });
       }
     }
-    if (!isStraightBridgeSegment(component, exits)) {
+    // Le pont central est exempté : jamais supprimé, même s'il n'atterrit pas encore
+    // sur un réseau des deux côtés (rive non bâtie en début de partie).
+    if (!isProtected && !isStraightBridgeSegment(component, exits)) {
       for (const r of component) invalid.add(key(r.gx, r.gy));
     }
   }
@@ -653,6 +712,8 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy) {
     }
     let pruned = false;
     for (const r of graph.roads) {
+      // Les travées du pont central (colonnes sanctuarisées) ne sont jamais émondées.
+      if (isProtectedBridgeCol(r.gx) && isWater(r.gx, r.gy)) continue;
       if (!reached.has(key(r.gx, r.gy))) { activeSet.delete(key(r.gx, r.gy)); pruned = true; }
     }
     if (pruned) graph = buildGraph(activeSet);
@@ -1144,14 +1205,36 @@ function computeCityLayout(s) {
   });
   lp("routes-gen");
 
+  // Pont central : largeur (2 voies dès la bande 2) + colonne de base. Réutilisés
+  // par la carve des merveilles, la protection du trim et cmBuildRoadGraph — le pont
+  // sanctuarisé ne doit être effacé par AUCUN d'eux.
+  const bridgeLaneW = c.eraBand >= 2 ? 2 : 1;
+  const protectedBridgeBx = riverBridge ? Math.round(riverBridge.x) : null;
+  const isBridgeSpanCell = (gx, k) => protectedBridgeBx !== null
+    && gx >= protectedBridgeBx && gx < protectedBridgeBx + bridgeLaneW && riverSet.has(k);
+
   // ── Enceinte urbaine (ère fortifiée+) ─────────────────────────────────────
   // Le rayon est FIGÉ à la construction (state.wallRadius) : la muraille ne
   // suit pas la croissance de la ville — c'est la ville qui déborde de ses
   // murs, comme dans une vraie cité. Reset à chaque effondrement.
   const frozenWallReach = Number.isFinite(s.wallRadius) && s.wallRadius > 0 ? s.wallRadius : null;
+  // Slots des merveilles calculés AVANT la muraille pour qu'elle les CONTOURNE
+  // (même mécanisme que les places). era_mega dans l'eau : brèche du fleuve.
+  const builtWonderIds = cmWonderActiveIds(s);
+  const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
+  const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
+    ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
+    : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
+  const wonderObstacles = [];
+  for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+    const w = CM_WONDERS[wi];
+    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
+    wonderObstacles.push({ gx: wonderSlots[wi].gx, gy: wonderSlots[wi].gy, ...cmWonderExtent(w.id) });
+  }
   const walls = generateWalls({
     plan, seed: mapSeed, counts: c, ageCfg, personality, N,
-    reachBase: frozenWallReach || cityReachBase, roadKey, roadMeta, riverSet, bankSet
+    reachBase: frozenWallReach || cityReachBase, roadKey, roadMeta, riverSet, bankSet,
+    wonderObstacles
   });
   if (walls && !frozenWallReach) s.wallRadius = cityReachBase;
   const wallSet = walls ? walls.set : null;
@@ -1159,22 +1242,14 @@ function computeCityLayout(s) {
   const tramRing = computeTramRing(walls, plan.core, c.eraBand, N, riverSet, bankSet);
   lp("murailles");
 
-  // Districts (anti-collision merveilles + fleuve)
+  // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
+  // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
   const districts = [];
   const occupiedFoot = new Set();
-  const builtWonderIds = cmWonderActiveIds(s);
-  // ringTarget = portée urbaine réelle → les merveilles se posent sur le périmètre
-  // de la cité et s'écartent à mesure qu'elle grandit (plus de cap fixe à 34).
-  const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
-  const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
-    ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
-    : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-    if (!builtWonderIds.has(CM_WONDERS[wi].id)) continue;
-    const slot = wonderSlots[wi];
-    for (let dy = -WONDER_CLEAR_R; dy <= WONDER_CLEAR_R; dy += 1)
-      for (let dx = -WONDER_CLEAR_R; dx <= WONDER_CLEAR_R; dx += 1)
-        if (Math.hypot(dx, dy) <= WONDER_CLEAR_R) occupiedFoot.add((slot.gx + dx) + "," + (slot.gy + dy));
+    const w = CM_WONDERS[wi];
+    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue; // era_mega : dans l'eau
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => occupiedFoot.add(k));
   }
   const footFits = (gx, gy, size) => {
     if (gx < 1 || gy < 1 || gx + size > N - 1 || gy + size > N - 1) return false;
@@ -1216,11 +1291,28 @@ function computeCityLayout(s) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) reserved.add((d.gx + ax) + "," + (d.gy + ay));
   }
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-    if (!builtWonderIds.has(CM_WONDERS[wi].id)) continue;
-    const slot = wonderSlots[wi];
-    for (let dy = -WONDER_CLEAR_R; dy <= WONDER_CLEAR_R; dy += 1)
-      for (let dx = -WONDER_CLEAR_R; dx <= WONDER_CLEAR_R; dx += 1)
-        if (Math.hypot(dx, dy) <= WONDER_CLEAR_R) reserved.add((slot.gx + dx) + "," + (slot.gy + dy));
+    const w = CM_WONDERS[wi];
+    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => reserved.add(k));
+  }
+  // ── Carve : aucune ROUTE sous l'emprise d'une merveille sèche. Les routes sont
+  //    figées avant le calcul des slots ; on retire ici les cellules qui tombent
+  //    sous le sprite. Placé AVANT trim + connectBuildings (plus loin) : ceux-ci
+  //    recousent le réseau (antenne coupée = feuille émondée ; les bâtiments se
+  //    reconnectent par BFS en contournant l'emprise via occupiedFoot). era_mega
+  //    épargnée (pont/fleuve). Le sol dégagé est indépendamment géré (reserved →
+  //    pas de bâtiment/arbre ; surface de place gatée au rendu).
+  for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+    const w = CM_WONDERS[wi];
+    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => {
+      if (isBridgeSpanCell(gx, k)) return; // JAMAIS carver la travée du pont central sanctuarisé
+      if (roadKey.has(k)) { roadKey.delete(k); roadMeta.delete(k); }
+    });
+  }
+  { // compacte `roads` en cohérence avec roadKey (même geste que trimDemandlessRoads)
+    const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy));
+    roads.length = 0; for (const r of kept) roads.push(r);
   }
   lp("districts");
 
@@ -1277,6 +1369,14 @@ function computeCityLayout(s) {
   if (wallSet) for (const k of wallSet) claimed.add(k);
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
+  }
+  // L'emprise des merveilles sèches bloque aussi les bâtiments-moteur (aqueducs,
+  // champs, ports/moulins, banques, génériques) : footprintFits ne teste que
+  // `claimed`. era_mega exclue (riverains de l'Aiguille légitimes sur la berge).
+  for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+    const w = CM_WONDERS[wi];
+    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => claimed.add(k));
   }
   const footprintFits = (gx, gy, sizeX, allowBank = false, allowRoad = false, sizeY = sizeX, allowWater = false) => {
     if (gx < 0 || gy < 0 || gx + sizeX > N || gy + sizeY > N) return false;
@@ -1712,11 +1812,14 @@ function computeCityLayout(s) {
   const bias = personality.buildingBias || {};
   // Cellule libre pour un décoratif 1×1 : dans la grille, non occupée, constructible
   // (footprintFits = pas route/eau/berge/réservé), et bordant une rue si requis.
-  const decCellFree = (gx, gy) => {
-    if (gx < 0 || gy < 0 || gx >= N || gy >= N) return false;
-    if (usedKeys.has(gx + "," + gy)) return false;
-    if (!footprintFits(gx, gy, 1)) return false;
-    if (placer.requireRoad && placer.roadAdj(gx, gy) < 1) return false;
+  const decCellFree = (gx, gy, spanX = 1, spanY = spanX) => {
+    if (gx < 0 || gy < 0 || gx + spanX > N || gy + spanY > N) return false;
+    for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
+      if (usedKeys.has((gx + ax) + "," + (gy + ay))) return false;
+    }
+    if (!footprintFits(gx, gy, spanX, false, false, spanY)) return false;
+    // Ancre proche d'une voie (l'empreinte entière l'est alors aussi).
+    if (placer.requireRoad && !placer.nearRoad(gx, gy)) return false;
     return true;
   };
   const placeDecor = (category, count) => {
@@ -1729,7 +1832,12 @@ function computeCityLayout(s) {
       chooseVariant: placer.chooseVariant,
       quarterKindAt: placer.quarterKindAt,
       quarterIdAt: placer.quarterIdAt,
-      pushTile: (t) => { tiles.push(t); usedKeys.add(t.gx + "," + t.gy); },
+      pushTile: (t) => {
+        tiles.push(t);
+        // Réserve TOUTE l'empreinte (spanX × spanY) : rien d'autre ne se pose dessous.
+        const sx = t.spanX || 1, sy = t.spanY || 1;
+        for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) usedKeys.add((t.gx + ax) + "," + (t.gy + ay));
+      },
       clamp: cmClamp
     });
   };
@@ -1755,6 +1863,25 @@ function computeCityLayout(s) {
   for (const t of tiles) {
     if (t.type === "engine") addFoot(t.gx, t.gy, t.spanX || t.size || 1, t.spanY || t.size || 1);
     else demand.add(t.gx + "," + t.gy);
+  }
+  // Pont central TOUJOURS présent : on sanctuarise toute sa travée (eau + approches
+  // ±3 posées par bridgeCrossing) comme « demande », sinon une rive sans bâtiment
+  // fait culer l'approche vers le vide et cmBuildRoadGraph supprime tout le span.
+  // Complète l'exemption côté cmBuildRoadGraph (validation + connectivité).
+  if (riverBridge) {
+    const bx = Math.round(riverBridge.x);
+    let by0 = N, by1 = -1;
+    for (const k of riverSet) {
+      const cc = k.indexOf(",");
+      const kx = +k.slice(0, cc);
+      if (kx < bx || kx >= bx + bridgeLaneW) continue;  // union sur les colonnes de voie
+      const gy = +k.slice(cc + 1);
+      if (gy < by0) by0 = gy;
+      if (gy > by1) by1 = gy;
+    }
+    if (by1 >= by0)
+      for (let dx = 0; dx < bridgeLaneW; dx += 1)
+        for (let gy = Math.max(0, by0 - 3); gy <= Math.min(N - 1, by1 + 3); gy += 1) demand.add((bx + dx) + "," + gy);
   }
   trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
   lp("trim");
@@ -1792,7 +1919,7 @@ function computeCityLayout(s) {
   }
   lp("arbres");
 
-  const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy);
+  const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy, bridgeLaneW);
   lp("graphe");
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
   const terrePlein = computeTerrePleinSegments(roadGraph.roadMap, N); // couture des voies collées
@@ -1805,10 +1932,25 @@ function computeCityLayout(s) {
     const rset = roadGraph.roadSet, out = new Set(), bf = new Set();
     for (const t of tiles) { const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1; for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) bf.add((t.gx + ax) + "," + (t.gy + ay)); }
     const R = (x, y) => rset.has(x + "," + y);
+    const paved = (x, y) => rset.has(x + "," + y) || out.has(x + "," + y);
+    // Plafond de FUSION : un bloc route+comble ne dépasse jamais MAX_FUSED cellules de
+    // large → fini les grands aplats gris de routes serrées soudées. Passe greedy
+    // déterministe (gy puis gx croissants) : on comble un gap seulement si le run
+    // pavé résultant (routes + combles DÉJÀ validés) reste ≤ MAX_FUSED dans l'axe du
+    // comble ; sinon on laisse le sol nu → coupe le bloc, ≥1 cellule non-route entre
+    // deux paquets de ≤3. Les trous de CARREFOUR (routes des 4 côtés) sont exemptés.
+    const MAX_FUSED = 3;
+    const runLen = (x, y, dx, dy) => { let n = 0, cx = x + dx, cy = y + dy; while (paved(cx, cy)) { n += 1; cx += dx; cy += dy; } return n; };
     for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
       const k = gx + "," + gy;
       if (rset.has(k) || bf.has(k) || riverSet.has(k)) continue;
-      if ((R(gx - 1, gy) && R(gx + 1, gy)) || (R(gx, gy - 1) && R(gx, gy + 1))) out.add(k);
+      const hor = R(gx - 1, gy) && R(gx + 1, gy);
+      const ver = R(gx, gy - 1) && R(gx, gy + 1);
+      if (!hor && !ver) continue;
+      if (hor && ver) { out.add(k); continue; }        // trou de carrefour : complète le nœud
+      const w = hor ? (1 + runLen(gx, gy, -1, 0) + runLen(gx, gy, 1, 0))
+                    : (1 + runLen(gx, gy, 0, -1) + runLen(gx, gy, 0, 1));
+      if (w <= MAX_FUSED) out.add(k);
     }
     return out;
   })();
@@ -1885,11 +2027,13 @@ export {
   ROAD_S,
   ROAD_W,
   roadWidthFor,
+  medianHalfFor,
   WONDER_CLEAR_R,
   cityCounts,
   cmCitizenName,
   cmCheckWonders,
   cmClamp,
+  cmBuildRoadGraph,
   cmHash,
   cmIsBridgeRoad,
   cmIsWalkableRoad,
@@ -1898,6 +2042,7 @@ export {
   cmWonderSlot,
   cmWonderActive,
   cmWonderActiveIds,
+  cmWonderExtent,
   WONDER_TIER_NAMES,
   computeCityLayout,
   computeMedianSegments,

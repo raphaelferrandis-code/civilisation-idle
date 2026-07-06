@@ -127,6 +127,19 @@ function agentSetForBand(band) {
         : band <= 6 ? AGENT_INDUSTRIAL
           : AGENT_FUTURE;
 }
+// Émeutiers PIXEL par ère : MÊME découpage en bandes que les habitants ci-dessus,
+// pour qu'une émeute porte le costume de son ère (cohérence carte). Renvoie le
+// PRÉFIXE d'ère du nom de sprite « rioter-<préfixe><genre>-<arme> » ; '' = médiéval,
+// le jeu de base non préfixé (fichiers rioter-<genre>-<arme> déjà présents). Les
+// autres ères sont préfixées (stone-/anti-/ind-/fut-) et servent de repli au médiéval
+// tant qu'elles n'ont pas encore leurs sprites.
+function riotEraKey(band) {
+  return band <= 1 ? 'stone-'
+    : band <= 3 ? ''
+      : band <= 4 ? 'anti-'
+        : band <= 6 ? 'ind-'
+          : 'fut-';
+}
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
 
 ensureAgentChar('villager');
@@ -345,10 +358,20 @@ function citizenChooseNext(p) {
   // bord. Calculé une fois par pas (pas par frame) ; le rendu lisse la transition.
   const ei = (CM.layout && CM.layout.counts) ? (CM.layout.counts.eraIndex || 0) : 0;
   const rank = vehicleRoadRank(p.gx, p.gy);
-  // Sur une esplanade (place ouverte, piétonne) : pas de bord de chaussée → resté centré.
-  const edge = rank === "plaza" ? 0 : CM.TILE * roadWidthFor(rank, ei) * 0.42;
-  p.tox = p.dir === 2 ? -edge : p.dir === 3 ? edge : 0;
-  p.toy = p.dir === 0 ? edge : p.dir === 1 ? -edge : 0;
+  if (rank === "main") {
+    // Boulevard 2 cellules : trottoir sur le BORD EXTÉRIEUR de la cellule (loin de la
+    // couture plantée = de l'autre voie), comme les véhicules.
+    const rm = CM.layout && CM.layout.roadMap;
+    const isMain = (x, y) => { const c = rm && rm.get(x + "," + y); return !!(c && c.rank === "main"); };
+    const e = CM.TILE * 0.30;
+    if (p.dir === 0 || p.dir === 1) { p.tox = 0; p.toy = isMain(p.gx, p.gy + 1) ? -e : isMain(p.gx, p.gy - 1) ? e : 0; }
+    else { p.toy = 0; p.tox = isMain(p.gx + 1, p.gy) ? -e : isMain(p.gx - 1, p.gy) ? e : 0; }
+  } else {
+    // Sur une esplanade (place ouverte, piétonne) : pas de bord de chaussée → centré.
+    const edge = rank === "plaza" ? 0 : CM.TILE * roadWidthFor(rank, ei) * 0.42;
+    p.tox = p.dir === 2 ? -edge : p.dir === 3 ? edge : 0;
+    p.toy = p.dir === 0 ? edge : p.dir === 1 ? -edge : 0;
+  }
 }
 
 function drawCitizens(dt, now) {
@@ -573,17 +596,22 @@ function vehicleRoadRank(gx, gy) {
 // restent solidaires. `s` = taille tuile écran (CM.TILE * zoom).
 function vehicleLaneOffset(v, s) {
   if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
-  const ei = CM.frameEraIndex || 0;
-  if (ei < 7) return { x: 0, y: 0 };                   // routes non divisées : centré
   const rank = vehicleRoadRank(v.gx, v.gy);
-  if (rank !== "main" && rank !== "avenue") return { x: 0, y: 0 };
-  // Largeur de chaussée via la source unique roadWidthFor → décalage à mi-file.
-  const w = roadWidthFor(rank, ei);
-  const mag = s * w * 0.26;
-  if (v.dir === 0) return { x: 0, y: mag };            // est  → file sud (à droite)
-  if (v.dir === 1) return { x: 0, y: -mag };           // ouest → file nord
-  if (v.dir === 2) return { x: -mag, y: 0 };           // sud  → file ouest
-  if (v.dir === 3) return { x: mag, y: 0 };            // nord → file est
+  if (rank !== "main") return { x: 0, y: 0 };          // seuls les BOULEVARDS 2-cell décalent
+  // Boulevard 2 cellules (axe main élargi) : refuge planté sur la COUTURE au centre.
+  // On pousse le véhicule vers le BORD EXTÉRIEUR de sa cellule (loin de la couture =
+  // de l'autre voie) → il roule dans sa file et dégage le refuge. L'autre voie est le
+  // voisin "main" perpendiculaire au sens de marche.
+  const rm = CM.layout && CM.layout.roadMap;
+  const isMain = (x, y) => { const c = rm && rm.get(x + "," + y); return !!(c && c.rank === "main"); };
+  const mag = s * 0.26;
+  if (v.dir === 0 || v.dir === 1) {                    // roule en X → voies empilées en Y
+    if (isMain(v.gx, v.gy + 1)) return { x: 0, y: -mag };  // couture en bas → file en haut
+    if (isMain(v.gx, v.gy - 1)) return { x: 0, y: mag };   // couture en haut → file en bas
+  } else {                                             // roule en Y → voies côte à côte en X
+    if (isMain(v.gx + 1, v.gy)) return { x: -mag, y: 0 };  // couture à droite → file à gauche
+    if (isMain(v.gx - 1, v.gy)) return { x: mag, y: 0 };   // couture à gauche → file à droite
+  }
   return { x: 0, y: 0 };
 }
 
@@ -715,7 +743,11 @@ function drawVehicles(now, pass) {
       const vnf = Math.max(1, Math.round((vimg.naturalWidth || vimg.width || vfh) / vfh));
       const vf = vnf > 1 ? Math.floor((now || 0) / 130 + v.x * 0.1) % vnf : 0;
       const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-      const drawV = () => ctx.drawImage(vimg, vf * vfh, 0, vfh, vfh, sx - dw / 2, sy - dh / 2, dw, dh);
+      const drawV = () => {
+        // Ombre au sol CENTRÉE sous la charrette (le chemin pixel-art n'en dessinait aucune → tout flottait).
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(sx, sy + dh * 0.30, dw * 0.30, dh * 0.085, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(vimg, vf * vfh, 0, vfh, vfh, sx - dw / 2, sy - dh / 2, dw, dh);
+      };
       // Pousseur : humain de l'ère (marche) DERRIÈRE le véhicule, orienté pareil.
       let drawP = null, pusherBelow = false;
       if (VEH_PUSH[v.type]) {
@@ -732,7 +764,11 @@ function drawVehicles(now, pass) {
           const fr = Math.floor((now || 0) / 130 + v.x * 0.1) % AGENT_NF;
           const mimg = man.img[VILLAGER_DIRS[v.dir]] || man.img.south;
           const pxp = sx + off[0], pyp = sy + off[1];
-          drawP = () => ctx.drawImage(mimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH, pxp - ph / 2, pyp - ph * 0.78, ph, ph);
+          drawP = () => {
+            // Ombre CENTRÉE sous le pousseur (à sa vraie position pxp/pyp, pas sous la charrette).
+            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(pxp, pyp + ph * 0.20, ph * 0.38, ph * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.drawImage(mimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH, pxp - ph / 2, pyp - ph * 0.78, ph, ph);
+          };
         }
       }
       // Attelage : un ou deux animaux de trait (marche) DEVANT le véhicule, reliés
@@ -760,6 +796,11 @@ function drawVehicles(now, pass) {
                [front[0] + (horiz ? 0 : sep), front[1] + (horiz ? sep : 0)]]
             : [front];
           drawTeam = () => {
+            // Ombres CENTRÉES sous CHAQUE animal de trait (à sx+ax, décalé comme le sprite ;
+            // dessinées d'abord, puis les sprites, pour ne pas passer par-dessus une bête voisine).
+            for (const [ax, ay] of slots) {
+              ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(sx + ax, sy + ay + ah * 0.30, ah * 0.42, ah * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+            }
             for (const [ax, ay] of slots) {
               ctx.drawImage(aimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH,
                 sx + ax - ah / 2, sy + ay - ah * 0.7, ah, ah);
@@ -777,6 +818,20 @@ function drawVehicles(now, pass) {
           };
         }
       }
+      // Décalage de FILE (conduite hors refuge) appliqué à TOUTE la scène du véhicule
+      // (carrosserie + pousseur + attelage + timon) via translate. BUG corrigé : l'offset
+      // n'était appliqué qu'au repli procédural (mort en pratique), JAMAIS au sprite pixel
+      // → les véhicules roulaient au centre exact = pile sur le terre-plein.
+      let voffX = 0, voffY = 0;
+      if ((v.parkT || 0) > 0) {
+        const parkOff = s * 0.3 * (v.parkSide || 1);
+        if (v.dir === 0 || v.dir === 1) voffY = parkOff; else voffX = parkOff;
+      } else {
+        const lo = vehicleLaneOffset(v, s);
+        voffX = lo.x; voffY = lo.y;
+      }
+      ctx.save();
+      ctx.translate(voffX, voffY);
       if (drawP && pusherBelow) { drawV(); drawP(); }      // véhicule s'éloigne → pousseur devant
       else if (drawP) { drawP(); drawV(); }                 // pousseur derrière
       else if (drawTeam) {                                   // tracté : timon, puis attelage devant/derrière
@@ -784,6 +839,7 @@ function drawVehicles(now, pass) {
         if (teamBelow) { drawV(); drawTeam(); }
         else { drawTeam(); drawV(); }
       } else drawV();
+      ctx.restore();
       ctx.imageSmoothingEnabled = prevS;
       if (v.fade < 1) ctx.globalAlpha = 1;
       continue;
@@ -1447,4 +1503,4 @@ function drawTram(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, cityMapDrawRails, drawTram, drawEraAgent, drawNamedAgent };
+export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, cityMapDrawRails, drawTram, drawEraAgent, drawNamedAgent, riotEraKey };

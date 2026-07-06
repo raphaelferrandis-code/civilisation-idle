@@ -37,7 +37,7 @@ function gateNameFor(angle, nearRiver, used) {
 
 export function generateWalls({
   plan, seed, counts, ageCfg, personality, N, reachBase,
-  roadKey, roadMeta, riverSet, bankSet
+  roadKey, roadMeta, riverSet, bankSet, wonderObstacles
 }) {
   let tier = ageCfg.wallTier;
   if (personality.id === "militaire" && counts.eraBand >= 2) tier += 1;
@@ -60,10 +60,19 @@ export function generateWalls({
   // place (+marge), on pousse le point radialement vers l'extérieur jusqu'à
   // en sortir — la muraille CONTOURNE les places, elle ne les coupe jamais.
   const plazas = (plan.plazas || []);
+  // Obstacles que la muraille CONTOURNE (bulge radial) et ne rasterise jamais :
+  // les places (carré) + les emprises de merveilles (rectangle nord-biaisé, cf.
+  // cmWonderExtent). Sans ça, une merveille au périmètre voit l'enceinte lui
+  // passer au travers (elle doit rester SEULE).
+  const obstacles = wonderObstacles || [];
   const onPlaza = (x, y) => {
     for (const p of plazas) {
       const half = p.size / 2 + 1.5;
       if (Math.abs(x - p.gx) <= half && Math.abs(y - p.gy) <= half) return true;
+    }
+    for (const o of obstacles) {
+      if (Math.abs(x - o.gx) <= o.halfW + 1.5 &&
+          y >= o.gy - o.north - 1.5 && y <= o.gy + o.south + 1.5) return true;
     }
     return false;
   };

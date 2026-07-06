@@ -125,6 +125,29 @@ describe("roadGraph — réseau connexe par construction", () => {
     }
   });
 
+  it("5b. le pont est RÉELLEMENT posé sur l'eau, et en 2 voies dès la bande 2", () => {
+    // Rangs d'eau de makeInputs (bande horizontale y=40..42).
+    const waterBridgeCols = (out) => {
+      const cols = new Set();
+      for (const k of out.roadKey) {
+        const c = k.indexOf(",");
+        const gy = +k.slice(c + 1);
+        if (gy >= 40 && gy <= 42) cols.add(+k.slice(0, c));
+      }
+      return [...cols].sort((a, b) => a - b);
+    };
+    for (const A of ARCHETYPES) {
+      const b1 = waterBridgeCols(generateRoadsGraph(makeInputs(A, 1, { withRiver: true })));
+      const b2 = waterBridgeCols(generateRoadsGraph(makeInputs(A, 2, { withRiver: true })));
+      // Le pont central franchit BIEN l'eau (au moins 1 colonne) — garde-fou : l'ancien
+      // test "eau" passait à vide quand aucune cellule n'était posée sur l'eau.
+      expect(b1.length, `${A}: bande 1, pont posé sur l'eau`).toBeGreaterThanOrEqual(1);
+      // Double-voie dès la bande 2 : au moins 2 colonnes ADJACENTES sur l'eau.
+      expect(b2.length, `${A}: bande 2, ≥2 colonnes sur l'eau`).toBeGreaterThanOrEqual(2);
+      expect(b2.some((x) => b2.includes(x + 1)), `${A}: bande 2, 2 voies adjacentes`).toBe(true);
+    }
+  });
+
   it("6. étendue : aucune route loin au-delà de la silhouette", () => {
     const R = 22;
     for (const A of ARCHETYPES) {

@@ -5,17 +5,78 @@
    ============================================================================ */
 
 .purchase-row {
-  display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr) auto 7.5rem;
-  gap: 0.65rem;
-  align-items: center;
-  min-height: 4rem;
-  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-height: 6.5rem;
+  padding: 0.6rem 0.75rem;
   border: 1px solid var(--border-soft);
   border-left: 3px solid var(--border-soft);
   border-radius: var(--r-card);
   background: var(--bg-card);
   transition: border-color 150ms ease, background 150ms ease, opacity 150ms ease;
+  /* Stacking context local : les couches filigrane (::before/::after, z-index:-1)
+     se peignent AU-DESSUS du fond de carte mais SOUS le contenu (icône/texte). */
+  position: relative;
+  isolation: isolate;
+}
+
+/* Pied de carte : bouton d'achat (gauche) + compteur possédé (droite), collé en bas. */
+.pr-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: auto;
+}
+
+/* La carte achetable = SON splash-art, SANS cadre : ni bordure ni fond-boîte.
+   Le splash se fond en HAUT et en BAS (mask) pour se dissoudre dans la liste.
+   Taille d'origine conservée (min-height du .purchase-row, pas de ratio imposé). */
+.pr-has-splash {
+  border: none;
+  background: transparent;
+}
+
+/* Le splash-art EST le fond de carte, COLLÉ À GAUCHE et allant NET jusqu'au bord
+   droit du cadre (pas de fondu à droite : le dégradé mélangeait mal avec le fond).
+   Fondu seulement en HAUT et en BAS pour dissoudre la carte dans la liste. */
+.pr-has-splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--pr-splash) left center / cover no-repeat;
+  opacity: 0.72;
+  image-rendering: pixelated;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+}
+
+/* Voile sombre à GAUCHE (sous le texte) → transparent vers le centre/la droite :
+   garde le texte lisible tout en laissant le splash respirer. Même fondu haut/bas. */
+.pr-has-splash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 0%,
+    color-mix(in srgb, var(--bg-card), transparent 26%) 40%,
+    transparent 72%
+  );
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+}
+
+/* Ombre de texte en renfort (par-dessus le splash côté centre). */
+.pr-has-splash .pr-name,
+.pr-has-splash .pr-prod-item {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
 /* ----- État : achetable (signal au niveau de la ligne) ----- */
@@ -24,7 +85,7 @@
   border-left-color: var(--gold);
 }
 
-.purchase-row.is-affordable:hover {
+.purchase-row.is-affordable:not(.pr-has-splash):hover {
   background: var(--bg-card-2);
   border-color: color-mix(in srgb, var(--gold), transparent 30%);
 }
@@ -40,7 +101,6 @@
 
 /* ----- État : verrouillé (prochain bâtiment teasé) ----- */
 .purchase-row.pr-locked {
-  grid-template-columns: 2.25rem minmax(0, 1fr) 7.5rem;
   opacity: 0.55;
   border-style: dashed;
   font-style: italic;
@@ -52,15 +112,12 @@
   color: var(--muted);
 }
 
-/* ----- Icône de bâtiment (ressource dominante) ----- */
+/* ----- Icône de bâtiment (ressource dominante) : petit glyphe inline dans le
+   nom, plus la grosse pastille encadrée. Le splash-art porte l'identité visuelle. */
 .pr-icon {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--r-card);
-  background: var(--bg-inset);
-  border: 1px solid var(--border-soft);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   font-size: 1rem;
   color: var(--muted);
 }
@@ -128,14 +185,13 @@
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
-  font-size: 0.78rem;
+  /* Agrandi (0.78→0.88) : place gagnée en retirant les icônes de production */
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-.pr-prod-item i { font-size: 0.7rem; }
 
 .pr-prod-item.res-pop   { color: var(--res-pop); }
 .pr-prod-item.res-food  { color: var(--res-food); }
@@ -168,19 +224,21 @@
    Avant : gros nombre gris flottant, confondu avec un coût/niveau.
    Le préfixe × + le léger fond inset l'ancrent comme « quantité possédée ». */
 .pr-count {
+  flex: 0 0 auto;
   align-self: center;
-  justify-self: end;
   display: inline-flex;
   align-items: baseline;
   gap: 0.02rem;
   padding: 0.06rem 0.42rem;
   border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--bg-inset), transparent 30%);
+  /* chip un peu plus opaque + ombre : lisible même posé sur le filigrane à droite */
+  background: color-mix(in srgb, var(--bg-inset), transparent 12%);
   font-family: var(--font-title);
   font-size: 1.05rem;
   font-weight: 700;
   color: color-mix(in srgb, var(--gold-bright), transparent 45%);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   cursor: default;
 }
 
@@ -195,19 +253,27 @@
   background: color-mix(in srgb, var(--gold), transparent 85%);
 }
 
+/* Sur une carte à splash, le compteur ×N est posé sur l'image → fond SOMBRE et
+   opaque pour bien détacher le nombre (prime sur le fond doré de l'état achetable). */
+.purchase-row.pr-has-splash .pr-count {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  color: var(--gold-bright);
+}
+
 /* ----- Bouton d'achat : action + coût intégré ----- */
 .btn-purchase {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0.18rem;
-  min-height: 2.75rem;
-  height: 100%;
-  padding: 0.35rem 0.5rem;
+  gap: 0.55rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.9rem;
   border: 1px solid var(--gold);
   border-radius: var(--r-card);
-  background: color-mix(in srgb, var(--gold), transparent 88%);
+  /* légèrement plus opaque qu'avant : le bouton reste net posé sur le filigrane */
+  background: color-mix(in srgb, var(--gold), transparent 82%);
   color: var(--gold-bright);
   font-weight: 700;
   box-shadow: none;
@@ -341,25 +407,40 @@
   gap: 0.4rem;
 }
 
+/* Badge de notif « design pixel » : carré crénelé, liseré dur 8-bit, chiffre en
+   police pixel (Silkscreen). Le liseré sombre + l'ombre portée dure remplacent
+   l'ancien anneau et détachent la pastille du bord de l'onglet. */
 .subtab-badge {
   position: absolute;
-  top: -0.4rem;
-  right: 0.3rem;
+  top: -0.5rem;
+  right: 0.15rem;
   display: grid;
   place-items: center;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.22rem;
-  border-radius: var(--r-pill);
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.24rem;
+  border-radius: 0;
+  border: 2px solid #100a06;
   background: var(--gold);
-  color: #16100a;
-  font-family: var(--font-body);
-  font-size: var(--fs-tiny);
-  font-weight: 800;
+  color: #140d06;
+  font-family: var(--font-pixel);
+  font-size: 0.58rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  /* anneau sombre : la pastille se détache du bord de l'onglet (style notif) */
-  box-shadow: 0 0 0 2px var(--surface-panel);
+  /* biseau embossé (haut clair / bas sombre) — clippé À L'INTÉRIEUR de la forme */
+  box-shadow:
+    inset 0 0.12rem 0 rgba(255, 255, 255, 0.28),
+    inset 0 -0.12rem 0 rgba(0, 0, 0, 0.3);
+  /* ombre portée DURE (0 flou) : suit la silhouette crénelée via filter */
+  filter: drop-shadow(0.12rem 0.12rem 0 rgba(0, 0, 0, 0.55));
+  /* coins « rognés » de 3px → escalier pixel caractéristique */
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
 }
 
 /* Chaque catégorie a SON identité (l'actif n'est plus l'or, trop omniprésent) :
@@ -381,20 +462,8 @@
 }
 
 /* Responsive : la rangée d'achat se compacte sous 560px */
-@media (max-width: 560px) {
-  .purchase-row {
-    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
-  }
-
-  .purchase-row .btn-purchase {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
-
-  .purchase-row.pr-locked {
-    grid-template-columns: 2.25rem minmax(0, 1fr);
-  }
-}
+/* La carte est en flex-column : responsive nativement, plus de règle de grille
+   spécifique sous 560px (le pied bouton+compteur et la production wrap tout seuls). */
 
 /* ============================================================================
    Game feel (Audit UI Phase 7)

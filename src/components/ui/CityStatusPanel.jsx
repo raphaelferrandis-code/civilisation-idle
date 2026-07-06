@@ -6,6 +6,7 @@ import { isMythEffectActive } from '../../game/data/myths.js';
 import { pct, roman, clamp01 } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
+import PixelIcon from './PixelIcon.jsx';
 
 /**
  * Encart d'état de la civilisation, logé dans la barre latérale au-dessus des
@@ -126,27 +127,27 @@ export default function CityStatusPanel() {
 
       <div className="csp-stats">
         <div className="csp-stat" title={tr({ fr: "Cycles accomplis", en: "Cycles completed" })}>
-          <span className="csp-stat-icon" aria-hidden="true">🔄</span>
+          <PixelIcon name="glyphs/cycles" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Numéro de la dynastie actuelle", en: "Number of the current dynasty" })}>
-          <span className="csp-stat-icon" aria-hidden="true">👑</span>
+          <PixelIcon name="glyphs/couronne" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Dynastie', en: 'Dynasty' })}</span>
           <strong>{roman(dynastyCount + 1)}</strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" })}>
-          <span className="csp-stat-icon" aria-hidden="true">⚡</span>
+          <PixelIcon name="glyphs/mult" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Multiplic.', en: 'Multiplier' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Meilleure ère atteinte à ce jour", en: "Best era reached so far" })}>
-          <span className="csp-stat-icon" aria-hidden="true">🏆</span>
+          <PixelIcon name="glyphs/trophee" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Âge max', en: 'Max age' })}</span>
           <strong className="csp-stat-era">{eras[bestEraIndex].name}</strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Durée du cycle actuel", en: "Duration of the current cycle" })}>
-          <span className="csp-stat-icon" aria-hidden="true">⏳</span>
+          <PixelIcon name="glyphs/temps" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Temps', en: 'Time' })}</span>
           <strong>{cycleTimeLabel}</strong>
         </div>

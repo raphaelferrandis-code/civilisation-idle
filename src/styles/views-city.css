@@ -173,7 +173,13 @@
 
 .crisis-foyer-head:hover .crisis-foyer-name { color: var(--gold-ivory); }
 
-.crisis-foyer-icon { font-size: 0.9rem; }
+.crisis-foyer-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 
 .crisis-foyer-name {
   font-size: 0.8rem;
@@ -361,6 +367,14 @@
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+}
+
+.tactical-foyer-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  image-rendering: pixelated;
 }
 
 .is-soothed .crisis-foyer-fill,

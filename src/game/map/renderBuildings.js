@@ -8,6 +8,7 @@ import {
   cmWonderSlot
 } from './layout.js';
 import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingShapes.js';
+import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
@@ -194,6 +195,7 @@ function drawTile(t, now, timeWear, maxD2) {
   const pad = s * 0.12;
   const zc = CM.cam.zoom;
   let tileLumDelta = 0;
+  let usePixelHouse = false;   // sprite pixel prêt pour cette maison → saute le procédural
 
   // Effondrement : la ville s'ecroule du centre vers l'exterieur (shrink puis ruine).
   if (CM.collapseAt) {
@@ -224,7 +226,11 @@ function drawTile(t, now, timeWear, maxD2) {
     x = ccx - w / 2 + offX; y = ccy - h / 2 + offY;
     tileLumDelta = (((seedV >> 9) % 31) / 31 - 0.5) * 0.3; // ~ +/-15%
     const bh = BUILDING_HEIGHTS[t.variant] ?? 1;
-    if (CM_SOFT_FOOTPRINT.has(t.variant)) {
+    usePixelHouse = t.type === "house" && pixelHouseReady(t);
+    if (usePixelHouse) {
+      // Sprite pixel : pas d'ombre carrée procédurale — drawPixelHouse pose son
+      // propre ovale de contact, calé sur l'emprise réelle du sprite.
+    } else if (CM_SOFT_FOOTPRINT.has(t.variant)) {
       // Empreintes libres : aucune ombre rectangulaire. Chaque variante a une
       // ombre ovale basse, assez visible pour ancrer le sprite sans refaire une tuile.
       drawSoftFootprintShadow(ctx, t.variant, x, y, w, h);
@@ -269,7 +275,10 @@ function drawTile(t, now, timeWear, maxD2) {
   } else {
     // Corps du batiment
     if (t.type === "house") {
-      drawHouseShape(x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.gx * 13 + t.gy * 7, t.variant, now);
+      // Sprite pixel-art si dispo (ancré base, monte au-dessus de la tuile), sinon procédural.
+      if (!(usePixelHouse && drawPixelHouse(t, x, y, w, h))) {
+        drawHouseShape(x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.gx * 13 + t.gy * 7, t.variant, now);
+      }
     } else {
       ctx.fillStyle = baseColor(t.type, t.variant);
       ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
@@ -277,14 +286,14 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   // Variation de luminosite (clair/sombre selon le seed).
-  if (!CM_SOFT_FOOTPRINT.has(t.variant) && Math.abs(tileLumDelta) > 0.02) {
+  if (!usePixelHouse && !CM_SOFT_FOOTPRINT.has(t.variant) && Math.abs(tileLumDelta) > 0.02) {
     ctx.fillStyle = tileLumDelta > 0 ? `rgba(255,240,210,${tileLumDelta.toFixed(2)})` : `rgba(0,0,0,${(-tileLumDelta).toFixed(2)})`;
     ctx.fillRect(x + pad, y + pad, w - pad * 2, h - pad * 2);
   }
 
   // Teinte de quartier : dominante selon le quartier d'appartenance
   // (rend la structure procédurale lisible : souk doré, quartier savant bleuté...).
-  if (t.qkind && t.type !== "engine" && !CM_SOFT_FOOTPRINT.has(t.variant)) {
+  if (t.qkind && t.type !== "engine" && !usePixelHouse && !CM_SOFT_FOOTPRINT.has(t.variant)) {
     const tint = CM_QTINT[t.qkind];
     if (tint) {
       ctx.fillStyle = tint;
@@ -296,7 +305,7 @@ function drawTile(t, now, timeWear, maxD2) {
 
   // Fumee industrielle (ere avancee) sur certains batiments.
   const eb = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 0;
-  if (eb >= 4 && (t.variant === "block" || t.variant === "tenement") && ((t.gx * 7 + t.gy * 13) % 3 === 0)) {
+  if (!usePixelHouse && eb >= 4 && (t.variant === "block" || t.variant === "tenement") && ((t.gx * 7 + t.gy * 13) % 3 === 0)) {
     const cxs = x + w * 0.5;
     for (let k = 0; k < 2; k += 1) {
       const ph = ((now / 1400) + k * 0.5 + t.gx * 0.13) % 1;
@@ -403,9 +412,9 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
       } else {
         // Nettement plus grand que l'élément cuit : même dans les frames où la
         // flamme animée penche, sa silhouette recouvre celle du sprite (sinon
-        // les deux se voient en double). La flamme de porte reste bridée pour
-        // ne pas déborder de l'encadrement.
-        const sc = a.sc != null ? a.sc : f.kind === "door" ? 1.15 : 1.7;
+        // les deux se voient en double). Un `sc` par flamme prime (ex. torche du
+        // t1 rapetissée dont la version cuite a été effacée du sprite).
+        const sc = f.sc != null ? f.sc : a.sc != null ? a.sc : f.kind === "door" ? 1.15 : 1.7;
         dw = (f.w * sc + 2) * sx; dh = (f.h * sc + 2) * sy;
         dx = left + f.x * sx - dw / 2;
         dy = a.anchor === "top"

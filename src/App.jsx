@@ -6,6 +6,7 @@ import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { openView, save } from './game/core/state.js';
+import { buyAllAffordable } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
@@ -85,6 +86,19 @@ export default function App() {
           setIsOptionsOpen(true);
         }
         return;
+      }
+
+      // Raccourci « E » : tout acheter (Moteurs + Savoir + Infra) sans scroller.
+      // Ignoré si une saisie a le focus, si un modificateur est actif ou si un
+      // dialog est ouvert. On ne `return` PAS : la séquence debug (qui contient
+      // un « e ») continue de s'accumuler plus bas.
+      if ((event.key === "e" || event.key === "E") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const el = document.activeElement;
+        const isTyping = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+        if (!isTyping && !document.querySelector("dialog[open]")) {
+          event.preventDefault();
+          buyAllAffordable();
+        }
       }
 
       if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;

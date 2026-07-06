@@ -6,6 +6,7 @@ import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
+import PixelIcon from '../ui/PixelIcon.jsx';
 import {
   cityVitals,
   pressureBreakdown,
@@ -292,9 +293,8 @@ export default function CityView() {
                 aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}% — ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}% — ${tr(tier.label)}` })}
               >
                 <div className="sg-meta">
-                  <span className="sg-icon" aria-hidden="true">{tier.icon}</span>
                   <span className="sg-label">{tr(tier.label)}</span>
-                  <span className="sg-collapse-gain" title={tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>💀 +{fmt(projectedRuin)} 🏛️</span>
+                  <span className="sg-collapse-gain" title={tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>+{fmt(projectedRuin)}</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -523,7 +523,7 @@ export default function CityView() {
             <div className="myths-grid-redesigned">
               {isSisyphe && (
                 <div className="myth-status-card sisyphus" title={tr({ fr: "Le mythe de Sisyphe est actif", en: "The myth of Sisyphus is active" })}>
-                  <span className="myth-card-icon">🪨</span>
+                  <PixelIcon name="myths/sisyphe" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Sisyphe", en: "Sisyphus" })}</span>
                     <strong id="sisypheMultValue">{tr({ fr: `Production x${fmt(sisypheMult || 1)}`, en: `Production x${fmt(sisypheMult || 1)}` })}</strong>
@@ -532,7 +532,7 @@ export default function CityView() {
               )}
               {isIcare && (
                 <div className="myth-status-card icare" title={tr({ fr: "Le mythe d'Icare est actif", en: "The myth of Icarus is active" })}>
-                  <span className="myth-card-icon">🪶</span>
+                  <PixelIcon name="myths/icare" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Icare", en: "Icarus" })}</span>
                     <strong id="icareTimerValue">
@@ -543,7 +543,7 @@ export default function CityView() {
               )}
               {isBabel && (
                 <div className="myth-status-card babel" title={tr({ fr: "Le mythe de Babel est actif", en: "The myth of Babel is active" })}>
-                  <span className="myth-card-icon">🏗</span>
+                  <PixelIcon name="myths/babel" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>Babel ({tr(BABEL_CAT_LABELS[babelCategory]) || babelCategory || tr({ fr: 'Non choisi', en: 'Not chosen' })})</span>
                     <strong id="babelMultValue">{babelProdReached ? tr({ fr: "Tour achevée !", en: "Tower completed!" }) : tr({ fr: "En construction", en: "Under construction" })}</strong>
@@ -552,7 +552,7 @@ export default function CityView() {
               )}
               {isOr && (
                 <div className="myth-status-card age-or" title={tr({ fr: "Le mythe de l'Âge d'Or est actif", en: "The myth of the Golden Age is active" })}>
-                  <span className="myth-card-icon">✦</span>
+                  <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })} ({orUsureImbalance ? tr({ fr: "Déséquilibré", en: "Imbalanced" }) : tr({ fr: "Équilibré", en: "Balanced" })})</span>
                     <strong>{tr({ fr: `Or: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}`, en: `Gold: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}` })}</strong>
@@ -561,7 +561,7 @@ export default function CityView() {
               )}
               {isPhoenix && (
                 <div className="myth-status-card phoenix" title={tr({ fr: "Le mythe du Phénix est actif", en: "The myth of the Phoenix is active" })}>
-                  <span className="myth-card-icon">🔥</span>
+                  <PixelIcon name="myths/phenix" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Phénix", en: "Phoenix" })}</span>
                     <strong>{tr({ fr: `Renaissances: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Fenêtre: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}`, en: `Rebirths: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Window: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}` })}</strong>
@@ -570,7 +570,7 @@ export default function CityView() {
               )}
               {isHeph && (
                 <div className="myth-status-card heph" title={tr({ fr: "Le mythe d'Héphaïstos est actif", en: "The myth of Hephaestus is active" })}>
-                  <span className="myth-card-icon">⚙</span>
+                  <PixelIcon name="myths/hephaistos" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Héphaïstos", en: "Hephaestus" })} {hephGoalReached && tr({ fr: " (Pacte accompli !)", en: " (Pact fulfilled!)" })}</span>
                     <strong>{tr({ fr: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}`, en: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Pop decline' : 'Stable'}` })}</strong>
@@ -579,7 +579,7 @@ export default function CityView() {
               )}
               {isAtrides && (
                 <div className="myth-status-card atrides" title={tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" })}>
-                  <span className="myth-card-icon">⚖</span>
+                  <PixelIcon name="myths/atrides" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Atrides", en: "Atreides" })}</span>
                     <strong>{tr({ fr: `Dette: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}`, en: `Debt: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}` })}</strong>
@@ -588,7 +588,7 @@ export default function CityView() {
               )}
               {atridesPactActive && (
                 <div className="myth-status-card atrides-pact" title={tr({ fr: "Pacte des Atrides scellé", en: "Atreides Pact sealed" })}>
-                  <span className="myth-card-icon">📜</span>
+                  <PixelIcon name="myths/pacte" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Pacte Atrides", en: "Atreides Pact" })}</span>
                     <strong>
@@ -603,7 +603,7 @@ export default function CityView() {
               )}
               {atridesNextRunPenaltyActive && (
                 <div className="myth-status-card atrides-penalty" title={tr({ fr: "Malus de transmission des Atrides actif", en: "Atreides transmission penalty active" })}>
-                  <span className="myth-card-icon">⚠️</span>
+                  <PixelIcon name="myths/atrides" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Fardeau Atrides", en: "Atreides Burden" })}</span>
                     <strong className="danger-text">{tr({ fr: "Production globale -20%", en: "Global production -20%" })}</strong>
@@ -612,7 +612,7 @@ export default function CityView() {
               )}
               {isMythEffectActive("mythe_d_enee") && (
                 <div className="myth-status-card enee" title={tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" })}>
-                  <span className="myth-card-icon">⛵</span>
+                  <PixelIcon name="myths/enee" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Énée", en: "Aeneas" })}</span>
                     <strong>{tr({ fr: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Invivable !" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}`, en: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Uninhabitable!" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}` })}</strong>
@@ -621,7 +621,7 @@ export default function CityView() {
               )}
               {eneeHeritage && cycleSeconds < 30 && (
                 <div className="myth-status-card enee-heritage" title={tr({ fr: "Bénédiction d'Énée active pour le début du cycle", en: "Aeneas's Blessing active for the start of the cycle" })}>
-                  <span className="myth-card-icon">⚖</span>
+                  <PixelIcon name="myths/benediction" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Bénédiction Énée", en: "Aeneas's Blessing" })}</span>
                     <strong className="positive-text">{tr({ fr: `Prod globale +${Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%`, en: `Global prod +${Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%` })}</strong>
@@ -633,7 +633,7 @@ export default function CityView() {
                   className="myth-status-card epitaph-legacy"
                   title={`${activeEpitaphDefinition.tagline}\n${epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => chip.label).join(" · ")}`}
                 >
-                  <span className="myth-card-icon">{activeEpitaphDefinition.icon || "📜"}</span>
+                  <PixelIcon name="myths/epitaph" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: `Legs : ${activeEpitaphDefinition.logLabel}`, en: `Legacy: ${activeEpitaphDefinition.logLabel}` })}</span>
                     <strong>
@@ -644,7 +644,7 @@ export default function CityView() {
               )}
               {hasLatent && (
                 <div className="myth-status-card latent" id="cityLatentRow" title={tr({ fr: "Bonus de ruines non dépensées", en: "Bonus from unspent ruins" })}>
-                  <span className="myth-card-icon">✨</span>
+                  <PixelIcon name="myths/latente" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Puissance Latente", en: "Latent Power" })}</span>
                     <strong id="cityLatentBonus">{tr({ fr: `Bonus global x${fmt(unspentMult)}`, en: `Global bonus x${fmt(unspentMult)}` })}</strong>

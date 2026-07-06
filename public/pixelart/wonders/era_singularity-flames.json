@@ -1,28 +1,122 @@
 {
   "asset": {
-    "pulseA": { "file": "eye-pulse-amber.png", "fw": 40, "fh": 40, "frames": 16, "ms": 150, "sc": 1.0, "anchor": "center", "blend": "lighter" },
-    "pulseG": { "file": "eye-pulse-gold.png", "fw": 40, "fh": 40, "frames": 16, "ms": 150, "sc": 1.0, "anchor": "center", "blend": "lighter" },
-    "gyro":   { "file": "eye-gyro.png", "fw": 96, "fh": 96, "frames": 24, "ms": 200, "sc": 1.0, "anchor": "center", "loop": "forward", "blend": "lighter" },
-    "glint":  { "file": "gem-glint.png", "fw": 9, "fh": 9, "frames": 16, "ms": 120, "sc": 1.3, "anchor": "center" }
+    "pulseA": {
+      "file": "eye-pulse-amber.png",
+      "fw": 40,
+      "fh": 40,
+      "frames": 16,
+      "ms": 150,
+      "sc": 1,
+      "anchor": "center",
+      "blend": "lighter"
+    },
+    "pulseG": {
+      "file": "eye-pulse-gold.png",
+      "fw": 40,
+      "fh": 40,
+      "frames": 16,
+      "ms": 150,
+      "sc": 1,
+      "anchor": "center",
+      "blend": "lighter"
+    },
+    "gyro": {
+      "file": "eye-gyro.png",
+      "fw": 96,
+      "fh": 96,
+      "frames": 24,
+      "ms": 200,
+      "sc": 1,
+      "anchor": "center",
+      "loop": "forward",
+      "blend": "lighter"
+    },
+    "glint": {
+      "file": "gem-glint.png",
+      "fw": 9,
+      "fh": 9,
+      "frames": 16,
+      "ms": 120,
+      "sc": 1.3,
+      "anchor": "center"
+    }
   },
   "tiers": {
-    "t1": { "flames": [
-      { "x": 36, "y": 31, "w": 24, "h": 24, "kind": "pulseA" }
-    ] },
-    "t2": { "flames": [
-      { "x": 60, "y": 54, "w": 30, "h": 30, "kind": "pulseA" }
-    ] },
-    "t3": { "flames": [
-      { "x": 55, "y": 91, "w": 44, "h": 44, "kind": "pulseA" }
-    ] },
-    "t4": { "flames": [
-      { "x": 110, "y": 106, "w": 56, "h": 56, "kind": "pulseA" }
-    ] },
-    "t5": { "flames": [
-      { "x": 144, "y": 143, "w": 310, "h": 310, "kind": "gyro" },
-      { "x": 144, "y": 141, "w": 78, "h": 78, "kind": "pulseG" },
-      { "x": 144, "y": 52, "w": 8, "h": 8, "kind": "glint" },
-      { "x": 144, "y": 234, "w": 8, "h": 8, "kind": "glint" }
-    ] }
+    "t1": {
+      "flames": [
+        {
+          "x": 40,
+          "y": 40,
+          "w": 26,
+          "h": 26,
+          "kind": "pulseA"
+        }
+      ]
+    },
+    "t2": {
+      "flames": [
+        {
+          "x": 64,
+          "y": 62,
+          "w": 38,
+          "h": 38,
+          "kind": "pulseA"
+        }
+      ]
+    },
+    "t3": {
+      "flames": [
+        {
+          "x": 88,
+          "y": 88,
+          "w": 50,
+          "h": 50,
+          "kind": "pulseA"
+        }
+      ]
+    },
+    "t4": {
+      "flames": [
+        {
+          "x": 112,
+          "y": 102,
+          "w": 44,
+          "h": 44,
+          "kind": "pulseA"
+        }
+      ]
+    },
+    "t5": {
+      "flames": [
+        {
+          "x": 144,
+          "y": 144,
+          "w": 300,
+          "h": 300,
+          "kind": "gyro"
+        },
+        {
+          "x": 144,
+          "y": 143,
+          "w": 92,
+          "h": 92,
+          "kind": "pulseG"
+        },
+        {
+          "x": 144,
+          "y": 46,
+          "w": 9,
+          "h": 9,
+          "kind": "glint"
+        },
+        {
+          "x": 144,
+          "y": 242,
+          "w": 9,
+          "h": 9,
+          "kind": "glint"
+        }
+      ]
+    }
   }
 }

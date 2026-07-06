@@ -48,7 +48,7 @@ flames.forEach((f, i) => {
   if (!strip) { console.error(`(asset ${f.kind} manquant, flamme ${i} sautée)`); return; }
   const k = frameArg === "multi" ? (i * 3) % strip.n : Math.min(strip.n - 1, Number(frameArg) || 0);
   // même échelle que drawWonderPixelSprite (flammes nettement plus grandes que les cuites)
-  const sc = f.kind === "door" ? 1.15 : 1.7;
+  const sc = f.sc != null ? f.sc : (f.kind === "door" ? 1.15 : 1.7);
   const dw = Math.round(f.w * sc + 2), dh = Math.round(f.h * sc + 2);
   blitFlame(strip, k, f.x - Math.floor(dw / 2), f.y - dh + 1, dw, dh);
 });

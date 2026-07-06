@@ -30,15 +30,24 @@ export function generateRoadsGraph({
   const span = Math.ceil((plan.reachBase || 8) + 6);
   const mainRank = ageCfg.roadRanks.main ? "main" : "secondary";
 
+  // Largeur du pont : DOUBLE-VOIE (2 tuiles) dès la bande 2 (Pierre) ; 1 voie aux
+  // âges Feu/Bois. Chaque colonne de voie est un pont droit 1-large INDÉPENDANT
+  // (jamais reliées en H) → la validation « pont droit » les traite séparément
+  // (2 chaussées parallèles), sans changement. Le rendu les regroupe en un span.
+  const bridgeLaneW = counts.eraBand >= 2 ? 2 : 1;
   // Colonnes de pont : pont historique + 1-2 traversées seedées aux ères avancées.
-  const bridgeCols = new Set([Math.round(riverBridgeX)]);
+  const bridgeBaseCols = [Math.round(riverBridgeX)];
   if (counts.eraBand >= 3) {
     const bRng = rngFrom(seed, "bridges");
     const extra = counts.eraBand >= 5 ? 2 : 1;
     for (let i = 0; i < extra; i += 1) {
-      bridgeCols.add(Math.round(riverBridgeX + (bRng() - 0.5) * N * 0.45));
+      bridgeBaseCols.push(Math.round(riverBridgeX + (bRng() - 0.5) * N * 0.45));
     }
   }
+  // Chaque base occupe `bridgeLaneW` colonnes adjacentes (la 2e voie doit être
+  // permise sur l'eau, sinon addCell la bloque).
+  const bridgeCols = new Set();
+  for (const bx of bridgeBaseCols) for (let dx = 0; dx < bridgeLaneW; dx += 1) bridgeCols.add(bx + dx);
 
   const inBounds = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
   const inWater = (x, y) => riverSet.has(x + "," + y) || bankSet.has(x + "," + y);
@@ -85,6 +94,15 @@ export function generateRoadsGraph({
     };
     if (!put(center)) return;
     for (const dir of [1, -1]) for (let p = center + dir; put(p); p += dir) { /* extend */ }
+  }
+
+  // Grand axe LARGE = boulevard de 2 cellules : deux lignes COLLÉES (fixed & fixed+1).
+  // En pixel la chaussée fait alors 2 tuiles pleines, et le terre-plein planté se pose
+  // sur la COUTURE entre les deux (terrePlein) → une vraie voie de chaque côté. Réservé
+  // au rang "main" (les avenues/rues restent fines → densité maîtrisée).
+  function runLineWide(axis, fixed, center, rank, margin = 2.2) {
+    runLine(axis, fixed, center, rank, margin);
+    if (rank === "main") runLine(axis, fixed + 1, center, rank, margin);
   }
 
   // Point le plus éloigné le long d'un rayon depuis le cœur encore DANS la
@@ -171,19 +189,20 @@ export function generateRoadsGraph({
   // ensuite raccroché à la ville par la couture. Sans fleuve : court tronçon.
   function bridgeCrossing(rank) {
     const x = Math.round(riverBridgeX);
+    // Étendue d'eau = UNION sur les colonnes de voie (les deux traversent en entier).
     let y0 = N, y1 = -1;
     for (const k of riverSet) {
       const c = k.indexOf(",");
-      if (Number(k.slice(0, c)) !== x) continue;
+      const kx = Number(k.slice(0, c));
+      if (kx < x || kx >= x + bridgeLaneW) continue;
       const gy = Number(k.slice(c + 1));
       if (gy < y0) y0 = gy;
       if (gy > y1) y1 = gy;
     }
-    if (y1 < y0) {
-      addEdge(x, Math.max(0, core.y - 3), x, Math.min(N - 1, core.y + 1), rank);
-      return;
+    for (let dx = 0; dx < bridgeLaneW; dx += 1) {
+      if (y1 < y0) addEdge(x + dx, Math.max(0, core.y - 3), x + dx, Math.min(N - 1, core.y + 1), rank);
+      else addEdge(x + dx, Math.max(0, y0 - 3), x + dx, Math.min(N - 1, y1 + 3), rank, true);
     }
-    addEdge(x, Math.max(0, y0 - 3), x, Math.min(N - 1, y1 + 3), rank, true);
   }
 
   // ── Squelette par archétype ─────────────────────────────────────────────────
@@ -234,7 +253,7 @@ export function generateRoadsGraph({
     for (const a of plan.anchors) staircase(core.x, core.y, a.gx, a.gy, "path", "rd:" + a.label);
   } else if (A === "districts") {
     bridgeCrossing(mainRank);
-    runLine("h", core.y, core.x, mainRank);
+    runLineWide("h", core.y, core.x, mainRank);
     for (const a of plan.anchors) {
       staircase(core.x, core.y, a.gx, a.gy, a.band >= 3 ? "avenue" : "secondary", "dt:" + a.label);
       localGrid(Math.round(a.gx), Math.round(a.gy), Math.round(a.r + 1), 3, "secondary", "dt:" + a.label);
@@ -244,15 +263,17 @@ export function generateRoadsGraph({
       ring(core.x, core.y, 4 + ri * 5 + Math.floor(rng() * 2), "secondary");
   } else { // capital / megalopolis
     const rng = rngFrom(seed, "capital");
-    const spacing = A === "megalopolis" ? 4 : 5;
-    runLine("h", core.y, core.x, mainRank);
+    // Espacement ÉLARGI + moins de lanes + décalage SYMÉTRIQUE : évite les paquets de
+    // routes serrées qui se soudaient en grands aplats gris (cf. plafond roadMedian).
+    const spacing = A === "megalopolis" ? 5 : 6;
+    runLineWide("h", core.y, core.x, mainRank);
     bridgeCrossing(mainRank);
-    runLine("v", core.x, core.y, mainRank);
-    const lanes = Math.min(7, 2 + counts.eraBand + Math.floor(counts.urbanTier / 5));
-    const off = Math.floor(rng() * spacing);
+    runLineWide("v", core.x, core.y, mainRank);
+    const lanes = Math.min(5, 2 + counts.eraBand + Math.floor(counts.urbanTier / 5));
+    const off = Math.floor(rng() * 2);   // léger décalage GLOBAL (symétrique), pas asymétrique
     for (let li = -lanes; li <= lanes; li += 1) {
       if (li === 0) continue;
-      const d = li * spacing + (li > 0 ? off : -off);
+      const d = li * spacing + off;      // même off des deux côtés → espacement régulier
       const rank = Math.abs(li) <= 2 ? "avenue" : "secondary";
       runLine("h", core.y + d, core.x, rank);
       runLine("v", core.x + d, core.y, rank);

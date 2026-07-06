@@ -182,13 +182,20 @@ export default function OptionsDialog({ isOpen, onClose }) {
             {tr({ fr: "Son", en: "Sound" })}
           </button>
           <button
+            className={`options-tab ${activeGroup === 'shortcuts' ? 'active' : ''}`}
+            type="button"
+            onClick={() => setActiveGroup('shortcuts')}
+          >
+            {tr({ fr: "Raccourcis", en: "Shortcuts" })}
+          </button>
+          <button
             className={`options-tab ${activeGroup === 'other' ? 'active' : ''}`}
             type="button"
             onClick={() => setActiveGroup('other')}
           >
             {tr({ fr: "Autre", en: "Other" })}
           </button>
-          
+
           {phoenixHeritage && (
             <button
               className={`options-tab ${activeGroup === 'script' ? 'active' : ''}`}
@@ -343,6 +350,27 @@ export default function OptionsDialog({ isOpen, onClose }) {
                 >
                   {musicActiveTabOnly ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                 </button>
+              </div>
+            </>
+          )}
+
+          {/* SHORTCUTS PANEL */}
+          {activeGroup === 'shortcuts' && (
+            <>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
+                  <small>{tr({ fr: "Achète Moteurs + Savoir + Infrastructure, du plus cher au moins cher, en cascade", en: "Buys Engines + Knowledge + Infrastructure, most expensive first, cascading" })}</small>
+                </div>
+                <kbd className="shortcut-kbd">E</kbd>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Ouvrir les options", en: "Open options" })}</span>
+                  <small>{tr({ fr: "Ouvre ce menu à tout moment", en: "Opens this menu at any time" })}</small>
+                </div>
+                <kbd className="shortcut-kbd">{tr({ fr: "Échap", en: "Esc" })}</kbd>
               </div>
             </>
           )}

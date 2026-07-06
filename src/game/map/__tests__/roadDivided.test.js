@@ -93,19 +93,19 @@ describe("cityMapDrawRoadMarkings — segments continus", () => {
     { gx: 7, gy: 5, mask: ROAD_W, rank: "main" },
   ];
 
-  it("ère moderne : UN segment, terre-plein + bandes pointillées continues", () => {
+  it("ère moderne : UN segment, bandes pointillées continues (terre-plein = pixel)", () => {
     const ctx = setupLayout(boulevard, { ei: 14 });
     cityMapDrawRoadMarkings();
     expect(CM.roadRuns.hRuns).toHaveLength(1);
     expect(CM.roadRuns.hRuns[0]).toMatchObject({ x0: 3, x1: 7, gy: 5, rank: "main" });
-    expect(ctx._fills).toBe(1);     // UN terre-plein pour tout le segment (≠ par cellule)
+    expect(ctx._fills).toBe(0);     // plus d'aplat procédural : le refuge est rendu en pixel
     expect(ctx._dashed).toBe(true);
   });
 
-  it("ère classique (8) : terre-plein pavé, pas encore de peinture", () => {
+  it("ère classique (8) : bandes pas encore peintes, aucun aplat procédural", () => {
     const ctx = setupLayout(boulevard, { ei: 8 });
     cityMapDrawRoadMarkings();
-    expect(ctx._fills).toBe(1);
+    expect(ctx._fills).toBe(0);     // terre-plein procédural supprimé (→ pixel)
     expect(ctx._dashed).toBe(false);
   });
 
@@ -125,52 +125,48 @@ describe("cityMapDrawRoadMarkings — segments continus", () => {
     }
   });
 
-  it("avenue : terre-plein continu + bandes peintes (terre-plein DÈS avenue)", () => {
+  it("avenue : bandes peintes, terre-plein en pixel (plus d'aplat procédural)", () => {
     const ctx = setupLayout(boulevard.map((c) => ({ ...c, rank: "avenue" })), { ei: 14 });
     cityMapDrawRoadMarkings();
-    expect(ctx._fills).toBe(1);     // terre-plein activé dès avenue (règle DA : avenue+)
+    expect(ctx._fills).toBe(0);     // aplat procédural supprimé — refuge planté = pixel
     expect(ctx._dashed).toBe(true);
   });
 });
 
-describe("vehicleLaneOffset — double sens de circulation", () => {
-  // Pose un grand axe sous le véhicule et règle l'ère.
-  function withRoad(rank, ei) {
-    CM.frameEraIndex = ei;
-    CM.layout = { roadMap: new Map([["5,5", { rank }]]) };
+describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur", () => {
+  const v = (gx, gy, dir, extra = {}) => ({ gx, gy, dir, parkT: 0, ...extra });
+  // Boulevard HORIZONTAL de 2 cellules : rangées gy=5 ET gy=6 en "main".
+  function boulevardH() {
+    CM.frameEraIndex = 14;
+    const m = new Map();
+    for (let x = 3; x <= 7; x += 1) { m.set(x + ",5", { rank: "main" }); m.set(x + ",6", { rank: "main" }); }
+    CM.layout = { roadMap: m };
   }
-  const v = (dir, extra = {}) => ({ gx: 5, gy: 5, dir, parkT: 0, ...extra });
 
-  it("boulevard : les deux sens vont de part et d'autre de l'axe (signes opposés)", () => {
-    withRoad("main", 14);
-    const north = vehicleLaneOffset(v(3), 32);  // nord → est
-    const south = vehicleLaneOffset(v(2), 32);  // sud  → ouest
-    expect(north.x).toBeGreaterThan(0);
-    expect(south.x).toBeLessThan(0);
-    expect(north.x).toBeCloseTo(-south.x);       // symétriques autour du terre-plein
-    expect(north.y).toBe(0);
-
-    const east = vehicleLaneOffset(v(0), 32);    // est → sud
-    const west = vehicleLaneOffset(v(1), 32);    // ouest → nord
-    expect(east.y).toBeGreaterThan(0);
-    expect(west.y).toBeLessThan(0);
-    expect(east.x).toBe(0);
+  it("les deux files se collent au BORD EXTÉRIEUR (opposées, loin de la couture)", () => {
+    boulevardH();
+    const top = vehicleLaneOffset(v(5, 5, 0), 32);  // voie du haut (voisin main en bas) → file en HAUT
+    const bot = vehicleLaneOffset(v(5, 6, 0), 32);  // voie du bas (voisin main en haut) → file en BAS
+    expect(top.y).toBeLessThan(0);
+    expect(bot.y).toBeGreaterThan(0);
+    expect(top.x).toBe(0);
+    expect(top.y).toBeCloseTo(-bot.y);               // symétriques autour de la couture
   });
 
-  it("avenue décale aussi (moins large) ; sentier/rue restent centrés", () => {
-    withRoad("avenue", 14);
-    expect(Math.abs(vehicleLaneOffset(v(3), 32).x)).toBeGreaterThan(0);
-    withRoad("secondary", 14);
-    expect(vehicleLaneOffset(v(3), 32)).toEqual({ x: 0, y: 0 });
-    withRoad("path", 14);
-    expect(vehicleLaneOffset(v(3), 32)).toEqual({ x: 0, y: 0 });
+  it("avenue / rue / sentier : centrés (seul le boulevard main 2-cell décale)", () => {
+    CM.frameEraIndex = 14;
+    CM.layout = { roadMap: new Map([["5,5", { rank: "avenue" }]]) };
+    expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
+    CM.layout = { roadMap: new Map([["5,5", { rank: "secondary" }]]) };
+    expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
   });
 
-  it("aucun décalage avant l'ère 7 (routes non divisées) ni en stationnement", () => {
-    withRoad("main", 4);
-    expect(vehicleLaneOffset(v(3), 32)).toEqual({ x: 0, y: 0 });
-    withRoad("main", 14);
-    expect(vehicleLaneOffset(v(3, { parkT: 1 }), 32)).toEqual({ x: 0, y: 0 });
+  it("main SANS voisin (1 cellule) ou stationnement : centré", () => {
+    CM.frameEraIndex = 14;
+    CM.layout = { roadMap: new Map([["5,5", { rank: "main" }]]) };  // pas de 2e voie
+    expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
+    boulevardH();
+    expect(vehicleLaneOffset(v(5, 5, 0, { parkT: 1 }), 32)).toEqual({ x: 0, y: 0 }); // garé
   });
 });
 

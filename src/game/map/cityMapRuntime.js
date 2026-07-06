@@ -54,6 +54,7 @@ import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, cityMapDrawRails, drawTram } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
+import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
 
 
 // Plafond de résolution de rendu : sur écrans HiDPI (dpr 2/3), dessiner à pleine
@@ -234,7 +235,7 @@ function cityMapHitTest(sx, sy) {
     for (const p of CM.rioters) {
       const sp = cityMapScreenFromWorld(p.x, p.y);
       if (Math.hypot(sp.x - sx, sp.y - sy) < citizenRadius) {
-        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et fourches levées. Cliquez sur un émeutier pour l'apaiser.", kind: "Émeute" };
+        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et armes de fortune levées. Cliquez sur un émeutier pour l'apaiser.", kind: "Émeute" };
       }
     }
   }
@@ -466,6 +467,11 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
   CM.tileCamKey = '';             // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
+  // Ordre painter's (arrière → avant) : indispensable depuis que les habitations
+  // pixel-art dépassent leur tuile vers le haut — une tour au premier plan doit
+  // recouvrir ce qui est derrière. Tri par gy puis gx ; les consommateurs de
+  // L.tiles (naissance, tileGrid, maxD2) sont indépendants de l'ordre.
+  if (Array.isArray(L.tiles)) L.tiles.sort((a, b) => (a.gy - b.gy) || (a.gx - b.gx));
   // Couverture du réseau routier (bâtiments-moteur reliés / total) → cache lu par le sim
   // (roadNetworkMultiplier, +10% max). GÉOMÉTRIQUE → ne peut venir que de la carte ; persiste
   // dans state (dernière valeur si la carte n'est pas montée / hors-ligne).
@@ -500,9 +506,10 @@ function cityMapEnsureLayout(now, deps = {}) {
   // Map précalculée pour le hitTest — O(1) au lieu de deux find() O(n) à chaque mousemove
   CM.tileGrid = new Map();
   for (const t of L.tiles) {
-    const span = t.size || 1;
-    for (let ax = 0; ax < span; ax += 1) {
-      for (let ay = 0; ay < span; ay += 1) {
+    const spanX = t.spanX || t.size || 1;
+    const spanY = t.spanY || t.size || 1;
+    for (let ax = 0; ax < spanX; ax += 1) {
+      for (let ay = 0; ay < spanY; ay += 1) {
         const key = (t.gx + ax) + "," + (t.gy + ay);
         const existing = CM.tileGrid.get(key);
         if (!existing || t.type === "engine") CM.tileGrid.set(key, t);
@@ -939,7 +946,7 @@ function initCityMap(canvas, options = {}) {
           for (const r of CM.roadList) cityMapDrawRoad(r);
           cityMapDrawRoadMarkings();
         }
-        cityMapDrawBridges();
+        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);
         CM.ctx = _mainCtx;
@@ -1010,7 +1017,7 @@ function initCityMap(canvas, options = {}) {
           for (const r of CM.roadList) cityMapDrawRoad(r);
           cityMapDrawRoadMarkings();
         }
-        cityMapDrawBridges();
+        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
         cityMapDrawWalls();
         cityMapDrawStreetLights(now);
       }
@@ -1130,6 +1137,10 @@ function initCityMap(canvas, options = {}) {
     window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM.staticCamKey = ''; };
+    // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
+    // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
+    setBridgeOnLoad(() => { CM.staticCamKey = ''; });
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
     window.__collapse = (on) => { setCollapseInProgress(!!on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };

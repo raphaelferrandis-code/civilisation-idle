@@ -215,18 +215,18 @@ function BuildingShop() {
 
           return (
             <article className="purchase-row pr-locked">
-              <div className="pr-icon" aria-hidden="true">
-                <i className="fa-solid fa-lock"></i>
+              <div className="pr-name-row">
+                <span className="pr-icon" aria-hidden="true">
+                  <i className="fa-solid fa-lock"></i>
+                </span>
+                <h3 className="pr-name">{tr(nextLocked.name)}</h3>
               </div>
-              <div className="pr-main">
-                <div className="pr-name-row">
-                  <h3 className="pr-name">{tr(nextLocked.name)}</h3>
-                </div>
-                <p className="pr-locked-hint">{hint}</p>
+              <p className="pr-locked-hint">{hint}</p>
+              <div className="pr-footer">
+                <button className="btn-purchase" disabled>
+                  <span className="bp-action">{tr({ fr: "Bientôt", en: "Soon" })}</span>
+                </button>
               </div>
-              <button className="btn-purchase" disabled>
-                <span className="bp-action">{tr({ fr: "Bientôt", en: "Soon" })}</span>
-              </button>
             </article>
           );
         })()}

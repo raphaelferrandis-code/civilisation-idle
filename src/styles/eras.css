@@ -93,7 +93,8 @@
 
 .app[data-era-band="6"] .resource-value,
 .app[data-era-band="6"] .rate-value {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  /* Ères futuristes : chiffres en Silkscreen = « affichage digital » pixel. */
+  font-family: var(--font-pixel);
 }
 
 /* Scanlines très discrètes sur tout l'écran (sous la vignette de crise). */
@@ -149,7 +150,8 @@
 }
 .app[data-era-band="9"] .resource-value,
 .app[data-era-band="9"] .rate-value {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  /* Ères futuristes : chiffres en Silkscreen = « affichage digital » pixel. */
+  font-family: var(--font-pixel);
 }
 
 /* ============================================================

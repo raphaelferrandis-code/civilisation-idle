@@ -14,6 +14,8 @@
  *   tileset sans recoder. But : juger en jeu via le harnais __cityShot.
  * ============================================================================ */
 
+import { drawPixelMedians } from './pixelMedian.js';
+
 // upper=herbe=1, lower=route=0 ; clé = NW*8 + NE*4 + SE*2 + SW.
 function cornerKey(c) {
   const b = (v) => (v === 'upper' ? 1 : 0);
@@ -161,7 +163,20 @@ export function drawPixelTerrain(CM) {
   // des rues → l'edge-Wang fusionne le tout en une GRANDE route pleine (plus de « carrés de
   // sol » au milieu, plus de faux carrefours). Exclut déjà les bâtiments (calcul layout).
   const roadMedian = L.roadMedian || null;
-  const isStreet = (x, y) => drawStreets && (L.roadSet.has(x + ',' + y) || (roadMedian && roadMedian.has(x + ',' + y)));
+  // Les cellules de PLACE (rang "plaza") sont des esplanades dallées, PAS des
+  // chaussées : elles sont dans roadSet (marchables, h/v posés) mais doivent être
+  // EXCLUES du rendu de rue — sinon la dalle pixel de la place (insérée + coins
+  // arrondis, dessinée par-dessus) laisse fuiter la chaussée à ses bords et à ses
+  // 4 angles. Miroir du skip `rank === "plaza"` déjà fait côté routes procédurales
+  // (cityMapDrawRoad) et rubans median/terre-plein. Exclure aussi la place des
+  // VOISINS du masque edge-Wang ferme proprement les rues qui la bordent.
+  const isStreet = (x, y) => {
+    if (!drawStreets) return false;
+    const k = x + ',' + y;
+    if (!(L.roadSet.has(k) || (roadMedian && roadMedian.has(k)))) return false;
+    const rec = roadMap && roadMap.get(k);
+    return !(rec && rec.rank === 'plaza');
+  };
 
   const halfW = (CM.cw / 2) / z, halfH = (CM.ch / 2) / z;
   const gx0 = Math.floor((CM.cam.x - halfW) / T) - 1;
@@ -219,65 +234,12 @@ export function drawPixelTerrain(CM) {
     }
   }
 
-  // ── Terre-plein DÉCORABLE : ruban végétalisé (kerb sombre + gazon + micro-déco
-  // déterministe : buissons, fleurs terracotta). Deux sources, calculées en PUR
-  // dans layout.js :
-  //   • L.median (axes de rang avenue/main) — ruban au CENTRE de la voie, continu
-  //     à travers les croisements : c'est la récompense visuelle du palier
-  //     « Avenues » (les rangs suivent l'ère, cf. connectorRank) ;
-  //   • L.terrePlein — couture entre deux voies EXACTEMENT collées (géométrie rare).
-  // Toute déco plus riche (arbres, lampadaires…) itérera ces mêmes entités.
-  if (drawStreets && roadCol) {
-    const ribbons = [];
-    if (Array.isArray(L.terrePlein)) {
-      for (const s2 of L.terrePlein) {
-        if (s2.axis === 'v') ribbons.push({ v: true, c: (s2.x + 1) * T, a0: s2.y0, a1: s2.y1, id: s2.x * 4 + 1 });
-        else ribbons.push({ v: false, c: (s2.y + 1) * T, a0: s2.x0, a1: s2.x1, id: s2.y * 4 + 3 });
-      }
-    }
-    if (L.median && Array.isArray(L.median.segments)) {
-      for (const s2 of L.median.segments) {
-        ribbons.push({ v: s2.axis === 'v', c: (s2.fixed + 0.5) * T, a0: s2.a0, a1: s2.a1, id: s2.fixed * 4 + (s2.axis === 'v' ? 0 : 2) });
-      }
-    }
-    if (ribbons.length) {
-      const gw = Math.max(2, Math.round(sz * 8 / 32));   // largeur du gazon
-      const kb = Math.max(1, Math.round(sz * 1 / 32));   // kerb (bordurette)
-      const bush = Math.max(2, Math.round(sz * 4 / 32));
-      const flw = Math.max(1, Math.round(sz * 2 / 32));
-      const h32 = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h ^= h >> 13; h = (h * 1274126177) | 0; return (h ^ (h >> 16)) >>> 0; };
-      const px = (wx) => Math.floor((wx - CM.cam.x) * z + CM.cw / 2);
-      const py = (wy) => Math.floor((wy - CM.cam.y) * z + CM.ch / 2);
-      for (const rb of ribbons) {
-        const cg = rb.c / T; // colonne/rangée (fractionnaire) du ruban, pour le culling
-        if (rb.v) {
-          if (cg < gx0 || cg > gx1 + 1 || rb.a1 < gy0 || rb.a0 > gy1) continue;
-          const sx = px(rb.c) - (gw >> 1);
-          const y0 = py(rb.a0 * T), y1 = py((rb.a1 + 1) * T);
-          ctx.fillStyle = roadCol.edge; ctx.fillRect(sx - kb, y0, gw + 2 * kb, y1 - y0);
-          ctx.fillStyle = '#586034';    ctx.fillRect(sx, y0 + kb, gw, y1 - y0 - 2 * kb);
-          for (let gy = rb.a0; gy <= rb.a1; gy += 1) {
-            const h = h32(rb.id, gy);
-            const oy = py(gy * T) + ((h >> 8) % Math.max(1, sz - bush));
-            if (h % 5 < 2) { ctx.fillStyle = '#3f4a24'; ctx.fillRect(sx + ((gw - bush) >> 1), oy, bush, bush); }
-            else if (h % 5 === 2) { ctx.fillStyle = (h & 32) ? '#c96a4a' : '#e8e0cf'; ctx.fillRect(sx + ((gw - flw) >> 1), oy, flw, flw); }
-          }
-        } else {
-          if (cg < gy0 || cg > gy1 + 1 || rb.a1 < gx0 || rb.a0 > gx1) continue;
-          const sy = py(rb.c) - (gw >> 1);
-          const x0 = px(rb.a0 * T), x1 = px((rb.a1 + 1) * T);
-          ctx.fillStyle = roadCol.edge; ctx.fillRect(x0, sy - kb, x1 - x0, gw + 2 * kb);
-          ctx.fillStyle = '#586034';    ctx.fillRect(x0 + kb, sy, x1 - x0 - 2 * kb, gw);
-          for (let gx = rb.a0; gx <= rb.a1; gx += 1) {
-            const h = h32(rb.id, gx);
-            const ox = px(gx * T) + ((h >> 8) % Math.max(1, sz - bush));
-            if (h % 5 < 2) { ctx.fillStyle = '#3f4a24'; ctx.fillRect(ox, sy + ((gw - bush) >> 1), bush, bush); }
-            else if (h % 5 === 2) { ctx.fillStyle = (h & 32) ? '#c96a4a' : '#e8e0cf'; ctx.fillRect(ox, sy + ((gw - flw) >> 1), flw, flw); }
-          }
-        }
-      }
-    }
-  }
+  // ── Terre-plein (refuge central) PIXEL-ART, sur la couture L.terrePlein des
+  // boulevards 2 cellules (drawPixelMedians). L'ancien ruban végétalisé PROCÉDURAL
+  // (gazon + buissons + fleurs, sur L.median ET L.terrePlein) a été SUPPRIMÉ : plus
+  // aucun repli plat, seul le refuge pixel s'affiche. Flag off / asset pas encore
+  // décodé → rien (le refuge apparaît au décodage via setMedianOnLoad qui rebake).
+  if (drawStreets) drawPixelMedians(CM);
 
   ctx.imageSmoothingEnabled = prev;
   return true;

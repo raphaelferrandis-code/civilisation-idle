@@ -31,6 +31,18 @@ function variantList(table, band, bias) {
   return (bias && row[bias]) || row.base;
 }
 
+// Empreinte au sol [largeur, profondeur] (en tuiles) par variante. Les grands
+// bâtiments de late game réservent plus qu'une tuile : leur sprite est bien plus
+// grand, donc la « tuile » grandit avec lui → plus de chevauchement des voisins.
+//  - tours/immeubles FINS mais HAUTS : 1 large × 2 profond (denses côte à côte,
+//    espacés en profondeur pour ne pas se recouvrir de face) ;
+//  - mega-complexes LARGES : 2×2. Défaut 1×1.
+const HOUSE_FOOTPRINT = {
+  tenement: [1, 2], tower: [1, 2],
+  megablock: [2, 2], arcologyhome: [2, 2]
+};
+export const houseFootprint = (variant) => HOUSE_FOOTPRINT[variant] || [1, 1];
+
 // Affinité catégorie ↔ type de quartier : un bonus de placement quand la
 // cellule est dans le rayon d'une ancre du bon kind.
 const CATEGORY_AFFINITY = {
@@ -38,7 +50,7 @@ const CATEGORY_AFFINITY = {
 };
 
 export function createBuildingPlacer({
-  cells, plan, roadKey, counts, personality, seed, nearSet, N, requireRoad = false
+  cells, plan, roadKey, counts, personality, seed, N, requireRoad = false
 }) {
   const bias = personality.variantBias;
   const core = plan.core;
@@ -56,6 +68,21 @@ export function createBuildingPlacer({
       }
     }
     return 0;
+  };
+
+  // Route dans un rayon de HOUSE_ROAD_RADIUS cellules (Chebyshev). Sert de FILTRE
+  // de pose (requireRoad) : les maisons remplissent l'INTÉRIEUR des blocs (pas
+  // seulement le liseré de rue → on VEUT des bâtiments au milieu), tout en bornant
+  // la distance à une voie (pas d'orphelin perdu au milieu de nulle part, à relier).
+  const HOUSE_ROAD_RADIUS = 4;
+  const nearRoad = (gx, gy) => {
+    for (let dx = -HOUSE_ROAD_RADIUS; dx <= HOUSE_ROAD_RADIUS; dx += 1) {
+      for (let dy = -HOUSE_ROAD_RADIUS; dy <= HOUSE_ROAD_RADIUS; dy += 1) {
+        if (dx === 0 && dy === 0) continue;
+        if (roadKey.has((gx + dx) + "," + (gy + dy))) return true;
+      }
+    }
+    return false;
   };
 
   const anchorAffinity = (gx, gy, category) => {
@@ -144,10 +171,10 @@ export function createBuildingPlacer({
       const cell = list[i];
       const k = cell.gx + "," + cell.gy;
       if (usedKeys.has(k)) continue;
-      // PR2 — placement par lots : tout bâtiment décoratif doit border une rue
-      // (route dans le 8-voisinage). Sans rue adjacente, la cellule est ignorée
-      // → plus d'orphelins « au milieu de nulle part », plus de sentier à tracer.
-      if (requireRoad && roadAdj(cell.gx, cell.gy) < 1) continue;
+      // PR2 — placement par lots : tout bâtiment décoratif doit être PROCHE d'une
+      // rue (rayon HOUSE_ROAD_RADIUS). Assez large pour remplir l'intérieur des
+      // blocs (bâtiments au milieu), assez borné pour éviter les orphelins isolés.
+      if (requireRoad && !nearRoad(cell.gx, cell.gy)) continue;
       const variant = chooseVariant(category, placed, cell);
       pushTile({
         gx: cell.gx, gy: cell.gy, type: category,
@@ -161,7 +188,7 @@ export function createBuildingPlacer({
     return placed;
   };
 
-  return { placeCategory, chooseVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, requireRoad };
+  return { placeCategory, chooseVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, nearRoad, requireRoad };
 }
 
 // ── Placement décoratif PERSISTANT (slots) ──────────────────────────────────
@@ -189,9 +216,13 @@ export function placeCategorySlotted(category, count, ctx) {
     // L'index PERSISTANT `i` (pas le rang d'attribution) pilote chooseVariant :
     // le design reste stable à position fixe et n'évolue que par eraBand.
     const variant = chooseVariant(category, i, cell);
+    // Empreinte multi-tuiles des grands bâtiments : refuse la pose si le rectangle
+    // complet ne tient pas (cellFree est span-aware côté runtime) → refit ailleurs.
+    const [spanX, spanY] = houseFootprint(variant);
+    if ((spanX > 1 || spanY > 1) && !cellFree(cell.gx, cell.gy, spanX, spanY)) return false;
     const dx = cell.gx - cx, dy = cell.gy - cy;
     pushTile({
-      gx: cell.gx, gy: cell.gy, type: category, variant,
+      gx: cell.gx, gy: cell.gy, type: category, variant, spanX, spanY,
       qkind: quarterKindAt(cell.gx, cell.gy),
       key: cell.gx + "," + cell.gy,
       d2: cell.d2 != null ? cell.d2 : dx * dx + dy * dy

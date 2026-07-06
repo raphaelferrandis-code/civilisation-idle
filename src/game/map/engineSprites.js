@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, cosmicBase, propReady, blitProp, animReady, blitAnim } from './cityEngineSprites.js';
+import { drawCityEngineSprite, cosmicBase, softGround, propReady, blitProp, animReady, blitAnim } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -93,11 +93,7 @@ function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt) {
   opt = opt || {};
   const cx = opt.cx ?? 0.5, cy = opt.cy ?? 0.52, wf = opt.wf ?? 0.9, hf = opt.hf ?? 0.74;
   const gcy = opt.gcy ?? 0.5, warm = opt.warm ?? 0.12, ph = opt.ph ?? 0;
-  { const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-    ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-    const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-    g.addColorStop(0, "rgba(18,14,8,0.4)"); g.addColorStop(0.6, "rgba(18,14,8,0.2)"); g.addColorStop(1, "rgba(18,14,8,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+  softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "18,14,8", 0.4); // sol (désactivé par défaut)
   blitProp(ctx, ox, oy, sw, sh, key, cx, cy, wf, hf);
   const gnF = (CM && CM.nightF) ? CM.nightF : 0;
   ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -118,14 +114,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   const ei = CM.layout?.counts?.eraIndex ?? 0;
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
-  // Ombre de contact au sol — SAUF les riverains (port, moulin) : leur emprise déborde
-  // sur le fleuve, l'ombre tomberait sur l'eau (les bateaux de rivière n'en ont pas non plus).
-  if (id !== "river_ports" && id !== "water_mills") {
-    ctx.fillStyle = "rgba(0,0,0,0.26)";
-    ctx.beginPath();
-    ctx.ellipse(x + w * 0.5, y + h * 0.84, w * 0.42, h * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Ombre de contact au sol RETIRÉE (demande Raph 2026-07-06 : plus d'ellipses noires sous les bâtiments).
 
   if (id === "storytellers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "storytellers"); return; }
@@ -137,13 +126,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (stStage >= 1) {
       const scene = ['', 'storyteller-hall', 'storyteller-theater', 'storyteller-media'][stStage];
       if (propReady(scene)) {
-        { // sol doux qui se fond dans le terrain
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(24,16,8,0.4)"); g.addColorStop(0.6, "rgba(24,16,8,0.2)"); g.addColorStop(1, "rgba(24,16,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "24,16,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, scene, 0.5, 0.52, 0.92, 0.72);
         // Lueur (foyer/lampes chaudes aux stades 1-2 ; néon cyan au stade 3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -255,13 +238,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (scStage >= 1) {
       const scb = ['', 'scribes-scriptorium', 'scribes-archive', 'scribes-data'][scStage];
       if (propReady(scb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, scb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes bougies/lampes S1-2 ; racks serveurs cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -319,13 +296,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (schStage >= 1) {
       const schb = ['', 'schools-schoolhouse', 'schools-victorian', 'schools-campus'][schStage];
       if (propReady(schb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, schb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes S1-2 ; écrans/LED cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -378,13 +349,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (acStage >= 1) {
       const acb = ['', 'academies-renaissance', 'academies-institute', 'academies-modern'][acStage];
       if (propReady(acb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, acb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes marbre S1-2 ; dôme cyan-or S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -437,13 +402,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (ancStage >= 1) {
       const ancb = ['', 'cult-shrine', 'cult-mausoleum', 'cult-memorial'][ancStage];
       if (propReady(ancb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(18,12,8,0.42)"); g.addColorStop(0.6, "rgba(18,12,8,0.2)"); g.addColorStop(1, "rgba(18,12,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "18,12,8", 0.42); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, ancb, 0.5, 0.52, 0.9, 0.74);
         // Lueur de FLAMME (chaude S1-2 ; chaud-violet S3), scintillement un peu plus vif (rituel).
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -511,13 +470,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (obStage >= 1) {
       const obb = ['', 'observatories-tower', 'observatories-dome', 'observatories-array'][obStage];
       if (propReady(obb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(14,14,24,0.4)"); g.addColorStop(0.6, "rgba(14,14,24,0.2)"); g.addColorStop(1, "rgba(14,14,24,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "14,14,24", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, obb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes S1-2 ; instruments cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -575,13 +528,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (liStage >= 1) {
       const lib = ['', 'libraries-monastic', 'libraries-grand', 'libraries-modern'][liStage];
       if (propReady(lib)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, lib, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes/rayonnages S1-2 ; chaud+cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -636,13 +583,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (unStage >= 1) {
       const unb = ['', 'universities-gothic', 'universities-collegiate', 'universities-modern'][unStage];
       if (propReady(unb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, unb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes/vitraux S1-2 ; verre bleu S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -843,13 +784,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (prStage >= 1) {
       const prb = ['', 'printing-press-shop', 'printing-factory', 'printing-media'][prStage];
       if (propReady(prb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,14,8,0.4)"); g.addColorStop(0.6, "rgba(20,14,8,0.2)"); g.addColorStop(1, "rgba(20,14,8,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "20,14,8", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, prb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes S1-2 ; écrans cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -912,13 +847,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (thStage >= 1) {
       const thb = ['', 'think-chancellery', 'think-institute', 'think-modern'][thStage];
       if (propReady(thb)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(16,16,24,0.4)"); g.addColorStop(0.6, "rgba(16,16,24,0.2)"); g.addColorStop(1, "rgba(16,16,24,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.22, "16,16,24", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, thb, 0.5, 0.52, 0.9, 0.74);
         // Lueur (fenêtres chaudes S1-2 ; globe/données cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
@@ -1085,13 +1014,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (waStage >= 1) {
       const wab = ['', 'watch-stone', 'watch-industrial', 'watch-modern'][waStage];
       if (propReady(wab)) {
-        { // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.44, ky = (sh * 0.2) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(18,16,12,0.4)"); g.addColorStop(0.6, "rgba(18,16,12,0.2)"); g.addColorStop(1, "rgba(18,16,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.86, 0.44, 0.2, "18,16,12", 0.4); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, wab, 0.5, 0.40, 0.78, 0.94);
         // Lueur au SOMMET de la tour (brasier/lanterne chauds S1-2 ; balises cyan S3).
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;

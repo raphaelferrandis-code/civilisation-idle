@@ -26,13 +26,18 @@ function scenario({ requireRoad }) {
     seed: 4242, nearSet: new Set(), N, requireRoad
   });
   const tiles = [];
-  placer.placeCategory("house", 60, new Set(), (t) => tiles.push(t));
+  // Beaucoup de demande : sans filtre, les maisons débordent loin de la rue ;
+  // avec filtre, elles remplissent l'intérieur des blocs dans le rayon borné.
+  placer.placeCategory("house", 200, new Set(), (t) => tiles.push(t));
   return { tiles, roadKey };
 }
 
-// Une route dans le 8-voisinage de la cellule ?
-function touchesRoad(roadKey, gx, gy) {
-  for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) {
+// Une route à distance Chebyshev <= R (doit rester aligné sur HOUSE_ROAD_RADIUS
+// du générateur : les maisons remplissent l'intérieur des blocs mais restent
+// bornées à R cellules d'une voie — pas d'orphelin au milieu de nulle part).
+const ROAD_RADIUS = 4;
+function nearRoad(roadKey, gx, gy, R = ROAD_RADIUS) {
+  for (let dx = -R; dx <= R; dx += 1) for (let dy = -R; dy <= R; dy += 1) {
     if (dx === 0 && dy === 0) continue;
     if (roadKey.has((gx + dx) + "," + (gy + dy))) return true;
   }
@@ -40,18 +45,18 @@ function touchesRoad(roadKey, gx, gy) {
 }
 
 describe("buildingGenerator — placement par lots (PR2)", () => {
-  it("requireRoad : tout bâtiment posé borde une rue", () => {
+  it("requireRoad : tout bâtiment posé reste proche d'une rue (rayon borné)", () => {
     const { tiles, roadKey } = scenario({ requireRoad: true });
     expect(tiles.length).toBeGreaterThan(0);
     for (const t of tiles) {
-      expect(touchesRoad(roadKey, t.gx, t.gy), `${t.gx},${t.gy} ne borde aucune rue`).toBe(true);
+      expect(nearRoad(roadKey, t.gx, t.gy), `${t.gx},${t.gy} trop loin de toute rue`).toBe(true);
     }
   });
 
   it("sans requireRoad : des bâtiments atterrissent loin de toute rue (état v1)", () => {
     const { tiles, roadKey } = scenario({ requireRoad: false });
-    const orphans = tiles.filter((t) => !touchesRoad(roadKey, t.gx, t.gy));
-    // Le filtre change réellement quelque chose : en legacy, il y a des orphelins.
+    const orphans = tiles.filter((t) => !nearRoad(roadKey, t.gx, t.gy));
+    // Le filtre change réellement quelque chose : sans lui, des orphelins au-delà du rayon.
     expect(orphans.length).toBeGreaterThan(0);
   });
 });

@@ -32,6 +32,7 @@ release
 
 # Artefacts de dev / simulation (bac à sable local, non versionné)
 scratch/
+scratchpad/
 # Rapports et dumps générés par les scripts de simulation
 simulation-report.html
 sim_results.json

@@ -1,5 +1,5 @@
 {
-  "_comment": "Flammes animées du Mausolée (dynasty1). x,y = ancre centre-bas dans le sprite du rang. kind: small/large/door -> variante d'asset. Générés depuis detect-flames.cjs puis curés à la main (portails/visage/marches d'escalier exclus).",
+  "_comment": "Flammes animées du Mausolée (dynasty1). x,y = ancre centre-bas dans le sprite du rang. kind: small/large -> variante d'asset. sc (optionnel) = échelle overlay/cuit propre à la flamme (défaut 1.7). Générés depuis detect-flames.cjs puis curés à la main (portails/visage/marches d'escalier exclus).",
   "asset": {
     "small": {
       "file": "flame-small.png",
@@ -8,12 +8,6 @@
       "frames": 9
     },
     "large": {
-      "file": "flame-large.png",
-      "fw": 32,
-      "fh": 53,
-      "frames": 9
-    },
-    "door": {
       "file": "flame-large.png",
       "fw": 32,
       "fh": 53,
@@ -28,18 +22,12 @@
       ],
       "flames": [
         {
-          "x": 56,
-          "y": 74,
-          "w": 12,
-          "h": 23,
-          "kind": "door"
-        },
-        {
           "x": 72,
           "y": 77,
           "w": 8,
           "h": 13,
-          "kind": "small"
+          "kind": "small",
+          "sc": 0.9
         }
       ]
     },

@@ -44,7 +44,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 0.3rem;
+  /* Cartes PLEINE LARGEUR jusqu'au cadre du panneau : on annule le padding 1rem
+     du .panel (les cartes touchent le cadre à gauche ET à droite ; l'en-tête, lui,
+     garde sa marge car il n'est pas dans .shop-list). */
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding-right: 0;
 }
 
 /* ── Boutique pliable (même geste que la Régulation des tensions) ──
@@ -124,59 +129,39 @@
    rangée → le bouton déborde de 65px et chevauche le bâtiment suivant (visible
    seulement une fois plusieurs bâtiments empilés). */
 .city-shop-dock .shop-list { gap: 1rem; grid-auto-rows: max-content; }
-.city-shop-dock .purchase-row {
-  /* Contour ornemental (asset Kenney, cf. frames.css) autour de CHAQUE carte —
-     8px : un peu plus fin que les panneaux pour ne pas alourdir. */
+/* Cadre ornemental + fond-boîte : UNIQUEMENT pour les cartes SANS splash (rangée
+   verrouillée). Les cartes achetables (avec splash) n'ont plus de cadre — leur
+   splash-art fait la carte et se fond en haut/bas (cf. purchase.css). */
+.city-shop-dock .purchase-row:not(.pr-has-splash) {
   border: 8px solid transparent;
   border-image: url(../assets/ui/topbar-frame.png) 12 stretch;
   border-radius: 0;
-  /* Fond bleu-nuit comme la headbar (onglets) → cartes solides et lisibles. */
   background: color-mix(in srgb, var(--surface-panel), transparent 10%);
   transition: background 150ms ease, opacity 150ms ease;
 }
 
-/* Dock étroit (~290px) : le @media viewport ne se déclenche pas (viewport large,
-   colonne étroite). On stacke ici le bouton SOUS l'info pour rendre toute la
-   largeur au nom du bâtiment → plus de troncature « CUEIL… ». Hauteur identique
-   d'une rangée à l'autre (même structure partout). */
+/* Dock étroit (~290px) : la carte est désormais en PILE VERTICALE (flex-column,
+   cf. purchase.css) — exactement ce que le dock voulait déjà (nom pleine largeur,
+   bouton sous l'info). On ne garde ici que le padding du dock ; l'alignement, le
+   pied (bouton + compteur) et la hauteur viennent de la base. */
 .city-shop-dock .purchase-row:not(.pr-locked) {
-  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
-  row-gap: 0.7rem;
-  align-items: center;
-  min-height: 0;
-  padding: 0.8rem 0.8rem 0.9rem;
-}
-.city-shop-dock .purchase-row:not(.pr-locked) .btn-purchase {
-  /* Décalé à droite : démarre sous le NOM (colonne icône laissée vide) → casse la
-     symétrie « tout centré ». Contenu réparti : action à gauche, coût à droite. */
-  grid-column: 2 / -1;
-  flex-direction: row;
-  justify-content: space-between;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 2.3rem;
-  height: auto;
-  padding: 0.35rem 0.85rem;
+  padding: 0.7rem 0.8rem 0.8rem;
 }
 
-.city-shop-dock .purchase-row.is-affordable {
+.city-shop-dock .purchase-row.is-affordable:not(.pr-has-splash) {
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
 }
-.city-shop-dock .purchase-row.is-affordable:hover {
+.city-shop-dock .purchase-row.is-affordable:not(.pr-has-splash):hover {
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 15%);
 }
-.city-shop-dock .purchase-row.is-locked-cost {
+.city-shop-dock .purchase-row.is-locked-cost:not(.pr-has-splash) {
   background: color-mix(in srgb, var(--surface-panel), transparent 22%);
 }
 .city-shop-dock .purchase-row[data-tier="5"] {
   box-shadow: none;
 }
-/* Icône ronde : casse l'effet « carré » */
-.city-shop-dock .pr-icon {
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
+/* L'icône est désormais un petit glyphe inline dans le nom (cf. purchase.css) ;
+   plus de pastille ronde — le splash-art porte l'identité de la carte. */
 /* Bouton d'achat : coins francs → arrondi généreux */
 .city-shop-dock .btn-purchase {
   border-radius: 13px;

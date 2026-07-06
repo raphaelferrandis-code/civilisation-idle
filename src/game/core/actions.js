@@ -10,6 +10,7 @@ export {
 
 export {
   buyBuilding,
+  buyAllAffordable,
   exhumeVestige,
   performGrandReset,
   buyUpgrade,

@@ -356,7 +356,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
           <span className="crisis-regul-title">{tr({ fr: 'Régulation des tensions', en: 'Tension Regulation' })}</span>
           {mitigationPct > 0 && (
             <span className="crisis-regul-buffer" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure + legitimacy). Building infrastructure lastingly pushes back the Rupture.' })}>
-              🛡️ {tr({ fr: 'Institutions : −', en: 'Institutions: −' })}{mitigationPct}{tr({ fr: '% de pression absorbée', en: '% of pressure absorbed' })}
+              {tr({ fr: 'Institutions : −', en: 'Institutions: −' })}{mitigationPct}{tr({ fr: '% de pression absorbée', en: '% of pressure absorbed' })}
             </span>
           )}
         </div>
@@ -365,7 +365,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
           {foyers.map((f) => (
             <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`}>
               <summary className="crisis-foyer-head" title={tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' })}>
-                <span className="crisis-foyer-icon" aria-hidden="true">{f.icon}</span>
+                <img className="crisis-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
                 <span className="crisis-foyer-name">{f.label}</span>
                 {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé — recul durable acquis (ne décline pas)', en: 'Hotspot reformed — lasting reduction acquired (does not decay)' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
                 {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé — l'effet décline", en: 'Hotspot soothed — the effect decays' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
@@ -401,10 +401,9 @@ export default function CrisisActionBar({ variant = 'full' }) {
           <h2>{tr({ fr: 'Foyers de tension & Actions de régulation', en: 'Tension Hotspots & Regulation Actions' })}</h2>
         </div>
       </div>
-      <p className="body-copy">{tr({ fr: 'Dépenser vos ressources pour atténuer les facteurs de rupture ralentit le déclin, mais une chute tardive et complexe rapporte davantage de ruines.', en: 'Spending your resources to mitigate the rupture factors slows the decline, but a late and complex fall yields more ruins.' })}</p>
       {mitigationPct > 0 && (
         <p className="crisis-regul-buffer crisis-regul-buffer--full" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure + legitimacy). Building infrastructure lastingly pushes back the Rupture.' })}>
-          🛡️ {tr({ fr: 'Tes institutions (infrastructure + légitimité) absorbent', en: 'Your institutions (infrastructure + legitimacy) absorb' })} <strong>−{mitigationPct}%</strong> {tr({ fr: "de pression en continu — construire de l'infrastructure recule durablement la Rupture.", en: 'of pressure continuously — building infrastructure lastingly pushes back the Rupture.' })}
+          {tr({ fr: 'Tes institutions (infrastructure + légitimité) absorbent', en: 'Your institutions (infrastructure + legitimacy) absorb' })} <strong>−{mitigationPct}%</strong> {tr({ fr: "de pression en continu — construire de l'infrastructure recule durablement la Rupture.", en: 'of pressure continuously — building infrastructure lastingly pushes back the Rupture.' })}
         </p>
       )}
       {fatigueIndicator}
@@ -416,7 +415,8 @@ export default function CrisisActionBar({ variant = 'full' }) {
               <div className="tactical-info">
                 <header>
                   <span className="tactical-htitle">
-                    <h4>{f.icon} {f.label}</h4>
+                    <img className="tactical-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
+                    <h4>{f.label}</h4>
                     {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé — recul durable acquis (ne décline pas)', en: 'Hotspot reformed — lasting reduction acquired (does not decay)' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
                     {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé — l'effet décline", en: 'Hotspot soothed — the effect decays' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
                   </span>

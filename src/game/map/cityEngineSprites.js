@@ -10,9 +10,9 @@
 import { drawEraGroundFill } from './pixelTerrain.js';
 
 const COSMIC_PAL = {
-  7: { core: "#0c241a", mid: "#16442e", glow: "90,240,180", edge: "#3aeca0", lite: "#bdf8de", deep: "#040f0a" },
-  8: { core: "#221808", mid: "#3e2c10", glow: "255,205,120", edge: "#f4c25c", lite: "#ffeaba", deep: "#110a03" },
-  9: { core: "#161226", mid: "#262044", glow: "170,140,255", edge: "#c8aef0", lite: "#ece2ff", deep: "#08060f" }
+  7: { core: "#0c241a", mid: "#16442e", glow: "90,240,180", edge: "#3aeca0", lite: "#bdf8de", deep: "#040f0a", deepRGB: "4,15,10" },
+  8: { core: "#221808", mid: "#3e2c10", glow: "255,205,120", edge: "#f4c25c", lite: "#ffeaba", deep: "#110a03", deepRGB: "17,10,3" },
+  9: { core: "#161226", mid: "#262044", glow: "170,140,255", edge: "#c8aef0", lite: "#ece2ff", deep: "#08060f", deepRGB: "8,6,15" }
 };
 
 // ── Cueilleur pixel-art animé (PixelLab) ─────────────────────────────────────
@@ -400,14 +400,39 @@ function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
 }
 
 
-// Décor cosmique commun aux stades transcendants (ères 35+) : sol OPAQUE + ombre
-// de contact, et une fonction `glow` (halo additif localisé). Chaque bâtiment
-// dessine ensuite son corps OPAQUE par-dessus (silhouette propre par fonction,
-// matière selon l'époque via cp). Opaque ⇒ survit au voile de nuit.
+// ─────────────────────────────────────────────────────────────────────────────
+// SOL SOUS LES BÂTIMENTS-MOTEUR — INTERRUPTEUR GLOBAL.
+// `false` (demande Raph 2026-07-06 : « il ne faut rien sous les bâtiments ») ⇒ les
+// sprites posent directement sur le terrain de la carte, aucune tache de sol dessinée.
+// Repasser à `true` pour re-poser les taches de sol douces (chaque site d'appel garde
+// ses réglages : position/rayon/teinte/opacité), sans avoir à retrouver les ~15 blocs.
+const DRAW_BUILDING_GROUND = false;
+
+// Tache de sol douce : dégradé radial (source-over) qui fond vers transparent, aplati en
+// ellipse via scale(y). No-op tant que DRAW_BUILDING_GROUND est false. cyFrac/rFrac/khFrac
+// en fraction de tuile ; rgb = "r,g,b" ; a0 = opacité au centre (fond à 0 sur le bord).
+function softGround(ctx, ox, oy, sw, sh, cyFrac, rFrac, khFrac, rgb, a0) {
+  if (!DRAW_BUILDING_GROUND) return;
+  const cxp = ox + sw * 0.5, cyp = oy + sh * cyFrac, R = sw * rFrac, ky = (sh * khFrac) / R;
+  ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+  const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+  g.addColorStop(0, `rgba(${rgb},${a0})`); g.addColorStop(0.6, `rgba(${rgb},${(a0 * 0.52).toFixed(3)})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
+
+// Sol cosmique (stades 35+), teinté par l'époque. Même interrupteur que softGround.
+function cosmicGround(ctx, ox, oy, sw, sh, cp) {
+  softGround(ctx, ox, oy, sw, sh, 0.82, 0.46, 0.2, cp.deepRGB || "6,8,12", 0.55);
+}
+
+// Décor cosmique commun aux stades transcendants (ères 35+) : sol doux (cosmicGround)
+// + une fonction `glow` (halo additif localisé). Chaque bâtiment dessine ensuite son
+// corps OPAQUE par-dessus (silhouette propre par fonction, matière selon l'époque via
+// cp). Le corps opaque ⇒ survit au voile de nuit ; le sol, lui, se fond au terrain.
 function cosmicBase(ctx, ox, oy, sw, sh, px, band) {
   const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
-  px(0, 0.5, 1, 0.5, cp.deep);
-  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.34, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  cosmicGround(ctx, ox, oy, sw, sh, cp);
+  /* ombre de contact retirée */
   const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
   return { cp, glow };
 }
@@ -460,8 +485,8 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (prop PixelLab + halo additif qui respire) ; repli procédural dessous.
       const ckey = 'forager-cosmic-' + band;
       if (propReady(ckey)) {
-        px(0, 0.5, 1, 0.5, cp.deep); // sol cosmique opaque (survit au voile de nuit)
-        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.32, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+        cosmicGround(ctx, ox, oy, sw, sh, cp); // sol doux (se fond au terrain, plus de rectangle noir)
+        /* ombre de contact retirée */
         const cbob = Math.sin(now / 1150 + band) * 0.02; // lévitation douce
         blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
         ctx.save(); ctx.globalCompositeOperation = "lighter"; // halo additif TOUJOURS actif (énergie cosmique), respire
@@ -471,8 +496,8 @@ function drawCityEngineSprite(context) {
         ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * (0.52 + cbob), sw * 0.44, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         return true;
       }
-      px(0, 0.5, 1, 0.5, cp.deep); // sol cosmique opaque
-      ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.82, sw * 0.34, sh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      cosmicGround(ctx, ox, oy, sw, sh, cp); // sol doux (se fond au terrain, plus de rectangle noir)
+      /* ombre de contact retirée */
       const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
       if (band === 7) { // bulbes-pods organiques sur tiges qui ondulent (vivant)
         for (const [bx, by, br] of [[0.32, 0.52, 0.12], [0.5, 0.4, 0.16], [0.68, 0.54, 0.11]]) {
@@ -527,20 +552,7 @@ function drawCityEngineSprite(context) {
     // hydroponie néon. tier reste la richesse intra-stade (perso/fruits/cagettes).
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (stage === 0) {
-    // Terre de cueillette : tache de sol foncée qui se FOND dans le terrain (plus de
-    // rectangle net) — dégradé radial transparent sur les bords, ellipse via scale(y).
-    {
-      const cxp = ox + sw * 0.5, cyp = oy + sh * 0.76, R = sw * 0.52, ky = (sh * 0.34) / R;
-      ctx.save();
-      ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-      const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-      g.addColorStop(0, "rgba(19,26,9,0.82)");
-      g.addColorStop(0.6, "rgba(19,26,9,0.46)");
-      g.addColorStop(1, "rgba(19,26,9,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    softGround(ctx, ox, oy, sw, sh, 0.76, 0.52, 0.34, "19,26,9", 0.82); // sol sous le bâtiment (désactivé par défaut)
 
     // === BUISSON / ARBRE (droite) ===
     const tx = 0.70, ty = 0.60;
@@ -669,17 +681,10 @@ function drawCityEngineSprite(context) {
       // La ville se pave et a des marchés : la récolte s'organise et se stocke.
       // Pixel-art (props PixelLab + paysan réutilisé) ; repli procédural en dessous.
       if (propReady('forager-orchard-tree')) {
-        // Sol tendu : lavis radial doux qui se fond dans le terrain (comme stade 0).
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.78, R = sw * 0.5, ky = (sh * 0.32) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(26,34,14,0.72)"); g.addColorStop(0.6, "rgba(26,34,14,0.4)"); g.addColorStop(1, "rgba(26,34,14,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.78, 0.5, 0.32, "26,34,14", 0.72); // sol (désactivé par défaut)
         // Arbre taillé (échelle + clôture bakées) — droite ; ombre de contact puis prop.
         const otx = 0.64, oty = 0.5;
-        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * otx, oy + sh * 0.82, sw * 0.24, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'forager-orchard-tree', otx, oty, 0.78, 0.78);
         // Paysan réutilisé : navette cagettes ↔ arbre (2e paysan au tier 2).
         if (farmerReady()) {
@@ -779,17 +784,10 @@ function drawCityEngineSprite(context) {
       // Brique sombre & métal, faubourgs : la production est mise à l'échelle.
       // Pixel-art (serre + brouette + paysan) ; repli procédural en dessous.
       if (propReady('forager-greenhouse')) {
-        // Sol travaillé : lavis sombre qui se fond.
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.8, R = sw * 0.52, ky = (sh * 0.3) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(20,26,14,0.7)"); g.addColorStop(0.6, "rgba(20,26,14,0.38)"); g.addColorStop(1, "rgba(20,26,14,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.8, 0.52, 0.3, "20,26,14", 0.7); // sol (désactivé par défaut)
         // Serre vitrée (centre-droit, 128×96 → large) ; ombre puis prop (aspect ~4:3).
         const ghx = 0.58, ghy = 0.48;
-        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * ghx, oy + sh * 0.78, sw * 0.34, sh * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'forager-greenhouse', ghx, ghy, 0.9, 0.675);
         // Paysan réutilisé : navette brouette ↔ serre.
         if (farmerReady()) {
@@ -857,7 +855,7 @@ function drawCityEngineSprite(context) {
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
       // Pixel-art (rack hydroponique PixelLab + bras robot procédural conservé) ; repli en dessous.
       if (propReady('forager-hydro-rack')) {
-        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.82, 1.0, 0.18, "#0c1014"); // dalle sombre
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         px(0.1, 0.74, 0.18, 0.1, "#1a2228"); strokeRect(0.1, 0.74, 0.18, 0.1, "#2c3a44"); // bac récepteur (gauche)
         // Rack (centre, 96×128 → haut) : ombre + prop ; taille montante selon le tier.
         const prkH = 0.78 + Math.min(2, tier) * 0.03, prx = 0.52, pry = 0.5;
@@ -1020,17 +1018,10 @@ function drawCityEngineSprite(context) {
       // tient le registre. Pierre claire + tuiles (Âge de la Pierre/Couronne).
       // Pixel-art (halle + amphores) ; repli procédural en dessous.
       if (propReady('granary-hall')) {
-        // Sol pavé : lavis sombre qui se fond.
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.54, ky = (sh * 0.28) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(30,28,22,0.68)"); g.addColorStop(0.6, "rgba(30,28,22,0.36)"); g.addColorStop(1, "rgba(30,28,22,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.28, "30,28,22", 0.68); // sol (désactivé par défaut)
         // Halle de pierre (centre-droit, 112×96) ; ombre + prop.
         const ghx = 0.56, ghy = 0.46;
-        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * ghx, oy + sh * 0.8, sw * 0.32, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'granary-hall', ghx, ghy, 0.82, 0.7);
         // Amphores à grain (gauche-devant) ; ombre + prop.
         const gjx = 0.19, gjy = 0.76;
@@ -1135,10 +1126,10 @@ function drawCityEngineSprite(context) {
       // Pixel-art (entrepôt + caisses + halo chaud fenêtres la nuit) ; repli procédural dessous.
       if (propReady('granary-warehouse')) {
         const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
-        px(0.0, 0.6, 1.0, 0.4, "#161412"); px(0.0, 0.82, 1.0, 0.18, "#100e0c"); // sol travaillé sombre
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.28, "22,20,18", 0.6); // sol (désactivé par défaut)
         // Entrepôt (centre-droit, 112×96) ; ombre + prop.
         const whx = 0.56, why = 0.46;
-        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * whx, oy + sh * 0.8, sw * 0.33, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'granary-warehouse', whx, why, 0.82, 0.7);
         // Halo chaud des fenêtres la nuit (le prop porte les fenêtres bakées).
         if (nFw > 0.02) {
@@ -1235,7 +1226,7 @@ function drawCityEngineSprite(context) {
       const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
       // Pixel-art (hub logistique + halo cyan qui respire la nuit) ; repli procédural dessous.
       if (propReady('granary-hub')) {
-        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.82, 1.0, 0.18, "#0c1014"); // dalle sombre
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         const hbx = 0.5, hby = 0.5, hbH = 0.7 + Math.min(2, tier) * 0.03;
         ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * hbx, oy + sh * 0.84, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
         blitProp(ctx, ox, oy, sw, sh, 'granary-hub', hbx, hby, hbH * 1.333, hbH); // 128×96 → large
@@ -1435,11 +1426,11 @@ function drawCityEngineSprite(context) {
       // La ville se pave et règne : le commerce s'organise en convois gardés.
       // Pixel-art (dépôt réutilisé + chariot bâché en navette) ; repli procédural dessous.
       if (propReady('caravan-wagon')) {
-        px(0.0, 0.58, 1.0, 0.42, "#241f16"); px(0.0, 0.66, 1.0, 0.16, "#3a3428"); // accotement + chaussée
+        softGround(ctx, ox, oy, sw, sh, 0.7, 0.54, 0.3, "36,31,22", 0.5); // sol/chaussée (désactivé par défaut)
         if (propReady('caravan-prop-sacks')) blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.85, 0.74, 0.28 * 64 / 48, 0.28); // dépôt réutilisé
         const vcyc = (now / 9000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
         const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 220) * 0.006;
-        ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.76, sw * 0.26, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitVehicle(ctx, ox, oy, sw, sh, 'caravan-wagon', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
         return true;
       }
@@ -1520,11 +1511,11 @@ function drawCityEngineSprite(context) {
       // Fonte et vapeur : la marchandise roule sur rail, fumée et acier.
       // Pixel-art (camion à vapeur en navette + caisses + fumée) ; repli procédural dessous.
       if (propReady('caravan-truck')) {
-        px(0.0, 0.6, 1.0, 0.4, "#18140f"); px(0.0, 0.82, 1.0, 0.18, "#120f0b"); px(0.0, 0.7, 1.0, 0.1, "#2a251d"); // sol + chaussée
+        softGround(ctx, ox, oy, sw, sh, 0.72, 0.54, 0.3, "24,20,15", 0.5); // sol/chaussée (désactivé par défaut)
         if (propReady('granary-crates')) blitProp(ctx, ox, oy, sw, sh, 'granary-crates', 0.85, 0.73, 0.26, 0.24); // dépôt réutilisé
         const vcyc = (now / 8000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
         const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 200) * 0.005;
-        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.78, sw * 0.26, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitVehicle(ctx, ox, oy, sw, sh, 'caravan-truck', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
         // Fumée qui monte de la cheminée (côté avant selon le sens).
         const stx = vx + (vgoing ? 0.15 : -0.15);
@@ -1593,7 +1584,7 @@ function drawCityEngineSprite(context) {
       // Néon froid, automatisation : plus aucun humain, le fret se charge seul.
       // Pixel-art (pod cargo néon qui glisse + halo qui respire) ; repli procédural dessous. (Pas de bras robot.)
       if (propReady('caravan-pod')) {
-        px(0.0, 0.6, 1.0, 0.4, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0c1014"); // dalle sombre
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         px(0.04, 0.8, 0.92, 0.02, "#16323a");
         ctx.fillStyle = "#2f8fa0"; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.805, sw * 0.92, Math.max(1, sh * 0.006)); // rail cyan
         const vglide = Math.sin(now / 5000) * 0.28, vbob = Math.sin(now / 900) * 0.01;
@@ -1734,16 +1725,7 @@ function drawCityEngineSprite(context) {
       // s'approche et troque). Repli sur la scène procédurale d'origine tant que le
       // prop ou les sprites du cueilleur ne sont pas chargés (zéro tuile vide).
       if (propReady('market-prop-stall')) {
-        // Tache de sol douce qui se fond dans le terrain (sous l'étal)
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.73, R = sw * 0.5, ky = (sh * 0.3) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(40,28,14,0.5)");
-          g.addColorStop(0.6, "rgba(40,28,14,0.26)");
-          g.addColorStop(1, "rgba(40,28,14,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.73, 0.5, 0.3, "40,28,14", 0.5); // sol (désactivé par défaut)
         // Étal de troc (prop PixelLab) — pièce maîtresse, aspect 96×72 préservé
         blitProp(ctx, ox, oy, sw, sh, 'market-prop-stall', 0.5, 0.46, 0.92, 0.69);
         // Tier 1+ : panier de marchandises latéral (réutilise le prop cueilleur)
@@ -1845,15 +1827,9 @@ function drawCityEngineSprite(context) {
       // repart du comptoir avec un panier rempli (transport de marchandises).
       // Pixel-art (halle à toile + chaland au panier en navette) ; repli procédural dessous.
       if (propReady('market-hall-tent')) {
-        {  // sol : lavis doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.5, ky = (sh * 0.26) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(40,32,20,0.5)"); g.addColorStop(0.6, "rgba(40,32,20,0.28)"); g.addColorStop(1, "rgba(40,32,20,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.82, 0.5, 0.26, "40,32,20", 0.5); // sol (désactivé par défaut)
         const mhx = 0.5, mhy = 0.42;
-        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.72, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'market-hall-tent', mhx, mhy, 0.86, 0.74);
         if (basketReady()) { // chaland au panier : navette bord droit ↔ comptoir
           drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.84, 0.42, 0.82, 5200, 0, 0.5);
@@ -1932,9 +1908,9 @@ function drawCityEngineSprite(context) {
       // Pixel-art (halles vitrées + chaland + verrière éclairée la nuit) ; repli procédural dessous.
       if (propReady('market-hall-glass')) {
         const nFw = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
-        px(0.0, 0.5, 1.0, 0.5, "#20190f"); px(0.0, 0.82, 1.0, 0.18, "#181109"); // pavé + allée
+        softGround(ctx, ox, oy, sw, sh, 0.78, 0.54, 0.34, "32,25,15", 0.6); // sol (désactivé par défaut)
         const mhx = 0.5, mhy = 0.44;
-        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.76, sw * 0.36, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'market-hall-glass', mhx, mhy, 0.86, 0.74); // v2 top-down (112×96)
         if (nFw > 0.02) { // verrière chaude la nuit (vitres bakées + halo additif)
           ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -2007,7 +1983,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art (place néon : kiosques + hologramme + halo qui respire) ; repli procédural dessous.
       if (propReady('market-plaza-neon')) {
         const nFk = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
-        px(0.0, 0.5, 1.0, 0.5, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0b0f13"); // dalle
+        softGround(ctx, ox, oy, sw, sh, 0.78, 0.54, 0.34, "16,22,26", 0.6); // dalle (désactivée par défaut)
         const mhx = 0.5, mhy = 0.46;
         ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * mhx, oy + sh * 0.8, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
         blitProp(ctx, ox, oy, sw, sh, 'market-plaza-neon', mhx, mhy, 0.86, 0.74);
@@ -2151,16 +2127,7 @@ function drawCityEngineSprite(context) {
       // Bâtiment CLOS distinct des maisons (cf DA). Repli procédural (l'atelier
       // d'origine) tant que le prop n'est pas chargé.
       if (propReady('guild-prop-lodge')) {
-        // Tache de sol douce sous le lodge
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(38,26,12,0.45)");
-          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
-          g.addColorStop(1, "rgba(38,26,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.85, 0.46, 0.24, "38,26,12", 0.45); // sol (désactivé par défaut)
         // Le lodge (prop PixelLab) — aspect 96×96 carré
         blitProp(ctx, ox, oy, sw, sh, 'guild-prop-lodge', 0.5, 0.5, 0.86, 0.86);
         // Lueur de forge à la porte (additive, vacille + monte la nuit)
@@ -2184,22 +2151,7 @@ function drawCityEngineSprite(context) {
           ctx.fillStyle = `rgba(208,198,188,${(0.28 * (1 - t)).toFixed(2)})`;
           ctx.beginPath(); ctx.arc(ox + sw * spx, oy + sh * spy, sw * (0.022 + 0.05 * t), 0, Math.PI * 2); ctx.fill();
         }
-        // Tier 1+ : bannière de guilde sur perche (gauche) qui ondule
-        if (tier >= 1) {
-          const bpx = 0.15, bTop = 0.4, bBot = 0.82;
-          ctx.strokeStyle = "#4a3418"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
-          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * bBot); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
-          const fl2 = Math.sin((now || 0) / 420) * 0.022;
-          ctx.fillStyle = "#9a3a2c";
-          ctx.beginPath();
-          ctx.moveTo(ox + sw * bpx, oy + sh * bTop);
-          ctx.lineTo(ox + sw * (bpx + 0.12 + fl2), oy + sh * (bTop + 0.035));
-          ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.085));
-          ctx.closePath(); ctx.fill();
-          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.1);
-        }
-        // Tier 2+ : ballot de marchandises livré près de la porte (prop réutilisé)
-        if (tier >= 2) blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', 0.66, 0.78, 0.18, 0.17);
+        // (bannière + panier de fruits RETIRÉS — demande Raph : ni drapeaux SVG ni panier sur les guildes)
         // (pas d'artisan animé ici — retiré à la demande de l'utilisateur ; l'anim
         //  vient de la fumée + lueur de porte + bannière au vent)
       } else {
@@ -2274,13 +2226,7 @@ function drawCityEngineSprite(context) {
       // ── LA MAISON DE GUILDE (bourg → fortifié) : pans de bois, pignon à redans ──
       // Pixel-art (maison de guilde + forge/fumée/bannière) ; repli procédural dessous.
       if (propReady('guild-house')) {
-        {  // sol doux sous le bâtiment
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(38,26,12,0.45)"); g.addColorStop(0.6, "rgba(38,26,12,0.22)"); g.addColorStop(1, "rgba(38,26,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.85, 0.46, 0.24, "38,26,12", 0.45); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'guild-house', 0.5, 0.5, 0.86, 0.86);
         // Lueur de forge à la porte (additive, vacille + monte la nuit)
         { const dgx = ox + sw * 0.56, dgy = oy + sh * 0.64, fl = 0.2 + 0.05 * Math.abs(Math.sin(now / 1100)) + nF * 0.2, gr = sw * 0.06;
@@ -2292,13 +2238,7 @@ function drawCityEngineSprite(context) {
         for (let i = 0; i < 3; i++) { const t = ((now / 2600) + i / 3) % 1;
           ctx.fillStyle = `rgba(208,198,188,${(0.26 * (1 - t)).toFixed(2)})`;
           ctx.beginPath(); ctx.arc(ox + sw * (0.62 + 0.06 * t + 0.012 * Math.sin(now / 300 + i)), oy + sh * (0.3 - 0.24 * t), sw * (0.02 + 0.045 * t), 0, Math.PI * 2); ctx.fill(); }
-        // Bannière de guilde sur perche (gauche) qui ondule (tier 1+)
-        if (tier >= 1) { const bpx = 0.14, bTop = 0.4, fl2 = Math.sin(now / 420) * 0.022;
-          ctx.strokeStyle = "#4a3418"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
-          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * 0.82); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
-          ctx.fillStyle = "#9a3a2c"; ctx.beginPath();
-          ctx.moveTo(ox + sw * bpx, oy + sh * bTop); ctx.lineTo(ox + sw * (bpx + 0.12 + fl2), oy + sh * (bTop + 0.035)); ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.085)); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.1); }
+        // (bannière RETIRÉE — demande Raph : plus de drapeaux SVG sur les guildes)
         return true;
       }
       const x0 = 0.16, x1 = 0.84, yTop = 0.36, yBase = 0.86, yMid = 0.60;
@@ -2390,28 +2330,12 @@ function drawCityEngineSprite(context) {
         // liseré
         ctx.strokeStyle = iron; ctx.lineWidth = Math.max(1, sw*0.016); shield(); ctx.stroke();
       }
-      // Mât + fanion clairement accroché au mât (marqueur constant)
-      const mx = 0.18;
-      ctx.strokeStyle = "#5a4326"; ctx.lineWidth = Math.max(1, sw*0.018); ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(ox+sw*mx, oy+sh*yTop); ctx.lineTo(ox+sw*mx, oy+sh*0.07); ctx.stroke(); ctx.lineCap = "square";
-      ctx.fillStyle = "#c8a83c"; ctx.beginPath(); ctx.arc(ox+sw*mx, oy+sh*0.07, sw*0.014, 0, Math.PI*2); ctx.fill(); // pomme du mât
-      ctx.fillStyle = "#a02020";
-      ctx.beginPath();
-      ctx.moveTo(ox+sw*mx, oy+sh*0.1);
-      ctx.lineTo(ox+sw*(mx+0.15), oy+sh*(0.135+flap));
-      ctx.lineTo(ox+sw*mx, oy+sh*0.18);
-      ctx.closePath(); ctx.fill();
+      // (mât + fanion RETIRÉS — demande Raph)
     } else if (stage === 2) {
       // ── LA CHAMBRE DES CORPORATIONS (impérial → monumental) : pierre néoclassique ──
       // Pixel-art (chambre des corporations + lueur d'entrée la nuit + bannière) ; repli dessous.
       if (propReady('guild-chamber')) {
-        {  // sol doux
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.85, R = sw * 0.46, ky = (sh * 0.24) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(30,28,22,0.42)"); g.addColorStop(0.6, "rgba(30,28,22,0.2)"); g.addColorStop(1, "rgba(30,28,22,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.85, 0.46, 0.24, "30,28,22", 0.42); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'guild-chamber', 0.5, 0.5, 0.86, 0.86);
         // Lueur chaude à l'entrée la nuit (pas de forge : c'est une chambre de pierre)
         if (nF > 0.02) {
@@ -2421,13 +2345,7 @@ function drawCityEngineSprite(context) {
           g.addColorStop(0, `rgba(255,210,140,${(nF * 0.34).toFixed(2)})`); g.addColorStop(1, "rgba(255,210,140,0)");
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dgx, dgy, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         }
-        // Bannière de guilde (tier 1+)
-        if (tier >= 1) { const bpx = 0.13, bTop = 0.42, fl2 = Math.sin(now / 420) * 0.022;
-          ctx.strokeStyle = "#5a5044"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
-          ctx.beginPath(); ctx.moveTo(ox + sw * bpx, oy + sh * 0.82); ctx.lineTo(ox + sw * bpx, oy + sh * bTop); ctx.stroke(); ctx.lineCap = "square";
-          ctx.fillStyle = "#8a2f2c"; ctx.beginPath();
-          ctx.moveTo(ox + sw * bpx, oy + sh * bTop); ctx.lineTo(ox + sw * (bpx + 0.11 + fl2), oy + sh * (bTop + 0.032)); ctx.lineTo(ox + sw * bpx, oy + sh * (bTop + 0.078)); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = "#c8a83c"; ctx.fillRect(ox + sw * (bpx - 0.006), oy + sh * (bTop - 0.005), sw * 0.012, sh * 0.09); }
+        // (bannière RETIRÉE — demande Raph)
         return true;
       }
       px(0.1, 0.84, 0.8, 0.06, "#9a9488");                    // soubassement
@@ -2464,22 +2382,13 @@ function drawCityEngineSprite(context) {
         ctx.fillStyle = on ? litWarm : "rgba(40,38,32,0.6)";
         ctx.fillRect(ox+sw*(0.245+i*0.15), oy+sh*0.52, sw*0.06, sh*0.26);
       }
-      // Bannière sur mât latéral (marqueur constant)
-      ctx.strokeStyle = "#8a8478"; ctx.lineWidth = Math.max(1, sw*0.016);
-      ctx.beginPath(); ctx.moveTo(ox+sw*0.12, oy+sh*0.86); ctx.lineTo(ox+sw*0.12, oy+sh*0.12); ctx.stroke();
-      ctx.fillStyle = "#a02020";
-      ctx.beginPath();
-      ctx.moveTo(ox+sw*0.12, oy+sh*0.14);
-      ctx.lineTo(ox+sw*0.26, oy+sh*(0.15+flap));
-      ctx.lineTo(ox+sw*0.26, oy+sh*(0.23+flap));
-      ctx.lineTo(ox+sw*0.12, oy+sh*0.24);
-      ctx.closePath(); ctx.fill();
+      // (bannière RETIRÉE — demande Raph)
     } else {
       // ── LE CONSORTIUM (mégalopole / singularité) : tour de verre + néon ──
       // Hauteur du fût croît avec tier (clin d'œil à BUILDING_HEIGHTS.tower = 3.2).
       // Pixel-art (consortium verre/néon + halo cyan qui respire) ; repli procédural dessous.
       if (propReady('guild-consortium')) {
-        px(0.0, 0.5, 1.0, 0.5, "#10161a"); px(0.0, 0.84, 1.0, 0.16, "#0b0f13"); // dalle sombre
+        softGround(ctx, ox, oy, sw, sh, 0.78, 0.54, 0.34, "16,22,26", 0.6); // dalle (désactivée par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'guild-consortium', 0.5, 0.5, 0.86, 0.86);
         if (nF > 0.02) { // halo cyan qui respire (néons + emblème holo bakés)
           ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -3035,7 +2944,7 @@ function drawCityEngineSprite(context) {
       const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
       const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
       // PAS de plateforme cosmique : le vrai fleuve + le sol de la carte restent visibles dessous
-      ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.62, oy + sh * 0.68, sw * 0.26, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill(); // ombre de contact (ancre le bâtiment)
+      /* ombre de contact retirée */
       // Gros bâtiment du moulin (droite)
       ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.44, oy + sh * 0.2, sw * 0.44, sh * 0.5, sw * 0.03); ctx.fill();
       ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.7, oy + sh * 0.2, sw * 0.18, sh * 0.5);
@@ -3280,16 +3189,7 @@ function drawCityEngineSprite(context) {
       // procédural). Repli : prop statique mint-prop-forge, puis l'atelier vectoriel
       // d'origine tant que rien n'est chargé.
       if (animReady('mint-forge-fire') || propReady('mint-prop-forge')) {
-        // Tache de sol douce qui se fond dans le terrain (sous l'atelier)
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.83, R = sw * 0.46, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(38,26,12,0.45)");
-          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
-          g.addColorStop(1, "rgba(38,26,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.83, 0.46, 0.22, "38,26,12", 0.45); // sol (désactivé par défaut)
         // L'atelier (PixelLab) — aspect 96×80 préservé ; feu animé si la bande est prête,
         // sinon prop statique (frame figée équivalente).
         if (animReady('mint-forge-fire')) blitAnim(ctx, ox, oy, sw, sh, 'mint-forge-fire', now, 0.5, 0.53, 0.88, 0.73);
@@ -3362,16 +3262,7 @@ function drawCityEngineSprite(context) {
     // demande). Repli sur l'hôtel des monnaies vectoriel d'origine tant que le prop
     // n'est pas chargé (zéro tuile vide).
     if (propReady('mint-prop-house')) {
-      // Tache de sol douce qui se fond dans le terrain (sous le bâtiment)
-      {
-        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
-        ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-        g.addColorStop(0, "rgba(38,26,12,0.45)");
-        g.addColorStop(0.6, "rgba(38,26,12,0.22)");
-        g.addColorStop(1, "rgba(38,26,12,0)");
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      }
+      softGround(ctx, ox, oy, sw, sh, 0.87, 0.46, 0.24, "38,26,12", 0.45); // sol (désactivé par défaut)
       // Le bâtiment (prop PixelLab) — aspect 96×96 carré, calé comme guild-prop-lodge
       blitProp(ctx, ox, oy, sw, sh, 'mint-prop-house', 0.5, 0.5, 0.86, 0.86);
       return true;
@@ -3454,13 +3345,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art (manufacture PixelLab + fumée + fenêtres chaudes la nuit) ; repli procédural dessous.
       if (propReady('mint-house-steam')) {
         const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
-        {  // sol doux qui se fond
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.46, ky = (sh * 0.22) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(28,22,14,0.5)"); g.addColorStop(0.6, "rgba(28,22,14,0.24)"); g.addColorStop(1, "rgba(28,22,14,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.86, 0.46, 0.22, "28,22,14", 0.5); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'mint-house-steam', 0.5, 0.5, 0.86, 0.86);
         if (nFw > 0.02) { // halo chaud des verrières la nuit
           ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -3528,7 +3413,7 @@ function drawCityEngineSprite(context) {
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     // Pixel-art (monolithe néon PixelLab + hologramme pièce + halo cyan) ; repli procédural dessous.
     if (propReady('mint-house-digital')) {
-      px(0.0, 0.66, 1.0, 0.34, "#0c1016"); px(0.0, 0.84, 1.0, 0.16, "#080b10"); // dalle sombre
+      softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.28, "12,16,22", 0.55); // dalle (désactivée par défaut)
       blitProp(ctx, ox, oy, sw, sh, 'mint-house-digital', 0.5, 0.5, 0.86, 0.86);
       if (nF > 0.02) {
         ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -3638,16 +3523,7 @@ function drawCityEngineSprite(context) {
       // BAKÉS dans le sprite). Repli sur le comptoir vectoriel d'origine tant que le
       // prop n'est pas chargé.
       if (propReady('exchange-prop-stall')) {
-        // Tache de sol douce sous le comptoir (cyp calé sur la base opaque mesurée)
-        {
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.5, ky = (sh * 0.24) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(38,26,12,0.45)");
-          g.addColorStop(0.6, "rgba(38,26,12,0.22)");
-          g.addColorStop(1, "rgba(38,26,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.86, 0.5, 0.24, "38,26,12", 0.45); // sol (désactivé par défaut)
         // Le comptoir (prop PixelLab) — aspect 96×80 préservé
         blitProp(ctx, ox, oy, sw, sh, 'exchange-prop-stall', 0.5, 0.53, 0.88, 0.73);
         return true;
@@ -3719,13 +3595,7 @@ function drawCityEngineSprite(context) {
       // comptes. Loggia à arcades, registre et plume, coffre cerclé de fer.
       // Pixel-art (palazzo Renaissance + lueur d'entrée la nuit) ; repli procédural dessous.
       if (propReady('bank-house-renaissance')) {
-        {  // sol doux
-          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
-          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-          g.addColorStop(0, "rgba(30,22,12,0.45)"); g.addColorStop(0.6, "rgba(30,22,12,0.22)"); g.addColorStop(1, "rgba(30,22,12,0)");
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
+        softGround(ctx, ox, oy, sw, sh, 0.87, 0.46, 0.24, "30,22,12", 0.45); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'bank-house-renaissance', 0.5, 0.5, 0.86, 0.86);
         const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
         if (nFw > 0.02) { // lueur chaude des fenêtres/loggia la nuit
@@ -3811,13 +3681,7 @@ function drawCityEngineSprite(context) {
     // Lumière au haut-gauche → faces gauches claires, faces droites ombrées.
     // Pixel-art (banque néoclassique + lueur d'entrée la nuit) ; repli procédural dessous.
     if (propReady('bank-house-neoclassical')) {
-      {  // sol doux
-        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.87, R = sw * 0.46, ky = (sh * 0.24) / R;
-        ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-        g.addColorStop(0, "rgba(30,28,22,0.42)"); g.addColorStop(0.6, "rgba(30,28,22,0.2)"); g.addColorStop(1, "rgba(30,28,22,0)");
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      }
+      softGround(ctx, ox, oy, sw, sh, 0.87, 0.46, 0.24, "30,28,22", 0.42); // sol (désactivé par défaut)
       blitProp(ctx, ox, oy, sw, sh, 'bank-house-neoclassical', 0.5, 0.5, 0.86, 0.86);
       const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
       if (nFw > 0.02) { // lueur chaude de l'entrée/portique la nuit
@@ -3920,7 +3784,7 @@ function drawCityEngineSprite(context) {
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     // Pixel-art (bourse de verre PixelLab + halo cyan qui respire) ; repli procédural dessous.
     if (propReady('bank-house-glass')) {
-      px(0.0, 0.72, 1.0, 0.28, "#0c1016"); px(0.0, 0.88, 1.0, 0.12, "#080b10"); // parvis sombre
+      softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.26, "12,16,22", 0.55); // parvis (désactivé par défaut)
       blitProp(ctx, ox, oy, sw, sh, 'bank-house-glass', 0.5, 0.5, 0.86, 0.86);
       if (nF > 0.02) {
         ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -4007,4 +3871,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, cosmicBase, propReady, blitProp, animReady, blitAnim };
+export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, animReady, blitAnim };
