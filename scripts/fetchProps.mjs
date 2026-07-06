@@ -660,6 +660,69 @@ const PROPS = [
   { key: 'cosmic-frame-7', id: '7599e7d5-e334-4f7b-ba5a-1257a8696f9d', prompt: 'floating crystalline emerald lattice cube frame, cosmic (band 7) (96x96)' },
   { key: 'cosmic-frame-8', id: '0b47747a-ebac-4a1d-af12-4abda5bf2f69', prompt: 'floating crystalline golden lattice cube frame, cosmic (band 8) (96x96)' },
   { key: 'cosmic-frame-9', id: '3eac188a-1bd9-4477-acb3-5f6f89745d92', prompt: 'floating crystalline violet lattice cube frame, cosmic (band 9) (96x96)' },
+  // ── INFRA ── VEILLEURS (watch, engineSprites.js) — ÉVOLUTION 4 STADES (2026-07-05) ──
+  // 1er bâtiment INFRA. TOUR (blit 0.78×0.94). Stade 0 = tour bois + feu animé (watch-back+watch-fire)
+  // inchangé. Stades 1-3 = tours closes qui évoluent. Cosmique déjà fait (famille spire).
+  {
+    key: 'watch-stone',
+    id: '7f331ce9-5038-4064-b2ba-c30218b837f2', // stade 1 — tour de guet médiévale (pierre crénelée + brasier + drapeau) (88×112)
+    prompt: 'a closed medieval stone watchtower building seen from a low top-down angle, completely deserted, no people, no figures, no person: a tall round crenellated stone tower with narrow arrow-slit windows, a glowing brazier beacon on the battlement top, a hanging guard flag, a wooden door at the base, weathered grey-stone palette, soft light from the upper-left casting shadows to the lower-right, small patch of stone ground',
+  },
+  {
+    key: 'watch-industrial',
+    id: '182c1aaf-d317-4f32-9b83-91bd4824ebd4', // stade 2 — tour d'observation industrielle (brique/fer + lanterne + cloche) (88×112)
+    prompt: 'a closed 19th-century industrial lookout tower building seen from a low top-down angle, completely deserted, no people, no figures, no person: a tall brick-and-iron watchtower with a railed observation deck near the top, a bright signal lantern and a bell at the summit, tall warm-lit windows, a riveted iron frame, warm brick-and-iron palette, soft light from the upper-left casting shadows to the lower-right, small patch of paved ground',
+  },
+  {
+    key: 'watch-modern',
+    id: '104fa190-13b9-408e-b964-fb406638497d', // stade 3 — tour de surveillance moderne (radar + caméras + antennes cyan) (88×112)
+    prompt: 'a closed modern surveillance tower building seen from a low top-down angle, completely deserted, no people, no figures, no person: a sleek tall concrete-and-glass observation tower with a rotating radar dish and security cameras at the top, glowing cyan antenna lights, a glass control cabin near the summit, cool grey palette with cyan glow, soft glow lighting, small patch of tidy ground',
+  },
+  // ── INFRA ── MINISTÈRES (ministries, dome) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'ministries-palace', id: 'd226b621-2309-496c-b93f-f620b9e5427c', prompt: 'closed medieval government palace, banners, official crest (112x88)' },
+  { key: 'ministries-capitol', id: '4d0c3776-5b87-418a-8cc1-87e57b04d27b', prompt: 'closed neoclassical government capitol, rotunda dome, flags (112x88)' },
+  { key: 'ministries-tower', id: '27ce8808-e248-4abf-b7d5-3e139f5e8e57', prompt: 'closed modern government administration glass tower, flags (112x88)' },
+  // ── INFRA ── TRIBUNAUX (courthouses, temple) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'courthouses-tribunal', id: 'f1fdf289-9851-473e-8ff8-abdfc8b986db', prompt: 'closed medieval courthouse tribunal, scales-of-justice emblem (112x88)' },
+  { key: 'courthouses-neoclassical', id: '344d4e01-5f31-4f82-9f21-41c91617fc28', prompt: 'closed neoclassical courthouse, columns, scales pediment (112x88)' },
+  { key: 'courthouses-modern', id: '2dac0205-a710-4f20-bc27-bf4ea08a4930', prompt: 'closed modern courthouse, glowing scales-of-justice emblem (112x88)' },
+  // ── INFRA ── BUREAUCRATIE (bureaucracy, hall) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'bureau-chancery', id: '172d6b99-23a4-487d-a0ad-83f9e5103e81', prompt: 'closed medieval administrative chancery, ledgers, wax seal (112x88)' },
+  { key: 'bureau-office', id: '1b8b208f-7c99-4f31-bdca-89847556dce6', prompt: 'closed 19th-century civic bureau office, wide 3-story brick, rows of windows (112x88) — v2 (v1 1aa7e0a1 trop petit/étroit)' },
+  { key: 'bureau-tower', id: 'd2ab18f4-e802-4815-b409-06006d8f7b21', prompt: 'closed modern glass office tower, grid of windows (112x88)' },
+  // ── INFRA ── GRANDS TRAVAUX (public_works, frame) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'works-yard', id: '96e184b6-fe20-456e-a644-4d2d56850e7b', prompt: 'closed medieval masons stoneyard workshop + treadwheel crane (112x88)' },
+  { key: 'works-industrial', id: '6e7f1879-4dcc-4f61-aef1-dcb39e8b6835', prompt: 'closed 19th-century engineering workshop, chimney, steam crane (112x88)' },
+  { key: 'works-depot', id: '766c8459-2ef9-4941-8ae2-e8dbf3846c79', prompt: 'closed modern public works depot, yellow tower crane, containers (112x88)' },
+  // ── INFRA ── ARCHIVES (archive_grids, hall) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'archive-vault', id: '5b2fd155-652d-4ecb-bf86-99c5e3e2770d', prompt: 'closed medieval archive vault, barrel roof, scroll shelves (112x88)' },
+  { key: 'archive-records', id: '94f42abd-e3bf-4686-9d96-aaba41a9e8c1', prompt: 'closed 19th-century records repository, index cabinets (112x88)' },
+  { key: 'archive-grid', id: '42f61218-51ae-461e-a232-67b948418578', prompt: 'closed modern data archive grid, cyan server lights, antennas (112x88)' },
+  // ── INFRA ── ÉGOUTS (sewers, arch) — stades 1-3 (stade 0 pixel+eau animée conservé) ──
+  { key: 'sewers-medieval', id: '3d50d082-b279-4ba1-8bf0-ba1a0717c8a6', prompt: 'closed medieval stone sewer outfall station, grated arch, water (112x88)' },
+  { key: 'sewers-works', id: 'b695a378-3253-4b4a-bd88-2566b41c4b1c', prompt: 'closed Victorian brick sewer pumping works, chimney, outfall (112x88)' },
+  { key: 'sewers-plant', id: 'c2716f6d-6167-47ff-9099-5873cf80cb97', prompt: 'closed modern water treatment plant, settling tanks, cyan (112x88)' },
+  // ── INFRA ── ARCHITECTES DES RUINES (ruin_architects, frame) — stades 1-3 (stade 0 procédural conservé) ──
+  { key: 'ruins-lodge', id: 'b6c1dbc9-2cd6-4b7b-b654-e7490d75d82c', prompt: 'closed medieval restoration masons lodge + scaffolded broken arch (112x88)' },
+  { key: 'ruins-institute', id: '48f07ccb-2796-490a-b68e-ee3ef9f1d029', prompt: 'closed 19th-century archaeology museum, columned portico, restored column (112x88) — v2 (v1 20cb1952 = scène pas bâtiment)' },
+  { key: 'ruins-lab', id: '950e74f1-77a5-4597-80cf-6e761aad947f', prompt: 'closed modern heritage reconstruction lab + holographic ruin (112x88)' },
+  // ── INFRA ── AQUEDUCS (aqueducts, arch) — MODULAIRE COMPLET, méthode stade 0 (2026-07-06) ──
+  // UNE scène d'aqueduc large & cohérente PAR ÈRE (192×96 : canal d'eau CONTINU bord-à-bord + arches/
+  // piliers réguliers + source à gauche + livraison à droite), TÉLÉCHARGÉE ici, puis DÉCOUPÉE en
+  // outlet/seg/intake (3× 64×96) via `node scripts/sliceAqueduct.mjs <era>`. Le canal continu = ce qui
+  // fait tuiler le seg (≠ modules générés séparément = trous, essayés puis abandonnés). ⚠ Les modules
+  // `aqueduct-<era>-outlet/-seg/-intake` sont PRODUITS PAR LE SLICE, PAS par fetchProps.
+  { key: 'aqueduct-roman-scene', id: '304d9723-8064-4a7c-a64f-6cc79fe98d51', prompt: 'FULL Roman stone aqueduct 192x96 — a slicer (roman)' },
+  { key: 'aqueduct-iron-scene', id: 'aeed3e36-0977-4462-9676-b61dc2b1cd43', prompt: 'FULL industrial iron aqueduct viaduct 192x96, TALL truss pylons — a slicer (iron) — v2 (v1 b8fdbeb2 trop maigre/plat)' },
+  { key: 'aqueduct-modern-scene', id: 'da406c9c-44b3-493d-8464-ee8ef510d6a2', prompt: 'FULL modern concrete viaduct 192x96 — a slicer (modern)' },
+  // ── INFRA ── STADES 0 PIXEL des 6 infra procéduraux (2026-07-06, oubli corrigé) ──
+  // Bâtiments PRIMITIFS/anciens (ei<10) qui remplacent le repli procédural du stade 0.
+  { key: 'ministries-council', id: 'ba119da9-3bbc-4bfa-a269-9742777ab2b7', prompt: 'primitive tribal council longhouse + totem (112x88)' },
+  { key: 'courthouses-lodge', id: 'e814a076-b298-421c-abd3-c9dc1b496509', prompt: 'primitive dry-stone tribunal lodge + scales charm (112x88)' },
+  { key: 'bureau-hut', id: '25c29c23-2da0-4466-9d7e-c33b008bd894', prompt: 'primitive record-keeper mud-brick hut + clay tablets (112x88)' },
+  { key: 'works-camp', id: 'cb34421e-2858-41ef-9984-4c6716acb1ed', prompt: 'primitive builders work shed + stone blocks + lever hoist (112x88)' },
+  { key: 'archive-hut', id: '063a1825-ccae-47d8-adf3-816e0e8c40a7', prompt: 'primitive archive hut + clay tablet/scroll shelves (112x88)' },
+  { key: 'ruins-camp', id: 'a3d6533c-28fd-49d6-95c4-1d1c58ce93e5', prompt: 'primitive surveyors camp hut beside an ancient ruin (112x88)' },
   // NB : les props du trio (forager-prop-tree/-basket, granary-prop-silo, caravan-prop-sacks)
   // ont été récupérés avant ce script — déjà sur disque, ids non consignés.
 ];

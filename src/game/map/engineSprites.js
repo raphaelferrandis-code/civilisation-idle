@@ -85,6 +85,27 @@ function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind) {
   glow(0.5, 0.56, 0.18, 0.12 + 0.08 * pulse);
 }
 
+// Helper évolution pixel (stades 1-3) des bâtiments : sol doux qui se fond + prop + lueur
+// additive qui respire. Factorise le boilerplate répété (moule savoir). `glowRGB` = couleur
+// de la lueur (chaude S1-2, cyan/violet/blanc S3). opt : {cx,cy,wf,hf} blit, {gcy} centre lueur,
+// {warm} plancher d'intensité, {ph} déphasage du scintillement.
+function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt) {
+  opt = opt || {};
+  const cx = opt.cx ?? 0.5, cy = opt.cy ?? 0.52, wf = opt.wf ?? 0.9, hf = opt.hf ?? 0.74;
+  const gcy = opt.gcy ?? 0.5, warm = opt.warm ?? 0.12, ph = opt.ph ?? 0;
+  { const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.5, ky = (sh * 0.22) / R;
+    ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+    const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+    g.addColorStop(0, "rgba(18,14,8,0.4)"); g.addColorStop(0.6, "rgba(18,14,8,0.2)"); g.addColorStop(1, "rgba(18,14,8,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+  blitProp(ctx, ox, oy, sw, sh, key, cx, cy, wf, hf);
+  const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  const a = (warm + gnF * 0.34) * (0.84 + 0.16 * Math.sin(now / 300 + ph));
+  const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * gcy, 0, ox + sw * 0.5, oy + sh * gcy, sw * 0.33);
+  gg.addColorStop(0, `rgba(${glowRGB},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${glowRGB},0)`);
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * gcy, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
 function drawEngineSpriteCore(t, x, y, w, h, now) {
   const ctx = CM.ctx;
   const id = t.buildingId || t.variant;
@@ -969,6 +990,22 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // jugé pas terrible. Pipeline documenté en mémoire si on veut la ressusciter.)
     // Structure linéaire : spanX arches, 1 tile de haut. sw = largeur totale.
     const spanX = t.spanX || 3;
+    // ── ÉVOLUTION 4 STADES (INFRA, modulaire complet) : stades 1-3 = aqueducs d'ère (romain
+    //    pierre / fer industriel / béton moderne), MÊMES 3 modules tileables outlet/seg/intake
+    //    par préfixe (`aqueduct-<era>-*`). Stade 0 (gouttière+eau animée) = repli ci-dessous.
+    const aqStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const eraPfx = ['', 'aqueduct-roman', 'aqueduct-iron', 'aqueduct-modern'][aqStage];
+    if (aqStage >= 1 && propReady(eraPfx + '-outlet') && propReady(eraPfx + '-seg') && propReady(eraPfx + '-intake')) {
+      const flip = t.waterEnd === 'W';
+      if (flip) { ctx.save(); ctx.translate(2 * ox + sw, 0); ctx.scale(-1, 1); }
+      const cw = 1 / spanX;
+      for (let i = 0; i < spanX; i++) {
+        const mod = i === 0 ? 'outlet' : (i === spanX - 1 ? 'intake' : 'seg');
+        blitProp(ctx, ox, oy, sw, sh, eraPfx + '-' + mod, (i + 0.5) * cw, 0.59, cw, 1.5);
+      }
+      if (flip) ctx.restore();
+      return;
+    }
     // Scène pixel MODULAIRE (PixelLab, stade 0) : gouttière de troncs sur tréteaux en X.
     // 3 modules d'une tuile (48×72 src) découpés d'UNE scène cohérente : outlet (déversoir
     // + tonnelet, ouest) · seg (travée, répété pour les spans 5/7/10 — coupes calées entre
@@ -1041,6 +1078,35 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "watch") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "watch"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, 1er INFRA) : TOURS closes par ère (blit tall 0.78×0.94
+    //    comme le stade 0). Stade 0 = tour bois + feu animé (plus bas) → tour de pierre → tour
+    //    d'observation industrielle → tour de surveillance moderne. PAS de perso.
+    const waStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (waStage >= 1) {
+      const wab = ['', 'watch-stone', 'watch-industrial', 'watch-modern'][waStage];
+      if (propReady(wab)) {
+        { // sol doux qui se fond
+          const cxp = ox + sw * 0.5, cyp = oy + sh * 0.86, R = sw * 0.44, ky = (sh * 0.2) / R;
+          ctx.save(); ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
+          const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
+          g.addColorStop(0, "rgba(18,16,12,0.4)"); g.addColorStop(0.6, "rgba(18,16,12,0.2)"); g.addColorStop(1, "rgba(18,16,12,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        blitProp(ctx, ox, oy, sw, sh, wab, 0.5, 0.40, 0.78, 0.94);
+        // Lueur au SOMMET de la tour (brasier/lanterne chauds S1-2 ; balises cyan S3).
+        const gnF = (CM && CM.nightF) ? CM.nightF : 0;
+        {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          const col = waStage === 3 ? "100,215,235" : "255,170,70";
+          const a = (waStage === 3 ? (0.13 + gnF * 0.4) : (0.16 + gnF * 0.36)) * (0.82 + 0.18 * Math.sin(now / 240 + 1.9));
+          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.2, 0, ox + sw * 0.5, oy + sh * 0.2, sw * 0.26);
+          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.2, sw * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+        return;
+      }
+      // sinon : repli sur la tour bois (stade 0) ci-dessous → jamais de tuile vide.
+    }
     // Scène pixel stade 0 (PixelLab, feu ANIMÉ — pipeline cult/forge) : tour de guet
     // primitive en bois (plateforme sur poteaux croisés, échelle, feu de signal au
     // sommet). Couvre bands 0-6 comme la série savoir (une seule scène) ; repli =
@@ -1103,6 +1169,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "sewers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "sewers"); return; }
+    // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 pixel (station + eau animée, plus bas) conservé,
+    //    stades 1-3 = stations closes (drainage médiéval → works vapeur → station d'épuration).
+    const seStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    if (seStage >= 1) {
+      const seb = ['', 'sewers-medieval', 'sewers-works', 'sewers-plant'][seStage];
+      if (propReady(seb)) { drawStagePix(ctx, ox, oy, sw, sh, seb, now, seStage === 3 ? '95,215,225' : '255,178,80', { wf: 0.92, hf: 0.76, ph: 1.1 }); return; }
+    }
     // Scène pixel stade 0 (PixelLab) : station d'évacuation — hutte trapue en
     // pierre sèche, toit bois, arche sombre grillagée, filet d'eau croupie ANIMÉ
     // en sortie (bande composée hors-ligne, pipeline aqueduc). Le RÉSEAU, lui,
@@ -1154,6 +1227,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "bureaucracy") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "bureaucracy"); return; }
+    // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = bureaux CLOS
+    //    pixel (chancellerie → bureau → tour de bureaux). Identité paperasse/administration.
+    const buStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const bub = ['bureau-hut', 'bureau-chancery', 'bureau-office', 'bureau-tower'][buStage];
+      if (propReady(bub)) { drawStagePix(ctx, ox, oy, sw, sh, bub, now, buStage === 3 ? '218,226,255' : '255,186,90', { ph: 2.0 }); return; }
+    }
     // Bureaucratie : salle des scribes → guichets → open space moderne
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -1191,6 +1271,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "courthouses") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "courthouses"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, INFRA) : stade 0 procédural conservé (ci-dessous),
+    //    stades 1-3 = palais de justice CLOS pixel (balance + colonnes). Identité justice.
+    const coStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const cob = ['courthouses-lodge', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern'][coStage];
+      if (propReady(cob)) { drawStagePix(ctx, ox, oy, sw, sh, cob, now, coStage === 3 ? '255,208,140' : '255,186,90', { ph: 1.3 }); return; }
+    }
     // Tribunaux : cercle des anciens → tribunal à colonnes → palais de justice
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     const band2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
@@ -1246,6 +1333,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "public_works") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "public_works"); return; }
+    // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = ateliers/dépôts
+    //    CLOS pixel avec engins (chantier → atelier vapeur → dépôt moderne). Identité travaux.
+    const pwStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const pwb = ['works-camp', 'works-yard', 'works-industrial', 'works-depot'][pwStage];
+      if (propReady(pwb)) { drawStagePix(ctx, ox, oy, sw, sh, pwb, now, pwStage === 3 ? '110,205,235' : '255,176,78', { ph: 0.7 }); return; }
+    }
     // Grands travaux : chantier avec outils → grue → engins modernes
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -1296,6 +1390,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "ministries") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ministries"); return; }
+    // ── ÉVOLUTION 4 STADES (2026-07-05, INFRA) : stade 0 procédural conservé (ci-dessous),
+    //    stades 1-3 = bâtiments d'État CLOS pixel (drapeaux + coupole). Identité gouvernement.
+    const miStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const mib = ['ministries-council', 'ministries-palace', 'ministries-capitol', 'ministries-tower'][miStage];
+      if (propReady(mib)) { drawStagePix(ctx, ox, oy, sw, sh, mib, now, miStage === 3 ? '225,228,255' : '255,186,90', { ph: 0.4 }); return; }
+    }
     // Ministères : salle du conseil → palais → ministère moderne
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 11) {
@@ -1331,6 +1432,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "archive_grids") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "archive_grids"); return; }
+    // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = archives CLOSES
+    //    pixel (caveau → dépôt de registres → grille de données). Identité stockage/réseau.
+    const arStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const arb = ['archive-hut', 'archive-vault', 'archive-records', 'archive-grid'][arStage];
+      if (propReady(arb)) { drawStagePix(ctx, ox, oy, sw, sh, arb, now, arStage === 3 ? '90,225,205' : '255,182,84', { ph: 2.6 }); return; }
+    }
     // Réseaux d'archives : rayonnages → salle des archives → data center
     const ei2 = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraIndex : 5;
     if (ei2 >= 10) {
@@ -1376,6 +1484,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   }
   if (id === "ruin_architects") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ruin_architects"); return; }
+    // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = bâtiments de
+    //    RESTAURATION CLOS pixel (lodge de maçons → institut d'antiquités → labo patrimoine).
+    const ruStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    {
+      const rub = ['ruins-camp', 'ruins-lodge', 'ruins-institute', 'ruins-lab'][ruStage];
+      if (propReady(rub)) { drawStagePix(ctx, ox, oy, sw, sh, rub, now, ruStage === 3 ? '120,215,205' : '255,180,90', { ph: 3.1 }); return; }
+    }
     // Architectes des ruines : vestige en ruine + architectes + plans évolutifs
     // Ruine partielle (mur effondré)
     px(0.08, 0.54, 0.84, 0.24, "#4a4030");
