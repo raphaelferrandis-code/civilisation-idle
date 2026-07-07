@@ -15,6 +15,7 @@
  * ============================================================================ */
 
 import { drawPixelMedians } from './pixelMedian.js';
+import { pixelRoadPavingFlag, roadPavingReady, roadPavingTile } from './roadPaving.js';
 
 // upper=herbe=1, lower=route=0 ; clé = NW*8 + NE*4 + SE*2 + SW.
 function cornerKey(c) {
@@ -144,8 +145,9 @@ export function drawPixelTerrain(CM) {
   const streetExact = !!(streetTs && streetTs.ready);
   if (!streetExact) streetTs = ensureStreet('streets');
   // Signal pour le CACHE du sol (cityMapRuntime) : tant qu'on dessine avec le
-  // tileset de rues de REPLI, le rendu va encore changer → ne pas figer le bake.
-  CM._groundBakeStable = streetExact;
+  // tileset de rues de REPLI (ou que la matière-pont de la chaussée n'est pas
+  // encore extraite), le rendu va encore changer → ne pas figer le bake.
+  CM._groundBakeStable = streetExact && (!pixelRoadPavingFlag.on || roadPavingReady(band));
   const ctx = CM.ctx, L = CM.layout, N = L.gridN, T = CM.TILE, z = CM.cam.zoom;
   const UV = ts.uv, IMG = ts.img;
   // SOL URBAIN : la zone bâtie (organicLimit ∪ routes ∪ emprises), PAS le réseau
@@ -158,6 +160,19 @@ export function drawPixelTerrain(CM) {
   const drawStreets = pixelRoadsFlag.on && streetTs && streetTs.ready && L.roadSet;
   const STREET = streetTs && streetTs.img;
   const roadCol = drawStreets ? streetRoadColors(streetTs) : null; // aplat + liseré procéduraux
+  // Chaussée = MATIÈRE DU PONT de l'ère (roadPaving) : un canvas-pattern répété,
+  // ANCRÉ AU MONDE (matrice cam) pour que le grain reste collé à la carte au pan.
+  // La tuile est opaque → remplace l'aplat roadCol. Repli (flag off / pas prêt /
+  // pattern/DOMMatrix non supporté) → aplat plat roadCol inchangé.
+  const pav = (drawStreets && pixelRoadPavingFlag.on) ? roadPavingTile(band) : null;
+  let pavPat = null;
+  if (pav && pav.canvas && CM.ctx.createPattern && typeof DOMMatrix !== 'undefined') {
+    pavPat = CM.ctx.createPattern(pav.canvas, 'repeat');
+    if (pavPat && pavPat.setTransform) {
+      // tuile-px → écran : échelle z (1 px tuile = 1 px monde), origine = monde (0,0).
+      pavPat.setTransform(new DOMMatrix([z, 0, 0, z, CM.cw / 2 - CM.cam.x * z, CM.ch / 2 - CM.cam.y * z]));
+    } else { pavPat = null; }
+  }
   const roadMap = L.roadMap;
   // Les cellules `roadMedian` (sol coincé ENTRE deux routes) sont PAVÉES : traitées comme
   // des rues → l'edge-Wang fusionne le tout en une GRANDE route pleine (plus de « carrés de
@@ -210,16 +225,17 @@ export function drawPixelTerrain(CM) {
         if (!rec || rec.roadSurface !== 'bridge') { // ponts : laissés au rendu procédural
           const n = isStreet(gx, gy - 1), e = isStreet(gx + 1, gy),
                 s = isStreet(gx, gy + 1), w = isStreet(gx - 1, gy);
-          if (roadCol) {
-            // Chaussée PLEINE (couleur du tileset de l'ère) + liseré UNIQUEMENT contre le
-            // non-route : les routes adjacentes fusionnent sans grille interne (les tuiles
-            // edge-Wang bakent leur bordure sur les 4 arêtes → coutures dans les blocs).
-            // Les coins (dont les L intérieurs) se ferment tout seuls : chaque cellule trace
-            // ses propres côtés exposés, les bandes voisines se rejoignent au pixel près.
-            ctx.fillStyle = roadCol.fill;
+          if (pavPat || roadCol) {
+            // Chaussée PLEINE — MATIÈRE DU PONT (pattern ancré monde) si dispo, sinon
+            // APLAT de l'ère (roadCol) — + liseré UNIQUEMENT contre le non-route : les
+            // routes adjacentes fusionnent sans grille interne (les tuiles edge-Wang
+            // bakent leur bordure sur les 4 arêtes → coutures dans les blocs). Les coins
+            // (dont les L intérieurs) se ferment tout seuls : chaque cellule trace ses
+            // propres côtés exposés, les bandes voisines se rejoignent au pixel près.
+            ctx.fillStyle = pavPat || roadCol.fill;
             ctx.fillRect(dx, dy, sz, sz);
             const t = Math.max(1, Math.round(sz * 2 / 32));
-            ctx.fillStyle = roadCol.edge;
+            ctx.fillStyle = pavPat ? pav.edge : roadCol.edge;
             if (!n) ctx.fillRect(dx, dy, sz, t);
             if (!s) ctx.fillRect(dx, dy + sz - t, sz, t);
             if (!w) ctx.fillRect(dx, dy, t, sz);

@@ -20,6 +20,7 @@ import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset, drawNa
 import { mapThemeForBand } from '../data/eraThemes.js';
 import { plazaPropReady, plazaPropImage, plazaAnimReady, blitPlazaAnim, blitPlazaProp, setPlazaPropOnLoad } from './plazaProps.js';
 import { drawPixelMedians, setMedianOnLoad } from './pixelMedian.js';
+import { setRoadPavingOnLoad } from './roadPaving.js';
 
 // La dalle de sol des places est cuite dans le cache STATIQUE de la carte
 // (cityMapDrawPlazaSurface). Ses tuiles se chargent en asynchrone : dès qu'une
@@ -30,6 +31,10 @@ setPlazaPropOnLoad(() => { if (CM) CM.staticCamKey = ''; });
 // Idem pour le terre-plein planté pixel : baké dans le cache STATIQUE (routes non-pixel)
 // OU dans le cache SOL (routes pixel, via pixelTerrain) → invalider les DEUX au décodage.
 setMedianOnLoad(() => { if (CM) { CM.staticCamKey = ''; CM.groundCamKey = ''; } });
+// La chaussée matière-pont (roadPaving) est bakée dans le cache SOL (pixelTerrain) :
+// dès qu'une matière de pont est extraite, invalider le cache SOL pour re-cuire les
+// routes avec la texture (sinon elles restent sur l'aplat plat de repli).
+setRoadPavingOnLoad(() => { if (CM) CM.groundCamKey = ''; });
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
 
@@ -1039,267 +1044,6 @@ function cityMapDrawNight(now) {
   }
 }
 
-// ── Enceinte urbaine : muraille continue, tours, portes ─────────────────────
-// L'enceinte évolue avec l'ère : palissade de bois (cité fortifiée naissante),
-// mur de pierre (royaume/empire), remparts monumentaux clairs (métropole+).
-// Contraste assumé : liseré sombre sous le corps du mur pour qu'elle se
-// détache nettement du sol, quel que soit l'âge.
-function cityMapDrawWalls() {
-  const L = CM.layout;
-  if (!L || !L.walls || !L.walls.cells.length) return;
-  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, s = T * z;
-  const band = L.counts.eraBand;
-  const ruined = CM.frameRuined;
-  const wooden = !ruined && band <= 3 && (L.walls.tier || 1) <= 1;
-  const stone = ruined ? "#555046"
-    : wooden ? "#8a6432"
-    : band >= 5 ? "#b3ac9b"
-    : band >= 4 ? "#a39a85"
-    : "#92897a";
-  const stoneDark = ruined ? "#332f28" : wooden ? "#4f3a1a" : "#3e3a30";
-  const stoneLight = wooden ? "rgba(255,222,160,0.22)" : "rgba(255,255,255,0.28)";
-  const outline = "rgba(16,13,9,0.6)";
-  const SXY = (gx, gy) => [(gx * T - CM.cam.x) * z + CM.cw / 2, (gy * T - CM.cam.y) * z + CM.ch / 2];
-
-  // ── Corps du rempart : polyligne CONTINUE le long du contour ─────────────
-  // (les cellules rasterisées en diagonale ne se touchent que par les coins ;
-  // seul un tracé continu donne une enceinte lisible qui ceinture la ville)
-  const ol = L.walls.outline;
-  const gates = Array.isArray(L.walls.gates) ? L.walls.gates : [];
-  // Extrémités exactes des segments de mur interrompus par chaque porte :
-  // les tours de porte se posent dessus (le mur va JUSQU'À la tour).
-  const towerAnchors = new Map(); // gate -> [{x,y}, ...]
-  if (Array.isArray(ol) && ol.length > 2) {
-    // Segments : on coupe la boucle aux points en eau (brèche du fleuve) et
-    // aux portes. La coupe de porte est INTERPOLÉE pile au bord de
-    // l'ouverture — supprimer des points entiers laissait des trous de
-    // plusieurs tuiles entre le bout du mur et les tours.
-    const GATE_R = 1.15; // demi-ouverture (tuiles)
-    const gateOf = (p) => {
-      for (const g of gates) if (Math.hypot(p.x - g.gx, p.y - g.gy) < GATE_R) return g;
-      return null;
-    };
-    // Point du segment [pOut→pIn] à distance GATE_R du centre de la porte.
-    const clipTo = (pOut, pIn, g) => {
-      const dOut = Math.hypot(pOut.x - g.gx, pOut.y - g.gy);
-      const dIn = Math.hypot(pIn.x - g.gx, pIn.y - g.gy);
-      const t = Math.max(0, Math.min(1, (dOut - GATE_R) / Math.max(0.0001, dOut - dIn)));
-      return { x: pOut.x + (pIn.x - pOut.x) * t, y: pOut.y + (pIn.y - pOut.y) * t };
-    };
-    const addAnchor = (g, pt) => {
-      const arr = towerAnchors.get(g) || [];
-      if (!arr.some((a) => Math.hypot(a.x - pt.x, a.y - pt.y) < 0.5)) arr.push(pt);
-      towerAnchors.set(g, arr);
-    };
-    const segs = [];
-    let cur = [];
-    let prev = null, prevGate = null;
-    for (let i = 0; i <= ol.length; i += 1) {
-      const p = ol[i % ol.length];
-      const g = p.water ? null : gateOf(p);
-      if (p.water || g) {
-        if (cur.length) {
-          // Le mur entre dans l'ouverture : prolonge jusqu'au bord exact.
-          if (g && prev && !prev.water) {
-            const cp = clipTo(prev, p, g);
-            cur.push(cp);
-            addAnchor(g, cp);
-          }
-          if (cur.length > 1) segs.push(cur);
-          cur = [];
-        }
-      } else {
-        // Le mur ressort d'une ouverture : repart du bord exact.
-        if (prevGate && prev) {
-          const cp = clipTo(p, prev, prevGate);
-          cur.push(cp);
-          addAnchor(prevGate, cp);
-        }
-        cur.push(p);
-        if (i === ol.length && cur.length > 1) { segs.push(cur); cur = []; }
-      }
-      prev = p;
-      prevGate = g;
-    }
-    if (cur.length > 1) segs.push(cur);
-    // Le contour peut effleurer le rayon d'ouverture et ressortir brièvement :
-    // on jette les mini-tronçons orphelins coincés dans l'ouverture, et on ne
-    // garde par porte que les deux ancres les plus écartées — les VRAIES
-    // extrémités du mur interrompu.
-    for (let si = segs.length - 1; si >= 0; si -= 1) {
-      const seg = segs[si];
-      if (seg.length <= 3 && gates.some((g) => seg.every((p) => Math.hypot(p.x - g.gx, p.y - g.gy) < GATE_R + 1.2))) {
-        segs.splice(si, 1);
-      }
-    }
-    for (const [g, arr] of towerAnchors) {
-      if (arr.length <= 2) continue;
-      let bi = 0, bj = 1, bd = -1;
-      for (let i = 0; i < arr.length; i += 1) {
-        for (let j = i + 1; j < arr.length; j += 1) {
-          const d = Math.hypot(arr[i].x - arr[j].x, arr[i].y - arr[j].y);
-          if (d > bd) { bd = d; bi = i; bj = j; }
-        }
-      }
-      towerAnchors.set(g, [arr[bi], arr[bj]]);
-    }
-    const trace = (seg) => {
-      ctx.beginPath();
-      const [x0, y0] = SXY(seg[0].x + 0.5, seg[0].y + 0.5);
-      ctx.moveTo(x0, y0);
-      for (let i = 1; i < seg.length; i += 1) {
-        const [x, y] = SXY(seg[i].x + 0.5, seg[i].y + 0.5);
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    };
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    for (const seg of segs) {
-      // Ombre portée, liseré sombre, corps, puis chemin de ronde clair.
-      ctx.strokeStyle = "rgba(0,0,0,0.3)";
-      ctx.lineWidth = Math.max(2, s * 0.5);
-      ctx.save(); ctx.translate(s * 0.1, s * 0.14); trace(seg); ctx.restore();
-      ctx.strokeStyle = outline;
-      ctx.lineWidth = Math.max(2.5, s * (band >= 5 ? 0.56 : 0.5));
-      trace(seg);
-      ctx.strokeStyle = stone;
-      ctx.lineWidth = Math.max(1.5, s * (band >= 5 ? 0.4 : 0.34));
-      trace(seg);
-      ctx.strokeStyle = stoneLight;
-      ctx.lineWidth = Math.max(1, s * 0.1);
-      trace(seg);
-    }
-    ctx.lineJoin = "miter";
-    ctx.lineCap = "square";
-    // Créneaux / rondins : pointillés sombres réguliers le long du tracé.
-    if (s > 9) {
-      ctx.fillStyle = stoneDark;
-      const dotS = Math.max(1.2, s * (wooden ? 0.1 : band >= 5 ? 0.16 : 0.13));
-      const step = wooden ? 0.34 : 0.55; // en tuiles
-      for (const seg of segs) {
-        for (let i = 1; i < seg.length; i += 1) {
-          const a = seg[i - 1], b = seg[i];
-          const d = Math.hypot(b.x - a.x, b.y - a.y);
-          const n = Math.max(1, Math.round(d / step));
-          for (let k = 0; k < n; k += 1) {
-            const t2 = k / n;
-            const [px, py] = SXY(a.x + (b.x - a.x) * t2 + 0.5, a.y + (b.y - a.y) * t2 + 0.5);
-            ctx.fillRect(px - dotS / 2, py - dotS / 2, dotS, dotS);
-          }
-        }
-      }
-    }
-  }
-
-  // ── Portes : deux tours encadrant l'ouverture, sur les grands axes ──────
-  for (const g of gates) {
-    const [gx, gy] = SXY(g.gx + 0.5, g.gy + 0.5);
-    if (gx < -s * 3 || gy < -s * 3 || gx > CM.cw + s * 3 || gy > CM.ch + s * 3) continue;
-    // Les tours flanquent l'ouverture LE LONG du rempart : on suit la tangente
-    // du contour au point de porte (le mask de route trompe aux carrefours).
-    let tdx = Math.abs(Math.cos(g.angle)) < 0.7 ? 1 : 0, tdy = tdx ? 0 : 1;
-    if (Array.isArray(ol) && ol.length > 2) {
-      let bi = 0, bd = Infinity;
-      for (let i = 0; i < ol.length; i += 1) {
-        const d = Math.hypot(ol[i].x - g.gx, ol[i].y - g.gy);
-        if (d < bd) { bd = d; bi = i; }
-      }
-      const pa = ol[(bi - 1 + ol.length) % ol.length], pb = ol[(bi + 1) % ol.length];
-      const tl = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
-      tdx = (pb.x - pa.x) / tl; tdy = (pb.y - pa.y) / tl;
-    }
-    const tw2 = s * 0.66; // côté d'une tour
-    const towerCol = wooden ? "#9a7438" : band >= 5 ? "#c4bda9" : stone;
-    // Une tour à CHAQUE extrémité du mur interrompu (point de coupe exact du
-    // tracé). Repli sur la tangente si la porte n'a pas borné de segment.
-    let anchors = towerAnchors.get(g) || [];
-    if (anchors.length < 2) {
-      anchors = [
-        { x: g.gx + tdx * 1.05, y: g.gy + tdy * 1.05 },
-        { x: g.gx - tdx * 1.05, y: g.gy - tdy * 1.05 }
-      ];
-    }
-    for (const a of anchors) {
-      const [ax, ay] = SXY(a.x + 0.5, a.y + 0.5);
-      const tx = ax - tw2 / 2;
-      const ty = ay - tw2 / 2;
-      // Ombre + liseré + corps
-      ctx.fillStyle = "rgba(0,0,0,0.3)";
-      ctx.fillRect(tx + s * 0.08, ty + s * 0.1, tw2, tw2);
-      ctx.fillStyle = outline;
-      const o2 = Math.max(1, s * 0.06);
-      ctx.fillRect(tx - o2, ty - o2, tw2 + o2 * 2, tw2 + o2 * 2);
-      ctx.fillStyle = stoneDark;
-      ctx.fillRect(tx, ty, tw2, tw2);
-      ctx.fillStyle = towerCol;
-      ctx.fillRect(tx + tw2 * 0.14, ty + tw2 * 0.14, tw2 * 0.72, tw2 * 0.72);
-      // Merlons d'angle
-      ctx.fillStyle = stoneDark;
-      const ms2 = Math.max(1, tw2 * 0.18);
-      for (const [mx, my] of [[0.06, 0.06], [0.76, 0.06], [0.06, 0.76], [0.76, 0.76]]) {
-        ctx.fillRect(tx + tw2 * mx, ty + tw2 * my, ms2, ms2);
-      }
-      // Fanion
-      ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
-      ctx.beginPath(); ctx.moveTo(tx + tw2 / 2, ty - s * 0.16); ctx.lineTo(tx + tw2 / 2, ty + tw2 * 0.2); ctx.stroke();
-      ctx.fillStyle = ruined ? "rgba(120,60,40,0.5)" : "#9a3c28";
-      ctx.beginPath();
-      ctx.moveTo(tx + tw2 / 2, ty - s * 0.16);
-      ctx.lineTo(tx + tw2 / 2 + s * 0.2, ty - s * 0.08);
-      ctx.lineTo(tx + tw2 / 2, ty - s * 0.01);
-      ctx.closePath(); ctx.fill();
-    }
-    // Entre les deux tours : RIEN — l'ouverture laisse voir le sol et la
-    // route qui passe (pas de remplissage, pas de halo).
-  }
-
-  // ── Tours de courtine : structures ponctuelles par-dessus le rempart ────
-  for (const c of L.walls.cells) {
-    if (c.kind !== "tower") continue;
-    const [x, y] = SXY(c.gx, c.gy);
-    if (x < -s * 2 || y < -s * 2 || x > CM.cw + s || y > CM.ch + s) continue;
-    // Socle de tour : masse sombre détachée du sol
-    const o = Math.max(1, s * 0.06);
-    ctx.fillStyle = outline;
-    ctx.fillRect(x + s * 0.08 - o, y + s * 0.08 - o, s * 0.84 + o * 2, s * 0.84 + o * 2);
-    ctx.fillStyle = stoneDark;
-    ctx.fillRect(x + s * 0.08, y + s * 0.08, s * 0.84, s * 0.84);
-    {
-      if (wooden) {
-        // Tour de guet en bois : plateforme claire + toit pointu sombre
-        ctx.fillStyle = "#9a7438";
-        ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
-        ctx.fillStyle = "#4f3a1a";
-        ctx.beginPath();
-        ctx.moveTo(x + s * 0.5, y - s * 0.1);
-        ctx.lineTo(x + s * 0.76, y + s * 0.26);
-        ctx.lineTo(x + s * 0.24, y + s * 0.26);
-        ctx.closePath(); ctx.fill();
-      } else {
-        // Toit de tour + fanion
-        ctx.fillStyle = band >= 5 ? "#c4bda9" : stone;
-        ctx.fillRect(x + s * 0.22, y + s * 0.22, s * 0.56, s * 0.56);
-        // Merlons d'angle sur les grandes tours de métropole
-        if (band >= 5) {
-          ctx.fillStyle = stoneDark;
-          const ms = Math.max(1, s * 0.12);
-          for (const [mx, my] of [[0.16, 0.16], [0.72, 0.16], [0.16, 0.72], [0.72, 0.72]]) {
-            ctx.fillRect(x + s * mx, y + s * my, ms, ms);
-          }
-        }
-        ctx.fillStyle = ruined ? "rgba(120,60,40,0.5)" : "#9a3c28";
-        ctx.beginPath();
-        ctx.moveTo(x + s * 0.5, y - s * 0.18);
-        ctx.lineTo(x + s * 0.78, y - s * 0.06);
-        ctx.lineTo(x + s * 0.5, y + s * 0.04);
-        ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "#2a2620"; ctx.lineWidth = Math.max(1, s * 0.04);
-        ctx.beginPath(); ctx.moveTo(x + s * 0.5, y - s * 0.18); ctx.lineTo(x + s * 0.5, y + s * 0.3); ctx.stroke();
-      }
-    }
-  }
-}
 
 // ── Esplanade des places : DALLE PIXEL tuilée (couche statique) ─────────────
 // Une vraie place : dalle pixel-art déclinée par ère, tuilée cellule par cellule
@@ -2910,7 +2654,6 @@ export {
   cityMapDrawStreetLights,
   cityMapDrawTrees,
   cityMapDrawUrbanMass,
-  cityMapDrawWalls,
   cmLitColor,
   drawCrisis,
   cityMapCalmRioterAt

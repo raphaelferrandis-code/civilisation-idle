@@ -38,7 +38,7 @@ export function setBridgeOnLoad(cb) { onLoad = cb; }
 // le passage 1→2 voies (bande 2) : bois est le seul tablier 1-voie, les autres 2-voies.
 //   0-1 Feu/Bois → bois   ·   2-3 Pierre/Couronne → pierre   ·   4-5 → fer
 //   6 → béton                ·   7-9 cosmiques → énergie
-function bridgeEraForBand(band) {
+export function bridgeEraForBand(band) {
   const b = band | 0;
   if (b <= 1) return 'bois';
   if (b <= 3) return 'pierre';

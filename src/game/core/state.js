@@ -231,8 +231,6 @@ export const defaultState = () => ({
   cityArchetype: null,
   // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
   mapSeed: null,
-  // Rayon de l'enceinte, figé au moment de sa construction (null = pas bâtie).
-  wallRadius: null,
   // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
   lifetimePurchases: 0,
   playTimeSec: 0,
@@ -896,7 +894,6 @@ export function hydrateState(parsed = {}) {
     riverWP: normalizeRiverWaypoints(source.riverWP),
     cityArchetype: typeof source.cityArchetype === "string" && /^[a-z]+$/.test(source.cityArchetype) ? source.cityArchetype : null,
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
-    wallRadius: Number.isFinite(source.wallRadius) && source.wallRadius > 0 ? Math.min(150, source.wallRadius) : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),

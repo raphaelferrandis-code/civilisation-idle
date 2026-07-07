@@ -76,7 +76,7 @@ function contentBBox(img) {
 // procédural (corps ET ombre carrée). Déclenche le chargement paresseux.
 export function pixelHouseReady(t) {
   if (!pixelHousesFlag.on) return false;
-  if (t.type !== "house" || !AVAILABLE.has(t.variant)) return false;
+  if ((t.type !== "house" && t.type !== "enginehome") || !AVAILABLE.has(t.variant)) return false;
   const e = ensure(t.variant);
   return !!(e.ready && e.bbox);
 }

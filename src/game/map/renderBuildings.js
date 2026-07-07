@@ -161,95 +161,10 @@ function drawTileLOD(t, ctx, x, y, w, h) {
 
 /* Building shape helpers moved to buildingShapes.js. */
 
-// ============================================================================
-// NAPPE DE GIGANTISME — hameau de VRAIES maisons autour d'un bâtiment moteur.
-//   Le "combine" (cmEngineInstances, layout.js) plafonne l'affichage à ≤6 gros
-//   blocs par type : acheter plus fait GROSSIR les blocs sans jamais peupler la
-//   carte → la sensation de gigantisme s'écrase en fin de partie. On la restaure
-//   au RENDU PUR : chaque moteur s'entoure d'une grappe de maisons (mêmes sprites
-//   pixel que la ville, via drawPixelHouse/drawHouseShape) dont le nombre croît
-//   avec le NOMBRE ACHETÉ (t.level), sans créer AUCUNE tuile logique → zéro coût
-//   de placement/connexion/sauvegarde (cf. rapport gigantisme).
-//   Dessinée AVANT le héros (donc derrière lui) ; jamais sous LOD (drawTile rend
-//   déjà l'emprise en tesselles de masse via drawTileLOD).
-//   Débrayable : window.__engineSprawl = false.
-// ============================================================================
-const ENGINE_SPRAWL_ON = () => (typeof window === "undefined" || window.__engineSprawl !== false);
-// Singletons riverains/agricoles : ils grandissent déjà via leur propre emprise
-// (span), et une grappe de maisons dans le fleuve/les champs serait incongrue.
-const CM_SPRAWL_SKIP = new Set(["aqueducts", "river_ports", "water_mills", "irrigated_fields"]);
-// Variantes de maison EXCLUES du hameau : "courtyard" (cour plate → carré tan moche
-// en petit) et "manor" (manoir/grande demeure, incongru en filler dense).
-const CM_SPRAWL_VARIANT_SKIP = new Set(["courtyard", "manor"]);
-
-function drawEngineSprawl(t, x, y, w, h, now) {
-  if (!ENGINE_SPRAWL_ON() || CM.collapseAt) return;
-  if (t.buildingId && CM_SPRAWL_SKIP.has(t.buildingId)) return;
-  const level = t.level || t.groupLevel || 0;
-  if (level < 4) return;                                    // ville encore clairsemée
-  const groupTotal = Math.max(1, t.groupTotal || 1);
-  // Densité ∝ √(achats) : croît SANS plafond visible (chaque achat continue de
-  // peupler), répartie sur les groupes du type (Σ ≈ densité totale), puis cappée
-  // par tuile pour borner le coût de rendu.
-  const density = Math.min(170, Math.round(2.7 * Math.sqrt(level)));
-  const count = Math.min(30, Math.round(density / groupTotal));
-  if (count <= 0) return;
-
-  const s = CM.TILE * CM.cam.zoom;
-  if (s < 8) return;                                        // sécurité (le LOD prend le relais avant)
-
-  // Pool de variantes = celles des VRAIES maisons de la ville (era-correctes, sprites
-  // déjà chargés). Mémoïsé sur le layout (scan des tuiles house une seule fois).
-  let pool = CM.layout._sprawlVar;
-  if (!pool) {
-    const seen = new Set(), all = [];
-    for (const ht of CM.layout.tiles) if (ht.type === "house" && !seen.has(ht.variant)) { seen.add(ht.variant); all.push(ht.variant); }
-    pool = all.filter((v) => !CM_SPRAWL_VARIANT_SKIP.has(v));
-    if (!pool.length) pool = all.length ? all : ["hut"];
-    CM.layout._sprawlVar = pool;
-  }
-  const tier = (CM.layout && CM.layout.counts) ? (CM.layout.counts.urbanTier || 0) : 0;
-  const hw = s * 0.8;                                        // gabarit d'une maison satellite (un peu < 1 tuile)
-
-  // Zone d'essaimage autour de l'emprise, débordant surtout au NORD (le héros garde
-  // le devant). Grille jitterée ; on écarte les cellules SOUS le héros.
-  const spread = Math.min(2.8, 0.6 + Math.sqrt(count) * 0.34); // rayon en tuiles
-  const stepX = hw * 0.72, stepY = hw * 0.56;
-  const ax0 = x - s * spread, ax1 = x + w + s * spread;
-  const ay0 = y - s * (spread + 0.6), ay1 = y + h + s * 0.4;
-
-  const spots = [];
-  let gi = 0;
-  for (let py = ay0; py <= ay1; py += stepY) {
-    for (let pxx = ax0; pxx <= ax1; pxx += stepX) {
-      const seed = cmHash(t.key + "#" + (gi++));
-      const rx = pxx + ((seed % 100) / 100 - 0.5) * stepX * 0.85;
-      const ry = py + (((seed >> 7) % 100) / 100 - 0.5) * stepY * 0.85;
-      const dxE = Math.max(x - rx, 0, rx - (x + w));
-      const dyE = Math.max(y - ry, 0, ry - (y + h));
-      if (dxE === 0 && dyE === 0) continue;                 // sous le héros → occulté
-      spots.push({ rx, ry, seed, d: Math.hypot(dxE, dyE) });
-    }
-  }
-  if (!spots.length) return;
-  // Les plus proches de l'emprise d'abord (la nappe "hug" le héros et s'étale avec le
-  // compte), puis dessin back-to-front (nord d'abord) pour un recouvrement correct.
-  spots.sort((a, b) => a.d - b.d);
-  const chosen = spots.slice(0, count);
-  chosen.sort((a, b) => a.ry - b.ry);
-  const pad = hw * 0.12;
-  for (const sp of chosen) {
-    const sv = 0.72 + (sp.seed % 33) / 33 * 0.4;            // 0.72..1.12 variation de taille
-    const bw = hw * sv, bh = hw * sv;
-    const variant = pool[(sp.seed >> 3) % pool.length];
-    const t2 = { type: "house", variant, spanX: 1, spanY: 1, size: 1 };
-    // Bas de l'empreinte = point de pose (les sprites s'ancrent au sol et montent).
-    const bx = sp.rx - bw / 2, by = sp.ry - bh;
-    if (!(pixelHouseReady(t2) && drawPixelHouse(t2, bx, by, bw, bh))) {
-      drawHouseShape(bx, by, bw, bh, pad, tier, sp.seed, variant, now);
-    }
-  }
-}
+// NAPPE rendu-seul RETIRÉE (2026-07-07) : elle scatterait des sprites sans réserver
+// de cellule (usedKeys) → CHEVAUCHEMENT illisible, rejeté par Raphaël. Remplacée par
+// de VRAIS bâtiments : le terme `engineHomes` dans cityCounts (layout.js) fait placer
+// des maisons supplémentaires par le pipeline décor (zéro overlap, la ville grandit).
 
 // ============================================================================
 // ACCROCHE AU SOL — socle (plan-sol) + ombre portée douce.
@@ -326,6 +241,10 @@ function drawTile(t, now, timeWear, maxD2) {
   const sy = (t.gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
   const boxW = s * spanX, boxH = s * spanY;
   if (sx < -boxW || sy < -boxH || sx > CM.cw + boxW || sy > CM.ch + boxH) return;
+  // Maisons-MOTEUR : révélées une par une avec les achats (revealIdx < compteur).
+  // Le compteur (CM.engineHomeReveal) grandit d'1 par achat sans recompute ; le bake
+  // tuiles se rafraîchit quand il change → « 1 achat = 1 bâtiment » qui apparaît.
+  if (t.type === "enginehome" && (t.revealIdx || 0) >= (CM.engineHomeReveal || 0)) return;
   const ctx = CM.ctx;
 
   // Niveau de détail : très dézoomé, chaque tuile devient un aplat de masse
@@ -383,7 +302,7 @@ function drawTile(t, now, timeWear, maxD2) {
     x = ccx - w / 2 + offX; y = ccy - h / 2 + offY;
     tileLumDelta = (((seedV >> 9) % 31) / 31 - 0.5) * 0.3; // ~ +/-15%
     const bh = BUILDING_HEIGHTS[t.variant] ?? 1;
-    usePixelHouse = t.type === "house" && pixelHouseReady(t);
+    usePixelHouse = (t.type === "house" || t.type === "enginehome") && pixelHouseReady(t);
     if (usePixelHouse) {
       // Sprite pixel : pas d'ombre carrée procédurale. Accroche au sol du sprite 3/4
       // (socle plan-sol + ombre douce) pour qu'il ne « flotte » pas sur la grille plate.
@@ -404,9 +323,6 @@ function drawTile(t, now, timeWear, maxD2) {
   if (t.type === "engine") {
     // Accroche au sol du moteur (socle plan-sol + ombre douce), sous la nappe et le sprite.
     if (GROUNDING_ON()) drawGrounding(ctx, x, y, w, h, 1.6);
-    // Nappe de gigantisme : district de petits toits AUTOUR/DERRIÈRE le héros,
-    // dessiné avant lui. Purement visuel (aucune tuile logique), croît avec t.level.
-    drawEngineSprawl(t, x, y, w, h, now);
     drawEngineSprite(t, x, y, w, h, now);
     // ── Héritage Babel : halo doré pour les tuiles adjacentes du même type ──
     if (state?.babelHeritage && t.buildingId) {
@@ -437,7 +353,7 @@ function drawTile(t, now, timeWear, maxD2) {
     }
   } else {
     // Corps du batiment
-    if (t.type === "house") {
+    if (t.type === "house" || t.type === "enginehome") {
       // Sprite pixel-art si dispo (ancré base, monte au-dessus de la tuile), sinon procédural.
       if (!(usePixelHouse && drawPixelHouse(t, x, y, w, h))) {
         drawHouseShape(x, y, w, h, pad, CM.layout?.counts?.urbanTier || 0, t.gx * 13 + t.gy * 7, t.variant, now);

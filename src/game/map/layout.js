@@ -363,11 +363,31 @@ function cmEngineInstances(count, id) {
     for (let i = 0; i < n && out.length < maxGroups; i += 1) out.push(1);
     return out;
   }
+  // Extras en groupes MOYENS (25) puis 10 — PLUS de groupes de taille 1 : ils
+  // changeaient la structure à CHAQUE achat (+1 = un nouveau bloc), forçant un
+  // recompute complet du layout à chaque clic. Sans eux, la structure des gros blocs
+  // ne bouge que par paliers (~tous les 10-25 achats) → le layout peut sauter le
+  // recompute entre-temps (cf. cmEngineGroupSig + cityMapRuntime). Le « 1 achat = 1
+  // bâtiment » est porté par la NAPPE (rendu-seul, croît à chaque achat via t.level).
   const covered = n >= 64 ? 64 : n >= 25 ? 25 : 10;
   let extra = Math.max(0, n - covered);
   while (extra >= 25 && out.length < maxGroups) { out.push(25); extra -= 25; }
   while (extra >= 10 && out.length < maxGroups) { out.push(10); extra -= 10; }
-  while (extra >  0  && out.length < maxGroups) { out.push(1);  extra -= 1;  }
+  return out;
+}
+
+// Signature de la STRUCTURE des blocs-moteur (footprints par groupe et par type).
+// Ne change QUE quand un bloc apparaît/grandit (palier) — pas à chaque achat. Permet
+// à cityMapRuntime de sauter le recompute complet tant que la structure est stable
+// (il rafraîchit juste t.level pour la nappe). Cf. computeCityLayout / drawEngineSprawl.
+export function cmEngineGroupSig(s) {
+  if (!s || !s.buildings) return "";
+  let out = "";
+  for (const meta of CM_MAP_BUILDINGS) {
+    const lvl = Math.floor(s.buildings[meta.id] || 0);
+    if (lvl <= 0) continue;
+    out += meta.id + cmEngineInstances(lvl, meta.id).map((g) => cmEngineFootprint(meta.id, g)).join(",") + ";";
+  }
   return out;
 }
 
@@ -771,10 +791,36 @@ function cityCounts(s) {
   const districtCap = Math.round(Math.max(0, Math.pow(Math.max(0, eraFrac - 0.34) / 0.66, 1.25) * 50) * lateScale);
   const monumentCap = Math.round(Math.max(0, Math.pow(Math.max(0, eraFrac - 0.22) / 0.78, 1.14) * 34) * lateScale);
   const houses         = cmClamp(2 + Math.pow(popDepth, 1.48) * 4.7 + Math.pow(eraIndex, 1.62) * 3.05 + lateSurge * 4.5, 1, houseCap);
+  // ── Terme MOTEUR (« le spawn de bâtiments agrandit la ville ») ──────────────
+  // Chaque achat de bâtiment-moteur ajoute de VRAIES maisons (placées SANS
+  // chevauchement par le pipeline décor placeDecor→placeCategorySlotted). Basé sur
+  // les GROUPES (cmEngineInstances) → invariant dans un palier → n'élargit PAS
+  // structSig → AUCUN recompute par clic (croît par lot au palier ; la révélation
+  // per-buit vient en Phase 2). Ajouté APRÈS le clamp houseCap (sinon écrêté) et
+  // JAMAIS dans enginePressure (sinon double-compte de la pression). Molette __engineHomesK.
+  let engineHomes = 0;
+  const eK = (typeof globalThis !== "undefined" && globalThis.__engineHomesK) || 0.6;
+  for (const meta of CM_MAP_BUILDINGS) {
+    const lvl = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
+    if (lvl <= 0) continue;
+    for (const g of cmEngineInstances(lvl, meta.id)) engineHomes += Math.round(Math.sqrt(g) * eK);
+  }
   const infraRings     = cmClamp(infraDepth * 0.5 + eraIndex * 0.18, 0, ringCap);
   const megaDistricts  = eraBand < 3 ? 0 : cmClamp(Math.pow(Math.max(0, eraIndex - 7), 1.35) * 1.25 + Math.max(0, popDepth - 6.2) * 2 + Math.max(0, infraDepth - 5.5) * 1.45, 0, districtCap);
   const civicMonuments = eraBand < 2 ? 0 : cmClamp(Math.pow(Math.max(0, eraIndex - 4), 1.18) * 1.05 + Math.max(0, infraDepth - 4.5) * 1.15 + Math.max(0, knowledgeDepth - 4.5) * 1.1, 0, monumentCap);
-  return { houses, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
+  // Quartiers pilotés par les achats : chaque nouveau district (ancre) crée un
+  // maillage de routes local → des slots de maisons → la ville S'ÉTEND vraiment (les
+  // maisons se posent près des routes ; sans nouveaux quartiers, le placement plafonne
+  // et agrandir N ne fait qu'une grille vide). Group-based (via engineHomes) → stable
+  // dans un palier. Cappé pour borner le coût de routes-gen/connexion. Molette __engineQK.
+  const engineQuarters = Math.min(40, Math.round(engineHomes / ((typeof globalThis !== "undefined" && globalThis.__engineQK) || 55)));
+  // `houses` = maisons de POPULATION (toujours affichées). engineHomes est placé
+  // SÉPARÉMENT (catégorie 'enginehome') pour être révélé per-buy (cf. computeCityLayout
+  // + drawTile). engineHomesRaw = total brut d'achats moteur (Σ niveaux) → sert de
+  // compteur de RÉVÉLATION (grandit d'1 par achat, rafraîchi sans recompute).
+  let engineHomesRaw = 0;
+  for (const meta of CM_MAP_BUILDINGS) engineHomesRaw += Math.floor((s.buildings && s.buildings[meta.id]) || 0);
+  return { houses, engineHomes, engineHomesRaw, engineQuarters, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
 }
 
 // ── Connexion des bâtiments au réseau ────────────────────────────────────────
@@ -1074,7 +1120,7 @@ function computeCityLayout(s) {
   const mapSeed = ensureMapSeed(s);
   const personality = computeCityPersonality(mapSeed, s);
   const ageCfg = ageConfigFor(c.eraBand);
-  const total = c.houses;
+  const total = c.houses + (c.engineHomes || 0);   // maisons pop + maisons-moteur (pour dimensionner N)
   const enginePressure = CM_MAP_BUILDINGS.reduce((sum, meta) => {
     const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
     return sum + cmEngineInstances(level).reduce((acc, group) => acc + Math.max(1, cmEngineFootprint(meta.id, group) ** 2), 0);
@@ -1089,7 +1135,12 @@ function computeCityLayout(s) {
   const wonderCount = cmWonderActiveIds(s).size;
   const minNWonders = wonderCount >= 5 ? 36 : wonderCount >= 3 ? 30 : wonderCount >= 1 ? 24 : 20;
   let N = minNWonders;
-  while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < 300) N += 2;
+  // Cap de grille : PLAFOND PERF (pas structurel — aucun overflow avant N~46000, index
+  // y*N+x en Int32). Débloqué 300 → 360 pour laisser la ville s'étaler avec les achats
+  // (terme engineHomes). Le recompute est ~O(N²) : profiler avant de monter plus haut
+  // (~2 s à N≈260, ~6 s à N≈420). Molette : window.__nCapOverride.
+  const NCAP = Math.floor((typeof globalThis !== "undefined" && globalThis.__nCapOverride) || 360);
+  while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < NCAP) N += 2;
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
   lp("dimension");
 
@@ -1824,6 +1875,12 @@ function computeCityLayout(s) {
     });
   };
   placeDecor("house", biasedCount(c.houses, bias.house));
+  // Maisons-MOTEUR : pool = engineHomes (palier) + marge LOOKAHEAD (couvre les achats
+  // jusqu'au prochain palier), placées SANS chevauchement par le même pipeline. Elles
+  // sont RÉVÉLÉES une par une au rendu (drawTile) selon engineHomesRaw → « 1 achat =
+  // 1 bâtiment » sans recompute. Chaque tuile porte revealIdx (index de slot).
+  const ENGINE_HOME_LOOKAHEAD = 44;
+  placeDecor("enginehome", (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
 
   // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
   // courant ET les slots réellement posés cette frame (émonde la frange quand la
@@ -1954,7 +2011,11 @@ function computeCityLayout(s) {
   for (const k of occupiedFoot) if (!riverSet.has(k)) urbanSet.add(k);
   lp("urbain");
   lpEnd();
+  // Nombre de maisons-moteur RÉELLEMENT posées (road-limité) → base de la révélation
+  // per-buy (on révèle les dernières placées ; le reste apparaît d'emblée).
+  const engineHomePlaced = tiles.reduce((n, t) => n + (t.type === "enginehome" ? 1 : 0), 0);
   return {
+    engineHomePlaced,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
     districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots,

@@ -302,12 +302,11 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     chronicle(`L'ombre du Chaos transfigure notre héritage : +${fmt(gain)} ruines immatérielles s'inscrivent dans notre histoire, magnifiant à jamais la mémoire de nos vestiges.`);
   }
   state.cycles += 1;
-  // Nouvelle civilisation : nouveau plan procédural (seed + rivière + enceinte régénérés).
+  // Nouvelle civilisation : nouveau plan procédural (seed + rivière régénérés).
   state.mapSeed = newCitySeed();
   // ...et un nouveau nom de cité, sauf si le joueur l'a renommé à la main.
   if (!state.cityNameCustom) state.cityName = generateCityName(state.mapSeed);
   state.riverWP = null;
-  state.wallRadius = null;
   state.cityArchetype = null;
   state.population = keptPop.max(10);
   state.food = keptFood.max(startFloor("Food", 35));

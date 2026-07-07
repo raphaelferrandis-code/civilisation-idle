@@ -225,6 +225,7 @@ export function placeCategorySlotted(category, count, ctx) {
       gx: cell.gx, gy: cell.gy, type: category, variant, spanX, spanY,
       qkind: quarterKindAt(cell.gx, cell.gy),
       key: cell.gx + "," + cell.gy,
+      revealIdx: i,   // index de slot persistant → ordre de révélation per-buy (catégorie enginehome)
       d2: cell.d2 != null ? cell.d2 : dx * dx + dy * dy
     });
     store[slotKey(i)] = { dx, dy, zone: "dec", id: category };

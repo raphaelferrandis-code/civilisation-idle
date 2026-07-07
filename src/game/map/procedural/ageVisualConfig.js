@@ -21,7 +21,6 @@ const AGE_CONFIG = [
     plazaSize: 0,         // pas de place : le feu central tient ce rôle
     parkChance: 0.3,      // espaces vides / nature dans le tissu
     treeDensity: 1.25,
-    wallTier: 0,
     citizenRoles: ["veille le feu", "cherche du bois", "rentre au camp", "écoute les anciens", "guette l'horizon"],
     vehicles: [{ type: "basket", weight: 1 }],
     decorDensity: 0.2
@@ -34,7 +33,6 @@ const AGE_CONFIG = [
     plazaSize: 1,
     parkChance: 0.24,
     treeDensity: 1.1,
-    wallTier: 0,
     citizenRoles: ["porte un panier", "revient des champs", "parle au puits", "mène une chèvre", "bat le grain"],
     vehicles: [{ type: "basket", weight: 2 }, { type: "barrow", weight: 2 }, { type: "cart", weight: 1 }],
     decorDensity: 0.35
@@ -47,7 +45,6 @@ const AGE_CONFIG = [
     plazaSize: 2,
     parkChance: 0.18,
     treeDensity: 0.95,
-    wallTier: 0,
     citizenRoles: ["traverse le marché", "livre des sacs", "crie une annonce", "marchande au comptoir", "pousse une brouette"],
     vehicles: [{ type: "cart", weight: 3 }, { type: "barrow", weight: 2 }, { type: "wagon", weight: 1 }],
     decorDensity: 0.5
@@ -60,7 +57,6 @@ const AGE_CONFIG = [
     plazaSize: 2,
     parkChance: 0.14,
     treeDensity: 0.85,
-    wallTier: 1,
     citizenRoles: ["suit les remparts", "rejoint l'atelier", "porte un message", "monte la garde", "prie au sanctuaire"],
     vehicles: [{ type: "cart", weight: 2 }, { type: "wagon", weight: 2 }, { type: "chariot", weight: 2 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.6
@@ -73,7 +69,6 @@ const AGE_CONFIG = [
     plazaSize: 3,
     parkChance: 0.12,
     treeDensity: 0.7,
-    wallTier: 2,
     citizenRoles: ["sort d'une avenue", "compte les chariots", "file vers les quais", "déclame un édit", "escorte un convoi"],
     vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 3 }, { type: "caravan", weight: 2 }, { type: "cart", weight: 1 }],
     decorDensity: 0.75
@@ -86,7 +81,6 @@ const AGE_CONFIG = [
     plazaSize: 3,
     parkChance: 0.1,
     treeDensity: 0.55,
-    wallTier: 2,
     citizenRoles: ["prend une ligne rapide", "traverse un quartier haut", "sort d'une tour", "presse le pas sous les arches", "lit les proclamations"],
     vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "wagon", weight: 1 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.85
@@ -99,9 +93,6 @@ const AGE_CONFIG = [
     plazaSize: 4,
     parkChance: 0.08,
     treeDensity: 0.4,
-    // La mégalopole garde l'enceinte de son vieux centre intra-muros : la
-    // muraille (rayon figé dans state.wallRadius) reste un repère historique.
-    wallTier: 2,
     citizenRoles: ["suit le flux civique", "rejoint une station", "marche sous les arches", "consulte un terminal", "surveille les niveaux"],
     vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 }],
     decorDensity: 1
@@ -119,7 +110,6 @@ const AGE_CONFIG = [
     plazaSize: 4,
     parkChance: 0.06,
     treeDensity: 0.3,
-    wallTier: 2,
     citizenRoles: ["dérive entre les tours-mémoire", "écoute le chœur planétaire", "synchronise un nœud", "veille la membrane", "consulte la conscience commune"],
     vehicles: [{ type: "drone", weight: 4 }, { type: "tram", weight: 1 }],
     decorDensity: 1.1
@@ -132,7 +122,6 @@ const AGE_CONFIG = [
     plazaSize: 5,
     parkChance: 0.05,
     treeDensity: 0.2,
-    wallTier: 2,
     citizenRoles: ["guide un essaim d'étoiles", "veille un cœur stellaire", "ajuste une orbite", "déploie une voile solaire", "écoute l'esprit des étoiles"],
     vehicles: [{ type: "drone", weight: 5 }, { type: "tram", weight: 1 }],
     decorDensity: 1.2
@@ -145,7 +134,6 @@ const AGE_CONFIG = [
     plazaSize: 5,
     parkChance: 0.04,
     treeDensity: 0.12,
-    wallTier: 2,
     citizenRoles: ["réécrit une constante", "tisse une portion de vide", "stabilise l'entropie", "grave une loi nouvelle", "contemple le Grand Amas"],
     vehicles: [{ type: "drone", weight: 6 }],
     decorDensity: 1.3

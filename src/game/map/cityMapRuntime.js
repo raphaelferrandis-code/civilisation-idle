@@ -14,6 +14,7 @@ import {
   cmWonderActiveIds,
   cmRoadName,
   computeCityLayout,
+  cmEngineGroupSig,
   cmCheckWonders,
   cityCounts,
   cmIsWalkableRoad,
@@ -37,7 +38,6 @@ import {
   cityMapDrawStreetLights,
   cityMapDrawBridges,
   cityMapDrawBridgeLights,
-  cityMapDrawWalls,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
   cityMapDrawMist,
@@ -51,7 +51,7 @@ import {
   cityMapCalmRioterAt
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
-import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, cityMapDrawRails, drawTram } from './agents.js';
+import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
@@ -75,32 +75,79 @@ function cityMapResizeCanvas(canvas) {
   CM.ch = h;
   const nw = Math.max(1, Math.round(w * dpr));
   const nh = Math.max(1, Math.round(h * dpr));
+  // MARGE DE PAN : les 3 offscreen (sol/décor/tuiles) sont bakés PLUS GRANDS que
+  // l'écran (marge M de chaque côté). Pendant un drag, on blitte la couche déjà
+  // bakée DÉCALÉE (translation) au lieu de re-baker à chaque pixel → drag fluide,
+  // re-bake seulement quand le pan dépasse la marge. Molette window.__panMargin
+  // (px logiques ; 0 = ancien comportement re-bake/pixel). Cf. cityMapBlitMargin.
+  const M = Math.max(0, Math.round((typeof window !== "undefined" && window.__panMargin != null) ? window.__panMargin : 256));
+  CM._bakeMargin = M;
+  const onw = Math.max(1, Math.round((w + 2 * M) * dpr));
+  const onh = Math.max(1, Math.round((h + 2 * M) * dpr));
   // Réallouer un canvas — même à taille IDENTIQUE — l'efface et invalidait tous
   // les caches offscreen : forceFrame() (resize + frame) rebakait donc arbres,
   // tuiles et sol à CHAQUE appel. No-op si rien n'a changé.
-  if (canvas.width === nw && canvas.height === nh) return;
-  canvas.width = nw;
-  canvas.height = nh;
-  CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // Sync static (offscreen) canvas dimensions on resize
+  const mainSame = canvas.width === nw && canvas.height === nh;
+  const offSame = !CM.staticCanvas || (CM.staticCanvas.width === onw && CM.staticCanvas.height === onh);
+  if (mainSame && offSame) return;
+  if (!mainSame) {
+    canvas.width = nw;
+    canvas.height = nh;
+    CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // Offscreen dimensionnés AVEC la marge (onw/onh > écran). Invalide les bakes.
   if (CM.staticCanvas) {
-    CM.staticCanvas.width = nw;
-    CM.staticCanvas.height = nh;
+    CM.staticCanvas.width = onw;
+    CM.staticCanvas.height = onh;
     CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.staticCamKey = ""; // force re-bake after resize
+    CM.staticCamKey = ""; CM._staticBake = null;
   }
   if (CM.tileCanvas) {
-    CM.tileCanvas.width = nw;
-    CM.tileCanvas.height = nh;
+    CM.tileCanvas.width = onw;
+    CM.tileCanvas.height = onh;
     CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.tileCamKey = '';
+    CM.tileCamKey = ''; CM._tileBake = null;
   }
   if (CM.groundCanvas) {
-    CM.groundCanvas.width = nw;
-    CM.groundCanvas.height = nh;
+    CM.groundCanvas.width = onw;
+    CM.groundCanvas.height = onh;
     CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.groundCamKey = '';
+    CM.groundCamKey = ''; CM._groundBake = null;
   }
+}
+
+// ── BAKE AVEC MARGE (drag fluide) ────────────────────────────────────────────
+// Bake une couche dans un offscreen PLUS GRAND que l'écran (marge M) : re-bake
+// seulement si `otherKey` change (layout/zoom/nuit/…) OU si le pan a dépassé M.
+// Entre-temps, `cityMapBlitMargin` translate le bake existant → aucun re-bake par
+// pixel de pan (le vrai coupable du freeze au drag). drawFn peut renvoyer false
+// (« pas encore stable » — tileset en chargement) → re-bake à la frame suivante.
+function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
+  if (!canvas) return;
+  const M = CM._bakeMargin || 0;
+  const bm = CM[stateName];
+  const px = bm ? (CM.cam.x - bm.camX) * CM.cam.zoom : Infinity;
+  const py = bm ? (CM.cam.y - bm.camY) * CM.cam.zoom : Infinity;
+  if (!bm || bm.other !== otherKey || !M || Math.abs(px) > M || Math.abs(py) > M) {
+    const mainCtx = CM.ctx, cw = CM.cw, ch = CM.ch;
+    CM.cw = cw + 2 * M; CM.ch = ch + 2 * M;   // viewport élargi → centre + culling couvrent la marge
+    CM.ctx = offctx;
+    offctx.setTransform(1, 0, 0, 1, 0, 0);
+    offctx.clearRect(0, 0, canvas.width, canvas.height);
+    offctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+    const st = drawFn();
+    CM.ctx = mainCtx; CM.cw = cw; CM.ch = ch;
+    CM[stateName] = { camX: CM.cam.x, camY: CM.cam.y, other: (st === false ? "__unstable__" : otherKey) };
+  }
+}
+// Blit le bake, translaté du delta de pan depuis sa position de bake (-M pour cadrer
+// la marge hors écran). Aligné au pixel quel que soit le pan tant qu'il reste < M.
+function cityMapBlitMargin(canvas, stateName) {
+  const b = CM[stateName]; if (!canvas || !b) return;
+  const M = CM._bakeMargin || 0;
+  const ox = (b.camX - CM.cam.x) * CM.cam.zoom - M;
+  const oy = (b.camY - CM.cam.y) * CM.cam.zoom - M;
+  CM.ctx.drawImage(canvas, ox, oy, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
 function cityMapWorldAtScreen(sx, sy) {
@@ -265,14 +312,6 @@ function cityMapHitTest(sx, sy) {
       }
     }
   }
-  // Portes de l'enceinte : chacune a son nom.
-  if (CM.layout && CM.layout.walls && Array.isArray(CM.layout.walls.gates)) {
-    for (const g of CM.layout.walls.gates) {
-      if (Math.hypot(gx - g.gx, gy - g.gy) <= 1.6) {
-        return { title: g.name, body: "L'un des rares accès fortifiés de la vieille ville.", kind: "Porte" };
-      }
-    }
-  }
   const tile = CM.tileGrid?.get(gx + "," + gy);
   if (tile) {
     const info = cityMapDescribeTile(tile);
@@ -420,6 +459,7 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
 // Cache engineSig et cityCounts entre frames — ne recalculer que si les bâtiments changent.
 let _cachedEngineSigBuildVer = -1;
 let _cachedEngineSig = "";
+let _cachedEngineGroupSig = "";
 let _cachedCityCounts = null;
 let _cachedCityCountsPopKey = "";
 
@@ -430,6 +470,7 @@ function cityMapEnsureLayout(now, deps = {}) {
   // engineSig : ne reconstruire que si les bâtiments ont changé (renderCache._buildingsVersion)
   if (renderCache._buildingsVersion !== _cachedEngineSigBuildVer) {
     _cachedEngineSig = CM_MAP_BUILDINGS.map((meta) => `${meta.id}:${Math.floor((state.buildings && state.buildings[meta.id]) || 0)}`).join("|");
+    _cachedEngineGroupSig = cmEngineGroupSig(state);   // structure des blocs (paliers), pas les comptes bruts
     _cachedEngineSigBuildVer = renderCache._buildingsVersion;
     _cachedCityCounts = null; // invalider aussi cityCounts
   }
@@ -441,6 +482,7 @@ function cityMapEnsureLayout(now, deps = {}) {
   }
   const cc = _cachedCityCounts;
   const engineSig = _cachedEngineSig;
+  const engineGroupSig = _cachedEngineGroupSig;
 
   // Bande de crise : 0 normal, 1 crise, 2 effondrement imminent — force une
   // régénération du layout quand l'état de la ville bascule (chaos procédural).
@@ -456,17 +498,39 @@ function cityMapEnsureLayout(now, deps = {}) {
   const roadCount = Math.floor((state.buildings && state.buildings.roads) || 0);
   const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
-  // Bâtiments achetés → recompute immédiat (pas de throttle) pour que l'animation démarre sans délai.
-  // Pour les changements de eraFrac seuls, on limite à 1 recompute par 1500ms.
-  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineSig;
+  // « 1 achat = 1 bâtiment » SANS le gel de ~240 ms : quand SEULS les comptes changent
+  // (structure des blocs identique — cf. cmEngineGroupSig, stable entre paliers), on NE
+  // recalcule PAS le layout (placement + connexion routière). On rafraîchit juste t.level
+  // sur les tuiles moteur → la NAPPE (drawEngineSprawl) grandit d'UNE maison par achat,
+  // gratuitement. Débrayable : window.__stableSkip = false.
+  const structSig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
+  const skipStable = typeof window === 'undefined' || window.__stableSkip !== false;
+  if (skipStable && CM.layout && structSig === CM.layoutStructSig) {
+    const b = state.buildings || {};
+    for (const tt of CM.layout.tiles) if (tt.type === 'engine' && tt.buildingId) tt.level = Math.floor(b[tt.buildingId] || 0);
+    CM.layoutSig = sig;
+    return;
+  }
+  // Changement STRUCTUREL (nouveau bloc / ère / merveille / route / prestige) → recompute
+  // complet. Throttle : les changements de eraFrac SEULS sont limités à 1 recompute/1500ms.
+  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineGroupSig;
   const coreChanged = coreSig !== CM.layoutCoreSig;
   if (CM.layout && !coreChanged && (now - CM.layoutRecomputeAt) < 1500) return;
   CM.layoutSig = sig;
+  CM.layoutStructSig = structSig;
   CM.layoutCoreSig = coreSig;
   CM.layoutRecomputeAt = now;
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
   CM.tileCamKey = '';             // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
+  // Garde-fou COORDS : quand la grille grandit (terme engineHomes / achats), cx=floor(N/2)
+  // bouge → toute la ville se TRANSLATE en coords monde (slots core-relatifs, la ville n'a
+  // pas bougé vs son cœur). On recale la caméra du delta de cœur pour supprimer le saut.
+  if (CM._prevCore && CM.centered) {
+    CM.cam.x += (L.cx - CM._prevCore.x) * CM.TILE;
+    CM.cam.y += (L.cy - CM._prevCore.y) * CM.TILE;
+  }
+  CM._prevCore = { x: L.cx, y: L.cy };
   // Ordre painter's (arrière → avant) : indispensable depuis que les habitations
   // pixel-art dépassent leur tuile vers le haut — une tour au premier plan doit
   // recouvrir ce qui est derrière. Tri par gy puis gx ; les consommateurs de
@@ -643,7 +707,6 @@ function cityMapEnsureLayout(now, deps = {}) {
     for (const k of L.river.cells) occ.add(k);
     for (const k of L.river.banks) occ.add(k);
   }
-  if (L.walls) for (const wc of L.walls.cells) occ.add(wc.gx + "," + wc.gy);
   CM.occupied = occ;
   CM.riverRow = -999;
 
@@ -686,8 +749,7 @@ function cityMapEnsureLayout(now, deps = {}) {
     for (let n = 0; n < wantVeh && pool.length; n += 1) {
       const r = pool[(n * 53) % pool.length];
       let vehicleType = chooseRoadVehicleType(L.counts.eraIndex, r.rank || "secondary", n);
-      // Le TRAM est un objet à part : un seul, sur l'anneau de la muraille (cf. drawTram).
-      // On ne le met donc pas dans la flotte de grille → ce type retombe sur une voiture.
+      // Pas de tram sur les voies (véhicule rail) → retombe sur une voiture.
       if (vehicleType === "tram") vehicleType = "car";
       CM.vehicles.push({
         gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
@@ -927,56 +989,39 @@ function initCityMap(canvas, options = {}) {
       // Detection d'effondrement (anim de destruction centre -> exterieur).
       if (typeof collapseInProgress !== "undefined" && collapseInProgress) { if (!CM.collapseAt) CM.collapseAt = now; }
       else { CM.collapseAt = 0; }
-      // --- Couches statiques (rebake uniquement si camera ou layout change) ---
-      const _camKey = Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1) + ':' + CM.healthF.toFixed(1);
-      if (_camKey !== CM.staticCamKey && CM.staticCanvas) {
-        const _mainCtx = CM.ctx;
-        CM.ctx = CM.sctx;
-        CM.sctx.setTransform(1, 0, 0, 1, 0, 0);
-        CM.sctx.clearRect(0, 0, CM.staticCanvas.width, CM.staticCanvas.height);
-        CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-        // NB: sol ET rivière ne sont PAS dans ce canvas — ils sont dessinés live
-        // pour maintenir l'ordre : sol → rivière → (blit: arbres/routes/ponts/lumières)
+      // --- Couches statiques (rebake si layout/zoom/nuit change OU pan > marge) ---
+      // NB: sol ET rivière ne sont PAS dans ce canvas — dessinés live pour l'ordre :
+      // sol → rivière → (blit décor : arbres/routes/ponts/lumières).
+      const _otherStatic = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1) + ':' + CM.healthF.toFixed(1);
+      cityMapBakeMargin(CM.staticCanvas, CM.sctx, '_staticBake', _otherStatic, () => {
         cityMapDrawTrees();
         cityMapDrawUrbanMass(CM.layout);
         cityMapDrawPlazaSurface();
-        // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
-        // est actif ; sinon rendu procédural (voies doubles + marquages) PAR-DESSUS le sol.
+        // Routes : pixel edge-Wang (dans drawPixelTerrain) si flag, sinon procédural.
         if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
           for (const r of CM.roadList) cityMapDrawRoad(r);
           cityMapDrawRoadMarkings();
         }
         if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawWalls();
         cityMapDrawStreetLights(now);
-        CM.ctx = _mainCtx;
-        CM.staticCamKey = _camKey;
-      }
+      });
       // Sol + rivière d'abord (sous le canvas statique), puis blit.
       // Le SOL (procédural + tuiles pixel + relief) est statique à caméra fixe :
       // baké dans un canvas offscreen et blitté chaque frame (en live, le sol
       // pixel coûtait ~7 ms/frame). La rivière et les couches animées restent
       // live PAR-DESSUS le blit — ordre inchangé.
       if (CM.groundCanvas) {
-        const _groundKey = Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':'
-          + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':' + (state.timeWear || 0).toFixed(2) + ':'
-          + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0);
-        if (_groundKey !== CM.groundCamKey) {
-          const _mainCtx3 = CM.ctx;
-          CM.ctx = CM.gctx;
-          CM.gctx.setTransform(1, 0, 0, 1, 0, 0);
-          CM.gctx.clearRect(0, 0, CM.groundCanvas.width, CM.groundCanvas.height);
-          CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+        const _otherGround = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':'
+          + (state.timeWear || 0).toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0);
+        cityMapBakeMargin(CM.groundCanvas, CM.gctx, '_groundBake', _otherGround, () => {
           CM._groundBakeStable = true; // drawPixelTerrain le baisse si tileset de repli
           cityMapDrawGround(CM.layout);
           const _pg = pixelTerrainFlag.on && drawPixelTerrain(CM);
           if (!_pg) cityMapDrawTerrain();
-          CM.ctx = _mainCtx3;
-          // Tilesets encore en chargement (sol pixel pas prêt, rues en repli) :
-          // clé PAS figée → rebake à la frame suivante jusqu'à stabilité.
-          if ((_pg || !pixelTerrainFlag.on) && CM._groundBakeStable) CM.groundCamKey = _groundKey;
-        }
-        CM.ctx.drawImage(CM.groundCanvas, 0, 0, CM.cw, CM.ch);
+          // Tilesets encore en chargement → renvoyer false = re-bake à la frame suivante.
+          return (_pg || !pixelTerrainFlag.on) && CM._groundBakeStable;
+        });
+        cityMapBlitMargin(CM.groundCanvas, '_groundBake');
       } else {
         // Repli sans canvas offscreen : rendu live historique.
         cityMapDrawGround(CM.layout);
@@ -1005,7 +1050,7 @@ function initCityMap(canvas, options = {}) {
       // bâtiments (le blit statique les recouvre aux croisements).
       drawShips(dt);
       if (CM.staticCanvas) {
-        CM.ctx.drawImage(CM.staticCanvas, 0, 0, CM.cw, CM.ch);
+        cityMapBlitMargin(CM.staticCanvas, '_staticBake');
       } else {
         // sol + rivière déjà dessinés live au-dessus
         cityMapDrawTrees();
@@ -1018,37 +1063,42 @@ function initCityMap(canvas, options = {}) {
           cityMapDrawRoadMarkings();
         }
         if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawWalls();
         cityMapDrawStreetLights(now);
       }
       // --- Couches dynamiques (animees, chaque frame) ---
       // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
       cityMapDrawPlazas(now);
       updateVehicles(dt);
-      cityMapDrawRails(now);            // anneau de rails de tram le long de la muraille (band 5+)
       // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
       // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
       if (!CM.lodActive) {
         drawCitizens(dt, now);
         drawVehicles(now, "ground");
-        drawTram(dt);                  // le tram UNIQUE qui fait le tour de la ville sur l'anneau
       }
       const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
+      // Révélation per-buy des maisons-MOTEUR : compteur = maisons du palier (engineHomes)
+      // + achats depuis le dernier recompute (borné au LOOKAHEAD=44 du pool pré-placé).
+      // Rafraîchi chaque frame (~29 additions) → « 1 achat = 1 bâtiment » qui apparaît
+      // (drawTile masque revealIdx >= compteur), SANS recompute du layout.
+      if (CM.layout && CM.layout.counts) {
+        let rawNow = 0; const _b = state.buildings || {};
+        for (const meta of CM_MAP_BUILDINGS) rawNow += Math.floor(_b[meta.id] || 0);
+        const placed = CM.layout.engineHomePlaced || 0;
+        const grown = rawNow - (CM.layout.counts.engineHomesRaw || 0);   // achats depuis le recompute
+        // On révèle les 40 DERNIÈRES maisons placées une par une (le reste apparaît au
+        // recompute). placed-40 masqué au départ ; chaque achat en révèle une de plus.
+        CM.engineHomeReveal = Math.max(0, Math.min(placed, placed - 40 + grown));
+      }
       if (CM.layout) {
-        const _tileKey = CM.layoutRecomputeAt + ':' + Math.round(CM.cam.x) + ':' + Math.round(CM.cam.y) + ':' + CM.cam.zoom.toFixed(2) + ':' + tw.toFixed(2) + ':' + (CM.frameRuined ? 1 : 0);
         if (now >= CM.tileDirtyUntil && CM.tileCanvas) {
-          // Hors fenêtre de naissance : bake les tuiles statiques, engine toujours live
-          if (_tileKey !== CM.tileCamKey) {
-            const _mainCtx2 = CM.ctx;
-            CM.ctx = CM.tctx;
-            CM.tctx.setTransform(1, 0, 0, 1, 0, 0);
-            CM.tctx.clearRect(0, 0, CM.tileCanvas.width, CM.tileCanvas.height);
-            CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+          // Hors fenêtre de naissance : bake les tuiles statiques (marge = pan fluide),
+          // engine toujours live. La clé inclut engineHomeReveal → re-bake quand une
+          // maison-moteur est révélée (per-buy, ~5 ms, pas les 800 ms du recompute).
+          const _otherTile = CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(2) + ':' + tw.toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (CM.engineHomeReveal || 0);
+          cityMapBakeMargin(CM.tileCanvas, CM.tctx, '_tileBake', _otherTile, () => {
             for (const t of CM.layout.tiles) if (t.type !== "engine") drawTile(t, now, tw, maxD2);
-            CM.ctx = _mainCtx2;
-            CM.tileCamKey = _tileKey;
-          }
-          CM.ctx.drawImage(CM.tileCanvas, 0, 0, CM.cw, CM.ch);
+          });
+          cityMapBlitMargin(CM.tileCanvas, '_tileBake');
           // Tuiles engine toujours dessinées live : leurs sprites ont des animations (feu, roues...).
           for (const t of CM.layout.tiles) if (t.type === "engine") drawTile(t, now, tw, maxD2);
         } else {

@@ -95,6 +95,23 @@ function buildAnchors({ seed, counts, personality, archetype, core, reachBase, N
       usedKinds.push(kind);
     }
   }
+  // ── Quartiers d'ACHAT (counts.engineQuarters) ──────────────────────────────
+  // Chaque achat de moteurs finit par ajouter des districts résidentiels : de
+  // nouvelles ancres étalées en SPIRALE vers l'extérieur → generateRoadsGraph y pose
+  // un maillage local → les maisons s'y posent → la ville GRANDIT organiquement (au
+  // lieu de plafonner). Déterministes (index i) et stables dans un palier (engineQuarters
+  // group-based). Kind habitat (attire les maisons). N'affichent pas de mega-district.
+  const eq = Math.max(0, counts.engineQuarters || 0);
+  for (let i = 0; i < eq; i += 1) {
+    const ea = i * 2.399963;                                   // angle d'or → répartition régulière
+    const er = reachBase * (0.42 + Math.min(0.52, (i / Math.max(8, eq)) * 0.62)); // spirale vers l'extérieur
+    const gx = Math.max(2, Math.min(N - 3, core.x + Math.cos(ea) * er));
+    const gy = Math.max(2, Math.min(N - 3, core.y + Math.sin(ea) * er));
+    anchors.push({
+      label: `engineq-${i}`, kind: "habitat", band: counts.eraBand, angle: ea,
+      gx, gy, r: Math.max(3.4, reachBase * 0.15), strength: 1.15
+    });
+  }
   return anchors;
 }
 
