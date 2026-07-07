@@ -12,7 +12,6 @@ import { eraBandOf } from '../data/eraThemes.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.js';
-import { generateWalls } from './procedural/wallGenerator.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
@@ -345,7 +344,18 @@ function cmEngineInstances(count, id) {
   // (pas de quais ni de moulins éparpillés sur la berge).
   if (id === "river_ports" || id === "water_mills") return count > 0 ? [Math.floor(count)] : [];
   if (count <= 0) return [];
-  const out = [], n = Math.floor(count), maxGroups = 6;
+  // maxGroups relevé 6 → 16 (demande Raphaël : « ne plus bloquer à 6 groupes/type »).
+  // Les groupes EN TROP sont MOYENS (25) puis petits — on multiplie les BLOCS sans
+  // empiler des méga-groupes de 64 (footprint 5) qui feraient exploser enginePressure.
+  // À ~250 achats/type, cmEngineInstances ne produit QUE ~12 groupes → 16 laisse de la
+  // marge aux gros acheteurs (500-1000/type). Le vrai coût qui montait avec le nombre
+  // d'instances était la connexion routière ; elle est désormais maintenue de façon
+  // INCRÉMENTALE (cf. relaxFrom) → ~1,7× plus rapide au whale, ce qui rend 16 abordable.
+  // Le cap reste le garde-fou anti-whale (borne les tuiles-moteur). Pour aller BIEN
+  // plus haut (30-50) sans hitch → persister le réseau routier ENTRE recomputes.
+  // Molette de test : window.__maxGroupsOverride.
+  const out = [], n = Math.floor(count),
+    maxGroups = (typeof globalThis !== "undefined" && globalThis.__maxGroupsOverride) || 16;
   if (n >= 10) out.push(10);
   if (n >= 25) out.push(25);
   if (n >= 64) out.push(64);
@@ -355,7 +365,6 @@ function cmEngineInstances(count, id) {
   }
   const covered = n >= 64 ? 64 : n >= 25 ? 25 : 10;
   let extra = Math.max(0, n - covered);
-  while (extra >= 64 && out.length < maxGroups) { out.push(64); extra -= 64; }
   while (extra >= 25 && out.length < maxGroups) { out.push(25); extra -= 25; }
   while (extra >= 10 && out.length < maxGroups) { out.push(10); extra -= 10; }
   while (extra >  0  && out.length < maxGroups) { out.push(1);  extra -= 1;  }
@@ -768,38 +777,6 @@ function cityCounts(s) {
   return { houses, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
 }
 
-// ── Anneau de tram le long de la muraille (band 5+) ─────────────────────────
-// Tracé : contour de l'enceinte (walls.outline) décalé vers l'intérieur. Renvoie
-// la BOUCLE (points + longueurs cumulées, pour le tram paramétrique) ET un COULOIR
-// de cellules à exclure du placement (arbres/décor/bâtiments) — la voie reste nette.
-const TRAM_RING_INSET = 1.6;
-function computeTramRing(walls, core, band, N, riverSet, bankSet) {
-  if (band < 5 || !walls || !walls.outline || walls.outline.length < 8) return null;
-  const wet = (x, y) => { const rx = Math.round(x), ry = Math.round(y); return riverSet.has(rx + "," + ry) || bankSet.has(rx + "," + ry); };
-  const pts = [];
-  for (const o of walls.outline) {
-    const dx = o.x - core.x, dy = o.y - core.y, d = Math.hypot(dx, dy) || 1;
-    const x = o.x - dx / d * TRAM_RING_INSET, y = o.y - dy / d * TRAM_RING_INSET;
-    pts.push({ x, y, water: wet(x, y) });   // franchissement d'eau → pont sous les rails
-  }
-  const cum = [0]; let total = 0;
-  for (let i = 1; i <= pts.length; i += 1) { const a = pts[i - 1], b = pts[i % pts.length]; total += Math.hypot(b.x - a.x, b.y - a.y); cum.push(total); }
-  const corridor = new Set();
-  const add = (x, y) => { if (x >= 0 && y >= 0 && x < N && y < N) corridor.add(x + "," + y); };
-  for (let i = 0; i < pts.length; i += 1) {
-    const a = pts[i], b = pts[(i + 1) % pts.length];
-    let x = Math.round(a.x), y = Math.round(a.y); const x1 = Math.round(b.x), y1 = Math.round(b.y);
-    const dx = Math.abs(x1 - x), dy = Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
-    let err = dx - dy;
-    for (let g = 0; g < N * 2; g += 1) {
-      add(x, y); add(x + 1, y); add(x - 1, y); add(x, y + 1); add(x, y - 1); // dilatation 1 cellule
-      if (x === x1 && y === y1) break;
-      const e2 = 2 * err; if (e2 > -dy) { err -= dy; x += sx; } if (e2 < dx) { err += dx; y += sy; }
-    }
-  }
-  return { loop: { pts, cum, total }, corridor };
-}
-
 // ── Connexion des bâtiments au réseau ────────────────────────────────────────
 // Trace des rues DEPUIS le réseau existant JUSQU'aux bâtiments qui n'en touchent
 // aucune. Deux régimes :
@@ -897,6 +874,34 @@ function connectBuildingsToNetwork(o) {
     return [((m / 4096) | 0) - 512, (m % 4096) - 512];
   };
 
+  // ── MAJ INCRÉMENTALE du champ (perf) ───────────────────────────────────────
+  // Après un carve, seules les cellules NOUVELLEMENT routées deviennent sources
+  // (dist 0). Ajouter des sources ne peut que FAIRE BAISSER les distances → on
+  // relaxe une BFS bornée depuis ces cellules (au lieu de recalculer computeField
+  // en entier, O(N²), à chaque bâtiment connecté = le mur O(P·N²) en fin de partie).
+  // Le champ reste un arbre de plus courts chemins valide (dist exactes, `from`
+  // pointant vers UNE source la plus proche) → plan() reste correct. Déterministe.
+  const relaxFrom = (attach, path) => {
+    const need = NN + path.length + 8;
+    if (qxA.length < need) { qxA = new Int32Array(need); qyA = new Int32Array(need); }
+    let rn = 0;
+    const seed = (x, y) => { if (!inB(x, y)) return; dist[y * N + x] = 0; qxA[rn] = x; qyA[rn] = y; rn += 1; };
+    seed(attach[0], attach[1]);
+    for (const [px, py] of path) seed(px, py);
+    for (let qi = 0; qi < rn; qi += 1) {
+      const x = qxA[qi], y = qyA[qi], d = dist[y * N + x], parentEnc = y * N + x;
+      for (let oi = 0; oi < 4; oi += 1) {
+        const nx = x + O4[oi][0], ny = y + O4[oi][1];
+        if (!inB(nx, ny)) continue;
+        const ni = ny * N + nx;
+        if (blockedG[ni] === 1) continue;
+        if (dist[ni] !== -1 && dist[ni] <= d + 1) continue;  // déjà aussi bon → rien à faire
+        dist[ni] = d + 1; from[ni] = parentEnc;
+        qxA[rn] = nx; qyA[rn] = ny; rn += 1;
+      }
+    }
+  };
+
   // Meilleur seuil (case libre adjacente à l'emprise) + chemin remonté jusqu'au réseau.
   const plan = (t) => {
     let best = null;
@@ -937,10 +942,15 @@ function connectBuildingsToNetwork(o) {
   // Candidats = tuiles PAS ENCORE reliées, maintenus entre itérations (l'ancienne
   // version rescannait TOUTES les tuiles à chaque bâtiment connecté). L'ordre
   // relatif de `tiles` est préservé → mêmes ex æquo, même pick.
+  // Champ maintenu INCRÉMENTALEMENT (défaut) : 1 seule BFS complète, puis relaxFrom
+  // après chaque carve. `window.__incrConnect = false` → ancien régime (recompute
+  // complet à chaque itération) pour A/B.
+  const useIncr = !(typeof globalThis !== "undefined" && globalThis.__incrConnect === false);
   let pending = tiles.filter((t) => !touchesRoad(t));
   let guard = tiles.length + 8;
+  if (useIncr) computeField();
   while (guard-- > 0 && pending.length > 0) {
-    computeField();
+    if (!useIncr) computeField();
     let pick = null;
     const still = [];
     for (const t of pending) {
@@ -956,6 +966,7 @@ function connectBuildingsToNetwork(o) {
     pending = still;
     if (!pick) break;
     carve(pick.p, rank);
+    if (useIncr) relaxFrom(pick.p.attach, pick.p.path); // MAJ champ (au lieu de recompute complet)
     if (pick.isEngine) budget -= pick.p.cost;
     pending = pending.filter((t) => t !== pick.t || !touchesRoad(t));
   }
@@ -1213,34 +1224,13 @@ function computeCityLayout(s) {
   const isBridgeSpanCell = (gx, k) => protectedBridgeBx !== null
     && gx >= protectedBridgeBx && gx < protectedBridgeBx + bridgeLaneW && riverSet.has(k);
 
-  // ── Enceinte urbaine (ère fortifiée+) ─────────────────────────────────────
-  // Le rayon est FIGÉ à la construction (state.wallRadius) : la muraille ne
-  // suit pas la croissance de la ville — c'est la ville qui déborde de ses
-  // murs, comme dans une vraie cité. Reset à chaque effondrement.
-  const frozenWallReach = Number.isFinite(s.wallRadius) && s.wallRadius > 0 ? s.wallRadius : null;
-  // Slots des merveilles calculés AVANT la muraille pour qu'elle les CONTOURNE
-  // (même mécanisme que les places). era_mega dans l'eau : brèche du fleuve.
+  // Slots des merveilles : chacune réserve son emplacement pour l'anti-collision
+  // de placement (era_mega dans l'eau → brèche du fleuve).
   const builtWonderIds = cmWonderActiveIds(s);
   const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
   const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
     ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
     : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
-  const wonderObstacles = [];
-  for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-    const w = CM_WONDERS[wi];
-    if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    wonderObstacles.push({ gx: wonderSlots[wi].gx, gy: wonderSlots[wi].gy, ...cmWonderExtent(w.id) });
-  }
-  const walls = generateWalls({
-    plan, seed: mapSeed, counts: c, ageCfg, personality, N,
-    reachBase: frozenWallReach || cityReachBase, roadKey, roadMeta, riverSet, bankSet,
-    wonderObstacles
-  });
-  if (walls && !frozenWallReach) s.wallRadius = cityReachBase;
-  const wallSet = walls ? walls.set : null;
-  // Anneau de tram (band 5+) : boucle le long de la muraille + couloir à dégager.
-  const tramRing = computeTramRing(walls, plan.core, c.eraBand, N, riverSet, bankSet);
-  lp("murailles");
 
   // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
   // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
@@ -1257,7 +1247,6 @@ function computeCityLayout(s) {
     for (let ax = -1; ax <= size; ax += 1) for (let ay = -1; ay <= size; ay += 1) {
       const tx = gx + ax, ty = gy + ay;
       if (occupiedFoot.has(tx + "," + ty)) return false;
-      if (wallSet && wallSet.has(tx + "," + ty)) return false;
       if (riverSet.has(tx + "," + ty) || bankSet.has(tx + "," + ty)) return false;
       if (ax >= 0 && ax < size && ay >= 0 && ay < size && roadKey.has(tx + "," + ty)) return false;
     }
@@ -1326,7 +1315,6 @@ function computeCityLayout(s) {
     for (let gy = 0; gy < N; gy += 1) {
       const key = gx + "," + gy;
       if (roadKey.has(key) || riverSet.has(key) || bankSet.has(key) || reserved.has(key)) continue;
-      if (wallSet && wallSet.has(key)) continue;
       if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
@@ -1348,9 +1336,6 @@ function computeCityLayout(s) {
   lp("cellules");
 
   const tiles = [], usedKeys = new Set();
-  // Voie du tram (anneau le long de la muraille) : on réserve son couloir AVANT tout
-  // placement → aucun bâtiment / décor / arbre ne se posera sur les rails.
-  if (tramRing) for (const k of tramRing.corridor) usedKeys.add(k);
 
   // ── Placement par catégorie : quartiers, rues, places, personnalité ──────
   const placer = createBuildingPlacer({
@@ -1364,9 +1349,6 @@ function computeCityLayout(s) {
 
   // Emprises moteur (bâtiments achetés) — réservées avant les tuiles décoratives
   const claimed = new Set(), engineFootprint = new Set();
-  // La muraille est inconstructible : sans cette graine, les emprises multi-
-  // cellules et les slots sauvegardés d'avant l'enceinte passent par-dessus.
-  if (wallSet) for (const k of wallSet) claimed.add(k);
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
   }
@@ -1560,7 +1542,7 @@ function computeCityLayout(s) {
         // la lisière de la ville (reach + 2.5, pas le bord de grille) ; le terme
         // « prise d'eau » (pondéré plus fort) tire vers les points où la lisière
         // croise le fleuve : l'aqueduc se CONNECTE à l'eau.
-        const aqRing = Math.min(N * 0.44, (frozenWallReach || cityReachBase) + 2.5);
+        const aqRing = Math.min(N * 0.44, cityReachBase + 2.5);
         const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
           .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) * 0.5
             + aqEndWater(c2.gx, c2.gy).d * 1.2
@@ -1604,7 +1586,7 @@ function computeCityLayout(s) {
         if (footprintFits(saved.gx, saved.gy, spanX, false, false, spanY)) placed = saved;
       }
       if (!placed) {
-        const fieldRing = Math.min(N * 0.46, (frozenWallReach || cityReachBase) + Math.max(spanX, spanY) / 2 + 1);
+        const fieldRing = Math.min(N * 0.46, cityReachBase + Math.max(spanX, spanY) / 2 + 1);
         const fieldCells = cells
           .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + spanY / 2 - cy) - fieldRing) + (cmHash("field:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
           .sort((a, b) => a.s - b.s)
@@ -1975,8 +1957,7 @@ function computeCityLayout(s) {
   return {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, walls,
-    railLoop: tramRing ? tramRing.loop : null,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed
