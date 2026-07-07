@@ -12,26 +12,12 @@ export const upgrades = [
   {
     id: "root_cellars",
     group: "ruins",
+    effectType: "foodMult",
+    amount: 0.22,
     name: { fr: "Caves racines", en: "Root cellars" },
     cost: { ruins: 1 },
     desc: { fr: "Les cachettes survivent aux empires. Quelqu'un l'a compris très tôt.", en: "Hiding places outlast empires. Someone understood that very early." },
     effect: { fr: "Production de nourriture +60%.", en: "Food production +60%." }
-  },
-  {
-    id: "buried_coins",
-    group: "ruins",
-    name: { fr: "Monnaies enterrées", en: "Buried coins" },
-    cost: { ruins: 2 },
-    desc: { fr: "L'argent enterré perd du temps, mais pas des guerres.", en: "Buried money loses time, but never wars." },
-    effect: { fr: "Production de trésor +60%.", en: "Treasury production +60%." }
-  },
-  {
-    id: "charcoal_tablets",
-    group: "ruins",
-    name: { fr: "Tablettes de charbon", en: "Charcoal tablets" },
-    cost: { ruins: 2 },
-    desc: { fr: "Sur les murs calcinés, les signes tenaient encore. Quelqu'un a pensé à les recopier.", en: "On the charred walls, the signs still held. Someone thought to copy them down." },
-    effect: { fr: "Production de savoir +60%.", en: "Knowledge production +60%." }
   },
   {
     id: "oral_tradition",
@@ -50,24 +36,6 @@ export const upgrades = [
     effect: { fr: "Les survivants repartent avec un socle de population.", en: "Survivors begin again with a base of population." }
   },
   {
-    id: "salvage_crews",
-    group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Équipes de récupération", en: "Salvage crews" },
-    cost: { ruins: 5 },
-    desc: { fr: "Les survivants savent où regarder en premier.", en: "Survivors know where to look first." },
-    effect: { fr: "Les clics sur la cité donnent un peu plus de nourriture et de trésor.", en: "Clicks on the city yield a little more food and treasury." }
-  },
-  {
-    id: "broken_milestones",
-    group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Bornes brisées", en: "Broken milestones" },
-    cost: { ruins: 7 },
-    desc: { fr: "Les vieilles routes ne mènent plus nulle part, mais elles indiquent encore les distances.", en: "The old roads lead nowhere now, but they still mark the distances." },
-    effect: { fr: "Les coûts des moteurs baissent légèrement.", en: "Engine costs drop slightly." }
-  },
-  {
     id: "fallen_roads",
     group: "ruins",
     unlockCycles: 2,
@@ -77,42 +45,6 @@ export const upgrades = [
     effect: { fr: "Chaque nouveau cycle commence avec une petite base d'infrastructure.", en: "Each new cycle starts with a small base of infrastructure." }
   },
   {
-    id: "ancestor_granaries",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Greniers des ancêtres", en: "Ancestor granaries" },
-    cost: { ruins: 45 },
-    desc: { fr: "Les ancêtres ont fait les erreurs de la disette. Vous, non.", en: "The ancestors made the mistakes of famine. You will not." },
-    effect: { fr: "Les resets conservent plus de nourriture.", en: "Resets preserve more food." }
-  },
-  {
-    id: "memory_scribes",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Scribes de mémoire", en: "Memory scribes" },
-    cost: { ruins: 65 },
-    desc: { fr: "Certains n'écrivent que les erreurs. C'est la bibliothèque la plus utile.", en: "Some record only the mistakes. It is the most useful library of all." },
-    effect: { fr: "Une petite part du savoir survit toujours aux effondrements.", en: "A small share of knowledge always survives collapses." }
-  },
-  {
-    id: "ash_contracts",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Contrats de cendre", en: "Ash contracts" },
-    cost: { ruins: 75 },
-    desc: { fr: "Les dettes d'avant l'effondrement ont la dent dure.", en: "Debts from before the collapse die hard." },
-    effect: { fr: "Le trésor conservé par les crises augmente.", en: "The treasury kept through crises increases." }
-  },
-  {
-    id: "ash_markets",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Marchés de cendres", en: "Ash markets" },
-    cost: { ruins: 18 },
-    desc: { fr: "Les survivants commercent autour des décombres avant même d'avoir fini de pleurer.", en: "Survivors trade among the rubble before they have finished mourning." },
-    effect: { fr: "Les effondrements conservent une meilleure part du trésor.", en: "Collapses preserve a greater share of the treasury." }
-  },
-  {
     id: "ruin_liturgy",
     group: "ruins",
     unlockCycles: 3,
@@ -120,15 +52,6 @@ export const upgrades = [
     cost: { ruins: 35 },
     desc: { fr: "Quand la chute devient un rite, elle fait moins mal au cycle suivant.", en: "When the fall becomes a rite, it hurts less the next cycle." },
     effect: { fr: "Les ruines calment une partie de la pression de dissidence.", en: "Ruins ease part of the pressure of dissent." }
-  },
-  {
-    id: "old_wall_maps",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Cartes des anciens murs", en: "Old wall maps" },
-    cost: { ruins: 24 },
-    desc: { fr: "Les anciens murs délimitaient encore les routes, même effondrés.", en: "Even fallen, the old walls still traced the roads." },
-    effect: { fr: "Les coûts d'infrastructure baissent légèrement après plusieurs chutes.", en: "Infrastructure costs drop slightly after several falls." }
   },
   {
     id: "recurring_ages",
@@ -155,7 +78,7 @@ export const upgrades = [
     name: { fr: "Registres d'os", en: "Bone ledgers" },
     cost: { ruins: 4 },
     effectType: "knowledgeMult",
-    amount: 0.15,
+    amount: 0.37,
     desc: { fr: "Des comptes gravés dans l'os. Difficiles à brûler, impossibles à perdre.", en: "Accounts carved in bone. Hard to burn, impossible to lose." },
     effect: { fr: "Production de savoir +15%.", en: "Knowledge production +15%." }
   },
@@ -165,7 +88,7 @@ export const upgrades = [
     name: { fr: "Sentiers de cendre", en: "Ash paths" },
     cost: { ruins: 6 },
     effectType: "cityDiscount",
-    amount: 0.03,
+    amount: 0.14,
     desc: { fr: "La cendre garde la forme des chemins qu'elle a recouverts.", en: "Ash keeps the shape of the paths it has covered." },
     effect: { fr: "Coûts des moteurs -3%.", en: "Engine costs -3%." }
   },
@@ -180,46 +103,14 @@ export const upgrades = [
     effect: { fr: "Production de trésor +18%.", en: "Treasury production +18%." }
   },
   {
-    id: "seed_vaults",
-    group: "ruins",
-    name: { fr: "Coffres à graines", en: "Seed vaults" },
-    cost: { ruins: 14 },
-    effectType: "foodMult",
-    amount: 0.22,
-    desc: { fr: "Les graines attendent dans le noir, plus patientes que les royaumes qui les ont oubliées.", en: "The seeds wait in the dark, more patient than the kingdoms that forgot them." },
-    effect: { fr: "Production de nourriture +22%.", en: "Food production +22%." }
-  },
-  {
     id: "silent_wells",
     group: "ruins",
     name: { fr: "Puits silencieux", en: "Silent wells" },
     cost: { ruins: 21 },
     effectType: "infraMult",
-    amount: 0.15,
+    amount: 0.9,
     desc: { fr: "L'eau est là depuis avant la cité. Elle sera là après.", en: "The water was here before the city. It will be here after." },
     effect: { fr: "Production d'infrastructure +15%.", en: "Infrastructure production +15%." }
-  },
-  {
-    id: "burnt_abacus",
-    group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Abaque brûlé", en: "Burnt abacus" },
-    cost: { ruins: 32 },
-    effectType: "knowledgeMult",
-    amount: 0.22,
-    desc: { fr: "Ses billes manquent, mais les calculs qui comptent sont encore lisibles.", en: "Its beads are missing, but the calculations that matter are still legible." },
-    effect: { fr: "Production de savoir +22%.", en: "Knowledge production +22%." }
-  },
-  {
-    id: "charred_ploughs",
-    group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Charrues charbonnées", en: "Charred ploughs" },
-    cost: { ruins: 48 },
-    effectType: "foodMult",
-    amount: 0.32,
-    desc: { fr: "La terre brûlée est la plus fertile. Ça vaut aussi pour les civilisations.", en: "Burnt earth is the most fertile. The same holds for civilizations." },
-    effect: { fr: "Production de nourriture +32%.", en: "Food production +32%." }
   },
   {
     id: "buried_tolls",
@@ -265,28 +156,6 @@ export const upgrades = [
     effect: { fr: "Coûts du savoir -5%.", en: "Knowledge costs -5%." }
   },
   {
-    id: "ancestral_markets",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Marchés ancestraux", en: "Ancestral markets" },
-    cost: { ruins: 190 },
-    effectType: "goldMult",
-    amount: 0.45,
-    desc: { fr: "Les vieilles places de marché ont la mémoire des prix.", en: "The old marketplaces remember the prices." },
-    effect: { fr: "Production de trésor +45%.", en: "Treasury production +45%." }
-  },
-  {
-    id: "clay_cisterns",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Citernes d'argile", en: "Clay cisterns" },
-    cost: { ruins: 280 },
-    effectType: "foodKeep",
-    amount: 0.04,
-    desc: { fr: "L'argile garde mieux les lendemains que les serments.", en: "Clay keeps tomorrows better than oaths do." },
-    effect: { fr: "Effondrements: nourriture conservée +4%.", en: "Collapses: food preserved +4%." }
-  },
-  {
     id: "sunken_scriptorium",
     group: "ruins",
     unlockCycles: 2,
@@ -304,7 +173,7 @@ export const upgrades = [
     name: { fr: "Moules à monnaie", en: "Coin molds" },
     cost: { ruins: 650 },
     effectType: "goldKeep",
-    amount: 0.04,
+    amount: 0.16,
     desc: { fr: "Les visages gravés dans le métal durent plus longtemps que ceux qui les ont commandés.", en: "The faces stamped in metal last longer than those who ordered them struck." },
     effect: { fr: "Effondrements: trésor conservé +4%.", en: "Collapses: treasury preserved +4%." }
   },
@@ -315,7 +184,7 @@ export const upgrades = [
     name: { fr: "Pain de pierre", en: "Stone bread" },
     cost: { ruins: 1000 },
     effectType: "foodMult",
-    amount: 0.55,
+    amount: 1.87,
     conflictsWith: "mirror_archives",
     desc: { fr: "Une légende absurde sur du grain qui ne meurt pas. Mais les greniers s'ouvrent mieux après.", en: "An absurd legend of grain that never dies. Yet the granaries open more readily after." },
     effect: { fr: "Production de nourriture +55%.", en: "Food production +55%." }
@@ -344,38 +213,16 @@ export const upgrades = [
     effect: { fr: "Ruines gagnées +15%.", en: "Ruins gained +15%." }
   },
   {
-    id: "tilted_milestones",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Bornes penchées", en: "Tilted milestones" },
-    cost: { ruins: 6800 },
-    effectType: "cityDiscount",
-    amount: 0.05,
-    desc: { fr: "Elles ne montrent plus la bonne distance. Mais encore la bonne direction.", en: "They no longer show the right distance. Still the right direction." },
-    effect: { fr: "Coûts des moteurs -5%.", en: "Engine costs -5%." }
-  },
-  {
     id: "burial_math",
     group: "ruins",
     unlockCycles: 4,
     name: { fr: "Mathématique funéraire", en: "Funerary mathematics" },
     cost: { ruins: 10000 },
     effectType: "ruptureHaste",
-    amount: 0.08,
+    amount: 0.24,
     conflictsWith: "crisis_theatre",
     desc: { fr: "Les tombes sont alignées avec une précision que les vivants n'atteignent pas.", en: "The tombs are aligned with a precision the living never reach." },
     effect: { fr: "Pression de rupture +4 pts.", en: "Rupture pressure +4 pts." }
-  },
-  {
-    id: "ashen_libraries",
-    group: "ruins",
-    unlockCycles: 4,
-    name: { fr: "Bibliothèques cendrées", en: "Ashen libraries" },
-    cost: { ruins: 15000 },
-    effectType: "knowledgeMult",
-    amount: 0.85,
-    desc: { fr: "Les livres ont brûlé. Les idées, elles, ont survécu dans les têtes des lecteurs.", en: "The books burned. The ideas survived in the minds of their readers." },
-    effect: { fr: "Production de savoir +85%.", en: "Knowledge production +85%." }
   },
   {
     id: "forgotten_wharves",
@@ -384,42 +231,9 @@ export const upgrades = [
     name: { fr: "Quais oubliés", en: "Forgotten wharves" },
     cost: { ruins: 23000 },
     effectType: "goldMult",
-    amount: 0.85,
+    amount: 1.3,
     desc: { fr: "Les amarres sont coupées depuis longtemps. Les habitudes de commerce, non.", en: "The moorings were cut long ago. The habits of trade were not." },
     effect: { fr: "Production de trésor +85%.", en: "Treasury production +85%." }
-  },
-  {
-    id: "green_ruins",
-    group: "ruins",
-    unlockCycles: 4,
-    name: { fr: "Ruines vertes", en: "Green ruins" },
-    cost: { ruins: 8000 },
-    effectType: "foodMult",
-    amount: 1,
-    desc: { fr: "Des figuiers poussent dans les salles du trône. C'est peut-être ça, l'optimisme.", en: "Fig trees grow in the throne rooms. Perhaps that is what optimism is." },
-    effect: { fr: "Production de nourriture +100%.", en: "Food production +100%." }
-  },
-  {
-    id: "buried_engineers",
-    group: "ruins",
-    unlockCycles: 4,
-    name: { fr: "Ingénieurs enterrés", en: "Buried engineers" },
-    cost: { ruins: 52000 },
-    effectType: "infraMult",
-    amount: 0.75,
-    desc: { fr: "Leurs plans sont incomplets. Leurs erreurs, elles, sont précieuses.", en: "Their plans are incomplete. Their mistakes are precious." },
-    effect: { fr: "Production d'infrastructure +75%.", en: "Infrastructure production +75%." }
-  },
-  {
-    id: "age_sutures",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Sutures d'âge", en: "Age sutures" },
-    cost: { ruins: 78000 },
-    effectType: "timeWearSlow",
-    amount: 0.12,
-    desc: { fr: "Le temps se referme mal autour des vieilles catastrophes. C'est utile.", en: "Time closes badly around old catastrophes. That is useful." },
-    effect: { fr: "Usure du temps -12%.", en: "Time Wear -12%." }
   },
   {
     id: "crisis_theatre",
@@ -432,28 +246,6 @@ export const upgrades = [
     conflictsWith: "burial_math",
     desc: { fr: "Rejouer les catastrophes passées pour apprivoiser la prochaine. Ça aide, un peu.", en: "Re-enacting past catastrophes to tame the next one. It helps, a little." },
     effect: { fr: "Pression de rupture -3 pts.", en: "Rupture pressure -3 pts." }
-  },
-  {
-    id: "dynastic_seeds",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Graines dynastiques", en: "Dynastic seeds" },
-    cost: { ruins: 180000 },
-    effectType: "startPopulationPctPeak",
-    amount: 0.02,
-    desc: { fr: "Certaines familles savent déjà qu'elles vont durer. Ça change tout.", en: "Some families already know they will endure. That changes everything." },
-    effect: { fr: "Chaque cycle commence avec 2% du pic de population précédent.", en: "Each cycle starts with 2% of the previous population peak." }
-  },
-  {
-    id: "fossil_taxes",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Impôts fossiles", en: "Fossil taxes" },
-    cost: { ruins: 270000 },
-    effectType: "startGoldPctPeak",
-    amount: 0.03,
-    desc: { fr: "La dette survit mieux que les palais qui l'ont générée.", en: "Debt outlives the palaces that generated it." },
-    effect: { fr: "Chaque cycle commence avec 3% du pic de trésor précédent.", en: "Each cycle starts with 3% of the previous treasury peak." }
   },
   {
     id: "first_grammar",
@@ -478,59 +270,15 @@ export const upgrades = [
     effect: { fr: "Coûts d'infrastructure -8%.", en: "Infrastructure costs -8%." }
   },
   {
-    id: "dead_road_network",
-    group: "ruins",
-    unlockCycles: 6,
-    name: { fr: "Réseau de routes mortes", en: "Dead road network" },
-    cost: { ruins: 900000 },
-    effectType: "cityDiscount",
-    amount: 0.08,
-    desc: { fr: "Les nouvelles jambes prennent les vieilles routes. Elles arrivent plus vite.", en: "New legs take the old roads. They arrive faster." },
-    effect: { fr: "Coûts des moteurs -8%.", en: "Engine costs -8%." }
-  },
-  {
-    id: "blackboard_walls",
-    group: "ruins",
-    unlockCycles: 6,
-    name: { fr: "Murs tableaux", en: "Blackboard walls" },
-    cost: { ruins: 1300000 },
-    effectType: "knowledgeDiscount",
-    amount: 0.08,
-    desc: { fr: "La pluie efface les leçons sur les murs. Les enfants les mémorisent avant.", en: "Rain wipes the lessons from the walls. The children memorize them first." },
-    effect: { fr: "Coûts du savoir -8%.", en: "Knowledge costs -8%." }
-  },
-  {
-    id: "ruined_mandate",
-    group: "ruins",
-    unlockCycles: 6,
-    name: { fr: "Mandat ruiné", en: "Ruined mandate" },
-    cost: { ruins: 2000000 },
-    effectType: "ruptureHaste",
-    amount: 0.16,
-    desc: { fr: "Les peuples reconnaissent les signes d'une chute familière. Ça va vite.", en: "Peoples recognize the signs of a familiar fall. It goes quickly." },
-    effect: { fr: "Pression de rupture +8 pts.", en: "Rupture pressure +8 pts." }
-  },
-  {
     id: "echo_census",
     group: "ruins",
     unlockCycles: 6,
     name: { fr: "Recensement d'écho", en: "Echo census" },
     cost: { ruins: 3000000 },
     effectType: "populationMult",
-    amount: 0.35,
+    amount: 0.9,
     desc: { fr: "Les absents sont comptés avec les vivants. Pour ne pas recommencer seuls.", en: "The absent are counted with the living. So as not to begin again alone." },
     effect: { fr: "Croissance de population +35%.", en: "Population growth +35%." }
-  },
-  {
-    id: "salted_memory",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Mémoire salée", en: "Salted memory" },
-    cost: { ruins: 4500000 },
-    effectType: "knowledgeKeep",
-    amount: 0.06,
-    desc: { fr: "Ce qui est conservé dans le sel pique encore longtemps après.", en: "What is kept in salt still stings long afterward." },
-    effect: { fr: "Effondrements: savoir conservé +6%.", en: "Collapses: knowledge preserved +6%." }
   },
   {
     id: "bronze_foundations",
@@ -544,59 +292,15 @@ export const upgrades = [
     effect: { fr: "Effondrements: infrastructure conservée +5%.", en: "Collapses: infrastructure preserved +5%." }
   },
   {
-    id: "ancestor_stipends",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Rentes des ancêtres", en: "Ancestor stipends" },
-    cost: { ruins: 10000000 },
-    effectType: "goldKeep",
-    amount: 0.08,
-    desc: { fr: "Les morts financent mal, mais longtemps et sans se plaindre.", en: "The dead fund poorly, but for a long time and without complaint." },
-    effect: { fr: "Effondrements: trésor conservé +8%.", en: "Collapses: treasury preserved +8%." }
-  },
-  {
-    id: "evergreen_fields",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Champs toujours verts", en: "Evergreen fields" },
-    cost: { ruins: 15000000 },
-    effectType: "foodMult",
-    amount: 1.8,
-    desc: { fr: "La terre pousse comme si elle avait peur du silence.", en: "The earth grows as if it feared silence." },
-    effect: { fr: "Production de nourriture +180%.", en: "Food production +180%." }
-  },
-  {
-    id: "silver_ghosts",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Fantômes d'argent", en: "Silver ghosts" },
-    cost: { ruins: 23000000 },
-    effectType: "goldMult",
-    amount: 1.8,
-    desc: { fr: "L'argent fantôme circule encore. Personne ne sait vraiment d'où il vient.", en: "The ghost silver still circulates. No one truly knows where it comes from." },
-    effect: { fr: "Production de trésor +180%.", en: "Treasury production +180%." }
-  },
-  {
     id: "ivory_questions",
     group: "ruins",
     unlockCycles: 8,
     name: { fr: "Questions d'ivoire", en: "Ivory questions" },
     cost: { ruins: 35000000 },
     effectType: "knowledgeMult",
-    amount: 1.8,
+    amount: 2.65,
     desc: { fr: "Trop belles pour des réponses simples. C'est pour ça qu'elles durent.", en: "Too beautiful for simple answers. That is why they endure." },
     effect: { fr: "Production de savoir +180%.", en: "Knowledge production +180%." }
-  },
-  {
-    id: "cyclopean_blocks",
-    group: "ruins",
-    unlockCycles: 8,
-    name: { fr: "Blocs cyclopéens", en: "Cyclopean blocks" },
-    cost: { ruins: 52000000 },
-    effectType: "infraMult",
-    amount: 1.4,
-    desc: { fr: "Personne ne sait qui les a portés. Tout le monde construit autour.", en: "No one knows who carried them. Everyone builds around them." },
-    effect: { fr: "Production d'infrastructure +140%.", en: "Infrastructure production +140%." }
   },
   {
     id: "ritual_accounting",
@@ -605,7 +309,7 @@ export const upgrades = [
     name: { fr: "Comptabilité rituelle", en: "Ritual accounting" },
     cost: { ruins: 78000000 },
     effectType: "globalMult",
-    amount: 0.18,
+    amount: 0.34,
     desc: { fr: "Les nombres sont devenus des gestes. Les gestes, des lois.", en: "The numbers became gestures. The gestures, laws." },
     effect: { fr: "Production globale +18%.", en: "Global production +18%." }
   },
@@ -622,24 +326,13 @@ export const upgrades = [
     effect: { fr: "Capstone Prospérité : production globale +30%.", en: "Prosperity Capstone: global production +30%." }
   },
   {
-    id: "cradle_of_laws",
-    group: "ruins",
-    unlockCycles: 9,
-    name: { fr: "Berceau des lois", en: "Cradle of laws" },
-    cost: { ruins: 180000000 },
-    effectType: "stability",
-    amount: 0.05,
-    desc: { fr: "La première règle n'est pas écrite — elle est répétée jusqu'à ce qu'elle devienne évidente.", en: "The first rule is not written — it is repeated until it becomes self-evident." },
-    effect: { fr: "Pression de rupture -5 pts.", en: "Rupture pressure -5 pts." }
-  },
-  {
     id: "ten_thousand_storehouses",
     group: "ruins",
     unlockCycles: 9,
     name: { fr: "Dix mille réserves", en: "Ten thousand storehouses" },
     cost: { ruins: 270000000 },
     effectType: "startFoodPctPeak",
-    amount: 0.05,
+    amount: 0.13,
     desc: { fr: "La famine cherche une entrée. Elle trouve des portes fermées partout.", en: "Famine looks for a way in. It finds closed doors everywhere." },
     effect: { fr: "Chaque cycle commence avec 5% du pic de nourriture précédent.", en: "Each cycle starts with 5% of the previous food peak." }
   },
@@ -650,20 +343,9 @@ export const upgrades = [
     name: { fr: "Palais des quittances", en: "Palace of receipts" },
     cost: { ruins: 400000000 },
     effectType: "startGoldPctPeak",
-    amount: 0.06,
+    amount: 0.09,
     desc: { fr: "Le trésor physique a déménagé ici. Les preuves de paiement ont plus de gardes que les princes.", en: "The physical treasury moved here. Proofs of payment have more guards than princes do." },
     effect: { fr: "Chaque cycle commence avec 6% du pic de trésor précédent.", en: "Each cycle starts with 6% of the previous treasury peak." }
-  },
-  {
-    id: "library_under_world",
-    group: "ruins",
-    unlockCycles: 9,
-    name: { fr: "Bibliothèque souterraine", en: "Underground library" },
-    cost: { ruins: 600000000 },
-    effectType: "startKnowledgePctPeak",
-    amount: 0.05,
-    desc: { fr: "Les livres y respirent dans l'ombre minérale, patients comme de la géologie.", en: "The books breathe there in mineral shadow, patient as geology." },
-    effect: { fr: "Chaque cycle commence avec 5% du pic de savoir précédent.", en: "Each cycle starts with 5% of the previous knowledge peak." }
   },
   {
     id: "immortal_blueprint",
@@ -672,7 +354,7 @@ export const upgrades = [
     name: { fr: "Plan immortel", en: "Immortal blueprint" },
     cost: { ruins: 900000000 },
     effectType: "infraKeep",
-    amount: 0.12,
+    amount: 0.22,
     desc: { fr: "Une ville entière tient dans ces traits. Elle peut être rebâtie après n'importe quel feu.", en: "An entire city fits within these lines. It can be rebuilt after any fire." },
     effect: { fr: "Effondrements: infrastructure conservée +12%.", en: "Collapses: infrastructure preserved +12%." }
   },
@@ -689,54 +371,14 @@ export const upgrades = [
     effect: { fr: "Capstone Connaissance : chaque achat de ruines renforce toute la production, et les ruines non dépensées ajoutent un bonus.", en: "Knowledge Capstone: every ruins purchase strengthens all production, and unspent ruins add a bonus." }
   },
   {
-    id: "root_hospices",
-    group: "ruins",
-    name: { fr: "Hospices racines", en: "Root hospices" },
-    cost: { ruins: 800000000 },
-    effectType: "populationMult",
-    amount: 0.55,
-    desc: { fr: "Une société se mesure à comment elle traite ceux qui ne peuvent pas se défendre seuls.", en: "A society is measured by how it treats those who cannot defend themselves." },
-    effect: { fr: "Croissance de population +55%.", en: "Population growth +55%." }
-  },
-  {
     id: "winter_granaries",
     group: "ruins",
     name: { fr: "Greniers d'hiver", en: "Winter granaries" },
     cost: { ruins: 1200000000 },
     effectType: "foodKeep",
-    amount: 0.08,
+    amount: 0.12,
     desc: { fr: "Les mauvaises saisons y sont attendues. On les connaît par leur nom.", en: "The bad seasons are expected here. They are known by name." },
     effect: { fr: "Effondrements: nourriture conservée +8%.", en: "Collapses: food preserved +8%." }
-  },
-  {
-    id: "slow_calendar",
-    group: "ruins",
-    name: { fr: "Calendrier lent", en: "Slow calendar" },
-    cost: { ruins: 1800000000 },
-    effectType: "timeWearSlow",
-    amount: 0.1,
-    desc: { fr: "Ici le temps est compté en respirations, pas en journées. Il passe autrement.", en: "Here time is counted in breaths, not in days. It passes differently." },
-    effect: { fr: "Usure du temps -10%.", en: "Time Wear -10%." }
-  },
-  {
-    id: "plague_records",
-    group: "ruins",
-    name: { fr: "Registres des pestes", en: "Plague records" },
-    cost: { ruins: 2700000000 },
-    effectType: "populationMult",
-    amount: 0.75,
-    desc: { fr: "Les morts ont enseigné où ne plus se rassembler. Les vivants ont appris.", en: "The dead taught where no longer to gather. The living learned." },
-    effect: { fr: "Croissance de population +75%.", en: "Population growth +75%." }
-  },
-  {
-    id: "famine_laws",
-    group: "ruins",
-    name: { fr: "Lois de famine", en: "Famine laws" },
-    cost: { ruins: 4000000000 },
-    effectType: "stability",
-    amount: 0.025,
-    desc: { fr: "Quand les stocks baissent, la loi parle avant la foule. Ça évite le pire.", en: "When stores run low, the law speaks before the crowd. It spares the worst." },
-    effect: { fr: "Pression de rupture -2.5 pts.", en: "Rupture pressure -2.5 pts." }
   },
   {
     id: "river_seedbanks",
@@ -744,7 +386,7 @@ export const upgrades = [
     name: { fr: "Semences du fleuve", en: "River seedbanks" },
     cost: { ruins: 6000000000 },
     effectType: "foodMult",
-    amount: 2.4,
+    amount: 4.2,
     desc: { fr: "Chaque crue enterre une graine et la rend plus nombreuse.", en: "Each flood buries a seed and makes it many." },
     effect: { fr: "Production de nourriture +240%.", en: "Food production +240%." }
   },
@@ -754,7 +396,7 @@ export const upgrades = [
     name: { fr: "Médecine de cendre", en: "Ash medicine" },
     cost: { ruins: 9000000000 },
     effectType: "timeWearSlow",
-    amount: 0.16,
+    amount: 0.38,
     desc: { fr: "Les remèdes les plus anciens sentent le feu éteint et la terre après la pluie.", en: "The oldest remedies smell of dead fire and earth after rain." },
     effect: { fr: "Usure du temps -16%.", en: "Time Wear -16%." }
   },
@@ -764,7 +406,7 @@ export const upgrades = [
     name: { fr: "Recensement vert", en: "Green census" },
     cost: { ruins: 13000000000 },
     effectType: "startPopulationPctPeak",
-    amount: 0.05,
+    amount: 0.07,
     desc: { fr: "Les noms de famille repoussent avec les jardins. Les gens reviennent.", en: "Family names grow back with the gardens. People return." },
     effect: { fr: "Chaque cycle commence avec 5% du pic de population précédent.", en: "Each cycle starts with 5% of the previous population peak." }
   },
@@ -784,19 +426,9 @@ export const upgrades = [
     name: { fr: "Serments saisonniers", en: "Seasonal oaths" },
     cost: { ruins: 21000000000 },
     effectType: "stability",
-    amount: 0.04,
+    amount: 0.09,
     desc: { fr: "À chaque saison, la cité répète pourquoi elle existe. Ça aide à tenir.", en: "Each season, the city repeats why it exists. It helps to hold on." },
     effect: { fr: "Pression de rupture -4 pts.", en: "Rupture pressure -4 pts." }
-  },
-  {
-    id: "deep_wells",
-    group: "ruins",
-    name: { fr: "Puits profonds", en: "Deep wells" },
-    cost: { ruins: 25000000000 },
-    effectType: "startFoodPctPeak",
-    amount: 0.08,
-    desc: { fr: "L'eau ici remonte d'avant la première cité. Elle sera là après la dernière.", en: "The water here rises from before the first city. It will be here after the last." },
-    effect: { fr: "Chaque cycle commence avec 8% du pic de nourriture précédent.", en: "Each cycle starts with 8% of the previous food peak." }
   },
   {
     id: "patient_bloodlines",
@@ -804,7 +436,7 @@ export const upgrades = [
     name: { fr: "Lignées patientes", en: "Patient bloodlines" },
     cost: { ruins: 30000000000 },
     effectType: "populationMult",
-    amount: 1.2,
+    amount: 1.95,
     desc: { fr: "Ces lignées ont appris à ne pas confondre survivre et attendre. Il y a une différence.", en: "These bloodlines learned not to mistake surviving for waiting. There is a difference." },
     effect: { fr: "Croissance de population +120%.", en: "Population growth +120%." }
   },
@@ -825,7 +457,7 @@ export const upgrades = [
     name: { fr: "Routes d'argent", en: "Silver roads" },
     cost: { ruins: 1400000000 },
     effectType: "goldMult",
-    amount: 2.4,
+    amount: 4.2,
     desc: { fr: "Elles brillent surtout la nuit, quand les marchands mentent moins.", en: "They shine most at night, when merchants lie less." },
     effect: { fr: "Production de trésor +240%.", en: "Treasury production +240%." }
   },
@@ -835,7 +467,7 @@ export const upgrades = [
     name: { fr: "Carrieres publiques", en: "Public quarries" },
     cost: { ruins: 2100000000 },
     effectType: "infraMult",
-    amount: 1.8,
+    amount: 3.2,
     desc: { fr: "Quand la pierre devient bien commun, les murs poussent plus vite et plus haut.", en: "When stone becomes a common good, the walls rise faster and higher." },
     effect: { fr: "Production d'infrastructure +180%.", en: "Infrastructure production +180%." }
   },
@@ -845,7 +477,7 @@ export const upgrades = [
     name: { fr: "Livres nomades", en: "Nomad ledgers" },
     cost: { ruins: 3200000000 },
     effectType: "cityDiscount",
-    amount: 0.1,
+    amount: 0.18,
     desc: { fr: "Les comptes voyagent plus légèrement que les coffres. L'économie suit.", en: "Accounts travel lighter than coffers. The economy follows." },
     effect: { fr: "Coûts des moteurs -10%.", en: "Engine costs -10%." }
   },
@@ -855,7 +487,7 @@ export const upgrades = [
     name: { fr: "Chartes des canaux", en: "Canal charters" },
     cost: { ruins: 5000000000 },
     effectType: "infraDiscount",
-    amount: 0.1,
+    amount: 0.18,
     desc: { fr: "Chaque canal est aussi un accord. L'eau circule, l'argent suit.", en: "Every canal is also an accord. Water flows, money follows." },
     effect: { fr: "Coûts d'infrastructure -10%.", en: "Infrastructure costs -10%." }
   },
@@ -865,29 +497,9 @@ export const upgrades = [
     name: { fr: "Trésors voûtés", en: "Vaulted treasuries" },
     cost: { ruins: 5500000000 },
     effectType: "goldKeep",
-    amount: 0.12,
+    amount: 0.2,
     desc: { fr: "L'or qui survit aux empires est celui qui sait se cacher.", en: "The gold that outlives empires is the gold that knows how to hide." },
     effect: { fr: "Effondrements: trésor conservé +12%.", en: "Collapses: treasury preserved +12%." }
-  },
-  {
-    id: "imperial_scaffolds",
-    group: "ruins",
-    name: { fr: "Échafaudages impériaux", en: "Imperial scaffolds" },
-    cost: { ruins: 8000000000 },
-    effectType: "infraKeep",
-    amount: 0.1,
-    desc: { fr: "Même démontés, ils indiquent encore comment aller haut.", en: "Even dismantled, they still show how to rise high." },
-    effect: { fr: "Effondrements: infrastructure conservée +10%.", en: "Collapses: infrastructure preserved +10%." }
-  },
-  {
-    id: "ink_relics",
-    group: "ruins",
-    name: { fr: "Reliques d'encre", en: "Ink relics" },
-    cost: { ruins: 1900000000 },
-    effectType: "knowledgeMult",
-    amount: 2.4,
-    desc: { fr: "L'encre séchée pèse comme une preuve. Personne ne la conteste.", en: "Dried ink carries the weight of proof. No one disputes it." },
-    effect: { fr: "Production de savoir +240%.", en: "Knowledge production +240%." }
   },
   {
     id: "dead_language_schools",
@@ -895,19 +507,9 @@ export const upgrades = [
     name: { fr: "Écoles de langues mortes", en: "Schools of dead languages" },
     cost: { ruins: 3000000000 },
     effectType: "knowledgeDiscount",
-    amount: 0.1,
+    amount: 0.18,
     desc: { fr: "On y apprend des langues que plus personne ne parle. Pour lire les avertissements dans leur première version.", en: "Here they learn languages no one speaks anymore. To read the warnings in their first version." },
     effect: { fr: "Coûts du savoir -10%.", en: "Knowledge costs -10%." }
-  },
-  {
-    id: "oracle_tables",
-    group: "ruins",
-    name: { fr: "Tables d'oracle", en: "Oracle tables" },
-    cost: { ruins: 3500000000 },
-    effectType: "ruinGain",
-    amount: 0.25,
-    desc: { fr: "Elles ne prédisent pas la chute. Elles savent juste l'utiliser.", en: "They do not predict the fall. They merely know how to use it." },
-    effect: { fr: "Ruines gagnées +25%.", en: "Ruins gained +25%." }
   },
   {
     id: "memory_courts",
@@ -915,19 +517,9 @@ export const upgrades = [
     name: { fr: "Cours de mémoire", en: "Courts of memory" },
     cost: { ruins: 5000000000 },
     effectType: "knowledgeKeep",
-    amount: 0.08,
+    amount: 0.14,
     desc: { fr: "Les témoins jurent devant des archives plus vieilles qu'eux. Ça évite le pire.", en: "Witnesses swear before archives older than themselves. It spares the worst." },
     effect: { fr: "Effondrements: savoir conservé +8%.", en: "Collapses: knowledge preserved +8%." }
-  },
-  {
-    id: "silent_observatories",
-    group: "ruins",
-    name: { fr: "Observatoires muets", en: "Silent observatories" },
-    cost: { ruins: 7000000000 },
-    effectType: "globalMult",
-    amount: 0.16,
-    desc: { fr: "Ils observent depuis assez longtemps pour que les empires leur semblent provisoires.", en: "They have watched long enough that empires seem provisional to them." },
-    effect: { fr: "Production globale +16%.", en: "Global production +16%." }
   },
   {
     id: "codex_of_failures",
@@ -945,7 +537,7 @@ export const upgrades = [
     name: { fr: "Archives aux lampes", en: "Lamp archives" },
     cost: { ruins: 14000000000 },
     effectType: "startKnowledgePctPeak",
-    amount: 0.07,
+    amount: 0.12,
     desc: { fr: "Une lumière basse, des mains qui copient, des idées qui ne dorment pas.", en: "A low light, hands that copy, ideas that never sleep." },
     effect: { fr: "Chaque cycle commence avec 7% du pic de savoir précédent.", en: "Each cycle starts with 7% of the previous knowledge peak." }
   },
@@ -955,7 +547,7 @@ export const upgrades = [
     name: { fr: "Histoires contrefactuelles", en: "Counterfactual histories" },
     cost: { ruins: 18000000000 },
     effectType: "knowledgeMult",
-    amount: 3,
+    amount: 5.4,
     desc: { fr: "On y étudie les mondes qui auraient pu tomber autrement. Ça aide à éviter les mêmes erreurs.", en: "Here they study the worlds that might have fallen otherwise. It helps avoid the same mistakes." },
     effect: { fr: "Production de savoir +300%.", en: "Knowledge production +300%." }
   },
@@ -965,7 +557,7 @@ export const upgrades = [
     name: { fr: "Taxonomie des chutes", en: "Taxonomy of falls" },
     cost: { ruins: 22000000000 },
     effectType: "ruinGain",
-    amount: 0.40,
+    amount: 0.65,
     desc: { fr: "Classer les effondrements, c'est apprendre à mieux en tirer profit.", en: "To classify collapses is to learn how to profit from them better." },
     effect: { fr: "Ruines gagnées +40%.", en: "Ruins gained +40%." }
   },
@@ -1102,24 +694,6 @@ export const upgrades = [
     effect: { fr: "Gain hors-ligne : la cité produit et vieillit jusqu'à 4 h d'absence (au lieu de 2 h).", en: "Offline gains: the city produces and ages for up to 4 h away (instead of 2 h)." }
   },
   {
-    id: "veilleurs_nuit_2",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Veilleurs de nuit II", en: "Night watch II" },
-    cost: { ruins: 40 },
-    desc: { fr: "La veille s'organise en relèves. La cité ne ferme plus jamais tout à fait les yeux.", en: "The watch organizes into shifts. The city never quite closes its eyes again." },
-    effect: { fr: "Gain hors-ligne : jusqu'à 8 h d'absence.", en: "Offline gains: up to 8 h away." }
-  },
-  {
-    id: "veilleurs_nuit_3",
-    group: "ruins",
-    unlockCycles: 5,
-    name: { fr: "Veilleurs de nuit III", en: "Night watch III" },
-    cost: { ruins: 200 },
-    desc: { fr: "Des consignes écrites couvrent toutes les situations prévues. Et quelques-unes qui ne le sont pas.", en: "Written orders cover every foreseen situation. And a few that are not." },
-    effect: { fr: "Gain hors-ligne : jusqu'à 12 h d'absence.", en: "Offline gains: up to 12 h away." }
-  },
-  {
     id: "veilleurs_nuit_4",
     group: "ruins",
     unlockCycles: 7,
@@ -1198,76 +772,63 @@ export const PRESTIGE_TREE_BRANCHES = [
     id: "resilience",
     name: { fr: "Résilience", en: "Resilience" },
     hint: { fr: "Population, nourriture, stabilité et résistance à l'usure.", en: "Population, food, stability, and resistance to wear." },
-    unlock: [0, 3, 6, 9, 12, 15],
+    unlock: [0, 3, 5, 8, 11],
     tiers: [
-      ["root_cellars", "ember_baskets", "granaries", "seed_vaults", "ancestor_granaries"],
-      ["charred_ploughs", "smoke_calendar", "clay_cisterns", "stone_bread", "green_ruins"],
-      ["age_sutures", "crisis_theatre", "dynastic_seeds", "echo_census", "evergreen_fields"],
-      ["cradle_of_laws", "ten_thousand_storehouses", "root_hospices", "winter_granaries", "slow_calendar"],
-      ["plague_records", "famine_laws", "river_seedbanks", "ash_medicine", "green_census"],
-      ["mother_walls", "seasonal_oaths", "deep_wells", "patient_bloodlines", "last_refuges"]
+      ["root_cellars", "ember_baskets", "granaries", "smoke_calendar"],
+      ["stone_bread", "crisis_theatre", "echo_census"],
+      ["ten_thousand_storehouses", "winter_granaries", "river_seedbanks"],
+      ["ash_medicine", "green_census", "mother_walls", "seasonal_oaths"],
+      ["patient_bloodlines", "last_refuges"]
     ]
   },
   {
     id: "prosperity",
     name: { fr: "Prospérité", en: "Prosperity" },
     hint: { fr: "Trésor, infrastructures, routes, coûts de construction et conservation matérielle.", en: "Treasury, infrastructure, roads, building costs, and material preservation." },
-    unlock: [0, 3, 6, 9, 12, 15],
+    unlock: [0, 3, 6, 9, 13],
     tiers: [
-      ["buried_coins", "salvage_crews", "ash_paths", "broken_milestones", "fallen_roads"],
-      ["cracked_scales", "ash_markets", "silent_wells", "old_wall_maps", "buried_tolls"],
-      ["ash_contracts", "ancestral_markets", "old_coin_molds", "tilted_milestones", "forgotten_wharves"],
-      ["buried_engineers", "fossil_taxes", "rubble_survey", "dead_road_network", "bronze_foundations"],
-      ["ancestor_stipends", "silver_ghosts", "cyclopean_blocks", "palace_of_receipts", "immortal_blueprint", "silver_roads"],
-      ["public_quarries", "nomad_ledgers", "canal_charters", "vaulted_treasuries", "imperial_scaffolds", "deep_foundry"]
+      ["ash_paths", "fallen_roads", "cracked_scales", "silent_wells"],
+      ["buried_tolls", "old_coin_molds", "forgotten_wharves", "rubble_survey"],
+      ["bronze_foundations", "palace_of_receipts", "immortal_blueprint", "silver_roads"],
+      ["public_quarries", "nomad_ledgers", "canal_charters", "vaulted_treasuries"],
+      ["deep_foundry"]
     ]
   },
   {
     id: "knowledge",
     name: { fr: "Connaissance", en: "Knowledge" },
     hint: { fr: "Savoir, archives, mémoire longue et coûts de recherche.", en: "Knowledge, archives, long memory, and research costs." },
-    unlock: [0, 3, 6, 8, 10],
+    unlock: [0, 3, 6, 8],
     tiers: [
-      ["charcoal_tablets", "bone_ledgers", "oral_tradition", "burnt_abacus", "memory_scribes"],
-      ["rubble_contracts", "sunken_scriptorium", "mirror_archives", "ashen_libraries", "first_grammar"],
-      ["blackboard_walls", "salted_memory", "ivory_questions", "ritual_accounting"],
-      ["library_under_world", "ink_relics", "dead_language_schools", "memory_courts"],
-      ["silent_observatories", "lamp_archives", "counterfactual_histories", "chronicle_engine"]
+      ["bone_ledgers", "oral_tradition", "rubble_contracts", "sunken_scriptorium"],
+      ["mirror_archives", "first_grammar", "ivory_questions"],
+      ["ritual_accounting", "dead_language_schools", "memory_courts"],
+      ["lamp_archives", "counterfactual_histories", "chronicle_engine"]
     ]
   },
   {
     id: "cycle_crise",
     name: { fr: "Cycle & Crise", en: "Cycle & Crisis" },
-    hint: { fr: "Gain de ruines, arbitrages d'effondrement et automatisation des crises.", en: "Ruin gains, collapse trade-offs, and crisis automation." },
-    unlock: [0, 2, 5],
+    hint: { fr: "Gain de ruines, arbitrages d'effondrement, automatisation des crises et gains hors-ligne.", en: "Ruin gains, collapse trade-offs, crisis automation, and offline gains." },
+    unlock: [0, 3, 6],
     tiers: [
-      ["conseil_de_crise", "edit_effondrement", "ruin_liturgy", "foundation_ghosts"],
-      ["recurring_ages", "crowned_debris", "burial_math", "ruined_mandate"],
-      ["oracle_tables", "codex_of_failures", "collapse_taxonomy", "axiom_engine"]
-    ]
-  },
-  {
-    id: "veille",
-    name: { fr: "Veille", en: "Vigil" },
-    hint: { fr: "Gain hors-ligne : la cité continue de produire et de vieillir en ton absence.", en: "Offline gains: the city keeps producing and aging in your absence." },
-    unlock: [0, 1],
-    tiers: [
-      ["veilleurs_nuit_1", "veilleurs_nuit_2"],
-      ["veilleurs_nuit_3", "veilleurs_nuit_4"]
+      ["conseil_de_crise", "veilleurs_nuit_1", "edit_effondrement", "ruin_liturgy"],
+      ["foundation_ghosts", "recurring_ages", "veilleurs_nuit_4", "crowned_debris"],
+      ["burial_math", "codex_of_failures", "collapse_taxonomy", "axiom_engine"]
     ]
   }
 ];
 
 export const PRESTIGE_DOGMAS = [
-  { id: "dogma_communal_granaries", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 6, branch: "resilience" },
-  { id: "dogma_medicine", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 14, branch: "resilience" },
-  { id: "dogma_stoic_rites", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 22, branch: "resilience" },
-  { id: "trait_nomadism", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 6, branch: "prosperity" },
-  { id: "dogma_merchant_law", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 14, branch: "prosperity" },
-  { id: "dogma_public_works", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 22, branch: "prosperity" },
-  { id: "trait_theocracy", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 6, branch: "knowledge" },
-  { id: "skill_archaeology", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 12, branch: "knowledge" },
-  { id: "dogma_free_academies", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 18, branch: "knowledge" },
+  { id: "dogma_communal_granaries", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "resilience" },
+  { id: "dogma_medicine", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 8, branch: "resilience" },
+  { id: "dogma_stoic_rites", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 12, branch: "resilience" },
+  { id: "trait_nomadism", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "prosperity" },
+  { id: "dogma_merchant_law", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 8, branch: "prosperity" },
+  { id: "dogma_public_works", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 13, branch: "prosperity" },
+  { id: "trait_theocracy", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "knowledge" },
+  { id: "skill_archaeology", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 7, branch: "knowledge" },
+  { id: "dogma_free_academies", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 10, branch: "knowledge" },
   { id: "dogma_eternal_return", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 5, branch: "cycle_crise" }
 ];
 

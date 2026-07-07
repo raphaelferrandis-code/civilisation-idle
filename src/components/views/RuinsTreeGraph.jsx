@@ -226,13 +226,18 @@ export default function RuinsTreeGraph() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
+    let wheelTimer = 0;
     const onWheel = (e) => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       zoomAt(e.deltaY < 0 ? 1.18 : 1 / 1.18, e.clientX - rect.left, e.clientY - rect.top);
+      // Perf : coupe anims/transitions/filtres le temps du zoom (repaint léger).
+      el.classList.add("rt-interacting");
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => el.classList.remove("rt-interacting"), 220);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    return () => { clearTimeout(wheelTimer); el.removeEventListener("wheel", onWheel); };
   }, [zoomAt]);
 
   // Glisser = pan. On NE capture PAS le pointeur sur un simple clic (sinon le
@@ -260,6 +265,7 @@ export default function RuinsTreeGraph() {
     const dy = e.clientY - d.sy;
     if (!d.moved && Math.hypot(dx, dy) > 4) {
       d.moved = true;
+      containerRef.current?.classList.add("rt-interacting"); // perf : coupe anims/transitions le temps du pan
       try { d.target?.setPointerCapture(d.pointerId); } catch { /* noop */ }
     }
     if (!d.moved) return;
@@ -277,6 +283,7 @@ export default function RuinsTreeGraph() {
     const d = dragRef.current;
     if (!d.active) return;
     d.active = false;
+    containerRef.current?.classList.remove("rt-interacting");
     try { d.target?.releasePointerCapture?.(d.pointerId); } catch { /* noop */ }
     if (d.moved) setCam((c) => ({ z: c.z, x: d.liveX, y: d.liveY }));
     void e;
@@ -454,24 +461,40 @@ export default function RuinsTreeGraph() {
             <circle key={`strata-${i}`} cx={0} cy={0} r={r} className="rt-strata" transform={`rotate(${i * 53})`} />
           ))}
 
-          {/* Chaîne hub → ronds : sillon gravé (rainure sombre + rail teinté) */}
-          {layout.trunks.map((t) => (
-            <g key={`trunk-${t.branch}-${t.tier}`}>
-              <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} className="rt-trunk-groove" />
-              <line
-                x1={t.x1}
-                y1={t.y1}
-                x2={t.x2}
-                y2={t.y2}
-                className={`rt-trunk rt-b-${t.branch}`}
-                style={{ stroke: branchTheme(t.branch).color }}
-              />
-            </g>
-          ))}
+          {/* Chaîne hub → ronds : sillon gravé COURBE (rainure sombre + rail teinté).
+              Contrôle quadratique perpendiculaire au segment → arrondi doux. */}
+          {layout.trunks.map((t) => {
+            const mx = (t.x1 + t.x2) / 2;
+            const my = (t.y1 + t.y2) / 2;
+            const dx = t.x2 - t.x1;
+            const dy = t.y2 - t.y1;
+            const len = Math.hypot(dx, dy) || 1;
+            const bow = len * 0.16; // flèche de la courbe
+            const d = `M${t.x1},${t.y1} Q${mx + (-dy / len) * bow},${my + (dx / len) * bow} ${t.x2},${t.y2}`;
+            return (
+              <g key={`trunk-${t.branch}-${t.tier}`}>
+                <path d={d} className="rt-trunk-groove" fill="none" />
+                <path
+                  d={d}
+                  className={`rt-trunk rt-b-${t.branch}`}
+                  fill="none"
+                  style={{ stroke: branchTheme(t.branch).color }}
+                />
+              </g>
+            );
+          })}
 
-          {/* Rayons cœur ↔ nœud : rainure noire (contour) + rail teinté */}
+          {/* Rayons cœur ↔ nœud COURBES : rainure noire (contour) + rail teinté.
+              Contrôle perpendiculaire (même sens que les trunks) → spokes arrondis,
+              pas en étoile droite. */}
           {layout.edges.map((e, i) => {
-            const d = `M${e.x1},${e.y1} Q${e.cx},${e.cy} ${e.x2},${e.y2}`;
+            const emx = (e.x1 + e.x2) / 2;
+            const emy = (e.y1 + e.y2) / 2;
+            const edx = e.x2 - e.x1;
+            const edy = e.y2 - e.y1;
+            const elen = Math.hypot(edx, edy) || 1;
+            const ebow = elen * 0.2;
+            const d = `M${e.x1},${e.y1} Q${emx + (-edy / elen) * ebow},${emy + (edx / elen) * ebow} ${e.x2},${e.y2}`;
             const cls = edgeClass(e);
             return (
               <g key={`edge-${e.id}-${i}`}>
@@ -538,7 +561,7 @@ export default function RuinsTreeGraph() {
 
         {/* Étiquette du moyeu */}
         <div className="rt-hub" style={{ left: `${px(0)}px`, top: `${px(0)}px` }}>
-          <i className="fa-solid fa-landmark rt-hub-icon" aria-hidden="true" />
+          <img className="rt-hub-emblem" src="/pixelart/ui/ruins/hub.png" alt="" aria-hidden="true" draggable="false" />
           <strong className="rt-hub-count">{fmt(ruins)}</strong>
         </div>
       </div>

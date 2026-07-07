@@ -166,6 +166,9 @@ export const REGULATION_ACTIONS_BY_ID = Object.fromEntries(
  *   riseSlow      : ralentit la montée de la jauge (plafond commun 0.8).
  *   overshootDamp : atténue la SURCHARGE (accélération quand la cible dépasse 100 %).
  *   foyerDamp     : { foyer: part } étouffe un foyer EN CONTINU (sous le plafond partagé).
+ *   demesureDamp  : réduit la DÉMESURE (tension d'échelle) EN CONTINU — le levier
+ *                   dédié aux méga-cités (rework cadence late-game). Plafonné avec la
+ *                   légitimité à DEMESURE_CUT_CAP dans pressureBreakdown. Récupérable.
  */
 export const REGULATION_POLICIES = [
   {
@@ -203,6 +206,12 @@ export const REGULATION_POLICIES = [
     desc: { fr: "Des milices locales étouffent la fronde en continu, tant qu'on les finance et les nourrit.", en: "Local militias smother dissent continuously, as long as they are funded and fed." },
     foyerDamp: { dissent: 0.20 }, cost: { gold: 0.12, food: 0.08 },
     unlock: (c) => c.bestEra >= 3, unlockLabel: { fr: "Ère III", en: "Era III" }
+  },
+  {
+    id: "imperialGovernance", label: { fr: "Gouvernance impériale", en: "Imperial Governance" }, tier: 4,
+    desc: { fr: "Une administration impériale gouverne la démesure de la cité : plus elle grandit, plus ses institutions la tiennent — au prix d'une bureaucratie qui pèse sur toute la production.", en: "An imperial administration governs the city's hubris of scale: the larger it grows, the more its institutions hold it together — at the cost of a bureaucracy that weighs on all production." },
+    demesureDamp: 0.45, cost: { global: 0.14 },
+    unlock: (c) => c.bestEra >= 4, unlockLabel: { fr: "Ère IV", en: "Era IV" }
   }
 ];
 

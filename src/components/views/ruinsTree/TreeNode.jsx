@@ -41,7 +41,7 @@ export default function TreeNode({ vm, onHover, onBuy }) {
       onBlur={() => onHover(null)}
     >
       <span className="rt-frame" aria-hidden="true" />
-      <i className={`fa-solid ${icon} rt-icon`} aria-hidden="true" />
+      <img className="rt-emblem" src={`/pixelart/ui/ruins/${icon}.png`} alt="" aria-hidden="true" draggable="false" />
       {capstone && <i className="fa-solid fa-crown rt-crown" aria-hidden="true" />}
       {status === "purchased" && <i className="fa-solid fa-check rt-pip rt-pip--ok" aria-hidden="true" />}
       {status === "blocked" && <i className="fa-solid fa-ban rt-pip rt-pip--no" aria-hidden="true" />}

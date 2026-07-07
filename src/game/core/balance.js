@@ -1,7 +1,5 @@
 "use strict";
 
-import { tr } from './i18n.js';
-
 // Constantes d'équilibrage structurantes du jeu, regroupées et documentées.
 // Ne change AUCUNE valeur ici sans intention d'équilibrage : ces nombres
 // pilotent les courbes de progression et les seuils d'effondrement.
@@ -50,10 +48,13 @@ export const LEGITIMACY_COEF = 0.22;      // coefficient associé
 // réelle vaut 3× le seuil ne peut plus être tenue indéfiniment par des actions.
 export const INSTABILITY_OVERSHOOT_CAP = 3;
 
-// Montée incompressible : la jauge ne peut pas gagner plus de 1 %/s, quelle que
-// soit la pression. Garantit un cycle d'au moins ~2-3 minutes, le temps que les
-// pics (population) se reconstruisent et que la patience de ruinGain() compte.
-export const INSTABILITY_MAX_RISE_PER_SEC = 0.01;
+// Montée incompressible : la jauge ne peut pas gagner plus de 0,6 %/s, quelle que
+// soit la pression. Garantit qu'une cité NON gérée respire (cycle plancher ~167 s
+// au lieu de 100 s) le temps que les pics se reconstruisent. Baissé (0.01 → 0.006)
+// dans le rework « cadence late-game » : la Rupture devient une jauge maîtrisable
+// (l'Usure porte désormais l'anti-immortalité), donc ce plafond n'a plus à imposer
+// un métronome serré — il ne borne que la chute d'une cité laissée à l'abandon.
+export const INSTABILITY_MAX_RISE_PER_SEC = 0.006;
 
 // ── Coût des actions de régulation : ancré sur la PRODUCTION, pas la population ──
 // Ancien défaut : coût ∝ population (croissance lente) alors que les stocks
@@ -90,7 +91,15 @@ export const FOYER_RELIEF_HALF_LIFE_S = 30;  // demi-vie du déclin (s)
 // jamais 100 % (immortalité via Rupture, contre l'intention « délai »). À 0.45
 // la cible max reste ≥ ~1.0 : on temporise fort, sans figer la jauge. Valeur de
 // départ — affinée par simulation à l'Étape 5.
-export const FOYER_RELIEF_CAP = 0.45;        // un foyer ne descend jamais sous 55 % de sa valeur
+export const FOYER_RELIEF_CAP = 0.45;        // plafond de l'APAISEMENT temporaire (déclinant)
+// Plafond du recul DURABLE (réformes de fond). Découplé de l'apaisement temporaire
+// (rework cadence late-game) : maintenant que l'USURE porte l'anti-immortalité,
+// une cité PLEINEMENT réformée peut ramener ses foyers bien plus bas (0.72 vs 0.45)
+// → cible sous 1.0 atteignable avec les bons réglages → coast sur l'horloge d'Usure.
+// L'apaisement temporaire reste borné à FOYER_RELIEF_CAP ; c'est la réforme (coût
+// lourd, choix durable) qui débloque le recul profond. Combiné (relief+réforme+
+// politique) plafonné à cette valeur dans pressureBreakdown().
+export const FOYER_REFORM_CAP = 0.72;
 // Part d'apaisement ajoutée par clic (cumulée vers le plafond) — actions fortes +.
 export const FOYER_RELIEF_ADD = {
   rationing: 0.18,      // → Subsistance (scarcity)
@@ -316,12 +325,10 @@ export const COMPLEXITY_COVERAGE_ABSORB = 0.5;
 // déjà ~×13/ère, on ne vend que des HEURES (pas besoin de scaler le cap par ère).
 export const IDLE_BASE_CAP_SECONDS = 2 * 3600;        // cap gratuit pour tous
 // Incrément de cap (secondes) débloqué par chaque palier de ruines. Cumulés à la
-// base : 2h → 4h → 8h → 12h → 24h. Les coûts en ruines vivent dans upgrades.js.
+// base : 2h → 8h → 24h (Veille fondue dans Cycle & Crise → 2 paliers). Coûts dans upgrades.js.
 export const IDLE_CAP_PALIERS = {
-  veilleurs_nuit_1: 2 * 3600,   // → 4 h
-  veilleurs_nuit_2: 4 * 3600,   // → 8 h
-  veilleurs_nuit_3: 4 * 3600,   // → 12 h
-  veilleurs_nuit_4: 12 * 3600   // → 24 h
+  veilleurs_nuit_1: 6 * 3600,   // 2h base + 6h → 8 h (absorbe l'ancien palier _2)
+  veilleurs_nuit_4: 16 * 3600   // + 16h → 24 h (absorbe l'ancien palier _3)
 };
 // Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
 // Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
@@ -338,6 +345,18 @@ export const OFFLINE_MAX_COLLAPSES = 20;
 // et le début de chaque cycle restent intacts.
 export const DEMESURE_FREE_LOG_POP = 4;   // pop sous 10^4 : Démesure nulle
 export const DEMESURE_COEF = 0.06;        // pression par décade de population au-delà du seuil
+// Rework cadence late-game : la Démesure était NON bornée et NON réductible → à
+// 10^30 elle valait 1.56 à elle seule, épinglant la cible à 2-4× le seuil quoi que
+// fasse le joueur (cycle métronome ~2 min, « aucun moyen de gérer »). Désormais :
+//   1. BORNÉE par un soft cap (Michaelis-Menten) → contribution max ~DEMESURE_SOFT_CAP.
+//   2. RÉDUCTIBLE par la GOUVERNANCE : la Légitimité (institutions qui administrent
+//      l'empire, terme log) + la politique « Gouvernance impériale » (demesureDamp).
+// L'anti-immortalité ne repose plus sur la Démesure mais sur l'USURE (deadline de
+// plusieurs heures) : une cité bien gouvernée ramène sa cible sous 1.0 et coaste
+// sur l'Usure ; une cité négligée s'effondre toujours vite par la Rupture.
+export const DEMESURE_SOFT_CAP = 0.9;          // contribution max de la Démesure (soft cap)
+export const DEMESURE_LEGIT_LOG_COEF = 0.11;   // log10(1+légitimité) × ce coef → part de Démesure retirée
+export const DEMESURE_CUT_CAP = 0.85;          // fraction max de Démesure retirable par la gouvernance
 
 // ── A2 · Entretien de l'infrastructure (résorption du surplus) ───────────────
 // L'infra n'est jamais consommée : sur un long cycle, son stock dépasse

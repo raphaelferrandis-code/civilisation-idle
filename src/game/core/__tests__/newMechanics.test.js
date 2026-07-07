@@ -14,7 +14,7 @@ import { tick } from "../actions/tick.js";
 import { CRISIS_EVENTS } from "../../data/world.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 import {
-  DEMESURE_COEF,
+  DEMESURE_SOFT_CAP,
   STAGNATION_USURE_RAMP_SEC,
   STAGNATION_USURE_MAX_BONUS
 } from "../balance.js";
@@ -38,34 +38,53 @@ beforeEach(() => {
   invalidateRenderCache("all");
 });
 
-describe("A1 — Démesure (pression d'échelle non mitigée)", () => {
-  it("est nulle sous le seuil et croît d'une décade de population", () => {
+// Rework cadence late-game : la Démesure est désormais BORNÉE (soft cap) et
+// RÉDUCTIBLE par la gouvernance (légitimité + politique). L'anti-immortalité est
+// portée par l'USURE, plus par un socle de Rupture irréductible.
+describe("A1 — Démesure (tension d'échelle bornée & gouvernable)", () => {
+  it("est nulle sous le seuil, croît avec l'échelle, mais reste BORNÉE par le soft cap", () => {
     state.population = new Decimal(1e4); // = 10^DEMESURE_FREE_LOG_POP
     invalidateRenderCache("all");
     expect(pressureBreakdown().demesure).toBe(0);
 
     state.population = new Decimal(1e10);
     invalidateRenderCache("all");
-    expect(pressureBreakdown().demesure).toBeCloseTo((10 - 4) * DEMESURE_COEF, 6);
+    const d10 = pressureBreakdown().demesure;
+    state.population = new Decimal(1e30);
+    invalidateRenderCache("all");
+    const d30 = pressureBreakdown().demesure;
+    expect(d10).toBeGreaterThan(0);
+    expect(d30).toBeGreaterThan(d10);            // croît avec la taille de la cité
+    expect(d30).toBeLessThan(DEMESURE_SOFT_CAP); // mais ne dépasse jamais le soft cap
   });
 
-  it("n'est pas effacée par l'infra/légitimité (socle irréductible)", () => {
+  it("n'est PAS effacée par l'infra, mais EST réductible par la gouvernance (légitimité)", () => {
     state.population = new Decimal(1e12);
     state.infrastructure = new Decimal(1e9);
-    state.legitimacy = 1000;
+    state.legitimacy = 50;
     invalidateRenderCache("all");
-    const p = pressureBreakdown();
-    expect(p.demesure).toBeCloseTo((12 - 4) * DEMESURE_COEF, 6);
-    // baseTotal (mitigation comprise) >= 0, donc total porte toujours la Démesure.
-    expect(p.total).toBeGreaterThanOrEqual(p.demesure - 1e-9);
+    const dLowLegit = pressureBreakdown().demesure;
+    expect(dLowLegit).toBeGreaterThan(0);
+
+    // La légitimité (institutions qui administrent l'empire) réduit la Démesure —
+    // c'est le levier de gouvernance du rework cadence late-game.
+    state.legitimacy = 100000;
+    invalidateRenderCache("all");
+    const dHighLegit = pressureBreakdown().demesure;
+    expect(dHighLegit).toBeLessThan(dLowLegit); // gouverner l'empire réduit la tension d'échelle
+    expect(dHighLegit).toBeGreaterThan(0);      // jamais totalement effacée (DEMESURE_CUT_CAP)
+
+    // total porte toujours (au moins) la Démesure résiduelle.
+    expect(pressureBreakdown().total).toBeGreaterThanOrEqual(dHighLegit - 1e-9);
   });
 
-  it("reste finie au-delà du plafond float", () => {
+  it("reste finie et bornée au-delà du plafond float", () => {
     state.population = new Decimal("1e320");
     invalidateRenderCache("all");
     const d = pressureBreakdown().demesure;
     expect(Number.isFinite(d)).toBe(true);
     expect(d).toBeGreaterThan(0);
+    expect(d).toBeLessThan(DEMESURE_SOFT_CAP);
   });
 });
 

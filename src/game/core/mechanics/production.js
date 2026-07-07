@@ -28,11 +28,14 @@ import {
   STABILIZER_DIRECT_FACTOR,
   STRUCTURAL_COVERAGE_DAMP,
   COMPLEXITY_COVERAGE_ABSORB,
-  FOYER_RELIEF_CAP,
+  FOYER_REFORM_CAP,
   INEQUALITY_RESERVE_REF_S,
   INEQUALITY_RESERVE_SCALE_S,
   DEMESURE_FREE_LOG_POP,
-  DEMESURE_COEF
+  DEMESURE_COEF,
+  DEMESURE_SOFT_CAP,
+  DEMESURE_LEGIT_LOG_COEF,
+  DEMESURE_CUT_CAP
 } from '../balance.js';
 import {
   ICARE_PROD_MULT,
@@ -212,6 +215,18 @@ export function policyFoyerDamp(foyer) {
   if (!policies || !policies.length) return 0;
   let s = 0;
   for (const id of policies) s += POLICY_BY_ID[id]?.foyerDamp?.[foyer] || 0;
+  return s;
+}
+
+// Rework cadence late-game — réduction CONTINUE de la Démesure par les politiques
+// actives (« Gouvernance impériale »). Entre dans le demesureCut plafonné à
+// DEMESURE_CUT_CAP → la Démesure n'est jamais totalement effacée par les leviers
+// seuls. Récupérable à l'extinction de la politique (comme les autres damps).
+export function policyDemesureDamp() {
+  const policies = state.activePolicies;
+  if (!policies || !policies.length) return 0;
+  let s = 0;
+  for (const id of policies) s += POLICY_BY_ID[id]?.demesureDamp || 0;
   return s;
 }
 
@@ -542,7 +557,10 @@ export function pressureBreakdown() {
   // garantit l'invariant anti-immortalité : la réforme rend le recul durable,
   // sans jamais dépasser le maximum déjà atteignable par l'apaisement (cf.
   // FOYER_REFORM dans balance.js, mesuré par measure-foyers.js).
-  const foyerCut = (key) => Math.min(FOYER_RELIEF_CAP, (fr[key] || 0) + (rf[key] || 0) + policyFoyerDamp(key));
+  // Plafond du recul combiné d'un foyer = FOYER_REFORM_CAP (durable, rework cadence) :
+  // l'apaisement temporaire (fr) reste borné à FOYER_RELIEF_CAP à son dépôt, mais une
+  // cité PLEINEMENT réformée descend plus bas (0.72). Anti-immortalité portée par l'Usure.
+  const foyerCut = (key) => Math.min(FOYER_REFORM_CAP, (fr[key] || 0) + (rf[key] || 0) + policyFoyerDamp(key));
   // Subsistance lissée : utilise l'EMA (state.scarcityRawEase) si initialisée,
   // sinon l'instantané (repli — golden master inchangé tant que l'EMA est null).
   const scarcityRawUsed = state.scarcityRawEase != null ? state.scarcityRawEase : scarcityRaw;
@@ -564,14 +582,21 @@ export function pressureBreakdown() {
   const structural = softCap(structuralNet * 2.2 / (1 + effCoverage * STRUCTURAL_COVERAGE_DAMP), 0.75);
   const institutionalLog = Math.log10(1 + effCoverage * INFRA_COVERAGE_MITIGATION_MULT + state.legitimacy * 0.16);
   const mitigation = Math.min(MITIGATION_CAP, institutionalLog * MITIGATION_LOG_COEF + ruinEffectSum("stability") + foundingGrace + settlingGrace);
-  // A1 — Démesure (hubris d'échelle) : socle d'instabilité NON mitigé qui croît
-  // avec la taille de la cité. Ajouté APRÈS la mitigation (la couverture d'infra
-  // et la légitimité ne peuvent pas l'effacer) et sans plafond : au-delà de
-  // DEMESURE_FREE_LOG_POP décades d'habitants, « tout acheter » ne stabilise plus
-  // — la grandeur elle-même engendre une tension irréductible. Sûr au-delà du
-  // float (log10 Decimal reste fini). Reste à 0 sous le seuil → early game intact.
-  const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : D(state.population).max(10).log10();
-  const demesure = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF);
+  // A1 — Démesure (hubris d'échelle) : socle d'instabilité qui croît avec la taille
+  // de la cité, ajouté APRÈS la mitigation. Rework cadence late-game — désormais :
+  //   • BORNÉ par un soft cap (Michaelis-Menten) → contribution max ~DEMESURE_SOFT_CAP
+  //     (avant : non borné → 1.56 à 10^30, épinglant la cible à 2-4× le seuil).
+  //   • RÉDUCTIBLE par la GOUVERNANCE : la Légitimité (institutions administrant
+  //     l'empire, terme log) + la politique « Gouvernance impériale » (demesureDamp),
+  //     plafonné à DEMESURE_CUT_CAP → jamais totalement effacé par les leviers seuls.
+  // Reste à 0 sous le seuil (early game intact). Sûr au-delà du float (log10 Decimal fini).
+  const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : toNum(D(state.population).max(10).log10());
+  const demesureRaw = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF);
+  const demesureCut = Math.min(
+    DEMESURE_CUT_CAP,
+    Math.log10(1 + Math.max(0, state.legitimacy)) * DEMESURE_LEGIT_LOG_COEF + policyDemesureDamp()
+  );
+  const demesure = softCap(demesureRaw, DEMESURE_SOFT_CAP) * (1 - demesureCut);
   const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowthMultiplier() - mitigation);
   const total = (hasDoctrine("acier") ? baseTotal * 1.25 : baseTotal) + demesure;
 
@@ -692,8 +717,8 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
 
     const mult = globalMultiplier();
     if (has("root_cellars")) food *= 1.6;
-    if (has("buried_coins")) gold *= 1.6;
-    if (has("charcoal_tablets")) knowledge *= 1.6;
+    if (has("cracked_scales")) gold *= 1.6;
+    if (has("bone_ledgers")) knowledge *= 1.6;
     food *= ruinEffectMultiplier("foodMult");
     gold *= ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1);
     knowledge *= ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1);
@@ -757,8 +782,8 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   const multD = globalMultiplierDec();
   const sqrtMultD = multD.sqrt();
   if (has("root_cellars")) foodD = foodD.mul(1.6);
-  if (has("buried_coins")) goldD = goldD.mul(1.6);
-  if (has("charcoal_tablets")) knowledgeD = knowledgeD.mul(1.6);
+  if (has("cracked_scales")) goldD = goldD.mul(1.6);
+  if (has("bone_ledgers")) knowledgeD = knowledgeD.mul(1.6);
   foodD = foodD.mul(ruinEffectMultiplier("foodMult"));
   goldD = goldD.mul(ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1));
   knowledgeD = knowledgeD.mul(ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1));

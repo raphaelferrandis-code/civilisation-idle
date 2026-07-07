@@ -47,7 +47,7 @@ import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
+import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -274,9 +274,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
     .max(startFloor("Population", 10))
     .add(doctrinePopBonus);
-  const foodKeepRate = (has("ancestor_granaries") ? 0.16 : has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
-  const goldKeepRate = 0.04 + (has("ash_markets") ? 0.05 : 0) + (has("ash_contracts") ? 0.07 : 0) + ruinEffectSum("goldKeep");
-  const knowledgeKeepRate = (has("memory_scribes") ? 0.04 : 0) + ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0);
+  const foodKeepRate = (has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
+  const goldKeepRate = 0.04 + ruinEffectSum("goldKeep");
+  const knowledgeKeepRate = ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0);
   const infraKeepRate = ruinEffectSum("infraKeep") + (hasDoctrine("sillon") ? 0.06 : 0);
   const keptFood = foodKeepRate > 0 ? D(state.food).mul(foodKeepRate) : D(35);
   const keptGold = D(state.gold).mul(goldKeepRate);
@@ -429,11 +429,11 @@ export function runCrisisAction(id, options = {}) {
   const reformFoyer = REFORM_ACTION_FOYER[id];
   if (reformFoyer) {
     const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-    if ((rf[reformFoyer] || 0) >= FOYER_RELIEF_CAP) return; // foyer déjà réformé au max
+    if ((rf[reformFoyer] || 0) >= FOYER_REFORM_CAP) return; // foyer déjà réformé au max
     const reformCost = costs[id];
     if (!reformCost || !canPayCost(reformCost)) return;
     payCost(reformCost);
-    rf[reformFoyer] = Math.min(FOYER_RELIEF_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
+    rf[reformFoyer] = Math.min(FOYER_REFORM_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
     // Kicker économique modeste : la réforme bâtit aussi de l'institution.
     state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
     raiseRegulFatigue();
@@ -454,7 +454,7 @@ export function runCrisisAction(id, options = {}) {
     const foyer = regAction.foyer;
     if (regAction.kind === "reform") {
       const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-      if ((rf[foyer] || 0) >= FOYER_RELIEF_CAP) return; // foyer déjà réformé au max
+      if ((rf[foyer] || 0) >= FOYER_REFORM_CAP) return; // foyer déjà réformé au max
     }
     const regCost = costs[id];
     if (!regCost || !canPayCost(regCost)) return;
@@ -480,7 +480,7 @@ export function runCrisisAction(id, options = {}) {
       pushOutcomeFloat({ label: win ? "🎲 Pari réussi" : "🎲 Pari perdu", kind: win ? "gain" : "cost" });
     } else if (regAction.kind === "reform") {
       const rf = state.foyerReform;
-      rf[foyer] = Math.min(FOYER_RELIEF_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0) * eff);
+      rf[foyer] = Math.min(FOYER_REFORM_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0) * eff);
     } else if (!isMythEffectActive("mythe_d_atlas")) {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
       const add = (regAction.relief || 0) * eff;

@@ -46,7 +46,7 @@ const byId = Object.fromEntries(upgrades.map((u) => [u.id, u]));
 // le haut, dans l'ordre BRANCH_ORDER. knowledge en haut (−90°).
 function branchAngle(branchId) {
   const i = BRANCH_ORDER.indexOf(branchId);
-  return -Math.PI / 2 + (i < 0 ? 0 : i) * (TAU / 5);
+  return -Math.PI / 2 + (i < 0 ? 0 : i) * (TAU / BRANCH_ORDER.length);
 }
 
 // "Palier I/II/III" → index de palier 0/1/2 (position du cœur-dogme).

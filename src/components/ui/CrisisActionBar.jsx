@@ -198,6 +198,7 @@ function policyEffectLabel(p) {
       parts.push(`−${Math.round(v * 100)}% ${tr(FOYER_SHORT[f]) || f} ${tr({ fr: '(continu)', en: '(continuous)' })}`);
     }
   }
+  if (p.demesureDamp) parts.push(`−${Math.round(p.demesureDamp * 100)}% ${tr({ fr: 'Démesure (échelle)', en: 'Hubris (scale)' })}`);
   return parts.join(' · ');
 }
 

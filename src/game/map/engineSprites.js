@@ -928,9 +928,16 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
       const flip = t.waterEnd === 'W';
       if (flip) { ctx.save(); ctx.translate(2 * ox + sw, 0); ctx.scale(-1, 1); }
       const cw = 1 / spanX;
+      // Eau animée : on RÉUTILISE les bandes pixel du stade 0 (aqueduct-water-*, 7 frames),
+      // recalées dans le canal de CHAQUE ère (hauteur différente : margelle romaine haute,
+      // tablier de fer, canal béton plus bas). Même horloge → flux continu entre tuiles.
+      // (cy calés offline sur les modules ; ajustables par ère si besoin en jeu.)
+      const waterCy = eraPfx === 'aqueduct-modern' ? 0.545 : eraPfx === 'aqueduct-iron' ? 0.47 : 0.44;
       for (let i = 0; i < spanX; i++) {
         const mod = i === 0 ? 'outlet' : (i === spanX - 1 ? 'intake' : 'seg');
-        blitProp(ctx, ox, oy, sw, sh, eraPfx + '-' + mod, (i + 0.5) * cw, 0.59, cw, 1.5);
+        const mcx = (i + 0.5) * cw;
+        blitProp(ctx, ox, oy, sw, sh, eraPfx + '-' + mod, mcx, 0.59, cw, 1.5);
+        if (animReady('aqueduct-water-' + mod)) blitAnim(ctx, ox, oy, sw, sh, 'aqueduct-water-' + mod, now, mcx, waterCy, cw, 0.12);
       }
       if (flip) ctx.restore();
       return;
@@ -1097,7 +1104,14 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     const seStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     if (seStage >= 1) {
       const seb = ['', 'sewers-medieval', 'sewers-works', 'sewers-plant'][seStage];
-      if (propReady(seb)) { drawStagePix(ctx, ox, oy, sw, sh, seb, now, seStage === 3 ? '95,215,225' : '255,178,80', { wf: 0.92, hf: 0.76, ph: 1.1 }); return; }
+      if (propReady(seb)) {
+        drawStagePix(ctx, ox, oy, sw, sh, seb, now, seStage === 3 ? '95,215,225' : '255,178,80', { wf: 0.92, hf: 0.76, ph: 1.1 });
+        // Petite flaque de drainage ANIMÉE devant l'arche du drainage médiéval (stade 1
+        // seulement) : réutilise la bande d'eau S0 (sewers-water), repositionnée. Discrète
+        // (eau verte sur base moussue) mais l'ondulation la distingue.
+        if (seStage === 1 && animReady('sewers-water')) blitAnim(ctx, ox, oy, sw, sh, 'sewers-water', now, 0.31, 0.73, 0.44, 0.24);
+        return;
+      }
     }
     // Scène pixel stade 0 (PixelLab) : station d'évacuation — hutte trapue en
     // pierre sèche, toit bois, arche sombre grillagée, filet d'eau croupie ANIMÉ

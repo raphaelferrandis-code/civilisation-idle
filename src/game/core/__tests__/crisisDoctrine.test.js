@@ -69,10 +69,11 @@ describe("idleCapSeconds — paliers Veilleurs de nuit", () => {
     expect(idleCapSeconds()).toBe(2 * 3600);
   });
 
-  it("les paliers possédés cumulent le cap (2h + 2h + 4h = 8h)", () => {
+  it("le 1er palier porte le cap à 8 h, le dernier à 24 h", () => {
     state.upgrades.veilleurs_nuit_1 = true;
-    state.upgrades.veilleurs_nuit_2 = true;
     expect(idleCapSeconds()).toBe(8 * 3600);
+    state.upgrades.veilleurs_nuit_4 = true;
+    expect(idleCapSeconds()).toBe(24 * 3600);
   });
 });
 

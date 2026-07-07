@@ -20,11 +20,9 @@ function buildingDiscount(building) {
   let discount = 1;
   // -5% par dynastie fondée, plafonné à -60% (sinon trivialise la progression longue)
   if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.dynastyCount));
-  if (has("broken_milestones") && building.category === "city") discount *= 0.94;
   if (has("trait_nomadism")) discount *= 0.7;
   if (building.category === "city") discount *= Math.max(0.35, 1 - ruinEffectSum("cityDiscount"));
   if (building.category === "knowledge") discount *= Math.max(0.35, 1 - ruinEffectSum("knowledgeDiscount"));
-  if (has("old_wall_maps") && building.category === "infra") discount *= 0.92;
   if (building.category === "infra") discount *= Math.max(0.35, 1 - ruinEffectSum("infraDiscount"));
   return discount;
 }

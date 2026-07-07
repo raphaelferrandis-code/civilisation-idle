@@ -49,7 +49,6 @@ describe("Arbre de ruines — coûts monotones par branche", () => {
 describe("Arbre de ruines — capstones", () => {
   it("termine chaque grande branche par un nœud capstone", () => {
     for (const branch of PRESTIGE_TREE_BRANCHES) {
-      if (branch.id === "veille") continue; // utilitaire, pas de capstone
       const lastId = branch.tiers.at(-1).at(-1);
       expect(byId[lastId]?.capstone, `${branch.id} se termine par ${lastId}`).toBe(true);
     }
@@ -57,7 +56,7 @@ describe("Arbre de ruines — capstones", () => {
 
   it("ne marque capstone QUE des nœuds terminaux", () => {
     const terminalIds = new Set(
-      PRESTIGE_TREE_BRANCHES.filter((b) => b.id !== "veille").map((b) => b.tiers.at(-1).at(-1))
+      PRESTIGE_TREE_BRANCHES.map((b) => b.tiers.at(-1).at(-1))
     );
     for (const u of upgrades) {
       if (u.capstone) expect(terminalIds.has(u.id), `${u.id} capstone`).toBe(true);
