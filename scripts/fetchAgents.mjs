@@ -15,6 +15,8 @@ const CHARS = [
   { name: 'cavechild', id: 'ba22f75d-59a4-43b0-b2e8-006e05aa7867' },
   { name: 'villagerwoman', id: 'daad6147-6c7e-4f03-8980-d235d33b8db1' }, // v2 : cheveux longs + poitrine plus large
   { name: 'villagerchild', id: 'af535141-8b69-437d-9587-f20dfe1bb287' },
+  { name: 'villager2', id: '29014592-c06a-4c55-9de9-1e62f418be26' },      // variante peau noire + tenue (diversité)
+  { name: 'villagerwoman2', id: '325641ec-3a95-45fc-b689-cd6b675e8844' }, // variante peau noire + tenue (diversité)
   { name: 'greekman', id: 'fdc84f08-aa25-49fc-9bce-1c267cc39ffc' },
   { name: 'greekwoman', id: 'aaa5b17f-5dc5-4ae5-a207-75cedd2e6fcc' },
   { name: 'greekchild', id: 'c12131fa-1b98-4b2c-933e-f79d5166c1e5' },
@@ -24,6 +26,15 @@ const CHARS = [
   { name: 'futureman', id: 'bd007ccb-a6a1-418a-9603-13aa7f005837' },
   { name: 'futurewoman', id: '0863b200-735d-41c3-8c7f-68727eaff035' },
   { name: 'futurechild', id: '8d6acc25-a2b6-4e44-988e-5328071364b1' },
+  // Variantes 2 (peau noire + tenue distincte) — diversité, une paire par ère
+  { name: 'caveman2', id: '1bb9ac72-4720-4aae-afeb-f17f5ff63310' },
+  { name: 'cavewoman2', id: 'b193cc47-4fb3-4e9d-a670-1eb715705d0a' },
+  { name: 'greekman2', id: 'dd498001-498f-4402-a6f6-d66d7d7752bf' },
+  { name: 'greekwoman2', id: '8c5b4053-d46e-498c-aa2a-138abe8cdea7' },
+  { name: 'industrialman2', id: '76e6279e-0e45-451d-9bbf-29faecf9f3dd' },
+  { name: 'industrialwoman2', id: '2832e0f3-7744-4964-ab93-b02459b832f4' },
+  { name: 'futureman2', id: '9fb01b35-344e-4083-9b7c-026c3e842a08' },
+  { name: 'futurewoman2', id: '965afea3-9281-4364-8cf5-d30afb615e39' },
 ];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const RX = /animations\/[^/]+\/(south|east|north|west)\/frame_(\d+)\.png$/i;

@@ -1,6 +1,7 @@
  
 import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor } from './layout.js';
+import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -69,7 +70,7 @@ const CM_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const VILLAGER_DIRS = ['east', 'west', 'south', 'north'];
 const AGENT_NF = 6, AGENT_FW = 68, AGENT_FH = 68;
 const AGENT_FEET = 0.88; // pieds à ~88% du cadre → ancrage au sol
-let AGENT_SCALE = 1;     // multiplicateur global de taille (réglage live __villagerScale)
+let AGENT_SCALE = 0.8;   // multiplicateur global de taille des habitants (défaut réduit ; live __villagerScale)
 
 // Cache générique : name -> { img:{dir->Image}, ready:n }
 const agentChars = {};
@@ -94,38 +95,48 @@ function ensureAgentChar(name) {
 }
 const agentReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
 
-// scale = hauteur de rendu en tuiles (enfants plus petits).
-const AGENT_PREHISTORIC = [
-  { name: 'caveman', scale: 0.9 },
-  { name: 'cavewoman', scale: 0.86 },
-  { name: 'cavechild', scale: 0.62 },
-];
-const AGENT_MEDIEVAL = [ // ère 2 (band 2-3) : paysans médiévaux
-  { name: 'villager', scale: 0.85 },
-  { name: 'villagerwoman', scale: 0.85 },
-  { name: 'villagerchild', scale: 0.6 },
-];
-const AGENT_ANTIQUITY = [ // ère 3 (band 4) : gréco-romain (tunique, drapé)
-  { name: 'greekman', scale: 0.85 },
-  { name: 'greekwoman', scale: 0.85 },
-  { name: 'greekchild', scale: 0.6 },
-];
-const AGENT_INDUSTRIAL = [ // ère 4 (band 5-6) : XIXe industriel (redingote, ouvriers)
-  { name: 'industrialman', scale: 0.85 },
-  { name: 'industrialwoman', scale: 0.85 },
-  { name: 'industrialchild', scale: 0.6 },
-];
-const AGENT_FUTURE = [ // ère 5 (band ≥ 7) : cyberpunk néon sci-fi
-  { name: 'futureman', scale: 0.85 },
-  { name: 'futurewoman', scale: 0.85 },
-  { name: 'futurechild', scale: 0.6 },
-];
+// scale = hauteur de rendu en tuiles (enfants plus petits). Structure PAR GENRE : plusieurs
+// variantes d'HOMME et de FEMME par ère (diversité). La variante est tirée par citoyen
+// (p.skinVariant) et FIXÉE au spawn. La variante « 2 » (peau métisse) est ajoutée au fil des
+// générations PixelLab ; tant que ses sprites manquent, le rendu retombe sur la variante 0.
+const AGENT_PREHISTORIC = {
+  men: [{ name: 'caveman', scale: 0.9 }, { name: 'caveman2', scale: 0.9 }],       // + variante peau noire + tenue
+  women: [{ name: 'cavewoman', scale: 0.86 }, { name: 'cavewoman2', scale: 0.86 }],
+  child: { name: 'cavechild', scale: 0.62 },
+};
+const AGENT_MEDIEVAL = { // ère 2 (band 2-3) : paysans médiévaux
+  men: [{ name: 'villager', scale: 0.85 }, { name: 'villager2', scale: 0.85 }],             // + variante métisse
+  women: [{ name: 'villagerwoman', scale: 0.85 }, { name: 'villagerwoman2', scale: 0.85 }], // + variante métisse
+  child: { name: 'villagerchild', scale: 0.6 },
+};
+const AGENT_ANTIQUITY = { // ère 3 (band 4) : gréco-romain (tunique, drapé)
+  men: [{ name: 'greekman', scale: 0.85 }, { name: 'greekman2', scale: 0.85 }],       // + variante peau noire + tenue
+  women: [{ name: 'greekwoman', scale: 0.85 }, { name: 'greekwoman2', scale: 0.85 }],
+  child: { name: 'greekchild', scale: 0.6 },
+};
+const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel (redingote, ouvriers)
+  men: [{ name: 'industrialman', scale: 0.85 }, { name: 'industrialman2', scale: 0.85 }],       // + variante peau noire + tenue
+  women: [{ name: 'industrialwoman', scale: 0.85 }, { name: 'industrialwoman2', scale: 0.85 }],
+  child: { name: 'industrialchild', scale: 0.6 },
+};
+const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi
+  men: [{ name: 'futureman', scale: 0.85 }, { name: 'futureman2', scale: 0.85 }],       // + variante peau noire + tenue
+  women: [{ name: 'futurewoman', scale: 0.85 }, { name: 'futurewoman2', scale: 0.85 }],
+  child: { name: 'futurechild', scale: 0.6 },
+};
 function agentSetForBand(band) {
   return band <= 1 ? AGENT_PREHISTORIC
     : band <= 3 ? AGENT_MEDIEVAL
       : band <= 4 ? AGENT_ANTIQUITY
         : band <= 6 ? AGENT_INDUSTRIAL
           : AGENT_FUTURE;
+}
+// Spec (nom+scale) d'un genre/variante. charType 0=homme 1=femme 2=enfant ; variant tiré au
+// spawn (p.skinVariant). Modulo → repli sur la variante 0 si l'ère n'a qu'une variante.
+function agentSpecFor(set, charType, variant = 0) {
+  if (charType === 2) return set.child;
+  const list = (charType === 1 ? set.women : set.men);
+  return list[variant % list.length] || list[0];
 }
 // Émeutiers PIXEL par ère : MÊME découpage en bandes que les habitants ci-dessus,
 // pour qu'une émeute porte le costume de son ère (cohérence carte). Renvoie le
@@ -143,7 +154,8 @@ function riotEraKey(band) {
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
 
 ensureAgentChar('villager');
-for (const s of [...AGENT_PREHISTORIC, ...AGENT_MEDIEVAL, ...AGENT_ANTIQUITY, ...AGENT_INDUSTRIAL, ...AGENT_FUTURE]) ensureAgentChar(s.name);
+for (const set of [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_FUTURE])
+  for (const s of [...set.men, ...set.women, set.child]) ensureAgentChar(s.name);
 if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
 // ── Helper PARTAGÉ : dessine un personnage PIXEL NOMMÉ (bande de marche 4 dirs,
@@ -171,7 +183,7 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
 // les ouvriers de scènes de bâtiments encore vectoriels.
 function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-  const spec = agentSetForBand(band)[charType] || AGENT_FALLBACK;
+  const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
   return drawNamedAgent(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul)
       || drawNamedAgent(ctx, sx, groundY, z, AGENT_FALLBACK.name, AGENT_FALLBACK.scale, dir, walking, now, phase, scaleMul);
 }
@@ -179,7 +191,8 @@ function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, s
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
 // Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
-const VEH_SIZES = { cart: 0.6, barrow: 0.5, wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.85, tram: 1.4 };
+// Tailles réduites (Raphaël) pour cart / barrow / car ; global via __vehScale.
+const VEH_SIZES = { cart: 0.5, barrow: 0.42, wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72, tram: 1.4 };
 const VEH_PUSH = { cart: 1, barrow: 1 }; // poussés par un humain (de l'ère) placé derrière
 // Véhicules TRACTÉS : un (ou deux) animaux de trait dessinés DEVANT, dans le sens de
 // la marche, reliés par un timon procédural. animal = bande agent (horse/ox), n = nombre
@@ -356,25 +369,50 @@ function citizenChooseNext(p) {
   // Cible de décalage-trottoir : bord DROIT du sens de marche (E→S, W→N, S→W, N→E),
   // amplitude ∝ largeur de la route de la cellule → sentier ≈ centré, grand axe = vrai
   // bord. Calculé une fois par pas (pas par frame) ; le rendu lisse la transition.
-  const ei = (CM.layout && CM.layout.counts) ? (CM.layout.counts.eraIndex || 0) : 0;
   const rank = vehicleRoadRank(p.gx, p.gy);
+  // Décalage-trottoir : le piéton marche SUR le trottoir (bord EXPOSÉ de la cellule), pas dans
+  // la voie roulable. Le trottoir occupe une fraction FIXE du bord de cellule → décalage quasi
+  // constant (0.42 tuile ≈ milieu du trottoir). Remplace l'ancien ∝ largeur-de-route (0.30 pour
+  // les boulevards / faible pour les rues) qui laissait les piétons dans la voie. Réglable
+  // live : window.__pedEdge (fraction de tuile ; baisser s'ils débordent, monter sinon).
+  const pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge : 0.42);
   if (rank === "main") {
     // Boulevard 2 cellules : trottoir sur le BORD EXTÉRIEUR de la cellule (loin de la
     // couture plantée = de l'autre voie), comme les véhicules.
     const rm = CM.layout && CM.layout.roadMap;
     const isMain = (x, y) => { const c = rm && rm.get(x + "," + y); return !!(c && c.rank === "main"); };
-    const e = CM.TILE * 0.30;
+    const e = pedEdge;
     if (p.dir === 0 || p.dir === 1) { p.tox = 0; p.toy = isMain(p.gx, p.gy + 1) ? -e : isMain(p.gx, p.gy - 1) ? e : 0; }
     else { p.toy = 0; p.tox = isMain(p.gx + 1, p.gy) ? -e : isMain(p.gx - 1, p.gy) ? e : 0; }
   } else {
-    // Sur une esplanade (place ouverte, piétonne) : pas de bord de chaussée → centré.
-    const edge = rank === "plaza" ? 0 : CM.TILE * roadWidthFor(rank, ei) * 0.42;
+    // Rue simple : trottoir sur le bord DROIT du sens de marche ; esplanade (place) = centré.
+    const edge = rank === "plaza" ? 0 : pedEdge;
     p.tox = p.dir === 2 ? -edge : p.dir === 3 ? edge : 0;
     p.toy = p.dir === 0 ? edge : p.dir === 1 ? -edge : 0;
   }
 }
 
-function drawCitizens(dt, now) {
+// Y-SORT : un habitant est « DEVANT » un bâtiment quand une cellule-bâtiment occupe le
+// voisin NORD (gy-1) de sa cellule : le sprite du bâtiment (base au sud, monte au nord)
+// rognerait sa tête s'il était dessiné derrière. Ces habitants sont dessinés dans une
+// 2e passe APRÈS le blit des bâtiments (front=true). CM.buildingCells est bâti au recompute.
+const ysortFlag = { on: true };
+if (typeof window !== 'undefined') window.__ysort = (on) => { ysortFlag.on = on !== false; return ysortFlag.on; };
+function isCitizenInFront(p) {
+  if (!ysortFlag.on) return false;
+  const gy1 = p.gy - 1;
+  // Occulteur au NORD = bâtiment (clé string "gx,gy") OU prop tall de place — fontaine OU
+  // drapeau/lampadaire (clés numériques gx*10000+gy, cf. walkRoadSet). → habitant « devant ».
+  return (!!CM.buildingCells && CM.buildingCells.has(p.gx + ',' + gy1))
+      || (!!CM.fountainCells && CM.fountainCells.has(p.gx * 10000 + gy1))
+      || (!!CM.plazaPropCells && CM.plazaPropCells.has(p.gx * 10000 + gy1));
+}
+
+// front (optionnel) : 2e passe Y-SORT. Appelée avec dt=0 après les bâtiments → toutes les
+// mises à jour (∝ dt) deviennent no-op (pas de double-déplacement) ; seuls sont dessinés
+// les habitants « devant ». La 1re passe (front absent) met à jour TOUS les habitants mais
+// ne dessine que les « derrière ».
+function drawCitizens(dt, now, front) {
   if (!CM.walkRoadList.length) return;
   const ctx = CM.ctx, z = CM.cam.zoom;
 
@@ -390,7 +428,7 @@ function drawCitizens(dt, now) {
   }
 
   CM.globalBubbleCooldown -= dt;
-  if (CM.globalBubbleCooldown <= 0) {
+  if (!front && CM.globalBubbleCooldown <= 0) {
     if (!hasActiveThought && CM.citizens.length > 0) {
       // Construction tardive — seulement toutes les 90-180s
       const idleCitizens = CM.citizens.filter(c => !c.thoughtType || c.thoughtTimer <= 0);
@@ -421,7 +459,7 @@ function drawCitizens(dt, now) {
       if (p.thoughtTimer <= 0) p.thoughtType = null;
     }
 
-    if (!CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
+    if (!front && !CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
       // PR3 — remap vers la route SURVIVANTE la plus proche (pas un saut
       // aléatoire) : au recalcul du plan (achat, émondage), un habitant dont la
       // cellule a disparu glisse sur la route voisine au lieu de sauter à l'autre
@@ -477,6 +515,9 @@ function drawCitizens(dt, now) {
     const sx = (p.x + p.lox - CM.cam.x) * z + CM.cw / 2;
     const sy = (p.y + p.loy - CM.cam.y) * z + CM.ch / 2;
     if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
+    // Y-SORT : ne dessine dans cette passe que les habitants du bon côté (derrière si
+    // front absent ; devant si front). La MAJ ci-dessus a déjà tourné pour tous en 1re passe.
+    if (isCitizenInFront(p) !== !!front) continue;
 
     // ── Habitant : sprite pixel-art animé par ère + type (repli villageois/vectoriel) ──
     const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur (repli vectoriel)
@@ -485,8 +526,15 @@ function drawCitizens(dt, now) {
     // Type de citoyen (0=homme, 1=femme, 2=enfant) — fixé au spawn (spawnOneCitizen).
     if (p.charType === undefined) p.charType = 0; // filet défensif : ne devrait plus arriver
     const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-    let spec = agentSetForBand(band)[p.charType] || AGENT_FALLBACK;
+    const eraSet = agentSetForBand(band);
+    let spec = agentSpecFor(eraSet, p.charType, p.skinVariant || 0) || AGENT_FALLBACK;
     let chr = ensureAgentChar(spec.name);
+    // Variante (métisse) pas encore générée → repli sur la variante 0 de la MÊME ère
+    // (pas le villager générique), pour garder le costume d'époque.
+    if (!agentReady(chr) && (p.skinVariant || 0) > 0 && p.charType !== 2) {
+      spec = agentSpecFor(eraSet, p.charType, 0) || AGENT_FALLBACK;
+      chr = ensureAgentChar(spec.name);
+    }
     if (!agentReady(chr)) { spec = AGENT_FALLBACK; chr = ensureAgentChar(AGENT_FALLBACK.name); }
     const useSprite = agentReady(chr);
     const drawH = CM.TILE * z * spec.scale * AGENT_SCALE, drawW = drawH; // taille du sprite
@@ -602,9 +650,19 @@ function vehicleLaneOffset(v, s) {
   // On pousse le véhicule vers le BORD EXTÉRIEUR de sa cellule (loin de la couture =
   // de l'autre voie) → il roule dans sa file et dégage le refuge. L'autre voie est le
   // voisin "main" perpendiculaire au sens de marche.
+  //
+  // ⚠ Le TROTTOIR mange le bord extérieur : à 0.26 (bord de cellule) le véhicule roulait
+  // dessus. On le CENTRE dans la voie roulable = milieu entre le refuge (intérieur) et le
+  // trottoir (extérieur) : offset vers l'extérieur = (demi-refuge − trottoir)/2, ~0 quand
+  // ils s'équilibrent (peut être légèrement négatif = vers le refuge). Auto-ajusté à l'ère
+  // (largeur refuge) et au trottoir. Nudge : window.__vehLaneBias (fraction de tuile).
   const rm = CM.layout && CM.layout.roadMap;
   const isMain = (x, y) => { const c = rm && rm.get(x + "," + y); return !!(c && c.rank === "main"); };
-  const mag = s * 0.26;
+  const ei = CM.layout?.counts?.eraIndex ?? 13;
+  const medHalf = roadWidthFor("main", ei) * 0.24;                                         // demi-largeur du refuge (fraction tuile)
+  const swW = pixelSidewalkFlag.on ? (sidewalkTune.widthK + sidewalkTune.curbK) / 32 : 0;  // trottoir + curb
+  const bias = (typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
+  const mag = s * ((medHalf - swW) / 2 + bias);
   if (v.dir === 0 || v.dir === 1) {                    // roule en X → voies empilées en Y
     if (isMain(v.gx, v.gy + 1)) return { x: 0, y: -mag };  // couture en bas → file en haut
     if (isMain(v.gx, v.gy - 1)) return { x: 0, y: mag };   // couture en haut → file en bas
@@ -619,17 +677,10 @@ function vehicleLaneOffset(v, s) {
 //   - jamais sur une esplanade (rang "plaza", réservé aux piétons) ;
 //   - tient fortement sa ligne (pas de zigzag à chaque carrefour) ;
 //   - préfère rester sur les grands axes ;
-//   - les voitures se garent parfois en bord de chaussée.
+//   - TOUJOURS en mouvement : ni pause courte ni stationnement (retirés — Raphaël veut
+//     un flux continu). Les branches parkT/pauseT restantes (rendu) sont donc inertes.
 function vehicleChooseNext(v) {
   if (!CM.walkRoadList.length) return;
-  if (v.type === "car" && Math.random() < 0.05) {
-    v.parkT = 5 + Math.random() * 16;
-    return;
-  }
-  if (Math.random() < 0.05) {
-    v.pauseT = 0.4 + Math.random() * 1.2;
-    return;
-  }
   const arrived = v.goal && v.goal.gx === v.gx && v.goal.gy === v.gy;
   if (!v.goal || arrived || Math.random() < 0.03) {
     const cross = Math.random() < 0.22 ? crossBankGoal(v.gx, v.gy) : null;
@@ -676,15 +727,7 @@ function vehicleChooseNext(v) {
 
 function updateVehicles(dt) {
   for (const v of CM.vehicles) {
-    if (v.parkT > 0) {
-      // Garé en bord de chaussée : immobile, phares éteints.
-      v.parkT -= dt;
-      continue;
-    }
-    if (v.pauseT > 0) {
-      v.pauseT -= dt;
-      continue;
-    }
+    // Plus de pause ni de stationnement : les véhicules avancent en continu.
     const dx = v.tx - v.x, dy = v.ty - v.y, d = Math.hypot(dx, dy);
     if (d < 2.4) {
       vehicleChooseNext(v);
@@ -716,12 +759,15 @@ function drawVehicleWheelSet(ctx, s, axles, sideY, rx, ry, fill = "#1a1a20", rim
   }
 }
 
-function drawVehicles(now, pass) {
+function drawVehicles(now, pass, front) {
   const ctx = CM.ctx, z = CM.cam.zoom, s = CM.TILE * z;
   const ei = CM.layout?.counts?.eraIndex ?? 13; // extrait une fois hors boucle
   for (const v of CM.vehicles) {
     if (pass === "ground" && v.type === "drone") continue;
     if (pass === "air" && v.type !== "drone") continue;
+    // Y-SORT (véhicules au sol) : « devant » = voisin nord bâti. 1re passe = derrière,
+    // 2e passe (front) = devant, par-dessus les bâtiments. Les drones (air) n'y passent pas.
+    if (pass === "ground" && (ysortFlag.on && !!(CM.buildingCells && CM.buildingCells.has(v.gx + ',' + (v.gy - 1)))) !== !!front) continue;
     const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
     let sy = (v.y - CM.cam.y) * z + CM.ch / 2;
     if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
@@ -752,7 +798,7 @@ function drawVehicles(now, pass) {
       let drawP = null, pusherBelow = false;
       if (VEH_PUSH[v.type]) {
         const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-        const manSpec = agentSetForBand(band)[0];
+        const manSpec = agentSetForBand(band).men[0];
         const man = ensureAgentChar(manSpec.name);
         if (agentReady(man)) {
           const D = CM.TILE * z * 0.34;                  // distance véhicule↔pousseur

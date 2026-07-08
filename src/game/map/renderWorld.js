@@ -1230,6 +1230,7 @@ function cityMapDrawPlazas(now) {
   const night = CM.nightF || 0;
   const t = now || 0;
   const basePid = L.personality ? L.personality.id : "marchande";
+  CM._plazaTall = [];   // props tall (fontaine + coins) différés, dessinés entre les 2 passes d'habitants
   for (const p of L.plan.plazas) {
     if (!p.size || p.size < 2) continue;
     if (cityMapPlazaBlockedByWonder(p)) continue; // couvre fontaine + mobilier + coins
@@ -1255,17 +1256,14 @@ function cityMapDrawPlazas(now) {
       for (let i = 0; i < boxes.length; i += 1) { const b = boxes[i]; if (Math.abs(rxx - b.x) < hw + b.hw && Math.abs(ryy - b.y) < hh + b.hh) return false; }
       boxes.push({ x: rxx, y: ryy, hw, hh }); return true;
     };
-    // Pièce maîtresse : fontaine PIXEL — taille BORNÉE par la place (pas de
-    // débordement sur les petites places) + eau animée si le sprite est prêt.
+    // Props TALL (fontaine centre + drapeaux/lampadaires coins) : on les RÉSERVE ici (le
+    // mobilier bas les évite) mais leur DESSIN est DIFFÉRÉ dans CM._plazaTall, consommé par
+    // cityMapDrawPlazaTallProps ENTRE les 2 passes d'habitants → Y-SORT devant/derrière (un
+    // habitant au sud passe devant, au nord derrière). Cf. CM.fountainCells + plazaPropCells
+    // (occulteurs, agents.js). Le mobilier BAS (bancs/bacs) reste dessiné ici (avant agents).
     const fountH = Math.min(s * 1.9, ext * 1.1);
     reserve(cx, cy, fountH * 0.4, fountH * 0.22);      // bassin réservé en premier
-    // Fontaine : anim BAKÉE PixelLab (eau pixel image par image) si le strip
-    // existe, sinon sprite statique + eau procédurale (gros pixels) en repli.
-    if (plazaAnimReady('fountain', band)) {
-      blitPlazaAnim(ctx, 'fountain', band, cx, cy + s * 0.34, fountH, t);
-    } else if (blitPlazaProp(ctx, 'fountain', band, cx, cy + s * 0.34, fountH)) {
-      cityMapDrawFountainWater(ctx, cx, cy + s * 0.34 - fountH * 0.2, fountH, band, t, seedH);
-    }
+    CM._plazaTall.push({ kind: 'fountain', x: cx, y: cy, s, seedH, fountH });
     // Mobilier urbain : bancs (tournés vers le centre) + fleurs/buissons (contours).
     cityMapDrawPlazaFurniture(ctx, cx, cy, ext, s, band, night, seedH, kind, reserve);
 
@@ -1286,18 +1284,43 @@ function cityMapDrawPlazas(now) {
           if (skip < 0.16) continue;                     // coin nu occasionnel
           const px = cx + lx * cd, py = cy + ly * cd;
           if (!reserve(px, py - s * 0.2, s * 0.17, s * 0.24)) continue;   // pied libre ?
-          if (theme === "flag") {
-            blitPlazaProp(ctx, 'flag', band, px, py + s * 0.02, s * 1.55);
-          } else if (blitPlazaProp(ctx, 'lamppost', band, px, py + s * 0.12, s * 1.42)) {
-            // Lanterne pixel + émission nocturne qui VACILLE (flicker chaud ∝ nightF)
-            // — effet de lumière, pas un décor vectoriel.
-            const headY = py - s * 1.05;
-            const flick = 0.82 + 0.18 * Math.sin(t / 240 + ci + (seedH % 5)) + 0.05 * Math.sin(t / 70);
-            cmDrawGlow(ctx, px, headY, Math.max(2, s * 0.16), 255, 215, 120, night * 1.1 * flick);
-            cmDrawGlow(ctx, px, headY, s * 0.62, 255, 195, 90, night * 0.55 * flick);
-          }
+          // DESSIN DIFFÉRÉ (entre les 2 passes d'habitants → y-sort). La lanterne garde son
+          // halo nocturne vacillant, recalculé au dessin (cf. cityMapDrawPlazaTallProps).
+          if (theme === "flag") CM._plazaTall.push({ kind: 'flag', x: px, y: py, s });
+          else CM._plazaTall.push({ kind: 'lamp', x: px, y: py, s, seedH, ci });
         }
       }
+    }
+  }
+}
+
+// Dessin des props TALL des places (fontaines + drapeaux/lampadaires de coin), DIFFÉRÉ dans
+// CM._plazaTall par cityMapDrawPlazas. Appelé ENTRE les 2 passes d'habitants (après
+// « derrière », avant les bâtiments) → Y-SORT : un habitant au SUD d'un prop passe devant
+// (2e passe), au NORD il passe derrière (1re passe, dessinée avant). Le mobilier BAS (bancs,
+// bacs) reste dans cityMapDrawPlazas (avant les agents).
+function cityMapDrawPlazaTallProps(now) {
+  const list = CM._plazaTall;
+  if (!list || !list.length) return;
+  const ctx = CM.ctx, L = CM.layout;
+  const band = (L && L.counts) ? L.counts.eraBand : 0;
+  const night = CM.nightF || 0, t = now || 0;
+  for (const it of list) {
+    const s = it.s;
+    if (it.kind === 'fountain') {
+      if (plazaAnimReady('fountain', band)) {
+        blitPlazaAnim(ctx, 'fountain', band, it.x, it.y + s * 0.34, it.fountH, t);
+      } else if (blitPlazaProp(ctx, 'fountain', band, it.x, it.y + s * 0.34, it.fountH)) {
+        cityMapDrawFountainWater(ctx, it.x, it.y + s * 0.34 - it.fountH * 0.2, it.fountH, band, t, it.seedH);
+      }
+    } else if (it.kind === 'flag') {
+      blitPlazaProp(ctx, 'flag', band, it.x, it.y + s * 0.02, s * 1.55);
+    } else if (blitPlazaProp(ctx, 'lamppost', band, it.x, it.y + s * 0.12, s * 1.42)) {
+      // Lanterne : halo nocturne vacillant (chaud ∝ nightF), recalculé ici.
+      const headY = it.y - s * 1.05;
+      const flick = 0.82 + 0.18 * Math.sin(t / 240 + it.ci + (it.seedH % 5)) + 0.05 * Math.sin(t / 70);
+      cmDrawGlow(ctx, it.x, headY, Math.max(2, s * 0.16), 255, 215, 120, night * 1.1 * flick);
+      cmDrawGlow(ctx, it.x, headY, s * 0.62, 255, 195, 90, night * 0.55 * flick);
     }
   }
 }
@@ -2646,6 +2669,7 @@ export {
   cityMapDrawNight,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
+  cityMapDrawPlazaTallProps,
   cityMapDrawQuays,
   cityMapDrawRiver,
   ensureQuayGate,

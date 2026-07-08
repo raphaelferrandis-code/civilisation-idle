@@ -28,6 +28,13 @@ const AVAILABLE = new Set([
 // (buildingGenerator.js) : les variantes qui dépassent 1 tuile de large y ont une empreinte.
 const HOUSE_UNIT = 44;
 
+// A — AJUSTEMENT AU LOT (anti-débordement sur le trottoir/la route). Un sprite dont le
+// contenu dépasse la largeur de son empreinte (w = tuile × spanX) est rétréci pour tenir
+// dans w × (1 + margin), en scalant UNIFORMÉMENT (garde le ratio, donc ne s'étire pas).
+// `margin` = débord latéral toléré. Les grands variants ont l'empreinte (HOUSE_FOOTPRINT)
+// pour NE PAS être clampés → ils gardent leur masse. Molettes : __houseFit / __houseFitTune.
+export const houseFitTune = { on: true, margin: 0.08 };
+
 const cache = new Map();   // variant -> { img, ready, bbox }
 
 function ensure(variant) {
@@ -93,7 +100,13 @@ export function drawPixelHouse(t, x, y, w, h) {
   // l'empreinte ; celle-ci ne sert qu'à réserver l'espace (anti-chevauchement).
   const span = t.spanX || t.size || 1;
   const unit = w / span;
-  const k = unit / HOUSE_UNIT;              // facteur commun (suit le zoom via unit≈TILE*zoom)
+  let k = unit / HOUSE_UNIT;                 // facteur commun (suit le zoom via unit≈TILE*zoom)
+  // A — clamp au lot : si le sprite dépasse la largeur de son empreinte + marge, on réduit k
+  // uniformément (garde le ratio) → il cesse de baver sur le trottoir. `w` = tuile × spanX.
+  if (houseFitTune.on) {
+    const maxW = w * (1 + houseFitTune.margin);
+    if (bb.w * k > maxW) k = maxW / bb.w;
+  }
   const dw = Math.max(1, Math.round(bb.w * k));
   const dh = Math.max(1, Math.round(bb.h * k));
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)
@@ -113,4 +126,9 @@ if (typeof window !== "undefined") {
     CM.tileCamKey = "";   // force re-bake pour voir le changement
     return pixelHousesFlag.on;
   };
+  // A — clamp au lot : on/off + réglage de la marge de débord toléré. Les deux rebakent
+  // les maisons : le bake tuiles s'invalide via CM._tileBake=null (tileCamKey est mort,
+  // jamais relu). Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
+  window.__houseFit = (on) => { houseFitTune.on = on !== false; CM._tileBake = null; return houseFitTune.on; };
+  window.__houseFitTune = (o = {}) => { Object.assign(houseFitTune, o); CM._tileBake = null; return { ...houseFitTune }; };
 }

@@ -38,6 +38,7 @@ function variantList(table, band, bias) {
 //    espacés en profondeur pour ne pas se recouvrir de face) ;
 //  - mega-complexes LARGES : 2×2. Défaut 1×1.
 const HOUSE_FOOTPRINT = {
+  manor: [2, 2],                  // grande demeure (sprite ~1,3 tuile de large) : réserve son lot pour garder sa masse sans déborder
   tenement: [1, 2], tower: [1, 2],
   megablock: [2, 2], arcologyhome: [2, 2]
 };

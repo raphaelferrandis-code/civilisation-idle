@@ -40,6 +40,7 @@ import {
   cityMapDrawBridgeLights,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
+  cityMapDrawPlazaTallProps,
   cityMapDrawMist,
   cityMapDrawQuays,
   cityMapDrawCityReflections,
@@ -52,7 +53,7 @@ import {
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
 import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
-import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, setPixelTileset } from './pixelTerrain.js';
+import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
 
@@ -599,7 +600,47 @@ function cityMapEnsureLayout(now, deps = {}) {
     return true;
   });
   CM.roadSet = validRoadSet;
-  CM.walkRoadList = L.roads.filter((r) => cmIsWalkableRoad(L, r.gx, r.gy));
+  // Cellules occupées par le MOBILIER de place (fontaine au centre + drapeaux/lampadaires
+  // aux coins) → NON-marchables (sinon les piétons "marchent" dessus). Même géométrie que
+  // cityMapDrawPlazas (renderWorld) : centre de dalle = (gx-half + size/2). On exclut ces
+  // cellules de walkRoadList → tout l'aval (spawn, pas, flânerie) les évite automatiquement.
+  //   • fountainCells : fontaine (centre, +0.34 au sud) — sert AUSSI au Y-SORT (occulteur, agents.js).
+  //   • plazaPropCells : coins (drapeaux/lampadaires) — blocage SEUL (thème stable par seedH,
+  //     répliqué à l'identique du rendu ; ⚠ garder synchro si cityMapDrawPlazas change).
+  CM.fountainCells = new Set();
+  CM.plazaPropCells = new Set();
+  if (L.plan && Array.isArray(L.plan.plazas)) {
+    const band = L.counts ? L.counts.eraBand : 0;
+    const pid = L.personality ? L.personality.id : "";
+    for (const p of L.plan.plazas) {
+      if (!p.size || p.size < 2) continue;
+      const half = Math.floor(p.size / 2);
+      const cx = (p.gx - half) + p.size / 2, cy = (p.gy - half) + p.size / 2;
+      // Fontaine (centre, décalée +0.34 au sud comme le sprite).
+      const fwy = cy + 0.34, radX = 0.7, radY = 0.5;
+      for (let gy = Math.floor(fwy - radY - 0.5); gy <= Math.ceil(fwy + radY + 0.5); gy += 1)
+        for (let gx = Math.floor(cx - radX - 0.5); gx <= Math.ceil(cx + radX + 0.5); gx += 1)
+          if (Math.abs((gx + 0.5) - cx) < radX && Math.abs((gy + 0.5) - fwy) < radY) CM.fountainCells.add(gx * 10000 + gy);
+      // Coins (drapeaux/lampadaires) : band ≥ 2, thème + saut par coin stables (seedH).
+      if (band >= 2) {
+        const seedH = ((p.gx * 73856093) ^ (p.gy * 19349663)) >>> 0;
+        const croll = ((Math.imul(seedH, 2654435761 + 97) >>> 0) % 1000) / 1000;
+        const military = p.kind === "centrale" && pid === "militaire";
+        const theme = military ? "flag" : croll < 0.34 ? "none" : croll < 0.67 ? "flag" : "lamp";
+        if (theme !== "none") {
+          const cd = (p.size / 2) * 0.66;
+          let ci = 0;
+          for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+            const skip = ((Math.imul(seedH, 2654435761 + 211 + ci * 17) >>> 0) % 1000) / 1000;
+            ci += 1;
+            if (skip < 0.16) continue;
+            CM.plazaPropCells.add(Math.floor(cx + lx * cd) * 10000 + Math.floor(cy + ly * cd));
+          }
+        }
+      }
+    }
+  }
+  CM.walkRoadList = L.roads.filter((r) => { const k = r.gx * 10000 + r.gy; return cmIsWalkableRoad(L, r.gx, r.gy) && !CM.fountainCells.has(k) && !CM.plazaPropCells.has(k); });
   // Cellules de route appartenant aux places : cibles de flânerie des piétons.
   CM.plazaRoadCells = [];
   if (L.plan && Array.isArray(L.plan.plazas)) {
@@ -708,6 +749,18 @@ function cityMapEnsureLayout(now, deps = {}) {
     for (const k of L.river.banks) occ.add(k);
   }
   CM.occupied = occ;
+  // Cellules occupées par un BÂTIMENT (tuiles + districts moteur) — sert au Y-SORT des
+  // habitants/véhicules : un agent dont le voisin NORD est un bâtiment est « devant » lui
+  // (dessiné en 2e passe pour ne pas être rogné). Recalculé au recompute (tuiles stables).
+  const bcells = new Set();
+  for (const t of L.tiles) {
+    const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1;
+    for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) bcells.add((t.gx + ax) + "," + (t.gy + ay));
+  }
+  for (const d of (L.districts || [])) {
+    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) bcells.add((d.gx + ax) + "," + (d.gy + ay));
+  }
+  CM.buildingCells = bcells;
   CM.riverRow = -999;
 
   if (!CM.centered) {
@@ -719,11 +772,16 @@ function cityMapEnsureLayout(now, deps = {}) {
   const lateCrowd = Math.max(0, (L.counts.eraIndex || 0) - 11);
   const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
   // Foule de fin de partie : ~10 piétons à l'ère 0, jusqu'à ~450 en mégalopole.
-  const citizenCap = Math.round(10 + Math.pow(eraFrac, 0.55) * 440);
+  // Ville plus GROUILLANTE en milieu/fin (Raphaël) : plafond et cible relevés (~2×). Sûr côté
+  // moteur — le rendu CULL déjà le hors-écran (drawCitizens, coût borné au visible) et l'update
+  // par agent est O(1) (citizenChooseNext = pas glouton, pas de vrai pathfinding). Soupape/réglage
+  // live : window.__citizenMul (multiplie cible ET plafond ; baisser si ça rame sur ta machine).
+  const crowdMul = (typeof window !== "undefined" && window.__citizenMul) || 1;
+  const citizenCap = Math.round((10 + Math.pow(eraFrac, 0.55) * 900) * crowdMul);
   // La personnalité de la ville module l'animation des rues (cité marchande
   // grouillante vs cité agricole paisible vs ville en crise désertée).
   const densityMul = (L.personality && L.personality.densityMul) || 1;
-  const want = Math.round(cmClamp((2 + L.counts.houses / 5 + Math.pow(eraFrac, 1.9) * 360 + L.counts.megaDistricts * 9) * densityMul, 2, citizenCap));
+  const want = Math.round(cmClamp((2 + L.counts.houses / 3.5 + Math.pow(eraFrac, 1.65) * 540 + L.counts.megaDistricts * 10) * densityMul * crowdMul, 2, citizenCap));
   CM.citizenTarget = CM.walkRoadList.length ? want : 0;
   if (!CM.walkRoadList.length) {
     CM.citizens = [];
@@ -756,8 +814,8 @@ function cityMapEnsureLayout(now, deps = {}) {
         tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
         fade: 0, // la flotte est reconstruite à chaque recalcul du plan : fondu d'apparition
         dir: n % 2 ? 0 : 2, goal: null, pauseT: 0,
-        // Une partie des voitures apparaît garée en bord de rue, puis démarre.
-        parkT: vehicleType === "car" && n % 3 === 0 ? 4 + (n % 7) * 3 : 0,
+        // Plus de stationnement : les véhicules démarrent et restent en mouvement.
+        parkT: 0,
         parkSide: n % 2 ? 1 : -1,
         type: vehicleType,
         speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" ? 34 + (n % 6) * 4 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
@@ -837,6 +895,9 @@ function spawnOneCitizen(L) {
   // moduler la vitesse des enfants et garder l'identité stable dès la 1re frame.
   const cr = (seed >> 6) % 100;
   const charType = cr < 42 ? 0 : cr < 84 ? 1 : 2;
+  // Variante de skin (diversité) : 0 = originale, 1 = métisse. Fixée au spawn ; si l'ère
+  // n'a pas encore la variante 1, le rendu retombe sur la 0 (agentSpecFor + repli agents.js).
+  const skinVariant = (seed >> 13) % 2;
   // Domicile & lieu de travail : ancres fixes tirées via le seed (stables dans le
   // temps). Repli null tant que la ville n'a ni logement ni atelier bordé de route →
   // le piéton garde alors la flânerie libre (cf. citizenChooseNext).
@@ -849,7 +910,7 @@ function spawnOneCitizen(L) {
     tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
     fade: 0, // fondu d'apparition — pas de "point" qui surgit
     dir: -1, goal: null, pauseT: (seed % 5) * 0.2, phase: (seed % 628) / 100,
-    charType, home, work,
+    charType, skinVariant, home, work,
     // Allure de marche CALME — volontairement plus lente que les véhicules (qui,
     // eux, gardent leur vitesse, cf. CM.vehicles plus haut). La hausse avec la
     // densité urbaine est fortement tempérée pour que les piétons ne doublent plus
@@ -939,11 +1000,15 @@ function initCityMap(canvas, options = {}) {
       const target = CM.citizenTarget || 0;
       if (CM.layout && CM.walkRoadList.length && CM.citizens.length < target) {
         const eraIndex = CM.layout.counts ? (CM.layout.counts.eraIndex || 0) : 0;
-        // Intervalle en ms : de 3000ms (ère 0) à 300ms (ère 20+), lié à l'ère
-        const msPerCitizen = Math.max(300, 3000 - eraIndex * 135);
+        // Intervalle en ms : de 2400ms (ère 0) à 120ms (ère 20+), lié à l'ère.
+        const msPerCitizen = Math.max(120, 2400 - eraIndex * 120);
         if (now - lastCitizenSpawn >= msPerCitizen) {
           lastCitizenSpawn = now;
-          spawnOneCitizen(CM.layout);
+          // Rattrapage par petits lots quand la ville est LOIN de sa cible → la foule
+          // s'installe en ~30 s au lieu de plusieurs minutes (fondu → pas de pop brutal).
+          const deficit = target - CM.citizens.length;
+          const batch = deficit > 60 ? 4 : deficit > 20 ? 2 : 1;
+          for (let b = 0; b < batch && CM.citizens.length < target; b += 1) spawnOneCitizen(CM.layout);
         }
       }
       // Cycle jour/nuit lent (~5 min) + phase (montante = crépuscule,
@@ -1012,7 +1077,8 @@ function initCityMap(canvas, options = {}) {
       // live PAR-DESSUS le blit — ordre inchangé.
       if (CM.groundCanvas) {
         const _otherGround = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':'
-          + (state.timeWear || 0).toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0);
+          + (state.timeWear || 0).toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0)
+          + ':' + (pixelSidewalkFlag.on ? 1 : 0);
         cityMapBakeMargin(CM.groundCanvas, CM.gctx, '_groundBake', _otherGround, () => {
           CM._groundBakeStable = true; // drawPixelTerrain le baisse si tileset de repli
           cityMapDrawGround(CM.layout);
@@ -1075,6 +1141,10 @@ function initCityMap(canvas, options = {}) {
         drawCitizens(dt, now);
         drawVehicles(now, "ground");
       }
+      // Props TALL des places (fontaines + drapeaux/lampadaires) dessinés ICI (entre les 2
+      // passes d'habitants) → Y-SORT : au sud du prop = devant (2e passe), au nord = derrière
+      // (déjà dessiné). Le mobilier bas (bancs/bacs) reste dans cityMapDrawPlazas (avant agents).
+      cityMapDrawPlazaTallProps(now);
       const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
       // Révélation per-buy des maisons-MOTEUR : compteur = maisons du palier (engineHomes)
       // + achats depuis le dernier recompute (borné au LOOKAHEAD=44 du pool pré-placé).
@@ -1105,6 +1175,12 @@ function initCityMap(canvas, options = {}) {
           // Pendant la fenêtre de naissance : tout live
           for (const t of CM.layout.tiles) drawTile(t, now, tw, maxD2);
         }
+      }
+      // Y-SORT — 2e passe : agents DEVANT un bâtiment (voisin nord bâti), dessinés PAR-DESSUS
+      // le blit des bâtiments pour ne pas être rognés. dt=0 → aucune MAJ (déjà faite plus haut).
+      if (!CM.lodActive) {
+        drawCitizens(0, now, true);
+        drawVehicles(now, "ground", true);
       }
       // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
       // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.
@@ -1185,6 +1261,13 @@ function initCityMap(canvas, options = {}) {
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
+    // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
+    window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM.groundCamKey = ''; };
+    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM.groundCamKey = ''; return { ...sidewalkTune }; };
+    // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
+    // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
+    window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
     window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM.staticCamKey = ''; };

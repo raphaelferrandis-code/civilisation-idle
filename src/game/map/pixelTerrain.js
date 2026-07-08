@@ -127,10 +127,34 @@ function streetRoadColors(ts) {
     const d = g.getImageData(3 * tw + (tw >> 1), 3 * tw + (tw >> 1), 1, 1).data;
     if (d[3] > 40) ts._roadCol = {
       fill: 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')',
-      edge: 'rgb(' + Math.round(d[0] * 0.42) + ',' + Math.round(d[1] * 0.42) + ',' + Math.round(d[2] * 0.42) + ')'
+      edge: 'rgb(' + Math.round(d[0] * 0.42) + ',' + Math.round(d[1] * 0.42) + ',' + Math.round(d[2] * 0.42) + ')',
+      rgb: [d[0], d[1], d[2]] // matière brute → dérive le ton du trottoir (sidewalkTone)
     };
   } catch (e) { ts._roadCol = null; }
   return ts._roadCol;
+}
+
+// ── TROTTOIR : bande claire sur le bord exposé des rues (curb = liseré sombre existant).
+//   Rendu DANS la passe bord de drawPixelTerrain (baké, coût nul par frame). La bande
+//   n'apparaît qu'au contact du non-route (côtés !n/!s/!e/!w), donc suit tout le réseau et
+//   fusionne sans grille interne, exactement comme le liseré qu'elle remplace.
+//   Progressif : rien sur terre/bois/gravier (band < minBand), le trottoir arrive quand la
+//   ville se pave. Molettes dev via window.__sidewalk / __sidewalkTune (cf. cityMapRuntime).
+export const pixelSidewalkFlag = { on: true };
+export const sidewalkTune = { widthK: 5, curbK: 1, desat: 0.55, lift: 0.42, minBand: 3 };
+const SKIP_SIDEWALK = (band) => (band | 0) < sidewalkTune.minBand;
+
+// Ton du trottoir dérivé de la MATIÈRE de la route : on désature vers son propre gris puis on
+// éclaircit vers le blanc → béton clair qui garde la teinte de l'ère (chaud si la route est
+// chaude). Zéro asset : cohérent bois→pierre→béton→énergie sans nouveau PNG.
+function sidewalkTone(rgb) {
+  const lum = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114;
+  const ch = (c) => {
+    let v = c + (lum - c) * sidewalkTune.desat;
+    v = v + (255 - v) * sidewalkTune.lift;
+    return Math.max(0, Math.min(255, Math.round(v)));
+  };
+  return 'rgb(' + ch(rgb[0]) + ',' + ch(rgb[1]) + ',' + ch(rgb[2]) + ')';
 }
 
 export function drawPixelTerrain(CM) {
@@ -193,6 +217,19 @@ export function drawPixelTerrain(CM) {
     return !(rec && rec.rank === 'plaza');
   };
 
+  // Trottoir : tons calculés UNE fois (constants sur la frame). Base = matière réelle de la
+  // route — pattern-pont (pav.mean) si actif, sinon aplat de l'ère (roadCol.rgb). Curb = le
+  // même liseré sombre que d'habitude. null → aucune bande (ère trop tôt, ou couleur absente).
+  const sidewalkOn = pixelSidewalkFlag.on && drawStreets && !SKIP_SIDEWALK(band);
+  let walkFill = null, curbFill = null;
+  if (sidewalkOn) {
+    const base = (pavPat && pav) ? pav.mean : (roadCol ? roadCol.rgb : null);
+    if (base) {
+      walkFill = sidewalkTone(base);
+      curbFill = (pavPat && pav) ? pav.edge : roadCol.edge;
+    }
+  }
+
   const halfW = (CM.cw / 2) / z, halfH = (CM.ch / 2) / z;
   const gx0 = Math.floor((CM.cam.x - halfW) / T) - 1;
   const gx1 = Math.ceil((CM.cam.x + halfW) / T) + 1;
@@ -234,12 +271,32 @@ export function drawPixelTerrain(CM) {
             // propres côtés exposés, les bandes voisines se rejoignent au pixel près.
             ctx.fillStyle = pavPat || roadCol.fill;
             ctx.fillRect(dx, dy, sz, sz);
-            const t = Math.max(1, Math.round(sz * 2 / 32));
-            ctx.fillStyle = pavPat ? pav.edge : roadCol.edge;
-            if (!n) ctx.fillRect(dx, dy, sz, t);
-            if (!s) ctx.fillRect(dx, dy + sz - t, sz, t);
-            if (!w) ctx.fillRect(dx, dy, t, sz);
-            if (!e) ctx.fillRect(dx + sz - t, dy, t, sz);
+            if (walkFill) {
+              // TROTTOIR : bande claire sur chaque côté exposé, puis curb sombre à sa lisière
+              // INTÉRIEURE (côté chaussée). On peint TOUTES les bandes d'abord, TOUS les curbs
+              // ensuite → aux coins extérieurs les bandes se recouvrent en L et les curbs se
+              // croisent proprement, comme le liseré qu'elles remplacent.
+              const sw = Math.max(2, Math.round(sz * sidewalkTune.widthK / 32));
+              const cb = Math.max(1, Math.round(sz * sidewalkTune.curbK / 32));
+              ctx.fillStyle = walkFill;
+              if (!n) ctx.fillRect(dx, dy, sz, sw);
+              if (!s) ctx.fillRect(dx, dy + sz - sw, sz, sw);
+              if (!w) ctx.fillRect(dx, dy, sw, sz);
+              if (!e) ctx.fillRect(dx + sz - sw, dy, sw, sz);
+              ctx.fillStyle = curbFill;
+              if (!n) ctx.fillRect(dx, dy + sw - cb, sz, cb);
+              if (!s) ctx.fillRect(dx, dy + sz - sw, sz, cb);
+              if (!w) ctx.fillRect(dx + sw - cb, dy, cb, sz);
+              if (!e) ctx.fillRect(dx + sz - sw, dy, cb, sz);
+            } else {
+              // Ère sans trottoir (terre/bois/gravier) : liseré simple — comportement historique.
+              const t = Math.max(1, Math.round(sz * 2 / 32));
+              ctx.fillStyle = pavPat ? pav.edge : roadCol.edge;
+              if (!n) ctx.fillRect(dx, dy, sz, t);
+              if (!s) ctx.fillRect(dx, dy + sz - t, sz, t);
+              if (!w) ctx.fillRect(dx, dy, t, sz);
+              if (!e) ctx.fillRect(dx + sz - t, dy, t, sz);
+            }
           } else {
             // Repli (échantillonnage indisponible) : tuiles edge-Wang historiques.
             const m = (n ? 1 : 0) | (e ? 2 : 0) | (s ? 4 : 0) | (w ? 8 : 0);

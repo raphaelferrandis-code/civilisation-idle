@@ -166,73 +166,6 @@ function drawTileLOD(t, ctx, x, y, w, h) {
 // de VRAIS bâtiments : le terme `engineHomes` dans cityCounts (layout.js) fait placer
 // des maisons supplémentaires par le pipeline décor (zéro overlap, la ville grandit).
 
-// ============================================================================
-// ACCROCHE AU SOL — socle (plan-sol) + ombre portée douce.
-//   Réconcilie les sprites 3/4 des bâtiments avec le sol/routes en vue de dessus :
-//   sans accroche, un sprite en 3/4 « flotte » sur la grille plate (les deux
-//   projections se battent). On lui rend deux appuis :
-//     (1) SOCLE — une parcelle de sol assombrie & biseautée, alignée sur la
-//         cellule EXACTEMENT comme la voirie → elle appartient au PLAN-SOL, donc
-//         le bâtiment « occupe un lot » du même repère que les routes ;
-//     (2) OMBRE PORTÉE douce, teintée brun et directionnelle (bas-droite, lumière
-//         haut-gauche, longueur ∝ hauteur) — un dégradé, PAS l'ellipse noire dure
-//         retirée le 2026-07-06.
-//   Bakée avec les maisons (CM.tileCanvas), live pour les moteurs ; dessinée AVANT
-//   le sprite. Débrayable/réglable : window.__grounding(false) / __groundingTune({...}).
-// ============================================================================
-const groundingFlag = { on: true, socleA: 0.2, shadowA: 0.3, bevelA: 0.13, inset: 0.12 };
-const GROUNDING_ON = () => groundingFlag.on;
-
-function drawGrounding(ctx, x, y, w, h, heightRatio) {
-  const F = groundingFlag;
-  const baseCx = x + w / 2, baseY = y + h;
-  const footW = w * 0.74;                                 // largeur ~ base visible du bâtiment
-
-  // (1) SOCLE — parcelle top-down insérée dans la cellule (terre compactée),
-  //     biseau : arête claire haut+gauche, arête sombre bas+droite (lumière HG).
-  const inset = Math.max(1, Math.min(w, h) * F.inset);
-  const sx = x + inset, sy = y + inset, sw = w - inset * 2, sh = h - inset * 2;
-  if (sw >= 3 && sh >= 3) {
-    const b = Math.max(1, Math.min(sw, sh) * 0.09);
-    ctx.fillStyle = `rgba(28,22,14,${F.socleA})`;
-    ctx.fillRect(sx, sy, sw, sh);
-    ctx.fillStyle = `rgba(255,240,214,${F.bevelA})`;
-    ctx.fillRect(sx, sy, sw, b);
-    ctx.fillRect(sx, sy + b, b, sh - b);
-    ctx.fillStyle = `rgba(0,0,0,${(F.bevelA * 1.25).toFixed(3)})`;
-    ctx.fillRect(sx, sy + sh - b, sw, b);
-    ctx.fillRect(sx + sw - b, sy, b, sh - b);
-  }
-
-  // (2) OMBRE PORTÉE douce : dégradé radial mis à l'échelle en ellipse → bord flou
-  //     sans coût de blur. Décalée bas-droite (fuit la lumière HG), brun sombre.
-  const rx = footW * 0.52 * (0.9 + heightRatio * 0.1), ry = rx * 0.36;
-  const cx = baseCx + rx * 0.3, cy = baseY - ry * 0.08;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(rx, ry);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-  g.addColorStop(0, `rgba(24,16,8,${F.shadowA})`);
-  g.addColorStop(0.55, `rgba(24,16,8,${(F.shadowA * 0.55).toFixed(3)})`);
-  g.addColorStop(1, "rgba(24,16,8,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
-
-if (typeof window !== "undefined") {
-  window.__grounding = (on) => {
-    groundingFlag.on = on !== false;
-    if (CM) CM.tileCamKey = "";                          // re-bake (socle/ombre bakés avec les maisons)
-    return groundingFlag.on;
-  };
-  window.__groundingTune = (opts = {}) => {
-    Object.assign(groundingFlag, opts);
-    if (CM) CM.tileCamKey = "";
-    return { ...groundingFlag };
-  };
-}
-
 function drawTile(t, now, timeWear, maxD2) {
   const spanX = t.spanX || t.size || 1;
   const spanY = t.spanY || t.size || 1;
@@ -304,9 +237,7 @@ function drawTile(t, now, timeWear, maxD2) {
     const bh = BUILDING_HEIGHTS[t.variant] ?? 1;
     usePixelHouse = (t.type === "house" || t.type === "enginehome") && pixelHouseReady(t);
     if (usePixelHouse) {
-      // Sprite pixel : pas d'ombre carrée procédurale. Accroche au sol du sprite 3/4
-      // (socle plan-sol + ombre douce) pour qu'il ne « flotte » pas sur la grille plate.
-      if (GROUNDING_ON()) drawGrounding(ctx, x, y, w, h, bh);
+      // Sprite pixel : pas d'ombre carrée procédurale (drawPixelHouse dessine le sprite seul).
     } else if (CM_SOFT_FOOTPRINT.has(t.variant)) {
       // Empreintes libres : aucune ombre rectangulaire. Chaque variante a une
       // ombre ovale basse, assez visible pour ancrer le sprite sans refaire une tuile.
@@ -321,8 +252,6 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   if (t.type === "engine") {
-    // Accroche au sol du moteur (socle plan-sol + ombre douce), sous la nappe et le sprite.
-    if (GROUNDING_ON()) drawGrounding(ctx, x, y, w, h, 1.6);
     drawEngineSprite(t, x, y, w, h, now);
     // ── Héritage Babel : halo doré pour les tuiles adjacentes du même type ──
     if (state?.babelHeritage && t.buildingId) {
