@@ -180,8 +180,11 @@ const PROPS = [
   },
   {
     key: 'granary-warehouse',
-    id: 'e60e8894-b6f8-4b56-97f2-c6329916975b', // stade 2 — entrepôt de brique (palan + cheminée) (112×96)
-    prompt: 'a small industrial-era brick warehouse, completely deserted, no people, no figures, no person: a tall dark red brick storehouse with an iron-framed structure, a raised loading door with an overhead hoist beam and pulley, tall windows, a brick chimney, a flat corniced roof, standing on worked dark ground, dark brick and iron palette with warm earthy tones, soft light from the upper-left casting shadows to the lower-right',
+    // stade 2 — entrepôt de brique (palan + cheminée) (112×96). v3 = REFONTE 3/4 top-down
+    // (v2 e60e8894 « flat corniced roof » sortait DE FACE — cf. règle DA en tête). Post-DL :
+    // re-cadré (hauteur du contenu alignée sur l'ancien sprite, bas ancré, centré X) pour garder l'échelle.
+    id: '47979657-a629-4d82-92c9-7c4733579597',
+    prompt: 'a small industrial-era brick warehouse storehouse building seen from above at a top-down angle, completely deserted, no people, no figures, no person: a tall dark red brick storehouse with an iron-framed structure, a raised loading door with an overhead hoist beam and pulley on the front, tall arched windows, a brick chimney, a pitched gabled roof clearly visible from above showing one sloping roof plane and one side wall, standing on worked dark ground, dark brick and iron palette with warm earthy tones, soft light from the upper-left casting shadows to the lower-right, transparent background no ground',
   },
   {
     key: 'granary-crates',
@@ -688,7 +691,8 @@ const PROPS = [
   { key: 'courthouses-modern', id: '2dac0205-a710-4f20-bc27-bf4ea08a4930', prompt: 'closed modern courthouse, glowing scales-of-justice emblem (112x88)' },
   // ── INFRA ── BUREAUCRATIE (bureaucracy, hall) — stades 1-3 (stade 0 procédural conservé) ──
   { key: 'bureau-chancery', id: '172d6b99-23a4-487d-a0ad-83f9e5103e81', prompt: 'closed medieval administrative chancery, ledgers, wax seal (112x88)' },
-  { key: 'bureau-office', id: '1b8b208f-7c99-4f31-bdca-89847556dce6', prompt: 'closed 19th-century civic bureau office, wide 3-story brick, rows of windows (112x88) — v2 (v1 1aa7e0a1 trop petit/étroit)' },
+  // v3 = REFONTE 3/4 top-down (v2 1b8b208f sortait DE FACE). Re-cadré post-DL (cf. granary-warehouse).
+  { key: 'bureau-office', id: '2f8d9cc7-a797-4ea5-8133-d78c33b2ff50', prompt: 'a small closed 19th-century civic bureau office building seen from above at a top-down angle, completely deserted, no people, no figures, no person: a wide three-storey dark red brick administrative building with regular rows of tall rectangular windows, a stone-framed central doorway with a small cornice, a low pitched roof clearly visible from above showing the roof plane and one side wall, a couple of brick chimneys, austere bureaucratic brick and stone palette, soft light from the upper-left casting shadows to the lower-right, transparent background no ground (112x88)' },
   { key: 'bureau-tower', id: 'd2ab18f4-e802-4815-b409-06006d8f7b21', prompt: 'closed modern glass office tower, grid of windows (112x88)' },
   // ── INFRA ── GRANDS TRAVAUX (public_works, frame) — stades 1-3 (stade 0 procédural conservé) ──
   { key: 'works-yard', id: '96e184b6-fe20-456e-a644-4d2d56850e7b', prompt: 'closed medieval masons stoneyard workshop + treadwheel crane (112x88)' },
@@ -696,7 +700,8 @@ const PROPS = [
   { key: 'works-depot', id: '766c8459-2ef9-4941-8ae2-e8dbf3846c79', prompt: 'closed modern public works depot, yellow tower crane, containers (112x88)' },
   // ── INFRA ── ARCHIVES (archive_grids, hall) — stades 1-3 (stade 0 procédural conservé) ──
   { key: 'archive-vault', id: '5b2fd155-652d-4ecb-bf86-99c5e3e2770d', prompt: 'closed medieval archive vault, barrel roof, scroll shelves (112x88)' },
-  { key: 'archive-records', id: '94f42abd-e3bf-4686-9d96-aaba41a9e8c1', prompt: 'closed 19th-century records repository, index cabinets (112x88)' },
+  // v3 = REFONTE 3/4 top-down (v2 94f42abd sortait DE FACE). Re-cadré post-DL (cf. granary-warehouse).
+  { key: 'archive-records', id: '6b199330-dc04-4281-a24a-620554e424c6', prompt: 'a small closed 19th-century hall of public records archive building seen from above at a top-down angle, completely deserted, no people, no figures, no person: a formal grey-stone-and-brick records repository with tall rectangular windows, a stone-framed door with a carved scroll-and-quill emblem above it, a low pitched roof clearly visible from above showing the roof plane and one side wall, a small central skylight lantern on the roof, austere grey stone and brick bureaucratic palette, soft light from the upper-left casting shadows to the lower-right, transparent background no ground (112x88)' },
   { key: 'archive-grid', id: '42f61218-51ae-461e-a232-67b948418578', prompt: 'closed modern data archive grid, cyan server lights, antennas (112x88)' },
   // ── INFRA ── ÉGOUTS (sewers, arch) — stades 1-3 (stade 0 pixel+eau animée conservé) ──
   { key: 'sewers-medieval', id: '3d50d082-b279-4ba1-8bf0-ba1a0717c8a6', prompt: 'closed medieval stone sewer outfall station, grated arch, water (112x88)' },
