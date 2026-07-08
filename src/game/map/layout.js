@@ -213,11 +213,11 @@ const WONDER_CLEAR_R = 5; // rayon libre (tuiles) — repli pour merveille sans 
 // PPT doit rester synchronisé avec renderBuildings.js (WONDER_PPT / PPT = 34).
 const WONDER_PPT = 34;
 const WONDER_SPRITE_MAX = {
-  dynasty1:        { nw: 400, nh: 368 },
-  pop1m:           { nw: 176, nh: 400 },
+  dynasty1:        { nw: 351, nh: 352 },
+  pop1m:           { nw: 181, nh: 371 },
   era_kingdom:     { nw: 400, nh: 256 },
-  era_empire:      { nw: 400, nh: 300 },
-  era_mega:        { nw: 192, nh: 400 },
+  era_empire:      { nw: 399, nh: 344 },
+  era_mega:        { nw: 180, nh: 362 },
   era_singularity: { nw: 288, nh: 288 }
 };
 // Emprise au sol en tuiles autour du slot : demi-largeur E/O (nw/68 +1),

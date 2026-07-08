@@ -12,6 +12,8 @@
 //              Sinon : déduite de spriteEpochTags (master-palette.json) d'après le nom de fichier.
 //   • --max    plafond de teintes par sprite (défaut 22 ; viser 16-24).
 //   • --no-accent  n'utilise que le cœur (36) — pour un sprite sans signature d'époque.
+//   • --extra "#hex,#hex"  accents saturés RÉSERVÉS (or, pourpre…) ajoutés à la cible
+//                et protégés du plafond K — mode HYBRIDE (merveilles). Ex. pourpre impérial.
 //   • --inplace écrase le fichier ; sinon écrit <nom>.remap.png à côté (ou dans --out).
 //   • --dry    ne fait que rapporter (aucune écriture).
 //   • --fringe seuil alpha sous lequel le pixel devient transparent (défaut 16) — tue le halo AA.
@@ -40,6 +42,9 @@ const INPLACE = flag('--inplace');
 const NO_ACCENT = flag('--no-accent');
 const OUTDIR = opt('--out', null);
 const EPOCH_FORCE = opt('--epoch', null);
+// --extra "#hex,#hex" : accents SATURÉS réservés (or, pourpre...) ajoutés à la
+// cible et PROTÉGÉS du plafond K — pour la signature des merveilles (mode hybride).
+const EXTRA = (opt('--extra', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
 
 const hexToRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const stemOf = (file) => path.basename(file, '.png');
@@ -56,13 +61,20 @@ function epochFor(file) {
   return best ? PAL.spriteEpochTags[best] : null;
 }
 
-// Palette cible (RGB) pour une époque : cœur (+ accent sauf --no-accent).
+// Palette cible pour une époque : cœur (+ accent sauf --no-accent) (+ accents
+// RÉSERVÉS via --extra). Renvoie la palette RGB et les index PROTÉGÉS du
+// plafond K (accent d'époque + extra) : la signature d'une merveille (or,
+// pourpre) n'est jamais collapsée même si elle ne couvre que peu de pixels.
 function targetFor(epochId) {
-  const core = PAL.coreFlat.slice();
-  if (NO_ACCENT || !epochId) return core.map(hexToRgb);
-  const e = PAL.epochs.find((x) => x.id === epochId);
-  const acc = e ? [e.accent.deep, e.accent.mid, e.accent.bright] : [];
-  return [...core, ...acc].map(hexToRgb);
+  const hexes = PAL.coreFlat.slice();
+  const protectedIdx = new Set();
+  if (!(NO_ACCENT || !epochId)) {
+    const e = PAL.epochs.find((x) => x.id === epochId);
+    const acc = e ? [e.accent.deep, e.accent.mid, e.accent.bright] : [];
+    for (const h of acc) { protectedIdx.add(hexes.length); hexes.push(h); }
+  }
+  for (const h of EXTRA) { protectedIdx.add(hexes.length); hexes.push(h); }
+  return { rgb: hexes.map(hexToRgb), protectedIdx };
 }
 
 // Distance perceptuelle « redmean » (bon compromis sans passer en Lab).
@@ -87,7 +99,7 @@ function countColors(data) {
 
 function remapFile(file) {
   const epochId = epochFor(file);
-  const target = targetFor(epochId);
+  const { rgb: target, protectedIdx } = targetFor(epochId);
   const png = PNG.sync.read(fs.readFileSync(file));
   const { data } = png;
   const before = countColors(data);
@@ -106,7 +118,12 @@ function remapFile(file) {
   //    sur la plus proche teinte CONSERVÉE.
   let collapse = null;
   if (usage.size > MAX) {
-    const kept = [...usage.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX).map(([i]) => i);
+    // Les accents réservés utilisés sont gardés d'office ; le reste remplit
+    // jusqu'à MAX par fréquence d'usage.
+    const usedProtected = [...usage.keys()].filter((i) => protectedIdx.has(i));
+    const rest = [...usage.entries()].filter(([i]) => !protectedIdx.has(i))
+      .sort((a, b) => b[1] - a[1]).map(([i]) => i);
+    const kept = [...usedProtected, ...rest].slice(0, Math.max(MAX, usedProtected.length));
     const keptSet = new Set(kept);
     collapse = new Map();
     for (const [i] of usage) {

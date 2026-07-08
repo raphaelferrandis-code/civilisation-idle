@@ -1,29 +1,218 @@
 {
+  "_comment": "Glints dorés animés (pop1m), refonte 3/4 2026-07-08. x,y=CENTRE du glint (anchor center). gem-glint sur les plus gros spots dorés (statue/chapiteau/figures), plafonné 7/rang.",
   "asset": {
-    "spiral":  { "file": "pop1m-flame-spiral.png", "fw": 28, "fh": 80, "frames": 8, "loop": "forward", "ms": 110, "sc": 1.6 },
-    "torch":   { "file": "pop1m-torch.png",   "fw": 21, "fh": 36, "frames": 9, "mode": "patch", "ms": 100 },
-    "t2cloth": { "file": "pop1m-t2cloth.png", "fw": 16, "fh": 23, "frames": 9, "mode": "patch", "ms": 140 },
-    "b1": { "file": "pop1m-b1.png", "fw": 20, "fh": 61, "frames": 9, "mode": "patch", "ms": 140 },
-    "b2": { "file": "pop1m-b2.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
-    "b3": { "file": "pop1m-b3.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
-    "b4": { "file": "pop1m-b4.png", "fw": 18, "fh": 58, "frames": 9, "mode": "patch", "ms": 140 },
-    "b5": { "file": "pop1m-b5.png", "fw": 17, "fh": 61, "frames": 9, "mode": "patch", "ms": 140 }
+    "glint": {
+      "file": "gem-glint.png",
+      "fw": 9,
+      "fh": 9,
+      "frames": 16,
+      "anchor": "center",
+      "ms": 120,
+      "sc": 1.6
+    }
   },
   "tiers": {
-    "t2": { "flames": [
-      { "x": 12, "y": 125, "w": 16, "h": 23, "kind": "t2cloth" },
-      { "x": 86, "y": 125, "w": 16, "h": 23, "kind": "t2cloth" }
-    ] },
-    "t4": { "flames": [
-      { "x": 70, "y": 8, "w": 21, "h": 36, "kind": "torch" }
-    ] },
-    "t5": { "flames": [
-      { "x": 87, "y": 33, "w": 13, "h": 37, "kind": "spiral" },
-      { "x": 39, "y": 307, "w": 20, "h": 61, "kind": "b1" },
-      { "x": 62, "y": 310, "w": 18, "h": 58, "kind": "b2" },
-      { "x": 79, "y": 309, "w": 18, "h": 58, "kind": "b3" },
-      { "x": 97, "y": 308, "w": 18, "h": 58, "kind": "b4" },
-      { "x": 117, "y": 307, "w": 17, "h": 61, "kind": "b5" }
-    ] }
+    "t1": {
+      "flames": [
+        {
+          "x": 95,
+          "y": 121,
+          "w": 14,
+          "h": 7,
+          "kind": "glint"
+        },
+        {
+          "x": 65,
+          "y": 33,
+          "w": 7,
+          "h": 4,
+          "kind": "glint"
+        },
+        {
+          "x": 66,
+          "y": 12,
+          "w": 6,
+          "h": 3,
+          "kind": "glint"
+        },
+        {
+          "x": 74,
+          "y": 28,
+          "w": 6,
+          "h": 4,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t2": {
+      "flames": [
+        {
+          "x": 86,
+          "y": 144,
+          "w": 15,
+          "h": 19,
+          "kind": "glint"
+        },
+        {
+          "x": 76,
+          "y": 11,
+          "w": 6,
+          "h": 7,
+          "kind": "glint"
+        },
+        {
+          "x": 80,
+          "y": 169,
+          "w": 1,
+          "h": 20,
+          "kind": "glint"
+        },
+        {
+          "x": 143,
+          "y": 140,
+          "w": 3,
+          "h": 16,
+          "kind": "glint"
+        },
+        {
+          "x": 144,
+          "y": 177,
+          "w": 4,
+          "h": 7,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t3": {
+      "flames": [
+        {
+          "x": 89,
+          "y": 9,
+          "w": 14,
+          "h": 12,
+          "kind": "glint"
+        },
+        {
+          "x": 16,
+          "y": 211,
+          "w": 7,
+          "h": 12,
+          "kind": "glint"
+        },
+        {
+          "x": 104,
+          "y": 12,
+          "w": 10,
+          "h": 6,
+          "kind": "glint"
+        },
+        {
+          "x": 126,
+          "y": 159,
+          "w": 7,
+          "h": 7,
+          "kind": "glint"
+        },
+        {
+          "x": 92,
+          "y": 259,
+          "w": 7,
+          "h": 5,
+          "kind": "glint"
+        },
+        {
+          "x": 127,
+          "y": 149,
+          "w": 6,
+          "h": 4,
+          "kind": "glint"
+        },
+        {
+          "x": 123,
+          "y": 203,
+          "w": 11,
+          "h": 5,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t4": {
+      "flames": [
+        {
+          "x": 31,
+          "y": 271,
+          "w": 12,
+          "h": 22,
+          "kind": "glint"
+        },
+        {
+          "x": 70,
+          "y": 47,
+          "w": 12,
+          "h": 6,
+          "kind": "glint"
+        },
+        {
+          "x": 14,
+          "y": 197,
+          "w": 7,
+          "h": 10,
+          "kind": "glint"
+        },
+        {
+          "x": 13,
+          "y": 253,
+          "w": 7,
+          "h": 11,
+          "kind": "glint"
+        },
+        {
+          "x": 10,
+          "y": 210,
+          "w": 11,
+          "h": 10,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t5": {
+      "flames": [
+        {
+          "x": 26,
+          "y": 310,
+          "w": 9,
+          "h": 20,
+          "kind": "glint"
+        },
+        {
+          "x": 27,
+          "y": 280,
+          "w": 10,
+          "h": 5,
+          "kind": "glint"
+        },
+        {
+          "x": 173,
+          "y": 327,
+          "w": 14,
+          "h": 11,
+          "kind": "glint"
+        },
+        {
+          "x": 26,
+          "y": 291,
+          "w": 1,
+          "h": 13,
+          "kind": "glint"
+        },
+        {
+          "x": 23,
+          "y": 292,
+          "w": 1,
+          "h": 7,
+          "kind": "glint"
+        }
+      ]
+    }
   }
 }

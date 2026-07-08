@@ -1,22 +1,72 @@
 {
+  "_comment": "Arc (era_empire) refonte 3/4 2026-07-08 : glints d'or sur cavalier/corniches + LUEUR d'enfilade qui respire (arc-glow, anchor center, ping-pong, blend lighter) sur la lumière centrale de l'arche.",
   "asset": {
-    "glow":  { "file": "arc-glow.png",  "fw": 28, "fh": 36, "frames": 12, "ms": 150, "sc": 3.2, "anchor": "center", "blend": "lighter" },
-    "glint": { "file": "gem-glint.png", "fw": 9,  "fh": 9,  "frames": 16, "ms": 120, "sc": 1.5, "anchor": "center" },
-    "bang":  { "file": "arc-ban-g.png", "fw": 32, "fh": 19, "frames": 9, "mode": "patch", "ms": 150 },
-    "band":  { "file": "arc-ban-d.png", "fw": 32, "fh": 20, "frames": 9, "mode": "patch", "ms": 150 }
+    "glint": {
+      "file": "gem-glint.png",
+      "fw": 9,
+      "fh": 9,
+      "frames": 16,
+      "anchor": "center",
+      "ms": 120,
+      "sc": 1.6
+    },
+    "glow": {
+      "file": "arc-glow.png",
+      "fw": 28,
+      "fh": 36,
+      "frames": 12,
+      "anchor": "center",
+      "ms": 150,
+      "sc": 3,
+      "blend": "lighter"
+    }
   },
   "tiers": {
-    "t4": { "flames": [
-      { "x": 74,  "y": 108, "w": 32, "h": 19, "kind": "bang" },
-      { "x": 215, "y": 107, "w": 32, "h": 20, "kind": "band" },
-      { "x": 150, "y": 28, "w": 6, "h": 6, "kind": "glint" },
-      { "x": 163, "y": 20, "w": 7, "h": 7, "kind": "glint" },
-      { "x": 175, "y": 28, "w": 6, "h": 6, "kind": "glint" }
-    ] },
-    "t5": { "flames": [
-      { "x": 200, "y": 203, "w": 10, "h": 12, "kind": "glow" },
-      { "x": 180, "y": 40, "w": 8, "h": 8, "kind": "glint" },
-      { "x": 220, "y": 30, "w": 8, "h": 8, "kind": "glint" }
-    ] }
+    "t1": {
+      "flames": []
+    },
+    "t2": {
+      "flames": [
+        {
+          "x": 190,
+          "y": 131,
+          "w": 6,
+          "h": 3,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t3": {
+      "flames": [
+        {
+          "x": 258,
+          "y": 171,
+          "w": 6,
+          "h": 5,
+          "kind": "glint"
+        }
+      ]
+    },
+    "t4": {
+      "flames": []
+    },
+    "t5": {
+      "flames": [
+        {
+          "x": 213,
+          "y": 5,
+          "w": 7,
+          "h": 6,
+          "kind": "glint"
+        },
+        {
+          "x": 185,
+          "y": 200,
+          "w": 34,
+          "h": 52,
+          "kind": "glow"
+        }
+      ]
+    }
   }
 }
