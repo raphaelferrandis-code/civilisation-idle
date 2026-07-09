@@ -220,9 +220,8 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp) {
   const im = propImg[key]; if (!im || !(im.naturalWidth > 0)) return false;
   const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
   const BASE = (typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95;
-  const bob = Math.sin(now / 1150 + band) * 0.012;
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
-  const cx = ox + sw * 0.5, baseY = oy + sh * (BASE + bob);
+  const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
