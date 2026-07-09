@@ -29,6 +29,7 @@ const DONE_BUILDINGS = [
   "foragers",
   // Moteurs
   "granaries_city", "caravans", "markets", "guilds", "irrigated_fields",
+  "river_ports", "water_mills", "mint_houses", "imperial_exchanges",
   // Savoir
   "scribes", "storytellers", "schools", "academies", "observatories",
   "libraries", "ancestral_cult", "universities", "printing_houses", "think_tanks",

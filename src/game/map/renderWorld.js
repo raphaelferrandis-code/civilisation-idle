@@ -2619,8 +2619,10 @@ function cityMapDrawCityLights(now) {
     }
   }
 
-  // Phares des véhicules motorisés sur les grands axes.
-  if (n > 0.3 && Array.isArray(CM.vehicles) && (L.counts.eraIndex || 0) >= 14) {
+  // Phares des véhicules motorisés — ANCIEN tapis lumineux (dessiné par-dessus bâtiments +
+  // nuit, d'où le bug de z-order). Désactivé par défaut : les phares sont maintenant dessinés
+  // À LA PROFONDEUR du véhicule (drawVehicleHeadlights, agents.js). __headlightDepth(false) le rétablit.
+  if (CM.headlightDepth === false && n > 0.3 && Array.isArray(CM.vehicles) && (L.counts.eraIndex || 0) >= 14) {
     const hl = Math.max(1, T * z * 0.06);
     for (const v of CM.vehicles) {
       if (v.type !== "car" && v.type !== "tram") continue;

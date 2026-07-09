@@ -204,8 +204,14 @@
   color: var(--muted);
 }
 
-/* Barre de progression vers le PROCHAIN palier ×2/×1.5 (count % 25) */
+/* Barre de progression vers le PROCHAIN palier ×2/×1.5 (count % 25).
+   Largeur fixe, ancrée à gauche : la piste s'arrête un peu AVANT le bord droit
+   du bouton « Acheter » (sinon elle filait jusqu'au bord de la carte). Le bouton
+   ne rétrécit jamais sous ~9 rem → cette valeur reste toujours « en deçà ». */
 .pr-step-track {
+  align-self: flex-start;
+  width: 8.5rem;
+  max-width: 100%;
   height: 3px;
   overflow: hidden;
   border-radius: var(--r-pill);

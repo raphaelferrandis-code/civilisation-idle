@@ -53,7 +53,7 @@ import {
   cityMapCalmRioterAt
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
-import { drawCitizens, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
+import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
@@ -1147,9 +1147,10 @@ function initCityMap(canvas, options = {}) {
       updateVehicles(dt);
       // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
       // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
+      // drawGroundAgents = MAJ citoyens + rendu SOL (piétons + véhicules) triés ENSEMBLE
+      // par Y (1re passe : agents « derrière » un bâtiment).
       if (!CM.lodActive) {
-        drawCitizens(dt, now);
-        drawVehicles(now, "ground");
+        drawGroundAgents(dt, now);
       }
       // Props TALL des places (fontaines + drapeaux/lampadaires) dessinés ICI (entre les 2
       // passes d'habitants) → Y-SORT : au sud du prop = devant (2e passe), au nord = derrière
@@ -1188,9 +1189,9 @@ function initCityMap(canvas, options = {}) {
       }
       // Y-SORT — 2e passe : agents DEVANT un bâtiment (voisin nord bâti), dessinés PAR-DESSUS
       // le blit des bâtiments pour ne pas être rognés. dt=0 → aucune MAJ (déjà faite plus haut).
+      // Piétons + véhicules « devant » toujours triés ENSEMBLE par Y (drawGroundAgents).
       if (!CM.lodActive) {
-        drawCitizens(0, now, true);
-        drawVehicles(now, "ground", true);
+        drawGroundAgents(0, now, true);
       }
       // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
       // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.

@@ -1,5 +1,5 @@
 {
-  "_comment": "Arc (era_empire) refonte 3/4 2026-07-08 : glints d'or sur cavalier/corniches + LUEUR d'enfilade qui respire (arc-glow, anchor center, ping-pong, blend lighter) sur la lumière centrale de l'arche.",
+  "_comment": "Arc (era_empire) : glints d'or + lueur d'enfilade. x,y ancres. 2026-07-09 : t2/t3 retournés horizontalement -> x'=nw-x. t4/t5 non retournés (inchangés).",
   "asset": {
     "glint": {
       "file": "gem-glint.png",
@@ -28,7 +28,7 @@
     "t2": {
       "flames": [
         {
-          "x": 190,
+          "x": 14,
           "y": 131,
           "w": 6,
           "h": 3,
@@ -39,7 +39,7 @@
     "t3": {
       "flames": [
         {
-          "x": 258,
+          "x": 9,
           "y": 171,
           "w": 6,
           "h": 5,

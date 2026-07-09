@@ -1,5 +1,5 @@
 {
-  "_comment": "Aiguille (era_mega) refonte 3/4 2026-07-08 : glints d'or (anchor center) + RAYON rotatif au sommet t4/t5 (needle-beam, f.w/f.h=taille frame, blend lighter, loop forward).",
+  "_comment": "Aiguille (era_mega) : glints d'or (anchor center) + RAYON rotatif (beam, blend lighter). 2026-07-09 : t1/t5 retournés horizontalement -> x'=nw-x. t2/t3/t4 non retournés (inchangés).",
   "asset": {
     "glint": {
       "file": "gem-glint.png",
@@ -32,7 +32,7 @@
     "t1": {
       "flames": [
         {
-          "x": 54,
+          "x": 53,
           "y": 47,
           "w": 14,
           "h": 22,
@@ -153,35 +153,35 @@
     "t5": {
       "flames": [
         {
-          "x": 101,
+          "x": 79,
           "y": 109,
           "w": 6,
           "h": 8,
           "kind": "glint"
         },
         {
-          "x": 118,
+          "x": 62,
           "y": 114,
           "w": 5,
           "h": 7,
           "kind": "glint"
         },
         {
-          "x": 114,
+          "x": 66,
           "y": 126,
           "w": 6,
           "h": 6,
           "kind": "glint"
         },
         {
-          "x": 89,
+          "x": 91,
           "y": 16,
           "w": 1,
           "h": 8,
           "kind": "glint"
         },
         {
-          "x": 89,
+          "x": 91,
           "y": 14,
           "w": 128,
           "h": 128,

@@ -1,5 +1,5 @@
 {
-  "_comment": "Glints dorés animés (pop1m), refonte 3/4 2026-07-08. x,y=CENTRE du glint (anchor center). gem-glint sur les plus gros spots dorés (statue/chapiteau/figures), plafonné 7/rang.",
+  "_comment": "Glints dorés animés (pop1m). x,y=CENTRE du glint (anchor center). 2026-07-09 : t2 retourné horizontalement -> x'=nw-x. Autres tiers non retournés (inchangés).",
   "asset": {
     "glint": {
       "file": "gem-glint.png",
@@ -47,7 +47,7 @@
     "t2": {
       "flames": [
         {
-          "x": 86,
+          "x": 66,
           "y": 144,
           "w": 15,
           "h": 19,
@@ -61,21 +61,21 @@
           "kind": "glint"
         },
         {
-          "x": 80,
+          "x": 72,
           "y": 169,
           "w": 1,
           "h": 20,
           "kind": "glint"
         },
         {
-          "x": 143,
+          "x": 9,
           "y": 140,
           "w": 3,
           "h": 16,
           "kind": "glint"
         },
         {
-          "x": 144,
+          "x": 8,
           "y": 177,
           "w": 4,
           "h": 7,

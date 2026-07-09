@@ -222,6 +222,20 @@ const vehReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
 for (const t of Object.keys(VEH_SIZES)) ensureVeh(t);
 // Animaux de trait (attelage) — chargés comme des bandes de marche d'agents.
 for (const a of ['horse', 'ox']) ensureAgentChar(a);
+// Drone MÉCANIQUE (quadricoptère, réf. l'ancien rendu SVG) : sprite pixel top-down UNIQUE,
+// pivoté au rendu selon le cap. Repli procédural si pas chargé.
+let droneChar = null;
+function ensureDrone() {
+  if (droneChar) return droneChar;
+  droneChar = { img: null, ready: false };
+  if (typeof Image !== 'undefined') {
+    const im = new Image();
+    im.onload = () => { droneChar.ready = true; };
+    im.src = '/pixelart/agents/vehicles/drone-mech.png';
+    droneChar.img = im;
+  }
+  return droneChar;
+}
 if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
 
 // ── Bateaux pixel-art (objets top-down PixelLab, vue est unique) ─────────────
@@ -398,12 +412,43 @@ function citizenChooseNext(p) {
 // 2e passe APRÈS le blit des bâtiments (front=true). CM.buildingCells est bâti au recompute.
 const ysortFlag = { on: true };
 if (typeof window !== 'undefined') window.__ysort = (on) => { ysortFlag.on = on !== false; return ysortFlag.on; };
+// Tri de profondeur FIN entre piétons et véhicules d'une même passe (drawGroundAgents).
+// __groundSort(false) = ancien comportement (piétons PUIS véhicules = 2 couches, la voiture
+// recouvrait tout piéton devant elle) → sert d'A/B pour valider le tri.
+const groundSortFlag = { on: true };
+if (typeof window !== 'undefined') window.__groundSort = (on) => { groundSortFlag.on = on !== false; return groundSortFlag.on; };
+// Drones (véhicules « air ») : triés en profondeur AVEC le sol (occlus par bâtiments/merveilles)
+// au lieu d'être toujours dessinés par-dessus tout. __droneSort(false) = ancien (toujours dessus).
+const droneSortFlag = { on: true };
+if (typeof window !== 'undefined') window.__droneSort = (on) => { droneSortFlag.on = on !== false; return droneSortFlag.on; };
+// Sprite pixel du drone (défaut) vs ancien rendu procédural (quadricoptère). __droneSprite(false) = procédural.
+if (typeof window !== 'undefined') window.__droneSprite = (on) => { CM.droneSprite = on !== false; return CM.droneSprite; };
+// Phares des voitures : dessinés À LA PROFONDEUR de la voiture (occlus comme la carrosserie)
+// plutôt qu'en tapis lumineux tardif (par-dessus bâtiments + nuit). Drapeau porté par CM car
+// lu aussi dans renderWorld (cityMapDrawCityLights). __headlightDepth(false) = ancien tapis.
+if (typeof window !== 'undefined') window.__headlightDepth = (on) => { CM.headlightDepth = on !== false; return CM.headlightDepth; };
+// Un bâtiment occupe-t-il le rang NORD (gy-1) autour de la colonne gx ? On teste la case
+// PILE au nord (face droite d'un pâté) PLUS la diagonale du côté où le sprite déborde
+// (`lean` = décalage-trottoir latéral : <0 vers l'ouest → teste NO, >0 vers l'est → teste NE,
+// =0 « centré » → teste les DEUX). Motif : en COIN DE RUE, la case pile au nord est souvent
+// l'autre rue (route) et c'est un bâtiment EN DIAGONALE, dont le sprite (plus large que sa
+// case) rogne la tête. Élargir est SÛR : un bâtiment du rang nord est toujours au nord de
+// l'agent → l'agent est au sud (devant) → il doit passer par-dessus (2e passe).
+function buildingNorthOf(gx, gy, lean = 0) {
+  const B = CM.buildingCells;
+  if (!B) return false;
+  const gy1 = gy - 1;
+  if (B.has(gx + ',' + gy1)) return true;
+  if (lean <= 0 && B.has((gx - 1) + ',' + gy1)) return true;   // décalé ouest (ou centré) → NO
+  if (lean >= 0 && B.has((gx + 1) + ',' + gy1)) return true;   // décalé est (ou centré) → NE
+  return false;
+}
 function isCitizenInFront(p) {
   if (!ysortFlag.on) return false;
   const gy1 = p.gy - 1;
-  // Occulteur au NORD = bâtiment (clé string "gx,gy") OU prop tall de place — fontaine OU
-  // drapeau/lampadaire (clés numériques gx*10000+gy, cf. walkRoadSet). → habitant « devant ».
-  return (!!CM.buildingCells && CM.buildingCells.has(p.gx + ',' + gy1))
+  // Bâtiment au nord (rang élargi, biaisé par le décalage-trottoir p.lox pour les coins) OU
+  // prop tall de place — fontaine / drapeau / lampadaire (clés numériques gx*10000+gy). → « devant ».
+  return buildingNorthOf(p.gx, p.gy, p.lox || 0)
       || (!!CM.fountainCells && CM.fountainCells.has(p.gx * 10000 + gy1))
       || (!!CM.plazaPropCells && CM.plazaPropCells.has(p.gx * 10000 + gy1));
 }
@@ -412,9 +457,12 @@ function isCitizenInFront(p) {
 // mises à jour (∝ dt) deviennent no-op (pas de double-déplacement) ; seuls sont dessinés
 // les habitants « devant ». La 1re passe (front absent) met à jour TOUS les habitants mais
 // ne dessine que les « derrière ».
-function drawCitizens(dt, now, front) {
+// Le rendu SOL est scindé en MAJ (une fois/frame, updateCitizens) + dessin par agent
+// (drawOneCitizen / drawOneVehicle), pour que piétons et véhicules soient triés ENSEMBLE
+// par profondeur dans drawGroundAgents. Avant, tous les piétons PUIS tous les véhicules =
+// une voiture recouvrait toujours un piéton de la même passe, même au SUD (devant) d'elle.
+function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
-  const ctx = CM.ctx, z = CM.cam.zoom;
 
   // Gestion globale de l'apparition des bulles de pensée pour éviter le spam dû au nombre de citoyens
   if (CM.globalBubbleCooldown === undefined) {
@@ -428,7 +476,7 @@ function drawCitizens(dt, now, front) {
   }
 
   CM.globalBubbleCooldown -= dt;
-  if (!front && CM.globalBubbleCooldown <= 0) {
+  if (CM.globalBubbleCooldown <= 0) {
     if (!hasActiveThought && CM.citizens.length > 0) {
       // Construction tardive — seulement toutes les 90-180s
       const idleCitizens = CM.citizens.filter(c => !c.thoughtType || c.thoughtTimer <= 0);
@@ -459,7 +507,7 @@ function drawCitizens(dt, now, front) {
       if (p.thoughtTimer <= 0) p.thoughtType = null;
     }
 
-    if (!front && !CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
+    if (!CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
       // PR3 — remap vers la route SURVIVANTE la plus proche (pas un saut
       // aléatoire) : au recalcul du plan (achat, émondage), un habitant dont la
       // cellule a disparu glisse sur la route voisine au lieu de sauter à l'autre
@@ -503,6 +551,7 @@ function drawCitizens(dt, now, front) {
       sleepFade = Math.max(0, 1 - (nightF - 0.55) / 0.2);
       if (sleepFade <= 0) { p._nightHidden = true; continue; }
     }
+    p._sleepFade = sleepFade;   // lu par drawOneCitizen (indépendant de l'ordre de dessin)
 
     // Marche au BORD de la chaussée : décalage latéral (unités monde) lissé vers sa
     // cible « trottoir » (p.tox/p.toy, bord droit du sens). Le lissage fait GLISSER le
@@ -512,12 +561,18 @@ function drawCitizens(dt, now, front) {
     const tox = p.tox || 0, toy = p.toy || 0;
     if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
     else { const k = dt * 6 < 1 ? dt * 6 : 1; p.lox += (tox - p.lox) * k; p.loy += (toy - p.loy) * k; }
-    const sx = (p.x + p.lox - CM.cam.x) * z + CM.cw / 2;
-    const sy = (p.y + p.loy - CM.cam.y) * z + CM.ch / 2;
-    if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
-    // Y-SORT : ne dessine dans cette passe que les habitants du bon côté (derrière si
-    // front absent ; devant si front). La MAJ ci-dessus a déjà tourné pour tous en 1re passe.
-    if (isCitizenInFront(p) !== !!front) continue;
+  }
+}
+
+// Dessine UN habitant à sa position écran courante. La MAJ (position, fondu, nuit) a déjà
+// été faite par updateCitizens ; sleepFade est lu depuis p._sleepFade pour ne pas dépendre
+// de l'ordre de dessin (Y-SORT).
+function drawOneCitizen(p, now) {
+    const ctx = CM.ctx, z = CM.cam.zoom;
+    const sx = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
+    const sy = (p.y + (p.loy || 0) - CM.cam.y) * z + CM.ch / 2;
+    if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) return;
+    const sleepFade = p._sleepFade === undefined ? 1 : p._sleepFade;
 
     // ── Habitant : sprite pixel-art animé par ère + type (repli villageois/vectoriel) ──
     const ph = Math.max(1.5, 2.1 * z);            // demi-hauteur (repli vectoriel)
@@ -584,6 +639,77 @@ function drawCitizens(dt, now, front) {
       }
     }
     if (alpha < 1) ctx.globalAlpha = 1;
+}
+
+// Compat : rendu des habitants SEULS (piétons), sans les véhicules. Le moteur passe
+// désormais par drawGroundAgents (Y-SORT fusionné) ; conservé pour l'API/export.
+function drawCitizens(dt, now, front) {
+  if (!front) updateCitizens(dt);
+  if (!CM.walkRoadList.length) return;
+  for (const p of CM.citizens) {
+    if (p._nightHidden) continue;
+    if (isCitizenInFront(p) !== !!front) continue;
+    drawOneCitizen(p, now);
+  }
+}
+
+// Y-SORT FUSIONNÉ piétons + véhicules au sol. Appelée 2× par frame : passe 1 (front absent,
+// AVANT le blit des bâtiments) met à jour les citoyens puis dessine les agents « derrière » ;
+// passe 2 (front, APRÈS le blit) dessine les agents « devant ». Dans CHAQUE passe, citoyens
+// ET véhicules sont triés ENSEMBLE par Y monde (pieds) : le plus au sud est peint en dernier
+// → devant. Corrige le recouvrement systématique piéton↔voiture (avant = deux couches empilées).
+const _gEntries = [];
+function _byY(a, b) { return a.y - b.y; }
+function drawGroundAgents(dt, now, front) {
+  if (!front) updateCitizens(dt);      // MAJ une seule fois (passe 1)
+  const z = CM.cam.zoom, s = CM.TILE * z, pool = _gEntries;
+  // A/B : ancien comportement (piétons PUIS véhicules, 2 couches empilées) — la MAJ
+  // ci-dessus reste faite, seul l'ordre de dessin change. Molette __groundSort(false).
+  if (!groundSortFlag.on) {
+    if (CM.walkRoadList.length) {
+      for (const p of CM.citizens) {
+        if (p._nightHidden) continue;
+        if (isCitizenInFront(p) !== !!front) continue;
+        drawOneCitizen(p, now);
+      }
+    }
+    for (const v of CM.vehicles) {
+      if (v.type === "drone") continue;
+      if (isVehicleInFront(v) !== !!front) continue;
+      drawOneVehicle(v, now);
+    }
+    return;
+  }
+  let n = 0;
+  if (CM.walkRoadList.length) {
+    for (const p of CM.citizens) {
+      if (p._nightHidden) continue;
+      if (isCitizenInFront(p) !== !!front) continue;
+      const wy = p.y + (p.loy || 0);
+      const sx = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
+      const sy = (wy - CM.cam.y) * z + CM.ch / 2;
+      if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+      let e = pool[n]; if (!e) e = pool[n] = { y: 0, p: null, v: null };
+      e.y = wy; e.p = p; e.v = null; n++;
+    }
+  }
+  for (const v of CM.vehicles) {
+    if (v.type === "drone" && !droneSortFlag.on) continue;   // drones = passe « air » séparée si molette off
+    if (isVehicleInFront(v) !== !!front) continue;
+    const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
+    const sy = (v.y - CM.cam.y) * z + CM.ch / 2;
+    if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+    let e = pool[n]; if (!e) e = pool[n] = { y: 0, p: null, v: null };
+    e.y = v.y; e.p = null; e.v = v; n++;
+  }
+  if (n === 0) return;
+  // Tri par Y monde (pieds) : nord = petit y dessiné d'abord (derrière), sud par-dessus (devant).
+  const view = pool.slice(0, n);
+  view.sort(_byY);
+  for (let i = 0; i < n; i++) {
+    const e = view[i];
+    if (e.p) drawOneCitizen(e.p, now);
+    else drawOneVehicle(e.v, now);
   }
 }
 
@@ -759,18 +885,81 @@ function drawVehicleWheelSet(ctx, s, axles, sideY, rx, ry, fill = "#1a1a20", rim
   }
 }
 
+// Y-SORT (véhicule au sol) : « devant » = bâtiment au rang nord (comme les habitants, mais
+// sans les props de place — un véhicule roule sur la route ; et sans biais latéral car il n'a
+// pas de décalage-trottoir stocké → on teste les deux diagonales). Sert au split 2 passes.
+function isVehicleInFront(v) {
+  return !!ysortFlag.on && buildingNorthOf(v.gx, v.gy, 0);
+}
+
+// Boucle véhicules : filtre la passe (sol/air + Y-SORT) puis délègue à drawOneVehicle. Le
+// sol passe désormais par drawGroundAgents (Y-SORT fusionné avec les piétons) ; cette
+// fonction reste le point d'entrée de la passe « air » (drones) et le repli sol générique.
 function drawVehicles(now, pass, front) {
-  const ctx = CM.ctx, z = CM.cam.zoom, s = CM.TILE * z;
-  const ei = CM.layout?.counts?.eraIndex ?? 13; // extrait une fois hors boucle
+  if (pass === "air" && droneSortFlag.on) return;   // drones triés dans drawGroundAgents → pas de passe air
   for (const v of CM.vehicles) {
     if (pass === "ground" && v.type === "drone") continue;
     if (pass === "air" && v.type !== "drone") continue;
-    // Y-SORT (véhicules au sol) : « devant » = voisin nord bâti. 1re passe = derrière,
-    // 2e passe (front) = devant, par-dessus les bâtiments. Les drones (air) n'y passent pas.
-    if (pass === "ground" && (ysortFlag.on && !!(CM.buildingCells && CM.buildingCells.has(v.gx + ',' + (v.gy - 1)))) !== !!front) continue;
+    if (pass === "ground" && isVehicleInFront(v) !== !!front) continue;
+    drawOneVehicle(v, now);
+  }
+}
+
+// Phares d'une voiture/tram, dessinés À LA PROFONDEUR du véhicule (dans drawOneVehicle) pour
+// être occultés comme la carrosserie — au lieu du tapis lumineux tardif qui brillait par-dessus
+// bâtiments + nuit (même bug de z-order que carrosserie↔piéton). Nuit uniquement, ère motorisée,
+// véhicule en mouvement. Additif ; alpha BOOSTÉ car dessiné AVANT le voile de nuit (~×0.5).
+function drawVehicleHeadlights(ctx, v) {
+  const n = CM.nightF || 0;
+  if (n <= 0.3) return;                                   // phares de nuit seulement
+  if ((CM.layout?.counts?.eraIndex || 0) < 14) return;   // ère motorisée
+  if (v.type !== "car" && v.type !== "tram") return;
+  if ((v.parkT || 0) > 0 || v.pauseT > 0) return;        // garé/arrêté : éteints
+  const z = CM.cam.zoom, T = CM.TILE;
+  const a = Math.min(1, (n - 0.1) / 0.7);
+  const boost = 1.8;                                      // compense le voile de nuit (dessiné après)
+  const hl = Math.max(1, T * z * 0.06);
+  const lo = vehicleLaneOffset(v, T * z);                 // phares solidaires de la carrosserie
+  const sx = (v.x - CM.cam.x) * z + CM.cw / 2 + lo.x;
+  const sy = (v.y - CM.cam.y) * z + CM.ch / 2 + lo.y;
+  if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) return;
+  // Cap réel (vitesse, sinon direction de grille : 0=E 1=W 2=S 3=N).
+  let hx = v.tx - v.x, hy = v.ty - v.y;
+  const hd = Math.hypot(hx, hy);
+  if (hd > 0.5) { hx /= hd; hy /= hd; }
+  else { hx = v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0; hy = v.dir === 2 ? 1 : v.dir === 3 ? -1 : 0; }
+  const px = -hy, py = hx;                                // perpendiculaire (écart des deux phares)
+  const off = T * z * 0.2;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  // Deux phares ronds à l'AVANT.
+  ctx.fillStyle = `rgba(255,244,210,${Math.min(1, a * 0.75 * boost).toFixed(2)})`;
+  ctx.beginPath();
+  ctx.arc(sx + hx * off + px * hl, sy + hy * off + py * hl, hl * 0.55, 0, Math.PI * 2);
+  ctx.arc(sx + hx * off - px * hl, sy + hy * off - py * hl, hl * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  // Faisceau : halo radial étiré dans l'axe du véhicule (dégradé inline, pas de sprite).
+  ctx.save();
+  ctx.translate(sx + hx * off * 2.6, sy + hy * off * 2.6);
+  ctx.rotate(Math.atan2(hy, hx));
+  const bw = hl * 3.4, bh = hl * 1.8;
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(1, bw));
+  g.addColorStop(0, `rgba(255,238,180,${Math.min(1, a * 0.4 * boost).toFixed(2)})`);
+  g.addColorStop(1, "rgba(255,238,180,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.globalCompositeOperation = prev;
+}
+
+// Dessine UN véhicule (carrosserie pixel/procédurale + pousseur/attelage, ou drone, ou
+// porteur de panier). Extrait de la boucle pour permettre le Y-SORT fin avec les piétons.
+function drawOneVehicle(v, now) {
+    const ctx = CM.ctx, z = CM.cam.zoom, s = CM.TILE * z;
+    const ei = CM.layout?.counts?.eraIndex ?? 13; // stade d'ère (repli 13)
     const sx = (v.x - CM.cam.x) * z + CM.cw / 2;
     let sy = (v.y - CM.cam.y) * z + CM.ch / 2;
-    if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) continue;
+    if (sx < -s || sy < -s || sx > CM.cw + s || sy > CM.ch + s) return;
     if (v.fade === undefined) v.fade = 1;
     else if (v.fade < 1) v.fade = Math.min(1, v.fade + 0.045); // ~0.7s à 30fps
     if (v.fade < 1) ctx.globalAlpha = v.fade;
@@ -888,7 +1077,8 @@ function drawVehicles(now, pass, front) {
       ctx.restore();
       ctx.imageSmoothingEnabled = prevS;
       if (v.fade < 1) ctx.globalAlpha = 1;
-      continue;
+      if (CM.headlightDepth !== false) drawVehicleHeadlights(ctx, v);
+      return;
     }
     if (v.type === "drone") {
       sy -= s * 0.5;
@@ -899,6 +1089,32 @@ function drawVehicles(now, pass, front) {
       ctx.beginPath();
       ctx.ellipse(sx, sy + s * 0.55 + hover, s * 0.18, s * 0.06, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Sprite pixel biomécanique (frelon/libellule vu de dessus) pivoté selon le cap : la tête
+      // du sprite pointe vers le HAUT (nord), on l'aligne sur le vecteur de déplacement.
+      const dchr = CM.droneSprite !== false ? ensureDrone() : null;
+      if (dchr && dchr.ready && dchr.img) {
+        let hx = v.tx - v.x, hy = v.ty - v.y;
+        const hd = Math.hypot(hx, hy);
+        if (hd > 0.5) { hx /= hd; hy /= hd; }
+        else { hx = v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0; hy = v.dir === 2 ? 1 : v.dir === 3 ? -1 : 0; }
+        const dsz = s * (CM.droneSize || 0.85);   // taille de rendu (molette __droneSize)
+        const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+        ctx.save();
+        ctx.translate(sx, sy + hover);
+        ctx.rotate(Math.atan2(hy, hx) + Math.PI / 2);
+        ctx.drawImage(dchr.img, -dsz / 2, -dsz / 2, dsz, dsz);
+        ctx.restore();
+        ctx.imageSmoothingEnabled = prevSm;
+        // Cœur ambre pulsé (additif) — glow chaud discret, remplace les LED cyan/vert/rouge.
+        const prevC = ctx.globalCompositeOperation;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = `rgba(255,178,82,${(0.16 + pulse * 0.22).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(sx, sy + hover, Math.max(1, s * 0.05), 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = prevC;
+        if (v.fade < 1) ctx.globalAlpha = 1;
+        return;
+      }
+      // ── Repli procédural (quadricoptère) si le sprite n'est pas chargé ──
       ctx.fillStyle = "#3a4050";
       ctx.beginPath();
       ctx.arc(sx, sy + hover, Math.max(1.5, s * 0.08), 0, Math.PI * 2);
@@ -934,7 +1150,7 @@ function drawVehicles(now, pass, front) {
       ctx.arc(sx - s * 0.1, sy + hover + s * 0.06, Math.max(1, s * 0.025), 0, Math.PI * 2);
       ctx.fill();
       if (v.fade < 1) ctx.globalAlpha = 1;
-      continue;
+      return;
     }
     if (v.type === "basket") {
       // Porteur de panier : une vraie silhouette (comme les habitants), pas un
@@ -949,7 +1165,7 @@ function drawVehicles(now, pass, front) {
       const groundY = sy + ph * 1.35;
       if (v.woman === undefined) v.woman = Math.random() < 0.5;
       const dim = drawNamedAgent(ctx, sx, groundY, z, v.woman ? 'basket-woman' : 'basket-man', 0.85, v.dir, (v.pauseT || 0) <= 0, now, v.x * 0.02);
-      if (dim) { if (v.fade < 1) ctx.globalAlpha = 1; continue; }
+      if (dim) { if (v.fade < 1) ctx.globalAlpha = 1; return; }
       // ── Repli vectoriel : sprites pas encore chargés ──
       // Jambes alternées
       if (ph > 2) {
@@ -976,7 +1192,7 @@ function drawVehicles(now, pass, front) {
       ctx.fillStyle = "#7a5a28";
       ctx.beginPath(); ctx.ellipse(sx, sy - ph * 1.58 + bob, ph * 0.6, ph * 0.26, 0, 0, Math.PI * 2); ctx.fill();
       if (v.fade < 1) ctx.globalAlpha = 1;
-      continue;
+      return;
     }
     ctx.save();
     // Stationnement : la voiture se range sur le côté de la chaussée.
@@ -1123,7 +1339,7 @@ function drawVehicles(now, pass, front) {
     }
     ctx.restore();
     if (v.fade < 1) ctx.globalAlpha = 1;
-  }
+    if (CM.headlightDepth !== false) drawVehicleHeadlights(ctx, v);
 }
 
 function drawShips(dt) {
@@ -1426,4 +1642,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawNamedAgent, riotEraKey };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawNamedAgent, riotEraKey };
