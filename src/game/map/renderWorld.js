@@ -27,14 +27,17 @@ import { setRoadPavingOnLoad } from './roadPaving.js';
 // tuile finit de décoder, on invalide le cache statique pour qu'il se re-cuise
 // avec la dalle (sinon le sol reste figé sur la couleur de repli). Cf. le garde
 // équivalent du terrain (CM._groundBakeStable).
-setPlazaPropOnLoad(() => { if (CM) CM.staticCamKey = ''; });
+// NB : l'invalidation réelle = CM._staticBake=null (staticCamKey/groundCamKey sont MORTS,
+// écrits mais jamais relus) — sinon le sprite fraîchement décodé n'apparaît qu'au prochain
+// re-bake incident (zoom/pan/nuit) au lieu d'immédiatement.
+setPlazaPropOnLoad(() => { if (CM) CM._staticBake = null; });
 // Idem pour le terre-plein planté pixel : baké dans le cache STATIQUE (routes non-pixel)
 // OU dans le cache SOL (routes pixel, via pixelTerrain) → invalider les DEUX au décodage.
-setMedianOnLoad(() => { if (CM) { CM.staticCamKey = ''; CM.groundCamKey = ''; } });
+setMedianOnLoad(() => { if (CM) { CM._staticBake = null; CM._groundBake = null; } });
 // La chaussée matière-pont (roadPaving) est bakée dans le cache SOL (pixelTerrain) :
 // dès qu'une matière de pont est extraite, invalider le cache SOL pour re-cuire les
 // routes avec la texture (sinon elles restent sur l'aplat plat de repli).
-setRoadPavingOnLoad(() => { if (CM) CM.groundCamKey = ''; });
+setRoadPavingOnLoad(() => { if (CM) CM._groundBake = null; });
 
 /* ---- legacy citymap rendering\draw-utils.js ---- */
 
@@ -241,8 +244,8 @@ if (typeof window !== 'undefined') {
   window.__canopy = (size, lift) => { if (size != null) CANOPY_SIZE = +size; if (lift != null) CANOPY_LIFT = +lift; };
   window.__trunk = (len, w) => { if (len != null) TRUNK_LEN = +len; if (w != null) TRUNK_W = +w; };
   window.__pixelTrees = (on) => { pixelTreesOn = on !== false; };
-  window.__forestSol = (m) => { FOREST_SOL_MARGIN = (m == null ? 1.12 : +m); CM.staticCamKey = ''; }; // re-bake : ellipse de REPLI (urbanSet absent)
-  window.__forestRing = (n) => { FOREST_SOL_RING = (n == null ? 1 : Math.max(0, Math.round(+n))); CM.staticCamKey = ''; }; // re-bake : tampon d'herbe forêt↔sol
+  window.__forestSol = (m) => { FOREST_SOL_MARGIN = (m == null ? 1.12 : +m); CM._staticBake = null; }; // re-bake : ellipse de REPLI (urbanSet absent) — cityMapDrawTrees baké en static ; staticCamKey mort
+  window.__forestRing = (n) => { FOREST_SOL_RING = (n == null ? 1 : Math.max(0, Math.round(+n))); CM._staticBake = null; }; // re-bake : tampon d'herbe forêt↔sol
 }
 
 // Mélange linéaire de deux couleurs [r,g,b] — t=0 → a, t=1 → b.

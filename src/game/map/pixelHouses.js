@@ -7,7 +7,8 @@
 // chargé. Fichier : /pixelart/houses/<variant>.png  (cf public/pixelart/houses/).
 //
 // ⚠ Les maisons sont BAKÉES dans le canvas offscreen CM.tileCanvas → à chaque
-// chargement de sprite on invalide CM.tileCamKey pour forcer un re-bake.
+// chargement de sprite on invalide le bake (CM._tileBake=null) pour forcer un re-bake.
+// (CM.tileCamKey est MORT : écrit mais jamais relu — la vraie invalidation = _tileBake.)
 import { CM } from './layout.js';
 
 export const pixelHousesFlag = { on: true };
@@ -44,7 +45,7 @@ function ensure(variant) {
   e.img.onload = () => {
     e.ready = true;
     e.bbox = contentBBox(e.img);
-    CM.tileCamKey = "";   // invalide le bake offscreen → re-dessine avec le sprite
+    CM._tileBake = null;   // invalide le bake offscreen → re-dessine avec le sprite (tileCamKey est mort)
   };
   e.img.src = "/pixelart/houses/" + variant + ".png";
   cache.set(variant, e);
@@ -123,7 +124,7 @@ export function drawPixelHouse(t, x, y, w, h) {
 if (typeof window !== "undefined") {
   window.__pixelHouses = (on) => {
     pixelHousesFlag.on = on !== false;
-    CM.tileCamKey = "";   // force re-bake pour voir le changement
+    CM._tileBake = null;   // force re-bake pour voir le changement (tileCamKey est mort, jamais relu)
     return pixelHousesFlag.on;
   };
   // A — clamp au lot : on/off + réglage de la marge de débord toléré. Les deux rebakent

@@ -1263,17 +1263,20 @@ function initCityMap(canvas, options = {}) {
     window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
     // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
+    // __sidewalk marche via la signature _otherGround (pixelSidewalkFlag.on y est) ; __sidewalkTune
+    // NON (les valeurs de tune n'y sont pas) → il doit nuller le bake (groundCamKey est mort).
     window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM.groundCamKey = ''; };
-    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM.groundCamKey = ''; return { ...sidewalkTune }; };
+    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM._groundBake = null; return { ...sidewalkTune }; };
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
     window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
-    window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelTileset = (name) => { setPixelTileset(name); CM._groundBake = null; }; // tileset → drawPixelTerrain (ground) ; nom hors signature → nuller le bake (camKeys morts)
     window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
-    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM.staticCamKey = ''; };
+    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM._staticBake = null; }; // ponts bakés en static ; flag hors _otherStatic → nuller le bake (staticCamKey mort)
     // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
     // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
-    setBridgeOnLoad(() => { CM.staticCamKey = ''; });
+    // (CM._staticBake=null = vraie invalidation ; staticCamKey est écrit mais jamais relu.)
+    setBridgeOnLoad(() => { CM._staticBake = null; });
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
     window.__collapse = (on) => { setCollapseInProgress(!!on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
