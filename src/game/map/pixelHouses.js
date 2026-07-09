@@ -7,7 +7,7 @@
 // chargé. Fichier : /pixelart/houses/<variant>.png  (cf public/pixelart/houses/).
 //
 // ⚠ Les maisons sont BAKÉES dans le canvas offscreen CM.tileCanvas → à chaque
-// chargement de sprite on invalide CM.tileCamKey pour forcer un re-bake.
+// chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
 import { CM } from './layout.js';
 
 export const pixelHousesFlag = { on: true };
@@ -19,6 +19,12 @@ const AVAILABLE = new Set([
   "tent", "hut", "longhouse", "courtyard", "townhouse", "stonehouse",
   "manor", "block", "tenement", "tower", "megablock", "arcologyhome"
 ]);
+
+// Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /
+// 9 violet) — cohérence avec les tours-moteur cosmiques (cf. blitCosmicTower). Aux
+// ères 35+ elles chargent « <variant>-cosmic-<band>.png » ; partout ailleurs, leur
+// sprite de base. Les autres variantes gardent un sprite unique quelle que soit l'ère.
+const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome"]);
 
 // Largeur de contenu (px du PNG) qui remplit ~1 tuile d'emprise. Les autres sprites
 // scalent au MÊME facteur → leur taille relative (calibrée sur BUILDING_HEIGHTS à la
@@ -35,20 +41,55 @@ const HOUSE_UNIT = 44;
 // pour NE PAS être clampés → ils gardent leur masse. Molettes : __houseFit / __houseFitTune.
 export const houseFitTune = { on: true, margin: 0.08 };
 
-const cache = new Map();   // variant -> { img, ready, bbox }
+const cache = new Map();   // spriteKey -> { img, ready, bbox }
 
-function ensure(variant) {
-  let e = cache.get(variant);
+// Clé de sprite effective. Aux ères cosmiques (eraBand ≥ 7) les variantes tardives
+// prennent leur skin de bande « <variant>-cosmic-<band> » (fichiers dédiés) ; partout
+// ailleurs le sprite de base « <variant> ». La bande vient de la même source que le
+// repli procédural (CM.layout.counts.eraBand).
+function spriteKeyFor(variant) {
+  const band = (CM.layout?.counts?.eraBand | 0);
+  if (band >= 7 && COSMIC_VARIANTS.has(variant)) return variant + "-cosmic-" + Math.min(9, band);
+  return variant;
+}
+
+function ensure(key) {
+  let e = cache.get(key);
   if (e) return e;
   e = { img: new Image(), ready: false, bbox: null };
   e.img.onload = () => {
     e.ready = true;
     e.bbox = contentBBox(e.img);
-    CM.tileCamKey = "";   // invalide le bake offscreen → re-dessine avec le sprite
+    // Sprite arrivé (souvent APRÈS le bake) → invalider le bake tuiles pour qu'il REMPLACE le
+    // repli procédural baké dès le frame suivant. ⚠ CM.tileCamKey est une variable MORTE
+    // (jamais relue) ; la clé réellement lue par le bake est CM._tileBake (cf. cityMapRuntime
+    // ligne 111 & window.__houseFit) → c'est ELLE qu'on annule. Sans ça, un PNG chargé hors de
+    // la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
+    // (achat, zoom, pan) — d'où le « flash » persistant de l'ancien sprite à l'achat.
+    CM._tileBake = null;
   };
-  e.img.src = "/pixelart/houses/" + variant + ".png";
-  cache.set(variant, e);
+  e.img.src = "/pixelart/houses/" + key + ".png";
+  cache.set(key, e);
   return e;
+}
+
+// Précharge les sprites d'habitation susceptibles d'apparaître AVANT qu'une tuile ne
+// les demande, pour que pixelHouseReady soit déjà vrai à la 1re apparition d'une
+// variante → plus de repli procédural VISIBLE (le « flash de l'ancien sprite » à
+// l'achat, quand un recompute re-bake pendant que le PNG se charge encore). Le repli
+// procédural reste en place comme filet de sécurité — il ne se déclenche juste plus en
+// pratique. Idempotent : `ensure` met en cache par clé (un 2e appel ne recharge rien).
+// Appelé au MONTAGE de la carte (initCityMap) ET à chaque (re)calcul du layout ; dès la
+// bande 5 on précharge aussi les 9 skins cosmiques, pour que l'entrée en ère cosmique
+// (band 7+) — y compris une ouverture directe de save late-game ou un saut d'ère
+// (prestige/hors-ligne) — soit propre d'emblée, sans dépendre d'un recompute préalable à
+// la bonne bande.
+export function preloadHouseSprites(band) {
+  if (!pixelHousesFlag.on || typeof Image === "undefined") return;
+  for (const v of AVAILABLE) ensure(v);
+  if ((band | 0) >= 5) {
+    for (const v of COSMIC_VARIANTS) for (const b of [7, 8, 9]) ensure(v + "-cosmic-" + b);
+  }
 }
 
 // BBox du contenu opaque (alpha>16), mesurée UNE fois par sprite via canvas
@@ -84,14 +125,14 @@ function contentBBox(img) {
 export function pixelHouseReady(t) {
   if (!pixelHousesFlag.on) return false;
   if ((t.type !== "house" && t.type !== "enginehome") || !AVAILABLE.has(t.variant)) return false;
-  const e = ensure(t.variant);
+  const e = ensure(spriteKeyFor(t.variant));
   return !!(e.ready && e.bbox);
 }
 
 // Dessine le sprite. (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar).
 // Base ancrée au bas de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
 export function drawPixelHouse(t, x, y, w, h) {
-  const e = cache.get(t.variant);
+  const e = cache.get(spriteKeyFor(t.variant));
   if (!e || !e.ready || !e.bbox) return false;
   const bb = e.bbox;
   const ctx = CM.ctx;
@@ -123,7 +164,7 @@ export function drawPixelHouse(t, x, y, w, h) {
 if (typeof window !== "undefined") {
   window.__pixelHouses = (on) => {
     pixelHousesFlag.on = on !== false;
-    CM.tileCamKey = "";   // force re-bake pour voir le changement
+    CM._tileBake = null;   // force re-bake pour voir le changement (tileCamKey est mort)
     return pixelHousesFlag.on;
   };
   // A — clamp au lot : on/off + réglage de la marge de débord toléré. Les deux rebakent

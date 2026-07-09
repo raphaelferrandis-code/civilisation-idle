@@ -28,6 +28,7 @@ import {
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import { buildNecropolis } from './necropolis.js';
+import { preloadHouseSprites } from './pixelHouses.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -524,6 +525,10 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
   CM.tileCamKey = '';             // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
+  // Préchargement des sprites d'habitation de la bande courante AVANT la fenêtre de
+  // naissance / le bake : supprime le flash procédural (« ancien sprite ») à la 1re
+  // apparition d'une variante lors d'un achat (cf. preloadHouseSprites).
+  preloadHouseSprites(L.counts && L.counts.eraBand || 0);
   // Garde-fou COORDS : quand la grille grandit (terme engineHomes / achats), cx=floor(N/2)
   // bouge → toute la ville se TRANSLATE en coords monde (slots core-relatifs, la ville n'a
   // pas bougé vs son cœur). On recale la caméra du delta de cœur pour supprimer le saut.
@@ -963,6 +968,11 @@ function initCityMap(canvas, options = {}) {
     CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.groundCamKey = '';
   }
+  // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
+  // PNG démarrent tout de suite → pixelHouseReady vrai à la 1re apparition d'un bâtiment,
+  // donc pas de repli procédural visible à l'achat. Band de la save = couvre une ouverture
+  // directe en ère cosmique. Le recompute rappelle preloadHouseSprites avec la band courante.
+  preloadHouseSprites(((cityCounts(state) || {}).eraBand) || 0);
   const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
   if (resizeObserver) resizeObserver.observe(canvas);
   window.addEventListener("resize", resize);
