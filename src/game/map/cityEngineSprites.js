@@ -2585,10 +2585,11 @@ function drawCityEngineSprite(context) {
   if (id === "river_ports") {
     if (band >= 7) { // GRAND PORT cosmique : halle + conteneurs + ponton ; le VRAI fleuve sert d'eau (pas d'eau fake)
       const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
-      const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
-      // Grande plateforme / quai cosmique (le ponton la dépasse pour atteindre le fleuve)
-      ctx.fillStyle = cp.deep; ctx.fillRect(ox, oy + sh * 0.34, sw, sh * 0.54);
-      ctx.fillStyle = "rgba(0,0,0,0.30)"; ctx.fillRect(ox, oy + sh * 0.862, sw, sh * 0.02); // bord de quai
+      // Riverain COSMIQUE = composition SPRITE propre (leçon carré brun : AUCUN fond peint,
+      // berge + fleuve naturels dessous). DOCK sprite plongeant vers l'eau, dessiné SOUS le bâtiment.
+      const sizeMul = band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0;
+      const DOCK = propReady('port-dock-modern') ? 'port-dock-modern' : 'port-prop-pontoon';
+      blitProp(ctx, ox, oy, sw, sh, DOCK, 0.5, 0.46, Math.min(gw * 0.55, 0.9 + sizeMul * 0.24) / Math.max(1, gw), 2.7 / Math.max(1, gh));
       // Corps du port = TOUR-terminal cosmique (sprite posé sur la berge, ancrage riverain) ;
       // quai + pontons + vaisseaux restent dessinés autour. Repli procédural si le sprite manque.
       const pk = 'port-cosmic-' + band;
@@ -2608,34 +2609,8 @@ function drawCityEngineSprite(context) {
         // Conteneurs empilés sur le quai
         for (let r2 = 0; r2 < 2; r2++) for (let i = 0; i < 4; i++) { const cxx = 0.08 + i * 0.1; ctx.fillStyle = (i + r2) % 2 ? cp.edge : cp.mid; ctx.fillRect(ox + sw * cxx, oy + sh * (0.72 + r2 * 0.05), sw * 0.085, sh * 0.045); }
       }
-      // Plusieurs pontons depuis le quai jusque DANS le fleuve, chacun avec un vaisseau futuriste
-      const fboat = (bxc, byc, L, ph) => {
-        const yb2 = byc + Math.sin(now / 1100 + ph) * 0.012, hw = L * 0.5;
-        // Clapotis : anneaux qui s'élargissent autour de la coque, à la surface du fleuve
-        ctx.save(); ctx.globalCompositeOperation = "lighter";
-        for (let r = 0; r < 2; r++) { const t = (now / 1500 + ph + r * 0.5) % 1, rr2 = L * (0.45 + t * 0.7); ctx.strokeStyle = `rgba(210,235,255,${(0.24 * (1 - t)).toFixed(3)})`; ctx.lineWidth = Math.max(1, sw * 0.01); ctx.beginPath(); ctx.ellipse(ox + sw * bxc, oy + sh * (yb2 + hw * 0.55), sw * rr2, sh * rr2 * 0.42, 0, 0, Math.PI * 2); ctx.stroke(); }
-        ctx.restore();
-        ctx.fillStyle = cp.mid; ctx.beginPath();
-        ctx.moveTo(ox + sw * bxc, oy + sh * (yb2 + hw));                        // nez profilé vers le fleuve
-        ctx.lineTo(ox + sw * (bxc + L * 0.32), oy + sh * (yb2 + hw * 0.2));
-        ctx.lineTo(ox + sw * (bxc + L * 0.22), oy + sh * (yb2 - hw * 0.7));
-        ctx.lineTo(ox + sw * (bxc - L * 0.22), oy + sh * (yb2 - hw * 0.7));
-        ctx.lineTo(ox + sw * (bxc - L * 0.32), oy + sh * (yb2 + hw * 0.2));
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.ellipse(ox + sw * bxc, oy + sh * (yb2 + hw * 0.05), sw * L * 0.1, sh * hw * 0.55, 0, 0, Math.PI * 2); ctx.fill(); // canopy
-        ctx.fillStyle = cp.edge; // ailerons
-        ctx.fillRect(ox + sw * (bxc - L * 0.46), oy + sh * (yb2 - hw * 0.2), sw * L * 0.18, Math.max(1, sh * 0.02));
-        ctx.fillRect(ox + sw * (bxc + L * 0.28), oy + sh * (yb2 - hw * 0.2), sw * L * 0.18, Math.max(1, sh * 0.02));
-        glow(bxc, yb2 - hw * 0.7, L * 0.5, 0.35 + 0.2 * Math.sin(now / 300 + ph)); // propulseur qui pulse
-        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * bxc, oy + sh * (yb2 - hw * 0.62), sw * L * 0.08, 0, Math.PI * 2); ctx.fill();
-      };
-      for (const [px2, top, len, bly, bl] of [[0.26, 0.62, 0.46, 1.02, 0.15], [0.52, 0.6, 0.66, 1.2, 0.2], [0.78, 0.63, 0.42, 0.98, 0.14]]) {
-        ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * (px2 - 0.03), oy + sh * top, sw * 0.06, sh * len);
-        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * (px2 - 0.03), oy + sh * top, sw * 0.06, sh * 0.018);
-        fboat(px2, bly, bl, px2 * 7);
-      }
-      glow(0.4, 0.4, 0.24, 0.12 + 0.06 * Math.sin(now / 800));
-      if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.45)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.16, sw * 0.34, sh * 0.06, 0.1 * Math.sin(now / 900), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      // Bateau cosmique de l'ère amarré au bout du dock (sprite, aucun procédural).
+      blitEraBoat(ctx, ox, oy, sw, sh, 0.5, 0.72, 0.7 * sizeMul, 'cosmic-' + Math.min(9, Math.max(7, band)), now, gw);
       return true;
     }
     // ── PORT FLUVIAL UNIQUE ───────────────────────────────────────────────────
@@ -2949,9 +2924,7 @@ function drawCityEngineSprite(context) {
   if (id === "water_mills") {
     if (band >= 7) { // ROUE D'ÉNERGIE cosmique : moulin sur berge, roue qui plonge dans le VRAI fleuve (pas d'eau fake)
       const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
-      const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
       // PAS de plateforme cosmique : le vrai fleuve + le sol de la carte restent visibles dessous
-      /* ombre de contact retirée */
       // Corps du moulin = TOUR hydro cosmique (sprite posé sur la berge) ; la ROUE qui tourne
       // dans le fleuve est gardée et dessinée PAR-DESSUS (montée sur le flanc gauche). Repli procédural.
       const mk = 'mill-cosmic-' + band;
@@ -2965,20 +2938,10 @@ function drawCityEngineSprite(context) {
         if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.44, oy + sh * 0.2); ctx.lineTo(ox + sw * 0.66, oy + sh * 0.08); ctx.lineTo(ox + sw * 0.88, oy + sh * 0.2); ctx.closePath(); ctx.fill(); }
         else { for (let i = 0; i < 3; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.5 + i * 0.12), oy + sh * 0.36, sw * 0.08, sh * 0.09); } }
       }
-      // Roue qui plonge dans le VRAI fleuve (gauche) — gros diamètre, bas dans l'eau
-      const wcx = 0.27, wcy = 0.66, R = sw * 0.25, rot = now / 900;
-      ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(2, sw * 0.03); ctx.beginPath(); ctx.moveTo(ox + sw * wcx, oy + sh * wcy); ctx.lineTo(ox + sw * 0.46, oy + sh * 0.52); ctx.stroke(); // essieu vers le bâtiment
-      ctx.strokeStyle = cp.edge; ctx.lineWidth = Math.max(2, sw * 0.04); ctx.beginPath(); ctx.arc(ox + sw * wcx, oy + sh * wcy, R, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(1.5, sw * 0.028);
-      for (let a = 0; a < 8; a++) { const ang = rot + a * Math.PI / 4; ctx.beginPath(); ctx.moveTo(ox + sw * wcx, oy + sh * wcy); ctx.lineTo(ox + sw * wcx + Math.cos(ang) * R, oy + sh * wcy + Math.sin(ang) * R); ctx.stroke(); }
-      for (let a = 0; a < 8; a++) { const ang = rot + a * Math.PI / 4; ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * wcx + Math.cos(ang) * R, oy + sh * wcy + Math.sin(ang) * R, sw * 0.02, 0, Math.PI * 2); ctx.fill(); }
-      ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * wcx, oy + sh * wcy, sw * 0.05, 0, Math.PI * 2); ctx.fill();
-      // Clapotis churnés par la roue, qui filent dans le sens de rotation (bas de roue → gauche)
-      ctx.save(); ctx.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 3; i++) { const t = (now / 800 + i * 0.34) % 1, cxr = wcx - t * 0.14; ctx.strokeStyle = `rgba(210,235,255,${(0.3 * (1 - t)).toFixed(3)})`; ctx.lineWidth = Math.max(1, sw * 0.012); ctx.beginPath(); ctx.ellipse(ox + sw * cxr, oy + sh * 0.87, sw * (0.05 + t * 0.08), sh * (0.02 + t * 0.03), 0, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.restore();
-      glow(wcx, wcy, 0.16, 0.16 + 0.08 * Math.sin(now / 700));
-      if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.45)`; ctx.lineWidth = Math.max(1, sw * 0.014); ctx.beginPath(); ctx.ellipse(ox + sw * wcx, oy + sh * wcy, R * 1.3, R * 0.4, rot * 0.5, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      // ROUE cosmique = SPRITE (mill-turbine) qui tourne, montée sur le flanc GAUCHE et plongeant
+      // dans le VRAI fleuve (blitPropRot, sprite symétrique → pas de wobble). Repli roue métal/bois.
+      const WHEEL = propReady('mill-turbine') ? 'mill-turbine' : (propReady('mill-wheel-metal') ? 'mill-wheel-metal' : (propReady('mill-prop-wheel') ? 'mill-prop-wheel' : null));
+      if (WHEEL) blitPropRot(ctx, ox, oy, sw, sh, WHEEL, 0.26, 0.6, 2.1 / Math.max(1, gw), 2.1 / Math.max(1, gh), -(now || 0) / 320);
       return true;
     }
     // ── MOULIN À EAU UNIQUE — posé sur la rive, eau au sud (comme le port) ──────
