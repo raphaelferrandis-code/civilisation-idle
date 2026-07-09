@@ -154,18 +154,18 @@ const PROPS = [
   // ── CUEILLEUR cosmique (bands 7/8/9, ères 35+) — teintes COSMIC_PAL par band ──
   {
     key: 'forager-cosmic-7',
-    id: 'd28a4440-3d38-4dfb-b317-1341b075708a', // band 7 (Noosphère) — jardin bioluminescent émeraude (96×96)
-    prompt: 'a small alien bioluminescent garden, completely deserted, no people, no figures, no person: a cluster of glowing organic bulb-pods on curved translucent stems growing from a dark mound, the round pods emitting soft emerald and mint-green light, glowing teal veins and floating spores, wet organic membrane textures, dark near-black base, vivid emerald green bioluminescence, soft glow lighting',
+    id: '570e8b7d-ebc9-4753-bf12-9b888cba5539', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal vertical-farm arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; setback tiers swell into translucent hydroponic membrane-wombs of living crop rows, a glowing leaf-sprout emblem and greenhouse domes crowning the summit. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'forager-cosmic-8',
-    id: 'f92e5a59-4a77-4e7c-85b1-be35fff30fe7', // band 8 (Stellaire) — serre orbitale dorée (96×96)
-    prompt: 'a small futuristic golden orbital greenhouse dome, completely deserted, no people, no figures, no person: a sleek domed glass greenhouse of golden metal ribs and glowing amber glass panels, rows of luminous golden crops glowing inside, a thin orbital ring arcing around it, polished gold and warm amber, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: 'bb545b4f-b1ed-459f-b3e7-67f563a0857c', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal vertical-farm spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy tapering shaft with sweeping fins and layered setbacks; cantilevered hydroponic terrace-rings circle the shaft spilling glowing crop rows and greenhouse light, a gilded leaf-sprout emblem blazing at the beacon crown. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam, ring and beacon, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'forager-cosmic-9',
-    id: '3f17a421-d24a-4ead-9e02-6954ccdb1d29', // band 9 (Démiurge) — jardin cristallin violet (96×96)
-    prompt: 'a small levitating crystalline garden, completely deserted, no people, no figures, no person: a cluster of faceted floating amethyst crystals of various sizes growing bright glowing violet fruit-lights, sharp translucent purple gem facets catching light, glowing violet energy wisps, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: 'd5a3d4ba-ee1a-44a0-a923-a8462ff2e5e6', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal vertical-farm ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep setbacks erupting into raw violet crystal geodes; crystalline hydroponic terrace-racks of luminous crops step up the tiers with greenhouse light, a violet leaf-sprout emblem crowning the spire. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── ENTREPÔTS (granaries_city) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
   {
@@ -198,18 +198,18 @@ const PROPS = [
   },
   {
     key: 'granary-cosmic-7',
-    id: 'befdc719-f872-41e7-af79-7b8420f72adc', // band 7 — coffre à graines bioluminescent émeraude (96×96)
-    prompt: 'a small alien bioluminescent seed vault, completely deserted, no people, no figures, no person: a cluster of glowing organic pod-silos with translucent membrane shells storing luminous emerald seeds, glowing teal veins, dark near-black base, vivid emerald green bioluminescence, soft glow lighting',
+    id: '351984bd-2146-4fc6-94f6-19e4a90a2a42', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal storage arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; bulbous ovoid silo-pods lashed by bone struts, translucent walls showing packed grain reserves glowing within, gantry cranes and fill-gauge veins banding the mass. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'granary-cosmic-8',
-    id: 'cacef0e4-bb04-4c8c-976e-d47c834f901c', // band 8 — coffre orbital doré (96×96)
-    prompt: 'a small futuristic golden orbital storage vault, completely deserted, no people, no figures, no person: sleek golden metallic storage silos with glowing amber panels and a thin orbital ring arcing around them, polished gold and warm amber, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: '3720c73e-2773-41b0-9349-2e6861fef13b', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal storage silo-spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy shaft with sweeping fins and layered setbacks; bundled cylindrical mega-silos and stacked cargo-container rings sheathe the shaft, gantry cranes cantilevered off the flanks, glowing amber fill-gauge bars climbing each silo. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam and edge, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'granary-cosmic-9',
-    id: '8b55a61b-8c4f-4a7a-9afc-9e71e09200a4', // band 9 — monolithe de stockage cristallin violet (96×96)
-    prompt: 'a small levitating crystalline storage monolith cluster, completely deserted, no people, no figures, no person: tall faceted floating amethyst crystal vaults glowing with stored violet energy, sharp translucent purple gem facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '023f56b3-c73a-434c-b0dc-77ceef330825', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal storage ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; stacked obsidian silo-monoliths and cargo-container blocks bundle around the core, crystalline reserve-cores glowing within, holographic fill-gauge bars banding the mass. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── CARAVANES (caravans) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
   // Véhicules de PROFIL (view side) qui font la navette (blitPropH, miroir selon le sens) ;
@@ -231,18 +231,18 @@ const PROPS = [
   },
   {
     key: 'caravan-cosmic-7',
-    id: '67f59e15-4d99-42ee-b250-fe12e486bde1', // band 7 — portail de transit organique émeraude (96×96)
-    prompt: 'a small alien organic transit gate archway, completely deserted, no people, no figures, no person: two curved living organic pillars forming a glowing arch with a luminous emerald energy membrane between them, glowing teal veins, dark near-black base, vivid emerald green glow, soft glow lighting',
+    id: '42e74315-7a46-4ac6-b332-92d79a705493', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal spaceport transit-spire hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; cantilevered docking-arm tendrils and membranous launch-gate maws open on the flanks, cargo-pods sliding up sap-lit veins to landing platforms, a beacon-stigma crowning the spire. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'caravan-cosmic-8',
-    id: '8d25b51c-12bb-403c-b71c-0646729d0d46', // band 8 — portail-anneau orbital doré (96×96)
-    prompt: 'a small futuristic golden orbital transit ring portal, completely deserted, no people, no figures, no person: two golden pillars supporting a glowing amber energy ring gateway, polished gold and warm amber, a thin orbital arc, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: '0d0ca7b3-dba3-457c-b86e-7cdd20f37b19', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal spaceport transit-spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy shaft with sweeping fins and layered setbacks; stacked repulsor landing platforms and telescoping docking arms circle the shaft, glowing launch-gates cut into the tiers with sleek cargo shuttles in berths, an amber beacon crown. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam, gate and beacon, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'caravan-cosmic-9',
-    id: '18e9d553-f633-4d9f-a32d-c903206df402', // band 9 — portail cristallin violet (96×96)
-    prompt: 'a small levitating crystalline transit archway, completely deserted, no people, no figures, no person: two faceted amethyst crystal pylons flanking a glowing violet energy portal with a floating keystone crystal above, sharp translucent purple facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '82fbc8b8-4847-40df-99f0-08957f7d5563', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal spaceport transit-spire hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist ziggurat with deep monumental setbacks; cantilevered docking arms and lit launch-gates step up the onyx tiers, cargo shuttles cradled in berths, ultraviolet searchlight beams fanning from a crystalline beacon spire. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── MARCHÉS (markets) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
   // Scène d'ACTIVITÉ : hero (halle/kiosque) + chaland `basket-man` réutilisé en navette.
@@ -266,18 +266,18 @@ const PROPS = [
   },
   {
     key: 'market-cosmic-7',
-    id: '895ce5e2-67ba-4ad3-be1b-ce14ae40ddbe', // band 7 — nexus d'échange organique émeraude (96×96)
-    prompt: 'a small alien organic exchange nexus, completely deserted, no people, no figures, no person: a glowing central emerald node connected by living tendrils to several smaller pod-nodes around it, pulsing teal energy, glowing veins, dark near-black base, vivid emerald green glow, soft glow lighting',
+    id: '1eba9675-f55f-4eae-b74e-0b69130ecbd2', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal commerce arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; the translucent membrane skin becomes a living holographic billboard, glowing vendor-cell kiosks cluster the base, scrolling ad-light flickering up the growth-pods. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'market-cosmic-8',
-    id: 'b533d5f3-9dc7-4a1a-82eb-cf64dd8a12c9', // band 8 — hub d'échange orbital doré (96×96)
-    prompt: 'a small futuristic golden orbital exchange hub, completely deserted, no people, no figures, no person: a central golden hub with radiating spoke-arms linking glowing amber nodes, a thin orbital ring, polished gold and warm amber, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: '07fa39cd-aedc-4f34-9974-6e397ea1f8bd', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal commerce spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy clean-spire with sweeping fins and layered setbacks; enormous cantilevered holographic ad-boards and scrolling signage sheathe the front face, stacked vendor-kiosk galleries at the base, a blazing signage crown. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every board, seam and beacon against near-black alloy, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'market-cosmic-9',
-    id: '9e1ffa32-3a78-4a40-96e4-6bcd7417b164', // band 9 — nexus d'échange cristallin violet (96×96)
-    prompt: 'a small levitating crystalline exchange nexus, completely deserted, no people, no figures, no person: a central floating amethyst crystal core linked by glowing violet energy threads to several smaller faceted crystals, sharp translucent purple facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '13ce3e4a-407d-462e-85d6-9697a02afb70', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal commerce ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; giant holographic advertisement boards and scrolling price-ticker panels blaze across the tiered face, clustered kiosk galleries at the base, a crown of billboard screens. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from holo-panels and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── GUILDES (guilds) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
   // Bâtiment CLOS (comme le lodge stade 0), SANS perso ; vie = forge/fumée/bannière proc.
@@ -299,18 +299,18 @@ const PROPS = [
   },
   {
     key: 'guild-cosmic-7',
-    id: 'e8a0ed79-6ebc-44a4-994e-c6026c42e6a9', // band 7 — bio-forge assembleur émeraude (96×96)
-    prompt: 'a small alien organic bio-forge assembler, completely deserted, no people, no figures, no person: a glowing central emerald forge-pod with two curved living tendril-arms poised to work, a pulsing teal energy core, glowing veins, dark near-black base, vivid emerald green glow, soft glow lighting',
+    id: 'e943feac-162c-4dae-9c51-d3869190a57a', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal mega-factory arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; a molten glowing heart-chamber pulses at the core, ribbed robotic assembler-tendrils flex from the flanks, a gear-and-hammers emblem branded across the carapace. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams against the dark structure, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'guild-cosmic-8',
-    id: 'bd9fda42-a647-479e-ac24-794212e13991', // band 8 — forge d'assemblage dorée (96×96)
-    prompt: 'a small futuristic golden assembly forge, completely deserted, no people, no figures, no person: a golden metallic assembler block with two articulated forging arms and a glowing amber energy core, polished gold and warm amber, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: 'ddf40d5a-eae4-4ce4-baea-b11931d21a4d', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal mega-factory spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy shaft with sweeping fins and layered setbacks; exposed foundry decks and swinging robotic assembler arms cantilever off the frame, molten production-glow venting between trusses, a lit gear-and-hammers emblem on the front. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam and furnace-throat, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'guild-cosmic-9',
-    id: '0d196db8-4e48-496e-889e-6eb556a7228f', // band 9 — assembleur cristallin violet (96×96)
-    prompt: 'a small levitating crystalline assembler, completely deserted, no people, no figures, no person: a faceted amethyst crystal core with two crystal forging arms and a glowing violet prismatic heart, sharp translucent purple facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '149a55f4-1f19-4315-b220-27129ba0f58f', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal mega-factory ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; robotic assembler arms cantilever off the onyx facade, foundry glow vents from crystalline furnace-throats, a huge illuminated gear-and-hammers emblem across the front. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── CHAMPS (irrigated_fields) — parcelle hydroponique néon du stade 3 (2026-07-05) ──
   // Les parcelles vert/doré/jachère (stades 0-2) sont réutilisées ; SEUL le stade 3
@@ -393,18 +393,18 @@ const PROPS = [
   },
   {
     key: 'mint-cosmic-7',
-    id: '8fadd80d-8c92-4e43-92a9-5e7f42e946ec', // band 7 — bio-coffre à pièces émeraude (96×96)
-    prompt: 'a small alien organic bio-vault mint, completely deserted, no people, no figures, no person: a glowing emerald organic pod-vault storing luminous stacks of coins, pulsing teal energy, glowing veins, dark near-black base, vivid emerald green glow, soft glow lighting',
+    id: '48f3f7de-acf8-482d-9663-77383ad165d2', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal treasury-vault arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; armored bone-plated carapace tiers seal a hoard-chamber glowing with minting light, a great luminous coin emblem set like an eye in the front face. Emerald and jade-green neon (deep #0d6d45, mid #31d892, bright #9de7c8) glowing through membranes and vein-seams against the dark structure, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'mint-cosmic-8',
-    id: 'e46433af-ceae-4138-8b73-b23851834a70', // band 8 — coffre orbital doré (96×96)
-    prompt: 'a small futuristic golden orbital mint vault, completely deserted, no people, no figures, no person: a golden domed vault with glowing amber panels minting stacks of luminous gold coins, a thin orbital ring, polished gold and warm amber, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: '404ffe15-ea56-4281-ad57-e6602f10770f', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal treasury-vault spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy shaft with sweeping fins and layered setbacks; armored setback tiers of blast-door vault faces glow with minting-light seams, a single enormous glowing coin emblem embossed on the front, crowned by minting radiance. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam and vault-slot, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'mint-cosmic-9',
-    id: '5156a2c5-7cf7-45c5-8bae-3b55cdc71d65', // band 9 — coffre cristallin violet (96×96)
-    prompt: 'a small levitating crystalline mint vault, completely deserted, no people, no figures, no person: a faceted amethyst crystal vault with glowing violet energy coins floating around it, sharp translucent purple facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '9d5fd7c9-2c0a-4aa7-a480-0c21da24caa9', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal treasury-vault ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; stacked obsidian strongroom vault faces with minting-light seams step up the tiers, a huge glowing coin emblem embossed on the front like a sovereign seal. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── BANQUES (imperial_exchanges) stades 1-3 + cosmique — bâtiment CLOS (2026-07-05) ──
   // Stade 0 (comptoir de change `exchange-prop-stall`) déjà pixel. Emblème or/balance = identité.
@@ -425,18 +425,18 @@ const PROPS = [
   },
   {
     key: 'bank-cosmic-7',
-    id: 'aee27dc9-8ec5-4d97-8da3-0ccec1d31ab9', // band 7 — flèche d'échange organique émeraude (88×112)
-    prompt: 'a small alien organic monumental exchange spire, completely deserted, no people, no figures, no person: a tall glowing emerald organic spire with pulsing teal energy rings around it, glowing veins, dark near-black base, vivid emerald green glow, soft glow lighting',
+    id: '31fefd8b-e17d-4993-a745-cd6949f23e07', // band 7 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal grand-exchange arcology hundreds of meters tall in Noosphere emerald-biomech style — a near-black ribbed chitin-and-concrete core with bone-white flying buttresses; membrane-windows flicker with value-flow, scrolling ticker-light veins spiral up the shaft, a luminous coin-and-scales stigma crowns the spire. PURE EMERALD and jade GREEN neon (deep #0d6d45, mid #31d892, bright #9de7c8), warm green not teal, absolutely no cyan and no turquoise. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'bank-cosmic-8',
-    id: '2ecce985-fa5d-44e2-94aa-d4de9ad4caa3', // band 8 — flèche orbitale dorée (88×112)
-    prompt: 'a small futuristic golden monumental exchange spire, completely deserted, no people, no figures, no person: a tall polished gold spire with glowing amber orbital rings and a radiant glowing apex, dark near-black base, radiant warm gold glow, soft glow lighting',
+    id: 'fc42b36a-de89-485f-b174-cd11ad807ade', // band 8 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal grand-exchange spire hundreds of meters tall in Stellaire gold-Coruscant style — a near-black bronze-alloy clean-spire with sweeping fins and layered setbacks; tiers of glass trading-floor decks are ribboned with scrolling ticker-light bands racing up the shaft, a monumental coin-and-scales emblem lit at the crown. Warm gold and amber neon (deep #916808, mid #eab63e, bright #f2deb0) threading every seam, ticker and beacon against near-black alloy, no cyan. no people, no figures, transparent background, no ground.',
   },
   {
     key: 'bank-cosmic-9',
-    id: 'ca1116a3-0542-498d-bead-7109c56105ae', // band 9 — flèche cristalline violette (88×112)
-    prompt: 'a small levitating crystalline monumental exchange spire, completely deserted, no people, no figures, no person: a tall faceted amethyst crystal spire with glowing violet energy rings, sharp translucent purple facets, dark near-black base, vivid amethyst violet glow, soft glow lighting',
+    id: '7981776e-8779-47a7-8e72-bca427cfb654', // band 9 — TOUR cosmique gigantesque (128x224), refonte 2026-07-09
+    prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal grand-exchange ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; sheer mirror-glass trading decks are wrapped in scrolling ticker-tape light with a soaring central atrium slot, a huge glowing coin-and-scales emblem centered on the front. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── CONTEURS (storytellers, engineSprites.js) — ÉVOLUTION 4 STADES ajoutée (2026-07-05) ──
   // 1er bâtiment SAVOIR à recevoir un vrai dispatch d'ère (les savoir étaient mono-scène).

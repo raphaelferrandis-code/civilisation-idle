@@ -212,6 +212,30 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   ctx.imageSmoothingEnabled = prev;
 }
 
+// TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
+// de la scène, dépassant largement la boîte (apothéose de fin de jeu qui DOMINE les autres
+// bâtiments). Aspect natif préservé (pas d'écrasement). Halo additif qui respire, teinte de bande.
+// Réglable en live : window.__cosmicTowerH (hauteur ×boîte) / __cosmicTowerBase (ligne de sol).
+function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp) {
+  const im = propImg[key]; if (!im || !(im.naturalWidth > 0)) return false;
+  const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
+  const BASE = (typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95;
+  const bob = Math.sin(now / 1150 + band) * 0.012;
+  const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
+  const cx = ox + sw * 0.5, baseY = oy + sh * (BASE + bob);
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
+  ctx.imageSmoothingEnabled = prev;
+  if (cp && cp.glow) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const a = 0.16 + 0.10 * Math.sin(now / 720 + band), gy = baseY - drawH * 0.30;
+    const g = ctx.createRadialGradient(cx, gy, 0, cx, gy, sw * 0.5);
+    g.addColorStop(0, `rgba(${cp.glow},${a.toFixed(2)})`); g.addColorStop(1, `rgba(${cp.glow},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, gy, sw * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  return true;
+}
+
 // Comme blitProp mais avec MIROIR horizontal optionnel : pour un véhicule de profil qui
 // fait la navette (sprite orienté vers la DROITE par défaut → retourné pour aller à gauche).
 function blitPropH(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, flip) {
@@ -485,15 +509,8 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (prop PixelLab + halo additif qui respire) ; repli procédural dessous.
       const ckey = 'forager-cosmic-' + band;
       if (propReady(ckey)) {
-        cosmicGround(ctx, ox, oy, sw, sh, cp); // sol doux (se fond au terrain, plus de rectangle noir)
-        /* ombre de contact retirée */
-        const cbob = Math.sin(now / 1150 + band) * 0.02; // lévitation douce
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
-        ctx.save(); ctx.globalCompositeOperation = "lighter"; // halo additif TOUJOURS actif (énergie cosmique), respire
-        const cpulse = 0.24 + 0.12 * Math.sin(now / 720 + band);
-        const cg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * (0.52 + cbob), 0, ox + sw * 0.5, oy + sh * (0.52 + cbob), sw * 0.44);
-        cg.addColorStop(0, `rgba(${cp.glow},${cpulse.toFixed(2)})`); cg.addColorStop(1, `rgba(${cp.glow},0)`);
-        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * (0.52 + cbob), sw * 0.44, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        cosmicGround(ctx, ox, oy, sw, sh, cp); // sol doux (se fond au terrain)
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       cosmicGround(ctx, ox, oy, sw, sh, cp); // sol doux (se fond au terrain, plus de rectangle noir)
@@ -925,9 +942,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (prop PixelLab + halo qui respire) ; repli procédural dessous.
       const ckey = 'granary-cosmic-' + band;
       if (propReady(ckey)) {
-        const cbob = Math.sin(now / 1150 + band) * 0.02;   // lévitation douce
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
-        glow(0.5, 0.5 + cbob, 0.42, 0.24 + 0.12 * Math.sin(now / 720 + band));
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       for (let i = 0; i < 3; i++) {
@@ -1298,12 +1313,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (portail PixelLab + pod de fret qui traverse) ; repli procédural dessous.
       const ckey = 'caravan-cosmic-' + band;
       if (propReady(ckey)) {
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5, 0.82, 0.82);
-        glow(0.5, 0.42, 0.34, 0.22 + 0.12 * Math.sin(now / 700 + band));  // halo du portail qui respire
-        const ctt = (now / 2600) % 1, ck = ctt < 0.5 ? ctt * 2 : (1 - ctt) * 2, cpodx = 0.2 + ck * 0.6;
-        ctx.fillStyle = cp.edge; ctx.beginPath(); ctx.roundRect(ox + sw * cpodx - sw * 0.05, oy + sh * 0.72, sw * 0.1, sh * 0.07, sw * 0.02); ctx.fill();
-        ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * cpodx - sw * 0.03, oy + sh * 0.735, sw * 0.06, sh * 0.016);
-        glow(cpodx, 0.75, 0.07, 0.4);
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       const tt = (now / 2600) % 1, k = tt < 0.5 ? tt * 2 : (1 - tt) * 2; // navette triangle 0..1..0
@@ -1661,13 +1671,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (nexus PixelLab + halo qui respire + paquet qui file vers un nœud) ; repli dessous.
       const ckey = 'market-cosmic-' + band;
       if (propReady(ckey)) {
-        const cbob = Math.sin(now / 1150 + band) * 0.015;
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5 + cbob, 0.82, 0.82);
-        glow(0.5, 0.5 + cbob, 0.4, 0.24 + 0.12 * Math.sin(now / 720 + band));
-        const pk = (now / 1400) % 1, nx = 0.5 + Math.cos(band * 2.1) * 0.28, ny = 0.42 + Math.sin(band * 2.1) * 0.2;
-        const pkx = 0.5 + (nx - 0.5) * pk, pky = (0.5 + cbob) + (ny - (0.5 + cbob)) * pk;
-        ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.arc(ox + sw * pkx, oy + sh * pky, sw * 0.018, 0, Math.PI * 2); ctx.fill();
-        glow(pkx, pky, 0.05, 0.45);
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       const cxc = 0.5, cyc = 0.52;
@@ -2059,10 +2063,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (assembleur PixelLab + halo/cœur qui pulse) ; repli procédural dessous.
       const ckey = 'guild-cosmic-' + band;
       if (propReady(ckey)) {
-        const cbob = Math.sin(now / 1150 + band) * 0.012;
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
-        const beat = 0.5 + 0.5 * Math.sin(now / 400); // pulsation de la forge
-        glow(0.5, 0.55 + cbob, 0.38, 0.2 + 0.18 * beat);
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       const swing = Math.sin(now / 600);            // va-et-vient des bras (forge)
@@ -3161,9 +3162,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (coffre PixelLab + halo qui respire) ; repli procédural dessous.
       const ckey = 'mint-cosmic-' + band;
       if (propReady(ckey)) {
-        const cbob = Math.sin(now / 1150 + band) * 0.015;
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.52 + cbob, 0.82, 0.82);
-        glow(0.5, 0.55 + cbob, 0.4, 0.22 + 0.12 * Math.sin(now / 720 + band));
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.28, oy + sh * 0.46, sw * 0.44, sh * 0.38, sw * 0.05); ctx.fill();
@@ -3494,9 +3493,7 @@ function drawCityEngineSprite(context) {
       // Pixel-art cosmique (flèche PixelLab haute + halo qui respire) ; repli procédural dessous.
       const ckey = 'bank-cosmic-' + band;
       if (propReady(ckey)) {
-        const cbob = Math.sin(now / 1150 + band) * 0.012;
-        blitProp(ctx, ox, oy, sw, sh, ckey, 0.5, 0.5 + cbob, 0.66, 0.84);   // flèche haute (88×112)
-        glow(0.5, 0.36 + cbob, 0.32, 0.22 + 0.12 * Math.sin(now / 720 + band));   // halo à l'apex
+        blitCosmicTower(ctx, ox, oy, sw, sh, ckey, now, band, cp); // TOUR gigantesque (halo intégré)
         return true;
       }
       ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.moveTo(ox + sw * 0.38, oy + sh * 0.84); ctx.lineTo(ox + sw * 0.47, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.53, oy + sh * 0.26); ctx.lineTo(ox + sw * 0.62, oy + sh * 0.84); ctx.closePath(); ctx.fill();
