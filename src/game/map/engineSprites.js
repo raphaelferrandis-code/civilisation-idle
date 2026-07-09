@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, cosmicBase, softGround, propReady, blitProp, animReady, blitAnim } from './cityEngineSprites.js';
+import { drawCityEngineSprite, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -39,12 +39,7 @@ function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind) {
   //    animés réutilisés. Repli = silhouette procédurale ci-dessous. Emblème médaillon = identité.
   const pxKey = `cosmic-${fam}-${band}`;
   if (propReady(pxKey)) {
-    const lev = Math.sin(now / 700) * 0.02;
-    blitProp(ctx, ox, oy, sw, sh, pxKey, 0.5, 0.5 + lev, 0.84, 0.72);
-    const a0 = now / 1300, mx0 = 0.5 + Math.cos(a0) * 0.34, my0 = 0.5 + Math.sin(a0) * 0.16;
-    dot(mx0, my0, 0.02, cp.lite); glow(mx0, my0, 0.05, 0.45);
-    if (band === 8) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(${cp.glow},0.4)`; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.beginPath(); ctx.ellipse(X(0.5), Y(0.42), sw * 0.36, sh * 0.08, 0.15 * Math.sin(now / 900), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-    glow(0.5, 0.52, 0.2, 0.12 + 0.08 * pulse);
+    blitCosmicTower(ctx, ox, oy, sw, sh, pxKey, now, band, cp); // TOUR gigantesque posée (halo de bande intégré)
     return;
   }
   if (fam === "dome") {

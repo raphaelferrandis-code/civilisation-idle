@@ -3867,4 +3867,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, animReady, blitAnim };
+export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim };
