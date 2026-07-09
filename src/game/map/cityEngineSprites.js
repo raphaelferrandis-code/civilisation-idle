@@ -216,10 +216,10 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
 // de la scène, dépassant largement la boîte (apothéose de fin de jeu qui DOMINE les autres
 // bâtiments). Aspect natif préservé (pas d'écrasement). Halo additif qui respire, teinte de bande.
 // Réglable en live : window.__cosmicTowerH (hauteur ×boîte) / __cosmicTowerBase (ligne de sol).
-function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp) {
+function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) {
   const im = propImg[key]; if (!im || !(im.naturalWidth > 0)) return false;
   const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
-  const BASE = (typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95;
+  const BASE = baseOverride != null ? baseOverride : ((typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95);
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
@@ -2589,18 +2589,25 @@ function drawCityEngineSprite(context) {
       // Grande plateforme / quai cosmique (le ponton la dépasse pour atteindre le fleuve)
       ctx.fillStyle = cp.deep; ctx.fillRect(ox, oy + sh * 0.34, sw, sh * 0.54);
       ctx.fillStyle = "rgba(0,0,0,0.30)"; ctx.fillRect(ox, oy + sh * 0.862, sw, sh * 0.02); // bord de quai
-      // Grande halle portuaire (corps imposant, agrandi)
-      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.02, oy + sh * 0.04, sw * 0.62, sh * 0.64, sw * 0.03); ctx.fill();
-      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.42, oy + sh * 0.04, sw * 0.22, sh * 0.64);
-      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.06, sw * 0.58, sh * 0.06);
-      if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.02, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.33, oy - sh * 0.08); ctx.lineTo(ox + sw * 0.64, oy + sh * 0.04); ctx.closePath(); ctx.fill(); }
-      else { for (let r3 = 0; r3 < 2; r3++) for (let i = 0; i < 6; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.06 + i * 0.093), oy + sh * (0.2 + r3 * 0.2), sw * 0.06, sh * 0.1); } }
-      // Tour/silo annexe (agrandie)
-      ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.56);
-      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.86, oy + sh * 0.12, sw * 0.08, sh * 0.56);
-      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.04);
-      // Conteneurs empilés sur le quai
-      for (let r2 = 0; r2 < 2; r2++) for (let i = 0; i < 4; i++) { const cxx = 0.08 + i * 0.1; ctx.fillStyle = (i + r2) % 2 ? cp.edge : cp.mid; ctx.fillRect(ox + sw * cxx, oy + sh * (0.72 + r2 * 0.05), sw * 0.085, sh * 0.045); }
+      // Corps du port = TOUR-terminal cosmique (sprite posé sur la berge, ancrage riverain) ;
+      // quai + pontons + vaisseaux restent dessinés autour. Repli procédural si le sprite manque.
+      const pk = 'port-cosmic-' + band;
+      if (propReady(pk)) {
+        blitCosmicTower(ctx, ox, oy, sw, sh, pk, now, band, cp, (typeof window !== 'undefined' && window.__cosmicRiverBase) || 0.6);
+      } else {
+        // Grande halle portuaire (corps imposant, agrandi)
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.02, oy + sh * 0.04, sw * 0.62, sh * 0.64, sw * 0.03); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.42, oy + sh * 0.04, sw * 0.22, sh * 0.64);
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.06, sw * 0.58, sh * 0.06);
+        if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.02, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.33, oy - sh * 0.08); ctx.lineTo(ox + sw * 0.64, oy + sh * 0.04); ctx.closePath(); ctx.fill(); }
+        else { for (let r3 = 0; r3 < 2; r3++) for (let i = 0; i < 6; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.06 + i * 0.093), oy + sh * (0.2 + r3 * 0.2), sw * 0.06, sh * 0.1); } }
+        // Tour/silo annexe (agrandie)
+        ctx.fillStyle = cp.mid; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.56);
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.86, oy + sh * 0.12, sw * 0.08, sh * 0.56);
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.68, oy + sh * 0.12, sw * 0.26, sh * 0.04);
+        // Conteneurs empilés sur le quai
+        for (let r2 = 0; r2 < 2; r2++) for (let i = 0; i < 4; i++) { const cxx = 0.08 + i * 0.1; ctx.fillStyle = (i + r2) % 2 ? cp.edge : cp.mid; ctx.fillRect(ox + sw * cxx, oy + sh * (0.72 + r2 * 0.05), sw * 0.085, sh * 0.045); }
+      }
       // Plusieurs pontons depuis le quai jusque DANS le fleuve, chacun avec un vaisseau futuriste
       const fboat = (bxc, byc, L, ph) => {
         const yb2 = byc + Math.sin(now / 1100 + ph) * 0.012, hw = L * 0.5;
@@ -2945,12 +2952,19 @@ function drawCityEngineSprite(context) {
       const glow = (cx, cy, r, a) => { ctx.save(); ctx.globalCompositeOperation = "lighter"; const g = ctx.createRadialGradient(ox + sw * cx, oy + sh * cy, 0, ox + sw * cx, oy + sh * cy, sw * r); g.addColorStop(0, `rgba(${cp.glow},${a})`); g.addColorStop(1, `rgba(${cp.glow},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox + sw * cx, oy + sh * cy, sw * r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
       // PAS de plateforme cosmique : le vrai fleuve + le sol de la carte restent visibles dessous
       /* ombre de contact retirée */
-      // Gros bâtiment du moulin (droite)
-      ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.44, oy + sh * 0.2, sw * 0.44, sh * 0.5, sw * 0.03); ctx.fill();
-      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.7, oy + sh * 0.2, sw * 0.18, sh * 0.5);
-      ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.46, oy + sh * 0.22, sw * 0.4, sh * 0.05);
-      if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.44, oy + sh * 0.2); ctx.lineTo(ox + sw * 0.66, oy + sh * 0.08); ctx.lineTo(ox + sw * 0.88, oy + sh * 0.2); ctx.closePath(); ctx.fill(); }
-      else { for (let i = 0; i < 3; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.5 + i * 0.12), oy + sh * 0.36, sw * 0.08, sh * 0.09); } }
+      // Corps du moulin = TOUR hydro cosmique (sprite posé sur la berge) ; la ROUE qui tourne
+      // dans le fleuve est gardée et dessinée PAR-DESSUS (montée sur le flanc gauche). Repli procédural.
+      const mk = 'mill-cosmic-' + band;
+      if (propReady(mk)) {
+        blitCosmicTower(ctx, ox, oy, sw, sh, mk, now, band, cp, (typeof window !== 'undefined' && window.__cosmicRiverBase) || 0.6);
+      } else {
+        // Gros bâtiment du moulin (droite)
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.44, oy + sh * 0.2, sw * 0.44, sh * 0.5, sw * 0.03); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.7, oy + sh * 0.2, sw * 0.18, sh * 0.5);
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.46, oy + sh * 0.22, sw * 0.4, sh * 0.05);
+        if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.44, oy + sh * 0.2); ctx.lineTo(ox + sw * 0.66, oy + sh * 0.08); ctx.lineTo(ox + sw * 0.88, oy + sh * 0.2); ctx.closePath(); ctx.fill(); }
+        else { for (let i = 0; i < 3; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.5 + i * 0.12), oy + sh * 0.36, sw * 0.08, sh * 0.09); } }
+      }
       // Roue qui plonge dans le VRAI fleuve (gauche) — gros diamètre, bas dans l'eau
       const wcx = 0.27, wcy = 0.66, R = sw * 0.25, rot = now / 900;
       ctx.strokeStyle = cp.mid; ctx.lineWidth = Math.max(2, sw * 0.03); ctx.beginPath(); ctx.moveTo(ox + sw * wcx, oy + sh * wcy); ctx.lineTo(ox + sw * 0.46, oy + sh * 0.52); ctx.stroke(); // essieu vers le bâtiment
