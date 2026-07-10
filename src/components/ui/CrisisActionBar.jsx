@@ -8,6 +8,7 @@ import { toNum } from '../../game/core/num.js';
 import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE } from '../../game/core/balance.js';
 import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
+import PixelIcon from './PixelIcon.jsx';
 
 /**
  * Actions de régulation des foyers de tension (Subsistance / Inégalités /
@@ -223,6 +224,10 @@ function PolicyRow({ p, slotsFull }) {
       title={p.locked ? `${tr({ fr: 'Se débloque', en: 'Unlocks' })} : ${p.unlockLabel}` : p.desc}
       onClick={() => togglePolicy(p.id)}
     >
+      {/* Sceau gravé de la politique (pierre & or) — apposé quand elle est active. */}
+      <span className="policy-seal-wrap" aria-hidden="true">
+        <PixelIcon name={`seals/${p.id}`} className="policy-seal" />
+      </span>
       <span className="regul-btn-line">
         <strong>{p.label}</strong>
         <span className="regul-cost">{p.locked ? `🔒 ${p.unlockLabel}` : policyCostLabel(p.cost)}</span>

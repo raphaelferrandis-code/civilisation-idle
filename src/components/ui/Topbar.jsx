@@ -9,6 +9,7 @@ import {
 import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
+import PixelIcon from './PixelIcon.jsx';
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
 function exactLabel(value) {
@@ -92,29 +93,31 @@ export default function Topbar() {
     })
   };
 
+  // Ancres visuelles : icônes pixel-art dédiées (public/pixelart/ui/res/),
+  // une par ressource, teintées dans la couleur de la ressource.
   const cards = [
     {
-      key: "population", cls: "card-pop", icon: "fa-users", name: { fr: "Population", en: "Population" },
+      key: "population", cls: "card-pop", pixIcon: "res/population", name: { fr: "Population", en: "Population" },
       valueId: "population", value: population, rate: r.population, rateId: "popRate",
       gauge: null
     },
     {
-      key: "food", cls: "card-food", icon: "fa-wheat-awn", name: { fr: "Nourriture", en: "Food" },
+      key: "food", cls: "card-food", pixIcon: "res/food", name: { fr: "Nourriture", en: "Food" },
       valueId: "food", value: food, rate: r.food, rateId: "foodRate",
       gauge: { id: "foodBar", score: vitals.foodScore }
     },
     {
-      key: "gold", cls: "card-gold", icon: "fa-coins", name: { fr: "Trésor", en: "Treasury" },
+      key: "gold", cls: "card-gold", pixIcon: "res/gold", name: { fr: "Trésor", en: "Treasury" },
       valueId: "gold", value: gold, rate: r.gold, rateId: "goldRate",
       gauge: { id: "goldBar", score: vitals.goldScore }
     },
     {
-      key: "knowledge", cls: "card-knowledge", icon: "fa-book-open", name: { fr: "Savoir", en: "Knowledge" },
+      key: "knowledge", cls: "card-knowledge", pixIcon: "res/knowledge", name: { fr: "Savoir", en: "Knowledge" },
       valueId: "knowledge", value: knowledge, rate: r.knowledge, rateId: "knowledgeRate",
       gauge: { id: "knowledgeBar", score: vitals.knowledgeScore }
     },
     {
-      key: "infrastructure", cls: "card-infra", icon: "fa-archway", name: { fr: "Infrastructure", en: "Infrastructure" },
+      key: "infrastructure", cls: "card-infra", pixIcon: "res/infra", name: { fr: "Infrastructure", en: "Infrastructure" },
       valueId: "infrastructure", value: infrastructure, rate: r.infrastructure, rateId: "infraRate",
       gauge: null
     }
@@ -132,7 +135,7 @@ export default function Topbar() {
           >
             <div className="card-header">
               <div className="resource-title-wrapper">
-                <span className="resource-icon"><i className={`fa-solid ${c.icon}`}></i></span>
+                <span className="resource-icon"><PixelIcon name={c.pixIcon} /></span>
                 <span className="resource-name">{tr(c.name)}</span>
               </div>
               <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>

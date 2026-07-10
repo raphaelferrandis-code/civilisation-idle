@@ -28,10 +28,46 @@
 
 /* Cartes de 2e niveau (foyers de tension, baromètres) : un cran de fond plus
    clair que le panneau, bordure éteinte — l'écart tonal suffit à percevoir le
-   bord (élévation sombre). */
+   bord (élévation sombre) —, très légèrement lavée de la couleur du foyer. */
 .app[data-ui="light"] .tactical-card {
+  position: relative;
+  overflow: hidden;
   border-color: transparent;
-  background: rgba(255, 255, 255, 0.035);
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--foyer-color, transparent), transparent 93%), transparent 62%),
+    rgba(255, 255, 255, 0.035);
+}
+
+/* Illustration comme structure : l'emblème du foyer en filigrane, grand format,
+   dans le coin bas-droit de sa colonne — c'est l'image qui identifie le foyer,
+   plus le cadre. Les enfants passent en positionné pour peindre au-dessus. */
+.app[data-ui="light"] .tactical-card > * {
+  position: relative;
+}
+
+.app[data-ui="light"] .tactical-card::before {
+  content: "";
+  position: absolute;
+  right: -12px;
+  bottom: -12px;
+  width: 92px;
+  height: 92px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  opacity: 0.09;
+  pointer-events: none;
+}
+
+.app[data-ui="light"] .tactical-card--food::before  { background-image: url("/pixelart/ui/foyers/scarcity.png"); }
+.app[data-ui="light"] .tactical-card--gold::before  { background-image: url("/pixelart/ui/foyers/inequality.png"); }
+.app[data-ui="light"] .tactical-card--know::before  { background-image: url("/pixelart/ui/foyers/complexity.png"); }
+.app[data-ui="light"] .tactical-card--usure::before { background-image: url("/pixelart/ui/foyers/dissent.png"); }
+
+/* Rangée fantôme d'une politique : sceau réduit pour suivre le repli. */
+.app[data-ui="light"] .policy-btn:disabled .policy-seal.px-icon {
+  width: 18px;
+  height: 18px;
 }
 
 /* Baromètres : on ne garde QUE la barre d'accent gauche (rupture/usure). */

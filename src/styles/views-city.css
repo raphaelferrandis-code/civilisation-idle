@@ -472,15 +472,45 @@
   gap: 0.5rem;
 }
 .policy-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
+  /* Grille : colonne sceau (span 2 lignes) + colonne texte. */
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.55rem;
+  row-gap: 0.18rem;
+  align-items: center;
   text-align: left;
   padding: 0.5rem 0.7rem;
   border: 1px solid rgba(127, 198, 230, 0.28);
   border-radius: 8px;
   background: rgba(20, 30, 40, 0.5);
   cursor: pointer;
+}
+
+/* Sceau gravé (pierre & or) de la politique — pixelart/ui/seals/<id>.png. */
+.policy-seal-wrap {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+}
+
+.policy-seal.px-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.policy-btn .regul-btn-line {
+  grid-column: 2;
+}
+
+/* Tant que la politique n'est pas apposée, le sceau reste pierre estompée ;
+   actif = sceau « encré » plein, souligné d'un léger halo or. */
+.policy-btn:not(.is-active) .policy-seal {
+  filter: grayscale(0.75) brightness(0.82);
+  opacity: 0.65;
+}
+
+.policy-btn.is-active .policy-seal {
+  filter: drop-shadow(0 0 4px rgba(201, 169, 104, 0.45));
 }
 .policy-btn:disabled {
   cursor: not-allowed;

@@ -108,6 +108,12 @@
   font-size: 0.95rem;
 }
 
+/* Ancre pixel-art de la ressource (remplace l'icône FontAwesome). */
+.topbar .resource-icon .px-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .topbar .resource-name {
   min-width: 0;
   overflow: hidden;
