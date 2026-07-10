@@ -1,6 +1,6 @@
  
 import { state } from '../core/state.js';
-import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor } from './layout.js';
+import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
@@ -188,6 +188,46 @@ function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, s
       || drawNamedAgent(ctx, sx, groundY, z, AGENT_FALLBACK.name, AGENT_FALLBACK.scale, dir, walking, now, phase, scaleMul);
 }
 
+// ── Bandes de marche DIAGONALES (chantier iso, Phase 4) ──────────────────────
+// Mêmes conventions que les bandes cardinales (AGENT_NF frames de 68 px) mais en
+// vues diagonales : /pixelart/agents/…/{name}-southeast.png etc. En mode iso, la
+// direction MONDE (E/O/S/N) se projette sur UNE diagonale ÉCRAN : E→SE, O→NO,
+// S→SO, N→NE — donc seules les 4 diagonales servent en iso. Générées par vagues
+// PixelLab (pilote : greekman, cf. scripts/fetchAgentsIso.mjs) ; tant qu'une
+// bande manque (onerror), l'appelant retombe sur la bande cardinale.
+const ISO_DIAG = ['southeast', 'northwest', 'southwest', 'northeast']; // index = dir monde 0..3
+const agentDiagChars = {};
+function ensureAgentDiag(name) {
+  let c = agentDiagChars[name];
+  if (c) return c;
+  c = { img: {}, ready: 0, failed: 0 };
+  agentDiagChars[name] = c;
+  if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
+    const im = new Image();
+    im.onload = () => { c.ready += 1; };
+    im.onerror = () => { c.failed += 1; };
+    im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png';
+    c.img[d] = im;
+  }
+  return c;
+}
+// Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
+function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1) {
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
+  const c = ensureAgentDiag(spec.name);
+  if (c.ready < ISO_DIAG.length) return false;
+  const d = (dir >= 0 && dir < 4) ? dir : 2;
+  const img = c.img[ISO_DIAG[d]];
+  const drawH = CM.TILE * z * spec.scale * AGENT_SCALE * scaleMul, drawW = drawH;
+  const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % AGENT_NF) : 0;
+  const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
+  const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
+  ctx.imageSmoothingEnabled = prevS;
+  return true;
+}
+
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
 // Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
@@ -224,6 +264,9 @@ for (const t of Object.keys(VEH_SIZES)) ensureVeh(t);
 for (const a of ['horse', 'ox']) ensureAgentChar(a);
 // Drone MÉCANIQUE (quadricoptère, réf. l'ancien rendu SVG) : sprite pixel top-down UNIQUE,
 // pivoté au rendu selon le cap. Repli procédural si pas chargé.
+// On charge le CHÂSSIS SANS PALES (drone-mech-body.png, généré par
+// scripts/splitDroneRotors.cjs) : les hélices étaient gravées/figées sur les
+// bras. Elles sont redessinées et TOURNÉES au rendu (drawDroneRotors).
 let droneChar = null;
 function ensureDrone() {
   if (droneChar) return droneChar;
@@ -231,10 +274,72 @@ function ensureDrone() {
   if (typeof Image !== 'undefined') {
     const im = new Image();
     im.onload = () => { droneChar.ready = true; };
-    im.src = '/pixelart/agents/vehicles/drone-mech.png';
+    im.src = '/pixelart/agents/vehicles/drone-mech-body.png';
     droneChar.img = im;
   }
   return droneChar;
+}
+// Moyeux des 4 rotors en FRACTION du sprite 64px (x,y depuis le centre) + sens de
+// rotation (paires diagonales CW/CCW, comme un vrai quad). Généré par
+// scripts/splitDroneRotors.cjs. Dessinés dans le repère local du sprite (déjà
+// translaté au centre + pivoté au cap) → les hélices suivent le drone.
+const DRONE_HUBS = [
+  [-0.2578, -0.2422, 1],
+  [0.2891, -0.2578, -1],
+  [-0.2891, 0.2578, -1],
+  [0.3047, 0.2891, 1],
+];
+const DRONE_ROTOR_R = 0.205;   // rayon du disque de souffle (fraction du sprite)
+let droneRotorsOn = true;       // molette de debug __droneRotors(false)
+if (typeof window !== 'undefined') {
+  window.__droneRotors = (on) => { droneRotorsOn = on !== false; return droneRotorsOn; };
+  // Taille globale du drone en live (défaut 0.58) : window.__droneSize(0.5) etc.
+  window.__droneSize = (v) => { CM.droneSize = (+v > 0) ? +v : 0.58; return CM.droneSize; };
+}
+// Dessine les 4 hélices tournantes du drone. À appeler DANS le repère du sprite
+// (origine = centre du drone, +y = arrière après le pivot au cap), avant restore.
+// dsz = taille de rendu du sprite ; t = horloge (ms) ; phase = déphasage par drone.
+function drawDroneRotors(ctx, dsz, t, phase) {
+  const r = dsz * DRONE_ROTOR_R;
+  if (r < 1) return;                        // trop petit à l'écran : on saute
+  const spin = t * 0.045;                   // vitesse de rotation (rapide)
+  const prevA = ctx.globalAlpha;
+  for (let i = 0; i < DRONE_HUBS.length; i += 1) {
+    const h = DRONE_HUBS[i];
+    ctx.save();
+    ctx.translate(h[0] * dsz, h[1] * dsz);
+    // Souffle : disque sombre translucide (aire balayée = flou de rotation).
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = '#0b0e14';
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    // Trace fugace des bouts de pale (anneau clair très léger).
+    ctx.globalAlpha = 0.10;
+    ctx.strokeStyle = '#cfd9e6';
+    ctx.lineWidth = Math.max(0.5, r * 0.13);
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2); ctx.stroke();
+    // 3 pales en éventail, tournantes (semi-transparentes → effet flou).
+    ctx.rotate(spin * h[2] + i * 0.8 + phase);
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = '#aeb9c8';
+    for (let b = 0; b < 3; b += 1) {
+      ctx.rotate((Math.PI * 2) / 3);
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.07);
+      ctx.lineTo(r * 0.9, -r * 0.025);
+      ctx.lineTo(r * 0.9, r * 0.025);
+      ctx.lineTo(0, r * 0.07);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Moyeu : petit disque sombre + éclat discret (l'axe qui tourne).
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = '#23272f';
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, r * 0.15), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(214,228,247,0.6)';
+    ctx.beginPath(); ctx.arc(-r * 0.04, -r * 0.04, Math.max(0.3, r * 0.04), 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = prevA;
 }
 if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
 
@@ -443,14 +548,63 @@ function buildingNorthOf(gx, gy, lean = 0) {
   if (lean >= 0 && B.has((gx + 1) + ',' + gy1)) return true;   // décalé est (ou centré) → NE
   return false;
 }
+// Y-SORT « PEINTRE » (2026-07-10) : décision passe 1/2 par comparaison des PIEDS de
+// l'agent avec la LIGNE DE BASE des sprites bâtis alentour (CM.buildingInfo, fiches
+// posées au recompute). Remplace le test cellulaire « bâtiment au nord ? » qui créait
+// deux artefacts signalés par Raph :
+//   1. rue entre deux rangs de tours → l'agent, flaggé « devant » pour sa tour NORD,
+//      était dessiné PAR-DESSUS la tour SUD → piétons debout sur les toits ;
+//   2. piéton longeant le flanc d'une tour (même rangée) → jamais flaggé « devant »
+//      → mangé par le débord latéral du sprite (« il passe derrière l'immeuble »).
+// Règle du peintre : un bâtiment dont la base est PLUS SUD que les pieds passe devant
+// l'agent ; plus nord, l'agent passe devant. Concrètement :
+//   - occulteur : base à ≥ ~1 tuile au sud des pieds ET sprite assez haut pour
+//     remonter au-dessus d'eux (topY) ET recouvrement de colonne → passe 1 (l'agent
+//     glisse DERRIÈRE la tour sud — fini les toits piétonniers) ;
+//   - rogneur de tête : base juste au nord des pieds (≤ ~1,15 tuile) → passe 2 ;
+//   - même rangée (base à < ~1 tuile au sud, cas du longeur de flanc) : PAS un
+//     occulteur → l'agent reste éligible passe 2 → il marche PAR-DESSUS le débord.
+// Le seuil (eps, défaut 1.0 tuile) sépare nettement « même rangée » (Δ ≈ 0,1–0,9)
+// de « rangée suivante au sud » (Δ ≈ 1,1–1,9), décalages-trottoir compris. Molettes :
+// window.__ysortEps (seuil), window.__ysortPainter(false) = revenir au test cellulaire.
+// Renvoie null si CM.buildingInfo absent (tests/replis) → l'appelant garde l'ancien test.
+const ysortPainterFlag = { on: true };
+if (typeof window !== 'undefined') window.__ysortPainter = (on) => { ysortPainterFlag.on = on !== false; return ysortPainterFlag.on; };
+function frontByPainter(wx, wy) {
+  const BI = CM.buildingInfo;
+  if (!BI || !ysortPainterFlag.on) return null;
+  const T = CM.TILE;
+  const eps = T * ((typeof window !== 'undefined' && window.__ysortEps != null) ? window.__ysortEps : 1.0);
+  const margin = T * 0.45;                    // demi-agent + débord latéral toléré des sprites
+  const gx = Math.floor(wx / T), gy = Math.floor(wy / T);
+  let northClip = false;
+  for (let cy = gy - 1; cy <= gy + 2; cy += 1) {
+    for (let cx = gx - 1; cx <= gx + 1; cx += 1) {
+      const b = BI.get(cx * 10000 + cy);
+      if (!b) continue;
+      if (wx < b.x0 - margin || wx > b.x1 + margin) continue;   // pas de recouvrement colonne
+      if (b.baseY > wy + eps) {
+        // Base franchement au SUD des pieds : s'il monte au-dessus d'eux, il occulte.
+        if (!b.clipOnly && b.topY < wy) return false;
+      } else if (b.baseY > wy - T * 1.15) {
+        // Base au nord (ou même rangée) toute proche : rognerait la tête → « devant ».
+        northClip = true;
+      }
+    }
+  }
+  return northClip;
+}
 function isCitizenInFront(p) {
   if (!ysortFlag.on) return false;
   const gy1 = p.gy - 1;
-  // Bâtiment au nord (rang élargi, biaisé par le décalage-trottoir p.lox pour les coins) OU
-  // prop tall de place — fontaine / drapeau / lampadaire (clés numériques gx*10000+gy). → « devant ».
-  return buildingNorthOf(p.gx, p.gy, p.lox || 0)
-      || (!!CM.fountainCells && CM.fountainCells.has(p.gx * 10000 + gy1))
-      || (!!CM.plazaPropCells && CM.plazaPropCells.has(p.gx * 10000 + gy1));
+  // Props tall de place — fontaine / drapeau / lampadaire (clés numériques gx*10000+gy) :
+  // toujours « devant » (les esplanades n'ont pas de bâtiment qui pourrait occulter).
+  if ((!!CM.fountainCells && CM.fountainCells.has(p.gx * 10000 + gy1))
+   || (!!CM.plazaPropCells && CM.plazaPropCells.has(p.gx * 10000 + gy1))) return true;
+  const byPainter = frontByPainter(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  if (byPainter !== null) return byPainter;
+  // Repli historique (pas de buildingInfo — tests / vieux layouts) : test cellulaire.
+  return buildingNorthOf(p.gx, p.gy, p.lox || 0);
 }
 
 // front (optionnel) : 2e passe Y-SORT. Appelée avec dt=0 après les bâtiments → toutes les
@@ -771,7 +925,28 @@ function vehicleRoadRank(gx, gy) {
 function vehicleLaneOffset(v, s) {
   if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
   const rank = vehicleRoadRank(v.gx, v.gy);
-  if (rank !== "main") return { x: 0, y: 0 };          // seuls les BOULEVARDS 2-cell décalent
+  if (rank === "plaza") return { x: 0, y: 0 };         // esplanades : jamais de véhicule (défensif)
+  if (rank !== "main") {
+    // Rue 1 CELLULE (avenue / rue / sentier) : conduite à DROITE généralisée — avant,
+    // seul le boulevard décalait et les deux sens se croisaient PILE sur la ligne
+    // centrale (têtes-à-têtes fantômes ; sur les avenues, pile sur le refuge planté).
+    // Cible = milieu de la voie roulable : entre le refuge éventuel (medianHalfFor,
+    // avenues plantées) et le bord de chaussée. Plancher de lisibilité (les sprites
+    // sont plus larges que les petites rues → on accepte de mordre l'accotement) et
+    // plafond sous la ligne des piétons (pedEdge 0.42). Même contrat que le boulevard :
+    // pur RENDU (pathfinding centré), partagé phares/carrosserie, nudge __vehLaneBias.
+    const eiR = CM.layout?.counts?.eraIndex ?? 13;
+    const laneBias = (typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
+    const lane = Math.min(0.24, Math.max(0.13, (medianHalfFor(rank, eiR) + roadWidthFor(rank, eiR) / 2) / 2));
+    const m = s * (lane + laneBias);
+    // Bord DROIT du sens de marche (même convention que le décalage-trottoir piéton) :
+    // E→file sud, W→file nord, S→file ouest, N→file est.
+    return v.dir === 0 ? { x: 0, y: m }
+      : v.dir === 1 ? { x: 0, y: -m }
+        : v.dir === 2 ? { x: -m, y: 0 }
+          : v.dir === 3 ? { x: m, y: 0 }
+            : { x: 0, y: 0 };
+  }
   // Boulevard 2 cellules (axe main élargi) : refuge planté sur la COUTURE au centre.
   // On pousse le véhicule vers le BORD EXTÉRIEUR de sa cellule (loin de la couture =
   // de l'autre voie) → il roule dans sa file et dégage le refuge. L'autre voie est le
@@ -885,11 +1060,15 @@ function drawVehicleWheelSet(ctx, s, axles, sideY, rx, ry, fill = "#1a1a20", rim
   }
 }
 
-// Y-SORT (véhicule au sol) : « devant » = bâtiment au rang nord (comme les habitants, mais
-// sans les props de place — un véhicule roule sur la route ; et sans biais latéral car il n'a
-// pas de décalage-trottoir stocké → on teste les deux diagonales). Sert au split 2 passes.
+// Y-SORT (véhicule au sol) : même test « peintre » que les habitants (pieds = centre
+// du véhicule + décalage de file, en px monde via s=CM.TILE). Repli cellulaire si pas
+// de buildingInfo. Sert au split 2 passes.
 function isVehicleInFront(v) {
-  return !!ysortFlag.on && buildingNorthOf(v.gx, v.gy, 0);
+  if (!ysortFlag.on) return false;
+  const lo = vehicleLaneOffset(v, CM.TILE);   // s = TILE → offset en px MONDE (zoom-neutre)
+  const byPainter = frontByPainter(v.x + lo.x, v.y + lo.y);
+  if (byPainter !== null) return byPainter;
+  return buildingNorthOf(v.gx, v.gy, 0);
 }
 
 // Boucle véhicules : filtre la passe (sol/air + Y-SORT) puis délègue à drawOneVehicle. Le
@@ -1085,9 +1264,13 @@ function drawOneVehicle(v, now) {
       const t2 = now || 0;
       const hover = Math.sin(t2 / 380 + v.x * 0.04) * s * 0.04;
       const pulse = 0.5 + 0.5 * Math.sin(t2 / 180 + v.x * 0.05);
+      // Taille globale du drone (sprite + ombre + LED + hélices, tout scale avec).
+      // Réduit sous l'ancien 0.85 : un drone de livraison ne doit pas être aussi
+      // gros qu'une voiture (retour Raph 2026-07-10). Réglable via window.__droneSize.
+      const dScale = CM.droneSize || 0.58;
       ctx.fillStyle = `rgba(0,0,0,${(0.1 + 0.06 * Math.sin(t2 / 380)).toFixed(2)})`;
       ctx.beginPath();
-      ctx.ellipse(sx, sy + s * 0.55 + hover, s * 0.18, s * 0.06, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx, sy + s * 0.55 + hover, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2);
       ctx.fill();
       // Sprite pixel biomécanique (frelon/libellule vu de dessus) pivoté selon le cap : la tête
       // du sprite pointe vers le HAUT (nord), on l'aligne sur le vecteur de déplacement.
@@ -1097,19 +1280,22 @@ function drawOneVehicle(v, now) {
         const hd = Math.hypot(hx, hy);
         if (hd > 0.5) { hx /= hd; hy /= hd; }
         else { hx = v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0; hy = v.dir === 2 ? 1 : v.dir === 3 ? -1 : 0; }
-        const dsz = s * (CM.droneSize || 0.85);   // taille de rendu (molette __droneSize)
+        const dsz = s * dScale;   // taille de rendu (voir dScale ci-dessus / window.__droneSize)
         const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
         ctx.save();
         ctx.translate(sx, sy + hover);
         ctx.rotate(Math.atan2(hy, hx) + Math.PI / 2);
         ctx.drawImage(dchr.img, -dsz / 2, -dsz / 2, dsz, dsz);
+        // Hélices tournantes par-dessus les nacelles (dans le repère du sprite).
+        if (droneRotorsOn) drawDroneRotors(ctx, dsz, t2, v.x * 0.02);
         ctx.restore();
         ctx.imageSmoothingEnabled = prevSm;
-        // Cœur ambre pulsé (additif) — glow chaud discret, remplace les LED cyan/vert/rouge.
+        // Cœur ambre pulsé (additif) — petit point chaud (« LED » du drone). Gardé
+        // DISCRET : un gros glow lisait comme une grosse LED (retour Raph 2026-07-10).
         const prevC = ctx.globalCompositeOperation;
         ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = `rgba(255,178,82,${(0.16 + pulse * 0.22).toFixed(2)})`;
-        ctx.beginPath(); ctx.arc(sx, sy + hover, Math.max(1, s * 0.05), 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255,178,82,${(0.12 + pulse * 0.16).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(sx, sy + hover, Math.max(0.5, s * dScale * 0.045), 0, Math.PI * 2); ctx.fill();
         ctx.globalCompositeOperation = prevC;
         if (v.fade < 1) ctx.globalAlpha = 1;
         return;
@@ -1642,4 +1828,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawNamedAgent, riotEraKey };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors };

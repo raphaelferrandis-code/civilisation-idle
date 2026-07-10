@@ -28,7 +28,11 @@ import {
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import { buildNecropolis } from './necropolis.js';
-import { preloadHouseSprites } from './pixelHouses.js';
+import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
+// CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
+// monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
+import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, ISO_X, ISO_Y } from './iso/projection.js';
+import { drawIsoWorld } from './iso/isoRenderer.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -128,8 +132,9 @@ function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
   if (!canvas) return;
   const M = CM._bakeMargin || 0;
   const bm = CM[stateName];
-  const px = bm ? (CM.cam.x - bm.camX) * CM.cam.zoom : Infinity;
-  const py = bm ? (CM.cam.y - bm.camY) * CM.cam.zoom : Infinity;
+  // Delta de pan PROJETÉ (iso : un pan monde reste une translation écran).
+  const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : { x: Infinity, y: Infinity };
+  const px = pd.x, py = pd.y;
   if (!bm || bm.other !== otherKey || !M || Math.abs(px) > M || Math.abs(py) > M) {
     const mainCtx = CM.ctx, cw = CM.cw, ch = CM.ch;
     CM.cw = cw + 2 * M; CM.ch = ch + 2 * M;   // viewport élargi → centre + culling couvrent la marge
@@ -147,34 +152,27 @@ function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
 function cityMapBlitMargin(canvas, stateName) {
   const b = CM[stateName]; if (!canvas || !b) return;
   const M = CM._bakeMargin || 0;
-  const ox = (b.camX - CM.cam.x) * CM.cam.zoom - M;
-  const oy = (b.camY - CM.cam.y) * CM.cam.zoom - M;
-  CM.ctx.drawImage(canvas, ox, oy, CM.cw + 2 * M, CM.ch + 2 * M);
+  const pd = panDeltaToScreen(b.camX - CM.cam.x, b.camY - CM.cam.y);
+  CM.ctx.drawImage(canvas, pd.x - M, pd.y - M, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
+// Monde↔écran : délégué à la projection unique (iso/projection.js). Identique au
+// mapping historique quand CM.iso est éteint.
 function cityMapWorldAtScreen(sx, sy) {
-  return {
-    x: (sx - CM.cw / 2) / CM.cam.zoom + CM.cam.x,
-    y: (sy - CM.ch / 2) / CM.cam.zoom + CM.cam.y
-  };
+  return screenToWorld(sx, sy);
 }
 
 function cityMapScreenFromWorld(wx, wy) {
-  return {
-    x: (wx - CM.cam.x) * CM.cam.zoom + CM.cw / 2,
-    y: (wy - CM.cam.y) * CM.cam.zoom + CM.ch / 2
-  };
+  return worldToScreen(wx, wy);
 }
 
 function cityMapTileScreen(gx, gy, span = 1) {
   const s = CM.TILE * CM.cam.zoom;
-  return {
-    s,
-    x: (gx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2,
-    y: (gy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2,
-    w: s * span,
-    h: s * span
-  };
+  const p = worldToScreen(gx * CM.TILE, gy * CM.TILE);
+  if (!CM.iso) return { s, x: p.x, y: p.y, w: s * span, h: s * span };
+  // Iso : boîte englobante du losange de l'empreinte (x,y = coin haut-gauche).
+  const w = s * span * 2 * ISO_X, h = s * span * 2 * ISO_Y;
+  return { s, x: p.x - w / 2, y: p.y, w, h };
 }
 
 function cityMapCenterCamera(layout) {
@@ -184,7 +182,9 @@ function cityMapCenterCamera(layout) {
   CM.cam.y = (layout.plan?.core?.y ?? layout.gridN / 2) * CM.TILE;
   // Zoom recule avec la taille de la ville : village (22 tuiles visibles) → mégalopole (36 tuiles)
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
-  CM.cam.zoom = Math.max(0.35, Math.min(1.6, CM.cw / (targetTiles * CM.TILE)));
+  // Iso : les mêmes tuiles occupent 2× la largeur écran (losange 2:1) → zoom ÷2.
+  const perTile = CM.TILE * (CM.iso ? 2 * ISO_X : 1);
+  CM.cam.zoom = Math.max(0.35, Math.min(1.6, CM.cw / (targetTiles * perTile)));
 }
 
 // Borne la caméra sur la zone de contenu : fleuve (amont→aval) en X, grille
@@ -207,6 +207,18 @@ function cmClampCamera() {
   const by1 = (N + 0.5 * N) * T;  // ... et en dessous
   const boxW = bx1 - bx0, boxH = by1 - by0;
   if (boxW <= 0 || boxH <= 0) return;
+  if (CM.iso) {
+    // Iso (Phase 1) : la boîte monde projetée est un losange dont l'étendue écran
+    // vaut (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan
+    // se contente de garder le CENTRE caméra dans la boîte monde (clamp exact
+    // bord-à-bord = intersection de losange, affiné en Phase 6 si besoin).
+    const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
+    const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
+    if (CM.cam.zoom < zoomFloorIso) CM.cam.zoom = zoomFloorIso;
+    CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
+    CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
+    return;
+  }
   // Plancher de zoom : la boîte contient toujours le viewport (axe contraignant
   // ajusté pile -> on prend le max des deux ajustements).
   const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
@@ -416,8 +428,11 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     const dx = e.clientX - CM.drag.x;
     const dy = e.clientY - CM.drag.y;
     CM.drag.moved += Math.abs(dx) + Math.abs(dy);
-    CM.cam.x = CM.drag.camx - dx / CM.cam.zoom;
-    CM.cam.y = CM.drag.camy - dy / CM.cam.zoom;
+    // Delta écran → delta caméra via la projection (iso : la carte suit la souris
+    // le long des diagonales, comme attendu).
+    const pd = screenDeltaToPan(dx, dy);
+    CM.cam.x = CM.drag.camx - pd.x;
+    CM.cam.y = CM.drag.camy - pd.y;
     canvas.style.cursor = "grabbing";
   }, { signal });
 
@@ -766,6 +781,35 @@ function cityMapEnsureLayout(now, deps = {}) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) bcells.add((d.gx + ax) + "," + (d.gy + ay));
   }
   CM.buildingCells = bcells;
+  // Fiches Y-SORT « peintre » par cellule bâtie (clé gx*10000+gy, fiche PARTAGÉE par
+  // empreinte) : x0/x1 = recouvrement colonne (px monde), baseY = ligne de contact au
+  // sol (bas d'empreinte — l'ordre du peintre), topY = portée du sprite vers le nord.
+  // Maisons/enginehome : hauteur RÉELLE du PNG (houseSpriteHeightTiles, défaut 2.2
+  // tuiles tant que pas mesuré). Moteur/civic/districts : clipOnly = ne PEUVENT PAS
+  // occulter un agent (scènes basses type champs/marchés, et les tours de district
+  // sont bakées SOUS les agents) — seulement le « rognage de tête » côté nord.
+  const binfo = new Map();
+  const Tpx = CM.TILE;
+  for (const t of L.tiles) {
+    const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1;
+    const isHouse = t.type === "house" || t.type === "enginehome";
+    const hTiles = isHouse ? (houseSpriteHeightTiles(t.variant) || 2.2) : 1.15;
+    const rec = {
+      x0: t.gx * Tpx, x1: (t.gx + bx) * Tpx,
+      baseY: (t.gy + by) * Tpx, topY: ((t.gy + by) - hTiles) * Tpx,
+      clipOnly: !isHouse,
+    };
+    for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) binfo.set((t.gx + ax) * 10000 + (t.gy + ay), rec);
+  }
+  for (const d of (L.districts || [])) {
+    const rec = {
+      x0: d.gx * Tpx, x1: (d.gx + d.size) * Tpx,
+      baseY: (d.gy + d.size) * Tpx, topY: ((d.gy + d.size) - 1.15) * Tpx,
+      clipOnly: true,
+    };
+    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) binfo.set((d.gx + ax) * 10000 + (d.gy + ay), rec);
+  }
+  CM.buildingInfo = binfo;
   CM.riverRow = -999;
 
   if (!CM.centered) {
@@ -999,7 +1043,9 @@ function initCityMap(canvas, options = {}) {
     CM.raf = requestAnimationFrame(frame);
     if (now - last < FRAME_MS && !CM.capture) return; // capture : court-circuite le throttle
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
-    const active = isActive();
+    // Capture déterministe : rendre MÊME si la vue est « inactive » (modal de crise,
+    // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).
+    const active = isActive() || !!CM.capture;
     if (active && CM.canvas && CM.cw > 0) {
       if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
@@ -1064,6 +1110,12 @@ function initCityMap(canvas, options = {}) {
       // Detection d'effondrement (anim de destruction centre -> exterieur).
       if (typeof collapseInProgress !== "undefined" && collapseInProgress) { if (!CM.collapseAt) CM.collapseAt = now; }
       else { CM.collapseAt = 0; }
+      // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
+      // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
+      // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
+      if (CM.iso && drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin })) {
+        // frame iso rendue — le bloc legacy garde son indentation historique.
+      } else {
       // --- Couches statiques (rebake si layout/zoom/nuit change OU pan > marge) ---
       // NB: sol ET rivière ne sont PAS dans ce canvas — dessinés live pour l'ordre :
       // sol → rivière → (blit décor : arbres/routes/ponts/lumières).
@@ -1223,6 +1275,7 @@ function initCityMap(canvas, options = {}) {
       }
       drawVehicles(now, "air"); // drones au-dessus
       if (!CM.lodActive) drawCitizenThoughts();
+      } // fin du pipeline legacy (voir la bascule CM.iso en tête de bloc)
     }
   }
   // Premiere mise en page immediate puis boucle.
@@ -1270,6 +1323,28 @@ function initCityMap(canvas, options = {}) {
     window.__state = state;
     window.__D = D;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    // MONTAGE DE DÉMO EN UN APPEL (Phase 0 chantier iso) — concentre tous les gotchas
+    // du harnais : fige tick+autosave (clearInterval), pompe l'état SANS déclencher la
+    // crise (instability/timeWear remis à 0 avant ET après), recompute, fait tourner la
+    // sim à la main (rAF gelé en pane cachée → forceFrame), re-clique le dialog de crise
+    // s'il a surgi, et neutralise les fondus de naissance (CM.born → -1e6) pour que la
+    // capture déterministe voie les bâtiments. Usage : await __demoCity({ pop:'1e23' }).
+    window.__demoCity = async (opts = {}) => {
+      for (let i = 1; i < 1e5; i += 1) clearInterval(i);
+      const pop = opts.pop || '1e23';
+      state.population = D(pop); state.knowledge = D(pop); state.infrastructure = D(pop);
+      state.instability = 0; state.timeWear = 0;
+      const minB = opts.buildings == null ? 40 : opts.buildings;
+      if (state.buildings) for (const k of Object.keys(state.buildings)) state.buildings[k] = Math.max(state.buildings[k] || 0, minB);
+      window.__cityRecompute();
+      const frames = opts.frames == null ? 16 : opts.frames;
+      for (let k = 0; k < frames; k += 1) { CM.forceFrame(); await new Promise((r) => setTimeout(r, 90)); }
+      state.instability = 0; state.timeWear = 0;
+      const dlgBtn = document.querySelector('dialog button'); if (dlgBtn) dlgBtn.click();
+      if (CM.born) for (const k of Object.keys(CM.born)) CM.born[k] = -1e6;
+      CM.forceFrame();
+      return { layout: !!CM.layout, veh: CM.vehicles.length, cit: CM.citizens.length, era: CM.layout && CM.layout.counts ? CM.layout.counts.eraIndex : null };
+    };
     window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })

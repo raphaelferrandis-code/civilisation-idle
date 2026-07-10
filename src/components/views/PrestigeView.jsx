@@ -3,7 +3,6 @@ import PixelIcon from '../ui/PixelIcon.jsx';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   ruinGain,
-  ruinMultiplier,
   heritageQuality,
   crisisOpen,
   pressureBreakdown,
@@ -23,12 +22,11 @@ import { isMythEffectActive } from '../../game/data/myths.js';
 import { fmt, pct, costLabel, clamp01 } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
+import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
 
 export default function PrestigeView() {
   const instability = useGameState(s => s.instability);
   const timeWear = useGameState(s => s.timeWear);
-  const ruins = useGameState(s => s.ruins);
-  const collapsePreparation = useGameState(s => s.collapsePreparation);
   const crisisLimitAnnounced = useGameState(s => s.crisisLimitAnnounced);
   const crisisOpenedAt = useGameState(s => s.crisisOpenedAt);
   useGameState(s => s.activeMythId);
@@ -37,11 +35,6 @@ export default function PrestigeView() {
   const [remainingTime, setRemainingTime] = useState("");
 
   const ruinGainVal = ruinGain();
-  // Rework 1 — gain PROJETÉ « si effondrement maintenant » (calculé même hors
-  // crise) : aide à la décision temporiser vs s'effondrer. Hors crise, ruinGainVal
-  // vaut 0 ; ce projeté montre ce que la chute rapporterait à cet instant.
-  const projectedRuin = ruinGain(true);
-  const ruinMult = ruinMultiplier();
   const isCrisisActive = crisisOpen();
 
   useEffect(() => {
@@ -143,69 +136,54 @@ export default function PrestigeView() {
 
   return (
     <section className="view active" id="prestige">
-      {/* 1. BAROMÈTRES GLOBAUX */}
-      <div className="panel barometers-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{tr({ fr: "Baromètres de la Cité", en: "City Barometers" })}</h2>
+      {/* 1. JAUGES GLOBALES — nues, sans encart */}
+      <div className="barometers-grid">
+        <div className="barometer-card instability">
+          <div className="barometer-header">
+            <span>{tr({ fr: "Rupture (Tension sociale)", en: "Rupture (Social tension)" })}</span>
+            <strong>{pct(instability)}</strong>
+          </div>
+          <div className="barometer-track">
+            <span className="barometer-fill" style={{ width: `${clamp01(instability) * 100}%` }}></span>
+            {/* Rework 2 — fantôme de la cible : où la jauge se dirige (pressure.total). */}
+            <span
+              className="barometer-target-ghost"
+              style={{ left: `${clamp01(pressure.total) * 100}%` }}
+              title={tr({
+                fr: `Cible : ${pct(pressure.total)} — la jauge dérive vers ce niveau. Réguler la fait baisser ; au-dessus de 100 %, la crise s'ouvre.`,
+                en: `Target: ${pct(pressure.total)} — the gauge drifts toward this level. Regulating lowers it; above 100%, the crisis opens.`
+              })}
+            ></span>
+          </div>
+          <div className="barometer-footer">
+            <small>{driftText}</small>
+            <small className="target-pressure">{tr({ fr: "Cible :", en: "Target:" })} {pct(pressure.total)}</small>
           </div>
         </div>
 
-        <div className="barometers-grid">
-          <div className="barometer-card instability">
-            <div className="barometer-header">
-              <span>{tr({ fr: "Rupture (Tension sociale)", en: "Rupture (Social tension)" })}</span>
-              <strong>{pct(instability)}</strong>
-            </div>
-            <div className="barometer-track">
-              <span className="barometer-fill" style={{ width: `${clamp01(instability) * 100}%` }}></span>
-              {/* Rework 2 — fantôme de la cible : où la jauge se dirige (pressure.total). */}
-              <span
-                className="barometer-target-ghost"
-                style={{ left: `${clamp01(pressure.total) * 100}%` }}
-                title={tr({
-                  fr: `Cible : ${pct(pressure.total)} — la jauge dérive vers ce niveau. Réguler la fait baisser ; au-dessus de 100 %, la crise s'ouvre.`,
-                  en: `Target: ${pct(pressure.total)} — the gauge drifts toward this level. Regulating lowers it; above 100%, the crisis opens.`
-                })}
-              ></span>
-            </div>
-            <div className="barometer-footer">
-              <small>{driftText}</small>
-              <small className="target-pressure">{tr({ fr: "Cible :", en: "Target:" })} {pct(pressure.total)}</small>
-            </div>
-            {/* Rework 1 — gain projeté si effondrement maintenant (aide à la décision). */}
-            <div className="barometer-collapse-hint" title={tr({ fr: "Ruines obtenues si la cité s'effondrait à cet instant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>
-              {tr({ fr: "Si effondrement maintenant :", en: "If collapse now:" })} <strong>+{fmt(projectedRuin)}</strong>
-            </div>
+        <div className="barometer-card time-wear">
+          <div className="barometer-header">
+            <span>{tr({ fr: "Usure du Temps", en: "Wear of Time" })}</span>
+            <strong>{pct(timeWear)}</strong>
           </div>
-
-          <div className="barometer-card time-wear">
-            <div className="barometer-header">
-              <span>{tr({ fr: "Usure du Temps", en: "Wear of Time" })}</span>
-              <strong>{pct(timeWear)}</strong>
-            </div>
-            <div className="barometer-track">
-              <span className="barometer-fill" style={{ width: `${clamp01(timeWear) * 100}%` }}></span>
-            </div>
-            <div className="barometer-footer">
-              <small>{wearDriftText}</small>
-            </div>
+          <div className="barometer-track">
+            <span className="barometer-fill" style={{ width: `${clamp01(timeWear) * 100}%` }}></span>
+          </div>
+          <div className="barometer-footer">
+            <small>{wearDriftText}</small>
           </div>
         </div>
       </div>
 
-      {/* 2. TABLEAU TACTIQUE (FUSION TENSIONS & ACTIONS) */}
-      {!isCrisisActive && <CrisisActionBar variant="full" />}
-
-      {/* 3. CYCLE & DÉCLIN (BILAN & PRESTIGE / MODE CRISE) */}
-      <div className={`panel cycle-outcome-panel ${isCrisisActive ? 'crisis-focus-active' : ''}`} id="crisisOutcomePanel">
-        <div className="panel-heading">
-          <div>
-            <h2>{isCrisisActive ? tr({ fr: "Chute & Transmission", en: "Fall & Transmission" }) : tr({ fr: "Bilan de la Civilisation", en: "Civilization Review" })}</h2>
+      {/* 2. MODE CRISE : CHUTE & TRANSMISSION (hors crise, le Bilan vit dans la Chronique) */}
+      {isCrisisActive && (
+        <div className="panel cycle-outcome-panel crisis-focus-active" id="crisisOutcomePanel">
+          <div className="panel-heading">
+            <div>
+              <h2>{tr({ fr: "Chute & Transmission", en: "Fall & Transmission" })}</h2>
+            </div>
           </div>
-        </div>
 
-        {isCrisisActive ? (
           <div className="crisis-focus-layout">
             <div className="crisis-choices-grid">
               <div className="crisis-preparation-actions">
@@ -310,44 +288,14 @@ export default function PrestigeView() {
               </div>
             </div>
           </div>
-        ) : (
-          <div className="standard-prestige-layout">
-            <div className="prestige-stats-grid">
-              <div className="prestige-stat-card">
-                <span>{tr({ fr: "Ruines si effondrement", en: "Ruins if collapse" })}</span>
-                <strong>{fmt(projectedRuin)} <PixelIcon name="glyphs/ruines" /></strong>
-              </div>
-              <div className="prestige-stat-card">
-                <span>{tr({ fr: "Héritage préparé", en: "Heritage prepared" })}</span>
-                <strong>+{fmt(Math.min(2.4, collapsePreparation || 0) * 100)}%</strong>
-              </div>
-              <div className="prestige-stat-card">
-                <span>{tr({ fr: "Qualité d'héritage", en: "Heritage quality" })}</span>
-                <strong>{heritageQuality()}</strong>
-              </div>
-              <div className="prestige-stat-card">
-                <span>{tr({ fr: "Ruines en réserve", en: "Ruins in reserve" })}</span>
-                <strong>{fmt(ruins)}</strong>
-              </div>
-              <div className="prestige-stat-card">
-                <span>{tr({ fr: "Bonus de production", en: "Production bonus" })}</span>
-                <strong>x{fmt(ruinMult)}</strong>
-              </div>
-            </div>
+        </div>
+      )}
 
-            <div className="standard-collapse-action">
-              <button
-                className="manual-collapse-btn"
-                id="collapseBtn"
-                disabled={!canCollapse}
-                onClick={() => collapse("manual")}
-              >
-                {tr({ fr: "Provoquer l'effondrement", en: "Trigger Collapse" })}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* 3. TABLEAU TACTIQUE (FUSION TENSIONS & ACTIONS) */}
+      {!isCrisisActive && <CrisisActionBar variant="full" />}
+
+      {/* 4. DOCTRINE DE CRISE — automatisation des paliers (déplacée depuis les Options) */}
+      {!isCrisisActive && <CrisisDoctrinePanel />}
     </section>
   );
 }

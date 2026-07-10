@@ -160,6 +160,15 @@ export function drawPixelHouse(t, x, y, w, h) {
   return true;
 }
 
+// Hauteur (en TUILES) du sprite d'une variante — pour le Y-SORT « peintre » des agents :
+// même math que drawPixelHouse (dh/unit = bb.h/HOUSE_UNIT), donc la portée RÉELLE du
+// sprite au-dessus de sa base. null tant que le PNG n'est pas mesuré (l'appelant met
+// un défaut). Suit le skin cosmique courant via spriteKeyFor.
+export function houseSpriteHeightTiles(variant) {
+  const e = cache.get(spriteKeyFor(variant));
+  return (e && e.ready && e.bbox) ? e.bbox.h / HOUSE_UNIT : null;
+}
+
 // Dev : bascule le rendu pixel des habitations. __pixelHouses(false) → procédural.
 if (typeof window !== "undefined") {
   window.__pixelHouses = (on) => {

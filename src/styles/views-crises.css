@@ -9,20 +9,14 @@
   gap: 1rem;
 }
 
+/* Plus d'accent gauche (les « accolades » arrondies, refusées par Raph) : la
+   couleur d'identité de chaque jauge est portée par sa barre de remplissage. */
 .barometer-card {
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(15, 20, 30, 0.45);
   box-shadow: inset 0 1px 0 var(--shine);
-}
-
-.barometer-card.instability {
-  border-left: 3px solid rgba(220, 95, 75, 0.7);
-}
-
-.barometer-card.time-wear {
-  border-left: 3px solid rgba(135, 100, 180, 0.7);
 }
 
 .barometer-header {
@@ -86,16 +80,6 @@
   justify-content: space-between;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-/* Rework 1 — gain projeté « si effondrement maintenant ». */
-.barometer-collapse-hint {
-  margin-top: 0.5rem;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-.barometer-collapse-hint strong {
-  color: var(--gold);
 }
 
 /* 2. Tableau Tactique (Tensions & Actions) */
@@ -527,60 +511,18 @@
   animation: pulse 1.5s infinite;
 }
 
-/* Mode Calme (Standard) */
-.prestige-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 1rem;
-  margin: 1.25rem 0;
-}
+/* (Le Bilan de la Civilisation vit désormais dans l'onglet Chronique —
+   styles .chronicle-bilan-* dans views-chronicle-timeline.css.) */
 
-.prestige-stat-card {
-  display: flex;
-  flex-direction: column;
-  padding: 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.prestige-stat-card span {
-  font-size: 0.72rem;
+/* Doctrine de crise (panneau déplacé depuis les Options) */
+.doctrine-intro {
+  margin: 0.35rem 0 0;
+  font-size: 0.83rem;
   color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 0.25rem;
 }
 
-.prestige-stat-card strong {
-  font-size: 1.1rem;
-  color: #fff;
-}
-
-.standard-collapse-action {
-  display: flex;
-  justify-content: center;
-  margin-top: 1.25rem;
-}
-
-.manual-collapse-btn {
-  padding: 0.8rem 2rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--line);
-  color: #fff;
-  transition: all 0.2s ease;
-}
-
-.manual-collapse-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--gold);
-}
-
-.manual-collapse-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.doctrine-panel .doctrine-rows {
+  margin-bottom: 0;
 }
 
 .ragnarok-constraints-panel,
@@ -641,3 +583,50 @@
   letter-spacing: 0.02em;
 }
 
+
+/* ==========================================================================
+   Typo de l'onglet Effondrement — lisibilité d'abord (itération 2026-07-10)
+   --------------------------------------------------------------------------
+   Pixelify puis VT323 jugées illisibles à petit corps par Raph → le tab passe
+   en Inter, « le registre » de la DA typo (typography.css §3 : Inter tabulaire
+   pour tout ce qui se mesure). Les h2 de panneaux gardent --font-title,
+   identité commune à tous les onglets. Les micro-corps (0.58–0.66rem) sont
+   remontés au seuil de lisibilité.
+   ========================================================================== */
+#prestige {
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rattrape ce qui ne suit pas l'héritage : boutons et titres h3-h5 (re-calés
+   en famille par des règles globales), règles à famille propre (chiffres
+   Silkscreen via --font-number, petites lignes en --font-body), et inputs
+   (pas d'héritage de police par défaut). Les h2 de panneaux restent exclus. */
+#prestige button,
+#prestige h3,
+#prestige h4,
+#prestige h5,
+#prestige small,
+#prestige strong,
+#prestige .tactical-value,
+#prestige .crisis-regul-title,
+#prestige .options-row > div small,
+#prestige input {
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+/* Micro-corps remontés au seuil lisible. */
+#prestige .regul-gain,
+#prestige .regul-malus,
+#prestige .regul-cost,
+#prestige .regul-gamble-tag,
+#prestige .regul-reform-tag,
+#prestige .policy-effect,
+#prestige .crisis-regul-buffer,
+#prestige .crisis-foyer-locked { font-size: 0.74rem; }
+#prestige .crisis-regul-title { font-size: 0.75rem; }
+#prestige .crisis-policies-count { font-size: 0.75rem; }
+#prestige .crisis-regul-buffer--full { font-size: 0.85rem; }
+#prestige .policy-active-tag { font-size: 0.66rem; }
+#prestige .crisis-foyer-soothed,
+#prestige .crisis-foyer-reformed { font-size: 0.66rem; }

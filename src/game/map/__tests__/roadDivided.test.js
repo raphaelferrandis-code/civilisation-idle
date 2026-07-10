@@ -153,11 +153,27 @@ describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur",
     expect(top.y).toBeCloseTo(-bot.y);               // symétriques autour de la couture
   });
 
-  it("avenue / rue / sentier : centrés (seul le boulevard main 2-cell décale)", () => {
+  it("avenue / rue : conduite à DROITE généralisée (les deux sens se séparent)", () => {
     CM.frameEraIndex = 14;
-    CM.layout = { roadMap: new Map([["5,5", { rank: "avenue" }]]) };
-    expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
-    CM.layout = { roadMap: new Map([["5,5", { rank: "secondary" }]]) };
+    for (const rank of ["avenue", "secondary"]) {
+      CM.layout = { roadMap: new Map([["5,5", { rank }]]) };
+      const east = vehicleLaneOffset(v(5, 5, 0), 32);   // est → file SUD
+      const west = vehicleLaneOffset(v(5, 5, 1), 32);   // ouest → file NORD
+      const south = vehicleLaneOffset(v(5, 5, 2), 32);  // sud → file OUEST
+      const north = vehicleLaneOffset(v(5, 5, 3), 32);  // nord → file EST
+      expect(east.y).toBeGreaterThan(0);
+      expect(west.y).toBeLessThan(0);
+      expect(east.y).toBeCloseTo(-west.y);              // sens opposés symétriques
+      expect(east.x).toBe(0);
+      expect(south.x).toBeLessThan(0);
+      expect(north.x).toBeGreaterThan(0);
+      expect(south.y).toBe(0);
+    }
+  });
+
+  it("esplanade (plaza) : aucun décalage (défensif — piétonne)", () => {
+    CM.frameEraIndex = 14;
+    CM.layout = { roadMap: new Map([["5,5", { rank: "plaza" }]]) };
     expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
   });
 
