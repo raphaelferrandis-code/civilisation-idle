@@ -21,7 +21,7 @@ const DEFAULT_DURATION = 1100;
  * piégée en dev (voir num.js). Au repos, on reformate la valeur d'origine pour
  * garder l'exactitude des très grands Decimal ; en cours d'anim, l'interpolation.
  */
-export default function RollingNumber({ value, format = fmt, duration = DEFAULT_DURATION }) {
+export default function RollingNumber({ value, format = fmt, duration = DEFAULT_DURATION, pulse = false }) {
   const target = toNum(value);
   const [display, setDisplay] = useState(target);
 
@@ -30,6 +30,9 @@ export default function RollingNumber({ value, format = fmt, duration = DEFAULT_
   const displayRef = useRef(target);
   const startRef = useRef(0);
   const rafRef = useRef(0);
+  // Compteur de ticks (hausses de cible) : re-monte le span .roll-pulse pour
+  // rejouer la micro-pulsation à chaque tick (opt-in via `pulse`).
+  const tickRef = useRef(0);
 
   useEffect(() => {
     // Cible inchangée (re-render parent sans variation) : rien à animer.
@@ -60,6 +63,7 @@ export default function RollingNumber({ value, format = fmt, duration = DEFAULT_
     fromRef.current = displayRef.current; // repart de la position courante (anim en cours incluse).
     targetRef.current = target;
     startRef.current = performance.now();
+    tickRef.current += 1;
 
     const step = (now) => {
       const t = Math.min(1, (now - startRef.current) / duration);
@@ -80,5 +84,9 @@ export default function RollingNumber({ value, format = fmt, duration = DEFAULT_
 
   // Au repos (anim terminée), on reformate la valeur d'origine — exacte pour les
   // très grands Decimal. En cours d'anim, on formate le number interpolé.
-  return format(display === target ? value : display);
+  const text = format(display === target ? value : display);
+  if (!pulse) return text;
+  // key = n° de tick : le span est re-monté à chaque hausse → l'animation
+  // CSS .roll-pulse (micro-bump) se rejoue, calée sur le rythme du jeu.
+  return <span className="roll-pulse" key={tickRef.current}>{text}</span>;
 }

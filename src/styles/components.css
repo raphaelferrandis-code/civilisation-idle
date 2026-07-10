@@ -110,28 +110,53 @@
 
 /* Ancre pixel-art de la ressource (remplace l'icône FontAwesome). */
 .topbar .resource-icon .px-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Hiérarchie de la carte (rework topbar) : micro-label → GRANDE valeur →
+   débit discret. Avant, nom/valeur/débit se disputaient la même taille et la
+   même couleur — illisible. La couleur de ressource est réservée à la VALEUR
+   (et à l'icône) ; le nom passe en micro-label neutre. ── */
+
+.topbar .resource-card-unified .card-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.14rem;
+  padding-bottom: 0.08rem;
 }
 
 .topbar .resource-name {
   min-width: 0;
   overflow: hidden;
-  /* Agrandi : la police pixel « chausse » petit, les libellés étaient durs à lire */
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* La valeur domine sa carte (compacte : fmtShort la garde courte) */
+/* Micro-label neutre : gagne sur les teintes par carte de views-city.css. */
+.topbar .resource-card-unified .resource-title-wrapper .resource-name {
+  color: var(--text-mid);
+}
+
+/* La valeur domine sa carte (fmtShortLive : mantisse enrichie qui défile) */
 .topbar .resource-value {
   flex-shrink: 0;
   font-family: var(--font-number);
-  font-size: 1.6rem;
-  font-weight: 600;
+  font-size: 1.9rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Micro-pulsation du compteur à chaque tick (RollingNumber pulse). */
+.roll-pulse {
+  display: inline-block;
+  animation: counter-bump 300ms ease-out;
 }
 
 .resource-rate-row {
@@ -139,8 +164,17 @@
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  /* Agrandi de 0.75rem : les taux « +x / sec » étaient minuscules en pixel */
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+}
+
+/* Débit : discret et neutre — le signal couleur reste sur la flèche (et le
+   rouge d'alerte des débits négatifs est conservé tel quel). */
+.topbar .resource-card-unified .rate-value.positive {
+  color: var(--text-mid);
+}
+
+.topbar .resource-card-unified .rate-value.positive .rate-arrow {
+  color: var(--green);
 }
 
 .resource-rate-row .rate-value {

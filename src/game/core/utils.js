@@ -44,10 +44,11 @@ function formatScientificNumber(value) {
 
 // Compact à suffixes (K/M/B…Dc), puis scientifique au-delà du décillion (1e36).
 // Empiler des suffixes exotiques plus loin n'aide personne.
-function formatCompactNumber(value) {
+// `extraDecimals` : décimales de mantisse en plus (voir fmtShortLive).
+function formatCompactNumber(value, extraDecimals = 0) {
   const sign = value < 0 ? "-" : "";
   let v = Math.abs(value);
-  if (v < 1000) return `${sign}${v.toFixed(v < 10 ? 1 : 0)}`;
+  if (v < 1000) return `${sign}${v.toFixed((v < 10 ? 1 : 0) + (extraDecimals ? 1 : 0))}`;
   if (v >= 1e36) return formatScientificNumber(value);
   const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   let i = -1;
@@ -55,7 +56,7 @@ function formatCompactNumber(value) {
     v /= 1000;
     i += 1;
   }
-  return `${sign}${v.toFixed(v < 10 ? 2 : 1)}${units[i]}`;
+  return `${sign}${v.toFixed((v < 10 ? 2 : 1) + extraDecimals)}${units[i]}`;
 }
 
 export const fmt = (value) => {
@@ -84,6 +85,20 @@ export const fmtShort = (value) => {
   }
   if (!Number.isFinite(value)) return "inf";
   return formatCompactNumber(value);
+};
+
+// Compact « vivant » : mantisse enrichie de 2 décimales pour que le count-up
+// de RollingNumber reste VISIBLE sur les grands nombres — avec 3 chiffres
+// significatifs (« 8.19No »), l'affichage paraît figé entre deux ticks alors
+// que la valeur roule. Réservé aux gros compteurs animés (topbar).
+export const fmtShortLive = (value) => {
+  if (value instanceof Decimal) {
+    const n = value.toNumber();
+    if (Number.isFinite(n)) return formatCompactNumber(n, 2);
+    return value.toExponential(4).replace("e+", "e");
+  }
+  if (!Number.isFinite(value)) return "inf";
+  return formatCompactNumber(value, 2);
 };
 
 export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed(1)}%`;

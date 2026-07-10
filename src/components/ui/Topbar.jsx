@@ -6,7 +6,7 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
+import { fmt, fmtShort, fmtShortLive, clamp01, multLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -139,7 +139,9 @@ export default function Topbar() {
                 <span className="resource-name">{tr(c.name)}</span>
               </div>
               <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
-                <RollingNumber value={c.value} format={fmtShort} />
+                {/* Format « vivant » (2 décimales de plus) + pulse au tick :
+                    le compteur défile visiblement même aux grandes magnitudes. */}
+                <RollingNumber value={c.value} format={fmtShortLive} pulse />
               </span>
             </div>
             <div className="resource-rate-row">

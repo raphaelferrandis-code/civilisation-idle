@@ -38,6 +38,12 @@
   border-radius: 0 !important;
 }
 
+/* La topbar porte l'unique ornement du mode léger : version FINE du même
+   cadre — à 10px il mangeait la lecture des chiffres (rework topbar). */
+.topbar-resources {
+  border-width: var(--ui-frame-w-ctrl) !important;
+}
+
 /* ----------------------------------------------------------------------------
    MÊME CADRE sur les contrôles — onglets de navigation + boutons de choix de
    gestion de crise et d'effondrement. Demandé pour unifier le contour partout
