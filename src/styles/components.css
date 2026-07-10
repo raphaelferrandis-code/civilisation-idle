@@ -41,7 +41,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  /* Collée en haut : déborde le padding de <main> (1rem) pour toucher les
+     bords de la fenêtre — la plaque devient le rebord supérieur de la page. */
+  margin: -1rem -1rem 0.75rem;
 }
 
 /* Bandeau de ressources : une seule plaque antique encadrée (cf. north star
@@ -53,7 +55,8 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  padding: 0.3rem 0.85rem 0.38rem;
+  align-content: center;
+  padding: 0.5rem 1.1rem 0.45rem;
   /* Voile sombre du bandeau (lisibilité sur la carte) */
   background: linear-gradient(180deg, rgba(13, 15, 23, 0.80), rgba(13, 15, 23, 0.62));
   backdrop-filter: blur(14px);
@@ -142,13 +145,17 @@
   color: var(--text-mid);
 }
 
-/* La valeur domine sa carte (fmtShortLive : mantisse enrichie qui défile) */
+/* La valeur domine sa carte (fmtShortLive : mantisse enrichie qui défile).
+   Police : Silkscreen (--font-pixel) — chiffres 5×5 canoniques, chasse fixe
+   (le compteur ne tremble pas), et c'était déjà la police « affichage
+   digital » des ères futuristes. Pixelify rendait 8≈S et des chasses
+   flottantes. Silkscreen chausse grand : 1.55rem ≈ l'ancien 1.9rem. */
 .topbar .resource-value {
   flex-shrink: 0;
-  font-family: var(--font-number);
-  font-size: 1.9rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-family: var(--font-pixel);
+  font-size: 1.55rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }

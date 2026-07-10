@@ -10,6 +10,9 @@
   height: 100vh;
   padding: 0;
   overflow: hidden;
+  /* Hauteur FIXE de la barre de ressources : collée en haut, et la carte
+     commence DESSOUS (plus de monde qui passe derrière les chiffres). */
+  --city-topbar-h: 5.6rem;
 }
 
 /* La vue remplit la scène et sert de contexte de positionnement au HUD. */
@@ -24,10 +27,10 @@
   gap: 0;
 }
 
-/* ---- Le monde, bord à bord (plus de cadre) ---- */
+/* ---- Le monde, bord à bord SOUS la barre de ressources ---- */
 .app[data-active-view="city"] .city-stage {
   position: absolute;
-  inset: 0;
+  inset: var(--city-topbar-h) 0 0 0;
   margin: 0;
 }
 .app[data-active-view="city"] .city-map-container {
@@ -41,20 +44,23 @@
   height: 100% !important;
 }
 
-/* ---- Ressources : plaque antique encadrée flottant en haut de la carte ----
+/* ---- Ressources : plaque antique COLLÉE au bord haut, pleine largeur ----
    La plaque (.topbar-resources, cf. components.css) porte le voile + le cadre or ;
-   le conteneur .topbar ne sert plus qu'au positionnement et à la marge de bord. */
+   elle occupe toute la hauteur réservée (--city-topbar-h), la carte commence
+   dessous. Plus de flottement au-dessus du monde. */
 .app[data-active-view="city"] .topbar {
   position: absolute;
   inset: 0 0 auto 0;
+  height: var(--city-topbar-h);
   z-index: 30;
   margin: 0;
-  padding: 0.7rem 0.9rem 0;
+  padding: 0;
   background: none;
   pointer-events: none;
 }
 .app[data-active-view="city"] .topbar-resources {
   pointer-events: auto;
+  height: 100%;
 }
 .app[data-active-view="city"] .topbar .resource-card-unified {
   background: transparent !important;
@@ -65,8 +71,10 @@
 
 /* ---- Identité : encart encadré (nom + jauge de rupture), sous les ressources.
    Le cadre or vient de frames.css (.city-stage-hud y est listé). ---- */
+/* NB : l'ancêtre positionné de ces encarts est .city-stage, qui commence DÉJÀ
+   sous la barre — leurs offsets sont donc relatifs à la scène, pas à l'écran. */
 .app[data-active-view="city"] .city-stage-hud {
-  inset: 5.4rem auto auto 1rem;
+  inset: 0.5rem auto auto 1rem;
   width: clamp(22rem, 32vw, 32rem);
   padding: 0.5rem 1rem 0.65rem;
   background: rgba(13, 15, 23, 0.66);
@@ -127,7 +135,7 @@
 .app[data-active-view="city"] .city-aux {
   position: absolute;
   left: 1rem;
-  top: 15.5rem;
+  top: 10.6rem;
   z-index: 20;
   display: flex;
   flex-direction: row;
@@ -232,7 +240,7 @@
 
 /* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */
 .app[data-active-view="city"] .city-shop-dock {
-  top: 5.2rem;
+  top: 0.5rem;
   bottom: 1rem;
 }
 /* Boutique repliée : le dock se dé-stretch et se contracte sur la hauteur du

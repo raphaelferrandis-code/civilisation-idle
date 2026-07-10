@@ -365,6 +365,11 @@
     padding: 0.75rem;
   }
 
+  /* Le débord de la topbar suit le padding réduit de <main>. */
+  .topbar {
+    margin: -0.75rem -0.75rem 0.75rem;
+  }
+
   .view {
     gap: 0.75rem;
   }
