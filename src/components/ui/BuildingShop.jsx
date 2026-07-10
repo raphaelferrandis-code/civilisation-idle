@@ -125,22 +125,9 @@ function BuildingShop() {
 
   return (
     <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`}>
-      <div className="panel-heading">
-        <button
-          type="button"
-          className="shop-collapse-toggle"
-          aria-expanded={open}
-          onClick={toggleOpen}
-          title={open ? tr({ fr: "Réduire la boutique", en: "Collapse the shop" }) : tr({ fr: "Déplier la boutique", en: "Expand the shop" })}
-        >
-          <h2>{tr({ fr: "Bâtiments", en: "Buildings" })}</h2>
-          <span className="hud-panel-chevron" aria-hidden="true"></span>
-        </button>
-        {open && <BuyToolbar />}
-      </div>
-
-      {open && (<>
-      <div className="shop-controls-row">
+      {/* En-tête : les catégories SONT le titre (plus de « Bâtiments ») ; le
+          chevron replie le corps, cliquer une catégorie déplie si besoin. */}
+      <div className="shop-head">
         <div className="shop-subtabs" role="tablist" aria-label="Catégories de bâtiments">
           {TABS.map((tab) => {
             const n = affordableCount(tab.id);
@@ -149,7 +136,7 @@ function BuildingShop() {
                 key={tab.id}
                 className={`shop-subtab ${activeTab === tab.id ? 'active' : ''}`}
                 data-cat={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); if (!open) toggleOpen(); }}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.id}
@@ -160,6 +147,21 @@ function BuildingShop() {
             );
           })}
         </div>
+        <button
+          type="button"
+          className="shop-collapse-toggle"
+          aria-expanded={open}
+          onClick={toggleOpen}
+          title={open ? tr({ fr: "Réduire la boutique", en: "Collapse the shop" }) : tr({ fr: "Déplier la boutique", en: "Expand the shop" })}
+        >
+          <span className="hud-panel-chevron" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      {open && (<>
+      {/* Multiplicateurs d'achat, en petit sous les catégories. */}
+      <div className="shop-controls-row">
+        <BuyToolbar />
       </div>
 
       <div className="shop-list shop-cat active">

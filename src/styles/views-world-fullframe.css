@@ -84,24 +84,37 @@
   overflow: visible;
   white-space: nowrap;
 }
-/* La barre de modes (x1…Max) passe SOUS le titre → le titre « Bâtiments » n'est
-   jamais tronqué, même quand « Max » apparaît (réforme administrative). */
-.shop-panel .panel-heading {
-  flex-wrap: wrap;
-  row-gap: 0.55rem;
-}
-.shop-panel .panel-heading .buy-toolbar {
-  flex: 1 1 100%;
-  width: auto;
-}
-.shop-panel .panel-heading .buy-modes {
+/* ── En-tête : les CATÉGORIES sont le titre (plus de « Bâtiments »), chevron
+   de repli à droite ; les multiplicateurs passent en petit dessous. ── */
+.shop-panel .shop-head {
   display: flex;
-  width: 100%;
+  align-items: stretch;
   gap: 0.3rem;
+  margin-bottom: 0.55rem;
 }
-.shop-panel .panel-heading .buy-mode {
+.shop-panel .shop-head .shop-subtabs {
   flex: 1;
   min-width: 0;
+}
+/* Multiplicateurs « en petit » : rangée discrète pleine largeur. */
+.shop-panel .shop-controls-row .buy-toolbar {
+  flex: 1 1 100%;
+  width: auto;
+  margin: 0 0 0.55rem;
+}
+.shop-panel .shop-controls-row .buy-modes {
+  display: flex;
+  width: 100%;
+  gap: 0.25rem;
+}
+.shop-panel .shop-controls-row .buy-mode {
+  flex: 1;
+  min-width: 0;
+  height: 1.45rem;
+  /* min-height : neutralise la taille de cible globale des <button> (2.5rem). */
+  min-height: 1.45rem;
+  /* Corps : gagne sur le 0.8rem générique de purchase.css (VT323 chausse petit). */
+  font-size: 0.9rem;
 }
 .shop-panel .shop-collapse-toggle .hud-panel-chevron {
   flex: 0 0 auto;
@@ -113,12 +126,10 @@
 .shop-panel.is-collapsed .shop-collapse-toggle .hud-panel-chevron {
   transform: rotate(-90deg);
 }
-/* Replié : on annule la marge qui réservait l'espace du corps et le filet du
-   bas (rien dessous) → bandeau-titre net, comme la Régulation repliée. */
-.shop-panel.is-collapsed .panel-heading {
-  margin-bottom: -1rem;
-  border-bottom: 0;
-  padding-bottom: 0.7rem;
+/* Replié : on annule la marge qui réservait l'espace du corps (rien dessous)
+   → bandeau de catégories net, comme la Régulation repliée. */
+.shop-panel.is-collapsed .shop-head {
+  margin-bottom: -0.45rem;
 }
 
 /* ── Îlots d'achat allégés : moins de cadres, coins doux ──

@@ -227,7 +227,9 @@
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  font-size: 0.78rem;
+  /* Petits chiffres : VT323 (--font-small), corps +15 % car elle chausse petit. */
+  font-family: var(--font-small);
+  font-size: 0.9rem;
 }
 
 /* Débit : discret et neutre — le signal couleur reste sur la flèche (et le
@@ -688,7 +690,9 @@ small, .chip, .doctrine-display small {
   border-radius: 3px;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
-  font-family: var(--font-body);
+  /* Petits caractères : Pixelify déformait les chiffres (« x25 » lu « x88 »). */
+  font-family: var(--font-small);
+  font-size: 0.95rem;
 }
 
 .buy-mode.active, .buy-mode-max.active {
