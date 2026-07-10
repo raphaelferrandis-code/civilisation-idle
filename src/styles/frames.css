@@ -1,69 +1,27 @@
 /* ============================================================================
-   CADRE OR UNIVERSEL — Kenney « Fantasy UI Borders » #030 (clé grecque), 9-slice
+   CADRE OR — Kenney « Fantasy UI Borders » #030 (clé grecque), 9-slice
    ----------------------------------------------------------------------------
-   Source unique du cadre de TOUS les panneaux du jeu. Asset teinté or :
-   src/assets/ui/topbar-frame.png. Voir docs/ui-references.md.
+   Depuis le retrait du skin classique (2026-07-10), l'ornement est réservé au
+   BANDEAU DE RESSOURCES — budget de cadres issu de la recherche dé-boxing :
+   UN seul cadre orné par écran, en version fine pour ne pas manger les
+   chiffres. Tout le reste de l'UI se hiérarchise par paliers de fond et
+   espacement (ui-light.css). Asset teinté or : src/assets/ui/topbar-frame.png,
+   voir docs/ui-references.md.
 
-   Réglage global : --ui-frame-w (épaisseur du cadre rendu). « On ajuste ensuite ».
-   !important : c'est un skin global volontaire qui doit gagner sur les bordures
-   héritées (1px, couleurs de mythes, overrides city…). Pour exclure un panneau :
-   `border-image: none !important;` sur son sélecteur.
-
-   Importé EN DERNIER dans index.css pour primer sur les feuilles précédentes.
+   !important : skin volontaire qui doit gagner sur les bordures héritées.
    ============================================================================ */
 
 :root {
-  --ui-frame-w: 10px;
   --ui-frame-src: url(../assets/ui/topbar-frame.png);
   --ui-frame-slice: 12;
-  /* Version plus fine du même cadre, pour les contrôles (onglets, boutons de
-     choix) : un cadre de 10px écraserait le texte de boutons compacts. */
   --ui-frame-w-ctrl: 6px;
 }
 
-/* Mode « interface allégée » (data-ui="light", voir ui-light.css) : budget de
-   cadres — l'ornement est réservé au bandeau de ressources, panneaux et
-   contrôles retrouvent leurs bordures fines d'origine. Le mode classique
-   (data-ui="classic") garde le cadre partout, à l'identique. */
-.app:not([data-ui="light"]) .panel,
-.app:not([data-ui="light"]) .hud-panel,
-.app:not([data-ui="light"]) .city-status-panel,
-.app:not([data-ui="light"]) .city-stage-hud,
 .topbar-resources {
   border-style: solid !important;
-  border-width: var(--ui-frame-w) !important;
+  border-width: var(--ui-frame-w-ctrl) !important;
   border-color: transparent !important;
   border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
   /* Le cadre porte ses propres coins (clé grecque) : pas de rayon arrondi. */
-  border-radius: 0 !important;
-}
-
-/* La topbar porte l'unique ornement du mode léger : version FINE du même
-   cadre — à 10px il mangeait la lecture des chiffres (rework topbar). */
-.topbar-resources {
-  border-width: var(--ui-frame-w-ctrl) !important;
-}
-
-/* ----------------------------------------------------------------------------
-   MÊME CADRE sur les contrôles — onglets de navigation + boutons de choix de
-   gestion de crise et d'effondrement. Demandé pour unifier le contour partout
-   (2026-06-22). Le fond/teinte propre à chaque contrôle reste visible au centre
-   (le cadre ne dessine que l'anneau) ; l'état actif/sélectionné reste distingué
-   par son fond et son halo, pas par le cadre.
-   ---------------------------------------------------------------------------- */
-.app:not([data-ui="light"]) .tab,
-/* Régulation de crise : variante compacte + tableau tactique (full) + politiques */
-.app:not([data-ui="light"]) .crisis-regul-btn,
-.app:not([data-ui="light"]) .tactical-actions button,
-.app:not([data-ui="light"]) .policy-btn,
-/* Choix d'effondrement : préparations terminales + boutons d'effondrement */
-.app:not([data-ui="light"]) .prep-tier-buttons button,
-.app:not([data-ui="light"]) .collapse-btn-primary,
-.app:not([data-ui="light"]) .manual-collapse-btn,
-.app:not([data-ui="light"]) .surchauffe-btn-action {
-  border-style: solid !important;
-  border-width: var(--ui-frame-w-ctrl) !important;
-  border-color: transparent !important;
-  border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
   border-radius: 0 !important;
 }

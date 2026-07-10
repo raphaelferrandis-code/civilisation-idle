@@ -8,8 +8,7 @@ import {
   getMusicVolume,
   setMusicVolume,
   getMusicActiveTabOnly,
-  setMusicActiveTabOnly,
-  idleCapSeconds
+  setMusicActiveTabOnly
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
@@ -19,23 +18,17 @@ import {
   setAutoScriptThreshold,
   getAutomateRules,
   toggleAutomate,
-  setAutomateThreshold,
-  setCrisisPosture,
-  setAutoCollapseConfig
+  setAutomateThreshold
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
 
-export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLight }) {
+export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useRef(null);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
-  const conseilDeCrise = useGameState(s => Boolean(s.upgrades.conseil_de_crise));
-  const editEffondrement = useGameState(s => Boolean(s.upgrades.edit_effondrement));
-  const crisisDoctrine = useGameState(s => s.crisisDoctrine) || {};
-  const autoCollapse = crisisDoctrine.autoCollapse || {};
   // Rules lists. optionRevision force les controles mutables a se recalculer.
   void optionRevision;
   const notifEnabled = getNotifEnabled();
@@ -131,16 +124,6 @@ export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLigh
     setOptionRevision((revision) => revision + 1);
   };
 
-  const handleSetPosture = (palier, stance) => {
-    setCrisisPosture(palier, stance);
-    setOptionRevision((revision) => revision + 1);
-  };
-
-  const handleAutoCollapse = (patch) => {
-    setAutoCollapseConfig(patch);
-    setOptionRevision((revision) => revision + 1);
-  };
-
   const handleDialogClick = (event) => {
     const dialog = dialogRef.current;
     if (!dialog || event.target !== dialog) return;
@@ -216,15 +199,6 @@ export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLigh
             </button>
           )}
 
-          {conseilDeCrise && (
-            <button
-              className={`options-tab ${activeGroup === 'doctrine' ? 'active' : ''}`}
-              type="button"
-              onClick={() => setActiveGroup('doctrine')}
-            >
-              {tr({ fr: "Doctrine de crise", en: "Crisis Doctrine" })}
-            </button>
-          )}
         </div>
 
         <div className="options-rows" style={{ marginTop: '1rem', minHeight: '220px' }}>
@@ -252,20 +226,6 @@ export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLigh
                     English
                   </button>
                 </div>
-              </div>
-
-              <div className="options-row">
-                <div>
-                  <span>{tr({ fr: "Interface allégée", en: "Light interface" })}</span>
-                  <small>{tr({ fr: "Cadre doré réservé au bandeau de ressources ; panneaux et boutons en surfaces sobres, actions indisponibles repliées", en: "Gold frame reserved for the resource bar; panels and buttons as plain surfaces, unavailable actions collapsed" })}</small>
-                </div>
-                <button
-                  type="button"
-                  className={`toggle-btn ${uiLight ? 'on' : 'off'}`}
-                  onClick={onToggleUiLight}
-                >
-                  {uiLight ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
-                </button>
               </div>
 
               <div className="options-row">
@@ -473,153 +433,8 @@ export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLigh
             </div>
           )}
 
-          {/* DOCTRINE DE CRISE PANEL (Unlocked by conseil_de_crise) */}
-          {activeGroup === 'doctrine' && conseilDeCrise && (
-            <div id="crisisDoctrinePanel">
-              {[
-                { key: 'p25', label: { fr: 'Crise à 25 % de Rupture', en: 'Crisis at 25% Rupture' } },
-                { key: 'p50', label: { fr: 'Crise à 50 % de Rupture', en: 'Crisis at 50% Rupture' } },
-                { key: 'p75', label: { fr: 'Crise à 75 % de Rupture', en: 'Crisis at 75% Rupture' } }
-              ].map(({ key, label }) => (
-                <div key={key} className="options-row">
-                  <div>
-                    <span>{tr(label)}</span>
-                    <small>{tr({ fr: "Réponse automatique (sans interruption)", en: "Automatic response (no interruption)" })}</small>
-                  </div>
-                  <div className="number-format-control">
-                    {[
-                      { v: 'ask', t: { fr: 'Demander', en: 'Ask' } },
-                      { v: 'stabiliser', t: { fr: 'Stabiliser', en: 'Stabilize' } },
-                      { v: 'temporiser', t: { fr: 'Temporiser', en: 'Delay' } }
-                    ].map(({ v, t }) => (
-                      <button
-                        key={v}
-                        type="button"
-                        className={`format-option ${(crisisDoctrine[key] || 'ask') === v ? 'active' : ''}`}
-                        onClick={() => handleSetPosture(key, v)}
-                      >
-                        {tr(t)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              {editEffondrement ? (
-                <>
-                  <div className="options-row">
-                    <div>
-                      <span>{tr({ fr: "Effondrement automatique", en: "Automatic collapse" })}</span>
-                      <small>{tr({ fr: "La cité tombe seule au moment choisi (héritage préservé)", en: "The city collapses on its own at the chosen moment (heritage preserved)" })}</small>
-                    </div>
-                    <button
-                      type="button"
-                      className={`toggle-btn ${autoCollapse.enabled ? 'on' : 'off'}`}
-                      onClick={() => handleAutoCollapse({ enabled: !autoCollapse.enabled })}
-                    >
-                      {autoCollapse.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
-                    </button>
-                  </div>
-
-                  {autoCollapse.enabled && (
-                    <>
-                      <div className="options-row">
-                        <div>
-                          <span>{tr({ fr: "Déclencheur", en: "Trigger" })}</span>
-                          <small>{tr({ fr: "Quand effondrer automatiquement", en: "When to collapse automatically" })}</small>
-                        </div>
-                        <div className="number-format-control">
-                          {[
-                            { v: 'rupture100', t: { fr: 'Rupture 100 %', en: 'Rupture 100%' } },
-                            { v: 'usure', t: { fr: 'Usure', en: 'Wear' } },
-                            { v: 'temps', t: { fr: 'Durée', en: 'Duration' } }
-                          ].map(({ v, t }) => (
-                            <button
-                              key={v}
-                              type="button"
-                              className={`format-option ${autoCollapse.trigger === v ? 'active' : ''}`}
-                              onClick={() => handleAutoCollapse({ trigger: v })}
-                            >
-                              {tr(t)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {autoCollapse.trigger === 'usure' && (
-                        <div className="options-row">
-                          <div>
-                            <span>{tr({ fr: "Seuil d'Usure", en: "Wear threshold" })}</span>
-                            <small>{tr({ fr: "Effondre dès que l'Usure atteint ce pourcentage", en: "Collapses as soon as Wear reaches this percentage" })}</small>
-                          </div>
-                          <div className="auto-script-threshold">
-                            <input
-                              type="number"
-                              className="auto-script-input"
-                              min="10"
-                              max="100"
-                              value={Math.round((autoCollapse.usureThreshold ?? 0.9) * 100)}
-                              onChange={(e) => handleAutoCollapse({ usureThreshold: (parseFloat(e.target.value) || 0) / 100 })}
-                            />
-                            <span className="auto-script-unit">%</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {autoCollapse.trigger === 'temps' && (
-                        <div className="options-row">
-                          <div>
-                            <span>{tr({ fr: "Durée de cycle", en: "Cycle duration" })}</span>
-                            <small>{tr({ fr: "Effondre après ce nombre de minutes", en: "Collapses after this number of minutes" })}</small>
-                          </div>
-                          <div className="auto-script-threshold">
-                            <input
-                              type="number"
-                              className="auto-script-input"
-                              min="1"
-                              max="1440"
-                              value={Math.round((autoCollapse.timeSeconds ?? 600) / 60)}
-                              onChange={(e) => handleAutoCollapse({ timeSeconds: (parseFloat(e.target.value) || 0) * 60 })}
-                            />
-                            <span className="auto-script-unit">min</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="options-row">
-                        <div>
-                          <span>{tr({ fr: "Tenter de sauver avant", en: "Try to save first" })}</span>
-                          <small>{tr({ fr: "Rationner / Réformes avant d'effondrer si la crise est résoluble", en: "Ration / Reforms before collapsing if the crisis is solvable" })}</small>
-                        </div>
-                        <button
-                          type="button"
-                          className={`toggle-btn ${autoCollapse.prepare ? 'on' : 'off'}`}
-                          onClick={() => handleAutoCollapse({ prepare: !autoCollapse.prepare })}
-                        >
-                          {autoCollapse.prepare ? tr({ fr: "Oui", en: "Yes" }) : tr({ fr: "Non", en: "No" })}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="options-row">
-                  <div>
-                    <span>{tr({ fr: "Effondrement automatique", en: "Automatic collapse" })}</span>
-                    <small>{tr({ fr: "Débloqué par l'upgrade de ruines « Édit d'effondrement ».", en: "Unlocked by the ruins upgrade « Collapse Edict »." })}</small>
-                  </div>
-                </div>
-              )}
-
-              <div className="options-row">
-                <div>
-                  <span>{tr({ fr: "Gain hors-ligne", en: "Offline gain" })}</span>
-                  <small>{tr({ fr: "La cité produit et vieillit en ton absence, jusqu'à ce plafond. Étends-le avec « Veilleurs de nuit ».", en: "The city produces and ages while you're away, up to this cap. Extend it with « Night Watchers »." })}</small>
-                </div>
-                <strong>{Math.round(idleCapSeconds() / 3600)} h</strong>
-              </div>
-            </div>
-          )}
+          {/* La Doctrine de crise vit désormais dans l'onglet Effondrement
+              (CrisisDoctrinePanel), sous les Foyers de tension. */}
         </div>
 
         <menu style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
