@@ -137,8 +137,9 @@ export default function Topbar() {
               </div>
               <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
                 {/* Odomètre : chiffres qui roulent verticalement, pulse
-                    uniquement aux jalons (changement de suffixe K→M→B). */}
-                <OdometerNumber value={c.value} />
+                    uniquement aux jalons (changement de suffixe K→M→B).
+                    `alive` = débit réel > 0 → jamais de cadran mort. */}
+                <OdometerNumber value={c.value} alive={c.rate.gt(0)} />
               </span>
             </div>
             <div className="resource-rate-row">

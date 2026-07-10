@@ -127,6 +127,8 @@
   align-items: flex-start;
   gap: 0.14rem;
   padding-bottom: 0.08rem;
+  /* Pas de filet séparateur valeur/débit (hérité de views-city.css). */
+  border-bottom: 0;
 }
 
 .topbar .resource-name {
@@ -216,6 +218,12 @@
 
 .odo-col--spin {
   animation: odo-spin 0.55s linear infinite;
+}
+
+/* Régime « filet » : production réelle mais imperceptible au cadran (stock
+   immense) — le dernier chiffre roule lentement pour dire « ça produit ». */
+.odo-col--slow {
+  animation-duration: 1.8s;
 }
 
 .resource-rate-row {

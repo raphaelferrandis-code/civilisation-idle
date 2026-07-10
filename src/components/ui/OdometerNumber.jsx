@@ -42,9 +42,17 @@ function dialParts(n) {
 // rouleau flou à vitesse constante — illisibles de toute façon, ils redeviennent
 // exacts dès que la croissance ralentit.
 const SPIN_THRESHOLD = 3;
+// En dessous de ~1 pas / 4 s, le cadran paraît MORT alors que la production
+// tourne (stock immense face au débit : la mantisse à 4 décimales ne bouge
+// plus). Si `alive` (débit > 0), le dernier chiffre passe en rouleau LENT —
+// signal honnête de « ça produit », sa précision étant de toute façon vide.
+const TRICKLE_THRESHOLD = 0.25;
 const SPIN_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
-export default function OdometerNumber({ value, duration = DEFAULT_DURATION }) {
+// `alive` : la production de cette ressource est strictement positive (passé
+// par le parent depuis le VRAI débit du jeu — couvre aussi les cas où le float
+// ne résout même plus l'incrément par tick).
+export default function OdometerNumber({ value, alive = false, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
   const [display, setDisplay] = useState(target);
 
@@ -137,10 +145,15 @@ export default function OdometerNumber({ value, duration = DEFAULT_DURATION }) {
     if (idx === intLen) slots.push(<span className="odo-sep" key="dot">.</span>);
 
     // Chiffre trop rapide pour être suivi : rouleau flou à vitesse constante.
-    if (dialRate / pow > SPIN_THRESHOLD) {
+    // Dernier chiffre d'un cadran quasi immobile malgré une production réelle :
+    // rouleau LENT (régime « filet »), sinon le compteur paraît en panne.
+    const stepRate = dialRate / pow;
+    const spinsFast = stepRate > SPIN_THRESHOLD;
+    const trickles = k === 0 && alive && stepRate < TRICKLE_THRESHOLD;
+    if (spinsFast || trickles) {
       slots.push(
         <span className="odo-slot odo-dim" key={`d${idx}`}>
-          <span className="odo-col odo-col--spin">
+          <span className={`odo-col odo-col--spin${trickles ? ' odo-col--slow' : ''}`}>
             {SPIN_STRIP.map((d, j) => <span className="odo-d" key={j}>{d}</span>)}
           </span>
         </span>
