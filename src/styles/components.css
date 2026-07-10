@@ -159,10 +159,49 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Micro-pulsation du compteur à chaque tick (RollingNumber pulse). */
+/* Pulsation de JALON : rejouée par l'odomètre quand le cadran change de forme
+   (suffixe K→M→B, chiffre de plus) — plus de métronome au tick. */
 .roll-pulse {
   display: inline-block;
   animation: counter-bump 300ms ease-out;
+}
+
+/* ── Odomètre (OdometerNumber) : chaque chiffre est une colonne de 2 glyphes
+   qui glisse verticalement — le dernier roule en continu, les autres basculent
+   à la retenue. Exige la chasse fixe de Silkscreen (1 slot = 1ch). ── */
+.odo {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.odo-slot {
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+  overflow: hidden;
+}
+
+.odo-col {
+  display: block;
+  will-change: transform;
+}
+
+.odo-d {
+  display: block;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+}
+
+.odo-sep {
+  display: inline-block;
+  line-height: 1;
+}
+
+/* Les 2 décimales « live » : perceptibles mais en retrait — la tête du nombre
+   reste ce que l'œil lit, la queue donne la sensation de vitesse. */
+.odo-dim {
+  opacity: 0.5;
 }
 
 .resource-rate-row {
@@ -197,25 +236,7 @@
   line-height: 1;
 }
 
-/* Jauge de réserve : filet 3px en bord inférieur de la carte */
-.reserve-filet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.reserve-filet span {
-  display: block;
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.card-food .reserve-filet span  { background: var(--res-food); }
-.card-gold .reserve-filet span  { background: var(--res-gold); }
-.card-knowledge .reserve-filet span { background: var(--res-know); }
+/* (Jauges de réserve retirées — bruit sans décision ; humeurs en tooltip.) */
 
 @media (max-width: 1200px) {
   .topbar-resources {

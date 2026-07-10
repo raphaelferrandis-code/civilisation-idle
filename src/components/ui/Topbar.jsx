@@ -6,9 +6,9 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, fmtShortLive, clamp01, multLabel } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import RollingNumber from './RollingNumber.jsx';
+import OdometerNumber from './OdometerNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
@@ -94,32 +94,29 @@ export default function Topbar() {
   };
 
   // Ancres visuelles : icônes pixel-art dédiées (public/pixelart/ui/res/),
-  // une par ressource, teintées dans la couleur de la ressource.
+  // une par ressource, teintées dans la couleur de la ressource. Les jauges de
+  // réserve ont été retirées (bruit sans décision) : l'état des réserves reste
+  // lisible dans le tooltip de chaque carte (humeurs).
   const cards = [
     {
       key: "population", cls: "card-pop", pixIcon: "res/population", name: { fr: "Population", en: "Population" },
-      valueId: "population", value: population, rate: r.population, rateId: "popRate",
-      gauge: null
+      valueId: "population", value: population, rate: r.population, rateId: "popRate"
     },
     {
       key: "food", cls: "card-food", pixIcon: "res/food", name: { fr: "Nourriture", en: "Food" },
-      valueId: "food", value: food, rate: r.food, rateId: "foodRate",
-      gauge: { id: "foodBar", score: vitals.foodScore }
+      valueId: "food", value: food, rate: r.food, rateId: "foodRate"
     },
     {
       key: "gold", cls: "card-gold", pixIcon: "res/gold", name: { fr: "Trésor", en: "Treasury" },
-      valueId: "gold", value: gold, rate: r.gold, rateId: "goldRate",
-      gauge: { id: "goldBar", score: vitals.goldScore }
+      valueId: "gold", value: gold, rate: r.gold, rateId: "goldRate"
     },
     {
       key: "knowledge", cls: "card-knowledge", pixIcon: "res/knowledge", name: { fr: "Savoir", en: "Knowledge" },
-      valueId: "knowledge", value: knowledge, rate: r.knowledge, rateId: "knowledgeRate",
-      gauge: { id: "knowledgeBar", score: vitals.knowledgeScore }
+      valueId: "knowledge", value: knowledge, rate: r.knowledge, rateId: "knowledgeRate"
     },
     {
       key: "infrastructure", cls: "card-infra", pixIcon: "res/infra", name: { fr: "Infrastructure", en: "Infrastructure" },
-      valueId: "infrastructure", value: infrastructure, rate: r.infrastructure, rateId: "infraRate",
-      gauge: null
+      valueId: "infrastructure", value: infrastructure, rate: r.infrastructure, rateId: "infraRate"
     }
   ];
 
@@ -139,9 +136,9 @@ export default function Topbar() {
                 <span className="resource-name">{tr(c.name)}</span>
               </div>
               <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
-                {/* Format « vivant » (2 décimales de plus) + pulse au tick :
-                    le compteur défile visiblement même aux grandes magnitudes. */}
-                <RollingNumber value={c.value} format={fmtShortLive} pulse />
+                {/* Odomètre : chiffres qui roulent verticalement, pulse
+                    uniquement aux jalons (changement de suffixe K→M→B). */}
+                <OdometerNumber value={c.value} />
               </span>
             </div>
             <div className="resource-rate-row">
@@ -155,11 +152,6 @@ export default function Topbar() {
                 {c.key === "infrastructure" && showNomadCap ? ` · cap ${fmtShort(nomadCap)}` : ""}
               </span>
             </div>
-            {c.gauge && (
-              <span className="reserve-filet" aria-hidden="true">
-                <span id={c.gauge.id} style={{ width: `${clamp01(c.gauge.score) * 100}%` }}></span>
-              </span>
-            )}
           </div>
         ))}
       </div>

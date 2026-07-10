@@ -42,6 +42,9 @@ function formatScientificNumber(value) {
   return value.toExponential(2).replace("e+", "e");
 }
 
+// Suffixes du format compact — partagés avec l'odomètre (OdometerNumber.jsx).
+export const COMPACT_UNITS = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+
 // Compact à suffixes (K/M/B…Dc), puis scientifique au-delà du décillion (1e36).
 // Empiler des suffixes exotiques plus loin n'aide personne.
 // `extraDecimals` : décimales de mantisse en plus (voir fmtShortLive).
@@ -50,13 +53,12 @@ function formatCompactNumber(value, extraDecimals = 0) {
   let v = Math.abs(value);
   if (v < 1000) return `${sign}${v.toFixed((v < 10 ? 1 : 0) + (extraDecimals ? 1 : 0))}`;
   if (v >= 1e36) return formatScientificNumber(value);
-  const units = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
   let i = -1;
-  while (v >= 1000 && i < units.length - 1) {
+  while (v >= 1000 && i < COMPACT_UNITS.length - 1) {
     v /= 1000;
     i += 1;
   }
-  return `${sign}${v.toFixed((v < 10 ? 2 : 1) + extraDecimals)}${units[i]}`;
+  return `${sign}${v.toFixed((v < 10 ? 2 : 1) + extraDecimals)}${COMPACT_UNITS[i]}`;
 }
 
 export const fmt = (value) => {
