@@ -216,14 +216,10 @@
   to   { transform: translateY(-90.909%); }
 }
 
+/* La durée réelle est posée inline par OdometerNumber : proportionnelle au
+   débit (rapide = ça tourne vite), 0.55s n'est que le repli. */
 .odo-col--spin {
   animation: odo-spin 0.55s linear infinite;
-}
-
-/* Régime « filet » : production réelle mais imperceptible au cadran (stock
-   immense) — le dernier chiffre roule lentement pour dire « ça produit ». */
-.odo-col--slow {
-  animation-duration: 1.8s;
 }
 
 .resource-rate-row {

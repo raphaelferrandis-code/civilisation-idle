@@ -144,16 +144,21 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
     const idx = count - 1 - k;
     if (idx === intLen) slots.push(<span className="odo-sep" key="dot">.</span>);
 
-    // Chiffre trop rapide pour être suivi : rouleau flou à vitesse constante.
-    // Dernier chiffre d'un cadran quasi immobile malgré une production réelle :
-    // rouleau LENT (régime « filet »), sinon le compteur paraît en panne.
+    // Chiffre trop rapide pour être suivi : rouleau flou dont la VITESSE suit
+    // le vrai débit (10 pas = 1 tour, borné 0.35-1.4s) — plus ça produit, plus
+    // ça tourne vite, et l'écart de rythme entre ressources se voit.
+    // Régime « filet » (cadran quasi immobile malgré une production réelle) :
+    // les DEUX derniers chiffres roulent en moteur au ralenti (0.8s / 2.4s).
     const stepRate = dialRate / pow;
     const spinsFast = stepRate > SPIN_THRESHOLD;
-    const trickles = k === 0 && alive && stepRate < TRICKLE_THRESHOLD;
+    const trickles = alive && dialRate < TRICKLE_THRESHOLD && k <= 1;
     if (spinsFast || trickles) {
+      const dur = spinsFast
+        ? Math.min(1.4, Math.max(0.35, 10 / stepRate))
+        : (k === 0 ? 0.8 : 2.4);
       slots.push(
         <span className="odo-slot odo-dim" key={`d${idx}`}>
-          <span className={`odo-col odo-col--spin${trickles ? ' odo-col--slow' : ''}`}>
+          <span className="odo-col odo-col--spin" style={{ animationDuration: `${dur.toFixed(2)}s` }}>
             {SPIN_STRIP.map((d, j) => <span className="odo-d" key={j}>{d}</span>)}
           </span>
         </span>
