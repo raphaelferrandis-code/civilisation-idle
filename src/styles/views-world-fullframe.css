@@ -100,6 +100,7 @@
 .shop-panel .shop-head .shop-subtabs {
   flex: 1;
   min-width: 0;
+  justify-content: center;
 }
 /* Typo d'en-tête : plus grand que les anciens sous-onglets, contenu sur sa
    largeur naturelle (les 3 libellés entiers tiennent dans le dock). */
@@ -127,7 +128,17 @@
   }
 }
 /* Multiplicateurs « en petit » : rangée basse et discrète, sur la MOITIÉ de la
-   largeur du cadre (demande Raph). */
+   largeur du cadre (demande Raph). La plaque sticky bleu-nuit de purchase.css
+   (fond + rayon + padding) est neutralisée : pas d'encart autour. */
+.city-shop-dock .shop-panel .shop-controls-row {
+  position: static;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .shop-panel .shop-controls-row .buy-toolbar {
   flex: 0 1 auto;
   width: 50%;
