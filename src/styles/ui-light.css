@@ -70,11 +70,10 @@
   height: 18px;
 }
 
-/* Baromètres : on ne garde QUE la barre d'accent gauche (rupture/usure). */
+/* Baromètres : surface nue, aucun contour — la barre gauche conservée un temps
+   dessinait une « accolade » arrondie, refusée (Raph 2026-07-10). */
 .app[data-ui="light"] .barometer-card {
-  border-top-color: transparent;
-  border-right-color: transparent;
-  border-bottom-color: transparent;
+  border-color: transparent;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -96,13 +95,8 @@
   background: rgba(var(--era-rgb), 0.1);
 }
 
-/* Bilan de la Civilisation : les 5 stats redeviennent une rangée plate —
-   libellé + valeur séparés par l'espacement, plus de mini-cartes. */
-.app[data-ui="light"] .prestige-stat-card {
-  border-color: transparent;
-  background: transparent;
-  padding: 0.35rem 0.5rem;
-}
+/* (Le Bilan de la Civilisation vit désormais dans l'onglet Chronique, en
+   tuiles .chronicle-bilan-* volontairement conservées — pas de dé-boxing.) */
 
 /* ── 2 · DENSITÉ PROGRESSIVE : rangées fantômes ───────────────────────────── */
 
@@ -150,36 +144,84 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* Cartes d'upgrade (Héritage, boutiques) : on ne garde que la barre-état
-   gauche (or = achetable, vert = acquis) — le reste du contour s'éteint. */
+/* Cartes d'upgrade (Héritage, boutiques) : contour ENTIÈREMENT éteint — la
+   barre-état gauche conservée un temps dessinait une « accolade » arrondie,
+   refusée (Raph 2026-07-10). L'état achetable/acquis reste dit par le fond et
+   le bouton. !important : la barre verte « acquis » (base.css) l'est aussi. */
 .app[data-ui="light"] .upgrade {
-  border-top-color: transparent;
-  border-right-color: transparent;
-  border-bottom-color: transparent;
+  border-color: transparent !important;
 }
 
-/* Sous-onglets de la boutique : rail discret, seul l'actif porte l'accent or. */
+/* Sous-onglets de la boutique : ONGLETS À SOULIGNEMENT — plus de rail ni de
+   boîtes à dégradé (elles juraient avec les rangées splash-art dé-boxées).
+   L'actif se dit par le texte vif + un trait 2px de la COULEUR de sa
+   catégorie ; l'inactif n'est que du texte en retrait. */
 .app[data-ui="light"] .shop-panel .shop-subtabs {
-  border-color: transparent;
-  background: rgba(255, 255, 255, 0.03);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  gap: 0.2rem;
 }
 
 .app[data-ui="light"] .shop-subtab {
-  border-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-mid);
+}
+
+.app[data-ui="light"] .shop-subtab:hover:not(.active) {
+  color: var(--text-strong);
 }
 
 .app[data-ui="light"] .shop-subtab.active {
-  border-color: var(--gold);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-strong);
+  border-bottom-color: var(--cat-accent, var(--gold));
 }
 
-/* Multiplicateurs d'achat (x1 / x10 / … / Max) : même logique d'accent. */
+.app[data-ui="light"] .shop-subtab[data-cat="city"]      { --cat-accent: var(--gold); }
+.app[data-ui="light"] .shop-subtab[data-cat="knowledge"] { --cat-accent: var(--res-know); }
+.app[data-ui="light"] .shop-subtab[data-cat="infra"]     { --cat-accent: var(--res-infra); }
+
+/* Badge « n achetables » : pastille INTÉGRÉE à côté du libellé (elle flottait
+   au-dessus de l'onglet en absolu — étrange sans boîte autour). */
+.app[data-ui="light"] .subtab-badge {
+  position: static;
+  min-width: 1rem;
+  height: 1rem;
+  border: 0;
+  border-radius: var(--r-pill);
+  font-size: 0.62rem;
+}
+
+/* Multiplicateurs d'achat (x1 / x10 / … / Max) : fantômes — texte en retrait,
+   l'actif devient une pilule or pleine (l'accent = le remplissage, pas un trait). */
 .app[data-ui="light"] .buy-mode {
   border-color: transparent;
+  background: transparent;
+  color: var(--text-mid);
+  box-shadow: none;
+}
+
+.app[data-ui="light"] .buy-mode:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-strong);
 }
 
 .app[data-ui="light"] .buy-mode.active,
 .app[data-ui="light"] .buy-mode-max.active {
-  border-color: var(--gold);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--gold), transparent 80%);
+  color: var(--gold-bright);
+  box-shadow: none;
 }
 
 /* Politiques indisponibles (verrouillées ou slots pleins) : même traitement. */
