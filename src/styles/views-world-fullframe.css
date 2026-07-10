@@ -126,10 +126,11 @@
     font-size: 0.8rem;
   }
 }
-/* Multiplicateurs « en petit » : rangée basse et discrète. */
+/* Multiplicateurs « en petit » : rangée basse et discrète, sur la MOITIÉ de la
+   largeur du cadre (demande Raph). */
 .shop-panel .shop-controls-row .buy-toolbar {
-  flex: 1 1 100%;
-  width: auto;
+  flex: 0 1 auto;
+  width: 50%;
   margin: 0 0 0.5rem;
 }
 .shop-panel .shop-controls-row .buy-modes {

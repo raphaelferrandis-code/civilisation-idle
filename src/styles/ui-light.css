@@ -199,16 +199,8 @@
   }
 }
 
-/* Badge « n achetables » : pastille INTÉGRÉE à côté du libellé (elle flottait
-   au-dessus de l'onglet en absolu — étrange sans boîte autour). */
-.app[data-ui="light"] .subtab-badge {
-  position: static;
-  min-width: 1rem;
-  height: 1rem;
-  border: 0;
-  border-radius: var(--r-pill);
-  font-size: 0.62rem;
-}
+/* Badge « n achetables » : flottant AU-DESSUS du libellé (position absolue du
+   style de base) — demande Raph : il ne doit pas voler de largeur aux noms. */
 
 /* Multiplicateurs d'achat (x1 / x10 / … / Max) : fantômes — texte en retrait,
    l'actif devient une pilule or pleine (l'accent = le remplissage, pas un trait). */
