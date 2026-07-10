@@ -113,8 +113,8 @@
 
 /* Ancre pixel-art de la ressource (remplace l'icône FontAwesome). */
 .topbar .resource-icon .px-icon {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 /* ── Hiérarchie de la carte (rework topbar) : micro-label → GRANDE valeur →
@@ -132,9 +132,9 @@
 .topbar .resource-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.66rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -152,7 +152,9 @@
 .topbar .resource-value {
   flex-shrink: 0;
   font-family: var(--font-number);
-  font-size: 1.55rem;
+  /* 1.5rem = 24px ENTIERS : une hauteur fractionnaire (ex. 1.55rem = 24.8px)
+     laisse dépasser un liseré sous-pixel du chiffre suivant dans l'odomètre. */
+  font-size: 1.5rem;
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -202,6 +204,18 @@
    reste ce que l'œil lit, la queue donne la sensation de vitesse. */
 .odo-dim {
   opacity: 0.5;
+}
+
+/* Rouleau flou : chiffres trop rapides pour être suivis (anti-aliasing « roue
+   de chariot ») — bande 0-9-0 en défilement constant, 10/11 de sa hauteur par
+   boucle pour un raccord invisible. */
+@keyframes odo-spin {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-90.909%); }
+}
+
+.odo-col--spin {
+  animation: odo-spin 0.55s linear infinite;
 }
 
 .resource-rate-row {

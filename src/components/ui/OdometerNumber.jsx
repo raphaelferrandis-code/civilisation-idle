@@ -21,18 +21,28 @@ const DEFAULT_DURATION = 1100;
  * texte plat fmtShortLive.
  */
 
-// Décompose un number fini en cadran : mantisse continue + décimales + suffixe.
+// Décompose un number fini en cadran : mantisse continue + décimales + suffixe
+// (+ le diviseur d'échelle, pour convertir un débit brut en pas de cadran).
 function dialParts(n) {
   if (!Number.isFinite(n) || n < 0 || n >= 1e36) return null;
   let v = n;
   let i = -1;
+  let div = 1;
   while (v >= 1000 && i < COMPACT_UNITS.length - 1) {
     v /= 1000;
+    div *= 1000;
     i += 1;
   }
   const decimals = i < 0 ? 1 : (v < 10 ? 2 : 1) + 2;
-  return { mantissa: v, decimals, suffix: i < 0 ? '' : COMPACT_UNITS[i] };
+  return { mantissa: v, decimals, suffix: i < 0 ? '' : COMPACT_UNITS[i], div };
 }
+
+// Au-delà de ~3 incréments/s, l'œil ne suit plus un roulis exact : l'aliasing
+// le fait paraître figé (effet « roue de chariot »). Ces chiffres passent en
+// rouleau flou à vitesse constante — illisibles de toute façon, ils redeviennent
+// exacts dès que la croissance ralentit.
+const SPIN_THRESHOLD = 3;
+const SPIN_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
 export default function OdometerNumber({ value, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
@@ -97,16 +107,22 @@ export default function OdometerNumber({ value, duration = DEFAULT_DURATION }) {
     return fmtShortLive(display === target ? value : display);
   }
 
-  const { mantissa, decimals, suffix } = parts;
+  const { mantissa, decimals, suffix, div } = parts;
   const intLen = Math.max(1, String(Math.floor(mantissa)).length);
   const count = intLen + decimals;
   // D = la suite de chiffres comme flottant continu (ex. 5.6098 → 56098.73…).
   const D = mantissa * Math.pow(10, decimals);
   const Dint = Math.floor(D);
+  const resting = display === target;
   // À l'arrêt (anim finie), on fige les colonnes sur le glyphe entier.
-  const fracD = display === target ? 0 : D - Dint;
+  const fracD = resting ? 0 : D - Dint;
   // Seules les 2 décimales « live » (fmtShortLive) sont estompées.
   const dimBelow = decimals >= 3 ? 2 : 0;
+  // Débit du segment d'anim courant, converti en pas de cadran par seconde.
+  const ratePerSec = resting
+    ? 0
+    : (targetRef.current - fromRef.current) / (duration / 1000);
+  const dialRate = (ratePerSec / div) * Math.pow(10, decimals);
 
   const shape = `${count}|${suffix}`;
   if (shapeRef.current !== shape) {
@@ -117,13 +133,26 @@ export default function OdometerNumber({ value, duration = DEFAULT_DURATION }) {
   const slots = [];
   for (let k = count - 1; k >= 0; k--) {
     const pow = Math.pow(10, k);
+    const idx = count - 1 - k;
+    if (idx === intLen) slots.push(<span className="odo-sep" key="dot">.</span>);
+
+    // Chiffre trop rapide pour être suivi : rouleau flou à vitesse constante.
+    if (dialRate / pow > SPIN_THRESHOLD) {
+      slots.push(
+        <span className="odo-slot odo-dim" key={`d${idx}`}>
+          <span className="odo-col odo-col--spin">
+            {SPIN_STRIP.map((d, j) => <span className="odo-d" key={j}>{d}</span>)}
+          </span>
+        </span>
+      );
+      continue;
+    }
+
     const digit = Math.floor(Dint / pow) % 10;
     // Retenue mécanique : ce chiffre ne roule que si TOUS les chiffres sous
     // lui affichent 9 (le dernier chiffre, k=0, roule toujours).
     const rolls = k === 0 || (Dint % pow) === pow - 1;
     const frac = rolls ? fracD : 0;
-    const idx = count - 1 - k;
-    if (idx === intLen) slots.push(<span className="odo-sep" key="dot">.</span>);
     slots.push(
       <span className={`odo-slot${k < dimBelow ? ' odo-dim' : ''}`} key={`d${idx}`}>
         <span className="odo-col" style={{ transform: `translateY(${-frac * 50}%)` }}>
