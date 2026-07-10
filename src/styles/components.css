@@ -146,17 +146,16 @@
 }
 
 /* La valeur domine sa carte (fmtShortLive : mantisse enrichie qui défile).
-   Police : VT323 — terminal rétro, VRAIE monospace (le compteur ne tremble
-   pas), chiffres sans ambiguïté (Pixelify rendait 8≈S). Alternative testée :
-   Silkscreen (var(--font-pixel), 1.55rem) — plus chunky, chasse plus large.
-   VT323 chausse petit et fin : taille montée en compensation. */
+   Police : le rôle chiffres (--font-number = Silkscreen, « la large ») —
+   choisie contre VT323 après essai in-game. Silkscreen chausse grand :
+   1.55rem ≈ la masse visuelle d'un 1.9rem Pixelify. */
 .topbar .resource-value {
   flex-shrink: 0;
-  font-family: "VT323", var(--font-pixel);
-  font-size: 2.1rem;
+  font-family: var(--font-number);
+  font-size: 1.55rem;
   font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 0.9;
+  letter-spacing: 0.02em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 

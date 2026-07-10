@@ -11,8 +11,10 @@
   padding: 0;
   overflow: hidden;
   /* Hauteur FIXE de la barre de ressources : collée en haut, et la carte
-     commence DESSOUS (plus de monde qui passe derrière les chiffres). */
-  --city-topbar-h: 5.6rem;
+     commence DESSOUS (plus de monde qui passe derrière les chiffres).
+     Allongée jusqu'à l'encart du nom de la ville : label + valeur + débit
+     respirent, plus rien n'est coupé. */
+  --city-topbar-h: 6.2rem;
 }
 
 /* La vue remplit la scène et sert de contexte de positionnement au HUD. */
@@ -72,9 +74,10 @@
 /* ---- Identité : encart encadré (nom + jauge de rupture), sous les ressources.
    Le cadre or vient de frames.css (.city-stage-hud y est listé). ---- */
 /* NB : l'ancêtre positionné de ces encarts est .city-stage, qui commence DÉJÀ
-   sous la barre — leurs offsets sont donc relatifs à la scène, pas à l'écran. */
+   sous la barre — leurs offsets sont donc relatifs à la scène, pas à l'écran.
+   L'encart identité est COLLÉ sous la barre et au bord gauche (demande Raph). */
 .app[data-active-view="city"] .city-stage-hud {
-  inset: 0.5rem auto auto 1rem;
+  inset: 0 auto auto 0;
   width: clamp(22rem, 32vw, 32rem);
   padding: 0.5rem 1rem 0.65rem;
   background: rgba(13, 15, 23, 0.66);
@@ -135,7 +138,7 @@
 .app[data-active-view="city"] .city-aux {
   position: absolute;
   left: 1rem;
-  top: 10.6rem;
+  top: 10.1rem;
   z-index: 20;
   display: flex;
   flex-direction: row;

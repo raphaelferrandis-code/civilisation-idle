@@ -207,6 +207,14 @@
   overflow-wrap: break-word;
 }
 
+/* Valeurs NUMÉRIQUES de l'encart (Usure %, Légitimité, stats) : police
+   chiffres (Silkscreen). Le nom d'âge (--era) reste en police de prose. */
+.csp-value:not(.csp-value--era),
+.csp-stat strong {
+  font-family: var(--font-number);
+  font-variant-numeric: tabular-nums;
+}
+
 .csp-value--era { color: var(--gold-bright); }
 .csp-value.danger-pulse { color: var(--red); }
 

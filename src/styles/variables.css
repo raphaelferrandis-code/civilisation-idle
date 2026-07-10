@@ -110,8 +110,10 @@
   --font-title: "Pixelify Sans", "Cinzel", Georgia, serif;
   --font-body: "Pixelify Sans", "Inter", system-ui, -apple-system, sans-serif;
   --font-serif: "Pixelify Sans", "Crimson Text", Georgia, serif;
-  /* Chiffres « idle » : mêmes glyphes pixel, garde tabular-nums là où c'est câblé */
-  --font-number: "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
+  /* Chiffres « idle » : Silkscreen — chiffres 5×5 canoniques, chasse fixe
+     (compteurs stables, 8≠S). Choisie contre VT323 (essai 2026-07-10) ;
+     Pixelify reste le repli (ses chiffres sont ambigus, jamais en premier). */
+  --font-number: "Silkscreen", "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
   /* Police pixel « micro » : Silkscreen, réservée aux petits éléments rétro type
      badges de notif (trop blocky pour la prose). Repli monospace si absente. */
   --font-pixel: "Silkscreen", ui-monospace, "Cascadia Mono", Consolas, monospace;

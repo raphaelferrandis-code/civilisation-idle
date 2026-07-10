@@ -142,7 +142,8 @@
 }
 
 .tactical-value {
-  font-size: 1.1rem;
+  font-family: var(--font-number);
+  font-size: 1rem;
   color: var(--gold-bright);
 }
 
