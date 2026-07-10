@@ -145,10 +145,12 @@ export default function Topbar() {
             <div className="resource-rate-row">
               <span className={`rate-value ${rateClass(c.rate)}`}>
                 <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
+                {/* Convention compacte « /s » (celle de la boutique) ; le cap nomade
+                    passe en suffixe court — le détail vit dans le tooltip. */}
                 <strong id={c.rateId}>
                   {rateSign(c.rate)}{fmtShort(c.rate)}
-                  {c.key === "infrastructure" && showNomadCap ? ` (cap ${fmtShort(nomadCap)})` : ""}
-                </strong> / sec
+                </strong>/s
+                {c.key === "infrastructure" && showNomadCap ? ` · cap ${fmtShort(nomadCap)}` : ""}
               </span>
             </div>
             {c.gauge && (

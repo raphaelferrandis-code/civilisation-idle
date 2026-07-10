@@ -138,7 +138,7 @@ export default function CityStatusPanel() {
         </div>
         <div className="csp-stat" title={tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" })}>
           <PixelIcon name="glyphs/mult" className="csp-stat-icon" />
-          <span className="csp-stat-label">{tr({ fr: 'Multiplic.', en: 'Multiplier' })}</span>
+          <span className="csp-stat-label">{tr({ fr: 'Multi.', en: 'Multi.' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Meilleure ère atteinte à ce jour", en: "Best era reached so far" })}>

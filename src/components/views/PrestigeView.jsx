@@ -342,7 +342,7 @@ export default function PrestigeView() {
                 disabled={!canCollapse}
                 onClick={() => collapse("manual")}
               >
-                {tr({ fr: "Provoquer l'Effondrement Volontaire", en: "Trigger Voluntary Collapse" })}
+                {tr({ fr: "Provoquer l'effondrement", en: "Trigger Collapse" })}
               </button>
             </div>
           </div>

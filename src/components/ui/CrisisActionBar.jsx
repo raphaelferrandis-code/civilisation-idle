@@ -152,7 +152,7 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
         </span>
         <span className="regul-btn-line regul-btn-sub">
           <span className="regul-reform-tag">
-            {a.atCap ? tr({ fr: '✓ foyer réformé au maximum', en: '✓ hotspot reformed to the maximum' }) : `−${Math.round(a.durableAdd * 100)}% ${tr({ fr: 'durable', en: 'lasting' })}`}
+            {a.atCap ? tr({ fr: '✓ réformé au max', en: '✓ reformed to max' }) : `−${Math.round(a.durableAdd * 100)}% ${tr({ fr: 'durable', en: 'lasting' })}`}
           </span>
         </span>
       </button>
@@ -407,9 +407,10 @@ export default function CrisisActionBar({ variant = 'full' }) {
           <h2>{tr({ fr: 'Foyers de tension & Actions de régulation', en: 'Tension Hotspots & Regulation Actions' })}</h2>
         </div>
       </div>
+      {/* Libellé aligné sur la variante compacte : une ligne, le détail en tooltip. */}
       {mitigationPct > 0 && (
         <p className="crisis-regul-buffer crisis-regul-buffer--full" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure + legitimacy). Building infrastructure lastingly pushes back the Rupture.' })}>
-          {tr({ fr: 'Tes institutions (infrastructure + légitimité) absorbent', en: 'Your institutions (infrastructure + legitimacy) absorb' })} <strong>−{mitigationPct}%</strong> {tr({ fr: "de pression en continu — construire de l'infrastructure recule durablement la Rupture.", en: 'of pressure continuously — building infrastructure lastingly pushes back the Rupture.' })}
+          {tr({ fr: 'Institutions : ', en: 'Institutions: ' })}<strong>−{mitigationPct}%</strong>{tr({ fr: ' de pression absorbée', en: ' of pressure absorbed' })}
         </p>
       )}
       {fatigueIndicator}
