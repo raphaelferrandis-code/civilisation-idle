@@ -103,6 +103,49 @@
   display: flex;
 }
 
+/* ── 3 · AUDIT ÉCRANS — Héritage, boutique Cité, encarts communs ──────────── */
+
+/* Boîtes de stats (Dynastie, Grand Reset, Mythes) + encart doctrine + cartes
+   d'issue de crise : palier de fond, plus de trait. */
+.app[data-ui="light"] .prestige-stats div,
+.app[data-ui="light"] .doctrine-display,
+.app[data-ui="light"] .outcome-card {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Cartes d'upgrade (Héritage, boutiques) : on ne garde que la barre-état
+   gauche (or = achetable, vert = acquis) — le reste du contour s'éteint. */
+.app[data-ui="light"] .upgrade {
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+/* Sous-onglets de la boutique : rail discret, seul l'actif porte l'accent or. */
+.app[data-ui="light"] .shop-panel .shop-subtabs {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app[data-ui="light"] .shop-subtab {
+  border-color: transparent;
+}
+
+.app[data-ui="light"] .shop-subtab.active {
+  border-color: var(--gold);
+}
+
+/* Multiplicateurs d'achat (x1 / x10 / … / Max) : même logique d'accent. */
+.app[data-ui="light"] .buy-mode {
+  border-color: transparent;
+}
+
+.app[data-ui="light"] .buy-mode.active,
+.app[data-ui="light"] .buy-mode-max.active {
+  border-color: var(--gold);
+}
+
 /* Politiques indisponibles (verrouillées ou slots pleins) : même traitement. */
 .app[data-ui="light"] .policy-btn:disabled {
   padding: 0.24rem 0.45rem;
