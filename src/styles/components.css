@@ -690,9 +690,9 @@ small, .chip, .doctrine-display small {
   border-radius: 3px;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
-  /* Petits caractères : Pixelify déformait les chiffres (« x25 » lu « x88 »). */
+  /* Petits caractères : Pixelify déformait les chiffres (« x25 » lu « x88 »).
+     Le corps est réglé au point d'usage (dock : views-world-fullframe.css). */
   font-family: var(--font-small);
-  font-size: 0.95rem;
 }
 
 .buy-mode.active, .buy-mode-max.active {

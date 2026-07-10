@@ -31,8 +31,7 @@ function buildingProductionSegments(building, outputCount, globalMult, sqrtGloba
 const TABS = [
   { id: "city", label: { fr: "Moteurs", en: "Engines" } },
   { id: "knowledge", label: { fr: "Savoir", en: "Knowledge" } },
-  /* Libellé court : « Infrastructure » s'élidait dans le dock (~290px). */
-  { id: "infra", label: { fr: "Infra.", en: "Infra." } }
+  { id: "infra", label: { fr: "Infrastructure", en: "Infrastructure" } }
 ];
 
 function BuildingShop() {
