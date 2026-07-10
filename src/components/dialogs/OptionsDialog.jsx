@@ -25,7 +25,7 @@ import {
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
 
-export default function OptionsDialog({ isOpen, onClose }) {
+export default function OptionsDialog({ isOpen, onClose, uiLight, onToggleUiLight }) {
   const dialogRef = useRef(null);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
@@ -252,6 +252,20 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     English
                   </button>
                 </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Interface allégée", en: "Light interface" })}</span>
+                  <small>{tr({ fr: "Cadre doré réservé au bandeau de ressources ; panneaux et boutons en surfaces sobres, actions indisponibles repliées", en: "Gold frame reserved for the resource bar; panels and buttons as plain surfaces, unavailable actions collapsed" })}</small>
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn ${uiLight ? 'on' : 'off'}`}
+                  onClick={onToggleUiLight}
+                >
+                  {uiLight ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
+                </button>
               </div>
 
               <div className="options-row">

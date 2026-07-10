@@ -12,6 +12,7 @@ import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
 import { tr, getLang } from './game/core/i18n.js';
+import { getUiLight, setUiLight } from './game/core/uiMode.js';
 import logoFr from './assets/LOGO.png';
 import logoEn from './assets/LOGO_collapse.png';
 
@@ -51,6 +52,16 @@ export default function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
+
+  // Interface allégée (dé-boxing) vs classique — pilote data-ui sur .app.
+  const [uiLight, setUiLightState] = useState(getUiLight);
+  const handleToggleUiLight = useCallback(() => {
+    setUiLightState((prev) => {
+      const next = !prev;
+      setUiLight(next);
+      return next;
+    });
+  }, []);
 
   // Moment signature : bandeau plein écran au passage d'un nouvel âge (Phase 7).
   // Changement d'ÉPOQUE (toutes les 5 ères) : cérémonie renforcée + bascule de peau UI.
@@ -153,6 +164,7 @@ export default function App() {
     <div
       className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
       data-active-view={activeView}
+      data-ui={uiLight ? 'light' : 'classic'}
       style={{
         // Style universel : le chrome n'est plus teinté par l'âge — l'accent or
         // canonique de variables.css s'applique partout. L'âge ne pilote plus
@@ -230,7 +242,7 @@ export default function App() {
 
       {/* Modals Option / Import / Debug */}
       <Suspense fallback={null}>
-        {isOptionsOpen && <OptionsDialog isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />}
+        {isOptionsOpen && <OptionsDialog isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} uiLight={uiLight} onToggleUiLight={handleToggleUiLight} />}
         {isImportOpen && <ImportDialog isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />}
         {isDebugOpen && <DebugDialog isOpen={isDebugOpen} onClose={() => setIsDebugOpen(false)} />}
       </Suspense>

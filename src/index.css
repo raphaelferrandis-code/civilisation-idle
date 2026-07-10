@@ -11,3 +11,5 @@
 @import './styles/ruinsTree.css';
 /* Cadre or universel : importé en dernier pour primer sur les bordures héritées. */
 @import './styles/frames.css';
+/* Interface allégée (data-ui="light") : après frames.css pour arbitrer en dernier. */
+@import './styles/ui-light.css';

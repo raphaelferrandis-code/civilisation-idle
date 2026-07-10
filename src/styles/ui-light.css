@@ -1,0 +1,125 @@
+/* ============================================================================
+   INTERFACE ALLÉGÉE — .app[data-ui="light"] (prototype dé-boxing, 2026-07-10)
+   ----------------------------------------------------------------------------
+   Issu de la recherche « box-in-box » : le cadre or 9-slice est réservé au
+   bandeau de ressources (budget de cadres — voir frames.css, qui ne s'applique
+   plus qu'en mode classique). Ici, la hiérarchie se code par PALIERS DE FOND
+   (élévation sombre : chaque niveau d'imbrication éclaircit légèrement) et par
+   l'espacement — plus jamais par un contour de plus.
+
+   Deux volets :
+     1. Budget de cadres — panneaux et cartes en surfaces, hairlines éteints.
+     2. Densité progressive — actions verrouillées/inabordables repliées en
+        « rangées fantômes » d'une ligne, re-déployées au survol ou au déblocage.
+
+   Basculable in-game : Options → Affichage → « Interface allégée ».
+   ============================================================================ */
+
+/* ── 1 · PANNEAUX : élévation au lieu d'enclosure ─────────────────────────── */
+
+/* Panneau racine : hairline discret (le fond + l'ombre portent la séparation ;
+   la bande de .panel-heading reste LE séparateur de section). */
+.app[data-ui="light"] .panel,
+.app[data-ui="light"] .hud-panel,
+.app[data-ui="light"] .city-status-panel,
+.app[data-ui="light"] .city-stage-hud {
+  border-color: var(--border-soft);
+}
+
+/* Cartes de 2e niveau (foyers de tension, baromètres) : un cran de fond plus
+   clair que le panneau, bordure éteinte — l'écart tonal suffit à percevoir le
+   bord (élévation sombre). */
+.app[data-ui="light"] .tactical-card {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Baromètres : on ne garde QUE la barre d'accent gauche (rupture/usure). */
+.app[data-ui="light"] .barometer-card {
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Boutons d'action des foyers : la teinte de fond du foyer suffit à délimiter
+   (fond ≠ fond voisin → la bordure est redondante). */
+.app[data-ui="light"] .tactical-actions button,
+.app[data-ui="light"] .crisis-regul-btn {
+  border-color: transparent;
+}
+
+/* Politiques permanentes : surface sobre au repos, l'état actif porte l'accent. */
+.app[data-ui="light"] .policy-btn {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.app[data-ui="light"] .policy-btn.is-active {
+  border-color: color-mix(in srgb, var(--gold), transparent 55%);
+  background: rgba(var(--era-rgb), 0.1);
+}
+
+/* Bilan de la Civilisation : les 5 stats redeviennent une rangée plate —
+   libellé + valeur séparés par l'espacement, plus de mini-cartes. */
+.app[data-ui="light"] .prestige-stat-card {
+  border-color: transparent;
+  background: transparent;
+  padding: 0.35rem 0.5rem;
+}
+
+/* ── 2 · DENSITÉ PROGRESSIVE : rangées fantômes ───────────────────────────── */
+
+/* Action verrouillée (mythe/ère) ou inabordable : une ligne compacte sans
+   carte — visible (découvrabilité, leçon Melvor) mais dégonflée. Elle se
+   re-déploie au survol, et « s'allume » d'elle-même en devenant jouable. */
+/* !important : neutralise l'identité or des réformes (.regul-reform, border en
+   !important dans views-city.css) tant que l'action est repliée — elle la
+   retrouve en devenant jouable. */
+.app[data-ui="light"] .tactical-actions button:disabled,
+.app[data-ui="light"] .crisis-foyer-actions .crisis-regul-btn:disabled {
+  padding: 0.22rem 0.45rem;
+  background: transparent !important;
+  border-color: transparent !important;
+  opacity: 0.5;
+}
+
+/* La ligne secondaire (contrepartie, note de réforme) se replie au repos… */
+.app[data-ui="light"] .tactical-actions button:disabled .regul-btn-sub,
+.app[data-ui="light"] .crisis-foyer-actions .crisis-regul-btn:disabled .regul-btn-sub {
+  display: none;
+}
+
+/* …et revient au survol (déploiement vers le bas : la rangée survolée ne bouge
+   pas sous le curseur). */
+.app[data-ui="light"] .tactical-actions button:disabled:hover,
+.app[data-ui="light"] .crisis-foyer-actions .crisis-regul-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+  opacity: 0.8;
+}
+
+.app[data-ui="light"] .tactical-actions button:disabled:hover .regul-btn-sub,
+.app[data-ui="light"] .crisis-foyer-actions .crisis-regul-btn:disabled:hover .regul-btn-sub {
+  display: flex;
+}
+
+/* Politiques indisponibles (verrouillées ou slots pleins) : même traitement. */
+.app[data-ui="light"] .policy-btn:disabled {
+  padding: 0.24rem 0.45rem;
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.5;
+}
+
+.app[data-ui="light"] .policy-btn:disabled .regul-btn-sub {
+  display: none;
+}
+
+.app[data-ui="light"] .policy-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.03);
+  opacity: 0.8;
+}
+
+.app[data-ui="light"] .policy-btn:disabled:hover .regul-btn-sub {
+  display: flex;
+}

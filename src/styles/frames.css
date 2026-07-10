@@ -21,10 +21,14 @@
   --ui-frame-w-ctrl: 6px;
 }
 
-.panel,
-.hud-panel,
-.city-status-panel,
-.city-stage-hud,
+/* Mode « interface allégée » (data-ui="light", voir ui-light.css) : budget de
+   cadres — l'ornement est réservé au bandeau de ressources, panneaux et
+   contrôles retrouvent leurs bordures fines d'origine. Le mode classique
+   (data-ui="classic") garde le cadre partout, à l'identique. */
+.app:not([data-ui="light"]) .panel,
+.app:not([data-ui="light"]) .hud-panel,
+.app:not([data-ui="light"]) .city-status-panel,
+.app:not([data-ui="light"]) .city-stage-hud,
 .topbar-resources {
   border-style: solid !important;
   border-width: var(--ui-frame-w) !important;
@@ -41,16 +45,16 @@
    (le cadre ne dessine que l'anneau) ; l'état actif/sélectionné reste distingué
    par son fond et son halo, pas par le cadre.
    ---------------------------------------------------------------------------- */
-.tab,
+.app:not([data-ui="light"]) .tab,
 /* Régulation de crise : variante compacte + tableau tactique (full) + politiques */
-.crisis-regul-btn,
-.tactical-actions button,
-.policy-btn,
+.app:not([data-ui="light"]) .crisis-regul-btn,
+.app:not([data-ui="light"]) .tactical-actions button,
+.app:not([data-ui="light"]) .policy-btn,
 /* Choix d'effondrement : préparations terminales + boutons d'effondrement */
-.prep-tier-buttons button,
-.collapse-btn-primary,
-.manual-collapse-btn,
-.surchauffe-btn-action {
+.app:not([data-ui="light"]) .prep-tier-buttons button,
+.app:not([data-ui="light"]) .collapse-btn-primary,
+.app:not([data-ui="light"]) .manual-collapse-btn,
+.app:not([data-ui="light"]) .surchauffe-btn-action {
   border-style: solid !important;
   border-width: var(--ui-frame-w-ctrl) !important;
   border-color: transparent !important;
