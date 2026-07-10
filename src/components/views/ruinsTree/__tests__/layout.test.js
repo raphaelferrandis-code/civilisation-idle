@@ -79,38 +79,55 @@ describe("Layout arbre de ruines — honnêteté du graphe", () => {
     }
   });
 
-  it("place dogmes et sceaux au cœur d'un rond, capstone en cœur achetable", () => {
+  it("ancre dogmes et sceaux à leur rond, capstone en cœur achetable", () => {
+    // Depuis la refonte, les dogmes vont par PAIRES exclusives posées de part
+    // et d'autre du rond : chaque dogme est soit AU centre d'un rond (dogme
+    // seul), soit à distance bornée du centre le plus proche (membre de paire).
     const { dogmas, seals, ronds, nodes } = computeRuinTreeLayout(allIds);
     const rondKey = new Set(ronds.map((r) => `${r.x.toFixed(2)},${r.y.toFixed(2)}`));
-    for (const d of dogmas) expect(rondKey.has(`${d.x.toFixed(2)},${d.y.toFixed(2)}`), d.id).toBe(true);
+    const pairOffsetMax = LAYOUT.ORBIT_R + LAYOUT.NODE_R + LAYOUT.DOGMA_R + 8 + 1e-6;
+    for (const d of dogmas) {
+      const nearest = Math.min(...ronds.map((r) => Math.hypot(d.x - r.x, d.y - r.y)));
+      expect(nearest, d.id).toBeLessThanOrEqual(pairOffsetMax);
+    }
     for (const s of seals) expect(rondKey.has(`${s.x.toFixed(2)},${s.y.toFixed(2)}`)).toBe(true);
     const caps = nodes.filter((n) => n.capstone);
     expect(caps.length).toBeGreaterThan(0);
     for (const c of caps) expect(rondKey.has(`${c.x.toFixed(2)},${c.y.toFixed(2)}`), c.id).toBe(true);
   });
 
-  it("expose les fils d'exclusion conflictsWith (≥ 1, inter-branche)", () => {
-    const { exclusionLinks, nodes } = computeRuinTreeLayout(allIds);
+  it("expose les fils d'exclusion conflictsWith (paires de dogmes intra-branche)", () => {
+    const { exclusionLinks } = computeRuinTreeLayout(allIds);
     expect(exclusionLinks.length).toBeGreaterThan(0);
-    const branchOf = Object.fromEntries(nodes.map((n) => [n.id, n.branch]));
+    const dogmaBranch = Object.fromEntries(PRESTIGE_DOGMAS.map((d) => [d.id, d.branch]));
     for (const link of exclusionLinks) {
       const [a, b] = link.ids;
-      expect(branchOf[a]).not.toBe(branchOf[b]); // inter-branche
+      // Les exclusions de la refonte sont les paires de dogmes d'une même branche.
+      expect(dogmaBranch[a], a).toBeTruthy();
+      expect(dogmaBranch[b], b).toBeTruthy();
+      expect(dogmaBranch[a]).toBe(dogmaBranch[b]);
+      expect(Number.isFinite(link.a.x) && Number.isFinite(link.b.y)).toBe(true);
     }
   });
 });
 
 describe("Layout arbre de ruines — dogmes", () => {
   it("place les dogmes par requiredPurchases croissant (rayon monotone par branche)", () => {
+    // Les membres d'une même paire partagent leur requiredPurchases (même rond,
+    // même rayon) : la monotonie se vérifie entre PALIERS distincts.
     const { dogmas } = computeRuinTreeLayout(allIds);
     expect(dogmas.length).toBe(PRESTIGE_DOGMAS.length);
     const byBranch = {};
     for (const d of dogmas) (byBranch[d.branch] ||= []).push(d);
     for (const branch of Object.keys(byBranch)) {
-      const g = byBranch[branch].slice().sort((a, b) => a.requiredPurchases - b.requiredPurchases);
-      for (let i = 1; i < g.length; i++) {
-        const r0 = Math.hypot(g[i - 1].x, g[i - 1].y);
-        const r1 = Math.hypot(g[i].x, g[i].y);
+      const byReq = {};
+      for (const d of byBranch[branch]) {
+        (byReq[d.requiredPurchases] ||= []).push(Math.hypot(d.x, d.y));
+      }
+      const levels = Object.keys(byReq).map(Number).sort((a, b) => a - b);
+      for (let i = 1; i < levels.length; i++) {
+        const r0 = Math.max(...byReq[levels[i - 1]]);
+        const r1 = Math.min(...byReq[levels[i]]);
         expect(r1, `${branch}`).toBeGreaterThan(r0);
       }
     }

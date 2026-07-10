@@ -9,10 +9,10 @@ import { localizeData } from "../../../game/core/i18n.js";
 export const BRANCH_ORDER = ["knowledge", "prosperity", "cycle_crise", "resilience"];
 
 export const BRANCH_THEME = {
-  knowledge:   { label: { fr: "Connaissance", en: "Knowledge" },     color: "var(--blue)",  rgb: "76, 157, 232",  glyph: "fa-book-open" },
-  prosperity:  { label: { fr: "Prospérité", en: "Prosperity" },      color: "var(--gold)",  rgb: "201, 169, 104", glyph: "fa-coins" },
-  cycle_crise: { label: { fr: "Cycle & Crise", en: "Cycle & Crisis" }, color: "#c86464",     rgb: "200, 100, 100", glyph: "fa-arrows-spin" },
-  resilience:  { label: { fr: "Résilience", en: "Resilience" },      color: "var(--green)", rgb: "54, 179, 126",  glyph: "fa-seedling" },
+  knowledge:   { label: { fr: "L'Écorce gravée", en: "The Graven Bark" }, color: "var(--blue)",  rgb: "76, 157, 232",  glyph: "fa-book-open" },
+  prosperity:  { label: { fr: "La Sève", en: "The Sap" },                 color: "var(--gold)",  rgb: "201, 169, 104", glyph: "fa-coins" },
+  cycle_crise: { label: { fr: "La Cendre", en: "The Ash" },               color: "#c86464",      rgb: "200, 100, 100", glyph: "fa-arrows-spin" },
+  resilience:  { label: { fr: "Les Racines", en: "The Roots" },           color: "var(--green)", rgb: "54, 179, 126",  glyph: "fa-seedling" },
 };
 
 // Aplatit les `label` { fr, en } en chaînes de la langue courante (cf. i18n.js).

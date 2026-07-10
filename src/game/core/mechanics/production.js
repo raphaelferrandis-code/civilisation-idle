@@ -14,6 +14,12 @@ import { Decimal, D, toNum } from '../num.js';
 import {
   RUIN_POWER_EXP,
   RUIN_POWER_COEF,
+  RUIN_BRAISE_PER_NODE,
+  RUIN_BRAISE_LOG_SPENT_COEF,
+  VESTIGE_POWER_CAP,
+  REGROWTH_RUSH_MS,
+  ABYSS_DOGMA_THRESHOLD,
+  ABYSS_DOGMA_PROD_BONUS,
   LEGITIMACY_POWER_EXP,
   LEGITIMACY_COEF,
   FOUNDING_GRACE_BUILDINGS,
@@ -73,6 +79,7 @@ import {
   ruinEffectSum,
   ruinEffectMultiplier,
   ownedRuinUpgradeCount,
+  ruinSpentTotal,
   totalBuildingCount,
   crisisOpen
 } from './shared.js';
@@ -105,12 +112,17 @@ export function ruinMultiplierDec() {
   return has("oral_tradition") ? base.sub(1).mul(1.2).add(1) : base;
 }
 
-function chronicleEngineMultiplier() {
-  if (!has("chronicle_engine")) return 1;
-  const ownedBonus = ownedRuinUpgradeCount() * 0.03;
-  // log10 Decimal : reste fini même quand les ruines dépassent le domaine float.
-  const unspentBonus = D(state.ruins).add(1).log10() * 0.08;
-  return 1 + ownedBonus + unspentBonus;
+// Sève de braise (refonte Arbre des Ruines) : le scaling méta ne vient plus des
+// nœuds « +X % ressource » mais de l'arbre lui-même — chaque nœud allumé et
+// chaque ruine dépensée chauffent la production globale. « Machine chronique »
+// (capstone Mémoire, effectType braiseAmp) amplifie le bonus. Borné (≤ ~×10),
+// nul sous Chaos (ruinEffects renvoie 0 nœud) → number sûr dans les deux chemins.
+function braiseMultiplier() {
+  const owned = ownedRuinUpgradeCount();
+  if (owned <= 0) return 1;
+  const bonus = owned * RUIN_BRAISE_PER_NODE
+    + Math.log10(1 + ruinSpentTotal()) * RUIN_BRAISE_LOG_SPENT_COEF;
+  return 1 + bonus * (1 + ruinEffectSum("braiseAmp"));
 }
 
 export function unspentRuinsPowerMultiplier() {
@@ -151,7 +163,8 @@ function marketMultiplier() {
 function roadNetworkMultiplier() {
   const cov = state.roadCoverage;
   const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
-  return 1 + c * 0.10;
+  // « Grand cadastre » (roadCapBonus) relève le plafond de +10 % à +15 %.
+  return 1 + c * (0.10 + ruinEffectSum("roadCapBonus"));
 }
 
 export function addProductionPenalty(type, amount) {
@@ -177,12 +190,15 @@ function crisisProductionMultiplier(type) {
 export function policyProductionMultiplier(type) {
   const policies = state.activePolicies;
   if (!policies || !policies.length) return 1;
+  // « Loi des témoins » (policyCostHalf) : le coût de production continu des
+  // politiques permanentes est réduit de moitié.
+  const soften = 1 - Math.min(0.75, ruinEffectSum("policyCostHalf"));
   let m = 1;
   for (const id of policies) {
     const cost = POLICY_BY_ID[id]?.cost;
     if (!cost) continue;
-    if (cost.global) m *= (1 - cost.global);
-    if (cost[type]) m *= (1 - cost[type]);
+    if (cost.global) m *= (1 - cost.global * soften);
+    if (cost[type]) m *= (1 - cost[type] * soften);
   }
   return Math.max(0.1, m);
 }
@@ -270,7 +286,9 @@ export function activeEpitaphLegacy() {
   if (!legacy) return null;
   const startedAt = active.startedAt || state.cycleStartedAt || Date.now();
   const elapsed = Date.now() - startedAt;
-  if (elapsed > EPITAPH_LEGACY_DURATION_MS) return null;
+  // « Épitaphes profondes » (epitaphAmp 1.5) : le legs dure ×2.5 (8 → 20 min).
+  const duration = EPITAPH_LEGACY_DURATION_MS * (1 + ruinEffectSum("epitaphAmp"));
+  if (elapsed > duration) return null;
   return { ...active, definition: legacy, elapsed };
 }
 
@@ -352,13 +370,26 @@ function globalScalarFactors() {
   if (state.eneeHeritage && elapsed < ENEE_HERITAGE_DURATION_MS) {
     eneeBoost = 1 + ENEE_HERITAGE_BOOST_PER_COLLAPSE * Math.min(10, state.eneeCollapseCount || 0);
   }
-  return { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost };
+  // Facteurs de l'Arbre des Ruines refondu (tous bornés → un seul produit,
+  // partagé bit-à-bit entre les chemins float et Decimal) :
+  //   braise    — Sève de braise (scaling méta par nœud/ruines dépensées) ;
+  //   vestiges  — Nécropole vivante (+2 %/vestige, cap VESTIGE_POWER_CAP) ;
+  //   regrowth  — Cendres fertiles (×3 pendant les 3 premières minutes du cycle) ;
+  //   abîme     — dogme Abîme assumé (+20 % tant que la Rupture ≥ 70 %).
+  const vestigeMult = 1 + ruinEffectSum("vestigePower") * Math.min(VESTIGE_POWER_CAP, (state.vestiges || []).length);
+  const rushSum = ruinEffectSum("regrowthRush");
+  const regrowthMult = (rushSum > 0 && elapsed < REGROWTH_RUSH_MS) ? 1 + rushSum : 1;
+  const abyssDogmaMult = (has("dogma_abime_assume") && (state.instability || 0) >= ABYSS_DOGMA_THRESHOLD)
+    ? 1 + ABYSS_DOGMA_PROD_BONUS
+    : 1;
+  const ruinTreeMult = braiseMultiplier() * vestigeMult * regrowthMult * abyssDogmaMult;
+  return { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult };
 }
 
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
-  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
+  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
@@ -368,14 +399,21 @@ export function globalMultiplier() {
 // peuvent déborder : ils ont leur variante Decimal, le reste est borné.
 export function globalMultiplierDec() {
   if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
-  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost } = globalScalarFactors();
+  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
     .mul(institutionMultiplierDec())
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
-    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * chronicleEngineMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
+    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
   renderCache._frameGlobalMultDecVer = renderCache.frameVersion;
   return renderCache._frameGlobalMultDec;
+}
+
+// « Rives fécondes » : les moteurs riverains (ports, moulins) produisent plus —
+// le fleuve devient une mécanique, pas seulement un décor.
+function riverEngineFactor(building) {
+  if (building.id !== "river_ports" && building.id !== "water_mills") return 1;
+  return 1 + ruinEffectSum("riverEngineMult");
 }
 
 function getBuildingSums() {
@@ -399,7 +437,7 @@ function getBuildingSums() {
     }
 
     if (count > 0) {
-      const synergy = buildingOutputMultiplier(b, count);
+      const synergy = buildingOutputMultiplier(b, count) * riverEngineFactor(b);
       const cat = b.category || "other";
       if (!baseSumsByCategory[cat]) {
         baseSumsByCategory[cat] = { pop: 0, food: 0, gold: 0, knowledge: 0, infra: 0 };
@@ -432,7 +470,7 @@ function getBuildingSums() {
         baseSumsByCategory[cat] = { pop: D(0), food: D(0), gold: D(0), knowledge: D(0), infra: D(0) };
       }
       const target = baseSumsByCategory[cat];
-      const synergy = buildingOutputMultiplierDec(b, count);
+      const synergy = buildingOutputMultiplierDec(b, count).mul(riverEngineFactor(b));
       target.pop = target.pop.add(synergy.mul((b.pop || 0) * count));
       target.food = target.food.add(synergy.mul((b.food || 0) * count));
       target.gold = target.gold.add(synergy.mul((b.gold || 0) * count));
@@ -572,8 +610,11 @@ export function pressureBreakdown() {
   const inequalityArg = state.goldReserveEase != null
     ? Math.max(0, (state.goldReserveEase - INEQUALITY_RESERVE_REF_S) / INEQUALITY_RESERVE_SCALE_S) * 0.28
     : inequalityRaw * 0.28 + (state.buildings.markets || 0) * 0.006 + (state.buildings.guilds || 0) * 0.008;
-  const inequality = softCap(inequalityArg, 0.55) * (1 - foyerCut("inequality"));
-  const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity"));
+  // « Franchises marchandes » (inequalityDamp) et « Académies libres »
+  // (complexityDamp) : amortissement PERMANENT du foyer, multiplicatif avec les
+  // reliefs/réformes (plafonné pour ne jamais annuler un foyer).
+  const inequality = softCap(inequalityArg, 0.55) * (1 - foyerCut("inequality")) * (1 - Math.min(0.8, ruinEffectSum("inequalityDamp")));
+  const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity")) * (1 - Math.min(0.8, ruinEffectSum("complexityDamp")));
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
   const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief) * (1 - foyerCut("dissent"));
   // Charge structurelle : les bâtiments stabilisants (instabilité négative)
@@ -591,7 +632,9 @@ export function pressureBreakdown() {
   //     plafonné à DEMESURE_CUT_CAP → jamais totalement effacé par les leviers seuls.
   // Reste à 0 sous le seuil (early game intact). Sûr au-delà du float (log10 Decimal fini).
   const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : toNum(D(state.population).max(10).log10());
-  const demesureRaw = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF);
+  // « Gouvernail des millions » (demesureSlow) : l'hubris d'échelle croît moins vite.
+  const demesureRaw = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF)
+    * (1 - Math.min(0.8, ruinEffectSum("demesureSlow")));
   const demesureCut = Math.min(
     DEMESURE_CUT_CAP,
     Math.log10(1 + Math.max(0, state.legitimacy)) * DEMESURE_LEGIT_LOG_COEF + policyDemesureDamp()
@@ -716,9 +759,6 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
     food *= prometheeFoodMult;
 
     const mult = globalMultiplier();
-    if (has("root_cellars")) food *= 1.6;
-    if (has("cracked_scales")) gold *= 1.6;
-    if (has("bone_ledgers")) knowledge *= 1.6;
     food *= ruinEffectMultiplier("foodMult");
     gold *= ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1);
     knowledge *= ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1);
@@ -781,9 +821,6 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
 
   const multD = globalMultiplierDec();
   const sqrtMultD = multD.sqrt();
-  if (has("root_cellars")) foodD = foodD.mul(1.6);
-  if (has("cracked_scales")) goldD = goldD.mul(1.6);
-  if (has("bone_ledgers")) knowledgeD = knowledgeD.mul(1.6);
   foodD = foodD.mul(ruinEffectMultiplier("foodMult"));
   goldD = goldD.mul(ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1));
   knowledgeD = knowledgeD.mul(ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1));
@@ -887,9 +924,16 @@ function orPopProdMult() {
   return D(state.population).gte(cap) ? 0 : 1;
 }
 
+// Pas des jalons de bâtiments : 25 achats par défaut, 20 avec le capstone
+// « Ville-Monde » (effectType milestoneStep). Source unique — consommé ici et
+// par l'achat (building.js, détection de franchissement + Fêtes de jalon).
+export function milestoneStepSize() {
+  return Math.max(5, 25 - ruinEffectSum("milestoneStep"));
+}
+
 export function buildingOutputMultiplier(building, count) {
   if (count <= 0) return 1;
-  const milestone = Math.floor(count / 25);
+  const milestone = Math.floor(count / milestoneStepSize());
   if (building.category !== "city") {
     return Math.pow(1.015, count) * Math.pow(1.5, milestone) * (1 + Math.log10(count + 1) * 0.12);
   }
@@ -902,7 +946,7 @@ export function buildingOutputMultiplier(building, count) {
 // Miroir Decimal de buildingOutputMultiplier (synergies au-delà du float).
 export function buildingOutputMultiplierDec(building, count) {
   if (count <= 0) return new Decimal(1);
-  const milestone = Math.floor(count / 25);
+  const milestone = Math.floor(count / milestoneStepSize());
   if (building.category !== "city") {
     return Decimal.pow(1.015, count).mul(Decimal.pow(1.5, milestone)).mul(1 + Math.log10(count + 1) * 0.12);
   }
@@ -910,7 +954,7 @@ export function buildingOutputMultiplierDec(building, count) {
 }
 
 export function buildingMilestoneInfo(building, count) {
-  const milestone = Math.floor(count / 25);
+  const milestone = Math.floor(count / milestoneStepSize());
   if (milestone <= 0) return null;
   const bonus = building.category === "city" ? Math.pow(2, milestone) : Math.pow(1.5, milestone);
   return {

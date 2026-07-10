@@ -7,6 +7,7 @@ import { Decimal, D } from '../num.js';
 import { clamp, canPayCost } from '../utils.js';
 import { isMythEffectActive, SISYPHE_SCALE_REDUCTION } from '../../data/myths.js';
 import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, hasActiveRuin } from '../../data/activeRuins.js';
+import { ENRACINEMENT_COST_MULT } from '../balance.js';
 import { has, ruinEffectSum, totalBuildingCount } from './shared.js';
 
 // Retourne le facteur de scaling effectif d'un bâtiment.
@@ -21,6 +22,10 @@ function buildingDiscount(building) {
   // -5% par dynastie fondée, plafonné à -60% (sinon trivialise la progression longue)
   if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.dynastyCount));
   if (has("trait_nomadism")) discount *= 0.7;
+  // Dogme « Enracinement » : fin de l'entretien A2 (tick.js) contre +15 % partout.
+  if (has("trait_enracinement")) discount *= ENRACINEMENT_COST_MULT;
+  // « Grand cadastre » : les Routes coûtent −25 % (le réseau se densifie).
+  if (building.id === "roads" && has("grand_cadastre")) discount *= 0.75;
   if (building.category === "city") discount *= Math.max(0.35, 1 - ruinEffectSum("cityDiscount"));
   if (building.category === "knowledge") discount *= Math.max(0.35, 1 - ruinEffectSum("knowledgeDiscount"));
   if (building.category === "infra") discount *= Math.max(0.35, 1 - ruinEffectSum("infraDiscount"));
@@ -97,7 +102,15 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
 
 export function archaeologyCost() {
   const remembered = Object.values(state.lastCollapsedBuildings || {}).reduce((sum, count) => sum + count, 0);
-  return D(state.population).mul(0.12).max(Math.max(25000, remembered * 8500));
+  const base = D(state.population).mul(0.12).max(Math.max(25000, remembered * 8500));
+  // « Chantiers de fouilles » : coût en savoir réduit de moitié.
+  return has("chantiers_fouilles") ? base.mul(0.5) : base;
+}
+
+// Nombre d'exhumations par cycle : 1 de base (Archéologie), +2 avec les
+// « Chantiers de fouilles » (effectType exhumeCharges).
+export function exhumeChargesPerCycle() {
+  return 1 + ruinEffectSum("exhumeCharges");
 }
 
 export function archaeologyCandidates() {
@@ -121,5 +134,7 @@ export function archaeologyCandidates() {
 }
 
 export function canExhume() {
-  return has("skill_archaeology") && !state.archaeologyUsed && D(state.knowledge).gte(archaeologyCost());
+  return has("skill_archaeology")
+    && (state.archaeologyUses || 0) < exhumeChargesPerCycle()
+    && D(state.knowledge).gte(archaeologyCost());
 }

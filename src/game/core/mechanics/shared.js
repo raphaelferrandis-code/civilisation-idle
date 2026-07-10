@@ -8,6 +8,7 @@ import { upgrades } from '../../data/upgrades.js';
 import { eras } from '../../data/world.js';
 import { isMythEffectActive } from '../../data/myths.js';
 import { D } from '../num.js';
+import { BUILDING_REVEAL_PEAK_FRACTION } from '../balance.js';
 
 export function has(id) {
   return Boolean(state.upgrades[id]);
@@ -20,9 +21,16 @@ export function hasDoctrine(id) {
 export function isUnlocked(item) {
   if (item.id && item.category && (state.buildings[item.id] || 0) > 0) return true;
   if (item.unlockCycles && state.cycles < item.unlockCycles) return false;
-  if (item.unlockBuilding) {
-    const have = state.buildings[item.unlockBuilding.id] || 0;
-    if (have < item.unlockBuilding.count) return false;
+  // Apparition économique (bâtiments) : révélé quand le pic du cycle dans sa
+  // devise approche son coût de base — la production seule débloque, sans
+  // condition affichée (cf. BUILDING_REVEAL_PEAK_FRACTION). `base` brut et non
+  // le coût réduit : garde ce module feuille (pas d'import de cost.js) ; les
+  // discounts de prestige font au pire apparaître le bâtiment un peu tard,
+  // jamais un blocage (la production post-effondrement franchit le seuil en
+  // quelques secondes).
+  if (item.category && item.base && item.currency) {
+    const peak = state.cyclePeaks?.[item.currency];
+    if (peak != null && !D(peak).gte(item.base * BUILDING_REVEAL_PEAK_FRACTION)) return false;
   }
   if (item.group === "ruins" && item.cost?.ruins > 500000000) {
     const minCycles = item.cost.ruins > 50000000000 ? 10 : item.cost.ruins > 5000000000 ? 9 : 8;
@@ -36,7 +44,7 @@ export function totalBuildingCount() {
 }
 
 function ruinEffects() {
-  if (isMythEffectActive("mythe_du_chaos")) return { sums: {}, ownedCount: 0 };
+  if (isMythEffectActive("mythe_du_chaos")) return { sums: {}, ownedCount: 0, spentRuins: 0 };
 
   const signature = Object.keys(state.upgrades)
     .filter((id) => state.upgrades[id])
@@ -47,14 +55,16 @@ function ruinEffects() {
 
   const sums = {};
   let ownedCount = 0;
+  let spentRuins = 0; // coûts NOMINAUX cumulés (Sève de braise) — borné (~2e11), number sûr
   for (const upgrade of upgrades) {
     if (upgrade.group !== "ruins" || !has(upgrade.id)) continue;
     ownedCount += 1;
+    spentRuins += upgrade.cost?.ruins || 0;
     if (upgrade.effectType) sums[upgrade.effectType] = (sums[upgrade.effectType] || 0) + upgrade.amount;
   }
 
   renderCache.cachedRuinEffectsSignature = signature;
-  renderCache.cachedRuinEffects = { sums, ownedCount };
+  renderCache.cachedRuinEffects = { sums, ownedCount, spentRuins };
   return renderCache.cachedRuinEffects;
 }
 
@@ -67,19 +77,28 @@ export function ruinEffectMultiplier(type) {
 }
 
 // Socle de départ d'une ressource après effondrement/migration : un plancher PLAT
-// (+ effectType startX) augmenté d'une fraction du pic du cycle précédent
-// (startXPctPeak × cyclePeaks.x). SOURCE UNIQUE pour completeCollapse,
-// resetCivilization et migrerEnee — évite la divergence du socle entre resets.
+// (+ effectType startX) augmenté d'une fraction du pic du cycle précédent —
+// `allStartPctPeak` (Reliquaire des pics + Reliquaire scellé) couvre TOUTES les
+// ressources, les anciens `startXPctPeak` restent lus (aucun en données, mais le
+// canal survit). SOURCE UNIQUE pour completeCollapse, resetCivilization et
+// migrerEnee — évite la divergence du socle entre resets.
 export function computeStartFloor(resource, flat) {
   const peaks = state.cyclePeaks || {};
+  const pctPeak = ruinEffectSum(`start${resource}PctPeak`) + ruinEffectSum("allStartPctPeak");
   return D(flat + ruinEffectSum(`start${resource}`))
-    .add(D(peaks[resource.toLowerCase()] || 0).mul(ruinEffectSum(`start${resource}PctPeak`)));
+    .add(D(peaks[resource.toLowerCase()] || 0).mul(pctPeak));
 }
 
-// Exporté pour chronicleEngineMultiplier (production.js) ; volontairement NON
+// Exporté pour braiseMultiplier (production.js) ; volontairement NON
 // re-exporté par le baril mechanics.js (helper interne au paquet).
 export function ownedRuinUpgradeCount() {
   return ruinEffects().ownedCount;
+}
+
+// Total NOMINAL de ruines dépensées dans l'arbre (Sève de braise). Interne au
+// paquet mechanics, comme ownedRuinUpgradeCount.
+export function ruinSpentTotal() {
+  return ruinEffects().spentRuins;
 }
 
 export function crisisOpen() {

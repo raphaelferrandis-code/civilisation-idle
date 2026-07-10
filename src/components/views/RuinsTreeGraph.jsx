@@ -7,6 +7,7 @@ import {
   ownedInBranchBelowTier,
   isUnlocked,
   has,
+  ruinNodeCost,
 } from "../../game/core/mechanics.js";
 import { buyUpgrade } from "../../game/core/actions.js";
 import { upgradeById, state } from "../../game/core/state.js";
@@ -350,7 +351,8 @@ export default function RuinsTreeGraph() {
     else if (!open) { statusLine = tr({ fr: `Palier verrouillé · ${ownedBelow}/${need}`, en: `Tier locked · ${ownedBelow}/${need}` }); statusKind = "locked"; }
     else { statusLine = tr({ fr: "Pas assez de ruines", en: "Not enough ruins" }); statusKind = "cost"; }
 
-    const costText = status === "purchased" ? tr({ fr: "Acquis", en: "Acquired" }) : `${fmt(u?.cost?.ruins ?? 0)}`;
+    // Coût EFFECTIF (remise « Grammaire des ruines ») — même source que l'achat.
+    const costText = status === "purchased" ? tr({ fr: "Acquis", en: "Acquired" }) : `${fmt(ruinNodeCost(u))}`;
 
     return {
       id: n.id,
@@ -380,20 +382,24 @@ export default function RuinsTreeGraph() {
     };
   });
 
-  // Modèles de vue des dogmes (médaillons).
+  // Modèles de vue des dogmes (médaillons). Depuis la refonte, les dogmes vont
+  // par PAIRES exclusives (conflictsWith) : le statut « blocked » et le fil
+  // d'exclusion au survol s'appliquent comme aux nœuds.
   const dogmaVMs = layout.dogmas.map((d) => {
     const u = upgradeById[d.id];
     const status = checkDogmaAvailability(d.id);
     const count = ownedRuinBranchPurchaseCount(d.branch);
-    const owned = has(d.id);
+    const owned = status === "purchased";
     const kindLabel = dogmaKind(d.id);
-    const reached = count >= d.requiredPurchases;
-    const dStatusKind = owned ? "owned" : reached ? "available" : "locked";
+    const conflictName = u?.conflictsWith ? upgradeById[u.conflictsWith]?.name || u.conflictsWith : "";
+    const dStatusKind = owned ? "owned" : status === "blocked" ? "blocked" : status === "available" ? "available" : "locked";
     let statusLine = owned
       ? tr({ fr: "Adopté", en: "Adopted" })
-      : reached
-        ? tr({ fr: "Palier atteint — gratuit", en: "Tier reached — free" })
-        : tr({ fr: `${count}/${d.requiredPurchases} achats`, en: `${count}/${d.requiredPurchases} purchases` });
+      : status === "blocked"
+        ? tr({ fr: `Exclu par : ${conflictName}`, en: `Excluded by: ${conflictName}` })
+        : status === "available"
+          ? tr({ fr: "Palier atteint — choix gratuit", en: "Tier reached — free choice" })
+          : tr({ fr: `${count}/${d.requiredPurchases} achats`, en: `${count}/${d.requiredPurchases} purchases` });
     return {
       id: d.id,
       kind: "dogma",
@@ -407,6 +413,7 @@ export default function RuinsTreeGraph() {
       font: d.r * 0.86,
       entering: entering.has(d.id),
       bought: justBought === d.id,
+      conflict: conflictIds.has(d.id),
       enterDelay: 6 * ENTER_STAGGER,
       aria: `${kindLabel} ${u?.name || d.id} — ${owned ? tr({ fr: "Adopté", en: "Adopted" }) : statusLine}`,
       tip: {

@@ -32,7 +32,10 @@ import {
   grandResetLegitimacyCost,
   grandResetMythsRequired,
   completedMythCount,
-  buildingMilestoneInfo
+  buildingMilestoneInfo,
+  milestoneStepSize,
+  ruinNodeCost,
+  rates
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
@@ -41,6 +44,7 @@ import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
+import { MILESTONE_BOON_SECONDS } from '../balance.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -76,12 +80,15 @@ function buyBuildingCore(id, { amount: amountOverride = null, silent = false } =
   // Compteur d'achats cumulés sur toute la partie (jalon de merveille) :
   // survit aux effondrements, comme les ruines.
   state.lifetimePurchases = (state.lifetimePurchases || 0) + amount;
-  const previousMilestone = Math.floor(previousCount / 25);
-  const currentMilestone = Math.floor(state.buildings[id] / 25);
+  const milestoneStep = milestoneStepSize(); // 25, ou 20 avec « Ville-Monde »
+  const previousMilestone = Math.floor(previousCount / milestoneStep);
+  const currentMilestone = Math.floor(state.buildings[id] / milestoneStep);
   if (currentMilestone > previousMilestone && !silent) {
-    // B1 — Float doré de palier : récompense visible à chaque tranche de 25.
+    // B1 — Float doré de palier : récompense visible à chaque tranche.
     const info = buildingMilestoneInfo(building, state.buildings[id]);
     pushOutcomeFloat({ label: `⭐ ${tr(building.name)} ×${fmt(info ? info.bonus : 1)}`, kind: "gain" });
+    // « Fêtes de jalon » : le jalon franchi déclenche une aubaine dorée.
+    if (has("fetes_jalon")) fireMilestoneBoon(building);
   }
   if (isMythEffectActive("mythe_de_sisyphe")) {
     state.sisypheMult = (state.sisypheMult || 1) * SISYPHE_MULT_PER_PURCHASE;
@@ -92,6 +99,29 @@ function buyBuildingCore(id, { amount: amountOverride = null, silent = false } =
   }
   if (!silent) chronicleBuilding(building, previousCount, state.buildings[id]);
   return true;
+}
+
+// « Fêtes de jalon » : crédite N secondes de la production courante de la
+// ressource DOMINANTE du bâtiment fêté (même ancrage « secondes de prod » que
+// les aubaines B2 — pertinent à toute échelle).
+function fireMilestoneBoon(building) {
+  const outputs = [
+    ["food", building.food || 0],
+    ["gold", building.gold || 0],
+    ["knowledge", building.knowledge || 0],
+    ["infrastructure", building.infra || 0],
+    ["population", building.pop || 0]
+  ];
+  const main = outputs.reduce((best, cur) => (cur[1] > best[1] ? cur : best));
+  const res = main[1] > 0 ? main[0] : "gold";
+  const gain = D(rates()[res]).max(0).mul(MILESTONE_BOON_SECONDS).floor();
+  if (gain.lte(0)) return;
+  state[res] = D(state[res]).add(gain);
+  pushOutcomeFloat({ label: `🎉 Fête de jalon : +${fmt(gain)}`, kind: "gain" });
+  chronicle(tr({
+    fr: `La cité fête le jalon des ${tr(building.name)} : les célébrations rapportent +${fmt(gain)}.`,
+    en: `The city celebrates the ${tr(building.name)} milestone: the festivities yield +${fmt(gain)}.`
+  }));
 }
 
 // ── Raccourci « Tout acheter » (touche E) ────────────────────────────────────
@@ -120,11 +150,11 @@ function buyableInMass(building) {
 
 // Achète, du PLUS CHER au moins cher, tout ce qui est abordable dans les onglets
 // Moteurs / Savoir / Infrastructure — sans jamais toucher aux Ruines. Glouton par
-// pas de 1 AVEC re-balayage à chaque tour : un seul appui enchaîne toute la
-// cascade — chaque achat qui franchit un palier d'unlock (unlockBuilding) rend le
-// bâtiment suivant achetable dans la MÊME passe, sans avoir à ré-appuyer. Les
-// bâtiments encore verrouillés par leur ère (unlockCycles non atteint) restent,
-// eux, hors de portée : on ne peut pas encore les bâtir. Un seul render() à la
+// pas de 1 AVEC re-balayage à chaque tour : l'ordre « plus cher d'abord » peut
+// changer après chaque achat (les coûts croissent avec le compteur), donc on
+// re-sélectionne à chaque pas. Les bâtiments verrouillés par leur ère
+// (unlockCycles) ou pas encore révélés par l'économie (apparition via
+// cyclePeaks, cf. isUnlocked) restent hors de portée. Un seul render() à la
 // fin. Refuse en pleine crise (crisisOpen). Respecte le verrou de catégorie de
 // Babel. Retourne le nombre de bâtiments érigés.
 export function buyAllAffordable() {
@@ -197,7 +227,8 @@ export async function exhumeVestige() {
 
   state.knowledge = D(state.knowledge).sub(cost);
   state.buildings[target.id] = (state.buildings[target.id] || 0) + 1;
-  state.archaeologyUsed = true;
+  // Compteur d'exhumations du cycle (1 de base, 3 avec « Chantiers de fouilles »).
+  state.archaeologyUses = (state.archaeologyUses || 0) + 1;
   enforceInfrastructureCap();
   invalidateRenderCache("buildings");
   chronicle(`Nos archéologues ont exhumé les ruines de : ${tr(target.name)}. Ses fondations antiques ont été restaurées.`);
@@ -265,7 +296,9 @@ export function buyUpgrade(id) {
   const upgrade = upgradeById[id];
   if (!upgrade) return;
   if (!canBuyUpgrade(upgrade)) return;
-  payCost(upgrade.cost);
+  // Nœuds de ruines : coût EFFECTIF (remise « Grammaire des ruines »).
+  if (upgrade.group === "ruins") payCost({ ruins: ruinNodeCost(upgrade) });
+  else payCost(upgrade.cost);
   state.upgrades[id] = true;
   state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
   renderCache.cachedRuinEffects = null;

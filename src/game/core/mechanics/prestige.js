@@ -13,6 +13,8 @@ import {
   RUIN_POP_DEPTH_REF,
   RUIN_POP_DEPTH_EXP,
   ERA_RUIN_BONUS_PER_INDEX,
+  RUIN_SHORT_CYCLE_SEC,
+  CRISIS_RESOLVE_RUIN_CAP,
   DYNASTY_BASE_RUINS,
   DYNASTY_COST_GROWTH,
   GRAND_RESET_LEGIT_BASE,
@@ -34,7 +36,7 @@ import {
   ENEE_USURE_DEGRADED_MULT
 } from '../../data/myths.js';
 import { ACTIVE_RUIN_USURE_MULT, activeRuinMultiplier, hasActiveRuin } from '../../data/activeRuins.js';
-import { crisisOpen, ruinEffectMultiplier, hasDoctrine } from './shared.js';
+import { crisisOpen, ruinEffectMultiplier, ruinEffectSum, has, hasDoctrine } from './shared.js';
 
 function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
@@ -98,7 +100,20 @@ export function ruinGain(projected = false) {
   const doctrineRuinMod = hasDoctrine("acier") ? 1.4 : hasDoctrine("sillon") ? 0.8 : 1;
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
   const elapsed = (Date.now() - state.cycleStartedAt) / 1000;
-  const sedimentMod = elapsed >= 604800 ? 5.0 : elapsed >= 259200 ? 2.35 : elapsed >= 86400 ? 1.45 : elapsed >= 28800 ? 1.15 : elapsed >= 3600 ? 1.02 : 1.0;
+  // « Limon des âges » (sedimentBoost) : les paliers d'absence longue démarrent
+  // deux fois plus tôt et le bonus culmine à ×7 (au lieu de ×5).
+  const sedimentMod = ruinEffectSum("sedimentBoost") > 0
+    ? (elapsed >= 302400 ? 7.0 : elapsed >= 129600 ? 3.2 : elapsed >= 43200 ? 1.8 : elapsed >= 14400 ? 1.25 : elapsed >= 1800 ? 1.05 : 1.0)
+    : (elapsed >= 604800 ? 5.0 : elapsed >= 259200 ? 2.35 : elapsed >= 86400 ? 1.45 : elapsed >= 28800 ? 1.15 : elapsed >= 3600 ? 1.02 : 1.0);
+  // « Rites du feu court » : les cycles bouclés en moins de 15 min rapportent plus
+  // (synergie Culte Apocalyptique / farm rapide).
+  const shortCycleMod = (age <= RUIN_SHORT_CYCLE_SEC) ? 1 + ruinEffectSum("shortCycleRuinBonus") : 1;
+  // « Moisson de crise » : +3 % de ruines par crise résolue pendant le cycle
+  // (compteur cycleCrisesResolved, remis à zéro à l'effondrement), plafonné.
+  const crisisHarvestMod = 1 + Math.min(
+    CRISIS_RESOLVE_RUIN_CAP,
+    ruinEffectSum("crisisResolveRuinBonus") * (state.cycleCrisesResolved || 0)
+  );
   // Plancher basé sur l'ÉCHELLE et plus seulement l'âge : une cité d'un million
   // d'habitants qui tombe en 90 s n'a pas « rien construit ». Évite l'effondrement
   // à gain nul des cités sur-puissantes (Rupture à 100 % en <120 s).
@@ -110,12 +125,12 @@ export function ruinGain(projected = false) {
   // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
   // express des ères après un Grand Reset devient une pluie de gains visibles.
   const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * eraTier(state.bestEraIndex || 0);
-  const raw = ageDepth * populationDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod;
+  const raw = ageDepth * populationDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
   if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)) + eraFlatBonus);
   const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
-  const restProduct = ageDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod;
+  const restProduct = ageDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * doctrineRuinMod * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
   return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
 }
 
@@ -166,7 +181,11 @@ export function timeWearRate() {
   // sclérose, et le temps la rattrape d'autant plus vite. `stagnationSec` est
   // accumulé dans le tick ; ici il majore l'Usure (jusqu'à ×(1+MAX)). À 0
   // (cité jeune ou agitée) le facteur vaut exactement 1 → aucune régression.
-  const stagnationMult = 1 + Math.min(STAGNATION_USURE_MAX_BONUS, (state.stagnationSec || 0) / STAGNATION_USURE_RAMP_SEC);
+  // « Stagnation féconde » retourne le malus : plus d'accélération d'Usure —
+  // la stagnation charge des aubaines à la place (cf. tick.js).
+  const stagnationMult = has("stagnation_feconde")
+    ? 1
+    : 1 + Math.min(STAGNATION_USURE_MAX_BONUS, (state.stagnationSec || 0) / STAGNATION_USURE_RAMP_SEC);
   return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * doctrineMod * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 

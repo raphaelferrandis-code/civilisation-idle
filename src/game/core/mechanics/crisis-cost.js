@@ -14,7 +14,7 @@ import {
   FATIGUE_COST_PENALTY
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
-import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage } from './shared.js';
+import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
 import { rates } from './production.js';
 import { ruinGain, completedMythCount } from './prestige.js';
 
@@ -77,9 +77,11 @@ export function terminalCrisisCost(type, tier = 0) {
   const extensionScale = 1 + (state.crisisExtensions || 0) * 0.55;
   const depthScale = 1 + Math.max(0, toNum(ruinGain()) - 1) * 0.08;
   const tierScale = TERMINAL_PREP_TIERS[type]?.[tier]?.costScale || 1;
+  // « Préparations funèbres » (terminalPrepDiscount) : mourir proprement coûte moins cher.
+  const prepDiscount = 1 - Math.min(0.6, ruinEffectSum("terminalPrepDiscount"));
   // Borné : un ruinGain au-delà du float donnerait Infinity, que Decimal.mul
   // ne sait pas représenter proprement.
-  const scale = Math.min(Number.MAX_VALUE, extensionScale * depthScale * tierScale);
+  const scale = Math.min(Number.MAX_VALUE, extensionScale * depthScale * tierScale * prepDiscount);
   if (type === "prepareArchives") {
     return {
       knowledge: D(state.population).mul(0.045).add(totalBuildingCount() * 18).max(90).mul(scale),

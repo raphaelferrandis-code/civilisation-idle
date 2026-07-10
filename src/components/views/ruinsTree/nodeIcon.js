@@ -26,11 +26,38 @@ const EMBLEM_BY_EFFECT = {
   ruptureHaste: "rupture",
   unspentRuinsPower: "ruins-power",
   chronicleEngine: "chronicle",
+  // Refonte Arbre des Ruines — nouveaux effectTypes, réutilisent le set existant
+  // (les médaillons dédiés arrivent en Phase D).
+  allStartPctPeak: "food-start",
+  allKeep: "gold-keep",
+  vestigePower: "ruins-power",
+  sedimentBoost: "time",
+  engineFamilyKeep: "infra-keep",
+  exhumeCharges: "ruin-gain",
+  riverEngineMult: "gold",
+  roadCapBonus: "infra",
+  boonFrequency: "global",
+  milestoneBoon: "global",
+  inequalityDamp: "stability",
+  complexityDamp: "stability",
+  demesureSlow: "stability",
+  milestoneStep: "global",
+  shortCycleRuinBonus: "ruin-gain",
+  crisisResolveRuinBonus: "ruin-gain",
+  regrowthRush: "global",
+  terminalPrepDiscount: "stability",
+  stagnationBoon: "time",
+  farmUncap: "vigil",
+  ruinShopDiscount: "knowledge-discount",
+  cultAmp: "global",
+  reformsPersist: "decree",
+  policyCostHalf: "decree",
+  epitaphAmp: "chronicle",
+  braiseAmp: "chronicle",
 };
 
 // (1) Override par id : nœuds legacy sans effectType + dogmes/traits spéciaux.
 const EMBLEM_BY_ID = {
-  root_cellars: "food",
   granaries: "population",
   fallen_roads: "infra-start",
   oral_tradition: "knowledge-discount",
@@ -41,7 +68,9 @@ const EMBLEM_BY_ID = {
   veilleurs_nuit_1: "vigil",
   veilleurs_nuit_4: "vigil",
   trait_nomadism: "population",
+  trait_enracinement: "infra",
   trait_theocracy: "global",
+  dogma_abime_assume: "rupture",
   skill_archaeology: "ruin-gain",
 };
 

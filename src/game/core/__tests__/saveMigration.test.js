@@ -92,3 +92,54 @@ describe("hydrateState() — depuis un save ancien", () => {
     expect(hydrateState({}).saveVersion).toBe(CURRENT_SAVE_VERSION);
   });
 });
+
+describe("hydrateState() — refonte Arbre des Ruines (respec)", () => {
+  it("rembourse les nœuds SUPPRIMÉS à leur ancien coût et les retire", () => {
+    // root_cellars (1) + stone_bread (1000) + river_seedbanks (6e9) = anciens
+    // coûts exacts ; conseil_de_crise est CONSERVÉ (id inchangé) et doit rester.
+    const s = hydrateState({
+      ruins: "50",
+      upgrades: {
+        root_cellars: true,
+        stone_bread: true,
+        river_seedbanks: true,
+        conseil_de_crise: true
+      }
+    });
+    expect(s.ruins.eq(50 + 1 + 1000 + 6000000000)).toBe(true);
+    expect(s.upgrades.root_cellars).toBeUndefined();
+    expect(s.upgrades.stone_bread).toBeUndefined();
+    expect(s.upgrades.conseil_de_crise).toBe(true);
+    // Annonce dans la Chronique + arbre à re-révéler.
+    expect(s.history.some((h) => /Arbre des Ruines a été refondu/.test(h))).toBe(true);
+    expect(s.ruinsSeenNodes).toEqual([]);
+  });
+
+  it("remet les dogmes à zéro (paires exclusives à re-choisir) quand la refonte migre", () => {
+    // Ancienne save : les DEUX membres d'une paire désormais exclusive.
+    const s = hydrateState({
+      ruins: "0",
+      upgrades: { ember_baskets: true, dogma_merchant_law: true, dogma_public_works: true }
+    });
+    expect(s.upgrades.dogma_merchant_law).toBeUndefined();
+    expect(s.upgrades.dogma_public_works).toBeUndefined();
+    expect(s.ruins.eq(2)).toBe(true); // ember_baskets remboursé
+  });
+
+  it("est idempotente : une save déjà refondue ne re-déclenche rien", () => {
+    const s = hydrateState({
+      ruins: "10",
+      upgrades: { conseil_de_crise: true, dogma_merchant_law: true },
+      ruinsSeenNodes: ["conseil_de_crise"]
+    });
+    expect(s.ruins.eq(10)).toBe(true);
+    expect(s.upgrades.dogma_merchant_law).toBe(true);
+    expect(s.ruinsSeenNodes).toEqual(["conseil_de_crise"]);
+  });
+
+  it("rétro-compat archéologie : archaeologyUsed=true devient 1 exhumation utilisée", () => {
+    expect(hydrateState({ archaeologyUsed: true }).archaeologyUses).toBe(1);
+    expect(hydrateState({ archaeologyUsed: false }).archaeologyUses).toBe(0);
+    expect(hydrateState({ archaeologyUses: 2 }).archaeologyUses).toBe(2);
+  });
+});

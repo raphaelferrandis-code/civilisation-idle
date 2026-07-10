@@ -2,49 +2,49 @@
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x1 1`] = `
 {
-  "food": Decimal(273.93034604205934),
+  "food": Decimal(324.29423469434107),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x25 1`] = `
 {
-  "food": Decimal(93849.49135050112),
+  "food": Decimal(130380.06209513952),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x500 1`] = `
 {
-  "food": Decimal(1.3285297805724612e+39),
+  "food": Decimal(1.0131326772266886e+41),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers xmax 1`] = `
 {
-  "food": Decimal(273.93034604205934),
+  "food": Decimal(324.29423469434107),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x1 1`] = `
 {
-  "food": Decimal(25937.424600999995),
+  "food": Decimal(103749.698404),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x25 1`] = `
 {
-  "food": Decimal(14375614.14672942),
+  "food": Decimal(57502456.58691768),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x500 1`] = `
 {
-  "food": Decimal(3.050652325252528e+46),
+  "food": Decimal(1.220260930101011e+47),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets xmax 1`] = `
 {
-  "food": Decimal(25937.424600999995),
+  "food": Decimal(103749.698404),
 }
 `;
 
@@ -65,11 +65,11 @@ exports[`golden-master du cœur économique > cityVitals 1`] = `
 }
 `;
 
-exports[`golden-master du cœur économique > maxBuyAmount > foragers 1`] = `24`;
+exports[`golden-master du cœur économique > maxBuyAmount > foragers 1`] = `22`;
 
 exports[`golden-master du cœur économique > maxBuyAmount > guilds 1`] = `1`;
 
-exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `2`;
+exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `1`;
 
 exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 {
@@ -86,8 +86,8 @@ exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 
 exports[`golden-master du cœur économique > rates 1`] = `
 {
-  "food": Decimal(7713.683554745192),
-  "gold": Decimal(9077.688185428035),
+  "food": Decimal(6096.880223942719),
+  "gold": Decimal(8990.429900488256),
   "infrastructure": Decimal(1155.1735704940465),
   "instability": 0.37597164100454417,
   "knowledge": Decimal(0),

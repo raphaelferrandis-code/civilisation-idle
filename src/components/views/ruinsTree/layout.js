@@ -78,12 +78,14 @@ export function computeRuinTreeLayout(visibleIds, options = {}) {
     const ca = Math.cos(angle);
     const sa = Math.sin(angle);
 
-    // Dogmes ACCESSIBLES de la branche, indexés par palier (I/II/III → 0/1/2).
-    const dogmaAtTier = {};
+    // Dogmes ACCESSIBLES de la branche, groupés par palier (I/II/III → 0/1/2).
+    // Depuis la refonte, un palier peut porter une PAIRE de dogmes (choix
+    // exclusif conflictsWith) → tableau par palier.
+    const dogmasAtTier = {};
     for (const d of dogmaDefs) {
       if (d.branch !== branch.id) continue;
       const ti = dogmaTierIndex(d);
-      if (ti != null) dogmaAtTier[ti] = d;
+      if (ti != null) (dogmasAtTier[ti] = dogmasAtTier[ti] || []).push(d);
     }
 
     const rondCenters = []; // {t, cx, cy} des ronds visibles, dans l'ordre
@@ -95,9 +97,12 @@ export function computeRuinTreeLayout(visibleIds, options = {}) {
       const radius = LAYOUT.RC0 + t * LAYOUT.RC_STEP;
       const cx = radius * ca;
       const cy = radius * sa;
-      // Cœur du rond : capstone > dogme > sceau (+ son rayon de clip).
+      // Cœur du rond : capstone > dogme SEUL > sceau (+ son rayon de clip).
+      // Une PAIRE de dogmes ne prend jamais le centre : elle est posée de part
+      // et d'autre du rond (perpendiculaire à l'axe de branche) plus bas.
       const capstoneId = visTier.find((id) => byId[id]?.capstone);
-      const dogma = capstoneId ? null : dogmaAtTier[t];
+      const tierDogmas = dogmasAtTier[t] || [];
+      const dogma = (capstoneId || tierDogmas.length !== 1) ? null : tierDogmas[0];
       const orbitIds = capstoneId ? visTier.filter((id) => id !== capstoneId) : visTier;
       const coeurR = capstoneId ? LAYOUT.CAPSTONE_R : (dogma ? LAYOUT.DOGMA_R : LAYOUT.SEAL_R);
 
@@ -138,6 +143,21 @@ export function computeRuinTreeLayout(visibleIds, options = {}) {
         pos[dogma.id] = { x: cx, y: cy };
       } else {
         seals.push({ branch: branch.id, tier: t, x: cx, y: cy, r: LAYOUT.SEAL_R, nodeIds: orbitIds.slice() });
+      }
+
+      // Paire de dogmes (choix exclusif) : un médaillon de chaque côté du rond,
+      // perpendiculairement à l'axe de la branche — la géométrie DIT le choix.
+      // Offset au-delà de l'orbite ENTIÈRE (ORBIT_R + NODE_R) : un nœud d'orbite
+      // peut être exactement perpendiculaire, il ne doit pas chevaucher.
+      if (tierDogmas.length > 1) {
+        const off = LAYOUT.ORBIT_R + LAYOUT.NODE_R + LAYOUT.DOGMA_R + 8;
+        tierDogmas.forEach((d, di) => {
+          const side = di % 2 === 0 ? -1 : 1;
+          const dx2 = cx + (-sa) * off * side;
+          const dy2 = cy + ca * off * side;
+          dogmas.push({ id: d.id, branch: branch.id, requiredPurchases: d.requiredPurchases, tier: d.tier, x: dx2, y: dy2, r: LAYOUT.DOGMA_R });
+          pos[d.id] = { x: dx2, y: dy2 };
+        });
       }
 
       ronds.push({ branch: branch.id, tier: t, x: cx, y: cy, r: LAYOUT.CLUSTER_R, nodeIds: orbitIds.slice() });

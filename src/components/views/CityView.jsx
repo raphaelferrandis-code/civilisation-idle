@@ -15,7 +15,8 @@ import {
   unspentRuinsPowerMultiplier,
   ruinGain,
   has,
-  crisisOpen
+  crisisOpen,
+  exhumeChargesPerCycle
 } from '../../game/core/mechanics.js';
 import {
   exhumeVestige,
@@ -52,7 +53,7 @@ import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 export default function CityView() {
   const {
     cityName, population, gold, infrastructure,
-    cycleStartedAt, archaeologyUsed,
+    cycleStartedAt, archaeologyUses,
     activeMythId, sisypheMult, icareInfraReached, babelProdReached, babelCategory,
     orPopPeak, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
     hephPopPeak, hephGoalReached,
@@ -146,7 +147,7 @@ export default function CityView() {
   const unspentMult = unspentPower > 0 ? unspentRuinsPowerMultiplier() : 1;
   const hasLatent = unspentPower > 0;
 
-  const showExhume = has("skill_archaeology") && !archaeologyUsed;
+  const showExhume = has("skill_archaeology") && (archaeologyUses || 0) < exhumeChargesPerCycle();
 
   const handleNameChange = (e) => {
     setCityName(e.target.value);

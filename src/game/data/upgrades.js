@@ -3,37 +3,137 @@
 import { localizeData } from '../core/i18n.js';
 
 /* ============================================================================
- * data-upgrades.js - Donnees ruines/prestige: ruinPaths, upgrades, PRESTIGE_TREE_BRANCHES, PRESTIGE_DOGMAS, dogmaIds, PRESTIGE_TREE.
- * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
- * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
+ * data-upgrades.js - Donnees ruines/prestige: upgrades, PRESTIGE_TREE_BRANCHES, PRESTIGE_DOGMAS, dogmaIds, PRESTIGE_TREE.
+ *
+ * REFONTE « Arbre des Ruines » (cf. docs/REFONTE-ARBRE-RUINES.md) :
+ *   - un nœud = UNE mécanique nommée du jeu (nécropole, aubaines, Démesure,
+ *     routes, fleuve, stagnation, crises résolues, culte, épitaphes…) — plus
+ *     aucun « +X % ressource » anonyme (le scaling passe par la Sève de braise,
+ *     cf. braiseMultiplier dans production.js + RUIN_BRAISE_* dans balance.js) ;
+ *   - 4 branches re-thématisées : Racines (ce qui reste) / Sève (la cité
+ *     vivante) / Cendre (la chute) / Écorce gravée (la mémoire) ;
+ *   - dogmes = PAIRES DE CHOIX EXCLUSIFS (conflictsWith), gratuits au palier ;
+ *   - les ids des nœuds conservés ne changent PAS (branchements en dur dans
+ *     core/ : granaries, fallen_roads, oral_tradition, ruin_liturgy,
+ *     conseil_de_crise, edit_effondrement, veilleurs_nuit_*, trait_*,
+ *     skill_archaeology, recurring_ages, foundation_ghosts, chronicle_engine).
  * ============================================================================ */
 
 export const upgrades = [
-  {
-    id: "root_cellars",
-    group: "ruins",
-    effectType: "foodMult",
-    amount: 0.22,
-    name: { fr: "Caves racines", en: "Root cellars" },
-    cost: { ruins: 1 },
-    desc: { fr: "Les cachettes survivent aux empires. Quelqu'un l'a compris très tôt.", en: "Hiding places outlast empires. Someone understood that very early." },
-    effect: { fr: "Production de nourriture +60%.", en: "Food production +60%." }
-  },
-  {
-    id: "oral_tradition",
-    group: "ruins",
-    name: { fr: "Tradition orale", en: "Oral tradition" },
-    cost: { ruins: 6 },
-    desc: { fr: "Ce qu'on dit à voix basse résiste mieux aux incendies que les bibliothèques.", en: "What is spoken in a low voice withstands fire better than any library." },
-    effect: { fr: "Mémoire des pierres: bonus de ruines renforcé.", en: "Memory of stones: ruins bonus strengthened." }
-  },
+  /* ── LES RACINES (resilience) — ce qui traverse la mort ─────────────────── */
   {
     id: "granaries",
     group: "ruins",
-    name: { fr: "Greniers cycliques", en: "Cyclic granaries" },
+    effectType: "startFood",
+    amount: 40,
+    name: { fr: "Porteurs de braise", en: "Ember bearers" },
+    cost: { ruins: 2 },
+    desc: { fr: "Tout le monde ne survit pas. Mais ceux qui partent emportent le feu et le grain.", en: "Not everyone survives. But those who leave carry the fire and the grain." },
+    effect: { fr: "À l'effondrement : 3% de la population et 8% de la nourriture survivent, et chaque cycle commence avec +40 vivres.", en: "On collapse: 3% of population and 8% of food survive, and each cycle starts with +40 food." }
+  },
+  {
+    id: "veilleurs_nuit_1",
+    group: "ruins",
+    unlockCycles: 1,
+    name: { fr: "Veilleurs de nuit", en: "Night watch" },
+    cost: { ruins: 8 },
+    desc: { fr: "Quelques gardiens tiennent les registres pendant que la cité dort. Rien ne s'arrête vraiment.", en: "A few keepers hold the registers while the city sleeps. Nothing truly stops." },
+    effect: { fr: "Gain hors-ligne : la cité produit et vieillit jusqu'à 8 h d'absence (au lieu de 2 h).", en: "Offline gains: the city produces and ages for up to 8 h away (instead of 2 h)." }
+  },
+  {
+    id: "skill_archaeology",
+    group: "ruins",
+    unlockCycles: 2,
+    name: { fr: "Archéologie", en: "Archaeology" },
     cost: { ruins: 12 },
-    desc: { fr: "Tout le monde ne survit pas. Juste assez pour que l'histoire continue.", en: "Not everyone survives. Just enough for history to go on." },
-    effect: { fr: "Les survivants repartent avec un socle de population.", en: "Survivors begin again with a base of population." }
+    desc: { fr: "Ce que l'ancien siècle a laissé, ce siècle peut l'exhumer et s'en servir.", en: "What the old century left behind, this century can unearth and use." },
+    effect: { fr: "Active : une fois par cycle, dépense du savoir pour exhumer un bâtiment de la civilisation précédente.", en: "Active: once per cycle, spend knowledge to unearth a building from the previous civilization." }
+  },
+  {
+    id: "reliquaire_pics",
+    group: "ruins",
+    unlockCycles: 3,
+    effectType: "allStartPctPeak",
+    amount: 0.03,
+    name: { fr: "Reliquaire des pics", en: "Reliquary of peaks" },
+    cost: { ruins: 120 },
+    desc: { fr: "On y conserve la plus haute marque de chaque crue. Les cités suivantes savent où viser.", en: "The highest mark of every flood is kept here. The next cities know where to aim." },
+    effect: { fr: "Chaque cycle commence avec 3% du pic précédent de CHAQUE ressource.", en: "Each cycle starts with 3% of the previous peak of EVERY resource." }
+  },
+  {
+    id: "necropole_vivante",
+    group: "ruins",
+    unlockCycles: 3,
+    effectType: "vestigePower",
+    amount: 0.02,
+    name: { fr: "Nécropole vivante", en: "Living necropolis" },
+    cost: { ruins: 320 },
+    desc: { fr: "À l'ouest, les cités mortes n'ont jamais cessé de servir.", en: "To the west, the dead cities never stopped serving." },
+    effect: { fr: "+2% de production globale par vestige dans la nécropole (maximum 10 vestiges).", en: "+2% global production per vestige in the necropolis (up to 10 vestiges)." }
+  },
+  {
+    id: "veilleurs_nuit_4",
+    group: "ruins",
+    unlockCycles: 7,
+    name: { fr: "Veilleurs de nuit IV", en: "Night watch IV" },
+    cost: { ruins: 1500 },
+    desc: { fr: "La cité fonctionne désormais aussi bien sans toi qu'avec. C'est à la fois rassurant et vertigineux.", en: "The city now runs as well without you as with you. It is both reassuring and dizzying." },
+    effect: { fr: "Gain hors-ligne : jusqu'à 24 h d'absence.", en: "Offline gains: up to 24 h away." }
+  },
+  {
+    id: "chambres_scellees",
+    group: "ruins",
+    unlockCycles: 5,
+    effectType: "allKeep",
+    amount: 0.08,
+    name: { fr: "Chambres scellées", en: "Sealed chambers" },
+    cost: { ruins: 60000 },
+    desc: { fr: "Personne ne sait qui les a fermées. Elles s'ouvrent toujours au bon moment.", en: "No one knows who sealed them. They always open at the right moment." },
+    effect: { fr: "Effondrements : +8% de CHAQUE ressource conservée.", en: "Collapses: +8% of EVERY resource preserved." }
+  },
+  {
+    id: "chantiers_fouilles",
+    group: "ruins",
+    unlockCycles: 6,
+    effectType: "exhumeCharges",
+    amount: 2,
+    name: { fr: "Chantiers de fouilles", en: "Excavation yards" },
+    cost: { ruins: 250000 },
+    desc: { fr: "L'ancienne cité est devenue une carrière ordonnée. On y descend en équipes.", en: "The old city has become an orderly quarry. Teams go down in shifts." },
+    effect: { fr: "Archéologie : 3 exhumations par cycle, et leur coût en savoir est réduit de moitié.", en: "Archaeology: 3 excavations per cycle, and their knowledge cost is halved." }
+  },
+  {
+    id: "limon_des_ages",
+    group: "ruins",
+    effectType: "sedimentBoost",
+    amount: 1,
+    name: { fr: "Limon des âges", en: "Silt of ages" },
+    cost: { ruins: 2000000000 },
+    desc: { fr: "Plus la terre repose, plus elle rend. Les absences deviennent des jachères.", en: "The longer the land rests, the more it yields. Absences become fallows." },
+    effect: { fr: "Le bonus de longue absence démarre deux fois plus tôt et monte jusqu'à ×7 (au lieu de ×5).", en: "The long-absence bonus starts twice as early and climbs to ×7 (instead of ×5)." }
+  },
+  {
+    id: "racine_mere",
+    group: "ruins",
+    capstone: true,
+    effectType: "engineFamilyKeep",
+    amount: 1,
+    name: { fr: "Racine-mère", en: "Mother root" },
+    cost: { ruins: 30000000000 },
+    desc: { fr: "Sous la ville, il y a une racine qui n'a jamais brûlé. Tout repart d'elle.", en: "Beneath the city there is a root that never burned. Everything grows back from it." },
+    effect: { fr: "Capstone Racines : à l'effondrement, votre famille de bâtiments la plus nombreuse survit ENTIÈREMENT.", en: "Roots Capstone: on collapse, your most numerous building family survives ENTIRELY." }
+  },
+
+  /* ── LA SÈVE (prosperity) — la cité vivante ─────────────────────────────── */
+  {
+    id: "rives_fecondes",
+    group: "ruins",
+    effectType: "riverEngineMult",
+    amount: 0.6,
+    name: { fr: "Rives fécondes", en: "Fertile banks" },
+    cost: { ruins: 5 },
+    desc: { fr: "Le fleuve se souvient de chaque quai. Il rend au centuple ce qu'on lui confie.", en: "The river remembers every wharf. It returns a hundredfold what it is entrusted." },
+    effect: { fr: "Les moteurs riverains (Ports fluviaux, Moulins riverains) produisent +60%.", en: "Riverside engines (River ports, Water mills) produce +60%." }
   },
   {
     id: "fallen_roads",
@@ -43,85 +143,6 @@ export const upgrades = [
     cost: { ruins: 8 },
     desc: { fr: "Le chemin existe déjà sous la boue. Il suffit de gratter.", en: "The path already exists beneath the mud. You only have to scrape." },
     effect: { fr: "Chaque nouveau cycle commence avec une petite base d'infrastructure.", en: "Each new cycle starts with a small base of infrastructure." }
-  },
-  {
-    id: "ruin_liturgy",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Liturgie des ruines", en: "Liturgy of ruins" },
-    cost: { ruins: 35 },
-    desc: { fr: "Quand la chute devient un rite, elle fait moins mal au cycle suivant.", en: "When the fall becomes a rite, it hurts less the next cycle." },
-    effect: { fr: "Les ruines calment une partie de la pression de dissidence.", en: "Ruins ease part of the pressure of dissent." }
-  },
-  {
-    id: "recurring_ages",
-    group: "ruins",
-    unlockCycles: 8,
-    name: { fr: "Âges récurrents", en: "Recurring ages" },
-    cost: { ruins: 90 },
-    desc: { fr: "Certaines époques reviennent si souvent qu'elles finissent par ressembler à des habitudes.", en: "Some eras return so often they come to look like habits." },
-    effect: { fr: "L'âge maximum atteint renforce légèrement la production globale.", en: "The highest age reached slightly strengthens global production." }
-  },
-  {
-    id: "ember_baskets",
-    group: "ruins",
-    name: { fr: "Paniers de braises", en: "Ember baskets" },
-    cost: { ruins: 2 },
-    effectType: "startFood",
-    amount: 40,
-    desc: { fr: "Le feu voyage dans des paniers depuis plus longtemps qu'il n'existe de cités.", en: "Fire has travelled in baskets longer than there have been cities." },
-    effect: { fr: "Chaque cycle commence avec plus de nourriture.", en: "Each cycle starts with more food." }
-  },
-  {
-    id: "bone_ledgers",
-    group: "ruins",
-    name: { fr: "Registres d'os", en: "Bone ledgers" },
-    cost: { ruins: 4 },
-    effectType: "knowledgeMult",
-    amount: 0.37,
-    desc: { fr: "Des comptes gravés dans l'os. Difficiles à brûler, impossibles à perdre.", en: "Accounts carved in bone. Hard to burn, impossible to lose." },
-    effect: { fr: "Production de savoir +15%.", en: "Knowledge production +15%." }
-  },
-  {
-    id: "ash_paths",
-    group: "ruins",
-    name: { fr: "Sentiers de cendre", en: "Ash paths" },
-    cost: { ruins: 6 },
-    effectType: "cityDiscount",
-    amount: 0.14,
-    desc: { fr: "La cendre garde la forme des chemins qu'elle a recouverts.", en: "Ash keeps the shape of the paths it has covered." },
-    effect: { fr: "Coûts des moteurs -3%.", en: "Engine costs -3%." }
-  },
-  {
-    id: "cracked_scales",
-    group: "ruins",
-    name: { fr: "Balances fendues", en: "Cracked scales" },
-    cost: { ruins: 9 },
-    effectType: "goldMult",
-    amount: 0.18,
-    desc: { fr: "Cassées, elles mesurent encore. L'étalon survit à l'instrument.", en: "Broken, they still measure. The standard outlives the instrument." },
-    effect: { fr: "Production de trésor +18%.", en: "Treasury production +18%." }
-  },
-  {
-    id: "silent_wells",
-    group: "ruins",
-    name: { fr: "Puits silencieux", en: "Silent wells" },
-    cost: { ruins: 21 },
-    effectType: "infraMult",
-    amount: 0.9,
-    desc: { fr: "L'eau est là depuis avant la cité. Elle sera là après.", en: "The water was here before the city. It will be here after." },
-    effect: { fr: "Production d'infrastructure +15%.", en: "Infrastructure production +15%." }
-  },
-  {
-    id: "buried_tolls",
-    group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Péages ensevelis", en: "Buried tolls" },
-    cost: { ruins: 72 },
-    effectType: "goldMult",
-    amount: 0.3,
-    desc: { fr: "L'ancienne taxe est devenue un réflexe. La route veut toujours quelque chose.", en: "The old tax has become a reflex. The road always wants something." },
-    effect: { fr: "Production de trésor +30%.", en: "Treasury production +30%." }
   },
   {
     id: "foundation_ghosts",
@@ -134,422 +155,152 @@ export const upgrades = [
     effect: { fr: "Production globale +1% par ruine non dépensée.", en: "Global production +1% per unspent ruin." }
   },
   {
-    id: "smoke_calendar",
+    id: "grand_cadastre",
     group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Calendrier de fumée", en: "Smoke calendar" },
-    cost: { ruins: 90 },
-    effectType: "timeWearSlow",
-    amount: 0.08,
-    desc: { fr: "Les saisons y sont notées par la couleur des fumées. Ça marche.", en: "The seasons are read here by the color of the smoke. It works." },
-    effect: { fr: "Usure du temps -8%.", en: "Time Wear -8%." }
-  },
-  {
-    id: "rubble_contracts",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Contrats de gravats", en: "Rubble contracts" },
-    cost: { ruins: 130 },
-    effectType: "knowledgeDiscount",
+    unlockCycles: 3,
+    effectType: "roadCapBonus",
     amount: 0.05,
-    desc: { fr: "Les promesses signées sur des pierres cassées tiennent mieux que celles sur parchemin.", en: "Promises signed on broken stone hold better than those on parchment." },
-    effect: { fr: "Coûts du savoir -5%.", en: "Knowledge costs -5%." }
+    name: { fr: "Grand cadastre", en: "Great cadastre" },
+    cost: { ruins: 150 },
+    desc: { fr: "Chaque rue est nommée, chaque borne comptée. Le réseau cesse de se perdre.", en: "Every street is named, every milestone counted. The network stops losing itself." },
+    effect: { fr: "Couverture routière : bonus maximal porté de +10% à +15%, et les Routes coûtent −25%.", en: "Road coverage: maximum bonus raised from +10% to +15%, and Roads cost −25%." }
   },
   {
-    id: "sunken_scriptorium",
-    group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Scriptorium englouti", en: "Sunken scriptorium" },
-    cost: { ruins: 420 },
-    effectType: "knowledgeKeep",
-    amount: 0.03,
-    desc: { fr: "Sous l'eau, l'encre a refusé de disparaître. Quelqu'un en a fait une théologie.", en: "Underwater, the ink refused to vanish. Someone made a theology of it." },
-    effect: { fr: "Effondrements: savoir conservé +3%.", en: "Collapses: knowledge preserved +3%." }
-  },
-  {
-    id: "old_coin_molds",
+    id: "caravanes_aubaine",
     group: "ruins",
     unlockCycles: 3,
-    name: { fr: "Moules à monnaie", en: "Coin molds" },
-    cost: { ruins: 650 },
-    effectType: "goldKeep",
-    amount: 0.16,
-    desc: { fr: "Les visages gravés dans le métal durent plus longtemps que ceux qui les ont commandés.", en: "The faces stamped in metal last longer than those who ordered them struck." },
-    effect: { fr: "Effondrements: trésor conservé +4%.", en: "Collapses: treasury preserved +4%." }
+    effectType: "boonFrequency",
+    amount: 0.4,
+    name: { fr: "Caravanes d'aubaine", en: "Windfall caravans" },
+    cost: { ruins: 400 },
+    desc: { fr: "Les bonnes nouvelles ont appris le chemin de la cité.", en: "Good news has learned the road to the city." },
+    effect: { fr: "Les aubaines arrivent 40% plus souvent.", en: "Boons arrive 40% more often." }
   },
   {
-    id: "stone_bread",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Pain de pierre", en: "Stone bread" },
-    cost: { ruins: 1000 },
-    effectType: "foodMult",
-    amount: 1.87,
-    conflictsWith: "mirror_archives",
-    desc: { fr: "Une légende absurde sur du grain qui ne meurt pas. Mais les greniers s'ouvrent mieux après.", en: "An absurd legend of grain that never dies. Yet the granaries open more readily after." },
-    effect: { fr: "Production de nourriture +55%.", en: "Food production +55%." }
-  },
-  {
-    id: "mirror_archives",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Archives miroirs", en: "Mirror archives" },
-    cost: { ruins: 1500 },
-    effectType: "knowledgeMult",
-    amount: 0.55,
-    conflictsWith: "stone_bread",
-    desc: { fr: "Chaque texte y semble écrit par deux peuples différents. L'un d'eux avait raison.", en: "Every text here seems written by two different peoples. One of them was right." },
-    effect: { fr: "Production de savoir +55%.", en: "Knowledge production +55%." }
-  },
-  {
-    id: "crowned_debris",
-    group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Débris couronnés", en: "Crowned debris" },
-    cost: { ruins: 4500 },
-    effectType: "ruinGain",
-    amount: 0.15,
-    desc: { fr: "Un fragment de palais suffit à fonder une prétention.", en: "A fragment of palace is enough to found a claim." },
-    effect: { fr: "Ruines gagnées +15%.", en: "Ruins gained +15%." }
-  },
-  {
-    id: "burial_math",
-    group: "ruins",
-    unlockCycles: 4,
-    name: { fr: "Mathématique funéraire", en: "Funerary mathematics" },
-    cost: { ruins: 10000 },
-    effectType: "ruptureHaste",
-    amount: 0.24,
-    conflictsWith: "crisis_theatre",
-    desc: { fr: "Les tombes sont alignées avec une précision que les vivants n'atteignent pas.", en: "The tombs are aligned with a precision the living never reach." },
-    effect: { fr: "Pression de rupture +4 pts.", en: "Rupture pressure +4 pts." }
-  },
-  {
-    id: "forgotten_wharves",
-    group: "ruins",
-    unlockCycles: 4,
-    name: { fr: "Quais oubliés", en: "Forgotten wharves" },
-    cost: { ruins: 23000 },
-    effectType: "goldMult",
-    amount: 1.3,
-    desc: { fr: "Les amarres sont coupées depuis longtemps. Les habitudes de commerce, non.", en: "The moorings were cut long ago. The habits of trade were not." },
-    effect: { fr: "Production de trésor +85%.", en: "Treasury production +85%." }
-  },
-  {
-    id: "crisis_theatre",
+    id: "fetes_jalon",
     group: "ruins",
     unlockCycles: 5,
-    name: { fr: "Théâtre des crises", en: "Theatre of crises" },
+    effectType: "milestoneBoon",
+    amount: 1,
+    name: { fr: "Fêtes de jalon", en: "Milestone feasts" },
     cost: { ruins: 120000 },
-    effectType: "stability",
-    amount: 0.03,
-    conflictsWith: "burial_math",
-    desc: { fr: "Rejouer les catastrophes passées pour apprivoiser la prochaine. Ça aide, un peu.", en: "Re-enacting past catastrophes to tame the next one. It helps, a little." },
-    effect: { fr: "Pression de rupture -3 pts.", en: "Rupture pressure -3 pts." }
+    desc: { fr: "Le vingt-cinquième toit se fête. La ville entière y gagne.", en: "The twenty-fifth roof is celebrated. The whole city gains from it." },
+    effect: { fr: "Chaque jalon de bâtiment atteint déclenche une aubaine dorée (4 minutes de production offertes).", en: "Each building milestone reached triggers a golden boon (4 minutes of production granted)." }
   },
   {
-    id: "first_grammar",
+    id: "franchises_marchandes",
+    group: "ruins",
+    unlockCycles: 6,
+    effectType: "inequalityDamp",
+    amount: 0.5,
+    name: { fr: "Franchises marchandes", en: "Merchant franchises" },
+    cost: { ruins: 500000 },
+    desc: { fr: "L'or qui circule ne moisit pas. Les chartes l'y obligent.", en: "Gold that moves does not moulder. The charters see to it." },
+    effect: { fr: "Le foyer d'Inégalités (or thésaurisé) pèse moitié moins sur la Rupture.", en: "The Inequality source (hoarded gold) weighs half as much on Rupture." }
+  },
+  {
+    id: "gouvernail_millions",
+    group: "ruins",
+    effectType: "demesureSlow",
+    amount: 0.3,
+    name: { fr: "Gouvernail des millions", en: "Helm of millions" },
+    cost: { ruins: 5000000000 },
+    desc: { fr: "Gouverner dix mille âmes est un art. En gouverner dix millions, une machine.", en: "Governing ten thousand souls is an art. Governing ten million, a machine." },
+    effect: { fr: "Démesure −30% : l'hubris d'échelle pèse moins sur les cités géantes.", en: "Hubris −30%: the weight of scale bears less on giant cities." }
+  },
+  {
+    id: "ville_monde",
+    group: "ruins",
+    capstone: true,
+    effectType: "milestoneStep",
+    amount: 5,
+    name: { fr: "Ville-Monde", en: "World-City" },
+    cost: { ruins: 32000000000 },
+    desc: { fr: "Elle ne s'arrête plus à ses murs. Les cartes s'arrêtent à elle.", en: "It no longer stops at its walls. The maps stop at it." },
+    effect: { fr: "Capstone Sève : les jalons de bâtiments tombent tous les 20 achats au lieu de 25.", en: "Sap Capstone: building milestones land every 20 purchases instead of 25." }
+  },
+
+  /* ── LA CENDRE (cycle_crise) — la chute ─────────────────────────────────── */
+  {
+    id: "conseil_de_crise",
+    group: "ruins",
+    unlockCycles: 2,
+    name: { fr: "Conseil de crise", en: "Crisis council" },
+    cost: { ruins: 8 },
+    desc: { fr: "Un conseil permanent tranche les crises sans réveiller le prince. Tu fixes la ligne, il l'applique.", en: "A standing council settles crises without waking the prince. You set the line, it enforces it." },
+    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %). Fini les interruptions.", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Stall) at each Rupture threshold (25 / 50 / 75%). No more interruptions." }
+  },
+  {
+    id: "rites_feu_court",
+    group: "ruins",
+    effectType: "shortCycleRuinBonus",
+    amount: 0.25,
+    name: { fr: "Rites du feu court", en: "Rites of the short fire" },
+    cost: { ruins: 10 },
+    desc: { fr: "Certains feux valent mieux vifs et brefs. Les prêtres l'ont mesuré.", en: "Some fires are best quick and bright. The priests have measured it." },
+    effect: { fr: "Les cycles achevés en moins de 15 minutes rapportent +25% de ruines.", en: "Cycles ended in under 15 minutes yield +25% ruins." }
+  },
+  {
+    id: "edit_effondrement",
+    group: "ruins",
+    unlockCycles: 3,
+    name: { fr: "Édit d'effondrement", en: "Edict of collapse" },
+    cost: { ruins: 15 },
+    desc: { fr: "L'effondrement devient un acte programmé, déclenché sans hésitation le moment venu.", en: "Collapse becomes a scheduled act, triggered without hesitation when the time comes." },
+    effect: { fr: "Débloque l'effondrement automatique configurable : à 100% de Rupture, à un seuil d'Usure, ou après une durée. Peut tenter Rationner/Réformes avant.", en: "Unlocks configurable automatic collapse: at 100% Rupture, at a Wear threshold, or after a set duration. Can attempt Ration/Reforms first." }
+  },
+  {
+    id: "ruin_liturgy",
+    group: "ruins",
+    unlockCycles: 3,
+    name: { fr: "Liturgie des ruines", en: "Liturgy of ruins" },
+    cost: { ruins: 35 },
+    desc: { fr: "Quand la chute devient un rite, elle fait moins mal au cycle suivant.", en: "When the fall becomes a rite, it hurts less the next cycle." },
+    effect: { fr: "Les ruines calment une partie de la pression de dissidence.", en: "Ruins ease part of the pressure of dissent." }
+  },
+  {
+    id: "moisson_de_crise",
+    group: "ruins",
+    unlockCycles: 4,
+    effectType: "crisisResolveRuinBonus",
+    amount: 0.10,
+    name: { fr: "Moisson de crise", en: "Crisis harvest" },
+    cost: { ruins: 300 },
+    desc: { fr: "Chaque tourmente traversée laisse quelque chose dans les filets.", en: "Every storm weathered leaves something in the nets." },
+    effect: { fr: "Chaque crise stabilisée pendant le cycle : +10% de ruines à l'effondrement (maximum +30%).", en: "Each crisis stabilized during the cycle: +10% ruins on collapse (up to +30%)." }
+  },
+  {
+    id: "cendres_fertiles",
     group: "ruins",
     unlockCycles: 5,
-    name: { fr: "Première grammaire", en: "First grammar" },
-    cost: { ruins: 120000 },
-    effectType: "startKnowledgePctPeak",
-    amount: 0.03,
-    desc: { fr: "Les premières règles du langage ont tout changé. La deuxième fois, ça va plus vite.", en: "The first rules of language changed everything. The second time, it comes faster." },
-    effect: { fr: "Chaque cycle commence avec 3% du pic de savoir précédent.", en: "Each cycle starts with 3% of the previous knowledge peak." }
+    effectType: "regrowthRush",
+    amount: 2,
+    name: { fr: "Cendres fertiles", en: "Fertile ashes" },
+    cost: { ruins: 90000 },
+    desc: { fr: "Rien ne pousse plus vite que sur un champ brûlé.", en: "Nothing grows faster than on a burnt field." },
+    effect: { fr: "Après un effondrement : production ×3 pendant les 3 premières minutes du cycle.", en: "After a collapse: production ×3 for the first 3 minutes of the cycle." }
   },
   {
-    id: "rubble_survey",
+    id: "preparations_funebres",
+    group: "ruins",
+    unlockCycles: 5,
+    effectType: "terminalPrepDiscount",
+    amount: 0.4,
+    name: { fr: "Préparations funèbres", en: "Funeral preparations" },
+    cost: { ruins: 200000 },
+    desc: { fr: "La cité apprend à mourir proprement. C'est un métier.", en: "The city learns to die cleanly. It is a craft." },
+    effect: { fr: "Préparations terminales : coût −40% et effet de préparation renforcé de moitié.", en: "Terminal preparations: cost −40% and preparation effect strengthened by half." }
+  },
+  {
+    id: "stagnation_feconde",
     group: "ruins",
     unlockCycles: 6,
-    name: { fr: "Arpentage des gravats", en: "Rubble survey" },
-    cost: { ruins: 600000 },
-    effectType: "infraDiscount",
-    amount: 0.08,
-    desc: { fr: "Mesurer les ruines, c'est la première étape pour ne pas les reproduire.", en: "To measure the ruins is the first step toward not repeating them." },
-    effect: { fr: "Coûts d'infrastructure -8%.", en: "Infrastructure costs -8%." }
-  },
-  {
-    id: "echo_census",
-    group: "ruins",
-    unlockCycles: 6,
-    name: { fr: "Recensement d'écho", en: "Echo census" },
-    cost: { ruins: 3000000 },
-    effectType: "populationMult",
-    amount: 0.9,
-    desc: { fr: "Les absents sont comptés avec les vivants. Pour ne pas recommencer seuls.", en: "The absent are counted with the living. So as not to begin again alone." },
-    effect: { fr: "Croissance de population +35%.", en: "Population growth +35%." }
-  },
-  {
-    id: "bronze_foundations",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Fondations de bronze", en: "Bronze foundations" },
-    cost: { ruins: 6800000 },
-    effectType: "infraKeep",
-    amount: 0.05,
-    desc: { fr: "Certaines bases refusent de redevenir poussière. On s'en sort.", en: "Some foundations refuse to return to dust. We get by." },
-    effect: { fr: "Effondrements: infrastructure conservée +5%.", en: "Collapses: infrastructure preserved +5%." }
-  },
-  {
-    id: "ivory_questions",
-    group: "ruins",
-    unlockCycles: 8,
-    name: { fr: "Questions d'ivoire", en: "Ivory questions" },
-    cost: { ruins: 35000000 },
-    effectType: "knowledgeMult",
-    amount: 2.65,
-    desc: { fr: "Trop belles pour des réponses simples. C'est pour ça qu'elles durent.", en: "Too beautiful for simple answers. That is why they endure." },
-    effect: { fr: "Production de savoir +180%.", en: "Knowledge production +180%." }
-  },
-  {
-    id: "ritual_accounting",
-    group: "ruins",
-    unlockCycles: 8,
-    name: { fr: "Comptabilité rituelle", en: "Ritual accounting" },
-    cost: { ruins: 78000000 },
-    effectType: "globalMult",
-    amount: 0.34,
-    desc: { fr: "Les nombres sont devenus des gestes. Les gestes, des lois.", en: "The numbers became gestures. The gestures, laws." },
-    effect: { fr: "Production globale +18%.", en: "Global production +18%." }
-  },
-  {
-    id: "deep_foundry",
-    group: "ruins",
-    unlockCycles: 8,
-    capstone: true,
-    name: { fr: "Fonderie profonde", en: "Deep foundry" },
-    cost: { ruins: 12000000000 },
-    effectType: "globalMult",
-    amount: 0.30,
-    desc: { fr: "Sous les décombres, le métal apprend une seconde chaleur.", en: "Beneath the rubble, the metal learns a second heat." },
-    effect: { fr: "Capstone Prospérité : production globale +30%.", en: "Prosperity Capstone: global production +30%." }
-  },
-  {
-    id: "ten_thousand_storehouses",
-    group: "ruins",
-    unlockCycles: 9,
-    name: { fr: "Dix mille réserves", en: "Ten thousand storehouses" },
-    cost: { ruins: 270000000 },
-    effectType: "startFoodPctPeak",
-    amount: 0.13,
-    desc: { fr: "La famine cherche une entrée. Elle trouve des portes fermées partout.", en: "Famine looks for a way in. It finds closed doors everywhere." },
-    effect: { fr: "Chaque cycle commence avec 5% du pic de nourriture précédent.", en: "Each cycle starts with 5% of the previous food peak." }
-  },
-  {
-    id: "palace_of_receipts",
-    group: "ruins",
-    unlockCycles: 9,
-    name: { fr: "Palais des quittances", en: "Palace of receipts" },
-    cost: { ruins: 400000000 },
-    effectType: "startGoldPctPeak",
-    amount: 0.09,
-    desc: { fr: "Le trésor physique a déménagé ici. Les preuves de paiement ont plus de gardes que les princes.", en: "The physical treasury moved here. Proofs of payment have more guards than princes do." },
-    effect: { fr: "Chaque cycle commence avec 6% du pic de trésor précédent.", en: "Each cycle starts with 6% of the previous treasury peak." }
-  },
-  {
-    id: "immortal_blueprint",
-    group: "ruins",
-    unlockCycles: 10,
-    name: { fr: "Plan immortel", en: "Immortal blueprint" },
-    cost: { ruins: 900000000 },
-    effectType: "infraKeep",
-    amount: 0.22,
-    desc: { fr: "Une ville entière tient dans ces traits. Elle peut être rebâtie après n'importe quel feu.", en: "An entire city fits within these lines. It can be rebuilt after any fire." },
-    effect: { fr: "Effondrements: infrastructure conservée +12%.", en: "Collapses: infrastructure preserved +12%." }
-  },
-  {
-    id: "chronicle_engine",
-    group: "ruins",
-    unlockCycles: 10,
-    capstone: true,
-    name: { fr: "Machine chronique", en: "Chronicle engine" },
-    cost: { ruins: 40000000000 },
-    effectType: "chronicleEngine",
-    amount: 0.03,
-    desc: { fr: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus — elle recommence.", en: "It turns every ending into a chapter. History no longer stops — it begins again." },
-    effect: { fr: "Capstone Connaissance : chaque achat de ruines renforce toute la production, et les ruines non dépensées ajoutent un bonus.", en: "Knowledge Capstone: every ruins purchase strengthens all production, and unspent ruins add a bonus." }
-  },
-  {
-    id: "winter_granaries",
-    group: "ruins",
-    name: { fr: "Greniers d'hiver", en: "Winter granaries" },
-    cost: { ruins: 1200000000 },
-    effectType: "foodKeep",
-    amount: 0.12,
-    desc: { fr: "Les mauvaises saisons y sont attendues. On les connaît par leur nom.", en: "The bad seasons are expected here. They are known by name." },
-    effect: { fr: "Effondrements: nourriture conservée +8%.", en: "Collapses: food preserved +8%." }
-  },
-  {
-    id: "river_seedbanks",
-    group: "ruins",
-    name: { fr: "Semences du fleuve", en: "River seedbanks" },
-    cost: { ruins: 6000000000 },
-    effectType: "foodMult",
-    amount: 4.2,
-    desc: { fr: "Chaque crue enterre une graine et la rend plus nombreuse.", en: "Each flood buries a seed and makes it many." },
-    effect: { fr: "Production de nourriture +240%.", en: "Food production +240%." }
-  },
-  {
-    id: "ash_medicine",
-    group: "ruins",
-    name: { fr: "Médecine de cendre", en: "Ash medicine" },
-    cost: { ruins: 9000000000 },
-    effectType: "timeWearSlow",
-    amount: 0.38,
-    desc: { fr: "Les remèdes les plus anciens sentent le feu éteint et la terre après la pluie.", en: "The oldest remedies smell of dead fire and earth after rain." },
-    effect: { fr: "Usure du temps -16%.", en: "Time Wear -16%." }
-  },
-  {
-    id: "green_census",
-    group: "ruins",
-    name: { fr: "Recensement vert", en: "Green census" },
-    cost: { ruins: 13000000000 },
-    effectType: "startPopulationPctPeak",
-    amount: 0.07,
-    desc: { fr: "Les noms de famille repoussent avec les jardins. Les gens reviennent.", en: "Family names grow back with the gardens. People return." },
-    effect: { fr: "Chaque cycle commence avec 5% du pic de population précédent.", en: "Each cycle starts with 5% of the previous population peak." }
-  },
-  {
-    id: "mother_walls",
-    group: "ruins",
-    name: { fr: "Murs nourriciers", en: "Mother walls" },
-    cost: { ruins: 17000000000 },
-    effectType: "foodKeep",
-    amount: 0.1,
-    desc: { fr: "Ces murs ne protègent pas les palais. Ils protègent la nourriture.", en: "These walls do not protect the palaces. They protect the food." },
-    effect: { fr: "Effondrements: nourriture conservée +10%.", en: "Collapses: food preserved +10%." }
-  },
-  {
-    id: "seasonal_oaths",
-    group: "ruins",
-    name: { fr: "Serments saisonniers", en: "Seasonal oaths" },
-    cost: { ruins: 21000000000 },
-    effectType: "stability",
-    amount: 0.09,
-    desc: { fr: "À chaque saison, la cité répète pourquoi elle existe. Ça aide à tenir.", en: "Each season, the city repeats why it exists. It helps to hold on." },
-    effect: { fr: "Pression de rupture -4 pts.", en: "Rupture pressure -4 pts." }
-  },
-  {
-    id: "patient_bloodlines",
-    group: "ruins",
-    name: { fr: "Lignées patientes", en: "Patient bloodlines" },
-    cost: { ruins: 30000000000 },
-    effectType: "populationMult",
-    amount: 1.95,
-    desc: { fr: "Ces lignées ont appris à ne pas confondre survivre et attendre. Il y a une différence.", en: "These bloodlines learned not to mistake surviving for waiting. There is a difference." },
-    effect: { fr: "Croissance de population +120%.", en: "Population growth +120%." }
-  },
-  {
-    id: "last_refuges",
-    group: "ruins",
-    capstone: true,
-    name: { fr: "Derniers refuges", en: "Last refuges" },
-    cost: { ruins: 35000000000 },
-    effectType: "timeWearSlow",
-    amount: 0.22,
-    desc: { fr: "Ces lieux savent encore fermer leurs portes quand tout le reste tombe.", en: "These places still know how to close their doors when all else falls." },
-    effect: { fr: "Capstone Résilience : usure du temps -22%.", en: "Resilience Capstone: Time Wear -22%." }
-  },
-  {
-    id: "silver_roads",
-    group: "ruins",
-    name: { fr: "Routes d'argent", en: "Silver roads" },
-    cost: { ruins: 1400000000 },
-    effectType: "goldMult",
-    amount: 4.2,
-    desc: { fr: "Elles brillent surtout la nuit, quand les marchands mentent moins.", en: "They shine most at night, when merchants lie less." },
-    effect: { fr: "Production de trésor +240%.", en: "Treasury production +240%." }
-  },
-  {
-    id: "public_quarries",
-    group: "ruins",
-    name: { fr: "Carrieres publiques", en: "Public quarries" },
-    cost: { ruins: 2100000000 },
-    effectType: "infraMult",
-    amount: 3.2,
-    desc: { fr: "Quand la pierre devient bien commun, les murs poussent plus vite et plus haut.", en: "When stone becomes a common good, the walls rise faster and higher." },
-    effect: { fr: "Production d'infrastructure +180%.", en: "Infrastructure production +180%." }
-  },
-  {
-    id: "nomad_ledgers",
-    group: "ruins",
-    name: { fr: "Livres nomades", en: "Nomad ledgers" },
-    cost: { ruins: 3200000000 },
-    effectType: "cityDiscount",
-    amount: 0.18,
-    desc: { fr: "Les comptes voyagent plus légèrement que les coffres. L'économie suit.", en: "Accounts travel lighter than coffers. The economy follows." },
-    effect: { fr: "Coûts des moteurs -10%.", en: "Engine costs -10%." }
-  },
-  {
-    id: "canal_charters",
-    group: "ruins",
-    name: { fr: "Chartes des canaux", en: "Canal charters" },
-    cost: { ruins: 5000000000 },
-    effectType: "infraDiscount",
-    amount: 0.18,
-    desc: { fr: "Chaque canal est aussi un accord. L'eau circule, l'argent suit.", en: "Every canal is also an accord. Water flows, money follows." },
-    effect: { fr: "Coûts d'infrastructure -10%.", en: "Infrastructure costs -10%." }
-  },
-  {
-    id: "vaulted_treasuries",
-    group: "ruins",
-    name: { fr: "Trésors voûtés", en: "Vaulted treasuries" },
-    cost: { ruins: 5500000000 },
-    effectType: "goldKeep",
-    amount: 0.2,
-    desc: { fr: "L'or qui survit aux empires est celui qui sait se cacher.", en: "The gold that outlives empires is the gold that knows how to hide." },
-    effect: { fr: "Effondrements: trésor conservé +12%.", en: "Collapses: treasury preserved +12%." }
-  },
-  {
-    id: "dead_language_schools",
-    group: "ruins",
-    name: { fr: "Écoles de langues mortes", en: "Schools of dead languages" },
-    cost: { ruins: 3000000000 },
-    effectType: "knowledgeDiscount",
-    amount: 0.18,
-    desc: { fr: "On y apprend des langues que plus personne ne parle. Pour lire les avertissements dans leur première version.", en: "Here they learn languages no one speaks anymore. To read the warnings in their first version." },
-    effect: { fr: "Coûts du savoir -10%.", en: "Knowledge costs -10%." }
-  },
-  {
-    id: "memory_courts",
-    group: "ruins",
-    name: { fr: "Cours de mémoire", en: "Courts of memory" },
-    cost: { ruins: 5000000000 },
-    effectType: "knowledgeKeep",
-    amount: 0.14,
-    desc: { fr: "Les témoins jurent devant des archives plus vieilles qu'eux. Ça évite le pire.", en: "Witnesses swear before archives older than themselves. It spares the worst." },
-    effect: { fr: "Effondrements: savoir conservé +8%.", en: "Collapses: knowledge preserved +8%." }
-  },
-  {
-    id: "codex_of_failures",
-    group: "ruins",
-    name: { fr: "Codex des échecs", en: "Codex of failures" },
-    cost: { ruins: 10000000000 },
-    effectType: "stability",
-    amount: 0.035,
-    desc: { fr: "Chaque page commence par une erreur. C'est le livre le plus important.", en: "Every page begins with a mistake. It is the most important book of all." },
-    effect: { fr: "Pression de rupture -3.5 pts.", en: "Rupture pressure -3.5 pts." }
-  },
-  {
-    id: "lamp_archives",
-    group: "ruins",
-    name: { fr: "Archives aux lampes", en: "Lamp archives" },
-    cost: { ruins: 14000000000 },
-    effectType: "startKnowledgePctPeak",
-    amount: 0.12,
-    desc: { fr: "Une lumière basse, des mains qui copient, des idées qui ne dorment pas.", en: "A low light, hands that copy, ideas that never sleep." },
-    effect: { fr: "Chaque cycle commence avec 7% du pic de savoir précédent.", en: "Each cycle starts with 7% of the previous knowledge peak." }
-  },
-  {
-    id: "counterfactual_histories",
-    group: "ruins",
-    name: { fr: "Histoires contrefactuelles", en: "Counterfactual histories" },
-    cost: { ruins: 18000000000 },
-    effectType: "knowledgeMult",
-    amount: 5.4,
-    desc: { fr: "On y étudie les mondes qui auraient pu tomber autrement. Ça aide à éviter les mêmes erreurs.", en: "Here they study the worlds that might have fallen otherwise. It helps avoid the same mistakes." },
-    effect: { fr: "Production de savoir +300%.", en: "Knowledge production +300%." }
+    effectType: "stagnationBoon",
+    amount: 1,
+    name: { fr: "Stagnation féconde", en: "Fertile stagnation" },
+    cost: { ruins: 450000 },
+    desc: { fr: "Le calme n'est plus une rouille. C'est une réserve.", en: "Calm is no longer a rust. It is a reserve." },
+    effect: { fr: "La stagnation n'accélère plus l'Usure : chaque longue accalmie charge une aubaine.", en: "Stagnation no longer speeds up Wear: each long lull charges a boon instead." }
   },
   {
     id: "collapse_taxonomy",
@@ -562,146 +313,205 @@ export const upgrades = [
     effect: { fr: "Ruines gagnées +40%.", en: "Ruins gained +40%." }
   },
   {
-    id: "axiom_engine",
+    id: "phenix_calendaire",
     group: "ruins",
     capstone: true,
-    name: { fr: "Moteur d'axiomes", en: "Axiom engine" },
-    cost: { ruins: 30000000000 },
-    effectType: "globalMult",
-    amount: 0.32,
-    desc: { fr: "Quelques vérités simples y font tourner des empires entiers.", en: "A few simple truths keep entire empires turning here." },
-    effect: { fr: "Capstone Cycle & Crise : production globale +32%.", en: "Cycle & Crisis Capstone: global production +32%." }
+    effectType: "farmUncap",
+    amount: 1,
+    name: { fr: "Phénix calendaire", en: "Calendar phoenix" },
+    cost: { ruins: 34000000000 },
+    desc: { fr: "La renaissance est inscrite à l'almanach, entre les semailles et l'impôt.", en: "Rebirth is written into the almanac, between sowing and taxes." },
+    effect: { fr: "Capstone Cendre : le farm hors-ligne n'est plus plafonné à 20 effondrements.", en: "Ash Capstone: offline farming is no longer capped at 20 collapses." }
+  },
+
+  /* ── L'ÉCORCE GRAVÉE (knowledge) — la mémoire ───────────────────────────── */
+  {
+    id: "oral_tradition",
+    group: "ruins",
+    name: { fr: "Tradition orale", en: "Oral tradition" },
+    cost: { ruins: 6 },
+    desc: { fr: "Ce qu'on dit à voix basse résiste mieux aux incendies que les bibliothèques.", en: "What is spoken in a low voice withstands fire better than any library." },
+    effect: { fr: "Mémoire des pierres : le bonus de production des ruines est renforcé de 20%.", en: "Memory of stones: the ruins production bonus is strengthened by 20%." }
   },
   {
-    id: "trait_theocracy",
+    id: "grammaire_des_ruines",
     group: "ruins",
-    name: { fr: "Théocratie", en: "Theocracy" },
-    cost: { ruins: 0 },
-    desc: { fr: "La richesse est devenue une forme de piété. Le savoir suit l'or.", en: "Wealth has become a form of piety. Knowledge follows gold." },
-    effect: { fr: "Dogme: +1% du trésor actuel en savoir par seconde. Contrepartie: la rupture monte 25% plus vite.", en: "Dogma: +1% of current treasury as knowledge per second. Trade-off: rupture rises 25% faster." }
+    effectType: "ruinShopDiscount",
+    amount: 0.10,
+    name: { fr: "Grammaire des ruines", en: "Grammar of ruins" },
+    cost: { ruins: 15 },
+    desc: { fr: "Les ruines sont une langue. La lire coûte moins cher que la deviner.", en: "Ruins are a language. Reading it costs less than guessing it." },
+    effect: { fr: "Les nœuds de l'arbre des ruines coûtent −10%.", en: "Ruins tree nodes cost −10%." }
   },
+  {
+    id: "autel_du_culte",
+    group: "ruins",
+    unlockCycles: 4,
+    effectType: "cultAmp",
+    amount: 0.5,
+    name: { fr: "Autel du culte", en: "Altar of the cult" },
+    cost: { ruins: 250 },
+    desc: { fr: "L'Olympe regarde la cité depuis longtemps. On lui a enfin dressé une table.", en: "Olympus has watched the city for a long time. At last a table has been set for it." },
+    effect: { fr: "Le culte de l'Olympe : effets renforcés de moitié et révélation du culte accélérée.", en: "The Olympus cult: effects strengthened by half and cult revelation accelerated." }
+  },
+  {
+    id: "encre_indelebile",
+    group: "ruins",
+    unlockCycles: 4,
+    effectType: "reformsPersist",
+    amount: 1,
+    name: { fr: "Encre indélébile", en: "Indelible ink" },
+    cost: { ruins: 600 },
+    desc: { fr: "Certaines lois sont écrites pour survivre à leurs scribes.", en: "Some laws are written to outlive their scribes." },
+    effect: { fr: "Les réformes de fond survivent désormais aux effondrements.", en: "Deep reforms now survive collapses." }
+  },
+  {
+    id: "recurring_ages",
+    group: "ruins",
+    unlockCycles: 8,
+    name: { fr: "Âges récurrents", en: "Recurring ages" },
+    cost: { ruins: 80000 },
+    desc: { fr: "Certaines époques reviennent si souvent qu'elles finissent par ressembler à des habitudes.", en: "Some eras return so often they come to look like habits." },
+    effect: { fr: "L'âge maximum atteint renforce légèrement la production globale.", en: "The highest age reached slightly strengthens global production." }
+  },
+  {
+    id: "loi_des_temoins",
+    group: "ruins",
+    unlockCycles: 6,
+    effectType: "policyCostHalf",
+    amount: 0.5,
+    name: { fr: "Loi des témoins", en: "Law of witnesses" },
+    cost: { ruins: 150000 },
+    desc: { fr: "Ce que cent témoins ont vu n'a plus besoin d'être imposé.", en: "What a hundred witnesses have seen no longer needs enforcing." },
+    effect: { fr: "Les politiques permanentes ne coûtent plus que la moitié de leur production.", en: "Permanent policies only cost half their production." }
+  },
+  {
+    id: "epitaphes_profondes",
+    group: "ruins",
+    effectType: "epitaphAmp",
+    amount: 1.5,
+    name: { fr: "Épitaphes profondes", en: "Deep epitaphs" },
+    cost: { ruins: 6000000000 },
+    desc: { fr: "Gravées assez profond, les dernières volontés deviennent des fondations.", en: "Carved deep enough, last wills become foundations." },
+    effect: { fr: "Le legs d'épitaphe dure 20 minutes au lieu de 8.", en: "The epitaph legacy lasts 20 minutes instead of 8." }
+  },
+  {
+    id: "chronicle_engine",
+    group: "ruins",
+    capstone: true,
+    effectType: "braiseAmp",
+    amount: 0.5,
+    name: { fr: "Machine chronique", en: "Chronicle engine" },
+    cost: { ruins: 40000000000 },
+    desc: { fr: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus — elle recommence.", en: "It turns every ending into a chapter. History no longer stops — it begins again." },
+    effect: { fr: "Capstone Mémoire : la Sève de braise est amplifiée de +50% — chaque nœud allumé et chaque ruine dépensée nourrissent l'arbre davantage.", en: "Memory Capstone: the Ember Sap is amplified by +50% — every lit node and every spent ruin feeds the tree further." }
+  },
+
+  /* ── DOGMES — paires de choix exclusifs, gratuits au palier ─────────────── */
   {
     id: "trait_nomadism",
     group: "ruins",
+    conflictsWith: "trait_enracinement",
     name: { fr: "Nomadisme", en: "Nomadism" },
     cost: { ruins: 0 },
     desc: { fr: "La ville, c'est les gens, pas les pierres. On peut tout emporter.", en: "The city is the people, not the stones. Everything can be carried away." },
-    effect: { fr: "Dogme: tous les bâtiments coûtent -30%. Contrepartie: l'infrastructure est plafonnée par la taille de la cité.", en: "Dogma: all buildings cost -30%. Trade-off: infrastructure is capped by the size of the city." }
+    effect: { fr: "Dogme : tous les bâtiments coûtent -30%. Contrepartie : l'infrastructure est plafonnée par la taille de la cité.", en: "Dogma: all buildings cost -30%. Trade-off: infrastructure is capped by the size of the city." }
   },
   {
-    id: "skill_archaeology",
+    id: "trait_enracinement",
     group: "ruins",
-    name: { fr: "Archéologie", en: "Archaeology" },
+    conflictsWith: "trait_nomadism",
+    name: { fr: "Enracinement", en: "Rootedness" },
     cost: { ruins: 0 },
-    desc: { fr: "Ce que l'ancien siècle a laissé, ce siècle peut l'exhumer et s'en servir.", en: "What the old century left behind, this century can unearth and use." },
-    effect: { fr: "Active: une fois par cycle, dépense du savoir pour exhumer un bâtiment de la civilisation précédente.", en: "Active: once per cycle, spend knowledge to unearth a building from the previous civilization." }
+    desc: { fr: "On ne part pas. On répare.", en: "We do not leave. We repair." },
+    effect: { fr: "Dogme : l'infrastructure excédentaire ne se dégrade plus jamais (fin de l'entretien). Contrepartie : tous les bâtiments coûtent +15%.", en: "Dogma: surplus infrastructure never decays again (no more upkeep). Trade-off: all buildings cost +15%." }
   },
   {
     id: "dogma_communal_granaries",
     group: "ruins",
+    conflictsWith: "dogma_reliquaire_scelle",
     name: { fr: "Communes vivrières", en: "Food communes" },
     cost: { ruins: 0 },
     effectType: "foodKeep",
     amount: 0.10,
     desc: { fr: "Personne ne mange avant les autres. C'est difficile, mais ça dure.", en: "No one eats before the others. It is hard, but it lasts." },
-    effect: { fr: "Dogme: les effondrements conservent +10% de nourriture.", en: "Dogma: collapses preserve +10% food." }
+    effect: { fr: "Dogme : les effondrements conservent +10% de nourriture.", en: "Dogma: collapses preserve +10% food." }
   },
   {
-    id: "dogma_medicine",
+    id: "dogma_reliquaire_scelle",
     group: "ruins",
-    name: { fr: "Médecine civique", en: "Civic medicine" },
+    conflictsWith: "dogma_communal_granaries",
+    name: { fr: "Reliquaire scellé", en: "Sealed reliquary" },
     cost: { ruins: 0 },
-    effectType: "timeWearSlow",
-    amount: 0.20,
-    desc: { fr: "Les médecins viennent avant les sculpteurs. La cité en tient plus longtemps.", en: "Doctors come before sculptors. The city holds on longer for it." },
-    effect: { fr: "Dogme: usure du temps -20%.", en: "Dogma: Time Wear -20%." }
-  },
-  {
-    id: "dogma_stoic_rites",
-    group: "ruins",
-    name: { fr: "Rites de patience", en: "Rites of patience" },
-    cost: { ruins: 0 },
-    effectType: "stability",
-    amount: 0.08,
-    desc: { fr: "On ne panique pas. On a déjà vu ça, on sait ce qu'on fait.", en: "We do not panic. We have seen this before; we know what we are doing." },
-    effect: { fr: "Dogme: pression de rupture -8 pts.", en: "Dogma: rupture pressure -8 pts." }
+    effectType: "allStartPctPeak",
+    amount: 0.05,
+    desc: { fr: "Le reliquaire reçoit un second sceau. Ce qui y entre ne diminue plus.", en: "The reliquary receives a second seal. What enters it no longer dwindles." },
+    effect: { fr: "Dogme : le départ au pic passe de 3% à 8% de chaque ressource.", en: "Dogma: the peak start rises from 3% to 8% of every resource." }
   },
   {
     id: "dogma_merchant_law",
     group: "ruins",
+    conflictsWith: "dogma_public_works",
     name: { fr: "Droit marchand", en: "Merchant law" },
     cost: { ruins: 0 },
     effectType: "goldMult",
     amount: 0.75,
     desc: { fr: "Ce qui est écrit reste valable même quand les parties qui l'ont signé ne sont plus là.", en: "What is written holds even when the parties who signed it are gone." },
-    effect: { fr: "Dogme: production de trésor +75%.", en: "Dogma: treasury production +75%." }
+    effect: { fr: "Dogme : production de trésor +75%.", en: "Dogma: treasury production +75%." }
   },
   {
     id: "dogma_public_works",
     group: "ruins",
+    conflictsWith: "dogma_merchant_law",
     name: { fr: "Grands travaux", en: "Public works" },
     cost: { ruins: 0 },
     effectType: "infraMult",
     amount: 0.65,
     desc: { fr: "Ce qu'on construit pour tous laisse une trace plus profonde que les décrets.", en: "What is built for all leaves a deeper mark than decrees." },
-    effect: { fr: "Dogme: production d'infrastructure +65%.", en: "Dogma: infrastructure production +65%." }
-  },
-  {
-    id: "dogma_free_academies",
-    group: "ruins",
-    name: { fr: "Académies libres", en: "Free academies" },
-    cost: { ruins: 0 },
-    effectType: "knowledgeMult",
-    amount: 1.25,
-    desc: { fr: "Quand tout le monde peut apprendre, les idées circulent plus vite que les rumeurs.", en: "When everyone can learn, ideas travel faster than rumors." },
-    effect: { fr: "Dogme: production de savoir +125%.", en: "Dogma: knowledge production +125%." }
+    effect: { fr: "Dogme : production d'infrastructure +65%.", en: "Dogma: infrastructure production +65%." }
   },
   {
     id: "dogma_eternal_return",
     group: "ruins",
+    conflictsWith: "dogma_abime_assume",
     name: { fr: "Éternel retour", en: "Eternal return" },
     cost: { ruins: 0 },
     effectType: "ruinGain",
     amount: 0.30,
     desc: { fr: "Chaque fin est une répétition générale. On finit par en tirer plus à chaque chute.", en: "Every ending is a dress rehearsal. We come to draw more from each fall." },
-    effect: { fr: "Dogme: Ruines gagnées +30%.", en: "Dogma: Ruins gained +30%." }
+    effect: { fr: "Dogme : Ruines gagnées +30%.", en: "Dogma: Ruins gained +30%." }
   },
   {
-    id: "conseil_de_crise",
+    id: "dogma_abime_assume",
     group: "ruins",
-    unlockCycles: 2,
-    name: { fr: "Conseil de crise", en: "Crisis council" },
-    cost: { ruins: 8 },
-    desc: { fr: "Un conseil permanent tranche les crises sans réveiller le prince. Tu fixes la ligne, il l'applique.", en: "A standing council settles crises without waking the prince. You set the line, it enforces it." },
-    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %). Fini les interruptions.", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Stall) at each Rupture threshold (25 / 50 / 75%). No more interruptions." }
+    conflictsWith: "dogma_eternal_return",
+    name: { fr: "Abîme assumé", en: "Embraced abyss" },
+    cost: { ruins: 0 },
+    desc: { fr: "Vivre au bord du gouffre affûte les gestes.", en: "Living at the edge of the chasm sharpens the hand." },
+    effect: { fr: "Dogme : tant que la Rupture dépasse 70%, production globale +20%.", en: "Dogma: while Rupture exceeds 70%, global production +20%." }
   },
   {
-    id: "edit_effondrement",
+    id: "trait_theocracy",
     group: "ruins",
-    unlockCycles: 3,
-    name: { fr: "Édit d'effondrement", en: "Edict of collapse" },
-    cost: { ruins: 15 },
-    desc: { fr: "L'effondrement devient un acte programmé, déclenché sans hésitation le moment venu.", en: "Collapse becomes a scheduled act, triggered without hesitation when the time comes." },
-    effect: { fr: "Débloque l'effondrement automatique configurable : à 100% de Rupture, à un seuil d'Usure, ou après une durée. Peut tenter Rationner/Réformes avant.", en: "Unlocks configurable automatic collapse: at 100% Rupture, at a Wear threshold, or after a set duration. Can attempt Ration/Reforms first." }
+    conflictsWith: "dogma_free_academies",
+    name: { fr: "Théocratie", en: "Theocracy" },
+    cost: { ruins: 0 },
+    desc: { fr: "La richesse est devenue une forme de piété. Le savoir suit l'or.", en: "Wealth has become a form of piety. Knowledge follows gold." },
+    effect: { fr: "Dogme : +1% du trésor actuel en savoir par seconde. Contrepartie : la rupture monte 25% plus vite.", en: "Dogma: +1% of current treasury as knowledge per second. Trade-off: rupture rises 25% faster." }
   },
   {
-    id: "veilleurs_nuit_1",
+    id: "dogma_free_academies",
     group: "ruins",
-    unlockCycles: 1,
-    name: { fr: "Veilleurs de nuit", en: "Night watch" },
-    cost: { ruins: 8 },
-    desc: { fr: "Quelques gardiens tiennent les registres pendant que la cité dort. Rien ne s'arrête vraiment.", en: "A few keepers hold the registers while the city sleeps. Nothing truly stops." },
-    effect: { fr: "Gain hors-ligne : la cité produit et vieillit jusqu'à 4 h d'absence (au lieu de 2 h).", en: "Offline gains: the city produces and ages for up to 4 h away (instead of 2 h)." }
+    conflictsWith: "trait_theocracy",
+    name: { fr: "Académies libres", en: "Free academies" },
+    cost: { ruins: 0 },
+    effectType: "complexityDamp",
+    amount: 0.35,
+    desc: { fr: "Quand tout le monde peut apprendre, l'État cesse d'étouffer sous ses propres registres.", en: "When everyone can learn, the state stops choking on its own registers." },
+    effect: { fr: "Dogme : le foyer de Complexité (charge administrative) pèse 35% de moins sur la Rupture.", en: "Dogma: the Complexity source (administrative load) weighs 35% less on Rupture." }
   },
-  {
-    id: "veilleurs_nuit_4",
-    group: "ruins",
-    unlockCycles: 7,
-    name: { fr: "Veilleurs de nuit IV", en: "Night watch IV" },
-    cost: { ruins: 1500 },
-    desc: { fr: "La cité fonctionne désormais aussi bien sans toi qu'avec. C'est à la fois rassurant et vertigineux.", en: "The city now runs as well without you as with you. It is both reassuring and dizzying." },
-    effect: { fr: "Gain hors-ligne : jusqu'à 24 h d'absence.", en: "Offline gains: up to 24 h away." }
-  },
+
+  /* ── HÉRITAGE (légitimité) — inchangé ───────────────────────────────────── */
   {
     id: "reforme_administrative",
     group: "heritage",
@@ -760,76 +570,75 @@ export const upgrades = [
   }
 ];
 
-// Arbre de prestige à PALIERS À CHOIX (et non plus rails linéaires) :
-// chaque branche est une suite de `tiers` (paliers) ; un nœud du palier t devient
-// disponible quand on possède au moins `unlock[t]` nœuds des paliers INFÉRIEURS —
-// un compteur, pas un nœud précis. On peut donc SAUTER ~40 % de chaque palier et
-// choisir sa spécialisation. `unlock[0] = 0` (premier palier toujours ouvert).
-// Conséquence clé : un `conflictsWith` (choix exclusif) ne sévère plus jamais
-// l'aval — bloquer un nœud n'empêche pas le compteur d'atteindre le seuil suivant.
+// Arbre de prestige à PALIERS À CHOIX : chaque branche est une suite de `tiers`
+// (paliers) ; un nœud du palier t devient disponible quand on possède au moins
+// `unlock[t]` nœuds des paliers INFÉRIEURS — un compteur, pas un nœud précis.
+// Refonte « Arbre des Ruines » : 4 rameaux re-thématisés, ~9 nœuds chacun, coûts
+// CROISSANTS le long des paliers (invariant testé par ruinTree.structure.test.js).
 export const PRESTIGE_TREE_BRANCHES = [
   {
     id: "resilience",
-    name: { fr: "Résilience", en: "Resilience" },
-    hint: { fr: "Population, nourriture, stabilité et résistance à l'usure.", en: "Population, food, stability, and resistance to wear." },
-    unlock: [0, 3, 5, 8, 11],
+    name: { fr: "Les Racines", en: "The Roots" },
+    hint: { fr: "Ce qui reste : conservation, départ au pic, nécropole, archéologie, hors-ligne.", en: "What remains: preservation, peak starts, necropolis, archaeology, offline." },
+    unlock: [0, 2, 3, 5],
     tiers: [
-      ["root_cellars", "ember_baskets", "granaries", "smoke_calendar"],
-      ["stone_bread", "crisis_theatre", "echo_census"],
-      ["ten_thousand_storehouses", "winter_granaries", "river_seedbanks"],
-      ["ash_medicine", "green_census", "mother_walls", "seasonal_oaths"],
-      ["patient_bloodlines", "last_refuges"]
+      ["granaries", "veilleurs_nuit_1", "skill_archaeology"],
+      ["reliquaire_pics", "necropole_vivante"],
+      ["veilleurs_nuit_4", "chambres_scellees", "chantiers_fouilles"],
+      ["limon_des_ages", "racine_mere"]
     ]
   },
   {
     id: "prosperity",
-    name: { fr: "Prospérité", en: "Prosperity" },
-    hint: { fr: "Trésor, infrastructures, routes, coûts de construction et conservation matérielle.", en: "Treasury, infrastructure, roads, building costs, and material preservation." },
-    unlock: [0, 3, 6, 9, 13],
+    name: { fr: "La Sève", en: "The Sap" },
+    hint: { fr: "La cité vivante : fleuve, routes, aubaines, jalons, Démesure.", en: "The living city: river, roads, boons, milestones, Hubris." },
+    unlock: [0, 2, 3, 5],
     tiers: [
-      ["ash_paths", "fallen_roads", "cracked_scales", "silent_wells"],
-      ["buried_tolls", "old_coin_molds", "forgotten_wharves", "rubble_survey"],
-      ["bronze_foundations", "palace_of_receipts", "immortal_blueprint", "silver_roads"],
-      ["public_quarries", "nomad_ledgers", "canal_charters", "vaulted_treasuries"],
-      ["deep_foundry"]
-    ]
-  },
-  {
-    id: "knowledge",
-    name: { fr: "Connaissance", en: "Knowledge" },
-    hint: { fr: "Savoir, archives, mémoire longue et coûts de recherche.", en: "Knowledge, archives, long memory, and research costs." },
-    unlock: [0, 3, 6, 8],
-    tiers: [
-      ["bone_ledgers", "oral_tradition", "rubble_contracts", "sunken_scriptorium"],
-      ["mirror_archives", "first_grammar", "ivory_questions"],
-      ["ritual_accounting", "dead_language_schools", "memory_courts"],
-      ["lamp_archives", "counterfactual_histories", "chronicle_engine"]
+      ["rives_fecondes", "fallen_roads"],
+      ["foundation_ghosts", "grand_cadastre", "caravanes_aubaine"],
+      ["fetes_jalon", "franchises_marchandes"],
+      ["gouvernail_millions", "ville_monde"]
     ]
   },
   {
     id: "cycle_crise",
-    name: { fr: "Cycle & Crise", en: "Cycle & Crisis" },
-    hint: { fr: "Gain de ruines, arbitrages d'effondrement, automatisation des crises et gains hors-ligne.", en: "Ruin gains, collapse trade-offs, crisis automation, and offline gains." },
-    unlock: [0, 3, 6],
+    name: { fr: "La Cendre", en: "The Ash" },
+    hint: { fr: "La chute : crises, effondrement, gain de ruines, automatisation.", en: "The fall: crises, collapse, ruin gains, automation." },
+    unlock: [0, 2, 3, 5],
     tiers: [
-      ["conseil_de_crise", "veilleurs_nuit_1", "edit_effondrement", "ruin_liturgy"],
-      ["foundation_ghosts", "recurring_ages", "veilleurs_nuit_4", "crowned_debris"],
-      ["burial_math", "codex_of_failures", "collapse_taxonomy", "axiom_engine"]
+      ["conseil_de_crise", "rites_feu_court"],
+      ["edit_effondrement", "ruin_liturgy", "moisson_de_crise"],
+      ["cendres_fertiles", "preparations_funebres", "stagnation_feconde"],
+      ["collapse_taxonomy", "phenix_calendaire"]
+    ]
+  },
+  {
+    id: "knowledge",
+    name: { fr: "L'Écorce gravée", en: "The Graven Bark" },
+    hint: { fr: "La mémoire : culte, réformes durables, épitaphes, méta.", en: "Memory: cult, lasting reforms, epitaphs, meta." },
+    unlock: [0, 2, 3, 5],
+    tiers: [
+      ["oral_tradition", "grammaire_des_ruines"],
+      ["autel_du_culte", "encre_indelebile"],
+      ["recurring_ages", "loi_des_temoins"],
+      ["epitaphes_profondes", "chronicle_engine"]
     ]
   }
 ];
 
+// Dogmes = PAIRES DE CHOIX EXCLUSIFS (conflictsWith), gratuits une fois le seuil
+// d'achats de branche atteint. Deux dogmes de même palier/branche = une paire.
 export const PRESTIGE_DOGMAS = [
-  { id: "dogma_communal_granaries", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "resilience" },
-  { id: "dogma_medicine", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 8, branch: "resilience" },
-  { id: "dogma_stoic_rites", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 12, branch: "resilience" },
-  { id: "trait_nomadism", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "prosperity" },
-  { id: "dogma_merchant_law", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 8, branch: "prosperity" },
-  { id: "dogma_public_works", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 13, branch: "prosperity" },
+  { id: "trait_nomadism", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "resilience" },
+  { id: "trait_enracinement", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "resilience" },
+  { id: "dogma_communal_granaries", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 7, branch: "resilience" },
+  { id: "dogma_reliquaire_scelle", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 7, branch: "resilience" },
+  { id: "dogma_merchant_law", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "prosperity" },
+  { id: "dogma_public_works", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "prosperity" },
+  { id: "dogma_eternal_return", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "cycle_crise" },
+  { id: "dogma_abime_assume", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "cycle_crise" },
   { id: "trait_theocracy", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "knowledge" },
-  { id: "skill_archaeology", tier: { fr: "Palier II", en: "Tier II" }, requiredPurchases: 7, branch: "knowledge" },
-  { id: "dogma_free_academies", tier: { fr: "Palier III", en: "Tier III" }, requiredPurchases: 10, branch: "knowledge" },
-  { id: "dogma_eternal_return", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 5, branch: "cycle_crise" }
+  { id: "dogma_free_academies", tier: { fr: "Palier I", en: "Tier I" }, requiredPurchases: 4, branch: "knowledge" }
 ];
 
 export const dogmaIds = new Set(PRESTIGE_DOGMAS.map((dogma) => dogma.id));

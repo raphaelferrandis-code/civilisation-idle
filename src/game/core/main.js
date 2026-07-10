@@ -30,7 +30,7 @@ import {
   amplifyRuptureFactor
 } from './mechanics.js';
 
-import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES } from './balance.js';
+import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES } from './balance.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
 
 import {
@@ -168,12 +168,15 @@ function simulateAwayCrises(elapsedSeconds) {
   let collapses = 0;
   const markThresholds = () => { state.crisisThresholds = { _25: true, _50: true, _75: true }; };
 
+  // Capstone « Phénix calendaire » : le plafond d'effondrements saute (il ne
+  // reste qu'une borne de sécurité perf).
+  const maxCollapses = has("phenix_calendaire") ? OFFLINE_UNCAPPED_COLLAPSES : OFFLINE_MAX_COLLAPSES;
   Date.now = () => virtual;
   setNotifyPaused(true);
   try {
     markThresholds(); // pas de crises narratives hors-ligne (flavor foreground)
     let remaining = elapsedSeconds;
-    while (remaining > 0 && collapses < OFFLINE_MAX_COLLAPSES) {
+    while (remaining > 0 && collapses < maxCollapses) {
       const step = Math.min(OFFLINE_STEP_SECONDS, remaining);
       remaining -= step;
       virtual += step * 1000;

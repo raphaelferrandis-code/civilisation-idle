@@ -33,13 +33,14 @@ import {
   currentEraIndex,
   regulationActionUnlocked,
   regulationPolicyUnlocked,
-  regulFatigueEffectMult
+  regulFatigueEffectMult,
+  ruinNodeCost
 } from '../mechanics.js';
 import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
-import { upgrades } from '../../data/upgrades.js';
+import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, eraTier, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -47,7 +48,7 @@ import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
+import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -113,8 +114,13 @@ export function autoResolveCrisisEvent(event, stance) {
   const before = state.instability || 0;
   const outcome = choice.apply();
   if (outcome && outcome.label) pushOutcomeFloat(outcome);
-  if ((state.instability || 0) < before) registerOlympusCrisisResolved();
-  else registerOlympusCrisisIgnored();
+  if ((state.instability || 0) < before) {
+    registerOlympusCrisisResolved();
+    // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
+    state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
+  } else {
+    registerOlympusCrisisIgnored();
+  }
   state.instability = clamp01(state.instability);
   chronicle(`Le Conseil de crise tranche : « ${choice.label} » — appliqué sans délai.`);
 }
@@ -139,8 +145,13 @@ export async function openCrisisEvent(event) {
   const instabilityBefore = state.instability || 0;
   const outcome = choice.apply();
   if (outcome && outcome.label) pushOutcomeFloat(outcome);
-  if ((state.instability || 0) < instabilityBefore) registerOlympusCrisisResolved();
-  else registerOlympusCrisisIgnored();
+  if ((state.instability || 0) < instabilityBefore) {
+    registerOlympusCrisisResolved();
+    // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
+    state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
+  } else {
+    registerOlympusCrisisIgnored();
+  }
   state.instability = clamp01(state.instability);
   setGamePaused(false);
   render();
@@ -213,7 +224,10 @@ export function runTerminalCrisisAction(type, tier = 0) {
     addMalus("knowledgeMalus");
     tp.ruptureSlow = Math.min(0.8, (tp.ruptureSlow || 0) + (tierDef.ruptureSlow || 0));
   }
-  state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + tierDef.prep);
+  // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)
+  // est renforcé — mourir proprement rapporte davantage.
+  const prepBoost = has("preparations_funebres") ? PREP_FUNEBRE_BOOST : 1;
+  state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + tierDef.prep * prepBoost);
 
   // Ramène la jauge qui a ouvert la crise au palier choisi, puis reprend la partie.
   state.crisisLimitAnnounced = false;
@@ -274,10 +288,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
     .max(startFloor("Population", 10))
     .add(doctrinePopBonus);
-  const foodKeepRate = (has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep");
-  const goldKeepRate = 0.04 + ruinEffectSum("goldKeep");
-  const knowledgeKeepRate = ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0);
-  const infraKeepRate = ruinEffectSum("infraKeep") + (hasDoctrine("sillon") ? 0.06 : 0);
+  // « Chambres scellées » (allKeep) : conservation unifiée de TOUTES les
+  // ressources, cumulée avec les canaux spécifiques (dogme Communes vivrières,
+  // doctrines) — les anciens *Keep par ressource restent lus.
+  const allKeepRate = ruinEffectSum("allKeep");
+  const foodKeepRate = (has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep") + allKeepRate;
+  const goldKeepRate = 0.04 + ruinEffectSum("goldKeep") + allKeepRate;
+  const knowledgeKeepRate = ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0) + allKeepRate;
+  const infraKeepRate = ruinEffectSum("infraKeep") + (hasDoctrine("sillon") ? 0.06 : 0) + allKeepRate;
   const keptFood = foodKeepRate > 0 ? D(state.food).mul(foodKeepRate) : D(35);
   const keptGold = D(state.gold).mul(goldKeepRate);
   const keptKnowledge = D(state.knowledge).mul(knowledgeKeepRate);
@@ -327,7 +345,28 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
 
   state.buildings = { ...defaultState().buildings };
 
+  // Capstone « Racine-mère » : la famille de bâtiments la plus nombreuse de la
+  // civilisation tombée survit ENTIÈREMENT (lue dans lastCollapsedBuildings,
+  // figé juste au-dessus).
+  if (has("racine_mere")) {
+    let bestId = null;
+    let bestCount = 0;
+    for (const [id, count] of Object.entries(state.lastCollapsedBuildings || {})) {
+      if (count > bestCount) { bestId = id; bestCount = count; }
+    }
+    if (bestId && bestCount > 0) {
+      state.buildings[bestId] = bestCount;
+      chronicle(`La Racine-mère n'a pas brûlé : ${bestCount} bâtiments se relèvent intacts des cendres.`);
+    }
+  }
+
+  // « Encre indélébile » : les réformes de fond survivent à l'effondrement
+  // (resetTemporaryRunState les remettrait à zéro).
+  const keptReforms = has("encre_indelebile") && state.foyerReform ? { ...state.foyerReform } : null;
+
   resetTemporaryRunState(state);
+
+  if (keptReforms) state.foyerReform = keptReforms;
 
   state.activeEpitaphLegacy = activeEpitaphLegacyVal;
   if (startingInstability > 0) {
@@ -349,11 +388,14 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   log(`Cycle ${state.cycles - 1}, an ${age}: ${fallenDynasty}, ${era}, ${source}. Epitaphe: ${epitaph} Les survivants nomment ${fmt(gain)} ruines et recommencent.`);
   
   if (has("conservateurs_ruines")) {
+    // Jamais de dogme : ce sont des CHOIX exclusifs (paires conflictsWith) que
+    // l'auto-achat ne doit pas trancher à la place du joueur.
     const cheapest = upgrades
-      .filter((u) => u.group === "ruins" && !has(u.id) && Number.isFinite(u.cost?.ruins) && D(state.ruins).gte(u.cost.ruins))
-      .sort((a, b) => (a.cost?.ruins || 0) - (b.cost?.ruins || 0))[0];
+      .filter((u) => u.group === "ruins" && !dogmaIds.has(u.id) && !has(u.id)
+        && Number.isFinite(u.cost?.ruins) && u.cost.ruins > 0 && D(state.ruins).gte(ruinNodeCost(u)))
+      .sort((a, b) => ruinNodeCost(a) - ruinNodeCost(b))[0];
     if (cheapest) {
-      state.ruins = D(state.ruins).sub(cheapest.cost?.ruins || 0);
+      state.ruins = D(state.ruins).sub(ruinNodeCost(cheapest));
       state.upgrades[cheapest.id] = true;
       renderCache.cachedRuinEffects = null;
       renderCache.cachedRuinEffectsSignature = "";

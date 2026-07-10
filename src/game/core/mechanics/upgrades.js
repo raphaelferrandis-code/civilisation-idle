@@ -4,7 +4,17 @@
 import { upgradeById } from '../state.js';
 import { upgrades, dogmaIds, PRESTIGE_TREE, PRESTIGE_DOGMAS } from '../../data/upgrades.js';
 import { fmt, labelFor, canPayCost } from '../utils.js';
-import { has, isUnlocked } from './shared.js';
+import { has, isUnlocked, ruinEffectSum } from './shared.js';
+
+// Coût EFFECTIF en ruines d'un nœud de l'arbre : coût nominal × remise
+// « Grammaire des ruines » (ruinShopDiscount, plancher −50 %). Source unique —
+// consommée par checkNodeAvailability, buyUpgrade (paiement), l'auto-achat
+// conservateurs_ruines et l'affichage (RuinsTreeGraph).
+export function ruinNodeCost(upgrade) {
+  const raw = upgrade?.cost?.ruins || 0;
+  if (raw <= 0) return 0;
+  return Math.ceil(raw * Math.max(0.5, 1 - ruinEffectSum("ruinShopDiscount")));
+}
 
 export function ownedRuinTreePurchaseCount() {
   return upgrades.filter((upgrade) => upgrade.group === "ruins" && !dogmaIds.has(upgrade.id) && has(upgrade.id)).length;
@@ -45,7 +55,7 @@ export function checkNodeAvailability(id) {
   if (!isUnlocked(upgrade)) return "locked";
   // Palier ouvert ? On compte les nœuds possédés dans les paliers inférieurs.
   if (ownedInBranchBelowTier(node.branch, node.tier) < node.unlock) return "locked";
-  return canPayCost(node.cost) ? "available" : "locked";
+  return canPayCost({ ruins: ruinNodeCost(upgrade) }) ? "available" : "locked";
 }
 
 function dogmaFor(id) {
@@ -57,6 +67,8 @@ export function checkDogmaAvailability(id) {
   const upgrade = upgradeById[id];
   if (!dogma || !upgrade) return "locked";
   if (has(id)) return "purchased";
+  // Paires de choix exclusifs : adopter un dogme bloque son jumeau.
+  if (upgrade.conflictsWith && has(upgrade.conflictsWith)) return "blocked";
   if (ownedRuinBranchPurchaseCount(dogma.branch) < dogma.requiredPurchases) return "locked";
   return "available";
 }

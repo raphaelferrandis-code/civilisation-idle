@@ -18,6 +18,7 @@ import {
   currentEraIndex,
   enforceInfrastructureCap,
   has,
+  ruinEffectSum,
   policyRiseSlow,
   policyOvershootDamp,
   scarcityRawInstant,
@@ -63,6 +64,7 @@ import {
   INFRA_UPKEEP_DECAY_RATE,
   STAGNATION_RUPTURE_THRESHOLD,
   STAGNATION_RECOVER_MULT,
+  STAGNATION_BOON_EVERY_SEC,
   BOON_INTERVAL_MIN_SEC,
   BOON_INTERVAL_MAX_SEC
 } from '../balance.js';
@@ -104,7 +106,8 @@ export function tick(dt) {
   // saturait sinon la couverture et éteignait la Rupture. La part « utile » (sous
   // le seuil) n'est JAMAIS touchée → aucune spirale de mort pour une cité
   // sous-équipée. Calcul Decimal : sûr au-delà du float.
-  {
+  // Dogme « Enracinement » : fin de l'entretien (contrepartie : bâtiments +15 %).
+  if (!has("trait_enracinement")) {
     const infraDemand = D(state.population).mul(INFRA_COVERAGE_POP_FACTOR)
       .max(totalBuildingCount() * INFRA_COVERAGE_BUILDING_FACTOR)
       .max(INFRA_COVERAGE_MIN_BASE);
@@ -135,6 +138,12 @@ export function tick(dt) {
     state.stagnationSec = (state.stagnationSec || 0) + dt;
   } else {
     state.stagnationSec = Math.max(0, (state.stagnationSec || 0) - dt * STAGNATION_RECOVER_MULT);
+  }
+  // « Stagnation féconde » : la stagnation n'accélère plus l'Usure (cf.
+  // timeWearRate) — à la place, chaque longue accalmie CHARGE une aubaine.
+  if (has("stagnation_feconde") && (state.stagnationSec || 0) >= STAGNATION_BOON_EVERY_SEC) {
+    state.stagnationSec = 0;
+    if (!isNotifyPaused()) fireBoon(r);
   }
 
   state.timeWear = clamp01((state.timeWear || 0) + timeWearRate() * dt);
@@ -288,23 +297,30 @@ function celebratePopMilestone() {
 }
 
 // B2 — Délai aléatoire (ms) avant la prochaine aubaine (fenêtre douce).
+// « Caravanes d'aubaine » (boonFrequency) : la fenêtre se resserre d'autant.
 function scheduleBoonDelay() {
   const span = BOON_INTERVAL_MAX_SEC - BOON_INTERVAL_MIN_SEC;
-  return (BOON_INTERVAL_MIN_SEC + Math.random() * span) * 1000;
+  const freq = 1 + ruinEffectSum("boonFrequency");
+  return ((BOON_INTERVAL_MIN_SEC + Math.random() * span) / freq) * 1000;
 }
 
-// B2 — Déclenche une aubaine quand son horloge est échue : une ressource est
-// créditée de N secondes de sa PRODUCTION COURANTE (pertinent à toute échelle),
-// avec un float doré et une dépêche de Chronique. Reprogramme l'horloge ensuite.
-function maybeFireBoon(r) {
-  const now = Date.now();
-  if (!state.nextBoonAt) { state.nextBoonAt = now + scheduleBoonDelay(); return; }
-  if (now < state.nextBoonAt) return;
-  state.nextBoonAt = now + scheduleBoonDelay();
+// B2 — Crédite immédiatement une aubaine tirée au sort : N secondes de la
+// PRODUCTION COURANTE d'une ressource, float doré + dépêche. Partagé par
+// l'horloge douce (maybeFireBoon) et la « Stagnation féconde » (tick).
+function fireBoon(r) {
   const boon = BOONS[Math.floor(Math.random() * BOONS.length)];
   const gain = D(r[boon.resource]).max(0).mul(boon.seconds).floor();
   if (gain.lte(0)) return; // production nulle sur cette ressource : pas d'aubaine vide
   state[boon.resource] = D(state[boon.resource]).add(gain);
   pushOutcomeFloat({ label: `${boon.icon} +${fmt(gain)}`, kind: "gain" });
   chronicle(boon.chronicle(fmt(gain)));
+}
+
+// B2 — Déclenche une aubaine quand son horloge est échue, puis reprogramme.
+function maybeFireBoon(r) {
+  const now = Date.now();
+  if (!state.nextBoonAt) { state.nextBoonAt = now + scheduleBoonDelay(); return; }
+  if (now < state.nextBoonAt) return;
+  state.nextBoonAt = now + scheduleBoonDelay();
+  fireBoon(r);
 }

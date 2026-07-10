@@ -4,6 +4,7 @@ import { state } from "../state.js";
 import { chronicle, log } from "./utils.js";
 import { fmt } from "../utils.js";
 import { D } from "../num.js";
+import { ruinEffectSum } from "../mechanics/shared.js";
 import {
   OLYMPUS_ABYSS_PROD_MAX,
   OLYMPUS_BUREAUCRACY_KNOWLEDGE,
@@ -21,6 +22,12 @@ import {
 function olympus() {
   if (!state.olympus) state.olympus = defaultOlympusState();
   return state.olympus;
+}
+
+// « Autel du culte » (cultAmp) : les effets du culte de l'Olympe sont renforcés
+// et le profil se révèle plus vite. ×1 sans le nœud.
+function cultAmpMult() {
+  return 1 + ruinEffectSum("cultAmp");
 }
 
 export function registerOlympusInteraction() {
@@ -56,8 +63,9 @@ export function registerOlympusCrisisResolved() {
   const o = olympus();
   o.crisesResolved = (o.crisesResolved || 0) + 1;
   if (o.unlockedProfile === "bureaucracy") {
-    state.knowledge = D(state.knowledge).add(OLYMPUS_BUREAUCRACY_KNOWLEDGE);
-    chronicle(`Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${OLYMPUS_BUREAUCRACY_KNOWLEDGE} savoirs sont versés à nos archives.`);
+    const gain = Math.round(OLYMPUS_BUREAUCRACY_KNOWLEDGE * cultAmpMult());
+    state.knowledge = D(state.knowledge).add(gain);
+    chronicle(`Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${gain} savoirs sont versés à nos archives.`);
   }
 }
 
@@ -75,7 +83,8 @@ export function registerOlympusCollapse(reason) {
   const dominant = dominantOlympusProfile(o);
   o.lastDominantProfile = dominant.profile.id;
   if (dominant.score >= OLYMPUS_MIN_DOMINANT_SCORE && !o.unlockedProfile) {
-    o.profileProgress[dominant.profile.id] = (o.profileProgress[dominant.profile.id] || 0) + dominant.score / 100;
+    // « Autel du culte » : la révélation du profil progresse plus vite.
+    o.profileProgress[dominant.profile.id] = (o.profileProgress[dominant.profile.id] || 0) + (dominant.score / 100) * cultAmpMult();
     if (o.profileProgress[dominant.profile.id] >= OLYMPUS_COMPLETION_SCORE) {
       o.unlockedProfile = dominant.profile.id;
       log(`L'Olympe s'est prononce: ${dominant.profile.name}. ${dominant.profile.heritageDescription}`);
@@ -89,7 +98,7 @@ export function olympusRuinBonus(gain, reason) {
   const cycleAge = Date.now() - (state.cycleStartedAt || Date.now());
   if (reason !== "manual" || cycleAge > OLYMPUS_QUICK_COLLAPSE_MS) return gain;
   const speed = 1 - cycleAge / OLYMPUS_QUICK_COLLAPSE_MS;
-  const bonus = D(gain).mul(0.12 + speed * 0.18).floor();
+  const bonus = D(gain).mul((0.12 + speed * 0.18) * cultAmpMult()).floor();
   if (bonus.gt(0)) {
     chronicle(`Le Culte Apocalyptique glorifie notre fin précipitée : les prêtres nous guident à travers le chaos, révélant +${fmt(bonus)} ruines sacrées sous les cendres.`);
   }
@@ -102,13 +111,14 @@ export function olympusAbyssProductionMultiplier() {
   const rupture = Math.max(0, state.instability || 0);
   if (rupture < OLYMPUS_HIGH_RUPTURE) return 1;
   const pressure = (rupture - OLYMPUS_HIGH_RUPTURE) / Math.max(0.01, 1 - OLYMPUS_HIGH_RUPTURE);
-  return 1 + Math.min(OLYMPUS_ABYSS_PROD_MAX - 1, pressure * 0.35);
+  const amp = cultAmpMult();
+  return 1 + Math.min((OLYMPUS_ABYSS_PROD_MAX - 1) * amp, pressure * 0.35 * amp);
 }
 
 function applyOlympusSleepHeritage(dt) {
   const o = olympus();
   if (o.unlockedProfile !== "sleep") return;
-  const gain = OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR * (dt / 3600);
+  const gain = OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR * (dt / 3600) * cultAmpMult();
   state.knowledge = D(state.knowledge).add(gain);
 }
 

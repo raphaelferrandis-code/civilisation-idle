@@ -333,6 +333,36 @@ export const IDLE_CAP_PALIERS = {
 // Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
 // Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
 export const OFFLINE_MAX_COLLAPSES = 20;
+// Capstone « Phénix calendaire » : le plafond saute (borne perf seulement).
+export const OFFLINE_UNCAPPED_COLLAPSES = 500;
+
+// ── Refonte Arbre des Ruines (docs/REFONTE-ARBRE-RUINES.md) ──────────────────
+// Sève de braise : le scaling méta ne vient plus des nœuds « +X % ressource »
+// (supprimés) mais de l'arbre lui-même — prod globale × (1 + PER_NODE×nœuds
+// possédés + LOG_SPENT×log10(1+ruines dépensées)). Curseurs d'équilibrage
+// principaux de l'arbre ; « Machine chronique » amplifie ce bonus de +50 %.
+export const RUIN_BRAISE_PER_NODE = 0.08;
+export const RUIN_BRAISE_LOG_SPENT_COEF = 0.25;
+// Nécropole vivante : +vestigePower par vestige, nombre de vestiges plafonné.
+export const VESTIGE_POWER_CAP = 10;
+// Cendres fertiles : fenêtre de sur-régime post-effondrement (prod ×(1+amount)).
+export const REGROWTH_RUSH_MS = 3 * 60_000;
+// Rites du feu court : durée max d'un cycle « court » (bonus de ruines).
+export const RUIN_SHORT_CYCLE_SEC = 15 * 60;
+// Moisson de crise : plafond du bonus cumulé (+3 %/crise résolue, cap +30 %).
+export const CRISIS_RESOLVE_RUIN_CAP = 0.30;
+// Stagnation féconde : secondes de stagnation qui chargent une aubaine.
+export const STAGNATION_BOON_EVERY_SEC = 480;
+// Fêtes de jalon : secondes de production créditées par l'aubaine dorée.
+export const MILESTONE_BOON_SECONDS = 240;
+// Abîme assumé (dogme) : seuil de Rupture et bonus de production au-dessus.
+export const ABYSS_DOGMA_THRESHOLD = 0.7;
+export const ABYSS_DOGMA_PROD_BONUS = 0.2;
+// Enracinement (dogme) : surcoût de tous les bâtiments (contrepartie de la fin
+// de l'entretien A2).
+export const ENRACINEMENT_COST_MULT = 1.15;
+// Préparations funèbres : l'effet de préparation terminale est renforcé ×1.5.
+export const PREP_FUNEBRE_BOOST = 1.5;
 
 // ── A1 · Démesure (hubris d'échelle) ─────────────────────────────────────────
 // Problème : tous les foyers de Rupture sont plafonnés en doux et la mitigation
@@ -381,6 +411,15 @@ export const STAGNATION_RUPTURE_THRESHOLD = 0.5; // sous ce niveau de Rupture, l
 export const STAGNATION_USURE_RAMP_SEC = 300;    // 5 min de calme ⇒ +1.0 au multiplicateur d'Usure
 export const STAGNATION_USURE_MAX_BONUS = 2;     // plafond : Usure ×3 au maximum
 export const STAGNATION_RECOVER_MULT = 3;        // vitesse de retombée de la jauge quand la Rupture remonte
+
+// ── Apparition ÉCONOMIQUE des bâtiments en boutique ──────────────────────────
+// Remplace l'ancien palier « x/10 du bâtiment précédent » (unlockBuilding),
+// jugé trop visible : un bâtiment jamais possédé se révèle quand le PIC du
+// cycle dans sa devise (cyclePeaks) atteint cette fraction de son coût de
+// base. La production seule ouvre la boutique — aucun compteur affiché ; le
+// seul verrou explicite qui reste est le cycle (unlockCycles). Le pic étant
+// monotone sur le cycle, pas de clignotement quand on dépense.
+export const BUILDING_REVEAL_PEAK_FRACTION = 0.25;
 
 // ── B2 · Aubaines (petites récompenses ponctuelles) ──────────────────────────
 // Fenêtre aléatoire entre deux aubaines : un cadeau « gratuit » toutes les

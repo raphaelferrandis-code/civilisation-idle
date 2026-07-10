@@ -17,7 +17,7 @@ export function useCityViewState() {
     dynastyCount:                  s.dynastyCount,
     bestEraIndex:                  s.bestEraIndex,
     cycleStartedAt:                s.cycleStartedAt,
-    archaeologyUsed:               s.archaeologyUsed,
+    archaeologyUses:               s.archaeologyUses,
     activeMythId:                  s.activeMythId,
     sisypheMult:                   s.sisypheMult,
     icareInfraReached:             s.icareInfraReached,

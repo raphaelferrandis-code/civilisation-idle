@@ -1,7 +1,7 @@
 "use strict";
 
 import { buildings } from '../data/buildings.js';
-import { upgrades } from '../data/upgrades.js';
+import { upgrades, dogmaIds } from '../data/upgrades.js';
 import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
@@ -30,6 +30,32 @@ export const DECIMAL_SAVE_FIELDS = [
   "chaosRuinsBonus", "phoenixTotalRuins", "phoenixRebirthTargetPop", "orStartPop", "orPopPeak", "hephPopPeak",
   "mythStartGold", "mythStartInfra", "mythStartPop", "ragnarokStartPower"
 ];
+
+// Anciens coûts des nœuds de ruines SUPPRIMÉS par la refonte de l'arbre
+// (docs/REFONTE-ARBRE-RUINES.md) — lus une seule fois par la migration de
+// hydrateState pour rembourser le joueur. Déclaré AVANT `state = load()` :
+// hydrateState s'exécute au chargement du module (TDZ sinon).
+const OLD_RUIN_NODE_COSTS = {
+  root_cellars: 1, ember_baskets: 2, bone_ledgers: 4, ash_paths: 6,
+  cracked_scales: 9, silent_wells: 21, buried_tolls: 72, smoke_calendar: 90,
+  rubble_contracts: 130, sunken_scriptorium: 420, old_coin_molds: 650,
+  stone_bread: 1000, mirror_archives: 1500, crowned_debris: 4500,
+  burial_math: 10000, forgotten_wharves: 23000, crisis_theatre: 120000,
+  first_grammar: 120000, rubble_survey: 600000, echo_census: 3000000,
+  bronze_foundations: 6800000, ivory_questions: 35000000,
+  ritual_accounting: 78000000, ten_thousand_storehouses: 270000000,
+  palace_of_receipts: 400000000, immortal_blueprint: 900000000,
+  winter_granaries: 1200000000, silver_roads: 1400000000,
+  public_quarries: 2100000000, dead_language_schools: 3000000000,
+  nomad_ledgers: 3200000000, canal_charters: 5000000000,
+  memory_courts: 5000000000, vaulted_treasuries: 5500000000,
+  river_seedbanks: 6000000000, ash_medicine: 9000000000,
+  codex_of_failures: 10000000000, deep_foundry: 12000000000,
+  green_census: 13000000000, lamp_archives: 14000000000,
+  mother_walls: 17000000000, counterfactual_histories: 18000000000,
+  seasonal_oaths: 21000000000, patient_bloodlines: 30000000000,
+  axiom_engine: 30000000000, last_refuges: 35000000000
+};
 
 export const defaultAutoScriptRules = () => [
   { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%", threshold: 80, enabled: false },
@@ -79,7 +105,11 @@ export function render() {
 export const defaultState = () => ({
   saveVersion: CURRENT_SAVE_VERSION,
   population: new Decimal(10),
-  food: new Decimal(35),
+  // 12 = exactement UN cueilleur (coût 10) au premier instant : le tout début
+  // doit se gagner bâtiment par bâtiment (rythme early game). Le plancher
+  // post-effondrement (startFloor("Food", 35), crisis.js) reste plus haut :
+  // la boucle de prestige repart plus vite, c'est voulu.
+  food: new Decimal(12),
   gold: new Decimal(0),
   knowledge: new Decimal(0),
   infrastructure: new Decimal(0),
@@ -218,7 +248,12 @@ export const defaultState = () => ({
     autoCollapse: { enabled: false, trigger: "rupture100", usureThreshold: 0.9, timeSeconds: 600, prepare: true }
   },
   grandResetCount: 0,
-  archaeologyUsed: false,
+  // Exhumations d'archéologie utilisées ce cycle (1 de base, 3 avec les
+  // « Chantiers de fouilles »). Remplace l'ancien booléen archaeologyUsed.
+  archaeologyUses: 0,
+  // « Moisson de crise » : crises narratives STABILISÉES ce cycle (bonus de
+  // ruines à l'effondrement, plafonné). Reset au cycle.
+  cycleCrisesResolved: 0,
   lastCollapsedBuildings: {},
   vestiges: [],
   wonders: [],
@@ -245,7 +280,7 @@ export const defaultState = () => ({
   bestEraIndex: 0,
   cyclePeaks: {
     population: new Decimal(10),
-    food: new Decimal(35),
+    food: new Decimal(12),
     gold: new Decimal(0),
     knowledge: new Decimal(0),
     infrastructure: new Decimal(0),
@@ -885,7 +920,9 @@ export function hydrateState(parsed = {}) {
     recentCrisisIds: normalizeStringArray(source.recentCrisisIds, 8, 80),
     crisisDoctrine: normalizeCrisisDoctrine(source.crisisDoctrine, base.crisisDoctrine),
     grandResetCount: finiteInteger(source.grandResetCount, base.grandResetCount),
-    archaeologyUsed: Boolean(source.archaeologyUsed),
+    // Rétro-compat : l'ancien booléen archaeologyUsed devient 1 exhumation utilisée.
+    archaeologyUses: finiteInteger(source.archaeologyUses, source.archaeologyUsed ? 1 : 0, 0),
+    cycleCrisesResolved: finiteInteger(source.cycleCrisesResolved, 0, 0),
     lastCollapsedBuildings: normalizeNumberMap(source.lastCollapsedBuildings, buildingIds, {}, true),
     vestiges: normalizeVestiges(source.vestiges),
     wonders: normalizeStringArray(source.wonders, 64, 80),
@@ -932,6 +969,29 @@ export function hydrateState(parsed = {}) {
     stateOut.upgrades.conseil_de_crise = true;
     stateOut.upgrades.edit_effondrement = true;
     stateOut.crisisDoctrine.autoCollapse.enabled = true;
+  }
+  // Migration « Refonte Arbre des Ruines » (2026-07, docs/REFONTE-ARBRE-RUINES.md) :
+  // les nœuds SUPPRIMÉS sont remboursés à leur ANCIEN coût (respec) ; les nœuds
+  // conservés (ids inchangés) restent possédés. Les dogmes deviennent des paires
+  // de choix exclusifs → l'adoption est remise à zéro (gratuits à re-choisir au
+  // palier, et une save pouvait posséder les deux membres d'une paire).
+  // Idempotent : les ids supprimés n'existent plus dans upgradeIds, donc ils
+  // disparaissent du save dès la prochaine sauvegarde (refund une seule fois).
+  {
+    const rawUpgrades = isPlainObject(source.upgrades) ? source.upgrades : {};
+    let refund = 0;
+    for (const [id, cost] of Object.entries(OLD_RUIN_NODE_COSTS)) {
+      if (rawUpgrades[id]) refund += cost;
+    }
+    if (refund > 0) {
+      stateOut.ruins = D(stateOut.ruins).add(refund);
+      for (const id of dogmaIds) delete stateOut.upgrades[id];
+      stateOut.ruinsSeenNodes = [];
+      stateOut.history = [
+        ...(stateOut.history || []),
+        `L'Arbre des Ruines a été refondu : les anciens savoirs vous sont remboursés (+${refund} ruines). L'arbre attend d'être rallumé.`
+      ];
+    }
   }
   return stateOut;
 }
@@ -1074,7 +1134,8 @@ export function resetTemporaryRunState(s) {
   s.crisisExtensions = 0;
   s.crisisLimitAnnounced = false;
   s.crisisOpenedAt = null;
-  s.archaeologyUsed = false;
+  s.archaeologyUses = 0;
+  s.cycleCrisesResolved = 0;
   s.cityMapSlots = {};
   s.cityArchetype = null;
   

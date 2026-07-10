@@ -10,7 +10,7 @@ import {
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
-import { buildingById, renderCache } from '../../game/core/state.js';
+import { renderCache } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
@@ -200,17 +200,11 @@ function BuildingShop() {
         })}
 
         {nextLocked && (() => {
-          const conditions = [];
-          if (nextLocked.unlockBuilding) {
-            const req = buildingById[nextLocked.unlockBuilding.id];
-            const have = stateBuildings[nextLocked.unlockBuilding.id] || 0;
-            conditions.push(`${have}/${nextLocked.unlockBuilding.count} ${req ? tr(req.name) : nextLocked.unlockBuilding.id}`);
-          }
-          if (nextLocked.unlockCycles && stateCycles < nextLocked.unlockCycles) {
-            conditions.push(`cycle ${nextLocked.unlockCycles}`);
-          }
-          const hint = conditions.length
-            ? tr({ fr: `Débloqué avec : ${conditions.join(" + ")}`, en: `Unlocked with: ${conditions.join(" + ")}` })
+          // Seule condition AFFICHABLE : le cycle (verrou explicite voulu).
+          // L'apparition économique (cf. isUnlocked) reste muette : le bâtiment
+          // caché suivant s'annonce juste comme « Bientôt disponible ».
+          const hint = (nextLocked.unlockCycles && stateCycles < nextLocked.unlockCycles)
+            ? tr({ fr: `Débloqué avec : cycle ${nextLocked.unlockCycles}`, en: `Unlocked with: cycle ${nextLocked.unlockCycles}` })
             : tr({ fr: "Bientôt disponible", en: "Available soon" });
 
           return (
