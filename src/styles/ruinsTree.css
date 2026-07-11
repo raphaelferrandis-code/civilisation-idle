@@ -149,18 +149,16 @@
   inset: 0;
   overflow: hidden;
   touch-action: none; /* le drag pilote le pan, pas le scroll de page */
-  /* Couleurs échantillonnées sur les BORDS de l'œuvre : ciel (<257), bande de
-     sol (257-264), sous-sol (>=265). Les deux arrêts viennent du JS et suivent
-     la caméra → la bande garde SA hauteur exacte à tout zoom. Replis 64/66 %
+  /* Fresque élargie : ses bords extérieurs convergent vers des aplats
+     (widen-tree.cjs) — ciel transparent au-dessus de l'horizon y=200 (source),
+     rgb(6,4,9) en dessous. L'arrêt vient du JS et suit la caméra. Repli 50 %
      avant la 1re mesure. */
   background: linear-gradient(
     to bottom,
     #444249 0,
-    #444249 var(--rtp-ground, 64%),
-    #1c182e var(--rtp-ground, 64%),
-    #1c182e var(--rtp-ground2, 66%),
-    #050304 var(--rtp-ground2, 66%),
-    #050304 100%
+    #444249 var(--rtp-ground, 50%),
+    #060409 var(--rtp-ground, 50%),
+    #060409 100%
   );
 }
 .rtp-stage.is-zoomed { cursor: grab; }
@@ -204,6 +202,17 @@
   pointer-events: none;
 }
 
+/* Particules ambiantes (braises/cendres) — même résolution source que l'art,
+   pixels nets, jamais interactives. */
+.rtp-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
 /* Porte de palier : pastille-compteur « n/m » posée sur le chemin. */
 .rtp-gate {
   position: absolute;
@@ -241,51 +250,64 @@
 }
 
 /* ---- Médaillons repensés (retour « pas lisible / pas beau ») ---------------
-   Disque sombre NET + anneau couleur de branche + emblème large ; états très
-   contrastés. Remplace le cadre biseauté Kenney (::before/::after coupés). */
+   Disque quasi NOIR (retour Raphaël : les emblèmes transparents doivent se
+   détacher) + anneau couleur de branche ; états très contrastés. Remplace le
+   cadre biseauté Kenney (::before/::after coupés). */
 .rtp-stage .rt-frame {
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #2b241d, #120e0b 76%);
+  background: radial-gradient(circle at 42% 34%, #16110d, #050403 78%);
   border: 2px solid rgba(var(--b-rgb), 0.75);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .rtp-stage .rt-frame::before,
 .rtp-stage .rt-frame::after { display: none; }
-.rtp-stage .rt-node--dogma .rt-frame { border-radius: 26%; }
 .rtp-stage .rt-emblem {
-  width: 66%;
-  height: 66%;
+  width: 72%;
+  height: 72%;
   image-rendering: pixelated;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
 }
 
-/* Achetable = l'élément le plus saillant : anneau or vif + halo braise. */
+/* JAMAIS de translucidité sur le nœud entier (retour Raphaël : le disque doit
+   rester NOIR OPAQUE en tout état) — les états s'expriment par l'anneau et
+   l'emblème. Écrase les opacity des états hérités (.rt-locked .52, .rt-blocked
+   .6, hover .ruins-tree…). */
+.rtp-stage .rt-node { opacity: 1; }
+/* Anti-saut (TOUS les nœuds) : la règle GLOBALE `button:hover { transform:
+   translateY(-1px) }` (base.css) REMPLACE le translate(-50%,-50%) de centrage
+   → le nœud bondissait d'une demi-taille au survol (« grand mouvement »).
+   On ré-impose le centrage, SANS zoom (retour Raphaël). */
+.rtp-stage .rt-node:hover { transform: translate(-50%, -50%); }
+
+/* Achetable = l'élément le plus saillant : anneau or vif + halo braise
+   (l'intérieur reste noir pour l'emblème). Feedback hover = lumière, pas de
+   mouvement. */
 .rtp-stage .rt-available .rt-frame {
   border-color: #f4c96f;
-  background: radial-gradient(circle at 38% 30%, #46331c, #1c130b 76%);
+  background: radial-gradient(circle at 42% 34%, #1e150c, #060403 78%);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85), 0 0 12px rgba(242, 181, 81, 0.5);
 }
-.rtp-stage .rt-available:hover { transform: translate(-50%, -50%) scale(1.08); }
-.rtp-stage .rt-available:hover .rt-frame { filter: brightness(1.15); }
+.rtp-stage .rt-available:hover .rt-frame { filter: brightness(1.2); }
 
-/* Acquis : braise couvant dans l'anneau de branche. */
+/* Acquis : braise couvant dans l'anneau de branche, intérieur noir. */
 .rtp-stage .rt-purchased .rt-frame {
   border-color: rgba(var(--b-rgb), 0.95);
-  background: radial-gradient(circle at 38% 30%, #3c2412, #170e07 76%);
+  background: radial-gradient(circle at 42% 34%, #1c1009, #060403 78%);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85), inset 0 0 8px rgba(240, 150, 60, 0.35);
 }
 
-/* Verrouillé : simple cercle grisé, discret (retour Raphaël). */
-.rtp-stage .rt-locked { opacity: 0.4; }
+/* Verrouillé : disque noir OPAQUE, anneau et emblème grisés (pas d'opacity
+   globale — le fond doit rester plein). */
 .rtp-stage .rt-locked .rt-frame {
-  border-color: rgba(150, 144, 132, 0.4);
-  background: radial-gradient(circle at 38% 30%, #262421, #100f0e 76%);
+  border-color: rgba(150, 144, 132, 0.38);
+  background: radial-gradient(circle at 42% 34%, #14110e, #050403 78%);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7);
 }
-.rtp-stage .rt-locked .rt-emblem { filter: grayscale(0.85) opacity(0.6); }
+.rtp-stage .rt-locked .rt-emblem { filter: grayscale(0.85) brightness(0.6); }
 
 /* Exclu (jumeau adopté) + surlignage du conflit au survol. */
 .rtp-stage .rt-blocked .rt-frame { border-color: rgba(200, 90, 80, 0.75); }
+.rtp-stage .rt-blocked .rt-emblem { filter: grayscale(0.5) brightness(0.7); }
 .rtp-stage .rt-node.rt-conflict { opacity: 1; z-index: 4; }
 .rtp-stage .rt-node.rt-conflict .rt-frame {
   border-color: #ef4444;
@@ -491,13 +513,11 @@
   box-shadow: inset 0 3px 5px rgba(255, 255, 255, 0.08), inset 0 -5px 10px rgba(0, 0, 0, 0.62);
   transition: background 130ms ease, box-shadow 130ms ease;
 }
-.rt-node--dogma .rt-frame { border-radius: 26%; }
-.rt-node--dogma .rt-frame::before { border-radius: 22%; }
-
 /* Anneau pixel-art (sprite) posé PAR-DESSUS le sceau : c'est le rebord visible.
    Le centre teinté branche (::before) transparaît dans son trou, l'emblème au-dessus.
    Tous les états/glows/pips restent portés par .rt-frame (dessous) ; on ne fait que
-   dimmer/éclaircir l'anneau par état. Les dogmes gardent leur cadre CSS carré-arrondi. */
+   dimmer/éclaircir l'anneau par état. Les dogmes sont RONDS comme les autres
+   (retour Raphaël : le carré arrondi évoquait l'ancien rendu SVG). */
 .rt-frame::after {
   content: "";
   position: absolute;
@@ -694,24 +714,13 @@
   padding: 0.55rem 0.7rem;
   transform: translate(14px, 14px);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--b, var(--gold));
   border-radius: 8px;
   background: rgba(14, 18, 28, 0.98);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
 .rt-tooltip--flip { transform: translate(calc(-100% - 14px), 14px); }
-.rt-tip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .rt-tip-name { font-size: 0.9rem; color: var(--text-strong); line-height: 1.2; }
-.rt-tip-kind {
-  font-family: var(--font-body);
-  font-size: 0.56rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--b, var(--gold));
-  white-space: nowrap;
-}
 .rt-tip-effect { font-family: var(--font-body); font-size: 0.79rem; color: var(--text-secondary); line-height: 1.3; }
 .rt-tip-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.55rem; margin-top: 0.1rem; }
 .rt-tip-cost { font-family: var(--font-number); font-size: 0.82rem; color: var(--gold-ivory); white-space: nowrap; }

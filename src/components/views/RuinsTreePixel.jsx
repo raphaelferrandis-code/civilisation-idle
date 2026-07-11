@@ -20,6 +20,7 @@ import { fmt } from "../../game/core/utils.js";
 import { tr } from "../../game/core/i18n.js";
 import { computePixelTreeLayout } from "./ruinsTree/pixelLayout.js";
 import { TREE_ART } from "./ruinsTree/anchors.js";
+import { createEmberField } from "./ruinsTree/emberParticles.js";
 import { iconFor } from "./ruinsTree/nodeIcon.js";
 import TreeNode from "./ruinsTree/TreeNode.jsx";
 import NodeTooltip from "./ruinsTree/NodeTooltip.jsx";
@@ -40,35 +41,28 @@ const STATUS_LABEL = {
 
 const UNLOCK = Object.fromEntries(PRESTIGE_TREE_BRANCHES.map((b) => [b.id, b.unlock || []]));
 
-function dogmaKind(id) {
-  if (id.startsWith("trait_")) return tr({ fr: "Trait", en: "Trait" });
-  if (id.startsWith("skill_")) return tr({ fr: "Compétence", en: "Skill" });
-  return tr({ fr: "Dogme", en: "Dogma" });
-}
-
 function tierOpen(branch, tier) {
   return ownedInBranchBelowTier(branch, tier) >= (UNLOCK[branch]?.[tier] ?? 0);
+}
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 const WORLD_W = TREE_ART.w * TREE_ART.scale;
 const WORLD_H = TREE_ART.h * TREE_ART.scale;
 
-// Ligne de sol de l'œuvre, MESURÉE sur ses bords (colonnes 1 et 318) :
-//   lignes  < 257  → ciel        (#444249)
-//   lignes 257-264 → bande de sol (8 px, ~#1c182e)
-//   lignes >= 265  → sous-sol    (#050304)
-// Le fond du conteneur prolonge ces trois zones via --rtp-ground / --rtp-ground2
-// → la frontière du PNG disparaît (retour « trop PNG collé »). Les deux bornes
-// suivent la caméra, donc la bande garde SA hauteur exacte à tout zoom.
-const GROUND_SRC_Y = 257;
-const GROUND_SRC_Y2 = 265;
+// Horizon des BORDS EXTÉRIEURS de la fresque élargie (widen-tree.cjs y fait
+// converger les colonnes extrêmes vers un aplat : transparent au-dessus de
+// OUT_HORIZON, rgb(6,4,9) en dessous). Le fond du conteneur prolonge ces deux
+// zones via --rtp-ground → la frontière du PNG disparaît sur les écrans plus
+// larges que la fresque. La borne suit la caméra (render + drag).
+const GROUND_SRC_Y = 200;
 
-// Bornes écran (px) de la bande de sol pour un état de caméra donné.
-function groundStops(camYPx, worldScale) {
-  return {
-    top: camYPx + GROUND_SRC_Y * TREE_ART.scale * worldScale,
-    bottom: camYPx + GROUND_SRC_Y2 * TREE_ART.scale * worldScale,
-  };
+function groundStop(camYPx, worldScale) {
+  return camYPx + GROUND_SRC_Y * TREE_ART.scale * worldScale;
 }
 
 // Tous les ids sont TOUJOURS affichés (l'arbre entier se lit dès le début).
@@ -105,8 +99,12 @@ export default function RuinsTreePixel() {
 
   const containerRef = useRef(null);
   const worldRef = useRef(null);
+  const fxCanvasRef = useRef(null);
+  const usureRef = useRef(0);
   const [view, setView] = useState({ w: 0, h: 0 });
-  const [cam, setCam] = useState({ z: 1, x: 0, y: 0 });
+  // x: null = « auto-centré sur l'arbre » (la fresque est PLUS LARGE que la vue
+  // au zoom 1 : sans ça, le clamp collerait la caméra au bord gauche).
+  const [cam, setCam] = useState({ z: 1, x: null, y: 0 });
   const camRef = useRef(cam);
   const viewRef = useRef({ w: 0, h: 0 });
   const dragRef = useRef({ active: false, moved: false, sx: 0, sy: 0, cx: 0, cy: 0 });
@@ -125,10 +123,47 @@ export default function RuinsTreePixel() {
     []
   );
 
-  // Ajusté à la vue : on voit l'arbre ENTIER au zoom 1 (silhouette imposante).
-  const fitScale = view.w > 0 && view.h > 0
-    ? Math.min(1.1, Math.min(view.w / WORLD_W, view.h / WORLD_H))
-    : 0;
+  // Usure pour les cendres — quantifiée à 5 %, lue par la boucle via ref (les
+  // particules ne redémarrent jamais).
+  const usure = useGameState((s) => Math.round(Math.max(0, Math.min(1, s.timeWear || 0)) * 20) / 20);
+  useEffect(() => { usureRef.current = usure; }, [usure]);
+
+  // ── Particules ambiantes (braises du cratère/cœur + cendres d'usure) ─────
+  // Canvas à la résolution SOURCE, ~15 fps (pas-à-pas chunky assumé), en pause
+  // onglet caché, coupé si prefers-reduced-motion.
+  useEffect(() => {
+    const canvas = fxCanvasRef.current;
+    if (!canvas || prefersReducedMotion()) return undefined;
+    const ctx = canvas.getContext("2d");
+    const field = createEmberField();
+    // Première frame SYNCHRONE : un onglet caché (rAF suspendu — cf. piège
+    // preview) montre au moins la scène initiale au lieu d'un calque vide.
+    field.step(0.05, usureRef.current);
+    field.paint(ctx);
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    const FRAME = 1000 / 15;
+    const loop = (now) => {
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min(0.25, (now - last) / 1000);
+      last = now;
+      if (document.hidden) return;
+      acc += dt * 1000;
+      if (acc < FRAME) return;
+      acc = 0;
+      field.step(Math.max(dt, FRAME / 1000), usureRef.current);
+      field.paint(ctx);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Calé sur la HAUTEUR : l'arbre entier est visible au zoom 1, et la fresque
+  // élargie déborde à gauche/droite (c'est son rôle — le pan y emmène ; sur les
+  // écrans plus larges que 2:1, les aplats extérieurs + le fond CSS prennent
+  // le relais). Un fit min(w,h) exposerait le BAS de la fresque (couture).
+  const fitScale = view.h > 0 ? Math.min(1.1, view.h / WORLD_H) : 0;
   const zMax = fitScale > 0 ? Math.max(3.2, 1.6 / fitScale) : 3.2;
 
   useLayoutEffect(() => {
@@ -145,18 +180,23 @@ export default function RuinsTreePixel() {
     return () => ro.disconnect();
   }, []);
 
+  // x auto-centré résolu en px concrets (pour zoomer/glisser DEPUIS cet état).
+  const resolveCamX = useCallback((c, viewW) =>
+    c.x == null ? (viewW - WORLD_W * fitScale * c.z) / 2 : c.x, [fitScale]);
+
   // ── Caméra (pan/zoom) — reprise du rendu radial, monde RECTANGULAIRE ─────
   const zoomAt = useCallback((factor, cx, cy) => {
     setCam((c) => {
       const z = Math.max(1, Math.min(zMax, c.z * factor));
       const v = viewRef.current;
-      const x = clampAxis(cx - (cx - c.x) * (z / c.z), WORLD_W * fitScale * z, v.w);
+      const x0 = resolveCamX(c, v.w);
+      const x = clampAxis(cx - (cx - x0) * (z / c.z), WORLD_W * fitScale * z, v.w);
       const y = clampAxis(cy - (cy - c.y) * (z / c.z), WORLD_H * fitScale * z, v.h);
       return { z, x, y };
     });
-  }, [fitScale, zMax]);
+  }, [fitScale, zMax, resolveCamX]);
 
-  const resetCam = useCallback(() => setCam({ z: 1, x: 0, y: 0 }), []);
+  const resetCam = useCallback(() => setCam({ z: 1, x: null, y: 0 }), []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -180,13 +220,13 @@ export default function RuinsTreePixel() {
     d.moved = false;
     d.sx = e.clientX;
     d.sy = e.clientY;
-    d.cx = camRef.current.x;
+    d.cx = resolveCamX(camRef.current, viewRef.current.w);
     d.cy = camRef.current.y;
-    d.liveX = camRef.current.x;
-    d.liveY = camRef.current.y;
+    d.liveX = d.cx;
+    d.liveY = d.cy;
     d.pointerId = e.pointerId;
     d.target = e.currentTarget;
-  }, []);
+  }, [resolveCamX]);
 
   const onPointerMove = useCallback((e) => {
     const d = dragRef.current;
@@ -206,11 +246,9 @@ export default function RuinsTreePixel() {
     if (worldRef.current) {
       worldRef.current.style.transform = `translate(${d.liveX}px, ${d.liveY}px) scale(${fitScale * z})`;
     }
-    // La bande de sol du fond suit le pan en DIRECT (même chemin sans re-render
+    // La ligne de sol du fond suit le pan en DIRECT (même chemin sans re-render
     // que le transform du monde) — sinon le raccord ciel/sous-sol décroche.
-    const g = groundStops(d.liveY, fitScale * z);
-    containerRef.current?.style.setProperty("--rtp-ground", `${g.top}px`);
-    containerRef.current?.style.setProperty("--rtp-ground2", `${g.bottom}px`);
+    containerRef.current?.style.setProperty("--rtp-ground", `${groundStop(d.liveY, fitScale * z)}px`);
   }, [fitScale]);
 
   const onPointerUp = useCallback((e) => {
@@ -231,14 +269,15 @@ export default function RuinsTreePixel() {
   }, []);
 
   // Réglage des ancres : `window.__ruinsAnchors = true` → un clic journalise
-  // les coordonnées SOURCE (px de l'illustration) du point cliqué.
+  // les coordonnées dans le REPÈRE DE L'ART de Raphaël (celui d'anchors.js,
+  // l'offset de la fresque élargie est déjà soustrait).
   const onWorldClick = useCallback((e) => {
     if (!window.__ruinsAnchors) return;
     const rect = worldRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
-    const sx = Math.round(((e.clientX - rect.left) / rect.width) * TREE_ART.w);
+    const sx = Math.round(((e.clientX - rect.left) / rect.width) * TREE_ART.w) - (TREE_ART.artOffsetX || 0);
     const sy = Math.round(((e.clientY - rect.top) / rect.height) * TREE_ART.h);
-    console.log(`[ancres] source: [${sx}, ${sy}]`);
+    console.log(`[ancres] repère art: [${sx}, ${sy}]`);
   }, []);
 
   const onBuy = useCallback((id) => {
@@ -289,16 +328,18 @@ export default function RuinsTreePixel() {
     const ownedBelow = ownedInBranchBelowTier(n.branch, n.tier);
     const conflictName = u?.conflictsWith ? upgradeById[u.conflictsWith]?.name || u.conflictsWith : "";
 
+    // L'essentiel seulement (retour Raphaël : nom, effet, coût) — le statut ne
+    // s'affiche que s'il apporte une info que le coût ne dit pas déjà.
     let statusLine;
     let statusKind;
     if (status === "purchased") { statusLine = tr({ fr: "Acquis", en: "Acquired" }); statusKind = "owned"; }
     else if (status === "blocked") { statusLine = tr({ fr: `Exclu par : ${conflictName}`, en: `Excluded by: ${conflictName}` }); statusKind = "blocked"; }
-    else if (status === "available") { statusLine = tr({ fr: "Disponible", en: "Available" }); statusKind = "available"; }
-    else if (!open) { statusLine = tr({ fr: `Palier verrouillé · ${ownedBelow}/${need}`, en: `Tier locked · ${ownedBelow}/${need}` }); statusKind = "locked"; }
-    else if (!isUnlocked(u)) { statusLine = tr({ fr: "Scellé — se descelle aux cycles suivants", en: "Sealed — unseals in later cycles" }); statusKind = "locked"; }
+    else if (status === "available") { statusLine = null; statusKind = "available"; }
+    else if (!open) { statusLine = tr({ fr: `Verrouillé · ${ownedBelow}/${need}`, en: `Locked · ${ownedBelow}/${need}` }); statusKind = "locked"; }
+    else if (!isUnlocked(u)) { statusLine = tr({ fr: "Verrouillé — cycles suivants", en: "Locked — later cycles" }); statusKind = "locked"; }
     else { statusLine = tr({ fr: "Pas assez de ruines", en: "Not enough ruins" }); statusKind = "cost"; }
 
-    const costText = status === "purchased" ? tr({ fr: "Acquis", en: "Acquired" }) : `${fmt(ruinNodeCost(u))}`;
+    const costText = status === "purchased" ? null : `${fmt(ruinNodeCost(u))}`;
 
     return {
       id: n.id,
@@ -313,10 +354,9 @@ export default function RuinsTreePixel() {
       font: n.r * (n.capstone ? 1.04 : 0.94),
       bought: justBought === n.id,
       conflict: conflictIds.has(n.id),
-      aria: `${u?.name || n.id} — ${tr(STATUS_LABEL[status])} — ${costText}`,
+      aria: [u?.name || n.id, tr(STATUS_LABEL[status]), costText].filter(Boolean).join(" — "),
       tip: {
         branch: n.branch,
-        kindLabel: n.capstone ? "Capstone" : null,
         name: u?.name || n.id,
         effect: u?.effect || "",
         costText,
@@ -331,15 +371,14 @@ export default function RuinsTreePixel() {
     const status = checkDogmaAvailability(d.id);
     const count = ownedRuinBranchPurchaseCount(d.branch);
     const owned = status === "purchased";
-    const kindLabel = dogmaKind(d.id);
     const conflictName = u?.conflictsWith ? upgradeById[u.conflictsWith]?.name || u.conflictsWith : "";
     const dStatusKind = owned ? "owned" : status === "blocked" ? "blocked" : status === "available" ? "available" : "locked";
-    let statusLine = owned
-      ? tr({ fr: "Adopté", en: "Adopted" })
+    const statusLine = owned
+      ? tr({ fr: "Acquis", en: "Acquired" })
       : status === "blocked"
         ? tr({ fr: `Exclu par : ${conflictName}`, en: `Excluded by: ${conflictName}` })
         : status === "available"
-          ? tr({ fr: "Palier atteint — choix gratuit", en: "Tier reached — free choice" })
+          ? tr({ fr: "Gratuit", en: "Free" })
           : tr({ fr: `${count}/${d.requiredPurchases} achats`, en: `${count}/${d.requiredPurchases} purchases` });
     return {
       id: d.id,
@@ -354,10 +393,9 @@ export default function RuinsTreePixel() {
       font: d.r * 0.86,
       bought: justBought === d.id,
       conflict: conflictIds.has(d.id),
-      aria: `${kindLabel} ${u?.name || d.id} — ${owned ? tr({ fr: "Adopté", en: "Adopted" }) : statusLine}`,
+      aria: `${u?.name || d.id} — ${statusLine}`,
       tip: {
         branch: d.branch,
-        kindLabel,
         name: u?.name || d.id,
         effect: u?.effect || "",
         costText: null,
@@ -367,17 +405,18 @@ export default function RuinsTreePixel() {
     };
   });
 
-  // Bornes écran de la bande de sol de l'œuvre (le fond du conteneur y coud le
-  // ciel et le sous-sol) — recalculées à chaque render (zoom/pan figé) et
-  // suivies en direct pendant le drag (cf. onPointerMove).
+  // Ligne de sol écran (le fond du conteneur y coud ciel et sous-sol) —
+  // recalculée à chaque render (zoom/pan figé) et suivie en direct pendant le
+  // drag (cf. onPointerMove).
+  const camXClamped = clampAxis(resolveCamX(cam, view.w), WORLD_W * fitScale * cam.z, view.w);
   const camYClamped = clampAxis(cam.y, WORLD_H * fitScale * cam.z, view.h);
-  const ground = groundStops(camYClamped, fitScale * cam.z);
+  const groundPx = groundStop(camYClamped, fitScale * cam.z);
 
   return (
     <div
       className={`rtp-stage${cam.z > 1 ? " is-zoomed" : ""}`}
       ref={containerRef}
-      style={{ "--rtp-ground": `${ground.top}px`, "--rtp-ground2": `${ground.bottom}px` }}
+      style={{ "--rtp-ground": `${groundPx}px` }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -391,7 +430,7 @@ export default function RuinsTreePixel() {
         style={{
           width: `${WORLD_W}px`,
           height: `${WORLD_H}px`,
-          transform: `translate(${clampAxis(cam.x, WORLD_W * fitScale * cam.z, view.w)}px, ${clampAxis(cam.y, WORLD_H * fitScale * cam.z, view.h)}px) scale(${fitScale * cam.z})`,
+          transform: `translate(${camXClamped}px, ${camYClamped}px) scale(${fitScale * cam.z})`,
         }}
         onClick={onWorldClick}
       >
@@ -404,6 +443,14 @@ export default function RuinsTreePixel() {
           draggable="false"
           width={WORLD_W}
           height={WORLD_H}
+        />
+        {/* Particules ambiantes (braises + cendres), résolution source. */}
+        <canvas
+          className="rtp-fx"
+          ref={fxCanvasRef}
+          width={TREE_ART.w}
+          height={TREE_ART.h}
+          aria-hidden="true"
         />
 
         {/* Portes de palier : compteur n/m tant que le palier est fermé. */}

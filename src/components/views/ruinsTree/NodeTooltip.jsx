@@ -1,19 +1,17 @@
-// Bulle d'aide épurée : nom (couleur de branche) + effet, et un pied compact
-// coût / statut au code couleur (vert dispo, ambre trop cher, gris verrouillé,
+// Bulle d'aide épurée — l'essentiel seulement (retour Raphaël) : nom, effet,
+// coût. Aucune étiquette de type (« Dogme », « Capstone »...), aucun liseré de
+// branche. Le pied garde le code couleur (ambre trop cher, gris verrouillé,
 // rouge exclu, vert acquis).
 export default function NodeTooltip({ data }) {
   if (!data) return null;
-  const { left, top, flip, kindLabel, name, effect, costText, statusLine, statusKind, branch } = data;
+  const { left, top, flip, name, effect, costText, statusLine, statusKind, branch } = data;
   return (
     <div
       className={`rt-tooltip rt-b-${branch}${flip ? " rt-tooltip--flip" : ""}`}
       style={{ left: `${left}px`, top: `${top}px` }}
       role="tooltip"
     >
-      <div className="rt-tip-head">
-        <strong className="rt-tip-name">{name}</strong>
-        {kindLabel && <span className="rt-tip-kind">{kindLabel}</span>}
-      </div>
+      <strong className="rt-tip-name">{name}</strong>
       {effect && <span className="rt-tip-effect">{effect}</span>}
       {(costText || statusLine) && (
         <div className="rt-tip-foot">

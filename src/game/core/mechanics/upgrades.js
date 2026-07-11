@@ -9,7 +9,7 @@ import { has, isUnlocked, ruinEffectSum } from './shared.js';
 // Coût EFFECTIF en ruines d'un nœud de l'arbre : coût nominal × remise
 // « Grammaire des ruines » (ruinShopDiscount, plancher −50 %). Source unique —
 // consommée par checkNodeAvailability, buyUpgrade (paiement), l'auto-achat
-// conservateurs_ruines et l'affichage (RuinsTreeGraph).
+// conservateurs_ruines et l'affichage (RuinsTreePixel).
 export function ruinNodeCost(upgrade) {
   const raw = upgrade?.cost?.ruins || 0;
   if (raw <= 0) return 0;

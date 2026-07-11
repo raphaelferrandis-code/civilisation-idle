@@ -22,6 +22,9 @@ import {
 } from "./anchors.js";
 
 const S = TREE_ART.scale;
+// Les ancres sont posées dans le repère de l'ART de Raphaël (320×400) ; la
+// fresque élargie le centre à artOffsetX → converti ici, une fois pour toutes.
+const OX = TREE_ART.artOffsetX || 0;
 
 // Invariant dev-only : chaque nœud/dogme des DONNÉES doit avoir une ancre —
 // un id ajouté sans ancre casserait silencieusement (nœud invisible). Même
@@ -50,7 +53,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
     if (!visibleIds.has(node.id)) continue;
     const a = NODE_ANCHORS[node.id];
     if (!a) continue;
-    const x = a.x * S;
+    const x = (a.x + OX) * S;
     const y = a.y * S;
     nodes.push({
       id: node.id,
@@ -68,7 +71,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
   for (const d of dogmaDefs) {
     const a = DOGMA_ANCHORS[d.id];
     if (!a) continue;
-    const x = a.x * S;
+    const x = (a.x + OX) * S;
     const y = a.y * S;
     dogmas.push({
       id: d.id,
@@ -88,7 +91,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
     for (let t = 1; t < branch.tiers.length; t++) {
       const g = GATE_ANCHORS[`${branch.id}:${t}`];
       if (!g) continue;
-      gates.push({ branch: branch.id, tier: t, x: g.x * S, y: g.y * S, need: branch.unlock?.[t] ?? 0 });
+      gates.push({ branch: branch.id, tier: t, x: (g.x + OX) * S, y: g.y * S, need: branch.unlock?.[t] ?? 0 });
     }
   }
 
@@ -111,7 +114,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
     gates,
     exclusionLinks,
     pos,
-    hub: { x: HUB_ANCHOR.x * S, y: HUB_ANCHOR.y * S },
+    hub: { x: (HUB_ANCHOR.x + OX) * S, y: HUB_ANCHOR.y * S },
     size: { w: TREE_ART.w * S, h: TREE_ART.h * S },
   };
 }

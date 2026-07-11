@@ -47,7 +47,7 @@ export const upgrades = [
     name: { fr: "Archéologie", en: "Archaeology" },
     cost: { ruins: 12 },
     desc: { fr: "Ce que l'ancien siècle a laissé, ce siècle peut l'exhumer et s'en servir.", en: "What the old century left behind, this century can unearth and use." },
-    effect: { fr: "Active : une fois par cycle, dépense du savoir pour exhumer un bâtiment de la civilisation précédente.", en: "Active: once per cycle, spend knowledge to unearth a building from the previous civilization." }
+    effect: { fr: "Une fois par cycle, dépense du savoir pour exhumer un bâtiment de la civilisation précédente.", en: "Once per cycle, spend knowledge to unearth a building from the previous civilization." }
   },
   {
     id: "reliquaire_pics",
@@ -100,7 +100,7 @@ export const upgrades = [
     name: { fr: "Chantiers de fouilles", en: "Excavation yards" },
     cost: { ruins: 250000 },
     desc: { fr: "L'ancienne cité est devenue une carrière ordonnée. On y descend en équipes.", en: "The old city has become an orderly quarry. Teams go down in shifts." },
-    effect: { fr: "Archéologie : 3 exhumations par cycle, et leur coût en savoir est réduit de moitié.", en: "Archaeology: 3 excavations per cycle, and their knowledge cost is halved." }
+    effect: { fr: "3 exhumations par cycle, et leur coût en savoir est réduit de moitié.", en: "3 excavations per cycle, and their knowledge cost is halved." }
   },
   {
     id: "limon_des_ages",
@@ -121,7 +121,7 @@ export const upgrades = [
     name: { fr: "Racine-mère", en: "Mother root" },
     cost: { ruins: 30000000000 },
     desc: { fr: "Sous la ville, il y a une racine qui n'a jamais brûlé. Tout repart d'elle.", en: "Beneath the city there is a root that never burned. Everything grows back from it." },
-    effect: { fr: "Capstone Racines : à l'effondrement, votre famille de bâtiments la plus nombreuse survit ENTIÈREMENT.", en: "Roots Capstone: on collapse, your most numerous building family survives ENTIRELY." }
+    effect: { fr: "À l'effondrement, votre famille de bâtiments la plus nombreuse survit ENTIÈREMENT.", en: "On collapse, your most numerous building family survives ENTIRELY." }
   },
 
   /* ── LA SÈVE (prosperity) — la cité vivante ─────────────────────────────── */
@@ -217,7 +217,7 @@ export const upgrades = [
     name: { fr: "Ville-Monde", en: "World-City" },
     cost: { ruins: 32000000000 },
     desc: { fr: "Elle ne s'arrête plus à ses murs. Les cartes s'arrêtent à elle.", en: "It no longer stops at its walls. The maps stop at it." },
-    effect: { fr: "Capstone Sève : les jalons de bâtiments tombent tous les 20 achats au lieu de 25.", en: "Sap Capstone: building milestones land every 20 purchases instead of 25." }
+    effect: { fr: "Les jalons de bâtiments tombent tous les 20 achats au lieu de 25.", en: "Building milestones land every 20 purchases instead of 25." }
   },
 
   /* ── LA CENDRE (cycle_crise) — la chute ─────────────────────────────────── */
@@ -228,7 +228,7 @@ export const upgrades = [
     name: { fr: "Conseil de crise", en: "Crisis council" },
     cost: { ruins: 8 },
     desc: { fr: "Un conseil permanent tranche les crises sans réveiller le prince. Tu fixes la ligne, il l'applique.", en: "A standing council settles crises without waking the prince. You set the line, it enforces it." },
-    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %). Fini les interruptions.", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Stall) at each Rupture threshold (25 / 50 / 75%). No more interruptions." }
+    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %).", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Stall) at each Rupture threshold (25 / 50 / 75%)." }
   },
   {
     id: "rites_feu_court",
@@ -321,7 +321,7 @@ export const upgrades = [
     name: { fr: "Phénix calendaire", en: "Calendar phoenix" },
     cost: { ruins: 34000000000 },
     desc: { fr: "La renaissance est inscrite à l'almanach, entre les semailles et l'impôt.", en: "Rebirth is written into the almanac, between sowing and taxes." },
-    effect: { fr: "Capstone Cendre : le farm hors-ligne n'est plus plafonné à 20 effondrements.", en: "Ash Capstone: offline farming is no longer capped at 20 collapses." }
+    effect: { fr: "Le farm hors-ligne n'est plus plafonné à 20 effondrements.", en: "Offline farming is no longer capped at 20 collapses." }
   },
 
   /* ── L'ÉCORCE GRAVÉE (knowledge) — la mémoire ───────────────────────────── */
@@ -331,7 +331,7 @@ export const upgrades = [
     name: { fr: "Tradition orale", en: "Oral tradition" },
     cost: { ruins: 6 },
     desc: { fr: "Ce qu'on dit à voix basse résiste mieux aux incendies que les bibliothèques.", en: "What is spoken in a low voice withstands fire better than any library." },
-    effect: { fr: "Mémoire des pierres : le bonus de production des ruines est renforcé de 20%.", en: "Memory of stones: the ruins production bonus is strengthened by 20%." }
+    effect: { fr: "Le bonus de production des ruines est renforcé de 20%.", en: "The ruins production bonus is strengthened by 20%." }
   },
   {
     id: "grammaire_des_ruines",
@@ -404,7 +404,7 @@ export const upgrades = [
     name: { fr: "Machine chronique", en: "Chronicle engine" },
     cost: { ruins: 40000000000 },
     desc: { fr: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus — elle recommence.", en: "It turns every ending into a chapter. History no longer stops — it begins again." },
-    effect: { fr: "Capstone Mémoire : la Sève de braise est amplifiée de +50% — chaque nœud allumé et chaque ruine dépensée nourrissent l'arbre davantage.", en: "Memory Capstone: the Ember Sap is amplified by +50% — every lit node and every spent ruin feeds the tree further." }
+    effect: { fr: "La Sève de braise est amplifiée de +50% — chaque nœud allumé et chaque ruine dépensée nourrissent l'arbre davantage.", en: "The Ember Sap is amplified by +50% — every lit node and every spent ruin feeds the tree further." }
   },
 
   /* ── DOGMES — paires de choix exclusifs, gratuits au palier ─────────────── */
@@ -415,7 +415,7 @@ export const upgrades = [
     name: { fr: "Nomadisme", en: "Nomadism" },
     cost: { ruins: 0 },
     desc: { fr: "La ville, c'est les gens, pas les pierres. On peut tout emporter.", en: "The city is the people, not the stones. Everything can be carried away." },
-    effect: { fr: "Dogme : tous les bâtiments coûtent -30%. Contrepartie : l'infrastructure est plafonnée par la taille de la cité.", en: "Dogma: all buildings cost -30%. Trade-off: infrastructure is capped by the size of the city." }
+    effect: { fr: "Tous les bâtiments coûtent -30%, mais l'infrastructure est plafonnée par la taille de la cité.", en: "All buildings cost -30%, but infrastructure is capped by the size of the city." }
   },
   {
     id: "trait_enracinement",
@@ -424,7 +424,7 @@ export const upgrades = [
     name: { fr: "Enracinement", en: "Rootedness" },
     cost: { ruins: 0 },
     desc: { fr: "On ne part pas. On répare.", en: "We do not leave. We repair." },
-    effect: { fr: "Dogme : l'infrastructure excédentaire ne se dégrade plus jamais (fin de l'entretien). Contrepartie : tous les bâtiments coûtent +15%.", en: "Dogma: surplus infrastructure never decays again (no more upkeep). Trade-off: all buildings cost +15%." }
+    effect: { fr: "L'infrastructure excédentaire ne se dégrade plus jamais, mais tous les bâtiments coûtent +15%.", en: "Surplus infrastructure never decays again, but all buildings cost +15%." }
   },
   {
     id: "dogma_communal_granaries",
@@ -435,7 +435,7 @@ export const upgrades = [
     effectType: "foodKeep",
     amount: 0.10,
     desc: { fr: "Personne ne mange avant les autres. C'est difficile, mais ça dure.", en: "No one eats before the others. It is hard, but it lasts." },
-    effect: { fr: "Dogme : les effondrements conservent +10% de nourriture.", en: "Dogma: collapses preserve +10% food." }
+    effect: { fr: "Les effondrements conservent +10% de nourriture.", en: "Collapses preserve +10% food." }
   },
   {
     id: "dogma_reliquaire_scelle",
@@ -446,7 +446,7 @@ export const upgrades = [
     effectType: "allStartPctPeak",
     amount: 0.05,
     desc: { fr: "Le reliquaire reçoit un second sceau. Ce qui y entre ne diminue plus.", en: "The reliquary receives a second seal. What enters it no longer dwindles." },
-    effect: { fr: "Dogme : le départ au pic passe de 3% à 8% de chaque ressource.", en: "Dogma: the peak start rises from 3% to 8% of every resource." }
+    effect: { fr: "Le départ au pic passe de 3% à 8% de chaque ressource.", en: "The peak start rises from 3% to 8% of every resource." }
   },
   {
     id: "dogma_merchant_law",
@@ -457,7 +457,7 @@ export const upgrades = [
     effectType: "goldMult",
     amount: 0.75,
     desc: { fr: "Ce qui est écrit reste valable même quand les parties qui l'ont signé ne sont plus là.", en: "What is written holds even when the parties who signed it are gone." },
-    effect: { fr: "Dogme : production de trésor +75%.", en: "Dogma: treasury production +75%." }
+    effect: { fr: "Production de trésor +75%.", en: "Treasury production +75%." }
   },
   {
     id: "dogma_public_works",
@@ -468,7 +468,7 @@ export const upgrades = [
     effectType: "infraMult",
     amount: 0.65,
     desc: { fr: "Ce qu'on construit pour tous laisse une trace plus profonde que les décrets.", en: "What is built for all leaves a deeper mark than decrees." },
-    effect: { fr: "Dogme : production d'infrastructure +65%.", en: "Dogma: infrastructure production +65%." }
+    effect: { fr: "Production d'infrastructure +65%.", en: "Infrastructure production +65%." }
   },
   {
     id: "dogma_eternal_return",
@@ -479,7 +479,7 @@ export const upgrades = [
     effectType: "ruinGain",
     amount: 0.30,
     desc: { fr: "Chaque fin est une répétition générale. On finit par en tirer plus à chaque chute.", en: "Every ending is a dress rehearsal. We come to draw more from each fall." },
-    effect: { fr: "Dogme : Ruines gagnées +30%.", en: "Dogma: Ruins gained +30%." }
+    effect: { fr: "Ruines gagnées +30%.", en: "Ruins gained +30%." }
   },
   {
     id: "dogma_abime_assume",
@@ -488,7 +488,7 @@ export const upgrades = [
     name: { fr: "Abîme assumé", en: "Embraced abyss" },
     cost: { ruins: 0 },
     desc: { fr: "Vivre au bord du gouffre affûte les gestes.", en: "Living at the edge of the chasm sharpens the hand." },
-    effect: { fr: "Dogme : tant que la Rupture dépasse 70%, production globale +20%.", en: "Dogma: while Rupture exceeds 70%, global production +20%." }
+    effect: { fr: "Tant que la Rupture dépasse 70%, production globale +20%.", en: "While Rupture exceeds 70%, global production +20%." }
   },
   {
     id: "trait_theocracy",
@@ -497,7 +497,7 @@ export const upgrades = [
     name: { fr: "Théocratie", en: "Theocracy" },
     cost: { ruins: 0 },
     desc: { fr: "La richesse est devenue une forme de piété. Le savoir suit l'or.", en: "Wealth has become a form of piety. Knowledge follows gold." },
-    effect: { fr: "Dogme : +1% du trésor actuel en savoir par seconde. Contrepartie : la rupture monte 25% plus vite.", en: "Dogma: +1% of current treasury as knowledge per second. Trade-off: rupture rises 25% faster." }
+    effect: { fr: "+1% du trésor actuel en savoir par seconde, mais la rupture monte 25% plus vite.", en: "+1% of current treasury as knowledge per second, but rupture rises 25% faster." }
   },
   {
     id: "dogma_free_academies",
@@ -508,7 +508,7 @@ export const upgrades = [
     effectType: "complexityDamp",
     amount: 0.35,
     desc: { fr: "Quand tout le monde peut apprendre, l'État cesse d'étouffer sous ses propres registres.", en: "When everyone can learn, the state stops choking on its own registers." },
-    effect: { fr: "Dogme : le foyer de Complexité (charge administrative) pèse 35% de moins sur la Rupture.", en: "Dogma: the Complexity source (administrative load) weighs 35% less on Rupture." }
+    effect: { fr: "Le foyer de Complexité (charge administrative) pèse 35% de moins sur la Rupture.", en: "The Complexity source (administrative load) weighs 35% less on Rupture." }
   },
 
   /* ── HÉRITAGE (légitimité) — inchangé ───────────────────────────────────── */
