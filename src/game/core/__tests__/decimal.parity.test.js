@@ -25,7 +25,8 @@ import {
   globalMultiplier, globalMultiplierDec,
   babelExponentialMult, babelExponentialMultDec,
   buildingOutputMultiplier, buildingOutputMultiplierDec,
-  rates
+  rates,
+  pressureBreakdown, cityVitals, scarcityRawInstant
 } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
@@ -143,6 +144,41 @@ describe("parité float ↔ Decimal — rates()", () => {
       const decRates = rates(undefined, undefined, true);  // branche Decimal forcée
       for (const key of ["population", "food", "gold", "knowledge", "infrastructure"]) {
         expectClose(`rates.${key}`, floatRates[key], decRates[key]);
+      }
+    });
+  }
+});
+
+describe("parité float ↔ Decimal — jauges à double chemin INLINE (G-17)", () => {
+  // pressureBreakdown / cityVitals / scarcityRawInstant portent une branche
+  // float ET une branche Decimal INLINE (activée à l'overflow), jamais comparées
+  // jusqu'ici. Le séam forceDecimalPath force la branche Decimal sur le MÊME état
+  // sous-plafond → on vérifie qu'elles coïncident (une retouche d'équilibrage d'un
+  // seul côté passerait golden+smoke au vert mais fausserait le très late game).
+  for (const scenario of SCENARIOS) {
+    it(scenario.name, () => {
+      scenario.patch();
+      // Les EMA (scarcityRawEase/goldReserveEase) court-circuitent scarcityRaw et
+      // inequalityRaw — précisément les branches à double chemin. On les neutralise
+      // pour que l'écart float/Decimal se propage jusqu'aux sorties.
+      state.scarcityRawEase = null;
+      state.goldReserveEase = null;
+      invalidateRenderCache("all");
+
+      expectClose("scarcityRawInstant", scarcityRawInstant(false), scarcityRawInstant(true));
+
+      invalidateRenderCache("all");
+      const pf = pressureBreakdown(false);
+      const pd = pressureBreakdown(true);
+      for (const key of ["scarcity", "inequality", "complexity", "structural", "total"]) {
+        expectClose(`pressureBreakdown.${key}`, pf[key], pd[key]);
+      }
+
+      invalidateRenderCache("all");
+      const vf = cityVitals(false);
+      const vd = cityVitals(true);
+      for (const key of ["foodScore", "goldScore", "knowledgeScore", "populationMult", "goldMult", "knowledgeMult", "infraMult"]) {
+        expectClose(`cityVitals.${key}`, vf[key], vd[key]);
       }
     });
   }

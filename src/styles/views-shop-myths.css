@@ -335,6 +335,14 @@
   border-left: 3px solid var(--gold);
 }
 
+/* Carte Héritage trop chère : atténuée + bord AMBRE « il ne manque que le coût »
+   (parité avec .purchase-row.is-locked-cost de la boutique). L'achetable garde
+   son bord or de call-to-action ci-dessus. */
+.upgrade.is-locked-cost {
+  opacity: 0.6;
+  border-left-color: color-mix(in srgb, var(--state-soon) 55%, var(--line));
+}
+
 .shop-item:not(.shop-item--locked):hover, .upgrade:hover {
   border-color: rgba(var(--era-rgb), 0.4);
   border-left-color: var(--gold-bright);

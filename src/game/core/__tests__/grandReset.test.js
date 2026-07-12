@@ -46,6 +46,23 @@ describe("Grand Reset — préservation des héritages", () => {
     }
   });
 
+  it("tout héritage permanent (*Heritage) de defaultState figure dans GR_PERSISTENT_FIELDS", () => {
+    // Barre la CLASSE de bug (déjà survenue : olympus, puis eneeHeritage) : un
+    // déblocage mythique `xxxHeritage` absent de la liste est silencieusement
+    // effacé au 1er Grand Reset — et comme mythsCompleted survit, le mythe reste
+    // « complété » donc l'héritage est IRRÉCUPÉRABLE. Ce test énumère
+    // dynamiquement les champs *Heritage : aucun ne doit manquer à la liste.
+    const base = defaultState();
+    const heritageFields = Object.keys(base).filter((k) => /Heritage$/.test(k));
+    expect(heritageFields.length, "aucun champ *Heritage trouvé — filtre cassé ?").toBeGreaterThan(5);
+    for (const f of heritageFields) {
+      expect(
+        GR_PERSISTENT_FIELDS.includes(f),
+        `${f} absent de GR_PERSISTENT_FIELDS → effacé au Grand Reset`
+      ).toBe(true);
+    }
+  });
+
   it("préserve la méta-progression Olympe (profil débloqué) à travers un GR", () => {
     // Régression: olympus était absent de GR_PERSISTENT_FIELDS → effacé au GR.
     state.olympus = { ...state.olympus, unlockedProfile: "batisseur", totalPlayedSeconds: 9999 };

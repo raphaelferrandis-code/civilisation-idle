@@ -67,6 +67,11 @@ export function pickCrisisEvent(threshold) {
   const recent = state.recentCrisisIds || [];
   const fresh = candidates.filter((e) => !recent.includes(e.id));
   const choices = fresh.length ? fresh : candidates;
+  // Garde runtime : aucune crise pour ce seuil (données incohérentes) →
+  // `state.cycles % 0` = NaN → choices[NaN] = undefined → crash sur event.id.
+  // L'invariant CRISIS_POOL↔CRISIS_EVENTS qui l'empêche est DEV-only (strippé du
+  // build), donc on borne aussi en prod. Voir checkCrisisThresholds.
+  if (!choices.length) return null;
   return choices[state.cycles % choices.length];
 }
 
@@ -79,6 +84,7 @@ export function checkCrisisThresholds() {
   if (!slot) return;
   state.crisisThresholds[slot.id] = true;
   const event = pickCrisisEvent(slot.threshold);
+  if (!event) return; // pas de crise disponible pour ce seuil → ne pas crasher sur event.id
   state.recentCrisisIds = [...(state.recentCrisisIds || []).slice(-7), event.id];
   // Doctrine de crise : si le palier est automatisé (Conseil de crise possédé +
   // posture ≠ "ask"), on résout l'event sans dialogue ni pause. Sinon, dialogue.
@@ -142,6 +148,10 @@ export async function openCrisisEvent(event) {
     footnote: "Sauf mention contraire, les effets sur la production durent jusqu'à la fin du cycle en cours."
   });
 
+  // Garde de type symétrique à autoResolveCrisisEvent : sans elle, un `apply`
+  // absent throw ENTRE le setGamePaused(true) et le (false) → jeu figé en pause
+  // (soft-lock) au lieu d'une erreur récupérable.
+  if (!choice || typeof choice.apply !== "function") { setGamePaused(false); render(); return; }
   const instabilityBefore = state.instability || 0;
   const outcome = choice.apply();
   if (outcome && outcome.label) pushOutcomeFloat(outcome);

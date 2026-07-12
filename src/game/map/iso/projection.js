@@ -22,13 +22,20 @@ import { CM } from '../layout.js';
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
 
-// Flag runtime + molette dev. OFF par défaut tant que la Phase 1 n'est pas validée
-// au jalon ; __iso(true) bascule en live (A/B), __iso(false) rend le legacy intact.
-export const isoFlag = { on: false };
+// ISO PAR DÉFAUT (Phase 6, goal Raph 2026-07-11) : le losange EST le jeu.
+// `__iso(false)` garde le legacy top-down accessible (A/B, secours) et PERSISTE
+// le choix (localStorage cmIsoMode) — en Node/tests le stockage est absent et
+// les suites fixent CM.iso elles-mêmes.
+export const isoFlag = { on: true };
+try {
+  if (typeof localStorage !== "undefined" && localStorage.getItem("cmIsoMode") === "0") isoFlag.on = false;
+} catch { /* stockage indisponible : défaut iso */ }
+CM.iso = isoFlag.on;
 if (typeof window !== "undefined") {
   window.__iso = (on) => {
     isoFlag.on = on !== false;
     CM.iso = isoFlag.on;
+    try { localStorage.setItem("cmIsoMode", isoFlag.on ? "1" : "0"); } catch { /* privé/plein */ }
     // Invalide les bakes (le mapping change) + recadre la caméra proprement.
     CM._groundBake = null; CM._staticBake = null; CM._tileBake = null; CM._isoGroundBake = null;
     CM.staticCamKey = ""; CM.tileCamKey = ""; CM.groundCamKey = "";
@@ -95,17 +102,6 @@ export function tileDiamond(gx, gy) {
     w: worldToScreen(wx, wy + T),        // gauche
     c: worldToScreen(wx + T / 2, wy + T / 2),
   };
-}
-
-// Boîte écran (px) englobant un rectangle monde — pour le culling et le clamp.
-export function worldBoxToScreenBox(wx0, wy0, wx1, wy1) {
-  const p = [worldToScreen(wx0, wy0), worldToScreen(wx1, wy0), worldToScreen(wx0, wy1), worldToScreen(wx1, wy1)];
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const q of p) {
-    if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x;
-    if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y;
-  }
-  return { x0, y0, x1, y1 };
 }
 
 // Bornes de cellules (gx/gy) couvrant le viewport élargi de `marginPx` — culling

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { fmt } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
+import { useCountUp } from '../../hooks/useCountUp.js';
 
 // ms — volontairement AU-DESSUS de la seconde du tick : l'anim d'un tick est
 // encore en cours quand le suivant arrive, donc le nombre ne s'arrête jamais
@@ -23,70 +24,27 @@ const DEFAULT_DURATION = 1100;
  */
 export default function RollingNumber({ value, format = fmt, duration = DEFAULT_DURATION, pulse = false }) {
   const target = toNum(value);
-  const [display, setDisplay] = useState(target);
+  const display = useCountUp(target, duration);
+  // Pulsation : re-monter le span .roll-pulse à chaque HAUSSE pour rejouer le
+  // micro-bump CSS. `pulseKey` (compteur) + `prevTarget` (dernière cible vue)
+  // sont ajustés PENDANT le render (pattern React « dériver l'état d'une prop »)
+  // — ni ref lue au render, ni setState dans un effet.
+  const [pulseKey, setPulseKey] = useState(0);
+  const [prevTarget, setPrevTarget] = useState(target);
 
-  const fromRef = useRef(target);
-  const targetRef = useRef(target);
-  const displayRef = useRef(target);
-  const startRef = useRef(0);
-  const rafRef = useRef(0);
-  // Compteur de ticks (hausses de cible) : re-monte le span .roll-pulse pour
-  // rejouer la micro-pulsation à chaque tick (opt-in via `pulse`).
-  const tickRef = useRef(0);
-
-  useEffect(() => {
-    // Cible inchangée (re-render parent sans variation) : rien à animer.
-    if (target === targetRef.current) return undefined;
-
-    // Hors domaine float (très grands nombres, ou retour depuis l'infini) :
-    // pas d'interpolation possible → bascule directe sur la valeur finale.
-    if (!Number.isFinite(target) || !Number.isFinite(displayRef.current)) {
-      cancelAnimationFrame(rafRef.current);
-      targetRef.current = target;
-      displayRef.current = target;
-      setDisplay(target);
-      return undefined;
-    }
-
-    // Baisse de la valeur (un achat déduit la somme, un coût se paie) : on ne
-    // « roule » PAS vers le bas — la déduction doit être instantanée. Seules les
-    // hausses (production) s'animent en count-up.
-    if (target < displayRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      fromRef.current = target;
-      targetRef.current = target;
-      displayRef.current = target;
-      setDisplay(target);
-      return undefined;
-    }
-
-    fromRef.current = displayRef.current; // repart de la position courante (anim en cours incluse).
-    targetRef.current = target;
-    startRef.current = performance.now();
-    tickRef.current += 1;
-
-    const step = (now) => {
-      const t = Math.min(1, (now - startRef.current) / duration);
-      const current = t >= 1
-        ? targetRef.current
-        : fromRef.current + (targetRef.current - fromRef.current) * t;
-      displayRef.current = current;
-      setDisplay(current);
-      if (t < 1) rafRef.current = requestAnimationFrame(step);
-    };
-
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [target, duration]);
-
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  // Détection de hausse pendant le render (guardée par `target !== prevTarget`
+  // → pas de boucle) : incrémente la key sur une vraie montée, met à jour la
+  // cible mémorisée sur tout changement (baisse comprise).
+  if (pulse && target !== prevTarget) {
+    if (target > prevTarget) setPulseKey((k) => k + 1);
+    setPrevTarget(target);
+  }
 
   // Au repos (anim terminée), on reformate la valeur d'origine — exacte pour les
   // très grands Decimal. En cours d'anim, on formate le number interpolé.
   const text = format(display === target ? value : display);
   if (!pulse) return text;
-  // key = n° de tick : le span est re-monté à chaque hausse → l'animation
+  // key = n° de pulsation : le span est re-monté à chaque hausse → l'animation
   // CSS .roll-pulse (micro-bump) se rejoue, calée sur le rythme du jeu.
-  return <span className="roll-pulse" key={tickRef.current}>{text}</span>;
+  return <span className="roll-pulse" key={pulseKey}>{text}</span>;
 }

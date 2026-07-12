@@ -70,9 +70,7 @@ export {
   registerOlympusCrisisResolved,
   registerOlympusCrisisIgnored,
   registerOlympusCollapse,
-  olympusRuinBonus,
-  olympusAbyssProductionMultiplier,
-  olympusUnlockedProfile
+  olympusRuinBonus
 } from './actions/olympus.js';
 
 export {

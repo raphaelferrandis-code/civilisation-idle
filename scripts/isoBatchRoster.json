@@ -1,0 +1,219 @@
+{
+  "_doc": "Batch DA « Figurine d'époque » (2026-07-11). Source unique du pipeline : create_character v3 48px low top-down (2 slots) → animate walking-6-frames 4 diagonales (4 slots) → fetchAgentsIso (lit ce fichier, saute les persos déjà assemblés) → quantize 24. ⚠ 10 slots de jobs PixelLab au total : ~2 persos en vol. id=null → à créer ; anim=false → marche à lancer ; done gère par présence des 4 PNG.",
+  "chars": [
+    {
+      "name": "greekman",
+      "id": "3e0d3890-b91e-455e-9ea0-fcbd44b6fc9c",
+      "anim": true,
+      "prompt": "(pilote validé)"
+    },
+    {
+      "name": "greekman2",
+      "id": "25cd6c72-5090-43e0-ac4e-521ee06f6a9d",
+      "anim": true,
+      "prompt": "ancient greek man, dark brown skin, black tunic with bold terracotta meander band, wide gold belt, laurel wreath, greek pottery colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "greekwoman",
+      "id": "1089d43a-8c10-4fda-910d-f6860aaebfad",
+      "anim": true,
+      "prompt": "ancient greek woman, terracotta red peplos dress with bold black hem band, wide gold belt, dark hair in bun with gold pin, greek pottery colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "greekwoman2",
+      "id": "e831a536-0a9b-4e66-9747-9b63a3355498",
+      "anim": true,
+      "prompt": "ancient greek woman, dark brown skin, black peplos dress with terracotta band and gold sash, elegant bun hairstyle, greek pottery colors, clean pixel art"
+    },
+    {
+      "name": "greekchild",
+      "id": "e58d73ac-f7c2-4e79-9f71-f6a9bc3f57d8",
+      "anim": true,
+      "prompt": "ancient greek child, small, terracotta tunic with thin black band, leather sandals, short dark hair, greek pottery colors, clean pixel art"
+    },
+    {
+      "name": "caveman",
+      "id": "54b03738-ee4b-41c6-b7ac-607c345e7c85",
+      "anim": true,
+      "prompt": "prehistoric hunter man, realistic proportions, rust-red ochre fur tunic, white cave-painting stripes on arms, dark shaggy hair, bone necklace, earthy saturated cave-art colors, clean pixel art"
+    },
+    {
+      "name": "caveman2",
+      "id": "889b34c2-6020-40af-bf92-1898a2b0293d",
+      "anim": true,
+      "prompt": "prehistoric hunter man, dark brown skin, charcoal grey fur wrap with white painted dots, red ochre body paint marks, bone pendant, cave-art colors, clean pixel art"
+    },
+    {
+      "name": "cavewoman",
+      "id": "6898e548-af75-4f2e-bb61-cf97ece60fb8",
+      "anim": true,
+      "prompt": "prehistoric gatherer woman, rust-ochre hide dress, white shell necklace, long dark hair, white cave-painting marks on arms, earthy colors, clean pixel art"
+    },
+    {
+      "name": "cavewoman2",
+      "id": "4845a7cf-3975-4f56-8e85-3b41f6b29ba7",
+      "anim": true,
+      "prompt": "prehistoric woman, dark brown skin, charcoal fur dress with red ochre painted band, feather in hair, cave-art colors, clean pixel art"
+    },
+    {
+      "name": "cavechild",
+      "id": "7b2e3072-4f8f-457e-85c3-e56db522b879",
+      "anim": true,
+      "prompt": "prehistoric child, small, simple rust-ochre hide tunic, messy dark hair, playful stance, earthy colors, clean pixel art"
+    },
+    {
+      "name": "villager",
+      "id": "56ea4fdd-be6c-43fa-83b3-3a19530d1a5a",
+      "anim": true,
+      "prompt": "medieval peasant man, deep lapis blue tunic with vermillion red hood, gold trim details, illuminated manuscript colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "villager2",
+      "id": "78287e7a-f09b-40cc-a880-276575169159",
+      "anim": true,
+      "prompt": "medieval man, dark brown skin, vermillion red tunic with lapis blue hood, gold belt, illuminated manuscript colors, clean pixel art"
+    },
+    {
+      "name": "villagerwoman",
+      "id": "d3f7e383-be06-42e4-82d8-659e9bf2cbbc",
+      "anim": true,
+      "prompt": "medieval peasant woman, vermillion red dress with lapis blue apron, white coif headdress, gold trim, illuminated manuscript colors, clean pixel art"
+    },
+    {
+      "name": "villagerwoman2",
+      "id": "7fcffd82-8b3a-436a-b34b-9694a98b74ac",
+      "anim": true,
+      "prompt": "medieval woman, dark brown skin, lapis blue dress with vermillion shawl, white coif, illuminated manuscript colors, clean pixel art"
+    },
+    {
+      "name": "villagerchild",
+      "id": "97f8a0cd-5bd0-45d5-9286-645d0989907a",
+      "anim": true,
+      "prompt": "medieval child, small lapis blue tunic with vermillion cap, illuminated manuscript colors, clean pixel art"
+    },
+    {
+      "name": "industrialman",
+      "id": "55fa5802-e24d-4620-83b6-d0d216ebfc26",
+      "anim": true,
+      "prompt": "victorian industrial worker man, charcoal grey coat and flat cap, brick-red scarf, sepia engraving tones with one red accent, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "industrialman2",
+      "id": "74074fca-a93f-4d5e-b803-1e3987bfca21",
+      "anim": true,
+      "prompt": "victorian era man, dark brown skin, sepia brown waistcoat, charcoal flat cap, brick-red neckerchief, engraving tones, clean pixel art"
+    },
+    {
+      "name": "industrialwoman",
+      "id": "dc3a3288-a79b-456a-b6fe-3761300de999",
+      "anim": true,
+      "prompt": "victorian working woman, charcoal grey long dress with brick-red shawl, dark hair in bun, sepia engraving palette, clean pixel art"
+    },
+    {
+      "name": "industrialwoman2",
+      "id": "5f6a1724-784f-4bb9-9ea4-b359ede38e02",
+      "anim": true,
+      "prompt": "victorian woman, dark brown skin, sepia brown dress, brick-red ribbon bonnet, engraving tones, clean pixel art"
+    },
+    {
+      "name": "industrialchild",
+      "id": "af0c98ef-c3a0-44f1-a357-aba2f8c4f153",
+      "anim": true,
+      "prompt": "victorian child, small charcoal grey jacket, flat cap, brick-red scarf, sepia engraving tones, clean pixel art"
+    },
+    {
+      "name": "futureman",
+      "id": "44679eb1-cfa1-4356-87d8-40618199c994",
+      "anim": true,
+      "prompt": "futuristic citizen man, sleek dark navy bodysuit with glowing cyan neon trim lines, realistic proportions, cyberpunk hologram accents, clean pixel art"
+    },
+    {
+      "name": "futureman2",
+      "id": "60d80e0e-37ad-43f1-81bb-4245cdfe01d3",
+      "anim": true,
+      "prompt": "futuristic man, dark brown skin, black bodysuit with glowing magenta neon trims, luminous collar, clean pixel art"
+    },
+    {
+      "name": "futurewoman",
+      "id": "2f456515-4341-40e4-b7ce-47301a54b69f",
+      "anim": true,
+      "prompt": "futuristic citizen woman, dark bodysuit with glowing magenta neon lines, short hair with luminous streak, clean pixel art"
+    },
+    {
+      "name": "futurewoman2",
+      "id": "224fd266-9c18-47f2-b64a-03b30abf69f4",
+      "anim": true,
+      "prompt": "futuristic woman, dark brown skin, black suit with glowing cyan neon sash, luminous earrings, clean pixel art"
+    },
+    {
+      "name": "futurechild",
+      "id": "9848d307-e17f-4405-903b-3f149da3fc38",
+      "anim": true,
+      "prompt": "futuristic child, small dark suit with glowing green neon stripes, luminous sneakers, clean pixel art"
+    }
+  ],
+  "vehicles": [
+    {
+      "name": "cart",
+      "id": "6ce96ca7-977f-4810-8100-935c99ecefcf"
+    },
+    {
+      "name": "wagon",
+      "id": "7890618d-3e21-4b37-a5d0-71cc7c4653d3"
+    },
+    {
+      "name": "barrow",
+      "id": "9cb70ec2-f427-489b-a67d-dad5dab8e5c3",
+      "prompt": "wooden wheelbarrow with single front wheel and two handles, rustic, pixel art, clean shapes"
+    },
+    {
+      "name": "chariot",
+      "id": "03945d8b-3906-474e-b8d0-280e42d42d00",
+      "prompt": "ancient roman war chariot with two spoked wheels pulled by a single brown horse, ornate red and gold details, pixel art"
+    },
+    {
+      "name": "caravan",
+      "id": "441fa39a-d415-4936-bc31-fd8351e8185a",
+      "prompt": "colorful traveling merchant caravan wagon with rounded roof and small window, wooden wheels, pixel art"
+    },
+    {
+      "name": "car",
+      "id": "2765f1bf-fc4d-459d-a1bd-9c54c0c189f9",
+      "prompt": "vintage 1920s black automobile with rounded fenders and spare wheel, chrome details, pixel art, clean shapes"
+    },
+    {
+      "name": "tram",
+      "id": "c5803d97-e75f-42e2-bec2-76a7aafaa0e2",
+      "prompt": "early electric city tram carriage, cream and green livery, pantograph on roof, pixel art, clean shapes"
+    },
+    {
+      "name": "horse",
+      "id": "77b40222-bf22-4da4-9e67-cc0fddafb2ff",
+      "prompt": "bête de trait (attelages iso) — brown draft horse wearing simple leather pulling harness, anim walking 4 diagonales"
+    },
+    {
+      "name": "ox",
+      "id": "d88169c0-3929-4529-8537-27a446075c34",
+      "prompt": "bête de trait (attelages iso) — sturdy brown ox with wooden yoke, anim walking 4 diagonales"
+    }
+  ],
+  "boatsIso": [
+    { "name": "raft", "id": "fba17c29-acc6-4472-90ad-0bb2602643f6", "prompt": "log raft + square sail (8-dir 80px)" },
+    { "name": "sail", "id": "68c37d35-861a-464f-a60e-a9b4a5c2ac41", "prompt": "medieval river sailboat (8-dir 80px)" },
+    { "name": "steam", "id": "22e5a64c-f07a-41e5-b1cf-7a11069b53a2", "prompt": "river paddle steamer (8-dir 80px)" },
+    { "name": "container", "id": "1509f658-ff78-41f2-9385-16276a2463ab", "prompt": "container barge (8-dir 80px)" }
+  ],
+  "decorIso": {
+    "_doc": "Retours Raph 2026-07-12 — arbres/lampes/médians/places : candidats choisis téléchargés DIRECT (URLs frame_N ou unknown.png) → public/pixelart/iso/. Packs : arbres 224b9b79(f1,f3)+c5b10d90(f0,f1) ; lampes antique b9d09389(f0), gas 1be5b7cb(f1), electric e66d6f95(f1), energy a40668b8(f0) ; médian 8-dir 3b2c6a6c (rotations SE/SW) ; places 256px antique 9447eac6, medieval 41389197, industrial d132a8f2, modern 0e63ff45, cosmic 7ff744fa",
+    "bridgesIso8dir": { "_doc": "segments — ABANDONNÉS (tuilage libre = zigzag), remplacés par les ponts COMPLETS ci-dessous", "bois": "05ce4da7-a2f8-4541-a3f4-76abce54e29d", "pierre": "54248ca9-5c36-4105-8e0f-9ab10e7efb16", "fer": "0acb0abd-4d48-4efa-8dd7-b86083f67060", "beton": "ef9b2ae2-d9ce-4659-acb9-e161cd1889c5", "energie": "44282faf-c290-4c69-b706-786ed167802c" },
+    "bridgesFull": { "_doc": "ponts COMPLETS 256px 1-direction (SW écran) → iso/bridge-full-*.png ; beton généré en SE → FLIPPÉ X au download ; energie v1 (eau bakée) remplacée par v2 272764ee", "bois": "a5080844-2ecb-4e6c-9450-09beb7bd0442", "pierre": "eef00025-bdc0-41c5-b169-18c31643cdb3", "fer": "a81c9e79-a1a1-4fb3-b1ea-8636b0e6021e", "beton": "09a05ff2-cafa-44a6-9e55-d32a19a45194", "energie": "272764ee-4bc0-459b-8405-7f4e2f2d608e" },
+    "pontoonsIso8dir": { "_doc": "bois = paire NORD (nw) court en SW ; pierre = sw ; beton = eau bakée REBUT (pierre sert au stade 3+)", "bois": "3c0bbf5a-9d84-4137-8d8b-4319bd9fa3a5", "pierre": "dde7553c-6729-4ef2-a2cb-b339063af84a", "beton": "b3e3b9c0-8231-4816-8a9e-1e47b5acfef6" },
+    "plazasReroll": { "_doc": "re-rolls validés 2026-07-12 (antique DA grec méandre/amphores ; modern sans stèles-miroirs)", "antique": "4af430b9-20a1-465f-9979-1417582586a4", "modern": "ec4d0b70-459f-4788-bbf5-751a35f8f2e3" }
+  },
+  "millWheelsIso": {
+    "_doc": "v2 (retour Raph « il faut la voir de 3/4 ») : objets 8-DIRECTIONS 96px, la rotation south-west EST le 3/4 (audit wheel-rot-audit.png), animée seule « turning » 6 frames — fetch → public/pixelart/iso/mill-wheel-{k}.png. v1 (1-dir promus, trop de face) : cbf15046/a199b969/76e7fc8a",
+    "wood": "cdd96a5f-cea2-4224-9d43-8c9b86bdf1c0",
+    "metal": "147f5ccd-6976-42e4-98fb-8c03fbdac8cb",
+    "turbine": "0a8e0026-ac14-44dc-b0e9-2aea1a0fb62a"
+  }
+}

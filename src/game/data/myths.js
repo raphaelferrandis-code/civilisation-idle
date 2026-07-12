@@ -4,6 +4,7 @@ import { state } from '../core/state.js';
 import { log } from '../core/actions.js';
 import { D } from '../core/num.js';
 import { tr, localizeData } from '../core/i18n.js';
+import { fmt } from '../core/utils.js';
 
 // Score de « puissance » agrégé (Antée, Ragnarok) : somme pondérée des
 // ressources principales, en Decimal pour survivre au-delà du float.
@@ -519,8 +520,8 @@ export const MYTHS = [
       en: `Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, population is risky and Food/Treasury balance required.`
     },
     objectif: {
-      fr: `Accumuler ${OR_GOLD_TARGET.toLocaleString()} de Trésor sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
-      en: `Accumulate ${OR_GOLD_TARGET.toLocaleString()} Treasury without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
+      fr: `Accumuler ${fmt(OR_GOLD_TARGET)} de Trésor sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
+      en: `Accumulate ${fmt(OR_GOLD_TARGET)} Treasury without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
     },
     heritageDescription: {
       fr: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement — en permanence, dans toutes les runs futures.`,
@@ -669,8 +670,8 @@ export const MYTHS = [
       en: "initial debt, debt growth and resource drain."
     },
     objectif: {
-      fr: `Atteindre un Trésor net (Trésor moins Dette) de ${ATRIDES_GOAL_NET_GOLD.toLocaleString()} Or (× la puissance économique courante) avant de vous effondrer.`,
-      en: `Reach a net Treasury (Treasury minus Debt) of ${ATRIDES_GOAL_NET_GOLD.toLocaleString()} Gold (× the current economic power) before you collapse.`
+      fr: `Atteindre un Trésor net (Trésor moins Dette) de ${fmt(ATRIDES_GOAL_NET_GOLD)} Or (× la puissance économique courante) avant de vous effondrer.`,
+      en: `Reach a net Treasury (Treasury minus Debt) of ${fmt(ATRIDES_GOAL_NET_GOLD)} Gold (× the current economic power) before you collapse.`
     },
     heritageDescription: {
       fr: "Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",
@@ -761,9 +762,12 @@ export const MYTHS = [
         .map(id => {
           const m = getMythById(id);
           if (!m) return "";
+          // Article-aware : « Le Mythe du Chaos / des Atrides / d'Énée » — le
+          // strip « de »/« d' » seul laissait « du/des » en FR (bug live sur
+          // Chaos/Phénix/Atrides). Regex couvrant de/du/des/d' (FR) + of/of the (EN).
           const shortName = tr(m.name)
-            .replace("Le Mythe de ", "").replace("Le Mythe d'", "")
-            .replace("The Myth of the ", "").replace("The Myth of ", "");
+            .replace(/^Le Mythe d(e |u |es |')/, "")
+            .replace(/^The Myth of (the )?/, "");
           return `${shortName}: ${tr(m.ragnarokSummary)}`;
         })
         .filter(Boolean);

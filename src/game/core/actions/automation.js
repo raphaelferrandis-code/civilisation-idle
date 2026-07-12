@@ -150,7 +150,10 @@ export function checkAutomateRules() {
       if (!crisisOpen()) continue;
       if (state.instability * 100 >= rule.threshold) {
         const costs = crisisCosts();
-        if (canPayCost(costs[rule.actionId])) {
+        // Garde : un actionId absent de crisisCosts() donne `undefined` →
+        // canPayCost fait Object.entries(undefined) → throw dans le tick.
+        const cost = costs[rule.actionId];
+        if (cost && canPayCost(cost)) {
           runCrisisAction(rule.actionId, { render: false });
         }
       }

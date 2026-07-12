@@ -10,7 +10,6 @@ export const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
 // Antée — « la force des fardeaux » : porter PLUSIEURS maluses simultanés (4) ET
 // prospérer malgré eux (faire croître la pop ×ANTEE_POP_MULT depuis le départ).
 export const ANTEE_MIN_ACTIVE_RUINS = 4;       // 4 maluses simultanés (était 2)
-export const ANTEE_POWER_THRESHOLD = 10_000;   // (obsolète — remplacé par la croissance relative)
 export const ANTEE_POP_MULT = 50;              // Réussite : pic de pop ≥ 50× le départ, sous le poids des 4 maluses
 
 export const ACTIVE_RUIN_DEFINITIONS = [

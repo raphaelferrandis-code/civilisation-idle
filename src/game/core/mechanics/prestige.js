@@ -22,7 +22,8 @@ import {
   TIME_WEAR_BASE_RATE,
   TIME_WEAR_MITIGATION_CAP,
   STAGNATION_USURE_RAMP_SEC,
-  STAGNATION_USURE_MAX_BONUS
+  STAGNATION_USURE_MAX_BONUS,
+  grandResetProductionMult
 } from '../balance.js';
 import {
   isMythEffectActive,
@@ -37,10 +38,11 @@ import {
 } from '../../data/myths.js';
 import { ACTIVE_RUIN_USURE_MULT, activeRuinMultiplier, hasActiveRuin } from '../../data/activeRuins.js';
 import { crisisOpen, ruinEffectMultiplier, ruinEffectSum, has, hasDoctrine } from './shared.js';
+import { tr } from '../i18n.js';
 
 function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
-  const base = Math.pow(2, state.grandResetCount || 0);
+  const base = grandResetProductionMult(state.grandResetCount);
   const ragnarokBonus = (state.ragnarokHeritage && (state.grandResetCount || 0) >= 11) ? 4 : 1;
   return base * ragnarokBonus;
 }
@@ -60,13 +62,13 @@ function crisisProgress() {
 }
 
 export function heritageQuality() {
-  if (!crisisOpen()) return "En formation";
+  if (!crisisOpen()) return tr({ fr: "En formation", en: "Forming" });
   const gain = ruinGain();
   const age = Math.max(1, (Date.now() - state.cycleStartedAt) / 1000);
-  if (gain.gte(30) || (gain.gte(16) && age >= 1200)) return "Mythique";
-  if (gain.gte(12) || (gain.gte(7) && age >= 600)) return "Riche";
-  if (gain.gte(4) || age >= 300) return "Stable";
-  return "Fragile";
+  if (gain.gte(30) || (gain.gte(16) && age >= 1200)) return tr({ fr: "Mythique", en: "Mythic" });
+  if (gain.gte(12) || (gain.gte(7) && age >= 600)) return tr({ fr: "Riche", en: "Rich" });
+  if (gain.gte(4) || age >= 300) return tr({ fr: "Stable", en: "Stable" });
+  return tr({ fr: "Fragile", en: "Fragile" });
 }
 
 // projected=true : calcule le gain « si on s'effondrait maintenant » même hors

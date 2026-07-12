@@ -57,7 +57,7 @@ function facade(ctx, x, w, yEave, yBase, wall, lit, { door = 0.5, wins = 2, winR
   }
 }
 
-function drawTinyCamp(x, y, w, h, pad, seed, variant, now) {
+function drawTinyCamp(x, y, w, h) {
   const ctx = CM.ctx;
   // ── TENTE — cône de peaux 3/4 : toile, coutures, entrée sombre, piquets ──
   const cx = x + w * 0.5;

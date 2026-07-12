@@ -12,22 +12,29 @@ import fs from 'node:fs';
 const OUT = 'public/pixelart/agents/inhabitants';
 const DIRS = ['south-east', 'south-west', 'north-east', 'north-west'];
 const FRAMES = 6;
-const CHARS = [
-  // Pilote Phase 4 (2026-07-11) : LE grec de l'ère antique. Les autres persos
-  // (5 ères × h/f/enfant + variantes) suivront par vagues une fois le pilote
-  // validé in-game — même recette : create_character standard 8-dirs size 48
-  // (canvas 68) + animate walking-6-frames sur les 4 diagonales.
-  { name: 'greekman', id: 'af97ef76-f638-4720-94af-a6d61c7bbda7' },
-];
+// DA « Figurine d'époque » (2026-07-11) — le roster du batch vit dans
+// scripts/isoBatchRoster.json (source unique : prompts + ids + états). Ce script
+// assemble les persos dont l'id est posé ; IDEMPOTENT : saute un perso dont les
+// 4 bandes existent déjà (relançable en boucle pendant que le batch tourne).
+const ROSTER = JSON.parse(fs.readFileSync('scripts/isoBatchRoster.json', 'utf8'));
+const CHARS = ROSTER.chars.filter((c) => c.id);
+const FORCE = process.argv.includes('--force');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const RX = /animations\/[^/]+\/(south-east|south-west|north-east|north-west)\/frame_(\d+)\.png$/i;
 
 fs.mkdirSync(OUT, { recursive: true });
-const FILTER = process.argv[2] || '';
+const FILTER = (process.argv[2] && !process.argv[2].startsWith('--')) ? process.argv[2] : '';
 for (const ch of CHARS) {
   if (FILTER && !ch.name.includes(FILTER)) continue;
+  // Idempotence : les 4 bandes déjà assemblées → skip (sauf --force).
+  if (!FORCE && DIRS.every((d) => fs.existsSync(`${OUT}/${ch.name}-${d.replace('-', '')}.png`))) {
+    console.log(ch.name, '— déjà assemblé, skip');
+    continue;
+  }
+  // Poll court par perso (2 min max) : un perso pas prêt sera repris à la
+  // PROCHAINE passe (le script est relancé en boucle pendant le batch).
   let frames = null;
-  for (let t = 0; t < 30 && !frames; t += 1) {
+  for (let t = 0; t < 10 && !frames; t += 1) {
     try {
       const buf = Buffer.from(await fetch(`https://api.pixellab.ai/mcp/characters/${ch.id}/download`).then((r) => r.arrayBuffer()));
       const byDir = { 'south-east': [], 'south-west': [], 'north-east': [], 'north-west': [] };
@@ -40,7 +47,7 @@ for (const ch of CHARS) {
         frames = byDir;
       }
     } catch { /* zip pas prêt */ }
-    if (!frames) await sleep(15000);
+    if (!frames) await sleep(12000);
   }
   if (!frames) { console.warn(ch.name, '— diagonales pas prêtes (timeout), skip'); continue; }
   for (const d of DIRS) {

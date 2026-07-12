@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -61,4 +62,8 @@ function mapFullReloadPlugin() {
 export default defineConfig({
   base: './',
   plugins: [react(), previewShotPlugin(), mapFullReloadPlugin()],
+  // `.claude/worktrees` = copies de travail jetables de l'agent (gitignorées) ;
+  // sans cette exclusion Vitest ré-exécute leurs suites → tests en triple et
+  // échec golden compté plusieurs fois (portes non déterministes en local).
+  test: { exclude: [...configDefaults.exclude, '**/.claude/**'] },
 })

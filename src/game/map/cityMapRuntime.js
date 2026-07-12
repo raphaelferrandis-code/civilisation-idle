@@ -166,15 +166,6 @@ function cityMapScreenFromWorld(wx, wy) {
   return worldToScreen(wx, wy);
 }
 
-function cityMapTileScreen(gx, gy, span = 1) {
-  const s = CM.TILE * CM.cam.zoom;
-  const p = worldToScreen(gx * CM.TILE, gy * CM.TILE);
-  if (!CM.iso) return { s, x: p.x, y: p.y, w: s * span, h: s * span };
-  // Iso : boîte englobante du losange de l'empreinte (x,y = coin haut-gauche).
-  const w = s * span * 2 * ISO_X, h = s * span * 2 * ISO_Y;
-  return { s, x: p.x - w / 2, y: p.y, w, h };
-}
-
 function cityMapCenterCamera(layout) {
   if (!layout) return;
   // Caméra centrée sur le cœur urbain du plan procédural.
@@ -984,6 +975,7 @@ function initCityMap(canvas, options = {}) {
   CM.inited = true;
   CM.canvas = canvas;
   CM.ctx = canvas.getContext("2d");
+  if (!CM.ctx) { CM.inited = false; CM.canvas = null; return; } // G-30 : contexte 2D perdu → abandon propre (sinon tailles offscreen NaN)
   CM.mini = miniCanvas;
   CM.mctx = CM.mini ? CM.mini.getContext("2d") : null;
   cityMapEnsureTooltip(mapRoot, options.tooltip);
@@ -998,18 +990,20 @@ function initCityMap(canvas, options = {}) {
       : (() => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; })();
     CM.staticCanvas = _mkOC(_pw, _ph);
     CM.sctx = CM.staticCanvas.getContext('2d');
-    CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.staticCamKey = '';
     CM.tileCanvas = _mkOC(_pw, _ph);
     CM.tctx = CM.tileCanvas.getContext('2d');
-    CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.tileDirtyUntil = 0;
-    CM.tileCamKey = '';
     // Sol (procédural + pixel + relief) : statique à caméra fixe → baké ici,
     // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
     CM.groundCanvas = _mkOC(_pw, _ph);
     CM.gctx = CM.groundCanvas.getContext('2d');
+    // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
+    if (!CM.sctx || !CM.tctx || !CM.gctx) { CM.inited = false; return; }
+    CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+    CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+    CM.staticCamKey = '';
+    CM.tileDirtyUntil = 0;
+    CM.tileCamKey = '';
     CM.groundCamKey = '';
   }
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
@@ -1409,4 +1403,4 @@ setResetCameraCenterHandler(() => { CM.centered = false; });
 // modules carte est forcé CÔTÉ SERVEUR par mapFullReloadPlugin (vite.config.js) ;
 // import.meta.hot.decline() serait un no-op dans Vite moderne.
 
-export { CM, initCityMap, cityMapTileScreen };
+export { CM, initCityMap };

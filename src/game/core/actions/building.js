@@ -44,7 +44,7 @@ import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
-import { MILESTONE_BOON_SECONDS } from '../balance.js';
+import { MILESTONE_BOON_SECONDS, grandResetProductionMult } from '../balance.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -260,13 +260,13 @@ export async function performGrandReset() {
   setGamePaused(true);
   const resetRewardText = nextCount === 11
     ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
-    : `un bonus permanent x${Math.pow(2, nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
+    : `un bonus permanent x${grandResetProductionMult(nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
   const costText = legitCost > 0 ? ` Coût : ${fmt(legitCost)} légitimité.` : "";
   const choice = await openChoiceDialog({
     title: "Grand Reset",
-    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage.${costText} En echange: ${resetRewardText}. Actuellement: x${Math.pow(2, state.grandResetCount || 0).toFixed(0)} production. Apres: x${Math.pow(2, nextCount).toFixed(0)} production.`,
+    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage.${costText} En echange: ${resetRewardText}. Actuellement: x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Apres: x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
     options: [
-      { label: "Tout reinitialiser", detail: nextCount === 11 ? "+x4 Ruines permanent" : `+x${Math.pow(2, nextCount).toFixed(0)} production permanente` },
+      { label: "Tout reinitialiser", detail: nextCount === 11 ? "+x4 Ruines permanent" : `+x${grandResetProductionMult(nextCount).toFixed(0)} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }
     ]
   });

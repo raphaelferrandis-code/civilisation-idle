@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useDialogModal } from '../../hooks/useDialogModal.js';
 import {
   addDebugRuins,
   addDebugCycles,
@@ -10,22 +10,7 @@ import { log } from '../../game/core/actions.js';
 import { D } from '../../game/core/num.js';
 
 export default function DebugDialog({ isOpen, onClose }) {
-  const dialogRef = useRef(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close();
-      }
-    }
-  }, [isOpen]);
+  const dialogRef = useDialogModal(isOpen);
 
   const handleOverlayClick = (e) => {
     if (e.target === dialogRef.current) {

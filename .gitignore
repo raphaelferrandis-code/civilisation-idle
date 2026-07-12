@@ -33,10 +33,18 @@ release
 # Artefacts de dev / simulation (bac à sable local, non versionné)
 scratch/
 scratchpad/
-# Rapports et dumps générés par les scripts de simulation
+# Rapports et dumps générés par les scripts de simulation. NON versionnés : ils
+# se régénèrent depuis le code (correct + reproductible via --seed) et périment
+# sinon (audit 2026-07 G-08/L3-m05). Source de vérité = data/myths.js + les sims.
 simulation-report.html
 sim_results.json
 sim_long_results.json
+sim-idle-impact.out.json
+balance-summary.md
+pacing-profiles.md
+course-gr1-profils.md
+/*.tsv
+public/pixelart/compare.html
 
 # Dump local des assets Kenney source (~870 Mo, .zip/.unitypackage inclus) :
 # matière première hors versionnement, disponible via OneDrive. NB : src/assets/
@@ -57,3 +65,11 @@ public/pixelart/_archive/
 # Pixel-art bâtiments : dossiers de travail (backups originaux + zoom de contrôle), ne pas versionner
 public/pixelart/buildings/_orig/
 public/pixelart/buildings/_zoom/
+public/pixelart/iso/_orig/
+
+# Orphelins non chargés (audit 2026-07 G-64) : candidats de design provisoires,
+# swatches de palette générés par buildPalette.mjs, backup pré-quantize d'un prop.
+# ~447 K jamais fetchés — comme leurs voisins _orig/_archive.
+public/pixelart/wonders/arc-t5-candidats/
+public/pixelart/palettes/
+public/pixelart/agents/_orig/

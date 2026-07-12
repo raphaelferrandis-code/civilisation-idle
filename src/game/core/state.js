@@ -6,7 +6,7 @@ import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, grandResetProductionMult } from './balance.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
@@ -297,7 +297,6 @@ export const defaultState = () => ({
   nextEpitaphLegacy: null,
   buyAmount: 1,
   activeView: "city",
-  notifEnabled: true,
   mourning: false,
   // UI seulement : ids de nœuds de ruines déjà « vus » (animation de croissance
   // jouée une seule fois). Hors GR_PERSISTENT_FIELDS → l'arbre re-pousse au GR.
@@ -337,7 +336,6 @@ export const defaultState = () => ({
 });
 
 export let state = load();
-export let buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
 export let renderCache = {
   cachedRuinEffectsSignature: "",
   cachedRuinEffects: null,
@@ -413,6 +411,12 @@ export function decimalField(value, fallback) {
     value instanceof Decimal ? value
       : typeof value === "number" && Number.isFinite(value) ? new Decimal(value)
       : typeof value === "string" && value ? new Decimal(value)
+      // Decimal déshydraté en objet plat {mantissa, exponent} (save édité/importé
+      // à la main) : D() sait le reconstruire — comme toNum/D le défendent déjà —
+      // au lieu de le remettre silencieusement au défaut.
+      : (value !== null && typeof value === "object"
+          && typeof value.mantissa === "number" && typeof value.exponent === "number")
+        ? D(value)
       : null;
   if (!candidate || !Number.isFinite(candidate.mantissa) || !Number.isFinite(candidate.exponent)) {
     return D(fallback);
@@ -1047,7 +1051,6 @@ export function invalidateRenderCache(scope = "all") {
 
 // Helpers setters pour permettre de reassigner buyAmount ou d'autres variables exportees depuis main.js
 export function setBuyAmount(val) {
-  buyAmount = val;
   state.buyAmount = val;
   notify();
 }
@@ -1087,9 +1090,6 @@ export function setState(newState) {
     delete state[key];
   }
   Object.assign(state, newState);
-  // Resynchronise le miroir module : sinon buyAmount reste sur l'ancienne
-  // valeur après un Grand Reset / import de save et diverge de state.buyAmount.
-  buyAmount = state.buyAmount === "max" ? "max" : (state.buyAmount || 1);
   notify();
 }
 
@@ -1097,7 +1097,6 @@ export function resetTemporaryRunState(s) {
   // Nouveau run = ressources de départ : un mode x25/x100/max hérité du run
   // précédent bloquerait tout achat tant que le joueur ne le change pas.
   s.buyAmount = 1;
-  if (s === state) buyAmount = 1;
   s.instability = 0;
   s.timeWear = 0;
   // A6/B1 — repartent de zéro à chaque cycle : la stagnation se mesure sur le
@@ -1186,7 +1185,7 @@ export function resetTemporaryRunState(s) {
 export const GR_PERSISTENT_FIELDS = [
   "mythsCompleted", "mythActsAnnounced", "chaosRuinsDouble", "chaosRuinsBonus",
   "prometheeBraisiers", "atlasHeritage", "sisypheHeritage", "icareHeritage",
-  "babelHeritage", "orHeritage", "phoenixHeritage", "atridesHeritage",
+  "babelHeritage", "orHeritage", "phoenixHeritage", "atridesHeritage", "eneeHeritage",
   "autoScriptRules", "hephHeritage", "automateRules",
   "surchauffeEndTime", "surchauffeCooldownEnd", "dynastyCount", "dynastyDoctrine",
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
@@ -1216,7 +1215,7 @@ export function buildGrandResetState(nextCount, legitCost) {
   fresh.grandResetCount = nextCount;
   // La légitimité survit au GR, AMPUTÉE du coût du reset (croissant).
   fresh.legitimacy = Math.max(0, (state.legitimacy || 0) - legitCost);
-  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${Math.pow(2, nextCount).toFixed(0)} production et Ruines gagnées`}. Les pactes mythiques demeurent.`];
+  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${grandResetProductionMult(nextCount).toFixed(0)} production et Ruines gagnées`}. Les pactes mythiques demeurent.`];
   return fresh;
 }
 

@@ -69,7 +69,7 @@ export default function CityStatusPanel() {
   const showLegitimite = atlasHeritage || isMythEffectActive("mythe_d_atlas");
 
   return (
-    <div className="city-status-panel" aria-label="État de la civilisation">
+    <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
       <div
         className="csp-block"
         title={tr({

@@ -34,6 +34,14 @@
   --state-rupture: #EF4444;
   --state-usure:   #9B5DE5;
 
+  /* États d'achat — langage commun boutique / arbre de Ruines / héritage.
+     L'ambre « bientôt » réutilise le ton déjà employé par le tooltip de l'arbre.
+     (Adoption progressive : consommés d'abord par l'arbre ; la boutique/l'héritage
+     peuvent s'y aligner ensuite sans re-choisir de couleur.) */
+  --state-affordable: #F4C150;  /* achetable */
+  --state-soon:       #E0B057;  /* bientôt / trop cher (le coût manque de peu) */
+  --state-locked:     #8A8578;  /* verrouillé (palier / prérequis manquant) */
+
   /* ----- Dérivés de marque -----
      Triplet RGB de l'or de marque : l'ancienne « peau d'ère » est
      neutralisée (style universel), --era-rgb reste donc constant = l'or

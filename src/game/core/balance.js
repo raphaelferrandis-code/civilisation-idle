@@ -25,6 +25,16 @@ export const TIME_WEAR_BASE_RATE = 0.000045;  // vitesse de base de l'Usure du t
 // borne le bonus de Ruines obtenu en préparant sa chute.
 export const COLLAPSE_PREP_MAX = 2.4; // plafond de préparation à l'effondrement
 
+// Multiplicateur de production & de Ruines gagné à chaque Grand Reset : base^count.
+// SOURCE DE VÉRITÉ unique — lue par grandResetMultiplier (production),
+// grandResetRuinMultiplier (prestige) ET tous les libellés/dialogues d'UI, pour
+// qu'un rééquilibrage de la base ne fasse jamais mentir l'affichage (les 6+ sites
+// recopiaient `Math.pow(2, count)` à la main). NB : ne comprend PAS la garde
+// mythe_du_chaos ni le bonus Ragnarök — ceux-ci restent locaux à leur contexte.
+export const GRAND_RESET_PROD_BASE = 2;
+export const grandResetProductionMult = (count) =>
+  Math.pow(GRAND_RESET_PROD_BASE, Math.max(0, count || 0));
+
 // Population de référence pour normaliser la profondeur d'ère dans ruinGain().
 // C'est l'ancien seuil de la dernière ère ("Singularité civique", 1.5e11),
 // figé volontairement : le gain de Ruines ne doit PAS dépendre de la longueur

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { fmtShortLive, COMPACT_UNITS } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
+import { useCountUp } from '../../hooks/useCountUp.js';
 
 // Même constante que RollingNumber : l'anim d'un tick déborde sur le suivant
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
@@ -54,60 +55,10 @@ const SPIN_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 // ne résout même plus l'incrément par tick).
 export default function OdometerNumber({ value, alive = false, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
-  const [display, setDisplay] = useState(target);
-
-  const fromRef = useRef(target);
-  const targetRef = useRef(target);
-  const displayRef = useRef(target);
-  const startRef = useRef(0);
-  const rafRef = useRef(0);
-  // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Quand elle
-  // change, on re-monte le wrapper → l'anim .roll-pulse se rejoue, une fois.
-  const shapeRef = useRef('');
-  const pulseRef = useRef(0);
-
-  useEffect(() => {
-    if (target === targetRef.current) return undefined;
-
-    // Hors domaine float : bascule directe (pas d'interpolation possible).
-    if (!Number.isFinite(target) || !Number.isFinite(displayRef.current)) {
-      cancelAnimationFrame(rafRef.current);
-      targetRef.current = target;
-      displayRef.current = target;
-      setDisplay(target);
-      return undefined;
-    }
-
-    // Baisse (achat/coût) : déduction instantanée, comme RollingNumber.
-    if (target < displayRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      fromRef.current = target;
-      targetRef.current = target;
-      displayRef.current = target;
-      setDisplay(target);
-      return undefined;
-    }
-
-    fromRef.current = displayRef.current;
-    targetRef.current = target;
-    startRef.current = performance.now();
-
-    const step = (now) => {
-      const t = Math.min(1, (now - startRef.current) / duration);
-      const current = t >= 1
-        ? targetRef.current
-        : fromRef.current + (targetRef.current - fromRef.current) * t;
-      displayRef.current = current;
-      setDisplay(current);
-      if (t < 1) rafRef.current = requestAnimationFrame(step);
-    };
-
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [target, duration]);
-
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  // Débit du segment d'anim courant (unités brutes/s), posé par le moteur au
+  // démarrage d'une montée — lu au render sans toucher de ref (concurrent-safe).
+  const [segRate, setSegRate] = useState(0);
+  const display = useCountUp(target, duration, setSegRate);
 
   const parts = dialParts(display);
   if (!parts) {
@@ -127,16 +78,13 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
   // Seules les 2 décimales « live » (fmtShortLive) sont estompées.
   const dimBelow = decimals >= 3 ? 2 : 0;
   // Débit du segment d'anim courant, converti en pas de cadran par seconde.
-  const ratePerSec = resting
-    ? 0
-    : (targetRef.current - fromRef.current) / (duration / 1000);
+  const ratePerSec = resting ? 0 : segRate;
   const dialRate = (ratePerSec / div) * Math.pow(10, decimals);
 
+  // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Utilisée
+  // comme `key` du wrapper : quand elle change, React re-monte le span →
+  // l'anim .roll-pulse se rejoue une fois (sans compteur lu en ref au render).
   const shape = `${count}|${suffix}`;
-  if (shapeRef.current !== shape) {
-    shapeRef.current = shape;
-    pulseRef.current += 1;
-  }
 
   const slots = [];
   for (let k = count - 1; k >= 0; k--) {
@@ -182,7 +130,7 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
   }
 
   return (
-    <span className="odo roll-pulse" key={pulseRef.current}>
+    <span className="odo roll-pulse" key={shape}>
       {slots}
       {suffix && <span className="odo-sep odo-suffix">{suffix}</span>}
     </span>

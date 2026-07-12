@@ -80,7 +80,7 @@ global.save = () => {};
 // 1. Import des vraies formules du jeu (memes modules que simulate-ce.js)
 // ---------------------------------------------------------------------------
 const { buildings, dynastyNames } = await import("./src/game/data/buildings.js");
-const { upgrades, dogmaIds, PRESTIGE_DOGMAS, PRESTIGE_TREE_BRANCHES } = await import("./src/game/data/upgrades.js");
+const { upgrades, dogmaIds, PRESTIGE_DOGMAS } = await import("./src/game/data/upgrades.js");
 const { eras } = await import("./src/game/data/world.js");
 const myth = await import("./src/game/data/myths.js");
 const { MYTHS, getMythById, isMythUnlocked, isMythCompleted } = myth;
@@ -113,10 +113,10 @@ registerChoiceDialog((dialog) => {
 const mech = await import("./src/game/core/mechanics.js");
 const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
-  buildingBatchCost, legitimacyGain, globalMultiplier, rates, timeWearRate,
-  currentEraIndex, ownedRuinBranchPurchaseCount, ownedRuinTreePurchaseCount, has,
+  buildingBatchCost, legitimacyGain, globalMultiplier,
+  currentEraIndex, ownedRuinTreePurchaseCount, has,
   dynastyRuinsThreshold, grandResetLegitimacyCost, grandResetMythsRequired, completedMythCount,
-  terminalCrisisReady, TERMINAL_PREP_TIERS
+  terminalCrisisReady
 } = mech;
 
 const { canPayCost, payCost, fmt } = await import("./src/game/core/utils.js");
@@ -147,7 +147,37 @@ const TICK = Number(argv.tick) || 5;                     // s virtuelles / tick
 const MYTH_TICK = Number(argv.mythtick) || 15;           // tick plus grossier pour les longs cycles de Mythe (debit)
 const SMART_MYTHS = !argv["dumb-myths"];                 // tactiques dediees par Mythe (defaut ON ; --dumb-myths pour l'ancien comportement)
 const BUDGET_SECONDS = HOURS * 3600;
-const REAL_TIME_LIMIT_MS = (Number(argv.maxreal) || 6) * 60 * 1000;
+
+// Reproductibilité (audit G-19) : le moteur consomme Math.random à chaque tick
+// (aubaines, chronique, paris de régulation). On le seede par un PRNG mulberry32
+// ré-initialisé à chaque profil (resetScenario) → tables de jalons déterministes,
+// aubaines conservées. --seed=N pour varier la graine.
+const SIM_SEED = (argv.seed != null && argv.seed !== true) ? (Number(argv.seed) >>> 0) : 0x9e3779b9;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+let simRng = mulberry32(SIM_SEED);
+Math.random = () => simRng();
+
+// Couverture routière map-only (audit G-07) : 0 en headless → le bonus réseau
+// (≤ +10-15% prod) serait ignoré → balancing sous-estimé. En jeu la couverture
+// tend vers ~1 ; on modélise par DÉFAUT un régime établi (0.9 ≈ +9% prod) pour que
+// le balancing voie le bonus. --roadcov=N (0..1) pour ajuster (0 = ancien comportement).
+const SIM_ROAD_COVERAGE = (argv.roadcov != null && argv.roadcov !== true)
+  ? Math.max(0, Math.min(1, Number(argv.roadcov)))
+  : 0.9;
+
+// Audit G-20 : par défaut on borne UNIQUEMENT sur le temps virtuel (jalons
+// indépendants de la vitesse machine) ; --maxreal=N (min) = coupe-circuit optionnel.
+const REAL_TIME_LIMIT_MS = (argv.maxreal != null && argv.maxreal !== true)
+  ? Number(argv.maxreal) * 60 * 1000
+  : Infinity;
+const MAXREAL_LABEL = Number.isFinite(REAL_TIME_LIMIT_MS) ? `${REAL_TIME_LIMIT_MS / 60000} min` : "∞ (virtuel seul)";
 const CYCLE_HARD_CAP = 6 * 3600;                         // 6 h virtuelles max / cycle (garde-fou)
 const MAX_CYCLES = 5_000_000;
 const RUIN_TREE_TOTAL = upgrades.filter((u) => u.group === "ruins" && !dogmaIds.has(u.id)).length;
@@ -368,23 +398,6 @@ function buyMinimalInfra() {
   invalidateRenderCache("all");
 }
 
-// Achat MINIMAL orienté Trésor (pour l'Âge d'Or) : juste la chaîne pour débloquer
-// les marchés, puis des bâtiments d'Or. Peu de bâtiments => la production de pop
-// reste négligeable => la pop ne croît pas de 25% avant que le Trésor n'atteigne sa cible.
-function buyMinimalGold() {
-  const chainCaps = { foragers: 3, granaries_city: 3, caravans: 4 };
-  for (const [id, cap] of Object.entries(chainCaps)) {
-    const bd = bldById[id];
-    if (!bd) continue;
-    while ((state.buildings[id] || 0) < cap && isUnlocked(bd)) {
-      const c = buildingBatchCost(bd, 1);
-      if (!canPayCost(c)) break;
-      payCost(c); state.buildings[id] = (state.buildings[id] || 0) + 1;
-    }
-  }
-  buyMatching((bd) => (bd.gold || 0) > 0, { maxBuys: 20 });
-  invalidateRenderCache("all");
-}
 
 function buyRuinTree(keepReserveRuins = 0) {
   let bought = 0;
@@ -532,7 +545,7 @@ const MYTH_TACTICS = {
     met() { return state.chaosReached === true; } },
   mythe_de_cadmos:     { grow: 700,  below: 0.8 }, // nommer 3 Ages : le handler de dialogue repond aux prompts
   mythe_d_enee:        { grow: 1700, below: 0.7,  // >=3 migrations (territoire degrade /6 min)
-    buy({ ageSec }) { buyMinimalInfra(); },
+    buy() { buyMinimalInfra(); },
     onTick() { if (state.eneeDegraded) { try { migrerEnee(); } catch { /* */ } } },
     met() { return (state.eneeMigrations || 0) >= 3; } },
   mythe_de_promethee:  { grow: 2400, below: 0.7,  // REFONTE : croitre la pop x100 AVANT Rupture 80%
@@ -774,7 +787,9 @@ async function playCycle(rec, prof) {
 // ---------------------------------------------------------------------------
 function resetScenario() {
   VT = 0; scenarioRealStart = realNow(); setClock();
+  simRng = mulberry32(SIM_SEED);          // G-19 : reproductible ET comparable par profil
   setState(defaultState());
+  state.roadCoverage = SIM_ROAD_COVERAGE; // G-07 : modélise (ou non) le bonus réseau routier
   setGamePaused(false); setCollapseInProgress(false); setBuyAmount(100);
   invalidateRenderCache("all");
 }
@@ -878,7 +893,7 @@ if (argv.mythtest) {
   const rec = makeRecorder("mythtest");
   const r = (mythResults.mythtest = { completed: 0, attempted: 0, attemptsById: {}, done: [] });
   const prof = { _id: "mythtest", afk: false, growSeconds: 600, manage: true, manageBelow: 0.8, sabotage: true, sabotageTier: 2, buyEconomy: true, pursueMyths: true };
-  console.log(`[MYTHTEST] smart=${SMART_MYTHS} mythtick=${MYTH_TICK}s budget=${HOURS}h maxreal=${REAL_TIME_LIMIT_MS / 60000}min`);
+  console.log(`[MYTHTEST] smart=${SMART_MYTHS} mythtick=${MYTH_TICK}s budget=${HOURS}h maxreal=${MAXREAL_LABEL}`);
   for (const act of [1, 2, 3, "ragnarok"]) {
     for (const m of MYTHS.filter((x) => x.act === act)) {
       if (timedOut()) { console.log(`[MYTHTEST] STOP temps reel`); break; }
@@ -911,7 +926,7 @@ if (argv.mythtest) {
 }
 
 const order = (argv.profile && PROFILES[argv.profile]) ? [argv.profile] : Object.keys(PROFILES);
-console.log(`[SIM-10] Budget=${HOURS}h virtuelles/profil | tick=${TICK}s | maxreal=${REAL_TIME_LIMIT_MS / 60000}min | arbre=${RUIN_TREE_TOTAL} noeuds | profils=${order.length}`);
+console.log(`[SIM-10] Budget=${HOURS}h virtuelles/profil | tick=${TICK}s | maxreal=${MAXREAL_LABEL} | arbre=${RUIN_TREE_TOTAL} noeuds | profils=${order.length}`);
 
 const recs = {};
 for (const id of order) {
@@ -947,7 +962,7 @@ const JALONS = [
 
 let md = `# Course au Grand Reset (et au-dela) — 10 profils de joueur
 
-> Genere par \`sim-10-profils.js\` — budget ${HOURS} h virtuelles/profil, pas ${TICK} s, plafond temps reel ${REAL_TIME_LIMIT_MS / 60000} min/profil.
+> Genere par \`sim-10-profils.js\` — budget ${HOURS} h virtuelles/profil, pas ${TICK} s, plafond temps reel ${MAXREAL_LABEL}/profil.
 > **Toutes les valeurs viennent des vraies formules du jeu** (\`src/game/**\`), pilotees par le moteur reel
 > (tick -> crise -> effondrement -> ruines -> dynastie -> Grand Reset -> Mythes). Aucune formule recopiee.
 > Effondrement FIDELE : on tient la Rupture pendant la croissance, on lache au moment voulu et la jauge

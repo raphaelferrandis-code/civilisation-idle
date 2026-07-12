@@ -2,25 +2,25 @@
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x1 1`] = `
 {
-  "food": Decimal(324.29423469434107),
+  "food": Decimal(324.294234694),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x25 1`] = `
 {
-  "food": Decimal(130380.06209513952),
+  "food": Decimal(130380.062095),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers x500 1`] = `
 {
-  "food": Decimal(1.0131326772266886e+41),
+  "food": Decimal(1.01313267723e+41),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > foragers xmax 1`] = `
 {
-  "food": Decimal(324.29423469434107),
+  "food": Decimal(324.294234694),
 }
 `;
 
@@ -32,13 +32,13 @@ exports[`golden-master du cœur économique > buildingBatchCost > markets x1 1`]
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x25 1`] = `
 {
-  "food": Decimal(57502456.58691768),
+  "food": Decimal(57502456.5869),
 }
 `;
 
 exports[`golden-master du cœur économique > buildingBatchCost > markets x500 1`] = `
 {
-  "food": Decimal(1.220260930101011e+47),
+  "food": Decimal(1.2202609301e+47),
 }
 `;
 
@@ -50,17 +50,17 @@ exports[`golden-master du cœur économique > buildingBatchCost > markets xmax 1
 
 exports[`golden-master du cœur économique > cityVitals 1`] = `
 {
-  "foodBonus": -0.11400000000000002,
+  "foodBonus": -0.114,
   "foodMult": 1,
-  "foodScore": 0.06666666666666667,
+  "foodScore": 0.0666666666667,
   "goldBonus": 0.22,
   "goldMult": 1.22,
-  "goldScore": 0.5714285714285714,
-  "infraMult": 1.0960666666666665,
+  "goldScore": 0.571428571429,
+  "infraMult": 1.09606666667,
   "instabilityRelief": 0.0052,
-  "knowledgeBonus": 0.08666666666666667,
-  "knowledgeMult": 1.0866666666666667,
-  "knowledgeScore": 0.26666666666666666,
+  "knowledgeBonus": 0.0866666666667,
+  "knowledgeMult": 1.08666666667,
+  "knowledgeScore": 0.266666666667,
   "populationMult": 0.886,
 }
 `;
@@ -73,34 +73,34 @@ exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `1`;
 
 exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 {
-  "complexity": 0.28581026086448175,
-  "demesure": 0.03321109193489609,
-  "dissent": 0.07523170032001948,
-  "inequality": 0.06923076923076923,
-  "mitigation": 0.3517250198958954,
-  "scarcity": 0.18333333333333335,
-  "structural": 0.08607950521693972,
-  "total": 0.38117164100454415,
+  "complexity": 0.285810260864,
+  "demesure": 0.0332110919349,
+  "dissent": 0.07523170032,
+  "inequality": 0.0692307692308,
+  "mitigation": 0.351725019896,
+  "scarcity": 0.183333333333,
+  "structural": 0.0860795052169,
+  "total": 0.381171641005,
 }
 `;
 
 exports[`golden-master du cœur économique > rates 1`] = `
 {
-  "food": Decimal(6096.880223942719),
-  "gold": Decimal(8990.429900488256),
-  "infrastructure": Decimal(1155.1735704940465),
-  "instability": 0.37597164100454417,
+  "food": Decimal(6096.88022394),
+  "gold": Decimal(8990.42990049),
+  "infrastructure": Decimal(1155.17357049),
+  "instability": 0.375971641005,
   "knowledge": Decimal(0),
-  "population": Decimal(811.9837544644295),
+  "population": Decimal(811.983754464),
 }
 `;
 
 exports[`golden-master du cœur économique > ruinGain (crise ouverte) 1`] = `Decimal(10)`;
 
-exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic au-delà du domaine float (1e310) — chemin Decimal 1`] = `Decimal(2.3587693467982502e+138)`;
+exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic au-delà du domaine float (1e310) — chemin Decimal 1`] = `Decimal(2.3587693468e+138)`;
 
 exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic early game (500) 1`] = `Decimal(6)`;
 
 exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic late game float (1e20) 1`] = `Decimal(74590841)`;
 
-exports[`golden-master du cœur économique > timeWearRate 1`] = `0.00001907290421367018`;
+exports[`golden-master du cœur économique > timeWearRate 1`] = `0.0000190729042137`;

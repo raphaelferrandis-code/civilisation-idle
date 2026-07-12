@@ -5,10 +5,29 @@ Jeu idle de civilisation, crises, ruines, héritages et mythes, porté sur React
 ## Commandes
 
 ```bash
-npm run dev
-npm run build
-npm run lint
+npm run dev        # serveur de dev Vite
+npm run build      # build de production (dist/)
+npm run lint       # ESLint
+npm test           # suite Vitest (vitest run)
+npm run preview    # prévisualise le build
 ```
+
+## Application desktop (Electron)
+
+```bash
+npm run electron   # lance l'app Electron sur le build courant (dist/)
+npm run dist-win   # build + packaging Windows (electron-builder)
+```
+
+Le process principal Electron est `main.cjs`. Il sert les fichiers via le protocole
+`app://` (indispensable au chargement des sprites pixel-art), pas `file://`.
+
+## Tests & CI
+
+- `npm test` exécute la suite Vitest (golden économique, parité Decimal, hydratation
+  save, Grand Reset, chronique, procédural…).
+- L'intégration continue (`.github/workflows/ci.yml`) rejoue lint + tests + build à
+  chaque push et pull request.
 
 ## Structure
 

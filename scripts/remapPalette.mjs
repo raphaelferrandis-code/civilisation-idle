@@ -2,11 +2,15 @@
 //   L'API pixflux/bitforge accepte un `color_image` (palette forcée) mais c'est un BIAIS,
 //   pas un verrou — et le MCP create_map_object ne l'expose même pas. Ce script applique
 //   donc le verrou DUR en post-traitement : chaque pixel est rabattu (plus proche voisin
-//   perceptuel) sur la palette UTILISABLE de l'époque du sprite, puis on plafonne à K teintes.
+//   en OKLab — distance perceptuelle, cf. oklab()) sur la palette UTILISABLE de l'époque
+//   du sprite, puis on plafonne à K teintes.
 //
 //   Lancer :
 //     node scripts/remapPalette.mjs <fichier.png> [--epoch <id>] [--max 22] [--inplace] [--out dir] [--dry]
 //     node scripts/remapPalette.mjs --dir public/pixelart/agents [--dry]   (lot, époque auto par tag)
+//              → le mode --dir saute _orig/, _archive/, splash/, palettes/ (assets peints / sources).
+//              ⚠ ui/ruins/tree-base.png (fresque peinte, ~1150 teintes) n'est PAS dans un dossier
+//                exclu : ne le cible pas explicitement, l'indexer le détruirait.
 //
 //   • --epoch  force l'époque (feu|bois|pierre|couronne|marbre|fonte|neon|noosphere|stellaire|demiurge).
 //              Sinon : déduite de spriteEpochTags (master-palette.json) d'après le nom de fichier.
@@ -17,6 +21,13 @@
 //   • --inplace écrase le fichier ; sinon écrit <nom>.remap.png à côté (ou dans --out).
 //   • --dry    ne fait que rapporter (aucune écriture).
 //   • --fringe seuil alpha sous lequel le pixel devient transparent (défaut 16) — tue le halo AA.
+//   • --binary-alpha  alpha binaire : ≥128 → opaque (255), <128 → transparent (0).
+//                Remplace le seuil --fringe (les sprites du jeu sont déjà à 0/255, donc no-op ;
+//                utile pour durcir un sprite encore anti-aliasé).
+//   • --declutter  APRÈS le remap : rabat chaque pixel ORPHELIN — aucun de ses 8 voisins
+//                opaques ne partage sa couleur — sur la couleur MAJORITAIRE de son voisinage
+//                (égalité tranchée en OKLab ; pixel isolé dans le vide = laissé tel quel).
+//                Une seule passe : les décisions sont lues sur un instantané, pas d'itération.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,12 +45,14 @@ const PAL = JSON.parse(fs.readFileSync(path.join(PUB, 'master-palette.json'), 'u
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);
 const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
-const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--') && !['--inplace', '--dry', '--no-accent'].includes(argv[i - 1])));
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--') && !['--inplace', '--dry', '--no-accent', '--declutter', '--binary-alpha'].includes(argv[i - 1])));
 const MAX = parseInt(opt('--max', '22'), 10);
 const FRINGE = parseInt(opt('--fringe', '16'), 10);
 const DRY = flag('--dry');
 const INPLACE = flag('--inplace');
 const NO_ACCENT = flag('--no-accent');
+const DECLUTTER = flag('--declutter');
+const BINARY = flag('--binary-alpha');
 const OUTDIR = opt('--out', null);
 const EPOCH_FORCE = opt('--epoch', null);
 // --extra "#hex,#hex" : accents SATURÉS réservés (or, pourpre...) ajoutés à la
@@ -77,18 +90,74 @@ function targetFor(epochId) {
   return { rgb: hexes.map(hexToRgb), protectedIdx };
 }
 
-// Distance perceptuelle « redmean » (bon compromis sans passer en Lab).
-function dist(r1, g1, b1, r2, g2, b2) {
-  const rm = (r1 + r2) / 2, dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-  return (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+// Distance perceptuelle en OKLab (Björn Ottosson). Bien plus fidèle que le
+// redmean/RGB : deux teintes « proches à l'œil » le sont aussi dans l'espace.
+// sRGB (0..255) -> linéaire (table 256) -> LMS -> cube root -> OKLab.
+const _lin = new Float64Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; _lin[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function oklab(r, g, b) {
+  const R = _lin[r], G = _lin[g], B = _lin[b];
+  const l = 0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B;
+  const m = 0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B;
+  const s = 0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B;
+  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+  return [
+    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+  ];
 }
-function nearest(target, r, g, b) {
+const labDist2 = (a, b) => { const dL = a[0] - b[0], da = a[1] - b[1], db = a[2] - b[2]; return dL * dL + da * da + db * db; };
+function nearestLab(targetLab, lab) {
   let bi = 0, bd = Infinity;
-  for (let i = 0; i < target.length; i++) {
-    const t = target[i], d = dist(r, g, b, t[0], t[1], t[2]);
-    if (d < bd) { bd = d; bi = i; }
-  }
+  for (let i = 0; i < targetLab.length; i++) { const d = labDist2(targetLab[i], lab); if (d < bd) { bd = d; bi = i; } }
   return bi;
+}
+
+// --declutter : rabat les pixels ORPHELINS (aucun voisin opaque de même couleur)
+// sur la couleur majoritaire du voisinage 8-connexe. UNE seule passe : on lit un
+// instantané (col) et on applique les réécritures après — aucune cascade.
+// aMin = seuil d'opacité (identique à celui utilisé pour le remap).
+function declutter(png, aMin) {
+  const { width: W, height: H, data } = png;
+  const N = W * H;
+  const col = new Int32Array(N); // rgb empaqueté, ou -1 si transparent
+  for (let p = 0, i = 0; p < N; p++, i += 4) {
+    col[p] = data[i + 3] >= aMin ? ((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]) : -1;
+  }
+  const writes = []; // p, rgb, p, rgb, ...
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const p = y * W + x, c = col[p];
+    if (c < 0) continue;
+    let shares = 0;
+    const freq = new Map();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const nc = col[ny * W + nx];
+      if (nc < 0) continue;            // ne compter que les voisins OPAQUES
+      if (nc === c) { shares++; break; } // pas orphelin : on arrête ce pixel
+      freq.set(nc, (freq.get(nc) || 0) + 1);
+    }
+    if (shares > 0 || freq.size === 0) continue; // a un jumeau, ou seul dans le vide → intact
+    // couleur majoritaire ; égalité tranchée par proximité OKLab à la couleur d'origine.
+    let bestN = -1;
+    const cand = [];
+    for (const [nc, n] of freq) {
+      if (n > bestN) { bestN = n; cand.length = 0; cand.push(nc); }
+      else if (n === bestN) cand.push(nc);
+    }
+    let rep = cand[0];
+    if (cand.length > 1) {
+      const clab = oklab((c >> 16) & 255, (c >> 8) & 255, c & 255);
+      let bd = Infinity;
+      for (const nc of cand) { const d = labDist2(oklab((nc >> 16) & 255, (nc >> 8) & 255, nc & 255), clab); if (d < bd) { bd = d; rep = nc; } }
+    }
+    writes.push(p, rep);
+  }
+  for (let k = 0; k < writes.length; k += 2) { const i = writes[k] * 4, rgb = writes[k + 1]; data[i] = (rgb >> 16) & 255; data[i + 1] = (rgb >> 8) & 255; data[i + 2] = rgb & 255; }
+  return writes.length / 2;
 }
 
 function countColors(data) {
@@ -100,16 +169,25 @@ function countColors(data) {
 function remapFile(file) {
   const epochId = epochFor(file);
   const { rgb: target, protectedIdx } = targetFor(epochId);
+  const targetLab = target.map((t) => oklab(t[0], t[1], t[2])); // pré-calcul OKLab de la cible
   const png = PNG.sync.read(fs.readFileSync(file));
   const { data } = png;
   const before = countColors(data);
+  const A_MIN = BINARY ? 128 : FRINGE; // seuil d'opacité effectif
 
   // 1) snap chaque pixel opaque sur la cible (index palette mémorisé).
+  //    Cache rgb→index par fichier : un sprite a peu de teintes uniques, l'OKLab
+  //    n'est donc calculé qu'une fois par couleur d'entrée.
   const idxOf = new Int32Array(data.length / 4).fill(-1);
   const usage = new Map();
+  const cache = new Map();
   for (let p = 0, i = 0; i < data.length; i += 4, p++) {
-    if (data[i + 3] < FRINGE) { data[i + 3] = 0; continue; } // halo AA → transparent
-    const bi = nearest(target, data[i], data[i + 1], data[i + 2]);
+    const a = data[i + 3];
+    if (a < A_MIN) { data[i + 3] = 0; continue; } // halo AA / sous-seuil → transparent
+    if (BINARY) data[i + 3] = 255;                // alpha binaire dur
+    const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+    let bi = cache.get(key);
+    if (bi === undefined) { bi = nearestLab(targetLab, oklab(data[i], data[i + 1], data[i + 2])); cache.set(key, bi); }
     idxOf[p] = bi;
     usage.set(bi, (usage.get(bi) || 0) + 1);
   }
@@ -128,9 +206,9 @@ function remapFile(file) {
     collapse = new Map();
     for (const [i] of usage) {
       if (keptSet.has(i)) { collapse.set(i, i); continue; }
-      const [r, g, b] = target[i];
+      const lab = targetLab[i];
       let bj = kept[0], bd = Infinity;
-      for (const j of kept) { const t = target[j], d = dist(r, g, b, t[0], t[1], t[2]); if (d < bd) { bd = d; bj = j; } }
+      for (const j of kept) { const d = labDist2(targetLab[j], lab); if (d < bd) { bd = d; bj = j; } }
       collapse.set(i, bj);
     }
   }
@@ -143,26 +221,37 @@ function remapFile(file) {
     const t = target[bi];
     data[i] = t[0]; data[i + 1] = t[1]; data[i + 2] = t[2];
   }
+
+  // 4) déparasitage optionnel (pixels orphelins) — après le remap complet.
+  const orphans = DECLUTTER ? declutter(png, A_MIN) : 0;
   const after = countColors(data);
 
   let outPath = file;
   if (!INPLACE) {
     const stem = stemOf(file);
-    outPath = OUTDIR ? path.join(OUTDIR, stem + '.png') : path.join(path.dirname(file), stem + '.remap.png');
+    // Avec --dir + --out : on RECOPIE l'arborescence sous --out (sinon collisions de noms
+    // sur tout l'arbre + impossible de recopier). Fichiers positionnels : à plat dans --out.
+    if (OUTDIR) outPath = dir ? path.join(OUTDIR, path.relative(dir, file)) : path.join(OUTDIR, stem + '.png');
+    else outPath = path.join(path.dirname(file), stem + '.remap.png');
   }
   if (!DRY) { fs.mkdirSync(path.dirname(outPath), { recursive: true }); fs.writeFileSync(outPath, PNG.sync.write(png)); }
-  console.log(`${(epochId || 'core').padEnd(10)} ${String(before).padStart(4)} → ${String(after).padStart(3)} teintes  ${DRY ? '[dry] ' : ''}${path.basename(file)}${INPLACE ? '' : DRY ? '' : ' → ' + path.basename(outPath)}`);
-  return { file, epochId, before, after };
+  const orphNote = DECLUTTER ? `· orph ${String(orphans).padStart(3)} ` : '';
+  console.log(`${(epochId || 'core').padEnd(10)} ${String(before).padStart(4)} → ${String(after).padStart(3)} teintes ${orphNote} ${DRY ? '[dry] ' : ''}${path.basename(file)}${INPLACE ? '' : DRY ? '' : ' → ' + path.basename(outPath)}`);
+  return { file, epochId, before, after, orphans };
 }
 
 /* ---- run ----------------------------------------------------------------- */
 const dir = opt('--dir', null);
-let files = [];
+let files;
 if (dir) {
   // Scan RÉCURSIF (les agents sont rangés en sous-dossiers : inhabitants/, buildings/, …).
+  // Dossiers TOUJOURS ignorés (sécurité, même liste que quantize.cjs) : sources et
+  // assets PEINTS non pixel-lockés — les indexer sur la palette les détruirait.
+  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes'];
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(d, e.name);
-    return e.isDirectory() ? walk(p) : (e.name.endsWith('.png') && !e.name.endsWith('.remap.png') ? [p] : []);
+    if (e.isDirectory()) return SKIP_DIRS.includes(e.name) ? [] : walk(p);
+    return e.name.endsWith('.png') && !e.name.endsWith('.remap.png') ? [p] : [];
   });
   files = walk(dir);
 }

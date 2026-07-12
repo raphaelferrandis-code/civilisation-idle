@@ -6,6 +6,7 @@ import { save } from './state.js';
 import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
+import { tr, localizeData } from './i18n.js';
 
 // Rythme de la gazette : une dépêche au plus toutes les 3 minutes. Le bandeau
 // (ChronicleTicker) ne l'affiche que pendant CHRONICLE_VISIBLE_MS, puis reste
@@ -29,25 +30,29 @@ export function getPeriod(eraIndex) {
   return 7;
 }
 
-const CATEGORY_LABELS = {
-  crise: "Crise",
-  tension: "Tension",
-  usure: "Usure",
-  nourriture: "Abondance",
-  or: "Proto-richesse",
-  savoir: "Savoir",
-  stage_start: "Fondation",
-  stage_6: "Développement",
-  stage_12: "Sédentarité",
-  pop_10k: "Démographie",
-  pop_100k: "Démographie",
-  pop_1m: "Démographie",
-  pop_100m: "Démographie",
-  pop_1b: "Démographie",
-  pop_100b: "Démographie",
-  paix: "Paix",
-  bonus_libre: "Chronique"
-};
+// Badges de catégorie affichés à CHAQUE dépêche (ChronicleTicker). localizeData
+// les aplatit à la langue courante au chargement → les consommateurs lisent des
+// strings. (démographie factorisée en constante pour éviter 6 doublons.)
+const DEMO = { fr: "Démographie", en: "Demographics" };
+const CATEGORY_LABELS = localizeData({
+  crise: { fr: "Crise", en: "Crisis" },
+  tension: { fr: "Tension", en: "Tension" },
+  usure: { fr: "Usure", en: "Wear" },
+  nourriture: { fr: "Abondance", en: "Abundance" },
+  or: { fr: "Proto-richesse", en: "Proto-wealth" },
+  savoir: { fr: "Savoir", en: "Knowledge" },
+  stage_start: { fr: "Fondation", en: "Foundation" },
+  stage_6: { fr: "Développement", en: "Development" },
+  stage_12: { fr: "Sédentarité", en: "Settlement" },
+  pop_10k: { ...DEMO },
+  pop_100k: { ...DEMO },
+  pop_1m: { ...DEMO },
+  pop_100m: { ...DEMO },
+  pop_1b: { ...DEMO },
+  pop_100b: { ...DEMO },
+  paix: { fr: "Paix", en: "Peace" },
+  bonus_libre: { fr: "Chronique", en: "Chronicle" }
+});
 
 const CATEGORY_PRIORITIES = {
   stage_start: 1,
@@ -188,7 +193,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
 
   // Build entry
   const year = cycleYear();
-  const era = eras[currentEraIndex()]?.name || "Campement";
+  const era = eras[currentEraIndex()]?.name || tr({ fr: "Campement", en: "Camp" });
 
   const newEntry = {
     id: isRerun ? `${chosenArticle.id}~r${Date.now()}` : chosenArticle.id,
@@ -197,8 +202,8 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     text: chosenArticle.text,
     author: chosenArticle.author,
     age: era,
-    date: `An ${year}`,
-    category: CATEGORY_LABELS[chosenArticle.conditionType] || "Chronique",
+    date: tr({ fr: `An ${year}`, en: `Year ${year}` }),
+    category: CATEGORY_LABELS[chosenArticle.conditionType] || tr({ fr: "Chronique", en: "Chronicle" }),
     isNew: true,
     isRerun,
     publishedAt: Date.now()

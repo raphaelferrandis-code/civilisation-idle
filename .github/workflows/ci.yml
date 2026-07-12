@@ -1,0 +1,24 @@
+name: CI
+
+# Portes de qualité automatiques (Phase 0 de l'audit 2026-07) : lint + tests +
+# build à chaque push sur main et à chaque pull request. Transforme les 247
+# tests et le lint en filet permanent — jusqu'ici ils n'étaient qu'un `npm`
+# manuel. Node 20 = LTS aligné sur Vite 8 / Vitest 4.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

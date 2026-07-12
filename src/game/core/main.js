@@ -354,7 +354,6 @@ export function getNotifEnabled() {
 
 export function setNotifEnabled(enabled) {
   optNotif = enabled;
-  state.notifEnabled = enabled;
   try {
     localStorage.setItem("civ-opt-notif", String(optNotif));
   } catch { /* Option persistence may be unavailable. */ }
@@ -414,7 +413,6 @@ export function initAudio() {
     const savedNotif = localStorage.getItem("civ-opt-notif");
     if (savedNotif !== null) {
       optNotif = savedNotif !== "false";
-      state.notifEnabled = optNotif;
     }
 
     const savedMusic = localStorage.getItem("civ-opt-music");

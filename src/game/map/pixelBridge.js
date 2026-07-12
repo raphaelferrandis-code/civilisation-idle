@@ -146,7 +146,7 @@ function drawSpan(CM, sp, era) {
 
 // Entrée principale : dessine TOUS les spans de pont en pixel-art. Renvoie false
 // (asset pas prêt / pas de span / flag off) → l'appelant retombe sur le procédural.
-export function drawPixelBridges(CM, now) {
+export function drawPixelBridges(CM) {
   if (!pixelBridgeFlag.on) return false;
   const L = CM.layout; if (!L) return false;
   const spans = CM.bridgeSpans; if (!spans || !spans.length) return false;

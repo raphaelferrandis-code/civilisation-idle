@@ -121,7 +121,7 @@ export default function Topbar() {
   ];
 
   return (
-    <header className="topbar" aria-label="Ressources de la cité">
+    <header className="topbar" aria-label={tr({ fr: "Ressources de la cité", en: "City resources" })}>
       <div className="topbar-resources">
         {cards.map((c) => (
           <div

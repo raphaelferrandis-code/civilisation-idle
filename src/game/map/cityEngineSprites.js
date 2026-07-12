@@ -202,6 +202,9 @@ function ensureProps() {
   }
 }
 const propReady = (k) => { ensureProps(); const im = propImg[k]; return !!(im && im.complete && im.naturalWidth > 0); };
+// Image BRUTE d'un prop (chantier iso : dessin sous transform canvas — roue de
+// moulin projetée dans le plan du mur — impossible via blitProp/blitPropRot).
+const propImage = (k) => { ensureProps(); return propImg[k] || null; };
 // Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const im = propImg[p]; if (!im) return;
@@ -306,7 +309,34 @@ function propPivot(p) {
     }
     const piv = n ? { x: (sx / n) / w, y: (sy / n) / h } : { x: 0.5, y: 0.5 };
     propPivotCache[p] = piv; return piv;
-  } catch (e) { propPivotCache[p] = { x: 0.5, y: 0.5 }; return propPivotCache[p]; }
+  } catch { propPivotCache[p] = { x: 0.5, y: 0.5 }; return propPivotCache[p]; }
+}
+
+// BBOX du contenu OPAQUE d'un prop (fractions 0..1 du PNG), calculée une fois et
+// cachée. Les props PixelLab ont souvent un gros vide transparent sous les pieds
+// (~25 % : vu au chantier iso, moulin « flottant » 90 px au-dessus de sa boîte) —
+// tout ancrage au sol doit viser le BAS DU CONTENU, pas le bas du PNG.
+const propBBoxCache = {};
+function propBBox(p) {
+  if (propBBoxCache[p]) return propBBoxCache[p];
+  const im = propImg[p];
+  if (!im || !(im.naturalWidth > 0) || typeof document === 'undefined') return null;
+  try {
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 40) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+    const bb = x1 < 0 ? { x0f: 0, y0f: 0, wf: 1, hf: 1, cw: w, ch: h }
+      : { x0f: x0 / w, y0f: y0 / h, wf: (x1 - x0 + 1) / w, hf: (y1 - y0 + 1) / h, cw: x1 - x0 + 1, ch: y1 - y0 + 1 };
+    propBBoxCache[p] = bb; return bb;
+  } catch { propBBoxCache[p] = { x0f: 0, y0f: 0, wf: 1, hf: 1, cw: 1, ch: 1 }; return propBBoxCache[p]; }
 }
 
 // Comme blitProp mais TOURNE le sprite d'un angle (rad) autour de son CENTROÏDE opaque,
@@ -2119,7 +2149,6 @@ function drawCityEngineSprite(context) {
     // tout est déterministe en now/tier (pas de Math.random dans le rendu).
     const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
-    const flap = Math.sin(now / 420) * 0.018; // bannière/enseigne au vent
     if (stage === 0) {
       // ── LE LODGE D'ARTISANS (clos) ──
       // Pixel-art = prop PixelLab (hall clos qui grandit) + animation par-dessus :
@@ -3844,4 +3873,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim };
+export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim };

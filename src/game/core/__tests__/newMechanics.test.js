@@ -12,6 +12,7 @@ import { Decimal, D } from "../num.js";
 import { pressureBreakdown, timeWearRate } from "../mechanics.js";
 import { tick } from "../actions/tick.js";
 import { CRISIS_EVENTS } from "../../data/world.js";
+import { BOONS } from "../../data/boons.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 import {
   DEMESURE_SOFT_CAP,
@@ -155,7 +156,11 @@ describe("B1 — Jalons de population", () => {
 describe("B2 — Aubaines", () => {
   it("se déclenche à l'échéance, crédite la ressource et reprogramme l'horloge", () => {
     state.nextBoonAt = FIXED_NOW - 1; // échéance dépassée → déclenche au prochain tick
-    const rnd = vi.spyOn(Math, "random").mockReturnValue(0); // BOONS[0] = caravane (or)
+    // Cible explicitement l'aubaine « caravane » (or) par son id, indépendamment
+    // de l'ordre de BOONS : tick tire BOONS[floor(random·len)], donc random dans
+    // [i/len, (i+1)/len) sélectionne l'index i.
+    const caravanIdx = BOONS.findIndex((b) => b.id === "caravan");
+    const rnd = vi.spyOn(Math, "random").mockReturnValue((caravanIdx + 0.5) / BOONS.length);
     const goldBefore = D(state.gold);
     tick(0.001); // production négligeable devant l'aubaine (≈110 s de revenu)
     expect(D(state.gold).gt(goldBefore)).toBe(true);

@@ -221,6 +221,7 @@ export default function PrestigeView() {
                               <button
                                 key={i}
                                 disabled={!terminalCrisisReady(def.type, i)}
+                                title={!terminalCrisisReady(def.type, i) ? tr({ fr: "Préparation non disponible pour l'instant", en: "Preparation not available yet" }) : undefined}
                                 onClick={() => runTerminalCrisisAction(def.type, i)}
                               >
                                 <span className="prep-tier-head">
@@ -264,6 +265,7 @@ export default function PrestigeView() {
                     className="collapse-btn-primary"
                     id="collapseBtn"
                     disabled={!canCollapse}
+                    title={!canCollapse ? tr({ fr: "Effondrement pas encore possible", en: "Collapse not yet possible" }) : undefined}
                     onClick={() => collapse("manual")}
                   >
                     {tr({ fr: "Effondrer la Cité", en: "Collapse the City" })}

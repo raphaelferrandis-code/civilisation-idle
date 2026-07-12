@@ -305,6 +305,15 @@
 }
 .rtp-stage .rt-locked .rt-emblem { filter: grayscale(0.85) brightness(0.6); }
 
+/* « Palier ouvert mais pas assez de Ruines » : anneau AMBRE + emblème réchauffé
+   (≠ gris verrouillé) — dit « à portée, il ne manque que le coût ». Non cliquable. */
+.rtp-stage .rt-cost .rt-frame {
+  border-color: color-mix(in srgb, var(--state-soon) 60%, rgba(0, 0, 0, 0.5));
+  background: radial-gradient(circle at 42% 34%, #1a140a, #070503 78%);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7);
+}
+.rtp-stage .rt-cost .rt-emblem { filter: grayscale(0.25) brightness(0.82) sepia(0.3); }
+
 /* Exclu (jumeau adopté) + surlignage du conflit au survol. */
 .rtp-stage .rt-blocked .rt-frame { border-color: rgba(200, 90, 80, 0.75); }
 .rtp-stage .rt-blocked .rt-emblem { filter: grayscale(0.5) brightness(0.7); }
@@ -599,6 +608,18 @@
 .rt-locked .rt-icon { color: rgba(222, 218, 206, 0.5); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
 .rt-locked .rt-emblem { opacity: 0.55; filter: grayscale(0.35) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
 
+/* « Trop cher (de peu) » : plus visible que le gris verrouillé (opacity ↑) +
+   cadre/emblème teintés ambre (var(--state-soon)). Reste non cliquable. */
+.rt-cost { opacity: 0.66; }
+.rt-cost .rt-frame {
+  background: linear-gradient(145deg, #7a6a45, #3a3222);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+  animation: none;
+}
+.rt-cost .rt-frame::before { background: radial-gradient(circle at 38% 30%, #4a3c1e, #191509 74%); }
+.rt-cost .rt-icon { color: color-mix(in srgb, var(--state-soon) 80%, #fff); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
+.rt-cost .rt-emblem { opacity: 0.75; filter: grayscale(0.15) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+
 /* Achetable = l'élément le PLUS saillant : couleur vive + anneau plein + halo
    large qui respire. */
 .rt-available { cursor: pointer; }
@@ -728,7 +749,7 @@
 .rt-tip-status { font-family: var(--font-body); font-size: 0.72rem; font-weight: 700; line-height: 1.25; }
 .rt-status--available,
 .rt-status--owned { color: var(--green, #36b37e); }
-.rt-status--cost { color: #e0b057; }
+.rt-status--cost { color: var(--state-soon); }
 .rt-status--locked { color: var(--text-mid); }
 .rt-status--blocked { color: var(--red, #ef4444); }
 

@@ -21,11 +21,29 @@ import {
 import { buildings } from "../../data/buildings.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-// Les valeurs migrées en Decimal se snapshotent comme `Decimal(<valeur>)` :
-// sous 2^53 les chiffres doivent rester identiques à l'ancien snapshot number.
+// Golden robuste au bruit flottant. `geomSum` (coûts) et les jauges float
+// calculent en `double` : leur dernier ulp varie selon la plateforme / la lib
+// math (ex. foragers x25 : …952 vs …955) — un snapshot pleine précision est
+// donc déterministement fragile. On borne à 12 chiffres significatifs avant
+// sérialisation, aussi bien pour les Decimal (→ `Decimal(<valeur>)`) que pour
+// les number natifs (cityVitals/pressureBreakdown/timeWearRate). 12 s.f. tuent
+// le bruit ulp (~1e-15) sans masquer une vraie dérive de formule (REL_TOL 1e-9).
+// Régénérer les snapshots (`npm run test -- -u`) UNIQUEMENT après un changement
+// d'équilibrage VOULU.
+const STABLE_SIG = 12;
+const stableNum = (n) => String(Number(n.toPrecision(STABLE_SIG)));
 expect.addSnapshotSerializer({
   test: (value) => value instanceof Decimal,
-  serialize: (value) => `Decimal(${value.toString()})`
+  serialize: (value) => {
+    const n = value.toNumber();
+    // Au-delà du domaine double (≥ ~1.8e308) : garder la forme Decimal brute.
+    return `Decimal(${Number.isFinite(n) ? stableNum(n) : value.toString()})`;
+  }
+});
+expect.addSnapshotSerializer({
+  test: (value) =>
+    typeof value === "number" && Number.isFinite(value) && !Number.isInteger(value),
+  serialize: (value) => stableNum(value)
 });
 
 const buildingById = (id) => {

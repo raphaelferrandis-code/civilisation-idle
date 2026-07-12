@@ -1,4 +1,5 @@
 import { useGameState } from '../../hooks/useGameState.js';
+import { grandResetProductionMult } from '../../game/core/balance.js';
 import {
   legitimacyGain,
   institutionMultiplier,
@@ -79,6 +80,7 @@ export default function HeritageView() {
             id="dynastyBtn"
             onClick={foundDynasty}
             disabled={legitGain <= 0}
+            title={legitGain <= 0 ? tr({ fr: "Pas assez de légitimité pour fonder une dynastie", en: "Not enough legitimacy to found a dynasty" }) : undefined}
           >
             {tr({ fr: "Fonder", en: "Found" })}
           </button>
@@ -152,7 +154,7 @@ export default function HeritageView() {
             const canBuy = canBuyUpgrade(upgrade);
 
             return (
-              <article key={upgrade.id} className={`upgrade ${isOwned ? "bought" : ""}`}>
+              <article key={upgrade.id} className={`upgrade ${isOwned ? "bought" : canBuy ? "is-affordable" : "is-locked-cost"}`}>
                 <div>
                   <h3>{upgrade.name}</h3>
                   <p>{upgrade.desc}</p>
@@ -165,6 +167,9 @@ export default function HeritageView() {
                 </div>
                 <button
                   disabled={isOwned || !canBuy}
+                  title={isOwned
+                    ? tr({ fr: "Déjà acquis", en: "Already owned" })
+                    : !canBuy ? tr({ fr: "Conditions d'achat non remplies", en: "Purchase requirements not met" }) : undefined}
                   onClick={() => buyUpgrade(upgrade.id)}
                 >
                   {isOwned ? tr({ fr: "Actif", en: "Active" }) : tr({ fr: "Acheter", en: "Buy" })}
@@ -252,6 +257,10 @@ export default function HeritageView() {
             id="grandResetBtn"
             className="grand-reset-btn"
             disabled={!isGrandResetUnlocked || grandResetCapped || grandResetBlocked}
+            title={grandResetCapped
+              ? tr({ fr: "Nombre maximum de Grands Resets atteint", en: "Maximum Grand Resets reached" })
+              : !isGrandResetUnlocked ? tr({ fr: "Grand Reset pas encore débloqué", en: "Grand Reset not yet unlocked" })
+              : grandResetBlocked ? tr({ fr: "Conditions du Grand Reset non remplies", en: "Grand Reset requirements not met" }) : undefined}
             onClick={performGrandReset}
           >
             {grandResetCapped ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Reinitialiser", en: "Reset" })}
@@ -270,11 +279,11 @@ export default function HeritageView() {
           </div>
           <div>
             <span>{tr({ fr: "Bonus actuel", en: "Current bonus" })}</span>
-            <strong>x{Math.pow(2, grandResetCount).toFixed(0)} {tr({ fr: "prod & ruines", en: "prod & ruins" })}{ragnarokHeritage && grandResetCount >= 11 ? tr({ fr: " | x4 Ruines extra", en: " | x4 Ruins extra" }) : ""}</strong>
+            <strong>x{grandResetProductionMult(grandResetCount).toFixed(0)} {tr({ fr: "prod & ruines", en: "prod & ruins" })}{ragnarokHeritage && grandResetCount >= 11 ? tr({ fr: " | x4 Ruines extra", en: " | x4 Ruins extra" }) : ""}</strong>
           </div>
           <div>
             <span>{tr({ fr: "Bonus après", en: "Bonus after" })}</span>
-            <strong>{grandResetCapped ? tr({ fr: "Maximum", en: "Maximum" }) : nextResetIsRagnarok ? tr({ fr: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines | x4 Ruines extra`, en: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruins | x4 Ruins extra` }) : tr({ fr: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruines`, en: `x${Math.pow(2, nextGrandReset).toFixed(0)} prod & ruins` })}</strong>
+            <strong>{grandResetCapped ? tr({ fr: "Maximum", en: "Maximum" }) : nextResetIsRagnarok ? tr({ fr: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruines | x4 Ruines extra`, en: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruins | x4 Ruins extra` }) : tr({ fr: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruines`, en: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruins` })}</strong>
           </div>
           <div>
             <span>{tr({ fr: "Requis", en: "Required" })}</span>

@@ -484,18 +484,18 @@ export default function RuinsTreePixel() {
       </div>
 
       {/* Titre en surimpression (plus de panneau ni de cadre autour de la vue). */}
-      <div className="rtp-title" aria-hidden="true">Mémoire des Ruines</div>
+      <div className="rtp-title" aria-hidden="true">{tr({ fr: "Mémoire des Ruines", en: "Memory of the Ruins" })}</div>
 
       <div className="rt-zoom-controls" onPointerDown={(e) => e.stopPropagation()}>
-        <button type="button" className="rt-zoom-btn" aria-label="Zoom avant"
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom avant", en: "Zoom in" })}
           onClick={() => zoomAt(1.4, view.w / 2, view.h / 2)}>
           <i className="fa-solid fa-plus" aria-hidden="true" />
         </button>
-        <button type="button" className="rt-zoom-btn" aria-label="Zoom arrière"
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom arrière", en: "Zoom out" })}
           onClick={() => zoomAt(1 / 1.4, view.w / 2, view.h / 2)}>
           <i className="fa-solid fa-minus" aria-hidden="true" />
         </button>
-        <button type="button" className="rt-zoom-btn" aria-label="Recentrer la vue" onClick={resetCam}>
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Recentrer la vue", en: "Recenter view" })} onClick={resetCam}>
           <i className="fa-solid fa-expand" aria-hidden="true" />
         </button>
       </div>

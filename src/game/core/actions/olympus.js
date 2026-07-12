@@ -6,13 +6,11 @@ import { fmt } from "../utils.js";
 import { D } from "../num.js";
 import { ruinEffectSum } from "../mechanics/shared.js";
 import {
-  OLYMPUS_ABYSS_PROD_MAX,
   OLYMPUS_BUREAUCRACY_KNOWLEDGE,
   OLYMPUS_COMPLETION_SCORE,
   OLYMPUS_HIGH_RUPTURE,
   OLYMPUS_IDLE_THRESHOLD_MS,
   OLYMPUS_MIN_DOMINANT_SCORE,
-  OLYMPUS_PROFILES,
   OLYMPUS_QUICK_COLLAPSE_MS,
   OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR,
   defaultOlympusState,
@@ -105,24 +103,12 @@ export function olympusRuinBonus(gain, reason) {
   return D(gain).add(bonus);
 }
 
-export function olympusAbyssProductionMultiplier() {
-  const o = olympus();
-  if (o.unlockedProfile !== "abyss") return 1;
-  const rupture = Math.max(0, state.instability || 0);
-  if (rupture < OLYMPUS_HIGH_RUPTURE) return 1;
-  const pressure = (rupture - OLYMPUS_HIGH_RUPTURE) / Math.max(0.01, 1 - OLYMPUS_HIGH_RUPTURE);
-  const amp = cultAmpMult();
-  return 1 + Math.min((OLYMPUS_ABYSS_PROD_MAX - 1) * amp, pressure * 0.35 * amp);
-}
+// olympusAbyssProductionMultiplier() a migré vers mechanics/production/olympusProd.js
+// (audit G‑18 : un multiplicateur de production n'a rien à faire côté actions).
 
 function applyOlympusSleepHeritage(dt) {
   const o = olympus();
   if (o.unlockedProfile !== "sleep") return;
   const gain = OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR * (dt / 3600) * cultAmpMult();
   state.knowledge = D(state.knowledge).add(gain);
-}
-
-export function olympusUnlockedProfile() {
-  const o = olympus();
-  return o.unlockedProfile ? OLYMPUS_PROFILES[o.unlockedProfile] : null;
 }

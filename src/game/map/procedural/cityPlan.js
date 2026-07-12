@@ -18,7 +18,6 @@
 import { rngFrom, seededWeightedPick } from "./seedManager.js";
 
 // Kinds de quartier : pondérés par la personnalité de la ville.
-const ANCHOR_KINDS = ["habitat", "marchand", "religieux", "militaire", "agricole", "savant", "prestige"];
 
 function anchorKindWeights(personality) {
   const bias = personality.buildingBias || {};
@@ -206,5 +205,3 @@ export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy,
     }
   };
 }
-
-export { ANCHOR_KINDS };

@@ -1,4 +1,5 @@
 import { useGameState } from '../../hooks/useGameState.js';
+import { COLLAPSE_PREP_MAX } from '../../game/core/balance.js';
 import {
   currentEraIndex,
   ruinGain,
@@ -132,7 +133,7 @@ function CivilizationReview() {
         />
         <StatTile
           label={tr({ fr: "Héritage préparé", en: "Heritage prepared" })}
-          value={`+${fmt(Math.min(2.4, collapsePreparation || 0) * 100)}%`}
+          value={`+${fmt(Math.min(COLLAPSE_PREP_MAX, collapsePreparation || 0) * 100)}%`}
           hint={tr({ fr: "Bonus de ruines accumulé par les préparations de ce cycle.", en: "Ruin bonus accumulated through this cycle's preparations." })}
         />
         <StatTile label={tr({ fr: "Qualité d'héritage", en: "Heritage quality" })} value={heritageQuality()} />

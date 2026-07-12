@@ -118,6 +118,17 @@ function resolveUnit(v) {
   return v[lang] ?? v[DEFAULT_LANG] ?? v.en ?? "";
 }
 
+// Diagnostic de migration : unités { fr } rencontrées SANS leur en (→ repli FR
+// silencieux en mode EN). Alimenté par localizeData au chargement des données ;
+// une porte de test (i18n.coverage.test.js) asserte qu'il reste vide. Coût nul en
+// prod (le parcours a déjà lieu ; l'array ne retient que les oublis, normalement 0).
+export const i18nMissingEn = [];
+
+function flattenUnit(v) {
+  if (typeof v.en !== "string") i18nMissingEn.push(v.fr);
+  return resolveUnit(v);
+}
+
 // Parcourt et résout EN PLACE. Renvoie la même référence (commodité pour
 // `export const x = localizeData([...])`). Idempotent et protégé contre les
 // cycles via `seen`.
@@ -130,7 +141,7 @@ export function localizeData(root, seen = new Set()) {
   if (Array.isArray(root)) {
     for (let i = 0; i < root.length; i++) {
       const v = root[i];
-      if (isTransUnit(v)) root[i] = resolveUnit(v);
+      if (isTransUnit(v)) root[i] = flattenUnit(v);
       else localizeData(v, seen);
     }
     return root;
@@ -138,7 +149,7 @@ export function localizeData(root, seen = new Set()) {
 
   for (const key of Object.keys(root)) {
     const v = root[key];
-    if (isTransUnit(v)) root[key] = resolveUnit(v);
+    if (isTransUnit(v)) root[key] = flattenUnit(v);
     else localizeData(v, seen); // fonctions/primitives renvoyées telles quelles
   }
   return root;

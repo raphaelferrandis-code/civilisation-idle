@@ -30,15 +30,29 @@ function createWindow() {
   });
 
   win.loadURL("app://localhost/");
+
+  // Durcissement (audit G-42) : le jeu est mono-page et local → on refuse toute
+  // fenêtre externe (window.open) et toute navigation hors du protocole app://.
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("app://")) event.preventDefault();
+  });
 }
 
 app.whenReady().then(() => {
+  const distRoot = path.join(__dirname, "dist");
   // app://localhost/<chemin>  ->  dist/<chemin>  (index.html par défaut).
   protocol.handle("app", (request) => {
     const url = new URL(request.url);
     let pathname = decodeURIComponent(url.pathname);
     if (pathname === "/" || pathname === "") pathname = "/index.html";
-    const filePath = path.join(__dirname, "dist", pathname);
+    // Anti-traversal (audit G-42) : les « ../ » percent-encodés (%2e%2e) survivent
+    // à la normalisation d'URL puis reviennent via decodeURIComponent → path.resolve
+    // pourrait sortir de dist/. On refuse tout chemin résolu hors de dist/.
+    const filePath = path.resolve(distRoot, "." + pathname);
+    if (filePath !== distRoot && !filePath.startsWith(distRoot + path.sep)) {
+      return new Response("Not found", { status: 404 });
+    }
     return net.fetch(pathToFileURL(filePath).toString());
   });
 

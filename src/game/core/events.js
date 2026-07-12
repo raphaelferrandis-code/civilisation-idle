@@ -31,6 +31,7 @@ import {
 } from '../data/epitaphs.js';
 import { fmt } from './utils.js';
 import { D } from './num.js';
+import { tr } from './i18n.js';
 
 export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false, footnote = "" }) {
   return requestChoiceDialog({ title, body, options, mourning, variant, preventClose, footnote });
@@ -50,15 +51,27 @@ export function generateEpitaph() {
   const era = eras[currentEraIndex()].name;
   const cause = collapseCause();
   if (cause === "time") {
-    return "Le temps a effacé ses fondations. Elle s'éteignit doucement, oubliée par l'histoire.";
+    return tr({
+      fr: "Le temps a effacé ses fondations. Elle s'éteignit doucement, oubliée par l'histoire.",
+      en: "Time erased its foundations. It faded quietly, forgotten by history."
+    });
   }
   if (cause === "famine") {
-    return `Ici s'arrête l'Âge ${era}. Détruite par ses propres famines, elle ne laissa que des poteries brisées.`;
+    return tr({
+      fr: `Ici s'arrête l'Âge ${era}. Détruite par ses propres famines, elle ne laissa que des poteries brisées.`,
+      en: `Here ends the Age of ${era}. Destroyed by its own famines, it left only broken pottery.`
+    });
   }
   if (cause === "avarice") {
-    return `Ici s'arrête l'Âge ${era}. Détruite par l'avarice de ses élites, son opulence fut ensevelie sous les sables.`;
+    return tr({
+      fr: `Ici s'arrête l'Âge ${era}. Détruite par l'avarice de ses élites, son opulence fut ensevelie sous les sables.`,
+      en: `Here ends the Age of ${era}. Destroyed by the avarice of its elites, its opulence was buried beneath the sands.`
+    });
   }
-  return `Ici s'arrête l'Âge ${era}. Trop vaste pour se gouverner, elle confondit sa grandeur avec une promesse d'éternité.`;
+  return tr({
+    fr: `Ici s'arrête l'Âge ${era}. Trop vaste pour se gouverner, elle confondit sa grandeur avec une promesse d'éternité.`,
+    en: `Here ends the Age of ${era}. Too vast to govern itself, it mistook its greatness for a promise of eternity.`
+  });
 }
 
 // INVARIANT DE SAUVEGARDE (revue 0.4 §1.3) — NE PAS CASSER : aucune mutation d'état
@@ -88,12 +101,12 @@ export async function runCollapseSequence(gain, reason) {
     const favored = legacy.favoredCause === cause;
     return {
       label: `${legacy.icon} ${legacy.label}`,
-      headline: `+${fmt(ruinGain)} ruines`,
+      headline: tr({ fr: `+${fmt(ruinGain)} ruines`, en: `+${fmt(ruinGain)} ruins` }),
       delta: deltaPct
-        ? { label: `${deltaPct > 0 ? "+" : "−"}${Math.abs(deltaPct)}% de ruines`, kind: deltaPct > 0 ? "gain" : "cost" }
+        ? { label: tr({ fr: `${deltaPct > 0 ? "+" : "−"}${Math.abs(deltaPct)}% de ruines`, en: `${deltaPct > 0 ? "+" : "−"}${Math.abs(deltaPct)}% ruins` }), kind: deltaPct > 0 ? "gain" : "cost" }
         : null,
       effects: epitaphLegacyChips(legacy, cause),
-      badge: favored ? `⚡ Affinité : ${FAVORED_CAUSE_LABELS[cause] || cause}` : null,
+      badge: favored ? tr({ fr: `⚡ Affinité : ${FAVORED_CAUSE_LABELS[cause] || cause}`, en: `⚡ Affinity: ${FAVORED_CAUSE_LABELS[cause] || cause}` }) : null,
       highlight: favored,
       detail: legacy.tagline,
       ruinGain,
@@ -102,9 +115,15 @@ export async function runCollapseSequence(gain, reason) {
   });
 
   const choice = await openChoiceDialog({
-    title: `Chute de ${fallenDynasty}`,
-    body: `${epitaph}\n\nLes survivants ne choisissent plus seulement combien sauver, mais ce que la prochaine civilisation devra retenir.`,
-    footnote: `Le legs gravé agit pendant les ${legacyMinutes} premières minutes du prochain cycle. L'affinité avec la cause de la chute renforce le legs correspondant.`,
+    title: tr({ fr: `Chute de ${fallenDynasty}`, en: `Fall of ${fallenDynasty}` }),
+    body: tr({
+      fr: `${epitaph}\n\nLes survivants ne choisissent plus seulement combien sauver, mais ce que la prochaine civilisation devra retenir.`,
+      en: `${epitaph}\n\nThe survivors no longer choose only how much to save, but what the next civilization must remember.`
+    }),
+    footnote: tr({
+      fr: `Le legs gravé agit pendant les ${legacyMinutes} premières minutes du prochain cycle. L'affinité avec la cause de la chute renforce le legs correspondant.`,
+      en: `The engraved legacy acts during the first ${legacyMinutes} minutes of the next cycle. Affinity with the cause of the fall strengthens the matching legacy.`
+    }),
     mourning: true,
     preventClose: true,
     options

@@ -196,6 +196,23 @@ function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, s
 // PixelLab (pilote : greekman, cf. scripts/fetchAgentsIso.mjs) ; tant qu'une
 // bande manque (onerror), l'appelant retombe sur la bande cardinale.
 const ISO_DIAG = ['southeast', 'northwest', 'southwest', 'northeast']; // index = dir monde 0..3
+// Chargeur d'image avec RE-ESSAI : un asset généré PENDANT que le jeu tourne
+// (batch PixelLab) répondait 404 une fois et restait mémorisé absent → repli
+// cardinal permanent jusqu'au F5 (vu par Raph sur les voitures). 3 re-essais
+// espacés (8/16/24 s) avec cache-buster ; au-delà, l'asset est réputé absent.
+function loadWithRetry(src, onOk, onFail) {
+  const im = new Image();
+  let tries = 0;
+  im.onload = () => onOk(im);
+  im.onerror = () => {
+    tries += 1;
+    if (tries <= 3) setTimeout(() => { im.src = src + '?r=' + tries; }, tries * 8000);
+    else if (onFail) onFail();
+  };
+  im.src = src;
+  return im;
+}
+
 const agentDiagChars = {};
 function ensureAgentDiag(name) {
   let c = agentDiagChars[name];
@@ -203,30 +220,67 @@ function ensureAgentDiag(name) {
   c = { img: {}, ready: 0, failed: 0 };
   agentDiagChars[name] = c;
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
-    const im = new Image();
-    im.onload = () => { c.ready += 1; };
-    im.onerror = () => { c.failed += 1; };
-    im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png';
-    c.img[d] = im;
+    c.img[d] = loadWithRetry(
+      '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png',
+      () => { c.ready += 1; },
+      () => { c.failed += 1; },
+    );
   }
   return c;
 }
 // Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
-function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1) {
+// ⚠ Taille de frame DÉDUITE de l'image (frames carrées : fw = hauteur de bande) —
+// les personnages v3 sortent en 92×92, pas au 68 des bandes standard.
+// `distPx` (odomètre p.walkDist, px monde) : l'animation avance PAR DISTANCE parcourue
+// (un pas ≈ __strideLen px monde par frame, défaut 2.2) → les pieds accrochent le sol,
+// fini le patinage (retour Raph). Repli cadence temporelle si absent.
+function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
   const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
   const c = ensureAgentDiag(spec.name);
   if (c.ready < ISO_DIAG.length) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
   const img = c.img[ISO_DIAG[d]];
+  const fh = img.naturalHeight || AGENT_FH;
+  const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
   const drawH = CM.TILE * z * spec.scale * AGENT_SCALE * scaleMul, drawW = drawH;
-  const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % AGENT_NF) : 0;
+  let frame = 0;
+  if (walking) {
+    if (distPx != null) {
+      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.2;
+      frame = Math.floor(distPx / Math.max(0.5, stride) + (phase || 0) * nf) % nf;
+    } else {
+      frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
+    }
+  }
   const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
+  ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;
   return true;
 }
+
+// ── Vues DIAGONALES des véhicules (chantier iso) ─────────────────────────────
+// veh-{type}-{southeast|northwest|southwest|northeast}.png (1 frame, rotations
+// d'objets 8-directions PixelLab). Même contrat que les habitants : en iso la
+// dir monde se projette sur une diagonale écran ; repli cardinal tant que la
+// vue manque (onerror toléré).
+const vehDiagImg = {};
+function ensureVehDiag(type) {
+  let c = vehDiagImg[type];
+  if (c) return c;
+  c = { img: {}, ready: 0, failed: 0 };
+  vehDiagImg[type] = c;
+  if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
+    c.img[d] = loadWithRetry(
+      '/pixelart/agents/vehicles/veh-' + type + '-' + d + '.png',
+      () => { c.ready += 1; },
+      () => { c.failed += 1; },
+    );
+  }
+  return c;
+}
+const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
 
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
@@ -691,9 +745,16 @@ function updateCitizens(dt) {
       if (dist < 2.4) {
         citizenChooseNext(p);
       } else {
-        const sp = p.speed * dt;
+        // Iso : la projection étale l'écran (losange 2:1) → la même vitesse MONDE
+        // paraît plus rapide. Facteur de calme dédié (retour Raph « ils glissent »),
+        // molette window.__isoWalkSpeed (défaut 0.72). Sans effet en legacy.
+        const isoK = CM.iso ? ((typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72) : 1;
+        const sp = p.speed * dt * isoK;
         p.x += dx / dist * sp;
         p.y += dy / dist * sp;
+        // Odomètre de marche : pilote l'animation PAR DISTANCE (les pieds suivent
+        // le sol, fini le patinage) — consommé par drawEraAgentIso.
+        p.walkDist = (p.walkDist || 0) + sp;
       }
     }
     // La nuit, une partie de la population rentre dormir : plutôt que de disparaître
@@ -1036,6 +1097,9 @@ function updateVehicles(dt) {
       const sp = v.speed * dt;
       v.x += dx / d * sp;
       v.y += dy / d * sp;
+      // Odomètre (px monde) : les bandes diagonales iso animent les ROUES par
+      // DISTANCE parcourue (anti-patinage, même recette que p.walkDist).
+      v.rollDist = (v.rollDist || 0) + sp;
     }
   }
 }
@@ -1828,4 +1892,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG };

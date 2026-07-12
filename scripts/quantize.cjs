@@ -96,7 +96,7 @@ const files = listPngs(target);
 let changed = 0, skipped = 0, savedC = 0;
 for (const f of files) {
   let png;
-  try { png = PNG.sync.read(fs.readFileSync(f)); } catch (e) { console.warn('skip (illisible):', f); continue; }
+  try { png = PNG.sync.read(fs.readFileSync(f)); } catch { console.warn('skip (illisible):', f); continue; }
   const before = uniqueOpaque(png);
   if (before <= MIN) { skipped++; continue; }
   quantize(png, COLORS);

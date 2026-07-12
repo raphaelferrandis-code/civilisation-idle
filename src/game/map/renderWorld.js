@@ -17,6 +17,7 @@ import {
   roadWidthFor
 } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, vehicleLaneOffset, drawNamedAgent, riotEraKey } from './agents.js';
+import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 import { mapThemeForBand } from '../data/eraThemes.js';
 import { plazaPropReady, plazaPropImage, plazaAnimReady, blitPlazaAnim, blitPlazaProp, setPlazaPropOnLoad } from './plazaProps.js';
 import { drawPixelMedians, setMedianOnLoad } from './pixelMedian.js';
@@ -506,6 +507,16 @@ function ensureQuayGate() {
     return d;
   };
   const plus = smoothSide(rawPlus), minus = smoothSide(rawMinus);
+  // Les RIVERAINS (port/moulin) INTERROMPENT le quai sur leur emprise : leur
+  // scène pose son propre front d'eau (ponton, roue à aubes) — la promenade
+  // passait sous la roue du moulin (vu à la capture iso, vrai aussi en legacy).
+  for (const t of (L.tiles || [])) {
+    if (t.buildingId !== "river_ports" && t.buildingId !== "water_mills") continue;
+    const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
+    for (let i = 0; i < n0; i += 1) {
+      if (sm[i].x >= x0 && sm[i].x <= x1) { plus[i] = 0; minus[i] = 0; }
+    }
+  }
   // Cellules couvertes par le quai -> pas de roseaux dessus.
   const bankCells = new Set();
   for (let i = 0; i < n0; i += 1) {
@@ -536,8 +547,6 @@ function cityMapDrawQuays(now) {
   const g = CM.quayGate;
   if (!g) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, sm = L.river.samples, n0 = sm.length;
-  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
-  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
   const night = CM.nightF || 0;
   const lod = CM.lodActive;          // zoom lointain : strates seules, pas de mobilier/joints
   const TAPER = 2;
@@ -574,7 +583,13 @@ function cityMapDrawQuays(now) {
   // Effilement smoothstep aux deux bouts d'un run (W->0) — pas de biseau net.
   const tt = (i, a, b) => { const t = Math.max(0, Math.min(1, Math.min(i - a, b - i) / TAPER)); return t * t * (3 - 2 * t); };
   // Point écran à l'offset additif `base` (tapered) du sample i, sur la rive `side`.
-  const pt = (i, side, base, tap) => { const s = sm[i], n = cmRiverNormalAt(sm, i), off = s.hw + base * tap; return [SX(s.x + side * n.nx * off), SY(s.y + side * n.ny * off)]; };
+  // Projection via le module iso (IDENTITÉ quand CM.iso off) → les quais suivent
+  // le ruban dans les DEUX modes ; appelé aussi par drawIsoWorld en Phase 5.
+  const pt = (i, side, base, tap) => {
+    const s = sm[i], n = cmRiverNormalAt(sm, i), off = s.hw + base * tap;
+    const q = isoWorldToScreen((s.x + side * n.nx * off) * T, (s.y + side * n.ny * off) * T);
+    return [q.x, q.y];
+  };
   const fillStrip = (a, b, side, baseIn, baseOut, col) => {
     ctx.beginPath();
     for (let i = a; i <= b; i += 1) { const p = pt(i, side, baseIn, tt(i, a, b)); if (i === a) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }

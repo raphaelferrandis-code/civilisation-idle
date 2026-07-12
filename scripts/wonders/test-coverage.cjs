@@ -9,7 +9,7 @@ const { PNG } = require(path.join(__dirname, "..", "..", "node_modules", "pngjs"
 
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "dynasty1-flames.json"), "utf8"));
 const strips = {};
-for (const [kind, a] of Object.entries(cfg.asset)) {
+for (const [, a] of Object.entries(cfg.asset)) {
   if (!strips[a.file]) strips[a.file] = { png: PNG.sync.read(fs.readFileSync(path.join(ROOT, a.file))), ...a };
 }
 const isFire = (d, i) => d[i + 3] >= 200 && d[i] >= 190 && d[i + 1] >= 80 && d[i + 2] <= 130 && d[i] > d[i + 2] + 90 && d[i + 1] > d[i + 2] + 20;

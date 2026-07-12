@@ -55,7 +55,10 @@ export function checkNodeAvailability(id) {
   if (!isUnlocked(upgrade)) return "locked";
   // Palier ouvert ? On compte les nœuds possédés dans les paliers inférieurs.
   if (ownedInBranchBelowTier(node.branch, node.tier) < node.unlock) return "locked";
-  return canPayCost({ ruins: ruinNodeCost(upgrade) }) ? "available" : "locked";
+  // Palier ouvert + débloqué mais Ruines insuffisantes → "cost" (≠ "locked" gaté) :
+  // le nœud reste non cliquable, mais la fresque peut le distinguer en ambre au
+  // lieu du gris « verrouillé ». Les seuls consommateurs gatent sur === "available".
+  return canPayCost({ ruins: ruinNodeCost(upgrade) }) ? "available" : "cost";
 }
 
 function dogmaFor(id) {

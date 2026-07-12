@@ -1,4 +1,3 @@
-/* eslint-disable */
 // ============================================================================
 // plazaProps.js — Registre de sprites pixel-art pour le MOBILIER DES PLACES.
 //
@@ -23,8 +22,6 @@
 // Les props du kit et les grappes d'ère produites. Le banc existe aussi en
 // variantes DIRECTIONNELLES (`bench-‹n|s|e|w›-‹ère›`) pour être tourné vers le
 // centre selon le bord ; le buisson complète les bacs fleuris sur les contours.
-const PLAZA_PROPS = ['lamppost', 'bench', 'fountain', 'flag', 'planter', 'bush'];
-const PLAZA_ERAS = ['antique', 'classique', 'industrielle', 'moderne', 'futuriste'];
 
 // Bande d'ère (0..9) → grappe d'ère du prop. Les places n'apparaissent qu'à
 // partir de band 2 (pierre) ; on renvoie 'antique' par sûreté en deçà.
@@ -90,22 +87,6 @@ function blitPlazaProp(ctx, prop, band, xPx, yPx, hPx, variant) {
   return true;
 }
 
-// Variante CENTRÉE (prop posé à plat vu du dessus, ex. fontaine/parterre) :
-// (xPx,yPx) est le CENTRE du sprite, taille `hPx` de haut.
-function blitPlazaPropCentered(ctx, prop, band, xPx, yPx, hPx, variant) {
-  const key = keyFor(prop, band, variant);
-  ensureKey(key);
-  const im = propImg[key];
-  if (!im || !(im.naturalWidth > 0)) return false;
-  const ratio = im.naturalWidth / im.naturalHeight;
-  const drawH = hPx, drawW = hPx * ratio;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, xPx - drawW / 2, yPx - drawH / 2, drawW, drawH);
-  ctx.imageSmoothingEnabled = prev;
-  return true;
-}
-
 // Accès à l'IMAGE chargée d'un prop (ou null) — pour un rendu qui n'est pas un
 // simple blit ancré : la dalle de sol se TUILE cellule par cellule (voir
 // cityMapDrawPlazaSurface), donc l'appelant pilote lui-même le drawImage.
@@ -163,7 +144,4 @@ export {
   blitPlazaAnim,
   setPlazaPropOnLoad,
   blitPlazaProp,
-  blitPlazaPropCentered,
-  PLAZA_PROPS,
-  PLAZA_ERAS,
 };

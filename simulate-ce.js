@@ -118,6 +118,37 @@ const HOURS = Number(argv.hours) || 24;
 const SCENARIO = (argv.scenario && argv.scenario !== true) ? String(argv.scenario) : "all";
 const BUDGET_SECONDS = HOURS * 3600;
 
+// --- Reproductibilité (audit G-19) ------------------------------------------
+// Le vrai moteur consomme Math.random à chaque tick (aubaines, sélection de
+// chronique, paris de régulation). Sans graine, deux runs du MÊME scénario
+// divergent → les tables de jalons « EXACTES » varient d'une exécution à l'autre.
+// On remplace Math.random par un PRNG seedé (mulberry32), ré-initialisé à chaque
+// scénario dans resetScenario() → runs déterministes, aubaines CONSERVÉES (on ne
+// mesure pas une économie amputée). --seed=N pour varier la graine.
+const SIM_SEED = (argv.seed != null && argv.seed !== true) ? (Number(argv.seed) >>> 0) : 0x9e3779b9;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+let simRng = mulberry32(SIM_SEED);
+Math.random = () => simRng();
+
+// --- Couverture routière (audit G-07) ---------------------------------------
+// roadCoverage est GÉOMÉTRIQUE (calculée par la carte via connectBuildingsToNetwork)
+// → vaut 0 en headless. Sans modélisation, le sim IGNORE le bonus réseau routier
+// (jusqu'à +10-15% de prod globale) → balancing systématiquement sous-estimé.
+// En jeu monté la couverture tend vers ~1 (le réseau relie les bâtiments-moteur) ;
+// on modélise donc par DÉFAUT un régime établi représentatif (0.9 ≈ +9% de prod)
+// pour que le balancing voie le bonus. --roadcov=N (0..1) pour ajuster (0 = ancien
+// comportement qui sous-estime).
+const SIM_ROAD_COVERAGE = (argv.roadcov != null && argv.roadcov !== true)
+  ? Math.max(0, Math.min(1, Number(argv.roadcov)))
+  : 0.9;
+
 // ---------------------------------------------------------------------------
 // 3. Constantes du moteur de simulation
 // ---------------------------------------------------------------------------
@@ -139,7 +170,13 @@ const PROFILES = {
 };
 const TREE_PHASE_NODES = 22;    // nb de noeuds d'arbre avant de prioriser les dynasties
 const MAX_CYCLES = 200000;      // garde-fou
-const REAL_TIME_LIMIT_MS = (Number(argv.maxreal) || 8) * 60 * 1000; // budget temps reel
+// Audit G-20 : par DÉFAUT, on ne borne QUE sur le temps virtuel (BUDGET_SECONDS)
+// → jalons identiques quelle que soit la vitesse machine (reproductibilité
+// inter-machines). --maxreal=N (minutes) reste dispo comme coupe-circuit pour les
+// runs de dev rapides ; sans lui, seul le watchdog absolu (anti-deadlock) protège.
+const REAL_TIME_LIMIT_MS = (argv.maxreal != null && argv.maxreal !== true)
+  ? Number(argv.maxreal) * 60 * 1000
+  : Infinity;
 
 // ---------------------------------------------------------------------------
 // 4. Helpers temps / mesure
@@ -158,7 +195,14 @@ const flush = () => new Promise((r) => setImmediate(r));
 // boucle async se fige sur un await, le garde-temps interne (sync) ne s'evalue
 // jamais -> ces timers garantissent qu'on ne tourne pas indefiniment et montrent
 // le dernier etat connu. Les jalons exacts sont deja dans milestones-live.tsv.
-const HARD_DEADLINE_MS = REAL_TIME_LIMIT_MS * 4 + 120000;
+// Garde anti-DEADLOCK (un await qui ne résout jamais) — ABSOLU, indépendant de
+// --maxreal : sinon un run reproductible (REAL_TIME_LIMIT_MS = Infinity) n'aurait
+// plus aucun filet. Les boucles ont déjà leurs compteurs (guard++ < 500000), donc
+// ce délai généreux ne mord que sur un vrai gel async. --hardmax=N (minutes).
+const HARD_DEADLINE_MS = Number.isFinite(REAL_TIME_LIMIT_MS)
+  ? REAL_TIME_LIMIT_MS * 4 + 120000
+  : (Number(argv.hardmax) || 45) * 60 * 1000;
+const MAXREAL_LABEL = Number.isFinite(REAL_TIME_LIMIT_MS) ? `${REAL_TIME_LIMIT_MS / 60000} min` : "∞ (virtuel seul)";
 if (argv.heartbeat || argv.mlog) {
   const hb = setInterval(() => {
     const line = `[HB] reel=${Math.round((realNow() - REAL_START) / 1000)}s cyc=${state.cycles} VT=${fmtDurationSafe(VT)} ` +
@@ -413,7 +457,9 @@ function makeRecorder() {
 // ---------------------------------------------------------------------------
 function resetScenario() {
   VT = 0; scenarioRealStart = realNow(); setClock();
+  simRng = mulberry32(SIM_SEED);          // G-19 : même graine par scénario → reproductible ET comparable (même « chance »)
   setState(defaultState());
+  state.roadCoverage = SIM_ROAD_COVERAGE; // G-07 : modélise (ou non) le bonus réseau routier map-only
   setGamePaused(false); setCollapseInProgress(false); setBuyAmount(100);
   invalidateRenderCache("all");
 }
@@ -643,7 +689,7 @@ async function runIdle() {
 // ---------------------------------------------------------------------------
 // 12. Execution
 // ---------------------------------------------------------------------------
-console.log(`[CE-SIM] Budget=${HOURS}h virtuelles, scenario=${SCENARIO}, max reel=${REAL_TIME_LIMIT_MS / 60000}min`);
+console.log(`[CE-SIM] Budget=${HOURS}h virtuelles, scenario=${SCENARIO}, max reel=${MAXREAL_LABEL}`);
 const results = {};
 
 // --- Mode --profiles : comparaison de pacing par style de jeu ----------------
@@ -667,7 +713,7 @@ if (argv.profiles) {
   const profLabel = (pid) => pid === "idle" ? "Idle" : PROFILES[pid].label;
   let pmd = `# Pacing par profil de joueur - jalons horodates (temps virtuel)
 
-> Genere par \`simulate-ce.js --profiles\` (budget reel ${REAL_TIME_LIMIT_MS / 60000} min/profil, pas ${TICK}s).
+> Genere par \`simulate-ce.js --profiles\` (budget reel ${MAXREAL_LABEL}/profil, pas ${TICK}s).
 > Chiffres EXACTS pour les jalons atteints dans le temps de calcul. La boucle de prestige de CE etant
 > tres longue (GR1 ~ jours virtuels composes), les jalons profonds peuvent etre "non atteint" faute de
 > temps de CALCUL reel (pas par design) : relancer avec \`--maxreal\` plus grand pour les horodater.

@@ -85,11 +85,16 @@ function BuildingShop() {
     return sig;
   });
 
-  // Abonnement à la VALEUR de globalMultiplier (un number, pas un Decimal) :
-  // piecewise-constant, il ne re-render qu'aux bascules réelles (fin de surchauffe,
-  // paliers Atrides/Énée…) qui n'incrémentent pas _buildingsVersion → garde les
-  // /s de production à jour sans re-render à chaque tick.
-  const globalMult = useGameState(() => globalMultiplier());
+  // globalMultiplier() DÉRIVE en continu (infraMultiplier = 1 + log10(infra)·0.018,
+  // sans palier) → comparé brut dans PurchaseRow.arePropsEqual, il cassait la
+  // mémoïsation de TOUTES les rangées (re-render 1×/s en mid/late). On l'arrondit
+  // à 4 chiffres SIGNIFICATIFS (précision d'affichage des /s, indépendante de la
+  // magnitude — contrairement à un arrondi décimal qui redevient trop fin quand le
+  // multiplicateur est grand) → piecewise-constant pour l'AFFICHAGE : la rangée
+  // (et ce composant) ne re-render que quand le /s changerait vraiment. Usage
+  // strictement cosmétique ici (production affichée + sqrt), jamais réinjecté
+  // dans les coûts/l'état.
+  const globalMult = useGameState(() => Number(globalMultiplier().toPrecision(4)));
   const sqrtGlobalMult = Math.sqrt(globalMult);
 
   const babelActive = isMythEffectActive("mythe_de_babel");
@@ -127,7 +132,7 @@ function BuildingShop() {
       {/* En-tête : les catégories SONT le titre (plus de « Bâtiments ») ; le
           chevron replie le corps, cliquer une catégorie déplie si besoin. */}
       <div className="shop-head">
-        <div className="shop-subtabs" role="tablist" aria-label="Catégories de bâtiments">
+        <div className="shop-subtabs" role="tablist" aria-label={tr({ fr: "Catégories de bâtiments", en: "Building categories" })}>
           {TABS.map((tab) => {
             const n = affordableCount(tab.id);
             return (
@@ -219,7 +224,7 @@ function BuildingShop() {
               </div>
               <p className="pr-locked-hint">{hint}</p>
               <div className="pr-footer">
-                <button className="btn-purchase" disabled>
+                <button className="btn-purchase" disabled title={hint}>
                   <span className="bp-action">{tr({ fr: "Bientôt", en: "Soon" })}</span>
                 </button>
               </div>

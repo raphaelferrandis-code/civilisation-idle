@@ -172,11 +172,11 @@ function buildCadmosAgeOption(orientation, index, milestone) {
   const candidates = words.filter((word) => !recentWords.has(word));
   const pool = candidates.length ? candidates : words;
   let word = pool[Math.floor(Math.random() * pool.length)] || words[0];
-  let name = `L'Age ${article} ${word}`;
+  let name = tr({ fr: `L'Âge ${article} ${word}`, en: `The Age of ${word}` });
   let guard = 0;
   while (chosenNames.has(name) && guard < words.length) {
     word = words[(words.indexOf(word) + 1 + guard) % words.length];
-    name = `L'Age ${article} ${word}`;
+    name = tr({ fr: `L'Âge ${article} ${word}`, en: `The Age of ${word}` });
     guard += 1;
   }
   return {

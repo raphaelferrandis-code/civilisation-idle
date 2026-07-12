@@ -1,25 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { useDialogModal } from '../../hooks/useDialogModal.js';
 import { importSave } from '../../game/core/main.js';
 import { tr } from '../../game/core/i18n.js';
 
 export default function ImportDialog({ isOpen, onClose }) {
-  const dialogRef = useRef(null);
+  const dialogRef = useDialogModal(isOpen);
   const [text, setText] = useState("");
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close();
-      }
-    }
-  }, [isOpen]);
 
   const handleImport = (e) => {
     e.preventDefault();

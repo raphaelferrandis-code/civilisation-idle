@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { useDialogModal } from '../../hooks/useDialogModal.js';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   getNotifEnabled,
@@ -23,7 +24,7 @@ import {
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
-  const dialogRef = useRef(null);
+  const dialogRef = useDialogModal(isOpen);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
 
@@ -39,20 +40,6 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const autoScriptRules = getAutoScriptRules();
   const automateRules = getAutomateRules();
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal();
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close();
-      }
-    }
-  }, [isOpen]);
 
   const handleWipe = () => {
     if (!confirm(tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }))) return;
@@ -390,7 +377,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     className={`toggle-btn ${r.enabled ? 'on' : 'off'}`}
                     onClick={() => handleAutoScriptToggle(r.id)}
                   >
-                    {r.enabled ? "Actif" : "Inactif"}
+                    {r.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                   </button>
                 </div>
               ))}
@@ -425,7 +412,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                       className={`toggle-btn ${r.enabled ? 'on' : 'off'}`}
                       onClick={() => handleAutomateToggle(r.id)}
                     >
-                      {r.enabled ? "Actif" : "Inactif"}
+                      {r.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                     </button>
                   </div>
                 );
