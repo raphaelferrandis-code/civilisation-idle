@@ -8,7 +8,8 @@
 //   Lancer :
 //     node scripts/remapPalette.mjs <fichier.png> [--epoch <id>] [--max 22] [--inplace] [--out dir] [--dry]
 //     node scripts/remapPalette.mjs --dir public/pixelart/agents [--dry]   (lot, époque auto par tag)
-//              → le mode --dir saute _orig/, _archive/, splash/, palettes/ (assets peints / sources).
+//              → le mode --dir saute _orig/, _archive/, splash/, palettes/, wonders/
+//                (assets peints / sources / merveilles à signature or-pourpre).
 //              ⚠ ui/ruins/tree-base.png (fresque peinte, ~1150 teintes) n'est PAS dans un dossier
 //                exclu : ne le cible pas explicitement, l'indexer le détruirait.
 //
@@ -245,9 +246,11 @@ const dir = opt('--dir', null);
 let files;
 if (dir) {
   // Scan RÉCURSIF (les agents sont rangés en sous-dossiers : inhabitants/, buildings/, …).
-  // Dossiers TOUJOURS ignorés (sécurité, même liste que quantize.cjs) : sources et
-  // assets PEINTS non pixel-lockés — les indexer sur la palette les détruirait.
-  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes'];
+  // Dossiers TOUJOURS ignorés (sécurité, même liste que quantize.cjs + wonders) : sources,
+  // assets PEINTS non pixel-lockés, et les merveilles (leur OR/pourpre signature n'existe pas
+  // dans le cœur → un snap aveugle les rabat sur du cuivre ; elles ont leur propre pipeline
+  // wonders/lock-palette.cjs, ou se repassent une par une avec --extra "#or,#pourpre").
+  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders'];
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(d, e.name);
     if (e.isDirectory()) return SKIP_DIRS.includes(e.name) ? [] : walk(p);

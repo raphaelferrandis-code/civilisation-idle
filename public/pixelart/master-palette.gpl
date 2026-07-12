@@ -27,6 +27,11 @@ Columns: 8
  60  90  44	leaf-dark
  92 125  56	leaf
 138 162  74	leaf-lit
+179 200  64	leaf-bright
+223 224 138	leaf-pale
+ 44 107  81	conifer-deep
+ 90 168 125	conifer-lit
+ 74  95  80	moss
  31  58  68	water-deep
  53 107 120	water
 111 176 184	water-lit

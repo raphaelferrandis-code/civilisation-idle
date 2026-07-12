@@ -53,8 +53,12 @@ const CORE = {
   clayCopper:  [['#8a4c33', 'clay-deep'], ['#b06a48', 'copper'], ['#cf9068', 'copper-lit'], ['#ecc6a8', 'clay-pale']],
   // Peau (agents). 3
   skin:        [['#7a4a39', 'skin-shadow'], ['#c98a68', 'skin'], ['#f2c2a3', 'skin-lit']],
-  // Feuillage / cultures vertes / parcs. 4
-  foliage:     [['#243a22', 'leaf-deep'], ['#3c5a2c', 'leaf-dark'], ['#5c7d38', 'leaf'], ['#8aa24a', 'leaf-lit']],
+  // Feuillage / cultures vertes / parcs. 9 — rampe CHAUDE (deep→lime pâle) + branche FROIDE.
+  //  • hautes lumières LIME (leaf-bright/pale) : sans elles les canopées vives (bouleau #c6c329,
+  //    chêne #b3c840) blanchissent en snappant vers os/pierre-pâle.
+  //  • branche FROIDE (conifer teal + mousse désaturée, ancrée sur pin #2c6b51/#53a175 et
+  //    roseaux #3a4d3e) : sans elle le pin se réchauffe et les roseaux gris-vert virent au brun.
+  foliage:     [['#243a22', 'leaf-deep'], ['#3c5a2c', 'leaf-dark'], ['#5c7d38', 'leaf'], ['#8aa24a', 'leaf-lit'], ['#b3c840', 'leaf-bright'], ['#dfe08a', 'leaf-pale'], ['#2c6b51', 'conifer-deep'], ['#5aa87d', 'conifer-lit'], ['#4a5f50', 'moss']],
   // Eau / fleuve / port. 3
   water:       [['#1f3a44', 'water-deep'], ['#356b78', 'water'], ['#6fb0b8', 'water-lit']],
   // Métal / fer / ardoise (outils, industrie, toits). 4
