@@ -110,20 +110,30 @@ const {
   ruinGain,
   crisisOpen,
   terminalCrisisReady,
-  buildingBatchCost
+  buildingBatchCost,
+  addProductionPenalty,
+  amplifyRuptureFactor
 } = await import("./src/game/core/mechanics.js");
 const {
   canPayCost,
-  payCost
+  payCost,
+  clamp01
 } = await import("./src/game/core/utils.js");
 const {
   buyUpgrade,
   completeCollapse,
   runTerminalCrisisAction,
   tick,
-  cycleYear
+  cycleYear,
+  chronicle
 } = await import("./src/game/core/actions.js");
 const { generateEpitaph } = await import("./src/game/core/events.js");
+
+// Pont d'effets world.js <-> core/ (normalement câblé par main.js, absent en
+// headless). Sans ça, les apply() des crises narratives lèvent (effects.state
+// === null) et laissent le jeu en pause -> crash / aucune progression.
+const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
+registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
 
 const DEFAULT_HOURS = 4;
 const STEP_SECONDS = 120;
