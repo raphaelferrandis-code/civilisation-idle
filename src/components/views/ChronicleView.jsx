@@ -11,7 +11,7 @@ import {
 import { eras } from '../../game/data/world.js';
 import { renderCache } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
-import { fmt, roman } from '../../game/core/utils.js';
+import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
 

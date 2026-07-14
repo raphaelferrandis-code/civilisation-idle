@@ -68,6 +68,7 @@ export default function IcarusStage({ table, onClose }) {
   // Nouvelle ouverture : repartir au sol — SAUF si un vol est déjà en l'air
   // (scène fermée en plein vol puis rouverte) : on le reprend.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronise la scène sur l'état EXTERNE du vol (icarusFlying) à la réouverture
     setOutcome(null);
     setStakeId('plume');
     if (icarusFlying()) {

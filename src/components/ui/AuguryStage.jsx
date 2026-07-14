@@ -57,6 +57,7 @@ export default function AuguryStage({ table, onClose }) {
   useEffect(() => {
     flushPending();
     clearTimers();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- remise à zéro VOULUE de la scène à chaque réouverture (openedAt)
     setPhase('stake');
     setRiteId('classique');
     setOutcome(null);

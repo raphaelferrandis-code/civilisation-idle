@@ -12,7 +12,6 @@ import {
 import { buyUpgrade, performGrandReset, engraveCadmosEpitaph } from '../../game/core/actions.js';
 import { upgrades } from '../../game/data/upgrades.js';
 import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
-import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 
 export default function HeritageView() {

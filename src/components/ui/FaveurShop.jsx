@@ -1,8 +1,7 @@
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
 import { faveurShopItems, buyFaveurItem, icarusEffectiveEdge } from '../../game/core/actions.js';
 import {
-  DICE_BOOST_STEP, WING_STEP, ICARUS_EDGE, BLESSING_MULT, BLESSING_DURATION_S
+  DICE_BOOST_STEP, WING_STEP, BLESSING_MULT, BLESSING_DURATION_S
 } from '../../game/core/balance.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';

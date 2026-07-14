@@ -31,6 +31,7 @@ function hideTip() {
 }
 
 // Props à étaler sur l'élément cible : remplace `title={text}`.
+// eslint-disable-next-line react-refresh/only-export-components -- helper partagé par 6 vues ; le Fast Refresh dev n'en pâtit pas
 export function tipProps(name, text) {
   if (!text) return {};
   return {

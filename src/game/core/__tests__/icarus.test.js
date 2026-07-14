@@ -19,7 +19,7 @@ import {
 } from "../actions.js";
 import { __resetIcarusForTests } from "../actions/icarus.js";
 import { toNum } from "../num.js";
-import { ICARUS_K, ICARUS_FAVEUR_K, ICARUS_POT_FEED, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_LEN } from "../balance.js";
+import { ICARUS_FAVEUR_K, ICARUS_POT_FEED, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_LEN } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 beforeEach(() => {

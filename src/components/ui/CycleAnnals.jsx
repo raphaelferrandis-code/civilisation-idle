@@ -30,6 +30,7 @@ const MARK_LABELS = {
 
 const GAMBLE_KINDS = new Set(['gambleWin', 'gambleLoss', 'doubleWin', 'doubleLoss']);
 
+// eslint-disable-next-line react-refresh/only-export-components -- helper partagé (StewardPanel) ; le Fast Refresh dev n'en pâtit pas
 export function regulActionLabel(id) {
   if (REGULATION_ACTIONS_BY_ID[id]) return tr(REGULATION_ACTIONS_BY_ID[id].label);
   if (BASE_ACTION_LABELS[id]) return tr(BASE_ACTION_LABELS[id]);

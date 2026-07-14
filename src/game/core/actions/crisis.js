@@ -303,9 +303,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (state.eneeHeritage) {
     state.eneeCollapseCount = Math.min(ENEE_HERITAGE_MAX_COLLAPSES, (state.eneeCollapseCount || 0) + 1);
   }
-  // Pics du cycle qui vient de tomber (cyclePeaks n'est remis à zéro qu'en fin de
-  // fonction) : socle de départ indexé sur l'ÉCHELLE via les effectType *PctPeak.
-  const peaks = state.cyclePeaks || {};
+  // Socle de départ indexé sur l'ÉCHELLE via les effectType *PctPeak, lus depuis
+  // state.cyclePeaks (remis à zéro seulement en fin de fonction).
   const startFloor = computeStartFloor;
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
     .max(startFloor("Population", 10));
@@ -533,7 +532,7 @@ export function runCrisisAction(id, options = {}) {
 
     const eff = regulFatigueEffectMult();
     let note = regAction.note;
-    let ledger = null; // { kind, delta } — rempli par la branche exécutée (registre des édits)
+    let ledger; // { kind, delta } — rempli par la branche exécutée (registre des édits)
     if (regAction.kind === "reform") {
       const rf = state.foyerReform;
       const prev = rf[foyer] || 0;

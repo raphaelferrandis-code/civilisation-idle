@@ -46,11 +46,6 @@ export const waterShoreTune = {
   a1: 0.5, a2: 0.6, a3: 0.72,                               // alphas (bord = plus opaque)
   c1: '128,166,156', c2: '166,198,184', c3: '202,224,214'  // teintes, de la + douce à la + claire
 };
-// Sol urbain + chaussée par grande bande d'ère (0-2 antique, 3-6 classique/indus, 7+ moderne+).
-// Contraste volontairement marqué (1er jet trop plat au jalon) : la rue doit se LIRE.
-function urbanTone(band) {
-  return band >= 7 ? [156, 154, 146] : band >= 3 ? [176, 166, 138] : [158, 144, 110];
-}
 // Matière de chaussée par ère (calée sur la progression du jeu) :
 // terre battue → pavé de pierre → asphalte industriel → voie sombre futuriste.
 // Chaussée LISSE : teinte pleine par ère (la matière se lit à la COULEUR, pas à un
@@ -478,7 +473,6 @@ function drawIsoGround() {
   const road = roadTone(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band);   // honore le forçage d'aperçu
   const riverCells = (L.river && L.river.present && L.river.cells) || null;
   const roadMap = L.roadMap;
-  const N = L.gridN | 0;
   const roads = [];                    // cellules-route de la passe (rubans après le fond)
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;   // parvis des merveilles
   ctx.save();
@@ -491,7 +485,6 @@ function drawIsoGround() {
       const isPlaza = !!(cell && cell.rank === 'plaza');       // ⚠ piège places-dans-roadSet
       const isBridge = !!(cell && cell.roadSurface === 'bridge');
       const isWater = !!(riverCells && riverCells.has(key));
-      const inGrid = gx >= 0 && gy >= 0 && gx < N && gy < N;
       const isUrban = (isRoad && !isBridge) || (L.urbanSet && L.urbanSet.has(key));
       // kind = tuile PixelLab ; tone = repli aplat tant que le PNG n'est pas prêt.
       // L'EAU n'est plus peinte ici : le fleuve est un RUBAN LIVE lissé par-dessus
@@ -1598,7 +1591,7 @@ function fillWorldPoly(ctx, pts) {
 // procédural), AVANT la passe vivante (les véhicules roulent dessus).
 function drawBridgeAprons(ctx, band, T) {
   return;   // EMBOUTS RETIRÉS (Raph) : plus de rampe de raccord au début/sortie des ponts.
-  // eslint-disable-next-line no-unreachable
+  /* eslint-disable no-unreachable -- corps CONSERVÉ pour référence (rampes retirées) ; réactivable si les embouts reviennent */
   const spans = CM.bridgeSpans;
   if (!spans || !spans.length) return;
   const road = roadTone(band);
@@ -1656,6 +1649,7 @@ function drawBridgeAprons(ctx, band, T) {
       }
     }
   }
+  /* eslint-enable no-unreachable */
 }
 
 function drawIsoBridges(now) {

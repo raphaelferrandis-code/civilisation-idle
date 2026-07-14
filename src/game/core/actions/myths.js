@@ -9,8 +9,7 @@ import {
   render,
   save,
   setGamePaused,
-  resetTemporaryRunState,
-  openView
+  resetTemporaryRunState
 } from '../state.js';
 
 import {
@@ -19,7 +18,6 @@ import {
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
-import { CM } from '../../map/layout.js';
 import {
   getMythById,
   isMythCompleted,

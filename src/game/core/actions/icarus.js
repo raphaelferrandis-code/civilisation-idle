@@ -18,7 +18,7 @@
 
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { rates, regulationContext } from '../mechanics.js';
-import { D, toNum } from '../num.js';
+import { D } from '../num.js';
 import { fmt } from '../utils.js';
 import {
   ICARUS_EDGE,

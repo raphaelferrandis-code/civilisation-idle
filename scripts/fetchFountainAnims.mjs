@@ -21,7 +21,6 @@
 //   Lancer : node scripts/fetchFountainAnims.mjs   (filtre : … medieval)
 //   IDEMPOTENT par présence du strip (sauf --force).
 import { PNG } from 'pngjs';
-import AdmZip from 'adm-zip';
 import fs from 'node:fs';
 import path from 'node:path';
 

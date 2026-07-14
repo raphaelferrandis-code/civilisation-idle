@@ -5,7 +5,6 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { state, setState, hydrateState } from "../state.js";
-import { Decimal, D } from "../num.js";
 import { pickCrisisEvent } from "../actions/crisis.js";
 import { generateEpitaph } from "../events.js";
 import { CRISIS_POOL } from "../../data/world.js";

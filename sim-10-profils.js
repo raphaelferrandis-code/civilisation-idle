@@ -114,8 +114,8 @@ const mech = await import("./src/game/core/mechanics.js");
 const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
   buildingBatchCost, globalMultiplier,
-  currentEraIndex, ownedRuinTreePurchaseCount, has,
-  grandResetMilestoneMet, grandResetMythsRequired, completedMythCount,
+  currentEraIndex, ownedRuinTreePurchaseCount,
+  grandResetMilestoneMet,
   terminalCrisisReady
 } = mech;
 
@@ -134,6 +134,13 @@ const { registerWorldEffects } = await import("./src/game/data/worldEffects.js")
 const { addProductionPenalty, amplifyRuptureFactor } = mech;
 const { clamp01 } = await import("./src/game/core/utils.js");
 registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+
+// Merveilles en headless : elles sont normalement erigees par le runtime de la
+// carte (cmCheckWonders, absent ici) -> sans ca state.wonders reste vide et le
+// jalon GR2 (3 merveilles) est INATTEIGNABLE en simulation. On importe la vraie
+// fonction (metriques reelles du jeu) ; repli no-op si layout.js casse en headless.
+let cmCheckWonders = () => {};
+try { ({ cmCheckWonders } = await import("./src/game/map/layout.js")); } catch { /* headless : pas de merveilles simulees */ }
 
 // ---------------------------------------------------------------------------
 // 2. CLI
@@ -460,6 +467,9 @@ function prepareCollapse(tier) {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
+  // Ériger les merveilles au PIC du cycle (avant que completeCollapse ne remette
+  // population/pics à zéro) : nourrit state.wonders selon les vraies métriques.
+  cmCheckWonders(Date.now());
   completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);

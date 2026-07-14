@@ -104,6 +104,7 @@ export default function StewardPanel() {
   const choices = stewardActionChoices(ctx);
   const clauses = state.stewardClauses || [];
   const armed = clauses.filter((c, i) => i < slots && c && c.enabled).length;
+  // eslint-disable-next-line react-hooks/purity -- horodatage d'affichage « depuis X s » ; le panneau se re-rend déjà à 1 Hz
   const now = Date.now();
   const resting = regulFatigue > STEWARD_FATIGUE_GATE;
 
