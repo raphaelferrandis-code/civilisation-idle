@@ -14,10 +14,6 @@ export function has(id) {
   return Boolean(state.upgrades[id]);
 }
 
-export function hasDoctrine(id) {
-  return state.dynastyDoctrine === id;
-}
-
 export function isUnlocked(item) {
   if (item.id && item.category && (state.buildings[item.id] || 0) > 0) return true;
   if (item.unlockCycles && state.cycles < item.unlockCycles) return false;

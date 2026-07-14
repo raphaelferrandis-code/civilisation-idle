@@ -16,14 +16,25 @@ export default function ChoiceDialog({ dialog, onChoose }) {
     const handleClose = () => {
       if (!dialog.preventClose && dialog.options?.length) onChoose(dialog.options[0]);
     };
+    // Raccourcis d'épitaphe : les touches 1–N gravent directement (réservé au
+    // deuil — les autres dialogues gardent leurs interactions propres).
+    const handleDigit = (event) => {
+      if (!dialog.mourning) return;
+      const index = Number(event.key) - 1;
+      if (!Number.isInteger(index) || index < 0 || index >= (dialog.options?.length || 0)) return;
+      event.preventDefault();
+      onChoose({ ...dialog.options[index], selectedIds: [] });
+    };
 
     node.addEventListener("cancel", handleCancel);
     node.addEventListener("close", handleClose);
+    node.addEventListener("keydown", handleDigit);
     if (!node.open) node.showModal();
 
     return () => {
       node.removeEventListener("cancel", handleCancel);
       node.removeEventListener("close", handleClose);
+      node.removeEventListener("keydown", handleDigit);
       if (node.open) node.close();
     };
   }, [dialog, onChoose]);
@@ -32,11 +43,9 @@ export default function ChoiceDialog({ dialog, onChoose }) {
 
   const labelText = dialog.mourning
     ? tr({ fr: "Epitaphe", en: "Epitaph" })
-    : dialog.variant === "dynasty"
-      ? tr({ fr: "Fondation", en: "Founding" })
-      : dialog.variant === "cadmos"
-        ? tr({ fr: "Cadmos", en: "Cadmos" })
-        : tr({ fr: "Crise active", en: "Active Crisis" });
+    : dialog.variant === "cadmos"
+      ? tr({ fr: "Cadmos", en: "Cadmos" })
+      : tr({ fr: "Crise active", en: "Active Crisis" });
   const className = dialog.mourning
     ? "event-dialog epitaph-dialog"
     : dialog.variant
@@ -51,6 +60,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
         {String(dialog.body).split("\n").map((line, index) => (
           <p key={`${line}-${index}`}>{line || "\u00a0"}</p>
         ))}
+        {dialog.inscription && <p className="dialog-inscription">{dialog.inscription}</p>}
         {Array.isArray(dialog.multiSelectOptions) && (
           <div className="active-ruins-choice">
             {dialog.multiSelectOptions.map((option) => {
@@ -83,6 +93,24 @@ export default function ChoiceDialog({ dialog, onChoose }) {
         <menu className="choice-menu">
           {(dialog.options || []).map((option, index) => {
             const hasStructure = option.headline || option.badge || (Array.isArray(option.effects) && option.effects.length > 0);
+            const hasBadges = option.lastWill || option.badge;
+            const headlineEl = option.headline ? (
+              <span className="choice-headline">
+                {option.headline}
+                {option.delta && (
+                  <span className={`effect-chip is-${option.delta.kind}${option.delta.boosted ? " is-boosted" : ""}`}>{option.delta.label}</span>
+                )}
+              </span>
+            ) : null;
+            const chipsEl = Array.isArray(option.effects) && option.effects.length > 0 ? (
+              <span className="effect-chips">
+                {option.effects.map((effect, effectIndex) => (
+                  <span key={`${effect.label}-${effectIndex}`} className={`effect-chip is-${effect.kind || "info"}${effect.boosted ? " is-boosted" : ""}`}>
+                    {effect.label}
+                  </span>
+                ))}
+              </span>
+            ) : null;
             return (
               <button
                 key={`${option.label}-${index}`}
@@ -93,25 +121,27 @@ export default function ChoiceDialog({ dialog, onChoose }) {
               >
                 <span className="choice-option-head">
                   <strong>{option.label}</strong>
-                  {option.badge && <span className="choice-badge">{option.badge}</span>}
                 </span>
-                {option.headline && (
-                  <span className="choice-headline">
-                    {option.headline}
-                    {option.delta && (
-                      <span className={`effect-chip is-${option.delta.kind}`}>{option.delta.label}</span>
+                {(option.rowLabelNow || hasBadges) && (
+                  <span className="choice-badges-row">
+                    {option.lastWill && (
+                      <span className="choice-badge choice-badge--lastwill" title={tr({ fr: "Gravé à la chute précédente", en: "Engraved at the previous fall" })}>↺</span>
                     )}
+                    {option.badge && <span className="choice-badge" title={option.badgeTitle || undefined}>{option.badge}</span>}
                   </span>
                 )}
-                {Array.isArray(option.effects) && option.effects.length > 0 && (
-                  <span className="effect-chips">
-                    {option.effects.map((effect, effectIndex) => (
-                      <span key={`${effect.label}-${effectIndex}`} className={`effect-chip is-${effect.kind || "info"}`}>
-                        {effect.label}
-                      </span>
-                    ))}
+                {headlineEl && (option.rowLabelNow ? (
+                  <span className="choice-row">
+                    <span className="choice-row-label">{option.rowLabelNow}</span>
+                    {headlineEl}
                   </span>
-                )}
+                ) : headlineEl)}
+                {chipsEl && (option.rowLabelNext ? (
+                  <span className="choice-row choice-row--chips">
+                    <span className="choice-row-label">{option.rowLabelNext}</span>
+                    {chipsEl}
+                  </span>
+                ) : chipsEl)}
                 {option.detail && <small>{option.detail}</small>}
               </button>
             );

@@ -10,6 +10,7 @@ import {
 import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingShapes.js';
 import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
+import { worldToScreen } from './iso/projection.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -450,8 +451,12 @@ function drawWonder(w, idx, now) {
   const L = CM.layout; if (!L) return;
   const slot = cmWonderSlot(idx, L.gridN, L.cx, L.cy);
   const z = CM.cam.zoom, s = CM.TILE * z;
-  const cxs = (slot.gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * z + CM.cw / 2;
-  const baseY = (slot.gy * CM.TILE + CM.TILE - CM.cam.y) * z + CM.ch / 2;
+  // Ancre = centre-bas de la tuile du slot, PROJETÉE. worldToScreen renvoie le
+  // mapping legacy À L'IDENTITÉ quand CM.iso est éteint (0 changement top-down,
+  // au bit près) ; en iso, le monument se pose sur le bon losange. Le sprite
+  // reste DEBOUT (front-view) : seul son point d'ancrage change de projection.
+  const anchor = worldToScreen(slot.gx * CM.TILE + CM.TILE / 2, slot.gy * CM.TILE + CM.TILE);
+  const cxs = anchor.x, baseY = anchor.y;
   let H_MAX = s * 7, W = s * 3.6;
   if (w.id === "pop1m")          { H_MAX = s * 5.5; W = s * 4.8; }
   if (w.id === "era_kingdom")    { H_MAX = s * 8;   W = s * 3.8; }

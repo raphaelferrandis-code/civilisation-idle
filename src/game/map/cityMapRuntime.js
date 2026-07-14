@@ -12,6 +12,8 @@ import {
   ROAD_W,
   cmWonderSlot,
   cmWonderActiveIds,
+  cmWonderCoreR,
+  cmForEachWonderCell,
   cmRoadName,
   computeCityLayout,
   cmEngineGroupSig,
@@ -32,7 +34,7 @@ import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, ISO_X, ISO_Y } from './iso/projection.js';
-import { drawIsoWorld } from './iso/isoRenderer.js';
+import { drawIsoWorld, waterShoreTune } from './iso/isoRenderer.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -54,12 +56,13 @@ import {
   drawCrisis,
   cityMapDrawRoad,
   cityMapDrawRoadMarkings,
-  cityMapCalmRioterAt
+  cityMapCalmRioterAt,
+  quayWallTune
 } from './renderWorld.js';
 import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
-import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts } from './agents.js';
+import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
-import { drawPixelRiver, pixelWaterFlag, setPixelWater } from './pixelRiver.js';
+import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
 
 
@@ -166,16 +169,61 @@ function cityMapScreenFromWorld(wx, wy) {
   return worldToScreen(wx, wy);
 }
 
+// Bornes (indices de tuiles inclusifs) du CONTENU bâti réel du plan (huttes,
+// foyers, complexes) — empreinte comprise via spanX/spanY. Sert au cadrage de
+// départ pour serrer la vue sur le village plutôt que sur un disque théorique.
+function cityContentBounds(layout) {
+  const tiles = layout && layout.tiles;
+  if (!tiles || !tiles.length) return null;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, n = 0;
+  for (const t of tiles) {
+    if (!t || typeof t.gx !== "number" || typeof t.gy !== "number") continue;
+    const sx = t.spanX || 1, sy = t.spanY || 1;
+    if (t.gx < minX) minX = t.gx;
+    if (t.gx + sx - 1 > maxX) maxX = t.gx + sx - 1;
+    if (t.gy < minY) minY = t.gy;
+    if (t.gy + sy - 1 > maxY) maxY = t.gy + sy - 1;
+    n += 1;
+  }
+  return n ? { minX, maxX, minY, maxY } : null;
+}
+
 function cityMapCenterCamera(layout) {
   if (!layout) return;
-  // Caméra centrée sur le cœur urbain du plan procédural.
-  CM.cam.x = (layout.plan?.core?.x ?? layout.gridN / 2) * CM.TILE;
-  CM.cam.y = (layout.plan?.core?.y ?? layout.gridN / 2) * CM.TILE;
-  // Zoom recule avec la taille de la ville : village (22 tuiles visibles) → mégalopole (36 tuiles)
+  const T = CM.TILE;
+  // Zoom HISTORIQUE (recule avec la taille de ville : 22 tuiles → 36 en mégalopole).
+  // Il sert désormais de PLANCHER : on ne dézoome jamais plus large que l'ancien
+  // comportement (aucune régression sur les grandes villes), on peut seulement
+  // resserrer sur un petit village. Iso : mêmes tuiles = 2× la largeur (losange 2:1).
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
-  // Iso : les mêmes tuiles occupent 2× la largeur écran (losange 2:1) → zoom ÷2.
-  const perTile = CM.TILE * (CM.iso ? 2 * ISO_X : 1);
-  CM.cam.zoom = Math.max(0.35, Math.min(1.6, CM.cw / (targetTiles * perTile)));
+  const perTile = T * (CM.iso ? 2 * ISO_X : 1);
+  const baseZoom = CM.cw / (targetTiles * perTile);
+
+  // Cadre sur le CONTENU bâti réel plutôt que sur le seul cœur procédural : le
+  // cœur (plan.core) est souvent au bord SUD du bâti, donc centrer dessus pousse
+  // le village en haut d'un coin avec un large anneau d'herbe morte autour.
+  const b = cityContentBounds(layout);
+  if (b && CM.iso) {
+    CM.cam.x = ((b.minX + b.maxX) / 2 + 0.5) * T;
+    CM.cam.y = ((b.minY + b.maxY) / 2 + 0.5) * T;
+    // Fit-to-bounds iso : la bbox (Wt×Ht tuiles) se projette en un losange dont
+    // l'étendue écran vaut (Wt+Ht)·ISO_X × (Wt+Ht)·ISO_Y. On zoome pour que ce
+    // losange + une marge (anneau délibéré) remplisse le cadre, sans jamais
+    // dézoomer sous le plancher historique (grandes villes intactes).
+    const span = (b.maxX - b.minX) + (b.maxY - b.minY) + 3; // +3 tuiles de respiration
+    const margin = 1.2;                                     // anneau délibéré autour du village
+    const fit = Math.min(
+      CM.cw / (span * ISO_X * T * margin),
+      CM.ch / (span * ISO_Y * T * margin)
+    );
+    CM.cam.zoom = Math.max(0.35, Math.min(1.6, Math.max(baseZoom, fit)));
+    return;
+  }
+
+  // Repli (legacy top-down, ou aucun contenu) : cœur du plan + zoom historique.
+  CM.cam.x = (layout.plan?.core?.x ?? layout.gridN / 2) * T;
+  CM.cam.y = (layout.plan?.core?.y ?? layout.gridN / 2) * T;
+  CM.cam.zoom = Math.max(0.35, Math.min(1.6, baseZoom));
 }
 
 // Borne la caméra sur la zone de contenu : fleuve (amont→aval) en X, grille
@@ -360,16 +408,14 @@ function cityMapHitTestCitizenWithThought(sx, sy) {
   const clickRadius = Math.max(16, 14 * z);
   for (const p of CM.citizens) {
     if (!p.thoughtType || p.thoughtTimer <= 0 || p._nightHidden) continue;
-    // Position écran IDENTIQUE au rendu (drawCitizens/drawCitizenThoughts) : décalage-
-    // trottoir lissé p.lox/p.loy. L'ancien modèle wob/swOff n'existe plus au rendu →
-    // sans cet alignement, le clic sur bulle tombe à côté (surtout ère ≥ 5, où le
-    // « swagger » décalait le sprite de ~9 px sans que le hit-test le sache).
-    const px = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
-    const py = (p.y + (p.loy || 0) - CM.cam.y) * z + CM.ch / 2;
+    // Position écran IDENTIQUE au rendu : pieds (projection partagée) pour le
+    // corps, et ANCRE PARTAGÉE thoughtBubbleAnchor (au-dessus de la tête) pour
+    // la bulle — même formule que drawCitizenThoughts, jamais désalignée.
+    const spb = cityMapScreenFromWorld(p.x + (p.lox || 0), p.y + (p.loy || 0));
+    const px = spb.x, py = spb.y;
     const distBody = Math.hypot(px - sx, py - sy);
-    const bx = px;
-    const by = py - 18;
-    const distBubble = Math.hypot(bx - sx, by - sy);
+    const a = thoughtBubbleAnchor(p);
+    const distBubble = Math.hypot(a.x - sx, a.y - sy);
     const minDist = Math.min(distBody, distBubble);
     if (minDist < clickRadius && minDist < bestDist) {
       best = p;
@@ -663,6 +709,39 @@ function cityMapEnsureLayout(now, deps = {}) {
   }
   // Clés numériques : évite les allocations string à chaque lookup dans les boucles agents
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
+  // ── Parvis des merveilles : réseau piéton + cibles d'attroupement ───────────
+  // Les cellules du parvis (L.wonderGround) deviennent MARCHABLES, sauf le CŒUR
+  // (socle du monument, rayon cmWonderCoreR) et l'eau. Un ANNEAU de 2 cellules
+  // autour du socle sert de cible d'attroupement (wonderGatherCells, avec la
+  // direction « face au monument » consommée à l'arrivée). Les véhicules ne sont
+  // PAS concernés (leurs pas suivent les masks de route ; le parvis n'en a pas).
+  CM.wonderWalkSet = new Set();
+  CM.wonderGatherCells = [];
+  if (L.wonderGround && L.wonderGround.size && Array.isArray(L.wonderSlots)) {
+    const rivC = (L.river && L.river.present && L.river.cells) || null;
+    for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+      const w = CM_WONDERS[wi];
+      if (w.id === "era_mega") continue; // dans l'eau : pas de parvis
+      const slot = L.wonderSlots[wi];
+      // Le slot n'appartient au parvis que si la merveille est érigée dans CE plan.
+      if (!slot || !L.wonderGround.has(slot.gx + "," + slot.gy)) continue;
+      const coreR = cmWonderCoreR(w.id);
+      cmForEachWonderCell(slot, w.id, L.gridN, (gx, gy, k) => {
+        if (!L.wonderGround.has(k)) return;
+        if (rivC && rivC.has(k)) return;             // parvis rogné par le fleuve
+        const dx = gx - slot.gx, dy = gy - slot.gy;
+        const cheb = Math.max(Math.abs(dx), Math.abs(dy));
+        if (cheb <= coreR) return;                   // socle : on n'y marche pas
+        CM.wonderWalkSet.add(gx * 10000 + gy);
+        if (cheb <= coreR + 2) {
+          // Face au monument : axe dominant vers le slot (0=E 1=W 2=S 3=N).
+          const face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 0) : (dy > 0 ? 3 : 2);
+          CM.wonderGatherCells.push({ gx, gy, face });
+        }
+      });
+    }
+    for (const k of CM.wonderWalkSet) CM.walkRoadSet.add(k);
+  }
   // ── Ancres domicile / travail ──────────────────────────────────────────────
   // Cellules-route bordant les LOGEMENTS (toute tuile non-moteur) vs les LIEUX
   // D'ACTIVITÉ (bâtiments-moteur « engine »). Cibles des trajets journaliers des
@@ -1104,6 +1183,20 @@ function initCityMap(canvas, options = {}) {
       // Detection d'effondrement (anim de destruction centre -> exterieur).
       if (typeof collapseInProgress !== "undefined" && collapseInProgress) { if (!CM.collapseAt) CM.collapseAt = now; }
       else { CM.collapseAt = 0; }
+      // Révélation per-buy des maisons-MOTEUR : compteur = maisons du palier (engineHomes)
+      // + achats depuis le dernier recompute (borné au LOOKAHEAD=44 du pool pré-placé).
+      // Rafraîchi chaque frame (~29 additions) → « 1 achat = 1 bâtiment » qui apparaît,
+      // SANS recompute du layout. Calculé AVANT la bascule iso/legacy : les DEUX rendus
+      // masquent revealIdx >= compteur (drawTile en legacy, drawIsoLive en iso).
+      if (CM.layout && CM.layout.counts) {
+        let rawNow = 0; const _b = state.buildings || {};
+        for (const meta of CM_MAP_BUILDINGS) rawNow += Math.floor(_b[meta.id] || 0);
+        const placed = CM.layout.engineHomePlaced || 0;
+        const grown = rawNow - (CM.layout.counts.engineHomesRaw || 0);   // achats depuis le recompute
+        // On révèle les 40 DERNIÈRES maisons placées une par une (le reste apparaît au
+        // recompute). placed-40 masqué au départ ; chaque achat en révèle une de plus.
+        CM.engineHomeReveal = Math.max(0, Math.min(placed, placed - 40 + grown));
+      }
       // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
       // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
       // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
@@ -1203,19 +1296,7 @@ function initCityMap(canvas, options = {}) {
       // (déjà dessiné). Le mobilier bas (bancs/bacs) reste dans cityMapDrawPlazas (avant agents).
       cityMapDrawPlazaTallProps(now);
       const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
-      // Révélation per-buy des maisons-MOTEUR : compteur = maisons du palier (engineHomes)
-      // + achats depuis le dernier recompute (borné au LOOKAHEAD=44 du pool pré-placé).
-      // Rafraîchi chaque frame (~29 additions) → « 1 achat = 1 bâtiment » qui apparaît
-      // (drawTile masque revealIdx >= compteur), SANS recompute du layout.
-      if (CM.layout && CM.layout.counts) {
-        let rawNow = 0; const _b = state.buildings || {};
-        for (const meta of CM_MAP_BUILDINGS) rawNow += Math.floor(_b[meta.id] || 0);
-        const placed = CM.layout.engineHomePlaced || 0;
-        const grown = rawNow - (CM.layout.counts.engineHomesRaw || 0);   // achats depuis le recompute
-        // On révèle les 40 DERNIÈRES maisons placées une par une (le reste apparaît au
-        // recompute). placed-40 masqué au départ ; chaque achat en révèle une de plus.
-        CM.engineHomeReveal = Math.max(0, Math.min(placed, placed - 40 + grown));
-      }
+      // (CM.engineHomeReveal est calculé AVANT la bascule iso/legacy, cf. plus haut.)
       if (CM.layout) {
         if (now >= CM.tileDirtyUntil && CM.tileCanvas) {
           // Hors fenêtre de naissance : bake les tuiles statiques (marge = pan fluide),
@@ -1268,7 +1349,7 @@ function initCityMap(canvas, options = {}) {
         }
       }
       drawVehicles(now, "air"); // drones au-dessus
-      if (!CM.lodActive) drawCitizenThoughts();
+      if (!CM.lodActive) drawCitizenThoughts(now);
       } // fin du pipeline legacy (voir la bascule CM.iso en tête de bloc)
     }
   }
@@ -1316,6 +1397,10 @@ function initCityMap(canvas, options = {}) {
     // monter une ville de démo (population/bâtiments) puis de capturer une frame.
     window.__state = state;
     window.__D = D;
+    // L'INSTANCE CM de la page (pas d'import !) : le double-graphe HMR fait
+    // qu'un `import('/src/game/map/layout.js')` depuis la console/outils peut
+    // renvoyer une COPIE fraîche sans layout/forceFrame — piloter via __CM.
+    window.__CM = CM;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     // MONTAGE DE DÉMO EN UN APPEL (Phase 0 chantier iso) — concentre tous les gotchas
     // du harnais : fige tick+autosave (clearInterval), pompe l'état SANS déclencher la
@@ -1345,11 +1430,20 @@ function initCityMap(canvas, options = {}) {
     // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
     window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM.groundCamKey = ''; };
     window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM.groundCamKey = ''; return { ...sidewalkTune }; };
+    // Bord de quai = berge maçonnée : réglage live. __quayWall({ on, full, heightK, joints })
+    // fusionne les clés. full=true → tout le long de l'eau ; false → berges urbaines.
+    // Quai LIVE → pas de rebake. Ex. __quayWall({ full: false }) / __quayWall({ heightK: 1.4 }).
+    window.__quayWall = (o) => { if (o) Object.assign(quayWallTune, o); return { ...quayWallTune }; };
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
     window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
     window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
     window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    // Vaguelettes animées de l'eau (façon TheoTown) : réglage live. Eau LIVE → pas de rebake.
+    // __waterRipples({ on, lanes, freq, speed, thresh, alpha, color }). Ex. __waterRipples({ alpha: 0.5 }).
+    window.__waterRipples = (o) => { if (o) Object.assign(waterRippleTune, o); return { ...waterRippleTune }; };
+    // Bas-fond clair des rives (iso) : réglage live. __waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
+    window.__waterShore = (o) => { if (o) Object.assign(waterShoreTune, o); return { ...waterShoreTune }; };
     window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM.staticCamKey = ''; };
     // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
     // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
@@ -1376,6 +1470,9 @@ function initCityMap(canvas, options = {}) {
       const t = Math.max(1, Math.min(5, tier | 0));
       CM.previewWonder = { id: w.id, tier: t };
       CM.born["wonder:" + w.id] = -1e6; // déjà érigée : pas d'animation de poussée
+      // Le PLAN traite l'aperçu comme érigée (parvis, carve des routes, réserve —
+      // cf. builtWonderIds dans layout.js) → recalcul immédiat pour un aperçu fidèle.
+      CM.layout = null;
       const center = () => {
         if (!CM.layout || !CM.layout.wonderSlots) { requestAnimationFrame(center); return; }
         const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
@@ -1387,7 +1484,7 @@ function initCityMap(canvas, options = {}) {
       center();
       return w.name + " — rang " + WONDER_TIER_NAMES[t] + "  (rangs 1..5 ; __hideWonder() pour arrêter)";
     };
-    window.__hideWonder = () => { CM.previewWonder = null; CM.centered = false; return "aperçu arrêté"; };
+    window.__hideWonder = () => { CM.previewWonder = null; CM.centered = false; CM.layout = null; return "aperçu arrêté"; };
     // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :
     // ex. centrer/zoomer sur un attelage avant __cityShot.
     window.__CM = CM;

@@ -1,0 +1,125 @@
+{
+  "_doc": "Batch ÉMEUTIERS iso, DA « Figurine d'époque » (reprise 2026-07-13, plan validé 2026-07-12). Source unique : create_character v3 48px low top-down → animate v3 6 frames 4 diagonales (« marching forward angrily, holding the <arme> raised high and steady straight overhead », keep_first_frame=false) → fetchRiotIso.mjs (assemble events/{name}-{diag}.png, idempotent) → quantize 24. `name` = clé de rendu EXACTE rioter-<era><gen>-<arme> (era = riotEraKey : '' médiéval, stone-, anti-, ind-, fut-). Langage d'art par ère CALQUÉ sur les habitants (isoBatchRoster) : classe ouvrière + arme brandie + expression furieuse. Pilote anti-man-torch VALIDÉ par Raph (id posé).",
+  "chars": [
+    {
+      "name": "rioter-anti-man-torch",
+      "id": "5ab24335-5197-45ec-ac4b-7ade31b2bd20",
+      "anim": true,
+      "prompt": "(pilote validé 2026-07-12 — tunique terracotta, bande méandre noire, torche brandie allumée)"
+    },
+    {
+      "name": "rioter-anti-man-fork",
+      "id": "ddd73e33-3026-4112-9271-ec160ff8c9cd",
+      "anim": true,
+      "prompt": "ancient greek rioter man, terracotta tunic with bold black meander band, angry expression, holding an iron pitchfork raised high overhead, greek pottery colors (terracotta, black, gold), realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-anti-woman-torch",
+      "id": "30648f10-8010-4c2b-94bb-49cefc42b61a",
+      "anim": true,
+      "prompt": "ancient greek rioter woman, terracotta peplos dress with bold black meander hem, dark hair in a bun, angry expression, holding a lit torch raised high overhead, greek pottery colors (terracotta, black, gold), realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-anti-woman-fork",
+      "id": "544cb27a-d51f-47aa-ae4d-00d299b9ec25",
+      "anim": true,
+      "prompt": "ancient greek rioter woman, black peplos dress with terracotta band, dark hair in a bun, angry expression, holding an iron pitchfork raised high overhead, greek pottery colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-stone-man-torch",
+      "id": "8c292d29-556b-41e9-b809-b21c3fea4cb8",
+      "anim": true,
+      "prompt": "prehistoric rioter man, rust-red ochre fur tunic, white cave-painting stripes on arms, dark shaggy hair, angry expression, holding a lit torch raised high overhead, earthy saturated cave-art colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-stone-man-fork",
+      "id": "528857a9-6d12-4795-913b-4c97e90a38c2",
+      "anim": true,
+      "prompt": "prehistoric rioter man, charcoal grey fur wrap, red ochre body paint marks, bone necklace, angry expression, holding a crude wooden pitchfork raised high overhead, earthy cave-art colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-stone-woman-torch",
+      "id": "ae8aa294-2aa0-4bf0-a52f-3eee05343700",
+      "anim": true,
+      "prompt": "prehistoric rioter woman, rust-ochre hide dress, white shell necklace, long dark hair, white cave-painting marks on arms, angry expression, holding a lit torch raised high overhead, earthy saturated cave-art colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-stone-woman-fork",
+      "id": "69fa11aa-268c-4f4a-bc4d-61106469f4c9",
+      "anim": true,
+      "prompt": "prehistoric rioter woman, charcoal fur dress with red ochre painted band, feather in hair, angry expression, holding a crude wooden pitchfork raised high overhead, cave-art colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-man-torch",
+      "id": "43161017-a30b-4002-817c-aa4509d4937b",
+      "anim": true,
+      "prompt": "medieval peasant rioter man, vermillion red tunic with lapis blue hood, rope belt, angry expression, holding a lit torch raised high overhead, illuminated manuscript colors (lapis blue, vermillion, gold), realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-man-fork",
+      "id": "5e2d48af-4383-4d0b-9ef6-399484d12202",
+      "anim": true,
+      "prompt": "medieval peasant rioter man, lapis blue tunic with vermillion hood, rope belt, angry expression, holding an iron pitchfork raised high overhead, illuminated manuscript colors (lapis blue, vermillion, gold), realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-woman-torch",
+      "id": "ea1c0d7a-c800-4290-80f3-44cd02362d62",
+      "anim": true,
+      "prompt": "medieval peasant rioter woman, lapis blue dress with vermillion apron, linen headscarf, angry expression, holding a lit torch raised high overhead, illuminated manuscript colors (lapis blue, vermillion, gold), realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-woman-fork",
+      "id": "6d555a9f-5a08-417d-aea2-4117dd7ac818",
+      "anim": true,
+      "prompt": "medieval peasant rioter woman, vermillion dress with lapis blue shawl, linen headscarf, angry expression, holding an iron pitchfork raised high overhead, illuminated manuscript colors, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-ind-man-torch",
+      "id": "10957792-6f91-444d-9ac3-0f119d4efedb",
+      "anim": true,
+      "prompt": "19th century industrial worker rioter man, flat cap, brown worker's waistcoat over beige shirt with rolled sleeves, angry expression, holding a lit torch raised high overhead, sepia engraving and brick tones, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-ind-man-fork",
+      "id": "9dce84ba-ee9d-485f-a647-892944081e96",
+      "anim": true,
+      "prompt": "19th century industrial worker rioter man, flat cap, dark grey jacket and worn trousers, angry expression, holding an iron pitchfork raised high overhead, sepia engraving and brick tones, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-ind-woman-torch",
+      "id": "f0ae2d07-5f14-4d4e-8274-adad62604215",
+      "anim": true,
+      "prompt": "19th century industrial worker rioter woman, headscarf, dark work dress with brick-red shawl, angry expression, holding a lit torch raised high overhead, sepia engraving and brick tones, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-ind-woman-fork",
+      "id": "dc3edf4f-95c0-4997-b942-bc30bd0af2ee",
+      "anim": true,
+      "prompt": "19th century industrial worker rioter woman, headscarf, brown apron dress with rolled sleeves, angry expression, holding an iron pitchfork raised high overhead, sepia and brick tones, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-fut-man-torch",
+      "id": "093176ab-049a-45c1-86d6-6fe46c6437fd",
+      "anim": true,
+      "prompt": "cyberpunk rioter man, dark techwear jacket with glowing neon cyan accents, angry expression, holding a glowing energy torch raised high overhead, neon colors on dark palette, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-fut-man-fork",
+      "id": "3344464b-de6f-4586-bda1-260859f3804e",
+      "anim": true,
+      "prompt": "cyberpunk rioter man, dark hooded techwear with neon magenta trim, angry expression, holding a glowing energy pitchfork raised high overhead, neon colors on dark palette, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-fut-woman-torch",
+      "id": "88acd490-cdde-4132-82ad-a693136d7b61",
+      "anim": true,
+      "prompt": "cyberpunk rioter woman, dark techwear bodysuit with glowing neon cyan accents, short asymmetric hair, angry expression, holding a glowing energy torch raised high overhead, neon colors on dark palette, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "rioter-fut-woman-fork",
+      "id": "e2dbfbbb-6e9f-4c0e-857c-9ec1100cffd7",
+      "anim": true,
+      "prompt": "cyberpunk rioter woman, dark hooded techwear with neon magenta trim, angry expression, holding a glowing energy pitchfork raised high overhead, neon colors on dark palette, realistic proportions, clean pixel art"
+    }
+  ]
+}

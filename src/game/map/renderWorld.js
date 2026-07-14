@@ -532,6 +532,22 @@ function ensureQuayGate() {
   CM.quayBankCells = bankCells;
 }
 
+// Réglage molette du BORD de quai (berge maçonnée, cf. drawRun dans cityMapDrawQuays) :
+// window.__quayWall({ on, full, heightK, joints, light }). Quai LIVE → pas de rebake.
+//   full: true  → berge maçonnée TOUT LE LONG de l'eau (2 rives, sauf port/moulin)
+//   full: false → seulement le long des berges URBAINES (proches d'une route)
+//   light: 0..1 → éclaircit la pierre (fondu vers le blanc) — dessus + parement + margelle
+export const quayWallTune = { on: true, full: true, heightK: 1, joints: true, light: 0.16 };
+
+// Éclaircit une couleur "#rrggbb" en la fondant vers le blanc de `t` (0..1) → "rgb(...)".
+// Sert à rendre la berge maçonnée « un peu plus claire » sans retoucher chaque teinte d'ère.
+function lightenHex(hex, t) {
+  if (!t || typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return hex;
+  const n = parseInt(hex.slice(1, 7), 16);
+  const L = (c) => Math.round(c + (255 - c) * t);
+  return `rgb(${L((n >> 16) & 255)},${L((n >> 8) & 255)},${L(n & 255)})`;
+}
+
 // Quais : berge construite (promenade + lèvre humide) là où la ville borde l'eau.
 // Tracé en SUIVANT le ruban lisse (samples + normale), exactement comme le fleuve —
 // JAMAIS par cellule (le bankSet diverge du bleu peint dans les courbes => escalier).
@@ -549,7 +565,6 @@ function cityMapDrawQuays(now) {
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, sm = L.river.samples, n0 = sm.length;
   const night = CM.nightF || 0;
   const lod = CM.lodActive;          // zoom lointain : strates seules, pas de mobilier/joints
-  const TAPER = 2;
 
   // Style de quai par ère : promenade qui évolue pierre -> marbre -> béton/fonte ->
   // néon -> énergie cosmique. (Palette cosmique inlinée pour éviter un import croisé.)
@@ -558,13 +573,18 @@ function cityMapDrawQuays(now) {
     8: { mid: "#4a3a1c", core: "#221808", glow: "255,205,120" },
     9: { mid: "#322a52", core: "#161226", glow: "170,140,255" }
   };
+  // Style par ère. `coping`/`wallTop`/`wallBot`/`wallJoint`/`wallTiles` = la BERGE
+  // MAÇONNÉE (mur du bord d'eau, cf. drawRun) : margelle claire + parement
+  // haut→bas + joints d'assise + hauteur (en tuiles).
   let st;
   if (band <= 4) {                   // pierre (2-3) / marbre (4)
     const marble = band >= 4;
     st = {
       W: 0.7, walk: marble ? "#cdc6b2" : "#a89a78", face: marble ? "#8f8770" : "#6e6044",
       lip: "rgba(0,0,0,0.40)", edge: marble ? "rgba(255,250,235,0.30)" : "rgba(255,240,205,0.20)",
-      rail: null, joints: "rgba(0,0,0,0.16)", lamp: "255,214,150", glow: null
+      rail: null, joints: "rgba(0,0,0,0.16)", lamp: "255,214,150", glow: null,
+      coping: marble ? "#ece6d6" : "#d8cfb4", wallTop: marble ? "#b3ab92" : "#8a7f60",
+      wallBot: marble ? "#6f684f" : "#4e4230", wallJoint: "rgba(0,0,0,0.30)", wallTiles: marble ? 0.70 : 0.66
     };
   } else if (band <= 6) {            // fonte (5) / néon (6)
     const neon = band >= 6;
@@ -572,16 +592,32 @@ function cityMapDrawQuays(now) {
       W: 0.85, walk: neon ? "#6f7480" : "#827a6e", face: neon ? "#3e424c" : "#4f4940",
       lip: "rgba(0,0,0,0.44)", edge: "rgba(222,230,240,0.16)",
       rail: "rgba(16,20,26,0.85)", joints: null, lamp: neon ? "150,225,255" : "255,208,150",
-      glow: neon ? "120,220,255" : null
+      glow: neon ? "120,220,255" : null,
+      coping: neon ? "#8f99a8" : "#9c968c", wallTop: neon ? "#40444e" : "#5f5a52",
+      wallBot: neon ? "#202329" : "#302c26", wallJoint: "rgba(0,0,0,0.34)", wallTiles: 0.75
     };
   } else {                           // cosmique 7-9 : quai d'énergie
     const cp = COSMIC[band] || COSMIC[9];
-    st = { W: 0.9, walk: cp.mid, face: cp.core, lip: "rgba(0,0,0,0.45)", edge: null, rail: null, joints: null, lamp: cp.glow, glow: cp.glow };
+    st = { W: 0.9, walk: cp.mid, face: cp.core, lip: "rgba(0,0,0,0.45)", edge: null, rail: null, joints: null, lamp: cp.glow, glow: cp.glow,
+      coping: cp.mid, wallTop: cp.core, wallBot: "#0a0a12", wallJoint: "rgba(0,0,0,0.30)", wallTiles: 0.75 };
   }
   const W = st.W, faceW = W * 0.30;  // bande côté eau (ombre) vs promenade (côté terre)
 
-  // Effilement smoothstep aux deux bouts d'un run (W->0) — pas de biseau net.
-  const tt = (i, a, b) => { const t = Math.max(0, Math.min(1, Math.min(i - a, b - i) / TAPER)); return t * t * (3 - 2 * t); };
+  // Effilement smoothstep aux deux bouts d'un run (hauteur/largeur -> 0) : fondu DOUX
+  // aux interruptions EN VILLE (port/moulin) — retour Raph « c'était plus fluide quand
+  // c'était affiné ». Le SPIKE de la source est évité autrement (skip QUAY_END/QUAY_MIN_HW
+  // dans le gate + bas-fond à offset CONSTANT), PAS en retirant l'effilement.
+  const TAPER = 2;
+  // Effilement ASYMÉTRIQUE : on n'effile un bout QUE s'il borde une INTERRUPTION EN
+  // VILLE (port/moulin) → fondu DOUX voulu par Raph. Aux bouts bordant une berge
+  // NATURELLE (source/embouchure/fleuve étroit), PAS d'effilement → fin carrée nette,
+  // pas de POINTE fuyante. `ctaperA/ctaperB` sont posés par drawRun d'après `naturalOff`.
+  let ctaperA = true, ctaperB = true, naturalOff = null;
+  const tt = (i, a, b) => {
+    const dA = ctaperA ? (i - a) : 1e9, dB = ctaperB ? (b - i) : 1e9;
+    const t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
+    return t * t * (3 - 2 * t);
+  };
   // Point écran à l'offset additif `base` (tapered) du sample i, sur la rive `side`.
   // Projection via le module iso (IDENTITÉ quand CM.iso off) → les quais suivent
   // le ruban dans les DEUX modes ; appelé aussi par drawIsoWorld en Phase 5.
@@ -605,11 +641,88 @@ function cityMapDrawQuays(now) {
     if (additive) ctx.restore();
   };
 
+  const wallOn = quayWallTune.on;
   const drawRun = (a, b, side) => {
-    // Strates : tout en "face" (ombre côté eau) puis la promenade par-dessus la part terre.
-    fillStrip(a, b, side, 0, W, st.face);
-    fillStrip(a, b, side, faceW, W, st.walk);
-    // Joints de dalles (pierre/marbre) : ticks perpendiculaires sur la promenade.
+    // Effiler un bout SEULEMENT s'il borde une interruption VILLE (port/moulin), pas
+    // une berge naturelle (source/étroit) : `naturalOff[a-1|b+1]` distingue les deux.
+    ctaperA = a > 0 && naturalOff ? !naturalOff[a - 1] : (a > 0);
+    ctaperB = b < n0 - 1 && naturalOff ? !naturalOff[b + 1] : (b < n0 - 1);
+    // Pierre éventuellement ÉCLAIRCIE (quayWallTune.light) : dessus + parement + margelle.
+    const LT = quayWallTune.light;
+    const cWalk = lightenHex(st.walk, LT), cCop = lightenHex(st.coping, LT);
+    const cWallTop = lightenHex(st.wallTop, LT), cWallBot = lightenHex(st.wallBot, LT);
+    // 1) DESSUS PLAT de la berge (uniforme jusqu'au bord d'eau, offset 0..W).
+    fillStrip(a, b, side, 0, W, cWalk);
+
+    // 2) MUR DU BORD (berge maçonnée façon TheoTown). L'axe VERTICAL du monde se
+    // projette en Z-écran pur (screen-Y vers le bas) → un parement vertical est un
+    // ruban qui "pend" sous la margelle, quelle que soit la rive. Il n'est visible
+    // que sur la rive dont l'EAU est DEVANT (plus bas à l'écran) ; l'autre rive
+    // n'en montre que la margelle (son parement est occulté par sa promenade).
+    // waterBelow(i) : au sample i, l'eau est-elle "devant" (plus bas à l'écran) ?
+    // Évalué PAR SAMPLE (robuste aux courbes ET aux longues berges "full") → on ne
+    // dessine le parement que sur les sous-tronçons où c'est vrai ; l'autre rive
+    // n'a que la margelle (parement occulté par sa propre promenade).
+    if (wallOn && !lod) {
+      const wh = st.wallTiles * quayWallTune.heightK * T * z;   // hauteur écran du parement
+      const N = b - a + 1;
+      // wbelow par sample (l'eau est "devant" = plus bas à l'écran) → robuste courbes/full.
+      const wbel = new Uint8Array(N);
+      for (let i = a; i <= b; i += 1) wbel[i - a] = pt(i, side, -0.3, 1)[1] > pt(i, side, 0.3, 1)[1] ? 1 : 0;
+      // Hauteur ÉCRAN du mur par sample (0 hors sous-tronçon waterBelow ; taperée aux bouts).
+      const wallH = new Float32Array(N);
+      { let i = 0; while (i < N) { if (!wbel[i]) { i += 1; continue; } let j = i; while (j + 1 < N && wbel[j + 1]) j += 1; for (let k = i; k <= j; k += 1) wallH[k] = wh * tt(a + k, a + i, a + j); i = j + 1; } }
+      const drawWallSeg = (sa, sb) => {
+        // Haut du mur (bord d'eau) + hauteur locale : LIT wallH[] (source de vérité
+        // UNIQUE, partagée avec le liseré) — ne PAS recalculer un taper local, sinon
+        // mur dessiné et liseré divergent (liseré « fantôme » sous l'eau, vu par Raph).
+        const wp = [];
+        for (let i = sa; i <= sb; i += 1) { const tp = pt(i, side, 0, 1); wp.push([tp[0], tp[1], wallH[i - a]]); }
+        // Parement en 2 assises : haut clair -> bas sombre (lecture de profondeur).
+        for (const seg of [[0, 0.5, cWallTop], [0.5, 1, cWallBot]]) {
+          ctx.beginPath();
+          for (let k = 0; k < wp.length; k += 1) { const p = wp[k], y = p[1] + p[2] * seg[0]; if (k === 0) ctx.moveTo(p[0], y); else ctx.lineTo(p[0], y); }
+          for (let k = wp.length - 1; k >= 0; k -= 1) { const p = wp[k]; ctx.lineTo(p[0], p[1] + p[2] * seg[1]); }
+          ctx.closePath(); ctx.fillStyle = seg[2]; ctx.fill();
+        }
+        // Joints d'assise verticaux (tous les ~2 samples, hors bouts effilés).
+        if (quayWallTune.joints) {
+          ctx.strokeStyle = st.wallJoint; ctx.lineWidth = Math.max(1, z * 0.5);
+          for (let k = 0; k < wp.length; k += 2) { const p = wp[k]; if (p[2] < wh * 0.5) continue; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0], p[1] + p[2]); ctx.stroke(); }
+        }
+        // Ombre de contact à la BASE du mur (le pied dans l'eau).
+        ctx.strokeStyle = "rgba(0,0,0,0.30)"; ctx.lineWidth = Math.max(1, z * 0.8);
+        ctx.beginPath();
+        for (let k = 0; k < wp.length; k += 1) { const p = wp[k]; if (k === 0) ctx.moveTo(p[0], p[1] + p[2]); else ctx.lineTo(p[0], p[1] + p[2]); }
+        ctx.stroke();
+      };
+      // Murs sur les sous-tronçons waterBelow (au moins 2 samples). Chaque segment
+      // est ÉTENDU d'un sample aux bouts (hauteur 0, si dispo) : le polygone se FERME
+      // à la pointe au lieu de s'arrêter net un sample avant (le taper met wallH=0
+      // pile au bout → sans extension, mur coupé + liseré qui continue seul).
+      { let i = 0; while (i < N) { if (!wallH[i]) { i += 1; continue; } let j = i; while (j + 1 < N && wallH[j + 1] > 0) j += 1; if (j > i) drawWallSeg(a + Math.max(0, i - 1), a + Math.min(N - 1, j + 1)); i = j + 1; } }
+      // BAS-FOND CLAIR collé au BORD DE L'EAU VISIBLE (retour Raph « il faut qu'il
+      // suive le bord de l'eau », pas le quai englouti) : la ligne = le contour BAS
+      // du parement DESSINÉ là où il y a un mur (pied = screen-Y + wallH[i], qui
+      // remonte au bord du ruban à la pointe), et le bord PEINT du ruban là où il
+      // n'y en a pas (wallH=0). AUCUN décalage latéral : l'ancien -inset laissait
+      // la ligne flotter DANS l'eau au-delà de la pointe et hors des tronçons à mur.
+      // (Le bas-fond de drawIsoRiver reste OFF — waterShoreTune.on=false.)
+      const shoreLine = (col, lw) => {
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let i = a; i <= b; i += 1) {
+          const p = pt(i, side, 0, 1);
+          const y = p[1] + wallH[i - a];      // pied du mur ; bord du ruban si wallH=0
+          if (i === a) ctx.moveTo(p[0], y); else ctx.lineTo(p[0], y);
+        }
+        ctx.stroke();
+      };
+      shoreLine("rgba(150,184,180,0.50)", Math.max(3, z * 5));    // bas-fond doux (halo)
+      shoreLine("rgba(202,224,214,0.62)", Math.max(1, z * 2.2));  // liseré clair AU bord
+    }
+
+    // 3) Joints de dalles du DESSUS : ticks perpendiculaires (pierre/marbre).
     if (st.joints && !lod) {
       ctx.strokeStyle = st.joints; ctx.lineWidth = Math.max(1, z * 0.5);
       for (let i = a; i <= b; i += 1) {
@@ -618,14 +731,14 @@ function cityMapDrawQuays(now) {
         ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
       }
     }
-    // Côté terre : garde-corps (fonte/néon) sinon liseré clair.
+    // 4) Côté terre : garde-corps (fonte/néon) sinon liseré clair.
     if (st.rail) strokeAt(a, b, side, W, st.rail, Math.max(1, z * 0.7));
     else strokeAt(a, b, side, W, st.edge, Math.max(1, z * 0.5));
-    // Lèvre humide sombre pile au bord d'eau.
-    strokeAt(a, b, side, 0, st.lip, Math.max(1, z * 0.9));
-    // Bord lumineux (néon / énergie cosmique), avivé la nuit.
+    // 5) MARGELLE : cap clair au bord d'eau = le haut du mur (les deux rives).
+    strokeAt(a, b, side, 0, cCop, Math.max(1, z * 1.0));
+    // 6) Bord lumineux (néon / énergie cosmique), avivé la nuit.
     if (st.glow) strokeAt(a, b, side, 0, `rgba(${st.glow},${(0.30 + 0.45 * night).toFixed(2)})`, Math.max(1, z * 0.7), true);
-    // Mobilier : lampadaires/bornes le long de la promenade ; lueur chaude la nuit.
+    // 7) Lampadaires le long de la promenade ; lueur chaude la nuit.
     if (!lod && st.lamp) {
       for (let i = a; i <= b; i += 1) {
         if (i % 2 !== 0) continue;
@@ -643,8 +756,29 @@ function cityMapDrawQuays(now) {
     }
   };
 
+  // Gate des runs. Par défaut la berge suit le liseré URBAIN (quayGate, proche des
+  // routes). En mode `full` (défaut), la berge maçonnée court TOUT LE LONG de l'eau :
+  // 1 partout, SAUF sous les riverains (port/moulin) qui posent leur propre front.
+  // Copies FRAÎCHES (ne pas muter le quayGate caché) : full = 1 partout, urbain = le gate.
+  const plusG = new Uint8Array(n0), minusG = new Uint8Array(n0);
+  if (quayWallTune.full) {
+    plusG.fill(1); minusG.fill(1);
+    for (const t of (L.tiles || [])) {
+      if (t.buildingId !== "river_ports" && t.buildingId !== "water_mills") continue;
+      const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
+      for (let i = 0; i < n0; i += 1) if (sm[i].x >= x0 && sm[i].x <= x1) { plusG[i] = 0; minusG[i] = 0; }
+    }
+  } else {
+    plusG.set(g.plus); minusG.set(g.minus);
+  }
+  // Pas de quai là où le fleuve est TROP ÉTROIT (début/fin où les 2 berges
+  // CONVERGENT) : sinon les murs se rejoignent en une longue POINTE triangulaire
+  // (retour Raph « le début du quai ça ne va pas »). Seuil sur la demi-largeur.
+  const QUAY_MIN_HW = 1.6, QUAY_END = 3;   // + source/embouchure (premiers/derniers samples) = berge naturelle
+  naturalOff = new Uint8Array(n0);          // 1 = gate coupé pour raison NATURELLE (≠ port/moulin) → bout carré
+  for (let i = 0; i < n0; i += 1) if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) { plusG[i] = 0; minusG[i] = 0; naturalOff[i] = 1; }
   for (let si = 0; si < 2; si += 1) {
-    const side = si ? -1 : 1, gate = si ? g.minus : g.plus;
+    const side = si ? -1 : 1, gate = si ? minusG : plusG;
     let i = 0;
     while (i < n0) {
       if (!gate[i]) { i += 1; continue; }
@@ -2310,9 +2444,10 @@ function cityMapCalmRioterAt(sx, sy) {
   let bi = -1, bd = Infinity;
   for (let i = 0; i < CM.rioters.length; i += 1) {
     const p = CM.rioters[i];
-    const px = (p.x - CM.cam.x) * z + CM.cw / 2;
-    const py = (p.y - CM.cam.y) * z + CM.ch / 2;
-    const d = Math.hypot(px - sx, py - sy);
+    // Projection UNIQUE (identité en legacy) : en iso le clic doit viser la
+    // position DESSINÉE de l'émeutier, pas son ancien mapping planaire.
+    const sp = isoWorldToScreen(p.x, p.y);
+    const d = Math.hypot(sp.x - sx, sp.y - sy);
     if (d < radius && d < bd) { bd = d; bi = i; }
   }
   if (bi < 0) return false;
@@ -2325,11 +2460,14 @@ function cityMapCalmRioterAt(sx, sy) {
   return true;
 }
 
-function drawCrisis(dt, now) {
+// ── SIM d'émeute (partagée legacy + iso) — extraite de drawCrisis ────────────
+// Le pipeline ISO l'appelle depuis drawIsoWorld puis dessine les émeutiers comme
+// items du TRI PEINTRE (drawIsoLive) ; le legacy garde son rendu planaire dans
+// drawCrisis ci-dessous, inchangé. Pose CM.riotDraw = { pts, cx, cy } (émeutiers
+// actifs remappés sur route + centre de foule) ou null, consommé par les DEUX.
+function updateCrisis(dt, now) {
   if (!CM.layout) return;
-  const ctx = CM.ctx, z = CM.cam.zoom;
   const inst = state.instability || 0;
-  const cs = (wx, wy) => ({ x: (wx - CM.cam.x) * z + CM.cw / 2, y: (wy - CM.cam.y) * z + CM.ch / 2 });
 
   if (!CM.rioters) CM.rioters = [];
   // Les émeutes n'éclatent que l'après-midi (jour montant vers le crépuscule).
@@ -2346,6 +2484,7 @@ function drawCrisis(dt, now) {
     CM.rioters.length = 0;
     CM.riotGoal = null;
     if (baseWant === 0) { CM.riotCalmed = 0; CM.riotCalmDecayT = 0; }
+    CM.riotDraw = null;
   } else {
     const isRoad = (x, y) => CM.walkRoadSet.has(cityMapWalkRoadKey(x, y)) && !cityMapRiotBlocked(x, y);
     const groupCenter = cityMapRiotGroupCenter(CM.rioters);
@@ -2438,16 +2577,35 @@ function drawCrisis(dt, now) {
           const sp = p.speed * dt;
           p.x += ddx / dd * sp;
           p.y += ddy / dd * sp;
+          // Odomètre de marche (px monde) : anime les bandes diagonales PAR
+          // DISTANCE (drawNamedAgentIso) — les pieds accrochent le sol.
+          p.walkDist = (p.walkDist || 0) + sp;
         }
       }
       mx += p.x;
       my += p.y;
       pts.push(p);
     }
-    if (pts.length) {
-      mx /= pts.length;
-      my /= pts.length;
-      const c = cs(mx, my);
+    // Liste de rendu PARTAGÉE : le legacy la peint ci-dessous (drawCrisis),
+    // l'iso la pousse dans le tri peintre (drawIsoLive, items 'riot').
+    CM.riotDraw = pts.length ? { pts, cx: mx / pts.length, cy: my / pts.length } : null;
+  }
+}
+
+// Rendu LEGACY de la crise (planaire) : la sim est déléguée à updateCrisis, le
+// dessin est inchangé — halo de foule, émeutiers (sprite d'ère + repli
+// vectoriel), anneaux d'apaisement, famine. Le pipeline ISO ne passe pas ici :
+// il consomme CM.riotDraw dans le tri peintre (drawIsoLive).
+function drawCrisis(dt, now) {
+  if (!CM.layout) return;
+  updateCrisis(dt, now);
+  const ctx = CM.ctx, z = CM.cam.zoom;
+  const inst = state.instability || 0;
+  const cs = (wx, wy) => ({ x: (wx - CM.cam.x) * z + CM.cw / 2, y: (wy - CM.cam.y) * z + CM.ch / 2 });
+  if (CM.riotDraw) {
+    const pts = CM.riotDraw.pts;
+    {
+      const c = cs(CM.riotDraw.cx, CM.riotDraw.cy);
       const pulse = 0.5 + 0.5 * Math.sin(now / 320);
       const R = (1.6 + inst * 1.4) * CM.TILE * z;
       const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(1, R));
@@ -2697,5 +2855,7 @@ export {
   cityMapDrawUrbanMass,
   cmLitColor,
   drawCrisis,
+  updateCrisis,
+  drawRiotWeapon,
   cityMapCalmRioterAt
 };

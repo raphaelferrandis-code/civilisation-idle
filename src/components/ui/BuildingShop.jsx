@@ -6,10 +6,12 @@ import {
   isUnlocked,
   buildingBatchCost,
   buildingOutputMultiplier,
-  buildingMilestoneInfo
+  buildingMilestoneInfo,
+  currentEraIndex
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
+import { splashSrcFor } from '../../game/data/pixelSplash.js';
 import { renderCache } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
@@ -209,22 +211,30 @@ function BuildingShop() {
         {nextLocked && (() => {
           // Seule condition AFFICHABLE : le cycle (verrou explicite voulu).
           // L'apparition économique (cf. isUnlocked) reste muette : le bâtiment
-          // caché suivant s'annonce juste comme « Bientôt disponible ».
-          const hint = (nextLocked.unlockCycles && stateCycles < nextLocked.unlockCycles)
+          // caché suivant ne dit rien de plus que « Bientôt » (le bouton) —
+          // pas de ligne « Bientôt disponible » redondante.
+          const cycleHint = (nextLocked.unlockCycles && stateCycles < nextLocked.unlockCycles)
             ? tr({ fr: `Débloqué avec : cycle ${nextLocked.unlockCycles}`, en: `Unlocked with: cycle ${nextLocked.unlockCycles}` })
-            : tr({ fr: "Bientôt disponible", en: "Available soon" });
+            : null;
+          const soon = tr({ fr: "Bientôt disponible", en: "Available soon" });
+          // Splash-art du prochain bâtiment, montré ASSOMBRI derrière le teaser
+          // (état « à venir »). null si aucun splash pour ce bâtiment → carte nue.
+          const splash = splashSrcFor(nextLocked.id, currentEraIndex());
 
           return (
-            <article className="purchase-row pr-locked">
+            <article
+              className={`purchase-row pr-locked${splash ? " pr-has-splash" : ""}`}
+              style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
+            >
               <div className="pr-name-row">
                 <span className="pr-icon" aria-hidden="true">
                   <i className="fa-solid fa-lock"></i>
                 </span>
                 <h3 className="pr-name">{tr(nextLocked.name)}</h3>
               </div>
-              <p className="pr-locked-hint">{hint}</p>
+              {cycleHint && <p className="pr-locked-hint">{cycleHint}</p>}
               <div className="pr-footer">
-                <button className="btn-purchase" disabled title={hint}>
+                <button className="btn-purchase" disabled title={cycleHint || soon}>
                   <span className="bp-action">{tr({ fr: "Bientôt", en: "Soon" })}</span>
                 </button>
               </div>

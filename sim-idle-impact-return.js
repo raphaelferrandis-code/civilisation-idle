@@ -15,7 +15,7 @@ function baseState() {
   const now = Date.now();
   return hydrateState({
     population: 200000, food: 600000, gold: 300000, knowledge: 50000, infrastructure: 5000,
-    legitimacy: 40, ruins: 8000, cycles: 8, dynastyCount: 6, instability: 0.35, timeWear: 0.2,
+    ruins: 8000, cycles: 8, instability: 0.35, timeWear: 0.2,
     bestEraIndex: 6, cyclePeaks: { population: 220000, knowledge: 60000, infrastructure: 6000, eraIndex: 6 },
     cycleStartedAt: now - 1800000, lastTick: now,
     buildings: { foragers: 40, granaries_city: 25, caravans: 15, markets: 10, guilds: 6, irrigated_fields: 8, river_ports: 4, aqueducts: 6, roads: 8, watch: 4, sewers: 3, scribes: 6, storytellers: 8, schools: 4 },

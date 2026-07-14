@@ -17,7 +17,7 @@ import {
   isMythEffectActive
 } from '../../../data/myths.js';
 import { ACTIVE_RUIN_GOLD_PROD_MULT, hasActiveRuin } from '../../../data/activeRuins.js';
-import { has, hasDoctrine, ruinEffectMultiplier } from '../shared.js';
+import { has, ruinEffectMultiplier } from '../shared.js';
 import { cityVitals, pressureBreakdown } from './pressure.js';
 import { getBuildingSums } from './buildingOutput.js';
 import { globalMultiplier, globalMultiplierDec } from './globalMultipliers.js';
@@ -116,9 +116,9 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
 
     const mult = globalMultiplier();
     food *= ruinEffectMultiplier("foodMult");
-    gold *= ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1);
-    knowledge *= ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1);
-    infra *= ruinEffectMultiplier("infraMult") * (hasDoctrine("sillon") ? 1.25 : 1);
+    gold *= ruinEffectMultiplier("goldMult");
+    knowledge *= ruinEffectMultiplier("knowledgeMult");
+    infra *= ruinEffectMultiplier("infraMult");
 
     let populationRate = pop * mult * _epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _orPenaltyMult * _popSuppressFactor;
     let foodRate = food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * _orPenaltyMult * cadmosProductionMultiplier("food");
@@ -178,9 +178,9 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   const multD = globalMultiplierDec();
   const sqrtMultD = multD.sqrt();
   foodD = foodD.mul(ruinEffectMultiplier("foodMult"));
-  goldD = goldD.mul(ruinEffectMultiplier("goldMult") * (hasDoctrine("parchemin") ? 0.85 : 1));
-  knowledgeD = knowledgeD.mul(ruinEffectMultiplier("knowledgeMult") * (hasDoctrine("parchemin") ? 1.3 : 1));
-  infraD = infraD.mul(ruinEffectMultiplier("infraMult") * (hasDoctrine("sillon") ? 1.25 : 1));
+  goldD = goldD.mul(ruinEffectMultiplier("goldMult"));
+  knowledgeD = knowledgeD.mul(ruinEffectMultiplier("knowledgeMult"));
+  infraD = infraD.mul(ruinEffectMultiplier("infraMult"));
 
   const theocracyD = has("trait_theocracy") ? D(state.gold).mul(0.01) : new Decimal(0);
   const baseRates = {

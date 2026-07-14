@@ -68,7 +68,6 @@ function CivilizationReview() {
   const ruins = useGameState(s => s.ruins);
   const collapsePreparation = useGameState(s => s.collapsePreparation);
   const cycles = useGameState(s => s.cycles);
-  const dynastyCount = useGameState(s => s.dynastyCount);
   const grandResetCount = useGameState(s => s.grandResetCount);
   const bestEraIndex = useGameState(s => s.bestEraIndex);
   const cycleStartedAt = useGameState(s => s.cycleStartedAt);
@@ -139,9 +138,8 @@ function CivilizationReview() {
         <StatTile label={tr({ fr: "Qualité d'héritage", en: "Heritage quality" })} value={heritageQuality()} />
       </StatSection>
 
-      <StatSection title={tr({ fr: "Dynastie & mémoire", en: "Dynasty & memory" })}>
+      <StatSection title={tr({ fr: "Cycles & mémoire", en: "Cycles & memory" })}>
         <StatTile label={tr({ fr: "Cycles accomplis", en: "Cycles completed" })} value={cycles} icon="glyphs/cycles" />
-        <StatTile label={tr({ fr: "Dynastie", en: "Dynasty" })} value={roman(dynastyCount + 1)} icon="glyphs/couronne" />
         {grandResetCount > 0 && (
           <StatTile label={tr({ fr: "Grands Resets", en: "Grand Resets" })} value={grandResetCount} />
         )}

@@ -16,6 +16,7 @@ import {
   ruinGain,
   has,
   crisisOpen,
+  epitaphLegacyDurationMs,
   exhumeChargesPerCycle
 } from '../../game/core/mechanics.js';
 import {
@@ -47,7 +48,7 @@ import {
   ENEE_TERRITORY_INTERVAL_MS,
   isMythEffectActive
 } from '../../game/data/myths.js';
-import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
+import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 
 export default function CityView() {
@@ -73,6 +74,23 @@ export default function CityView() {
   // (la vie/effondrement démonte fréquemment CityView → pas de timer orphelin).
   const bubbleTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(bubbleTimerRef.current), []);
+
+  // Recadrage du rail gauche (retour Raph 2026-07-13) : l'encart identité a une
+  // hauteur VARIABLE (nom long, sous-titre de crise, jauge) — le dock et ses
+  // popovers se calent sous son bord RÉEL, sinon ils le chevauchent. Recalé
+  // après CHAQUE rendu (la vue re-rend à 1 Hz via tickNow ; deux mesures de
+  // rect, coût négligeable) — un observer se périmerait si React recrée le
+  // nœud. Le `top` fixe du CSS ne sert que de repli avant la première mesure.
+  const stageHudRef = useRef(null);
+  const cityAuxRef = useRef(null);
+  useEffect(() => {
+    const hud = stageHudRef.current;
+    const aux = cityAuxRef.current;
+    const parent = aux?.offsetParent;
+    if (!hud || !aux || !parent) return;
+    const top = hud.getBoundingClientRect().bottom - parent.getBoundingClientRect().top;
+    aux.style.top = `${Math.round(top + 12)}px`;
+  });
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
   const toggleDock = (id) => setOpenDock((cur) => (cur === id ? null : id));
@@ -168,7 +186,7 @@ export default function CityView() {
   const cycleSeconds = Math.floor((now - (cycleStartedAt || now)) / 1000);
   const activeEpitaphDefinition = activeEpitaphLegacy ? epitaphLegacyById(activeEpitaphLegacy.id) : null;
   const epitaphRemainingSeconds = activeEpitaphLegacy
-    ? Math.max(0, Math.ceil((EPITAPH_LEGACY_DURATION_MS - (now - (activeEpitaphLegacy.startedAt || cycleStartedAt || now))) / 1000))
+    ? Math.max(0, Math.ceil((epitaphLegacyDurationMs() - (now - (activeEpitaphLegacy.startedAt || cycleStartedAt || now))) / 1000))
     : 0;
   const hasActiveEpitaphLegacy = Boolean(activeEpitaphDefinition && epitaphRemainingSeconds > 0);
   const phoenixWindowSecs = isPhoenix
@@ -239,7 +257,7 @@ export default function CityView() {
         {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
             posées en HUD par-dessus (on montre le monde d'abord). */}
         <div className="city-stage">
-          <div className="city-stage-hud">
+          <div className="city-stage-hud" ref={stageHudRef}>
           <div className="city-title-wrapper">
             <input
               id="cityNameInput"
@@ -250,6 +268,18 @@ export default function CityView() {
               onBlur={handleNameBlur}
               aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
             />
+            {/* Bonus de bulle cliquée : chip À DROITE DU NOM (retour Raph — en bas
+                de carte, il passait derrière la jauge de régulation des tensions). */}
+            {bubbleMessage && (
+              <div
+                className="map-bubble-alert"
+                title={`${bubbleMessage.name} (${bubbleMessage.role}) : "${bubbleMessage.text}"`}
+              >
+                <span className="bubble-alert-name">{bubbleMessage.name} :</span>
+                <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
+                {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
+              </div>
+            )}
             <span
               className="city-personality-label"
               title={tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" })}
@@ -334,13 +364,6 @@ export default function CityView() {
           >
             <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
           </div>
-          {bubbleMessage && (
-            <div className="map-bubble-alert">
-              <span className="bubble-alert-name">{bubbleMessage.name} ({bubbleMessage.role}) :</span>
-              <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
-              {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
-            </div>
-          )}
           </div>{/* /city-map-container */}
 
           {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
@@ -355,7 +378,7 @@ export default function CityView() {
         </HudPanel>
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
-        <div className="city-aux">
+        <div className="city-aux" ref={cityAuxRef}>
           <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
             {chronicleVisible && (
               <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })} aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>

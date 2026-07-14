@@ -16,8 +16,8 @@ import { localizeData } from '../core/i18n.js';
  *
  *  kind 'soothe'  : apaisement temporaire (relief décline) — comme les actions de base.
  *  kind 'reform'  : recul DURABLE (dépose foyerReform, partage le plafond) — premium.
- *  Effets éco optionnels : infraAdd (× nb bâtiments) et legitAdd (plat) → la
- *  gestion de crise devient aussi un moteur de croissance.
+ *  Effet éco optionnel : infraAdd (× nb bâtiments) → la gestion de crise
+ *  devient aussi un moteur de croissance.
  *
  *  cost = { res, seconds } : ancré sur la production (cf. crisisCosts).
  * ========================================================================== */
@@ -26,8 +26,8 @@ export const REGULATION_ACTIONS = [
   // ─── 🌾 Subsistance (scarcity) ──────────────────────────────────────────────
   {
     id: "granariesCommunal", foyer: "scarcity", tier: 3, kind: "soothe",
-    label: { fr: "Greniers communaux", en: "Communal Granaries" },
-    note: { fr: "Des greniers de quartier sont ouverts à tous : nul ne dort le ventre vide, et la peur de manquer reflue.", en: "District granaries are opened to all: none sleep on an empty stomach, and the fear of want recedes." },
+    label: { fr: "Entrepôts communaux", en: "Communal Granaries" },
+    note: { fr: "Des entrepôts de quartier sont ouverts à tous : nul ne dort le ventre vide, et la peur de manquer reflue.", en: "District granaries are opened to all: none sleep on an empty stomach, and the fear of want recedes." },
     unlock: (c) => c.bestEra >= 2, unlockLabel: { fr: "Ère II", en: "Era II" },
     cost: { res: "food", seconds: 35 },
     relief: 0.22, malusRes: "food", malusPct: 0.10, counter: "rationing"
@@ -72,7 +72,7 @@ export const REGULATION_ACTIONS = [
     note: { fr: "Le devoir de générosité des riches devient loi sacrée : le partage s'institutionnalise pour de bon.", en: "The duty of generosity of the rich becomes sacred law: sharing is institutionalized for good." },
     unlock: (c) => c.mythCount >= 1, unlockLabel: { fr: "1 mythe", en: "1 myth" },
     cost: { res: "gold", seconds: 150 },
-    reformAdd: 0.18, legitAdd: 0.5
+    reformAdd: 0.18
   },
 
   // ─── 🏛️ Complexité (complexity) ─────────────────────────────────────────────
@@ -110,7 +110,7 @@ export const REGULATION_ACTIONS = [
     note: { fr: "Un oracle officiel donne un sens commun à chaque épreuve : la mémoire et la foi du peuple s'unissent durablement.", en: "An official oracle gives a shared meaning to every ordeal: the memory and faith of the people unite for good." },
     unlock: (c) => c.mythCount >= 1, unlockLabel: { fr: "1 mythe", en: "1 myth" },
     cost: { res: "knowledge", seconds: 150 },
-    reformAdd: 0.18, legitAdd: 0.5
+    reformAdd: 0.18
   },
 
   // ─── 🎲 PARIS (kind: gamble) — gros apaisement OU retour de bâton ────────────

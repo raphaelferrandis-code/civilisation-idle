@@ -36,5 +36,5 @@ export const CM_ROLES = [
 export const CM_STREET_OF = [
   "des Tanneurs", "du Levant", "des Halles", "du Puits", "des Granges", "des Forges",
   "du Marche", "des Ponts", "du Vieux Mur", "des Lampes", "du Sillon", "des Cendres",
-  "du Fleuve", "des Archives", "du Rempart", "des Greniers", "du Couchant", "des Orfevres"
+  "du Fleuve", "des Archives", "du Rempart", "des Entrepots", "du Couchant", "des Orfevres"
 ];

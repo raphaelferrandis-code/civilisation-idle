@@ -99,11 +99,35 @@
   filter: saturate(0.4);
 }
 
-/* ----- État : verrouillé (prochain bâtiment teasé) ----- */
+/* ----- État : verrouillé (prochain bâtiment teasé) -----
+   Sans cadre ni fond-boîte : le teaser se dissout dans la liste, il ne
+   « double » pas visuellement les cartes achetables encadrées au-dessus. */
 .purchase-row.pr-locked {
   opacity: 0.55;
-  border-style: dashed;
+  border: none;
+  background: transparent;
   font-style: italic;
+}
+
+/* Teaser « bientôt » AVEC splash : le splash-art du prochain bâtiment s'affiche
+   ASSOMBRI (état à venir). On retire le fondu global de la carte (sinon le
+   splash s'efface au lieu de s'assombrir) — l'obscurcissement vient du splash
+   lui-même (brightness < 1) et d'un voile renforcé ; le nom (italique) et le
+   bouton restent lisibles par-dessus. */
+.purchase-row.pr-locked.pr-has-splash {
+  opacity: 1;
+}
+.purchase-row.pr-locked.pr-has-splash::before {
+  opacity: 0.65;
+  filter: brightness(0.42) saturate(0.85);
+}
+.purchase-row.pr-locked.pr-has-splash::after {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-card), transparent 6%) 0%,
+    color-mix(in srgb, var(--bg-card), transparent 30%) 55%,
+    color-mix(in srgb, var(--bg-card), transparent 55%) 100%
+  );
 }
 
 .pr-locked-hint {

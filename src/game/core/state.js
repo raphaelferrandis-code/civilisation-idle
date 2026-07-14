@@ -2,11 +2,12 @@
 
 import { buildings } from '../data/buildings.js';
 import { upgrades, dogmaIds } from '../data/upgrades.js';
-import { eras, DOCTRINES, CRISIS_EVENTS } from '../data/world.js';
+import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, grandResetProductionMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_LEN, ICARUS_FREE_FLIGHTS_MAX, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, grandResetProductionMult } from './balance.js';
+import { resetAnnals } from './annals.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
@@ -114,12 +115,14 @@ export const defaultState = () => ({
   knowledge: new Decimal(0),
   infrastructure: new Decimal(0),
   ruins: new Decimal(0),
-  legitimacy: 0,
   cycles: 0,
-  dynastyCount: 0,
-  // Fondations depuis le dernier Grand Reset : pilote le seuil croissant de
-  // dynastie (anti-spam). Remis à zéro par le GR (non copié dans le state frais).
-  dynastiesSinceGR: 0,
+  // Jackpots d'Icare décrochés (vol ≥ ×10, cagnotte du temple pleine) : jalon du
+  // Grand Reset VII. Remis à 0 au GR — re-gagnable dans la boucle précédant GR7.
+  icarusJackpots: 0,
+  // Jalons de Grand Reset DÉCOUVERTS : { [grIndex]: true }. Un jalon reste masqué
+  // (« ??? ») jusqu'à ce qu'il soit atteint une 1re fois ; il est alors révélé —
+  // et le reste (survit au GR, cf. GR_PERSISTENT_FIELDS).
+  grRevealed: {},
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -208,6 +211,40 @@ export const defaultState = () => ({
   // Fatigue de régulation [0..1] : monte à chaque action, réduit leur efficacité
   // et augmente leur coût, décline avec le temps. Reset au cycle.
   regulFatigue: 0,
+  // Registre des édits (onglet Régulation) : entrées factuelles des actes de
+  // régulation { t, id, kind, foyer?, delta?, by? } (cap REGUL_LEDGER_MAX).
+  // Reset au cycle — la mémoire de la civilisation tombée ne se transmet pas.
+  regulLedger: [],
+  // Historique des paris par table { id: [0|1]×GAMBLE_HISTORY_LEN } — nourrit la
+  // Faveur des augures (revers consécutifs → chance accrue). Reset au cycle.
+  gambleHistory: {},
+  // Consignes de l'Intendance [{ threshold, actionId, enabled, lastAt }] :
+  // DOCTRINE persistante — survit aux cycles, comme crisisDoctrine.
+  stewardClauses: [],
+  // FAVEUR — monnaie des jeux du temple (arbitrage Raph : jeux DÉCOUPLÉS).
+  // Gagnée aux osselets et au Vol d'Icare, dépensée (à venir) en Bénédictions
+  // et boosters d'odds. SURVIT aux effondrements (comme les ruines), effacée
+  // seulement au Grand Reset.
+  faveur: 0,
+  // Vol d'Icare — cagnotte du temple, EN FAVEUR (nourrie par les vols brûlés et
+  // les revers d'osselets, raflée en se posant à ×10+). SURVIT aux cycles : le
+  // temple thésaurise à travers les âges (effacée au Grand Reset).
+  icarusPotFaveur: 0,
+  // Vol d'Icare — points de crash des derniers vols (bandeau d'historique).
+  // Reset au cycle, comme gambleHistory.
+  icarusHistory: [],
+  // Boutique de Faveur — boosters PERMANENTS (comme la Faveur : survivent aux
+  // effondrements, effacés au Grand Reset). diceLevel = dés pipés (odds osselets),
+  // wingLevel = ailes cirées (edge Icare abaissé).
+  diceLevel: 0,
+  wingLevel: 0,
+  // Bénédiction — bonus TEMPORAIRE de production (multiplicateur global actif
+  // jusqu'à blessingUntil). Effet de run : remis à zéro à l'effondrement.
+  blessingUntil: 0,
+  blessingMult: 1,
+  // Vols d'Icare OFFERTS par les Coups de Vénus (mise « Plume » payée par le
+  // temple). Reset au cycle.
+  icarusFreeFlights: 0,
   // Lissage (EMA) du déficit de nourriture pour le foyer Subsistance. null =
   // non initialisé (le tick le cale sur l'instantané au 1er pas). Reset au cycle.
   scarcityRawEase: null,
@@ -288,13 +325,16 @@ export const defaultState = () => ({
   },
   cycleStartedAt: Date.now(),
   lastTick: Date.now(),
-  dynastyDoctrine: null,
   // Legs d'épitaphe : bonus actif en début de cycle (activeEpitaphLegacy) et
   // choix en attente entre le dialogue d'épitaphe et completeCollapse
   // (nextEpitaphLegacy). Doivent figurer ici ET dans hydrateState, sinon ils
   // sont silencieusement perdus au rechargement.
   activeEpitaphLegacy: null,
   nextEpitaphLegacy: null,
+  // Testament : legs pré-gravé par le joueur (page Effondrement), permanent de
+  // cycle en cycle. L'effondrement automatique le grave sans dialogue ; le
+  // dialogue manuel le pré-sélectionne.
+  testamentLegacyId: null,
   buyAmount: 1,
   activeView: "city",
   mourning: false,
@@ -542,6 +582,53 @@ export function normalizeCrisisDoctrine(raw, fallback) {
       prepare: ac.prepare === undefined ? fac.prepare : Boolean(ac.prepare)
     }
   };
+}
+
+// Registre des édits : tableau d'entrées plates { t, id, kind, foyer?, delta?,
+// by? } — champs re-typés un à un (une save trafiquée ne doit jamais injecter
+// d'objet profond), cap REGUL_LEDGER_MAX conservé côté écriture (regulLedgerPush).
+function normalizeRegulLedger(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(isPlainObject)
+    .slice(-REGUL_LEDGER_MAX)
+    .map((e) => ({
+      t: finiteTimestamp(e.t, Date.now()),
+      id: typeof e.id === "string" ? e.id.slice(0, 40) : "",
+      kind: typeof e.kind === "string" ? e.kind.slice(0, 20) : "soothe",
+      foyer: typeof e.foyer === "string" ? e.foyer.slice(0, 20) : null,
+      tier: typeof e.tier === "string" ? e.tier.slice(0, 12) : null,
+      delta: finiteNumber(e.delta, 0, 0, 1),
+      by: typeof e.by === "string" ? e.by.slice(0, 24) : null
+    }))
+    .filter((e) => e.id);
+}
+
+// Historique des paris : { idAction: [0|1|2] × GAMBLE_HISTORY_LEN max } —
+// 1 = gain, 0 = jet creux, 2 = Chien (compte double dans la Faveur).
+function normalizeGambleHistory(raw) {
+  if (!isPlainObject(raw)) return {};
+  const out = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!/^[a-zA-Z]{1,32}$/.test(key) || !Array.isArray(value)) continue;
+    out[key] = value.slice(-GAMBLE_HISTORY_LEN).map((v) => (v === 2 ? 2 : v ? 1 : 0));
+  }
+  return out;
+}
+
+// Consignes de l'Intendance : seuil borné aux crans proposés, action re-validée
+// au chargement par l'UI/tick (stewardActionAllowed) — ici on ne garde que la forme.
+function normalizeStewardClauses(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(isPlainObject)
+    .slice(0, STEWARD_MAX_CLAUSES)
+    .map((c) => ({
+      threshold: STEWARD_THRESHOLDS.includes(c.threshold) ? c.threshold : 0.65,
+      actionId: typeof c.actionId === "string" ? c.actionId.slice(0, 40) : null,
+      enabled: Boolean(c.enabled && typeof c.actionId === "string" && c.actionId),
+      lastAt: finiteTimestamp(c.lastAt, 0)
+    }));
 }
 
 export function normalizeFoyerRelief(raw, fallback) {
@@ -805,7 +892,6 @@ export function hydrateState(parsed = {}) {
   const source = migrate(isPlainObject(parsed) ? parsed : {});
   const buildingIds = buildings.map((building) => building.id);
   const upgradeIds = upgrades.map((upgrade) => upgrade.id);
-  const doctrineIds = new Set(DOCTRINES.map((doctrine) => doctrine.id));
   const stateOut = {
     ...base,
     saveVersion: CURRENT_SAVE_VERSION,
@@ -815,10 +901,9 @@ export function hydrateState(parsed = {}) {
     knowledge: decimalField(source.knowledge, base.knowledge),
     infrastructure: decimalField(source.infrastructure, base.infrastructure),
     ruins: decimalField(source.ruins, base.ruins),
-    legitimacy: finiteNumber(source.legitimacy, base.legitimacy),
     cycles: finiteInteger(source.cycles, base.cycles),
-    dynastyCount: finiteInteger(source.dynastyCount, base.dynastyCount),
-    dynastiesSinceGR: finiteInteger(source.dynastiesSinceGR, base.dynastiesSinceGR),
+    icarusJackpots: finiteInteger(source.icarusJackpots, base.icarusJackpots, 0),
+    grRevealed: isPlainObject(source.grRevealed) ? { ...source.grRevealed } : {},
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -897,6 +982,9 @@ export function hydrateState(parsed = {}) {
     mourning: false,
     activeEpitaphLegacy: normalizeEpitaphLegacy(source.activeEpitaphLegacy),
     nextEpitaphLegacy: normalizeEpitaphLegacy(source.nextEpitaphLegacy),
+    testamentLegacyId: typeof source.testamentLegacyId === "string" && epitaphLegacyById(source.testamentLegacyId)
+      ? source.testamentLegacyId
+      : null,
     instability: clamp01(finiteNumber(source.instability, base.instability)),
     // Couverture routière : persiste le dernier calcul de la carte (l'offline au
     // chargement applique ainsi le bonus routes d'avant-fermeture).
@@ -912,6 +1000,19 @@ export function hydrateState(parsed = {}) {
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
     activePolicies: normalizeStringArray(source.activePolicies, POLICY_MAX_ACTIVE, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
+    regulLedger: normalizeRegulLedger(source.regulLedger),
+    gambleHistory: normalizeGambleHistory(source.gambleHistory),
+    stewardClauses: normalizeStewardClauses(source.stewardClauses),
+    faveur: finiteNumber(source.faveur, base.faveur, 0),
+    icarusPotFaveur: finiteNumber(source.icarusPotFaveur, base.icarusPotFaveur, 0, ICARUS_POT_CAP_FAVEUR),
+    icarusHistory: Array.isArray(source.icarusHistory)
+      ? source.icarusHistory.filter((v) => Number.isFinite(v) && v >= 1).slice(-ICARUS_HISTORY_LEN)
+      : [],
+    icarusFreeFlights: finiteInteger(source.icarusFreeFlights, 0, 0, ICARUS_FREE_FLIGHTS_MAX),
+    diceLevel: finiteInteger(source.diceLevel, 0, 0, DICE_BOOST_MAX_LEVEL),
+    wingLevel: finiteInteger(source.wingLevel, 0, 0, WING_MAX_LEVEL),
+    blessingUntil: finiteNumber(source.blessingUntil, 0, 0),
+    blessingMult: finiteNumber(source.blessingMult, 1, 1, 10),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
     goldReserveEase: source.goldReserveEase == null ? null : finiteNumber(source.goldReserveEase, 0, 0, 1e9),
     crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
@@ -953,9 +1054,8 @@ export function hydrateState(parsed = {}) {
     cyclePeaks: normalizeCyclePeaks(source.cyclePeaks, base.cyclePeaks),
     cycleStartedAt: finiteTimestamp(source.cycleStartedAt, base.cycleStartedAt),
     lastTick: finiteTimestamp(source.lastTick, base.lastTick),
-    dynastyDoctrine: doctrineIds.has(source.dynastyDoctrine) ? source.dynastyDoctrine : null,
     buyAmount: source.buyAmount === "max" ? "max" : finiteInteger(source.buyAmount, 1, 1, 500),
-    activeView: ["city", "prestige", "ruinsView", "tech", "mythView", "history"].includes(source.activeView)
+    activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "history"].includes(source.activeView)
       ? source.activeView
       : "city",
     ruinsSeenNodes: Array.isArray(source.ruinsSeenNodes)
@@ -1114,6 +1214,18 @@ export function resetTemporaryRunState(s) {
   s.foyerReform = freshDefaults.foyerReform;
   s.activePolicies = [];
   s.regulFatigue = 0;
+  // Mémoires de régulation du cycle tombé : registre, jets d'augures, annales
+  // (les consignes de l'Intendance, elles, sont de la doctrine et SURVIVENT —
+  // tout comme la cagnotte d'Icare, que le temple thésaurise à travers les âges).
+  s.regulLedger = [];
+  s.gambleHistory = {};
+  s.icarusHistory = [];
+  s.icarusFreeFlights = 0;
+  // Bénédiction = effet TEMPORAIRE de run : effacée à l'effondrement (les
+  // boosters permanents dés/ailes, eux, SURVIVENT — comme la Faveur).
+  s.blessingUntil = 0;
+  s.blessingMult = 1;
+  resetAnnals();
   s.scarcityRawEase = null;
   // goldReserveEase n'est PAS réinitialisé : juste après l'effondrement, l'or
   // résiduel + un revenu quasi nul donneraient une réserve géante → pic
@@ -1180,17 +1292,17 @@ export function resetTemporaryRunState(s) {
 // ──────────────── Grand Reset : préservation des héritages ───────────────────
 // SOURCE DE VÉRITÉ des champs conservés à travers un Grand Reset. Tout nouveau
 // déblocage PERMANENT doit être ajouté ici, sinon il est silencieusement effacé
-// au prochain GR (cf. grandReset.test.js). grandResetCount / legitimacy / history
-// sont CALCULÉS et traités à part dans buildGrandResetState().
+// au prochain GR (cf. grandReset.test.js). grandResetCount / history sont
+// CALCULÉS et traités à part dans buildGrandResetState().
 export const GR_PERSISTENT_FIELDS = [
   "mythsCompleted", "mythActsAnnounced", "chaosRuinsDouble", "chaosRuinsBonus",
   "prometheeBraisiers", "atlasHeritage", "sisypheHeritage", "icareHeritage",
   "babelHeritage", "orHeritage", "phoenixHeritage", "atridesHeritage", "eneeHeritage",
   "autoScriptRules", "hephHeritage", "automateRules",
-  "surchauffeEndTime", "surchauffeCooldownEnd", "dynastyCount", "dynastyDoctrine",
+  "surchauffeEndTime", "surchauffeCooldownEnd",
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
   "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle",
-  "olympus"
+  "olympus", "grRevealed"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)
@@ -1207,14 +1319,12 @@ function cloneGrandResetValue(value) {
 // lequel on recopie les héritages permanents (GR_PERSISTENT_FIELDS), puis les 3
 // champs calculés. Pur (lit le `state` courant) → testable hors de la séquence
 // async à dialogue de performGrandReset.
-export function buildGrandResetState(nextCount, legitCost) {
+export function buildGrandResetState(nextCount) {
   const fresh = defaultState();
   for (const key of GR_PERSISTENT_FIELDS) {
     if (state[key] !== undefined) fresh[key] = cloneGrandResetValue(state[key]);
   }
   fresh.grandResetCount = nextCount;
-  // La légitimité survit au GR, AMPUTÉE du coût du reset (croissant).
-  fresh.legitimacy = Math.max(0, (state.legitimacy || 0) - legitCost);
   fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${grandResetProductionMult(nextCount).toFixed(0)} production et Ruines gagnées`}. Les pactes mythiques demeurent.`];
   return fresh;
 }

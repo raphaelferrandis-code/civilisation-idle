@@ -22,9 +22,13 @@ import {
   policyRiseSlow,
   policyOvershootDamp,
   scarcityRawInstant,
-  totalBuildingCount
+  totalBuildingCount,
+  activeEpitaphLegacy,
+  refreshGrandResetReveal,
+  GRAND_RESET_MILESTONES
 } from '../mechanics.js';
 
+import { tr } from '../i18n.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { BOONS } from '../../data/boons.js';
 
@@ -36,6 +40,8 @@ import {
 
 import { tickOlympus } from './olympus.js';
 import { runMythTicks } from './mythTicks.js';
+import { tickSteward } from './steward.js';
+import { pushAnnalsSample } from '../annals.js';
 
 import {
   checkAutomateRules,
@@ -44,6 +50,7 @@ import {
 
 import { log, chronicle } from './utils.js';
 import { eras, eraTier } from '../../data/world.js';
+import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
@@ -176,6 +183,24 @@ export function tick(dt) {
     ? 1
     : clamp01(nextInstability);
 
+  // Annales (onglet Régulation) : un point de courbe par tick réel. Suspendu
+  // pendant la simulation hors-ligne (comme les floats/jalons) — le throttle
+  // interne (~1 Hz) borne de toute façon les rafales.
+  if (!isNotifyPaused()) pushAnnalsSample(state.instability);
+
+  // Extinction du legs d'épitaphe : sans ça, la fenêtre expire en silence. Une
+  // ligne de Chronique clôt la boucle, puis l'état est CONSOMMÉ (null) — jamais
+  // de double post, même après rechargement. Le Pillage, sans effet fenêtré,
+  // s'éteint sans ligne (rien n'était « actif » à annoncer).
+  if (state.activeEpitaphLegacy && !activeEpitaphLegacy()) {
+    const expiredLegacy = epitaphLegacyById(state.activeEpitaphLegacy.id);
+    const hadTimedEffects = expiredLegacy && Object.keys(expiredLegacy.effects || {}).some((key) => key !== "startingInstability");
+    if (hadTimedEffects) {
+      chronicle(`Le legs gravé — ${expiredLegacy.logLabel} — s'efface ; la cité vole désormais de ses propres ailes.`);
+    }
+    state.activeEpitaphLegacy = null;
+  }
+
   // Étape 2 : déclin du relief temporaire des foyers (demi-vie FOYER_RELIEF_HALF_LIFE_S)
   // — l'apaisement obtenu en cliquant s'estompe, il faut ré-intervenir.
   const fr = state.foyerRelief;
@@ -235,6 +260,17 @@ export function tick(dt) {
     }
   }
 
+  // Découverte de jalon de Grand Reset : dès que le jalon du PROCHAIN GR est
+  // atteint, on le grave (persistant) et — en direct seulement — on le révèle.
+  const grDiscoveredId = refreshGrandResetReveal();
+  if (grDiscoveredId && !isNotifyPaused()) {
+    const mm = GRAND_RESET_MILESTONES.find((x) => x.id === grDiscoveredId);
+    if (mm) {
+      pushOutcomeFloat({ label: `👑 Grand Reset à portée : ${tr(mm.name)}`, kind: "gain" });
+      log(`Un seuil s'illumine — « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`);
+    }
+  }
+
   if (state.atlasHeritage) {
     state.atlasLegitimite = Math.min(100, (state.atlasLegitimite || 50) + ATLAS_LEGIT_PASSIVE_RATE * dt);
   }
@@ -271,6 +307,10 @@ export function tick(dt) {
       lastAutoCrisisAt = Date.now();
     }
   }
+
+  // L'Intendance (consignes configurées dans l'onglet Régulation) — après
+  // protocoles_urgence : ses propres gardes (fatigue, cooldown, coûts) dedans.
+  if (!gamePaused && !collapseInProgress) tickSteward();
 
   checkAndTriggerChronicleEntries(state, dt);
 

@@ -82,6 +82,67 @@
   color: var(--muted);
 }
 
+
+/* ── Jauge HÉROS du mode crise : NUE (plus de carte — retour « retire les
+   cadres »), plate et assourdie (le rail orange vif « dénotait »). Échelle
+   étendue au-delà du seuil, crans aux cibles des édits, fantômes. ── */
+.barometer-card.crisis-hero,
+.app .barometer-card.crisis-hero {
+  padding: 0.35rem 0.25rem 0.55rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Jauge de Rupture : PILULE arrondie fine, texture braise CUITE (dégradé +
+   motif fissuré du sprite fondu à 32 % + relief haut/bas bakés — la version
+   « skyline 40px » était trop lourde, retour Raph). Toujours pleine en crise.
+   Le dégradé braise dessous sert de repli le temps du chargement. */
+.crisis-hero .barometer-track.rupture-bar {
+  height: 14px;
+  border-radius: 999px;
+  background:
+    url("/pixelart/ui/rupture-bar-slim.png") left center / auto 100% repeat-x,
+    linear-gradient(90deg, #6f2f26, #a8462f);
+  margin-bottom: 0.5rem;
+  image-rendering: pixelated;
+}
+
+/* Titre de crise en GRAND, centré — la police pixel carrée du « IDLE » du
+   logo (Silkscreen, --font-number). Préfixe #prestige OBLIGATOIRE : la liste
+   de rattrapage Inter (#prestige strong…) gagnerait sinon à spécificité. */
+.crisis-hero-header {
+  justify-content: center;
+  margin-bottom: 0.6rem;
+}
+
+#prestige .crisis-hero-title {
+  font-family: var(--font-number);
+  font-size: 1.85rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffb347;
+  text-shadow: 2px 2px 0 rgba(40, 12, 24, 0.9);
+}
+
+/* Crans gravés : les cibles des édits (25/50/75). */
+.barometer-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Fantôme de prévisualisation (survol d'un palier d'édit) : où la jauge
+   serait ramenée si l'on scellait ce palier. */
+.barometer-target-ghost.ghost-preview {
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.55);
+}
+
 /* 2. Tableau Tactique (Tensions & Actions) */
 .tactical-board {
   margin-top: 1rem;
@@ -199,10 +260,77 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Fresque composite (choix Raph) : la VILLE de la scène crépuscule sous le
+   CIEL arc-en-ciel — « c'est fini mais ça va reprendre ». Elle est le FOND DE
+   TOUTE LA PAGE en crise, JUSQU'EN BAS : posée sur <main> lui-même (via :has,
+   la classe de la section sert de crochet), elle couvre toute la colonne même
+   quand le contenu est plus court que la fenêtre. */
+.app main:has(#prestige.crisis-backdrop) {
+  background:
+    linear-gradient(180deg, rgba(13, 11, 16, 0.76), rgba(11, 9, 13, 0.85)),
+    url("/pixelart/prestige/collapse-skyline.png") center 30% / cover no-repeat,
+    rgba(24, 18, 22, 0.9);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.32);
+}
+
 .cycle-outcome-panel.crisis-focus-active {
-  border-color: rgba(220, 95, 75, 0.6);
-  background: rgba(30, 15, 15, 0.65);
-  box-shadow: 0 0 30px rgba(220, 95, 75, 0.15);
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  /* Respiration sous la jauge (« baisser un peu le panneau » — Raph). */
+  margin-top: 1.4rem;
+}
+
+/* Le contenu passe au-dessus des braises (éléments positionnés = peints après). */
+.crisis-focus-active .panel-heading,
+.crisis-focus-active .crisis-focus-layout {
+  position: relative;
+}
+
+.crisis-focus-active .panel-heading h2 {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Braises montantes : transform+opacity SEULS (compositor), pas de blur ni
+   drop-shadow (leçon perf pan/zoom de l'arbre des ruines). ── */
+.crisis-embers {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.crisis-embers i {
+  position: absolute;
+  bottom: -8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #f59e0b;
+  opacity: 0;
+  animation: emberRise 9s linear infinite;
+}
+
+.crisis-embers i:nth-child(1) { left: 6%; }
+.crisis-embers i:nth-child(2) { left: 18%; animation-delay: 2.4s; animation-duration: 11s; width: 3px; height: 3px; background: #fbbf24; }
+.crisis-embers i:nth-child(3) { left: 31%; animation-delay: 5s; }
+.crisis-embers i:nth-child(4) { left: 44%; animation-delay: 1.2s; animation-duration: 12s; width: 3px; height: 3px; }
+.crisis-embers i:nth-child(5) { left: 58%; animation-delay: 3.6s; background: #fbbf24; }
+.crisis-embers i:nth-child(6) { left: 71%; animation-delay: 6.2s; animation-duration: 10s; width: 3px; height: 3px; }
+.crisis-embers i:nth-child(7) { left: 84%; animation-delay: 0.8s; background: #dc5f4b; }
+.crisis-embers i:nth-child(8) { left: 93%; animation-delay: 4.4s; animation-duration: 13s; width: 3px; height: 3px; }
+
+@keyframes emberRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  8% { opacity: 0.38; }
+  60% { opacity: 0.22; }
+  100% { transform: translate(-14px, -440px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crisis-embers { display: none; }
 }
 
 /* Mode Crise Active */
@@ -212,31 +340,12 @@
   gap: 1.5rem;
 }
 
-.crisis-banner {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  padding: 1rem;
-  border: 1px solid rgba(220, 95, 75, 0.4);
-  border-radius: 8px;
-  background: rgba(220, 95, 75, 0.08);
-}
-
-.banner-icon {
-  font-size: 1.5rem;
-}
-
-.crisis-banner strong {
-  display: block;
-  font-size: 0.95rem;
-  color: #f87171;
-  margin-bottom: 0.25rem;
-}
-
-.crisis-banner p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #fca5a5;
+/* Intro d'une ligne sous le titre du panneau (remplace le h4 + sous-texte). */
+.crisis-intro {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  max-width: 72ch;
 }
 
 .crisis-choices-grid {
@@ -251,238 +360,489 @@
   }
 }
 
-.crisis-preparation-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+/* ── Les trois ÉDITS terminaux : colonnes nues (dé-boxing — l'emblème pixel et
+   l'espacement portent la structure, plus de cartes bordées). ── */
+.crisis-edicts-col {
+  min-width: 0;
 }
 
-.crisis-preparation-actions h4 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #fff;
-}
-
-.crisis-preparation-actions .sub-text {
-  margin: 0 0 1rem 0;
-  font-size: 0.83rem;
-  color: var(--muted);
-}
-
-.crisis-prep-buttons {
+.crisis-edicts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 1.4rem;
 }
 
-.prep-choice-card {
-  padding: 1rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.prep-choice-card h5 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.9rem;
-  color: var(--gold-bright);
-}
-
-.prep-choice-card p {
-  margin: 0 0 1rem 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.3;
-}
-
-.prep-choice-card button {
-  width: 100%;
-  padding: 0.6rem;
-  font-size: 0.8rem;
-  border-radius: 6px;
-  background: rgba(var(--era-rgb), 0.1);
-  color: var(--gold-bright);
-  font-weight: 600;
-  border: 1px solid rgba(var(--era-rgb), 0.3);
-}
-
-.prep-choice-card button:hover:not(:disabled) {
-  background: rgba(var(--era-rgb), 0.2);
-  border-color: var(--gold);
-}
-
-/* ── Préparations terminales : paliers et malus actifs ── */
-.prep-active-maluses {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid rgba(220, 95, 75, 0.35);
-  background: rgba(220, 95, 75, 0.08);
-  font-size: 0.78rem;
-  color: #fca5a5;
-  margin-bottom: 0.75rem;
-}
-
-.prep-active-maluses > span:first-child {
-  font-weight: 600;
-  color: #fff;
-}
-
-.prep-tier-buttons {
+.crisis-edict {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  min-width: 0;
 }
 
-.prep-tier-buttons button {
+.edict-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.edict-emblem.px-icon {
+  width: 48px;
+  height: 48px;
+  flex: none;
+}
+
+.edict-head h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  color: var(--gold-bright);
+}
+
+/* (Les descriptions d'édits vivent en tooltip sur .edict-head — dé-boxing.) */
+
+/* Paliers : rangées nues séparées d'un filet — le fond n'apparaît qu'au survol.
+   (La mini-barre redondante a été retirée : la cible se prévisualise sur la
+   GRANDE jauge via le fantôme, cf. hoverTarget dans PrestigeView.) */
+.edict-tiers {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  text-align: left;
 }
 
-.prep-tier-buttons button {
-  gap: 0.35rem;
-}
-
-.prep-tier-buttons button strong {
-  font-size: 0.78rem;
-}
-
-.prep-tier-head {
+.edict-tier {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.32rem;
   width: 100%;
+  padding: 0.55rem 0.45rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  transition: background 0.15s ease;
 }
 
-.prep-tier-target {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #fff;
-  text-align: right;
+.edict-tier:last-child {
+  border-bottom: 0;
 }
 
-.prep-target-track {
-  display: block;
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
+.edict-tier:hover:not(:disabled),
+.edict-tier:focus-visible {
+  background: rgba(var(--era-rgb), 0.1);
 }
 
-.prep-target-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(134, 239, 172, 0.7), rgba(220, 95, 75, 0.8));
-}
-
-.prep-tier-buttons button .action-cost {
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.prep-tier-buttons button:disabled {
+.edict-tier:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.prep-choice-card.prep-used {
-  opacity: 0.6;
+.edict-tier-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
 }
 
-.prep-used-note {
+.edict-tier-row strong {
+  font-size: 0.8rem;
+  color: #fff;
+}
+
+.edict-tier-target {
+  margin-right: auto;
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.edict-tier-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  width: 100%;
+}
+
+.edict-tier .action-cost {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Dé-boxing : dans la zone de crise, les chips perdent leur pilule (bordure +
+   fond) — la COULEUR seule porte le sens. ~25 boîtes de moins à l'écran. */
+.edict-tier .effect-chip,
+.prep-active-maluses .effect-chip {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+/* Édit engagé : la colonne se scelle. */
+.crisis-edict.edict-sealed .edict-emblem {
+  filter: grayscale(0.5) brightness(0.85);
+}
+
+.edict-sealed-note {
+  margin: 0;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.78rem;
   font-style: italic;
+  text-align: center;
   color: var(--gold-bright);
 }
 
-.collapse-action-card {
+/* Sceau de cire pixel apposé sur l'édit engagé, légèrement de travers. */
+.edict-seal.px-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 0.35rem;
+  transform: rotate(-8deg);
+}
+
+.edict-escalation {
+  margin: 0.8rem 0 0;
+  font-size: 0.74rem;
+  font-style: italic;
+  color: #fca5a5;
+}
+
+/* ── Malus actifs : ligne nue (l'ancienne boîte rouge écrasait la hiérarchie). ── */
+.prep-active-maluses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  font-size: 0.76rem;
+}
+
+.prep-active-maluses > span:first-child {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ── L'AUTEL de la moisson : AUCUNE boîte propre (dé-boxing) — le voile sombre
+   du panneau suffit, l'espacement de la grille sépare les colonnes. ── */
+.collapse-altar {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 1.5rem;
-  border: 1px solid rgba(220, 95, 75, 0.3);
-  border-radius: 10px;
-  background: rgba(220, 95, 75, 0.04);
+  gap: 0.7rem;
+  padding: 0.25rem 0 0;
 }
 
-.collapse-action-card h4 {
-  margin: 0 0 1rem 0;
-  font-size: 1.1rem;
-  color: #fff;
+.collapse-altar h4 {
+  margin: 0;
+  font-size: 1.05rem;
   text-align: center;
+  color: #fff;
 }
 
-.collapse-preview-box {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
-  margin-bottom: 1.5rem;
+/* Le grand chiffre VIVANT : registre odomètre de la topbar (Silkscreen), grand
+   corps — l'exception assumée à l'Inter de l'onglet, lisible à cette taille. */
+.harvest-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0 0.1rem;
+  font-family: var(--font-number);
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--gold-bright);
 }
 
-.preview-stat {
+.harvest-plus {
+  font-size: 1.2rem;
+}
+
+/* Préviz au survol d'un palier : le chiffre s'éclaire le temps du survol. */
+.harvest-count.is-preview {
+  color: #ffe9b3;
+}
+
+.harvest-glyph.px-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.harvest-caption {
+  margin: 0;
+  font-size: 0.72rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* D'où vient la moisson : les trois leviers encore jouables pendant la crise. */
+.harvest-factors {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0.6rem 0.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.harvest-factors li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.harvest-factors li strong {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.harvest-factors li.factor-idle {
+  opacity: 0.5;
+}
+
+/* ── TESTAMENT : pré-gravure du legs d'épitaphe (arbitrage 2026-07-13). Même
+   registre dé-boxé que l'autel : une rangée de 4 sceaux + une note, séparée
+   par le même filet que les facteurs de moisson. ── */
+.testament-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0 0.15rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.testament-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.testament-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.testament-cause {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.testament-cause strong {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.testament-seals {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Tuile = icône pixel maison SEULE (retour Raph : pas d'emoji système) ;
+   le delta de ruines vit SOUS la tuile. */
+.testament-seal-wrap {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0.22rem;
+}
+
+.testament-seal {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.testament-seal:hover {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.testament-seal .px-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.seal-delta {
+  font-family: var(--font-number);
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.testament-seal.is-engraved {
+  border-color: var(--gold);
+  background: rgba(var(--era-rgb), 0.14);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold), transparent 55%);
+}
+
+.testament-seal.is-engraved + .seal-delta {
+  color: var(--gold-bright);
+}
+
+.testament-seal .seal-affinity {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.15rem;
+  font-size: 0.7rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* Détail du sceau gravé (contenu de l'infobulle, déplié sous la rangée). */
+.testament-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
   text-align: center;
 }
 
-.preview-stat span {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
+.testament-detail-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--gold-ivory);
 }
 
-.preview-stat strong {
-  font-size: 1.15rem;
-  color: #fff;
+.testament-detail-affinity {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--gold-bright);
 }
+
+.testament-detail-tagline {
+  margin: 0;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.testament-detail .effect-chips {
+  justify-content: center;
+}
+
+
+/* (La « qualité de transmission » a été retirée de l'autel — retour Raph
+   2026-07-13 : label cosmétique saturé à Mythique passé l'early game. Le
+   moteur heritageQuality reste consommé par la Chronique.) */
 
 .collapse-main-buttons {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  margin-top: auto;
 }
 
+/* ── Bouton d'effondrement à l'image du LOGO du jeu : nuit bleue profonde,
+   liseré or, lettres pixel chaudes — le rouge criard dénotait (retour Raph).
+   Le remplissage du maintien est un ARC-EN-CIEL (« ça va reprendre »). ── */
 .collapse-btn-primary {
+  position: relative;
+  overflow: hidden;
   width: 100%;
-  padding: 0.9rem;
+  padding: 0.85rem;
   font-size: 1rem;
   font-weight: 700;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #dc5f4b, #b91c1c);
-  color: #fff;
-  border: 1px solid #7f1d1d;
-  box-shadow: 0 4px 12px rgba(220, 95, 75, 0.25);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2b2753, #181534);
+  color: #ffd9a8;
+  border: 2px solid #cf9c50;
+  box-shadow:
+    0 4px 14px rgba(15, 12, 45, 0.55),
+    inset 0 0 0 1px rgba(255, 214, 150, 0.14);
   cursor: pointer;
   transition: all 0.2s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .collapse-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(220, 95, 75, 0.35);
-  filter: brightness(1.1);
+  box-shadow:
+    0 6px 18px rgba(30, 24, 80, 0.6),
+    inset 0 0 0 1px rgba(255, 214, 150, 0.2);
+  filter: brightness(1.12);
 }
 
 .collapse-btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* ── Hold-to-collapse : l'arc-en-ciel progresse sous les libellés pendant
+   qu'on maintient (largeur pilotée au rAF, cf. PrestigeView). ── */
+.collapse-btn-primary .hold-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(239, 68, 68, 0.45),
+    rgba(245, 158, 11, 0.45),
+    rgba(250, 204, 21, 0.45),
+    rgba(74, 222, 128, 0.45),
+    rgba(96, 165, 250, 0.45),
+    rgba(167, 139, 250, 0.45)
+  );
+  pointer-events: none;
+}
+
+.collapse-btn-primary .hold-label {
+  position: relative;
+  display: block;
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  color: #ff9d5c;
+  text-shadow: 0 2px 0 rgba(30, 10, 22, 0.9);
+}
+
+.collapse-btn-primary .hold-hint {
+  position: relative;
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(205, 199, 238, 0.85);
+}
+
+.collapse-btn-primary.is-holding {
+  filter: brightness(1.14);
+}
+
+/* Compte à rebours d'auto-effondrement : bandeau qui se consume au bas du
+   bouton (remplace l'ancienne ligne pulsante sous l'autel). */
+.collapse-btn-primary .hold-countdown-strip {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: #fbbf24;
+  transition: width 1s linear;
+  pointer-events: none;
 }
 
 .surchauffe-btn-action {
@@ -502,27 +862,147 @@
   border-color: #ef4444;
 }
 
-.auto-collapse-timer {
-  margin-top: 1rem;
-  text-align: center;
-  font-size: 0.8rem;
-  color: #fca5a5;
-  font-weight: 600;
-  animation: pulse 1.5s infinite;
+/* (L'ancien .auto-collapse-timer est remplacé par .hold-countdown-strip,
+   intégré au bouton d'effondrement.) */
+
+/* ── Journal des derniers jours : la chronique du cycle comble le bas du
+   panneau — le récit de la chute en train de s'écrire (state.history). ── */
+/* Journal : plus de boîte — un simple filet le sépare du reste. */
+.crisis-journal {
+  padding: 0.85rem 0.25rem 0;
+  border-top: 1px solid var(--line);
 }
+
+.crisis-journal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.crisis-journal-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.crisis-journal-lines li {
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: #d6c59b;
+}
+
+/* Les lignes anciennes s'estompent — la dernière est la plus vive. */
+.crisis-journal-lines li:nth-last-child(2) { opacity: 0.75; }
+.crisis-journal-lines li:nth-last-child(3) { opacity: 0.58; }
+.crisis-journal-lines li:nth-last-child(4) { opacity: 0.44; }
+.crisis-journal-lines li:nth-last-child(5) { opacity: 0.34; }
 
 /* (Le Bilan de la Civilisation vit désormais dans l'onglet Chronique —
    styles .chronicle-bilan-* dans views-chronicle-timeline.css.) */
 
-/* Doctrine de crise (panneau déplacé depuis les Options) */
-.doctrine-intro {
-  margin: 0.35rem 0 0;
-  font-size: 0.83rem;
+/* ── Doctrine de crise — refonte dé-boxée (2026-07-13) : trois colonnes
+   (Conseil / Édit / Testament), libellés courts, explications en tooltip. ── */
+.doctrine-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem 2.4rem;
+  align-items: start;
+  margin-top: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .doctrine-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.doctrine-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.doctrine-group-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: help;
+}
+
+.doctrine-locked {
+  margin: 0;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
-.doctrine-panel .doctrine-rows {
-  margin-bottom: 0;
+.doctrine-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.15rem;
+}
+
+.doctrine-line-label {
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.doctrine-seg {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.doctrine-seg-btn {
+  min-height: 1.9rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.doctrine-seg-btn:hover {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%);
+  color: var(--text);
+}
+
+.doctrine-seg-btn.is-active {
+  border-color: var(--gold);
+  background: rgba(var(--era-rgb), 0.12);
+  color: var(--gold-bright);
+}
+
+.doctrine-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Le bloc Testament garde son style d'autel, sans le filet bas : il clôt la
+   colonne ici, rien ne le suit. */
+.doctrine-group--testament .testament-block {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .ragnarok-constraints-panel,
@@ -593,7 +1073,10 @@
    identité commune à tous les onglets. Les micro-corps (0.58–0.66rem) sont
    remontés au seuil de lisibilité.
    ========================================================================== */
-#prestige {
+/* #regulation partage le registre : le tableau tactique (Foyers de tension) y
+   a déménagé — mêmes règles, sinon il retomberait en pixel-font illisible. */
+#prestige,
+#regulation {
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
@@ -611,7 +1094,16 @@
 #prestige .tactical-value,
 #prestige .crisis-regul-title,
 #prestige .options-row > div small,
-#prestige input {
+#prestige input,
+#regulation button,
+#regulation h3,
+#regulation h4,
+#regulation h5,
+#regulation small,
+#regulation strong,
+#regulation .tactical-value,
+#regulation .crisis-regul-title,
+#regulation input {
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
 }
 
@@ -623,10 +1115,24 @@
 #prestige .regul-reform-tag,
 #prestige .policy-effect,
 #prestige .crisis-regul-buffer,
-#prestige .crisis-foyer-locked { font-size: 0.74rem; }
-#prestige .crisis-regul-title { font-size: 0.75rem; }
-#prestige .crisis-policies-count { font-size: 0.75rem; }
-#prestige .crisis-regul-buffer--full { font-size: 0.85rem; }
-#prestige .policy-active-tag { font-size: 0.66rem; }
+#prestige .crisis-foyer-locked,
+#regulation .regul-gain,
+#regulation .regul-malus,
+#regulation .regul-cost,
+#regulation .regul-gamble-tag,
+#regulation .regul-reform-tag,
+#regulation .policy-effect,
+#regulation .crisis-regul-buffer,
+#regulation .crisis-foyer-locked { font-size: 0.74rem; }
+#prestige .crisis-regul-title,
+#regulation .crisis-regul-title { font-size: 0.75rem; }
+#prestige .crisis-policies-count,
+#regulation .crisis-policies-count { font-size: 0.75rem; }
+#prestige .crisis-regul-buffer--full,
+#regulation .crisis-regul-buffer--full { font-size: 0.85rem; }
+#prestige .policy-active-tag,
+#regulation .policy-active-tag { font-size: 0.66rem; }
 #prestige .crisis-foyer-soothed,
-#prestige .crisis-foyer-reformed { font-size: 0.66rem; }
+#prestige .crisis-foyer-reformed,
+#regulation .crisis-foyer-soothed,
+#regulation .crisis-foyer-reformed { font-size: 0.66rem; }

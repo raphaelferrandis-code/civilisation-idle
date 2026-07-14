@@ -48,9 +48,9 @@ registerChoiceDialog((dialog) => {
 });
 
 const mech = await import("./src/game/core/mechanics.js");
-const { isUnlocked, canBuyUpgrade, ruinGain, crisisOpen, buildingBatchCost, legitimacyGain,
-  globalMultiplier, rates, timeWearRate, currentEraIndex, has, dynastyRuinsThreshold,
-  grandResetLegitimacyCost, addProductionPenalty, amplifyRuptureFactor } = mech;
+const { isUnlocked, canBuyUpgrade, ruinGain, crisisOpen, buildingBatchCost,
+  globalMultiplier, rates, timeWearRate, currentEraIndex, has,
+  addProductionPenalty, amplifyRuptureFactor } = mech;
 const { canPayCost, payCost, fmt, clamp01 } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
@@ -138,7 +138,7 @@ async function resolvePause() { let f = 0; while (stateModule.gamePaused && !cri
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return D(0);
-  completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), reason);
+  completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false); setCollapseInProgress(false);
   return gain;
 }
@@ -197,7 +197,6 @@ const realCollapses = perCycle.filter((x) => x.gain > 0);
 const totalRuins = realCollapses.reduce((a, x) => a + x.gain, 0);
 const ruinsPerHour = VT > 0 ? totalRuins / (VT / 3600) : 0;
 const avgGain = realCollapses.length ? totalRuins / realCollapses.length : 0;
-const dynThreshold = num(dynastyRuinsThreshold());
 
 // --- Rapport ----------------------------------------------------------------
 const L = (s) => console.log(s);
@@ -241,11 +240,9 @@ L("--- MESURE 2 : ruines idle (aujourd'hui = 0) ---");
 L(`  vrais effondrements : ${realCollapses.length}/${N_CYCLES} cycles (les autres : cité encore stable)`);
 L(`  gain moyen / effondrement réel = ${fmt(avgGain)} ruines`);
 L(`  throughput = ${fmt(totalRuins)} ruines en ${(VT / 3600).toFixed(2)} h  →  ~${fmt(ruinsPerHour)} ruines / h virt.`);
-L(`  seuil de fondation actuel (dynastyRuinsThreshold) = ${fmt(dynThreshold)} ruines`);
-L(`  → un effondrement réel couvre ~${(avgGain / dynThreshold).toFixed(2)} fondation(s) ; GR1 = 300 légitimité.`);
 L("");
 L("NOTE : sans auto-ACHAT, le farm multi-effondrement s'essouffle (cité vidée après");
 L("chaque chute). Le farm idle nourri suppose un auto-rebuild — cf. finding ci-dessous.");
 L("");
-fs.writeFileSync("sim-idle-impact.out.json", JSON.stringify({ reach, perCycle, last, prodPerHour, avgGain, ruinsPerHour, totalRuins, realCollapses: realCollapses.length, dynThreshold }, null, 2));
+fs.writeFileSync("sim-idle-impact.out.json", JSON.stringify({ reach, perCycle, last, prodPerHour, avgGain, ruinsPerHour, totalRuins, realCollapses: realCollapses.length }, null, 2));
 L("Détail JSON : sim-idle-impact.out.json");

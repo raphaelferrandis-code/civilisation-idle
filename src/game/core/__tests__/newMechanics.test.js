@@ -59,24 +59,25 @@ describe("A1 — Démesure (tension d'échelle bornée & gouvernable)", () => {
     expect(d30).toBeLessThan(DEMESURE_SOFT_CAP); // mais ne dépasse jamais le soft cap
   });
 
-  it("n'est PAS effacée par l'infra, mais EST réductible par la gouvernance (légitimité)", () => {
+  it("n'est PAS effacée par l'infrastructure (elle contourne le barrage des institutions)", () => {
     state.population = new Decimal(1e12);
     state.infrastructure = new Decimal(1e9);
-    state.legitimacy = 50;
     invalidateRenderCache("all");
-    const dLowLegit = pressureBreakdown().demesure;
-    expect(dLowLegit).toBeGreaterThan(0);
+    const dLowInfra = pressureBreakdown().demesure;
+    expect(dLowInfra).toBeGreaterThan(0);
 
-    // La légitimité (institutions qui administrent l'empire) réduit la Démesure —
-    // c'est le levier de gouvernance du rework cadence late-game.
-    state.legitimacy = 100000;
+    // Même avec une infrastructure colossale, la Démesure demeure : elle s'ajoute
+    // APRÈS le barrage (l'infra élargit le barrage, pas la Démesure). Depuis la
+    // suppression de la légitimité, seule la politique « Gouvernance impériale »
+    // (policyDemesureDamp) la réprime — non testée ici.
+    state.infrastructure = new Decimal(1e18);
     invalidateRenderCache("all");
-    const dHighLegit = pressureBreakdown().demesure;
-    expect(dHighLegit).toBeLessThan(dLowLegit); // gouverner l'empire réduit la tension d'échelle
-    expect(dHighLegit).toBeGreaterThan(0);      // jamais totalement effacée (DEMESURE_CUT_CAP)
+    const dHighInfra = pressureBreakdown().demesure;
+    expect(dHighInfra).toBeGreaterThan(0);
+    expect(Math.abs(dHighInfra - dLowInfra)).toBeLessThan(1e-9); // l'infra ne réduit pas la Démesure
 
     // total porte toujours (au moins) la Démesure résiduelle.
-    expect(pressureBreakdown().total).toBeGreaterThanOrEqual(dHighLegit - 1e-9);
+    expect(pressureBreakdown().total).toBeGreaterThanOrEqual(dHighInfra - 1e-9);
   });
 
   it("reste finie et bornée au-delà du plafond float", () => {

@@ -251,6 +251,14 @@
   text-overflow: ellipsis;
 }
 
+/* Crise terminale : la production est suspendue — le débit laisse place à une
+   mention discrète (afficher « +X/s » mentirait, le tick est gelé). */
+.topbar .resource-card-unified .rate-value.rate-frozen {
+  color: var(--muted);
+  font-style: italic;
+  opacity: 0.85;
+}
+
 .rate-arrow {
   font-size: 0.6em;
   line-height: 1;
@@ -492,6 +500,71 @@ dialog::backdrop {
   background: rgba(var(--era-rgb), 0.14);
 }
 
+/* Ligne de badges dédiée sous le titre (↺ dernière volonté / ⚡ Affinité),
+   TOUJOURS rendue sur les cartes d'épitaphe même vide : hauteur réservée →
+   les rangées Maintenant/Prochain cycle restent alignées entre les 4 cartes. */
+.choice-badges-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.3rem;
+  white-space: nowrap;
+}
+
+/* « Gravé à la chute précédente » : marque discrète, informative seulement. */
+.choice-badge--lastwill {
+  color: var(--muted);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Deux temporalités par carte : « Maintenant » (ruines, immédiat) et
+   « Prochain cycle » (legs fenêtré) — libellés en petites capitales alignés. */
+.choice-row {
+  display: grid;
+  grid-template-columns: 6.2rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  /* Hauteur plancher = rangée AVEC chip : une carte sans chip delta (Archives)
+     ne doit pas être plus courte que ses voisines. */
+  min-height: 1.55rem;
+}
+
+.choice-row--chips {
+  align-items: center;
+}
+
+.choice-row-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Valeur renforcée par l'affinité (« +25% → +40% ») : liseré doré qui la
+   distingue sans casser le code couleur gain/coût. */
+.effect-chip.is-boosted {
+  border-color: color-mix(in srgb, var(--gold), transparent 35%);
+  box-shadow: 0 0 6px rgba(212, 186, 128, 0.22);
+}
+
+/* Stèle-bilan de l'épitaphe : les faits du cycle, gravés entre deux filets. */
+.dialog-inscription {
+  margin: 0.9rem 0 1rem;
+  padding: 0.5rem 0.25rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-ivory);
+}
+
 .effect-chips {
   display: flex;
   flex-wrap: wrap;
@@ -520,6 +593,13 @@ dialog::backdrop {
   color: #fca5a5;
   border-color: rgba(220, 95, 75, 0.35);
   background: rgba(220, 95, 75, 0.08);
+}
+
+/* Moisson de ruines (préparations terminales) : l'or du gain de prestige. */
+.effect-chip.is-harvest {
+  color: var(--gold-bright);
+  border-color: color-mix(in srgb, var(--gold), transparent 55%);
+  background: rgba(212, 186, 128, 0.1);
 }
 
 .dialog-footnote {

@@ -200,7 +200,7 @@ function simCollapse(reason) {
   const gain = ruinGain();
   if (gain <= 0) return false;
   simCycleAges.push(cycleYear());
-  completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), reason);
+  completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);
   simAutoBuyRuins();

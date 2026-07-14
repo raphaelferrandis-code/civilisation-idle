@@ -20,7 +20,6 @@ export {
   isUnlocked,
   totalBuildingCount,
   has,
-  hasDoctrine,
   ruinEffectSum,
   ruinEffectMultiplier,
   computeStartFloor,
@@ -35,3 +34,4 @@ export * from './mechanics/cost.js';
 export * from './mechanics/upgrades.js';
 export * from './mechanics/prestige.js';
 export * from './mechanics/crisis-cost.js';
+export * from './mechanics/grandResetMilestones.js';

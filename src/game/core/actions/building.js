@@ -29,9 +29,8 @@ import {
   has,
   isUnlocked,
   crisisOpen,
-  grandResetLegitimacyCost,
-  grandResetMythsRequired,
-  completedMythCount,
+  grandResetMilestoneMet,
+  grandResetMilestone,
   buildingMilestoneInfo,
   milestoneStepSize,
   ruinNodeCost,
@@ -47,6 +46,7 @@ import { buildings } from '../../data/buildings.js';
 import { MILESTONE_BOON_SECONDS, grandResetProductionMult } from '../balance.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
+import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
 
 export function buyBuilding(id) {
@@ -127,6 +127,13 @@ function fireMilestoneBoon(building) {
 // ── Raccourci « Tout acheter » (touche E) ────────────────────────────────────
 // Catégories concernées : les 3 onglets de la boutique (Moteurs / Savoir / Infra).
 const BUY_ALL_CATEGORIES = new Set(["city", "knowledge", "infra"]);
+// Libellés d'onglet, pour le retour visuel d'un achat de masse ciblé sur UNE
+// catégorie (raccourcis M / S / I). Mêmes intitulés que les onglets de la boutique.
+const BUY_ALL_CATEGORY_LABELS = {
+  city: { fr: "Moteurs", en: "Engines" },
+  knowledge: { fr: "Savoir", en: "Knowledge" },
+  infra: { fr: "Infrastructure", en: "Infrastructure" }
+};
 // Devises « courantes » dépensables en masse. On EXCLUT délibérément toute monnaie
 // de prestige (ruins) : « Tout acheter » ne doit JAMAIS ponctionner les Ruines, qui
 // financent l'arbre permanent — ex. ruin_architects paie extraCost:{ruins:85} et se
@@ -157,7 +164,9 @@ function buyableInMass(building) {
 // cyclePeaks, cf. isUnlocked) restent hors de portée. Un seul render() à la
 // fin. Refuse en pleine crise (crisisOpen). Respecte le verrou de catégorie de
 // Babel. Retourne le nombre de bâtiments érigés.
-export function buyAllAffordable() {
+//   - category : quand fourni ("city" | "knowledge" | "infra"), restreint l'achat
+//     de masse à ce SEUL onglet (raccourcis M / S / I) ; null = les trois (touche E).
+export function buyAllAffordable(category = null) {
   if (crisisOpen()) return 0;
   const babelLock = isMythEffectActive("mythe_de_babel") ? state.babelCategory : null;
 
@@ -171,6 +180,7 @@ export function buyAllAffordable() {
     let bestKey = null;
     for (const b of buildings) {
       if (!buyableInMass(b)) continue;
+      if (category && b.category !== category) continue; // achat ciblé sur un onglet
       if (babelLock && b.category !== babelLock) continue;
       const cost1 = buildingBatchCost(b, 1);
       if (!canPayCost(cost1)) continue;
@@ -186,11 +196,22 @@ export function buyAllAffordable() {
   }
 
   if (bought > 0) {
-    pushOutcomeFloat({ label: tr({ fr: `🏗️ +${fmt(bought)} bâtiments`, en: `🏗️ +${fmt(bought)} buildings` }), kind: "gain" });
-    chronicle(tr({
-      fr: `Un vaste programme de construction érige ${fmt(bought)} bâtiments d'un seul élan.`,
-      en: `A vast building program raises ${fmt(bought)} buildings in a single sweep.`
-    }));
+    const catLabel = category ? BUY_ALL_CATEGORY_LABELS[category] : null;
+    pushOutcomeFloat({
+      label: catLabel
+        ? `🏗️ +${fmt(bought)} ${tr(catLabel)}`
+        : tr({ fr: `🏗️ +${fmt(bought)} bâtiments`, en: `🏗️ +${fmt(bought)} buildings` }),
+      kind: "gain"
+    });
+    chronicle(catLabel
+      ? tr({
+          fr: `Un programme de construction érige ${fmt(bought)} bâtiments (${tr(catLabel)}) d'un seul élan.`,
+          en: `A building program raises ${fmt(bought)} ${tr(catLabel)} buildings in a single sweep.`
+        })
+      : tr({
+          fr: `Un vaste programme de construction érige ${fmt(bought)} bâtiments d'un seul élan.`,
+          en: `A vast building program raises ${fmt(bought)} buildings in a single sweep.`
+        }));
     enforceInfrastructureCap();
     invalidateRenderCache("buildings");
     render();
@@ -236,24 +257,18 @@ export async function exhumeVestige() {
 }
 
 export async function performGrandReset() {
-  if (collapseInProgress || gamePaused || !has("grand_reset")) return;
+  if (collapseInProgress || gamePaused) return;
   const nextCount = (state.grandResetCount || 0) + 1;
   const maxGrandResets = state.ragnarokHeritage ? 11 : 10;
   if (nextCount > maxGrandResets) return;
-  // Coût croissant (le 1er GR est couvert par l'achat de l'upgrade) : la
-  // récompense double à chaque GR, le coût aussi — sinon les 10 GR s'enchaînent
-  // sans être ressentis comme des sommets.
-  const legitCost = grandResetLegitimacyCost(nextCount);
-  if (state.legitimacy < legitCost) {
-    log(`Le Grand Reset ${nextCount} exige ${fmt(legitCost)} légitimité (actuel : ${fmt(state.legitimacy)}). Fondez des dynasties pour mériter ce sommet.`);
-    render();
-    return;
-  }
-  // Gating doux par les Mythes : chaque GR à partir du 3e exige un pacte
-  // mythique honoré de plus — les Mythes sont les chapitres de la route.
-  const mythsRequired = grandResetMythsRequired(nextCount);
-  if (completedMythCount() < mythsRequired) {
-    log(`Le Grand Reset ${nextCount} exige ${mythsRequired} Mythe(s) complété(s) (actuel : ${completedMythCount()}). Honorez un pacte mythique pour continuer.`);
+  // Le Grand Reset se débloque en atteignant son JALON marquant (échelle GR I→XI,
+  // cf. grandResetMilestones.js) — plus aucune monnaie de légitimité. Le jalon reste
+  // secret tant qu'il n'est pas atteint : le joueur le découvre.
+  if (!grandResetMilestoneMet(nextCount)) {
+    const m = grandResetMilestone(nextCount);
+    log(m && state.grRevealed && state.grRevealed[nextCount]
+      ? `Le Grand Reset ${nextCount} attend son jalon : « ${tr(m.name)} ».`
+      : `Le prochain Grand Reset exige un jalon encore secret. Faites grandir votre civilisation pour le découvrir.`);
     render();
     return;
   }
@@ -261,10 +276,9 @@ export async function performGrandReset() {
   const resetRewardText = nextCount === 11
     ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
     : `un bonus permanent x${grandResetProductionMult(nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
-  const costText = legitCost > 0 ? ` Coût : ${fmt(legitCost)} légitimité.` : "";
   const choice = await openChoiceDialog({
     title: "Grand Reset",
-    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage.${costText} En echange: ${resetRewardText}. Actuellement: x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Apres: x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
+    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage. En echange: ${resetRewardText}. Actuellement: x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Apres: x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
     options: [
       { label: "Tout reinitialiser", detail: nextCount === 11 ? "+x4 Ruines permanent" : `+x${grandResetProductionMult(nextCount).toFixed(0)} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }
@@ -278,9 +292,12 @@ export async function performGrandReset() {
   // Construit le state frais en préservant les héritages permanents.
   // SOURCE DE VÉRITÉ des champs conservés : GR_PERSISTENT_FIELDS (state.js).
   // Tout nouveau déblocage permanent DOIT y être ajouté, sinon il est effacé ici.
-  const fresh = buildGrandResetState(nextCount, legitCost);
+  const fresh = buildGrandResetState(nextCount);
 
   setState(fresh);
+  // Le buffer d'annales (module-scope) survivrait au swap d'état : on l'efface
+  // — la courbe de Régulation repart avec la nouvelle lignée.
+  resetAnnals();
 
   setGamePaused(false);
   setCollapseInProgress(false);

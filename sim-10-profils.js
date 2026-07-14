@@ -113,9 +113,9 @@ registerChoiceDialog((dialog) => {
 const mech = await import("./src/game/core/mechanics.js");
 const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
-  buildingBatchCost, legitimacyGain, globalMultiplier,
+  buildingBatchCost, globalMultiplier,
   currentEraIndex, ownedRuinTreePurchaseCount, has,
-  dynastyRuinsThreshold, grandResetLegitimacyCost, grandResetMythsRequired, completedMythCount,
+  grandResetMilestoneMet, grandResetMythsRequired, completedMythCount,
   terminalCrisisReady
 } = mech;
 
@@ -123,7 +123,7 @@ const { canPayCost, payCost, fmt } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
 const {
-  buyUpgrade, completeCollapse, tick, foundDynasty, performGrandReset,
+  buyUpgrade, completeCollapse, tick, performGrandReset,
   activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
@@ -460,7 +460,7 @@ function prepareCollapse(tier) {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
-  completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), reason);
+  completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);
   return true;
@@ -470,14 +470,14 @@ function doCollapse(reason = "auto") {
 // 7. Enregistreur de jalons
 // ---------------------------------------------------------------------------
 const MLOG = argv.mlog ? (typeof argv.mlog === "string" ? argv.mlog : "sim-10-profils-milestones.tsv") : null;
-if (MLOG) fs.writeFileSync(MLOG, "profil\ttemps_virtuel\tjalon\tcycle\tage\tGR\tdynasties\tlegitimite\truines\n", "utf8");
+if (MLOG) fs.writeFileSync(MLOG, "profil\ttemps_virtuel\tjalon\tcycle\tage\tGR\truines\n", "utf8");
 
 function snapshot() {
   return {
-    vt: VT, cycles: state.cycles, dynastyCount: state.dynastyCount,
+    vt: VT, cycles: state.cycles,
     grandResetCount: state.grandResetCount || 0,
     bestEraIndex: state.bestEraIndex || 0, era: eras[currentEraIndex()].name,
-    ruins: num(state.ruins), legitimacy: state.legitimacy,
+    ruins: num(state.ruins),
     treeOwned: ownedRuinTreePurchaseCount(), globalMult: globalMultiplier()
   };
 }
@@ -490,14 +490,12 @@ function makeRecorder(profileId) {
       const ms = { key, label, ...snapshot() };
       this.milestones.push(ms);
       if (MLOG) fs.appendFileSync(MLOG,
-        `${profileId}\t${fmtDuration(ms.vt)}\t${label}\t${ms.cycles}\t${ms.era}\t${ms.grandResetCount}\t${ms.dynastyCount}\t${fmt(ms.legitimacy)}\t${fmt(ms.ruins)}\n`);
+        `${profileId}\t${fmtDuration(ms.vt)}\t${label}\t${ms.cycles}\t${ms.era}\t${ms.grandResetCount}\t${fmt(ms.ruins)}\n`);
     },
     has(key) { return this.milestones.some((m) => m.key === key); },
     check() {
       const ei = currentEraIndex();
       if (!this.seenEra.has(ei)) { this.seenEra.add(ei); this.record(`era_${ei}`, `Age : ${eras[ei].name}`); }
-      if (state.dynastyCount >= 1) this.record("dynasty_1", "Dynastie 1 fondee");
-      if (state.dynastyCount >= 10) this.record("dynasty_10", "Dynastie 10 fondee");
       if (ownedRuinTreePurchaseCount() >= RUIN_TREE_TOTAL) this.record("tree_complete", "Arbre de Ruines complet");
       const gr = state.grandResetCount || 0;
       for (const g of [1, 3, 5, 10, 11]) if (gr >= g) this.record(`gr_${g}`, `Grand Reset ${g}`);
@@ -824,39 +822,32 @@ async function runProfile(prof) {
     collapseFails = 0;
 
     // --- Meta-progression -----------------------------------------------------
-    const treeDone = ownedRuinTreePurchaseCount() >= RUIN_TREE_TOTAL;
-    if (prof.treeFirst && !treeDone) {
-      buyRuinTree(0);                       // dump tout dans l'arbre d'abord
-    } else {
-      buyRuinTree(dynastyRuinsThreshold()); // garde la reserve pour fonder
-    }
+    // Meta : tout dans l'arbre de Ruines (plus de reserve a garder — dynasties retirees).
+    buyRuinTree(0);
     buyHeritage();
-    // Fonder une dynastie des que possible (gagne de la legitimite).
-    if (legitimacyGain() > 0) { try { await foundDynasty(); } catch { /* noop */ } }
     rec.check();
 
-    // --- Grand Reset si finançable + gate Mythes satisfait --------------------
+    // --- Grand Reset si le JALON marquant du prochain GR est atteint ----------
     const nextGR = (state.grandResetCount || 0) + 1;
     const maxGR = state.ragnarokHeritage ? 11 : 10;
-    const grUnlocked = has("grand_reset") && (state.grandResetCount || 0) < maxGR;
-    if (grUnlocked && state.legitimacy >= grandResetLegitimacyCost(nextGR)
-        && completedMythCount() >= grandResetMythsRequired(nextGR)) {
+    const grUnlocked = nextGR <= maxGR && grandResetMilestoneMet(nextGR);
+    if (grUnlocked) {
       try { await performGrandReset(); } catch { /* noop */ }
       rec.check();
     }
 
-    // --- Mythes : apres GR1, et chaque fois que le gate Mythes bloque le GR ----
-    const blockedByMyths = grUnlocked && completedMythCount() < grandResetMythsRequired((state.grandResetCount || 0) + 1);
+    // --- Mythes : apres GR1, et chaque fois qu'un jalon de GR reste a atteindre --
+    const blockedByGR = nextGR <= maxGR && !grandResetMilestoneMet(nextGR);
     if (prof.pursueMyths && (state.grandResetCount || 0) >= 1
-        && (!rec.has("all_myths")) && (rec.has("gr_1") && (blockedByMyths || !mythResults[prof._id]))) {
+        && (!rec.has("all_myths")) && (rec.has("gr_1") && (blockedByGR || !mythResults[prof._id]))) {
       await driveMyths(rec, prof);
       buyHeritage();
       rec.check();
     }
 
     if (argv.debug && state.cycles % 200 === 0) {
-      process.stderr.write(`  [${prof._id}] VT=${fmtDuration(VT)} cyc=${state.cycles} dyn=${state.dynastyCount} ` +
-        `GR=${state.grandResetCount || 0} legit=${fmt(state.legitimacy)} ruines=${fmt(num(state.ruins))} tree=${ownedRuinTreePurchaseCount()}/${RUIN_TREE_TOTAL}\n`);
+      process.stderr.write(`  [${prof._id}] VT=${fmtDuration(VT)} cyc=${state.cycles} ` +
+        `GR=${state.grandResetCount || 0} ruines=${fmt(num(state.ruins))} tree=${ownedRuinTreePurchaseCount()}/${RUIN_TREE_TOTAL}\n`);
     }
   }
   rec.final = snapshot();
@@ -874,8 +865,6 @@ if (argv.mythtest) {
   resetScenario();
   state.grandResetCount = 1;
   state.cycles = 20;
-  state.dynastyCount = 6;
-  state.legitimacy = 1000;
   state.ruins = D(1e14); // banque de ruines elevee pour pouvoir acheter tout l'arbre
   state.bestEraIndex = 10;
   buyRuinTree(0); buyHeritage(); buyRuinTree(0); buyHeritage();
@@ -904,13 +893,10 @@ if (argv.mythtest) {
         state.cycles = 1; // reset cycles to 1 to simulate a fresh GR cycle and avoid high cycle fatigue
         if (act === 1) {
           state.ruins = D(1e5);
-          state.legitimacy = 300;
         } else if (act === 2) {
           state.ruins = D(1e8);
-          state.legitimacy = 800;
         } else {
           state.ruins = D(1e14);
-          state.legitimacy = 2000;
         }
         invalidateRenderCache("all");
         r.attempted++;
@@ -936,7 +922,7 @@ for (const id of order) {
   recs[id] = rec;
   const f = rec.final;
   const mr = mythResults[id] || { completed: 0, attempted: 0 };
-  console.log(`${fmtDuration(f.vt)} virt | cyc=${f.cycles} dyn=${f.dynastyCount} GR=${f.grandResetCount} ` +
+  console.log(`${fmtDuration(f.vt)} virt | cyc=${f.cycles} GR=${f.grandResetCount} ` +
     `arbre=${f.treeOwned}/${RUIN_TREE_TOTAL} mythes=${mr.completed}/${MYTHS.length} (${(rec.realMs / 1000).toFixed(0)}s reel)`);
 }
 
@@ -980,13 +966,13 @@ for (const id of order) {
 }
 
 md += `\n## Synthese finale par profil\n
-| Profil | Temps simule | Cycles | Dynasties | GR | Arbre | Mythes | Legitimite | Ruines | Mult global | Calcul reel |
-|---|---|---|---|---|---|---|---|---|---|---|
+| Profil | Temps simule | Cycles | GR | Arbre | Mythes | Ruines | Mult global | Calcul reel |
+|---|---|---|---|---|---|---|---|---|
 `;
 for (const id of order) {
   const rec = recs[id]; const f = rec.final;
   const mr = mythResults[id] || { completed: 0 };
-  md += `| ${PROFILES[id].label} | ${fmtDuration(f.vt)}${truncated(rec) ? " (tronque)" : ""} | ${f.cycles} | ${f.dynastyCount} | ${f.grandResetCount} | ${f.treeOwned}/${RUIN_TREE_TOTAL} | ${mr.completed}/${MYTHS.length} | ${fmt(f.legitimacy)} | ${fmt(f.ruins)} | x${fmt(f.globalMult)} | ${(rec.realMs / 1000).toFixed(0)} s |\n`;
+  md += `| ${PROFILES[id].label} | ${fmtDuration(f.vt)}${truncated(rec) ? " (tronque)" : ""} | ${f.cycles} | ${f.grandResetCount} | ${f.treeOwned}/${RUIN_TREE_TOTAL} | ${mr.completed}/${MYTHS.length} | ${fmt(f.ruins)} | x${fmt(f.globalMult)} | ${(rec.realMs / 1000).toFixed(0)} s |\n`;
 }
 
 md += `\n## Definition des profils (les "boutons" de comportement)\n
@@ -1014,9 +1000,8 @@ for (const id of order) {
 
 md += `\n## Lecture
 - **Effondrement (\`ruinGain\`)** recompense l'age du cycle (patience), la profondeur de population et la **preparation a l'effondrement** (\`collapsePreparation\`, plafonnee a ${num(2.4)}). Les profils qui *tiennent puis sabordent* (Theoricien, Chasseur de meta, Prudent) doivent donc gagner plus de Ruines par cycle que ceux qui spamment (Casse-cou, Relanceur).
-- **Legitimite (\`legitimacyGain\`)** = floor((ruines/160)^0.5 + cycles/12 + floor(dynasties/5)), gagnee en **fondant une dynastie** (seuil de ruines croissant ×1.4/fondation). Le GR1 exige ${num(300)} legitimite + l'upgrade \`grand_reset\`.
-- **Grand Reset** : cout en legitimite ×2 par GR (GR2 : 600, GR3 : 1200…), remet \`cycles\` a 0 (donc le terme cycles/12 se reconstruit a chaque boucle). A partir du GR3, chaque GR exige un Mythe complete de plus ; le GR11 exige l'heritage Ragnarok (tous les Mythes).
-- **Le vrai mur n'est pas le temps : c'est l'Acte I des Mythes.** Tant que les ${ACT_COUNT[1]} Mythes de l'Acte I ne sont pas TOUS completes, l'Acte II reste verrouille, donc l'Acte III, le Ragnarok et le GR11 le sont aussi ; et le gate des GR profonds (GR5 = 3 Mythes … GR10 = 8) est sature. Un pilote mecanique ne boucle qu'une partie de l'Acte I (objectifs sur-mesure : migration d'Enee, declin d'Hephaistos, equilibre de l'Age d'Or…), d'ou les **—** sur Acte II+/GR10/GR11. C'est une mesure de la difficulte de ces Mythes pour un jeu "automatique", a confronter au ressenti humain.
+- **Grand Reset (\`grandResetMilestoneMet\`)** : chaque GR se debloque en atteignant un **jalon marquant** propre a un pan du jeu (plus de monnaie de legitimite ni de dynasties). GR1 = 10 effondrements traverses, GR2 = 3 merveilles, GR3/6/8/11 = 1/5/8/14 Mythes honores, GR4 = pic de population 1e6, GR10 = 1re ere transcendante. Le GR11 (Ragnarok) exige les 14 Mythes.
+- **Le vrai mur n'est pas le temps : c'est l'Acte I des Mythes.** Tant que les ${ACT_COUNT[1]} Mythes de l'Acte I ne sont pas TOUS completes, l'Acte II reste verrouille, donc l'Acte III, le Ragnarok et le GR11 le sont aussi ; et les jalons de GR gates par les Mythes (GR3/6/8/11 = 1/5/8/14 Mythes) restent hors d'atteinte. Un pilote mecanique ne boucle qu'une partie de l'Acte I (objectifs sur-mesure : migration d'Enee, declin d'Hephaistos, equilibre de l'Age d'Or…), d'ou les **—** sur Acte II+/GR10/GR11. C'est une mesure de la difficulte de ces Mythes pour un jeu "automatique", a confronter au ressenti humain.
 - Un jalon **—** peut aussi venir d'un budget temps reel court : relancer avec \`--maxreal\` plus grand pour distinguer "trop lent" de "pas eu le temps de calculer".
 
 ## Limites honnetes

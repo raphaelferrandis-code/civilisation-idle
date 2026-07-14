@@ -11,7 +11,7 @@ export const chroniclePeriod5 = [
     period: 5,
     conditionType: "crise",
     title: { fr: "LA CRISE ÉTAIT PRÉVISIBLE, DONC PERSONNE N'A PRÉVU", en: "THE CRISIS WAS PREDICTABLE, SO NOBODY PREDICTED IT" },
-    text: { fr: "« Les signes étaient là : greniers vides, colère haute, routes coupées. Le gouvernement promet d'étudier pourquoi il n'a rien étudié. »", en: "\"The signs were there: empty granaries, high anger, severed roads. The government promises to study why it studied nothing.\"" },
+    text: { fr: "« Les signes étaient là : entrepôts vides, colère haute, routes coupées. Le gouvernement promet d'étudier pourquoi il n'a rien étudié. »", en: "\"The signs were there: empty granaries, high anger, severed roads. The government promises to study why it studied nothing.\"" },
     author: null
   },
   {

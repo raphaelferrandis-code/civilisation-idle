@@ -14,13 +14,11 @@ import {
 } from '../state.js';
 
 import {
-  legitimacyGain,
   computeStartFloor,
   enforceInfrastructureCap
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
-import { DOCTRINES } from '../../data/world.js';
 import { CM } from '../../map/layout.js';
 import {
   getMythById,
@@ -63,35 +61,6 @@ export function checkMythOnCollapse() {
   } else if (!success) {
     log(`Pacte brise: "${tr(myth.name)}" n'a pas ete honore ce cycle.`);
   }
-}
-
-export async function foundDynasty() {
-  const gain = legitimacyGain();
-  if (gain <= 0 || gamePaused) return;
-  setGamePaused(true);
-  render();
-
-  const choice = await openChoiceDialog({
-    title: "Choisir une Doctrine",
-    body: `La Dynastie ${state.dynastyCount + 1} s'apprete a s'ecrire dans l'histoire. Quelle doctrine guidera cette lignee?`,
-    options: DOCTRINES.map((d) => ({ label: d.name, detail: d.detail, doctrineId: d.id })),
-    variant: "dynasty"
-  });
-
-  state.dynastyDoctrine = choice.doctrineId || DOCTRINES[0].id;
-  state.legitimacy += gain;
-  state.dynastyCount += 1;
-  // Seuil croissant de la prochaine fondation (remis à zéro au Grand Reset).
-  state.dynastiesSinceGR = (state.dynastiesSinceGR || 0) + 1;
-  state.ruins = D(0);
-  setGamePaused(false);
-  resetCivilization();
-  openView("city");
-  CM.centered = false; // force le recentrage de la caméra sur le nouveau village
-  const doctrine = DOCTRINES.find((d) => d.id === state.dynastyDoctrine);
-  log(`Dynastie ${state.dynastyCount}: les ruines deviennent ${fmt(gain)} legitimite. La ${doctrine?.name || "doctrine"} est proclamee.`);
-  save();
-  render();
 }
 
 export async function chooseActiveRuins({ required = false, title = "Ruines actives" } = {}) {

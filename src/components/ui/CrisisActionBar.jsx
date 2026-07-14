@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { pressureBreakdown, crisisCosts, rates, regulationContext, regulationActionUnlocked, regulationPolicyUnlocked } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
+import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost } from '../../game/core/utils.js';
 import { state } from '../../game/core/state.js';
 import { toNum } from '../../game/core/num.js';
@@ -12,9 +13,12 @@ import PixelIcon from './PixelIcon.jsx';
 
 /**
  * Actions de régulation des foyers de tension (Subsistance / Inégalités /
- * Complexité / Dissidence). Source unique partagée par :
- *  — l'en-tête de la Cité (variant="compact", toujours visible) ;
- *  — l'onglet Effondrement (variant="full", tableau tactique détaillé).
+ * Complexité / Dissidence). Rendu dans l'en-tête de la Cité
+ * (variant="compact", toujours visible) — le SEUL point d'action depuis le
+ * retrait de la table tactique de l'onglet Régulation (retour Raph
+ * 2026-07-13 : la Chancellerie l'y rendait redondante). La variante "full"
+ * (tableau tactique large) n'a PLUS de consommateur — conservée telle quelle
+ * pour un éventuel retour ; à purger si elle reste orpheline au prochain audit.
  *
  * Les deux variantes mappent la MÊME config `foyers` : chaque bouton annonce
  * désormais ce qu'il calme (−X % du foyer), sa contrepartie de production
@@ -94,7 +98,7 @@ function describeRegAction(action, cost, r, ctx, currentReform) {
     atCap: isReform && (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
     malusRes: action.malusRes,
     malusPct: action.malusPct || 0,
-    bonus: action.infraAdd ? 'infra' : (action.legitAdd ? 'legit' : null),
+    bonus: action.infraAdd ? 'infra' : null,
     gamble: action.kind === 'gamble',
     winPct: Math.round((action.p || 0) * 100)
   };
@@ -104,7 +108,7 @@ function describeRegAction(action, cost, r, ctx, currentReform) {
 // contrepartie de production (ligne 2). `showSeconds` ajoute l'équivalent
 // « ≈ N s de prod » au coût — réservé à la variante full (cartes larges) ;
 // en compact le menu flottant est trop étroit.
-const BONUS_LABEL = { infra: { fr: '+infrastructure', en: '+infrastructure' }, legit: { fr: '+légitimité', en: '+legitimacy' } };
+const BONUS_LABEL = { infra: { fr: '+infrastructure', en: '+infrastructure' } };
 
 function RegulButton({ a, label, btnClass, showSeconds }) {
   if (a.locked) {
@@ -119,20 +123,22 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
     );
   }
   if (a.gamble) {
+    // Mini-jeu : le bouton OUVRE la Table des augures (rite, osselets, quitte
+    // ou double) au lieu de trancher sur place. Toujours cliquable — la table
+    // affiche les trois mises (l'offrande prudente coûte moins que ce coût-ci).
     const cls = `${btnClass}${btnClass ? ' ' : ''}regul-gamble`.trim();
     return (
       <button
         className={cls}
-        disabled={!canPayCost(a.cost)}
-        title={tr({ fr: `Pari : ${a.winPct}% de gros apaisement, ${100 - a.winPct}% de retour de bâton (hausse de Rupture).`, en: `Gamble: ${a.winPct}% major relief, ${100 - a.winPct}% backlash (Rupture rises).` })}
-        onClick={() => runCrisisAction(a.id)}
+        title={tr({ fr: `Ouvre la table des augures : ${a.winPct}% de chance de base, trois rites, et le quitte ou double si les dieux sourient.`, en: `Opens the augurs' table: ${a.winPct}% base chance, three rites, and double-or-nothing if the gods smile.` })}
+        onClick={() => openAuguryTable(a.id)}
       >
         <span className="regul-btn-line">
           <strong>{label}</strong>
           <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
-          <span className="regul-gamble-tag">🎲 {a.winPct}% {tr({ fr: 'apaise', en: 'soothes' })} · {100 - a.winPct}% {tr({ fr: 'aggrave', en: 'worsens' })}</span>
+          <span className="regul-gamble-tag">🎲 {a.winPct}% {tr({ fr: 'apaise', en: 'soothes' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>
         </span>
       </button>
     );
@@ -361,7 +367,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
         <div className="crisis-regul-head">
           <span className="crisis-regul-title">{tr({ fr: 'Régulation des tensions', en: 'Tension Regulation' })}</span>
           {mitigationPct > 0 && (
-            <span className="crisis-regul-buffer" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure + legitimacy). Building infrastructure lastingly pushes back the Rupture.' })}>
+            <span className="crisis-regul-buffer" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure). Building infrastructure lastingly pushes back the Rupture.' })}>
               {tr({ fr: 'Institutions : −', en: 'Institutions: −' })}{mitigationPct}{tr({ fr: '% de pression absorbée', en: '% of pressure absorbed' })}
             </span>
           )}
@@ -409,7 +415,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
       </div>
       {/* Libellé aligné sur la variante compacte : une ligne, le détail en tooltip. */}
       {mitigationPct > 0 && (
-        <p className="crisis-regul-buffer crisis-regul-buffer--full" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure + légitimité). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure + legitimacy). Building infrastructure lastingly pushes back the Rupture.' })}>
+        <p className="crisis-regul-buffer crisis-regul-buffer--full" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure). Building infrastructure lastingly pushes back the Rupture.' })}>
           {tr({ fr: 'Institutions : ', en: 'Institutions: ' })}<strong>−{mitigationPct}%</strong>{tr({ fr: ' de pression absorbée', en: ' of pressure absorbed' })}
         </p>
       )}

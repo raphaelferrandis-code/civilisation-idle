@@ -43,8 +43,9 @@ import {
   resumeAfterCrisisOutcome
 } from './actions.js';
 
-import { runCollapseSequence, generateEpitaph } from './events.js';
+import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js';
 import { dynastyNames } from '../data/buildings.js';
+import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { D } from './num.js';
 
 import {
@@ -107,7 +108,6 @@ export function addDebugRuins(amount) {
 
 export function addDebugCycles(amount) {
   state.cycles += amount;
-  state.dynastyCount = Math.max(state.dynastyCount, Math.floor(state.cycles / 6));
   log(`Debug: ${fmt(amount)} cycles ajoutes.`);
   render();
 }
@@ -189,9 +189,18 @@ function simulateAwayCrises(elapsedSeconds) {
         : state.crisisLimitAnnounced; // rupture100 : tick() a posé le drapeau terminal
       if (!fire) continue;
 
-      const gain = ruinGain(true).floor().max(0);
+      // Chaque effondrement hors-ligne grave le testament s'il existe, sinon
+      // répète la dernière volonté (dernier legs choisi) — même règle que l'Édit
+      // en ligne, même arithmétique de gain que le dialogue (rite d'effondrement
+      // puis multiplicateur du legs, affinité recalculée sur la cause de CETTE chute).
+      const cause = collapseCause();
+      const legacy = epitaphLegacyById(state.testamentLegacyId) || epitaphLegacyById(state.nextEpitaphLegacy?.id);
+      const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
+      const gainBase = ruinGain(true).floor().max(0).mul(riteBonus).round();
+      const gain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).round();
       if (D(gain).gt(0)) {
-        completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), "auto_collapse");
+        if (legacy) state.nextEpitaphLegacy = { id: legacy.id, cause, chosenCycle: state.cycles || 0, startedAt: Date.now() };
+        completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), "auto_collapse");
         collapses += 1;
         markThresholds(); // completeCollapse a remis crisisThresholds à {}
       } else if (ac.trigger === "rupture100" && state.crisisLimitAnnounced) {

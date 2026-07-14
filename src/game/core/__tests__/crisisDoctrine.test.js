@@ -131,7 +131,7 @@ describe("autoResolveCrisisEvent — selon la posture, sans pause", () => {
 describe("simulateAwayCrises — farm hors-ligne (v2)", () => {
   const farmState = (overrides = {}) => hydrateState({
     population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
-    legitimacy: 50, ruins: 5000, cycles: 10, dynastyCount: 8, instability: 0.3, timeWear: 0.1,
+    ruins: 5000, cycles: 10, instability: 0.3, timeWear: 0.1,
     bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
     cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
     buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },

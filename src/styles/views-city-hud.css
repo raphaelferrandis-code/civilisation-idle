@@ -141,6 +141,8 @@
 .app[data-active-view="city"] .city-aux {
   position: absolute;
   left: 1rem;
+  /* Repli avant la première mesure : CityView recale `top` en JS sous le bord
+     RÉEL de l'encart identité, dont la hauteur varie (cf. stageHudRef). */
   top: 10.1rem;
   z-index: 20;
   display: flex;

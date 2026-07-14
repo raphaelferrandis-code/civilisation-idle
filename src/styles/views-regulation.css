@@ -1,0 +1,1304 @@
+/* ==========================================================================
+   Onglet Régulation — la « Chancellerie », version DENSE (passe 2026-07-14,
+   retour Raph : « enlève les cadres, réduis les jauges, moins de textes,
+   tout sans scroller »).
+   Principes : AUCUN panneau (sections nues, titres h3 discrets, filets
+   hairline), explications déplacées dans les TOOLTIPS, Anatomie|Annales côte
+   à côte, registre en lignes uniques. La page tient en 1080p sans défilement.
+   Importée APRÈS views-crises.css (le bloc typo Inter de #regulation y vit).
+   ⚠ les classes barometer-* de views-crises.css servent encore la jauge héros
+   d'Effondrement — le bandeau d'ici utilise des classes tension-* dédiées.
+   ========================================================================== */
+
+/* Régulation en COLONNE FLEX (réorg 2026-07-14) : bandeau + deux colonnes
+   compactes, puis la scène des jeux qui REMPLIT l'espace restant (flex:1).
+   L'override bat le `.view.active { display:grid }` par spécificité. */
+/* <main> en COLONNE FLEX pour la Régulation : la topbar reste en haut, la vue
+   remplit le reste (flex:1) et clippe → la page ne scrolle jamais (main a un
+   padding de 0.75rem qui, sinon, la débordait de 12px). Content SOUS la topbar. */
+.app[data-active-view="regulation"] main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;        /* hauteur DÉFINIE → flex:1 peut borner (sinon main grandit) */
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.app[data-active-view="regulation"] #regulation.view.active {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  overflow: hidden;
+  align-content: initial;
+}
+
+.app #regulation.view.active > * { min-height: 0; }
+.regulation-cols { flex: 0 0 auto; }
+
+/* ── Bandeau des jauges (une ligne fine, plus de cartes) ── */
+.tension-strip {
+  display: flex;
+  gap: 2.2rem;
+  align-items: center;
+  padding: 0.15rem 0.2rem 0.3rem;
+}
+
+.tension-gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.tension-gauge--rupture { flex: 2; }
+.tension-gauge--usure { flex: 1; }
+
+.tension-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tension-track {
+  position: relative;
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tension-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.tension-fill--rupture { background: linear-gradient(90deg, #dc5f4b, #ef4444); }
+.tension-fill--usure { background: var(--state-usure); }
+
+/* Fantôme de la cible : où la jauge dérive (détail chiffré dans l'Anatomie). */
+.tension-ghost {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 1px;
+  transition: left 0.3s ease;
+}
+
+.tension-val {
+  font-family: var(--font-number);
+  font-size: 0.9rem;
+  color: var(--text-strong);
+  min-width: 3.2rem;
+  text-align: right;
+}
+
+/* ── Chrome des sections (dé-boxé) ── */
+.regul-block { min-width: 0; }
+
+.regul-block-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--gold);
+  opacity: 0.9;
+  cursor: default;
+}
+
+.regul-block-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Compteur de Faveur (monnaie des jeux) — accent or, dans l'en-tête des augures. */
+.faveur-count {
+  margin-left: auto;
+  color: var(--gold-bright);
+  font-family: var(--font-number);
+  font-size: 0.8rem;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: default;
+}
+
+/* Deux colonnes (réorg 2026-07-14) : GAUCHE = Anatomie → Intendance → Table
+   des augures → Boutique ; DROITE = Annales → Scène des jeux. */
+.regulation-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0.9rem 2.4rem;
+  align-items: start;
+}
+
+.regulation-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .regulation-cols { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── 1. Anatomie (une ligne par affluent, moteurs en tooltip) ── */
+.anatomy-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.3rem auto 1.3rem auto;
+  gap: 0.3rem 0.45rem;
+  align-items: center;
+}
+
+.anatomy-sources {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.anatomy-arrow {
+  grid-row: 1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  opacity: 0.65;
+}
+
+.anatomy-flow > .anatomy-arrow:first-of-type { grid-column: 2; }
+.anatomy-flow > .anatomy-arrow:last-of-type { grid-column: 4; }
+
+.anatomy-row {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(5.8rem, auto) minmax(0, 1fr) 3.2rem;
+  align-items: center;
+  column-gap: 0.45rem;
+  cursor: default;
+}
+
+.anatomy-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anatomy-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.anatomy-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.anatomy-track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.anatomy-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--foyer-color, var(--gold));
+  transition: width 0.3s ease;
+}
+
+.anatomy-val {
+  font-family: var(--font-number);
+  font-size: 0.76rem;
+  text-align: right;
+  color: var(--text-strong);
+}
+
+/* Barrage : texte nu entre deux flèches (plus de boîte). */
+.anatomy-dam {
+  grid-column: 3;
+  grid-row: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0 0.3rem;
+  max-width: 12rem;
+  cursor: default;
+}
+
+.anatomy-dam-name {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.anatomy-dam-val {
+  font-family: var(--font-number);
+  font-size: 1.2rem;
+  color: var(--res-food);
+}
+
+.anatomy-dam-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.5rem;
+  justify-content: center;
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+
+.anatomy-target {
+  grid-column: 5;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0 0.2rem;
+}
+
+.anatomy-target-val {
+  font-family: var(--font-number);
+  font-size: 1.5rem;
+  color: #ef9f6a;
+}
+
+.anatomy-target.is-over .anatomy-target-val { color: #ef4444; }
+
+.anatomy-target-sub {
+  font-size: 0.66rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* La Démesure s'ajoute APRÈS la mitigation : dérivation sous le barrage. */
+.anatomy-bypass {
+  grid-column: 1 / 5;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  border-top: 1px dashed color-mix(in srgb, var(--line), transparent 20%);
+  padding-top: 0.32rem;
+  margin-top: 0.1rem;
+}
+
+.anatomy-bypass-note {
+  font-size: 0.68rem;
+  color: #d97a4e;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .anatomy-flow { grid-template-columns: minmax(0, 1fr); }
+  .anatomy-arrow { display: none; }
+  .anatomy-sources { grid-column: 1; grid-row: auto; }
+  .anatomy-dam { grid-column: 1; grid-row: auto; max-width: none; }
+  .anatomy-target { grid-column: 1; grid-row: auto; padding: 0.3rem 0; }
+  .anatomy-bypass { grid-column: 1; grid-row: auto; }
+}
+
+/* ── 2. Annales (courbe + registre une-ligne) ── */
+.annals-chart { display: block; }
+
+.annals-empty {
+  font-size: 0.76rem;
+  color: var(--muted);
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.annals-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  margin-top: 0.25rem;
+  font-size: 0.66rem;
+  color: var(--muted);
+  align-items: center;
+}
+
+.annals-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.annals-axis-note { margin-right: 0.6rem; }
+
+.annals-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.annals-dot--diamond { border-radius: 2px; transform: rotate(45deg); }
+.annals-dot--square { border-radius: 1px; }
+
+.annals-dot--tri {
+  width: 0;
+  height: 0;
+  border-radius: 0;
+  background: transparent !important;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid;
+}
+
+.annals-ledger-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.annals-ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.16rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+}
+
+.annals-ledger-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annals-chip {
+  font-size: 0.7rem;
+  font-family: var(--font-number);
+  white-space: nowrap;
+}
+
+.annals-chip--gain { color: var(--res-food); }
+.annals-chip--reform { color: var(--res-treasure); }
+.annals-chip--loss { color: #e2704b; }
+.annals-chip--policy { color: var(--state-usure); }
+.annals-chip--mut { color: var(--muted); font-family: inherit; }
+
+.annals-ledger-meta {
+  font-size: 0.66rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── 3. Intendance (lignes hairline, plus de cartes) ── */
+.steward-resting {
+  margin: -0.1rem 0 0.3rem;
+  font-size: 0.72rem;
+  color: var(--res-treasure);
+}
+
+.steward-clauses {
+  display: flex;
+  flex-direction: column;
+}
+
+.steward-clause {
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+  padding: 0.4rem 0 0.34rem;
+}
+
+.steward-clause--locked {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.steward-clause-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-strong);
+}
+
+.steward-clause-line select {
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-strong);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.16rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.steward-clause-arrow { color: var(--muted); }
+
+.steward-toggle {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  padding: 0.16rem 0.55rem;
+}
+
+.steward-toggle.is-on {
+  color: var(--res-food);
+  border-color: color-mix(in srgb, var(--res-food), transparent 40%);
+}
+
+.steward-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.steward-clause-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+
+.steward-signature { font-style: italic; }
+
+/* ── 4. Augures (lignes hairline) + bannière du temple ── */
+.icarus-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  border-radius: 10px;
+  background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+  margin-bottom: 0.2rem;
+}
+
+.icarus-banner:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.icarus-banner-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.icarus-banner-pot {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--font-number);
+  font-size: 0.74rem;
+  color: var(--gold-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icarus-banner-free { color: var(--res-food); }
+
+.icarus-banner-cta {
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.18rem 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.augures-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.augures-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+  padding: 0.32rem 0.1rem;
+}
+
+.augures-row--locked { color: var(--muted); }
+
+.augures-name {
+  font-size: 0.78rem;
+  color: var(--text-strong);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.augures-row--locked .augures-name { color: var(--muted); }
+
+.augures-pips {
+  display: inline-flex;
+  gap: 0.26rem;
+}
+
+.augures-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  display: inline-block;
+}
+
+.augures-pip.is-win { background: var(--res-food); border-color: transparent; }
+.augures-pip.is-loss { background: #e2704b; border-color: transparent; }
+/* Le Chien : pastille rouge sombre cerclée — le pire jet se repère de loin. */
+.augures-pip.is-dog { background: #8c2015; border-color: #ff6a55; }
+
+.augures-favor {
+  font-size: 0.7rem;
+  color: var(--res-treasure);
+  font-family: var(--font-number);
+  white-space: nowrap;
+}
+
+.augures-base {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.augures-throw {
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+  color: var(--gold-bright);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.16rem 0.6rem;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.augures-throw:hover {
+  background: color-mix(in srgb, var(--gold), transparent 78%);
+  border-color: var(--gold);
+}
+
+/* Typo : les <select> suivent le registre Inter de l'onglet (les selects
+   n'héritent pas de la police par défaut, comme les inputs). */
+#regulation select {
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+/* ── La scène des jeux du temple (RegulationStage) — pleine largeur, prend
+   TOUT l'espace restant en bas (flex:1). ── */
+.regulation-stage {
+  flex: 1 1 auto;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  /* Contenu ancré en haut : un jeu plus grand que la scène scrolle DEDANS
+     (overflow-y), sans jamais pousser la page (le centrage flex + overflow
+     rejetait le bas hors du conteneur). */
+  justify-content: flex-start;
+  overflow-y: auto;
+  border: 1px dashed color-mix(in srgb, var(--line), transparent 55%);
+  border-radius: 12px;
+  padding: 0.6rem 0;
+}
+
+
+/* ── Boutique de Faveur (emplacement v1 : aperçu grisé « bientôt ») ── */
+.faveur-shop-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.faveur-shop-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.36rem 0.1rem;
+  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
+  cursor: default;
+}
+
+.faveur-shop-item.is-active {
+  border-color: color-mix(in srgb, var(--res-food), transparent 55%);
+}
+
+.faveur-shop-icon { font-size: 1rem; width: 1.3rem; text-align: center; }
+
+.faveur-shop-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
+
+.faveur-shop-name { font-size: 0.8rem; color: var(--text-strong); }
+
+.faveur-shop-lvl { color: var(--muted); font-family: var(--font-number); font-size: 0.72rem; }
+
+.faveur-shop-fx { font-size: 0.7rem; color: var(--muted); }
+
+.faveur-shop-item.is-active .faveur-shop-fx { color: var(--res-food); }
+
+.faveur-shop-buy {
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+  color: var(--gold-bright);
+  font-family: var(--font-number);
+  font-size: 0.74rem;
+  padding: 0.18rem 0.6rem;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.faveur-shop-buy:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold), transparent 78%);
+  border-color: var(--gold);
+}
+
+.faveur-shop-buy:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.faveur-shop-maxed {
+  font-size: 0.66rem;
+  color: var(--res-food);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.regulation-stage.is-empty { align-items: center; justify-content: center; }
+
+/* Scène au repos : filigrane discret (sans texte — retour Raph), pas de spoiler. */
+.stage-watermark {
+  font-size: 3.4rem;
+  opacity: 0.12;
+  filter: grayscale(0.4);
+}
+
+/* Scènes des deux jeux : même cadre, centrées, LARGES (la scène pleine largeur
+   leur laisse de la place) — augures et Vol d'Icare uniformisés. */
+.augury-stage,
+.icarus-stage {
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.stage-title {
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.stage-title > span:first-child {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.stage-close {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 0.06rem 0.45rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.stage-close:hover {
+  color: var(--gold-bright);
+  border-color: var(--gold);
+}
+
+/* La cagnotte vit dans le titre de la scène d'Icare. */
+.icarus-stage-pot {
+  margin-left: auto;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.icarus-stage-pot + .stage-close { margin-left: 0.6rem; }
+
+.icarus-pot-hint-inline {
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.stage-footnote {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.augury-note {
+  text-align: center;
+  font-size: 0.82rem;
+  margin: 0.2rem 0;
+}
+
+/* ── Bulles d'aide — MÊME recette que .rt-tooltip (arbre des Ruines) :
+   bulle sombre épurée nom + effet, position fixe sous l'élément survolé. ── */
+.regul-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(14, 18, 28, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.regul-tip--flip { transform: translateY(-100%); }
+
+.regul-tip-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.2;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.regul-tip-text {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* ==========================================================================
+   Mini-jeu : la Table des augures (AuguryDialog) — rite, osselets, second jet.
+   Le dialogue réutilise le cadre .event-dialog ; micro-corps en Inter.
+   ========================================================================== */
+
+.augury-dialog {
+  width: min(94vw, 620px);
+}
+
+.augury-odds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  margin: 0.55rem 0 0.75rem;
+}
+
+.augury-chip {
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-size: 0.78rem;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.augury-chip--favor {
+  color: var(--res-treasure);
+  border-color: color-mix(in srgb, var(--res-treasure), transparent 55%);
+}
+
+.augury-chip--total {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.augury-chip--win {
+  color: var(--res-food);
+  border-color: color-mix(in srgb, var(--res-food), transparent 55%);
+}
+
+.augury-chip--lose {
+  color: #e2704b;
+  border-color: color-mix(in srgb, #e2704b, transparent 55%);
+}
+
+.augury-chip--mut { opacity: 0.85; }
+
+.augury-chip--venus {
+  color: var(--gold-bright);
+  border-color: var(--gold);
+  text-shadow: 0 0 8px rgba(255, 210, 90, 0.55);
+}
+
+.augury-chip--wrath {
+  color: #ff6a55;
+  border-color: rgba(255, 106, 85, 0.6);
+  font-weight: 600;
+}
+
+.augury-rites {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.7rem;
+}
+
+.augury-rite {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 20, 30, 0.35);
+  text-align: left;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.augury-rite:hover { transform: translateY(-1px); }
+
+.augury-rite strong {
+  font-size: 0.85rem;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.augury-rite.is-chosen {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.augury-rite.is-broke { opacity: 0.5; }
+
+.augury-rite-cost {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.augury-rite-fx {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  font-size: 0.74rem;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.augury-fx-win { color: var(--res-food); }
+.augury-fx-lose { color: #e2704b; }
+.augury-fx-safe { color: var(--res-food); opacity: 0.75; }
+.augury-fx-wrath { color: #ff6a55; font-weight: 600; }
+
+.augury-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Les osselets : ivoire patiné, culbute pendant le jet, atterrissage un à un.
+   Les faces portent les VALEURS (1·3·4·6) — les hautes verdissent l'ivoire,
+   les AS (funestes) le rougissent. */
+.augury-dice {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: center;
+  padding: 1.05rem 0 0.7rem;
+}
+
+.augury-die {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: linear-gradient(145deg, #f0e3c6, #c9b489);
+  color: #4a3b22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-number);
+  font-size: 1.25rem;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.augury-die:not(.is-landed) {
+  animation: augury-tumble 0.5s linear infinite;
+}
+
+.augury-die.is-landed {
+  animation: augury-land 0.32s ease-out;
+}
+
+.augury-die.is-high {
+  color: #2c6e46;
+  background: linear-gradient(145deg, #eef0c9, #c6cb8d);
+}
+
+.augury-die.is-ace {
+  color: #8c3421;
+  background: linear-gradient(145deg, #f0d6c6, #cb9d89);
+}
+
+@keyframes augury-tumble {
+  0% { transform: translateY(-12px) rotate(0deg); }
+  50% { transform: translateY(4px) rotate(180deg); }
+  100% { transform: translateY(-12px) rotate(360deg); }
+}
+
+@keyframes augury-land {
+  from { transform: translateY(-10px) scale(1.18); }
+  to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .augury-die { animation: none !important; }
+}
+
+.augury-suspense {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.augury-callout {
+  text-align: center;
+  font-family: var(--font-number);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  margin: 0.2rem 0;
+}
+
+.augury-callout--venus { color: var(--gold-bright); }
+.augury-callout--dog { color: #e2704b; }
+
+.augury-throw,
+.augury-tempt {
+  border-color: color-mix(in srgb, var(--gold), transparent 40%) !important;
+  color: var(--gold-bright) !important;
+}
+
+/* ==========================================================================
+   Le Vol d'Icare — crash game du temple (IcarusDialog), scène PIXEL.
+   ========================================================================== */
+
+.icarus-dialog {
+  width: min(94vw, 640px);
+}
+
+.icarus-pot {
+  text-align: center;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--gold-bright);
+  margin: 0.3rem 0 0.5rem;
+}
+
+.icarus-pot strong {
+  font-family: var(--font-number);
+  font-size: 0.95rem;
+}
+
+.icarus-pot-hint {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.icarus-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: center;
+  margin-bottom: 0.55rem;
+}
+
+.icarus-crash-chip {
+  font-family: var(--font-number);
+  font-size: 0.7rem;
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.icarus-crash-chip.is-cold { color: #e2704b; border-color: rgba(226, 112, 75, 0.4); }
+.icarus-crash-chip.is-warm { color: var(--gold-bright); border-color: color-mix(in srgb, var(--gold), transparent 50%); }
+.icarus-crash-chip.is-hot {
+  color: #ff9dfb;
+  border-color: rgba(255, 157, 251, 0.55);
+  text-shadow: 0 0 8px rgba(255, 157, 251, 0.6);
+}
+
+/* Le ciel : crépuscule pixel en BANDES DURES, étoiles carrées. Icare grimpe
+   en échelle log — le jackpot (×10) est à mi-chemin du soleil. */
+.icarus-sky {
+  position: relative;
+  height: 150px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(
+    to top,
+    #0a0e26 0%, #0a0e26 20%,
+    #131338 20%, #131338 38%,
+    #201847 38%, #201847 54%,
+    #321d52 54%, #321d52 68%,
+    #472253 68%, #472253 80%,
+    #5e2a4f 80%, #5e2a4f 90%,
+    #7a3348 90%, #7a3348 100%
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.7rem;
+}
+
+.icarus-sky::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 12% 78%, rgba(255, 255, 255, 0.85) 49%, transparent 51%),
+    radial-gradient(2px 2px at 34% 62%, rgba(255, 255, 255, 0.5) 49%, transparent 51%),
+    radial-gradient(3px 3px at 58% 82%, rgba(255, 255, 255, 0.75) 49%, transparent 51%),
+    radial-gradient(2px 2px at 76% 68%, rgba(255, 255, 255, 0.45) 49%, transparent 51%),
+    radial-gradient(2px 2px at 88% 55%, rgba(255, 255, 255, 0.65) 49%, transparent 51%),
+    radial-gradient(3px 3px at 22% 48%, rgba(255, 255, 255, 0.4) 49%, transparent 51%),
+    radial-gradient(2px 2px at 46% 72%, rgba(255, 255, 255, 0.55) 49%, transparent 51%);
+}
+
+.icarus-sun {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 22px rgba(255, 170, 60, 0.8));
+  animation: icarus-sun-breathe 2.4s ease-in-out infinite;
+  transition: transform 0.25s steps(3), filter 0.25s ease;
+}
+
+.icarus-sun.is-flare {
+  transform: scale(2);
+  filter: drop-shadow(0 0 46px rgba(255, 90, 40, 1)) brightness(1.5) saturate(1.5);
+  animation: none;
+}
+
+@keyframes icarus-sun-breathe {
+  0%, 100% { filter: drop-shadow(0 0 16px rgba(255, 170, 60, 0.65)); }
+  50% { filter: drop-shadow(0 0 30px rgba(255, 190, 80, 0.95)); }
+}
+
+.icarus-sky.is-crashed {
+  animation: icarus-shake 0.4s ease-in-out;
+}
+
+.icarus-sky.is-jackpot {
+  box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 34px rgba(255, 210, 90, 0.35);
+}
+
+@keyframes icarus-shake {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+.icarus-mult {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 44%;
+  text-align: center;
+  font-family: var(--font-number);
+  font-size: 2.6rem;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 18px rgba(255, 190, 80, 0.45), 0 2px 0 rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.icarus-bird {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: bottom 0.12s linear;
+  filter: drop-shadow(0 0 6px rgba(255, 217, 138, 0.6));
+  animation: icarus-flap 0.55s steps(2, jump-none) infinite;
+}
+
+.icarus-bird img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.icarus-bird.is-safe { animation: none; }
+
+@keyframes icarus-flap {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+.icarus-feathers {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.icarus-feathers i {
+  position: absolute;
+  font-style: normal;
+  animation: icarus-fall 1.4s steps(12) forwards;
+}
+
+.icarus-feathers i:nth-child(1) { left: -18px; animation-delay: 0s; }
+.icarus-feathers i:nth-child(2) { left: 2px; animation-delay: 0.12s; }
+.icarus-feathers i:nth-child(3) { left: -6px; animation-delay: 0.25s; }
+.icarus-feathers i:nth-child(4) { left: 14px; animation-delay: 0.4s; }
+
+@keyframes icarus-fall {
+  from { transform: translateY(0) rotate(0deg); opacity: 1; }
+  to { transform: translateY(150px) rotate(220deg); opacity: 0; }
+}
+
+.icarus-ground-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icarus-sun, .icarus-bird, .icarus-sky.is-crashed, .icarus-feathers i { animation: none !important; }
+}
+
+.icarus-stakes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.icarus-stake {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.55rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 20, 30, 0.35);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.icarus-stake strong { font-size: 0.82rem; }
+.icarus-stake span { font-size: 0.74rem; color: var(--gold-bright); font-family: var(--font-number); }
+
+.icarus-stake-free {
+  color: var(--res-food) !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(54, 179, 126, 0.5);
+}
+
+.icarus-stake.is-chosen { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.icarus-stake.is-broke { opacity: 0.45; }
+
+.icarus-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.icarus-launch {
+  border-color: var(--gold) !important;
+  color: var(--gold-bright) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+}
+
+.icarus-cashout {
+  min-width: 62%;
+  border-color: var(--gold) !important;
+  background: color-mix(in srgb, var(--gold), transparent 82%) !important;
+  color: #fff !important;
+  font-family: var(--font-number) !important;
+  font-size: 1.02rem !important;
+  animation: icarus-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes icarus-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 205, 90, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 205, 90, 0); }
+}
+
+.icarus-result {
+  text-align: center;
+  font-family: var(--font-number);
+  font-size: 1.25rem;
+  margin: 0.2rem 0;
+}
+
+.icarus-result--win { color: var(--res-food); }
+.icarus-result--burn { color: #ff6a55; font-size: 1rem; font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+.icarus-result-sub { font-size: 0.85rem; color: var(--muted); }
+
+.icarus-reveal {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.icarus-knife { color: #e2a04b; }
+
+.icarus-jackpot-banner {
+  text-align: center;
+  font-family: var(--font-number);
+  font-size: 1.05rem;
+  color: var(--gold-bright);
+  text-shadow: 0 0 14px rgba(255, 210, 90, 0.75);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  margin: 0.2rem 0 0.4rem;
+  background: rgba(60, 42, 8, 0.5);
+}

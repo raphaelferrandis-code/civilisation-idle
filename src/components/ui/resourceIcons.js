@@ -9,6 +9,5 @@ export const RES_ICONS = {
   knowledge: "fa-book-open",
   infrastructure: "fa-archway",
   ruins: "fa-landmark",
-  legitimacy: "fa-scale-balanced",
   myths: "fa-scroll"
 };

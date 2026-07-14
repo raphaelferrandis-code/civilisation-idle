@@ -33,7 +33,7 @@ function ensure(key) {
   return e;
 }
 
-const stageOf = (ei) => (ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3);
+const stageOf = (ei) => (ei < 10 ? 0 : ei < 25 ? 1 : ei < 30 ? 2 : 3);
 
 // Renvoie true si un sprite pixel a été dessiné (→ le procédural est sauté pour
 // cette tuile). band/ei viennent de CM.layout.counts (passés par l'appelant).

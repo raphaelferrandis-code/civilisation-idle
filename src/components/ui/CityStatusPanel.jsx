@@ -45,7 +45,7 @@ function fmtCycleTime(totalSecs) {
 
 export default function CityStatusPanel() {
   const {
-    cycles, dynastyCount, bestEraIndex, cycleStartedAt,
+    cycles, bestEraIndex, cycleStartedAt,
     timeWear, atlasLegitimite, atlasHeritage, tickNow
   } = useCityViewState();
 
@@ -130,11 +130,6 @@ export default function CityStatusPanel() {
           <PixelIcon name="glyphs/cycles" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
-        </div>
-        <div className="csp-stat" title={tr({ fr: "Numéro de la dynastie actuelle", en: "Number of the current dynasty" })}>
-          <PixelIcon name="glyphs/couronne" className="csp-stat-icon" />
-          <span className="csp-stat-label">{tr({ fr: 'Dynastie', en: 'Dynasty' })}</span>
-          <strong>{roman(dynastyCount + 1)}</strong>
         </div>
         <div className="csp-stat" title={tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" })}>
           <PixelIcon name="glyphs/mult" className="csp-stat-icon" />

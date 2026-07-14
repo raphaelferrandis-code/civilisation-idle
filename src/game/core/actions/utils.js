@@ -5,9 +5,31 @@ import { currentEraIndex } from '../mechanics.js';
 import { eras } from '../../data/world.js';
 import { fmt } from '../utils.js';
 import { tr } from '../i18n.js';
+import { REGUL_LEDGER_MAX, FATIGUE_PER_ACTION } from '../balance.js';
+import { pushAnnalsMark } from '../annals.js';
 
 export function log(message) {
   state.history = [...(state.history || []), message].slice(-48);
+}
+
+// Registre des édits (onglet Régulation) : chaque acte de régulation y dépose
+// une entrée FACTUELLE — id d'action, foyer, effet réellement appliqué — que
+// l'UI résout en libellé (les données restent i18n-agnostiques). Persisté (cap
+// REGUL_LEDGER_MAX), remis à zéro au cycle. Alimente aussi les marqueurs des
+// annales (même geste, deux mémoires : courte = courbe, factuelle = registre).
+// entry: { id, kind: soothe|reform|gambleWin|gambleLoss|policyOn|policyOff,
+//          foyer?, delta? [0..1], by? (magistrat de l'Intendance) }
+export function regulLedgerPush(entry) {
+  const row = { t: Date.now(), ...entry };
+  state.regulLedger = [...(state.regulLedger || []), row].slice(-REGUL_LEDGER_MAX);
+  pushAnnalsMark(entry.kind, entry.id);
+}
+
+// Chaque acte de régulation fatigue l'administration (anti-spam) : la fatigue
+// monte, redescend dans le tick, réduit l'efficacité et majore les coûts.
+// Partagé par crisis.js (édits/réformes) et augures.js (paris, second jet).
+export function raiseRegulFatigue() {
+  state.regulFatigue = Math.min(1, (state.regulFatigue || 0) + FATIGUE_PER_ACTION);
 }
 
 export function chronicle(message) {

@@ -36,7 +36,7 @@ describe("Grand Reset — préservation des héritages", () => {
       sentinels[f] = v;
       state[f] = v;
     }
-    const fresh = buildGrandResetState(3, 0);
+    const fresh = buildGrandResetState(3);
     for (const f of GR_PERSISTENT_FIELDS) {
       if (sentinels[f] instanceof Decimal) {
         expect(fresh[f] instanceof Decimal && fresh[f].eq(sentinels[f]), `${f} non préservé`).toBe(true);
@@ -66,7 +66,7 @@ describe("Grand Reset — préservation des héritages", () => {
   it("préserve la méta-progression Olympe (profil débloqué) à travers un GR", () => {
     // Régression: olympus était absent de GR_PERSISTENT_FIELDS → effacé au GR.
     state.olympus = { ...state.olympus, unlockedProfile: "batisseur", totalPlayedSeconds: 9999 };
-    const fresh = buildGrandResetState(2, 0);
+    const fresh = buildGrandResetState(2);
     expect(fresh.olympus.unlockedProfile).toBe("batisseur");
     expect(fresh.olympus.totalPlayedSeconds).toBe(9999);
   });
@@ -74,29 +74,23 @@ describe("Grand Reset — préservation des héritages", () => {
   it("réinitialise ce qui n'est PAS un héritage permanent (ruines, bâtiments)", () => {
     state.ruins = new Decimal(99999);
     state.buildings = { ...state.buildings, foragers: 50 };
-    const fresh = buildGrandResetState(2, 0);
+    const fresh = buildGrandResetState(2);
     expect(fresh.ruins.eq(0)).toBe(true);
     expect(fresh.buildings.foragers).toBe(0);
   });
 
-  it("calcule grandResetCount, legitimacy (− coût) et l'history", () => {
-    state.legitimacy = 100;
-    const fresh = buildGrandResetState(4, 30);
+  it("calcule grandResetCount et l'history (plus de coût de légitimité)", () => {
+    const fresh = buildGrandResetState(4);
     expect(fresh.grandResetCount).toBe(4);
-    expect(fresh.legitimacy).toBe(70);
     expect(fresh.history[0]).toContain("Grand Reset x4");
-  });
-
-  it("plancher la legitimacy à 0 si le coût dépasse l'acquis", () => {
-    state.legitimacy = 10;
-    const fresh = buildGrandResetState(5, 50);
-    expect(fresh.legitimacy).toBe(0);
+    // La légitimité a été supprimée : le state frais n'en porte plus la trace.
+    expect("legitimacy" in fresh).toBe(false);
   });
 
   it("ne mute pas le state courant (fonction pure)", () => {
     state.atlasHeritage = true;
     state.ruins = new Decimal(777);
-    buildGrandResetState(2, 0);
+    buildGrandResetState(2);
     expect(state.atlasHeritage).toBe(true);      // inchangé
     expect(state.ruins.eq(777)).toBe(true);      // inchangé
   });

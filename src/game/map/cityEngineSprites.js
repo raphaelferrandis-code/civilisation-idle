@@ -8,6 +8,34 @@
  * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
  * ========================================================================== */
 import { drawEraGroundFill } from './pixelTerrain.js';
+import { CM } from './layout.js';
+
+// ── Taille des HUMAINS de scène = celle des HABITANTS de la carte ────────────
+// Les scènes moteur reçoivent une BOÎTE (ox,oy,sw,sh) dont la taille CROÎT avec
+// l'emprise du bâtiment (en iso, sh = (spanX+spanY)·CM.TILE·zoom·0.72). Dimensionner
+// un humain sur `sh` (l'ancien `sh·hFrac`) le transformait donc en GÉANT sur les gros
+// lots — d'où le retour « on dirait des géants ». On les cale désormais sur la TUILE
+// écran (CM.TILE·zoom), EXACTEMENT comme les habitants animés (drawEraAgentIso :
+// CM.TILE·zoom · scale(≈0.85) · AGENT_SCALE(0.8) ≈ 0.68 tuile), INDÉPENDAMMENT de la
+// boîte. L'ancien `hFrac` (fraction de boîte ≈0.38..0.5) est réinterprété en simple
+// multiplicateur RELATIF autour de l'adulte de référence (0.46) → foreground/arrière-plan.
+const SCENE_HUMAN = { k: 0.68, ref: 0.46 };
+if (typeof window !== 'undefined') window.__sceneHumanScale = (v) => { if (v != null) SCENE_HUMAN.k = +v; return SCENE_HUMAN.k; };
+// Hauteur écran cible d'un humain de scène (px), calquée sur un habitant adulte.
+function sceneHumanH(hFrac) {
+  const tile = (CM.TILE || 32) * ((CM.cam && CM.cam.zoom) || 1);
+  return tile * SCENE_HUMAN.k * ((hFrac || SCENE_HUMAN.ref) / SCENE_HUMAN.ref);
+}
+// Ombre de contact d'un humain/mulet, proportionnelle à SA taille (plus à la boîte).
+// cx/fy = centre/ligne de pieds en fraction de boîte (comme les blit*) ; wMul élargit
+// l'ombre (quadrupèdes).
+function sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, alpha = 0.2, wMul = 1) {
+  const dH = sceneHumanH(hFrac);
+  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+  ctx.beginPath();
+  ctx.ellipse(ox + sw * cx, oy + sh * fy + dH * 0.03, dH * 0.17 * wMul, dH * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
 
 const COSMIC_PAL = {
   7: { core: "#0c241a", mid: "#16442e", glow: "90,240,180", edge: "#3aeca0", lite: "#bdf8de", deep: "#040f0a", deepRGB: "4,15,10" },
@@ -41,7 +69,7 @@ const foragerReady = () => { ensureForager(); return foragerReadyN >= Object.key
 // hFrac = hauteur du cadre en fraction de sh (le perso remplit ~70 % du cadre).
 function blitForager(ctx, ox, oy, sw, sh, cx, fy, clip, frame, hFrac) {
   const img = foragerImg[clip]; if (!img) return;
-  const drawH = sh * hFrac, drawW = drawH;
+  const drawH = sceneHumanH(hFrac), drawW = drawH;
   const left = ox + sw * cx - drawW / 2;
   const top = oy + sh * fy - 0.88 * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
@@ -63,7 +91,7 @@ function ensureFarmer() {
 const farmerReady = () => { ensureFarmer(); return farmerReadyN >= FARMER_DIRS.length; };
 function blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
   const im = farmerImg[dir]; if (!im) return;
-  const drawH = sh * hFrac, drawW = drawH;
+  const drawH = sceneHumanH(hFrac), drawW = drawH;
   const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * FARMER_FW, 0, FARMER_FW, FARMER_FH, left, top, drawW, drawH);
@@ -115,16 +143,16 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
     cx = X_BASKET; clip = 'crouch-south';
     frame = Math.min(NF(clip) - 1, Math.floor((cyc - 0.84) / 0.16 * NF(clip)));
   }
-  // Ombre de contact
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (FY + 0.02), sw * 0.07 * hFrac / 0.46, sh * 0.022, 0, 0, Math.PI * 2); ctx.fill();
+  // Ombre de contact (∝ taille humaine)
+  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, FY, hFrac, 0.22);
   blitForager(ctx, ox, oy, sw, sh, cx, FY, clip, frame, hFrac);
-  // Petit fruit rapporté, tenu devant (côté ouest) au retour
+  // Petit fruit rapporté, tenu devant (côté ouest) au retour — offsets ∝ taille humaine
   if (carry) {
+    const dH = sceneHumanH(hFrac), hx = ox + sw * cx, fyPx = oy + sh * FY;
     ctx.fillStyle = '#c83010';
-    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.06), oy + sh * (FY - 0.18), sw * 0.022, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx - dH * 0.14, fyPx - dH * 0.40, dH * 0.05, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,210,160,0.4)';
-    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.066), oy + sh * (FY - 0.188), sw * 0.008, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx - dH * 0.155, fyPx - dH * 0.42, dH * 0.018, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -140,14 +168,14 @@ function drawFarmerShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac
   const dir = going ? 'east' : 'west';
   const carry = !going;                             // fruit rapporté vers xA
   const frame = Math.floor((now || 0) / 150) % FARMER_NF;
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (fy + 0.02), sw * 0.06 * hFrac / 0.5, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.2);
   blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
-  if (carry) { // fruit tenu devant, côté ouest
+  if (carry) { // fruit tenu devant, côté ouest — offsets ∝ taille humaine
+    const dH = sceneHumanH(hFrac), hx = ox + sw * cx, fyPx = oy + sh * fy;
     ctx.fillStyle = '#c83010';
-    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.05), oy + sh * (fy - hFrac * 0.42), sw * 0.02, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx - dH * 0.11, fyPx - dH * 0.42, dH * 0.045, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,210,160,0.4)';
-    ctx.beginPath(); ctx.arc(ox + sw * (cx - 0.056), oy + sh * (fy - hFrac * 0.42 - 0.008), sw * 0.008, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx - dH * 0.125, fyPx - dH * 0.44, dH * 0.018, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -166,7 +194,7 @@ function ensureBasket() {
 const basketReady = () => { ensureBasket(); return basketReadyN >= BASKET_DIRS.length; };
 function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
   const im = basketImg[dir]; if (!im) return;
-  const drawH = sh * hFrac, drawW = drawH, left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  const drawH = sceneHumanH(hFrac), drawW = drawH, left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * BASKET_FW, 0, BASKET_FW, BASKET_FH, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
@@ -180,8 +208,7 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
   const cx = xA + (xB - xA) * k;
   const dir = going ? 'west' : 'east';                  // va vers le comptoir (gauche) puis repart
   const frame = Math.floor((now || 0) / 150) % BASKET_NF;
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(ox + sw * cx, oy + sh * (fy + 0.02), sw * 0.06 * hFrac / 0.5, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.2);
   blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
 }
 
@@ -191,7 +218,12 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9'];
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
+  // ── band 4 (Marbre) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12) ──
+  'forager-hortus-classical', 'granary-horreum-classical', 'caravan-oxcart-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
+  'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
+  'observatories-horologium', 'libraries-classical', 'universities-classical', 'printing-scriptorium', 'think-stoa-roman', 'watch-classical',
+  'bureau-tabularium', 'courthouses-basilica', 'works-classical', 'ministries-curia', 'archive-tabularium', 'ruins-restoration-roman', 'sewers-classical'];
 function ensureProps() {
   if (propInit || typeof Image === 'undefined') return;
   propInit = true;
@@ -375,7 +407,7 @@ function ensureMule() {
 const muleReady = () => { ensureMule(); return muleReadyN >= Object.keys(MULE_CLIPS).length; };
 function blitMule(ctx, ox, oy, sw, sh, dir, frame, cx, fy, hFrac) {
   const im = muleImg[dir]; if (!im) return;
-  const drawH = sh * hFrac, drawW = drawH;
+  const drawH = sceneHumanH(hFrac), drawW = drawH;
   const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * MULE_FW, 0, MULE_FW, MULE_FH, left, top, drawW, drawH);
@@ -395,14 +427,12 @@ function drawCaravan(ctx, ox, oy, sw, sh, now) {
   const muleX = 0.22 + (0.64 - 0.22) * k, FY = 0.78;
   const dir = going ? 'east' : 'west';
   const lead = going ? 0.17 : -0.17;             // le marchand mène (devant)
-  // Ombre de contact du mulet
-  ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.beginPath(); ctx.ellipse(ox + sw * muleX, oy + sh * (FY + 0.04), sw * 0.17, sh * 0.034, 0, 0, Math.PI * 2); ctx.fill();
+  // Ombre de contact du mulet (∝ sa taille, élargie : quadrupède)
+  sceneHumanShadow(ctx, ox, oy, sw, sh, muleX, FY, 0.64, 0.22, 1.5);
   // Marchand devant (réutilise les marches Forager) ; mulet derrière.
   if (foragerReady()) {
     const ff = Math.floor((now || 0) / 150) % FORAGER_CLIPS['walk-' + dir];
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath(); ctx.ellipse(ox + sw * (muleX + lead), oy + sh * (FY + 0.03), sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+    sceneHumanShadow(ctx, ox, oy, sw, sh, muleX + lead, FY, 0.4, 0.18);
     blitForager(ctx, ox, oy, sw, sh, muleX + lead, FY, 'walk-' + dir, ff, 0.4);
   }
   const mf = Math.floor((now || 0) / 150) % MULE_CLIPS[dir];
@@ -527,8 +557,21 @@ function drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold) {
   }
 }
 
+// Stade d'ère d'un bâtiment-moteur depuis l'eraIndex : 0 primitif/antique · 1 pierre
+// (médiéval→classique) · 2 industriel · 3 moderne. Le seuil industriel est à ei25 (= bord
+// de bande 5 « Fonte »), aligné sur les époques : la bande 4 « Marbre » reste au stade 1.
+// Le cosmique (band≥7) et le sprite romain de la bande 4 sont interceptés en amont par chaque
+// bâtiment ; ce helper ne pilote que le dispatch des 4 stades pixel. Source UNIQUE (ex-×29 dupliqué).
+function engineStage(ei) { return ei < 10 ? 0 : ei < 25 ? 1 : ei < 30 ? 2 : 3; }
+
 function drawCityEngineSprite(context) {
   const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1 } = context;
+  // ── band 4 (Marbre / toges) : sprite ROMAIN classique à la place du stade pierre médiéval. ──
+  // Repli AUTOMATIQUE sur le dispatch de stade tant que le PNG n'est pas chargé (propReady=false).
+  // port/mill (rive : dock+bateau à préserver), caravans (véhicule) et markets (branche dédiée)
+  // sont traités séparément — pas dans cette table.
+  const RB4 = { foragers: 'forager-hortus-classical', granaries_city: 'granary-horreum-classical', guilds: 'guild-collegium', mint_houses: 'mint-moneta', imperial_exchanges: 'bank-basilica-roman' };
+  if (band === 4 && RB4[id] && propReady(RB4[id])) { blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
   if (id === "foragers") {
     if (band >= 7) {
       // STADE COSMIQUE (ères 35+) : jardin bioluminescent (Noosphère) → serre
@@ -596,7 +639,7 @@ function drawCityEngineSprite(context) {
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : cueillette sauvage → verger taillé → serre industrielle →
     // hydroponie néon. tier reste la richesse intra-stade (perso/fruits/cagettes).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     if (stage === 0) {
     softGround(ctx, ox, oy, sw, sh, 0.76, 0.52, 0.34, "19,26,9", 0.82); // sol sous le bâtiment (désactivé par défaut)
 
@@ -1015,7 +1058,7 @@ function drawCityEngineSprite(context) {
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
     // 10 âges : greniers sur pilotis → halle de pierre → entrepôt industriel
     // → hub logistique automatisé. tier reste la richesse intra-stade.
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     if (stage === 0) {
     // ── STADE 0 · GRENIERS — silos sur pilotis, grain doré, oiseau picoreur ──
     // Sol : tache de terre battue qui se FOND dans le terrain (comme la scène cueilleur).
@@ -1383,7 +1426,7 @@ function drawCityEngineSprite(context) {
     // → logistique autonome néon. tier reste la richesse intra-stade (nombre de
     // bêtes/charrettes/wagons/conteneurs). Lumières via CM.nightF : nF dérivé de
     // litGold (halos additifs), lanternes chaudes via litWarm aux stades 1 et 2.
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     if (stage === 0) {
       if (muleReady()) {
@@ -1749,8 +1792,97 @@ function drawCityEngineSprite(context) {
     // place de commerce néon. Le geste animé reste le transport/échange de
     // marchandises à chaque âge (main-à-main → chaland → diable → drone).
     // tier = richesse intra-stade (étals / marchandises / travées / kiosques).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     const goodColors = ["#e05030", "#f0c040", "#60a840", "#e8804a", "#9060c0", "#e8e080"];
+    if (band === 4) {
+      // ── STADE CLASSIQUE (band 4 = Marbre, habitants en toge) · MACELLUM À COLONNADE ──
+      // Marché romain : portique de colonnes de marbre sous fronton à corniche terre
+      // cuite, étals + vela (auvents pourpres) entre les fûts, flâneurs en toge. Lumière
+      // haut-gauche → ombres bas-droite. Repli sur ce procédural tant qu'aucun prop
+      // 'market-macellum' PixelLab n'est chargé (1er jet DA — à valider en panel).
+      const MARB_T = "#ece4d3", MARB = "#dcd2bc", MARB_S = "#c1b79c", MARB_D = "#a89d7f";
+      const TERRA = "#a94e33", TERRA_L = "#c56a46", TERRA_D = "#823a25";
+      const POD_T = "#e2dac6", POD_F = "#bfb598", POD_S = "#9c9276";
+      if (propReady('market-macellum')) {
+        softGround(ctx, ox, oy, sw, sh, 0.84, 0.5, 0.28, "44,36,22", 0.5);
+        blitProp(ctx, ox, oy, sw, sh, 'market-macellum', 0.5, 0.44, 0.88, 0.76);
+        if (basketReady()) drawShopperShuttle(ctx, ox, oy, sw, sh, now, 0.84, 0.46, 0.82, 5200, 0, 0.46);
+        return true;
+      }
+      const Lx = 0.14, Rx = 0.86, span = Rx - Lx;
+      const nCol = 5 + Math.min(2, tier);
+      const colX = (i) => Lx + span * i / (nCol - 1);
+      const yBase = 0.68, yCap = 0.365, shaftH = yBase - yCap;
+      // contact shadow (bas-droite)
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath(); ctx.ellipse(ox + sw * 0.52, oy + sh * 0.82, sw * 0.42, sh * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+      // stylobate (socle marbre stepé) : face avant ombrée + dalle éclairée
+      px(Lx - 0.05, yBase, span + 0.10, 0.06, POD_F);
+      px(Lx - 0.05, yBase, span + 0.10, 0.016, POD_T);
+      px(Lx - 0.05, yBase + 0.06, span + 0.10, 0.010, POD_S);
+      px(Lx - 0.03, yBase - 0.014, span + 0.06, 0.014, POD_T);
+      // colonnes (fût cannelé + chapiteau + base) — lumière haut-gauche
+      for (let i = 0; i < nCol; i++) {
+        const cx = colX(i);
+        ctx.fillStyle = "rgba(60,48,30,0.26)";       // ombre portée sur la dalle (droite)
+        ctx.beginPath(); ctx.ellipse(ox + sw * (cx + 0.02), oy + sh * (yBase + 0.004), sw * 0.03, sh * 0.013, 0, 0, Math.PI * 2); ctx.fill();
+        px(cx - 0.034, yBase - 0.024, 0.068, 0.026, MARB); px(cx - 0.034, yBase - 0.004, 0.068, 0.008, MARB_S);  // base
+        px(cx - 0.026, yCap, 0.052, shaftH, MARB);                     // fût
+        px(cx - 0.026, yCap, 0.014, shaftH, MARB_T);                   // highlight gauche
+        px(cx + 0.013, yCap, 0.013, shaftH, MARB_S);                   // ombre droite
+        ctx.strokeStyle = MARB_D; ctx.lineWidth = Math.max(0.5, sw * 0.006);
+        for (const fx of [-0.006, 0.006]) { ctx.beginPath(); ctx.moveTo(ox + sw * (cx + fx), oy + sh * (yCap + 0.02)); ctx.lineTo(ox + sw * (cx + fx), oy + sh * (yBase - 0.03)); ctx.stroke(); }  // cannelures
+        px(cx - 0.03, yCap - 0.006, 0.06, 0.016, MARB);                // échine
+        px(cx - 0.038, yCap - 0.022, 0.076, 0.018, MARB_T);            // abaque
+        px(cx - 0.038, yCap - 0.006, 0.076, 0.006, MARB_S);
+      }
+      // entablement (frise + corniche + denticules)
+      const ex = Lx - 0.06, ew = span + 0.12, ey = 0.30, eh = 0.046;
+      px(ex, ey, ew, eh, MARB); px(ex, ey, ew, 0.012, MARB_T); px(ex, ey + eh - 0.008, ew, 0.008, MARB_S);
+      ctx.fillStyle = MARB_D;
+      for (let dx = ex + 0.01; dx < ex + ew - 0.01; dx += 0.028) ctx.fillRect(ox + sw * dx, oy + sh * (ey + eh - 0.02), sw * 0.012, sh * 0.008);
+      // fronton : corniche terre cuite + rampant gauche éclairé + tympan de marbre
+      const apex = 0.16, eave = ey - 0.002, plx = ex - 0.006, prx = ex + ew + 0.006;
+      ctx.fillStyle = TERRA;
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.5, oy + sh * apex); ctx.lineTo(ox + sw * plx, oy + sh * eave); ctx.lineTo(ox + sw * prx, oy + sh * eave); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = TERRA_L;
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.5, oy + sh * apex); ctx.lineTo(ox + sw * plx, oy + sh * eave); ctx.lineTo(ox + sw * 0.5, oy + sh * eave); ctx.closePath(); ctx.fill();
+      const tap = apex + 0.028, tev = eave - 0.006, tlx = plx + 0.05, trx = prx - 0.05;
+      ctx.fillStyle = MARB;
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.5, oy + sh * tap); ctx.lineTo(ox + sw * tlx, oy + sh * tev); ctx.lineTo(ox + sw * trx, oy + sh * tev); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = MARB_S;
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.5, oy + sh * tap); ctx.lineTo(ox + sw * trx, oy + sh * tev); ctx.lineTo(ox + sw * 0.5, oy + sh * tev); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = MARB_T; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * (tev - 0.03), sw * 0.015, 0, Math.PI * 2); ctx.fill();  // acrotère
+      px(plx, eave, prx - plx, 0.014, TERRA_D); px(plx, eave, prx - plx, 0.005, TERRA_L);  // geison
+      // étals de marchandises + vela pourpres, en alternance entre les fûts
+      for (let i = 0; i < nCol - 1; i++) {
+        const bx = (colX(i) + colX(i + 1)) / 2;
+        if (i % 2 === 0) {
+          px(bx - 0.05, 0.605, 0.10, 0.055, "#8a5a2c"); px(bx - 0.05, 0.605, 0.10, 0.013, "#a3703a");
+          const nG = 3 + Math.min(2, tier);
+          for (let g = 0; g < nG; g++) { ctx.fillStyle = goodColors[(g + i) % goodColors.length]; ctx.beginPath(); ctx.arc(ox + sw * (bx - 0.032 + g * (0.064 / Math.max(1, nG - 1))), oy + sh * 0.61, sw * 0.017, 0, Math.PI * 2); ctx.fill(); }
+        } else {
+          const sag = 0.05 + Math.sin((now || 0) / 520 + i) * 0.006, lx = colX(i) + 0.006, rx = colX(i + 1) - 0.006, vy = 0.44;
+          ctx.fillStyle = "#b23a2e";
+          ctx.beginPath(); ctx.moveTo(ox + sw * lx, oy + sh * vy); ctx.quadraticCurveTo(ox + sw * bx, oy + sh * (vy + sag), ox + sw * rx, oy + sh * vy); ctx.lineTo(ox + sw * rx, oy + sh * (vy - 0.02)); ctx.quadraticCurveTo(ox + sw * bx, oy + sh * (vy + sag - 0.02), ox + sw * lx, oy + sh * (vy - 0.02)); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "rgba(255,255,255,0.14)";
+          ctx.beginPath(); ctx.moveTo(ox + sw * lx, oy + sh * (vy - 0.02)); ctx.quadraticCurveTo(ox + sw * bx, oy + sh * (vy + sag - 0.02), ox + sw * rx, oy + sh * (vy - 0.02)); ctx.lineTo(ox + sw * rx, oy + sh * (vy - 0.013)); ctx.quadraticCurveTo(ox + sw * bx, oy + sh * (vy + sag - 0.013), ox + sw * lx, oy + sh * (vy - 0.013)); ctx.closePath(); ctx.fill();
+        }
+      }
+      // flâneurs en toge (navette lente devant le portique)
+      const togaFigure = (fx, fy, s, warm) => {
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(ox + sw * fx, oy + sh * (fy + 0.055 * s), sw * 0.03 * s, sh * 0.012 * s, 0, 0, Math.PI * 2); ctx.fill();
+        const bob = Math.sin((now || 0) / 150 + fx * 20) * 0.006 * s;
+        ctx.fillStyle = warm ? "#efe9dc" : "#e6dfcf";
+        ctx.beginPath(); ctx.moveTo(ox + sw * (fx - 0.028 * s), oy + sh * (fy + 0.05 * s)); ctx.lineTo(ox + sw * (fx - 0.016 * s), oy + sh * (fy - 0.03 * s + bob)); ctx.lineTo(ox + sw * (fx + 0.016 * s), oy + sh * (fy - 0.03 * s + bob)); ctx.lineTo(ox + sw * (fx + 0.028 * s), oy + sh * (fy + 0.05 * s)); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#a83a2e"; ctx.fillRect(ox + sw * (fx - 0.004 * s), oy + sh * (fy - 0.028 * s + bob), sw * 0.008 * s, sh * 0.08 * s);
+        ctx.fillStyle = "#cf9e6c"; ctx.beginPath(); ctx.arc(ox + sw * fx, oy + sh * (fy - 0.045 * s + bob), sw * 0.02 * s, 0, Math.PI * 2); ctx.fill();
+      };
+      const cyc = ((now || 0) / 6000) % 1, walk = cyc < 0.5 ? cyc * 2 : (1 - cyc) * 2;
+      togaFigure(0.30 + walk * 0.16, 0.80, 1, true);
+      if (tier >= 1) togaFigure(0.72 - walk * 0.14, 0.85, 0.86, false);
+      return true;
+    }
     if (stage === 0) {
       // ── STADE 0 · TROC SUR NATTES ──
       // Âge du Feu/Bois : étal de troc sous auvent de peau. Pixel-art = prop PixelLab
@@ -1766,7 +1898,7 @@ function drawCityEngineSprite(context) {
         if (foragerReady()) {
           // Vendeur accroupi au bord de l'étal (idle lent, face caméra)
           const vf = Math.floor((now || 0) / 280) % FORAGER_CLIPS['crouch-south'];
-          ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(ox + sw * 0.34, oy + sh * 0.69, sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+          sceneHumanShadow(ctx, ox, oy, sw, sh, 0.34, 0.66, 0.42, 0.2);
           blitForager(ctx, ox, oy, sw, sh, 0.34, 0.66, 'crouch-south', vf, 0.42);
           // Chaland : arrive de la droite, troque au plus près, repart
           const cyc0 = ((now || 0) / 4200) % 1;
@@ -1775,7 +1907,7 @@ function drawCityEngineSprite(context) {
           const cpx = 0.86 - k0 * 0.28;                       // 0.86 → 0.58
           const cdir = coming ? 'west' : 'east';
           const cfr = Math.floor((now || 0) / 150) % FORAGER_CLIPS['walk-' + cdir];
-          ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(ox + sw * cpx, oy + sh * 0.73, sw * 0.05, sh * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+          sceneHumanShadow(ctx, ox, oy, sw, sh, cpx, 0.7, 0.42, 0.2);
           blitForager(ctx, ox, oy, sw, sh, cpx, 0.7, 'walk-' + cdir, cfr, 0.42);
           // Tier 2+ : second chaland qui flâne (gauche, opposition de phase)
           if (tier >= 2) {
@@ -2147,7 +2279,7 @@ function drawCityEngineSprite(context) {
     // intra-stade. nF = facteur nuit dérivé de litGold (même convention que
     // les autres sprites du module, cf. river_ports/markets). Aléa nul :
     // tout est déterministe en now/tier (pas de Math.random dans le rendu).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     if (stage === 0) {
       // ── LE LODGE D'ARTISANS (clos) ──
@@ -2494,7 +2626,7 @@ function drawCityEngineSprite(context) {
     // campagne en damier. Ce qui évolue tous les 10 âges (ei 0-9/10-19/20-29/
     // 30+) : la palette des cultures, le réseau d'eau (rigole → canal → aqueduc
     // → conduites) et la palette nocturne (braise → lanterne litWarm → cyan).
-    const stage = ei >= 30 ? 3 : ei >= 20 ? 2 : ei >= 10 ? 1 : 0;
+    const stage = engineStage(ei);
     // ~1 parcelle par tuile du bloc (bornée pour le coût de rendu).
     const cols = Math.max(2, Math.min(8, Math.round(gw)));
     const rows = Math.max(2, Math.min(6, Math.round(gh)));
@@ -2555,12 +2687,12 @@ function drawCityEngineSprite(context) {
         }
       }
       // Paysan qui MARCHE LENTEMENT entre les parcelles (allée horizontale médiane).
-      // TAILLE HUMAINE CONSTANTE : dimensionné par CELLULE (÷ gh), pas par l'emprise
-      // du champ → il ne grandit pas quand le champ s'agrandit (cohérent avec les
-      // humains des tuiles 1-cellule des autres bâtiments).
+      // TAILLE HUMAINE CONSTANTE = celle des habitants : blitFarmer se cale sur la tuile
+      // écran (sceneHumanH), plus sur l'emprise du champ. L'ancien `0.75/gh` (repli top-down)
+      // ne compensait PAS la croissance de la boîte iso (sh = (spanX+spanY)·tuile·0.72) → géant.
       // Arroseur central : stades 1-3 seulement (le stade 0 validé n'en a pas).
       if (stage >= 1) drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold);
-      const fhF = 0.75 / Math.max(1, gh);
+      const fhF = SCENE_HUMAN.ref;   // adulte de référence (voir sceneHumanH)
       if (stage !== 3 && farmerReady()) {   // stade 3 = hydroponie automatisée (pas d'humain)
         const cyc = ((now || 0) / 17000) % 1;            // lent
         const going = cyc < 0.5;
@@ -2569,7 +2701,7 @@ function drawCityEngineSprite(context) {
         const fy2 = Math.round(prows / 2) / prows;        // sur l'allée entre 2 rangées
         const dir = going ? 'east' : 'west';
         const fr = Math.floor((now || 0) / 185) % FARMER_NF;   // cadence plus lente
-        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * fx2, oy + sh * fy2, sw * (0.16 / gw), sh * (0.055 / gh), 0, 0, Math.PI * 2); ctx.fill();
+        sceneHumanShadow(ctx, ox, oy, sw, sh, fx2, fy2, fhF, 0.22);
         blitFarmer(ctx, ox, oy, sw, sh, fx2, fy2, dir, fr, fhF);
       } else if (stage !== 3 && foragerReady()) {   // repli tant que le paysan n'est pas chargé
         const fr = Math.floor((((now || 0) / 1500) % 1) * FORAGER_CLIPS['pick-east']) % FORAGER_CLIPS['pick-east'];
@@ -2651,7 +2783,7 @@ function drawCityEngineSprite(context) {
     //   • pontons qui plongent dans le fleuve + bateau ACTIF à quai.
     // Le PORT change de design tous les 10 âges (stage) ; le BATEAU tous les 2
     // âges (bv = ei/2) — l'actif suit l'ère, le parking conserve les anciens.
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     // ── PIXEL-ART (stade 0) : remplace le port procédural par des SPRITES TRANSPARENTS
     //    posés sur la tuile NATURELLE (berge + fleuve déjà rendus = base nickel) :
     //    bâtiment vue de-face-de-haut sur la berge + bateau de l'ère dans le fleuve.
@@ -2660,12 +2792,12 @@ function drawCityEngineSprite(context) {
     // brique ; 3 = terminal verre/néon). Repli sur la hutte si le prop du stade n'est pas
     // chargé → JAMAIS de procédural (leçon carré brun : uniquement des sprites transparents
     // sur berge+fleuve naturels). Le ponton et le bateau de l'ère sont réutilisés tels quels.
-    const stageHouse = ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
+    const stageHouse = (band === 4 && propReady('port-house-classical')) ? 'port-house-classical' : ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
     const PORT_HOUSE = propReady(stageHouse) ? stageHouse : (propReady('port-prop-house') ? 'port-prop-house' : null);
     if (PORT_HOUSE) {
       // Ère du bateau (drawShips) — sert AUSSI à dimensionner bâtiment + dock : TOUT
       // grandit ensemble avec l'ère (radeau → conteneur), pour la cohérence d'échelle.
-      const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
+      const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 25 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
       const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
         : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
       const boatName = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : vstage;
@@ -2979,7 +3111,7 @@ function drawCityEngineSprite(context) {
     // peint donc plus de « bief » : on laisse le fleuve transparaître sous la ligne
     // d'eau et la roue/turbine y plonge. 4 stades d'ère (bois → pierre → brique →
     // hydro), le tier enrichissant chacun (fenêtres, fumée, lueur).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     // ── PIXEL-ART (stade 0) : remplace le moulin procédural par des SPRITES
     //    TRANSPARENTS posés sur la tuile NATURELLE (berge+fleuve déjà rendus = base
     //    nickel) : bâtiment de moulin sur la berge + ROUE À AUBES qui tourne en
@@ -2990,7 +3122,7 @@ function drawCityEngineSprite(context) {
       // brique ; 3 = centrale hydro). Repli sur la cabane → JAMAIS de procédural (carré brun).
       // ⚠ GRANDIT par ère (anticipé du port : bâtiment + roue croissent ENSEMBLE) ; boîte
       // ~carrée (pas de distorsion) ; base ~0.53 constante (raccord roue).
-      const stageHouse = ['mill-prop-house', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro'][stage];
+      const stageHouse = (band === 4 && propReady('mill-house-roman')) ? 'mill-house-roman' : ['mill-prop-house', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro'][stage];
       const HOUSE = propReady(stageHouse) ? stageHouse : 'mill-prop-house';
       // TOUR (stades 1-3) : haute et étroite (sprite 80×128, aspect ~1.6) ; stade 0 =
       // cabane carrée validée. Largeur+hauteur grandissent par ère ; base ~0.53 constante.
@@ -3185,7 +3317,7 @@ function drawCityEngineSprite(context) {
     // 10 âges : atelier de frappe à la masse → hôtel des monnaies classique →
     // manufacture à vapeur (balancier) → frappe numérique automatisée.
     // tier reste la richesse intra-stade (piles de pièces / cadence / lueur).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     if (stage === 0) {
       // ── STADE 0 · ATELIER DE FRAPPE — four à creuset, enclume, coin gravé ──
       // Pixel-art = atelier PixelLab : le BÂTIMENT reste figé, seul le FEU de forge
@@ -3518,7 +3650,7 @@ function drawCityEngineSprite(context) {
     // 10 âges : comptoir de change à ciel ouvert → banco Renaissance →
     // grande banque néoclassique → bourse de verre & néon.
     // tier reste la richesse intra-stade (piles d'or / vitres / écrans).
-    const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stage = engineStage(ei);
     if (stage === 0) {
       // ── STADE 0 · COMPTOIR DE CHANGE — table de changeur, trébuchet, abaque ──
       // Pixel-art = prop PixelLab STATIQUE (auvent rouge + table-balance + or + coffre
@@ -3873,4 +4005,4 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim };
+export { drawCityEngineSprite, engineStage, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim };

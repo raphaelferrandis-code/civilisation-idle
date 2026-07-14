@@ -182,10 +182,12 @@
    rangée → le bouton déborde de 65px et chevauche le bâtiment suivant (visible
    seulement une fois plusieurs bâtiments empilés). */
 .city-shop-dock .shop-list { gap: 1rem; grid-auto-rows: max-content; }
-/* Cadre ornemental + fond-boîte : UNIQUEMENT pour les cartes SANS splash (rangée
-   verrouillée). Les cartes achetables (avec splash) n'ont plus de cadre — leur
-   splash-art fait la carte et se fond en haut/bas (cf. purchase.css). */
-.city-shop-dock .purchase-row:not(.pr-has-splash) {
+/* Cadre ornemental + fond-boîte : cartes SANS splash-art (repli). Les cartes
+   achetables (avec splash) n'ont plus de cadre — leur splash-art fait la carte
+   et se fond en haut/bas (cf. purchase.css). La rangée VERROUILLÉE (teaser du
+   prochain bâtiment) est aussi exclue : sans cadre, elle se dissout dans la
+   liste au lieu de « doubler » visuellement les cartes du dessus (cf. .pr-locked). */
+.city-shop-dock .purchase-row:not(.pr-has-splash):not(.pr-locked) {
   border: 8px solid transparent;
   border-image: url(../assets/ui/topbar-frame.png) 12 stretch;
   border-radius: 0;

@@ -60,8 +60,6 @@ const SCALES = {
 function applyScale(def) {
   setState(defaultState());
   state.cycles = 14;            // au-dela des graces de fondation/installation
-  state.dynastyCount = 3;
-  state.legitimacy = 30;
   state.ruins = D(500);
   state.cycleStartedAt = NOW - 20 * 60_000; // cycle de 20 min (settlingGrace eteinte)
   state.population = D(def.population);

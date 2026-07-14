@@ -70,6 +70,7 @@ const CM = {
   rioters: null,
   riotGoal: null,
   riotGoalAt: 0,
+  riotDraw: null,   // { pts, cx, cy } posé par updateCrisis — consommé par les rendus legacy ET iso
   collapseAt: 0,
   raf: null
 };
@@ -134,10 +135,13 @@ function cmWaterAffine(affinity) {
 // monument et l'orne de nouveaux attributs. `metric` extrait la valeur de
 // progression, `tiers` liste les 5 seuils, `tierLabel` nomme le jalon.
 const CM_WONDERS = [
-  { id: "dynasty1",       name: "Le Mausolée du Fondateur",   icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
-    unlockedBy: "Première dynastie fondée.",
-    metric: (s) => s.dynastyCount || 0, tiers: [1, 50, 200, 400, 750],
-    tierLabel: (v) => `${v} dynastie${v > 1 ? "s" : ""}` },
+  { id: "dynasty1",       name: "Le Grand Mausolée",          icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
+    unlockedBy: "Premier effondrement traversé.",
+    // Métrique = effondrements traversés (cycles) : un tombeau qui grandit avec
+    // chaque cité tombée. Seule merveille indexée sur les cycles (unique). Seuils
+    // à équilibrer (chantier séparé).
+    metric: (s) => s.cycles || 0, tiers: [1, 10, 25, 50, 100],
+    tierLabel: (v) => `${v} effondrement${v > 1 ? "s" : ""} traversé${v > 1 ? "s" : ""}` },
   { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
     unlockedBy: "Population d'au moins 1 000 000.",
     metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e13, 1e20, 1e27, 1e34],
@@ -220,16 +224,27 @@ const WONDER_SPRITE_MAX = {
   era_mega:        { nw: 180, nh: 362 },
   era_singularity: { nw: 288, nh: 288 }
 };
-// Emprise au sol en tuiles autour du slot : demi-largeur E/O (nw/68 +1),
-// extension NORD (nh/34 +1), et un peu de SUD (pied du sprite + socle).
+// Emprise au sol en tuiles autour du slot : PARVIS CARRÉ CENTRÉ sur le monument
+// (Raph 2026-07-13 : « met les merveilles au centre de la zone »). L'ancienne
+// emprise nord-biaisée (nh/34+1 au nord, 2 au sud) collait le monument au bord
+// de sa clairière ; on redistribue la même portée également dans les 4 sens —
+// côté = max(demi-largeur du sprite, moitié de l'ancienne étendue N+S). Le
+// sprite, dessiné en DERNIER, recouvre correctement ce qui dépasse au nord.
 function cmWonderExtent(id) {
   const d = WONDER_SPRITE_MAX[id];
-  if (!d) return { halfW: WONDER_CLEAR_R, north: WONDER_CLEAR_R, south: 2 };
-  return {
-    halfW: Math.ceil(d.nw / (2 * WONDER_PPT)) + 1,
-    north: Math.ceil(d.nh / WONDER_PPT) + 1,
-    south: 2
-  };
+  if (!d) return { halfW: WONDER_CLEAR_R, north: WONDER_CLEAR_R, south: WONDER_CLEAR_R };
+  const halfW = Math.ceil(d.nw / (2 * WONDER_PPT)) + 1;
+  const reach = Math.max(2, Math.ceil((Math.ceil(d.nh / WONDER_PPT) + 3) / 2));
+  const r = Math.max(halfW, reach);
+  return { halfW: r, north: r, south: r };
+}
+// Rayon (Chebyshev) du SOCLE au sol autour du slot : cœur NON-MARCHABLE du
+// parvis (les badauds tournent autour, jamais dans le monument). Dérivé de la
+// demi-largeur native max du sprite (la base bâtie ≈ moitié de l'envergure).
+function cmWonderCoreR(id) {
+  const d = WONDER_SPRITE_MAX[id];
+  if (!d) return 2;
+  return Math.max(2, Math.round(d.nw / (2 * WONDER_PPT) * 0.55));
 }
 // Itère les clés "gx,gy" de l'emprise d'un slot (bornées à la grille N×N).
 function cmForEachWonderCell(slot, id, N, fn) {
@@ -1278,6 +1293,11 @@ function computeCityLayout(s) {
   // Slots des merveilles : chacune réserve son emplacement pour l'anti-collision
   // de placement (era_mega dans l'eau → brèche du fleuve).
   const builtWonderIds = cmWonderActiveIds(s);
+  // L'APERÇU dev (__showWonder) est traité comme ÉRIGÉE par le plan (carve des
+  // routes, réserve, parvis, urbanisation) → l'aperçu est fidèle au rendu réel.
+  // Runtime seulement : le save n'est jamais touché ; __show/__hideWonder
+  // invalident CM.layout pour que ce choix s'applique/se retire aussitôt.
+  if (CM.previewWonder && CM_WONDERS.some((w) => w.id === CM.previewWonder.id)) builtWonderIds.add(CM.previewWonder.id);
   const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
   const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
     ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
@@ -1330,10 +1350,13 @@ function computeCityLayout(s) {
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) reserved.add((d.gx + ax) + "," + (d.gy + ay));
   }
+  // wonderGround = les seules cellules d'emprise des MERVEILLES (sans les
+  // districts) : le rendu du sol y pose un PARVIS dédié, distinct du sol urbain.
+  const wonderGround = new Set();
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => reserved.add(k));
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => { reserved.add(k); wonderGround.add(k); });
   }
   // ── Carve : aucune ROUTE sous l'emprise d'une merveille sèche. Les routes sont
   //    figées avant le calcul des slots ; on retire ici les cellules qui tombent
@@ -2018,7 +2041,7 @@ function computeCityLayout(s) {
     engineHomePlaced,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed
@@ -2085,6 +2108,8 @@ export {
   cmWonderActive,
   cmWonderActiveIds,
   cmWonderExtent,
+  cmWonderCoreR,
+  cmForEachWonderCell,
   WONDER_TIER_NAMES,
   computeCityLayout,
   computeMedianSegments,

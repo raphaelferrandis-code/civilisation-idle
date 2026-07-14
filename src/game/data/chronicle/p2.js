@@ -11,7 +11,7 @@ export const chroniclePeriod2 = [
     period: 2,
     conditionType: "crise",
     title: { fr: "LA RÉCOLTE A POURRI", en: "THE HARVEST HAS ROTTED" },
-    text: { fr: "« Pluies sans fin, greniers vides. Les prêtres affirment qu'un dieu est en colère ; reste à savoir lequel, et pourquoi. »", en: "\"Endless rains, empty granaries. The priests declare a god is angry; it remains to be known which one, and why.\"" },
+    text: { fr: "« Pluies sans fin, entrepôts vides. Les prêtres affirment qu'un dieu est en colère ; reste à savoir lequel, et pourquoi. »", en: "\"Endless rains, empty granaries. The priests declare a god is angry; it remains to be known which one, and why.\"" },
     author: { fr: "Claude, gardien du feu", en: "Claude, keeper of the fire" }
   },
   {
@@ -239,7 +239,7 @@ export const chroniclePeriod2 = [
     period: 2,
     conditionType: "paix",
     title: { fr: "NI GUERRE NI FAMINE : ÉTRANGE", en: "NEITHER WAR NOR FAMINE: STRANGE" },
-    text: { fr: "« Greniers pleins, frontières calmes. Les prêtres, méfiants, demandent davantage d'offrandes pour que ça dure. On ne sait jamais à qui on doit la chance. »", en: "\"Granaries full, borders calm. The priests, wary, ask for more offerings to make it last. You never know whom to thank for luck.\"" },
+    text: { fr: "« Entrepôts pleins, frontières calmes. Les prêtres, méfiants, demandent davantage d'offrandes pour que ça dure. On ne sait jamais à qui on doit la chance. »", en: "\"Granaries full, borders calm. The priests, wary, ask for more offerings to make it last. You never know whom to thank for luck.\"" },
     author: { fr: "Claude, gardien du feu", en: "Claude, keeper of the fire" }
   },
   {

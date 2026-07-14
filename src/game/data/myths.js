@@ -163,7 +163,7 @@ export const CADMOS_ORIENTATIONS = {
       { fr: "Moissons", en: "Harvests" },
       { fr: "Sillons", en: "Furrows" },
       { fr: "Vergers", en: "Orchards" },
-      { fr: "Greniers", en: "Granaries" },
+      { fr: "Entrepôts", en: "Granaries" },
       { fr: "Semences", en: "Seeds" }
     ],
     bonus: {

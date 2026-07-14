@@ -29,13 +29,14 @@ import {
   crisisOpen,
   crisisCosts,
   has,
-  hasDoctrine,
   currentEraIndex,
   regulationActionUnlocked,
   regulationPolicyUnlocked,
   regulFatigueEffectMult,
   ruinNodeCost
 } from '../mechanics.js';
+import { pushAnnalsMark } from '../annals.js';
+import { castAugury } from './augures.js';
 import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
@@ -48,7 +49,7 @@ import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
-import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE, FATIGUE_PER_ACTION } from '../balance.js';
+import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
 import {
@@ -57,7 +58,7 @@ import {
   registerOlympusCrisisIgnored,
   registerOlympusCrisisResolved
 } from './olympus.js';
-import { log, chronicle, cycleYear, resetCyclePeaks } from './utils.js';
+import { log, chronicle, cycleYear, resetCyclePeaks, regulLedgerPush, raiseRegulFatigue } from './utils.js';
 
 export function pickCrisisEvent(threshold) {
   const vitals = cityVitals();
@@ -86,6 +87,8 @@ export function checkCrisisThresholds() {
   const event = pickCrisisEvent(slot.threshold);
   if (!event) return; // pas de crise disponible pour ce seuil → ne pas crasher sur event.id
   state.recentCrisisIds = [...(state.recentCrisisIds || []).slice(-7), event.id];
+  // Annales : la crise narrative marque la courbe (même résolue par le Conseil).
+  pushAnnalsMark("crisis", event.id);
   // Doctrine de crise : si le palier est automatisé (Conseil de crise possédé +
   // posture ≠ "ask"), on résout l'event sans dialogue ni pause. Sinon, dialogue.
   const stance = crisisAutoStance(slot.id);
@@ -193,7 +196,7 @@ const TERMINAL_PREP_CHRONICLES = {
   exodus: [
     "Quelques familles quittent la cité par les portes de l'aube ; les champs se vident un peu, mais la colère retombe.",
     "Une longue procession franchit les portes sacrées : l'exode est en marche, portant l'espoir d'une nouvelle fondation.",
-    "La moitié de la cité prend la route. Les greniers se taisent, mais ceux qui restent respirent enfin."
+    "La moitié de la cité prend la route. Les entrepôts se taisent, mais ceux qui restent respirent enfin."
   ],
   prepareArchives: [
     "Nos scribes copient les registres essentiels ; quelques ateliers ferment pour fournir l'encre et les tablettes.",
@@ -250,6 +253,16 @@ export function runTerminalCrisisAction(type, tier = 0) {
   render();
 }
 
+// Testament : pré-grave (ou efface, id nul/invalide) le legs d'épitaphe.
+// Permanent de cycle en cycle ; consommé sans dialogue par l'effondrement
+// automatique (events.runCollapseSequence, main.simulateAwayCrises) et
+// pré-sélectionné dans le dialogue manuel.
+export function setTestamentLegacy(id) {
+  state.testamentLegacyId = id && epitaphLegacyById(id) ? id : null;
+  save();
+  render();
+}
+
 export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (state.crisisLimitAnnounced && (state.crisisExtensions || 0) <= 0) {
     registerOlympusCrisisIgnored();
@@ -294,18 +307,16 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // fonction) : socle de départ indexé sur l'ÉCHELLE via les effectType *PctPeak.
   const peaks = state.cyclePeaks || {};
   const startFloor = computeStartFloor;
-  const doctrinePopBonus = hasDoctrine("acier") ? D(peaks.population || 0).mul(0.08).floor() : D(0);
   const keptPop = (has("granaries") ? D(state.population).mul(0.03) : D(10))
-    .max(startFloor("Population", 10))
-    .add(doctrinePopBonus);
+    .max(startFloor("Population", 10));
   // « Chambres scellées » (allKeep) : conservation unifiée de TOUTES les
-  // ressources, cumulée avec les canaux spécifiques (dogme Communes vivrières,
-  // doctrines) — les anciens *Keep par ressource restent lus.
+  // ressources, cumulée avec les canaux spécifiques (dogme Communes vivrières)
+  // — les anciens *Keep par ressource restent lus.
   const allKeepRate = ruinEffectSum("allKeep");
   const foodKeepRate = (has("granaries") ? 0.08 : 0) + ruinEffectSum("foodKeep") + allKeepRate;
   const goldKeepRate = 0.04 + ruinEffectSum("goldKeep") + allKeepRate;
-  const knowledgeKeepRate = ruinEffectSum("knowledgeKeep") + (hasDoctrine("parchemin") ? 0.12 : 0) + allKeepRate;
-  const infraKeepRate = ruinEffectSum("infraKeep") + (hasDoctrine("sillon") ? 0.06 : 0) + allKeepRate;
+  const knowledgeKeepRate = ruinEffectSum("knowledgeKeep") + allKeepRate;
+  const infraKeepRate = ruinEffectSum("infraKeep") + allKeepRate;
   const keptFood = foodKeepRate > 0 ? D(state.food).mul(foodKeepRate) : D(35);
   const keptGold = D(state.gold).mul(goldKeepRate);
   const keptKnowledge = D(state.knowledge).mul(knowledgeKeepRate);
@@ -345,6 +356,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
 
   state.infrastructure = keptInfra.add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);
   
+  // nextEpitaphLegacy n'est volontairement PAS consommé ici : il survit comme
+  // « dernière volonté », re-gravée (cause rafraîchie, multiplicateur appliqué)
+  // par chaque effondrement hors-ligne de main.simulateAwayCrises.
   const chosenEpitaphLegacy = state.nextEpitaphLegacy || null;
   const chosenEpitaphDefinition = chosenEpitaphLegacy ? epitaphLegacyById(chosenEpitaphLegacy.id) : null;
   const activeEpitaphLegacyVal = chosenEpitaphDefinition
@@ -395,7 +409,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   resetCyclePeaks();
   state.cycleStartedAt = Date.now();
   const source = reason === "manual" ? "choisit l'effondrement" : "atteint sa limite";
-  log(`Cycle ${state.cycles - 1}, an ${age}: ${fallenDynasty}, ${era}, ${source}. Epitaphe: ${epitaph} Les survivants nomment ${fmt(gain)} ruines et recommencent.`);
+  const legacyNote = chosenEpitaphDefinition ? ` Legs gravé : ${chosenEpitaphDefinition.logLabel}.` : "";
+  log(`Cycle ${state.cycles - 1}, an ${age}: ${fallenDynasty}, ${era}, ${source}. Epitaphe: ${epitaph}${legacyNote} Les survivants nomment ${fmt(gain)} ruines et recommencent.`);
   
   if (has("conservateurs_ruines")) {
     // Jamais de dogme : ce sont des CHOIX exclusifs (paires conflictsWith) que
@@ -455,17 +470,11 @@ const ACTION_FOYER = {
 
 // Dépêches des réformes de fond (recul DURABLE par foyer).
 const REFORM_CHRONICLES = {
-  scarcity: "Des greniers d'État sont édifiés pour toujours : la cité ne craint plus la disette d'une mauvaise saison.",
+  scarcity: "Des entrepôts d'État sont édifiés pour toujours : la cité ne craint plus la disette d'une mauvaise saison.",
   inequality: "Une charte des communs est gravée dans le marbre : le partage des richesses devient loi, et la rue s'apaise durablement.",
   complexity: "Le grand cadastre est achevé : chaque rue, chaque toit est enregistré ; l'administration cesse d'étouffer sous sa propre taille.",
   dissent: "Un panthéon d'État unit les cultes sous un même toit : la mémoire commune scelle l'unité du peuple pour les années à venir."
 };
-
-// Chaque action de régulation fatigue l'administration (anti-spam) : la fatigue
-// monte, redescend avec le temps (cf. tick.js), réduit l'efficacité et majore le coût.
-function raiseRegulFatigue() {
-  state.regulFatigue = Math.min(1, (state.regulFatigue || 0) + FATIGUE_PER_ACTION);
-}
 
 export function runCrisisAction(id, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : { render: Boolean(options) };
@@ -485,7 +494,9 @@ export function runCrisisAction(id, options = {}) {
     const reformCost = costs[id];
     if (!reformCost || !canPayCost(reformCost)) return;
     payCost(reformCost);
-    rf[reformFoyer] = Math.min(FOYER_REFORM_CAP, (rf[reformFoyer] || 0) + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
+    const prevReform = rf[reformFoyer] || 0;
+    rf[reformFoyer] = Math.min(FOYER_REFORM_CAP, prevReform + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
+    regulLedgerPush({ id, kind: "reform", foyer: reformFoyer, delta: rf[reformFoyer] - prevReform, by: opts.by || null });
     // Kicker économique modeste : la réforme bâtit aussi de l'institution.
     state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
     raiseRegulFatigue();
@@ -503,6 +514,14 @@ export function runCrisisAction(id, options = {}) {
   const regAction = REGULATION_ACTIONS_BY_ID[id];
   if (regAction) {
     if (!regulationActionUnlocked(id)) return; // pas encore débloquée
+    // Paris : délégués au moteur de la Table des augures (augures.js) — le
+    // rite « classique » reproduit le comportement historique de cette
+    // branche. L'UI ouvre normalement le mini-jeu (AuguryDialog) ; ce chemin
+    // reste l'API programmatique (tests, compat).
+    if (regAction.kind === "gamble") {
+      castAugury(id, "classique", { render: doRender, by: opts.by });
+      return;
+    }
     const foyer = regAction.foyer;
     if (regAction.kind === "reform") {
       const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
@@ -514,25 +533,12 @@ export function runCrisisAction(id, options = {}) {
 
     const eff = regulFatigueEffectMult();
     let note = regAction.note;
-    if (regAction.kind === "gamble") {
-      // Pari : proba de gros apaisement, sinon retour de bâton (hausse de Rupture).
-      const win = Math.random() < (regAction.p ?? 0.5);
-      if (win && !isMythEffectActive("mythe_d_atlas")) {
-        const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-        const add = (regAction.relief || 0) * eff;
-        fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
-        state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
-      } else if (!win) {
-        state.instability = clamp01(state.instability + (regAction.failInstability || 0));
-      } else {
-        state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
-      }
-      if (regAction.counter && regAction.counter in state.crisisActions) state.crisisActions[regAction.counter] += 1;
-      note = win ? (regAction.noteWin || regAction.note) : (regAction.noteFail || "Le pari tourne court : la tension remonte.");
-      pushOutcomeFloat({ label: win ? "🎲 Pari réussi" : "🎲 Pari perdu", kind: win ? "gain" : "cost" });
-    } else if (regAction.kind === "reform") {
+    let ledger = null; // { kind, delta } — rempli par la branche exécutée (registre des édits)
+    if (regAction.kind === "reform") {
       const rf = state.foyerReform;
-      rf[foyer] = Math.min(FOYER_REFORM_CAP, (rf[foyer] || 0) + (regAction.reformAdd || 0) * eff);
+      const prev = rf[foyer] || 0;
+      rf[foyer] = Math.min(FOYER_REFORM_CAP, prev + (regAction.reformAdd || 0) * eff);
+      ledger = { kind: "reform", delta: rf[foyer] - prev };
     } else if (!isMythEffectActive("mythe_d_atlas")) {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
       const add = (regAction.relief || 0) * eff;
@@ -540,12 +546,14 @@ export function runCrisisAction(id, options = {}) {
       state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
       if (regAction.malusRes) addProductionPenalty(regAction.malusRes, regAction.malusPct || 0);
       if (regAction.counter && regAction.counter in state.crisisActions) state.crisisActions[regAction.counter] += 1;
+      ledger = { kind: "soothe", delta: add };
     } else {
       state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
+      ledger = { kind: "soothe", delta: 0 };
     }
+    if (ledger) regulLedgerPush({ id, foyer, by: opts.by || null, ...ledger });
     // Effets économiques (tous kinds) : la gestion de crise nourrit la croissance.
     if (regAction.infraAdd) state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * regAction.infraAdd));
-    if (regAction.legitAdd) state.legitimacy += regAction.legitAdd;
 
     raiseRegulFatigue();
     registerOlympusCrisisResolved();
@@ -564,7 +572,7 @@ export function runCrisisAction(id, options = {}) {
   // `note` = dépêche de chronique. L'effet sur la Rupture passe désormais par le
   // relief de foyer (cf. ACTION_FOYER / FOYER_RELIEF_*), plus un coup instantané.
   const effects = {
-    rationing: { key: "rationing", note: "Les greniers ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim." },
+    rationing: { key: "rationing", note: "Les entrepôts ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim." },
     festivals: { key: "festivals", note: "De grands jeux civiques sont proclamés sur les places publiques ; le peuple oublie un instant sa colère sous les bannières de la dynastie." },
     census: { key: "census", note: "Nos scribes achèvent le grand recensement, gravant chaque nom sur l'argile pour redonner un visage à la cité." },
     reforms: { key: "reforms", note: "De profondes réformes institutionnelles sont votées, consolidant les assises de la cité face aux menaces imminentes." },
@@ -595,7 +603,13 @@ export function runCrisisAction(id, options = {}) {
   }
   state.crisisActions[effect.key] += 1;
   if (id === "reforms") state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.08));
-  if (id === "ancestorCrisis") state.legitimacy += 0.35;
+  // Registre des édits : effet réellement posé (0 sous le mythe d'Atlas) —
+  // AVANT raiseRegulFatigue, pour refléter le multiplicateur appliqué ci-dessus.
+  regulLedgerPush({
+    id, kind: "soothe", foyer: ACTION_FOYER[id] || null,
+    delta: isMythEffectActive("mythe_d_atlas") ? 0 : (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult(),
+    by: opts.by || null
+  });
   raiseRegulFatigue();
   registerOlympusCrisisResolved();
   // Barres/coûts à jour dès ce render (sinon ~1 tick de retard sur le cache frame).
@@ -621,6 +635,7 @@ export function togglePolicy(id) {
     if (list.length >= POLICY_MAX_ACTIVE) return;
     list.push(id);
   }
+  regulLedgerPush({ id, kind: idx >= 0 ? "policyOff" : "policyOn" });
   // Coût et ralentissement changent immédiatement (sinon ~1 tick de retard).
   renderCache._frameRatesVer = -1;
   renderCache._framePressureVer = -1;

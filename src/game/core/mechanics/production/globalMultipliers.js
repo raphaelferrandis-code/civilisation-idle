@@ -18,8 +18,6 @@ import {
   REGROWTH_RUSH_MS,
   ABYSS_DOGMA_THRESHOLD,
   ABYSS_DOGMA_PROD_BONUS,
-  LEGITIMACY_POWER_EXP,
-  LEGITIMACY_COEF,
   RECURRING_AGE_ERA_ANCHOR,
   grandResetProductionMult
 } from '../../balance.js';
@@ -79,17 +77,16 @@ export function unspentRuinsPowerMultiplierDec() {
   return D(state.ruins).mul(ruinEffectSum("unspentRuinsPower")).add(1);
 }
 
-// Multiplicateur d'institutions — BORNÉ : `legitimacy` est un number natif (jamais
-// Decimal, toujours fini) et l'exposant 0.7 < 1, donc la version float ne déborde
-// jamais. La variante Decimal n'est dès lors qu'un enveloppage au point d'usage
-// (globalMultiplierDec) : une seule formule à maintenir, plus de paire en lockstep.
+// Multiplicateur d'institutions — NEUTRALISÉ à 1 depuis la suppression de la
+// légitimité (il valait 1 + legitimacy^0.7 · coef). Conservé (×1) le temps que ses
+// derniers lecteurs — HeritageView, test de parité — soient retirés ; la fonction
+// sera supprimée ensuite. Aucun effet sur la production (facteur neutre).
 export function institutionMultiplier() {
-  if (isMythEffectActive("mythe_du_chaos")) return 1;
-  return 1 + Math.pow(state.legitimacy, LEGITIMACY_POWER_EXP) * LEGITIMACY_COEF;
+  return 1;
 }
 
 export function institutionMultiplierDec() {
-  return new Decimal(institutionMultiplier());
+  return new Decimal(1);
 }
 
 function grandResetMultiplier() {

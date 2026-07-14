@@ -5,7 +5,7 @@ import { D } from '../core/num.js';
 import { tr, localizeData } from '../core/i18n.js';
 
 /* ============================================================================
- * data-world.js - Donnees monde: eras, DOCTRINES, CRISIS_POOL, CRISIS_EVENTS.
+ * data-world.js - Donnees monde: eras, CRISIS_POOL, CRISIS_EVENTS.
  * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
  * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
  * ============================================================================ */
@@ -173,32 +173,8 @@ export const eraTier = (index) => {
   return e && typeof e.tier === "number" ? e.tier : (index || 0);
 };
 
-export const DOCTRINES = [
-  {
-    id: "acier",
-    name: { fr: "Doctrine de l'Acier", en: "Doctrine of Steel" },
-    desc: { fr: "Cette lignée a choisi la conquête. Chaque cycle laisse des survivants qui se souviennent d'avoir vaincu.", en: "This dynasty chose conquest. Every cycle leaves survivors who remember having won." },
-    detail: { fr: "Ruines +40%, 8% de la population survit au cycle. Mais la Rupture monte 25% plus vite.", en: "Ruins +40%, 8% of the population survives the cycle. But Rupture rises 25% faster." },
-    bonus: { fr: "Ruines +40% | pop survit", en: "Ruins +40% | pop survives" },
-    penalty: { fr: "Rupture +25%", en: "Rupture +25%" }
-  },
-  {
-    id: "parchemin",
-    name: { fr: "Doctrine du Parchemin", en: "Doctrine of the Parchment" },
-    desc: { fr: "Cette lignée préserve ce qu'elle a appris. Les bibliothèques s'effondrent — les idées, elles, continuent.", en: "This dynasty preserves what it has learned. The libraries collapse — the ideas carry on." },
-    detail: { fr: "Savoir +30%, 12% du pic de Savoir perdure après chaque cycle. Mais Trésor -15%.", en: "Knowledge +30%, 12% of peak Knowledge endures after each cycle. But Treasury -15%." },
-    bonus: { fr: "Savoir +30% | savoir survit", en: "Knowledge +30% | knowledge survives" },
-    penalty: { fr: "Trésor -15%", en: "Treasury -15%" }
-  },
-  {
-    id: "sillon",
-    name: { fr: "Doctrine du Sillon", en: "Doctrine of the Furrow" },
-    desc: { fr: "Cette lignée construit avant de gouverner. Les routes survivent aux rois qui les ont commandées.", en: "This dynasty builds before it governs. The roads outlast the kings who ordered them." },
-    detail: { fr: "Infrastructure +25%, Usure -30%, 6% de l'infra perdure. Mais Ruines -20%.", en: "Infrastructure +25%, Wear -30%, 6% of infrastructure endures. But Ruins -20%." },
-    bonus: { fr: "Infra +25% | Usure -30%", en: "Infra +25% | Wear -30%" },
-    penalty: { fr: "Ruines -20%", en: "Ruins -20%" }
-  }
-];
+// NB : les DOCTRINES (Acier / Parchemin / Sillon) ont été supprimées avec le
+// système de dynasties — la boutique n'a plus que 3 catégories neutres.
 
 // Pool d'events par palier — chaque event a une condition contextuelle optionnelle.
 // condition(state, vitals) → bool : si false, l'event est ignoré au profit d'un autre.
@@ -209,7 +185,7 @@ export const CRISIS_POOL = [
     id: "grain_panic",
     threshold: 0.25,
     condition: (s, v) => v.foodScore < 0.65,
-    title: { fr: "Les greniers font parler d'eux", en: "The granaries become the talk of the town" },
+    title: { fr: "Les entrepôts font parler d'eux", en: "The granaries become the talk of the town" },
     body: { fr: "On commence à compter les sacs. Les voisins se regardent différemment. Le mot 'famine' n'est pas encore prononcé, mais il flotte.", en: "People begin to count the sacks. Neighbors look at one another differently. The word 'famine' has not yet been spoken, but it hangs in the air." },
     options: [
       {
@@ -338,8 +314,8 @@ export const CRISIS_POOL = [
     options: [
       {
         label: { fr: "Partager les institutions", en: "Share the institutions" },
-        effects: [{ label: { fr: "Légitimité −0.4", en: "Legitimacy −0.4" }, kind: "cost" }, { label: { fr: "Rupture −12%", en: "Rupture −12%" }, kind: "gain" }],
-        apply: () => { effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.4); effects.state.instability *= 0.88; effects.chronicle(tr({ fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant.", en: "The institutions are opened. The faction accepts a lesser role. For now." })); }
+        effects: [{ label: { fr: "Trésor −12%", en: "Treasury −12%" }, kind: "cost" }, { label: { fr: "Rupture −12%", en: "Rupture −12%" }, kind: "gain" }],
+        apply: () => { effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.88; effects.chronicle(tr({ fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant.", en: "The institutions are opened. The faction accepts a lesser role. For now." })); }
       },
       {
         label: { fr: "Tenir les rênes", en: "Hold the reins" },
@@ -454,8 +430,8 @@ export const CRISIS_POOL = [
     options: [
       {
         label: { fr: "Laisser les quartiers voter", en: "Let the districts vote" },
-        effects: [{ label: { fr: "Savoir −18%", en: "Knowledge −18%" }, kind: "cost" }, { label: { fr: "Légitimité −0.3", en: "Legitimacy −0.3" }, kind: "cost" }, { label: { fr: "Rupture −14%", en: "Rupture −14%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.18); effects.state.legitimacy = Math.max(0, effects.state.legitimacy - 0.3); effects.state.instability *= 0.86; effects.chronicle(tr({ fr: "Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement.", en: "The vote is stormy. One name emerges. The city falls in behind it, officially at least." })); }
+        effects: [{ label: { fr: "Savoir −18%", en: "Knowledge −18%" }, kind: "cost" }, { label: { fr: "Rupture −14%", en: "Rupture −14%" }, kind: "gain" }],
+        apply: () => { effects.addProductionPenalty("knowledge", 0.18); effects.state.instability *= 0.86; effects.chronicle(tr({ fr: "Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement.", en: "The vote is stormy. One name emerges. The city falls in behind it, officially at least." })); }
       },
       {
         label: { fr: "Trancher par décret", en: "Settle it by decree" },
@@ -511,7 +487,6 @@ export const CRISIS_POOL = [
 // eras est aplati APRÈS la boucle des ères transcendantes (qui lit les feuilles via
 // tr()), si bien que les noms procéduraux déjà résolus restent intacts (idempotent).
 localizeData(eras);
-localizeData(DOCTRINES);
 localizeData(CRISIS_POOL);
 
 // Posture de chaque option de crise, pour l'auto-résolution par la Doctrine de

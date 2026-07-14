@@ -21,7 +21,10 @@ const VARIANTS_HOUSE = [
   { base: ["hut", "hut", "longhouse"], poor: ["tent", "hut", "hut"], rich: ["longhouse", "hut"] },
   { base: ["townhouse", "townhouse", "courtyard"], poor: ["hut", "townhouse"], rich: ["courtyard", "townhouse", "manor"] },
   { base: ["stonehouse", "stonehouse", "manor"], poor: ["townhouse", "stonehouse"], rich: ["manor", "stonehouse"] },
-  { base: ["block", "block", "tenement"], poor: ["tenement", "tenement", "block"], rich: ["block", "manor"] },
+  // b4 = Marbre / antiquité classique (habitants en toge) : pierre, cours et villas.
+  // PAS d'immeuble ici — `block`/`tenement` (façades d'appartements XIXe) démarrent en
+  // b5 = Fonte (époque industrielle), sinon on obtient « immeubles + toges ».
+  { base: ["courtyard", "stonehouse", "courtyard", "manor"], poor: ["stonehouse", "townhouse", "courtyard"], rich: ["manor", "courtyard", "manor"] },
   { base: ["block", "tenement", "tower"], poor: ["tenement", "tenement", "block"], rich: ["tower", "block"] },
   { base: ["tower", "block", "megablock", "arcologyhome"], poor: ["megablock", "tenement", "tower"], rich: ["arcologyhome", "tower"] }
 ];

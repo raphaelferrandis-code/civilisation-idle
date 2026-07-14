@@ -32,7 +32,7 @@ export const BOONS = [
     seconds: 110,
     icon: "🌾",
     label: { fr: "Moisson généreuse", en: "Bountiful harvest" },
-    chronicle: (amt) => tr({ fr: `Les saisons nous sourient : les greniers débordent d'une récolte inespérée, +${amt} vivres.`, en: `The seasons smile upon us: the granaries overflow with an unhoped-for harvest, +${amt} food.` })
+    chronicle: (amt) => tr({ fr: `Les saisons nous sourient : les entrepôts débordent d'une récolte inespérée, +${amt} vivres.`, en: `The seasons smile upon us: the granaries overflow with an unhoped-for harvest, +${amt} food.` })
   },
   {
     id: "discovery",

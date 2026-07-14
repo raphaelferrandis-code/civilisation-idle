@@ -42,11 +42,6 @@ export const grandResetProductionMult = (count) =>
 // l'early game par effet de bord — attrapé par le golden test).
 export const RUIN_REFERENCE_POP = 1.5e11;
 
-// Multiplicateur d'institutions tiré de la Légitimité :
-//   1 + legitimacy^LEGITIMACY_POWER_EXP * LEGITIMACY_COEF
-export const LEGITIMACY_POWER_EXP = 0.7;  // exposant du multiplicateur d'institutions
-export const LEGITIMACY_COEF = 0.22;      // coefficient associé
-
 // ── Anti-dégénérescence de la Rupture (rééquilibrage post-simulation) ────────
 // Deux dégénérescences mesurées en fin de partie : (1) cité sur-stabilisée
 // (actions de crise + Usure gelée) → ineffondrable ; (2) cité sur-puissante →
@@ -198,6 +193,107 @@ export const FATIGUE_EFFECT_PENALTY = 0.5;  // à fatigue 100 % : efficacité �
 export const FATIGUE_COST_PENALTY = 1.0;    // à fatigue 100 % : coût ×2
 export const FATIGUE_HALF_LIFE_S = 18;      // demi-vie de décroissance (s)
 
+// ── Clémence des augures (pitié sur série noire) ─────────────────────────────
+// Chaque pari PERDU d'une même table augmente la chance du prochain (streak de
+// revers consécutifs), remise à zéro au premier gain. Rend le risque GÉRABLE
+// (pseudo-pité) sans le supprimer : p reste bornée < 1. NB : « Clémence » est
+// distincte de la FAVEUR (la monnaie gagnée aux jeux, cf. FAVEUR_* plus bas).
+// L'historique des 5 derniers jets (state.gambleHistory) est reset au cycle.
+export const CLEMENCY_PER_LOSS = 0.05; // +5 pts de chance par revers consécutif
+export const GAMBLE_P_MAX = 0.9;       // plafond dur : un pari reste un pari
+export const GAMBLE_HISTORY_LEN = 5;   // jets mémorisés par table (affichage)
+// Odds RÉDUITS en early game (arbitrage Raph) : la proba de base des paris est
+// mise à l'échelle par ce facteur — on remonte ensuite via les boosters
+// permanents achetés en Faveur (dés-reliques, ailes d'Icare). Seam booster :
+// state.oddsBoost s'ajoute par-dessus (0 tant que la boutique n'existe pas).
+export const GAMBLE_ODDS_SCALE = 0.5;  // 55 % → ~28 % de base au départ (très lent early)
+// Second jet (« quitte ou double ») : chance FIXE — la Clémence ne joue pas
+// (les dieux se lassent) et il ne s'inscrit pas dans l'historique des jets.
+export const AUGURY_DOUBLE_P = 0.5;
+
+// ── Table des prises des osselets (5 issues) ─────────────────────────────────
+// Le tirage n'est pas binaire : la masse GAGNANTE (p effective) se répartit
+// Vénus/Triple/Paire, la masse PERDANTE en Creux/Chien. Lecture des os
+// (1·3·4·6, les AS sont funestes) : quatre différentes = Vénus, triple haut =
+// grand présage, paire haute = présage, paire d'as = creux, quatre as = le Chien.
+export const AUGURY_TIER_SHARES = { venus: 0.15, triple: 0.25 }; // parts de la masse gagnante (reste = paire)
+export const AUGURY_HOLLOW_SHARE = 0.6; // part de la masse perdante en creux (reste = Chien)
+export const AUGURY_DOG_CLEMENCY_CRANS = 2; // pitié : un Chien compte double dans la Clémence
+
+// ── FAVEUR — la monnaie des jeux (arbitrage Raph : jeux DÉCOUPLÉS) ────────────
+// Les paris ne calment plus la Rupture : leur GAIN est de la FAVEUR, monnaie
+// méta dépensée (à venir) en Bénédictions temporaires et boosters d'odds
+// permanents. Persiste aux effondrements (comme les ruines), effacée au GR.
+// Osselets : Faveur par ISSUE, les gains ×costMult du rite (grosse mise = gros
+// gain) ; la consolation (creux/chien) est PLATE (perdre gros ne « rapporte »
+// pas). Le Chien donne un peu plus que le creux (les dieux notent la souffrance).
+export const AUGURY_FAVEUR = { venus: 20, triple: 8, pair: 3, hollow: 1, dog: 2 };
+// Icare : Faveur au retrait = secondes de mise × multiplicateur × K (la mise
+// reste en OR — le puits — mais le GAIN est de la Faveur).
+export const ICARUS_FAVEUR_K = 0.15;
+// Cagnotte du temple, désormais EN FAVEUR : nourrie par les vols brûlés (part
+// de la mise) et les revers d'osselets, raflée en se posant à ×JACKPOT.
+export const ICARUS_POT_FEED = 0.6;          // Faveur/seconde de mise versée à la cagnotte sur un vol brûlé
+export const AUGURY_POT_FEED_HOLLOW = 0.5;   // Faveur/seconde de mise versée sur un jet creux
+export const AUGURY_POT_FEED_DOG = 1.2;      // …et sur le Chien (revers plus lourd → plus de cagnotte)
+export const ICARUS_POT_CAP_FAVEUR = 5000;   // plafond de la cagnotte (Faveur)
+// Coup de Vénus : le temple offre un vol d'Icare (mise « Plume », en attente).
+export const ICARUS_FREE_FLIGHTS_MAX = 5;
+
+// ── Boutique de Faveur (couche 2 : dépenser la Faveur) ───────────────────────
+// Dés pipés — boost PERMANENT des chances aux osselets (+STEP par niveau,
+// plafonné). Justifie les odds volontairement bas en early game. Persiste aux
+// effondrements (comme la Faveur), effacé au Grand Reset. Coût croissant.
+export const DICE_BOOST_STEP = 0.02;      // +2 pts d'odds par dé
+export const DICE_BOOST_MAX_LEVEL = 10;   // jusqu'à +20 pts
+export const DICE_COST_BASE = 40;         // Faveur pour le 1er dé
+export const DICE_COST_GROWTH = 1.6;      // coût ×1.6 par niveau
+// Ailes cirées — abaisse PERMANENT l'edge du Vol d'Icare (−STEP par niveau,
+// plancher ICARUS_EDGE_FLOOR).
+export const WING_STEP = 0.023;           // −2.3 pts d'edge par aile
+export const WING_MAX_LEVEL = 6;          // edge 18 % → ~4 % (plancher) au max
+export const ICARUS_EDGE_FLOOR = 0.04;    // edge minimal atteignable
+export const WING_COST_BASE = 60;
+export const WING_COST_GROWTH = 1.7;
+// Bénédiction — bonus TEMPORAIRE de production (multiplicateur GLOBAL, N s) :
+// le pont vers le cœur du jeu. Re-jouable (coût fixe), effet temporaire remis à
+// zéro à l'effondrement.
+export const BLESSING_MULT = 1.5;         // +50 % de production
+export const BLESSING_DURATION_S = 180;   // 3 minutes
+export const BLESSING_COST = 45;          // Faveur par bénédiction
+
+// ── Le Vol d'Icare (crash game du temple) ────────────────────────────────────
+// Un multiplicateur grimpe en continu (m = e^(K·t)) ; le soleil frappe à un
+// point tiré à l'envol : C = (1-EDGE)/U, U~uniforme — donc encaisser à une
+// cible m réussit avec p = (1-EDGE)/m. EDGE volontairement ÉLEVÉ en early game
+// (arbitrage Raph : odds bas au départ) — abaissé plus tard par les ailes
+// d'Icare (booster). La mise reste en OR (le puits) ; le GAIN est de la FAVEUR.
+// Se poser à ×JACKPOT rafle la cagnotte du temple (en Faveur).
+export const ICARUS_EDGE = 0.18;            // part de la maison (très bas odds early ; abaissée par les ailes cirées, booster)
+export const ICARUS_CAP = 100;              // multiplicateur maximal (~33 s de vol)
+export const ICARUS_K = Math.LN2 / 5;       // ×2 à 5 s, ×10 à ~16,6 s, ×100 à ~33 s
+export const ICARUS_JACKPOT_MULT = 10;      // se poser à ×10+ rafle la cagnotte
+export const ICARUS_HISTORY_LEN = 12;       // derniers points de crash affichés
+export const ICARUS_STAKES = [              // mises en SECONDES de production d'or
+  { id: "plume", seconds: 30, floor: 50, label: { fr: "Plume", en: "Feather" } },
+  { id: "aile", seconds: 90, floor: 200, label: { fr: "Aile", en: "Wing" } },
+  { id: "hecatombe", seconds: 300, floor: 1000, label: { fr: "Hécatombe", en: "Hecatomb" } }
+];
+
+// ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
+// Délégation configurable : « si la Rupture dépasse X % → lancer telle action
+// d'apaisement ». L'intendance clique COMME LE JOUEUR (mêmes coûts croissants,
+// même fatigue) et n'agit jamais sur la cible → anti-immortalité intact, c'est
+// du lissage de micro-gestion. Elle se met en veille quand l'administration
+// est fatiguée (gate) et respecte un cooldown par consigne (anti-verrou, comme
+// AUTO_CRISIS_COOLDOWN_MS pour protocoles_urgence).
+export const STEWARD_MAX_CLAUSES = 2;        // consignes maximum (slots gatés ère/mythe)
+export const STEWARD_COOLDOWN_MS = 20_000;   // délai minimal entre deux exécutions d'une consigne
+export const STEWARD_FATIGUE_GATE = 0.5;     // au-delà : l'intendance laisse l'administration souffler
+export const STEWARD_THRESHOLDS = [0.5, 0.65, 0.8]; // seuils de Rupture proposés
+// Registre des édits (annales) : entrées conservées (cap dur, reset par cycle).
+export const REGUL_LEDGER_MAX = 24;
+
 // ── Lissage du foyer Subsistance (anti-volatilité) ───────────────────────────
 // Le foyer scarcity lit un STOCK instantané (déficit de nourriture) → très
 // volatil (pics brefs sans impact réel, la bille n'a pas le temps de suivre).
@@ -248,19 +344,6 @@ export const FOUNDING_GRACE_BUILDINGS = 80;
 // à 110-840).
 export const RUIN_POP_DEPTH_REF = 15000;  // population de référence (ancien : 25000)
 export const RUIN_POP_DEPTH_EXP = 0.45;   // exposant (ancien : 0.42)
-
-// Fondation de dynastie : seuil d'entrée abaissé (visible dès ~8-12 h de jeu au
-// lieu de 1j15h) mais croissant à chaque fondation depuis le dernier Grand Reset
-// (× growth^n) — les premières dynasties d'une boucle restent un rituel
-// accessible, le spam (1820 fondations mesurées) devient impossible.
-export const DYNASTY_BASE_RUINS = 120;    // seuil de ruines de la 1re fondation (ancien : 300 fixe)
-export const DYNASTY_COST_GROWTH = 1.4;   // multiplicateur du seuil par fondation depuis le dernier GR
-
-// Grand Reset à coût croissant : le 1er est payé par l'upgrade « grand_reset »,
-// chaque suivant consomme BASE × 2^(n-1) légitimité (GR2 : 600, GR3 : 1200…).
-// La récompense double à chaque GR, le coût doit suivre — sinon les 10 GR
-// tombent en 1j14h (mesuré) et cessent d'être ressentis comme des sommets.
-export const GRAND_RESET_LEGIT_BASE = 300;
 
 // Gating doux des Grand Resets par les Mythes : à partir de MYTH_GATE_START_GR,
 // chaque GR exige un Mythe complété de plus (GR3 : 1, GR4 : 2, … GR10 : 8).
@@ -395,7 +478,6 @@ export const DEMESURE_COEF = 0.06;        // pression par décade de population 
 // plusieurs heures) : une cité bien gouvernée ramène sa cible sous 1.0 et coaste
 // sur l'Usure ; une cité négligée s'effondre toujours vite par la Rupture.
 export const DEMESURE_SOFT_CAP = 0.9;          // contribution max de la Démesure (soft cap)
-export const DEMESURE_LEGIT_LOG_COEF = 0.11;   // log10(1+légitimité) × ce coef → part de Démesure retirée
 export const DEMESURE_CUT_CAP = 0.85;          // fraction max de Démesure retirable par la gouvernance
 
 // ── A2 · Entretien de l'infrastructure (résorption du surplus) ───────────────

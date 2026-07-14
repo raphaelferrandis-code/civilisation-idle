@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -111,13 +111,24 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   // Ombre de contact au sol RETIRÉE (demande Raph 2026-07-06 : plus d'ellipses noires sous les bâtiments).
 
+  // ── band 4 (Marbre / toges) : sprite ROMAIN classique à la place du stade pierre médiéval. ──
+  // Repli AUTOMATIQUE sur le dispatch de stade tant que le PNG n'est pas chargé (propReady=false).
+  const RB4 = {
+    storytellers: 'storyteller-odeon', scribes: 'scribes-tabularium', schools: 'schools-ludus', academies: 'academies-athenaeum',
+    ancestral_cult: 'cult-vesta', observatories: 'observatories-horologium', libraries: 'libraries-classical', universities: 'universities-classical',
+    printing_houses: 'printing-scriptorium', think_tanks: 'think-stoa-roman', watch: 'watch-classical', bureaucracy: 'bureau-tabularium',
+    courthouses: 'courthouses-basilica', public_works: 'works-classical', ministries: 'ministries-curia', archive_grids: 'archive-tabularium',
+    ruin_architects: 'ruins-restoration-roman', sewers: 'sewers-classical'
+  };
+  if (band === 4 && RB4[id] && propReady(RB4[id])) { blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
+
   if (id === "storytellers") {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "storytellers"); return; }
     // ── ÉVOLUTION 4 STADES (ajoutée 2026-07-05) : le conteur suit l'ère comme les bâtiments
     //    économiques (1er savoir à recevoir un dispatch de stade). Stade 0 = feu de camp (scène
     //    pixel existante, plus bas) ; stades 1-3 = décor PixelLab par ère (veillée médiévale →
     //    théâtre/lecture publique → média néon) + lectrice réutilisée + lueur. Repli = feu de camp.
-    const stStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const stStage = engineStage(ei);
     if (stStage >= 1) {
       const scene = ['', 'storyteller-hall', 'storyteller-theater', 'storyteller-media'][stStage];
       if (propReady(scene)) {
@@ -229,7 +240,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 2e savoir après conteurs) : BÂTIMENTS CLOS par ère
     //    (leçon conteur = décor autoporteur, PAS de perso réutilisé). Thème écriture/archives :
     //    abri primitif (S0, plus bas) → scriptorium médiéval → hall d'archives → data hall.
-    const scStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const scStage = engineStage(ei);
     if (scStage >= 1) {
       const scb = ['', 'scribes-scriptorium', 'scribes-archive', 'scribes-data'][scStage];
       if (propReady(scb)) {
@@ -287,7 +298,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 3e savoir) : BÂTIMENTS CLOS par ère, PAS de perso
     //    (moule conteur/scribes). Thème éducation : coin de leçon primitif (S0, plus bas) →
     //    école médiévale → école victorienne à beffroi → campus moderne.
-    const schStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const schStage = engineStage(ei);
     if (schStage >= 1) {
       const schb = ['', 'schools-schoolhouse', 'schools-victorian', 'schools-campus'][schStage];
       if (propReady(schb)) {
@@ -340,7 +351,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     //    (moule conteur/scribes/écoles). Identité marbre classique + coupole + lauriers :
     //    cercle de débat primitif (S0, plus bas) → académie Renaissance → néoclassique à
     //    rotonde → institut moderne circulaire.
-    const acStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const acStage = engineStage(ei);
     if (acStage >= 1) {
       const acb = ['', 'academies-renaissance', 'academies-institute', 'academies-modern'][acStage];
       if (propReady(acb)) {
@@ -393,7 +404,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 10e et DERNIER savoir) : BÂTIMENTS CLOS par ère, PAS
     //    de perso. Identité spirituel/mémoriel, fil de la FLAMME ÉTERNELLE : mégalithes+feu animé
     //    (S0, plus bas) → sanctuaire tribal → mausolée à coupole → hall du souvenir moderne.
-    const ancStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const ancStage = engineStage(ei);
     if (ancStage >= 1) {
       const ancb = ['', 'cult-shrine', 'cult-mausoleum', 'cult-memorial'][ancStage];
       if (propReady(ancb)) {
@@ -461,7 +472,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 5e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
     //    Identité dômes + télescopes : gnomon/cadran primitif (S0, plus bas) → tour d'observation
     //    médiévale → observatoire à coupole 19e → observatoire moderne à antenne.
-    const obStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const obStage = engineStage(ei);
     if (obStage >= 1) {
       const obb = ['', 'observatories-tower', 'observatories-dome', 'observatories-array'][obStage];
       if (propReady(obb)) {
@@ -519,7 +530,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 6e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
     //    Identité grands halls de LIVRES : archive primitive (S0, plus bas) → bibliothèque
     //    monastique → grande bibliothèque à coupole → médiathèque moderne.
-    const liStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const liStage = engineStage(ei);
     if (liStage >= 1) {
       const lib = ['', 'libraries-monastic', 'libraries-grand', 'libraries-modern'][liStage];
       if (propReady(lib)) {
@@ -574,7 +585,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 7e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
     //    Identité GOTHIQUE/collégial : halle primitive (S0, plus bas) → collège gothique →
     //    université collégiale à tour → campus moderne à tour de verre.
-    const unStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const unStage = engineStage(ei);
     if (unStage >= 1) {
       const unb = ['', 'universities-gothic', 'universities-collegiate', 'universities-modern'][unStage];
       if (propReady(unb)) {
@@ -775,7 +786,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 8e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
     //    Identité presse/reproduction : atelier primitif (S0, plus bas) → imprimerie Renaissance →
     //    imprimerie industrielle (cheminée) → maison de médias moderne (écrans d'actu).
-    const prStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const prStage = engineStage(ei);
     if (prStage >= 1) {
       const prb = ['', 'printing-press-shop', 'printing-factory', 'printing-media'][prStage];
       if (propReady(prb)) {
@@ -838,7 +849,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 9e savoir) : BÂTIMENTS CLOS par ère, PAS de perso.
     //    Identité stratégie/modélisation (globe+données) : conseil primitif (S0, plus bas) →
     //    chancellerie Renaissance → institut stratégique 19e (globe bronze) → think-tank moderne.
-    const thStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const thStage = engineStage(ei);
     if (thStage >= 1) {
       const thb = ['', 'think-chancellery', 'think-institute', 'think-modern'][thStage];
       if (propReady(thb)) {
@@ -917,7 +928,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (INFRA, modulaire complet) : stades 1-3 = aqueducs d'ère (romain
     //    pierre / fer industriel / béton moderne), MÊMES 3 modules tileables outlet/seg/intake
     //    par préfixe (`aqueduct-<era>-*`). Stade 0 (gouttière+eau animée) = repli ci-dessous.
-    const aqStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const aqStage = engineStage(ei);
     const eraPfx = ['', 'aqueduct-roman', 'aqueduct-iron', 'aqueduct-modern'][aqStage];
     if (aqStage >= 1 && propReady(eraPfx + '-outlet') && propReady(eraPfx + '-seg') && propReady(eraPfx + '-intake')) {
       const flip = t.waterEnd === 'W';
@@ -1012,7 +1023,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // ── ÉVOLUTION 4 STADES (2026-07-05, 1er INFRA) : TOURS closes par ère (blit tall 0.78×0.94
     //    comme le stade 0). Stade 0 = tour bois + feu animé (plus bas) → tour de pierre → tour
     //    d'observation industrielle → tour de surveillance moderne. PAS de perso.
-    const waStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const waStage = engineStage(ei);
     if (waStage >= 1) {
       const wab = ['', 'watch-stone', 'watch-industrial', 'watch-modern'][waStage];
       if (propReady(wab)) {
@@ -1096,7 +1107,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "sewers"); return; }
     // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 pixel (station + eau animée, plus bas) conservé,
     //    stades 1-3 = stations closes (drainage médiéval → works vapeur → station d'épuration).
-    const seStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const seStage = engineStage(ei);
     if (seStage >= 1) {
       const seb = ['', 'sewers-medieval', 'sewers-works', 'sewers-plant'][seStage];
       if (propReady(seb)) {
@@ -1161,7 +1172,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "bureaucracy"); return; }
     // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = bureaux CLOS
     //    pixel (chancellerie → bureau → tour de bureaux). Identité paperasse/administration.
-    const buStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const buStage = engineStage(ei);
     {
       const bub = ['bureau-hut', 'bureau-chancery', 'bureau-office', 'bureau-tower'][buStage];
       if (propReady(bub)) { drawStagePix(ctx, ox, oy, sw, sh, bub, now, buStage === 3 ? '218,226,255' : '255,186,90', { ph: 2.0 }); return; }
@@ -1205,7 +1216,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "courthouses"); return; }
     // ── ÉVOLUTION 4 STADES (2026-07-05, INFRA) : stade 0 procédural conservé (ci-dessous),
     //    stades 1-3 = palais de justice CLOS pixel (balance + colonnes). Identité justice.
-    const coStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const coStage = engineStage(ei);
     {
       const cob = ['courthouses-lodge', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern'][coStage];
       if (propReady(cob)) { drawStagePix(ctx, ox, oy, sw, sh, cob, now, coStage === 3 ? '255,208,140' : '255,186,90', { ph: 1.3 }); return; }
@@ -1267,7 +1278,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "public_works"); return; }
     // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = ateliers/dépôts
     //    CLOS pixel avec engins (chantier → atelier vapeur → dépôt moderne). Identité travaux.
-    const pwStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const pwStage = engineStage(ei);
     {
       const pwb = ['works-camp', 'works-yard', 'works-industrial', 'works-depot'][pwStage];
       if (propReady(pwb)) { drawStagePix(ctx, ox, oy, sw, sh, pwb, now, pwStage === 3 ? '110,205,235' : '255,176,78', { ph: 0.7 }); return; }
@@ -1324,7 +1335,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ministries"); return; }
     // ── ÉVOLUTION 4 STADES (2026-07-05, INFRA) : stade 0 procédural conservé (ci-dessous),
     //    stades 1-3 = bâtiments d'État CLOS pixel (drapeaux + coupole). Identité gouvernement.
-    const miStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const miStage = engineStage(ei);
     {
       const mib = ['ministries-council', 'ministries-palace', 'ministries-capitol', 'ministries-tower'][miStage];
       if (propReady(mib)) { drawStagePix(ctx, ox, oy, sw, sh, mib, now, miStage === 3 ? '225,228,255' : '255,186,90', { ph: 0.4 }); return; }
@@ -1366,7 +1377,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "archive_grids"); return; }
     // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = archives CLOSES
     //    pixel (caveau → dépôt de registres → grille de données). Identité stockage/réseau.
-    const arStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const arStage = engineStage(ei);
     {
       const arb = ['archive-hut', 'archive-vault', 'archive-records', 'archive-grid'][arStage];
       if (propReady(arb)) { drawStagePix(ctx, ox, oy, sw, sh, arb, now, arStage === 3 ? '90,225,205' : '255,182,84', { ph: 2.6 }); return; }
@@ -1418,7 +1429,7 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     if (band >= 7) { cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, "ruin_architects"); return; }
     // ── ÉVOLUTION 4 STADES (INFRA) : stade 0 procédural conservé, stades 1-3 = bâtiments de
     //    RESTAURATION CLOS pixel (lodge de maçons → institut d'antiquités → labo patrimoine).
-    const ruStage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+    const ruStage = engineStage(ei);
     {
       const rub = ['ruins-camp', 'ruins-lodge', 'ruins-institute', 'ruins-lab'][ruStage];
       if (propReady(rub)) { drawStagePix(ctx, ox, oy, sw, sh, rub, now, ruStage === 3 ? '120,215,205' : '255,180,90', { ph: 3.1 }); return; }

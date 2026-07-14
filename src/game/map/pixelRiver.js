@@ -193,6 +193,7 @@ export function drawPixelRiver(CM, now) {
     }
   };
   if (!collapsed && !worn) {                          // écume/profondeur : eau saine
+    drawWaterRipples(CM, now, sm, SX, SY);            // vaguelettes animées (sous l'écume de berge)
     strokeEdge(-0.32, 'rgba(72,114,134,0.26)', Math.max(3, z * 6.5));  // bas-fond (large, doux)
     strokeEdge(-0.14, 'rgba(114,160,178,0.40)', Math.max(2, z * 3.6)); // eau peu profonde
     strokeEdge(-0.04, 'rgba(150,190,204,0.55)', Math.max(2, z * 2.2)); // écume large
@@ -298,6 +299,41 @@ function riverPosAt(sm, u, lat) {
   const a = sm[i0], b = sm[i0 + 1], n = riverNormalAt(sm, i0);
   const hw = (a.hw + (b.hw - a.hw) * f) * lat;
   return { x: a.x + (b.x - a.x) * f + n.nx * hw, y: a.y + (b.y - a.y) * f + n.ny * hw, n, hw: a.hw + (b.hw - a.hw) * f };
+}
+
+// VAGUELETTES ANIMÉES (inspiré de TheoTown) : nappe DENSE de petits traits clairs
+// répartis sur toute la surface, dont la BRILLANCE monte et descend en une onde qui
+// COURT VERS L'AVAL (phase = u·freq − t·speed) → lecture d'un courant vivant, pas de
+// tirets épars (le piège des tentatives passées, cf. mémoire). Déterministe à `now`
+// fixé (hash), donc capturable ; anime en live. Sous le clip du fleuve.
+export const waterRippleTune = { on: true, lanes: 8, sub: 3, dash: 0.22, freq: 0.85, speed: 2.2, thresh: 0.4, alpha: 0.4, color: '184,214,224' };
+function drawWaterRipples(CM, now, sm, SX, SY) {
+  const T2 = waterRippleTune;
+  if (!T2.on) return;
+  const ctx = CM.ctx, z = CM.cam.zoom, len = sm.length;
+  if (z < 0.45 || len < 3) return;
+  const ts = CM.TILE * z;
+  const rw = Math.max(2, Math.round(ts / 11));         // longueur du trait de vaguelette
+  const rh = Math.max(1, Math.round(ts / 24));         // épaisseur
+  const lanes = Math.max(2, T2.lanes | 0);
+  const t = (now || 0) / 1000;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  for (let s = 0; s < len - 1; s += 1) {
+    for (let li = 0; li < lanes; li += 1) {
+      const h = pxHash(s, li, 23);
+      const u = s + ((h & 255) / 255);                                   // position le long (jitter)
+      const lat = (li / (lanes - 1) - 0.5) * 1.7 + (((h >> 8) & 15) / 15 - 0.5) * 0.22; // couloir latéral
+      const b = Math.sin(u * T2.freq - t * T2.speed + (h & 31) * 0.2);   // onde de brillance -> aval
+      if (b < T2.thresh) continue;                                       // n'apparaît qu'au sommet
+      const p = riverPosAt(sm, u, lat);
+      const sx = SX(p.x), sy = SY(p.y);
+      if (sx < -ts || sx > CM.cw + ts || sy < -ts || sy > CM.ch + ts) continue;
+      const a = ((b - T2.thresh) / (1 - T2.thresh)) * T2.alpha;
+      ctx.fillStyle = `rgba(${T2.color},${a.toFixed(2)})`;
+      ctx.fillRect(Math.round(sx - rw / 2), Math.round(sy - rh / 2), rw, rh);
+    }
+  }
+  ctx.imageSmoothingEnabled = prev;
 }
 
 // ÉTINCELLES « + » : rares, en eau libre, apparition/disparition lente

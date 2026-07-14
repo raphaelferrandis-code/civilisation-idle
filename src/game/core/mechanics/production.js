@@ -58,7 +58,8 @@ export {
 export {
   babelExponentialMult,
   babelExponentialMultDec,
-  activeEpitaphLegacy
+  activeEpitaphLegacy,
+  epitaphLegacyDurationMs
 } from './production/mythEffects.js';
 
 export {

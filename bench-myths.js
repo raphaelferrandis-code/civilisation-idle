@@ -67,8 +67,6 @@ const LOADOUT = {
 function baseline() {
   setState(defaultState());
   state.cycles = 6;
-  state.dynastyCount = 2;
-  state.legitimacy = 25;
   state.grandResetCount = 0;
   state.ruins = D(800);
   state.bestEraIndex = 8;

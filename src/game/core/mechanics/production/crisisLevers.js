@@ -22,9 +22,16 @@ export function addProductionPenalty(type, amount) {
   state.crisisProduction[type] = Math.max(0.1, current * (1 - effectiveAmount));
 }
 
+// Bénédiction de la boutique de Faveur : bonus TEMPORAIRE de production
+// (multiplicateur global tant que Date.now() < state.blessingUntil). Inline ici
+// (pas d'import de actions/faveurShop → pas de cycle avec le baril mechanics).
+function blessingProductionMultiplier() {
+  return (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
+}
+
 export function crisisProductionMultiplier(type) {
   const global = state.crisisProduction.global ?? 1;
-  return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type);
+  return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type) * blessingProductionMultiplier();
 }
 
 // Levier C — coût de production CONTINU et RÉCUPÉRABLE des politiques actives

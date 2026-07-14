@@ -86,16 +86,16 @@ registerChoiceDialog((dialog) => {
 const mech = await import("./src/game/core/mechanics.js");
 const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
-  buildingBatchCost, legitimacyGain, globalMultiplier, rates, timeWearRate,
+  buildingBatchCost, globalMultiplier, rates, timeWearRate,
   currentEraIndex, ownedRuinBranchPurchaseCount, ownedRuinTreePurchaseCount, has,
-  dynastyRuinsThreshold, grandResetLegitimacyCost, grandResetMythsRequired, completedMythCount
+  grandResetMythsRequired, completedMythCount, grandResetMilestoneMet
 } = mech;
 
 const { canPayCost, payCost, fmt, clamp01 } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
 const {
-  buyUpgrade, completeCollapse, tick, foundDynasty, performGrandReset,
+  buyUpgrade, completeCollapse, tick, performGrandReset,
   activateMyth, migrerEnee, chronicle, runCrisisAction
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
@@ -168,7 +168,6 @@ const PROFILES = {
   balanced: { id: "balanced", label: "Equilibre (~10 min/cycle)",  growSeconds: 600,  manage: true },
   patient:  { id: "patient",  label: "Patient (~30 min/cycle)",    growSeconds: 1800, manage: true }
 };
-const TREE_PHASE_NODES = 22;    // nb de noeuds d'arbre avant de prioriser les dynasties
 const MAX_CYCLES = 200000;      // garde-fou
 // Audit G-20 : par DÉFAUT, on ne borne QUE sur le temps virtuel (BUDGET_SECONDS)
 // → jalons identiques quelle que soit la vitesse machine (reproductibilité
@@ -206,7 +205,7 @@ const MAXREAL_LABEL = Number.isFinite(REAL_TIME_LIMIT_MS) ? `${REAL_TIME_LIMIT_M
 if (argv.heartbeat || argv.mlog) {
   const hb = setInterval(() => {
     const line = `[HB] reel=${Math.round((realNow() - REAL_START) / 1000)}s cyc=${state.cycles} VT=${fmtDurationSafe(VT)} ` +
-      `inst=${(state.instability || 0).toFixed(2)} paused=${stateModule.gamePaused} myth=${state.activeMythId || "-"} GR=${state.grandResetCount || 0} dyn=${state.dynastyCount || 0}\n`;
+      `inst=${(state.instability || 0).toFixed(2)} paused=${stateModule.gamePaused} myth=${state.activeMythId || "-"} GR=${state.grandResetCount || 0}\n`;
     process.stderr.write(line);
     try { fs.appendFileSync("heartbeat.log", line); } catch { /* */ }
   }, 10000);
@@ -259,13 +258,13 @@ function snapshot() {
   const r = rates();
   return {
     vt: VT, real: fmtDuration(VT),
-    cycles: state.cycles, dynastyCount: state.dynastyCount,
+    cycles: state.cycles, dynastyCount: 0, // dynasties supprimees : colonne conservee (toujours 0) pour ne pas casser les rapports
     grandResetCount: state.grandResetCount || 0,
     eraIndex: currentEraIndex(), bestEraIndex: state.bestEraIndex || 0,
     era: eras[currentEraIndex()].name,
     population: num(state.population), food: num(state.food), gold: num(state.gold),
     knowledge: num(state.knowledge), infrastructure: num(state.infrastructure),
-    ruins: num(state.ruins), legitimacy: state.legitimacy,
+    ruins: num(state.ruins), legitimacy: 0, // legitimite supprimee : GR desormais gate sur des jalons
     globalMult: globalMultiplier(),
     prodTotal: num(r.population) + num(r.food) + num(r.gold) + num(r.knowledge) + num(r.infrastructure),
     prodRates: {
@@ -371,7 +370,7 @@ function buyRuinTree(keepReserveRuins = 0) {
 // verrouiller la jauge sous le seuil de crise. Sa presence VALIDE le correctif.
 const HERITAGE_ORDER = [
   "reforme_administrative", "protocoles_urgence", "reseau_routes", "codex_mythique",
-  "conservateurs_ruines", "rituel_effondrement", "grand_reset"
+  "conservateurs_ruines", "rituel_effondrement"
 ];
 function buyHeritage() {
   for (const id of HERITAGE_ORDER) {
@@ -387,7 +386,7 @@ function buyHeritage() {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
-  completeCollapse(gain, dynastyNames[state.dynastyCount % dynastyNames.length], generateEpitaph(), reason);
+  completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);
   return true;
@@ -417,8 +416,7 @@ function makeRecorder() {
         this.seenEra.add(ei);
         this.record(`era_${ei}`, `Age atteint : ${eras[ei].name} (palier ${ei})`, { kind: "era" });
       }
-      if (state.dynastyCount >= 1) this.record("dynasty_1", "Dynastie 1 fondee", { kind: "dynasty" });
-      if (state.dynastyCount >= 10) this.record("dynasty_10", "Dynastie 10 fondee", { kind: "dynasty" });
+      // Jalons de dynastie supprimes (systeme dynastie/legitimite retire).
       const gr = state.grandResetCount || 0;
       if (gr >= 1) this.record("gr_1", "Grand Reset 1", { kind: "grandreset" });
       if (gr >= 10) this.record("gr_10", "Grand Reset 10", { kind: "grandreset" });
@@ -601,8 +599,7 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
     trace("B:post-playCycle");
     if (argv.debug && state.cycles % 25 === 0) {
       console.error(`  [dbg] cyc=${state.cycles} VT=${fmtDuration(VT)} bestEra=${eras[state.bestEraIndex || 0].name} ` +
-        `tree=${ownedRuinTreePurchaseCount()} ruins=${fmt(num(state.ruins))} legit=${fmt(state.legitimacy)} ` +
-        `dyn=${state.dynastyCount} GR=${state.grandResetCount || 0}`);
+        `tree=${ownedRuinTreePurchaseCount()} ruins=${fmt(num(state.ruins))} GR=${state.grandResetCount || 0}`);
     }
     if (VT >= BUDGET_SECONDS) break;
     if (!crisisOpen()) break; // cap atteint sans crise : on arrete proprement
@@ -624,15 +621,9 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
     }
     collapseFails = 0;
 
-    // Meta-progression (seuil de dynastie desormais croissant intra-GR)
+    // Meta-progression : achat de l'arbre de ruines (systeme dynastie/legitimite supprime).
     trace("D:buyTree");
-    const treeOwned = ownedRuinTreePurchaseCount();
-    if (treeOwned < TREE_PHASE_NODES) {
-      buyRuinTree(0);
-    } else {
-      buyRuinTree(dynastyRuinsThreshold());
-      if (legitimacyGain() > 0) { trace("E:foundDynasty"); await foundDynasty(); }
-    }
+    buyRuinTree(0);
     trace("F:buyHeritage");
     buyHeritage();
     trace("F2:checkMilestones");
@@ -640,9 +631,11 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
     trace("F3:doneMeta");
 
     const nextGR = (state.grandResetCount || 0) + 1;
-    const grUnlocked = has("grand_reset") && (state.grandResetCount || 0) < (state.ragnarokHeritage ? 11 : 10);
-    if (grUnlocked && state.legitimacy >= grandResetLegitimacyCost(nextGR)
-      && completedMythCount() >= grandResetMythsRequired(nextGR)) {
+    const maxGR = state.ragnarokHeritage ? 11 : 10;
+    const withinCap = nextGR <= maxGR;
+    // Grand Reset RE-GATE sur des JALONS marquants : disponible ssi grandResetMilestoneMet(nextGR)
+    // (plus de gate legitimite/upgrade "grand_reset"), dans la borne du cap.
+    if (withinCap && grandResetMilestoneMet(nextGR)) {
       trace("G:performGrandReset");
       await performGrandReset();
       rec.checkPassiveMilestones();
@@ -650,7 +643,7 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
 
     // Pilotage des Mythes : 1re passe au deblocage (GR1), puis nouvelles passes
     // quand le gate Mythes bloque le prochain GR (max 4 passes au total).
-    const blockedByMyths = grUnlocked && completedMythCount() < grandResetMythsRequired(nextGR);
+    const blockedByMyths = withinCap && completedMythCount() < grandResetMythsRequired(nextGR);
     if (withMyths && (state.grandResetCount || 0) >= 1 && mythPasses < 4 && (!mythsDriven || blockedByMyths)) {
       mythsDriven = true;
       mythPasses++;
@@ -1221,8 +1214,7 @@ md += `\n## Pointeurs formules (source de verite)
 - Production / taux : \`src/game/core/mechanics.js\` -> \`rates()\`, \`globalMultiplier()\`, \`buildingOutputMultiplier()\`.
 - Multiplicateur de Ruines : \`ruinMultiplier()\` (1 + ruins^0.62 x 0.09, cf. \`balance.js\`).
 - Gain de Ruines a l'effondrement : \`ruinGain()\` (patience/profondeur/sediment).
-- Legitimite : \`legitimacyGain()\` ; dynastie : \`actions/myths.js -> foundDynasty()\`.
-- Grand Reset : \`actions/building.js -> performGrandReset()\` (x2 prod/reset, 11e = x4 ruines si Ragnarok).
+- Grand Reset : gate sur jalons marquants (\`mechanics.js -> grandResetMilestoneMet(nextGR)\`, \`GRAND_RESET_MILESTONES\`) ; execution \`actions/building.js -> performGrandReset()\` (x2 prod/reset, 11e = x4 ruines si Ragnarok).
 - Dogmes (paliers 10/20/30) : \`data/upgrades.js -> PRESTIGE_DOGMAS\` + \`ownedRuinBranchPurchaseCount()\`.
 - Mythes (actes, conditions, heritages) : \`data/myths.js -> MYTHS\`, deblocage \`isMythUnlocked()\`.
 

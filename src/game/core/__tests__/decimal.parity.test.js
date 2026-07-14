@@ -64,7 +64,6 @@ const SCENARIOS = [
     patch: () => {
       state.ruins = new Decimal("1e40");
       state.chaosRuinsBonus = new Decimal("1e20");
-      state.legitimacy = 95;
       state.infrastructure = new Decimal("1e30");
     }
   },
@@ -72,7 +71,6 @@ const SCENARIOS = [
     name: "ruines proches du plafond (pow finie)",
     patch: () => {
       state.ruins = new Decimal("1e250");
-      state.legitimacy = 80;
     }
   },
   {

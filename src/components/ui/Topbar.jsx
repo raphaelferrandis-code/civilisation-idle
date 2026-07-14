@@ -1,4 +1,5 @@
 import { useCityViewState } from '../../hooks/useCityViewState.js';
+import { useGameState } from '../../hooks/useGameState.js';
 import {
   cityVitals,
   pressureBreakdown,
@@ -39,6 +40,10 @@ export default function Topbar() {
     population, food, gold, knowledge, infrastructure
   } = useCityViewState();
 
+  // Crise terminale : le tick est GELÉ (rien ne produit) — afficher les débits
+  // potentiels mentirait (« la ville n'est plus » mais les chiffres montent).
+  const crisisFrozen = useGameState(s => Boolean(s.crisisLimitAnnounced));
+
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
   const r = rates(vitals, pressure);
@@ -53,7 +58,7 @@ export default function Topbar() {
   /* Humeurs (déplacées en tooltip) */
   const foodMood = mood(vitals.foodScore, [
     { fr: "Famine proche", en: "Famine looms" },
-    { fr: "Greniers modestes", en: "Modest granaries" },
+    { fr: "Entrepôts modestes", en: "Modest granaries" },
     { fr: "Surplus rassurant", en: "Reassuring surplus" },
     { fr: "Abondance", en: "Abundance" }
   ]);
@@ -138,20 +143,27 @@ export default function Topbar() {
               <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
                 {/* Odomètre : chiffres qui roulent verticalement, pulse
                     uniquement aux jalons (changement de suffixe K→M→B).
-                    `alive` = débit réel > 0 → jamais de cadran mort. */}
-                <OdometerNumber value={c.value} alive={c.rate.gt(0)} />
+                    `alive` = débit réel > 0 → jamais de cadran mort.
+                    En crise terminale : cadran figé (le jeu est en pause). */}
+                <OdometerNumber value={c.value} alive={!crisisFrozen && c.rate.gt(0)} />
               </span>
             </div>
             <div className="resource-rate-row">
-              <span className={`rate-value ${rateClass(c.rate)}`}>
-                <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
-                {/* Convention compacte « /s » (celle de la boutique) ; le cap nomade
-                    passe en suffixe court — le détail vit dans le tooltip. */}
-                <strong id={c.rateId}>
-                  {rateSign(c.rate)}{fmtShort(c.rate)}
-                </strong>/s
-                {c.key === "infrastructure" && showNomadCap ? ` · cap ${fmtShort(nomadCap)}` : ""}
-              </span>
+              {crisisFrozen ? (
+                <span className="rate-value rate-frozen" title={tr({ fr: "Cité figée par la crise terminale — la production est suspendue.", en: "City frozen by the terminal crisis — production is suspended." })}>
+                  {tr({ fr: "figé", en: "frozen" })}
+                </span>
+              ) : (
+                <span className={`rate-value ${rateClass(c.rate)}`}>
+                  <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
+                  {/* Convention compacte « /s » (celle de la boutique) ; le cap nomade
+                      passe en suffixe court — le détail vit dans le tooltip. */}
+                  <strong id={c.rateId}>
+                    {rateSign(c.rate)}{fmtShort(c.rate)}
+                  </strong>/s
+                  {c.key === "infrastructure" && showNomadCap ? ` · cap ${fmtShort(nomadCap)}` : ""}
+                </span>
+              )}
             </div>
           </div>
         ))}

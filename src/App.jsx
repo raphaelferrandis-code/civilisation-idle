@@ -20,6 +20,7 @@ import logoEn from './assets/LOGO_collapse.png';
 const logoUrl = getLang() === 'en' ? logoEn : logoFr;
 
 const CityView = lazy(() => import('./components/views/CityView.jsx'));
+const RegulationView = lazy(() => import('./components/views/RegulationView.jsx'));
 const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
 const RuinsView = lazy(() => import('./components/views/RuinsView.jsx'));
 const HeritageView = lazy(() => import('./components/views/HeritageView.jsx'));
@@ -32,8 +33,6 @@ const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
 export default function App() {
   const activeView = useGameState(s => s.activeView);
   const cycles = useGameState(s => s.cycles);
-  const legitimacy = useGameState(s => s.legitimacy);
-  const dynastyCount = useGameState(s => s.dynastyCount);
   const grandResetCount = useGameState(s => s.grandResetCount || 0);
   const mourning = useGameState(s => s.mourning);
   // Niveau de crise continu (0→1), arrondi au pas de 5% pour limiter les re-renders.
@@ -51,6 +50,8 @@ export default function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
+  // Les jeux du temple (augures / Icare) ne sont PLUS des modales : ils vivent
+  // dans la scène en bas de la page Régulation (RegulationStage).
 
   // Moment signature : bandeau plein écran au passage d'un nouvel âge (Phase 7).
   // Changement d'ÉPOQUE (toutes les 5 ères) : cérémonie renforcée + bascule de peau UI.
@@ -88,16 +89,20 @@ export default function App() {
         return;
       }
 
-      // Raccourci « E » : tout acheter (Moteurs + Savoir + Infra) sans scroller.
-      // Ignoré si une saisie a le focus, si un modificateur est actif ou si un
+      // Raccourcis d'achat de masse, sans scroller :
+      //   E → tout acheter (Moteurs + Savoir + Infra)
+      //   M → Moteurs seuls,  S → Savoir seul,  I → Infrastructure seule
+      // Ignorés si une saisie a le focus, si un modificateur est actif ou si un
       // dialog est ouvert. On ne `return` PAS : la séquence debug (qui contient
       // un « e ») continue de s'accumuler plus bas.
-      if ((event.key === "e" || event.key === "E") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const buyKey = event.key.toLowerCase();
+      const buyCategory = { e: null, m: "city", s: "knowledge", i: "infra" };
+      if (Object.prototype.hasOwnProperty.call(buyCategory, buyKey) && !event.ctrlKey && !event.metaKey && !event.altKey) {
         const el = document.activeElement;
         const isTyping = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
         if (!isTyping && !document.querySelector("dialog[open]")) {
           event.preventDefault();
-          buyAllAffordable();
+          buyAllAffordable(buyCategory[buyKey]);
         }
       }
 
@@ -122,12 +127,13 @@ export default function App() {
   })), []);
 
   // Determine which tabs are unlocked
-  const isRuinsUnlocked = cycles >= 1 || dynastyCount > 0;
-  const isHeritageUnlocked = legitimacy > 0 || dynastyCount > 0;
+  const isRuinsUnlocked = cycles >= 1 || grandResetCount > 0;
+  const isHeritageUnlocked = cycles >= 1 || grandResetCount > 0;
   const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
     { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'fa-city', unlocked: true },
+    { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'fa-scale-balanced', unlocked: true },
     { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'fa-fire', unlocked: true },
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'fa-landmark', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Héritage', en: 'Heritage' }, icon: 'fa-monument', unlocked: isHeritageUnlocked },
@@ -215,6 +221,8 @@ export default function App() {
         {/* Vue Active */}
         <Suspense fallback={null}>
           {activeView === 'city' && <CityView />}
+
+          {activeView === 'regulation' && <RegulationView />}
 
           {activeView === 'prestige' && <PrestigeView />}
 

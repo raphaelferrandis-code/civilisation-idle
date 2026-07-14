@@ -123,15 +123,21 @@ export function cadmosStabilityMultiplier() {
 }
 
 // ── Legs d'épitaphe ──────────────────────────────────────────────────────────
+// Durée EFFECTIVE du legs : constante de base amplifiée par « Épitaphes
+// profondes » (epitaphAmp 1.5 → 8 min ×2.5 = 20 min). Source unique : le timer
+// de CityView et le footnote du dialogue d'épitaphe doivent lire cette fonction,
+// jamais EPITAPH_LEGACY_DURATION_MS brut.
+export function epitaphLegacyDurationMs() {
+  return EPITAPH_LEGACY_DURATION_MS * (1 + ruinEffectSum("epitaphAmp"));
+}
+
 export function activeEpitaphLegacy() {
   const active = state.activeEpitaphLegacy;
   const legacy = active ? epitaphLegacyById(active.id) : null;
   if (!legacy) return null;
   const startedAt = active.startedAt || state.cycleStartedAt || Date.now();
   const elapsed = Date.now() - startedAt;
-  // « Épitaphes profondes » (epitaphAmp 1.5) : le legs dure ×2.5 (8 → 20 min).
-  const duration = EPITAPH_LEGACY_DURATION_MS * (1 + ruinEffectSum("epitaphAmp"));
-  if (elapsed > duration) return null;
+  if (elapsed > epitaphLegacyDurationMs()) return null;
   return { ...active, definition: legacy, elapsed };
 }
 

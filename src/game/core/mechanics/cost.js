@@ -19,8 +19,9 @@ function buildingEffectiveScale(building) {
 
 function buildingDiscount(building) {
   let discount = 1;
-  // -5% par dynastie fondée, plafonné à -60% (sinon trivialise la progression longue)
-  if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.dynastyCount));
+  // -5% par effondrement traversé (cycles), plafonné à -60% : les anciennes routes
+  // se souviennent des chemins d'avant la chute (ex-remise « par dynastie »).
+  if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.cycles));
   if (has("trait_nomadism")) discount *= 0.7;
   // Dogme « Enracinement » : fin de l'entretien A2 (tick.js) contre +15 % partout.
   if (has("trait_enracinement")) discount *= ENRACINEMENT_COST_MULT;
@@ -124,7 +125,7 @@ export function archaeologyCandidates() {
   // Compléter avec des bâtiments avancés si peu de collapsed
   const seen = new Set(collapsed.map((b) => b.id));
   const advanced = buildings.filter((b) => (b.base >= 100000 || b.category !== "city") && !seen.has(b.id));
-  const seed = Math.max(0, state.cycles * 31 + state.dynastyCount * 17 + totalBuildingCount());
+  const seed = Math.max(0, state.cycles * 31 + (state.grandResetCount || 0) * 17 + totalBuildingCount());
   const extras = [];
   for (let i = 0; extras.length < 5 - collapsed.length && i < advanced.length * 2; i++) {
     const b = advanced[(seed + i * 7) % advanced.length];

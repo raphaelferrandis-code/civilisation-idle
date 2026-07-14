@@ -27,14 +27,59 @@ export {
   completeCollapse,
   collapse,
   runCrisisAction,
-  togglePolicy
+  togglePolicy,
+  setTestamentLegacy
 } from './actions/crisis.js';
+
+export {
+  castAugury,
+  doubleAugury,
+  auguryCost,
+  auguryBaseOdds,
+  auguryTierOdds,
+  auguryTierBones,
+  AUGURY_RITES,
+  AUGURY_TIER_LABELS
+} from './actions/augures.js';
+
+export {
+  launchIcarus,
+  cashOutIcarus,
+  icarusStakes,
+  icarusFlying,
+  icarusTakeoffAt,
+  icarusMultiplier,
+  icarusMultiplierAt,
+  icarusLastOutcome,
+  icarusPotFaveur,
+  icarusAlmostPayout,
+  icarusUnlocked,
+  icarusEffectiveEdge
+} from './actions/icarus.js';
+
+export {
+  faveurShopItems,
+  buyFaveurItem,
+  blessingMultiplier,
+  diceOddsBonus,
+  wingEdgeReduction
+} from './actions/faveurShop.js';
+
+export {
+  setStewardClause,
+  tickSteward,
+  stewardSlotCount,
+  stewardActionChoices,
+  stewardActionAllowed,
+  stewardMagistrate,
+  STEWARD_SLOT_UNLOCKS,
+  BASE_ACTION_LABELS
+} from './actions/steward.js';
 
 export { addProductionPenalty } from './mechanics.js';
 
 export {
   checkMythOnCollapse,
-  foundDynasty,
   chooseActiveRuins,
   promptActiveRuinsForNewCycle,
   promptCadmosAgeName,

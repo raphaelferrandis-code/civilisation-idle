@@ -24,11 +24,10 @@ import {
   DEMESURE_FREE_LOG_POP,
   DEMESURE_COEF,
   DEMESURE_SOFT_CAP,
-  DEMESURE_LEGIT_LOG_COEF,
   DEMESURE_CUT_CAP
 } from '../../balance.js';
 import { isMythEffectActive } from '../../../data/myths.js';
-import { has, hasDoctrine, ruinEffectSum } from '../shared.js';
+import { has, ruinEffectSum } from '../shared.js';
 import { getBuildingSums } from './buildingOutput.js';
 import { ruptureGrowthMultiplier, policyFoyerDamp, policyDemesureDamp } from './crisisLevers.js';
 
@@ -166,15 +165,14 @@ export function pressureBreakdown(forceDecimalPath = false) {
   // soustraient en PRISE DIRECTE, et l'infrastructure « porte » la charge.
   const structuralNet = Math.max(0, positiveInstability + negativeInstability * STABILIZER_DIRECT_FACTOR);
   const structural = softCap(structuralNet * 2.2 / (1 + effCoverage * STRUCTURAL_COVERAGE_DAMP), 0.75);
-  const institutionalLog = Math.log10(1 + effCoverage * INFRA_COVERAGE_MITIGATION_MULT + state.legitimacy * 0.16);
+  const institutionalLog = Math.log10(1 + effCoverage * INFRA_COVERAGE_MITIGATION_MULT);
   const mitigation = Math.min(MITIGATION_CAP, institutionalLog * MITIGATION_LOG_COEF + ruinEffectSum("stability") + foundingGrace + settlingGrace);
   // A1 — Démesure (hubris d'échelle) : socle d'instabilité qui croît avec la taille
   // de la cité, ajouté APRÈS la mitigation. Rework cadence late-game — désormais :
   //   • BORNÉ par un soft cap (Michaelis-Menten) → contribution max ~DEMESURE_SOFT_CAP
   //     (avant : non borné → 1.56 à 10^30, épinglant la cible à 2-4× le seuil).
-  //   • RÉDUCTIBLE par la GOUVERNANCE : la Légitimité (institutions administrant
-  //     l'empire, terme log) + la politique « Gouvernance impériale » (demesureDamp),
-  //     plafonné à DEMESURE_CUT_CAP → jamais totalement effacé par les leviers seuls.
+  //   • RÉDUCTIBLE par la GOUVERNANCE : la politique « Gouvernance impériale »
+  //     (demesureDamp), plafonnée à DEMESURE_CUT_CAP → jamais totalement effacée.
   // Reste à 0 sous le seuil (early game intact). Sûr au-delà du float (log10 Decimal fini).
   const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : toNum(D(state.population).max(10).log10());
   // « Gouvernail des millions » (demesureSlow) : l'hubris d'échelle croît moins vite.
@@ -182,13 +180,32 @@ export function pressureBreakdown(forceDecimalPath = false) {
     * (1 - Math.min(0.8, ruinEffectSum("demesureSlow")));
   const demesureCut = Math.min(
     DEMESURE_CUT_CAP,
-    Math.log10(1 + Math.max(0, state.legitimacy)) * DEMESURE_LEGIT_LOG_COEF + policyDemesureDamp()
+    policyDemesureDamp()
   );
   const demesure = softCap(demesureRaw, DEMESURE_SOFT_CAP) * (1 - demesureCut);
   const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowthMultiplier() - mitigation);
-  const total = (hasDoctrine("acier") ? baseTotal * 1.25 : baseTotal) + demesure;
+  const total = baseTotal + demesure;
 
-  const result = { scarcity, inequality, complexity, dissent, structural, demesure, mitigation, total };
+  const result = {
+    scarcity, inequality, complexity, dissent, structural, demesure, mitigation, total,
+    // Sous-moteurs exposés pour l'Anatomie de la Rupture (onglet Régulation) :
+    // valeurs intermédiaires DÉJÀ calculées ci-dessus, affichage seul. Champ
+    // purement additif — les 8 clés historiques restent le contrat (golden
+    // master + parité Decimal ne comparent qu'elles).
+    gauges: {
+      scarcityDeficit: scarcityRawUsed,
+      goldReserveSeconds: state.goldReserveEase,
+      riskyBuildingCount,
+      stabilizerCount: sums.stabilizerCount || 0,
+      knowledgeStrain,
+      infraCoverage: effCoverage,
+      structuralNet,
+      popLog,
+      demesureCut,
+      ruinStability: ruinEffectSum("stability"),
+      graces: foundingGrace + settlingGrace
+    }
+  };
   if (!forceDecimalPath) {
     renderCache._framePressure = result;
     renderCache._framePressureVer = renderCache.frameVersion;

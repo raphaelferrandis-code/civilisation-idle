@@ -1,30 +1,22 @@
 import { useGameState } from '../../hooks/useGameState.js';
 import { grandResetProductionMult } from '../../game/core/balance.js';
 import {
-  legitimacyGain,
-  institutionMultiplier,
   isUnlocked,
   canBuyUpgrade,
   upgradeCostText,
   has,
-  dynastyRuinsThreshold,
-  grandResetLegitimacyCost,
-  grandResetMythsRequired,
-  completedMythCount
+  grandResetMilestone,
+  grandResetMilestoneMet,
+  isGrandResetMilestoneRevealed
 } from '../../game/core/mechanics.js';
-import { foundDynasty, buyUpgrade, performGrandReset, engraveCadmosEpitaph } from '../../game/core/actions.js';
+import { buyUpgrade, performGrandReset, engraveCadmosEpitaph } from '../../game/core/actions.js';
 import { upgrades } from '../../game/data/upgrades.js';
-import { DOCTRINES } from '../../game/data/world.js';
 import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { D } from '../../game/core/num.js';
 
 export default function HeritageView() {
-  const ruins = useGameState(s => s.ruins);
-  const legitimacy = useGameState(s => s.legitimacy);
-  const dynastyCount = useGameState(s => s.dynastyCount);
-  const dynastyDoctrine = useGameState(s => s.dynastyDoctrine);
+  useGameState(s => s.ruins);
   const grandResetCount = useGameState(s => s.grandResetCount) || 0;
   const ragnarokHeritage = useGameState(s => Boolean(s.ragnarokHeritage));
   const cadmosHeritage = useGameState(s => Boolean(s.cadmosHeritage));
@@ -41,100 +33,22 @@ export default function HeritageView() {
   const cadmosFull = cadmosPermanentEpitaphs.length >= CADMOS_MAX_PERMANENT_EPITAPHS;
   const cadmosBonusPct = Math.round(CADMOS_EPITAPH_BONUS_PCT * 100);
 
-  const legitGain = legitimacyGain();
-  const dynCount = dynastyCount || 0;
-  const dynPalier = Math.floor(dynCount / 5);
-  const dynastiesToNextPalier = 5 - (dynCount % 5);
-
-  const nextPalierText = dynastiesToNextPalier === 5
-    ? tr({ fr: `palier atteint (+${dynPalier})`, en: `tier reached (+${dynPalier})` })
-    : tr({ fr: `dans ${dynastiesToNextPalier} dynasties (+${dynPalier + 1})`, en: `in ${dynastiesToNextPalier} dynasties (+${dynPalier + 1})` });
-
-  const activeDoctrine = DOCTRINES.find(d => d.id === dynastyDoctrine);
-
   const visibleHeritageUpgrades = upgrades.filter(
     upgrade => (upgrade.group || "heritage") === "heritage" && isUnlocked(upgrade)
   );
 
-  const dynastyThreshold = dynastyRuinsThreshold();
-
-  const isGrandResetUnlocked = has("grand_reset");
   const maxGrandResets = ragnarokHeritage ? 11 : 10;
   const nextGrandReset = Math.min(maxGrandResets, grandResetCount + 1);
   const grandResetCapped = grandResetCount >= maxGrandResets;
   const nextResetIsRagnarok = ragnarokHeritage && grandResetCount === 10;
-  const nextResetLegitCost = grandResetLegitimacyCost(nextGrandReset);
-  const nextResetMythsRequired = grandResetMythsRequired(nextGrandReset);
-  const mythsDone = completedMythCount();
-  const grandResetBlocked = legitimacy < nextResetLegitCost || mythsDone < nextResetMythsRequired;
+  // Le GR se débloque en atteignant son JALON marquant (échelle GR I→XI). Le jalon
+  // reste masqué (« ??? ») jusqu'à être atteint : le joueur le découvre.
+  const nextMilestone = grandResetMilestone(nextGrandReset);
+  const milestoneReady = grandResetMilestoneMet(nextGrandReset);
+  const milestoneRevealed = isGrandResetMilestoneRevealed(nextGrandReset);
 
   return (
     <section className="view active" id="tech">
-      {/* Dynastie Panel */}
-      <div className="panel prestige-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{tr({ fr: "Dynastie", en: "Dynasty" })}</h2>
-          </div>
-          <button
-            id="dynastyBtn"
-            onClick={foundDynasty}
-            disabled={legitGain <= 0}
-            title={legitGain <= 0 ? tr({ fr: "Pas assez de légitimité pour fonder une dynastie", en: "Not enough legitimacy to found a dynasty" }) : undefined}
-          >
-            {tr({ fr: "Fonder", en: "Found" })}
-          </button>
-        </div>
-        <p className="body-copy">
-          {tr({
-            fr: "Plusieurs effondrements racontent une légende. Une dynastie se fonde quand les chroniques ont assez de matière pour fabriquer une légitimité durable.",
-            en: "Several collapses tell a legend. A dynasty is founded when the chronicles hold enough material to forge lasting legitimacy."
-          })}
-        </p>
-        <div className="prestige-stats">
-          <div>
-            <span>{tr({ fr: "Prochaine fondation", en: "Next founding" })}</span>
-            <strong>{tr({ fr: `${fmt(dynastyThreshold)} ruines`, en: `${fmt(dynastyThreshold)} ruins` })}</strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Progression", en: "Progress" })}</span>
-            <strong>
-              {legitGain > 0
-                ? tr({ fr: `+${fmt(legitGain)} légitimité possible`, en: `+${fmt(legitGain)} legitimacy possible` })
-                : tr({ fr: `Manque ${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruines`, en: `${fmt(D(dynastyThreshold).sub(ruins).max(0))} ruins short` })}
-            </strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Légitimité gagnée", en: "Legitimacy gained" })}</span>
-            <strong>{fmt(legitGain)}</strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Légitimité", en: "Legitimacy" })}</span>
-            <strong>{fmt(legitimacy)}</strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Palier dynastique", en: "Dynastic tier" })}</span>
-            <strong>{dynPalier > 0 ? tr({ fr: `+${dynPalier} / fondation`, en: `+${dynPalier} / founding` }) : tr({ fr: "+0 / fondation", en: "+0 / founding" })}</strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Prochain palier", en: "Next tier" })}</span>
-            <strong>{nextPalierText}</strong>
-          </div>
-          <div>
-            <span>{tr({ fr: "Institutions", en: "Institutions" })}</span>
-            <strong>x{fmt(institutionMultiplier())}</strong>
-          </div>
-        </div>
-        <div className="doctrine-display">
-          <span>{activeDoctrine ? activeDoctrine.name : tr({ fr: "Aucune doctrine", en: "No doctrine" })}</span>
-          <small>
-            {activeDoctrine
-              ? `${activeDoctrine.bonus} | ${activeDoctrine.penalty}`
-              : tr({ fr: "À choisir lors de la prochaine fondation", en: "To be chosen at the next founding" })}
-          </small>
-        </div>
-      </div>
-
       {/* Heritage Panel */}
       <div className="panel">
         <div className="panel-heading">
@@ -144,8 +58,8 @@ export default function HeritageView() {
         </div>
         <p className="body-copy">
           {tr({
-            fr: "Ces améliorations survivent aux cycles et s'appliquent immédiatement. Achetées avec la légitimité gagnée lors des fondations de dynasties.",
-            en: "These upgrades survive across cycles and apply immediately. Bought with the legitimacy gained when founding dynasties."
+            fr: "Ces améliorations survivent aux cycles et s'appliquent immédiatement. Achetées avec les Ruines récoltées à chaque effondrement.",
+            en: "These upgrades survive across cycles and apply immediately. Bought with the Ruins harvested at each collapse."
           })}
         </p>
         <div className="upgrade-grid">
@@ -247,7 +161,7 @@ export default function HeritageView() {
         </div>
       )}
 
-      {/* Grand Reset Panel */}
+      {/* Grand Reset Panel — débloqué par un JALON marquant (cf. table page Effondrement) */}
       <div className="panel grand-reset-panel" id="grandResetPanel">
         <div className="panel-heading">
           <div>
@@ -256,11 +170,10 @@ export default function HeritageView() {
           <button
             id="grandResetBtn"
             className="grand-reset-btn"
-            disabled={!isGrandResetUnlocked || grandResetCapped || grandResetBlocked}
+            disabled={grandResetCapped || !milestoneReady}
             title={grandResetCapped
               ? tr({ fr: "Nombre maximum de Grands Resets atteint", en: "Maximum Grand Resets reached" })
-              : !isGrandResetUnlocked ? tr({ fr: "Grand Reset pas encore débloqué", en: "Grand Reset not yet unlocked" })
-              : grandResetBlocked ? tr({ fr: "Conditions du Grand Reset non remplies", en: "Grand Reset requirements not met" }) : undefined}
+              : !milestoneReady ? tr({ fr: "Jalon du prochain Grand Reset non atteint", en: "Next Grand Reset milestone not reached" }) : undefined}
             onClick={performGrandReset}
           >
             {grandResetCapped ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Reinitialiser", en: "Reset" })}
@@ -286,15 +199,12 @@ export default function HeritageView() {
             <strong>{grandResetCapped ? tr({ fr: "Maximum", en: "Maximum" }) : nextResetIsRagnarok ? tr({ fr: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruines | x4 Ruines extra`, en: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruins | x4 Ruins extra` }) : tr({ fr: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruines`, en: `x${grandResetProductionMult(nextGrandReset).toFixed(0)} prod & ruins` })}</strong>
           </div>
           <div>
-            <span>{tr({ fr: "Requis", en: "Required" })}</span>
+            <span>{tr({ fr: "Jalon requis", en: "Required milestone" })}</span>
             <strong>
               {grandResetCapped ? tr({ fr: "Maximum atteint", en: "Maximum reached" })
-                : nextResetIsRagnarok ? tr({ fr: "La Fin des Dieux", en: "The End of the Gods" })
-                : !isGrandResetUnlocked ? tr({ fr: "Upgrade Grand Reset (300 légitimité)", en: "Grand Reset upgrade (300 legitimacy)" })
-                : [
-                    nextResetLegitCost > 0 ? tr({ fr: `${fmt(nextResetLegitCost)} légitimité`, en: `${fmt(nextResetLegitCost)} legitimacy` }) : null,
-                    nextResetMythsRequired > 0 ? tr({ fr: `${mythsDone}/${nextResetMythsRequired} Mythes complétés`, en: `${mythsDone}/${nextResetMythsRequired} Myths completed` }) : null
-                  ].filter(Boolean).join(" + ") || tr({ fr: "Prêt", en: "Ready" })}
+                : milestoneReady ? tr({ fr: "Prêt !", en: "Ready!" })
+                : (milestoneRevealed && nextMilestone) ? `« ${tr(nextMilestone.name)} »`
+                : tr({ fr: "Jalon secret — à découvrir", en: "Secret milestone — to discover" })}
             </strong>
           </div>
         </div>

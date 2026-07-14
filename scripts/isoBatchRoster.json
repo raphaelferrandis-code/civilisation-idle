@@ -150,6 +150,36 @@
       "id": "9848d307-e17f-4405-903b-3f149da3fc38",
       "anim": true,
       "prompt": "futuristic child, small dark suit with glowing green neon stripes, luminous sneakers, clean pixel art"
+    },
+    {
+      "name": "modernman",
+      "id": "8a03eb03-34b0-4d70-9726-a43a1dd75e4c",
+      "anim": true,
+      "prompt": "near-future megacity man, fitted charcoal techwear jacket with glowing cyan neon piping along the seams and a high collar, a bright electric-teal circuit-pattern panel across the chest, slim graphite trousers with a luminous cyan stripe, a sleek holographic visor over the eyes, short modern undercut hair, high-contrast near-black palette with vivid cyan and electric-teal neon accents, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "modernman2",
+      "id": "1264dd0c-fc6a-40af-a4b3-a6ea2abd01df",
+      "anim": true,
+      "prompt": "near-future megacity man, dark brown skin, charcoal techwear jacket with glowing magenta and cyan neon piping, circuit-pattern chest panel, graphite trousers, holographic visor, cyan/magenta neon accents, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "modernwoman",
+      "id": "10683c6b-95fe-4f11-80cc-4af08275c830",
+      "anim": true,
+      "prompt": "near-future megacity woman, charcoal techwear jacket over sleek bodysuit, glowing cyan neon piping, teal circuit chest panel, graphite leggings with luminous stripe, holographic visor, undercut hair, cyan/teal neon accents, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "modernwoman2",
+      "id": "0204e607-5167-4ef0-a548-fc6c69fdb57c",
+      "anim": true,
+      "prompt": "near-future megacity woman, dark brown skin, charcoal techwear jacket, magenta and cyan neon piping, circuit chest panel, graphite leggings, holographic visor, sleek bun, cyan/magenta neon accents, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "modernchild",
+      "id": "c6f3fceb-265d-4e81-9532-1603187221bb",
+      "anim": true,
+      "prompt": "near-future megacity child, small, puffy charcoal techwear hooded jacket with glowing cyan neon trim, graphite trousers with luminous stripe, chunky light-up sneakers, cyan neon accents, realistic proportions, clean pixel art"
     }
   ],
   "vehicles": [
@@ -198,17 +228,56 @@
     }
   ],
   "boatsIso": [
-    { "name": "raft", "id": "fba17c29-acc6-4472-90ad-0bb2602643f6", "prompt": "log raft + square sail (8-dir 80px)" },
-    { "name": "sail", "id": "68c37d35-861a-464f-a60e-a9b4a5c2ac41", "prompt": "medieval river sailboat (8-dir 80px)" },
-    { "name": "steam", "id": "22e5a64c-f07a-41e5-b1cf-7a11069b53a2", "prompt": "river paddle steamer (8-dir 80px)" },
-    { "name": "container", "id": "1509f658-ff78-41f2-9385-16276a2463ab", "prompt": "container barge (8-dir 80px)" }
+    {
+      "name": "raft",
+      "id": "fba17c29-acc6-4472-90ad-0bb2602643f6",
+      "prompt": "log raft + square sail (8-dir 80px)"
+    },
+    {
+      "name": "sail",
+      "id": "68c37d35-861a-464f-a60e-a9b4a5c2ac41",
+      "prompt": "medieval river sailboat (8-dir 80px)"
+    },
+    {
+      "name": "steam",
+      "id": "22e5a64c-f07a-41e5-b1cf-7a11069b53a2",
+      "prompt": "river paddle steamer (8-dir 80px)"
+    },
+    {
+      "name": "container",
+      "id": "1509f658-ff78-41f2-9385-16276a2463ab",
+      "prompt": "container barge (8-dir 80px)"
+    }
   ],
   "decorIso": {
-    "_doc": "Retours Raph 2026-07-12 — arbres/lampes/médians/places : candidats choisis téléchargés DIRECT (URLs frame_N ou unknown.png) → public/pixelart/iso/. Packs : arbres 224b9b79(f1,f3)+c5b10d90(f0,f1) ; lampes antique b9d09389(f0), gas 1be5b7cb(f1), electric e66d6f95(f1), energy a40668b8(f0) ; médian 8-dir 3b2c6a6c (rotations SE/SW) ; places 256px antique 9447eac6, medieval 41389197, industrial d132a8f2, modern 0e63ff45, cosmic 7ff744fa",
-    "bridgesIso8dir": { "_doc": "segments — ABANDONNÉS (tuilage libre = zigzag), remplacés par les ponts COMPLETS ci-dessous", "bois": "05ce4da7-a2f8-4541-a3f4-76abce54e29d", "pierre": "54248ca9-5c36-4105-8e0f-9ab10e7efb16", "fer": "0acb0abd-4d48-4efa-8dd7-b86083f67060", "beton": "ef9b2ae2-d9ce-4659-acb9-e161cd1889c5", "energie": "44282faf-c290-4c69-b706-786ed167802c" },
-    "bridgesFull": { "_doc": "ponts COMPLETS 256px 1-direction (SW écran) → iso/bridge-full-*.png ; beton généré en SE → FLIPPÉ X au download ; energie v1 (eau bakée) remplacée par v2 272764ee", "bois": "a5080844-2ecb-4e6c-9450-09beb7bd0442", "pierre": "eef00025-bdc0-41c5-b169-18c31643cdb3", "fer": "a81c9e79-a1a1-4fb3-b1ea-8636b0e6021e", "beton": "09a05ff2-cafa-44a6-9e55-d32a19a45194", "energie": "272764ee-4bc0-459b-8405-7f4e2f2d608e" },
-    "pontoonsIso8dir": { "_doc": "bois = paire NORD (nw) court en SW ; pierre = sw ; beton = eau bakée REBUT (pierre sert au stade 3+)", "bois": "3c0bbf5a-9d84-4137-8d8b-4319bd9fa3a5", "pierre": "dde7553c-6729-4ef2-a2cb-b339063af84a", "beton": "b3e3b9c0-8231-4816-8a9e-1e47b5acfef6" },
-    "plazasReroll": { "_doc": "re-rolls validés 2026-07-12 (antique DA grec méandre/amphores ; modern sans stèles-miroirs)", "antique": "4af430b9-20a1-465f-9979-1417582586a4", "modern": "ec4d0b70-459f-4788-bbf5-751a35f8f2e3" }
+    "_doc": "Retours Raph 2026-07-12 — arbres/lampes/médians/places : candidats choisis téléchargés DIRECT (URLs frame_N ou unknown.png) → public/pixelart/iso/. Packs : arbres 224b9b79(f1,f3)+c5b10d90(f0,f1) ; lampes v3 : antique & gas refaits en 3/4 iso high top-down 64×128 via create_map_object (« pas orienté 3/4, vu de face », Raph 2026-07-13) antique e372b480 (marbre blanc ; variante sombre de2338bb rejetée), gas d3d037ab ; electric a1e90d5b & energy 34bdff47 gardés v2 (mâts ronds invariants) ; v2 128px : antique 0c1dd619, gas 1196c321 (v1 96px : b9d09389/1be5b7cb/e66d6f95/a40668b8) ; médian 8-dir 3b2c6a6c (rotations SE/SW) ; places 256px antique 9447eac6, medieval 41389197, industrial d132a8f2, modern 0e63ff45, cosmic 7ff744fa",
+    "bridgesIso8dir": {
+      "_doc": "segments — ABANDONNÉS (tuilage libre = zigzag), remplacés par les ponts COMPLETS ci-dessous",
+      "bois": "05ce4da7-a2f8-4541-a3f4-76abce54e29d",
+      "pierre": "54248ca9-5c36-4105-8e0f-9ab10e7efb16",
+      "fer": "0acb0abd-4d48-4efa-8dd7-b86083f67060",
+      "beton": "ef9b2ae2-d9ce-4659-acb9-e161cd1889c5",
+      "energie": "44282faf-c290-4c69-b706-786ed167802c"
+    },
+    "bridgesFull": {
+      "_doc": "ponts COMPLETS 256px 1-direction (SW écran) → iso/bridge-full-*.png ; beton généré en SE → FLIPPÉ X au download ; energie v1 (eau bakée) remplacée par v2 272764ee",
+      "bois": "a5080844-2ecb-4e6c-9450-09beb7bd0442",
+      "pierre": "eef00025-bdc0-41c5-b169-18c31643cdb3",
+      "fer": "a81c9e79-a1a1-4fb3-b1ea-8636b0e6021e",
+      "beton": "09a05ff2-cafa-44a6-9e55-d32a19a45194",
+      "energie": "272764ee-4bc0-459b-8405-7f4e2f2d608e"
+    },
+    "pontoonsIso8dir": {
+      "_doc": "axes MESURÉS au PCA 2026-07-13 (l'ancienne note était inversée) : bois ne/sw = NE-SW écran (N-S monde), bois nw/se = NW-SE écran (E-W monde) ; pierre sw = N-S, pierre se = E-W (DL brut, comme sw) ; beton = eau bakée REBUT (pierre sert au stade 3+)",
+      "bois": "3c0bbf5a-9d84-4137-8d8b-4319bd9fa3a5",
+      "pierre": "dde7553c-6729-4ef2-a2cb-b339063af84a",
+      "beton": "b3e3b9c0-8231-4816-8a9e-1e47b5acfef6"
+    },
+    "plazasReroll": {
+      "_doc": "re-rolls validés 2026-07-12 (antique DA grec méandre/amphores ; modern sans stèles-miroirs)",
+      "antique": "4af430b9-20a1-465f-9979-1417582586a4",
+      "modern": "ec4d0b70-459f-4788-bbf5-751a35f8f2e3"
+    }
   },
   "millWheelsIso": {
     "_doc": "v2 (retour Raph « il faut la voir de 3/4 ») : objets 8-DIRECTIONS 96px, la rotation south-west EST le 3/4 (audit wheel-rot-audit.png), animée seule « turning » 6 frames — fetch → public/pixelart/iso/mill-wheel-{k}.png. v1 (1-dir promus, trop de face) : cbf15046/a199b969/76e7fc8a",

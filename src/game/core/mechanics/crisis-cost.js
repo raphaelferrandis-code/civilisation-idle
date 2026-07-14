@@ -11,7 +11,9 @@ import {
   CRISIS_COST_ACTION_GROWTH,
   FOYER_REFORM,
   FATIGUE_EFFECT_PENALTY,
-  FATIGUE_COST_PENALTY
+  FATIGUE_COST_PENALTY,
+  CLEMENCY_PER_LOSS,
+  GAMBLE_P_MAX
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
@@ -26,6 +28,21 @@ export function regulFatigueEffectMult() {
 }
 export function regulFatigueCostMult() {
   return 1 + (state.regulFatigue || 0) * FATIGUE_COST_PENALTY;
+}
+
+// Clémence des augures — bonus de chance d'un pari, dérivé des revers
+// CONSÉCUTIFS en fin d'historique (state.gambleHistory[id] : 1 = gain, 0 =
+// creux, 2 = Chien qui compte DOUBLE — la pitié des dieux), remis à zéro au
+// premier gain et au cycle. Retourne le bonus EFFECTIF (déjà borné par
+// GAMBLE_P_MAX, avec la proba de base en second argument) pour que l'UI
+// n'annonce jamais plus que ce que le tirage applique réellement.
+// NB : distincte de la FAVEUR (monnaie gagnée aux jeux).
+export function clemencyBonus(id, baseP = 0.5) {
+  const rolls = state.gambleHistory?.[id];
+  if (!Array.isArray(rolls) || !rolls.length) return 0;
+  let crans = 0;
+  for (let i = rolls.length - 1; i >= 0 && rolls[i] !== 1; i--) crans += rolls[i] === 2 ? 2 : 1;
+  return Math.max(0, Math.min(GAMBLE_P_MAX, baseP + crans * CLEMENCY_PER_LOSS) - baseP);
 }
 
 // Contexte de déblocage des actions de régulation (ères/paliers/mythes). Fourni

@@ -2,6 +2,7 @@
 import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
+import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -119,6 +120,11 @@ const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel (redingote, ou
   women: [{ name: 'industrialwoman', scale: 0.85 }, { name: 'industrialwoman2', scale: 0.85 }],
   child: { name: 'industrialchild', scale: 0.6 },
 };
+const AGENT_MODERN = { // band 6 (époque Néon, ères 30-34) : citoyen near-future de mégalopole (techwear à accents néon cyan/teal, visière holo) — DISTINCT du cyberpunk cosmique b7+
+  men: [{ name: 'modernman', scale: 0.85 }, { name: 'modernman2', scale: 0.85 }],
+  women: [{ name: 'modernwoman', scale: 0.85 }, { name: 'modernwoman2', scale: 0.85 }],
+  child: { name: 'modernchild', scale: 0.6 },
+};
 const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi
   men: [{ name: 'futureman', scale: 0.85 }, { name: 'futureman2', scale: 0.85 }],       // + variante peau noire + tenue
   women: [{ name: 'futurewoman', scale: 0.85 }, { name: 'futurewoman2', scale: 0.85 }],
@@ -128,8 +134,9 @@ function agentSetForBand(band) {
   return band <= 1 ? AGENT_PREHISTORIC
     : band <= 3 ? AGENT_MEDIEVAL
       : band <= 4 ? AGENT_ANTIQUITY
-        : band <= 6 ? AGENT_INDUSTRIAL
-          : AGENT_FUTURE;
+        : band <= 5 ? AGENT_INDUSTRIAL   // Fonte : XIXe industriel
+          : band <= 6 ? AGENT_MODERN     // Néon : citoyen near-future de mégalopole
+            : AGENT_FUTURE;              // cosmique : cyberpunk sci-fi
 }
 // Spec (nom+scale) d'un genre/variante. charType 0=homme 1=femme 2=enfant ; variant tiré au
 // spawn (p.skinVariant). Modulo → repli sur la variante 0 si l'ère n'a qu'une variante.
@@ -154,7 +161,7 @@ function riotEraKey(band) {
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
 
 ensureAgentChar('villager');
-for (const set of [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_FUTURE])
+for (const set of [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_FUTURE])
   for (const s of [...set.men, ...set.women, set.child]) ensureAgentChar(s.name);
 if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
@@ -228,22 +235,23 @@ function ensureAgentDiag(name) {
   }
   return c;
 }
-// Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
+// ── Personnage NOMMÉ en VUE DIAGONALE (jumeau iso de drawNamedAgent) ─────────
+// Bandes /pixelart/agents/…/{name}-{southeast|…}.png via ensureAgentDiag.
 // ⚠ Taille de frame DÉDUITE de l'image (frames carrées : fw = hauteur de bande) —
 // les personnages v3 sortent en 92×92, pas au 68 des bandes standard.
 // `distPx` (odomètre p.walkDist, px monde) : l'animation avance PAR DISTANCE parcourue
 // (un pas ≈ __strideLen px monde par frame, défaut 2.2) → les pieds accrochent le sol,
 // fini le patinage (retour Raph). Repli cadence temporelle si absent.
-function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null) {
-  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-  const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
-  const c = ensureAgentDiag(spec.name);
+// Renvoie { drawW, drawH, top } comme le cardinal (l'émeutier y ancre son halo
+// de torche), ou false si une des 4 bandes manque (l'appelant garde son repli).
+function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null) {
+  const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
   const img = c.img[ISO_DIAG[d]];
   const fh = img.naturalHeight || AGENT_FH;
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
-  const drawH = CM.TILE * z * spec.scale * AGENT_SCALE * scaleMul, drawW = drawH;
+  const drawH = CM.TILE * z * scale * AGENT_SCALE * scaleMul, drawW = drawH;
   let frame = 0;
   if (walking) {
     if (distPx != null) {
@@ -257,7 +265,13 @@ function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;
-  return true;
+  return { drawW, drawH, top };
+}
+// Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
+function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null) {
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
+  return !!drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx);
 }
 
 // ── Vues DIAGONALES des véhicules (chantier iso) ─────────────────────────────
@@ -437,8 +451,14 @@ function cityMapDirBit(dirIndex) {
 
 function roadStepAllowed(gx, gy, dirIndex) {
   const road = CM.layout && CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
-  if (road) return !!(road.mask & cityMapDirBit(dirIndex));
   const nx = gx + CM_DIRS[dirIndex][0], ny = gy + CM_DIRS[dirIndex][1];
+  if (road) {
+    if (road.mask & cityMapDirBit(dirIndex)) return true;
+    // Quitter la chaussée vers une cellule piétonne HORS réseau (parvis de
+    // merveille) : le mask ne connaît que les routes — autorisé si la cellule
+    // visée est marchable-parvis. Piétons seulement (les véhicules suivent les masks).
+    return !!(CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(nx, ny)));
+  }
   return CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny));
 }
 
@@ -462,10 +482,16 @@ function citizenChooseNext(p) {
   if (p.goal && !reachable(p.goal)) p.goal = null;
   const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
   if (arrived && p.social) {
-    // SEULE halte : la flânerie sur une PLACE (badauds, marché, discussions). Partout
-    // ailleurs les habitants ne s'arrêtent JAMAIS — ils repartent aussitôt (plus bas).
+    // SEULE halte : la flânerie sur une PLACE ou un PARVIS de merveille (badauds,
+    // marché, contemplation). Partout ailleurs les habitants ne s'arrêtent JAMAIS.
     p.social = false;
     p.pauseT = 2.5 + Math.random() * 5;
+    if (p.gatherDir != null) {
+      // Attroupement : on se TOURNE vers le monument et on contemple plus longtemps.
+      p.dir = p.gatherDir;
+      p.gatherDir = null;
+      p.pauseT = 6 + Math.random() * 9;
+    }
     p.goal = null;
     return;
   }
@@ -478,6 +504,8 @@ function citizenChooseNext(p) {
     // résidentiels ; le jour, elle gagne ateliers et places.
     const homeBias = Math.max(0, Math.min(1, (nf - 0.4) / 0.3));
     const plazaCells = CM.plazaRoadCells;
+    const wonderCells = CM.wonderGatherCells;
+    p.gatherDir = null; // ne survit qu'au but « merveille » repiqué ci-dessous
     const cross = Math.random() < 0.18 ? crossBankGoal(p.gx, p.gy) : null;
     if (cross) {
       p.goal = cross;
@@ -486,6 +514,15 @@ function citizenChooseNext(p) {
       // Rentrer au domicile (cellule-route bordant un logement, encore présente).
       p.goal = p.home;
       p.social = false;
+    } else if (day && wonderCells && wonderCells.length
+      && Math.random() < 0.04 + 0.55 * (CM.wonderPull || 0)) {
+      // Pèlerinage vers une MERVEILLE : filet continu de curieux (0.04) qui devient
+      // une VAGUE pendant les fenêtres d'attroupement (wonderPull, cf. updateCitizens) —
+      // la foule se forme en anneau autour du monument puis se disperse.
+      const r = wonderCells[Math.floor(Math.random() * wonderCells.length)];
+      p.goal = { gx: r.gx, gy: r.gy };
+      p.social = true;
+      p.gatherDir = r.face;
     } else if (reachable(p.work) && day && Math.random() < 0.5) {
       // Gagner son lieu de travail (bordure d'un bâtiment-moteur).
       p.goal = p.work;
@@ -510,10 +547,26 @@ function citizenChooseNext(p) {
     p.social = false;
   }
   const rev = p.dir >= 0 ? (p.dir ^ 1) : -1;
+  // MODE ESPLANADE (parvis de merveille, et SEULEMENT là) : la marche se libère de
+  // la logique de rue — pas DIAGONAUX possibles entre cellules de parvis (lignes
+  // naturelles qui traversent la place, au lieu du créneau cardinal des rues).
+  // Les diagonales restent parvis↔parvis : entrer/sortir du parvis garde le pas
+  // cardinal (masks de chaussée), et on ne coupe jamais un coin du SOCLE (les
+  // deux cellules orthogonales intermédiaires doivent être marchables aussi).
+  const onEsplanade = !!(CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy)));
   const opts = [];
   for (let i = 0; i < 4; i += 1) {
     const nx = p.gx + CM_DIRS[i][0], ny = p.gy + CM_DIRS[i][1];
     if (CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny)) && roadStepAllowed(p.gx, p.gy, i)) opts.push({ i, nx, ny });
+  }
+  if (onEsplanade) {
+    for (const [ddx, ddy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = p.gx + ddx, ny = p.gy + ddy;
+      if (!CM.wonderWalkSet.has(cityMapWalkRoadKey(nx, ny))) continue;
+      if (!CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx + ddx, p.gy))
+        || !CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy + ddy))) continue;
+      opts.push({ i: -2, nx, ny, ddx, ddy });   // i:-2 = pas diagonal (esplanade)
+    }
   }
   if (!opts.length) { p.pauseT = 0.5 + Math.random() * 1.5; p.goal = null; return; } // cellule isolée : halte (pas de marche sur place)
   const forward = opts.filter((o) => o.i !== rev);
@@ -536,7 +589,16 @@ function citizenChooseNext(p) {
   }
   p.gx = best.nx;
   p.gy = best.ny;
-  p.dir = best.i;
+  if (best.i >= 0) {
+    p.dir = best.i;
+  } else {
+    // Pas diagonal : le sprite (4 directions) prend le cap de l'axe encore le plus
+    // long vers le but — la trajectoire suit la diagonale, la façade reste stable.
+    const rdx = p.goal.gx - best.nx, rdy = p.goal.gy - best.ny;
+    p.dir = Math.abs(rdx) > Math.abs(rdy) ? (best.ddx > 0 ? 0 : 1)
+      : Math.abs(rdy) > Math.abs(rdx) ? (best.ddy > 0 ? 2 : 3)
+        : (p.dir <= 1 ? (best.ddx > 0 ? 0 : 1) : (best.ddy > 0 ? 2 : 3));
+  }
   p.tx = (p.gx + 0.5) * CM.TILE;
   p.ty = (p.gy + 0.5) * CM.TILE;
   // Cible de décalage-trottoir : bord DROIT du sens de marche (E→S, W→N, S→W, N→E),
@@ -549,7 +611,19 @@ function citizenChooseNext(p) {
   // les boulevards / faible pour les rues) qui laissait les piétons dans la voie. Réglable
   // live : window.__pedEdge (fraction de tuile ; baisser s'ils débordent, monter sinon).
   const pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge : 0.42);
-  if (rank === "main") {
+  if (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
+    // ESPLANADE : pas de trottoir — décalage PERSONNEL STABLE, tiré UNE fois par
+    // habitant (dérivé de sa phase de spawn), identique à chaque pas → trajectoires
+    // droites et foule naturellement étalée. L'ancien tirage PAR PAS « swippait »
+    // les silhouettes d'un bord de tuile à l'autre à chaque cellule (retour Raph).
+    if (p.esOx === undefined) {
+      const ph = p.phase || 0;
+      p.esOx = (((ph * 977.13) % 1) - 0.5) * CM.TILE * 0.55;
+      p.esOy = (((ph * 613.37) % 1) - 0.5) * CM.TILE * 0.55;
+    }
+    p.tox = p.esOx;
+    p.toy = p.esOy;
+  } else if (rank === "main") {
     // Boulevard 2 cellules : trottoir sur le BORD EXTÉRIEUR de la cellule (loin de la
     // couture plantée = de l'autre voie), comme les véhicules.
     const rm = CM.layout && CM.layout.roadMap;
@@ -671,6 +745,17 @@ function isCitizenInFront(p) {
 // une voiture recouvrait toujours un piéton de la même passe, même au SUD (devant) d'elle.
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
+
+  // Vagues d'attroupement aux merveilles : fenêtre de ~35 s toutes les ~2,5 min
+  // pendant laquelle citizenChooseNext aspire les passants vers les parvis
+  // (CM.wonderPull 0→1) ; hors fenêtre, simple filet de curieux. Horloge murale
+  // (pas dt) : la phase survit aux recalculs et reste commune à tous les habitants.
+  // Molette dev : __wonderCrowd = 1 force la vague, 0 la coupe, null → auto.
+  const gatherT = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  const crowdOverride = (typeof window !== 'undefined' && window.__wonderCrowd != null) ? +window.__wonderCrowd : null;
+  CM.wonderPull = !(CM.wonderGatherCells && CM.wonderGatherCells.length) ? 0
+    : crowdOverride != null ? crowdOverride
+      : (gatherT % 150) < 35 ? 1 : 0;
 
   // Gestion globale de l'apparition des bulles de pensée pour éviter le spam dû au nombre de citoyens
   if (CM.globalBubbleCooldown === undefined) {
@@ -928,45 +1013,80 @@ function drawGroundAgents(dt, now, front) {
   }
 }
 
-function drawCitizenThoughts() {
+// ── Bulles de pensée : cartouche PIXEL + icône-ressource de la récompense ────
+// Redesign (Raph 2026-07-13, « avec les icônes pixel qu'on a ») : la bulle
+// affiche l'icône de ce que le clic RAPPORTE (rewardCitizenThought) — pensée →
+// nourriture, parchemin → savoir, éclair → or. Cartouche à coins crantés,
+// taille FIXE écran (lisible à tout zoom), léger flottement si `now` fourni.
+// Projection PARTAGÉE (worldToScreen, identité en legacy) → même fonction pour
+// les deux rendus ; l'iso l'appelle en fin de frame (au-dessus de la nuit).
+// Repli emoji tant que l'icône n'est pas décodée.
+const THOUGHT_ICONS = { thought: '/pixelart/ui/res/food.png', scroll: '/pixelart/ui/res/knowledge.png', lightning: '/pixelart/ui/res/gold.png' };
+const thoughtIconCache = {};
+function thoughtIcon(type) {
+  let c = thoughtIconCache[type];
+  if (c) return c;
+  c = { img: null, ready: false };
+  thoughtIconCache[type] = c;
+  if (typeof Image !== 'undefined' && THOUGHT_ICONS[type]) {
+    const im = new Image();
+    im.onload = () => { c.img = im; c.ready = true; };
+    im.src = THOUGHT_ICONS[type];
+  }
+  return c;
+}
+// Cartouche pixel à coins crantés : deux rects croisés (cran de 2 px).
+function thoughtBubbleBox(ctx, bx, by, r, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(bx - r + 2, by - r, r * 2 - 4, r * 2);
+  ctx.fillRect(bx - r, by - r + 2, r * 2, r * 2 - 4);
+}
+// Ancre ÉCRAN de la bulle d'un habitant : au-dessus de la TÊTE du sprite
+// (hauteur d'ère × charType), pas posée sur le corps (retour Raph). PARTAGÉE
+// entre le rendu (ci-dessous) et le hit-test du clic (cityMapRuntime).
+function thoughtBubbleAnchor(p) {
+  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const spec = agentSpecFor(agentSetForBand(band), p.charType || 0) || AGENT_FALLBACK;
+  const drawH = CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE;
+  // Sommet du sprite ≈ pieds − AGENT_FEET·drawH ; la bulle flotte juste au-dessus.
+  return { x: sp.x, y: sp.y - drawH * AGENT_FEET - 10 };
+}
+function drawCitizenThoughts(now = 0) {
   if (!CM.walkRoadList.length || !CM.citizens) return;
-  const ctx = CM.ctx, z = CM.cam.zoom;
+  const ctx = CM.ctx;
   for (const p of CM.citizens) {
     if (p.thoughtType && p.thoughtTimer > 0 && !p._nightHidden) {
-      // Même position que le sprite : décalage-trottoir lissé (calculé dans drawCitizens).
-      const sx = (p.x + (p.lox || 0) - CM.cam.x) * z + CM.cw / 2;
-      const sy = (p.y + (p.loy || 0) - CM.cam.y) * z + CM.ch / 2;
-      if (sx < 0 || sy < 0 || sx > CM.cw || sy > CM.ch) continue;
-
-      const emoji = p.thoughtType === "thought" ? "💭" : p.thoughtType === "scroll" ? "📜" : "⚡";
-      // Taille fixe en pixels écran : la bulle ne suit pas le zoom, reste toujours lisible.
-      const BR = 11; // rayon fixe
-      const bx = sx;
-      const by = sy - 18;
-
-      ctx.save();
-      // Queue pointant vers le personnage (bas de la bulle)
-      ctx.beginPath();
-      ctx.moveTo(bx, by + BR - 1);
-      ctx.lineTo(bx - 3, by + BR + 6);
-      ctx.lineTo(bx + 3, by + BR + 6);
-      ctx.fillStyle = "rgba(18, 10, 5, 0.85)";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(bx, by, BR, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255, 248, 230, 0.95)";
-      ctx.strokeStyle = "rgba(201, 168, 76, 0.85)";
-      ctx.lineWidth = 1;
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.font = "13px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(emoji, bx, by + 0.5);
-
-      ctx.restore();
+      const a = thoughtBubbleAnchor(p);
+      if (a.x < 0 || a.y < -30 || a.x > CM.cw || a.y > CM.ch) continue;
+      const bob = now ? Math.sin(now / 420 + (p.phase || 0) * 4) * 1.5 : 0;
+      const BR = 12;                              // demi-cartouche, fixe écran
+      const bx = Math.round(a.x);
+      const by = Math.round(a.y + bob);           // au-dessus de la tête (ancre partagée)
+      // Queue crantée vers la tête (marches de pixels, teinte du liseré).
+      ctx.fillStyle = 'rgba(122, 92, 40, 0.95)';
+      ctx.fillRect(bx - 2, by + BR, 4, 2);
+      ctx.fillRect(bx - 1, by + BR + 2, 2, 2);
+      // Cartouche : liseré or sombre puis fond parchemin.
+      thoughtBubbleBox(ctx, bx, by, BR, 'rgba(122, 92, 40, 0.95)');
+      thoughtBubbleBox(ctx, bx, by, BR - 1, 'rgba(255, 248, 230, 0.96)');
+      const ic = thoughtIcon(p.thoughtType);
+      if (ic.ready) {
+        const prevS = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(ic.img, bx - 8, by - 8, 16, 16);
+        ctx.imageSmoothingEnabled = prevS;
+      } else {
+        // Icône pas encore décodée : emoji d'origine en attendant.
+        ctx.save();
+        const emoji = p.thoughtType === 'thought' ? '💭' : p.thoughtType === 'scroll' ? '📜' : '⚡';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#4a3a10';
+        ctx.fillText(emoji, bx, by + 0.5);
+        ctx.restore();
+      }
     }
   }
 }
@@ -1057,12 +1177,19 @@ function vehicleChooseNext(v) {
     }
   }
   const rev = v.dir >= 0 ? (v.dir ^ 1) : -1;
+  // PARVIS de merveille = piéton : un véhicule n'y ENTRE jamais (walkRoadSet
+  // contient ces cellules pour les habitants ; roadStepAllowed autorise la sortie
+  // de chaussée — il faut donc filtrer ici). Échappatoire : un véhicule déjà
+  // dessus (route carvée sous ses roues au recalcul) peut le traverser pour
+  // rejoindre la chaussée (son but est toujours une route → il en sort vite).
+  const vOnParvis = !!(CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(v.gx, v.gy)));
   const opts = [];
   for (let i = 0; i < 4; i += 1) {
     const nx = v.gx + CM_DIRS[i][0], ny = v.gy + CM_DIRS[i][1];
     if (!CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny))) continue;
     if (!roadStepAllowed(v.gx, v.gy, i)) continue;
     if (vehicleRoadRank(nx, ny) === "plaza") continue;
+    if (!vOnParvis && CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(nx, ny))) continue;
     opts.push({ i, nx, ny });
   }
   if (!opts.length) return;
@@ -1162,15 +1289,21 @@ function drawVehicleHeadlights(ctx, v) {
   const a = Math.min(1, (n - 0.1) / 0.7);
   const boost = 1.8;                                      // compense le voile de nuit (dessiné après)
   const hl = Math.max(1, T * z * 0.06);
-  const lo = vehicleLaneOffset(v, T * z);                 // phares solidaires de la carrosserie
-  const sx = (v.x - CM.cam.x) * z + CM.cw / 2 + lo.x;
-  const sy = (v.y - CM.cam.y) * z + CM.ch / 2 + lo.y;
+  // Projection PARTAGÉE (identité en legacy) : position via worldToScreen
+  // (offset de file en px MONDE) ; sert aussi au rendu ISO (drawIsoVehicle).
+  const lo = vehicleLaneOffset(v, T);                     // px monde
+  const sph = projWorldToScreen(v.x + lo.x, v.y + lo.y);
+  const sx = sph.x, sy = sph.y;
   if (sx < -8 || sy < -8 || sx > CM.cw + 8 || sy > CM.ch + 8) return;
-  // Cap réel (vitesse, sinon direction de grille : 0=E 1=W 2=S 3=N).
+  // Cap réel (vitesse, sinon direction de grille : 0=E 1=W 2=S 3=N), PROJETÉ en
+  // axe ÉCRAN : en iso, rouler vers l'est = faisceau vers la diagonale bas-droite.
   let hx = v.tx - v.x, hy = v.ty - v.y;
   const hd = Math.hypot(hx, hy);
   if (hd > 0.5) { hx /= hd; hy /= hd; }
   else { hx = v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0; hy = v.dir === 2 ? 1 : v.dir === 3 ? -1 : 0; }
+  const hs = panDeltaToScreen(hx, hy);
+  const hn = Math.hypot(hs.x, hs.y) || 1;
+  hx = hs.x / hn; hy = hs.y / hn;
   const px = -hy, py = hx;                                // perpendiculaire (écart des deux phares)
   const off = T * z * 0.2;
   const prev = ctx.globalCompositeOperation;
@@ -1607,7 +1740,9 @@ function drawShips(dt) {
   // vapeur → porte-conteneurs par ère, vaisseau cosmique en band ≥ 7. Échelle de
   // coque STRICTEMENT CROISSANTE (gigantisme final, cosmic ≈ 4× le radeau) : sizeMul
   // pilote sprite + repli procédural + sillage. Réf. figée : sail = 1.8.
-  const vstage = band >= 7 ? "cosmic" : ei >= 30 ? "container" : ei >= 20 ? "steam" : ei >= 10 ? "sail" : "raft";
+  // Vapeur repoussée à ei≥25 (b5 Fonte) : avant, un vapeur croisait dès l'ère 20 (b4
+  // Marbre) devant des habitants en toge. La voile (galère antique) couvre b2–b4.
+  const vstage = band >= 7 ? "cosmic" : ei >= 30 ? "container" : ei >= 25 ? "steam" : ei >= 10 ? "sail" : "raft";
   const sizeMul = vstage === "cosmic" ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
     : vstage === "container" ? 3.2 : vstage === "steam" ? 2.4 : vstage === "sail" ? 1.8 : 1.36;
   const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;   // taille de rendu effective (tuiles)
@@ -1892,4 +2027,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG };
