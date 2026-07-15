@@ -113,6 +113,7 @@ export function labelFor(key) {
     knowledge: tr({ fr: "savoir", en: "knowledge" }),
     infrastructure: tr({ fr: "infra.", en: "infra." }),
     ruins: tr({ fr: "ruines", en: "ruins" }),
+    faveur: tr({ fr: "faveur", en: "favor" }),
     myths: tr({ fr: "mythes", en: "myths" })
   }[key] || key;
 }

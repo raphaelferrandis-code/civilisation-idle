@@ -138,9 +138,10 @@ const CM_WONDERS = [
   { id: "dynasty1",       name: "Le Grand Mausolée",          icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
     unlockedBy: "Premier effondrement traversé.",
     // Métrique = effondrements traversés (cycles) : un tombeau qui grandit avec
-    // chaque cité tombée. Seule merveille indexée sur les cycles (unique). Seuils
-    // à équilibrer (chantier séparé).
-    metric: (s) => s.cycles || 0, tiers: [1, 10, 25, 50, 100],
+    // chaque cité tombée. Seule merveille indexée sur les cycles (unique).
+    // Tiers recalés (calibrage 2026-07) sur les époques mesurées en sim
+    // (100-600 cycles) : rang V = vraie fin de méta, plus un trivial à 100.
+    metric: (s) => s.cycles || 0, tiers: [1, 15, 50, 150, 400],
     tierLabel: (v) => `${v} effondrement${v > 1 ? "s" : ""} traversé${v > 1 ? "s" : ""}` },
   { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
     unlockedBy: "Population d'au moins 1 000 000.",

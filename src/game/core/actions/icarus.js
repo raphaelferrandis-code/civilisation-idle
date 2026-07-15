@@ -32,9 +32,12 @@ import {
   ICARUS_STAKES,
   WING_STEP,
   WING_MAX_LEVEL,
-  ICARUS_EDGE_FLOOR
+  ICARUS_EDGE_FLOOR,
+  ICARUS_CAP_SOLAR,
+  PLUMES_CONSOLATION_MULT
 } from '../balance.js';
 import { chronicle } from './utils.js';
+import { hasTempleArtifact } from './templeArtifacts.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 
 // Jeux DÉCOUPLÉS (arbitrage Raph) : la mise reste en OR (le puits), mais le
@@ -51,6 +54,22 @@ export function icarusUnlocked(ctx = regulationContext()) {
 export function icarusEffectiveEdge() {
   const reduction = Math.min(WING_MAX_LEVEL, state.wingLevel || 0) * WING_STEP;
   return Math.max(ICARUS_EDGE_FLOOR, ICARUS_EDGE - reduction);
+}
+
+// Plafond EFFECTIF du multiplicateur : relevé par l'artefact « Ailes solaires ».
+// Choke point PARTAGÉ (courbe + tirage crashPoint + clamp cible + UI), comme
+// icarusEffectiveEdge — à lire PARTOUT où ICARUS_CAP servait, sinon l'invariant
+// crashPoint ≤ cap (ou l'aperçu visuel) casse.
+export function icarusEffectiveCap() {
+  return hasTempleArtifact("solaires") ? ICARUS_CAP_SOLAR : ICARUS_CAP;
+}
+
+// Plumes de secours (artefact) : un CRASH rend une part de la mise en Faveur
+// (consolation). 0 sans l'artefact. Lu par resolveCrash (interactif) ET par la
+// branche crash de resolveIcarusHeadless → parité stricte des deux chemins.
+export function icarusCrashConsolation(stakeSeconds) {
+  if (!hasTempleArtifact("plumes")) return 0;
+  return Math.round((stakeSeconds || 0) * ICARUS_FAVEUR_K * PLUMES_CONSOLATION_MULT);
 }
 
 // Mises proposées : N secondes de production d'or courante (plancher plat pour
@@ -73,7 +92,7 @@ export function icarusTakeoffAt() {
 
 // Multiplicateur du vol en cours (1 si aucun vol). Courbe partagée avec l'UI.
 export function icarusMultiplierAt(elapsedMs) {
-  return Math.min(ICARUS_CAP, Math.exp(ICARUS_K * Math.max(0, elapsedMs) / 1000));
+  return Math.min(icarusEffectiveCap(), Math.exp(ICARUS_K * Math.max(0, elapsedMs) / 1000));
 }
 
 export function icarusMultiplier(nowMs = Date.now()) {
@@ -102,11 +121,15 @@ function resolveCrash() {
   // La cire fond : une part de la mise (en secondes) rejoint la cagnotte de Faveur.
   const potGainFaveur = flight.stakeSeconds * ICARUS_POT_FEED;
   state.icarusPotFaveur = Math.min(ICARUS_POT_CAP_FAVEUR, Math.max(0, state.icarusPotFaveur || 0) + potGainFaveur);
+  // Plumes de secours (artefact) : le crash rend une part de la mise en Faveur.
+  const refundFaveur = icarusCrashConsolation(flight.stakeSeconds);
+  if (refundFaveur > 0) state.faveur = Math.max(0, (state.faveur || 0) + refundFaveur);
   pushIcarusHistory(flight.crashPoint);
   lastOutcome = {
     type: "crash",
     crashPoint: flight.crashPoint,
     potGainFaveur,
+    refundFaveur,
     stakeSeconds: flight.stakeSeconds
   };
   render();
@@ -131,7 +154,7 @@ export function launchIcarus(stakeId) {
   // Point de crash : C = (1-EDGE)/U — EDGE % des vols brûlent au décollage
   // (C=1). L'edge est abaissé par les ailes cirées (boutique de Faveur).
   const u = Math.random();
-  const crashPoint = Math.min(ICARUS_CAP, Math.max(1, (1 - icarusEffectiveEdge()) / Math.max(u, 1e-9)));
+  const crashPoint = Math.min(icarusEffectiveCap(), Math.max(1, (1 - icarusEffectiveEdge()) / Math.max(u, 1e-9)));
   const takeoffAt = Date.now();
   const crashInMs = (Math.log(crashPoint) / ICARUS_K) * 1000;
   flight = {
@@ -184,6 +207,51 @@ export function cashOutIcarus() {
   pushOutcomeFloat({ label: `🪽 ×${mR.toFixed(2)} : +${fmt(faveur)} faveur`, kind: "gain" });
   render();
   return lastOutcome;
+}
+
+// Résolution HEADLESS d'un vol à un multiplicateur cible T (autopush du moteur
+// d'automatisation). Rejoue la MÊME loi que launchIcarus + cashOutIcarus /
+// resolveCrash — mêmes tirage, payout, jackpot et nourriture de cagnotte — mais
+// SANS état de vol, SANS timer, SANS float, SANS historique ni lastOutcome
+// (silencieux, pour ne pas polluer le jeu interactif) : un seul appel synchrone.
+// GAIN ⟺ T < crashPoint (STRICT, fidèle à cashOut qui traite m>=crashPoint comme
+// une chute). Ne perturbe JAMAIS un vol interactif en cours. Ne rend PAS (le
+// caller rend). Retourne l'issue (pour le débit de Faveur et les tests), ou null.
+export function resolveIcarusHeadless(stakeId, targetMult) {
+  if (flight && !flight.resolved) return null; // ne pas résoudre par-dessus un vol interactif
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return null;
+  if (!icarusUnlocked()) return null;
+  const stake = icarusStakes().find((s) => s.id === stakeId);
+  if (!stake) return null;
+  // Vol OFFERT (mise Plume) si un Coup de Vénus en a stocké ; sinon débit d'or.
+  const freeFlight = stakeId === "plume" && (state.icarusFreeFlights || 0) > 0;
+  if (freeFlight) {
+    state.icarusFreeFlights -= 1;
+  } else {
+    if (D(state.gold).lt(stake.gold)) return null;
+    state.gold = D(state.gold).sub(stake.gold);
+  }
+  const u = Math.random();
+  const crashPoint = Math.min(icarusEffectiveCap(), Math.max(1, (1 - icarusEffectiveEdge()) / Math.max(u, 1e-9)));
+  const T = Math.min(icarusEffectiveCap(), Math.max(1, Number(targetMult) || 1));
+  if (T < crashPoint) {
+    // GAIN : payout de base identique à cashOutIcarus (mR = floor au centième).
+    // NB : le JACKPOT (rafle de la cagnotte + jalon GR VII) reste RÉSERVÉ au jeu
+    // INTERACTIF — l'auto encaisse le multiplicateur mais ne rafle PAS la cagnotte
+    // ni ne décroche le jalon (auto = plancher de revenu, le gros coup se joue à la
+    // main). Les PERTES auto, elles, nourrissent la cagnotte comme les autres.
+    const mR = Math.floor(T * 100) / 100;
+    const faveur = Math.round(stake.seconds * mR * ICARUS_FAVEUR_K);
+    state.faveur = Math.max(0, (state.faveur || 0) + faveur);
+    return { type: "cashout", m: mR, crashPoint, faveur, jackpotFaveur: null, freeFlight, stakeSeconds: stake.seconds };
+  }
+  // PERTE : la mise brûle, une part nourrit la cagnotte (comme resolveCrash).
+  const potGainFaveur = stake.seconds * ICARUS_POT_FEED;
+  state.icarusPotFaveur = Math.min(ICARUS_POT_CAP_FAVEUR, Math.max(0, state.icarusPotFaveur || 0) + potGainFaveur);
+  // Plumes de secours (artefact) : consolation Faveur au crash (parité interactif).
+  const refundFaveur = icarusCrashConsolation(stake.seconds);
+  if (refundFaveur > 0) state.faveur = Math.max(0, (state.faveur || 0) + refundFaveur);
+  return { type: "crash", crashPoint, potGainFaveur, refundFaveur, freeFlight, stakeSeconds: stake.seconds };
 }
 
 // Faveur qu'aurait payée un retrait ~1 s avant la chute (le couteau dans la

@@ -158,7 +158,11 @@ export default function AuguryStage({ table, onClose }) {
                   <span className="augury-rite-cost">{cost ? costLabel(cost) : '—'}</span>
                   <span className="augury-rite-fx">
                     <span className="augury-fx-win">{tr({ fr: 'paire', en: 'pair' })} +{pairFav} · {tr({ fr: 'Vénus', en: 'Venus' })} +{venusFav} {tr({ fr: 'faveur', en: 'favor' })}</span>
-                    <span className="augury-fx-safe">{tr({ fr: 'perdre = mise sacrifiée', en: 'losing = stake sacrificed' })}</span>
+                    <span className="augury-fx-risk">{
+                      rite.spread > 1.05 ? tr({ fr: 'sort extrême : plus de Vénus… et de Chiens', en: 'extreme fate: more Venus… and Dogs' })
+                        : rite.spread < 0.95 ? tr({ fr: 'sort plus sage : moins de Chiens', en: 'calmer fate: fewer Dogs' })
+                          : tr({ fr: 'variance équilibrée', en: 'balanced variance' })
+                    }</span>
                   </span>
                 </button>
               );
@@ -176,8 +180,8 @@ export default function AuguryStage({ table, onClose }) {
           </menu>
           <p className="stage-footnote">
             {tr({
-              fr: 'Lecture des os — paire haute : Faveur · triple : grosse Faveur · 1·3·4·6 : Coup de Vénus (vol d’Icare offert) · les as sont funestes · quatre as : le Chien.',
-              en: 'Reading the bones — high pair: Favor · triple: big Favor · 1·3·4·6: Venus throw (free Icarus flight) · aces are dire · four aces: the Dog.'
+              fr: 'Lecture des os — paire haute : Faveur · triple : grosse Faveur · 1·3·4·6 : Coup de Vénus (vol d’Icare offert) · les as sont funestes · quatre as : le Chien. La mise choisie déforme le sort : gros sacrifice = plus de Vénus, mais plus de Chiens.',
+              en: 'Reading the bones — high pair: Favor · triple: big Favor · 1·3·4·6: Venus throw (free Icarus flight) · aces are dire · four aces: the Dog. Your stake shapes fate: a great sacrifice means more Venus, but more Dogs.'
             })}
           </p>
         </>

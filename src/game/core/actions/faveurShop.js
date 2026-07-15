@@ -24,6 +24,8 @@ import {
 } from '../balance.js';
 import { chronicle } from './utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { ARTIFACT_NODES } from '../../data/artifacts.js';
+import { hasTempleArtifact } from './templeArtifacts.js';
 
 // Coût du PROCHAIN niveau d'un booster (croissant). Arrondi.
 function tierCost(base, growth, level) {
@@ -105,6 +107,28 @@ export function buyFaveurItem(id) {
   } else {
     return false;
   }
+  save();
+  render();
+  return true;
+}
+
+// Achat d'un ARTEFACT booléen du Temple (dé d'ivoire, osselet du noyé, plumes,
+// ailes solaires — Phase 4). La garde d'échelle (rang précédent acquis) est faite
+// par buyArtifactNode (templeAutomation.js) ; ici on ne gère que le débit + le flag.
+// Retourne true si l'achat a eu lieu.
+export function buyTempleArtifact(id) {
+  const node = ARTIFACT_NODES[id];
+  if (!node || node.kind !== "artifact") return false;
+  if (hasTempleArtifact(id)) return false; // déjà acquis
+  const cost = node.cost || 0;
+  const faveur = state.faveur || 0;
+  if (faveur < cost) return false;
+  state.faveur = faveur - cost;
+  if (!state.templeArtifacts) state.templeArtifacts = {};
+  state.templeArtifacts[id] = true;
+  const label = (node.label && node.label.fr) || id;
+  pushOutcomeFloat({ label: `⚜️ ${label}`, kind: "gain" });
+  chronicle(`Le temple s'enrichit d'un artefact : ${label}.`);
   save();
   render();
   return true;

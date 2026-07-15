@@ -724,19 +724,6 @@ dialog::backdrop {
   color: var(--gold-ivory);
 }
 
-.grand-reset-btn {
-  border-color: rgba(215, 109, 86, 0.55);
-  background: linear-gradient(180deg, rgba(215, 109, 86, 0.18) 0%, rgba(50, 18, 14, 0.9) 100%);
-  color: #f0a090;
-  font-weight: 800;
-}
-
-.grand-reset-btn:hover:not(:disabled) {
-  border-color: rgba(215, 109, 86, 0.85);
-  background: linear-gradient(180deg, rgba(215, 109, 86, 0.28) 0%, rgba(65, 22, 16, 0.95) 100%);
-  box-shadow: 0 0 0 1px rgba(215, 109, 86, 0.2), 0 4px 16px rgba(215, 109, 86, 0.15);
-}
-
 /* Glow retiré des titres : réservé à affordable / critical / milestone (Phase 4) */
 h1, .panel-heading h2, .era-name, .event-dialog h2 {
   letter-spacing: 0.06em;

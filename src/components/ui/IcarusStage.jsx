@@ -9,9 +9,10 @@ import {
   icarusMultiplier,
   icarusLastOutcome,
   icarusPotFaveur,
-  icarusAlmostPayout
+  icarusAlmostPayout,
+  icarusEffectiveCap
 } from '../../game/core/actions.js';
-import { ICARUS_CAP, ICARUS_JACKPOT_MULT, ICARUS_FAVEUR_K } from '../../game/core/balance.js';
+import { ICARUS_JACKPOT_MULT, ICARUS_FAVEUR_K } from '../../game/core/balance.js';
 import { D } from '../../game/core/num.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
@@ -110,7 +111,9 @@ export default function IcarusStage({ table, onClose }) {
   const potFaveur = icarusPotFaveur();
   const history = (state.icarusHistory || []).slice().reverse();
   const flying = phase === 'flying';
-  const climb = Math.max(0, Math.min(1, Math.log(Math.max(1, m)) / Math.log(ICARUS_CAP)));
+  // Plafond EFFECTIF (relevé par « Ailes solaires ») → l'échelle de la jauge se
+  // recale : un ×100 ne remplit plus toute la barre, il reste du ciel à gagner.
+  const climb = Math.max(0, Math.min(1, Math.log(Math.max(1, m)) / Math.log(icarusEffectiveCap())));
   // Gain de Faveur en direct : secondes de mise × multiplicateur × K (l'objet
   // stake retient stakeSeconds pour l'aperçu vivant du retrait).
   const liveGain = stakeSeconds ? Math.round(stakeSeconds * (Math.floor(m * 100) / 100) * ICARUS_FAVEUR_K) : null;

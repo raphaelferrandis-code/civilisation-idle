@@ -42,7 +42,7 @@ import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationAct
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
-import { eras, eraTier, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
+import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
@@ -350,7 +350,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.food = keptFood.max(startFloor("Food", 35));
   state.gold = keptGold.max(startFloor("Gold", 0));
 
-  const memoireSavoirBonus = has("codex_mythique") ? 250 * eraTier(state.bestEraIndex || 0) : 0;
+  const memoireSavoirBonus = has("codex_mythique") ? codexSavoirBonus(state.bestEraIndex) : 0;
   state.knowledge = keptKnowledge.max(startFloor("Knowledge", 0)).add(memoireSavoirBonus);
 
   state.infrastructure = keptInfra.add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);

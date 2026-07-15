@@ -311,8 +311,8 @@ export async function performGrandReset() {
 
 export function buyUpgrade(id) {
   const upgrade = upgradeById[id];
-  if (!upgrade) return;
-  if (!canBuyUpgrade(upgrade)) return;
+  if (!upgrade) return false;
+  if (!canBuyUpgrade(upgrade)) return false;
   // Nœuds de ruines : coût EFFECTIF (remise « Grammaire des ruines »).
   if (upgrade.group === "ruins") payCost({ ruins: ruinNodeCost(upgrade) });
   else payCost(upgrade.cost);
@@ -323,6 +323,7 @@ export function buyUpgrade(id) {
   invalidateRenderCache("all");
   chronicle(`Nos dirigeants ont décrété une nouvelle avancée pour la cité : ${upgrade.name}.`);
   render();
+  return true;
 }
 
 export function rewardCitizenThought(thoughtType, citizen) {

@@ -9,8 +9,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
-import { runCrisisAction, setStewardClause, tickSteward, stewardSlotCount, castAugury, doubleAugury, auguryCost, auguryBaseOdds } from "../actions.js";
+import { runCrisisAction, setStewardClause, tickSteward, stewardSlotCount, castAugury, doubleAugury, auguryCost, auguryBaseOdds, auguryTierOdds } from "../actions.js";
 import { clemencyBonus, regulationContext } from "../mechanics.js";
+import { REGULATION_ACTIONS } from "../../data/regulationActions.js";
 import { annalsWindow, resetAnnals } from "../annals.js";
 import { toNum } from "../num.js";
 import { GAMBLE_P_MAX, GAMBLE_HISTORY_LEN, REGUL_LEDGER_MAX, STEWARD_COOLDOWN_MS, AUGURY_FAVEUR, AUGURY_POT_FEED_HOLLOW, AUGURY_POT_FEED_DOG } from "../balance.js";
@@ -24,6 +25,7 @@ beforeEach(() => {
   // le stock de la fixture (80 k) ne couvre aucun édit — on regonfle pour que
   // les tests exercent l'exécution, pas la disette.
   state.food = 1e9;
+  state.gold = 1e12; // les osselets misent désormais de l'OR (fusion 2026-07-15)
   resetAnnals();
   invalidateRenderCache("all");
 });
@@ -34,14 +36,14 @@ afterEach(() => {
 });
 
 // Force l'issue du prochain pari (via castAugury classique). Zones pour
-// prayForRain, odds RÉDUITES (base 0.55 × 0.6 = 0.33) : r≈0.5 → jet CREUX (0),
-// r≈0.99 → le CHIEN (2, compte double), r≈0.01 → Vénus (gagné, 1).
+// prayForRain, odds RÉDUITES (base 0.55 × GAMBLE_ODDS_SCALE 0.5 ≈ 0.28) :
+// r≈0.5 → jet CREUX (0), r≈0.99 → le CHIEN (2, compte double), r≈0.01 → Vénus.
 function rollGamble(id, randomValue) {
   vi.spyOn(Math, "random").mockReturnValue(randomValue);
   castAugury(id, "classique", { render: false });
   Math.random.mockRestore();
 }
-const BASE = () => auguryBaseOdds("prayForRain"); // ≈ 0.33
+const BASE = () => auguryBaseOdds("prayForRain"); // ≈ 0.28
 
 describe("Clémence des augures (pitié sur série noire)", () => {
   it("monte de 5 pts par revers consécutif et retombe au gain", () => {
@@ -130,12 +132,12 @@ describe("Registre des édits & annales", () => {
 });
 
 describe("Table des augures — gains en Faveur (jeux découplés)", () => {
-  it("mise en ressources, gain de Faveur ×costMult du rite", () => {
-    const classCost = toNum(auguryCost("prayForRain", "classique").food);
-    expect(toNum(auguryCost("prayForRain", "prudent").food)).toBeCloseTo(classCost * 0.6, 3);
+  it("mise en ressources (or), gain de Faveur ×costMult du rite", () => {
+    const classCost = toNum(auguryCost("prayForRain", "classique").gold);
+    expect(toNum(auguryCost("prayForRain", "prudent").gold)).toBeCloseTo(classCost * 0.6, 3);
 
     // Vénus classique → Faveur base × 1, vol d'Icare offert, mise dépensée.
-    const foodBefore = toNum(state.food);
+    const goldBefore = toNum(state.gold);
     vi.spyOn(Math, "random").mockReturnValue(0.01);
     const venus = castAugury("prayForRain", "classique", { render: false });
     Math.random.mockRestore();
@@ -145,7 +147,7 @@ describe("Table des augures — gains en Faveur (jeux découplés)", () => {
     expect(venus.freeFlight).toBe(true);
     expect(state.icarusFreeFlights).toBe(1);
     expect(new Set(venus.bones).size).toBe(4);
-    expect(toNum(state.food)).toBeCloseTo(foodBefore - classCost, 0);
+    expect(toNum(state.gold)).toBeCloseTo(goldBefore - classCost, 0);
   });
 
   it("le Grand Sacrifice paie ×2, l'Offrande prudente ×0.6", () => {
@@ -161,7 +163,7 @@ describe("Table des augures — gains en Faveur (jeux découplés)", () => {
 
   it("perdre = consolation plate + la cagnotte d'Icare s'épaissit (Chien plus lourd)", () => {
     expect(state.icarusPotFaveur).toBe(0);
-    const seconds = 28; // prayForRain
+    const seconds = 30; // prayForRain (osselets du temple, mise en or)
     vi.spyOn(Math, "random").mockReturnValue(0.5); // creux
     const hollow = castAugury("prayForRain", "classique", { render: false });
     Math.random.mockRestore();
@@ -176,12 +178,12 @@ describe("Table des augures — gains en Faveur (jeux découplés)", () => {
   });
 
   it("defer : rien n'est appliqué avant apply() (anti-spoiler UI)", () => {
-    const foodBefore = toNum(state.food);
+    const goldBefore = toNum(state.gold);
     vi.spyOn(Math, "random").mockReturnValue(0.01); // Vénus
     const res = castAugury("prayForRain", "classique", { render: false, defer: true });
     Math.random.mockRestore();
     // Le coût est payé à l'envol, mais AUCUN gain tant qu'apply() dort.
-    expect(toNum(state.food)).toBeLessThan(foodBefore);
+    expect(toNum(state.gold)).toBeLessThan(goldBefore);
     expect(state.faveur || 0).toBe(0);
     expect(state.icarusFreeFlights || 0).toBe(0);
     expect(state.gambleHistory.prayForRain).toBeUndefined();
@@ -223,6 +225,65 @@ describe("Table des augures — gains en Faveur (jeux découplés)", () => {
     Math.random.mockRestore();
     expect(dbl.win).toBe(false);
     expect(state.faveur).toBe(faveurAfterWin - win.faveurGain);
+  });
+});
+
+describe("Fusion des osselets (2026-07-15) — un seul jeu, la mise pilote la variance", () => {
+  it("il n'existe plus qu'UNE table d'osselets", () => {
+    expect(REGULATION_ACTIONS.filter((a) => a.kind === "gamble")).toHaveLength(1);
+    expect(REGULATION_ACTIONS.find((a) => a.kind === "gamble").id).toBe("prayForRain");
+  });
+
+  it("la mise déforme la variance sans toucher la frontière gagne/perd", () => {
+    const p = 0.4;
+    const calm = auguryTierOdds(p, 0.55); // prudent
+    const base = auguryTierOdds(p, 1);    // classique (répartition historique)
+    const wild = auguryTierOdds(p, 1.7);  // grand
+    // Gros sacrifice = plus de Vénus (jackpot) ET plus de Chiens (revers lourd).
+    expect(wild.venus).toBeGreaterThan(base.venus);
+    expect(base.venus).toBeGreaterThan(calm.venus);
+    expect(wild.dog).toBeGreaterThan(base.dog);
+    expect(base.dog).toBeGreaterThan(calm.dog);
+    // La masse gagnante (pEff) et perdante (1-pEff) restent INCHANGÉES : la mise
+    // ne change pas les ODDS, seulement la forme du risque.
+    for (const o of [calm, base, wild]) {
+      expect(o.venus + o.triple + o.pair).toBeCloseTo(p, 10);
+      expect(o.hollow + o.dog).toBeCloseTo(1 - p, 10);
+    }
+  });
+
+  it("classique (spread=1) = répartition historique exacte (rétro-compatible)", () => {
+    const p = 0.35;
+    const o = auguryTierOdds(p, 1);
+    expect(o.venus).toBeCloseTo(p * 0.15, 12);
+    expect(o.triple).toBeCloseTo(p * 0.25, 12);
+    expect(o.hollow).toBeCloseTo((1 - p) * 0.6, 12);
+    expect(o.dog).toBeCloseTo((1 - p) * 0.4, 12);
+  });
+
+  it("la mise est BIEN threadée dans castAugury : à r=0.6, classique→creux mais Grand Sacrifice→Chien", () => {
+    // pEff = 0.55 × GAMBLE_ODDS_SCALE(0.5) = 0.275, sans clémence. À r=0.6 :
+    //  classique (spread 1) : Chien dès r≥0.71 → CREUX ; grand (spread 1.7,
+    //  dogShare 0.68) : Chien dès r≥0.507 → CHIEN. Verrouille le passage de
+    //  rite.spread par castAugury→drawTier (sinon la fusion serait neutralisable
+    //  — drawTier(pEff, 1) — sans casser la CI).
+    vi.spyOn(Math, "random").mockReturnValue(0.6);
+    state.gambleHistory = {};
+    const classique = castAugury("prayForRain", "classique", { render: false });
+    state.gambleHistory = {}; // repartir sans clémence pour le 2e jet
+    const grand = castAugury("prayForRain", "grand", { render: false });
+    Math.random.mockRestore();
+    expect(classique.tier).toBe("hollow");
+    expect(grand.tier).toBe("dog");
+  });
+
+  it("mise impayable : castAugury refuse sans muter l'état (garde canPayCost)", () => {
+    state.gold = 0;
+    const favBefore = state.faveur;
+    const res = castAugury("prayForRain", "classique", { render: false });
+    expect(res).toBeNull();
+    expect(state.faveur).toBe(favBefore);
+    expect((state.gambleHistory || {}).prayForRain).toBeUndefined();
   });
 });
 

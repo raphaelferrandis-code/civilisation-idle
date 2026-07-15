@@ -130,7 +130,7 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
     return (
       <button
         className={cls}
-        title={tr({ fr: `Ouvre la table des augures : ${a.winPct}% de chance de base, trois rites, et le quitte ou double si les dieux sourient.`, en: `Opens the augurs' table: ${a.winPct}% base chance, three rites, and double-or-nothing if the gods smile.` })}
+        title={tr({ fr: `Ouvre la table des augures : choisis ton rite (la mise pilote la variance), jette les osselets, et tente le quitte ou double si les dieux sourient. Gain en Faveur.`, en: `Opens the augurs' table: choose your rite (the stake shapes variance), cast the knucklebones, and try double-or-nothing if the gods smile. Winnings in Favor.` })}
         onClick={() => openAuguryTable(a.id)}
       >
         <span className="regul-btn-line">
@@ -138,7 +138,7 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
           <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
-          <span className="regul-gamble-tag">🎲 {a.winPct}% {tr({ fr: 'apaise', en: 'soothes' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>
+          <span className="regul-gamble-tag">🎲 {tr({ fr: 'Faveur', en: 'Favor' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>
         </span>
       </button>
     );

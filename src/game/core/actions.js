@@ -54,12 +54,41 @@ export {
   icarusPotFaveur,
   icarusAlmostPayout,
   icarusUnlocked,
-  icarusEffectiveEdge
+  icarusEffectiveEdge,
+  icarusEffectiveCap,
+  resolveIcarusHeadless
 } from './actions/icarus.js';
+
+export { tickTempleAutomation, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, buyArtifactNode, artifactTree } from './actions/templeAutomation.js';
+export { hasTempleArtifact } from './actions/templeArtifacts.js';
+
+export {
+  playScratch,
+  scratchStakes,
+  scratchGrid,
+  scratchUnlocked,
+  scratchPayout
+} from './actions/scratch.js';
+
+export {
+  dealBlackjack,
+  hitBlackjack,
+  standBlackjack,
+  blackjackHand,
+  blackjackActive,
+  blackjackLastOutcome,
+  blackjackStakes,
+  blackjackUnlocked,
+  blackjackResult,
+  handValue,
+  isBlackjack,
+  BLACKJACK_SUITS
+} from './actions/blackjack.js';
 
 export {
   faveurShopItems,
   buyFaveurItem,
+  buyTempleArtifact,
   blessingMultiplier,
   diceOddsBonus,
   wingEdgeReduction

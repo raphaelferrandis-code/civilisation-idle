@@ -5,7 +5,9 @@ import { GAMBLE_HISTORY_LEN, CLEMENCY_PER_LOSS, ICARUS_JACKPOT_MULT } from '../.
 import { REGULATION_ACTIONS } from '../../game/data/regulationActions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { openIcarusFlight } from '../../game/core/icarusDialog.js';
-import { icarusPotFaveur, icarusUnlocked, auguryBaseOdds } from '../../game/core/actions.js';
+import { openScratch } from '../../game/core/scratchTicket.js';
+import { openBlackjack } from '../../game/core/blackjackTable.js';
+import { icarusPotFaveur, icarusUnlocked, scratchUnlocked, blackjackUnlocked, auguryBaseOdds } from '../../game/core/actions.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { tipProps } from './HelpBubble.jsx';
@@ -26,7 +28,9 @@ export default function AuguresPanel() {
   const ctx = regulationContext();
   const gambles = REGULATION_ACTIONS.filter((a) => a.kind === 'gamble');
   const icarusOpen = icarusUnlocked(ctx);
-  const potFaveur = icarusOpen ? icarusPotFaveur() : null;
+  const scratchOpen = scratchUnlocked(ctx);
+  const blackjackOpen = blackjackUnlocked(ctx);
+  const potFaveur = (icarusOpen || scratchOpen || blackjackOpen) ? icarusPotFaveur() : null;
 
   return (
     <section className="regul-block augures-block">
@@ -35,8 +39,8 @@ export default function AuguresPanel() {
         {...tipProps(
           tr({ fr: 'La Table des augures', en: 'The Augurs’ Table' }),
           tr({
-            fr: 'Les paris gardent mémoire : chaque revers rend le ciel plus clément (Faveur), un gain remet la table à zéro.',
-            en: 'Gambles keep memory: each setback makes the sky more lenient (Favor), a win resets the table.'
+            fr: 'Les osselets gardent mémoire : chaque revers rend les dieux plus cléments au prochain jet, un gain remet le compteur à zéro. Le gain est de la Faveur.',
+            en: 'The knucklebones keep memory: each setback makes the gods more lenient on the next roll, a win resets the counter. Winnings are Favor.'
           })
         )}
       >
@@ -45,7 +49,7 @@ export default function AuguresPanel() {
           className="faveur-count"
           {...tipProps(
             tr({ fr: 'Faveur', en: 'Favor' }),
-            tr({ fr: 'La monnaie des jeux du temple, gagnée aux osselets et au Vol d’Icare. Bientôt dépensable en bénédictions et boosters.', en: 'The temple games currency, won at the knucklebones and the Flight of Icarus. Soon spendable on blessings and boosters.' })
+            tr({ fr: 'La monnaie des jeux du temple, gagnée aux osselets et au Vol d’Icare, dépensée à la Boutique en bénédictions et boosters permanents.', en: 'The temple games currency, won at the knucklebones and the Flight of Icarus, spent at the Shop on blessings and permanent boosters.' })
           )}
         >✦ {fmt(faveur)}</span>
       </h3>
@@ -73,6 +77,46 @@ export default function AuguresPanel() {
       ) : (
         <div className="augures-row augures-row--locked">
           <span className="augures-name">🔒 {tr({ fr: "Le Vol d'Icare", en: 'The Flight of Icarus' })}</span>
+          <span className="augures-base">{tr({ fr: 'Ère III', en: 'Era III' })}</span>
+        </div>
+      )}
+      {scratchOpen ? (
+        <button
+          type="button"
+          className="scratch-banner"
+          {...tipProps(
+            tr({ fr: 'Tickets à gratter', en: 'Scratch tickets' }),
+            tr({ fr: 'Gratte le vernis : aligne 3 symboles pour gagner de la Faveur. Trois Soleils raflent la cagnotte du temple, trois Vénus offrent un vol d’Icare.', en: 'Scratch the varnish: line up 3 symbols to win Favor. Three Suns sweep the temple pot, three Venus grant an Icarus flight.' })
+          )}
+          onClick={() => openScratch()}
+        >
+          <span className="icarus-banner-title">🎟️ {tr({ fr: 'Tickets à gratter', en: 'Scratch tickets' })}</span>
+          <span className="icarus-banner-pot">🏺 {fmt(potFaveur)} {tr({ fr: 'faveur en cagnotte', en: 'favor in the pot' })}</span>
+          <span className="icarus-banner-cta">{tr({ fr: 'Gratter', en: 'Scratch' })}</span>
+        </button>
+      ) : (
+        <div className="augures-row augures-row--locked">
+          <span className="augures-name">🔒 {tr({ fr: 'Tickets à gratter', en: 'Scratch tickets' })}</span>
+          <span className="augures-base">{tr({ fr: 'Ère II', en: 'Era II' })}</span>
+        </div>
+      )}
+      {blackjackOpen ? (
+        <button
+          type="button"
+          className="scratch-banner"
+          {...tipProps(
+            tr({ fr: 'Vingt-et-un', en: 'Twenty-one' }),
+            tr({ fr: 'Le blackjack du temple : approche 21 sans dépasser, bats l’oracle. Un « vingt-et-un » paie 3:2. Le gain est de la Faveur ; une main perdue épaissit la cagnotte.', en: 'The temple blackjack: get close to 21 without busting, beat the oracle. A natural pays 3:2. Winnings are Favor; a lost hand thickens the pot.' })
+          )}
+          onClick={() => openBlackjack()}
+        >
+          <span className="icarus-banner-title">🃏 {tr({ fr: 'Vingt-et-un', en: 'Twenty-one' })}</span>
+          <span className="icarus-banner-pot">🏺 {fmt(potFaveur)} {tr({ fr: 'faveur en cagnotte', en: 'favor in the pot' })}</span>
+          <span className="icarus-banner-cta">{tr({ fr: 'Jouer', en: 'Play' })}</span>
+        </button>
+      ) : (
+        <div className="augures-row augures-row--locked">
+          <span className="augures-name">🔒 {tr({ fr: 'Vingt-et-un', en: 'Twenty-one' })}</span>
           <span className="augures-base">{tr({ fr: 'Ère III', en: 'Era III' })}</span>
         </div>
       )}

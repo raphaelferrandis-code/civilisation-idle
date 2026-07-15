@@ -41,6 +41,7 @@ import {
 import { tickOlympus } from './olympus.js';
 import { runMythTicks } from './mythTicks.js';
 import { tickSteward } from './steward.js';
+import { tickTempleAutomation } from './templeAutomation.js';
 import { pushAnnalsSample } from '../annals.js';
 
 import {
@@ -311,6 +312,10 @@ export function tick(dt) {
   // L'Intendance (consignes configurées dans l'onglet Régulation) — après
   // protocoles_urgence : ses propres gardes (fatigue, cooldown, coûts) dedans.
   if (!gamePaused && !collapseInProgress) tickSteward();
+
+  // Le moteur d'automatisation du Temple (osselets/Icare aux cadrans du joueur).
+  // Mêmes gardes que l'Intendance ; ses propres cooldowns/plancher d'or dedans.
+  if (!gamePaused && !collapseInProgress) tickTempleAutomation();
 
   checkAndTriggerChronicleEntries(state, dt);
 

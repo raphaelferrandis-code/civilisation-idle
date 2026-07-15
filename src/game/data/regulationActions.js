@@ -113,38 +113,22 @@ export const REGULATION_ACTIONS = [
     reformAdd: 0.18
   },
 
-  // ─── 🎲 PARIS (kind: gamble) — gros apaisement OU retour de bâton ────────────
-  // `p` = proba de succès ; `relief` = apaisement si succès ; `failInstability` =
-  // hausse de Rupture si échec. Pas cher : un style de jeu « joueur » vs prudent.
+  // ─── 🎲 LES OSSELETS DU TEMPLE (kind: gamble) — le jeu de dés UNIFIÉ ──────────
+  // FUSION 2026-07-15 : les 3 anciennes tables (pluie/loterie/bouc) ne font plus
+  // qu'UN jeu. La MISE (rite prudent/classique/grand, cf. AUGURY_RITES) pilote
+  // l'ÉCHELLE (coût + Faveur ×costMult) ET la VARIANCE (gros sacrifice = plus de
+  // Vénus ET plus de Chiens, via `spread`) ; les ITEMS (dés pipés) et la Clémence
+  // pilotent les ODDS. Id « prayForRain » CONSERVÉ (tests, persistance, historique
+  // des jets). Mise en OR — offrande au temple, cohérente avec le Vol d'Icare.
   {
-    id: "prayForRain", foyer: "scarcity", tier: 3, kind: "gamble",
-    label: { fr: "Prière pour la pluie", en: "Prayer for Rain" },
-    note: { fr: "On implore le ciel pour les récoltes.", en: "The sky is implored for the harvests." },
-    noteWin: { fr: "Les pluies viennent : les champs reverdissent et la faim recule d'un coup.", en: "The rains come: the fields turn green again and hunger recedes at once." },
-    noteFail: { fr: "Le ciel reste muet ; la sécheresse persiste et la colère enfle.", en: "The sky stays silent; the drought persists and anger swells." },
+    id: "prayForRain", foyer: "dissent", tier: 3, kind: "gamble",
+    label: { fr: "Les osselets du temple", en: "The Temple Knucklebones" },
+    note: { fr: "On jette les osselets sur l'autel : les dieux tranchent, la Faveur suit — ou se dérobe.", en: "The knucklebones are cast on the altar: the gods decide, and Favor follows — or slips away." },
+    noteWin: { fr: "Les os inclinent la table en ta faveur : le temple récompense l'audace.", en: "The bones tilt the table your way: the temple rewards the bold." },
+    noteFail: { fr: "Les os retombent muets ; la mise est sacrifiée, mais la table retient ton nom.", en: "The bones fall silent; the stake is sacrificed, but the table remembers your name." },
     unlock: (c) => c.bestEra >= 2, unlockLabel: { fr: "Ère II", en: "Era II" },
-    cost: { res: "food", seconds: 28 },
-    p: 0.55, relief: 0.30, failInstability: 0.05, counter: "rationing"
-  },
-  {
-    id: "publicLottery", foyer: "inequality", tier: 3, kind: "gamble",
-    label: { fr: "Loterie publique", en: "Public Lottery" },
-    note: { fr: "Une grande loterie est organisée pour redistribuer le hasard.", en: "A grand lottery is held to redistribute chance." },
-    noteWin: { fr: "La loterie enflamme la cité : chacun rêve, l'envie des riches s'efface un temps.", en: "The lottery sets the city ablaze: everyone dreams, and envy of the rich fades for a time." },
-    noteFail: { fr: "La loterie tourne au scandale de favoritisme : la rancœur redouble.", en: "The lottery turns into a scandal of favoritism: resentment redoubles." },
-    unlock: (c) => c.bestEra >= 3, unlockLabel: { fr: "Ère III", en: "Era III" },
     cost: { res: "gold", seconds: 30 },
-    p: 0.55, relief: 0.26, failInstability: 0.05, counter: "festivals"
-  },
-  {
-    id: "scapegoat", foyer: "dissent", tier: 3, kind: "gamble",
-    label: { fr: "Bouc émissaire", en: "Scapegoat" },
-    note: { fr: "On désigne un coupable aux malheurs de la cité.", en: "A culprit is named for the city's misfortunes." },
-    noteWin: { fr: "La foule tient son coupable : la colère se déverse ailleurs et l'unité revient.", en: "The crowd has its culprit: anger pours out elsewhere and unity returns." },
-    noteFail: { fr: "L'accusation se retourne contre le pouvoir : la défiance grandit.", en: "The accusation turns against the rulers: distrust grows." },
-    unlock: (c) => c.bestEra >= 2, unlockLabel: { fr: "Ère II", en: "Era II" },
-    cost: { res: "gold", seconds: 32 },
-    p: 0.60, relief: 0.28, failInstability: 0.06, counter: "festivals"
+    p: 0.55
   }
 ];
 

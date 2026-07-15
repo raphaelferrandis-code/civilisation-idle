@@ -57,6 +57,7 @@ const { upgrades, dogmaIds, PRESTIGE_DOGMAS, PRESTIGE_TREE_BRANCHES } = await im
 const { eras } = await import("./src/game/data/world.js");
 const myth = await import("./src/game/data/myths.js");
 const { MYTHS, getMythById, isMythUnlocked, isMythCompleted } = myth;
+const { unlockedActiveRuinDefinitions: unlockedActiveRuinDefs } = await import("./src/game/data/activeRuins.js");
 
 const stateModule = await import("./src/game/core/state.js");
 const { state, defaultState, invalidateRenderCache, setGamePaused, setCollapseInProgress, setBuyAmount, setState } = stateModule;
@@ -88,15 +89,17 @@ const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
   buildingBatchCost, globalMultiplier, rates, timeWearRate,
   currentEraIndex, ownedRuinBranchPurchaseCount, ownedRuinTreePurchaseCount, has,
-  grandResetMythsRequired, completedMythCount, grandResetMilestoneMet
+  grandResetMilestoneMet, grandResetMilestone, terminalCrisisReady
 } = mech;
 
 const { canPayCost, payCost, fmt, clamp01 } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
+const { ICARUS_K, ICARUS_JACKPOT_MULT } = await import("./src/game/core/balance.js");
 const actions = await import("./src/game/core/actions.js");
 const {
   buyUpgrade, completeCollapse, tick, performGrandReset,
-  activateMyth, migrerEnee, chronicle, runCrisisAction
+  activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction,
+  launchIcarus, cashOutIcarus, icarusStakes, icarusUnlocked
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
 
@@ -106,6 +109,13 @@ const { generateEpitaph } = await import("./src/game/core/events.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
 const { addProductionPenalty, amplifyRuptureFactor } = mech;
 registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+
+// Merveilles en headless : normalement erigees par le runtime de la carte
+// (cmCheckWonders), absent ici -> sans ca state.wonders reste vide et le jalon GR2
+// (3 merveilles) est INATTEIGNABLE en simulation. On importe la vraie fonction
+// (metriques reelles du jeu) ; repli no-op si layout.js casse en headless.
+let cmCheckWonders = () => {};
+try { ({ cmCheckWonders } = await import("./src/game/map/layout.js")); } catch { /* headless : pas de merveilles simulees */ }
 
 // ---------------------------------------------------------------------------
 // 2. CLI
@@ -153,6 +163,8 @@ const SIM_ROAD_COVERAGE = (argv.roadcov != null && argv.roadcov !== true)
 // 3. Constantes du moteur de simulation
 // ---------------------------------------------------------------------------
 const TICK = Number(argv.tick) || 5; // secondes virtuelles par tick
+const MYTH_TICK = Number(argv.mythtick) || 15; // tick plus grossier pour les longs cycles de Mythe (debit)
+const SMART_MYTHS = !argv["dumb-myths"]; // tactiques dediees par Mythe (defaut ON ; --dumb-myths pour l'ancien comportement)
 const SAMPLE_EVERY = 120;       // echantillonnage des courbes (s virtuelles)
 const CYCLE_HARD_CAP = 4 * 3600; // garde-fou : 4 h virtuelles max par cycle
 const GROW_SECONDS = 600;        // duree de croissance avant de laisser la crise emporter la cite (profil par defaut)
@@ -181,6 +193,11 @@ const REAL_TIME_LIMIT_MS = (argv.maxreal != null && argv.maxreal !== true)
 // 4. Helpers temps / mesure
 // ---------------------------------------------------------------------------
 let VT = 0;                      // temps virtuel (s) depuis le debut du scenario
+// Pic de l'epoch de GR courant (plus haut pic de cycle atteint avant le prochain
+// Grand Reset) : le GR remet la ville a zero, donc pour une chronologie honnete on
+// capture le SOMMET (pop, ere, mult, ruines, mythes, merveilles) au pic du cycle,
+// juste avant chaque GR. Reinitialise au GR (nouvel epoch).
+let epochPeak = null;
 const ORIGINAL_NOW = Date.now;   // horloge reelle, capturee avant tout patch
 const realNow = () => ORIGINAL_NOW.call(Date);
 const REAL_START = realNow();
@@ -273,6 +290,12 @@ function snapshot() {
     },
     ruinTreeOwned: ownedRuinTreePurchaseCount(),
     dogmasOwned: PRESTIGE_DOGMAS.filter((d) => has(d.id)).length,
+    // Vrai etat du jeu (jamais un tracker interne) : Mythes accomplis via
+    // isMythCompleted, merveilles erigees, jackpots d'Icare decroches (jalon GR7).
+    mythsDone: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+    wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+    ragnarok: Boolean(state.ragnarokHeritage),
+    icarusJackpots: state.icarusJackpots || 0,
     automations: activeAutomations()
   };
 }
@@ -280,7 +303,11 @@ function snapshot() {
 // ---------------------------------------------------------------------------
 // 5. Acheteurs (economie, arbre de ruines, dogmes, heritage)
 // ---------------------------------------------------------------------------
-function buyBuildings() {
+// opts (pour les tactiques de Mythes) :
+//   noFood        : n'achete aucun batiment producteur de Nourriture (Promethee)
+//   popCap        : au-dela de cette population, n'achete plus de batiment qui fait croitre la pop (Age d'Or)
+//   onlyCategory  : ne garde que les batiments de cette categorie (Babel : "city"/"knowledge"/"infra")
+function buyBuildings(opts = {}) {
   const t = {};
   const b = state.buildings;
   t.foragers = 10;
@@ -314,6 +341,15 @@ function buyBuildings() {
     const bd = bldById[id];
     if (bd && (bd.food || 0) > 0) delete t[id];
   }
+  // Filtres de tactique de Mythe : on retire du plan d'achat ce qui contredit
+  // l'objectif (ex. Promethee : pas de Nourriture ; Age d'Or : plafond de pop).
+  for (const id of Object.keys(t)) {
+    const bd = bldById[id];
+    if (!bd) continue;
+    if (opts.noFood && (bd.food || 0) > 0) { delete t[id]; continue; }
+    if (opts.onlyCategory && bd.category !== opts.onlyCategory) { delete t[id]; continue; }
+    if (opts.popCap !== undefined && (bd.pop || 0) > 0 && num(state.population) >= opts.popCap) { delete t[id]; continue; }
+  }
   let allMet = true;
   for (const [id, target] of Object.entries(t)) {
     if (target > 0 && (b[id] || 0) < target) { allMet = false; break; }
@@ -332,7 +368,9 @@ function buyBuildings() {
       if (!canPayCost(cost)) continue;
       // Securite nourriture legere : eviter la spirale de mort, mais laisser la
       // penurie pousser la Rupture (sinon aucune crise -> aucun effondrement).
-      if (cost.food && D(state.food).sub(cost.food).lt(D(state.population).mul(0.5))) continue;
+      // Derogation cueilleurs (foragers) : indispensable pour relancer la machine
+      // apres une migration (Enee) ou un cycle de Mythe reparti de zero.
+      if (bd.id !== "foragers" && cost.food && D(state.food).sub(cost.food).lt(D(state.population).mul(0.5))) continue;
       payCost(cost);
       state.buildings[bd.id] = (b[bd.id] || 0) + 1;
       bought++; changed = true;
@@ -342,6 +380,45 @@ function buyBuildings() {
   }
   if (bought) invalidateRenderCache("all");
   return bought > 0;
+}
+
+// Achat cible par predicat (tactiques de Mythe). Achete au plus ~maxBuys
+// batiments correspondant a `pred`, du moins cher au plus cher.
+function buyMatching(pred, { maxBuys = 40, foodSafety = false } = {}) {
+  let bought = 0;
+  for (let pass = 0; pass < maxBuys; pass++) {
+    const cands = buildings
+      .filter((bd) => isUnlocked(bd) && pred(bd))
+      .map((bd) => ({ bd, cost: buildingBatchCost(bd, 1) }))
+      .filter((x) => canPayCost(x.cost))
+      .sort((a, b) => num(a.cost[Object.keys(a.cost)[0]]) - num(b.cost[Object.keys(b.cost)[0]]));
+    let changed = false;
+    for (const { bd, cost } of cands) {
+      if (foodSafety && cost.food && D(state.food).sub(cost.food).lt(D(state.population).mul(0.5))) continue;
+      payCost(cost); state.buildings[bd.id] = (state.buildings[bd.id] || 0) + 1; bought++; changed = true; break;
+    }
+    if (!changed) break;
+  }
+  if (bought) invalidateRenderCache("all");
+  return bought;
+}
+
+// Achat MINIMAL de la chaine de prerequis (pour debloquer l'infra) puis infra pure.
+// Usage : Hephaistos — on veut une infra elevee avec le MOINS de production de pop
+// possible, pour que le declin l'emporte sur la production.
+function buyMinimalInfra() {
+  const chainCaps = { foragers: 3, granaries_city: 3, caravans: 1, storytellers: 1, scribes: 1, roads: 3 };
+  for (const [id, cap] of Object.entries(chainCaps)) {
+    const bd = bldById[id];
+    if (!bd) continue;
+    while ((state.buildings[id] || 0) < cap && isUnlocked(bd)) {
+      const c = buildingBatchCost(bd, 1);
+      if (!canPayCost(c)) break;
+      payCost(c); state.buildings[id] = (state.buildings[id] || 0) + 1;
+    }
+  }
+  buyMatching((bd) => (bd.infra || 0) > 0 && (bd.pop || 0) === 0, { maxBuys: 30 });
+  invalidateRenderCache("all");
 }
 
 function buyRuinTree(keepReserveRuins = 0) {
@@ -370,7 +447,8 @@ function buyRuinTree(keepReserveRuins = 0) {
 // verrouiller la jauge sous le seuil de crise. Sa presence VALIDE le correctif.
 const HERITAGE_ORDER = [
   "reforme_administrative", "protocoles_urgence", "reseau_routes", "codex_mythique",
-  "conservateurs_ruines", "rituel_effondrement"
+  "conservateurs_ruines", "rituel_effondrement",
+  "veilleurs_nuit_1", "veilleurs_nuit_2", "veilleurs_nuit_3", "veilleurs_nuit_4"
 ];
 function buyHeritage() {
   for (const id of HERITAGE_ORDER) {
@@ -386,6 +464,24 @@ function buyHeritage() {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
+  // Ériger les merveilles au PIC du cycle (avant que completeCollapse ne remette
+  // population/pics à zéro) : nourrit state.wonders selon les vraies métriques du
+  // jeu -> rend le jalon GR2 (3 merveilles) atteignable en headless.
+  cmCheckWonders(Date.now());
+  // Capture le SOMMET de l'epoch (avant le reset de completeCollapse) pour la
+  // chronologie canonique par Grand Reset : snapshot cohérent au pic du cycle.
+  const peakPop = num(state.cyclePeaks && state.cyclePeaks.population != null ? state.cyclePeaks.population : state.population);
+  if (!epochPeak || peakPop > epochPeak.pop) {
+    const eIdx = Math.max(currentEraIndex(), state.bestEraIndex || 0);
+    epochPeak = {
+      pop: peakPop, eraIdx: eIdx, era: eras[eIdx].name,
+      mult: globalMultiplier(), ruins: num(state.ruins),
+      myths: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+      ragnarok: Boolean(state.ragnarokHeritage),
+      wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+      cycles: state.cycles
+    };
+  }
   completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);
@@ -396,31 +492,55 @@ function doCollapse(reason = "auto") {
 // 7. Enregistreur de jalons + series temporelles
 // ---------------------------------------------------------------------------
 const MLOG = argv.mlog ? (typeof argv.mlog === "string" ? argv.mlog : "milestones-live.tsv") : null;
-if (MLOG) fs.writeFileSync(MLOG, "temps_virtuel\tjalon\tcycle\tage\tGR\tdynasties\tlegitimite\tmult_global\tprod_s\n", "utf8");
+if (MLOG) fs.writeFileSync(MLOG, "temps_virtuel\tjalon\tcycle\tage\tGR\tmythes\tmerveilles\tmult_global\tprod_s\n", "utf8");
+
+// Les 11 jalons du Grand Reset (echelle « tour des systemes »), derives de la
+// verite du jeu (grandResetMilestone) : nom + pan de jeu qui gate chacun.
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+const GR_JALONS = [];
+for (let g = 1; g <= 11; g++) {
+  const m = grandResetMilestone(g);
+  GR_JALONS.push({
+    gr: g, roman: ROMAN[g],
+    name: m ? m.name.fr : `Grand Reset ${g}`,
+    system: m && m.system ? m.system.fr : "?",
+    key: `gr_${g}`
+  });
+}
 
 function makeRecorder() {
   return {
     series: [], milestones: [], seenEra: new Set(), seenDogmaThreshold: new Set(), nextSample: 0,
+    grPeak: {},
     record(key, label, extra = {}) {
       if (this.milestones.some((m) => m.key === key)) return;
       const ms = { key, label, ...snapshot(), ...extra };
       this.milestones.push(ms);
-      if (MLOG) fs.appendFileSync(MLOG, `${fmtDuration(ms.vt)}\t${label}\t${ms.cycles}\t${ms.era}\t${ms.grandResetCount}\t${ms.dynastyCount}\t${fmt(ms.legitimacy)}\tx${fmt(ms.globalMult)}\t${fmt(ms.prodTotal)}\n`);
+      if (MLOG) fs.appendFileSync(MLOG, `${fmtDuration(ms.vt)}\t${label}\t${ms.cycles}\t${ms.era}\t${ms.grandResetCount}\t${ms.mythsDone}\t${ms.wonders}\tx${fmt(ms.globalMult)}\t${fmt(ms.prodTotal)}\n`);
     },
     maybeSample() {
       if (VT >= this.nextSample) { this.series.push(snapshot()); this.nextSample = VT + SAMPLE_EVERY; }
     },
+    // Alias : le pilotage des Mythes / Icare (porte de sim-10-profils) appelle rec.check().
+    check() { this.checkPassiveMilestones(); },
+    has(key) { return this.milestones.some((m) => m.key === key); },
     checkPassiveMilestones() {
       const ei = currentEraIndex();
       if (!this.seenEra.has(ei)) {
         this.seenEra.add(ei);
         this.record(`era_${ei}`, `Age atteint : ${eras[ei].name} (palier ${ei})`, { kind: "era" });
       }
-      // Jalons de dynastie supprimes (systeme dynastie/legitimite retire).
+      // Grand Reset RE-GATE sur les 11 JALONS marquants (plus de legitimite/dynasties).
+      // On horodate chaque GR I..XI atteint, en le nommant depuis la verite du jeu.
       const gr = state.grandResetCount || 0;
-      if (gr >= 1) this.record("gr_1", "Grand Reset 1", { kind: "grandreset" });
-      if (gr >= 10) this.record("gr_10", "Grand Reset 10", { kind: "grandreset" });
-      if (gr >= 11) this.record("gr_11", "Grand Reset 11 (post-Mythes)", { kind: "grandreset" });
+      for (let g = 1; g <= 11; g++) {
+        if (gr >= g) {
+          const jm = grandResetMilestone(g);
+          const nm = jm ? jm.name.fr : `Grand Reset ${g}`;
+          const sys = jm && jm.system ? jm.system.fr : "?";
+          this.record(`gr_${g}`, `Grand Reset ${ROMAN[g]} · ${nm} (${sys})`, { kind: "grandreset", gr: g });
+        }
+      }
       for (const branch of PRESTIGE_TREE_BRANCHES) {
         const owned = ownedRuinBranchPurchaseCount(branch.id);
         for (const th of [10, 20, 30]) {
@@ -435,16 +555,17 @@ function makeRecorder() {
       if ((state.grandResetCount || 0) >= 1) {
         this.record("myth_unlocked", "Premiers Mythes debloques (Acte I disponible)", { kind: "myth" });
       }
-      const names = { 1: "Fondation", 2: "Domination", 3: "Apocalypse" };
-      for (const act of [1, 2, 3]) {
+      // Actes de Mythes (verite du jeu via isMythCompleted). L'acte "ragnarok"
+      // debloque le GR11. Jalon horodate quand TOUT l'acte est scelle.
+      const actNames = { 1: "Acte I (Fondation)", 2: "Acte II (Domination)", 3: "Acte III (Apocalypse)", ragnarok: "Ragnarok" };
+      for (const act of [1, 2, 3, "ragnarok"]) {
         const list = MYTHS.filter((m) => m.act === act);
         if (list.length && list.every((m) => isMythCompleted(m.id))) {
-          this.record(`act_${act}_done`, `Acte ${act} (${names[act]}) - tous les Mythes completes`, { kind: "myth" });
+          this.record(`act_${act}_done`, `${actNames[act]} - tous les Mythes completes`, { kind: "myth" });
         }
       }
-      if (MYTHS.some((m) => m.act === 1)
-          && MYTHS.filter((m) => [1, 2, 3].includes(m.act)).every((m) => isMythCompleted(m.id))) {
-        this.record("all_myths", "Tous les Mythes (Acte I->III) completes", { kind: "myth" });
+      if (MYTHS.length && MYTHS.every((m) => isMythCompleted(m.id))) {
+        this.record("all_myths", "TOUS les Mythes completes", { kind: "myth" });
       }
     }
   };
@@ -454,7 +575,7 @@ function makeRecorder() {
 // 8. Reinitialisation propre d'un scenario
 // ---------------------------------------------------------------------------
 function resetScenario() {
-  VT = 0; scenarioRealStart = realNow(); setClock();
+  VT = 0; epochPeak = null; scenarioRealStart = realNow(); setClock();
   simRng = mulberry32(SIM_SEED);          // G-19 : même graine par scénario → reproductible ET comparable (même « chance »)
   setState(defaultState());
   state.roadCoverage = SIM_ROAD_COVERAGE; // G-07 : modélise (ou non) le bonus réseau routier map-only
@@ -478,11 +599,33 @@ async function resolvePause() {
 // (Reformes/Recensement/Rationnement/Festivals) pour tenir l'instabilite sous le
 // seuil terminal et laisser la cite GRANDIR (eres, population) avant d'effondrer
 // au sommet -> bien plus de Ruines (peakPopulation + patience dans ruinGain()).
-function manageRupture() {
+function manageRupture(below = 0.6) {
   for (const id of ["reforms", "census", "rationing", "festivals"]) {
-    if (state.instability <= 0.6) break;
+    if (state.instability <= below) break;
     try { runCrisisAction(id, { render: false }); } catch { /* noop */ }
   }
+}
+
+// Sabotage = « tenir gros puis saborder » : une fois la crise ouverte, on enchaine
+// les preparations terminales (chacune monte collapsePreparation, qui muscle
+// ruinGain), jusqu'au palier vise, PUIS on laisse re-monter la Rupture.
+function prepareCollapse(tier) {
+  for (const type of ["prepareArchives", "exodus", "holdOrder"]) {
+    for (let t = 0; t <= tier; t++) {
+      if (terminalCrisisReady(type, t)) {
+        try { runTerminalCrisisAction(type, t); } catch { /* noop */ }
+      }
+    }
+  }
+}
+
+// Declenche un effondrement immediat (objectif de Mythe atteint) : on pousse la
+// Rupture a 1 pour ouvrir la crise, puis on effondre. completeCollapse passe meme
+// si l'effondrement MANUEL est desactive (Atlas/Icare) — fidele a « la cite finit
+// par tomber », la condition onCollapse() etant deja remplie.
+function forceCollapseNow(reason) {
+  state.instability = Math.max(state.instability || 0, 1);
+  return doCollapse(reason);
 }
 
 async function playCycleUntilCollapse(rec, { buyEconomy = true, grow = true } = {}) {
@@ -523,11 +666,87 @@ async function playCycleUntilCollapse(rec, { buyEconomy = true, grow = true } = 
 // active le pacte, on joue un cycle "fort", on applique l'action specifique si
 // elle existe, puis on effondre. On enregistre succes/echec sans rien inventer.
 const mythDelta = []; // { id, name, act, before, after, completed }
+const mythResults = { completed: 0, attempted: 0, attemptsById: {}, done: [] };
+const MYTH_MAX_ATTEMPTS = 3; // au-dela, on abandonne ce Mythe (anti-gaspillage de calcul)
+
+// Profil de jeu FORT dedie au pilotage des Mythes (independant du PROFILE de
+// pacing) : tient la Rupture bas et sabote au palier max avant la chute, comme un
+// joueur avance qui « tient puis saborde » pour verrouiller l'objectif du Mythe.
+const MYTH_PROF = { afk: false, growSeconds: 600, manage: true, manageBelow: 0.8, sabotage: true, sabotageTier: 2 };
+
+// ── Tactiques dediees par Mythe (SMART_MYTHS, ON par defaut) ─────────────────
+// Chaque objectif de Mythe a une condition sur-mesure (cf. data/myths.js) qu'une
+// strategie generique ne peut pas satisfaire (et parfois sabote, ex. Promethee).
+// Copie exacte des micro-strategies validees dans sim-10-profils.js.
+const goldNum  = () => num(state.gold);
+const powerNum = () => num(state.population) + num(state.food) * 0.05 + num(state.gold) * 0.1 + num(state.knowledge) * 0.25 + num(state.infrastructure);
+
+const MYTH_TACTICS = {
+  // ── Acte I ────────────────────────────────────────────────────────────────
+  mythe_du_chaos:      { grow: 6000, below: 0.8,
+    met() { return state.chaosReached === true; } },
+  mythe_de_cadmos:     { grow: 700,  below: 0.8 }, // nommer 3 Ages : le handler de dialogue repond aux prompts
+  mythe_d_enee:        { grow: 1700, below: 0.7,
+    buy() { buyMinimalInfra(); },
+    onTick() { if (state.eneeDegraded) { try { migrerEnee(); } catch { /* */ } } },
+    met() { return (state.eneeMigrations || 0) >= 3; } },
+  mythe_de_promethee:  { grow: 2400, below: 0.7,
+    met() { return state.prometheePopReached === true; } },
+  mythe_d_hephaistos:  { grow: 3000, below: 0.6,
+    buy({ ageSec }) { if (ageSec < 150) buyMinimalInfra(); },
+    met() { return state.hephGoalReached === true; } },
+
+  // ── Acte II ─────────────────────────────────────────────────────────────────
+  mythe_de_sisyphe:    { grow: 3000, below: 0.8,
+    met() { return state.sisypheReached === true; } },
+  mythe_de_babel:      { grow: 2600, below: 0.8,
+    setup() { state.babelCategory = "city"; },
+    buyOpts: { onlyCategory: "city" },
+    met() { return state.babelProdReached === true; } },
+  mythe_age_or:        { grow: 900, below: 0.95,
+    met() { return state.orGoldReached === true; } },
+
+  // ── Acte III ────────────────────────────────────────────────────────────────
+  mythe_d_atlas:       { grow: 200,  below: 1,
+    onTick() { if ((state.atlasCrisisCount || 0) < 12) { for (const id of ["census", "rationing", "festivals", "reforms"]) { try { runCrisisAction(id, { render: false, force: true }); } catch { /* */ } } } },
+    met() { return (state.atlasCrisisCount || 0) >= 10; } },
+  mythe_d_icare:       { grow: 1200, below: 0.55,
+    met() { return state.icareInfraReached === true; } },
+  mythe_du_phenix:     { grow: 200, below: 0.95, maxCycles: 40,
+    buy() { buyMatching((bd) => (bd.pop || 0) > 0, { maxBuys: 50 }); },
+    collapseWhen: () => num(state.population) >= num(state.phoenixRebirthTargetPop || Infinity),
+    collapseAtAge: 175 },
+  mythe_atrides:       { grow: 2000, below: 0.8,
+    buy({ ageSec }) { if (ageSec < 120) buyBuildings(); },
+    met() { return state.atridesReached === true; } },
+  mythe_d_antee:       { grow: 1400, below: 0.8,
+    setup() {
+      const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
+      state.activeRuinIds = ids.slice(0, Math.min(ids.length, 6));
+      state.pendingActiveRuinsChoice = false;
+    },
+    met() { return (state.activeRuinIds || []).length >= 4 && num(state.population) >= num(state.mythStartPop || 0) * 50; } },
+
+  // ── Ragnarok (debloque le GR11) ───────────────────────────────────────────────
+  mythe_du_ragnarok:   { grow: 600, below: 0.85,
+    setup() {
+      const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
+      state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
+      state.pendingActiveRuinsChoice = false;
+      state.babelCategory = state.babelCategory || "city";
+    },
+    met() {
+      const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
+      const sp = num(state.ragnarokStartPower || 1);
+      const surged = sp > 0 && powerNum() >= sp * 3;
+      return ageSec >= 90 && surged;
+    } }
+};
 
 async function tryCompleteMyth(m, rec) {
   if (isMythCompleted(m.id) || !isMythUnlocked(m)) return isMythCompleted(m.id);
-
   const before = { globalMult: globalMultiplier(), prodTotal: sumRates(), vt: VT };
+  state.cyclePeaks = { population: D(10), food: D(35), gold: D(0), knowledge: D(0), infrastructure: D(0), eraIndex: 0 };
   try {
     await activateMyth(m.id);
   } catch (e) {
@@ -535,26 +754,48 @@ async function tryCompleteMyth(m, rec) {
     return false;
   }
 
-  const maxCycles = m.id === "mythe_du_phenix" ? 22 : 4;
+  const prof = MYTH_PROF;
+  const tac = (SMART_MYTHS && MYTH_TACTICS[m.id]) ? MYTH_TACTICS[m.id] : {};
+  const grow    = tac.grow  !== undefined ? tac.grow  : prof.growSeconds;
+  const below   = tac.below !== undefined ? tac.below : prof.manageBelow;
+  const buyOptsFor = (ageSec) => (typeof tac.buyOpts === "function" ? tac.buyOpts({ ageSec, state }) : (tac.buyOpts || {}));
+  const maxCycles = tac.maxCycles || (m.id === "mythe_du_phenix" ? 22 : 5);
+  if (tac.setup) { try { tac.setup(); } catch { /* */ } }
+
   for (let c = 0; c < maxCycles && state.activeMythId; c++) {
     const startVT = VT;
     let g = 0;
-    while (g++ < 500000 && !crisisOpen() && state.activeMythId) {
-      if (VT - startVT >= CYCLE_HARD_CAP) break;
-      if (VT >= BUDGET_SECONDS || timedOut()) break;
+    let objectiveHit = false;
+    while (g++ < 500000 && (!crisisOpen() || state.activeMythId === "mythe_d_atlas" || state.activeMythId === "mythe_du_ragnarok" || state.activeMythId === "mythe_d_icare") && !stateModule.collapseInProgress && state.activeMythId) {
+      if (VT - startVT >= CYCLE_HARD_CAP || VT >= BUDGET_SECONDS || timedOut()) break;
       if (stateModule.gamePaused) { await resolvePause(); if (stateModule.gamePaused) break; continue; }
-      buyBuildings();
-      if (m.id === "mythe_d_enee" && state.eneeDegraded) { try { migrerEnee(); } catch { /* noop */ } }
-      setClock(); tick(TICK); VT += TICK;
+      if (tac.buy) { try { tac.buy({ ageSec: VT - startVT }); } catch { /* */ } }
+      else buyBuildings(buyOptsFor(VT - startVT));
+      if (!prof.afk && state.instability > below && (VT - startVT) < grow) manageRupture(below);
+      if (tac.onTick) { try { tac.onTick(); } catch { /* */ } }
+      setClock(); tick(MYTH_TICK); VT += MYTH_TICK;
+      // Cadmos : le prompt de nommage d'Age est un dialogue asynchrone tire dans
+      // le tick ; on vide la file de micro-taches pour qu'il se resolve.
+      if (state.cadmosPromptPending) { let f = 0; while (state.cadmosPromptPending && f++ < 12) await flush(); }
       if (stateModule.gamePaused && !crisisOpen()) await resolvePause();
       if (rec) { rec.maybeSample(); rec.checkPassiveMilestones(); }
+      if (tac.met && tac.met()) { objectiveHit = true; break; }
+      if (tac.collapseWhen && tac.collapseWhen()) break;
+      if (tac.collapseAtAge && (VT - startVT) >= tac.collapseAtAge) break;
     }
-    if (!doCollapse("auto")) break;
-    if (rec) rec.checkPassiveMilestones();
+    if (objectiveHit) { forceCollapseNow("manual"); if (rec) rec.checkPassiveMilestones(); if (isMythCompleted(m.id)) break; }
+    else {
+      if (prof.sabotage && crisisOpen()) prepareCollapse(prof.sabotageTier);
+      if (!forceCollapseNow("manual")) {
+        state.instability = 0; state.timeWear = 0; state.stagnationSec = 0;
+        setGamePaused(false); setCollapseInProgress(false);
+      }
+      if (rec) rec.checkPassiveMilestones();
+    }
     if (isMythCompleted(m.id)) break;
     if (VT >= BUDGET_SECONDS || timedOut()) break;
     if (!state.activeMythId && !isMythCompleted(m.id) && m.id !== "mythe_du_phenix") {
-      try { await activateMyth(m.id); } catch { break; }
+      try { await activateMyth(m.id); if (tac.setup) tac.setup(); } catch { break; }
     }
   }
 
@@ -569,13 +810,48 @@ async function tryCompleteMyth(m, rec) {
 
 async function driveMyths(rec) {
   if ((state.grandResetCount || 0) < 1) return;
-  for (const act of [1, 2, 3]) {
+  // Ordre des actes + Ragnarok. Le gating est dur (Acte II exige tout l'Acte I,
+  // etc.) : inutile d'essayer l'Acte II si l'Acte I n'est pas boucle.
+  for (const act of [1, 2, 3, "ragnarok"]) {
     for (const m of MYTHS.filter((x) => x.act === act)) {
       if (VT >= BUDGET_SECONDS || timedOut()) return;
-      await tryCompleteMyth(m, rec);
+      if (isMythCompleted(m.id) || !isMythUnlocked(m)) continue;
+      if ((mythResults.attemptsById[m.id] || 0) >= MYTH_MAX_ATTEMPTS) continue; // abandonne
+      mythResults.attemptsById[m.id] = (mythResults.attemptsById[m.id] || 0) + 1;
+      mythResults.attempted++;
+      if (await tryCompleteMyth(m, rec)) { mythResults.completed++; mythResults.done.push(m.id); }
     }
     rec.checkPassiveMilestones();
   }
+}
+
+// ---------------------------------------------------------------------------
+// 10b. Vol d'Icare joue jusqu'a decrocher un JACKPOT (jalon du Grand Reset VII).
+// Le bot ne le decroche pas passivement : il FAUT lancer des vols. Faisable en
+// headless car Date.now() est l'horloge VIRTUELLE (setClock) — on lance un vol,
+// on avance VT jusqu'a un multiplicateur >= 10 (le point de crash cache reste
+// tire par Math.random), puis on encaisse : cashout >= 10x avec cagnotte pleine =
+// JACKPOT ; sinon le vol brule et ALIMENTE la cagnotte (necessaire au jackpot).
+// ---------------------------------------------------------------------------
+function playIcarusForJackpot(rec) {
+  if (!icarusUnlocked()) return;                        // Icare exige bestEra >= 3
+  const targetM = ICARUS_JACKPOT_MULT + 0.5;            // vise 10.5x (marge > seuil 10)
+  const dtForTarget = Math.log(targetM) / ICARUS_K;     // secondes de vol pour la cible
+  let attempts = 0;
+  while ((state.icarusJackpots || 0) < 1 && attempts < 600) {
+    attempts++;
+    if (VT >= BUDGET_SECONDS || timedOut()) return;
+    if (stateModule.gamePaused || crisisOpen()) return; // Icare bloque en crise
+    const stakes = icarusStakes();
+    const stake = stakes.find((s) => s.id === "plume") || stakes[0];
+    if (!stake) return;
+    if (D(state.gold).lt(stake.gold)) { setClock(); tick(TICK); VT += TICK; continue; } // produire l'or de la mise
+    if (!launchIcarus(stake.id)) { setClock(); tick(TICK); VT += TICK; continue; }
+    VT += dtForTarget; setClock();                      // avance jusqu'a la cible
+    cashOutIcarus();                                     // resout : crash (remplit la cagnotte) OU cashout (jackpot si >=10x)
+    if (rec && (attempts & 31) === 0) rec.checkPassiveMilestones();
+  }
+  if (rec) rec.checkPassiveMilestones();
 }
 
 // ---------------------------------------------------------------------------
@@ -587,9 +863,16 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
   const rec = makeRecorder();
   rec.profile = profile;
   rec.checkPassiveMilestones();
-  let mythsDriven = false;
   let mythPasses = 0;
   let collapseFails = 0;
+  // Grimpe TOUS les jalons deja atteints d'affilee (croissance economique pouvant
+  // en debloquer plusieurs dans le meme cycle). Renvoie le prochain GR restant.
+  const climbReadyGRs = async () => {
+    let n = (state.grandResetCount || 0) + 1;
+    const cap = state.ragnarokHeritage ? 11 : 10;
+    while (n <= cap && grandResetMilestoneMet(n)) { await performGrandResetTracked(rec, n); n = (state.grandResetCount || 0) + 1; }
+    return n;
+  };
 
   while (VT < BUDGET_SECONDS && state.cycles < MAX_CYCLES) {
     if (timedOut()) break;
@@ -630,30 +913,54 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
     rec.checkPassiveMilestones();
     trace("F3:doneMeta");
 
-    const nextGR = (state.grandResetCount || 0) + 1;
+    // Grand Reset RE-GATE sur les 11 JALONS marquants (plus de legitimite/dynasties).
+    // On grimpe d'abord tout ce qui est deja debloque (fige le SOMMET de chaque epoch).
+    trace("G:climbGRs");
     const maxGR = state.ragnarokHeritage ? 11 : 10;
-    const withinCap = nextGR <= maxGR;
-    // Grand Reset RE-GATE sur des JALONS marquants : disponible ssi grandResetMilestoneMet(nextGR)
-    // (plus de gate legitimite/upgrade "grand_reset"), dans la borne du cap.
-    if (withinCap && grandResetMilestoneMet(nextGR)) {
-      trace("G:performGrandReset");
-      await performGrandReset();
-      rec.checkPassiveMilestones();
-    }
+    let nextGR = await climbReadyGRs();
+    const nextMs = nextGR <= maxGR ? grandResetMilestone(nextGR) : null;
+    const blockedByGR = Boolean(nextMs) && !grandResetMilestoneMet(nextGR);
 
-    // Pilotage des Mythes : 1re passe au deblocage (GR1), puis nouvelles passes
-    // quand le gate Mythes bloque le prochain GR (max 4 passes au total).
-    const blockedByMyths = withinCap && completedMythCount() < grandResetMythsRequired(nextGR);
-    if (withMyths && (state.grandResetCount || 0) >= 1 && mythPasses < 4 && (!mythsDriven || blockedByMyths)) {
-      mythsDriven = true;
+    // GREEDY : on ne JOUE QUE le systeme du jalon COURANT bloquant. Les jalons non
+    // pilotes (merveilles GR II, population GR IV, Olympe GR V, arbre GR IX, eres
+    // GR X) se debloquent par la simple croissance des cycles suivants — inutile
+    // de gaspiller le budget a driver les Mythes tant que le gate n'est pas eux.
+    if (blockedByGR && withMyths && (state.grandResetCount || 0) >= 1
+        && nextMs.system && nextMs.system.fr === "Mythes" && !rec.has("all_myths") && mythPasses < 30) {
+      // Jalon de Mythes (GR III/VI/VIII/XI) -> on pilote les Mythes.
+      trace("H:driveMyths");
       mythPasses++;
       await driveMyths(rec);
       buyHeritage();
       rec.checkPassiveMilestones();
+      nextGR = await climbReadyGRs();
+    } else if (blockedByGR && nextMs.id === "jackpot_icare") {
+      // Jalon Icare (GR VII) : le bot ne decroche pas le jackpot passivement -> il JOUE.
+      trace("H:icarus");
+      playIcarusForJackpot(rec);
+      nextGR = await climbReadyGRs();
     }
   }
   rec.final = snapshot();
   return rec;
+}
+
+// Effectue le Grand Reset en figeant d'abord l'etat ATTEINT (sommet de l'epoch,
+// capture au pic du cycle dans doCollapse) pour la chronologie canonique par GR —
+// le GR remet la ville a zero. Enregistre { vt: instant du GR, ...sommet }.
+async function performGrandResetTracked(rec, nextGR) {
+  rec.grPeak = rec.grPeak || {};
+  const peak = epochPeak || {
+    pop: num(state.population), eraIdx: currentEraIndex(), era: eras[currentEraIndex()].name,
+    mult: globalMultiplier(), ruins: num(state.ruins),
+    myths: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+    ragnarok: Boolean(state.ragnarokHeritage), wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+    cycles: state.cycles
+  };
+  rec.grPeak[nextGR] = { vt: VT, ...peak };
+  await performGrandReset();
+  epochPeak = null; // nouvel epoch de GR
+  rec.checkPassiveMilestones();
 }
 
 async function runIdle() {
@@ -694,27 +1001,31 @@ if (argv.profiles) {
     console.log(`[CE-SIM] Profil ${pid}...`);
     recs[pid] = pid === "idle" ? await runIdle() : await runOptimized({ withMyths: true, profile: PROFILES[pid] });
     const f = recs[pid].final;
-    console.log(`  -> ${fmtDuration(f.vt)} virtuel | cycles=${f.cycles} dyn=${f.dynastyCount} GR=${f.grandResetCount} bestAge=${eras[f.bestEraIndex].name}`);
+    console.log(`  -> ${fmtDuration(f.vt)} virtuel | cycles=${f.cycles} GR=${f.grandResetCount}/11 mythes=${f.mythsDone}/${MYTHS.length} bestAge=${eras[f.bestEraIndex].name}`);
   }
-  // Lignes de jalons
+  // Lignes de jalons : le 1er age, les 11 JALONS du Grand Reset, puis tous les Mythes.
   const MS = [
-    ["bestAge", "Age max atteint"], ["dynasty_1", "Dynastie 1"], ["dynasty_10", "Dynastie 10"],
-    ["ruins_threshold_10_", "Dogme palier 10"], ["ruins_threshold_20_", "Dogme palier 20"], ["ruins_threshold_30_", "Dogme palier 30"],
-    ["gr_1", "Grand Reset 1 (= Mythes debloques)"], ["gr_10", "Grand Reset 10"], ["gr_11", "Grand Reset 11"],
+    ["bestAge", "Age max atteint"],
+    ...GR_JALONS.map((j) => [j.key, `GR ${j.roman} · ${j.system}`]),
     ["all_myths", "Tous les Mythes completes"]
   ];
   const profLabel = (pid) => pid === "idle" ? "Idle" : PROFILES[pid].label;
   let pmd = `# Pacing par profil de joueur - jalons horodates (temps virtuel)
 
 > Genere par \`simulate-ce.js --profiles\` (budget reel ${MAXREAL_LABEL}/profil, pas ${TICK}s).
-> Chiffres EXACTS pour les jalons atteints dans le temps de calcul. La boucle de prestige de CE etant
-> tres longue (GR1 ~ jours virtuels composes), les jalons profonds peuvent etre "non atteint" faute de
-> temps de CALCUL reel (pas par design) : relancer avec \`--maxreal\` plus grand pour les horodater.
+> Le Grand Reset se debloque sur une echelle de **11 jalons marquants** (plus de legitimite/dynasties) ; le bot JOUE
+> les systemes requis (merveilles, jackpot d'Icare, Mythes). Chiffres EXACTS pour les jalons atteints dans le temps de calcul :
+> les jalons profonds peuvent etre "non atteint" faute de temps de CALCUL reel (relancer avec \`--maxreal\` plus grand).
+
+## Les 11 jalons du Grand Reset (systeme gate)
+| GR | Jalon | Systeme |
+|---|---|---|
+${GR_JALONS.map((j) => `| ${j.roman} | ${j.name} | ${j.system} |`).join("\n")}
 
 ## Synthese finale par profil
-| Profil | Temps virtuel simule | Cycles | Dynasties | GR | Age max | Mult global | Prod/s |
-|---|---|---|---|---|---|---|---|
-${order.map((p) => { const f = recs[p].final; return `| ${profLabel(p)} | ${fmtDuration(f.vt)} | ${f.cycles} | ${f.dynastyCount} | ${f.grandResetCount} | ${eras[f.bestEraIndex].name} | x${fmt(f.globalMult)} | ${fmt(f.prodTotal)} |`; }).join("\n")}
+| Profil | Temps virtuel simule | Cycles | GR | Mythes | Merveilles | Age max | Mult global | Prod/s |
+|---|---|---|---|---|---|---|---|---|
+${order.map((p) => { const f = recs[p].final; return `| ${profLabel(p)} | ${fmtDuration(f.vt)} | ${f.cycles} | ${f.grandResetCount}/11 | ${f.mythsDone}/${MYTHS.length} | ${f.wonders} | ${eras[f.bestEraIndex].name} | x${fmt(f.globalMult)} | ${fmt(f.prodTotal)} |`; }).join("\n")}
 
 ## Jalons horodates (temps virtuel pour les atteindre)
 | Jalon | ${order.map(profLabel).join(" | ")} |
@@ -737,14 +1048,12 @@ ${order.map((p) => { const f = recs[p].final; return `| ${profLabel(p)} | ${fmtD
   for (const p of order.filter((x) => x !== "idle")) {
     const f = recs[p].final;
     const cyclesPerVHour = f.vt > 0 ? (f.cycles / (f.vt / 3600)).toFixed(1) : "0";
-    const dynRate = f.dynastyCount > 0 ? fmtDuration(f.vt / f.dynastyCount) : "n/a";
     pmd += `- **${profLabel(p)}** : ${f.cycles} cycles en ${fmtDuration(f.vt)} (${cyclesPerVHour} cycles/h virtuelle) ; `;
-    pmd += `${f.dynastyCount} dynasties (~1 / ${dynRate}) ; legitimite finale ${fmt(f.legitimacy)} / 300 requis pour GR1.\n`;
+    pmd += `${f.grandResetCount}/11 Grand Resets, ${f.mythsDone}/${MYTHS.length} Mythes, ${f.wonders} merveilles.\n`;
   }
-  pmd += `\n> **Lecture.** Le GR1 exige 300 legitimite (+~53 depensees en heritages avant). La legitimite par dynastie
-> CROIT (terme \`cycles/12\` dans \`legitimacyGain\`), donc l'extrapolation lineaire sous-estime : l'ordre de grandeur
-> reel du GR1 est de plusieurs jours virtuels de jeu compose. Les Mythes (donc Actes I-III, GR11) sont verrouilles
-> derriere ce GR1. Pour des horodatages EXACTS de GR1+/Mythes, relancer un run long (\`--maxreal=60\`+).\n`;
+  pmd += `\n> **Lecture.** Le GR1 exige 10 effondrements traverses (rapide) ; le vrai mur est l'**Acte I des Mythes** (GR III/VI gates
+> par 1/5 Mythes honores). Un pilote mecanique ne boucle qu'une partie des Mythes (objectifs sur-mesure), d'ou les "non atteint"
+> sur les GR profonds. Pour des horodatages EXACTS des GR/Mythes profonds, relancer un run long (\`--maxreal=60\`+).\n`;
 
   fs.writeFileSync("pacing-profiles.md", pmd, "utf8");
   console.log("[CE-SIM] Ecrit : pacing-profiles.md");
@@ -756,14 +1065,14 @@ if (SCENARIO === "all" || SCENARIO === "optimized") {
   console.log(`[CE-SIM] Scenario OPTIMIZED (profil ${CLI_PROFILE.label})...`);
   results.optimized = await runOptimized({ withMyths: true, profile: CLI_PROFILE });
   const f = results.optimized.final;
-  console.log(`  -> cycles=${f.cycles} dynasties=${f.dynastyCount} GR=${f.grandResetCount} ere=${f.era} ` +
-    `jalons=${results.optimized.milestones.length} mythes=${mythDelta.filter((m) => m.completed).length}/${mythDelta.length}`);
+  console.log(`  -> cycles=${f.cycles} GR=${f.grandResetCount}/11 ere=${f.era} merveilles=${f.wonders} ` +
+    `jalons=${results.optimized.milestones.length} mythes=${f.mythsDone}/${MYTHS.length}`);
 }
 if (SCENARIO === "all" || SCENARIO === "no-mythes") {
   console.log("[CE-SIM] Scenario NO-MYTHES...");
   results.noMythes = await runOptimized({ withMyths: false });
   const f = results.noMythes.final;
-  console.log(`  -> cycles=${f.cycles} dynasties=${f.dynastyCount} GR=${f.grandResetCount} ere=${f.era}`);
+  console.log(`  -> cycles=${f.cycles} GR=${f.grandResetCount}/11 ere=${f.era}`);
 }
 if (SCENARIO === "all" || SCENARIO === "idle") {
   console.log("[CE-SIM] Scenario IDLE...");
@@ -779,7 +1088,8 @@ if (SCENARIO === "all" || SCENARIO === "idle") {
 // Elles servent uniquement a flagger "trop rapide / trop lent" ; ce ne sont pas
 // des valeurs canoniques du jeu.
 const PACING_TARGETS = {
-  dynasty_1: 60, dynasty_10: 600, gr_1: 1440, gr_10: 14400, gr_11: 20000, all_myths: 12000
+  gr_1: 1440, gr_2: 2880, gr_3: 4320, gr_4: 5760, gr_5: 7200, gr_6: 9000,
+  gr_7: 10800, gr_8: 12600, gr_9: 14400, gr_10: 16200, gr_11: 20000, all_myths: 18000
 };
 
 // Temps virtuel reellement simule par scenario + detection de troncature reelle.
@@ -939,7 +1249,9 @@ const prodSeries = seriesFor(["optimized", "noMythes", "idle"]);
 const ruinSeries = seriesFor(["optimized", "noMythes"]);
 const chartProd = svgLogLine(prodSeries, (p) => p.prodTotal, { title: "Production totale / s (echelle log)", yLabel: "ressources/s", colors: prodSeries.map((s) => s.color) });
 const chartRuins = svgLogLine(ruinSeries, (p) => p.ruins, { title: "Ruines accumulees (echelle log)", yLabel: "ruines", colors: ruinSeries.map((s) => s.color) });
-const chartLegit = svgLogLine(ruinSeries, (p) => p.legitimacy, { title: "Legitimite (monnaie de prestige)", yLabel: "legitimite", colors: ["#5bd1ff", "#ffd479"] });
+// Legitimite supprimee (GR desormais gate sur 11 jalons) -> on trace la Population
+// (pic), toujours significative et pertinente pour le jalon GR4 (1e6 de population).
+const chartPop = svgLogLine(prodSeries, (p) => p.population, { title: "Population (echelle log)", yLabel: "habitants", colors: prodSeries.map((s) => s.color) });
 const chartMult = svgLogLine(ruinSeries, (p) => p.globalMult, { title: "Multiplicateur global de production", yLabel: "x mult", colors: ["#5bd1ff", "#ffd479"] });
 const chartTimeline = results.optimized ? svgTimeline(results.optimized.milestones, { title: "Chronologie des jalons (scenario optimise)" }) : "";
 const chartMyth = svgMythDelta({ title: "Impact des Mythes - facteur sur le multiplicateur global (avant->apres heritage)" });
@@ -947,13 +1259,16 @@ const chartMyth = svgMythDelta({ title: "Impact des Mythes - facteur sur le mult
 // ---------------------------------------------------------------------------
 // 16. Tableaux de jalons
 // ---------------------------------------------------------------------------
+// Jalons requis = 1er age + les 11 JALONS du Grand Reset (nommes depuis la verite
+// du jeu) + scellement des actes de Mythes + tous les Mythes.
 const REQUIRED_MILESTONES = [
-  ["era_0", "Premier age"], ["dynasty_1", "Dynastie 1"], ["dynasty_10", "Dynastie 10"],
-  ["ruins_threshold_10_", "Palier ruines 10 (dogme)"], ["ruins_threshold_20_", "Palier ruines 20 (dogme)"],
-  ["ruins_threshold_30_", "Palier ruines 30 (dogme)"],
-  ["gr_1", "Grand Reset 1"], ["gr_10", "Grand Reset 10"], ["gr_11", "Grand Reset 11"],
-  ["myth_unlocked", "1er Mythe debloque"], ["act_1_done", "Acte I complete"],
-  ["act_2_done", "Acte II complete"], ["act_3_done", "Acte III complete"], ["all_myths", "Tous les Mythes"]
+  ["era_0", "Premier age"],
+  ...GR_JALONS.map((j) => [j.key, `GR ${j.roman} · ${j.name} (${j.system})`]),
+  ["act_1_done", "Acte I scelle (Fondation)"],
+  ["act_2_done", "Acte II scelle (Domination)"],
+  ["act_3_done", "Acte III scelle (Apocalypse)"],
+  ["act_ragnarok_done", "Ragnarok scelle"],
+  ["all_myths", "TOUS les Mythes completes"]
 ];
 function milestoneRow(rec, key) {
   return rec ? rec.milestones.find((x) => x.key === key || x.key.startsWith(key)) : null;
@@ -966,11 +1281,31 @@ function htmlMilestoneTable(rec) {
   const rows = rec.milestones.slice().sort((a, b) => a.vt - b.vt).map((m) => `
     <tr><td>${m.label}</td><td class="mono">${fmtDuration(m.vt)}</td><td class="mono">${m.cycles}</td>
       <td>${m.era}</td><td class="mono">${fmt(m.population)}</td><td class="mono">${fmt(m.ruins)}</td>
-      <td class="mono">${fmt(m.legitimacy)}</td><td class="mono">x${fmt(m.globalMult)}</td>
+      <td class="mono">${m.mythsDone}/${MYTHS.length}</td><td class="mono">${m.wonders}</td><td class="mono">x${fmt(m.globalMult)}</td>
       <td class="mono">${fmt(m.prodTotal)}/s</td>
       <td>${(m.automations || []).length ? (m.automations || []).join("<br>") : "<span class='muted'>-</span>"}</td></tr>`).join("");
   return `<table class="tbl"><thead><tr><th>Jalon</th><th>Temps</th><th>Cycle</th><th>Age</th><th>Pop.</th>
-    <th>Ruines</th><th>Legit.</th><th>Mult.</th><th>Prod.</th><th>Automations actives</th></tr></thead><tbody>${rows}</tbody></table>`;
+    <th>Ruines</th><th>Mythes</th><th>Merv.</th><th>Mult.</th><th>Prod.</th><th>Automations actives</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Table dediee : les 11 jalons du Grand Reset + le systeme qui gate chacun +
+// le temps virtuel pour l'atteindre (scenario optimise). Coeur du nouveau cadrage.
+function htmlGrandResetLadder() {
+  const rec = results.optimized;
+  const rows = GR_JALONS.map((j) => {
+    const m = rec ? milestoneRow(rec, j.key) : null;
+    const peak = rec && rec.grPeak ? rec.grPeak[j.gr] : null;
+    return `<tr><td class="mono">${j.roman}</td><td>${j.name}</td><td><span class="pill">${j.system}</span></td>
+      <td class="mono">${m ? `<span class='ok'>${fmtDuration(m.vt)}</span>` : "<span class='bad'>—</span>"}</td>
+      <td class="mono">${peak ? `cyc ${peak.cycles}, ${peak.era}` : (m ? `cyc ${m.cycles}, ${m.era}` : "-")}</td>
+      <td class="mono">${peak ? fmt(peak.pop) : (m ? fmt(m.population) : "-")}</td>
+      <td class="mono">${peak ? `${peak.myths}/${MYTHS.length}` : (m ? `${m.mythsDone}/${MYTHS.length}` : "-")}</td>
+      <td class="mono">${peak ? peak.wonders : (m ? m.wonders : "-")}</td></tr>`;
+  }).join("");
+  return `<p class="small">Le Grand Reset se debloque desormais sur une echelle de <b>11 jalons marquants</b>
+    (plus de legitimite ni de dynasties). Chaque jalon engage un pan du jeu ; le bot JOUE reellement le systeme requis
+    (il erige des merveilles pour le GR II, decroche un jackpot d'Icare pour le GR VII, etc.). Un « — » = jalon non atteint dans le budget.</p>
+    <table class="tbl"><thead><tr><th>GR</th><th>Jalon (nom du jeu)</th><th>Systeme gate</th><th>Temps virtuel</th><th>Contexte</th><th>Population (pic)</th><th>Mythes</th><th>Merv.</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function htmlRequiredTable() {
@@ -1040,9 +1375,10 @@ function htmlDeadZones() {
 
 const finalCmp = ["optimized", "noMythes", "idle"].filter((k) => results[k]).map((k) => {
   const f = results[k].final;
-  return `<tr><td>${labelMap[k]}</td><td class="mono">${f.cycles}</td><td class="mono">${f.dynastyCount}</td>
-    <td class="mono">${f.grandResetCount}</td><td>${f.era}</td><td class="mono">${fmt(f.ruins)}</td>
-    <td class="mono">${fmt(f.legitimacy)}</td><td class="mono">x${fmt(f.globalMult)}</td><td class="mono">${fmt(f.prodTotal)}/s</td></tr>`;
+  return `<tr><td>${labelMap[k]}</td><td class="mono">${f.cycles}</td><td class="mono">${f.grandResetCount}/11</td>
+    <td>${f.era}</td><td class="mono">${fmt(f.ruins)}</td>
+    <td class="mono">${f.mythsDone}/${MYTHS.length}${f.ragnarok ? " ✓Rag" : ""}</td><td class="mono">${f.wonders}</td>
+    <td class="mono">x${fmt(f.globalMult)}</td><td class="mono">${fmt(f.prodTotal)}/s</td></tr>`;
 }).join("");
 
 const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -1080,34 +1416,37 @@ const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <main>
 <div class="note"><b>Methode.</b> Le simulateur importe les vraies formules du jeu (<span class="mono">src/game/core/mechanics.js</span>,
  <span class="mono">actions/*</span>, <span class="mono">data/*</span>) et fait tourner la boucle complete sans navigateur.
- Le scenario <b>optimise</b> suit un achat best-first a cibles progressives + arbre de ruines + dynasties + grand resets,
- puis pilote les Mythes apres le 1er Grand Reset (verrou de design).</div>
+ Le scenario <b>optimise</b> suit un achat best-first a cibles progressives + arbre de ruines + <b>Grand Resets sur 11 jalons</b>,
+ puis pilote les Mythes apres le 1er Grand Reset (verrou de design) et JOUE les systemes requis (merveilles GR II, jackpot d'Icare GR VII…).</div>
 
 <h2>1 - Synthese finale par scenario</h2>
 <div class="card"><table class="tbl"><thead><tr>
-  <th>Scenario</th><th>Cycles</th><th>Dynasties</th><th>Grand Resets</th><th>Meilleur age</th>
-  <th>Ruines</th><th>Legitimite</th><th>Mult. global</th><th>Prod. finale</th></tr></thead><tbody>${finalCmp}</tbody></table></div>
+  <th>Scenario</th><th>Cycles</th><th>Grand Resets</th><th>Meilleur age</th>
+  <th>Ruines</th><th>Mythes</th><th>Merveilles</th><th>Mult. global</th><th>Prod. finale</th></tr></thead><tbody>${finalCmp}</tbody></table></div>
 
-<h2>2 - Jalons requis (scenario optimise)</h2>
+<h2>2 - Les 11 jalons du Grand Reset (temps virtuel pour atteindre chaque GR I->XI)</h2>
+<div class="card">${htmlGrandResetLadder()}</div>
+
+<h2>3 - Jalons requis (scenario optimise)</h2>
 <div class="card">${htmlRequiredTable()}</div>
 
-<h2>3 - Courbes</h2>
+<h2>4 - Courbes</h2>
 <div class="grid">
   <div class="card">${chartProd}</div>
   <div class="card">${chartRuins}</div>
   <div class="card">${chartMult}</div>
-  <div class="card">${chartLegit}</div>
+  <div class="card">${chartPop}</div>
   <div class="card">${chartTimeline}</div>
 </div>
 
-<h2>4 - Impact des Mythes (gate vs cosmetique)</h2>
+<h2>5 - Impact des Mythes (gate vs cosmetique)</h2>
 <div class="card">${htmlMythCatalog()}</div>
 <div class="card"><h3 style="margin:0 0 8px;color:#9fb3d1">Deltas mesures en simulation (si GR1 atteint)</h3>${chartMyth}${htmlMythTable()}</div>
 
-<h2>5 - Zones mortes de progression</h2>
+<h2>6 - Zones mortes de progression</h2>
 <div class="card">${htmlDeadZones()}</div>
 
-<h2>6 - Tous les jalons horodates (optimise)</h2>
+<h2>7 - Tous les jalons horodates (optimise)</h2>
 <div class="card" style="overflow:auto;max-height:520px">${results.optimized ? htmlMilestoneTable(results.optimized) : ""}</div>
 </main></body></html>`;
 
@@ -1119,7 +1458,7 @@ fs.writeFileSync("simulation-report.html", html, "utf8");
 function mdMilestone(rec, key, label) {
   const m = milestoneRow(rec, key);
   if (!m) return `| ${label} | NON ATTEINT${truncatedByRealTime ? " (sim tronquee au temps reel)" : ""} | - | - | - | - |`;
-  return `| ${label} | ${fmtDuration(m.vt)} | cycle ${m.cycles}, ${m.era} | x${fmt(m.globalMult)} | ${fmt(m.prodTotal)}/s | ${fmt(m.ruins)} ruines / ${fmt(m.legitimacy)} legit. |`;
+  return `| ${label} | ${fmtDuration(m.vt)} | cycle ${m.cycles}, ${m.era} | x${fmt(m.globalMult)} | ${fmt(m.prodTotal)}/s | ${fmt(m.ruins)} ruines / ${m.mythsDone} Mythes |`;
 }
 
 const rec = results.optimized;
@@ -1135,19 +1474,36 @@ let md = `# Civilisation Effondrement - Synthese d'equilibrage
 
 ## Scenarios
 - **idle** - aucune action manuelle (plancher "automation seule" ; depuis un save vierge aucune automation n'est debloquee).
-- **optimized** - achat best-first + arbre de ruines + dynasties + grand resets + pilotage des Mythes.
-- **no-mythes** - identique a optimized mais **aucun Mythe active** (groupe de controle ; plafonne au Grand Reset 10, ne peut pas atteindre le GR11).
+- **optimized** - achat best-first + arbre de ruines + **Grand Resets sur 11 jalons** + pilotage des Mythes + jeu d'Icare (GR VII).
+- **no-mythes** - identique a optimized mais **aucun Mythe active** (groupe de controle ; les jalons de GR gates par les Mythes — GR III/VI/VIII/XI — restent hors d'atteinte, donc l'echelle bloque des le 1er jalon de Mythe).
 
 ## Synthese finale
-| Scenario | Cycles | Dynasties | Grand Resets | Meilleur age | Ruines | Legitimite | Mult. | Prod./s |
+| Scenario | Cycles | Grand Resets | Meilleur age | Ruines | Mythes | Merveilles | Mult. | Prod./s |
 |---|---|---|---|---|---|---|---|---|
 ${["optimized", "noMythes", "idle"].filter((k) => results[k]).map((k) => {
   const f = results[k].final;
-  return `| ${labelMap[k]} | ${f.cycles} | ${f.dynastyCount} | ${f.grandResetCount} | ${f.era} | ${fmt(f.ruins)} | ${fmt(f.legitimacy)} | x${fmt(f.globalMult)} | ${fmt(f.prodTotal)} |`;
+  return `| ${labelMap[k]} | ${f.cycles} | ${f.grandResetCount}/11 | ${f.era} | ${fmt(f.ruins)} | ${f.mythsDone}/${MYTHS.length}${f.ragnarok ? " +Rag" : ""} | ${f.wonders} | x${fmt(f.globalMult)} | ${fmt(f.prodTotal)} |`;
+}).join("\n")}
+
+## Les 11 jalons du Grand Reset (temps virtuel pour atteindre chaque GR I->XI)
+
+> Le Grand Reset se debloque sur une echelle de **11 jalons marquants** (plus de legitimite ni de dynasties). Chaque jalon
+> engage un pan du jeu ; noms et systemes viennent de \`grandResetMilestone()\` (\`GRAND_RESET_MILESTONES\`). Un « — » = non atteint dans le budget.
+
+| GR | Jalon (nom du jeu) | Systeme gate | Temps virtuel | Contexte (pic) | Population | Mythes | Merv. |
+|---|---|---|---|---|---|---|---|
+${GR_JALONS.map((j) => {
+  const m = rec ? milestoneRow(rec, j.key) : null;
+  const peak = rec && rec.grPeak ? rec.grPeak[j.gr] : null;
+  const ctx = peak ? `cyc ${peak.cycles}, ${peak.era}` : (m ? `cyc ${m.cycles}, ${m.era}` : "-");
+  const pop = peak ? fmt(peak.pop) : (m ? fmt(m.population) : "-");
+  const my = peak ? `${peak.myths}/${MYTHS.length}` : (m ? `${m.mythsDone}/${MYTHS.length}` : "-");
+  const wo = peak ? peak.wonders : (m ? m.wonders : "-");
+  return `| ${j.roman} | ${j.name} | ${j.system} | ${m ? fmtDuration(m.vt) : "—"} | ${ctx} | ${pop} | ${my} | ${wo} |`;
 }).join("\n")}
 
 ## Jalons requis (scenario optimise)
-| Jalon | Temps virtuel ecoule | Contexte | Mult. | Prod. | Prestige |
+| Jalon | Temps virtuel ecoule | Contexte | Mult. | Prod. | Ruines / Mythes |
 |---|---|---|---|---|---|
 ${rec ? REQUIRED_MILESTONES.map(([k, l]) => mdMilestone(rec, k, l)).join("\n") : "_scenario optimise non execute_"}
 
@@ -1197,7 +1553,7 @@ if (rec) {
     if (!m) { recos.push(`- [!] **${key}** non atteint (sim ${truncatedByRealTime ? "tronquee a " + fmtDuration(simulatedVT) + " virtuel par le temps reel" : "budget"}, cible indicative ~${target} min) - relancer avec --maxreal plus grand pour confirmer le pacing reel.`); continue; }
     const minutes = m.vt / 60;
     if (minutes < target * 0.5) recos.push(`- [v] **${key}** atteint en ${fmtDuration(m.vt)} (cible ~${target} min) - **trop rapide**. Augmenter le cout/seuil correspondant.`);
-    else if (minutes > target * 2) recos.push(`- [^] **${key}** atteint en ${fmtDuration(m.vt)} (cible ~${target} min) - **trop lent**. Adoucir la courbe (couts, gain de ruines/legitimite).`);
+    else if (minutes > target * 2) recos.push(`- [^] **${key}** atteint en ${fmtDuration(m.vt)} (cible ~${target} min) - **trop lent**. Adoucir la courbe (couts, gain de ruines, seuil du jalon de GR).`);
   }
   if (deadZones.length) recos.push(`- [o] ${deadZones.length} zone(s) morte(s) detectee(s) - inserer un deblocage/objectif intermediaire.`);
   const cosmetic = mythDelta.filter((d) => classifyMyth(d).type === "multiplicateur" && (!d.after || d.after.globalMult / (d.before?.globalMult || 1) <= 1.05));
@@ -1218,30 +1574,28 @@ md += `\n## Pointeurs formules (source de verite)
 - Dogmes (paliers 10/20/30) : \`data/upgrades.js -> PRESTIGE_DOGMAS\` + \`ownedRuinBranchPurchaseCount()\`.
 - Mythes (actes, conditions, heritages) : \`data/myths.js -> MYTHS\`, deblocage \`isMythUnlocked()\`.
 
-## DECOUVERTE CLE : degenerescence de l'effondrement en fin de partie
-Le bot optimise (toutes strategies) **se bloque autour du cycle ~334 / ere 5-7**, AVANT le 1er Grand Reset, a cause d'une
-degenerescence du systeme d'effondrement. Deux faces du meme probleme, mesurees dans le code :
-1. **Cite trop stabilisee -> ineffondrable.** Avec l'automation \`protocoles_urgence\` (auto-rationnement a 65 % de Rupture) +
-   l'Usure gelee par une infrastructure enorme + scarcity=0 (surplus de Nourriture), la Rupture **plafonne sous 1** : la crise
-   terminale ne s'ouvre jamais (cible de pression mesuree ~3.0, mais instabilite bloquee a ~0.70). Aucun effondrement -> meta-progression gelee.
-2. **Cite trop puissante -> effondrement a gain nul.** Sans cette stabilisation, l'economie composee fait monter la Rupture a 100 %
-   en **moins de 120 s** : a cet age, \`ruinGain()\` a \`minGain=0\`, patience 0.18 et un pic de population minuscule -> **gain = 0 Ruine**.
-   L'effondrement ne produit rien, donc la progression n'avance pas.
+## Lecture du nouveau cadrage (Grand Reset sur 11 jalons)
+Le Grand Reset ne se paie plus en legitimite (dynasties supprimees) : il se **decouvre** en atteignant 11 jalons marquants,
+chacun engageant un pan du jeu (\`GRAND_RESET_MILESTONES\`). Le bot JOUE reellement ces systemes :
+- **GR II — La Premiere Merveille** : les merveilles sont erigees au pic du cycle (\`cmCheckWonders\`, sinon inaccessible en headless).
+- **GR VII — Le Jackpot d'Icare** : le bot lance des vols au Vol d'Icare jusqu'a decrocher un jackpot (>=x10 cagnotte pleine).
+- **GR III / VI / VIII / XI** : gates par les Mythes (1 / 5 / 8 / 14 Mythes honores) — le vrai mur de la progression.
 
-**Implication d'equilibrage** : les declencheurs d'effondrement (Rupture/Usure) **ne montent pas a l'echelle** d'une economie maximisee.
-Passe un certain point, soit la cite ne peut plus tomber, soit elle tombe pour 0. Un humain peut peut-etre naviguer ce point en
-effondrant a la main au bon moment, mais c'est un vrai point de friction : le GR1 (et donc tout le contenu Mythes/Actes/GR2-11)
-est de fait **bloque derriere cette degenerescence**, pas seulement derriere le temps de calcul.
-> Pistes : faire croitre la profondeur de \`ruinGain()\` avec la taille reelle de la cite meme a faible age ; plafonner la
-> stabilisation auto ; ou indexer le seuil de crise sur l'echelle economique.
+**Le vrai mur, c'est l'Acte I des Mythes.** Tant que les Mythes de l'Acte I ne sont pas TOUS scelles, l'Acte II reste verrouille
+(puis l'Acte III, le Ragnarok, le GR XI), et les jalons de GR gates par les Mythes restent hors d'atteinte. Un pilote mecanique
+ne boucle qu'une partie des Mythes (objectifs sur-mesure : migration d'Enee, declin d'Hephaistos, equilibre de l'Age d'Or…),
+d'ou des « — » sur les GR profonds. C'est une mesure de la difficulte de ces Mythes pour un jeu « automatique », a confronter au ressenti humain.
+> Un jalon « — » peut aussi venir d'un budget temps reel court : relancer avec \`--maxreal\` plus grand pour distinguer « trop lent » de « pas eu le temps de calculer ».
 
 ### Hypotheses / formules a clarifier (flaggees)
 - **Patience de \`ruinGain()\`** recompense les cycles longs (jusqu'a x1.75 + sediment x5 au-dela de 7 j) : le pacing depend fortement de la strategie d'effondrement.
 - **Objectifs de Mythes** : plusieurs sont a atteindre *avant* l'effondrement et ne sont pas garantis par le bot (voir tableau).
-- **GR11 = Ragnarok** : exige tous les Mythes completes ; atteignable en simulation seulement si le pilote complete les 13 Mythes + Ragnarok.
+- **GR XI = Ragnarok** : exige les ${MYTHS.length} Mythes completes ; atteignable en simulation seulement si le pilote les complete tous.
+- **Seuils des 11 jalons** (\`GR_MILESTONE_THRESHOLDS\`) = **placeholders** a calibrer : l'equilibrage fin viendra dans un second temps.
 `;
 
 fs.writeFileSync("balance-summary.md", md, "utf8");
 
+const grMaxReached = Math.max(0, ...["optimized", "noMythes", "idle"].filter((k) => results[k]).map((k) => results[k].final.grandResetCount || 0));
 console.log(`[CE-SIM] Ecrit : simulation-report.html (${(html.length / 1024).toFixed(0)} Ko) + balance-summary.md`);
-console.log(`[CE-SIM] Jalons optimise : ${results.optimized ? results.optimized.milestones.length : 0} | Mythes completes : ${mythDelta.filter((m) => m.completed).length}/${mythDelta.length}`);
+console.log(`[CE-SIM] Jalons optimise : ${results.optimized ? results.optimized.milestones.length : 0} | Mythes completes : ${mythDelta.filter((m) => m.completed).length}/${mythDelta.length} | GR max atteint : ${grMaxReached}/11`);

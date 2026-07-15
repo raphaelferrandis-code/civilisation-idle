@@ -107,8 +107,8 @@ familles, invalidées différemment — **se tromper de portée = affichage pér
 `performGrandReset` ([building.js](src/game/core/actions/building.js)) repart d'un
 `defaultState()` frais. Les **héritages permanents** à conserver sont déclarés dans
 `GR_PERSISTENT_FIELDS` ([state.js](src/game/core/state.js)), recopiés par
-`buildGrandResetState()` (les champs calculés — `grandResetCount`, `legitimacy` amputée
-du coût, `history` — sont traités à part).
+`buildGrandResetState()` (les champs calculés — `grandResetCount` et `history` — sont
+traités à part).
 
 > ⚠️ **Tout nouveau déblocage permanent doit être ajouté à `GR_PERSISTENT_FIELDS`**,
 > sinon il est effacé au prochain GR. Invariant figé par

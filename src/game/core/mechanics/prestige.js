@@ -202,9 +202,14 @@ export function timeWearRate() {
   // Mitigation PLAFONNÉE : non bornée, elle gelait l'Usure en fin de partie
   // (taux mesuré ~0.002 → cité immortelle). Le plafond garantit que l'Usure
   // reste une deadline : toute civilisation finit par tomber par le temps.
+  // Coefficients relevés d'un tiers (0.0015→0.002, 0.000012→0.000016) en
+  // COMPENSATION PARTIELLE de la suppression du terme de légitimité
+  // (+legitimacy*0.035) : sur l'état de référence du golden, l'Usure était
+  // montée de +52 % — ramenée à ~+28 %. Choix d'équilibrage (calibrage 2026-07) :
+  // l'Usure-deadline reste un peu plus mordante qu'avant, sans devenir frénétique.
   const mitigation = Math.min(
     TIME_WEAR_MITIGATION_CAP,
-    1 + toNum(state.infrastructure) * 0.0015 + toNum(state.knowledge) * 0.000012
+    1 + toNum(state.infrastructure) * 0.002 + toNum(state.knowledge) * 0.000016
   );
   const icareMult        = isMythEffectActive("mythe_d_icare") ? ICARE_USURE_MULT : 1;
   const atlasMult        = isMythEffectActive("mythe_d_atlas") ? ATLAS_USURE_MULT : 1;

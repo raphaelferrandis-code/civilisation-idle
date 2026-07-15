@@ -28,10 +28,18 @@ export const GR_MILESTONE_THRESHOLDS = {
   cycles: 10,          // GR1  — effondrements traversés
   wonders: 3,          // GR2  — merveilles érigées
   myths1: 1,           // GR3  — 1er Mythe honoré
-  population: 1e6,     // GR4  — pic de population
+  // GR4 — pic de population. Relevé 1e6 → 1e13 (calibrage 2026-07) : à ce stade
+  // le pic de cycle dépassait déjà largement le million (jalon pré-rempli) ;
+  // 1e13 en fait le mur du mid-game (~1j12 au métronome bot).
+  population: 1e13,
   myths2: 5,           // GR6  — Acte I scellé (5 Mythes)
   myths3: 8,           // GR8  — Acte II scellé (8 Mythes)
-  eraTranscendent: 35, // GR10 — 1re ère transcendante
+  // GR9 — 2 capstones de l'Arbre (l'arbre se re-bâtit à chaque époque) ; GR10 —
+  // ère 40 (Singularité dépassée). Étirés au calibrage : à ×2^n de multiplicateur,
+  // aucun seuil statique ne tient des JOURS — ce sont des ralentisseurs, le vrai
+  // pacing tardif humain venant de la difficulté des Mythes d'Acte II/III.
+  capstones: 2,
+  eraTranscendent: 40,
   myths4: 14           // GR11 — Ragnarök (14 Mythes)
 };
 
@@ -90,9 +98,9 @@ export const GRAND_RESET_MILESTONES = [
   },
   {
     gr: 9, id: "premiere_couronne",
-    name: { fr: "La Première Couronne", en: "The First Crown" },
+    name: { fr: "Les Couronnes Jumelles", en: "The Twin Crowns" },
     system: { fr: "Arbre des Ruines", en: "Tree of Ruins" },
-    check: () => PRESTIGE_TREE.some((n) => n.capstone && has(n.id))
+    check: () => PRESTIGE_TREE.filter((n) => n.capstone && has(n.id)).length >= T.capstones
   },
   {
     gr: 10, id: "au_dela_singularite",

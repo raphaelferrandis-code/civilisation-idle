@@ -71,12 +71,18 @@ describe("Grand Reset — préservation des héritages", () => {
     expect(fresh.olympus.totalPlayedSeconds).toBe(9999);
   });
 
-  it("réinitialise ce qui n'est PAS un héritage permanent (ruines, bâtiments)", () => {
+  it("réinitialise ce qui n'est PAS un héritage permanent (ruines, bâtiments, Faveur, cagnotte)", () => {
     state.ruins = new Decimal(99999);
     state.buildings = { ...state.buildings, foragers: 50 };
+    state.faveur = 500;            // monnaie des jeux du temple : se re-gagne au GR
+    state.icarusPotFaveur = 1200;  // cagnotte du temple : se re-nourrit au GR
     const fresh = buildGrandResetState(2);
     expect(fresh.ruins.eq(0)).toBe(true);
     expect(fresh.buildings.foragers).toBe(0);
+    // Garde-fou : si quelqu'un ajoutait faveur/icarusPotFaveur à GR_PERSISTENT_FIELDS
+    // (carburant éternel au lieu de se re-gagner), ce test le signalerait.
+    expect(fresh.faveur).toBe(0);
+    expect(fresh.icarusPotFaveur).toBe(0);
   });
 
   it("calcule grandResetCount et l'history (plus de coût de légitimité)", () => {

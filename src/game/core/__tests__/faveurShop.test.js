@@ -6,7 +6,7 @@
 // Boosters permanents = survivent à l'effondrement ; bénédiction = effet de run.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState, buildGrandResetState } from "../state.js";
 import { buyFaveurItem, faveurShopItems, auguryBaseOdds, icarusEffectiveEdge, blessingMultiplier } from "../actions.js";
 import { crisisProductionMultiplier } from "../mechanics/production/crisisLevers.js";
 import {
@@ -100,11 +100,21 @@ describe("Boutique — persistance", () => {
     expect(state.blessingMult).toBe(1);
   });
 
+  it("dés/ailes SURVIVENT au Grand Reset (augments ÉTERNELS), la Faveur se re-gagne", () => {
+    state.diceLevel = 4;
+    state.wingLevel = 2;
+    state.faveur = 500;
+    const fresh = buildGrandResetState(2);
+    expect(fresh.diceLevel).toBe(4);   // augment éternel (GR_PERSISTENT_FIELDS)
+    expect(fresh.wingLevel).toBe(2);   // augment éternel
+    expect(fresh.faveur).toBe(0);      // le carburant se re-gagne à chaque cycle GR
+  });
+
   it("hydratation : niveaux bornés, bénédiction re-typée", () => {
     const s = hydrateState({ diceLevel: 999, wingLevel: -3, blessingMult: 50, faveur: 500 });
     expect(s.diceLevel).toBe(DICE_BOOST_MAX_LEVEL);
     expect(s.wingLevel).toBe(0);
-    expect(s.blessingMult).toBeLessThanOrEqual(10);
+    expect(s.blessingMult).toBe(10); // clamp finiteNumber max=10 : valeur EXACTE, pas une borne
     expect(s.faveur).toBe(500);
   });
 });

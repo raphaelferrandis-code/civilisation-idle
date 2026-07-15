@@ -27,7 +27,9 @@ export function regulLedgerPush(entry) {
 
 // Chaque acte de régulation fatigue l'administration (anti-spam) : la fatigue
 // monte, redescend dans le tick, réduit l'efficacité et majore les coûts.
-// Partagé par crisis.js (édits/réformes) et augures.js (paris, second jet).
+// Appelé par crisis.js (édits/réformes) UNIQUEMENT. NB : les PARIS (osselets /
+// Icare / temple) NE fatiguent PLUS l'administration depuis le découplage — le
+// temple est sa propre économie (d'où l'auto-jeu sans spirale de fatigue).
 export function raiseRegulFatigue() {
   state.regulFatigue = Math.min(1, (state.regulFatigue || 0) + FATIGUE_PER_ACTION);
 }

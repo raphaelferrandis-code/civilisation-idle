@@ -289,6 +289,428 @@
   grid-template-columns: 1fr;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA BOUTIQUE IMMERSIVE (#tech.boutique-shop.boutique-immersive) — l'échoppe
+   plein cadre : décor pixel-art panoramique + marchand au comptoir, et les
+   MARCHANDISES = pastilles cliquables posées sur les étagères (détail en bas).
+   ═══════════════════════════════════════════════════════════════════════════ */
+#tech.boutique-shop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.boutique-shop {
+  --wood-deep: #201409;
+  --wood: #33220f;
+  --wood-lit: #5c3f22;
+  --wood-edge: #130c06;
+  --candle: #ffcf8a;
+  padding: 0;
+  color: var(--gold-ivory);
+  background: transparent;
+}
+
+/* La scène = le décor panoramique (400×144) PLEINE LARGEUR, sans cadre ni panel
+   bois derrière (ratio conservé pour que les pastilles restent alignées). */
+.shop-stage {
+  position: relative;
+  width: 100%;
+  /* Cadre plus HAUT que le décor natif (2.78:1) → le fond zoome (object-fit:cover)
+     pour remplir la hauteur ; rogne un peu les bords extrêmes (porte/horloge). */
+  aspect-ratio: 5 / 2;
+  overflow: hidden;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45);
+  isolation: isolate;
+}
+.shop-backdrop-full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  z-index: 0;
+}
+
+/* Le marchand = BUSTE (haut du corps), calé DERRIÈRE le comptoir : son bord bas
+   s'aligne sur le plan du comptoir → pas de jambes à cacher. ⚠ bottom/height à
+   peaufiner sur capture pour que la taille tombe pile sur le comptoir. */
+.boutique-keeper {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  height: 34%;
+  width: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.75));
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Props décoratifs posés sur le comptoir (positions ajustables). */
+.shop-prop {
+  position: absolute;
+  height: auto;
+  image-rendering: pixelated;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+/* ⚠ Positions à recaler sur capture — posés sur le PLAN du comptoir (même bottom). */
+.shop-prop--cat    { width: 10%;  left: 32%;  bottom: 10%; }
+.shop-prop--bell   { width: 4.5%; right: 33%; bottom: 10%; }
+.shop-prop--candle { width: 3.5%; left: 24%;  bottom: 11%; }
+
+/* Portefeuille = petite plaque en haut à droite du comptoir. */
+.boutique-wallet {
+  position: absolute;
+  top: 4%;
+  right: 2.5%;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--wood-lit);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 200, 130, 0.12);
+}
+.wallet-balance {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.1rem 0.4rem;
+}
+.wallet-balance .wallet-icon { align-self: center; font-size: 0.8rem; opacity: 0.9; }
+.wallet-amount { font-family: var(--font-number); font-size: 0.95rem; font-weight: 700; }
+.wallet-ruins .wallet-icon, .wallet-ruins .wallet-amount { color: var(--gold); }
+.wallet-faveur .wallet-icon, .wallet-faveur .wallet-amount { color: var(--gold-ivory); }
+
+/* ── Marchandises : ZONES CLIQUABLES INVISIBLES posées sur les bouteilles (pas
+      de pastille) — au survol : halo STATIQUE + nom (::after), AUCUN mouvement. ── */
+.shop-hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 62px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  z-index: 3;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.shop-hotspot:hover,
+.shop-hotspot:focus-visible {
+  background: rgba(255, 210, 140, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(255, 215, 150, 0.55), 0 0 12px rgba(255, 200, 120, 0.3);
+}
+.shop-hotspot.is-selected {
+  background: rgba(255, 215, 150, 0.14);
+  box-shadow: inset 0 0 0 2px rgba(255, 236, 195, 0.9), 0 0 14px rgba(255, 205, 130, 0.45);
+}
+/* Neutralise le translateY(-1px) GLOBAL de button:hover/:active (base.css:40-49)
+   qui frappe la zone (c'est un <button>) : elle reste centrée sur sa bouteille →
+   AUCUN mouvement au survol. Spécificité (0,3,0) > le global (0,2,1). */
+.shop-hotspot:hover:not(:disabled),
+.shop-hotspot:active:not(:disabled),
+.shop-hotspot:focus-visible,
+.shop-hotspot.is-selected {
+  transform: translate(-50%, -50%);
+}
+/* Acquis : petit ✓ statique dans le coin (pas de pastille, pas d'animation). */
+.shop-hotspot.is-owned::before {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 0.72rem;
+  line-height: 1;
+  color: #bfe8b0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+/* Étiquette au survol/focus : on comprend que la pastille est cliquable + son nom. */
+.shop-hotspot::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 0.16rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(14, 9, 5, 0.94);
+  border: 1px solid var(--wood-lit);
+  color: var(--gold-ivory);
+  font-size: 0.72rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 6;
+}
+.shop-hotspot:hover::after,
+.shop-hotspot:focus-visible::after { opacity: 1; }
+
+/* ── Mode CALIBRATION dev (console : window.__shopCalib()) — les zones actuelles
+      deviennent des carrés rouges, et chaque clic imprime la position. ── */
+.boutique-shop.calib .shop-hotspot {
+  background: rgba(255, 60, 60, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.95);
+}
+.shop-calib {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  cursor: crosshair;
+}
+.shop-calib-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  max-width: 92%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid var(--gold);
+  color: var(--gold-ivory);
+  font-size: 0.78rem;
+  cursor: default;
+}
+.shop-calib-hud pre {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  color: #bfe8c0;
+  white-space: pre;
+  max-height: 7rem;
+  overflow: auto;
+  user-select: all;
+}
+
+/* ── Barre de détail SOUS la scène (bloc plein) : l'objet choisi + Acheter ── */
+.shop-detail {
+  width: min(96%, 1040px);
+  margin: 0.7rem auto 0;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--wood-lit);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(30, 20, 12, 0.92), rgba(16, 11, 7, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 200, 130, 0.1), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.shop-detail-text { display: flex; flex-direction: column; gap: 0.12rem; min-width: 0; flex: 1; }
+.shop-detail-name { font-weight: 700; color: var(--gold-ivory); font-size: 0.95rem; }
+.shop-detail-fx { color: var(--candle); font-size: 0.82rem; }
+.shop-detail-desc { color: color-mix(in srgb, var(--gold-ivory), transparent 42%); font-size: 0.74rem; line-height: 1.3; }
+.shop-detail-buyrow { display: flex; align-items: center; gap: 0.6rem; flex: 0 0 auto; }
+.shop-detail-cost { font-family: var(--font-number); font-weight: 700; white-space: nowrap; }
+.shop-detail-cost--ruins { color: var(--gold); }
+.shop-detail-cost--faveur { color: var(--gold-ivory); }
+.shop-detail-buy {
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 40%);
+  border-radius: 8px;
+  padding: 0.35rem 0.9rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold), transparent 74%), rgba(30, 20, 10, 0.92));
+  color: var(--gold-ivory);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.shop-detail-buy:hover:not(:disabled) { border-color: var(--gold); background: linear-gradient(180deg, color-mix(in srgb, var(--gold), transparent 60%), rgba(42, 26, 12, 0.95)); }
+.shop-detail-buy:disabled { opacity: 0.5; cursor: default; }
+.shop-detail-hint { margin: 0; width: 100%; text-align: center; font-style: italic; font-size: 0.85rem; color: color-mix(in srgb, var(--gold-ivory), transparent 28%); }
+
+/* Cadmos (conditionnel) : panneau simple sous la scène, ton chaud. */
+.boutique-shop .upgrade {
+  border: none;
+  border-radius: 9px 9px 3px 3px;
+  background: linear-gradient(180deg, rgba(74, 52, 30, 0.5), rgba(32, 21, 12, 0.6));
+  box-shadow: inset 0 1px 0 rgba(255, 205, 135, 0.12), 0 3px 7px rgba(0, 0, 0, 0.45);
+}
+.boutique-shop .upgrade h3 { color: var(--gold-ivory); }
+.boutique-shop .upgrade .effect-line { color: var(--candle); }
+.boutique-shop .cadmos-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
+.boutique-shop .cadmos-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+
+/* ── Tableau de bord de l'automatisation du Temple (Phase 3) ── */
+.boutique-shop .temple-auto-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
+.boutique-shop .temple-auto-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.temple-auto-intro {
+  margin: 0 0 0.7rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.temple-auto-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1.6rem;
+}
+@media (max-width: 720px) {
+  .temple-auto-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.temple-auto-game {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.temple-auto-game-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gold-ivory);
+}
+.temple-auto-rate {
+  font-family: var(--font-number);
+  font-size: 0.86rem;
+  color: var(--gold-bright);
+  white-space: nowrap;
+  cursor: default;
+}
+.temple-auto-rate-unit { color: var(--muted); font-size: 0.72rem; }
+
+.temple-auto-locked {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+}
+.temple-auto-unlock {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--gold);
+  border-radius: 7px;
+  background: rgba(var(--era-rgb, 200 160 90), 0.12);
+  color: var(--gold-bright);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.temple-auto-unlock:hover:not(:disabled) { filter: brightness(1.15); }
+.temple-auto-unlock:disabled { opacity: 0.45; cursor: not-allowed; }
+.temple-auto-locked-hint { font-size: 0.76rem; color: var(--muted); font-style: italic; }
+
+.temple-auto-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+}
+.temple-auto-slider input[type="range"] {
+  flex: 1;
+  min-width: 5rem;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.temple-auto-slider-val {
+  font-family: var(--font-number);
+  font-size: 0.86rem;
+  color: var(--text-strong);
+  min-width: 2.6rem;
+  text-align: right;
+}
+
+/* ── L'arbre d'artefacts du Temple (Phase 4) : deux lignées en échelle ── */
+.boutique-shop .artifact-tree-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
+.boutique-shop .artifact-tree-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.artifact-lineage.is-era-locked { opacity: 0.55; }
+.artifact-lineage-title { margin-bottom: 0.05rem; }
+.artifact-lineage-sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.74rem;
+  font-style: italic;
+  color: var(--muted);
+}
+.artifact-era-hint { margin: 0.2rem 0; font-size: 0.78rem; font-style: italic; color: var(--muted); }
+
+.artifact-ladder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.artifact-node {
+  position: relative;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--wood-edge);
+  border-left: 3px solid color-mix(in srgb, var(--gold), transparent 55%);
+  border-radius: 4px 7px 7px 4px;
+  background: linear-gradient(180deg, rgba(74, 52, 30, 0.28), rgba(24, 16, 10, 0.42));
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+/* Chaînage visuel : un maillon relie chaque rang au suivant (l'échelle). */
+.artifact-node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  bottom: -0.45rem;
+  width: 3px;
+  height: 0.45rem;
+  background: color-mix(in srgb, var(--gold), transparent 68%);
+}
+.artifact-node.is-owned { border-left-color: var(--gold); background: linear-gradient(180deg, rgba(120, 88, 42, 0.34), rgba(30, 20, 11, 0.5)); }
+.artifact-node.is-buyable { border-left-color: var(--gold-bright); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold), transparent 65%), 0 0 10px color-mix(in srgb, var(--gold), transparent 78%); }
+.artifact-node.is-locked { opacity: 0.5; border-left-color: color-mix(in srgb, var(--wood-edge), transparent 30%); }
+.artifact-node.is-wanting { border-left-color: color-mix(in srgb, var(--gold), transparent 45%); }
+
+.artifact-node-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.artifact-node-name { font-size: 0.84rem; font-weight: 700; color: var(--gold-ivory); line-height: 1.2; }
+.artifact-node.is-owned .artifact-node-name { color: var(--gold-bright); }
+.artifact-node-desc { margin: 0; font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
+.artifact-node-buy {
+  align-self: flex-start;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  background: rgba(var(--era-rgb, 200 160 90), 0.12);
+  color: var(--gold-bright);
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.artifact-node-buy:hover:not(:disabled) { filter: brightness(1.15); }
+.artifact-node-buy:disabled { opacity: 0.45; cursor: not-allowed; }
+.artifact-node.is-owned .artifact-node-buy { border-color: color-mix(in srgb, var(--gold), transparent 40%); color: var(--gold-ivory); }
+
+/* Cadrans dépliés du capstone (automatisation débloquée). */
+.artifact-dials {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  margin-top: 0.2rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed color-mix(in srgb, var(--gold), transparent 70%);
+}
+
+/* Compact : sur petit écran, la barre de détail prend presque toute la largeur. */
+@media (max-width: 720px) {
+  .shop-detail { width: 92%; }
+  .shop-detail-desc { display: none; }
+}
+
 .prestige-panel {
   border-color: var(--border);
 }

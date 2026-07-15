@@ -141,8 +141,10 @@
   cursor: default;
 }
 
-/* Deux colonnes (réorg 2026-07-14) : GAUCHE = Anatomie → Intendance → Table
-   des augures → Boutique ; DROITE = Annales → Scène des jeux. */
+/* Deux colonnes : GAUCHE = Anatomie → Intendance → Table des augures ;
+   DROITE = Annales du cycle. La Boutique de Faveur a déménagé dans l'onglet
+   Boutique (2026-07-15) ; la Scène des jeux est en pleine largeur SOUS ces
+   colonnes (hors .regulation-cols). */
 .regulation-cols {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
@@ -489,7 +491,8 @@
 .steward-signature { font-style: italic; }
 
 /* ── 4. Augures (lignes hairline) + bannière du temple ── */
-.icarus-banner {
+.icarus-banner,
+.scratch-banner {
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -504,7 +507,8 @@
   margin-bottom: 0.2rem;
 }
 
-.icarus-banner:hover {
+.icarus-banner:hover,
+.scratch-banner:hover {
   border-color: var(--gold);
   transform: translateY(-1px);
 }
@@ -710,7 +714,9 @@
 /* Scènes des deux jeux : même cadre, centrées, LARGES (la scène pleine largeur
    leur laisse de la place) — augures et Vol d'Icare uniformisés. */
 .augury-stage,
-.icarus-stage {
+.icarus-stage,
+.scratch-stage,
+.blackjack-stage {
   max-width: 720px;
   margin: 0 auto;
   width: 100%;
@@ -758,6 +764,302 @@
 .icarus-pot-hint-inline {
   color: var(--muted);
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+/* ── Tickets à gratter (scène ScratchStage) ── */
+.scratch-stage-pot {
+  margin-left: auto;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.scratch-stage-pot + .stage-close { margin-left: 0.6rem; }
+
+.scratch-pot-hint-inline {
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.scratch-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+  margin: 0.3rem 0;
+}
+
+.scratch-chip {
+  min-width: 1.4rem;
+  text-align: center;
+  padding: 0.05rem 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: rgba(15, 20, 30, 0.35);
+}
+
+.scratch-chip.is-blank { color: var(--muted); opacity: 0.6; }
+.scratch-chip.is-win { border-color: color-mix(in srgb, var(--gold), transparent 55%); }
+
+.scratch-stakes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.scratch-stake {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.55rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 20, 30, 0.35);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.scratch-stake strong { font-size: 0.82rem; }
+.scratch-stake span { font-size: 0.74rem; color: var(--gold-bright); font-family: var(--font-number); }
+.scratch-stake.is-chosen { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.scratch-stake.is-broke { opacity: 0.45; }
+
+.scratch-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.scratch-buy {
+  border-color: var(--gold) !important;
+  color: var(--gold-bright) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+}
+
+.scratch-reveal-all { font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+
+.scratch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.7rem;
+  justify-content: center;
+  margin: 0.5rem 0 0.1rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: var(--font-number);
+}
+
+.scratch-legend-item b { color: var(--gold-bright); font-weight: 700; margin-right: 0.2rem; }
+
+/* Le ticket : la grille de symboles, la feuille grattable PAR-DESSUS. */
+.scratch-ticket {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 0.4rem auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--gold), transparent 40%);
+  background: rgba(10, 14, 22, 0.55);
+}
+
+.scratch-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+  padding: 6px;
+}
+
+.scratch-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 26, 38, 0.6);
+  border-radius: 8px;
+  user-select: none;
+}
+
+/* Symboles = sprites pixel-art (PixelLab, /pixelart/ui/scratch/). */
+.scratch-sym {
+  image-rendering: pixelated;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.scratch-cell .scratch-sym {
+  width: 80%;
+  height: 80%;
+}
+
+.scratch-sym-sm {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+}
+
+.scratch-cell.is-win {
+  background: color-mix(in srgb, var(--gold), transparent 78%);
+  box-shadow: inset 0 0 0 2px var(--gold);
+  animation: scratch-shine 1.2s ease-in-out infinite;
+}
+
+@keyframes scratch-shine {
+  0%, 100% { box-shadow: inset 0 0 0 2px var(--gold); }
+  50% { box-shadow: inset 0 0 0 2px var(--gold), 0 0 10px 2px color-mix(in srgb, var(--gold), transparent 30%); }
+}
+
+.scratch-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  image-rendering: pixelated;
+  cursor: cell;
+  transition: opacity 0.5s ease;
+}
+
+.scratch-ticket.is-revealed .scratch-canvas {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scratch-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.scratch-result {
+  text-align: center;
+  font-family: var(--font-number);
+  font-size: 1.25rem;
+  margin: 0.2rem 0;
+}
+
+.scratch-result--win { color: var(--res-food); }
+.scratch-result--lose { color: var(--muted); font-size: 1rem; font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+.scratch-result-sub { font-size: 0.85rem; color: var(--muted); }
+
+.scratch-jackpot-banner {
+  text-align: center;
+  font-family: var(--font-number);
+  color: var(--gold-bright);
+  font-size: 1rem;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--gold), transparent 40%);
+  margin: 0.2rem 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scratch-cell.is-win { animation: none; }
+  .scratch-canvas { transition: none; }
+}
+
+/* ── Vingt-et-un (scène BlackjackStage) ── */
+.bj-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+  margin: 0.3rem 0;
+}
+
+.bj-chip {
+  min-width: 1.4rem;
+  text-align: center;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  background: rgba(15, 20, 30, 0.35);
+}
+
+.bj-chip.is-win { color: var(--res-food); border-color: color-mix(in srgb, var(--res-food), transparent 55%); }
+.bj-chip.is-blackjack { color: var(--gold-bright); border-color: color-mix(in srgb, var(--gold), transparent 45%); }
+.bj-chip.is-lose { color: #e2704b; opacity: 0.82; }
+.bj-chip.is-push { color: var(--muted); }
+
+.bj-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.5rem auto;
+  max-width: 460px;
+}
+
+.bj-side { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.bj-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.bj-val { font-family: var(--font-number); font-size: 0.92rem; color: var(--gold-bright); }
+.bj-val.is-bust { color: #ff6a55; }
+
+.bj-hand { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 66px; }
+
+/* Carte = tuile parchemin (rang + emblème pixel réutilisé du scratch). */
+.bj-card {
+  position: relative;
+  width: 46px;
+  height: 64px;
+  border-radius: 6px;
+  background: #ece0c0;
+  border: 1px solid #b8892f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.bj-card-rank {
+  font-family: var(--font-number);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #3a2a12;
+  line-height: 1;
+}
+
+.bj-card-suit {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  -webkit-user-drag: none;
+}
+
+.bj-card.is-hidden { background: #8f3a3a; border-color: #5a2020; }
+
+/* Verso de carte : hachures façon dos de jeu. */
+.bj-card-back {
+  position: absolute;
+  inset: 4px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(45deg, #7a2f2f 0 4px, #9a4444 4px 8px);
+  border: 1px solid #5a2020;
 }
 
 .stage-footnote {
@@ -920,6 +1222,7 @@
 .augury-fx-win { color: var(--res-food); }
 .augury-fx-lose { color: #e2704b; }
 .augury-fx-safe { color: var(--res-food); opacity: 0.75; }
+.augury-fx-risk { color: var(--muted); font-style: italic; opacity: 0.9; }
 .augury-fx-wrath { color: #ff6a55; font-weight: 600; }
 
 .augury-actions {

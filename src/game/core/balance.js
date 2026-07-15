@@ -242,8 +242,9 @@ export const ICARUS_FREE_FLIGHTS_MAX = 5;
 
 // ── Boutique de Faveur (couche 2 : dépenser la Faveur) ───────────────────────
 // Dés pipés — boost PERMANENT des chances aux osselets (+STEP par niveau,
-// plafonné). Justifie les odds volontairement bas en early game. Persiste aux
-// effondrements (comme la Faveur), effacé au Grand Reset. Coût croissant.
+// plafonné). Justifie les odds volontairement bas en early game. AUGMENT
+// ÉTERNEL : survit aux effondrements ET au Grand Reset (cf. GR_PERSISTENT_FIELDS).
+// La Faveur (le carburant), elle, se re-gagne au GR. Coût croissant.
 export const DICE_BOOST_STEP = 0.02;      // +2 pts d'odds par dé
 export const DICE_BOOST_MAX_LEVEL = 10;   // jusqu'à +20 pts
 export const DICE_COST_BASE = 40;         // Faveur pour le 1er dé
@@ -279,6 +280,90 @@ export const ICARUS_STAKES = [              // mises en SECONDES de production d
   { id: "aile", seconds: 90, floor: 200, label: { fr: "Aile", en: "Wing" } },
   { id: "hecatombe", seconds: 300, floor: 1000, label: { fr: "Hécatombe", en: "Hecatomb" } }
 ];
+
+// ── Tickets à gratter (jeu du temple) ────────────────────────────────────────
+// Mise en OR (le puits, ancrée en secondes de prod comme Icare) ; GAIN en FAVEUR.
+// Grille 3×3 : l'ISSUE (un symbole gagnant ou « blanc ») est tirée par UN seul
+// Math.random pondéré, la grille est ensuite peinte pour matcher (le symbole 3
+// fois = gain). Un ticket perdant nourrit la cagnotte PARTAGÉE (state.icarusPot-
+// Faveur) ; le Soleil la rafle. Gain de Faveur = secondes × payoutMult ×
+// ICARUS_FAVEUR_K. Espérance NÉGATIVE calée sur l'edge d'Icare : E[payoutMult] =
+// 0.82 → edge maison ≈ 18 %, 27 % de tickets gagnants (la plupart PERDANTS).
+export const SCRATCH_HISTORY_LEN = 12;       // derniers tickets affichés (bandeau)
+export const SCRATCH_POT_FEED = 0.5;         // Faveur/s de mise versée à la cagnotte sur un ticket perdant (cf. AUGURY_POT_FEED_HOLLOW)
+export const SCRATCH_REVEAL_PCT = 60;        // % de vernis gratté déclenchant l'auto-révélation
+export const SCRATCH_STAKES = [              // mises en SECONDES de production d'or (cf. ICARUS_STAKES)
+  { id: "obole", seconds: 15, floor: 40, label: { fr: "Obole", en: "Obol" } },
+  { id: "drachme", seconds: 45, floor: 150, label: { fr: "Drachme", en: "Drachma" } },
+  { id: "talent", seconds: 150, floor: 700, label: { fr: "Talent", en: "Talent" } }
+];
+// Table des lots — poids /1000, payoutMult (×secondes×K pour la Faveur). Le
+// « blank » (perte) domine. `venus` offre en plus un vol d'Icare (mise Plume) ;
+// `soleil` RAFLE la cagnotte partagée. Les poids somment à SCRATCH_WEIGHT_TOTAL.
+export const SCRATCH_PRIZES = [
+  { symbol: "blank", weight: 730, payoutMult: 0, sweep: false },
+  { symbol: "olive", weight: 138, payoutMult: 1.2, sweep: false },
+  { symbol: "amphore", weight: 70, payoutMult: 2.4, sweep: false },
+  { symbol: "laurier", weight: 36, payoutMult: 4.5, sweep: false },
+  { symbol: "trepied", weight: 17, payoutMult: 8, sweep: false },
+  { symbol: "chouette", weight: 5, payoutMult: 16, sweep: false },
+  { symbol: "venus", weight: 2, payoutMult: 40, sweep: false, freeFlight: true },
+  { symbol: "soleil", weight: 2, payoutMult: 15, sweep: true }
+];
+
+// ── Vingt-et-un (jeu du temple) ──────────────────────────────────────────────
+// Blackjack antique : mise en OR (secondes de prod, comme Icare), GAIN en FAVEUR.
+// TOUR PAR TOUR (tirer/rester), PAS de timer — un rechargement en pleine main
+// abandonne la mise (état module éphémère, comme le vol d'Icare). Le croupier
+// (l'oracle) tire jusqu'à BLACKJACK_DEALER_STAND. Un « naturel » (21 en 2 cartes)
+// paie 3:2. Une main perdue nourrit la cagnotte PARTAGÉE ; pas de rafle (jeu de
+// skill, pas de jackpot). Gain de Faveur = secondes × mult × ICARUS_FAVEUR_K.
+export const BLACKJACK_HISTORY_LEN = 12;      // dernières mains affichées (bandeau)
+export const BLACKJACK_POT_FEED = 0.5;        // Faveur/s de mise versée à la cagnotte sur une main perdue
+export const BLACKJACK_DEALER_STAND = 17;     // le croupier reste à 17+ (soft 17 compris)
+export const BLACKJACK_MULT = { blackjack: 2.5, win: 2, push: 1, lose: 0 }; // × secondes × ICARUS_FAVEUR_K
+export const BLACKJACK_STAKES = [             // mises en SECONDES de production d'or (cf. ICARUS_STAKES)
+  { id: "legere", seconds: 40, floor: 60, label: { fr: "Mise légère", en: "Light bet" } },
+  { id: "pleine", seconds: 120, floor: 300, label: { fr: "Mise pleine", en: "Full bet" } },
+  { id: "royale", seconds: 350, floor: 1200, label: { fr: "Grand jeu", en: "High stakes" } }
+];
+
+// ── Automatisation du Temple (moteur passif : jouer aux cadrans) ─────────────
+// Une fois débloquées (arbre d'artefacts, Phase 4) et activées, les
+// automatisations jouent À LA PLACE du joueur au tick, gouvernées comme
+// l'Intendance : cooldown par jeu (anti-verrou, cf. STEWARD_COOLDOWN_MS), UNE
+// partie par tick, plancher d'or = réserve à ne pas entamer. La mise coûte de
+// l'OR → le moteur est un CONVERTISSEUR borné par l'économie, pas de l'argent
+// gratuit. Réglé bas = revenu de fond régulier ; réglé haut = la machine tente
+// les gros coups. ONLINE pour l'instant (le crédit offline serait un hook dédié).
+export const AUTO_AUGURY_INTERVAL_MS = 8_000;   // délai min entre 2 auto-lancers d'osselets
+export const AUTO_ICARUS_INTERVAL_MS = 12_000;  // délai min entre 2 auto-vols (~5 s de vol + repli)
+export const AUTO_ICARUS_TARGET_MIN = 1.2;      // cadran cible : bas = revenu régulier
+export const AUTO_ICARUS_TARGET_MAX = ICARUS_JACKPOT_MULT; // 10 = mise max auto (gros payout, faibles odds) ; cagnotte + jalon GR VII restent MANUELS
+export const AUTO_TEMPLE_GOLD_FLOOR_DEFAULT_S = 120; // réserve d'or (2 min de prod) sous laquelle l'auto se met en veille
+export const AUTO_TEMPLE_GOLD_FLOOR_MAX_S = 600;      // curseur plancher d'or : 0 → 600 s de prod
+// Déblocage des automatisations (Phase 3 — coût en Faveur ; la Phase 4 les
+// intégrera à l'arbre d'artefacts). Payer débloque ET active d'emblée.
+export const AUTO_OSSELETS_UNLOCK_COST = 200;        // Faveur pour l'auto-lancé des osselets
+export const AUTO_ICARUS_UNLOCK_COST = 350;          // Faveur pour l'autopush d'Icare
+
+// ── Artefacts du Temple (Phase 4 : arbre de lignées, refontes de RISQUE) ──────
+// Débloqués en Faveur, ÉTERNELS (state.templeArtifacts, cf. GR_PERSISTENT_FIELDS).
+// Ce sont des PROFILS DE RISQUE (pas des sticks de stats). Lignée OSSELETS :
+// dé d'ivoire (coupe la queue du Chien + plus de Vénus, à taux de victoire égal)
+// → osselet du noyé (les revers nourrissent DOUBLE la cagnotte). Lignée ICARE :
+// plumes de secours (consolation Faveur au crash) → ailes solaires (plafond
+// relevé). Chaque lignée se termine par son automatisation (rang capstone).
+export const TEMPLE_ARTIFACT_IDS = ["ivoire", "noye", "plumes", "solaires"];
+export const IVORY_DOG_CUT = 0.20;      // dé d'ivoire : dogShare 0.4 → 0.2 (moitié moins de Chiens)
+export const IVORY_VENUS_BONUS = 0.10;  // …et venusShare 0.15 → 0.25 (plus de Vénus), à pEff constant
+export const NOYE_POT_MULT = 2;         // osselet du noyé : les revers nourrissent ×2 la cagnotte
+export const PLUMES_CONSOLATION_MULT = 0.5; // plumes : un crash rend round(sec × ICARUS_FAVEUR_K × 0.5) en Faveur
+export const ICARUS_CAP_SOLAR = 200;    // ailes solaires : plafond du multiplicateur relevé (×100 → ×200)
+export const ARTIFACT_IVOIRE_COST = 300;   // Faveur
+export const ARTIFACT_NOYE_COST = 260;
+export const ARTIFACT_PLUMES_COST = 380;
+export const ARTIFACT_SOLAIRES_COST = 520;
 
 // ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
 // Délégation configurable : « si la Rupture dépasse X % → lancer telle action
@@ -388,7 +473,10 @@ export const INFRA_COVERAGE_EFFECTIVE_CAP = 3;
 // relevé (0.75 → 1.1). Relever le plafond ne recrée pas la cité ineffondrable :
 // l'Usure (mitigation plafonnée ×8) reste la deadline garantie. Rupture = jauge
 // pilotée par les choix du joueur ; Usure = horloge inévitable.
-export const INFRA_COVERAGE_MITIGATION_MULT = 6;
+// Relevé 6 → 8 (calibrage 2026-07) : COMPENSATION PARTIELLE de la suppression du
+// terme de légitimité (+legitimacy×0.16 dans institutionalLog) — récupère ~40-45 %
+// du barrage perdu en mid-game ; la Rupture reste un peu plus exigeante qu'avant.
+export const INFRA_COVERAGE_MITIGATION_MULT = 8;
 export const MITIGATION_LOG_COEF = 0.30;
 export const MITIGATION_CAP = 1.1;
 
@@ -467,7 +555,11 @@ export const PREP_FUNEBRE_BOOST = 1.5;
 // DEMESURE_FREE_LOG_POP habitants (10^4 = 10 000), aucune Démesure → l'early game
 // et le début de chaque cycle restent intacts.
 export const DEMESURE_FREE_LOG_POP = 4;   // pop sous 10^4 : Démesure nulle
-export const DEMESURE_COEF = 0.06;        // pression par décade de population au-delà du seuil
+// Abaissé 0.06 → 0.05 (calibrage 2026-07) : COMPENSATION PARTIELLE du levier de
+// légitimité disparu (log10(1+legit)×0.11 de demesureCut, ~0.17 en mid-game).
+// −17 % de pression brute ≈ le levier perdu AVANT la politique « Gouvernance
+// impériale » ; les porteurs de la politique restent un cran plus tendus qu'avant.
+export const DEMESURE_COEF = 0.05;        // pression par décade de population au-delà du seuil
 // Rework cadence late-game : la Démesure était NON bornée et NON réductible → à
 // 10^30 elle valait 1.56 à elle seule, épinglant la cible à 2-4× le seuil quoi que
 // fasse le joueur (cycle métronome ~2 min, « aucun moyen de gérer »). Désormais :

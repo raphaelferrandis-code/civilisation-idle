@@ -575,12 +575,6 @@ menu {
   font-weight: 700;
 }
 
-.grand-reset-panel {
-  border-color: rgba(215, 109, 86, 0.35);
-  background: linear-gradient(135deg, rgba(215, 109, 86, 0.06) 0%, transparent 55%),
-    rgba(22, 28, 43, 0.96);
-}
-
 .auto-collapse-countdown {
   display: block;
   margin-top: 0.5rem;

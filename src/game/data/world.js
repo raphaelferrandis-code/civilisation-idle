@@ -173,6 +173,11 @@ export const eraTier = (index) => {
   return e && typeof e.tier === "number" ? e.tier : (index || 0);
 };
 
+// Bonus de Savoir de départ de l'héritage « Mémoire des Cycles » (codex_mythique) :
+// +250 par tier de l'ère maximale atteinte, versé au début de chaque cycle
+// (crisis.js). Exporté pour que la Boutique affiche EXACTEMENT ce bonus.
+export const codexSavoirBonus = (bestEraIndex) => 250 * eraTier(bestEraIndex || 0);
+
 // NB : les DOCTRINES (Acier / Parchemin / Sillon) ont été supprimées avec le
 // système de dynasties — la boutique n'a plus que 3 catégories neutres.
 

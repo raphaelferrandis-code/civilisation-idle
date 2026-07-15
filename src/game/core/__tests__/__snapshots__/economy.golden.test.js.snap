@@ -74,7 +74,7 @@ exports[`golden-master du cœur économique > maxBuyAmount > markets 1`] = `1`;
 exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
 {
   "complexity": 0.285810260864,
-  "demesure": 0.0400709730466,
+  "demesure": 0.0336421205958,
   "dissent": 0.07523170032,
   "gauges": {
     "demesureCut": 0,
@@ -90,10 +90,10 @@ exports[`golden-master du cœur économique > pressureBreakdown 1`] = `
     "structuralNet": 0.0646,
   },
   "inequality": 0.0692307692308,
-  "mitigation": 0.271118597948,
+  "mitigation": 0.303520869616,
   "scarcity": 0.183333333333,
   "structural": 0.0860795052169,
-  "total": 0.468637944064,
+  "total": 0.429806819945,
 }
 `;
 
@@ -102,7 +102,7 @@ exports[`golden-master du cœur économique > rates 1`] = `
   "food": Decimal(3191.18777504),
   "gold": Decimal(4705.70995935),
   "infrastructure": Decimal(316.472980217),
-  "instability": 0.463437944064,
+  "instability": 0.424606819945,
   "knowledge": Decimal(0),
   "population": Decimal(222.452214305),
 }
@@ -116,4 +116,4 @@ exports[`golden-master du cœur économique > ruinGain — couverture de la cour
 
 exports[`golden-master du cœur économique > ruinGain — couverture de la courbe > pic late game float (1e20) 1`] = `Decimal(74590841)`;
 
-exports[`golden-master du cœur économique > timeWearRate 1`] = `0.0000290406122605`;
+exports[`golden-master du cœur économique > timeWearRate 1`] = `0.0000243808005511`;

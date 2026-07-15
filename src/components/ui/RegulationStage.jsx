@@ -1,52 +1,56 @@
 import { useEffect, useState } from 'react';
-import { registerAuguryTable, closeAuguryTable } from '../../game/core/auguryTable.js';
-import { registerIcarusFlight, closeIcarusFlight } from '../../game/core/icarusDialog.js';
+import { registerTempleStage, closeTempleStage } from '../../game/core/templeGames.js';
 import AuguryStage from './AuguryStage.jsx';
 import IcarusStage from './IcarusStage.jsx';
+import ScratchStage from './ScratchStage.jsx';
+import BlackjackStage from './BlackjackStage.jsx';
 
 /**
  * La scène des jeux du temple (retour Raph 2026-07-14 : « les jeux se lancent
  * dans le cadre vide en bas ») — colonne droite de l'étage bas de la page
- * Régulation. Vide : un simple rappel discret. Un jeu à la fois (ouvrir l'un
- * ferme l'autre) ; Échap referme ; les ponts (auguryTable/icarusDialog)
- * bufferisent les ouvertures venues d'une autre vue (boutons de pari de la
- * Cité → bascule d'onglet puis livraison au montage).
+ * Régulation. UN SEUL jeu actif à la fois : le pont unique (templeGames.js)
+ * livre le jeu ouvert { kind, openedAt, …req } ; ouvrir un jeu remplace le
+ * précédent. Vide : un simple filigrane. Échap referme (sauf si un vrai
+ * dialogue est ouvert).
+ *
+ * Ajouter un jeu du temple = UNE entrée dans STAGES + son verbe open<Jeu>()
+ * (délégant à openTempleGame). Rien d'autre à toucher ici.
  */
+
+// Registre kind → composant de scène. Chaque scène reçoit { table, onClose },
+// où `table` EST le jeu actif (elle lit openedAt comme clé de reset, et ses
+// propres champs de requête — ex. table.id pour les osselets).
+const STAGES = {
+  augury: AuguryStage,
+  icarus: IcarusStage,
+  scratch: ScratchStage,
+  blackjack: BlackjackStage
+};
+
 export default function RegulationStage() {
-  const [augury, setAugury] = useState(null);
-  const [icarus, setIcarus] = useState(null);
+  const [game, setGame] = useState(null); // { kind, openedAt, …req } | null
 
-  useEffect(() => registerAuguryTable((req) => {
-    setAugury(req);
-    if (req) setIcarus(null);
-  }), []);
-
-  useEffect(() => registerIcarusFlight((req) => {
-    setIcarus(req);
-    if (req) setAugury(null);
-  }), []);
+  useEffect(() => registerTempleStage((g) => setGame(g)), []);
 
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       if (document.querySelector('dialog[open]')) return; // les vrais dialogues d'abord
-      closeAuguryTable();
-      closeIcarusFlight();
+      closeTempleStage();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const empty = !augury && !icarus;
+  const Stage = game && STAGES[game.kind];
+  const empty = !Stage;
 
   return (
     <section className={`regul-block regulation-stage${empty ? ' is-empty' : ''}`} aria-hidden={empty ? 'true' : undefined}>
       {empty ? (
         <span className="stage-watermark" aria-hidden="true">🎲</span>
-      ) : augury ? (
-        <AuguryStage table={augury} onClose={() => closeAuguryTable()} />
       ) : (
-        <IcarusStage table={icarus} onClose={() => closeIcarusFlight()} />
+        <Stage table={game} onClose={() => closeTempleStage()} />
       )}
     </section>
   );

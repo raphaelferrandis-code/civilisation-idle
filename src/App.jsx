@@ -128,7 +128,11 @@ export default function App() {
 
   // Determine which tabs are unlocked
   const isRuinsUnlocked = cycles >= 1 || grandResetCount > 0;
-  const isHeritageUnlocked = cycles >= 1 || grandResetCount > 0;
+  // Boutique : s'ouvre au 1er effondrement (Ruines) — ou dès qu'on détient de la
+  // Faveur (gagnable aux jeux du temple dès le cycle 0), sinon elle serait
+  // indépensable tant que la Boutique de Faveur y vit.
+  const hasFaveur = useGameState(s => (s.faveur || 0) > 0);
+  const isShopUnlocked = cycles >= 1 || grandResetCount > 0 || hasFaveur;
   const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
@@ -136,7 +140,7 @@ export default function App() {
     { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'fa-scale-balanced', unlocked: true },
     { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'fa-fire', unlocked: true },
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'fa-landmark', unlocked: isRuinsUnlocked },
-    { id: 'tech', label: { fr: 'Héritage', en: 'Heritage' }, icon: 'fa-monument', unlocked: isHeritageUnlocked },
+    { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'fa-store', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'fa-bolt', unlocked: isMythsUnlocked },
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'fa-feather', unlocked: true },
   ];

@@ -1,33 +1,17 @@
 "use strict";
 
-// Pont UI du Vol d'Icare — même pattern que auguryTable.js : la scène vit en
-// bas de la page Régulation (RegulationStage, plus de modale). Requête
-// bufferisée si la vue n'est pas encore montée.
+// Pont UI du Vol d'Icare — mince verbe sémantique qui délègue au pont UNIQUE
+// des jeux du temple (templeGames.js). Ouvrir bascule sur l'onglet Régulation
+// et monte la scène du crash game (bufferisé si la vue n'est pas encore prête).
+// Le moteur (actions/icarus.js) reste autoritaire : rouvrir pendant un vol le
+// REPREND en cours (le timer de chute n'a jamais cessé de courir).
 
-import { openView } from './state.js';
-
-let setter = null;
-let pending = null;
-
-export function registerIcarusFlight(fn) {
-  setter = fn;
-  if (pending) {
-    fn(pending);
-    pending = null;
-  }
-  return () => {
-    if (setter === fn) setter = null;
-  };
-}
+import { openTempleGame, closeTempleStage } from './templeGames.js';
 
 export function openIcarusFlight() {
-  const req = { openedAt: Date.now() };
-  openView('regulation');
-  if (setter) setter(req);
-  else pending = req;
+  openTempleGame('icarus');
 }
 
 export function closeIcarusFlight() {
-  pending = null;
-  if (setter) setter(null);
+  closeTempleStage();
 }

@@ -115,16 +115,18 @@ const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
   buildingBatchCost, globalMultiplier,
   currentEraIndex, ownedRuinTreePurchaseCount,
-  grandResetMilestoneMet,
+  grandResetMilestoneMet, grandResetMilestone,
   terminalCrisisReady
 } = mech;
 
 const { canPayCost, payCost, fmt } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
+const { ICARUS_K, ICARUS_JACKPOT_MULT } = await import("./src/game/core/balance.js");
 const actions = await import("./src/game/core/actions.js");
 const {
   buyUpgrade, completeCollapse, tick, performGrandReset,
-  activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction
+  activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction,
+  launchIcarus, cashOutIcarus, icarusStakes, icarusUnlocked
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
 
@@ -271,6 +273,10 @@ const PROFILES = {
 // 4. Horloge virtuelle + budget temps reel (repris de simulate-ce.js)
 // ---------------------------------------------------------------------------
 let VT = 0;                                  // temps virtuel (s) du profil courant
+// Pic de l'epoch de GR courant (plus haut pic de cycle atteint avant le prochain
+// Grand Reset) : le GR remet la ville à zéro, donc pour une chronologie honnête on
+// capture le SOMMET atteint (pop, ère) juste avant chaque GR. Réinitialisé au GR.
+let epochPeak = null;
 const ORIGINAL_NOW = Date.now;
 const realNow = () => ORIGINAL_NOW.call(Date);
 const CLOCK_BASE = realNow();
@@ -428,7 +434,7 @@ function buyRuinTree(keepReserveRuins = 0) {
 
 const HERITAGE_ORDER = [
   "reforme_administrative", "protocoles_urgence", "reseau_routes", "codex_mythique",
-  "conservateurs_ruines", "rituel_effondrement", "grand_reset",
+  "conservateurs_ruines", "rituel_effondrement",
   "veilleurs_nuit_1", "veilleurs_nuit_2", "veilleurs_nuit_3", "veilleurs_nuit_4"
 ];
 function buyHeritage() {
@@ -470,6 +476,21 @@ function doCollapse(reason = "auto") {
   // Ériger les merveilles au PIC du cycle (avant que completeCollapse ne remette
   // population/pics à zéro) : nourrit state.wonders selon les vraies métriques.
   cmCheckWonders(Date.now());
+  // Capture le SOMMET de l'epoch (avant le reset de completeCollapse) pour la
+  // chronologie canonique : snapshot COMPLET et cohérent au pic du cycle (pop, ère,
+  // multiplicateur, ruines, mythes, merveilles), en gardant le cycle le plus haut.
+  const peakPop = num(state.cyclePeaks && state.cyclePeaks.population != null ? state.cyclePeaks.population : state.population);
+  if (!epochPeak || peakPop > epochPeak.pop) {
+    const eIdx = Math.max(currentEraIndex(), state.bestEraIndex || 0);
+    epochPeak = {
+      pop: peakPop, eraIdx: eIdx, era: eras[eIdx].name,
+      mult: globalMultiplier(), ruins: num(state.ruins),
+      myths: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+      ragnarok: Boolean(state.ragnarokHeritage),
+      wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+      cycles: state.cycles
+    };
+  }
   completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), reason);
   setGamePaused(false);
   setCollapseInProgress(false);
@@ -488,7 +509,14 @@ function snapshot() {
     grandResetCount: state.grandResetCount || 0,
     bestEraIndex: state.bestEraIndex || 0, era: eras[currentEraIndex()].name,
     ruins: num(state.ruins),
-    treeOwned: ownedRuinTreePurchaseCount(), globalMult: globalMultiplier()
+    pop: num(state.population),
+    wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+    treeOwned: ownedRuinTreePurchaseCount(), globalMult: globalMultiplier(),
+    // Vrai compte de Mythes accomplis (le compteur de driveMyths sous-compte le
+    // Ragnarök, complété hors de son pilotage) + jackpots d'Icare décrochés (GR7).
+    mythsDone: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+    ragnarok: Boolean(state.ragnarokHeritage),
+    icarusJackpots: state.icarusJackpots || 0
   };
 }
 
@@ -507,8 +535,11 @@ function makeRecorder(profileId) {
       const ei = currentEraIndex();
       if (!this.seenEra.has(ei)) { this.seenEra.add(ei); this.record(`era_${ei}`, `Age : ${eras[ei].name}`); }
       if (ownedRuinTreePurchaseCount() >= RUIN_TREE_TOTAL) this.record("tree_complete", "Arbre de Ruines complet");
+      // Horodatage des upgrades Héritage (calibrage des coûts en Ruines : QUAND
+      // chaque QoL tombe-t-elle vraiment ?). Visible via --mlog.
+      for (const hid of HERITAGE_ORDER) if (mech.has(hid)) this.record(`her_${hid}`, `Heritage : ${hid}`);
       const gr = state.grandResetCount || 0;
-      for (const g of [1, 3, 5, 10, 11]) if (gr >= g) this.record(`gr_${g}`, `Grand Reset ${g}`);
+      for (let g = 1; g <= 11; g++) if (gr >= g) this.record(`gr_${g}`, `Grand Reset ${g}`);
       // Mythes par acte + total.
       const actNames = { 1: "Acte I (Fondation)", 2: "Acte II (Domination)", 3: "Acte III (Apocalypse)" };
       for (const act of [1, 2, 3]) {
@@ -751,6 +782,14 @@ async function driveMyths(rec, prof) {
     }
     rec.check();
   }
+  // Pacte EN RADE : une tentative abandonnée peut laisser le mythe ACTIF (les
+  // mythes ne se résolvent qu'à l'effondrement) — certains gèlent l'Usure →
+  // cité zombie qui ne peut plus mourir (mesuré : 386 h dans un seul cycle).
+  // Comme un vrai joueur : on effondre pour solder le pacte (brisé) et repartir.
+  if (state.activeMythId) {
+    state.instability = Math.max(state.instability || 0, 1);
+    doCollapse("manual");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -763,6 +802,12 @@ async function playCycle(rec, prof) {
   while (guard++ < 5_000_000) {
     if (VT >= BUDGET_SECONDS || timedOut()) return false;
     if (VT - cycleStartVT >= CYCLE_HARD_CAP) { releasing = true; }
+    // Soupape anti-zombie : si le cycle dure 3× le hard cap SANS crise (cité
+    // moribonde + Usure gelée par un effet — mesuré : 386 h dans un cycle), on
+    // force la crise terminale. Un joueur réel aurait effondré depuis longtemps.
+    if (VT - cycleStartVT >= CYCLE_HARD_CAP * 3 && !crisisOpen()) {
+      state.instability = 1;
+    }
     if (stateModule.gamePaused) { await resolvePause(); if (stateModule.gamePaused) return false; continue; }
 
     if (crisisOpen()) {
@@ -791,10 +836,59 @@ async function playCycle(rec, prof) {
 }
 
 // ---------------------------------------------------------------------------
+// 9b. Joue au Vol d'Icare jusqu'a decrocher un JACKPOT (jalon du Grand Reset VII).
+// Le bot ne le decroche pas passivement : il FAUT lancer des vols. Faisable en
+// headless car Date.now() est l'horloge VIRTUELLE (setClock) — on lance un vol,
+// on avance VT jusqu'a un multiplicateur >= 10 (le point de crash cache reste
+// tire par Math.random), puis on encaisse : si le crash est au-dela de la cible
+// -> cashout >= 10x = JACKPOT (si la cagnotte du temple est pleine) ; sinon le
+// vol brule et ALIMENTE la cagnotte (necessaire au jackpot). On spamme donc des
+// vols : quelques pertes remplissent la cagnotte, un gain >= 10x la rafle.
+// ---------------------------------------------------------------------------
+function playIcarusForJackpot(rec) {
+  if (!icarusUnlocked()) return;                        // Icare exige bestEra >= 3
+  const targetM = ICARUS_JACKPOT_MULT + 0.5;            // vise 10.5x (marge > seuil 10)
+  const dtForTarget = Math.log(targetM) / ICARUS_K;     // secondes de vol pour la cible
+  let attempts = 0;
+  while ((state.icarusJackpots || 0) < 1 && attempts < 600) {
+    attempts++;
+    if (VT >= BUDGET_SECONDS || timedOut()) return;
+    if (stateModule.gamePaused || crisisOpen()) return; // Icare bloque en crise
+    const stakes = icarusStakes();
+    const stake = stakes.find((s) => s.id === "plume") || stakes[0];
+    if (!stake) return;
+    if (D(state.gold).lt(stake.gold)) { setClock(); tick(TICK); VT += TICK; continue; } // produire l'or de la mise
+    if (!launchIcarus(stake.id)) { setClock(); tick(TICK); VT += TICK; continue; }
+    VT += dtForTarget; setClock();                      // avance jusqu'a la cible
+    cashOutIcarus();                                     // resout : crash (remplit la cagnotte) OU cashout (jackpot si >=10x)
+    if ((attempts & 31) === 0) rec.check();
+  }
+  rec.check();
+}
+
+// Effectue un Grand Reset en figeant d'abord l'etat ATTEINT (sommet de l'epoch)
+// pour la chronologie canonique — le GR remet la ville a zero.
+async function grandReset(rec, nextGR) {
+  rec.grPeak = rec.grPeak || {};
+  // vt = instant du GR ; le reste = SOMMET de l'epoch (snapshot cohérent capturé au
+  // pic du cycle dans doCollapse). Repli sur l'état courant si aucun pic (rare).
+  const peak = epochPeak || {
+    pop: num(state.population), era: eras[currentEraIndex()].name, mult: globalMultiplier(),
+    ruins: num(state.ruins), myths: MYTHS.filter((m) => isMythCompleted(m.id)).length,
+    ragnarok: Boolean(state.ragnarokHeritage), wonders: Array.isArray(state.wonders) ? state.wonders.length : 0,
+    cycles: state.cycles
+  };
+  rec.grPeak[nextGR] = { vt: VT, ...peak };
+  try { await performGrandReset(); } catch { /* noop */ }
+  epochPeak = null;   // nouvel epoch de GR
+  rec.check();
+}
+
+// ---------------------------------------------------------------------------
 // 10. Boucle principale d'un profil : cycles -> meta -> GR -> Mythes
 // ---------------------------------------------------------------------------
 function resetScenario() {
-  VT = 0; scenarioRealStart = realNow(); setClock();
+  VT = 0; epochPeak = null; scenarioRealStart = realNow(); setClock();
   simRng = mulberry32(SIM_SEED);          // G-19 : reproductible ET comparable par profil
   setState(defaultState());
   state.roadCoverage = SIM_ROAD_COVERAGE; // G-07 : modélise (ou non) le bonus réseau routier
@@ -812,6 +906,10 @@ async function runProfile(prof) {
     if (timedOut()) break;
 
     const collapsed = await playCycle(rec, prof);
+    if (argv.trace) {
+      process.stderr.write(`[CYCLE] VT=${fmtDuration(VT)} collapsed=${collapsed} cyc=${state.cycles} GR=${state.grandResetCount || 0} ` +
+        `paused=${stateModule.gamePaused} inst=${(state.instability || 0).toFixed(2)} wear=${(state.timeWear || 0).toFixed(2)} pop=${fmt(num(state.population))}\n`);
+    }
     if (VT >= BUDGET_SECONDS || timedOut()) break;
 
     if (!collapsed) {
@@ -837,13 +935,18 @@ async function runProfile(prof) {
     buyHeritage();
     rec.check();
 
-    // --- Grand Reset si le JALON marquant du prochain GR est atteint ----------
-    const nextGR = (state.grandResetCount || 0) + 1;
+    // --- Grand Reset : enchaîne TOUS les GR dont le jalon est déjà mûr --------
+    // (les jalons persistants — Mythes, Olympe — cascadent après un mur). ⚠ On
+    // RECALCULE nextGR après chaque GR : l'ancien code gardait le nextGR périmé
+    // → blockedByGR faux-positif juste après un GR réussi (pilotage de Mythes au
+    // pire moment, cité fraîche).
+    let nextGR = (state.grandResetCount || 0) + 1;
     const maxGR = state.ragnarokHeritage ? 11 : 10;
-    const grUnlocked = nextGR <= maxGR && grandResetMilestoneMet(nextGR);
-    if (grUnlocked) {
-      try { await performGrandReset(); } catch { /* noop */ }
-      rec.check();
+    while (nextGR <= maxGR && grandResetMilestoneMet(nextGR) && VT < BUDGET_SECONDS && !timedOut()) {
+      const before = state.grandResetCount || 0;
+      await grandReset(rec, nextGR);
+      if ((state.grandResetCount || 0) === before) break; // GR refusé (pause…) : ne pas boucler
+      nextGR = (state.grandResetCount || 0) + 1;
     }
 
     // --- Mythes : apres GR1, et chaque fois qu'un jalon de GR reste a atteindre --
@@ -855,9 +958,23 @@ async function runProfile(prof) {
       rec.check();
     }
 
+    // --- Icare : si le jalon bloquant est le JACKPOT d'Icare (GR7), on JOUE ----
+    // (le bot ne le decroche pas passivement). Puis on re-tente le GR aussitot.
+    if (blockedByGR && grandResetMilestone(nextGR) && grandResetMilestone(nextGR).id === "jackpot_icare") {
+      playIcarusForJackpot(rec);
+      if (nextGR <= maxGR && grandResetMilestoneMet(nextGR)) {
+        await grandReset(rec, nextGR);
+      }
+    }
+
     if (argv.debug && state.cycles % 200 === 0) {
       process.stderr.write(`  [${prof._id}] VT=${fmtDuration(VT)} cyc=${state.cycles} ` +
         `GR=${state.grandResetCount || 0} ruines=${fmt(num(state.ruins))} tree=${ownedRuinTreePurchaseCount()}/${RUIN_TREE_TOTAL}\n`);
+    }
+    if (argv.trace) {
+      process.stderr.write(`[LOOP] VT=${fmtDuration(VT)} cyc=${state.cycles} GR=${state.grandResetCount || 0} ` +
+        `wonders=${(state.wonders || []).length} pop=${fmt(num(state.population))} blocked=${blockedByGR} ` +
+        `met2=${grandResetMilestoneMet(2)} myths=${MYTHS.filter((m) => isMythCompleted(m.id)).length}\n`);
     }
   }
   rec.final = snapshot();
@@ -931,9 +1048,8 @@ for (const id of order) {
   const rec = await runProfile(prof);
   recs[id] = rec;
   const f = rec.final;
-  const mr = mythResults[id] || { completed: 0, attempted: 0 };
   console.log(`${fmtDuration(f.vt)} virt | cyc=${f.cycles} GR=${f.grandResetCount} ` +
-    `arbre=${f.treeOwned}/${RUIN_TREE_TOTAL} mythes=${mr.completed}/${MYTHS.length} (${(rec.realMs / 1000).toFixed(0)}s reel)`);
+    `arbre=${f.treeOwned}/${RUIN_TREE_TOTAL} mythes=${f.mythsDone}/${MYTHS.length}${f.ragnarok ? " +Ragnarok" : ""} (${(rec.realMs / 1000).toFixed(0)}s reel)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -945,27 +1061,31 @@ function ms(rec, key) {
 }
 function truncated(rec) { return rec.final.vt < BUDGET_SECONDS * 0.98 && rec.realMs >= REAL_TIME_LIMIT_MS; }
 
-const JALONS = [
-  ["gr_1", "Grand Reset 1"],
-  ["tree_complete", "Arbre de Ruines complet"],
-  ["act_1", "Acte I des Mythes"],
-  ["act_2", "Acte II des Mythes"],
-  ["act_3", "Acte III des Mythes"],
-  ["all_myths", "Tous les Mythes"],
-  ["gr_10", "Grand Reset 10"],
-  ["gr_11", "Grand Reset 11 (Ragnarok)"]
-];
+// Les 11 jalons de Grand Reset (échelle « tour des systèmes ») + le pan de jeu
+// qui gate chacun, dérivés de la vérité du jeu (grandResetMilestone).
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+const JALONS = [];
+for (let g = 1; g <= 11; g++) {
+  const m = grandResetMilestone(g);
+  const sys = m && m.system ? m.system.fr : "?";
+  JALONS.push([`gr_${g}`, `GR ${ROMAN[g]} · ${sys}`]);
+}
 
 let md = `# Course au Grand Reset (et au-dela) — 10 profils de joueur
 
 > Genere par \`sim-10-profils.js\` — budget ${HOURS} h virtuelles/profil, pas ${TICK} s, plafond temps reel ${MAXREAL_LABEL}/profil.
 > **Toutes les valeurs viennent des vraies formules du jeu** (\`src/game/**\`), pilotees par le moteur reel
-> (tick -> crise -> effondrement -> ruines -> dynastie -> Grand Reset -> Mythes). Aucune formule recopiee.
-> Effondrement FIDELE : on tient la Rupture pendant la croissance, on lache au moment voulu et la jauge
-> monte d'elle-meme jusqu'a l'ouverture de la crise — on ne force jamais une jauge a la main pour declencher la chute.
-> Un "—" = jalon **non atteint** dans le budget (de temps virtuel OU de temps reel de calcul). \`(tronque)\` = stoppe par le plafond temps reel.
+> (tick -> crise -> effondrement -> ruines -> arbre/Mythes/Icare -> **Grand Reset sur JALONS**). Aucune formule recopiee.
+> Le Grand Reset se debloque desormais sur une echelle de **11 jalons marquants** (plus de legitimite/dynasties). Le bot
+> JOUE reellement les systemes requis : il erige des merveilles (GR2), decroche un jackpot d'Icare (GR7), etc.
+> Un "—" = jalon **non atteint** dans le budget (temps virtuel OU temps reel de calcul). \`(tronque)\` = stoppe par le plafond temps reel.
 
-## Jalons par profil (temps virtuel pour les atteindre)
+## Les 11 jalons du Grand Reset (le systeme qui gate chacun)
+
+| GR | Jalon | Systeme gate |
+|---|---|---|
+${(() => { let s = ""; for (let g = 1; g <= 11; g++) { const m = grandResetMilestone(g); s += `| ${ROMAN[g]} | ${m ? m.name.fr : "?"} | ${m && m.system ? m.system.fr : "?"} |\n`; } return s; })()}
+## Course : temps virtuel pour atteindre chaque Grand Reset (par profil)
 
 | Profil | ${JALONS.map(([, l]) => l).join(" | ")} |
 |---|${JALONS.map(() => "---").join("|")}|
@@ -981,8 +1101,29 @@ md += `\n## Synthese finale par profil\n
 `;
 for (const id of order) {
   const rec = recs[id]; const f = rec.final;
-  const mr = mythResults[id] || { completed: 0 };
-  md += `| ${PROFILES[id].label} | ${fmtDuration(f.vt)}${truncated(rec) ? " (tronque)" : ""} | ${f.cycles} | ${f.grandResetCount} | ${f.treeOwned}/${RUIN_TREE_TOTAL} | ${mr.completed}/${MYTHS.length} | ${fmt(f.ruins)} | x${fmt(f.globalMult)} | ${(rec.realMs / 1000).toFixed(0)} s |\n`;
+  md += `| ${PROFILES[id].label} | ${fmtDuration(f.vt)}${truncated(rec) ? " (tronque)" : ""} | ${f.cycles} | ${f.grandResetCount}/11 | ${f.treeOwned}/${RUIN_TREE_TOTAL} | ${f.mythsDone}/${MYTHS.length}${f.ragnarok ? " ✓Rag" : ""} | ${fmt(f.ruins)} | x${fmt(f.globalMult)} | ${(rec.realMs / 1000).toFixed(0)} s |\n`;
+}
+
+// Partie canonique : le run qui boucle TOUT le ladder le plus proprement (GR max,
+// puis temps virtuel le plus court) — sert de chronologie détaillée d'une partie complète.
+const canonId = order.slice().sort((a, b) => {
+  const ra = recs[a].final, rb = recs[b].final;
+  if ((rb.grandResetCount || 0) !== (ra.grandResetCount || 0)) return (rb.grandResetCount || 0) - (ra.grandResetCount || 0);
+  return ra.vt - rb.vt;
+})[0];
+const canonRec = recs[canonId];
+md += `\n## Partie canonique détaillée — « ${PROFILES[canonId].label} »\n
+> Chronologie d'une partie complète : le run qui boucle le ladder le plus proprement. **État réel du jeu à chaque Grand Reset** (toutes valeurs issues du moteur).
+
+| GR | Système gate | Temps virtuel | Cycle | Âge | Population | Ruines | Mult. prod | Mythes | Merveilles |
+|---|---|---|---|---|---|---|---|---|---|
+`;
+for (let g = 1; g <= 11; g++) {
+  const m = canonRec.grPeak && canonRec.grPeak[g];
+  const jm = grandResetMilestone(g);
+  const sys = jm && jm.system ? jm.system.fr : "?";
+  if (!m) { md += `| ${ROMAN[g]} | ${sys} | — | — | — | — | — | — | — | — |\n`; continue; }
+  md += `| ${ROMAN[g]} | ${sys} | ${fmtDuration(m.vt)} | ${m.cycles} | ${m.era} | ${fmt(m.pop)} | ${fmt(m.ruins)} | x${fmt(m.mult)} | ${m.myths}/${MYTHS.length}${m.ragnarok ? " ✓Rag" : ""} | ${m.wonders} |\n`;
 }
 
 md += `\n## Definition des profils (les "boutons" de comportement)\n
@@ -997,7 +1138,7 @@ for (const id of order) {
 // Détail des Mythes complétés par profil + comptage par acte.
 const ACT_COUNT = { 1: MYTHS.filter((m) => m.act === 1).length, 2: MYTHS.filter((m) => m.act === 2).length, 3: MYTHS.filter((m) => m.act === 3).length, ragnarok: MYTHS.filter((m) => m.act === "ragnarok").length };
 md += `\n## Mythes — detail par profil\n
-> Gating dur : l'**Acte II** exige TOUT l'Acte I (${ACT_COUNT[1]} Mythes) complete ; l'Acte III exige tout l'Acte II (${ACT_COUNT[2]}) ; le **Ragnarok / GR11** exige TOUS les Mythes principaux (${ACT_COUNT[1] + ACT_COUNT[2] + ACT_COUNT[3]}). Le gate des Grand Resets monte aussi : GR3 = 1 Mythe, GR4 = 2, … GR10 = 8.
+> Gating dur : l'**Acte II** exige TOUT l'Acte I (${ACT_COUNT[1]} Mythes) complete ; l'Acte III exige tout l'Acte II (${ACT_COUNT[2]}) ; le **Ragnarok / GR11** exige TOUS les Mythes (${ACT_COUNT[1] + ACT_COUNT[2] + ACT_COUNT[3]} + Ragnarok). Cote Grand Reset, 4 crans sont gates par les Mythes : **GR3 = 1**, **GR6 = 5** (Acte I), **GR8 = 8** (Acte II), **GR11 = 14** (Ragnarok). Les autres GR sont gates par d'autres pans (merveilles, population, Olympe, Icare, arbre des Ruines, eres transcendantes).
 
 | Profil | Mythes completes (bot) | Lesquels |
 |---|---|---|

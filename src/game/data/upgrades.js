@@ -511,15 +511,15 @@ export const upgrades = [
     effect: { fr: "Le foyer de Complexité (charge administrative) pèse 35% de moins sur la Rupture.", en: "The Complexity source (administrative load) weighs 35% less on Rupture." }
   },
 
-  /* ── HÉRITAGE (Ruines) ──────────────────────────────────────────────────── */
+  /* ── BOUTIQUE (Faveur) ──────────────────────────────────────────────────── */
   // Ex-branche « légitimité » (supprimée) : ces améliorations permanentes sont
-  // désormais achetées avec les Ruines récoltées à l'effondrement. Coûts en Ruines
-  // à équilibrer (chantier séparé).
+  // achetées à la Boutique avec la FAVEUR gagnée aux jeux du temple (arbitrage
+  // Raph 2026-07-15 : la Boutique ne se paie QU'EN FAVEUR). Coûts à équilibrer.
   {
     id: "reforme_administrative",
     group: "heritage",
     name: { fr: "Réforme administrative", en: "Administrative reform" },
-    cost: { ruins: 5 },
+    cost: { faveur: 5 },
     desc: { fr: "Les institutions apprennent à faire plus avec les mêmes mains.", en: "Institutions learn to do more with the same hands." },
     effect: { fr: "Débloque le bouton Max: achète autant de bâtiments que possible en un clic.", en: "Unlocks the Max button: buy as many buildings as possible in one click." }
   },
@@ -527,7 +527,7 @@ export const upgrades = [
     id: "protocoles_urgence",
     group: "heritage",
     name: { fr: "Protocoles de stabilisation", en: "Stabilization protocols" },
-    cost: { ruins: 15 },
+    cost: { faveur: 15 },
     desc: { fr: "La machine tourne sans gardien. Les premiers signes de rupture déclenchent une réponse automatique.", en: "The machine runs without a keeper. The first signs of rupture trigger an automatic response." },
     effect: { fr: "A 65% de rupture: Rationner se déclenche automatiquement si possible. A 82%: Recensement aussi.", en: "At 65% rupture: Ration triggers automatically if possible. At 82%: Census as well." }
   },
@@ -535,7 +535,7 @@ export const upgrades = [
     id: "reseau_routes",
     group: "heritage",
     name: { fr: "Réseau de routes", en: "Road network" },
-    cost: { ruins: 40 },
+    cost: { faveur: 40 },
     desc: { fr: "Les routes anciennes se souviennent. Chaque effondrement traversé rappelle les anciens chemins.", en: "The old roads remember. Each collapse survived recalls the ancient paths." },
     effect: { fr: "Coûts de construction -5% par effondrement traversé (maximum -60%).", en: "Construction costs -5% per collapse survived (maximum -60%)." }
   },
@@ -543,7 +543,7 @@ export const upgrades = [
     id: "codex_mythique",
     group: "heritage",
     name: { fr: "Mémoire des Cycles", en: "Memory of the Cycles" },
-    cost: { ruins: 80 },
+    cost: { faveur: 120 },
     desc: { fr: "Les leçons des cycles précédents n'ont pas besoin d'être réapprises. Le savoir s'incarne dans les pierres.", en: "The lessons of past cycles need not be relearned. Knowledge takes form in the stones." },
     effect: { fr: "Au début de chaque nouveau cycle, reçoit +250 Savoir par ère maximale atteinte dans les cycles précédents. Permet de débloquer les recherches avancées plus rapidement.", en: "At the start of each new cycle, gain +250 Knowledge per highest era reached in previous cycles. Lets you unlock advanced research sooner." }
   },
@@ -551,7 +551,7 @@ export const upgrades = [
     id: "conservateurs_ruines",
     group: "heritage",
     name: { fr: "Archivistes des Ruines", en: "Archivists of the Ruins" },
-    cost: { ruins: 150 },
+    cost: { faveur: 250 },
     desc: { fr: "Ils savent quelle ruine doit être découverte en premier. Et ils le font sans qu'on le leur demande.", en: "They know which ruin must be uncovered first. And they do it without being asked." },
     effect: { fr: "Après chaque effondrement, achète automatiquement le premier upgrade de ruines abordable grâce aux ruines récoltées. Économise les premiers clics de chaque cycle.", en: "After each collapse, automatically buys the first affordable ruins upgrade with the ruins harvested. Saves the first clicks of every cycle." }
   },
@@ -559,7 +559,7 @@ export const upgrades = [
     id: "rituel_effondrement",
     group: "heritage",
     name: { fr: "Rite de Passage", en: "Rite of Passage" },
-    cost: { ruins: 300 },
+    cost: { faveur: 500 },
     desc: { fr: "L'effondrement est devenu un acte conscient et maîtrisé. La cité sait comment tomber pour mieux se relever.", en: "Collapse has become a conscious, mastered act. The city knows how to fall in order to rise again." },
     effect: { fr: "+25% de ruines de base lors de chaque effondrement. Le choix d'épitaphe reste libre et oriente la prochaine civilisation.", en: "+25% base ruins on each collapse. The choice of epitaph remains free and shapes the next civilization." }
   }

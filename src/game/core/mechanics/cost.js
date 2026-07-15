@@ -17,11 +17,18 @@ function buildingEffectiveScale(building) {
   return 1 + (building.scale - 1) * (1 - SISYPHE_SCALE_REDUCTION);
 }
 
+// Facteur de coût de construction de l'héritage « Réseau de routes » : -5%
+// multiplicatif par effondrement traversé (cycles), plafonné à -60% (mult 0.40).
+// Exporté pour que la Boutique affiche EXACTEMENT la remise appliquée ici.
+export function reseauRoutesCostMult(cycles) {
+  return Math.max(0.40, Math.pow(0.95, cycles || 0));
+}
+
 function buildingDiscount(building) {
   let discount = 1;
   // -5% par effondrement traversé (cycles), plafonné à -60% : les anciennes routes
   // se souviennent des chemins d'avant la chute (ex-remise « par dynastie »).
-  if (has("reseau_routes")) discount *= Math.max(0.40, Math.pow(0.95, state.cycles));
+  if (has("reseau_routes")) discount *= reseauRoutesCostMult(state.cycles);
   if (has("trait_nomadism")) discount *= 0.7;
   // Dogme « Enracinement » : fin de l'entretien A2 (tick.js) contre +15 % partout.
   if (has("trait_enracinement")) discount *= ENRACINEMENT_COST_MULT;

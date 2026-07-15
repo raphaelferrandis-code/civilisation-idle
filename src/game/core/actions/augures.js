@@ -42,36 +42,38 @@ import {
 } from '../balance.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { chronicle } from './utils.js';
+import { ivoryDogCut, ivoryVenusBonus, noyePotMult } from './templeArtifacts.js';
 
-// Les trois RITES : trois formes de risque pour la même table. L'espérance
-// reste comparable — c'est la VARIANCE qu'on choisit. Labels résolus par tr()
-// côté UI (objets {fr,en} bruts, comme STEWARD_SLOT_UNLOCKS).
-// `costMult` : la mise (en ressources) ET le gain de Faveur (grosse mise = gros
-// gain). Jeux découplés : perdre ne coûte que la mise (plus de retour de bâton
-// sur la Rupture) — le risque, c'est la mise sacrifiée.
+// Les trois RITES : trois formes de risque pour la même table. `costMult` scale
+// la MISE (ressources) ET le gain de Faveur (grosse mise = gros gain). `spread`
+// déforme la VARIANCE (fusion 2026-07-15) : >1 fatten les queues (plus de Vénus
+// DANS les gains, plus de Chiens DANS les pertes) ; <1 les calme. La frontière
+// gagne/perd (les ODDS) NE bouge PAS avec la mise — elle est pilotée par les
+// items (dés pipés) et la Clémence. Jeux découplés : perdre ne coûte que la mise
+// (plus de retour de bâton sur la Rupture). Labels résolus par tr() côté UI.
 export const AUGURY_RITES = {
   prudent: {
-    id: "prudent", costMult: 0.6,
+    id: "prudent", costMult: 0.6, spread: 0.55,
     label: { fr: "Offrande prudente", en: "Cautious offering" },
     desc: {
-      fr: "Une libation discrète : mise réduite, gain de Faveur modeste.",
-      en: "A discreet libation: reduced stake, modest Favor gain."
+      fr: "Une libation discrète : mise réduite, Faveur modeste, sort plus sage (moins de Chiens).",
+      en: "A discreet libation: reduced stake, modest Favor, calmer fate (fewer Dogs)."
     }
   },
   classique: {
-    id: "classique", costMult: 1,
+    id: "classique", costMult: 1, spread: 1,
     label: { fr: "Rite ancestral", en: "Ancestral rite" },
     desc: {
-      fr: "Le rite tel que les anciens le pratiquaient — mise et Faveur d'aplomb.",
-      en: "The rite as the ancients practiced it — balanced stake and Favor."
+      fr: "Le rite tel que les anciens le pratiquaient — mise, Faveur et variance d'aplomb.",
+      en: "The rite as the ancients practiced it — balanced stake, Favor and variance."
     }
   },
   grand: {
-    id: "grand", costMult: 2,
+    id: "grand", costMult: 2, spread: 1.7,
     label: { fr: "Grand sacrifice", en: "Great sacrifice" },
     desc: {
-      fr: "Une hécatombe : mise doublée, Faveur magnifiée — mais la mise perdue fait mal.",
-      en: "A hecatomb: doubled stake, magnified Favor — but a lost stake stings."
+      fr: "Une hécatombe : mise doublée, Faveur magnifiée, sort EXTRÊME — plus de Vénus, mais plus de Chiens.",
+      en: "A hecatomb: doubled stake, magnified Favor, EXTREME fate — more Venus, but more Dogs."
     }
   }
 };
@@ -97,23 +99,33 @@ export function auguryBaseOdds(a) {
   return Math.max(0, Math.min(GAMBLE_P_MAX, p * GAMBLE_ODDS_SCALE + diceBonus));
 }
 
-export function auguryTierOdds(pEff) {
-  const venus = pEff * AUGURY_TIER_SHARES.venus;
+// Répartition des 5 issues. `spread` (la mise, cf. AUGURY_RITES) déforme la
+// variance SANS toucher la frontière gagne/perd : la masse gagnante reste pEff,
+// la perdante 1-pEff, mais un gros `spread` gonfle la part de Vénus DANS les
+// gains et de Chien DANS les pertes (au détriment de la paire et du creux).
+// spread=1 → répartition historique exacte (rétro-compatible).
+export function auguryTierOdds(pEff, spread = 1) {
+  // Dé d'ivoire (artefact) : relève Vénus DANS les gains et coupe le Chien DANS
+  // les pertes, de façon DÉCOUPLÉE (le spread multiplie les deux ensemble ;
+  // l'ivoire les découple). pEff — le taux de victoire — reste INTOUCHÉ.
+  const venusShare = Math.min(0.9, AUGURY_TIER_SHARES.venus * spread + ivoryVenusBonus());
+  const dogShare = Math.max(0, Math.min(0.95, (1 - AUGURY_HOLLOW_SHARE) * spread - ivoryDogCut()));
+  const venus = pEff * venusShare;
   const triple = pEff * AUGURY_TIER_SHARES.triple;
   return {
     venus,
     triple,
-    pair: pEff - venus - triple,
-    hollow: (1 - pEff) * AUGURY_HOLLOW_SHARE,
-    dog: (1 - pEff) * (1 - AUGURY_HOLLOW_SHARE)
+    pair: Math.max(0, pEff - venus - triple),
+    hollow: Math.max(0, (1 - pEff) * (1 - dogShare)),
+    dog: (1 - pEff) * dogShare
   };
 }
 
 // Tirage du tier : UN SEUL Math.random() en tête (les tests le pilotent), les
 // os cosmétiques sont générés ensuite.
-function drawTier(pEff) {
+function drawTier(pEff, spread = 1) {
   const r = Math.random();
-  const odds = auguryTierOdds(pEff);
+  const odds = auguryTierOdds(pEff, spread);
   if (r < odds.venus) return "venus";
   if (r < odds.venus + odds.triple) return "triple";
   if (r < pEff) return "pair";
@@ -177,7 +189,9 @@ export function auguryCost(id, riteId = "classique") {
 // cagnotte. Ni fatigue ni registre : le temple est sa propre économie.
 export function castAugury(id, riteId = "classique", options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
-  const { render: doRender = true, defer = false } = opts;
+  // `silent` : coupe le float d'issue (auto-lancé du moteur d'automatisation —
+  // un jeu passif ne doit pas spammer l'écran de « +N faveur »).
+  const { render: doRender = true, defer = false, silent = false } = opts;
   if (gamePaused || collapseInProgress) return null;
   if (state.crisisLimitAnnounced) return null; // la crise terminale a ses propres autels
   const a = REGULATION_ACTIONS_BY_ID[id];
@@ -191,7 +205,7 @@ export function castAugury(id, riteId = "classique", options = {}) {
   // Chance de base réduite (early) + Clémence (pitié sur série noire).
   const pBase = auguryBaseOdds(a);
   const pEff = Math.min(GAMBLE_P_MAX, pBase + clemencyBonus(id, pBase));
-  const tier = drawTier(pEff);
+  const tier = drawTier(pEff, rite.spread ?? 1);
   const win = tier === "venus" || tier === "triple" || tier === "pair";
   const bones = auguryTierBones(tier);
 
@@ -223,14 +237,16 @@ export function castAugury(id, riteId = "classique", options = {}) {
       // cagnotte de Faveur du temple (le Chien, plus lourd, en verse davantage).
       result.faveurGain = AUGURY_FAVEUR[tier] || 0;
       state.faveur = Math.max(0, (state.faveur || 0) + result.faveurGain);
-      const potFeed = (a.cost?.seconds || 0) * rite.costMult * (tier === "dog" ? AUGURY_POT_FEED_DOG : AUGURY_POT_FEED_HOLLOW);
+      const potFeed = (a.cost?.seconds || 0) * rite.costMult * (tier === "dog" ? AUGURY_POT_FEED_DOG : AUGURY_POT_FEED_HOLLOW) * noyePotMult();
       state.icarusPotFaveur = Math.min(ICARUS_POT_CAP_FAVEUR, Math.max(0, state.icarusPotFaveur || 0) + potFeed);
     }
     result.note = win ? (a.noteWin || a.note) : (a.noteFail || "Le pari tourne court, mais la table retient ton nom.");
-    const floatLabel = tier === "venus" ? "🎲 Coup de Vénus !"
-      : tier === "dog" ? "🎲 Le jet du Chien…"
-      : `🎲 +${result.faveurGain} faveur`;
-    pushOutcomeFloat({ label: floatLabel, kind: win ? "gain" : "cost" });
+    if (!silent) {
+      const floatLabel = tier === "venus" ? "🎲 Coup de Vénus !"
+        : tier === "dog" ? "🎲 Le jet du Chien…"
+        : `🎲 +${result.faveurGain} faveur`;
+      pushOutcomeFloat({ label: floatLabel, kind: win ? "gain" : "cost" });
+    }
     renderCache._frameRatesVer = -1;
     if (doRender) render();
     return result;
