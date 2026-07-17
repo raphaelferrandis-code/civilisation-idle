@@ -10,9 +10,12 @@ const DEFAULT_DURATION = 1100;
 /**
  * Compteur ODOMÈTRE : chaque chiffre est une colonne qui roule verticalement,
  * comme un compteur mécanique. Le dernier chiffre tourne en continu (piloté
- * par l'interpolation), les chiffres supérieurs ne basculent qu'à la retenue
- * (quand tous les chiffres sous eux affichent 9) — c'est ce qui donne la
- * sensation « machine » au lieu d'un texte qui clignote.
+ * par l'interpolation) ; les chiffres supérieurs tombent d'un CRAN SEC quand
+ * leur glyphe change à la retenue — pose, clac, pose — avec un léger
+ * dépassement et un flash doré qui retombe (odo-snap / odo-carry). C'est
+ * cette mécanique qui donne la sensation « machine » au lieu d'un texte qui
+ * glisse. Molette de ressenti : window.__odoSnap = false → retour au
+ * glissement linéaire d'origine (la retenue glisse au rythme des unités).
  *
  * La pulsation (.roll-pulse) n'est plus un métronome : elle ne se rejoue que
  * sur un JALON — changement de suffixe (K→M→B…) ou de nombre de chiffres.
@@ -59,11 +62,18 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
   // démarrage d'une montée — lu au render sans toucher de ref (concurrent-safe).
   const [segRate, setSegRate] = useState(0);
   const display = useCountUp(target, duration, setSegRate);
+  // Molette de ressenti (console) : window.__odoSnap = false → glissement
+  // d'origine pour comparer A/B en jeu. Lue à chaque render (le count-up
+  // re-rend en continu, le toggle prend effet immédiatement).
+  const snap = typeof window !== 'undefined' && window.__odoSnap !== false;
 
   const parts = dialParts(display);
   if (!parts) {
     // Repli plat : à l'arrêt on reformate la valeur d'origine (Decimal exact).
-    return fmtShortLive(display === target ? value : display);
+    // Enveloppé en .odo pour profiter de la même auto-taille que le cadran
+    // (largeur estimée en majorant 0.9 em/caractère).
+    const flat = fmtShortLive(display === target ? value : display);
+    return <span className="odo" style={{ '--odo-w': (flat.length * 0.9 + 0.3).toFixed(3) }}>{flat}</span>;
   }
 
   const { mantissa, decimals, suffix, div } = parts;
@@ -85,6 +95,14 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
   // comme `key` du wrapper : quand elle change, React re-monte le span →
   // l'anim .roll-pulse se rejoue une fois (sans compteur lu en ref au render).
   const shape = `${count}|${suffix}`;
+
+  // Largeur du cadran en em, publiée en --odo-w (nombre) : la topbar s'en
+  // sert pour dimensionner la police au conteneur (font-size = 100cqw /
+  // --odo-w, cf. components.css). Chasses Silkscreen 700 MESURÉES au rendu :
+  // slot 1ch = 0.875 em (constant), point ≈ 0.50, suffixe 1 lettre ≤ 1.00
+  // (M, le plus large), 2 lettres ≤ 1.87 (Sx/No) — letter-spacing inclus.
+  // Même granularité que `shape` → la taille ne change qu'au re-mount jalon.
+  const wEm = count * 0.875 + 0.5 + (suffix ? (suffix.length > 1 ? 1.87 : 1.0) : 0);
 
   const slots = [];
   for (let k = count - 1; k >= 0; k--) {
@@ -115,13 +133,38 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
     }
 
     const digit = Math.floor(Dint / pow) % 10;
-    // Retenue mécanique : ce chiffre ne roule que si TOUS les chiffres sous
-    // lui affichent 9 (le dernier chiffre, k=0, roule toujours).
+
+    // CRAN MÉCANIQUE (défaut) : un chiffre au-dessus des unités ne glisse pas
+    // avec la retenue, il bascule d'un coup sec quand son glyphe change. La
+    // bande porte [précédent, courant, suivant] (le précédent sorti du slot
+    // par marge négative → l'état de repos est transform: 0, net à toute
+    // taille) et key={digit} re-monte la colonne à chaque bascule : l'anim
+    // CSS rejoue. Un saut de plusieurs crans entre deux frames affiche un
+    // « précédent » reconstruit (digit−1) : sans conséquence, le rouleau flou
+    // prend de toute façon le relais dès que ça va vite.
+    if (snap && k > 0) {
+      slots.push(
+        <span className={`odo-slot${k < dimBelow ? ' odo-dim' : ''}`} key={`d${idx}`}>
+          <span className="odo-col odo-col--snap" key={digit}>
+            <span className="odo-d odo-d--prev">{(digit + 9) % 10}</span>
+            <span className="odo-d">{digit}</span>
+            <span className="odo-d">{(digit + 1) % 10}</span>
+          </span>
+        </span>
+      );
+      continue;
+    }
+
+    // Roulis continu : le dernier chiffre (le « moteur » du cadran), ou toute
+    // la rangée si la molette a rebasculé sur le glissement d'origine (la
+    // retenue ne roule alors que si TOUS les chiffres sous elle affichent 9,
+    // au rythme des unités). round(…, 1px) cale le déplacement sur des pixels
+    // CSS entiers : Silkscreen ne bave plus en sous-pixel pendant le roulis.
     const rolls = k === 0 || (Dint % pow) === pow - 1;
     const frac = rolls ? fracD : 0;
     slots.push(
       <span className={`odo-slot${k < dimBelow ? ' odo-dim' : ''}`} key={`d${idx}`}>
-        <span className="odo-col" style={{ transform: `translateY(${-frac * 50}%)` }}>
+        <span className="odo-col" style={{ transform: `translateY(round(${(-frac).toFixed(4)}em, 1px))` }}>
           <span className="odo-d">{digit}</span>
           <span className="odo-d">{(digit + 1) % 10}</span>
         </span>
@@ -130,7 +173,7 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
   }
 
   return (
-    <span className="odo roll-pulse" key={shape}>
+    <span className="odo roll-pulse" key={shape} style={{ '--odo-w': wEm.toFixed(3) }}>
       {slots}
       {suffix && <span className="odo-sep odo-suffix">{suffix}</span>}
     </span>

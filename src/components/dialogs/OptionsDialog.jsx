@@ -328,7 +328,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Tout acheter — Moteurs", en: "Buy all — Engines" })}</span>
+                  <span>{tr({ fr: "Tout acheter : Moteurs", en: "Buy all: Engines" })}</span>
                   <small>{tr({ fr: "Achète tous les Moteurs abordables, du plus cher au moins cher", en: "Buys all affordable Engines, most expensive first" })}</small>
                 </div>
                 <kbd className="shortcut-kbd">M</kbd>
@@ -336,7 +336,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Tout acheter — Savoir", en: "Buy all — Knowledge" })}</span>
+                  <span>{tr({ fr: "Tout acheter : Savoir", en: "Buy all: Knowledge" })}</span>
                   <small>{tr({ fr: "Achète tout le Savoir abordable, du plus cher au moins cher", en: "Buys all affordable Knowledge, most expensive first" })}</small>
                 </div>
                 <kbd className="shortcut-kbd">S</kbd>
@@ -344,7 +344,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Tout acheter — Infrastructure", en: "Buy all — Infrastructure" })}</span>
+                  <span>{tr({ fr: "Tout acheter : Infrastructure", en: "Buy all: Infrastructure" })}</span>
                   <small>{tr({ fr: "Achète toute l'Infrastructure abordable, du plus cher au moins cher", en: "Buys all affordable Infrastructure, most expensive first" })}</small>
                 </div>
                 <kbd className="shortcut-kbd">I</kbd>

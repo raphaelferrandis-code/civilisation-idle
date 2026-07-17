@@ -131,7 +131,7 @@ export function autoResolveCrisisEvent(event, stance) {
     registerOlympusCrisisIgnored();
   }
   state.instability = clamp01(state.instability);
-  chronicle(`Le Conseil de crise tranche : « ${choice.label} » — appliqué sans délai.`);
+  chronicle(`Le Conseil de crise tranche : « ${choice.label} », appliqué sans délai.`);
 }
 
 export async function openCrisisEvent(event) {
@@ -297,7 +297,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     state.activeMythId = null;
     state.ragnarokEffectsApplied = false;
   } else {
-    log(`Phenix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}${(state.phoenixRenaissances || 0) === 0 ? " — chaine brisee, on repart de zero" : ""}.`);
+    log(`Phenix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}${(state.phoenixRenaissances || 0) === 0 ? " (chaine brisee, on repart de zero)" : ""}.`);
   }
 
   if (state.eneeHeritage) {

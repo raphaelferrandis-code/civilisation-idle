@@ -196,7 +196,7 @@ export default function ChronicleView() {
                 <span className="era-timeline-marker" aria-hidden="true"></span>
                 <div className="era-timeline-body">
                   <div className="era-timeline-head">
-                    <h3>{reached ? era.name : '— ? —'}</h3>
+                    <h3>{reached ? era.name : '???'}</h3>
                     <span className="era-timeline-pop" title={tr({ fr: 'Population requise', en: 'Population required' })}>
                       {fmt(era.at)} {tr({ fr: 'habitants', en: 'inhabitants' })}
                     </span>

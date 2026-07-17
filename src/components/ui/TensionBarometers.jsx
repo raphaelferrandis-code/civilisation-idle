@@ -22,8 +22,8 @@ export default function TensionBarometers() {
       <div
         className="tension-gauge tension-gauge--rupture"
         {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), tr({
-          fr: `Dérive vers ${pct(pressure.total)} (le trait blanc). Réguler la fait baisser ; à 100 %, la crise s'ouvre.`,
-          en: `Drifting toward ${pct(pressure.total)} (the white tick). Regulating lowers it; at 100%, the crisis opens.`
+          fr: `La jauge dérive vers ${pct(pressure.total)}, le trait blanc. À 100 %, la crise s'ouvre.`,
+          en: `The gauge drifts toward ${pct(pressure.total)}, the white tick. At 100%, the crisis opens.`
         }))}
       >
         <span className="tension-label">{tr({ fr: 'Rupture', en: 'Rupture' })}</span>
@@ -36,8 +36,8 @@ export default function TensionBarometers() {
       <div
         className="tension-gauge tension-gauge--usure"
         {...tipProps(tr({ fr: 'Usure du Temps', en: 'Wear of Time' }), tr({
-          fr: "Monte inexorablement ; à 100 %, la fin d'une ère s'impose.",
-          en: 'Rises inexorably; at 100%, the end of an era imposes itself.'
+          fr: "Monte avec le temps. À 100 %, la fin d'une ère s'impose.",
+          en: 'Rises with time. At 100%, the end of an era imposes itself.'
         }))}
       >
         <span className="tension-label">{tr({ fr: 'Usure', en: 'Wear' })}</span>

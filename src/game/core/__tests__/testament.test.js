@@ -52,7 +52,7 @@ describe("hydratation — testamentLegacyId", () => {
 });
 
 describe("runCollapseSequence auto_collapse — grave sans modale", () => {
-  it("testament gravé : aucun dialogue, ×0.85 appliqué (Lois), legs actif, testament conservé", async () => {
+  it("testament gravé : aucun dialogue, ×0.85 appliqué (l'Ordre), legs actif, testament conservé", async () => {
     state.testamentLegacyId = "laws"; // ruinMult 0.85, jamais favorisé côté ruines
     const ruinsBefore = toNum(state.ruins);
 
@@ -65,10 +65,10 @@ describe("runCollapseSequence auto_collapse — grave sans modale", () => {
     expect(state.testamentLegacyId).toBe("laws"); // permanent de cycle en cycle
     expect(state.mourning).toBe(false);
     // Le Journal d'effondrement nomme le legs gravé (lot D).
-    expect((state.history || []).some((line) => line.includes("Legs gravé : les Lois"))).toBe(true);
+    expect((state.history || []).some((line) => line.includes("Legs gravé : l'Ordre"))).toBe(true);
   });
 
-  it("sans testament : répète la dernière volonté (×0.9 pour les Granges)", async () => {
+  it("sans testament : répète la dernière volonté (×0.9 pour le Grain)", async () => {
     state.testamentLegacyId = null;
     state.nextEpitaphLegacy = { id: "granaries", cause: "rupture", chosenCycle: 3, startedAt: FIXED_NOW - 1000 };
     const ruinsBefore = toNum(state.ruins);

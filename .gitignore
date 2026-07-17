@@ -67,6 +67,13 @@ public/pixelart/buildings/_orig/
 public/pixelart/buildings/_zoom/
 public/pixelart/iso/_orig/
 
+# Outillage refix sprites (scripts/refix_sprite.py) : vendor pixel-art-fixer +
+# venv Python + sorties de test / backups horodatés — rien de tout ça ne se versionne,
+# le clone et le venv se recréent via l'en-tête du script.
+scripts/pixelfix/
+_sprite_out/
+_sprite_backups/
+
 # Orphelins non chargés (audit 2026-07 G-64) : candidats de design provisoires,
 # swatches de palette générés par buildPalette.mjs, backup pré-quantize d'un prop.
 # ~447 K jamais fetchés — comme leurs voisins _orig/_archive.

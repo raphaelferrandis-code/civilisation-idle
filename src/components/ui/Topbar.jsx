@@ -58,7 +58,7 @@ export default function Topbar() {
   /* Humeurs (déplacées en tooltip) */
   const foodMood = mood(vitals.foodScore, [
     { fr: "Famine proche", en: "Famine looms" },
-    { fr: "Entrepôts modestes", en: "Modest granaries" },
+    { fr: "Entrepôts modestes", en: "Modest warehouses" },
     { fr: "Surplus rassurant", en: "Reassuring surplus" },
     { fr: "Abondance", en: "Abundance" }
   ]);
@@ -81,16 +81,16 @@ export default function Topbar() {
       en: "Demographic foundation of your empire."
     }),
     food: tr({
-      fr: `Réserves : ${tr(foodMood)}\nCroissance pop ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
-      en: `Reserves: ${tr(foodMood)}\nPop growth ${multLabel(vitals.populationMult)} — rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
+      fr: `Réserves : ${tr(foodMood)}\nCroissance pop ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
+      en: `Reserves: ${tr(foodMood)}\nPop growth ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
     }),
     gold: tr({
-      fr: `Économie : ${tr(goldMood)}\nOr ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`,
-      en: `Economy: ${tr(goldMood)}\nTreasury ${multLabel(vitals.goldMult)} — infrastructure ${multLabel(vitals.infraMult)}`
+      fr: `Économie : ${tr(goldMood)}\nOr ${multLabel(vitals.goldMult)} · infrastructure ${multLabel(vitals.infraMult)}`,
+      en: `Economy: ${tr(goldMood)}\nTreasury ${multLabel(vitals.goldMult)} · infrastructure ${multLabel(vitals.infraMult)}`
     }),
     knowledge: tr({
-      fr: `Mémoire : ${tr(knowledgeMood)}\nSavoir ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
-      en: `Memory: ${tr(knowledgeMood)}\nKnowledge ${multLabel(vitals.knowledgeMult)} — rupture -${fmt(vitals.instabilityRelief * 100)} pts`
+      fr: `Mémoire : ${tr(knowledgeMood)}\nSavoir ${multLabel(vitals.knowledgeMult)} · rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
+      en: `Memory: ${tr(knowledgeMood)}\nKnowledge ${multLabel(vitals.knowledgeMult)} · rupture -${fmt(vitals.instabilityRelief * 100)} pts`
     }),
     infrastructure: tr({
       fr: `Réseau routier et solidité technique.${showNomadCap ? `\nCap nomade : ${fmt(nomadCap)}` : ""}`,
@@ -150,7 +150,7 @@ export default function Topbar() {
             </div>
             <div className="resource-rate-row">
               {crisisFrozen ? (
-                <span className="rate-value rate-frozen" title={tr({ fr: "Cité figée par la crise terminale — la production est suspendue.", en: "City frozen by the terminal crisis — production is suspended." })}>
+                <span className="rate-value rate-frozen" title={tr({ fr: "Cité figée par la crise terminale. La production est suspendue.", en: "City frozen by the terminal crisis. Production is suspended." })}>
                   {tr({ fr: "figé", en: "frozen" })}
                 </span>
               ) : (

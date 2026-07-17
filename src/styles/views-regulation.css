@@ -130,15 +130,48 @@
   text-transform: none;
 }
 
-/* Compteur de Faveur (monnaie des jeux) — accent or, dans l'en-tête des augures. */
+/* ── Glyphes de l'économie du temple (FaveurIcon.jsx) ──
+   La FLAMME VOTIVE = la Faveur (remplace le ✦ texte), l'AMPHORE = la cagnotte
+   commune (remplace 🏺). Dimensionnés en em pour suivre le texte voisin. */
+.faveur-glyph,
+.pot-glyph {
+  height: 1.15em;
+  width: auto;
+  image-rendering: pixelated;
+  vertical-align: -0.18em;
+  display: inline-block;
+}
+
+/* Compteur de Faveur (monnaie des jeux) — CARTOUCHE : pilule sombre à liseré
+   or, flamme votive qui respire + montant. La maison de la Faveur à l'écran. */
 .faveur-count {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  border-radius: 999px;
+  background: rgba(38, 24, 8, 0.55);
   color: var(--gold-bright);
   font-family: var(--font-number);
   font-size: 0.8rem;
   letter-spacing: normal;
   text-transform: none;
   cursor: default;
+}
+
+.faveur-count .faveur-glyph {
+  height: 1.25em;
+  animation: faveur-flicker 1.9s ease-in-out infinite;
+}
+
+/* La flamme respire : légère montée de brillance, pas un stroboscope.
+   (prefers-reduced-motion coupe toutes les animations via base.css.) */
+@keyframes faveur-flicker {
+  0%, 100% { filter: brightness(1); }
+  42% { filter: brightness(1.32) saturate(1.08); }
+  58% { filter: brightness(1.18); }
 }
 
 /* Deux colonnes : GAUCHE = Anatomie → Intendance → Table des augures ;
@@ -520,21 +553,18 @@
   white-space: nowrap;
 }
 
-.icarus-banner-pot {
-  flex: 1;
-  min-width: 0;
-  text-align: right;
-  font-family: var(--font-number);
-  font-size: 0.74rem;
-  color: var(--gold-bright);
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* La cagnotte a quitté les bandeaux (2026-07-16) : elle ne s'affiche que dans
+   la scène du jeu ouvert (.icarus-stage-pot / .scratch-stage-pot). Le CTA est
+   donc poussé seul à droite. */
+.icarus-banner-free {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--res-food);
   white-space: nowrap;
 }
 
-.icarus-banner-free { color: var(--res-food); }
-
 .icarus-banner-cta {
+  margin-left: auto;
   border: 1px solid var(--gold);
   border-radius: 999px;
   padding: 0.18rem 0.75rem;
@@ -542,6 +572,73 @@
   font-weight: 700;
   color: var(--gold-bright);
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.icarus-banner-free + .icarus-banner-cta { margin-left: 0.7rem; }
+
+/* Fresques pixel des jeux (fond de bandeau) : bande 400×32 affichée ×2 (64 px),
+   ancrée au bord GAUCHE du bandeau, qui s'éteint dans un fondu long cuit dans
+   l'alpha (scratch/generate-augures-fresques.cjs + fade-fresques.cjs). Un scrim
+   léger à gauche garde le titre lisible sans éteindre le début de la fresque.
+   Réglage fin : --fresque-pos (position) et --fresque-op (opacité). */
+.augure-fresque {
+  position: relative;
+  isolation: isolate;
+  min-height: 66px; /* 64 px intérieurs (bordures 1 px) = fresque 32 px pile ×2 */
+}
+
+.augure-fresque::before,
+.augure-fresque::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.augure-fresque::before {
+  z-index: -2;
+  background: var(--fresque) var(--fresque-pos, left center) / auto 100% no-repeat;
+  image-rendering: pixelated;
+  opacity: var(--fresque-op, 1);
+}
+
+.augure-fresque::after {
+  z-index: -1;
+  background: linear-gradient(90deg,
+    rgba(20, 13, 5, 0.6) 0%,
+    rgba(20, 13, 5, 0.32) 16%,
+    rgba(20, 13, 5, 0) 40%,
+    rgba(20, 13, 5, 0) 62%,
+    rgba(20, 13, 5, 0.45) 84%,
+    rgba(20, 13, 5, 0.7) 100%);
+}
+
+.fresque-icare { --fresque: url("/pixelart/ui/augures/icare.png"); }
+.fresque-tickets { --fresque: url("/pixelart/ui/augures/tickets.png"); }
+.fresque-vingtetun { --fresque: url("/pixelart/ui/augures/vingtetun.png"); }
+.fresque-osselets { --fresque: url("/pixelart/ui/augures/osselets.png"); }
+
+/* La rangée des osselets prend le même habit de bandeau quand la table est
+   ouverte — et c'est un BOUTON pleine largeur (tout le bandeau ouvre la table,
+   comme les autres jeux), d'où les resets bouton + le hover assorti. */
+.augures-row.augure-fresque {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  border-radius: 10px;
+  padding: 0.32rem 0.7rem;
+  margin-top: 0.2rem;
+  background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.augures-row.augure-fresque:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
 }
 
 .augures-list {
@@ -618,6 +715,62 @@
 .augures-throw:hover {
   background: color-mix(in srgb, var(--gold), transparent 78%);
   border-color: var(--gold);
+}
+
+.augures-throw:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Tronc des offrandes (source de Faveur, monnaie fermée 2026-07-16) ─────
+   Jauge fine dorée (remplissage = trunkValue/TRUNK_CAP, MàJ au tick 1 Hz) +
+   relève manuelle ; le bouton ⚙ achète puis bascule l'auto-relève. */
+.augures-trunk {
+  gap: 0.45rem;
+}
+
+.augures-trunk-gauge {
+  flex: 1 1 3rem;
+  min-width: 2.4rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
+  overflow: hidden;
+}
+
+.augures-trunk-gauge i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold), transparent 35%), var(--gold-bright));
+  transition: width 0.6s ease;
+}
+
+.augures-trunk-auto {
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 62%);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.64rem;
+  padding: 0.14rem 0.45rem;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.augures-trunk-auto.is-on {
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--gold), transparent 90%);
+}
+
+.augures-trunk-auto:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.augures-trunk-auto:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* Typo : les <select> suivent le registre Inter de l'onglet (les selects
@@ -861,6 +1014,13 @@
 .scratch-legend-item b { color: var(--gold-bright); font-weight: 700; margin-right: 0.2rem; }
 
 /* Le ticket : la grille de symboles, la feuille grattable PAR-DESSUS. */
+/* Ticket = panneau PixelLab, UN PAR MISE (public/pixelart/ui/scratch/
+   ticket-<mise>.png), du plus humble au plus luxueux : Obole = papyrus nu,
+   Drachme = parchemin + méandre doré, Talent = lapis + laurier d'or. Les zones
+   entre alvéoles sont TRANSPARENTES dans l'art → un calque sombre limité à
+   l'intérieur du cadre (--ticket-dark) les fonce sans déborder des bords
+   irréguliers (coins transparents). La géométrie de la grille est calée PAR
+   TICKET sur les alvéoles peintes (mesures pngjs sur les PNG 512). */
 .scratch-ticket {
   position: relative;
   width: 100%;
@@ -869,30 +1029,54 @@
   aspect-ratio: 1 / 1;
   border-radius: 12px;
   overflow: hidden;
-  border: 2px solid color-mix(in srgb, var(--gold), transparent 40%);
-  background: rgba(10, 14, 22, 0.55);
+  --ticket-art: url("/pixelart/ui/scratch/ticket-drachme.png");
+  --ticket-dark: 78%;
+  background:
+    var(--ticket-art) center / 100% 100% no-repeat,
+    linear-gradient(rgba(10, 14, 22, 0.85), rgba(10, 14, 22, 0.85)) center / var(--ticket-dark) var(--ticket-dark) no-repeat;
 }
 
+/* Obole — carte papyrus opaque (pas de calque sombre), alvéoles ardoise
+   mesurées à x/y [69..442] : pas 130,5, cases ~112 px. */
+.scratch-ticket--obole {
+  --ticket-art: url("/pixelart/ui/scratch/ticket-obole.png");
+  --ticket-dark: 0%;
+  --tgrid-pad: 13.6%;
+  --tgrid-gap: 3.5%;
+}
+
+/* Talent — tablette lapis : cases PLUS LARGES que hautes (99,5×108 px,
+   cadres mesurés x [96,206,315..415] / y [90,204,318..426]) → padding et
+   gaps asymétriques (gap = ligne colonne). */
+.scratch-ticket--talent {
+  --ticket-art: url("/pixelart/ui/scratch/ticket-talent.png");
+  --tgrid-pad: 17.6% 18.9% 16.8% 18.75%;
+  --tgrid-gap: 1.2% 2.15%;
+}
+
+/* Grille calée sur les alvéoles PEINTES du ticket (drachme mesuré : alvéoles
+   de ~114 px trim compris, pas de ~128,5, première à ~69 px sur 512). */
 .scratch-grid {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 2px;
-  padding: 6px;
+  /* minmax(0, …) : les icônes réutilisées (tailles natives variées) ne doivent
+     JAMAIS étirer une rangée hors des alvéoles peintes. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: var(--tgrid-gap, 2.8%);
+  padding: var(--tgrid-pad, 13.6%);
 }
 
 .scratch-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 26, 38, 0.6);
   border-radius: 8px;
   user-select: none;
 }
 
-/* Symboles = sprites pixel-art (PixelLab, /pixelart/ui/scratch/). */
+/* Symboles = icônes pixel-art réutilisées du jeu (cf. ScratchSym.jsx). */
 .scratch-sym {
   image-rendering: pixelated;
   object-fit: contain;
@@ -968,6 +1152,7 @@
 @media (prefers-reduced-motion: reduce) {
   .scratch-cell.is-win { animation: none; }
   .scratch-canvas { transition: none; }
+  .bj-card { animation: none; }
 }
 
 /* ── Vingt-et-un (scène BlackjackStage) ── */
@@ -995,15 +1180,27 @@
 .bj-chip.is-lose { color: #e2704b; opacity: 0.82; }
 .bj-chip.is-push { color: var(--muted); }
 
+/* Table de jeu : drap pourpre profond liseré d'or (le « feutre » du temple),
+   Oracle en haut / joueur en bas, séparés par un filet pointillé. */
 .bj-table {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
   margin: 0.5rem auto;
   max-width: 460px;
+  padding: 0.7rem 0.85rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  background: radial-gradient(120% 95% at 50% 0%, #33204a 0%, #251437 55%, #190d27 100%);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .bj-side { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.bj-side + .bj-side {
+  border-top: 1px dashed color-mix(in srgb, var(--gold), transparent 70%);
+  padding-top: 0.55rem;
+}
 
 .bj-side-head {
   display: flex;
@@ -1017,49 +1214,109 @@
 .bj-val { font-family: var(--font-number); font-size: 0.92rem; color: var(--gold-bright); }
 .bj-val.is-bust { color: #ff6a55; }
 
-.bj-hand { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 66px; }
+.bj-hand { display: flex; flex-wrap: wrap; gap: 0.45rem; min-height: 82px; }
 
-/* Carte = tuile parchemin (rang + emblème pixel réutilisé du scratch). */
+/* Carte à jouer antique : parchemin à double liseré, indices de coin (rang +
+   mini-emblème, tête-bêche en bas-droite), grand emblème central. Une carte
+   qui arrive est « distribuée » (glisse + fondu). */
 .bj-card {
   position: relative;
-  width: 46px;
-  height: 64px;
+  width: 54px;
+  height: 76px;
   border-radius: 6px;
-  background: #ece0c0;
-  border: 1px solid #b8892f;
+  background: linear-gradient(160deg, #f0e5c8 0%, #e7d9b4 60%, #ddcca2 100%);
+  border: 1px solid #a87c2a;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 224, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: bj-deal 0.28s ease-out backwards;
+}
+
+.bj-hand .bj-card:nth-child(2) { animation-delay: 0.08s; }
+
+@keyframes bj-deal {
+  from { transform: translateY(-12px) rotate(-3deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Indices de coin : rang au-dessus d'un mini-emblème ; le second est répété
+   tête-bêche en bas-droite, comme sur une vraie carte. */
+.bj-corner {
+  position: absolute;
+  top: 3px;
+  left: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.bj-card-rank {
-  font-family: var(--font-number);
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #3a2a12;
+  gap: 1px;
   line-height: 1;
 }
 
-.bj-card-suit {
-  width: 22px;
-  height: 22px;
+.bj-corner b {
+  font-family: var(--font-number);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #3a2a12;
+}
+
+.bj-corner img {
+  width: 10px;
+  height: 10px;
   object-fit: contain;
   image-rendering: pixelated;
   -webkit-user-drag: none;
 }
 
-.bj-card.is-hidden { background: #8f3a3a; border-color: #5a2020; }
+.bj-corner--tail {
+  top: auto;
+  left: auto;
+  bottom: 3px;
+  right: 4px;
+  transform: rotate(180deg);
+}
 
-/* Verso de carte : hachures façon dos de jeu. */
-.bj-card-back {
+/* Familles teintées (l'écho du rouge/noir) : feuillage vs relique. */
+.bj-card--leaf .bj-corner b { color: #33502a; }
+.bj-card--relic .bj-corner b { color: #6b3040; }
+
+.bj-card-suit {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  -webkit-user-drag: none;
+}
+
+/* Figures : liseré d'or intérieur ; As : emblème agrandi. */
+.bj-card.is-face::after {
+  content: "";
   position: absolute;
   inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 35%);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.bj-card.is-ace .bj-card-suit { width: 34px; height: 34px; }
+
+.bj-card.is-hidden { background: #241536; border-color: #a87c2a; }
+
+/* Verso : drap pourpre, filet d'or, motif tissé et couronne en médaillon
+   (icône du jeu réutilisée — pas d'asset dédié). */
+.bj-card-back {
+  position: absolute;
+  inset: 3px;
   border-radius: 4px;
-  background: repeating-linear-gradient(45deg, #7a2f2f 0 4px, #9a4444 4px 8px);
-  border: 1px solid #5a2020;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  background:
+    url("/pixelart/ui/glyphs/couronne.png") center / 24px 24px no-repeat,
+    repeating-linear-gradient(45deg, rgba(232, 193, 90, 0.10) 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(-45deg, rgba(232, 193, 90, 0.08) 0 3px, transparent 3px 7px),
+    radial-gradient(90% 70% at 50% 40%, #3a2452 0%, #2a1839 60%, #1e1029 100%);
+  image-rendering: pixelated;
 }
 
 .stage-footnote {
@@ -1363,6 +1620,42 @@
   border-color: rgba(255, 157, 251, 0.55);
   text-shadow: 0 0 8px rgba(255, 157, 251, 0.6);
 }
+/* La BRAISE : la cire n'a pas pris (crashPoint ≤ 1.01), Icare n'a jamais décollé.
+   Teinte braise éteinte, distincte du froid — l'historique devient la lecture
+   directe de l'edge (≈2 braises/12 aux ailes 0, 0,5 aux ailes 6). */
+.icarus-crash-chip.is-scorched {
+  color: #8c3421;
+  border-color: rgba(140, 52, 33, 0.6);
+  background: rgba(140, 52, 33, 0.14);
+}
+
+/* Les repères du ciel (phase 7) : le filet d'or FIXE du jackpot (×10, à 75 % de
+   la course — l'ancrage de l'échelle, jamais déplacé par le cap) et la cible en
+   pointillé de l'autopush quand le capstone est acquis. Filets 1 px, étiquettes
+   en petites capitales, AUCUN halo (DA). */
+.icarus-jackpot-line,
+.icarus-target-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  pointer-events: none;
+  z-index: 1;
+}
+.icarus-target-line { border-top-style: dashed; border-top-color: color-mix(in srgb, var(--gold), transparent 70%); }
+.icarus-jackpot-line b,
+.icarus-target-line b {
+  position: absolute;
+  right: 4px;
+  top: -0.85em;
+  font-family: var(--font-number);
+  font-size: 0.6rem;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--gold), transparent 25%);
+  letter-spacing: 0.04em;
+}
+.icarus-target-line b { color: color-mix(in srgb, var(--gold), transparent 55%); left: 4px; right: auto; }
 
 /* Le ciel : crépuscule pixel en BANDES DURES, étoiles carrées. Icare grimpe
    en échelle log — le jackpot (×10) est à mi-chemin du soleil. */
@@ -1541,6 +1834,292 @@
   text-shadow: 0 0 8px rgba(54, 179, 126, 0.5);
 }
 
+/* Part de cagnotte emportée par cette mise (potRakeShare) : depuis le prorata,
+   c'est la SEULE chose qui distingue les trois mises autrement qu'à l'échelle,
+   donc elle se lit sur le bouton et pas seulement au survol. Discrète : la mise
+   et son libellé restent les têtes d'affiche. */
+.icarus-stake-rake {
+  font-size: 0.62rem !important;
+  color: var(--muted) !important;
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+}
+.icarus-stake.is-chosen .icarus-stake-rake { color: var(--gold-bright) !important; }
+
+/* Vingt-et-un — le conseil de la Mesure gravée (artefact) : une ligne discrète
+   au-dessus des boutons, en langue de temple, jamais un tableau de stratégie. */
+.bj-measure {
+  text-align: center;
+  font-size: 0.74rem;
+  font-style: italic;
+  color: color-mix(in srgb, var(--gold), transparent 30%);
+  margin: 0.15rem 0 0.3rem;
+}
+/* La Voix de l'oracle (artefact) : la réplique sur l'écran de résultat. */
+.bj-oracle-line {
+  text-align: center;
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0.1rem 0 0.35rem;
+}
+.bj-streak { color: var(--gold-bright); font-style: normal; font-family: var(--font-number); font-size: 0.7rem; }
+/* Le double : bouton frère de Tirer/Rester, liseré d'or (l'achat de skill). */
+.bj-double {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%) !important;
+  color: var(--gold-bright) !important;
+}
+/* L'offrande recopiée : la cella paie — bouton distinct de l'achat normal. */
+.scratch-replay {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%) !important;
+  color: var(--gold-bright) !important;
+}
+
+/* La refente : deux mains empilées, la main EN JEU marquée d'un filet d'or. */
+.bj-hand--split {
+  position: relative;
+  padding: 0.3rem 2.2rem 0.3rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  min-height: 0;
+  margin-bottom: 0.25rem;
+}
+.bj-hand--split.is-active {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%);
+  background: color-mix(in srgb, var(--gold), transparent 92%);
+}
+.bj-split-val {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-number);
+  font-size: 0.82rem;
+  color: var(--gold-bright);
+}
+.bj-split-val.is-bust { color: #ff6a5a; }
+/* L'issue main par main sous le résultat net d'une refente. */
+.bj-split-summary {
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin: 0 0 0.3rem;
+}
+
+/* Les coffres du temple : la rangée de puissance de mise, partagée par les 4
+   scènes (CoffreSelect.jsx). N'apparaît qu'au premier rang acquis — sobre,
+   l'amphore et des crans ×10, pas de néon. */
+.coffre-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  margin: 0.2rem 0 0.4rem;
+}
+.coffre-select-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.coffre-mult {
+  padding: 0.14rem 0.5rem;
+  font-family: var(--font-number);
+  font-size: 0.74rem;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.coffre-mult:hover { color: var(--gold-bright); }
+.coffre-mult.is-chosen {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--gold), transparent 88%);
+}
+
+/* ── Le pupitre du temple (colonne droite, sous les Annales) : un MUR DE
+   PLAQUETTES votives, pas un panneau d'admin (retour Raphaël : « le côté
+   parfait enlève l'âme »). Chaque auto est une tablette de bois clouée un peu
+   de travers — rotations et clous ALTERNÉS par nth-of-type (déterministe,
+   rien d'aléatoire au rendu), coins crantés 3px (le chrome pixel des .tab),
+   biseau bronze. La flamme votive allume/éteint, la plaque de bronze penche
+   dans l'autre sens. Les cadrans dépliés restent AutoDials (styles partagés
+   avec l'échoppe). */
+.temple-pupitre { overflow: visible; }
+.pupitre-state-inline {
+  display: inline-flex;
+  gap: 0.7rem;
+  margin-left: auto;
+  font-size: 0.76rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.pupitre-streak { color: var(--gold-bright); }
+
+.pupitre-tablet {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 72%);
+  border-radius: 0;
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
+  background:
+    linear-gradient(180deg, rgba(255, 236, 200, 0.06), rgba(0, 0, 0, 0.02) 30%, rgba(0, 0, 0, 0.24)),
+    linear-gradient(180deg, rgba(122, 84, 38, 0.20), rgba(64, 42, 20, 0.26));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease;
+}
+/* Clouées de travers : quatre inclinaisons qui se répètent, le clou suit. */
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 1) { transform: rotate(-0.55deg); margin: 0.45rem 0.5rem 0 0; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 2) { transform: rotate(0.4deg); margin: 0.45rem 0 0 0.55rem; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 3) { transform: rotate(-0.3deg); margin: 0.45rem 0.2rem 0 0.2rem; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 4) { transform: rotate(0.6deg); margin: 0.45rem 0.65rem 0 0; }
+/* Le clou pixel : un carré d'or embossé, jamais au même endroit. */
+.pupitre-tablet::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 4px;
+  height: 4px;
+  background: #d8a848;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.55), inset 1px 1px 0 rgba(255, 244, 214, 0.8);
+  z-index: 1;
+}
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 1)::before { left: 38%; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 2)::before { left: 61%; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 3)::before { left: 24%; }
+.temple-pupitre div.pupitre-tablet:nth-of-type(4n + 4)::before { left: 72%; }
+/* On la prend en main : la tablette se redresse au survol et à l'ouverture. */
+.temple-pupitre div.pupitre-tablet:hover,
+.temple-pupitre div.pupitre-tablet.is-open { transform: rotate(0deg); }
+.pupitre-tablet.is-open {
+  border-color: color-mix(in srgb, var(--gold), transparent 45%);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 200, 0.05), rgba(0, 0, 0, 0.3)),
+    linear-gradient(180deg, rgba(96, 64, 28, 0.24), rgba(38, 24, 12, 0.4));
+}
+/* La flamme du foyer teinte doucement toute la tablette (lueur ambre, pas de néon). */
+.pupitre-tablet.is-lit {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    inset 12px 0 18px -14px rgba(240, 168, 72, 0.5);
+}
+
+.pupitre-game-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.32rem 0.6rem;
+  min-width: 0;
+}
+.pupitre-game-head:hover .pupitre-game-name { color: var(--gold-bright); }
+.pupitre-tablet.is-open .artifact-dials { padding: 0.1rem 0.6rem 0.5rem; }
+.pupitre-game-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+/* Le résumé : une inscription gravée, pas un sous-titre d'app. */
+.pupitre-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: color-mix(in srgb, var(--candle, #d8b878), transparent 25%);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* La flamme votive : allumée elle vacille, éteinte elle charbonne. */
+.pupitre-flame {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.5rem;
+  padding: 0 0 1px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.pupitre-flame img {
+  width: 14px;
+  height: auto;
+  image-rendering: pixelated;
+  filter: grayscale(1) brightness(0.42);
+  opacity: 0.7;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+.pupitre-flame.is-on img {
+  filter: none;
+  opacity: 1;
+  animation: pupitre-flicker 1.1s steps(2, jump-none) infinite;
+}
+.pupitre-flame:hover img { opacity: 1; }
+@keyframes pupitre-flicker {
+  0%, 100% { transform: translateY(0) scaleY(1); filter: brightness(1); }
+  35% { transform: translateY(-1px) scaleY(1.06); filter: brightness(1.18); }
+  70% { transform: translateY(0) scaleY(0.97); filter: brightness(0.92); }
+}
+
+/* La plaque de bronze du débit : penchée à contre-sens de la tablette. */
+.pupitre-plaque {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.1rem 0.4rem 0.12rem;
+  clip-path: polygon(
+    0 2px, 2px 2px, 2px 0,
+    calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
+    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
+    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
+  );
+  background: linear-gradient(180deg, rgba(214, 168, 90, 0.2), rgba(0, 0, 0, 0.35));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  transform: rotate(0.9deg);
+}
+.temple-pupitre div.pupitre-tablet:nth-of-type(even) .pupitre-plaque { transform: rotate(-0.8deg); }
+.pupitre-plaque .temple-auto-rate { font-size: 0.78rem; }
+
+/* La tablette noircie d'une lignée non couronnée : la face cachée. */
+.pupitre-tablet--locked {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.6rem;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.36)),
+    linear-gradient(180deg, rgba(70, 50, 26, 0.18), rgba(30, 20, 10, 0.3));
+  border-color: color-mix(in srgb, var(--muted), transparent 72%);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pupitre-tablet--locked .pupitre-game-name { color: var(--muted); font-weight: 500; }
+.pupitre-locked-note {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-style: italic;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pupitre-hint {
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
 .icarus-stake.is-chosen { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
 .icarus-stake.is-broke { opacity: 0.45; }
 
@@ -1605,3 +2184,256 @@
   margin: 0.2rem 0 0.4rem;
   background: rgba(60, 42, 8, 0.5);
 }
+
+/* ═══ LA TABLE DE JEU (dé-lissage des scènes, retour Raphaël 2026-07-17 :
+   « trop parfait, mais pas la même solution que le pupitre ») ═══
+   Le pupitre accroche des objets AU MUR (tablettes de travers) ; la scène POSE
+   des objets SUR UN TAPIS. Le cadre pointillé devient un drap sombre à grain
+   pixel, vignette et filet d'or usé ; les choix de mise deviennent des plaques
+   d'os aux coins ÉBRÉCHÉS (une cassure différente par position, AUCUNE
+   rotation), la sélection est entourée d'un trait d'ocre tracé à la main, les
+   chips sont des jetons posés qui ne s'alignent pas au pixel près, le CTA une
+   dalle de bronze qui s'enfonce. Overrides en FIN de feuille : la cascade
+   fait le reste, aucune règle de base n'est réécrite. */
+
+/* Le tapis. Grain 3px façon foilGrain, vignette, double filet dont un usé. */
+.regulation-stage {
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 78%);
+  border-radius: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.38)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 3px, transparent 3px 6px),
+    linear-gradient(180deg, rgba(64, 30, 40, 0.34), rgba(38, 18, 26, 0.5));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.45),
+    inset 0 0 42px rgba(0, 0, 0, 0.4);
+}
+/* Le filet d'or cousu, interrompu par l'usure : un dashed IRRÉGULIER (deux
+   pointillés superposés de pas différents, l'un mange l'autre). */
+.regulation-stage::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  border: 1px dashed color-mix(in srgb, var(--gold), transparent 55%);
+  -webkit-mask-image: repeating-linear-gradient(115deg, #000 0 41px, transparent 41px 47px);
+  mask-image: repeating-linear-gradient(115deg, #000 0 41px, transparent 41px 47px);
+}
+.regulation-stage { position: relative; }
+
+/* Les plaques d'os : mises et rites POSÉS sur le tapis. Coins cassés par
+   position (clip-path), ombre courte de pose, ton os patiné. La cassure coupe
+   aussi le liseré : l'arête est à vif, c'est le but. */
+.augury-rite, .scratch-stake, .icarus-stake {
+  border-radius: 0;
+  border-color: color-mix(in srgb, #cdb489, transparent 62%);
+  /* ⚠ background-color À PART : une couleur nue n'est pas une couche valide du
+     raccourci `background: gradient, couleur` — tout le fond sauterait. */
+  background-color: rgba(24, 20, 18, 0.5);
+  background-image: linear-gradient(168deg, rgba(205, 180, 137, 0.13), rgba(0, 0, 0, 0.06) 40%, rgba(0, 0, 0, 0.3));
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 244, 214, 0.07);
+  position: relative;
+}
+.augury-rite:nth-child(4n + 1), .scratch-stake:nth-child(3n + 1), .icarus-stake:nth-child(3n + 1) {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+.augury-rite:nth-child(4n + 2), .scratch-stake:nth-child(3n + 2), .icarus-stake:nth-child(3n + 2) {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 9px 100%, 0 calc(100% - 9px));
+}
+.augury-rite:nth-child(4n + 3), .scratch-stake:nth-child(3n + 3), .icarus-stake:nth-child(3n + 3) {
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%);
+}
+.augury-rite:nth-child(4n + 4) {
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
+}
+.augury-rite:hover { transform: none; background-color: rgba(40, 34, 28, 0.5); }
+
+/* La sélection : le trait d'ocre tracé autour de la plaque — un anneau décalé,
+   à peine tourné (LUI seul tourne, pas la plaque), doublé d'un trait fantôme. */
+.augury-rite.is-chosen, .scratch-stake.is-chosen, .icarus-stake.is-chosen {
+  border-color: color-mix(in srgb, #cdb489, transparent 45%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 244, 214, 0.07);
+}
+.augury-rite.is-chosen::after, .scratch-stake.is-chosen::after, .icarus-stake.is-chosen::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  pointer-events: none;
+  border: 2px solid color-mix(in srgb, var(--gold), #b0622a 35%);
+  transform: rotate(-0.7deg) translateX(1px);
+  box-shadow: 2px 2px 0 -1px color-mix(in srgb, var(--gold), transparent 70%);
+}
+
+/* Les chips (chance, solde, pitié…) : des jetons d'os coins crantés, posés
+   sans être alignés au pixel près. */
+.augury-chip {
+  border-radius: 2px;
+  clip-path: polygon(
+    0 2px, 2px 2px, 2px 0,
+    calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
+    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
+    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
+  );
+  background: linear-gradient(180deg, rgba(205, 180, 137, 0.08), rgba(0, 0, 0, 0.22));
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+.augury-odds > .augury-chip:nth-child(odd) { transform: translateY(-1px); }
+.augury-odds > .augury-chip:nth-child(even) { transform: translateY(1px); }
+
+/* Les jetons du coffre : même os, même désalignement (ce SONT des jetons de mise). */
+.coffre-mult {
+  border-radius: 0;
+  clip-path: polygon(
+    0 2px, 2px 2px, 2px 0,
+    calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
+    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
+    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
+  );
+  background: linear-gradient(180deg, rgba(205, 180, 137, 0.08), rgba(0, 0, 0, 0.22));
+}
+/* Décalage par MARGES : dans une rangée flex centrée, la marge re-centre le
+   jeton d'un demi-pas — plus sûr qu'un transform sur des boutons qui portent
+   déjà la transition globale `all` (base.css). */
+.coffre-select button.coffre-mult:nth-of-type(odd) { margin-top: 2px; }
+.coffre-select button.coffre-mult:nth-of-type(even) { margin-bottom: 2px; }
+.coffre-mult.is-chosen { box-shadow: inset 0 0 0 1px var(--gold), inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
+
+/* Les CTA : des dalles de bronze embossées, qui S'ENFONCENT au doigt. */
+.augury-throw, .scratch-buy, .icarus-launch, .icarus-cashout {
+  border-radius: 0 !important;
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
+  background: linear-gradient(180deg, rgba(214, 168, 90, 0.16), rgba(0, 0, 0, 0.28)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -3px 0 rgba(0, 0, 0, 0.4);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.augury-throw:active, .scratch-buy:active, .icarus-launch:active, .icarus-cashout:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Le chrome annexe de la scène suit (croix de fermeture carrée, plus d'arrondi). */
+.stage-close { border-radius: 0; }
+
+/* Le « ? » des scènes : un jeton d'os dans le titre, qui déplie un feuillet de
+   règles au survol (StageHelp.jsx — passe densité 2026-07-17 : les légendes et
+   notes de bas de scène vivent ici, plus dans le flux). */
+.stage-help-wrap { position: relative; margin-left: auto; flex: 0 0 auto; }
+.stage-help-wrap + .stage-close { margin-left: 0.4rem; }
+.stage-help {
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, #cdb489, transparent 55%);
+  border-radius: 0;
+  clip-path: polygon(
+    0 2px, 2px 2px, 2px 0,
+    calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
+    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
+    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
+  );
+  background: linear-gradient(180deg, rgba(205, 180, 137, 0.1), rgba(0, 0, 0, 0.24));
+  color: var(--muted);
+  font-family: var(--font-number);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: help;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+.stage-help-wrap:hover .stage-help, .stage-help:focus { color: var(--gold-bright); border-color: var(--gold); }
+/* Feuillet en `position: fixed` (échappe à l'overflow du cadre) — placement
+   au-dessus du bouton calculé en JS (StageHelp.jsx : left/top|bottom inline).
+   Monté seulement à l'ouverture, donc pas de display toggling ici. */
+.stage-help-pop {
+  position: fixed;
+  z-index: 60;
+  width: min(380px, 74vw);
+  padding: 0.55rem 0.75rem 0.6rem;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
+  /* Fond OPAQUE (retour Raphaël : « on ne lit rien ») — et background-color à
+     part, une couleur nue n'est pas une couche valide du raccourci. */
+  background-color: #211913;
+  background-image: linear-gradient(180deg, rgba(255, 236, 200, 0.05), rgba(0, 0, 0, 0.2));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+.stage-help-pop p { margin: 0 0 0.4rem; }
+.stage-help-pop p:last-child { margin-bottom: 0; }
+.stage-help-pop .scratch-legend { margin: 0.2rem 0 0; justify-content: flex-start; }
+
+/* ── Les mises en BANDEAUX pleine hauteur (retour Raphaël 2026-07-17 : « le
+   choix de mise en bandeau qui prend toute la hauteur du cadre ») ─────────
+   La scène devient une colonne qui REMPLIT le tapis ; la rangée des mises
+   prend tout l'espace restant, et chaque plaque d'os devient une COLONNE :
+   le nom en tête, la mise en grand au centre, le détail au pied. Plus de
+   petites cartes flottant dans un cadre vide. Les autres phases (jeu,
+   résultat) restent ancrées en haut comme avant (aucun flex: 1 chez elles). */
+/* ⚠ La scène est un enfant DIRECT de #regulation.view, or `.app
+   #regulation.view.active > * { min-height: 0 }` (aide au shrink flex, plus
+   spécifique) écrase le min-height:260px de base → le cadre s'effondrait à
+   ~20px dès que les colonnes du haut étaient hautes (le pupitre les a
+   allongées), et les bandeaux retombaient sur leur min-height avec du vide
+   autour. On rend au cadre une hauteur GARANTIE, avec assez de spécificité
+   pour battre le reset. La page défile si le haut ne laisse pas la place —
+   c'est le prix des bandeaux qui « prennent toute la place » (arbitrage
+   Raphaël 2026-07-17). */
+.app #regulation.view.active > .regulation-stage { min-height: 22rem; }
+
+.regulation-stage > .augury-stage,
+.regulation-stage > .scratch-stage,
+.regulation-stage > .blackjack-stage,
+.regulation-stage > .icarus-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.augury-rites, .scratch-stakes, .icarus-stakes {
+  flex: 1 1 auto;
+  min-height: 9rem;
+  align-items: stretch;
+}
+/* Les osselets ont 4 rites avec l'artefact : flex plutôt que grid 3 colonnes
+   (le 4e bandeau rejoint le rang au lieu de retomber seul dessous). */
+.augury-rites { display: flex; gap: 0.5rem; }
+.augury-rite { flex: 1 1 0; min-width: 0; }
+/* La plaque devient une colonne dont le contenu SE RÉPARTIT sur toute la
+   hauteur (nom en tête, mise au cœur, détail au pied) — `space-evenly` plutôt
+   que `center` : quand la carte grandit sur un grand écran, le contenu s'étire
+   pour la remplir au lieu de se tasser au milieu en laissant du vide (le grief
+   Raphaël sur les osselets ; les cartes d'Icare qu'il aimait faisaient déjà ça
+   par leurs 4 lignes). */
+.augury-rite, .scratch-stake, .icarus-stake {
+  justify-content: space-evenly;
+  gap: 0.4rem;
+  padding: 0.9rem 0.7rem;
+}
+.scratch-stake strong, .icarus-stake strong, .augury-rite strong {
+  font-size: 0.92rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+.scratch-stake > span, .icarus-stake > span { font-size: 1.05rem; }
+.augury-rite .augury-rite-cost { font-size: 0.95rem; }

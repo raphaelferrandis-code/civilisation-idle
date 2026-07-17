@@ -3,6 +3,7 @@ import { faveurShopItems, buyFaveurItem } from '../../game/core/actions.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { tipProps } from './HelpBubble.jsx';
+import { FaveurIcon } from './FaveurIcon.jsx';
 import { LABELS, ICONS, DESCS, effectLine } from './faveurShopMeta.js';
 
 /**
@@ -24,7 +25,7 @@ export default function FaveurShop() {
         className="regul-block-title"
         {...tipProps(
           tr({ fr: 'Boutique de Faveur', en: 'Favor Shop' }),
-          tr({ fr: 'Dépense ta Faveur : boosters permanents (dés, ailes) et bénédictions temporaires.', en: 'Spend your Favor: permanent boosters (dice, wings) and temporary blessings.' })
+          tr({ fr: 'Dépense ta Faveur en boosters permanents et en bénédictions temporaires.', en: 'Spend your Favor on permanent boosters and temporary blessings.' })
         )}
       >
         {tr({ fr: 'Boutique de Faveur', en: 'Favor Shop' })}
@@ -49,7 +50,7 @@ export default function FaveurShop() {
                 disabled={!it.canAfford}
                 onClick={() => buyFaveurItem(it.id)}
               >
-                ✦ {fmt(it.cost)}
+                <FaveurIcon /> {fmt(it.cost)}
               </button>
             )}
           </div>

@@ -190,7 +190,7 @@ export const CRISIS_POOL = [
     id: "grain_panic",
     threshold: 0.25,
     condition: (s, v) => v.foodScore < 0.65,
-    title: { fr: "Les entrepôts font parler d'eux", en: "The granaries become the talk of the town" },
+    title: { fr: "Les entrepôts font parler d'eux", en: "The warehouses become the talk of the town" },
     body: { fr: "On commence à compter les sacs. Les voisins se regardent différemment. Le mot 'famine' n'est pas encore prononcé, mais il flotte.", en: "People begin to count the sacks. Neighbors look at one another differently. The word 'famine' has not yet been spoken, but it hangs in the air." },
     options: [
       {
@@ -296,7 +296,7 @@ export const CRISIS_POOL = [
     threshold: 0.5,
     condition: (s, v) => v.goldScore > 0.5,
     title: { fr: "Les riches proposent de l'aide", en: "The wealthy offer their help" },
-    body: { fr: "Quelques grandes maisons offrent d'investir dans la stabilité — en échange de leur nom gravé quelque part de visible.", en: "A few great houses offer to invest in stability — in exchange for their name carved somewhere visible." },
+    body: { fr: "Quelques grandes maisons offrent d'investir dans la stabilité, en échange de leur nom gravé quelque part de visible.", en: "A few great houses offer to invest in stability, in exchange for their name carved somewhere visible." },
     options: [
       {
         label: { fr: "Taxer les élites", en: "Tax the elites" },

@@ -109,20 +109,37 @@ function cityMapResizeCanvas(canvas) {
     CM.staticCanvas.width = onw;
     CM.staticCanvas.height = onh;
     CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.staticCamKey = ""; CM._staticBake = null;
+    CM._staticBake = null;
   }
   if (CM.tileCanvas) {
     CM.tileCanvas.width = onw;
     CM.tileCanvas.height = onh;
     CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.tileCamKey = ''; CM._tileBake = null;
+    CM._tileBake = null;
   }
   if (CM.groundCanvas) {
     CM.groundCanvas.width = onw;
     CM.groundCanvas.height = onh;
     CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM.groundCamKey = ''; CM._groundBake = null;
+    // Le sol ISO bake dans CE canvas sous _isoGroundBake : réallouer l'EFFACE,
+    // donc les deux états tombent ensemble. Sinon le bake iso se croit valide et
+    // on blitte un canvas vide jusqu'au prochain changement de clé (zoom) ou pan
+    // au-delà de la marge — « pas de textures avant de bouger la caméra ».
+    CM._groundBake = null; CM._isoGroundBake = null;
   }
+}
+
+// Remet à null les états RÉELLEMENT relus par cityMapBakeMargin → re-bake à la
+// frame suivante. À appeler dès que les canvases offscreen sont recréés/effacés
+// ou qu'un flag change le contenu de toutes les couches.
+// ⚠ Ne JAMAIS repasser par des clés parallèles (les anciens CM.staticCamKey /
+// tileCamKey / groundCamKey étaient écrits partout et relus NULLE PART : chaque
+// invalidation était un no-op silencieux).
+function cmInvalidateBakes() {
+  CM._staticBake = null;
+  CM._tileBake = null;
+  CM._groundBake = null;
+  CM._isoGroundBake = null;   // le sol iso partage CM.groundCanvas
 }
 
 // ── BAKE AVEC MARGE (drag fluide) ────────────────────────────────────────────
@@ -360,7 +377,7 @@ function cityMapHitTest(sx, sy) {
       const wsy = (slot.gy * CM.TILE + CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
       if (Math.hypot(wsx - sx, wsy - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) {
         const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
-        const next = w.tiers && tier < w.tiers.length ? ` — prochain rang : ${w.tierLabel(w.tiers[tier])}` : " — rang maximal";
+        const next = w.tiers && tier < w.tiers.length ? ` · prochain rang : ${w.tierLabel(w.tiers[tier])}` : " · rang maximal";
         return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
       }
     }
@@ -575,7 +592,7 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.layoutCoreSig = coreSig;
   CM.layoutRecomputeAt = now;
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
-  CM.tileCamKey = '';             // force re-bake tile canvas après fenêtre de naissance
+  CM._tileBake = null;            // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
   // Préchargement des sprites d'habitation de la bande courante AVANT la fenêtre de
   // naissance / le bake : supprime le flash procédural (« ancien sprite ») à la 1re
@@ -1080,10 +1097,12 @@ function initCityMap(canvas, options = {}) {
     CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.staticCamKey = '';
+    // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
+    // module qui survit au démontage : sans ça, les états de bake du montage
+    // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
+    // premier changement de clé (sortie/retour sur la vue Cité, StrictMode).
+    cmInvalidateBakes();
     CM.tileDirtyUntil = 0;
-    CM.tileCamKey = '';
-    CM.groundCamKey = '';
   }
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
   // PNG démarrent tout de suite → pixelHouseReady vrai à la 1re apparition d'un bâtiment,
@@ -1401,7 +1420,7 @@ function initCityMap(canvas, options = {}) {
     // qu'un `import('/src/game/map/layout.js')` depuis la console/outils peut
     // renvoyer une COPIE fraîche sans layout/forceFrame — piloter via __CM.
     window.__CM = CM;
-    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; cmInvalidateBakes(); };
     // MONTAGE DE DÉMO EN UN APPEL (Phase 0 chantier iso) — concentre tous les gotchas
     // du harnais : fige tick+autosave (clearInterval), pompe l'état SANS déclencher la
     // crise (instability/timeWear remis à 0 avant ET après), recompute, fait tourner la
@@ -1424,12 +1443,12 @@ function initCityMap(canvas, options = {}) {
       CM.forceFrame();
       return { layout: !!CM.layout, veh: CM.vehicles.length, cit: CM.citizens.length, era: CM.layout && CM.layout.counts ? CM.layout.counts.eraIndex : null };
     };
-    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
-    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; cmInvalidateBakes(); };
+    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; cmInvalidateBakes(); };
     // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
     // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
-    window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM.groundCamKey = ''; };
-    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM.groundCamKey = ''; return { ...sidewalkTune }; };
+    window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM._groundBake = null; };
+    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM._groundBake = null; return { ...sidewalkTune }; };
     // Bord de quai = berge maçonnée : réglage live. __quayWall({ on, full, heightK, joints })
     // fusionne les clés. full=true → tout le long de l'eau ; false → berges urbaines.
     // Quai LIVE → pas de rebake. Ex. __quayWall({ full: false }) / __quayWall({ heightK: 1.4 }).
@@ -1437,20 +1456,20 @@ function initCityMap(canvas, options = {}) {
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
     window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
-    window.__pixelTileset = (name) => { setPixelTileset(name); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
-    window.__pixelWater = (on) => { setPixelWater(on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__pixelTileset = (name) => { setPixelTileset(name); cmInvalidateBakes(); };
+    window.__pixelWater = (on) => { setPixelWater(on); cmInvalidateBakes(); };
     // Vaguelettes animées de l'eau (façon TheoTown) : réglage live. Eau LIVE → pas de rebake.
     // __waterRipples({ on, lanes, freq, speed, thresh, alpha, color }). Ex. __waterRipples({ alpha: 0.5 }).
     window.__waterRipples = (o) => { if (o) Object.assign(waterRippleTune, o); return { ...waterRippleTune }; };
     // Bas-fond clair des rives (iso) : réglage live. __waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
     window.__waterShore = (o) => { if (o) Object.assign(waterShoreTune, o); return { ...waterShoreTune }; };
-    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM.staticCamKey = ''; };
+    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM._staticBake = null; };
     // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
     // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
-    setBridgeOnLoad(() => { CM.staticCamKey = ''; });
+    setBridgeOnLoad(() => { CM._staticBake = null; });
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
-    window.__collapse = (on) => { setCollapseInProgress(!!on); CM.staticCamKey = ''; CM.tileCamKey = ''; CM.groundCamKey = ''; };
+    window.__collapse = (on) => { setCollapseInProgress(!!on); cmInvalidateBakes(); };
     window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
     // Vérif véhicules : force le type de tous les véhicules présents (attelages, etc.).
     // __forceVehicles('chariot') | 'wagon' | 'caravan' ... ; __forceVehMix() = un de chaque.

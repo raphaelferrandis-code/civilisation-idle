@@ -73,8 +73,8 @@ export default function CityStatusPanel() {
       <div
         className="csp-block"
         title={tr({
-          fr: `Progression vers l'âge suivant — ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V`,
-          en: `Progress toward the next age — ${eraTheme.epochLabel}, era ${eraTheme.epochNumeral}/V`
+          fr: `Progression vers l'âge suivant. ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V.`,
+          en: `Progress toward the next age. ${eraTheme.epochLabel}, era ${eraTheme.epochNumeral}/V.`
         })}
       >
         <div className="csp-block-head">

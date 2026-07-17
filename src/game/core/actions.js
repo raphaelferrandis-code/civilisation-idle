@@ -34,13 +34,17 @@ export {
 export {
   castAugury,
   doubleAugury,
-  auguryCost,
+  auguryStake,
+  auguryRebate,
+  auguryPaytable,
   auguryBaseOdds,
   auguryTierOdds,
   auguryTierBones,
   AUGURY_RITES,
   AUGURY_TIER_LABELS
 } from './actions/augures.js';
+
+export { trunkValue, collectTrunk } from './actions/offeringTrunk.js';
 
 export {
   launchIcarus,

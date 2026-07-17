@@ -55,7 +55,7 @@ export default function ChronicleTicker() {
       className={`chronicle-ticker ${theme.cssClass}${isCrisis ? ' is-crisis' : ''}${expanded ? ' is-expanded' : ''}`}
       aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })}
       title={expanded
-        ? tr({ fr: `${theme.tradition} — Prix : ${theme.price}`, en: `${theme.tradition} — Price: ${theme.price}` })
+        ? tr({ fr: `${theme.tradition} · Prix : ${theme.price}`, en: `${theme.tradition} · Price: ${theme.price}` })
         : tr({ fr: 'Cliquer pour lire la dépêche', en: 'Click to read the dispatch' })}
       onClick={toggle}
     >
@@ -67,8 +67,8 @@ export default function ChronicleTicker() {
         <strong className="ticker-title">{latest.title}</strong>
         {expanded && (
           <span className="ticker-text">
-            {" — "}{latest.text}
-            {latest.author && <span className="ticker-author"> — {latest.author}</span>}
+            {" · "}{latest.text}
+            {latest.author && <span className="ticker-author"> · {latest.author}</span>}
           </span>
         )}
       </span>

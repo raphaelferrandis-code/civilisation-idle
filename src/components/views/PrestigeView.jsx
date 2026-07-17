@@ -238,8 +238,8 @@ export default function PrestigeView() {
               <h2>{tr({ fr: "Chute & Transmission", en: "Fall & Transmission" })}</h2>
               <p className="crisis-intro">
                 {tr({
-                  fr: "Chaque édit ramène la jauge au palier choisi et relance la cité — coût immédiat, malus jusqu'à l'effondrement, davantage de Ruines à la chute.",
-                  en: "Each edict brings the gauge back to the chosen tier and restarts the city — an immediate cost, penalties until the collapse, more Ruins at the fall."
+                  fr: "Chaque édit ramène la jauge au palier choisi et relance la cité. Coût immédiat, malus jusqu'à l'effondrement, plus de Ruines à la chute.",
+                  en: "Each edict brings the gauge back to the chosen tier and restarts the city. Immediate cost, penalties until the collapse, more Ruins at the fall."
                 })}
               </p>
             </div>
@@ -261,7 +261,7 @@ export default function PrestigeView() {
                         {used ? (
                           <p className="edict-sealed-note">
                             <PixelIcon name="prep/sceau" className="edict-seal" />
-                            <span>{tr({ fr: "Édit scellé — en vigueur jusqu'à l'effondrement.", en: "Edict sealed — in effect until the collapse." })}</span>
+                            <span>{tr({ fr: "Édit scellé, en vigueur jusqu'à l'effondrement.", en: "Edict sealed, in effect until the collapse." })}</span>
                           </p>
                         ) : (
                           <div className="edict-tiers">
@@ -333,7 +333,7 @@ export default function PrestigeView() {
                   {tr({ fr: "Ruines récupérées à l'effondrement.", en: "Ruins recovered at the collapse." })}
                 </p>
                 <ul className="harvest-factors">
-                  <li title={tr({ fr: "Grandit avec la durée de vie du cycle — figée pendant la crise ; sceller un édit relance la cité.", en: "Grows with the cycle's lived time — frozen during the crisis; sealing an edict restarts the city." })}>
+                  <li title={tr({ fr: "Grandit avec la durée de vie du cycle. Figée pendant la crise.", en: "Grows with the cycle's lived time. Frozen during the crisis." })}>
                     <span>{tr({ fr: "Patience du cycle", en: "Cycle patience" })}</span>
                     <strong>×{factors.patience.toFixed(2)}</strong>
                   </li>

@@ -46,14 +46,14 @@ export default function TestamentSeals() {
               <button
                 type="button"
                 className={`testament-seal${isEngraved ? " is-engraved" : ""}${favored ? " is-favored" : ""}`}
-                title={`${legacy.label}${favored ? tr({ fr: " — ⚡ affinité avec la chute annoncée", en: " — ⚡ affinity with the foretold fall" }) : ""}\n${legacy.tagline}\n${chips}`}
+                title={`${legacy.label}${favored ? tr({ fr: " · ⚡ affinité avec la chute annoncée", en: " · ⚡ affinity with the foretold fall" }) : ""}\n${legacy.tagline}\n${chips}`}
                 aria-pressed={isEngraved}
                 onClick={() => setTestamentLegacy(isEngraved ? null : legacy.id)}
               >
                 <PixelIcon name={legacy.pixIcon} />
                 {favored && <span className="seal-affinity" aria-hidden="true">⚡</span>}
               </button>
-              <span className="seal-delta">{delta ? `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%` : "—"}</span>
+              <span className="seal-delta">{delta ? `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%` : "·"}</span>
             </div>
           );
         })}

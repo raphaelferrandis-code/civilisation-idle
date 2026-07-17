@@ -34,7 +34,9 @@ import {
   buildingMilestoneInfo,
   milestoneStepSize,
   ruinNodeCost,
-  rates
+  rates,
+  cityVitals,
+  pressureBreakdown
 } from '../mechanics.js';
 
 import { openChoiceDialog } from '../events.js';
@@ -327,22 +329,28 @@ export function buyUpgrade(id) {
 }
 
 export function rewardCitizenThought(thoughtType, citizen) {
+  // Récompense indexée sur la PRODUCTION nette courante, pas sur le stock :
+  // l'équilibrage vit dans les taux (l'ancien « 5 % du stock » devenait
+  // dérisoire ou démesuré selon la phase). Un clic ≈ 90 s de production de la
+  // ressource ; forfait plancher quand elle ne produit pas encore (ou plus).
+  const r = rates(cityVitals(), pressureBreakdown());
+  const gainOf = (rate, floor) => D(rate).max(0).mul(90).ceil().max(floor);
   let rewardText;
   if (thoughtType === "lightning") {
-    const gain = D(state.gold).mul(0.05).ceil().max(5);
+    const gain = gainOf(r.gold, 5);
     state.gold = D(state.gold).add(gain);
     rewardText = `+${fmt(gain)} Or`;
-    log(`Inspiration : ${citizen.name} a eu une idée lumineuse (+${fmt(gain)} Or).`);
+    log(`Aubaine : ${citizen.name} verse sa bonne fortune au trésor (+${fmt(gain)} Or).`);
   } else if (thoughtType === "scroll") {
-    const gain = D(state.knowledge).mul(0.05).ceil().max(15);
+    const gain = gainOf(r.knowledge, 15);
     state.knowledge = D(state.knowledge).add(gain);
     rewardText = `+${fmt(gain)} Savoir`;
-    log(`Découverte : ${citizen.name} a exhumé un parchemin antique (+${fmt(gain)} Savoir).`);
+    log(`Trouvaille : ${citizen.name} dépose un parchemin aux archives (+${fmt(gain)} Savoir).`);
   } else {
-    const gainFood = D(state.food).mul(0.05).ceil().max(10);
-    state.food = D(state.food).add(gainFood);
-    rewardText = `+${fmt(gainFood)} Nourriture`;
-    log(`Murmure : ${citizen.name} partage ses pensées (+${fmt(gainFood)} Nourriture).`);
+    const gain = gainOf(r.food, 10);
+    state.food = D(state.food).add(gain);
+    rewardText = `+${fmt(gain)} Nourriture`;
+    log(`Offrande : ${citizen.name} partage sa récolte avec la cité (+${fmt(gain)} Nourriture).`);
   }
   save();
   render();

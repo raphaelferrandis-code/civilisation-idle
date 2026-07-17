@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
 import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
+import PixelIcon from './components/ui/PixelIcon.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
@@ -136,13 +137,13 @@ export default function App() {
   const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
-    { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'fa-city', unlocked: true },
-    { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'fa-scale-balanced', unlocked: true },
-    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'fa-fire', unlocked: true },
-    { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'fa-landmark', unlocked: isRuinsUnlocked },
-    { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'fa-store', unlocked: isShopUnlocked },
-    { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'fa-bolt', unlocked: isMythsUnlocked },
-    { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'fa-feather', unlocked: true },
+    { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'nav/cite', unlocked: true },
+    { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: true },
+    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: true },
+    { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
+    { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
+    { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
+    { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
   const handleExport = async () => {
@@ -186,7 +187,7 @@ export default function App() {
               title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : tr(tab.label)}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
-              <i className={`fa-solid ${tab.icon}`} aria-hidden="true"></i>
+              <PixelIcon name={tab.icon} className="tab-icon" />
               <span className="tab-label">{tr(tab.label)}</span>
             </button>
           ))}
@@ -196,16 +197,16 @@ export default function App() {
 
         <div className="quick-actions">
           <button className="btn-tiny" onClick={() => { save(); alert(tr({ fr: "Partie sauvegardée !", en: "Game saved!" })); }} title="Sauvegarder">
-            <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i><span className="qa-label">Save</span>
+            <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
           </button>
           <button className="btn-tiny" onClick={handleExport} title="Exporter">
-            <i className="fa-solid fa-file-export" aria-hidden="true"></i><span className="qa-label">Export</span>
+            <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
           </button>
           <button className="btn-tiny" onClick={() => setIsImportOpen(true)} title="Importer">
-            <i className="fa-solid fa-file-import" aria-hidden="true"></i><span className="qa-label">Import</span>
+            <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
           <button className="btn-tiny" onClick={() => setIsOptionsOpen(true)} title="Options">
-            <i className="fa-solid fa-gear" aria-hidden="true"></i><span className="qa-label">Options</span>
+            <PixelIcon name="nav/options" className="qa-icon" /><span className="qa-label">Options</span>
           </button>
         </div>
       </aside>
@@ -256,7 +257,7 @@ export default function App() {
         <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} role="status" aria-live="polite">
           <span className="era-banner-kicker">
             {eraBanner.epoch
-              ? tr({ fr: `Une nouvelle époque s'ouvre — ${eraBanner.epoch}`, en: `A new epoch opens — ${eraBanner.epoch}` })
+              ? tr({ fr: `Une nouvelle époque s'ouvre : ${eraBanner.epoch}`, en: `A new epoch opens: ${eraBanner.epoch}` })
               : tr({ fr: 'Un nouvel âge commence', en: 'A new age begins' })}
           </span>
           <strong className="era-banner-name">{eraBanner.name}</strong>

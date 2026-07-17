@@ -194,12 +194,36 @@ export const FATIGUE_COST_PENALTY = 1.0;    // à fatigue 100 % : coût ×2
 export const FATIGUE_HALF_LIFE_S = 18;      // demi-vie de décroissance (s)
 
 // ── Clémence des augures (pitié sur série noire) ─────────────────────────────
-// Chaque pari PERDU d'une même table augmente la chance du prochain (streak de
-// revers consécutifs), remise à zéro au premier gain. Rend le risque GÉRABLE
-// (pseudo-pité) sans le supprimer : p reste bornée < 1. NB : « Clémence » est
-// distincte de la FAVEUR (la monnaie gagnée aux jeux, cf. FAVEUR_* plus bas).
+// Chaque pari PERDU d'une même table compte un « cran » (streak de revers
+// consécutifs, le Chien compte double), remis à zéro au premier gain. En
+// monnaie fermée (mise en Faveur, 2026-07-16), la pitié est un RABAIS DE MISE
+// (gains au prorata) : l'ancien bonus d'odds rendait la table exploitable
+// (RTP mesuré 124 % — cf. bench-temple.js / temple-faveur-impact.md).
+// ⚠ « RTP inchangé » était FAUX (le commentaire l'a affirmé jusqu'au 2026-07-16).
+// Le prorata passe par deux arrondis ENTIERS (la mise, puis chaque gain), donc le
+// RTP OSCILLE. Mesuré au classique, dés 0 (mise 6, gains 30/14/7) :
+//   cran 0 → mise 6, RTP 55,92 %   cran 3 → mise 4, RTP 56,72 %  (la pitié BAISSE le RTP)
+//   cran 1 → mise 5, RTP 56,93 %   cran 4 → round(3,6) = 4 : NO-OP EXACT
+//   cran 2 → round(4,8) = 5 : NO-OP EXACT      cran 5 → mise 3, RTP 58,67 %
+// Deux crans sur cinq ne bougent RIEN (le joueur voit sa mise figée un revers sur
+// deux) et l'échelle n'est pas monotone. Ce qui est vrai, et que A7 mesure, c'est
+// que la Clémence reste INEXPLOITABLE : le sniper ne peut rien en tirer.
+// NB : « Clémence » est distincte de la FAVEUR (la monnaie des jeux, plus bas).
 // L'historique des 5 derniers jets (state.gambleHistory) est reset au cycle.
-export const CLEMENCY_PER_LOSS = 0.05; // +5 pts de chance par revers consécutif
+// ÉCHELLE DE MISES ENTIÈRES depuis le 2026-07-17 (phase 7). L'ancien rabais en
+// POURCENTAGE (−10 %/cran, cap 50 %, cf. le bloc ci-dessus) passait par round() :
+// les crans 2 et 4 étaient des NO-OP EXACTS (round(4,8) = round(5,4) = 5) — la
+// mise ne bougeait pas un revers sur deux, et l'échelle n'était pas monotone.
+// Chaque cran est désormais DÉCLARÉ : la mise descend à chaque revers jusqu'au
+// plancher (la moitié de la mise pleine), puis y reste. Strictement décroissante
+// jusqu'au plancher — verrouillé par A13 (aucun cran no-op, prorata borné < 1).
+// Indexée par clemencyCrans (le Chien compte double), clampée au dernier cran.
+export const AUGURY_CLEMENCY_LADDER = {
+  prudent: [4, 3, 2, 2, 2, 2],
+  classique: [6, 5, 4, 3, 3, 3],
+  grand: [12, 10, 8, 7, 6, 6],
+  interdit: [20, 17, 14, 12, 10, 10]
+};
 export const GAMBLE_P_MAX = 0.9;       // plafond dur : un pari reste un pari
 export const GAMBLE_HISTORY_LEN = 5;   // jets mémorisés par table (affichage)
 // Odds RÉDUITS en early game (arbitrage Raph) : la proba de base des paris est
@@ -220,132 +244,349 @@ export const AUGURY_TIER_SHARES = { venus: 0.15, triple: 0.25 }; // parts de la 
 export const AUGURY_HOLLOW_SHARE = 0.6; // part de la masse perdante en creux (reste = Chien)
 export const AUGURY_DOG_CLEMENCY_CRANS = 2; // pitié : un Chien compte double dans la Clémence
 
-// ── FAVEUR — la monnaie des jeux (arbitrage Raph : jeux DÉCOUPLÉS) ────────────
-// Les paris ne calment plus la Rupture : leur GAIN est de la FAVEUR, monnaie
-// méta dépensée (à venir) en Bénédictions temporaires et boosters d'odds
-// permanents. Persiste aux effondrements (comme les ruines), effacée au GR.
-// Osselets : Faveur par ISSUE, les gains ×costMult du rite (grosse mise = gros
-// gain) ; la consolation (creux/chien) est PLATE (perdre gros ne « rapporte »
-// pas). Le Chien donne un peu plus que le creux (les dieux notent la souffrance).
-export const AUGURY_FAVEUR = { venus: 20, triple: 8, pair: 3, hollow: 1, dog: 2 };
-// Icare : Faveur au retrait = secondes de mise × multiplicateur × K (la mise
-// reste en OR — le puits — mais le GAIN est de la Faveur).
-export const ICARUS_FAVEUR_K = 0.15;
-// Cagnotte du temple, désormais EN FAVEUR : nourrie par les vols brûlés (part
-// de la mise) et les revers d'osselets, raflée en se posant à ×JACKPOT.
-export const ICARUS_POT_FEED = 0.6;          // Faveur/seconde de mise versée à la cagnotte sur un vol brûlé
-export const AUGURY_POT_FEED_HOLLOW = 0.5;   // Faveur/seconde de mise versée sur un jet creux
-export const AUGURY_POT_FEED_DOG = 1.2;      // …et sur le Chien (revers plus lourd → plus de cagnotte)
-export const ICARUS_POT_CAP_FAVEUR = 5000;   // plafond de la cagnotte (Faveur)
+// ── FAVEUR — la monnaie des jeux (2026-07-16 : MONNAIE FERMÉE aux osselets) ──
+// Les osselets se MISENT en Faveur (plus d'or) : le temple est un casino à
+// jetons, financé par le TRONC DES OFFRANDES (goutte-à-goutte passif plafonné).
+// En monnaie fermée l'edge maison est OBLIGATOIRE (sinon imprimante) : les
+// gains sont normalisés sur un RTP cible < 1 — modèle chiffré et validé par
+// bench-temple.js (rapport : temple-faveur-impact.md). La Faveur persiste aux
+// effondrements (comme les ruines), effacée au GR (le tronc repart plein).
+// LE ROBINET (phase 6, 2026-07-17). À 1/min cap 30, le tronc finançait 23 jets
+// classiques par heure pour 1,79 s d'animation chacun : le joueur jouait 61
+// secondes par heure (duty cycle 1,1 %), et un tronc plein valait 5 jets, soit
+// 20 secondes de jeu puis 30 minutes de rien. On avait réglé le RTP au dixième
+// de point en laissant le débit à un niveau qui rendait le réglage sans objet.
+// Doublé : le burst d'ouverture passe à 10 jets, la cadence soutenable à ~45/h.
+// ⚠ COMPENSATION A5 OBLIGATOIRE : le simulateur du bench démarre le tronc PLEIN,
+// donc tout seuil d'achat précoce doit rester > TRUNK_CAP, sinon il est offert à
+// t = 0 (c'est DICE_COST_BASE 130 et AUTO_TRUNK_UNLOCK_COST 520 qui rattrapent —
+// arithmétique posée : 1er dé à (130−60)/2 = 35 min ≥ 30, auto-relève à
+// (520−60)/2 = 230 min ≥ 3,5 h).
+export const TRUNK_RATE_PER_S = 2 / 60;  // tronc : +2 Faveur/min (+120/h)
+export const TRUNK_CAP = 60;             // plafond du tronc (plein en 30 min)
+// Mises des osselets par rite (le ratio ~0.6/1/2 des anciens costMult). PAS en
+// dessous de 4 : l'arrondi des gains entiers ferait dériver le RTP de plusieurs
+// points (granularité ≈ odds.pair/mise — cf. garde-fou A2 du bench).
+// `interdit` (2026-07-17) : le 4e rite, gaté par l'artefact « Le rite interdit »
+// (lignée osselets). Pur achat de VARIANCE comme les trois autres : la
+// normalisation d'auguryPaytable égalise le RTP, le spread 2.5 gonfle les queues.
+export const AUGURY_STAKES = { prudent: 4, classique: 6, grand: 12, interdit: 20 };
+// RTP au WIN RATE MAXIMAL (dés pipés au niveau max) : la paytable est
+// normalisée sur CE point de référence → les PAIEMENTS sont FIXES à travers
+// les niveaux de dés (arbitrage Raph 2026-07-16 : « le winrate augmente et le
+// paiement doit rester identique »). Le RTP effectif MONTE donc avec les dés —
+// ≈ cap × 27,5/47,5 ≈ 57 % à dés 0 → ~99 % au niveau 10 — sans jamais
+// atteindre 1 (anti-imprimante par construction, cf. auguryPaytable).
+//
+// ⚠ CE CAP EST LE PLAFOND DE CE QUE LES AUGMENTS PEUVENT ACHETER. Comme
+// rtp_eff ≈ cap × pEff/pRef et que pEff = pRef à dés 10, « dés 10 » ET « le cap »
+// sont le MÊME point : les 26 704 Faveur de dés ne battent pas la maison, elles
+// rachètent le handicap de départ jusqu'à cette valeur, et pas plus.
+// Relevé de 0.97 à 0.99 le 2026-07-17 pour réparer une INVERSION D'ÉCHELLE : le
+// vingt-et-un rend 98,2 % GRATUITEMENT et n'a aucun augment, si bien que les deux
+// lignées PAYANTES (osselets 97,0 % pour 26 704 Faveur, Icare 95,8 % pour 3 715)
+// finissaient SOUS le jeu qu'on obtient sans rien payer. Effet de bord voulu : à
+// dés 0 l'early ne bouge quasiment pas (55,9 % → 57,3 %), le gain est concentré là
+// où le joueur a payé.
+// ⚠ Plus le cap est haut, moins la recherche exhaustive a de marge pour caler un
+// entier juste en dessous : RELIRE A2 au bench après toute retouche, et redescendre
+// à 0.985 plutôt que forcer.
+export const AUGURY_RTP_CAP = 0.99;
+// Profil RELATIF des paiements (multiples de mise, avant normalisation RTP).
+// Creux/Chien ne paient RIEN (les consolations plates n'avaient de sens qu'en
+// mise-or) : le revers nourrit la cagnotte à la place (cf. feedPot).
+//
+// Rééquilibré de { venus: 5, triple: 2.5, pair: 1.2 } le 2026-07-17. Ce n'est PAS un
+// buff : la normalisation absorbe tout, le RTP ne bouge pas d'un quart de point
+// (57,3 % à dés 0). C'est un TRANSFERT du poste rare vers le poste lourd, à espérance
+// constante. La paire pèse 60 % des victoires (16,5 % sur 27,5 %) et payait mise + 1
+// dans les SIX combinaisons rite × ivoire : six victoires sur dix valaient +1 Faveur
+// après 1,79 s d'animation. Désormais +3 / +4 / +5 net. Vénus tombe de ×5 à ×3,3 de
+// la mise : on échange un fantasme vu 4 fois sur 100 contre une récompense vue 17
+// fois sur 100, et l'écart-type par jet baisse (moins de masse sur la queue), ce qui
+// allonge la survie de la bankroll early SANS toucher au RTP.
+//
+// ⚠ CE PROFIL EST LOAD-BEARING POUR LE CAP À 0.99, ce que je n'avais pas prévu : des
+// gains plus gros sur le poste lourd rendent la granularité de l'arrondi ENTIER
+// relativement plus fine, donc la recherche exhaustive se cale bien plus près du cap.
+// Mesuré : A2 passe de 2,55 pts (limite 3, avec l'ancien profil) à 0,56 pt, et surtout
+// « prudent + ivoire » cesse de tomber à 96,5 % — l'ivoire à 300 Faveur FAISAIT PERDRE
+// 2,3 points à ce rite. Les deux réglages sont couplés : ne pas remonter le cap sans
+// relire A2, ni revenir à l'ancien profil sans redescendre le cap.
+export const AUGURY_PAY_PROFILE = { venus: 3, triple: 2, pair: 1.5 };
+
+// ── LA CAGNOTTE DU TEMPLE — financée par l'EDGE, jamais par la mise ──────────
+// (refonte 2026-07-17 ; cf. actions/templePot.js et le garde-fou A9)
+//
+// LE VICE QU'ON CORRIGE. Les parts d'avant (AUGURY_POT_SHARE_HOLLOW 0.25 / _DOG
+// 0.5, ICARUS_POT_SHARE 0.4, SCRATCH_POT_SHARE 0.3, BLACKJACK_POT_SHARE 0.3,
+// TOUTES SUPPRIMÉES) prélevaient sur la MISE alors que l'edge ne prend que 0,02
+// (blackjack) à 0,18 (Icare) de cette même mise. Or la cagnotte n'est PAS un
+// puits : en solo, tout ce qui y entre revient au MÊME joueur (elle se rafle à
+// Icare). C'est un PAIEMENT DIFFÉRÉ. On rendait donc plus qu'on ne prenait, et
+// six configurations sur neuf IMPRIMAIENT (Icare ×10 à 118,7 % dès le 1er jour).
+//
+// LA RÈGLE. Rien n'est créé hors du tronc. Le pot ne peut être financé que sur ce
+// qui a été DÉTRUIT, c'est-à-dire l'edge :
+//     feed = mise × recycle × (1 − rtp_base)
+// d'où, pour tout jeu, tout niveau, tout artefact et toute mise :
+//     rtp_total = rtp_base + recycle × (1 − rtp_base) < 1   ⟺   recycle < 1
+// L'anti-imprimante devient vrai par ALGÈBRE, comme la loi C = (1−e)/U d'Icare,
+// et non plus par réglage. Verrouillé par A9 (le calcul) et A10 (recycle < 1).
+//
+// ⚠ Ce qui NE marche PAS, et qui a déjà été essayé : borner la SORTIE. Rafler au
+// prorata de la mise, ou retirer un rafleur, ne change RIEN au RTP long terme —
+// le pot converge vers un équilibre où sortie = entrée par définition, donc tout
+// ce qui est versé revient. Seule l'ENTRÉE compte. (Démonstration en tête de la
+// section A9 de bench-temple.js.)
+export const TEMPLE_POT_RECYCLE = 0.6;      // part de l'EDGE reversée à la cagnotte
+export const TEMPLE_POT_RECYCLE_CAP = 0.85; // borne dure < 1 : LE point de défaillance unique (A10)
+export const ICARUS_POT_CAP_FAVEUR = 5000;  // plafond de la cagnotte (Faveur)
 // Coup de Vénus : le temple offre un vol d'Icare (mise « Plume », en attente).
 export const ICARUS_FREE_FLIGHTS_MAX = 5;
 
 // ── Boutique de Faveur (couche 2 : dépenser la Faveur) ───────────────────────
-// Dés pipés — boost PERMANENT des chances aux osselets (+STEP par niveau,
-// plafonné). Justifie les odds volontairement bas en early game. AUGMENT
-// ÉTERNEL : survit aux effondrements ET au Grand Reset (cf. GR_PERSISTENT_FIELDS).
-// La Faveur (le carburant), elle, se re-gagne au GR. Coût croissant.
+// Dés pipés — DOUBLE effet PERMANENT aux osselets : +STEP d'odds (gagner plus
+// souvent) ET +AUGURY_RTP_PER_DICE de RTP (la table prélève moins). Justifie
+// les odds/l'edge volontairement durs en early game. AUGMENT ÉTERNEL : survit
+// aux effondrements ET au Grand Reset (cf. GR_PERSISTENT_FIELDS). La Faveur
+// (le carburant), elle, se re-gagne au GR. Coûts DURCIS 2026-07-16 (arbitrage
+// Raph : progression longue et chère — cf. temple-faveur-impact.md).
 export const DICE_BOOST_STEP = 0.02;      // +2 pts d'odds par dé
-export const DICE_BOOST_MAX_LEVEL = 10;   // jusqu'à +20 pts
-export const DICE_COST_BASE = 40;         // Faveur pour le 1er dé
-export const DICE_COST_GROWTH = 1.6;      // coût ×1.6 par niveau
+// ── LA BASCULE (2026-07-17, arbitrage Raphaël : « au bout d'un moment le joueur
+// gagne plus qu'il ne dépense ») ────────────────────────────────────────────────
+// Le temple DEVIENT une imprimante volontaire aux rangs profonds. Le mécanisme :
+// l'ANCRE de normalisation reste GELÉE à AUGURY_REF_DICE_LEVEL (les paiements ne
+// bougent jamais, contrat A8), mais l'échelle des dés continue AU-DELÀ — et la
+// linéarité rtp = rtpRef × pEff/pRef fait le reste : dés 11 ≈ 103 %, 12 ≈ 107 %,
+// 13 ≈ 112 %. Sous l'ancre, rien ne change (early dur, RTP < 1 strict, garde-fou
+// A9) ; au-dessus, le débit d'impression est un ROBINET borné par la cadence des
+// autos (net/h = parties/h × mise × marge) — mesuré et calibré par A14.
+export const AUGURY_REF_DICE_LEVEL = 10;  // l'ancre des paiements (NE PLUS BOUGER)
+export const DICE_BOOST_MAX_LEVEL = 13;   // dés 11-13 : les rangs d'imprimante
+// Phase 6 (2026-07-17) : à 60 × 1.8, les 10 dés coûtaient 26 704 Faveur, soit
+// 445 h de tronc PUR — le scénario « dés 10, RTP 99 % » décrivait un contenu que
+// personne n'atteindrait jamais (plafond réel du joueur : dés 5-6 à vie). À
+// 130 × 1.45 : 11 594 Faveur les 10, ~97 h au nouveau robinet — une promesse,
+// plus un décor. ⚠ La BASE monte de 60 à 130 pour compenser le robinet doublé :
+// le bench démarre le tronc plein (60), un seuil ≤ TRUNK_CAP serait offert à
+// t = 0 et A5 casserait mécaniquement.
+export const DICE_COST_BASE = 130;        // Faveur pour le 1er dé (~35 min de tronc + burst)
+export const DICE_COST_GROWTH = 1.45;     // coût ×1.45 par niveau (~11,6k les 10)
 // Ailes cirées — abaisse PERMANENT l'edge du Vol d'Icare (−STEP par niveau,
 // plancher ICARUS_EDGE_FLOOR).
-export const WING_STEP = 0.023;           // −2.3 pts d'edge par aile
-export const WING_MAX_LEVEL = 6;          // edge 18 % → ~4 % (plancher) au max
-export const ICARUS_EDGE_FLOOR = 0.04;    // edge minimal atteignable
-export const WING_COST_BASE = 60;
-export const WING_COST_GROWTH = 1.7;
+// ⚠ WING_STEP × WING_MAX_LEVEL EST LE PLAFOND DE CETTE LIGNÉE : l'edge résiduel à
+// ailes 6 vaut ICARUS_EDGE − WING_STEP × 6, et le RTP d'Icare vaut 1 − edge. C'est
+// donc ici, et nulle part ailleurs, que se décide ce que les 3 715 Faveur d'ailes
+// peuvent acheter. Relevé de 0.023 à 0.027 le 2026-07-17 : à 0.023, le sommet PAYANT
+// (95,8 %) finissait sous le vingt-et-un GRATUIT (98,2 %, aucun augment) — un
+// investissement qui laissait le joueur moins bien que celui qui n'achetait rien.
+// À 0.027 : edge 0.18 − 0.162 = 0.018 → 98,2 %, l'échelle payante rejoint le sommet
+// du skill, pour le même prix.
+export const WING_STEP = 0.027;           // −2.7 pts d'edge par aile
+// Ailes 7-8 : les rangs d'IMPRIMANTE (la bascule, 2026-07-17). L'edge devient
+// NÉGATIF : ailes 7 → −0,9 % (RTP 100,9 %), ailes 8 → −3,6 % (RTP 103,6 %).
+// La loi C = (1−e)/U l'encaisse naturellement : à e < 0, P(C = 1) = 0 — la cire
+// est PARFAITE, plus jamais de braise au décollage, et c'est exactement le récit
+// du sommet. Sous ailes 6 (la bascule d'Icare), rien ne change.
+export const WING_MAX_LEVEL = 8;
+export const WING_BASCULE_LEVEL = 6;      // ≤ 6 : RTP < 1 strict (garde-fou A9)
+// Le plancher est devenu le PLAFOND DE L'IMPRIMANTE : l'edge ne descend jamais
+// sous −4 %, quel que soit ce qu'une future retouche empilera. C'est LA borne
+// dure du robinet d'Icare (ailes 8 → −3,6 %, le plancher ne mord pas encore).
+export const ICARUS_EDGE_FLOOR = -0.04;
+export const WING_COST_BASE = 90;
+export const WING_COST_GROWTH = 1.8;
+// Stylet du gratteux (2026-07-17, demande Raphaël) — rang 1 de la lignée
+// gratteux : chaque niveau ÉLARGIT le grattoir. C'est un augment de GESTE, zéro
+// impact math : le rayon de base a été volontairement réduit (26/22/17 → 13/11/9,
+// « le grattage était un interrupteur ») et le stylet REVEND ce confort. Au max
+// (+6), on reste sous l'ancien rayon : 19/17/15.
+export const STYLET_RADIUS_STEP = 2;      // +2 px de rayon par niveau
+export const STYLET_MAX_LEVEL = 3;
+export const STYLET_COST_BASE = 120;
+export const STYLET_COST_GROWTH = 1.7;
 // Bénédiction — bonus TEMPORAIRE de production (multiplicateur GLOBAL, N s) :
 // le pont vers le cœur du jeu. Re-jouable (coût fixe), effet temporaire remis à
 // zéro à l'effondrement.
 export const BLESSING_MULT = 1.5;         // +50 % de production
 export const BLESSING_DURATION_S = 180;   // 3 minutes
-export const BLESSING_COST = 45;          // Faveur par bénédiction
+export const BLESSING_COST = 60;          // Faveur par bénédiction (~1 h de tronc)
 
 // ── Le Vol d'Icare (crash game du temple) ────────────────────────────────────
 // Un multiplicateur grimpe en continu (m = e^(K·t)) ; le soleil frappe à un
 // point tiré à l'envol : C = (1-EDGE)/U, U~uniforme — donc encaisser à une
-// cible m réussit avec p = (1-EDGE)/m. EDGE volontairement ÉLEVÉ en early game
-// (arbitrage Raph : odds bas au départ) — abaissé plus tard par les ailes
-// d'Icare (booster). La mise reste en OR (le puits) ; le GAIN est de la FAVEUR.
-// Se poser à ×JACKPOT rafle la cagnotte du temple (en Faveur).
+// cible m réussit avec p = (1-EDGE)/m. MONNAIE FERMÉE (2026-07-16) : mise en
+// FAVEUR, payout = mise × m → RTP = 1-EDGE par construction (déjà borné < 1,
+// aucune normalisation requise). Les ailes cirées abaissent l'edge → le WIN
+// RATE monte, les paiements (mise × cible) ne bougent pas — même contrat que
+// les dés pipés aux osselets. Se poser à ×JACKPOT rafle la cagnotte.
 export const ICARUS_EDGE = 0.18;            // part de la maison (très bas odds early ; abaissée par les ailes cirées, booster)
 export const ICARUS_CAP = 100;              // multiplicateur maximal (~33 s de vol)
 export const ICARUS_K = Math.LN2 / 5;       // ×2 à 5 s, ×10 à ~16,6 s, ×100 à ~33 s
 export const ICARUS_JACKPOT_MULT = 10;      // se poser à ×10+ rafle la cagnotte
+// Mise qui rafle la cagnotte ENTIÈRE (cf. potRakeShare, actions/templePot.js). En
+// dessous, la rafle est au PRORATA : Plume 4 → 16 %, Hécatombe 25 → 100 %. Avant,
+// la rafle ignorait la mise et une Plume à 4 emportait tout — ce qui faisait d'Icare
+// ciblé ×10 une imprimante à 118,7 % dès le 1er jour (mesuré par A9) et rendait la
+// petite mise strictement dominante. Calée sur la mise haute d'Icare et du 21.
+export const RAFLE_MISE_PLEINE = 25;
 export const ICARUS_HISTORY_LEN = 12;       // derniers points de crash affichés
-export const ICARUS_STAKES = [              // mises en SECONDES de production d'or
-  { id: "plume", seconds: 30, floor: 50, label: { fr: "Plume", en: "Feather" } },
-  { id: "aile", seconds: 90, floor: 200, label: { fr: "Aile", en: "Wing" } },
-  { id: "hecatombe", seconds: 300, floor: 1000, label: { fr: "Hécatombe", en: "Hecatomb" } }
+export const ICARUS_STAKES = [              // mises en FAVEUR
+  { id: "plume", faveur: 4, label: { fr: "Plume", en: "Feather" } },
+  { id: "aile", faveur: 10, label: { fr: "Aile", en: "Wing" } },
+  { id: "hecatombe", faveur: 25, label: { fr: "Hécatombe", en: "Hecatomb" } }
 ];
+// Valeur COMPTABLE d'un vol offert (mise Plume), pour la normalisation des
+// osselets (cf. auguryPaytable). Un vol offert paie sans que le joueur mise :
+// son espérance vaut mise × (1 − edge), et l'edge du joueur dépend de ses ailes.
+// On compte au PLANCHER (l'edge le plus bas possible) : la valeur comptée MAJORE
+// toujours la valeur réelle, donc la table reste sous le cap quel que soit
+// l'équipement — même logique conservatrice que le majorant A9.
+export const FREE_FLIGHT_EV = 4 * (1 - ICARUS_EDGE_FLOOR);
 
 // ── Tickets à gratter (jeu du temple) ────────────────────────────────────────
-// Mise en OR (le puits, ancrée en secondes de prod comme Icare) ; GAIN en FAVEUR.
-// Grille 3×3 : l'ISSUE (un symbole gagnant ou « blanc ») est tirée par UN seul
-// Math.random pondéré, la grille est ensuite peinte pour matcher (le symbole 3
-// fois = gain). Un ticket perdant nourrit la cagnotte PARTAGÉE (state.icarusPot-
-// Faveur) ; le Soleil la rafle. Gain de Faveur = secondes × payoutMult ×
-// ICARUS_FAVEUR_K. Espérance NÉGATIVE calée sur l'edge d'Icare : E[payoutMult] =
-// 0.82 → edge maison ≈ 18 %, 27 % de tickets gagnants (la plupart PERDANTS).
+// MONNAIE FERMÉE (2026-07-16) : mise et gain en FAVEUR. Grille 3×3 : l'ISSUE
+// (un symbole gagnant ou « blanc ») est tirée par UN seul Math.random pondéré,
+// la grille est ensuite peinte pour matcher (le symbole 3 fois = gain). Un
+// ticket nourrit la cagnotte PARTAGÉE (state.icarusPotFaveur) sur son EDGE, et
+// cette table ne la rafle JAMAIS (le Soleil a cessé de rafler le 2026-07-17 : il
+// offre un vol). Gain = round(mise × payoutMult). Espérance NÉGATIVE par
+// construction : E[payoutMult] = 0.82 → edge maison ≈ 18 %, 27 % de tickets
+// gagnants (la plupart PERDANTS) — le jeu le plus dur du temple, assumé.
 export const SCRATCH_HISTORY_LEN = 12;       // derniers tickets affichés (bandeau)
-export const SCRATCH_POT_FEED = 0.5;         // Faveur/s de mise versée à la cagnotte sur un ticket perdant (cf. AUGURY_POT_FEED_HOLLOW)
-export const SCRATCH_REVEAL_PCT = 60;        // % de vernis gratté déclenchant l'auto-révélation
-export const SCRATCH_STAKES = [              // mises en SECONDES de production d'or (cf. ICARUS_STAKES)
-  { id: "obole", seconds: 15, floor: 40, label: { fr: "Obole", en: "Obol" } },
-  { id: "drachme", seconds: 45, floor: 150, label: { fr: "Drachme", en: "Drachma" } },
-  { id: "talent", seconds: 150, floor: 700, label: { fr: "Talent", en: "Talent" } }
+// % de vernis gratté déclenchant l'auto-révélation. Relevé de 60 à 74 le
+// 2026-07-17 : à 60 %, le ticket se déverrouillait avant que les 9 alvéoles soient
+// lisibles (le joueur voyait l'issue tomber sans l'avoir découverte). Se règle AVEC
+// SCRATCH_RADIUS (ScratchStage.jsx) : les deux décident du nombre de passes, et
+// monter le seuil sans réduire le rayon ne fait qu'allonger le même interrupteur.
+// Ne pas pousser trop haut : la dernière tranche, ce sont les coins arrondis, donc
+// du geste sans information.
+export const SCRATCH_REVEAL_PCT = 74;
+export const SCRATCH_STAKES = [              // mises en FAVEUR
+  { id: "obole", faveur: 4, label: { fr: "Obole", en: "Obol" } },
+  { id: "drachme", faveur: 8, label: { fr: "Drachme", en: "Drachma" } },
+  { id: "talent", faveur: 20, label: { fr: "Talent", en: "Talent" } }
 ];
 // Table des lots — poids /1000, payoutMult (×secondes×K pour la Faveur). Le
 // « blank » (perte) domine. `venus` offre en plus un vol d'Icare (mise Plume) ;
-// `soleil` RAFLE la cagnotte partagée. Les poids somment à SCRATCH_WEIGHT_TOTAL.
+// `soleil` RENVOIE À ICARE avec un billet à la hauteur du ticket (sunFlight).
+// Les poids somment à SCRATCH_WEIGHT_TOTAL.
+//
+// ⚠ Le Soleil NE RAFLE PLUS la cagnotte (2026-07-17). Cette seule case causait
+// cinq problèmes : (1) elle raflait le pot ENTIER quelle que soit la mise, donc
+// l'obole à 4 achetait le même magot que le talent à 20 et le dominait strictement
+// (le ticket haut de gamme était mort) ; (2) elle ouvrait le spam d'obole sur pot
+// gras ; (3) elle bradait à 4 Faveur et deux clics ce qu'Icare réserve
+// explicitement au jeu manuel et tendu ; (4) elle était annoncée quatre fois comme
+// la mécanique vedette pour un événement à 2/1000 ; (5) elle faisait du gratteux
+// un rafleur alors qu'il est le puits le plus pur du temple. Icare redevient le
+// SEUL rafleur, conformément à l'intention déjà écrite dans son propre code.
+// (le champ `sweep` a disparu avec la rafle : plus personne ne le lisait.)
 export const SCRATCH_PRIZES = [
-  { symbol: "blank", weight: 730, payoutMult: 0, sweep: false },
-  { symbol: "olive", weight: 138, payoutMult: 1.2, sweep: false },
-  { symbol: "amphore", weight: 70, payoutMult: 2.4, sweep: false },
-  { symbol: "laurier", weight: 36, payoutMult: 4.5, sweep: false },
-  { symbol: "trepied", weight: 17, payoutMult: 8, sweep: false },
-  { symbol: "chouette", weight: 5, payoutMult: 16, sweep: false },
-  { symbol: "venus", weight: 2, payoutMult: 40, sweep: false, freeFlight: true },
-  { symbol: "soleil", weight: 2, payoutMult: 15, sweep: true }
+  { symbol: "blank", weight: 730, payoutMult: 0 },
+  { symbol: "olive", weight: 138, payoutMult: 1.2 },
+  { symbol: "amphore", weight: 70, payoutMult: 2.4 },
+  { symbol: "laurier", weight: 36, payoutMult: 4.5 },
+  { symbol: "trepied", weight: 17, payoutMult: 8 },
+  { symbol: "chouette", weight: 5, payoutMult: 16 },
+  { symbol: "venus", weight: 2, payoutMult: 40, freeFlight: true },
+  { symbol: "soleil", weight: 2, payoutMult: 15, sunFlight: true }
 ];
+// Le billet du Soleil suit la mise du ticket : il envoie à Icare avec de quoi
+// rafler à la hauteur du risque pris (cf. potRakeShare, templePot.js). C'est ce qui
+// rend enfin la mise du gratteux décidable — avant, la rafle ignorait la mise.
+export const SCRATCH_SUN_FLIGHT = { obole: "plume", drachme: "aile", talent: "hecatombe" };
+
+// Les planches du graveur (2026-07-17, arbitrage Raphaël) — LA courbe de
+// rendement du gratteux, qui n'en avait aucune (83,9 % à vie, seul jeu du temple
+// sans échelle). Chaque niveau déplace GRAVEUR_WEIGHT_SHIFT points de poids du
+// « blank » vers les symboles gagnants, au prorata de leurs poids : LE WINRATE
+// MONTE, LES PAIEMENTS NE BOUGENT PAS — exactement le contrat des dés pipés.
+// À 5 niveaux × 6 points : P(gain) 27 % → 30 %, RTP ~84 % → ~93 % (le gratteux
+// reste le jeu dur du temple, sous les échelles à 98-99 %). La table effective
+// et le RTP de référence vivent dans scratch.js (scratchPrizesEff/scratchRtpRef :
+// ils dépendent du niveau, une constante ne suffit plus — feedPot doit lire le
+// VRAI rendement du joueur, vols offerts compris, sinon le versement à la
+// cagnotte serait trop gros et rongerait l'invariant).
+// NB : « tesson » aurait été le nom naturel mais c'est déjà le symbole INERTE
+// des grilles — le graveur frappe les planches, il ne polit pas les tessons.
+// Niveaux 6-10 : les rangs d'IMPRIMANTE du gratteux (la bascule, 2026-07-17).
+// Au niveau 10, 60 points de poids ont migré (blank 730 → 670, toujours
+// dominant) : P(gain) ≈ 33 %, RTP obole ≈ 102,5 %, talent ≈ 100,8 %. Sous le
+// niveau 5 (la bascule du gratteux), rien ne change.
+export const GRAVEUR_MAX_LEVEL = 10;
+export const GRAVEUR_BASCULE_LEVEL = 5;   // ≤ 5 : RTP < 1 strict (garde-fou A9)
+export const GRAVEUR_WEIGHT_SHIFT = 6;    // points de poids /1000 déplacés par niveau
+export const GRAVEUR_COST_BASE = 200;
+export const GRAVEUR_COST_GROWTH = 1.6;   // 200..1311 les 5 premiers, ~13,7k le 10e
 
 // ── Vingt-et-un (jeu du temple) ──────────────────────────────────────────────
-// Blackjack antique : mise en OR (secondes de prod, comme Icare), GAIN en FAVEUR.
+// Blackjack antique : MONNAIE FERMÉE (2026-07-16), mise et gain en FAVEUR.
 // TOUR PAR TOUR (tirer/rester), PAS de timer — un rechargement en pleine main
 // abandonne la mise (état module éphémère, comme le vol d'Icare). Le croupier
 // (l'oracle) tire jusqu'à BLACKJACK_DEALER_STAND. Un « naturel » (21 en 2 cartes)
-// paie 3:2. Une main perdue nourrit la cagnotte PARTAGÉE ; pas de rafle (jeu de
-// skill, pas de jackpot). Gain de Faveur = secondes × mult × ICARUS_FAVEUR_K.
+// paie ×2,5. Chaque main nourrit la cagnotte PARTAGÉE sur son EDGE ; pas de rafle
+// (jeu de skill, pas de jackpot). Gain = round(mise × mult) — push (1) rend la mise.
 export const BLACKJACK_HISTORY_LEN = 12;      // dernières mains affichées (bandeau)
-export const BLACKJACK_POT_FEED = 0.5;        // Faveur/s de mise versée à la cagnotte sur une main perdue
+// RTP de RÉFÉRENCE du vingt-et-un — le plafond du MEILLEUR jeu joignable, celui
+// que feedPot doit connaître (le sous-estimer gonflerait le versement à la
+// cagnotte). MESURÉ, pas estimé : bench-temple.js (1 M de mains, fonctions pures
+// du moteur) donne stratégie de base 98,2 %, + LE DOUBLE 99,57 %, + LA REFENTE
+// 100,3 % ± 0,13 pt. La constante MAJORE ce meilleur jeu (garde-fou A11).
+// LA REFENTE EST LA BASCULE DU 21 (2026-07-17, arbitrage Raphaël) : refusée tant
+// que l'imprimante était un bug, elle devient le rang d'imprimante du jeu
+// maintenant qu'elle est un DESIGN — 100,3 % de base, la plus fine des quatre
+// marges. REF > 1 : feedPot clampe (1 − rtp ≤ 0), cette table ne verse plus rien
+// à la cagnotte au sommet, ce qui est exact : elle n'a plus d'edge à recycler.
+// À re-mesurer si BLACKJACK_MULT ou BLACKJACK_DEALER_STAND bougent.
+export const BLACKJACK_RTP_REF = 1.01;
 export const BLACKJACK_DEALER_STAND = 17;     // le croupier reste à 17+ (soft 17 compris)
-export const BLACKJACK_MULT = { blackjack: 2.5, win: 2, push: 1, lose: 0 }; // × secondes × ICARUS_FAVEUR_K
-export const BLACKJACK_STAKES = [             // mises en SECONDES de production d'or (cf. ICARUS_STAKES)
-  { id: "legere", seconds: 40, floor: 60, label: { fr: "Mise légère", en: "Light bet" } },
-  { id: "pleine", seconds: 120, floor: 300, label: { fr: "Mise pleine", en: "Full bet" } },
-  { id: "royale", seconds: 350, floor: 1200, label: { fr: "Grand jeu", en: "High stakes" } }
+export const BLACKJACK_MULT = { blackjack: 2.5, win: 2, push: 1, lose: 0 }; // × la mise (Faveur)
+export const BLACKJACK_STAKES = [             // mises en FAVEUR
+  { id: "legere", faveur: 4, label: { fr: "Mise légère", en: "Light bet" } },
+  { id: "pleine", faveur: 10, label: { fr: "Mise pleine", en: "Full bet" } },
+  { id: "royale", faveur: 25, label: { fr: "Grand jeu", en: "High stakes" } }
 ];
 
 // ── Automatisation du Temple (moteur passif : jouer aux cadrans) ─────────────
-// Une fois débloquées (arbre d'artefacts, Phase 4) et activées, les
+// Une fois débloquées (échoppe/arbre d'artefacts) et activées, les
 // automatisations jouent À LA PLACE du joueur au tick, gouvernées comme
 // l'Intendance : cooldown par jeu (anti-verrou, cf. STEWARD_COOLDOWN_MS), UNE
-// partie par tick, plancher d'or = réserve à ne pas entamer. La mise coûte de
-// l'OR → le moteur est un CONVERTISSEUR borné par l'économie, pas de l'argent
-// gratuit. Réglé bas = revenu de fond régulier ; réglé haut = la machine tente
-// les gros coups. ONLINE pour l'instant (le crédit offline serait un hook dédié).
+// partie par tick, plancher de FAVEUR = réserve à ne pas entamer. Monnaie
+// fermée (2026-07-16) : les autos de JEU (osselets, Icare) jouent À PERTE en
+// espérance (edge maison) — un divertissement automatisé qui chasse Vénus et
+// nourrit la cagnotte, pas un revenu ; l'AUTO-RELÈVE vide les offrandes avant
+// qu'elles ne débordent (elle ne crée rien, elle évite du gaspillage). ONLINE
+// pour l'instant (crédit offline = hook dédié).
 export const AUTO_AUGURY_INTERVAL_MS = 8_000;   // délai min entre 2 auto-lancers d'osselets
 export const AUTO_ICARUS_INTERVAL_MS = 12_000;  // délai min entre 2 auto-vols (~5 s de vol + repli)
+export const AUTO_SCRATCH_INTERVAL_MS = 10_000; // délai min entre 2 tickets auto
+export const AUTO_BLACKJACK_INTERVAL_MS = 10_000; // délai min entre 2 mains auto
 export const AUTO_ICARUS_TARGET_MIN = 1.2;      // cadran cible : bas = revenu régulier
 export const AUTO_ICARUS_TARGET_MAX = ICARUS_JACKPOT_MULT; // 10 = mise max auto (gros payout, faibles odds) ; cagnotte + jalon GR VII restent MANUELS
-export const AUTO_TEMPLE_GOLD_FLOOR_DEFAULT_S = 120; // réserve d'or (2 min de prod) sous laquelle l'auto se met en veille
-export const AUTO_TEMPLE_GOLD_FLOOR_MAX_S = 600;      // curseur plancher d'or : 0 → 600 s de prod
-// Déblocage des automatisations (Phase 3 — coût en Faveur ; la Phase 4 les
-// intégrera à l'arbre d'artefacts). Payer débloque ET active d'emblée.
-export const AUTO_OSSELETS_UNLOCK_COST = 200;        // Faveur pour l'auto-lancé des osselets
+export const AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT = 30;  // réserve de Faveur sous laquelle une auto de jeu se met en veille
+export const AUTO_TEMPLE_FAVEUR_FLOOR_MAX = 2000;    // curseur plancher de Faveur
+// TEMPO des automatisations (arbitrage Raphaël 2026-07-17 : « paramétrable selon
+// des critères de gain, temps ou risques ») : multiplie l'intervalle de base.
+// recueilli = moitié moins de parties, fervent = deux fois plus. Le tempo ne
+// change RIEN à l'espérance par partie (edge inchangé) : il règle le DÉBIT, donc
+// la vitesse à laquelle l'auto consomme ou distrait. Les trois cadrans par jeu :
+// la mise/le rite (risque), le tempo (temps), le plancher de Faveur (gain gardé).
+export const AUTO_TEMPO_MULT = { recueilli: 2, mesure: 1, fervent: 0.5 };
+// Déblocage des automatisations (coût en Faveur, durci 2026-07-16). Payer
+// débloque ET active d'emblée. TOUS les jeux ont leur automatisation en capstone
+// (arbitrage Raphaël 2026-07-17), le vingt-et-un compris : son auto joue la
+// stratégie de base (basicAction), jamais le double, et ne compte ni série ni
+// historique (parité avec l'auto-Icare qui ne rafle pas : la main se joue aussi
+// à la main).
+export const AUTO_OSSELETS_UNLOCK_COST = 700;        // Faveur pour l'auto-lancé des osselets (late : n'a de sens qu'à edge adouci)
 export const AUTO_ICARUS_UNLOCK_COST = 350;          // Faveur pour l'autopush d'Icare
+// 350 → 520 (phase 6) : compense le robinet doublé — (520 − 60)/2 = 230 min,
+// A5 exige ≥ 3,5 h d'épargne stricte avant l'auto-relève.
+export const AUTO_TRUNK_UNLOCK_COST = 520;           // Faveur pour l'auto-relève du tronc des offrandes
+export const AUTO_SCRATCH_UNLOCK_COST = 500;         // Faveur pour l'auto-gratteux
+export const AUTO_BLACKJACK_UNLOCK_COST = 700;       // Faveur pour l'auto-vingt-et-un
 
 // ── Artefacts du Temple (Phase 4 : arbre de lignées, refontes de RISQUE) ──────
 // Débloqués en Faveur, ÉTERNELS (state.templeArtifacts, cf. GR_PERSISTENT_FIELDS).
@@ -354,16 +595,92 @@ export const AUTO_ICARUS_UNLOCK_COST = 350;          // Faveur pour l'autopush d
 // → osselet du noyé (les revers nourrissent DOUBLE la cagnotte). Lignée ICARE :
 // plumes de secours (consolation Faveur au crash) → ailes solaires (plafond
 // relevé). Chaque lignée se termine par son automatisation (rang capstone).
-export const TEMPLE_ARTIFACT_IDS = ["ivoire", "noye", "plumes", "solaires"];
+export const TEMPLE_ARTIFACT_IDS = [
+  "ivoire", "noye", "echelle", "interdit",               // lignée osselets
+  "plumes", "souffle", "solaires", "serres", "colombier", // lignée Icare
+  "coin", "relance",                                      // lignée gratteux
+  "voix", "mesure", "double", "refente",                  // lignée vingt-et-un
+  "char", "corne", "oeil"                                 // les Reliques (le trésor)
+];
 export const IVORY_DOG_CUT = 0.20;      // dé d'ivoire : dogShare 0.4 → 0.2 (moitié moins de Chiens)
 export const IVORY_VENUS_BONUS = 0.10;  // …et venusShare 0.15 → 0.25 (plus de Vénus), à pEff constant
-export const NOYE_POT_MULT = 2;         // osselet du noyé : les revers nourrissent ×2 la cagnotte
-export const PLUMES_CONSOLATION_MULT = 0.5; // plumes : un crash rend round(sec × ICARUS_FAVEUR_K × 0.5) en Faveur
+// Osselet du noyé — ⚠ SÉMANTIQUE CHANGÉE le 2026-07-17. Il multipliait la part de
+// la MISE versée à la cagnotte ; il multiplie désormais le RECYCLE de l'edge, et il
+// est CLAMPÉ par TEMPLE_POT_RECYCLE_CAP (0.6 × 2 = 1.2 → 0.85). L'effet ressenti
+// est le même (les revers engraissent bien plus vite la cella) mais l'invariant
+// recycle < 1 tient, donc l'artefact ne peut plus faire imprimer la table. Une save
+// existante garde l'artefact avec cette sémantique neuve : son texte a été réécrit.
+export const NOYE_POT_MULT = 2;
+// Plumes de secours — ⚠ La consolation est PRÉLEVÉE SUR LA CAGNOTTE depuis le
+// 2026-07-17, elle n'est plus créée. Avant, elle mintait round(mise × 0.5) à CHAQUE
+// crash, hors de tout paiement, et P(crash) → 1 quand la cible monte : c'était le
+// poste le plus lourd de toute l'imprimante (+51 pts de RTP à ×50, devant la
+// cagnotte elle-même). Contrepartie à assumer, et le texte de l'artefact le dit :
+// une cella vide ne rend rien. En échange, le pot gagne enfin une bonde à BASSE
+// variance (il ne se vidait qu'à ×10, soit 8,2 % des vols).
+export const PLUMES_CONSOLATION_MULT = 0.5;
+// Le second souffle (rang au-dessus des plumes) : consolation 0.5 → 0.7. Peut
+// scaler LIBREMENT parce que le filet est PRÉLEVÉ sur la cella (drawFromPot),
+// jamais créé — c'est exactement le contenu que l'invariant de la phase 4 a
+// rendu possible. Une cella vide ne rend toujours rien.
+export const SOUFFLE_CONSOLATION_MULT = 0.7;
 export const ICARUS_CAP_SOLAR = 200;    // ailes solaires : plafond du multiplicateur relevé (×100 → ×200)
+// Les serres : la part de cagnotte emportée par une rafle monte de moitié
+// (potRakeShare ×1.5 : Plume 16 → 24 %, Aile 40 → 60 %). SORTIE de pot
+// uniquement : on a démontré (cf. templePot.js / bench A9) que la sortie ne
+// change pas le RTP long terme — c'est un achat de TEMPO, pas de rendement.
+export const SERRES_RAKE_MULT = 1.5;
+// Le colombier du guetteur : la file de vols offerts passe de 5 à 8 (les billets
+// gagnés ne se perdent plus quand elle est pleine) et le guetteur note 24 vols
+// au lieu de 12 (l'historique des pastilles est la meilleure lecture de l'edge).
+export const FLIGHTS_MAX_COLOMBIER = 8;
+export const ICARUS_HISTORY_COLOMBIER = 24;
 export const ARTIFACT_IVOIRE_COST = 300;   // Faveur
 export const ARTIFACT_NOYE_COST = 260;
 export const ARTIFACT_PLUMES_COST = 380;
 export const ARTIFACT_SOLAIRES_COST = 520;
+export const ARTIFACT_ECHELLE_COST = 350;  // osselets : le quitte ou double s'enchaîne
+export const ARTIFACT_INTERDIT_COST = 500; // osselets : le 4e rite (mise 20, spread 2.5)
+export const ARTIFACT_SOUFFLE_COST = 450;
+export const ARTIFACT_SERRES_COST = 550;
+export const ARTIFACT_COLOMBIER_COST = 200;
+export const ARTIFACT_COIN_COST = 240;     // gratteux : une case arrive dégagée
+export const ARTIFACT_RELANCE_COST = 420;  // gratteux : la cella rejoue un ticket perdant
+export const ARTIFACT_VOIX_COST = 150;     // vingt-et-un : l'oracle parle (séries)
+export const ARTIFACT_MESURE_COST = 250;   // vingt-et-un : le conseil de la mesure
+export const ARTIFACT_DOUBLE_COST = 1200;  // vingt-et-un : le double (skill-gaté, cf. BLACKJACK_RTP_REF)
+// Le quitte ou double des osselets s'enchaîne jusqu'à N crans avec l'Échelle de
+// Vénus (1 sans elle). Chaque cran est à EV EXACTEMENT nulle (p = 0.5, gain =
+// +wager) : enchaîner ne déplace pas le RTP d'un dixième, A8/A9 intacts par
+// construction. C'est un achat de DÉCISION et de variance, le seul vrai levier
+// stratégique de la table.
+export const AUGURY_DOUBLE_MAX_CRANS = 3;
+// La refente : le rang d'IMPRIMANTE du vingt-et-un (cf. BLACKJACK_RTP_REF).
+export const ARTIFACT_REFENTE_COST = 4000;
+
+// ── LES COFFRES DU TEMPLE (la mise multipliée, 2026-07-17) ───────────────────
+// Le moteur exponentiel de l'arbitrage « imprimante à vie » : chaque rang
+// MULTIPLIE PAR 10 la mise maximale des quatre jeux (gains au prorata — la
+// machinerie existe déjà partout : payout = mise × mult). Le débit d'impression
+// est donc net/h = cadence × mise × marge : ×10 par rang de coffre. LE FREIN qui
+// rend l'exponentielle jouable : le rang suivant coûte ~10× le précédent, donc
+// chaque palier se farme en un temps À PEU PRÈS CONSTANT (~une demi-journée au
+// meilleur build, « classique » — calibré par A14 au bench). Les chiffres
+// deviennent absurdes, mais par paliers GAGNÉS.
+export const COFFRE_MAX_LEVEL = 8;        // mise ×10^8 au sommet (extensible)
+export const COFFRE_COST_BASE = 16_000;   // rang 1 ≈ 12 h au meilleur débit ×1
+export const COFFRE_COST_GROWTH = 10;     // suit le débit : temps de farm constant
+
+// ── LES RELIQUES (le trésor du temple, 2026-07-17) ───────────────────────────
+// Les puits légendaires qui donnent un sens aux grands chiffres : des objets
+// uniques à prix exponentiels, qui paient DANS LA CITÉ (l'arbitrage Raphaël :
+// les jeux financent la production). Effets multiplicatifs, éternels
+// (templeArtifacts → GR_PERSISTENT_FIELDS).
+export const RELIC_CHAR_COST = 1e6;       // le Char du Soleil : Bénédiction PERMANENTE
+export const RELIC_CORNE_COST = 1e9;      // la Corne du temple : production ×2
+export const RELIC_OEIL_COST = 1e12;      // l'Œil d'or : production ×4
+export const RELIC_CORNE_PROD_MULT = 2;
+export const RELIC_OEIL_PROD_MULT = 4;
 
 // ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
 // Délégation configurable : « si la Rupture dépasse X % → lancer telle action

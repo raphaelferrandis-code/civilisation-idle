@@ -3,6 +3,7 @@ import {
   addDebugRuins,
   addDebugCycles,
   addDebugResources,
+  addDebugFaveur,
   debugBuyEarlyRuins
 } from '../../game/core/main.js';
 import { state, notify, openView } from '../../game/core/state.js';
@@ -49,6 +50,7 @@ export default function DebugDialog({ isOpen, onClose }) {
           <button type="button" onClick={handleForceRupture}>Rupture 100%</button>
           <button type="button" onClick={() => { addDebugCycles(10); }}>+10 cycles</button>
           <button type="button" onClick={addDebugResources}>Ressources late</button>
+          <button type="button" onClick={() => { addDebugFaveur(10000); }}>+10K faveur</button>
           <button type="button" onClick={handleUnlockRuinsView}>Voir ruines</button>
           <button type="button" onClick={debugBuyEarlyRuins}>Acheter ruines debut</button>
         </div>

@@ -73,6 +73,9 @@ export default function CityView() {
   // Timer de la bulle de pensée : tracé en ref pour être nettoyé au démontage
   // (la vie/effondrement démonte fréquemment CityView → pas de timer orphelin).
   const bubbleTimerRef = useRef(null);
+  // N° de message : key du chip (re-monte → l'anim CSS rejoue) et cible du
+  // timer de fermeture (un nouveau message annule la fermeture de l'ancien).
+  const bubbleIdRef = useRef(0);
   useEffect(() => () => clearTimeout(bubbleTimerRef.current), []);
 
   // Recadrage du rail gauche (retour Raph 2026-07-13) : l'encart identité a une
@@ -108,53 +111,47 @@ export default function CityView() {
   })();
 
   const handleCitizenThought = useCallback((citizen, thoughtType) => {
+    // Paroles d'habitant, dans le ton du jeu (phrases courtes, concrètes,
+    // sans emphase). Chaque famille colle à la ressource que le clic rapporte :
+    // pensée → nourriture, parchemin → savoir, éclair → or.
     const quotes = {
       thought: [
-        { fr: "J'ai vu une ombre étrange dans les bois... Serait-ce un présage du cycle suivant ?", en: "I saw a strange shadow in the woods... Could it be an omen of the next cycle?" },
-        { fr: "Les anciens bâtissaient avec de l'argile brute. Nous construisons sur leurs débris.", en: "The ancients built with raw clay. We build upon their rubble." },
-        { fr: "Parfois, j'ai l'impression que le temps tourne en boucle. Quelle idée absurde...", en: "Sometimes I feel like time is running in circles. What an absurd notion..." },
-        { fr: "Si notre dynastie tombe, j'espère que les scribes écriront mon nom correctement.", en: "If our dynasty falls, I hope the scribes will spell my name correctly." },
-        { fr: "Le pain d'aujourd'hui a un goût de cendres. Est-ce l'usure qui s'installe ?", en: "Today's bread tastes of ashes. Is the wear setting in?" },
-        { fr: "Nos philosophes affirment que notre cité n'est qu'un grain de sable sur l'Olympe.", en: "Our philosophers claim our city is but a grain of sand upon Olympus." },
-        { fr: "Quand le ciel rougeoie le soir, je prie pour que l'effondrement attende l'aube.", en: "When the sky glows red at dusk, I pray the collapse waits for dawn." }
+        { fr: "Le pain est encore chaud. Un jour de plus, c'est déjà beaucoup.", en: "The bread is still warm. One more day is already a lot." },
+        { fr: "Mon grand-père disait que la cité finit toujours par tomber. Je sème quand même.", en: "My grandfather said the city always falls in the end. I sow anyway." },
+        { fr: "Les entrepôts sentent le grain sec. Bon présage pour l'hiver.", en: "The warehouses smell of dry grain. A good omen for winter." },
+        { fr: "J'ai gardé une part pour les miens et une pour la cité.", en: "I kept one share for my kin and one for the city." },
+        { fr: "Les champs ont bien donné cette saison.", en: "The fields yielded well this season." }
       ],
       scroll: [
-        { fr: "J'ai trouvé ce vieux parchemin sous les ruines d'un temple !", en: "I found this old parchment beneath the ruins of a temple!" },
-        { fr: "Voici une formule mathématique oubliée du cycle précédent !", en: "Here is a mathematical formula forgotten from the previous cycle!" },
-        { fr: "Cette tablette d'argile décrit la chute de notre première cité.", en: "This clay tablet describes the fall of our first city." },
-        { fr: "Un secret des anciens ingénieurs ! Nos scribes vont adorer.", en: "A secret of the ancient engineers! Our scribes will love it." },
-        { fr: "Un codex cryptique... Son déchiffrement va accélérer nos recherches !", en: "A cryptic codex... Deciphering it will speed up our research!" }
+        { fr: "Un parchemin sous les ruines du temple. L'encre tient encore.", en: "A parchment beneath the temple ruins. The ink still holds." },
+        { fr: "Cette tablette raconte la chute de la première cité.", en: "This tablet tells of the first city's fall." },
+        { fr: "Une formule d'un cycle passé. Nos bâtisseurs sauront quoi en faire.", en: "A formula from a past cycle. Our builders will know what to do with it." },
+        { fr: "Les scribes vont veiller tard ce soir.", en: "The scribes will be up late tonight." },
+        { fr: "Les anciens notaient tout. Cela nous sert encore.", en: "The ancients wrote everything down. It still serves us." }
       ],
       lightning: [
-        { fr: "Le feu créateur coule dans nos veines ! Travaillons plus vite !", en: "The creative fire flows in our veins! Let us work faster!" },
-        { fr: "Une idée fulgurante traverse notre corporation ! En avant !", en: "A flash of insight sweeps through our guild! Onward!" },
-        { fr: "L'énergie de la jeunesse anime nos chantiers aujourd'hui !", en: "The energy of youth drives our worksites today!" },
-        { fr: "Par Héphaïstos ! L'inspiration divine accélère nos tâches !", en: "By Hephaestus! Divine inspiration hastens our tasks!" }
+        { fr: "Les ateliers tournent bien aujourd'hui. Le trésor s'en souviendra.", en: "The workshops run well today. The treasury will remember it." },
+        { fr: "Une bonne affaire au marché. La cité y gagne aussi.", en: "A good deal at the market. The city gains as well." },
+        { fr: "La forge n'a pas désempli de la journée.", en: "The forge was busy all day long." },
+        { fr: "Un marchand de passage a payé sans marchander. Jour faste.", en: "A passing merchant paid without haggling. A favorable day." },
+        { fr: "Les caisses de la guilde sonnent plein. Une part revient à la cité.", en: "The guild's coffers ring full. A share goes to the city." }
       ]
     };
 
     const pool = quotes[thoughtType] || quotes.thought;
     const text = tr(pool[Math.floor(Math.random() * pool.length)]);
-    
+
     const rewardText = rewardCitizenThought(thoughtType, citizen);
-    
-    setBubbleMessage({
-      name: citizen.name,
-      role: citizen.role,
-      text,
-      reward: rewardText
-    });
-    
-    // Fermer le message après 4 secondes (timer nettoyé au démontage via la ref)
+
+    const id = ++bubbleIdRef.current;
+    setBubbleMessage({ id, name: citizen.name, text, reward: rewardText });
+
+    // Fermeture après 9 s, SYNCHRONE avec l'animation CSS bubbleAnnounce
+    // (views-city.css) qui fond le chip juste avant le retrait du nœud.
     clearTimeout(bubbleTimerRef.current);
     bubbleTimerRef.current = setTimeout(() => {
-      setBubbleMessage(current => {
-        if (current && current.name === citizen.name && current.text === text) {
-          return null;
-        }
-        return current;
-      });
-    }, 4000);
+      setBubbleMessage(current => (current && current.id === id ? null : current));
+    }, 9000);
   }, []);
 
   const vitals = cityVitals();
@@ -268,18 +265,6 @@ export default function CityView() {
               onBlur={handleNameBlur}
               aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
             />
-            {/* Bonus de bulle cliquée : chip À DROITE DU NOM (retour Raph — en bas
-                de carte, il passait derrière la jauge de régulation des tensions). */}
-            {bubbleMessage && (
-              <div
-                className="map-bubble-alert"
-                title={`${bubbleMessage.name} (${bubbleMessage.role}) : "${bubbleMessage.text}"`}
-              >
-                <span className="bubble-alert-name">{bubbleMessage.name} :</span>
-                <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
-                {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
-              </div>
-            )}
             <span
               className="city-personality-label"
               title={tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" })}
@@ -321,7 +306,7 @@ export default function CityView() {
               <div
                 className={`stability-gauge ${tier.cls}`}
                 title={pressureTooltip}
-                aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}% — ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}% — ${tr(tier.label)}` })}
+                aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}%, ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}%, ${tr(tier.label)}` })}
               >
                 <div className="sg-meta">
                   <span className="sg-label">{tr(tier.label)}</span>
@@ -333,7 +318,7 @@ export default function CityView() {
                     <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
                   ))}
                   <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
-                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={tr({ fr: `Cible : ${Math.round(targetLvl * 100)}% — la jauge dérive vers ce niveau.`, en: `Target: ${Math.round(targetLvl * 100)}% — the gauge drifts toward this level.` })}></span>
+                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={tr({ fr: `Cible : ${Math.round(targetLvl * 100)} %. La jauge dérive vers ce niveau.`, en: `Target: ${Math.round(targetLvl * 100)}%. The gauge drifts toward this level.` })}></span>
                   {lvl >= 0.68 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
                       {[
@@ -354,6 +339,18 @@ export default function CityView() {
           })()}
 
           </div>{/* /city-stage-hud */}
+
+          {/* Bonus de bulle cliquée : annonce CENTRÉE en haut du monde, ancrée
+              sur .city-stage (sous la barre de ressources, loin de la jauge de
+              régulation du bas). key = n° de message → le chip est re-monté à
+              chaque clic et son animation d'entrée rejoue. */}
+          {bubbleMessage && (
+            <div className="map-bubble-alert" key={bubbleMessage.id}>
+              <span className="bubble-alert-name">{bubbleMessage.name}</span>
+              <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
+              {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
+            </div>
+          )}
 
           {/* La carte interactive : le monde occupe tout le cadre */}
           <div className="city-map-container">

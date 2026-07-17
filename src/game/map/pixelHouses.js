@@ -61,10 +61,8 @@ function ensure(key) {
     e.ready = true;
     e.bbox = contentBBox(e.img);
     // Sprite arrivé (souvent APRÈS le bake) → invalider le bake tuiles pour qu'il REMPLACE le
-    // repli procédural baké dès le frame suivant. ⚠ CM.tileCamKey est une variable MORTE
-    // (jamais relue) ; la clé réellement lue par le bake est CM._tileBake (cf. cityMapRuntime
-    // ligne 111 & window.__houseFit) → c'est ELLE qu'on annule. Sans ça, un PNG chargé hors de
-    // la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
+    // repli procédural baké dès le frame suivant (cf. cmInvalidateBakes). Sans ça, un PNG chargé
+    // hors de la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
     // (achat, zoom, pan) — d'où le « flash » persistant de l'ancien sprite à l'achat.
     CM._tileBake = null;
   };
@@ -173,12 +171,11 @@ export function houseSpriteHeightTiles(variant) {
 if (typeof window !== "undefined") {
   window.__pixelHouses = (on) => {
     pixelHousesFlag.on = on !== false;
-    CM._tileBake = null;   // force re-bake pour voir le changement (tileCamKey est mort)
+    CM._tileBake = null;   // force re-bake pour voir le changement
     return pixelHousesFlag.on;
   };
   // A — clamp au lot : on/off + réglage de la marge de débord toléré. Les deux rebakent
-  // les maisons : le bake tuiles s'invalide via CM._tileBake=null (tileCamKey est mort,
-  // jamais relu). Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
+  // les maisons via CM._tileBake=null. Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
   window.__houseFit = (on) => { houseFitTune.on = on !== false; CM._tileBake = null; return houseFitTune.on; };
   window.__houseFitTune = (o = {}) => { Object.assign(houseFitTune, o); CM._tileBake = null; return { ...houseFitTune }; };
 }

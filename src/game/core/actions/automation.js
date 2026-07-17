@@ -63,7 +63,7 @@ export function checkAutoScriptRules() {
       triggered = elapsed >= rule.threshold;
     }
     if (triggered) {
-      log(`Script : "${rule.label} ${rule.threshold}${rule.unit}" — effondrement declenche.`);
+      log(`Script : "${rule.label} ${rule.threshold}${rule.unit}", effondrement declenche.`);
       collapse("auto_script");
       return;
     }

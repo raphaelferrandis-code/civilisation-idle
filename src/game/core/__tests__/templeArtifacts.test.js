@@ -20,21 +20,21 @@ import {
   resolveIcarusHeadless, icarusEffectiveCap, icarusMultiplierAt,
   hasTempleArtifact, buyTempleArtifact, buyArtifactNode, artifactTree
 } from "../actions.js";
-import { D } from "../num.js";
 import {
-  ICARUS_CAP, ICARUS_CAP_SOLAR, ICARUS_FAVEUR_K, PLUMES_CONSOLATION_MULT,
-  AUGURY_POT_FEED_DOG, NOYE_POT_MULT, IVORY_DOG_CUT, IVORY_VENUS_BONUS,
+  ICARUS_CAP, ICARUS_CAP_SOLAR, ICARUS_STAKES, PLUMES_CONSOLATION_MULT,
+  NOYE_POT_MULT, IVORY_DOG_CUT, IVORY_VENUS_BONUS,
+  TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP,
   ARTIFACT_IVOIRE_COST, ARTIFACT_NOYE_COST,
   AUGURY_TIER_SHARES, AUGURY_HOLLOW_SHARE, TEMPLE_ARTIFACT_IDS
 } from "../balance.js";
+import { potRecycle } from "../actions/templePot.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
   setState(hydrateState(MID_GAME_FIXTURE)); // bestEraIndex 5 → osselets (Ère II) + Icare (Ère III) débloqués
-  state.faveur = 100000;    // de quoi acheter tous les rangs
-  state.gold = D(1e12);     // de quoi payer les mises (or) des jeux headless
+  state.faveur = 100000;    // de quoi acheter tous les rangs ET miser aux jeux (monnaie fermée)
   invalidateRenderCache("all");
 });
 
@@ -52,7 +52,15 @@ describe("Artefacts — persistance", () => {
   it("hydrate : n'accepte que les ids connus, valeurs re-typées en booléen", () => {
     const s = hydrateState({ templeArtifacts: { ivoire: true, noye: "yes", plumes: 0, bogus: true } });
     expect(s.templeArtifacts).toEqual({ ivoire: true, noye: true }); // plumes:0 faux → tombé, bogus inconnu → tombé
-    expect(TEMPLE_ARTIFACT_IDS).toEqual(["ivoire", "noye", "plumes", "solaires"]);
+    // 18 artefacts sur 5 lignées (2026-07-17, trésor compris) — la liste est le
+    // filtre d'hydratation.
+    expect(TEMPLE_ARTIFACT_IDS).toEqual([
+      "ivoire", "noye", "echelle", "interdit",
+      "plumes", "souffle", "solaires", "serres", "colombier",
+      "coin", "relance",
+      "voix", "mesure", "double", "refente",
+      "char", "corne", "oeil"
+    ]);
   });
 
   it("SURVIVENT au Grand Reset (augment éternel), la Faveur se re-gagne", () => {
@@ -127,41 +135,78 @@ describe("Artefact — dé d'ivoire (variance découplée)", () => {
   });
 });
 
-// ── Osselet du noyé : les revers nourrissent ×2 la cagnotte ───────────────────
-describe("Artefact — osselet du noyé (cagnotte ×2)", () => {
-  it("double la Faveur versée à la cagnotte sur un revers", () => {
+// ── Osselet du noyé : booste le RECYCLE de l'edge (clampé) ────────────────────
+describe("Artefact — osselet du noyé (cagnotte engraissée)", () => {
+  it("multiplie le RECYCLE, et le clamp garde l'invariant sous 1", () => {
+    // ⚠ SÉMANTIQUE CHANGÉE le 2026-07-17 : il multipliait la part de la MISE versée
+    // (ce qui faisait imprimer la table à 133,4 %) ; il multiplie désormais la part
+    // de l'EDGE reversée, et TEMPLE_POT_RECYCLE_CAP la borne sous 1.
     vi.spyOn(Math, "random").mockReturnValue(0.99); // r=0.99 → Le Chien (perte lourde)
 
     state.icarusPotFaveur = 0;
     castAugury("prayForRain", "classique");
-    const potPlain = state.icarusPotFaveur; // 30 s × costMult 1 × 1.2 (dog) × 1
-    expect(potPlain).toBeCloseTo(30 * AUGURY_POT_FEED_DOG, 6);
+    const potPlain = state.icarusPotFaveur;
+    expect(potPlain).toBeGreaterThan(0);
 
     state.templeArtifacts = { noye: true };
+    state.gambleHistory = {}; // sans rabais Clémence : mise pleine pour la parité
     state.icarusPotFaveur = 0;
     castAugury("prayForRain", "classique");
-    expect(state.icarusPotFaveur).toBeCloseTo(potPlain * NOYE_POT_MULT, 6);
+    // Le ratio suit le recycle clampé (0.85 / 0.6), PAS NOYE_POT_MULT (×2) : c'est
+    // le clamp qui mord, et c'est lui qui rend l'imprimante impossible.
+    expect(state.icarusPotFaveur).toBeCloseTo(potPlain * (TEMPLE_POT_RECYCLE_CAP / TEMPLE_POT_RECYCLE), 6);
+    expect(potRecycle()).toBe(TEMPLE_POT_RECYCLE_CAP);
+    expect(potRecycle()).toBeLessThan(1); // A10 : le seul point de défaillance
+  });
+
+  it("contrôle négatif : même à ×2, le recycle ne peut pas atteindre 1", () => {
+    // TEMPLE_POT_RECYCLE × NOYE_POT_MULT = 1.2 > 1 : sans le clamp, la table
+    // imprimerait. C'est LA ligne qui protège tout le temple.
+    expect(TEMPLE_POT_RECYCLE * NOYE_POT_MULT).toBeGreaterThan(1);
+    state.templeArtifacts = { noye: true };
+    expect(potRecycle()).toBeLessThan(1);
   });
 });
 
-// ── Plumes de secours : consolation Faveur au crash ──────────────────────────
+// ── Plumes de secours : filet PRÉLEVÉ SUR LA CELLA ───────────────────────────
 describe("Artefact — plumes de secours (filet au crash)", () => {
-  it("rend une part de la mise en Faveur sur un crash, 0 sans l'artefact", () => {
+  it("prélève la consolation SUR la cagnotte, et 0 sans l'artefact", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.9); // crashPoint ~1 → cible 2 brûle (crash)
+    const mise = ICARUS_STAKES.find((s) => s.id === "plume").faveur;
 
     const f0 = state.faveur;
     const plain = resolveIcarusHeadless("plume", 2);
     expect(plain.type).toBe("crash");
     expect(plain.refundFaveur).toBe(0);
-    expect(state.faveur).toBe(f0); // aucun retour sans plumes
+    expect(state.faveur).toBe(f0 - mise); // la mise brûle, aucun retour sans plumes
 
     state.templeArtifacts = { plumes: true };
+    state.icarusPotFaveur = 500; // une cella garnie finance le filet
     const f1 = state.faveur;
+    const potBefore = state.icarusPotFaveur;
     const withNet = resolveIcarusHeadless("plume", 2);
     expect(withNet.type).toBe("crash");
-    const expected = Math.round(30 * ICARUS_FAVEUR_K * PLUMES_CONSOLATION_MULT); // round(2.25) = 2
+    const expected = Math.round(mise * PLUMES_CONSOLATION_MULT);
     expect(withNet.refundFaveur).toBe(expected);
-    expect(state.faveur).toBe(f1 + expected);
+    expect(state.faveur).toBe(f1 - mise + expected);
+    // ⚠ 2026-07-17 : la consolation SORT de la cella, elle n'est plus créée. Avant,
+    // elle mintait round(mise × 0.5) à CHAQUE crash hors de tout paiement, et
+    // P(crash) → 1 quand la cible monte : c'était le poste le plus lourd de toute
+    // l'imprimante (+51 pts de RTP à ×50, devant la cagnotte elle-même).
+    expect(state.icarusPotFaveur).toBeCloseTo(potBefore - expected + mise * potRecycle() * (1 - (1 - 0.18)), 6);
+  });
+
+  it("une cella VIDE ne rend rien : le filet est financé par les revers passés", () => {
+    // Contrepartie assumée du changement de contrat (l'artefact est vendu 380
+    // Faveur) — son texte le dit désormais explicitement.
+    vi.spyOn(Math, "random").mockReturnValue(0.9);
+    state.templeArtifacts = { plumes: true };
+    state.icarusPotFaveur = 0;
+    const f0 = state.faveur;
+    const out = resolveIcarusHeadless("plume", 2);
+    expect(out.type).toBe("crash");
+    expect(out.refundFaveur).toBe(0);
+    expect(state.faveur).toBe(f0 - ICARUS_STAKES.find((s) => s.id === "plume").faveur);
   });
 });
 
@@ -191,23 +236,30 @@ describe("Arbre — échelle (rang N exige N-1)", () => {
   });
 
   it("route chaque kind : niveau → boutique, artefact → flag, automation → capstone", () => {
-    // Chaîne complète osselets : dice(level) → ivoire(art) → noye(art) → autoOsselets(auto).
+    // Chaîne complète osselets (2026-07-17, 6 rangs) : dice(level) → ivoire(art) →
+    // noye(art) → echelle(art) → interdit(art) → autoOsselets(auto).
     expect(buyArtifactNode("noye")).toBe(false);        // encore verrouillé (ivoire manquant)
     buyArtifactNode("dice");
     buyArtifactNode("ivoire");
     expect(buyArtifactNode("noye")).toBe(true);
     expect(hasTempleArtifact("noye")).toBe(true);
+    expect(buyArtifactNode("autoOsselets")).toBe(false); // capstone verrouillé : 2 rangs manquent
+    expect(buyArtifactNode("echelle")).toBe(true);
+    expect(buyArtifactNode("interdit")).toBe(true);
     expect(buyArtifactNode("autoOsselets")).toBe(true); // capstone → unlockTempleAuto
     expect(state.templeAuto.osselets.unlocked).toBe(true);
   });
 
   it("descripteur artifactTree : verrous, coûts et raisons", () => {
     const tree = artifactTree();
-    expect(tree.map((l) => l.id)).toEqual(["osselets", "icarus"]);
+    // Les 5 lignées (2026-07-17) — gratteux (Ère II), vingt-et-un (Ère III) et
+    // le trésor (Ère III) apparaissent dès leur ère atteinte (fixture : Ère III).
+    expect(tree.map((l) => l.id)).toEqual(["osselets", "icarus", "gratteux", "vingtetun", "tresor"]);
 
     const oss = tree[0];
     expect(oss.eraOk).toBe(true); // Ère II ouverte (fixture)
-    const [dice, ivoire, noye, auto] = oss.nodes;
+    const [dice, ivoire, noye] = oss.nodes;
+    const auto = oss.nodes[oss.nodes.length - 1]; // le capstone est TOUJOURS le dernier rang
     expect(dice.unlocked).toBe(true);            // rang 1 : garde d'ère seule
     expect(dice.kind).toBe("level");
     expect(ivoire.unlocked).toBe(false);         // rang 2 verrouillé au départ

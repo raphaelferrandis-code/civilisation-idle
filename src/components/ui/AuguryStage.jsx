@@ -3,24 +3,30 @@ import { useGameState } from '../../hooks/useGameState.js';
 import {
   castAugury,
   doubleAugury,
-  auguryCost,
+  auguryStake,
+  auguryPaytable,
+  auguryRebate,
   auguryBaseOdds,
-  auguryTierBones,
   AUGURY_RITES,
   AUGURY_TIER_LABELS
 } from '../../game/core/actions.js';
-import { clemencyBonus } from '../../game/core/mechanics.js';
-import { canPayCost, costLabel } from '../../game/core/utils.js';
-import { AUGURY_DOUBLE_P, GAMBLE_P_MAX, AUGURY_FAVEUR } from '../../game/core/balance.js';
+import { AUGURY_DOUBLE_P, AUGURY_DOUBLE_MAX_CRANS } from '../../game/core/balance.js';
+import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
+import { clampStakeMult } from '../../game/core/actions/templePot.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
+import { FaveurIcon } from './FaveurIcon.jsx';
+import CoffreSelect from './CoffreSelect.jsx';
+import StageHelp from './StageHelp.jsx';
 
 /**
- * La Table des augures — SCÈNE INTÉGRÉE. Jeux DÉCOUPLÉS (2026-07-14) : le gain
- * est de la FAVEUR (monnaie méta), plus de relief/Rupture — perdre ne coûte
- * que la mise. Le moteur (actions/augures.js) tire l'issue et les os AVANT
- * l'animation, mais l'EFFET est différé jusqu'à la chute des dés (anti-spoiler).
- * Phases : mise (rites) → jet → résultat (quitte ou double sur la Faveur gagnée).
+ * La Table des augures — SCÈNE INTÉGRÉE. MONNAIE FERMÉE (2026-07-16) : la mise
+ * est en FAVEUR (tronc des offrandes), le gain aussi — paytable normalisée sur
+ * un RTP < 1 (cf. actions/augures.js). La Clémence ALLÈGE la mise après des
+ * revers (gains au prorata), elle ne touche plus la chance. Le moteur tire
+ * l'issue et les os AVANT l'animation, mais l'EFFET est différé jusqu'à la
+ * chute des dés (anti-spoiler). Phases : mise (rites) → jet → résultat
+ * (quitte ou double sur la Faveur gagnée).
  */
 
 const LAND_FIRST_MS = 450;
@@ -35,11 +41,18 @@ export default function AuguryStage({ table, onClose }) {
   const pendingRef = useRef(null);
   const [phase, setPhase] = useState('stake');
   const [riteId, setRiteId] = useState('classique');
+  // La puissance de mise du coffre (×1, ×10…). Re-clampée au rendu ET au moteur :
+  // un Grand Reset peut faire retomber le rang pendant que la scène est ouverte.
+  const [coffreMult, setCoffreMult] = useState(1);
   const [outcome, setOutcome] = useState(null);
   const [doubleOutcome, setDoubleOutcome] = useState(null);
+  // Cran de l'Échelle de Vénus (quitte ou double chaîné). Sans l'artefact, un
+  // seul cran ; avec, AUGURY_DOUBLE_MAX_CRANS. Chaque cran est à EV nulle.
+  const [doubleCran, setDoubleCran] = useState(0);
   const [bones, setBones] = useState(null);
   const [landed, setLanded] = useState(0);
-  useGameState((s) => s.instability); // coûts/clémence/faveur vivants (1 Hz)
+  useGameState((s) => s.instability); // odds/rabais vivants (1 Hz)
+  const faveur = useGameState((s) => s.faveur || 0); // mises payables en direct
   const cycles = useGameState((s) => s.cycles);
 
   const clearTimers = () => {
@@ -62,6 +75,7 @@ export default function AuguryStage({ table, onClose }) {
     setRiteId('classique');
     setOutcome(null);
     setDoubleOutcome(null);
+    setDoubleCran(0);
     setBones(null);
     setLanded(0);
   }, [table?.openedAt]);
@@ -96,26 +110,35 @@ export default function AuguryStage({ table, onClose }) {
   if (!a) return null;
 
   const pBase = auguryBaseOdds(a);
-  const clem = clemencyBonus(table.id, pBase);
-  const pEff = Math.min(GAMBLE_P_MAX, pBase + clem);
+  const rebate = auguryRebate(table.id);
   const isDouble = Boolean(doubleOutcome);
+  const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
+  const castCost = auguryStake(table.id, riteId).stake * effMult;
 
   const onCast = () => {
-    const res = castAugury(table.id, riteId, { defer: true });
+    const res = castAugury(table.id, riteId, { defer: true, stakeMult: effMult });
     if (!res) return;
     pendingRef.current = res.apply;
     setOutcome(res);
     setDoubleOutcome(null);
+    setDoubleCran(0);
     startCast(res.bones, () => setOutcome({ ...res }));
   };
 
+  const maxCrans = hasTempleArtifact('echelle') ? AUGURY_DOUBLE_MAX_CRANS : 1;
+
   const onDouble = () => {
     if (!outcome || outcome.faveurGain <= 0) return;
-    const res = doubleAugury(table.id, outcome.faveurGain, { defer: true });
+    if (doubleCran >= maxCrans) return;
+    // La mise du cran N est TOUT ce qui est sur la table : le gain initial au
+    // premier cran, puis le double du wager précédent (gagné) aux suivants.
+    const wager = doubleCran === 0 ? outcome.faveurGain : (doubleOutcome?.wager || outcome.faveurGain) * 2;
+    const res = doubleAugury(table.id, wager, { defer: true });
     if (!res) return;
     pendingRef.current = res.apply;
+    setDoubleCran(doubleCran + 1);
     setDoubleOutcome(res);
-    startCast(auguryTierBones(res.win ? 'triple' : 'dog'), () => setDoubleOutcome({ ...res }));
+    startCast(res.bones, () => setDoubleOutcome({ ...res }));
   };
 
   const tierChipCls = (tier) => tier === 'venus' ? 'augury-chip--venus'
@@ -126,26 +149,41 @@ export default function AuguryStage({ table, onClose }) {
     <div className="augury-stage">
       <div className="regul-block-title stage-title">
         <span>🎲 {a.label}</span>
+        <StageHelp>
+          <p>
+            {tr({
+              fr: 'Paire haute : Faveur. Triple : grosse Faveur. 1·3·4·6 : Coup de Vénus, un vol d’Icare offert. Quatre as : le Chien, la mise est perdue. Une mise plus grosse donne plus de Vénus et plus de Chiens.',
+              en: 'High pair: Favor. Triple: big Favor. 1·3·4·6: Venus throw, a free Icarus flight. Four aces: the Dog, the stake is lost. A bigger stake means more Venus and more Dogs.'
+            })}
+          </p>
+        </StageHelp>
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Refermer la table', en: 'Close the table' })}>✕</button>
       </div>
 
       {phase === 'stake' && (
         <>
+          {/* Le solde de Faveur n'est plus répété ici : il s'affiche déjà en tête
+              de la Table des augures, à cent pixels (passe densité 2026-07-17). */}
           <div className="augury-odds">
             <span className="augury-chip">{tr({ fr: 'chance', en: 'chance' })} {Math.round(pBase * 100)} %</span>
-            {clem > 0.001 && (
-              <span className="augury-chip augury-chip--favor">
-                + {Math.round(clem * 100)} % {tr({ fr: 'de clémence', en: 'clemency' })}
+            {rebate > 0.001 && (
+              <span
+                className="augury-chip augury-chip--favor"
+                title={tr({ fr: 'Clémence : tes revers allègent l’offrande (les gains suivent la mise payée). Un gain remet le compteur à zéro.', en: 'Clemency: your setbacks lighten the offering (winnings follow the paid stake). A win resets the counter.' })}
+              >
+                {tr({ fr: 'pitié : offrande', en: 'mercy: offering' })} −{Math.round(rebate * 100)} %
               </span>
             )}
-            <span className="augury-chip augury-chip--total">= {Math.round(pEff * 100)} %</span>
           </div>
+          <CoffreSelect value={effMult} onChange={setCoffreMult} />
           <div className="augury-rites">
-            {Object.values(AUGURY_RITES).map((rite) => {
-              const cost = auguryCost(table.id, rite.id);
-              const payable = cost && canPayCost(cost);
-              const pairFav = Math.round(AUGURY_FAVEUR.pair * rite.costMult);
-              const venusFav = Math.round(AUGURY_FAVEUR.venus * rite.costMult);
+            {Object.values(AUGURY_RITES).filter((rite) => !rite.artifact || hasTempleArtifact(rite.artifact)).map((rite) => {
+              const pay = auguryPaytable(table.id, rite.id);
+              const st = auguryStake(table.id, rite.id);
+              const ratio = (st.stake * effMult) / pay.stake; // le coffre scale mise ET gains
+              const pairFav = Math.round(pay.gains.pair * ratio);
+              const venusFav = Math.round(pay.gains.venus * ratio);
+              const payable = faveur >= st.stake * effMult;
               return (
                 <button
                   key={rite.id}
@@ -155,7 +193,9 @@ export default function AuguryStage({ table, onClose }) {
                   onClick={() => setRiteId(rite.id)}
                 >
                   <strong>{tr(rite.label)}</strong>
-                  <span className="augury-rite-cost">{cost ? costLabel(cost) : '—'}</span>
+                  <span className="augury-rite-cost">
+                    <FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}
+                  </span>
                   <span className="augury-rite-fx">
                     <span className="augury-fx-win">{tr({ fr: 'paire', en: 'pair' })} +{pairFav} · {tr({ fr: 'Vénus', en: 'Venus' })} +{venusFav} {tr({ fr: 'faveur', en: 'favor' })}</span>
                     <span className="augury-fx-risk">{
@@ -172,18 +212,12 @@ export default function AuguryStage({ table, onClose }) {
             <button
               type="button"
               className="augury-throw"
-              disabled={!canPayCost(auguryCost(table.id, riteId) || {})}
+              disabled={faveur < castCost}
               onClick={onCast}
             >
               {tr({ fr: 'Jeter les osselets', en: 'Cast the knucklebones' })}
             </button>
           </menu>
-          <p className="stage-footnote">
-            {tr({
-              fr: 'Lecture des os — paire haute : Faveur · triple : grosse Faveur · 1·3·4·6 : Coup de Vénus (vol d’Icare offert) · les as sont funestes · quatre as : le Chien. La mise choisie déforme le sort : gros sacrifice = plus de Vénus, mais plus de Chiens.',
-              en: 'Reading the bones — high pair: Favor · triple: big Favor · 1·3·4·6: Venus throw (free Icarus flight) · aces are dire · four aces: the Dog. Your stake shapes fate: a great sacrifice means more Venus, but more Dogs.'
-            })}
-          </p>
         </>
       )}
 
@@ -218,10 +252,10 @@ export default function AuguryStage({ table, onClose }) {
                       ? <span className="augury-chip augury-chip--win">+{outcome.faveurGain} {tr({ fr: 'faveur', en: 'favor' })}</span>
                       : (
                         <>
-                          <span className="augury-chip augury-chip--mut">+{outcome.faveurGain} {tr({ fr: 'faveur (consolation)', en: 'favor (consolation)' })}</span>
+                          <span className="augury-chip augury-chip--lose">−{outcome.stake} {tr({ fr: 'faveur sacrifiée', en: 'favor sacrificed' })}</span>
                           <span className="augury-chip augury-chip--favor">
-                            {tr({ fr: 'clémence', en: 'clemency' })} +{Math.round(clemencyBonus(table.id, pBase) * 100)} %
-                            {outcome.tier === 'dog' ? ` (${tr({ fr: 'pitié ×2', en: 'mercy ×2' })})` : ''}
+                            {tr({ fr: 'pitié : prochaine offrande', en: 'mercy: next offering' })} −{Math.round(auguryRebate(table.id) * 100)} %
+                            {outcome.tier === 'dog' ? ` (${tr({ fr: 'Chien ×2', en: 'Dog ×2' })})` : ''}
                           </span>
                           <span className="augury-chip augury-chip--mut">🏺 {tr({ fr: "la cagnotte d'Icare s'épaissit", en: 'the Icarus pot thickens' })}</span>
                         </>
@@ -235,14 +269,25 @@ export default function AuguryStage({ table, onClose }) {
                       <button
                         type="button"
                         className="augury-tempt"
-                        title={tr({ fr: 'Gagné : la Faveur redouble. Perdu : la Faveur gagnée est reprise. La Clémence ne joue pas — les dieux se lassent.', en: 'Won: the Favor doubles. Lost: the Favor won is taken back. Clemency does not apply — the gods grow weary.' })}
+                        title={tr({ fr: "Gagné : la Faveur redouble. Perdu : la Faveur gagnée est reprise. La Clémence ne s'applique pas.", en: 'Won: the Favor doubles. Lost: the Favor won is taken back. Clemency does not apply.' })}
                         onClick={onDouble}
                       >
-                        {tr({ fr: `Défier les dieux — quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy the gods — double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
+                        {tr({ fr: `Défier les dieux : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy the gods: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
                       </button>
                     )}
+                    {/* Rejeu DIRECT (phase 7) : la mise est déjà mémorisée (riteId), le
+                        détour par l'écran de choix était un clic mort. Quand le quitte
+                        ou double est offert, il reste le bouton VEDETTE (le seul vrai
+                        levier stratégique) : le rejeu passe alors en simple bouton. */}
+                    <button
+                      type="button"
+                      disabled={faveur < castCost}
+                      onClick={() => { setDoubleOutcome(null); onCast(); }}
+                    >
+                      {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
+                    </button>
                     <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); }}>
-                      {tr({ fr: 'Rejouer', en: 'Play again' })}
+                      {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
                     <button type="button" onClick={onClose}>
                       {tr({ fr: 'Refermer la table', en: 'Close the table' })}
@@ -262,10 +307,32 @@ export default function AuguryStage({ table, onClose }) {
                     {doubleOutcome.win
                       ? <span className="augury-chip augury-chip--win">+{doubleOutcome.wager} {tr({ fr: 'faveur de plus', en: 'more favor' })}</span>
                       : <span className="augury-chip augury-chip--lose">−{doubleOutcome.wager} {tr({ fr: 'faveur reprise', en: 'favor taken back' })}</span>}
+                    {maxCrans > 1 && (
+                      <span className="augury-chip augury-chip--mut">
+                        {tr({ fr: `marche ${doubleCran} sur ${maxCrans}`, en: `step ${doubleCran} of ${maxCrans}` })}
+                      </span>
+                    )}
                   </div>
                   <menu className="choice-menu augury-actions">
-                    <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); }}>
-                      {tr({ fr: 'Rejouer', en: 'Play again' })}
+                    {doubleOutcome.win && doubleCran < maxCrans && (
+                      <button
+                        type="button"
+                        className="augury-tempt"
+                        title={tr({ fr: "L'Échelle de Vénus : tout ce qui est sur la table se rejoue. Gagné : la Faveur redouble encore. Perdu : tout revient aux dieux.", en: "The Ladder of Venus: everything on the table is staked again. Won: the Favor doubles again. Lost: it all returns to the gods." })}
+                        onClick={onDouble}
+                      >
+                        {tr({ fr: `Défier encore : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy again: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={faveur < castCost}
+                      onClick={() => { setDoubleOutcome(null); setDoubleCran(0); onCast(); }}
+                    >
+                      {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
+                    </button>
+                    <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>
+                      {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
                     <button type="button" onClick={onClose}>{tr({ fr: 'Refermer la table', en: 'Close the table' })}</button>
                   </menu>

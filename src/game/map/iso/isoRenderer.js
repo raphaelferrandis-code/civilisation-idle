@@ -15,13 +15,14 @@
 // Tuiles PixelLab iso : APRÈS le go (le jalon protège le budget d'art).
 import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, depthOf, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, visibleCellBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, pixelHouseReady } from '../pixelHouses.js';
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEngineSprites.js';
 import { cityMapDrawQuays, updateCrisis, drawRiotWeapon } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
+import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
 import { waterRippleTune } from '../pixelRiver.js';
 import {
   updateCitizens, updateVehicles, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso,
@@ -37,14 +38,19 @@ const GRASS_WILD = [98, 120, 76];    // hors ville (léger contraste)
 const WATER = [74, 98, 109];         // eau ardoise (cf. fleuve)
 const PLAZA = [214, 206, 182];       // dallage d'esplanade
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
-// (centre). Réglable live via window.__waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
+// (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
+// « remets un liseré bleu clair sur les bords du fleuve »). RÉACTIVÉ pour les
+// ÈRES SANS QUAI seulement (band ≤ maxBand) : dès la bande 2, la berge maçonnée
+// porte SON bas-fond au pied du mur (shoreLine de drawRun) — les deux ensemble
+// faisaient deux lignes claires parallèles. Teintes = bleus gris CLAIRS de la
+// famille de l'eau ardoise (pas de cyan). Réglable live via
+// window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
 export const waterShoreTune = {
-  on: false,                                               // OFF : le bas-fond est désormais dessiné
-                                                           // par le QUAI (drawRun, renderWorld) pour SUIVRE le
-                                                           // pied du mur ; celui-ci restait derrière (ligne d'eau).
-  w1: 20, w2: 11, w3: 5,                                    // largeurs (× zoom)
-  a1: 0.5, a2: 0.6, a3: 0.72,                               // alphas (bord = plus opaque)
-  c1: '128,166,156', c2: '166,198,184', c3: '202,224,214'  // teintes, de la + douce à la + claire
+  on: true,
+  maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
+  w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
+  a1: 0.45, a2: 0.58, a3: 0.75,                            // alphas (bord = plus opaque)
+  c1: '120,160,175', c2: '150,192,205', c3: '190,224,232'  // bleus clairs, du doux au liseré
 };
 // Matière de chaussée par ère (calée sur la progression du jeu) :
 // terre battue → pavé de pierre → asphalte industriel → voie sombre futuriste.
@@ -107,7 +113,11 @@ function ensureIsoTileKey(key) {
     im.onload = () => {
       e.bbox = isoTileBBox(im);
       e.ready = !!e.bbox;
-      CM._isoGroundBake = null;   // re-bake : remplace l'aplat de repli
+      // Invalidation DOUCE : le bake reste re-blittable, la recuisson (chère sur
+      // mégapole) est coalescée par drawIsoWorld — une rafale de décodages au
+      // chargement ne paie plus une recuisson par sprite. Pas de bake → rien à
+      // faire, la 1re recuisson verra la tuile prête.
+      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
     };
     im.onerror = () => { e.failed = true; };   // PNG absent → on garde le repli procédural
     im.src = '/pixelart/iso/' + key + '.png';
@@ -184,7 +194,11 @@ function pathWorldQuad(ctx, x0, y0, x1, y1) {
 // Les cellules-route ne remplissent PLUS tout leur losange (1er jet : rue aussi
 // large qu'un îlot → grille illisible). Comme en legacy : fond de TROTTOIR (ton
 // urbain) + RUBAN de chaussée plus étroit le long des connexions (masque E/O/S/N).
-const ROAD_BAND = 0.30;   // demi-largeur du ruban (fraction de tuile)
+// 0.30 → 0.25 le 2026-07-16 (retour Raph « trottoirs plus larges, les voitures
+// roulent au milieu ») : chaussée un peu plus étroite → deux VOIES lisibles à
+// ±ROAD_BAND/2 du centre (publié aux agents via CM.isoVehLane) et de la place
+// pour de vrais trottoirs (SIDEWALK_ISO.w remonté en face).
+const ROAD_BAND = 0.25;   // demi-largeur du ruban (fraction de tuile)
 
 // ── Détail d'herbe : tapis VIVANT (touffes de brins + speckle + fleurs éparses)
 // posé DANS le bake du sol, par-dessus la tuile d'herbe (design réfs pixel-art
@@ -203,7 +217,10 @@ const ROAD_BAND = 0.30;   // demi-largeur du ruban (fraction de tuile)
 // pose des FLEURS assez présentes + des TOUFFES de brins MODÉRÉES (revenues à la
 // demande, mais dosées pour ne PAS re-carpetter : « trop de pixels » = l'écueil).
 // speckle & wildShade (plaques de prairie) restent des knobs, à 0 par défaut.
-const GRASS_DETAIL = { on: true, tileAlpha: 0, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0 };
+// meadow : PRÉS — plaques lentes de nuance par bruit LISSÉ (smoothNoise, aucune
+// couture de cellule ni de bloc, contrairement à la variance par cellule qui
+// dessinait un maillage) ; foncé = herbe grasse, clair = herbe sèche. Dosé bas.
+const GRASS_DETAIL = { on: true, tileAlpha: 0, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0.16 };
 const GD_BLADE = [66, 100, 46];      // brin foncé
 const GD_TIP = [156, 180, 96];       // pointe claire du brin
 const GD_SPECK_L = [138, 164, 96];   // speckle vert clair
@@ -222,6 +239,11 @@ const GD_FLOWERS = [
   [[184, 148, 216], [234, 206, 96]],   // violet
   [[150, 176, 226], [234, 206, 96]],   // bleuet
 ];
+// ⚠ NE PAS « batcher » ces rects par couleur : essayé et MESURÉ le 2026-07-17 →
+// aucun gain (154 ms vs 158 ms sur ~30 000 rects). fillRect est un chemin rapide
+// de Skia (aucun path construit) — contrairement aux diamondPath des voiles, que
+// le remisage par palier fait gagner pour de bon (194 → 102 ms). Le vrai coût
+// résiduel ici est la CHAÎNE de style reconstruite par rect, pas l'appel de dessin.
 function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
   const pu = Math.max(1, Math.round(hw * 0.055));    // « pixel » d'art (suit le zoom)
   // Sous-point (fx,fy)∈cellule → écran depuis le coin nord (projection linéaire :
@@ -280,6 +302,97 @@ if (typeof window !== 'undefined') {
     return { ...GRASS_DETAIL };
   };
 }
+// ── Bruit de valeur LISSÉ (interp. bilinéaire de hashs de grille, easing cubique)
+// en espace cellule : grandes plaques douces SANS couture (ni maillage par cellule
+// ni bord de bloc — les deux écueils déjà rencontrés). 0..1, stable par seed.
+// Sert au voile de nuance des sols urbains et aux prés de l'herbe (meadow).
+function smoothNoise(gx, gy, scale, salt) {
+  const x = gx / scale, y = gy / scale;
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = x - x0, fy = y - y0;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const h = (i, j) => (cmHash(salt + ':' + i + ':' + j) % 1000) / 1000;
+  return (h(x0, y0) * (1 - sx) + h(x0 + 1, y0) * sx) * (1 - sy)
+    + (h(x0, y0 + 1) * (1 - sx) + h(x0 + 1, y0 + 1) * sx) * sy;
+}
+
+// ── FRANGE D'HERBE (jonction herbe↔sol) ──────────────────────────────────────
+// L'escalier de losanges FRANC entre l'herbe et le sol urbain était la couture la
+// plus dure de la carte. Le long de chaque arête partagée herbe/sol, l'herbe MORD
+// désormais sur le sol : langues crantées profondes de 1..3 « pixels » d'art
+// (pas pu suivant le zoom, comme le tapis d'herbe), pointe assombrie (ourlet
+// d'ombre du gazon), trouées pour respirer, et quelques touffes debout à cheval
+// sur la lisière. Haché par cellule+arête → stable au rebake, aucun motif répété.
+// Ne s'applique QU'AUX sols urbain/terre (les dallages formels — place, parvis —
+// gardent leur bord franc voulu) et pas vers l'eau (le fleuve couvre en live).
+// Réglage live : __grassFringe(false) / ({depth,gapP,tuftP,flowerP,dark}).
+const GRASS_FRINGE = { on: true, depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 1 };
+const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
+const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
+function drawGrassFringeEdge(ctx, f, pu) {
+  const dxE = f.bx - f.ax, dyE = f.by - f.ay;
+  const len = Math.hypot(dxE, dyE);
+  const steps = Math.max(3, Math.round(len / pu));
+  const rect = (x, y, col) => { ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fillRect(x, y, pu, pu); };
+  for (let i = 0; i < steps; i += 1) {
+    const h = cmHash(f.seed + ':' + i);
+    if ((h & 255) / 255 < GRASS_FRINGE.gapP) continue;         // trouée : la lisière respire
+    const t = (i + 0.5) / steps;
+    const ex = f.ax + dxE * t, ey = f.ay + dyE * t;
+    const d = Math.max(1, Math.round((1 + ((h >>> 8) % 3)) * GRASS_FRINGE.depth));
+    for (let j = 0; j < d; j += 1) {
+      const bx = Math.round(ex + f.inx * (j + 0.5) * pu - pu / 2);
+      const by = Math.round(ey + f.iny * (j + 0.5) * pu - pu / 2);
+      const col = (j === d - 1 && GRASS_FRINGE.dark) ? GF_DARK
+        : (((h >> (10 + j)) & 3) === 0 ? GF_MID : GRASS);
+      rect(bx, by, col);
+    }
+    // Touffe debout occasionnelle, à cheval sur la lisière : brins sombres à
+    // pointe claire (mêmes tons que le tapis d'herbe → aucun accent nouveau).
+    if ((h % 997) / 997 < GRASS_FRINGE.tuftP) {
+      const nB = 2 + ((h >> 16) & 1);
+      const bh = 2 * pu + ((h >> 17) & 1) * pu;
+      for (let k = 0; k < nB; k += 1) {
+        const bxi = Math.round(ex + (k - (nB - 1) / 2) * (pu + 1));
+        const jh = bh - ((h >> (18 + k)) & 1) * pu;
+        ctx.fillStyle = `rgb(${GD_BLADE[0]},${GD_BLADE[1]},${GD_BLADE[2]})`;
+        ctx.fillRect(bxi, Math.round(ey - jh), pu, jh);   // corps du brin
+        rect(bxi, Math.round(ey - jh), GD_TIP);           // pointe claire
+      }
+    }
+  }
+  // FLEURS DE LISIÈRE (retour Raph 2026-07-16 : « rajoute des petites fleurs ») :
+  // pâquerettes & accents de la palette du tapis (GD_FLOWERS, blanc/jaune
+  // dominants), posés à cheval sur la lisière, surtout côté herbe — une
+  // guirlande discrète qui souligne le bord. 2e boucle : dessinées APRÈS les
+  // langues pour qu'un pas voisin ne rogne pas leurs pétales.
+  if (GRASS_FRINGE.flowerP > 0) {
+    for (let i = 0; i < steps; i += 1) {
+      const hf = cmHash(f.seed + ':fl:' + i);
+      if ((hf & 1023) / 1023 >= GRASS_FRINGE.flowerP) continue;
+      const t = (i + 0.5) / steps;
+      const off = (((hf >> 10) & 3) - 2) * pu;          // −2pu (herbe) .. +1pu (langue)
+      const cx = Math.round(f.ax + dxE * t + f.inx * off);
+      const cy = Math.round(f.ay + dyE * t + f.iny * off);
+      const fl = GD_FLOWERS[(hf >>> 12) % GD_FLOWERS.length];   // ⚠ >>> : un >> signé rendait l'index négatif
+      rect(cx - pu, cy, fl[0]); rect(cx + pu, cy, fl[0]);
+      rect(cx, cy - pu, fl[0]); rect(cx, cy + pu, fl[0]);
+      rect(cx, cy, fl[1]);
+    }
+  }
+}
+if (typeof window !== 'undefined') {
+  // Frange d'herbe : __grassFringe(false) éteint ; ({depth,gapP,tuftP,flowerP,dark})
+  // réglage fin ; sans argument = rallume. Rebake immédiat.
+  window.__grassFringe = (arg) => {
+    if (arg === false) GRASS_FRINGE.on = false;
+    else if (arg && typeof arg === 'object') { GRASS_FRINGE.on = true; Object.assign(GRASS_FRINGE, arg); }
+    else GRASS_FRINGE.on = true;
+    CM._isoGroundBake = null;
+    return { ...GRASS_FRINGE };
+  };
+}
+
 // ── Sol urbain : MATIÈRE par âge (terre → pavé → dalles → béton → tech) ───────
 // DA Raph 2026-07-12 : sol urbain « différent à chaque ère », CALME MAIS LISIBLE.
 // Procédural (pas de tuile → pas de tiling comme l'herbe), posé dans le bake, dans
@@ -301,7 +414,13 @@ const URBAN_MATS = [
   { tone: [86, 94, 116], type: 'tech', seam: [130, 210, 220], tile: 'ground-tech' },    // 8 stellaire
   { tone: [80, 90, 118], type: 'tech', seam: [150, 224, 232], tile: 'ground-tech' },    // 9 démiurge
 ];
-const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true };   // band≠null = force ère (preview) ; tiles=false → procédural
+// tileA/tileJit : DOSAGE de la tuile de matière « terre » — alpha = tileA +
+// bruit LISSÉ × tileJit (la densité de cailloux respire en plaques CONTINUES ;
+// pleine partout elle se répétait en tapis criard, et hachée PAR CELLULE elle
+// faisait un damier de losanges — deux retours Raph). noiseAmp : VOILE DE
+// NUANCE par bruit lissé — essayé à 0.3, coupé le 2026-07-16 (retour Raph :
+// « retire les plaques grises sur le sol ») ; reste un knob.
+const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA: 0.45, tileJit: 0.3, noiseAmp: 0 };   // band≠null = force ère (preview) ; tiles=false → procédural
 function urbanMatFor(band) {
   const b = URBAN_DETAIL.band != null ? URBAN_DETAIL.band : band;
   return URBAN_MATS[Math.max(0, Math.min(URBAN_MATS.length - 1, b | 0))];
@@ -357,7 +476,9 @@ function drawUrbanDetail(ctx, gx, gy, px, py, hw, hh, mat) {
 }
 if (typeof window !== 'undefined') {
   // Molette sol urbain : __groundMat(false) off ; (nombre)=intensité ; ({band:3})
-  // force une ère pour l'aperçu ; ({mult,band}) réglage fin. Rebake immédiat.
+  // force une ère pour l'aperçu ; ({mult,band,tileA,tileJit,noiseAmp}) réglage fin
+  // (tileA/tileJit = dose de la trame terre par cellule ; noiseAmp = voile de
+  // nuance en plaques lissées). Rebake immédiat.
   window.__groundMat = (arg) => {
     if (arg === false) URBAN_DETAIL.on = false;
     else if (typeof arg === 'number') { URBAN_DETAIL.on = true; URBAN_DETAIL.mult = arg; }
@@ -385,20 +506,126 @@ const ROAD_MATS = [
 ];
 // tiles=false par défaut : route LISSE (ruban plat roadTone) — pas de tuile à gros
 // motif. Les tuiles road-* restent dispo via __roadMat({tiles:true}) si un jour besoin.
-const ROAD_DETAIL = { on: true, tiles: false, band: null };   // band≠null = force ère (preview)
+// shoulderMix/shoulderV : ÉPAULEMENT (le liseré qui cerne la chaussée) = mélange
+// sol↔route un peu assombri, au lieu de la route en sombre — la rue s'assoit dans
+// le sol de l'ère au lieu d'avoir l'air tamponnée dessus. mix = part de route
+// dans le mélange (0..1), v = assombrissement du résultat.
+// edgeFringe : FRANGE DE CHAUSSÉE (jonction route↔sol) — multiplicateur global
+// du crantage des bords du ruban. ESSAYÉ à 1 puis COUPÉ le 2026-07-16 (retour
+// Raph immédiat : « oula non ça ne va pas du tout » — les bords rongés + les
+// gravillons salissaient la route). 0 = bords géométriques nets ; reste un knob.
+// groove/grooveA : GORGE — fine ombre de contact qui cerne la dalle (largeur en
+// fraction de tuile, alpha) → la rue s'assoit DANS le sol (grammaire « route en
+// creux » des rues top-down), sans toucher au bord net de la dalle.
+// feather/featherA : OURLET — bande de fondu au-delà de l'épaulement (même teinte
+// en alpha) → la jonction épaulement→sol n'a plus de 2e arête dure.
+const ROAD_DETAIL = {
+  on: true, tiles: false, band: null, shoulderMix: 0.55, shoulderV: 0.92, edgeFringe: 0,
+  groove: 0.03, grooveA: 0.28, feather: 0.05, featherA: 0.4,
+};   // band≠null = force ère (preview)
+// ── FRANGE DE CHAUSSÉE : même grammaire que la lisière d'herbe, entre la dalle
+// et son épaulement — l'épaulement MORD sur le bord du ruban par petits blocs
+// (1..2 pu, deux tons), et la matière de la route s'égrène en GRAVILLONS épars
+// sur l'épaulement. Le bord parfaitement géométrique faisait « route tamponnée » ;
+// cranté, il fait chemin qui vit avec son sol. Intensité PAR ÈRE (roadFringeK) :
+// terre battue très effrangée → pavé/dalle un peu → asphalte à peine → tech NETTE
+// (une voie high-tech aux bords rongés ne se lit pas). Bake seulement, hash par
+// arête+pas (stable, continu de cellule en cellule — rien « par cellule »).
+function roadFringeK(band) {
+  return band >= 7 ? 0 : band >= 6 ? 0.5 : band >= 2 ? 0.75 : 1;
+}
+function drawRoadEdgeFringe(ctx, seg, pu, biteCol, biteCol2, spillCol, k) {
+  const dxE = seg.bx - seg.ax, dyE = seg.by - seg.ay;
+  const len = Math.hypot(dxE, dyE);
+  if (len < pu * 2) return;
+  const steps = Math.max(2, Math.round(len / pu));
+  for (let i = 0; i < steps; i += 1) {
+    const h = cmHash(seg.seed + ':' + i);
+    const t = (i + 0.5) / steps;
+    const ex = seg.ax + dxE * t, ey = seg.ay + dyE * t;
+    // Morsure de l'épaulement sur la dalle (vers l'INTÉRIEUR du ruban).
+    if ((h & 255) / 255 < 0.6 * k) {
+      const d = 1 + ((h >>> 8) % 2);
+      for (let j = 0; j < d; j += 1) {
+        ctx.fillStyle = ((h >>> (10 + j)) & 1) ? biteCol : biteCol2;
+        ctx.fillRect(Math.round(ex - seg.ox * (j + 0.5) * pu - pu / 2), Math.round(ey - seg.oy * (j + 0.5) * pu - pu / 2), pu, pu);
+      }
+    }
+    // Gravillons égrenés vers l'EXTÉRIEUR (sur l'épaulement, un peu au-delà).
+    if (((h >>> 16) & 255) / 255 < 0.3 * k) {
+      const dOut = 1 + ((h >>> 24) & 1);
+      ctx.fillStyle = spillCol;
+      ctx.fillRect(Math.round(ex + seg.ox * (dOut + 0.2) * pu - pu / 2), Math.round(ey + seg.oy * (dOut + 0.2) * pu - pu / 2), pu, pu);
+    }
+  }
+}
 function roadMatFor(band) {
   const b = ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band;
   return ROAD_MATS[Math.max(0, Math.min(ROAD_MATS.length - 1, b | 0))];
 }
 if (typeof window !== 'undefined') {
+  // Molette chaussée : __roadMat(false) off ; ({tiles,band,shoulderMix,shoulderV,
+  // groove,grooveA,feather,featherA,edgeFringe}) réglage fin (shoulder* = teinte
+  // de l'épaulement ; groove* = gorge d'ombre au contact de la dalle ; feather* =
+  // ourlet de fondu épaulement→sol ; edgeFringe = crantage rejeté, 0). Rebake immédiat.
   window.__roadMat = (arg) => {
     if (arg === false) ROAD_DETAIL.on = false;
     else if (arg && typeof arg === 'object') { ROAD_DETAIL.on = true; Object.assign(ROAD_DETAIL, arg); }
     else ROAD_DETAIL.on = true;
+    syncIsoStreetGeom();   // la gorge participe à la géométrie publiée aux agents
     CM._isoGroundBake = null;
     return { ...ROAD_DETAIL };
   };
 }
+// ── TROTTOIRS ISO (« un vrai trottoir », Raph 2026-07-16, dès l'ère bourg) ────
+// Sur les cellules-route URBAINES à band ≥ minBand, l'épaulement+ourlet de
+// terre cède la place à un trottoir CONSTRUIT : BORDURE claire le long de la
+// dalle (la gorge d'ombre reste entre les deux = caniveau), BANDE de dalles
+// claires (ton urbain de l'ère éclairci → chaque ère a son trottoir), JOINTS
+// transversaux discrets espacés en coordonnées MONDE (continus de cellule en
+// cellule), et LISERÉ de joint sombre au raccord avec le sol — un trottoir est
+// bâti : bord extérieur NET, pas de fondu. Les routes de campagne (hors
+// urbanSet) gardent épaulement + ourlet. Tout en passes-union, rien par cellule.
+// Réglage live : __sidewalkIso(false | { minBand, w, curb, joint, slabs, slabA,
+// lightK, curbK, jointK }).
+const SIDEWALK_ISO = {
+  on: true, minBand: 2,
+  w: 0.22,        // largeur totale bordure+trottoir (fraction de tuile, depuis la dalle) — 0.18→0.22 avec la chaussée 0.25 (« trottoirs plus larges »)
+  curb: 0.03,     // largeur de la bordure claire
+  joint: 0.02,    // liseré de joint au raccord trottoir→sol
+  slabs: 0.4,     // espacement MONDE des joints transversaux (fraction de tuile)
+  slabA: 0.12,    // alpha des joints transversaux (0 = trottoir lisse)
+  lightK: 1.10, curbK: 1.12, jointK: 0.78,   // tons dérivés du sol urbain de l'ère
+};
+// GÉOMÉTRIE DE RUE publiée aux AGENTS (agents.js ne peut pas importer ce module :
+// import inverse). Les piétons et véhicules marchent/roulent sur la géométrie que
+// le renderer DESSINE — une seule source de vérité, resynchronisée quand une
+// molette change la rue. En tuiles (fractions), consommé quand CM.iso est actif :
+//   isoVehLane      — centre de voie = demi-chaussée / 2 (conduite à droite) ;
+//   isoPedEdge      — milieu de la bande de trottoir (ères à trottoir) ;
+//   isoPedEdgeLow   — ligne d'accotement (ères de terre, avant les trottoirs) ;
+//   isoPedSpread    — demi-étalement PERSONNEL des piétons dans la bande ;
+//   isoSidewalkMinBand — première ère à trottoir.
+function syncIsoStreetGeom() {
+  const bandW = SIDEWALK_ISO.w - ROAD_DETAIL.groove - SIDEWALK_ISO.curb;   // largeur visible de la bande
+  CM.isoVehLane = ROAD_BAND / 2;
+  CM.isoPedEdge = ROAD_BAND + ROAD_DETAIL.groove + SIDEWALK_ISO.curb + bandW / 2;
+  CM.isoPedEdgeLow = ROAD_BAND + 0.09;
+  CM.isoPedSpread = Math.max(0, bandW * 0.3);
+  CM.isoSidewalkMinBand = SIDEWALK_ISO.minBand;
+}
+syncIsoStreetGeom();
+if (typeof window !== 'undefined') {
+  window.__sidewalkIso = (arg) => {
+    if (arg === false) SIDEWALK_ISO.on = false;
+    else if (arg && typeof arg === 'object') { SIDEWALK_ISO.on = true; Object.assign(SIDEWALK_ISO, arg); }
+    else SIDEWALK_ISO.on = true;
+    syncIsoStreetGeom();
+    CM._isoGroundBake = null;
+    return { ...SIDEWALK_ISO };
+  };
+}
+
 // ── PARVIS DES MERVEILLES : sol dédié de l'emprise (L.wonderGround) ───────────
 // Demande Raph 2026-07-13 : la grande zone réservée d'une merveille (dès le
 // rang I) doit se LIRE comme une PLACE, pas comme du sol urbain ordinaire — et
@@ -463,50 +690,128 @@ if (typeof window !== 'undefined') {
     return { ...WONDER_GROUND };
   };
 }
+// BAKE ALLÉGÉ (posé par drawIsoWorld le temps d'un geste) : on garde ce qui porte
+// la LECTURE de la carte (aplats de sol, rubans de chaussée, marquages) et on saute
+// les détails fins — touffes/fleurs/prés, frange d'herbe, textures de tuiles, trame
+// de matière urbaine + voile, joints de trottoir, frange de chaussée. ~4× moins
+// cher (ils pèsent ~75 % de la recuisson) → un pan hors marge tient en ~1 frame au
+// lieu de figer. Le bake plein reprend la main dès l'arrêt (~160 ms).
+const ISO_GROUND_LOD = { on: false };
 function drawIsoGround() {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
+  const LOD = ISO_GROUND_LOD.on;
   const hw = T * z * ISO_X;            // demi-largeur du losange
   const hh = T * z * ISO_Y;            // demi-hauteur
   const b = visibleCellBounds(hw * 2);
+  // Profileur opt-in (globalThis.__isoGroundProfile = true) — même idiome que
+  // __layoutProfile : coût nul éteint, phases en ms dans __isoGroundProfileLast.
+  const PR = globalThis.__isoGroundProfile
+    ? { n: 0, flat: 0, tiles: 0, grass: 0, cells: 0, fringe: 0, roads: 0, median: 0, total: 0, t0: performance.now() }
+    : null;
   const band = (L.counts && L.counts.eraBand) | 0;
   const mat = urbanMatFor(band), urb = mat.tone;
   const road = roadTone(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band);   // honore le forçage d'aperçu
   const riverCells = (L.river && L.river.present && L.river.cells) || null;
   const roadMap = L.roadMap;
   const roads = [];                    // cellules-route de la passe (rubans après le fond)
+  const fringes = [];                  // arêtes herbe↔sol de la passe (frange après le fond)
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;   // parvis des merveilles
+  // Résolution du TYPE de sol par cellule, MÉMOÏSÉE : le même verdict sert au
+  // fond ET aux tests de voisinage de la frange d'herbe (aucune divergence
+  // possible). kind = tuile PixelLab ; le ton d'aplat s'en déduit. L'EAU n'est
+  // pas peinte ici : le fleuve est un RUBAN LIVE lissé par-dessus le bake
+  // (drawIsoRiver) — le sol sous l'eau reste de l'herbe (berges douces).
+  // Quand la SCÈNE de place de l'ère est décodée, la dalle claire disparaît
+  // (la scène porte son propre dallage — l'ancienne dalle dépassait autour,
+  // retour Raph) : les cellules plaza redeviennent du sol urbain calme.
+  const plazaEra = plazaEraForBand(band);
+  const plazaSceneReady = !!(plazaEra && isoArt('plaza-' + plazaEra).ready);
+  const kinds = new Map();
+  const kindAt = (gx, gy) => {
+    const key = gx + ',' + gy;
+    const hit = kinds.get(key);
+    if (hit !== undefined) return hit;
+    let k;
+    const isRoad = L.roadSet.has(key);
+    const cell = isRoad && roadMap ? roadMap.get(key) : null;
+    const isBridge = !!(cell && cell.roadSurface === 'bridge');
+    const isWater = !!(riverCells && riverCells.has(key));
+    if (cell && cell.rank === 'plaza') k = plazaSceneReady ? 'urban' : 'plaza';   // ⚠ piège places-dans-roadSet
+    // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
+    // garde la priorité — le ruban du fleuve passe dessus, berges douces).
+    else if (!isWater && wg && wg.has(key)) k = 'wonder';
+    else if (!isWater && ((isRoad && !isBridge) || (L.urbanSet && L.urbanSet.has(key)))) {
+      k = (L.urbanSet && L.urbanSet.has(key)) ? 'urban' : 'dirt';
+    } else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
+      && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
+        || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
+      // QUAI-LITE : une berge qui touche le tissu urbain se pave (berge bâtie) —
+      // esquisse des quais legacy ; le vrai quai par ère viendra avec l'art Phase 5.
+      k = 'urban';
+    } else k = 'grass';   // teinte UNIFORME (couture in-grid/sauvage retirée)
+    kinds.set(key, k);
+    return k;
+  };
+  // Voisin d'herbe « frangeable » : de l'herbe FERME — pas une cellule d'eau
+  // (peinte herbe mais recouverte en live par le ruban du fleuve : une frange
+  // là-dessous ressortirait sur les quais).
+  const grassAt = (gx, gy) => kindAt(gx, gy) === 'grass' && !(riverCells && riverCells.has(gx + ',' + gy));
+  // VOILES D'HERBE REMISÉS PAR PALIER D'ALPHA. Les deux voiles (prés clair/foncé,
+  // ombre sauvage) faisaient un fill de losange PAR cellule d'herbe : jusqu'à 2 ×
+  // ~9 000 fills = 57 % de la recuisson (mesuré). On accumule les losanges par
+  // (famille, alpha quantifié au 1/256) et on les vide en fills d'UNION par
+  // paquets → une poignée de fills. Losanges DISJOINTS → l'union nonzero rend
+  // identique (aucun double-alpha), et le pas d'alpha 1/256 est sous le seuil
+  // perceptible sur un voile à alpha ≤ 0,1.
+  const VEIL_COL = [[24, 38, 16], [214, 226, 150], [26, 36, 18]];
+  const veil = [new Map(), new Map(), new Map()];
+  const grassCells = [];               // (gx, gy, px, py) à plat — fleurs différées
+  const veilPush = (fam, a, px, py) => {
+    const q = Math.min(255, Math.max(1, Math.round(a * 255)));
+    const m = veil[fam];
+    const arr = m.get(q);
+    if (arr) arr.push(px, py); else m.set(q, [px, py]);
+  };
+  const flushVeils = () => {
+    for (let f = 0; f < 3; f += 1) {
+      const c = VEIL_COL[f];
+      for (const [q, arr] of veil[f]) {
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(q / 255).toFixed(3)})`;
+        let n = 0;
+        ctx.beginPath();
+        for (let i = 0; i < arr.length; i += 2) {
+          diamondPath(ctx, arr[i], arr[i + 1], hw, hh);
+          n += 1;
+          if (n >= 256) { ctx.fill(); ctx.beginPath(); n = 0; }   // bbox locale (cf. joints)
+        }
+        if (n) ctx.fill();
+      }
+    }
+  };
   ctx.save();
   ctx.lineJoin = 'round';
+  // FOND D'HERBE UNIQUE : l'herbe (l'écrasante majorité des cellules — toute la
+  // plaine hors ville) n'est plus remplie losange par losange mais en UN fillRect
+  // sous tout le viewport (les bornes b projettent toujours un sur-ensemble de
+  // l'écran, cf. visibleCellBounds). Les cellules d'herbe sautent leur aplat
+  // par cellule ; un fond continu n'a par construction AUCUNE couture entre
+  // cellules d'herbe, et les sols urbains repeignent par-dessus (leur liseré
+  // anti-couture inchangé). L'eau reste peinte herbe (berges douces, cf. kindAt).
+  ctx.fillStyle = rgb(GRASS, 1);
+  ctx.fillRect(0, 0, CM.cw, CM.ch);
+  const tLoop = PR && performance.now();
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
+      if (PR) PR.n += 1;
       const key = gx + ',' + gy;
       const isRoad = L.roadSet.has(key);
       const cell = isRoad && roadMap ? roadMap.get(key) : null;
       const isPlaza = !!(cell && cell.rank === 'plaza');       // ⚠ piège places-dans-roadSet
       const isBridge = !!(cell && cell.roadSurface === 'bridge');
       const isWater = !!(riverCells && riverCells.has(key));
-      const isUrban = (isRoad && !isBridge) || (L.urbanSet && L.urbanSet.has(key));
-      // kind = tuile PixelLab ; tone = repli aplat tant que le PNG n'est pas prêt.
-      // L'EAU n'est plus peinte ici : le fleuve est un RUBAN LIVE lissé par-dessus
-      // le bake (drawIsoRiver) — le sol sous l'eau reste de l'herbe (berges douces).
-      let kind, tone;
-      // Quand la SCÈNE de place de l'ère est décodée, la dalle claire disparaît
-      // (la scène porte son propre dallage — l'ancienne dalle dépassait autour,
-      // retour Raph) : les cellules plaza redeviennent du sol urbain calme.
-      const plazaSceneUp = isPlaza && plazaEraForBand(band) && isoArt('plaza-' + plazaEraForBand(band)).ready;
-      if (isPlaza && !plazaSceneUp) { kind = 'plaza'; tone = PLAZA; }
-      else if (plazaSceneUp) { kind = 'urban'; tone = urb; }
-      // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
-      // garde la priorité — le ruban du fleuve passe dessus, berges douces).
-      else if (!isWater && wg && wg.has(key)) { kind = 'wonder'; tone = WONDER_GROUND.tone; }
-      else if (isUrban && !isWater) { kind = (L.urbanSet && L.urbanSet.has(key)) ? 'urban' : 'dirt'; tone = urb; }
-      else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
-        && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
-          || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
-        // QUAI-LITE : une berge qui touche le tissu urbain se pave (berge bâtie) —
-        // esquisse des quais legacy ; le vrai quai par ère viendra avec l'art Phase 5.
-        kind = 'urban'; tone = urb;
-      } else { kind = 'grass'; tone = GRASS; }   // teinte UNIFORME (couture in-grid/sauvage retirée)
+      const kind = kindAt(gx, gy);
+      const tone = kind === 'plaza' ? PLAZA : kind === 'wonder' ? WONDER_GROUND.tone
+        : kind === 'grass' ? GRASS : urb;
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
       const mir = ((cmHash(key) >>> 3) & 1) === 1;
       // Dosage par matière : l'URBAIN reste un aplat CALME avec un simple GRAIN de
@@ -521,20 +826,17 @@ function drawIsoGround() {
       const texAlpha = kind === 'urban' ? 0 : kind === 'dirt' ? 0.5
         : kind === 'wonder' ? WONDER_GROUND.tileAlpha
           : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
-      const tile = kind ? ensureIsoTile(kind) : null;
+      const tile = (kind && !LOD) ? ensureIsoTile(kind) : null;
       const tileReady = !!(tile && tile.ready);
-      if (!tileReady || texAlpha < 1) {
-        // Aplat (repli OU sous-couche du grain) : variance douce stable par seed,
-        // MODULÉE PAR ÎLOT (blocs ~6×6) — retour Raph « sols très plats » : le
-        // patchwork de quartiers casse la grande nappe uniforme.
-        const blockV = 0.95 + ((cmHash('blk:' + (gx >> 2) + ':' + (gy >> 2)) % 100) / 100) * 0.1;
-        // Herbe = aplat STRICTEMENT uni (v=1) : la variation par cellule dessinait un
-        // maillage de losanges visibles (« on voit les cases »). Autres sols inchangés.
-        // Parvis = DAMIER régulier 2 teintes (dallage voulu, pas du bruit) : ni
-        // variance par cellule ni patchwork d'îlot — une esplanade est dessinée d'un trait.
-        const v = kind === 'grass' ? 1
-          : kind === 'wonder' ? (((gx + gy) & 1) ? 1 : 1 - WONDER_GROUND.checker)
-            : (0.96 + ((cmHash(key) % 100) / 100) * 0.08) * (kind === 'urban' ? blockV : 1);
+      if (kind !== 'grass' && (!tileReady || texAlpha < 1)) {
+        const tF = PR && performance.now();
+        // Aplat STRICTEMENT UNI (v=1) pour TOUS les sols : le jitter par cellule,
+        // même ±3 %, ressortait en damier de losanges (« il reste des plaques »,
+        // Raph 2026-07-16 — même écueil que l'herbe jadis : toute variation par
+        // CELLULE montre la grille). La vie vient de motifs CONTINUS (trame de
+        // cailloux à densité lissée, frange, fleurs), jamais d'un ton par cellule.
+        // Seule exception : le parvis, DAMIER régulier 2 teintes (dallage voulu).
+        const v = kind === 'wonder' ? (((gx + gy) & 1) ? 1 : 1 - WONDER_GROUND.checker) : 1;
         ctx.fillStyle = rgb(tone, v);
         diamondPath(ctx, p.x, p.y, hw, hh);
         ctx.fill();
@@ -542,48 +844,98 @@ function drawIsoGround() {
         ctx.strokeStyle = ctx.fillStyle;
         ctx.lineWidth = 1;
         ctx.stroke();
-        // Usure éparse : petite tache sombre sur ~1 cellule urbaine sur 9 (plaque,
-        // regard, réparation) — brise la platitude sans bruit systématique.
-        if (kind === 'urban' && !isRoad && (cmHash('wear:' + key) % 9) === 0) {
-          ctx.fillStyle = 'rgba(40,38,30,0.14)';
-          const wx0 = (gx + 0.3 + ((cmHash('wx:' + key) % 40) / 100)) * T;
-          const wy0 = (gy + 0.3 + ((cmHash('wy:' + key) % 40) / 100)) * T;
-          const q = worldToScreen(wx0, wy0);
-          ctx.beginPath();
-          ctx.ellipse(q.x, q.y, hw * 0.3, hh * 0.3, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        // (Usure éparse RETIRÉE le 2026-07-16 — les ellipses sombres, quasi
+        // invisibles sous la trame pleine, ressortaient en « plaques grises »
+        // depuis que la trame terre est dosée. Retour Raph : les retirer.)
+        if (PR) PR.flat += performance.now() - tF;
       }
       if (tileReady) {
+        const tT = PR && performance.now();
         if (texAlpha < 1) ctx.globalAlpha = texAlpha;
         blitIsoTile(ctx, kind, p.x, p.y, hw, mir);
         if (texAlpha < 1) ctx.globalAlpha = 1;
+        if (PR) PR.tiles += performance.now() - tT;
       }
       // Herbe : variation de prairie + tapis vivant (touffes/speckle/fleurs) PAR-DESSUS
       // la base. La variation est INDÉPENDANTE de la grille (fini la couture dure
       // in-grid↔sauvage révélée en calmant la tuile) : plaques douces via un hash de
       // bloc ~4 cellules, biaisé clair (nz²) → alpha faible, pas de bord franc.
-      if (kind === 'grass') {
+      if (kind === 'grass' && !LOD) {
+        const tG = PR && performance.now();
+        // PRÉS (meadow) : plaques lentes foncé/clair par bruit LISSÉ — aucune
+        // couture (ni maillage par cellule ni bord de bloc). Foncé = herbe
+        // grasse, clair = herbe sèche. __grassDetail({ meadow: 0 }) pour couper.
+        // Les deux voiles ne sont PAS peints ici : un fill de losange par cellule
+        // d'herbe (jusqu'à 2 × ~9 000) pesait 57 % de la recuisson. On les REMISE
+        // par PALIER D'ALPHA (cf. veilBuckets) → une poignée de fills d'union en
+        // fin de passe, même rendu (losanges disjoints, alpha quantifié au 1/256
+        // — sous le seuil perceptible sur un voile à alpha ≤ 0,1).
+        if (GRASS_DETAIL.meadow > 0) {
+          const nzm = smoothNoise(gx, gy, 6, 'mead2') - 0.5;
+          const am = Math.abs(nzm) * GRASS_DETAIL.meadow;
+          // Seuil sur `am` pour les DEUX (le clair sortait déjà à am*0.8) : gate inchangé.
+          if (am > 0.012) veilPush(nzm < 0 ? 0 : 1, nzm < 0 ? am : am * 0.8, p.x, p.y);
+        }
         if (GRASS_DETAIL.wildShade > 0) {
           const nz = (cmHash('mead:' + (gx >> 2) + ':' + (gy >> 2)) % 100) / 100;
           const a = GRASS_DETAIL.wildShade * nz * nz;
-          if (a > 0.015) {
-            ctx.fillStyle = `rgba(26,36,18,${a.toFixed(3)})`;
-            diamondPath(ctx, p.x, p.y, hw, hh);
-            ctx.fill();
-          }
+          if (a > 0.015) veilPush(2, a, p.x, p.y);
         }
-        if (GRASS_DETAIL.on) drawGrassDetail(ctx, gx, gy, p.x, p.y, hw, hh);
+        if (GRASS_DETAIL.on) grassCells.push(gx, gy, p.x, p.y);   // fleurs après les voiles
+        if (PR) PR.grass += performance.now() - tG;
       }
       // Sol urbain : tuile PixelLab de l'ère (par-dessus l'aplat, miroir anti-répétition)
       // si le PNG est prêt ; sinon repli sur le motif procédural (joints/cailloux).
-      if (kind === 'urban' && URBAN_DETAIL.on) {
-        const drew = URBAN_DETAIL.tiles && mat.tile && blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir);
+      // TERRE BATTUE : la tuile posée PLEINE sur chaque cellule tapissait la ville
+      // d'une trame de cailloux répétée — on la DOSE par cellule (alpha tileA
+      // + part hachée tileJit, et ~1 cellule sur 4 « calme » qui garde seulement
+      // 2-3 cailloux procéduraux épars) → une terre qui respire.
+      if (kind === 'urban' && URBAN_DETAIL.on && !LOD) {
+        let drew = false;
+        if (URBAN_DETAIL.tiles && mat.tile) {
+          if (mat.type === 'earth') {
+            // Alpha modulé par bruit LISSÉ (voisines quasi égales → aucun damier) :
+            // la densité de cailloux RESPIRE en grandes plaques continues. Les
+            // cellules « calmes » (trou 1/4 par hash) et l'alpha haché par cellule
+            // de la v2 ressortaient en losanges clairs/foncés (« il reste des
+            // plaques », Raph) — plus aucune valeur par cellule.
+            ctx.globalAlpha = Math.min(1, URBAN_DETAIL.tileA + smoothNoise(gx, gy, 4, 'peb') * URBAN_DETAIL.tileJit);
+            drew = blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir);
+            ctx.globalAlpha = 1;
+          } else {
+            drew = blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir);
+          }
+        }
         if (!drew) drawUrbanDetail(ctx, gx, gy, p.x, p.y, hw, hh, mat);
+      }
+      // VOILE DE NUANCE (sols urbain/terre) : plaques lentes foncé/clair par
+      // bruit lissé, PAR-DESSUS aplat ET trame (sous une tuile opaque il serait
+      // invisible) — la grande nappe de terre n'est plus un aplat monotone.
+      // __groundMat({ noiseAmp: 0 }) pour couper.
+      if ((kind === 'urban' || kind === 'dirt') && URBAN_DETAIL.noiseAmp > 0 && !LOD) {
+        const nzv = smoothNoise(gx, gy, 5, 'veil') - 0.5;
+        const av = Math.abs(nzv) * URBAN_DETAIL.noiseAmp;
+        if (av > 0.012) {
+          ctx.fillStyle = nzv < 0 ? `rgba(52,40,26,${av.toFixed(3)})` : `rgba(255,240,212,${(av * 0.85).toFixed(3)})`;
+          diamondPath(ctx, p.x, p.y, hw, hh);
+          ctx.fill();
+        }
       }
       // Parvis : bordure de pourtour (+ joints de dalles tant que la tuile n'est
       // qu'un voile — elles portent la structure du dallage ; tuile PLEINE = motif à elle).
       if (kind === 'wonder') drawWonderGroundDetail(ctx, gx, gy, p.x, p.y, hw, hh, wg, tileReady && texAlpha >= 1);
+      // Frange d'herbe : mémorise chaque arête sol↔herbe de cette cellule — la
+      // frange se dessine APRÈS le fond (elle mord sur des voisins déjà peints,
+      // quel que soit l'ordre de balayage). Sols urbain/terre seulement : les
+      // dallages formels (place, parvis) gardent leur bord franc voulu.
+      if (GRASS_FRINGE.on && !LOD && (kind === 'urban' || kind === 'dirt')) {
+        const inL = 1 / Math.hypot(hw, hh);          // vecteur rentrant normalisé (±hw,±hh)
+        const ixn = hw * inL, iyn = hh * inL;
+        if (grassAt(gx, gy - 1)) fringes.push({ ax: p.x, ay: p.y, bx: p.x + hw, by: p.y + hh, inx: -ixn, iny: iyn, seed: 'gfr:n:' + key });
+        if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key });
+        if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key });
+        if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key });
+      }
       // Les cellules-PONT ne reçoivent ni fond ni ruban ici : leur tablier est
       // dessiné APRÈS le fleuve (drawIsoBridges), au-dessus de l'eau. Le PARVIS
       // non plus : ses routes sont carvées par le plan — le garde ne couvre que la
@@ -591,23 +943,215 @@ function drawIsoGround() {
       if (isRoad && !isPlaza && !isBridge && !isWater && !(wg && wg.has(key))) roads.push({ gx, gy, cell });
     }
   }
+  if (PR) PR.cells = performance.now() - tLoop;
+  // Voiles d'herbe puis FLEURS : même ordre qu'avant (voile sous fleur), mais en
+  // fills d'union groupés. Les motifs de drawGrassDetail tiennent dans leur
+  // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
+  const tV = PR && performance.now();
+  flushVeils();
+  for (let i = 0; i < grassCells.length; i += 4) {
+    drawGrassDetail(ctx, grassCells[i], grassCells[i + 1], grassCells[i + 2], grassCells[i + 3], hw, hh);
+  }
+  if (PR) PR.grass += performance.now() - tV;
+  // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
+  // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).
+  if (fringes.length) {
+    const tFr = PR && performance.now();
+    const puF = Math.max(1, Math.round(hw * 0.055));
+    for (const f of fringes) drawGrassFringeEdge(ctx, f, puF);
+    if (PR) PR.fringe = performance.now() - tFr;
+  }
   // Rubans de chaussée par-dessus le fond : pavé central + un bras vers chaque
   // connexion (rectangles MONDE projetés → parallélogrammes écran continus).
+  const tRd = PR && performance.now();
   const rmat = roadMatFor(band);
+  // Constantes de la passe route : teinte d'ÉPAULEMENT (mélange sol↔route un peu
+  // assombri — la rue s'assoit dans le sol au lieu d'avoir l'air tamponnée),
+  // tons de la FRANGE de chaussée (morsures = épaulement en 2 valeurs,
+  // gravillons = matière de la route) et intensité par ère (forçage d'aperçu honoré).
+  const shm = ROAD_DETAIL.shoulderMix, shv = ROAD_DETAIL.shoulderV;
+  const shTone = [0, 1, 2].map((i) => Math.round((urb[i] * (1 - shm) + road[i] * shm) * shv));
+  const shCol = `rgb(${shTone[0]},${shTone[1]},${shTone[2]})`;
+  const shCol2 = `rgb(${Math.round(shTone[0] * 0.9)},${Math.round(shTone[1] * 0.9)},${Math.round(shTone[2] * 0.9)})`;
+  const spillCol = rgb(road, 1);
+  const rfK = ROAD_DETAIL.on ? ROAD_DETAIL.edgeFringe * roadFringeK(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band) : 0;
+  const puR = Math.max(1, Math.round(hw * 0.055));
+  const wbR = T * ROAD_BAND, cbR = T * 0.05;
+  // COULOIRS FUSIONNÉS : même union que les 5 quads par cellule (pavé + bras
+  // selon le masque) mais en bandes MAXIMALES par ligne/colonne — beaucoup moins
+  // de sous-chemins, et chaque passe-union (ourlet, épaulement, joint, trottoir,
+  // bordure, gorge) rasterise d'autant plus vite (le par-cellule re-projetait
+  // ~5 quads × cellule × passe et dominait la recuisson du sol des mégapoles).
+  // Un couloir s'étend tant que les cellules sont contiguës ET mutuellement
+  // connectées (E↔W / S↔N) ; chaque bout s'arrête au bord de cellule si le bras
+  // existe (masque), au bord du pavé sinon — la géométrie des quads à
+  // l'identique, donc les couches en alpha ne marquent toujours aucune couture.
+  // Les couloirs verticaux de longueur 1 sans bras N/S sont sautés : leur pavé
+  // est déjà couvert par le couloir horizontal de la cellule.
+  const maskOf = (r2) => (r2.cell ? (r2.cell.mask | 0) : 0);
+  const buildRoadRuns = (list) => {
+    const rows = new Map(), cols = new Map();
+    for (const r2 of list) {
+      const a = rows.get(r2.gy); if (a) a.push(r2); else rows.set(r2.gy, [r2]);
+      const c = cols.get(r2.gx); if (c) c.push(r2); else cols.set(r2.gx, [r2]);
+    }
+    const h = [], v = [];
+    for (const [gy, a] of rows) {
+      a.sort((p2, q2) => p2.gx - q2.gx);
+      for (let i = 0; i < a.length;) {
+        let j = i;
+        while (j + 1 < a.length && a[j + 1].gx === a[j].gx + 1
+          && (maskOf(a[j]) & ROAD_E) && (maskOf(a[j + 1]) & ROAD_W)) j += 1;
+        h.push({ gy, g0: a[i].gx, g1: a[j].gx, s0: !!(maskOf(a[i]) & ROAD_W), s1: !!(maskOf(a[j]) & ROAD_E) });
+        i = j + 1;
+      }
+    }
+    for (const [gx, c] of cols) {
+      c.sort((p2, q2) => p2.gy - q2.gy);
+      for (let i = 0; i < c.length;) {
+        let j = i;
+        while (j + 1 < c.length && c[j + 1].gy === c[j].gy + 1
+          && (maskOf(c[j]) & ROAD_S) && (maskOf(c[j + 1]) & ROAD_N)) j += 1;
+        const n = !!(maskOf(c[i]) & ROAD_N), s = !!(maskOf(c[j]) & ROAD_S);
+        if (j > i || n || s) v.push({ gx, g0: c[i].gy, g1: c[j].gy, s0: n, s1: s });
+        i = j + 1;
+      }
+    }
+    return { h, v };
+  };
+  // Trace les couloirs à demi-largeur W, en sous-chemins du chemin courant.
+  const addRunQuads = (runs, W) => {
+    for (const s of runs.h) {
+      const cy2 = (s.gy + 0.5) * T;
+      pathWorldQuad(ctx, s.s0 ? s.g0 * T : (s.g0 + 0.5) * T - W, cy2 - W,
+        s.s1 ? (s.g1 + 1) * T : (s.g1 + 0.5) * T + W, cy2 + W);
+    }
+    for (const s of runs.v) {
+      const cx2 = (s.gx + 0.5) * T;
+      pathWorldQuad(ctx, cx2 - W, s.s0 ? s.g0 * T : (s.g0 + 0.5) * T - W,
+        cx2 + W, s.s1 ? (s.g1 + 1) * T : (s.g1 + 0.5) * T + W);
+    }
+  };
+  // ROUTE EN CREUX (jonction route↔sol) : couches concentriques autour de la
+  // dalle, chacune en passe-union. Deux habillages selon le tronçon :
+  //   - CAMPAGNE / premières ères (shRoads) : OURLET en fondu → ÉPAULEMENT plein
+  //     (le liseré validé) — la terre se dissout dans le sol.
+  //   - VILLE dès l'ère bourg (swRoads, band ≥ SIDEWALK_ISO.minBand et cellule
+  //     urbaine) : VRAI TROTTOIR construit — joint sombre au raccord du sol →
+  //     bande de dalles claires → joints transversaux → BORDURE claire.
+  // Dans les deux cas la GORGE sombre au contact de la dalle vient en dernier
+  // (route en creux / caniveau). La dalle garde son bord NET (crantage v4
+  // rejeté : une route se lit par son bord net). Tout est continu, rien par cellule.
+  const bandRoads = ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band;
+  const swOn = SIDEWALK_ISO.on && bandRoads >= SIDEWALK_ISO.minBand;
+  const swRoads = [], shRoads = [];
+  for (const r2 of roads) {
+    if (swOn && L.urbanSet && L.urbanSet.has(r2.gx + ',' + r2.gy)) swRoads.push(r2);
+    else shRoads.push(r2);
+  }
+  // Couloirs construits UNE fois par liste, rejoués à chaque passe (les largeurs
+  // varient, la topologie non). Union sh ∪ sw = union `roads` : un tronçon qui
+  // change de liste au bord urbain aboute ses bras au bord de cellule partagé.
+  const shRuns = buildRoadRuns(shRoads), swRuns = buildRoadRuns(swRoads);
+  const tU1 = PR && performance.now();
+  if (shRoads.length) {
+    if (ROAD_DETAIL.feather > 0 && ROAD_DETAIL.featherA > 0) {
+      ctx.beginPath();
+      addRunQuads(shRuns, wbR + cbR + T * ROAD_DETAIL.feather);
+      ctx.globalAlpha = ROAD_DETAIL.featherA;
+      ctx.fillStyle = shCol;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.beginPath();
+    addRunQuads(shRuns, wbR + cbR);
+    ctx.fillStyle = shCol;
+    ctx.fill();
+  }
+  if (PR) PR.roadsShoulder = performance.now() - tU1;
+  const tU2 = PR && performance.now();
+  if (swRoads.length) {
+    // Tons du trottoir dérivés du sol urbain de l'ère → chaque ère a le sien
+    // (bourg sable clair, béton gris clair, tech ardoise éclaircie…).
+    const swT = [0, 1, 2].map((i) => Math.min(255, Math.round(urb[i] * SIDEWALK_ISO.lightK + 6)));
+    const swCol = `rgb(${swT[0]},${swT[1]},${swT[2]})`;
+    const curbCol = `rgb(${Math.min(255, Math.round(swT[0] * SIDEWALK_ISO.curbK))},${Math.min(255, Math.round(swT[1] * SIDEWALK_ISO.curbK))},${Math.min(255, Math.round(swT[2] * SIDEWALK_ISO.curbK))})`;
+    const jointCol = `rgb(${Math.round(swT[0] * SIDEWALK_ISO.jointK)},${Math.round(swT[1] * SIDEWALK_ISO.jointK)},${Math.round(swT[2] * SIDEWALK_ISO.jointK)})`;
+    const swOut = wbR + T * SIDEWALK_ISO.w;
+    ctx.beginPath();
+    addRunQuads(swRuns, swOut + T * SIDEWALK_ISO.joint);
+    ctx.fillStyle = jointCol;
+    ctx.fill();
+    ctx.beginPath();
+    addRunQuads(swRuns, swOut);
+    ctx.fillStyle = swCol;
+    ctx.fill();
+    // Joints transversaux des dalles de trottoir : positions en coordonnées
+    // MONDE absolues (modulo l'espacement) → continus de cellule en cellule,
+    // sur les BRAS seulement (les paliers de carrefour restent des aprons propres).
+    const tTk = PR && performance.now();
+    if (SIDEWALK_ISO.slabA > 0 && !LOD) {
+      ctx.fillStyle = `rgba(40,32,20,${SIDEWALK_ISO.slabA})`;
+      const sp = T * SIDEWALK_ISO.slabs;
+      const tw = Math.max(T * 0.012, 0.5 / z);   // ~1 px écran quel que soit le zoom
+      const inR = wbR + T * (ROAD_DETAIL.groove + SIDEWALK_ISO.curb);   // du nu de la bordure...
+      // Joints regroupés en fills PAR PAQUETS de quads : un fill par trait coûtait
+      // ~35 µs pièce (des milliers sur une mégapole), et UN chemin unique pour
+      // tout est pire encore — sa bbox couvre la ville entière et le rasterizer
+      // repaie tous les bords à chaque scanline (mesuré ~500 ms). Par paquets de
+      // 256, la bbox reste locale (scan ligne à ligne) → quelques ms. Les quads
+      // sont DISJOINTS et les paquets les partitionnent : aucun double-alpha.
+      ctx.beginPath();
+      let tkN = 0;
+      const tickQuad = (x0, y0, x1, y1) => {
+        pathWorldQuad(ctx, x0, y0, x1, y1);
+        tkN += 1;
+        if (tkN >= 256) { ctx.fill(); ctx.beginPath(); tkN = 0; }
+      };
+      for (const r2 of swRoads) {
+        const cx2 = (r2.gx + 0.5) * T, cy2 = (r2.gy + 0.5) * T;
+        const m2 = r2.cell ? (r2.cell.mask | 0) : 0;
+        const x0c = r2.gx * T, x1c = (r2.gx + 1) * T, y0c = r2.gy * T, y1c = (r2.gy + 1) * T;
+        const tickH = (wx) => {
+          tickQuad(wx - tw, cy2 - swOut, wx + tw, cy2 - inR);
+          tickQuad(wx - tw, cy2 + inR, wx + tw, cy2 + swOut);
+        };
+        const tickV = (wy) => {
+          tickQuad(cx2 - swOut, wy - tw, cx2 - inR, wy + tw);
+          tickQuad(cx2 + inR, wy - tw, cx2 + swOut, wy + tw);
+        };
+        if (m2 & ROAD_E) for (let wx = Math.ceil((cx2 + wbR) / sp) * sp; wx < x1c; wx += sp) tickH(wx);
+        if (m2 & ROAD_W) for (let wx = Math.ceil(x0c / sp) * sp; wx < cx2 - wbR; wx += sp) tickH(wx);
+        if (m2 & ROAD_S) for (let wy = Math.ceil((cy2 + wbR) / sp) * sp; wy < y1c; wy += sp) tickV(wy);
+        if (m2 & ROAD_N) for (let wy = Math.ceil(y0c / sp) * sp; wy < cy2 - wbR; wy += sp) tickV(wy);
+      }
+      if (tkN) ctx.fill();
+    }
+    if (PR) PR.roadsTicks = performance.now() - tTk;
+    // BORDURE (curb) claire le long de la dalle ; la gorge dessinée juste après
+    // pose l'ombre du caniveau entre dalle et bordure.
+    ctx.beginPath();
+    addRunQuads(swRuns, wbR + T * (ROAD_DETAIL.groove + SIDEWALK_ISO.curb));
+    ctx.fillStyle = curbCol;
+    ctx.fill();
+  }
+  if (PR) PR.roadsSidewalk = performance.now() - tU2;
+  const tU3 = PR && performance.now();
+  if (roads.length && ROAD_DETAIL.groove > 0 && ROAD_DETAIL.grooveA > 0) {
+    ctx.beginPath();
+    addRunQuads(shRuns, wbR + T * ROAD_DETAIL.groove);
+    addRunQuads(swRuns, wbR + T * ROAD_DETAIL.groove);
+    ctx.fillStyle = `rgba(40,30,18,${ROAD_DETAIL.grooveA})`;
+    ctx.fill();
+  }
+  if (PR) PR.roadsGroove = performance.now() - tU3;
   for (const r of roads) {
     const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T;
-    const wb = T * ROAD_BAND;
+    const wb = wbR;
     const mask = r.cell ? (r.cell.mask | 0) : 0;
-    const v = 0.97 + ((cmHash('rb:' + r.gx + ',' + r.gy) % 100) / 100) * 0.06;
-    // LISERÉ DE TROTTOIR : même géométrie légèrement élargie (cb), en plus sombre, SOUS
-    // la dalle → fine bordure qui cerne la chaussée (retour Raph : « remets le liseré »).
-    const cb = T * 0.05;
-    ctx.fillStyle = rgb(road, 0.62);
-    fillWorldQuad(ctx, cx - wb - cb, cy - wb - cb, cx + wb + cb, cy + wb + cb);
-    if (mask & ROAD_E) fillWorldQuad(ctx, cx + wb, cy - wb - cb, (r.gx + 1) * T, cy + wb + cb);
-    if (mask & ROAD_W) fillWorldQuad(ctx, r.gx * T, cy - wb - cb, cx - wb, cy + wb + cb);
-    if (mask & ROAD_S) fillWorldQuad(ctx, cx - wb - cb, cy + wb, cx + wb + cb, (r.gy + 1) * T);
-    if (mask & ROAD_N) fillWorldQuad(ctx, cx - wb - cb, r.gy * T, cx + wb + cb, cy - wb);
+    // Ton de dalle en variation LISSÉE le long du tracé (le hash par cellule
+    // rayait le ruban de bandes — même règle que les sols : rien par cellule).
+    const v = 0.97 + smoothNoise(r.gx, r.gy, 4, 'rb') * 0.06;
     // Ruban de chaussée = pavé central + un bras vers chaque connexion (tracé CHEMIN).
     ctx.beginPath();
     pathWorldQuad(ctx, cx - wb, cy - wb, cx + wb, cy + wb);                       // pavé central
@@ -615,7 +1159,7 @@ function drawIsoGround() {
     if (mask & ROAD_W) pathWorldQuad(ctx, r.gx * T, cy - wb, cx - wb, cy + wb);
     if (mask & ROAD_S) pathWorldQuad(ctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
     if (mask & ROAD_N) pathWorldQuad(ctx, cx - wb, r.gy * T, cx + wb, cy - wb);
-    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile) ? ensureIsoTileKey(rmat.tile) : null;
+    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !LOD) ? ensureIsoTileKey(rmat.tile) : null;
     if (rTile && rTile.ready) {
       ctx.save(); ctx.clip();
       const rp = worldToScreen(r.gx * T, r.gy * T);
@@ -639,7 +1183,45 @@ function drawIsoGround() {
         else fillWorldQuad(ctx, cx - dw2, r.gy * T + o, cx + dw2, r.gy * T + o + dl);
       }
     }
+    // FRANGE DE CHAUSSÉE : crante chaque bord EXPOSÉ du ruban (flancs des bras +
+    // caps du pavé sans connexion — les impasses s'effritent au bout). Un flanc
+    // qui fait face à une voie JUMELLE non connectée (boulevard 2-cellules) est
+    // SAUTÉ : le terre-plein porte cette couture. Arêtes en MONDE → projetées,
+    // normale sortante (ox,oy) monde → écran via (±hw,±hh).
+    if (rfK > 0 && !LOD) {
+      const x0w = r.gx * T, y0w = r.gy * T, x1w = (r.gx + 1) * T, y1w = (r.gy + 1) * T;
+      const roadN2 = L.roadSet.has(r.gx + ',' + (r.gy - 1)), roadS2 = L.roadSet.has(r.gx + ',' + (r.gy + 1));
+      const roadE2 = L.roadSet.has((r.gx + 1) + ',' + r.gy), roadW2 = L.roadSet.has((r.gx - 1) + ',' + r.gy);
+      const segs = [];
+      if (mask & ROAD_E) {
+        if (!roadN2 || (mask & ROAD_N)) segs.push([cx + wb, cy - wb, x1w, cy - wb, 0, -1, 'en']);
+        if (!roadS2 || (mask & ROAD_S)) segs.push([cx + wb, cy + wb, x1w, cy + wb, 0, 1, 'es']);
+      } else segs.push([cx + wb, cy - wb, cx + wb, cy + wb, 1, 0, 'ec']);
+      if (mask & ROAD_W) {
+        if (!roadN2 || (mask & ROAD_N)) segs.push([x0w, cy - wb, cx - wb, cy - wb, 0, -1, 'wn']);
+        if (!roadS2 || (mask & ROAD_S)) segs.push([x0w, cy + wb, cx - wb, cy + wb, 0, 1, 'ws']);
+      } else segs.push([cx - wb, cy - wb, cx - wb, cy + wb, -1, 0, 'wc']);
+      if (mask & ROAD_S) {
+        if (!roadE2 || (mask & ROAD_E)) segs.push([cx + wb, cy + wb, cx + wb, y1w, 1, 0, 'se']);
+        if (!roadW2 || (mask & ROAD_W)) segs.push([cx - wb, cy + wb, cx - wb, y1w, -1, 0, 'sw']);
+      } else segs.push([cx - wb, cy + wb, cx + wb, cy + wb, 0, 1, 'sc']);
+      if (mask & ROAD_N) {
+        if (!roadE2 || (mask & ROAD_E)) segs.push([cx + wb, y0w, cx + wb, cy - wb, 1, 0, 'ne']);
+        if (!roadW2 || (mask & ROAD_W)) segs.push([cx - wb, y0w, cx - wb, cy - wb, -1, 0, 'nw']);
+      } else segs.push([cx - wb, cy - wb, cx + wb, cy - wb, 0, -1, 'nc']);
+      for (const s of segs) {
+        const A = worldToScreen(s[0], s[1]), B = worldToScreen(s[2], s[3]);
+        let nx2 = (s[4] - s[5]) * hw, ny2 = (s[4] + s[5]) * hh;
+        const nl2 = Math.hypot(nx2, ny2) || 1;
+        nx2 /= nl2; ny2 /= nl2;
+        drawRoadEdgeFringe(ctx, {
+          ax: A.x, ay: A.y, bx: B.x, by: B.y, ox: nx2, oy: ny2,
+          seed: 'rf:' + r.gx + ',' + r.gy + ':' + s[6],
+        }, puR, shCol, shCol2, spillCol, rfK);
+      }
+    }
   }
+  if (PR) PR.roads = performance.now() - tRd;
   // Terre-plein PLANTÉ des boulevards 2-cellules (couture L.terrePlein) : bande
   // de gazon centrée sur la couture + touffes sombres espacées. Statique → dans
   // le bake. (Le vrai pixel-art planté du legacy viendra avec l'art Phase 5.)
@@ -648,6 +1230,7 @@ function drawIsoGround() {
   // Gazon procédural sauté dès que les pièces 3-slice d'une orientation sont là
   // (le sprite porte sa propre base) — vaut par orientation, mais on coupe la
   // bande dès que l'UNE est prête (les segments de l'autre gardent le repli buisson).
+  const tMd = PR && performance.now();
   const medUp = isoArt('median-se-mid').ready || isoArt('median-sw-mid').ready;
   const tp = medUp ? null : L.terrePlein;
   if (tp && tp.length) {
@@ -671,6 +1254,12 @@ function drawIsoGround() {
         }
       }
     }
+  }
+  if (PR) {
+    PR.median = performance.now() - tMd;
+    PR.total = performance.now() - PR.t0;
+    delete PR.t0;
+    globalThis.__isoGroundProfileLast = PR;
   }
   ctx.restore();
   return true;
@@ -699,6 +1288,101 @@ function riverRibbonPath(ctx, pts, T) {
   for (let i = right.length - 1; i >= 0; i -= 1) ctx.lineTo(right[i].x, right[i].y);
   ctx.closePath();
 }
+// ── OMBRES DE POISSONS (retour Raph, réf. Animal Crossing) ───────────────────
+// Silhouettes sombres fusiformes qui dérivent SOUS la surface : corps + queue
+// qui bat, serpentage lent le long du ruban, et un FRÉTILLEMENT périodique
+// (anneaux de rides en surface). Purement f(now) — aucune sim, aucun état :
+// une capture (now figé) les fige, un même now redonne la même scène, coût ~0.
+// Dessinées AVANT les vaguelettes (les reflets clairs passent PAR-DESSUS →
+// lecture « sous la surface ») et clippées au ruban. Le fleuve ruiné
+// (effondrement/usure) n'a plus de vie. Molette : window.__fishTune
+// ({ on, count, alpha, speed, size }) — count = poissons par sample (~0.05).
+export const fishTune = { on: true, count: 0.07, alpha: 0.34, speed: 1, size: 1 };
+if (typeof window !== 'undefined') window.__fishTune = fishTune;
+function drawIsoFishShadows(ctx, rv, T, z, now) {
+  if (!fishTune.on || z < 0.5) return;
+  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return;
+  const sm = rv.samples, len = sm.length;
+  if (len < 4) return;
+  const n = Math.max(3, Math.min(12, Math.round(len * fishTune.count)));
+  const t = (now || 0) / 1000;
+  ctx.save();
+  riverRibbonPath(ctx, sm, T);
+  ctx.clip();
+  for (let i = 0; i < n; i += 1) {
+    // ⚠ cmHash renvoie du SIGNÉ (piège connu) : h forcé en unsigned, sinon les
+    // modulos sortent négatifs → tailles négatives (ellipse() jette) et alphas
+    // écrasés (poissons invisibles, vu au débogage).
+    const h = cmHash('fish:' + i + ':' + (CM.layoutRecomputeAt || 0)) >>> 0;
+    const size = (0.55 + ((h >>> 3) % 100) / 100 * 0.9) * fishTune.size;
+    const dir = (h & 1) ? 1 : -1;
+    // CYCLE nage → arrêt (retour Raph « plus lents, et qu'ils s'arrêtent de
+    // temps en temps »), toujours f(now) : dans chaque cycle le poisson GLISSE
+    // en ease-in-out (départ et arrêt doux) puis reste posé le reste du cycle
+    // — et c'est au début de la pause qu'il frétille (rides, plus bas).
+    const P = 12 + (h % 9);                             // période du cycle (s)
+    const swimF = 0.58 + ((h >>> 7) % 20) / 100;        // fraction du cycle en nage
+    const Ps = P * swimF;
+    const tf = t + (((h >>> 15) % 1000) / 1000) * P;    // horloge propre au poisson
+    const cyc = tf % P;
+    const swimming = cyc < Ps;
+    const xw = swimming ? cyc / Ps : 1;
+    const easep = xw * xw * (3 - 2 * xw);               // progression 0..1 du cycle courant
+    const D = (0.0013 + ((h >>> 9) % 100) / 100 * 0.0016) * P * fishTune.speed; // fraction de ruban / cycle
+    const drift = (Math.floor(tf / P) + easep) * D * dir;
+    let ft = (((h >>> 5) % 1000) / 1000 + drift) % 1;
+    if (ft < 0) ft += 1;
+    const fi = ft * (len - 1);
+    const i0 = Math.min(len - 2, Math.floor(fi)), f = fi - i0;
+    const a = sm[i0], b = sm[i0 + 1];
+    const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f;
+    const hw = (a.hw || 2) + (((b.hw || 2)) - (a.hw || 2)) * f;
+    // Voie latérale : ligne personnelle stable + serpentage, bornée DANS le ruban.
+    let nx = -(b.y - a.y), ny = (b.x - a.x);
+    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const latBase = (((h >>> 11) % 100) / 100 - 0.5) * 1.1;
+    const lat = (latBase + Math.sin(t * 0.13 + (h % 11)) * 0.16) * Math.max(0, hw - 0.55);
+    const p = worldToScreen((cx + nx * lat) * T, (cy + ny * lat) * T);
+    if (p.x < -40 || p.x > CM.cw + 40 || p.y < -40 || p.y > CM.ch + 40) continue;
+    // Cap écran = tangente projetée (± sens de nage) + ondulation du corps —
+    // presque figée à l'arrêt (le poisson se maintient, il ne danse pas).
+    const pa = worldToScreen(a.x * T, a.y * T), pb = worldToScreen(b.x * T, b.y * T);
+    const ang = Math.atan2((pb.y - pa.y) * dir, (pb.x - pa.x) * dir)
+      + Math.sin(t * 1.1 + (h % 13)) * (swimming ? 0.13 : 0.045);
+    const L2 = T * z * 0.18 * size;                     // demi-longueur écran du corps
+    const al = fishTune.alpha * (0.8 + ((h >>> 13) % 40) / 100);
+    ctx.fillStyle = `rgba(12,26,34,${al.toFixed(2)})`;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, L2, L2 * 0.38, ang, 0, Math.PI * 2);
+    ctx.fill();
+    // Queue : petite goutte derrière le corps ; battement ample en nage,
+    // lent et discret à l'arrêt.
+    const wag = Math.sin(t * (swimming ? 5.2 : 2.1) + (h % 17)) * L2 * (swimming ? 0.22 : 0.09);
+    const qx = p.x - Math.cos(ang) * L2 * 1.15 - Math.sin(ang) * wag;
+    const qy = p.y - Math.sin(ang) * L2 * 1.15 + Math.cos(ang) * wag;
+    ctx.beginPath();
+    ctx.ellipse(qx, qy, L2 * 0.34, L2 * 0.18, ang, 0, Math.PI * 2);
+    ctx.fill();
+    // Frétillement AU DÉBUT DE LA PAUSE (le poisson s'arrête et gobe en
+    // surface) : 1-2 anneaux de rides éphémères, couchés au sol (scale 1:0.5).
+    if (!swimming) {
+      const k = (cyc - Ps) / 1.4;                       // 0..1 sur ~1,4 s de pause
+      if (k < 1) {
+        const r = (4 + k * 10) * z * (0.7 + size * 0.4);
+        ctx.strokeStyle = `rgba(214,236,240,${(0.35 * (1 - k)).toFixed(2)})`;
+        ctx.lineWidth = Math.max(1, z * 0.8);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(1, 0.5);
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+        if (k > 0.35) { ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+  }
+  ctx.restore();
+}
+
 function drawIsoRiver(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
@@ -711,9 +1395,12 @@ function drawIsoRiver(now) {
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
   // l'eau plus clairs ») : l'eau S'ÉCLAIRCIT au bord (peu profond) et fonce vers le
   // centre (profond). Bandes strokées le long du ruban, CLIPPÉES → seule la moitié
-  // intérieure reste. Remplace l'ancien liseré SOMBRE. Réglable via waterShoreTune.
+  // intérieure reste. Actif aux ÈRES SANS QUAI (band ≤ maxBand) : ensuite la berge
+  // maçonnée porte son propre bas-fond au pied du mur. Réglable via waterShoreTune.
   {
     const S = waterShoreTune, len0 = pts.length;
+    const bandW = (L.counts && L.counts.eraBand) | 0;
+    const shoreOn = S.on && bandW <= (S.maxBand != null ? S.maxBand : 1);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
     const shore = (color, width) => {
       ctx.strokeStyle = color; ctx.lineWidth = width;
@@ -727,7 +1414,7 @@ function drawIsoRiver(now) {
         ctx.stroke();
       }
     };
-    if (S.on) {
+    if (shoreOn) {
       ctx.save();
       riverRibbonPath(ctx, pts, T);
       ctx.clip();
@@ -738,6 +1425,8 @@ function drawIsoRiver(now) {
       ctx.restore();
     }
   }
+  // OMBRES DE POISSONS : sous les reflets (dessinées AVANT les vaguelettes).
+  drawIsoFishShadows(ctx, rv, T, z, now);
   // Vaguelettes animées (inspiré de TheoTown) : nappe DENSE de petits traits clairs
   // couvrant la surface, dont la BRILLANCE court vers l'aval (phase = u·freq − t·speed)
   // → lecture d'un courant vivant (vs virgules éparses = « pas un flow », retour Raph).
@@ -798,8 +1487,9 @@ function isoArt(name) {
     im.onload = () => {
       e.img = im; e.ready = true;
       // Le BAKE du sol dépend de l'art décodé (dalle de place remplacée, bande
-      // gazon des terre-pleins sautée) → re-bake au décodage.
-      CM._isoGroundBake = null;
+      // gazon des terre-pleins sautée) → invalidation DOUCE, recuisson coalescée
+      // par drawIsoWorld (cf. isoTile : plus une recuisson par sprite décodé).
+      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
     };
     // `name` peut porter un cache-buster (`clef?v=2`) : la query passe APRÈS le
     // `.png` dans l'URL. Sert quand un PNG est RÉÉCRIT sur disque (aqueduc : des
@@ -1656,12 +2346,19 @@ function drawIsoBridges(now) {
   const L = CM.layout;
   const cells = isoBridgeCells(L);
   if (!cells.length) return;
+  // PONT « 3/4 top-down » (chantier relancé 2026-07-16) : tablier dans le plan
+  // du sol + verticalité ÉCRAN (face d'épaisseur, piles, parapets) — cf.
+  // isoBridge.js. L'ombre se dessine AVANT les bateaux (drawIsoBridgeUnder,
+  // cf. drawIsoWorld) ; TOUT LE RESTE (platelage compris) vit au tri peintre
+  // (kind 'bridgeSeg') — plus rien à dessiner ici. A/B : __isoBridge3d(false)
+  // rebranche les anciens chemins ci-dessous.
+  if (isoBridge3dFlag.on) return;
   const T = CM.TILE, ctx = CM.ctx;
   const bandA = (L.counts && L.counts.eraBand) | 0;
-  // PONTS : retour au TABLIER PLAT PROJETÉ + rampes (décision Raph 2026-07-12 :
-  // les sprites de pont complet, même normalisés en angle, gardent leur
-  // PERSPECTIVE interne — re-tournés ils paraissent tordus ; « annule et remet
-  // comme avant »). Les sprites bridge-full-* restent sur disque, débranchés.
+  // PONTS (ancien chemin) : TABLIER PLAT PROJETÉ + rampes (décision Raph
+  // 2026-07-12 : les sprites de pont complet, même normalisés en angle, gardent
+  // leur PERSPECTIVE interne — re-tournés ils paraissent tordus ; « annule et
+  // remet comme avant »). Les sprites bridge-full-* restent sur disque, débranchés.
   if (withLegacyToIso(ctx, () => drawPixelBridges(CM, now))) {
     drawBridgeAprons(ctx, bandA, T);
     return;
@@ -1866,16 +2563,21 @@ function drawIsoRioter(ctx, p, now, z) {
   if (sx < -24 || groundY < -24 || sx > CM.cw + 24 || groundY > CM.ch + 24) return;
   const ph = Math.max(1.5, 2.1 * z);
   const walking = p.pauseT <= 0;
+  // Ombre posée au SOL STABLE (sp.y, sans le wobble) : elle ne saute pas avec le
+  // corps — seul le sprite bondit dessus (le duo qui bobbait ensemble « volait »).
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  ctx.beginPath(); ctx.ellipse(sx, groundY, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(sx, sp.y, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
   const rgen = ((p.charType || 0) === 1 ? 'woman' : 'man') + '-' + (p.weapon === 'fork' ? 'fork' : 'torch');
   const rEra = riotEraKey((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0);
   // BANDES DIAGONALES (DA « Figurine d'époque », batch riotIsoRoster) d'abord :
   // ère puis base médiévale ; repli CARDINAL legacy tant qu'une bande manque.
   // Anim par DISTANCE (p.walkDist, posé par updateCrisis) — anti-patinage.
   const wd = p.walkDist != null ? p.walkDist : null;
-  let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd)
-    || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd) : false);
+  // groundFeet=true : les PIEDS MESURÉS de la bande touchent groundY — l'ombre
+  // (ci-dessus) est posée à ce même point ; sans ça, la marge transparente du
+  // roster (~12 % du cadre) suspendait l'émeutier au-dessus de son ombre.
+  let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd, true)
+    || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd, true) : false);
   if (!dim) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase);
   if (!dim && rEra) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase);
   if (dim) {
@@ -2001,6 +2703,99 @@ function blitPropAnchored(ctx, name, bx, by, cw, ch) {
   return { x: bx - cw / 2, y: by - cH, w: cw, h: cH };
 }
 
+// ── Géométrie du PONTON du port + mouillage du bateau amarré ─────────────────
+// Formules extraites de drawIsoRiverside (port) : le bateau amarré est devenu
+// un item de tri SÉPARÉ (kind 'portBoat') — dessiné dans la scène riveraine,
+// il héritait de la profondeur de l'EMPRISE du bâtiment et passait PAR-DESSUS
+// la travée du pont voisin (vu par Raph, band 7). Une seule source de formules
+// pour le ponton : la scène ET le mouillage lisent ce helper.
+function portDockGeom(t, spanX, T, band, ei, rv) {
+  if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return null;
+  const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
+  const ccx = t.gx + spanX / 2;
+  const rb = ribbonAtX(rv, ccx);
+  const yEdge = rb.y - rb.hw;
+  const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
+  const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
+    : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
+  const smR = rv.samples;
+  const iA = Math.max(0, rb.i - 2), iB = Math.min(smR.length - 1, rb.i + 2);
+  const mRiv = (smR[iB].y - smR[iA].y) / ((smR[iB].x - smR[iA].x) || 1e-6);
+  const axisOv = (typeof window !== 'undefined' && window.__pontoonAxis) || 'auto';
+  const ewAxis = axisOv === 'ew' || (axisOv !== 'ns' && Math.abs(mRiv) > 1);
+  const ewSgn = mRiv > 0 ? -1 : 1;               // côté eau de l'axe E-W
+  const dockW = stage === 0 ? 0.72 : Math.min(spanX * 0.5, 0.8 + sizeMul * 0.2);
+  const dockLen = 0.8 + Math.max(1.0, rb.hw * 0.6);
+  const dockY0 = yEdge - 0.8, dockY1 = yEdge - 0.8 + dockLen;
+  const dockYew = yEdge + 0.35;
+  const dockX0 = ewSgn < 0 ? ccx + 0.8 - dockLen : ccx - 0.8;
+  const dockX1 = dockX0 + dockLen;
+  return { stage, ccx, rb, si: rb.i, yEdge, vstage, sizeMul, ewAxis, ewSgn, dockW, dockLen, dockY0, dockY1, dockYew, dockX0, dockX1 };
+}
+
+// Point d'amarrage (en TUILES monde) : flanc historique du ponton, ou flanc
+// opposé si le premier tombe sur l'EMPRISE D'UN PONT (bridgeBlocks — le
+// mouillage par défaut posait le bateau sur la travée). Coincé des deux côtés →
+// null : pas de bateau plutôt qu'un bateau sur le tablier.
+function portMooring(t, spanX, T, band, ei, rv) {
+  const G = portDockGeom(t, spanX, T, band, ei, rv);
+  if (!G || !BOAT_SIZES[G.vstage]) return null;
+  const effSize = (BOAT_SIZES[G.vstage] || 0.7) * G.sizeMul;
+  const myNS = Math.min(G.rb.y - 0.15, G.dockY1 - effSize * 0.1);
+  const cands = G.ewAxis
+    ? [[(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew + G.dockW / 2 + effSize * 0.45],
+      [(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew - G.dockW / 2 - effSize * 0.45]]
+    : [[G.ccx - G.dockW / 2 - effSize * 0.62, myNS],
+      [G.ccx + G.dockW / 2 + effSize * 0.62, myNS]];
+  const margin = (effSize * 0.55 + 0.3) * T;
+  for (const [mx, my] of cands) {
+    if (!bridgeBlocks(mx * T, my * T, margin)) return { ...G, effSize, mx, my, band };
+  }
+  return null;
+}
+
+// Bateau de l'ère amarré au ponton (ombre + clapot, pas de sillage) — le corps
+// du dessin est celui du bloc historique de la scène riveraine, à l'identique.
+function drawIsoPortBoat(ctx, moor, now, z, T) {
+  const rv = CM.layout && CM.layout.river;
+  if (!rv || !rv.samples || rv.samples.length < 2) return;
+  const { vstage, sizeMul, si, ccx } = moor;
+  const s = T * z;
+  const o = rv.samples[Math.max(0, si - 1)], q = rv.samples[Math.min(rv.samples.length - 1, si + 1)];
+  const a2 = worldToScreen(o.x * T, o.y * T), b2 = worldToScreen(q.x * T, q.y * T);
+  const p = worldToScreen(moor.mx * T, moor.my * T);
+  const bob = Math.sin((now || 0) / 1400 + ccx) * s * 0.02;
+  const heading = Math.atan2(b2.y - a2.y, b2.x - a2.x);
+  const isoBoat = BOAT_ISO[vstage] ? isoArt('boat-' + vstage + '-' + boatSector(heading)) : null;
+  const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = 'rgba(10,25,35,0.20)';
+  ctx.beginPath(); ctx.ellipse(p.x, p.y + s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2); ctx.fill();
+  if (isoBoat && isoBoat.ready) {
+    // Rotation iso au secteur du cap local du ruban (amarré parallèle au quai).
+    const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15;
+    ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * 0.58 + bob, dw, dw);
+  } else {
+    const boatKey = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, moor.band)) : vstage;
+    const chr = ensureBoat(boatKey);
+    if (chr && boatReady(chr)) {
+      // Repli profil legacy, tilt amorti comme la flotte.
+      const tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
+      ctx.save();
+      ctx.translate(p.x, p.y + bob);
+      ctx.rotate(tilt);
+      ctx.scale(sizeMul, sizeMul);
+      const bimg = chr.img;
+      const bfh = bimg.naturalHeight || bimg.height || 64;
+      const bnf = Math.max(1, Math.round((bimg.naturalWidth || bimg.width || bfh) / bfh));
+      const bf = bnf > 1 ? Math.floor((now || 0) / 260) % bnf : 0;
+      const dw = s * BOAT_SIZES[vstage], dh = dw;
+      ctx.drawImage(bimg, bf * bfh, 0, bfh, bfh, -dw / 2, -dh / 2 - dh * BOAT_LIFT, dw, dh);
+      ctx.restore();
+    }
+  }
+  ctx.imageSmoothingEnabled = prevSm;
+}
+
 function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
@@ -2011,7 +2806,6 @@ function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const cpx = T * z * 1.3;
   const ccx = t.gx + spanX / 2;
   const rb = ribbonAtX(rv, ccx);
-  const si = rb.i;
   const rhw = rb.hw;
   const yEdge = rb.y - rhw;              // rive NORD du ruban AU DROIT du lot
   // Tailles par ère : mêmes formules que la scène legacy (tout grandit ensemble).
@@ -2109,23 +2903,11 @@ function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   // (fleuve O→E monde) → axe N-S monde (NE-SW écran) ; coude raide (|dy/dx|>1)
   // → axe E-W monde, plongeant du côté où l'eau vient (ouest si le fleuve fuit
   // au sud-est, est sinon). Molette : __pontoonAxis = 'auto'|'ns'|'ew'.
-  const smR = rv.samples;
-  const iA = Math.max(0, rb.i - 2), iB = Math.min(smR.length - 1, rb.i + 2);
-  const mRiv = (smR[iB].y - smR[iA].y) / ((smR[iB].x - smR[iA].x) || 1e-6);
-  const axisOv = (typeof window !== 'undefined' && window.__pontoonAxis) || 'auto';
-  const ewAxis = axisOv === 'ew' || (axisOv !== 'ns' && Math.abs(mRiv) > 1);
-  const ewSgn = mRiv > 0 ? -1 : 1;               // côté eau de l'axe E-W
-  const dockW = stage === 0 ? 0.72 : Math.min(spanX * 0.5, 0.8 + sizeMul * 0.2);
-  // Départ bien SOUS la plateforme du bâtiment (qui le recouvre) : à -0.35 il
-  // restait un filet d'eau entre plateforme et ponton à la capture.
-  const dockLen = 0.8 + Math.max(1.0, rhw * 0.6);
-  const dockY0 = yEdge - 0.8, dockY1 = yEdge - 0.8 + dockLen;
-  // Bande E-W : rangée au ras de l'eau au droit du lot — la pente locale fait
-  // gagner de la profondeur au fil des cases (m>1 → chaque case avancée plonge
-  // d'autant), la pointe finit en pleine eau.
-  const dockYew = yEdge + 0.35;
-  const dockX0 = ewSgn < 0 ? ccx + 0.8 - dockLen : ccx - 0.8;
-  const dockX1 = dockX0 + dockLen;
+  // Géométrie PARTAGÉE avec le mouillage du bateau (item 'portBoat' du tri) :
+  // formules dans portDockGeom, une seule source.
+  const G = portDockGeom(t, spanX, T, band, ei, rv);
+  if (!G) return;
+  const { ewAxis, dockW, dockLen, dockY0, dockY1, dockYew, dockX0, dockX1 } = G;
   // PONTON EN VRAIE VUE ISO (retour Raph : « les pontons sont tout plats ») :
   // objet 8-dir sur pilotis. ⚠ axes MESURÉS au PCA (scratch axisAudit — la note
   // du roster était inversée) : bois ne/sw = NE-SW écran (N-S monde), bois
@@ -2173,49 +2955,10 @@ function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   // ponton. Ancrage par le BAS DU CONTENU, hauteur à l'aspect naturel.
   const base = worldToScreen(ccx * T, (yEdge + 0.1) * T);
   blitPropAnchored(ctx, HOUSE, base.x, base.y, W);
-  // BATEAU de l'ère amarré au bout du ponton, côté ouest, aligné à la tangente
-  // projetée du ruban (même trait que drawIsoShips ; clapot, pas de sillage).
-  if (BOAT_SIZES[vstage]) {
-    const s = T * z;
-    const o = rv.samples[Math.max(0, si - 1)], q = rv.samples[Math.min(rv.samples.length - 1, si + 1)];
-    const a2 = worldToScreen(o.x * T, o.y * T), b2 = worldToScreen(q.x * T, q.y * T);
-    const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;
-    // Amarrage : flanc OUEST du ponton N-S (0.62 : demi-coque + jeu — à 0.4 la
-    // poupe mordait les planches) ; flanc SUD près de la pointe pour l'axe E-W.
-    const p = ewAxis
-      ? worldToScreen(((ewSgn < 0 ? dockX0 : dockX1) - ewSgn * effSize * 0.3) * T, (dockYew + dockW / 2 + effSize * 0.45) * T)
-      : worldToScreen((ccx - dockW / 2 - effSize * 0.62) * T, Math.min(rb.y - 0.15, dockY1 - effSize * 0.1) * T);
-    const bob = Math.sin((now || 0) / 1400 + ccx) * s * 0.02;
-    const heading = Math.atan2(b2.y - a2.y, b2.x - a2.x);
-    const isoBoat = BOAT_ISO[vstage] ? isoArt('boat-' + vstage + '-' + boatSector(heading)) : null;
-    const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = 'rgba(10,25,35,0.20)';
-    ctx.beginPath(); ctx.ellipse(p.x, p.y + s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2); ctx.fill();
-    if (isoBoat && isoBoat.ready) {
-      // Rotation iso au secteur du cap local du ruban (amarré parallèle au quai).
-      const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15;
-      ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * 0.58 + bob, dw, dw);
-    } else {
-      const boatKey = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : vstage;
-      const chr = ensureBoat(boatKey);
-      if (chr && boatReady(chr)) {
-        // Repli profil legacy, tilt amorti comme la flotte.
-        const tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
-        ctx.save();
-        ctx.translate(p.x, p.y + bob);
-        ctx.rotate(tilt);
-        ctx.scale(sizeMul, sizeMul);
-        const bimg = chr.img;
-        const bfh = bimg.naturalHeight || bimg.height || 64;
-        const bnf = Math.max(1, Math.round((bimg.naturalWidth || bimg.width || bfh) / bfh));
-        const bf = bnf > 1 ? Math.floor((now || 0) / 260) % bnf : 0;
-        const dw = s * BOAT_SIZES[vstage], dh = dw;
-        ctx.drawImage(bimg, bf * bfh, 0, bfh, bfh, -dw / 2, -dh / 2 - dh * BOAT_LIFT, dw, dh);
-        ctx.restore();
-      }
-    }
-    ctx.imageSmoothingEnabled = prevSm;
-  }
+  // (Le BATEAU AMARRÉ n'est plus dessiné ici : item 'portBoat' du tri peintre,
+  // poussé par drawIsoLive à SA profondeur — dessiné dans la scène, il héritait
+  // de la profondeur de l'emprise du bâtiment et passait PAR-DESSUS la travée
+  // du pont voisin. Cf. portMooring/drawIsoPortBoat.)
 }
 
 // ── CHAMP iso « façon TheoTown » : patchwork de parcelles cultivées ──────────
@@ -2419,6 +3162,26 @@ function drawIsoLive(now) {
     const flat = /field|farm|crop|orchard/i.test(idf);
     const d = flat ? depthOf(t.gx * T, t.gy * T) : depthOf((t.gx + sx) * T, (t.gy + sy) * T);
     items.push({ d, kind: 'tile', t });
+    // BATEAU AMARRÉ du port : item SÉPARÉ trié à SA position — dessiné dans la
+    // scène riveraine il héritait de la profondeur de l'EMPRISE du bâtiment et
+    // passait PAR-DESSUS la travée du pont voisin (retour Raph, band 7).
+    // portMooring écarte de plus le mouillage de l'emprise des ponts. Même
+    // test « mouillé » que le rendu de la scène (cas riverain du switch).
+    if (t.buildingId === 'river_ports' && t.type === 'engine' && isoEngineScenesFlag.on
+      && L.river && L.river.present && L.river.cells) {
+      let wet = false;
+      for (let ax = 0; ax < sx && !wet; ax += 1) for (let ay = 0; ay < sy && !wet; ay += 1) {
+        const k = (t.gx + ax) + ',' + (t.gy + ay);
+        if (L.river.cells.has(k) || (L.river.banks && L.river.banks.has(k))) wet = true;
+      }
+      if (wet) {
+        const moor = portMooring(t, sx, T, band, eraIdx, L.river);
+        if (moor) {
+          const hb = T * 0.30 * moor.effSize;   // contact visuel (même geste que les véhicules)
+          items.push({ d: isoUnitDepth(moor.mx * T + hb, moor.my * T + hb), kind: 'portBoat', moor });
+        }
+      }
+    }
   }
   // Arbres (décor) — assez près de la ville seulement (le bake du sol couvre le
   // reste). AÉRATION (retour Raph « tout est trop collé ») : pas d'arbre décoratif
@@ -2435,9 +3198,12 @@ function drawIsoLive(now) {
     }
     return false;
   };
+  // Emprise des PONTS (étendue « jusqu'au sec ») : aucun arbre/rocher dessus —
+  // un rocher du décor mordait la culée au débouché (vu par Raph à la capture).
   for (const tr of (L.trees || [])) {
     if (tr.gx < b.gx0 || tr.gx > b.gx1 || tr.gy < b.gy0 || tr.gy > b.gy1) continue;
     if (treeBlocked(tr.gx, tr.gy)) continue;
+    if (bridgeBlocks((tr.gx + 0.5) * T, (tr.gy + 0.5) * T, T * 0.45)) continue;
     items.push({ d: depthOf((tr.gx + 0.5) * T, (tr.gy + 0.9) * T), kind: 'tree', tr });
   }
   // Forêt sauvage (ceinture autour de la ville, hors sol urbain) — cf. isoWildForest.
@@ -2445,6 +3211,7 @@ function drawIsoLive(now) {
   for (const wt of isoWildForest(L, b)) {
     if (wt.gx < b.gx0 || wt.gx > b.gx1 || wt.gy < b.gy0 || wt.gy > b.gy1) continue;
     if (treeBlocked(wt.gx, wt.gy)) continue;
+    if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
     items.push({ d: depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T), kind: 'tree', tr: wt });
   }
   // PLACE : scène complète de l'ère posée sur la dalle (profondeur au CENTRE :
@@ -2539,6 +3306,12 @@ function drawIsoLive(now) {
       }
     }
   }
+  // PONTS : platelage + verticalité, segments PAR CELLULE au tri peintre —
+  // le platelage au coin nord (tout ce qui le chevauche passe dessus), les
+  // parapets devant les jambes des traverseurs, le tout derrière/devant les
+  // bâtiments voisins selon la profondeur. Seule l'ombre reste en passe
+  // globale (drawIsoBridgeUnder, avant les bateaux). Cf. isoBridge.js.
+  pushIsoBridgeItems(items, b);
   // Habitants : clé aux PIEDS, remontée devant les murs mitoyens (isoUnitDepth).
   if (!CM.lodActive) {
     for (const p of CM.citizens) {
@@ -2836,6 +3609,10 @@ function drawIsoLive(now) {
         ctx.drawImage(bArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
         ctx.imageSmoothingEnabled = prevBS;
       }
+    } else if (it.kind === 'bridgeSeg') {
+      drawIsoBridgeSeg(ctx, it, now);
+    } else if (it.kind === 'portBoat') {
+      drawIsoPortBoat(ctx, it.moor, now, z, T);
     } else if (it.kind === 'veh') {
       drawIsoVehicle(ctx, it.v, now, z);
     } else if (it.kind === 'riot') {
@@ -2890,25 +3667,86 @@ export function drawIsoWorld(dt, now, helpers) {
     // ':pv…' : l'aperçu __showWonder ajoute son parvis au sol → rebake à l'aller-retour.
     const key = 'iso:' + CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(3) + ':' + ((L.counts && L.counts.eraBand) | 0)
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
-    helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake', key, drawIsoGround);
-    helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
+    // RECUISSON COALESCÉE : recuire le sol coûte des centaines de ms sur une
+    // mégapole — on ne le fait JAMAIS pendant un geste. Tant que la clé bouge
+    // (zoom en cours) ou que le pan déborde la marge, on re-blitte le bake
+    // EXISTANT compensé (échelle zoom/z_bake + delta de pan) : flou bref type
+    // carte web, zéro gel. La recuisson n'arrive que quand la clé est STABLE
+    // sur 2 frames ET ≥ 250 ms depuis la dernière (ou en capture, déterministe).
+    // `soft` = invalidation DOUCE (sprite décodé en retard) : contenu encore
+    // valable → coalescée ici ; `null` reste l'invalidation DURE (canvas
+    // effacé/recréé : rien à re-blitter) → recuisson immédiate.
+    const bm = CM._isoGroundBake;
+    const M = CM._bakeMargin || 0;
+    const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : null;
+    const nowMs = performance.now();
+    // ACCALMIE SUR LE MOUVEMENT RÉEL de la caméra — surtout PAS sur la clé : un
+    // DRAG ne change pas la clé (zoom et layout fixes), donc une accalmie « clé
+    // stable » se croyait au repos en plein geste et recuisait en boucle (retour
+    // Raph : « ça rame au drag »).
+    if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
+      CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
+    }
+    const settled = CM.capture || nowMs - (CM._igMoveAt || 0) > 160;
+    // Le suffixe ':lod' marque un bake ALLÉGÉ (posé pendant un geste) : même
+    // contenu de base, détails en moins → à remplacer par un bake plein au repos.
+    const baseOf = (k) => (k && k.endsWith(':lod') ? k.slice(0, -4) : k);
+    const sameContent = !!bm && !bm.soft && baseOf(bm.other) === key;
+    const inMargin = !!bm && !!M && Math.abs(pd.x) <= M && Math.abs(pd.y) <= M;
+    const isLod = !!bm && !!bm.other && bm.other.endsWith(':lod');
+    const bake = (lod) => {
+      // Une invalidation douce ne change pas la clé : forcer le mismatch pour que
+      // bakeMargin recuise vraiment (sinon le soft collerait pour toujours).
+      if (bm && bm.soft) bm.other = '__soft__';
+      ISO_GROUND_LOD.on = lod;
+      helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake', key + (lod ? ':lod' : ''), drawIsoGround);
+      ISO_GROUND_LOD.on = false;
+      if (CM._isoGroundBake !== bm) CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
+      helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
+    };
+    if (sameContent && inMargin && !(settled && isLod)) {
+      helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
+    } else if (settled) {
+      bake(false);                    // repos → sol plein, tous les détails
+    } else if (sameContent && !inMargin) {
+      // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
+      // bord d'attaque → bake ALLÉGÉ (≈ 4× moins cher : ni touffes, ni franges,
+      // ni textures). Net, sans trou, ~1 frame ; le plein arrive à l'arrêt.
+      bake(true);
+    } else if (bm && bm.zoomB != null) {
+      // ZOOM en cours : re-blit du bake existant compensé (échelle zoom/z_bake +
+      // delta de pan) — flou bref type carte web, zéro gel, net ~160 ms après.
+      const s = CM.cam.zoom / bm.zoomB;
+      const cx = CM.cw / 2, cy = CM.ch / 2;
+      const prev = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;   // transitoire : lissé vieillit mieux que crénelé
+      ctx.drawImage(CM.groundCanvas,
+        cx - s * (cx + M) - pd.x, cy - s * (cy + M) - pd.y,
+        (CM.cw + 2 * M) * s, (CM.ch + 2 * M) * s);
+      ctx.imageSmoothingEnabled = prev;
+    } else {
+      bake(!settled);                 // rien à réutiliser (1er bake, canvas effacé)
+    }
   } else {
     drawIsoGround();
   }
   // Fleuve LIVE (animé) par-dessus le sol baké → QUAIS par ère (promenade le
   // long du ruban, partagés avec le legacy : cityMapDrawQuays projette via le
-  // module iso) → bateaux SUR l'eau → tabliers de pont (les bateaux passent
-  // dessous) → scène vivante → drones (passe aérienne) → nuit.
+  // module iso) → SOUS-STRUCTURE des ponts (ombre sur l'eau + piles) → bateaux
+  // SUR l'eau (devant les piles quand ils sont au sud, sous le tablier sinon)
+  // → tabliers de pont → scène vivante → drones (passe aérienne) → nuit.
   // Terre-plein : le gazon du bake porte le SOL ; le RELIEF vient de buissons
   // DEBOUT plantés dans la passe vivante (drawIsoLive) — la projection à plat
   // de l'art legacy « couchait » les plantes bakées (retour Raph).
   drawIsoRiver(now);
   cityMapDrawQuays(now);
+  drawIsoBridgeUnder(now);
   drawIsoShips(dt, now);
   drawIsoBridges(now);
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
   drawIsoDrones(now);
   drawIsoNight(now);
+  drawIsoBridgeNight(now);   // lanternes de pont : halos + reflets dans l'eau, par-dessus le voile
   drawIsoAmbient(now);   // feuilles / lucioles / motes — par-dessus le voile de nuit
   // Bulles de pensée (cartouches pixel cliquables) : tout en haut, comme le
   // legacy — la fonction est PARTAGÉE (projection worldToScreen dans agents.js).

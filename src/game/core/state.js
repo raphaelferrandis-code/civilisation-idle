@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_LEN, ICARUS_FREE_FLIGHTS_MAX, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_GOLD_FLOOR_DEFAULT_S, AUTO_TEMPLE_GOLD_FLOOR_MAX_S, TEMPLE_ARTIFACT_IDS, grandResetProductionMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, grandResetProductionMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
@@ -71,36 +71,64 @@ export const defaultAutomateRules = () => [
 ];
 
 // Réglages du moteur d'automatisation du Temple (Phase 2, 2026-07-15) : des
-// CADRANS par jeu. Débloqués via l'arbre d'artefacts (Phase 4 → `unlocked`),
-// activés par le joueur (`on`), réglés (rite / multiplicateur cible / mise /
-// plancher d'or en secondes de prod). ÉTERNELS (GR_PERSISTENT_FIELDS). null en
-// defaultState, rempli à l'hydratation (comme autoScriptRules/automateRules).
+// CADRANS par jeu. Débloqués à l'échoppe (`unlocked`), activés par le joueur
+// (`on`), réglés (rite / multiplicateur cible / mise / plancher). Monnaie
+// fermée (2026-07-16) : osselets ET Icare misent la FAVEUR → plancher de
+// Faveur (faveurFloor) ; tronc = auto-relève des offrandes, sans cadran.
+// ÉTERNELS (GR_PERSISTENT_FIELDS). null en defaultState, rempli à
+// l'hydratation (comme autoScriptRules/automateRules).
+// Les QUATRE jeux ont leur auto (capstones, arbitrage Raphaël 2026-07-17), plus
+// le tronc. Cadrans communs des autos de jeu : on/off, plancher de Faveur (gain
+// gardé), TEMPO (recueilli/mesuré/fervent — multiplie l'intervalle) ; plus le
+// cadran de RISQUE propre à chaque jeu (rite, mise, cible).
 export const defaultTempleAuto = () => ({
-  osselets: { unlocked: false, on: false, rite: "classique", goldFloorS: AUTO_TEMPLE_GOLD_FLOOR_DEFAULT_S, lastAt: 0 },
-  icarus: { unlocked: false, on: false, target: 2, stakeId: "plume", goldFloorS: AUTO_TEMPLE_GOLD_FLOOR_DEFAULT_S, lastAt: 0 }
+  tronc: { unlocked: false, on: false },
+  osselets: { unlocked: false, on: false, rite: "classique", tempo: "mesure", stakePow: 0, faveurFloor: AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, lastAt: 0 },
+  icarus: { unlocked: false, on: false, target: 2, stakeId: "plume", tempo: "mesure", stakePow: 0, faveurFloor: AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, lastAt: 0 },
+  gratteux: { unlocked: false, on: false, stakeId: "obole", tempo: "mesure", stakePow: 0, faveurFloor: AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, lastAt: 0 },
+  vingtetun: { unlocked: false, on: false, stakeId: "legere", tempo: "mesure", stakePow: 0, faveurFloor: AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, lastAt: 0 }
 });
+
+const VALID_TEMPOS = ["recueilli", "mesure", "fervent"];
 
 function normalizeTempleAuto(source) {
   const def = defaultTempleAuto();
   const s = (source && typeof source === "object") ? source : {};
-  const o = (s.osselets && typeof s.osselets === "object") ? s.osselets : {};
-  const i = (s.icarus && typeof s.icarus === "object") ? s.icarus : {};
+  const game = (key, extra) => {
+    const g = (s[key] && typeof s[key] === "object") ? s[key] : {};
+    return {
+      unlocked: Boolean(g.unlocked),
+      on: Boolean(g.on),
+      tempo: VALID_TEMPOS.includes(g.tempo) ? g.tempo : "mesure",
+      // Le cadran de coffre de l'auto : la PUISSANCE de mise (mise × 10^stakePow),
+      // re-clampée au rang possédé à CHAQUE tick par clampStakeMult.
+      stakePow: finiteInteger(g.stakePow, 0, 0, COFFRE_MAX_LEVEL),
+      // Migration douce des saves d'avant la monnaie fermée : goldFloorS est
+      // simplement abandonné, le plancher de Faveur part du défaut.
+      faveurFloor: Math.round(finiteNumber(g.faveurFloor, def[key].faveurFloor, 0, AUTO_TEMPLE_FAVEUR_FLOOR_MAX)),
+      lastAt: finiteTimestamp(g.lastAt, 0),
+      ...extra(g)
+    };
+  };
+  const t = (s.tronc && typeof s.tronc === "object") ? s.tronc : {};
   return {
-    osselets: {
-      unlocked: Boolean(o.unlocked),
-      on: Boolean(o.on),
-      rite: typeof o.rite === "string" ? o.rite : def.osselets.rite,
-      goldFloorS: Math.round(finiteNumber(o.goldFloorS, def.osselets.goldFloorS, 0, AUTO_TEMPLE_GOLD_FLOOR_MAX_S)),
-      lastAt: finiteTimestamp(o.lastAt, 0)
+    tronc: {
+      unlocked: Boolean(t.unlocked),
+      on: Boolean(t.on)
     },
-    icarus: {
-      unlocked: Boolean(i.unlocked),
-      on: Boolean(i.on),
-      target: finiteNumber(i.target, def.icarus.target, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX),
-      stakeId: typeof i.stakeId === "string" ? i.stakeId : def.icarus.stakeId,
-      goldFloorS: Math.round(finiteNumber(i.goldFloorS, def.icarus.goldFloorS, 0, AUTO_TEMPLE_GOLD_FLOOR_MAX_S)),
-      lastAt: finiteTimestamp(i.lastAt, 0)
-    }
+    osselets: game("osselets", (g) => ({
+      rite: typeof g.rite === "string" ? g.rite : def.osselets.rite
+    })),
+    icarus: game("icarus", (g) => ({
+      target: finiteNumber(g.target, def.icarus.target, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX),
+      stakeId: typeof g.stakeId === "string" ? g.stakeId : def.icarus.stakeId
+    })),
+    gratteux: game("gratteux", (g) => ({
+      stakeId: typeof g.stakeId === "string" ? g.stakeId : def.gratteux.stakeId
+    })),
+    vingtetun: game("vingtetun", (g) => ({
+      stakeId: typeof g.stakeId === "string" ? g.stakeId : def.vingtetun.stakeId
+    }))
   };
 }
 
@@ -265,11 +293,18 @@ export const defaultState = () => ({
   // DOCTRINE persistante — survit aux cycles, comme crisisDoctrine.
   stewardClauses: [],
   // FAVEUR — monnaie des jeux du temple (arbitrage Raph : jeux DÉCOUPLÉS).
-  // Gagnée aux osselets et au Vol d'Icare, dépensée à la Boutique en Bénédictions
-  // et boosters d'odds (dés/ailes). SURVIT aux effondrements (comme les ruines),
-  // effacée seulement au Grand Reset (le carburant se re-gagne ; les augments,
-  // eux, sont ÉTERNELS — cf. GR_PERSISTENT_FIELDS).
+  // Gagnée au tronc des offrandes et aux jeux, MISÉE aux osselets (monnaie
+  // fermée 2026-07-16), dépensée à la Boutique en Bénédictions et boosters.
+  // SURVIT aux effondrements (comme les ruines), effacée seulement au Grand
+  // Reset (le carburant se re-gagne ; les augments, eux, sont ÉTERNELS — cf.
+  // GR_PERSISTENT_FIELDS).
   faveur: 0,
+  // TRONC DES OFFRANDES — goutte-à-goutte passif de Faveur, plafonné, calculé à
+  // la volée depuis trunkAt (cf. actions/offeringTrunk.js). PLEIN au départ
+  // (amorce de jeu) ; survit aux effondrements comme la Faveur ; repart plein
+  // au Grand Reset (ce default). trunkAt = 0 → « pas encore relevé ».
+  trunkFaveur: TRUNK_CAP,
+  trunkAt: 0,
   // Vol d'Icare — cagnotte du temple, EN FAVEUR (nourrie par les vols brûlés et
   // les revers d'osselets, raflée en se posant à ×10+). SURVIT aux cycles : le
   // temple thésaurise à travers les âges (effacée au Grand Reset).
@@ -284,18 +319,34 @@ export const defaultState = () => ({
   // Vingt-et-un — issues des dernières mains ('win'|'lose'|'push'|'blackjack').
   // Reset au cycle, comme scratchHistory (la cagnotte reste partagée/persistante).
   blackjackHistory: [],
+  // Série de victoires au vingt-et-un (la Voix de l'oracle) : win/blackjack
+  // l'allonge, lose la coupe, push ne compte pas. Le temple comptait les défaites
+  // (Clémence), il compte enfin les victoires. Reset au cycle avec l'historique ;
+  // l'auto n'y touche jamais (la série se joue à la main).
+  blackjackStreak: 0,
   // Boutique de Faveur — boosters ÉTERNELS : survivent aux effondrements ET au
   // Grand Reset (augments, cf. GR_PERSISTENT_FIELDS ; 2026-07-15). diceLevel =
-  // dés pipés (odds osselets), wingLevel = ailes cirées (edge Icare abaissé).
+  // dés pipés (odds osselets), wingLevel = ailes cirées (edge Icare abaissé),
+  // styletLevel = stylet du gratteux (rayon de grattage, pur confort).
   diceLevel: 0,
   wingLevel: 0,
+  styletLevel: 0,
+  // Les planches du graveur : le winrate du gratteux monte, paiements fixes
+  // (le pendant des dés pipés — cf. scratchPrizesEff).
+  graveurLevel: 0,
+  // Les Coffres du temple : chaque rang autorise une mise ×10 de plus dans les
+  // 4 jeux (le moteur exponentiel de l'imprimante volontaire — cf. clampStakeMult).
+  coffreLevel: 0,
   // Bénédiction — bonus TEMPORAIRE de production (multiplicateur global actif
   // jusqu'à blessingUntil). Effet de run : remis à zéro à l'effondrement.
   blessingUntil: 0,
   blessingMult: 1,
-  // Vols d'Icare OFFERTS par les Coups de Vénus (mise « Plume » payée par le
-  // temple). Reset au cycle.
-  icarusFreeFlights: 0,
+  // Vols d'Icare OFFERTS (mise payée par le temple) : FILE d'ids de mise, plafonnée
+  // à ICARUS_FREE_FLIGHTS_MAX. Les Coups de Vénus (osselets, gratteux) donnent une
+  // « plume » ; le Soleil du gratteux donne un billet à la hauteur du ticket. Était
+  // un ENTIER avant le 2026-07-17 (compteur de plumes implicites) — cf. la migration
+  // dans hydrateState. Reset au cycle.
+  icarusFreeFlights: [],
   // Lissage (EMA) du déficit de nourriture pour le foyer Subsistance. null =
   // non initialisé (le tick le cale sur l'instantané au 1er pas). Reset au cycle.
   scarcityRawEase: null,
@@ -523,6 +574,24 @@ export function finiteNumber(value, fallback, min = 0, max = Number.MAX_SAFE_INT
 
 export function finiteInteger(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
   return Math.floor(finiteNumber(value, fallback, min, max));
+}
+
+// Vols d'Icare offerts : FILE d'ids de mise depuis le 2026-07-17 (le Soleil du
+// gratteux offre un vol À LA HAUTEUR DU TICKET, ce qu'un compteur ne peut pas
+// porter). MIGRATION : une save d'avant porte un ENTIER = N vols « Plume ».
+// Défensif dans les deux sens (save trafiquée, id inconnu, longueur, NaN).
+export function migrateFreeFlights(source) {
+  const ids = ICARUS_STAKES.map((s) => s.id);
+  if (Array.isArray(source)) {
+    // Tronqué au plafond STATIQUE le plus haut (colombier) : à l'hydratation on ne
+    // sait pas encore si l'artefact est possédé, et grantFreeFlight ré-applique le
+    // plafond vivant de toute façon. Tronquer à 5 mangerait les billets d'une save
+    // au colombier plein.
+    return source.filter((id) => ids.includes(id)).slice(0, FLIGHTS_MAX_COLOMBIER);
+  }
+  // Ancien format : un entier (des plumes).
+  const n = finiteInteger(source, 0, 0, FLIGHTS_MAX_COLOMBIER);
+  return new Array(n).fill("plume");
 }
 
 export function finiteTimestamp(value, fallback) {
@@ -1057,9 +1126,15 @@ export function hydrateState(parsed = {}) {
     gambleHistory: normalizeGambleHistory(source.gambleHistory),
     stewardClauses: normalizeStewardClauses(source.stewardClauses),
     faveur: finiteNumber(source.faveur, base.faveur, 0),
+    // Tronc des offrandes : une save d'avant le tronc le découvre PLEIN (base),
+    // l'amorce vaut aussi pour les migrations.
+    trunkFaveur: finiteNumber(source.trunkFaveur, base.trunkFaveur, 0, TRUNK_CAP),
+    trunkAt: finiteTimestamp(source.trunkAt, 0),
     icarusPotFaveur: finiteNumber(source.icarusPotFaveur, base.icarusPotFaveur, 0, ICARUS_POT_CAP_FAVEUR),
+    // Tronqué au plafond STATIQUE le plus haut (colombier, 24) : le plafond vivant
+    // dépend d'un artefact qu'on ne connaît pas encore à ce stade de l'hydratation.
     icarusHistory: Array.isArray(source.icarusHistory)
-      ? source.icarusHistory.filter((v) => Number.isFinite(v) && v >= 1).slice(-ICARUS_HISTORY_LEN)
+      ? source.icarusHistory.filter((v) => Number.isFinite(v) && v >= 1).slice(-ICARUS_HISTORY_COLOMBIER)
       : [],
     scratchHistory: Array.isArray(source.scratchHistory)
       ? source.scratchHistory.filter((v) => typeof v === "string").slice(-SCRATCH_HISTORY_LEN)
@@ -1067,9 +1142,17 @@ export function hydrateState(parsed = {}) {
     blackjackHistory: Array.isArray(source.blackjackHistory)
       ? source.blackjackHistory.filter((v) => typeof v === "string").slice(-BLACKJACK_HISTORY_LEN)
       : [],
-    icarusFreeFlights: finiteInteger(source.icarusFreeFlights, 0, 0, ICARUS_FREE_FLIGHTS_MAX),
+    blackjackStreak: finiteInteger(source.blackjackStreak, 0, 0),
+    // MIGRATION 2026-07-17 : entier → FILE d'ids de mise. Une save d'avant portait
+    // un compteur de vols « Plume » implicites : N devient N plumes. Les ids sont
+    // filtrés sur ICARUS_STAKES (une save trafiquée ne doit pas injecter une mise
+    // inexistante) puis tronqués au plafond.
+    icarusFreeFlights: migrateFreeFlights(source.icarusFreeFlights),
     diceLevel: finiteInteger(source.diceLevel, 0, 0, DICE_BOOST_MAX_LEVEL),
     wingLevel: finiteInteger(source.wingLevel, 0, 0, WING_MAX_LEVEL),
+    styletLevel: finiteInteger(source.styletLevel, 0, 0, STYLET_MAX_LEVEL),
+    graveurLevel: finiteInteger(source.graveurLevel, 0, 0, GRAVEUR_MAX_LEVEL),
+    coffreLevel: finiteInteger(source.coffreLevel, 0, 0, COFFRE_MAX_LEVEL),
     blessingUntil: finiteNumber(source.blessingUntil, 0, 0),
     blessingMult: finiteNumber(source.blessingMult, 1, 1, 10),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
@@ -1281,7 +1364,8 @@ export function resetTemporaryRunState(s) {
   s.icarusHistory = [];
   s.scratchHistory = [];
   s.blackjackHistory = [];
-  s.icarusFreeFlights = 0;
+  s.blackjackStreak = 0;
+  s.icarusFreeFlights = [];
   // Bénédiction = effet TEMPORAIRE de run : effacée à l'effondrement (les
   // boosters permanents dés/ailes, eux, SURVIVENT — comme la Faveur).
   s.blessingUntil = 0;
@@ -1368,7 +1452,7 @@ export const GR_PERSISTENT_FIELDS = [
   // Grand Reset ; la Faveur (le carburant) se re-gagne, elle, à chaque cycle GR.
   // templeAuto = réglages d'automatisation (Phase 2) : éternels aussi.
   // templeArtifacts = refontes de risque déblocables (Phase 4) : éternelles aussi.
-  "diceLevel", "wingLevel", "templeAuto", "templeArtifacts"
+  "diceLevel", "wingLevel", "styletLevel", "graveurLevel", "coffreLevel", "templeAuto", "templeArtifacts"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)

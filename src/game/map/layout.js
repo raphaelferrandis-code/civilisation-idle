@@ -578,7 +578,7 @@ function cmCheckWonders(now) {
     } else {
       // Montée de rang : animation de reconstruction + chronique.
       CM.born["wonder:" + w.id] = now;
-      if (typeof chronicle === "function") chronicle(`${w.name} s'élève au rang ${WONDER_TIER_NAMES[tier]} — ${w.tierLabel(w.tiers[tier - 1])}. Les bâtisseurs surpassent leurs ancêtres.`);
+      if (typeof chronicle === "function") chronicle(`${w.name} s'élève au rang ${WONDER_TIER_NAMES[tier]} : ${w.tierLabel(w.tiers[tier - 1])}. Les bâtisseurs surpassent leurs ancêtres.`);
     }
   }
 }
@@ -639,6 +639,81 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
 
   const activeSet = new Set(roadSet);
   let graph = buildGraph(activeSet);
+
+  // ── Réparation des COUTURES DE MASQUES (« routes solitaires », 2026-07-16) ──
+  // Le réseau est connexe par CELLULES (stitchComponents y veille), mais le rendu
+  // et les agents suivent les AXES MUTUELS (shouldConnect → mask) : une ligne qui
+  // FINIT contre une route perpendiculaire sans que l'axe de jonction soit posé
+  // sur LES DEUX cellules reste soudée pour les garde-fous… et orpheline à
+  // l'écran (couture du stitcher, fins de lignes, atterrissages de pont — scan :
+  // 44 % des générations synthétiques avaient ≥1 fragment par masques). On
+  // promeut donc chaque point de CONTACT entre composantes-masques en vraie
+  // jonction en T : l'axe partagé est tamponné des deux côtés, TERRE seulement
+  // (l'eau reste v-pure : sémantique de pont droit). Un contact par fragment et
+  // par tour, itéré jusqu'à convergence — RELIER plutôt que supprimer, comme la
+  // couture amont. Posé AVANT la validation des ponts : un pont dont seul le
+  // tampon de rive manquait est repêché au lieu d'être supprimé.
+  const repairMaskSeams = () => {
+    const DIRS4 = [[ROAD_N, 0, -1], [ROAD_E, 1, 0], [ROAD_S, 0, 1], [ROAD_W, -1, 0]];
+    const stamp = (k, axis) => {
+      const m = roadMeta.get(k) || { h: false, v: false, rank: "path" };
+      if (axis === "h") m.h = true; else m.v = true;
+      roadMeta.set(k, m);
+    };
+    for (let guard = 0; guard < 16; guard += 1) {
+      const g = buildGraph(activeSet);
+      // Composantes par MASQUES (les arcs mutuels, déjà matérialisés dans mask).
+      const compOf = new Map();
+      let nComp = 0;
+      for (const r of g.roads) {
+        const k0 = key(r.gx, r.gy);
+        if (compOf.has(k0)) continue;
+        const id = nComp;
+        nComp += 1;
+        const stack = [k0];
+        compOf.set(k0, id);
+        while (stack.length) {
+          const rr = g.roadMap.get(stack.pop());
+          for (const [bit, dx, dy] of DIRS4) {
+            if (!(rr.mask & bit)) continue;
+            const nk = key(rr.gx + dx, rr.gy + dy);
+            if (!compOf.has(nk)) { compOf.set(nk, id); stack.push(nk); }
+          }
+        }
+      }
+      if (nComp <= 1) return;
+      const sizes = new Array(nComp).fill(0);
+      for (const id of compOf.values()) sizes[id] += 1;
+      let mainId = 0;
+      for (let i = 1; i < nComp; i += 1) if (sizes[i] > sizes[mainId]) mainId = i;
+      // Un contact terre↔terre par fragment → jonction en T (axe = direction du contact).
+      const done = new Set();
+      let stamped = false;
+      for (const r of g.roads) {
+        const k0 = key(r.gx, r.gy);
+        const id = compOf.get(k0);
+        if (id === mainId || done.has(id)) continue;
+        if (isWater(r.gx, r.gy)) continue;
+        for (const [, dx, dy] of DIRS4) {
+          const ngx = r.gx + dx, ngy = r.gy + dy;
+          const nk = key(ngx, ngy);
+          const nid = compOf.get(nk);
+          if (nid === undefined || nid === id) continue;
+          if (isWater(ngx, ngy)) continue;
+          const axis = dx !== 0 ? "h" : "v";
+          stamp(k0, axis);
+          stamp(nk, axis);
+          done.add(id);
+          stamped = true;
+          break;
+        }
+      }
+      if (!stamped) return;   // restent des enclaves sans contact terrestre : à l'élagage
+    }
+  };
+  repairMaskSeams();
+  graph = buildGraph(activeSet);
+
   const bridgeKeys = graph.roads.filter((r) => r.roadSurface === "bridge").map((r) => key(r.gx, r.gy));
   const seen = new Set(), invalid = new Set();
   const dirInfo = [

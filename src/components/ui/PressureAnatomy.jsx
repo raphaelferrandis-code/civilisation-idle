@@ -56,18 +56,18 @@ export default function PressureAnatomy() {
       foyer: 'scarcity', value: p.scarcity, icon: '/pixelart/ui/foyers/scarcity.png',
       label: tr({ fr: 'Subsistance', en: 'Subsistence' }),
       title: tr({
-        fr: `Greniers à ${foodCoverage} % du besoin (≈ 2,4 vivres par habitant). Un déficit DURABLE monte ; produire ou stocker calme durablement.`,
-        en: `Granaries at ${foodCoverage}% of need (≈ 2.4 food per inhabitant). A LASTING deficit rises; producing or stockpiling calms it for good.`
+        fr: `Le manque de nourriture. Les entrepôts couvrent ${foodCoverage} % du besoin. Un déficit prolongé fait monter cette pression.`,
+        en: `Food shortage. Warehouses cover ${foodCoverage}% of need. A lasting deficit raises this pressure.`
       })
     },
     {
       foyer: 'inequality', value: p.inequality, icon: '/pixelart/ui/foyers/inequality.png',
       label: tr({ fr: 'Inégalités', en: 'Inequality' }),
       title: reserveS == null
-        ? tr({ fr: 'Mesurées sur la réserve de trésor : thésauriser creuse le fossé, dépenser le comble.', en: 'Measured on the treasury reserve: hoarding widens the gap, spending closes it.' })
+        ? tr({ fr: 'La richesse accumulée dans le trésor. Plus la réserve grossit, plus cette pression monte.', en: 'Wealth piled up in the treasury. The bigger the reserve, the higher this pressure.' })
         : tr({
-          fr: `Trésor thésaurisé : ${reserveS} s de revenu (pèse au-delà de ${INEQUALITY_RESERVE_REF_S} s). Dépenser — bâtiments, édits, paris — comble le fossé.`,
-          en: `Hoarded treasury: ${reserveS}s of income (weighs beyond ${INEQUALITY_RESERVE_REF_S}s). Spending — buildings, edicts, gambles — closes the gap.`
+          fr: `La richesse accumulée dans le trésor. La réserve vaut ${reserveS} s de revenu et pèse au-delà de ${INEQUALITY_RESERVE_REF_S} s.`,
+          en: `Wealth piled up in the treasury. The reserve is worth ${reserveS}s of income and weighs beyond ${INEQUALITY_RESERVE_REF_S}s.`
         })
     },
     {
@@ -75,28 +75,28 @@ export default function PressureAnatomy() {
       label: tr({ fr: 'Complexité', en: 'Complexity' }),
       title: (g.knowledgeStrain || 0) > 0.5
         ? tr({
-          fr: `${g.riskyBuildingCount || 0} bâtiments à administrer — et le savoir déborde les archives : quand il dépasse ce que l'infrastructure peut tenir, il pèse aussi.`,
-          en: `${g.riskyBuildingCount || 0} buildings to administer — and knowledge overflows the archives: beyond what infrastructure can hold, it weighs too.`
+          fr: `Le poids administratif de la cité. ${g.riskyBuildingCount || 0} bâtiments à administrer. Le savoir dépasse ce que l'infrastructure peut tenir et pèse aussi.`,
+          en: `The city's administrative weight. ${g.riskyBuildingCount || 0} buildings to administer. Knowledge exceeds what infrastructure can hold and weighs too.`
         })
         : tr({
-          fr: `${g.riskyBuildingCount || 0} bâtiments à administrer, absorbés par la couverture d'infrastructure (×${coverageX}).`,
-          en: `${g.riskyBuildingCount || 0} buildings to administer, absorbed by infrastructure coverage (×${coverageX}).`
+          fr: `Le poids administratif de la cité. ${g.riskyBuildingCount || 0} bâtiments à administrer, absorbés par la couverture d'infrastructure.`,
+          en: `The city's administrative weight. ${g.riskyBuildingCount || 0} buildings to administer, absorbed by infrastructure coverage.`
         })
     },
     {
       foyer: 'dissent', value: p.dissent, icon: '/pixelart/ui/foyers/dissent.png',
       label: tr({ fr: 'Dissidence', en: 'Dissent' }),
       title: tr({
-        fr: `La mémoire de ${cycles || 0} cycle${(cycles || 0) > 1 ? 's' : ''} et des ruines divise l'opinion — ce foyer grandit d'âge en âge ; foi et mémoire l'apaisent.`,
-        en: `The memory of ${cycles || 0} cycle${(cycles || 0) > 1 ? 's' : ''} and the ruins divides opinion — this hotspot grows age after age; faith and memory soothe it.`
+        fr: `La mémoire de ${cycles || 0} cycle${(cycles || 0) > 1 ? 's' : ''} et des ruines divise l'opinion. Cette pression grandit à chaque âge.`,
+        en: `The memory of ${cycles || 0} cycle${(cycles || 0) > 1 ? 's' : ''} and the ruins divides opinion. This pressure grows each age.`
       })
     },
     {
       foyer: 'structural', value: p.structural, icon: '/pixelart/ui/foyers/structural.png',
       label: tr({ fr: 'Structurelle', en: 'Structural' }),
       title: tr({
-        fr: `L'instabilité intrinsèque des bâtiments (mines, casernes…), portée par la couverture ×${coverageX} et réduite par ${g.stabilizerCount || 0} stabilisants (égouts, tribunaux…).`,
-        en: `The intrinsic instability of buildings (mines, barracks…), carried by coverage ×${coverageX} and reduced by ${g.stabilizerCount || 0} stabilizers (sewers, courts…).`
+        fr: `L'instabilité propre à certains bâtiments. ${g.stabilizerCount || 0} bâtiments stabilisants la réduisent.`,
+        en: `The instability inherent to some buildings. ${g.stabilizerCount || 0} stabilizing buildings reduce it.`
       })
     }
   ];
@@ -107,7 +107,7 @@ export default function PressureAnatomy() {
         className="regul-block-title"
         {...tipProps(
           tr({ fr: 'Anatomie de la Rupture', en: 'Anatomy of the Rupture' }),
-          tr({ fr: "D'où vient la pression, ce que vos institutions absorbent, où dérive la jauge.", en: 'Where the pressure comes from, what your institutions absorb, where the gauge drifts.' })
+          tr({ fr: "D'où vient la pression et ce que vos institutions en absorbent.", en: 'Where the pressure comes from and what your institutions absorb.' })
         )}
       >
         {tr({ fr: 'Anatomie de la Rupture', en: 'Anatomy of the Rupture' })}
@@ -122,8 +122,8 @@ export default function PressureAnatomy() {
           {...tipProps(
             tr({ fr: 'Barrage des institutions', en: 'Dam of institutions' }),
             tr({
-              fr: "Pression absorbée en continu. L'élargir : infrastructure, savoirs des ruines.",
-              en: 'Pressure continuously absorbed. Widen it: infrastructure, ruin lore.'
+              fr: 'La part de pression que vos institutions absorbent en continu.',
+              en: 'The share of pressure your institutions absorb continuously.'
             })
           )}
         >
@@ -147,8 +147,8 @@ export default function PressureAnatomy() {
             icon="/pixelart/ui/foyers/demesure.png"
             label={tr({ fr: 'Démesure', en: 'Hubris' })}
             title={tr({
-              fr: `L'hubris d'une cité de 10^${(g.popLog || 0).toFixed(1)} hab — elle s'ajoute APRÈS le barrage : seule la Gouvernance impériale la réprime (−${demesureCutPct} % actuellement).`,
-              en: `The hubris of a 10^${(g.popLog || 0).toFixed(1)} pop city — added AFTER the dam: only Imperial Governance represses it (−${demesureCutPct}% currently).`
+              fr: `La démesure d'une cité de 10^${(g.popLog || 0).toFixed(1)} habitants. Elle s'ajoute après le barrage. La Gouvernance impériale la réduit de ${demesureCutPct} %.`,
+              en: `The hubris of a city of 10^${(g.popLog || 0).toFixed(1)} inhabitants. It is added after the dam. Imperial Governance reduces it by ${demesureCutPct}%.`
             })}
           />
           <span className="anatomy-bypass-note">

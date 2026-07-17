@@ -244,7 +244,38 @@ function ensureAgentDiag(name) {
 // fini le patinage (retour Raph). Repli cadence temporelle si absent.
 // Renvoie { drawW, drawH, top } comme le cardinal (l'émeutier y ancre son halo
 // de torche), ou false si une des 4 bandes manque (l'appelant garde son repli).
-function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null) {
+// Ligne de PIEDS mesurée d'une bande (dernière rangée opaque / hauteur du cadre) :
+// les rosters PixelLab gardent ~12 % de marge transparente SOUS les pieds (mesuré :
+// footF ≈ 0.75 sur quasi toutes les bandes) — ancrer avec AGENT_FEET (0.88) y
+// suspend le sprite au-dessus du point de sol. Invisible sans repère… mais criant
+// dès qu'une OMBRE est posée au sol (« les émeutiers volent », Raph 2026-07-16).
+// Mesurée UNE fois par bande, à la demande ; repli AGENT_FEET si lecture impossible.
+function agentFootF(c, img) {
+  if (c.footF != null) return c.footF;
+  try {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    let cv;
+    if (typeof OffscreenCanvas !== 'undefined') cv = new OffscreenCanvas(w, h);
+    else { cv = document.createElement('canvas'); }
+    cv.width = w; cv.height = h;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, w, h).data;
+    let bottom = -1;
+    for (let y = h - 1; y >= 0 && bottom < 0; y -= 1) {
+      for (let x = 0; x < w; x += 1) {
+        if (data[(y * w + x) * 4 + 3] > 16) { bottom = y; break; }
+      }
+    }
+    c.footF = bottom >= 0 ? (bottom + 1) / h : AGENT_FEET;
+  } catch { c.footF = AGENT_FEET; }
+  return c.footF;
+}
+// groundFeet=true : ancre les PIEDS MESURÉS sur groundY (émeutiers : leur ombre
+// est posée là). Opt-in — le défaut AGENT_FEET reste pour habitants/attelages
+// (leurs calages relatifs, timons compris, ont été réglés avec cette constante).
+function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null, groundFeet = false) {
   const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
@@ -261,7 +292,8 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
       frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
     }
   }
-  const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
+  const feetF = groundFeet ? agentFootF(c, img) : AGENT_FEET;
+  const left = sx - drawW / 2, top = groundY - feetF * drawH;
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;
@@ -606,11 +638,36 @@ function citizenChooseNext(p) {
   // bord. Calculé une fois par pas (pas par frame) ; le rendu lisse la transition.
   const rank = vehicleRoadRank(p.gx, p.gy);
   // Décalage-trottoir : le piéton marche SUR le trottoir (bord EXPOSÉ de la cellule), pas dans
-  // la voie roulable. Le trottoir occupe une fraction FIXE du bord de cellule → décalage quasi
-  // constant (0.42 tuile ≈ milieu du trottoir). Remplace l'ancien ∝ largeur-de-route (0.30 pour
-  // les boulevards / faible pour les rues) qui laissait les piétons dans la voie. Réglable
-  // live : window.__pedEdge (fraction de tuile ; baisser s'ils débordent, monter sinon).
-  const pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge : 0.42);
+  // la voie roulable. En ISO, la ligne suit la GÉOMÉTRIE DE RUE publiée par le renderer
+  // (CM.isoPedEdge = milieu de la bande de trottoir dès l'ère à trottoirs,
+  // CM.isoPedEdgeLow = accotement des ères de terre) → les habitants marchent VRAIMENT
+  // sur le trottoir DESSINÉ, et suivent ses molettes (__sidewalkIso). Legacy : 0.42 fixe.
+  // Réglable live : window.__pedEdge (fraction de tuile) force tout.
+  const bandPed = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+  const isoPed = CM.iso && CM.isoPedEdge != null
+    ? (bandPed >= (CM.isoSidewalkMinBand != null ? CM.isoSidewalkMinBand : 2) ? CM.isoPedEdge : CM.isoPedEdgeLow)
+    : null;
+  let pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge
+    : (isoPed != null ? isoPed : 0.42));
+  // Étalement PERSONNEL dans la bande (iso) : chaque habitant tient SA ligne de
+  // trottoir (tirée de sa phase, stable pas après pas) — une file au cordeau
+  // exact faisait un rail robotique. Appliqué AVANT le resserrement de pont.
+  if (CM.iso && CM.isoPedSpread) {
+    if (p.pedJ === undefined) p.pedJ = ((((p.phase || 0) * 389.71) % 1) - 0.5) * 2;
+    pedEdge += p.pedJ * CM.TILE * CM.isoPedSpread;
+  }
+  // PONT : pas de trottoir hors du tablier — à 0.42 tuile le piéton marche dans l'eau.
+  // Sur une cellule-pont ET ses cellules d'atterrissage (le lissage lox/loy converge
+  // ainsi AVANT d'engager la travée), l'offset est resserré vers l'axe du tablier.
+  // Réglable live : window.__bridgePedEdge (fraction de tuile, défaut 0.16).
+  const rmB = CM.layout && CM.layout.roadMap;
+  const isBridgeCell = (x, y) => { const c = rmB && rmB.get(x + "," + y); return !!(c && c.roadSurface === "bridge"); };
+  if (isBridgeCell(p.gx, p.gy)
+    || isBridgeCell(p.gx + 1, p.gy) || isBridgeCell(p.gx - 1, p.gy)
+    || isBridgeCell(p.gx, p.gy + 1) || isBridgeCell(p.gx, p.gy - 1)) {
+    const bridgeEdge = CM.TILE * ((typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : 0.16);
+    pedEdge = Math.min(pedEdge, bridgeEdge);
+  }
   if (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
     // ESPLANADE : pas de trottoir — décalage PERSONNEL STABLE, tiré UNE fois par
     // habitant (dérivé de sa phase de spawn), identique à chaque pas → trajectoires
@@ -823,6 +880,7 @@ function updateCitizens(dt) {
     }
     if (p.fade === undefined) p.fade = 1;
     else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 4); // apparition rapide (~0,25 s) : plus d'effet « fantôme »
+    let moved = 0;   // distance parcourue CE tick (pilote le lissage du trottoir)
     if (p.pauseT > 0) {
       p.pauseT -= dt;
     } else {
@@ -840,6 +898,7 @@ function updateCitizens(dt) {
         // Odomètre de marche : pilote l'animation PAR DISTANCE (les pieds suivent
         // le sol, fini le patinage) — consommé par drawEraAgentIso.
         p.walkDist = (p.walkDist || 0) + sp;
+        moved = sp;
       }
     }
     // La nuit, une partie de la population rentre dormir : plutôt que de disparaître
@@ -854,13 +913,21 @@ function updateCitizens(dt) {
     p._sleepFade = sleepFade;   // lu par drawOneCitizen (indépendant de l'ordre de dessin)
 
     // Marche au BORD de la chaussée : décalage latéral (unités monde) lissé vers sa
-    // cible « trottoir » (p.tox/p.toy, bord droit du sens). Le lissage fait GLISSER le
-    // piéton d'un bord à l'autre dans les virages au lieu de sauter → plus de zigzag,
-    // et deux sens de marche = deux files le long de chaque bord. Remplace l'ancien
-    // dandinement + « swagger » qui tremblaient à chaque changement de cap.
+    // cible « trottoir » (p.tox/p.toy, bord droit du sens), deux sens de marche =
+    // deux files le long de chaque bord. Lissage PAR DISTANCE PARCOURUE
+    // (convergence ~ __pedTurn tuiles de marche) : l'ancien lissage TEMPOREL (dt·6)
+    // encaissait tout le déport latéral quasi sur place — au carrefour, le
+    // changement d'axe du bord (±edge en X ↔ ±edge en Y) devenait un « dash » en
+    // travers de la route (vu par Raph). Étalé sur l'avancée, le virage devient un
+    // arc qui coupe le coin ; à l'arrêt (pause), l'offset ne glisse plus du tout.
     const tox = p.tox || 0, toy = p.toy || 0;
     if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
-    else { const k = dt * 6 < 1 ? dt * 6 : 1; p.lox += (tox - p.lox) * k; p.loy += (toy - p.loy) * k; }
+    else if (moved > 0) {
+      const Lt = CM.TILE * ((typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9);
+      const k = moved < Lt ? moved / Lt : 1;
+      p.lox += (tox - p.lox) * k;
+      p.loy += (toy - p.loy) * k;
+    }
   }
 }
 
@@ -1097,13 +1164,15 @@ function vehicleRoadRank(gx, gy) {
   return road ? (road.rank || "path") : "path";
 }
 
-// Décalage de file (conduite à DROITE) appliqué AU RENDU sur les grands axes :
-// chaque véhicule tient sa moitié de chaussée → deux sens de circulation séparés
-// (un sens de chaque côté du terre-plein), sans rouler sur l'axe central. Pur, sans
-// effet sur le trajet (le pathfinding reste centré sur la cellule). PARTAGÉ entre la
-// carrosserie (drawVehicles) et les phares au sol (cityMapDrawCityLights) pour qu'ils
-// restent solidaires. `s` = taille tuile écran (CM.TILE * zoom).
-function vehicleLaneOffset(v, s) {
+// CIBLE de file (conduite à DROITE), en FRACTIONS DE TUILE : chaque véhicule tient
+// sa moitié de chaussée → deux sens de circulation séparés, sans rouler sur l'axe
+// central. Pur RENDU (le pathfinding reste centré sur la cellule). En ISO, la voie
+// vient de la géométrie publiée par le renderer (CM.isoVehLane = demi-chaussée/2)
+// → la carrosserie roule au centre de la voie DESSINÉE, pas d'une largeur legacy.
+// La cible est LISSÉE par updateVehicles (v._lox/_loy) puis servie par
+// vehicleLaneOffset — partagée carrosserie/phares pour qu'ils restent solidaires.
+function vehicleLaneTarget(v) {
+  const s = 1;   // fractions de tuile (les appelants scalent via vehicleLaneOffset)
   if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
   const rank = vehicleRoadRank(v.gx, v.gy);
   if (rank === "plaza") return { x: 0, y: 0 };         // esplanades : jamais de véhicule (défensif)
@@ -1118,7 +1187,10 @@ function vehicleLaneOffset(v, s) {
     // pur RENDU (pathfinding centré), partagé phares/carrosserie, nudge __vehLaneBias.
     const eiR = CM.layout?.counts?.eraIndex ?? 13;
     const laneBias = (typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
-    const lane = Math.min(0.24, Math.max(0.13, (medianHalfFor(rank, eiR) + roadWidthFor(rank, eiR) / 2) / 2));
+    // ISO : centre de voie = demi-chaussée dessinée / 2 (CM.isoVehLane) — la file
+    // colle au ruban réel ; legacy : heuristique sur les largeurs procédurales.
+    const lane = (CM.iso && CM.isoVehLane != null) ? CM.isoVehLane
+      : Math.min(0.24, Math.max(0.13, (medianHalfFor(rank, eiR) + roadWidthFor(rank, eiR) / 2) / 2));
     const m = s * (lane + laneBias);
     // Bord DROIT du sens de marche (même convention que le décalage-trottoir piéton) :
     // E→file sud, W→file nord, S→file ouest, N→file est.
@@ -1129,6 +1201,10 @@ function vehicleLaneOffset(v, s) {
             : { x: 0, y: 0 };
   }
   // Boulevard 2 cellules (axe main élargi) : refuge planté sur la COUTURE au centre.
+  // ISO : chaque cellule du boulevard EST une voie complète, sa chaussée dessinée
+  // est CENTRÉE sur la cellule → rouler au centre = tenir sa file (le sens est déjà
+  // séparé par le terre-plein). Le push extérieur legacy visait l'ancienne géométrie.
+  if (CM.iso) return { x: 0, y: 0 };
   // On pousse le véhicule vers le BORD EXTÉRIEUR de sa cellule (loin de la couture =
   // de l'autre voie) → il roule dans sa file et dégage le refuge. L'autre voie est le
   // voisin "main" perpendiculaire au sens de marche.
@@ -1153,6 +1229,16 @@ function vehicleLaneOffset(v, s) {
     if (isMain(v.gx - 1, v.gy)) return { x: mag, y: 0 };   // couture à gauche → file à droite
   }
   return { x: 0, y: 0 };
+}
+
+// Décalage de file EFFECTIF au rendu : la cible (vehicleLaneTarget) est lissée
+// par updateVehicles (v._lox/_loy, en tuiles) — au changement de cap la
+// carrosserie GLISSE d'une file à l'autre au lieu de téléporter (« bien tenir
+// leur ligne », Raph 2026-07-16). `s` = échelle (CM.TILE → px monde, T*zoom → px écran).
+function vehicleLaneOffset(v, s) {
+  if (v._lox !== undefined) return { x: v._lox * s, y: v._loy * s };
+  const t = vehicleLaneTarget(v);
+  return { x: t.x * s, y: t.y * s };
 }
 
 // Conduite des véhicules — distincte de la flânerie des piétons :
@@ -1216,6 +1302,12 @@ function vehicleChooseNext(v) {
 
 function updateVehicles(dt) {
   for (const v of CM.vehicles) {
+    // Tenue de ligne : l'offset de file est LISSÉ (unités tuile) vers sa cible —
+    // sans lissage, un changement de cap téléportait la carrosserie d'une file à
+    // l'autre. Même recette que le lox/loy des piétons, constante un peu plus douce.
+    const lt = vehicleLaneTarget(v);
+    if (v._lox === undefined) { v._lox = lt.x; v._loy = lt.y; }
+    else { const kL = dt * 4 < 1 ? dt * 4 : 1; v._lox += (lt.x - v._lox) * kL; v._loy += (lt.y - v._loy) * kL; }
     // Plus de pause ni de stationnement : les véhicules avancent en continu.
     const dx = v.tx - v.x, dy = v.ty - v.y, d = Math.hypot(dx, dy);
     if (d < 2.4) {

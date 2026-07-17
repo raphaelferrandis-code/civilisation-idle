@@ -24,7 +24,7 @@ import { tipProps } from './HelpBubble.jsx';
 
 // Office du magistrat selon le foyer de l'édit délégué (pur flavor).
 const FOYER_OFFICE = {
-  scarcity: { fr: 'aux greniers', en: 'of the granaries' },
+  scarcity: { fr: 'aux entrepôts', en: 'of the warehouses' },
   inequality: { fr: 'aux monnaies', en: 'of the coinage' },
   complexity: { fr: 'aux registres', en: 'of the registers' },
   dissent: { fr: 'aux autels', en: 'of the altars' }
@@ -64,7 +64,7 @@ function ClauseRow({ slot, clause, choices, now }) {
           onChange={(e) => setStewardClause(slot, { actionId: e.target.value || null })}
           aria-label={tr({ fr: 'Édit délégué', en: 'Delegated edict' })}
         >
-          <option value="">{tr({ fr: '— choisir un édit —', en: '— choose an edict —' })}</option>
+          <option value="">{tr({ fr: 'choisir un édit…', en: 'choose an edict…' })}</option>
           {choices.map((id) => <option key={id} value={id}>{regulActionLabel(id)}</option>)}
         </select>
         <button
@@ -115,8 +115,8 @@ export default function StewardPanel() {
         {...tipProps(
           tr({ fr: "L'Intendance", en: 'The Stewardship' }),
           tr({
-            fr: 'Des consignes permanentes : des magistrats interviennent à votre place — aux mêmes coûts, à la même fatigue, jamais sur la cible.',
-            en: 'Standing orders: magistrates act in your stead — same costs, same fatigue, never on the target.'
+            fr: 'Des consignes permanentes : des magistrats interviennent à votre place, aux mêmes coûts et à la même fatigue.',
+            en: 'Standing orders: magistrates act in your stead, at the same costs and the same fatigue.'
           })
         )}
       >
@@ -125,7 +125,7 @@ export default function StewardPanel() {
       </h3>
       {resting && (
         <p className="steward-resting" title={tr({ fr: "Au-delà de 50 % de fatigue, l'intendance attend que l'administration récupère.", en: 'Beyond 50% fatigue, the stewardship waits for the administration to recover.' })}>
-          😮‍💨 {tr({ fr: "l'administration souffle — consignes en pause", en: 'the administration is catching its breath — clauses paused' })}
+          😮‍💨 {tr({ fr: "l'administration souffle, consignes en pause", en: 'the administration is catching its breath, clauses paused' })}
         </p>
       )}
       <div className="steward-clauses">
@@ -141,7 +141,7 @@ export default function StewardPanel() {
                 `${tr({ fr: 'Se débloque', en: 'Unlocks' })} : ${tr(STEWARD_SLOT_UNLOCKS[i].unlockLabel)}`
               )}
             >
-              🔒 {tr({ fr: 'Consigne', en: 'Clause' })} {i + 1} — {tr(STEWARD_SLOT_UNLOCKS[i].unlockLabel)}
+              🔒 {tr({ fr: 'Consigne', en: 'Clause' })} {i + 1} : {tr(STEWARD_SLOT_UNLOCKS[i].unlockLabel)}
             </div>
           )
         ))}

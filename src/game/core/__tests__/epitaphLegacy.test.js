@@ -155,7 +155,7 @@ describe("farm hors-ligne — la dernière volonté est re-gravée à l'identiqu
     expect(state.activeEpitaphLegacy).toBeNull();
   });
 
-  it("le testament prime sur la dernière volonté (Granges ×0.9 malgré Lois en attente)", () => {
+  it("le testament prime sur la dernière volonté (le Grain ×0.9 malgré l'Ordre en attente)", () => {
     const gainedWithoutLegacy = offlineRuinsGained();
     const gainedWithTestament = offlineRuinsGained({
       testamentLegacyId: "granaries",

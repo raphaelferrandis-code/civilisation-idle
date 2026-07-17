@@ -7,11 +7,11 @@ export const EPITAPH_LEGACY_DURATION_MS = 8 * 60 * 1000;
 export const EPITAPH_LEGACIES = [
   {
     id: "granaries",
-    label: { fr: "Graver les Granges", en: "Engrave the Granaries" },
-    logLabel: { fr: "les Granges", en: "the Granaries" },
+    label: { fr: "Le Grain", en: "Grain" },
+    logLabel: { fr: "le Grain", en: "Grain" },
     icon: "🌾",
     pixIcon: "ruins/food",
-    tagline: { fr: "Les survivants gravent l'art de nourrir : la prochaine cité mangera à sa faim.", en: "The survivors engrave the art of feeding: the next city will eat its fill." },
+    tagline: { fr: "La prochaine cité mangera à sa faim.", en: "The next city will eat its fill." },
     ruinMult: 0.9,
     favoredCause: "famine",
     effects: {
@@ -22,11 +22,11 @@ export const EPITAPH_LEGACIES = [
   },
   {
     id: "archives",
-    label: { fr: "Graver les Archives", en: "Engrave the Archives" },
-    logLabel: { fr: "les Archives", en: "the Archives" },
+    label: { fr: "La Mémoire", en: "Memory" },
+    logLabel: { fr: "la Mémoire", en: "Memory" },
     icon: "📜",
     pixIcon: "prep/archives",
-    tagline: { fr: "Le savoir survit aux pierres : la prochaine cité apprendra plus vite.", en: "Knowledge outlasts the stones: the next city will learn faster." },
+    tagline: { fr: "La prochaine cité apprendra plus vite.", en: "The next city will learn faster." },
     ruinMult: 1,
     favoredCause: "time",
     effects: {
@@ -38,11 +38,11 @@ export const EPITAPH_LEGACIES = [
   },
   {
     id: "laws",
-    label: { fr: "Graver les Lois", en: "Engrave the Laws" },
-    logLabel: { fr: "les Lois", en: "the Laws" },
+    label: { fr: "L'Ordre", en: "Order" },
+    logLabel: { fr: "l'Ordre", en: "Order" },
     icon: "⚖️",
     pixIcon: "ruins/stability",
-    tagline: { fr: "Un ordre hérité : la prochaine cité tiendra plus longtemps avant de céder.", en: "An inherited order: the next city will hold longer before it yields." },
+    tagline: { fr: "La prochaine cité tiendra plus longtemps avant de céder.", en: "The next city will hold longer before it yields." },
     ruinMult: 0.85,
     favoredCause: "rupture",
     effects: {
@@ -53,11 +53,11 @@ export const EPITAPH_LEGACIES = [
   },
   {
     id: "plunder",
-    label: { fr: "Piller les Restes", en: "Plunder the Remains" },
-    logLabel: { fr: "le Pillage", en: "the Plunder" },
+    label: { fr: "Le Pillage", en: "Plunder" },
+    logLabel: { fr: "le Pillage", en: "Plunder" },
     icon: "🔥",
     pixIcon: "ruins/node-autel_du_culte",
-    tagline: { fr: "Tout prendre maintenant : plus de ruines, mais rien ne sera transmis.", en: "Take everything now: more ruins, but nothing will be passed on." },
+    tagline: { fr: "Tout est pris maintenant. Plus de ruines, rien ne sera transmis.", en: "Everything is taken now. More ruins, nothing passed on." },
     ruinMult: 1.25,
     favoredCause: "avarice",
     effects: {

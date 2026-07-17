@@ -49,7 +49,7 @@ function ago(t, now) {
 
 function MarkGlyph({ mark, x }) {
   const y = Y_LANE;
-  const label = `${tr(MARK_LABELS[mark.kind] || { fr: mark.kind, en: mark.kind })}${mark.id ? ` — ${regulActionLabel(mark.id)}` : ''}`;
+  const label = `${tr(MARK_LABELS[mark.kind] || { fr: mark.kind, en: mark.kind })}${mark.id ? ` : ${regulActionLabel(mark.id)}` : ''}`;
   let shape;
   switch (mark.kind) {
     case 'reform':
@@ -127,7 +127,7 @@ export default function CycleAnnals() {
         </svg>
       ) : (
         <div className="annals-empty">
-          {tr({ fr: "Les annales s'écrivent — la courbe apparaît au fil des minutes.", en: 'The annals are being written — the curve appears as minutes pass.' })}
+          {tr({ fr: "Les annales s'écrivent. La courbe apparaît au fil des minutes.", en: 'The annals are being written. The curve appears as minutes pass.' })}
         </div>
       )}
       <div className="annals-legend">

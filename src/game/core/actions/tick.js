@@ -197,7 +197,7 @@ export function tick(dt) {
     const expiredLegacy = epitaphLegacyById(state.activeEpitaphLegacy.id);
     const hadTimedEffects = expiredLegacy && Object.keys(expiredLegacy.effects || {}).some((key) => key !== "startingInstability");
     if (hadTimedEffects) {
-      chronicle(`Le legs gravé — ${expiredLegacy.logLabel} — s'efface ; la cité vole désormais de ses propres ailes.`);
+      chronicle(`Le legs gravé « ${expiredLegacy.logLabel} » s'efface ; la cité vole désormais de ses propres ailes.`);
     }
     state.activeEpitaphLegacy = null;
   }
@@ -268,7 +268,7 @@ export function tick(dt) {
     const mm = GRAND_RESET_MILESTONES.find((x) => x.id === grDiscoveredId);
     if (mm) {
       pushOutcomeFloat({ label: `👑 Grand Reset à portée : ${tr(mm.name)}`, kind: "gain" });
-      log(`Un seuil s'illumine — « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`);
+      log(`Un seuil s'illumine : « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`);
     }
   }
 

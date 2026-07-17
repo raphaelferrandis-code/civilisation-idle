@@ -184,7 +184,7 @@ function PurchaseRow({
             className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
             disabled={!affordable}
             onClick={handleBuy}
-            title={tr({ fr: "Shift-clic : ×10 — Ctrl-clic : ×100", en: "Shift-click: ×10 — Ctrl-click: ×100" })}
+            title={tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" })}
           >
             {floats.map((f) => (
               <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>

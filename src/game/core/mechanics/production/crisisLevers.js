@@ -6,6 +6,7 @@
 // `crisisProductionMultiplier`, `ruptureGrowthMultiplier` et `theocracyKnowledgeRate`
 // sont consommés par pressure.js/rates.js (exportés, hors API publique du baril).
 import { state } from '../../state.js';
+import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT } from '../../balance.js';
 import { POLICY_BY_ID } from '../../../data/regulationActions.js';
 import { ATLAS_LEGIT_MAX_REDUCTION } from '../../../data/myths.js';
 import { toNum } from '../../num.js';
@@ -25,13 +26,26 @@ export function addProductionPenalty(type, amount) {
 // Bénédiction de la boutique de Faveur : bonus TEMPORAIRE de production
 // (multiplicateur global tant que Date.now() < state.blessingUntil). Inline ici
 // (pas d'import de actions/faveurShop → pas de cycle avec le baril mechanics).
+// LE CHAR DU SOLEIL (relique, 2026-07-17) la rend PERMANENTE.
 function blessingProductionMultiplier() {
-  return (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
+  const active = (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
+  return (state.templeArtifacts || {}).char ? Math.max(BLESSING_MULT, active) : active;
+}
+
+// LES RELIQUES du temple (2026-07-17, arbitrage Raphaël : l'imprimante de Faveur
+// finance la PRODUCTION). Multiplicatives : Corne ×2, Œil d'or ×4 → ×8 les deux.
+// Inline (lecture directe de state.templeArtifacts, même raison anti-cycle).
+function templeRelicMultiplier() {
+  const arts = state.templeArtifacts || {};
+  let m = 1;
+  if (arts.corne) m *= RELIC_CORNE_PROD_MULT;
+  if (arts.oeil) m *= RELIC_OEIL_PROD_MULT;
+  return m;
 }
 
 export function crisisProductionMultiplier(type) {
   const global = state.crisisProduction.global ?? 1;
-  return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type) * blessingProductionMultiplier();
+  return global * (state.crisisProduction[type] ?? 1) * policyProductionMultiplier(type) * blessingProductionMultiplier() * templeRelicMultiplier();
 }
 
 // Levier C — coût de production CONTINU et RÉCUPÉRABLE des politiques actives

@@ -336,7 +336,7 @@ export default function RuinsTreePixel() {
     else if (status === "blocked") { statusLine = tr({ fr: `Exclu par : ${conflictName}`, en: `Excluded by: ${conflictName}` }); statusKind = "blocked"; }
     else if (status === "available") { statusLine = null; statusKind = "available"; }
     else if (!open) { statusLine = tr({ fr: `Verrouillé · ${ownedBelow}/${need}`, en: `Locked · ${ownedBelow}/${need}` }); statusKind = "locked"; }
-    else if (!isUnlocked(u)) { statusLine = tr({ fr: "Verrouillé — cycles suivants", en: "Locked — later cycles" }); statusKind = "locked"; }
+    else if (!isUnlocked(u)) { statusLine = tr({ fr: "Verrouillé jusqu'aux cycles suivants", en: "Locked until later cycles" }); statusKind = "locked"; }
     else { statusLine = tr({ fr: "Pas assez de ruines", en: "Not enough ruins" }); statusKind = "cost"; }
 
     const costText = status === "purchased" ? null : `${fmt(ruinNodeCost(u))}`;
@@ -354,7 +354,7 @@ export default function RuinsTreePixel() {
       font: n.r * (n.capstone ? 1.04 : 0.94),
       bought: justBought === n.id,
       conflict: conflictIds.has(n.id),
-      aria: [u?.name || n.id, tr(STATUS_LABEL[status]), costText].filter(Boolean).join(" — "),
+      aria: [u?.name || n.id, tr(STATUS_LABEL[status]), costText].filter(Boolean).join(", "),
       tip: {
         branch: n.branch,
         name: u?.name || n.id,
@@ -393,7 +393,7 @@ export default function RuinsTreePixel() {
       font: d.r * 0.86,
       bought: justBought === d.id,
       conflict: conflictIds.has(d.id),
-      aria: `${u?.name || d.id} — ${statusLine}`,
+      aria: `${u?.name || d.id}, ${statusLine}`,
       tip: {
         branch: d.branch,
         name: u?.name || d.id,

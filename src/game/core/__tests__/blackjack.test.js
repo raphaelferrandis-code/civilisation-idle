@@ -1,9 +1,10 @@
 "use strict";
-// Vingt-et-un (jeu du temple) — moteur (gains en Faveur, jeu DÉCOUPLÉ) : mise en
-// OR, GAIN en Faveur = secondes × mult × ICARUS_FAVEUR_K. Tour par tour (tirer/
-// rester), état module éphémère. Le croupier tire jusqu'à 17 ; un naturel paie
-// 3:2. Une main perdue nourrit la cagnotte PARTAGÉE. Sabot INJECTABLE en test
-// (options.deck, tiré du DÉBUT) → flux déterministe sans piloter le hasard.
+// Vingt-et-un (jeu du temple) — moteur (MONNAIE FERMÉE 2026-07-16) : mise et
+// GAIN en FAVEUR = round(mise × mult), le push rend exactement la mise. Tour
+// par tour (tirer/rester), état module éphémère. Le croupier tire jusqu'à 17 ;
+// un naturel paie 3:2. Une main perdue nourrit la cagnotte PARTAGÉE (part de
+// mise). Sabot INJECTABLE en test (options.deck, tiré du DÉBUT) → flux
+// déterministe sans piloter le hasard.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
@@ -11,7 +12,6 @@ import {
   dealBlackjack,
   hitBlackjack,
   standBlackjack,
-  blackjackStakes,
   blackjackActive,
   blackjackLastOutcome,
   blackjackResult,
@@ -19,16 +19,16 @@ import {
   isBlackjack
 } from "../actions.js";
 import { __resetBlackjackForTests } from "../actions/blackjack.js";
-import { toNum } from "../num.js";
-import { ICARUS_FAVEUR_K, BLACKJACK_POT_FEED, BLACKJACK_HISTORY_LEN } from "../balance.js";
+import { BLACKJACK_RTP_REF, BLACKJACK_HISTORY_LEN, BLACKJACK_STAKES } from "../balance.js";
 import { MID_GAME_FIXTURE } from "./fixtures.js";
 
 const C = (rank, suit = "olive") => ({ rank, suit });
+const STAKE_OF = (id) => BLACKJACK_STAKES.find((s) => s.id === id).faveur;
+const FAVEUR_START = 500;
 
 beforeEach(() => {
   setState(hydrateState(MID_GAME_FIXTURE));
-  state.gold = 1e9;
-  state.faveur = 0;
+  state.faveur = FAVEUR_START; // couvre toutes les mises (monnaie fermée)
   state.icarusPotFaveur = 0;
   state.blackjackHistory = [];
   __resetBlackjackForTests();
@@ -67,44 +67,53 @@ describe("Vingt-et-un — valeur de main (helpers purs)", () => {
 });
 
 describe("Vingt-et-un — flux stateful (sabot injecté)", () => {
-  it("paie la mise EN OR à la distribution", () => {
-    const stake = blackjackStakes().find((s) => s.id === "royale");
-    const before = toNum(state.gold);
+  it("paie la mise EN FAVEUR à la distribution, refuse sans solde", () => {
     dealBlackjack("royale", { deck: [C("K"), C("9"), C("10"), C("6"), C("5")] });
-    expect(toNum(state.gold)).toBeCloseTo(before - toNum(stake.gold), 0);
+    expect(state.faveur).toBe(FAVEUR_START - STAKE_OF("royale"));
+    __resetBlackjackForTests();
+    state.faveur = STAKE_OF("royale") - 1;
+    expect(dealBlackjack("royale", { deck: [C("K"), C("9"), C("10"), C("6")] })).toBeNull();
+    expect(state.faveur).toBe(STAKE_OF("royale") - 1);
   });
 
-  it("un naturel se résout d'emblée et paie 3:2", () => {
+  it("un naturel se résout d'emblée et paie 3:2 (×2,5 la mise)", () => {
     const h = dealBlackjack("legere", { deck: [C("A"), C("K"), C("9"), C("7")] });
     expect(h.resolved).toBe(true);
     const out = blackjackLastOutcome();
     expect(out.result).toBe("blackjack");
-    expect(state.faveur).toBe(Math.round(40 * 2.5 * ICARUS_FAVEUR_K)); // 15
+    const stake = STAKE_OF("legere");
+    expect(state.faveur).toBe(FAVEUR_START - stake + Math.round(stake * 2.5));
     expect(blackjackActive()).toBe(false);
   });
 
-  it("tirer et crever = perdu + cagnotte nourrie", () => {
+  it("tirer et crever = perdu ; la table n'a plus d'edge à verser au pot", () => {
     dealBlackjack("legere", { deck: [C("K"), C("Q"), C("9"), C("7"), C("K")] }); // joueur 20, croupier 16
     expect(blackjackActive()).toBe(true);
     hitBlackjack(); // tire le K → 30, crève
     expect(blackjackLastOutcome().result).toBe("lose");
-    expect(state.faveur).toBe(0);
-    expect(state.icarusPotFaveur).toBeCloseTo(40 * BLACKJACK_POT_FEED, 5); // 20
+    const stake = STAKE_OF("legere");
+    expect(state.faveur).toBe(FAVEUR_START - stake);
+    // Depuis la bascule (2026-07-17), BLACKJACK_RTP_REF = 1.01 (jeu parfait avec
+    // double, refente légale) : l'edge de référence est NÉGATIF, feedPot clampe à
+    // zéro — le 21 ne nourrit plus la cagnotte, et c'est exact (rien à recycler).
+    expect(BLACKJACK_RTP_REF).toBeGreaterThanOrEqual(1);
+    expect(state.icarusPotFaveur).toBe(0);
   });
 
-  it("rester : le croupier tire jusqu'à 17 puis on compare", () => {
+  it("rester : le croupier tire jusqu'à 17 puis on compare (gagner paie ×2)", () => {
     // joueur 19 ; croupier 16 → tire le K → 26, crève → joueur gagne
     dealBlackjack("legere", { deck: [C("K"), C("9"), C("10"), C("6"), C("K")] });
     standBlackjack();
     expect(blackjackLastOutcome().result).toBe("win");
-    expect(state.faveur).toBe(Math.round(40 * 2 * ICARUS_FAVEUR_K)); // 12
+    const stake = STAKE_OF("legere");
+    expect(state.faveur).toBe(FAVEUR_START - stake + stake * 2);
   });
 
-  it("égalité : la Faveur d'un push = secondes × 1 × K", () => {
+  it("égalité : le push rend EXACTEMENT la mise (solde inchangé)", () => {
     dealBlackjack("legere", { deck: [C("K"), C("9"), C("K"), C("9")] }); // 19 vs 19
     standBlackjack();
     expect(blackjackLastOutcome().result).toBe("push");
-    expect(state.faveur).toBe(Math.round(40 * 1 * ICARUS_FAVEUR_K)); // 6
+    expect(state.faveur).toBe(FAVEUR_START);
   });
 
   it("un changement de cycle (effondrement) abandonne la main en cours", () => {
@@ -127,16 +136,16 @@ describe("Vingt-et-un — flux stateful (sabot injecté)", () => {
   });
 
   it("l'historique est capé et effacé au cycle ; la cagnotte survit", () => {
+    state.icarusPotFaveur = 37; // cagnotte pré-remplie (le 21 ne la nourrit plus, REF ≥ 1)
     for (let i = 0; i < BLACKJACK_HISTORY_LEN + 4; i += 1) {
       dealBlackjack("legere", { deck: [C("K"), C("7"), C("K"), C("9")] }); // 17 vs 19 → lose
       standBlackjack();
     }
     expect(state.blackjackHistory.length).toBe(BLACKJACK_HISTORY_LEN);
-    const potBefore = state.icarusPotFaveur;
-    expect(potBefore).toBeGreaterThan(0);
+    expect(state.icarusPotFaveur).toBe(37); // feedPot clampé à 0 : rien versé
     resetTemporaryRunState(state);
     expect(state.blackjackHistory).toEqual([]);
-    expect(state.icarusPotFaveur).toBe(potBefore); // cagnotte partagée, persistante
+    expect(state.icarusPotFaveur).toBe(37); // cagnotte partagée, persistante
   });
 });
 

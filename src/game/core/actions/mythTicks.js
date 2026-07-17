@@ -132,7 +132,7 @@ export const MYTH_TICK_HANDLERS = {
     const orNeed = D(rates().gold).max(0).mul(OR_GAIN_SECONDS);
     if (!state.orGoldReached && orGained.gte(orNeed) && orGained.gt(0) && D(state.orPopPeak || 0).lte(orPopCap)) {
       state.orGoldReached = true;
-      log(`Age d'Or : +${fmt(orGained)} de Tresor accumule ce cycle sans laisser la cite s'etaler ! La prosperite est etablie — que le pacte soit scelle.`);
+      log(`Age d'Or : +${fmt(orGained)} de Tresor accumule ce cycle sans laisser la cite s'etaler ! La prosperite est etablie, que le pacte soit scelle.`);
     }
   },
 
@@ -141,7 +141,7 @@ export const MYTH_TICK_HANDLERS = {
       if (babelExponentialMult() >= BABEL_MULT_TARGET) {
         state.babelProdReached = true;
         const catLabel = tr(BABEL_CAT_LABELS?.[state.babelCategory]) || state.babelCategory;
-        log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET} — le pacte est en passe d'etre honore.`);
+        log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET}, le pacte est en passe d'etre honore.`);
       }
     }
   },
@@ -171,7 +171,7 @@ export const MYTH_TICK_HANDLERS = {
       const elapsed = Date.now() - state.eneeTerritoryStartedAt;
       if (elapsed >= ENEE_TERRITORY_INTERVAL_MS) {
         state.eneeDegraded = true;
-        log("Le territoire se dégrade — migrer.");
+        log("Le territoire se dégrade : migrer.");
         invalidateRenderCache("all");
       }
     }

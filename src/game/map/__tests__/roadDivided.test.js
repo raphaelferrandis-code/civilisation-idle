@@ -143,14 +143,28 @@ describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur",
     CM.layout = { roadMap: m };
   }
 
-  it("les deux files se collent au BORD EXTÉRIEUR (opposées, loin de la couture)", () => {
+  it("legacy : les deux files se collent au BORD EXTÉRIEUR (opposées, loin de la couture)", () => {
     boulevardH();
-    const top = vehicleLaneOffset(v(5, 5, 0), 32);  // voie du haut (voisin main en bas) → file en HAUT
-    const bot = vehicleLaneOffset(v(5, 6, 0), 32);  // voie du bas (voisin main en haut) → file en BAS
-    expect(top.y).toBeLessThan(0);
-    expect(bot.y).toBeGreaterThan(0);
-    expect(top.x).toBe(0);
-    expect(top.y).toBeCloseTo(-bot.y);               // symétriques autour de la couture
+    const isoBefore = CM.iso;
+    CM.iso = false;   // poussée extérieure = géométrie LEGACY (l'iso roule centré, test dédié)
+    try {
+      const top = vehicleLaneOffset(v(5, 5, 0), 32);  // voie du haut (voisin main en bas) → file en HAUT
+      const bot = vehicleLaneOffset(v(5, 6, 0), 32);  // voie du bas (voisin main en haut) → file en BAS
+      expect(top.y).toBeLessThan(0);
+      expect(bot.y).toBeGreaterThan(0);
+      expect(top.x).toBe(0);
+      expect(top.y).toBeCloseTo(-bot.y);               // symétriques autour de la couture
+    } finally { CM.iso = isoBefore; }
+  });
+
+  it("iso : chaque cellule du boulevard EST une voie → carrosserie CENTRÉE dedans", () => {
+    boulevardH();
+    const isoBefore = CM.iso;
+    CM.iso = true;    // la chaussée iso est centrée sur la cellule, le terre-plein sépare déjà les sens
+    try {
+      expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
+      expect(vehicleLaneOffset(v(5, 6, 0), 32)).toEqual({ x: 0, y: 0 });
+    } finally { CM.iso = isoBefore; }
   });
 
   it("avenue / rue : conduite à DROITE généralisée (les deux sens se séparent)", () => {

@@ -74,7 +74,7 @@ export async function exportSave() {
     render();
     return { ok: true, text };
   } catch {
-    log("Copie automatique impossible — copie le texte manuellement.");
+    log("Copie automatique impossible, copie le texte manuellement.");
     render();
     return { ok: false, text };
   }
@@ -119,6 +119,12 @@ export function addDebugResources() {
   state.knowledge = D(state.knowledge).max(1000000000);
   state.infrastructure = D(state.infrastructure).max(1000000);
   log("Debug: ressources late game injectees.");
+  render();
+}
+
+export function addDebugFaveur(amount) {
+  state.faveur = (state.faveur || 0) + amount;
+  log(`Debug: +${fmt(amount)} faveur ajoutee.`);
   render();
 }
 

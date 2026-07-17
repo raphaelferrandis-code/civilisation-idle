@@ -38,7 +38,6 @@ if (typeof window !== "undefined") {
     try { localStorage.setItem("cmIsoMode", isoFlag.on ? "1" : "0"); } catch { /* privé/plein */ }
     // Invalide les bakes (le mapping change) + recadre la caméra proprement.
     CM._groundBake = null; CM._staticBake = null; CM._tileBake = null; CM._isoGroundBake = null;
-    CM.staticCamKey = ""; CM.tileCamKey = ""; CM.groundCamKey = "";
     CM.centered = false;
     return isoFlag.on;
   };

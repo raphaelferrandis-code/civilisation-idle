@@ -59,10 +59,10 @@ export function idleResumeNarrative({ elapsedSeconds, eraIndex, instability, ter
     const ruines = ruinsGained
       ? tr({ fr: ` Tes archivistes ont consigné +${ruinsGained} ruines à ton retour.`, en: ` Your archivists recorded +${ruinsGained} ruins upon your return.` })
       : "";
-    return `${dur}${absence}${capitalize(mood)}${tr({ fr: " — mais les cycles n'ont pas dormi : la cité s'est effondrée et relevée ", en: " — but the cycles did not sleep: the city fell and rose again " })}${fois}, ${rupt}.${ruines}`;
+    return `${dur}${absence}${capitalize(mood)}${tr({ fr: ". Mais les cycles n'ont pas dormi : la cité s'est effondrée et relevée ", en: ". But the cycles did not sleep: the city fell and rose again " })}${fois}, ${rupt}.${ruines}`;
   }
   if (terminalUsure) {
-    return `${dur}${absence}${capitalize(mood)}, ${rupt}${tr({ fr: " — et le temps, lui, n'a pas attendu : l'usure a tout rattrapé. La cité retient son souffle et attend ta décision.", en: " — and time, for its part, did not wait: the wear caught up with everything. The city holds its breath and awaits your decision." })}`;
+    return `${dur}${absence}${capitalize(mood)}, ${rupt}${tr({ fr: ". Le temps, lui, n'a pas attendu : l'usure a tout rattrapé. La cité retient son souffle et attend ta décision.", en: ". Time, for its part, did not wait: the wear caught up with everything. The city holds its breath and awaits your decision." })}`;
   }
   return `${dur}${absence}${tr({ fr: "À ton retour, ", en: "Upon your return, " })}${mood}, ${rupt}.`;
 }

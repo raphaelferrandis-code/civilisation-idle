@@ -163,7 +163,7 @@ export const CADMOS_ORIENTATIONS = {
       { fr: "Moissons", en: "Harvests" },
       { fr: "Sillons", en: "Furrows" },
       { fr: "Vergers", en: "Orchards" },
-      { fr: "Entrepôts", en: "Granaries" },
+      { fr: "Entrepôts", en: "Warehouses" },
       { fr: "Semences", en: "Seeds" }
     ],
     bonus: {
@@ -228,8 +228,8 @@ export const MYTHS = [
     act: 1,
     name: { fr: "Le Mythe du Chaos", en: "The Myth of Chaos" },
     description: {
-      fr: "Tous les bonus de méta-progression sont désactivés pour ce cycle : Ruines, Légitimité, Grand Reset. Chaque multiplicateur retombe à sa valeur de base (1x). Les upgrades restent achetés — ils sont simplement ignorés.",
-      en: "All meta-progression bonuses are disabled for this cycle: Ruins, Legitimacy, Grand Reset. Every multiplier falls back to its base value (1x). Upgrades stay purchased — they are simply ignored."
+      fr: "Tous les bonus de méta-progression sont désactivés pour ce cycle : Ruines, Légitimité, Grand Reset. Chaque multiplicateur retombe à sa valeur de base (1x). Les upgrades restent achetés, ils sont simplement ignorés.",
+      en: "All meta-progression bonuses are disabled for this cycle: Ruins, Legitimacy, Grand Reset. Every multiplier falls back to its base value (1x). Upgrades stay purchased, they are simply ignored."
     },
     ragnarokSummary: {
       fr: "tous les bonus de méta-progression sont neutralisés ; appliqué en dernier.",
@@ -524,8 +524,8 @@ export const MYTHS = [
       en: `Accumulate ${fmt(OR_GOLD_TARGET)} Treasury without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
     },
     heritageDescription: {
-      fr: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement — en permanence, dans toutes les runs futures.`,
-      en: `Golden Balance: when the gap between Food and Treasury is below ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, Wear rises ${Math.round(OR_HERITAGE_USURE_RED * 100)}% more slowly — permanently, in all future runs.`
+      fr: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement, en permanence, dans toutes les runs futures.`,
+      en: `Golden Balance: when the gap between Food and Treasury is below ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, Wear rises ${Math.round(OR_HERITAGE_USURE_RED * 100)}% more slowly, permanently, in all future runs.`
     },
 
     onActivate() {
@@ -551,8 +551,8 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe d'Atlas", en: "The Myth of Atlas" },
     description: {
-      fr: `L'effondrement manuel est désactivé. L'Usure monte ${ATLAS_USURE_MULT}x plus vite. La Rupture ne peut plus être réduite par aucun moyen — les crises absorbent leur coût mais n'allègent plus l'instabilité.`,
-      en: `Manual collapse is disabled. Wear rises ${ATLAS_USURE_MULT}x faster. Rupture can no longer be reduced by any means — crises absorb their cost but no longer ease the instability.`
+      fr: `L'effondrement manuel est désactivé. L'Usure monte ${ATLAS_USURE_MULT}x plus vite. La Rupture ne peut plus être réduite par aucun moyen. Les crises absorbent leur coût mais n'allègent plus l'instabilité.`,
+      en: `Manual collapse is disabled. Wear rises ${ATLAS_USURE_MULT}x faster. Rupture can no longer be reduced by any means. Crises absorb their cost but no longer ease the instability.`
     },
     ragnarokSummary: {
       fr: `effondrement manuel bloqué, Usure x${ATLAS_USURE_MULT}, la Rupture ne baisse plus par les crises.`,
@@ -588,8 +588,8 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe d'Icare", en: "The Myth of Icarus" },
     description: {
-      fr: `La production globale est multipliée par ${ICARE_PROD_MULT}x. La Rupture monte ${ICARE_RUPTURE_MULT}x plus vite, l'Usure ${ICARE_USURE_MULT}x plus vite. L'effondrement manuel est désactivé — seul l'automatique peut terminer ce cycle.`,
-      en: `Global production is multiplied by ${ICARE_PROD_MULT}x. Rupture rises ${ICARE_RUPTURE_MULT}x faster, Wear ${ICARE_USURE_MULT}x faster. Manual collapse is disabled — only the automatic one can end this cycle.`
+      fr: `La production globale est multipliée par ${ICARE_PROD_MULT}x. La Rupture monte ${ICARE_RUPTURE_MULT}x plus vite, l'Usure ${ICARE_USURE_MULT}x plus vite. L'effondrement manuel est désactivé. Seul l'automatique peut terminer ce cycle.`,
+      en: `Global production is multiplied by ${ICARE_PROD_MULT}x. Rupture rises ${ICARE_RUPTURE_MULT}x faster, Wear ${ICARE_USURE_MULT}x faster. Manual collapse is disabled. Only the automatic one can end this cycle.`
     },
     ragnarokSummary: {
       fr: `production x${ICARE_PROD_MULT}, Rupture x${ICARE_RUPTURE_MULT}, Usure x${ICARE_USURE_MULT}.`,
@@ -623,8 +623,8 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe du Phénix", en: "The Myth of the Phoenix" },
     description: {
-      fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances D'AFFILÉE — rater une fenêtre brise la chaîne et vous repartez de zéro.`,
-      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart population in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths IN A ROW — missing a window breaks the chain and you start over from zero.`
+      fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances d'affilée. Rater une fenêtre brise la chaîne et vous repartez de zéro.`,
+      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart population in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
     },
     ragnarokSummary: {
       fr: `reconstruction express à ${PHENIX_REBIRTH_POP_MULT}× la population en ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, ${PHENIX_RENAISSANCE_TARGET} fois de suite.`,
@@ -711,8 +711,8 @@ export const MYTHS = [
       en: "active Ruins must be chosen and count as cycle penalties."
     },
     objectif: {
-      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) ET, sous ce poids, faire croître la population ×${ANTEE_POP_MULT} depuis le départ — la force naît des fardeaux.`,
-      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) AND, under that weight, grow the population ×${ANTEE_POP_MULT} from the start — strength is born of burdens.`
+      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître la population ×${ANTEE_POP_MULT} depuis le départ.`,
+      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow the population ×${ANTEE_POP_MULT} from the start.`
     },
     heritageDescription: {
       fr: "Ruines actives : dans les runs futures, chaque debut de cycle propose de choisir volontairement des Heritages avec leur malus. Les Ruines gagnees a l'effondrement recoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",
@@ -747,8 +747,8 @@ export const MYTHS = [
       en: "The terminal Myth. All the constraints of the thirteen preceding Myths apply simultaneously in a single cycle; Chaos brings up the rear and neutralizes the meta-progression bonuses."
     },
     objectif: {
-      fr: `Sous les 13 contraintes réunies : tenir au moins ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s ET faire surgir la puissance ×${RAGNAROK_POWER_SURGE_MULT} depuis le début du cycle — un dernier embrasement avant la fin de toutes choses.`,
-      en: `Under all 13 constraints combined: hold out for at least ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s AND surge power ×${RAGNAROK_POWER_SURGE_MULT} from the start of the cycle — a final blaze before the end of all things.`
+      fr: `Sous les 13 contraintes réunies : tenir au moins ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s et faire surgir la puissance ×${RAGNAROK_POWER_SURGE_MULT} depuis le début du cycle.`,
+      en: `Under all 13 constraints combined: hold out for at least ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s and surge power ×${RAGNAROK_POWER_SURGE_MULT} from the start of the cycle.`
     },
     heritageDescription: {
       fr: "La Fin des Dieux : debloque le 11e Grand Reset, qui donne un multiplicateur x4 aux Ruines, et grave un titre final permanent dans la Chronique.",
@@ -859,17 +859,17 @@ export function checkActUnlocks() {
 
   if (allDone(byAct(1)) && byAct(2).length > 0 && !state.mythActsAnnounced.act2) {
     state.mythActsAnnounced.act2 = true;
-    log(tr({ fr: "Acte II — Les pactes anciens s'éveillent. De nouveaux défis se révèlent aux yeux du sage.", en: "Act II — The ancient pacts awaken. New trials reveal themselves to the eyes of the wise." }));
+    log(tr({ fr: "Acte II : les pactes anciens s'éveillent. De nouveaux défis se révèlent aux yeux du sage.", en: "Act II: the ancient pacts awaken. New trials reveal themselves to the eyes of the wise." }));
   }
   if (allDone(byAct(2)) && byAct(3).length > 0 && !state.mythActsAnnounced.act3) {
     state.mythActsAnnounced.act3 = true;
-    log(tr({ fr: "Acte III — L'épreuve finale approche. Les défis légendaires réclament un dernier sacrifice.", en: "Act III — The final ordeal approaches. The legendary trials demand one last sacrifice." }));
+    log(tr({ fr: "Acte III : l'épreuve finale approche. Les défis légendaires réclament un dernier sacrifice.", en: "Act III: the final ordeal approaches. The legendary trials demand one last sacrifice." }));
   }
   const mainMythes = MYTHS.filter((m) => m.act === 1 || m.act === 2 || m.act === 3);
   const hasRagnarok = MYTHS.some((m) => m.act === "ragnarok");
   if (hasRagnarok && allDone(mainMythes) && !state.mythActsAnnounced.ragnarok) {
     state.mythActsAnnounced.ragnarok = true;
-    log(tr({ fr: "Ragnarok — Le pacte ultime se brise. La fin de toutes choses vous attend.", en: "Ragnarok — The ultimate pact shatters. The end of all things awaits you." }));
+    log(tr({ fr: "Ragnarok : le pacte ultime se brise. La fin de toutes choses vous attend.", en: "Ragnarok: the ultimate pact shatters. The end of all things awaits you." }));
   }
 }
 

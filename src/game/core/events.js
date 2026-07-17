@@ -167,8 +167,8 @@ export async function runCollapseSequence(gain, reason) {
       badge: favored ? tr({ fr: "⚡ Affinité", en: "⚡ Affinity" }) : null,
       badgeTitle: favored
         ? tr({
-            fr: `Affinité : ${FAVORED_CAUSE_LABELS[cause] || cause} — les valeurs renforcées (→) s'appliquent.`,
-            en: `Affinity: ${FAVORED_CAUSE_LABELS[cause] || cause} — the reinforced (→) values apply.`
+            fr: `Affinité : ${FAVORED_CAUSE_LABELS[cause] || cause}. Les valeurs renforcées (→) s'appliquent.`,
+            en: `Affinity: ${FAVORED_CAUSE_LABELS[cause] || cause}. The reinforced (→) values apply.`
           })
         : null,
       highlight: favored,
@@ -191,8 +191,8 @@ export async function runCollapseSequence(gain, reason) {
       en: `Year ${fmt(cycleYear())} · Age of ${eras[currentEraIndex()].name} · peak ${fmt(D(state.cyclePeaks?.population || state.population))} inhabitants`
     }),
     footnote: tr({
-      fr: `L'affinité ⚡ renforce le legs assorti à la cause de la chute — les valeurs « → » s'appliquent. Touches 1–4 pour graver directement. Gravez un testament (page Effondrement) pour ne plus être interrompu.`,
-      en: `The ⚡ affinity strengthens the legacy matching the cause of the fall — the "→" values apply. Keys 1–4 engrave directly. Engrave a testament (Collapse page) to skip this dialog.`
+      fr: `L'affinité ⚡ renforce le legs assorti à la cause de la chute : les valeurs « → » s'appliquent. Touches 1 à 4 pour graver directement.`,
+      en: `The ⚡ affinity strengthens the legacy matching the cause of the fall: the "→" values apply. Keys 1 to 4 engrave directly.`
     }),
     mourning: true,
     preventClose: true,

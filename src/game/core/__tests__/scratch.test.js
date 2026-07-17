@@ -1,17 +1,20 @@
 "use strict";
-// Tickets à gratter (jeu du temple) — moteur (gains en Faveur, jeu DÉCOUPLÉ) :
-//   la mise est en OR, l'issue est tirée par UN Math.random pondéré (table
-//   SCRATCH_PRIZES), la grille 3×3 est peinte pour matcher. Gagner = secondes ×
-//   payoutMult × ICARUS_FAVEUR_K en Faveur. Un ticket perdant nourrit la
-//   cagnotte PARTAGÉE (state.icarusPotFaveur) ; le Soleil la rafle. Effet
-//   DIFFÉRÉ (defer + apply idempotent) jusqu'à la révélation par grattage.
+// Tickets à gratter (jeu du temple) — moteur (MONNAIE FERMÉE 2026-07-16) :
+//   mise et gain en FAVEUR. L'issue est tirée par UN Math.random pondéré
+//   (table SCRATCH_PRIZES), la grille 3×3 est peinte pour matcher. Gagner =
+//   round(mise × payoutMult). Un ticket perdant nourrit la cagnotte PARTAGÉE
+//   (part de mise, state.icarusPotFaveur) ; le Soleil la rafle. Effet DIFFÉRÉ
+//   (defer + apply idempotent) jusqu'à la révélation par grattage.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
-import { playScratch, scratchStakes, scratchGrid } from "../actions.js";
-import { toNum } from "../num.js";
-import { ICARUS_FAVEUR_K, ICARUS_POT_CAP_FAVEUR, SCRATCH_POT_FEED, SCRATCH_HISTORY_LEN } from "../balance.js";
+import { playScratch, scratchGrid } from "../actions.js";
+import { scratchRtpRef, scratchPrizesEff } from "../actions/scratch.js";
+import { ICARUS_POT_CAP_FAVEUR, TEMPLE_POT_RECYCLE, SCRATCH_HISTORY_LEN, SCRATCH_STAKES } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+
+const STAKE_OF = (id) => SCRATCH_STAKES.find((s) => s.id === id).faveur;
+const FAVEUR_START = 500;
 
 // Bornes cumulées de la table (poids /1000) → valeur de Math.random pour forcer
 // une issue : blank<0.73, olive[0.73,0.868), amphore[0.868,0.938), laurier
@@ -24,8 +27,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
   setState(hydrateState(MID_GAME_FIXTURE));
-  state.gold = 1e9; // couvre toutes les mises
-  state.faveur = 0;
+  state.faveur = FAVEUR_START; // couvre toutes les mises (monnaie fermée)
   state.icarusPotFaveur = 0;
   state.scratchHistory = [];
   invalidateRenderCache("all");
@@ -36,65 +38,125 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// Force l'issue via u (le SEUL random d'issue) ; la grille reste aléatoire.
+// Force l'issue via u (le PREMIER random, celui de drawPrize), puis fige TOUS les
+// suivants à 0.999 : la grille reste déterministe ET payRound arrondit toujours
+// vers le BAS (0.999 ≥ toute fraction) — sans ça, un gain fractionnaire
+// (drachme × olive = 9,6) rendrait le test intermittent (le piège documenté du
+// mockReturnValueOnce qui retombe sur le vrai hasard).
 function play(stakeId, u, opts) {
-  vi.spyOn(Math, "random").mockReturnValueOnce(u);
+  vi.spyOn(Math, "random").mockReturnValue(0.999).mockReturnValueOnce(u);
   const res = playScratch(stakeId, opts);
   Math.random.mockRestore();
   return res;
 }
 
 describe("Tickets à gratter — moteur", () => {
-  it("paie la mise EN OR à l'achat", () => {
-    const stake = scratchStakes().find((s) => s.id === "talent");
-    const before = toNum(state.gold);
+  it("paie la mise EN FAVEUR à l'achat, refuse sans solde", () => {
     play("talent", U.blank);
-    expect(toNum(state.gold)).toBeCloseTo(before - toNum(stake.gold), 0);
+    expect(state.faveur).toBe(FAVEUR_START - STAKE_OF("talent"));
+    state.faveur = STAKE_OF("talent") - 1;
+    expect(play("talent", U.blank)).toBeNull(); // mise impayable → refus
+    expect(state.faveur).toBe(STAKE_OF("talent") - 1);
   });
 
-  it("un ticket gagnant crédite secondes × payoutMult × K en Faveur", () => {
-    play("drachme", U.olive); // olive ×1.2, drachme 45 s
-    expect(state.faveur).toBe(Math.round(45 * 1.2 * ICARUS_FAVEUR_K)); // 8
+  it("un ticket gagnant crédite payRound(mise × payoutMult) en Faveur", () => {
+    play("drachme", U.olive); // olive ×1.2 → 9,6 ; le harnais fige payRound au floor
+    const stake = STAKE_OF("drachme");
+    expect(state.faveur).toBe(FAVEUR_START - stake + Math.floor(stake * 1.2));
   });
 
   it("defer : rien appliqué avant apply(), et apply() est idempotent", () => {
-    const res = play("drachme", U.amphore, { render: false, defer: true }); // amphore ×2.4
+    // PAS le harnais play() ici : payRound tire son random À L'APPLY (différé),
+    // le mock doit donc rester vivant jusqu'aux apply() — le relâcher avant
+    // rendait le test intermittent (19,2 arrondi 20 une fois sur cinq).
+    vi.spyOn(Math, "random").mockReturnValue(0.999).mockReturnValueOnce(U.amphore); // amphore ×2.4
+    const res = playScratch("drachme", { render: false, defer: true });
+    const stake = STAKE_OF("drachme");
     expect(res.win).toBe(true);
-    expect(state.faveur).toBe(0); // gain non appliqué…
-    // …mais la mise est DÉJÀ payée (comme castAugury/launchIcarus)
-    const expected = Math.round(45 * 2.4 * ICARUS_FAVEUR_K); // 16
+    // La mise est DÉJÀ payée (comme castAugury/launchIcarus), le gain dort.
+    expect(state.faveur).toBe(FAVEUR_START - stake);
+    const expected = FAVEUR_START - stake + Math.floor(stake * 2.4);
     res.apply();
     expect(state.faveur).toBe(expected);
     res.apply(); // flush idempotent
     expect(state.faveur).toBe(expected);
+    Math.random.mockRestore();
   });
 
-  it("un ticket perdant (vernis nu) nourrit la cagnotte partagée", () => {
-    play("talent", U.blank); // 150 s
-    expect(state.icarusPotFaveur).toBeCloseTo(150 * SCRATCH_POT_FEED, 5); // 75
-    expect(state.faveur).toBe(0);
+  it("un ticket nourrit la cagnotte SUR L'EDGE (et non sur la mise perdue)", () => {
+    const stake = STAKE_OF("talent");
+    const feed = stake * TEMPLE_POT_RECYCLE * (1 - scratchRtpRef("talent"));
+    play("talent", U.blank);
+    expect(state.icarusPotFaveur).toBeCloseTo(feed, 5);
+    expect(state.faveur).toBe(FAVEUR_START - stake);
+    // …et un ticket GAGNANT verse autant : le versement ne dépend pas de l'issue,
+    // c'est ce qui rend l'espérance exacte (cf. feedPot).
+    state.icarusPotFaveur = 0;
+    play("talent", U.olive);
+    expect(state.icarusPotFaveur).toBeCloseTo(feed, 5);
+  });
+
+  it("scratchRtpRef est dérivé de la table effective (arrondi réel + vols comptés)", () => {
+    for (const id of ["obole", "drachme", "talent"]) {
+      expect(scratchRtpRef(id)).toBeLessThan(1);
+      // L'invariant, sur les 3 mises.
+      expect(scratchRtpRef(id) + TEMPLE_POT_RECYCLE * (1 - scratchRtpRef(id))).toBeLessThan(1);
+    }
+  });
+
+  it("les planches du graveur : le winrate monte, les LOTS ne bougent pas (contrat des dés)", () => {
+    const base = scratchPrizesEff();
+    const rtp0 = scratchRtpRef("obole");
+    state.graveurLevel = 5;
+    const eff = scratchPrizesEff();
+    // Les paiements sont IDENTIQUES à tous les niveaux…
+    for (let i = 0; i < base.length; i++) {
+      expect(eff[i].symbol).toBe(base[i].symbol);
+      expect(eff[i].payoutMult).toBe(base[i].payoutMult);
+    }
+    // …le poids total est conservé (le tirage garde sa base de 1000)…
+    const tot = eff.reduce((s, p) => s + p.weight, 0);
+    expect(tot).toBeCloseTo(base.reduce((s, p) => s + p.weight, 0), 9);
+    // …le blank maigrit, chaque gagnant grossit, et le RTP suit sans dépasser 1.
+    expect(eff.find((p) => p.symbol === "blank").weight).toBeLessThan(730);
+    expect(eff.find((p) => p.symbol === "olive").weight).toBeGreaterThan(138);
+    const rtp5 = scratchRtpRef("obole");
+    expect(rtp5).toBeGreaterThan(rtp0);
+    expect(rtp5).toBeLessThan(1);
+    expect(rtp5 + TEMPLE_POT_RECYCLE * (1 - rtp5)).toBeLessThan(1);
+    state.graveurLevel = 0;
   });
 
   it("la cagnotte reste bornée à ICARUS_POT_CAP_FAVEUR", () => {
-    state.icarusPotFaveur = ICARUS_POT_CAP_FAVEUR - 10;
+    state.icarusPotFaveur = ICARUS_POT_CAP_FAVEUR - 0.1; // le versement dépasse le cap
     play("talent", U.blank);
     expect(state.icarusPotFaveur).toBe(ICARUS_POT_CAP_FAVEUR);
   });
 
-  it("trois Soleils raflent la cagnotte partagée et la remettent à 0", () => {
+  it("trois Soleils NE raflent PLUS la cagnotte : ils offrent un vol à la mise du ticket", () => {
     state.icarusPotFaveur = 1000;
-    const res = play("talent", U.soleil); // soleil ×15, sweep
-    expect(res.sweep).toBe(true);
-    expect(res.jackpotFaveur).toBe(1000);
-    expect(state.icarusPotFaveur).toBe(0);
-    expect(state.faveur).toBe(Math.round(150 * 15 * ICARUS_FAVEUR_K) + 1000);
+    const res = play("talent", U.soleil); // soleil ×15, sunFlight
+    const stake = STAKE_OF("talent");
+    expect(res.sunFlight).toBe(true);
+    expect(res.jackpotFaveur).toBeUndefined(); // le champ a disparu avec la rafle
+    // La cella n'est PAS reprise : cette table nourrit le pot, jamais l'inverse.
+    // Elle y verse même sa part d'edge au passage, comme sur tout autre ticket.
+    expect(state.icarusPotFaveur).toBeGreaterThan(1000);
+    expect(state.faveur).toBe(FAVEUR_START - stake + Math.round(stake * 15));
+    // Le billet suit le ticket : un talent envoie à l'Hécatombe, pas à la Plume.
+    expect(state.icarusFreeFlights).toEqual(["hecatombe"]);
   });
 
-  it("trois Vénus offrent un vol d'Icare", () => {
-    const before = state.icarusFreeFlights || 0;
-    const res = play("obole", U.venus);
+  it("le billet du Soleil suit la mise du ticket (obole → plume)", () => {
+    const res = play("obole", U.soleil);
+    expect(res.sunFlight).toBe(true);
+    expect(state.icarusFreeFlights).toEqual(["plume"]);
+  });
+
+  it("trois Vénus offrent un vol d'Icare (toujours une Plume, quelle que soit la mise)", () => {
+    const res = play("talent", U.venus);
     expect(res.freeFlight).toBe(true);
-    expect(state.icarusFreeFlights).toBe(before + 1);
+    expect(state.icarusFreeFlights).toEqual(["plume"]);
   });
 
   it("l'historique est capé à SCRATCH_HISTORY_LEN et effacé au cycle", () => {

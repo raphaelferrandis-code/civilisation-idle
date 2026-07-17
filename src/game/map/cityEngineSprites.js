@@ -912,7 +912,7 @@ function drawCityEngineSprite(context) {
         px(gx0+0.03, ry, gw-0.06, 0.03, "#2e6a22");
         for(let f=0;f<3;f++){ctx.fillStyle="#d6440f"; ctx.beginPath(); ctx.arc(ox+sw*(gx0+0.08+f*0.12), oy+sh*(ry+0.005), sw*0.013,0,Math.PI*2); ctx.fill();}
       }
-      // Ouvrier poussant une brouette de cagettes (va-et-vient comme aux greniers)
+      // Ouvrier poussant une brouette de cagettes (va-et-vient comme aux entrepôts)
       const cyc=(now/4600)%1, going=cyc<0.5, k=going?cyc*2:(1-cyc)*2;
       const wx=0.34 - k*0.16, wy=0.82, step=Math.sin(now/120)*0.01;
       ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox+sw*(wx+0.06),oy+sh*(wy+0.07),sw*0.12,sh*0.025,0,0,Math.PI*2); ctx.fill();
@@ -1056,24 +1056,14 @@ function drawCityEngineSprite(context) {
       return true;
     }
     // 4 stades suivant l'âge de la ville (ei = eraIndex 0–34), un tous les
-    // 10 âges : greniers sur pilotis → halle de pierre → entrepôt industriel
+    // 10 âges : entrepôts sur pilotis → halle de pierre → entrepôt industriel
     // → hub logistique automatisé. tier reste la richesse intra-stade.
     const stage = engineStage(ei);
     if (stage === 0) {
     // ── STADE 0 · GRENIERS — silos sur pilotis, grain doré, oiseau picoreur ──
-    // Sol : tache de terre battue qui se FOND dans le terrain (comme la scène cueilleur).
-    {
-      const cxp = ox + sw * 0.5, cyp = oy + sh * 0.82, R = sw * 0.56, ky = (sh * 0.3) / R;
-      ctx.save();
-      ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-      const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-      g.addColorStop(0, "rgba(36,26,12,0.82)");
-      g.addColorStop(0.6, "rgba(36,26,12,0.46)");
-      g.addColorStop(1, "rgba(36,26,12,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    // Terre battue passée par softGround : la tache était peinte À LA MAIN ici, donc
+    // elle survivait à DRAW_BUILDING_GROUND=false et lisait comme une ombre noire.
+    softGround(ctx, ox, oy, sw, sh, 0.82, 0.56, 0.3, "36,26,12", 0.82); // sol (désactivé par défaut)
     // UN SEUL grand silo (sprite PixelLab « bien travaillé »), repli procédural.
     if (propReady('granary-prop-silo')) {
       const hFrac = 0.82;                                  // grand silo portrait (80×96)
@@ -1431,19 +1421,9 @@ function drawCityEngineSprite(context) {
     if (stage === 0) {
       if (muleReady()) {
       // ── STADE 0 · CARAVANE EN MARCHE — mulet bâté pixel mené par le marchand ──
-      // Piste battue (tache fondue large) + caravane qui plie la route (va-et-vient).
-      {
-        const cxp = ox + sw * 0.5, cyp = oy + sh * 0.84, R = sw * 0.62, ky = (sh * 0.2) / R;
-        ctx.save();
-        ctx.translate(cxp, cyp); ctx.scale(1, ky); ctx.translate(-cxp, -cyp);
-        const g = ctx.createRadialGradient(cxp, cyp, 0, cxp, cyp, R);
-        g.addColorStop(0, "rgba(36,26,12,0.72)");
-        g.addColorStop(0.65, "rgba(36,26,12,0.4)");
-        g.addColorStop(1, "rgba(36,26,12,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(cxp, cyp, R, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      }
+      // Piste battue passée par softGround : elle était peinte À LA MAIN ici, donc
+      // elle survivait à DRAW_BUILDING_GROUND=false et lisait comme une ombre noire.
+      softGround(ctx, ox, oy, sw, sh, 0.84, 0.62, 0.2, "36,26,12", 0.72); // piste (désactivée par défaut)
       drawCaravan(ctx, ox, oy, sw, sh, now);
       } else {
       // ── STADE 0 · MULET BÂTÉ — bête de somme menée par un marchand ──────

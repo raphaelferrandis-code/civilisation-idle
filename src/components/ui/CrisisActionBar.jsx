@@ -6,9 +6,10 @@ import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost } from '../../game/core/utils.js';
 import { state } from '../../game/core/state.js';
 import { toNum } from '../../game/core/num.js';
-import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE } from '../../game/core/balance.js';
+import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE, AUGURY_STAKES } from '../../game/core/balance.js';
 import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
+import { FaveurIcon } from './FaveurIcon.jsx';
 import PixelIcon from './PixelIcon.jsx';
 
 /**
@@ -89,7 +90,8 @@ function describeRegAction(action, cost, r, ctx, currentReform) {
     id: action.id,
     label: action.label,
     cost,
-    costSec: costSeconds(cost, r),
+    // Les gambles n'ont pas de coût-ressource (mise en FAVEUR, cf. augures.js).
+    costSec: cost ? costSeconds(cost, r) : 0,
     locked: !unlocked,
     unlockLabel: action.unlockLabel,
     reform: isReform,
@@ -124,21 +126,21 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
   }
   if (a.gamble) {
     // Mini-jeu : le bouton OUVRE la Table des augures (rite, osselets, quitte
-    // ou double) au lieu de trancher sur place. Toujours cliquable — la table
-    // affiche les trois mises (l'offrande prudente coûte moins que ce coût-ci).
+    // ou double) au lieu de trancher sur place. Toujours cliquable — la mise
+    // est en FAVEUR (monnaie du temple), pas en ressources.
     const cls = `${btnClass}${btnClass ? ' ' : ''}regul-gamble`.trim();
     return (
       <button
         className={cls}
-        title={tr({ fr: `Ouvre la table des augures : choisis ton rite (la mise pilote la variance), jette les osselets, et tente le quitte ou double si les dieux sourient. Gain en Faveur.`, en: `Opens the augurs' table: choose your rite (the stake shapes variance), cast the knucklebones, and try double-or-nothing if the gods smile. Winnings in Favor.` })}
+        title={tr({ fr: `Ouvre la table des augures : choisis ton rite (la mise, en Faveur, pilote la variance), jette les osselets, et tente le quitte ou double si les dieux sourient.`, en: `Opens the augurs' table: choose your rite (the Favor stake shapes variance), cast the knucklebones, and try double-or-nothing if the gods smile.` })}
         onClick={() => openAuguryTable(a.id)}
       >
         <span className="regul-btn-line">
           <strong>{label}</strong>
-          <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+          <span className="regul-cost"><FaveurIcon /> {AUGURY_STAKES.prudent} à {AUGURY_STAKES.grand}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
-          <span className="regul-gamble-tag">🎲 {tr({ fr: 'Faveur', en: 'Favor' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>
+          <span className="regul-gamble-tag">🎲 {tr({ fr: 'mise en Faveur', en: 'Favor stake' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>
         </span>
       </button>
     );
@@ -379,8 +381,8 @@ export default function CrisisActionBar({ variant = 'full' }) {
               <summary className="crisis-foyer-head" title={tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' })}>
                 <img className="crisis-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
                 <span className="crisis-foyer-name">{f.label}</span>
-                {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé — recul durable acquis (ne décline pas)', en: 'Hotspot reformed — lasting reduction acquired (does not decay)' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
-                {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé — l'effet décline", en: 'Hotspot soothed — the effect decays' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
+                {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
+                {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
                 <span className="crisis-foyer-chevron" aria-hidden="true"></span>
                 <span className="crisis-foyer-track" aria-hidden="true">
                   <span
@@ -430,8 +432,8 @@ export default function CrisisActionBar({ variant = 'full' }) {
                   <span className="tactical-htitle">
                     <img className="tactical-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
                     <h4>{f.label}</h4>
-                    {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé — recul durable acquis (ne décline pas)', en: 'Hotspot reformed — lasting reduction acquired (does not decay)' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
-                    {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé — l'effet décline", en: 'Hotspot soothed — the effect decays' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
+                    {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
+                    {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
                   </span>
                 </header>
                 <p>{f.desc}</p>

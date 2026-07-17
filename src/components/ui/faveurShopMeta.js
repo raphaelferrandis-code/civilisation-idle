@@ -14,9 +14,9 @@ export const LABELS = {
 };
 export const ICONS = { dice: '🎲', wing: '🪽', blessing: '🌾' };
 export const DESCS = {
-  dice: { fr: 'Boost PERMANENT des chances aux osselets (+2 pts par niveau). Coût croissant.', en: 'PERMANENT boost to the knucklebones odds (+2 pts per level). Rising cost.' },
-  wing: { fr: "Abaisse PERMANENT l'edge du Vol d'Icare — la cire tient plus longtemps.", en: 'PERMANENTLY lowers the Flight of Icarus edge — the wax holds longer.' },
-  blessing: { fr: `Bonus TEMPORAIRE de production (+${Math.round((BLESSING_MULT - 1) * 100)} % pendant ${Math.round(BLESSING_DURATION_S / 60)} min). Re-jouable, cumulable en durée.`, en: `TEMPORARY production bonus (+${Math.round((BLESSING_MULT - 1) * 100)}% for ${Math.round(BLESSING_DURATION_S / 60)} min). Repeatable, duration stacks.` }
+  dice: { fr: '+2 points de chance aux osselets par niveau, permanent. Les paiements ne changent pas. Coût croissant.', en: '+2 points of chance at knucklebones per level, permanent. Payouts do not change. Rising cost.' },
+  wing: { fr: "Augmente les chances de voler loin au Vol d'Icare, permanent. Les paiements ne changent pas.", en: 'Raises the odds of flying far in the Flight of Icarus, permanent. Payouts do not change.' },
+  blessing: { fr: `+${Math.round((BLESSING_MULT - 1) * 100)} % de production pendant ${Math.round(BLESSING_DURATION_S / 60)} min. Rachetable, la durée se cumule.`, en: `+${Math.round((BLESSING_MULT - 1) * 100)}% production for ${Math.round(BLESSING_DURATION_S / 60)} min. Repeatable, duration stacks.` }
 };
 
 export function effectLine(item) {

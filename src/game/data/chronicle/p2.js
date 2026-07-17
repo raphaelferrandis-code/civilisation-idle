@@ -11,7 +11,7 @@ export const chroniclePeriod2 = [
     period: 2,
     conditionType: "crise",
     title: { fr: "LA RÉCOLTE A POURRI", en: "THE HARVEST HAS ROTTED" },
-    text: { fr: "« Pluies sans fin, entrepôts vides. Les prêtres affirment qu'un dieu est en colère ; reste à savoir lequel, et pourquoi. »", en: "\"Endless rains, empty granaries. The priests declare a god is angry; it remains to be known which one, and why.\"" },
+    text: { fr: "« Pluies sans fin, entrepôts vides. Les prêtres affirment qu'un dieu est en colère ; reste à savoir lequel, et pourquoi. »", en: "\"Endless rains, empty warehouses. The priests declare a god is angry; it remains to be known which one, and why.\"" },
     author: { fr: "Claude, gardien du feu", en: "Claude, keeper of the fire" }
   },
   {
@@ -79,7 +79,7 @@ export const chroniclePeriod2 = [
     period: 2,
     conditionType: "usure",
     title: { fr: "TOUJOURS PLUS", en: "ALWAYS MORE" },
-    text: { fr: "« On use le bronze plus vite que je ne le fonds. Fondre, marteler, recommencer — Garin rêve d'un peu de repos. »", en: "\"We wear out the bronze faster than I can smelt it. Smelt, hammer, start over — Garin dreams of a little rest.\"" },
+    text: { fr: "« On use le bronze plus vite que je ne le fonds. Fondre, marteler, recommencer. Garin rêve d'un peu de repos. »", en: "\"We wear out the bronze faster than I can smelt it. Smelt, hammer, start over. Garin dreams of a little rest.\"" },
     author: { fr: "Garin, tailleur de silex en reconversion", en: "Garin, flint knapper retraining" }
   },
   {
@@ -239,7 +239,7 @@ export const chroniclePeriod2 = [
     period: 2,
     conditionType: "paix",
     title: { fr: "NI GUERRE NI FAMINE : ÉTRANGE", en: "NEITHER WAR NOR FAMINE: STRANGE" },
-    text: { fr: "« Entrepôts pleins, frontières calmes. Les prêtres, méfiants, demandent davantage d'offrandes pour que ça dure. On ne sait jamais à qui on doit la chance. »", en: "\"Granaries full, borders calm. The priests, wary, ask for more offerings to make it last. You never know whom to thank for luck.\"" },
+    text: { fr: "« Entrepôts pleins, frontières calmes. Les prêtres, méfiants, demandent davantage d'offrandes pour que ça dure. On ne sait jamais à qui on doit la chance. »", en: "\"Warehouses full, borders calm. The priests, wary, ask for more offerings to make it last. You never know whom to thank for luck.\"" },
     author: { fr: "Claude, gardien du feu", en: "Claude, keeper of the fire" }
   },
   {

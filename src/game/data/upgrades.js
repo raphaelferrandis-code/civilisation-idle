@@ -403,8 +403,8 @@ export const upgrades = [
     amount: 0.5,
     name: { fr: "Machine chronique", en: "Chronicle engine" },
     cost: { ruins: 40000000000 },
-    desc: { fr: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus — elle recommence.", en: "It turns every ending into a chapter. History no longer stops — it begins again." },
-    effect: { fr: "La Sève de braise est amplifiée de +50% — chaque nœud allumé et chaque ruine dépensée nourrissent l'arbre davantage.", en: "The Ember Sap is amplified by +50% — every lit node and every spent ruin feeds the tree further." }
+    desc: { fr: "Elle transforme chaque fin en chapitre. L'histoire ne s'arrête plus, elle recommence.", en: "It turns every ending into a chapter. History no longer stops, it begins again." },
+    effect: { fr: "La Sève de braise est amplifiée de +50 %. Chaque nœud allumé et chaque ruine dépensée nourrissent l'arbre.", en: "The Ember Sap is amplified by +50%. Every lit node and every spent ruin feeds the tree." }
   },
 
   /* ── DOGMES — paires de choix exclusifs, gratuits au palier ─────────────── */

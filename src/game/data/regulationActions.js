@@ -26,8 +26,8 @@ export const REGULATION_ACTIONS = [
   // ─── 🌾 Subsistance (scarcity) ──────────────────────────────────────────────
   {
     id: "granariesCommunal", foyer: "scarcity", tier: 3, kind: "soothe",
-    label: { fr: "Entrepôts communaux", en: "Communal Granaries" },
-    note: { fr: "Des entrepôts de quartier sont ouverts à tous : nul ne dort le ventre vide, et la peur de manquer reflue.", en: "District granaries are opened to all: none sleep on an empty stomach, and the fear of want recedes." },
+    label: { fr: "Entrepôts communaux", en: "Communal Warehouses" },
+    note: { fr: "Des entrepôts de quartier sont ouverts à tous : nul ne dort le ventre vide, et la peur de manquer reflue.", en: "District warehouses are opened to all: none sleep on an empty stomach, and the fear of want recedes." },
     unlock: (c) => c.bestEra >= 2, unlockLabel: { fr: "Ère II", en: "Era II" },
     cost: { res: "food", seconds: 35 },
     relief: 0.22, malusRes: "food", malusPct: 0.10, counter: "rationing"
@@ -115,19 +115,19 @@ export const REGULATION_ACTIONS = [
 
   // ─── 🎲 LES OSSELETS DU TEMPLE (kind: gamble) — le jeu de dés UNIFIÉ ──────────
   // FUSION 2026-07-15 : les 3 anciennes tables (pluie/loterie/bouc) ne font plus
-  // qu'UN jeu. La MISE (rite prudent/classique/grand, cf. AUGURY_RITES) pilote
-  // l'ÉCHELLE (coût + Faveur ×costMult) ET la VARIANCE (gros sacrifice = plus de
-  // Vénus ET plus de Chiens, via `spread`) ; les ITEMS (dés pipés) et la Clémence
-  // pilotent les ODDS. Id « prayForRain » CONSERVÉ (tests, persistance, historique
-  // des jets). Mise en OR — offrande au temple, cohérente avec le Vol d'Icare.
+  // qu'UN jeu. La MISE est en FAVEUR (monnaie fermée 2026-07-16, cf.
+  // AUGURY_STAKES) : le rite (prudent/classique/grand) fixe la mise ET la
+  // VARIANCE (gros sacrifice = plus de Vénus ET plus de Chiens, via `spread`) ;
+  // les ITEMS (dés pipés) pilotent les ODDS et le RTP. Id « prayForRain »
+  // CONSERVÉ (tests, persistance, historique des jets). Pas de champ `cost` :
+  // les gambles sont hors crisisCosts (le temple est sa propre économie).
   {
     id: "prayForRain", foyer: "dissent", tier: 3, kind: "gamble",
     label: { fr: "Les osselets du temple", en: "The Temple Knucklebones" },
-    note: { fr: "On jette les osselets sur l'autel : les dieux tranchent, la Faveur suit — ou se dérobe.", en: "The knucklebones are cast on the altar: the gods decide, and Favor follows — or slips away." },
+    note: { fr: "On jette les osselets sur l'autel : les dieux tranchent, la Faveur suit ou se dérobe.", en: "The knucklebones are cast on the altar: the gods decide, and Favor follows or slips away." },
     noteWin: { fr: "Les os inclinent la table en ta faveur : le temple récompense l'audace.", en: "The bones tilt the table your way: the temple rewards the bold." },
     noteFail: { fr: "Les os retombent muets ; la mise est sacrifiée, mais la table retient ton nom.", en: "The bones fall silent; the stake is sacrificed, but the table remembers your name." },
     unlock: (c) => c.bestEra >= 2, unlockLabel: { fr: "Ère II", en: "Era II" },
-    cost: { res: "gold", seconds: 30 },
     p: 0.55
   }
 ];
@@ -193,7 +193,7 @@ export const REGULATION_POLICIES = [
   },
   {
     id: "imperialGovernance", label: { fr: "Gouvernance impériale", en: "Imperial Governance" }, tier: 4,
-    desc: { fr: "Une administration impériale gouverne la démesure de la cité : plus elle grandit, plus ses institutions la tiennent — au prix d'une bureaucratie qui pèse sur toute la production.", en: "An imperial administration governs the city's hubris of scale: the larger it grows, the more its institutions hold it together — at the cost of a bureaucracy that weighs on all production." },
+    desc: { fr: "Une administration impériale gouverne la démesure de la cité, au prix d'une bureaucratie qui pèse sur toute la production.", en: "An imperial administration governs the city's hubris of scale, at the cost of a bureaucracy that weighs on all production." },
     demesureDamp: 0.45, cost: { global: 0.14 },
     unlock: (c) => c.bestEra >= 4, unlockLabel: { fr: "Ère IV", en: "Era IV" }
   }

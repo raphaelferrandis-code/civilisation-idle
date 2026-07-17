@@ -422,6 +422,18 @@
 .shop-hotspot.is-selected {
   transform: translate(-50%, -50%);
 }
+/* Verrouillé (rang précédent de la lignée requis) : cadenas discret dans le
+   coin — la zone reste cliquable, le détail explique le prérequis. */
+.shop-hotspot.is-locked::before {
+  content: '🔒';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 0.58rem;
+  line-height: 1;
+  opacity: 0.85;
+  filter: grayscale(0.4) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
 /* Acquis : petit ✓ statique dans le coin (pas de pastille, pas d'animation). */
 .shop-hotspot.is-owned::before {
   content: '✓';
@@ -539,39 +551,7 @@
 .boutique-shop .cadmos-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
 .boutique-shop .cadmos-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 
-/* ── Tableau de bord de l'automatisation du Temple (Phase 3) ── */
-.boutique-shop .temple-auto-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
-.boutique-shop .temple-auto-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
-.temple-auto-intro {
-  margin: 0 0 0.7rem;
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-.temple-auto-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem 1.6rem;
-}
-@media (max-width: 720px) {
-  .temple-auto-grid { grid-template-columns: minmax(0, 1fr); }
-}
-.temple-auto-game {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.temple-auto-game-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 0 0.25rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--gold-ivory);
-}
+/* ── Cadrans de l'automatisation du Temple (dans la barre de détail) ── */
 .temple-auto-rate {
   font-family: var(--font-number);
   font-size: 0.86rem;
@@ -580,28 +560,6 @@
   cursor: default;
 }
 .temple-auto-rate-unit { color: var(--muted); font-size: 0.72rem; }
-
-.temple-auto-locked {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  padding: 0.35rem 0;
-}
-.temple-auto-unlock {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid var(--gold);
-  border-radius: 7px;
-  background: rgba(var(--era-rgb, 200 160 90), 0.12);
-  color: var(--gold-bright);
-  font-weight: 600;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: filter 0.15s ease, opacity 0.15s ease;
-}
-.temple-auto-unlock:hover:not(:disabled) { filter: brightness(1.15); }
-.temple-auto-unlock:disabled { opacity: 0.45; cursor: not-allowed; }
-.temple-auto-locked-hint { font-size: 0.76rem; color: var(--muted); font-style: italic; }
 
 .temple-auto-slider {
   display: flex;
@@ -623,87 +581,15 @@
   text-align: right;
 }
 
-/* ── L'arbre d'artefacts du Temple (Phase 4) : deux lignées en échelle ── */
-.boutique-shop .artifact-tree-panel { background: rgba(0, 0, 0, 0.22); border-color: var(--wood-edge); }
-.boutique-shop .artifact-tree-panel .panel-heading h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
-.artifact-lineage.is-era-locked { opacity: 0.55; }
-.artifact-lineage-title { margin-bottom: 0.05rem; }
-.artifact-lineage-sub {
-  margin: 0 0 0.5rem;
-  font-size: 0.74rem;
-  font-style: italic;
-  color: var(--muted);
-}
-.artifact-era-hint { margin: 0.2rem 0; font-size: 0.78rem; font-style: italic; color: var(--muted); }
-
-.artifact-ladder {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-.artifact-node {
-  position: relative;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--wood-edge);
-  border-left: 3px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 4px 7px 7px 4px;
-  background: linear-gradient(180deg, rgba(74, 52, 30, 0.28), rgba(24, 16, 10, 0.42));
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-/* Chaînage visuel : un maillon relie chaque rang au suivant (l'échelle). */
-.artifact-node:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  left: -1px;
-  bottom: -0.45rem;
-  width: 3px;
-  height: 0.45rem;
-  background: color-mix(in srgb, var(--gold), transparent 68%);
-}
-.artifact-node.is-owned { border-left-color: var(--gold); background: linear-gradient(180deg, rgba(120, 88, 42, 0.34), rgba(30, 20, 11, 0.5)); }
-.artifact-node.is-buyable { border-left-color: var(--gold-bright); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold), transparent 65%), 0 0 10px color-mix(in srgb, var(--gold), transparent 78%); }
-.artifact-node.is-locked { opacity: 0.5; border-left-color: color-mix(in srgb, var(--wood-edge), transparent 30%); }
-.artifact-node.is-wanting { border-left-color: color-mix(in srgb, var(--gold), transparent 45%); }
-
-.artifact-node-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.artifact-node-name { font-size: 0.84rem; font-weight: 700; color: var(--gold-ivory); line-height: 1.2; }
-.artifact-node.is-owned .artifact-node-name { color: var(--gold-bright); }
-.artifact-node-desc { margin: 0; font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
-.artifact-node-buy {
-  align-self: flex-start;
-  padding: 0.28rem 0.65rem;
-  border: 1px solid var(--gold);
-  border-radius: 6px;
-  background: rgba(var(--era-rgb, 200 160 90), 0.12);
-  color: var(--gold-bright);
-  font-weight: 600;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: filter 0.15s ease, opacity 0.15s ease;
-}
-.artifact-node-buy:hover:not(:disabled) { filter: brightness(1.15); }
-.artifact-node-buy:disabled { opacity: 0.45; cursor: not-allowed; }
-.artifact-node.is-owned .artifact-node-buy { border-color: color-mix(in srgb, var(--gold), transparent 40%); color: var(--gold-ivory); }
-
-/* Cadrans dépliés du capstone (automatisation débloquée). */
+/* Cadrans du capstone d'automatisation acquis — dépliés dans la barre de détail
+   quand sa bouteille est sélectionnée (l'arbre sous la scène a été retiré :
+   TOUS les achats du temple vivent sur les étagères, armoire de gauche). */
 .artifact-dials {
   display: flex;
   flex-direction: column;
   gap: 0.28rem;
-  margin-top: 0.2rem;
-  padding-top: 0.35rem;
-  border-top: 1px dashed color-mix(in srgb, var(--gold), transparent 70%);
 }
+.shop-detail-dials { flex: 0 0 auto; min-width: min(320px, 45%); }
 
 /* Compact : sur petit écran, la barre de détail prend presque toute la largeur. */
 @media (max-width: 720px) {
@@ -715,31 +601,120 @@
   border-color: var(--border);
 }
 
-/* ── Table des Grands Resets (page Effondrement, sous la Doctrine de crise) ── */
+/* ── Stèle des Grands Resets (page Effondrement, sous la Doctrine de crise) ──
+   Échelle verticale gravée : un rail qui monte (doré = accompli), un médaillon
+   pixel-art par jalon, 4 états — accompli / prêt (Activer) / à découvrir (?) /
+   scellé (gravure érodée). Le médaillon ne montre son emblème qu'une fois le
+   jalon révélé. Géométrie couplée : rail à 21px du bord de l'<ol>, padding-left
+   58px, d'où les offsets -38px (segments dorés) et -59px (médaillons). */
+.gr-ladder-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.gr-notches { display: flex; gap: 3px; }
+.gr-notch {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+.gr-notch.is-filled { background: var(--gold); border-color: var(--gold); }
+.gr-notch.is-next { border-color: var(--gold-dim); }
 .gr-ladder-panel .gr-ladder-count {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--gold);
 }
+
 .gr-ladder {
   list-style: none;
-  margin: 0.55rem 0 0;
-  padding: 0;
+  margin: 0.75rem 0 0;
+  padding: 0 0 0 58px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
+/* Le rail de pierre, du premier au dernier médaillon. */
+.gr-ladder::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 26px;
+  bottom: 26px;
+  width: 2px;
+  background: var(--border);
+}
+
 .gr-rung {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.45rem 0.7rem;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface-card);
 }
+
+/* Segments dorés du rail : pleins sur les rangées accomplies, demi-segment
+   (jusqu'au médaillon) sur la rangée courante ; débordent dans l'interstice
+   pour une dorure continue. */
+.gr-rung::before {
+  content: "";
+  position: absolute;
+  left: -38px;
+  width: 2px;
+  top: calc(-0.45rem - 1px);
+  bottom: calc(-0.45rem - 1px);
+}
+.gr-rung.is-done::before { background: var(--gold-dim); }
+.gr-rung.is-done:first-child::before { top: 50%; }
+.gr-rung.is-done:last-child::before { bottom: 50%; }
+.gr-rung.is-ready::before,
+.gr-rung.is-next::before { bottom: 50%; background: var(--gold-dim); }
+.gr-rung.is-ready:first-child::before,
+.gr-rung.is-next:first-child::before { display: none; }
+
+/* Médaillons */
+.gr-medal {
+  position: absolute;
+  left: -59px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card);
+  border: 2px solid var(--border);
+  overflow: hidden;
+  z-index: 1;
+}
+.gr-medal .px-icon { width: 30px; height: 30px; }
+.gr-rung.is-done .gr-medal { border-color: var(--gold-dim); }
+.gr-rung.is-ready .gr-medal {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(230, 195, 120, 0.28);
+}
+.gr-rung.is-next .gr-medal { border-style: dashed; }
+.gr-medal-q {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--gold-dim);
+}
+/* Pierre hachurée des médaillons scellés. */
+.gr-medal-rune {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(45deg, transparent 0 5px, rgba(127, 127, 127, 0.16) 5px 7px);
+}
+
 .gr-rung-num {
-  flex: 0 0 2.2rem;
+  flex: 0 0 2rem;
   text-align: center;
   font-weight: 800;
   font-size: 0.95rem;
@@ -763,23 +738,98 @@
   font-size: 0.75rem;
   color: var(--muted);
 }
+/* Gravure érodée : le nom des jalons scellés est une ligne de crans illisibles. */
+.gr-rune-line {
+  display: inline-block;
+  width: 9rem;
+  max-width: 100%;
+  height: 0.65em;
+  background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px);
+  opacity: 0.3;
+}
+.gr-rung-reward {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .gr-rung-status {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 1.6rem;
 }
 .gr-rung-btn {
   padding: 0.25rem 0.7rem;
   font-size: 0.8rem;
   font-weight: 700;
 }
-.gr-rung-done { color: var(--gold); font-weight: 800; font-size: 1.05rem; }
+.gr-rung-done {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 0.8rem;
+}
 .gr-rung-pending { color: var(--gold); }
-.gr-rung-locked { opacity: 0.5; }
-.gr-rung.is-done { opacity: 0.7; }
-.gr-rung.is-ready { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
-.gr-rung.is-ready .gr-rung-num { color: var(--gold); }
-.gr-rung.is-locked .gr-rung-jalon { color: var(--muted); }
+
+/* États de rangée */
+.gr-rung.is-done { opacity: 0.75; }
+.gr-rung.is-done .gr-rung-num { color: var(--gold-dim); }
+.gr-rung.is-ready {
+  border-color: var(--gold);
+  background: linear-gradient(rgba(216, 179, 106, 0.07), rgba(216, 179, 106, 0.07)), var(--surface-card);
+  animation: gr-ready-pulse 2.6s ease-in-out infinite;
+}
+.gr-rung.is-ready .gr-rung-num { color: var(--gold-bright); }
+.gr-rung.is-ready .gr-rung-jalon { color: var(--gold-ivory); }
+.gr-rung.is-ready .gr-rung-reward {
+  color: var(--gold-bright);
+  font-weight: 700;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  background: rgba(216, 179, 106, 0.08);
+  padding: 2px 8px;
+}
+.gr-rung.is-next .gr-rung-jalon {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 600;
+}
+.gr-rung.is-locked { opacity: 0.55; }
+@keyframes gr-ready-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--gold) inset, 0 0 6px rgba(230, 195, 120, 0.12); }
+  50% { box-shadow: 0 0 0 1px var(--gold) inset, 0 0 14px rgba(230, 195, 120, 0.3); }
+}
+
+/* Révélation en session : la gravure s'allume, une seule fois. */
+.gr-rung.is-fresh .gr-medal { animation: gr-reveal-medal 1.4s ease-out; }
+.gr-rung.is-fresh .gr-rung-jalon { animation: gr-reveal-name 1.4s ease-out; }
+@keyframes gr-reveal-medal {
+  0% { box-shadow: 0 0 18px rgba(230, 195, 120, 0.85); filter: brightness(2); }
+  100% { box-shadow: none; filter: none; }
+}
+@keyframes gr-reveal-name {
+  0% { color: var(--gold-bright); text-shadow: 0 0 12px rgba(230, 195, 120, 0.8); }
+  100% { text-shadow: none; }
+}
+
+/* Compact : rail et médaillons resserrés. */
+@media (max-width: 720px) {
+  .gr-ladder { padding-left: 46px; }
+  .gr-ladder::before { left: 16px; }
+  .gr-rung::before { left: -31px; }
+  .gr-medal { left: -47px; width: 34px; height: 34px; }
+  .gr-medal .px-icon { width: 24px; height: 24px; }
+  .gr-rung-num { flex-basis: 1.5rem; }
+  .gr-notches { display: none; }
+}
 
 /* (CSS mort purgé : .prestige-panel .collapse-card) */
 

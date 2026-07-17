@@ -496,7 +496,7 @@ export const buildings = [
 
 export const dynastyNames = [
   { fr: "Maison des Premiers Feux", en: "House of the First Fires" },
-  { fr: "Lignee des Entrepots", en: "Line of the Granaries" },
+  { fr: "Lignee des Entrepots", en: "Line of the Warehouses" },
   { fr: "Dynastie des Sept Routes", en: "Dynasty of the Seven Roads" },
   { fr: "Maison de la Couronne Claire", en: "House of the Bright Crown" },
   { fr: "Empire des Archives", en: "Empire of the Archives" },

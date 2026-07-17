@@ -5,16 +5,32 @@
    à droite. Tout est scopé à [data-active-view="city"] : les autres onglets
    gardent leur mise en page normale (topbar en flux, etc.).
    ============================================================================ */
+/* ---- Gabarit de la barre de ressources : défini sur .app car la vue Cité
+   est la RÉFÉRENCE et TOUTES les vues s'alignent dessus (components.css :
+   min-height + même plafond de police) — la topbar ne change pas de gabarit
+   en changeant de vue. ---- */
+.app {
+  /* Hauteur de la barre (fixe en vue Cité, la carte commence dessous).
+     C'est LA molette de taille des chiffres : la police de la valeur se
+     déduit de cette hauteur (--odo-cap) — chaque +1rem ici ≈ +16px de
+     chiffres, et autant de carte en moins. 6.2rem à l'origine (valeur
+     24px) ; 8rem essayé (valeur 47px) puis jugé trop massif : 7.4rem →
+     valeur ~37px, label et débit /s au complet. */
+  --city-topbar-h: 7.4rem;
+  /* Budget vertical de la VALEUR auto-taillée (components.css) : la hauteur
+     de barre moins tout ce qui entoure la valeur dans sa cellule — CADRE or
+     9-slice de la plaque 12.2px (borders, frames.css) + paddings de plaque
+     15.2 + de cellule 9.1 + label 20 + gaps 6.4 + ligne de débit 17 ≈ 80px
+     (+1 de marge), mesuré au rendu. Ni les chiffres NI le débit /s ne
+     peuvent ainsi déborder de la plaque, quelle que soit --city-topbar-h. */
+  --odo-cap: calc(var(--city-topbar-h) - 81px);
+}
+
 .app[data-active-view="city"] main {
   position: relative;
   height: 100vh;
   padding: 0;
   overflow: hidden;
-  /* Hauteur FIXE de la barre de ressources : collée en haut, et la carte
-     commence DESSOUS (plus de monde qui passe derrière les chiffres).
-     Allongée jusqu'à l'encart du nom de la ville : label + valeur + débit
-     respirent, plus rien n'est coupé. */
-  --city-topbar-h: 6.2rem;
 }
 
 /* La vue remplit la scène et sert de contexte de positionnement au HUD. */

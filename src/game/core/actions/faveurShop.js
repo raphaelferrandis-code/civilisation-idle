@@ -18,6 +18,17 @@ import {
   WING_MAX_LEVEL,
   WING_COST_BASE,
   WING_COST_GROWTH,
+  STYLET_MAX_LEVEL,
+  STYLET_COST_BASE,
+  STYLET_COST_GROWTH,
+  GRAVEUR_MAX_LEVEL,
+  GRAVEUR_COST_BASE,
+  GRAVEUR_COST_GROWTH,
+  COFFRE_MAX_LEVEL,
+  COFFRE_COST_BASE,
+  COFFRE_COST_GROWTH,
+  RELIC_CORNE_PROD_MULT,
+  RELIC_OEIL_PROD_MULT,
   BLESSING_MULT,
   BLESSING_DURATION_S,
   BLESSING_COST
@@ -32,9 +43,28 @@ function tierCost(base, growth, level) {
   return Math.round(base * Math.pow(growth, level));
 }
 
+// Multiplicateur de mise en clair (×10, ×100, ×1k…).
+function fmtMult(m) {
+  return m >= 1000 ? `${m / 1000}k` : String(m);
+}
+
+// LES RELIQUES (le trésor, 2026-07-17) : le multiplicateur de PRODUCTION global
+// des objets légendaires — le but final de l'imprimante (arbitrage Raphaël : les
+// jeux financent la cité). Multiplicatif : Corne ×2 puis Œil ×4 → ×8. Le Char,
+// lui, rend la Bénédiction PERMANENTE (cf. blessingMultiplier). Lu par la
+// production aux côtés de blessingMultiplier.
+export function templeRelicProdMult() {
+  let mult = 1;
+  if (hasTempleArtifact("corne")) mult *= RELIC_CORNE_PROD_MULT;
+  if (hasTempleArtifact("oeil")) mult *= RELIC_OEIL_PROD_MULT;
+  return mult;
+}
+
 // Multiplicateur de Bénédiction actif (1 hors bénédiction) — lu par la
 // production (crisisProductionMultiplier). Expire tout seul (Date.now()).
+// LE CHAR DU SOLEIL (relique) la rend PERMANENTE : plus rien n'expire.
 export function blessingMultiplier() {
+  if (hasTempleArtifact("char")) return Math.max(BLESSING_MULT, (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1);
   return (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
 }
 
@@ -95,6 +125,30 @@ export function buyFaveurItem(id) {
     state.wingLevel = (state.wingLevel || 0) + 1;
     pushOutcomeFloat({ label: `🪽 Ailes cirées niveau ${state.wingLevel}`, kind: "gain" });
     chronicle(`De la cire plus fine est offerte à Icare : ses ailes tiennent plus longtemps face au soleil (ailes cirées, niveau ${state.wingLevel}).`);
+  } else if (id === "stylet") {
+    if ((state.styletLevel || 0) >= STYLET_MAX_LEVEL) return false;
+    const cost = tierCost(STYLET_COST_BASE, STYLET_COST_GROWTH, state.styletLevel || 0);
+    if (faveur < cost) return false;
+    state.faveur = faveur - cost;
+    state.styletLevel = (state.styletLevel || 0) + 1;
+    pushOutcomeFloat({ label: `🎟️ Stylet niveau ${state.styletLevel}`, kind: "gain" });
+    chronicle(`Un stylet mieux taillé pour racler le vernis : le grattage gagne en aisance (stylet, niveau ${state.styletLevel}).`);
+  } else if (id === "coffre") {
+    if ((state.coffreLevel || 0) >= COFFRE_MAX_LEVEL) return false;
+    const cost = tierCost(COFFRE_COST_BASE, COFFRE_COST_GROWTH, state.coffreLevel || 0);
+    if (faveur < cost) return false;
+    state.faveur = faveur - cost;
+    state.coffreLevel = (state.coffreLevel || 0) + 1;
+    pushOutcomeFloat({ label: `🏺 Coffre du temple : mise ×${fmtMult(10 ** state.coffreLevel)}`, kind: "gain" });
+    chronicle(`Le temple ouvre un coffre plus profond : les tables acceptent des mises dix fois plus lourdes (coffre, rang ${state.coffreLevel}).`);
+  } else if (id === "graveur") {
+    if ((state.graveurLevel || 0) >= GRAVEUR_MAX_LEVEL) return false;
+    const cost = tierCost(GRAVEUR_COST_BASE, GRAVEUR_COST_GROWTH, state.graveurLevel || 0);
+    if (faveur < cost) return false;
+    state.faveur = faveur - cost;
+    state.graveurLevel = (state.graveurLevel || 0) + 1;
+    pushOutcomeFloat({ label: `🎟️ Planches du graveur niveau ${state.graveurLevel}`, kind: "gain" });
+    chronicle(`Le graveur frappe des planches plus fines : les tickets gagnants se font moins rares (planches, niveau ${state.graveurLevel}).`);
   } else if (id === "blessing") {
     if (faveur < BLESSING_COST) return false;
     state.faveur = faveur - BLESSING_COST;

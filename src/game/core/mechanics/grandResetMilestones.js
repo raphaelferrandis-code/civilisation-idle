@@ -80,7 +80,7 @@ export const GRAND_RESET_MILESTONES = [
   },
   {
     gr: 6, id: "acte_i_scelle",
-    name: { fr: "Acte I — La Fondation Scellée", en: "Act I — The Foundation Sealed" },
+    name: { fr: "Acte I : La Fondation Scellée", en: "Act I: The Foundation Sealed" },
     system: { fr: "Mythes", en: "Myths" },
     check: () => mythCount() >= T.myths2
   },
@@ -92,7 +92,7 @@ export const GRAND_RESET_MILESTONES = [
   },
   {
     gr: 8, id: "acte_ii_scelle",
-    name: { fr: "Acte II — La Domination Scellée", en: "Act II — Dominion Sealed" },
+    name: { fr: "Acte II : La Domination Scellée", en: "Act II: Dominion Sealed" },
     system: { fr: "Mythes", en: "Myths" },
     check: () => mythCount() >= T.myths3
   },
