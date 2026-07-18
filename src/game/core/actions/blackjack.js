@@ -32,6 +32,7 @@ import {
 import { feedPot, payRound, clampStakeMult } from './templePot.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { recordBlackjack } from '../chronicleStats.js';
 
 // Les 4 « couleurs » = emblèmes antiques (mêmes icônes que le scratch, cf.
 // ScratchSym.jsx). Le rang porte la valeur ; la couleur est purement
@@ -234,6 +235,14 @@ function resolve() {
     return { result, faveurGain, stake: h.stake, cards: h.cards.slice(), value: handValue(h.cards) };
   });
   if (hist.length > BLACKJACK_HISTORY_LEN) hist.splice(0, hist.length - BLACKJACK_HISTORY_LEN);
+  // Registre de la Chronique : une donne de plus (mises et gains cumulés sur
+  // toutes les mains de la refente), naturel servi, et record de série.
+  recordBlackjack({
+    wagered: totalStake,
+    won: totalGain,
+    natural: results.some((r) => r.result === "blackjack"),
+    streak: state.blackjackStreak || 0
+  });
   // Issue AGRÉGÉE pour l'UI : une main simple garde son résultat exact ; une
   // refente se lit au NET (gagné si les deux mains rendent plus que les mises).
   const result = !split ? results[0].result
@@ -391,6 +400,9 @@ export function resolveBlackjackHeadless(stakeId, options = {}) {
   const faveurGain = payRound(stakeFaveur * (BLACKJACK_MULT[result] ?? 0));
   if (faveurGain > 0) state.faveur = Math.max(0, (state.faveur || 0) + faveurGain);
   feedPot(stakeFaveur, BLACKJACK_RTP_REF);
+  // Registre de la Chronique : les donnes auto comptent aussi (mise, gain,
+  // naturel) ; l'auto ne construit pas de série, donc pas de record de streak.
+  recordBlackjack({ wagered: stakeFaveur, won: faveurGain, natural: result === "blackjack", streak: 0 });
   return { result, faveurGain, stakeFaveur };
 }
 

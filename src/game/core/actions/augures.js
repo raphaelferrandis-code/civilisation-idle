@@ -45,6 +45,7 @@ import { chronicle } from './utils.js';
 import { ivoryDogCut, ivoryVenusBonus, hasTempleArtifact } from './templeArtifacts.js';
 import { grantFreeFlight } from './templeFlights.js';
 import { feedPot, payRound, clampStakeMult } from './templePot.js';
+import { recordOsselets } from '../chronicleStats.js';
 
 // Les trois RITES : trois formes de risque pour la même table. La MISE (Faveur)
 // vient d'AUGURY_STAKES[rite]. `spread` déforme la VARIANCE : >1 fatten les
@@ -384,6 +385,9 @@ export function castAugury(id, riteId = "classique", options = {}) {
     // noyé). Le versement ne dépend plus du tier, donc plus de « le Chien nourrit
     // double » ; en échange rtp_total < 1 est vrai par algèbre.
     feedPot(stake, pay.rtp);
+    // Registre de la Chronique : une partie d'osselets de plus (mise réellement
+    // débitée, gain net, temps forts Vénus/Chien).
+    recordOsselets({ wagered: stake, won: result.faveurGain, tier });
     result.note = win ? (a.noteWin || a.note) : (a.noteFail || "Le pari tourne court, mais la table retient ton nom.");
     if (!silent) {
       const floatLabel = tier === "venus" ? "🎲 Coup de Vénus !"

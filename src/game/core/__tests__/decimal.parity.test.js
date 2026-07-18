@@ -20,7 +20,6 @@ import { Decimal } from "../num.js";
 import {
   ruinMultiplier, ruinMultiplierDec,
   unspentRuinsPowerMultiplier, unspentRuinsPowerMultiplierDec,
-  institutionMultiplier, institutionMultiplierDec,
   infraMultiplier, infraMultiplierDec,
   globalMultiplier, globalMultiplierDec,
   babelExponentialMult, babelExponentialMultDec,
@@ -82,7 +81,7 @@ const SCENARIOS = [
     }
   },
   {
-    name: "mythe du chaos actif (ruin/institution neutralisés à 1)",
+    name: "mythe du chaos actif (ruinMultiplier neutralisé à 1)",
     patch: () => {
       state.activeMythId = "mythe_du_chaos";
     }
@@ -119,7 +118,6 @@ describe("parité float ↔ Decimal — multiplicateurs miroir", () => {
 
       expectClose("ruinMultiplier", ruinMultiplier(), ruinMultiplierDec());
       expectClose("unspentRuinsPowerMultiplier", unspentRuinsPowerMultiplier(), unspentRuinsPowerMultiplierDec());
-      expectClose("institutionMultiplier", institutionMultiplier(), institutionMultiplierDec());
       expectClose("infraMultiplier", infraMultiplier(), infraMultiplierDec());
       expectClose("babelExponentialMult", babelExponentialMult(), babelExponentialMultDec());
       // Composite : garde aussi contre un facteur ajouté/retiré d'un seul côté.

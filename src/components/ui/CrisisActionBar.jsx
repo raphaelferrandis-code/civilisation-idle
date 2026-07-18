@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { pressureBreakdown, crisisCosts, rates, regulationContext, regulationActionUnlocked, regulationPolicyUnlocked } from '../../game/core/mechanics.js';
+import { pressureBreakdown, crisisCosts, regulationContext, regulationActionUnlocked, regulationPolicyUnlocked } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost } from '../../game/core/utils.js';
 import { state } from '../../game/core/state.js';
-import { toNum } from '../../game/core/num.js';
 import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE, AUGURY_STAKES } from '../../game/core/balance.js';
 import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
@@ -35,27 +34,15 @@ const RES_LABEL = {
   infrastructure: { fr: 'infrastructure', en: 'infrastructure' }
 };
 
-// Équivalent du coût en secondes de production courante (coût ÷ revenu/s) : le
-// coût est ancré sur la production, on l'affiche aussi « ≈ N s » pour la lisibilité.
-function costSeconds(cost, r) {
-  let sec = 0;
-  for (const [res, amt] of Object.entries(cost)) {
-    const inc = r[res] ? toNum(r[res]) : 0;
-    if (inc > 0) sec = Math.max(sec, toNum(amt) / inc);
-  }
-  return sec >= 1 ? Math.round(sec) : 0;
-}
-
 // Descripteur d'affichage d'une action d'apaisement : ce qu'elle calme (relief
-// temporaire), sa contrepartie (malus de production), et la durée-coût.
-function describeAction(id, cost, r) {
+// temporaire) et sa contrepartie (malus de production).
+function describeAction(id, cost) {
   return {
     id,
     cost,
     relief: FOYER_RELIEF_ADD[id] || 0,
     malusRes: FOYER_MALUS_RESOURCE[id],
-    malusPct: FOYER_MALUS_PCT[id] || 0,
-    costSec: costSeconds(cost, r)
+    malusPct: FOYER_MALUS_PCT[id] || 0
   };
 }
 
@@ -69,29 +56,26 @@ const REFORM_ID = {
 
 // Descripteur d'une réforme de fond : recul DURABLE déposé sur le foyer, déjà
 // acquis (currentReform), et saturation au plafond partagé (atCap).
-function describeReform(foyer, cost, r, currentReform) {
+function describeReform(foyer, cost, currentReform) {
   return {
     id: REFORM_ID[foyer],
     cost,
     reform: true,
     durableAdd: FOYER_REFORM[foyer]?.add || 0,
     currentReform: currentReform || 0,
-    atCap: (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
-    costSec: costSeconds(cost, r)
+    atCap: (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6
   };
 }
 
 // Descripteur d'une action déblocable (registre) : apaisement ou réforme, avec
 // éventuel effet économique (bonus), et état verrouillé/débloqué.
-function describeRegAction(action, cost, r, ctx, currentReform) {
+function describeRegAction(action, cost, ctx, currentReform) {
   const unlocked = regulationActionUnlocked(action.id, ctx);
   const isReform = action.kind === 'reform';
   return {
     id: action.id,
     label: action.label,
     cost,
-    // Les gambles n'ont pas de coût-ressource (mise en FAVEUR, cf. augures.js).
-    costSec: cost ? costSeconds(cost, r) : 0,
     locked: !unlocked,
     unlockLabel: action.unlockLabel,
     reform: isReform,
@@ -106,13 +90,11 @@ function describeRegAction(action, cost, r, ctx, currentReform) {
   };
 }
 
-// Bouton partagé par les deux variantes : libellé + coût (ligne 1), puis la
-// contrepartie de production (ligne 2). `showSeconds` ajoute l'équivalent
-// « ≈ N s de prod » au coût — réservé à la variante full (cartes larges) ;
-// en compact le menu flottant est trop étroit.
+// Bouton de régulation : libellé + coût (ligne 1), puis la contrepartie de
+// production (ligne 2).
 const BONUS_LABEL = { infra: { fr: '+infrastructure', en: '+infrastructure' } };
 
-function RegulButton({ a, label, btnClass, showSeconds }) {
+function RegulButton({ a, label, btnClass }) {
   if (a.locked) {
     const cls = `${btnClass}${btnClass ? ' ' : ''}regul-locked`.trim();
     return (
@@ -156,7 +138,7 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
       >
         <span className="regul-btn-line">
           <strong>{label}</strong>
-          <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+          <span className="regul-cost">{costLabel(a.cost)}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
           <span className="regul-reform-tag">
@@ -170,7 +152,7 @@ function RegulButton({ a, label, btnClass, showSeconds }) {
     <button className={btnClass} disabled={!canPayCost(a.cost)} onClick={() => runCrisisAction(a.id)}>
       <span className="regul-btn-line">
         <strong>{label}</strong>
-        <span className="regul-cost">{costLabel(a.cost)}{showSeconds && a.costSec ? ` · ≈${a.costSec}s` : ''}</span>
+        <span className="regul-cost">{costLabel(a.cost)}</span>
       </span>
       {(a.malusRes || a.bonus) && (
         <span className="regul-btn-line regul-btn-sub">
@@ -248,7 +230,7 @@ function PolicyRow({ p, slotsFull }) {
   );
 }
 
-export default function CrisisActionBar({ variant = 'full' }) {
+export default function CrisisActionBar() {
   useGameState(s => s.instability);
   const cycles = useGameState(s => s.cycles);
   // Les réformes ne touchent pas `instability` : on s'abonne aussi à la somme du
@@ -262,11 +244,10 @@ export default function CrisisActionBar({ variant = 'full' }) {
   // Fatigue de régulation : re-render quand elle évolue (effet/coût des actions).
   const regulFatigue = useGameState(s => s.regulFatigue || 0);
 
-  // Variante compacte : un seul pointerdown gère la fermeture au clic extérieur
-  // ET l'accordéon (ouvrir un foyer ferme les autres → un seul menu flottant).
+  // Un seul pointerdown gère la fermeture au clic extérieur ET l'accordéon
+  // (ouvrir un foyer ferme les autres → un seul menu flottant).
   const regulRef = useRef(null);
   useEffect(() => {
-    if (variant !== 'compact') return undefined;
     const onPointerDown = (e) => {
       const root = regulRef.current;
       if (!root) return;
@@ -277,47 +258,41 @@ export default function CrisisActionBar({ variant = 'full' }) {
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [variant]);
+  }, []);
 
   const pressure = pressureBreakdown();
   const costs = crisisCosts();
-  const r = rates();
   const relief = state.foyerRelief || {};
   const reform = state.foyerReform || {};
   const showArchiveBtn = cycles >= 2;
   const showAncestorBtn = cycles >= 3;
 
-  // Config unique des 4 foyers (key = foyer de pressureBreakdown / foyerRelief),
-  // partagée par les deux variantes. `desc` n'est affichée qu'en variante full.
+  // Config unique des 4 foyers (key = foyer de pressureBreakdown / foyerRelief).
   // `act` = apaisement (temporaire) ; `ref` = réforme de fond (recul durable).
   const ctx = regulationContext();
-  const act = (id, label) => ({ label, ...describeAction(id, costs[id], r) });
-  const ref = (foyer) => ({ label: tr(FOYER_REFORM[foyer].label), ...describeReform(foyer, costs[REFORM_ID[foyer]], r, reform[foyer]) });
+  const act = (id, label) => ({ label, ...describeAction(id, costs[id]) });
+  const ref = (foyer) => ({ label: tr(FOYER_REFORM[foyer].label), ...describeReform(foyer, costs[REFORM_ID[foyer]], reform[foyer]) });
   // Actions déblocables du registre pour un foyer (triées par palier ; les
   // verrouillées s'affichent en aperçu « 🔒 Ère / mythe »).
   const regFor = (foyerKey) => REGULATION_ACTIONS
     .filter((a) => a.foyer === foyerKey)
     .sort((a, b) => a.tier - b.tier)
-    .map((a) => describeRegAction(a, costs[a.id], r, ctx, reform[foyerKey]));
+    .map((a) => describeRegAction(a, costs[a.id], ctx, reform[foyerKey]));
   const foyers = [
     {
       key: 'scarcity', icon: '🌾', label: tr({ fr: 'Subsistance', en: 'Subsistence' }), tone: 'food', value: pressure.scarcity,
-      desc: tr({ fr: 'La population croissante pèse sur les réserves de blé.', en: 'The growing population strains the grain reserves.' }),
       actions: [act('rationing', tr({ fr: 'Rationner', en: 'Ration' })), ref('scarcity'), ...regFor('scarcity')]
     },
     {
       key: 'inequality', icon: '⚖️', label: tr({ fr: 'Inégalités', en: 'Inequality' }), tone: 'gold', value: pressure.inequality,
-      desc: tr({ fr: "L'accumulation de trésor crée des barrières entre classes.", en: 'The accumulation of treasury creates barriers between classes.' }),
       actions: [act('festivals', tr({ fr: 'Jeux civiques', en: 'Civic Games' })), ref('inequality'), ...regFor('inequality')]
     },
     {
       key: 'complexity', icon: '🏛️', label: tr({ fr: 'Complexité', en: 'Complexity' }), tone: 'know', value: pressure.complexity,
-      desc: tr({ fr: 'Le nombre de structures demande une administration lourde.', en: 'The number of structures demands a heavy administration.' }),
       actions: [act('census', tr({ fr: 'Recenser', en: 'Census' })), act('reforms', tr({ fr: 'Réformes', en: 'Reforms' })), ref('complexity'), ...regFor('complexity')]
     },
     {
       key: 'dissent', icon: '📜', label: tr({ fr: 'Dissidence', en: 'Dissent' }), tone: 'usure', value: pressure.dissent,
-      desc: tr({ fr: "Les récits et la mémoire des cycles divisent l'opinion.", en: 'The narratives and memory of the cycles divide opinion.' }),
       actions: [
         showAncestorBtn && act('ancestorCrisis', tr({ fr: 'Culte des ancêtres', en: 'Ancestor Cult' })),
         showArchiveBtn && act('archiveCrisis', tr({ fr: 'Catastrophes', en: 'Catastrophes' })),
@@ -363,8 +338,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
     </div>
   ) : null;
 
-  if (variant === 'compact') {
-    return (
+  return (
       <div className="crisis-regul" aria-label={tr({ fr: 'Régulation des tensions', en: 'Tension Regulation' })} ref={regulRef}>
         <div className="crisis-regul-head">
           <span className="crisis-regul-title">{tr({ fr: 'Régulation des tensions', en: 'Tension Regulation' })}</span>
@@ -396,7 +370,7 @@ export default function CrisisActionBar({ variant = 'full' }) {
                   <span className="crisis-foyer-locked">{tr({ fr: 'Disponible au cycle 2', en: 'Available at cycle 2' })}</span>
                 ) : (
                   f.actions.map((a) => (
-                    <RegulButton key={a.id} a={a} label={a.label} btnClass="crisis-regul-btn" showSeconds={false} />
+                    <RegulButton key={a.id} a={a} label={a.label} btnClass="crisis-regul-btn" />
                   ))
                 )}
               </div>
@@ -406,55 +380,4 @@ export default function CrisisActionBar({ variant = 'full' }) {
         {policiesSection}
       </div>
     );
-  }
-
-  return (
-    <div className="panel tactical-panel">
-      <div className="panel-heading">
-        <div>
-          <h2>{tr({ fr: 'Foyers de tension & Actions de régulation', en: 'Tension Hotspots & Regulation Actions' })}</h2>
-        </div>
-      </div>
-      {/* Libellé aligné sur la variante compacte : une ligne, le détail en tooltip. */}
-      {mitigationPct > 0 && (
-        <p className="crisis-regul-buffer crisis-regul-buffer--full" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure). Building infrastructure lastingly pushes back the Rupture.' })}>
-          {tr({ fr: 'Institutions : ', en: 'Institutions: ' })}<strong>−{mitigationPct}%</strong>{tr({ fr: ' de pression absorbée', en: ' of pressure absorbed' })}
-        </p>
-      )}
-      {fatigueIndicator}
-
-      <div className="tactical-board">
-        <div className="tactical-grid">
-          {foyers.map((f) => (
-            <article key={f.key} className={`tactical-card tactical-card--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`} title={tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' })}>
-              <div className="tactical-info">
-                <header>
-                  <span className="tactical-htitle">
-                    <img className="tactical-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
-                    <h4>{f.label}</h4>
-                    {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
-                    {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
-                  </span>
-                </header>
-                <p>{f.desc}</p>
-                <div className="tactical-track">
-                  <span className="tactical-fill" style={{ width: `${Math.min(1, f.value) * 100}%` }}></span>
-                </div>
-              </div>
-              <div className="tactical-actions">
-                {f.actions.length === 0 ? (
-                  <span className="crisis-foyer-locked">{tr({ fr: 'Disponible au cycle 2', en: 'Available at cycle 2' })}</span>
-                ) : (
-                  f.actions.map((a) => (
-                    <RegulButton key={a.id} a={a} label={a.label} btnClass="" showSeconds={true} />
-                  ))
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-      {policiesSection}
-    </div>
-  );
 }

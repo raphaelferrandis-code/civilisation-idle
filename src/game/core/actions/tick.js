@@ -55,6 +55,7 @@ import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
+import { recordEraGain } from '../chronicleStats.js';
 import {
   INSTABILITY_DRIFT_SPEED,
   INSTABILITY_OVERSHOOT_CAP,
@@ -251,6 +252,11 @@ export function tick(dt) {
     if (currentEra > (state.bestEraIndex || 0)) {
       const prevTier = eraTier(state.bestEraIndex || 0);
       state.bestEraIndex = currentEra;
+      // Registre de la Chronique : montée d'ère la plus rapide (temps de cycle
+      // pour décrocher ce sommet). Hors-ligne exclu (elapsed non pertinent).
+      if (!isNotifyPaused()) {
+        recordEraGain((Date.now() - (state.cycleStartedAt || Date.now())) / 1000);
+      }
       const newTier = eraTier(currentEra);
       // Récompense visible de chaque nouveau sommet : +1 ruine plate par palier
       // d'ère MAJEUR (cf. ERA_RUIN_BONUS_PER_INDEX). Les ères « factices »

@@ -39,6 +39,7 @@ import {
 import { clamp01, fmt } from '../utils.js';
 import { tr } from '../i18n.js';
 import { D } from '../num.js';
+import { recordMythCompleted } from '../chronicleStats.js';
 import { log, resetCyclePeaks } from './utils.js';
 import {
   ACTIVE_RUIN_RUPTURE_START,
@@ -53,6 +54,13 @@ export function checkMythOnCollapse() {
   const success = typeof myth.onCollapse === "function" ? myth.onCollapse() : false;
   if (success && !isMythCompleted(myth.id)) {
     state.mythsCompleted[myth.id] = true;
+    // Registre de la Chronique : instant d'accomplissement (horloge à vie),
+    // durée du run gagnant (activation → cet effondrement) et ordre de sacre.
+    recordMythCompleted(
+      myth.id,
+      myth.act,
+      Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000)
+    );
     if (typeof myth.applyHeritage === "function") myth.applyHeritage();
     log(`Pacte honore: "${tr(myth.name)}". Heritage accorde: ${tr(myth.heritageDescription)}`);
     checkActUnlocks();

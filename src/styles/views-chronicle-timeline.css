@@ -88,6 +88,172 @@
 }
 
 /* ============================================================================
+   Registre du Temple & Records — cartes de jeu + frises horodatées
+   ============================================================================ */
+
+/* Grille des 4 jeux : cartes plus larges que les tuiles de stat. */
+.chronicle-game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.chronicle-game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.chronicle-game-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.chronicle-game-emoji {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.chronicle-game-head h4 {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-strong, #fff);
+}
+
+.chronicle-game-plays {
+  margin-left: auto;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Bilan net mis en avant (le « gain/perte par jeu » demandé). */
+.chronicle-game-net {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.chronicle-game-net strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.chronicle-game-net span {
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chronicle-game-net.is-gain strong { color: var(--green); }
+.chronicle-game-net.is-loss strong { color: var(--red); }
+.chronicle-game-net.is-flat strong { color: var(--text-strong, #fff); }
+
+.chronicle-game-line {
+  font-size: 0.72rem;
+  color: var(--text-strong, #fff);
+  opacity: 0.85;
+}
+
+.chronicle-game-hl {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Frises horodatées (Grands Resets, Mythes) : rangs compacts sur l'horloge à vie. */
+.chronicle-reg-block {
+  margin-top: 0.9rem;
+}
+
+.chronicle-reg-count {
+  margin-left: auto;
+  font-family: var(--font-number, inherit);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.chronicle-reg-list {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chronicle-reg-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chronicle-reg-row.is-untracked {
+  opacity: 0.62;
+}
+
+.chronicle-reg-badge {
+  flex: 0 0 auto;
+  min-width: 2.4rem;
+  text-align: center;
+  padding: 0.08rem 0.35rem;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  font-family: var(--font-number, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--accent-gold);
+}
+
+.chronicle-reg-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-strong, #fff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chronicle-reg-name em {
+  margin-left: 0.45rem;
+  font-style: normal;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chronicle-reg-meta {
+  flex: 0 1 auto;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================================
    Chronique — frise des âges traversés (avec descriptif par âge)
    ============================================================================ */
 

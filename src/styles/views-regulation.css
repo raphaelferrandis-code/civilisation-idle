@@ -793,7 +793,9 @@
   overflow-y: auto;
   border: 1px dashed color-mix(in srgb, var(--line), transparent 55%);
   border-radius: 12px;
-  padding: 0.6rem 0;
+  /* Marge latérale : depuis que la scène remplit le tapis, on écarte le contenu
+     du bord (et du liseré ::before à 5px) pour qu'il respire. */
+  padding: 0.6rem 1rem;
 }
 
 
@@ -870,7 +872,11 @@
 .icarus-stage,
 .scratch-stage,
 .blackjack-stage {
-  max-width: 720px;
+  /* Plus de colonne étroite : la scène REMPLIT le tapis (croquis Raph 2026-07-17 :
+     « comme le croquis » = les choix pleine largeur). Les contenus des phases
+     résultat qui ne doivent pas s'étirer sont déjà bornés/centrés (ticket 320px,
+     table BJ 460px) ; le ciel d'Icare est plafonné plus bas. */
+  max-width: none;
   margin: 0 auto;
   width: 100%;
 }
@@ -879,11 +885,10 @@
   align-items: center;
   gap: 0.6rem;
 }
-
-.stage-title > span:first-child {
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
+/* (L'ancien style du NOM de jeu — `.stage-title > span:first-child` — est retiré
+   avec le nom lui-même : sans lui, la règle visait par ricochet le pot d'Icare /
+   des tickets, le grossissant à tort. Retour Raphaël 2026-07-17 : « plus de nom
+   en tête ».) */
 
 .stage-close {
   margin-left: auto;
@@ -1661,7 +1666,17 @@
    en échelle log — le jackpot (×10) est à mi-chemin du soleil. */
 .icarus-sky {
   position: relative;
-  height: 150px;
+  /* Le ciel REMPLIT le cadran au décollage (retour Raphaël 2026-07-18 : « le jeu
+     qui prend tout le cadran ») : il grandit pour prendre toute la hauteur libre
+     de la scène (flex:1) et toute sa largeur — plus de petit hublot centré.
+     ⚠ la scène est une colonne FLEX : sans largeur explicite, `margin-inline:auto`
+     coupe le stretch et le ciel (enfants en position absolue, largeur intrinsèque
+     0) s'effondre à 0 — d'où width:100% conservé. */
+  flex: 1 1 auto;
+  min-height: 240px;
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
   border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(
@@ -1789,15 +1804,25 @@
   to { transform: translateY(150px) rotate(220deg); opacity: 0; }
 }
 
-.icarus-ground-hint {
+/* La commande SE POSER en surimpression au pied du ciel (retour Raphaël
+   2026-07-18) : un bandeau plein-largeur ancré en bas du cadran, avec un scrim
+   qui remonte pour détacher le bouton du dégradé du ciel. Le bandeau lui-même
+   laisse passer les clics (pointer-events:none) ; seul le bouton les capte. */
+.icarus-sky-hud {
   position: absolute;
-  bottom: 8px;
   left: 0;
   right: 0;
-  text-align: center;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 1.6rem 1rem 0.9rem;
+  background: linear-gradient(to top, rgba(6, 9, 22, 0.85) 30%, rgba(6, 9, 22, 0));
+  pointer-events: none;
+}
+
+.icarus-sky-hud .icarus-cashout {
+  pointer-events: auto;
+  min-width: min(360px, 78%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2437,3 +2462,133 @@
 }
 .scratch-stake > span, .icarus-stake > span { font-size: 1.05rem; }
 .augury-rite .augury-rite-cost { font-size: 0.95rem; }
+
+/* ── Choix de mise SANS CADRE, séparés par un simple trait (sketch Raph
+   2026-07-17 : « pas de cadre, juste une délimitation entre chacun des choix ;
+   le bouton de jeu n'apparaît que quand la mise est sélectionnée ») ────────────
+   Les plaques perdent bordure / fond / clip-path : ce ne sont plus des cartes
+   mais des colonnes de contenu (redevenues des <button> cliquables), séparées
+   par un filet vertical fondu. Le contenu monte en tête. Le bouton de jeu unique
+   (`stake-play`) n'est rendu QU'À la sélection, en bas à gauche. */
+
+/* 1. Frameless : on annule le look « plaque d'os » sur les 3 familles de choix.
+   ⚠ La plaque est désormais un CONTENEUR (<div>) : son corps cliquable est
+   `.stake-pick`, et le bouton de jeu `.stake-play` vient s'y loger à la sélection.
+   ⚠ specificité : les clip-path sont posés par :nth-child (0,2,0) → on double le
+   sélecteur de classe (0,2,0) et on gagne par l'ordre (bloc plus bas). */
+.augury-rites .augury-rite,
+.scratch-stakes .scratch-stake,
+.icarus-stakes .icarus-stake {
+  border: none;
+  background: none;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  clip-path: none;
+  cursor: default;
+  justify-content: flex-start;
+}
+.augury-rites .augury-rite:hover,
+.scratch-stakes .scratch-stake:hover,
+.icarus-stakes .icarus-stake:hover {
+  transform: none;
+  background-color: color-mix(in srgb, #cdb489, transparent 92%);
+}
+/* Le corps cliquable de la plaque (sélectionne la mise) : un bouton dépouillé qui
+   porte le contenu (titre / coût / effets), aligné en tête, pleine largeur.
+   ⚠ `.stake-pick` est un VRAI <button> : le sélecteur d'élément `button` de base
+   (0,0,1) lui repose box-shadow + border-radius:8px (une carte fantôme au repos)
+   et `button:hover:not(:disabled)` (0,2,1) BAT `.stake-pick` (0,1,0) → il ré-ajoute
+   lift + halo + fond teinté + or au survol. On les annule ici pour tenir le
+   « pas de cadre » ; le seul rehaut de survol reste le fond discret du conteneur
+   (`.augury-rite:hover`). */
+.stake-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.34rem;
+  width: 100%;
+  /* ⚠ REMPLIT la colonne (flex:1) : sinon la zone cliquable se limite au petit bloc
+     de contenu en tête (~40px) et 84 % du bandeau devient MORT — on cliquait dans le
+     vide, rien ne se sélectionnait, aucun bouton n'apparaissait (retour Raph
+     2026-07-17 « il n'y a pas de bouton pour lancer ? »). Le contenu reste en tête,
+     tout le reste du bandeau sélectionne aussi. */
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stake-pick:hover:not(:disabled) {
+  transform: none;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+
+/* 2. La délimitation = un FONDU entre chaque mise (croquis Raph 2026-07-17 :
+   « un fondu entre chaque mise ») : pas un trait net mais une bande verticale
+   douce, dégradée horizontalement (transparent → ocre → transparent) et fondue
+   en haut/bas au masque. Gouttière de rangée à 0 pour que la bande vive pile sur
+   la couture entre deux choix. */
+.augury-rites, .scratch-stakes, .icarus-stakes { gap: 0; }
+.augury-rite + .augury-rite::before,
+.scratch-stake + .scratch-stake::before,
+.icarus-stake + .icarus-stake::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4%;
+  bottom: 4%;
+  width: 1.7rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(to right,
+    transparent,
+    color-mix(in srgb, #cdb489, transparent 58%),
+    transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
+}
+
+/* 3. La sélection SANS boîte : on tue l'anneau tournant (::after) et on marque le
+   choix par un fond dégradé DISCRET (fondu, pas d'arête = pas de cadre) + un
+   titre plus vif. */
+.augury-rite.is-chosen::after,
+.scratch-stake.is-chosen::after,
+.icarus-stake.is-chosen::after { content: none; }
+.augury-rites .augury-rite.is-chosen,
+.scratch-stakes .scratch-stake.is-chosen,
+.icarus-stakes .icarus-stake.is-chosen {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--gold), transparent 82%), transparent 72%);
+  box-shadow: none;
+}
+.augury-rite.is-chosen strong,
+.scratch-stake.is-chosen strong,
+.icarus-stake.is-chosen strong {
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(228, 199, 126, 0.45);
+}
+
+/* 4. Le bouton de jeu, LOGÉ DANS la colonne de la mise choisie (retour Raph
+   2026-07-17 : « visuellement dans le cadre de la mise choisie ») : React ne le
+   rend que pour le choix sélectionné, et il est cousu au PIED de sa colonne
+   (`margin-top:auto`), calé à gauche (`align-self:flex-start`) à l'aplomb du
+   contenu. Bronze des CTA hérité (la classe `.augury-throw`/`.scratch-buy`/
+   `.icarus-launch` reste sur le bouton). */
+.stake-play {
+  margin-top: auto;
+  align-self: flex-start;
+  width: auto;
+  min-height: 0;
+  height: 2.6rem;
+  padding: 0 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

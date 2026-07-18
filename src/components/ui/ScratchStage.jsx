@@ -158,7 +158,10 @@ const FOILS = { obole: paintFoilObole, drachme: paintFoilDrachme, talent: paintF
 
 export default function ScratchStage({ table, onClose }) {
   const [phase, setPhase] = useState('buy');
-  const [chosenStake, setChosenStake] = useState('obole');
+  // Aucun ticket choisi au départ (sketch Raph 2026-07-17 : « le bouton de jeu
+  // n'apparaît que quand la mise est sélectionnée ») — le bouton Acheter reste
+  // masqué tant qu'on n'a pas cliqué un choix.
+  const [chosenStake, setChosenStake] = useState(null);
   // La puissance de mise du coffre (×1, ×10…), re-clampée au rendu ET au moteur.
   const [coffreMult, setCoffreMult] = useState(1);
   const [outcome, setOutcome] = useState(null);
@@ -176,6 +179,7 @@ export default function ScratchStage({ table, onClose }) {
     outcomeRef.current = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- remise à zéro VOULUE de la scène à chaque réouverture (openedAt)
     setPhase('buy');
+    setChosenStake(null);
     setOutcome(null);
     setRevealed(false);
   }, [table?.openedAt]);
@@ -236,7 +240,6 @@ export default function ScratchStage({ table, onClose }) {
   const chosen = stakes.find((s) => s.id === chosenStake) || stakes[0];
   const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
   const chosenCost = chosen ? chosen.faveur * effMult : 0;
-  const broke = chosen && (state.faveur || 0) < chosenCost;
 
   const startTicket = (res) => {
     pendingRef.current = res.apply;
@@ -247,6 +250,8 @@ export default function ScratchStage({ table, onClose }) {
     setPhase('scratch');
   };
 
+  // L'achat part sur le ticket SÉLECTIONNÉ (chosen) : le bouton Acheter et le
+  // « Reprendre un ticket » de résultat appellent tous onBuy() sans argument.
   const onBuy = () => {
     if (!chosen || (state.faveur || 0) < chosenCost) return;
     const res = playScratch(chosen.id, { defer: true, stakeMult: effMult });
@@ -274,8 +279,10 @@ export default function ScratchStage({ table, onClose }) {
   );
 
   const onNewTicket = () => {
-    // Le ticket courant est déjà appliqué (reveal a flush) : on repart à l'achat.
+    // Le ticket courant est déjà appliqué (reveal a flush) : on repart à l'achat,
+    // sans mise pré-choisie (le bouton Acheter réapparaîtra au clic d'un choix).
     outcomeRef.current = null;
+    setChosenStake(null);
     setOutcome(null);
     setRevealed(false);
     setPhase('buy');
@@ -313,7 +320,8 @@ export default function ScratchStage({ table, onClose }) {
   return (
     <div className="scratch-stage">
       <div className="regul-block-title stage-title">
-        <span>🎟️ {tr({ fr: 'Tickets à gratter', en: 'Scratch tickets' })}</span>
+        {/* Nom du jeu retiré (retour Raphaël 2026-07-17 : « plus de nom en tête ») —
+            la ligne ne garde que le pot, l'aide et la fermeture, alignés à droite. */}
         {/* Cette table NOURRIT le pot et ne le reprend jamais : dit en infobulle
             (le laïus inline mangeait la ligne de titre — passe densité 2026-07-17). */}
         <span
@@ -362,25 +370,33 @@ export default function ScratchStage({ table, onClose }) {
             {stakes.map((s) => {
               const cost = s.faveur * effMult;
               const cantPay = (state.faveur || 0) < cost;
+              const chosen = chosenStake === s.id;
               return (
-                <button
+                // Le bouton d'achat n'apparaît QUE dans le ticket choisi, cousu au pied
+                // de SA colonne (retour Raph 2026-07-17 : « dans le cadre de la mise
+                // choisie »).
+                <div
                   key={s.id}
-                  type="button"
-                  className={`scratch-stake${chosenStake === s.id ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
-                  onClick={() => setChosenStake(s.id)}
-                  title={tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` })}
+                  className={`scratch-stake${chosen ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
                 >
-                  <strong>{tr(s.label)}</strong>
-                  <span><FaveurIcon /> {fmt(cost)}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="stake-pick"
+                    onClick={() => setChosenStake(s.id)}
+                    title={tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` })}
+                  >
+                    <strong>{tr(s.label)}</strong>
+                    <span><FaveurIcon /> {fmt(cost)}</span>
+                  </button>
+                  {chosen && (
+                    <button type="button" className="scratch-buy stake-play" disabled={(state.faveur || 0) < chosenCost} onClick={() => onBuy()}>
+                      {tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
-          <menu className="choice-menu scratch-actions">
-            <button type="button" className="scratch-buy" disabled={broke} onClick={onBuy}>
-              {tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
-            </button>
-          </menu>
         </>
       )}
 

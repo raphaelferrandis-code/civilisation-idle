@@ -77,18 +77,6 @@ export function unspentRuinsPowerMultiplierDec() {
   return D(state.ruins).mul(ruinEffectSum("unspentRuinsPower")).add(1);
 }
 
-// Multiplicateur d'institutions — NEUTRALISÉ à 1 depuis la suppression de la
-// légitimité (il valait 1 + legitimacy^0.7 · coef). Conservé (×1) le temps que ses
-// derniers lecteurs — HeritageView, test de parité — soient retirés ; la fonction
-// sera supprimée ensuite. Aucun effet sur la production (facteur neutre).
-export function institutionMultiplier() {
-  return 1;
-}
-
-export function institutionMultiplierDec() {
-  return new Decimal(1);
-}
-
 function grandResetMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
   return grandResetProductionMult(state.grandResetCount);
@@ -189,19 +177,18 @@ function globalScalarFactors() {
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
   const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * institutionMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
 
 // Miroir Decimal de globalMultiplier pour le chemin tardif (au-delà du float).
-// Seuls ruinMultiplier, institutionMultiplier et unspentRuinsPowerMultiplier
-// peuvent déborder : ils ont leur variante Decimal, le reste est borné.
+// Seuls ruinMultiplier et unspentRuinsPowerMultiplier peuvent déborder : ils
+// ont leur variante Decimal, le reste est borné.
 export function globalMultiplierDec() {
   if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
   const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
-    .mul(institutionMultiplierDec())
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
     .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());

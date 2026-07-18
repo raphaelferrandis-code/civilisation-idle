@@ -88,7 +88,10 @@ function BjCard({ card, hidden }) {
 
 export default function BlackjackStage({ table, onClose }) {
   const [phase, setPhase] = useState('bet');
-  const [chosenStake, setChosenStake] = useState('legere');
+  // Aucune mise choisie au départ (sketch Raph 2026-07-17 : « le bouton de jeu
+  // n'apparaît que quand la mise est sélectionnée ») — le bouton Distribuer reste
+  // masqué tant qu'on n'a pas cliqué un choix.
+  const [chosenStake, setChosenStake] = useState(null);
   // La puissance de mise du coffre (×1, ×10…), re-clampée au rendu ET au moteur.
   const [coffreMult, setCoffreMult] = useState(1);
   const [hand, setHand] = useState(null);
@@ -100,6 +103,7 @@ export default function BlackjackStage({ table, onClose }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronise la scène sur l'état module (blackjackActive) à la (ré)ouverture
     setOutcome(null);
+    setChosenStake(null);
     if (blackjackActive()) {
       setHand(blackjackHand());
       setPhase('player');
@@ -121,13 +125,14 @@ export default function BlackjackStage({ table, onClose }) {
   const chosen = stakes.find((s) => s.id === chosenStake) || stakes[0];
   const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
   const chosenCost = chosen ? chosen.faveur * effMult : 0;
-  const broke = chosen && (state.faveur || 0) < chosenCost;
 
   const finish = (h) => {
     setHand(h);
     if (h.resolved) { setOutcome(blackjackLastOutcome()); setPhase('done'); }
   };
 
+  // La donne part sur la mise SÉLECTIONNÉE (chosen) : le bouton Distribuer et le
+  // « Redistribuer » de résultat appellent tous onDeal() sans argument.
   const onDeal = () => {
     if (!chosen || (state.faveur || 0) < chosenCost) return;
     const h = dealBlackjack(chosen.id, { stakeMult: effMult });
@@ -149,7 +154,7 @@ export default function BlackjackStage({ table, onClose }) {
   const onStand = () => { const h = standBlackjack(); if (h) finish(h); };
   const onDouble = () => { const h = doubleBlackjack(); if (h) finish(h); };
   const onSplit = () => { const h = splitBlackjack(); if (h) finish(h); };
-  const onNewHand = () => { setHand(null); setOutcome(null); setPhase('bet'); };
+  const onNewHand = () => { setHand(null); setOutcome(null); setChosenStake(null); setPhase('bet'); };
 
   // Le conseil de la Mesure gravée : ce que la stratégie de base ferait avec
   // cette main contre la carte visible de l'oracle. Pure information, calculée
@@ -179,7 +184,8 @@ export default function BlackjackStage({ table, onClose }) {
           nourrit plus et ne la rafle jamais — l'afficher ici était une vitrine
           mensongère (passe densité 2026-07-17). */}
       <div className="regul-block-title stage-title">
-        <span>🃏 {tr({ fr: 'Vingt-et-un', en: 'Twenty-one' })}</span>
+        {/* Nom du jeu retiré (retour Raphaël 2026-07-17 : « plus de nom en tête ») —
+            la ligne se réduit à une barrette de contrôles (aide, fermeture) à droite. */}
         <StageHelp>
           <p>
             {tr({
@@ -214,25 +220,33 @@ export default function BlackjackStage({ table, onClose }) {
             {stakes.map((s) => {
               const cost = s.faveur * effMult;
               const cantPay = (state.faveur || 0) < cost;
+              const chosen = chosenStake === s.id;
               return (
-                <button
+                // Le bouton de distribution n'apparaît QUE dans la mise choisie, cousu
+                // au pied de SA colonne (retour Raph 2026-07-17 : « dans le cadre de la
+                // mise choisie »).
+                <div
                   key={s.id}
-                  type="button"
-                  className={`scratch-stake${chosenStake === s.id ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
-                  onClick={() => setChosenStake(s.id)}
-                  title={tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` })}
+                  className={`scratch-stake${chosen ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
                 >
-                  <strong>{tr(s.label)}</strong>
-                  <span><FaveurIcon /> {fmt(cost)}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="stake-pick"
+                    onClick={() => setChosenStake(s.id)}
+                    title={tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` })}
+                  >
+                    <strong>{tr(s.label)}</strong>
+                    <span><FaveurIcon /> {fmt(cost)}</span>
+                  </button>
+                  {chosen && (
+                    <button type="button" className="scratch-buy stake-play" disabled={(state.faveur || 0) < chosenCost} onClick={() => onDeal()}>
+                      {tr({ fr: 'Distribuer', en: 'Deal' })}
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
-          <menu className="choice-menu scratch-actions">
-            <button type="button" className="scratch-buy" disabled={broke} onClick={onDeal}>
-              {tr({ fr: 'Distribuer', en: 'Deal' })}
-            </button>
-          </menu>
         </>
       )}
 

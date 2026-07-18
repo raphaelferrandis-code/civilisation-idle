@@ -37,6 +37,7 @@ import { chronicle } from './utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { ARTIFACT_NODES } from '../../data/artifacts.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
+import { recordShopSpend } from '../chronicleStats.js';
 
 // Coût du PROCHAIN niveau d'un booster (croissant). Arrondi.
 function tierCost(base, growth, level) {
@@ -161,6 +162,9 @@ export function buyFaveurItem(id) {
   } else {
     return false;
   }
+  // Registre de la Chronique : Faveur dépensée à la Boutique (le débit exact de
+  // la branche = solde avant − solde après ; toutes les branches décrémentent).
+  recordShopSpend(faveur - (state.faveur || 0));
   save();
   render();
   return true;
@@ -178,6 +182,7 @@ export function buyTempleArtifact(id) {
   const faveur = state.faveur || 0;
   if (faveur < cost) return false;
   state.faveur = faveur - cost;
+  recordShopSpend(cost);
   if (!state.templeArtifacts) state.templeArtifacts = {};
   state.templeArtifacts[id] = true;
   const label = (node.label && node.label.fr) || id;

@@ -41,6 +41,7 @@ import { hasTempleArtifact } from './templeArtifacts.js';
 import { potRake, feedPot, drawFromPot, payRound, clampStakeMult } from './templePot.js';
 import { consumeFreeFlight } from './templeFlights.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { recordIcarus } from '../chronicleStats.js';
 
 let flight = null;      // { stakeFaveur, crashPoint, takeoffAt, timer, resolved }
 let lastOutcome = null; // { type:'crash'|'cashout', m?, crashPoint, faveur?, jackpotFaveur?, potGainFaveur?, stakeFaveur }
@@ -95,6 +96,13 @@ export function icarusTakeoffAt() {
   return flight && !flight.resolved ? flight.takeoffAt : 0;
 }
 
+// La mise du vol EN COURS (id + Faveur payée), pour qu'une scène rouverte en plein
+// vol restaure la bonne mise (rejeu « Revoler » correct + aperçu de gain juste).
+// null si aucun vol actif.
+export function icarusFlightInfo() {
+  return flight && !flight.resolved ? { stakeId: flight.stakeId, stakeFaveur: flight.stakeFaveur } : null;
+}
+
 // Multiplicateur du vol en cours (1 si aucun vol). Courbe partagée avec l'UI.
 export function icarusMultiplierAt(elapsedMs) {
   return Math.min(icarusEffectiveCap(), Math.exp(ICARUS_K * Math.max(0, elapsedMs) / 1000));
@@ -133,6 +141,13 @@ function resolveCrash() {
   // une part de la MISE. L'ancien 0.4 × mise contre un edge de 0.18 faisait d'Icare
   // l'imprimante la plus lourde du temple (118,7 % à la cible ×10).
   const potGainFaveur = feedPot(flight.stakeFaveur, 1 - icarusEffectiveEdge());
+  // Registre de la Chronique : vol brûlé (une plume de secours reste une Faveur
+  // reçue). Pas de multiplicateur réalisé — le record de mult n'est pas touché.
+  recordIcarus({
+    wagered: flight.freeFlight ? 0 : flight.stakeFaveur,
+    won: refundFaveur,
+    crashed: true
+  });
   pushIcarusHistory(flight.crashPoint);
   lastOutcome = {
     type: "crash",
@@ -183,7 +198,11 @@ export function launchIcarus(stakeId, options = {}) {
   const takeoffAt = Date.now();
   const crashInMs = (Math.log(crashPoint) / ICARUS_K) * 1000;
   flight = {
+    stakeId,
     stakeFaveur,
+    // Vol OFFERT : la mise n'est pas sortie de la poche du joueur → le registre
+    // de la Chronique ne la compte pas comme misée (le gain, lui, reste gagné).
+    freeFlight,
     crashPoint,
     takeoffAt,
     resolved: false,
@@ -235,6 +254,16 @@ export function cashOutIcarus() {
   // l'invariant démontrable en une ligne (cf. feedPot). APRÈS la rafle : on emporte
   // sa part de ce qui était là, puis le temple prend sa part de cette mise-ci.
   feedPot(flight.stakeFaveur, 1 - icarusEffectiveEdge());
+  // Registre de la Chronique : vol encaissé (gain = payout + rafle éventuelle,
+  // plus haut multiplicateur réalisé, jackpot compté à part). Mise nulle si le
+  // vol était offert.
+  recordIcarus({
+    wagered: flight.freeFlight ? 0 : flight.stakeFaveur,
+    won: faveur + (jackpotFaveur || 0),
+    mult: mR,
+    jackpot: jackpotFaveur || 0,
+    crashed: false
+  });
   pushIcarusHistory(flight.crashPoint);
   lastOutcome = {
     type: "cashout",
@@ -289,6 +318,8 @@ export function resolveIcarusHeadless(stakeId, targetMult, options = {}) {
     // (parité stricte avec resolveCrash/cashOut, et c'est ce qui rend l'espérance
     // exacte — cf. feedPot).
     feedPot(stakeFaveur, 1 - icarusEffectiveEdge());
+    // Registre de la Chronique : encaissement auto (pas de jackpot en headless).
+    recordIcarus({ wagered: freeFlight ? 0 : stakeFaveur, won: faveur, mult: mR, crashed: false });
     return { type: "cashout", m: mR, crashPoint, faveur, jackpotFaveur: null, freeFlight, stakeFaveur };
   }
   // PERTE : la mise brûle. Plumes PRÉLEVÉES SUR LA CELLA puis versement sur l'edge
@@ -296,6 +327,7 @@ export function resolveIcarusHeadless(stakeId, targetMult, options = {}) {
   const refundFaveur = drawFromPot(icarusCrashConsolation(stakeFaveur));
   if (refundFaveur > 0) state.faveur = Math.max(0, (state.faveur || 0) + refundFaveur);
   const potGainFaveur = feedPot(stakeFaveur, 1 - icarusEffectiveEdge());
+  recordIcarus({ wagered: freeFlight ? 0 : stakeFaveur, won: refundFaveur, crashed: true });
   return { type: "crash", crashPoint, potGainFaveur, refundFaveur, freeFlight, stakeFaveur };
 }
 

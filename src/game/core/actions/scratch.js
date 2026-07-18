@@ -36,6 +36,7 @@ import { grantFreeFlight } from './templeFlights.js';
 import { feedPot, drawFromPot, payRound, clampStakeMult } from './templePot.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { recordScratch } from '../chronicleStats.js';
 
 // Les symboles sont rendus par des icônes pixel-art RÉUTILISÉES du jeu côté
 // scène (scratchSymbols.js mappe chaque clé sur un sprite existant). `tesson`
@@ -240,6 +241,9 @@ export function playScratch(stakeId, options = {}) {
     // reprend JAMAIS ce qu'elle verse : le pot se rafle au Vol d'Icare. Le RTP de
     // référence suit le niveau des planches du graveur (moins d'edge à recycler).
     feedPot(stakeFaveur, scratchRtpRef(stakeId));
+    // Registre de la Chronique : un ticket de plus (mise, gain, temps forts
+    // trois-Vénus / trois-Soleils via le symbole d'issue).
+    recordScratch({ wagered: stakeFaveur, won: result.faveurGain, symbol: prize.symbol });
 
     if (!silent) {
       const floatLabel = win

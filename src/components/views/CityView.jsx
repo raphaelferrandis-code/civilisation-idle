@@ -35,14 +35,14 @@ import { fmt, clamp01 } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
-  ICARE_INFRA_TARGET,
-  OR_GOLD_TARGET,
+  ICARE_GAIN_SECONDS,
+  OR_GAIN_SECONDS,
   OR_POP_CAP,
   BABEL_CAT_LABELS,
   PHENIX_RENAISSANCE_TARGET,
   PHENIX_REBIRTH_WINDOW_MS,
   HEPH_INFRA_PER_PEAK,
-  ATRIDES_GOAL_NET_GOLD,
+  ATRIDES_GAIN_SECONDS,
   ATRIDES_DEBT_PAYBACK_FACTOR,
   ENEE_MIGRATIONS_TARGET,
   ENEE_TERRITORY_INTERVAL_MS,
@@ -55,10 +55,10 @@ export default function CityView() {
   const {
     cityName, population, gold, infrastructure,
     cycleStartedAt, archaeologyUses,
-    activeMythId, sisypheMult, icareInfraReached, babelProdReached, babelCategory,
-    orPopPeak, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
+    activeMythId, sisypheMult, icareInfraReached, mythStartInfra, mythStartGold, babelProdReached, babelCategory,
+    orPopPeak, orGoldReached, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
     hephPopPeak, hephGoalReached,
-    atridesDebt, atridesDrainDisabled, atridesDebtGrowthMultiplier,
+    atridesDebt, atridesReached, atridesDrainDisabled, atridesDebtGrowthMultiplier,
     atridesRenegotiateActiveUntil, atridesRenegotiateCooldownEnd,
     atridesHeritage, atridesPactActive, atridesNextRunPenaltyActive,
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
@@ -194,7 +194,16 @@ export default function CityView() {
   const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
   const atridesDebtGrowthRate = Math.max(10, totalProd * 0.01) * (atridesDebtGrowthMultiplier || 1);
   const netGold = D(gold).sub(atridesDebt || 0);
-  const netGoldReached = netGold.gte(ATRIDES_GOAL_NET_GOLD);
+  // Progression RELATIVE des mythes à objectif « N s de production » : on affiche
+  // exactement ce que mythTicks.js mesure pour la réussite (ressource gagnée ce
+  // cycle ÷ taux courant → « X s / N s »), et non un seuil absolu. Les flags
+  // *Reached (source de vérité) figent l'état « atteint ».
+  const goldRate = Math.max(0, toNum(r.gold));
+  const infraRate = Math.max(0, toNum(r.infrastructure));
+  const secOfProd = (gained, rate) => (rate > 0 ? Math.max(0, Math.floor(toNum(gained) / rate)) : 0);
+  const icareGainSec = secOfProd(D(infrastructure).sub(mythStartInfra || 0), infraRate);
+  const orGainSec = secOfProd(D(gold).sub(mythStartGold || 0), goldRate);
+  const atridesGainSec = secOfProd(netGold.sub(mythStartGold || 0), goldRate);
   const atridesRepayCost = (atridesDebt || 0) * ATRIDES_DEBT_PAYBACK_FACTOR;
   const canRepayAtrides = D(gold).gte(atridesRepayCost) && (atridesDebt || 0) > 0;
 
@@ -371,7 +380,7 @@ export default function CityView() {
 
         {/* Régulation des tensions + politiques : encart pliable, sous la carte */}
         <HudPanel className="city-controls-panel" storageKey="regul" title={tr({ fr: "Régulation des tensions", en: "Tension Regulation" })}>
-          <CrisisActionBar variant="compact" />
+          <CrisisActionBar />
         </HudPanel>
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
@@ -443,10 +452,10 @@ export default function CityView() {
 
                 <div className="myth-stat">
                   <span>{tr({ fr: "Objectif Trésor Net", en: "Net Treasury Goal" })}</span>
-                  <strong className={netGoldReached ? "stat-green" : "stat-gold"}>
-                    {fmt(netGold)} / {fmt(ATRIDES_GOAL_NET_GOLD)}
+                  <strong className={atridesReached ? "stat-green" : "stat-gold"}>
+                    {atridesReached ? tr({ fr: "Malédiction conjurée !", en: "Curse lifted!" }) : `${atridesGainSec}s / ${ATRIDES_GAIN_SECONDS}s`}
                   </strong>
-                  <small>{tr({ fr: "Trésor moins Dette", en: "Treasury minus Debt" })}</small>
+                  <small>{tr({ fr: "Trésor net gagné ce cycle (en s de production d'Or)", en: "Net treasury gained this cycle (in s of Gold output)" })}</small>
                 </div>
 
                 <div className={`myth-stat ${atridesDrainDisabled ? "is-green" : "is-red"}`}>
@@ -557,7 +566,7 @@ export default function CityView() {
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Icare", en: "Icarus" })}</span>
                     <strong id="icareTimerValue">
-                      {icareInfraReached ? tr({ fr: "Soleil touché !", en: "Sun reached!" }) : tr({ fr: `${fmt(infrastructure)} / ${fmt(ICARE_INFRA_TARGET)} Infra`, en: `${fmt(infrastructure)} / ${fmt(ICARE_INFRA_TARGET)} Infra` })}
+                      {icareInfraReached ? tr({ fr: "Soleil touché !", en: "Sun reached!" }) : tr({ fr: `${icareGainSec}s / ${ICARE_GAIN_SECONDS}s d'infra`, en: `${icareGainSec}s / ${ICARE_GAIN_SECONDS}s infra` })}
                     </strong>
                   </div>
                 </div>
@@ -576,7 +585,7 @@ export default function CityView() {
                   <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })} ({orUsureImbalance ? tr({ fr: "Déséquilibré", en: "Imbalanced" }) : tr({ fr: "Équilibré", en: "Balanced" })})</span>
-                    <strong>{tr({ fr: `Or: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}`, en: `Gold: ${fmt(gold)}/${fmt(OR_GOLD_TARGET)} | Pop Peak: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}` })}</strong>
+                    <strong>{orGoldReached ? tr({ fr: "Prospérité établie !", en: "Prosperity established!" }) : tr({ fr: `Or: ${orGainSec}s/${OR_GAIN_SECONDS}s | Pop: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}`, en: `Gold: ${orGainSec}s/${OR_GAIN_SECONDS}s | Pop: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}` })}</strong>
                   </div>
                 </div>
               )}

@@ -52,6 +52,7 @@ import { D } from '../num.js';
 import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { checkMythOnCollapse } from './myths.js';
+import { recordCollapse } from '../chronicleStats.js';
 import {
   olympusRuinBonus,
   registerOlympusCollapse,
@@ -269,6 +270,15 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   }
   registerOlympusCollapse(reason);
   gain = olympusRuinBonus(gain, reason);
+
+  // Registre de la Chronique : records d'effondrement (plus gros gain de ruines,
+  // plus long cycle tenu, plus de crises stabilisées) — mesurés AVANT que le
+  // cycle ne soit réinitialisé plus bas (cycleStartedAt / cycleCrisesResolved).
+  recordCollapse({
+    ruinGain: gain,
+    cycleSec: Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000),
+    crises: state.cycleCrisesResolved || 0
+  });
 
   const wasChaos   = isMythEffectActive("mythe_du_chaos");
   const wasAtrides = isMythEffectActive("mythe_atrides");

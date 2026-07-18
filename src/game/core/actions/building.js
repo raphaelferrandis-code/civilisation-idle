@@ -29,8 +29,9 @@ import {
   has,
   isUnlocked,
   crisisOpen,
-  grandResetMilestoneMet,
   grandResetMilestone,
+  isGrandResetMilestoneClaimable,
+  isGrandResetMilestoneClaimed,
   buildingMilestoneInfo,
   milestoneStepSize,
   ruinNodeCost,
@@ -50,6 +51,7 @@ import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActi
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
+import { recordGrPerformed } from '../chronicleStats.js';
 
 export function buyBuilding(id) {
   if (buyBuildingCore(id)) {
@@ -258,31 +260,35 @@ export async function exhumeVestige() {
   render();
 }
 
-export async function performGrandReset() {
+export async function performGrandReset(gr) {
   if (collapseInProgress || gamePaused) return;
-  const nextCount = (state.grandResetCount || 0) + 1;
-  const maxGrandResets = state.ragnarokHeritage ? 11 : 10;
-  if (nextCount > maxGrandResets) return;
-  // Le Grand Reset se débloque en atteignant son JALON marquant (échelle GR I→XI,
-  // cf. grandResetMilestones.js) — plus aucune monnaie de légitimité. Le jalon reste
-  // secret tant qu'il n'est pas atteint : le joueur le découvre.
-  if (!grandResetMilestoneMet(nextCount)) {
-    const m = grandResetMilestone(nextCount);
-    log(m && state.grRevealed && state.grRevealed[nextCount]
-      ? `Le Grand Reset ${nextCount} attend son jalon : « ${tr(m.name)} ».`
-      : `Le prochain Grand Reset exige un jalon encore secret. Faites grandir votre civilisation pour le découvrir.`);
+  const milestone = grandResetMilestone(gr);
+  if (!milestone) return;
+  // ORDRE-LIBRE : on réclame le sceau `gr` s'il est réclamable (banké + non réclamé
+  // + — pour le Ragnarök — héritage acquis). Sa condition a pu retomber depuis le
+  // latch (banking) : c'est grRevealed qui fait foi, pas la condition à l'instant.
+  if (!isGrandResetMilestoneClaimable(gr)) {
+    if (isGrandResetMilestoneClaimed(gr)) {
+      log(`Le sceau « ${tr(milestone.name)} » est déjà réclamé.`);
+    } else if (gr === 11 && !state.ragnarokHeritage) {
+      log(`Le sceau du Ragnarök exige d'avoir honoré le pacte final avant d'être réclamé.`);
+    } else {
+      log(`Le sceau « ${tr(milestone.name)} » n'est pas encore débloqué. Fais grandir ta civilisation pour l'atteindre.`);
+    }
     render();
     return;
   }
+  const nextCount = (state.grandResetCount || 0) + 1;
+  const isRagnarok = gr === 11;
   setGamePaused(true);
-  const resetRewardText = nextCount === 11
+  const resetRewardText = isRagnarok
     ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
     : `un bonus permanent x${grandResetProductionMult(nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
   const choice = await openChoiceDialog({
-    title: "Grand Reset",
-    body: `Tout sera efface: batiments, ruines, upgrades, cycles, heritage. En echange: ${resetRewardText}. Actuellement: x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Apres: x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
+    title: `Grand Reset — ${tr(milestone.name)}`,
+    body: `Tu réclames le sceau « ${tr(milestone.name)} ». Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Après : x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
     options: [
-      { label: "Tout reinitialiser", detail: nextCount === 11 ? "+x4 Ruines permanent" : `+x${grandResetProductionMult(nextCount).toFixed(0)} production permanente` },
+      { label: "Réclamer le sceau", detail: isRagnarok ? "+x4 Ruines permanent" : `+x${grandResetProductionMult(nextCount).toFixed(0)} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }
     ]
   });
@@ -291,9 +297,17 @@ export async function performGrandReset() {
   setMourning(true);
   await new Promise((resolve) => setTimeout(resolve, 1300));
 
-  // Construit le state frais en préservant les héritages permanents.
-  // SOURCE DE VÉRITÉ des champs conservés : GR_PERSISTENT_FIELDS (state.js).
-  // Tout nouveau déblocage permanent DOIT y être ajouté, sinon il est effacé ici.
+  // Registre de la Chronique : horodatage (horloge à vie) du GR effectué —
+  // gravé AVANT le clone, pour que buildGrandResetState l'emporte dans le state
+  // frais (chronicleStats est éternel, cf. GR_PERSISTENT_FIELDS).
+  recordGrPerformed(nextCount);
+
+  // Marque le sceau réclamé sur le state COURANT avant le clone : buildGrandResetState
+  // recopie grClaimed (GR_PERSISTENT_FIELDS) dans le state frais et fixe
+  // grandResetCount = nextCount (= |grClaimed|). SOURCE DE VÉRITÉ : GR_PERSISTENT_FIELDS.
+  if (!state.grClaimed) state.grClaimed = {};
+  state.grClaimed[gr] = true;
+
   const fresh = buildGrandResetState(nextCount);
 
   setState(fresh);

@@ -51,6 +51,7 @@ export {
   cashOutIcarus,
   icarusStakes,
   icarusFlying,
+  icarusFlightInfo,
   icarusTakeoffAt,
   icarusMultiplier,
   icarusMultiplierAt,

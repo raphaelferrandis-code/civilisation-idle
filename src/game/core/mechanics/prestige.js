@@ -41,7 +41,9 @@ import { tr } from '../i18n.js';
 function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
   const base = grandResetProductionMult(state.grandResetCount);
-  const ragnarokBonus = (state.ragnarokHeritage && (state.grandResetCount || 0) >= 11) ? 4 : 1;
+  // Bonus Ragnarök : ×4 Ruines dès que le SCEAU du Ragnarök (gr 11) est réclamé —
+  // en ORDRE-LIBRE ce n'est plus « le 11e reset » mais ce sceau précis.
+  const ragnarokBonus = (state.ragnarokHeritage && state.grClaimed && state.grClaimed[11]) ? 4 : 1;
   return base * ragnarokBonus;
 }
 
@@ -53,10 +55,6 @@ function orHeritageUsureMult() {
   // Ratio de déséquilibre [0,1] : significatif même au-delà du float.
   const ratio = f.sub(g).abs().div(f.max(g)).toNumber();
   return ratio < OR_HERITAGE_BALANCE_RATIO ? (1 - OR_HERITAGE_USURE_RED) : 1;
-}
-
-function crisisProgress() {
-  return Math.max(state.instability, state.timeWear || 0);
 }
 
 // Horloge du cycle : FIGÉE pendant la crise terminale (le tick est en pause,
@@ -84,8 +82,7 @@ function patienceAt(age) {
 // uniquement les leviers encore actionnables pendant la crise — tenir
 // (patience, sur le temps réel : elle mûrit même jeu figé) et sceller des
 // édits (préparations). Les profondeurs (population, civisme) sont figées par
-// les pics. NB : le terme « surpression » de ruinGain (crisisProgress > 1) est
-// inatteignable — les deux jauges sont clamp01 dans le tick — donc pas exposé.
+// les pics.
 export function ruinGainFactors() {
   const age = Math.max(1, (cycleClockNow() - state.cycleStartedAt) / 1000);
   return {
@@ -148,7 +145,6 @@ export function ruinGain(projected = false, extraPrep = 0) {
   const ageDepth = 0.55 + normalizedEraIndex * 0.22;
   const populationDepth = Math.max(0.35, Math.pow(Math.max(10, peakPopulation) / RUIN_POP_DEPTH_REF, RUIN_POP_DEPTH_EXP));
   const civicDepth = 0.75 + Math.log10(toNum(peaks.knowledge || 0) + toNum(peaks.infrastructure || 0) * 4 + 10) * 0.14;
-  const pressure = 1 + Math.max(0, crisisProgress() - 1) * 0.28;
   const preparation = 1 + Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + extraPrep);
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
   const elapsed = (cycleClockNow() - state.cycleStartedAt) / 1000;
@@ -177,12 +173,12 @@ export function ruinGain(projected = false, extraPrep = 0) {
   // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
   // express des ères après un Grand Reset devient une pluie de gains visibles.
   const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * eraTier(state.bestEraIndex || 0);
-  const raw = ageDepth * populationDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
+  const raw = ageDepth * populationDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
   if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)) + eraFlatBonus);
   const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
-  const restProduct = ageDepth * civicDepth * patience * pressure * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
+  const restProduct = ageDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
   return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
 }
 

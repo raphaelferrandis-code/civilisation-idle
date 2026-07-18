@@ -15,35 +15,45 @@ import { state } from '../state.js';
 import { D } from '../num.js';
 import { has } from './shared.js';
 import { PRESTIGE_TREE } from '../../data/upgrades.js';
+import { recordGrDiscovered } from '../chronicleStats.js';
 
 // Nombre de Mythes accomplis (inline pour éviter d'importer prestige.js).
 function mythCount() {
   return Object.values(state.mythsCompleted || {}).filter(Boolean).length;
 }
 
-// Seuils TUNABLES des 11 jalons — l'équilibrage fin viendra dans un second temps.
-// GR1 = 10 effondrements et GR2 = 3 merveilles sont fixés (choix de design) ; le
-// reste suit l'échelle « tour des systèmes » (Mythes en colonne à 4 crans).
+// Seuils TUNABLES des 11 sceaux. Deux sont RELATIFS (indexés sur le nombre de
+// sceaux déjà réclamés, = le driver du ×2^n) pour ne jamais devenir triviaux tard
+// ni infaisables tôt ; les autres sont robustes par nature (contenu, comptes,
+// arbre qui se re-bâtit). Système ORDRE-LIBRE : chaque sceau est indépendant.
 export const GR_MILESTONE_THRESHOLDS = {
   cycles: 10,          // GR1  — effondrements traversés
   wonders: 3,          // GR2  — merveilles érigées
   myths1: 1,           // GR3  — 1er Mythe honoré
-  // GR4 — pic de population. Relevé 1e6 → 1e13 (calibrage 2026-07) : à ce stade
-  // le pic de cycle dépassait déjà largement le million (jalon pré-rempli) ;
-  // 1e13 en fait le mur du mid-game (~1j12 au métronome bot).
-  population: 1e13,
+  // GR4 (RELATIF) — cible pop = populationBase × 10^(sceaux réclamés). À 0 sceau :
+  // 1e6 ; à 5 : 1e11 ; à 10 : 1e16. Suit ta puissance → toujours un vrai palier.
+  populationBase: 1e6,
+  populationDecadePerGr: 1,
   myths2: 5,           // GR6  — Acte I scellé (5 Mythes)
   myths3: 8,           // GR8  — Acte II scellé (8 Mythes)
-  // GR9 — 2 capstones de l'Arbre (l'arbre se re-bâtit à chaque époque) ; GR10 —
-  // ère 40 (Singularité dépassée). Étirés au calibrage : à ×2^n de multiplicateur,
-  // aucun seuil statique ne tient des JOURS — ce sont des ralentisseurs, le vrai
-  // pacing tardif humain venant de la difficulté des Mythes d'Acte II/III.
-  capstones: 2,
-  eraTranscendent: 40,
+  capstones: 4,        // GR9  — les 4 capstones (arbre entier ; se re-bâtit au GR)
+  // GR10 (RELATIF) — ère cible = eraBase + eraStepPerGr × (sceaux réclamés). À 0 :
+  // ère 40 ; à 10 : ère 60. Transcendant de plus en plus profond avec ta puissance.
+  eraBase: 40,
+  eraStepPerGr: 2,
   myths4: 14           // GR11 — Ragnarök (14 Mythes)
 };
 
 const T = GR_MILESTONE_THRESHOLDS;
+
+// Cibles RELATIVES des sceaux GR4/GR10, indexées sur le nombre de sceaux réclamés
+// (grandResetCount). Exportées pour l'affichage (le plateau montre « X / cible »).
+export function grPopulationTarget() {
+  return T.populationBase * Math.pow(10, (state.grandResetCount || 0) * T.populationDecadePerGr);
+}
+export function grEraTarget() {
+  return T.eraBase + T.eraStepPerGr * (state.grandResetCount || 0);
+}
 
 // L'échelle. `check()` lit le state courant. `system` = le pan de jeu engagé
 // (pour l'affichage). Le nom est révélé au joueur SEULEMENT une fois découvert.
@@ -70,7 +80,7 @@ export const GRAND_RESET_MILESTONES = [
     gr: 4, id: "colonne_million",
     name: { fr: "La Colonne du Million", en: "The Column of the Million" },
     system: { fr: "Population", en: "Population" },
-    check: () => D(state.cyclePeaks?.population ?? state.population ?? 0).gte(T.population)
+    check: () => D(state.cyclePeaks?.population ?? state.population ?? 0).gte(grPopulationTarget())
   },
   {
     gr: 5, id: "olympe_prononce",
@@ -106,7 +116,7 @@ export const GRAND_RESET_MILESTONES = [
     gr: 10, id: "au_dela_singularite",
     name: { fr: "Au-delà de la Singularité", en: "Beyond the Singularity" },
     system: { fr: "Ères", en: "Eras" },
-    check: () => (state.bestEraIndex || 0) >= T.eraTranscendent
+    check: () => (state.bestEraIndex || 0) >= grEraTarget()
   },
   {
     gr: 11, id: "regard_ragnarok",
@@ -127,27 +137,49 @@ export function grandResetMilestoneMet(nextCount) {
   return m ? Boolean(m.check()) : false;
 }
 
-// Un jalon est RÉVÉLÉ au joueur si : le GR est déjà accompli (n ≤ grandResetCount),
-// OU il a été découvert et latché (state.grRevealed), OU il est atteint à l'instant.
+// Le sceau a-t-il été RÉCLAMÉ (encaissé via un Grand Reset) ?
+export function isGrandResetMilestoneClaimed(gr) {
+  return Boolean(state.grClaimed && state.grClaimed[gr]);
+}
+
+// Un sceau est RÉVÉLÉ si : déjà réclamé, OU découvert/banké (grRevealed latché),
+// OU atteint à l'instant. Le médaillon/nom ne s'affichent qu'une fois révélé.
 export function isGrandResetMilestoneRevealed(gr) {
-  if (gr <= (state.grandResetCount || 0)) return true;
+  if (isGrandResetMilestoneClaimed(gr)) return true;
   if (state.grRevealed && state.grRevealed[gr]) return true;
   return grandResetMilestoneMet(gr);
 }
 
-// Latch de découverte : appelé au tick. Dès que le jalon du PROCHAIN GR est atteint,
-// on le grave dans state.grRevealed (persistant) — il reste révélé même si le signal
-// sous-jacent retombe ensuite (ex. les cycles remis à 0 au GR). Retourne l'id du
-// jalon fraîchement découvert (pour un retour visuel), ou null.
+// Un sceau est RÉCLAMABLE maintenant (ORDRE-LIBRE) : découvert/banké (sa condition
+// a été atteinte une fois — banking), pas encore réclamé, et — pour le Ragnarök
+// (gr 11) — l'héritage acquis. La condition n'a PAS besoin d'être vraie à l'instant :
+// une fois latchée dans grRevealed, le sceau reste réclamable à vie.
+export function isGrandResetMilestoneClaimable(gr) {
+  if (isGrandResetMilestoneClaimed(gr)) return false;
+  if (gr === 11 && !state.ragnarokHeritage) return false;
+  return Boolean(state.grRevealed && state.grRevealed[gr]);
+}
+
+// Nombre de sceaux réclamables tout de suite (badge/plateau).
+export function claimableGrandResetCount() {
+  return GRAND_RESET_MILESTONES.filter((m) => isGrandResetMilestoneClaimable(m.gr)).length;
+}
+
+// Latch de découverte : appelé au tick. LATCHE TOUS les sceaux dont la condition est
+// atteinte (plus seulement « le suivant » — le système est ordre-libre). Chaque sceau
+// gravé reste réclamable même si le signal sous-jacent retombe (banking). Retourne l'id
+// du 1er sceau fraîchement découvert ce tick (retour visuel), ou null.
 export function refreshGrandResetReveal() {
-  const next = (state.grandResetCount || 0) + 1;
-  const m = grandResetMilestone(next);
-  if (!m) return null;
   if (!state.grRevealed) state.grRevealed = {};
-  if (state.grRevealed[next]) return null;
-  if (m.check()) {
-    state.grRevealed[next] = true;
-    return m.id;
+  let firstNew = null;
+  for (const m of GRAND_RESET_MILESTONES) {
+    if (state.grRevealed[m.gr]) continue;
+    if (m.check()) {
+      state.grRevealed[m.gr] = true;
+      // Registre de la Chronique : horodatage (horloge à vie), une seule fois.
+      recordGrDiscovered(m.gr);
+      if (firstNew === null) firstNew = m.id;
+    }
   }
-  return null;
+  return firstNew;
 }

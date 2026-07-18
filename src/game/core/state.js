@@ -89,6 +89,102 @@ export const defaultTempleAuto = () => ({
   vingtetun: { unlocked: false, on: false, stakeId: "legere", tempo: "mesure", stakePow: 0, faveurFloor: AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, lastAt: 0 }
 });
 
+// ── Registre de la Chronique (stats à vie) ───────────────────────────────────
+// Compteurs HISTORIQUES cumulés : stats des 4 jeux du temple, économie de Faveur,
+// records/superlatifs, et horodatages (sur une horloge à vie) des déblocages de
+// Grand Reset et des accomplissements de Mythes. ÉTERNEL : survit aux
+// effondrements ET au Grand Reset (GR_PERSISTENT_FIELDS) — c'est un registre de
+// records, pas un état de run. Tout est en number/string/map plats (aucun Decimal
+// vivant) : `biggestRuinGain` est une STRING Decimal ("1.5e+30") pour survivre au
+// clone JSON du Grand Reset ET à JSON.stringify sans perte. Les recorders qui le
+// nourrissent vivent dans chronicleStats.js. lifetimePlaySec est l'horloge à vie
+// (incrémentée au tick, à côté de playTimeSec qui, lui, repart à 0 au GR).
+const CHRONICLE_GAME_EXTRAS = {
+  osselets:  { venus: 0, dog: 0 },
+  icarus:    { bestMult: 0, jackpots: 0, biggestJackpot: 0, crashes: 0 },
+  scratch:   { venus: 0, soleil: 0 },
+  blackjack: { naturals: 0, bestStreak: 0 }
+};
+
+export function defaultChronicleStats() {
+  const games = {};
+  for (const [game, extras] of Object.entries(CHRONICLE_GAME_EXTRAS)) {
+    games[game] = { plays: 0, wagered: 0, won: 0, biggest: 0, ...extras };
+  }
+  return {
+    lifetimePlaySec: 0,
+    games,
+    faveurEarned: 0,
+    faveurSpentShop: 0,
+    offeringsCollected: 0,
+    biggestPotRaked: 0,
+    biggestRuinGain: "0",   // string Decimal
+    longestCycleSec: 0,
+    mostCrisesInCycle: 0,
+    fastestEraGainSec: 0,   // 0 = jamais mesuré
+    grTimings: {},          // { [gr]: { discovered:number|null, performed:number|null } }
+    mythTimings: {}         // { [mythId]: { at, runSec, order, act } }
+  };
+}
+
+function normalizeChronicleStats(raw) {
+  const def = defaultChronicleStats();
+  const s = isPlainObject(raw) ? raw : {};
+  const games = {};
+  for (const [game, extras] of Object.entries(CHRONICLE_GAME_EXTRAS)) {
+    const g = isPlainObject(s.games?.[game]) ? s.games[game] : {};
+    const out = {
+      plays: finiteInteger(g.plays, 0, 0),
+      wagered: finiteNumber(g.wagered, 0, 0),
+      won: finiteNumber(g.won, 0, 0),
+      biggest: finiteNumber(g.biggest, 0, 0)
+    };
+    for (const key of Object.keys(extras)) out[key] = finiteNumber(g[key], 0, 0);
+    games[game] = out;
+  }
+  // Horodatages GR : { [gr]: { discovered, performed } } — gr borné 1..11.
+  const grTimings = {};
+  if (isPlainObject(s.grTimings)) {
+    for (const [key, val] of Object.entries(s.grTimings)) {
+      const gr = Number(key);
+      if (!Number.isInteger(gr) || gr < 1 || gr > 11 || !isPlainObject(val)) continue;
+      grTimings[gr] = {
+        discovered: val.discovered == null ? null : finiteNumber(val.discovered, 0, 0),
+        performed: val.performed == null ? null : finiteNumber(val.performed, 0, 0)
+      };
+    }
+  }
+  // Horodatages mythes : { [mythId]: { at, runSec, order, act } }.
+  const mythTimings = {};
+  if (isPlainObject(s.mythTimings)) {
+    for (const [id, val] of Object.entries(s.mythTimings)) {
+      if (typeof id !== "string" || id.length > 64 || !isPlainObject(val)) continue;
+      mythTimings[id.slice(0, 64)] = {
+        at: finiteNumber(val.at, 0, 0),
+        runSec: finiteNumber(val.runSec, 0, 0),
+        order: finiteInteger(val.order, 0, 0),
+        act: (typeof val.act === "number" || typeof val.act === "string") ? val.act : 0
+      };
+    }
+  }
+  return {
+    lifetimePlaySec: finiteNumber(s.lifetimePlaySec, 0, 0),
+    games,
+    faveurEarned: finiteNumber(s.faveurEarned, 0, 0),
+    faveurSpentShop: finiteNumber(s.faveurSpentShop, 0, 0),
+    offeringsCollected: finiteNumber(s.offeringsCollected, 0, 0),
+    biggestPotRaked: finiteNumber(s.biggestPotRaked, 0, 0),
+    // Conservé en STRING Decimal ; decimalField().toString() re-normalise toute
+    // forme (number/string/Decimal déshydraté) sans coercition native.
+    biggestRuinGain: decimalField(s.biggestRuinGain, def.biggestRuinGain).toString(),
+    longestCycleSec: finiteNumber(s.longestCycleSec, 0, 0),
+    mostCrisesInCycle: finiteInteger(s.mostCrisesInCycle, 0, 0),
+    fastestEraGainSec: finiteNumber(s.fastestEraGainSec, 0, 0),
+    grTimings,
+    mythTimings
+  };
+}
+
 const VALID_TEMPOS = ["recueilli", "mesure", "fervent"];
 
 function normalizeTempleAuto(source) {
@@ -185,6 +281,11 @@ export const defaultState = () => ({
   // (« ??? ») jusqu'à ce qu'il soit atteint une 1re fois ; il est alors révélé —
   // et le reste (survit au GR, cf. GR_PERSISTENT_FIELDS).
   grRevealed: {},
+  // Sceaux de Grand Reset RÉCLAMÉS : { [gr]: true }. Système ORDRE-LIBRE — chaque
+  // sceau se réclame indépendamment, dans n'importe quel ordre. grRevealed[gr] =
+  // condition atteinte une fois (banké, réclamable à vie) ; grClaimed[gr] = encaissé
+  // via un Grand Reset. grandResetCount = nombre de sceaux réclamés (|grClaimed|).
+  grClaimed: {},
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -408,6 +509,11 @@ export const defaultState = () => ({
   // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
   lifetimePurchases: 0,
   playTimeSec: 0,
+  // Registre de la Chronique : stats de jeux, économie de Faveur, records et
+  // horodatages GR/Mythes — cumul À VIE (survit au Grand Reset, cf.
+  // GR_PERSISTENT_FIELDS). Objet plein dès le defaultState : la Chronique le lit
+  // directement. Nourri par les recorders de chronicleStats.js.
+  chronicleStats: defaultChronicleStats(),
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   upgrades: {},
   // Nom procédural tiré à la création de partie (et régénéré à chaque cycle
@@ -1007,6 +1113,23 @@ export function migrate(raw) {
   return save;
 }
 
+// Normalise un set de sceaux de Grand Reset { [gr]: true } (clés 1..11).
+function normalizeGrSet(obj) {
+  const out = {};
+  if (!isPlainObject(obj)) return out;
+  for (let gr = 1; gr <= 11; gr += 1) if (obj[gr]) out[gr] = true;
+  return out;
+}
+
+// Migration « ordre-libre » : un save LINÉAIRE (grandResetCount = N, sans grClaimed)
+// avait réclamé les N premiers sceaux dans l'ordre historique GR I→N.
+function legacyClaimedFromCount(n) {
+  const out = {};
+  const claimed = Math.min(11, Math.max(0, Number.isFinite(n) ? n : 0));
+  for (let gr = 1; gr <= claimed; gr += 1) out[gr] = true;
+  return out;
+}
+
 export function hydrateState(parsed = {}) {
   const base = defaultState();
   const source = migrate(isPlainObject(parsed) ? parsed : {});
@@ -1023,7 +1146,9 @@ export function hydrateState(parsed = {}) {
     ruins: decimalField(source.ruins, base.ruins),
     cycles: finiteInteger(source.cycles, base.cycles),
     icarusJackpots: finiteInteger(source.icarusJackpots, base.icarusJackpots, 0),
-    grRevealed: isPlainObject(source.grRevealed) ? { ...source.grRevealed } : {},
+    // grRevealed ⊇ grClaimed : un sceau réclamé (y compris migré depuis un save
+    // linéaire) est forcément « découvert ». On fusionne les 3 sources.
+    grRevealed: { ...normalizeGrSet(source.grRevealed), ...normalizeGrSet(source.grClaimed), ...legacyClaimedFromCount(finiteInteger(source.grandResetCount, 0, 0)) },
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -1167,6 +1292,11 @@ export function hydrateState(parsed = {}) {
     recentCrisisIds: normalizeStringArray(source.recentCrisisIds, 8, 80),
     crisisDoctrine: normalizeCrisisDoctrine(source.crisisDoctrine, base.crisisDoctrine),
     grandResetCount: finiteInteger(source.grandResetCount, base.grandResetCount),
+    // Sceaux réclamés (ordre-libre). Migration : un save linéaire sans grClaimed a
+    // réclamé les N premiers sceaux (N = grandResetCount).
+    grClaimed: isPlainObject(source.grClaimed)
+      ? normalizeGrSet(source.grClaimed)
+      : legacyClaimedFromCount(finiteInteger(source.grandResetCount, 0, 0)),
     // Rétro-compat : l'ancien booléen archaeologyUsed devient 1 exhumation utilisée.
     archaeologyUses: finiteInteger(source.archaeologyUses, source.archaeologyUsed ? 1 : 0, 0),
     cycleCrisesResolved: finiteInteger(source.cycleCrisesResolved, 0, 0),
@@ -1180,6 +1310,7 @@ export function hydrateState(parsed = {}) {
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
+    chronicleStats: normalizeChronicleStats(source.chronicleStats),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
     chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),
@@ -1447,12 +1578,16 @@ export const GR_PERSISTENT_FIELDS = [
   "surchauffeEndTime", "surchauffeCooldownEnd",
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
   "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle",
-  "olympus", "grRevealed",
+  "olympus", "grRevealed", "grClaimed",
   // Augments du Temple (2026-07-15) : boosters de jeu ÉTERNELS — survivent au
   // Grand Reset ; la Faveur (le carburant) se re-gagne, elle, à chaque cycle GR.
   // templeAuto = réglages d'automatisation (Phase 2) : éternels aussi.
   // templeArtifacts = refontes de risque déblocables (Phase 4) : éternelles aussi.
-  "diceLevel", "wingLevel", "styletLevel", "graveurLevel", "coffreLevel", "templeAuto", "templeArtifacts"
+  "diceLevel", "wingLevel", "styletLevel", "graveurLevel", "coffreLevel", "templeAuto", "templeArtifacts",
+  // Registre de la Chronique : cumul À VIE de stats/records/horodatages — c'est
+  // un journal de records, il traverse le Grand Reset (l'horloge à vie, les
+  // timings de GR/Mythes et les compteurs de jeux ne se réinitialisent jamais).
+  "chronicleStats"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)

@@ -14,6 +14,7 @@
 import { state, save, render } from '../state.js';
 import { TRUNK_RATE_PER_S, TRUNK_CAP } from '../balance.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { recordOffering } from '../chronicleStats.js';
 
 // Contenu courant du tronc (Faveur, fractionnaire). Une save d'avant le tronc
 // (trunkFaveur absent) le découvre PLEIN — l'amorce vaut aussi pour les
@@ -37,6 +38,8 @@ export function collectTrunk(options = {}) {
   state.faveur = Math.max(0, (state.faveur || 0) + gain);
   state.trunkFaveur = value - gain;
   state.trunkAt = now;
+  // Registre de la Chronique : offrandes récoltées (et Faveur gagnée à vie).
+  recordOffering(gain);
   if (!silent) pushOutcomeFloat({ label: `🏺 +${gain} faveur`, kind: "gain" });
   save();
   if (doRender) render();

@@ -38,8 +38,6 @@ export {
   ruinMultiplierDec,
   unspentRuinsPowerMultiplier,
   unspentRuinsPowerMultiplierDec,
-  institutionMultiplier,
-  institutionMultiplierDec,
   infraMultiplier,
   infraMultiplierDec,
   nomadInfrastructureCap,

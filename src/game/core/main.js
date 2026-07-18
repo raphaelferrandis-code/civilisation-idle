@@ -469,8 +469,14 @@ export function startGameLoop() {
     const now = performance.now();
     const seconds = Math.min(1.0, (now - last) / 1000);
     last = now;
-    // Temps de jeu actif cumulé (jalon de merveille) — survit aux effondrements.
+    // Temps de jeu actif cumulé (jalon de merveille) — survit aux effondrements
+    // mais REPART À 0 au Grand Reset. lifetimePlaySec, lui, est l'horloge À VIE
+    // (registre de la Chronique) : elle ne se réinitialise jamais et horodate les
+    // déblocages de GR et les accomplissements de Mythes de façon continue.
     state.playTimeSec = (state.playTimeSec || 0) + seconds;
+    if (state.chronicleStats) {
+      state.chronicleStats.lifetimePlaySec = (state.chronicleStats.lifetimePlaySec || 0) + seconds;
+    }
     renderCache.tickNow = Date.now(); // horloge lue par les composants (pas de Date.now() en rendu)
     tick(seconds);
     checkAutoCollapse();

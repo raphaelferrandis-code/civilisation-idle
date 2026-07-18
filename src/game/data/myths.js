@@ -4,7 +4,6 @@ import { state } from '../core/state.js';
 import { log } from '../core/actions.js';
 import { D } from '../core/num.js';
 import { tr, localizeData } from '../core/i18n.js';
-import { fmt } from '../core/utils.js';
 
 // Score de « puissance » agrégé (Antée, Ragnarok) : somme pondérée des
 // ressources principales, en Decimal pour survivre au-delà du float.
@@ -40,7 +39,6 @@ export const RAGNAROK_FINAL_TITLE = "Sous le regard du Ragnarok";
 export const ICARE_PROD_MULT     = 100;      // Multiplicateur global de production
 export const ICARE_RUPTURE_MULT  = 30;       // Multiplicateur de vitesse de Rupture
 export const ICARE_USURE_MULT    = 15;       // Multiplicateur de vitesse d'Usure
-export const ICARE_INFRA_TARGET  = 5000;     // (obsolète — remplacé par le gain relatif ci-dessous)
 export const ICARE_GAIN_SECONDS  = 40;       // Réussite : accumuler ce cycle ≥ 40 s de production d'Infra avant l'effondrement rapide (Rupture ×30 !)
 export const SURCHAUFFE_PROD_MULT    = 5;       // Multiplicateur de production pendant Surchauffe
 export const SURCHAUFFE_DURATION_MS  = 30_000;  // Durée de l'effet Surchauffe (30 secondes)
@@ -66,7 +64,6 @@ export const OR_POP_THRESHOLD         = 200;     // Seuil de rendements décrois
 export const OR_POP_PENALTY_PCT       = 0.005;   // -0.5% de production par habitant au-delà du seuil
 export const OR_BALANCE_RATIO         = 0.25;    // Écart Nourriture/Trésor au-delà duquel il y a déséquilibre
 export const OR_USURE_IMBALANCE_MULT  = 3;       // Usure ×3 pendant le déséquilibre
-export const OR_GOLD_TARGET           = 75_000;  // (obsolète — remplacé par le gain relatif ci-dessous)
 export const OR_GAIN_SECONDS          = 120;     // Réussite : accumuler ce cycle ≥ 120 s de production d'Or, pop plafonnée
 export const OR_POP_CAP               = 300;     // Plancher absolu du plafond de pop (early game)
 // Plafond de population RELATIF au départ du cycle : la pop ne doit pas croître
@@ -135,7 +132,6 @@ export const ATRIDES_DEBT_PAYBACK_FACTOR    = 1.2;
 export const ATRIDES_RENEGOTIATE_COOLDOWN_MS = 120_000;
 export const ATRIDES_RENEGOTIATE_DURATION_MS = 30_000;
 export const ATRIDES_RENEGOTIATE_MULT        = 0.3;
-export const ATRIDES_GOAL_NET_GOLD          = 100_000; // (obsolète — remplacé par le gain net relatif ci-dessous)
 export const ATRIDES_GAIN_SECONDS           = 150;     // Réussite : Trésor NET gagné ce cycle ≥ 150 s de production d'Or (malgré la dette)
 export const ATRIDES_NEXT_RUN_PENALTY_MULT  = 0.8;
 
@@ -246,7 +242,7 @@ export const MYTHS = [
 
     onActivate() {
       // mechanics.js detecte state.activeMythId === "mythe_du_chaos" et neutralise
-      // ruinEffects(), ruinMultiplier(), institutionMultiplier(), grandResetMultiplier().
+      // ruinEffects(), ruinMultiplier(), grandResetMultiplier().
       state.chaosReached = false;
     },
 
@@ -520,8 +516,8 @@ export const MYTHS = [
       en: `Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, population is risky and Food/Treasury balance required.`
     },
     objectif: {
-      fr: `Accumuler ${fmt(OR_GOLD_TARGET)} de Trésor sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
-      en: `Accumulate ${fmt(OR_GOLD_TARGET)} Treasury without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
+      fr: `Accumuler ce cycle l'équivalent de ${OR_GAIN_SECONDS} s de ta production d'Or, sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
+      en: `Accumulate this cycle the equivalent of ${OR_GAIN_SECONDS}s of your Gold output, without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
     },
     heritageDescription: {
       fr: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement, en permanence, dans toutes les runs futures.`,
@@ -596,8 +592,8 @@ export const MYTHS = [
       en: `production x${ICARE_PROD_MULT}, Rupture x${ICARE_RUPTURE_MULT}, Wear x${ICARE_USURE_MULT}.`
     },
     objectif: {
-      fr: `Atteindre ${ICARE_INFRA_TARGET} d'Infrastructure avant l'effondrement automatique.`,
-      en: `Reach ${ICARE_INFRA_TARGET} Infrastructure before the automatic collapse.`
+      fr: `Bâtir ce cycle l'équivalent de ${ICARE_GAIN_SECONDS} s de ta production d'Infrastructure avant l'effondrement automatique.`,
+      en: `Build this cycle the equivalent of ${ICARE_GAIN_SECONDS}s of your Infrastructure output before the automatic collapse.`
     },
     heritageDescription: {
       fr: `Surchauffe : débloque un bouton activable pendant les runs normaux. Active x${SURCHAUFFE_PROD_MULT} production pendant ${SURCHAUFFE_DURATION_MS / 1000}s (+${Math.round(SURCHAUFFE_RUPTURE * 100)}% Rupture instant). Cooldown : ${SURCHAUFFE_COOLDOWN_MS / 60_000} min.`,
@@ -670,8 +666,8 @@ export const MYTHS = [
       en: "initial debt, debt growth and resource drain."
     },
     objectif: {
-      fr: `Atteindre un Trésor net (Trésor moins Dette) de ${fmt(ATRIDES_GOAL_NET_GOLD)} Or (× la puissance économique courante) avant de vous effondrer.`,
-      en: `Reach a net Treasury (Treasury minus Debt) of ${fmt(ATRIDES_GOAL_NET_GOLD)} Gold (× the current economic power) before you collapse.`
+      fr: `Dégager, malgré la dette, un Trésor net (Trésor moins Dette) gagné ce cycle égal à ${ATRIDES_GAIN_SECONDS} s de ta production d'Or avant de vous effondrer.`,
+      en: `Clear, despite the debt, a net Treasury (Treasury minus Debt) gained this cycle worth ${ATRIDES_GAIN_SECONDS}s of your Gold output before you collapse.`
     },
     heritageDescription: {
       fr: "Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",

@@ -40,7 +40,10 @@ export default function AuguryStage({ table, onClose }) {
   // DOIT se résoudre.
   const pendingRef = useRef(null);
   const [phase, setPhase] = useState('stake');
-  const [riteId, setRiteId] = useState('classique');
+  // Aucune mise choisie au départ (sketch Raph 2026-07-17 : « le bouton de jeu
+  // n'apparaît que quand la mise est sélectionnée ») — null tant qu'on n'a pas
+  // cliqué un choix, ce qui garde le bouton Jouer masqué.
+  const [riteId, setRiteId] = useState(null);
   // La puissance de mise du coffre (×1, ×10…). Re-clampée au rendu ET au moteur :
   // un Grand Reset peut faire retomber le rang pendant que la scène est ouverte.
   const [coffreMult, setCoffreMult] = useState(1);
@@ -72,7 +75,7 @@ export default function AuguryStage({ table, onClose }) {
     clearTimers();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- remise à zéro VOULUE de la scène à chaque réouverture (openedAt)
     setPhase('stake');
-    setRiteId('classique');
+    setRiteId(null);
     setOutcome(null);
     setDoubleOutcome(null);
     setDoubleCran(0);
@@ -113,8 +116,10 @@ export default function AuguryStage({ table, onClose }) {
   const rebate = auguryRebate(table.id);
   const isDouble = Boolean(doubleOutcome);
   const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
-  const castCost = auguryStake(table.id, riteId).stake * effMult;
+  const castCost = riteId ? auguryStake(table.id, riteId).stake * effMult : 0;
 
+  // Le jet part sur le rite SÉLECTIONNÉ (riteId) : le bouton de jeu, le rejeu
+  // « Rejeter » et le quitte-ou-double appellent tous onCast() sans argument.
   const onCast = () => {
     const res = castAugury(table.id, riteId, { defer: true, stakeMult: effMult });
     if (!res) return;
@@ -148,7 +153,9 @@ export default function AuguryStage({ table, onClose }) {
   return (
     <div className="augury-stage">
       <div className="regul-block-title stage-title">
-        <span>🎲 {a.label}</span>
+        {/* Nom du jeu retiré (retour Raphaël 2026-07-17 : « plus de nom en tête ») —
+            la ligne se réduit à une barrette de contrôles alignée à droite (aide, pot,
+            fermeture). Les bandeaux racontent déjà quel jeu on regarde. */}
         <StageHelp>
           <p>
             {tr({
@@ -184,40 +191,49 @@ export default function AuguryStage({ table, onClose }) {
               const pairFav = Math.round(pay.gains.pair * ratio);
               const venusFav = Math.round(pay.gains.venus * ratio);
               const payable = faveur >= st.stake * effMult;
+              const chosen = riteId === rite.id;
               return (
-                <button
+                // La plaque est un conteneur : le corps (`stake-pick`) sélectionne,
+                // et le bouton de jeu n'apparaît QUE dans la mise choisie, cousu au
+                // pied de SA colonne (retour Raph 2026-07-17 : « il faut que
+                // visuellement il soit dans le cadre de la mise choisie »).
+                <div
                   key={rite.id}
-                  type="button"
-                  className={`augury-rite${riteId === rite.id ? ' is-chosen' : ''}${payable ? '' : ' is-broke'}`}
-                  title={tr(rite.desc)}
-                  onClick={() => setRiteId(rite.id)}
+                  className={`augury-rite${chosen ? ' is-chosen' : ''}${payable ? '' : ' is-broke'}`}
                 >
-                  <strong>{tr(rite.label)}</strong>
-                  <span className="augury-rite-cost">
-                    <FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}
-                  </span>
-                  <span className="augury-rite-fx">
-                    <span className="augury-fx-win">{tr({ fr: 'paire', en: 'pair' })} +{pairFav} · {tr({ fr: 'Vénus', en: 'Venus' })} +{venusFav} {tr({ fr: 'faveur', en: 'favor' })}</span>
-                    <span className="augury-fx-risk">{
-                      rite.spread > 1.05 ? tr({ fr: 'sort extrême : plus de Vénus… et de Chiens', en: 'extreme fate: more Venus… and Dogs' })
-                        : rite.spread < 0.95 ? tr({ fr: 'sort plus sage : moins de Chiens', en: 'calmer fate: fewer Dogs' })
-                          : tr({ fr: 'variance équilibrée', en: 'balanced variance' })
-                    }</span>
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    className="stake-pick"
+                    title={tr(rite.desc)}
+                    onClick={() => setRiteId(rite.id)}
+                  >
+                    <strong>{tr(rite.label)}</strong>
+                    <span className="augury-rite-cost">
+                      <FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}
+                    </span>
+                    <span className="augury-rite-fx">
+                      <span className="augury-fx-win">{tr({ fr: 'paire', en: 'pair' })} +{pairFav} · {tr({ fr: 'Vénus', en: 'Venus' })} +{venusFav} {tr({ fr: 'faveur', en: 'favor' })}</span>
+                      <span className="augury-fx-risk">{
+                        rite.spread > 1.05 ? tr({ fr: 'sort extrême : plus de Vénus… et de Chiens', en: 'extreme fate: more Venus… and Dogs' })
+                          : rite.spread < 0.95 ? tr({ fr: 'sort plus sage : moins de Chiens', en: 'calmer fate: fewer Dogs' })
+                            : tr({ fr: 'variance équilibrée', en: 'balanced variance' })
+                      }</span>
+                    </span>
+                  </button>
+                  {chosen && (
+                    <button
+                      type="button"
+                      className="augury-throw stake-play"
+                      disabled={faveur < castCost}
+                      onClick={() => onCast()}
+                    >
+                      {tr({ fr: 'Jeter les osselets', en: 'Cast the knucklebones' })}
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
-          <menu className="choice-menu augury-actions">
-            <button
-              type="button"
-              className="augury-throw"
-              disabled={faveur < castCost}
-              onClick={onCast}
-            >
-              {tr({ fr: 'Jeter les osselets', en: 'Cast the knucklebones' })}
-            </button>
-          </menu>
         </>
       )}
 
@@ -286,7 +302,7 @@ export default function AuguryStage({ table, onClose }) {
                     >
                       {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
                     </button>
-                    <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); }}>
+                    <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); }}>
                       {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
                     <button type="button" onClick={onClose}>
@@ -331,7 +347,7 @@ export default function AuguryStage({ table, onClose }) {
                     >
                       {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
                     </button>
-                    <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>
+                    <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>
                       {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
                     <button type="button" onClick={onClose}>{tr({ fr: 'Refermer la table', en: 'Close the table' })}</button>

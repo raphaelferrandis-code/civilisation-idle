@@ -879,7 +879,11 @@ async function grandReset(rec, nextGR) {
     cycles: state.cycles
   };
   rec.grPeak[nextGR] = { vt: VT, ...peak };
-  try { await performGrandReset(); } catch { /* noop */ }
+  // Latch le sceau « prêt » (le tick le fait déjà via refreshGrandResetReveal ; on
+  // garantit isGrandResetMilestoneClaimable). ORDRE-LIBRE : performGrandReset prend le gr.
+  state.grRevealed = state.grRevealed || {};
+  state.grRevealed[nextGR] = true;
+  try { await performGrandReset(nextGR); } catch { /* noop */ }
   epochPeak = null;   // nouvel epoch de GR
   rec.check();
 }
@@ -940,17 +944,28 @@ async function runProfile(prof) {
     // RECALCULE nextGR après chaque GR : l'ancien code gardait le nextGR périmé
     // → blockedByGR faux-positif juste après un GR réussi (pilotage de Mythes au
     // pire moment, cité fraîche).
-    let nextGR = (state.grandResetCount || 0) + 1;
+    // ORDRE-LIBRE : réclame TOUT sceau dont la condition est atteinte et non réclamé,
+    // dans n'importe quel ordre. Un sceau infranchissable (ex. jackpot pas encore
+    // décroché) n'empêche PLUS les autres → fin du softlock mesuré précédemment.
     const maxGR = state.ragnarokHeritage ? 11 : 10;
-    while (nextGR <= maxGR && grandResetMilestoneMet(nextGR) && VT < BUDGET_SECONDS && !timedOut()) {
-      const before = state.grandResetCount || 0;
-      await grandReset(rec, nextGR);
-      if ((state.grandResetCount || 0) === before) break; // GR refusé (pause…) : ne pas boucler
-      nextGR = (state.grandResetCount || 0) + 1;
+    const grClaimedNow = (g) => Boolean(state.grClaimed && state.grClaimed[g]);
+    const grClaimable = (g) => !grClaimedNow(g) && !(g === 11 && !state.ragnarokHeritage) && grandResetMilestoneMet(g);
+    let claimedThisPass = true;
+    while (claimedThisPass && VT < BUDGET_SECONDS && !timedOut()) {
+      claimedThisPass = false;
+      for (let g = 1; g <= maxGR; g += 1) {
+        if (!grClaimable(g)) continue;
+        const before = state.grandResetCount || 0;
+        await grandReset(rec, g);
+        if ((state.grandResetCount || 0) > before) { claimedThisPass = true; break; }
+      }
     }
+    // Reste-t-il des sceaux non réclamés ? (pilote Mythes / Icare pour les débloquer)
+    const remainingGrs = [];
+    for (let g = 1; g <= maxGR; g += 1) if (!grClaimedNow(g)) remainingGrs.push(g);
+    const blockedByGR = remainingGrs.length > 0;
 
-    // --- Mythes : apres GR1, et chaque fois qu'un jalon de GR reste a atteindre --
-    const blockedByGR = nextGR <= maxGR && !grandResetMilestoneMet(nextGR);
+    // --- Mythes : apres GR1, et tant qu'un sceau reste a réclamer --
     if (prof.pursueMyths && (state.grandResetCount || 0) >= 1
         && (!rec.has("all_myths")) && (rec.has("gr_1") && (blockedByGR || !mythResults[prof._id]))) {
       await driveMyths(rec, prof);
@@ -958,13 +973,12 @@ async function runProfile(prof) {
       rec.check();
     }
 
-    // --- Icare : si le jalon bloquant est le JACKPOT d'Icare (GR7), on JOUE ----
-    // (le bot ne le decroche pas passivement). Puis on re-tente le GR aussitot.
-    if (blockedByGR && grandResetMilestone(nextGR) && grandResetMilestone(nextGR).id === "jackpot_icare") {
+    // --- Icare : si le sceau du JACKPOT d'Icare (GR7) reste a réclamer et sa condition
+    // n'est pas atteinte, on JOUE (le bot ne le decroche pas passivement), puis on réclame.
+    if (!grClaimedNow(7) && grandResetMilestone(7)
+        && grandResetMilestone(7).id === "jackpot_icare" && !grandResetMilestoneMet(7)) {
       playIcarusForJackpot(rec);
-      if (nextGR <= maxGR && grandResetMilestoneMet(nextGR)) {
-        await grandReset(rec, nextGR);
-      }
+      if (grClaimable(7)) await grandReset(rec, 7);
     }
 
     if (argv.debug && state.cycles % 200 === 0) {
