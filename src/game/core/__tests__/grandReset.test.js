@@ -11,6 +11,10 @@ import {
   state, setState, hydrateState, defaultState,
   buildGrandResetState, GR_PERSISTENT_FIELDS
 } from "../state.js";
+import {
+  GRAND_RESET_PROD_BASE, GRAND_RESET_RUIN_BASE,
+  grandResetProductionMult, grandResetRuinGainMult
+} from "../balance.js";
 import { Decimal } from "../num.js";
 
 // Valeur sentinelle distincte du defaultState, adaptée au type du champ.
@@ -99,5 +103,33 @@ describe("Grand Reset — préservation des héritages", () => {
     buildGrandResetState(2);
     expect(state.atlasHeritage).toBe(true);      // inchangé
     expect(state.ruins.eq(777)).toBe(true);      // inchangé
+  });
+});
+
+// Les deux bases du Grand Reset ont été DÉCOUPLÉES (2026-07-18). Une base unique
+// se sabotait elle-même : la monter pour rendre le sceau attractif multipliait
+// aussi la moisson, dont le stock re-entre dans ruinMultiplier et
+// unspentRuinsPower. Ce test interdit de les re-fusionner par inadvertance.
+describe("Grand Reset — bases production / moisson découplées", () => {
+  it("chaque base gouverne SA courbe, et elles ne sont pas la même", () => {
+    expect(GRAND_RESET_PROD_BASE).not.toBe(GRAND_RESET_RUIN_BASE);
+    for (const n of [0, 1, 3, 7, 11]) {
+      expect(grandResetProductionMult(n)).toBe(Math.pow(GRAND_RESET_PROD_BASE, n));
+      expect(grandResetRuinGainMult(n)).toBe(Math.pow(GRAND_RESET_RUIN_BASE, n));
+    }
+  });
+
+  it("la production récompense plus fort que la moisson (l'arbitrage du sceau)", () => {
+    // Le sceau est PERMANENT, le stock de ruines non : c'est ce qui justifie
+    // d'avoir déplacé de la puissance des Ruines vers le Grand Reset.
+    expect(GRAND_RESET_PROD_BASE).toBeGreaterThan(GRAND_RESET_RUIN_BASE);
+    expect(grandResetProductionMult(11)).toBeGreaterThan(grandResetRuinGainMult(11));
+  });
+
+  it("compteur nul ou négatif : les deux courbes valent 1 (pas de bonus fantôme)", () => {
+    for (const n of [0, -1, null, undefined]) {
+      expect(grandResetProductionMult(n)).toBe(1);
+      expect(grandResetRuinGainMult(n)).toBe(1);
+    }
   });
 });

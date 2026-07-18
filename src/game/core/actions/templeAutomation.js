@@ -56,7 +56,7 @@ import {
   ICARUS_STAKES,
   SCRATCH_STAKES,
   BLACKJACK_STAKES,
-  BLACKJACK_RTP_REF
+  BLACKJACK_RTP_AUTO
 } from '../balance.js';
 
 // La table d'osselets fusionnée conserve cet id interne (cf. regulationActions).
@@ -274,8 +274,8 @@ export function templeAutoUnlockCost(game) {
 // Renvoie 0 si l'auto est À L'ARRÊT ou si le jeu n'est pas encore jouable (l'ère
 // requise) — le badge reflète alors la production RÉELLE (nulle). La cadence est
 // une BORNE HAUTE (le plancher peut la réduire). Depuis la monnaie fermée, le
-// débit des OSSELETS est NÉGATIF (edge maison) : l'estimation est honnête —
-// l'auto-jeu consomme de la Faveur en espérance. Le rabais Clémence est ignoré
+// débit des OSSELETS et du VINGT-ET-UN est NÉGATIF (edge maison) : l'estimation
+// est honnête — l'auto-jeu consomme de la Faveur en espérance. Le rabais Clémence est ignoré
 // (il ne change pas le RTP, seulement l'échelle des mises en série noire).
 export function templeAutoThroughput(game) {
   const auto = state.templeAuto;
@@ -319,9 +319,11 @@ export function templeAutoThroughput(game) {
   }
   if (game === "vingtetun") {
     const stake = BLACKJACK_STAKES.find((s) => s.id === (g.stakeId || "legere")) || BLACKJACK_STAKES[0];
-    // L'auto joue la base SANS double ni refente : BLACKJACK_RTP_REF (le jeu
-    // parfait avec double) majore légèrement — le badge reste une borne honnête.
-    const evPerGame = (BLACKJACK_RTP_REF - 1) * stake.faveur * mult;
+    // L'auto joue la base SANS double ni refente : son RTP est SOUS 1, donc le
+    // badge est NÉGATIF comme celui des osselets et d'Icare. Lire ici le RTP de
+    // référence (le jeu parfait, > 1) ne majorait pas « légèrement » : il
+    // INVERSAIT le signe et promettait un gain là où l'auto consomme.
+    const evPerGame = (BLACKJACK_RTP_AUTO - 1) * stake.faveur * mult;
     return evPerGame * perMin;
   }
   return 0;

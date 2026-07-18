@@ -25,15 +25,32 @@ export const TIME_WEAR_BASE_RATE = 0.000045;  // vitesse de base de l'Usure du t
 // borne le bonus de Ruines obtenu en préparant sa chute.
 export const COLLAPSE_PREP_MAX = 2.4; // plafond de préparation à l'effondrement
 
-// Multiplicateur de production & de Ruines gagné à chaque Grand Reset : base^count.
-// SOURCE DE VÉRITÉ unique — lue par grandResetMultiplier (production),
-// grandResetRuinMultiplier (prestige) ET tous les libellés/dialogues d'UI, pour
-// qu'un rééquilibrage de la base ne fasse jamais mentir l'affichage (les 6+ sites
-// recopiaient `Math.pow(2, count)` à la main). NB : ne comprend PAS la garde
-// mythe_du_chaos ni le bonus Ragnarök — ceux-ci restent locaux à leur contexte.
-export const GRAND_RESET_PROD_BASE = 2;
+// Multiplicateur gagné à chaque Grand Reset : base^count. DEUX bases DISTINCTES
+// (2026-07-18) — auparavant une seule servait à la fois la production et la
+// moisson de Ruines, ce qui rendait la base intouchable : la monter pour rendre
+// le sceau attractif multipliait AUSSI la moisson, dont le stock re-entre dans
+// ruinMultiplier et unspentRuinsPower, et le rééquilibrage s'annulait lui-même
+// (à base 3,5 sur 11 sceaux, la moisson prenait ×1300 au passage). Découplées,
+// les deux se règlent séparément.
+//
+// PROD : rehaussée de 2 à 3,5 en contrepartie de l'affaiblissement des termes de
+// Ruines (foundation_ghosts 0.01 → 0.0001, cf. upgrades.js). REDISTRIBUTION à
+// multiplicateur total constant : le sceau pèse plus, la falaise du reset pèse
+// moins, le rythme d'achat ne bouge pas (mesuré, cf. scratch/sim-gr-exposant-glouton).
+// RUIN : laissée à 2 — c'est elle qui gouverne la vitesse de remontée après un
+// sceau, déjà largement suffisante (un seul effondrement retrouve le stock).
+//
+// Chacune reste la SOURCE DE VÉRITÉ de son côté, lue par le moteur ET par les
+// libellés d'UI, pour qu'un rééquilibrage ne fasse jamais mentir l'affichage.
+// NB : ne comprennent PAS la garde mythe_du_chaos ni le bonus Ragnarök — ceux-ci
+// restent locaux à leur contexte.
+export const GRAND_RESET_PROD_BASE = 3.5;
 export const grandResetProductionMult = (count) =>
   Math.pow(GRAND_RESET_PROD_BASE, Math.max(0, count || 0));
+
+export const GRAND_RESET_RUIN_BASE = 2;
+export const grandResetRuinGainMult = (count) =>
+  Math.pow(GRAND_RESET_RUIN_BASE, Math.max(0, count || 0));
 
 // Population de référence pour normaliser la profondeur d'ère dans ruinGain().
 // C'est l'ancien seuil de la dernière ère ("Singularité civique", 1.5e11),
@@ -541,6 +558,16 @@ export const BLACKJACK_HISTORY_LEN = 12;      // dernières mains affichées (ba
 // à la cagnotte au sommet, ce qui est exact : elle n'a plus d'edge à recycler.
 // À re-mesurer si BLACKJACK_MULT ou BLACKJACK_DEALER_STAND bougent.
 export const BLACKJACK_RTP_REF = 1.01;
+// RTP de l'AUTO — distinct de la référence ci-dessus. `resolveBlackjackHeadless`
+// appelle `basicAction` sans `allowDouble` et ne refend jamais : l'auto joue la
+// base SEULE, qui est SOUS 1. Prendre BLACKJACK_RTP_REF pour son badge inversait
+// le signe (badge +195 ✦/h à la royale, réalité −351 ✦/h) : un joueur qui suivait
+// l'UI perdait de la Faveur en croyant en gagner. MESURÉ comme le reste, sur le
+// chemin exact de l'auto (3 × 1 M de mains, fonctions pures du moteur) :
+// 98,057 / 97,939 / 98,095 % → 98,03 % ± 0,08. Ne sert QU'au badge : feedPot
+// continue de lire REF (majorer le meilleur jeu est ce qui borne le versement).
+// À re-mesurer si basicAction, BLACKJACK_MULT ou BLACKJACK_DEALER_STAND bougent.
+export const BLACKJACK_RTP_AUTO = 0.980;
 export const BLACKJACK_DEALER_STAND = 17;     // le croupier reste à 17+ (soft 17 compris)
 export const BLACKJACK_MULT = { blackjack: 2.5, win: 2, push: 1, lose: 0 }; // × la mise (Faveur)
 export const BLACKJACK_STAKES = [             // mises en FAVEUR

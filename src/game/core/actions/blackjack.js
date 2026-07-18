@@ -175,6 +175,8 @@ function isSoftHand(cards) {
 // LA STRATÉGIE DE BASE (S17, sans refente) — fonction PURE : 'hit' | 'stand' |
 // 'double'. C'est la mesure exacte du plafond de skill de cette table (98,2 %
 // sans le double, ~99,5 % avec — mesuré au bench, cf. BLACKJACK_RTP_REF).
+// Le chemin sans double est celui de l'auto : son RTP vit dans
+// BLACKJACK_RTP_AUTO, pas dans BLACKJACK_RTP_REF (qui majore le jeu PARFAIT).
 // Trois consommateurs : le conseil de la Mesure gravée (artefact, UI),
 // l'automatisation (qui joue hit/stand, jamais le double), et le bench.
 // `allowDouble` n'est proposé que sur les 2 premières cartes.

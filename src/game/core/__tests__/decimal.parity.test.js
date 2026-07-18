@@ -76,7 +76,8 @@ const SCENARIOS = [
     name: "oral_tradition + ruines non dépensées (unspentRuinsPower)",
     patch: () => {
       state.upgrades.oral_tradition = true;
-      // foundation_ghosts : effectType "unspentRuinsPower", amount 0.01.
+      // foundation_ghosts : effectType "unspentRuinsPower" (amount réglé dans
+      // upgrades.js ; la parité ne dépend pas de sa valeur, seulement du chemin).
       state.upgrades.foundation_ghosts = true;
     }
   },

@@ -17,8 +17,9 @@ import { toNum } from "../num.js";
 import {
   ICARUS_EDGE, TEMPLE_POT_RECYCLE, ICARUS_STAKES, AUTO_AUGURY_INTERVAL_MS, AUTO_ICARUS_INTERVAL_MS,
   AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX,
-  AUTO_TEMPLE_FAVEUR_FLOOR_MAX,
-  AUGURY_STAKES, TRUNK_RATE_PER_S, TRUNK_CAP
+  AUTO_TEMPLE_FAVEUR_FLOOR_MAX, AUTO_BLACKJACK_INTERVAL_MS,
+  AUGURY_STAKES, TRUNK_RATE_PER_S, TRUNK_CAP,
+  BLACKJACK_STAKES, BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF
 } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -412,6 +413,29 @@ describe("Automatisation — réglages (setter), déblocage & débit estimé", (
     setTempleAuto("tronc", { on: true });
     expect(templeAutoThroughput("tronc")).toBeCloseTo(TRUNK_RATE_PER_S * 60, 9);
     expect(templeAutoThroughput("bidon")).toBe(0);                  // jeu invalide → 0
+  });
+
+  // Le badge du vingt-et-un auto lisait BLACKJACK_RTP_REF (le jeu PARFAIT, > 1)
+  // alors que l'auto joue la base seule, sous 1 : il annonçait un gain là où la
+  // table consomme. Ce test épingle le SIGNE, la vraie régression.
+  it("templeAutoThroughput vingt-et-un : NÉGATIF (l'auto joue la base, jamais le double ni la refente)", () => {
+    state.templeAuto.vingtetun = { unlocked: true, on: true, stakeId: "legere", tempo: "mesure", faveurFloor: 0, stakePow: 0, lastAt: 0 };
+    const perMin = 60000 / AUTO_BLACKJACK_INTERVAL_MS;
+    for (const stake of BLACKJACK_STAKES) {
+      setTempleAuto("vingtetun", { stakeId: stake.id });
+      const expected = (BLACKJACK_RTP_AUTO - 1) * stake.faveur * perMin;
+      expect(templeAutoThroughput("vingtetun")).toBeCloseTo(expected, 9);
+      expect(templeAutoThroughput("vingtetun")).toBeLessThan(0); // l'auto-jeu consomme
+    }
+    // La royale brûle plus vite que la légère (mise plus grosse, même RTP).
+    setTempleAuto("vingtetun", { stakeId: "royale" });
+    const royale = templeAutoThroughput("vingtetun");
+    setTempleAuto("vingtetun", { stakeId: "legere" });
+    expect(royale).toBeLessThan(templeAutoThroughput("vingtetun"));
+    // Les deux constantes ne doivent JAMAIS être confondues : REF majore le jeu
+    // parfait (> 1, ce que feedPot doit lire), AUTO mesure la base seule (< 1).
+    expect(BLACKJACK_RTP_AUTO).toBeLessThan(1);
+    expect(BLACKJACK_RTP_REF).toBeGreaterThan(BLACKJACK_RTP_AUTO);
   });
 
   it("débit = 0 à l'ARRÊT, et = 0 avant l'ère jouable (production réelle nulle)", () => {

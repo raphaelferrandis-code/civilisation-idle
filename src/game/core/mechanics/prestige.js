@@ -21,7 +21,7 @@ import {
   TIME_WEAR_MITIGATION_CAP,
   STAGNATION_USURE_RAMP_SEC,
   STAGNATION_USURE_MAX_BONUS,
-  grandResetProductionMult
+  grandResetRuinGainMult
 } from '../balance.js';
 import {
   isMythEffectActive,
@@ -40,7 +40,11 @@ import { tr } from '../i18n.js';
 
 function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
-  const base = grandResetProductionMult(state.grandResetCount);
+  // Base PROPRE à la moisson (GRAND_RESET_RUIN_BASE), délibérément découplée de
+  // celle de la production : la monter ici gonflerait le stock de Ruines, qui
+  // re-alimente ruinMultiplier et unspentRuinsPower — une boucle qui annulerait
+  // tout rééquilibrage fait sur la production.
+  const base = grandResetRuinGainMult(state.grandResetCount);
   // Bonus Ragnarök : ×4 Ruines dès que le SCEAU du Ragnarök (gr 11) est réclamé —
   // en ORDRE-LIBRE ce n'est plus « le 11e reset » mais ce sceau précis.
   const ragnarokBonus = (state.ragnarokHeritage && state.grClaimed && state.grClaimed[11]) ? 4 : 1;

@@ -46,7 +46,7 @@ import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
-import { MILESTONE_BOON_SECONDS, grandResetProductionMult } from '../balance.js';
+import { MILESTONE_BOON_SECONDS, grandResetProductionMult, grandResetRuinGainMult } from '../balance.js';
 import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetAnnals } from '../annals.js';
@@ -281,14 +281,16 @@ export async function performGrandReset(gr) {
   const nextCount = (state.grandResetCount || 0) + 1;
   const isRagnarok = gr === 11;
   setGamePaused(true);
+  // Production et moisson de Ruines ont des bases DISTINCTES : le dialogue
+  // annonce les deux séparément, sinon il ment sur l'une des deux.
   const resetRewardText = isRagnarok
     ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
-    : `un bonus permanent x${grandResetProductionMult(nextCount).toFixed(0)} sur toute la production et les Ruines gagnées`;
+    : `un bonus permanent x${fmt(grandResetProductionMult(nextCount))} sur toute la production, et x${fmt(grandResetRuinGainMult(nextCount))} sur les Ruines gagnées`;
   const choice = await openChoiceDialog({
     title: `Grand Reset — ${tr(milestone.name)}`,
-    body: `Tu réclames le sceau « ${tr(milestone.name)} ». Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${grandResetProductionMult(state.grandResetCount).toFixed(0)} production. Après : x${grandResetProductionMult(nextCount).toFixed(0)} production.`,
+    body: `Tu réclames le sceau « ${tr(milestone.name)} ». Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
     options: [
-      { label: "Réclamer le sceau", detail: isRagnarok ? "+x4 Ruines permanent" : `+x${grandResetProductionMult(nextCount).toFixed(0)} production permanente` },
+      { label: "Réclamer le sceau", detail: isRagnarok ? "+x4 Ruines permanent" : `+x${fmt(grandResetProductionMult(nextCount))} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }
     ]
   });

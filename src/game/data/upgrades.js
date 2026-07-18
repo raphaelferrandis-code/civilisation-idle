@@ -150,9 +150,14 @@ export const upgrades = [
     name: { fr: "Ruines en réserve", en: "Ruins in reserve" },
     cost: { ruins: 60 },
     effectType: "unspentRuinsPower",
-    amount: 0.01,
+    // 0.01 → 0.0001 (2026-07-18) : ce terme est LINÉAIRE et non borné dans le
+    // stock de ruines, il pesait à lui seul 46 % du log du multiplicateur global
+    // en milieu de partie. Or c'est exactement ce qu'un Grand Reset efface — la
+    // falaise du sceau venait d'ici. La puissance retirée est rendue au sceau
+    // (GRAND_RESET_PROD_BASE 2 → 3,5), qui lui est PERMANENT.
+    amount: 0.0001,
     desc: { fr: "Les murs tombés indiquent encore où poser les prochains. Rien ne se perd vraiment.", en: "The fallen walls still show where to lay the next ones. Nothing is truly lost." },
-    effect: { fr: "Production globale +1% par ruine non dépensée.", en: "Global production +1% per unspent ruin." }
+    effect: { fr: "Production globale +0,01% par ruine non dépensée.", en: "Global production +0.01% per unspent ruin." }
   },
   {
     id: "grand_cadastre",
