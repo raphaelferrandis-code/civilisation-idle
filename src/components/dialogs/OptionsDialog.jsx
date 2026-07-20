@@ -12,6 +12,7 @@ import {
   setMusicActiveTabOnly
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
+import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
   getAutoScriptRules,
@@ -55,6 +56,11 @@ export default function OptionsDialog({ isOpen, onClose }) {
     setOptionRevision((revision) => revision + 1);
     invalidateRenderCache("all");
     render();
+  };
+
+  const handleDayNightChange = (mode) => {
+    setDayNightMode(mode);
+    setOptionRevision((revision) => revision + 1);
   };
 
   const handleLangChange = (next) => {
@@ -255,6 +261,36 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     onClick={() => handleFormatChange('scientific')}
                   >
                     1.20e6
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Cycle jour/nuit", en: "Day/night cycle" })}</span>
+                  <small>{tr({ fr: "Ambiance de la carte : cycle automatique, ou figée en plein jour / de nuit", en: "Map ambience: automatic cycle, or locked to daytime / nighttime" })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${dayNightMode === 'auto' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDayNightChange('auto')}
+                  >
+                    {tr({ fr: "Auto", en: "Auto" })}
+                  </button>
+                  <button
+                    className={`format-option ${dayNightMode === 'day' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDayNightChange('day')}
+                  >
+                    {tr({ fr: "Jour", en: "Day" })}
+                  </button>
+                  <button
+                    className={`format-option ${dayNightMode === 'night' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDayNightChange('night')}
+                  >
+                    {tr({ fr: "Nuit", en: "Night" })}
                   </button>
                 </div>
               </div>

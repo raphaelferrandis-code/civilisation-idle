@@ -326,7 +326,12 @@ function smoothNoise(gx, gy, scale, salt) {
 // Ne s'applique QU'AUX sols urbain/terre (les dallages formels — place, parvis —
 // gardent leur bord franc voulu) et pas vers l'eau (le fleuve couvre en live).
 // Réglage live : __grassFringe(false) / ({depth,gapP,tuftP,flowerP,dark}).
-const GRASS_FRINGE = { on: true, depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 1 };
+// mode 'none' depuis le 2026-07-20 : la lisière herbe↔sol est un bord FRANC —
+// seuls restent les touffes debout et les fleurs (accents validés). Historique
+// des retours Raph, ne pas re-proposer sans demande : langues crantées 'teeth'
+// (pointes sombres lisaient en « tas »), puis ourlet continu 'hem' (« ça n'a
+// rien changé, enlève-le »). Les deux restent en knob : __grassFringe({mode:'teeth'|'hem'}).
+const GRASS_FRINGE = { on: true, mode: 'none', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0 };
 const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
 const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
 function drawGrassFringeEdge(ctx, f, pu) {
@@ -334,18 +339,33 @@ function drawGrassFringeEdge(ctx, f, pu) {
   const len = Math.hypot(dxE, dyE);
   const steps = Math.max(3, Math.round(len / pu));
   const rect = (x, y, col) => { ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fillRect(x, y, pu, pu); };
+  const mode = GRASS_FRINGE.mode;
+  if (mode === 'hem') {
+    // TRAIT CONTINU : rangée de pixels d'art SANS trouée qui longe l'arête, à
+    // cheval côté sol — pas-de-vis en carrés opaques (pas de stroke anti-aliasé,
+    // la lisière reste crispe). Densité ×2 pour un escalier plein sur les
+    // diagonales 2:1.
+    const n2 = Math.ceil(len / pu) * 2;
+    for (let i = 0; i < n2; i += 1) {
+      const t = (i + 0.5) / n2;
+      rect(Math.round(f.ax + dxE * t + f.inx * 0.5 * pu - pu / 2),
+        Math.round(f.ay + dyE * t + f.iny * 0.5 * pu - pu / 2), GF_DARK);
+    }
+  }
   for (let i = 0; i < steps; i += 1) {
     const h = cmHash(f.seed + ':' + i);
     if ((h & 255) / 255 < GRASS_FRINGE.gapP) continue;         // trouée : la lisière respire
     const t = (i + 0.5) / steps;
     const ex = f.ax + dxE * t, ey = f.ay + dyE * t;
-    const d = Math.max(1, Math.round((1 + ((h >>> 8) % 3)) * GRASS_FRINGE.depth));
-    for (let j = 0; j < d; j += 1) {
-      const bx = Math.round(ex + f.inx * (j + 0.5) * pu - pu / 2);
-      const by = Math.round(ey + f.iny * (j + 0.5) * pu - pu / 2);
-      const col = (j === d - 1 && GRASS_FRINGE.dark) ? GF_DARK
-        : (((h >> (10 + j)) & 3) === 0 ? GF_MID : GRASS);
-      rect(bx, by, col);
+    if (mode === 'teeth') {
+      const d = Math.max(1, Math.round((1 + ((h >>> 8) % 3)) * GRASS_FRINGE.depth));
+      for (let j = 0; j < d; j += 1) {
+        const bx = Math.round(ex + f.inx * (j + 0.5) * pu - pu / 2);
+        const by = Math.round(ey + f.iny * (j + 0.5) * pu - pu / 2);
+        const col = (j === d - 1 && GRASS_FRINGE.dark) ? GF_DARK
+          : (((h >> (10 + j)) & 3) === 0 ? GF_MID : GRASS);
+        rect(bx, by, col);
+      }
     }
     // Touffe debout occasionnelle, à cheval sur la lisière : brins sombres à
     // pointe claire (mêmes tons que le tapis d'herbe → aucun accent nouveau).
@@ -415,12 +435,16 @@ const URBAN_MATS = [
   { tone: [80, 90, 118], type: 'tech', seam: [150, 224, 232], tile: 'ground-tech' },    // 9 démiurge
 ];
 // tileA/tileJit : DOSAGE de la tuile de matière « terre » — alpha = tileA +
-// bruit LISSÉ × tileJit (la densité de cailloux respire en plaques CONTINUES ;
-// pleine partout elle se répétait en tapis criard, et hachée PAR CELLULE elle
-// faisait un damier de losanges — deux retours Raph). noiseAmp : VOILE DE
-// NUANCE par bruit lissé — essayé à 0.3, coupé le 2026-07-16 (retour Raph :
-// « retire les plaques grises sur le sol ») ; reste un knob.
-const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA: 0.45, tileJit: 0.3, noiseAmp: 0 };   // band≠null = force ère (preview) ; tiles=false → procédural
+// bruit LISSÉ × tileJit. Historique des retours Raph : tuile PLEINE = tapis
+// criard (2026-07-12), alpha haché PAR CELLULE = damier de losanges, plaques
+// par bruit lissé = « tas de terre » épars, et même en dose constante à 0.6
+// les mottes lisaient encore comme des tas/« pavés de jonction » (2026-07-20).
+// VERDICT FINAL 2026-07-20 : le grief était la FORCE de la trame, pas sa
+// répartition → dose CONSTANTE ET FAIBLE (0.12 = simple grain qui vit, zéro
+// motte lisible ; validé par captures jour/nuit). tileJit reste un knob.
+// noiseAmp : VOILE DE NUANCE par bruit lissé — essayé à 0.3, coupé le
+// 2026-07-16 (retour Raph : « retire les plaques grises sur le sol ») ; knob.
+const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA: 0.12, tileJit: 0, noiseAmp: 0 };   // band≠null = force ère (preview) ; tiles=false → procédural
 function urbanMatFor(band) {
   const b = URBAN_DETAIL.band != null ? URBAN_DETAIL.band : band;
   return URBAN_MATS[Math.max(0, Math.min(URBAN_MATS.length - 1, b | 0))];
@@ -734,14 +758,18 @@ function drawIsoGround() {
     let k;
     const isRoad = L.roadSet.has(key);
     const cell = isRoad && roadMap ? roadMap.get(key) : null;
-    const isBridge = !!(cell && cell.roadSurface === 'bridge');
     const isWater = !!(riverCells && riverCells.has(key));
     if (cell && cell.rank === 'plaza') k = plazaSceneReady ? 'urban' : 'plaza';   // ⚠ piège places-dans-roadSet
     // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
     // garde la priorité — le ruban du fleuve passe dessus, berges douces).
     else if (!isWater && wg && wg.has(key)) k = 'wonder';
-    else if (!isWater && ((isRoad && !isBridge) || (L.urbanSet && L.urbanSet.has(key)))) {
-      k = (L.urbanSet && L.urbanSet.has(key)) ? 'urban' : 'dirt';
+    // Routes HORS tissu urbain : fond d'HERBE depuis le 2026-07-20 (retour Raph :
+    // le fond de cellule 'dirt' — aplat terre + tuile de mottes — dépassait du
+    // ruban en « pavé de terre » cranté à la jonction herbe↔sol). Le chemin se
+    // lit par sa dalle + ourlet/épaulement CONTINUS ; le kind 'dirt' n'est plus
+    // produit mais sa plomberie (texAlpha/fringe) reste, knob de retour facile.
+    else if (!isWater && L.urbanSet && L.urbanSet.has(key)) {
+      k = 'urban';
     } else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
       && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
         || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
@@ -887,19 +915,17 @@ function drawIsoGround() {
       // Sol urbain : tuile PixelLab de l'ère (par-dessus l'aplat, miroir anti-répétition)
       // si le PNG est prêt ; sinon repli sur le motif procédural (joints/cailloux).
       // TERRE BATTUE : la tuile posée PLEINE sur chaque cellule tapissait la ville
-      // d'une trame de cailloux répétée — on la DOSE par cellule (alpha tileA
-      // + part hachée tileJit, et ~1 cellule sur 4 « calme » qui garde seulement
-      // 2-3 cailloux procéduraux épars) → une terre qui respire.
+      // d'une trame de cailloux répétée — on la DOSE en alpha (tileA), CONSTANT
+      // par défaut (retour Raph 2026-07-20 : « continu et pas haché » — les
+      // plaques par bruit lissé lisaient comme des tas de terre épars).
       if (kind === 'urban' && URBAN_DETAIL.on && !LOD) {
         let drew = false;
         if (URBAN_DETAIL.tiles && mat.tile) {
           if (mat.type === 'earth') {
-            // Alpha modulé par bruit LISSÉ (voisines quasi égales → aucun damier) :
-            // la densité de cailloux RESPIRE en grandes plaques continues. Les
-            // cellules « calmes » (trou 1/4 par hash) et l'alpha haché par cellule
-            // de la v2 ressortaient en losanges clairs/foncés (« il reste des
-            // plaques », Raph) — plus aucune valeur par cellule.
-            ctx.globalAlpha = Math.min(1, URBAN_DETAIL.tileA + smoothNoise(gx, gy, 4, 'peb') * URBAN_DETAIL.tileJit);
+            // tileJit reste un knob : s'il est ≠ 0, la modulation repasse par le
+            // bruit LISSÉ (voisines quasi égales → jamais de damier par cellule).
+            ctx.globalAlpha = Math.min(1, URBAN_DETAIL.tileA
+              + (URBAN_DETAIL.tileJit ? smoothNoise(gx, gy, 4, 'peb') * URBAN_DETAIL.tileJit : 0));
             drew = blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir);
             ctx.globalAlpha = 1;
           } else {
@@ -2032,13 +2058,42 @@ function addGlow(ctx, x, y, r, col, alpha) {
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
 }
 
+// Molette DA du voile de nuit et des transitions : window.__nightVeil({ mulA: .5, … })
+// pour ajuster en live. mulCol/mulA = teinte « heure bleue » (multiply), darkCol/darkA
+// = voile sombre résiduel, duskCol/dawnCol/warmA = pics chauds de crépuscule/aube.
+const NIGHT_VEIL = {
+  mulCol: '96,124,224', mulA: 0.58,
+  darkCol: '8,11,26', darkA: 0.30,
+  duskCol: '255,120,50', dawnCol: '255,170,90', warmA: 0.22
+};
+if (typeof window !== 'undefined') {
+  window.__nightVeil = (o) => { if (o) Object.assign(NIGHT_VEIL, o); return { ...NIGHT_VEIL }; };
+}
+
 function drawIsoNight(now) {
   const n = CM.nightF || 0;
   const ctx = CM.ctx, L = CM.layout;
-  // Voile de nuit d'abord (les lumières se dessinent PAR-DESSUS en additif) ; mais
-  // la passe de lumière tourne AUSSI de jour (flammes de torche, néon).
+  const V = NIGHT_VEIL;
+  // Aube/crépuscule (porté du legacy cityMapDrawNight) : voile chaud qui pique à
+  // mi-transition (n=0.5) — orange quand la nuit monte, or rosé quand elle se retire.
+  const twilight = 4 * n * (1 - n);
+  if (twilight > 0.25) {
+    const col = CM.dayRising === false ? V.dawnCol : V.duskCol;
+    ctx.fillStyle = `rgba(${col},${((twilight - 0.25) * V.warmA).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+  }
+  // Nuit « heure bleue » : une passe MULTIPLY teintée décale toute la scène vers
+  // le bleu en préservant les contrastes (l'ancien voile plat écrasait les
+  // couleurs), puis un voile sombre léger règle la luminosité. Les lumières se
+  // dessinent PAR-DESSUS en additif ; la passe de lumière tourne AUSSI de jour
+  // (flammes de torche, néon).
   if (n > 0.03) {
-    ctx.fillStyle = `rgba(8,11,26,${(0.62 * n).toFixed(2)})`;
+    const prevOp = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = `rgba(${V.mulCol},${(V.mulA * n).toFixed(2)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+    ctx.globalCompositeOperation = prevOp;
+    ctx.fillStyle = `rgba(${V.darkCol},${(V.darkA * n).toFixed(2)})`;
     ctx.fillRect(0, 0, CM.cw, CM.ch);
   }
   if (!L || CM.lodActive || !LAMP_LIGHT.on) return;   // pas de sprites-lampes en LOD → pas de lumières

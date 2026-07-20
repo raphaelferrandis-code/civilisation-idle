@@ -551,7 +551,7 @@ function lightenHex(hex, t) {
 // Quais : berge construite (promenade + lèvre humide) là où la ville borde l'eau.
 // Tracé en SUIVANT le ruban lisse (samples + normale), exactement comme le fleuve —
 // JAMAIS par cellule (le bankSet diverge du bleu peint dans les courbes => escalier).
-// Dessiné live, juste après le fleuve et avant la brume/les bateaux/le blit statique
+// Dessiné live, juste après le fleuve et avant les bateaux/le blit statique
 // (ponts/routes/bâtiments le recouvrent donc gratuitement aux croisements).
 function cityMapDrawQuays(now) {
   const L = CM.layout;
@@ -1474,62 +1474,10 @@ function cityMapDrawPlazaTallProps(now) {
   }
 }
 
-// ── Brume matinale : nappes translucides dérivant SUR l'eau ────────────────
-// Dessinée juste après la rivière (avant bateaux, ponts, routes, bâtiments)
-// et clippée au ruban du fleuve : les nappes restent sous tout le reste et
-// ne débordent jamais sur les berges.
-function cityMapDrawMist(now) {
-  const L = CM.layout;
-  const mist = CM.mistF || 0;
-  if (mist < 0.04 || !L || !L.river || !L.river.samples) return;
-  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
-  const sm = L.river.samples;
-  const t = now || 0;
-  const SX = (gx) => (gx * T - CM.cam.x) * z + CM.cw / 2;
-  const SY = (gy) => (gy * T - CM.cam.y) * z + CM.ch / 2;
-  const normalAt = (i) => {
-    const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
-    let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
-    return { nx: -ty / tl, ny: tx / tl };
-  };
-  ctx.save();
-  // Clip au ruban du fleuve : les nappes sont des voiles SUR l'eau.
-  ctx.beginPath();
-  for (let i = 0; i < sm.length; i += 1) { const n = normalAt(i); const x = SX(sm[i].x + n.nx * sm[i].hw), y = SY(sm[i].y + n.ny * sm[i].hw); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
-  for (let i = sm.length - 1; i >= 0; i -= 1) { const n = normalAt(i); ctx.lineTo(SX(sm[i].x - n.nx * sm[i].hw), SY(sm[i].y - n.ny * sm[i].hw)); }
-  ctx.closePath();
-  ctx.clip();
-  for (let i = 0; i < 9; i += 1) {
-    // Dérive très lente le long du fleuve, fondu aux deux extrémités.
-    const drift = ((t / 52000 + i * 0.117) % 1);
-    const idx = Math.floor(drift * (sm.length - 1));
-    const sp = sm[idx];
-    const a = sm[Math.max(0, idx - 1)], b = sm[Math.min(sm.length - 1, idx + 1)];
-    const ang = Math.atan2(b.y - a.y, b.x - a.x);
-    const wob = Math.sin(t / 9000 + i * 1.9);
-    const mx = SX(sp.x) + Math.cos(ang) * wob * 7 * z;
-    const my = SY(sp.y) + Math.sin(ang) * wob * 7 * z;
-    const rx = (30 + (i % 4) * 12) * z, ry = (7 + (i % 3) * 3) * z;
-    if (mx < -rx || mx > CM.cw + rx || my < -rx || my > CM.ch + rx) continue;
-    const alpha = mist * (0.08 + (i % 3) * 0.03) * Math.sin(drift * Math.PI);
-    if (alpha < 0.01) continue;
-    // Nappe allongée dans le sens du courant, bords fondus (dégradé radial).
-    ctx.save();
-    ctx.translate(mx, my); ctx.rotate(ang); ctx.scale(1, ry / rx);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, `rgba(214,224,228,${alpha.toFixed(3)})`);
-    g.addColorStop(1, "rgba(214,224,228,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
 // ── Reflets de la ville sur l'eau (nuit) ───────────────────────────────────
 // Traînées de lumière chaude des bâtiments riverains projetées sur l'eau, la
-// nuit. Dessinées juste après les quais (avant brume/bateaux/blit statique) et
-// CLIPPÉES au ruban du fleuve, comme la brume : la nappe lumineuse reste sur
+// nuit. Dessinées juste après les quais (avant bateaux/blit statique) et
+// CLIPPÉES au ruban du fleuve : la nappe lumineuse reste sur
 // l'eau, et ponts/bâtiments recouvrent la base au croisement. Rendu PUR.
 // Réutilise quayGate (rives "urbaines") : un reflet ne naît QUE là où la ville
 // borde l'eau — donc pile sous les bâtiments riverains, sans donnée nouvelle.
@@ -1556,8 +1504,8 @@ function cityMapDrawCityReflections(now) {
       : band === 7 ? "90,240,180" : band === 8 ? "255,205,120" : "170,140,255";
 
   ctx.save();
-  // Clip au ruban du fleuve : les nappes lumineuses restent SUR l'eau (même
-  // contour que la brume), elles ne débordent jamais sur la berge/le quai.
+  // Clip au ruban du fleuve : les nappes lumineuses restent SUR l'eau,
+  // elles ne débordent jamais sur la berge/le quai.
   ctx.beginPath();
   for (let i = 0; i < n0; i += 1) { const n = cmRiverNormalAt(sm, i), s = sm[i]; const x = SX(s.x + n.nx * s.hw), y = SY(s.y + n.ny * s.hw); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
   for (let i = n0 - 1; i >= 0; i -= 1) { const n = cmRiverNormalAt(sm, i), s = sm[i]; ctx.lineTo(SX(s.x - n.nx * s.hw), SY(s.y - n.ny * s.hw)); }
@@ -2840,7 +2788,6 @@ export {
   cityMapDrawHealthTint,
   cityMapDrawCityLights,
   cityMapDrawCityReflections,
-  cityMapDrawMist,
   cityMapDrawNight,
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,

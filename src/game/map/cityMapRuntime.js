@@ -29,6 +29,7 @@ import {
   WONDER_TIER_NAMES
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
+import { dayNightMode } from './dayNightMode.js';
 import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
@@ -48,7 +49,6 @@ import {
   cityMapDrawPlazaSurface,
   cityMapDrawPlazas,
   cityMapDrawPlazaTallProps,
-  cityMapDrawMist,
   cityMapDrawQuays,
   cityMapDrawCityReflections,
   cityMapDrawHealthTint,
@@ -1127,6 +1127,20 @@ function initCityMap(canvas, options = {}) {
 
   const FRAME_MS = 1000 / 30; // cap à 30fps — suffisant pour un idle, évite la surcharge CPU
   let last = performance.now();
+  // ── Cycle jour/nuit ── phase ancrée sur l'horloge murale (Date.now) : la
+  // position dans le cycle survit à l'actualisation et aux reloads dev, au lieu
+  // de repartir en plein jour à chaque chargement. Courbe à PLATEAUX : le jour
+  // est l'état de lecture normal, la nuit un événement court qui met les
+  // lumières en valeur — plus de transition permanente façon sinus.
+  const DAY_CYCLE_MS = 540000;                              // cycle complet : 9 min
+  const DAY_END = 0.55, DUSK_END = 0.65, NIGHT_END = 0.90;  // jour 55 % / crépuscule 10 % / nuit 25 % / aube 10 %
+  const smooth01 = (t) => t * t * (3 - 2 * t);
+  function cmDayNightF(p) {
+    if (p < DAY_END) return 0;
+    if (p < DUSK_END) return smooth01((p - DAY_END) / (DUSK_END - DAY_END));
+    if (p < NIGHT_END) return 1;
+    return smooth01((1 - p) / (1 - NIGHT_END));
+  }
   let lastCitizenSpawn = 0;
   function frame(now) {
     // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
@@ -1159,17 +1173,19 @@ function initCityMap(canvas, options = {}) {
           for (let b = 0; b < batch && CM.citizens.length < target; b += 1) spawnOneCitizen(CM.layout);
         }
       }
-      // Cycle jour/nuit lent (~5 min) + phase (montante = crépuscule,
-      // descendante = aube) + brume matinale autour de l'aube.
+      // Cycle jour/nuit à plateaux (cf. cmDayNightF) + phase (montante =
+      // crépuscule, descendante = aube).
+      // Le joueur peut figer le cycle depuis les Options (Auto / Jour / Nuit).
       if (CM.capture) {
-        // Capture déterministe : plein jour (ou nuit forcée), pas de brume.
-        CM.nightF = CM.capture.night; CM.dayRising = false; CM.mistF = 0;
+        // Capture déterministe : plein jour (ou nuit forcée).
+        CM.nightF = CM.capture.night; CM.dayRising = false;
+      } else if (dayNightMode !== 'auto') {
+        CM.nightF = dayNightMode === 'night' ? 1 : 0;
+        CM.dayRising = false;
       } else {
-        const dayP = ((now || 0) / 300000) % 1;
-        CM.nightF = 0.5 - 0.5 * Math.cos(dayP * Math.PI * 2);
-        CM.dayRising = dayP < 0.5;
-        CM.mistF = !CM.dayRising && CM.nightF > 0.1 && CM.nightF < 0.62
-          ? Math.sin(((0.62 - CM.nightF) / 0.52) * Math.PI) : 0;
+        const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
+        CM.nightF = cmDayNightF(dayP);
+        CM.dayRising = dayP < DUSK_END;
       }
       // Indice de santé de la cité (0 = agonie, 1 = prospérité) : la taille
       // pilote l'échelle, la santé pilote l'ambiance (palette, lumières).
@@ -1275,11 +1291,8 @@ function initCityMap(canvas, options = {}) {
       // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
       cityMapDrawQuays(now);
       // Reflets nocturnes des bâtiments riverains sur l'eau (nappes lumineuses
-      // clippées au ruban), sous la brume/bateaux/blit statique.
+      // clippées au ruban), sous les bateaux/blit statique.
       cityMapDrawCityReflections(now);
-      // Brume/reflets : voiles clippés à l'eau, sous les bateaux, ponts,
-      // routes et bâtiments.
-      cityMapDrawMist(now);
       // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
       // bâtiments (le blit statique les recouvre aux croisements).
       drawShips(dt);
@@ -1382,7 +1395,7 @@ function initCityMap(canvas, options = {}) {
   // flag CM.capture, nul en fonctionnement). Renvoie un dataURL (PNG par défaut).
   CM.captureFrame = (opts = {}) => {
     if (!CM.canvas) return null;
-    const saved = { night: CM.nightF, mist: CM.mistF, health: CM.healthF, last };
+    const saved = { night: CM.nightF, health: CM.healthF, last };
     CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1 };
     if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
     last = -1e9; // by-passe le throttle pour forcer un vrai rendu
@@ -1400,7 +1413,7 @@ function initCityMap(canvas, options = {}) {
       g.drawImage(CM.canvas, 0, 0, out.width, out.height);
     }
     const url = opts.jpeg ? out.toDataURL('image/jpeg', opts.quality || 0.82) : out.toDataURL('image/png');
-    CM.nightF = saved.night; CM.mistF = saved.mist; CM.healthF = saved.health; last = saved.last;
+    CM.nightF = saved.night; CM.healthF = saved.health; last = saved.last;
     return url;
   };
   // Hook dev : capture puis POST au middleware Vite -> écrit .preview-shots/<name>.png.

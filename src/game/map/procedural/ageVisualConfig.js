@@ -30,7 +30,7 @@ const AGE_CONFIG = [
     archetypes: ["scattered", "crossroads", "linear"],
     roadRanks: { main: true, avenue: false, secondary: true, path: true },
     order: 0.15,
-    plazaSize: 1,
+    plazaSize: 0,         // pas encore de place : le puits/feu tient ce rôle (la 1re esplanade dallée arrive au bourg — buildPlazas impose un plancher 4×4, trop massif pour un hameau)
     parkChance: 0.24,
     treeDensity: 1.1,
     citizenRoles: ["porte un panier", "revient des champs", "parle au puits", "mène une chèvre", "bat le grain"],
