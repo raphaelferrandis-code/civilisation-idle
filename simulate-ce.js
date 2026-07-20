@@ -65,6 +65,15 @@ const { state, defaultState, invalidateRenderCache, setGamePaused, setCollapseIn
 const { registerChoiceDialog } = await import("./src/game/core/choiceDialog.js");
 registerChoiceDialog((dialog) => {
   const opts = dialog.options || [];
+  // « Les Caravanes » (Age d'Or refondu) : options sans apply() -> on ACCEPTE le
+  // prix demande d'office (pas de marchandage : la patience du marchand est
+  // cachee) ; si le corps signale un Tresor insuffisant, on REFUSE, sinon
+  // negotiateOrDeal reproposerait le meme marche en boucle infinie.
+  if (opts.some((o) => /Marchander|Haggle/.test(o.label || ""))) {
+    const broke = /suffit pas|cannot cover/.test(dialog.body || "");
+    const want = broke ? /Refus/ : /Accept/;
+    return { ...(opts.find((o) => want.test(o.label || "")) || opts[opts.length - 1]) };
+  }
   // Crises narratives : ce sont les options porteuses d'un apply() + d'un detail
   // chiffre. Un joueur optimise prefere une option STABILISANTE (Rupture -) qui
   // NE draine PAS la Legitimite (la monnaie de prestige) ni la Population.
@@ -716,15 +725,32 @@ const MYTH_TACTICS = {
     setup() { state.babelCategory = "city"; },
     buyOpts: { onlyCategory: "city" },
     met() { return myth.babelTowerCount() >= myth.BABEL_TOWER_TARGET; } },
-  mythe_age_or:        { grow: 900, below: 0.95,
-    met() { return state.orGoldReached === true; } },
+  mythe_age_or:        { grow: 3000, below: 0.95, // REFONTE les Caravanes : conclure 8 marches (le handler global ACCEPTE, ou REFUSE si Tresor insuffisant)
+    buy({ ageSec }) { if (ageSec < 150) buyBuildings(); },
+    onTick() {
+      if ((state.orDealsClosed || 0) >= myth.OR_DEALS_TARGET) return;
+      const ask = Math.max(40, num(mech.rates().gold) * myth.OR_DEAL_LOT_SECONDS * myth.OR_DEAL_ASK_MARKUP);
+      if (goldNum() >= ask * 1.25) { try { actions.negotiateOrDeal(); } catch { /* */ } }
+    },
+    met() { return (state.orDealsClosed || 0) >= myth.OR_DEALS_TARGET; } },
 
   // ── Acte III ────────────────────────────────────────────────────────────────
-  mythe_d_atlas:       { grow: 200,  below: 1,
-    onTick() { if ((state.atlasCrisisCount || 0) < 12) { for (const id of ["census", "rationing", "festivals", "reforms"]) { try { runCrisisAction(id, { render: false, force: true }); } catch { /* */ } } } },
-    met() { return (state.atlasCrisisCount || 0) >= 10; } },
-  mythe_d_icare:       { grow: 1200, below: 0.55,
-    met() { return state.icareInfraReached === true; } },
+  mythe_d_atlas:       { grow: 600, below: 0.7,   // REFONTE le poids du ciel : epauler 12x en zone rouge (Fardeau >= 70), jamais 100
+    onTick() {
+      const f = state.atlasFardeau || 0;
+      if (f >= myth.ATLAS_COUNT_THRESHOLD || f + myth.ATLAS_FARDEAU_RISE * MYTH_TICK >= 100) { try { actions.atlasEpauler(); } catch { /* */ } }
+    },
+    collapseWhen: () => state.atlasCrushed === true, // ecrase -> cycle perdu, on retente
+    met() { return (state.atlasEpaules || 0) >= myth.ATLAS_SHOULDER_TARGET && !state.atlasCrushed; } },
+  mythe_d_icare:       { grow: 900, below: 0.5, collapseAtAge: 900, // REFONTE le vol par paliers : atteindre l'altitude 5 (+15% Rupture par montee)
+    onTick() {
+      let n = 0;
+      while ((state.icareAltitude || 0) < myth.ICARE_ALTITUDE_TARGET
+        && (state.instability || 0) + myth.ICARE_CLIMB_RUPTURE <= 0.92 && n++ < 8) {
+        try { actions.icareClimb(); } catch { break; }
+      }
+    },
+    met() { return (state.icareAltitude || 0) >= myth.ICARE_ALTITUDE_TARGET; } },
   mythe_du_phenix:     { grow: 200, below: 0.95, maxCycles: 40,
     buy() { buyMatching((bd) => (bd.pop || 0) > 0, { maxBuys: 50 }); },
     collapseWhen: () => num(state.population) >= num(state.phoenixRebirthTargetPop || Infinity),

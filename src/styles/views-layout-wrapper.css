@@ -52,6 +52,16 @@
   background: rgba(var(--era-rgb), 0.14);
 }
 
+/* Mode d'emploi de l'Olympe (rework lisibilité 2026-07-20) : la phrase qui donne
+   leur sens aux nombres des cartes (ferveur / consécration). */
+.olympus-explain {
+  margin: 0;
+  max-width: 58rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .olympus-dominant {
   display: grid;
   gap: 0.35rem;
@@ -109,6 +119,18 @@
   font-size: 0.86rem;
 }
 
+/* « Se nourrit de… » : la recette de ferveur du culte, en clair sur la carte. */
+.olympus-profile .olympus-feeds {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+/* La promesse de la consécration (« Si proclamé : … ») — dorée quand active. */
+.olympus-profile .olympus-heritage { color: rgba(217, 197, 131, 0.75); }
+.olympus-profile.unlocked .olympus-heritage { color: #f4d982; }
+
 .olympus-score-track {
   height: 0.35rem;
   overflow: hidden;
@@ -135,6 +157,17 @@
   color: var(--muted);
   font-size: 0.75rem;
   background: rgba(255, 255, 255, 0.025);
+}
+
+/* Titre du registre des métriques : même rang qu'un chip, sans la boîte. */
+.olympus-metrics .olympus-metrics-title {
+  border: none;
+  background: none;
+  padding-left: 0;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  align-self: center;
 }
 
 /* ── Section par Acte ─────────────────────────────────────────────────────── */

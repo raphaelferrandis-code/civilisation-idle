@@ -12,12 +12,16 @@ export const OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR = 8;
 export const OLYMPUS_BUREAUCRACY_KNOWLEDGE = 3;
 export const OLYMPUS_ABYSS_PROD_MAX = 1.35;
 
+// `feeds` = ce qui NOURRIT la ferveur du culte, en clair — la traduction honnête
+// des pondérations d'olympusProfileScores (rework lisibilité 2026-07-20 : l'écran
+// doit dire comment chaque culte se gagne, pas seulement afficher un score nu).
 export const OLYMPUS_PROFILES = {
   apocalypse: {
     id: "apocalypse",
     name: { fr: "Culte Apocalyptique", en: "Apocalyptic Cult" },
     short: { fr: "Dieu de la Fin", en: "God of the End" },
     description: { fr: "Tes habitants t'adorent comme le Dieu de la Fin. Ils construisent des temples aux ruines et comptent les annees en effondrements.", en: "Your people worship you as the God of the End. They build temples to ruins and count the years in collapses." },
+    feeds: { fr: "Se nourrit d'effondrements fréquents, déclenchés de ta main, avec une Rupture haute au moment de la chute.", en: "Fed by frequent collapses, triggered by your own hand, with high Rupture at the moment of the fall." },
     heritageDescription: { fr: "Les effondrements rapides accordent un bonus de Ruines.", en: "Swift collapses grant a Ruins bonus." }
   },
   bureaucracy: {
@@ -25,6 +29,7 @@ export const OLYMPUS_PROFILES = {
     name: { fr: "Bureaucratie Sacree", en: "Sacred Bureaucracy" },
     short: { fr: "Dieu des Registres", en: "God of Records" },
     description: { fr: "La cite voit tes decisions comme des decrets sacres. Chaque crise classee, payee, resolue devient une priere administrative.", en: "The city sees your decisions as sacred decrees. Every crisis filed, paid, resolved becomes an administrative prayer." },
+    feeds: { fr: "Se nourrit des crises résolues plutôt que subies, et d'un règne aux commandes, sans longues absences.", en: "Fed by crises resolved rather than endured, and by a reign at the helm, without long absences." },
     heritageDescription: { fr: "Les crises resolues donnent un petit bonus de Savoir.", en: "Resolved crises grant a small Knowledge bonus." }
   },
   sleep: {
@@ -32,6 +37,7 @@ export const OLYMPUS_PROFILES = {
     name: { fr: "Religion du Sommeil", en: "Religion of Sleep" },
     short: { fr: "Dieu qui Reve", en: "Dreaming God" },
     description: { fr: "Tes habitants pensent que le monde avance pendant que tu dors. Les veilleurs parlent bas pour ne pas reveiller la divinite.", en: "Your people believe the world moves forward while you sleep. The watchmen speak low so as not to wake the divinity." },
+    feeds: { fr: "Se nourrit du temps où la cité tourne sans toi, et des effondrements rares.", en: "Fed by the time the city runs without you, and by rare collapses." },
     heritageDescription: { fr: "Les longues sessions idle generent un micro-bonus passif.", en: "Long idle sessions generate a passive micro-bonus." }
   },
   abyss: {
@@ -39,6 +45,7 @@ export const OLYMPUS_PROFILES = {
     name: { fr: "Secte de l'Abime", en: "Cult of the Abyss" },
     short: { fr: "Dieu du Bord", en: "God of the Brink" },
     description: { fr: "La cite apprend a prier au bord du gouffre. Elle aime la Rupture haute, les murs qui tremblent, les decisions qui viennent trop tard.", en: "The city learns to pray at the edge of the chasm. It loves high Rupture, trembling walls, decisions that come too late." },
+    feeds: { fr: `Se nourrit du temps vécu au-dessus de ${Math.round(OLYMPUS_HIGH_RUPTURE * 100)} % de Rupture, et des crises qu'on laisse gronder.`, en: `Fed by time lived above ${Math.round(OLYMPUS_HIGH_RUPTURE * 100)}% Rupture, and by crises left to rumble.` },
     heritageDescription: { fr: "Tenir avec une Rupture haute donne un multiplicateur de production.", en: "Holding on with high Rupture grants a production multiplier." }
   }
 };

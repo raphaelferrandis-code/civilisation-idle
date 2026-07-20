@@ -83,10 +83,8 @@ function crownMyth(myth) {
 // où son objectif est atteint — plus besoin d'effondrer pour sceller. La contrainte
 // est levée dans la foulée (le pacte est honoré, le dieu se retire), ce qui rend
 // aussi la main sur l'effondrement manuel qu'Atlas et Icare confisquaient.
-// Exception déclarée par le Mythe : `liftOnComplete: false` garde la contrainte
-// jusqu'à la chute — le Chaos en dépend, ses Ruines ne comptent double que si le
-// cycle ENTIER est resté un cycle Chaos (la banque se remplit à l'effondrement,
-// gardée par `wasChaos` dans completeCollapse).
+// (L'exception `liftOnComplete: false` a disparu avec la refonte du Chaos
+// 2026-07-20 : son héritage n'exige plus un cycle resté Chaos jusqu'à la chute.)
 export function checkMythLiveCompletion() {
   if (!state.activeMythId || collapseInProgress) return;
   const myth = getMythById(state.activeMythId);
@@ -94,7 +92,6 @@ export function checkMythLiveCompletion() {
   if (isMythCompleted(myth.id)) return;
   if (!myth.onCollapse()) return;
   crownMyth(myth);
-  if (myth.liftOnComplete === false) { save(); return; }
   state.activeMythId = null;
   state.ragnarokEffectsApplied = false;
   save();
@@ -110,7 +107,7 @@ export function checkMythOnCollapse() {
     crownMyth(myth);
   } else if (!success && !isMythCompleted(myth.id)) {
     // Déjà sacré en vivant = pas un pacte brisé : ce log ne concerne que les
-    // Mythes encore en course à la chute (Chaos, ou objectif jamais atteint).
+    // Mythes dont l'objectif n'a jamais été atteint sur le cycle.
     log(`Pacte brise: "${tr(myth.name)}" n'a pas ete honore ce cycle.`);
   }
 }

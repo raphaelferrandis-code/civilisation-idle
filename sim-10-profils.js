@@ -95,6 +95,15 @@ const { registerChoiceDialog } = await import("./src/game/core/choiceDialog.js")
 // (confirmation de dynastie / Grand Reset). Repris de simulate-ce.js.
 registerChoiceDialog((dialog) => {
   const opts = dialog.options || [];
+  // « Les Caravanes » (Age d'Or refondu) : options sans apply() -> on ACCEPTE le
+  // prix demande d'office (pas de marchandage : la patience du marchand est
+  // cachee) ; si le corps signale un Tresor insuffisant, on REFUSE, sinon
+  // negotiateOrDeal reproposerait le meme marche en boucle infinie.
+  if (opts.some((o) => /Marchander|Haggle/.test(o.label || ""))) {
+    const broke = /suffit pas|cannot cover/.test(dialog.body || "");
+    const want = broke ? /Refus/ : /Accept/;
+    return { ...(opts.find((o) => want.test(o.label || "")) || opts[opts.length - 1]) };
+  }
   const isCrisisEvent = opts.length > 1 && opts.every((o) => typeof o.apply === "function");
   let picked = opts[0];
   if (isCrisisEvent) {
@@ -620,18 +629,49 @@ const MYTH_TACTICS = {
     setup() { state.babelCategory = "city"; },
     buyOpts: { onlyCategory: "city" },
     met() { return myth.babelTowerCount() >= myth.BABEL_TOWER_TARGET; } },
-  mythe_age_or:        { grow: 900, below: 0.95,  // 75 000 Tresor, pop plafonnee par le Mythe (+25% max)
-    // La pop est desormais PLAFONNEE par le Mythe (production de pop coupee au
-    // plafond) -> on construit normalement, le Tresor monte, la pop reste sous le
-    // plafond -> objectif atteint. Rupture plafonnee a 5% -> pas d'effondrement seul.
-    met() { return state.orGoldReached === true; } },
+  mythe_age_or:        { grow: 3000, below: 0.95, // REFONTE les Caravanes : conclure 8 marches avec les marchands
+    // Un marche coute ~144 s de prod d'Or (lot 90 s, prix demande x1.6) : on batit
+    // 2,5 min pour lancer l'economie PUIS on cesse d'acheter et on thesaurise.
+    // negotiateOrDeal ouvre un dialogue asynchrone resolu par le handler global
+    // (ACCEPTER, ou REFUSER si le Tresor ne couvre pas) ; on ne lance la
+    // negociation que Tresor plein, avec 25% de marge sur le prix demande.
+    // Rupture plafonnee a 5% par le Mythe -> pas de gestion necessaire.
+    buy({ ageSec }) { if (ageSec < 150) buyBuildings(); },
+    onTick() {
+      if ((state.orDealsClosed || 0) >= myth.OR_DEALS_TARGET) return;
+      const ask = Math.max(40, num(mech.rates().gold) * myth.OR_DEAL_LOT_SECONDS * myth.OR_DEAL_ASK_MARKUP);
+      if (goldNum() >= ask * 1.25) { try { actions.negotiateOrDeal(); } catch { /* */ } }
+    },
+    met() { return (state.orDealsClosed || 0) >= myth.OR_DEALS_TARGET; } },
 
   // ── Acte III ────────────────────────────────────────────────────────────────
-  mythe_d_atlas:       { grow: 200,  below: 1,    // survivre 45 min OU 10 vagues de crise -> on spamme 10 crises
-    onTick() { if ((state.atlasCrisisCount || 0) < 12) { for (const id of ["census", "rationing", "festivals", "reforms"]) { try { runCrisisAction(id, { render: false, force: true }); } catch { /* */ } } } },
-    met() { return (state.atlasCrisisCount || 0) >= 10; } },
-  mythe_d_icare:       { grow: 1200, below: 0.55, // accumuler 40s de prod d'infra (prod x100 aide, Rupture x30 menace) -> on tient TRES bas
-    met() { return state.icareInfraReached === true; } },
+  mythe_d_atlas:       { grow: 600, below: 0.7,   // REFONTE le poids du ciel : epauler 12x en zone rouge (Fardeau >= 70)
+    // Le Fardeau monte de 3/s en continu (100 = ecrase, Mythe perdu) ; EPAULER
+    // retire 45 points (recuperation 15 s, sur l'horloge VIRTUELLE) mais ne
+    // COMPTE qu'a Fardeau >= 70. On epaule des l'entree en zone rouge -> le
+    // Fardeau oscille entre ~45 et ~90 sans jamais atteindre 100 ; epaulee
+    // d'urgence (non comptee) si le prochain tick devait ecraser (gros --mythtick).
+    onTick() {
+      const f = state.atlasFardeau || 0;
+      if (f >= myth.ATLAS_COUNT_THRESHOLD || f + myth.ATLAS_FARDEAU_RISE * MYTH_TICK >= 100) { try { actions.atlasEpauler(); } catch { /* */ } }
+    },
+    collapseWhen: () => state.atlasCrushed === true, // ecrase -> cycle perdu, on retente
+    met() { return (state.atlasEpaules || 0) >= myth.ATLAS_SHOULDER_TARGET && !state.atlasCrushed; } },
+  mythe_d_icare:       { grow: 900, below: 0.5, collapseAtAge: 900, // REFONTE le vol par paliers : atteindre l'altitude 5
+    // Chaque MONTER : +15% de Rupture immediate + la Rupture grimpe 50% plus vite
+    // par altitude. Monter est instantane et sans cooldown -> on enchaine les
+    // paliers tant que la jauge garde de la marge (5 montees = +75% depuis une
+    // jauge basse), puis on effondre DES l'altitude 5 pour verrouiller avant que
+    // la hate (x3,5 a l'altitude 5) ne consume la cite. Jauge trop haute -> on
+    // gere sous 0,5 et on retente au tick suivant (cycle rate a 900 s -> retente).
+    onTick() {
+      let n = 0;
+      while ((state.icareAltitude || 0) < myth.ICARE_ALTITUDE_TARGET
+        && (state.instability || 0) + myth.ICARE_CLIMB_RUPTURE <= 0.92 && n++ < 8) {
+        try { actions.icareClimb(); } catch { break; }
+      }
+    },
+    met() { return (state.icareAltitude || 0) >= myth.ICARE_ALTITUDE_TARGET; } },
   mythe_du_phenix:     { grow: 200, below: 0.95, maxCycles: 40, // REFONTE : 3 renaissances chronometrees (60x pop en <3min, d'affilee)
     // On RUSH la population (batiments producteurs de pop uniquement) pour atteindre
     // 60x la pop de depart au plus vite, puis on effondre pour verrouiller la
@@ -741,8 +781,7 @@ async function tryCompleteMyth(m, rec, prof) {
       process.stderr.write(`    [heph] cyc${c} infra/pic=${ratio.toFixed(3)} (cible 1.0) declin=${(decline * 100).toFixed(1)}%/20% pop=${fmt(num(state.population))} pic=${fmt(peak)} crise=${crisisOpen()} age=${fmtDuration(VT - startVT)}\n`);
     }
     if (argv.debug && m.id === "mythe_age_or") {
-      const cap = num(state.orStartPop || 0) * 1.25;
-      process.stderr.write(`    [or] cyc${c} gold=${fmt(goldNum())}/75000 reached=${state.orGoldReached} startPop=${fmt(num(state.orStartPop || 0))} popPeak=${fmt(num(state.orPopPeak || 0))} cap=${fmt(cap)} depasse=${num(state.orPopPeak || 0) > cap} age=${fmtDuration(VT - startVT)}\n`);
+      process.stderr.write(`    [or] cyc${c} marches=${state.orDealsClosed || 0}/${myth.OR_DEALS_TARGET} gold=${fmt(goldNum())} desequilibre=${state.orUsureImbalance ? "OUI" : "non"} usure=${state.timeWear.toFixed(3)} age=${fmtDuration(VT - startVT)}\n`);
     }
     if (argv.debug && m.id === "mythe_du_phenix") {
       process.stderr.write(`    [phenix] cyc${c} renais=${state.phoenixRenaissances || 0}/3 pop=${fmt(num(state.population))} pic=${fmt(num(state.cyclePeaks?.population || 0))} cible=${fmt(num(state.phoenixRebirthTargetPop || 0))} age=${fmtDuration(VT - startVT)}\n`);

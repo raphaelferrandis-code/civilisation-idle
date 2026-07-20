@@ -63,6 +63,7 @@ import {
   ENEE_TERRITORY_INTERVAL_MS,
   PROMETHEE_POP_TARGET,
   PROMETHEE_FATAL_RUPTURE,
+  CHAOS_RAW_RUIN_TARGET,
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
@@ -203,6 +204,7 @@ export default function CityView() {
   const isBabel = isMythEffectActive("mythe_de_babel");
   // Carte Babel : pendant le Mythe (la tour), ou en héritage (la Langue commune).
   const showBabel = isBabel || Boolean(babelHeritage);
+  const isChaos = isMythEffectActive("mythe_du_chaos");
   const isOr = isMythEffectActive("mythe_age_or");
   const isPhoenix = isMythEffectActive("mythe_du_phenix");
   const isHeph = isMythEffectActive("mythe_d_hephaistos");
@@ -245,7 +247,7 @@ export default function CityView() {
   const eneeElapsedMs = eneeTerritoryStartedAt ? Math.max(0, now - eneeTerritoryStartedAt) : 0;
   const eneeRemainingSecs = Math.max(0, Math.ceil((eneeIntervalMs - eneeElapsedMs) / 1000));
 
-  const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
+  const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isChaos || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
 
   // Pastille de la chronique : dépêche encore dans sa fenêtre d'affichage.
   const chronicleVisible = Boolean(latestChronicle && now - (latestChronicle.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
@@ -253,7 +255,7 @@ export default function CityView() {
   // Badge du dock Mythes : nombre de cartes de statut actuellement actives.
   const mythCount = [
     isPromethee, showEpaule,
-    isSisyphe, isIcare || ((icareAltitude || 0) > 0), showBabel, isOr, isPhoenix, isHeph, isAtrides,
+    isSisyphe, isIcare || ((icareAltitude || 0) > 0), showBabel, isChaos, isOr, isPhoenix, isHeph, isAtrides,
     atridesPactActive, atridesNextRunPenaltyActive, isMythEffectActive("mythe_d_enee"),
     eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
   ].filter(Boolean).length;
@@ -581,6 +583,27 @@ export default function CityView() {
 
             {/* Cartes de statut des mythes & puissance latente */}
             <div className="myths-grid-redesigned">
+              {/* Chaos — cycle sans aucun bonus de méta : la carte suit la moisson
+                  de Ruines BRUTES projetée (ruinGain(true), déjà « brut » puisque le
+                  Mythe neutralise les bonus). Sacré en direct dès la cible en vue. */}
+              {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/chaos.png — à générer. */}
+              {isChaos && (
+                <div className="myth-status-card chaos" title={tr({
+                  fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, tous les bonus de méta-progression coupés.`,
+                  en: `Earn ${CHAOS_RAW_RUIN_TARGET} raw Ruins in a single cycle, with every meta-progression bonus cut off.`
+                })}>
+                  <PixelIcon name="myths/pacte" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Chaos", en: "Chaos" })}</span>
+                    <strong>
+                      {tr({
+                        fr: `Ruines brutes ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`,
+                        en: `Raw Ruins ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`
+                      })}
+                    </strong>
+                  </div>
+                </div>
+              )}
               {/* Prométhée — règle de lisibilité des défis : cible en chiffre FIXE,
                   progression vivante, état (en course / accompli / échoué). L'échec
                   n'existait avant que dans une ligne de log.

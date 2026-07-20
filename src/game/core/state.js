@@ -33,7 +33,7 @@ export const CURRENT_SAVE_VERSION = 4;
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
-  "chaosRuinsBonus", "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
+  "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
   "mythStartGold", "mythStartInfra", "mythStartPop", "ragnarokStartPower"
 ];
 
@@ -294,8 +294,9 @@ export const defaultState = () => ({
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
-  chaosRuinsDouble: false,
-  chaosRuinsBonus: new Decimal(0),
+  // Héritage du Chaos « Né du néant » : +25 % sur toutes les récoltes de Ruines
+  // (facteur de ruinGain). Remplace l'ancienne banque chaosRuinsDouble/chaosRuinsBonus.
+  chaosHeritage: false,
   chaosReached: false,
   prometheeFailed: false,
   prometheePopReached: false,
@@ -1189,8 +1190,9 @@ export function hydrateState(parsed = {}) {
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
-    chaosRuinsDouble: Boolean(source.chaosRuinsDouble),
-    chaosRuinsBonus: decimalField(source.chaosRuinsBonus, 0),
+    // `|| source.chaosRuinsDouble` : renommage 2026-07-20 — les saves d'avant la
+    // refonte portent l'héritage sous l'ancien drapeau de la banque.
+    chaosHeritage: Boolean(source.chaosHeritage || source.chaosRuinsDouble),
     chaosReached: Boolean(source.chaosReached),
     prometheeFailed: Boolean(source.prometheeFailed),
     prometheePopReached: Boolean(source.prometheePopReached),
@@ -1628,7 +1630,7 @@ export function resetTemporaryRunState(s) {
 // au prochain GR (cf. grandReset.test.js). grandResetCount / history sont
 // CALCULÉS et traités à part dans buildGrandResetState().
 export const GR_PERSISTENT_FIELDS = [
-  "mythsCompleted", "mythActsAnnounced", "chaosRuinsDouble", "chaosRuinsBonus",
+  "mythsCompleted", "mythActsAnnounced", "chaosHeritage",
   "prometheeBraisiers", "atlasHeritage", "sisypheHeritage", "icareHeritage",
   "babelHeritage", "babelAutoTongue", "orHeritage", "phoenixHeritage", "atridesHeritage", "eneeHeritage",
   "autoScriptRules", "hephHeritage", "automateRules",
@@ -1646,7 +1648,7 @@ export const GR_PERSISTENT_FIELDS = [
   "chronicleStats"
 ];
 
-// Copie un champ persistant vers le state frais. Les Decimal (chaosRuinsBonus)
+// Copie un champ persistant vers le state frais. Les Decimal éventuels
 // sont copiés par RÉFÉRENCE — l'ancien state est jeté juste après, donc pas
 // d'aliasing — et surtout PAS via structuredClone/JSON qui perdrait la classe.
 // Les objets/arrays de données simples sont clonés en profondeur.

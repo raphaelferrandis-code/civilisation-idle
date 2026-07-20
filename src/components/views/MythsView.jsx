@@ -124,20 +124,29 @@ export default function MythsView() {
                 <h3>{tr({ fr: "L'Olympe", en: 'Olympus' })}</h3>
               </div>
               <span className={`olympus-state ${olympusUnlocked ? "unlocked" : ""}`}>
-                {olympusUnlocked ? tr({ fr: 'Religion debloquee', en: 'Religion unlocked' }) : tr({ fr: 'Croyance emergente', en: 'Emerging belief' })}
+                {olympusUnlocked ? tr({ fr: 'Religion proclamée', en: 'Religion proclaimed' }) : tr({ fr: 'Croyance émergente', en: 'Emerging belief' })}
               </span>
             </div>
 
+            {/* Le mode d'emploi en deux phrases : SANS lui, les nombres des cartes
+                (ferveur, consécration) sont illisibles — c'était le reproche. */}
+            <p className="olympus-explain">
+              {tr({
+                fr: `La cité observe ta manière de régner : la ferveur de chaque culte suit tes habitudes. À chaque effondrement où le culte dominant atteint ${OLYMPUS_MIN_DOMINANT_SCORE} de ferveur, sa consécration grave un cran — au ${OLYMPUS_COMPLETION_SCORE}e, la religion est proclamée, une seule et pour toujours.`,
+                en: `The city watches how you reign: each cult's fervor follows your habits. At every collapse where the dominant cult reaches ${OLYMPUS_MIN_DOMINANT_SCORE} fervor, its consecration carves one notch — at the ${OLYMPUS_COMPLETION_SCORE}th, the religion is proclaimed, one and forever.`
+              })}
+            </p>
+
             <div className="olympus-dominant">
-              <span>{tr({ fr: 'Religion dominante', en: 'Dominant religion' })}</span>
+              <span>{olympusUnlocked ? tr({ fr: 'Religion proclamée', en: 'Proclaimed religion' }) : tr({ fr: 'Culte dominant', en: 'Dominant cult' })}</span>
               <strong>{(olympusUnlocked || olympusDominant.profile).name}</strong>
               <p>{(olympusUnlocked || olympusDominant.profile).description}</p>
               <small>
                 {olympusUnlocked
-                  ? tr({ fr: `Heritage actif: ${olympusUnlocked.heritageDescription}`, en: `Active heritage: ${olympusUnlocked.heritageDescription}` })
+                  ? tr({ fr: `Héritage actif : ${olympusUnlocked.heritageDescription}`, en: `Active heritage: ${olympusUnlocked.heritageDescription}` })
                   : tr({
-                      fr: `Score actuel: ${olympusDominant.score}/100. Progression si score >= ${OLYMPUS_MIN_DOMINANT_SCORE}. Completion placeholder: ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}.`,
-                      en: `Current score: ${olympusDominant.score}/100. Progress if score >= ${OLYMPUS_MIN_DOMINANT_SCORE}. Completion placeholder: ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}.`
+                      fr: `Ferveur ${olympusDominant.score}/100 · Consécration ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}`,
+                      en: `Fervor ${olympusDominant.score}/100 · Consecration ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}`
                     })}
               </small>
             </div>
@@ -145,28 +154,42 @@ export default function MythsView() {
             <div className="olympus-profile-grid">
               {Object.values(OLYMPUS_PROFILES).map(profile => {
                 const score = olympusDominant.scores[profile.id] || 0;
-                const progress = olympusProgress[profile.id] || 0;
+                const progress = Math.floor(olympusProgress[profile.id] || 0);
+                const isDominant = profile.id === olympusDominant.profile.id;
+                const isUnlocked = olympusUnlocked?.id === profile.id;
                 return (
                   <div
                     key={profile.id}
-                    className={`olympus-profile ${profile.id === olympusDominant.profile.id ? "dominant" : ""} ${olympusUnlocked?.id === profile.id ? "unlocked" : ""}`}
+                    className={`olympus-profile ${isDominant ? "dominant" : ""} ${isUnlocked ? "unlocked" : ""}`}
                   >
                     <span>{profile.short}</span>
                     <strong>{profile.name}</strong>
+                    <p className="olympus-feeds">{profile.feeds}</p>
                     <div className="olympus-score-track">
                       <span style={{ width: `${Math.min(100, score)}%` }}></span>
                     </div>
-                    <small>{score}/100 - {Math.floor(progress)}/{OLYMPUS_COMPLETION_SCORE}</small>
+                    <small>
+                      {tr({ fr: `Ferveur ${score}/100`, en: `Fervor ${score}/100` })}
+                      {/* La consécration n'avance que pour le culte DOMINANT : on ne
+                          l'affiche ailleurs que si elle a déjà des crans gravés. */}
+                      {(isDominant || progress > 0) && tr({ fr: ` · Consécration ${progress}/${OLYMPUS_COMPLETION_SCORE}`, en: ` · Consecration ${progress}/${OLYMPUS_COMPLETION_SCORE}` })}
+                    </small>
+                    <small className="olympus-heritage">
+                      {isUnlocked
+                        ? tr({ fr: `Héritage actif : ${profile.heritageDescription}`, en: `Active heritage: ${profile.heritageDescription}` })
+                        : tr({ fr: `Si proclamé : ${profile.heritageDescription}`, en: `If proclaimed: ${profile.heritageDescription}` })}
+                    </small>
                   </div>
                 );
               })}
             </div>
 
             <div className="olympus-metrics">
-              <span>{tr({ fr: 'Effondrements volontaires:', en: 'Voluntary collapses:' })} {olympusMetricValues.collapseFrequency.toFixed(2)}/h</span>
-              <span>{tr({ fr: 'Crises resolues:', en: 'Crises resolved:' })} {Math.round(olympusMetricValues.crisisResolutionRatio * 100)}%</span>
-              <span>{tr({ fr: 'Idle:', en: 'Idle:' })} {Math.round(olympusMetricValues.idleRatio * 100)}%</span>
-              <span>{tr({ fr: 'Rupture moyenne a la chute:', en: 'Average Rupture at collapse:' })} {Math.round(olympusMetricValues.averageCollapseRupture * 100)}%</span>
+              <span className="olympus-metrics-title">{tr({ fr: 'Ce que la cité a vu', en: 'What the city has seen' })}</span>
+              <span>{tr({ fr: 'Effondrements volontaires :', en: 'Voluntary collapses:' })} {olympusMetricValues.collapseFrequency.toFixed(2)}/h</span>
+              <span>{tr({ fr: 'Crises résolues :', en: 'Crises resolved:' })} {Math.round(olympusMetricValues.crisisResolutionRatio * 100)}%</span>
+              <span>{tr({ fr: 'Temps sans intervenir :', en: 'Time without intervening:' })} {Math.round(olympusMetricValues.idleRatio * 100)}%</span>
+              <span>{tr({ fr: 'Rupture moyenne à la chute :', en: 'Average Rupture at collapse:' })} {Math.round(olympusMetricValues.averageCollapseRupture * 100)}%</span>
             </div>
           </div>
 

@@ -35,6 +35,11 @@ import {
 // puissance de BASE → un seuil PLAT de Ruines gagnées ce cycle est une difficulté
 // constante et juste (≠ l'ancienne « banque ≥ 50 » qui ne testait rien).
 export const CHAOS_RAW_RUIN_TARGET = 12;         // Ruines BRUTES à gagner ce cycle (sans aucun bonus → un seul chiffre/dizaine est déjà un vrai cycle)
+// Héritage « Né du néant » (refonte 2026-07-20) : +25 % sur TOUTES les récoltes
+// de Ruines, pour toujours (facteur de ruinGain, prestige.js). Remplace la
+// « banque » chaosRuinsBonus : les ruines d'un cycle SANS bonus (~12-40) ajoutées
+// au total effectif étaient indétectables à vie — un héritage mort-né.
+export const CHAOS_RUIN_HERITAGE_MULT = 1.25;
 export const RAGNAROK_ID = "mythe_du_ragnarok";
 // Finale « survie + sursaut » sous les 13 contraintes : tenir un plancher de
 // temps ET faire surgir la puissance ×K depuis le départ (il faut bâtir vite
@@ -288,27 +293,22 @@ export const MYTHS = [
   {
     id: "mythe_du_chaos",
     act: 1,
-    // La validation vivante NE lève PAS cette contrainte : l'héritage du Chaos
-    // (Ruines comptées double) exige un cycle resté Chaos jusqu'à la chute —
-    // `wasChaos` garde la banque dans completeCollapse. Lever en cours de cycle
-    // rendrait l'héritage mort-né.
-    liftOnComplete: false,
     name: { fr: "Le Mythe du Chaos", en: "The Myth of Chaos" },
     description: {
-      fr: "Tous les bonus de méta-progression sont désactivés pour ce cycle : Ruines, Légitimité, Grand Reset. Chaque multiplicateur retombe à sa valeur de base (1x). Les upgrades restent achetés, ils sont simplement ignorés.",
-      en: "All meta-progression bonuses are disabled for this cycle: Ruins, Legitimacy, Grand Reset. Every multiplier falls back to its base value (1x). Upgrades stay purchased, they are simply ignored."
+      fr: "Tous les bonus de méta-progression sont coupés pour ce cycle : Ruines, arbre des Ruines, Grand Reset — chaque multiplicateur retombe à ×1. Les upgrades restent achetés, ils sont simplement ignorés.",
+      en: "All meta-progression bonuses are cut off for this cycle: Ruins, Ruins tree, Grand Reset — every multiplier falls back to ×1. Upgrades stay purchased, they are simply ignored."
     },
     ragnarokSummary: {
       fr: "tous les bonus de méta-progression sont neutralisés ; appliqué en dernier.",
       en: "all meta-progression bonuses are neutralized; applied last."
     },
     objectif: {
-      fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines BRUTES en un seul cycle, tous bonus de méta-progression coupés (bâtir sans béquilles).`,
-      en: `Earn ${CHAOS_RAW_RUIN_TARGET} RAW Ruins in a single cycle, with every meta-progression bonus cut off (building without crutches).`
+      fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, sans aucun bonus.`,
+      en: `Earn ${CHAOS_RAW_RUIN_TARGET} raw Ruins in a single cycle, without any bonus.`
     },
     heritageDescription: {
-      fr: "Les Ruines gagnées lors d'un cycle Chaos comptent double dans le calcul du multiplicateur global de Ruines, en permanence.",
-      en: "Ruins earned during a Chaos cycle count double in the global Ruins multiplier, permanently."
+      fr: `Né du néant : toutes les récoltes de Ruines sont augmentées de ${Math.round((CHAOS_RUIN_HERITAGE_MULT - 1) * 100)} %, pour toujours.`,
+      en: `Born of the Void: all Ruin harvests are increased by ${Math.round((CHAOS_RUIN_HERITAGE_MULT - 1) * 100)}%, forever.`
     },
 
     onActivate() {
@@ -322,7 +322,7 @@ export const MYTHS = [
     },
 
     applyHeritage() {
-      state.chaosRuinsDouble = true;
+      state.chaosHeritage = true;
     }
   },
 

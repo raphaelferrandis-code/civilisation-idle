@@ -41,8 +41,7 @@ import { olympusAbyssProductionMultiplier } from './olympusProd.js';
 
 export function ruinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
-  const effectiveRuins = toNum(state.ruins) + toNum(state.chaosRuinsBonus || 0);
-  const base = 1 + Math.pow(effectiveRuins, RUIN_POWER_EXP) * RUIN_POWER_COEF;
+  const base = 1 + Math.pow(toNum(state.ruins), RUIN_POWER_EXP) * RUIN_POWER_COEF;
   return has("oral_tradition") ? 1 + (base - 1) * 1.2 : base;
 }
 
@@ -50,8 +49,7 @@ export function ruinMultiplier() {
 // déborde le float. Doit évoluer en parallèle de la version float.
 export function ruinMultiplierDec() {
   if (isMythEffectActive("mythe_du_chaos")) return new Decimal(1);
-  const effectiveRuins = D(state.ruins).add(state.chaosRuinsBonus || 0);
-  const base = effectiveRuins.pow(RUIN_POWER_EXP).mul(RUIN_POWER_COEF).add(1);
+  const base = D(state.ruins).pow(RUIN_POWER_EXP).mul(RUIN_POWER_COEF).add(1);
   return has("oral_tradition") ? base.sub(1).mul(1.2).add(1) : base;
 }
 

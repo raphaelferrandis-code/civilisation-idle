@@ -27,7 +27,8 @@ import {
   isMythEffectActive,
   OR_USURE_IMBALANCE_MULT,
   HEPH_USURE_MULT,
-  ENEE_USURE_DEGRADED_MULT
+  ENEE_USURE_DEGRADED_MULT,
+  CHAOS_RUIN_HERITAGE_MULT
 } from '../../data/myths.js';
 import { ACTIVE_RUIN_USURE_MULT, activeRuinMultiplier, hasActiveRuin } from '../../data/activeRuins.js';
 import { crisisOpen, ruinEffectMultiplier, ruinEffectSum, has } from './shared.js';
@@ -174,12 +175,16 @@ export function ruinGain(projected = false, extraPrep = 0) {
   // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
   // express des ères après un Grand Reset devient une pluie de gains visibles.
   const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * eraTier(state.bestEraIndex || 0);
-  const raw = ageDepth * populationDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
+  // Héritage du Chaos « Né du néant » : celui qui a bâti sans béquilles récolte
+  // mieux, à jamais. (Reste ×1 sous le Mythe du Chaos lui-même : l'héritage ne
+  // peut pas être acquis tant que le Mythe est encore activable.)
+  const chaosHeritageMod = state.chaosHeritage ? CHAOS_RUIN_HERITAGE_MULT : 1;
+  const raw = ageDepth * populationDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod * chaosHeritageMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
   if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)) + eraFlatBonus);
   const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
-  const restProduct = ageDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod;
+  const restProduct = ageDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod * chaosHeritageMod;
   return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
 }
 

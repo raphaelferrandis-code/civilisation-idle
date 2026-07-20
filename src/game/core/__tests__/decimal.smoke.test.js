@@ -113,7 +113,6 @@ describe("migration Decimal — fumée", () => {
       knowledge: 42,
       infrastructure: 17,
       ruins: 5000,
-      chaosRuinsBonus: 12,
       phoenixTotalRuins: 99,
       phoenixRebirthTargetPop: 1234,
       hephPopPeak: 4321,
@@ -125,7 +124,6 @@ describe("migration Decimal — fumée", () => {
     expect(loaded.population.eq(9_007_199_254_740_991)).toBe(true);
     expect(loaded.food.eq(123456.789)).toBe(true);
     expect(loaded.ruins.eq(5000)).toBe(true);
-    expect(loaded.chaosRuinsBonus.eq(12)).toBe(true);
     expect(loaded.phoenixTotalRuins.eq(99)).toBe(true);
     expect(loaded.phoenixRebirthTargetPop.eq(1234)).toBe(true);
     expect(loaded.hephPopPeak.eq(4321)).toBe(true);

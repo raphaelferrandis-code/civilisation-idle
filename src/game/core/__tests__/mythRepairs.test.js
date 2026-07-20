@@ -25,7 +25,7 @@ import { icareClimb, icareDescend, atlasEpauler, sisyphePousser, babelDeclareTon
 import { openCrisisEvent, autoResolveCrisisEvent } from "../actions/crisis.js";
 import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_MS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT } from "../../data/myths.js";
 import { buyBuilding } from "../actions/building.js";
-import { buildingCostAt } from "../mechanics.js";
+import { buildingCostAt, ruinGain } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
 const { buildingById } = stateModule;
 import { rates } from "../mechanics/production/rates.js";
@@ -178,9 +178,9 @@ describe("Cadmos — seuils absolus assumés, mais pas de rafale de modales", ()
 describe("Validation vivante — un Mythe se sacre à la complétion, sans effondrement", () => {
   // Décision Raph 2026-07-19 : les drapeaux de réussite flippaient déjà en direct
   // pendant le cycle, mais le trophée attendait l'effondrement. Désormais le sacre
-  // tombe au tick où l'objectif est atteint, et la contrainte est levée — sauf pour
-  // les Mythes qui déclarent liftOnComplete: false (le Chaos : ses Ruines ne
-  // comptent double que si le cycle ENTIER reste un cycle Chaos).
+  // tombe au tick où l'objectif est atteint, et la contrainte est levée — pour
+  // TOUS les Mythes (l'exception liftOnComplete du Chaos a disparu avec sa
+  // refonte 2026-07-20 : son héritage n'exige plus un cycle entier resté Chaos).
   const mythState = (overrides = {}) => {
     setState(hydrateState({
       ...MID_GAME_FIXTURE,
@@ -226,12 +226,12 @@ describe("Validation vivante — un Mythe se sacre à la complétion, sans effon
     expect(state.activeMythId).toBe("mythe_de_promethee");
   });
 
-  it("le Chaos se sacre en vivant mais GARDE sa contrainte jusqu'à la chute", () => {
+  it("le Chaos se sacre en vivant et sa contrainte se lève comme les autres", () => {
     mythState({ activeMythId: "mythe_du_chaos", chaosReached: true, instability: 0.3 });
     tick(1);
     expect(state.mythsCompleted.mythe_du_chaos).toBe(true);
-    expect(state.chaosRuinsDouble).toBe(true);              // héritage accordé…
-    expect(state.activeMythId).toBe("mythe_du_chaos");      // …contrainte maintenue
+    expect(state.chaosHeritage).toBe(true);                 // héritage accordé
+    expect(state.activeMythId).toBeNull();                  // et le pacte se retire
   });
 
   it("ne sacre pas deux fois : un Mythe déjà complété reste silencieux", () => {
@@ -242,6 +242,47 @@ describe("Validation vivante — un Mythe se sacre à la complétion, sans effon
     const avant = JSON.stringify(state.mythsCompleted);
     tick(1);
     expect(JSON.stringify(state.mythsCompleted)).toBe(avant);
+  });
+});
+
+describe("Chaos — « Né du néant » (héritage refondu)", () => {
+  // Refonte 2026-07-20 : l'ancienne « banque » (Ruines du cycle Chaos ajoutées au
+  // total effectif du multiplicateur global) était indétectable à vie (~12-40
+  // ruines noyées dans des milliers). Le nouvel héritage est un facteur de la
+  // MOISSON elle-même : toutes les récoltes de Ruines ×1.25, pour toujours.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("l'héritage multiplie la moisson de Ruines par 1.25", () => {
+    // bestEraIndex 0 : le bonus PLAT d'ère (additif après le floor) est nul. Et
+    // des pics de cité ÉLEVÉS : sur une petite moisson (~5), le floor déformait
+    // le ratio (7/5 = 1.4) — en grand, l'arrondi devient négligeable.
+    const gainAvec = (chaosHeritage) => {
+      setState(hydrateState({
+        ...MID_GAME_FIXTURE, chaosHeritage, bestEraIndex: 0,
+        cyclePeaks: { population: 1e9, knowledge: 1e6, infrastructure: 1e5, eraIndex: 5 },
+        crisisThresholds: { _25: true, _50: true, _75: true }
+      }));
+      stateModule.invalidateRenderCache("all");
+      return toNum(ruinGain(true));
+    };
+    const sans = gainAvec(false);
+    const avec = gainAvec(true);
+    expect(sans).toBeGreaterThan(0);
+    expect(avec / sans).toBeCloseTo(1.25, 1);
+  });
+
+  it("renommage : un save d'avant la refonte (chaosRuinsDouble) garde son héritage", () => {
+    const loaded = hydrateState({ ...MID_GAME_FIXTURE, chaosRuinsDouble: true });
+    expect(loaded.chaosHeritage).toBe(true);
+    const frais = hydrateState({ ...MID_GAME_FIXTURE });
+    expect(frais.chaosHeritage).toBe(false);
   });
 });
 

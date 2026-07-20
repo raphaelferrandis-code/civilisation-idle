@@ -117,7 +117,7 @@ const PRESETUP = {
 
 // Activation reelle de l'heritage pour exposer son effet mesurable.
 const ACTIVATE = {
-  mythe_du_chaos: () => { state.chaosRuinsBonus = D(state.ruins); }, // ruines de cycle Chaos comptees x2
+  mythe_du_chaos: () => { state.chaosHeritage = true; }, // Ne du neant : recoltes de Ruines +25% a vie (ruinGain)
   mythe_de_promethee: () => { state.cycleStartedAt = NOW; },          // Braisiers : 2 premieres min
   mythe_d_enee: () => { state.eneeCollapseCount = 10; state.cycleStartedAt = NOW; }, // +100% global 30s
   mythe_de_cadmos: () => { state.cadmosPermanentEpitaphs = [

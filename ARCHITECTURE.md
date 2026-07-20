@@ -113,7 +113,7 @@ traités à part).
 > ⚠️ **Tout nouveau déblocage permanent doit être ajouté à `GR_PERSISTENT_FIELDS`**,
 > sinon il est effacé au prochain GR. Invariant figé par
 > [grandReset.test.js](src/game/core/__tests__/grandReset.test.js).
-> Note : les `Decimal` (ex. `chaosRuinsBonus`) sont copiés par référence, jamais via
+> Note : les `Decimal` éventuels sont copiés par référence, jamais via
 > `structuredClone`/JSON (qui perdrait la classe).
 
 ---

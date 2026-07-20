@@ -331,7 +331,6 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     crises: state.cycleCrisesResolved || 0
   });
 
-  const wasChaos   = isMythEffectActive("mythe_du_chaos");
   const wasAtrides = isMythEffectActive("mythe_atrides");
   const applyAtridesPenalty = wasAtrides && state.atridesDrainDisabled;
   const wasPhoenix = state.activeMythId === "mythe_du_phenix";
@@ -396,10 +395,6 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   });
   
   state.ruins = D(state.ruins).add(gain);
-  if (wasChaos && state.chaosRuinsDouble) {
-    state.chaosRuinsBonus = D(state.chaosRuinsBonus).add(gain);
-    chronicle(`L'ombre du Chaos transfigure notre héritage : +${fmt(gain)} ruines immatérielles s'inscrivent dans notre histoire, magnifiant à jamais la mémoire de nos vestiges.`);
-  }
   state.cycles += 1;
   // Nouvelle civilisation : nouveau plan procédural (seed + rivière régénérés).
   state.mapSeed = newCitySeed();

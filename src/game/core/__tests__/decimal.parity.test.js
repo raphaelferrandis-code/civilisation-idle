@@ -62,7 +62,6 @@ const SCENARIOS = [
     name: "valeurs hautes sous le plafond float",
     patch: () => {
       state.ruins = new Decimal("1e40");
-      state.chaosRuinsBonus = new Decimal("1e20");
       state.infrastructure = new Decimal("1e30");
     }
   },
