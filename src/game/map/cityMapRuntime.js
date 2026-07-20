@@ -1134,6 +1134,10 @@ function initCityMap(canvas, options = {}) {
   // lumières en valeur — plus de transition permanente façon sinus.
   const DAY_CYCLE_MS = 540000;                              // cycle complet : 9 min
   const DAY_END = 0.55, DUSK_END = 0.65, NIGHT_END = 0.90;  // jour 55 % / crépuscule 10 % / nuit 25 % / aube 10 %
+  // Fenêtre d'émeutes : la FIN du plateau de jour — « l'après-midi ». 23 % du
+  // cycle, soit la dose de l'ancienne courbe sinus (23,4 %) recalée sur les
+  // plateaux (arbitrage Raph 2026-07-20 : revenir à la dose d'origine).
+  const RIOT_START = 0.32;                                  // fenêtre = [0.32, DAY_END)
   const smooth01 = (t) => t * t * (3 - 2 * t);
   function cmDayNightF(p) {
     if (p < DAY_END) return 0;
@@ -1175,7 +1179,12 @@ function initCityMap(canvas, options = {}) {
       }
       // Cycle jour/nuit à plateaux (cf. cmDayNightF) + phase (montante =
       // crépuscule, descendante = aube).
-      // Le joueur peut figer le cycle depuis les Options (Auto / Jour / Nuit).
+      // Le joueur peut figer le cycle depuis les Options (Auto / Jour / Nuit) —
+      // mais l'option ne force que l'AFFICHAGE : l'horloge simulée continue de
+      // tourner pour le gameplay via CM.riotWindow, sinon figer le ciel
+      // désactiverait les émeutes (bug trouvé en revue 2026-07-20).
+      const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
+      CM.riotWindow = dayP >= RIOT_START && dayP < DAY_END;
       if (CM.capture) {
         // Capture déterministe : plein jour (ou nuit forcée).
         CM.nightF = CM.capture.night; CM.dayRising = false;
@@ -1183,7 +1192,6 @@ function initCityMap(canvas, options = {}) {
         CM.nightF = dayNightMode === 'night' ? 1 : 0;
         CM.dayRising = false;
       } else {
-        const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
         CM.nightF = cmDayNightF(dayP);
         CM.dayRising = dayP < DUSK_END;
       }

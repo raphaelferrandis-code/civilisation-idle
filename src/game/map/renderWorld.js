@@ -2418,8 +2418,12 @@ function updateCrisis(dt, now) {
   const inst = state.instability || 0;
 
   if (!CM.rioters) CM.rioters = [];
-  // Les émeutes n'éclatent que l'après-midi (jour montant vers le crépuscule).
-  const afternoon = CM.dayRising === true && (CM.nightF || 0) < 0.45;
+  // Les émeutes n'éclatent que l'après-midi. La fenêtre est publiée par le
+  // point de bascule du cycle (CM.riotWindow, cityMapRuntime) : elle suit
+  // l'horloge SIMULÉE — l'option d'affichage Jour/Nuit ne la touche pas — et
+  // vaut 23 % du temps réel, la dose de l'ancienne courbe sinus. Ne PAS la
+  // re-dériver de CM.dayRising/nightF : ceux-là portent le VISUEL (forçables).
+  const afternoon = CM.riotWindow === true;
   const baseWant = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
   // Les apaisements au clic réduisent la foule ; l'effet s'estompe avec le temps
   // (1 émeutier "revient" toutes les ~8 s tant que la tension persiste).
