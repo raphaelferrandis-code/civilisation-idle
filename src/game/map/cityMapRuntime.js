@@ -1184,7 +1184,10 @@ function initCityMap(canvas, options = {}) {
       // tourner pour le gameplay via CM.riotWindow, sinon figer le ciel
       // désactiverait les émeutes (bug trouvé en revue 2026-07-20).
       const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
-      CM.riotWindow = dayP >= RIOT_START && dayP < DAY_END;
+      // En capture, la fenêtre est COUPÉE : un cliché est déterministe, l'heure
+      // murale ne doit pas décider si une foule d'émeute y figure (captureFrame
+      // isole aussi CM.rioters — la frame forcée purge la sim, cf. updateCrisis).
+      CM.riotWindow = !CM.capture && dayP >= RIOT_START && dayP < DAY_END;
       if (CM.capture) {
         // Capture déterministe : plein jour (ou nuit forcée).
         CM.nightF = CM.capture.night; CM.dayRising = false;
@@ -1404,6 +1407,15 @@ function initCityMap(canvas, options = {}) {
   CM.captureFrame = (opts = {}) => {
     if (!CM.canvas) return null;
     const saved = { night: CM.nightF, health: CM.healthF, last };
+    // Émeutes : riotWindow=false en capture (déterminisme) fait PURGER la sim
+    // par updateCrisis — on lui donne un tableau jetable et on remet la vraie
+    // foule (et ses compteurs d'apaisement) après le cliché, sinon capturer
+    // pendant une émeute la dissiperait pour de bon.
+    const savedRiot = {
+      rioters: CM.rioters, goal: CM.riotGoal, goalAt: CM.riotGoalAt,
+      calmed: CM.riotCalmed, calmDecayT: CM.riotCalmDecayT, draw: CM.riotDraw,
+    };
+    CM.rioters = [];
     CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1 };
     if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
     last = -1e9; // by-passe le throttle pour forcer un vrai rendu
@@ -1422,6 +1434,8 @@ function initCityMap(canvas, options = {}) {
     }
     const url = opts.jpeg ? out.toDataURL('image/jpeg', opts.quality || 0.82) : out.toDataURL('image/png');
     CM.nightF = saved.night; CM.healthF = saved.health; last = saved.last;
+    CM.rioters = savedRiot.rioters; CM.riotGoal = savedRiot.goal; CM.riotGoalAt = savedRiot.goalAt;
+    CM.riotCalmed = savedRiot.calmed; CM.riotCalmDecayT = savedRiot.calmDecayT; CM.riotDraw = savedRiot.draw;
     return url;
   };
   // Hook dev : capture puis POST au middleware Vite -> écrit .preview-shots/<name>.png.

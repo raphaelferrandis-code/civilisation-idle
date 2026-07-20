@@ -295,22 +295,20 @@ function gpl() {
 }
 
 fs.mkdirSync(OUT, { recursive: true });
-const order = [1, 3, 4, 6];
-const sprites = order.map((v) => render(v));
-const sheetPng = sheet(sprites);
 
 // GARDE-FOU : bones.png est le fichier que Raphaël retouche à la main dans
 // Aseprite. Si son contenu ne correspond plus à ce que ce script avait produit,
-// c'est qu'il a été redessiné — on REFUSE de l'écraser (FORCE=1, exactement,
-// pour passer outre). La garde ÉCHOUE FERMÉ : un stamp absent ou vide alors que
-// bones.png existe rend la provenance invérifiable → on refuse aussi, sinon un
-// simple `node scripts/makeOsselets.mjs` détruirait le travail à la main sans
-// prévenir (et réécrirait un stamp neuf qui effacerait toute trace).
+// c'est qu'il a été redessiné — on REFUSE de l'écraser (FORCE=1, exactement —
+// espaces tolérés —, pour passer outre). La garde ÉCHOUE FERMÉ : un stamp
+// absent ou vide alors que bones.png existe rend la provenance invérifiable →
+// on refuse aussi, sinon un simple `node scripts/makeOsselets.mjs` détruirait
+// le travail à la main sans prévenir (et réécrirait un stamp neuf qui
+// effacerait toute trace). Elle ne dépend que de l'état du disque : elle se
+// joue AVANT tout rendu — le chemin de refus ne calcule rien.
 const sheetPath = path.join(OUT, 'bones.png');
 const stampPath = path.join(OUT, '.bones.stamp');
 const digest = (buf) => crypto.createHash('sha1').update(buf).digest('hex');
-const fresh = PNG.sync.write(sheetPng);
-if (fs.existsSync(sheetPath) && process.env.FORCE !== '1') {
+if (fs.existsSync(sheetPath) && (process.env.FORCE || '').trim() !== '1') {
   const stamp = fs.existsSync(stampPath) ? fs.readFileSync(stampPath, 'utf8').trim() : '';
   const actual = digest(fs.readFileSync(sheetPath));
   if (actual !== stamp) {
@@ -321,11 +319,23 @@ if (fs.existsSync(sheetPath) && process.env.FORCE !== '1') {
       console.error('     bones.png est encore la version générée — on le traite comme');
       console.error('     un dessin à la main.');
     }
+    // Le contournement REPORTE OSSELETS_OUT : sans ça, coller la commande après
+    // un run sur dossier custom écraserait le bones.png réel de public/. Et il
+    // se décline pour les deux shells de la machine (POSIX + PowerShell).
+    const posix = process.env.OSSELETS_OUT ? `OSSELETS_OUT=${process.env.OSSELETS_OUT} ` : '';
+    const ps = process.env.OSSELETS_OUT ? `$env:OSSELETS_OUT='${process.env.OSSELETS_OUT}'; ` : '';
     console.error('     Rien n’a été écrit — le dessin est préservé.');
-    console.error('     Pour écraser volontairement : FORCE=1 node scripts/makeOsselets.mjs\n');
+    console.error(`     Pour écraser volontairement CE dossier (${OUT}) :`);
+    console.error(`       Git Bash   : ${posix}FORCE=1 node scripts/makeOsselets.mjs`);
+    console.error(`       PowerShell : ${ps}$env:FORCE='1'; node scripts/makeOsselets.mjs; $env:FORCE=$null\n`);
     process.exit(1);
   }
 }
+
+const order = [1, 3, 4, 6];
+const sprites = order.map((v) => render(v));
+const sheetPng = sheet(sprites);
+const fresh = PNG.sync.write(sheetPng);
 order.forEach((v, k) => fs.writeFileSync(path.join(OUT, `bone-${v}.png`), PNG.sync.write(sprites[k])));
 fs.writeFileSync(sheetPath, fresh);
 fs.writeFileSync(stampPath, digest(fresh));

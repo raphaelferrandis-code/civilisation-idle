@@ -1193,3 +1193,17 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 }
 .chronicle-ticker.is-crisis .ticker-masthead { color: #f08a80; }
 .chronicle-ticker.is-crisis .ticker-new-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* ── Utilitaire a11y : contenu pour lecteurs d'écran uniquement ─────────────
+   Pour toute région d'annonce (aria-live) ou texte d'appoint vocal : hors flux,
+   1×1, clippé — invisible à l'écran, lu par la synthèse. clip (déprécié) +
+   clip-path : les deux, pour couvrir vieux et nouveaux moteurs. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1513,11 +1513,19 @@
 .augury-die {
   width: var(--bone);
   height: var(--bone);
-  background-image: url("/pixelart/ui/augures/bones/bones.png");
   background-repeat: no-repeat;
   background-size: calc(var(--bone) * 4) var(--bone);
   image-rendering: pixelated;
   filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* Le sprite n'est posé QUE sur une face fixée, ou pendant une culbute réellement
+   animée : l'état de repli d'un dé sans face est la case vide — jamais la
+   frame 0 de la planche (la face 1, le Chien), qui afficherait un faux « pire
+   tirage » dès qu'un chemin quelconque neutralise l'animation. */
+.augury-die[data-face] { background-image: url("/pixelart/ui/augures/bones/bones.png"); }
+@media (prefers-reduced-motion: no-preference) {
+  .augury-die:not([data-face]) { background-image: url("/pixelart/ui/augures/bones/bones.png"); }
 }
 
 .augury-die[data-face="1"] { background-position-x: 0; }
@@ -1563,22 +1571,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .augury-die { animation: none !important; }
-  /* Sans l'animation de culbute, un osselet pas encore retombé resterait figé
-     sur la frame 0 de la planche — la face 1, le Chien : un faux « pire
-     tirage » affiché pendant tout le jet. On le laisse vide à la place
-     (l'ancienne version texte montrait déjà une case vide en vol). */
-  .augury-die:not([data-face]) { background-image: none; }
-}
-
-/* Texte d'annonce pour lecteurs d'écran : dans le flux de la zone aria-live
-   (seules les insertions de texte sont annoncées), invisible à l'écran. */
-.augury-voice {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  /* Sans culbute, un osselet en vol n'a pas de sprite (cf. la règle
+     no-preference plus haut) : on matérialise son emplacement — .augury-die
+     n'a ni fond ni bordure, la rangée serait sinon invisible pendant le jet. */
+  .augury-die:not([data-face]) {
+    box-shadow: inset 0 0 0 2px rgba(216, 199, 162, 0.35);
+    border-radius: 12px;
+  }
 }
 
 .augury-suspense {

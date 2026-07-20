@@ -19,7 +19,8 @@
     "productName": "Civilisation Idle",
     "files": [
       "dist/**/*",
-      "main.cjs"
+      "main.cjs",
+      "preload.cjs"
     ],
     "directories": {
       "output": "../ce-release"

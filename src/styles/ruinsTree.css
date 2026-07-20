@@ -753,15 +753,8 @@
 .rt-status--locked { color: var(--text-mid); }
 .rt-status--blocked { color: var(--red, #ef4444); }
 
-/* ---- Région d'annonce a11y (visuellement masquée) ---- */
-.rt-live {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
+/* La région d'annonce a11y (ex .rt-live) utilise l'utilitaire .sr-only
+   (components.css) — même masquage que toutes les zones aria-live du jeu. */
 
 /* Dogmes : même disque bombé mais en médaillon arrondi (border-radius 26 %
    défini plus haut) — distinct des nœuds ronds, sans cadre sombre. */

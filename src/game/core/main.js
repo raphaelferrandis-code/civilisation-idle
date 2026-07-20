@@ -15,6 +15,7 @@ import {
   notify,
   hydrateState
 } from './state.js';
+import { cloudMirrorSave } from './cloudSave.js';
 
 import {
   has,
@@ -90,6 +91,10 @@ export function importSave(text) {
     setCollapseInProgress(false);
     invalidateRenderCache("all");
     save();
+    // Import VOLONTAIRE : il fait autorité, même si la partie importée est moins
+    // avancée — on pousse tout de suite le nuage, sinon l'arbitrage « la plus
+    // avancée gagne » ressusciterait l'ancienne partie au prochain lancement.
+    cloudMirrorSave({ force: true });
     log("Une civilisation importee reprend son cycle.");
     render();
     return true;

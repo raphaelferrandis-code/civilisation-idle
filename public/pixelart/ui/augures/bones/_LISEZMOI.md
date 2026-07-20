@@ -12,7 +12,7 @@ Les autres fichiers sont des aides :
 | `_gabarit-vierge.png` | canevas vide aux dimensions exactes, pour repartir de zéro |
 | `_guide.png` | planche de référence ×8 (grille de 8px + rampe) — à regarder, pas à peindre |
 | `_palette.gpl` | la palette, à charger dans Aseprite |
-| `bone-1/3/4/6.png` | les faces séparées, EN LECTURE SEULE : le jeu ne les charge pas et le script les régénère — pour bosser une face, édite la frame correspondante de `bones.png` |
+| `bone-1/3/4/6.png` | les faces séparées, EN LECTURE SEULE : le jeu ne les charge pas. Instantanés de la **dernière génération du script** — dès que tu retouches `bones.png`, elles sont périmées (seule `bones.png` fait foi). Pour bosser une face, édite la frame correspondante de `bones.png` |
 
 ## Le contrat (à respecter, sinon ça casse)
 
@@ -33,7 +33,9 @@ le CSS suit tout seul. Garde juste des cadres **carrés** et un facteur d'échel
 **entier** à l'écran (32 → 96px c'est ×3 ; 48 → 96px c'est ×2), sinon la grille
 de pixels bave. ⚠ Le facteur doit rester entier AUSSI pour le repli petit écran
 (`--bone: 64px` sous 720px dans `views-regulation.css`) : 64 n'est pas un
-multiple de 48 — si tu passes en `48×48`, ajuste ce repli (48px ou 96px).
+multiple de 48 — si tu passes en `48×48`, mets ce repli à `48px` (pas 96px :
+la rangée de 4 ne tiendrait plus sur un téléphone et les dés, compressés par
+le flex, baveraient de toute façon).
 
 ## Dans Aseprite
 

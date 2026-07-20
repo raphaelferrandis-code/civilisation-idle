@@ -13,7 +13,11 @@ import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
 import { generateCityName } from '../map/procedural/cityName.js';
 
-export const SAVE_KEY = "civilization-collapse-idle-v1";
+// La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
+// ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
+import { SAVE_KEY } from './saveKey.js';
+import { cloudMirrorSave } from './cloudSave.js';
+export { SAVE_KEY };
 
 // Version du SCHÉMA de sauvegarde, stockée DANS le payload (state.saveVersion) —
 // surtout pas dans SAVE_KEY. Bumper SAVE_KEY effacerait tous les saves ; bumper
@@ -1451,6 +1455,7 @@ export function save() {
     // La progression continue en memoire — pas de crash silencieux.
     console.warn("Sauvegarde impossible:", e?.message || e);
   }
+  cloudMirrorSave(); // miroir Google Drive du .exe (throttlé) — no-op en navigateur
 }
 
 // Invalide d'un seul coup les 5 caches de frame (vitals, pressure, globalMult,

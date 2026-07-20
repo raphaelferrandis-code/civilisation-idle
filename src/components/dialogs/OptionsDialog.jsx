@@ -23,6 +23,7 @@ import {
   setAutomateThreshold
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
+import { cloudWipe, cloudSaveDir } from '../../game/core/cloudSave.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
@@ -45,6 +46,9 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleWipe = () => {
     if (!confirm(tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }))) return;
     localStorage.removeItem(SAVE_KEY);
+    // Efface aussi le fichier nuage (Google Drive, .exe) : sinon l'ancienne
+    // partie — forcément « plus avancée » — ressusciterait au prochain lancement.
+    cloudWipe();
     invalidateRenderCache("all");
     setState(defaultState());
     render();
@@ -397,6 +401,24 @@ export default function OptionsDialog({ isOpen, onClose }) {
           )}
 
           {/* OTHER PANEL */}
+          {activeGroup === 'other' && (
+            <div className="options-row">
+              <div>
+                <span>{tr({ fr: "Sauvegarde nuage", en: "Cloud save" })}</span>
+                <small>
+                  {cloudSaveDir()
+                    ? tr({
+                        fr: `Active : la partie suit ton Google Drive (${cloudSaveDir()}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
+                        en: `Active: the save follows your Google Drive (${cloudSaveDir()}) — launch the game on another equipped device and it will be there.`
+                      })
+                    : tr({
+                        fr: "Inactive : « Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
+                        en: "Inactive: “Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
+                      })}
+                </small>
+              </div>
+            </div>
+          )}
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>

@@ -423,7 +423,7 @@ export default function RuinsTreePixel() {
       onPointerLeave={onPointerUp}
     >
       <RuinsUsureSync targetRef={containerRef} />
-      <div className="rt-live" aria-live="polite" role="status">{liveMsg}</div>
+      <div className="sr-only" aria-live="polite" role="status">{liveMsg}</div>
       <div
         className="rt-world"
         ref={worldRef}

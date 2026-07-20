@@ -2423,6 +2423,8 @@ function updateCrisis(dt, now) {
   // l'horloge SIMULÉE — l'option d'affichage Jour/Nuit ne la touche pas — et
   // vaut 23 % du temps réel, la dose de l'ancienne courbe sinus. Ne PAS la
   // re-dériver de CM.dayRising/nightF : ceux-là portent le VISUEL (forçables).
+  // En capture (CM.capture), la fenêtre est coupée à la source : les clichés
+  // __cityShot sont déterministes, jamais de foule dessus.
   const afternoon = CM.riotWindow === true;
   const baseWant = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
   // Les apaisements au clic réduisent la foule ; l'effet s'estompe avec le temps

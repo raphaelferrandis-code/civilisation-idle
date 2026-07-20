@@ -242,21 +242,28 @@ export default function AuguryStage({ table, onClose }) {
           <div className="augury-dice" aria-live="polite">
             {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
                 pas de face fixée — l'animation fait défiler la planche. La valeur
-                se lit aux pips gravés ; l'aria-label la donne en mode navigation. */}
+                se lit aux pips gravés ; l'aria-label la donne en mode navigation.
+                Key STABLE (pas de `d-`/`t-` selon isDouble) : remonter les spans
+                dans la zone aria-live ferait annoncer 4× « osselet en l'air » à
+                chaque quitte-ou-double, et la culbute redémarre déjà toute seule
+                (retrait d'is-landed = changement d'animation-name). */}
             {(bones || []).map((v, i) => (
               <span
-                key={`${isDouble ? 'd' : 't'}-${i}`}
+                key={i}
                 className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed && v === 1 ? ' is-ace' : ''}`}
                 data-face={i < landed ? v : undefined}
                 role="img"
                 aria-label={i < landed ? String(v) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' })}
               />
             ))}
-            {/* La zone aria-live n'annonce que les INSERTIONS DE TEXTE (aria-relevant
-                par défaut), pas les changements d'attributs : les valeurs tombées
-                passent donc aussi par ce texte masqué qui s'allonge à chaque
-                atterrissage — c'est lui que la synthèse vocale lit. */}
-            <span className="augury-voice">{(bones || []).slice(0, landed).join(' · ')}</span>
+            {/* Annonce vocale : la zone aria-live n'annonce que les ADDITIONS de
+                nœuds (aria-relevant par défaut), pas les changements d'attributs —
+                donc un span PAR valeur tombée, les précédents restant intacts.
+                Surtout pas un seul texte qui s'allonge : React remplacerait le
+                nœud texte entier et la synthèse relirait tout le cumul. */}
+            <span className="sr-only">
+              {(bones || []).slice(0, landed).map((v, i) => <span key={i}>{`${v} `}</span>)}
+            </span>
           </div>
 
           {phase === 'cast' && (

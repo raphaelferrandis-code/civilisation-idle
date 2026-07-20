@@ -26,6 +26,10 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      // sandbox:false UNIQUEMENT pour que le préload accède à fs (sauvegarde
+      // nuage OneDrive) — la page, elle, reste isolée (contextIsolation).
+      sandbox: false,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
