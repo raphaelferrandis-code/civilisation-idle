@@ -330,7 +330,10 @@ function smoothNoise(gx, gy, scale, salt) {
 // seuls restent les touffes debout et les fleurs (accents validés). Historique
 // des retours Raph, ne pas re-proposer sans demande : langues crantées 'teeth'
 // (pointes sombres lisaient en « tas »), puis ourlet continu 'hem' (« ça n'a
-// rien changé, enlève-le »). Les deux restent en knob : __grassFringe({mode:'teeth'|'hem'}).
+// rien changé, enlève-le »). Les deux restent en knob — mais `dark` a été mis à
+// 0 en même temps : le look 'teeth' HISTORIQUE se rejoue avec
+// __grassFringe({mode:'teeth', dark:1}) (sans dark:1, pointes sans ourlet
+// d'ombre = un rendu qui n'a jamais existé) ; 'hem' : __grassFringe({mode:'hem'}).
 const GRASS_FRINGE = { on: true, mode: 'none', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0 };
 const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
 const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière

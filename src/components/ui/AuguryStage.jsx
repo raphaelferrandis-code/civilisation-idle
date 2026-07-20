@@ -242,8 +242,7 @@ export default function AuguryStage({ table, onClose }) {
           <div className="augury-dice" aria-live="polite">
             {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
                 pas de face fixée — l'animation fait défiler la planche. La valeur
-                n'est plus écrite, elle se lit aux pips gravés ; on la redonne en
-                aria-label pour ne pas la perdre à la synthèse vocale. */}
+                se lit aux pips gravés ; l'aria-label la donne en mode navigation. */}
             {(bones || []).map((v, i) => (
               <span
                 key={`${isDouble ? 'd' : 't'}-${i}`}
@@ -253,6 +252,11 @@ export default function AuguryStage({ table, onClose }) {
                 aria-label={i < landed ? String(v) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' })}
               />
             ))}
+            {/* La zone aria-live n'annonce que les INSERTIONS DE TEXTE (aria-relevant
+                par défaut), pas les changements d'attributs : les valeurs tombées
+                passent donc aussi par ce texte masqué qui s'allonge à chaque
+                atterrissage — c'est lui que la synthèse vocale lit. */}
+            <span className="augury-voice">{(bones || []).slice(0, landed).join(' · ')}</span>
           </div>
 
           {phase === 'cast' && (

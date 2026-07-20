@@ -1,8 +1,9 @@
 // Génère les OSSELETS (astragales) de la Table des augures — pixel-art AUTHORED
 // (pas PixelLab : quota épuisé, arbitrage Raph 2026-07-20 « tente à la main »).
 //
-//   Sortie : <OUT>/bone-1.png, bone-3.png, bone-4.png, bone-6.png  (32x32, alpha)
-//            + contact.png (planche de revue : 6x puis taille réelle 2x)
+//   Sortie : <OUT>/bones.png (planche 4 faces SERVIE au jeu) + bone-1/3/4/6.png
+//            (faces séparées, aides en lecture seule) + gabarit/guide/palette.
+//            contact.png (planche de revue) n'est écrit QU'EN mode OSSELETS_OUT.
 //
 // DA calée sur la fresque du jeu (public/pixelart/ui/augures/osselets.png) :
 // ivoire chaud → brun, specular crème, contour brun sombre. Lumière HAUT-GAUCHE
@@ -22,7 +23,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 const OUT = process.env.OSSELETS_OUT || 'public/pixelart/ui/augures/bones';
-const S = 32; // canevas (affiché ×2 = 64px, mise à l'échelle ENTIÈRE obligatoire)
+const S = 32; // canevas ; la taille d'affichage fait autorité dans le CSS
+              // (--bone, views-regulation.css : 96px = ×3, repli 64px = ×2) —
+              // toute échelle à l'écran doit rester un multiple ENTIER de S
 
 // --- palette (échantillonnée sur la fresque) -------------------------------
 // index 0 = contour, 1..6 = rampe ombre → specular
@@ -298,18 +301,26 @@ const sheetPng = sheet(sprites);
 
 // GARDE-FOU : bones.png est le fichier que Raphaël retouche à la main dans
 // Aseprite. Si son contenu ne correspond plus à ce que ce script avait produit,
-// c'est qu'il a été redessiné — on REFUSE de l'écraser (FORCE=1 pour passer
-// outre). Sans ça, un simple `node scripts/makeOsselets.mjs` détruirait le
-// travail à la main sans prévenir.
+// c'est qu'il a été redessiné — on REFUSE de l'écraser (FORCE=1, exactement,
+// pour passer outre). La garde ÉCHOUE FERMÉ : un stamp absent ou vide alors que
+// bones.png existe rend la provenance invérifiable → on refuse aussi, sinon un
+// simple `node scripts/makeOsselets.mjs` détruirait le travail à la main sans
+// prévenir (et réécrirait un stamp neuf qui effacerait toute trace).
 const sheetPath = path.join(OUT, 'bones.png');
 const stampPath = path.join(OUT, '.bones.stamp');
 const digest = (buf) => crypto.createHash('sha1').update(buf).digest('hex');
 const fresh = PNG.sync.write(sheetPng);
-if (fs.existsSync(sheetPath) && !process.env.FORCE) {
+if (fs.existsSync(sheetPath) && process.env.FORCE !== '1') {
   const stamp = fs.existsSync(stampPath) ? fs.readFileSync(stampPath, 'utf8').trim() : '';
   const actual = digest(fs.readFileSync(sheetPath));
-  if (stamp && actual !== stamp) {
-    console.error('\n  ⚠  bones.png a été RETOUCHÉ À LA MAIN depuis la dernière génération.');
+  if (actual !== stamp) {
+    if (stamp) {
+      console.error('\n  ⚠  bones.png a été RETOUCHÉ À LA MAIN depuis la dernière génération.');
+    } else {
+      console.error('\n  ⚠  .bones.stamp est ABSENT ou vide : impossible de prouver que');
+      console.error('     bones.png est encore la version générée — on le traite comme');
+      console.error('     un dessin à la main.');
+    }
     console.error('     Rien n’a été écrit — le dessin est préservé.');
     console.error('     Pour écraser volontairement : FORCE=1 node scripts/makeOsselets.mjs\n');
     process.exit(1);

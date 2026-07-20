@@ -12,7 +12,7 @@ Les autres fichiers sont des aides :
 | `_gabarit-vierge.png` | canevas vide aux dimensions exactes, pour repartir de zéro |
 | `_guide.png` | planche de référence ×8 (grille de 8px + rampe) — à regarder, pas à peindre |
 | `_palette.gpl` | la palette, à charger dans Aseprite |
-| `bone-1/3/4/6.png` | les faces séparées (pratique pour bosser une seule face) |
+| `bone-1/3/4/6.png` | les faces séparées, EN LECTURE SEULE : le jeu ne les charge pas et le script les régénère — pour bosser une face, édite la frame correspondante de `bones.png` |
 
 ## Le contrat (à respecter, sinon ça casse)
 
@@ -31,7 +31,9 @@ Les autres fichiers sont des aides :
 Tu peux changer la taille source (par ex. `48×48`, donc une planche `192×48`) :
 le CSS suit tout seul. Garde juste des cadres **carrés** et un facteur d'échelle
 **entier** à l'écran (32 → 96px c'est ×3 ; 48 → 96px c'est ×2), sinon la grille
-de pixels bave.
+de pixels bave. ⚠ Le facteur doit rester entier AUSSI pour le repli petit écran
+(`--bone: 64px` sous 720px dans `views-regulation.css`) : 64 n'est pas un
+multiple de 48 — si tu passes en `48×48`, ajuste ce repli (48px ou 96px).
 
 ## Dans Aseprite
 

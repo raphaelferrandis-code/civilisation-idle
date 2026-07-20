@@ -1495,8 +1495,8 @@
 }
 
 /* Les osselets : ivoire patiné, culbute pendant le jet, atterrissage un à un.
-   Les faces portent les VALEURS (1·3·4·6) — les hautes verdissent l'ivoire,
-   les AS (funestes) le rougissent. */
+   Les faces portent les VALEURS (1·3·4·6) en pips gravés — ivoire nu pour
+   toutes ; seul le Chien (1) reçoit un halo funeste (.is-ace). */
 .augury-dice {
   display: flex;
   gap: 0.9rem;
@@ -1563,6 +1563,22 @@
 
 @media (prefers-reduced-motion: reduce) {
   .augury-die { animation: none !important; }
+  /* Sans l'animation de culbute, un osselet pas encore retombé resterait figé
+     sur la frame 0 de la planche — la face 1, le Chien : un faux « pire
+     tirage » affiché pendant tout le jet. On le laisse vide à la place
+     (l'ancienne version texte montrait déjà une case vide en vol). */
+  .augury-die:not([data-face]) { background-image: none; }
+}
+
+/* Texte d'annonce pour lecteurs d'écran : dans le flux de la zone aria-live
+   (seules les insertions de texte sont annoncées), invisible à l'écran. */
+.augury-voice {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .augury-suspense {
