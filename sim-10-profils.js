@@ -583,7 +583,6 @@ async function resolvePause() {
 //   met()      : objectif atteint -> on declenche l'effondrement immediatement
 //   maxCycles  : nombre d'essais de cycle pour ce Mythe
 const goldNum  = () => num(state.gold);
-const powerNum = () => num(state.population) + num(state.food) * 0.05 + num(state.gold) * 0.1 + num(state.knowledge) * 0.25 + num(state.infrastructure);
 
 const MYTH_TACTICS = {
   // ── Acte I ────────────────────────────────────────────────────────────────
