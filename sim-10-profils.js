@@ -694,19 +694,18 @@ const MYTH_TACTICS = {
     met() { return (state.activeRuinIds || []).length >= 4 && num(state.population) >= num(state.mythStartPop || 0) * 50; } },
 
   // ── Ragnarok (debloque le GR11) ───────────────────────────────────────────────
-  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE : survie >=90s + sursaut de puissance x3
-    setup() {
-      const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
-      state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
-      state.pendingActiveRuinsChoice = false;
-      state.babelCategory = state.babelCategory || "city";
+  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE l'Hiver Fimbul : achever l'Arche (8 offrandes) avant la Fin (24 min)
+    // Le boss est CALIBRE pour exiger les outils (demande Raph) : le bot nu
+    // plafonne a 7/8 (Hiver /2 + Loup rendent la 8e impayable). Le bot joue donc
+    // la Langue commune (+20% sur city) — l'Aile a ete ESSAYEE puis retiree :
+    // sa hate de Rupture x1.5 sur 20 min tuait le bot (3/8, crise terminale tot).
+    onTick() {
+      try {
+        if (state.babelHeritage && !state.babelCommonTongue) actions.babelDeclareTongue("city");
+        actions.ragnarokOffrir();
+      } catch { /* */ }
     },
-    met() {
-      const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
-      const sp = num(state.ragnarokStartPower || 1);
-      const surged = sp > 0 && powerNum() >= sp * 3;
-      return ageSec >= 90 && surged;
-    } }
+    met() { return (state.ragnarokArkOfferings || 0) >= myth.RAGNAROK_ARK_TARGET; } }
 };
 
 // Declenche un effondrement immediat (l'objectif du Mythe est atteint) : on
@@ -787,9 +786,10 @@ async function tryCompleteMyth(m, rec, prof) {
       process.stderr.write(`    [phenix] cyc${c} renais=${state.phoenixRenaissances || 0}/3 pop=${fmt(num(state.population))} pic=${fmt(num(state.cyclePeaks?.population || 0))} cible=${fmt(num(state.phoenixRebirthTargetPop || 0))} age=${fmtDuration(VT - startVT)}\n`);
     }
     if (argv.debug && m.id === "mythe_du_ragnarok") {
-      const sp = num(state.ragnarokStartPower || 1);
-      const surge = sp > 0 ? powerNum() / sp : 0;
-      process.stderr.write(`    [ragnarok] cyc${c} survie=${fmtDuration(VT - startVT)} (>=90s? ${VT - startVT >= 90}) surge=${surge.toFixed(0)}x/1000x power=${fmt(powerNum())} start=${fmt(sp)} maluses=${(state.activeRuinIds || []).length} crise=${crisisOpen()}\n`);
+      const lot = actions.ragnarokOfferingCost();
+      const deficit = ["food", "gold", "knowledge", "infrastructure"]
+        .map((k) => `${k[0]}:${fmt(num(state[k]))}/${fmt(num(lot[k]))}`).join(" ");
+      process.stderr.write(`    [ragnarok] cyc${c} arche=${state.ragnarokArkOfferings || 0}/${myth.RAGNAROK_ARK_TARGET} age=${fmtDuration(VT - startVT)} rupture=${(state.instability || 0).toFixed(2)} crise=${crisisOpen()} ${deficit}\n`);
     }
     if (objectiveHit) { forceCollapseNow("manual"); rec.check(); if (isMythCompleted(m.id)) break; }
     else {

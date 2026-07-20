@@ -47,10 +47,6 @@ function BuildingShop() {
   const buyAmount = useGameState(s => s.buyAmount);
   const stateCycles = useGameState(s => s.cycles);
   useGameState(s => s.activeMythId);
-  // babelActive dépend de activeMythId ET de ragnarokEffectsApplied (Babel ∈
-  // RAGNAROK_CONSTRAINTS) : sans cet abonnement, le blocage Babel resterait
-  // périmé si Ragnarok (dés)activait ses effets sans changer activeMythId.
-  useGameState(s => s.ragnarokEffectsApplied);
   const babelCategory = useGameState(s => s.babelCategory);
 
   // Coûts de lot mémoïsés. buildingBatchCost fait des sommes géométriques en

@@ -3,6 +3,8 @@ import { useGameState } from '../../hooks/useGameState.js';
 import {
   MYTHS,
   RAGNAROK_ID,
+  RAGNAROK_DURATION_MS,
+  RAGNAROK_ARK_TARGET,
   getMythById,
   isMythCompleted,
   isMythActive,
@@ -46,7 +48,6 @@ const FALLBACK_OLYMPUS = defaultOlympusState(0);
 export default function MythsView() {
   const activeMythId = useGameState(s => s.activeMythId);
   const gamePaused = useGameState(s => s.gamePaused);
-  const ragnarokActiveConstraints = useGameState(s => s.ragnarokActiveConstraints || []);
   const olympusState = useGameState(s => s.olympus);
 
   const [modalMyth, setModalMyth] = useState(null);
@@ -96,16 +97,20 @@ export default function MythsView() {
             </div>
           )}
 
-          {activeMythId === RAGNAROK_ID && ragnarokActiveConstraints.length > 0 && (
+          {/* « L'Hiver Fimbul » : la Prophétie — les échéances scriptées du boss
+              final, statiques (le compte à rebours vivant est sur la carte de la
+              Cité). Remplace l'ancien panneau des 13 contraintes simultanées. */}
+          {activeMythId === RAGNAROK_ID && (
             <div className="ragnarok-constraints-panel">
               <div className="ragnarok-constraints-heading">
-                <span className="label">{tr({ fr: 'Contraintes simultanees', en: 'Simultaneous constraints' })}</span>
-                <strong>{tr({ fr: 'La Fin rassemble tous les pactes', en: 'The End gathers all the pacts' })}</strong>
+                <span className="label">{tr({ fr: 'La Prophétie', en: 'The Prophecy' })}</span>
+                <strong>{tr({ fr: "La Fin est écrite — seule l'Arche la conjure", en: 'The End is written — only the Ark wards it off' })}</strong>
               </div>
               <ul>
-                {ragnarokActiveConstraints.map((constraint, index) => (
-                  <li key={`${constraint}-${index}`}>{constraint}</li>
-                ))}
+                <li>{tr({ fr: `À 8 min — l'HIVER : toute la production est gelée de moitié.`, en: `At 8 min — the WINTER: all production is frozen by half.` })}</li>
+                <li>{tr({ fr: `À 14 min — le LOUP : il dévore les bâtiments, bouchée par bouchée.`, en: `At 14 min — the WOLF: it devours buildings, bite by bite.` })}</li>
+                <li>{tr({ fr: `À 20 min — le FEU DE SURT : la Rupture monte, insensible aux leviers.`, en: `At 20 min — SURTR'S FIRE: Rupture rises, deaf to every lever.` })}</li>
+                <li>{tr({ fr: `À ${RAGNAROK_DURATION_MS / 60_000} min — la FIN : tout s'effondre. Achève l'Arche (${RAGNAROK_ARK_TARGET} offrandes) avant elle.`, en: `At ${RAGNAROK_DURATION_MS / 60_000} min — the END: everything collapses. Complete the Ark (${RAGNAROK_ARK_TARGET} offerings) before it.` })}</li>
               </ul>
             </div>
           )}

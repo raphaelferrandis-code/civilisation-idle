@@ -307,10 +307,12 @@ autonome qui cite les Mythes thématiquement.
 > treize autres défis** — exactement ce que le §6.5 veut supprimer. L'affranchir lève la
 > contradiction : chaque défi peut désormais être un verbe, une fenêtre, une séquence.
 >
-> Dette technique à solder : `RAGNAROK_CONSTRAINTS`, la branche ragnarok de
-> `isMythEffectActive`, les champs `ragnarokSummary` des quatorze Mythes,
-> `ragnarokEffectsApplied` et `ragnarokActiveConstraints` n'existent que pour la superposition.
-> C'est un lot de simplification, pas un lot de réécriture.
+> Dette technique — **SOLDÉE le 2026-07-20** avec la refonte « l'Hiver Fimbul » :
+> `RAGNAROK_CONSTRAINTS`, la branche ragnarok de `isMythEffectActive`, les champs
+> `ragnarokSummary`, `ragnarokEffectsApplied` et `ragnarokActiveConstraints` ont
+> tous été supprimés. Le Ragnarok n'applique plus aucune superposition : c'est une
+> apocalypse scriptée en 3 fléaux (Hiver 8 min, Loup 14 min, Feu 20 min, Fin 24 min)
+> conjurée par l'Arche (8 offrandes au prix figé en secondes de production).
 
 **D7. Un Mythe accompli le reste.** *(2026-07-18.)* Réécrire les quatorze récompenses invalide
 les treize drapeaux d'héritage de `GR_PERSISTENT_FIELDS`, y compris dans les saves existantes.

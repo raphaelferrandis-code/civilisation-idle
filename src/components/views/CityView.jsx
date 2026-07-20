@@ -27,6 +27,8 @@ import {
   sisyphePousser,
   babelDeclareTongue,
   babelToggleAutoTongue,
+  ragnarokOffrir,
+  ragnarokOfferingCost,
   negotiateOrDeal,
   rembourserAtridesDebt,
   renegocierAtridesDebt,
@@ -64,6 +66,13 @@ import {
   PROMETHEE_POP_TARGET,
   PROMETHEE_FATAL_RUPTURE,
   CHAOS_RAW_RUIN_TARGET,
+  RAGNAROK_ID,
+  RAGNAROK_ARK_TARGET,
+  RAGNAROK_ARK_COOLDOWN_MS,
+  RAGNAROK_WINTER_AT_MS,
+  RAGNAROK_WOLF_AT_MS,
+  RAGNAROK_FIRE_AT_MS,
+  RAGNAROK_DURATION_MS,
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
@@ -74,6 +83,7 @@ export default function CityView() {
     cityName, population, food, gold, knowledge, infrastructure,
     cycleStartedAt, archaeologyUses,
     activeMythId, icareAltitude, icareHeritage, mythStartGold, babelCategory, babelHeritage, babelCommonTongue, babelAutoTongue,
+    ragnarokArkOfferings, ragnarokArkNextAt,
     sisypheCran, sisypheMontees, sisypheUsesFood, sisypheUsesKnowledge, sisypheUsesInfra,
     orDealsClosed, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
     hephPopPeak, hephGoalReached,
@@ -205,6 +215,27 @@ export default function CityView() {
   // Carte Babel : pendant le Mythe (la tour), ou en héritage (la Langue commune).
   const showBabel = isBabel || Boolean(babelHeritage);
   const isChaos = isMythEffectActive("mythe_du_chaos");
+  const isRagnarok = isMythEffectActive(RAGNAROK_ID);
+  // « L'Hiver Fimbul » : la prochaine échéance de la prophétie, pour le compte à
+  // rebours de la carte (l'âge se lit sur l'horloge du tick, comme le reste).
+  const ragnarokEcheances = [
+    [RAGNAROK_WINTER_AT_MS, tr({ fr: "l'Hiver", en: "the Winter" })],
+    [RAGNAROK_WOLF_AT_MS, tr({ fr: "le Loup", en: "the Wolf" })],
+    [RAGNAROK_FIRE_AT_MS, tr({ fr: "le Feu", en: "the Fire" })],
+    [RAGNAROK_DURATION_MS, tr({ fr: "la Fin", en: "the End" })]
+  ];
+  const ragnarokAgeMs = isRagnarok ? Math.max(0, now - (cycleStartedAt || now)) : 0;
+  const ragnarokNext = ragnarokEcheances.find(([at]) => ragnarokAgeMs < at) || null;
+  const ragnarokCompteARebours = ragnarokNext
+    ? `${Math.floor((ragnarokNext[0] - ragnarokAgeMs) / 60_000)}:${String(Math.floor(((ragnarokNext[0] - ragnarokAgeMs) % 60_000) / 1000)).padStart(2, "0")}`
+    : null;
+  // Prix VIVANT de l'offrande (secondes de prod courante, cliqueté à la hausse) —
+  // recalculé au rythme du re-render 1 Hz, comme les taux du Comptoir.
+  const ragnarokLot = isRagnarok ? ragnarokOfferingCost() : null;
+  const ragnarokCdLeft = Math.max(0, Math.ceil(((ragnarokArkNextAt || 0) - now) / 1000));
+  const ragnarokPayable = Boolean(ragnarokLot) && ragnarokCdLeft <= 0 &&
+    D(food || 0).gte(ragnarokLot.food) && D(gold || 0).gte(ragnarokLot.gold) &&
+    D(knowledge || 0).gte(ragnarokLot.knowledge) && D(infrastructure || 0).gte(ragnarokLot.infrastructure);
   const isOr = isMythEffectActive("mythe_age_or");
   const isPhoenix = isMythEffectActive("mythe_du_phenix");
   const isHeph = isMythEffectActive("mythe_d_hephaistos");
@@ -247,7 +278,7 @@ export default function CityView() {
   const eneeElapsedMs = eneeTerritoryStartedAt ? Math.max(0, now - eneeTerritoryStartedAt) : 0;
   const eneeRemainingSecs = Math.max(0, Math.ceil((eneeIntervalMs - eneeElapsedMs) / 1000));
 
-  const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isChaos || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
+  const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isChaos || isRagnarok || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
 
   // Pastille de la chronique : dépêche encore dans sa fenêtre d'affichage.
   const chronicleVisible = Boolean(latestChronicle && now - (latestChronicle.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
@@ -255,7 +286,7 @@ export default function CityView() {
   // Badge du dock Mythes : nombre de cartes de statut actuellement actives.
   const mythCount = [
     isPromethee, showEpaule,
-    isSisyphe, isIcare || ((icareAltitude || 0) > 0), showBabel, isChaos, isOr, isPhoenix, isHeph, isAtrides,
+    isSisyphe, isIcare || ((icareAltitude || 0) > 0), showBabel, isChaos, isRagnarok, isOr, isPhoenix, isHeph, isAtrides,
     atridesPactActive, atridesNextRunPenaltyActive, isMythEffectActive("mythe_d_enee"),
     eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
   ].filter(Boolean).length;
@@ -583,6 +614,39 @@ export default function CityView() {
 
             {/* Cartes de statut des mythes & puissance latente */}
             <div className="myths-grid-redesigned">
+              {/* Ragnarok — « l'Hiver Fimbul » : l'Arche à achever avant la Fin,
+                  avec le compte à rebours de la prochaine échéance de la prophétie.
+                  OFFRIR paie le lot figé à l'activation (title du bouton). */}
+              {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/ragnarok.png — à générer. */}
+              {isRagnarok && (
+                <div className="myth-status-card ragnarok" title={tr({
+                  fr: `Achever l'Arche (${RAGNAROK_ARK_TARGET} offrandes) avant la Fin. La prophétie : l'Hiver à 8 min (production ÷2), le Loup à 14 min (dévore les bâtiments), le Feu à 20 min (Rupture inexorable), la Fin à ${RAGNAROK_DURATION_MS / 60_000} min.`,
+                  en: `Complete the Ark (${RAGNAROK_ARK_TARGET} offerings) before the End. The prophecy: the Winter at 8 min (production ÷2), the Wolf at 14 min (devours buildings), the Fire at 20 min (relentless Rupture), the End at ${RAGNAROK_DURATION_MS / 60_000} min.`
+                })}>
+                  <PixelIcon name="myths/pacte" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Ragnarok", en: "Ragnarok" })}</span>
+                    <strong className={ragnarokAgeMs >= RAGNAROK_WOLF_AT_MS ? "danger-text" : undefined}>
+                      {tr({
+                        fr: `Arche ${ragnarokArkOfferings || 0}/${RAGNAROK_ARK_TARGET}${ragnarokNext ? ` · ${ragnarokNext[1]} dans ${ragnarokCompteARebours}` : ""}`,
+                        en: `Ark ${ragnarokArkOfferings || 0}/${RAGNAROK_ARK_TARGET}${ragnarokNext ? ` · ${ragnarokNext[1]} in ${ragnarokCompteARebours}` : ""}`
+                      })}
+                    </strong>
+                    <div className="myth-card-actions">
+                      <button type="button" className={ragnarokPayable ? "btn-primary" : "btn-secondary"}
+                        onClick={ragnarokOffrir} disabled={!ragnarokPayable}
+                        title={ragnarokLot
+                          ? tr({
+                              fr: `Verser une offrande : ${fmt(ragnarokLot.food)} Nourriture + ${fmt(ragnarokLot.gold)} Trésor + ${fmt(ragnarokLot.knowledge)} Savoir + ${fmt(ragnarokLot.infrastructure)} Infrastructure. Le prix a été scellé au pacte, à la mesure de la cité d'avant ; l'Arche n'accepte qu'une offrande toutes les ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)} s.`,
+                              en: `Pour an offering: ${fmt(ragnarokLot.food)} Food + ${fmt(ragnarokLot.gold)} Treasury + ${fmt(ragnarokLot.knowledge)} Knowledge + ${fmt(ragnarokLot.infrastructure)} Infrastructure. The price was sealed at the pact, to the measure of the city that was; the Ark accepts one offering every ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)}s.`
+                            })
+                          : undefined}>
+                        {ragnarokCdLeft > 0 ? tr({ fr: `Offrir (${ragnarokCdLeft}s)`, en: `Offer (${ragnarokCdLeft}s)` }) : tr({ fr: "Offrir", en: "Offer" })}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Chaos — cycle sans aucun bonus de méta : la carte suit la moisson
                   de Ruines BRUTES projetée (ruinGain(true), déjà « brut » puisque le
                   Mythe neutralise les bonus). Sacré en direct dès la cible en vue. */}

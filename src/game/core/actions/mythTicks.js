@@ -1,8 +1,10 @@
 "use strict";
 
 import {
-  invalidateRenderCache
+  invalidateRenderCache,
+  buildingById
 } from '../state.js';
+import { tr } from '../i18n.js';
 
 import { rates, ruinGain } from '../mechanics.js';
 
@@ -27,6 +29,12 @@ import {
   CADMOS_AGE_NAME_TARGET,
   CHAOS_RAW_RUIN_TARGET,
   ATRIDES_GAIN_SECONDS,
+  ragnarokAge,
+  RAGNAROK_WOLF_AT_MS,
+  RAGNAROK_WOLF_EAT_INTERVAL_MS,
+  RAGNAROK_WOLF_EAT_PCT,
+  RAGNAROK_FIRE_AT_MS,
+  RAGNAROK_FIRE_RUPTURE_PER_SEC,
   isMythEffectActive
 } from '../../data/myths.js';
 
@@ -119,6 +127,39 @@ export const MYTH_TICK_HANDLERS = {
   // la catégorie (babelTowerCount, data/myths.js) — onCollapse le lit, et
   // checkMythLiveCompletion (appelé au tick) sacre en direct au 70e.
 
+  // « L'Hiver Fimbul » : le Loup et le Feu. (L'Hiver vit dans globalMultipliers
+  // — c'est un facteur de production — et la Fin forcée dans tick.js, à côté du
+  // bûcher programmé du Phénix.)
+  mythe_du_ragnarok: (state, dt) => {
+    const age = ragnarokAge();
+    // Le LOUP (dès 14 min) : une bouchée toutes les 10 s — 2 % du parc (min 1),
+    // prise au bâtiment le plus NOMBREUX (lisible, et mord à toute échelle).
+    // Compteur dérivé de l'âge du cycle : survit au reload sans horloge dédiée.
+    if (age >= RAGNAROK_WOLF_AT_MS) {
+      const dues = Math.floor((age - RAGNAROK_WOLF_AT_MS) / RAGNAROK_WOLF_EAT_INTERVAL_MS) + 1;
+      let devore = false;
+      while ((state.ragnarokWolfBites || 0) < dues) {
+        state.ragnarokWolfBites = (state.ragnarokWolfBites || 0) + 1;
+        const parc = Object.entries(state.buildings).filter(([, n]) => (n || 0) > 0);
+        if (!parc.length) break;
+        const total = parc.reduce((somme, [, n]) => somme + n, 0);
+        const bouchee = Math.max(1, Math.floor(total * RAGNAROK_WOLF_EAT_PCT));
+        const [grosId, grosN] = parc.sort((a, b) => b[1] - a[1])[0];
+        const pris = Math.min(grosN, bouchee);
+        state.buildings[grosId] = grosN - pris;
+        devore = true;
+        const nom = buildingById[grosId] ? tr(buildingById[grosId].name) : grosId;
+        log(`Le Loup dévore ${pris} × ${nom}. Le monde rétrécit.`);
+      }
+      if (devore) invalidateRenderCache("buildings");
+    }
+    // Le FEU DE SURT (dès 20 min) : la Rupture monte, brute — un apport ADDITIF
+    // que les leviers de régulation ne peuvent qu'éponger, pas éteindre.
+    if (age >= RAGNAROK_FIRE_AT_MS) {
+      state.instability = Math.min(1, (state.instability || 0) + RAGNAROK_FIRE_RUPTURE_PER_SEC * dt);
+    }
+  },
+
   mythe_d_hephaistos: (state, dt) => {
     if (D(state.population).gt(state.hephPopPeak || 0)) state.hephPopPeak = state.population;
     const hephElapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
@@ -177,6 +218,7 @@ const MYTH_TICK_ORDER = [
   "mythe_de_promethee",
   "mythe_age_or",
   "mythe_d_atlas",
+  "mythe_du_ragnarok",
   "mythe_d_hephaistos",
   "mythe_d_enee",
   "mythe_de_cadmos"

@@ -767,19 +767,16 @@ const MYTH_TACTICS = {
     met() { return (state.activeRuinIds || []).length >= 4 && num(state.population) >= num(state.mythStartPop || 0) * 50; } },
 
   // ── Ragnarok (debloque le GR11) ───────────────────────────────────────────────
-  mythe_du_ragnarok:   { grow: 600, below: 0.85,
-    setup() {
-      const ids = unlockedActiveRuinDefs(state).map((d) => d.id);
-      state.activeRuinIds = ids.slice(0, Math.max(2, Math.min(ids.length, 4)));
-      state.pendingActiveRuinsChoice = false;
-      state.babelCategory = state.babelCategory || "city";
+  mythe_du_ragnarok:   { grow: 600, below: 0.85, // FINALE l'Hiver Fimbul : achever l'Arche (8 offrandes) avant la Fin (24 min)
+    // Le boss exige les outils : le bot joue la Langue commune (+20% city) —
+    // le bot nu plafonne a 7/8 (voulu), l'Aile testee puis retiree (hate fatale).
+    onTick() {
+      try {
+        if (state.babelHeritage && !state.babelCommonTongue) actions.babelDeclareTongue("city");
+        actions.ragnarokOffrir();
+      } catch { /* */ }
     },
-    met() {
-      const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
-      const sp = num(state.ragnarokStartPower || 1);
-      const surged = sp > 0 && powerNum() >= sp * 3;
-      return ageSec >= 90 && surged;
-    } }
+    met() { return (state.ragnarokArkOfferings || 0) >= myth.RAGNAROK_ARK_TARGET; } }
 };
 
 async function tryCompleteMyth(m, rec) {

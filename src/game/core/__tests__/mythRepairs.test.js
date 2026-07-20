@@ -21,16 +21,18 @@ import { CRISIS_RESOLVE_RUIN_CAP } from "../balance.js";
 import { MYTH_TICK_HANDLERS } from "../actions/mythTicks.js";
 import { registerChoiceDialog } from "../choiceDialog.js";
 import { tick } from "../actions/tick.js";
-import { icareClimb, icareDescend, atlasEpauler, sisyphePousser, babelDeclareTongue, babelToggleAutoTongue } from "../actions/myths.js";
+import { icareClimb, icareDescend, atlasEpauler, sisyphePousser, babelDeclareTongue, babelToggleAutoTongue, ragnarokOffrir, ragnarokOfferingCost } from "../actions/myths.js";
 import { openCrisisEvent, autoResolveCrisisEvent } from "../actions/crisis.js";
-import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_MS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT } from "../../data/myths.js";
+import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_MS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT, RAGNAROK_ARK_TARGET, RAGNAROK_ARK_COOLDOWN_MS, RAGNAROK_WINTER_AT_MS, RAGNAROK_WINTER_PROD_MULT, RAGNAROK_WOLF_AT_MS, RAGNAROK_FIRE_AT_MS } from "../../data/myths.js";
 import { buyBuilding } from "../actions/building.js";
 import { buildingCostAt, ruinGain } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
 const { buildingById } = stateModule;
 import { rates } from "../mechanics/production/rates.js";
 import { BRAISIERS_DURATION_MS, BRAISIERS_FOOD_MULT } from "../../data/myths.js";
-import { toNum } from "../num.js";
+import { toNum, D } from "../num.js";
+import { activateMyth } from "../actions/myths.js";
+import { MYTHS, RAGNAROK_ID } from "../../data/myths.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 describe("§2.1 — Braisiers de Prométhée : migration des saves existantes", () => {
@@ -668,6 +670,126 @@ describe("Babel — la tour lisible + la Langue commune", () => {
     stateModule.invalidateRenderCache("all");
     babelToggleAutoTongue();
     expect(state.babelAutoTongue).toBeNull();
+  });
+});
+
+describe("Ragnarok — « l'Hiver Fimbul »", () => {
+  // Refonte 2026-07-20 (identité choisie par Raph) : plus de superposition des 13
+  // contraintes ni de « puissance ×3 » invisible — une apocalypse scriptée
+  // (Hiver 8 min, Loup 14 min, Feu 20 min, Fin 24 min) conjurée par l'Arche :
+  // 8 offrandes au prix VIVANT (secondes de prod courante, cliqueté à la hausse),
+  // une par cooldown de 2 min — le 1er jet « prix figé à l'activation » tombait
+  // aux planchers (l'activation suit le reset de cité) et le bot bouclait en 2:45.
+  const fimbulState = (ageMs, overrides = {}) => {
+    setState(hydrateState({
+      ...MID_GAME_FIXTURE,
+      activeMythId: RAGNAROK_ID,
+      mythsCompleted: {},
+      cycleStartedAt: FIXED_NOW - ageMs,
+      crisisThresholds: { _25: true, _50: true, _75: true },
+      ...overrides
+    }));
+    stateModule.invalidateRenderCache("all");
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+    registerChoiceDialog((d) => d.options?.[0] || {});
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("OFFRIR paie le prix courant ; sans les moyens, le geste est inerte", () => {
+    // Stocks riches : le prix vivant (75 s de prod) dépasse les stocks de base
+    // du fixture — c'est voulu en jeu (il faut accumuler), pas utile ici.
+    fimbulState(60_000, { food: 1e12, gold: 1e12, knowledge: 1e12, infrastructure: 1e12 });
+    const lot = ragnarokOfferingCost();
+    const foodAvant = toNum(state.food);
+    ragnarokOffrir();
+    expect(state.ragnarokArkOfferings).toBe(1);
+    expect(toNum(state.food)).toBeCloseTo(foodAvant - toNum(lot.food), 2);
+    vi.setSystemTime(FIXED_NOW + RAGNAROK_ARK_COOLDOWN_MS + 1_000); // cooldown passé
+    state.food = D(0);                             // plus les moyens
+    stateModule.invalidateRenderCache("all");
+    ragnarokOffrir();
+    expect(state.ragnarokArkOfferings).toBe(1);
+  });
+
+  it("l'Arche n'accepte qu'une offrande par cooldown — pas de rush", () => {
+    fimbulState(60_000, { food: 1e12, gold: 1e12, knowledge: 1e12, infrastructure: 1e12 });
+    ragnarokOffrir();
+    ragnarokOffrir();                              // immédiat : refusé
+    expect(state.ragnarokArkOfferings).toBe(1);
+    vi.setSystemTime(FIXED_NOW + RAGNAROK_ARK_COOLDOWN_MS + 1_000);
+    stateModule.invalidateRenderCache("all");
+    ragnarokOffrir();
+    expect(state.ragnarokArkOfferings).toBe(2);
+  });
+
+  it("le prix est SCELLÉ au pacte : l'Hiver ne le change pas", () => {
+    fimbulState(60_000, { ragnarokArkCost: { food: 500, gold: 200, knowledge: 100, infrastructure: 40 } });
+    const avant = toNum(ragnarokOfferingCost().food);
+    expect(avant).toBe(500);
+    vi.setSystemTime(FIXED_NOW + RAGNAROK_WINTER_AT_MS + 60_000);   // sous l'Hiver
+    stateModule.invalidateRenderCache("all");
+    expect(toNum(ragnarokOfferingCost().food)).toBe(avant);
+  });
+
+  it("la 8e offrande sacre le Mythe en direct — l'Arche conjure la Fin", () => {
+    fimbulState(60_000, {
+      ragnarokArkOfferings: RAGNAROK_ARK_TARGET - 1,
+      food: 1e12, gold: 1e12, knowledge: 1e12, infrastructure: 1e12
+    });
+    ragnarokOffrir();
+    expect(state.mythsCompleted[RAGNAROK_ID]).toBe(true);
+    expect(state.activeMythId).toBeNull();          // le pacte se retire, les fléaux cessent
+    expect(state.ragnarokHeritage).toBe(true);
+    expect(state.finalChronicleTitle).toBeTruthy(); // le titre final est gravé
+  });
+
+  it("l'HIVER gèle la production dès 8 minutes (mesuré sur l'Infrastructure : mult plein)", () => {
+    fimbulState(60_000);
+    const avant = toNum(rates().infrastructure);
+    fimbulState(RAGNAROK_WINTER_AT_MS + 60_000);
+    const pendant = toNum(rates().infrastructure);
+    expect(pendant / avant).toBeCloseTo(RAGNAROK_WINTER_PROD_MULT, 2);
+  });
+
+  it("le LOUP dévore le parc dès 14 minutes, au bâtiment le plus nombreux", () => {
+    fimbulState(RAGNAROK_WOLF_AT_MS + 60_000, { buildings: { foragers: 50, scribes: 5 } });
+    tick(1);
+    expect(state.buildings.foragers).toBeLessThan(50);
+    expect(state.buildings.scribes).toBe(5);            // le petit est épargné
+    expect(state.ragnarokWolfBites).toBeGreaterThan(0);
+  });
+
+  it("le FEU fait monter la Rupture plus vite qu'un cycle sans Feu", () => {
+    fimbulState(60_000, { instability: 0.5 });
+    tick(4);
+    const sansFeu = state.instability;
+    fimbulState(RAGNAROK_FIRE_AT_MS + 60_000, { instability: 0.5 });
+    tick(4);
+    expect(state.instability).toBeGreaterThan(sansFeu);
+  });
+
+  it("activateMyth scelle le prix sur la prod d'AVANT le reset — pas des planchers", async () => {
+    setState(hydrateState({
+      ...MID_GAME_FIXTURE, grandResetCount: 1,
+      mythsCompleted: Object.fromEntries(MYTHS.filter((m) => m.id !== RAGNAROK_ID).map((m) => [m.id, true])),
+      crisisThresholds: { _25: true, _50: true, _75: true }
+    }));
+    stateModule.invalidateRenderCache("all");
+    await activateMyth(RAGNAROK_ID);
+    expect(state.activeMythId).toBe(RAGNAROK_ID);
+    expect(state.ragnarokArkOfferings).toBe(0);
+    // La cité MID_GAME produit de la Nourriture par milliers/s : 75 s de cette
+    // prod dépasse largement le plancher — le prix reflète la puissance d'avant
+    // le reset. (Le Savoir du fixture ne produit rien : plancher légitime.)
+    expect(toNum(state.ragnarokArkCost.food)).toBeGreaterThan(100);
+    expect(toNum(state.ragnarokArkCost.knowledge)).toBeGreaterThanOrEqual(25);
   });
 });
 

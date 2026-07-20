@@ -34,7 +34,7 @@ export const CURRENT_SAVE_VERSION = 4;
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
   "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
-  "mythStartGold", "mythStartInfra", "mythStartPop", "ragnarokStartPower"
+  "mythStartGold", "mythStartInfra", "mythStartPop"
 ];
 
 // Anciens coûts des nœuds de ruines SUPPRIMÉS par la refonte de l'arbre
@@ -339,7 +339,13 @@ export const defaultState = () => ({
   phoenixRenaissances: 0,
   phoenixRebirthTargetPop: new Decimal(0),
   phoenixNextForceAt: null,
-  ragnarokStartPower: new Decimal(0),
+  // « L'Hiver Fimbul » (Ragnarok) : offrandes versées à l'Arche, prix d'UNE
+  // offrande figé à l'activation (4 Decimals — activateMyth le pose via rates()),
+  // bouchées du Loup déjà prises (dérivé de l'âge du cycle). Tout per-cycle.
+  ragnarokArkOfferings: 0,
+  ragnarokArkCost: null,
+  ragnarokArkNextAt: 0,
+  ragnarokWolfBites: 0,
   hephHeritage: false,
   hephPopPeak: new Decimal(0),
   hephGoalReached: false,
@@ -600,9 +606,7 @@ export const defaultState = () => ({
   activeRuinIds: [],
   pendingActiveRuinsChoice: false,
   ragnarokHeritage: false,
-  ragnarokEffectsApplied: false,
   finalChronicleTitle: null,
-  ragnarokActiveConstraints: [],
   chronicleEntries: [],
   chronicleCooldown: 0,
   olympus: defaultOlympusState()
@@ -1224,7 +1228,18 @@ export function hydrateState(parsed = {}) {
     phoenixTotalRuins: decimalField(source.phoenixTotalRuins, 0),
     phoenixRenaissances: finiteInteger(source.phoenixRenaissances, 0),
     phoenixRebirthTargetPop: decimalField(source.phoenixRebirthTargetPop, 0),
-    ragnarokStartPower: decimalField(source.ragnarokStartPower, 0),
+    ragnarokArkOfferings: finiteInteger(source.ragnarokArkOfferings, 0, 0),
+    // Le prix d'une offrande (4 Decimals), figé à l'activation ; null hors Ragnarok.
+    ragnarokArkCost: source.ragnarokArkCost && typeof source.ragnarokArkCost === "object"
+      ? {
+          food: decimalField(source.ragnarokArkCost.food, 0),
+          gold: decimalField(source.ragnarokArkCost.gold, 0),
+          knowledge: decimalField(source.ragnarokArkCost.knowledge, 0),
+          infrastructure: decimalField(source.ragnarokArkCost.infrastructure, 0)
+        }
+      : null,
+    ragnarokArkNextAt: finiteTimestamp(source.ragnarokArkNextAt, 0),
+    ragnarokWolfBites: finiteInteger(source.ragnarokWolfBites, 0, 0),
     phoenixNextForceAt: source.phoenixNextForceAt ? finiteNumber(source.phoenixNextForceAt, 0, 0) : null,
     hephHeritage: Boolean(source.hephHeritage),
     hephPopPeak: decimalField(source.hephPopPeak, 0),
@@ -1266,9 +1281,7 @@ export function hydrateState(parsed = {}) {
     activeRuinIds: normalizeStringArray(source.activeRuinIds, 32, 80),
     pendingActiveRuinsChoice: Boolean(source.pendingActiveRuinsChoice),
     ragnarokHeritage: Boolean(source.ragnarokHeritage),
-    ragnarokEffectsApplied: Boolean(source.ragnarokEffectsApplied),
     finalChronicleTitle: typeof source.finalChronicleTitle === "string" ? source.finalChronicleTitle.slice(0, 100) : base.finalChronicleTitle,
-    ragnarokActiveConstraints: normalizeStringArray(source.ragnarokActiveConstraints, 32, 200),
     olympus: normalizeOlympusState(source.olympus),
     // Le deuil est le voile transitoire de la séquence d'effondrement
     // (runCollapseSequence) ; la séquence ne reprend pas après un
@@ -1603,6 +1616,10 @@ export function resetTemporaryRunState(s) {
   s.prometheePopReached = false;
   s.prometheeFailed     = false;
   s.chaosReached        = false;
+  s.ragnarokArkOfferings = 0;
+  s.ragnarokArkCost      = null;
+  s.ragnarokArkNextAt    = 0;
+  s.ragnarokWolfBites    = 0;
 
   s.eneeMigrations         = 0;
   s.eneeDegraded           = false;

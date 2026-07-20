@@ -125,6 +125,8 @@ export {
   sisyphePousser,
   babelDeclareTongue,
   babelToggleAutoTongue,
+  ragnarokOffrir,
+  ragnarokOfferingCost,
   negotiateOrDeal,
   comptoirBuy,
   comptoirSellFood,

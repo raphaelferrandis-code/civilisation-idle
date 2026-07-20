@@ -64,6 +64,8 @@ export function useCityViewState() {
     atlasEpaules:                  s.atlasEpaules,
     atlasCrushed:                  s.atlasCrushed,
     atlasShoulderCdEnd:            s.atlasShoulderCdEnd,
+    ragnarokArkOfferings:          s.ragnarokArkOfferings,
+    ragnarokArkNextAt:             s.ragnarokArkNextAt,
     buildingsSig:                  renderCache._buildingsVersion,
     upgradesSig:                   renderCache._upgradesVersion,
     // Horloge du dernier tick : permet d'afficher du temps écoulé sans appeler

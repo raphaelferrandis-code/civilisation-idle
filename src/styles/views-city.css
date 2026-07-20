@@ -1224,6 +1224,7 @@
 .myth-status-card.sisyphus { border-left: 2px solid #8b7d6a; }
 .myth-status-card.icare { border-left: 2px solid var(--gold); }
 .myth-status-card.chaos { border-left: 2px solid #7c5cbf; } /* néant primordial */
+.myth-status-card.ragnarok { border-left: 2px solid #b33939; } /* le Feu de Surt */
 .myth-status-card.babel { border-left: 2px solid var(--violet); }
 .myth-status-card.age-or { border-left: 2px solid var(--gold-bright); }
 .myth-status-card.phoenix { border-left: 2px solid var(--red); }

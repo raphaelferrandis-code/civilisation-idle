@@ -16,15 +16,6 @@ export function babelTowerCount() {
     .reduce((sum, b) => sum + (state.buildings[b.id] || 0), 0);
 }
 
-// Score de « puissance » agrégé (Antée, Ragnarok) : somme pondérée des
-// ressources principales, en Decimal pour survivre au-delà du float.
-function mythPowerScore() {
-  return D(state.population).max(0)
-    .add(D(state.food).max(0).mul(0.05))
-    .add(D(state.gold).max(0).mul(0.1))
-    .add(D(state.knowledge).max(0).mul(0.25))
-    .add(D(state.infrastructure).max(0));
-}
 import {
   ANTEE_MIN_ACTIVE_RUINS,
   ANTEE_POP_MULT,
@@ -41,15 +32,61 @@ export const CHAOS_RAW_RUIN_TARGET = 12;         // Ruines BRUTES à gagner ce c
 // au total effectif étaient indétectables à vie — un héritage mort-né.
 export const CHAOS_RUIN_HERITAGE_MULT = 1.25;
 export const RAGNAROK_ID = "mythe_du_ragnarok";
-// Finale « survie + sursaut » sous les 13 contraintes : tenir un plancher de
-// temps ET faire surgir la puissance ×K depuis le départ (il faut bâtir vite
-// dans la fenêtre ~2 min que laisse la Rupture ×30 irréductible d'Atlas/Icare).
-export const RAGNAROK_MIN_SURVIVAL_MS  = 90_000;   // tenir ≥ 90 s
-// La fenêtre forcée (~2 min, Rupture ×30 irréductible) + l'économie déjà au pic
-// (ressources gardées) ne laissent croître la puissance que ~×2-4 ; ×3 exige donc
-// d'optimiser sa croissance malgré les 13 contraintes, sans être injouable.
-export const RAGNAROK_POWER_SURGE_MULT = 3;        // puissance ≥ 3× le départ du cycle (sursaut sous le chaos)
+// ── « L'Hiver Fimbul » — refonte 2026-07-20 (identité choisie par Raph) ───────
+// Le boss final n'est plus le cumul des 13 contraintes (calibré sur des défis
+// disparus — la « Rupture ×30 irréductible » n'existe plus, et le cap de Rupture
+// du nouvel Âge d'Or aurait mis le final sous cloche). C'est UNE apocalypse
+// scriptée et ANNONCÉE, sur 24 minutes :
+//   0-8 min : la Prophétie — bâtir, accumuler, préparer.
+//   8 min   : l'HIVER — toute la production est gelée de moitié.
+//   14 min  : le LOUP — dévore le parc de bâtiments, bouchée par bouchée.
+//   20 min  : le FEU DE SURT — la Rupture monte, brute, insensible aux leviers.
+//   24 min  : la FIN — effondrement forcé, pacte brisé si l'Arche n'est pas prête.
+// Victoire : achever l'ARCHE (8 offrandes multi-ressources) avant la Fin — elle
+// conjure le script. Le prix d'une offrande est FIGÉ à l'activation sur la
+// production de la cité d'AVANT le reset d'activation (ta vraie puissance au
+// moment de signer le pacte) : RAGNAROK_ARK_OFFERING_PROD_SEC secondes de
+// chaque ressource. Non-gamable (figé, et une cité ne se dégrade pas), aucun
+// exploit d'Hiver — et le défi devient : REBÂTIR une économie à ta propre
+// hauteur, sous l'apocalypse. Deux jets précédents rejetés par le harnais :
+//   « figé APRÈS le reset » → prix planchers, bot en 2 min 45 ;
+//   « vivant sur la prod courante » → croître se retournait contre l'Arche
+//   (et ne rien bâtir = planchers) ; bot en échec permanent.
+// L'Arche n'accepte qu'UNE offrande toutes les 2 min : la 8e ne peut pas tomber
+// avant ~14 min — on ne rushe pas la Fin, on la traverse. Équilibrage voulu
+// (demande Raph) : l'Hiver divise le revenu — le Comptoir de marchandage, les
+// jeux du temple, l'Aile, la Langue commune et les moteurs comblent l'écart.
+export const RAGNAROK_DURATION_MS          = 24 * 60_000;
+export const RAGNAROK_WINTER_AT_MS         = 8 * 60_000;
+export const RAGNAROK_WOLF_AT_MS           = 14 * 60_000;
+export const RAGNAROK_FIRE_AT_MS           = 20 * 60_000;
+export const RAGNAROK_WINTER_PROD_MULT     = 0.5;     // l'Hiver : production ×0.5 (cumulatif avec la suite)
+export const RAGNAROK_WOLF_EAT_INTERVAL_MS = 10_000;  // le Loup : une bouchée toutes les 10 s
+export const RAGNAROK_WOLF_EAT_PCT         = 0.02;    // ... de 2 % du parc (min 1), prise au bâtiment le plus nombreux
+// 0.005 (1er calibrage) faisait de la crise terminale la vraie deadline (~21 min 40,
+// bot à 7/8) : le Feu doit MORDRE sans devancer la Fin — à 0.003, une cité à
+// ~50 % de Rupture atteint la crise terminale avec la Fin, pas avant.
+export const RAGNAROK_FIRE_RUPTURE_PER_SEC = 0.003;   // le Feu : +0,3 %/s de Rupture brute
+// Calibrage au harnais (bot SANS outils — ni Comptoir, ni jeux, ni héritages) :
+// 75 s / 120 s → 6/8 offrandes au meilleur run. 65 s / 100 s → 8/8 de justesse.
+// Le joueur outillé garde donc une vraie marge ; le nu passe en jouant serré.
+export const RAGNAROK_ARK_TARGET           = 8;       // l'Arche : 8 offrandes
+export const RAGNAROK_ARK_OFFERING_PROD_SEC = 65;     // prix d'UNE offrande : 65 s de la prod d'AVANT le reset d'activation
+export const RAGNAROK_ARK_COOLDOWN_MS      = 100_000; // l'Arche n'accepte qu'une offrande toutes les 100 s
 export const RAGNAROK_FINAL_TITLE = "Sous le regard du Ragnarok";
+
+// Âge du cycle Ragnarok en ms (0 si le Mythe n'est pas actif) — la seule horloge
+// des fléaux : phases, Loup, Feu et Fin en dérivent tous.
+export function ragnarokAge() {
+  if (state.activeMythId !== RAGNAROK_ID) return 0;
+  return Math.max(0, Date.now() - (state.cycleStartedAt || Date.now()));
+}
+
+// L'Hiver gèle la production de moitié dès 8 min (et jusqu'à la Fin — les fléaux
+// se cumulent). Consommé par globalScalarFactors (les deux chemins float/Decimal).
+export function ragnarokWinterMult() {
+  return ragnarokAge() >= RAGNAROK_WINTER_AT_MS ? RAGNAROK_WINTER_PROD_MULT : 1;
+}
 
 // ── Constantes Mythe d'Icare — « le vol par paliers » ────────────────────────
 // Refonte 2026-07-19 (décision Raph) : les ×100/×30/×15 SUBIS disparaissent. Le
@@ -272,22 +309,6 @@ export const CADMOS_ORIENTATIONS = {
   }
 };
 
-export const RAGNAROK_CONSTRAINTS = [
-  "mythe_de_promethee",
-  "mythe_d_enee",
-  "mythe_de_cadmos",
-  "mythe_de_sisyphe",
-  "mythe_de_babel",
-  "mythe_age_or",
-  "mythe_d_hephaistos",
-  "mythe_d_atlas",
-  "mythe_d_icare",
-  "mythe_du_phenix",
-  "mythe_atrides",
-  "mythe_d_antee",
-  "mythe_du_chaos"
-];
-
 export const MYTHS = [
   // ── Acte I · Fondation ────────────────────────────────────────────────────
   {
@@ -297,10 +318,6 @@ export const MYTHS = [
     description: {
       fr: "Tous les bonus de méta-progression sont coupés pour ce cycle : Ruines, arbre des Ruines, Grand Reset — chaque multiplicateur retombe à ×1. Les upgrades restent achetés, ils sont simplement ignorés.",
       en: "All meta-progression bonuses are cut off for this cycle: Ruins, Ruins tree, Grand Reset — every multiplier falls back to ×1. Upgrades stay purchased, they are simply ignored."
-    },
-    ragnarokSummary: {
-      fr: "tous les bonus de méta-progression sont neutralisés ; appliqué en dernier.",
-      en: "all meta-progression bonuses are neutralized; applied last."
     },
     objectif: {
       fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, sans aucun bonus.`,
@@ -334,10 +351,6 @@ export const MYTHS = [
       fr: `Chaque moteur de Nourriture acheté ajoute ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)} % de Rupture instantanément. Plus la cité grandit, plus elle brûle.`,
       en: `Each Food engine purchased adds ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% Rupture instantly. The larger the city grows, the more it burns.`
     },
-    ragnarokSummary: {
-      fr: "chaque moteur de nourriture ajoute de la Rupture.",
-      en: "each food engine adds Rupture."
-    },
     objectif: {
       fr: `Porter la population à ${PROMETHEE_POP_TARGET} habitants avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} % (la course du feu).`,
       en: `Bring the population to ${PROMETHEE_POP_TARGET} inhabitants before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}% (the race of fire).`
@@ -369,10 +382,6 @@ export const MYTHS = [
     description: {
       fr: `Le territoire de la cité se dégrade au fil du temps. Toutes les ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes, il devient invivable : la production de Nourriture tombe à 0, le Trésor n'accumule plus d'Or, et l'Usure monte ${ENEE_USURE_DEGRADED_MULT}x plus vite. Pour résoudre la crise, vous devez migrer vers un nouveau territoire en abandonnant vos bâtiments.`,
       en: `The city's territory degrades over time. Every ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes it becomes unlivable: Food production drops to 0, the Treasury accrues no more Gold, and Wear rises ${ENEE_USURE_DEGRADED_MULT}x faster. To resolve the crisis, you must migrate to a new territory, abandoning your buildings.`
-    },
-    ragnarokSummary: {
-      fr: `le territoire se dégrade toutes les ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes et impose la migration.`,
-      en: `the territory degrades every ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes and forces migration.`
     },
     objectif: {
       fr: `Effectuer au moins ${ENEE_MIGRATIONS_TARGET} migrations avant l'effondrement.`,
@@ -407,10 +416,6 @@ export const MYTHS = [
     description: {
       fr: "A chaque palier de Population ou d'Infrastructure, la cite doit nommer son Age. Trois noms sont proposes, chacun lie a une orientation: Nourriture, Tresor ou Stabilite. Le nom choisi rejoint la Chronique et accorde un bonus de cycle.",
       en: "At each Population or Infrastructure milestone, the city must name its Age. Three names are offered, each tied to an orientation: Food, Treasury or Stability. The chosen name joins the Chronicle and grants a cycle bonus."
-    },
-    ragnarokSummary: {
-      fr: "chaque palier Population/Infrastructure doit recevoir un Age nommé.",
-      en: "each Population/Infrastructure milestone must be given a named Age."
     },
     objectif: {
       fr: `Avoir nomme au moins ${CADMOS_AGE_NAME_TARGET} Ages dans la Chronique avant l'effondrement.`,
@@ -450,10 +455,6 @@ export const MYTHS = [
       fr: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, la Population commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irrésolues.`,
       en: `${HEPH_POP_DECAY_START_MIN} min after the start of the cycle, Population begins to decline (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). In exchange, Infrastructure buildings see their production multiplied by a growing factor (x${HEPH_INFRA_MULT_BASE} at the start, +${HEPH_INFRA_MULT_GROWTH}/min). Wear rises x${HEPH_USURE_MULT} faster. Below ${HEPH_POP_CRISIS_THRESHOLD} inhabitants, narrative crises become unsolvable.`
     },
-    ragnarokSummary: {
-      fr: `population en déclin, infrastructure amplifiée, Usure x${HEPH_USURE_MULT}.`,
-      en: `population in decline, infrastructure amplified, Wear x${HEPH_USURE_MULT}.`
-    },
     objectif: {
       fr: `Bâtir une Infrastructure d'au moins ${HEPH_INFRA_PER_PEAK}x le pic de Population, pendant que la Population décline d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis ce pic (les machines remplacent les hommes).`,
       en: `Build Infrastructure of at least ${HEPH_INFRA_PER_PEAK}x the Population peak, while Population declines by at least ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% from that peak (the machines replace men).`
@@ -486,10 +487,6 @@ export const MYTHS = [
       fr: `Le rocher attend au pied : ${SISYPHE_CRANS} crans jusqu'au sommet. POUSSER paie le cran dans une matière au choix — chaque matière ré-employée double son prix. Bâtir pendant la montée lâche le rocher. Au premier sommet, le rocher retombe. Toujours.`,
       en: `The boulder waits at the foot: ${SISYPHE_CRANS} notches to the summit. PUSH pays the notch in a material of your choice — each reused material doubles its price. Building during the climb lets go of the boulder. At the first summit, the boulder rolls back down. Always.`
     },
-    ragnarokSummary: {
-      fr: "bâtir lâche le rocher en pleine montée.",
-      en: "building lets go of the boulder mid-climb."
-    },
     objectif: {
       fr: `Hisser le rocher au sommet ${SISYPHE_MONTEES_TARGET} fois (${SISYPHE_CRANS} crans), sans bâtir pendant la montée.`,
       en: `Haul the boulder to the summit ${SISYPHE_MONTEES_TARGET} times (${SISYPHE_CRANS} notches), without building during the climb.`
@@ -521,10 +518,6 @@ export const MYTHS = [
     description: {
       fr: `Seule la catégorie choisie au lancement peut être construite ce cycle, et chaque bâtiment du type concentre la puissance (×${BABEL_PROD_BASE_MULT} cumulé). La Rupture monte ×${BABEL_RUPTURE_MULT} plus vite.`,
       en: `Only the category chosen at launch can be built this cycle, and each building of the type concentrates power (×${BABEL_PROD_BASE_MULT} compounding). Rupture rises ×${BABEL_RUPTURE_MULT} faster.`
-    },
-    ragnarokSummary: {
-      fr: `seuls les bâtiments du type choisi peuvent être achetés ; Rupture x${BABEL_RUPTURE_MULT}.`,
-      en: `only buildings of the chosen type can be purchased; Rupture x${BABEL_RUPTURE_MULT}.`
     },
     objectif: {
       fr: `Ériger la tour : ${BABEL_TOWER_TARGET} bâtiments de la catégorie choisie.`,
@@ -581,10 +574,6 @@ export const MYTHS = [
       fr: `La paix dorée : Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)} %, crises suspendues. Des caravanes proposent des lots contre de l'Or — on peut marchander, mais un marchand vexé s'en va. Si l'écart Nourriture/Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)} %, l'Usure monte ×${OR_USURE_IMBALANCE_MULT}.`,
       en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Gold — you can haggle, but an offended merchant walks away. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
     },
-    ragnarokSummary: {
-      fr: "les caravanes exigent leur dû ; le déséquilibre brûle l'Usure.",
-      en: "the caravans demand their due; imbalance burns Wear."
-    },
     objectif: {
       fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes.`,
       en: `Close ${OR_DEALS_TARGET} deals with the caravans.`
@@ -616,10 +605,6 @@ export const MYTHS = [
     description: {
       fr: `Le ciel pèse. Le Fardeau monte sans arrêt : ÉPAULER le fait redescendre, mais seul un ciel LOURD compte — sous ${ATLAS_COUNT_THRESHOLD} %, le geste soulage sans compter et gaspille la récupération. À 100 %, le ciel écrase la cité. L'effondrement manuel est coupé — on ne repose pas le monde.`,
       en: `The sky bears down. The Burden rises relentlessly: SHOULDER pushes it back, but only a HEAVY sky counts — below ${ATLAS_COUNT_THRESHOLD}%, the act relieves without counting and wastes the recovery. At 100%, the sky crushes the city. Manual collapse is disabled — one does not put the world down.`
-    },
-    ragnarokSummary: {
-      fr: "le Fardeau du ciel écrase qui cesse de l'épauler.",
-      en: "the sky's Burden crushes whoever stops shouldering it."
     },
     objectif: {
       fr: `Épauler ${ATLAS_SHOULDER_TARGET} fois le ciel à pleine charge (Fardeau ≥ ${ATLAS_COUNT_THRESHOLD} %), sans être écrasé.`,
@@ -654,10 +639,6 @@ export const MYTHS = [
       fr: `Le bouton MONTER apparaît. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, +${Math.round(ICARE_CLIMB_RUPTURE * 100)} % de Rupture immédiate, et la Rupture grimpe ${Math.round(ICARE_CLIMB_RUPTURE_HASTE * 100)} % plus vite par altitude.`,
       en: `The CLIMB button appears. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, +${Math.round(ICARE_CLIMB_RUPTURE * 100)}% instant Rupture, and Rupture rises ${Math.round(ICARE_CLIMB_RUPTURE_HASTE * 100)}% faster per altitude.`
     },
-    ragnarokSummary: {
-      fr: "chaque montée d'altitude embrase la Rupture.",
-      en: "each altitude climb inflames Rupture."
-    },
     objectif: {
       fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}.`,
       en: `Reach altitude ${ICARE_ALTITUDE_TARGET}.`
@@ -687,10 +668,6 @@ export const MYTHS = [
     description: {
       fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances d'affilée. Rater une fenêtre brise la chaîne et vous repartez de zéro.`,
       en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart population in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
-    },
-    ragnarokSummary: {
-      fr: `reconstruction express à ${PHENIX_REBIRTH_POP_MULT}× la population en ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, ${PHENIX_RENAISSANCE_TARGET} fois de suite.`,
-      en: `express rebuild to ${PHENIX_REBIRTH_POP_MULT}× the population in ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, ${PHENIX_RENAISSANCE_TARGET} times in a row.`
     },
     objectif: {
       fr: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× la population de départ en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, puis s'effondrer pour renaître.`,
@@ -726,10 +703,6 @@ export const MYTHS = [
     description: {
       fr: "Une dette maudite pèse sur la cité. La dette croît chaque seconde (+1% de la production par minute) et draine 10% de chaque ressource produite. Heureusement, vous commencez avec un trésor initial et un bonus global x3 de production pendant les 2 premières minutes.",
       en: "A cursed debt weighs on the city. The debt grows every second (+1% of production per minute) and drains 10% of every resource produced. Mercifully, you start with an initial treasury and a global x3 production bonus for the first 2 minutes."
-    },
-    ragnarokSummary: {
-      fr: "dette initiale, croissance de dette et drain de ressources.",
-      en: "initial debt, debt growth and resource drain."
     },
     objectif: {
       fr: `Dégager, malgré la dette, un Trésor net (Trésor moins Dette) gagné ce cycle égal à ${ATRIDES_GAIN_SECONDS} s de ta production d'Or avant de vous effondrer.`,
@@ -768,10 +741,6 @@ export const MYTHS = [
       fr: "Au demarrage, choisissez parmi vos Heritages debloques ceux qui deviennent des Ruines actives. Chaque Ruine active conserve son bonus habituel mais ajoute son malus associe pour ce cycle.",
       en: "At the start, choose from your unlocked Legacies those that become active Ruins. Each active Ruin keeps its usual bonus but adds its associated penalty for this cycle."
     },
-    ragnarokSummary: {
-      fr: "les Ruines actives doivent être choisies et comptent comme malus de cycle.",
-      en: "active Ruins must be chosen and count as cycle penalties."
-    },
     objectif: {
       fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître la population ×${ANTEE_POP_MULT} depuis le départ.`,
       en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow the population ×${ANTEE_POP_MULT} from the start.`
@@ -805,58 +774,30 @@ export const MYTHS = [
     act: "ragnarok",
     name: { fr: "Ragnarok", en: "Ragnarok" },
     description: {
-      fr: "Le Mythe terminal. Toutes les contraintes des treize Mythes precedents s'appliquent simultanement en un seul cycle; Chaos ferme la marche et neutralise les bonus de meta-progression.",
-      en: "The terminal Myth. All the constraints of the thirteen preceding Myths apply simultaneously in a single cycle; Chaos brings up the rear and neutralizes the meta-progression bonuses."
+      fr: `L'Hiver Fimbul. La Fin est écrite : à 8 min l'Hiver gèle la production de moitié, à 14 min le Loup dévore les bâtiments, à 20 min le Feu embrase la Rupture — à ${RAGNAROK_DURATION_MS / 60_000} minutes, tout s'effondre. Seule l'Arche achevée conjure la Fin.`,
+      en: `The Fimbulwinter. The End is written: at 8 min the Winter freezes production by half, at 14 min the Wolf devours buildings, at 20 min the Fire inflames Rupture — at ${RAGNAROK_DURATION_MS / 60_000} minutes, everything collapses. Only the completed Ark wards off the End.`
     },
     objectif: {
-      fr: `Sous les 13 contraintes réunies : tenir au moins ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s et faire surgir la puissance ×${RAGNAROK_POWER_SURGE_MULT} depuis le début du cycle.`,
-      en: `Under all 13 constraints combined: hold out for at least ${RAGNAROK_MIN_SURVIVAL_MS / 1000} s and surge power ×${RAGNAROK_POWER_SURGE_MULT} from the start of the cycle.`
+      fr: `Achever l'Arche : ${RAGNAROK_ARK_TARGET} offrandes, avant la Fin (${RAGNAROK_DURATION_MS / 60_000} min).`,
+      en: `Complete the Ark: ${RAGNAROK_ARK_TARGET} offerings, before the End (${RAGNAROK_DURATION_MS / 60_000} min).`
     },
     heritageDescription: {
       fr: "La Fin des Dieux : debloque le 11e Grand Reset, qui donne un multiplicateur x4 aux Ruines, et grave un titre final permanent dans la Chronique.",
       en: "The Twilight of the Gods: unlocks the 11th Grand Reset, which grants a x4 multiplier to Ruins, and engraves a permanent final title in the Chronicle."
     },
-    requiresActiveRuinsChoice: true,
 
-    async onActivate() {
-      state.ragnarokEffectsApplied = false;
-      state.ragnarokActiveConstraints = RAGNAROK_CONSTRAINTS
-        .map(id => {
-          const m = getMythById(id);
-          if (!m) return "";
-          // Article-aware : « Le Mythe du Chaos / des Atrides / d'Énée » — le
-          // strip « de »/« d' » seul laissait « du/des » en FR (bug live sur
-          // Chaos/Phénix/Atrides). Regex couvrant de/du/des/d' (FR) + of/of the (EN).
-          const shortName = tr(m.name)
-            .replace(/^Le Mythe d(e |u |es |')/, "")
-            .replace(/^The Myth of (the )?/, "");
-          return `${shortName}: ${tr(m.ragnarokSummary)}`;
-        })
-        .filter(Boolean);
-      state.babelCategory = state.babelCategory || "city";
-      const ordered = RAGNAROK_CONSTRAINTS
-        .map((id) => getMythById(id))
-        .filter(Boolean)
-        .filter((myth) => myth.id !== "mythe_du_chaos");
-      for (const myth of ordered) {
-        if (typeof myth.onActivate === "function") await myth.onActivate();
-      }
-      const chaos = getMythById("mythe_du_chaos");
-      if (chaos && typeof chaos.onActivate === "function") await chaos.onActivate();
-      state.activeMythId = RAGNAROK_ID;
-      state.ragnarokEffectsApplied = true;
-      // Le cycle (et le chrono de survie) démarre maintenant ; on fige la
-      // puissance de départ pour mesurer le sursaut ×K.
+    onActivate() {
+      // Le chrono de l'apocalypse démarre maintenant. Le PRIX des offrandes
+      // (state.ragnarokArkCost) est posé par activateMyth : figé sur la prod de
+      // la cité d'AVANT le reset d'activation (rates() est inaccessible d'ici).
+      state.ragnarokArkOfferings = 0;
+      state.ragnarokArkNextAt = 0;
+      state.ragnarokWolfBites = 0;
       state.cycleStartedAt = Date.now();
-      state.ragnarokStartPower = mythPowerScore().max(1);
     },
 
     onCollapse() {
-      // Survie + sursaut : tenir le plancher de temps ET avoir multiplié la
-      // puissance ×RAGNAROK_POWER_SURGE_MULT depuis le départ du cycle.
-      const age = Date.now() - (state.cycleStartedAt || Date.now());
-      const surged = mythPowerScore().gte(D(state.ragnarokStartPower || 1).mul(RAGNAROK_POWER_SURGE_MULT));
-      return age >= RAGNAROK_MIN_SURVIVAL_MS && surged;
+      return (state.ragnarokArkOfferings || 0) >= RAGNAROK_ARK_TARGET;
     },
 
     applyHeritage() {
@@ -883,11 +824,10 @@ export function isMythActive(id) {
   return state.activeMythId === id;
 }
 
+// Depuis « l'Hiver Fimbul » (2026-07-20), le Ragnarok n'applique PLUS les
+// contraintes des 13 autres Mythes : effet actif = mythe actif, simplement.
 export function isMythEffectActive(id) {
-  if (state.activeMythId === id) return true;
-  return state.activeMythId === RAGNAROK_ID &&
-    state.ragnarokEffectsApplied &&
-    RAGNAROK_CONSTRAINTS.includes(id);
+  return state.activeMythId === id;
 }
 
 export function isMythUnlocked(myth) {
@@ -936,7 +876,7 @@ export function checkActUnlocks() {
 }
 
 // Filet de sécurité : aplatit les champs de données { fr, en } des mythes (name,
-// description, objectif, heritageDescription, ragnarokSummary) en chaînes de la
+// description, objectif, heritageDescription) en chaînes de la
 // langue courante. Rend inoffensif tout consommateur d'affichage non enveloppé
 // de tr(). CADMOS_ORIENTATIONS reste géré via tr() (ses `words` servent aussi de
 // clés internes). Les fonctions des mythes sont préservées (cf. localizeData).

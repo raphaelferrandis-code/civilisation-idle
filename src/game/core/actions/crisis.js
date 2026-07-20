@@ -355,7 +355,6 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (!wasPhoenix || phoenixDone) {
     checkMythOnCollapse();
     state.activeMythId = null;
-    state.ragnarokEffectsApplied = false;
   } else {
     log(`Phenix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}${(state.phoenixRenaissances || 0) === 0 ? " (chaine brisee, on repart de zero)" : ""}.`);
   }

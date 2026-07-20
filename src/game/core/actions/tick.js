@@ -78,7 +78,10 @@ import {
   BOON_INTERVAL_MAX_SEC
 } from '../balance.js';
 import {
-  isMythEffectActive
+  isMythEffectActive,
+  RAGNAROK_ID,
+  RAGNAROK_DURATION_MS,
+  ragnarokAge
 } from '../../data/myths.js';
 import {
   hasActiveRuin,
@@ -100,6 +103,14 @@ export function tick(dt) {
   if (state.crisisLimitAnnounced) {
     if (state.instability >= 1) state.instability = 1;
     if ((state.timeWear || 0) >= 1) state.timeWear = 1;
+    // « L'Hiver Fimbul » : la FIN est inéluctable — même la crise terminale,
+    // dont le gel fige tout le reste, ne la retient pas. Sans ce passage, le Feu
+    // ouvrait la crise vers ~21 min et le cycle pourrissait, gelé (harnais :
+    // âge 6 h). Miroir du bloc principal plus bas dans le tick.
+    if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && ragnarokAge() >= RAGNAROK_DURATION_MS) {
+      log("La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.");
+      collapse("forced");
+    }
     return;
   }
 
@@ -309,6 +320,18 @@ export function tick(dt) {
     const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
     if (ageSec >= ACTIVE_RUIN_PHENIX_FORCED_SEC) {
       log("Bûcher programmé : l'heure est venue, la cité s'embrase sans attendre ton ordre.");
+      collapse("forced");
+      return;
+    }
+  }
+
+  // « L'Hiver Fimbul » : la FIN à 24 minutes — effondrement forcé, même chemin
+  // que le bûcher du Phénix. Si l'Arche n'est pas prête, le pacte se brise
+  // (checkMythOnCollapse le constatera) ; si elle l'est, le Mythe s'est déjà
+  // sacré en direct et ce bloc ne tourne plus (le pacte est levé).
+  if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress) {
+    if (ragnarokAge() >= RAGNAROK_DURATION_MS) {
+      log("La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.");
       collapse("forced");
       return;
     }

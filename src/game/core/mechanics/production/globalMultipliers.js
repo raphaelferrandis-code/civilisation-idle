@@ -26,6 +26,7 @@ import {
   ATRIDES_NEXT_RUN_PENALTY_MULT,
   ENEE_HERITAGE_DURATION_MS,
   ENEE_HERITAGE_BOOST_PER_COLLAPSE,
+  ragnarokWinterMult,
   isMythEffectActive
 } from '../../../data/myths.js';
 import {
@@ -172,13 +173,17 @@ function globalScalarFactors() {
     ? 1 + ABYSS_DOGMA_PROD_BONUS
     : 1;
   const ruinTreeMult = braiseMultiplier() * vestigeMult * regrowthMult * abyssDogmaMult;
-  return { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult };
+  // « L'Hiver Fimbul » (Ragnarok) : dès 8 min, toute la production est gelée de
+  // moitié — c'est la pression centrale du boss final (le revenu passif ne suffit
+  // plus, il faut le Comptoir, les jeux du temple et les héritages).
+  const fimbulMult = ragnarokWinterMult();
+  return { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, fimbulMult };
 }
 
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
-  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, fimbulMult } = globalScalarFactors();
+  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult;
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
@@ -188,11 +193,11 @@ export function globalMultiplier() {
 // ont leur variante Decimal, le reste est borné.
 export function globalMultiplierDec() {
   if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
-  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
+  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, fimbulMult } = globalScalarFactors();
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
-    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
+    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult);
   renderCache._frameGlobalMultDecVer = renderCache.frameVersion;
   return renderCache._frameGlobalMultDec;
 }

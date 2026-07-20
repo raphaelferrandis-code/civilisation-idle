@@ -36,6 +36,10 @@ import {
   SISYPHE_STEP_BASE,
   BABEL_CAT_LABELS,
   BABEL_COMMON_TONGUE_MULT,
+  RAGNAROK_ID,
+  RAGNAROK_ARK_TARGET,
+  RAGNAROK_ARK_OFFERING_PROD_SEC,
+  RAGNAROK_ARK_COOLDOWN_MS,
   OR_DEALS_TARGET,
   OR_DEAL_LOT_SECONDS,
   OR_DEAL_ASK_MARKUP,
@@ -93,7 +97,6 @@ export function checkMythLiveCompletion() {
   if (!myth.onCollapse()) return;
   crownMyth(myth);
   state.activeMythId = null;
-  state.ragnarokEffectsApplied = false;
   save();
 }
 
@@ -285,10 +288,27 @@ export async function activateMyth(mythId) {
   if (!myth || !isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
 
   state.activeMythId = mythId;
+  // « L'Hiver Fimbul » : la prod de la cité d'AVANT le reset — la puissance
+  // réelle du joueur au moment de signer le pacte — sert d'ancre au prix des
+  // offrandes. Capturée ICI, avant resetCivilization (après, elle est nulle :
+  // c'est le bug du 1er jet, prix planchers et boss bouclé en 2 min 45).
+  // ⚠ activeMythId est déjà posé : rates() est donc calculé SOUS les effets du
+  // Mythe — sans conséquence pour le Ragnarok (ses fléaux dépendent de l'âge du
+  // cycle, encore ancien ici), et le cache de frame est invalidé par le reset.
+  const _preResetRates = mythId === RAGNAROK_ID ? ratesFn() : null;
   const _savedBabelCategory = state.babelCategory;
   resetCivilization();
   state.babelCategory = _savedBabelCategory;
   if (typeof myth.onActivate === "function") await myth.onActivate();
+  if (_preResetRates) {
+    const part = (rate, floor) => D(rate).max(0).mul(RAGNAROK_ARK_OFFERING_PROD_SEC).max(floor).floor();
+    state.ragnarokArkCost = {
+      food: part(_preResetRates.food, 100),
+      gold: part(_preResetRates.gold, 50),
+      knowledge: part(_preResetRates.knowledge, 25),
+      infrastructure: part(_preResetRates.infrastructure, 10)
+    };
+  }
   if (myth.requiresActiveRuinsChoice) {
     await chooseActiveRuins({
       required: true,
@@ -404,6 +424,47 @@ export function babelToggleAutoTongue() {
     log(`La Langue commune : « ${tr(BABEL_CAT_LABELS[state.babelAutoTongue])} » sera déclarée d'elle-même à chaque cycle.`);
   }
   invalidateRenderCache("all");
+  save();
+  render();
+}
+
+// ── « L'Hiver Fimbul » — le verbe du Ragnarok ────────────────────────────────
+// Le prix d'une offrande : le lot FIGÉ par activateMyth (prod d'avant le reset),
+// avec un repli planchers si un save arrive sans lot (hydraté d'une vieille
+// version, par exemple). Pur (ne mute pas) : la carte l'affiche, OFFRIR le paie.
+export function ragnarokOfferingCost() {
+  const c = state.ragnarokArkCost;
+  if (c) return c;
+  return { food: D(100), gold: D(50), knowledge: D(25), infrastructure: D(10) };
+}
+
+// OFFRIR verse une offrande à l'Arche — une seule toutes les RAGNAROK_ARK_COOLDOWN_MS
+// (la 8e ne peut donc pas tomber avant ~14 min : on ne rushe pas la Fin, on la
+// traverse). À la 8e, l'Arche est prête — la Fin est conjurée et le Mythe se
+// sacre en direct. Les fléaux (Hiver/Loup/Feu/Fin) vivent dans mythTicks.js et
+// tick.js ; l'équilibrage veut que le revenu passif seul ne suffise pas sous
+// l'Hiver — Comptoir, jeux du temple et héritages comblent l'écart.
+export function ragnarokOffrir() {
+  if (!isMythEffectActive(RAGNAROK_ID)) return;
+  // PAS de garde crisisLimitAnnounced ici, contrairement aux autres verbes : la
+  // crise terminale (que le Feu déclenche souvent vers ~22 min) n'empêche PAS
+  // d'achever l'Arche — on la finit sous le ciel en feu, jusqu'à la Fin (24 min).
+  // Sans cette exception, la 8e offrande était impossible stocks pleins (harnais).
+  if (gamePaused || collapseInProgress) return;
+  if ((state.ragnarokArkOfferings || 0) >= RAGNAROK_ARK_TARGET) return;
+  if (Date.now() < (state.ragnarokArkNextAt || 0)) return;
+  const lot = ragnarokOfferingCost();
+  if (!canPayCost(lot)) return;
+  payCost(lot);
+  state.ragnarokArkNextAt = Date.now() + RAGNAROK_ARK_COOLDOWN_MS;
+  state.ragnarokArkOfferings = (state.ragnarokArkOfferings || 0) + 1;
+  if (state.ragnarokArkOfferings >= RAGNAROK_ARK_TARGET) {
+    log("L'Arche est prête. La Fin regarde la cité — et passe son chemin.");
+  } else {
+    log(`Ragnarok : offrande ${state.ragnarokArkOfferings}/${RAGNAROK_ARK_TARGET} versée à l'Arche.`);
+  }
+  invalidateRenderCache("all");
+  checkMythLiveCompletion();
   save();
   render();
 }
