@@ -1216,6 +1216,11 @@
   text-shadow: none !important;
 }
 
+.myth-status-card.promethee { border-left: 2px solid #d97706; } /* braise */
+/* Boutons d'action logés DANS une carte de statut (vol d'Icare) : compacts,
+   sinon la carte de 13rem déborde. */
+.myth-status-card .myth-card-actions { display: flex; gap: 0.35rem; margin-top: 0.3rem; }
+.myth-status-card .myth-card-actions button { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
 .myth-status-card.sisyphus { border-left: 2px solid #8b7d6a; }
 .myth-status-card.icare { border-left: 2px solid var(--gold); }
 .myth-status-card.babel { border-left: 2px solid var(--violet); }
@@ -1632,3 +1637,18 @@
   padding-top: 0;
 }
 
+
+/* ── « Le Comptoir » (onglet Marchandage, héritage de l'Âge d'Or) ─────────── */
+#comptoir .panel { max-width: 34rem; margin: 1rem auto; }
+.comptoir-rows { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.8rem; }
+.comptoir-row {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: 0.8rem; padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line, rgba(128,128,128,0.25)); border-radius: 6px;
+}
+.comptoir-row--sell { margin-top: 0.5rem; }
+.comptoir-icon.px-icon { width: 30px; height: 30px; }
+.comptoir-terms { display: flex; flex-direction: column; gap: 0.1rem; }
+.comptoir-terms small { opacity: 0.75; }
+
+.myth-status-card.atlas { border-left: 2px solid #6b7280; } /* pierre du ciel */

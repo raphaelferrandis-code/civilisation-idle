@@ -22,8 +22,7 @@ import {
   grandResetProductionMult
 } from '../../balance.js';
 import {
-  ICARE_PROD_MULT,
-  SURCHAUFFE_PROD_MULT,
+  ICARE_CLIMB_PROD_MULT,
   ATRIDES_NEXT_RUN_PENALTY_MULT,
   ENEE_HERITAGE_DURATION_MS,
   ENEE_HERITAGE_BOOST_PER_COLLAPSE,
@@ -144,8 +143,12 @@ function globalScalarFactors() {
   // l'ancien pour bestEraIndex ≤ 34 (tier = index).
   const normalizedBestEraIndex = eraTier(state.bestEraIndex || 0) * (19 / RECURRING_AGE_ERA_ANCHOR);
   const recurringAgeBonus = has("recurring_ages") ? 1 + normalizedBestEraIndex * 0.035 : 1;
-  const icareMult       = isMythEffectActive("mythe_d_icare") ? ICARE_PROD_MULT : 1;
-  const surchauffeMult  = (state.surchauffeEndTime && Date.now() < state.surchauffeEndTime) ? SURCHAUFFE_PROD_MULT : 1;
+  // « Vol par paliers » (Mythe d'Icare) / « l'Aile » (son héritage) : ×2 par
+  // altitude, cumulatif, SANS plafond — la contrepartie vit dans rates.js (la
+  // Rupture grimpe plus vite par altitude) et dans le coût immédiat de chaque
+  // montée (icareClimb). Remplace l'ancien ×100 subi et la Surchauffe.
+  const icareAltitude   = (isMythEffectActive("mythe_d_icare") || state.icareHeritage) ? (state.icareAltitude || 0) : 0;
+  const icareMult       = icareAltitude > 0 ? Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude) : 1;
   const elapsed = Date.now() - (state.cycleStartedAt || Date.now());
   const atridesMult = (isMythEffectActive("mythe_atrides") && elapsed < 120_000) ? 3 : 1;
   let pactMult = 1;
@@ -171,13 +174,13 @@ function globalScalarFactors() {
     ? 1 + ABYSS_DOGMA_PROD_BONUS
     : 1;
   const ruinTreeMult = braiseMultiplier() * vestigeMult * regrowthMult * abyssDogmaMult;
-  return { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult };
+  return { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult };
 }
 
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
-  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
+  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
+  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier();
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
@@ -187,11 +190,11 @@ export function globalMultiplier() {
 // ont leur variante Decimal, le reste est borné.
 export function globalMultiplierDec() {
   if (renderCache._frameGlobalMultDecVer === renderCache.frameVersion) return renderCache._frameGlobalMultDec;
-  const { recurringAgeBonus, icareMult, surchauffeMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
+  const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult } = globalScalarFactors();
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
-    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * surchauffeMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
+    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier());
   renderCache._frameGlobalMultDecVer = renderCache.frameVersion;
   return renderCache._frameGlobalMultDec;
 }

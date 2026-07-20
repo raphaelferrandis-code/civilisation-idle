@@ -25,12 +25,7 @@ import {
 } from '../balance.js';
 import {
   isMythEffectActive,
-  ICARE_USURE_MULT,
-  ATLAS_USURE_MULT,
-  ATLAS_USURE_REDUCTION,
   OR_USURE_IMBALANCE_MULT,
-  OR_HERITAGE_BALANCE_RATIO,
-  OR_HERITAGE_USURE_RED,
   HEPH_USURE_MULT,
   ENEE_USURE_DEGRADED_MULT
 } from '../../data/myths.js';
@@ -49,16 +44,6 @@ function grandResetRuinMultiplier() {
   // en ORDRE-LIBRE ce n'est plus « le 11e reset » mais ce sceau précis.
   const ragnarokBonus = (state.ragnarokHeritage && state.grClaimed && state.grClaimed[11]) ? 4 : 1;
   return base * ragnarokBonus;
-}
-
-function orHeritageUsureMult() {
-  if (!state.orHeritage) return 1;
-  const f = D(state.food).max(0);
-  const g = D(state.gold).max(0);
-  if (f.lte(0) || g.lte(0)) return 1;
-  // Ratio de déséquilibre [0,1] : significatif même au-delà du float.
-  const ratio = f.sub(g).abs().div(f.max(g)).toNumber();
-  return ratio < OR_HERITAGE_BALANCE_RATIO ? (1 - OR_HERITAGE_USURE_RED) : 1;
 }
 
 // Horloge du cycle : FIGÉE pendant la crise terminale (le tick est en pause,
@@ -82,11 +67,12 @@ function patienceAt(age) {
         : Math.min(1.75, 1 + Math.log10(age / 600 + 1) * 0.55);
 }
 
-// Facteurs « vivants » de la moisson, pour l'autel de la Chute (PrestigeView) :
-// uniquement les leviers encore actionnables pendant la crise — tenir
-// (patience, sur le temps réel : elle mûrit même jeu figé) et sceller des
-// édits (préparations). Les profondeurs (population, civisme) sont figées par
-// les pics.
+// Facteurs de la moisson affichés par l'autel de la Chute (PrestigeView).
+// ⚠ « Vivants » ne veut PAS dire qu'ils bougent pendant la crise terminale : l'âge
+// est lu via cycleClockNow(), donc FIGÉ dès l'ouverture de la fenêtre (cf. supra).
+// Attendre devant l'autel ne fait donc pas mûrir la patience — le seul levier qui
+// déplace encore la moisson est le scellement d'un édit (préparations). Les
+// profondeurs (population, civisme) sont figées par les pics.
 export function ruinGainFactors() {
   const age = Math.max(1, (cycleClockNow() - state.cycleStartedAt) / 1000);
   return {
@@ -160,8 +146,19 @@ export function ruinGain(projected = false, extraPrep = 0) {
   // « Rites du feu court » : les cycles bouclés en moins de 15 min rapportent plus
   // (synergie Culte Apocalyptique / farm rapide).
   const shortCycleMod = (age <= RUIN_SHORT_CYCLE_SEC) ? 1 + ruinEffectSum("shortCycleRuinBonus") : 1;
-  // « Moisson de crise » : +3 % de ruines par crise résolue pendant le cycle
-  // (compteur cycleCrisesResolved, remis à zéro à l'effondrement), plafonné.
+  // « Moisson de crise » : +10 % par crise narrative du cycle dont la résolution a
+  // fait BAISSER l'instabilité (c'est le critère réel — crisis.js — pas le simple
+  // fait d'avoir répondu). Compteur remis à zéro par resetTemporaryRunState.
+  // Domaine atteignable : 0..3, car il n'existe que 3 paliers CRISIS_EVENTS et ils
+  // sont latchés dès l'ouverture de la crise ; le Math.min est donc une pince
+  // structurelle qui ne mord jamais (cf. CRISIS_RESOLVE_RUIN_CAP, balance.js).
+  // ⚠ PORTÉE : ce facteur multiplie `raw` SEUL. eraFlatBonus est AJOUTÉ après, si
+  // bien que le bonus effectif sur le gain versé va de ~0 % (cité jeune post-Grand
+  // Reset, où le plat domine) à +30 % (late game, où raw écrase le plat).
+  // ⚠ Vaut 1 dans trois régimes : sous le Mythe du Chaos (shared.js vide les sums
+  // de l'arbre des Ruines) ; sous Héphaïstos en dessous du seuil de population (la
+  // crise s'impose sans choix et FAIT MONTER l'instabilité, crisis.js) ; et dans la
+  // boucle hors-ligne, qui pré-latche les 3 paliers (main.js).
   const crisisHarvestMod = 1 + Math.min(
     CRISIS_RESOLVE_RUIN_CAP,
     ruinEffectSum("crisisResolveRuinBonus") * (state.cycleCrisesResolved || 0)
@@ -211,11 +208,7 @@ export function timeWearRate() {
     TIME_WEAR_MITIGATION_CAP,
     1 + toNum(state.infrastructure) * 0.002 + toNum(state.knowledge) * 0.000016
   );
-  const icareMult        = isMythEffectActive("mythe_d_icare") ? ICARE_USURE_MULT : 1;
-  const atlasMult        = isMythEffectActive("mythe_d_atlas") ? ATLAS_USURE_MULT : 1;
-  const atlasHeritRed    = state.atlasHeritage ? (1 - ATLAS_USURE_REDUCTION) : 1;
   const orImbalanceMult  = (isMythEffectActive("mythe_age_or") && state.orUsureImbalance) ? OR_USURE_IMBALANCE_MULT : 1;
-  const orHeritageMult   = orHeritageUsureMult();
   const hephMult         = isMythEffectActive("mythe_d_hephaistos") ? HEPH_USURE_MULT : 1;
   const eneeUsureMult    = (isMythEffectActive("mythe_d_enee") && state.eneeDegraded) ? ENEE_USURE_DEGRADED_MULT : 1;
   const activeRuinUsureMult = hasActiveRuin(state, "hephaistos") ? ACTIVE_RUIN_USURE_MULT : 1;
@@ -228,6 +221,6 @@ export function timeWearRate() {
   const stagnationMult = has("stagnation_feconde")
     ? 1
     : 1 + Math.min(STAGNATION_USURE_MAX_BONUS, (state.stagnationSec || 0) / STAGNATION_USURE_RAMP_SEC);
-  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * icareMult * atlasMult * atlasHeritRed * orImbalanceMult * orHeritageMult * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
+  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * orImbalanceMult  * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 

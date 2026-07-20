@@ -5,8 +5,24 @@ import { state, buildingById } from '../state.js';
 import { buildings } from '../../data/buildings.js';
 import { Decimal, D } from '../num.js';
 import { clamp, canPayCost } from '../utils.js';
-import { isMythEffectActive, SISYPHE_SCALE_REDUCTION } from '../../data/myths.js';
-import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, hasActiveRuin } from '../../data/activeRuins.js';
+import { SISYPHE_SCALE_REDUCTION } from '../../data/myths.js';
+import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, ACTIVE_RUIN_BABEL_COST_MULT, hasActiveRuin } from '../../data/activeRuins.js';
+
+// Catégorie sur laquelle la cité s'appuie le plus (par nombre de bâtiments).
+// Sert au fardeau « Confusion des langues » : il frappe ce qui a été réellement
+// construit, et se déplace si le joueur se réoriente.
+function dominantBuildingCategory() {
+  const parCategorie = {};
+  for (const b of buildings) {
+    const n = state.buildings[b.id] || 0;
+    if (n > 0) parCategorie[b.category] = (parCategorie[b.category] || 0) + n;
+  }
+  let best = null;
+  for (const [cat, n] of Object.entries(parCategorie)) {
+    if (!best || n > best.n) best = { cat, n };
+  }
+  return best ? best.cat : null;
+}
 import { ENRACINEMENT_COST_MULT } from '../balance.js';
 import { has, ruinEffectSum, totalBuildingCount } from './shared.js';
 
@@ -59,6 +75,12 @@ export function buildingCostAt(building, count) {
       costs[currency] = costs[currency] ? costs[currency].add(extra) : extra;
     }
   }
+  // « Confusion des langues » est appliquée ICI en plus de buildingBatchCost, parce
+  // que c'est cette fonction qui donne le prix AFFICHÉ : un fardeau que le joueur
+  // ne voit qu'au moment de payer n'est pas un choix, c'est un piège.
+  if (hasActiveRuin(state, "babel") && building.category === dominantBuildingCategory()) {
+    for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(ACTIVE_RUIN_BABEL_COST_MULT);
+  }
   return costs;
 }
 
@@ -97,13 +119,22 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
       costs[currency] = costs[currency] ? costs[currency].add(extraSum) : extraSum;
     }
   }
-  // Mythe de Sisyphe : malédiction cumulative sur tous les coûts
-  if (isMythEffectActive("mythe_de_sisyphe") && (state.sisypheMult || 1) > 1) {
+  // Ruine active « Pente du rocher » : la malédiction cumulative de l'ancien
+  // Sisyphe survit dans le fardeau (cf. building.js). Depuis la refonte « la
+  // Montée », le Mythe lui-même n'inflate plus les coûts.
+  if (hasActiveRuin(state, "sisyphe") && (state.sisypheMult || 1) > 1) {
     const mult = state.sisypheMult;
     for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(mult);
   }
   if (hasActiveRuin(state, "promethee") && building.food > 0) {
     for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(ACTIVE_RUIN_FOOD_ENGINE_COST_MULT);
+  }
+  // Ruine active « Confusion des langues » : la catégorie sur laquelle la cité
+  // s'appuie le plus devient plus chère. On vise la DOMINANTE (celle qui compte le
+  // plus de bâtiments) plutôt qu'une catégorie tirée au sort : le fardeau frappe
+  // ainsi ce que le joueur a réellement construit, et se déplace s'il se réoriente.
+  if (hasActiveRuin(state, "babel") && building.category === dominantBuildingCategory()) {
+    for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(ACTIVE_RUIN_BABEL_COST_MULT);
   }
   return costs;
 }

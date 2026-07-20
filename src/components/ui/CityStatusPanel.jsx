@@ -2,7 +2,6 @@ import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
-import { isMythEffectActive } from '../../game/data/myths.js';
 import { pct, clamp01 } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
@@ -46,7 +45,7 @@ function fmtCycleTime(totalSecs) {
 export default function CityStatusPanel() {
   const {
     cycles, bestEraIndex, cycleStartedAt,
-    timeWear, atlasLegitimite, atlasHeritage, tickNow
+    timeWear, tickNow
   } = useCityViewState();
 
   const eraIdx = currentEraIndex();
@@ -65,8 +64,6 @@ export default function CityStatusPanel() {
   }
   const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
   const nextPalierInSecs = nextPalier ? Math.ceil(nextPalier.secs - cycleElapsed) : 0;
-
-  const showLegitimite = atlasHeritage || isMythEffectActive("mythe_d_atlas");
 
   return (
     <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
@@ -110,18 +107,6 @@ export default function CityStatusPanel() {
           <span className="csp-bar-fill csp-bar-fill--wear" style={{ width: `${clamp01(timeWear) * 100}%` }}></span>
         </span>
       </div>
-
-      {showLegitimite && (
-        <div className="csp-block" title={tr({ fr: "Légitimité d'Atlas", en: "Atlas's Legitimacy" })}>
-          <div className="csp-block-head">
-            <span className="csp-label">{tr({ fr: 'Légitimité', en: 'Legitimacy' })}</span>
-            <strong className="csp-value"><RollingNumber value={atlasLegitimite} /></strong>
-          </div>
-          <span className="csp-bar">
-            <span className="csp-bar-fill csp-bar-fill--legit" style={{ width: `${clamp01((atlasLegitimite || 0) / 100) * 100}%` }}></span>
-          </span>
-        </div>
-      )}
 
       <div className="csp-divider" aria-hidden="true"></div>
 

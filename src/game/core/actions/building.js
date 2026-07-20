@@ -47,17 +47,23 @@ import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
 import { MILESTONE_BOON_SECONDS, grandResetProductionMult, grandResetRuinGainMult } from '../balance.js';
-import { SISYPHE_MULT_PER_PURCHASE, PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
+import { PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
+import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP } from '../../data/activeRuins.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
 import { recordGrPerformed } from '../chronicleStats.js';
 
+// Retourne le résultat de buyBuildingCore (true = achat effectué) : permet aux
+// appelants — et aux tests — de distinguer un achat réel d'un refus (verrou
+// Babel, coût impayable, id inconnu).
 export function buyBuilding(id) {
-  if (buyBuildingCore(id)) {
+  const bought = buyBuildingCore(id);
+  if (bought) {
     invalidateRenderCache("buildings");
     render();
   }
+  return bought;
 }
 
 // Cœur d'achat SANS invalidation ni render : payer, incrémenter, appliquer tous
@@ -95,7 +101,18 @@ function buyBuildingCore(id, { amount: amountOverride = null, silent = false } =
     if (has("fetes_jalon")) fireMilestoneBoon(building);
   }
   if (isMythEffectActive("mythe_de_sisyphe")) {
-    state.sisypheMult = (state.sisypheMult || 1) * SISYPHE_MULT_PER_PURCHASE;
+    // « La Montée » : bâtir pendant la montée LÂCHE le rocher — retour au pied,
+    // prix de matière remis à la base. Au pied (cran 0), on construit librement :
+    // c'est le rythme voulu du défi (préparer en bas, pousser d'une traite).
+    if ((state.sisypheCran || 0) > 0) {
+      state.sisypheCran = 0;
+      state.sisypheUsages = { food: 0, knowledge: 0, infrastructure: 0 };
+      log("Sisyphe : les mains quittent le rocher — il dévale jusqu'au pied de la pente.");
+    }
+  } else if (hasActiveRuin(state, "sisyphe")) {
+    // Ruine active « Pente du rocher » : la malédiction cumulative de l'ANCIEN
+    // Sisyphe survit dans le fardeau (state.sisypheMult, lu par cost.js).
+    state.sisypheMult = (state.sisypheMult || 1) * ACTIVE_RUIN_SISYPHE_CREEP;
   }
   if (isMythEffectActive("mythe_de_promethee") && building.food > 0) {
     const ruptureAdded = amount * PROMETHEE_RUPTURE_PER_FOOD;

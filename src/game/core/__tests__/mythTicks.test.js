@@ -2,62 +2,49 @@
 // G-21 : le système de mythes PAR TICK (runMythTicks + MYTH_TICK_HANDLERS, ~140 l.)
 // n'était exercé par AUCUN test (aucune fixture n'avait d'activeMythId + tick).
 // On active un mythe (isMythEffectActive = activeMythId === id) puis on appelle
-// runMythTicks et on asserte l'effet du handler. Représentants des 3 familles :
-// détection d'objectif (Sisyphe), clamp de state (Âge d'Or), décroissance (Héphaïstos).
+// runMythTicks et on asserte l'effet du handler. Représentants des 2 familles :
+// clamp de state (Âge d'Or), décroissance (Héphaïstos). Sisyphe n'a plus de
+// handler depuis la refonte « la Montée » (le rocher ne bouge que par les verbes) —
+// ses tests vivent dans mythRepairs.test.js.
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { state, setState, hydrateState } from "../state.js";
 import { Decimal, D } from "../num.js";
 import { runMythTicks } from "../actions/mythTicks.js";
-import { totalBuildingCount } from "../mechanics.js";
-import {
-  SISYPHE_BUILDING_TARGET,
-  OR_POP_CAP,
-  OR_POP_CAP_GROWTH,
-  HEPH_POP_DECAY_START_MIN
-} from "../../data/myths.js";
+import { HEPH_POP_DECAY_START_MIN } from "../../data/myths.js";
 import { FIXED_NOW } from "./fixtures.js";
 
 beforeAll(() => { vi.spyOn(Date, "now").mockReturnValue(FIXED_NOW); });
 afterAll(() => { vi.restoreAllMocks(); });
 beforeEach(() => { setState(hydrateState({})); });
 
-describe("runMythTicks — handler Sisyphe (détection d'objectif)", () => {
-  it("passe sisypheReached à true quand le nombre de bâtiments atteint la cible", () => {
-    state.activeMythId = "mythe_de_sisyphe";
-    state.buildings = { ...state.buildings, foragers: SISYPHE_BUILDING_TARGET + 20 };
-    expect(totalBuildingCount()).toBeGreaterThanOrEqual(SISYPHE_BUILDING_TARGET);
-    expect(state.sisypheReached).toBeFalsy();
-    runMythTicks(state, 1);
-    expect(state.sisypheReached).toBe(true);
-  });
-
-  it("ne déclenche PAS sous la cible", () => {
-    state.activeMythId = "mythe_de_sisyphe";
-    state.buildings = { foragers: 1 };
-    runMythTicks(state, 1);
-    expect(state.sisypheReached).toBeFalsy();
-  });
-
+describe("runMythTicks — handler Âge d'Or (« les Caravanes »)", () => {
   it("un handler ne s'exécute pas si son mythe n'est pas actif", () => {
     state.activeMythId = null;
-    state.buildings = { foragers: SISYPHE_BUILDING_TARGET + 20 };
+    state.food = new Decimal(100000);
+    state.gold = new Decimal(1000);
     runMythTicks(state, 1);
-    expect(state.sisypheReached).toBeFalsy();
+    expect(state.orUsureImbalance).toBeFalsy(); // déséquilibre ignoré : mythe inactif
   });
-});
 
-describe("runMythTicks — handler Âge d'Or (clamp dur de population)", () => {
-  it("plafonne la population au cap doré (empêche l'étalement)", () => {
+  it("ne plafonne PLUS la population (refonte : le clamp doré a disparu)", () => {
+    // Le Mythe est devenu un mini-jeu de négociation : le handler ne tient plus que
+    // la jauge de déséquilibre Nourriture/Trésor (Usure ×3 via prestige.js).
     state.activeMythId = "mythe_age_or";
-    state.orStartPop = 1000;
-    state.population = new Decimal("1e12"); // très au-dessus du cap
+    state.population = new Decimal("1e12");
     state.food = new Decimal(5000);
     state.gold = new Decimal(5000);
-    const cap = D(state.orStartPop).mul(OR_POP_CAP_GROWTH).max(OR_POP_CAP);
     runMythTicks(state, 1);
-    expect(D(state.population).lte(cap)).toBe(true);
-    expect(D(state.population).eq(cap)).toBe(true);
+    expect(D(state.population).eq("1e12")).toBe(true); // intacte
+    expect(state.orUsureImbalance).toBe(false);        // 5000 vs 5000 : équilibré
+  });
+
+  it("lève la jauge de déséquilibre quand Nourriture et Trésor divergent", () => {
+    state.activeMythId = "mythe_age_or";
+    state.food = new Decimal(100000);
+    state.gold = new Decimal(1000);
+    runMythTicks(state, 1);
+    expect(state.orUsureImbalance).toBe(true);
   });
 });
 

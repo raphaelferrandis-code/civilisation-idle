@@ -8,19 +8,12 @@
 import { state } from '../../state.js';
 import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT } from '../../balance.js';
 import { POLICY_BY_ID } from '../../../data/regulationActions.js';
-import { ATLAS_LEGIT_MAX_REDUCTION } from '../../../data/myths.js';
 import { toNum } from '../../num.js';
 import { has, ruinEffectSum } from '../shared.js';
 
 export function addProductionPenalty(type, amount) {
-  let effectiveAmount = amount;
-  // Héritage Atlas — Légitimité haute atténue les effets négatifs des crises
-  if (state.atlasHeritage && (state.atlasLegitimite || 0) > 50) {
-    const legBonus = ((state.atlasLegitimite || 50) - 50) / 50; // 0→1
-    effectiveAmount *= (1 - legBonus * ATLAS_LEGIT_MAX_REDUCTION);
-  }
   const current = state.crisisProduction[type] ?? 1;
-  state.crisisProduction[type] = Math.max(0.1, current * (1 - effectiveAmount));
+  state.crisisProduction[type] = Math.max(0.1, current * (1 - amount));
 }
 
 // Bénédiction de la boutique de Faveur : bonus TEMPORAIRE de production

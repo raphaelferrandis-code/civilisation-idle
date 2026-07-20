@@ -4,17 +4,12 @@
 // Héphaïstos, Âge d'Or, Cadmos, legs d'épitaphe). Feuille du DAG production :
 // dépend de state/data/shared/map-bridge, jamais d'un autre sous-module lourd.
 // Les helpers consommés par rates.js sont exportés (hors API publique du baril).
-import { state, buildingById } from '../../state.js';
+import { state } from '../../state.js';
 import { buildings } from '../../../data/buildings.js';
-import { getCityMapEngineTileMap } from '../../../map/cityMapBridge.js';
-import { Decimal, D, toNum } from '../../num.js';
+import { Decimal } from '../../num.js';
 import {
   BABEL_PROD_BASE_MULT,
-  BABEL_ADJ_BONUS,
-  OR_POP_THRESHOLD,
-  OR_POP_PENALTY_PCT,
-  OR_POP_CAP,
-  OR_POP_CAP_GROWTH,
+  BABEL_COMMON_TONGUE_MULT,
   HEPH_INFRA_MULT_BASE,
   HEPH_INFRA_MULT_GROWTH,
   HEPH_POP_DECAY_START_MIN,
@@ -45,35 +40,18 @@ export function babelExponentialMultDec() {
   return Decimal.pow(BABEL_PROD_BASE_MULT, n);
 }
 
-export function babelAdjacencyMultiplier() {
-  if (!state.babelHeritage) return 1;
-  const tileMap = getCityMapEngineTileMap();
-  if (!tileMap || tileMap.size === 0) return 1;
-  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  let totalBonus = 0;
-  let count = 0;
-  for (const tile of tileMap.values()) {
-    const cat = buildingById[tile.buildingId]?.category;
-    if (!cat) continue;
-    let adj = 0;
-    for (const [dx, dy] of DIRS) {
-      const nb = tileMap.get((tile.gx + dx) + "," + (tile.gy + dy));
-      if (nb && buildingById[nb.buildingId]?.category === cat) adj++;
-    }
-    totalBonus += adj * BABEL_ADJ_BONUS;
-    count++;
-  }
-  return count > 0 ? 1 + totalBonus / count : 1;
+// Héritage « la Langue commune » : la catégorie DÉCLARÉE ce cycle
+// (state.babelCommonTongue, posé par babelDeclareTongue, 1×/cycle) produit
+// +20 %. Remplace la Synergie d'Urbanisme par adjacence (2026-07-20) : le
+// placement est procédural, le joueur ne contrôlait pas ses voisins — le bonus
+// était un pourcentage aléatoire invisible.
+export function babelCommonTongueMult(cat) {
+  return (state.babelHeritage && state.babelCommonTongue === cat)
+    ? BABEL_COMMON_TONGUE_MULT
+    : 1;
 }
 
 // ── Âge d'Or / Héphaïstos ──────────────────────────────────────────────────
-export function orProdPenaltyMult() {
-  if (!isMythEffectActive("mythe_age_or")) return 1;
-  if (D(state.population).lte(OR_POP_THRESHOLD)) return 1;
-  const excess = toNum(state.population) - OR_POP_THRESHOLD;
-  return Math.max(0.1, 1 - excess * OR_POP_PENALTY_PCT);
-}
-
 export function hephInfraMult() {
   if (!isMythEffectActive("mythe_d_hephaistos")) return 1;
   const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 60_000;
@@ -94,12 +72,6 @@ export function hephPopProdMult() {
 // le plafond atteint (max plancher absolu / relatif au départ du cycle). La cité
 // dorée prospère sans s'étaler — sans cet arrêt dur, la pop explose (mesuré 10^45)
 // et rend l'objectif « ne pas dépasser le plafond » injouable à l'échelle post-GR.
-export function orPopProdMult() {
-  if (!isMythEffectActive("mythe_age_or")) return 1;
-  const cap = D(state.orStartPop || 0).mul(OR_POP_CAP_GROWTH).max(OR_POP_CAP);
-  return D(state.population).gte(cap) ? 0 : 1;
-}
-
 // ── Cadmos ─────────────────────────────────────────────────────────────────
 function cadmosPermanentBonus(orientation) {
   return (state.cadmosPermanentEpitaphs || [])

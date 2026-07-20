@@ -4,23 +4,19 @@ import {
   invalidateRenderCache
 } from '../state.js';
 
-import { babelExponentialMult, rates, ruinGain, totalBuildingCount } from '../mechanics.js';
+import { rates, ruinGain } from '../mechanics.js';
 
 import { promptCadmosAgeName } from './myths.js';
 
 import { log } from './utils.js';
 import { fmt } from '../utils.js';
-import { tr } from '../i18n.js';
 import { D } from '../num.js';
 
 import {
-  PROMETHEE_POP_MULT,
+  PROMETHEE_POP_TARGET,
   PROMETHEE_FATAL_RUPTURE,
-  OR_POP_CAP,
-  OR_POP_CAP_GROWTH,
   OR_BALANCE_RATIO,
-  BABEL_MULT_TARGET,
-  BABEL_CAT_LABELS,
+  ATLAS_FARDEAU_RISE,
   HEPH_POP_DECAY_START_MIN,
   HEPH_POP_DECAY_RATE,
   HEPH_INFRA_PER_PEAK,
@@ -28,11 +24,9 @@ import {
   ENEE_TERRITORY_INTERVAL_MS,
   CADMOS_POPULATION_THRESHOLDS,
   CADMOS_INFRASTRUCTURE_THRESHOLDS,
+  CADMOS_AGE_NAME_TARGET,
   CHAOS_RAW_RUIN_TARGET,
-  SISYPHE_BUILDING_TARGET,
   ATRIDES_GAIN_SECONDS,
-  OR_GAIN_SECONDS,
-  ICARE_GAIN_SECONDS,
   isMythEffectActive
 } from '../../data/myths.js';
 
@@ -64,17 +58,6 @@ function cadmosMilestoneSpecs() {
 // de tick(). Le prédicat isMythEffectActive(id) est testé en amont par runMythTicks.
 // Un handler peut renvoyer "abort" pour demander l'interruption du tick parent.
 export const MYTH_TICK_HANDLERS = {
-  mythe_d_icare: (state) => {
-    if (!state.icareInfraReached) {
-      const gained = D(state.infrastructure).sub(state.mythStartInfra || 0);
-      const need = D(rates().infrastructure).max(0).mul(ICARE_GAIN_SECONDS);
-      if (gained.gte(need) && gained.gt(0)) {
-        state.icareInfraReached = true;
-        log(`Icare : +${fmt(gained)} d'infrastructure batie ce cycle (${ICARE_GAIN_SECONDS}s de production) ! Le soleil est touche.`);
-      }
-    }
-  },
-
   mythe_du_chaos: (state) => {
     // Bâtir sans béquilles : les bonus de méta étant coupés, ruinGain(projeté)
     // renvoie la valeur BRUTE → seuil plat = difficulté constante.
@@ -84,14 +67,8 @@ export const MYTH_TICK_HANDLERS = {
     }
   },
 
-  mythe_de_sisyphe: (state) => {
-    // Le rocher : pousser jusqu'à SISYPHE_BUILDING_TARGET bâtiments malgré
-    // l'inflation cumulative des coûts (+3% par achat).
-    if (!state.sisypheReached && totalBuildingCount() >= SISYPHE_BUILDING_TARGET) {
-      state.sisypheReached = true;
-      log(`Sisyphe : ${SISYPHE_BUILDING_TARGET} bâtiments érigés malgré la malédiction des coûts. Le rocher atteint le sommet.`);
-    }
-  },
+  // Sisyphe (« la Montée ») n'a plus de handler de tick : le rocher ne bouge que
+  // par les verbes — POUSSER (actions/myths.js) et bâtir qui le lâche (building.js).
 
   mythe_atrides: (state) => {
     if (!state.atridesReached) {
@@ -105,11 +82,10 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_de_promethee: (state) => {
-    // La course du feu : croître ×PROMETHEE_POP_MULT depuis le départ AVANT la Rupture fatale.
-    const target = D(state.mythStartPop || 1).mul(PROMETHEE_POP_MULT);
-    if (!state.prometheePopReached && D(state.population).gte(target)) {
+    // La course du feu : atteindre la cible ABSOLUE avant la Rupture fatale.
+    if (!state.prometheePopReached && D(state.population).gte(PROMETHEE_POP_TARGET)) {
       state.prometheePopReached = true;
-      log(`Promethee : la population a ete multipliee par ${PROMETHEE_POP_MULT} (${fmt(target)} hab) ! L'epopee est accomplie.`);
+      log(`Promethee : ${PROMETHEE_POP_TARGET} habitants sous le feu ! L'epopee est accomplie.`);
     }
     if (!state.prometheePopReached && !state.prometheeFailed && state.instability >= PROMETHEE_FATAL_RUPTURE) {
       state.prometheeFailed = true;
@@ -118,33 +94,30 @@ export const MYTH_TICK_HANDLERS = {
   },
 
   mythe_age_or: (state) => {
-    // Plafond DUR de population : la production post-GR est si forte qu'un seul
-    // tick fait exploser la pop (10^21 mesuré) avant que l'arrêt de production ne
-    // réagisse. On CLAMPE donc la pop au plafond (comme le cap d'infrastructure),
-    // garantissant que la cité dorée ne s'étale jamais. Relatif au départ du cycle.
-    const orPopCap = D(state.orStartPop || 0).mul(OR_POP_CAP_GROWTH).max(OR_POP_CAP);
-    if (D(state.population).gt(orPopCap)) state.population = orPopCap;
-    if (D(state.population).gt(state.orPopPeak || 0)) state.orPopPeak = state.population;
+    // « Les Caravanes » : le tick ne fait plus que tenir la jauge de déséquilibre
+    // (Usure ×3 via prestige.js). Le plafond de pop et l'objectif d'Or ont disparu
+    // — la réussite (8 marchés) se joue dans le mini-jeu de négociation, et la
+    // validation vivante lit orDealsClosed via onCollapse.
     const _orF = D(state.food);
     const _orG = D(state.gold);
     state.orUsureImbalance = _orF.sub(_orG).abs().div(_orF.max(_orG).max(1)).toNumber() > OR_BALANCE_RATIO;
-    const orGained = D(state.gold).sub(state.mythStartGold || 0);
-    const orNeed = D(rates().gold).max(0).mul(OR_GAIN_SECONDS);
-    if (!state.orGoldReached && orGained.gte(orNeed) && orGained.gt(0) && D(state.orPopPeak || 0).lte(orPopCap)) {
-      state.orGoldReached = true;
-      log(`Age d'Or : +${fmt(orGained)} de Tresor accumule ce cycle sans laisser la cite s'etaler ! La prosperite est etablie, que le pacte soit scelle.`);
+  },
+
+  mythe_d_atlas: (state, dt) => {
+    // « Le poids du ciel » : le Fardeau monte sans arrêt. ÉPAULER le fait
+    // redescendre (actions/myths.js) ; ici on ne fait que le laisser peser. À 100 %,
+    // le ciel écrase la cité — échec du Mythe (comme la Rupture fatale de Prométhée).
+    if (state.atlasCrushed) return;
+    state.atlasFardeau = Math.min(100, (state.atlasFardeau || 0) + ATLAS_FARDEAU_RISE * dt);
+    if (state.atlasFardeau >= 100) {
+      state.atlasCrushed = true;
+      log("Atlas : le ciel a eu raison de nos épaules. La cité ploie et se brise.");
     }
   },
 
-  mythe_de_babel: (state) => {
-    if (!state.babelProdReached) {
-      if (babelExponentialMult() >= BABEL_MULT_TARGET) {
-        state.babelProdReached = true;
-        const catLabel = tr(BABEL_CAT_LABELS?.[state.babelCategory]) || state.babelCategory;
-        log(`Babel : la tour s'eleve ! La puissance de "${catLabel}" atteint x${BABEL_MULT_TARGET}, le pacte est en passe d'etre honore.`);
-      }
-    }
-  },
+  // Babel n'a plus de handler de tick : l'objectif est le COMPTE de bâtiments de
+  // la catégorie (babelTowerCount, data/myths.js) — onCollapse le lit, et
+  // checkMythLiveCompletion (appelé au tick) sacre en direct au 70e.
 
   mythe_d_hephaistos: (state, dt) => {
     if (D(state.population).gt(state.hephPopPeak || 0)) state.hephPopPeak = state.population;
@@ -179,6 +152,12 @@ export const MYTH_TICK_HANDLERS = {
 
   mythe_de_cadmos: (state) => {
     if (state.cadmosPromptPending) return;
+    // Les seuils sont ABSOLUS : une cité qui a farmé les franchit tous d'emblée, et
+    // c'est voulu (cf. myths.js). Mais on ne réclame plus un nom une fois l'objectif
+    // atteint — sinon franchir dix paliers d'un coup imposait dix modales bloquantes
+    // à la file, dont sept APRÈS que le Mythe soit déjà gagné. Le joueur nomme ses
+    // trois Âges en trois clics et on le laisse tranquille.
+    if ((state.cadmosChronicle || []).length >= CADMOS_AGE_NAME_TARGET) return;
     for (const spec of cadmosMilestoneSpecs()) {
       const value = spec.type === "population" ? state.population : state.infrastructure;
       const key = `${spec.type}:${spec.threshold}`;
@@ -194,12 +173,10 @@ export const MYTH_TICK_HANDLERS = {
 // Ordre d'exécution identique aux anciens blocs en ligne dans tick().
 const MYTH_TICK_ORDER = [
   "mythe_du_chaos",
-  "mythe_d_icare",
-  "mythe_de_sisyphe",
   "mythe_atrides",
   "mythe_de_promethee",
   "mythe_age_or",
-  "mythe_de_babel",
+  "mythe_d_atlas",
   "mythe_d_hephaistos",
   "mythe_d_enee",
   "mythe_de_cadmos"

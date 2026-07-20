@@ -111,11 +111,17 @@ export default function ChoiceDialog({ dialog, onChoose }) {
                 ))}
               </span>
             ) : null;
+            // Cardinalité minimale, opt-in : une option qui pose `minSelected`
+            // reste inerte tant que la sélection multiple est sous la barre. Sert
+            // aux choix où valider trop peu est un échec garanti (Ruines actives
+            // d'Antée). Sans `minSelected`, comportement inchangé.
+            const belowMin = Number.isFinite(option.minSelected) && selectedIds.length < option.minSelected;
             return (
               <button
                 key={`${option.label}-${index}`}
                 type="button"
                 value={index}
+                disabled={belowMin}
                 className={`${hasStructure ? "choice-structured" : ""}${option.highlight ? " is-favored" : ""}`}
                 onClick={() => onChoose({ ...option, selectedIds })}
               >

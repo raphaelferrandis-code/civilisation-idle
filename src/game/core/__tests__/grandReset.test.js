@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   state, setState, hydrateState, defaultState,
-  buildGrandResetState, GR_PERSISTENT_FIELDS
+  buildGrandResetState, resetTemporaryRunState, GR_PERSISTENT_FIELDS
 } from "../state.js";
 import {
   GRAND_RESET_PROD_BASE, GRAND_RESET_RUIN_BASE,
@@ -65,6 +65,30 @@ describe("Grand Reset — préservation des héritages", () => {
         `${f} absent de GR_PERSISTENT_FIELDS → effacé au Grand Reset`
       ).toBe(true);
     }
+  });
+
+  it("resetTemporaryRunState n'efface AUCUN champ de GR_PERSISTENT_FIELDS", () => {
+    // Barre la CLASSE de bug qu'a subie `prometheeBraisiers` : un héritage PERMANENT
+    // rangé par erreur parmi les traqueurs de run. resetTemporaryRunState tourne à la
+    // FIN de completeCollapse, ~95 lignes APRÈS applyHeritage — donc l'effondrement
+    // qui accorde l'héritage l'effaçait aussitôt, et comme mythsCompleted survit, le
+    // Mythe restait « complété » : héritage IRRÉCUPÉRABLE sans migration de save.
+    // Le test *Heritage ci-dessus ne l'attrapait pas (le champ ne finit pas par
+    // « Heritage »), d'où cette garde qui porte sur la liste entière.
+    const base = defaultState();
+    const s = defaultState();
+    const sentinels = {};
+    for (const f of GR_PERSISTENT_FIELDS) {
+      const v = sentinelFor(base[f], f);
+      sentinels[f] = v;
+      s[f] = v;
+    }
+    resetTemporaryRunState(s);
+    const effaces = GR_PERSISTENT_FIELDS.filter((f) => {
+      const v = sentinels[f];
+      return v instanceof Decimal ? !(s[f] instanceof Decimal && s[f].eq(v)) : s[f] !== v;
+    });
+    expect(effaces, `champs persistants effacés par une fin de cycle : ${effaces.join(", ")}`).toEqual([]);
   });
 
   it("préserve la méta-progression Olympe (profil débloqué) à travers un GR", () => {

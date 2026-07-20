@@ -27,6 +27,7 @@ const RuinsView = lazy(() => import('./components/views/RuinsView.jsx'));
 const HeritageView = lazy(() => import('./components/views/HeritageView.jsx'));
 const MythsView = lazy(() => import('./components/views/MythsView.jsx'));
 const ChronicleView = lazy(() => import('./components/views/ChronicleView.jsx'));
+const ComptoirView = lazy(() => import('./components/views/ComptoirView.jsx'));
 const OptionsDialog = lazy(() => import('./components/dialogs/OptionsDialog.jsx'));
 const ImportDialog = lazy(() => import('./components/dialogs/ImportDialog.jsx'));
 const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
@@ -134,6 +135,8 @@ export default function App() {
   // indépensable tant que la Boutique de Faveur y vit.
   const hasFaveur = useGameState(s => (s.faveur || 0) > 0);
   const isShopUnlocked = cycles >= 1 || grandResetCount > 0 || hasFaveur;
+  // « Le Comptoir » : l'onglet Marchandage, héritage du Mythe de l'Âge d'Or.
+  const isComptoirUnlocked = useGameState(s => Boolean(s.orHeritage));
   const isMythsUnlocked = grandResetCount >= 1;
 
   const tabs = [
@@ -143,6 +146,8 @@ export default function App() {
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
+    // ⚠ Icône PLACEHOLDER (res/gold) : pas de nav/marchandage.png — à générer.
+    { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, icon: 'res/gold', unlocked: isComptoirUnlocked },
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
@@ -236,6 +241,8 @@ export default function App() {
           {activeView === 'tech' && <HeritageView />}
 
           {activeView === 'mythView' && <MythsView />}
+
+          {activeView === 'comptoir' && <ComptoirView />}
 
           {activeView === 'history' && <ChronicleView />}
         </Suspense>

@@ -61,7 +61,7 @@
 
 ### Le Mythe de l'Âge d'Or (Acte II) - multiplicateur
 - **Effet passif mesure** : Usure x0.80.
-- **Heritage (texte)** : Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à 15%, l'Usure monte 20% plus lentement — en permanence, dans toutes les runs futures.
+- **Heritage (texte)** : Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à 15%, l'Usure monte 20% plus lentement, en permanence, dans toutes les runs futures.
 
 ### Le Mythe d'Atlas (Acte III) - GATE de progression
 - **Effet passif mesure** : Usure x0.85.

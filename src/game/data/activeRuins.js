@@ -7,6 +7,17 @@ export const ACTIVE_RUIN_FOOD_ENGINE_COST_MULT = 1.20;
 export const ACTIVE_RUIN_GOLD_PROD_MULT = 0.75;
 export const ACTIVE_RUIN_USURE_MULT = 1.10;
 export const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
+
+// ── Les six fardeaux qui étaient des « slots futurs » ────────────────────────
+// Principe commun, et c'est ce qui fait d'Antée une décision : porter un Héritage
+// comme fardeau, c'est en GARDER LE POUVOIR mais en PERDRE LE CONTRÔLE. Le malus
+// n'est jamais une taxe arbitraire — c'est le don lui-même, qui se déclenche sans
+// toi. La question posée au joueur devient donc : « lesquels de mes pouvoirs
+// puis-je me permettre de laisser partir tout seuls ? »
+export const ACTIVE_RUIN_SISYPHE_CREEP    = 1.004; // Sisyphe : le rocher reprend sa pente, par achat
+export const ACTIVE_RUIN_BABEL_COST_MULT  = 1.25;  // Babel : la catégorie dominante coûte plus cher
+export const ACTIVE_RUIN_ICARE_AUTO_BURN  = 0.60;  // Icare : la Surchauffe part seule à cette Rupture
+export const ACTIVE_RUIN_PHENIX_FORCED_SEC = 900;  // Phénix : le bûcher s'allume à heure fixe
 // Antée — « la force des fardeaux » : porter PLUSIEURS maluses simultanés (4) ET
 // prospérer malgré eux (faire croître la pop ×ANTEE_POP_MULT depuis le départ).
 export const ANTEE_MIN_ACTIVE_RUINS = 4;       // 4 maluses simultanés (était 2)
@@ -34,7 +45,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     stateKey: "orHeritage",
     title: { fr: "Equilibre Dore", en: "Golden Balance" },
     source: { fr: "Âge d'Or", en: "Golden Age" },
-    bonus: { fr: "Bonus d'Usure actif (-20% quand Nourriture et Trésor sont équilibrés).", en: "Active Wear bonus (-20% when Food and Treasury are balanced)." },
+    bonus: { fr: "Le Comptoir de marchandage est ouvert.", en: "The Trading Post is open." },
     malus: { fr: `La production de Trésor démarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`, en: `Treasury production starts ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% slower.` }
   },
   {
@@ -48,56 +59,50 @@ export const ACTIVE_RUIN_DEFINITIONS = [
   {
     id: "atlas",
     stateKey: "atlasHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Fardeau du ciel", en: "Sky Burden" },
     source: { fr: "Atlas", en: "Atlas" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "« Atlas prend le coup » reste disponible : une gestion de crise passe sans effet chaque cycle.", en: "\"Atlas takes the hit\" remains available: one crisis management passes with no effect each cycle." },
+    malus: { fr: "Atlas prend le PREMIER coup, pas celui que tu choisis : le skip part d'office sur la première crise du cycle.", en: "Atlas takes the FIRST hit, not the one you choose: the skip fires on the cycle's first crisis, automatically." }
   },
   {
     id: "sisyphe",
     stateKey: "sisypheHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Pente du rocher", en: "The Slope" },
     source: { fr: "Sisyphe", en: "Sisyphe" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "L'inflation naturelle des coûts croît plus lentement, pour toujours.", en: "Natural cost inflation grows more slowly, forever." },
+    malus: { fr: `Chaque achat réinflate tous les coûts de ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)} % : le rocher reprend sa pente.`, en: `Each purchase re-inflates all costs by ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)}%: the boulder rolls back.` }
   },
   {
     id: "babel",
     stateKey: "babelHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Confusion des langues", en: "Confusion of Tongues" },
     source: { fr: "Babel", en: "Babel" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "La Langue commune reste disponible : une catégorie déclarée produit +20 % chaque cycle.", en: "The Common Tongue remains available: a declared category produces +20% each cycle." },
+    malus: { fr: `La catégorie sur laquelle tu t'appuies le plus coûte ${Math.round((ACTIVE_RUIN_BABEL_COST_MULT - 1) * 100)} % plus cher.`, en: `The category you lean on most costs ${Math.round((ACTIVE_RUIN_BABEL_COST_MULT - 1) * 100)}% more.` }
   },
   {
     id: "icare",
     stateKey: "icareHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Cire fondante", en: "Melting Wax" },
     source: { fr: "Icare", en: "Icare" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "L'Aile disponible pendant les cycles normaux.", en: "The Wing available during normal cycles." },
+    malus: { fr: `L'Aile monte toute seule dès que la Rupture atteint ${Math.round(ACTIVE_RUIN_ICARE_AUTO_BURN * 100)} % : tu gardes le vol, tu perds le moment.`, en: `The Wing climbs on its own once Rupture reaches ${Math.round(ACTIVE_RUIN_ICARE_AUTO_BURN * 100)}%: you keep the flight, you lose the timing.` }
   },
   {
     id: "phenix",
     stateKey: "phoenixHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Bûcher programmé", en: "Scheduled Pyre" },
     source: { fr: "Phénix", en: "Phénix" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "Script d'effondrement automatique disponible.", en: "Automatic collapse script available." },
+    malus: { fr: `Le bûcher s'allume de force au bout de ${Math.round(ACTIVE_RUIN_PHENIX_FORCED_SEC / 60)} minutes de cycle, quels que soient tes réglages.`, en: `The pyre lights itself after ${Math.round(ACTIVE_RUIN_PHENIX_FORCED_SEC / 60)} minutes of cycle, whatever your settings.` }
   },
   {
     id: "atrides",
     stateKey: "atridesHeritage",
-    title: { fr: "Slot futur", en: "Future slot" },
+    title: { fr: "Pacte signé d'office", en: "Pact Signed For You" },
     source: { fr: "Atrides", en: "Atrides" },
-    bonus: { fr: "Bonus à définir.", en: "Bonus to be defined." },
-    malus: { fr: "Malus à définir.", en: "Malus to be defined." },
-    pending: true
+    bonus: { fr: "Pacte des Atrides disponible en début de cycle.", en: "Pact of the Atreides available at cycle start." },
+    malus: { fr: "Le pacte est signé sans toi au lancement : tu prends le doublement, donc tu prendras la moitié pendant la crise.", en: "The pact is signed without you at launch: you take the doubling, so you will take the halving during the crisis." }
   }
 ];
 

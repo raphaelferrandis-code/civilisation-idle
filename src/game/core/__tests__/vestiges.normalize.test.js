@@ -59,18 +59,22 @@ describe("normalizeVestiges — records de cité morte (v3)", () => {
 });
 
 describe("migration save → v3 (vestiges)", () => {
-  it("CURRENT_SAVE_VERSION vaut 3", () => {
-    expect(CURRENT_SAVE_VERSION).toBe(3);
+  // Ces tests portent sur le PALIER v3 (records de cité morte), pas sur la valeur
+  // courante de CURRENT_SAVE_VERSION — qui a depuis dépassé 3 (v4 : rétro-correctif
+  // des Braisiers de Prométhée, cf. mythRepairs.test.js). Ce qui doit rester vrai
+  // est que migrate() amène TOUJOURS un vieux save jusqu'à la version courante.
+  it("la version courante couvre le schéma des vestiges (v3)", () => {
+    expect(CURRENT_SAVE_VERSION).toBeGreaterThanOrEqual(3);
   });
 
-  it("migrate() estampille la version 3 (transformation faite par les normalizers)", () => {
+  it("migrate() estampille un save v2 à la version courante", () => {
     const migrated = migrate({ saveVersion: 2, vestiges: [{ gridN: 28, ruins: [{ x: 5, y: 5 }] }] });
-    expect(migrated.saveVersion).toBe(3);
+    expect(migrated.saveVersion).toBe(CURRENT_SAVE_VERSION);
   });
 
   it("hydrateState convertit un save v2 en records compacts (ruins jetés)", () => {
     const s = hydrateState({ saveVersion: 2, vestiges: [{ gridN: 28, ruins: [{ x: 5, y: 5 }, { x: 15, y: 11 }] }] });
-    expect(s.saveVersion).toBe(3);
+    expect(s.saveVersion).toBe(CURRENT_SAVE_VERSION);
     expect(s.vestiges.length).toBe(1);
     expect(s.vestiges[0].ruins).toBeUndefined();
     expect(s.vestiges[0].footprint.gridN).toBe(28);

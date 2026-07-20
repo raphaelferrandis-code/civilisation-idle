@@ -46,6 +46,7 @@ import {
 import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js';
 import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
+import { BRAISIERS_DURATION_MS } from '../data/myths.js';
 import { D } from './num.js';
 
 import {
@@ -169,6 +170,10 @@ function simulateAwayCrises(elapsedSeconds) {
 
   const realDateNow = Date.now;
   const savedHistory = state.history;
+  // Les 3 paliers de crise sont pré-latchés ci-dessous pour éviter les dialogues
+  // async hors-ligne. Ce latch ne doit PAS fuir dans le cycle en ligne qui suit
+  // (cf. le `finally`), sinon le joueur revient sans aucune crise narrative.
+  const savedThresholds = { ...state.crisisThresholds };
   const ruinsBefore = D(state.ruins);
   let virtual = realDateNow.call(Date) - elapsedSeconds * 1000;
   let collapses = 0;
@@ -215,18 +220,40 @@ function simulateAwayCrises(elapsedSeconds) {
     }
     // Temps restant après le plafond d'effondrements : crédit linéaire (pas de gâchis).
     if (remaining > 0) {
-      const r = rates();
-      state.population = D(state.population).add(D(r.population).mul(remaining));
-      state.food = D(state.food).add(D(r.food).mul(remaining));
-      state.gold = D(state.gold).add(D(r.gold).mul(remaining));
-      state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(remaining));
-      state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(remaining));
+      const creditSpan = (seconds) => {
+        if (seconds <= 0) return;
+        const r = rates();
+        state.population = D(state.population).add(D(r.population).mul(seconds));
+        state.food = D(state.food).add(D(r.food).mul(seconds));
+        state.gold = D(state.gold).add(D(r.gold).mul(seconds));
+        state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(seconds));
+        state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(seconds));
+      };
+      // Les Braisiers de Prométhée ne valent que BRAISIERS_DURATION_MS après le
+      // début du cycle (rates.js). Un crédit calculé à TAUX CONSTANT étalerait leur
+      // ×2 Nourriture sur tout le reliquat — des heures au lieu de deux minutes. On
+      // scinde donc à la sortie de la fenêtre, en avançant l'horloge virtuelle entre
+      // les deux segments pour que rates() cesse de les voir.
+      const braisiersLeftSec = state.prometheeBraisiers
+        ? Math.max(0, (BRAISIERS_DURATION_MS - (virtual - (state.cycleStartedAt || virtual))) / 1000)
+        : 0;
+      const boosted = Math.min(remaining, braisiersLeftSec);
+      creditSpan(boosted);
+      virtual += boosted * 1000;
+      creditSpan(remaining - boosted);
     }
   } finally {
     Date.now = realDateNow;
     setNotifyPaused(false);
     setGamePaused(false);
     state.history = savedHistory; // on jette le spam de Chronique hors-ligne
+    // On rend ses crises au cycle EN LIGNE. Sans ça, markThresholds() survivait à
+    // la simulation et applyOfflineProgress le persistait par save() : plus aucune
+    // crise narrative jusqu'au prochain effondrement (donc plus de dialogues, plus
+    // de Moisson de crise, et les compteurs d'Olympe gelés). Si des effondrements
+    // ont eu lieu, le cycle courant est NEUF : il repart avec ses 3 paliers vierges,
+    // exactement ce que laissait completeCollapse.
+    state.crisisThresholds = collapses > 0 ? {} : savedThresholds;
     invalidateRenderCache("all");
   }
   return { collapses, ruinsGained: D(state.ruins).sub(ruinsBefore).max(0) };

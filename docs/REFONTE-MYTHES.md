@@ -8,7 +8,35 @@
 > bonus impersonnels par des bonus propres aux mécaniques du jeu »), appliqué cette fois aux
 > quatorze Mythes.
 >
-> État : **conception en cours, rien d'implémenté.** Session du 2026-07-18.
+> **État au 2026-07-18, fin de session : le chantier repart sur d'autres bases.**
+>
+> Ce qui reste acquis : les blocages du §2 sont **réparés et livrés** (509 tests verts). Le
+> diagnostic du §1 tient — onze héritages sur quatorze se réduisent à un pourcentage.
+>
+> Ce qui est **abandonné** : la colonne « la chute », son modèle en couches, et le moteur de
+> « La Veille du feu » (implémenté puis retiré). Deux raisons, dans cet ordre.
+>
+> 1. **La mesure l'a condamné.** Un banc headless comparant trois profils sur 12 h virtuelles a
+>    montré que la Veille est une **perte nette** : le joueur qui la règle au maximum récolte
+>    5,6 % de ce que récolte le même joueur sans elle, et le cadran est dominé à tous ses crans.
+>    Trois contre-expertises ont reproduit les chiffres à l'identique — et démonté l'explication
+>    causale proposée. **On ne sait toujours pas pourquoi.**
+> 2. **La méthode était fausse.** Le premier résultat annonçait « jouer sa fin à la main bat le
+>    farm automatisé ×580 ». La contre-expertise a montré que le profil automatisé était un homme
+>    de paille (on lui avait interdit de gérer sa Rupture) : face à un adversaire correctement
+>    joué, l'écart tombe à ×2,9 et varie d'une graine à l'autre. Pire, au vrai optimum de
+>    réglage, **le meilleur profil manuel ne scelle aucune préparation terminale**.
+>
+> Ce que le détour a coûté et rapporté : les décisions D6→D9 et la grille du §4.0 sont
+> **suspendues** (elles répondaient à une question d'architecture, pas de plaisir de jeu). Mais
+> le §2 a été réparé, le banc de mesure aussi, et on sait maintenant que le farm hors-ligne est
+> **435× plus faible** que ce qu'on croyait — il est plafonné par `idleCapSeconds` et ne
+> rachète jamais l'arbre des Ruines. Ce dernier fait resservira.
+>
+> **La nouvelle direction** : les quatorze Mythes doivent devenir *mémorables*. Les défis
+> existants tiennent debout mais sont fades et interchangeables — ils gardent leur structure et
+> gagnent du caractère, en cohérence avec le jeu tel qu'il est aujourd'hui. Les récompenses,
+> elles, sont à refaire entièrement.
 
 ---
 
@@ -74,8 +102,14 @@ visent encore des multiplicateurs. À lire comme un gisement, pas comme une reco
 
 ## 2. Blocages vérifiés, à traiter avant toute refonte
 
-Quatre problèmes constatés dans le code. Les trois premiers sont vérifiés par exécution, le
-quatrième par lecture. **Ne construire aucune récompense par-dessus tant qu'ils tiennent.**
+> **État : lot de réparation LIVRÉ le 2026-07-18.** Cette section a été réécrite après
+> vérification par exécution : deux de ses quatre thèses initiales étaient fausses, et deux
+> blocages qu'elle ne voyait pas ont été trouvés. Ce qui suit est l'état constaté, pas
+> l'hypothèse de départ. 509 tests verts, dont 11 nouveaux qui barrent les classes de bugs.
+>
+> Corrections de forme au passage : le fichier d'équilibrage est `src/game/core/balance.js`
+> et non `src/game/data/balance.js` — les chemins cités par la première version de ce
+> document étaient faux.
 
 ### 2.1 L'héritage de Prométhée n'a jamais fonctionné
 
@@ -94,6 +128,19 @@ Vérifié en exécutant `resetTemporaryRunState` et `buildGrandResetState` sur u
 quatorze drapeaux sont à `true` : treize survivent aux deux, `prometheeBraisiers` est le seul
 perdu à l'effondrement.
 
+**Ce que le diagnostic initial n'avait pas vu : supprimer la ligne ne suffit pas.** Tout
+joueur capable d'atteindre Antée a nécessairement déjà complété Prométhée (les Actes
+s'enchaînent en cascade), donc a déjà perdu le drapeau — et il ne peut pas le regagner, car
+`activateMyth` refuse un Mythe déjà complété : `applyHeritage()` ne rejoue jamais. Sans
+migration, le correctif ne débloque **personne** parmi les joueurs concernés. D'où le bump
+`CURRENT_SAVE_VERSION` 3 → 4, avec une migration qui re-dérive le drapeau de
+`mythsCompleted`, seule trace survivante de la réussite.
+
+**Effet de bord traité dans le même lot.** Rallumer les Braisiers réveille un code jusque-là
+mort, et la boucle hors-ligne crédite le temps restant *à taux constant* : le ×2 Nourriture
+se serait appliqué à des heures de crédit au lieu de deux minutes. Le crédit linéaire est
+désormais scindé à la sortie de la fenêtre.
+
 ### 2.2 Antée est infaisable, donc le Ragnarok est inatteignable
 
 `ANTEE_MIN_ACTIVE_RUINS = 4` (`activeRuins.js:12`) mais seules **trois** Ruines actives sont
@@ -106,27 +153,110 @@ Il reste `enee`, `age_or`, `hephaistos`. `onCollapse()` d'Antée ne peut jamais 
 `true`. Antée étant en Acte III et le Ragnarok exigeant tous les Mythes des Actes I à III, la
 fin du jeu est verrouillée.
 
-Corriger §2.1 remonte à quatre, soit l'objectif pile sans aucune marge de choix. **Il faut
-décider du sort des six slots vides** : les remplir, ou baisser le seuil.
+**Résolu par §2.1 seul.** Sonde exécutée sur `defaultState()` avec les dix drapeaux posés :
+le pool des sélectionnables vaut 4 avant `resetTemporaryRunState` et 3 après. Une fois la
+ligne fautive supprimée, il reste à 4, et `4 >= ANTEE_MIN_ACTIVE_RUINS` est satisfait :
+Antée redevient franchissable, le Ragnarok atteignable. **Le seuil n'a pas été touché** — le
+baisser aurait été une décision d'équilibrage déguisée en réparation, et ce document
+s'interdit tout chiffre final avant l'audit (§5).
 
-### 2.3 La Moisson de crise sature à trois crises
+Reste ouvert, et c'est du design, pas de la réparation : **le sort des six slots vides**.
+Remplir un slot donne pool 5 / seuil 4, soit six sélections valides — ça *ajoute* du choix,
+là où baisser le seuil ne fait qu'abaisser la barre. Voir §6.
 
-Le nœud « Moisson de crise » donne `amount: 0.10` par crise stabilisée (`upgrades.js:265`),
-plafonné par `CRISIS_RESOLVE_RUIN_CAP = 0.30` (`balance.js:861`), consommé en
-`prestige.js:161-164`. Le bonus est donc **saturé dès la troisième crise du cycle**. Sur un
-cycle late game de plusieurs heures qui en produit bien davantage, gérer ses crises
-correctement et les gérer parfaitement rapportent exactement la même chose.
+**Piège d'interface réparé au passage.** À pool 4 / seuil 4, toute sélection autre que « les
+quatre » est un échec garanti et silencieux — et le dialogue proposait encore un bouton
+« Aucune Ruine active — *Tenter Antée sans malus actifs* », c'est-à-dire une défaite en un
+clic. Sous Antée, ce bouton n'est plus proposé, le seuil requis est annoncé dans le texte, et
+« Valider » reste inerte tant que la sélection est sous la barre.
 
-C'est un choix mort au cœur du seul système de gameplay actif du jeu. Accessoirement, les
-commentaires de `prestige.js:159` et `balance.js:860` annoncent « +3 % par crise » alors que
-la valeur réelle est 10 %.
+### 2.3 ~~La Moisson de crise sature à trois crises~~ — thèse RÉFUTÉE
 
-### 2.4 L'inflation de Sisyphe compte les lots, pas les unités
+**La saturation décrite n'existe pas.** Il n'y a que **trois paliers de crise** dans tout le
+jeu (`CRISIS_EVENTS` = `_25`/`_50`/`_75`, `src/game/data/world.js`), et chacun est latché dès
+l'ouverture de sa crise. Le compteur `cycleCrisesResolved` est donc borné à 3 **par
+construction**, et le cap `0,30 = 3 × 0,10` ne rogne jamais rien. La phrase « un cycle late
+game en produit bien davantage » est fausse : c'est impossible. Il n'y a pas de choix mort ici.
+
+Ce qui était vrai : les commentaires mentaient bel et bien (« +3 % » pour une valeur de 10 %),
+aux deux sites. Corrigés — et correctement cadrés cette fois, car la première rédaction du
+correctif mentait elle aussi par omission (voir ci-dessous).
+
+**Trois précisions qui comptent pour la refonte**, toutes vérifiées :
+
+1. Le facteur multiplie `raw` **seul** ; `eraFlatBonus` est ajouté après. Le bonus réel sur le
+   gain versé va donc de ~0 % (cité jeune post-Grand Reset, où le plat domine) à +30 % (late
+   game). Le « ×1,30 » n'est vrai qu'asymptotiquement — ne pas dimensionner sur ce chiffre.
+2. Le compteur ne s'incrémente que si la résolution **fait baisser l'instabilité**, pas si le
+   joueur a simplement répondu.
+3. Le nœud vaut ×1 sous **deux Mythes** : le Chaos (qui vide tout l'arbre des Ruines) et
+   Héphaïstos sous son seuil de population (la crise s'impose sans choix et fait *monter*
+   l'instabilité, alors que le palier a déjà été consommé). À verser au dossier de la refonte,
+   pas seulement à celui de l'équilibrage.
+
+### 2.3 bis Le latch des crises fuit du hors-ligne vers le jeu en ligne — RÉPARÉ
+
+Le vrai bug, que ce document n'avait pas vu, et qui est plus gros que celui qu'il décrivait.
+
+`simulateAwayCrises` pré-latche les trois paliers pour éviter d'ouvrir des dialogues pendant
+la simulation hors-ligne. Son bloc `finally` restaure `Date.now`, les pauses et l'historique
+— **mais pas `state.crisisThresholds`**, et `applyOfflineProgress` persiste l'état juste
+après. Conséquence : après toute session hors-ligne éligible, le joueur revient dans un cycle
+en ligne **sans aucune crise narrative**, jusqu'au prochain effondrement.
+
+Le rayon de souffle dépasse largement la Moisson : plus de dialogues de crise, plus de
+modulation d'instabilité, compteurs d'Olympe gelés (donc `crisisResolutionRatio` retombe au
+neutre et **le profil olympien est biaisé** pour tout joueur à forte composante idle), et la
+Chronique enregistre zéro crise.
+
+C'est un bug d'état sans arbitrage de design, et son correctif va dans le sens protecteur :
+il rend des crises au joueur, il n'en retire pas. Réparé, avec un test qui échoue sur le code
+d'avant (les trois paliers y ressortent latchés).
+
+### 2.4 L'inflation de Sisyphe compte les lots, pas les unités — CONFIRMÉ, sorti du lot
 
 `state.sisypheMult` s'incrémente une fois par **appel** de `buyBuildingCore`
-(`building.js:97-99`). Un achat groupé de 500 unités compte donc pour un cran, là où 500
-achats unitaires comptent pour 500. L'incohérence existe déjà dans le Mythe actuel, et elle
-invalide toute récompense assise sur la malédiction de Sisyphe.
+(`src/game/core/actions/building.js`). Un achat groupé de 500 unités compte pour un cran, là
+où 500 achats unitaires comptent pour 500. Deux lignes plus bas, l'effet de Prométhée fait
+bien `amount * PROMETHEE_RUPTURE_PER_FOOD` : la convention par unité est déjà établie dans la
+même fonction, ce qui tranche l'intention.
+
+**Mais ce n'est pas une correction de comptage, c'est une refonte.** Mesuré :
+
+| régime | `sisypheMult` atteint à la cible de 180 bâtiments |
+|---|---|
+| achats groupés (le vécu réel) | **×2,4 à ×3,3** |
+| correctif naïf par unité, constante inchangée | **×204** |
+| idem, avec l'achat auto hors-ligne sur 8 h | **≈ 1e74** |
+
+La dernière ligne est le point bloquant : la boucle hors-ligne rejoue le vrai `tick()`, donc
+`checkAutomateRules()`, donc jusqu'à plusieurs milliers d'achats — le joueur reviendrait sur
+un cycle Sisyphe mort sans explication. Un correctif juste demande quatre choses ensemble :
+compter les unités, **retuner la constante**, router l'achat auto par le cœur d'achat (il
+contourne aujourd'hui la malédiction entièrement), et corriger le prix intra-lot (sans quoi
+un lot de 500 reste ~175 000× moins cher que 500 achats unitaires).
+
+Retuner la constante est un chiffre d'équilibrage définitif, que le §5 interdit avant
+l'audit. **Sorti du lot de réparation**, à traiter dans la colonne où vit déjà Sisyphe.
+
+Un seul morceau a été livré, parce qu'il est gratuit et que le mensonge s'aggravait : l'UI
+annonçait « Production ×N » pour un multiplicateur de **coût**. Aujourd'hui elle affiche
+« ×1,06 », donc c'est anodin ; après correctif elle aurait affiché « ×204 », lu comme un buff
+massif. Le libellé dit désormais « Coûts × ».
+
+### 2.5 L'héritage de Babel récompense un placement que le joueur ne décide pas
+
+Trouvé pendant la vérification, absent du diagnostic initial.
+
+`babelAdjacencyMultiplier` moyenne le bonus d'adjacence **sur toutes les tuiles de la carte**,
+dont le placement est attribué automatiquement par `layout.js`. Le joueur n'a aucune prise, et
+la moyenne écrase les variations : c'est une constante opaque qui dérive au gré de
+l'auto-placement.
+
+Ce n'est pas un bug — c'est pire. C'est un héritage qui **viole D3 par construction** (il ne
+rend rien de pilotable), et le seul qui dépendait de la carte, que D2 gèle en tant que rendu.
+Il ne se répare pas : il se reconçoit. C'est un point d'entrée tout trouvé pour la couche de
+Babel.
 
 ---
 
@@ -166,18 +296,180 @@ déblocages disjoints. La bonne forme est l'inverse : **plusieurs Mythes constru
 facette par couches successives**. Les Actes I, II, III cessent alors d'être une simple
 barrière de déblocage et deviennent la profondeur croissante d'une facette.
 
+**D6. Le Ragnarok est affranchi.** *(2026-07-18 — décision qui commande la forme de tous les
+défis.)* Il cesse de rejouer les treize contraintes simultanément et devient une épreuve
+autonome qui cite les Mythes thématiquement.
+
+> **Pourquoi c'est structurel et pas cosmétique.** La superposition des treize ne fonctionnait
+> que parce que chaque contrainte est un modificateur multiplicatif : des `×N` **commutent**,
+> des verbes non (« ne t'effondre pas pendant 20 min » et « effondre-toi cinq fois » ne peuvent
+> pas coexister). Autrement dit, le Ragnarok tel qu'il était **imposait le régime `×N` aux
+> treize autres défis** — exactement ce que le §6.5 veut supprimer. L'affranchir lève la
+> contradiction : chaque défi peut désormais être un verbe, une fenêtre, une séquence.
+>
+> Dette technique à solder : `RAGNAROK_CONSTRAINTS`, la branche ragnarok de
+> `isMythEffectActive`, les champs `ragnarokSummary` des quatorze Mythes,
+> `ragnarokEffectsApplied` et `ragnarokActiveConstraints` n'existent que pour la superposition.
+> C'est un lot de simplification, pas un lot de réécriture.
+
+**D7. Un Mythe accompli le reste.** *(2026-07-18.)* Réécrire les quatorze récompenses invalide
+les treize drapeaux d'héritage de `GR_PERSISTENT_FIELDS`, y compris dans les saves existantes.
+Règle retenue : le défi gagné sous les anciennes règles ouvre droit à la **nouvelle**
+récompense, accordée par migration. On a mesuré le prix de l'option inverse avec Prométhée
+(§2.1) : un héritage perdu est irrécupérable, puisque `activateMyth` refuse de rejouer un Mythe
+déjà complété. Toute réécriture de récompense doit donc arriver **avec sa migration**.
+
+
+**D8. Les héritages restent permanents — donc ils doivent être des verbes.**
+*(2026-07-18.)* Un Mythe se gagne une fois et son héritage est acquis à vie. Le modèle
+« panthéon » — N héritages, quelques emplacements, on recompose entre deux cycles, à la manière
+de Cookie Clicker — a été examiné et **écarté**.
+
+> **La contrainte que ça impose.** Un héritage permanent et *passif* est le pire cas
+> concevable : quatorze nombres empilés en silence, invisibles, c'est-à-dire précisément le
+> défaut que ce document diagnostique. Un héritage permanent et *verbe* ne souffre pas de sa
+> permanence — c'est un geste que le joueur repose à chaque cycle. **Choisir la permanence rend
+> donc D3 obligatoire au lieu de souhaitable** : à partir d'ici, une récompense passive n'est
+> plus seulement médiocre, elle est interdite.
+>
+> Corollaire, qui répond à l'objection « quatorze événements ponctuels dans un jeu de
+> répétition » : les Mythes sont bien des épreuves uniques, mais leurs récompenses sont des
+> gestes rejoués. La rejouabilité vit dans l'USAGE de l'héritage, pas dans la recomposition
+> d'un équipement. Les trois couches de la colonne « la chute » le font déjà — la Veille se
+> règle à chaque fin, le Manifeste se recharge à chaque chute, l'Altitude se revole.
+>
+> Les Ruines actives d'Antée ne sont pas contredites : elles font choisir des FARDEAUX, pas
+> quels héritages sont allumés.
+>
+> **Corollaire d'automatisation, découvert en implémentant la couche 1.** Le verbe d'un
+> héritage ne doit jamais exiger une déclaration *par cycle*. Le end-game est explicitement
+> automatisé (Automates d'Héphaïstos, Script du Phénix, farm hors-ligne qui enchaîne jusqu'à
+> plusieurs centaines d'effondrements sans personne devant l'écran) : un réglage à reposer à
+> chaque tour serait de la friction en ligne et **impossible hors-ligne**. La forme qui marche
+> est donc : un **réglage permanent** qui ouvre une **phase jouable**, le verbe vivant dans la
+> phase et non dans le réglage.
+>
+> Contrainte qui en découle, et qui a déjà mordu : toute mécanique de fin de cycle doit être
+> vérifiée **sur le chemin hors-ligne autant qu'en ligne**. La Veille a été livrée avec un
+> défaut de cette exacte nature — `applyOfflineProgress` sortait sur l'ouverture de la fenêtre,
+> si bien qu'un cadran large faisait perdre des absences entières au joueur automatisé. Le
+> prédicat porte désormais sur le GEL.
+
+**D9. Les Mythes portent le nom de leur épreuve, pas celui d'un dieu.** *(2026-07-18.)* On
+abandonne les noms de divinités au profit de noms inventés qui **encodent la fonction**.
+
+*Pourquoi.* Le panthéon actuel n'en est pas un : Chaos, Prométhée, Cadmos, Héphaïstos, Sisyphe,
+Atlas, Icare, Atrides et Antée sont grecs, mais Énée est romain, Babel mésopotamien, et
+**Ragnarok est norrois** — le capstone vient d'une autre mythologie que les treize qu'il
+couronne. On ne perd donc aucune cohérence : on en gagne une. Et un nom emprunté crée une
+attente que la mécanique dément (« Babel » n'annonce pas des manifestes de cargaison), là où un
+nom inventé se comprend sans glose. Signal qui a déclenché la décision : justifier Prométhée en
+couche 1 a demandé un détour par l'étymologie grecque — quand il faut ça, le nom ne porte pas sa
+fonction.
+
+*Bénéfice de structure.* Chaque Mythe portait jusqu'ici **deux** noms — l'épreuve (« Le Mythe de
+Prométhée ») et l'héritage (« Les Braisiers ancestraux »). Deux vocabulaires pour un seul objet.
+On les fusionne : le Mythe s'appelle comme son épreuve. Les trois designs de la colonne « la
+chute » le font déjà naturellement — *La Veille du feu*, *Le Manifeste de la cale*, *L'Altitude*.
+
+*Quand.* **On nomme un Mythe quand son design est validé** — ni avant (le nom serait décoratif),
+ni tous à la fin (on retarderait ce qui est déjà mûr).
+
+> ⚠ **On renomme les LIBELLÉS, jamais les identifiants.** `mythe_de_promethee`, `mythe_du_chaos`
+> et consorts sont les clés de `mythsCompleted` dans toutes les saves, et les migrations v4/v5
+> s'appuient dessus. Renommer un id coûterait une migration de save pour un changement
+> cosmétique.
+>
+> Coût d'art mesuré : 8 icônes portent un nom de divinité, et **6 Mythes n'en ont aucune** — le
+> jeu est déjà incomplet à moitié. Ces icônes illustrent un concept (un rocher, une aile), pas
+> un visage : la plupart survivent au renommage sans être redessinées.
 ---
 
 ## 4. Les cinq axes
 
 Par ordre de rendement estimé.
 
+### 4.0 La grille de travail
+
+Cadre adopté le 2026-07-18 pour cesser de rediscuter chaque piste depuis zéro. **Révisable** :
+c'est une hypothèse de structure, pas une décision gravée comme D1-D9.
+
+Une fois Héphaïstos et Phénix gelés (§4.5) et Chaos et Antée attribués à la méta (§4.4), les
+**neuf Mythes restants se répartissent exactement 3/3/3 sur les trois Actes**. D'où trois
+colonnes de trois couches, une couche par Acte :
+
+| Colonne | Acte I | Acte II | Acte III |
+|---|---|---|---|
+| **La chute** | Prométhée | Babel | Icare |
+| **La fondation** | Énée | Sisyphe | Atrides |
+| **La gouvernance** | Cadmos | Âge d'Or | Atlas |
+| *La méta* (§4.4) | Chaos | — | Antée |
+| *L'idle* (gelé, D1) | Héphaïstos | — | Phénix |
+
+Le Ragnarok reste hors grille : depuis D6, c'est une épreuve autonome.
+
+Les affectations suivent le thème déjà écrit — Énée *est* une fondation (migrer, abandonner
+ses bâtiments), Atlas *est* la gouvernance (Légitimité, crises, porter le poids), Atrides *est*
+l'héritage empoisonné qu'on transmet, Icare *est* la chute qu'on ne peut plus arrêter à la main.
+
+Effet de structure recherché : l'Acte cesse d'être un mur de déblocage. Acte I, le joueur
+découvre cinq facettes ; Actes II et III, elles s'approfondissent. C'est D5 rendu concret.
+
+**Verbe de chaque colonne**, à tenir pour que les couches ne redeviennent pas des bibelots :
+
+- **La chute** — *piloter sa propre fin.* Couche 1 : la fin devient **datable**. Couche 2 :
+  **négociable**. Couche 3 : **poussable**, on parie sur sa prolongation.
+- **La fondation** — *fonder avec intention.* Couche 1 : choisir la **nature** de la cité (une
+  charte, pas un plan — D2 interdit le spatial). Couche 2 : choisir **ce qu'on emporte**.
+  Couche 3 : choisir **ce qu'on doit**.
+- **La gouvernance** — *gouverner entre deux chutes.* Couche 1 : la charte a un effet vivant
+  qu'on peut changer à un prix. Couche 2 : le budget de politiques cesse d'être posé puis
+  oublié. Couche 3 : les crises deviennent un vrai système.
+
+> Bénéfice non évident : Chaos et Antée font déjà **le même geste** (choisir ses handicaps en
+> début de cycle), ce que l'annexe signalait comme une « collision frontale ». En couches, ce
+> n'est plus une collision — Chaos = le handicap existe, Antée = il devient un équipement
+> complet. La redondance documentée devient la profondeur de la colonne.
+
+**Ordre de chantier** : une colonne de bout en bout avant d'en ouvrir une autre — le modèle en
+couches est une hypothèse non testée, autant la casser sur trois Mythes que sur neuf. On
+commence par la chute, l'axe le mieux noté. Le descripteur de Mythe et le banc d'essai seront
+**extraits** de ce que cette première colonne aura réellement exigé, pas conçus à l'avance.
+
 ### 4.1 La chute (le plus prometteur)
 
-**Ce qui tourne tout seul aujourd'hui** : une fois les trois préparations terminales scellées,
-il ne reste littéralement rien à faire. C'est le moment le plus tendu du cycle et le plus
-vide. `TERMINAL_PREP_TIERS` dans `crisis-cost.js`, `runTerminalCrisisAction` à
-`crisis.js:214`.
+**Ce qui tourne tout seul aujourd'hui.** *(Mesuré par exécution le 2026-07-18 — la première
+rédaction de ce paragraphe était fausse sur un point important.)*
+
+La fenêtre terminale s'ouvre sur `crisisOpen()` = `instability >= 1 || timeWear >= 1`, détectée
+par le tick qui appelle `triggerCollapseChoices`. **Le joueur ne décide jamais quand la fin
+s'ouvre** : ni anticipation, ni report, ni préavis. C'est le premier vide.
+
+Une fois ouverte, **tout gèle**. Le tick sort en cinq lignes. Vérifié : 600 ticks, soit dix
+minutes simulées — toutes les ressources et les deux jauges strictement inchangées. L'horloge
+de la moisson est figée elle aussi (`cycleClockNow()` renvoie `crisisOpenedAt`), donc `ruinGain`
+et la patience ne bougent plus : **contempler ne coûte rien et ne rapporte rien**. Toute
+l'interface est verrouillée sauf l'onglet prestige, les quatre jeux du Temple s'éteignent,
+l'Intendance s'arrête.
+
+> **Correction : on ne scelle jamais trois préparations.** `runTerminalCrisisAction` rabat la
+> jauge sur sa cible puis appelle `resumeAfterCrisisOutcome` et remet `crisisLimitAnnounced` à
+> `false` — **inconditionnellement**. Un édit **referme donc toujours la fenêtre** et relance
+> la cité. Au plus **une** préparation par ouverture. Le vide n'est pas « après les trois
+> sceaux » : il est *permanent*, puisque la fenêtre n'offre jamais qu'un seul geste payant, un
+> choix de sceau gratuit, et le bouton d'effondrement.
+
+Deux trouvailles annexes, à traiter à part :
+
+- **Piège hors-ligne réel.** `applyOfflineProgress` retourne immédiatement si
+  `crisisLimitAnnounced`. Une fenêtre laissée ouverte pendant une absence **gèle la partie pour
+  toute la durée**, sans production ni crédit. Un joueur qui ferme son navigateur au mauvais
+  moment perd sa nuit.
+- **Verbe mort.** La Surchauffe d'Icare reste cliquable dans la fenêtre, mais le tick est gelé :
+  le multiplicateur ne s'applique à rien et le cooldown se consomme à vide.
+
+Substrat : `TERMINAL_PREP_TIERS` dans `src/game/core/crisis-cost.js`,
+`runTerminalCrisisAction` et `triggerCollapseChoices` dans `src/game/core/actions/crisis.js`.
 
 **Pourquoi c'est le bon axe** : c'est le moment le plus chargé thématiquement (Chaos, Icare,
 Atlas, Phénix, Atrides et Ragnarok sont tous des mythes de catastrophe), c'est le passage
@@ -210,10 +502,16 @@ choix par-dessus.
 **Ce qui est pauvre aujourd'hui** : les crises narratives, les édits, le budget de politiques
 (`activePolicies`, `POLICY_MAX_ACTIVE`, remis à zéro chaque cycle), les réformes de foyer,
 l'Intendance qui survit comme doctrine. Un jury a résumé : le budget de politiques est posé
-une fois puis oublié. Et la récompense sature à trois crises (§2.3).
+une fois puis oublié.
 
-**Pourquoi c'est le bon axe** : c'est la « gestion de ville » au sens propre, sans carte. Mais
-il faut réparer avant d'approfondir.
+**Pourquoi c'est le bon axe** : c'est la « gestion de ville » au sens propre, sans carte.
+
+**Matériau à jour** : les réparations du §2 ont dégagé le terrain. La « saturation à trois
+crises » n'existait pas, mais la fuite du §2.3 bis privait de crises tout cycle suivant une
+session hors-ligne — donc le système paraissait plus mort qu'il ne l'est. Reste une vraie
+question de design, à trancher à l'audit et non ici : **les crises doivent-elles compter
+hors-ligne ?** Elles valent ×1 en permanence dans la boucle idle, sur 20 à 500 effondrements
+selon les capstones. C'est un curseur de premier ordre sur toute la boucle late game.
 
 ### 4.4 La méta elle-même
 
@@ -234,6 +532,14 @@ Le script effondre sur l'un des trois déclencheurs `rupture100`, `usure` ou `te
 cours. Le joueur qui possède les deux héritages verrait son propre script
 lui faire manquer son serment. Deux idées bien notées tombent là-dessus (Le Sommet promis pour
 Sisyphe, La Prise d'Héraclée pour Antée). À trancher avant de concevoir dans cette famille.
+
+**Le Savoir et l'Infrastructure ne traversent PAS la mort.** Les taux de conservation
+`knowledgeKeep` et `infraKeep` sont consommés dans `completeCollapse` mais **aucun nœud ne les
+fournit** — ils valent zéro. `goldKeep` est dans le même cas. Seuls `allKeep` et un `foodKeep`
+de dogme existent. Trois canaux câblés et vides sur la sortie du cycle, c'est-à-dire pile sur
+la surface que D4 désigne. À ne pas confondre avec une opportunité gratuite : les brancher
+ajoute de la puissance nette, donc il faut décider si l'on redistribue une somme constante ou
+si l'on augmente le total.
 
 **`ruptureHaste` est un canal câblé que personne n'alimente.** `pressure.js:186` lit
 `ruinEffectSum("ruptureHaste")` et aucun nœud ne le fournit (vérifié : une seule occurrence
@@ -259,13 +565,17 @@ récompenses interchangeables.
 ## 6. Ce qui reste à trancher
 
 1. **La répartition des quatorze Mythes sur les cinq axes**, et le nombre de couches par axe.
-2. **Le sort des six slots de Ruines actives vides** (remplir ou baisser le seuil d'Antée).
+2. **Le sort des six slots de Ruines actives vides.** Le seuil d'Antée reste à 4 et n'est plus
+   un blocage (§2.2). La question devient donc purement additive : remplir des slots pour
+   créer un arbitrage (pool 5 / seuil 4 = six sélections valides), ou laisser tel quel.
 3. **Le conflit Phénix contre la famille « serment »** : adapter le script, ou renoncer à la
    famille.
-4. **Les réparations du §2** : à intégrer au lot de l'audit de production, elles le recoupent
-   probablement.
+4. ~~Les réparations du §2~~ — **faites** (2026-07-18), hors Sisyphe (§2.4) et Babel (§2.5),
+   qui ne sont pas des réparations mais des reconceptions, à traiter dans leur colonne.
 5. **La forme des défis**, pas seulement des récompenses : sortir les contraintes de cycle du
    régime « ×N sur une stat ».
+6. ~~Le contrat de composabilité d'un défi.~~ — **tranché** : Ragnarok affranchi, cf. D6. Les
+   défis sont libres de toute contrainte de commutation.
 
 ---
 
@@ -277,4 +587,10 @@ récompenses interchangeables.
 - Logique : `src/game/core/actions/myths.js`, `src/game/core/actions/crisis.js`
 - Effets : `src/game/core/mechanics/production/mythEffects.js`, `src/game/core/mechanics/prestige.js`
 - Persistance : `GR_PERSISTENT_FIELDS` et `resetTemporaryRunState` dans `src/game/core/state.js`
-- Run du workflow (transcripts et journal) : `wf_86ce351f-e57`
+- Équilibrage : `src/game/core/balance.js` (⚠ pas `src/game/data/`)
+- Migrations de save : `MIGRATIONS` et `CURRENT_SAVE_VERSION` dans `src/game/core/state.js`
+- Boucle hors-ligne : `simulateAwayCrises` et `applyOfflineProgress` dans `src/game/core/main.js`
+- Garde-fous du §2 : `src/game/core/__tests__/mythRepairs.test.js`, plus le test de classe
+  « `resetTemporaryRunState` n'efface aucun champ persistant » dans `grandReset.test.js`
+- Run du workflow de conception (130 pistes) : `wf_86ce351f-e57`
+- Run du workflow de vérification des réparations : `wf_2cc303c0-d77`

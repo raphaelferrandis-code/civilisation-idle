@@ -26,7 +26,6 @@ import {
   DEMESURE_SOFT_CAP,
   DEMESURE_CUT_CAP
 } from '../../balance.js';
-import { isMythEffectActive } from '../../../data/myths.js';
 import { has, ruinEffectSum } from '../shared.js';
 import { getBuildingSums } from './buildingOutput.js';
 import { ruptureGrowthMultiplier, policyFoyerDamp, policyDemesureDamp } from './crisisLevers.js';
@@ -249,9 +248,7 @@ export function cityVitals(forceDecimalPath = false) {
     goldMult: Math.max(0.85, 1 + goldBonus),
     knowledgeMult: Math.max(0.85, 1 + knowledgeBonus),
     infraMult: Math.max(0.85, 1 + goldBonus * 0.35 + knowledgeBonus * 0.22),
-    instabilityRelief: isMythEffectActive("mythe_d_atlas")
-      ? 0
-      : Math.max(0, clamp01(foodScore - 0.92) * 0.018 + knowledgeBonus * 0.06)
+    instabilityRelief: Math.max(0, clamp01(foodScore - 0.92) * 0.018 + knowledgeBonus * 0.06)
   };
   if (!forceDecimalPath) {
     renderCache._frameVitals = result;

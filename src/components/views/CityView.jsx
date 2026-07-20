@@ -21,6 +21,13 @@ import {
 } from '../../game/core/mechanics.js';
 import {
   exhumeVestige,
+  icareClimb,
+  icareDescend,
+  atlasEpauler,
+  sisyphePousser,
+  babelDeclareTongue,
+  babelToggleAutoTongue,
+  negotiateOrDeal,
   rembourserAtridesDebt,
   renegocierAtridesDebt,
   transmettreAtrides,
@@ -35,10 +42,18 @@ import { fmt, clamp01 } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
-  ICARE_GAIN_SECONDS,
-  OR_GAIN_SECONDS,
-  OR_POP_CAP,
+  ICARE_ALTITUDE_TARGET,
+  ICARE_CLIMB_PROD_MULT,
+  OR_DEALS_TARGET,
+  ATLAS_SHOULDER_TARGET,
+  ATLAS_COUNT_THRESHOLD,
+  SISYPHE_CRANS,
+  SISYPHE_MONTEES_TARGET,
+  SISYPHE_STEP_BASE,
   BABEL_CAT_LABELS,
+  BABEL_TOWER_TARGET,
+  BABEL_COMMON_TONGUE_MULT,
+  babelTowerCount,
   PHENIX_RENAISSANCE_TARGET,
   PHENIX_REBIRTH_WINDOW_MS,
   HEPH_INFRA_PER_PEAK,
@@ -46,6 +61,8 @@ import {
   ATRIDES_DEBT_PAYBACK_FACTOR,
   ENEE_MIGRATIONS_TARGET,
   ENEE_TERRITORY_INTERVAL_MS,
+  PROMETHEE_POP_TARGET,
+  PROMETHEE_FATAL_RUPTURE,
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
@@ -53,16 +70,19 @@ import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 
 export default function CityView() {
   const {
-    cityName, population, gold, infrastructure,
+    cityName, population, food, gold, knowledge, infrastructure,
     cycleStartedAt, archaeologyUses,
-    activeMythId, sisypheMult, icareInfraReached, mythStartInfra, mythStartGold, babelProdReached, babelCategory,
-    orPopPeak, orGoldReached, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
+    activeMythId, icareAltitude, icareHeritage, mythStartGold, babelCategory, babelHeritage, babelCommonTongue, babelAutoTongue,
+    sisypheCran, sisypheMontees, sisypheUsesFood, sisypheUsesKnowledge, sisypheUsesInfra,
+    orDealsClosed, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
     hephPopPeak, hephGoalReached,
     atridesDebt, atridesReached, atridesDrainDisabled, atridesDebtGrowthMultiplier,
     atridesRenegotiateActiveUntil, atridesRenegotiateCooldownEnd,
     atridesHeritage, atridesPactActive, atridesNextRunPenaltyActive,
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
     activeEpitaphLegacy,
+    prometheePopReached, prometheeFailed,
+    atlasHeritage, atlasSkipUsed, atlasFardeau, atlasEpaules, atlasCrushed, atlasShoulderCdEnd,
     instability,
     tickNow
   } = useCityViewState();
@@ -174,9 +194,15 @@ export default function CityView() {
   };
 
   // formatting for special myths
+  const isPromethee = isMythEffectActive("mythe_de_promethee");
+
   const isSisyphe = isMythEffectActive("mythe_de_sisyphe");
   const isIcare = isMythEffectActive("mythe_d_icare");
+  // Carte de vol : pendant le Mythe, ou dès que l'Aile (héritage) est acquise.
+  const showVol = isIcare || Boolean(icareHeritage);
   const isBabel = isMythEffectActive("mythe_de_babel");
+  // Carte Babel : pendant le Mythe (la tour), ou en héritage (la Langue commune).
+  const showBabel = isBabel || Boolean(babelHeritage);
   const isOr = isMythEffectActive("mythe_age_or");
   const isPhoenix = isMythEffectActive("mythe_du_phenix");
   const isHeph = isMythEffectActive("mythe_d_hephaistos");
@@ -190,6 +216,12 @@ export default function CityView() {
     ? Math.max(0, Math.ceil(((cycleStartedAt || now) + PHENIX_REBIRTH_WINDOW_MS - now) / 1000))
     : null;
 
+  // Atlas — « le poids du ciel » : pendant le Mythe, la course aux 12 épaulées ;
+  // avec l'héritage (l'Épaule), le même bouton monte la Légitimité en cycle normal.
+  const isAtlas = isMythEffectActive("mythe_d_atlas");
+  const showEpaule = isAtlas || Boolean(atlasHeritage);
+  const atlasCdLeft = Math.max(0, Math.ceil(((atlasShoulderCdEnd || 0) - now) / 1000));
+
   const isAtrides = isMythEffectActive("mythe_atrides");
   const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
   const atridesDebtGrowthRate = Math.max(10, totalProd * 0.01) * (atridesDebtGrowthMultiplier || 1);
@@ -199,10 +231,7 @@ export default function CityView() {
   // cycle ÷ taux courant → « X s / N s »), et non un seuil absolu. Les flags
   // *Reached (source de vérité) figent l'état « atteint ».
   const goldRate = Math.max(0, toNum(r.gold));
-  const infraRate = Math.max(0, toNum(r.infrastructure));
   const secOfProd = (gained, rate) => (rate > 0 ? Math.max(0, Math.floor(toNum(gained) / rate)) : 0);
-  const icareGainSec = secOfProd(D(infrastructure).sub(mythStartInfra || 0), infraRate);
-  const orGainSec = secOfProd(D(gold).sub(mythStartGold || 0), goldRate);
   const atridesGainSec = secOfProd(netGold.sub(mythStartGold || 0), goldRate);
   const atridesRepayCost = (atridesDebt || 0) * ATRIDES_DEBT_PAYBACK_FACTOR;
   const canRepayAtrides = D(gold).gte(atridesRepayCost) && (atridesDebt || 0) > 0;
@@ -216,14 +245,15 @@ export default function CityView() {
   const eneeElapsedMs = eneeTerritoryStartedAt ? Math.max(0, now - eneeTerritoryStartedAt) : 0;
   const eneeRemainingSecs = Math.max(0, Math.ceil((eneeIntervalMs - eneeElapsedMs) / 1000));
 
-  const showMythsPanel = isSisyphe || isIcare || isBabel || isOr || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
+  const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
 
   // Pastille de la chronique : dépêche encore dans sa fenêtre d'affichage.
   const chronicleVisible = Boolean(latestChronicle && now - (latestChronicle.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
   const chronicleNew = Boolean(latestChronicle?.isNew);
   // Badge du dock Mythes : nombre de cartes de statut actuellement actives.
   const mythCount = [
-    isSisyphe, isIcare, isBabel, isOr, isPhoenix, isHeph, isAtrides,
+    isPromethee, showEpaule,
+    isSisyphe, isIcare || ((icareAltitude || 0) > 0), showBabel, isOr, isPhoenix, isHeph, isAtrides,
     atridesPactActive, atridesNextRunPenaltyActive, isMythEffectActive("mythe_d_enee"),
     eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
   ].filter(Boolean).length;
@@ -551,41 +581,217 @@ export default function CityView() {
 
             {/* Cartes de statut des mythes & puissance latente */}
             <div className="myths-grid-redesigned">
+              {/* Prométhée — règle de lisibilité des défis : cible en chiffre FIXE,
+                  progression vivante, état (en course / accompli / échoué). L'échec
+                  n'existait avant que dans une ligne de log.
+                  ⚠ Icône PLACEHOLDER : myths/promethee.png n'existe pas, et PixelIcon
+                  n'a aucun repli sur fichier manquant. À générer. */}
+              {isPromethee && (
+                <div className="myth-status-card promethee" title={tr({
+                  fr: `Porter la population à ${PROMETHEE_POP_TARGET} habitants avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
+                  en: `Bring the population to ${PROMETHEE_POP_TARGET} inhabitants before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
+                })}>
+                  <PixelIcon name="ruins/node-rites_feu_court" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Prométhée", en: "Prometheus" })}</span>
+                    {prometheeFailed ? (
+                      <strong className="danger-text">{tr({ fr: "Échoué — le feu a gagné", en: "Failed — the fire won" })}</strong>
+                    ) : prometheePopReached ? (
+                      /* Quasi inatteignable depuis la validation vivante (le sacre
+                         retire la carte au même tick) — repli de sûreté. */
+                      <strong className="positive-text">{tr({ fr: "Accompli !", en: "Achieved!" })}</strong>
+                    ) : (
+                      <strong className={instability >= PROMETHEE_FATAL_RUPTURE - 0.2 ? "danger-text" : undefined}>
+                        {tr({
+                          fr: `${fmt(population)} / ${PROMETHEE_POP_TARGET} hab · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %`,
+                          en: `${fmt(population)} / ${PROMETHEE_POP_TARGET} pop · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%`
+                        })}
+                      </strong>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Sisyphe — « la Montée » : POUSSER paie le cran dans une matière au
+                  choix (chaque matière ré-employée double son prix) ; bâtir pendant
+                  la montée lâche le rocher (building.js) ; le premier sommet
+                  retombe toujours, le second scelle. */}
               {isSisyphe && (
-                <div className="myth-status-card sisyphus" title={tr({ fr: "Le mythe de Sisyphe est actif", en: "The myth of Sisyphus is active" })}>
+                <div className="myth-status-card sisyphus" title={tr({
+                  fr: `Hisser le rocher au sommet ${SISYPHE_MONTEES_TARGET} fois (${SISYPHE_CRANS} crans). Chaque matière ré-employée double son prix ; bâtir pendant la montée lâche le rocher. Au premier sommet, il retombe — toujours.`,
+                  en: `Haul the boulder to the summit ${SISYPHE_MONTEES_TARGET} times (${SISYPHE_CRANS} notches). Each reused material doubles its price; building during the climb lets go of the boulder. At the first summit, it rolls back — always.`
+                })}>
                   <PixelIcon name="myths/sisyphe" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Sisyphe", en: "Sisyphus" })}</span>
-                    <strong id="sisypheMultValue">{tr({ fr: `Production x${fmt(sisypheMult || 1)}`, en: `Production x${fmt(sisypheMult || 1)}` })}</strong>
+                    {/* danger-text en montée = rappel que bâtir lâche le rocher. */}
+                    <strong className={(sisypheCran || 0) > 0 ? "danger-text" : undefined}>
+                      {tr({
+                        fr: `Montée ${Math.min((sisypheMontees || 0) + 1, SISYPHE_MONTEES_TARGET)}/${SISYPHE_MONTEES_TARGET} · Cran ${sisypheCran || 0}/${SISYPHE_CRANS}${(sisypheCran || 0) > 0 ? " · ne bâtis pas !" : ""}`,
+                        en: `Climb ${Math.min((sisypheMontees || 0) + 1, SISYPHE_MONTEES_TARGET)}/${SISYPHE_MONTEES_TARGET} · Notch ${sisypheCran || 0}/${SISYPHE_CRANS}${(sisypheCran || 0) > 0 ? " · do not build!" : ""}`
+                      })}
+                    </strong>
+                    <div className="myth-card-actions">
+                      {[
+                        { key: "food", stock: food, glyphe: "🌾", nom: tr({ fr: "Nourriture", en: "Food" }), uses: sisypheUsesFood || 0 },
+                        { key: "knowledge", stock: knowledge, glyphe: "📜", nom: tr({ fr: "Savoir", en: "Knowledge" }), uses: sisypheUsesKnowledge || 0 },
+                        { key: "infrastructure", stock: infrastructure, glyphe: "🏛️", nom: tr({ fr: "Infrastructure", en: "Infrastructure" }), uses: sisypheUsesInfra || 0 }
+                      ].map((m) => {
+                        const cout = SISYPHE_STEP_BASE[m.key] * Math.pow(2, m.uses);
+                        return (
+                          <button key={m.key} type="button" className="btn-secondary"
+                            onClick={() => sisyphePousser(m.key)}
+                            disabled={!D(m.stock || 0).gte(cout)}
+                            title={tr({
+                              fr: `Pousser en payant ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (prix ×${Math.pow(2, m.uses)} — matière déjà employée ${m.uses}× cette montée)` : ""}.`,
+                              en: `Push by paying ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (price ×${Math.pow(2, m.uses)} — material already used ${m.uses}× this climb)` : ""}.`
+                            })}>
+                            {m.glyphe} {fmt(cout)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
-              {isIcare && (
-                <div className="myth-status-card icare" title={tr({ fr: "Le mythe d'Icare est actif", en: "The myth of Icarus is active" })}>
+              {/* Icare — « le vol par paliers » : pendant le Mythe, la course à
+                  l'altitude 5 ; avec l'héritage (l'Aile), le même cadran en cycle
+                  normal, sans plafond. MONTER coûte de la Rupture immédiate et
+                  accélère sa montée — redescendre est gratuit. */}
+              {showVol && (
+                <div className="myth-status-card icare" title={isIcare
+                  ? tr({ fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, Rupture immédiate et accélérée.`, en: `Reach altitude ${ICARE_ALTITUDE_TARGET}. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, instant and hastened Rupture.` })
+                  : tr({ fr: "L'Aile : choisis ton altitude — la production grimpe, la Rupture s'emballe.", en: "The Wing: choose your altitude — production soars, Rupture races." })}>
                   <PixelIcon name="myths/icare" className="myth-card-icon" />
                   <div className="myth-card-info">
-                    <span>{tr({ fr: "Icare", en: "Icarus" })}</span>
-                    <strong id="icareTimerValue">
-                      {icareInfraReached ? tr({ fr: "Soleil touché !", en: "Sun reached!" }) : tr({ fr: `${icareGainSec}s / ${ICARE_GAIN_SECONDS}s d'infra`, en: `${icareGainSec}s / ${ICARE_GAIN_SECONDS}s infra` })}
+                    <span>{isIcare ? tr({ fr: "Icare", en: "Icarus" }) : tr({ fr: "L'Aile", en: "The Wing" })}</span>
+                    <strong id="icareAltitudeValue">
+                      {isIcare
+                        ? tr({ fr: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET} · R ${Math.round((instability || 0) * 100)} %`, en: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET} · R ${Math.round((instability || 0) * 100)}%` })
+                        : tr({ fr: `Altitude ${icareAltitude || 0} · ×${fmt(Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude || 0))}`, en: `Altitude ${icareAltitude || 0} · ×${fmt(Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude || 0))}` })}
                     </strong>
+                    <div className="myth-card-actions">
+                      <button type="button" className="btn-primary" onClick={icareClimb}
+                        title={tr({ fr: "Production ×2, Rupture immédiate et accélérée.", en: "Production ×2, instant and hastened Rupture." })}>
+                        {tr({ fr: "Monter", en: "Climb" })}
+                      </button>
+                      <button type="button" className="btn-secondary" onClick={icareDescend} disabled={(icareAltitude || 0) <= 0}
+                        title={tr({ fr: "Gratuit : n'efface que l'accélération, pas le mal déjà fait.", en: "Free: only removes the haste, not the harm already done." })}>
+                        {tr({ fr: "Redescendre", en: "Descend" })}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
-              {isBabel && (
-                <div className="myth-status-card babel" title={tr({ fr: "Le mythe de Babel est actif", en: "The myth of Babel is active" })}>
+              {/* Babel — la tour : compteur lisible vers BABEL_TOWER_TARGET pendant
+                  le Mythe ; en héritage, « la Langue commune » (déclarer une
+                  catégorie 1×/cycle → +20 % de production). */}
+              {showBabel && (
+                <div className="myth-status-card babel" title={isBabel
+                  ? tr({ fr: `Ériger la tour : ${BABEL_TOWER_TARGET} bâtiments de la catégorie choisie. Seule cette catégorie est constructible ce cycle ; la Rupture monte ×2.`, en: `Raise the tower: ${BABEL_TOWER_TARGET} buildings of the chosen category. Only that category can be built this cycle; Rupture rises ×2.` })
+                  : tr({ fr: "La Langue commune : une fois par cycle, déclare une langue — la catégorie choisie produit +20 % jusqu'à la fin du cycle.", en: "The Common Tongue: once per cycle, declare a language — the chosen category produces +20% until the end of the cycle." })}>
                   <PixelIcon name="myths/babel" className="myth-card-icon" />
                   <div className="myth-card-info">
-                    <span>Babel ({tr(BABEL_CAT_LABELS[babelCategory]) || babelCategory || tr({ fr: 'Non choisi', en: 'Not chosen' })})</span>
-                    <strong id="babelMultValue">{babelProdReached ? tr({ fr: "Tour achevée !", en: "Tower completed!" }) : tr({ fr: "En construction", en: "Under construction" })}</strong>
+                    {isBabel ? (
+                      <>
+                        <span>Babel ({tr(BABEL_CAT_LABELS[babelCategory]) || babelCategory || tr({ fr: 'Non choisi', en: 'Not chosen' })})</span>
+                        <strong>{tr({ fr: `Tour ${babelTowerCount()}/${BABEL_TOWER_TARGET}`, en: `Tower ${babelTowerCount()}/${BABEL_TOWER_TARGET}` })}</strong>
+                      </>
+                    ) : babelCommonTongue ? (
+                      <>
+                        <span>{tr({ fr: "La Langue commune", en: "The Common Tongue" })}</span>
+                        <strong>{tr({ fr: `Langue : ${tr(BABEL_CAT_LABELS[babelCommonTongue])} · +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} %${babelAutoTongue ? " · auto" : ""}`, en: `Tongue: ${tr(BABEL_CAT_LABELS[babelCommonTongue])} · +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}%${babelAutoTongue ? " · auto" : ""}` })}</strong>
+                        <div className="myth-card-actions">
+                          {/* Réglage Auto : retient CETTE langue pour qu'elle reparte
+                              déclarée d'elle-même à chaque cycle. */}
+                          <button type="button" className={babelAutoTongue ? "btn-primary" : "btn-secondary"}
+                            onClick={babelToggleAutoTongue}
+                            title={babelAutoTongue
+                              ? tr({ fr: "Lever le réglage automatique — chaque cycle re-choisira sa langue à la main.", en: "Lift the automatic setting — each cycle will pick its tongue by hand." })
+                              : tr({ fr: `Redéclarer « ${tr(BABEL_CAT_LABELS[babelCommonTongue])} » automatiquement à chaque nouveau cycle (réglage conservé, même après un Grand Reset).`, en: `Automatically redeclare "${tr(BABEL_CAT_LABELS[babelCommonTongue])}" each new cycle (setting kept, even through a Grand Reset).` })}>
+                            {babelAutoTongue ? tr({ fr: "Auto ✓", en: "Auto ✓" }) : tr({ fr: "Auto", en: "Auto" })}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span>{tr({ fr: "La Langue commune", en: "The Common Tongue" })}</span>
+                        <strong>{tr({ fr: "Déclarer la langue du cycle", en: "Declare the cycle's tongue" })}</strong>
+                        <div className="myth-card-actions">
+                          {Object.keys(BABEL_CAT_LABELS).map((cat) => (
+                            <button key={cat} type="button" className="btn-secondary"
+                              onClick={() => babelDeclareTongue(cat)}
+                              title={tr({ fr: `Toute la catégorie « ${tr(BABEL_CAT_LABELS[cat])} » produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à la fin du cycle. Une déclaration par cycle.`, en: `The whole "${tr(BABEL_CAT_LABELS[cat])}" category produces +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the end of the cycle. One declaration per cycle.` })}>
+                              {tr(BABEL_CAT_LABELS[cat])}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
+              {/* Âge d'Or — « les Caravanes » : conclure 8 marchés. Le bouton ouvre
+                  la négociation ; le déséquilibre Nourriture/Trésor brûle l'Usure ×3. */}
               {isOr && (
-                <div className="myth-status-card age-or" title={tr({ fr: "Le mythe de l'Âge d'Or est actif", en: "The myth of the Golden Age is active" })}>
+                <div className="myth-status-card age-or" title={tr({
+                  fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes. Marchander baisse le prix, mais un marchand vexé s'en va. Le déséquilibre Nourriture/Trésor brûle l'Usure.`,
+                  en: `Close ${OR_DEALS_TARGET} deals with the caravans. Haggling lowers the price, but an offended merchant walks away. Food/Treasury imbalance burns Wear.`
+                })}>
                   <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
-                    <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })} ({orUsureImbalance ? tr({ fr: "Déséquilibré", en: "Imbalanced" }) : tr({ fr: "Équilibré", en: "Balanced" })})</span>
-                    <strong>{orGoldReached ? tr({ fr: "Prospérité établie !", en: "Prosperity established!" }) : tr({ fr: `Or: ${orGainSec}s/${OR_GAIN_SECONDS}s | Pop: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}`, en: `Gold: ${orGainSec}s/${OR_GAIN_SECONDS}s | Pop: ${fmt(orPopPeak)}/${fmt(OR_POP_CAP)}` })}</strong>
+                    <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })}</span>
+                    <strong className={orUsureImbalance ? "danger-text" : undefined}>
+                      {tr({
+                        fr: `Marchés ${orDealsClosed || 0}/${OR_DEALS_TARGET}${orUsureImbalance ? " · déséquilibre !" : ""}`,
+                        en: `Deals ${orDealsClosed || 0}/${OR_DEALS_TARGET}${orUsureImbalance ? " · imbalance!" : ""}`
+                      })}
+                    </strong>
+                    <div className="myth-card-actions">
+                      <button type="button" className="btn-primary" onClick={negotiateOrDeal}
+                        title={tr({ fr: "Une caravane attend au portail.", en: "A caravan waits at the gate." })}>
+                        {tr({ fr: "Négocier", en: "Negotiate" })}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Atlas — « le poids du ciel » : ÉPAULER fait redescendre le Fardeau
+                  (cooldown) ; écrasé à 100 %. Avec l'héritage, la carte n'affiche
+                  que l'état du coup : « Atlas prend le coup » se joue DANS le
+                  dialogue de crise (1×/cycle), pas ici. */}
+              {/* ⚠ Icône PLACEHOLDER (myths/age-or) : pas de myths/atlas.png — à générer. */}
+              {showEpaule && (
+                <div className="myth-status-card atlas" title={isAtlas
+                  ? tr({ fr: `Épauler ${ATLAS_SHOULDER_TARGET} fois le ciel à pleine charge (Fardeau ≥ ${ATLAS_COUNT_THRESHOLD} %). En dessous, le geste soulage mais ne compte pas — et gaspille la récupération. À 100 %, écrasement.`, en: `Shoulder the sky at full weight ${ATLAS_SHOULDER_TARGET} times (Burden ≥ ${ATLAS_COUNT_THRESHOLD}%). Below, the act relieves but does not count — and wastes the recovery. At 100%, crushed.` })
+                  : tr({ fr: "L'Épaule : une fois par cycle, « Atlas prend le coup » — une gestion de crise au choix passe sans effet. L'option apparaît dans la crise elle-même.", en: "The Shoulder: once per cycle, \"Atlas takes the hit\" — one crisis management of your choice passes with no effect. The option appears in the crisis itself." })}>
+                  <PixelIcon name="myths/age-or" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{isAtlas ? tr({ fr: "Atlas", en: "Atlas" }) : tr({ fr: "L'Épaule", en: "The Shoulder" })}</span>
+                    {isAtlas && atlasCrushed ? (
+                      <strong className="danger-text">{tr({ fr: "Écrasé — le ciel a gagné", en: "Crushed — the sky won" })}</strong>
+                    ) : isAtlas ? (
+                      <strong className={(atlasFardeau || 0) >= ATLAS_COUNT_THRESHOLD ? "danger-text" : undefined}>
+                        {tr({ fr: `Épaulées ${atlasEpaules || 0}/${ATLAS_SHOULDER_TARGET} · Fardeau ${Math.round(atlasFardeau || 0)}/${ATLAS_COUNT_THRESHOLD} %`, en: `Shoulders ${atlasEpaules || 0}/${ATLAS_SHOULDER_TARGET} · Burden ${Math.round(atlasFardeau || 0)}/${ATLAS_COUNT_THRESHOLD}%` })}
+                      </strong>
+                    ) : atlasSkipUsed ? (
+                      <strong>{tr({ fr: "Coup pris — retour au prochain cycle", en: "Hit taken — back next cycle" })}</strong>
+                    ) : (
+                      <strong>{tr({ fr: "Atlas peut prendre un coup", en: "Atlas can take a hit" })}</strong>
+                    )}
+                    {isAtlas && !atlasCrushed && (
+                      <div className="myth-card-actions">
+                        {/* Le bouton ne passe en primaire QUE dans la zone rouge :
+                            c'est là que le geste compte. */}
+                        <button type="button"
+                          className={(atlasFardeau || 0) >= ATLAS_COUNT_THRESHOLD ? "btn-primary" : "btn-secondary"}
+                          onClick={atlasEpauler} disabled={atlasCdLeft > 0}
+                          title={(atlasFardeau || 0) < ATLAS_COUNT_THRESHOLD
+                            ? tr({ fr: `Le ciel est léger : ce geste soulagerait sans compter (compte dès ${ATLAS_COUNT_THRESHOLD} %).`, en: `The sky is light: this act would relieve without counting (counts from ${ATLAS_COUNT_THRESHOLD}%).` })
+                            : tr({ fr: "Soutenir le ciel — récupération avant le geste suivant.", en: "Bear the sky — recovery before the next act." })}>
+                          {atlasCdLeft > 0 ? tr({ fr: `Épauler (${atlasCdLeft}s)`, en: `Shoulder (${atlasCdLeft}s)` }) : tr({ fr: "Épauler", en: "Shoulder" })}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

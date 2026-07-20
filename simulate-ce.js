@@ -697,12 +697,25 @@ const MYTH_TACTICS = {
     met() { return state.hephGoalReached === true; } },
 
   // ── Acte II ─────────────────────────────────────────────────────────────────
-  mythe_de_sisyphe:    { grow: 3000, below: 0.8,
-    met() { return state.sisypheReached === true; } },
-  mythe_de_babel:      { grow: 2600, below: 0.8,
+  mythe_de_sisyphe:    { grow: 3000, below: 0.8,  // REFONTE la Montee : hisser le rocher 2x (6 crans payes, matiere doublee par usage)
+    // Zero achat pendant le Mythe (batir lache le rocher) : la prod des batiments
+    // deja eriges paie les crans. Au plus un cran par tick, matiere la moins
+    // employee d'abord (2-2-2 = 3x la base par matiere, l'optimum theorique).
+    buy() { /* les mains restent sur le rocher */ },
+    onTick() {
+      const avant = (state.sisypheMontees || 0) * 10 + (state.sisypheCran || 0);
+      const u = state.sisypheUsages || {};
+      const ordre = ["food", "knowledge", "infrastructure"].sort((a, b) => (u[a] || 0) - (u[b] || 0));
+      for (const res of ordre) {
+        actions.sisyphePousser(res);
+        if ((state.sisypheMontees || 0) * 10 + (state.sisypheCran || 0) !== avant) break;
+      }
+    },
+    met() { return (state.sisypheMontees || 0) >= 2; } },
+  mythe_de_babel:      { grow: 2600, below: 0.8,  // REFONTE : eriger la tour = 70 batiments de la categorie choisie
     setup() { state.babelCategory = "city"; },
     buyOpts: { onlyCategory: "city" },
-    met() { return state.babelProdReached === true; } },
+    met() { return myth.babelTowerCount() >= myth.BABEL_TOWER_TARGET; } },
   mythe_age_or:        { grow: 900, below: 0.95,
     met() { return state.orGoldReached === true; } },
 

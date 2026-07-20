@@ -115,7 +115,7 @@ describe("migration Decimal — fumée", () => {
       ruins: 5000,
       chaosRuinsBonus: 12,
       phoenixTotalRuins: 99,
-      orPopPeak: 1234,
+      phoenixRebirthTargetPop: 1234,
       hephPopPeak: 4321,
       cyclePeaks: { population: 60000, knowledge: 15000, infrastructure: 900, eraIndex: 5 },
       buildings: { foragers: 20 }
@@ -127,7 +127,7 @@ describe("migration Decimal — fumée", () => {
     expect(loaded.ruins.eq(5000)).toBe(true);
     expect(loaded.chaosRuinsBonus.eq(12)).toBe(true);
     expect(loaded.phoenixTotalRuins.eq(99)).toBe(true);
-    expect(loaded.orPopPeak.eq(1234)).toBe(true);
+    expect(loaded.phoenixRebirthTargetPop.eq(1234)).toBe(true);
     expect(loaded.hephPopPeak.eq(4321)).toBe(true);
     expect(loaded.cyclePeaks.population.eq(60000)).toBe(true);
     expect(loaded.buildings.foragers).toBe(20);

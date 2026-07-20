@@ -874,7 +874,22 @@ export const VESTIGE_POWER_CAP = 10;
 export const REGROWTH_RUSH_MS = 3 * 60_000;
 // Rites du feu court : durée max d'un cycle « court » (bonus de ruines).
 export const RUIN_SHORT_CYCLE_SEC = 15 * 60;
-// Moisson de crise : plafond du bonus cumulé (+3 %/crise résolue, cap +30 %).
+// ── « Le Comptoir » — héritage de l'Âge d'Or ─────────────────────────────────
+// Onglet Marchandage : échange permanent au tarif du marchand. Sa MARGE est la
+// contrepartie (le Comptoir dépanne, il n'enrichit pas) : acheter coûte 150 % de
+// la valeur en Or, vendre n'en rend que 60 %. Lots ancrés sur la production
+// courante (COMPTOIR_LOT_SECONDS) → utilisables à toutes les échelles. Molettes.
+export const COMPTOIR_LOT_SECONDS = 60;
+export const COMPTOIR_BUY_MARKUP  = 1.5;
+export const COMPTOIR_SELL_RATE   = 0.6;
+
+// Moisson de crise : pince de sûreté sur le bonus cumulé. Le nœud vaut +10 % par
+// crise (upgrades.js), PAS +3 % comme l'annonçait ce commentaire. Le compteur
+// cycleCrisesResolved est borné à 3 par construction (il n'existe que 3 paliers
+// CRISIS_EVENTS, latchés dans state.crisisThresholds — crisis.js), donc le max
+// atteignable vaut 3 × 0,10 = 0,30 : la pince ne rogne rien au-delà de l'epsilon
+// flottant (3 × 0.1 === 0.30000000000000004). Elle protège d'un futur second nœud
+// porteur du même effectType, que ruinEffectSum additionnerait.
 export const CRISIS_RESOLVE_RUIN_CAP = 0.30;
 // Stagnation féconde : secondes de stagnation qui chargent une aubaine.
 export const STAGNATION_BOON_EVERY_SEC = 480;

@@ -78,9 +78,15 @@ import {
   BOON_INTERVAL_MAX_SEC
 } from '../balance.js';
 import {
-  ATLAS_LEGIT_PASSIVE_RATE,
   isMythEffectActive
 } from '../../data/myths.js';
+import {
+  hasActiveRuin,
+  ACTIVE_RUIN_ICARE_AUTO_BURN,
+  ACTIVE_RUIN_PHENIX_FORCED_SEC
+} from '../../data/activeRuins.js';
+import { icareClimb, checkMythLiveCompletion } from './myths.js';
+import { collapse } from './crisis.js';
 
 // Dernier déclenchement automatique de protocoles_urgence (cooldown anti-verrou :
 // l'automation seule ne doit pas pouvoir maintenir la jauge sous le seuil de crise).
@@ -278,8 +284,34 @@ export function tick(dt) {
     }
   }
 
-  if (state.atlasHeritage) {
-    state.atlasLegitimite = Math.min(100, (state.atlasLegitimite || 50) + ATLAS_LEGIT_PASSIVE_RATE * dt);
+  // Ruine active « Fardeau du ciel » : voir crisis.js — « Atlas prend le coup »
+  // part d'office sur la PREMIÈRE crise du cycle (le joueur perd le choix de
+  // laquelle). Rien à faire au tick.
+
+  // Ruine active « Cire fondante » : l'Aile MONTE toute seule au seuil de Rupture.
+  // Le joueur garde le vol, perd le choix du moment. Latché par franchissement :
+  // sans le latch, la montée (+15 % de Rupture immédiate) re-déclencherait la
+  // condition au tick suivant — spirale de mort en trois secondes.
+  if (hasActiveRuin(state, "icare")) {
+    if (state.instability >= ACTIVE_RUIN_ICARE_AUTO_BURN) {
+      if (!state.icareAutoBurnLatched) {
+        state.icareAutoBurnLatched = true;
+        icareClimb();
+      }
+    } else {
+      state.icareAutoBurnLatched = false;
+    }
+  }
+
+  // Ruine active « Bûcher programmé » : la chute s'impose à heure fixe, quels que
+  // soient les réglages du Script. On passe par le chemin d'effondrement normal.
+  if (hasActiveRuin(state, "phenix") && !collapseInProgress) {
+    const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
+    if (ageSec >= ACTIVE_RUIN_PHENIX_FORCED_SEC) {
+      log("Bûcher programmé : l'heure est venue, la cité s'embrase sans attendre ton ordre.");
+      collapse("forced");
+      return;
+    }
   }
 
   // B1/B2 — Récompenses régulières (jalon de population doré + aubaines). Sautées
@@ -291,6 +323,9 @@ export function tick(dt) {
   }
 
   if (runMythTicks(state, dt) === "abort") return;
+  // Validation VIVANTE : les handlers ci-dessus viennent de poser les drapeaux de
+  // réussite — on sacre immédiatement, sans attendre l'effondrement.
+  checkMythLiveCompletion();
 
   if (state.cadmosPromptPending) return;
 

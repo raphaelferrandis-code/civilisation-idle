@@ -23,12 +23,17 @@ export const SAVE_KEY = "civilization-collapse-idle-v1";
 // v3 : les vestiges deviennent des « records de cité morte » compacts (footprint +
 // métadonnées nom/année/ère) au lieu de milliers de cellules ; la rétro-conversion
 // des anciens {gridN, ruins[]} est faite sans perte par normalizeVestiges.
-export const CURRENT_SAVE_VERSION = 3;
+// v4 : rétro-correctif des « Braisiers ancestraux » — l'héritage de Prométhée était
+// effacé par resetTemporaryRunState à l'effondrement même qui l'accordait, donc
+// aucune save ne peut le porter. On le re-dérive de mythsCompleted.
+// v5 : « La Veille du feu » remplace les Braisiers comme héritage de Prométhée.
+// Un Mythe accompli le reste (D7) : le nouveau déblocage est re-dérivé lui aussi.
+export const CURRENT_SAVE_VERSION = 4;
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
-  "chaosRuinsBonus", "phoenixTotalRuins", "phoenixRebirthTargetPop", "orStartPop", "orPopPeak", "hephPopPeak",
+  "chaosRuinsBonus", "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
   "mythStartGold", "mythStartInfra", "mythStartPop", "ragnarokStartPower"
 ];
 
@@ -296,17 +301,36 @@ export const defaultState = () => ({
   prometheePopReached: false,
   prometheeBraisiers: false,
   atlasHeritage: false,
-  atlasLegitimite: 50,
-  atlasCrisisCount: 0,
+  // Héritage d'Atlas : « Atlas prend le coup » déjà consommé ce cycle (skip d'une
+  // gestion de crise, 1×/cycle — voir crisis.js). Remis à false à chaque cycle.
+  atlasSkipUsed: false,
+  // « Le poids du ciel » (Atlas) : jauge du Fardeau, épaulées comptées, drapeau
+  // d'écrasement (échec), fin du cooldown d'ÉPAULER. Tout per-cycle.
+  atlasFardeau: 0,
+  atlasEpaules: 0,
+  atlasCrushed: false,
+  atlasShoulderCdEnd: 0,
   sisypheMult: 1,
   sisypheHeritage: false,
+  // « La Montée » (Sisyphe) : cran courant du rocher (0 = au pied), sommets déjà
+  // atteints (le premier retombe toujours), usages par matière de la montée en
+  // cours (chaque usage double le prix de la matière). Tout per-cycle.
+  sisypheCran: 0,
+  sisypheMontees: 0,
+  sisypheUsages: { food: 0, knowledge: 0, infrastructure: 0 },
   babelHeritage: false,
   babelCategory: null,
-  babelProdReached: false,
+  // Héritage « la Langue commune » : catégorie déclarée ce cycle (+20 % de prod),
+  // une déclaration par cycle — null tant que rien n'est déclaré.
+  babelCommonTongue: null,
+  // Réglage AUTO de la Langue commune : langue retenue d'un cycle à l'autre —
+  // redéclarée d'elle-même à chaque nouveau cycle (resetTemporaryRunState).
+  // Survit au Grand Reset (GR_PERSISTENT_FIELDS) : un réglage de confort ne se
+  // reconfigure pas.
+  babelAutoTongue: null,
   orHeritage: false,
-  orStartPop: new Decimal(0),
-  orPopPeak: new Decimal(0),
-  orGoldReached: false,
+  // « Les Caravanes » (Âge d'Or) : marchés conclus ce cycle.
+  orDealsClosed: 0,
   orUsureImbalance: false,
   phoenixHeritage: false,
   phoenixCycleCount: 0,
@@ -329,15 +353,15 @@ export const defaultState = () => ({
   // ÉTERNELS (GR_PERSISTENT_FIELDS). Objet plein (pas null) : le panneau-arbre
   // lit state.templeArtifacts directement.
   templeArtifacts: {},
-  icareInfraReached: false,
-  sisypheReached: false,
+  // « Vol par paliers » (Icare) : altitude courante du cycle. Le latch borne le
+  // fardeau « Cire fondante » à UNE montée automatique par franchissement du seuil.
+  icareAltitude: 0,
+  icareAutoBurnLatched: false,
   atridesReached: false,
   mythStartGold: new Decimal(0),
   mythStartInfra: new Decimal(0),
   mythStartPop: new Decimal(0),
   icareHeritage: false,
-  surchauffeEndTime: 0,
-  surchauffeCooldownEnd: 0,
   instability: 0,
   timeWear: 0,
   // Couverture du réseau routier (bâtiments-moteur reliés / total, 0..1), écrite
@@ -472,7 +496,7 @@ export const defaultState = () => ({
     knowledgeMalus: 0,
     infraBonus: 0,
     ruptureSlow: 0,
-    used: {}
+    used: {},
   },
   crisisExtensions: 0,
   crisisLimitAnnounced: false,
@@ -1091,9 +1115,22 @@ const MIGRATIONS = {
         if (typeof value === "number" && Number.isFinite(value)) s.cyclePeaks[field] = String(value);
       }
     }
-  }
+  },
   // 2 -> 3 : vestiges compacts (footprint + métadonnées). Aucune transformation
   // ici : normalizeVestiges (hydrateState) rétro-convertit les anciens {gridN, ruins[]}.
+  //
+  // 3 -> 4 : rétro-correctif des « Braisiers ancestraux ». `prometheeBraisiers` est
+  // un héritage PERMANENT (il figure dans GR_PERSISTENT_FIELDS) mais il était listé
+  // dans resetTemporaryRunState, qui tourne à la fin du MÊME effondrement que
+  // applyHeritage — le drapeau était donc posé puis effacé, et aucune save existante
+  // ne peut le porter à true. Il ne peut pas non plus se regagner : activateMyth
+  // (actions/myths.js) refuse un Mythe déjà complété, donc applyHeritage ne rejoue
+  // jamais. On le re-dérive de mythsCompleted, seule trace survivante de la réussite.
+  3: (s) => {
+    if (s.prometheeBraisiers) return;
+    const completed = normalizeMythsCompleted(s.mythsCompleted);
+    if (completed["mythe_de_promethee"]) s.prometheeBraisiers = true;
+  },
 };
 
 // Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à
@@ -1159,17 +1196,26 @@ export function hydrateState(parsed = {}) {
     prometheePopReached: Boolean(source.prometheePopReached),
     prometheeBraisiers: Boolean(source.prometheeBraisiers),
     atlasHeritage: Boolean(source.atlasHeritage),
-    atlasLegitimite: finiteNumber(source.atlasLegitimite, 50, 0, 100),
-    atlasCrisisCount: finiteInteger(source.atlasCrisisCount, 0),
+    atlasSkipUsed: Boolean(source.atlasSkipUsed),
+    atlasFardeau: finiteNumber(source.atlasFardeau, 0, 0, 100),
+    atlasEpaules: finiteInteger(source.atlasEpaules, 0, 0),
+    atlasCrushed: Boolean(source.atlasCrushed),
+    atlasShoulderCdEnd: finiteTimestamp(source.atlasShoulderCdEnd, 0),
     sisypheMult: finiteNumber(source.sisypheMult, 1, 1),
     sisypheHeritage: Boolean(source.sisypheHeritage),
+    sisypheCran: finiteInteger(source.sisypheCran, 0, 0),
+    sisypheMontees: finiteInteger(source.sisypheMontees, 0, 0),
+    sisypheUsages: {
+      food: finiteInteger(source.sisypheUsages?.food, 0, 0),
+      knowledge: finiteInteger(source.sisypheUsages?.knowledge, 0, 0),
+      infrastructure: finiteInteger(source.sisypheUsages?.infrastructure, 0, 0)
+    },
     babelHeritage: Boolean(source.babelHeritage),
     babelCategory: ["city", "knowledge", "infra"].includes(source.babelCategory) ? source.babelCategory : null,
-    babelProdReached: Boolean(source.babelProdReached),
+    babelCommonTongue: ["city", "knowledge", "infra"].includes(source.babelCommonTongue) ? source.babelCommonTongue : null,
+    babelAutoTongue: ["city", "knowledge", "infra"].includes(source.babelAutoTongue) ? source.babelAutoTongue : null,
     orHeritage: Boolean(source.orHeritage),
-    orStartPop: decimalField(source.orStartPop, 0),
-    orPopPeak: decimalField(source.orPopPeak, 0),
-    orGoldReached: Boolean(source.orGoldReached),
+    orDealsClosed: finiteInteger(source.orDealsClosed, 0, 0),
     orUsureImbalance: Boolean(source.orUsureImbalance),
     phoenixHeritage: Boolean(source.phoenixHeritage),
     phoenixCycleCount: finiteInteger(source.phoenixCycleCount, 0),
@@ -1185,15 +1231,13 @@ export function hydrateState(parsed = {}) {
     automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99),
     templeAuto: normalizeTempleAuto(source.templeAuto),
     templeArtifacts: normalizeBooleanMap(source.templeArtifacts, TEMPLE_ARTIFACT_IDS),
-    icareInfraReached: Boolean(source.icareInfraReached),
-    sisypheReached: Boolean(source.sisypheReached),
+    icareAltitude: finiteInteger(source.icareAltitude, 0, 0),
+    icareAutoBurnLatched: Boolean(source.icareAutoBurnLatched),
     atridesReached: Boolean(source.atridesReached),
     mythStartGold: decimalField(source.mythStartGold, 0),
     mythStartInfra: decimalField(source.mythStartInfra, 0),
     mythStartPop: decimalField(source.mythStartPop, 0),
     icareHeritage: Boolean(source.icareHeritage),
-    surchauffeEndTime: finiteNumber(source.surchauffeEndTime || 0, 0, 0),
-    surchauffeCooldownEnd: finiteNumber(source.surchauffeCooldownEnd || 0, 0, 0),
     atridesDebt: finiteNumber(source.atridesDebt, base.atridesDebt, 0),
     atridesDrainDisabled: Boolean(source.atridesDrainDisabled),
     atridesDebtGrowthMultiplier: finiteNumber(source.atridesDebtGrowthMultiplier, base.atridesDebtGrowthMultiplier, 0),
@@ -1328,7 +1372,7 @@ export function hydrateState(parsed = {}) {
     cycleStartedAt: finiteTimestamp(source.cycleStartedAt, base.cycleStartedAt),
     lastTick: finiteTimestamp(source.lastTick, base.lastTick),
     buyAmount: source.buyAmount === "max" ? "max" : finiteInteger(source.buyAmount, 1, 1, 500),
-    activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "history"].includes(source.activeView)
+    activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history"].includes(source.activeView)
       ? source.activeView
       : "city",
     ruinsSeenNodes: Array.isArray(source.ruinsSeenNodes)
@@ -1526,24 +1570,37 @@ export function resetTemporaryRunState(s) {
   s.cityMapSlots = {};
   s.cityArchetype = null;
   
-  if (s.atlasHeritage) s.atlasLegitimite = 50;
-  s.atlasCrisisCount = 0;
-  s.babelProdReached = false;
-  s.babelCategory    = null;
-  s.orStartPop       = D(s.population || 0);
-  s.orPopPeak        = D(s.population || 0);
-  s.orGoldReached    = false;
+  s.atlasSkipUsed = false;
+  s.atlasFardeau = 0;
+  s.atlasEpaules = 0;
+  s.atlasCrushed = false;
+  s.atlasShoulderCdEnd = 0;
+  s.babelCategory     = null;
+  // « La Langue commune » : si le réglage Auto est armé, la langue du nouveau
+  // cycle repart déclarée d'elle-même — sinon, à re-déclarer à la main.
+  s.babelCommonTongue = (s.babelHeritage && s.babelAutoTongue) ? s.babelAutoTongue : null;
+  s.orDealsClosed    = 0;
   s.orUsureImbalance = false;
   s.hephPopPeak      = D(s.population || 0);
   s.hephGoalReached  = false;
   
-  s.icareInfraReached   = false;
-  s.sisypheReached      = false;
+  // Traqueurs de PROGRESSION de run (remis à zéro à chaque cycle).
+  // ⚠ NE JAMAIS ajouter ici un drapeau d'HÉRITAGE (cf. GR_PERSISTENT_FIELDS) :
+  // resetTemporaryRunState tourne à la FIN de completeCollapse (crisis.js:400),
+  // ~95 lignes APRÈS checkMythOnCollapse/applyHeritage (crisis.js:306) — le même
+  // effondrement qui accorde l'héritage l'effacerait aussitôt. Cas vécu :
+  // `prometheeBraisiers` (Braisiers ancestraux jamais actifs, donc Ruine active
+  // « promethee » jamais proposée, donc Antée infaisable et Ragnarok verrouillé).
+  // Barré par le test de classe dans grandReset.test.js.
+  s.icareAltitude       = 0;
+  s.icareAutoBurnLatched = false;
+  s.sisypheCran         = 0;
+  s.sisypheMontees      = 0;
+  s.sisypheUsages       = { food: 0, knowledge: 0, infrastructure: 0 };
   s.atridesReached      = false;
   s.prometheePopReached = false;
   s.prometheeFailed     = false;
   s.chaosReached        = false;
-  s.prometheeBraisiers  = false;
 
   s.eneeMigrations         = 0;
   s.eneeDegraded           = false;
@@ -1573,9 +1630,8 @@ export function resetTemporaryRunState(s) {
 export const GR_PERSISTENT_FIELDS = [
   "mythsCompleted", "mythActsAnnounced", "chaosRuinsDouble", "chaosRuinsBonus",
   "prometheeBraisiers", "atlasHeritage", "sisypheHeritage", "icareHeritage",
-  "babelHeritage", "orHeritage", "phoenixHeritage", "atridesHeritage", "eneeHeritage",
+  "babelHeritage", "babelAutoTongue", "orHeritage", "phoenixHeritage", "atridesHeritage", "eneeHeritage",
   "autoScriptRules", "hephHeritage", "automateRules",
-  "surchauffeEndTime", "surchauffeCooldownEnd",
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
   "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle",
   "olympus", "grRevealed", "grClaimed",

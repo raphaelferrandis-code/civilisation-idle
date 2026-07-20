@@ -93,10 +93,10 @@ function sampleCost() {
 const AUTOMATION = {
   mythe_d_hephaistos: "Panneau AUTOMATES : achat auto de batiments + actions de crise auto (runs futures)",
   mythe_du_phenix: "Panneau SCRIPT : effondrement auto selon seuils (Rupture/Usure/temps)",
-  mythe_d_icare: "Bouton SURCHAUFFE : x5 production 30s, +25% Rupture, cd 2 min",
+  mythe_d_icare: "L Aile (bouton MONTER) : x2 prod par altitude, Rupture acceleree",
   mythe_atrides: "Bouton PACTE : x2 production 2 min (puis -50% pendant la crise)",
   mythe_d_antee: "Choix RUINES ACTIVES en debut de cycle : x ruines selon malus actives",
-  mythe_d_atlas: "Jauge LEGITIMITE (0-100) : attenue les effets negatifs des crises (jusqu'a -25%)",
+  mythe_d_atlas: "L Epaule (bouton EPAULER) : monte la Legitimite, qui adoucit les crises",
   mythe_de_cadmos: "Gravure d'EPITAPHES : +2% permanent / orientation (max 3)",
   mythe_de_babel: "SYNERGIE d'adjacence sur la carte : +10% prod / voisin du meme type"
 };
@@ -104,7 +104,15 @@ const AUTOMATION = {
 // Pre-setup applique AVANT la mesure "before" (pour isoler l'effet propre de
 // l'heritage, ex. Ragnarok : on est deja a GR11, l'heritage n'ajoute que le x4).
 const PRESETUP = {
-  mythe_du_ragnarok: () => { state.grandResetCount = 11; }
+  // ⚠ Depuis le passage des Grands Resets en ORDRE LIBRE, le ×4 du Ragnarok n'est
+  // plus adossé au 11e reset mais au SCEAU 11 réclamé (state.grClaimed[11], cf.
+  // grandResetRuinMultiplier dans mechanics/prestige.js). Poser le seul compteur
+  // ne déclenche plus rien, et le banc rapportait « aucun effet passif mesurable »
+  // pour le Mythe terminal.
+  mythe_du_ragnarok: () => {
+    state.grandResetCount = 11;
+    state.grClaimed = { ...(state.grClaimed || {}), 11: true };
+  }
 };
 
 // Activation reelle de l'heritage pour exposer son effet mesurable.
@@ -116,9 +124,9 @@ const ACTIVATE = {
     { id: "a", orientation: "food", name: "x" }, { id: "b", orientation: "food", name: "y" }, { id: "c", orientation: "food", name: "z" }
   ]; }, // 3 epitaphes Nourriture = +6% food permanent
   mythe_age_or: () => { state.food = D(60000); state.gold = D(60000); }, // equilibre -> -20% Usure
-  mythe_d_icare: () => { state.surchauffeEndTime = NOW + 30_000; },   // x5 prod 30s
+  mythe_d_icare: () => { state.icareAltitude = 1; },                  // l Aile : altitude 1 = x2 prod
   mythe_atrides: () => { state.atridesPactActive = true; state.cycleStartedAt = NOW; }, // x2 prod 2min
-  mythe_d_atlas: () => {},  // -15% Usure base (toujours actif)
+  mythe_d_atlas: () => {},  // skip d'une gestion de crise 1x/cycle : effet hors prod (crisis.js)
   mythe_d_antee: () => {},  // ruines actives : effet a l'effondrement (decrit)
   mythe_du_ragnarok: () => { state.ragnarokHeritage = true; } // x4 ruines (GR11 deja en place via PRESETUP)
 };

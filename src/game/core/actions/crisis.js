@@ -51,6 +51,7 @@ import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
+import { hasActiveRuin } from '../../data/activeRuins.js';
 import { checkMythOnCollapse } from './myths.js';
 import { recordCollapse } from '../chronicleStats.js';
 import {
@@ -107,6 +108,20 @@ function crisisAutoStance(slotId) {
   return (stance === "stabiliser" || stance === "temporiser") ? stance : null;
 }
 
+// ── Héritage d'Atlas (l'Épaule) : « Atlas prend le coup » ────────────────────
+// Une fois par cycle (atlasSkipUsed), une gestion de crise passe SANS AUCUN
+// EFFET : aucun choix appliqué, aucun malus. Elle ne compte ni comme stabilisée
+// (Moisson de crise) ni pour l'Olympe — Atlas l'a prise, la cité ne l'a pas vécue.
+function atlasSkipAvailable() {
+  return Boolean(state.atlasHeritage) && !state.atlasSkipUsed;
+}
+
+function atlasTakeHit(event) {
+  state.atlasSkipUsed = true;
+  pushOutcomeFloat({ label: "Atlas prend le coup", kind: "gain" });
+  chronicle(`Atlas prend le coup : « ${event.title || "la crise"} » passe sans laisser de trace. Ses épaules ne reprendront ce poids qu'au prochain cycle.`);
+}
+
 // Résolution automatique d'un event de crise selon la posture, SANS pause ni
 // dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
 export function autoResolveCrisisEvent(event, stance) {
@@ -116,6 +131,12 @@ export function autoResolveCrisisEvent(event, stance) {
     chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(D(state.population).floor())} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
+    return;
+  }
+  // Fardeau du ciel (Antée) : Atlas prend le PREMIER coup, pas celui que tu
+  // choisis — même sous Conseil automatisé, le skip du cycle part d'office ici.
+  if (atlasSkipAvailable() && hasActiveRuin(state, "atlas")) {
+    atlasTakeHit(event);
     return;
   }
   const opts = event.options || [];
@@ -147,10 +168,40 @@ export async function openCrisisEvent(event) {
     return;
   }
 
+  // Fardeau du ciel (Antée) : Atlas prend le PREMIER coup, pas celui que tu
+  // choisis — le skip du cycle est consommé d'office, sans dialogue. Le pouvoir
+  // reste, le moment part.
+  if (atlasSkipAvailable() && hasActiveRuin(state, "atlas")) {
+    atlasTakeHit(event);
+    setGamePaused(false);
+    render();
+    return;
+  }
+
+  // Héritage d'Atlas (l'Épaule) : un choix DE PLUS dans la gestion de crise —
+  // la décision n'est pas d'appuyer, mais de choisir sur QUELLE crise du cycle
+  // griller le coup. L'option disparaît une fois consommée.
+  const options = event.options ? [...event.options] : [];
+  if (atlasSkipAvailable()) {
+    options.push({
+      label: "Atlas prend le coup",
+      detail: "La crise passe sans aucun effet. Une fois par cycle.",
+      atlasSkip: true
+    });
+  }
+
   const choice = await openChoiceDialog({
     ...event,
+    options,
     footnote: "Sauf mention contraire, les effets sur la production durent jusqu'à la fin du cycle en cours."
   });
+
+  if (choice && choice.atlasSkip) {
+    atlasTakeHit(event);
+    setGamePaused(false);
+    render();
+    return;
+  }
 
   // Garde de type symétrique à autoResolveCrisisEvent : sans elle, un `apply`
   // absent throw ENTRE le setGamePaused(true) et le (false) → jeu figé en pause
@@ -548,7 +599,7 @@ export function runCrisisAction(id, options = {}) {
       const prev = rf[foyer] || 0;
       rf[foyer] = Math.min(FOYER_REFORM_CAP, prev + (regAction.reformAdd || 0) * eff);
       ledger = { kind: "reform", delta: rf[foyer] - prev };
-    } else if (!isMythEffectActive("mythe_d_atlas")) {
+    } else {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
       const add = (regAction.relief || 0) * eff;
       fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
@@ -556,9 +607,6 @@ export function runCrisisAction(id, options = {}) {
       if (regAction.malusRes) addProductionPenalty(regAction.malusRes, regAction.malusPct || 0);
       if (regAction.counter && regAction.counter in state.crisisActions) state.crisisActions[regAction.counter] += 1;
       ledger = { kind: "soothe", delta: add };
-    } else {
-      state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
-      ledger = { kind: "soothe", delta: 0 };
     }
     if (ledger) regulLedgerPush({ id, foyer, by: opts.by || null, ...ledger });
     // Effets économiques (tous kinds) : la gestion de crise nourrit la croissance.
@@ -590,33 +638,29 @@ export function runCrisisAction(id, options = {}) {
   };
   const effect = effects[id];
   if (!effect) return;
-  if (!isMythEffectActive("mythe_d_atlas")) {
-    // Étape 2 : l'action calme SON foyer (relief multiplicatif décroissant → la
-    // barre du foyer descend), plus un petit coup instantané sur la jauge globale
-    // pour la réactivité. Le relief est plafonné et décline : tenir la jauge
-    // reste un délai, pas une immortalité.
-    const foyer = ACTION_FOYER[id];
-    if (foyer) {
-      const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
-      const add = (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult();
-      fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
-      state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
-    }
-    // Étape 3 : contrepartie de production — malus temporaire (jusqu'au prochain
-    // effondrement) sur une ressource, pour que chaque clic soit un sacrifice
-    // ressenti dans les taux. Cumulatif, plafonné par addProductionPenalty.
-    const malusRes = FOYER_MALUS_RESOURCE[id];
-    if (malusRes) addProductionPenalty(malusRes, FOYER_MALUS_PCT[id] || 0);
-  } else {
-    state.atlasCrisisCount = (state.atlasCrisisCount || 0) + 1;
+  // Étape 2 : l'action calme SON foyer (relief multiplicatif décroissant → la
+  // barre du foyer descend), plus un petit coup instantané sur la jauge globale
+  // pour la réactivité. Le relief est plafonné et décline : tenir la jauge
+  // reste un délai, pas une immortalité.
+  const foyer = ACTION_FOYER[id];
+  if (foyer) {
+    const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
+    const add = (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult();
+    fr[foyer] = Math.min(FOYER_RELIEF_CAP, (fr[foyer] || 0) + add);
+    state.instability = Math.max(0, state.instability - add * FOYER_RELIEF_INSTANT_FACTOR);
   }
+  // Étape 3 : contrepartie de production — malus temporaire (jusqu'au prochain
+  // effondrement) sur une ressource, pour que chaque clic soit un sacrifice
+  // ressenti dans les taux. Cumulatif, plafonné par addProductionPenalty.
+  const malusRes = FOYER_MALUS_RESOURCE[id];
+  if (malusRes) addProductionPenalty(malusRes, FOYER_MALUS_PCT[id] || 0);
   state.crisisActions[effect.key] += 1;
   if (id === "reforms") state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.08));
-  // Registre des édits : effet réellement posé (0 sous le mythe d'Atlas) —
-  // AVANT raiseRegulFatigue, pour refléter le multiplicateur appliqué ci-dessus.
+  // Registre des édits : effet réellement posé — AVANT raiseRegulFatigue, pour
+  // refléter le multiplicateur appliqué ci-dessus.
   regulLedgerPush({
     id, kind: "soothe", foyer: ACTION_FOYER[id] || null,
-    delta: isMythEffectActive("mythe_d_atlas") ? 0 : (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult(),
+    delta: (FOYER_RELIEF_ADD[id] || 0) * regulFatigueEffectMult(),
     by: opts.by || null
   });
   raiseRegulFatigue();

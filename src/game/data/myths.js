@@ -4,6 +4,17 @@ import { state } from '../core/state.js';
 import { log } from '../core/actions.js';
 import { D } from '../core/num.js';
 import { tr, localizeData } from '../core/i18n.js';
+import { buildings } from './buildings.js';
+
+// Compte des bâtiments de la catégorie choisie pour Babel — la « hauteur » de la
+// tour. Utilisé par onCollapse (donc par checkMythLiveCompletion à chaque tick)
+// et par la carte de statut de la Cité.
+export function babelTowerCount() {
+  if (!state.babelCategory) return 0;
+  return buildings
+    .filter((b) => b.category === state.babelCategory)
+    .reduce((sum, b) => sum + (state.buildings[b.id] || 0), 0);
+}
 
 // Score de « puissance » agrégé (Antée, Ragnarok) : somme pondérée des
 // ressources principales, en Decimal pour survivre au-delà du float.
@@ -35,50 +46,93 @@ export const RAGNAROK_MIN_SURVIVAL_MS  = 90_000;   // tenir ≥ 90 s
 export const RAGNAROK_POWER_SURGE_MULT = 3;        // puissance ≥ 3× le départ du cycle (sursaut sous le chaos)
 export const RAGNAROK_FINAL_TITLE = "Sous le regard du Ragnarok";
 
-// ── Constantes Mythe d'Icare ─────────────────────────────────────────────────
-export const ICARE_PROD_MULT     = 100;      // Multiplicateur global de production
-export const ICARE_RUPTURE_MULT  = 30;       // Multiplicateur de vitesse de Rupture
-export const ICARE_USURE_MULT    = 15;       // Multiplicateur de vitesse d'Usure
-export const ICARE_GAIN_SECONDS  = 40;       // Réussite : accumuler ce cycle ≥ 40 s de production d'Infra avant l'effondrement rapide (Rupture ×30 !)
-export const SURCHAUFFE_PROD_MULT    = 5;       // Multiplicateur de production pendant Surchauffe
-export const SURCHAUFFE_DURATION_MS  = 30_000;  // Durée de l'effet Surchauffe (30 secondes)
-export const SURCHAUFFE_RUPTURE      = 0.25;    // Rupture instantanée à l'activation (+25%)
-export const SURCHAUFFE_COOLDOWN_MS  = 120_000; // Cooldown Surchauffe (2 minutes)
+// ── Constantes Mythe d'Icare — « le vol par paliers » ────────────────────────
+// Refonte 2026-07-19 (décision Raph) : les ×100/×30/×15 SUBIS disparaissent. Le
+// joueur MONTE lui-même — chaque montée double la production, coûte de la Rupture
+// immédiate, et fait grimper la Rupture plus vite. À l'altitude 0 le cycle est
+// normal : la pression, c'est le joueur qui l'allume. L'héritage (l'Aile) rend le
+// même verbe dans les cycles normaux, SANS plafond — libre au joueur de se
+// saboter s'il n'a pas compris le principe. La Surchauffe est REMPLACÉE.
+export const ICARE_ALTITUDE_TARGET     = 5;    // Réussite : atteindre l'altitude 5
+export const ICARE_CLIMB_PROD_MULT     = 2;    // ×2 production par altitude (cumulatif)
+export const ICARE_CLIMB_RUPTURE       = 0.15; // Rupture immédiate par montée
+export const ICARE_CLIMB_RUPTURE_HASTE = 0.5;  // +50 % de vitesse de Rupture par altitude
 
 // ── Constantes Mythe d'Atlas ─────────────────────────────────────────────────
-export const ATLAS_USURE_MULT          = 4;           // Usure ×4 pendant le cycle
-export const ATLAS_MIN_DURATION_MS     = 45 * 60_000; // Durée minimale de survie (45 minutes)
-export const ATLAS_MIN_CRISIS_WAVES    = 10;          // Vagues de crises min (condition alternative)
-export const ATLAS_USURE_REDUCTION     = 0.15;        // Héritage : -15% sur le taux d'Usure de base
-export const ATLAS_LEGIT_PASSIVE_RATE  = 0.05;        // Légitimité gagnée par seconde (passive)
-export const ATLAS_LEGIT_MAX_REDUCTION = 0.25;        // Réduction max des effets négatifs de crises (25%)
+// ── Constantes Mythe d'Atlas — « le poids du ciel » ──────────────────────────
+// Refonte 2026-07-19 (décision Raph) : l'endurance passive (45 min, Usure ×4, les
+// crises qui ne calment plus rien) DISPARAÎT. Une jauge, le Fardeau, monte sans
+// arrêt ; un bouton, ÉPAULER, la fait redescendre mais a un temps de récupération.
+// À 100 %, le ciel écrase la cité (échec). La jauge est 0-100 et le geste en retire
+// une fraction fixe → même difficulté à toute échelle. L'héritage (l'Épaule) retourne
+// la jauge de Légitimité passive en verbe : ÉPAULER la monte, une Légitimité haute
+// adoucit les crises. L'effondrement manuel reste coupé pendant le défi.
+// ⚠ Anti-spam (retour Raph 2026-07-19) : sans seuil, cliquer dès que le bouton se
+// réactive était TOUJOURS la bonne action — un métronome, pas une décision. Une
+// épaulée ne COMPTE que si le Fardeau est en zone rouge (≥ ATLAS_COUNT_THRESHOLD) ;
+// en dessous elle soulage mais ne compte pas, et consomme quand même la récup.
+// Le jeu devient : laisser monter volontairement dans le rouge, rattraper avant 100.
+export const ATLAS_SHOULDER_TARGET     = 12;      // Réussite : épauler 12 fois à pleine charge
+export const ATLAS_COUNT_THRESHOLD     = 70;      // Une épaulée ne compte qu'à partir de ce Fardeau
+// ⚠ Calibrage clé : sur un cooldown (CD/1000 s), le Fardeau monte de RISE×CD.
+// Il faut que ÉPAULER (−RELIEF) compense, sinon le joueur est condamné d'avance :
+// 3/s × 15 s = 45 = RELIEF → dérive NULLE quand on épaule à temps. La difficulté
+// est l'attention soutenue (une seconde d'inattention et le Fardeau grimpe).
+export const ATLAS_FARDEAU_RISE        = 3;       // Montée du Fardeau par seconde (0→100 en ~33 s si laissé seul)
+export const ATLAS_SHOULDER_RELIEF     = 45;      // Points de Fardeau retirés par ÉPAULER
+export const ATLAS_SHOULDER_CD_MS      = 15_000;  // Récupération entre deux ÉPAULER (15 s)
+// Héritage (l'Épaule) : « Atlas prend le coup » — un choix supplémentaire dans les
+// gestions de crise, qui fait passer la crise SANS EFFET, une fois par cycle
+// (state.atlasSkipUsed). La décision n'est pas d'appuyer, mais de choisir LAQUELLE :
+// griller le coup sur la crise de 25 % ou le garder pour la grosse. Voir crisis.js.
 
 // ── Constantes Mythe de Sisyphe ──────────────────────────────────────────────
-export const SISYPHE_MULT_PER_PURCHASE = 1.03;  // ×1.03 par achat de bâtiment
-export const SISYPHE_BUILDING_TARGET   = 180;   // Réussite : pousser le rocher jusqu'à 180 bâtiments malgré l'inflation (×1.03^180 ≈ 230× le coût de base)
+// « La Montée » (refonte 2026-07-20) : le rocher se hisse par CRANS payés en
+// ressources — chaque matière ré-employée dans la même montée DOUBLE son prix
+// (1×, 2×, 4×…). Bâtir pendant la montée lâche le rocher (retour au pied, prix
+// de base). Le premier sommet retombe TOUJOURS — c'est le mythe même : il faut
+// hisser le rocher deux fois. Casse-tête froid à information complète : aucune
+// horloge, aucun aléa — préparer ses stocks, choisir sa répartition, pousser
+// d'une traite. Contrepoint voulu d'Atlas (le mythe du temps réel).
+export const SISYPHE_CRANS          = 6;   // crans du pied au sommet
+export const SISYPHE_MONTEES_TARGET = 2;   // le premier sommet trahit, le second scelle
+// Coût de base d'un cran par matière (absolu, calibré acte II). Tout payer dans
+// une seule matière coûte 63× sa base (2^6−1) ; répartir 2-2-2 coûte 3× la base
+// de chacune. La répartition optimale dépend des stocks du joueur — c'est le puzzle.
+export const SISYPHE_STEP_BASE = { food: 5000, knowledge: 1000, infrastructure: 120 };
 export const SISYPHE_SCALE_REDUCTION   = 0.10;  // Héritage : -10% sur le facteur de scaling
 
-// ── Constantes Mythe de l'Âge d'Or ──────────────────────────────────────────
-export const OR_RUPTURE_CAP           = 0.05;    // Rupture plafonnée à 5%
-export const OR_POP_THRESHOLD         = 200;     // Seuil de rendements décroissants
-export const OR_POP_PENALTY_PCT       = 0.005;   // -0.5% de production par habitant au-delà du seuil
-export const OR_BALANCE_RATIO         = 0.25;    // Écart Nourriture/Trésor au-delà duquel il y a déséquilibre
-export const OR_USURE_IMBALANCE_MULT  = 3;       // Usure ×3 pendant le déséquilibre
-export const OR_GAIN_SECONDS          = 120;     // Réussite : accumuler ce cycle ≥ 120 s de production d'Or, pop plafonnée
-export const OR_POP_CAP               = 300;     // Plancher absolu du plafond de pop (early game)
-// Plafond de population RELATIF au départ du cycle : la pop ne doit pas croître
-// de plus de (facteur-1) depuis le début. Corrige l'injouabilité post-GR (la pop
-// gardée dépasse déjà 300) tout en gardant l'intention « cité dorée qui ne
-// s'étale pas ». Plafond effectif = max(OR_POP_CAP, popDépart × OR_POP_CAP_GROWTH).
-export const OR_POP_CAP_GROWTH        = 1.25;    // +25% de pop max pendant l'Âge d'Or
-export const OR_HERITAGE_BALANCE_RATIO = 0.15;  // Héritage : seuil d'équilibre (<15% d'écart)
-export const OR_HERITAGE_USURE_RED    = 0.20;   // Héritage : -20% Usure quand équilibré
+// ── Constantes Mythe de l'Âge d'Or — « les Caravanes » ───────────────────────
+// Refonte 2026-07-19 (décision Raph) : le plafond de population et sa pénalité
+// par habitant DISPARAISSENT (des maths invisibles). Le Mythe devient un mini-jeu
+// de NÉGOCIATION : des marchands vendent des lots de ressources contre de l'Or,
+// on peut marchander (le prix baisse) mais leur patience est cachée — un marchand
+// vexé s'en va. La paix dorée (Rupture plafonnée) et l'Usure ×3 en déséquilibre
+// restent : les achats déplacent la balance Nourriture/Trésor, tout se répond.
+export const OR_RUPTURE_CAP           = 0.05;  // Rupture plafonnée à 5 % (la paix dorée)
+export const OR_BALANCE_RATIO         = 0.25;  // Écart Nourriture/Trésor du déséquilibre
+export const OR_USURE_IMBALANCE_MULT  = 3;     // Usure ×3 pendant le déséquilibre
+export const OR_DEALS_TARGET          = 8;     // Réussite : conclure 8 marchés
+export const OR_DEAL_LOT_SECONDS      = 90;    // Taille du lot vendu : 90 s de production de la ressource
+export const OR_DEAL_ASK_MARKUP       = 1.6;   // Prix demandé : 160 % de la valeur (en s de prod d'Or)
+export const OR_DEAL_HAGGLE_STEP      = 0.85;  // Chaque marchandage : le prix baisse à 85 %
+export const OR_DEAL_PATIENCE_MIN     = 2;     // Patience cachée du marchand : 2 à 4 marchandages
+export const OR_DEAL_PATIENCE_MAX     = 4;
 
 // ── Constantes Mythe de Babel ─────────────────────────────────────────────────
+// Refonte 2026-07-20 (retour Raph : « reviens aux défis plus simples ») : la
+// contrainte reste (verrou de catégorie + Rupture ×2 + concentration ×1.05^N),
+// mais l'objectif « multiplicateur ×30 » — illisible — devient sa traduction
+// directe : ÉRIGER LA TOUR, 70 bâtiments de la catégorie choisie, compteur
+// visible et sacre en direct (onCollapse compte, checkMythLiveCompletion sacre).
 export const BABEL_RUPTURE_MULT   = 2;       // Rupture ×2 pendant le cycle
-export const BABEL_PROD_BASE_MULT = 1.05;    // Exponentielle par bâtiment du type choisi
-export const BABEL_MULT_TARGET    = 30;      // Multiplicateur cible (~70 bâtiments du type) — la tour doit monter HAUT
-export const BABEL_ADJ_BONUS      = 0.10;    // Héritage : +10% par voisin du même type
+export const BABEL_PROD_BASE_MULT = 1.05;    // Concentration : ×1.05 par bâtiment du type choisi
+export const BABEL_TOWER_TARGET   = 70;      // La tour : 70 bâtiments de la catégorie (≈ l'ancien ×30)
+// Héritage « la Langue commune » : 1×/cycle, DÉCLARER une catégorie — elle
+// produit +20 % jusqu'à la fin du cycle. Remplace la Synergie d'Urbanisme
+// (adjacence sur la carte : invisible, et le placement est procédural — le
+// joueur ne contrôlait rien).
+export const BABEL_COMMON_TONGUE_MULT = 1.20;
 export const BABEL_CAT_LABELS     = {
   city:      { fr: "Cité", en: "City" },
   knowledge: { fr: "Savoir", en: "Knowledge" },
@@ -118,9 +172,15 @@ export const HEPH_INFRA_PER_PEAK       = 1.0;    // Ratio cible infra / pic de p
 export const HEPH_POP_DECLINE_PCT      = 0.20;   // Déclin requis depuis le pic (20% ≈ 25 min à 0,8%/min après le départ)
 
 // ── Constantes Mythe de Prométhée ────────────────────────────────────────────
-export const PROMETHEE_FOOD_MULT       = 3;      // Multiplicateur de production de Nourriture
+// Le ×3 Nourriture a été RETIRÉ (décision Raph 2026-07-19) : il rendait le défi
+// trop facile en finançant lui-même la course. La contrainte est désormais nue —
+// chaque moteur de Nourriture rapproche de la mort, sans compensation.
 export const PROMETHEE_RUPTURE_PER_FOOD = 0.02;  // Rupture ajoutée par moteur de nourriture acheté (2%)
-export const PROMETHEE_POP_MULT        = 100;    // Réussite : croître la pop ×100 depuis le départ AVANT la Rupture fatale (course du feu)
+// Cible ABSOLUE (décision Raph 2026-07-19) : l'ancien « ×100 depuis la re-fondation »
+// était illisible — le joueur ne savait pas par rapport à quoi, et la réponse exigeait
+// un paragraphe. « Porter la population à 1000 » se comprend seul. Une cité farmée qui
+// démarre au-dessus valide d'emblée : assumé, c'est la récompense de la progression.
+export const PROMETHEE_POP_TARGET      = 1000;   // Réussite : 1000 habitants AVANT la Rupture fatale (course du feu)
 export const PROMETHEE_FATAL_RUPTURE   = 0.80;   // Seuil de Rupture fatal (80%)
 export const BRAISIERS_DURATION_MS     = 120_000; // Durée du bonus Braisiers en ms (2 minutes)
 export const BRAISIERS_FOOD_MULT       = 2;      // Multiplicateur Nourriture pendant les Braisiers
@@ -148,6 +208,12 @@ export const CADMOS_AGE_NAME_TARGET = 3;
 export const CADMOS_CYCLE_BONUS_PCT = 0.08;
 export const CADMOS_EPITAPH_BONUS_PCT = 0.02;
 export const CADMOS_MAX_PERMANENT_EPITAPHS = 3;
+// Paliers de Cadmos : seuils ABSOLUS, volontairement (décision Raph 2026-07-18).
+// Une cité qui a farmé les franchit instantanément, et c'est le but : un vieux défi
+// doit pouvoir être balayé en une seconde par un joueur qui en a les moyens. Ce
+// n'est pas un oubli d'échelle, c'est la récompense de la progression.
+// ⚠ Le vrai problème n'est pas là : c'est que franchir dix paliers d'un coup ouvre
+// dix modales BLOQUANTES à la file. Cf. le regroupement dans mythTicks.js.
 export const CADMOS_POPULATION_THRESHOLDS = [25, 60, 140, 320, 750];
 export const CADMOS_INFRASTRUCTURE_THRESHOLDS = [25, 80, 220, 600, 1500];
 export const CADMOS_ORIENTATIONS = {
@@ -222,6 +288,11 @@ export const MYTHS = [
   {
     id: "mythe_du_chaos",
     act: 1,
+    // La validation vivante NE lève PAS cette contrainte : l'héritage du Chaos
+    // (Ruines comptées double) exige un cycle resté Chaos jusqu'à la chute —
+    // `wasChaos` garde la banque dans completeCollapse. Lever en cours de cycle
+    // rendrait l'héritage mort-né.
+    liftOnComplete: false,
     name: { fr: "Le Mythe du Chaos", en: "The Myth of Chaos" },
     description: {
       fr: "Tous les bonus de méta-progression sont désactivés pour ce cycle : Ruines, Légitimité, Grand Reset. Chaque multiplicateur retombe à sa valeur de base (1x). Les upgrades restent achetés, ils sont simplement ignorés.",
@@ -260,16 +331,16 @@ export const MYTHS = [
     act: 1,
     name: { fr: "Le Mythe de Prométhée", en: "The Myth of Prometheus" },
     description: {
-      fr: `La production de Nourriture est multipliée par ${PROMETHEE_FOOD_MULT}x. Mais chaque moteur de Nourriture acheté ajoute ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% de Rupture instantanément. Plus la cité grandit, plus elle brûle.`,
-      en: `Food production is multiplied by ${PROMETHEE_FOOD_MULT}x. But each Food engine purchased adds ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% Rupture instantly. The larger the city grows, the more it burns.`
+      fr: `Chaque moteur de Nourriture acheté ajoute ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)} % de Rupture instantanément. Plus la cité grandit, plus elle brûle.`,
+      en: `Each Food engine purchased adds ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% Rupture instantly. The larger the city grows, the more it burns.`
     },
     ragnarokSummary: {
-      fr: `nourriture x${PROMETHEE_FOOD_MULT}, chaque moteur de nourriture ajoute de la Rupture.`,
-      en: `food x${PROMETHEE_FOOD_MULT}, each food engine adds Rupture.`
+      fr: "chaque moteur de nourriture ajoute de la Rupture.",
+      en: "each food engine adds Rupture."
     },
     objectif: {
-      fr: `Faire croître la population ×${PROMETHEE_POP_MULT} depuis le début du cycle AVANT que la Rupture ne dépasse ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%. Dépasser le seuil fatal en premier = échec (la course du feu).`,
-      en: `Grow the population ×${PROMETHEE_POP_MULT} from the start of the cycle BEFORE Rupture exceeds ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%. Crossing the fatal threshold first = failure (the race of fire).`
+      fr: `Porter la population à ${PROMETHEE_POP_TARGET} habitants avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} % (la course du feu).`,
+      en: `Bring the population to ${PROMETHEE_POP_TARGET} inhabitants before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}% (the race of fire).`
     },
     heritageDescription: {
       fr: `Braisiers ancestraux : chaque cycle démarre avec un bonus de production de Nourriture x${BRAISIERS_FOOD_MULT} pendant ${BRAISIERS_DURATION_MS / 60_000} minutes.`,
@@ -412,16 +483,16 @@ export const MYTHS = [
     act: 2,
     name: { fr: "Le Mythe de Sisyphe", en: "The Myth of Sisyphus" },
     description: {
-      fr: `Chaque achat de bâtiment augmente le coût de tous les bâtiments de +${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}% de façon cumulative. Ce multiplicateur de malédiction ne se réinitialise jamais en cours de cycle.`,
-      en: `Each building purchase raises the cost of all buildings by +${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}%, cumulatively. This curse multiplier never resets during a cycle.`
+      fr: `Le rocher attend au pied : ${SISYPHE_CRANS} crans jusqu'au sommet. POUSSER paie le cran dans une matière au choix — chaque matière ré-employée double son prix. Bâtir pendant la montée lâche le rocher. Au premier sommet, le rocher retombe. Toujours.`,
+      en: `The boulder waits at the foot: ${SISYPHE_CRANS} notches to the summit. PUSH pays the notch in a material of your choice — each reused material doubles its price. Building during the climb lets go of the boulder. At the first summit, the boulder rolls back down. Always.`
     },
     ragnarokSummary: {
-      fr: `chaque achat augmente tous les coûts de ${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}%.`,
-      en: `each purchase raises all costs by ${Math.round((SISYPHE_MULT_PER_PURCHASE - 1) * 100)}%.`
+      fr: "bâtir lâche le rocher en pleine montée.",
+      en: "building lets go of the boulder mid-climb."
     },
     objectif: {
-      fr: `Pousser le rocher jusqu'à ${SISYPHE_BUILDING_TARGET} bâtiments au total malgré l'inflation des coûts (chaque achat alourdit le suivant).`,
-      en: `Push the boulder to ${SISYPHE_BUILDING_TARGET} buildings in total despite cost inflation (each purchase weighs down the next).`
+      fr: `Hisser le rocher au sommet ${SISYPHE_MONTEES_TARGET} fois (${SISYPHE_CRANS} crans), sans bâtir pendant la montée.`,
+      en: `Haul the boulder to the summit ${SISYPHE_MONTEES_TARGET} times (${SISYPHE_CRANS} notches), without building during the climb.`
     },
     heritageDescription: {
       fr: `Réduit de façon permanente le facteur de scaling des coûts de tous les bâtiments de ${Math.round(SISYPHE_SCALE_REDUCTION * 100)}% (l'inflation naturelle croît plus lentement pour toujours).`,
@@ -429,12 +500,13 @@ export const MYTHS = [
     },
 
     onActivate() {
-      state.sisypheMult = 1;
-      state.sisypheReached = false;
+      state.sisypheCran = 0;
+      state.sisypheMontees = 0;
+      state.sisypheUsages = { food: 0, knowledge: 0, infrastructure: 0 };
     },
 
     onCollapse() {
-      return Boolean(state.sisypheReached);
+      return (state.sisypheMontees || 0) >= SISYPHE_MONTEES_TARGET;
     },
 
     applyHeritage() {
@@ -447,20 +519,20 @@ export const MYTHS = [
     act: 2,
     name: { fr: "Le Mythe de Babel", en: "The Myth of Babel" },
     description: {
-      fr: `Seul le type de bâtiment choisi au lancement peut être acheté ce cycle. Chaque bâtiment du type concentre une puissance exponentielle : bonus x${BABEL_PROD_BASE_MULT}^N (N = nombre de bâtiments du type). En contrepartie, la Rupture monte x${BABEL_RUPTURE_MULT} plus vite.`,
-      en: `Only the building type chosen at launch can be purchased this cycle. Each building of the type concentrates exponential power: bonus x${BABEL_PROD_BASE_MULT}^N (N = number of buildings of the type). In exchange, Rupture rises x${BABEL_RUPTURE_MULT} faster.`
+      fr: `Seule la catégorie choisie au lancement peut être construite ce cycle, et chaque bâtiment du type concentre la puissance (×${BABEL_PROD_BASE_MULT} cumulé). La Rupture monte ×${BABEL_RUPTURE_MULT} plus vite.`,
+      en: `Only the category chosen at launch can be built this cycle, and each building of the type concentrates power (×${BABEL_PROD_BASE_MULT} compounding). Rupture rises ×${BABEL_RUPTURE_MULT} faster.`
     },
     ragnarokSummary: {
       fr: `seuls les bâtiments du type choisi peuvent être achetés ; Rupture x${BABEL_RUPTURE_MULT}.`,
       en: `only buildings of the chosen type can be purchased; Rupture x${BABEL_RUPTURE_MULT}.`
     },
     objectif: {
-      fr: `Porter le multiplicateur exponentiel jusqu'à x${BABEL_MULT_TARGET} (~${Math.ceil(Math.log(BABEL_MULT_TARGET) / Math.log(BABEL_PROD_BASE_MULT))} bâtiments du type choisi).`,
-      en: `Raise the exponential multiplier to x${BABEL_MULT_TARGET} (~${Math.ceil(Math.log(BABEL_MULT_TARGET) / Math.log(BABEL_PROD_BASE_MULT))} buildings of the chosen type).`
+      fr: `Ériger la tour : ${BABEL_TOWER_TARGET} bâtiments de la catégorie choisie.`,
+      en: `Raise the tower: ${BABEL_TOWER_TARGET} buildings of the chosen category.`
     },
     heritageDescription: {
-      fr: `Synergie d'Urbanisme : sur la carte, chaque bâtiment du même type placé côte à côte accorde +${Math.round(BABEL_ADJ_BONUS * 100)}% de production par voisin du même type (halo doré visible sur le canvas).`,
-      en: `Urban Synergy: on the map, each building of the same type placed side by side grants +${Math.round(BABEL_ADJ_BONUS * 100)}% production per neighbor of the same type (golden halo visible on the canvas).`
+      fr: `La Langue commune : une fois par cycle, déclare une langue — la catégorie choisie produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à la fin du cycle. Réglable en automatique.`,
+      en: `The Common Tongue: once per cycle, declare a language — the chosen category produces +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the end of the cycle. Can be set to automatic.`
     },
 
     buildChoiceHTML() {
@@ -490,12 +562,10 @@ export const MYTHS = [
       state.babelCategory = checked ? checked.value : "city";
     },
 
-    onActivate() {
-      state.babelProdReached = false;
-    },
+    onActivate() {},
 
     onCollapse() {
-      return Boolean(state.babelProdReached);
+      return babelTowerCount() >= BABEL_TOWER_TARGET;
     },
 
     applyHeritage() {
@@ -508,32 +578,29 @@ export const MYTHS = [
     act: 2,
     name: { fr: "Le Mythe de l'Âge d'Or", en: "The Myth of the Golden Age" },
     description: {
-      fr: `La Rupture est plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)}% et toutes ses crises sont suspendues. Mais au-delà de ${OR_POP_THRESHOLD} habitants, chaque point de Population supprime ${OR_POP_PENALTY_PCT * 100}% de production globale. Si l'écart entre Nourriture et Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)}%, l'Usure monte x${OR_USURE_IMBALANCE_MULT} plus vite.`,
-      en: `Rupture is capped at ${Math.round(OR_RUPTURE_CAP * 100)}% and all its crises are suspended. But beyond ${OR_POP_THRESHOLD} inhabitants, each point of Population removes ${OR_POP_PENALTY_PCT * 100}% of global production. If the gap between Food and Treasury exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises x${OR_USURE_IMBALANCE_MULT} faster.`
+      fr: `La paix dorée : Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)} %, crises suspendues. Des caravanes proposent des lots contre de l'Or — on peut marchander, mais un marchand vexé s'en va. Si l'écart Nourriture/Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)} %, l'Usure monte ×${OR_USURE_IMBALANCE_MULT}.`,
+      en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Gold — you can haggle, but an offended merchant walks away. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
     },
     ragnarokSummary: {
-      fr: `Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)}%, population risquée et équilibre Nourriture/Trésor exigé.`,
-      en: `Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, population is risky and Food/Treasury balance required.`
+      fr: "les caravanes exigent leur dû ; le déséquilibre brûle l'Usure.",
+      en: "the caravans demand their due; imbalance burns Wear."
     },
     objectif: {
-      fr: `Accumuler ce cycle l'équivalent de ${OR_GAIN_SECONDS} s de ta production d'Or, sans laisser la population croître de plus de ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% depuis le début du cycle (une cité dorée qui ne s'étale pas).`,
-      en: `Accumulate this cycle the equivalent of ${OR_GAIN_SECONDS}s of your Gold output, without letting the population grow by more than ${Math.round((OR_POP_CAP_GROWTH - 1) * 100)}% from the start of the cycle (a golden city that does not sprawl).`
+      fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes.`,
+      en: `Close ${OR_DEALS_TARGET} deals with the caravans.`
     },
     heritageDescription: {
-      fr: `Équilibre Doré : quand l'écart entre Nourriture et Trésor est inférieur à ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, l'Usure monte ${Math.round(OR_HERITAGE_USURE_RED * 100)}% plus lentement, en permanence, dans toutes les runs futures.`,
-      en: `Golden Balance: when the gap between Food and Treasury is below ${Math.round(OR_HERITAGE_BALANCE_RATIO * 100)}%, Wear rises ${Math.round(OR_HERITAGE_USURE_RED * 100)}% more slowly, permanently, in all future runs.`
+      fr: "Le Comptoir : débloque l'onglet Marchandage — échanger de l'Or contre des ressources (et vendre son surplus), en permanence, au tarif du marchand.",
+      en: "The Trading Post: unlocks the Trading tab — exchange Gold for resources (and sell your surplus), permanently, at the merchant's rate."
     },
 
     onActivate() {
-      state.orStartPop     = state.population;
-      state.orPopPeak      = state.population;
-      state.orGoldReached  = false;
+      state.orDealsClosed = 0;
       state.orUsureImbalance = false;
-      state.mythStartGold  = D(state.gold);
     },
 
     onCollapse() {
-      return Boolean(state.orGoldReached);
+      return (state.orDealsClosed || 0) >= OR_DEALS_TARGET;
     },
 
     applyHeritage() {
@@ -547,31 +614,31 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe d'Atlas", en: "The Myth of Atlas" },
     description: {
-      fr: `L'effondrement manuel est désactivé. L'Usure monte ${ATLAS_USURE_MULT}x plus vite. La Rupture ne peut plus être réduite par aucun moyen. Les crises absorbent leur coût mais n'allègent plus l'instabilité.`,
-      en: `Manual collapse is disabled. Wear rises ${ATLAS_USURE_MULT}x faster. Rupture can no longer be reduced by any means. Crises absorb their cost but no longer ease the instability.`
+      fr: `Le ciel pèse. Le Fardeau monte sans arrêt : ÉPAULER le fait redescendre, mais seul un ciel LOURD compte — sous ${ATLAS_COUNT_THRESHOLD} %, le geste soulage sans compter et gaspille la récupération. À 100 %, le ciel écrase la cité. L'effondrement manuel est coupé — on ne repose pas le monde.`,
+      en: `The sky bears down. The Burden rises relentlessly: SHOULDER pushes it back, but only a HEAVY sky counts — below ${ATLAS_COUNT_THRESHOLD}%, the act relieves without counting and wastes the recovery. At 100%, the sky crushes the city. Manual collapse is disabled — one does not put the world down.`
     },
     ragnarokSummary: {
-      fr: `effondrement manuel bloqué, Usure x${ATLAS_USURE_MULT}, la Rupture ne baisse plus par les crises.`,
-      en: `manual collapse blocked, Wear x${ATLAS_USURE_MULT}, Rupture no longer falls through crises.`
+      fr: "le Fardeau du ciel écrase qui cesse de l'épauler.",
+      en: "the sky's Burden crushes whoever stops shouldering it."
     },
     objectif: {
-      fr: `Survivre au moins ${ATLAS_MIN_DURATION_MS / 60_000} minutes de cycle actif, OU résister à ${ATLAS_MIN_CRISIS_WAVES} vagues de crises avant l'effondrement.`,
-      en: `Survive at least ${ATLAS_MIN_DURATION_MS / 60_000} minutes of active cycle, OR withstand ${ATLAS_MIN_CRISIS_WAVES} waves of crises before the collapse.`
+      fr: `Épauler ${ATLAS_SHOULDER_TARGET} fois le ciel à pleine charge (Fardeau ≥ ${ATLAS_COUNT_THRESHOLD} %), sans être écrasé.`,
+      en: `Shoulder the sky at full weight ${ATLAS_SHOULDER_TARGET} times (Burden ≥ ${ATLAS_COUNT_THRESHOLD}%), without being crushed.`
     },
     heritageDescription: {
-      fr: `1) L'Usure de base est réduite de ${Math.round(ATLAS_USURE_REDUCTION * 100)}% en permanence. 2) Débloque la jauge "Légitimité" (0-100, démarre à 50 chaque cycle). Quand elle est haute, les effets négatifs des crises sont atténués jusqu'à ${Math.round(ATLAS_LEGIT_MAX_REDUCTION * 100)}%.`,
-      en: `1) Base Wear is reduced by ${Math.round(ATLAS_USURE_REDUCTION * 100)}% permanently. 2) Unlocks the "Legitimacy" gauge (0-100, starts at 50 each cycle). When it is high, the negative effects of crises are softened by up to ${Math.round(ATLAS_LEGIT_MAX_REDUCTION * 100)}%.`
+      fr: "L'Épaule : une fois par cycle, « Atlas prend le coup » — une gestion de crise au choix passe sans aucun effet.",
+      en: "The Shoulder: once per cycle, \"Atlas takes the hit\" — one crisis management of your choice passes with no effect at all."
     },
 
     onActivate() {
-      state.atlasCrisisCount = 0;
+      state.atlasFardeau = 0;
+      state.atlasEpaules = 0;
+      state.atlasCrushed = false;
+      state.atlasShoulderCdEnd = 0;
     },
 
     onCollapse() {
-      const durationMs   = Date.now() - (state.cycleStartedAt || Date.now());
-      const enoughTime   = durationMs >= ATLAS_MIN_DURATION_MS;
-      const enoughCrises = (state.atlasCrisisCount || 0) >= ATLAS_MIN_CRISIS_WAVES;
-      return enoughTime || enoughCrises;
+      return (state.atlasEpaules || 0) >= ATLAS_SHOULDER_TARGET && !state.atlasCrushed;
     },
 
     applyHeritage() {
@@ -584,29 +651,28 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe d'Icare", en: "The Myth of Icarus" },
     description: {
-      fr: `La production globale est multipliée par ${ICARE_PROD_MULT}x. La Rupture monte ${ICARE_RUPTURE_MULT}x plus vite, l'Usure ${ICARE_USURE_MULT}x plus vite. L'effondrement manuel est désactivé. Seul l'automatique peut terminer ce cycle.`,
-      en: `Global production is multiplied by ${ICARE_PROD_MULT}x. Rupture rises ${ICARE_RUPTURE_MULT}x faster, Wear ${ICARE_USURE_MULT}x faster. Manual collapse is disabled. Only the automatic one can end this cycle.`
+      fr: `Le bouton MONTER apparaît. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, +${Math.round(ICARE_CLIMB_RUPTURE * 100)} % de Rupture immédiate, et la Rupture grimpe ${Math.round(ICARE_CLIMB_RUPTURE_HASTE * 100)} % plus vite par altitude.`,
+      en: `The CLIMB button appears. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, +${Math.round(ICARE_CLIMB_RUPTURE * 100)}% instant Rupture, and Rupture rises ${Math.round(ICARE_CLIMB_RUPTURE_HASTE * 100)}% faster per altitude.`
     },
     ragnarokSummary: {
-      fr: `production x${ICARE_PROD_MULT}, Rupture x${ICARE_RUPTURE_MULT}, Usure x${ICARE_USURE_MULT}.`,
-      en: `production x${ICARE_PROD_MULT}, Rupture x${ICARE_RUPTURE_MULT}, Wear x${ICARE_USURE_MULT}.`
+      fr: "chaque montée d'altitude embrase la Rupture.",
+      en: "each altitude climb inflames Rupture."
     },
     objectif: {
-      fr: `Bâtir ce cycle l'équivalent de ${ICARE_GAIN_SECONDS} s de ta production d'Infrastructure avant l'effondrement automatique.`,
-      en: `Build this cycle the equivalent of ${ICARE_GAIN_SECONDS}s of your Infrastructure output before the automatic collapse.`
+      fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}.`,
+      en: `Reach altitude ${ICARE_ALTITUDE_TARGET}.`
     },
     heritageDescription: {
-      fr: `Surchauffe : débloque un bouton activable pendant les runs normaux. Active x${SURCHAUFFE_PROD_MULT} production pendant ${SURCHAUFFE_DURATION_MS / 1000}s (+${Math.round(SURCHAUFFE_RUPTURE * 100)}% Rupture instant). Cooldown : ${SURCHAUFFE_COOLDOWN_MS / 60_000} min.`,
-      en: `Overheat: unlocks a button you can activate during normal runs. Activates x${SURCHAUFFE_PROD_MULT} production for ${SURCHAUFFE_DURATION_MS / 1000}s (+${Math.round(SURCHAUFFE_RUPTURE * 100)}% Rupture instantly). Cooldown: ${SURCHAUFFE_COOLDOWN_MS / 60_000} min.`
+      fr: "L'Aile : MONTER et redescendre restent disponibles dans les cycles normaux, sans plafond. La production grimpe, la Rupture s'emballe — à toi de choisir ton altitude.",
+      en: "The Wing: CLIMB and descend remain available in normal cycles, uncapped. Production soars, Rupture races — you choose your altitude."
     },
 
     onActivate() {
-      state.icareInfraReached = false;
-      state.mythStartInfra = D(state.infrastructure);
+      state.icareAltitude = 0;
     },
 
     onCollapse() {
-      return state.icareInfraReached;
+      return (state.icareAltitude || 0) >= ICARE_ALTITUDE_TARGET;
     },
 
     applyHeritage() {

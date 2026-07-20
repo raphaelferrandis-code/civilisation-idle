@@ -16,7 +16,6 @@ import {
 import {
   collapse,
   runTerminalCrisisAction,
-  activateSurchauffe
 } from '../../game/core/actions.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { costLabel } from '../../game/core/utils.js';
@@ -31,7 +30,6 @@ export default function PrestigeView() {
   const crisisLimitAnnounced = useGameState(s => s.crisisLimitAnnounced);
   const crisisOpenedAt = useGameState(s => s.crisisOpenedAt);
   useGameState(s => s.activeMythId);
-  const icareHeritage = useGameState(s => s.icareHeritage);
   const history = useGameState(s => s.history);
   const crisisExtensions = useGameState(s => s.crisisExtensions);
   const terminalPreparations = useGameState(s => s.terminalPreparations);
@@ -75,10 +73,11 @@ export default function PrestigeView() {
   // un palier remet déjà la valeur à zéro, ceci couvre la fermeture de crise.
   const hoverTarget = isCrisisActive ? hoverTargetRaw : null;
 
-  const mythBlocksCollapse = isMythEffectActive("mythe_d_icare") || isMythEffectActive("mythe_d_atlas");
+  // Icare ne confisque plus l'effondrement manuel : le « vol par paliers » rend
+  // la main au joueur (refonte 2026-07-19). Seul Atlas verrouille encore.
+  const mythBlocksCollapse = isMythEffectActive("mythe_d_atlas");
   const canCollapse = ruinGainVal.gt(0) && !mythBlocksCollapse;
 
-  const showSurchauffe = icareHeritage;
 
   // ── Hold-to-collapse : l'effondrement se MAINTIENT (~1,1 s), pas de clic sec.
   // Tout vit dans des refs (aucun re-render pendant le hold : le remplissage
@@ -386,16 +385,6 @@ export default function PrestigeView() {
                       ></span>
                     )}
                   </button>
-
-                  {showSurchauffe && (
-                    <button
-                      id="surchauffeBtn"
-                      className="surchauffe-btn-action"
-                      onClick={activateSurchauffe}
-                    >
-                      {tr({ fr: "Surchauffe", en: "Overheat" })}
-                    </button>
-                  )}
                 </div>
               </aside>
             </div>
