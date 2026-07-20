@@ -240,13 +240,18 @@ export default function AuguryStage({ table, onClose }) {
       {phase !== 'stake' && (
         <>
           <div className="augury-dice" aria-live="polite">
+            {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
+                pas de face fixée — l'animation fait défiler la planche. La valeur
+                n'est plus écrite, elle se lit aux pips gravés ; on la redonne en
+                aria-label pour ne pas la perdre à la synthèse vocale. */}
             {(bones || []).map((v, i) => (
               <span
                 key={`${isDouble ? 'd' : 't'}-${i}`}
-                className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed ? (v === 1 ? ' is-ace' : ' is-high') : ''}`}
-              >
-                {i < landed ? v : ''}
-              </span>
+                className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed && v === 1 ? ' is-ace' : ''}`}
+                data-face={i < landed ? v : undefined}
+                role="img"
+                aria-label={i < landed ? String(v) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' })}
+              />
             ))}
           </div>
 
