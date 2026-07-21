@@ -117,6 +117,16 @@ export function icarusLastOutcome() {
   return lastOutcome;
 }
 
+// Purge le vol EN COURS (état module + timer setTimeout). Appelée au Grand Reset :
+// sinon le vol survit au reset et sa résolution (resolveCrash, via le timer) se fait
+// contre la cité FRAÎCHE dont la Faveur repart de 0 → gain minté depuis une mise
+// pourtant effacée (icarus.js:209 de l'audit).
+export function purgeIcarusFlight() {
+  if (flight && flight.timer) clearTimeout(flight.timer);
+  flight = null;
+  lastOutcome = null;
+}
+
 // Cagnotte du temple, EN FAVEUR (arrondie pour l'affichage).
 export function icarusPotFaveur() {
   return Math.round(Math.max(0, state.icarusPotFaveur || 0));

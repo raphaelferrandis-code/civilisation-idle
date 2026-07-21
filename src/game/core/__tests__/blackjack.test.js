@@ -18,7 +18,7 @@ import {
   handValue,
   isBlackjack
 } from "../actions.js";
-import { __resetBlackjackForTests } from "../actions/blackjack.js";
+import { __resetBlackjackForTests, purgeBlackjackHand } from "../actions/blackjack.js";
 import { BLACKJACK_RTP_REF, BLACKJACK_HISTORY_LEN, BLACKJACK_STAKES } from "../balance.js";
 import { MID_GAME_FIXTURE } from "./fixtures.js";
 
@@ -38,6 +38,15 @@ beforeEach(() => {
 afterEach(() => {
   __resetBlackjackForTests();
   vi.restoreAllMocks();
+});
+
+describe("Vingt-et-un — purge de la main au Grand Reset (2b de l'audit)", () => {
+  it("purgeBlackjackHand tue une main VIVANTE (sinon elle se résout contre la cité neuve)", () => {
+    dealBlackjack("legere", { deck: [C("K"), C("9"), C("10"), C("6"), C("5")] }); // joueur 19 → main en jeu
+    expect(blackjackActive()).toBe(true);
+    purgeBlackjackHand();
+    expect(blackjackActive()).toBe(false);
+  });
 });
 
 describe("Vingt-et-un — valeur de main (helpers purs)", () => {

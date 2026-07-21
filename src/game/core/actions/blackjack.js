@@ -408,8 +408,16 @@ export function resolveBlackjackHeadless(stakeId, options = {}) {
   return { result, faveurGain, stakeFaveur };
 }
 
-// Réservé aux tests : purge la main en cours et le dernier résultat.
-export function __resetBlackjackForTests() {
+// Purge la main EN COURS et le dernier résultat. Appelée au Grand Reset : sinon la
+// main survit au reset et — comme state.cycles y repart aussi à 0 — hand.cycle === 0
+// reste vrai (handLive), si bien qu'une main misée sur la cité effacée se résout dans
+// la run neuve, mintant de la Faveur (blackjack.js:104 de l'audit).
+export function purgeBlackjackHand() {
   hand = null;
   lastOutcome = null;
+}
+
+// Réservé aux tests : alias de purgeBlackjackHand.
+export function __resetBlackjackForTests() {
+  purgeBlackjackHand();
 }

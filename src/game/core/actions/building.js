@@ -53,6 +53,8 @@ import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
 import { recordGrPerformed } from '../chronicleStats.js';
+import { purgeIcarusFlight } from './icarus.js';
+import { purgeBlackjackHand } from './blackjack.js';
 
 // Retourne le résultat de buyBuildingCore (true = achat effectué) : permet aux
 // appelants — et aux tests — de distinguer un achat réel d'un refus (verrou
@@ -342,6 +344,11 @@ export async function performGrandReset(gr) {
   // Le buffer d'annales (module-scope) survivrait au swap d'état : on l'efface
   // — la courbe de Régulation repart avec la nouvelle lignée.
   resetAnnals();
+  // Idem pour les états module des jeux du temple : un vol d'Icare (avec son timer)
+  // ou une main de vingt-et-un qui survivraient au reset se résoudraient contre la
+  // cité FRAÎCHE, mintant de la Faveur depuis une mise effacée (M-temple de l'audit).
+  purgeIcarusFlight();
+  purgeBlackjackHand();
 
   setGamePaused(false);
   setCollapseInProgress(false);
