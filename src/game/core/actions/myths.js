@@ -283,7 +283,10 @@ export function engraveCadmosEpitaph(entryId) {
 }
 
 export async function activateMyth(mythId) {
-  if (gamePaused) return;
+  // collapseInProgress inclus : un effondrement AUTO (checkAutoCollapse) n'ouvre
+  // pas de modale, son deuil de 2 s laisse l'UI cliquable — sans ce garde, sceller
+  // un pacte pendant le deuil rasait la cité deux fois et détruisait le Mythe (M10).
+  if (gamePaused || collapseInProgress) return;
   const myth = getMythById(mythId);
   if (!myth || !isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
 

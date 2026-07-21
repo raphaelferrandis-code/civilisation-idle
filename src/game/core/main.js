@@ -362,6 +362,7 @@ export function checkAutoCollapse() {
   const gain = ruinGain(projected).floor().max(0);
   if (D(gain).lte(0)) return; // cité trop jeune/petite : rien à récolter, on n'effondre pas à vide
   setCollapseInProgress(true);
+  setGamePaused(true); // comme collapse() : geler l'UI pendant le deuil (sinon on peut sceller un pacte, M10)
   state.crisisOpenedAt = null;
   chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
   runCollapseSequence(gain, "auto_collapse").catch((err) => console.error("Séquence d'effondrement (Édit) interrompue :", err));

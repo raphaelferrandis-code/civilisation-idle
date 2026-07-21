@@ -500,9 +500,15 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
 export function collapse(reason) {
   if (collapseInProgress) return;
   if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return;
+  // auto_script (Script du Phénix) et forced (Phénix) peuvent tirer SOUS 100 % de
+  // Rupture : sans `projected`, ruinGain() rendrait 0 hors crise (prestige.js) et
+  // la cité tomberait pour « un linceul de 0 ruine ». Comme checkAutoCollapse, on
+  // refuse en plus l'effondrement auto_script à gain nul.
+  const projected = reason === "auto_script" || reason === "forced";
+  const gain = ruinGain(projected);
+  if (reason === "auto_script" && D(gain).floor().lte(0)) return;
   setCollapseInProgress(true);
   setGamePaused(true);
-  const gain = ruinGain();
   const reasonLabel = reason === "manual" ? "manuel"
     : reason === "forced"      ? "force (Phoenix)"
     : reason === "auto_script" ? "automatique (Script)"
