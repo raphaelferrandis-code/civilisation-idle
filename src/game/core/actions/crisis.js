@@ -49,6 +49,7 @@ import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
+import { crediblePopulation } from '../demographics.js';
 import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { hasActiveRuin } from '../../data/activeRuins.js';
@@ -128,7 +129,7 @@ export function autoResolveCrisisEvent(event, stance) {
   // Mythe d'Héphaïstos : sous le seuil de population, la crise s'impose sans choix
   // — même override qu'openCrisisEvent, pour ne pas court-circuiter le mythe.
   if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(D(state.population).floor())} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
     return;
@@ -160,7 +161,7 @@ export async function openCrisisEvent(event) {
   setGamePaused(true);
   render();
   if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(D(state.population).floor())} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
     setGamePaused(false);

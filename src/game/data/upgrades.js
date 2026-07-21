@@ -29,7 +29,7 @@ export const upgrades = [
     name: { fr: "Porteurs de braise", en: "Ember bearers" },
     cost: { ruins: 2 },
     desc: { fr: "Tout le monde ne survit pas. Mais ceux qui partent emportent le feu et le grain.", en: "Not everyone survives. But those who leave carry the fire and the grain." },
-    effect: { fr: "À l'effondrement : 3% de la population et 8% de la nourriture survivent, et chaque cycle commence avec +40 vivres.", en: "On collapse: 3% of population and 8% of food survive, and each cycle starts with +40 food." }
+    effect: { fr: "À l'effondrement : 3% du Rayonnement et 8% de la nourriture survivent, et chaque cycle commence avec +40 vivres.", en: "On collapse: 3% of Radiance and 8% of food survive, and each cycle starts with +40 food." }
   },
   {
     id: "veilleurs_nuit_1",

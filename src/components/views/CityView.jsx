@@ -40,7 +40,8 @@ import {
 import { save, setCityName, commitCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
-import { fmt, clamp01 } from '../../game/core/utils.js';
+import { fmt, clamp01, fmtHabitants } from '../../game/core/utils.js';
+import { crediblePopulation } from '../../game/core/demographics.js';
 import { tr } from '../../game/core/i18n.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
@@ -338,6 +339,13 @@ export default function CityView() {
               aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
             />
             <span
+              className="city-population-label"
+              title={tr({ fr: "Habitants de la cité, à l'échelle de son âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Inhabitants of the city, to the scale of its age. Radiance measures the overall rise of the civilization." })}
+            >
+              <i className="fa-solid fa-people-roof" aria-hidden="true"></i>
+              {fmtHabitants(crediblePopulation(population))}
+            </span>
+            <span
               className="city-personality-label"
               title={tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" })}
             >
@@ -604,7 +612,7 @@ export default function CityView() {
                 onClick={migrerEnee}
                 disabled={!eneeDegraded}
                 className="btn-critical enee-migrate-btn"
-                title={eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Population, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Population, Knowledge)" }) : tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." })}
+                title={eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Rayonnement, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Radiance, Knowledge)" }) : tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." })}
               >
                 {eneeDegraded ? tr({ fr: "MIGRER (Nouveau Territoire)", en: "MIGRATE (New Territory)" }) : tr({ fr: "Territoire viable (Attendre dégradation)", en: "Territory viable (Await degradation)" })}
               </button>
@@ -675,8 +683,8 @@ export default function CityView() {
                   n'a aucun repli sur fichier manquant. À générer. */}
               {isPromethee && (
                 <div className="myth-status-card promethee" title={tr({
-                  fr: `Porter la population à ${PROMETHEE_POP_TARGET} habitants avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
-                  en: `Bring the population to ${PROMETHEE_POP_TARGET} inhabitants before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
+                  fr: `Porter le Rayonnement à ${PROMETHEE_POP_TARGET} avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
+                  en: `Bring Radiance to ${PROMETHEE_POP_TARGET} before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
                 })}>
                   <PixelIcon name="ruins/node-rites_feu_court" className="myth-card-icon" />
                   <div className="myth-card-info">
@@ -690,8 +698,8 @@ export default function CityView() {
                     ) : (
                       <strong className={instability >= PROMETHEE_FATAL_RUPTURE - 0.2 ? "danger-text" : undefined}>
                         {tr({
-                          fr: `${fmt(population)} / ${PROMETHEE_POP_TARGET} hab · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %`,
-                          en: `${fmt(population)} / ${PROMETHEE_POP_TARGET} pop · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%`
+                          fr: `${fmt(population)} / ${PROMETHEE_POP_TARGET} ray. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %`,
+                          en: `${fmt(population)} / ${PROMETHEE_POP_TARGET} rad. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%`
                         })}
                       </strong>
                     )}
@@ -887,7 +895,7 @@ export default function CityView() {
                   <PixelIcon name="myths/phenix" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Phénix", en: "Phoenix" })}</span>
-                    <strong>{tr({ fr: `Renaissances: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Fenêtre: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}`, en: `Rebirths: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Pop: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Window: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}` })}</strong>
+                    <strong>{tr({ fr: `Renaissances: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Ray: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Fenêtre: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}`, en: `Rebirths: ${phoenixRenaissances || 0}/${PHENIX_RENAISSANCE_TARGET} | Ray: ${fmt(population)}/${fmt(phoenixRebirthTargetPop)} | Window: ${phoenixWindowSecs !== null ? `${Math.floor(phoenixWindowSecs / 60)}m${String(phoenixWindowSecs % 60).padStart(2, '0')}s` : '-'}` })}</strong>
                   </div>
                 </div>
               )}
@@ -896,7 +904,7 @@ export default function CityView() {
                   <PixelIcon name="myths/hephaistos" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Héphaïstos", en: "Hephaestus" })} {hephGoalReached && tr({ fr: " (Pacte accompli !)", en: " (Pact fulfilled!)" })}</span>
-                    <strong>{tr({ fr: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Déclin pop' : 'Stable'}`, en: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Pop decline' : 'Stable'}` })}</strong>
+                    <strong>{tr({ fr: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Déclin ray.' : 'Stable'}`, en: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Radiance decline' : 'Stable'}` })}</strong>
                   </div>
                 </div>
               )}

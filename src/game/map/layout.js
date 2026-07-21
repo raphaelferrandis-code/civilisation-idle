@@ -144,9 +144,9 @@ const CM_WONDERS = [
     metric: (s) => s.cycles || 0, tiers: [1, 15, 50, 150, 400],
     tierLabel: (v) => `${v} effondrement${v > 1 ? "s" : ""} traversé${v > 1 ? "s" : ""}` },
   { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
-    unlockedBy: "Population d'au moins 1 000 000.",
+    unlockedBy: "Rayonnement d'au moins 1 000 000.",
     metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e13, 1e20, 1e27, 1e34],
-    tierLabel: (v) => `${fmtShort(v)} habitants` },
+    tierLabel: (v) => `${fmtShort(v)} de Rayonnement` },
   { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
     unlockedBy: "Âge du royaume atteint.",
     // Rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères

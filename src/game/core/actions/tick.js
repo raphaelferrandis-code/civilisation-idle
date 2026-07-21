@@ -401,7 +401,7 @@ function celebratePopMilestone() {
     : Math.floor(toNum(D(state.population).max(1).log10()));
   if (popExp >= 2 && popExp > (state.popMilestoneExp || 0)) {
     state.popMilestoneExp = popExp;
-    pushOutcomeFloat({ label: `👥 ${fmt(state.population)} habitants !`, kind: "gain" });
+    pushOutcomeFloat({ label: `✨ ${fmt(state.population)} de Rayonnement !`, kind: "gain" });
   }
 }
 

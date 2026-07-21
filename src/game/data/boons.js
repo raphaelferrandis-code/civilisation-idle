@@ -48,7 +48,7 @@ export const BOONS = [
     seconds: 150,
     icon: "👥",
     label: { fr: "Vague de migrants", en: "Wave of migrants" },
-    chronicle: (amt) => tr({ fr: `Des familles venues d'ailleurs choisissent notre cité pour foyer : +${amt} habitants.`, en: `Families from elsewhere choose our city for their home: +${amt} inhabitants.` })
+    chronicle: (amt) => tr({ fr: `Des familles venues d'ailleurs choisissent notre cité pour foyer : +${amt} de Rayonnement.`, en: `Families from elsewhere choose our city for their home: +${amt} Radiance.` })
   },
   {
     id: "builders",

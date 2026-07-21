@@ -12,6 +12,7 @@ import { eras } from '../../game/data/world.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
 import { fmt } from '../../game/core/utils.js';
+import { crediblePopulation } from '../../game/core/demographics.js';
 import { D } from '../../game/core/num.js';
 import { tr } from '../../game/core/i18n.js';
 import { getMythById } from '../../game/data/myths.js';
@@ -107,7 +108,12 @@ function CivilizationReview() {
           hint={tr({ fr: "Durée du cycle actuel, depuis la fondation de cette cité.", en: "Duration of the current cycle, since this city was founded." })}
         />
         <StatTile label={tr({ fr: "Âge actuel", en: "Current age" })} value={eras[currentEraIndex()].name} />
-        <StatTile label={tr({ fr: "Population", en: "Population" })} value={fmt(population)} />
+        <StatTile label={tr({ fr: "Rayonnement", en: "Radiance" })} value={fmt(population)} />
+        <StatTile
+          label={tr({ fr: "Habitants", en: "Inhabitants" })}
+          value={fmt(crediblePopulation(population))}
+          hint={tr({ fr: "Population humaine estimée de la cité, à l'échelle de l'âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Estimated human population of the city, to the scale of the age. Radiance measures the overall rise of the civilization." })}
+        />
         <StatTile label={tr({ fr: "Bâtiments debout", en: "Standing buildings" })} value={fmtCount(totalBuildingCount())} />
         <StatTile
           label={tr({ fr: "Multi. de production", en: "Production multi." })}
@@ -126,7 +132,7 @@ function CivilizationReview() {
         title={tr({ fr: "Records du cycle", en: "Cycle records" })}
         hint={tr({ fr: "Les pics du cycle nourrissent le gain de ruines à l'effondrement.", en: "Cycle peaks feed the ruin gain on collapse." })}
       >
-        <StatTile label={tr({ fr: "Pic de population", en: "Population peak" })} value={fmt(cyclePeaks.population || 0)} />
+        <StatTile label={tr({ fr: "Pic de rayonnement", en: "Radiance peak" })} value={fmt(cyclePeaks.population || 0)} />
         <StatTile label={tr({ fr: "Pic de nourriture", en: "Food peak" })} value={fmt(cyclePeaks.food || 0)} />
         <StatTile label={tr({ fr: "Pic de trésor", en: "Treasury peak" })} value={fmt(cyclePeaks.gold || 0)} />
         <StatTile label={tr({ fr: "Pic de savoir", en: "Knowledge peak" })} value={fmt(cyclePeaks.knowledge || 0)} />
@@ -425,12 +431,12 @@ export default function ChronicleView() {
                 <div className="era-timeline-body">
                   <div className="era-timeline-head">
                     <h3>{reached ? era.name : '???'}</h3>
-                    <span className="era-timeline-pop" title={tr({ fr: 'Population requise', en: 'Population required' })}>
-                      {fmt(era.at)} {tr({ fr: 'habitants', en: 'inhabitants' })}
+                    <span className="era-timeline-pop" title={tr({ fr: `Rayonnement requis : ${fmt(era.at)}`, en: `Radiance required: ${fmt(era.at)}` })}>
+                      ≈ {fmt(crediblePopulation(era.at))} {tr({ fr: 'habitants', en: 'inhabitants' })}
                     </span>
                     {isCurrent && <span className="era-timeline-now">{tr({ fr: 'Âge actuel', en: 'Current Age' })}</span>}
                   </div>
-                  <p>{reached ? era.text : tr({ fr: "Cet âge reste à découvrir : la population doit encore croître.", en: "This age remains to be discovered: the population must still grow." })}</p>
+                  <p>{reached ? era.text : tr({ fr: "Cet âge reste à découvrir : le rayonnement doit encore croître.", en: "This age remains to be discovered: radiance must still grow." })}</p>
                 </div>
               </li>
             );

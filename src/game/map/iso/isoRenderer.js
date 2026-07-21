@@ -3707,6 +3707,12 @@ function drawIsoLive(now) {
   }
 }
 
+// Délai d'immobilité caméra (ms) avant la recuisson du sol NET après un geste.
+// Court = le net revient vite (moins de flou transitoire ressenti au zoom/pan) ;
+// trop court rendrait la recuisson plus fréquente entre deux à-coups. 110 ms est
+// un compromis net/fluide. Ancienne valeur : 160 ms.
+const ISO_SETTLE_MS = 110;
+
 // Point d'entrée : rend la frame iso. Renvoie false si layout absent (repli legacy).
 // helpers = { bakeMargin, blitMargin } (les caches offscreen du runtime, déjà
 // compatibles iso : le pan est projeté dans cityMapBakeMargin/BlitMargin).
@@ -3729,8 +3735,9 @@ export function drawIsoWorld(dt, now, helpers) {
     // mégapole — on ne le fait JAMAIS pendant un geste. Tant que la clé bouge
     // (zoom en cours) ou que le pan déborde la marge, on re-blitte le bake
     // EXISTANT compensé (échelle zoom/z_bake + delta de pan) : flou bref type
-    // carte web, zéro gel. La recuisson n'arrive que quand la clé est STABLE
-    // sur 2 frames ET ≥ 250 ms depuis la dernière (ou en capture, déterministe).
+    // carte web, zéro gel. La recuisson (sol NET) arrive dès que la caméra est
+    // immobile depuis ISO_SETTLE_MS (ou en capture, déterministe) — délai court
+    // pour que le net revienne vite après un zoom/pan, sans recuire en plein geste.
     // `soft` = invalidation DOUCE (sprite décodé en retard) : contenu encore
     // valable → coalescée ici ; `null` reste l'invalidation DURE (canvas
     // effacé/recréé : rien à re-blitter) → recuisson immédiate.
@@ -3745,7 +3752,7 @@ export function drawIsoWorld(dt, now, helpers) {
     if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
       CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
     }
-    const settled = CM.capture || nowMs - (CM._igMoveAt || 0) > 160;
+    const settled = CM.capture || nowMs - (CM._igMoveAt || 0) > ISO_SETTLE_MS;
     // Le suffixe ':lod' marque un bake ALLÉGÉ (posé pendant un geste) : même
     // contenu de base, détails en moins → à remplacer par un bake plein au repos.
     const baseOf = (k) => (k && k.endsWith(':lod') ? k.slice(0, -4) : k);
@@ -3762,7 +3769,15 @@ export function drawIsoWorld(dt, now, helpers) {
       if (CM._isoGroundBake !== bm) CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
     };
-    if (sameContent && inMargin && !(settled && isLod)) {
+    if (CM.crispGesture && !settled && bm && !sameContent) {
+      // MAXIMALE : zoom/dézoom en cours → au lieu du re-blit LISSÉ (flou), on
+      // recuit le sol NET à l'échelle exacte de la frame (la clé change à chaque
+      // cran de zoom, donc on rebake de toute façon : on le fait proprement).
+      // Zéro flou ; le geste peut être moins fluide sur très grande ville — c'est
+      // l'arbitrage assumé de ce palier. Le pan pur (clé stable) garde son blit
+      // translaté fluide via les branches ci-dessous.
+      bake(false);
+    } else if (sameContent && inMargin && !(settled && isLod)) {
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
     } else if (settled) {
       bake(false);                    // repos → sol plein, tous les détails

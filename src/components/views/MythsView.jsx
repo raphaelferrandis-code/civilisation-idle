@@ -342,7 +342,7 @@ export default function MythsView() {
                     <span className="myth-modal-label">{tr({ fr: 'Type de batiment', en: 'Building type' })}</span>
                     <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                       {[
-                        { value: "city", label: { fr: "Cite", en: "City" }, desc: { fr: "Nourriture, Commerce, Population", en: "Food, Trade, Population" } },
+                        { value: "city", label: { fr: "Cite", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
                         { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Academies, Archives", en: "Knowledge, Academies, Archives" } },
                         { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Aqueducs, Routes, Batisseurs", en: "Aqueducts, Roads, Builders" } }
                       ].map(c => (

@@ -89,6 +89,10 @@ export const fmtShort = (value) => {
   return formatCompactNumber(value);
 };
 
+// Habitants « crédibles » (compteur cosmétique dérivé de crediblePopulation) :
+// exacts avec séparateurs jusqu'au million (17, 3 000, 560 000), compacts au-delà.
+export const fmtHabitants = (n) => (n < 1e6 ? Math.round(n).toLocaleString("fr-FR") : fmtShort(n));
+
 // Compact « vivant » : mantisse enrichie de 2 décimales pour que le count-up
 // de RollingNumber reste VISIBLE sur les grands nombres — avec 3 chiffres
 // significatifs (« 8.19No »), l'affichage paraît figé entre deux ticks alors
@@ -107,7 +111,7 @@ export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed
 
 export function labelFor(key) {
   return {
-    population: tr({ fr: "pop.", en: "pop." }),
+    population: tr({ fr: "Ray.", en: "Rad." }),
     food: tr({ fr: "nourriture", en: "food" }),
     gold: tr({ fr: "tresor", en: "treasury" }),
     knowledge: tr({ fr: "savoir", en: "knowledge" }),

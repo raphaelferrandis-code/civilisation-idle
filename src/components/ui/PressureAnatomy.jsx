@@ -147,8 +147,8 @@ export default function PressureAnatomy() {
             icon="/pixelart/ui/foyers/demesure.png"
             label={tr({ fr: 'Démesure', en: 'Hubris' })}
             title={tr({
-              fr: `La démesure d'une cité de 10^${(g.popLog || 0).toFixed(1)} habitants. Elle s'ajoute après le barrage. La Gouvernance impériale la réduit de ${demesureCutPct} %.`,
-              en: `The hubris of a city of 10^${(g.popLog || 0).toFixed(1)} inhabitants. It is added after the dam. Imperial Governance reduces it by ${demesureCutPct}%.`
+              fr: `La démesure d'une cité au Rayonnement de 10^${(g.popLog || 0).toFixed(1)}. Elle s'ajoute après le barrage. La Gouvernance impériale la réduit de ${demesureCutPct} %.`,
+              en: `The hubris of a city with Radiance 10^${(g.popLog || 0).toFixed(1)}. It is added after the dam. Imperial Governance reduces it by ${demesureCutPct}%.`
             })}
           />
           <span className="anatomy-bypass-note">

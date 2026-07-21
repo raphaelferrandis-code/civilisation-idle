@@ -285,9 +285,30 @@
 }
 
 .city-stage-hud .city-personality-label {
-  flex: 0 0 auto;
+  /* Toujours sur la ligne SOUS le nom + habitants (flex-basis 100% = saut de
+     ligne forcé, quelle que soit la largeur de l'encart). */
+  flex: 0 0 100%;
   align-self: baseline;
   text-align: left;
+}
+
+/* Habitants « crédibles » accolés au nom de la cité (compteur cosmétique dérivé
+   du Rayonnement). Teinte pop, aligné sur la baseline du nom. */
+.city-stage-hud .city-population-label {
+  flex: 0 0 auto;
+  align-self: baseline;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.32rem;
+  color: var(--res-pop);
+  font-family: var(--font-small);
+  font-size: 0.98rem;
+  white-space: nowrap;
+  opacity: 0.95;
+}
+.city-stage-hud .city-population-label i {
+  font-size: 0.8em;
+  opacity: 0.8;
 }
 
 /* ── Tablette (≤980px) : carte réduite (déclaré ici pour primer sur la règle

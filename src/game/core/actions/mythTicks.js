@@ -93,11 +93,11 @@ export const MYTH_TICK_HANDLERS = {
     // La course du feu : atteindre la cible ABSOLUE avant la Rupture fatale.
     if (!state.prometheePopReached && D(state.population).gte(PROMETHEE_POP_TARGET)) {
       state.prometheePopReached = true;
-      log(`Promethee : ${PROMETHEE_POP_TARGET} habitants sous le feu ! L'epopee est accomplie.`);
+      log(`Promethee : le Rayonnement atteint ${PROMETHEE_POP_TARGET} sous le feu ! L'epopee est accomplie.`);
     }
     if (!state.prometheePopReached && !state.prometheeFailed && state.instability >= PROMETHEE_FATAL_RUPTURE) {
       state.prometheeFailed = true;
-      log(`Promethee echoue : la Rupture a consume la cite avant que la population n'atteigne sa gloire.`);
+      log(`Promethee echoue : la Rupture a consume la cite avant que le Rayonnement n'atteigne sa gloire.`);
     }
   },
 
@@ -175,7 +175,7 @@ export const MYTH_TICK_HANDLERS = {
       const infraTarget = D(state.hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK);
       if (D(state.infrastructure).gte(infraTarget) && hephDecline >= HEPH_POP_DECLINE_PCT) {
         state.hephGoalReached = true;
-        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(infraTarget)} atteinte (${HEPH_INFRA_PER_PEAK}x le pic de pop), population en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
+        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(infraTarget)} atteinte (${HEPH_INFRA_PER_PEAK}x le pic de Rayonnement), Rayonnement en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
       }
     }
   },

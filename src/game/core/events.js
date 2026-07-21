@@ -10,6 +10,8 @@ import {
   save
 } from './state.js';
 
+import { crediblePopulation } from './demographics.js';
+
 import {
   cityVitals,
   pressureBreakdown,
@@ -210,8 +212,8 @@ export async function runCollapseSequence(gain, reason) {
     }),
     // Stèle-bilan : les faits du cycle qui s'achève, gravés sous l'épitaphe.
     inscription: tr({
-      fr: `An ${fmt(cycleYear())} · Âge ${eras[currentEraIndex()].name} · pic ${fmt(D(state.cyclePeaks?.population || state.population))} habitants`,
-      en: `Year ${fmt(cycleYear())} · Age of ${eras[currentEraIndex()].name} · peak ${fmt(D(state.cyclePeaks?.population || state.population))} inhabitants`
+      fr: `An ${fmt(cycleYear())} · Âge ${eras[currentEraIndex()].name} · pic ${fmt(crediblePopulation(state.cyclePeaks?.population || state.population))} habitants`,
+      en: `Year ${fmt(cycleYear())} · Age of ${eras[currentEraIndex()].name} · peak ${fmt(crediblePopulation(state.cyclePeaks?.population || state.population))} inhabitants`
     }),
     footnote: tr({
       fr: `L'affinité ⚡ renforce le legs assorti à la cause de la chute : les valeurs « → » s'appliquent. Touches 1 à 4 pour graver directement.`,

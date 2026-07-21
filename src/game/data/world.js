@@ -362,7 +362,7 @@ export const CRISIS_POOL = [
       },
       {
         label: { fr: "Les repousser", en: "Turn them away" },
-        effects: [{ label: { fr: "Population −12%", en: "Population −12%" }, kind: "cost" }, { label: { fr: "Rupture +16%", en: "Rupture +16%" }, kind: "cost" }],
+        effects: [{ label: { fr: "Rayonnement −12%", en: "Radiance −12%" }, kind: "cost" }, { label: { fr: "Rupture +16%", en: "Rupture +16%" }, kind: "cost" }],
         apply: () => { effects.addProductionPenalty("population", 0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.16)); effects.chronicle(tr({ fr: "La milice est refusée. Elle ne part pas. Elle attend.", en: "The militia is refused. It does not leave. It waits." })); }
       }
     ]
@@ -402,7 +402,7 @@ export const CRISIS_POOL = [
       },
       {
         label: { fr: "Laisser faire", en: "Do nothing" },
-        effects: [{ label: { fr: "Population −20%", en: "Population −20%" }, kind: "cost" }, { label: { fr: "Rupture +20%", en: "Rupture +20%" }, kind: "cost" }],
+        effects: [{ label: { fr: "Rayonnement −20%", en: "Radiance −20%" }, kind: "cost" }, { label: { fr: "Rupture +20%", en: "Rupture +20%" }, kind: "cost" }],
         apply: () => { effects.addProductionPenalty("population", 0.2); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.2)); effects.chronicle(tr({ fr: "Les bas quartiers sont laissés à eux-mêmes. La rupture approche.", en: "The lower districts are left to themselves. The Rupture draws near." })); }
       }
     ]
@@ -416,7 +416,7 @@ export const CRISIS_POOL = [
     options: [
       {
         label: { fr: "Bloquer les sorties", en: "Seal the exits" },
-        effects: [{ label: { fr: "Trésor +10%", en: "Treasury +10%" }, kind: "gain" }, { label: { fr: "Population −8%", en: "Population −8%" }, kind: "cost" }, { label: { fr: "Rupture −11%", en: "Rupture −11%" }, kind: "gain" }],
+        effects: [{ label: { fr: "Trésor +10%", en: "Treasury +10%" }, kind: "gain" }, { label: { fr: "Rayonnement −8%", en: "Radiance −8%" }, kind: "cost" }, { label: { fr: "Rupture −11%", en: "Rupture −11%" }, kind: "gain" }],
         apply: () => { effects.addProductionPenalty("gold", -0.10); effects.addProductionPenalty("population", 0.08); effects.state.instability *= 0.89; effects.chronicle(tr({ fr: "Les routes sont fermées. Le trésor reste. La colère aussi.", en: "The roads are closed. The treasury stays. So does the anger." })); }
       },
       {
@@ -454,7 +454,7 @@ export const CRISIS_POOL = [
     options: [
       {
         label: { fr: "Décréter la quarantaine", en: "Order a quarantine" },
-        effects: [{ label: { fr: "Population −15%", en: "Population −15%" }, kind: "cost" }, { label: { fr: "Trésor −12%", en: "Treasury −12%" }, kind: "cost" }, { label: { fr: "Rupture −13%", en: "Rupture −13%" }, kind: "gain" }],
+        effects: [{ label: { fr: "Rayonnement −15%", en: "Radiance −15%" }, kind: "cost" }, { label: { fr: "Trésor −12%", en: "Treasury −12%" }, kind: "cost" }, { label: { fr: "Rupture −13%", en: "Rupture −13%" }, kind: "gain" }],
         apply: () => { effects.addProductionPenalty("population", 0.15); effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.87; effects.chronicle(tr({ fr: "La quarantaine est imposée. L'épidémie ralentit. L'économie aussi.", en: "The quarantine is imposed. The epidemic slows. So does the economy." })); }
       },
       {

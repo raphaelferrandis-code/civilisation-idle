@@ -7,10 +7,11 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, clamp01, multLabel } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel, fmtHabitants } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import OdometerNumber from './OdometerNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
+import { crediblePopulation } from '../../game/core/demographics.js';
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
 function exactLabel(value) {
@@ -55,6 +56,11 @@ export default function Topbar() {
   const showNomadCap = has("trait_nomadism");
   const nomadCap = nomadInfrastructureCap();
 
+  // Habitants « crédibles » dérivés du Rayonnement (ex-Population). Purement
+  // d'affichage : rien dans la simulation ne le relit. Recalculé à chaque
+  // render (déclenché par le changement de population via le hook).
+  const habitants = crediblePopulation(population);
+
   /* Humeurs (déplacées en tooltip) */
   const foodMood = mood(vitals.foodScore, [
     { fr: "Famine proche", en: "Famine looms" },
@@ -77,12 +83,12 @@ export default function Topbar() {
 
   const tooltips = {
     population: tr({
-      fr: "Fondation démographique de votre empire.",
-      en: "Demographic foundation of your empire."
+      fr: `Essor global de votre civilisation : ce qui fait grandir la cité et franchir les âges.\nHabitants estimés : ${fmtHabitants(habitants)}`,
+      en: `The overall rise of your civilization: what grows the city and crosses the ages.\nEstimated inhabitants: ${fmtHabitants(habitants)}`
     }),
     food: tr({
-      fr: `Réserves : ${tr(foodMood)}\nCroissance pop ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
-      en: `Reserves: ${tr(foodMood)}\nPop growth ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
+      fr: `Réserves : ${tr(foodMood)}\nCroissance du rayonnement ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
+      en: `Reserves: ${tr(foodMood)}\nRadiance growth ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
     }),
     gold: tr({
       fr: `Économie : ${tr(goldMood)}\nOr ${multLabel(vitals.goldMult)} · infrastructure ${multLabel(vitals.infraMult)}`,
@@ -104,7 +110,7 @@ export default function Topbar() {
   // lisible dans le tooltip de chaque carte (humeurs).
   const cards = [
     {
-      key: "population", cls: "card-pop", pixIcon: "res/population", name: { fr: "Population", en: "Population" },
+      key: "population", cls: "card-pop", pixIcon: "res/population", name: { fr: "Rayonnement", en: "Radiance" },
       valueId: "population", value: population, rate: r.population, rateId: "popRate"
     },
     {

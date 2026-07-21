@@ -30,6 +30,7 @@ import {
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import { dayNightMode } from './dayNightMode.js';
+import { qualitySettings } from './qualityMode.js';
 import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
@@ -66,17 +67,36 @@ import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from '
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
 
 
-// Plafond de résolution de rendu : sur écrans HiDPI (dpr 2/3), dessiner à pleine
-// densité multiplie par dpr² le nombre de pixels des 3 canvas (principal + 2 offscreen)
-// et de chaque remplissage plein écran par frame — principale cause de lag GPU
-// "dès le début" sur portables HiDPI / GPU intégrés. 1.5 reste net à l'œil.
-const CM_MAX_RENDER_DPR = 1.5;
+// ── Qualité de rendu (préréglage joueur, cf. qualityMode.js) ─────────────────
+// Le préréglage (Auto / Élevée / Équilibrée / Performance) se résout en trois
+// leviers lus par le runtime, publiés en variables de module :
+//   - cmRenderDprCap : plafond de résolution. Sur écrans HiDPI (dpr 2/3), dessiner
+//     à pleine densité multiplie par dpr² les pixels des 4 canvas et de chaque
+//     remplissage plein écran — principale cause de lag GPU sur GPU intégrés.
+//   - cmFrameMs      : cap de frame de la boucle rAF (30 ou 60 fps).
+//   - cmCitizenMul   : densité d'habitants (multiplie cible ET plafond de foule).
+// Recalculés au chargement du module puis à chaque changement de préréglage via
+// applyCityMapQuality().
+let cmRenderDprCap = 1.5;
+let cmFrameMs = 1000 / 30;
+let cmCitizenMul = 1;
+let cmLodZoom = 0.55;       // seuil de zoom sous lequel la carte simplifie (0 = jamais)
+let cmCrispGesture = false; // Élevée : recuire le sol net pendant le geste (zéro flou)
+function cmApplyQualitySettings() {
+  const s = qualitySettings();
+  cmRenderDprCap = s.dpr;
+  cmFrameMs = 1000 / s.fps;
+  cmCitizenMul = s.citizenMul;
+  cmLodZoom = (s.lodZoom != null) ? s.lodZoom : 0.55;
+  cmCrispGesture = !!s.crispGesture;
+}
+cmApplyQualitySettings();
 
 function cityMapResizeCanvas(canvas) {
   // Carte démontée (resetCityMapRuntime a nullifié ctx) : un forceFrame/resize
   // attardé crashait sur CM.ctx.setTransform (null). No-op propre.
   if (!CM.ctx) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, CM_MAX_RENDER_DPR);
+  const dpr = Math.min(window.devicePixelRatio || 1, cmRenderDprCap);
   const w = canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || 600;
   const h = canvas.clientHeight || 320;
   CM.dpr = dpr;
@@ -140,6 +160,44 @@ function cmInvalidateBakes() {
   CM._tileBake = null;
   CM._groundBake = null;
   CM._isoGroundBake = null;   // le sol iso partage CM.groundCanvas
+}
+
+// Cible de foule pour un layout donné et un multiplicateur de densité. Extrait
+// pour être RÉ-APPLICABLE à chaud (changement de préréglage) sans le recompute
+// O(N²) du plan — la formule DOIT rester alignée sur cityMapEnsureLayout.
+function cmCitizenTargetFor(L, crowdMul) {
+  if (!L || !L.counts) return 0;
+  const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
+  const cap = Math.round((10 + Math.pow(eraFrac, 0.55) * 900) * crowdMul);
+  const densityMul = (L.personality && L.personality.densityMul) || 1;
+  return Math.round(cmClamp((2 + L.counts.houses / 3.5 + Math.pow(eraFrac, 1.65) * 540 + L.counts.megaDistricts * 10) * densityMul * crowdMul, 2, cap));
+}
+
+// Multiplicateur de densité effectif : la molette dev window.__citizenMul
+// l'emporte sur le préréglage Qualité (débogage), sinon cmCitizenMul.
+function cmCrowdMul() {
+  return (typeof window !== "undefined" && window.__citizenMul) || cmCitizenMul;
+}
+
+// Ré-applique la densité au vol (sans recompute du plan) : recale la cible depuis
+// le layout courant et coupe l'excédent de piétons tout de suite.
+function cmRecomputeCitizenTarget() {
+  const L = CM.layout;
+  if (!L || !L.counts) return;
+  const want = cmCitizenTargetFor(L, cmCrowdMul());
+  CM.citizenTarget = (CM.walkRoadList && CM.walkRoadList.length) ? want : 0;
+  if (CM.citizens && CM.citizens.length > CM.citizenTarget) CM.citizens.splice(CM.citizenTarget);
+}
+
+// Rebranche le préréglage de qualité à chaud (appelé par l'UI des options) :
+// ré-alloue les canvas si le dpr a changé, invalide les bakes et ré-applique la
+// densité. La boucle rAF (en pause tant que le dialogue d'options couvre la
+// carte) repeindra proprement au prochain frame / à la fermeture du dialogue.
+export function applyCityMapQuality() {
+  cmApplyQualitySettings();
+  if (CM.canvas) cityMapResizeCanvas(CM.canvas);
+  cmInvalidateBakes();
+  cmRecomputeCitizenTarget();
 }
 
 // ── BAKE AVEC MARGE (drag fluide) ────────────────────────────────────────────
@@ -906,18 +964,13 @@ function cityMapEnsureLayout(now, deps = {}) {
 
   // Calcule la cible et supprime l'excédent — l'ajout progressif se fait dans la boucle frame.
   const lateCrowd = Math.max(0, (L.counts.eraIndex || 0) - 11);
-  const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
   // Foule de fin de partie : ~10 piétons à l'ère 0, jusqu'à ~450 en mégalopole.
-  // Ville plus GROUILLANTE en milieu/fin (Raphaël) : plafond et cible relevés (~2×). Sûr côté
-  // moteur — le rendu CULL déjà le hors-écran (drawCitizens, coût borné au visible) et l'update
-  // par agent est O(1) (citizenChooseNext = pas glouton, pas de vrai pathfinding). Soupape/réglage
-  // live : window.__citizenMul (multiplie cible ET plafond ; baisser si ça rame sur ta machine).
-  const crowdMul = (typeof window !== "undefined" && window.__citizenMul) || 1;
-  const citizenCap = Math.round((10 + Math.pow(eraFrac, 0.55) * 900) * crowdMul);
-  // La personnalité de la ville module l'animation des rues (cité marchande
-  // grouillante vs cité agricole paisible vs ville en crise désertée).
-  const densityMul = (L.personality && L.personality.densityMul) || 1;
-  const want = Math.round(cmClamp((2 + L.counts.houses / 3.5 + Math.pow(eraFrac, 1.65) * 540 + L.counts.megaDistricts * 10) * densityMul * crowdMul, 2, citizenCap));
+  // Ville plus GROUILLANTE en milieu/fin (Raphaël). Sûr côté moteur — le rendu CULL
+  // déjà le hors-écran (drawCitizens, coût borné au visible) et l'update par agent est
+  // O(1). Densité pilotée par le préréglage Qualité (cmCitizenMul) ou la molette dev
+  // window.__citizenMul, qui l'emporte. Cible/plafond + personnalité de ville factorisés
+  // dans cmCitizenTargetFor (ré-applicable à chaud lors d'un changement de préréglage).
+  const want = cmCitizenTargetFor(L, cmCrowdMul());
   CM.citizenTarget = CM.walkRoadList.length ? want : 0;
   if (!CM.walkRoadList.length) {
     CM.citizens = [];
@@ -1125,7 +1178,8 @@ function initCityMap(canvas, options = {}) {
   };
   const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType };
 
-  const FRAME_MS = 1000 / 30; // cap à 30fps — suffisant pour un idle, évite la surcharge CPU
+  // Cap de frame : cmFrameMs (variable de module) — piloté par le préréglage
+  // Qualité (30 fps par défaut/allégé, 60 fps en palier haut). Lu à chaque frame.
   let last = performance.now();
   // ── Cycle jour/nuit ── phase ancrée sur l'horloge murale (Date.now) : la
   // position dans le cycle survit à l'actualisation et aux reloads dev, au lieu
@@ -1151,7 +1205,7 @@ function initCityMap(canvas, options = {}) {
     // initCityMap relance une boucle neuve au prochain montage).
     if (!CM.ctx || !CM.canvas) return;
     CM.raf = requestAnimationFrame(frame);
-    if (now - last < FRAME_MS && !CM.capture) return; // capture : court-circuite le throttle
+    if (now - last < cmFrameMs && !CM.capture) return; // capture : court-circuite le throttle
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
     // Capture déterministe : rendre MÊME si la vue est « inactive » (modal de crise,
     // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).
@@ -1213,8 +1267,13 @@ function initCityMap(canvas, options = {}) {
         CM.healthF += (healthT - CM.healthF) * Math.min(1, dt * 0.8);
       }
       // LOD : sous ce zoom, les sprites individuels deviennent du bruit — on
-      // bascule sur des masses de quartier + la couche de lumières.
-      CM.lodActive = CM.cam.zoom < 0.55;
+      // bascule sur des masses de quartier + la couche de lumières. Seuil piloté
+      // par le préréglage Qualité (cmLodZoom) : 0 en « Élevée » → jamais de LOD,
+      // tout reste visible (sprites, lumières, animations) même en dézoom total.
+      CM.lodActive = CM.cam.zoom < cmLodZoom;
+      // « Élevée » : sol NET pendant le geste (pas de re-blit lissé) — lu par le
+      // renderer iso dans sa chaîne de coalescence du sol baké.
+      CM.crispGesture = cmCrispGesture;
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
       // Les fenêtres « allumées » des sprites sont de VRAIES lumières :
       // alpha entièrement piloté par la nuit (0 en plein jour).

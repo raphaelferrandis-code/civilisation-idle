@@ -13,6 +13,8 @@ import {
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
+import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
+import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
   getAutoScriptRules,
@@ -64,6 +66,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
   const handleDayNightChange = (mode) => {
     setDayNightMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleQualityChange = (mode) => {
+    if (mode === qualityMode) return;
+    setQualityMode(mode);
+    // Rebranche les leviers (résolution / densité / fps) et invalide les bakes :
+    // la carte reprendra avec les nouveaux réglages à la fermeture du dialogue.
+    applyCityMapQuality();
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -295,6 +306,43 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     onClick={() => handleDayNightChange('night')}
                   >
                     {tr({ fr: "Nuit", en: "Night" })}
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Qualité graphique", en: "Graphics quality" })}</span>
+                  <small>{tr({ fr: "Préréglage de performance de la carte (résolution, densité d'habitants, fluidité). « Auto » s'adapte à votre appareil ; baissez d'un cran si la carte saccade au zoom ou au déplacement.", en: "Map performance preset (resolution, citizen density, smoothness). “Auto” adapts to your device; lower a notch if the map stutters when zooming or panning." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${qualityMode === 'auto' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleQualityChange('auto')}
+                  >
+                    {tr({ fr: "Auto", en: "Auto" })}
+                  </button>
+                  <button
+                    className={`format-option ${qualityMode === 'high' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleQualityChange('high')}
+                  >
+                    {tr({ fr: "Élevée", en: "High" })}
+                  </button>
+                  <button
+                    className={`format-option ${qualityMode === 'balanced' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleQualityChange('balanced')}
+                  >
+                    {tr({ fr: "Équilibrée", en: "Balanced" })}
+                  </button>
+                  <button
+                    className={`format-option ${qualityMode === 'perf' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleQualityChange('perf')}
+                  >
+                    {tr({ fr: "Performance", en: "Performance" })}
                   </button>
                 </div>
               </div>

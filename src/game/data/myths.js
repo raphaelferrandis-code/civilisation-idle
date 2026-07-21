@@ -352,8 +352,8 @@ export const MYTHS = [
       en: `Each Food engine purchased adds ${Math.round(PROMETHEE_RUPTURE_PER_FOOD * 100)}% Rupture instantly. The larger the city grows, the more it burns.`
     },
     objectif: {
-      fr: `Porter la population à ${PROMETHEE_POP_TARGET} habitants avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} % (la course du feu).`,
-      en: `Bring the population to ${PROMETHEE_POP_TARGET} inhabitants before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}% (the race of fire).`
+      fr: `Porter le Rayonnement à ${PROMETHEE_POP_TARGET} avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} % (la course du feu).`,
+      en: `Bring Radiance to ${PROMETHEE_POP_TARGET} before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}% (the race of fire).`
     },
     heritageDescription: {
       fr: `Braisiers ancestraux : chaque cycle démarre avec un bonus de production de Nourriture x${BRAISIERS_FOOD_MULT} pendant ${BRAISIERS_DURATION_MS / 60_000} minutes.`,
@@ -414,8 +414,8 @@ export const MYTHS = [
     act: 1,
     name: { fr: "Le Mythe de Cadmos", en: "The Myth of Cadmus" },
     description: {
-      fr: "A chaque palier de Population ou d'Infrastructure, la cite doit nommer son Age. Trois noms sont proposes, chacun lie a une orientation: Nourriture, Tresor ou Stabilite. Le nom choisi rejoint la Chronique et accorde un bonus de cycle.",
-      en: "At each Population or Infrastructure milestone, the city must name its Age. Three names are offered, each tied to an orientation: Food, Treasury or Stability. The chosen name joins the Chronicle and grants a cycle bonus."
+      fr: "A chaque palier de Rayonnement ou d'Infrastructure, la cite doit nommer son Age. Trois noms sont proposes, chacun lie a une orientation: Nourriture, Tresor ou Stabilite. Le nom choisi rejoint la Chronique et accorde un bonus de cycle.",
+      en: "At each Radiance or Infrastructure milestone, the city must name its Age. Three names are offered, each tied to an orientation: Food, Treasury or Stability. The chosen name joins the Chronicle and grants a cycle bonus."
     },
     objectif: {
       fr: `Avoir nomme au moins ${CADMOS_AGE_NAME_TARGET} Ages dans la Chronique avant l'effondrement.`,
@@ -452,12 +452,12 @@ export const MYTHS = [
     act: 1,
     name: { fr: "Le Mythe d'Héphaïstos", en: "The Myth of Hephaestus" },
     description: {
-      fr: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, la Population commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} habitants, les crises narratives deviennent irrésolues.`,
-      en: `${HEPH_POP_DECAY_START_MIN} min after the start of the cycle, Population begins to decline (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). In exchange, Infrastructure buildings see their production multiplied by a growing factor (x${HEPH_INFRA_MULT_BASE} at the start, +${HEPH_INFRA_MULT_GROWTH}/min). Wear rises x${HEPH_USURE_MULT} faster. Below ${HEPH_POP_CRISIS_THRESHOLD} inhabitants, narrative crises become unsolvable.`
+      fr: `${HEPH_POP_DECAY_START_MIN} min après le début du cycle, le Rayonnement commence à décroître (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). En contrepartie, les bâtiments d'Infrastructure voient leur production multipliée par un facteur croissant (x${HEPH_INFRA_MULT_BASE} au départ, +${HEPH_INFRA_MULT_GROWTH}/min). L'Usure monte x${HEPH_USURE_MULT} plus vite. Sous ${HEPH_POP_CRISIS_THRESHOLD} de Rayonnement, les crises narratives deviennent irrésolues.`,
+      en: `${HEPH_POP_DECAY_START_MIN} min after the start of the cycle, Radiance begins to decline (-${Math.round(HEPH_POP_DECAY_RATE * 100)}%/min). In exchange, Infrastructure buildings see their production multiplied by a growing factor (x${HEPH_INFRA_MULT_BASE} at the start, +${HEPH_INFRA_MULT_GROWTH}/min). Wear rises x${HEPH_USURE_MULT} faster. Below ${HEPH_POP_CRISIS_THRESHOLD} Radiance, narrative crises become unsolvable.`
     },
     objectif: {
-      fr: `Bâtir une Infrastructure d'au moins ${HEPH_INFRA_PER_PEAK}x le pic de Population, pendant que la Population décline d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis ce pic (les machines remplacent les hommes).`,
-      en: `Build Infrastructure of at least ${HEPH_INFRA_PER_PEAK}x the Population peak, while Population declines by at least ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% from that peak (the machines replace men).`
+      fr: `Bâtir une Infrastructure d'au moins ${HEPH_INFRA_PER_PEAK}x le pic de Rayonnement, pendant que le Rayonnement décline d'au moins ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% depuis ce pic (les machines remplacent les hommes).`,
+      en: `Build Infrastructure of at least ${HEPH_INFRA_PER_PEAK}x the Radiance peak, while Radiance declines by at least ${Math.round(HEPH_POP_DECLINE_PCT * 100)}% from that peak (the machines replace men).`
     },
     heritageDescription: {
       fr: `Automates ancestraux : débloque un panneau "Automates" dans les Options pour activer des automatisations permanentes dans toutes les runs futures (achat automatique de bâtiments, déclenchement de crises).`,
@@ -530,7 +530,7 @@ export const MYTHS = [
 
     buildChoiceHTML() {
       const cats = [
-        { value: "city",      label: tr({ fr: "Cite", en: "City" }),                   desc: tr({ fr: "Nourriture, Commerce, Population", en: "Food, Commerce, Population" }) },
+        { value: "city",      label: tr({ fr: "Cite", en: "City" }),                   desc: tr({ fr: "Nourriture, Commerce, Rayonnement", en: "Food, Commerce, Radiance" }) },
         { value: "knowledge", label: tr({ fr: "Savoir", en: "Knowledge" }),           desc: tr({ fr: "Connaissance, Academies, Archives", en: "Learning, Academies, Archives" }) },
         { value: "infra",     label: tr({ fr: "Infrastructure", en: "Infrastructure" }), desc: tr({ fr: "Aqueducs, Routes, Batisseurs", en: "Aqueducts, Roads, Builders" }) }
       ];
@@ -667,11 +667,11 @@ export const MYTHS = [
     name: { fr: "Le Mythe du Phénix", en: "The Myth of the Phoenix" },
     description: {
       fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances d'affilée. Rater une fenêtre brise la chaîne et vous repartez de zéro.`,
-      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart population in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
+      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart Radiance in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
     },
     objectif: {
-      fr: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× la population de départ en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, puis s'effondrer pour renaître.`,
-      en: `Achieve ${PHENIX_RENAISSANCE_TARGET} consecutive rebirths: each cycle, reach ${PHENIX_REBIRTH_POP_MULT}× the starting population in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, then collapse to be reborn.`
+      fr: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× le Rayonnement de départ en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, puis s'effondrer pour renaître.`,
+      en: `Achieve ${PHENIX_RENAISSANCE_TARGET} consecutive rebirths: each cycle, reach ${PHENIX_REBIRTH_POP_MULT}× the starting Radiance in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, then collapse to be reborn.`
     },
     heritageDescription: {
       fr: `Script d'Automatisation : débloque un panneau dans les Options pour définir des conditions d'effondrement automatique dans toutes les runs futures (seuil de Rupture, seuil d'Usure, durée du cycle).`,
@@ -742,8 +742,8 @@ export const MYTHS = [
       en: "At the start, choose from your unlocked Legacies those that become active Ruins. Each active Ruin keeps its usual bonus but adds its associated penalty for this cycle."
     },
     objectif: {
-      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître la population ×${ANTEE_POP_MULT} depuis le départ.`,
-      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow the population ×${ANTEE_POP_MULT} from the start.`
+      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître le Rayonnement ×${ANTEE_POP_MULT} depuis le départ.`,
+      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow Radiance ×${ANTEE_POP_MULT} from the start.`
     },
     heritageDescription: {
       fr: "Ruines actives : dans les runs futures, chaque debut de cycle propose de choisir volontairement des Heritages avec leur malus. Les Ruines gagnees a l'effondrement recoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",

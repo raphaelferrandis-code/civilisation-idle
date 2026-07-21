@@ -79,7 +79,7 @@ export const GRAND_RESET_MILESTONES = [
   {
     gr: 4, id: "colonne_million",
     name: { fr: "La Colonne du Million", en: "The Column of the Million" },
-    system: { fr: "Population", en: "Population" },
+    system: { fr: "Rayonnement", en: "Radiance" },
     check: () => D(state.cyclePeaks?.population ?? state.population ?? 0).gte(grPopulationTarget())
   },
   {

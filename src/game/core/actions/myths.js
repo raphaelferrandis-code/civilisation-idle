@@ -267,7 +267,7 @@ export async function promptCadmosAgeName(milestone) {
   const options = shuffleCadmosOrientations().map((orientation, index) => buildCadmosAgeOption(orientation, index, milestone));
   const choice = await openChoiceDialog({
     title: "Nommer l'Age",
-    body: `${milestone.type === "population" ? "La population" : "L'infrastructure"} atteint un nouveau palier (${fmt(milestone.threshold)}). Cadmos exige un nom pour que la cite sache ce qu'elle devient.`,
+    body: `${milestone.type === "population" ? "Le Rayonnement" : "L'infrastructure"} atteint un nouveau palier (${fmt(milestone.threshold)}). Cadmos exige un nom pour que la cite sache ce qu'elle devient.`,
     variant: "cadmos",
     preventClose: true,
     options
