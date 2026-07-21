@@ -37,16 +37,31 @@ const driveRoot = detectGoogleDriveRoot();
 const cloudDir = driveRoot ? path.join(driveRoot, "Civilisation Idle") : null;
 const cloudFile = cloudDir ? path.join(cloudDir, "civilisation-idle-save.json") : null;
 
-// Lecture SYNCHRONE au lancement : le jeu arbitre nuage vs local AVANT de
-// charger la partie — un aller-retour asynchrone arriverait trop tard.
-// (Fichier Drive « en ligne seulement » : Windows le télécharge de façon
-// transparente pendant le readFileSync ; hors ligne, le catch rend null.)
-function readInitial() {
-  if (!cloudFile) return null;
+// Lecture SYNCHRONE : le jeu arbitre nuage vs local AVANT de charger la partie
+// — un aller-retour asynchrone arriverait trop tard.
+//
+// ⚠ Le statut est AUSSI IMPORTANT que le contenu : « pas de fichier » (premier
+// lancement, on peut écrire sans risque) et « fichier présent mais illisible »
+// (Drive hors ligne, placeholder « en ligne seulement » non hydraté, EPERM,
+// verrou de synchro) doivent être DISTINGUÉS. Les confondre en un `null`
+// laissait le jeu croire le nuage vide et l'écraser avec une partie neuve.
+function readCloud() {
+  if (!cloudFile) return { status: "off", text: null };
+  let exists;
   try {
-    return fs.readFileSync(cloudFile, "utf8");
+    exists = fs.existsSync(cloudFile);
   } catch {
-    return null; // absent au premier lancement, ou hors ligne : save locale
+    return { status: "error", text: null }; // même l'existence est indécidable
+  }
+  if (!exists) return { status: "none", text: null };
+  try {
+    const text = fs.readFileSync(cloudFile, "utf8");
+    // Un placeholder Drive non hydraté peut se lire VIDE sans lever d'erreur :
+    // on le traite comme illisible, JAMAIS comme « pas de partie ».
+    if (!text) return { status: "error", text: null };
+    return { status: "ok", text };
+  } catch {
+    return { status: "error", text: null };
   }
 }
 
@@ -76,8 +91,9 @@ function clearCloud() {
 }
 
 contextBridge.exposeInMainWorld("civCloud", {
-  dir: cloudDir,            // null = pas de Google Drive détecté sur ce poste
-  initial: readInitial(),   // contenu du fichier nuage AU LANCEMENT (ou null)
+  dir: cloudDir,          // null = pas de Google Drive détecté sur ce poste
+  initial: readCloud(),   // { status: 'off'|'none'|'ok'|'error', text } AU LANCEMENT
+  read: () => readCloud(),// re-lecture (Drive revenu en ligne en cours de partie)
   write: (text) => writeCloud(text),
   clear: () => clearCloud(),
 });

@@ -23,7 +23,7 @@ import {
   setAutomateThreshold
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
-import { cloudWipe, cloudSaveDir } from '../../game/core/cloudSave.js';
+import { cloudWipe, cloudSaveDir, cloudSaveStatus } from '../../game/core/cloudSave.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
@@ -406,14 +406,19 @@ export default function OptionsDialog({ isOpen, onClose }) {
               <div>
                 <span>{tr({ fr: "Sauvegarde nuage", en: "Cloud save" })}</span>
                 <small>
-                  {cloudSaveDir()
+                  {!cloudSaveDir()
                     ? tr({
-                        fr: `Active : la partie suit ton Google Drive (${cloudSaveDir()}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
-                        en: `Active: the save follows your Google Drive (${cloudSaveDir()}) — launch the game on another equipped device and it will be there.`
-                      })
-                    : tr({
                         fr: "Inactive : « Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
                         en: "Inactive: “Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
+                      })
+                    : cloudSaveStatus() === 'unreadable'
+                    ? tr({
+                        fr: `En pause : la partie déjà dans ${cloudSaveDir()} n'a pas pu être lue (Drive hors ligne ou fichier pas encore téléchargé). Rien n'est envoyé tant qu'elle reste illisible — ta partie du nuage est intacte. Vérifie que Google Drive est connecté, puis relance le jeu.`,
+                        en: `Paused: the save already in ${cloudSaveDir()} could not be read (Drive offline, or the file is not downloaded yet). Nothing is uploaded while it stays unreadable — your cloud save is untouched. Check that Google Drive is connected, then restart the game.`
+                      })
+                    : tr({
+                        fr: `Active : la partie suit ton Google Drive (${cloudSaveDir()}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
+                        en: `Active: the save follows your Google Drive (${cloudSaveDir()}) — launch the game on another equipped device and it will be there.`
                       })}
                 </small>
               </div>

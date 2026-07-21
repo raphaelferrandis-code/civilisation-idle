@@ -25,15 +25,53 @@ export function cloudSaveDir() {
   return c && c.dir ? c.dir : null;
 }
 
+// État du nuage POUR CETTE SESSION :
+//   'off'        — pas de Drive / pas en .exe : rien à faire.
+//   'ok'         — contenu du nuage CONNU (lu, ou fichier absent donc vide).
+//   'unreadable' — le fichier EXISTE mais n'a pas pu être lu. On ignore ce
+//                  qu'il contient → interdiction d'écrire (fail-closed).
+let cloudStatus = 'off';
+// Horloge à vie de la partie qu'on SAIT être dans le nuage (-1 = nuage vide).
+// Toute écriture doit être au moins aussi avancée, sinon on remplacerait une
+// partie plus longue par une plus courte — la perte que l'arbitrage évite.
+let cloudBaselineLife = -1;
+
+export function cloudSaveStatus() { return cloudStatus; }
+
+// Parse une save sérialisée, ou null. Le BOM UTF-8 (U+FEFF) est retiré : un
+// fichier nuage réécrit par un éditeur, un outil de synchro ou un script
+// PowerShell en porte un, et JSON.parse le refuse — sans ce strip, une partie
+// PARFAITEMENT VALIDE passait pour illisible.
+export function parseSave(raw) {
+  if (typeof raw !== 'string' || !raw) return null;
+  try {
+    const s = JSON.parse(raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw);
+    return (s && typeof s === 'object') ? s : null;
+  } catch { return null; }
+}
+
+// Horloge à vie d'une save sérialisée ; -1 si illisible (donc « inconnue »,
+// jamais « zéro » : un 0 passerait pour une partie neuve légitime).
+function lifeOfRaw(raw) {
+  const s = parseSave(raw);
+  return s ? (Number(s?.chronicleStats?.lifetimePlaySec) || 0) : -1;
+}
+
+// A-t-on le droit d'écraser le fichier nuage ? PURE, exportée pour les tests.
+// `force` = geste explicite du joueur (import, reset) : il fait autorité, mais
+// ne peut jamais passer outre un nuage illisible.
+export function mayOverwriteCloud(status, baselineLife, saveLife, force) {
+  if (status !== 'ok') return false;
+  if (force) return true;
+  return saveLife >= baselineLife;
+}
+
 // Quelle save gagne ? 'cloud' ou 'local'. Exportée pure pour les tests.
 export function pickMostAdvanced(cloudRaw, localRaw) {
-  let cloud;
-  try { cloud = JSON.parse(cloudRaw); } catch { return 'local'; }
-  if (!cloud || typeof cloud !== 'object') return 'local';
-  if (!localRaw) return 'cloud';
-  let local;
-  try { local = JSON.parse(localRaw); } catch { return 'cloud'; }
-  if (!local || typeof local !== 'object') return 'cloud';
+  const cloud = parseSave(cloudRaw);
+  if (!cloud) return 'local';
+  const local = parseSave(localRaw);
+  if (!local) return 'cloud';
   const life = (s) => Number(s?.chronicleStats?.lifetimePlaySec) || 0;
   const tick = (s) => Number(s?.lastTick) || 0;
   if (life(cloud) !== life(local)) return life(cloud) > life(local) ? 'cloud' : 'local';
@@ -44,10 +82,31 @@ export function pickMostAdvanced(cloudRaw, localRaw) {
 // remplace dans localStorage — le chargement normal (state.js) fait le reste.
 export function reconcileCloudAtBoot() {
   const c = cc();
-  if (!c || typeof c.initial !== 'string' || !c.initial) return false;
+  if (!c || !c.dir) { cloudStatus = 'off'; return false; }
+  const res = (c.initial && typeof c.initial === 'object')
+    ? c.initial
+    : { status: 'error', text: null }; // forme inattendue : on se méfie
+  if (res.status === 'none') { cloudStatus = 'ok'; cloudBaselineLife = -1; return false; }
+  if (res.status !== 'ok' || typeof res.text !== 'string' || !res.text) {
+    // FAIL-CLOSED : le nuage existe mais son contenu nous échappe. On joue en
+    // local sans jamais l'écraser — mieux vaut une session non synchronisée
+    // qu'une partie détruite.
+    cloudStatus = 'unreadable';
+    return false;
+  }
+  const cloudLife = lifeOfRaw(res.text);
+  if (cloudLife < 0) {
+    // Fichier lu mais illisible EN CONTENU (corrompu, tronqué par une synchro à
+    // moitié faite, format d'une version future). On ne sait pas ce qu'il vaut
+    // → même traitement qu'une lecture ratée : on n'y touche pas.
+    cloudStatus = 'unreadable';
+    return false;
+  }
+  cloudStatus = 'ok';
+  cloudBaselineLife = cloudLife;
   try {
-    if (pickMostAdvanced(c.initial, localStorage.getItem(SAVE_KEY)) === 'cloud') {
-      localStorage.setItem(SAVE_KEY, c.initial);
+    if (pickMostAdvanced(res.text, localStorage.getItem(SAVE_KEY)) === 'cloud') {
+      localStorage.setItem(SAVE_KEY, res.text);
       return true;
     }
   } catch { /* stockage indisponible : on joue en mémoire, comme avant */ }
@@ -63,14 +122,44 @@ let cloudDirty = false;
 export function cloudMirrorSave(opts) {
   const c = cc();
   if (!c || !c.dir) return;
+  const force = Boolean(opts && opts.force);
+
+  // Nuage illisible au lancement : re-tenter une lecture (Drive a pu revenir en
+  // ligne, le placeholder a pu s'hydrater). On n'adopte QUE la référence — pas
+  // question de remplacer la save d'une partie EN COURS sous les pieds du
+  // joueur ; l'arbitrage complet n'a lieu qu'au lancement.
+  if (cloudStatus === 'unreadable') {
+    if (typeof c.read !== 'function') return;
+    let again;
+    try { again = c.read(); } catch { return; }
+    if (!again) return;
+    if (again.status === 'none') { cloudStatus = 'ok'; cloudBaselineLife = -1; }
+    else if (again.status === 'ok' && lifeOfRaw(again.text) >= 0) {
+      cloudStatus = 'ok';
+      cloudBaselineLife = lifeOfRaw(again.text);
+    } else return; // toujours illisible : on n'écrit toujours pas
+  }
+
   const now = Date.now();
-  if (!(opts && opts.force) && now - lastCloudWrite < CLOUD_WRITE_MIN_MS) {
+  if (!force && now - lastCloudWrite < CLOUD_WRITE_MIN_MS) {
     cloudDirty = true; // rattrapé par le prochain miroir ou le flush de sortie
     return;
   }
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (raw && c.write(raw)) { lastCloudWrite = now; cloudDirty = false; }
+    if (!raw) return;
+    // GARDE D'ÉCRITURE : le miroir ne doit JAMAIS remplacer une partie plus
+    // avancée que la nôtre. Sans elle, l'auto-save des 2 premières secondes
+    // (main.js) suffisait à écraser le nuage avec une cité neuve.
+    if (!mayOverwriteCloud(cloudStatus, cloudBaselineLife, lifeOfRaw(raw), force)) {
+      cloudDirty = false;
+      return;
+    }
+    if (c.write(raw)) {
+      lastCloudWrite = now;
+      cloudDirty = false;
+      cloudBaselineLife = Math.max(cloudBaselineLife, lifeOfRaw(raw));
+    }
   } catch { /* le jeu continue en local, le nuage rattrapera */ }
 }
 
@@ -78,7 +167,15 @@ export function cloudMirrorSave(opts) {
 // sinon l'ancienne partie (plus avancée) ressusciterait au prochain lancement.
 export function cloudWipe() {
   const c = cc();
-  if (c && c.clear) { try { c.clear(); } catch { /* tant pis */ } }
+  if (!c || !c.clear) return;
+  try {
+    if (c.clear()) {
+      // Le fichier n'existe plus : le nuage est vide et CONNU — la partie neuve
+      // pourra donc s'y écrire (sans ça, la garde d'écriture la bloquerait).
+      cloudStatus = 'ok';
+      cloudBaselineLife = -1;
+    }
+  } catch { /* tant pis */ }
 }
 
 if (typeof window !== 'undefined') {
