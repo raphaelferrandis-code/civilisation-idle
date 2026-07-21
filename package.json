@@ -2,6 +2,7 @@
   "name": "civilisation-effondrement",
   "private": true,
   "version": "0.0.0",
+  "description": "Civilisation Idle — un jeu incremental d'ascension et d'effondrement.",
   "type": "module",
   "main": "main.cjs",
   "scripts": {
@@ -26,7 +27,8 @@
       "output": "../ce-release"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     }
   },
   "dependencies": {
