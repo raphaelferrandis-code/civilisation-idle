@@ -75,6 +75,22 @@ export function generateEpitaph() {
   });
 }
 
+// Chronique de l'effondrement, gravée par runCollapseSequence APRÈS completeCollapse
+// (donc après le point de non-retour) : si un reload la persiste, c'est que la chute
+// a bien eu lieu. Avant, collapse()/checkAutoCollapse l'écrivaient AVANT le deuil →
+// ligne trompeuse et dupliquée après un reload pendant le deuil (crisis.js:510).
+function logCollapseLine(reason, gain) {
+  if (reason === "auto_collapse") {
+    chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
+    return;
+  }
+  const label = reason === "manual" ? "manuel"
+    : reason === "forced" ? "force (Phoenix)"
+    : reason === "auto_script" ? "automatique (Script)"
+    : "automatique";
+  chronicle(`Le crépuscule s'abat sur la cité (effondrement ${label}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`);
+}
+
 // INVARIANT DE SAUVEGARDE (revue 0.4 §1.3) — NE PAS CASSER : aucune mutation d'état
 // survivant à un rechargement ne doit avoir lieu AVANT la résolution du dialogue
 // d'épitaphe (`await openChoiceDialog`). La seule mutation autorisée avant est
@@ -128,6 +144,7 @@ export async function runCollapseSequence(gain, reason) {
           : tr({ fr: `Sans testament, l'Édit répète la dernière volonté : ${chosenLegacy.logLabel}.`, en: `Without a testament, the Edict repeats the last will: ${chosenLegacy.logLabel}.` }));
     }
     completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round(), fallenDynasty, epitaph, reason);
+    logCollapseLine(reason, gain);
     setCollapseInProgress(false);
     if (reason !== "auto_collapse") await promptActiveRuinsForNewCycle();
     setMourning(false);
@@ -214,6 +231,7 @@ export async function runCollapseSequence(gain, reason) {
   const finalGain = choice.ruinGain ?? gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round();
 
   completeCollapse(finalGain, fallenDynasty, epitaph, reason);
+  logCollapseLine(reason, gain);
   setCollapseInProgress(false);
   await promptActiveRuinsForNewCycle();
   setMourning(false);

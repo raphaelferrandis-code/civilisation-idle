@@ -509,11 +509,10 @@ export function collapse(reason) {
   if (reason === "auto_script" && D(gain).floor().lte(0)) return;
   setCollapseInProgress(true);
   setGamePaused(true);
-  const reasonLabel = reason === "manual" ? "manuel"
-    : reason === "forced"      ? "force (Phoenix)"
-    : reason === "auto_script" ? "automatique (Script)"
-    : "automatique";
-  chronicle(`Le crépuscule s'abat sur la cité (effondrement ${reasonLabel}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`);
+  // La chronique de l'effondrement est écrite par runCollapseSequence APRÈS le
+  // point de non-retour : l'écrire ici la persistait avant le deuil, et un reload
+  // pendant le deuil la gravait sur une cité NON effondrée — ligne trompeuse,
+  // dupliquée à la vraie chute (crisis.js:510 de l'audit).
   
   runCollapseSequence(gain, reason).catch((err) => console.error("Séquence d'effondrement interrompue :", err));
 }

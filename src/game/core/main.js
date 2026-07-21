@@ -365,7 +365,8 @@ export function checkAutoCollapse() {
   setCollapseInProgress(true);
   setGamePaused(true); // comme collapse() : geler l'UI pendant le deuil (sinon on peut sceller un pacte, M10)
   state.crisisOpenedAt = null;
-  chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
+  // « L'Édit s'applique » est écrite par runCollapseSequence APRÈS le point de
+  // non-retour (crisis.js:510 de l'audit) — plus de ligne persistée avant le deuil.
   runCollapseSequence(gain, "auto_collapse").catch((err) => console.error("Séquence d'effondrement (Édit) interrompue :", err));
 }
 
@@ -574,8 +575,12 @@ export function startGameLoop() {
   };
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  // Sauvegarder avant F5 / fermeture de l'onglet
-  const handleBeforeUnload = () => save();
+  // Sauvegarder avant F5 / fermeture de l'onglet. On FORCE le miroir nuage juste
+  // après save() : ce handler (posé dans l'effet App) tourne APRÈS le flush que
+  // cloudSave.js pose à l'import, lequel lisait donc le localStorage AVANT cette
+  // save() finale — le nuage ratait les dernières secondes (cloudSave.js:88 de
+  // l'audit). En re-mirrorant ici, la dernière save gagne.
+  const handleBeforeUnload = () => { save(); cloudMirrorSave({ force: true }); };
   window.addEventListener("beforeunload", handleBeforeUnload);
 
   return () => {
