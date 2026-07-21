@@ -14,7 +14,22 @@ export default function ChoiceDialog({ dialog, onChoose }) {
       if (dialog.preventClose) event.preventDefault();
     };
     const handleClose = () => {
-      if (!dialog.preventClose && dialog.options?.length) onChoose(dialog.options[0]);
+      if (dialog.preventClose) {
+        // Chromium >= 120 (spec CloseWatcher) : deux Echap sans activation
+        // utilisateur entre les deux forcent la fermeture du <dialog> sans
+        // repasser par `cancel` (fermeture NON annulable). Pour un dialogue
+        // preventClose — deuil, Cadmos, caravane de l'Age d'Or, Ruines actives
+        // d'Antee, tous awaites derriere une pause ou un effondrement — laisser
+        // filer cette fermeture ne resolvait jamais la promesse de choix : jeu
+        // fige en pause, aucune UI, softlock de session. On re-arme la modale
+        // au lieu de subir la fermeture. (Le cleanup, lui, retire ce listener
+        // AVANT son propre node.close() : il ne repasse donc pas par ici.)
+        if (node.isConnected && !node.open) {
+          try { node.showModal(); } catch { /* demonte entre-temps : rien a re-armer */ }
+        }
+        return;
+      }
+      if (dialog.options?.length) onChoose(dialog.options[0]);
     };
     // Raccourcis d'épitaphe : les touches 1–N gravent directement (réservé au
     // deuil — les autres dialogues gardent leurs interactions propres).
