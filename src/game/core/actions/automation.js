@@ -11,13 +11,13 @@ import {
 
 import {
   buildingCostAt,
-  buildingBatchCost,
   isUnlocked,
   crisisCosts
 } from '../mechanics.js';
 
 import { buildings } from '../../data/buildings.js';
-import { canPayCost, payCost } from '../utils.js';
+import { canPayCost } from '../utils.js';
+import { buyBuildingCore, BUY_ALL_CURRENCIES } from './building.js';
 import { tr } from '../i18n.js';
 import { D } from '../num.js';
 import { collapse, runCrisisAction } from './crisis.js';
@@ -128,21 +128,22 @@ export function checkAutomateRules() {
     if (!rule.enabled) continue;
     if (rule.type === "buy_cheapest") {
       const cheapest = buildings
-        .filter((b) => b.category === rule.category && isUnlocked(b))
+        .filter((b) => b.category === rule.category && isUnlocked(b)
+          && BUY_ALL_CURRENCIES.has(b.currency)
+          && (!b.extraCost || Object.keys(b.extraCost).every((c) => BUY_ALL_CURRENCIES.has(c))))
         .sort((a, b) => {
           const cA = buildingCostAt(a, state.buildings[a.id] || 0)[a.currency] || 0;
           const cB = buildingCostAt(b, state.buildings[b.id] || 0)[b.currency] || 0;
           return D(cA).cmp(cB);
         })[0];
-      if (cheapest) {
-        const cost = buildingBatchCost(cheapest, 1);
-        if (canPayCost(cost)) {
-          payCost(cost);
-          state.buildings[cheapest.id] = (state.buildings[cheapest.id] || 0) + 1;
-          invalidateRenderCache("buildings");
-          didBuy = true;
-          chronicle(`Les mécanismes automatiques ont discrètement érigé : ${tr(cheapest.name).toLowerCase()}.`);
-        }
+      // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
+      // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost direct
+      // contournait ; la garde de devise ci-dessus empêche de drainer les Ruines via
+      // ruin_architects (M5). silent : l'automate garde sa propre chronique.
+      if (cheapest && buyBuildingCore(cheapest.id, { amount: 1, silent: true })) {
+        invalidateRenderCache("buildings");
+        didBuy = true;
+        chronicle(`Les mécanismes automatiques ont discrètement érigé : ${tr(cheapest.name).toLowerCase()}.`);
       }
     }
     if (rule.type === "crisis_action") {

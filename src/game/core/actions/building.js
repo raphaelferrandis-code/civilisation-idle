@@ -73,7 +73,7 @@ export function buyBuilding(id) {
 //   - amount : quantité forcée ; par défaut lit state.buyAmount (x1..x100/Max).
 //   - silent : coupe le retour visuel par-achat (float doré de palier + chronique),
 //     agrégé en un seul récapitulatif par l'appelant lors d'un achat de masse.
-function buyBuildingCore(id, { amount: amountOverride = null, silent = false } = {}) {
+export function buyBuildingCore(id, { amount: amountOverride = null, silent = false } = {}) {
   const building = buildingById[id];
   if (!building) return false;
   if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return false;
@@ -159,7 +159,7 @@ const BUY_ALL_CATEGORY_LABELS = {
 // de prestige (ruins) : « Tout acheter » ne doit JAMAIS ponctionner les Ruines, qui
 // financent l'arbre permanent — ex. ruin_architects paie extraCost:{ruins:85} et se
 // retrouve donc écarté de l'achat de masse (mais reste achetable à la main).
-const BUY_ALL_CURRENCIES = new Set(["food", "gold", "knowledge", "infrastructure"]);
+export const BUY_ALL_CURRENCIES = new Set(["food", "gold", "knowledge", "infrastructure"]);
 // Garde-fou dur contre toute boucle pathologique (coût ~nul via discounts extrêmes).
 // Jamais atteint en pratique : les coûts explosent géométriquement (scale^count).
 const BUY_ALL_MAX_ITERS = 10000;
