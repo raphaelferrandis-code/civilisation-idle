@@ -49,6 +49,7 @@ import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { BRAISIERS_DURATION_MS } from '../data/myths.js';
 import { D } from './num.js';
+import { decideTickCredit } from './offlineCredit.js';
 
 import {
   encodeSaveText,
@@ -306,6 +307,10 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
     collapses: farm ? farm.collapses : 0,
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
   }));
+  // Crédité jusqu'à MAINTENANT : on recale l'ancre du hors-ligne. save() et le
+  // tick ne posent plus lastTick ailleurs → sans ceci, le prochain calcul
+  // (visibilitychange / boot) recréditerait ce même intervalle (double-comptage).
+  state.lastTick = Date.now();
   save();
 }
 
@@ -499,21 +504,36 @@ export function startGameLoop() {
     window.addEventListener("keydown", trackInteraction);
   }
   
-  let last = performance.now();
+  const isTabHidden = () => typeof document !== "undefined" && document.hidden;
+  // lastWall = horloge murale du dernier crédit. N'AVANCE QUE quand on crédite :
+  // un tick 'skip' (onglet caché) le laisse figé, si bien que le premier tick
+  // visible — ou le visibilitychange — crédite TOUTE l'absence, une seule fois.
+  let lastWall = Date.now();
   const tickInterval = setInterval(() => {
-    const now = performance.now();
-    const seconds = Math.min(1.0, (now - last) / 1000);
-    last = now;
+    const nowWall = Date.now();
+    const decision = decideTickCredit((nowWall - lastWall) / 1000, isTabHidden());
+    renderCache.tickNow = nowWall; // horloge lue par les composants (pas de Date.now() en rendu)
+    if (decision.mode === "skip") return; // caché : lastWall reste figé, le retour créditera
+    lastWall = nowWall;
+    if (decision.mode === "offline") {
+      // Veille système / gel d'onglet VISIBLE : aucun visibilitychange n'est émis,
+      // et clamper à 1 s jetterait des heures. On route l'écart réel vers la
+      // progression hors-ligne (elle recale state.lastTick elle-même).
+      applyOfflineProgress(decision.seconds);
+      checkAutoCollapse();
+      notify();
+      return;
+    }
     // Temps de jeu actif cumulé (jalon de merveille) — survit aux effondrements
     // mais REPART À 0 au Grand Reset. lifetimePlaySec, lui, est l'horloge À VIE
     // (registre de la Chronique) : elle ne se réinitialise jamais et horodate les
     // déblocages de GR et les accomplissements de Mythes de façon continue.
-    state.playTimeSec = (state.playTimeSec || 0) + seconds;
+    state.playTimeSec = (state.playTimeSec || 0) + decision.seconds;
     if (state.chronicleStats) {
-      state.chronicleStats.lifetimePlaySec = (state.chronicleStats.lifetimePlaySec || 0) + seconds;
+      state.chronicleStats.lifetimePlaySec = (state.chronicleStats.lifetimePlaySec || 0) + decision.seconds;
     }
-    renderCache.tickNow = Date.now(); // horloge lue par les composants (pas de Date.now() en rendu)
-    tick(seconds);
+    state.lastTick = nowWall; // ancre du hors-ligne : temps réellement crédité jusqu'ici
+    tick(decision.seconds);
     checkAutoCollapse();
     notify(); // Notifie React du changement d'etat a chaque tick
   }, 1000);
@@ -535,10 +555,14 @@ export function startGameLoop() {
     if (document.hidden) {
       save();
     } else if (!collapseInProgress && !state.crisisLimitAnnounced) {
+      // Retour d'onglet : lastTick est resté figé au masquage (ticks cachés sautés
+      // + save() ne le rafraîchit plus) → l'écart mesure vraiment toute l'absence.
+      // applyOfflineProgress crédite ET recale lastTick ; on recale aussi lastWall
+      // pour que le prochain tick reparte d'un écart nul (pas de re-crédit).
       const elapsed = (Date.now() - state.lastTick) / 1000;
       if (elapsed > 60) {
         applyOfflineProgress(elapsed);
-        last = performance.now();
+        lastWall = Date.now();
       }
     }
   };

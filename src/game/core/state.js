@@ -1474,7 +1474,10 @@ export function load() {
 
 export function save() {
   try {
-    state.lastTick = Date.now();
+    // lastTick n'est PLUS posé ici : il vit désormais dans la boucle de tick
+    // (temps réellement crédité, cf. offlineCredit.js). Sinon l'auto-save throttlé
+    // d'un onglet caché le rafraîchissait en continu et le retour ne créditait
+    // jamais l'absence (M16). L'écriture reste, seule l'estampille bouge.
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch (e) {
     // QuotaExceededError (stockage plein ou navigation privee iOS Safari)
