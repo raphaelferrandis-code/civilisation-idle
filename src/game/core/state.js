@@ -15,7 +15,7 @@ import { generateCityName } from '../map/procedural/cityName.js';
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
-import { SAVE_KEY } from './saveKey.js';
+import { SAVE_KEY, CURRENT_SAVE_VERSION } from './saveKey.js';
 import { cloudMirrorSave } from './cloudSave.js';
 export { SAVE_KEY };
 
@@ -32,7 +32,7 @@ export { SAVE_KEY };
 // aucune save ne peut le porter. On le re-dérive de mythsCompleted.
 // v5 : « La Veille du feu » remplace les Braisiers comme héritage de Prométhée.
 // Un Mythe accompli le reste (D7) : le nouveau déblocage est re-dérivé lui aussi.
-export const CURRENT_SAVE_VERSION = 4;
+export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSave.js sans importer state.js)
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
 export const DECIMAL_SAVE_FIELDS = [
@@ -1452,11 +1452,20 @@ export function hydrateState(parsed = {}) {
 }
 
 export function load() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultState();
     return hydrateState(JSON.parse(raw));
-  } catch {
+  } catch (e) {
+    // Save illisible (JSON tronqué par un quota, régression d'un normalizer sur
+    // une save par ailleurs valide…) : on repart neuf, mais on ARCHIVE d'abord le
+    // payload brut. Sans ça, l'auto-save des 2 s (main.js) l'écraserait, détruisant
+    // sans trace une save potentiellement réparable à la main.
+    try {
+      if (raw) localStorage.setItem(SAVE_KEY + "-corrupt-backup", raw);
+    } catch { /* stockage plein : on ne peut pas archiver, tant pis */ }
+    console.error(`Sauvegarde illisible : repli sur une partie neuve. Payload brut archivé sous « ${SAVE_KEY}-corrupt-backup ».`, e);
     return defaultState();
   }
 }

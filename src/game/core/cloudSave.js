@@ -15,7 +15,7 @@
 // module doit donc être importé EN PREMIER dans src/main.jsx, et ne doit
 // jamais importer state.js (ce qui déclencherait ce chargement trop tôt) —
 // d'où saveKey.js.
-import { SAVE_KEY } from './saveKey.js';
+import { SAVE_KEY, CURRENT_SAVE_VERSION } from './saveKey.js';
 
 const cc = () => (typeof window !== 'undefined' && window.civCloud) ? window.civCloud : null;
 
@@ -30,6 +30,8 @@ export function cloudSaveDir() {
 //   'ok'         — contenu du nuage CONNU (lu, ou fichier absent donc vide).
 //   'unreadable' — le fichier EXISTE mais n'a pas pu être lu. On ignore ce
 //                  qu'il contient → interdiction d'écrire (fail-closed).
+//   'newer'      — le nuage vient d'un build PLUS RÉCENT (saveVersion dépasse
+//                  CURRENT_SAVE_VERSION) : ni adopté, ni écrasé (fail-closed).
 let cloudStatus = 'off';
 // Horloge à vie de la partie qu'on SAIT être dans le nuage (-1 = nuage vide).
 // Toute écriture doit être au moins aussi avancée, sinon on remplacerait une
@@ -37,6 +39,13 @@ let cloudStatus = 'off';
 let cloudBaselineLife = -1;
 
 export function cloudSaveStatus() { return cloudStatus; }
+
+// Résultat de la DERNIÈRE écriture nuage tentée cette session (null = aucune
+// encore). L'UI s'en sert : « Active » ne doit pas s'afficher si les écritures
+// échouent en silence (dossier en lecture seule, quota Drive plein, verrou).
+let lastWriteOk = null;
+let lastWriteAt = 0;
+export function cloudSyncInfo() { return { ok: lastWriteOk, at: lastWriteAt }; }
 
 // Parse une save sérialisée, ou null. Le BOM UTF-8 (U+FEFF) est retiré : un
 // fichier nuage réécrit par un éditeur, un outil de synchro ou un script
@@ -94,18 +103,30 @@ export function reconcileCloudAtBoot() {
     cloudStatus = 'unreadable';
     return false;
   }
-  const cloudLife = lifeOfRaw(res.text);
-  if (cloudLife < 0) {
+  const cloudParsed = parseSave(res.text);
+  if (!cloudParsed) {
     // Fichier lu mais illisible EN CONTENU (corrompu, tronqué par une synchro à
-    // moitié faite, format d'une version future). On ne sait pas ce qu'il vaut
-    // → même traitement qu'une lecture ratée : on n'y touche pas.
+    // moitié faite). On ne sait pas ce qu'il vaut → même traitement qu'une
+    // lecture ratée : on n'y touche pas.
     cloudStatus = 'unreadable';
     return false;
   }
+  if ((Number(cloudParsed.saveVersion) || 0) > CURRENT_SAVE_VERSION) {
+    // Nuage écrit par un build PLUS RÉCENT : l'adopter le rétrograderait (migrate
+    // jette les champs inconnus puis ré-estampille), et le miroir republierait la
+    // version mutilée — perte pour l'autre poste aussi. Fail-closed : local seul,
+    // aucune écriture. Options invite à mettre le jeu à jour sur ce poste.
+    cloudStatus = 'newer';
+    return false;
+  }
   cloudStatus = 'ok';
-  cloudBaselineLife = cloudLife;
+  cloudBaselineLife = Number(cloudParsed?.chronicleStats?.lifetimePlaySec) || 0;
   try {
-    if (pickMostAdvanced(res.text, localStorage.getItem(SAVE_KEY)) === 'cloud') {
+    const localRaw = localStorage.getItem(SAVE_KEY);
+    if (pickMostAdvanced(res.text, localRaw) === 'cloud') {
+      // La save locale évincée est ARCHIVÉE avant l'écrasement : si l'arbitrage
+      // se trompait, elle reste récupérable (sinon perdue sans trace ni invite).
+      if (localRaw) localStorage.setItem(SAVE_KEY + ':pre-cloud', localRaw);
       localStorage.setItem(SAVE_KEY, res.text);
       return true;
     }
@@ -155,7 +176,10 @@ export function cloudMirrorSave(opts) {
       cloudDirty = false;
       return;
     }
-    if (c.write(raw)) {
+    const wrote = c.write(raw);
+    lastWriteOk = wrote;
+    lastWriteAt = now;
+    if (wrote) {
       lastCloudWrite = now;
       cloudDirty = false;
       cloudBaselineLife = Math.max(cloudBaselineLife, lifeOfRaw(raw));

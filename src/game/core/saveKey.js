@@ -5,3 +5,9 @@
 // ⚠ Ne JAMAIS bumper cette clé (ça effacerait tous les saves) : la version du
 // schéma vit DANS le payload (state.saveVersion), cf. le commentaire de state.js.
 export const SAVE_KEY = "civilization-collapse-idle-v1";
+
+// Version de schéma que CE build comprend. Vit ici (pas dans state.js) pour que
+// cloudSave.js puisse la lire sans importer state.js — ce qui déclencherait le
+// chargement de la save trop tôt. state.js la ré-exporte ; l'historique des
+// versions est documenté à côté de cette ré-export.
+export const CURRENT_SAVE_VERSION = 4;

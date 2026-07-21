@@ -73,6 +73,12 @@ describe('mayOverwriteCloud (garde d\'écriture du miroir)', () => {
     expect(mayOverwriteCloud('off', -1, 100, true)).toBe(false);
   });
 
+  it('nuage PLUS RÉCENT (build futur) : aucune écriture, même forcée', () => {
+    // Un build ancien ne doit jamais republier une version rétrogradée par migrate.
+    expect(mayOverwriteCloud('newer', -1, 999, false)).toBe(false);
+    expect(mayOverwriteCloud('newer', -1, 999, true)).toBe(false);
+  });
+
   it('SCÉNARIO DE DESTRUCTION : partie neuve vs nuage avancé → écriture REFUSÉE', () => {
     // PC2, save locale vierge (life 0), nuage à 40 h de jeu (144000 s).
     // L'auto-save des 2 s ne doit PAS remplacer la vraie partie.

@@ -23,7 +23,7 @@ import {
   setAutomateThreshold
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
-import { cloudWipe, cloudSaveDir, cloudSaveStatus } from '../../game/core/cloudSave.js';
+import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
@@ -415,6 +415,16 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     ? tr({
                         fr: `En pause : la partie déjà dans ${cloudSaveDir()} n'a pas pu être lue (Drive hors ligne ou fichier pas encore téléchargé). Rien n'est envoyé tant qu'elle reste illisible — ta partie du nuage est intacte. Vérifie que Google Drive est connecté, puis relance le jeu.`,
                         en: `Paused: the save already in ${cloudSaveDir()} could not be read (Drive offline, or the file is not downloaded yet). Nothing is uploaded while it stays unreadable — your cloud save is untouched. Check that Google Drive is connected, then restart the game.`
+                      })
+                    : cloudSaveStatus() === 'newer'
+                    ? tr({
+                        fr: `En pause : la partie dans ${cloudSaveDir()} vient d'une version PLUS RÉCENTE du jeu. Pour ne pas la rétrograder, rien n'est envoyé depuis ce poste. Mets le jeu à jour ici, puis relance.`,
+                        en: `Paused: the save in ${cloudSaveDir()} comes from a NEWER version of the game. To avoid downgrading it, nothing is uploaded from this device. Update the game here, then restart.`
+                      })
+                    : cloudSyncInfo().ok === false
+                    ? tr({
+                        fr: `Attention : la dernière écriture vers ${cloudSaveDir()} a échoué (dossier en lecture seule, quota Drive plein ou fichier verrouillé). Ta partie n'est peut-être plus répliquée — vérifie Google Drive.`,
+                        en: `Warning: the last write to ${cloudSaveDir()} failed (read-only folder, full Drive quota, or a locked file). Your game may no longer be replicated — check Google Drive.`
                       })
                     : tr({
                         fr: `Active : la partie suit ton Google Drive (${cloudSaveDir()}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
