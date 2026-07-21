@@ -5,6 +5,23 @@ const { pathToFileURL } = require("url");
 // Autorise la musique de fond à démarrer sans clic préalable de l'utilisateur.
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
+// Une seule instance à la fois : deux fenêtres partageraient le même userData
+// (la save vit dans localStorage — verrou LevelDB exclusif) et se disputeraient
+// l'écriture. Au mieux la session la plus avancée est perdue (dernier fermé
+// gagne), au pire le stockage se corrompt. Si le verrou est refusé, une instance
+// tourne déjà : on la ramène au premier plan et on rend la main.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+app.on("second-instance", () => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
 // On sert le jeu via un protocole interne « app:// » (comme un serveur web local)
 // au lieu de file://. C'EST INDISPENSABLE : les sprites pixel-art sont chargés
 // avec des chemins absolus ('/pixelart/...') et le terrain fait un fetch() de JSON.
@@ -44,6 +61,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Instance perdante (verrou refusé) : app.quit() est déjà en cours, ne rien monter.
+  if (!gotSingleInstanceLock) return;
   const distRoot = path.join(__dirname, "dist");
   // app://localhost/<chemin>  ->  dist/<chemin>  (index.html par défaut).
   protocol.handle("app", (request) => {

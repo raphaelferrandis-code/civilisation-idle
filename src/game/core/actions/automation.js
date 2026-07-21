@@ -13,7 +13,6 @@ import {
   buildingCostAt,
   buildingBatchCost,
   isUnlocked,
-  crisisOpen,
   crisisCosts
 } from '../mechanics.js';
 
@@ -147,15 +146,17 @@ export function checkAutomateRules() {
       }
     }
     if (rule.type === "crisis_action") {
-      if (!crisisOpen()) continue;
-      if (state.instability * 100 >= rule.threshold) {
-        const costs = crisisCosts();
-        // Garde : un actionId absent de crisisCosts() donne `undefined` →
-        // canPayCost fait Object.entries(undefined) → throw dans le tick.
-        const cost = costs[rule.actionId];
-        if (cost && canPayCost(cost)) {
-          runCrisisAction(rule.actionId, { render: false });
-        }
+      // Le SEUIL de la règle fait foi (1-99 %), PAS l'ouverture de crise :
+      // crisisOpen() exige déjà instability >= 100 %, ce qui rendait le seuil
+      // mort (l'automate ne pouvait tirer qu'à 100 % pile). On exclut la crise
+      // terminale, où seul l'intendant (force) agit.
+      if (state.crisisLimitAnnounced || state.instability * 100 < rule.threshold) continue;
+      const costs = crisisCosts();
+      // Garde : un actionId absent de crisisCosts() donne `undefined` →
+      // canPayCost fait Object.entries(undefined) → throw dans le tick.
+      const cost = costs[rule.actionId];
+      if (cost && canPayCost(cost)) {
+        runCrisisAction(rule.actionId, { render: false });
       }
     }
   }

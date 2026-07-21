@@ -1194,7 +1194,15 @@ export function hydrateState(parsed = {}) {
     icarusJackpots: finiteInteger(source.icarusJackpots, base.icarusJackpots, 0),
     // grRevealed ⊇ grClaimed : un sceau réclamé (y compris migré depuis un save
     // linéaire) est forcément « découvert ». On fusionne les 3 sources.
-    grRevealed: { ...normalizeGrSet(source.grRevealed), ...normalizeGrSet(source.grClaimed), ...legacyClaimedFromCount(finiteInteger(source.grandResetCount, 0, 0)) },
+    // legacyClaimedFromCount UNIQUEMENT pour un save linéaire (sans grClaimed) :
+    // sur un save ordre-libre, l'ajouter révélerait (donc rendrait réclamables)
+    // des sceaux jamais atteints — cliquet exploitable au reload. Même garde que
+    // la branche grClaimed plus bas.
+    grRevealed: {
+      ...normalizeGrSet(source.grRevealed),
+      ...normalizeGrSet(source.grClaimed),
+      ...(isPlainObject(source.grClaimed) ? {} : legacyClaimedFromCount(finiteInteger(source.grandResetCount, 0, 0)))
+    },
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -1210,7 +1218,9 @@ export function hydrateState(parsed = {}) {
     atlasFardeau: finiteNumber(source.atlasFardeau, 0, 0, 100),
     atlasEpaules: finiteInteger(source.atlasEpaules, 0, 0),
     atlasCrushed: Boolean(source.atlasCrushed),
-    atlasShoulderCdEnd: finiteTimestamp(source.atlasShoulderCdEnd, 0),
+    // Fin de cooldown (horodatage FUTUR) : finiteNumber, pas finiteTimestamp —
+    // ce dernier plafonne à « maintenant » et ré-armerait ÉPAULER à chaque reload.
+    atlasShoulderCdEnd: finiteNumber(source.atlasShoulderCdEnd, 0, 0),
     sisypheMult: finiteNumber(source.sisypheMult, 1, 1),
     sisypheHeritage: Boolean(source.sisypheHeritage),
     sisypheCran: finiteInteger(source.sisypheCran, 0, 0),
@@ -1242,7 +1252,9 @@ export function hydrateState(parsed = {}) {
           infrastructure: decimalField(source.ragnarokArkCost.infrastructure, 0)
         }
       : null,
-    ragnarokArkNextAt: finiteTimestamp(source.ragnarokArkNextAt, 0),
+    // Prochaine offrande (horodatage FUTUR) : finiteNumber — finiteTimestamp la
+    // rendrait re-disponible au reload (triche de l'Arche par F5).
+    ragnarokArkNextAt: finiteNumber(source.ragnarokArkNextAt, 0, 0),
     ragnarokWolfBites: finiteInteger(source.ragnarokWolfBites, 0, 0),
     phoenixNextForceAt: source.phoenixNextForceAt ? finiteNumber(source.phoenixNextForceAt, 0, 0) : null,
     hephHeritage: Boolean(source.hephHeritage),
@@ -1262,8 +1274,11 @@ export function hydrateState(parsed = {}) {
     atridesDebt: finiteNumber(source.atridesDebt, base.atridesDebt, 0),
     atridesDrainDisabled: Boolean(source.atridesDrainDisabled),
     atridesDebtGrowthMultiplier: finiteNumber(source.atridesDebtGrowthMultiplier, base.atridesDebtGrowthMultiplier, 0),
-    atridesRenegotiateActiveUntil: finiteTimestamp(source.atridesRenegotiateActiveUntil, base.atridesRenegotiateActiveUntil),
-    atridesRenegotiateCooldownEnd: finiteTimestamp(source.atridesRenegotiateCooldownEnd, base.atridesRenegotiateCooldownEnd),
+    // Effet PAYÉ en cours (horodatage FUTUR) : finiteNumber, pas finiteTimestamp
+    // qui le ferait expirer sur-le-champ au reload (perte sèche pour le joueur).
+    atridesRenegotiateActiveUntil: finiteNumber(source.atridesRenegotiateActiveUntil, base.atridesRenegotiateActiveUntil, 0),
+    // Fin de cooldown (FUTUR) : finiteNumber — finiteTimestamp la raserait au reload.
+    atridesRenegotiateCooldownEnd: finiteNumber(source.atridesRenegotiateCooldownEnd, base.atridesRenegotiateCooldownEnd, 0),
     atridesHeritage: Boolean(source.atridesHeritage),
     atridesPactActive: Boolean(source.atridesPactActive),
     atridesNextRunPenaltyActive: Boolean(source.atridesNextRunPenaltyActive),

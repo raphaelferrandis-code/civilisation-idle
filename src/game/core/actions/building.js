@@ -252,11 +252,16 @@ export async function exhumeVestige() {
   const choice = await openChoiceDialog({
     title: "Vestige archéologique",
     body: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
-    options: candidates.map((b) => ({
-      label: tr(b.name),
-      detail: tr(b.desc),
-      buildingId: b.id
-    }))
+    options: [
+      // options[0] = défaut sûr : Échap (ou un clic) renonce au lieu de payer et
+      // d'exhumer le premier candidat (coût savoir ≥ 25000, ∝ population).
+      { label: "Renoncer", detail: "Ne rien exhumer" },
+      ...candidates.map((b) => ({
+        label: tr(b.name),
+        detail: tr(b.desc),
+        buildingId: b.id
+      }))
+    ]
   });
 
   setGamePaused(false);
@@ -306,6 +311,10 @@ export async function performGrandReset(gr) {
   const choice = await openChoiceDialog({
     title: `Grand Reset — ${tr(milestone.name)}`,
     body: `Tu réclames le sceau « ${tr(milestone.name)} ». Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
+    // preventClose : un Grand Reset est irréversible (efface tout). Échap ne
+    // doit pas pouvoir déclencher options[0], qui est l'action destructrice — le
+    // joueur choisit explicitement. Sûr depuis le fix B2 (ChoiceDialog).
+    preventClose: true,
     options: [
       { label: "Réclamer le sceau", detail: isRagnarok ? "+x4 Ruines permanent" : `+x${fmt(grandResetProductionMult(nextCount))} production permanente` },
       { label: "Annuler", detail: "Ne rien faire" }

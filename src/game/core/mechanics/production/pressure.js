@@ -52,8 +52,12 @@ export function scarcityRawInstant(forceDecimalPath = false) {
   const popF = toNum(state.population);
   const foodF = toNum(state.food);
   const population = Math.max(1, popF);
-  if (!forceDecimalPath && Number.isFinite(popF) && Number.isFinite(foodF)) {
-    return Math.max(0, (population * 2.4 - foodF) / Math.max(120, population * 2.4));
+  const demand = population * 2.4;
+  // `demand` peut déborder à +Infinity (population ~1e308) alors que food reste
+  // fini → Infinity/Infinity = NaN. On ne prend le chemin float que s'il rend un
+  // nombre fini ; sinon on bascule sur le Decimal (borné) ci-dessous.
+  if (!forceDecimalPath && Number.isFinite(popF) && Number.isFinite(foodF) && Number.isFinite(demand)) {
+    return Math.max(0, (demand - foodF) / Math.max(120, demand));
   }
   const popDec = D(state.population).max(1);
   return Math.max(0, popDec.mul(2.4).sub(state.food).div(popDec.mul(2.4).max(120)).toNumber());
@@ -96,7 +100,11 @@ export function pressureBreakdown(forceDecimalPath = false) {
   // ses trois canaux anti-Rupture (mitigation, structural, complexity).
   let scarcityRaw, inequalityRaw, knowledgeStrain, infraCoverage;
   const coverageDemandBase = Math.max(INFRA_COVERAGE_MIN_BASE, riskyBuildingCount * INFRA_COVERAGE_BUILDING_FACTOR);
-  if (!forceDecimalPath && Number.isFinite(popF) && Number.isFinite(foodF) && Number.isFinite(goldF) && Number.isFinite(knowF) && Number.isFinite(infraF)) {
+  // `population * 2.4` peut déborder à +Infinity (ères transcendantes) alors que
+  // food/gold restent finis → Infinity/Infinity = NaN, qui contaminerait la
+  // Rupture à vie (scarcityRawEase puis instability). On bascule alors sur le
+  // Decimal, comme le fait déjà infraCoverage juste en dessous.
+  if (!forceDecimalPath && Number.isFinite(popF) && Number.isFinite(foodF) && Number.isFinite(goldF) && Number.isFinite(knowF) && Number.isFinite(infraF) && Number.isFinite(population * 2.4)) {
     // Chemin float.
     scarcityRaw = Math.max(0, (population * 2.4 - foodF) / Math.max(120, population * 2.4));
     inequalityRaw = Math.max(0, goldF / Math.max(80, population * 1.25) - 0.55);
@@ -114,7 +122,9 @@ export function pressureBreakdown(forceDecimalPath = false) {
 
   // Plafond doux (Michaelis-Menten) : approche le plafond sans jamais l'atteindre
   // → la dérivée n'est jamais nulle, chaque achat garde un effet mesurable.
-  const softCap = (x, cap) => (x <= 0 ? 0 : cap * x / (x + cap));
+  // x = +Infinity (ratio au-delà du float) : cap·∞/(∞+cap) = NaN → on rend la
+  // limite asymptotique du plafond doux, qui est `cap`.
+  const softCap = (x, cap) => (x <= 0 ? 0 : Number.isFinite(x) ? cap * x / (x + cap) : cap);
 
   // Couverture EFFECTIVE plafonnée en doux : le stock d'infra (jamais consommé)
   // finit toujours par dépasser la demande sur un long cycle — sans ce plafond,
