@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache, buildGrandResetState } from "../state.js";
+import { resumeActiveRuinsChoiceIfPending } from "../actions/myths.js";
 import { scarcityRawInstant, pressureBreakdown } from "../mechanics/production/pressure.js";
 
 // Régressions du « lot express » de l'audit 2026-07-21. Les scénarios d'exploit
@@ -78,5 +79,14 @@ describe("Grand Reset ordre-libre — le message du ×4 suit le SCEAU, pas le ra
   });
   it("réclamer un autre sceau en 11e position n'annonce PAS le ×4", () => {
     expect(buildGrandResetState(11, 7).history[0]).not.toContain("x4 Ruines");
+  });
+});
+
+describe("M15 — reprise du choix des Ruines actives", () => {
+  it("sans choix en attente, resumeActiveRuinsChoiceIfPending est un no-op (ni modale, ni hang)", async () => {
+    setState(hydrateState({}));
+    state.pendingActiveRuinsChoice = false;
+    await resumeActiveRuinsChoiceIfPending();
+    expect(state.pendingActiveRuinsChoice).toBe(false);
   });
 });

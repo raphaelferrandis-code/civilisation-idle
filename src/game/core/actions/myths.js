@@ -124,6 +124,13 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
   }
 
   setGamePaused(true);
+  // Reprenable (M15) : on marque le choix EN ATTENTE et on le PERSISTE avant
+  // d'ouvrir la modale. Un reload pendant la modale rechargera le drapeau à true,
+  // et resumeActiveRuinsChoiceIfPending (au boot) rouvrira le choix — sinon le
+  // cycle tournait sans Ruines actives, sans aucun moyen de le refaire (fatal sous
+  // Antée). Le drapeau est effacé à la résolution, plus bas.
+  state.pendingActiveRuinsChoice = true;
+  save();
   render();
   const choice = await openChoiceDialog({
     title,
@@ -182,6 +189,23 @@ export async function promptActiveRuinsForNewCycle() {
   await chooseActiveRuins({
     required: false,
     title: "Choisir les Ruines actives"
+  });
+  setGamePaused(false);
+  save();
+  render();
+}
+
+// Rouvre au chargement une modale de Ruines actives interrompue par un reload
+// (F5 / fermeture d'onglet pendant le choix). Le drapeau pendingActiveRuinsChoice
+// est posé par chooseActiveRuins avant d'ouvrir la modale et effacé à sa
+// résolution ; on en déduit s'il faut le mode « requis » (Antée).
+export async function resumeActiveRuinsChoiceIfPending() {
+  if (!state.pendingActiveRuinsChoice || collapseInProgress) return;
+  const myth = state.activeMythId ? getMythById(state.activeMythId) : null;
+  const required = Boolean(myth && myth.requiresActiveRuinsChoice);
+  await chooseActiveRuins({
+    required,
+    title: required ? "Antée - Ruines actives" : "Choisir les Ruines actives"
   });
   setGamePaused(false);
   save();

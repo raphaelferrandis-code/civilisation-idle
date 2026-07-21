@@ -45,6 +45,7 @@ import {
 } from './actions.js';
 
 import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js';
+import { resumeActiveRuinsChoiceIfPending } from './actions/myths.js';
 import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { BRAISIERS_DURATION_MS } from '../data/myths.js';
@@ -499,6 +500,10 @@ export function initAudio() {
 
 export function startGameLoop() {
   applyOfflineProgress();
+  // Un choix de Ruines actives interrompu par un reload (F5 / onglet fermé pendant
+  // la modale) est rouvert ici — sinon le cycle tournait sans Ruines actives et
+  // sans recours, rendant Antée inaccomplissable (M15).
+  resumeActiveRuinsChoiceIfPending().catch((err) => console.error("Reprise du choix des Ruines actives :", err));
   const trackInteraction = () => registerOlympusInteraction();
   if (typeof window !== "undefined") {
     window.addEventListener("pointerdown", trackInteraction, { passive: true });
