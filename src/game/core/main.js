@@ -271,8 +271,11 @@ function simulateAwayCrises(elapsedSeconds) {
 //    MÊME cap (idleCapSeconds) — au-delà, tout gèle. Rupture gelée.
 // Remplace l'ancien hors-ligne « Usure seule ×0.35 », qui ne produisait rien.
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
-  // Crise terminale déjà ouverte / effondrement en cours : on ne touche à rien.
-  if (collapseInProgress || state.crisisLimitAnnounced) return;
+  // Crise terminale déjà ouverte / effondrement en cours / dialogue bloquant
+  // (gamePaused) : on ne touche à rien. Sans le garde gamePaused, un retour
+  // d'onglet pendant une crise narrative (openCrisisEvent) faisait tourner la
+  // sim, qui forçait setGamePaused(false) derrière la modale encore ouverte.
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   const elapsed = Math.min(idleCapSeconds(), Math.max(0, elapsedSeconds));
   if (elapsed <= 10) return;
 
@@ -356,7 +359,7 @@ export function checkAutoCollapse() {
   setCollapseInProgress(true);
   state.crisisOpenedAt = null;
   chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
-  runCollapseSequence(gain, "auto_collapse");
+  runCollapseSequence(gain, "auto_collapse").catch((err) => console.error("Séquence d'effondrement (Édit) interrompue :", err));
 }
 
 // ──────────────── Gestion de l'audio ─────────────────────────────────────────

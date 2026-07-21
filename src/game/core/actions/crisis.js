@@ -509,7 +509,7 @@ export function collapse(reason) {
     : "automatique";
   chronicle(`Le crépuscule s'abat sur la cité (effondrement ${reasonLabel}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`);
   
-  runCollapseSequence(gain, reason);
+  runCollapseSequence(gain, reason).catch((err) => console.error("Séquence d'effondrement interrompue :", err));
 }
 
 // Étape 2 : quelle barre (foyer de pressureBreakdown) chaque action calme.

@@ -328,7 +328,7 @@ export async function performGrandReset(gr) {
   // Registre de la Chronique : horodatage (horloge à vie) du GR effectué —
   // gravé AVANT le clone, pour que buildGrandResetState l'emporte dans le state
   // frais (chronicleStats est éternel, cf. GR_PERSISTENT_FIELDS).
-  recordGrPerformed(nextCount);
+  recordGrPerformed(gr); // le n° du SCEAU réclamé (comme recordGrDiscovered), pas le rang nextCount
 
   // Marque le sceau réclamé sur le state COURANT avant le clone : buildGrandResetState
   // recopie grClaimed (GR_PERSISTENT_FIELDS) dans le state frais et fixe
@@ -336,7 +336,7 @@ export async function performGrandReset(gr) {
   if (!state.grClaimed) state.grClaimed = {};
   state.grClaimed[gr] = true;
 
-  const fresh = buildGrandResetState(nextCount);
+  const fresh = buildGrandResetState(nextCount, gr);
 
   setState(fresh);
   // Le buffer d'annales (module-scope) survivrait au swap d'état : on l'efface

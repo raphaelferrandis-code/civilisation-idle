@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
@@ -1318,8 +1318,10 @@ export function hydrateState(parsed = {}) {
     stagnationSec: finiteNumber(source.stagnationSec, base.stagnationSec, 0),
     popMilestoneExp: finiteInteger(source.popMilestoneExp, base.popMilestoneExp, 0),
     // Horodatage futur (Date.now()+délai) : surtout PAS finiteTimestamp (qui
-    // plafonne à « maintenant » et casserait la programmation à venir).
-    nextBoonAt: finiteNumber(source.nextBoonAt, base.nextBoonAt, 0),
+    // plafonne à « maintenant » et casserait la programmation à venir). Borné en
+    // HAUT à now + intervalle max : une horloge système reculée après coup peut
+    // laisser un nextBoonAt aberrant qui bloquerait les aubaines à jamais.
+    nextBoonAt: finiteNumber(source.nextBoonAt, base.nextBoonAt, 0, Date.now() + BOON_INTERVAL_MAX_SEC * 1000),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
@@ -1708,7 +1710,7 @@ function cloneGrandResetValue(value) {
 // lequel on recopie les héritages permanents (GR_PERSISTENT_FIELDS), puis les 2
 // champs calculés (grandResetCount, history). Pur (lit le `state` courant) →
 // testable hors de la séquence async à dialogue de performGrandReset.
-export function buildGrandResetState(nextCount) {
+export function buildGrandResetState(nextCount, gr = nextCount) {
   const fresh = defaultState();
   for (const key of GR_PERSISTENT_FIELDS) {
     if (state[key] !== undefined) fresh[key] = cloneGrandResetValue(state[key]);
@@ -1718,7 +1720,9 @@ export function buildGrandResetState(nextCount) {
   // moisson dès que GRAND_RESET_PROD_BASE a cessé d'être GRAND_RESET_RUIN_BASE).
   const prodTxt = grandResetProductionMult(nextCount);
   const ruinTxt = grandResetRuinGainMult(nextCount);
-  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${nextCount === 11 ? "x4 Ruines supplémentaire" : `x${prodTxt < 10 ? prodTxt.toFixed(1) : prodTxt.toFixed(0)} production et x${ruinTxt.toFixed(0)} Ruines gagnées`}. Les pactes mythiques demeurent.`];
+  // Le ×4 Ruines est le bonus du sceau du Ragnarök (gr 11) : testé sur le SCEAU
+  // réclamé, pas sur le rang du GR — en ordre libre, gr peut différer de nextCount.
+  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${gr === 11 ? "x4 Ruines supplémentaire" : `x${prodTxt < 10 ? prodTxt.toFixed(1) : prodTxt.toFixed(0)} production et x${ruinTxt.toFixed(0)} Ruines gagnées`}. Les pactes mythiques demeurent.`];
   return fresh;
 }
 

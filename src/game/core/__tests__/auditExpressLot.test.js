@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, buildGrandResetState } from "../state.js";
 import { scarcityRawInstant, pressureBreakdown } from "../mechanics/production/pressure.js";
 
 // Régressions du « lot express » de l'audit 2026-07-21. Les scénarios d'exploit
@@ -59,5 +59,24 @@ describe("M18 — la pression reste FINIE quand population*2.4 déborde le float
     const p = pressureBreakdown();
     expect(Number.isFinite(p.scarcity)).toBe(true);
     expect(Number.isFinite(p.total)).toBe(true);
+  });
+});
+
+describe("nextBoonAt — un horodatage futur aberrant est borné à l'hydratation", () => {
+  it("une valeur très au-delà de l'intervalle max est clampée (sinon aubaines bloquées à jamais)", () => {
+    // Horloge système reculée après coup : nextBoonAt persisté à +30 jours.
+    const aberrant = Date.now() + 30 * 24 * 3600 * 1000;
+    const s = hydrateState({ nextBoonAt: aberrant });
+    expect(s.nextBoonAt).toBeGreaterThan(0);
+    expect(s.nextBoonAt).toBeLessThan(aberrant - 24 * 3600 * 1000); // clampé loin sous +30j
+  });
+});
+
+describe("Grand Reset ordre-libre — le message du ×4 suit le SCEAU, pas le rang", () => {
+  it("réclamer le sceau du Ragnarök (gr 11) en 5e annonce le ×4 Ruines", () => {
+    expect(buildGrandResetState(5, 11).history[0]).toContain("x4 Ruines");
+  });
+  it("réclamer un autre sceau en 11e position n'annonce PAS le ×4", () => {
+    expect(buildGrandResetState(11, 7).history[0]).not.toContain("x4 Ruines");
   });
 });

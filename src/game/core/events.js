@@ -86,6 +86,12 @@ export function generateEpitaph() {
 // écriture d'état avant le dialogue fera échouer ce test.
 export async function runCollapseSequence(gain, reason) {
   setMourning(true);
+  // Filet anti-gel (M14) : si QUOI QUE CE SOIT lève ci-dessous (completeCollapse,
+  // promesse de dialogue orpheline après un remount du slot choiceResolver,
+  // exception dans captureCurrentVestige…), le `finally` relâche toujours les
+  // verrous — sinon tick()/checkAutoCollapse sortent en tête à jamais et le jeu
+  // est mort jusqu'au rechargement. Corps NON ré-indenté sous le try (diff minimal).
+  try {
   const dynastyIndex = state.cycles % dynastyNames.length;
   const fallenDynasty = dynastyNames[dynastyIndex];
   const epitaph = generateEpitaph();
@@ -215,4 +221,9 @@ export async function runCollapseSequence(gain, reason) {
   save();
   openView("city");
   render();
+  } finally {
+    setCollapseInProgress(false);
+    setMourning(false);
+    setGamePaused(false);
+  }
 }
