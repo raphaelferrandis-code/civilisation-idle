@@ -20,7 +20,11 @@
 import fs from "fs";
 
 // --- Stubs DOM (avant imports jeu) -----------------------------------------
-global.window = {};
+// window doit porter addEventListener : cloudSave.js s'y abonne ('pagehide',
+// 'visibilitychange') depuis le lot 1a de l'audit (commit 7405fe4), et un stub
+// vide faisait planter le bench AU CHARGEMENT — donc plus aucun garde-fou A1-A10
+// depuis ce commit, alors que ce sont eux qui tiennent l'anti-imprimante.
+global.window = { addEventListener() {}, removeEventListener() {} };
 global.localStorage = { getItem() { return null; }, setItem() {} };
 Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
 const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });

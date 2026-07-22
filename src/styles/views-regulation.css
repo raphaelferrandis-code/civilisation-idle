@@ -1188,16 +1188,44 @@
 /* Table de jeu : drap pourpre profond liseré d'or (le « feutre » du temple),
    Oracle en haut / joueur en bas, séparés par un filet pointillé. */
 .bj-table {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
   margin: 0.5rem auto;
+  /* Largeur ARRÊTÉE, plus « au contenu » : le drap ne doit pas grandir d'un cran
+     à chaque carte tirée, et il faut une gouttière stable à droite pour le sabot. */
+  width: 100%;
   max-width: 460px;
-  padding: 0.7rem 0.85rem 0.85rem;
+  /* La gouttière du sabot (64 px de sprite + 8 px d'air) : rien du jeu ne passe
+     dessous, ni les mains, ni les valeurs, ni le filet de séparation. */
+  padding: 0.7rem calc(0.85rem + 72px) 0.85rem 0.85rem;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
   background: radial-gradient(120% 95% at 50% 0%, #33204a 0%, #251437 55%, #190d27 100%);
   box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Le sabot : 32×64 natif rendu au double exact, comme les cartes. Posé au milieu
+   de la gouttière droite, il ne bouge pas d'une main à l'autre. */
+.bj-deck {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 64px;
+  height: 128px;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* Écran étroit : la gouttière coûterait plus que le décor ne rapporte, le drap
+   revient à toute sa largeur et le sabot s'efface. */
+@media (max-width: 520px) {
+  .bj-table { padding-right: 0.85rem; }
+  .bj-deck { display: none; }
 }
 
 .bj-side { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -1219,109 +1247,32 @@
 .bj-val { font-family: var(--font-number); font-size: 0.92rem; color: var(--gold-bright); }
 .bj-val.is-bust { color: #ff6a55; }
 
-.bj-hand { display: flex; flex-wrap: wrap; gap: 0.45rem; min-height: 82px; }
+.bj-hand { display: flex; flex-wrap: wrap; gap: 0.45rem; min-height: 96px; }
 
-/* Carte à jouer antique : parchemin à double liseré, indices de coin (rang +
-   mini-emblème, tête-bêche en bas-droite), grand emblème central. Une carte
-   qui arrive est « distribuée » (glisse + fondu). */
+/* Carte à jouer : sprite du pack Bit Digitalis, 32×48 natif rendu au DOUBLE
+   EXACT (64×96). Le facteur entier n'est pas négociable — à l'échelle
+   fractionnaire le pixel art se hache. Rien n'est composé par-dessus : le rang,
+   la couleur et le liseré sont peints dans le sprite. Ombre portée DURE (0 flou)
+   pour décoller la carte du drap sans introduire de flou dans du pixel.
+   Une carte qui arrive est « distribuée » (glisse + fondu). */
 .bj-card {
-  position: relative;
-  width: 54px;
-  height: 76px;
-  border-radius: 6px;
-  background: linear-gradient(160deg, #f0e5c8 0%, #e7d9b4 60%, #ddcca2 100%);
-  border: 1px solid #a87c2a;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 248, 224, 0.55),
-    0 2px 4px rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  width: 64px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.5));
+  -webkit-user-drag: none;
   animation: bj-deal 0.28s ease-out backwards;
 }
 
 .bj-hand .bj-card:nth-child(2) { animation-delay: 0.08s; }
 
+/* Glissé SANS rotation : les cartes sont du pixel art, et une carte inclinée de
+   3 degres est rééchantillonnée pendant toute la distribution. Translation en
+   pixels entiers, l'image reste nette du premier au dernier frame. */
 @keyframes bj-deal {
-  from { transform: translateY(-12px) rotate(-3deg); opacity: 0; }
+  from { transform: translateY(-12px); opacity: 0; }
   to { transform: none; opacity: 1; }
-}
-
-/* Indices de coin : rang au-dessus d'un mini-emblème ; le second est répété
-   tête-bêche en bas-droite, comme sur une vraie carte. */
-.bj-corner {
-  position: absolute;
-  top: 3px;
-  left: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  line-height: 1;
-}
-
-.bj-corner b {
-  font-family: var(--font-number);
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: #3a2a12;
-}
-
-.bj-corner img {
-  width: 10px;
-  height: 10px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  -webkit-user-drag: none;
-}
-
-.bj-corner--tail {
-  top: auto;
-  left: auto;
-  bottom: 3px;
-  right: 4px;
-  transform: rotate(180deg);
-}
-
-/* Familles teintées (l'écho du rouge/noir) : feuillage vs relique. */
-.bj-card--leaf .bj-corner b { color: #33502a; }
-.bj-card--relic .bj-corner b { color: #6b3040; }
-
-.bj-card-suit {
-  width: 26px;
-  height: 26px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  -webkit-user-drag: none;
-}
-
-/* Figures : liseré d'or intérieur ; As : emblème agrandi. */
-.bj-card.is-face::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 35%);
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-.bj-card.is-ace .bj-card-suit { width: 34px; height: 34px; }
-
-.bj-card.is-hidden { background: #241536; border-color: #a87c2a; }
-
-/* Verso : drap pourpre, filet d'or, motif tissé et couronne en médaillon
-   (icône du jeu réutilisée — pas d'asset dédié). */
-.bj-card-back {
-  position: absolute;
-  inset: 3px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  background:
-    url("/pixelart/ui/glyphs/couronne.png") center / 24px 24px no-repeat,
-    repeating-linear-gradient(45deg, rgba(232, 193, 90, 0.10) 0 3px, transparent 3px 7px),
-    repeating-linear-gradient(-45deg, rgba(232, 193, 90, 0.08) 0 3px, transparent 3px 7px),
-    radial-gradient(90% 70% at 50% 40%, #3a2452 0%, #2a1839 60%, #1e1029 100%);
-  image-rendering: pixelated;
 }
 
 .stage-footnote {
@@ -1494,8 +1445,8 @@
   flex-wrap: wrap;
 }
 
-/* Les osselets : ivoire patiné, culbute pendant le jet, atterrissage un à un.
-   Les faces portent les VALEURS (1·3·4·6) en pips gravés — ivoire nu pour
+/* Les dés d'os : ivoire patiné, culbute pendant le jet, atterrissage un à un.
+   Les faces portent les VALEURS (1 à 6) en pips gravés — ivoire nu pour
    toutes ; seul le Chien (1) reçoit un halo funeste (.is-ace). */
 .augury-dice {
   display: flex;
@@ -1504,17 +1455,20 @@
   padding: 1.05rem 0 0.7rem;
 }
 
-/* Sprites d'astragales (scripts/makeOsselets.mjs) : planche horizontale des 4
-   faces dans l'ordre 1·3·4·6. La mise à l'échelle DOIT rester entière (32 → 96,
-   soit ×3) sinon la grille de pixels bave — d'où le repli à ×2 en écran étroit
-   plutôt qu'une taille fluide. */
+/* Sprites de dés d'os (scripts/makeDesTemple.mjs) : planche horizontale des 6
+   faces dans l'ordre 1·2·3·4·5·6. La mise à l'échelle DOIT rester entière
+   (32 → 96, soit ×3) sinon la grille de pixels bave — d'où le repli à ×2 en
+   écran étroit plutôt qu'une taille fluide.
+   Le facteur 6 ci-dessous est le NOMBRE DE CADRES : il se retrouve à l'identique
+   dans steps() et dans la keyframe de culbute, les trois doivent bouger ensemble
+   (avant le 2026-07-22 la planche en comptait 4, du temps des astragales). */
 .augury-dice { --bone: 96px; }
 
 .augury-die {
   width: var(--bone);
   height: var(--bone);
   background-repeat: no-repeat;
-  background-size: calc(var(--bone) * 4) var(--bone);
+  background-size: calc(var(--bone) * 6) var(--bone);
   image-rendering: pixelated;
   filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.5));
 }
@@ -1529,14 +1483,16 @@
 }
 
 .augury-die[data-face="1"] { background-position-x: 0; }
-.augury-die[data-face="3"] { background-position-x: calc(var(--bone) * -1); }
-.augury-die[data-face="4"] { background-position-x: calc(var(--bone) * -2); }
-.augury-die[data-face="6"] { background-position-x: calc(var(--bone) * -3); }
+.augury-die[data-face="2"] { background-position-x: calc(var(--bone) * -1); }
+.augury-die[data-face="3"] { background-position-x: calc(var(--bone) * -2); }
+.augury-die[data-face="4"] { background-position-x: calc(var(--bone) * -3); }
+.augury-die[data-face="5"] { background-position-x: calc(var(--bone) * -4); }
+.augury-die[data-face="6"] { background-position-x: calc(var(--bone) * -5); }
 
 /* Culbute : on FAIT DÉFILER les faces (steps) au lieu de faire tourner l'image
    — une rotation non multiple de 90° détruirait le pixel-art. */
 .augury-die:not(.is-landed) {
-  animation: augury-roll 0.26s steps(4) infinite, augury-hop 0.42s ease-in-out infinite alternate;
+  animation: augury-roll 0.26s steps(6) infinite, augury-hop 0.42s ease-in-out infinite alternate;
 }
 
 .augury-die.is-landed {
@@ -1552,7 +1508,7 @@
 
 @keyframes augury-roll {
   from { background-position-x: 0; }
-  to { background-position-x: calc(var(--bone) * -4); }
+  to { background-position-x: calc(var(--bone) * -6); }
 }
 
 @keyframes augury-hop {

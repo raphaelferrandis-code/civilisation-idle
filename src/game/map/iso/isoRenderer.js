@@ -17,11 +17,11 @@ import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveI
 import { state } from '../../core/state.js';
 import { worldToScreen, visibleCellBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
-import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint } from '../seasonMode.js';
+import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEngineSprites.js';
-import { cityMapDrawQuays, updateCrisis, drawRiotWeapon } from '../renderWorld.js';
+import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
 import { waterRippleTune } from '../pixelRiver.js';
@@ -286,9 +286,14 @@ const ROAD_BAND = 0.25;   // demi-largeur du ruban (fraction de tuile)
 // meadow : PRÉS — plaques lentes de nuance par bruit LISSÉ (smoothNoise, aucune
 // couture de cellule ni de bloc, contrairement à la variance par cellule qui
 // dessinait un maillage) ; foncé = herbe grasse, clair = herbe sèche. Dosé bas.
-const GRASS_DETAIL = { on: true, tileAlpha: 0, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0.16 };
+const GRASS_DETAIL = { on: true, tileAlpha: 0, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0.16, clumpP: 0.09 };
 const GD_BLADE = [66, 100, 46];      // brin foncé
 const GD_TIP = [156, 180, 96];       // pointe claire du brin (référence = été)
+// Décor de sol découpé du pack Cainos (scripts/sliceCainosPlants.mjs), rabattu
+// sur la rampe foliage. Les CAILLOUX du même pack ont été dispersés ici puis
+// RETIRÉS (Raph, 2026-07-22) — d'abord les pierres plates (« en tuile » dans
+// l'herbe), puis les blocs ronds. Ne pas re-proposer de semer des pierres.
+const GD_TUFTS = 15;                 // deco/tuft-1..15
 
 // Résout la palette de saison. Appelée en tête de frame : trois lectures de
 // table, aucun calcul de couleur — l'interpolation libre est explicitement
@@ -395,12 +400,39 @@ function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
     rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy + pu, pu, pu, petal, 1);
     rect(cx, cy, pu, pu, core, 1);
   }
+  // ── TOUFFES et PIERRES (sprites, pack Cainos) ──────────────────────────────
+  // Posés à l'échelle du PIXEL D'ART (pu) et pas à une taille en px : c'est ce
+  // qui les met à la même résolution apparente que les brins et les pâquerettes
+  // tracés juste au-dessus. Dessiné au pixel près, sans lissage — sinon un
+  // sprite de 15 px étalé sur 30 devient flou. Ancrés par le BAS-CENTRE (une
+  // pierre pose son assise au point, elle ne flotte pas autour).
+  // Ils vivent dans le BAKE du sol : coût nul par frame, et ils sont sautés
+  // d'office par le bake allégé (pan) comme les autres détails d'herbe.
+  const deco = (art, fx, fy) => {
+    if (!art.ready || !art.img) return;
+    const iw = art.img.naturalWidth || art.img.width || 0;
+    const ih = art.img.naturalHeight || art.img.height || 0;
+    if (!iw || !ih) return;
+    const w = Math.max(1, Math.round(iw * pu)), hgt = Math.max(1, Math.round(ih * pu));
+    const sx = Math.round(px + (fx - fy) * hw), sy = Math.round(py + (fx + fy) * hh);
+    ctx.drawImage(art.img, sx - (w >> 1), sy - hgt, w, hgt);
+  };
+  // Touffe d'herbe haute. Densité SÉPARÉE des brins procéduraux (tuftP) : une
+  // touffe dessinée fait ~une demi-cellule, à la densité des brins elle
+  // re-carpetterait le sol — l'écueil déjà tranché avec Raph le 2026-07-12.
+  const h3 = cmHash('gc:' + gx + ':' + gy);
+  if (GRASS_DETAIL.clumpP > 0 && (h3 & 1023) / 1023 < GRASS_DETAIL.clumpP) {
+    const fx = 0.24 + ((h3 >> 10) & 31) / 31 * 0.52;
+    const fy = 0.24 + ((h3 >> 16) & 31) / 31 * 0.52;
+    deco(isoArt('deco/tuft-' + (1 + (h3 % GD_TUFTS))), fx, fy);
+  }
 }
 if (typeof window !== 'undefined') {
   // Molette de réglage : rebake le sol immédiatement.
   // __grassDetail(false) éteint ; (nombre) = fréquence des fleurs ; ({tileAlpha,
-  // flowerP,tuftP,speckleP,wildShade}) = réglage fin. Ex. réactiver les touffes :
-  // __grassDetail({ tuftP: 0.25 }).
+  // flowerP,tuftP,speckleP,wildShade,clumpP}) = réglage fin. Ex. réactiver les
+  // brins : __grassDetail({ tuftP: 0.25 }) ; couper les touffes dessinées :
+  // __grassDetail({ clumpP: 0 }).
   window.__grassDetail = (arg) => {
     if (arg === false) GRASS_DETAIL.on = false;
     else if (typeof arg === 'number') { GRASS_DETAIL.on = true; GRASS_DETAIL.flowerP = arg; }
@@ -424,6 +456,95 @@ function smoothNoise(gx, gy, scale, salt) {
     + (h(x0, y0 + 1) * (1 - sx) + h(x0 + 1, y0 + 1) * sx) * sy;
 }
 
+// ── LISIÈRE QUI DIVAGUE (jonction herbe↔ville, RENDU SEUL) ───────────────────
+// Cinq tentatives ont échoué sur cette jonction, et toutes DÉCORAIENT la couture
+// en ajoutant un élément SOMBRE le long de la ligne : langues crantées à pointe
+// sombre ('teeth' → « ça lit comme des tas »), ourlet sombre continu ('hem' →
+// « ça n'a rien changé »), bords rongés + gravillons (ROAD_DETAIL.edgeFringe →
+// « ça salissait la route »), contour d'un pack de tuiles Wang (→ traînée grise).
+// Ce qui a SURVÉCU est d'une autre famille : dégradé de valeur doux (épaulement,
+// gorge, ourlet) ou objet posé à cheval (touffes, fleurs).
+//
+// Le défaut jamais traité n'est pas la décoration : c'est que la frontière est
+// une DROITE. urbanSet est un bloc, donc son bord projette une diagonale au
+// cordeau, et décorer une droite ne la rend pas naturelle. Ici on ne décore
+// rien : on fait SERPENTER la frontière elle-même, en retournant la matière de
+// quelques cellules frontalières — une morsure d'herbe dans le pavé, une langue
+// de pavé dans l'herbe. Zéro couleur nouvelle, zéro élément sombre, zéro
+// primitive en plus : ce sont les deux aplats existants, sur un bord qui n'est
+// plus tiré à la règle. Les touffes et les fleurs de la frange suivent
+// automatiquement (grassAt lit kindAt) et ont enfin un bord organique à souligner.
+//
+// ⚠ RENDU SEUL : urbanSet n'est PAS touché. Le placement des bâtiments, les
+// routes et le plan continuent de lire l'emprise logique — une cellule rendue en
+// herbe reste constructible côté jeu, et surtout aucune maison ne peut se
+// retrouver posée sur l'herbe (cf. le garde d'occupation ci-dessous).
+//
+// Le bruit est LISSÉ sur ~3 cellules (smoothNoise) et UNIQUE pour les deux sens :
+// là où il est haut la ville avance, là où il est bas l'herbe mord. La frontière
+// ondule donc de façon cohérente au lieu de moucheter au hasard.
+// p : part des cellules frontalières retournées de chaque côté.
+// Réglage live : __frontier(false) / ({ p, scale, solo }).
+const FRONTIER = { on: true, p: 0.3, scale: 3.2, solo: false };
+if (typeof window !== 'undefined') {
+  window.__frontier = (arg) => {
+    if (arg === false) FRONTIER.on = false;
+    else if (arg && typeof arg === 'object') { FRONTIER.on = true; Object.assign(FRONTIER, arg); }
+    else FRONTIER.on = true;
+    CM._isoGroundBake = null;
+    return { ...FRONTIER };
+  };
+}
+// Cellules PORTEUSES d'une emprise bâtie, tous types confondus (L.tiles = la
+// source du rendu des bâtiments). Sert de garde : on ne rend jamais en herbe une
+// cellule qui porte quelque chose. Cuit une fois par layout — le cache meurt avec
+// lui puisqu'un recalcul reconstruit l'objet.
+function builtCells(L) {
+  if (L._builtCells) return L._builtCells;
+  const s = new Set();
+  for (const t of (L.tiles || [])) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) {
+      for (let ay = 0; ay < sy; ay += 1) s.add((t.gx + ax) + ',' + (t.gy + ay));
+    }
+  }
+  L._builtCells = s;
+  return s;
+}
+// Cette cellule frontalière rend-elle la matière de l'AUTRE côté ? Pure et
+// exportée : c'est ici que vit le garde qui empêche une maison de se retrouver
+// plantée dans l'herbe, et un garde non testé ne protège rien.
+// `urbanLogical` lit le LAYOUT (jamais kindAt, qui appelle ceci — l'inverse
+// bouclerait) ; `built` = cellules porteuses d'une emprise (cf. builtCells).
+export function frontierFlip(gx, gy, isUrban, urbanLogical, built, cfg = FRONTIER) {
+  // LE RENDU ET L'EMPRISE DOIVENT CONCORDER. Des cellules sont peintes en sol de
+  // ville SANS appartenir à urbanSet : le « quai-lite » pave toute berge qui
+  // touche le tissu urbain. Sans ce garde, elles arrivaient ici avec isUrban=true
+  // alors qu'urbanLogical répond false ; le test de bord ci-dessous ne pouvait
+  // donc jamais les retenir, et le bruit les rendait en herbe — autrement dit il
+  // EFFAÇAIT LES QUAIS (régression signalée par Raph). On ne perturbe que les
+  // cellules dont la matière rendue vient bien de l'emprise logique.
+  if (urbanLogical(gx, gy) !== isUrban) return false;
+  // Seules les cellules DE BORD bougent : à l'intérieur des deux matières, rien
+  // ne doit changer (sinon on moucheterait la ville et la plaine de taches).
+  if (urbanLogical(gx + 1, gy) === isUrban && urbanLogical(gx - 1, gy) === isUrban
+    && urbanLogical(gx, gy + 1) === isUrban && urbanLogical(gx, gy - 1) === isUrban) return false;
+  // GARDE : une cellule qui porte un bâtiment garde son sol de ville.
+  if (isUrban && built.has(gx + ',' + gy)) return false;
+  const past = (x, y) => {
+    const n = smoothNoise(x, y, cfg.scale, 'front');
+    return isUrban ? n < cfg.p : n > 1 - cfg.p;
+  };
+  if (!past(gx, gy)) return false;
+  // Pas de LOSANGE ISOLÉ : un seul retournement au milieu de l'autre matière se
+  // lit comme une tache géométrique (l'écueil de toute valeur « par cellule »).
+  // On exige qu'un voisin bascule aussi → les retournements viennent par paquets
+  // et le bord ondule au lieu de moucheter. Le bruit étant lissé sur ~3 cellules
+  // c'est presque toujours vrai : ça ne coupe que les cas isolés.
+  if (cfg.solo) return true;
+  return past(gx + 1, gy) || past(gx - 1, gy) || past(gx, gy + 1) || past(gx, gy - 1);
+}
+
 // ── FRANGE D'HERBE (jonction herbe↔sol) ──────────────────────────────────────
 // L'escalier de losanges FRANC entre l'herbe et le sol urbain était la couture la
 // plus dure de la carte. Le long de chaque arête partagée herbe/sol, l'herbe MORD
@@ -442,15 +563,97 @@ function smoothNoise(gx, gy, scale, salt) {
 // 0 en même temps : le look 'teeth' HISTORIQUE se rejoue avec
 // __grassFringe({mode:'teeth', dark:1}) (sans dark:1, pointes sans ourlet
 // d'ombre = un rendu qui n'a jamais existé) ; 'hem' : __grassFringe({mode:'hem'}).
-const GRASS_FRINGE = { on: true, mode: 'none', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0 };
+// mode 'wander' (2026-07-22) : on ne DÉCORE plus la couture, on DÉPLACE le bord.
+// Les quatre décorations tentées ('teeth', 'hem', edgeFringe, contour d'un pack
+// de tuiles) ont toutes été refusées, et toutes ajoutaient un élément SOMBRE le
+// long de la ligne. Ici, aucun pixel nouveau : le long de l'arête, le bord est
+// repoussé d'un côté ou de l'autre, et on repeint simplement avec la teinte du
+// voisin. Là où le décalage est positif l'herbe avance dans le pavé, là où il
+// est négatif le pavé avance dans l'herbe. Zéro couleur ajoutée, zéro ombre.
+// Le décalage vient d'un bruit LISSÉ échantillonné en coordonnées MONDE (jamais
+// par cellule ni par pas) : il est donc continu d'une cellule à l'autre, sinon
+// chaque coin de losange rouvrirait une discontinuité — et c'est précisément la
+// grille qu'on cherche à faire disparaître.
+// wander = amplitude du décalage en « pixels d'art » ; wanderF = finesse (plus
+// haut = ondulation plus serrée). Réglé pour onduler à ~1/5 de cellule, l'échelle
+// à laquelle le pack trouvé beau ondulait — et non à la cellule entière.
+const GRASS_FRINGE = { on: true, mode: 'wander', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0, wander: 2.6, wanderF: 12 };
+// ── LISERÉ DE NEIGE (hiver seulement) ────────────────────────────────────────
+// L'hiver décolore l'herbe et coupe les fleurs, mais ne pose rien : la saison se
+// lit en creux, et le sol paraît juste éteint (retour Raph). Une ville sous la
+// neige demanderait un vrai jeu de sprites — mais un LISERÉ n'en demande aucun :
+// la neige tient là où personne ne marche, c'est-à-dire au PIED de la lisière,
+// côté herbe. On la pose donc le long du bord déjà déplacé par 'wander'.
+// Deux précautions tirées des cinq refus de cette jonction :
+//   - la neige est CLAIRE. Tout ce qui a été refusé ici ajoutait du SOMBRE ;
+//     c'est la seule famille qui n'ait jamais été essayée.
+//   - elle est TROUÉE et d'épaisseur variable. Un liseré continu, c'était le
+//     mode 'hem' — refusé pour n'être qu'un trait de plus le long de la ligne.
+// Les deux teintes sortent de la palette maître (boneWhite clair + metalSlate
+// pour les creux bleutés) : aucune couleur nouvelle n'entre dans le jeu.
+// Réglage live : __snow(false) / ({ depth, cover, shadeP }).
+const SNOW = { on: true, depth: 1.7, cover: 0.34, shadeP: 0.4 };
+const SNOW_TOP = [251, 250, 244];    // boneWhite — la neige au soleil
+const SNOW_SHADE = [170, 176, 184];  // metalSlate — le creux, côté herbe
+if (typeof window !== 'undefined') {
+  window.__snow = (arg) => {
+    if (arg === false) SNOW.on = false;
+    else if (arg && typeof arg === 'object') { SNOW.on = true; Object.assign(SNOW, arg); }
+    else SNOW.on = true;
+    CM._isoGroundBake = null;
+    return { ...SNOW };
+  };
+}
 const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
 const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
-function drawGrassFringeEdge(ctx, f, pu) {
+function drawGrassFringeEdge(ctx, f, pu, soilTone) {
   const dxE = f.bx - f.ax, dyE = f.by - f.ay;
   const len = Math.hypot(dxE, dyE);
   const steps = Math.max(3, Math.round(len / pu));
   const rect = (x, y, col) => { ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fillRect(x, y, pu, pu); };
   const mode = GRASS_FRINGE.mode;
+  if (mode === 'wander' && soilTone) {
+    // BORD DÉPLACÉ (cf. l'en-tête du bloc). Densité ×2 comme 'hem' : sur une
+    // diagonale 2:1, un pas par pu laisserait l'escalier à jour entre les carrés.
+    const D = GRASS_FRINGE.wander * pu;
+    const F = GRASS_FRINGE.wanderF;
+    const n2 = Math.max(4, Math.ceil(len / pu) * 2);
+    for (let i = 0; i < n2; i += 1) {
+      const t = (i + 0.5) / n2;
+      // Position MONDE du pas (en cellules) → le bruit est continu de cellule en
+      // cellule, donc le bord ondule sans se rompre aux coins des losanges.
+      const wx = f.wx0 + (f.wx1 - f.wx0) * t, wy = f.wy0 + (f.wy1 - f.wy0) * t;
+      const d = (smoothNoise(wx * F, wy * F, 2.5, 'wan') - 0.5) * 2 * D;
+      const ex = f.ax + dxE * t, ey = f.ay + dyE * t;
+      const n = Math.round(Math.abs(d) / pu);
+      // d > 0 : l'herbe mord dans le sol (sens rentrant) ; d < 0 : l'inverse.
+      const sgn = d > 0 ? 1 : -1;
+      const col = d > 0 ? SEASON_GRASS : soilTone;
+      for (let j = 0; j < n; j += 1) {
+        const s = (j + 0.5) * pu * sgn;
+        rect(Math.round(ex + f.inx * s - pu / 2), Math.round(ey + f.iny * s - pu / 2), col);
+      }
+      // NEIGE : posée depuis le bord DÉPLACÉ (offset d) en s'enfonçant côté
+      // HERBE (sens −in) — jamais sur le pavé, qui est piétiné et déneigé.
+      // Son bruit est plus LARGE que celui du bord (×0.55) : la neige tient par
+      // plaques longues, pas au rythme des ondulations du bord.
+      if (SNOW.on && CM.season === WINTER) {
+        const sn = smoothNoise(wx * F * 0.55, wy * F * 0.55, 2.5, 'snow');
+        if (sn > SNOW.cover) {
+          // Épaisseur variable : un liseré d'épaisseur constante redeviendrait le
+          // trait continu du mode 'hem', qui a été refusé.
+          const dep = Math.max(1, Math.round(SNOW.depth * (0.35 + sn)));
+          for (let j = 0; j < dep; j += 1) {
+            const s = d - (j + 0.5) * pu;
+            // Le creux bleuté ne va qu'au bord INTÉRIEUR de la plaque (là où la
+            // neige s'amincit dans l'herbe) : la neige garde un dessus franc.
+            const cold = j === dep - 1 && ((cmHash('sn:' + Math.round(wx * 97) + ':' + Math.round(wy * 97)) >>> 0) % 100) / 100 < SNOW.shadeP;
+            rect(Math.round(ex + f.inx * s - pu / 2), Math.round(ey + f.iny * s - pu / 2), cold ? SNOW_SHADE : SNOW_TOP);
+          }
+        }
+      }
+    }
+  }
   if (mode === 'hem') {
     // TRAIT CONTINU : rangée de pixels d'art SANS trouée qui longe l'arête, à
     // cheval côté sol — pas-de-vis en carrés opaques (pas de stroke anti-aliasé,
@@ -863,6 +1066,14 @@ function drawIsoGround() {
   const plazaEra = plazaEraForBand(band);
   const plazaSceneReady = !!(plazaEra && isoArt('plaza-' + plazaEra).ready);
   const kinds = new Map();
+  // ── Décision de la LISIÈRE QUI DIVAGUE, déclarée AVANT kindAt qui l'appelle.
+  // (Un const déclaré après son appelant marche tant que l'appel est différé,
+  // mais c'est le motif exact qui a déjà produit un TDZ en production ici : on
+  // ne le rejoue pas.) Ne lit QUE le layout, jamais kindAt — kindAt l'appelle,
+  // l'inverse bouclerait.
+  const urbanLogical = (gx, gy) => !!(L.urbanSet && L.urbanSet.has(gx + ',' + gy));
+  const built = builtCells(L);
+  const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, urbanLogical, built);
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
     const hit = kinds.get(key);
@@ -889,6 +1100,12 @@ function drawIsoGround() {
       // esquisse des quais legacy ; le vrai quai par ère viendra avec l'art Phase 5.
       k = 'urban';
     } else k = 'grass';   // teinte UNIFORME (couture in-grid/sauvage retirée)
+    // LISIÈRE QUI DIVAGUE : la frontière ville↔campagne serpente au lieu de
+    // suivre l'emprise au cordeau (cf. FRONTIER). Retour de matière SEULEMENT :
+    // ni route, ni eau, ni dallage formel, et jamais une cellule bâtie.
+    if (FRONTIER.on && !isRoad && !isWater && (k === 'urban' || k === 'grass')) {
+      if (frontierFlips(gx, gy, k === 'urban')) k = k === 'urban' ? 'grass' : 'urban';
+    }
     kinds.set(key, k);
     return k;
   };
@@ -1069,10 +1286,14 @@ function drawIsoGround() {
       if (GRASS_FRINGE.on && !LOD && (kind === 'urban' || kind === 'dirt')) {
         const inL = 1 / Math.hypot(hw, hh);          // vecteur rentrant normalisé (±hw,±hh)
         const ixn = hw * inL, iyn = hh * inL;
-        if (grassAt(gx, gy - 1)) fringes.push({ ax: p.x, ay: p.y, bx: p.x + hw, by: p.y + hh, inx: -ixn, iny: iyn, seed: 'gfr:n:' + key });
-        if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key });
-        if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key });
-        if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key });
+        // wx0/wy0→wx1/wy1 : les deux bouts de l'arête en coordonnées MONDE (en
+        // cellules). Le mode 'wander' échantillonne son bruit là-dessus, jamais
+        // sur la cellule ni sur l'indice du pas : c'est ce qui rend le bord
+        // continu d'un losange au suivant au lieu de casser à chaque coin.
+        if (grassAt(gx, gy - 1)) fringes.push({ ax: p.x, ay: p.y, bx: p.x + hw, by: p.y + hh, inx: -ixn, iny: iyn, seed: 'gfr:n:' + key, wx0: gx, wy0: gy, wx1: gx + 1, wy1: gy });
+        if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key, wx0: gx + 1, wy0: gy, wx1: gx + 1, wy1: gy + 1 });
+        if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key, wx0: gx, wy0: gy + 1, wx1: gx + 1, wy1: gy + 1 });
+        if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key, wx0: gx, wy0: gy, wx1: gx, wy1: gy + 1 });
       }
       // Les cellules-PONT ne reçoivent ni fond ni ruban ici : leur tablier est
       // dessiné APRÈS le fleuve (drawIsoBridges), au-dessus de l'eau. Le PARVIS
@@ -1087,16 +1308,24 @@ function drawIsoGround() {
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
   const tV = PR && performance.now();
   flushVeils();
+  // Les touffes de drawGrassDetail sont des SPRITES agrandis au pixel d'art :
+  // lissage coupé une fois pour toute la passe (le poser par cellule coûterait
+  // des centaines d'écritures de propriété pour le même résultat).
+  const prevGDS = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
   for (let i = 0; i < grassCells.length; i += 4) {
     drawGrassDetail(ctx, grassCells[i], grassCells[i + 1], grassCells[i + 2], grassCells[i + 3], hw, hh);
   }
+  ctx.imageSmoothingEnabled = prevGDS;
   if (PR) PR.grass += performance.now() - tV;
   // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
   // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).
   if (fringes.length) {
     const tFr = PR && performance.now();
     const puF = Math.max(1, Math.round(hw * 0.055));
-    for (const f of fringes) drawGrassFringeEdge(ctx, f, puF);
+    // urb = teinte du sol de l'ère : le mode 'wander' repeint avec elle quand le
+    // bord se déplace vers l'herbe (aucune couleur nouvelle n'est introduite).
+    for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb);
     if (PR) PR.fringe = performance.now() - tFr;
   }
   // Rubans de chaussée par-dessus le fond : pavé central + un bras vers chaque
@@ -1521,6 +1750,191 @@ function drawIsoFishShadows(ctx, rv, T, z, now) {
   ctx.restore();
 }
 
+/* ── GRAIN DE SURFACE DE L'EAU ────────────────────────────────────────────────
+ * Le corps d'eau était un APLAT (un seul `ctx.fill()` de WATER) : la seule
+ * surface non texturée de la carte, alors que sol/routes/bâtiments sont tous en
+ * pixel-art. On tile ici un moucheté seamless DANS le clip du ruban.
+ *
+ * Pourquoi une tuile de bruit et pas un tileset d'eau acheté : le fleuve est un
+ * RUBAN spline clippé (zéro escalier, cf. riverRibbonPath) — des tuiles d'eau
+ * autotile sont indexées sur des CELLULES et obligeraient à rasteriser le fleuve
+ * sur la grille, ce qui réintroduirait pile l'escalier que le ruban supprime.
+ * Seule une texture pleine-cadre seamless se branche ici. Si un jour on achète
+ * une vraie tuile animée, elle se substitue à `grainTile()` sans toucher au reste.
+ *
+ * La tuile est TRANSPARENTE au repos (mouchetures claires/sombres seulement) :
+ * le ton de l'eau reste porté par le fill de WATER, donc impossible de dériver
+ * hors palette.
+ *
+ * ⚠ ÉCHELLE AVANT CONTRASTE. Première version invisible en jeu : GRAIN_PX valait 2
+ * px monde, soit ~1,1 px ÉCRAN au zoom réel (mesuré 0,55) — les octaves fines
+ * tombaient sous le pixel et se moyennaient à néant. Un moucheté d'eau doit être
+ * porté par les BASSES fréquences (nappes larges de profondeur), pas par du grain
+ * fin : d'où le poids massif sur l'octave 4 et un GRAIN_PX qui garde des blocs
+ * lisibles à l'écran. Le contraste ne rattrape jamais une échelle sous-pixel.
+ *
+ * Tiling en espace ÉCRAN mais ancré au monde (worldToScreen(0,0)) : la projection
+ * iso étant affine, la nappe translate exactement avec le monde au pan et à la
+ * molette. Elle n'est PAS cisaillée sur le plan du sol — invisible pour un
+ * moucheté isotrope, et ça préserve le nearest-neighbor (pixels nets).
+ * Purement f(now) → une capture reste déterministe. Molette : window.__waterGrain.
+ * ------------------------------------------------------------------------- */
+// ⛔ COUPÉ PAR DÉFAUT — ÉCHEC ASSUMÉ, NE PAS RALLUMER SANS CHANGER DE PRIMITIVE.
+// Trois calibrages, trois refus de Raph, et les deux extrémités du réglage sont
+// mauvaises pour la MÊME raison de fond :
+//   • grain fin  → tombe sous le pixel écran (1,1 px au zoom réel), invisible ;
+//   • grain large → nappes pâles et FLOUES (« un truc bizarre »), du brouillard
+//     posé au milieu d'une scène en pixel art net.
+// Un champ de bruit n'a pas de STRUCTURE : l'eau a des crêtes, des rides, une
+// direction ; le bruit n'a que des taches. Aucun réglage intermédiaire ne sauve
+// ça. Ce qui reste utile ici, c'est le HARNAIS (tiling seamless ancré au monde
+// dans le clip du ruban + compensation de nuit) : une vraie tuile d'eau animée
+// se substitue à `grainTile()` et réutilise tout le reste tel quel.
+// L'effet qui MARCHE sur cette eau est ailleurs : drawIsoCityReflections.
+export const waterGrainTune = {
+  on: false,
+  minZoom: 0.5,                  // sous ce zoom le grain est invisible : on ne paie pas
+  dark: '10,26,34', light: '196,226,235',
+  // Balayage mesuré sur l'encre du canvas (A/B grain on/off, pixels exactement à
+  // l'ardoise) : 0,36/0,26 → 6,4 par canal = INVISIBLE en jeu (retour Raph « t'as
+  // rien changé »). 0,60/0,45 → 11,5. 0,85/0,65 → 17,3 (~7 %), retenu. Le cran
+  // suivant (1/0,85 → 23,1) couvre 99 % et perd le ton de l'ardoise.
+  aDark: 0.85, aLight: 0.65,     // opacité des mouchetures (de jour)
+  nightBoost: 1,                 // × opacité à nuit pleine, compense le voile (cf. grainTile)
+  nightSpread: 0.05,             // rapproche les seuils du milieu la nuit (opacité saturée)
+  loDark: 0.44, hiLight: 0.59,   // seuils de quantification (entre les deux = transparent)
+  // Deux nappes à vitesses différentes : c'est ce qui casse la lecture « papier
+  // peint » d'une tuile unique qui défile. Vitesses en px monde/s vers l'aval.
+  layers: [{ speed: 4.5, alpha: 1, lat: 0 }, { speed: 2.0, alpha: 0.55, lat: 0.35 }]
+};
+if (typeof window !== 'undefined') window.__waterGrain = waterGrainTune;
+
+const GRAIN_SRC = 128;           // taille de la tuile bakée (px monde) = période du motif
+const GRAIN_PX = 2;              // taille d'un « pixel » de grain (chunky, pixel-art)
+let grainCanvas = null, grainKey = '';
+
+// Bruit de valeur à lattice PÉRIODIQUE (indices modulo n) → la tuile est seamless
+// par construction, aucun raccord à masquer.
+function grainNoise(n, seed, u, v) {
+  const x0 = Math.floor(u), y0 = Math.floor(v), fx = u - x0, fy = v - y0;
+  const xa = ((x0 % n) + n) % n, ya = ((y0 % n) + n) % n;
+  const xb = (xa + 1) % n, yb = (ya + 1) % n;
+  const at = (x, y) => ((cmHash('wg:' + seed + ':' + (y * n + x)) >>> 0) % 10000) / 10000;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);   // smoothstep
+  const t = at(xa, ya) + (at(xb, ya) - at(xa, ya)) * sx;
+  const b = at(xa, yb) + (at(xb, yb) - at(xa, yb)) * sx;
+  return t + (b - t) * sy;
+}
+
+// Tuile bakée une fois (invalidée seulement si les réglages changent).
+function grainTile() {
+  const G = waterGrainTune;
+  // ⚠ COMPENSATION DE NUIT. Le voile de nuit est peint PAR-DESSUS l'eau et écrase
+  // le grain de moitié : mesuré 16,8 d'écart de luminance moyen le jour contre 8,7
+  // à nightF=1 — soit un retour sous le seuil du visible pour une ville de nuit.
+  // On bake donc des mouchetures plus opaques à mesure que la nuit tombe. Palier de
+  // 1/4 : sans quantification la tuile serait recuite à CHAQUE frame du cycle
+  // jour/nuit. ⚠ `captureFrame` force le JOUR — une mesure faite via captureFrame
+  // ne voit jamais ce cas, c'est le piège qui a fait passer deux calibrages à côté.
+  const nf = Math.round(Math.min(1, Math.max(0, CM.nightF || 0)) * 4) / 4;
+  const boost = 1 + (G.nightBoost || 0) * nf;
+  const aD = Math.min(1, G.aDark * boost), aL = Math.min(1, G.aLight * boost);
+  // L'opacité SATURE à 1 : passé nightBoost ≈ 1,5 la monter encore ne fait plus
+  // rien. Le seul levier qui reste la nuit est le SEUIL — on rapproche les deux
+  // bornes du milieu pour que davantage de pixels reçoivent une moucheture au
+  // lieu de rester transparents.
+  const spread = (G.nightSpread || 0) * nf;
+  const lo = Math.min(0.5, G.loDark + spread), hi = Math.max(0.5, G.hiLight - spread);
+  const key = [G.dark, G.light, aD, aL, lo, hi].join('|');
+  if (grainCanvas && grainKey === key) return grainCanvas;
+  if (typeof document === 'undefined') return null;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = GRAIN_SRC;
+  const c = cv.getContext('2d');
+  const img = c.createImageData(GRAIN_SRC, GRAIN_SRC);
+  const D = G.dark.split(',').map(Number), Lt = G.light.split(',').map(Number);
+  const N = GRAIN_SRC / GRAIN_PX;                       // cellules de grain par côté
+  // 3 octaves, poids ÉCRASANT sur la plus basse : l'eau se lit par nappes larges
+  // (~1 tuile de jeu = 32 px monde) qui survivent à n'importe quel zoom, pas par
+  // du grain fin qui tombe sous le pixel écran et se moyenne à néant.
+  const OCT = [[4, 0.70], [8, 0.22], [16, 0.08]];
+  for (let cy = 0; cy < N; cy += 1) {
+    for (let cx = 0; cx < N; cx += 1) {
+      let v = 0;
+      for (let o = 0; o < OCT.length; o += 1) {
+        const [ln, w] = OCT[o];
+        v += grainNoise(ln, o, (cx / N) * ln, (cy / N) * ln) * w;
+      }
+      let r = 0, g = 0, b = 0, a = 0;
+      if (v < lo) { r = D[0]; g = D[1]; b = D[2]; a = aD * (1 - v / lo); }
+      else if (v > hi) { r = Lt[0]; g = Lt[1]; b = Lt[2]; a = aL * ((v - hi) / (1 - hi)); }
+      if (a <= 0) continue;                              // reste transparent
+      const A = Math.round(Math.max(0, Math.min(1, a)) * 255);
+      for (let py = 0; py < GRAIN_PX; py += 1) {         // bloc chunky
+        for (let px = 0; px < GRAIN_PX; px += 1) {
+          const i = (((cy * GRAIN_PX + py) * GRAIN_SRC) + (cx * GRAIN_PX + px)) * 4;
+          img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = A;
+        }
+      }
+    }
+  }
+  c.putImageData(img, 0, 0);
+  grainCanvas = cv; grainKey = key;
+  return cv;
+}
+
+function drawIsoWaterGrain(ctx, pts, T, z, now) {
+  const G = waterGrainTune;
+  if (!G.on || z < G.minZoom) return;
+  const tile = grainTile();
+  if (!tile) return;
+  const len = pts.length;
+  // Boîte écran du fleuve (centres projetés + marge de la demi-largeur max),
+  // intersectée au viewport : on ne tile QUE ce qui peut être vu.
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxHw = 0;
+  for (let i = 0; i < len; i += 1) {
+    const p = pts[i], w = worldToScreen(p.x * T, p.y * T);
+    if (w.x < bx0) bx0 = w.x; if (w.x > bx1) bx1 = w.x;
+    if (w.y < by0) by0 = w.y; if (w.y > by1) by1 = w.y;
+    if ((p.hw || 0) > maxHw) maxHw = p.hw || 0;
+  }
+  const pad = maxHw * T * z * 2 + 4;
+  bx0 = Math.max(0, bx0 - pad); by0 = Math.max(0, by0 - pad);
+  bx1 = Math.min(CM.cw, bx1 + pad); by1 = Math.min(CM.ch, by1 + pad);
+  if (bx1 <= bx0 || by1 <= by0) return;
+  // Aval en espace écran (tangente globale projetée) → le grain dérive avec le
+  // courant, jamais « en travers » du fleuve.
+  const pA = worldToScreen(pts[0].x * T, pts[0].y * T);
+  const pB = worldToScreen(pts[len - 1].x * T, pts[len - 1].y * T);
+  let dx = pB.x - pA.x, dy = pB.y - pA.y;
+  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+  const anchor = worldToScreen(0, 0);                    // ancrage monde (suit le pan)
+  const step = GRAIN_SRC * z;
+  const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
+  const t = (now || 0) / 1000;
+  const prevS = ctx.imageSmoothingEnabled, prevA = ctx.globalAlpha;
+  ctx.imageSmoothingEnabled = false;
+  ctx.save();
+  riverRibbonPath(ctx, pts, T);
+  ctx.clip();
+  for (const ly of G.layers) {
+    const d = t * ly.speed * z;
+    const ox = anchor.x + dx * d - dy * d * (ly.lat || 0);
+    const oy = anchor.y + dy * d + dx * d * (ly.lat || 0);
+    const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
+    const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
+    ctx.globalAlpha = ly.alpha;
+    for (let row = r0; row <= r1; row += 1) {
+      for (let col = c0; col <= c1; col += 1) {
+        ctx.drawImage(tile, Math.floor(ox + col * step), Math.floor(oy + row * step), sz, sz);
+      }
+    }
+  }
+  ctx.restore();
+  ctx.globalAlpha = prevA;
+  ctx.imageSmoothingEnabled = prevS;
+}
+
 function drawIsoRiver(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
@@ -1530,6 +1944,9 @@ function drawIsoRiver(now) {
   riverRibbonPath(ctx, pts, T);
   ctx.fillStyle = rgb(WATER, 1);
   ctx.fill();
+  // Grain de surface, SOUS les liserés de bas-fond (qui portent la lecture du
+  // bord) et sous poissons/vaguelettes. Eau morte en déclin : pas de grain.
+  if (!CM.collapseAt && (state.timeWear || 0) <= 0.7) drawIsoWaterGrain(ctx, pts, T, z, now);
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
   // l'eau plus clairs ») : l'eau S'ÉCLAIRCIT au bord (peu profond) et fonce vers le
   // centre (profond). Bandes strokées le long du ruban, CLIPPÉES → seule la moitié
@@ -1692,7 +2109,15 @@ function drawIsoGroundedArt(ctx, e, px, py, targetW) {
   return { x: dx, y: dy, w: boxW, h: boxH };
 }
 // Arbres pixel iso : tree-1..tree-N (feuillus + conifères, choisis par hash).
+// (Des feuillus du pack Cainos ont été essayés en variantes 5-7 le 2026-07-22 puis
+// RETIRÉS — « je n'aime pas les arbres », Raph. Ne pas re-proposer.)
 const ISO_TREE_VARIANTS = 4;
+// Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
+// rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
+// un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le
+// PNG manque (cf. les sprites absents du .exe hors ligne : un art absent ne doit
+// rien effacer).
+const ISO_BUSH_VARIANTS = 6;
 
 // ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
 // Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol
@@ -2283,6 +2708,89 @@ if (typeof window !== 'undefined') {
   window.__nightVeil = (o) => { if (o) Object.assign(NIGHT_VEIL, o); return { ...NIGHT_VEIL }; };
 }
 
+/* ── REFLETS NOCTURNES DE LA VILLE SUR L'EAU ──────────────────────────────────
+ * Portage iso de `cityMapDrawCityReflections` (renderWorld.js), qui existait
+ * depuis toujours mais n'était appelé QUE par le chemin legacy
+ * (cityMapRuntime.js) — le rendu iso ne l'a jamais eu. Même grammaire que les
+ * lanternes de pont (drawIsoBridgeNight) : nappes lumineuses ancrées à la berge
+ * urbaine, étirées vers le centre du fleuve, qui scintillent en décalé.
+ *
+ * POURQUOI ÇA MARCHE LÀ OÙ LE GRAIN ÉCHOUE : c'est de la lumière ADDITIVE
+ * (`lighter`) posée APRÈS le voile de nuit, sur une eau que ce même voile vient
+ * d'assombrir. Le contraste est donc MAXIMAL exactement là où le moucheté se
+ * faisait écraser. Un effet strictement nocturne n'a pas à lutter contre la nuit.
+ *
+ * ⚠ Ne pas confondre avec les « reflets sous la rive » du pixelRiver legacy,
+ * ANNULÉS par Raph le 2026-07-02 : ceux-là étaient un lustrage permanent de la
+ * berge, ceux-ci sont les lumières de la ville, la nuit seulement.
+ *
+ * Seule vraie adaptation : la PROJECTION. Le legacy calcule l'angle de la nappe
+ * depuis la normale MONDE (`atan2(n.ny, n.nx)`), ce qui suppose que l'écran
+ * conserve les angles — faux en iso. On projette donc DEUX points monde (ancrage
+ * à la berge, pointe vers le centre) et on déduit angle et longueur À L'ÉCRAN.
+ * ------------------------------------------------------------------------- */
+export const cityReflectionTune = { on: true, gain: 1, stride: 2, reach: 1 };
+if (typeof window !== 'undefined') window.__cityReflect = cityReflectionTune;
+function drawIsoCityReflections(ctx, now) {
+  const RT = cityReflectionTune;
+  if (!RT.on) return;
+  const night = CM.nightF || 0;
+  if (night < 0.2) return;                                   // effet strictement nocturne
+  const L = CM.layout, rv = L && L.river;
+  if (!rv || !rv.present || !rv.samples) return;
+  const band = L.counts ? (L.counts.eraBand | 0) : 0;
+  if (band <= 1) return;                                     // campement : pas de ville riveraine
+  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return;  // fleuve ruiné : pas de reflet
+  ensureQuayGate();
+  const g = CM.quayGate;
+  if (!g) return;
+  const sm = rv.samples, n0 = sm.length, T = CM.TILE;
+  const t = now || 0;
+  // Teintes reprises telles quelles du legacy (accordées aux lampes de quai).
+  const glow = band <= 5 ? '255,210,140'
+    : band === 6 ? '150,225,255'
+      : band === 7 ? '90,240,180' : band === 8 ? '255,205,120' : '170,140,255';
+  const nAt = (i) => {
+    const o = sm[Math.max(0, i - 1)], q = sm[Math.min(n0 - 1, i + 1)];
+    let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1;
+    return { nx: -ty / tl, ny: tx / tl };
+  };
+  ctx.save();
+  riverRibbonPath(ctx, sm, T);
+  ctx.clip();                                                // les nappes restent SUR l'eau
+  ctx.globalCompositeOperation = 'lighter';
+  const STRIDE = Math.max(1, RT.stride | 0);
+  for (let si = 0; si < 2; si += 1) {
+    const side = si ? -1 : 1, gate = si ? g.minus : g.plus;
+    if (!gate) continue;
+    for (let i = 0; i < n0; i += STRIDE) {
+      if (!gate[i]) continue;                                // berge non urbaine : rien à refléter
+      const s = sm[i], n = nAt(i);
+      const shimmer = 0.45 + 0.55 * Math.sin(t / 1300 + i * 0.9 + si * 2.1);
+      const a = night * (0.10 + 0.07 * (i % 3)) * Math.max(0, shimmer) * RT.gain;
+      if (a < 0.012) continue;
+      const reach = s.hw * (0.50 + 0.18 * Math.sin(t / 2000 + i * 0.5)) * RT.reach;
+      const pB = worldToScreen((s.x + side * n.nx * s.hw) * T, (s.y + side * n.ny * s.hw) * T);
+      const pT = worldToScreen((s.x + side * n.nx * (s.hw - reach)) * T, (s.y + side * n.ny * (s.hw - reach)) * T);
+      const dx = pT.x - pB.x, dy = pT.y - pB.y;
+      const RL = Math.max(3, Math.hypot(dx, dy));
+      const cx = (pB.x + pT.x) / 2, cy = (pB.y + pT.y) / 2;
+      if (cx < -RL || cx > CM.cw + RL || cy < -RL || cy > CM.ch + RL) continue;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.atan2(dy, dx));                        // angle ÉCRAN, pas monde
+      ctx.scale(1, 0.42);                                    // fin le long de la rive
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, RL);
+      grad.addColorStop(0, `rgba(${glow},${a.toFixed(3)})`);
+      grad.addColorStop(1, `rgba(${glow},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(0, 0, RL, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
 function drawIsoNight(now) {
   const n = CM.nightF || 0;
   const ctx = CM.ctx, L = CM.layout;
@@ -2309,6 +2817,9 @@ function drawIsoNight(now) {
     ctx.fillStyle = `rgba(${V.darkCol},${(V.darkA * n).toFixed(2)})`;
     ctx.fillRect(0, 0, CM.cw, CM.ch);
   }
+  // Reflets de la ville sur l'eau : APRÈS le voile (sinon le multiply les éteint),
+  // avant les halos de lampadaires — même ordre additif que le legacy.
+  drawIsoCityReflections(ctx, now);
   if (!L || CM.lodActive || !LAMP_LIGHT.on) return;   // pas de sprites-lampes en LOD → pas de lumières
   const T = CM.TILE, z = CM.cam.zoom;
   const b = visibleCellBounds(0);
@@ -3716,7 +4227,7 @@ function drawIsoLive(now) {
         } else {
           for (let y = sg.y0 + 0.55; y < sg.y1 + 1; y += 1.15) {
             const jj = ((cmHash('tp:' + sg.x + ':' + Math.round(y * 10)) % 100) / 100);
-            items.push({ d: depthOf(wx, (y + 0.06) * T), kind: 'bush', wx, wy: (y + 0.06) * T, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + sg.x + ':' + Math.round(y * 10)) % 2) });
+            items.push({ d: depthOf(wx, (y + 0.06) * T), kind: 'bush', wx, wy: (y + 0.06) * T, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + sg.x + ':' + Math.round(y * 10)) % ISO_BUSH_VARIANTS) });
           }
         }
       } else {
@@ -3729,7 +4240,7 @@ function drawIsoLive(now) {
         } else {
           for (let x = sg.x0 + 0.55; x < sg.x1 + 1; x += 1.15) {
             const jj = ((cmHash('tp:' + Math.round(x * 10) + ':' + sg.y) % 100) / 100);
-            items.push({ d: depthOf((x + 0.06) * T, wy), kind: 'bush', wx: (x + 0.06) * T, wy, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + Math.round(x * 10) + ':' + sg.y) % 2) });
+            items.push({ d: depthOf((x + 0.06) * T, wy), kind: 'bush', wx: (x + 0.06) * T, wy, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + Math.round(x * 10) + ':' + sg.y) % ISO_BUSH_VARIANTS) });
           }
         }
       }
@@ -3895,7 +4406,7 @@ function drawIsoLive(now) {
         // (variante, saison) dans un canvas hors écran : les arbres visibles se
         // comptent en centaines, une passe multiply par arbre et par frame
         // coûterait bien plus cher que 20 canvas gardés en cache.
-        ctx.drawImage(seasonTree(tArt, tv) || tArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
+        ctx.drawImage(seasonTree(tArt, 't' + tv) || tArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
         ctx.imageSmoothingEnabled = prevTS;
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
@@ -4054,12 +4565,19 @@ function drawIsoLive(now) {
     } else if (it.kind === 'bush') {
       // Buisson de terre-plein : feuillu réutilisé petit, pied sur la couture.
       const p = worldToScreen(it.wx, it.wy);
-      const bArt = isoArt('tree-' + it.v);
+      // Buisson DÉDIÉ (bush-N) ; repli sur le feuillu rapetissé d'avant si le
+      // PNG manque. Teinté par la saison comme les arbres — sinon le terre-plein
+      // restait vert d'été au milieu d'une avenue en automne.
+      // La clé de saison suit l'art RÉELLEMENT dessiné : sur les premières
+      // frames le buisson n'est pas encore décodé et on tombe sur l'arbre —
+      // une clé fixe aurait figé cet arbre teinté dans le cache pour de bon.
+      let bArt = isoArt('bush-' + it.v), bKey = 'b' + it.v;
+      if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 't' + fv; }
       if (bArt.ready) {
         const hpx = T * z * it.r * 2.7;
         const prevBS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(bArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
+        ctx.drawImage(seasonTree(bArt, bKey) || bArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
         ctx.imageSmoothingEnabled = prevBS;
       }
     } else if (it.kind === 'bridgeSeg') {

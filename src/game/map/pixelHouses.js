@@ -8,9 +8,24 @@
 //
 // ⚠ Les maisons sont BAKÉES dans le canvas offscreen CM.tileCanvas → à chaque
 // chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
-import { CM } from './layout.js';
+import { CM, cmHash } from './layout.js';
+import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 
 export const pixelHousesFlag = { on: true };
+
+// B — VARIATION PAR INSTANCE. Sans elle, les 12 archétypes sont stampés à l'identique
+// sur le millier d'habitations d'une grande ville : c'est ça, et non le nombre de
+// modèles, qui fait « ville photocopiée ». Le levier est la TEINTE — une permutation
+// de rampes de matière (cf. housePalette.js), 3 états par archétype, 36 en tout.
+//
+// Le miroir horizontal a été essayé puis RETIRÉ : l'éclairage et l'ombre portée sont
+// cuits dans les sprites, les retourner mettait la maison en contradiction avec ses
+// voisines (retour Raph). Voir le bloc d'avertissement dans housePalette.js.
+//
+// Le tirage doit être déterministe : les habitations sont CUITES dans CM.tileCanvas,
+// une variation aléatoire changerait d'aspect à chaque recuisson (zoom, achat, pan).
+// Indexé sur gx/gy seuls, donc stable aussi à travers un recalcul de layout.
+export const houseVarTune = { on: true };
 
 // Les 12 variantes livrées. Les ères cosmiques (band 7-9) réutilisent les mêmes
 // variantes tardives (tower/megablock/arcologyhome, cf. clamp de VARIANTS_HOUSE) :
@@ -41,7 +56,8 @@ const HOUSE_UNIT = 44;
 // pour NE PAS être clampés → ils gardent leur masse. Molettes : __houseFit / __houseFitTune.
 export const houseFitTune = { on: true, margin: 0.08 };
 
-const cache = new Map();   // spriteKey -> { img, ready, bbox }
+const cache = new Map();     // spriteKey -> { img, ready, bbox }
+const variants = new Map();  // "spriteKey:tint" -> canvas teinté, RECADRÉ sur la bbox
 
 // Clé de sprite effective. Aux ères cosmiques (eraBand ≥ 7) les variantes tardives
 // prennent leur skin de bande « <variant>-cosmic-<band> » (fichiers dédiés) ; partout
@@ -51,6 +67,46 @@ function spriteKeyFor(variant) {
   const band = (CM.layout?.counts?.eraBand | 0);
   if (band >= 7 && COSMIC_VARIANTS.has(variant)) return variant + "-cosmic-" + Math.min(9, band);
   return variant;
+}
+
+// B — Teinte d'une tuile. Déterministe sur (gx, gy).
+// ⚠ cmHash rend un entier SIGNÉ : sans `>>> 0` le modulo part en négatif et le tirage
+// se biaise silencieusement (même piège que le seed de fumée juste à côté).
+//
+// Les skins COSMIQUES sont exclus : leur couleur de bande (émeraude 7, or 8, violet 9)
+// est un signal de progression assorti aux tours-moteur, la permuter mentirait au joueur.
+function houseTintOf(t, key) {
+  if (!houseVarTune.on) return 0;
+  if (key.indexOf("-cosmic-") >= 0) return 0;
+  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0);
+}
+
+// B — Canvas d'une teinte, RECADRÉ sur la bbox de contenu et mis en cache. Renvoie null
+// pour la teinte d'origine : ce cas emprunte le chemin historique, qui reste ainsi
+// strictement inchangé. Cuit une fois par teinte réellement rencontrée ; au pire
+// 12 archétypes × 2 teintes non identitaires, quelques Mo.
+function variantCanvas(key, tint) {
+  if (!tint) return null;
+  const vk = key + ":" + tint;
+  const hit = variants.get(vk);
+  if (hit) return hit;
+  const e = cache.get(key);
+  // Source pas encore mesurée : ne RIEN mettre en cache, le sprite arrivera plus tard.
+  if (!e || !e.ready || !e.bbox) return null;
+  const bb = e.bbox;
+  const c = document.createElement("canvas");
+  c.width = bb.w; c.height = bb.h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(e.img, bb.x0, bb.y0, bb.w, bb.h, 0, 0, bb.w, bb.h);
+  let src;
+  try { src = cx.getImageData(0, 0, bb.w, bb.h); }
+  catch { return null; }                       // garde cross-origin (ne devrait pas arriver)
+  const dst = cx.createImageData(bb.w, bb.h);
+  applyHouseTint(src.data, dst.data, bb.w, bb.h, tint);
+  cx.putImageData(dst, 0, 0);
+  variants.set(vk, c);
+  return c;
 }
 
 function ensure(key) {
@@ -134,7 +190,8 @@ export function pixelHouseReady(t) {
 // (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar). Base ancrée au bas
 // de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
 function pixelHouseGeom(t, x, y, w, h) {
-  const e = cache.get(spriteKeyFor(t.variant));
+  const key = spriteKeyFor(t.variant);
+  const e = cache.get(key);
   if (!e || !e.ready || !e.bbox) return null;
   const bb = e.bbox;
   // Empreinte multi-tuiles : on scale sur la taille d'UNE tuile (w/span), pas sur
@@ -154,6 +211,12 @@ function pixelHouseGeom(t, x, y, w, h) {
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)
   const dx = Math.round(x + w / 2 - dw / 2);   // centré horizontalement dans l'empreinte
   const dy = Math.round(groundY - dh);
+  // B — teinte de CETTE tuile. Le canvas teinté est déjà recadré sur la bbox, donc sa
+  // source part de (0,0) ; la géométrie, elle, ne change pas (la teinte ne déplace
+  // aucun pixel). Tout ce qui passe par pixelHouseGeom — dessin, boîte de la fumée,
+  // liseré de survol — suit donc automatiquement.
+  const vc = variantCanvas(key, houseTintOf(t, key));
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h }, dx, dy, dw, dh };
   return { img: e.img, bb, dx, dy, dw, dh };
 }
 
@@ -237,4 +300,18 @@ if (typeof window !== "undefined") {
   // les maisons via CM._tileBake=null. Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
   window.__houseFit = (on) => { houseFitTune.on = on !== false; CM._tileBake = null; return houseFitTune.on; };
   window.__houseFitTune = (o = {}) => { Object.assign(houseFitTune, o); CM._tileBake = null; return { ...houseFitTune }; };
+  // B — variation par instance. __houseVar(false) = retour aux 12 sprites stampés,
+  // l'A/B qui montre ce que la variation apporte.
+  window.__houseVar = (on) => { houseVarTune.on = on !== false; CM._tileBake = null; return houseVarTune.on; };
+  // Répartition réelle des teintes sur les habitations du layout — pour vérifier d'un
+  // coup d'œil que le tirage ne s'est pas effondré sur une seule.
+  window.__houseVarStats = () => {
+    const tiles = (CM.layout?.tiles || []).filter((t) => t.type === "house" || t.type === "enginehome");
+    const out = {};
+    for (const t of tiles) {
+      const k = HOUSE_TINTS[houseTintOf(t, spriteKeyFor(t.variant))].id;
+      out[k] = (out[k] || 0) + 1;
+    }
+    return { total: tiles.length, ...out };
+  };
 }

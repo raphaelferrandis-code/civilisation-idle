@@ -51,6 +51,12 @@ public/pixelart/compare.html
 # (frames d'UI bakés, utilisés par le code) reste suivi.
 /assets/
 
+# Archives des packs d'assets achetés/téléchargés (itch.io, Cainos, tilesets) :
+# même règle que /assets/ ci-dessus, c'est de la matière première. Ce qui se
+# versionne, ce sont les sprites DÉCOUPÉS ET RECOLORÉS qui en sortent
+# (public/pixelart/**), pas l'archive source.
+/*.zip
+
 # Tuiles prototype Kenney (reliquat de l'expérience iso annulée le 2026-06-18,
 # non utilisées par le code) : hors versionnement.
 /kenney_isometricPrototypeTiles/

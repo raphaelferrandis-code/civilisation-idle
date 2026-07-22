@@ -17,7 +17,7 @@ import { clampStakeMult } from '../../game/core/actions/templePot.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
-import { scratchSymbolSrc } from './scratchSymbols.js';
+import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
 
@@ -25,9 +25,10 @@ import StageHelp from './StageHelp.jsx';
  * Le Vingt-et-un — SCÈNE INTÉGRÉE (bas de la page Régulation, comme osselets/
  * Icare/scratch). Le moteur (actions/blackjack.js) est autoritaire : rouvrir la
  * scène pendant une main la REPREND en cours. Phases : pari (choix de la mise) →
- * jeu (tirer/rester) → résultat. Les cartes sont des tuiles pixel : rang + une
- * « couleur » = emblème antique RÉUTILISÉ du scratch (scratchSymbols.js). La carte
- * cachée du croupier reste face verso tant qu'on joue. Fermer/changer de cycle
+ * jeu (tirer/rester) → résultat. Les cartes sont des sprites pixel du pack Bit
+ * Digitalis (cardSprites.js) : couleurs internationales à l'écran, clés antiques
+ * dans le moteur. La carte cachée du croupier reste face verso tant qu'on joue.
+ * Fermer/changer de cycle
  * en pleine main abandonne la mise (déjà payée).
  */
 
@@ -58,32 +59,15 @@ const MEASURE_LABEL = {
   double: { fr: 'la mesure doublerait', en: 'the measure would double' }
 };
 
-/* Carte à jouer antique : indices de coin (rang + mini-emblème) en haut-gauche,
-   répétés tête-bêche en bas-droite comme sur une vraie carte, grand emblème au
-   centre. Deux « familles » teintées — feuillage (olive, laurier) et relique
-   (amphore, lyre) — l'écho du rouge/noir des jeux réels. Les figures (J/Q/K)
-   portent un liseré d'or intérieur, l'As un emblème agrandi. Le verso est
-   procédural : drap pourpre, filet d'or, couronne en médaillon (icône réutilisée). */
+/* Carte à jouer : un seul sprite du pack Bit Digitalis (32×48 natif, rendu au
+   double exact). Le rang et la couleur sont déjà peints dedans, il n'y a donc
+   plus rien à composer — juste l'alternative textuelle pour la voix. La carte
+   cachée du croupier montre le dos du même pack. */
 function BjCard({ card, hidden }) {
   if (hidden) {
-    return <span className="bj-card is-hidden" aria-hidden="true"><span className="bj-card-back" /></span>;
+    return <img className="bj-card is-hidden" src={CARD_BACK_SRC} alt={tr({ fr: 'carte cachée', en: 'face-down card' })} draggable="false" />;
   }
-  const isFace = card.rank === 'J' || card.rank === 'Q' || card.rank === 'K';
-  const fam = card.suit === 'olive' || card.suit === 'laurier' ? 'leaf' : 'relic';
-  const src = scratchSymbolSrc(card.suit);
-  return (
-    <span className={`bj-card bj-card--${fam}${isFace ? ' is-face' : ''}${card.rank === 'A' ? ' is-ace' : ''}`}>
-      <span className="bj-corner">
-        <b>{card.rank}</b>
-        <img src={src} alt="" aria-hidden="true" draggable="false" />
-      </span>
-      <span className="bj-corner bj-corner--tail" aria-hidden="true">
-        <b>{card.rank}</b>
-        <img src={src} alt="" draggable="false" />
-      </span>
-      <img className="bj-card-suit" src={src} alt="" aria-hidden="true" draggable="false" />
-    </span>
-  );
+  return <img className="bj-card" src={cardSrc(card)} alt={cardLabel(card)} draggable="false" />;
 }
 
 export default function BlackjackStage({ table, onClose }) {
@@ -253,6 +237,9 @@ export default function BlackjackStage({ table, onClose }) {
       {(phase === 'player' || phase === 'done') && hand && (
         <>
           <div className="bj-table">
+            {/* Le sabot, posé à droite du drap. Pur décor : il ne diminue pas et
+                ne se distribue pas, le sabot réel vit dans le moteur. */}
+            <img className="bj-deck" src={CARD_DECK_SRC} alt="" aria-hidden="true" draggable="false" />
             <div className="bj-side">
               <div className="bj-side-head">
                 <span>{tr({ fr: 'Oracle', en: 'Dealer' })}</span>

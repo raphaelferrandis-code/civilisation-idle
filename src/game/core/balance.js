@@ -261,6 +261,29 @@ export const AUGURY_TIER_SHARES = { venus: 0.15, triple: 0.25 }; // parts de la 
 export const AUGURY_HOLLOW_SHARE = 0.6; // part de la masse perdante en creux (reste = Chien)
 export const AUGURY_DOG_CLEMENCY_CRANS = 2; // pitié : un Chien compte double dans la Clémence
 
+// LE CARRÉ DE SIX (2026-07-22) — le jackpot de la table. Une part des Coups de
+// Vénus tombe en QUATRE six et rafle la cagnotte du temple AU PRORATA DE LA MISE
+// (potRake, exactement comme Icare).
+//
+// Ce n'est PAS une 6e issue : le tier reste `venus` pour TOUTE l'économie
+// (paytable, Clémence, historique, chronique) — seuls les dés affichés et la
+// rafle changent. C'est ce qui permet de l'ajouter sans toucher à la recherche
+// exhaustive d'auguryPaytable, qui est câblée sur exactement 3 postes payants et
+// exploserait si on lui en donnait un 4e.
+//
+// ⚠ POURQUOI C'EST GRATUIT CÔTÉ RTP — à comprendre AVANT d'y toucher. La preuve
+// du temple (actions/templePot.js) suppose DÉJÀ que la cagnotte revient
+// INTÉGRALEMENT au joueur : rtp_total = rtp_base + recycle × (1 − rtp_base) < 1.
+// Le garde-fou A9 du bench compte même tout ce que les augures VERSENT au pot
+// comme rendu au joueur, précisément parce qu'ils « ne peuvent JAMAIS rafler ».
+// Leur ouvrir une porte de sortie ne change donc pas le rendement, seulement le
+// TEMPO — même arbitrage que les serres. Ce qui casserait l'invariant, ce serait
+// de MINTER le jackpot au lieu de le PRÉLEVER sur le pot : ne jamais faire ça.
+//
+// La rareté ressentie vient du produit : à dés 10, Vénus sort à 7,1 %, donc le
+// carré tombe ~0,7 % des jets (un toutes les ~2-3 h à cadence soutenable).
+export const AUGURY_JACKPOT_SHARE = 0.10; // part des Vénus qui tombent en carré de six
+
 // ── FAVEUR — la monnaie des jeux (2026-07-16 : MONNAIE FERMÉE aux osselets) ──
 // Les osselets se MISENT en Faveur (plus d'or) : le temple est un casino à
 // jetons, financé par le TRONC DES OFFRANDES (goutte-à-goutte passif plafonné).

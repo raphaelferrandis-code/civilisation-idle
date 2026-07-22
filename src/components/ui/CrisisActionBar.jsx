@@ -216,7 +216,9 @@ function PolicyRow({ p, slotsFull }) {
     >
       {/* Sceau gravé de la politique (pierre & or) — apposé quand elle est active. */}
       <span className="policy-seal-wrap" aria-hidden="true">
-        <PixelIcon name={`seals/${p.id}`} className="policy-seal" />
+        {/* La rangée repliée réduit le sceau à 16px (ui-light.css) : seul ce composant
+            connaît l'état désactivé, donc c'est lui qui demande la variante native. */}
+        <PixelIcon name={`seals/${p.id}`} className="policy-seal" size={disabled ? 16 : 24} />
       </span>
       <span className="regul-btn-line">
         <strong>{p.label}</strong>

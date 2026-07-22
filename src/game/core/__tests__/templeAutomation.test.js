@@ -136,9 +136,17 @@ describe("Automatisation — pendant l'absence (C12)", () => {
   // La promesse : les cadrans PAYÉS servent la nuit. Le garde-fou : ils ne
   // rouvrent pas l'imprimante à Faveur, dont le régime est volontairement
   // favorable au joueur et borné par la CADENCE.
+  // ⚠ La cagnotte est REMISE À ZÉRO à chaque tour, et ce n'est pas cosmétique.
+  // Avec random figé à 0,01, tout tirage qui donne Vénus (< 4,1 %) passe aussi
+  // sous AUGURY_JACKPOT_SHARE (10 %) : chaque partie serait un carré de six et
+  // raflerait le pot que feedPot vient de garnir. Le net par partie ne vaudrait
+  // alors plus venusNet() et ces tests-ci — qui mesurent la CADENCE et le QUOTA,
+  // pas l'économie du jackpot — compteraient un mélange des deux.
+  // La conservation du jackpot est couverte à part, dans regulation.test.js.
   const jouerLongtemps = (ticks) => {
     vi.spyOn(Math, "random").mockReturnValue(0.01);
     for (let i = 0; i < ticks; i += 1) {
+      state.icarusPotFaveur = 0;
       vi.advanceTimersByTime(AUTO_AUGURY_INTERVAL_MS);
       tickTempleAutomation();
     }

@@ -141,7 +141,9 @@ export default function Topbar() {
             title={tooltips[c.key]}
           >
             <div className="resource-title-wrapper">
-              <span className="resource-icon"><PixelIcon name={c.pixIcon} /></span>
+              {/* size explicite : la taille vient de `.topbar .resource-icon .px-icon`,
+                  un sélecteur d'ANCÊTRE que PixelIcon ne peut pas déduire de sa classe. */}
+              <span className="resource-icon"><PixelIcon name={c.pixIcon} size={24} /></span>
               <span className="resource-name">{tr(c.name)}</span>
             </div>
             {/* Valeur et débit sur la MÊME ligne, mais aux deux BOUTS de la
@@ -197,7 +199,7 @@ export default function Topbar() {
           en: `Estimated inhabitants, derived from Radiance.\nNo gameplay effect: the size the city would have at this stage.`
         })}>
           <div className="resource-title-wrapper">
-            <span className="resource-icon"><PixelIcon name="ruins/population" /></span>
+            <span className="resource-icon"><PixelIcon name="ruins/population" size={24} /></span>
             <span className="resource-name">{tr({ fr: "Habitants", en: "Inhabitants" })}</span>
           </div>
           <span className="resource-value" id="habitants">{fmtHabitants(habitants)}</span>

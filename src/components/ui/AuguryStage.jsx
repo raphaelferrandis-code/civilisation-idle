@@ -295,6 +295,15 @@ export default function AuguryStage({ table, onClose }) {
                     {outcome.freeFlight && (
                       <span className="augury-chip augury-chip--venus">🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>
                     )}
+                    {/* Le carré de six. Affiché SEULEMENT s'il a rapporté : un
+                        jackpot sur cella vide donne 0, et annoncer « rafle » pour
+                        rien serait pris pour un bug. Les quatre six restent
+                        visibles sur les dés dans ce cas — c'est déjà l'événement. */}
+                    {outcome.jackpot && outcome.jackpotGain > 0 && (
+                      <span className="augury-chip augury-chip--venus">
+                        🏺 {tr({ fr: 'carré de six : la cagnotte', en: 'four sixes: the pot' })} +{outcome.jackpotGain}
+                      </span>
+                    )}
                   </div>
                   <menu className="choice-menu augury-actions">
                     {outcome.win && outcome.faveurGain > 0 && (

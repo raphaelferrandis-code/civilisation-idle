@@ -167,9 +167,17 @@ export default function GrandResetLadder() {
 
           return (
             <li key={m.gr} className={`gr-rung is-${status}${fresh ? ' is-fresh' : ''}`}>
+              {/* size explicite : taille portée par `.gr-medal .px-icon` (ancêtre).
+                  Le breakpoint étroit la ramène à 24 ; on sert le 32, réduit de 4/3
+                  sur mobile uniquement.
+                  ⚠ Ce commentaire vit ICI et pas dans la branche du ternaire ci-dessous :
+                  entre `? (` et le JSX, une accolade de commentaire est lue comme un
+                  littéral d'objet et le fichier ne parse plus — build KO et onglet
+                  Effondrement blanc, sans qu'aucun test ne le voie (aucun n'importe ce
+                  composant, donc Vitest ne le transforme jamais). */}
               <span className="gr-medal" aria-hidden="true">
                 {revealed ? (
-                  <PixelIcon name={MILESTONE_GLYPHS[m.gr]} className="gr-medal-icon" />
+                  <PixelIcon name={MILESTONE_GLYPHS[m.gr]} className="gr-medal-icon" size={32} />
                 ) : (
                   <span className="gr-medal-rune" />
                 )}

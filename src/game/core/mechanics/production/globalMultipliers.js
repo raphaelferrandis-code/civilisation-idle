@@ -172,7 +172,8 @@ function globalScalarFactors() {
   const abyssDogmaMult = (has("dogma_abime_assume") && (state.instability || 0) >= ABYSS_DOGMA_THRESHOLD)
     ? 1 + ABYSS_DOGMA_PROD_BONUS
     : 1;
-  const ruinTreeMult = braiseMultiplier() * vestigeMult * regrowthMult * abyssDogmaMult;
+  const braise = braiseMultiplier();
+  const ruinTreeMult = braise * vestigeMult * regrowthMult * abyssDogmaMult;
   // « L'Hiver Fimbul » (Ragnarok) : dès 8 min, toute la production est gelée de
   // moitié — c'est la pression centrale du boss final (le revenu passif ne suffit
   // plus, il faut le Comptoir, les jeux du temple et les héritages).

@@ -38,7 +38,10 @@ import { recordBlackjack } from '../chronicleStats.js';
 // ScratchSym.jsx). Le rang porte la valeur ; la couleur est purement
 // cosmétique (aucune règle ne dépend de la couleur au blackjack).
 export const BLACKJACK_SUITS = ["olive", "amphore", "laurier", "chouette"];
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+// Exporté pour que l'habillage (cardSprites.js) et son test balaient EXACTEMENT
+// les rangs que le sabot contient : un rang ajouté ici doit faire tomber le test
+// des sprites, pas produire une carte sans image en jeu.
+export const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
 // Main en cours (état module ÉPHÉMÈRE) et dernier résultat, lus par l'UI.
 let hand = null;      // { deck, player:[card], dealer:[card], stakeFaveur, phase:'player'|'done', resolved }

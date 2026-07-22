@@ -10,8 +10,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
-import { runCrisisAction, setStewardClause, tickSteward, stewardSlotCount, castAugury, doubleAugury, auguryStake, auguryRebate, auguryPaytable, auguryTierOdds } from "../actions.js";
+import { runCrisisAction, setStewardClause, tickSteward, stewardSlotCount, castAugury, doubleAugury, auguryStake, auguryRebate, auguryPaytable, auguryTierOdds, auguryTierBones } from "../actions.js";
 import { clemencyCrans, regulationContext } from "../mechanics.js";
+import { potRecycle } from "../actions/templePot.js";
 import { REGULATION_ACTIONS } from "../../data/regulationActions.js";
 import { annalsWindow, resetAnnals } from "../annals.js";
 import { toNum } from "../num.js";
@@ -182,9 +183,90 @@ describe("Table des augures — monnaie fermée (mise ET gain en Faveur)", () =>
     expect(venus.faveurGain).toBeGreaterThan(venus.stake); // gagner paie toujours plus que la mise
     expect(state.faveur).toBe(1000 - AUGURY_STAKES.classique + pay.gains.venus);
     expect(venus.freeFlight).toBe(true);
-    expect(state.icarusFreeFlights).toEqual(["plume"]); // le Vénus des osselets donne une Plume
-    expect(new Set(venus.bones).size).toBe(4);
+    expect(state.icarusFreeFlights).toEqual(["plume"]); // le Vénus de la table donne une Plume
+    // Vénus s'affiche en TRIPLE SIX depuis le passage aux dés d'os (2026-07-22 ;
+    // c'était « quatre osselets tous différents » du temps des astragales).
+    // Ici random est mocké à 0,01, donc SOUS AUGURY_JACKPOT_SHARE : ce Vénus est
+    // un CARRÉ DE SIX. Il paie exactement pareil — la rafle vient en plus, et
+    // elle ne rapporte rien puisque la cagnotte est vide sur un état neuf.
+    expect(venus.jackpot).toBe(true);
+    expect(venus.bones).toEqual([6, 6, 6, 6]);
+    // La cella était VIDE au moment du jet, donc la rafle ne rapporte rien : le
+    // carré ne peut jamais donner plus que ce que la cagnotte contenait. (Elle
+    // n'est pas restée à 0 pour autant — feedPot y verse l'edge de ce jet-ci.)
+    expect(venus.jackpotGain).toBe(0);
+    expect(state.icarusPotFaveur).toBeGreaterThan(0);
     expect(toNum(state.gold)).toBeCloseTo(goldBefore, 0); // plus de mise en or
+  });
+
+  // LE CARRÉ DE SIX. Le point à garder verrouillé n'est pas qu'il paie, c'est
+  // qu'il ne CRÉE RIEN : tout ce qu'il verse sort de la cagnotte, au centime.
+  // Minter ce jackpot casserait l'invariant du temple
+  // (rtp_total = rtp_base + recycle × (1 − rtp_base) < 1, cf. templePot.js).
+  it("le carré de six rafle la cagnotte sans jamais créer de Faveur", () => {
+    state.icarusPotFaveur = 400;
+    const faveurAvant = state.faveur;
+    const potAvant = state.icarusPotFaveur;
+    const pay = auguryPaytable("prayForRain", "classique");
+
+    vi.spyOn(Math, "random").mockReturnValue(0.01); // Vénus, et sous le seuil jackpot
+    const res = castAugury("prayForRain", "classique", { render: false });
+    Math.random.mockRestore();
+
+    expect(res.tier).toBe("venus");        // le jackpot n'est PAS une 6e issue
+    expect(res.jackpot).toBe(true);
+    expect(res.bones).toEqual([6, 6, 6, 6]);
+    expect(res.jackpotGain).toBeGreaterThan(0);
+
+    // Conservation. ⚠ Le pot bouge DEUX fois dans le même apply() : la rafle le
+    // vide, puis feedPot(stake, rtp) y reverse l'edge de CE jet. Comparer
+    // bêtement potAvant − potAprès à jackpotGain donne un écart qui ressemble à
+    // de la Faveur créée, et n'en est pas. On modélise donc les deux mouvements.
+    const feed = res.stake * potRecycle() * (1 - pay.rtp);
+    expect(state.icarusPotFaveur).toBeCloseTo(potAvant - res.jackpotGain + feed, 6);
+    // Côté joueur : la mise sort, le paiement de table et la rafle entrent.
+    expect(state.faveur).toBe(faveurAvant - res.stake + res.faveurGain + res.jackpotGain);
+
+    // Et la rafle est BORNÉE par le pot : jamais plus que ce qu'il contenait.
+    expect(res.jackpotGain).toBeLessThanOrEqual(potAvant);
+    expect(state.icarusPotFaveur).toBeGreaterThanOrEqual(0);
+  });
+
+  // Les dés affichés sont de l'HABILLAGE (l'issue est tirée avant), mais un
+  // habillage qui se CONTREDIT trahit la table : une « paire haute » qui sort un
+  // brelan, ou un « triple » en 6-6-6 que le joueur lira Vénus alors qu'il est
+  // payé moins. Rien dans le rendu ne rattraperait ça — d'où ce contrôle.
+  it("les dés illustrent leur tier sans jamais le contredire", () => {
+    const compte = (bones) => {
+      const n = new Map();
+      for (const v of bones) n.set(v, (n.get(v) || 0) + 1);
+      return [...n.entries()].sort((a, b) => b[1] - a[1]); // [face, occurrences]
+    };
+    for (let i = 0; i < 400; i += 1) {
+      for (const tier of ["venus", "triple", "pair", "hollow", "dog"]) {
+        const bones = auguryTierBones(tier);
+        expect(bones).toHaveLength(4);
+        for (const v of bones) expect(v).toBeGreaterThanOrEqual(1);
+        for (const v of bones) expect(v).toBeLessThanOrEqual(6);
+        const c = compte(bones);
+        if (tier === "venus") {
+          expect(c[0]).toEqual([6, 3]);       // le triple six
+          expect(c[1][0]).not.toBe(6);        // jamais un carré
+        } else if (tier === "dog") {
+          expect(bones).toEqual([1, 1, 1, 1]);
+        } else if (tier === "triple") {
+          expect(c[0][1]).toBe(3);            // bien un brelan
+          expect(c[0][0]).not.toBe(6);        // et JAMAIS 6-6-6 : ce serait Vénus
+          expect(c[0][0]).toBeGreaterThan(1); // brelan d'as = le Chien, pas ça
+        } else if (tier === "pair") {
+          expect(c.map(([, k]) => k)).toEqual([2, 1, 1]); // paire nette, pas brelan
+          expect(c[0][0]).toBeGreaterThan(1);             // et une paire HAUTE
+        } else {
+          expect(c.map(([, k]) => k)).toEqual([2, 1, 1]);
+          expect(c[0][0]).toBe(1);            // creux = la paire d'AS
+        }
+      }
+    }
   });
 
   it("les trois rites frôlent le MÊME RTP de référence (au win rate max), mises étagées", () => {

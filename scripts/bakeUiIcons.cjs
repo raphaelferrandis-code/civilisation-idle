@@ -33,6 +33,14 @@
 //   --size   côté du canevas de sortie (défaut 24 = la taille CSS des icônes de nav)
 //   --alpha  seuil de couverture pour qu'un pixel existe (défaut 0.5). Baisser
 //            (0.4) épaissit et sauve les traits fins ; monter (0.6) affine et érode.
+//   --force  autorise l'ÉCRASEMENT d'une icône déjà livrée (voir ci-dessous)
+//   --dry    n'écrit rien, affiche seulement le tableau
+//
+// ⚠ GARDE-FOU. Les icônes livrées sont destinées à être REPRISES À LA MAIN à leur
+// taille réelle — c'est tout l'intérêt de la cuisson. Une recuisson repartirait de
+// _orig/ et effacerait ce travail sans prévenir. Le script REFUSE donc d'écraser un
+// fichier existant : il liste ce qu'il a sauté et sort en code 1. `--force` lève le
+// verrou, à n'utiliser que si tu veux réellement jeter les retouches manuelles.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -43,6 +51,7 @@ const num = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 ?
 const SIZE = num('size', 24);
 const ALPHA_T = num('alpha', 0.5);
 const DRY = process.argv.includes('--dry');
+const FORCE = process.argv.includes('--force');
 
 if (!SRC_DIR || !OUT_DIR) {
   console.error('usage : node scripts/bakeUiIcons.cjs <dossier-source> <dossier-sortie> [--size 24] [--alpha 0.5] [--dry]');
@@ -116,11 +125,28 @@ const teintes = (img) => {
 
 if (!DRY) fs.mkdirSync(OUT_DIR, { recursive: true });
 const files = fs.readdirSync(SRC_DIR).filter((f) => f.toLowerCase().endsWith('.png')).sort();
+const sautees = [];
+let ecrites = 0;
 console.log(`fichier            source    contenu  teintes`);
 for (const f of files) {
   const img = PNG.sync.read(fs.readFileSync(path.join(SRC_DIR, f)));
   const { out, dw, dh } = bake(img);
-  if (!DRY) fs.writeFileSync(path.join(OUT_DIR, f), PNG.sync.write(out));
-  console.log(`${f.padEnd(18)} ${String(img.width + 'x' + img.height).padEnd(8)} ${String(dw + 'x' + dh).padEnd(7)} ${String(teintes(img)).padStart(3)} -> ${teintes(out)}`);
+  const cible = path.join(OUT_DIR, f);
+  // Garde-fou : ne jamais écraser une icône déjà livrée (elle a pu être reprise
+  // à la main à sa taille réelle — cf. l'en-tête).
+  const existe = fs.existsSync(cible);
+  if (!DRY && existe && !FORCE) { sautees.push(f); }
+  else if (!DRY) { fs.writeFileSync(cible, PNG.sync.write(out)); ecrites++; }
+  console.log(`${f.padEnd(18)} ${String(img.width + 'x' + img.height).padEnd(8)} ${String(dw + 'x' + dh).padEnd(7)} ${String(teintes(img)).padStart(3)} -> ${teintes(out)}${!DRY && existe && !FORCE ? '   [SAUTÉ, existe déjà]' : ''}`);
 }
-console.log(`\n${files.length} icônes ${DRY ? 'analysées (--dry, rien écrit)' : `cuites en ${SIZE}×${SIZE} -> ${OUT_DIR}`}`);
+
+if (DRY) {
+  console.log(`\n${files.length} icônes analysées (--dry, rien écrit).`);
+} else if (sautees.length) {
+  console.error(`\n⚠ ${sautees.length} icône(s) NON écrites, la cible existe déjà : ${sautees.join(', ')}`);
+  console.error(`  Elles ont pu être reprises à la main depuis la cuisson — les écraser détruirait ce travail.`);
+  console.error(`  Relance avec --force si tu veux réellement repartir de ${SRC_DIR}.`);
+  process.exit(1);
+} else {
+  console.log(`\n${ecrites} icônes cuites en ${SIZE}×${SIZE} -> ${OUT_DIR}`);
+}

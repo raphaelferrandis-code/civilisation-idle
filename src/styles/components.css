@@ -9,10 +9,15 @@
 /* Icône pixel-art d'UI (composant PixelIcon) : nette, dimensionnée sur la
    police par défaut et alignée dans le texte. Format fixe via une classe sur le
    consommateur (ex. .csp-stat-icon, .prep-choice-card h5). */
+/* 16px et non 1.05em : une taille en em tombe sur un nombre FRACTIONNAIRE de pixels
+   (1,05 × 16 = 16,8), donc il n'existe aucune source qui puisse être native — le
+   navigateur rééchantillonne forcément, et le pas de rééchantillonnage dérive d'un
+   contexte de police à l'autre. L'échelle des icônes est désormais 16/24/32/48,
+   toutes entières, chacune servie par une variante cuite (cf. PixelIcon.jsx). */
 .px-icon {
   display: inline-block;
-  width: 1.05em;
-  height: 1.05em;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   image-rendering: pixelated;
   vertical-align: -0.15em;
@@ -28,8 +33,8 @@
 /* Icône de carte de mythe : format fixe agrandi pour montrer le détail des
    emblèmes travaillés (art riche PixelLab). */
 .myth-card-icon.px-icon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   vertical-align: middle;
 }
 
@@ -125,8 +130,8 @@
 
 /* Ancre pixel-art de la ressource (remplace l'icône FontAwesome). */
 .topbar .resource-icon .px-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 /* ── Hiérarchie de la carte (rework topbar) : micro-label → GRANDE valeur →

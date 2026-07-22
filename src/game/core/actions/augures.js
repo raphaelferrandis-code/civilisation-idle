@@ -38,13 +38,15 @@ import {
   AUGURY_RTP_CAP,
   AUGURY_PAY_PROFILE,
   AUGURY_CLEMENCY_LADDER,
+  AUGURY_JACKPOT_SHARE,
   FREE_FLIGHT_EV
 } from '../balance.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { fmt } from '../utils.js';
 import { chronicle } from './utils.js';
 import { ivoryDogCut, ivoryVenusBonus, hasTempleArtifact } from './templeArtifacts.js';
 import { grantFreeFlight } from './templeFlights.js';
-import { feedPot, payRound, clampStakeMult } from './templePot.js';
+import { feedPot, payRound, clampStakeMult, potRake } from './templePot.js';
 import { recordOsselets } from '../chronicleStats.js';
 
 // Les trois RITES : trois formes de risque pour la même table. La MISE (Faveur)
@@ -255,9 +257,21 @@ function drawTier(pEff, spread = 1) {
   return "dog";
 }
 
-// Os canoniques d'un tier (convention lisible : paire/triple de HAUTES = gains,
-// paire d'as = creux, quatre as = Chien, quatre différentes = Vénus).
-const HIGH_FACES = [3, 4, 6];
+// Dés canoniques d'un tier. 2026-07-22 : les astragales (faces 1·3·4·6) sont
+// remplacés par des DÉS D'OS à six faces — des *tesserae* romaines, que
+// l'Antiquité jouait à côté des osselets. Le vocabulaire de la table survit tel
+// quel au changement, à une nuance de définition près :
+//   · VÉNUS était « les quatre osselets tous différents » aux tali ; aux
+//     tesserae c'est le TRIPLE SIX, et c'était déjà le meilleur coup. On prend
+//     celle-là — « quatre différentes » sur un d6 tombe 28 % du temps au lieu
+//     de 9 %, le coup n'aurait plus rien d'exceptionnel à l'œil du joueur ;
+//   · LE CHIEN (canis) reste les quatre as, à l'identique.
+// Rappel : ces combinaisons sont de l'HABILLAGE. L'issue est tirée avant, par
+// auguryRollTier, à partir de probabilités écrites à la main — ce qui suit ne
+// fait que l'illustrer de façon plausible. Aucun RTP n'en dépend.
+const HIGH_FACES = [2, 3, 4, 5, 6];
+const TRIPLE_FACES = [2, 3, 4, 5]; // pas le 6 : un 6-6-6 se lirait « Vénus »
+const ALL_FACES = [1, 2, 3, 4, 5, 6];
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -269,17 +283,26 @@ function pick(arr) {
   return arr[Math.min(arr.length - 1, Math.floor(Math.random() * arr.length))];
 }
 export function auguryTierBones(tier) {
-  if (tier === "venus") return shuffle([1, 3, 4, 6]);
+  // LE CARRÉ DE SIX — le jackpot. Pseudo-tier d'AFFICHAGE : l'économie le traite
+  // en Vénus (cf. AUGURY_JACKPOT_SHARE), seuls les dés le distinguent.
+  if (tier === "jackpot") return [6, 6, 6, 6];
+  // VÉNUS — le triple six. Le 4e dé n'est jamais un six : ce serait le carré,
+  // qui est réservé au jackpot et paierait bien davantage.
+  if (tier === "venus") return shuffle([6, 6, 6, pick([1, 2, 3, 4, 5])]);
+  // LE CHIEN — les quatre as.
   if (tier === "dog") return [1, 1, 1, 1];
   if (tier === "triple") {
-    const v = pick(HIGH_FACES);
-    return shuffle([v, v, v, pick([1, 3, 4, 6].filter((x) => x !== v))]);
+    const v = pick(TRIPLE_FACES);
+    return shuffle([v, v, v, pick(ALL_FACES.filter((x) => x !== v))]);
   }
   if (tier === "pair") {
+    // Paire HAUTE + deux dés dépareillés : `rest` est tiré sans remise dans les
+    // faces restantes, donc jamais de triple ni de seconde paire par accident.
     const v = pick(HIGH_FACES);
-    const rest = shuffle([1, 3, 4, 6].filter((x) => x !== v));
+    const rest = shuffle(ALL_FACES.filter((x) => x !== v));
     return shuffle([v, v, rest[0], rest[1]]);
   }
+  // JET CREUX — une paire d'AS et deux dés dépareillés : perdant, sans être le Chien.
   const rest = shuffle([...HIGH_FACES]);
   return shuffle([1, 1, rest[0], rest[1]]);
 }
@@ -345,9 +368,14 @@ export function castAugury(id, riteId = "classique", options = {}) {
   const pEff = pay.pEff; // la Clémence n'entre plus dans le tirage
   const tier = drawTier(pEff, rite.spread ?? 1);
   const win = tier === "venus" || tier === "triple" || tier === "pair";
-  const bones = auguryTierBones(tier);
+  // Le carré de six : une part des Vénus rafle la cagnotte. Tiré ICI, avec les
+  // os, pour que l'animation soit déjà figée quand apply() court (l'UI diffère
+  // apply jusqu'à la chute des dés — décider plus tard spoilerait ou, pire,
+  // afficherait un carré sans rafle).
+  const jackpot = tier === "venus" && Math.random() < AUGURY_JACKPOT_SHARE;
+  const bones = auguryTierBones(jackpot ? "jackpot" : tier);
 
-  const result = { id, win, tier, bones, riteId: rite.id, pEff, stake, rebate, note: null, freeFlight: false, faveurGain: 0 };
+  const result = { id, win, tier, bones, riteId: rite.id, pEff, stake, rebate, note: null, freeFlight: false, faveurGain: 0, jackpot, jackpotGain: 0 };
 
   let applied = false;
   result.apply = () => {
@@ -376,7 +404,22 @@ export function castAugury(id, riteId = "classique", options = {}) {
         // Clémence est EXACTEMENT celle du jet plein, par construction. min(1, …) :
         // un coffre ne multiplie pas les vols.
         result.freeFlight = Math.random() < Math.min(1, stake / pay.stake) && grantFreeFlight("plume");
-        if (result.freeFlight) chronicle(`Coup de Vénus ! Les os de « ${a.label} » tombent en quatre faces parfaites. Le temple offre un vol d'Icare.`);
+        if (result.freeFlight) chronicle(`Coup de Vénus ! Les dés de « ${a.label} » tombent en trois six. Le temple offre un vol d'Icare.`);
+        // LE CARRÉ DE SIX. Rafle au PRORATA DE LA MISE, jamais minté : ce qui
+        // sort de la cella y a été versé par l'edge des tables. Aucun prorata à
+        // réappliquer ici — potRakeShare est DÉJÀ fonction de la mise payée,
+        // donc une mise allégée par la Clémence emporte mécaniquement moins.
+        // On n'incrémente PAS state.icarusJackpots : ce compteur est le jalon
+        // « frôler le soleil » du Grand Reset VII, il appartient à Icare.
+        if (jackpot && (state.icarusPotFaveur || 0) > 0) {
+          const { rake, left } = potRake(state.icarusPotFaveur, stake);
+          result.jackpotGain = rake;
+          state.faveur = Math.max(0, (state.faveur || 0) + rake);
+          state.icarusPotFaveur = left;
+          chronicle(left > 0
+            ? `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. Le temple cède sa part de la cagnotte (+${fmt(rake)} faveur) ; la cella en garde ${fmt(Math.round(left))}.`
+            : `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. La cella est vidée jusqu'à la dernière faveur (+${fmt(rake)}).`);
+        }
       }
     }
     // La cagnotte est nourrie sur l'EDGE de la table, à CHAQUE jet — gagné comme
@@ -390,7 +433,11 @@ export function castAugury(id, riteId = "classique", options = {}) {
     recordOsselets({ wagered: stake, won: result.faveurGain, tier });
     result.note = win ? (a.noteWin || a.note) : (a.noteFail || "Le pari tourne court, mais la table retient ton nom.");
     if (!silent) {
-      const floatLabel = tier === "venus" ? "🎲 Coup de Vénus !"
+      // Le carré de six passe AVANT Vénus : c'est le même tier, mais l'annoncer
+      // « Coup de Vénus » quand la cagnotte vient de tomber raterait l'événement.
+      // Sur cella vide (rafle à 0) on retombe volontairement sur Vénus.
+      const floatLabel = result.jackpotGain > 0 ? `🏺 Carré de six ! +${result.jackpotGain} faveur`
+        : tier === "venus" ? "🎲 Coup de Vénus !"
         : tier === "dog" ? "🎲 Le jet du Chien…"
         : win ? `🎲 +${result.faveurGain} faveur`
         : `🎲 −${stake} faveur`;

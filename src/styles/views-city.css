@@ -494,8 +494,8 @@
 }
 
 .policy-seal.px-icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .policy-btn .regul-btn-line {
@@ -1643,7 +1643,7 @@
   border: 1px solid var(--line, rgba(128,128,128,0.25)); border-radius: 6px;
 }
 .comptoir-row--sell { margin-top: 0.5rem; }
-.comptoir-icon.px-icon { width: 30px; height: 30px; }
+.comptoir-icon.px-icon { width: 32px; height: 32px; }
 .comptoir-terms { display: flex; flex-direction: column; gap: 0.1rem; }
 .comptoir-terms small { opacity: 0.75; }
 

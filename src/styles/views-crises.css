@@ -499,8 +499,8 @@
 /* Sceau de cire pixel apposé sur l'édit engagé, légèrement de travers. */
 .edict-seal.px-icon {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   margin: 0 auto 0.35rem;
   transform: rotate(-8deg);
 }
@@ -570,8 +570,8 @@
 }
 
 .harvest-glyph.px-icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .harvest-caption {

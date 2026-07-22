@@ -68,8 +68,8 @@
 
 /* Rangée fantôme d'une politique : sceau réduit pour suivre le repli. */
 .app .policy-btn:disabled .policy-seal.px-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 /* Baromètres : surface nue, aucun contour — la barre gauche conservée un temps

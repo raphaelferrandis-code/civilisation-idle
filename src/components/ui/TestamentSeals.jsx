@@ -50,7 +50,8 @@ export default function TestamentSeals() {
                 aria-pressed={isEngraved}
                 onClick={() => setTestamentLegacy(isEngraved ? null : legacy.id)}
               >
-                <PixelIcon name={legacy.pixIcon} />
+                {/* size explicite : taille portée par `.testament-seal .px-icon` (ancêtre). */}
+                <PixelIcon name={legacy.pixIcon} size={24} />
                 {favored && <span className="seal-affinity" aria-hidden="true">⚡</span>}
               </button>
               <span className="seal-delta">{delta ? `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%` : "·"}</span>

@@ -17,6 +17,11 @@
 //              Sinon : déduite de spriteEpochTags (master-palette.json) d'après le nom de fichier.
 //   • --max    plafond de teintes par sprite (défaut 22 ; viser 16-24).
 //   • --no-accent  n'utilise que le cœur (36) — pour un sprite sans signature d'époque.
+//   • --ramps a,b  restreint la cible à ces rampes du cœur (inkShadow, timberClay,
+//                earthStone, clayCopper, skin, foliage, water, metalSlate, boneWhite,
+//                universal). À utiliser sur un sprite MONOCHROME : sur les 36 teintes,
+//                les gris froids d'un caillou tombent sur `moss`/`water` (taches
+//                vert-bleu) et les brins d'herbe sur `wood-dark` (herbe rouillée).
 //   • --extra "#hex,#hex"  accents saturés RÉSERVÉS (or, pourpre…) ajoutés à la cible
 //                et protégés du plafond K — mode HYBRIDE (merveilles). Ex. pourpre impérial.
 //   • --inplace écrase le fichier ; sinon écrit <nom>.remap.png à côté (ou dans --out).
@@ -59,6 +64,8 @@ const EPOCH_FORCE = opt('--epoch', null);
 // --extra "#hex,#hex" : accents SATURÉS réservés (or, pourpre...) ajoutés à la
 // cible et PROTÉGÉS du plafond K — pour la signature des merveilles (mode hybride).
 const EXTRA = (opt('--extra', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
+// --ramps foliage,timberClay : restreint la cible à ces rampes du cœur.
+const RAMPS = (() => { const v = opt('--ramps', null); return v ? v.split(',').map((s) => s.trim()).filter(Boolean) : null; })();
 
 const hexToRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const stemOf = (file) => path.basename(file, '.png');
@@ -75,12 +82,28 @@ function epochFor(file) {
   return best ? PAL.spriteEpochTags[best] : null;
 }
 
+// Sous-ensemble de rampes du cœur (--ramps). Le plus proche voisin sur les 36
+// teintes du cœur est le bon défaut pour un sprite RICHE, mais il déraille sur
+// un sprite MONOCHROME : les gris froids d'un caillou tombaient sur `moss` et
+// `water` (taches vert-bleu), les brins d'une touffe sur `wood-dark` (herbe
+// rouillée). Restreindre la cible à la rampe qui décrit la matière règle ça à
+// la source — c'est un choix de matière, pas un réglage de seuil.
+function rampHexes(names) {
+  const out = [];
+  for (const n of names) {
+    const ramp = PAL.core[n];
+    if (!ramp) { console.error(`--ramps : rampe inconnue « ${n} » (dispo : ${Object.keys(PAL.core).join(', ')})`); process.exit(2); }
+    for (const c of ramp) out.push(c.hex);
+  }
+  return out;
+}
+
 // Palette cible pour une époque : cœur (+ accent sauf --no-accent) (+ accents
 // RÉSERVÉS via --extra). Renvoie la palette RGB et les index PROTÉGÉS du
 // plafond K (accent d'époque + extra) : la signature d'une merveille (or,
 // pourpre) n'est jamais collapsée même si elle ne couvre que peu de pixels.
 function targetFor(epochId) {
-  const hexes = PAL.coreFlat.slice();
+  const hexes = RAMPS ? rampHexes(RAMPS) : PAL.coreFlat.slice();
   const protectedIdx = new Set();
   if (!(NO_ACCENT || !epochId)) {
     const e = PAL.epochs.find((x) => x.id === epochId);
