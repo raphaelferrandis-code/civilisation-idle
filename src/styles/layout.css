@@ -579,3 +579,28 @@
   .city-status-panel .csp-idle-value { font-size: 0.7rem; }
   .city-status-panel .csp-idle-next { text-align: center; font-size: 0.54rem; }
 }
+
+
+/* Pastille de SAUVEGARDE (C10) : l'information n'existait nulle part sans
+   cliquer. Discrete par defaut, insistante quand la sauvegarde echoue — ce
+   cas-la ne peut pas passer par les toasts, qui s'effacent en 2,4 s. */
+.csp-save {
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.75;
+  text-align: center;
+}
+
+.csp-save.is-error {
+  color: var(--red, #e06a55);
+  opacity: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 1500px) and (min-width: 981px) {
+  .city-status-panel .csp-save { font-size: 0.5rem; }
+  /* Gouttiere etroite : le texte complet ne tient pas, le titre le porte. */
+  .city-status-panel .csp-save:not(.is-error) { display: none; }
+}

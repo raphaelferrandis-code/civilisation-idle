@@ -29,6 +29,7 @@ import {
 } from '../../game/core/actions.js';
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
+import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
@@ -48,8 +49,37 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const automateRules = getAutomateRules();
 
 
-  const handleWipe = () => {
-    if (!confirm(tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }))) return;
+  // SEUL geste qui garde une confirmation bloquante, et c'est voulu : il efface
+  // la partie ET le fichier nuage. Mais elle passe par ChoiceDialog et non par le
+  // confirm() natif, qui volait le focus, ignorait la langue du jeu et ne gérait
+  // pas le double Échap de Chromium. Deux étapes, la seconde nommant ce qui part.
+  const handleWipe = async () => {
+    const first = await requestChoiceDialog({
+      label: { fr: "Réinitialisation", en: "Reset" },
+      title: tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }),
+      body: tr({
+        fr: "Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Rien n'est récupérable.",
+        en: "The whole game is erased: cycles, Ruins, Myths, Great Resets. Nothing can be recovered."
+      }),
+      options: [
+        { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
+        { label: tr({ fr: "Continuer", en: "Continue" }), value: "yes" }
+      ]
+    });
+    if (first?.value !== "yes") return;
+    const second = await requestChoiceDialog({
+      label: { fr: "Réinitialisation", en: "Reset" },
+      title: tr({ fr: "Dernière confirmation", en: "Final confirmation" }),
+      body: tr({
+        fr: "La sauvegarde locale et le fichier nuage seront effacés tous les deux.",
+        en: "Both the local save and the cloud file will be erased."
+      }),
+      options: [
+        { label: tr({ fr: "Garder ma partie", en: "Keep my game" }), value: "no" },
+        { label: tr({ fr: "Tout effacer", en: "Erase everything" }), value: "yes" }
+      ]
+    });
+    if (second?.value !== "yes") return;
     localStorage.removeItem(SAVE_KEY);
     // Efface aussi le fichier nuage (Google Drive, .exe) : sinon l'ancienne
     // partie — forcément « plus avancée » — ressusciterait au prochain lancement.

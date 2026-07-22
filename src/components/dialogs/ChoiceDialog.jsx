@@ -56,11 +56,16 @@ export default function ChoiceDialog({ dialog, onChoose }) {
 
   if (!dialog) return null;
 
-  const labelText = dialog.mourning
-    ? tr({ fr: "Epitaphe", en: "Epitaph" })
-    : dialog.variant === "cadmos"
-      ? tr({ fr: "Cadmos", en: "Cadmos" })
-      : tr({ fr: "Crise active", en: "Active Crisis" });
+  // `label` explicite d'abord : ce dialogue ne sert plus qu'aux crises depuis
+  // qu'il remplace les confirm() natifs, et un écran de réinitialisation titré
+  // « Crise active » raconte n'importe quoi.
+  const labelText = dialog.label
+    ? tr(dialog.label)
+    : dialog.mourning
+      ? tr({ fr: "Epitaphe", en: "Epitaph" })
+      : dialog.variant === "cadmos"
+        ? tr({ fr: "Cadmos", en: "Cadmos" })
+        : tr({ fr: "Crise active", en: "Active Crisis" });
   const className = dialog.mourning
     ? "event-dialog epitaph-dialog"
     : dialog.variant

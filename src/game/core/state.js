@@ -1509,6 +1509,18 @@ export function load() {
   }
 }
 
+// Horodatage de la dernière sauvegarde RÉUSSIE, et dernier échec s'il y en a un.
+// VARIABLES DE MODULE et surtout pas des champs de `state` : dans l'état ils
+// partiraient dans l'export JSON, devraient être normalisés à l'hydratation, et
+// déclencheraient un render à chaque écriture pour une donnée d'affichage.
+let lastSaveAt = 0;
+let lastSaveError = "";
+export const getLastSaveAt = () => lastSaveAt;
+// Un échec de sauvegarde ne peut PAS passer par les toasts : le bus ignore les
+// entrées sans libellé et la couche s'efface au bout de 2,4 s. Or c'est
+// exactement l'information qui doit rester à l'écran tant qu'elle est vraie.
+export const getLastSaveError = () => lastSaveError;
+
 export function save() {
   try {
     // lastTick n'est PLUS posé ici : il vit désormais dans la boucle de tick
@@ -1516,10 +1528,13 @@ export function save() {
     // d'un onglet caché le rafraîchissait en continu et le retour ne créditait
     // jamais l'absence (M16). L'écriture reste, seule l'estampille bouge.
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    lastSaveAt = Date.now();
+    lastSaveError = "";
   } catch (e) {
     // QuotaExceededError (stockage plein ou navigation privee iOS Safari)
     // La progression continue en memoire — pas de crash silencieux.
-    console.warn("Sauvegarde impossible:", e?.message || e);
+    lastSaveError = e?.message || String(e);
+    console.warn("Sauvegarde impossible:", lastSaveError);
   }
   cloudMirrorSave(); // miroir Google Drive du .exe (throttlé) — no-op en navigateur
 }

@@ -3,6 +3,7 @@ import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/c
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
+import { getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
 import { idleCapSeconds, nextIdleCapPalier } from '../../game/core/main.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
@@ -67,6 +68,14 @@ export default function CityStatusPanel() {
   // où le joueur la regarde. Le remplissage a du sens au RETOUR, pas pendant.
   const idleCap = idleCapSeconds();
   const idleNext = nextIdleCapPalier();
+
+  // PASTILLE DE SAUVEGARDE : l'information n'existait nulle part sans cliquer.
+  // On lit `tickNow` et non `Date.now()` — ce composant est déjà réabonné au
+  // tick, s'appuyer sur l'horloge murale ferait diverger l'âge affiché du reste
+  // de l'encart entre deux rendus.
+  const saveError = getLastSaveError();
+  const lastSaveAt = getLastSaveAt();
+  const saveAgeSec = lastSaveAt ? Math.max(0, Math.round((tickNow - lastSaveAt) / 1000)) : null;
 
   return (
     <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
@@ -157,6 +166,20 @@ export default function CityStatusPanel() {
           <span className="csp-idle-next">{tr({ fr: `puis ${fmtSecs(idleNext.cap)}`, en: `then ${fmtSecs(idleNext.cap)}` })}</span>
         )}
       </div>
+
+      {/* Un ÉCHEC de sauvegarde reste affiché tant qu'il est vrai : il ne peut
+          pas passer par les toasts, qui s'effacent au bout de 2,4 s. */}
+      {saveError ? (
+        <div className="csp-save is-error" title={tr({ fr: `Sauvegarde impossible : ${saveError}. La partie continue en mémoire, mais elle ne survivra pas à la fermeture.`, en: `Cannot save: ${saveError}. The game continues in memory, but it will not survive closing.` })}>
+          {tr({ fr: "Sauvegarde impossible", en: "Cannot save" })}
+        </div>
+      ) : saveAgeSec !== null && (
+        <div className="csp-save" title={tr({ fr: "Dernière sauvegarde réussie. Le jeu sauvegarde aussi tout seul.", en: "Last successful save. The game also saves on its own." })}>
+          {saveAgeSec < 5
+            ? tr({ fr: "sauvegardé à l'instant", en: "saved just now" })
+            : tr({ fr: `sauvegardé il y a ${saveAgeSec} s`, en: `saved ${saveAgeSec}s ago` })}
+        </div>
+      )}
     </div>
   );
 }

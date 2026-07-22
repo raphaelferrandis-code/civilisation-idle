@@ -7,7 +7,8 @@ import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import ContemplationBar from './components/ui/ContemplationBar.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
-import { openView, save } from './game/core/state.js';
+import { openView, save, getLastSaveError } from './game/core/state.js';
+import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { buyAllAffordable } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
@@ -55,6 +56,9 @@ export default function App() {
   // c'est ce qui rend ce mode bon marché.
   const [contemplation, setContemplation] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  // Texte d'export à copier à la main quand le presse-papiers a échoué. null =
+  // pas de repli en cours (une chaîne vide reste un état valide à afficher).
+  const [exportFallback, setExportFallback] = useState(null);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
   // Les jeux du temple (augures / Icare) ne sont PLUS des modales : ils vivent
@@ -171,12 +175,24 @@ export default function App() {
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
+  // Sauvegarde manuelle : un toast, jamais une fenêtre système. L'échec ne passe
+  // PAS par ce bus (il s'effacerait au bout de 2,4 s) mais reste affiché dans la
+  // pastille de l'encart d'état tant qu'il est vrai.
+  const handleSave = () => {
+    save();
+    if (getLastSaveError()) return;
+    pushOutcomeFloat({ label: tr({ fr: "Partie sauvegardée", en: "Game saved" }), kind: "gain" });
+  };
+
+  // Plus aucune fenêtre système : le succès passe par un toast, et l'échec du
+  // presse-papiers rouvre le dialogue d'import EN LECTURE SEULE, où le texte est
+  // sélectionnable. Un `prompt()` natif volait le focus et tronquait la chaîne.
   const handleExport = async () => {
     const result = await exportSave();
     if (result.ok) {
-      alert(tr({ fr: "Sauvegarde exportee dans le presse-papiers !", en: "Save exported to clipboard!" }));
+      pushOutcomeFloat({ label: tr({ fr: "Sauvegarde copiée", en: "Save copied" }), kind: "gain" });
     } else {
-      prompt("Copie ce texte :", result.text);
+      setExportFallback(result.text || "");
     }
   };
   const handleChoice = useCallback((choice) => {
@@ -222,7 +238,7 @@ export default function App() {
         <CityStatusPanel />
 
         <div className="quick-actions">
-          <button className="btn-tiny" onClick={() => { save(); alert(tr({ fr: "Partie sauvegardée !", en: "Game saved!" })); }} title="Sauvegarder">
+          <button className="btn-tiny" onClick={handleSave} title="Sauvegarder">
             <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
           </button>
           <button className="btn-tiny" onClick={handleExport} title="Exporter">
@@ -276,6 +292,11 @@ export default function App() {
       <Suspense fallback={null}>
         {isOptionsOpen && <OptionsDialog isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />}
         {isImportOpen && <ImportDialog isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />}
+        {/* Repli d'export : le presse-papiers a échoué, on montre le texte à
+            copier dans le MÊME dialogue, en lecture seule. */}
+        {exportFallback !== null && (
+          <ImportDialog isOpen readOnlyText={exportFallback} onClose={() => setExportFallback(null)} />
+        )}
         {isDebugOpen && <DebugDialog isOpen={isDebugOpen} onClose={() => setIsDebugOpen(false)} />}
       </Suspense>
       <ChoiceDialog
