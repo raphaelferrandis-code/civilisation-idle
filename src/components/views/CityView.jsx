@@ -6,6 +6,7 @@ import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 import CycleReportBanner from '../ui/CycleReportBanner.jsx';
+import IdleReportPanel from '../ui/IdleReportPanel.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import {
@@ -331,6 +332,8 @@ export default function CityView() {
           {/* Bilan de fin de cycle : bandeau posé SUR la carte, jamais un
               dialogue — il n'interrompt rien et s'efface tout seul. */}
           <CycleReportBanner />
+          {/* Rapport de reprise : encart non modal, posé sur la carte. */}
+          <IdleReportPanel />
           <div className="city-stage-hud" ref={stageHudRef}>
           <div className="city-title-wrapper">
             <input

@@ -34,6 +34,7 @@ import {
 
 import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES } from './balance.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
+import { publishIdleReport } from './idleReport.js';
 
 import {
   tick,
@@ -59,6 +60,7 @@ import {
   encodeSaveText,
   decodeSaveText,
   fmt,
+  labelFor,
   clamp,
   clamp01,
   canPayCost
@@ -301,6 +303,48 @@ function simulateAwayCrises(elapsedSeconds) {
 //  - LINÉAIRE (sinon) : la cité PRODUIT et vieillit au taux courant, bornés par le
 //    MÊME cap (idleCapSeconds) — au-delà, tout gèle. Rupture gelée.
 // Remplace l'ancien hors-ligne « Usure seule ×0.35 », qui ne produisait rien.
+// Les 5 ressources suivies par le rapport de reprise.
+const REPORT_RESOURCES = ["population", "food", "gold", "knowledge", "infrastructure"];
+// Sous ce seuil, aucun rapport : un aller-retour d'onglet de quelques secondes
+// n'est pas une absence, et le crédit de visibilitychange applique déjà 60 s.
+const REPORT_MIN_SEC = 60;
+
+// Assemble le rapport à partir de l'instantané pris avant la simulation. Les
+// montants sortent en CHAÎNES : ils dépassent le float, et la vue n'a qu'à les
+// afficher. Rien de ce qui est calculé ici n'est relu par le moteur.
+function buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore }) {
+  const deltas = [];
+  for (const key of REPORT_RESOURCES) {
+    const diff = D(state[key]).sub(before[key]);
+    // Les variations nulles ne disent rien : une ligne « +0 » par ressource
+    // ferait un tableau que personne ne lit.
+    if (diff.abs().lt(1)) continue;
+    deltas.push({ key, label: labelFor(key), amount: fmt(diff), negative: diff.lt(0) });
+  }
+  // Ce qui NE tourne PAS pendant l'absence. Sans cette liste, l'écart avec
+  // l'attente se lit comme un bug. Le Temple et les aubaines n'y figurent plus
+  // depuis qu'ils tournent (C12).
+  const idle = [
+    { label: tr({ fr: "les fêtes de jalon", en: "milestone celebrations" }) },
+    { label: tr({ fr: "les bulles d'habitants", en: "citizen bubbles" }) }
+  ];
+  if (!farm) {
+    idle.push({ label: tr({ fr: "la Rupture, gelée hors ligne", en: "Rupture, frozen while away" }) });
+  }
+  return {
+    title: narrative,
+    awaySec: Math.max(0, Math.round(elapsedSeconds)),
+    creditedSec: Math.round(elapsed),
+    capSec: idleCapSeconds(),
+    farm: !!farm,
+    collapses: farm ? farm.collapses : 0,
+    ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null,
+    wearDelta: Math.round(((state.timeWear || 0) - wearBefore) * 100),
+    deltas,
+    idle
+  };
+}
+
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
   // Crise terminale déjà ouverte / effondrement en cours / dialogue bloquant
   // (gamePaused) : on ne touche à rien. Sans le garde gamePaused, un retour
@@ -311,6 +355,11 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   if (elapsed <= 10) return;
 
   const wearBefore = state.timeWear || 0;
+  // Instantané AVANT la simulation : elle monkeypatche Date.now et jette
+  // state.history dans son finally, donc tout ce qu'on veut comparer se relève
+  // ICI. Decimal de bout en bout, jamais de coercition.
+  const before = {};
+  for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
   const farm = simulateAwayCrises(elapsed); // null si non éligible → chemin linéaire
 
   if (!farm) {
@@ -328,15 +377,23 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
     state.timeWear = clamp(wearBefore + timeWearRate() * elapsed, 0, 1);
   }
 
-  // Habillage narratif de la reprise (dépêche datée dans la Chronique) — cosmétique.
-  chronicle(idleResumeNarrative({
+  // Habillage narratif de la reprise. La MÊME phrase sert de ligne de Chronique
+  // et de titre au rapport : la dupliquer en deux textes distincts donnerait
+  // deux versions de la même chose à tenir à jour.
+  const narrative = idleResumeNarrative({
     elapsedSeconds,
     eraIndex: currentEraIndex(),
     instability: state.instability || 0,
     terminalUsure: state.timeWear >= 1 && wearBefore < 1,
     collapses: farm ? farm.collapses : 0,
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
-  }));
+  });
+  chronicle(narrative);
+  // Pas de rapport pour un aller-retour d'onglet : on n'annonce une récolte que
+  // s'il y a eu une vraie absence.
+  if (elapsedSeconds >= REPORT_MIN_SEC) {
+    publishIdleReport(buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore }));
+  }
   // Crédité jusqu'à MAINTENANT : on recale l'ancre du hors-ligne. save() et le
   // tick ne posent plus lastTick ailleurs → sans ceci, le prochain calcul
   // (visibilitychange / boot) recréditerait ce même intervalle (double-comptage).

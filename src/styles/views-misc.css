@@ -177,3 +177,118 @@
 }
 .cycle-report-delta.is-up { color: #8fbf7a; }
 .cycle-report-delta.is-down { color: #c08a70; }
+
+
+/* ============================================================================
+   RAPPORT DE REPRISE (B11) — encart NON MODAL, pose sur la carte au retour.
+   Il ne vole pas le focus et n'interrompt rien : on revient dans son jeu, on ne
+   se fait pas accueillir par une fenetre a cliquer.
+   ============================================================================ */
+.idle-report {
+  position: absolute;
+  top: 3.2rem;
+  left: 1rem;
+  z-index: 7;
+  width: min(20rem, 42%);
+  padding: 0.7rem 0.9rem 0.8rem;
+  border: 1px solid var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(20, 17, 13, 0.95), rgba(13, 11, 9, 0.93));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+
+.idle-report-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--font-display, serif);
+  font-size: 0.92rem;
+  letter-spacing: 0.03em;
+  color: var(--gold-bright, #e8c66e);
+}
+
+.idle-report-close {
+  border: 0;
+  background: none;
+  color: var(--muted, #9a8f7d);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+}
+.idle-report-close:hover { color: var(--gold-ivory, #ecdfc0); }
+
+.idle-report-title {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-secondary, #c8bda9);
+}
+
+.idle-report-cap,
+.idle-report-farm,
+.idle-report-wear,
+.idle-report-idle {
+  margin: 0.25rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-secondary, #c8bda9);
+}
+
+.idle-report-lost { color: var(--muted, #9a8f7d); }
+.idle-report-farm strong { color: var(--gold-bright, #e8c66e); }
+
+.idle-report-idle {
+  margin-top: 0.55rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
+  font-size: 0.66rem;
+  color: var(--muted, #9a8f7d);
+}
+
+.idle-report-lines {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+}
+
+.idle-report-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary, #c8bda9);
+  padding: 0.08rem 0;
+}
+
+.idle-report-lines strong {
+  font-family: var(--font-number, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.idle-report-lines li.is-up strong { color: #8fbf7a; }
+.idle-report-lines li.is-down strong { color: #c08a70; }
+
+/* Revelation ligne a ligne : tout d'un bloc, c'est un pave de chiffres qu'on
+   saute. Les lignes existent des le depart (pas de saut de mise en page), elles
+   n'apparaissent qu'ensuite. */
+.idle-report-cap,
+.idle-report-farm,
+.idle-report-lines li {
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.idle-report-cap.is-in,
+.idle-report-farm.is-in,
+.idle-report-lines li.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idle-report-cap,
+  .idle-report-farm,
+  .idle-report-lines li { opacity: 1; transform: none; transition: none; }
+}
