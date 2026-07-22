@@ -4,13 +4,12 @@ import {
   CM_INFRA_IDS,
   CM_KNOWLEDGE_IDS,
   CM_TINTS,
-  cmHash,
-  cmWonderSlot
+  cmHash
 } from './layout.js';
 import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingShapes.js';
 import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
-import { worldToScreen } from './iso/projection.js';
+import { wonderAnchor } from './iso/projection.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -449,13 +448,14 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
 
 function drawWonder(w, idx, now) {
   const L = CM.layout; if (!L) return;
-  const slot = cmWonderSlot(idx, L.gridN, L.cx, L.cy);
   const z = CM.cam.zoom, s = CM.TILE * z;
-  // Ancre = centre-bas de la tuile du slot, PROJETÉE. worldToScreen renvoie le
+  // Ancre = centre-bas de la tuile du slot, PROJETÉE. wonderAnchor renvoie le
   // mapping legacy À L'IDENTITÉ quand CM.iso est éteint (0 changement top-down,
   // au bit près) ; en iso, le monument se pose sur le bon losange. Le sprite
   // reste DEBOUT (front-view) : seul son point d'ancrage change de projection.
-  const anchor = worldToScreen(slot.gx * CM.TILE + CM.TILE / 2, slot.gy * CM.TILE + CM.TILE);
+  // SOURCE UNIQUE partagée avec le survol (cityMapHitTest), qui projetait encore
+  // sa propre copie planaire et visait donc à côté en iso.
+  const anchor = wonderAnchor(idx, L.gridN, L.cx, L.cy);
   const cxs = anchor.x, baseY = anchor.y;
   let H_MAX = s * 7, W = s * 3.6;
   if (w.id === "pop1m")          { H_MAX = s * 5.5; W = s * 4.8; }

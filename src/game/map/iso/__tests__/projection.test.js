@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { CM } from "../../layout.js";
 import {
   worldToScreen, screenToWorld, panDeltaToScreen, depthOf, tileDiamond,
-  visibleCellBounds, ISO_X, ISO_Y,
+  visibleCellBounds, wonderAnchor, ISO_X, ISO_Y,
 } from "../projection.js";
 
 // La projection est LE pivot du chantier iso : legacy = identité translatée au
@@ -15,7 +15,22 @@ beforeEach(() => {
   CM.cam = { x: 1000, y: 2000, zoom: 1.5 };
   CM.iso = false;
 });
-afterEach(() => { CM.iso = false; });
+afterEach(() => { CM.iso = false; CM.layout = null; });
+
+// Slot de merveille ÉPINGLÉ : cmWonderSlot rend tel quel un slot mémorisé dont
+// la signature (gridN, cx, cy) correspond — la géométrie du plan ne joue donc
+// aucun rôle dans ce qui suit.
+const WSLOT = { gridN: 40, cx: 20, cy: 20 };
+function pinWonderSlot(gx, gy) {
+  CM.layout = { wonderSlots: [{ gx, gy, ...WSLOT }] };
+}
+// L'ancienne projection PLANAIRE, écrite à la main dans cityMapHitTest.
+function legacyPlanarAnchor(gx, gy) {
+  return {
+    x: (gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * CM.cam.zoom + CM.cw / 2,
+    y: (gy * CM.TILE + CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2,
+  };
+}
 
 describe("projection — mode legacy (CM.iso off)", () => {
   it("réplique exactement l'ancien mapping écran", () => {
@@ -33,6 +48,14 @@ describe("projection — mode legacy (CM.iso off)", () => {
 
   it("depthOf = wy (tri du peintre actuel)", () => {
     expect(depthOf(50, 70)).toBe(70);
+  });
+
+  it("wonderAnchor reproduit l'ancienne projection planaire au bit près", () => {
+    pinWonderSlot(26, 14);
+    const a = wonderAnchor(0, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
+    const legacy = legacyPlanarAnchor(26, 14);
+    expect(a.x).toBe(legacy.x);
+    expect(a.y).toBe(legacy.y);
   });
 });
 
@@ -80,6 +103,25 @@ describe("projection — mode iso (losange 2:1)", () => {
     // Une cellule plus « sud-est » est plus profonde (dessinée après).
     expect(depthOf(51, 70)).toBeGreaterThan(depthOf(50, 70));
     expect(depthOf(50, 71)).toBeGreaterThan(depthOf(50, 70));
+  });
+
+  it("wonderAnchor N'EST PAS la projection planaire (le hit-test visait à côté)", () => {
+    // Le survol des merveilles gardait une projection planaire écrite à la main
+    // alors que le rendu passait par worldToScreen : en iso les deux divergent,
+    // donc la zone survolable ne tombait plus sur le monument dessiné. Ce test
+    // échoue si quelqu'un re-projette à la main (règle d'or du chantier iso).
+    pinWonderSlot(26, 14);
+    const a = wonderAnchor(0, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
+    const legacy = legacyPlanarAnchor(26, 14);
+    expect(Math.hypot(a.x - legacy.x, a.y - legacy.y)).toBeGreaterThan(CM.TILE);
+  });
+
+  it("wonderAnchor = centre-BAS de la tuile du slot, projeté (ancre du rendu)", () => {
+    pinWonderSlot(26, 14);
+    const a = wonderAnchor(0, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
+    const expected = worldToScreen(26 * 32 + 16, 14 * 32 + 32);
+    expect(a.x).toBeCloseTo(expected.x, 9);
+    expect(a.y).toBeCloseTo(expected.y, 9);
   });
 
   it("visibleCellBounds couvre le viewport (chaque coin écran retombe dans les bornes)", () => {

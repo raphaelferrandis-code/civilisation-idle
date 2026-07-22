@@ -17,7 +17,7 @@
 // une pure translation écran → les bakes offscreen restent valides (offset projeté).
 //
 // Profondeur du peintre (Phase 2) : depthOf = wx + wy (diagonales SE), remplace wy.
-import { CM } from '../layout.js';
+import { CM, cmWonderSlot } from '../layout.js';
 
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
@@ -83,6 +83,18 @@ export function screenDeltaToPan(dsx, dsy) {
 // Profondeur du peintre : plus grand = plus « devant » (dessiné après).
 export function depthOf(wx, wy) {
   return CM.iso ? wx + wy : wy;
+}
+
+// SOURCE UNIQUE de l'ancre écran d'une merveille : centre-BAS de la tuile de son
+// slot, projetée. Le sprite reste debout (front-view), seul ce point change de
+// projection. Le rendu (drawWonder) ET le survol (cityMapHitTest) doivent lire
+// cette fonction : la formule était dupliquée, et la copie du hit-test projetait
+// encore à la main façon legacy — donc en iso la zone survolable ne tombait plus
+// sur la merveille dessinée. Cf. la règle d'or en tête de ce fichier.
+export function wonderAnchor(idx, gridN, cx, cy) {
+  const slot = cmWonderSlot(idx, gridN, cx, cy);
+  const T = CM.TILE;
+  return worldToScreen(slot.gx * T + T / 2, slot.gy * T + T);
 }
 
 // Les 4 coins écran du losange de la cellule (gx,gy) (ordre N,E,S,W) + centre.
