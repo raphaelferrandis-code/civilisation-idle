@@ -58,7 +58,13 @@ function formatCompactNumber(value, extraDecimals = 0) {
     v /= 1000;
     i += 1;
   }
-  return `${sign}${v.toFixed((v < 10 ? 2 : 1) + extraDecimals)}${COMPACT_UNITS[i]}`;
+  // MANTISSE À 3 CHIFFRES SIGNIFICATIFS (B12) : 8.70K / 87.0K / 870K, au lieu de
+  // 8.70K / 87.0K / 870.0K. Seule la bande 100-999 change, et elle y perdait un
+  // « .0 » qui n'apportait rien qu'un caractère de plus dans des colonnes déjà
+  // serrées (coûts de boutique, badges de palier, débits de la topbar).
+  // `extraDecimals` (le compact « vivant » de fmtShortLive) reste ajouté par
+  // dessus, pour que le count-up garde un chiffre qui bouge.
+  return `${sign}${v.toFixed((v < 10 ? 2 : v < 100 ? 1 : 0) + extraDecimals)}${COMPACT_UNITS[i]}`;
 }
 
 export const fmt = (value) => {
@@ -88,6 +94,46 @@ export const fmtShort = (value) => {
   if (!Number.isFinite(value)) return "inf";
   return formatCompactNumber(value);
 };
+
+// ── DÉBITS À UNITÉ ADAPTATIVE (B4) ───────────────────────────────────────────
+// Un débit de 0,0004/s s'affichait « 0.0/s » : un zéro mort, alors que la valeur
+// vaut 1,4 par heure. Tous les petits débits du début de partie et les effets
+// indirects de la boutique redeviennent lisibles, sans toucher à une formule.
+//
+// On renvoie la valeur MISE À L'ÉCHELLE et son unité, jamais une chaîne déjà
+// signée : la topbar compose son signe à part (rateSign) et la boutique passe
+// par signedShort. Rendre une chaîne signée ferait DOUBLER le signe d'un côté ou
+// DISPARAÎTRE celui de l'autre — c'est le piège de la proposition d'origine, qui
+// ne prévoyait qu'une seule sortie.
+//
+// ⚠ ENTRÉE MIXTE, et c'est le vrai piège : la topbar passe des Decimal (rates()),
+// la boutique des NUMBERS natifs (buildingProductionSegments fait son produit en
+// flottant). Écrire ce code en .abs()/.mul() comme le demandait la fiche ferait
+// lever « value.abs is not a function » sur chaque rangée. On branche donc sur
+// instanceof, exactement comme fmtShort juste au-dessus.
+const RATE_UNITS = [
+  [1, 1],        // au moins 1 par seconde → /s
+  [1 / 60, 60],  // au moins 1 par minute → /min
+  [0, 3600]      // sinon → /h
+];
+
+export function rateScale(value) {
+  const estDec = value instanceof Decimal;
+  const n = estDec ? value.toNumber() : value;
+  // Un débit nul est l'état NOMINAL en début de partie (l'Or vaut 0/s tant que
+  // le Rayonnement est sous 25) : « 0.0/h » serait plus absurde que « 0.0/s ».
+  // Non fini : fmtShort rend déjà « inf », on ne lui colle pas « /h ».
+  if (!Number.isFinite(n) || n === 0) return { value, unit: "/s", perSecond: true };
+  const abs = Math.abs(n);
+  for (const [seuil, facteur] of RATE_UNITS) {
+    if (abs >= seuil) {
+      if (facteur === 1) return { value, unit: "/s", perSecond: true };
+      const mis = estDec ? value.mul(facteur) : value * facteur;
+      return { value: mis, unit: facteur === 60 ? "/min" : "/h", perSecond: false };
+    }
+  }
+  return { value, unit: "/s", perSecond: true };
+}
 
 // Habitants « crédibles » (compteur cosmétique dérivé de crediblePopulation) :
 // exacts avec séparateurs jusqu'au million (17, 3 000, 560 000), compacts au-delà.

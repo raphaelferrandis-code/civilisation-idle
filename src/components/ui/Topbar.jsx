@@ -7,7 +7,7 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, clamp01, multLabel, fmtHabitants } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, rateScale } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import OdometerNumber from './OdometerNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -171,11 +171,17 @@ export default function Topbar() {
                       se remarque tout de suite. Le rouge du texte reste le
                       signal principal (views-city.css). */}
                   {c.rate.gte(0) ? null : <span className="rate-arrow" aria-hidden="true">▼</span>}
-                  {/* Convention compacte « /s » (celle de la boutique) ; le cap nomade
-                      passe en suffixe court — le détail vit dans le tooltip. */}
-                  <strong id={c.rateId}>
-                    {rateSign(c.rate)}{fmtShort(c.rate)}
-                  </strong>/s
+                  {/* UNITÉ ADAPTATIVE (B4) : sous 1/s le débit bascule en /min
+                      puis en /h, pour cesser d'afficher « 0.0/s » là où la
+                      valeur vaut 1,4 par heure. rateScale rend la valeur mise à
+                      l'échelle, pas une chaîne signée : le signe reste composé
+                      ici, sinon il doublerait. */}
+                  {(() => {
+                    const r = rateScale(c.rate);
+                    return (<><strong id={c.rateId}>
+                      {rateSign(r.value)}{fmtShort(r.value)}
+                    </strong>{r.unit}</>);
+                  })()}
                   {c.key === "infrastructure" && showNomadCap ? ` · cap ${fmtShort(nomadCap)}` : ""}
                 </span>
               )}

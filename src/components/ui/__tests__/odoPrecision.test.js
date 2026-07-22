@@ -98,9 +98,12 @@ describe("odoPrecision — précision lisible", () => {
 
   it("sans débit, reprend la précision du format compact du jeu", () => {
     // fmtShort : 8.70K / 87.0K / 870K sous suffixe, 8.7 / 87 / 870 sans.
+    // ⚠ La 3e assertion valait 1 jusqu'à B12, alors que le commentaire
+    // ci-dessus annonçait déjà « 870K » : le cadran rendait « 870.0B » quand le
+    // reste de l'écran écrivait « 870.0K ». Les deux disent enfin 3 chiffres.
     expect(idealDecimals(0, 1000, 1)).toBe(2);
     expect(idealDecimals(0, 1e6, 2)).toBe(1);
-    expect(idealDecimals(0, 1e6, 3)).toBe(1);
+    expect(idealDecimals(0, 1e6, 3)).toBe(0);
     expect(idealDecimals(0, 1, 1)).toBe(1);
     expect(idealDecimals(-0, 1, 2)).toBe(0);
   });

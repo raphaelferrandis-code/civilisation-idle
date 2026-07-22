@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
-import { fmt, fmtShort, signed, signedShort, labelFor } from '../../game/core/utils.js';
+import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
@@ -156,15 +156,23 @@ function PurchaseRow({
           {production.length === 0 ? (
             <span className="pr-prod-item pr-prod-indirect">{tr({ fr: "effet indirect", en: "indirect effect" })}</span>
           ) : (
-            production.map(([key, value]) => (
-              <span
-                key={key}
-                className={`pr-prod-item ${RES_CLASS[key] || ""}`}
-                title={`${labelFor(key)} : ${signed(value)}/s`}
-              >
-                {signedShort(value)}/s
-              </span>
-            ))
+            production.map(([key, value]) => {
+              // UNITÉ ADAPTATIVE (B4). Les effets indirects de la boutique sont
+              // souvent bien sous 1/s — les Conteurs rendent 0,01 Rayonnement,
+              // affiché « +0.0/s », c'est-à-dire rien. En horaire, 36/h.
+              // ⚠ `value` est un NUMBER natif ici (le produit est fait en
+              // flottant par buildingProductionSegments), pas un Decimal.
+              const r = rateScale(value);
+              return (
+                <span
+                  key={key}
+                  className={`pr-prod-item ${RES_CLASS[key] || ""}`}
+                  title={`${labelFor(key)} : ${signed(value)}/s`}
+                >
+                  {signedShort(r.value)}{r.unit}
+                </span>
+              );
+            })
           )}
           {b.id === "roads" && (() => {
             const net = roadNetworkInfo();

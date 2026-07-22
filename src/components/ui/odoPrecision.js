@@ -38,9 +38,14 @@ export const COOLDOWN_MS = 5000;
 // rien ne peut bouger, alors on se cale sur la précision du format compact du
 // jeu (fmtShort) — un cadran immobile ressemble aux autres nombres de l'écran
 // au lieu d'afficher une précision qui ne sert à rien.
+// ⚠ Recopie À LA MAIN la règle de mantisse de formatCompactNumber (utils.js) :
+// ce module n'importe RIEN, pour rester une feuille testable sans le moteur.
+// Depuis B12 la mantisse tient en 3 chiffres significatifs, donc la précision
+// décroît d'un cran par chiffre entier gagné — 8.70K / 87.0K / 870K sous suffixe,
+// 8.7 / 87 / 870 sans. Toute retouche de utils.js:61 doit repasser ici.
 export function staticDecimals(div, intLen) {
   const base = div > 1 ? 2 : 1;
-  const dec = intLen === 1 ? base : base - 1;
+  const dec = base - (intLen - 1);
   return Math.max(0, Math.min(dec, MAX_SLOTS - intLen));
 }
 
