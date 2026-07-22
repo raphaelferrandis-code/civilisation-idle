@@ -1,34 +1,55 @@
 import { useEffect, useState } from 'react';
 import { registerOutcomeFloats } from '../../game/core/outcomeFloat.js';
+import { openView } from '../../game/core/state.js';
+import { emptyStack, pushOutcome, tickOutcomes, stackIsEmpty } from './outcomeStack.js';
+
+// Cadence de vieillissement de la pile. Un seul intervalle pour toute la couche,
+// plutôt qu'un minuteur par toast : la fusion relance la vie d'une entrée déjà
+// affichée, ce qu'un minuteur par entrée obligerait à annuler et reprogrammer.
+const TICK_MS = 120;
 
 export default function OutcomeFloatLayer() {
-  const [floats, setFloats] = useState([]);
+  const [stack, setStack] = useState(emptyStack);
 
+  useEffect(() => registerOutcomeFloats((outcome) => {
+    setStack((current) => pushOutcome(current, outcome, Date.now()));
+  }), []);
+
+  const busy = !stackIsEmpty(stack);
   useEffect(() => {
-    let nextId = 0;
-    const timers = new Set();
-    const unregister = registerOutcomeFloats((outcome) => {
-      const id = ++nextId;
-      setFloats((current) => [...current, { ...outcome, id }]);
-      const timer = setTimeout(() => {
-        timers.delete(timer);
-        setFloats((current) => current.filter((f) => f.id !== id));
-      }, 2400);
-      timers.add(timer);
-    });
-    return () => {
-      unregister();
-      for (const timer of timers) clearTimeout(timer);
-    };
-  }, []);
+    if (!busy) return undefined;
+    const id = setInterval(() => setStack((current) => tickOutcomes(current, Date.now())), TICK_MS);
+    return () => clearInterval(id);
+  }, [busy]);
 
-  if (!floats.length) return null;
+  if (!stack.visible.length) return null;
 
   return (
-    <div className="outcome-float-layer" role="status" aria-live="polite">
-      {floats.map((f) => (
-        <span key={f.id} className={`outcome-float is-${f.kind || "info"}`}>{f.label}</span>
-      ))}
-    </div>
+    <>
+      <div className="outcome-float-layer">
+        {stack.visible.map((f) => {
+          const label = f.count > 1 ? `${f.label} ×${f.count}` : f.label;
+          // La COUCHE reste en pointer-events: none (cf. components.css) : seuls
+          // les toasts porteurs d'une vue redeviennent cliquables. Sans cela, la
+          // couche intercepterait les clics sur la carte, qu'elle recouvre.
+          if (!f.view) {
+            return <span key={f.id} className={`outcome-float is-${f.kind}`}>{label}</span>;
+          }
+          return (
+            <button
+              key={f.id}
+              type="button"
+              className={`outcome-float is-${f.kind} is-clickable`}
+              onClick={() => openView(f.view)}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {/* Annonce SÉPARÉE de l'affichage : la pile ne publie que ce qui vient
+          d'apparaître, une fusion ou une expiration n'y passent pas. */}
+      <div className="sr-only" role="status" aria-live="polite">{stack.announce}</div>
+    </>
   );
 }

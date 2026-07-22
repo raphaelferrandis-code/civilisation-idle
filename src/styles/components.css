@@ -767,6 +767,19 @@ dialog::backdrop {
   animation: outcome-float-up 2.4s ease-out forwards;
 }
 
+/* Toast CLIQUABLE : la couche reste en pointer-events: none, seul le bouton
+   redevient cliquable. Sinon la couche, fixée par-dessus le canvas, avalerait
+   les clics sur la carte alors qu'elle est vide la plupart du temps. */
+.outcome-float.is-clickable {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.outcome-float.is-clickable:hover {
+  border-color: var(--gold-bright, rgba(232, 198, 110, 0.8));
+}
+
 .outcome-float.is-gain {
   color: #86efac;
   border-color: rgba(16, 185, 129, 0.45);

@@ -123,6 +123,17 @@ function atlasTakeHit(event) {
   chronicle(`Atlas prend le coup : « ${event.title || "la crise"} » passe sans laisser de trace. Ses épaules ne reprendront ce poids qu'au prochain cycle.`);
 }
 
+// Retour visuel d'un choix de crise. Toutes les options n'ont pas de libellé de
+// RÉSULTAT propre : sans ce repli, trancher une crise ne produisait aucun retour
+// à l'écran alors que l'état du jeu, lui, venait de bouger. On reprend alors le
+// libellé du choix, et le toast renvoie vers la Régulation, où se lit la
+// pression qu'on vient de faire varier.
+function pushCrisisOutcome(outcome, choice, stabilized) {
+  if (outcome && outcome.label) { pushOutcomeFloat(outcome); return; }
+  if (!choice || !choice.label) return;
+  pushOutcomeFloat({ label: choice.label, kind: stabilized ? "gain" : "info", view: "regulation" });
+}
+
 // Résolution automatique d'un event de crise selon la posture, SANS pause ni
 // dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
 export function autoResolveCrisisEvent(event, stance) {
@@ -145,7 +156,7 @@ export function autoResolveCrisisEvent(event, stance) {
   if (!choice || typeof choice.apply !== "function") return;
   const before = state.instability || 0;
   const outcome = choice.apply();
-  if (outcome && outcome.label) pushOutcomeFloat(outcome);
+  pushCrisisOutcome(outcome, choice, (state.instability || 0) < before);
   if ((state.instability || 0) < before) {
     registerOlympusCrisisResolved();
     // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
@@ -210,7 +221,7 @@ export async function openCrisisEvent(event) {
   if (!choice || typeof choice.apply !== "function") { setGamePaused(false); render(); return; }
   const instabilityBefore = state.instability || 0;
   const outcome = choice.apply();
-  if (outcome && outcome.label) pushOutcomeFloat(outcome);
+  pushCrisisOutcome(outcome, choice, (state.instability || 0) < instabilityBefore);
   if ((state.instability || 0) < instabilityBefore) {
     registerOlympusCrisisResolved();
     // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
