@@ -115,6 +115,35 @@
   min-height: 2.6rem;
 }
 
+/* PASTILLE D'ATTENTION (B10). EN FLUX, jamais en position absolue débordante :
+   `.tab` porte un clip-path juste au-dessus, qui découpe TOUS ses descendants —
+   y compris en position fixe, contrairement à overflow. Et sous 980px les
+   onglets passent en grille multi-colonnes (base.css), où une pastille
+   débordante mordrait la rangée du dessus. `.tab` étant déjà un flex avec gap,
+   un troisième enfant règle les deux d'un coup.
+   Jamais de rouge : c'est une information, pas un problème. */
+.tab .tab-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 1.15rem;
+  padding: 0 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--gold), transparent 78%);
+  color: var(--gold-bright);
+  font-family: var(--font-number);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.58rem;
+  line-height: 1.25rem;
+  text-align: center;
+  text-shadow: none;
+}
+
+/* L'onglet actif a déjà le regard : la pastille s'y fait discrète. */
+.tab.active .tab-badge {
+  background: color-mix(in srgb, var(--gold), transparent 60%);
+}
+
 /* 24px, aligné sur les actions rapides et sur la sidebar compacte : en 20px la
    réduction ne gardait que 7 % des pixels source et effaçait les traits fins
    (la balance de Régulation, l'éclair des Mythes). */
@@ -422,6 +451,24 @@
 
   .tab .tab-label {
     display: none;
+  }
+
+  /* Gouttière de 4,5 rem sans libellé : le `margin-left: auto` collerait la
+     pastille au bord droit, loin de son icône. On la recentre avec elle.
+     ⚠ MESURÉ à 1280 px : bouton 52 px, icône 24 + gap 8,8 + pastille 17 = 50 px
+     centrés, soit 1 px de marge — donc PILE dans l'encoche de 3 px du clip-path,
+     qui rognait les coins de la pastille. On resserre le gap et la pastille pour
+     dégager ~5 px de chaque côté. */
+  .tab {
+    gap: 0.2rem;
+  }
+
+  .tab .tab-badge {
+    margin-left: 0;
+    min-width: 0.9rem;
+    padding: 0 0.15rem;
+    font-size: 0.52rem;
+    line-height: 1.05rem;
   }
 
   .quick-actions {

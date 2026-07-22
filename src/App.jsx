@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
 import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
 import PixelIcon from './components/ui/PixelIcon.jsx';
@@ -10,6 +10,7 @@ import { useGameState } from './hooks/useGameState.js';
 import { openView, save, getLastSaveError } from './game/core/state.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
+import { tabBadgeSignature, parseTabBadges } from './game/core/mechanics/tabBadges.js';
 import { buyAllAffordable } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
@@ -169,6 +170,14 @@ export default function App() {
   const isComptoirUnlocked = useGameState(s => Boolean(s.orHeritage));
   const isMythsUnlocked = grandResetCount >= 1;
 
+  // PASTILLES D'ATTENTION (B10). Abonnement OBLIGATOIRE et non une optimisation :
+  // tous les autres sélecteurs de ce composant rendent des valeurs quasi
+  // constantes (vue active, cycles, drapeaux), donc la sidebar ne se re-rend
+  // presque jamais. Une pastille « évaluée au rendu » resterait figée jusqu'à ce
+  // que le joueur change d'onglet — exactement le problème que B10 doit régler.
+  const badgeSig = useGameState(() => tabBadgeSignature());
+  const badges = useMemo(() => parseTabBadges(badgeSig), [badgeSig]);
+
   const tabs = [
     { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'nav/cite', unlocked: true },
     { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: true },
@@ -243,6 +252,23 @@ export default function App() {
             >
               <PixelIcon name={tab.icon} className="tab-icon" />
               <span className="tab-label">{tr(tab.label)}</span>
+              {/* Pastille EN FLUX (B10) et non en position absolue débordante :
+                  `.tab` porte un clip-path (coins crantés de la DA) qui découpe
+                  tous ses descendants, y compris en position fixe — une pastille
+                  débordante serait rognée. Et sous 980 px les onglets passent en
+                  grille multi-colonnes, où elle mordrait la rangée du dessus.
+                  En flux, `.tab` étant déjà un flex, les deux problèmes tombent. */}
+              {badges[tab.id] > 0 && (
+                <span
+                  className="tab-badge"
+                  title={tr({
+                    fr: `${badges[tab.id]} chose${badges[tab.id] > 1 ? 's' : ''} à réclamer, sans rien dépenser`,
+                    en: `${badges[tab.id]} thing${badges[tab.id] > 1 ? 's' : ''} to claim, at no cost`
+                  })}
+                >
+                  {badges[tab.id] > 9 ? '9+' : badges[tab.id]}
+                </span>
+              )}
             </button>
           ))}
         </nav>
