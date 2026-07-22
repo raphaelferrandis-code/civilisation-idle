@@ -62,6 +62,7 @@ import {
 } from './utils.js';
 
 import { upgrades } from '../data/upgrades.js';
+import { tr } from './i18n.js';
 
 import { registerWorldEffects } from '../data/worldEffects.js';
 
@@ -157,6 +158,24 @@ export function idleCapSeconds() {
   let cap = IDLE_BASE_CAP_SECONDS;
   for (const [id, seconds] of Object.entries(IDLE_CAP_PALIERS)) if (has(id)) cap += seconds;
   return cap;
+}
+
+// Prochain palier d'absence non possédé : { id, nom, cap } où `cap` est la
+// réserve TOTALE une fois ce palier acquis. null quand tout est pris.
+// Sert à faire du plafond un OBJECTIF nommé plutôt qu'une punition découverte
+// après coup, au retour d'une longue absence.
+export function nextIdleCapPalier() {
+  let cap = IDLE_BASE_CAP_SECONDS;
+  let pending = null;
+  for (const [id, seconds] of Object.entries(IDLE_CAP_PALIERS)) {
+    if (has(id)) { cap += seconds; continue; }
+    // Les paliers se cumulent : le premier non possédé est le prochain objectif,
+    // et son cap se calcule sur la base courante, pas sur le total final.
+    if (!pending) pending = { id, seconds };
+  }
+  if (!pending) return null;
+  const upgrade = upgrades.find((u) => u.id === pending.id);
+  return { id: pending.id, name: upgrade ? tr(upgrade.name) : pending.id, cap: cap + pending.seconds };
 }
 
 // Pas (s. virtuelles) de la simulation hors-ligne. Petit → l'auto-achat (1 bâtiment

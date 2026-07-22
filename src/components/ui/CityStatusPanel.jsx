@@ -2,7 +2,8 @@ import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
-import { pct, clamp01 } from '../../game/core/utils.js';
+import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
+import { idleCapSeconds, nextIdleCapPalier } from '../../game/core/main.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -21,12 +22,6 @@ const SEDIMENT_PALIERS = [
   { secs: 259200, bonus: 135 },
   { secs: 604800, bonus: 400 },
 ];
-
-function fmtSecs(s) {
-  if (s >= 86400) return `${Math.floor(s / 86400)}j ${Math.floor((s % 86400) / 3600)}h`;
-  if (s >= 3600)  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}min`;
-  return `${Math.floor(s / 60)}min`;
-}
 
 // Durée du cycle en j/h/m/s : on n'affiche que les unités utiles, en zéro-paddant
 // les unités inférieures dès qu'une unité supérieure est présente (style horloge).
@@ -64,6 +59,14 @@ export default function CityStatusPanel() {
   }
   const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
   const nextPalierInSecs = nextPalier ? Math.ceil(nextPalier.secs - cycleElapsed) : 0;
+
+  // RÉSERVE D'ABSENCE : le plafond d'idle, en clair. Volontairement STATIQUE et
+  // non une jauge de remplissage : `state.lastTick` est réécrit à chaque tick,
+  // donc le ratio « temps accumulé / plafond » vaudrait ~1/28800 en permanence
+  // tant que l'onglet est visible — c'est-à-dire une jauge vide 100 % du temps
+  // où le joueur la regarde. Le remplissage a du sens au RETOUR, pas pendant.
+  const idleCap = idleCapSeconds();
+  const idleNext = nextIdleCapPalier();
 
   return (
     <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
@@ -131,6 +134,28 @@ export default function CityStatusPanel() {
           <span className="csp-stat-label">{tr({ fr: 'Temps', en: 'Time' })}</span>
           <strong>{cycleTimeLabel}</strong>
         </div>
+      </div>
+
+      {/* Classes DÉDIÉES et non .csp-label/.csp-value : entre 981 et 1500px, ces
+          deux-là sont masquées et l'encart deviendrait muet. Ici la valeur reste
+          lisible à tous les paliers, seul le libellé se raccourcit. */}
+      <div
+        className="csp-idle"
+        title={idleNext
+          ? tr({
+              fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Au-delà, le temps est perdu. « ${idleNext.name} » porte la réserve à ${fmtSecs(idleNext.cap)}.`,
+              en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Beyond that, time is lost. "${idleNext.name}" raises the reserve to ${fmtSecs(idleNext.cap)}.`
+            })
+          : tr({
+              fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Réserve maximale atteinte.`,
+              en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Maximum reserve reached.`
+            })}
+      >
+        <span className="csp-idle-label">{tr({ fr: "Réserve d'absence", en: 'Away reserve' })}</span>
+        <strong className="csp-idle-value">{fmtSecs(idleCap)}</strong>
+        {idleNext && (
+          <span className="csp-idle-next">{tr({ fr: `puis ${fmtSecs(idleNext.cap)}`, en: `then ${fmtSecs(idleNext.cap)}` })}</span>
+        )}
       </div>
     </div>
   );

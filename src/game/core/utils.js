@@ -109,6 +109,26 @@ export const fmtShortLive = (value) => {
 
 export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed(1)}%`;
 
+// Durée APPROCHÉE en langage courant : « 3j 4h », « 8h 12min », « 45min ». On ne
+// descend jamais sous la minute — c'est un ordre de grandeur (réserve d'absence,
+// délai avant un palier), pas un chronomètre. Pour un compte à rebours précis,
+// voir fmtCycleTime dans CityStatusPanel, qui zéro-padde façon horloge.
+// Remontée ici depuis CityStatusPanel : le rapport de reprise en a besoin aussi,
+// et deux copies de ce formatage finiraient par diverger d'une unité.
+export function fmtSecs(s) {
+  const total = Math.max(0, Math.floor(s));
+  if (total < 60) return "moins d'1 min";
+  // Une unité inférieure NULLE ne s'écrit pas : « 8 h » et non « 8h 0min ». La
+  // version d'origine la gardait toujours, ce qui allongeait inutilement une
+  // valeur affichée dans une gouttière de barre latérale.
+  const j = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const min = Math.floor((total % 3600) / 60);
+  if (j > 0) return h > 0 ? `${j} j ${h} h` : `${j} j`;
+  if (h > 0) return min > 0 ? `${h} h ${min} min` : `${h} h`;
+  return `${min} min`;
+}
+
 export function labelFor(key) {
   return {
     population: tr({ fr: "Ray.", en: "Rad." }),
