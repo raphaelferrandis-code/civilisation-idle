@@ -5,7 +5,8 @@ import {
   gamePaused,
   collapseInProgress,
   bumpFrame,
-  isNotifyPaused
+  isNotifyPaused,
+  isOfflineSim
 } from '../state.js';
 
 import {
@@ -74,6 +75,7 @@ import {
   STAGNATION_RUPTURE_THRESHOLD,
   STAGNATION_RECOVER_MULT,
   STAGNATION_BOON_EVERY_SEC,
+  OFFLINE_MAX_BOONS,
   BOON_INTERVAL_MIN_SEC,
   BOON_INTERVAL_MAX_SEC
 } from '../balance.js';
@@ -169,7 +171,10 @@ export function tick(dt) {
   // timeWearRate) — à la place, chaque longue accalmie CHARGE une aubaine.
   if (has("stagnation_feconde") && (state.stagnationSec || 0) >= STAGNATION_BOON_EVERY_SEC) {
     state.stagnationSec = 0;
-    if (!isNotifyPaused()) fireBoon(r);
+    // La récompense d'une longue accalmie est MÉCANIQUE : elle est due même si
+    // l'accalmie a eu lieu pendant l'absence. Muette et plafonnée dans ce cas.
+    if (!isOfflineSim()) fireBoon(r);
+    else if (offlineBoonsLeft()) fireBoon(r, true);
   }
 
   state.timeWear = clamp01((state.timeWear || 0) + timeWearRate() * dt);
@@ -337,13 +342,14 @@ export function tick(dt) {
     }
   }
 
-  // B1/B2 — Récompenses régulières (jalon de population doré + aubaines). Sautées
-  // pendant la simulation hors-ligne (notifications suspendues) pour ne pas
-  // créditer des milliers d'aubaines ni empiler les floats au retour.
-  if (!isNotifyPaused()) {
-    celebratePopMilestone();
-    maybeFireBoon(r);
-  }
+  // B1/B2 — Récompenses régulières. Les deux ne se traitent PAS pareil :
+  //   - la fête de jalon est une CÉLÉBRATION, elle n'a aucun sens rejouée en
+  //     masse et reste coupée hors ligne ;
+  //   - l'aubaine est un CRÉDIT dû au joueur, dont la cadence vit déjà sur
+  //     l'horloge virtuelle. Elle tourne pendant l'absence, muette et plafonnée.
+  if (!isNotifyPaused()) celebratePopMilestone();
+  if (!isOfflineSim()) maybeFireBoon(r);
+  else if (offlineBoonsLeft()) maybeFireBoon(r, true);
 
   if (runMythTicks(state, dt) === "abort") return;
   // Validation VIVANTE : les handlers ci-dessus viennent de poser les drapeaux de
@@ -416,20 +422,29 @@ function scheduleBoonDelay() {
 // B2 — Crédite immédiatement une aubaine tirée au sort : N secondes de la
 // PRODUCTION COURANTE d'une ressource, float doré + dépêche. Partagé par
 // l'horloge douce (maybeFireBoon) et la « Stagnation féconde » (tick).
-function fireBoon(r) {
+// Hors ligne, l'aubaine CRÉDITE toujours mais reste muette : la Chronique de la
+// simulation est jetée, et empiler des dizaines de floats au retour ferait un mur.
+function fireBoon(r, silent = false) {
   const boon = BOONS[Math.floor(Math.random() * BOONS.length)];
   const gain = D(r[boon.resource]).max(0).mul(boon.seconds).floor();
   if (gain.lte(0)) return; // production nulle sur cette ressource : pas d'aubaine vide
   state[boon.resource] = D(state[boon.resource]).add(gain);
+  if (silent) { offlineBoons += 1; return; }
   pushOutcomeFloat({ label: `${boon.icon} +${fmt(gain)}`, kind: "gain" });
   chronicle(boon.chronicle(fmt(gain)));
 }
 
+// Aubaines créditées pendant l'absence en cours. Leur cadence les borne déjà
+// (nextBoonAt vit sur l'horloge virtuelle), ce compteur est la ceinture.
+let offlineBoons = 0;
+export function resetOfflineBoonQuota() { offlineBoons = 0; }
+const offlineBoonsLeft = () => offlineBoons < OFFLINE_MAX_BOONS;
+
 // B2 — Déclenche une aubaine quand son horloge est échue, puis reprogramme.
-function maybeFireBoon(r) {
+function maybeFireBoon(r, silent = false) {
   const now = Date.now();
   if (!state.nextBoonAt) { state.nextBoonAt = now + scheduleBoonDelay(); return; }
   if (now < state.nextBoonAt) return;
   state.nextBoonAt = now + scheduleBoonDelay();
-  fireBoon(r);
+  fireBoon(r, silent);
 }

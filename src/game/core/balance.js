@@ -873,6 +873,16 @@ export const MAX_BUY_HARD_CAP = 1e9;
 export const OFFLINE_MAX_COLLAPSES = 20;
 // Capstone « Phénix calendaire » : le plafond saute (borne perf seulement).
 export const OFFLINE_UNCAPPED_COLLAPSES = 500;
+// Plafonds de la MÉCANIQUE rejouée hors ligne (cf. isOfflineSim). Celui du Temple
+// est PAR JEU et non global : un plafond global serait entièrement consommé par
+// le premier jeu de la liste, et les quatre autres ne tourneraient jamais.
+// NON NÉGOCIABLE côté équilibrage : l'économie de Faveur est en régime rtp
+// supérieur à 1 assumé, bornée par la CADENCE. Rejouer des milliers de parties
+// pendant une absence rouvrirait l'imprimante que templePot.js referme.
+export const OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME = 40;
+// Idem pour les aubaines : leur cadence les borne déjà (nextBoonAt sur horloge
+// virtuelle), ce plafond est la ceinture par-dessus la bretelle.
+export const OFFLINE_MAX_BOONS = 30;
 
 // ── Refonte Arbre des Ruines (docs/REFONTE-ARBRE-RUINES.md) ──────────────────
 // Sève de braise : le scaling méta ne vient plus des nœuds « +X % ressource »

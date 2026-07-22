@@ -10,8 +10,8 @@
 //  - réglages ÉTERNELS (survivent au Grand Reset), hydratation bornée.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { state, setState, hydrateState, defaultState, invalidateRenderCache, resetTemporaryRunState, buildGrandResetState, setNotifyPaused } from "../state.js";
-import { tickTempleAutomation, resolveIcarusHeadless, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, auguryPaytable, icarusEffectiveEdge } from "../actions.js";
+import { state, setState, hydrateState, defaultState, invalidateRenderCache, resetTemporaryRunState, buildGrandResetState, setNotifyPaused, setOfflineSim } from "../state.js";
+import { tickTempleAutomation, resetOfflineTempleQuota, resolveIcarusHeadless, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, auguryPaytable, icarusEffectiveEdge } from "../actions.js";
 import { tick } from "../actions/tick.js";
 import { toNum } from "../num.js";
 import {
@@ -19,7 +19,8 @@ import {
   AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX,
   AUTO_TEMPLE_FAVEUR_FLOOR_MAX, AUTO_BLACKJACK_INTERVAL_MS,
   AUGURY_STAKES, TRUNK_RATE_PER_S, TRUNK_CAP,
-  BLACKJACK_STAKES, BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF
+  BLACKJACK_STAKES, BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF,
+  OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME
 } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -48,6 +49,8 @@ beforeEach(() => {
 
 afterEach(() => {
   setNotifyPaused(false);
+  setOfflineSim(false);
+  resetOfflineTempleQuota();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -113,7 +116,10 @@ describe("Automatisation — osselets (auto-lancé, mise en Faveur)", () => {
     expect(state.faveur).toBe(100 + stake + venusNet());
   });
 
-  it("offline (isNotifyPaused) : ne joue pas — évite le spam et le crédit en masse", () => {
+  it("notifications en pause SANS simulation : ne joue pas", () => {
+    // Deux drapeaux distincts depuis C12 : `notifyPaused` seul signifie « pas de
+    // bruit visuel », pas « on rejoue du temps ». Sans simulation en cours, la
+    // mécanique reste donc à l'arrêt.
     state.templeAuto.osselets.on = true;
     vi.spyOn(Math, "random").mockReturnValue(0.01);
     setNotifyPaused(true);
@@ -123,6 +129,88 @@ describe("Automatisation — osselets (auto-lancé, mise en Faveur)", () => {
     tickTempleAutomation();
     Math.random.mockRestore();
     expect(state.faveur).toBe(FAVEUR_START + venusNet());
+  });
+});
+
+describe("Automatisation — pendant l'absence (C12)", () => {
+  // La promesse : les cadrans PAYÉS servent la nuit. Le garde-fou : ils ne
+  // rouvrent pas l'imprimante à Faveur, dont le régime est volontairement
+  // favorable au joueur et borné par la CADENCE.
+  const jouerLongtemps = (ticks) => {
+    vi.spyOn(Math, "random").mockReturnValue(0.01);
+    for (let i = 0; i < ticks; i += 1) {
+      vi.advanceTimersByTime(AUTO_AUGURY_INTERVAL_MS);
+      tickTempleAutomation();
+    }
+    Math.random.mockRestore();
+  };
+
+  it("JOUE pendant la simulation, là où l'ancien code s'arrêtait net", () => {
+    state.templeAuto.osselets.on = true;
+    setNotifyPaused(true);
+    setOfflineSim(true);
+    resetOfflineTempleQuota();
+    vi.spyOn(Math, "random").mockReturnValue(0.01);
+    tickTempleAutomation();
+    Math.random.mockRestore();
+    expect(state.faveur).toBe(FAVEUR_START + venusNet());
+  });
+
+  it("LE GARDE-FOU : le quota par jeu borne le nombre de parties rejouées", () => {
+    state.templeAuto.osselets.on = true;
+    setNotifyPaused(true);
+    setOfflineSim(true);
+    resetOfflineTempleQuota();
+    // Trois fois plus de ticks que le quota : le gain doit s'arrêter au quota.
+    jouerLongtemps(OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME * 3);
+    expect(state.faveur).toBe(FAVEUR_START + venusNet() * OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME);
+  });
+
+  it("le quota est PAR JEU : un jeu épuisé n'affame pas les autres", () => {
+    // Un plafond global serait entièrement consommé par le premier jeu de la
+    // liste, et les autres cadrans, payés eux aussi, ne tourneraient jamais.
+    state.templeAuto.osselets.on = true;
+    setNotifyPaused(true);
+    setOfflineSim(true);
+    resetOfflineTempleQuota();
+    jouerLongtemps(OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME * 2);
+    const apresOsselets = state.faveur;
+    // Icare démarre avec son propre quota intact.
+    state.templeAuto.icarus.on = true;
+    vi.spyOn(Math, "random").mockReturnValue(0.01);
+    vi.advanceTimersByTime(AUTO_AUGURY_INTERVAL_MS * 10);
+    tickTempleAutomation();
+    Math.random.mockRestore();
+    expect(state.faveur).not.toBe(apresOsselets);
+  });
+
+  it("la CHAÎNE COMPLÈTE passe : tick() atteint bien l'automatisation en simulation", () => {
+    // Les tests ci-dessus appellent tickTempleAutomation directement. Celui-ci
+    // vérifie que la simulation hors ligne, qui appelle tick(), y arrive
+    // vraiment : sans ça, toute la fiche serait branchée dans le vide.
+    state.templeAuto.osselets.on = true;
+    state.templeAuto.osselets.lastAt = 0;
+    state.instability = 0.1;   // basse : sinon le tick part en crise et court-circuite
+    setNotifyPaused(true);
+    setOfflineSim(true);
+    resetOfflineTempleQuota();
+    const avant = state.faveur;
+    vi.spyOn(Math, "random").mockReturnValue(0.01);
+    tick(1);
+    Math.random.mockRestore();
+    expect(state.faveur).toBeGreaterThan(avant);
+  });
+
+  it("le quota repart à zéro d'une absence à l'autre", () => {
+    state.templeAuto.osselets.on = true;
+    setNotifyPaused(true);
+    setOfflineSim(true);
+    resetOfflineTempleQuota();
+    jouerLongtemps(OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME * 2);
+    const apres = state.faveur;
+    resetOfflineTempleQuota();          // nouvelle absence
+    jouerLongtemps(1);
+    expect(state.faveur).toBeGreaterThan(apres);
   });
 });
 

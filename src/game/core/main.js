@@ -11,6 +11,7 @@ import {
   setGamePaused,
   setCollapseInProgress,
   setNotifyPaused,
+  setOfflineSim,
   setState,
   notify,
   hydrateState
@@ -36,6 +37,8 @@ import { idleResumeNarrative } from '../data/idleNarrative.js';
 
 import {
   tick,
+  resetOfflineBoonQuota,
+  resetOfflineTempleQuota,
   log,
   chronicle,
   runCrisisAction,
@@ -210,6 +213,12 @@ function simulateAwayCrises(elapsedSeconds) {
   const maxCollapses = has("phenix_calendaire") ? OFFLINE_UNCAPPED_COLLAPSES : OFFLINE_MAX_COLLAPSES;
   Date.now = () => virtual;
   setNotifyPaused(true);
+  // Les deux drapeaux se lèvent ENSEMBLE : « pas de bruit visuel » et « on
+  // rejoue du temps » sont deux choses différentes, et c'est le second qui
+  // autorise le Temple et les aubaines à tourner, plafonnés, pendant l'absence.
+  setOfflineSim(true);
+  resetOfflineTempleQuota();
+  resetOfflineBoonQuota();
   try {
     markThresholds(); // pas de crises narratives hors-ligne (flavor foreground)
     let remaining = elapsedSeconds;
@@ -271,6 +280,7 @@ function simulateAwayCrises(elapsedSeconds) {
   } finally {
     Date.now = realDateNow;
     setNotifyPaused(false);
+    setOfflineSim(false);
     setGamePaused(false);
     state.history = savedHistory; // on jette le spam de Chronique hors-ligne
     // On rend ses crises au cycle EN LIGNE. Sans ça, markThresholds() survivait à

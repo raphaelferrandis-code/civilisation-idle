@@ -262,6 +262,17 @@ export const setNotifyPaused = (paused) => { notifyPaused = Boolean(paused); };
 // floats de jalons) sont sautés pendant la simulation hors-ligne, qui suspend
 // les notifications et rejoue des milliers de ticks d'un coup.
 export const isNotifyPaused = () => notifyPaused;
+// DEUX drapeaux et non un seul. `notifyPaused` disait « pas de bruit visuel » et
+// servait AUSSI, faute de mieux, à couper de la MÉCANIQUE : le Temple et les
+// aubaines s'arrêtaient donc pendant l'absence, ce qui est l'inverse de la
+// promesse d'une automatisation. `offlineSim` dit « on rejoue du temps » :
+//   - ce qui est COSMÉTIQUE se coupe sur notifyPaused (floats, célébrations,
+//     échantillons de courbe) ;
+//   - ce qui est MÉCANIQUE tourne sous offlineSim, en silence et PLAFONNÉ.
+// Toujours levés ensemble par simulateAwayCrises, jamais l'un sans l'autre.
+let offlineSim = false;
+export const setOfflineSim = (on) => { offlineSim = Boolean(on); };
+export const isOfflineSim = () => offlineSim;
 // Consomme le bandeau de fin de cycle : l'affichage le prend en charge, l'état
 // ne garde pas trace d'une annonce déjà passée à l'écran.
 export const clearCycleReport = () => {

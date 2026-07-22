@@ -23,7 +23,7 @@
 //   - Icare : resolveIcarusHeadless(stakeId, cible) — même loi que le jeu
 //     interactif, sans état de vol ni timer.
 
-import { state, render, save, isNotifyPaused, defaultTempleAuto } from '../state.js';
+import { state, render, save, isNotifyPaused, isOfflineSim, defaultTempleAuto } from '../state.js';
 import { regulationActionUnlocked } from '../mechanics.js';
 import { castAugury, auguryStake, auguryPaytable, AUGURY_RITES } from './augures.js';
 import { collectTrunk, trunkValue } from './offeringTrunk.js';
@@ -56,7 +56,8 @@ import {
   ICARUS_STAKES,
   SCRATCH_STAKES,
   BLACKJACK_STAKES,
-  BLACKJACK_RTP_AUTO
+  BLACKJACK_RTP_AUTO,
+  OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME
 } from '../balance.js';
 
 // La table d'osselets fusionnée conserve cet id interne (cf. regulationActions).
@@ -65,11 +66,27 @@ const AUGURY_TABLE_ID = "prayForRain";
 // Appelé à chaque tick (1 Hz) juste après tickSteward, sous les mêmes gardes
 // (pause / effondrement / crise terminale). Ne fait rien tant qu'aucune
 // automatisation n'est débloquée + activée.
+// Quota de parties rejouées PENDANT UNE absence, compté PAR JEU. Un plafond
+// global serait avalé en entier par le premier jeu de la liste, et les autres
+// cadrans — payés eux aussi — ne tourneraient jamais. Remis à zéro au début de
+// chaque simulation par resetOfflineTempleQuota().
+let offlinePlays = {};
+export function resetOfflineTempleQuota() { offlinePlays = {}; }
+function offlineQuotaLeft(game) {
+  if (!isOfflineSim()) return true;
+  return (offlinePlays[game] || 0) < OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME;
+}
+function countOfflinePlay(game) {
+  if (isOfflineSim()) offlinePlays[game] = (offlinePlays[game] || 0) + 1;
+}
+
 export function tickTempleAutomation() {
-  // Offline/sim : notify en pause → on ne veut ni créditer des milliers de
-  // parties d'un coup, ni spammer les floats. Le crédit offline (si voulu) sera
-  // un hook séparé et plafonné.
-  if (isNotifyPaused()) return;
+  // Hors ligne, la MÉCANIQUE tourne (c'est la promesse des cadrans qu'on a
+  // payés) mais PLAFONNÉE par jeu, et sans le moindre retour visuel : les jeux
+  // sont déjà appelés en headless, et la Chronique hors ligne est jetée par
+  // simulateAwayCrises. Une pause de notification SANS simulation (cas futur)
+  // continue, elle, de tout arrêter.
+  if (isNotifyPaused() && !isOfflineSim()) return;
   const auto = state.templeAuto;
   if (!auto) return;
   const now = Date.now();
@@ -85,7 +102,7 @@ export function tickTempleAutomation() {
 
   // ── OSSELETS — auto-lancé au rite choisi, mise en FAVEUR ──
   const o = auto.osselets;
-  if (o && o.on && o.unlocked && now - (o.lastAt || 0) >= autoInterval("osselets")) {
+  if (o && o.on && o.unlocked && offlineQuotaLeft("osselets") && now - (o.lastAt || 0) >= autoInterval("osselets")) {
     // Un rite gaté par artefact (le rite interdit) retombe sur le classique si
     // l'artefact manque (save trafiquée) : castAugury refuserait, ne pas bloquer.
     const riteId = riteAllowed(o.rite) ? o.rite : "classique";
@@ -97,13 +114,13 @@ export function tickTempleAutomation() {
       const res = castAugury(AUGURY_TABLE_ID, riteId, { render: false, silent: true, stakeMult: mult });
       // Cooldown consommé SEULEMENT si le jet a eu lieu (castAugury renvoie null
       // si verrouillé/impayable — ne pas brûler le cooldown sur un no-op).
-      if (res) { o.lastAt = now; played = true; }
+      if (res) { o.lastAt = now; played = true; countOfflinePlay("osselets"); }
     }
   }
 
   // ── ICARE — autopush au multiplicateur cible, mise en FAVEUR ──
   const i = auto.icarus;
-  if (i && i.on && i.unlocked && now - (i.lastAt || 0) >= autoInterval("icarus")) {
+  if (i && i.on && i.unlocked && offlineQuotaLeft("icarus") && now - (i.lastAt || 0) >= autoInterval("icarus")) {
     const stakeId = i.stakeId || "plume";
     const mult = autoStakeMult(i);
     // Vol OFFERT à CETTE mise (au coffre ×1 seulement) : coût nul → ignore le
@@ -114,7 +131,7 @@ export function tickTempleAutomation() {
     if (freeFlight || (found && (state.faveur || 0) - found.faveur * mult >= (i.faveurFloor || 0))) {
       const target = Math.min(AUTO_ICARUS_TARGET_MAX, Math.max(AUTO_ICARUS_TARGET_MIN, i.target || 2));
       const res = resolveIcarusHeadless(stakeId, target, { stakeMult: mult });
-      if (res) { i.lastAt = now; played = true; }
+      if (res) { i.lastAt = now; played = true; countOfflinePlay("icarus"); }
     }
   }
 
@@ -123,12 +140,12 @@ export function tickTempleAutomation() {
   // zéro décision en cours de partie, zéro rafle. Le billet du Soleil (vol offert)
   // s'accumule dans la file, l'auto-Icare ou la main le joueront.
   const g = auto.gratteux;
-  if (g && g.on && g.unlocked && now - (g.lastAt || 0) >= autoInterval("gratteux")) {
+  if (g && g.on && g.unlocked && offlineQuotaLeft("gratteux") && now - (g.lastAt || 0) >= autoInterval("gratteux")) {
     const found = SCRATCH_STAKES.find((s) => s.id === (g.stakeId || "obole")) || SCRATCH_STAKES[0];
     const mult = autoStakeMult(g);
     if ((state.faveur || 0) - found.faveur * mult >= (g.faveurFloor || 0)) {
       const res = playScratch(found.id, { render: false, silent: true, stakeMult: mult });
-      if (res) { g.lastAt = now; played = true; }
+      if (res) { g.lastAt = now; played = true; countOfflinePlay("gratteux"); }
     }
   }
 
@@ -136,16 +153,18 @@ export function tickTempleAutomation() {
   // L'auto joue hit/stand (basicAction), JAMAIS le double ni la refente (les
   // leviers de skill restent à la main), ni série ni historique.
   const v = auto.vingtetun;
-  if (v && v.on && v.unlocked && now - (v.lastAt || 0) >= autoInterval("vingtetun")) {
+  if (v && v.on && v.unlocked && offlineQuotaLeft("vingtetun") && now - (v.lastAt || 0) >= autoInterval("vingtetun")) {
     const found = BLACKJACK_STAKES.find((s) => s.id === (v.stakeId || "legere")) || BLACKJACK_STAKES[0];
     const mult = autoStakeMult(v);
     if ((state.faveur || 0) - found.faveur * mult >= (v.faveurFloor || 0)) {
       const res = resolveBlackjackHeadless(found.id, { stakeMult: mult });
-      if (res) { v.lastAt = now; played = true; }
+      if (res) { v.lastAt = now; played = true; countOfflinePlay("vingtetun"); }
     }
   }
 
-  if (played) render();
+  // Hors ligne, un render par tick figerait le boot : la simulation re-rend une
+  // seule fois à la fin, c'est tout l'objet de notifyPaused.
+  if (played && !isNotifyPaused()) render();
 }
 
 // Multiplicateur de mise d'une auto : 10^stakePow, re-clampé au rang de coffre

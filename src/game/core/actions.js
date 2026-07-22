@@ -64,7 +64,7 @@ export {
   resolveIcarusHeadless
 } from './actions/icarus.js';
 
-export { tickTempleAutomation, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, buyArtifactNode, artifactTree } from './actions/templeAutomation.js';
+export { tickTempleAutomation, resetOfflineTempleQuota, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, buyArtifactNode, artifactTree } from './actions/templeAutomation.js';
 export { hasTempleArtifact } from './actions/templeArtifacts.js';
 
 export {
@@ -164,5 +164,6 @@ export {
 } from './actions/olympus.js';
 
 export {
-  tick
+  tick,
+  resetOfflineBoonQuota
 } from './actions/tick.js';
