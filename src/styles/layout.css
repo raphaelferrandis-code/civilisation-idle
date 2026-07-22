@@ -694,6 +694,25 @@
 }
 
 
+/* Rappel des SCEAUX PRETS (B9) : le plateau vit dans un autre onglet, un sceau
+   pouvait dormir des heures. Doré et non rouge — c'est une invitation. */
+.csp-seals {
+  margin-top: 0.4rem;
+  padding: 0.22rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--gold), transparent 82%);
+  color: var(--gold-bright);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+@media (max-width: 1500px) and (min-width: 981px) {
+  /* Gouttiere etroite : le compte suffit, le titre porte la phrase. */
+  .city-status-panel .csp-seals { font-size: 0.5rem; padding: 0.18rem 0.15rem; }
+}
+
 /* Pastille de SAUVEGARDE (C10) : l'information n'existait nulle part sans
    cliquer. Discrete par defaut, insistante quand la sauvegarde echoue — ce
    cas-la ne peut pas passer par les toasts, qui s'effacent en 2,4 s. */

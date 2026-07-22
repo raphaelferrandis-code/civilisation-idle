@@ -736,7 +736,7 @@
   overflow: hidden;
   z-index: 1;
 }
-.gr-medal .px-icon { width: 30px; height: 30px; }
+.gr-medal .px-icon { width: 32px; height: 32px; }
 .gr-rung.is-done .gr-medal { border-color: var(--gold-dim); }
 .gr-rung.is-ready .gr-medal {
   border-color: var(--gold);
@@ -789,6 +789,47 @@
   background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px);
   opacity: 0.3;
 }
+/* JAUGE CHIFFREE DU SCEAU (B9). Troisieme enfant de .gr-rung-body, qui est une
+   COLONNE : elle recoit donc sa propre ligne et ne comprime jamais le nom du
+   jalon (qui, lui, s'ellipse). Sur un sceau scelle la barre est seule, sans
+   chiffre : elle dit qu'on approche, jamais de quoi. */
+.gr-gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.gr-gauge-track {
+  flex: 1 1 auto;
+  height: 3px;
+  min-width: 0;
+  background: color-mix(in srgb, var(--frame-line, rgba(140, 120, 80, 0.3)), transparent 40%);
+  overflow: hidden;
+}
+
+.gr-gauge-fill {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--gold), transparent 35%);
+  transition: width 0.4s ease;
+}
+
+/* Sceau acquis ou pret : la barre est pleine et vive, elle confirme le bouton
+   pose juste a cote au lieu de le contredire. */
+.gr-gauge.is-acquis .gr-gauge-fill {
+  background: var(--gold-bright);
+}
+
+.gr-gauge-num {
+  flex: 0 0 auto;
+  font-family: var(--font-number);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .gr-rung-reward {
   flex: 0 0 auto;
   font-size: 0.75rem;

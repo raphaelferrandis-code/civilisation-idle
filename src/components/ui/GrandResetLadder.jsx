@@ -6,11 +6,17 @@ import {
   isGrandResetMilestoneRevealed,
   isGrandResetMilestoneClaimed,
   isGrandResetMilestoneClaimable,
-  claimableGrandResetCount
+  claimableGrandResetCount,
+  grandResetMilestoneProgress
 } from '../../game/core/mechanics.js';
 import { performGrandReset } from '../../game/core/actions.js';
 import { GRAND_RESET_PROD_BASE } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
+import { fmt } from '../../game/core/utils.js';
+
+// Un compteur de sceau s'écrit en entier ; seul le Rayonnement, qui dépasse le
+// domaine lisible, passe par le format compact.
+const grNombre = (v) => (typeof v === "number" ? String(Math.floor(v)) : fmt(v));
 import PixelIcon from './PixelIcon.jsx';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
@@ -149,6 +155,15 @@ export default function GrandResetLadder() {
           const reward = m.gr === 11
             ? tr({ fr: `×${prodStep.fr} & ×4 Ruines`, en: `×${prodStep.en} & ×4 Ruins` })
             : tr({ fr: `×${prodStep.fr} prod`, en: `×${prodStep.en} prod` });
+          // Progression chiffrée (B9). null sur les sceaux binaires — l'Olympe,
+          // le jackpot d'Icare, le premier Mythe : on les a ou on ne les a pas.
+          const jauge = grandResetMilestoneProgress(m);
+          // Les compteurs sont des ENTIERS (cycles, merveilles, mythes, capstones,
+          // ère) : fmt() les décorerait en « 4.0 / 3.0 ». Seul le Rayonnement est
+          // un Decimal hors du domaine lisible, et lui a besoin de fmt().
+          const chiffres = jauge
+            ? `${grNombre(jauge.current)} / ${grNombre(jauge.target)}`
+            : "";
 
           return (
             <li key={m.gr} className={`gr-rung is-${status}${fresh ? ' is-fresh' : ''}`}>
@@ -171,6 +186,28 @@ export default function GrandResetLadder() {
                     : revealed ? tr(m.system)
                     : tr({ fr: "Sceau à découvrir…", en: "Seal to discover…" })}
                 </span>
+                {/* JAUGE CHIFFRÉE (B9). Sur un sceau SCELLÉ elle reste ANONYME :
+                    on montre qu'on approche, jamais de quoi. Nommer le système
+                    ici dévoilerait l'Olympe ou Icare à un joueur qui ne les a
+                    pas rencontrés — c'est ce que le régime à deux états du
+                    plateau refuse déjà, et c'est l'arbitrage retenu.
+                    Absente sur les sceaux binaires (progress() rend null) et
+                    pendant le verrou Ragnarök, où le chiffre ne dirait rien. */}
+                {!ragnarokLocked && jauge && (
+                  <span
+                    className={`gr-gauge${jauge.acquis ? ' is-acquis' : ''}`}
+                    title={revealed
+                      ? tr({ fr: `${chiffres} vers ce sceau`, en: `${chiffres} toward this seal` })
+                      : tr({ fr: "Progression vers un sceau encore scellé", en: "Progress toward a still-sealed milestone" })}
+                  >
+                    <span className="gr-gauge-track">
+                      <span className="gr-gauge-fill" style={{ width: `${Math.round(jauge.ratio * 100)}%` }}></span>
+                    </span>
+                    {/* Le chiffre ne s'écrit que sur un sceau RÉVÉLÉ : « 3 / 14 »
+                        sur une rune muette trahirait l'échelle de la mécanique. */}
+                    {revealed && <span className="gr-gauge-num">{chiffres}</span>}
+                  </span>
+                )}
               </span>
               <span className="gr-rung-reward">{reward}</span>
               <span className="gr-rung-status">

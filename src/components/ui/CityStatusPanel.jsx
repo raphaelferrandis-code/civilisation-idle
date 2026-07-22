@@ -1,5 +1,5 @@
 import { useCityViewState } from '../../hooks/useCityViewState.js';
-import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
+import { globalMultiplier, currentEraIndex, nextEraProgress, claimableGrandResetCount } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
@@ -89,6 +89,8 @@ export default function CityStatusPanel() {
   // On lit `tickNow` et non `Date.now()` — ce composant est déjà réabonné au
   // tick, s'appuyer sur l'horloge murale ferait diverger l'âge affiché du reste
   // de l'encart entre deux rendus.
+  const sceauxPrets = claimableGrandResetCount();
+
   const saveError = getLastSaveError();
   const lastSaveAt = getLastSaveAt();
   const saveAgeSec = lastSaveAt ? Math.max(0, Math.round((tickNow - lastSaveAt) / 1000)) : null;
@@ -217,6 +219,25 @@ export default function CityStatusPanel() {
               {tr({ fr: "Ne tournent pas : les fêtes de jalon, les bulles d'habitants.", en: "Will not run: milestone celebrations, citizen bubbles." })}
             </span>
           )}
+        </div>
+      )}
+
+      {/* SCEAUX PRÊTS (B9, point 5). Reporté ici parce que le plateau vit dans
+          l'onglet Effondrement : sans ce rappel, le joueur peut laisser un sceau
+          dormir des heures. AUCUN nouvel abonnement — le composant se re-rend
+          déjà à 1 Hz via tickNow, et compter revient à filtrer onze entrées. */}
+      {sceauxPrets > 0 && (
+        <div
+          className="csp-seals"
+          title={tr({
+            fr: "Des sceaux du Grand Reset sont prêts à être réclamés, dans l'onglet Effondrement.",
+            en: "Grand Reset seals are ready to claim, in the Collapse tab."
+          })}
+        >
+          {tr({
+            fr: `${sceauxPrets} sceau${sceauxPrets > 1 ? 'x' : ''} à réclamer`,
+            en: `${sceauxPrets} seal${sceauxPrets > 1 ? 's' : ''} to claim`
+          })}
         </div>
       )}
 

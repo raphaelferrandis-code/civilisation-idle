@@ -55,6 +55,34 @@ export function grEraTarget() {
   return T.eraBase + T.eraStepPerGr * (state.grandResetCount || 0);
 }
 
+// ── Progression chiffrée vers chaque sceau (B9) ──────────────────────────────
+// `progress()` renvoie { current, target, ratio } ou NULL quand le sceau est
+// BINAIRE : on l'a ou on ne l'a pas, il n'y a rien à compter (l'Olympe qui se
+// prononce, le jackpot d'Icare, le premier Mythe). Une jauge à 0 % ou 100 % sur
+// ces trois-là n'enseignerait rien et ajouterait du bruit là où il y a une
+// gravure. La fiche parlait des « 11 entrées » sans les voir.
+//
+// Plancher du Rayonnement : la population de départ vaut 10 (state.js). Sans lui,
+// un ratio en log10 afficherait 1/6 = 17 % de progression à la première seconde
+// d'une partie neuve, et -Infinity sur un pic remis à zéro.
+const POP_FLOOR = 10;
+
+function lineaire(current, target) {
+  const ratio = target > 0 ? Math.max(0, Math.min(1, current / target)) : 1;
+  return { current, target, ratio };
+}
+
+// Échelle LOG pour les cibles exponentielles : une barre linéaire vers 1e6 reste
+// visuellement vide pendant des heures puis saute d'un coup. Même patron que
+// nextEraProgress (shared.js) — plancher par .max(), log10() qui rend un number,
+// arithmétique en number ensuite, jamais de coercition de Decimal.
+function logarithmique(current, target) {
+  const base = Math.log10(POP_FLOOR);
+  const haut = D(target).max(POP_FLOOR).log10() - base;
+  const fait = D(current).max(POP_FLOOR).log10() - base;
+  return { current, target, ratio: haut <= 0 ? 1 : Math.max(0, Math.min(1, fait / haut)) };
+}
+
 // L'échelle. `check()` lit le state courant. `system` = le pan de jeu engagé
 // (pour l'affichage). Le nom est révélé au joueur SEULEMENT une fois découvert.
 export const GRAND_RESET_MILESTONES = [
@@ -62,69 +90,100 @@ export const GRAND_RESET_MILESTONES = [
     gr: 1, id: "premier_crepuscule",
     name: { fr: "Le Premier Crépuscule", en: "The First Dusk" },
     system: { fr: "Effondrement", en: "Collapse" },
-    check: () => (state.cycles || 0) >= T.cycles
+    check: () => (state.cycles || 0) >= T.cycles,
+    progress: () => lineaire(state.cycles || 0, T.cycles)
   },
   {
     gr: 2, id: "premiere_merveille",
     name: { fr: "La Première Merveille", en: "The First Wonder" },
     system: { fr: "Merveilles", en: "Wonders" },
-    check: () => (Array.isArray(state.wonders) ? state.wonders.length : 0) >= T.wonders
+    check: () => (Array.isArray(state.wonders) ? state.wonders.length : 0) >= T.wonders,
+    progress: () => lineaire(Array.isArray(state.wonders) ? state.wonders.length : 0, T.wonders)
   },
   {
     gr: 3, id: "premier_pacte",
     name: { fr: "Premier Pacte Mythique", en: "First Mythic Pact" },
     system: { fr: "Mythes", en: "Myths" },
+    // BINAIRE (1 seul Mythe suffit) : pas de jauge, cf. POP_FLOOR ci-dessus.
     check: () => mythCount() >= T.myths1
   },
   {
     gr: 4, id: "colonne_million",
     name: { fr: "La Colonne du Million", en: "The Column of the Million" },
     system: { fr: "Rayonnement", en: "Radiance" },
-    check: () => D(state.cyclePeaks?.population ?? state.population ?? 0).gte(grPopulationTarget())
+    check: () => D(state.cyclePeaks?.population ?? state.population ?? 0).gte(grPopulationTarget()),
+    // LOG : la cible passe de 1e6 à 1e9 puis 1e12 avec les sceaux réclamés. En
+    // linéaire la barre resterait vide des heures puis sauterait d'un coup.
+    progress: () => logarithmique(D(state.cyclePeaks?.population ?? state.population ?? 0), grPopulationTarget())
   },
   {
     gr: 5, id: "olympe_prononce",
     name: { fr: "L'Olympe se prononce", en: "Olympus Speaks" },
     system: { fr: "Olympe", en: "Olympus" },
+    // BINAIRE : un profil est débloqué ou il ne l'est pas.
     check: () => state.olympus?.unlockedProfile != null
   },
   {
     gr: 6, id: "acte_i_scelle",
     name: { fr: "Acte I : La Fondation Scellée", en: "Act I: The Foundation Sealed" },
     system: { fr: "Mythes", en: "Myths" },
-    check: () => mythCount() >= T.myths2
+    check: () => mythCount() >= T.myths2,
+    progress: () => lineaire(mythCount(), T.myths2)
   },
   {
     gr: 7, id: "jackpot_icare",
     name: { fr: "Le Jackpot d'Icare", en: "Icarus's Jackpot" },
     system: { fr: "Icare", en: "Icarus" },
+    // BINAIRE : un seul jackpot suffit.
     check: () => (state.icarusJackpots || 0) >= 1
   },
   {
     gr: 8, id: "acte_ii_scelle",
     name: { fr: "Acte II : La Domination Scellée", en: "Act II: Dominion Sealed" },
     system: { fr: "Mythes", en: "Myths" },
-    check: () => mythCount() >= T.myths3
+    check: () => mythCount() >= T.myths3,
+    progress: () => lineaire(mythCount(), T.myths3)
   },
   {
     gr: 9, id: "premiere_couronne",
     name: { fr: "Les Couronnes Jumelles", en: "The Twin Crowns" },
     system: { fr: "Arbre des Ruines", en: "Tree of Ruins" },
-    check: () => PRESTIGE_TREE.filter((n) => n.capstone && has(n.id)).length >= T.capstones
+    check: () => PRESTIGE_TREE.filter((n) => n.capstone && has(n.id)).length >= T.capstones,
+    progress: () => lineaire(PRESTIGE_TREE.filter((n) => n.capstone && has(n.id)).length, T.capstones)
   },
   {
     gr: 10, id: "au_dela_singularite",
     name: { fr: "Au-delà de la Singularité", en: "Beyond the Singularity" },
     system: { fr: "Ères", en: "Eras" },
-    check: () => (state.bestEraIndex || 0) >= grEraTarget()
+    check: () => (state.bestEraIndex || 0) >= grEraTarget(),
+    progress: () => lineaire(state.bestEraIndex || 0, grEraTarget())
   },
   {
     gr: 11, id: "regard_ragnarok",
     name: { fr: "Sous le Regard du Ragnarök", en: "Under Ragnarök's Gaze" },
     system: { fr: "Mythes", en: "Myths" },
-    check: () => mythCount() >= T.myths4
+    check: () => mythCount() >= T.myths4,
+    progress: () => lineaire(mythCount(), T.myths4)
   }
 ];
+
+// Progression AFFICHABLE d'un sceau : null quand il n'y a rien à jauger.
+//
+// ⚠ COURT-CIRCUIT OBLIGATOIRE sur un sceau acquis ou prêt. Un Grand Reset repart
+// d'un defaultState() sur lequel on ne recopie que GR_PERSISTENT_FIELDS : cycles,
+// wonders, icarusJackpots, bestEraIndex, upgrades et cyclePeaks sont EFFACÉS,
+// alors que grRevealed et grClaimed survivent. Sans ce court-circuit, six jauges
+// sur onze afficheraient ~0 % juste après un Grand Reset — y compris sur les
+// rangées qui portent le bouton « Réclamer » ou la coche. La jauge contredirait
+// le bouton posé à côté d'elle.
+export function grandResetMilestoneProgress(m) {
+  if (!m || typeof m.progress !== "function") return null;
+  if (isGrandResetMilestoneClaimed(m.gr) || isGrandResetMilestoneClaimable(m.gr)) {
+    const p = m.progress();
+    return { ...p, ratio: 1, acquis: true };
+  }
+  return { ...m.progress(), acquis: false };
+}
 
 // Le jalon du n-ième Grand Reset (nextCount = grandResetCount + 1).
 export function grandResetMilestone(nextCount) {
