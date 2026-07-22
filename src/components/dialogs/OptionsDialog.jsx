@@ -11,7 +11,7 @@ import {
   getMusicActiveTabOnly,
   setMusicActiveTabOnly
 } from '../../game/core/main.js';
-import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
+import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
 import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
 import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
@@ -28,7 +28,9 @@ import {
   setAutomateThreshold,
   setAutomateField
 } from '../../game/core/actions.js';
-import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { SAVE_KEY, state, defaultState, setState, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, saveToFile } from '../../game/core/saveSlots.js';
+import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
 import {
@@ -43,6 +45,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
   // Raccourci en cours de réattribution (id), et refus à afficher.
   const [capturingId, setCapturingId] = useState(null);
   const [keyError, setKeyError] = useState(null);
+  const SLOT_INDEXES = Array.from({ length: SLOT_COUNT }, (_, i) => i);
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
@@ -190,6 +193,57 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleAutomateThreshold = (id, value) => {
     setAutomateThreshold(id, value);
     setOptionRevision((revision) => revision + 1);
+  };
+
+  // Écraser un emplacement demande confirmation — mais par ChoiceDialog, comme la
+  // réinitialisation. Un emplacement écrasé par mégarde, c'est précisément le
+  // filet qu'on venait de tendre qui disparaît.
+  const handleSlotWrite = async (i) => {
+    if (!slotIsEmpty(i)) {
+      const choix = await requestChoiceDialog({
+        label: { fr: "Emplacement", en: "Slot" },
+        title: tr({ fr: `Écraser l'emplacement ${i + 1} ?`, en: `Overwrite slot ${i + 1}?` }),
+        body: tr({ fr: "L'instantané qui s'y trouve sera remplacé par la partie en cours.", en: "The snapshot stored there will be replaced by the current game." }),
+        options: [
+          { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
+          { label: tr({ fr: "Écraser", en: "Overwrite" }), value: "yes" }
+        ]
+      });
+      if (choix?.value !== "yes") return;
+    }
+    const res = writeSlot(i);
+    pushOutcomeFloat(res.ok
+      ? { label: tr({ fr: `Emplacement ${i + 1} enregistré`, en: `Slot ${i + 1} saved` }), kind: "gain" }
+      // L'échec est DIT : trois copies d'un état de 270 ko ne tiennent pas partout.
+      : { label: tr({ fr: "Stockage plein : emplacement non écrit", en: "Storage full: slot not written" }), kind: "cost" });
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleSlotLoad = async (i) => {
+    const choix = await requestChoiceDialog({
+      label: { fr: "Emplacement", en: "Slot" },
+      title: tr({ fr: `Charger l'emplacement ${i + 1} ?`, en: `Load slot ${i + 1}?` }),
+      body: tr({ fr: "La partie en cours sera remplacée. Enregistre-la d'abord dans un autre emplacement si tu veux la garder.", en: "The current game will be replaced. Save it to another slot first if you want to keep it." }),
+      options: [
+        { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
+        { label: tr({ fr: "Charger", en: "Load" }), value: "yes" }
+      ]
+    });
+    if (choix?.value !== "yes") return;
+    if (loadSlot(i)) {
+      pushOutcomeFloat({ label: tr({ fr: "Partie chargée", en: "Game loaded" }), kind: "gain" });
+      onClose();
+    } else {
+      pushOutcomeFloat({ label: tr({ fr: "Emplacement illisible", en: "Slot unreadable" }), kind: "cost" });
+    }
+  };
+
+  const handleSaveToFile = async () => {
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    const res = await saveToFile(encodeSaveText(JSON.stringify(state)), `civilisation-${stamp}.txt`);
+    pushOutcomeFloat(res.ok
+      ? { label: tr({ fr: "Sauvegarde écrite", en: "Save written" }), kind: "gain" }
+      : { label: tr({ fr: "Écriture du fichier impossible", en: "Could not write the file" }), kind: "cost" });
   };
 
   // Capture de touche. Le message de refus dit POURQUOI : « déjà prise par Tout
@@ -655,7 +709,49 @@ export default function OptionsDialog({ isOpen, onClose }) {
           )}
 
           {/* OTHER PANEL */}
-          {activeGroup === 'other' && (
+          {activeGroup === 'other' && (<>
+            {/* Emplacements manuels : l'autosave écrase en continu, une partie
+                qui dure des mois n'avait aucun filet avant un geste risqué. */}
+            <div className="options-row">
+              <div>
+                <span>{tr({ fr: "Emplacements de sauvegarde", en: "Save slots" })}</span>
+                <small>{tr({
+                  fr: "Trois instantanés manuels, indépendants de la sauvegarde automatique. Utile avant un Grand Reset ou un Mythe risqué.",
+                  en: "Three manual snapshots, separate from the autosave. Useful before a Great Reset or a risky Myth."
+                })}</small>
+              </div>
+              <button type="button" onClick={handleSaveToFile}>
+                {tr({ fr: "Exporter en fichier", en: "Export to file" })}
+              </button>
+            </div>
+
+            {SLOT_INDEXES.map((i) => {
+              const meta = readSlotMeta(i);
+              return (
+                <div key={i} className="options-row save-slot">
+                  <div>
+                    <span>{tr({ fr: `Emplacement ${i + 1}`, en: `Slot ${i + 1}` })}</span>
+                    <small>
+                      {meta
+                        ? tr({
+                            fr: `${meta.city || "Cité"} · ${meta.cycles} cycle${meta.cycles > 1 ? 's' : ''} · ${new Date(meta.at).toLocaleString('fr-FR')}`,
+                            en: `${meta.city || "City"} · ${meta.cycles} cycle${meta.cycles > 1 ? 's' : ''} · ${new Date(meta.at).toLocaleString('en-GB')}`
+                          })
+                        : tr({ fr: "Vide", en: "Empty" })}
+                    </small>
+                  </div>
+                  <div className="save-slot-actions">
+                    <button type="button" onClick={() => handleSlotWrite(i)}>
+                      {tr({ fr: "Enregistrer", en: "Save" })}
+                    </button>
+                    <button type="button" disabled={!meta} onClick={() => handleSlotLoad(i)}>
+                      {tr({ fr: "Charger", en: "Load" })}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
             <div className="options-row">
               <div>
                 <span>{tr({ fr: "Sauvegarde nuage", en: "Cloud save" })}</span>
@@ -687,7 +783,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                 </small>
               </div>
             </div>
-          )}
+          </>)}
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>

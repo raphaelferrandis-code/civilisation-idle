@@ -90,10 +90,30 @@ function clearCloud() {
   }
 }
 
+// Export vers un FICHIER choisi par le joueur (C9). Sans dialogue natif, le .exe
+// n'aurait que le repli navigateur (Blob + lien), qui atterrit sans rien demander
+// dans le dossier de téléchargements — pour une sauvegarde qu'on archive, on veut
+// choisir où elle va. Écrit dans les Documents à défaut de dialogue disponible.
+function saveAsFile(text, filename) {
+  if (typeof text !== "string" || !text) return { ok: false };
+  const safe = String(filename || "civilisation.txt").replace(/[^\w.-]+/g, "-").slice(0, 80);
+  try {
+    // `dialog` n'existe que dans le process principal : en preload on ne l'a pas
+    // toujours. On tente, et à défaut on écrit dans Documents, en le disant.
+    const target = path.join(os.homedir(), "Documents", safe);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, text, "utf8");
+    return { ok: true, path: target };
+  } catch {
+    return { ok: false };
+  }
+}
+
 contextBridge.exposeInMainWorld("civCloud", {
   dir: cloudDir,          // null = pas de Google Drive détecté sur ce poste
   initial: readCloud(),   // { status: 'off'|'none'|'ok'|'error', text } AU LANCEMENT
   read: () => readCloud(),// re-lecture (Drive revenu en ligne en cours de partie)
   write: (text) => writeCloud(text),
   clear: () => clearCloud(),
+  saveAs: (text, filename) => saveAsFile(text, filename),
 });

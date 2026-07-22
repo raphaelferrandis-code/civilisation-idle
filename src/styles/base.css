@@ -945,3 +945,9 @@ body::before {
 .options-row.is-off .shortcut-capture { opacity: 0.5; text-decoration: line-through; }
 
 .shortcut-error small { color: var(--red, #e06a55); }
+
+
+/* Emplacements de sauvegarde (C9) : deux actions par ligne, Enregistrer et
+   Charger, Charger desactive quand l'emplacement est vide. */
+.save-slot-actions { display: flex; gap: 0.4rem; }
+.save-slot-actions button { min-height: 2rem; padding: 0.2rem 0.7rem; font-size: 0.78rem; }
