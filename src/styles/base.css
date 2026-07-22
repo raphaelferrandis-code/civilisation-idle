@@ -922,3 +922,26 @@ body::before {
     width: 100%;
   }
 }
+
+
+/* Raccourcis parametrables (C11) : la touche est un BOUTON de capture, l'etat
+   Actif/Inactif un interrupteur. Une touche genante se desactive sans avoir a
+   lui en trouver une autre. */
+.shortcut-controls { display: flex; align-items: center; gap: 0.5rem; }
+
+.shortcut-capture {
+  cursor: pointer;
+  min-width: 2.6rem;
+  font-family: var(--font-number, monospace);
+}
+
+.shortcut-capture.is-capturing {
+  border-color: var(--gold-bright, #e8c66e);
+  color: var(--gold-bright, #e8c66e);
+}
+
+.options-row.is-off span,
+.options-row.is-off small { opacity: 0.5; }
+.options-row.is-off .shortcut-capture { opacity: 0.5; text-decoration: line-through; }
+
+.shortcut-error small { color: var(--red, #e06a55); }

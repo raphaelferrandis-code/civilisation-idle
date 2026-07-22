@@ -31,11 +31,18 @@ import {
 import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
+import {
+  SHORTCUT_DEFS, shortcutKey, shortcutOff, shortcutLabel,
+  shortcutRejection, setShortcutKey, setShortcutOff
+} from '../../game/core/shortcuts.js';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
-  const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "script", "automates"
+  const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "credits", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
+  // Raccourci en cours de réattribution (id), et refus à afficher.
+  const [capturingId, setCapturingId] = useState(null);
+  const [keyError, setKeyError] = useState(null);
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
@@ -185,6 +192,36 @@ export default function OptionsDialog({ isOpen, onClose }) {
     setOptionRevision((revision) => revision + 1);
   };
 
+  // Capture de touche. Le message de refus dit POURQUOI : « déjà prise par Tout
+  // acheter » se corrige, « invalide » laisse deviner.
+  const handleCaptureKey = (event, def) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === "Escape") { setCapturingId(null); setKeyError(null); return; }
+    const refus = shortcutRejection(def, event.key);
+    if (refus) {
+      setKeyError(
+        refus.reason === "taken"
+          ? tr({ fr: `Touche déjà prise par « ${tr(refus.by.label)} ».`, en: `Key already used by "${tr(refus.by.label)}".` })
+          : refus.reason === "digit"
+            ? tr({ fr: "Les chiffres sont réservés aux vues 1 à 8.", en: "Digits are reserved for views 1 to 8." })
+            : refus.reason === "forbidden"
+              ? tr({ fr: "Cette touche est réservée par le jeu ou le navigateur.", en: "This key is reserved by the game or the browser." })
+              : tr({ fr: "Une seule lettre ou un seul caractère.", en: "A single letter or character only." })
+      );
+      return;
+    }
+    setShortcutKey(def.id, event.key);
+    setCapturingId(null);
+    setKeyError(null);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleShortcutOff = (id, off) => {
+    setShortcutOff(id, off);
+    setOptionRevision((revision) => revision + 1);
+  };
+
   const handleAutomateField = (id, field, value) => {
     setAutomateField(id, field, value);
     setOptionRevision((revision) => revision + 1);
@@ -248,6 +285,13 @@ export default function OptionsDialog({ isOpen, onClose }) {
             onClick={() => setActiveGroup('other')}
           >
             {tr({ fr: "Autre", en: "Other" })}
+          </button>
+          <button
+            className={`options-tab ${activeGroup === 'credits' ? 'active' : ''}`}
+            type="button"
+            onClick={() => setActiveGroup('credits')}
+          >
+            {tr({ fr: "Crédits", en: "Credits" })}
           </button>
 
           {phoenixHeritage && (
@@ -551,44 +595,59 @@ export default function OptionsDialog({ isOpen, onClose }) {
           )}
 
           {/* SHORTCUTS PANEL */}
+          {/* Généré depuis SHORTCUT_DEFS : ajouter une touche à la table la fait
+              apparaître ici toute seule, et cette liste ne peut plus mentir. */}
           {activeGroup === 'shortcuts' && (
             <>
-              <div className="options-row">
-                <div>
-                  <span>{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
-                  <small>{tr({ fr: "Achète Moteurs + Savoir + Infrastructure, du plus cher au moins cher, en cascade", en: "Buys Engines + Knowledge + Infrastructure, most expensive first, cascading" })}</small>
-                </div>
-                <kbd className="shortcut-kbd">E</kbd>
-              </div>
+              {SHORTCUT_DEFS.map((def) => {
+                const off = shortcutOff(def);
+                const capturing = capturingId === def.id;
+                return (
+                  <div key={def.id} className={`options-row ${off ? 'is-off' : ''}`}>
+                    <div>
+                      <span>{tr(def.label)}</span>
+                      <small>{tr(def.hint)}</small>
+                    </div>
+                    <div className="shortcut-controls">
+                      <button
+                        type="button"
+                        className={`shortcut-kbd shortcut-capture ${capturing ? 'is-capturing' : ''}`}
+                        onClick={() => { setCapturingId(capturing ? null : def.id); setKeyError(null); }}
+                        onKeyDown={capturing ? (e) => handleCaptureKey(e, def) : undefined}
+                        title={tr({ fr: "Cliquer puis appuyer sur la touche voulue", en: "Click then press the desired key" })}
+                      >
+                        {capturing ? tr({ fr: "…", en: "…" }) : shortcutLabel(shortcutKey(def))}
+                      </button>
+                      <button
+                        type="button"
+                        className={`toggle-btn ${off ? 'off' : 'on'}`}
+                        onClick={() => handleShortcutOff(def.id, !off)}
+                        title={tr({
+                          fr: "Une touche gênante peut être désactivée sans être remplacée.",
+                          en: "A bothersome key can be disabled without being replaced."
+                        })}
+                      >
+                        {off ? tr({ fr: "Inactif", en: "Off" }) : tr({ fr: "Actif", en: "On" })}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {keyError && <div className="options-row shortcut-error"><small>{keyError}</small></div>}
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Tout acheter : Moteurs", en: "Buy all: Engines" })}</span>
-                  <small>{tr({ fr: "Achète tous les Moteurs abordables, du plus cher au moins cher", en: "Buys all affordable Engines, most expensive first" })}</small>
+                  <span>{tr({ fr: "Aller à une vue", en: "Go to a view" })}</span>
+                  <small>{tr({ fr: "Les vues débloquées, dans l'ordre de la barre latérale", en: "Unlocked views, in sidebar order" })}</small>
                 </div>
-                <kbd className="shortcut-kbd">M</kbd>
-              </div>
-
-              <div className="options-row">
-                <div>
-                  <span>{tr({ fr: "Tout acheter : Savoir", en: "Buy all: Knowledge" })}</span>
-                  <small>{tr({ fr: "Achète tout le Savoir abordable, du plus cher au moins cher", en: "Buys all affordable Knowledge, most expensive first" })}</small>
-                </div>
-                <kbd className="shortcut-kbd">S</kbd>
-              </div>
-
-              <div className="options-row">
-                <div>
-                  <span>{tr({ fr: "Tout acheter : Infrastructure", en: "Buy all: Infrastructure" })}</span>
-                  <small>{tr({ fr: "Achète toute l'Infrastructure abordable, du plus cher au moins cher", en: "Buys all affordable Infrastructure, most expensive first" })}</small>
-                </div>
-                <kbd className="shortcut-kbd">I</kbd>
+                <kbd className="shortcut-kbd">1 – 8</kbd>
               </div>
 
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Ouvrir les options", en: "Open options" })}</span>
-                  <small>{tr({ fr: "Ouvre ce menu à tout moment", en: "Opens this menu at any time" })}</small>
+                  <small>{tr({ fr: "Ouvre ce menu à tout moment, et quitte la contemplation. Non réattribuable : c'est le chemin de secours.", en: "Opens this menu at any time, and leaves contemplation. Not remappable: it is the way back." })}</small>
                 </div>
                 <kbd className="shortcut-kbd">{tr({ fr: "Échap", en: "Esc" })}</kbd>
               </div>
@@ -642,6 +701,23 @@ export default function OptionsDialog({ isOpen, onClose }) {
               >
                 {tr({ fr: "Reset", en: "Reset" })}
               </button>
+            </div>
+          )}
+
+          {/* CREDITS PANEL — assets tiers embarqués dans le jeu. La licence du
+              pack de cartes demande explicitement un crédit : cet onglet est ce
+              qui rend le jeu conforme, ne pas le retirer sans retirer l'asset. */}
+          {activeGroup === 'credits' && (
+            <div className="options-row">
+              <div>
+                <span>{tr({ fr: "Cartes à jouer", en: "Playing cards" })}</span>
+                <small>
+                  {tr({
+                    fr: "« Pixel Playing Cards » par Bit Digitalis (bitdigitalis.itch.io). Les 52 cartes et le dos du Vingt-et-un viennent de ce pack, utilisé avec l'accord de sa licence.",
+                    en: "“Pixel Playing Cards” by Bit Digitalis (bitdigitalis.itch.io). The 52 cards and the card back of Twenty-one come from this pack, used under its license."
+                  })}
+                </small>
+              </div>
             </div>
           )}
 

@@ -9,6 +9,7 @@ import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { openView, save, getLastSaveError } from './game/core/state.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
+import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
 import { buyAllAffordable } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
@@ -49,6 +50,10 @@ export default function App() {
   const crisisLocked = useGameState(s => !!s.crisisLimitAnnounced);
   const finalChronicleTitle = useGameState(s => s.finalChronicleTitle);
   const choiceResolverRef = useRef(null);
+  // Vues débloquées + verrou de crise, relus par le gestionnaire clavier. Il est
+  // enregistré une seule fois (deps []) : sans ce relais il capturerait les
+  // valeurs du premier rendu et les touches 1-8 viseraient des onglets périmés.
+  const navRef = useRef({ tabs: [], crisisLocked: false });
 
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   // MODE CONTEMPLATION : toute l'interface s'efface, il ne reste que la ville.
@@ -90,6 +95,9 @@ export default function App() {
 
     // Detect "debug" typed on keyboard
     let debugSequence = "";
+    // Catégorie d'achat de masse par identifiant de raccourci. La TOUCHE, elle,
+    // vit dans la table (shortcuts.js) et peut être changée par le joueur.
+    const BUY_BY_ID = { buy_all: null, buy_city: "city", buy_knowledge: "knowledge", buy_infra: "infra" };
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         const hasOpenDialog = Boolean(document.querySelector("dialog[open]"));
@@ -97,6 +105,8 @@ export default function App() {
         event.preventDefault();
         // Échap sert d'ABORD à quitter la contemplation : ouvrir les Options
         // depuis un écran sans interface serait le pire des enchaînements.
+        // Cette touche n'est PAS réattribuable (cf. FORBIDDEN_KEYS) : elle est
+        // le seul chemin de secours vers les Options.
         setContemplation((on) => {
           if (on) return false;
           setIsOptionsOpen(true);
@@ -104,32 +114,28 @@ export default function App() {
         });
         return;
       }
-      // F : entrer ou sortir de la contemplation (jamais automatique).
-      if (event.key.toLowerCase() === "f" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        const el = document.activeElement;
-        const isTyping = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
-        if (!isTyping && !document.querySelector("dialog[open]")) {
+
+      // Touches 1 à 8 : les vues DÉBLOQUÉES, dans l'ordre de la barre latérale.
+      // Même verrou de crise terminale que les onglets, sinon le raccourci
+      // contournerait ce que la barre latérale interdit.
+      const digit = resolveViewDigit(event);
+      if (digit >= 0) {
+        const { tabs: navTabs, crisisLocked: locked } = navRef.current;
+        const target = navTabs.filter((t) => t.unlocked)[digit];
+        if (target && (!locked || target.id === "prestige")) {
           event.preventDefault();
-          setContemplation((on) => !on);
-          return;
+          openView(target.id);
         }
+        return;
       }
 
-      // Raccourcis d'achat de masse, sans scroller :
-      //   E → tout acheter (Moteurs + Savoir + Infra)
-      //   M → Moteurs seuls,  S → Savoir seul,  I → Infrastructure seule
-      // Ignorés si une saisie a le focus, si un modificateur est actif ou si un
-      // dialog est ouvert. On ne `return` PAS : la séquence debug (qui contient
-      // un « e ») continue de s'accumuler plus bas.
-      const buyKey = event.key.toLowerCase();
-      const buyCategory = { e: null, m: "city", s: "knowledge", i: "infra" };
-      if (Object.prototype.hasOwnProperty.call(buyCategory, buyKey) && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        const el = document.activeElement;
-        const isTyping = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
-        if (!isTyping && !document.querySelector("dialog[open]")) {
-          event.preventDefault();
-          buyAllAffordable(buyCategory[buyKey]);
-        }
+      const hit = resolveShortcut(event);
+      if (hit) {
+        event.preventDefault();
+        if (hit.id === "contemplation") setContemplation((on) => !on);
+        else if (hit.id in BUY_BY_ID) buyAllAffordable(BUY_BY_ID[hit.id]);
+        // PAS de `return` : la séquence secrète « debug » contient un « e », qui
+        // est aussi un raccourci d'achat. Elle doit continuer d'accumuler.
       }
 
       if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
@@ -187,6 +193,12 @@ export default function App() {
   // Plus aucune fenêtre système : le succès passe par un toast, et l'échec du
   // presse-papiers rouvre le dialogue d'import EN LECTURE SEULE, où le texte est
   // sélectionnable. Un `prompt()` natif volait le focus et tronquait la chaîne.
+  // Le ref se met à jour APRÈS le rendu : l'écrire pendant serait un accès à un
+  // ref en phase de rendu, que la règle react-hooks/refs interdit.
+  useEffect(() => {
+    navRef.current = { tabs, crisisLocked };
+  });
+
   const handleExport = async () => {
     const result = await exportSave();
     if (result.ok) {
