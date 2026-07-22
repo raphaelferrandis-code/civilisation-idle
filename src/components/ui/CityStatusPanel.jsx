@@ -4,7 +4,8 @@ import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
 import { getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
-import { idleCapSeconds, nextIdleCapPalier } from '../../game/core/main.js';
+import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime } from '../../game/core/main.js';
+import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -41,7 +42,7 @@ function fmtCycleTime(totalSecs) {
 export default function CityStatusPanel() {
   const {
     cycles, bestEraIndex, cycleStartedAt,
-    timeWear, tickNow
+    timeWear, tickNow, storedSeconds
   } = useCityViewState();
 
   const eraIdx = currentEraIndex();
@@ -68,6 +69,21 @@ export default function CityStatusPanel() {
   // où le joueur la regarde. Le remplissage a du sens au RETOUR, pas pendant.
   const idleCap = idleCapSeconds();
   const idleNext = nextIdleCapPalier();
+
+  // LA CLEPSYDRE (C7). Elle, à l'inverse de la réserve, est une VRAIE jauge : ce
+  // qu'elle contient ne bouge qu'au retour d'une absence et au versement, donc
+  // le remplissage affiché veut dire quelque chose à tout instant.
+  // Masquée tant qu'elle n'a jamais rien reçu : un bloc vide n'apprend rien, et
+  // le rapport de reprise nomme la clepsydre le jour où elle se remplit.
+  const stored = Math.floor(storedSeconds || 0);
+  const clepsydreCap = clepsydreCapSeconds();
+  const refusal = stored > 0 ? clepsydreRefusal() : "empty";
+  const refusalText = {
+    busy: tr({ fr: "Impossible pendant un effondrement ou une fenêtre ouverte.", en: "Not while a collapse or a window is in progress." }),
+    crisis: tr({ fr: "Impossible pendant une crise : règle d'abord la cité.", en: "Not during a crisis: settle the city first." }),
+    bonus: tr({ fr: "Impossible pendant un bonus de production : il s'étalerait sur tout le temps versé.", en: "Not during a production bonus: it would spread over all the poured time." }),
+    empty: tr({ fr: "Il faut au moins une minute de réserve.", en: "At least one minute of reserve is needed." })
+  }[refusal];
 
   // PASTILLE DE SAUVEGARDE : l'information n'existait nulle part sans cliquer.
   // On lit `tickNow` et non `Date.now()` — ce composant est déjà réabonné au
@@ -166,6 +182,43 @@ export default function CityStatusPanel() {
           <span className="csp-idle-next">{tr({ fr: `puis ${fmtSecs(idleNext.cap)}`, en: `then ${fmtSecs(idleNext.cap)}` })}</span>
         )}
       </div>
+
+      {stored > 0 && (
+        <div
+          className="csp-clepsydre"
+          title={tr({
+            fr: `Le temps reçu au-dessus de la réserve n'est plus perdu : il attend ici, jusqu'à ${fmtSecs(clepsydreCap)}. Le verser rejoue ce temps comme une absence — la cité produit et vieillit, et si l'Édit d'effondrement est actif elle peut chuter et rebâtir.`,
+            en: `Time received above the reserve is no longer lost: it waits here, up to ${fmtSecs(clepsydreCap)}. Pouring it replays that time as an absence — the city produces and ages, and if the Collapse Edict is active it may fall and rebuild.`
+          })}
+        >
+          <div className="csp-clepsydre-head">
+            <span className="csp-idle-label">{tr({ fr: 'Clepsydre', en: 'Clepsydra' })}</span>
+            <strong className="csp-idle-value">{fmtSecs(stored)}</strong>
+          </div>
+          <span className="csp-bar">
+            <span className="csp-bar-fill csp-bar-fill--clepsydre" style={{ width: `${clamp01(stored / clepsydreCap) * 100}%` }}></span>
+          </span>
+          {/* Le motif du refus est écrit SUR le bouton et pas seulement dans
+              l'infobulle : un bouton grisé sans raison se lit comme un bug. */}
+          <button
+            type="button"
+            className="csp-clepsydre-pour"
+            disabled={!!refusal}
+            onClick={() => {
+              const res = spendStoredTime();
+              if (!res.ok) pushOutcomeFloat({ label: refusalText, kind: 'info' });
+            }}
+          >
+            {tr({ fr: `Verser ${fmtSecs(stored)}`, en: `Pour ${fmtSecs(stored)}` })}
+          </button>
+          {refusal && <span className="csp-clepsydre-why">{refusalText}</span>}
+          {!refusal && (
+            <span className="csp-clepsydre-why">
+              {tr({ fr: "Ne tournent pas : les fêtes de jalon, les bulles d'habitants.", en: "Will not run: milestone celebrations, citizen bubbles." })}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Un ÉCHEC de sauvegarde reste affiché tant qu'il est vrai : il ne peut
           pas passer par les toasts, qui s'effacent au bout de 2,4 s. */}

@@ -581,6 +581,72 @@
 }
 
 
+/* ============================================================================
+   LA CLEPSYDRE (C7) — le temps recu au-dessus du plafond, mis de cote au lieu
+   d'etre jete. Contrairement a la reserve juste au-dessus, elle a une VRAIE
+   jauge : son contenu ne bouge qu'au retour d'une absence et au versement.
+   ============================================================================ */
+.csp-clepsydre {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
+}
+
+.csp-clepsydre-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.csp-bar-fill--clepsydre {
+  background: linear-gradient(90deg, rgba(120, 170, 200, 0.55), rgba(170, 215, 235, 0.9));
+}
+
+.csp-clepsydre-pour {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.28rem 0.4rem;
+  font-family: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gold-ivory);
+  background: rgba(120, 170, 200, 0.14);
+  border: 1px solid rgba(150, 195, 220, 0.42);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.csp-clepsydre-pour:hover:not(:disabled) {
+  background: rgba(140, 190, 220, 0.24);
+  border-color: rgba(180, 220, 240, 0.7);
+}
+
+.csp-clepsydre-pour:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Le motif du refus, ou ce qui ne tournera pas pendant le versement. Toujours
+   present : un bouton grise sans raison ecrite se lit comme un bug. */
+.csp-clepsydre-why {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.55rem;
+  line-height: 1.35;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+@media (max-width: 1500px) and (min-width: 981px) {
+  .city-status-panel .csp-clepsydre-head { justify-content: center; }
+  .city-status-panel .csp-clepsydre-why { display: none; } /* la gouttiere est trop etroite : le title le porte */
+  .city-status-panel .csp-clepsydre-pour { font-size: 0.54rem; }
+}
+
+
 /* Pastille de SAUVEGARDE (C10) : l'information n'existait nulle part sans
    cliquer. Discrete par defaut, insistante quand la sauvegarde echoue — ce
    cas-la ne peut pas passer par les toasts, qui s'effacent en 2,4 s. */

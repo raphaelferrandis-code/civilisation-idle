@@ -855,6 +855,21 @@ export const IDLE_CAP_PALIERS = {
   veilleurs_nuit_1: 6 * 3600,   // 2h base + 6h → 8 h (absorbe l'ancien palier _2)
   veilleurs_nuit_4: 16 * 3600   // + 16h → 24 h (absorbe l'ancien palier _3)
 };
+// LA CLEPSYDRE (C7) : au-dessus du plafond, le temps d'absence n'est plus JETÉ,
+// il se verse dans une réserve que le joueur vide quand il le décide.
+// Sa contenance suit la réserve d'absence (× ce multiplicateur) au lieu d'être
+// une constante à part : les « Veilleurs de nuit », qui achètent des heures
+// d'absence, achètent du même coup des heures de clepsydre — un seul chiffre à
+// comprendre, une seule chose à améliorer.
+export const CLEPSYDRE_CAP_MULT = 1;
+// Plafond ABSOLU (secondes), dérivé des paliers : sert de borne de normalisation
+// à l'hydratation, où les upgrades du joueur ne sont pas encore lisibles. Le
+// dériver (plutôt qu'un 24 h en dur) le garde vrai si un palier bouge.
+export const CLEPSYDRE_HARD_MAX_SECONDS = CLEPSYDRE_CAP_MULT
+  * (IDLE_BASE_CAP_SECONDS + Object.values(IDLE_CAP_PALIERS).reduce((a, b) => a + b, 0));
+// En dessous, verser ne produirait rien de lisible (et le rapport de reprise se
+// tait de toute façon sous REPORT_MIN_SEC).
+export const CLEPSYDRE_MIN_POUR_SECONDS = 60;
 // Borne DURE d'un lot d'achat, partagée par maxBuyAmount, buildingBatchCost et
 // buyBuildingCore — les trois la clampaient chacun de leur côté avec un 500 en
 // dur. Ce n'est pas un réglage d'équilibrage mais un garde-fou : la somme

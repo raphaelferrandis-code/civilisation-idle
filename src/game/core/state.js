@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
@@ -416,6 +416,14 @@ export const defaultState = () => ({
   popMilestoneExp: 0,
   // B2 — Horodatage (ms) de la prochaine aubaine. 0 = à programmer au 1er tick.
   nextBoonAt: 0,
+  // C7 — LA CLEPSYDRE : secondes d'absence reçues AU-DESSUS du plafond, mises de
+  // côté au lieu d'être jetées, versées quand le joueur le décide (main.js,
+  // spendStoredTime). Number simple, jamais un Decimal : c'est du temps, borné à
+  // moins d'un million de secondes par CLEPSYDRE_HARD_MAX_SECONDS.
+  // SURVIT au Grand Reset (GR_PERSISTENT_FIELDS) : c'est du temps déjà VÉCU par
+  // le joueur, pas une ressource de partie. L'effacer punirait précisément qui
+  // enchaîne un Grand Reset au retour d'une longue absence — le cas d'usage.
+  storedSeconds: 0,
   crisisActions: {
     rationing: 0,
     festivals: 0,
@@ -1385,6 +1393,10 @@ export function hydrateState(parsed = {}) {
     // HAUT à now + intervalle max : une horloge système reculée après coup peut
     // laisser un nextBoonAt aberrant qui bloquerait les aubaines à jamais.
     nextBoonAt: finiteNumber(source.nextBoonAt, base.nextBoonAt, 0, Date.now() + BOON_INTERVAL_MAX_SEC * 1000),
+    // Borné au plafond ABSOLU de la clepsydre et non au plafond du joueur : les
+    // upgrades ne sont pas encore lisibles à ce stade de l'hydratation. Le
+    // versement, lui, re-borne à la contenance réelle (clepsydreCapSeconds).
+    storedSeconds: finiteNumber(source.storedSeconds, base.storedSeconds, 0, CLEPSYDRE_HARD_MAX_SECONDS),
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
@@ -1781,7 +1793,12 @@ export const GR_PERSISTENT_FIELDS = [
   // Registre de la Chronique : cumul À VIE de stats/records/horodatages — c'est
   // un journal de records, il traverse le Grand Reset (l'horloge à vie, les
   // timings de GR/Mythes et les compteurs de jeux ne se réinitialisent jamais).
-  "chronicleStats"
+  "chronicleStats",
+  // La clepsydre (C7). Choix EXPLICITE : le temps mis de côté est du temps déjà
+  // vécu par le joueur, pas une ressource de partie. L'effacer au Grand Reset
+  // punirait exactement le geste que la clepsydre existe pour servir — garder
+  // son absence sous le coude pour la verser sur la cité neuve.
+  "storedSeconds"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal éventuels

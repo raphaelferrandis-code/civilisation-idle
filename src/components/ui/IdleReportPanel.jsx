@@ -32,13 +32,19 @@ export default function IdleReportPanel() {
 
   if (!report) return null;
 
-  const lost = Math.max(0, report.awaySec - report.creditedSec);
+  // Ce qui a dépassé le plafond se lit en DEUX parts : ce que la clepsydre a
+  // recueilli (C7) et ce qui reste vraiment perdu, une fois la clepsydre pleine.
+  // Les confondre en un seul « perdu » ferait mentir le rapport dans le sens qui
+  // décourage — le joueur croirait jeté un temps qu'on vient de lui garder.
+  const above = Math.max(0, report.awaySec - report.creditedSec);
+  const stored = Math.max(0, report.storedSec || 0);
+  const lost = Math.max(0, above - stored);
   const visible = (index) => (index < shown ? 'is-in' : '');
 
   return (
     <aside className="idle-report" role="status">
       <div className="idle-report-head">
-        <strong>{tr({ fr: "Pendant ton absence", en: "While you were away" })}</strong>
+        <strong>{report.heading || tr({ fr: "Pendant ton absence", en: "While you were away" })}</strong>
         <button
           type="button"
           className="idle-report-close"
@@ -59,9 +65,14 @@ export default function IdleReportPanel() {
           fr: `${fmtSecs(report.creditedSec)} créditées sur ${fmtSecs(report.capSec)} de réserve`,
           en: `${fmtSecs(report.creditedSec)} credited out of ${fmtSecs(report.capSec)} of reserve`
         })}
+        {stored > 60 && (
+          <span className="idle-report-stored">
+            {tr({ fr: `, ${fmtSecs(stored)} versées dans la clepsydre`, en: `, ${fmtSecs(stored)} poured into the clepsydra` })}
+          </span>
+        )}
         {lost > 60 && (
           <span className="idle-report-lost">
-            {tr({ fr: `, ${fmtSecs(lost)} perdues au-dessus du plafond`, en: `, ${fmtSecs(lost)} lost above the cap` })}
+            {tr({ fr: `, ${fmtSecs(lost)} perdues (clepsydre pleine)`, en: `, ${fmtSecs(lost)} lost (clepsydra full)` })}
           </span>
         )}
       </p>

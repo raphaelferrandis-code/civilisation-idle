@@ -32,7 +32,10 @@ import {
   amplifyRuptureFactor
 } from './mechanics.js';
 
-import { IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES } from './balance.js';
+import {
+  IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES,
+  CLEPSYDRE_CAP_MULT, CLEPSYDRE_MIN_POUR_SECONDS
+} from './balance.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
 import { publishIdleReport } from './idleReport.js';
 
@@ -183,9 +186,31 @@ export function nextIdleCapPalier() {
   return { id: pending.id, name: upgrade ? tr(upgrade.name) : pending.id, cap: cap + pending.seconds };
 }
 
+// Contenance de la CLEPSYDRE (C7), en secondes : le temps d'absence reçu
+// au-dessus du plafond n'est plus jeté, il attend ici que le joueur le verse.
+// Indexée sur la réserve d'absence : les « Veilleurs de nuit » agrandissent les
+// deux d'un coup, il n'y a donc qu'un seul chiffre à faire grandir.
+export function clepsydreCapSeconds() {
+  return Math.round(idleCapSeconds() * CLEPSYDRE_CAP_MULT);
+}
+
 // Pas (s. virtuelles) de la simulation hors-ligne. Petit → l'auto-achat (1 bâtiment
 // par tick) rebâtit correctement ; borné par OFFLINE_MAX_COLLAPSES + le cap d'idle.
 const OFFLINE_STEP_SECONDS = 10;
+
+// Crédite `seconds` de production au TAUX COURANT sur les 5 ressources. Fonction
+// de MODULE et non plus une closure de simulateAwayCrises : la clepsydre (C7)
+// crédite le même temps par le même chemin, et deux arithmétiques parallèles
+// finiraient par diverger. Decimal de bout en bout, jamais de coercition.
+function creditSpan(seconds) {
+  if (seconds <= 0) return;
+  const r = rates();
+  state.population = D(state.population).add(D(r.population).mul(seconds));
+  state.food = D(state.food).add(D(r.food).mul(seconds));
+  state.gold = D(state.gold).add(D(r.gold).mul(seconds));
+  state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(seconds));
+  state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(seconds));
+}
 
 // Farm hors-ligne (cf. CE-spec §B.5, v2) : rejoue la VRAIE boucle tick() par pas
 // grossiers sur le temps d'absence → l'auto-achat (Héphaïstos) rebâtit, l'Usure et
@@ -257,15 +282,6 @@ function simulateAwayCrises(elapsedSeconds) {
     }
     // Temps restant après le plafond d'effondrements : crédit linéaire (pas de gâchis).
     if (remaining > 0) {
-      const creditSpan = (seconds) => {
-        if (seconds <= 0) return;
-        const r = rates();
-        state.population = D(state.population).add(D(r.population).mul(seconds));
-        state.food = D(state.food).add(D(r.food).mul(seconds));
-        state.gold = D(state.gold).add(D(r.gold).mul(seconds));
-        state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(seconds));
-        state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(seconds));
-      };
       // Les Braisiers de Prométhée ne valent que BRAISIERS_DURATION_MS après le
       // début du cycle (rates.js). Un crédit calculé à TAUX CONSTANT étalerait leur
       // ×2 Nourriture sur tout le reliquat — des heures au lieu de deux minutes. On
@@ -312,7 +328,7 @@ const REPORT_MIN_SEC = 60;
 // Assemble le rapport à partir de l'instantané pris avant la simulation. Les
 // montants sortent en CHAÎNES : ils dépassent le float, et la vue n'a qu'à les
 // afficher. Rien de ce qui est calculé ici n'est relu par le moteur.
-function buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore }) {
+function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, elapsed, wearBefore, storedSec = 0 }) {
   const deltas = [];
   for (const key of REPORT_RESOURCES) {
     const diff = D(state[key]).sub(before[key]);
@@ -333,9 +349,15 @@ function buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wea
   }
   return {
     title: narrative,
+    // En-tête alternatif : un versement de clepsydre n'est pas une absence.
+    heading: heading || null,
     awaySec: Math.max(0, Math.round(elapsedSeconds)),
     creditedSec: Math.round(elapsed),
     capSec: idleCapSeconds(),
+    // Ce qui a débordé du plafond et qui n'est PLUS perdu : versé dans la
+    // clepsydre. Le rapport doit le dire, sinon le joueur lit encore « perdu »
+    // sur du temps que le jeu vient de lui mettre de côté.
+    storedSec: Math.round(storedSec),
     farm: !!farm,
     collapses: farm ? farm.collapses : 0,
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null,
@@ -343,6 +365,94 @@ function buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wea
     deltas,
     idle
   };
+}
+
+// AVANCER LE MONDE de `seconds`, par le régime qui convient à la partie : la
+// vraie boucle rejouée sous horloge virtuelle (farm) quand le joueur l'a
+// débloquée, sinon le crédit linéaire. Facteur COMMUN à l'absence et au
+// versement de clepsydre — c'est la garantie que verser une heure vaut
+// exactement une heure d'absence, et pas une seconde arithmétique parallèle qui
+// dériverait à la première correction d'équilibrage.
+function advanceWorldBy(seconds) {
+  const wearBefore = state.timeWear || 0;
+  const farm = simulateAwayCrises(seconds); // null si non éligible → chemin linéaire
+  if (!farm) {
+    // Production au taux courant (bâtiments constants hors-ligne → rates() stable).
+    invalidateRenderCache("all");
+    creditSpan(seconds);
+    invalidateRenderCache("all");
+    // Usure, MÊME durée que la prod (couplage : on ne vieillit jamais plus que ce
+    // qu'on a produit). Plus de facteur ×0.35.
+    state.timeWear = clamp(wearBefore + timeWearRate() * seconds, 0, 1);
+  }
+  return { farm, wearBefore };
+}
+
+// Raisons de REFUS d'un versement, dans l'ordre où on les teste. La vue les
+// traduit en une phrase sur le bouton : un bouton grisé sans motif se lit comme
+// un bug, et le joueur ne peut pas deviner qu'il doit attendre la fin d'un bonus.
+export const CLEPSYDRE_REFUSALS = ["busy", "crisis", "bonus", "empty"];
+
+// Pourquoi le versement est impossible, ou null s'il est permis. Séparé de
+// spendStoredTime pour que la vue puisse afficher le motif AVANT le clic.
+export function clepsydreRefusal() {
+  // Effondrement en cours, dialogue bloquant, crise terminale : la sim a déjà
+  // ces gardes hors-ligne, et rejouer du temps par-dessus une modale ouverte
+  // forcerait setGamePaused(false) derrière elle (bug vécu, cf. ci-dessus).
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return "busy";
+  if (crisisOpen()) return "crisis";
+  // FENÊTRE DE BONUS. Le versement crédite à TAUX CONSTANT : verser 8 h pendant
+  // une Bénédiction de 2 min étalerait son multiplicateur sur les 8 h. C'est le
+  // même piège que les Braisiers de Prométhée hors-ligne, que la sim scinde à
+  // la sortie de fenêtre — ici on refuse tout court, c'est deux minutes à
+  // attendre et ça évite un pic hors courbe payé une fois pour toutes.
+  if ((state.blessingUntil || 0) > Date.now()) return "bonus";
+  if (state.prometheeBraisiers
+      && Date.now() - (state.cycleStartedAt || 0) < BRAISIERS_DURATION_MS) return "bonus";
+  if (Math.floor(state.storedSeconds || 0) < CLEPSYDRE_MIN_POUR_SECONDS) return "empty";
+  return null;
+}
+
+// VERSER LA CLEPSYDRE (C7). Le temps mis de côté est rejoué ici, exactement
+// comme une absence de la même durée — mêmes gardes, même moteur, même rapport.
+// Renvoie { ok } ou { ok: false, reason }.
+export function spendStoredTime(seconds = Infinity) {
+  const refusal = clepsydreRefusal();
+  if (refusal) return { ok: false, reason: refusal };
+
+  const spend = Math.floor(Math.min(seconds, state.storedSeconds || 0));
+  if (spend < CLEPSYDRE_MIN_POUR_SECONDS) return { ok: false, reason: "empty" };
+
+  // DÉBITÉE D'ABORD : la simulation peut effondrer la cité et repartir d'un
+  // state reconstruit. Débiter après, c'est risquer de rendre le temps déjà
+  // dépensé — une clepsydre qui se remplit toute seule.
+  state.storedSeconds = Math.max(0, (state.storedSeconds || 0) - spend);
+
+  const before = {};
+  for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
+  const { farm, wearBefore } = advanceWorldBy(spend);
+
+  // Même récit que la reprise d'absence : c'est le même temps, joué au même
+  // taux. Seul l'en-tête du rapport dit que c'est la clepsydre qui l'a rendu.
+  const narrative = idleResumeNarrative({
+    elapsedSeconds: spend,
+    eraIndex: currentEraIndex(),
+    instability: state.instability || 0,
+    terminalUsure: state.timeWear >= 1 && wearBefore < 1,
+    collapses: farm ? farm.collapses : 0,
+    ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
+  });
+  chronicle(narrative);
+  publishIdleReport(buildIdleReport({
+    narrative,
+    heading: tr({ fr: "La clepsydre s'est vidée", en: "The clepsydra has emptied" }),
+    before, farm, elapsedSeconds: spend, elapsed: spend, wearBefore
+  }));
+  // lastTick n'est PAS touché : aucun temps réel ne s'est écoulé, et le recaler
+  // ferait perdre l'absence en cours de comptage par la boucle de tick.
+  save();
+  render();
+  return { ok: true, spent: spend, collapses: farm ? farm.collapses : 0 };
 }
 
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
@@ -354,28 +464,19 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   const elapsed = Math.min(idleCapSeconds(), Math.max(0, elapsedSeconds));
   if (elapsed <= 10) return;
 
-  const wearBefore = state.timeWear || 0;
-  // Instantané AVANT la simulation : elle monkeypatche Date.now et jette
-  // state.history dans son finally, donc tout ce qu'on veut comparer se relève
-  // ICI. Decimal de bout en bout, jamais de coercition.
+  // LE DÉBORDEMENT NE SE JETTE PLUS (C7) : ce qui dépasse le plafond va dans la
+  // clepsydre, où il attend que le joueur le verse. Banqué AVANT la simulation :
+  // celle-ci peut effondrer la cité et rendre `elapsed` incomparable après coup.
   const before = {};
   for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
-  const farm = simulateAwayCrises(elapsed); // null si non éligible → chemin linéaire
-
-  if (!farm) {
-    // Production au taux courant (bâtiments constants hors-ligne → rates() stable).
-    invalidateRenderCache("all");
-    const r = rates();
-    state.population = D(state.population).add(D(r.population).mul(elapsed));
-    state.food = D(state.food).add(D(r.food).mul(elapsed));
-    state.gold = D(state.gold).add(D(r.gold).mul(elapsed));
-    state.knowledge = D(state.knowledge).add(D(r.knowledge).mul(elapsed));
-    state.infrastructure = D(state.infrastructure).add(D(r.infrastructure).mul(elapsed));
-    invalidateRenderCache("all");
-    // Usure, MÊME elapsed que la prod (couplage : on ne vieillit jamais plus que ce
-    // qu'on a produit). Plus de facteur ×0.35.
-    state.timeWear = clamp(wearBefore + timeWearRate() * elapsed, 0, 1);
+  const clepsydreBefore = state.storedSeconds || 0;
+  const overflow = Math.max(0, elapsedSeconds - elapsed);
+  if (overflow > 0) {
+    state.storedSeconds = Math.min(clepsydreCapSeconds(), clepsydreBefore + overflow);
   }
+  const storedSec = Math.max(0, (state.storedSeconds || 0) - clepsydreBefore);
+
+  const { farm, wearBefore } = advanceWorldBy(elapsed);
 
   // Habillage narratif de la reprise. La MÊME phrase sert de ligne de Chronique
   // et de titre au rapport : la dupliquer en deux textes distincts donnerait
@@ -392,7 +493,7 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   // Pas de rapport pour un aller-retour d'onglet : on n'annonce une récolte que
   // s'il y a eu une vraie absence.
   if (elapsedSeconds >= REPORT_MIN_SEC) {
-    publishIdleReport(buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore }));
+    publishIdleReport(buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore, storedSec }));
   }
   // Crédité jusqu'à MAINTENANT : on recale l'ancre du hors-ligne. save() et le
   // tick ne posent plus lastTick ailleurs → sans ceci, le prochain calcul

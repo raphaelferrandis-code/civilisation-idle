@@ -58,6 +58,9 @@ export function useCityViewState() {
     prometheePopReached:           s.prometheePopReached,
     prometheeFailed:               s.prometheeFailed,
     timeWear:                      s.timeWear,
+    // La clepsydre (C7) : secondes d'absence mises de côté au-dessus du plafond.
+    storedSeconds:                 s.storedSeconds,
+    blessingUntil:                 s.blessingUntil,
     atlasSkipUsed:                 s.atlasSkipUsed,
     atlasHeritage:                 s.atlasHeritage,
     atlasFardeau:                  s.atlasFardeau,
