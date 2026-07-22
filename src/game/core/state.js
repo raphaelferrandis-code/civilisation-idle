@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
@@ -252,6 +252,13 @@ export const setNotifyPaused = (paused) => { notifyPaused = Boolean(paused); };
 // floats de jalons) sont sautés pendant la simulation hors-ligne, qui suspend
 // les notifications et rejoue des milliers de ticks d'un coup.
 export const isNotifyPaused = () => notifyPaused;
+// Consomme le bandeau de fin de cycle : l'affichage le prend en charge, l'état
+// ne garde pas trace d'une annonce déjà passée à l'écran.
+export const clearCycleReport = () => {
+  if (!state.lastCycleReport) return;
+  state.lastCycleReport = null;
+  notify();
+};
 export const notify = () => {
   if (notifyPaused) return;
   listeners.forEach(l => l());
@@ -558,6 +565,13 @@ export const defaultState = () => ({
   cityNameCustom: false,
   history: ["An 0: une premiere communaute allume ses feux."],
   bestEraIndex: 0,
+  // Bilan du cycle précédent (cf. normalizePrevCycle) : sert à chiffrer l'écart
+  // dans le bandeau de fin de cycle. null tant qu'aucune civilisation n'est tombée.
+  prevCycle: null,
+  // Bandeau de fin de cycle EN ATTENTE d'affichage. Volontairement TRANSITOIRE :
+  // remis à null à l'hydratation, sinon un F5 rejouerait le bilan d'une chute
+  // déjà annoncée.
+  lastCycleReport: null,
   cyclePeaks: {
     population: new Decimal(10),
     food: new Decimal(12),
@@ -941,6 +955,22 @@ export function normalizeCyclePeaks(raw, fallback) {
     knowledge: decimalField(source.knowledge, fallback.knowledge),
     infrastructure: decimalField(source.infrastructure, fallback.infrastructure),
     eraIndex: finiteInteger(source.eraIndex, fallback.eraIndex, 0, Math.max(0, eras.length - 1))
+  };
+}
+
+// Bilan du cycle PRÉCÉDENT, conservé pour pouvoir afficher un écart au suivant.
+// chronicleStats ne garde que des RECORDS (plus gros gain, plus long cycle) :
+// le cycle d'avant n'y figure nulle part, d'où ce champ dédié. Les montants sont
+// des chaînes (Decimal sérialisé) : ce bilan ne sert qu'à l'affichage, jamais au
+// calcul, donc on ne paie pas la reconstruction en Decimal à l'hydratation.
+export function normalizePrevCycle(raw) {
+  if (!isPlainObject(raw)) return null;
+  const cause = typeof raw.cause === "string" ? raw.cause.slice(0, 40) : "";
+  return {
+    cycleSec: finiteNumber(raw.cycleSec, 0, 0, 1e12),
+    ruinGain: typeof raw.ruinGain === "string" ? raw.ruinGain.slice(0, 64) : "0",
+    peakPop: typeof raw.peakPop === "string" ? raw.peakPop.slice(0, 64) : "0",
+    cause
   };
 }
 
@@ -1404,10 +1434,17 @@ export function hydrateState(parsed = {}) {
     cityNameCustom: Boolean(source.cityNameCustom),
     history: normalizeHistory(source.history, base.history),
     bestEraIndex: finiteInteger(source.bestEraIndex, base.bestEraIndex, 0, Math.max(0, eras.length - 1)),
+    prevCycle: normalizePrevCycle(source.prevCycle),
+    lastCycleReport: null,   // transitoire : jamais rejoué au rechargement
     cyclePeaks: normalizeCyclePeaks(source.cyclePeaks, base.cyclePeaks),
     cycleStartedAt: finiteTimestamp(source.cycleStartedAt, base.cycleStartedAt),
     lastTick: finiteTimestamp(source.lastTick, base.lastTick),
-    buyAmount: source.buyAmount === "max" ? "max" : finiteInteger(source.buyAmount, 1, 1, 500),
+    // 'max' et 'step' sont des SENTINELLES (quantité résolue par bâtiment au
+    // moment de l'achat). Absentes de cette liste blanche, elles retombaient
+    // silencieusement sur ×1 au rechargement.
+    buyAmount: source.buyAmount === "max" || source.buyAmount === "step"
+      ? source.buyAmount
+      : finiteInteger(source.buyAmount, 1, 1, MAX_BATCH_AMOUNT),
     activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history"].includes(source.activeView)
       ? source.activeView
       : "city",
@@ -1560,8 +1597,8 @@ export function setState(newState) {
 }
 
 export function resetTemporaryRunState(s) {
-  // Nouveau run = ressources de départ : un mode x25/x100/max hérité du run
-  // précédent bloquerait tout achat tant que le joueur ne le change pas.
+  // Nouveau run = ressources de départ : un mode x25/x100/max/palier hérité du
+  // run précédent bloquerait tout achat tant que le joueur ne le change pas.
   s.buyAmount = 1;
   s.instability = 0;
   s.timeWear = 0;
@@ -1713,6 +1750,8 @@ function cloneGrandResetValue(value) {
 // lequel on recopie les héritages permanents (GR_PERSISTENT_FIELDS), puis les 2
 // champs calculés (grandResetCount, history). Pur (lit le `state` courant) →
 // testable hors de la séquence async à dialogue de performGrandReset.
+// `gr` = le ou les SCEAUX réclamés (un numéro, ou une liste si le joueur en a
+// coché plusieurs) : sert au récit, pas au calcul (le rang, lui, est nextCount).
 export function buildGrandResetState(nextCount, gr = nextCount) {
   const fresh = defaultState();
   for (const key of GR_PERSISTENT_FIELDS) {
@@ -1723,9 +1762,14 @@ export function buildGrandResetState(nextCount, gr = nextCount) {
   // moisson dès que GRAND_RESET_PROD_BASE a cessé d'être GRAND_RESET_RUIN_BASE).
   const prodTxt = grandResetProductionMult(nextCount);
   const ruinTxt = grandResetRuinGainMult(nextCount);
-  // Le ×4 Ruines est le bonus du sceau du Ragnarök (gr 11) : testé sur le SCEAU
-  // réclamé, pas sur le rang du GR — en ordre libre, gr peut différer de nextCount.
-  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : ${gr === 11 ? "x4 Ruines supplémentaire" : `x${prodTxt < 10 ? prodTxt.toFixed(1) : prodTxt.toFixed(0)} production et x${ruinTxt.toFixed(0)} Ruines gagnées`}. Les pactes mythiques demeurent.`];
+  // Le ×4 Ruines est le bonus PROPRE au sceau du Ragnarök (gr 11) : testé sur les
+  // SCEAUX réclamés, pas sur le rang du GR — en ordre libre, gr diffère de
+  // nextCount. Il s'AJOUTE aux deux courbes au lieu de les remplacer dans le récit
+  // (l'ancien texte en ou-exclusif mentait dans les deux sens).
+  const seals = Array.isArray(gr) ? gr : [gr];
+  const ragnarok = seals.includes(11) ? ", plus x4 Ruines du Ragnarok" : "";
+  const prodStr = prodTxt < 10 ? prodTxt.toFixed(1) : prodTxt.toFixed(0);
+  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : x${prodStr} production et x${ruinTxt.toFixed(0)} Ruines gagnées${ragnarok}. Les pactes mythiques demeurent.`];
   return fresh;
 }
 

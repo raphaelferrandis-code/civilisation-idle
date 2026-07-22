@@ -5,6 +5,7 @@ import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
+import CycleReportBanner from '../ui/CycleReportBanner.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import {
@@ -327,6 +328,9 @@ export default function CityView() {
         {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
             posées en HUD par-dessus (on montre le monde d'abord). */}
         <div className="city-stage">
+          {/* Bilan de fin de cycle : bandeau posé SUR la carte, jamais un
+              dialogue — il n'interrompt rien et s'efface tout seul. */}
+          <CycleReportBanner />
           <div className="city-stage-hud" ref={stageHudRef}>
           <div className="city-title-wrapper">
             <input

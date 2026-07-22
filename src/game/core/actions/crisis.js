@@ -326,11 +326,22 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // Registre de la Chronique : records d'effondrement (plus gros gain de ruines,
   // plus long cycle tenu, plus de crises stabilisées) — mesurés AVANT que le
   // cycle ne soit réinitialisé plus bas (cycleStartedAt / cycleCrisesResolved).
+  const collapseCycleSec = Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000);
   recordCollapse({
     ruinGain: gain,
-    cycleSec: Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000),
+    cycleSec: collapseCycleSec,
     crises: state.cycleCrisesResolved || 0
   });
+  // Bilan du cycle qui s'achève, gardé pour le SUIVANT : recordCollapse ne range
+  // que des records, jamais le cycle précédent, donc l'écart serait inaffichable
+  // sans ce champ. Écrit ici et pas dans events.js pour couvrir tous les chemins
+  // d'effondrement (manuel, Édit, farm hors ligne) d'un seul endroit.
+  state.prevCycle = {
+    cycleSec: collapseCycleSec,
+    ruinGain: D(gain).toString(),
+    peakPop: D(state.cyclePeaks?.population || state.population).toString(),
+    cause: reason || ""
+  };
 
   const wasAtrides = isMythEffectActive("mythe_atrides");
   const applyAtridesPenalty = wasAtrides && state.atridesDrainDisabled;

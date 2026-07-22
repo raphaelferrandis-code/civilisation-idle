@@ -31,11 +31,14 @@ import {
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
+import { ambianceK } from './ambianceMode.js';
+import { weatherState } from './weatherMode.js';
+import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
-import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, ISO_X, ISO_Y } from './iso/projection.js';
+import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune } from './iso/isoRenderer.js';
 import {
   cityMapDrawGround,
@@ -174,9 +177,13 @@ function cmCitizenTargetFor(L, crowdMul) {
 }
 
 // Multiplicateur de densité effectif : la molette dev window.__citizenMul
-// l'emporte sur le préréglage Qualité (débogage), sinon cmCitizenMul.
+// l'emporte sur le préréglage Qualité (débogage), sinon cmCitizenMul. La météo
+// s'applique EN PLUS, par un facteur séparé : elle vide les rues sous l'averse
+// sans jamais écraser le réglage Qualité du joueur (qui, lui, sert la machine)
+// ni la molette de débogage.
 function cmCrowdMul() {
-  return (typeof window !== "undefined" && window.__citizenMul) || cmCitizenMul;
+  const base = (typeof window !== "undefined" && window.__citizenMul) || cmCitizenMul;
+  return base * (CM.weatherCrowdK ?? 1);
 }
 
 // Ré-applique la densité au vol (sans recompute du plan) : recale la cible depuis
@@ -430,24 +437,39 @@ function cityMapHitTest(sx, sy) {
     for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
       const w = CM_WONDERS[wi];
       if (!activeWonders.has(w.id)) continue;
-      const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
-      const wsx = (slot.gx * CM.TILE + CM.TILE / 2 - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
-      const wsy = (slot.gy * CM.TILE + CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
-      if (Math.hypot(wsx - sx, wsy - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) {
+      // Ancre PARTAGÉE avec drawWonder : ce hit-test projetait encore à la main,
+      // façon legacy, donc en iso la zone survolable ne tombait plus sur la
+      // merveille dessinée.
+      const ws = wonderAnchor(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
+      if (Math.hypot(ws.x - sx, ws.y - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) {
         const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
         const next = w.tiers && tier < w.tiers.length ? ` · prochain rang : ${w.tierLabel(w.tiers[tier])}` : " · rang maximal";
         return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
       }
     }
   }
+  // SILHOUETTE avant cellule de sol : un sprite d'habitation monte bien au-dessus
+  // de son losange, donc viser son toit retombait sur la cellule SITUÉE DERRIÈRE
+  // et l'infobulle décrivait un voisin. On teste d'abord les boîtes réellement
+  // dessinées à la dernière frame (CM._houseBoxes, publiées par drawIsoLive), du
+  // plus proche au plus lointain : la liste est en ordre du peintre, on la
+  // parcourt donc à l'envers pour que ce qui est DEVANT gagne.
+  const hb = CM._houseBoxes;
+  if (hb) {
+    for (let i = hb.length - 1; i >= 0; i -= 1) {
+      const b = hb[i].b, t = hb[i].t;
+      if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) continue;
+      return { ...cityMapDescribeTile(t), kind: t.type === "house" ? "Logement" : "Batiment", tile: t, cell: t.gx + "," + t.gy };
+    }
+  }
   const tile = CM.tileGrid?.get(gx + "," + gy);
   if (tile) {
     const info = cityMapDescribeTile(tile);
-    return { ...info, kind: tile.type === "house" ? "Logement" : "Batiment" };
+    return { ...info, kind: tile.type === "house" ? "Logement" : "Batiment", tile, cell: tile.gx + "," + tile.gy };
   }
   if (CM.roadSet.has(`${gx},${gy}`)) {
     const road = CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
-    return { title: cmRoadName(gx, gy), kind: road && road.rank === "plaza" ? "Place" : "Voie" };
+    return { title: cmRoadName(gx, gy), kind: road && road.rank === "plaza" ? "Place" : "Voie", cell: gx + "," + gy };
   }
   return null;
 }
@@ -1274,6 +1296,33 @@ function initCityMap(canvas, options = {}) {
       // « Élevée » : sol NET pendant le geste (pas de re-blit lissé) — lu par le
       // renderer iso dans sa chaîne de coalescence du sol baké.
       CM.crispGesture = cmCrispGesture;
+      // Vie de la carte : UN SEUL point de coupe pour tout ce qui bouge sans
+      // porter d'information (particules, fontaines, et les couches à venir).
+      // Distinct de la Qualité, qui elle touche la résolution et la densité.
+      // En capture, ambiance PLEINE : un cliché ne doit pas dépendre d'une
+      // préférence de confort (même raison que la fenêtre d'émeute ci-dessus).
+      CM.ambianceK = CM.capture ? 1 : ambianceK();
+      // SAISON : un ENTIER, jamais de valeur continue (cf. seasonMode.js). Elle
+      // entre dans la clé du bake du sol, donc chaque cran coûte une recuisson :
+      // c'est la raison du cycle très lent, et de l'absence de fondu.
+      CM.season = currentSeason();
+      // MÉTÉO : une seule source par frame, lue par toutes les couches (pluie,
+      // assombrissement, densité de foule). En capture, temps dégagé : un cliché
+      // est déterministe, l'horloge murale ne décide pas s'il y pleut.
+      {
+        const w = CM.capture ? { rainF: 0, windX: 0 } : weatherState();
+        CM.rainF = w.rainF;
+        CM.windX = w.windX;
+        // Sous l'averse, les rues se vident. On ne recale la foule que par
+        // PALIERS (cmRecomputeCitizenTarget tronque la liste des piétons, donc
+        // l'appeler à chaque frame hacherait la foule).
+        const step = CM.rainF > 0.6 ? 2 : CM.rainF > 0.15 ? 1 : 0;
+        if (step !== CM._weatherStep) {
+          CM._weatherStep = step;
+          CM.weatherCrowdK = step === 2 ? 0.35 : step === 1 ? 0.7 : 1;
+          cmRecomputeCitizenTarget();
+        }
+      }
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
       // Les fenêtres « allumées » des sprites sont de VRAIES lumières :
       // alpha entièrement piloté par la nuit (0 en plein jour).

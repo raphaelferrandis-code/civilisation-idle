@@ -61,6 +61,10 @@ const CM = {
   nightF: 0,
   healthF: 0.6,
   lodActive: false,
+  // Vie de la carte (option joueur, cf. ambianceMode.js) : 1 = pleine, 0 = rien
+  // ne bouge. Republié à chaque frame par le runtime ; la valeur par défaut sert
+  // aux rendus hors boucle (captures, tests) — jamais de couche muette par défaut.
+  ambianceK: 1,
   drag: null, dragged: false,
   centered: false,
   inited: false,

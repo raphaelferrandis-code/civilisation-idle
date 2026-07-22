@@ -111,3 +111,69 @@
   font-size: 0.88rem;
 }
 
+
+
+/* ============================================================================
+   BILAN DE FIN DE CYCLE — bandeau posé sur la carte (D9).
+   Ce n'est PAS un dialogue : aucun voile, aucun focus volé, l'automatisation
+   continue derrière. Il s'efface seul au bout de quelques secondes.
+   ============================================================================ */
+.cycle-report {
+  position: absolute;
+  top: 3.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  max-width: min(28rem, 82%);
+  padding: 0.7rem 1.1rem 0.75rem;
+  border: 1px solid var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(22, 18, 14, 0.94), rgba(14, 11, 9, 0.92));
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  animation: cycle-report-in 420ms ease-out;
+}
+
+@keyframes cycle-report-in {
+  from { opacity: 0; transform: translate(-50%, -0.6rem); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cycle-report { animation: none; }
+}
+
+.cycle-report-head {
+  font-family: var(--font-display, serif);
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright, #e8c66e);
+}
+
+.cycle-report-year {
+  margin-left: 0.5rem;
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.76rem;
+  color: var(--muted, #9a8f7d);
+}
+
+.cycle-report-line {
+  margin-top: 0.28rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #c8bda9);
+}
+
+.cycle-report-line strong { color: var(--gold-ivory, #ecdfc0); font-weight: 600; }
+
+.cycle-report-gain { margin-top: 0.42rem; }
+.cycle-report-gain strong { color: var(--gold-bright, #e8c66e); }
+
+/* Écart avec le cycle précédent : sobre, jamais criard. */
+.cycle-report-delta {
+  margin-left: 0.4rem;
+  font-family: var(--font-number, monospace);
+  font-size: 0.74rem;
+}
+.cycle-report-delta.is-up { color: #8fbf7a; }
+.cycle-report-delta.is-down { color: #c08a70; }

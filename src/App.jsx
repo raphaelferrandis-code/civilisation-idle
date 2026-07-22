@@ -4,6 +4,7 @@ import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
 import PixelIcon from './components/ui/PixelIcon.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
+import ContemplationBar from './components/ui/ContemplationBar.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { openView, save } from './game/core/state.js';
@@ -49,6 +50,10 @@ export default function App() {
   const choiceResolverRef = useRef(null);
 
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  // MODE CONTEMPLATION : toute l'interface s'efface, il ne reste que la ville.
+  // Purement présentationnel — le rendu et la simulation continuent à l'identique,
+  // c'est ce qui rend ce mode bon marché.
+  const [contemplation, setContemplation] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
@@ -84,11 +89,26 @@ export default function App() {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         const hasOpenDialog = Boolean(document.querySelector("dialog[open]"));
-        if (!hasOpenDialog) {
-          event.preventDefault();
+        if (hasOpenDialog) return;
+        event.preventDefault();
+        // Échap sert d'ABORD à quitter la contemplation : ouvrir les Options
+        // depuis un écran sans interface serait le pire des enchaînements.
+        setContemplation((on) => {
+          if (on) return false;
           setIsOptionsOpen(true);
-        }
+          return false;
+        });
         return;
+      }
+      // F : entrer ou sortir de la contemplation (jamais automatique).
+      if (event.key.toLowerCase() === "f" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const el = document.activeElement;
+        const isTyping = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+        if (!isTyping && !document.querySelector("dialog[open]")) {
+          event.preventDefault();
+          setContemplation((on) => !on);
+          return;
+        }
       }
 
       // Raccourcis d'achat de masse, sans scroller :
@@ -169,6 +189,7 @@ export default function App() {
     <div
       className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
       data-active-view={activeView}
+      data-contemplation={contemplation && activeView === 'city' ? 'on' : undefined}
       style={{
         // Style universel : le chrome n'est plus teinté par l'âge — l'accent or
         // canonique de variables.css s'applique partout. L'âge ne pilote plus
@@ -246,6 +267,9 @@ export default function App() {
 
           {activeView === 'history' && <ChronicleView />}
         </Suspense>
+        {contemplation && activeView === 'city' && (
+          <ContemplationBar onExit={() => setContemplation(false)} />
+        )}
       </main>
 
       {/* Modals Option / Import / Debug */}

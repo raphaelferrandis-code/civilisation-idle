@@ -14,6 +14,9 @@ import {
 import { numberFormatMode, setNumberFormatMode } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
 import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
+import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
+import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
+import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
 import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
@@ -75,6 +78,30 @@ export default function OptionsDialog({ isOpen, onClose }) {
     // Rebranche les leviers (résolution / densité / fps) et invalide les bakes :
     // la carte reprendra avec les nouveaux réglages à la fermeture du dialogue.
     applyCityMapQuality();
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // Vie de la carte : pas de bake à invalider ni de canvas à redimensionner, le
+  // rendu relit CM.ambianceK à la frame suivante. D'où l'absence d'équivalent
+  // applyCityMapQuality ici.
+  const handleAmbianceChange = (mode) => {
+    if (mode === ambianceMode) return;
+    setAmbianceMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleWeatherChange = (mode) => {
+    if (mode === weatherMode) return;
+    setWeatherMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // Changer de saison invalide le bake du sol (l'herbe, les brins et les fleurs
+  // en font partie) : la clé du bake porte la saison, la recuisson part donc
+  // toute seule à la frame suivante, sans rien invalider à la main ici.
+  const handleSeasonChange = (mode) => {
+    if (mode === seasonMode) return;
+    setSeasonMode(mode);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -343,6 +370,90 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     onClick={() => handleQualityChange('perf')}
                   >
                     {tr({ fr: "Performance", en: "Performance" })}
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Vie de la carte", en: "Map liveliness" })}</span>
+                  <small>{tr({ fr: "Quantité de mouvement d'ambiance sur la carte (feuilles, lucioles, fontaines). Sans effet sur la netteté : la qualité sert la machine, ce réglage sert le confort. Baissez-le si le mouvement vous gêne ou si vous laissez le jeu tourner en fond.", en: "Amount of ambient motion on the map (leaves, fireflies, fountains). Does not affect sharpness: quality serves the machine, this setting serves comfort. Lower it if motion bothers you or you leave the game running in the background." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${ambianceMode === 'full' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleAmbianceChange('full')}
+                  >
+                    {tr({ fr: "Pleine", en: "Full" })}
+                  </button>
+                  <button
+                    className={`format-option ${ambianceMode === 'sober' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleAmbianceChange('sober')}
+                  >
+                    {tr({ fr: "Sobre", en: "Sober" })}
+                  </button>
+                  <button
+                    className={`format-option ${ambianceMode === 'none' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleAmbianceChange('none')}
+                  >
+                    {tr({ fr: "Aucune", en: "None" })}
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Météo", en: "Weather" })}</span>
+                  <small>{tr({ fr: "« Auto » fait passer une averse courte de temps en temps : la lumière baisse, il pleut, les rues se vident, puis le temps se dégage. Figez sur Dégagé si vous préférez une image stable.", en: "“Auto” brings a short shower now and then: the light dims, it rains, the streets empty, then it clears. Set to Clear if you prefer a stable image." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${weatherMode === 'auto' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleWeatherChange('auto')}
+                  >
+                    {tr({ fr: "Auto", en: "Auto" })}
+                  </button>
+                  <button
+                    className={`format-option ${weatherMode === 'clear' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleWeatherChange('clear')}
+                  >
+                    {tr({ fr: "Dégagé", en: "Clear" })}
+                  </button>
+                  <button
+                    className={`format-option ${weatherMode === 'rain' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleWeatherChange('rain')}
+                  >
+                    {tr({ fr: "Pluie", en: "Rain" })}
+                  </button>
+                </div>
+              </div>
+
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Saison", en: "Season" })}</span>
+                  <small>{tr({ fr: "L'herbe, les fleurs et les feuillages changent de couleur au fil de quatre saisons très lentes. Seul repère de temps long de la carte : revenir après une longue absence montre une ville d'une autre couleur.", en: "Grass, flowers and foliage change color across four very slow seasons. The map's only marker of long time: coming back after a long absence shows a city of another color." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button className={`format-option ${seasonMode === 'auto' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('auto')}>
+                    {tr({ fr: "Auto", en: "Auto" })}
+                  </button>
+                  <button className={`format-option ${seasonMode === 'spring' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('spring')}>
+                    {tr({ fr: "Printemps", en: "Spring" })}
+                  </button>
+                  <button className={`format-option ${seasonMode === 'summer' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('summer')}>
+                    {tr({ fr: "Été", en: "Summer" })}
+                  </button>
+                  <button className={`format-option ${seasonMode === 'autumn' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('autumn')}>
+                    {tr({ fr: "Automne", en: "Autumn" })}
+                  </button>
+                  <button className={`format-option ${seasonMode === 'winter' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('winter')}>
+                    {tr({ fr: "Hiver", en: "Winter" })}
                   </button>
                 </div>
               </div>

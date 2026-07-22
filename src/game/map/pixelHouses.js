@@ -127,13 +127,16 @@ export function pixelHouseReady(t) {
   return !!(e.ready && e.bbox);
 }
 
-// Dessine le sprite. (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar).
-// Base ancrée au bas de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
-export function drawPixelHouse(t, x, y, w, h) {
+// GÉOMÉTRIE SEULE du sprite d'une habitation : source dans le PNG + boîte écran
+// de destination. Source UNIQUE, partagée par le dessin et par le liseré de
+// survol — deux copies de ce clamp au lot finiraient par diverger d'un pixel, et
+// un liseré décalé d'un pixel se voit tout de suite.
+// (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar). Base ancrée au bas
+// de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
+function pixelHouseGeom(t, x, y, w, h) {
   const e = cache.get(spriteKeyFor(t.variant));
-  if (!e || !e.ready || !e.bbox) return false;
+  if (!e || !e.ready || !e.bbox) return null;
   const bb = e.bbox;
-  const ctx = CM.ctx;
   // Empreinte multi-tuiles : on scale sur la taille d'UNE tuile (w/span), pas sur
   // toute la boîte → le sprite garde sa taille naturelle et NE grandit PAS avec
   // l'empreinte ; celle-ci ne sert qu'à réserver l'espace (anti-chevauchement).
@@ -151,11 +154,67 @@ export function drawPixelHouse(t, x, y, w, h) {
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)
   const dx = Math.round(x + w / 2 - dw / 2);   // centré horizontalement dans l'empreinte
   const dy = Math.round(groundY - dh);
+  return { img: e.img, bb, dx, dy, dw, dh };
+}
+
+// Dessine le sprite. RENVOIE la boîte écran RÉELLEMENT dessinée {dx, dy, dw, dh},
+// ou null si le sprite n'est pas prêt. Les appelants s'en servaient comme d'un
+// booléen (un objet reste truthy, null reste falsy) ; le survol, lui, a besoin de
+// la boîte pour tester la silhouette plutôt que la cellule de sol.
+export function drawPixelHouse(t, x, y, w, h) {
+  const g = pixelHouseGeom(t, x, y, w, h);
+  if (!g) return null;
+  const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;        // pixel net
-  ctx.drawImage(e.img, bb.x0, bb.y0, bb.w, bb.h, dx, dy, dw, dh);
+  ctx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
   ctx.imageSmoothingEnabled = prev;
-  return true;
+  return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh };
+}
+
+// Boîte écran du sprite SANS le dessiner, pour les couches qui doivent se placer
+// par rapport à lui AVANT qu'il soit peint — la fumée de cheminée est un item du
+// tri peintre, elle doit connaître le haut du toit au moment où on la range dans
+// la liste, pas une frame plus tard (la caméra aurait bougé entre-temps).
+export function pixelHouseBox(t, x, y, w, h) {
+  const g = pixelHouseGeom(t, x, y, w, h);
+  return g ? { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh } : null;
+}
+
+// Canvas de travail du liseré, réutilisé d'une frame à l'autre : une seule
+// habitation est survolée à la fois, inutile d'en allouer un par appel.
+let _outlineCanvas = null;
+
+// LISERÉ DE SURVOL : silhouette du sprite élargie d'un pixel dans les 4
+// directions, teintée à plat, à dessiner AVANT le sprite (qui la recouvre et ne
+// laisse dépasser que le contour). Recette pixel-art classique : 4 blits
+// décalés, puis 'source-in' pour peindre le blob d'une seule couleur. Pas de
+// scale, pas de glow additif : à 1 px et dans la palette, ça reste un repère,
+// pas une sélection de jeu de stratégie.
+export function drawPixelHouseOutline(t, x, y, w, h, color) {
+  const g = pixelHouseGeom(t, x, y, w, h);
+  if (!g) return null;
+  const p = 1;
+  const cw = g.dw + p * 2, ch = g.dh + p * 2;
+  if (!_outlineCanvas) _outlineCanvas = document.createElement("canvas");
+  const oc = _outlineCanvas;
+  if (oc.width < cw || oc.height < ch) { oc.width = cw; oc.height = ch; }
+  const octx = oc.getContext("2d");
+  octx.clearRect(0, 0, oc.width, oc.height);
+  octx.imageSmoothingEnabled = false;
+  for (const [ox, oy] of [[0, p], [p * 2, p], [p, 0], [p, p * 2]]) {
+    octx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, ox, oy, g.dw, g.dh);
+  }
+  octx.globalCompositeOperation = "source-in";
+  octx.fillStyle = color;
+  octx.fillRect(0, 0, cw, ch);
+  octx.globalCompositeOperation = "source-over";
+  const ctx = CM.ctx;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(oc, 0, 0, cw, ch, g.dx - p, g.dy - p, cw, ch);
+  ctx.imageSmoothingEnabled = prev;
+  return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh };
 }
 
 // Hauteur (en TUILES) du sprite d'une variante — pour le Y-SORT « peintre » des agents :

@@ -7,7 +7,8 @@ import {
   setMourning,
   openView,
   render,
-  save
+  save,
+  isNotifyPaused
 } from './state.js';
 
 import { crediblePopulation } from './demographics.js';
@@ -145,7 +146,31 @@ export async function runCollapseSequence(gain, reason) {
           ? tr({ fr: `L'Édit d'effondrement grave le testament : ${chosenLegacy.logLabel}.`, en: `The Collapse Edict engraves the testament: ${chosenLegacy.logLabel}.` })
           : tr({ fr: `Sans testament, l'Édit répète la dernière volonté : ${chosenLegacy.logLabel}.`, en: `Without a testament, the Edict repeats the last will: ${chosenLegacy.logLabel}.` }));
     }
+    // BILAN DE CYCLE : sur ce chemin la chute est autrement TOTALEMENT muette —
+    // l'Édit, ou un testament déjà gravé, emportent la civilisation sans un mot,
+    // alors que le chemin manuel ouvre une stèle chiffrée. On relève les faits
+    // AVANT completeCollapse, qui remet à zéro les compteurs du cycle et écrase
+    // state.prevCycle avec le cycle qui vient de tomber.
+    const previousCycle = state.prevCycle;
+    const fallYear = cycleYear();
+    const fallPeak = crediblePopulation(state.cyclePeaks?.population || state.population);
     completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round(), fallenDynasty, epitaph, reason);
+    // Pas de bandeau quand les notifications sont en pause : le rattrapage hors
+    // ligne enchaîne les effondrements (jusqu'à OFFLINE_MAX_COLLAPSES) et
+    // empilerait autant de bilans, dont un seul serait encore d'actualité.
+    if (!isNotifyPaused()) {
+      state.lastCycleReport = {
+        year: fallYear,
+        dynasty: fallenDynasty,
+        cause,
+        peakPop: String(fallPeak),
+        cycleSec: state.prevCycle ? state.prevCycle.cycleSec : 0,
+        ruinGain: state.prevCycle ? state.prevCycle.ruinGain : "0",
+        prevCycleSec: previousCycle ? previousCycle.cycleSec : null,
+        prevRuinGain: previousCycle ? previousCycle.ruinGain : null,
+        at: Date.now()
+      };
+    }
     logCollapseLine(reason, gain);
     setCollapseInProgress(false);
     if (reason !== "auto_collapse") await promptActiveRuinsForNewCycle();
