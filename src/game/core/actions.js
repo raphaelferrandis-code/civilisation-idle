@@ -148,6 +148,7 @@ export {
   getAutomateRules,
   toggleAutomate,
   setAutomateThreshold,
+  setAutomateField,
   checkAutomateRules,
   setCrisisPosture,
   setAutoCollapseConfig

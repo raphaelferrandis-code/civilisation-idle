@@ -731,6 +731,12 @@ body::before {
 
 .auto-script-threshold { display: flex; align-items: center; gap: 0.3rem; }
 
+/* Réserve et débit d'un automate d'achat : deux champs sur une ligne, qui
+   passent l'un sous l'autre quand le dialogue est étroit. */
+.auto-script-fields { flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-top: 0.25rem; }
+.auto-script-fields label { display: flex; align-items: center; gap: 0.3rem; }
+.auto-script-fields .auto-script-input { width: 3.4rem; }
+
 .auto-script-input {
   width: 4.5rem;
   padding: 0.2rem 0.4rem;

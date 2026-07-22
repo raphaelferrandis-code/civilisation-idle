@@ -25,9 +25,10 @@ import {
   setAutoScriptThreshold,
   getAutomateRules,
   toggleAutomate,
-  setAutomateThreshold
+  setAutomateThreshold,
+  setAutomateField
 } from '../../game/core/actions.js';
-import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save } from '../../game/core/state.js';
+import { SAVE_KEY, defaultState, setState, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
 
@@ -181,6 +182,11 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
   const handleAutomateThreshold = (id, value) => {
     setAutomateThreshold(id, value);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleAutomateField = (id, field, value) => {
+    setAutomateField(id, field, value);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -690,6 +696,40 @@ export default function OptionsDialog({ isOpen, onClose }) {
                             onChange={(e) => handleAutomateThreshold(r.id, e.target.value)}
                           />
                           <span className="auto-script-unit">{r.unit}</span>
+                        </div>
+                      )}
+                      {r.type === "buy_cheapest" && (
+                        <div className="auto-script-threshold auto-script-fields">
+                          <label title={tr({
+                            fr: "Part de la ressource que l'automate ne touche pas. À 0 il vide la caisse, ce qui sabote les autres branches.",
+                            en: "Share of the resource the automaton never touches. At 0 it empties the coffers, which starves the other branches."
+                          })}>
+                            <span className="auto-script-unit">{tr({ fr: "réserve", en: "reserve" })}</span>
+                            <input
+                              type="number"
+                              className="auto-script-input"
+                              value={r.reservePct}
+                              min={AUTOMATE_FIELD_BOUNDS.reservePct[0]}
+                              max={AUTOMATE_FIELD_BOUNDS.reservePct[1]}
+                              onChange={(e) => handleAutomateField(r.id, 'reservePct', e.target.value)}
+                            />
+                            <span className="auto-script-unit">%</span>
+                          </label>
+                          <label title={tr({
+                            fr: "Nombre d'achats par seconde. Volontairement bas : il pèse aussi sur le rattrapage hors ligne.",
+                            en: "Purchases per second. Deliberately low: it also weighs on offline catch-up."
+                          })}>
+                            <span className="auto-script-unit">{tr({ fr: "débit", en: "rate" })}</span>
+                            <input
+                              type="number"
+                              className="auto-script-input"
+                              value={r.perTick}
+                              min={AUTOMATE_FIELD_BOUNDS.perTick[0]}
+                              max={AUTOMATE_FIELD_BOUNDS.perTick[1]}
+                              onChange={(e) => handleAutomateField(r.id, 'perTick', e.target.value)}
+                            />
+                            <span className="auto-script-unit">{tr({ fr: "/s", en: "/s" })}</span>
+                          </label>
                         </div>
                       )}
                     </div>

@@ -73,9 +73,19 @@ export const defaultAutoScriptRules = () => [
   { id: "rule_time", type: "time", label: "Effondrer apres", unit: "min", threshold: 5, enabled: false }
 ];
 
+// Bornes des champs numériques des automates, PAR CHAMP. Le débit reste bas
+// volontairement : il multiplie les achats par tick, donc aussi le tri des
+// bâtiments et le calcul de coût pendant le rattrapage hors ligne.
+export const AUTOMATE_FIELD_BOUNDS = { reservePct: [0, 90], perTick: [1, 10] };
+
+// `reservePct` : part de la devise que l'automate NE touche PAS. Sans elle,
+// l'auto-achat était en tout ou rien et sabotait les autres branches, donc on le
+// laissait éteint — l'inverse de ce qu'une automatisation payée doit faire.
+// `perTick` : nombre d'achats par tick.
 export const defaultAutomateRules = () => [
-  { id: "auto_buy_city", type: "buy_cheapest", category: "city", label: "Acheter bati. (Cite) si abordable", enabled: false },
-  { id: "auto_buy_infra", type: "buy_cheapest", category: "infra", label: "Acheter bati. (Infra) si abordable", enabled: false },
+  { id: "auto_buy_city", type: "buy_cheapest", category: "city", label: "Acheter bati. (Cite) si abordable", enabled: false, reservePct: 0, perTick: 1 },
+  { id: "auto_buy_knowledge", type: "buy_cheapest", category: "knowledge", label: "Acheter bati. (Savoir) si abordable", enabled: false, reservePct: 0, perTick: 1 },
+  { id: "auto_buy_infra", type: "buy_cheapest", category: "infra", label: "Acheter bati. (Infra) si abordable", enabled: false, reservePct: 0, perTick: 1 },
   { id: "auto_rationing", type: "crisis_action", actionId: "rationing", label: "Rationnement si Rupture >=", unit: "%", threshold: 60, enabled: false }
 ];
 
@@ -930,7 +940,13 @@ export function normalizeTerminalPreparations(raw, fallback) {
   };
 }
 
-export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax = 9999) {
+// `{...fallback, enabled}` puis recopie EXPLICITE des seuls champs listés. Le
+// piège est l'inverse de celui qu'on croit : ce ne sont pas les nouveaux champs
+// qui manqueraient (les défauts sont injectés par le spread), ce sont les
+// valeurs RÉGLÉES PAR LE JOUEUR qui repartaient au défaut à chaque rechargement,
+// silencieusement, faute d'être recopiées. Tout champ numérique modifiable doit
+// donc figurer dans `numericBounds`, sinon il ne survit pas à un F5.
+export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax = 9999, numericBounds = null) {
   if (!Array.isArray(raw)) return null;
   const byId = new Map(raw.filter(isPlainObject).map((rule) => [rule.id, rule]));
   return defaults.map((fallback) => {
@@ -941,6 +957,12 @@ export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax 
     };
     if ("threshold" in fallback) {
       normalized.threshold = finiteNumber(source.threshold, fallback.threshold, thresholdMin, thresholdMax);
+    }
+    if (numericBounds) {
+      for (const [field, [min, max]] of Object.entries(numericBounds)) {
+        if (!(field in fallback)) continue;
+        normalized[field] = finiteNumber(source[field], fallback[field], min, max);
+      }
     }
     return normalized;
   });
@@ -1291,7 +1313,7 @@ export function hydrateState(parsed = {}) {
     hephPopPeak: decimalField(source.hephPopPeak, 0),
     hephGoalReached: Boolean(source.hephGoalReached),
     autoScriptRules: normalizeRuleList(source.autoScriptRules, defaultAutoScriptRules(), 1, 9999),
-    automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99),
+    automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99, AUTOMATE_FIELD_BOUNDS),
     templeAuto: normalizeTempleAuto(source.templeAuto),
     templeArtifacts: normalizeBooleanMap(source.templeArtifacts, TEMPLE_ARTIFACT_IDS),
     icareAltitude: finiteInteger(source.icareAltitude, 0, 0),

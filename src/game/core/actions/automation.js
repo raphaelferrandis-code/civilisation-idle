@@ -4,6 +4,7 @@ import {
   state,
   defaultAutoScriptRules,
   defaultAutomateRules,
+  AUTOMATE_FIELD_BOUNDS,
   invalidateRenderCache,
   render,
   save
@@ -11,12 +12,13 @@ import {
 
 import {
   buildingCostAt,
+  buildingBatchCost,
   isUnlocked,
   crisisCosts
 } from '../mechanics.js';
 
 import { buildings } from '../../data/buildings.js';
-import { canPayCost } from '../utils.js';
+import { canPayCost, clamp } from '../utils.js';
 import { buyBuildingCore, BUY_ALL_CURRENCIES } from './building.js';
 import { tr } from '../i18n.js';
 import { D } from '../num.js';
@@ -88,6 +90,20 @@ export function toggleAutomate(id) {
   render();
 }
 
+// Champ numérique d'un automate (réserve, débit). Bornes prises dans
+// AUTOMATE_FIELD_BOUNDS, la MÊME table que l'hydratation : une valeur acceptée
+// ici mais rejetée au rechargement serait un réglage qui s'évapore.
+export function setAutomateField(id, field, raw) {
+  const bounds = AUTOMATE_FIELD_BOUNDS[field];
+  if (!bounds) return;
+  const rule = getAutomateRules().find((r) => r.id === id);
+  if (!rule || !(field in rule)) return;
+  const val = parseFloat(raw);
+  if (!isNaN(val)) rule[field] = clamp(Math.round(val), bounds[0], bounds[1]);
+  save();
+  render();
+}
+
 export function setAutomateThreshold(id, raw) {
   const rule = getAutomateRules().find((r) => r.id === id);
   if (!rule) return;
@@ -122,28 +138,61 @@ export function setAutoCollapseConfig(patch) {
   render();
 }
 
+// Le lot d'UN exemplaire laisserait-il au moins `reserve` (fraction du stock
+// courant) sur chaque devise dépensée ? Comparaisons en Decimal de bout en bout :
+// les stocks dépassent vite le float.
+function leavesReserve(building, reserve) {
+  const prices = buildingBatchCost(building, 1);
+  for (const [currency, price] of Object.entries(prices)) {
+    const stock = D(state[currency] || 0);
+    if (stock.sub(D(price)).lt(stock.mul(reserve))) return false;
+  }
+  return true;
+}
+
 export function checkAutomateRules() {
   let didBuy = false;
   for (const rule of getAutomateRules()) {
     if (!rule.enabled) continue;
     if (rule.type === "buy_cheapest") {
-      const cheapest = buildings
-        .filter((b) => b.category === rule.category && isUnlocked(b)
-          && BUY_ALL_CURRENCIES.has(b.currency)
-          && (!b.extraCost || Object.keys(b.extraCost).every((c) => BUY_ALL_CURRENCIES.has(c))))
-        .sort((a, b) => {
-          const cA = buildingCostAt(a, state.buildings[a.id] || 0)[a.currency] || 0;
-          const cB = buildingCostAt(b, state.buildings[b.id] || 0)[b.currency] || 0;
-          return D(cA).cmp(cB);
-        })[0];
-      // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
-      // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost direct
-      // contournait ; la garde de devise ci-dessus empêche de drainer les Ruines via
-      // ruin_architects (M5). silent : l'automate garde sa propre chronique.
-      if (cheapest && buyBuildingCore(cheapest.id, { amount: 1, silent: true })) {
+      const [rMin, rMax] = AUTOMATE_FIELD_BOUNDS.reservePct;
+      const [pMin, pMax] = AUTOMATE_FIELD_BOUNDS.perTick;
+      const reserve = clamp(Number(rule.reservePct) || 0, rMin, rMax) / 100;
+      const perTick = clamp(Math.floor(Number(rule.perTick) || 1), pMin, pMax);
+      let bought = 0;
+      let lastName = "";
+      for (let pass = 0; pass < perTick; pass += 1) {
+        const cheapest = buildings
+          .filter((b) => b.category === rule.category && isUnlocked(b)
+            && BUY_ALL_CURRENCIES.has(b.currency)
+            && (!b.extraCost || Object.keys(b.extraCost).every((c) => BUY_ALL_CURRENCIES.has(c))))
+          .sort((a, b) => {
+            const cA = buildingCostAt(a, state.buildings[a.id] || 0)[a.currency] || 0;
+            const cB = buildingCostAt(b, state.buildings[b.id] || 0)[b.currency] || 0;
+            return D(cA).cmp(cB);
+          })[0];
+        if (!cheapest) break;
+        // RÉSERVE : ce que l'automate ne touche pas. Sans elle, l'auto-achat
+        // vidait la caisse et sabotait les autres branches, donc on le laissait
+        // éteint. Testée sur TOUTES les devises du lot, coût principal et
+        // extraCost compris, sinon la réserve fuit par la porte de derrière.
+        if (reserve > 0 && !leavesReserve(cheapest, reserve)) break;
+        // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
+        // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost direct
+        // contournait ; la garde de devise ci-dessus empêche de drainer les Ruines via
+        // ruin_architects (M5). silent : l'automate garde sa propre chronique.
+        if (!buyBuildingCore(cheapest.id, { amount: 1, silent: true })) break;
+        bought += 1;
+        lastName = tr(cheapest.name).toLowerCase();
+      }
+      if (bought > 0) {
         invalidateRenderCache("buildings");
         didBuy = true;
-        chronicle(`Les mécanismes automatiques ont discrètement érigé : ${tr(cheapest.name).toLowerCase()}.`);
+        // UNE ligne par tick, quel que soit le débit : dix lignes par seconde
+        // noieraient la Chronique.
+        chronicle(bought === 1
+          ? `Les mécanismes automatiques ont discrètement érigé : ${lastName}.`
+          : `Les mécanismes automatiques ont discrètement érigé ${bought} bâtiments, jusqu'à : ${lastName}.`);
       }
     }
     if (rule.type === "crisis_action") {
