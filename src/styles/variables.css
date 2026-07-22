@@ -113,15 +113,24 @@
   /* ----- Typographie -----
      Identité PIXEL : « Pixelify Sans » (police variable 400→700, proportionnelle
      et lisible même en prose) est la police universelle du jeu. On la met en tête
-     de CHAQUE rôle ; les anciennes polices restent en repli gracieux si le CDN
-     ne répond pas (hors-ligne Electron) → on retombe sur Cinzel/Inter/Crimson. */
-  --font-title: "Pixelify Sans", "Cinzel", Georgia, serif;
+     de CHAQUE rôle.
+     ⚠ Le repli n'est plus « le CDN ne répond pas » : depuis E9 les trois familles
+     réellement rendues (Pixelify Sans, Silkscreen, Inter) sont EMPAQUETÉES avec
+     le jeu, donc toujours présentes, y compris dans le .exe hors ligne.
+     Cinzel, Crimson Text et Baloo 2 ont été RETIRÉS de ces listes : ils n'étaient
+     jamais en première position, ils venaient du même CDN que les autres (donc
+     absents exactement quand on croyait s'y replier), et la mesure au canvas
+     (largeur du glyphe contre le repli seul) confirme qu'ils n'apportaient aucun
+     caractère que les trois familles gardées ne rendent déjà. Les six symboles
+     qu'aucune ne couvre (✦ ⚠ ✓ ▼ → ∞) viennent d'une police système, avant
+     comme après. Le repli terminal est donc système, et il est réel. */
+  --font-title: "Pixelify Sans", Georgia, serif;
   --font-body: "Pixelify Sans", "Inter", system-ui, -apple-system, sans-serif;
-  --font-serif: "Pixelify Sans", "Crimson Text", Georgia, serif;
+  --font-serif: "Pixelify Sans", Georgia, serif;
   /* Chiffres « idle » : Silkscreen — chiffres 5×5 canoniques, chasse fixe
      (compteurs stables, 8≠S). Choisie contre VT323 (essai 2026-07-10) ;
      Pixelify reste le repli (ses chiffres sont ambigus, jamais en premier). */
-  --font-number: "Silkscreen", "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
+  --font-number: "Silkscreen", "Pixelify Sans", "Inter", system-ui, sans-serif;
   /* Chiffres MONUMENTAUX (odomètre de la topbar) : Pixelify Sans, la police du
      reste du jeu. Silkscreen tient très bien à petit corps — c'est sa texture
      rétro — mais à 30-40 px son gras 5×5 devient un tableau d'affichage de
@@ -129,7 +138,7 @@
      Raph 2026-07-22 : « une grosse police agressive » face à un city builder
      paisible). Rôle SÉPARÉ et non le token global : les compteurs à 0.7 rem et
      le titre de crise (qui reprend le « IDLE » du logo) gardent Silkscreen. */
-  --font-number-display: "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
+  --font-number-display: "Pixelify Sans", "Inter", system-ui, sans-serif;
   /* Police pixel « micro » : Silkscreen, réservée aux petits éléments rétro type
      badges de notif (trop blocky pour la prose). Repli monospace si absente. */
   --font-pixel: "Silkscreen", ui-monospace, "Cascadia Mono", Consolas, monospace;

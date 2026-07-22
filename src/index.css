@@ -1,3 +1,14 @@
+/* POLICES AUTONOMES (E9) — en TÊTE du barrel : les @font-face doivent être
+   déclarées avant la première règle qui les nomme. Le jeu ne demande plus rien
+   à Google Fonts ni à cdnjs, ce qui rendait le .exe hors ligne illisible
+   (typographie retombée sur Georgia/system-ui, glyphes en carrés vides).
+   Le fichier est GÉNÉRÉ : cf. scripts/vendorFonts.mjs. */
+@import './assets/fonts.css';
+/* Font Awesome, servi depuis node_modules et empaqueté par Vite. On n'importe
+   QUE le style « solid » : un grep du dépôt ne trouve aucun fa-brands ni
+   fa-regular, et les deux autres woff2 pèsent 141 Ko pour zéro glyphe rendu. */
+@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
+@import '@fortawesome/fontawesome-free/css/solid.min.css';
 @import './styles/variables.css';
 @import './styles/base.css';
 @import './styles/buttons.css';
