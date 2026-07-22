@@ -861,6 +861,13 @@ export const IDLE_CAP_PALIERS = {
 // géométrique bascule en Decimal au-delà du float, et la carte révèle les
 // habitations une par une. Le mode Max, lui, sonde au-delà (cf. maxBuyAmount).
 export const MAX_BATCH_AMOUNT = 500;
+// Borne du mode MAX, qui n'est pas un lot fixe mais « tout ce qui est payable ».
+// Elle ne sert qu'à borner la sonde et le calcul de coût — les coûts croissant
+// géométriquement, c'est le solde du joueur qui limite en pratique, jamais elle.
+// ATTENTION : cette borne DOIT être celle de buildingBatchCost. Si le coût était
+// clampé plus bas que la quantité réellement créditée, le joueur paierait un lot
+// et en recevrait un plus gros.
+export const MAX_BUY_HARD_CAP = 1e9;
 // Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
 // Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
 export const OFFLINE_MAX_COLLAPSES = 20;

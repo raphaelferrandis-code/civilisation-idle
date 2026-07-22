@@ -23,7 +23,7 @@ function dominantBuildingCategory() {
   }
   return best ? best.cat : null;
 }
-import { ENRACINEMENT_COST_MULT, MAX_BATCH_AMOUNT } from '../balance.js';
+import { ENRACINEMENT_COST_MULT, MAX_BUY_HARD_CAP } from '../balance.js';
 import { has, ruinEffectSum, totalBuildingCount } from './shared.js';
 import { milestoneStepSize } from './production/buildingOutput.js';
 
@@ -96,8 +96,21 @@ export function stepBuyAmount(building) {
   return step - (count % step);
 }
 
+// Tout ce qui est payable, sans plafond de lot. La dichotomie partait d'un `hi`
+// fixé à 500 : le mode Max, vendu par une amélioration, s'arrêtait donc là et
+// obligeait à cliquer dix fois sur un bâtiment bon marché en milieu de partie.
+// On SONDE d'abord vers le haut en doublant, puis on dichotomie dans le dernier
+// intervalle. Les coûts croissant géométriquement, la sonde converge en une
+// dizaine de doublements ; buildingBatchCost est en forme fermée, donc chaque
+// essai coûte le même prix quel que soit le nombre demandé.
 export function maxBuyAmount(building) {
-  let lo = 0, hi = MAX_BATCH_AMOUNT;
+  if (!canPayCost(buildingBatchCost(building, 1))) return 1;
+  let lo = 1, hi = 2;
+  while (hi < MAX_BUY_HARD_CAP && canPayCost(buildingBatchCost(building, hi))) {
+    lo = hi;
+    hi *= 2;
+  }
+  hi = Math.min(hi, MAX_BUY_HARD_CAP);
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
     if (canPayCost(buildingBatchCost(building, mid))) lo = mid;
@@ -110,7 +123,10 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
   // 'max' vaut 1 ici pour ne pas boucler : maxBuyAmount appelle cette fonction.
   // 'step', lui, se résout sans récursion.
   const resolved = amount === "max" ? 1 : amount === "step" ? stepBuyAmount(building) : amount;
-  const batchSize = clamp(Math.floor(Number(resolved) || 1), 1, MAX_BATCH_AMOUNT);
+  // Borne HAUTE (et pas MAX_BATCH_AMOUNT) : le mode Max crédite la quantité que
+  // maxBuyAmount a trouvée, et c'est ce même appel qui en calcule le prix. Un
+  // clamp plus bas ici ferait payer un lot de 500 pour un lot bien plus gros.
+  const batchSize = clamp(Math.floor(Number(resolved) || 1), 1, MAX_BUY_HARD_CAP);
   const count = state.buildings[building.id] || 0;
   // Calcule le discount et le scale effectif une seule fois pour tout le lot
   const discount = buildingDiscount(building);
