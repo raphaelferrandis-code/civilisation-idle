@@ -15,6 +15,7 @@ import {
   GRAND_RESET_PROD_BASE, GRAND_RESET_RUIN_BASE,
   grandResetProductionMult, grandResetRuinGainMult
 } from "../balance.js";
+import { selectClaimableSeals } from "../mechanics/grandResetMilestones.js";
 import { Decimal } from "../num.js";
 
 // Valeur sentinelle distincte du defaultState, adaptée au type du champ.
@@ -127,6 +128,74 @@ describe("Grand Reset — préservation des héritages", () => {
     buildGrandResetState(2);
     expect(state.atlasHeritage).toBe(true);      // inchangé
     expect(state.ruins.eq(777)).toBe(true);      // inchangé
+  });
+});
+
+// Lot de sceaux (2026-07-22) : quand plusieurs sceaux sont prêts, le joueur les
+// coche et les réclame dans UN SEUL reset au lieu d'enchaîner les effacements.
+// Le lot doit rester strictement équivalent aux resets un par un.
+describe("Grand Reset — réclamation par lot", () => {
+  // Mime ce que fait performGrandReset autour de buildGrandResetState : marque
+  // les sceaux réclamés sur le state courant, puis bascule sur le state frais.
+  function claim(seals) {
+    const list = selectClaimableSeals(seals);
+    if (!list.length) return;
+    if (!state.grClaimed) state.grClaimed = {};
+    for (const n of list) state.grClaimed[n] = true;
+    setState(buildGrandResetState((state.grandResetCount || 0) + list.length, list));
+  }
+
+  beforeEach(() => {
+    // Les sceaux 1, 2 et 3 sont bankés (découverts), aucun réclamé.
+    state.grRevealed = { 1: true, 2: true, 3: true };
+    state.grClaimed = {};
+  });
+
+  it("ne retient que les sceaux réclamables, dédoublonnés et ordonnés", () => {
+    state.grClaimed = { 2: true };
+    expect(selectClaimableSeals([3, 1, 3, 2, 9, 99])).toEqual([1, 3]);
+    // 2 est déjà réclamé, 9 n'est pas banké, 99 n'existe pas.
+  });
+
+  it("accepte un numéro seul (le bouton d'une rangée) comme une liste d'un", () => {
+    expect(selectClaimableSeals(1)).toEqual([1]);
+    expect(selectClaimableSeals(9)).toEqual([]);
+    expect(selectClaimableSeals(undefined)).toEqual([]);
+  });
+
+  it("laisse le Ragnarök hors du lot tant que le pacte final n'est pas honoré", () => {
+    state.grRevealed = { 1: true, 11: true };
+    expect(selectClaimableSeals([1, 11])).toEqual([1]);
+    state.ragnarokHeritage = true;
+    expect(selectClaimableSeals([1, 11])).toEqual([1, 11]);
+  });
+
+  it("un lot de 3 sceaux vaut exactement 3 resets d'affilée", () => {
+    claim([1, 2, 3]);
+    const batch = { count: state.grandResetCount, claimed: { ...state.grClaimed } };
+
+    setState(hydrateState({}));
+    state.grRevealed = { 1: true, 2: true, 3: true };
+    state.grClaimed = {};
+    claim(1); claim(2); claim(3);
+
+    expect(state.grandResetCount).toBe(batch.count);
+    expect(state.grClaimed).toEqual(batch.claimed);
+    // Le multiplicateur ne dépend QUE du compte : pas de perte à grouper.
+    expect(grandResetProductionMult(state.grandResetCount))
+      .toBe(Math.pow(GRAND_RESET_PROD_BASE, 3));
+  });
+
+  it("le récit du lot annonce la production ET le x4 du Ragnarök", () => {
+    // Régression : l'ancien texte en ou-exclusif taisait la production quand le
+    // sceau 11 était réclamé, et inventait le x4 quand le 11e rang ne l'était pas.
+    const avecRagnarok = buildGrandResetState(11, [4, 11]).history[0];
+    expect(avecRagnarok).toContain("production");
+    expect(avecRagnarok).toContain("x4 Ruines du Ragnarok");
+
+    const sansRagnarok = buildGrandResetState(11, [4, 7]).history[0];
+    expect(sansRagnarok).toContain("production");
+    expect(sansRagnarok).not.toContain("Ragnarok");
   });
 });
 

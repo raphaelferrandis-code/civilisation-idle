@@ -923,14 +923,8 @@
    vit dans la valeur et l'icône, le séparateur est le filet or de la plaque
    (components.css). .stability-vitals-card n'existe plus dans le JSX.) */
 
-.resource-card-unified .card-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
+/* (.card-header PURGÉ : la topbar était son seul émetteur et sa cellule est
+   passée en deux lignes — label, puis valeur et débit côte à côte.) */
 
 .resource-title-wrapper {
   display: flex;

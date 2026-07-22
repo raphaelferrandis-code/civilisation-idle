@@ -551,7 +551,10 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.3rem 0 0.1rem;
-  font-family: var(--font-number);
+  /* L'autre gros nombre du jeu, et l'autre odomètre : même police monumentale
+     que la topbar (Pixelify), sinon le suffixe réduit du cadran serait calé
+     sur des métriques qui ne sont pas les siennes. */
+  font-family: var(--font-number-display);
   font-size: 1.75rem;
   line-height: 1;
   color: var(--gold-bright);

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fmtShortLive, COMPACT_UNITS } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
 import { useCountUp } from '../../hooks/useCountUp.js';
+import { idealDecimals, reconcilePrecision, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
 
 // Même constante que RollingNumber : l'anim d'un tick déborde sur le suivant
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
@@ -9,24 +10,25 @@ const DEFAULT_DURATION = 1100;
 
 /**
  * Compteur ODOMÈTRE : chaque chiffre est une colonne qui roule verticalement,
- * comme un compteur mécanique. Le dernier chiffre tourne en continu (piloté
- * par l'interpolation) ; les chiffres supérieurs tombent d'un CRAN SEC quand
- * leur glyphe change à la retenue — pose, clac, pose — avec un léger
- * dépassement et un flash doré qui retombe (odo-snap / odo-carry). C'est
- * cette mécanique qui donne la sensation « machine » au lieu d'un texte qui
- * glisse. Molette de ressenti : window.__odoSnap = false → retour au
- * glissement linéaire d'origine (la retenue glisse au rythme des unités).
+ * comme un compteur mécanique. Le dernier chiffre roule en continu (position
+ * réelle entre deux crans) ; les chiffres supérieurs tombent d'un CRAN SEC
+ * quand leur glyphe change — pose, clac, pose — avec un léger dépassement et
+ * un flash doré qui retombe (odo-snap / odo-carry).
  *
- * La pulsation (.roll-pulse) n'est plus un métronome : elle ne se rejoue que
- * sur un JALON — changement de suffixe (K→M→B…) ou de nombre de chiffres.
+ * TOUS les chiffres affichés sont vrais. C'est la PRÉCISION qui s'adapte au
+ * débit (`rate`, unités/s) pour qu'il y en ait toujours un qui tourne à une
+ * allure suivable — voir odoPrecision.js. Pas de rouleau flou, pas de filet
+ * décoratif : un cadran qui affiche autre chose que sa valeur se voit.
  *
- * Cadran calé sur les règles de fmtShortLive (mantisse enrichie de 2 décimales,
- * cf. utils.js). Hors domaine odométrable (négatif, ≥1e36, infini) : repli
- * texte plat fmtShortLive.
+ * La pulsation (.roll-pulse) n'est pas un métronome : elle ne se rejoue que
+ * sur un JALON — changement de suffixe (K→M→B…), de nombre de chiffres, ou
+ * recalage de précision.
+ *
+ * Hors domaine odométrable (négatif, ≥1e36, infini) : repli texte plat.
  */
 
-// Décompose un number fini en cadran : mantisse continue + décimales + suffixe
-// (+ le diviseur d'échelle, pour convertir un débit brut en pas de cadran).
+// Décompose un number fini en cadran : mantisse continue + suffixe (+ le
+// diviseur d'échelle, qui convertit un débit brut en pas de cadran).
 function dialParts(n) {
   if (!Number.isFinite(n) || n < 0 || n >= 1e36) return null;
   let v = n;
@@ -37,59 +39,66 @@ function dialParts(n) {
     div *= 1000;
     i += 1;
   }
-  const decimals = i < 0 ? 1 : (v < 10 ? 2 : 1) + 2;
-  return { mantissa: v, decimals, suffix: i < 0 ? '' : COMPACT_UNITS[i], div };
+  return { mantissa: v, suffix: i < 0 ? '' : COMPACT_UNITS[i], div };
 }
 
-// Au-delà de ~3 incréments/s, l'œil ne suit plus un roulis exact : l'aliasing
-// le fait paraître figé (effet « roue de chariot »). Ces chiffres passent en
-// rouleau flou à vitesse constante — illisibles de toute façon, ils redeviennent
-// exacts dès que la croissance ralentit.
-const SPIN_THRESHOLD = 3;
-// En dessous de ~1 pas / 4 s, le cadran paraît MORT alors que la production
-// tourne (stock immense face au débit : la mantisse à 4 décimales ne bouge
-// plus). Si `alive` (débit > 0), le dernier chiffre passe en rouleau LENT —
-// signal honnête de « ça produit », sa précision étant de toute façon vide.
-const TRICKLE_THRESHOLD = 0.25;
-const SPIN_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+// Précision lisible, amortie : le calage suit le débit réel mais ne se rejoue
+// pas à chaque fluctuation (un changement de forme re-monte le cadran entier).
+function useReadablePrecision(rate, div, intLen) {
+  const [dec, setDec] = useState(() => idealDecimals(rate, div, intLen));
+  const stateRef = useRef(null);
+  if (stateRef.current === null) stateRef.current = { dec, div, since: 0, changedAt: 0 };
 
-// `alive` : la production de cette ressource est strictement positive (passé
-// par le parent depuis le VRAI débit du jeu — couvre aussi les cas où le float
-// ne résout même plus l'incrément par tick).
-export default function OdometerNumber({ value, alive = false, duration = DEFAULT_DURATION }) {
+  useEffect(() => {
+    let timer = 0;
+    const settle = () => {
+      const now = performance.now();
+      const next = reconcilePrecision(stateRef.current, { rate, div, intLen, now });
+      stateRef.current = next;
+      if (next.dec !== dec) { setDec(next.dec); return; }
+      // Sortie de bande en attente de confirmation : le débit peut rester
+      // rigoureusement constant d'ici là (donc aucun re-render pour nous
+      // réveiller) — on repasse nous-mêmes quand le délai est écoulé.
+      if (next.since) {
+        const wait = Math.max(50, SETTLE_MS - (now - next.since), COOLDOWN_MS - (now - next.changedAt));
+        timer = setTimeout(settle, wait);
+      }
+    };
+    settle();
+    return () => clearTimeout(timer);
+  }, [rate, div, intLen, dec]);
+
+  return dec;
+}
+
+export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
-  // Débit du segment d'anim courant (unités brutes/s), posé par le moteur au
-  // démarrage d'une montée — lu au render sans toucher de ref (concurrent-safe).
-  const [segRate, setSegRate] = useState(0);
-  const display = useCountUp(target, duration, setSegRate);
-  // Molette de ressenti (console) : window.__odoSnap = false → glissement
-  // d'origine pour comparer A/B en jeu. Lue à chaque render (le count-up
-  // re-rend en continu, le toggle prend effet immédiatement).
-  const snap = typeof window !== 'undefined' && window.__odoSnap !== false;
+  const display = useCountUp(target, duration);
 
   const parts = dialParts(display);
+  const mantissa = parts ? parts.mantissa : 0;
+  const intLen = Math.max(1, String(Math.floor(mantissa)).length);
+  // Un débit négatif (ressource qui se vide) fait tourner le cadran autant
+  // qu'un positif : c'est sa valeur absolue qui décide de la précision.
+  const churn = Math.abs(toNum(rate)) || 0;
+  const decimals = useReadablePrecision(churn, parts ? parts.div : 1, intLen);
+
   if (!parts) {
     // Repli plat : à l'arrêt on reformate la valeur d'origine (Decimal exact).
     // Enveloppé en .odo pour profiter de la même auto-taille que le cadran
-    // (largeur estimée en majorant 0.9 em/caractère).
+    // (largeur estimée en majorant 0.65 em/caractère, cf. les chasses ci-dessous).
     const flat = fmtShortLive(display === target ? value : display);
-    return <span className="odo" style={{ '--odo-w': (flat.length * 0.9 + 0.3).toFixed(3) }}>{flat}</span>;
+    return <span className="odo" style={{ '--odo-w': (flat.length * 0.65 + 0.3).toFixed(3) }}>{flat}</span>;
   }
 
-  const { mantissa, decimals, suffix, div } = parts;
-  const intLen = Math.max(1, String(Math.floor(mantissa)).length);
+  const { suffix } = parts;
   const count = intLen + decimals;
-  // D = la suite de chiffres comme flottant continu (ex. 5.6098 → 56098.73…).
+  // D = la suite de chiffres comme flottant continu (ex. 5.61 → 561.28…).
   const D = mantissa * Math.pow(10, decimals);
   const Dint = Math.floor(D);
   const resting = display === target;
   // À l'arrêt (anim finie), on fige les colonnes sur le glyphe entier.
   const fracD = resting ? 0 : D - Dint;
-  // Seules les 2 décimales « live » (fmtShortLive) sont estompées.
-  const dimBelow = decimals >= 3 ? 2 : 0;
-  // Débit du segment d'anim courant, converti en pas de cadran par seconde.
-  const ratePerSec = resting ? 0 : segRate;
-  const dialRate = (ratePerSec / div) * Math.pow(10, decimals);
 
   // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Utilisée
   // comme `key` du wrapper : quand elle change, React re-monte le span →
@@ -98,11 +107,14 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
 
   // Largeur du cadran en em, publiée en --odo-w (nombre) : la topbar s'en
   // sert pour dimensionner la police au conteneur (font-size = 100cqw /
-  // --odo-w, cf. components.css). Chasses Silkscreen 700 MESURÉES au rendu :
-  // slot 1ch = 0.875 em (constant), point ≈ 0.50, suffixe 1 lettre ≤ 1.00
-  // (M, le plus large), 2 lettres ≤ 1.87 (Sx/No) — letter-spacing inclus.
+  // --odo-w, cf. components.css). Chasses MESURÉES au rendu, dans le vrai
+  // contexte (Pixelify Sans 500, crénage 0 — mesurer en canvas ou à un autre
+  // poids donne des valeurs fausses) : slot 1ch = 0.592 em, point 0.231,
+  // suffixe (déjà réduit à 0.72 em par .odo-suffix) 0.555 max à 1 lettre (M),
+  // 0.918 max à 2 lettres (Qa). Arrondi vers le haut : sous-estimer la largeur
+  // donnerait une police trop grande, donc un débordement de cellule.
   // Même granularité que `shape` → la taille ne change qu'au re-mount jalon.
-  const wEm = count * 0.875 + 0.5 + (suffix ? (suffix.length > 1 ? 1.87 : 1.0) : 0);
+  const wEm = count * 0.595 + (decimals > 0 ? 0.24 : 0) + (suffix ? (suffix.length > 1 ? 0.92 : 0.56) : 0);
 
   const slots = [];
   for (let k = count - 1; k >= 0; k--) {
@@ -110,41 +122,18 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
     const idx = count - 1 - k;
     if (idx === intLen) slots.push(<span className="odo-sep" key="dot">.</span>);
 
-    // Chiffre trop rapide pour être suivi : rouleau flou dont la VITESSE suit
-    // le vrai débit (10 pas = 1 tour, borné 0.35-1.4s) — plus ça produit, plus
-    // ça tourne vite, et l'écart de rythme entre ressources se voit.
-    // Régime « filet » (cadran quasi immobile malgré une production réelle) :
-    // les DEUX derniers chiffres roulent en moteur au ralenti (0.8s / 2.4s).
-    const stepRate = dialRate / pow;
-    const spinsFast = stepRate > SPIN_THRESHOLD;
-    const trickles = alive && dialRate < TRICKLE_THRESHOLD && k <= 1;
-    if (spinsFast || trickles) {
-      const dur = spinsFast
-        ? Math.min(1.4, Math.max(0.35, 10 / stepRate))
-        : (k === 0 ? 0.8 : 2.4);
-      slots.push(
-        <span className="odo-slot odo-dim" key={`d${idx}`}>
-          <span className="odo-col odo-col--spin" style={{ animationDuration: `${dur.toFixed(2)}s` }}>
-            {SPIN_STRIP.map((d, j) => <span className="odo-d" key={j}>{d}</span>)}
-          </span>
-        </span>
-      );
-      continue;
-    }
-
     const digit = Math.floor(Dint / pow) % 10;
 
-    // CRAN MÉCANIQUE (défaut) : un chiffre au-dessus des unités ne glisse pas
-    // avec la retenue, il bascule d'un coup sec quand son glyphe change. La
-    // bande porte [précédent, courant, suivant] (le précédent sorti du slot
-    // par marge négative → l'état de repos est transform: 0, net à toute
-    // taille) et key={digit} re-monte la colonne à chaque bascule : l'anim
-    // CSS rejoue. Un saut de plusieurs crans entre deux frames affiche un
-    // « précédent » reconstruit (digit−1) : sans conséquence, le rouleau flou
-    // prend de toute façon le relais dès que ça va vite.
-    if (snap && k > 0) {
+    // CRAN MÉCANIQUE : un chiffre au-dessus du dernier ne glisse pas avec la
+    // retenue, il bascule d'un coup sec quand son glyphe change. La bande
+    // porte [précédent, courant, suivant] (le précédent sorti du slot par
+    // marge négative → l'état de repos est transform: 0, net à toute taille)
+    // et key={digit} re-monte la colonne à chaque bascule : l'anim CSS
+    // rejoue. Un saut de plusieurs crans entre deux frames affiche un
+    // « précédent » reconstruit (digit−1) : sans conséquence.
+    if (k > 0) {
       slots.push(
-        <span className={`odo-slot${k < dimBelow ? ' odo-dim' : ''}`} key={`d${idx}`}>
+        <span className="odo-slot" key={`d${idx}`}>
           <span className="odo-col odo-col--snap" key={digit}>
             <span className="odo-d odo-d--prev">{(digit + 9) % 10}</span>
             <span className="odo-d">{digit}</span>
@@ -155,16 +144,14 @@ export default function OdometerNumber({ value, alive = false, duration = DEFAUL
       continue;
     }
 
-    // Roulis continu : le dernier chiffre (le « moteur » du cadran), ou toute
-    // la rangée si la molette a rebasculé sur le glissement d'origine (la
-    // retenue ne roule alors que si TOUS les chiffres sous elle affichent 9,
-    // au rythme des unités). round(…, 1px) cale le déplacement sur des pixels
-    // CSS entiers : Silkscreen ne bave plus en sous-pixel pendant le roulis.
-    const rolls = k === 0 || (Dint % pow) === pow - 1;
-    const frac = rolls ? fracD : 0;
+    // Dernier chiffre : le « moteur » du cadran. Il roule en continu à sa
+    // position RÉELLE entre deux crans (fraction du pas parcourue), à une
+    // allure que la précision maintient suivable. round(…, 1px) cale le
+    // déplacement sur des pixels CSS entiers : Silkscreen ne bave plus en
+    // sous-pixel pendant le roulis.
     slots.push(
-      <span className={`odo-slot${k < dimBelow ? ' odo-dim' : ''}`} key={`d${idx}`}>
-        <span className="odo-col" style={{ transform: `translateY(round(${(-frac).toFixed(4)}em, 1px))` }}>
+      <span className="odo-slot" key={`d${idx}`}>
+        <span className="odo-col" style={{ transform: `translateY(round(${(-fracD).toFixed(4)}em, 1px))` }}>
           <span className="odo-d">{digit}</span>
           <span className="odo-d">{(digit + 1) % 10}</span>
         </span>

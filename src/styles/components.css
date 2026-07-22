@@ -56,10 +56,14 @@
    « le moins de panneaux possible »). Le cadre ornemental est l'asset Kenney
    « Fantasy UI Borders » #030 (clé grecque), teinté or et posé en 9-slice.
    Voir docs/ui-references.md. Les 5 ressources deviennent des cellules
-   transparentes séparées par un filet or, la lisibilité venant de la plaque. */
+   transparentes séparées par un filet or, la lisibilité venant de la plaque.
+   6e colonne : le module Habitants (cf. Topbar.jsx) — colonnes ÉGALES et non
+   ajustées au contenu, pour que les filets or gardent un rythme régulier
+   (et parce qu'une cellule à `container-type: inline-size` ne peut pas se
+   dimensionner sur son contenu : l'odomètre s'y mesure en cqw). */
 .topbar-resources {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
   align-content: center;
   /* Remplit la min-height de la barre (gabarit Cité) hors vue Cité ;
@@ -109,12 +113,8 @@
   box-shadow: none;
 }
 
-.topbar .resource-card-unified .card-header {
-  gap: 0.35rem;
-  padding-bottom: 0.2rem;
-}
-
 .topbar .resource-title-wrapper {
+  grid-area: nom;
   min-width: 0;
   gap: 0.32rem;
 }
@@ -134,19 +134,46 @@
    même couleur — illisible. La couleur de ressource est réservée à la VALEUR
    (et à l'icône) ; le nom passe en micro-label neutre. ── */
 
-.topbar .resource-card-unified .card-header {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.14rem;
-  padding-bottom: 0.08rem;
-  /* Pas de filet séparateur valeur/débit (hérité de views-city.css). */
-  border-bottom: 0;
+/* La cellule est une CARTE : nom et valeur CENTRÉS (c'est l'agencement que
+   Raph préfère — l'axe vertical de la case tient la colonne), et le débit
+   descendu seul dans le coin bas DROITE. Une passe intermédiaire avait calé
+   nom et valeur à gauche pour ancrer le débit à droite : sur-application,
+   corrigée. Le débit sur sa propre ligne coûte ~14px de barre par rapport à
+   la version côte à côte, et supprime tout risque de collision entre un
+   cadran long et lui (ils ne partagent plus de bande horizontale). */
+.topbar .resource-card-unified {
+  display: grid;
+  grid-template-areas:
+    "nom"
+    "valeur"
+    "debit";
+  align-content: center;
+  /* OBLIGATOIRE : .resource-card-unified porte un `justify-content:
+     space-between` (views-city.css, hérité de l'époque des cartes). Sur un
+     conteneur grid il empêche la colonne `auto` de s'étirer — elle se réduit
+     au plus large de ses items, et ni le centrage ni le calage à droite ne
+     tombent alors sur les bords de la CASE. */
+  justify-content: stretch;
+  justify-items: center;
+  gap: 0.1rem;
 }
 
+.topbar .resource-value {
+  grid-area: valeur;
+}
+
+.topbar .resource-rate-row {
+  grid-area: debit;
+  justify-self: end;
+}
+
+/* Le nom passe DEVANT le débit dans la hiérarchie : à 0.78rem les deux
+   pesaient pareil à l'écran (VT323 du débit chausse petit, mais son corps est
+   plus gros) et la case se lisait comme deux libellés de même rang. */
 .topbar .resource-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -159,10 +186,19 @@
   color: var(--text-mid);
 }
 
-/* La valeur domine sa carte (fmtShortLive : mantisse enrichie qui défile).
-   Police : le rôle chiffres (--font-number = Silkscreen, « la large ») —
-   choisie contre VT323 après essai in-game. Silkscreen chausse grand :
-   1.55rem ≈ la masse visuelle d'un 1.9rem Pixelify. */
+/* Module Habitants : ce n'est PAS une ressource. Même stature que les cadrans
+   (c'est le nombre le plus concret de la barre) mais sans couleur de
+   ressource ni halo — l'or atténué dit « information », pas « stock ». */
+.topbar .topbar-people .resource-value {
+  font-size: 1.7rem;
+  color: var(--gold-dim);
+  text-shadow: none;
+}
+
+/* La valeur domine sa carte (odomètre : précision calée sur le débit réel).
+   Police : --font-number-display = Pixelify Sans, celle de tout le reste du
+   jeu. Silkscreen (le rôle --font-number) reste sur les compteurs à petit
+   corps, où sa texture rétro marche ; à 30 px elle criait. */
 .topbar .resource-value {
   flex-shrink: 0;
   /* Flex : la boîte colle au cadran (hauteur = l'odomètre, pile). En inline,
@@ -171,7 +207,7 @@
      bord de la cellule en vue Cité (hauteur fixe) et rognée. */
   display: flex;
   align-items: center;
-  font-family: var(--font-number);
+  font-family: var(--font-number-display);
   /* 1.5rem = 24px ENTIERS : une hauteur fractionnaire (ex. 1.55rem = 24.8px)
      laisse dépasser un liseré sous-pixel du chiffre suivant dans l'odomètre. */
   font-size: 1.5rem;
@@ -185,11 +221,18 @@
    em, publiée par OdometerNumber selon sa forme exacte (nb de chiffres,
    point, suffixe) → police = largeur de cellule / largeur de cadran, bornée
    par le budget VERTICAL (--odo-cap : posé par la vue Cité d'après la
-   hauteur fixe de sa barre, cf. views-city-hud.css ; 3.5rem ailleurs), le
-   tout arrondi au pixel ENTIER (round, cf. note ci-dessus sur les hauteurs
-   fractionnaires) et jamais sous l'ancienne taille (1.5rem). */
+   hauteur fixe de sa barre, cf. views-city-hud.css), le tout arrondi au pixel
+   ENTIER (round, cf. note ci-dessus sur les hauteurs fractionnaires) et jamais
+   sous 1.5rem.
+   PLAFOND 1.9rem (30px) : remplir la cellule à 98 % faisait crier la valeur.
+   Entre 24 et 30 px la hiérarchie reste évidente, le label et la ligne de
+   débit respirent, et l'écart de taille d'une cellule à l'autre s'efface. */
 .topbar .resource-value .odo {
-  font-size: round(down, clamp(1.5rem, min(calc(100cqw / var(--odo-w, 6.75)), var(--odo-cap, 3.5rem)), 3.5rem), 1px);
+  /* 100cqw : la valeur est SEULE sur sa ligne (le débit est descendu dans le
+     coin), elle dispose donc de toute la largeur de la cellule. Le 50cqw de
+     la version côte à côte n'a plus lieu d'être — il faisait rétrécir un long
+     cadran pour une place qui n'est plus disputée. */
+  font-size: round(down, clamp(1.25rem, min(calc(100cqw / var(--odo-w, 6.75)), var(--odo-cap, 1.9rem)), 1.9rem), 1px);
 }
 
 /* Pulsation de JALON : rejouée par l'odomètre quand le cadran change de forme
@@ -200,8 +243,8 @@
 }
 
 /* ── Odomètre (OdometerNumber) : chaque chiffre est une colonne de glyphes
-   qui coulisse verticalement — le dernier roule en continu, les autres
-   tombent d'un cran sec à la retenue (odo-snap, molette window.__odoSnap).
+   qui coulisse verticalement — le dernier roule en continu à sa position
+   réelle, les autres tombent d'un cran sec à la retenue (odo-snap).
    Exige la chasse fixe de Silkscreen (1 slot = 1ch). ── */
 .odo {
   display: inline-flex;
@@ -232,10 +275,21 @@
   line-height: 1;
 }
 
-/* Les 2 décimales « live » : perceptibles mais en retrait — la tête du nombre
-   reste ce que l'œil lit, la queue donne la sensation de vitesse. */
-.odo-dim {
-  opacity: 0.5;
+/* Le suffixe d'échelle est une UNITÉ, pas un chiffre : plus petit et atténué
+   dans la teinte de la ressource, « 8.70K » se lit valeur + unité au lieu d'un
+   bloc massif. align-self: flex-end cale sa boîte sur le bas des colonnes
+   (le cadran est un flex aligné en haut). */
+.odo-suffix {
+  align-self: flex-end;
+  font-size: 0.72em;
+  color: color-mix(in srgb, currentColor, transparent 32%);
+  /* Aligner le BAS des boîtes ne suffit pas : à line-height 1, la ligne de
+     base est à 0.18 em du bas de boîte (métriques Pixelify mesurées :
+     ascendante 0.92, descendante 0.28), donc une boîte 0.28 em plus courte
+     remonte sa ligne de base de 0.18 × 0.28 = 0.05 em. On redescend d'autant,
+     calé au pixel entier comme le roulis (une fonte pixel posée en sous-pixel
+     bave). */
+  transform: translateY(round(0.05em, 1px));
 }
 
 /* Cran mécanique (odo-col--snap) : bande [précédent, courant, suivant], le
@@ -268,38 +322,44 @@
     odo-carry 280ms ease-out;
 }
 
-/* Rouleau flou : chiffres trop rapides pour être suivis (anti-aliasing « roue
-   de chariot ») — bande 0-9-0 en défilement constant, 10/11 de sa hauteur par
-   boucle pour un raccord invisible. */
-@keyframes odo-spin {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-90.909%); }
-}
-
-/* La durée réelle est posée inline par OdometerNumber : proportionnelle au
-   débit (rapide = ça tourne vite), 0.55s n'est que le repli. */
-.odo-col--spin {
-  animation: odo-spin 0.55s linear infinite;
-}
-
 .resource-rate-row {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  /* Petits chiffres : VT323 (--font-small), corps +15 % car elle chausse petit. */
+  /* Petits chiffres : rôle --font-small (= Pixelify Sans, cf. variables.css). */
   font-family: var(--font-small);
   font-size: 0.9rem;
 }
 
-/* Débit : discret et neutre — le signal couleur reste sur la flèche (et le
-   rouge d'alerte des débits négatifs est conservé tel quel). */
+/* (Le recalage d'1px de ligne de base a sauté avec la mise côte à côte : le
+   débit est sur sa propre ligne, il n'a plus de ligne de base à partager avec
+   les chiffres du cadran.) */
+
+/* Débit : la teinte de SA ressource, atténuée sur le fond de plaque. Il dérive
+   du nombre au-dessus, autant qu'il en porte la couleur — et le nom redevient
+   le seul gris neutre de la case. Trois rangs, trois traitements : nom neutre,
+   valeur en couleur pleine, débit en couleur retirée. Avant, nom et débit
+   partageaient police, corps ET couleur (#9AA4BC) : rien ne les séparait.
+   Graisse 400 : le <strong> du nombre calculait à 900, soit le plus petit
+   texte de la case rendu plus gras que son titre. */
+.topbar .card-pop { --res-tint: var(--res-pop); }
+.topbar .card-food { --res-tint: var(--res-food); }
+.topbar .card-gold { --res-tint: var(--res-gold); }
+.topbar .card-knowledge { --res-tint: var(--res-know); }
+.topbar .card-infra { --res-tint: var(--res-infra); }
+
+/* 80 % et pas moins : c'est le plus petit texte de l'écran, et il vient de
+   passer en graisse 400. À 62 % l'Infrastructure (bleu-gris déjà proche du
+   fond) tombait à 3,1:1 de contraste contre 7,5:1 en gris ; à 80 % la teinte
+   la plus faible tient 4,4:1 et la plus vive dépasse 5:1. */
 .topbar .resource-card-unified .rate-value.positive {
-  color: var(--text-mid);
+  color: color-mix(in srgb, var(--res-tint, var(--text-mid)) 80%, var(--surface-app));
 }
 
-.topbar .resource-card-unified .rate-value.positive .rate-arrow {
-  color: var(--green);
+.topbar .resource-card-unified .rate-value,
+.topbar .resource-card-unified .rate-value strong {
+  font-weight: 400;
 }
 
 .resource-rate-row .rate-value {
@@ -326,9 +386,19 @@
 
 /* (Jauges de réserve retirées — bruit sans décision ; humeurs en tooltip.) */
 
+/* En vue Cité la plaque a une HAUTEUR FIXE : une deuxième rangée de cellules
+   n'y tient pas (elle rognait label et valeur). On garde donc UNE rangée le
+   plus longtemps possible — c'est le module Habitants, seul bloc non
+   essentiel, qui saute en premier. Son compteur reste dans l'infobulle du
+   Rayonnement. */
 @media (max-width: 1200px) {
   .topbar-resources {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  /* .topbar en préfixe : sans lui, le `display: flex` de .resource-card-unified
+     (views-city.css, importé après) gagnerait à égalité de spécificité. */
+  .topbar .topbar-people {
+    display: none;
   }
 }
 

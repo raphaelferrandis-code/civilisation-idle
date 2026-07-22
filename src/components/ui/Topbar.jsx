@@ -50,7 +50,6 @@ export default function Topbar() {
   const r = rates(vitals, pressure);
   // Les taux de ressources sont des Decimal : signe via .gte, jamais via >=.
   const rateClass = (rate) => (rate.gte(0) ? 'positive' : 'negative');
-  const rateArrow = (rate) => (rate.gte(0) ? '▲' : '▼');
   const rateSign = (rate) => (rate.gte(0) ? '+' : '');
 
   const showNomadCap = has("trait_nomadism");
@@ -141,19 +140,23 @@ export default function Topbar() {
             id={`${c.key}Resource`}
             title={tooltips[c.key]}
           >
-            <div className="card-header">
-              <div className="resource-title-wrapper">
-                <span className="resource-icon"><PixelIcon name={c.pixIcon} /></span>
-                <span className="resource-name">{tr(c.name)}</span>
-              </div>
-              <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
-                {/* Odomètre : chiffres qui roulent verticalement, pulse
-                    uniquement aux jalons (changement de suffixe K→M→B).
-                    `alive` = débit réel > 0 → jamais de cadran mort.
-                    En crise terminale : cadran figé (le jeu est en pause). */}
-                <OdometerNumber value={c.value} alive={!crisisFrozen && c.rate.gt(0)} />
-              </span>
+            <div className="resource-title-wrapper">
+              <span className="resource-icon"><PixelIcon name={c.pixIcon} /></span>
+              <span className="resource-name">{tr(c.name)}</span>
             </div>
+            {/* Valeur et débit sur la MÊME ligne, mais aux deux BOUTS de la
+                cellule (grille de la carte, cf. components.css) : la place
+                perdue de la barre était horizontale, on l'occupe donc en
+                largeur au lieu d'empiler une troisième ligne — nom en haut,
+                valeur en bas à gauche, débit en bas à droite. */}
+            <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
+              {/* Odomètre : chiffres qui roulent verticalement, pulse
+                  uniquement aux jalons (changement de suffixe K→M→B).
+                  `rate` = le VRAI débit : il fixe la précision affichée pour
+                  que le dernier chiffre tourne à une allure suivable.
+                  En crise terminale : débit nul, cadran figé (jeu en pause). */}
+              <OdometerNumber value={c.value} rate={crisisFrozen ? 0 : c.rate} />
+            </span>
             <div className="resource-rate-row">
               {crisisFrozen ? (
                 <span className="rate-value rate-frozen" title={tr({ fr: "Cité figée par la crise terminale. La production est suspendue.", en: "City frozen by the terminal crisis. Production is suspended." })}>
@@ -161,7 +164,13 @@ export default function Topbar() {
                 </span>
               ) : (
                 <span className={`rate-value ${rateClass(c.rate)}`}>
-                  <span className="rate-arrow" aria-hidden="true">{rateArrow(c.rate)}</span>
+                  {/* Flèche RÉSERVÉE aux débits négatifs. Quand tout monte,
+                      un triangle vert sur chaque cellule ne dit rien que le
+                      « + » ne dise déjà (retour Raph 2026-07-22) — alors
+                      qu'une flèche qui n'apparaît que dans le mauvais sens
+                      se remarque tout de suite. Le rouge du texte reste le
+                      signal principal (views-city.css). */}
+                  {c.rate.gte(0) ? null : <span className="rate-arrow" aria-hidden="true">▼</span>}
                   {/* Convention compacte « /s » (celle de la boutique) ; le cap nomade
                       passe en suffixe court — le détail vit dans le tooltip. */}
                   <strong id={c.rateId}>
@@ -173,6 +182,20 @@ export default function Topbar() {
             </div>
           </div>
         ))}
+        {/* Sixième cellule : les Habitants. Compteur DÉRIVÉ du Rayonnement
+            (rien dans la simulation ne le relit) qui vivait jusqu'ici caché
+            dans une infobulle — il occupe l'espace récupéré avec la seule
+            information à échelle humaine de la barre. */}
+        <div className="resource-card-unified topbar-people" title={tr({
+          fr: `Habitants estimés de la cité, dérivés du Rayonnement.\nAucun effet de jeu : c'est la taille que la cité aurait à ce stade.`,
+          en: `Estimated inhabitants, derived from Radiance.\nNo gameplay effect: the size the city would have at this stage.`
+        })}>
+          <div className="resource-title-wrapper">
+            <span className="resource-icon"><PixelIcon name="ruins/population" /></span>
+            <span className="resource-name">{tr({ fr: "Habitants", en: "Inhabitants" })}</span>
+          </div>
+          <span className="resource-value" id="habitants">{fmtHabitants(habitants)}</span>
+        </div>
       </div>
     </header>
   );

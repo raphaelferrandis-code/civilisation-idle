@@ -165,6 +165,17 @@ export function claimableGrandResetCount() {
   return GRAND_RESET_MILESTONES.filter((m) => isGrandResetMilestoneClaimable(m.gr)).length;
 }
 
+// Sceaux effectivement réclamables parmi ceux DEMANDÉS. `gr` accepte un numéro
+// ou une liste (le joueur peut cocher plusieurs sceaux prêts et les réclamer
+// dans un seul reset). Dédoublonne, jette les inconnus et les non réclamables,
+// ordonne par numéro : le lot suit l'ordre des sceaux, pas celui des clics.
+export function selectClaimableSeals(gr) {
+  const asked = Array.isArray(gr) ? gr : [gr];
+  return [...new Set(asked.map(Number))]
+    .filter((n) => grandResetMilestone(n) && isGrandResetMilestoneClaimable(n))
+    .sort((a, b) => a - b);
+}
+
 // Latch de découverte : appelé au tick. LATCHE TOUS les sceaux dont la condition est
 // atteinte (plus seulement « le suivant » — le système est ordre-libre). Chaque sceau
 // gravé reste réclamable même si le signal sous-jacent retombe (banking). Retourne l'id

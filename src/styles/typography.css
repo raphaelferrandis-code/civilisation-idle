@@ -160,10 +160,14 @@
   font-weight: 600;
 }
 
-/* Les valeurs écrasent leurs labels (contraste de hiérarchie assumé) */
+/* Les valeurs écrasent leurs labels (contraste de hiérarchie assumé) — mais
+   sans crier : poids 500 (le 700 bouchait les contre-formes du pixel et
+   durcissait tout l'écran) et crénage neutre (le -0.01em serrait les chiffres
+   les uns contre les autres). ⚠ le crénage entre dans la chasse mesurée du
+   cadran : le changer oblige à re-mesurer --odo-w (OdometerNumber.jsx). */
 .topbar .resource-value {
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 /* Le compteur fantôme : chiffre de marge (pas d'italique — Cinzel n'a pas

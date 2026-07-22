@@ -115,10 +115,13 @@
   min-height: 2.6rem;
 }
 
+/* 24px, aligné sur les actions rapides et sur la sidebar compacte : en 20px la
+   réduction ne gardait que 7 % des pixels source et effaçait les traits fins
+   (la balance de Régulation, l'éclair des Mythes). */
 .tab .tab-icon {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   filter: saturate(0.85) brightness(0.9);
 }
 
@@ -199,9 +202,11 @@
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
 }
 
+/* 24px et non 16 : les sources font 42 à 60 px de haut, un écrasement en 16
+   n'affichait plus qu'un pixel sur dix et rendait les retouches invisibles. */
 .quick-actions .qa-icon.px-icon {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
 }
 

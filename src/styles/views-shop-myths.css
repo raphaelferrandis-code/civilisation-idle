@@ -635,11 +635,38 @@
   line-height: 1.4;
 }
 .gr-ladder-ready {
-  margin: 0.6rem 0 0;
+  margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--gold-bright);
   letter-spacing: 0.02em;
+}
+/* Barre de lot : n'apparaît qu'à partir de 2 sceaux prêts (cocher plusieurs
+   sceaux et les réclamer dans un seul reset). Le bandeau « N sceaux prêts »
+   reste seul quand il n'y en a qu'un. */
+.gr-ladder-batch {
+  margin: 0.6rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.gr-ladder-batch .gr-ladder-ready { margin-right: auto; }
+.gr-ladder-panel .gr-batch-all,
+.gr-ladder-panel .gr-batch-btn {
+  min-height: 2rem;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.gr-ladder-panel .gr-batch-all {
+  color: var(--muted);
+  font-weight: 600;
+}
+.gr-ladder-panel .gr-batch-btn:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  background: rgba(216, 179, 106, 0.12);
 }
 
 .gr-ladder {
@@ -773,7 +800,21 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem;
   min-width: 1.6rem;
+}
+/* Case du lot, à gauche du bouton « Réclamer » de la rangée. */
+.gr-rung-pick {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.gr-rung-pick input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--gold);
 }
 .gr-rung-btn {
   padding: 0.25rem 0.7rem;

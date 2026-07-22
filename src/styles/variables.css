@@ -122,13 +122,28 @@
      (compteurs stables, 8≠S). Choisie contre VT323 (essai 2026-07-10) ;
      Pixelify reste le repli (ses chiffres sont ambigus, jamais en premier). */
   --font-number: "Silkscreen", "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
+  /* Chiffres MONUMENTAUX (odomètre de la topbar) : Pixelify Sans, la police du
+     reste du jeu. Silkscreen tient très bien à petit corps — c'est sa texture
+     rétro — mais à 30-40 px son gras 5×5 devient un tableau d'affichage de
+     stade : la police la plus dure du jeu sur son plus gros objet (retour
+     Raph 2026-07-22 : « une grosse police agressive » face à un city builder
+     paisible). Rôle SÉPARÉ et non le token global : les compteurs à 0.7 rem et
+     le titre de crise (qui reprend le « IDLE » du logo) gardent Silkscreen. */
+  --font-number-display: "Pixelify Sans", "Baloo 2", "Inter", system-ui, sans-serif;
   /* Police pixel « micro » : Silkscreen, réservée aux petits éléments rétro type
      badges de notif (trop blocky pour la prose). Repli monospace si absente. */
   --font-pixel: "Silkscreen", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  /* Petits caractères UI (multiplicateurs, badges, débits) : VT323 — Pixelify
-     déforme les chiffres aux petits corps (« x25 » lu « x88 », Raph 2026-07-10).
-     VT323 chausse petit : prévoir ~+15 % de corps là où on l'applique. */
-  --font-small: "VT323", "Pixelify Sans", "Inter", system-ui, sans-serif;
+  /* Petits caractères UI (multiplicateurs, badges, débits).
+     ⚠ Ce rôle a demandé VT323 du 2026-07-10 au 2026-07-22 SANS JAMAIS L'OBTENIR :
+     VT323 n'a jamais figuré dans le lien Google Fonts d'index.html, donc les
+     3 règles qui s'en servent rendaient déjà en Pixelify Sans (vérifié en
+     mesurant la largeur du même texte en VT323 et en famille inexistante :
+     identique au centième). Le rôle dit donc enfin ce qu'il fait.
+     ⚠ La raison d'origine reste valable et NON réglée : Pixelify déforme les
+     chiffres aux petits corps (« x25 » lu « x88 », Raph 2026-07-10). Si la
+     confusion revient, le remède est le CORPS (monter au-dessus de ~14 px),
+     pas une police étrangère au reste du jeu. */
+  --font-small: "Pixelify Sans", "Inter", system-ui, sans-serif;
 
   /* Échelle (plancher absolu : 11px / 0.6875rem) */
   --fs-h1: 1.75rem;

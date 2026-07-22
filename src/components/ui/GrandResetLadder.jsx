@@ -9,10 +9,15 @@ import {
   claimableGrandResetCount
 } from '../../game/core/mechanics.js';
 import { performGrandReset } from '../../game/core/actions.js';
+import { GRAND_RESET_PROD_BASE } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
 import PixelIcon from './PixelIcon.jsx';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+
+// Gain de production d'UN sceau, lu à la source (GRAND_RESET_PROD_BASE) : le
+// libellé suit la constante au lieu de la figer. Virgule décimale côté français.
+const prodStep = { fr: String(GRAND_RESET_PROD_BASE).replace('.', ','), en: String(GRAND_RESET_PROD_BASE) };
 
 // Médaillon pixel-art de chaque sceau (emblèmes existants + 2 dédiés). Montré
 // SEULEMENT une fois le sceau révélé : avant, il vendrait la mèche du secret.
@@ -33,7 +38,8 @@ const MILESTONE_GLYPHS = {
 // Plateau des Sceaux du Grand Reset (page Effondrement, sous la Doctrine de crise).
 // Système ORDRE-LIBRE : les 11 sceaux se réclament indépendamment, dans n'importe
 // quel ordre. Remplir la condition d'un sceau le LATCHE « prêt » à vie (banking) ;
-// réclamer un sceau coûte un reset et donne ×2 permanent. Chaque sceau reste masqué
+// réclamer un sceau coûte un reset et donne GRAND_RESET_PROD_BASE permanent (le
+// libellé de récompense lit la constante). Chaque sceau reste masqué
 // (« ??? ») jusqu'à ce que sa condition soit atteinte une 1re fois.
 export default function GrandResetLadder() {
   const grandResetCount = useGameState(s => s.grandResetCount || 0);
@@ -45,6 +51,24 @@ export default function GrandResetLadder() {
   const maxGR = ragnarokHeritage ? 11 : 10;
   const rungs = GRAND_RESET_MILESTONES.filter(m => m.gr <= maxGR);
   const claimable = claimableGrandResetCount();
+
+  // Sélection multiple : cocher plusieurs sceaux prêts et les réclamer dans un
+  // SEUL reset. Strictement équivalent aux resets un par un (le multiplicateur
+  // ne dépend que du NOMBRE de sceaux réclamés), mais un seul effacement. Les
+  // cases n'apparaissent qu'à 2 sceaux prêts, sinon elles encombrent pour rien.
+  const [checked, setChecked] = useState(() => new Set());
+  const multi = claimable >= 2;
+  // La sélection est refiltrée à chaque rendu : un sceau réclamé (ou devenu
+  // non réclamable) ne peut pas traîner dans le lot.
+  const picked = multi ? rungs.filter(m => checked.has(m.gr) && isGrandResetMilestoneClaimable(m.gr)).map(m => m.gr) : [];
+  const toggle = (gr) => setChecked(prev => {
+    const next = new Set(prev);
+    if (next.has(gr)) next.delete(gr); else next.add(gr);
+    return next;
+  });
+  const toggleAll = () => setChecked(picked.length === claimable
+    ? new Set()
+    : new Set(rungs.filter(m => isGrandResetMilestoneClaimable(m.gr)).map(m => m.gr)));
 
   // Cliché des sceaux déjà révélés au montage : une révélation qui survient EN
   // SESSION (absente du cliché) déclenche l'animation de dorure, une seule fois.
@@ -61,8 +85,8 @@ export default function GrandResetLadder() {
           <h2>{tr({ fr: "Les Sceaux du Grand Reset", en: "The Grand Reset Seals" })}</h2>
           <p className="gr-ladder-hint">
             {tr({
-              fr: "Débloque-les dans l'ordre que tu veux. Un sceau atteint reste réclamable à vie — tu peux en banker plusieurs dans une même run avant de lâcher un reset.",
-              en: "Unlock them in any order. A reached seal stays claimable forever — you can bank several in one run before spending a reset."
+              fr: "Débloque-les dans l'ordre que tu veux. Un sceau atteint reste réclamable à vie. Quand plusieurs sont prêts, coche-les pour tous les réclamer dans un seul reset.",
+              en: "Unlock them in any order. A reached seal stays claimable forever. When several are ready, tick them to claim them all in a single reset."
             })}
           </p>
         </div>
@@ -80,12 +104,32 @@ export default function GrandResetLadder() {
       </div>
 
       {claimable > 0 && (
-        <p className="gr-ladder-ready" role="status">
-          {tr({
-            fr: `✦ ${claimable} sceau${claimable > 1 ? 'x' : ''} prêt${claimable > 1 ? 's' : ''} à réclamer`,
-            en: `✦ ${claimable} seal${claimable > 1 ? 's' : ''} ready to claim`
-          })}
-        </p>
+        <div className="gr-ladder-batch">
+          <p className="gr-ladder-ready" role="status">
+            {tr({
+              fr: `✦ ${claimable} sceau${claimable > 1 ? 'x' : ''} prêt${claimable > 1 ? 's' : ''} à réclamer`,
+              en: `✦ ${claimable} seal${claimable > 1 ? 's' : ''} ready to claim`
+            })}
+          </p>
+          {multi && (
+            <>
+              <button className="gr-batch-all" onClick={toggleAll}>
+                {picked.length === claimable
+                  ? tr({ fr: "Tout décocher", en: "Untick all" })
+                  : tr({ fr: "Tout cocher", en: "Tick all" })}
+              </button>
+              <button
+                className="gr-batch-btn"
+                disabled={picked.length === 0}
+                onClick={() => performGrandReset(picked)}
+              >
+                {picked.length > 1
+                  ? tr({ fr: `Réclamer les ${picked.length} sceaux cochés`, en: `Claim the ${picked.length} ticked seals` })
+                  : tr({ fr: "Réclamer les sceaux cochés", en: "Claim ticked seals" })}
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       <ol className="gr-ladder">
@@ -98,11 +142,13 @@ export default function GrandResetLadder() {
           const ragnarokLocked = m.gr === 11 && revealed && !claimed && !ready;
           const fresh = revealed && !initialRevealed.has(m.gr);
           const status = claimed ? 'done' : ready ? 'ready' : revealed ? 'next' : 'locked';
-          // Récompense MARGINALE : chaque sceau réclamé = ×2 (le total est ×2^réclamés,
-          // indépendant de l'ordre). Le Ragnarök ajoute son ×4 Ruines.
+          // Récompense MARGINALE : chaque sceau réclamé multiplie la production par
+          // GRAND_RESET_PROD_BASE (le total est base^réclamés, indépendant de l'ordre).
+          // Le libellé LIT la constante : un rééquilibrage ne doit pas faire mentir
+          // l'affichage (la base est passée de 2 à 3,5 sans que ce texte suive).
           const reward = m.gr === 11
-            ? tr({ fr: "×2 & ×4 Ruines", en: "×2 & ×4 Ruins" })
-            : tr({ fr: "×2 prod", en: "×2 prod" });
+            ? tr({ fr: `×${prodStep.fr} & ×4 Ruines`, en: `×${prodStep.en} & ×4 Ruins` })
+            : tr({ fr: `×${prodStep.fr} prod`, en: `×${prodStep.en} prod` });
 
           return (
             <li key={m.gr} className={`gr-rung is-${status}${fresh ? ' is-fresh' : ''}`}>
@@ -131,9 +177,21 @@ export default function GrandResetLadder() {
                 {claimed ? (
                   <span className="gr-rung-done" title={tr({ fr: "Sceau réclamé", en: "Seal claimed" })}>✓</span>
                 ) : ready ? (
-                  <button className="gr-rung-btn" onClick={() => performGrandReset(m.gr)}>
-                    {tr({ fr: "Réclamer", en: "Claim" })}
-                  </button>
+                  <>
+                    {multi && (
+                      <label className="gr-rung-pick" title={tr({ fr: "Ajouter ce sceau au lot", en: "Add this seal to the batch" })}>
+                        <input
+                          type="checkbox"
+                          checked={checked.has(m.gr)}
+                          onChange={() => toggle(m.gr)}
+                          aria-label={tr({ fr: `Ajouter ${tr(m.name)} au lot`, en: `Add ${tr(m.name)} to the batch` })}
+                        />
+                      </label>
+                    )}
+                    <button className="gr-rung-btn" onClick={() => performGrandReset(m.gr)}>
+                      {tr({ fr: "Réclamer", en: "Claim" })}
+                    </button>
+                  </>
                 ) : ragnarokLocked ? (
                   <span className="gr-rung-pending" title={tr({ fr: "Honore le pacte du Ragnarök pour le réclamer", en: "Honor the Ragnarök pact to claim it" })}>🔒</span>
                 ) : null}
