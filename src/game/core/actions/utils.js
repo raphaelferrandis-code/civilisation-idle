@@ -1,7 +1,7 @@
 "use strict";
 
 import { state } from '../state.js';
-import { currentEraIndex } from '../mechanics.js';
+import { currentEraIndex, milestoneStepSize } from '../mechanics.js';
 import { eras } from '../../data/world.js';
 import { fmt } from '../utils.js';
 import { tr } from '../i18n.js';
@@ -48,7 +48,11 @@ export function cycleYear() {
 export function chronicleBuilding(building, previousCount, newCount) {
   const amount = newCount - previousCount;
   if (amount <= 0) return;
-  
+  // Pas de jalon PARTAGÉ avec l'achat et la barre de la boutique : il tombe de 25
+  // à 20 avec le capstone Ville-Monde. Codé en dur ici, la chronique sautait un
+  // palier sur cinq une fois le capstone acquis.
+  const step = milestoneStepSize();
+
   if (previousCount === 0) {
     if (building.id === "watch") {
       chronicle(`Une milice s'organise sous nos remparts pour assurer la sécurité commune (+${fmt(amount)}).`);
@@ -59,7 +63,7 @@ export function chronicleBuilding(building, previousCount, newCount) {
     } else {
       chronicle(`Les premiers ${tr(building.name).toLowerCase()} s'élèvent dans nos quartiers (+${fmt(amount)}).`);
     }
-  } else if (amount >= 25 || newCount % 25 === 0) {
+  } else if (amount >= step || newCount % step === 0) {
     if (building.id === "watch") {
       chronicle(`La milice s'étend et compte désormais de nombreuses garnisons (${fmt(newCount)} unités, +${fmt(amount)}).`);
     } else if (building.id === "bureaucracy") {

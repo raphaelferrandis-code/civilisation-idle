@@ -31,6 +31,18 @@ export default function BuyToolbar() {
             {mode.label}
           </button>
         ))}
+        {/* Palier : la quantité dépend du bâtiment (ce qui reste avant son
+            prochain jalon), d'où une sentinelle et non un entier. */}
+        <button
+          className={`buy-mode buy-mode-step ${buyAmount === 'step' ? 'active' : ''}`}
+          onClick={() => handleSetAmount('step')}
+          title={tr({
+            fr: "Achète exactement de quoi franchir le prochain palier de ce bâtiment, ni plus ni moins.",
+            en: "Buys exactly what it takes to cross this building's next milestone, no more, no less."
+          })}
+        >
+          {tr({ fr: "Palier", en: "Milestone" })}
+        </button>
         {hasMaxUpgrade && (
           <button
             className={`buy-mode buy-mode-max ${buyAmount === 'max' ? 'active' : ''}`}

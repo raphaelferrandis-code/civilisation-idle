@@ -23,8 +23,9 @@ function dominantBuildingCategory() {
   }
   return best ? best.cat : null;
 }
-import { ENRACINEMENT_COST_MULT } from '../balance.js';
+import { ENRACINEMENT_COST_MULT, MAX_BATCH_AMOUNT } from '../balance.js';
 import { has, ruinEffectSum, totalBuildingCount } from './shared.js';
+import { milestoneStepSize } from './production/buildingOutput.js';
 
 // Retourne le facteur de scaling effectif d'un bâtiment.
 // Héritage Sisyphe : réduit la croissance du scaling de SISYPHE_SCALE_REDUCTION.
@@ -84,8 +85,19 @@ export function buildingCostAt(building, count) {
   return costs;
 }
 
+// Quantité qui amène EXACTEMENT au prochain jalon, jamais au-delà. Sentinelle
+// 'step' du mode Palier : la quantité dépend du bâtiment (son compteur), elle ne
+// peut donc pas vivre dans `state.buyAmount`, qui est global — même raison que
+// pour 'max'. Fonction PURE et sans récursion : buildingBatchCost l'appelle, elle
+// ne doit surtout pas rappeler buildingBatchCost.
+export function stepBuyAmount(building) {
+  const step = milestoneStepSize();
+  const count = state.buildings[building.id] || 0;
+  return step - (count % step);
+}
+
 export function maxBuyAmount(building) {
-  let lo = 0, hi = 500;
+  let lo = 0, hi = MAX_BATCH_AMOUNT;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
     if (canPayCost(buildingBatchCost(building, mid))) lo = mid;
@@ -95,8 +107,10 @@ export function maxBuyAmount(building) {
 }
 
 export function buildingBatchCost(building, amount = state.buyAmount) {
-  const resolved = amount === "max" ? 1 : amount;
-  const batchSize = clamp(Math.floor(Number(resolved) || 1), 1, 500);
+  // 'max' vaut 1 ici pour ne pas boucler : maxBuyAmount appelle cette fonction.
+  // 'step', lui, se résout sans récursion.
+  const resolved = amount === "max" ? 1 : amount === "step" ? stepBuyAmount(building) : amount;
+  const batchSize = clamp(Math.floor(Number(resolved) || 1), 1, MAX_BATCH_AMOUNT);
   const count = state.buildings[building.id] || 0;
   // Calcule le discount et le scale effectif une seule fois pour tout le lot
   const discount = buildingDiscount(building);

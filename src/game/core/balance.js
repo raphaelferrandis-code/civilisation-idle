@@ -855,6 +855,12 @@ export const IDLE_CAP_PALIERS = {
   veilleurs_nuit_1: 6 * 3600,   // 2h base + 6h → 8 h (absorbe l'ancien palier _2)
   veilleurs_nuit_4: 16 * 3600   // + 16h → 24 h (absorbe l'ancien palier _3)
 };
+// Borne DURE d'un lot d'achat, partagée par maxBuyAmount, buildingBatchCost et
+// buyBuildingCore — les trois la clampaient chacun de leur côté avec un 500 en
+// dur. Ce n'est pas un réglage d'équilibrage mais un garde-fou : la somme
+// géométrique bascule en Decimal au-delà du float, et la carte révèle les
+// habitations une par une. Le mode Max, lui, sonde au-delà (cf. maxBuyAmount).
+export const MAX_BATCH_AMOUNT = 500;
 // Plafond du nombre d'effondrements rejoués pendant une absence (farm v2, cf. §B.5).
 // Borne perf + équilibre : pas de farm infini sur une absence de plusieurs jours.
 export const OFFLINE_MAX_COLLAPSES = 20;

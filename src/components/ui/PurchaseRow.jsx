@@ -55,6 +55,7 @@ function PurchaseRow({
   affordable,
   babelBlocked,
   milestoneInfo,
+  step,
   tier,
   production,
   lackingKey,
@@ -64,9 +65,14 @@ function PurchaseRow({
   // Au-delà, compact forcé (fmtShort) : un compteur « full » déborderait la pastille.
   const countLabel = count < 1000 ? String(count) : fmtShort(count);
   const stepLabel = b.category === "city" ? "×2" : "×1.5";
-  const inStep = count % 25;
-  const nextIn = 25 - inStep;
-  const stepPct = (inStep / 25) * 100;
+  // Pas des jalons fourni par le parent (milestoneStepSize) : il tombe de 25 à 20
+  // avec le capstone Ville-Monde. Il était codé en dur ici, donc la barre et
+  // l'infobulle mentaient dès le capstone acquis, alors que l'achat, lui,
+  // appliquait déjà le bon pas.
+  const stepSize = step || 25;
+  const inStep = count % stepSize;
+  const nextIn = stepSize - inStep;
+  const stepPct = (inStep / stepSize) * 100;
 
   // Splash-art de fond (filigrane), résolu selon le bâtiment ET l'ère en cours.
   // null tant qu'aucun splash n'existe pour ce bâtiment → carte normale.
@@ -190,7 +196,13 @@ function PurchaseRow({
               <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
             ))}
             <span className="bp-action">
-              {buyAmount === "max" ? tr({ fr: "Acheter Max", en: "Buy Max" }) : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
+              {buyAmount === "max"
+                ? tr({ fr: "Acheter Max", en: "Buy Max" })
+                : buyAmount === "step"
+                  // La quantité est propre à cette rangée : on l'affiche, sinon
+                  // « Acheter Palier » ne dit pas ce qu'on s'apprête à payer.
+                  ? tr({ fr: `Acheter ×${nextIn}`, en: `Buy ×${nextIn}` })
+                  : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
             </span>
             <span className="bp-cost">
               {Object.entries(prices).map(([currency, amount]) => (
@@ -226,6 +238,7 @@ function arePropsEqual(prev, next) {
     prev.count === next.count &&
     prev.prices === next.prices &&          // ref stable (costById mémoïsé)
     prev.buyAmount === next.buyAmount &&
+    prev.step === next.step &&              // capstone Ville-Monde : 25 → 20
     prev.affordable === next.affordable &&
     prev.babelBlocked === next.babelBlocked &&
     prev.tier === next.tier &&

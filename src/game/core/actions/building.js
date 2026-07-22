@@ -20,6 +20,7 @@ import {
 
 import {
   maxBuyAmount,
+  stepBuyAmount,
   buildingBatchCost,
   canExhume,
   archaeologyCandidates,
@@ -30,7 +31,7 @@ import {
   isUnlocked,
   crisisOpen,
   grandResetMilestone,
-  isGrandResetMilestoneClaimable,
+  selectClaimableSeals,
   isGrandResetMilestoneClaimed,
   buildingMilestoneInfo,
   milestoneStepSize,
@@ -46,7 +47,7 @@ import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
-import { MILESTONE_BOON_SECONDS, grandResetProductionMult, grandResetRuinGainMult } from '../balance.js';
+import { MILESTONE_BOON_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from '../balance.js';
 import { PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP } from '../../data/activeRuins.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
@@ -81,9 +82,13 @@ export function buyBuildingCore(id, { amount: amountOverride = null, silent = fa
   if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return false;
   // state.buyAmount est la source de vérité : la variable module exportée par
   // state.js n'est pas resynchronisée par setState (Grand Reset, import de save).
+  // 'max' et 'step' sont des SENTINELLES résolues par bâtiment : les faire passer
+  // par le clamp numérique ci-dessous les ramènerait silencieusement à 1.
   const amount = amountOverride != null
     ? amountOverride
-    : (state.buyAmount === "max" ? maxBuyAmount(building) : clamp(Math.floor(Number(state.buyAmount) || 1), 1, 500));
+    : state.buyAmount === "max" ? maxBuyAmount(building)
+      : state.buyAmount === "step" ? stepBuyAmount(building)
+        : clamp(Math.floor(Number(state.buyAmount) || 1), 1, MAX_BATCH_AMOUNT);
   const prices = buildingBatchCost(building, amount);
   if (!canPayCost(prices)) return false;
   const previousCount = state.buildings[id] || 0;
@@ -284,17 +289,24 @@ export async function exhumeVestige() {
   render();
 }
 
+// ORDRE-LIBRE + LOT. `gr` accepte un numéro de sceau ou une LISTE de sceaux à
+// réclamer d'un coup. Réclamer N sceaux dans un même reset donne exactement le
+// même résultat que N resets d'affilée (grandResetCount monte de N, donc x2^N) :
+// le lot n'est qu'un confort quand plusieurs sceaux sont prêts, il ne saute
+// aucune étape et n'accorde aucun bonus supplémentaire.
 export async function performGrandReset(gr) {
   if (collapseInProgress || gamePaused) return;
-  const milestone = grandResetMilestone(gr);
-  if (!milestone) return;
-  // ORDRE-LIBRE : on réclame le sceau `gr` s'il est réclamable (banké + non réclamé
-  // + — pour le Ragnarök — héritage acquis). Sa condition a pu retomber depuis le
-  // latch (banking) : c'est grRevealed qui fait foi, pas la condition à l'instant.
-  if (!isGrandResetMilestoneClaimable(gr)) {
-    if (isGrandResetMilestoneClaimed(gr)) {
+  // On ne garde que les sceaux réclamables (bankés + non réclamés + — pour le
+  // Ragnarök — héritage acquis). Leur condition a pu retomber depuis le latch :
+  // c'est grRevealed qui fait foi, pas la condition à l'instant.
+  const seals = selectClaimableSeals(gr);
+  if (!seals.length) {
+    const first = Number(Array.isArray(gr) ? gr[0] : gr);
+    const milestone = grandResetMilestone(first);
+    if (!milestone) return;
+    if (isGrandResetMilestoneClaimed(first)) {
       log(`Le sceau « ${tr(milestone.name)} » est déjà réclamé.`);
-    } else if (gr === 11 && !state.ragnarokHeritage) {
+    } else if (first === 11 && !state.ragnarokHeritage) {
       log(`Le sceau du Ragnarök exige d'avoir honoré le pacte final avant d'être réclamé.`);
     } else {
       log(`Le sceau « ${tr(milestone.name)} » n'est pas encore débloqué. Fais grandir ta civilisation pour l'atteindre.`);
@@ -302,23 +314,29 @@ export async function performGrandReset(gr) {
     render();
     return;
   }
-  const nextCount = (state.grandResetCount || 0) + 1;
-  const isRagnarok = gr === 11;
+  const names = seals.map((n) => `« ${tr(grandResetMilestone(n).name)} »`);
+  const nextCount = (state.grandResetCount || 0) + seals.length;
+  const isRagnarok = seals.includes(11);
   setGamePaused(true);
   // Production et moisson de Ruines ont des bases DISTINCTES : le dialogue
-  // annonce les deux séparément, sinon il ment sur l'une des deux.
-  const resetRewardText = isRagnarok
-    ? "un multiplicateur permanent x4 supplémentaire sur les Ruines gagnées"
-    : `un bonus permanent x${fmt(grandResetProductionMult(nextCount))} sur toute la production, et x${fmt(grandResetRuinGainMult(nextCount))} sur les Ruines gagnées`;
+  // annonce les deux séparément, sinon il ment sur l'une des deux. Le x4 du
+  // Ragnarök s'AJOUTE aux deux (il ne les remplace pas).
+  const resetRewardText = `un bonus permanent x${fmt(grandResetProductionMult(nextCount))} sur toute la production, et x${fmt(grandResetRuinGainMult(nextCount))} sur les Ruines gagnées${isRagnarok ? ", plus le x4 Ruines du Ragnarok" : ""}`;
+  const sealText = seals.length === 1
+    ? `Tu réclames le sceau ${names[0]}.`
+    : `Tu réclames ${seals.length} sceaux d'un coup : ${names.join(", ")}.`;
   const choice = await openChoiceDialog({
-    title: `Grand Reset — ${tr(milestone.name)}`,
-    body: `Tu réclames le sceau « ${tr(milestone.name)} ». Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
+    title: `Grand Reset — ${seals.length === 1 ? tr(grandResetMilestone(seals[0]).name) : `${seals.length} sceaux`}`,
+    body: `${sealText} Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
     // preventClose : un Grand Reset est irréversible (efface tout). Échap ne
     // doit pas pouvoir déclencher options[0], qui est l'action destructrice — le
     // joueur choisit explicitement. Sûr depuis le fix B2 (ChoiceDialog).
     preventClose: true,
     options: [
-      { label: "Réclamer le sceau", detail: isRagnarok ? "+x4 Ruines permanent" : `+x${fmt(grandResetProductionMult(nextCount))} production permanente` },
+      {
+        label: seals.length === 1 ? "Réclamer le sceau" : `Réclamer les ${seals.length} sceaux`,
+        detail: `+x${fmt(grandResetProductionMult(nextCount))} production permanente${isRagnarok ? " & x4 Ruines" : ""}`
+      },
       { label: "Annuler", detail: "Ne rien faire" }
     ]
   });
@@ -327,18 +345,19 @@ export async function performGrandReset(gr) {
   setMourning(true);
   await new Promise((resolve) => setTimeout(resolve, 1300));
 
-  // Registre de la Chronique : horodatage (horloge à vie) du GR effectué —
+  // Registre de la Chronique : horodatage (horloge à vie) des GR effectués —
   // gravé AVANT le clone, pour que buildGrandResetState l'emporte dans le state
   // frais (chronicleStats est éternel, cf. GR_PERSISTENT_FIELDS).
-  recordGrPerformed(gr); // le n° du SCEAU réclamé (comme recordGrDiscovered), pas le rang nextCount
-
-  // Marque le sceau réclamé sur le state COURANT avant le clone : buildGrandResetState
+  // Marque les sceaux réclamés sur le state COURANT avant le clone : buildGrandResetState
   // recopie grClaimed (GR_PERSISTENT_FIELDS) dans le state frais et fixe
   // grandResetCount = nextCount (= |grClaimed|). SOURCE DE VÉRITÉ : GR_PERSISTENT_FIELDS.
   if (!state.grClaimed) state.grClaimed = {};
-  state.grClaimed[gr] = true;
+  for (const n of seals) {
+    recordGrPerformed(n); // le n° du SCEAU réclamé (comme recordGrDiscovered), pas le rang nextCount
+    state.grClaimed[n] = true;
+  }
 
-  const fresh = buildGrandResetState(nextCount, gr);
+  const fresh = buildGrandResetState(nextCount, seals);
 
   setState(fresh);
   // Le buffer d'annales (module-scope) survivrait au swap d'état : on l'efface

@@ -7,6 +7,7 @@ import {
   buildingBatchCost,
   buildingOutputMultiplier,
   buildingMilestoneInfo,
+  milestoneStepSize,
   currentEraIndex
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
@@ -58,6 +59,12 @@ function BuildingShop() {
   // tick par un simple canPayCost contre les coûts déjà calculés.
   const buildingsVersion = useGameState(() => renderCache._buildingsVersion);
   const upgradesVersion = useGameState(() => renderCache._upgradesVersion);
+  // Pas des jalons : 25 par défaut, 20 avec le capstone Ville-Monde. Résolu ICI
+  // et passé en prop plutôt que lu dans chaque rangée — sinon les rangées, qui
+  // sont mémoïsées, resteraient sur l'ancien pas jusqu'au prochain achat.
+  // Même clé d'invalidation que les coûts : le capstone est une amélioration.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const milestoneStep = useMemo(() => milestoneStepSize(), [upgradesVersion]);
   const costById = useMemo(() => {
     const costs = {};
     for (const b of buildings) costs[b.id] = buildingBatchCost(b);
@@ -195,6 +202,7 @@ function BuildingShop() {
               affordable={isAffordable}
               babelBlocked={babelBlocked}
               milestoneInfo={milestoneInfo}
+              step={milestoneStep}
               tier={milestoneTier}
               production={buildingProductionSegments(b, outputCount, globalMult, sqrtGlobalMult, outputMult)}
               globalMult={globalMult}
