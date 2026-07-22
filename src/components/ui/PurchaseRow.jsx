@@ -63,7 +63,8 @@ function PurchaseRow({
   queuePos,
   queueable,
   queueFull,
-  onToggleQueue
+  onToggleQueue,
+  etaLabel
 }) {
   // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0").
   // Au-delà, compact forcé (fmtShort) : un compteur « full » déborderait la pastille.
@@ -189,6 +190,22 @@ function PurchaseRow({
           <span style={{ width: `${stepPct}%` }}></span>
         </div>
 
+        {/* DÉLAI AVANT ACHAT (B5) : n'existe que sur une rangée impayable, donc
+            aucune ligne ajoutée à celles qu'on peut acheter. Le libellé arrive
+            DÉJÀ FORMATÉ du parent — le comparateur de mémoïsation reste ainsi
+            une comparaison de primitives. */}
+        {etaLabel && (
+          <div
+            className="pr-eta"
+            title={tr({
+              fr: "Au rythme actuel de production. Un bonus temporaire ou une chute de rendement le change.",
+              en: "At the current production rate. A temporary bonus or a drop in output changes it."
+            })}
+          >
+            {etaLabel}
+          </div>
+        )}
+
         <div className="pr-footer">
           <button
             className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
@@ -274,7 +291,11 @@ function arePropsEqual(prev, next) {
     // s'affiche doit être comparé ici.
     prev.queuePos === next.queuePos &&
     prev.queueable === next.queueable &&
-    prev.queueFull === next.queueFull
+    prev.queueFull === next.queueFull &&
+    // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
+    // une primitive. L'oublier ici figerait le compte à rebours sur sa première
+    // valeur jusqu'au prochain achat, en silence.
+    prev.etaLabel === next.etaLabel
   );
 }
 

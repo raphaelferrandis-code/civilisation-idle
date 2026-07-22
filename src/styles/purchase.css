@@ -291,6 +291,28 @@
   color: var(--gold-bright);
 }
 
+/* ----- DELAI AVANT ACHAT (B5) -----
+   Present uniquement sur une rangee impayable : les rangees achetables ne
+   gagnent aucune ligne. Discret — c'est une indication de patience, pas un
+   avertissement : jamais de rouge. */
+.pr-eta {
+  margin-top: 0.2rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sur une carte a splash, le texte est pose sur l'image : on le detache. */
+.purchase-row.pr-has-splash .pr-eta {
+  color: color-mix(in srgb, var(--gold-ivory), transparent 25%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
 /* ----- Epingle de la FILE D'ACHATS (C8) -----
    Discrete tant que la cible n'est pas epinglee : c'est un geste de planification,
    pas l'action principale de la rangee (qui reste ACHETER). */

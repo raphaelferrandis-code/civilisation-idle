@@ -15,6 +15,9 @@ import { isMythEffectActive } from '../../game/data/myths.js';
 import { splashSrcFor } from '../../game/data/pixelSplash.js';
 import { renderCache, buildingById, render, BUY_QUEUE_MAX } from '../../game/core/state.js';
 import { canQueue, toggleBuyQueue, clearBuyQueue } from '../../game/core/actions/buyQueue.js';
+import { buyableInMass } from '../../game/core/actions/building.js';
+import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
+import { fmtEta, labelFor } from '../../game/core/utils.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
@@ -164,6 +167,58 @@ function BuildingShop() {
     affordability[b.id] === "" && !(babelActive && babelCat && b.category !== babelCat)
   )?.id;
 
+  // ── DÉLAI AVANT ACHAT (B5) ────────────────────────────────────────────────
+  // La cité est FIGÉE en crise terminale (tick.js sort avant tout crédit) :
+  // annoncer un délai serait un mensonge, il ne s'écoulerait jamais.
+  // On s'abonne ici et non au `crisisFrozen` de la Topbar, qui est une variable
+  // locale à ce composant-là.
+  const crisisFrozen = useGameState((s) => !!s.crisisLimitAnnounced);
+
+  // Le sélecteur ne balaie QUE les rangées réellement affichées et réellement
+  // impayables. Le balayage des 30 bâtiments de `affordability` est sans
+  // conséquence parce qu'une abordabilité bascule rarement ; un délai, lui,
+  // DÉCOMPTE par construction — trente compteurs déphasés feraient changer la
+  // signature plusieurs fois par seconde, et on perdrait exactement le `memo()`
+  // sans props qui protège la boutique du tick.
+  //
+  // La signature est bâtie sur le LIBELLÉ, donc sur la valeur déjà QUANTIFIÉE
+  // (fmtEta) : quantifier après coup ne servirait à rien, la comparaison porte
+  // sur ce qui est comparé, pas sur ce qui est affiché.
+  const etaSig = useGameState(() => {
+    if (crisisFrozen) return "";
+    const parts = [];
+    for (const b of visibleBuildings) {
+      if (affordability[b.id] === "") continue;       // payable : rien à annoncer
+      if (!buyableInMass(b)) continue;                // coûte des Ruines : elles tombent, elles ne coulent pas
+      const res = purchaseEta(costById[b.id]);
+      if (res.kind === ETA_SECONDS) parts.push(`${b.id}=${fmtEta(res.seconds)}`);
+      else if (res.kind === ETA_NO_INCOME) parts.push(`${b.id}=~${res.currency}`);
+      else if (res.kind === ETA_UNREACHABLE) parts.push(`${b.id}=!`);
+    }
+    return parts.join("|");
+  });
+
+  const etaById = useMemo(() => {
+    const map = {};
+    if (!etaSig) return map;
+    for (const part of etaSig.split("|")) {
+      const [id, valeur] = part.split("=");
+      map[id] = valeur === "!"
+        // Chiffrer serait exact et inutile : ce n'est pas d'attendre qu'il
+        // s'agit, mais de faire grandir la production. On le dit comme ça,
+        // plutôt qu'avec un « hors de portée » qui sonne définitif.
+        ? tr({ fr: "pas à ce rythme de production", en: "not at this production rate" })
+        : valeur.startsWith("~")
+        // Pas de revenu sur cette devise : on N'AFFIRME PAS l'impossibilité.
+        // L'Or vaut 0/s tant que le Rayonnement est sous 25, ce qui est l'état
+        // de départ de chaque cycle — « hors de portée » y serait faux et
+        // décourageant.
+        ? tr({ fr: `pas encore de ${labelFor(valeur.slice(1))}`, en: `no ${labelFor(valeur.slice(1))} income yet` })
+        : tr({ fr: `payable dans ${valeur}`, en: `affordable in ${valeur}` });
+    }
+    return map;
+  }, [etaSig]);
+
   return (
     <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`}>
       {/* En-tête : les catégories SONT le titre (plus de « Bâtiments ») ; le
@@ -298,6 +353,7 @@ function BuildingShop() {
               queueable={canQueue(b)}
               queueFull={queueFull}
               onToggleQueue={handleToggleQueue}
+              etaLabel={etaById[b.id] || ""}
             />
           );
         })}

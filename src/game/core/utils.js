@@ -115,18 +115,54 @@ export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed
 // voir fmtCycleTime dans CityStatusPanel, qui zéro-padde façon horloge.
 // Remontée ici depuis CityStatusPanel : le rapport de reprise en a besoin aussi,
 // et deux copies de ce formatage finiraient par diverger d'une unité.
+// ⚠ BILINGUE depuis B5. Ce formateur était en FRANÇAIS EN DUR alors qu'il est
+// déjà consommé à l'intérieur de phrases anglaises (CityStatusPanel,
+// IdleReportPanel) : une partie en anglais affichait « up to moins d'1 min ».
 export function fmtSecs(s) {
   const total = Math.max(0, Math.floor(s));
-  if (total < 60) return "moins d'1 min";
+  if (total < 60) return tr({ fr: "moins d'1 min", en: "less than 1 min" });
   // Une unité inférieure NULLE ne s'écrit pas : « 8 h » et non « 8h 0min ». La
   // version d'origine la gardait toujours, ce qui allongeait inutilement une
   // valeur affichée dans une gouttière de barre latérale.
   const j = Math.floor(total / 86400);
   const h = Math.floor((total % 86400) / 3600);
   const min = Math.floor((total % 3600) / 60);
-  if (j > 0) return h > 0 ? `${j} j ${h} h` : `${j} j`;
+  const uJ = tr({ fr: "j", en: "d" });
+  if (j > 0) return h > 0 ? `${j} ${uJ} ${h} h` : `${j} ${uJ}`;
   if (h > 0) return min > 0 ? `${h} h ${min} min` : `${h} h`;
   return `${min} min`;
+}
+
+// Pas de QUANTIFICATION du délai avant achat (B5), en secondes. Deux raisons,
+// et la seconde est la plus importante :
+//   - lisibilité : un compte à rebours qui bouge d'une seconde sur une échéance
+//     de quarante minutes est du bruit ;
+//   - PERF : la boutique est mémoïsée pour ne PAS se re-rendre au tick. La
+//     signature d'abonnement est construite à partir du LIBELLÉ, donc de la
+//     valeur quantifiée — sans ce pas, elle changerait chaque seconde pour
+//     chaque rangée et on perdrait exactement l'optimisation qu'on protège.
+const ETA_STEP_SECONDS = [
+  [60, 5],       // sous la minute : au pas de 5 s
+  [3600, 60],    // sous l'heure : à la minute
+  [Infinity, 3600] // au-delà : à l'heure
+];
+
+export function quantizeEta(seconds) {
+  const s = Math.max(0, seconds);
+  for (const [limite, pas] of ETA_STEP_SECONDS) {
+    if (s < limite) return Math.ceil(s / pas) * pas;
+  }
+  return s;
+}
+
+// Délai avant achat, quantifié puis mis en mots. Descend SOUS la minute, à la
+// différence de fmtSecs — c'est un compte à rebours, pas un ordre de grandeur —
+// mais lui délègue au-delà, pour qu'il n'existe qu'une seule écriture des
+// heures et des jours dans le jeu.
+export function fmtEta(seconds) {
+  const q = quantizeEta(seconds);
+  if (q < 60) return `${Math.max(5, q)} s`;
+  return fmtSecs(q);
 }
 
 export function labelFor(key) {

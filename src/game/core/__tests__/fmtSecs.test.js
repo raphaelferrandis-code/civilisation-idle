@@ -3,9 +3,15 @@
 // parce que le rapport de reprise (B11) en a besoin aussi : deux copies de ce
 // formatage finiraient par diverger d'une unite.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 
 import { fmtSecs } from "../utils.js";
+import { setLang } from "../i18n.js";
+
+// La langue est POSÉE explicitement (B5) : ces treize chaînes verrouillaient du
+// français sans le dire, alors que fmtSecs est aussi consommé dans des phrases
+// anglaises. La couverture EN vit dans purchaseEta.test.js.
+beforeEach(() => setLang("fr"));
 
 describe("fmtSecs", () => {
   it("n'ecrit jamais une unite inferieure nulle", () => {
