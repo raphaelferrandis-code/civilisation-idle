@@ -13,7 +13,9 @@ import {
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { splashSrcFor } from '../../game/data/pixelSplash.js';
-import { renderCache } from '../../game/core/state.js';
+import { renderCache, buildingById, render, BUY_QUEUE_MAX } from '../../game/core/state.js';
+import { canQueue, toggleBuyQueue, clearBuyQueue } from '../../game/core/actions/buyQueue.js';
+import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
@@ -102,6 +104,36 @@ function BuildingShop() {
   const globalMult = useGameState(() => Number(globalMultiplier().toPrecision(4)));
   const sqrtGlobalMult = Math.sqrt(globalMult);
 
+  // FILE D'ACHATS (C8). On s'abonne à une SIGNATURE (chaîne) et non au tableau :
+  // le sélecteur reconstruirait un tableau neuf à chaque tick, donc un rendu par
+  // seconde de toute la boutique. Ici, rien ne bouge tant que la file ne bouge pas.
+  const queueSig = useGameState((s) => (s.buyQueue || []).map((e) => `${e.id}:${e.amount}`).join("|"));
+  const queue = useMemo(
+    () => (queueSig ? queueSig.split("|").map((part) => {
+      const [id, amount] = part.split(":");
+      return { id, amount: Number(amount) };
+    }) : []),
+    [queueSig]
+  );
+  const queuePosById = useMemo(() => {
+    const map = {};
+    queue.forEach((e, i) => { map[e.id] = i + 1; });
+    return map;
+  }, [queue]);
+  const queueFull = queue.length >= BUY_QUEUE_MAX;
+
+  const handleToggleQueue = (id) => {
+    const res = toggleBuyQueue(id);
+    if (res.full) {
+      pushOutcomeFloat({
+        label: tr({ fr: `File pleine (${BUY_QUEUE_MAX} cibles)`, en: `Queue full (${BUY_QUEUE_MAX} targets)` }),
+        kind: "info"
+      });
+      return;
+    }
+    render();
+  };
+
   const babelActive = isMythEffectActive("mythe_de_babel");
   const babelCat = babelActive ? (babelCategory || "") : "";
 
@@ -173,6 +205,60 @@ function BuildingShop() {
         <BuyToolbar />
       </div>
 
+      {/* LA FILE, en tête et hors des onglets : elle vise des bâtiments de
+          catégories différentes, la ranger dans un onglet la rendrait invisible
+          la moitié du temps. */}
+      {queue.length > 0 && (
+        <div className="shop-queue">
+          <div className="shop-queue-head">
+            <span className="shop-queue-title">
+              {tr({ fr: "File d'achats", en: "Purchase queue" })}
+            </span>
+            <button
+              type="button"
+              className="shop-queue-clear"
+              onClick={() => { clearBuyQueue(); render(); }}
+              title={tr({ fr: "Vider la file", en: "Clear the queue" })}
+            >
+              {tr({ fr: "Vider", en: "Clear" })}
+            </button>
+          </div>
+          <ol className="shop-queue-list">
+            {queue.map((entry, i) => {
+              const b = buildingById[entry.id];
+              if (!b) return null;
+              // « en cours » ne concerne QUE la tête : la file achète dans
+              // l'ordre, et laisser croire que les suivantes progressent en
+              // parallèle serait un mensonge sur ce qui se passe.
+              const lacking = affordability[entry.id];
+              return (
+                <li key={entry.id} className={i === 0 ? "is-current" : ""}>
+                  <span className="sq-rank">{i + 1}</span>
+                  <span className="sq-name">{tr(b.name)}</span>
+                  <span className="sq-amount">×{entry.amount}</span>
+                  <span className="sq-status">
+                    {i > 0
+                      ? tr({ fr: "en attente", en: "waiting" })
+                      : lacking === ""
+                        ? tr({ fr: "finançable", en: "affordable" })
+                        : tr({ fr: "en épargne", en: "saving up" })}
+                  </span>
+                  <button
+                    type="button"
+                    className="sq-remove"
+                    onClick={() => handleToggleQueue(entry.id)}
+                    aria-label={tr({ fr: `Retirer ${tr(b.name)} de la file`, en: `Remove ${tr(b.name)} from the queue` })}
+                    title={tr({ fr: "Retirer de la file", en: "Remove from the queue" })}
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
       <div className="shop-list shop-cat active">
         {visibleBuildings.map((b) => {
           const prices = costById[b.id];
@@ -208,6 +294,10 @@ function BuildingShop() {
               globalMult={globalMult}
               lackingKey={lackingKey}
               pulse={pulse}
+              queuePos={queuePosById[b.id] || 0}
+              queueable={canQueue(b)}
+              queueFull={queueFull}
+              onToggleQueue={handleToggleQueue}
             />
           );
         })}

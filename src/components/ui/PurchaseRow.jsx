@@ -59,7 +59,11 @@ function PurchaseRow({
   tier,
   production,
   lackingKey,
-  pulse
+  pulse,
+  queuePos,
+  queueable,
+  queueFull,
+  onToggleQueue
 }) {
   // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0").
   // Au-delà, compact forcé (fmtShort) : un compteur « full » déborderait la pastille.
@@ -217,6 +221,26 @@ function PurchaseRow({
               ))}
             </span>
           </button>
+          {/* ÉPINGLE (C8) : la file achètera cette cible dès qu'elle sera
+              finançable. Absente pour ce qui ne s'achète pas en masse (coût en
+              Ruines) — la file ne doit jamais ponctionner l'arbre permanent. */}
+          {queueable && (
+            <button
+              type="button"
+              className={`pr-pin${queuePos ? " is-queued" : ""}`}
+              disabled={!queuePos && queueFull}
+              onClick={(e) => { e.stopPropagation(); onToggleQueue(b.id); }}
+              aria-pressed={!!queuePos}
+              title={queuePos
+                ? tr({ fr: `Cible n° ${queuePos} de la file (×${buyAmount === "step" ? nextIn : buyAmount}). Cliquer pour retirer.`, en: `Target #${queuePos} in the queue. Click to remove.` })
+                : queueFull
+                  ? tr({ fr: "La file est pleine : retire une cible d'abord.", en: "The queue is full: remove a target first." })
+                  : tr({ fr: "Épingler : la cité l'achètera dès que ce sera finançable, dans l'ordre de la file.", en: "Pin: the city will buy it as soon as it is affordable, in queue order." })}
+            >
+              <i className="fa-solid fa-thumbtack" aria-hidden="true"></i>
+              {queuePos ? <span className="pr-pin-pos">{queuePos}</span> : null}
+            </button>
+          )}
           <span className="pr-count" title={tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` })} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
             <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
           </span>
@@ -244,7 +268,13 @@ function arePropsEqual(prev, next) {
     prev.tier === next.tier &&
     prev.pulse === next.pulse &&
     prev.globalMult === next.globalMult &&  // production = f(count, globalMult, building)
-    prev.lackingKey === next.lackingKey     // highlight is-lacking par devise
+    prev.lackingKey === next.lackingKey &&  // highlight is-lacking par devise
+    // File d'achats (C8). Sans ces trois-là, l'épingle resterait figée sur son
+    // ancien rang jusqu'au prochain achat : la rangée est mémoïsée, tout ce qui
+    // s'affiche doit être comparé ici.
+    prev.queuePos === next.queuePos &&
+    prev.queueable === next.queueable &&
+    prev.queueFull === next.queueFull
   );
 }
 

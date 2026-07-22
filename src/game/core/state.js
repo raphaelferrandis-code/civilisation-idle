@@ -622,6 +622,12 @@ export const defaultState = () => ({
   // dialogue manuel le pré-sélectionne.
   testamentLegacyId: null,
   buyAmount: 1,
+  // C8 — FILE D'ACHATS : cibles épinglées, [{ id, amount }], au plus 5, achetées
+  // dans l'ordre dès qu'elles sont finançables (actions/buyQueue.js). Remise à
+  // zéro à chaque effondrement (resetTemporaryRunState) : les bâtiments sont
+  // détruits, une file survivante viserait des compteurs repartis de zéro avec
+  // des quantités décidées pour une autre cité.
+  buyQueue: [],
   activeView: "city",
   mourning: false,
   // UI seulement : ids de nœuds de ruines déjà « vus » (animation de croissance
@@ -659,6 +665,13 @@ export const defaultState = () => ({
   olympus: defaultOlympusState()
 });
 
+// Index par id. DÉCLARÉS AVANT `state = load()` : hydrateState tourne au
+// chargement du module et les lit (normalizeBuyQueue) — plus bas, c'est une TDZ,
+// donc une exception dans hydrateState, donc le repli « sauvegarde illisible,
+// partie neuve ». Même raison que OLD_RUIN_NODE_COSTS en tête de fichier.
+export const buildingById = Object.fromEntries(buildings.map((building) => [building.id, building]));
+export const upgradeById = Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]));
+
 export let state = load();
 export let renderCache = {
   cachedRuinEffectsSignature: "",
@@ -687,9 +700,6 @@ export let renderCache = {
 };
 export let gamePaused = false;
 export let collapseInProgress = false;
-
-export const buildingById = Object.fromEntries(buildings.map((building) => [building.id, building]));
-export const upgradeById = Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]));
 
 export function normalizeWonderTiers(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -781,6 +791,33 @@ export function finiteTimestamp(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.min(n, now);
+}
+
+// FILE D'ACHATS (C8) : cinq cibles épinglées, pas plus. Au-delà, la file cesse
+// d'être un plan qu'on tient en tête pour devenir une configuration à
+// administrer — et c'est l'idle qui joue à la place du joueur. Posée ICI et non
+// dans balance.js : ce n'est pas un curseur d'équilibrage mais la borne du
+// normalizeur ci-dessous, et state.js ne peut pas importer actions/buyQueue.js
+// (cycle de modules — c'est lui la racine).
+export const BUY_QUEUE_MAX = 5;
+
+// Normalisation de la file venue d'une save. Une entrée dont le bâtiment
+// n'existe plus, une quantité absurde ou un doublon sont écartés
+// SILENCIEUSEMENT : une file trafiquée ne doit pas pouvoir faire acheter autre
+// chose que ce qui s'affiche au joueur.
+export function normalizeBuyQueue(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const id = String(entry.id || "");
+    if (!buildingById[id] || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, amount: finiteInteger(entry.amount, 1, 1, MAX_BATCH_AMOUNT) });
+    if (out.length >= BUY_QUEUE_MAX) break;
+  }
+  return out;
 }
 
 export function normalizeStringArray(raw, limit = 32, maxLength = 80) {
@@ -1490,6 +1527,9 @@ export function hydrateState(parsed = {}) {
     buyAmount: source.buyAmount === "max" || source.buyAmount === "step"
       ? source.buyAmount
       : finiteInteger(source.buyAmount, 1, 1, MAX_BATCH_AMOUNT),
+    // File d'achats (C8) : ids inconnus, doublons et quantités absurdes écartés
+    // — une file trafiquée ne doit pas acheter autre chose que ce qui s'affiche.
+    buyQueue: normalizeBuyQueue(source.buyQueue),
     activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history"].includes(source.activeView)
       ? source.activeView
       : "city",
@@ -1715,6 +1755,11 @@ export function resetTemporaryRunState(s) {
   s.cycleCrisesResolved = 0;
   s.cityMapSlots = {};
   s.cityArchetype = null;
+  // File d'achats (C8) : les bâtiments viennent d'être détruits. Une file qui
+  // survit viserait des compteurs repartis de zéro, avec des quantités décidées
+  // pour une autre cité — et se paierait sur les premières ressources du cycle,
+  // que le joueur veut placer lui-même.
+  s.buyQueue = [];
   
   s.atlasSkipUsed = false;
   s.atlasFardeau = 0;
