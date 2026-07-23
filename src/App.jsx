@@ -27,14 +27,40 @@ import logoEn from './assets/LOGO_collapse.png';
 // dans OptionsDialog, donc un simple choix au rendu suffit).
 const logoUrl = getLang() === 'en' ? logoEn : logoFr;
 
-const CityView = lazy(() => import('./components/views/CityView.jsx'));
-const RegulationView = lazy(() => import('./components/views/RegulationView.jsx'));
-const PrestigeView = lazy(() => import('./components/views/PrestigeView.jsx'));
-const RuinsView = lazy(() => import('./components/views/RuinsView.jsx'));
-const HeritageView = lazy(() => import('./components/views/HeritageView.jsx'));
-const MythsView = lazy(() => import('./components/views/MythsView.jsx'));
-const ChronicleView = lazy(() => import('./components/views/ChronicleView.jsx'));
-const ComptoirView = lazy(() => import('./components/views/ComptoirView.jsx'));
+// PRÉCHARGEMENT AU SURVOL (E7). Les vues sont découpées en morceaux chargés à
+// la demande : le premier passage sur un onglet paie donc un aller-retour
+// réseau, et l'écran reste vide le temps du Suspense. Survoler suffit à lancer
+// le chargement, ce qui couvre largement le temps qu'on met à cliquer.
+//
+// La table des chargeurs est indexée par identifiant d'onglet, et c'est ELLE
+// que `lazy` consomme : un second `import()` écrit à part créerait une seconde
+// entrée dans le graphe, donc un second morceau, et ne préchargerait rien.
+// `import()` est idempotent — le module reste en cache, survoler dix fois ne
+// déclenche qu'un chargement.
+const VIEW_LOADERS = {
+  city: () => import('./components/views/CityView.jsx'),
+  regulation: () => import('./components/views/RegulationView.jsx'),
+  prestige: () => import('./components/views/PrestigeView.jsx'),
+  ruinsView: () => import('./components/views/RuinsView.jsx'),
+  tech: () => import('./components/views/HeritageView.jsx'),
+  mythView: () => import('./components/views/MythsView.jsx'),
+  history: () => import('./components/views/ChronicleView.jsx'),
+  comptoir: () => import('./components/views/ComptoirView.jsx')
+};
+
+// Un échec de préchargement ne doit RIEN casser : le clic refera l'import et
+// Suspense reprendra la main normalement. Sans ce catch, une coupure réseau
+// pendant un simple survol lèverait un rejet non traité.
+const preloadView = (id) => { VIEW_LOADERS[id]?.().catch(() => {}); };
+
+const CityView = lazy(VIEW_LOADERS.city);
+const RegulationView = lazy(VIEW_LOADERS.regulation);
+const PrestigeView = lazy(VIEW_LOADERS.prestige);
+const RuinsView = lazy(VIEW_LOADERS.ruinsView);
+const HeritageView = lazy(VIEW_LOADERS.tech);
+const MythsView = lazy(VIEW_LOADERS.mythView);
+const ChronicleView = lazy(VIEW_LOADERS.history);
+const ComptoirView = lazy(VIEW_LOADERS.comptoir);
 const OptionsDialog = lazy(() => import('./components/dialogs/OptionsDialog.jsx'));
 const ImportDialog = lazy(() => import('./components/dialogs/ImportDialog.jsx'));
 const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
@@ -262,6 +288,10 @@ export default function App() {
               className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
               disabled={crisisLocked && tab.id !== 'prestige'}
               onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
+              // Préchargement au survol ET au focus (E7) : au clavier on ne
+              // survole jamais, et c'est justement là que l'attente se remarque.
+              onMouseEnter={() => preloadView(tab.id)}
+              onFocus={() => preloadView(tab.id)}
               title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >

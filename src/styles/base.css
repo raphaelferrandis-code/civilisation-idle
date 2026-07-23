@@ -45,6 +45,43 @@
 :root[data-density="aere"] { --density-k: 1.15; }
 :root[data-density="compacte"] { --density-k: 0.78; }
 
+/* ── ARRIVÉE D'UNE VUE (E7) ─────────────────────────────────────────────────
+   Changer d'onglet remplaçait un écran par un autre d'un seul coup, sans que
+   l'œil ait de quoi suivre. Un fondu court avec une montée de quelques pixels
+   suffit à dire « c'est un autre écran » sans faire attendre.
+
+   ⚠ AUCUN WRAPPER. La fiche proposait d'intercaler un <div key={activeView}>.
+   Vérifié : ça casse trois vues par deux mécanismes distincts — le flex de la
+   Régulation, et surtout le translateY qui ferait du div un BLOC CONTENEUR,
+   sous lequel les `inset:0` de la Cité et des Ruines se résoudraient contre une
+   hauteur nulle. Les huit vues portant déjà leur propre racine `.view.active`,
+   on anime cette racine : elle est remontée à chaque changement d'onglet, donc
+   l'animation rejoue toute seule, sans une ligne de JS.
+
+   `will-change` est volontairement absent : la carte tient déjà plusieurs
+   canvas, promouvoir une couche pour 180 ms coûterait plus qu'elle ne rapporte.
+   Le cran « Aucune » du réglage Mouvement coupe ce fondu comme le reste. */
+@keyframes view-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.view.active {
+  animation: view-enter 180ms ease-out;
+}
+
+/* La Cité porte la carte plein cadre : un translateY sur sa racine ferait
+   d'elle un bloc conteneur et casserait le `position: fixed` des couches du
+   canvas. Elle a droit au fondu, jamais au déplacement. */
+@keyframes view-enter-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.view.active#city {
+  animation: view-enter-fade 180ms ease-out;
+}
+
 html,
 body {
   min-height: 100vh;
