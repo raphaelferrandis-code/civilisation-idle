@@ -43,7 +43,24 @@ export function setLang(next) {
   } catch {
     // Sauvegarde impossible (navigation privée) : le choix reste actif en mémoire.
   }
+  applyDocumentLang();
   return lang;
+}
+
+// ── LA LANGUE DÉCLARÉE À LA MACHINE (E8) ────────────────────────────────────
+// `index.html` déclare `lang="fr"` EN DUR et rien ne le corrigeait : un joueur
+// qui bascule en anglais recevait tout le jeu annoncé en français par la
+// synthèse vocale, avec la prononciation française appliquée à des mots
+// anglais. C'est illisible à l'oreille, et invisible à l'œil — donc jamais
+// remonté.
+//
+// Appelé au démarrage ET à chaque changement de langue. Le changement recharge
+// la page en pratique, mais s'appuyer là-dessus ferait dépendre une propriété
+// d'accessibilité d'un effet de bord d'un autre module.
+export function applyDocumentLang() {
+  try {
+    document.documentElement.lang = lang;
+  } catch { /* pas de DOM (tests, worker) : rien à poser */ }
 }
 
 // Cœur du système. Accepte :

@@ -1296,6 +1296,45 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   white-space: nowrap;
 }
 
+/* ── LIEN D'ÉVITEMENT (E8) ──────────────────────────────────────────────────
+   Hors écran tant qu'on ne l'atteint pas au clavier, puis il se pose en haut à
+   gauche. Sans lui, la première tabulation obligeait à traverser les huit
+   onglets et les quatre actions rapides avant d'atteindre le jeu.
+
+   ⚠ Il ne peut PAS être en .sr-only : cette classe le garderait à 1×1 px même
+   focalisé, donc invisible au moment précis où il doit se voir. D'où un
+   déplacement hors cadre, annulé au focus.
+
+   z-index très haut et position fixe : il doit passer au-dessus de la barre
+   latérale, qui est la première chose qu'il recouvre. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font-size: 0.85rem;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 120ms ease-out;
+}
+
+.skip-link:focus {
+  transform: none;
+  outline: 2px solid var(--brand-gold, var(--text-strong));
+  outline-offset: 2px;
+}
+
+/* Le conteneur de vue reçoit le focus par programme au changement d'onglet : il
+   ne doit PAS afficher l'anneau de mise au point, qui n'aurait aucun sens sur
+   une zone entière et clignoterait à chaque navigation. Les éléments FOCALISÉS
+   AU CLAVIER, eux, gardent le leur (:focus-visible ne cible pas ce cas). */
+main:focus { outline: none; }
+
 /* ── L'INFOBULLE UNIQUE (B1) ───────────────────────────────────────────────
    Même recette que .rt-tooltip (arbre des Ruines) : bulle sombre épurée, nom
    puis contenu, en position fixe sous l'élément survolé. Venue de

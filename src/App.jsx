@@ -17,7 +17,7 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
-import { tr, getLang } from './game/core/i18n.js';
+import { tr, getLang, applyDocumentLang } from './game/core/i18n.js';
 import { applyMotionAttribute } from './game/map/ambianceMode.js';
 import { applyDensityAttribute } from './game/core/uiPrefs.js';
 import logoFr from './assets/LOGO.png';
@@ -84,6 +84,10 @@ export default function App() {
   // enregistré une seule fois (deps []) : sans ce relais il capturerait les
   // valeurs du premier rendu et les touches 1-8 viseraient des onglets périmés.
   const navRef = useRef({ tabs: [], crisisLocked: false });
+  const mainRef = useRef(null);
+  // Le tout premier rendu n'est pas un CHANGEMENT de vue : y déplacer le focus
+  // le volerait au chargement, alors que le joueur n'a rien demandé.
+  const premierRenduRef = useRef(true);
 
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   // MODE CONTEMPLATION : toute l'interface s'efface, il ne reste que la ville.
@@ -119,6 +123,26 @@ export default function App() {
     }
   }, [eraIdx]);
 
+  // FOCUS AU CHANGEMENT DE VUE (E8). Sans ça, changer d'onglet au clavier
+  // laissait le focus sur le bouton d'onglet : la tabulation suivante repartait
+  // dans la barre latérale, et on ne pouvait atteindre le contenu qu'en
+  // traversant tous les onglets restants.
+  //
+  // ⚠ preventScroll est OBLIGATOIRE : sans lui, focaliser un conteneur en
+  // hauteur pleine fait sauter la page en haut à chaque changement d'onglet,
+  // ce qui serait une régression bien plus visible que le problème corrigé.
+  useEffect(() => {
+    if (premierRenduRef.current) {
+      premierRenduRef.current = false;
+      return;
+    }
+    try {
+      mainRef.current?.focus({ preventScroll: true });
+    } catch {
+      mainRef.current?.focus();
+    }
+  }, [activeView]);
+
   useEffect(() => {
     // Préférences d'interface (E4) : les attributs sont posés sur <html> AVANT
     // le premier rendu utile, sinon la page s'ouvre en densité normale puis
@@ -126,6 +150,8 @@ export default function App() {
     // module, donc rien à attendre.
     applyMotionAttribute();
     applyDensityAttribute();
+    // La langue déclarée à la machine (E8) : index.html la fige à « fr ».
+    applyDocumentLang();
     initAudio();
     const cleanup = startGameLoop();
 
@@ -225,6 +251,11 @@ export default function App() {
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
+  // Nom de la vue courante, lu à la SOURCE (la table d'onglets) plutôt que
+  // recopié dans une seconde table : un libellé dupliqué finit toujours par
+  // diverger, et c'est le lecteur d'écran qui entendrait l'ancien nom.
+  const activeViewLabel = tr(tabs.find((t) => t.id === activeView)?.label || {});
+
   // Sauvegarde manuelle : un toast, jamais une fenêtre système. L'échec ne passe
   // PAS par ce bus (il s'effacerait au bout de 2,4 s) mais reste affiché dans la
   // pastille de l'encart d'état tant qu'il est vrai.
@@ -269,6 +300,27 @@ export default function App() {
         '--crisis-level': crisisLevel
       }}
     >
+      {/* OSSATURE D'ACCESSIBILITÉ (E8). Le jeu n'avait aucun titre de niveau 1 :
+          un lecteur d'écran annonçait une page sans nom, et les h2 des vues
+          flottaient sous rien. Il est visuellement absent (.sr-only) parce que
+          le logo tient déjà ce rôle à l'œil. */}
+      <h1 className="sr-only">
+        {tr({ fr: "Effondrement Idle", en: "Collapse Idle" })}
+        {" — "}
+        {eras[eraIdx]?.name || ""}
+      </h1>
+      {/* Lien d'évitement : au clavier, la première tabulation permettait
+          seulement de traverser les dix onglets avant d'atteindre le jeu. */}
+      <a className="skip-link" href="#vue-active">
+        {tr({ fr: "Aller au contenu", en: "Skip to content" })}
+      </a>
+      {/* Annonce vocale du changement de vue. `role="status"` (poli) et non
+          `alert` : c'est une confirmation de navigation, elle ne doit pas
+          couper ce que le lecteur est en train de dire. */}
+      <p className="sr-only" role="status">
+        {tr({ fr: `Vue : ${activeViewLabel}`, en: `View: ${activeViewLabel}` })}
+      </p>
+
       {/* Sidebar de navigation */}
       <aside className="sidebar">
         <div className="brand">
@@ -336,7 +388,12 @@ export default function App() {
         </div>
       </aside>
 
-      <main>
+      {/* `id` = cible du lien d'évitement. `tabIndex -1` rend le conteneur
+          focalisable par programme SANS l'insérer dans l'ordre de tabulation :
+          une tabulation ne s'y arrête pas, mais on peut y renvoyer le focus au
+          changement de vue, ce qui fait repartir la navigation clavier du
+          contenu au lieu du logo. */}
+      <main id="vue-active" tabIndex={-1} aria-label={activeViewLabel} ref={mainRef}>
         {finalChronicleTitle && (
           <div className="final-chronicle-title" aria-label="Titre final de la Chronique">
             {finalChronicleTitle}
