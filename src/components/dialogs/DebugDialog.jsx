@@ -11,7 +11,7 @@ import { log } from '../../game/core/actions.js';
 import { D } from '../../game/core/num.js';
 
 export default function DebugDialog({ isOpen, onClose }) {
-  const dialogRef = useDialogModal(isOpen);
+  const dialogRef = useDialogModal(isOpen, onClose);
 
   const handleOverlayClick = (e) => {
     if (e.target === dialogRef.current) {

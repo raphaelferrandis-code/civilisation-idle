@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDialogModal } from '../../hooks/useDialogModal.js';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
@@ -42,7 +42,11 @@ import {
 import { tipProps } from '../ui/HelpBubble.jsx';
 
 export default function OptionsDialog({ isOpen, onClose }) {
-  const dialogRef = useDialogModal(isOpen);
+  const dialogRef = useDialogModal(isOpen, onClose);
+  // Instant d'ouverture : voir handleDialogClick — le clic qui ouvre la fenêtre
+  // retombait sur le fond et la refermait aussitôt.
+  const openedAtRef = useRef(0);
+  useEffect(() => { if (isOpen) openedAtRef.current = Date.now(); }, [isOpen]);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "credits", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
   // Raccourci en cours de réattribution (id), et refus à afficher.
@@ -328,6 +332,13 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleDialogClick = (event) => {
     const dialog = dialogRef.current;
     if (!dialog || event.target !== dialog) return;
+    // ⚠ Le clic qui vient d'OUVRIR la fenêtre retombe sur le fond (::backdrop)
+    // créé à l'instant, dont la cible est la <dialog> elle-même et dont les
+    // coordonnées — celles du bouton Options, en bas à gauche — tombent HORS du
+    // cadre : la fenêtre s'ouvrait puis se refermait dans le même geste, si vite
+    // qu'à l'écran « rien ne s'affichait ». On ignore donc le fond juste après
+    // l'ouverture ; passé ce délai, le clic à côté referme normalement.
+    if (Date.now() - openedAtRef.current < 400) return;
     const rect = dialog.getBoundingClientRect();
     const isInDialog = (
       event.clientX >= rect.left &&

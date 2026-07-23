@@ -10,7 +10,7 @@ import { tr } from '../../game/core/i18n.js';
 //     échoué. Le texte est affiché, sélectionnable et copiable, là où le
 //     `prompt()` natif qu'il remplace volait le focus et tronquait la chaîne.
 export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
-  const dialogRef = useDialogModal(isOpen);
+  const dialogRef = useDialogModal(isOpen, onClose);
   const [text, setText] = useState("");
   const readOnly = readOnlyText !== null;
 

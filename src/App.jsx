@@ -53,6 +53,15 @@ const VIEW_LOADERS = {
 // pendant un simple survol lèverait un rejet non traité.
 const preloadView = (id) => { VIEW_LOADERS[id]?.().catch(() => {}); };
 
+// FILET DE SÉCURITÉ pour les fenêtres montées conditionnellement. Une <dialog>
+// peut être fermée par le NAVIGATEUR (Échap, close() natif) sans que React
+// l'apprenne : l'état reste alors à `true`, le composant reste monté avec sa
+// fenêtre fermée — donc invisible — et un nouveau clic ne change plus rien
+// (même valeur d'état → aucun rendu → jamais rouverte). Le bouton paraît mort
+// jusqu'au rechargement de la page. En repassant par `false`, on garantit un
+// démontage puis un remontage propre, quoi qu'il soit arrivé à l'élément.
+const reopenDialog = (setOpen) => { setOpen(false); setTimeout(() => setOpen(true), 0); };
+
 const CityView = lazy(VIEW_LOADERS.city);
 const RegulationView = lazy(VIEW_LOADERS.regulation);
 const PrestigeView = lazy(VIEW_LOADERS.prestige);
@@ -199,6 +208,9 @@ export default function App() {
         else if (hit.id in BUY_BY_ID) buyAllAffordable(BUY_BY_ID[hit.id]);
         // PAS de `return` : la séquence secrète « debug » contient un « e », qui
         // est aussi un raccourci d'achat. Elle doit continuer d'accumuler.
+        // NB : les touches CAMÉRA (flèches, +/-, recentrage) sont gérées dans le
+        // runtime carte (cityMapRuntime.bindCityMapInput), au plus près du zoom
+        // molette et du drag, et seulement quand la carte est montée.
       }
 
       if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
@@ -380,10 +392,10 @@ export default function App() {
           <button className="btn-tiny" onClick={handleExport} {...tipProps(null, "Exporter")}>
             <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
           </button>
-          <button className="btn-tiny" onClick={() => setIsImportOpen(true)} {...tipProps(null, "Importer")}>
+          <button className="btn-tiny" onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
             <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
-          <button className="btn-tiny" onClick={() => setIsOptionsOpen(true)} {...tipProps(null, "Options")}>
+          <button className="btn-tiny" onClick={() => reopenDialog(setIsOptionsOpen)} {...tipProps(null, "Options")}>
             <PixelIcon name="nav/options" className="qa-icon" /><span className="qa-label">Options</span>
           </button>
         </div>

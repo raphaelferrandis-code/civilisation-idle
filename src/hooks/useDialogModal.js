@@ -4,8 +4,13 @@ import { useEffect, useRef } from 'react';
 // l'ouverture native (showModal/close) sur la prop `isOpen`, en évitant les
 // exceptions (showModal sur un dialogue déjà ouvert, close sur un déjà fermé).
 // Renvoie la ref à poser sur le <dialog>. (ChoiceDialog garde sa propre coquille.)
-export function useDialogModal(isOpen) {
+export function useDialogModal(isOpen, onClose) {
   const dialogRef = useRef(null);
+  // Gardé dans un ref : les appelants passent une lambda (`() => setOpen(false)`),
+  // dont l'identité change à chaque rendu. La mettre en dépendance de l'effet le
+  // relancerait sans cesse — donc fermer puis rouvrir la fenêtre en boucle.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   // Élément qui avait le focus AVANT l'ouverture (E8). Fermer un dialogue
   // renvoyait le focus au début du document : au clavier, il fallait retraverser
   // toute la barre latérale pour revenir au bouton qu'on venait d'actionner.
@@ -14,6 +19,15 @@ export function useDialogModal(isOpen) {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return undefined;
+    // ⚠ LE NAVIGATEUR PEUT FERMER UNE <dialog> TOUT SEUL (Échap, close() natif).
+    // Sans resynchroniser l'état React, `isOpen` resterait à true : le composant
+    // reste monté, la fenêtre fermée — donc invisible — et un nouveau clic ne
+    // change plus rien (même valeur d'état → pas d'effet → jamais rouverte). Le
+    // bouton paraît DÉFINITIVEMENT mort jusqu'au rechargement de la page.
+    // La propriété React `onClose` ne suffit pas ici (l'évènement `close` ne
+    // remonte pas) : c'est pour ça que ChoiceDialog écoute déjà en natif.
+    const handleNativeClose = () => { onCloseRef.current?.(); };
+    dialog.addEventListener("close", handleNativeClose);
     if (isOpen && !dialog.open) {
       // Capturé AVANT showModal : après, le focus est déjà dans le dialogue.
       focusAvantRef.current = document.activeElement;
@@ -28,6 +42,9 @@ export function useDialogModal(isOpen) {
     // qui était le cas de la première version, vérifié en jeu (le focus
     // retombait sur <body>, soit exactement le défaut à corriger).
     return () => {
+      // Écouteur retiré AVANT le close() : sinon la fermeture de nettoyage
+      // rappellerait onClose alors que l'appelant est déjà en train de fermer.
+      dialog.removeEventListener("close", handleNativeClose);
       // Fermer AVANT de rendre le focus : tant qu'une modale est ouverte, le
       // navigateur ignore un focus() posé en dehors d'elle.
       if (dialog.open) dialog.close();
