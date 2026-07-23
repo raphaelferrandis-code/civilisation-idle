@@ -611,6 +611,11 @@ export const defaultState = () => ({
   // remis à null à l'hydratation, sinon un F5 rejouerait le bilan d'une chute
   // déjà annoncée.
   lastCycleReport: null,
+  // Le vœu du cycle (D2) : objectif court terme volontaire, choisi parmi trois au
+  // début du cycle. Champ de RUN — meurt à l'effondrement (resetTemporaryRunState)
+  // et au Grand Reset (hors GR_PERSISTENT_FIELDS). null tant qu'aucun n'est tiré ;
+  // { offered:[{id,target,base}], chosen:{id,target,base}|null, done:bool }.
+  cycleVow: null,
   cyclePeaks: {
     population: new Decimal(10),
     food: new Decimal(12),
@@ -681,6 +686,60 @@ export const defaultState = () => ({
 // partie neuve ». Même raison que OLD_RUIN_NODE_COSTS en tête de fichier.
 export const buildingById = Object.fromEntries(buildings.map((building) => [building.id, building]));
 export const upgradeById = Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]));
+
+// ⚠ MIGRATIONS DOIT RESTER AU-DESSUS DE `load()` (juste en dessous). C'est un
+// `const` : il n'est initialisé qu'à la ligne où il est écrit. Déclaré plus bas
+// dans le fichier — ce qui était le cas — `load()` (ligne suivante, exécutée à
+// l'ÉVALUATION DU MODULE) tombait sur « Cannot access 'MIGRATIONS' before
+// initialization » dès qu'une sauvegarde demandait une migration, c'est-à-dire
+// pour TOUTE sauvegarde plus ancienne que CURRENT_SAVE_VERSION. Le jeu concluait
+// « sauvegarde illisible », archivait la partie sous ...-corrupt-backup et
+// repartait à zéro. Même piège que OLD_RUIN_NODE_COSTS en tête de fichier.
+// Ses dépendances sont sûres : DECIMAL_SAVE_FIELDS est un const de la ligne 38,
+// isPlainObject et normalizeMythsCompleted sont des déclarations de fonction
+// (hoistées, donc utilisables avant leur ligne).
+//
+// Clé = version DE DÉPART ; la fonction transforme (en place) un save de cette
+// version vers la version+1. Pour passer à la v2, écris MIGRATIONS[1] = (s) => {...}
+// (ex. renommer un champ, recalculer une valeur rééquilibrée…).
+//
+// La v0 désigne les anciens saves sans champ `saveVersion`. Le passage 0 -> 1
+// ne nécessite AUCUNE transformation : les normalizers de hydrateState rendent
+// déjà ces saves compatibles. On se contente donc d'estampiller la version.
+const MIGRATIONS = {
+  // 0: (s) => { /* aucune transformation : géré par les normalizers */ },
+  // 1 -> 2 : les champs numériques sans plafond deviennent des strings Decimal.
+  // decimalField() accepte les deux formes ; cette migration rend simplement le
+  // format v2 canonique pour que tout save réécrit soit homogène.
+  1: (s) => {
+    for (const field of DECIMAL_SAVE_FIELDS) {
+      if (typeof s[field] === "number" && Number.isFinite(s[field])) s[field] = String(s[field]);
+    }
+    if (isPlainObject(s.cyclePeaks)) {
+      // migrate() ne copie que le premier niveau : on clone avant de muter.
+      s.cyclePeaks = { ...s.cyclePeaks };
+      for (const field of ["population", "food", "gold", "knowledge", "infrastructure"]) {
+        const value = s.cyclePeaks[field];
+        if (typeof value === "number" && Number.isFinite(value)) s.cyclePeaks[field] = String(value);
+      }
+    }
+  },
+  // 2 -> 3 : vestiges compacts (footprint + métadonnées). Aucune transformation
+  // ici : normalizeVestiges (hydrateState) rétro-convertit les anciens {gridN, ruins[]}.
+  //
+  // 3 -> 4 : rétro-correctif des « Braisiers ancestraux ». `prometheeBraisiers` est
+  // un héritage PERMANENT (il figure dans GR_PERSISTENT_FIELDS) mais il était listé
+  // dans resetTemporaryRunState, qui tourne à la fin du MÊME effondrement que
+  // applyHeritage — le drapeau était donc posé puis effacé, et aucune save existante
+  // ne peut le porter à true. Il ne peut pas non plus se regagner : activateMyth
+  // (actions/myths.js) refuse un Mythe déjà complété, donc applyHeritage ne rejoue
+  // jamais. On le re-dérive de mythsCompleted, seule trace survivante de la réussite.
+  3: (s) => {
+    if (s.prometheeBraisiers) return;
+    const completed = normalizeMythsCompleted(s.mythsCompleted);
+    if (completed["mythe_de_promethee"]) s.prometheeBraisiers = true;
+  },
+};
 
 export let state = load();
 export let renderCache = {
@@ -1062,6 +1121,28 @@ export function normalizePrevCycle(raw) {
   };
 }
 
+// Le vœu du cycle (D2). Validation de FORME seule, sans connaître la table des
+// vœux : un id persisté qui n'existe plus se résout en « aucun vœu » au runtime
+// (vowById → null), donc importer vows.js ici (et créer un cycle state↔vows)
+// serait inutile.
+function normalizeVowEntry(raw) {
+  if (!isPlainObject(raw) || typeof raw.id !== "string") return null;
+  return {
+    id: raw.id.slice(0, 40),
+    target: finiteNumber(raw.target, 0, -1e6, 1e6),
+    base: finiteNumber(raw.base, 0, -1e6, 1e6),
+  };
+}
+export function normalizeCycleVow(raw) {
+  if (!isPlainObject(raw)) return null;
+  const offered = Array.isArray(raw.offered)
+    ? raw.offered.slice(0, 3).map(normalizeVowEntry).filter(Boolean)
+    : [];
+  const chosen = normalizeVowEntry(raw.chosen);
+  if (!offered.length && !chosen) return null;
+  return { offered, chosen, done: Boolean(raw.done) };
+}
+
 // Vestige = « record de cité morte » compact (v3). On garde 3 civilisations max.
 // Rétro-compat : un vestige v2 { gridN, ruins:[{x,y}] } est converti en footprint
 // (bbox des ruines) + métadonnées par défaut ; le lourd tableau ruins est jeté.
@@ -1217,48 +1298,8 @@ export function normalizeChronicleEntries(raw) {
     .slice(0, 250);
 }
 
-// Migrations séquentielles du schéma de sauvegarde.
-// Clé = version DE DÉPART ; la fonction transforme (en place) un save de cette
-// version vers la version+1. Pour passer à la v2, écris MIGRATIONS[1] = (s) => {...}
-// (ex. renommer un champ, recalculer une valeur rééquilibrée…).
-//
-// La v0 désigne les anciens saves sans champ `saveVersion`. Le passage 0 -> 1
-// ne nécessite AUCUNE transformation : les normalizers de hydrateState rendent
-// déjà ces saves compatibles. On se contente donc d'estampiller la version.
-const MIGRATIONS = {
-  // 0: (s) => { /* aucune transformation : géré par les normalizers */ },
-  // 1 -> 2 : les champs numériques sans plafond deviennent des strings Decimal.
-  // decimalField() accepte les deux formes ; cette migration rend simplement le
-  // format v2 canonique pour que tout save réécrit soit homogène.
-  1: (s) => {
-    for (const field of DECIMAL_SAVE_FIELDS) {
-      if (typeof s[field] === "number" && Number.isFinite(s[field])) s[field] = String(s[field]);
-    }
-    if (isPlainObject(s.cyclePeaks)) {
-      // migrate() ne copie que le premier niveau : on clone avant de muter.
-      s.cyclePeaks = { ...s.cyclePeaks };
-      for (const field of ["population", "food", "gold", "knowledge", "infrastructure"]) {
-        const value = s.cyclePeaks[field];
-        if (typeof value === "number" && Number.isFinite(value)) s.cyclePeaks[field] = String(value);
-      }
-    }
-  },
-  // 2 -> 3 : vestiges compacts (footprint + métadonnées). Aucune transformation
-  // ici : normalizeVestiges (hydrateState) rétro-convertit les anciens {gridN, ruins[]}.
-  //
-  // 3 -> 4 : rétro-correctif des « Braisiers ancestraux ». `prometheeBraisiers` est
-  // un héritage PERMANENT (il figure dans GR_PERSISTENT_FIELDS) mais il était listé
-  // dans resetTemporaryRunState, qui tourne à la fin du MÊME effondrement que
-  // applyHeritage — le drapeau était donc posé puis effacé, et aucune save existante
-  // ne peut le porter à true. Il ne peut pas non plus se regagner : activateMyth
-  // (actions/myths.js) refuse un Mythe déjà complété, donc applyHeritage ne rejoue
-  // jamais. On le re-dérive de mythsCompleted, seule trace survivante de la réussite.
-  3: (s) => {
-    if (s.prometheeBraisiers) return;
-    const completed = normalizeMythsCompleted(s.mythsCompleted);
-    if (completed["mythe_de_promethee"]) s.prometheeBraisiers = true;
-  },
-};
+// (MIGRATIONS est déclaré PLUS HAUT, juste avant `state = load()` — voir le
+// commentaire là-bas : ici, il serait initialisé trop tard.)
 
 // Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à
 // CURRENT_SAVE_VERSION en appliquant les migrations dans l'ordre.
@@ -1539,6 +1580,7 @@ export function hydrateState(parsed = {}) {
     history: normalizeHistory(source.history, base.history),
     bestEraIndex: finiteInteger(source.bestEraIndex, base.bestEraIndex, 0, Math.max(0, eras.length - 1)),
     prevCycle: normalizePrevCycle(source.prevCycle),
+    cycleVow: normalizeCycleVow(source.cycleVow),
     lastCycleReport: null,   // transitoire : jamais rejoué au rechargement
     cyclePeaks: normalizeCyclePeaks(source.cyclePeaks, base.cyclePeaks),
     cycleStartedAt: finiteTimestamp(source.cycleStartedAt, base.cycleStartedAt),
@@ -1775,6 +1817,11 @@ export function resetTemporaryRunState(s) {
   s.crisisOpenedAt = null;
   s.archaeologyUses = 0;
   s.cycleCrisesResolved = 0;
+  // Le vœu du cycle (D2) meurt avec la civilisation : completeCollapse en tire un
+  // nouveau juste après. Rangé ici (et non en champ éternel) → il disparaît aussi
+  // quand resetCivilization scelle un pacte, ce qui est voulu (le pacte a ses
+  // propres règles) ; le prochain cycle en reproposera un.
+  s.cycleVow = null;
   s.cityMapSlots = {};
   s.cityArchetype = null;
   // File d'achats (C8) : les bâtiments viennent d'être détruits. Une file qui
