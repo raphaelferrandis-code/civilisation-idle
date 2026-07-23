@@ -35,4 +35,14 @@ export default defineConfig([
     files: ['vite.config.js'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Les tests tournent sous Vitest, donc sous NODE et non dans le navigateur.
+    // Plusieurs lisent le disque pour se confronter au vrai contenu du dépôt
+    // (les variantes d'icônes vérifient les PNG cuits et la feuille de style
+    // elle-même), ce qui demande fs, path et __dirname. Sans ce bloc ils sont
+    // criblés de faux `no-undef` — et c'est exactement ce qui a fait passer la
+    // CI au rouge, sans que `eslint src` le montre.
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+  },
 ])

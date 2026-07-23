@@ -37,6 +37,7 @@ const SIZE_BY_CLASS = {
 
 const DEFAULT_SIZE = 16;
 
+// eslint-disable-next-line react-refresh/only-export-components -- fonction pure exportée pour sa porte de test (pixelIconSizes) ; le Fast Refresh dev n'en pâtit pas, même précédent que tipProps dans HelpBubble.jsx
 export function resolveIconSrc(name, className = '', size) {
   const family = String(name).split('/')[0];
   if (!FAMILIES_WITH_VARIANTS.has(family)) return `/pixelart/ui/${name}.png`;
