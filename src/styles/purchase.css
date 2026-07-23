@@ -22,6 +22,59 @@
   isolation: isolate;
 }
 
+/* ── ÉTAT D'ACHAT LISIBLE SANS LA COULEUR (E5) ──────────────────────────────
+   Le jeu se joue sous une vignette de crise rouge, et le mode deuil passe
+   l'application ENTIÈRE en grayscale : une teinte n'y survit pas. Le pip porte
+   donc une FORME différente par état, la couleur n'étant qu'un renfort.
+     achetable — disque plein
+     bientôt   — anneau creux
+     verrouillé— simple tiret
+
+   ⚠ ÉLÉMENT DÉDIÉ, PAS UN PSEUDO. La fiche demandait un ::before « sans nouvel
+   élément JSX » : les DEUX pseudos de .purchase-row sont pris par le splash-art
+   (::before = le filigrane, ::after = le dégradé de lisibilité posé en inset:0
+   et z-index:-1). Mesuré en jeu, s'y greffer effaçait ce dégradé sur les dix
+   cartes et envoyait le pip derrière le contenu, au mauvais coin. Un span de
+   8 px en position absolue ne dérange aucune grille : la contrainte de la
+   fiche visait ce risque-là, pas l'élément lui-même.
+
+   aria-hidden côté JSX : l'état est déjà dit en toutes lettres par le libellé
+   d'échéance et par le bouton d'achat. */
+.pr-state-pip {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.6rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state-locked);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.purchase-row[data-state="affordable"] .pr-state-pip {
+  background: var(--state-affordable);
+  opacity: 1;
+  box-shadow: 0 0 5px color-mix(in srgb, var(--state-affordable) 60%, transparent);
+}
+
+.purchase-row[data-state="soon"] .pr-state-pip {
+  background: transparent;
+  border: 2px solid var(--state-soon);
+  opacity: 1;
+}
+
+/* Verrouillé : ni disque ni anneau, un tiret. La différence se voit au premier
+   coup d'œil même en niveaux de gris. */
+.purchase-row[data-state="locked"] .pr-state-pip {
+  top: 0.85rem;
+  width: 9px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--state-locked);
+  opacity: 0.7;
+}
+
 /* Pied de carte : bouton d'achat (gauche) + compteur possédé (droite), collé en bas. */
 .pr-footer {
   display: flex;

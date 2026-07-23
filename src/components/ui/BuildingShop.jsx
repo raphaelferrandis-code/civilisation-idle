@@ -17,7 +17,13 @@ import { renderCache, buildingById, render, BUY_QUEUE_MAX } from '../../game/cor
 import { canQueue, toggleBuyQueue, clearBuyQueue } from '../../game/core/actions/buyQueue.js';
 import { buyableInMass } from '../../game/core/actions/building.js';
 import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
-import { fmtEta, labelFor } from '../../game/core/utils.js';
+import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
+
+// Seuil de l'état « bientôt » (E5) : payable en moins d'une minute au rythme
+// actuel. Une minute est le palier de quantizeEta juste au-dessus des pas de
+// 5 s, donc le seuil tombe pile sur une frontière de quantification et ne peut
+// pas osciller.
+const SOON_ETA_SECONDS = 60;
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
@@ -195,9 +201,12 @@ function BuildingShop() {
   // signature plusieurs fois par seconde, et on perdrait exactement le `memo()`
   // sans props qui protège la boutique du tick.
   //
-  // La signature est bâtie sur le LIBELLÉ, donc sur la valeur déjà QUANTIFIÉE
-  // (fmtEta) : quantifier après coup ne servirait à rien, la comparaison porte
-  // sur ce qui est comparé, pas sur ce qui est affiché.
+  // La signature est bâtie sur la valeur QUANTIFIÉE et non sur les secondes
+  // brutes : quantifier après coup ne servirait à rien, la comparaison porte
+  // sur ce qui est comparé, pas sur ce qui est affiché. On y met les secondes
+  // quantifiées plutôt que le libellé (E5) : c'est la MÊME source de stabilité,
+  // mais elle reste exploitable pour décider de l'état « bientôt », alors que
+  // le libellé est une phrase TRADUITE qu'il faudrait parser.
   const etaSig = useGameState(() => {
     if (crisisFrozen) return "";
     const parts = [];
@@ -205,12 +214,27 @@ function BuildingShop() {
       if (affordability[b.id] === "") continue;       // payable : rien à annoncer
       if (!buyableInMass(b)) continue;                // coûte des Ruines : elles tombent, elles ne coulent pas
       const res = purchaseEta(costById[b.id]);
-      if (res.kind === ETA_SECONDS) parts.push(`${b.id}=${fmtEta(res.seconds)}`);
+      if (res.kind === ETA_SECONDS) parts.push(`${b.id}=${quantizeEta(res.seconds)}`);
       else if (res.kind === ETA_NO_INCOME) parts.push(`${b.id}=~${res.currency}`);
       else if (res.kind === ETA_UNREACHABLE) parts.push(`${b.id}=!`);
     }
     return parts.join("|");
   });
+
+  // Rangées « bientôt » (E5) : payables sous une minute au rythme actuel. Le
+  // seuil est comparé à l'échéance DÉJÀ QUANTIFIÉE, ce qui règle gratuitement
+  // le Risque de la fiche — un seuil posé sur les secondes brutes basculerait
+  // d'un tick à l'autre et ferait clignoter la rangée.
+  const soonById = useMemo(() => {
+    const map = {};
+    if (!etaSig) return map;
+    for (const part of etaSig.split("|")) {
+      const [id, valeur] = part.split("=");
+      const secondes = Number(valeur);
+      if (Number.isFinite(secondes) && secondes <= SOON_ETA_SECONDS) map[id] = true;
+    }
+    return map;
+  }, [etaSig]);
 
   const etaById = useMemo(() => {
     const map = {};
@@ -228,7 +252,7 @@ function BuildingShop() {
         // de départ de chaque cycle — « hors de portée » y serait faux et
         // décourageant.
         ? tr({ fr: `pas encore de ${labelFor(valeur.slice(1))}`, en: `no ${labelFor(valeur.slice(1))} income yet` })
-        : tr({ fr: `payable dans ${valeur}`, en: `affordable in ${valeur}` });
+        : tr({ fr: `payable dans ${fmtEta(Number(valeur))}`, en: `affordable in ${fmtEta(Number(valeur))}` });
     }
     return map;
   }, [etaSig]);
@@ -356,6 +380,11 @@ function BuildingShop() {
               buyAmount={buyAmount}
               affordable={isAffordable}
               babelBlocked={babelBlocked}
+              // E5 : Babel prime sur « bientôt ». Une catégorie interdite par
+              // le Mythe n'est pas une question d'argent, et annoncer une
+              // échéance courte sur une rangée qu'on ne peut PAS acheter serait
+              // le mensonge le plus agaçant de la boutique.
+              rowState={isAffordable ? "affordable" : (!babelBlocked && soonById[b.id]) ? "soon" : "locked"}
               milestoneInfo={milestoneInfo}
               step={milestoneStep}
               tier={milestoneTier}

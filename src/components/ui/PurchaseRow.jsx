@@ -55,6 +55,10 @@ function PurchaseRow({
   buyAmount,
   affordable,
   babelBlocked,
+  // Trois états lisibles SANS la couleur (E5) : "affordable", "soon", "locked".
+  // Calculé par le parent, qui seul dispose de l'échéance en secondes ; le
+  // déduire ici du libellé d'ETA obligerait à parser une phrase TRADUITE.
+  rowState = "locked",
   milestoneInfo,
   step,
   tier,
@@ -136,10 +140,19 @@ function PurchaseRow({
   return (
     <article
       className={rowClass}
+      // ÉTAT LISIBLE SANS LA COULEUR (E5). `is-affordable` / `is-locked-cost`
+      // ne portaient qu'une teinte, et le jeu se joue sous vignette de crise
+      // rouge et en mode deuil (l'application entière passe en grayscale) : la
+      // couleur y disparaît purement et simplement. `data-state` porte les
+      // TROIS états et le CSS y accroche une FORME, pas une nuance.
+      data-state={rowState}
       data-tier={tier > 0 ? tier : undefined}
       style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
       onPointerDown={handleRowPointerDown}
     >
+      {/* Pastille d'état (E5). Purement visuelle : l'état est déjà dit en
+          toutes lettres par le libellé d'échéance et par le bouton d'achat. */}
+      <span className="pr-state-pip" aria-hidden="true" />
       <div className="pr-name-row">
         <h3 className="pr-name" {...tipProps(tr(b.name), tr(b.desc))}>{tr(b.name)}</h3>
         {milestoneInfo && (
@@ -326,7 +339,11 @@ function arePropsEqual(prev, next) {
     // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
     // une primitive. L'oublier ici figerait le compte à rebours sur sa première
     // valeur jusqu'au prochain achat, en silence.
-    prev.etaLabel === next.etaLabel
+    prev.etaLabel === next.etaLabel &&
+    // État à trois valeurs (E5). Même piège que l'ETA juste au-dessus : la
+    // rangée est mémoïsée, donc TOUT ce qui s'affiche doit être comparé ici,
+    // sinon le pip reste figé sur son premier état jusqu'au prochain achat.
+    prev.rowState === next.rowState
   );
 }
 
