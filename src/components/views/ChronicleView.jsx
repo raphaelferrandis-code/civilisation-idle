@@ -6,7 +6,8 @@ import {
   ruinMultiplier,
   heritageQuality,
   totalBuildingCount,
-  globalMultiplier
+  globalMultiplier,
+  globalMultiplierBreakdown
 } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { renderCache, state } from '../../game/core/state.js';
@@ -70,6 +71,97 @@ function StatSection({ title, hint, children }) {
   );
 }
 
+// ── ANATOMIE DU MULTIPLICATEUR (B2) ─────────────────────────────────────────
+// « ×47 » ne disait pas d'où il venait. Seize facteurs sont calculés puis
+// écrasés en un produit, et la tuile se contentait d'une phrase en prose qui
+// énumérait des sources sans un seul chiffre.
+//
+// UN FACTEUR NE SE LIT PAS COMME UNE PRESSION : multLabel rend « +X % » et pct
+// clampe à 999 %, or un facteur ici vaut 0,5 (l'Hiver Fimbul divise) comme 40.
+// D'où cette écriture locale, en ×, avec la précision qui suit l'ordre de
+// grandeur — trois décimales sur un ×1,002 qu'on écraserait sinon à ×1.
+function fmtFactor(v) {
+  if (!Number.isFinite(v)) return tr({ fr: "au delà du float", en: "beyond float" });
+  if (v === 1) return "×1";
+  const abs = Math.abs(v);
+  const dec = abs >= 100 ? 0 : abs >= 10 ? 1 : abs >= 1.1 ? 2 : 3;
+  return `×${v.toFixed(dec)}`;
+}
+
+function FactorRow({ label, value, sub = false }) {
+  return (
+    <div className={`mult-row${sub ? ' mult-row--sub' : ''}`}>
+      <span className="mult-row-label">{tr(label)}</span>
+      <span className={`mult-row-value${value < 1 ? ' is-malus' : ''}`}>{fmtFactor(value)}</span>
+    </div>
+  );
+}
+
+// Composant SÉPARÉ, jamais niché dans CivilizationReview : celui-ci s'abonne à
+// playTimeSec et se re-rend chaque seconde. Ici l'abonnement porte sur une
+// SIGNATURE quantifiée du total, donc le panneau ne se redessine que quand un
+// facteur bouge vraiment.
+function MultiplierAnatomy() {
+  useGameState(() => {
+    const m = globalMultiplier();
+    return Number.isFinite(m) ? Math.round(m * 1000) : String(m);
+  });
+  const { factors, parts, product } = globalMultiplierBreakdown();
+  // Un facteur à 1 ne multiplie rien : l'afficher noierait les 3 qui comptent
+  // sous 13 lignes inertes.
+  const actifs = factors.filter((f) => f.value !== 1);
+  const arbreActif = factors.some((f) => f.key === "ruinTree" && f.value !== 1);
+
+  return (
+    <div className="chronicle-bilan-section mult-anatomy">
+      <div className="chronicle-bilan-head" {...tipProps(
+        tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" }),
+        tr({
+          fr: "Le détail du multiplicateur GLOBAL. D'autres bonus agissent en dehors de lui, par ressource, et ne figurent pas ici.",
+          en: "The breakdown of the GLOBAL multiplier. Other bonuses act outside it, per resource, and are not listed here."
+        })
+      )}>
+        <h3>{tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" })}</h3>
+      </div>
+      <div className="mult-rows">
+        {actifs.length === 0 ? (
+          <p className="mult-empty">
+            {tr({
+              fr: "Rien ne multiplie encore la production. Les ruines, l'infrastructure et les Grands Resets ouvriront cette liste.",
+              en: "Nothing multiplies production yet. Ruins, infrastructure and Grand Resets will open this list."
+            })}
+          </p>
+        ) : (
+          actifs.map((f) => (
+            <div key={f.key}>
+              <FactorRow label={f.label} value={f.value} />
+              {/* L'Arbre des Ruines entre dans le produit d'un bloc : ses
+                  composantes sont montrées en retrait, elles ne s'additionnent
+                  pas à la liste principale. */}
+              {f.key === "ruinTree" && arbreActif && parts.filter((p) => p.value !== 1).map((p) => (
+                <FactorRow key={p.key} label={p.label} value={p.value} sub />
+              ))}
+            </div>
+          ))
+        )}
+        <div className="mult-row mult-row--total">
+          <span className="mult-row-label">{tr({ fr: "Produit", en: "Product" })}</span>
+          <span className="mult-row-value">{fmtFactor(product)}</span>
+        </div>
+      </div>
+      {/* LA RÈGLE QUE LA TUILE TAISAIT. rates.js n'applique que sa RACINE à la
+          Nourriture et au Trésor : écrire « multiplicateur de production » sans
+          le dire apprend une fausse leçon au joueur qui arbitre ses achats. */}
+      <p className="mult-note">
+        {tr({
+          fr: `La Nourriture et le Trésor n'en reçoivent que la racine, soit ${fmtFactor(Math.sqrt(product))}.`,
+          en: `Food and Treasury only receive its square root, that is ${fmtFactor(Math.sqrt(product))}.`
+        })}
+      </p>
+    </div>
+  );
+}
+
 // Bilan de la Civilisation — les statistiques idle de la partie (cycle en
 // cours / records / projection d'effondrement / dynastie). Déplacé ici depuis
 // l'onglet Effondrement (demande Raph 2026-07-10) : la Chronique est le
@@ -120,7 +212,10 @@ function CivilizationReview() {
           label={tr({ fr: "Multi. de production", en: "Production multi." })}
           value={`x${fmt(globalMultiplier())}`}
           icon="glyphs/mult"
-          hint={tr({ fr: "Multiplicateur global appliqué à toute la production (ruines, ères, merveilles, routes…).", en: "Global multiplier applied to all production (ruins, eras, wonders, roads…)." })}
+          // L'ancienne prose énumérait des sources sans un chiffre (« ruines,
+          // ères, merveilles, routes… »). Le détail chiffré vit maintenant dans
+          // l'Anatomie, juste en dessous : cette bulle n'a plus qu'à y renvoyer.
+          hint={tr({ fr: "Multiplicateur global appliqué à toute la production. Son détail facteur par facteur est dans l'Anatomie, plus bas.", en: "Global multiplier applied to all production. Its factor by factor breakdown is in the Anatomy, below." })}
         />
         <StatTile
           label={tr({ fr: "Crises stabilisées", en: "Crises stabilized" })}
@@ -412,6 +507,7 @@ export default function ChronicleView() {
   return (
     <section className="view active" id="history">
       <CivilizationReview />
+      <MultiplierAnatomy />
       <TempleRegistry />
 
       <div className="panel">

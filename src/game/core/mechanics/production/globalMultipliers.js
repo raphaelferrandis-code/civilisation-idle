@@ -178,7 +178,12 @@ function globalScalarFactors() {
   // moitié — c'est la pression centrale du boss final (le revenu passif ne suffit
   // plus, il faut le Comptoir, les jeux du temple et les héritages).
   const fimbulMult = ragnarokWinterMult();
-  return { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, fimbulMult };
+  // `ruinTreeParts` sert UNIQUEMENT à l'affichage (B2) : le produit continue de
+  // consommer `ruinTreeMult` d'un bloc, donc l'associativité ne bouge pas. Les
+  // deux déstructurations ci-dessous nomment leurs clés, cet ajout leur est
+  // invisible.
+  const ruinTreeParts = { braise, vestiges: vestigeMult, regrowth: regrowthMult, abyssDogma: abyssDogmaMult };
+  return { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, ruinTreeParts, fimbulMult };
 }
 
 export function globalMultiplier() {
@@ -187,6 +192,85 @@ export function globalMultiplier() {
   renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult;
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
+}
+
+// ── ANATOMIE DU MULTIPLICATEUR (B2) ─────────────────────────────────────────
+// Seize facteurs sont calculés puis écrasés en un seul produit opaque : le
+// joueur lit « ×47 » sans savoir ce qui le compose, ni où pousser.
+//
+// ⚠ CETTE FONCTION NE PARTICIPE PAS AU CALCUL. Elle recalcule sa propre copie
+// du produit au lieu de réutiliser celui de la ligne du dessus, et c'est
+// VOLONTAIRE : l'ordre des facteurs y est verrouillé bit-à-bit par
+// decimal.parity et economy.golden (STABLE_SIG à 12 chiffres). Refactoriser le
+// produit pour le partager déplacerait les derniers chiffres et casserait des
+// instantanés qui n'ont rien à voir avec l'affichage. Le prix de ce choix est
+// une duplication qui peut dériver ; c'est exactement ce que verrouille
+// globalMultiplierBreakdown.test.js, qui compare les deux à 1e-12 près.
+//
+// ⚠ ON NE RAPPELLE PAS globalMultiplier() POUR LE TOTAL. globalScalarFactors
+// lit Date.now() (fenêtres Atrides à 120 s, Énée, Cendres fertiles) et le total
+// est caché par frame : additionner un total caché à des sous-facteurs relus
+// plus tard donnerait une pile qui ne se multiplie pas à son propre total, pile
+// au moment où une fenêtre expire. Ici tout vient du MÊME appel.
+//
+// `ruinTreeMult` reste UN facteur dans le produit, mais ses quatre composantes
+// sont exposées à part pour l'affichage : les éclater dans le produit changerait
+// l'associativité.
+const BREAKDOWN_LABELS = {
+  ruins:        { fr: "Ruines",                en: "Ruins" },
+  market:       { fr: "Bureaucratie",          en: "Bureaucracy" },
+  roads:        { fr: "Réseau routier",        en: "Road network" },
+  infra:        { fr: "Infrastructure",        en: "Infrastructure" },
+  recurringAge: { fr: "Âges récurrents",       en: "Recurring ages" },
+  ruinEffects:  { fr: "Effets de ruines",      en: "Ruin effects" },
+  ruinTree:     { fr: "Arbre des Ruines",      en: "Ruins tree" },
+  unspentRuins: { fr: "Ruines non dépensées",  en: "Unspent ruins" },
+  grandReset:   { fr: "Grands Resets",         en: "Grand Resets" },
+  icare:        { fr: "Vol d'Icare",           en: "Icarus flight" },
+  atrides:      { fr: "Atrides",               en: "Atreides" },
+  pact:         { fr: "Pacte Atrides",         en: "Atreides pact" },
+  nextRunPenalty: { fr: "Dette des Atrides",   en: "Atreides debt" },
+  enee:         { fr: "Héritage d'Énée",       en: "Aeneas heritage" },
+  olympus:      { fr: "Olympe",                en: "Olympus" },
+  fimbul:       { fr: "Hiver Fimbul",          en: "Fimbulwinter" }
+};
+
+// Sous-facteurs de l'Arbre des Ruines, affichés en retrait sous leur agrégat.
+const RUIN_TREE_LABELS = {
+  braise:      { fr: "Sève de braise",      en: "Ember sap" },
+  vestiges:    { fr: "Nécropole vivante",   en: "Living necropolis" },
+  regrowth:    { fr: "Cendres fertiles",    en: "Fertile ashes" },
+  abyssDogma:  { fr: "Abîme assumé",        en: "Embraced abyss" }
+};
+
+export function globalMultiplierBreakdown() {
+  const s = globalScalarFactors();
+  // Mêmes appels, MÊME ORDRE que le produit de globalMultiplier.
+  const factors = [
+    ["ruins",          ruinMultiplier()],
+    ["market",         marketMultiplier()],
+    ["roads",          roadNetworkMultiplier()],
+    ["infra",          infraMultiplier()],
+    ["recurringAge",   s.recurringAgeBonus],
+    ["ruinEffects",    ruinEffectMultiplier("globalMult")],
+    ["ruinTree",       s.ruinTreeMult],
+    ["unspentRuins",   unspentRuinsPowerMultiplier()],
+    ["grandReset",     grandResetMultiplier()],
+    ["icare",          s.icareMult],
+    ["atrides",        s.atridesMult],
+    ["pact",           s.pactMult],
+    ["nextRunPenalty", s.nextRunPenaltyMult],
+    ["enee",           s.eneeBoost],
+    ["olympus",        olympusAbyssProductionMultiplier()],
+    ["fimbul",         s.fimbulMult]
+  ];
+  let product = 1;
+  for (const [, value] of factors) product *= value;
+  return {
+    factors: factors.map(([key, value]) => ({ key, label: BREAKDOWN_LABELS[key], value })),
+    parts: Object.entries(s.ruinTreeParts).map(([key, value]) => ({ key, label: RUIN_TREE_LABELS[key], value })),
+    product
+  };
 }
 
 // Miroir Decimal de globalMultiplier pour le chemin tardif (au-delà du float).

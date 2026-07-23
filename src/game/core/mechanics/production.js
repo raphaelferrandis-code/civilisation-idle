@@ -43,7 +43,8 @@ export {
   nomadInfrastructureCap,
   enforceInfrastructureCap,
   globalMultiplier,
-  globalMultiplierDec
+  globalMultiplierDec,
+  globalMultiplierBreakdown
 } from './production/globalMultipliers.js';
 
 export {

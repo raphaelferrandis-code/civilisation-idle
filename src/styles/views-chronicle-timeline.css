@@ -356,3 +356,79 @@
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+/* ── ANATOMIE DU MULTIPLICATEUR (B2) ───────────────────────────────────────
+   Une pile de facteurs, pas une grille de tuiles : on lit une colonne de
+   valeurs alignées et on cherche celle qui pèse. D'où une seule colonne, des
+   chiffres tabulaires, et le libellé qui cède la place en premier. */
+.mult-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.2rem 0;
+}
+
+.mult-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.22rem 0.4rem;
+  border-radius: 4px;
+}
+
+.mult-row:nth-child(odd) { background: rgba(255, 255, 255, 0.022); }
+
+.mult-row-label {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  min-width: 0;
+}
+
+.mult-row-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+/* Un facteur sous 1 RETRANCHE de la production (l'Hiver Fimbul divise par
+   deux, la dette des Atrides ponctionne). Il ne doit pas se lire comme un
+   gain : c'est la seule information que la couleur porte ici. */
+.mult-row-value.is-malus { color: var(--red, #ef4444); }
+
+/* Composantes de l'Arbre des Ruines : en retrait, elles détaillent la ligne
+   du dessus et n'entrent pas dans le produit à leur propre titre. */
+.mult-row--sub {
+  padding-left: 1.5rem;
+  font-size: 0.8rem;
+  opacity: 0.78;
+}
+
+.mult-row--sub .mult-row-label::before {
+  content: "└ ";
+  opacity: 0.5;
+}
+
+.mult-row--total {
+  margin-top: 0.3rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.45rem;
+  background: none;
+}
+
+.mult-row--total .mult-row-label,
+.mult-row--total .mult-row-value {
+  color: var(--brand-gold, var(--text-strong));
+  font-weight: 700;
+}
+
+.mult-empty,
+.mult-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.mult-note { font-style: italic; }
