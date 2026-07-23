@@ -432,3 +432,119 @@
 }
 
 .mult-note { font-style: italic; }
+
+/* ── LES COMPTES DE LA CITÉ (B3) ───────────────────────────────────────────
+   Un classement, donc une grille à colonnes fixes : le nom cède la place, la
+   barre montre le poids d'un coup d'œil, et les deux colonnes de droite sont
+   à largeur constante pour que les chiffres s'alignent d'une ligne à l'autre. */
+.compte-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.35rem 0 0.5rem;
+}
+
+.compte-tab {
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.compte-tab:hover { color: var(--text-strong); }
+
+.compte-tab.is-active {
+  color: var(--text-strong);
+  border-color: var(--brand-gold, var(--text-strong));
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.compte-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.compte-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem 3.2rem 5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+.compte-row:nth-child(odd) { background: rgba(255, 255, 255, 0.022); }
+
+.compte-row-label {
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compte-row-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.compte-row-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.compte-row-fill {
+  display: block;
+  height: 100%;
+  background: var(--brand-gold, #c9a227);
+  border-radius: 3px;
+}
+
+.compte-row-pct,
+.compte-row-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.compte-row-pct { color: var(--muted); font-size: 0.76rem; }
+.compte-row-value { color: var(--text-strong); font-weight: 600; }
+
+/* Le socle et la théocratie ne sont pas des bâtiments : on ne doit pas les
+   chercher dans la boutique. */
+.compte-row--muted .compte-row-label { font-style: italic; color: var(--muted); }
+.compte-row--muted .compte-row-fill { background: var(--muted); opacity: 0.55; }
+
+.compte-row--total {
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 0.3rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.45rem;
+  background: none;
+}
+
+.compte-row--total .compte-row-label,
+.compte-row--total .compte-row-value {
+  color: var(--brand-gold, var(--text-strong));
+  font-weight: 700;
+}
+
+.compte-empty {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Sous 900 px la barre part en premier : le nom, le pourcentage et le débit
+   portent l'information, elle n'est qu'un raccourci de lecture. */
+@media (max-width: 900px) {
+  .compte-row { grid-template-columns: minmax(0, 1fr) 3.2rem 5rem; }
+  .compte-row-bar { display: none; }
+}

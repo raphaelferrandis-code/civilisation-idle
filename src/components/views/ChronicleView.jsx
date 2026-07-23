@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { COLLAPSE_PREP_MAX } from '../../game/core/balance.js';
 import {
@@ -7,14 +8,16 @@ import {
   heritageQuality,
   totalBuildingCount,
   globalMultiplier,
-  globalMultiplierBreakdown
+  globalMultiplierBreakdown,
+  rates
 } from '../../game/core/mechanics.js';
+import { productionBreakdown } from '../../game/core/mechanics/production/productionBreakdown.js';
 import { eras } from '../../game/data/world.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
-import { fmt } from '../../game/core/utils.js';
+import { fmt, fmtShort, rateScale } from '../../game/core/utils.js';
 import { crediblePopulation } from '../../game/core/demographics.js';
-import { D } from '../../game/core/num.js';
+import { D, toNum } from '../../game/core/num.js';
 import { tr } from '../../game/core/i18n.js';
 import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
@@ -158,6 +161,127 @@ function MultiplierAnatomy() {
           en: `Food and Treasury only receive its square root, that is ${fmtFactor(Math.sqrt(product))}.`
         })}
       </p>
+    </div>
+  );
+}
+
+// ── LES COMPTES DE LA CITÉ (B3) ─────────────────────────────────────────────
+// « D'où vient mon débit ? » n'avait aucune réponse dans le jeu : la barre du
+// haut affiche un nombre, et rien ne dit ce qui le produit.
+//
+// LE DÉNOMINATEUR EST LE DÉBIT AFFICHÉ (arbitrage Raphaël), donc la somme des
+// lignes retombe sur le nombre déjà lisible en haut. C'est ce qui oblige à
+// montrer le SOCLE, la part qui ne vient d'aucun bâtiment : en partie neuve
+// elle est 100 % de la Nourriture produite, et elle suit la population ensuite.
+const COMPTES_RESSOURCES = [
+  { key: "population", label: { fr: "Rayonnement", en: "Radiance" } },
+  { key: "food", label: { fr: "Nourriture", en: "Food" } },
+  { key: "gold", label: { fr: "Trésor", en: "Treasury" } },
+  { key: "knowledge", label: { fr: "Savoir", en: "Knowledge" } },
+  { key: "infrastructure", label: { fr: "Infrastructure", en: "Infrastructure" } }
+];
+
+// Débit à unité adaptative, le même geste que la barre du haut (B4) : sans
+// lui, tous les petits contributeurs s'écrivent « 0.0/s » et le classement
+// devient illisible pile là où il sert.
+function fmtDebit(v) {
+  if (!Number.isFinite(v)) return "—";
+  const mis = rateScale(v);
+  return `${fmtShort(mis.value)}${mis.unit}`;
+}
+
+function CompteRow({ label, value, share, count, muted = false }) {
+  return (
+    <div className={`compte-row${muted ? ' compte-row--muted' : ''}`}>
+      <span className="compte-row-label">
+        {label}{count ? <span className="compte-row-count"> ×{count}</span> : null}
+      </span>
+      <span className="compte-row-bar" aria-hidden="true">
+        <span className="compte-row-fill" style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%` }} />
+      </span>
+      <span className="compte-row-pct">{share >= 0.001 ? `${(share * 100).toFixed(1)}%` : "<0.1%"}</span>
+      <span className="compte-row-value">{fmtDebit(value)}</span>
+    </div>
+  );
+}
+
+// Composant SÉPARÉ, comme l'Anatomie : CivilizationReview s'abonne à playTimeSec
+// et se re-rend chaque seconde, ce panneau n'a pas à suivre cette cadence.
+function CityAccounts() {
+  const [res, setRes] = useState("food");
+  // Signature quantifiée : le panneau ne se redessine que quand le débit de la
+  // ressource regardée bouge assez pour se voir.
+  useGameState(() => {
+    const v = toNum(rates()[res]);
+    return Number.isFinite(v) ? Math.round(v * 1000) : String(v);
+  });
+
+  const { rows, socle, additif, total, degrade } = productionBreakdown(res);
+  const nomRes = tr(COMPTES_RESSOURCES.find((r) => r.key === res).label);
+
+  return (
+    <div className="chronicle-bilan-section city-accounts">
+      <div className="chronicle-bilan-head" {...tipProps(
+        tr({ fr: "Les Comptes de la cité", en: "The City Accounts" }),
+        tr({
+          fr: "Qui produit quoi, au rythme actuel. La somme retombe sur le débit affiché en haut de l'écran.",
+          en: "Who produces what, at the current pace. The sum matches the rate shown at the top of the screen."
+        })
+      )}>
+        <h3>{tr({ fr: "Les Comptes de la cité", en: "The City Accounts" })}</h3>
+      </div>
+
+      <div className="compte-tabs" role="tablist">
+        {COMPTES_RESSOURCES.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            role="tab"
+            aria-selected={r.key === res}
+            className={`compte-tab${r.key === res ? ' is-active' : ''}`}
+            onClick={() => setRes(r.key)}
+          >
+            {tr(r.label)}
+          </button>
+        ))}
+      </div>
+
+      {degrade ? (
+        <p className="compte-empty">
+          {tr({
+            fr: `Aucune production de ${nomRes} en ce moment. Rien à répartir.`,
+            en: `No ${nomRes} production right now. Nothing to break down.`
+          })}
+        </p>
+      ) : (
+        <div className="compte-rows">
+          {rows.map((r) => (
+            <CompteRow key={r.key} label={tr(r.label)} value={r.value} share={r.share} count={r.count} />
+          ))}
+          {/* Le socle n'est pas un bâtiment : il est grisé pour qu'on ne le
+              cherche pas dans la boutique. */}
+          {socle.value > 0 && (
+            <CompteRow
+              label={tr({ fr: "Socle de la cité", en: "City baseline" })}
+              value={socle.value}
+              share={socle.share}
+              muted
+            />
+          )}
+          {additif > 0 && (
+            <CompteRow
+              label={tr({ fr: "Théocratie", en: "Theocracy" })}
+              value={additif}
+              share={total > 0 ? additif / total : 0}
+              muted
+            />
+          )}
+          <div className="compte-row compte-row--total">
+            <span className="compte-row-label">{tr({ fr: "Total", en: "Total" })}</span>
+            <span className="compte-row-value">{fmtDebit(total)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -507,6 +631,7 @@ export default function ChronicleView() {
   return (
     <section className="view active" id="history">
       <CivilizationReview />
+      <CityAccounts />
       <MultiplierAnatomy />
       <TempleRegistry />
 

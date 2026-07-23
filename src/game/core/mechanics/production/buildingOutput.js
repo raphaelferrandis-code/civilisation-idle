@@ -52,7 +52,9 @@ export function buildingMilestoneInfo(building, count) {
 
 // « Rives fécondes » : les moteurs riverains (ports, moulins) produisent plus —
 // le fleuve devient une mécanique, pas seulement un décor.
-function riverEngineFactor(building) {
+// Exporté depuis B3 : le bilan par bâtiment doit recomposer EXACTEMENT la même
+// base que getBuildingSums, et redupliquer cette règle chez lui la ferait dériver.
+export function riverEngineFactor(building) {
   if (building.id !== "river_ports" && building.id !== "water_mills") return 1;
   return 1 + ruinEffectSum("riverEngineMult");
 }
