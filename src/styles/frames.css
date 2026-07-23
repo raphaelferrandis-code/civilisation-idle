@@ -25,3 +25,74 @@
   /* Le cadre porte ses propres coins (clé grecque) : pas de rayon arrondi. */
   border-radius: 0 !important;
 }
+
+/* ============================================================================
+   CADRE À CLÉ GRECQUE — le premier chrome PIXEL étirable du jeu (2026-07-23)
+   ----------------------------------------------------------------------------
+   Le cadre or ci-dessus est du trait Kenney VECTORIEL : il s'interpole quand on
+   l'étire. Celui-ci est du pixel art, découpé d'une planche PixelLab par
+   scripts/sliceUiChrome.mjs (source : docs/concepts/ui-panneau/).
+
+   Trois choses à ne pas casser :
+
+   1. `border-width` DOIT valoir les tranches (48/40/42/48) : c'est ce qui rend
+      les ornements d'angle au 1:1. Baisser l'épaisseur les écraserait — un
+      cadre pixel ne se redimensionne pas, il se retaille.
+   2. Les tranches sont ASYMÉTRIQUES parce que le dessin l'est (angle gauche
+      45 px, angle droit à partir de 181 px). Ce ne sont pas des chiffres ronds
+      et il ne faut pas les arrondir.
+   3. `round` et pas `stretch` : la tuile du milieu vaut UNE période de méandre
+      (19 px), le navigateur en fait tenir un nombre entier. Avec `stretch` le
+      motif baverait.
+
+   Le cadre ne peint que son anneau (champ évidé au découpage) : le fond reste
+   celui du panneau, donc les paliers d'élévation de ui-light.css tiennent. Le
+   padding passe à 0 : les 48 px de bordure SONT la marge intérieure.
+   ============================================================================ */
+
+:root {
+  --ui-greek-src: url("/pixelart/ui/chrome/panel-greek.png");
+  --ui-greek-slice: 48 40 42 48;
+}
+
+#history .panel,
+#prestige .panel,
+#mythView .panel {
+  border-style: solid;
+  border-width: 48px 40px 42px 48px;
+  border-color: transparent;
+  border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
+  border-radius: 0;
+  padding: 0;
+  image-rendering: pixelated;
+}
+
+/* La bande de titre débordait sur le padding de 1rem (base.css) pour aller au
+   bord du panneau ; ici le bord est l'anneau du cadre, elle reste donc dans le
+   champ et n'a plus qu'à poser son filet sous le titre. */
+#history .panel > .panel-heading,
+#prestige .panel > .panel-heading,
+#mythView .panel > .panel-heading {
+  margin: 0 0 1rem;
+  padding: 0 0 0.65rem;
+  border-radius: 0;
+}
+
+/* Sous 720 px le cadre mangerait 88 px de largeur utile : on repasse au
+   panneau nu plutôt que d'écraser le dessin. */
+@media (max-width: 720px) {
+  #history .panel,
+  #prestige .panel,
+  #mythView .panel {
+    border-width: 1px;
+    border-image: none;
+    border-color: var(--border-soft);
+    padding: 1rem;
+  }
+  #history .panel > .panel-heading,
+  #prestige .panel > .panel-heading,
+  #mythView .panel > .panel-heading {
+    margin: -1rem -1rem 1rem;
+    padding: 0.8rem 1rem 0.65rem;
+  }
+}

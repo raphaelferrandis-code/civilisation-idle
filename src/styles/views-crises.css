@@ -94,18 +94,54 @@
   box-shadow: none;
 }
 
-/* Jauge de Rupture : PILULE arrondie fine, texture braise CUITE (dégradé +
-   motif fissuré du sprite fondu à 32 % + relief haut/bas bakés — la version
-   « skyline 40px » était trop lourde, retour Raph). Toujours pleine en crise.
-   Le dégradé braise dessous sert de repli le temps du chargement. */
+/* Jauge de Rupture : la braise CUITE (dégradé + motif fissuré du sprite +
+   relief haut/bas bakés) coule maintenant DANS un jonc de pierre à capuchons
+   arrondis, découpé de la planche pixel « clé grecque »
+   (scripts/sliceUiChrome.mjs). Toujours pleine en crise ; le dégradé braise
+   dessous sert de repli le temps du chargement.
+
+   La hauteur est NATIVE et non négociable : les capuchons sont des courbes sur
+   toute la hauteur du sprite, donc 33 px (5 de jonc + 23 de champ + 5) les rend
+   au 1:1. Toute autre hauteur les étirerait. `stretch` suffit ici — la tuile du
+   milieu est un jonc DROIT de 2 px, l'étirer ne déforme rien. */
 .crisis-hero .barometer-track.rupture-bar {
-  height: 14px;
-  border-radius: 999px;
+  height: 33px;
+  /* Bordure TRANSPARENTE : elle n'affiche rien, elle cale le padding box sur le
+     chenal pour que les crans gardent leurs coordonnées. Le jonc, lui, est en
+     surcouche (::after) — même montage que .sg-track dans views-city.css, et
+     pour la même raison : la braise doit passer DERRIÈRE la pierre. */
+  position: relative;
+  border-style: solid;
+  border-width: 5px 10px 5px 9px;
+  border-color: transparent;
+  border-radius: 0;
+  background: none;
+  margin-bottom: 0.5rem;
+}
+
+/* La braise, sous le jonc, débordant de 7 px à gauche pour épouser le montant
+   du capuchon (dont le contour intérieur a été effacé au découpage). */
+.crisis-hero .barometer-track.rupture-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 -7px;
   background:
     url("/pixelart/ui/rupture-bar-slim.png") left center / auto 100% repeat-x,
     linear-gradient(90deg, #6f2f26, #a8462f);
-  margin-bottom: 0.5rem;
   image-rendering: pixelated;
+  z-index: 0;
+}
+
+.crisis-hero .barometer-track.rupture-bar::after {
+  content: "";
+  position: absolute;
+  inset: -5px -10px -5px -9px;
+  border: solid transparent;
+  border-width: 5px 10px 5px 9px;
+  border-image: url("/pixelart/ui/chrome/gauge-frame.png") 5 10 5 9 stretch;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
 }
 
 /* Titre de crise en GRAND, centré — la police pixel carrée du « IDLE » du

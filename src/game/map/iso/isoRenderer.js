@@ -24,7 +24,6 @@ import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEn
 import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
-import { waterRippleTune } from '../pixelRiver.js';
 import {
   updateCitizens, updateVehicles, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso,
   drawVehicleHeadlights, drawCitizenThoughts,
@@ -45,15 +44,23 @@ const WATER = [74, 98, 109];         // eau ardoise (cf. fleuve)
 const PLAZA = [214, 206, 182];       // dallage d'esplanade
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
 // (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
-// « remets un liseré bleu clair sur les bords du fleuve »). RÉACTIVÉ pour les
-// ÈRES SANS QUAI seulement (band ≤ maxBand) : dès la bande 2, la berge maçonnée
-// porte SON bas-fond au pied du mur (shoreLine de drawRun) — les deux ensemble
-// faisaient deux lignes claires parallèles. Teintes = bleus gris CLAIRS de la
-// famille de l'eau ardoise (pas de cyan). Réglable live via
+// « remets un liseré bleu clair sur les bords du fleuve »). Teintes = bleus gris
+// CLAIRS de la famille de l'eau ardoise (pas de cyan). Réglable live via
 // window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
+//
+// ⚠ EXCLUSION MUTUELLE AVEC LE QUAI, ET SON TROU. Dès la bande 2 la berge
+// maçonnée porte SON propre bas-fond au pied du mur (shoreLine de drawRun) : les
+// deux ensemble faisaient deux lignes claires parallèles, d'où `maxBand`. Mais ce
+// relais du quai est sous `if (wallOn && !lod)` — il DISPARAÎT au dézoom. Mesuré
+// sur les pixels de bord du ruban : bande 1 → 25,3 % de bord clair au repos comme
+// en LOD, bande 4 → 12,5 % au repos mais 10,0 % en LOD. Raph veut le liseré
+// « tout le temps » (2026-07-22), donc on reprend la main quand le quai lâche :
+// `lodFallback` rallume le bas-fond en LOD à toutes les ères. L'exclusion reste
+// entière au repos — jamais les deux à la fois, jamais deux lignes parallèles.
 export const waterShoreTune = {
   on: true,
   maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
+  lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
   a1: 0.45, a2: 0.58, a3: 0.75,                            // alphas (bord = plus opaque)
   c1: '120,160,175', c2: '150,192,205', c3: '190,224,232'  // bleus clairs, du doux au liseré
@@ -1935,6 +1942,178 @@ function drawIsoWaterGrain(ctx, pts, T, z, now) {
   ctx.imageSmoothingEnabled = prevS;
 }
 
+/* ---------------------------------------------------------------------------
+ * TEXTURE D'EAU ANIMÉE — la primitive qui remplace le grain.
+ *
+ * Le grain procédural ci-dessus a été refusé trois fois pour une raison de
+ * fond : un champ de bruit n'a pas de STRUCTURE, l'eau a des rides et une
+ * direction. On blitte donc une vraie tuile pixel-art animée (8 frames), cuite
+ * par scripts/bakeWaterTiles.mjs depuis le pack Zro Dfects et REMAPPÉE sur
+ * l'ardoise du jeu — la moyenne pondérée de la rampe retombe sur WATER à 3
+ * près par canal, donc la texture apporte le relief sans déplacer le ton.
+ *
+ * ⚠ ÉCHELLE, ET LE PIÈGE EST DANS LES DEUX SENS. Trop petit, le motif tombe
+ * sous le pixel écran et se moyenne à néant (c'est ce qui a tué le grain). Mais
+ * trop grand, il ne lit plus comme de l'eau : `worldPx` valait 6, soit des
+ * pixels d'eau SIX FOIS plus gros que ceux du sol — retour Raph « on a un gros
+ * fleuve énervé ». Le bon repère n'est pas un seuil abstrait mais l'ÉCHELLE DU
+ * PIXEL D'ART DU JEU : les tuiles de sol iso font 64×64 px d'art pour une
+ * cellule, donc à zoom 1 un pixel d'art = un pixel écran = 0,5 px monde.
+ * `worldPx = 2` met le pixel d'eau à deux crans de cette référence — assez fin
+ * pour appartenir à la même image, assez gros pour survivre au dézoom (1,1 px
+ * écran au zoom 0,55). Période 32 px monde = 1 tuile de jeu.
+ *
+ * Reprend le harnais du grain : tiling en espace écran ancré à worldToScreen(0,0)
+ * (la projection iso est affine → la nappe translate exactement avec le monde au
+ * pan et au zoom, et le nearest-neighbor est préservé), dans le clip du ruban.
+ * La tuile étant OPAQUE, `strength` la mélange au fill WATER : comme sa moyenne
+ * EST WATER, baisser strength atténue le relief sans bouger la teinte.
+ * Purement f(now) → une capture reste déterministe. Molette : window.__waterTiles.
+ * ------------------------------------------------------------------------- */
+export const waterTilesTune = {
+  on: true,
+  minZoom: 0.32,        // sous ce zoom la structure passe sous le pixel : on ne paie pas
+  worldPx: 2,           // px MONDE par pixel de tuile (cf. ⚠ ÉCHELLE ci-dessus)
+  strength: 1,          // 0..1 — mélange au fill WATER, sans dérive de teinte
+  // DEUX AMBIANCES, interpolées par CM.rainF (le même signal que l'averse).
+  // Retour Raph : sous la pluie l'eau sombre et agitée « c'était très bien », mais
+  // il la veut CLAIRE et le clapot LENT par beau temps. `drawIsoRain` ne touche
+  // pas l'eau — elle pose rgba(38,46,62) à 0,18 sur TOUT l'écran — donc ce qui
+  // avait plu, c'est l'eau ASSOMBRIE : on rejoue ce voile dans le seul clip du
+  // ruban, et on l'inverse au beau fixe.
+  //   tint > 0 : voile ardoise rgba(38,46,62)  → eau sombre (aspect averse)
+  //   tint < 0 : voile pâle rgba(158,184,192)  → eau claire (aspect beau temps)
+  // Le pâle EST l'éclat de la tuile elle-même : impossible de dériver hors palette.
+  fair: { fps: 3, drift: 0.7, tint: -0.10 },     // beau temps : claire, clapot posé
+  rain: { fps: 7, drift: 2.2, tint: 0.18 },      // averse : sombre et agitée
+};
+if (typeof window !== 'undefined') window.__waterTiles = waterTilesTune;
+
+const WATER_TILE = 16, WATER_FRAMES = 8;
+// ⚠⚠ PHASE ACCUMULÉE — une VITESSE VARIABLE NE SE MULTIPLIE JAMAIS PAR UN TEMPS
+// ABSOLU. `Math.floor(t * fps)` avec un fps qui suit la météo saute à chaque
+// changement : à t = 1000 s, passer de 2,5 à 7 images/s fait bondir `t * fps` de
+// 2500 à 7000, et l'index de frame atterrit n'importe où. Pire, quand l'averse
+// FAIBLIT le produit DÉCROÎT → l'animation joue À L'ENVERS (retour Raph
+// 2026-07-22 : « quand il pleut c'est accéléré, mais surtout à l'envers, et
+// après la pluie ça saccade »). Un premier pansement (`t % period`) n'y changeait
+// rien : `period` dépendait elle-même de la vitesse, donc sautait aussi.
+// On INTÈGRE donc la phase image par image — continue par construction quelle que
+// soit la variation de vitesse — et on la borne par un modulo sur une période
+// CONSTANTE (nombre de frames, période SPATIALE en px monde), jamais sur une
+// période dérivée de la vitesse.
+let waterPhaseFrame = 0, waterPhaseDrift = 0, waterPhaseAt = -1;
+// Un pas d'intégration. Exportée PURE pour être testable : c'est la continuité de
+// cette fonction sous vitesse variable qui a été le bug, pas le rendu.
+export function stepWaterPhase(prev, t, fps, drift, spatial) {
+  const dt = prev.at < 0 ? 0 : Math.min(0.25, Math.max(0, t - prev.at));
+  const wrap = (v, m) => ((v % m) + m) % m;
+  return {
+    at: t,
+    frame: wrap(prev.frame + dt * fps, WATER_FRAMES),
+    drift: wrap(prev.drift + dt * drift, spatial)
+  };
+}
+let waterTilesImg = null;
+function waterTilesImage() {
+  if (waterTilesImg) return waterTilesImg.ready ? waterTilesImg.img : null;
+  if (typeof Image === 'undefined') return null;
+  const im = new Image();
+  waterTilesImg = { img: im, ready: false };
+  im.onload = () => { waterTilesImg.ready = true; };
+  im.onerror = () => { waterTilesImg.ready = false; };   // PNG absent → fill WATER nu
+  im.src = '/pixelart/water/river-tiles.png';
+  return null;
+}
+
+function drawIsoWaterTiles(ctx, pts, T, z, now) {
+  const G = waterTilesTune;
+  if (!G.on || z < G.minZoom || G.strength <= 0) return;
+  const img = waterTilesImage();
+  if (!img) return;
+  const len = pts.length;
+  // Boîte écran du fleuve (mêmes bornes que le grain : on ne tile que le visible).
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxHw = 0;
+  for (let i = 0; i < len; i += 1) {
+    const p = pts[i], w = worldToScreen(p.x * T, p.y * T);
+    if (w.x < bx0) bx0 = w.x; if (w.x > bx1) bx1 = w.x;
+    if (w.y < by0) by0 = w.y; if (w.y > by1) by1 = w.y;
+    if ((p.hw || 0) > maxHw) maxHw = p.hw || 0;
+  }
+  const pad = maxHw * T * z * 2 + 4;
+  bx0 = Math.max(0, bx0 - pad); by0 = Math.max(0, by0 - pad);
+  bx1 = Math.min(CM.cw, bx1 + pad); by1 = Math.min(CM.ch, by1 + pad);
+  if (bx1 <= bx0 || by1 <= by0) return;
+  // Aval en espace écran : la nappe dérive avec le courant, jamais en travers.
+  const pA = worldToScreen(pts[0].x * T, pts[0].y * T);
+  const pB = worldToScreen(pts[len - 1].x * T, pts[len - 1].y * T);
+  let dx = pB.x - pA.x, dy = pB.y - pA.y;
+  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+  const anchor = worldToScreen(0, 0);
+  const step = WATER_TILE * G.worldPx * z;               // période à l'écran
+  if (step < 2) return;
+  const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
+  const t = (now || 0) / 1000;
+  // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
+  // (cityMapRuntime) — une mesure faite en capture ne voit JAMAIS le cas pluie.
+  const rf = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
+  const mix = (a, b) => a + (b - a) * rf;
+  const fps = mix(G.fair.fps, G.rain.fps);
+  const drift = mix(G.fair.drift, G.rain.drift);
+  const tint = mix(G.fair.tint, G.rain.tint);
+  // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
+  // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
+  // temps × vitesse ne saute pas et reste déterministe, ce qu'exige une capture.
+  const spatial = WATER_TILE * G.worldPx;          // période spatiale, CONSTANTE
+  let phaseFrame, phaseDrift;
+  if (CM.capture) {
+    phaseFrame = t * G.fair.fps;
+    phaseDrift = t * G.fair.drift;
+  } else {
+    const st = stepWaterPhase(
+      { at: waterPhaseAt, frame: waterPhaseFrame, drift: waterPhaseDrift },
+      t, fps, drift, spatial
+    );
+    waterPhaseAt = st.at; waterPhaseFrame = st.frame; waterPhaseDrift = st.drift;
+    phaseFrame = st.frame;
+    phaseDrift = st.drift;
+  }
+  const fi = ((Math.floor(phaseFrame) % WATER_FRAMES) + WATER_FRAMES) % WATER_FRAMES;
+  const d = (((phaseDrift % spatial) + spatial) % spatial) * z;
+  const ox = anchor.x + dx * d, oy = anchor.y + dy * d;
+  const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
+  const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
+  const prevS = ctx.imageSmoothingEnabled, prevA = ctx.globalAlpha;
+  // Nearest-neighbor tant qu'un pixel de tuile couvre au moins un pixel écran
+  // (pixel art NET, la règle du projet). En dessous, le nearest SAUTE des pixels
+  // et la nappe scintille en défilant : on lisse, ce qui rend au loin une eau
+  // douce — exactement ce qu'elle était avant la texture. Le basculement se fait
+  // à un zoom où le motif n'est de toute façon plus lisible.
+  ctx.imageSmoothingEnabled = G.worldPx * z < 1;
+  ctx.save();
+  riverRibbonPath(ctx, pts, T);
+  ctx.clip();
+  ctx.globalAlpha = Math.min(1, G.strength);
+  for (let row = r0; row <= r1; row += 1) {
+    for (let col = c0; col <= c1; col += 1) {
+      ctx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE,
+        Math.floor(ox + col * step), Math.floor(oy + row * step), sz, sz);
+    }
+  }
+  // Voile de météo, même geste que l'averse mais confiné au ruban : ardoise pour
+  // assombrir sous la pluie, éclat de la tuile pour éclaircir au beau fixe.
+  if (tint !== 0) {
+    ctx.globalAlpha = 1;
+    const a = Math.min(1, Math.abs(tint)).toFixed(3);
+    ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(158,184,192,${a})`;
+    riverRibbonPath(ctx, pts, T);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.globalAlpha = prevA;
+  ctx.imageSmoothingEnabled = prevS;
+}
+
 function drawIsoRiver(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
@@ -1944,9 +2123,13 @@ function drawIsoRiver(now) {
   riverRibbonPath(ctx, pts, T);
   ctx.fillStyle = rgb(WATER, 1);
   ctx.fill();
-  // Grain de surface, SOUS les liserés de bas-fond (qui portent la lecture du
-  // bord) et sous poissons/vaguelettes. Eau morte en déclin : pas de grain.
-  if (!CM.collapseAt && (state.timeWear || 0) <= 0.7) drawIsoWaterGrain(ctx, pts, T, z, now);
+  // Surface de l'eau, SOUS les liserés de bas-fond (qui portent la lecture du
+  // bord) et sous poissons/vaguelettes. Eau morte en déclin : surface nue.
+  // La tuile animée porte le relief ; le grain procédural reste là, coupé.
+  if (!CM.collapseAt && (state.timeWear || 0) <= 0.7) {
+    drawIsoWaterTiles(ctx, pts, T, z, now);
+    drawIsoWaterGrain(ctx, pts, T, z, now);
+  }
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
   // l'eau plus clairs ») : l'eau S'ÉCLAIRCIT au bord (peu profond) et fonce vers le
   // centre (profond). Bandes strokées le long du ruban, CLIPPÉES → seule la moitié
@@ -1955,7 +2138,14 @@ function drawIsoRiver(now) {
   {
     const S = waterShoreTune, len0 = pts.length;
     const bandW = (L.counts && L.counts.eraBand) | 0;
-    const shoreOn = S.on && bandW <= (S.maxBand != null ? S.maxBand : 1);
+    // Le quai ne trace son bas-fond qu'au REPOS (drawRun : `wallOn && !lod`).
+    // Partout ailleurs c'est nous, sinon la rive perd sa lecture pile quand on
+    // prend du recul. Fleuve RUINÉ exclu du relais : l'eau morte n'a ni tuile ni
+    // grain, lui ajouter un liseré clair la ferait paraître vivante.
+    const maxB = S.maxBand != null ? S.maxBand : 1;
+    const ruined = !!CM.collapseAt || (state.timeWear || 0) > 0.7;
+    const quayDrawsShore = bandW > maxB && !CM.lodActive && !ruined;
+    const shoreOn = S.on && (S.lodFallback && !ruined ? !quayDrawsShore : bandW <= maxB);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
     const shore = (color, width) => {
       ctx.strokeStyle = color; ctx.lineWidth = width;
@@ -1982,47 +2172,13 @@ function drawIsoRiver(now) {
   }
   // OMBRES DE POISSONS : sous les reflets (dessinées AVANT les vaguelettes).
   drawIsoFishShadows(ctx, rv, T, z, now);
-  // Vaguelettes animées (inspiré de TheoTown) : nappe DENSE de petits traits clairs
-  // couvrant la surface, dont la BRILLANCE court vers l'aval (phase = u·freq − t·speed)
-  // → lecture d'un courant vivant (vs virgules éparses = « pas un flow », retour Raph).
-  // Partage `waterRippleTune` avec le rendu legacy (pixelRiver). Clippé au ruban.
-  const T2 = waterRippleTune;
-  if (T2.on && z >= 0.45) {
-    ctx.save();
-    riverRibbonPath(ctx, pts, T);
-    ctx.clip();
-    const t = (now || 0) / 1000, len = pts.length;
-    const lanes = Math.max(2, T2.lanes | 0);
-    const sub = Math.max(1, T2.sub | 0);              // sous-pas le long entre 2 samples (densité)
-    const rw = Math.max(3, Math.round(T * z * (T2.dash || 0.2)));  // largeur du reflet horizontal
-    const rh = Math.max(1, Math.round(T * z / 22));               // épaisseur
-    const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    for (let i = 0; i < len - 1; i += 1) {
-      const p = pts[i], pn = pts[i + 1];
-      for (let li = 0; li < lanes; li += 1) {
-        for (let ss = 0; ss < sub; ss += 1) {
-          const h = ((i * 131 + li * 977 + ss * 613) >>> 0);
-          const along = (ss + (h & 255) / 255) / sub;                        // 0..1 entre i et i+1
-          const lat = (li / (lanes - 1) - 0.5) * 1.7 * p.hw + (((h >> 8) & 31) / 31 - 0.5) * 0.5;
-          // onde de brillance qui COURT VERS L'AVAL → reflets qui avancent
-          const b = Math.sin((i + along) * T2.freq - t * T2.speed + (h & 31) * 0.25);
-          if (b < T2.thresh) continue;
-          const al = ((b - T2.thresh) / (1 - T2.thresh)) * T2.alpha;
-          const cx = p.x + (pn.x - p.x) * along, cy = p.y + (pn.y - p.y) * along;
-          const nx = -( (pn.y - p.y) ), ny = (pn.x - p.x);                   // normale (non normée) pour l'écart latéral
-          const nl = Math.hypot(nx, ny) || 1;
-          const w = worldToScreen((cx + (nx / nl) * lat) * T, (cy + (ny / nl) * lat) * T);
-          if (w.x < -T || w.x > CM.cw + T || w.y < -T || w.y > CM.ch + T) continue;
-          // reflet = court trait HORIZONTAL écran (surface d'eau plate qui accroche la lumière)
-          const jw = rw * (0.6 + (h % 40) / 40 * 0.8);
-          ctx.fillStyle = `rgba(${T2.color},${al.toFixed(2)})`;
-          ctx.fillRect(Math.round(w.x - jw / 2), Math.round(w.y - rh / 2), Math.round(jw), rh);
-        }
-      }
-    }
-    ctx.imageSmoothingEnabled = prevS;
-    ctx.restore();
-  }
+  // (Vaguelettes animées RETIRÉES le 2026-07-22 — nappe de petits traits clairs
+  // rgba(184,214,224) dont la brillance courait vers l'aval. Elles portaient la
+  // lecture du courant tant que l'eau était un APLAT ; la tuile animée
+  // (drawIsoWaterTiles) porte désormais et la matière et le mouvement, et ces
+  // traits vectoriels se voyaient comme un calque étranger posé sur du pixel art
+  // — retour Raph « enlève les traits blancs du courant, on n'en a plus besoin ».
+  // `waterRippleTune` vit toujours dans pixelRiver.js pour le rendu legacy.)
 }
 
 // (Brume de rivière RETIRÉE le 2026-07-13 — essayée en nappes puis en voile

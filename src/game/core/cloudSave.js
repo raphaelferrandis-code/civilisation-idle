@@ -15,7 +15,7 @@
 // module doit donc être importé EN PREMIER dans src/main.jsx, et ne doit
 // jamais importer state.js (ce qui déclencherait ce chargement trop tôt) —
 // d'où saveKey.js.
-import { SAVE_KEY, CURRENT_SAVE_VERSION } from './saveKey.js';
+import { SAVE_KEY, CURRENT_SAVE_VERSION, consumePendingWipe } from './saveKey.js';
 
 const cc = () => (typeof window !== 'undefined' && window.civCloud) ? window.civCloud : null;
 
@@ -202,8 +202,23 @@ export function cloudWipe() {
   } catch { /* tant pis */ }
 }
 
+// Effacement demandé au clic, exécuté ICI : le joueur a confirmé deux fois, puis
+// la page a rechargé (cf. WIPE_KEY dans saveKey.js). On efface la save locale ET
+// le fichier nuage, et surtout on n'adopte PAS `c.initial` : ce cliché a été pris
+// par le préload AVANT cet effacement, et le `beforeunload` de la page sortante a
+// pu réécrire l'ancienne partie dans les deux. L'adopter la ferait ressusciter —
+// le geste le plus irréversible du jeu se solderait par « rien n'a changé ».
+function applyPendingWipe() {
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* rien à effacer */ }
+  cloudWipe();
+  // Nuage vide et CONNU, même sans préload : la partie neuve pourra s'y écrire.
+  cloudStatus = 'ok';
+  cloudBaselineLife = -1;
+}
+
 if (typeof window !== 'undefined') {
-  reconcileCloudAtBoot();
+  if (consumePendingWipe()) applyPendingWipe();
+  else reconcileCloudAtBoot();
   // Fermeture de la fenêtre : pousser la dernière save si un miroir est en
   // attente de throttle. Écriture SYNCHRONE côté préload → fiable à la sortie.
   const flush = () => { if (cloudDirty) cloudMirrorSave({ force: true }); };

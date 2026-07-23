@@ -17,6 +17,7 @@ import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
 import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
 import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
 import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
+import { densityMode as density, setDensityMode } from '../../game/core/uiPrefs.js';
 import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
@@ -28,7 +29,8 @@ import {
   setAutomateThreshold,
   setAutomateField
 } from '../../game/core/actions.js';
-import { SAVE_KEY, state, defaultState, setState, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { markPendingWipe } from '../../game/core/saveKey.js';
 import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, saveToFile } from '../../game/core/saveSlots.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
@@ -37,6 +39,7 @@ import {
   SHORTCUT_DEFS, shortcutKey, shortcutOff, shortcutLabel,
   shortcutRejection, setShortcutKey, setShortcutOff
 } from '../../game/core/shortcuts.js';
+import { tipProps } from '../ui/HelpBubble.jsx';
 
 export default function OptionsDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen);
@@ -60,12 +63,24 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const automateRules = getAutomateRules();
 
 
+  // Une confirmation qui ne s'affiche PAS ne vaut pas un refus. Sans ce filet,
+  // requestChoiceDialog rend la 1re option quand aucune interface n'est branchée
+  // (« Annuler », puis « Garder ma partie ») : le bouton ne faisait alors
+  // strictement rien, sans fenêtre ni erreur — impossible à distinguer d'un vrai
+  // clic sur Annuler, et c'est ce qui a coûté une session entière de diagnostic.
+  // On retombe donc sur la confirmation native, laide mais toujours joignable.
+  const askWipe = async (dialog, nativeText) => {
+    const answer = await requestChoiceDialog(dialog);
+    if (!answer?.uiUnavailable) return answer?.value;
+    return window.confirm(nativeText) ? "yes" : "no";
+  };
+
   // SEUL geste qui garde une confirmation bloquante, et c'est voulu : il efface
   // la partie ET le fichier nuage. Mais elle passe par ChoiceDialog et non par le
   // confirm() natif, qui volait le focus, ignorait la langue du jeu et ne gérait
   // pas le double Échap de Chromium. Deux étapes, la seconde nommant ce qui part.
   const handleWipe = async () => {
-    const first = await requestChoiceDialog({
+    const first = await askWipe({
       label: { fr: "Réinitialisation", en: "Reset" },
       title: tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }),
       body: tr({
@@ -76,9 +91,12 @@ export default function OptionsDialog({ isOpen, onClose }) {
         { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
         { label: tr({ fr: "Continuer", en: "Continue" }), value: "yes" }
       ]
-    });
-    if (first?.value !== "yes") return;
-    const second = await requestChoiceDialog({
+    }, tr({
+      fr: "Recommencer depuis le tout premier feu ? Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Rien n'est récupérable.",
+      en: "Start over from the very first fire? The whole game is erased: cycles, Ruins, Myths, Great Resets. Nothing can be recovered."
+    }));
+    if (first !== "yes") return;
+    const second = await askWipe({
       label: { fr: "Réinitialisation", en: "Reset" },
       title: tr({ fr: "Dernière confirmation", en: "Final confirmation" }),
       body: tr({
@@ -89,16 +107,22 @@ export default function OptionsDialog({ isOpen, onClose }) {
         { label: tr({ fr: "Garder ma partie", en: "Keep my game" }), value: "no" },
         { label: tr({ fr: "Tout effacer", en: "Erase everything" }), value: "yes" }
       ]
-    });
-    if (second?.value !== "yes") return;
-    localStorage.removeItem(SAVE_KEY);
-    // Efface aussi le fichier nuage (Google Drive, .exe) : sinon l'ancienne
-    // partie — forcément « plus avancée » — ressusciterait au prochain lancement.
+    }, tr({
+      fr: "Dernière confirmation : la sauvegarde locale et le fichier nuage seront effacés tous les deux.",
+      en: "Final confirmation: both the local save and the cloud file will be erased."
+    }));
+    if (second !== "yes") return;
+    // On ne remet PAS l'état à neuf ici : on pose le drapeau et on recharge, et
+    // c'est le démarrage qui efface la save locale et le fichier nuage (le
+    // pourquoi est documenté sur WIPE_KEY, saveKey.js). Effacer sur place
+    // dépendait de qui détient l'objet `state` — en dev, un hot-update de
+    // src/game/ en laisse deux vivants et le geste tombait dans la copie morte :
+    // les deux confirmations défilaient et la partie revenait intacte.
+    markPendingWipe();
+    // Le fichier nuage part dès maintenant EN PLUS du démarrage : si le
+    // rechargement échoue, l'ancienne partie ne doit pas rester à disposition.
     cloudWipe();
-    invalidateRenderCache("all");
-    setState(defaultState());
-    render();
-    onClose();
+    window.location.reload();
   };
 
   const handleFormatChange = (format) => {
@@ -128,6 +152,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleAmbianceChange = (mode) => {
     if (mode === ambianceMode) return;
     setAmbianceMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // Densité (E4) : setDensityMode pose lui-même l'attribut sur <html>, le CSS
+  // fait le reste. Le bump de révision ne sert qu'à rafraîchir l'état actif des
+  // trois boutons, comme pour l'ambiance juste au-dessus.
+  const handleDensityChange = (mode) => {
+    if (mode === density) return;
+    setDensityMode(mode);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -510,8 +543,14 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Vie de la carte", en: "Map liveliness" })}</span>
-                  <small>{tr({ fr: "Quantité de mouvement d'ambiance sur la carte (feuilles, lucioles, fontaines). Sans effet sur la netteté : la qualité sert la machine, ce réglage sert le confort. Baissez-le si le mouvement vous gêne ou si vous laissez le jeu tourner en fond.", en: "Amount of ambient motion on the map (leaves, fireflies, fountains). Does not affect sharpness: quality serves the machine, this setting serves comfort. Lower it if motion bothers you or you leave the game running in the background." })}</small>
+                  {/* Renommé « Mouvement » (E4) : ce cran ne pilote plus la
+                      seule carte, il coupe aussi les animations d'interface.
+                      Garder l'ancien libellé aurait fait mentir le réglage.
+                      L'asymétrie du cran intermédiaire est DITE, pas masquée :
+                      une animation CSS se coupe ou ne se coupe pas, il n'y a
+                      pas de demi-mesure côté interface. */}
+                  <span>{tr({ fr: "Mouvement", en: "Motion" })}</span>
+                  <small>{tr({ fr: "Mouvement d'ambiance sur la carte (feuilles, lucioles, fontaines) et animations de l'interface. Sans effet sur la netteté : la qualité sert la machine, ce réglage sert le confort. « Sobre » n'allège que la carte ; « Aucune » fige aussi l'interface.", en: "Ambient motion on the map (leaves, fireflies, fountains) and interface animations. Does not affect sharpness: quality serves the machine, this setting serves comfort. \"Sober\" only lightens the map; \"None\" also freezes the interface." })}</small>
                 </div>
                 <div className="number-format-control">
                   <button
@@ -534,6 +573,41 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     onClick={() => handleAmbianceChange('none')}
                   >
                     {tr({ fr: "Aucune", en: "None" })}
+                  </button>
+                </div>
+              </div>
+
+              {/* DENSITÉ DES PANNEAUX (E4). Ne touche QUE l'espace, jamais la
+                  taille du texte : compacter ne doit pas rendre illisible. Le
+                  réglage cible les surfaces qui coûtent de la hauteur (la
+                  boutique, les panneaux) parce que le design system n'a aucun
+                  jeton d'espacement à multiplier globalement. */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Densité des panneaux", en: "Panel density" })}</span>
+                  <small>{tr({ fr: "Espacement des panneaux et des rangées de la boutique. « Compacte » fait tenir plus de lignes à l'écran sans rien réduire du texte, utile sur un petit écran.", en: "Spacing of panels and shop rows. “Compact” fits more lines on screen without shrinking any text, useful on a small display." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${density === 'aere' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDensityChange('aere')}
+                  >
+                    {tr({ fr: "Aérée", en: "Airy" })}
+                  </button>
+                  <button
+                    className={`format-option ${density === 'normale' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDensityChange('normale')}
+                  >
+                    {tr({ fr: "Normale", en: "Normal" })}
+                  </button>
+                  <button
+                    className={`format-option ${density === 'compacte' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleDensityChange('compacte')}
+                  >
+                    {tr({ fr: "Compacte", en: "Compact" })}
                   </button>
                 </div>
               </div>
@@ -668,7 +742,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                         className={`shortcut-kbd shortcut-capture ${capturing ? 'is-capturing' : ''}`}
                         onClick={() => { setCapturingId(capturing ? null : def.id); setKeyError(null); }}
                         onKeyDown={capturing ? (e) => handleCaptureKey(e, def) : undefined}
-                        title={tr({ fr: "Cliquer puis appuyer sur la touche voulue", en: "Click then press the desired key" })}
+                        {...tipProps(null, tr({ fr: "Cliquer puis appuyer sur la touche voulue", en: "Click then press the desired key" }))}
                       >
                         {capturing ? tr({ fr: "…", en: "…" }) : shortcutLabel(shortcutKey(def))}
                       </button>
@@ -676,10 +750,10 @@ export default function OptionsDialog({ isOpen, onClose }) {
                         type="button"
                         className={`toggle-btn ${off ? 'off' : 'on'}`}
                         onClick={() => handleShortcutOff(def.id, !off)}
-                        title={tr({
+                        {...tipProps(null, tr({
                           fr: "Une touche gênante peut être désactivée sans être remplacée.",
                           en: "A bothersome key can be disabled without being replaced."
-                        })}
+                        }))}
                       >
                         {off ? tr({ fr: "Inactif", en: "Off" }) : tr({ fr: "Actif", en: "On" })}
                       </button>
@@ -804,17 +878,30 @@ export default function OptionsDialog({ isOpen, onClose }) {
               pack de cartes demande explicitement un crédit : cet onglet est ce
               qui rend le jeu conforme, ne pas le retirer sans retirer l'asset. */}
           {activeGroup === 'credits' && (
-            <div className="options-row">
-              <div>
-                <span>{tr({ fr: "Cartes à jouer", en: "Playing cards" })}</span>
-                <small>
-                  {tr({
-                    fr: "« Pixel Playing Cards » par Bit Digitalis (bitdigitalis.itch.io). Les 52 cartes et le dos du Vingt-et-un viennent de ce pack, utilisé avec l'accord de sa licence.",
-                    en: "“Pixel Playing Cards” by Bit Digitalis (bitdigitalis.itch.io). The 52 cards and the card back of Twenty-one come from this pack, used under its license."
-                  })}
-                </small>
+            <>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Cartes à jouer", en: "Playing cards" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Pixel Playing Cards » par Bit Digitalis (bitdigitalis.itch.io). Les 52 cartes et le dos du Vingt-et-un viennent de ce pack, utilisé avec l'accord de sa licence.",
+                      en: "“Pixel Playing Cards” by Bit Digitalis (bitdigitalis.itch.io). The 52 cards and the card back of Twenty-one come from this pack, used under its license."
+                    })}
+                  </small>
+                </div>
               </div>
-            </div>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Surface du fleuve", en: "River surface" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« 16x16 Water Tiles Animated » par Zro Dfects (zrodfects.itch.io). Les images de la surface animée de l'eau viennent de ce pack, recolorées à la palette du jeu.",
+                      en: "“16x16 Water Tiles Animated” by Zro Dfects (zrodfects.itch.io). The animated water surface frames come from this pack, recolored to the game palette."
+                    })}
+                  </small>
+                </div>
+              </div>
+            </>
           )}
 
           {/* SCRIPT PANEL (Unlocked by Phoenix Heritage) */}
@@ -872,10 +959,10 @@ export default function OptionsDialog({ isOpen, onClose }) {
                       )}
                       {r.type === "buy_cheapest" && (
                         <div className="auto-script-threshold auto-script-fields">
-                          <label title={tr({
+                          <label {...tipProps(tr({ fr: "réserve", en: "reserve" }), tr({
                             fr: "Part de la ressource que l'automate ne touche pas. À 0 il vide la caisse, ce qui sabote les autres branches.",
                             en: "Share of the resource the automaton never touches. At 0 it empties the coffers, which starves the other branches."
-                          })}>
+                          }))}>
                             <span className="auto-script-unit">{tr({ fr: "réserve", en: "reserve" })}</span>
                             <input
                               type="number"
@@ -887,10 +974,10 @@ export default function OptionsDialog({ isOpen, onClose }) {
                             />
                             <span className="auto-script-unit">%</span>
                           </label>
-                          <label title={tr({
+                          <label {...tipProps(tr({ fr: "débit", en: "rate" }), tr({
                             fr: "Nombre d'achats par seconde. Volontairement bas : il pèse aussi sur le rattrapage hors ligne.",
                             en: "Purchases per second. Deliberately low: it also weighs on offline catch-up."
-                          })}>
+                          }))}>
                             <span className="auto-script-unit">{tr({ fr: "débit", en: "rate" })}</span>
                             <input
                               type="number"

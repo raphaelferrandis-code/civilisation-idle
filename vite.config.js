@@ -39,18 +39,26 @@ function previewShotPlugin() {
   };
 }
 
-// Plugin DEV-ONLY : FULL RELOAD sur tout edit d'un module de la CARTE.
-// La boucle rAF de cityMapRuntime capture les fonctions de rendu à l'init ; les
-// hot-updates s'arrêtent au boundary React (CityMapCanvas.jsx) → le composant se
-// re-rend mais l'ANCIEN code de rendu continue de tourner en silence (piège
-// récurrent : « mon edit ne se voit pas »). NB : import.meta.hot.decline() est un
-// no-op dans Vite moderne — d'où ce plugin serveur.
-function mapFullReloadPlugin() {
+// Plugin DEV-ONLY : FULL RELOAD sur tout edit d'un module de src/game/.
+// Ces modules sont des SINGLETONS : l'objet `state`, le Set de listeners, les
+// intervalles de la boucle de jeu, la boucle rAF de la carte. Un hot-update
+// partiel en crée un SECOND exemplaire — Vite ré-évalue le module édité et ses
+// importateurs jusqu'au boundary React, si bien que les composants se
+// rebranchent sur le NOUVEAU `state` pendant que la boucle de jeu (main.js, non
+// re-évaluée) continue de tourner sur l'ANCIEN. Deux parties vivent alors en
+// parallèle, et les gestes des dialogues tombent dans le vide : « Réinitialiser
+// la partie » efface une copie morte, la vraie partie revient intacte à la
+// sauvegarde suivante. Même piège côté carte, où la boucle rAF de
+// cityMapRuntime capture les fonctions de rendu à l'init : le composant se
+// re-rend mais l'ANCIEN code de rendu tourne toujours en silence (« mon edit ne
+// se voit pas »). NB : import.meta.hot.decline() est un no-op dans Vite moderne
+// — d'où ce plugin serveur.
+function gameFullReloadPlugin() {
   return {
-    name: 'map-full-reload',
+    name: 'game-full-reload',
     apply: 'serve',
     handleHotUpdate({ file, server }) {
-      if (file.includes('/src/game/map/') && !file.includes('__tests__')) {
+      if (file.includes('/src/game/') && !file.includes('__tests__')) {
         server.ws.send({ type: 'full-reload' });
         return []; // stoppe la propagation HMR normale
       }
@@ -61,7 +69,7 @@ function mapFullReloadPlugin() {
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [react(), previewShotPlugin(), mapFullReloadPlugin()],
+  plugins: [react(), previewShotPlugin(), gameFullReloadPlugin()],
   // `.claude/worktrees` = copies de travail jetables de l'agent (gitignorées) ;
   // sans cette exclusion Vitest ré-exécute leurs suites → tests en triple et
   // échec golden compté plusieurs fois (portes non déterministes en local).

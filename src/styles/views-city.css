@@ -728,18 +728,57 @@
   transition: color 0.6s ease;
 }
 
+/* Jauge de Rupture du bandeau : MÊME jonc de pierre que la jauge héros du mode
+   crise (views-crises.css) — c'est la même grandeur mesurée, elle mérite le même
+   objet. Asset : public/pixelart/ui/chrome/gauge-frame.png, cf. docs/ui-references.md.
+
+   La hauteur passe de 7 px à 33 px et ce n'est pas un choix de goût : les
+   capuchons du sprite sont des courbes sur toute sa hauteur, seule la hauteur
+   native les rend au 1:1. Un jonc pixel ne se redimensionne pas, il se retaille,
+   et ce dessin-là ne descend pas sous ~29 px sans perdre son bossage. */
 .sg-track {
   position: relative;
-  height: 7px;
-  border-radius: 999px;
+  height: 33px;
+  /* Bordure TRANSPARENTE conservée : elle n'affiche rien, elle cale le padding
+     box sur le chenal, donc les % de largeur du remplissage et les positions des
+     crans restent mesurés sur le chenal et pas sur le jonc. */
+  border-style: solid;
+  border-width: 5px 10px 5px 9px;
+  border-color: transparent;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background-origin: padding-box;
+  background-clip: padding-box;
 }
 
+/* Le jonc est peint PAR-DESSUS, en surcouche. Le poser en `border-image` sur la
+   piste elle-même ne marche pas : un enfant se peint toujours au-dessus de la
+   bordure de son parent, donc le remplissage s'arrêtait DEVANT le capuchon et
+   laissait voir un filet noir. En surcouche, il passe DERRIÈRE. */
+.sg-track::after {
+  content: "";
+  position: absolute;
+  inset: -5px -10px -5px -9px;
+  border: solid transparent;
+  border-width: 5px 10px 5px 9px;
+  border-image: url("/pixelart/ui/chrome/gauge-frame.png") 5 10 5 9 stretch;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Le remplissage déborde de 7 px À GAUCHE pour glisser sous le montant du
+   capuchon (le montant occupe les colonnes 2 à 8 du sprite, le chenal commence
+   à 9) : plus aucun filet noir entre la pierre et la couleur, quel que soit le
+   niveau. `content-box` + `padding-left` de la même valeur : la largeur en %
+   reste celle du CHENAL, seule l'origine recule, donc le bout droit ne bouge
+   pas d'un pixel. */
 .sg-fill {
   position: absolute;
+  box-sizing: content-box;
   top: 0;
-  left: 0;
+  left: -7px;
+  padding-left: 7px;
   bottom: 0;
   display: block;
   border-radius: inherit;
@@ -751,11 +790,12 @@
     box-shadow 0.6s ease;
 }
 
-/* Rework §5.2 — fantôme de la cible sur la jauge du header Cité. */
+/* Rework §5.2 — fantôme de la cible sur la jauge du header Cité. Débord annulé
+   depuis que la piste porte le jonc : dépasser reviendrait à barrer la pierre. */
 .sg-target-ghost {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: 0;
+  bottom: 0;
   width: 2px;
   margin-left: -1px;
   border-radius: 2px;
@@ -1530,8 +1570,8 @@
 /* Graduations de seuil sur la jauge de rupture (25/50/75/90%) */
 .sg-tick {
   position: absolute;
-  top: -1px;
-  bottom: -1px;
+  top: 0;
+  bottom: 0;
   z-index: 2;
   width: 1px;
   background: rgba(255, 255, 255, 0.22);
