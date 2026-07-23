@@ -29,6 +29,7 @@ import {
   WONDER_TIER_NAMES
 } from './layout.js';
 import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
+import { resolveShortcut, resolveCameraKey } from '../core/shortcuts.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
 import { ambianceK } from './ambianceMode.js';
@@ -270,8 +271,10 @@ function cityContentBounds(layout) {
   return n ? { minX, maxX, minY, maxY } : null;
 }
 
-function cityMapCenterCamera(layout) {
-  if (!layout) return;
+// Cible de cadrage (centre + zoom) pour un layout, SANS toucher la caméra. Sert
+// au centrage de départ et au recentrage amorti de A9 (touche C).
+function cityMapCameraTarget(layout) {
+  if (!layout) return null;
   const T = CM.TILE;
   // Zoom HISTORIQUE (recule avec la taille de ville : 22 tuiles → 36 en mégalopole).
   // Il sert désormais de PLANCHER : on ne dézoome jamais plus large que l'ancien
@@ -286,8 +289,6 @@ function cityMapCenterCamera(layout) {
   // le village en haut d'un coin avec un large anneau d'herbe morte autour.
   const b = cityContentBounds(layout);
   if (b && CM.iso) {
-    CM.cam.x = ((b.minX + b.maxX) / 2 + 0.5) * T;
-    CM.cam.y = ((b.minY + b.maxY) / 2 + 0.5) * T;
     // Fit-to-bounds iso : la bbox (Wt×Ht tuiles) se projette en un losange dont
     // l'étendue écran vaut (Wt+Ht)·ISO_X × (Wt+Ht)·ISO_Y. On zoome pour que ce
     // losange + une marge (anneau délibéré) remplisse le cadre, sans jamais
@@ -298,14 +299,29 @@ function cityMapCenterCamera(layout) {
       CM.cw / (span * ISO_X * T * margin),
       CM.ch / (span * ISO_Y * T * margin)
     );
-    CM.cam.zoom = Math.max(0.35, Math.min(1.6, Math.max(baseZoom, fit)));
-    return;
+    return {
+      x: ((b.minX + b.maxX) / 2 + 0.5) * T,
+      y: ((b.minY + b.maxY) / 2 + 0.5) * T,
+      zoom: Math.max(0.35, Math.min(1.6, Math.max(baseZoom, fit))),
+    };
   }
 
   // Repli (legacy top-down, ou aucun contenu) : cœur du plan + zoom historique.
-  CM.cam.x = (layout.plan?.core?.x ?? layout.gridN / 2) * T;
-  CM.cam.y = (layout.plan?.core?.y ?? layout.gridN / 2) * T;
-  CM.cam.zoom = Math.max(0.35, Math.min(1.6, baseZoom));
+  return {
+    x: (layout.plan?.core?.x ?? layout.gridN / 2) * T,
+    y: (layout.plan?.core?.y ?? layout.gridN / 2) * T,
+    zoom: Math.max(0.35, Math.min(1.6, baseZoom)),
+  };
+}
+
+function cityMapCenterCamera(layout) {
+  const t = cityMapCameraTarget(layout);
+  if (!t) return;
+  CM.cam.x = t.x; CM.cam.y = t.y; CM.cam.zoom = t.zoom;
+  // A9 : un centrage AUTORITAIRE (chargement, recompute, aperçu de merveille)
+  // resynchronise les cibles amorties, sinon la caméra glisserait depuis un état
+  // périmé à la première frame et un pan/zoom en cours survivrait au reset.
+  CM.zoomGoal = t.zoom; CM.camGoal = null; CM.panVel = null;
 }
 
 // Borne la caméra sur la zone de contenu : fleuve (amont→aval) en X, grille
@@ -313,6 +329,22 @@ function cityMapCenterCamera(layout) {
 // ruban OU de dériver dans la nature infinie — le contenu remplit toujours le
 // cadre. Marge en X pour garder le biseau du bout hors-champ ; léger anneau de
 // nature en Y. (Pas de fleuve = boîte X repliée sur la grille.)
+// A9 — « Une caméra qui a du poids ». Zoom molette qui GLISSE (cible `CM.zoomGoal`
+// rattrapée par frame, point sous le curseur maintenu à CHAQUE frame), pan avec
+// inertie courte (`CM.panVel`), recentrage en vol amorti (`CM.camGoal`, le même
+// mécanisme que le vol de A4, reporté), et pilotage clavier (flèches, +/-, C).
+// Amortissements COURTS : au-delà, la caméra devient molle et repousse le retour
+// du sol net (recuisson coalescée sur `ISO_SETTLE_MS = 110 ms`). Molette :
+// `__camFeel({ zoomRate, panDecay, camRate, panKey, wheelStep, keyZoom })`.
+const CAM_FEEL = { zoomRate: 15, panDecay: 6.5, camRate: 9, panKey: 1100, wheelStep: 1.12, keyZoom: 1.06 };
+if (typeof window !== 'undefined') {
+  window.__camFeel = (o) => { if (o) Object.assign(CAM_FEEL, o); return { ...CAM_FEEL }; };
+}
+
+// Rattrapage amorti, indépendant du pas de temps : fraction du reste à couvrir
+// cette frame pour un demi-temps ~ln2/rate. Bornée pour un gros dt (onglet revenu).
+function camApproach(dt, rate) { return 1 - Math.exp(-Math.min(0.1, dt) * rate); }
+
 function cmClampCamera() {
   const L = CM.layout;
   if (!L || !CM.cw || !CM.ch) return;
@@ -336,6 +368,9 @@ function cmClampCamera() {
     const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
     const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
     if (CM.cam.zoom < zoomFloorIso) CM.cam.zoom = zoomFloorIso;
+    // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
+    // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
+    if (CM.zoomGoal != null) CM.zoomGoal = Math.max(zoomFloorIso, Math.min(3.2, CM.zoomGoal));
     CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
     CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
     return;
@@ -344,6 +379,7 @@ function cmClampCamera() {
   // ajusté pile -> on prend le max des deux ajustements).
   const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
   if (CM.cam.zoom < zoomFloor) CM.cam.zoom = zoomFloor;
+  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(zoomFloor, Math.min(3.2, CM.zoomGoal)); // A9 : cible bornée comme cam.zoom
   // Pan : chaque bord d'écran reste dans la boîte (centré si l'écran dépasse la
   // boîte sur cet axe).
   const halfW = (CM.cw / 2) / CM.cam.zoom, halfH = (CM.ch / 2) / CM.cam.zoom;
@@ -351,6 +387,77 @@ function cmClampCamera() {
   const loY = by0 + halfH, hiY = by1 - halfH;
   CM.cam.x = loX > hiX ? (bx0 + bx1) / 2 : Math.max(loX, Math.min(hiX, CM.cam.x));
   CM.cam.y = loY > hiY ? (by0 + by1) / 2 : Math.max(loY, Math.min(hiY, CM.cam.y));
+}
+
+// A9 — Un pas d'amortissement de la caméra, appelé chaque frame avant le clamp.
+// Jamais pendant une capture (frames déterministes) ni sans caméra prête.
+function cmCameraGlide(dt) {
+  if (!CM.cam || CM.capture) return;
+  if (CM.zoomGoal == null) CM.zoomGoal = CM.cam.zoom;
+  // 1) Zoom qui glisse. Le point sous l'ancre (curseur au wheel, centre au clavier)
+  //    est REPROJETÉ à chaque frame d'interpolation, sinon il dérive pendant le vol.
+  if (Math.abs(CM.cam.zoom - CM.zoomGoal) > 1e-3) {
+    const a = CM.zoomAnchor || { mx: CM.cw / 2, my: CM.ch / 2 };
+    const before = screenToWorld(a.mx, a.my);
+    CM.cam.zoom += (CM.zoomGoal - CM.cam.zoom) * camApproach(dt, CAM_FEEL.zoomRate);
+    const after = screenToWorld(a.mx, a.my);
+    CM.cam.x += before.x - after.x;
+    CM.cam.y += before.y - after.y;
+  } else {
+    CM.cam.zoom = CM.zoomGoal;   // pose franche → cam immobile → recuisson du sol
+  }
+  // 2) Recentrage en vol amorti (touche C). Prioritaire, et il éteint l'inertie.
+  if (CM.camGoal) {
+    const k = camApproach(dt, CAM_FEEL.camRate);
+    CM.cam.x += (CM.camGoal.x - CM.cam.x) * k;
+    CM.cam.y += (CM.camGoal.y - CM.cam.y) * k;
+    if (Math.hypot(CM.camGoal.x - CM.cam.x, CM.camGoal.y - CM.cam.y) < 1) {
+      CM.cam.x = CM.camGoal.x; CM.cam.y = CM.camGoal.y; CM.camGoal = null;
+    }
+  } else if (CM.panVel && !CM.drag) {
+    // 3) Inertie de pan : glisse et s'éteint vite (demi-vie ~ ln2 / panDecay).
+    CM.cam.x += CM.panVel.x * dt;
+    CM.cam.y += CM.panVel.y * dt;
+    const decay = Math.exp(-Math.min(0.1, dt) * CAM_FEEL.panDecay);
+    CM.panVel.x *= decay; CM.panVel.y *= decay;
+    if (Math.hypot(CM.panVel.x, CM.panVel.y) < 2) CM.panVel = null;
+  }
+}
+
+// A9 — Pan/zoom au clavier TENUS. Chaque frame, tant qu'une flèche est enfoncée,
+// la vitesse de pan monte vers une cible (accélération → « poids »), et l'inertie
+// de cmCameraGlide prend le relais au relâcher. +/- font glisser le zoom. Les
+// touches enfoncées vivent dans CM._heldCamKeys, alimenté par bindCityMapInput —
+// au plus près du wheel/drag, SANS saut par le pont (robuste au rechargement à
+// chaud, qui pouvait laisser un handler de pont périmé).
+function cmApplyHeldCamKeys(dt) {
+  const h = CM._heldCamKeys;
+  if (!h || h.size === 0 || !CM.cam) return;
+  let sdx = 0, sdy = 0;
+  if (h.has('ArrowLeft')) sdx -= 1;
+  if (h.has('ArrowRight')) sdx += 1;
+  if (h.has('ArrowUp')) sdy -= 1;
+  if (h.has('ArrowDown')) sdy += 1;
+  if (!sdx && !sdy) return;
+  const dir = screenDeltaToPan(sdx, sdy);   // direction écran → monde (diagonale iso respectée)
+  const len = Math.hypot(dir.x, dir.y) || 1;
+  const spd = CAM_FEEL.panKey;
+  const k = camApproach(dt, 12);            // montée progressive de la vitesse pendant l'appui
+  CM.panVel = CM.panVel || { x: 0, y: 0 };
+  CM.panVel.x += ((dir.x / len) * spd - CM.panVel.x) * k;
+  CM.panVel.y += ((dir.y / len) * spd - CM.panVel.y) * k;
+  CM.camGoal = null;
+}
+
+// A9 — Recentrage en vol amorti (touche C, id `recenter_map` de la table).
+function cmRecenter() {
+  if (!CM.cam || !CM.layout) return;
+  const t = cityMapCameraTarget(CM.layout);
+  if (!t) return;
+  CM.camGoal = { x: t.x, y: t.y };
+  CM.zoomGoal = t.zoom;
+  CM.zoomAnchor = { mx: CM.cw / 2, my: CM.ch / 2 };
+  CM.panVel = null;
 }
 
 function cityMapEnsureTooltip(mapRoot, tooltipElement = null) {
@@ -535,12 +642,15 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const before = cityMapWorldAtScreen(mx, my);
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    CM.cam.zoom = Math.max(0.35, Math.min(3.2, CM.cam.zoom * factor));
-    const after = cityMapWorldAtScreen(mx, my);
-    CM.cam.x += before.x - after.x;
-    CM.cam.y += before.y - after.y;
+    // A9 : le zoom GLISSE — on ne bouge pas cam.zoom ici, on déplace la CIBLE, que
+    // frame() rattrape en gardant le point sous le curseur À CHAQUE frame. Le
+    // pincement trackpad arrive aussi comme un wheel : couvert sans code en plus.
+    // Pas accéléré (e.deltaY brut décuplé sur certaines souris) → cran constant.
+    const step = CAM_FEEL.wheelStep;
+    const factor = e.deltaY < 0 ? step : 1 / step;
+    CM.zoomGoal = Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * factor));
+    CM.zoomAnchor = { mx, my };
+    CM.camGoal = null;   // le joueur reprend la main sur un recentrage en cours
   }, { passive: false, signal });
 
   canvas.addEventListener("mousemove", (e) => {
@@ -568,10 +678,33 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     CM.cam.x = CM.drag.camx - pd.x;
     CM.cam.y = CM.drag.camy - pd.y;
     canvas.style.cursor = "grabbing";
+    // A9 : vitesse instantanée (monde/s) pour l'inertie au relâcher — mesurée sur
+    // le DERNIER segment, pas sur le total (le flick de fin ≠ la moyenne du drag).
+    const tv = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (CM.drag._lt) {
+      const seg = screenDeltaToPan(e.clientX - CM.drag._lx, e.clientY - CM.drag._ly);
+      const ms = Math.max(1, tv - CM.drag._lt);
+      CM.drag._vx = (-seg.x / ms) * 1000;   // la caméra bouge à l'INVERSE du delta souris
+      CM.drag._vy = (-seg.y / ms) * 1000;
+    }
+    CM.drag._lx = e.clientX; CM.drag._ly = e.clientY; CM.drag._lt = tv;
   }, { signal });
 
   window.addEventListener("mouseup", () => {
-    if (CM.drag && CM.drag.moved > 6) CM.dragged = true;
+    if (CM.drag) {
+      if (CM.drag.moved > 6) CM.dragged = true;
+      // A9 : inertie SEULEMENT si le geste était frais au relâcher — un drag posé
+      // puis immobile ne doit pas repartir tout seul. Vitesse bornée (flick fort).
+      const tv = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      if (CM.drag._lt && tv - CM.drag._lt < 60 && CM.drag._vx != null) {
+        const cap = 4200; // monde/s
+        CM.panVel = {
+          x: Math.max(-cap, Math.min(cap, CM.drag._vx)),
+          y: Math.max(-cap, Math.min(cap, CM.drag._vy)),
+        };
+        CM.camGoal = null;
+      }
+    }
     CM.drag = null;
     canvas.style.cursor = "grab";
   }, { signal });
@@ -602,6 +735,39 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       callbacks.onCitizenThoughtClicked(hitCitizen, type);
     }
   }, { capture: true, signal });
+
+  // A9 — CLAVIER CAMÉRA (flèches, +/-, recentrage C), au plus près du wheel/drag.
+  // Écouté sur window mais MONTÉ AVEC LA CARTE (même AbortController) : sur une
+  // autre vue, CityView est démontée, ces écouteurs disparaissent et les flèches
+  // refont défiler la page. Modèle « tenu » : keydown mémorise, keyup oublie, et
+  // cmApplyHeldCamKeys lit l'état chaque frame (pan continu, pas au coup par coup).
+  CM._heldCamKeys = new Set();
+  const heldKeys = CM._heldCamKeys;
+  window.addEventListener("keydown", (e) => {
+    const cam = resolveCameraKey(e);
+    if (cam) {
+      e.preventDefault();               // pas de défilement de page sous la carte
+      if (cam.pan) {
+        heldKeys.add(e.key);            // pan TENU : lu chaque frame → glissement continu
+      } else if (cam.zoom) {
+        // Zoom : un cran de CIBLE par appui (l'auto-répétition OS enchaîne les
+        // crans quand la touche est tenue), cam.zoom glisse vers la cible. Pas
+        // d'état « tenu » → aucune touche +/- ne peut rester coincée au relâcher.
+        const f = cam.zoom > 0 ? CAM_FEEL.keyZoom : 1 / CAM_FEEL.keyZoom;
+        CM.zoomGoal = Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * f));
+        CM.zoomAnchor = { mx: CM.cw / 2, my: CM.ch / 2 };
+        CM.camGoal = null;
+      }
+      return;
+    }
+    if (e.repeat) return;               // recentrage : une seule fois par appui
+    const hit = resolveShortcut(e);
+    if (hit && hit.id === "recenter_map") { e.preventDefault(); cmRecenter(); }
+  }, { signal });
+  window.addEventListener("keyup", (e) => { heldKeys.delete(e.key); }, { signal });
+  // Perte de focus (Alt-Tab, clic hors fenêtre) : le keyup peut manquer → on vide,
+  // sinon une touche « restée enfoncée » ferait dériver la caméra sans fin.
+  window.addEventListener("blur", () => heldKeys.clear(), { signal });
 
   return () => controller.abort();
 }
@@ -1235,6 +1401,11 @@ function initCityMap(canvas, options = {}) {
     if (active && CM.canvas && CM.cw > 0) {
       if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
+      // A9 — Clavier tenu (flèches/+/-) puis rattrapage amorti, AVANT le clamp
+      // (qui reste le juge final du cadre) : zoom qui glisse, vol de recentrage,
+      // inertie de pan.
+      cmApplyHeldCamKeys(dt);
+      cmCameraGlide(dt);
       cmClampCamera();
       cmCheckWonders(now);
 
@@ -1350,6 +1521,31 @@ function initCityMap(canvas, options = {}) {
         // On révèle les 40 DERNIÈRES maisons placées une par une (le reste apparaît au
         // recompute). placed-40 masqué au départ ; chaque achat en révèle une de plus.
         CM.engineHomeReveal = Math.max(0, Math.min(placed, placed - 40 + grown));
+        // A4 — Chevron « nouveau bâtiment » : détecter la MONTÉE du compteur de
+        // révélation (un achat vient de faire sortir une maison-moteur de terre)
+        // et estampiller la tuile concernée ; le rendu iso pose un chevron doré
+        // au-dessus, le temps de REVEAL_PIN_MS (drawIsoLive). Aucune caméra ici :
+        // c'est la moitié « pastille seule » de la fiche, le vol amorti reste à A9.
+        // Le premier passage et tout recompute du layout resynchronisent SANS
+        // marquer (les revealIdx changent de référentiel) ; une chute du compteur
+        // (effondrement, reset) ne marque pas ; un achat de masse ne marque QUE la
+        // dernière tuile — une seule pastille, pas une rafale.
+        const _rev = CM.engineHomeReveal;
+        if (CM._revealLayoutAt !== CM.layoutRecomputeAt) {
+          CM._revealLayoutAt = CM.layoutRecomputeAt;
+          CM._revealSeen = _rev;
+        } else if (CM._revealSeen === undefined) {
+          CM._revealSeen = _rev;
+        } else if (_rev > CM._revealSeen) {
+          const _last = _rev - 1, _tiles = CM.layout.tiles || [];
+          for (let i = 0; i < _tiles.length; i += 1) {
+            const _t = _tiles[i];
+            if (_t.type === 'enginehome' && (_t.revealIdx || 0) === _last) { _t._revealPinAt = now; break; }
+          }
+          CM._revealSeen = _rev;
+        } else if (_rev < CM._revealSeen) {
+          CM._revealSeen = _rev;
+        }
       }
       // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
       // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE

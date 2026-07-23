@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   SHORTCUT_DEFS, shortcutKey, shortcutRejection,
   setShortcutKey, setShortcutOff, resetShortcutKey,
-  resolveShortcut, resolveViewDigit,
+  resolveShortcut, resolveViewDigit, resolveCameraKey,
 } from "../shortcuts.js";
 
 const def = (id) => SHORTCUT_DEFS.find((d) => d.id === id);
@@ -108,6 +108,32 @@ describe("réattribution — les garde-fous", () => {
     setShortcutKey("buy_all", "b");
     resetShortcutKey("buy_all");
     expect(shortcutKey(def("buy_all"))).toBe("e");
+  });
+});
+
+describe("touches caméra (A9)", () => {
+  it("les flèches rendent une direction de pan écran", () => {
+    expect(resolveCameraKey(ev("ArrowLeft"))).toEqual({ pan: [-1, 0] });
+    expect(resolveCameraKey(ev("ArrowRight"))).toEqual({ pan: [1, 0] });
+    expect(resolveCameraKey(ev("ArrowUp"))).toEqual({ pan: [0, -1] });
+    expect(resolveCameraKey(ev("ArrowDown"))).toEqual({ pan: [0, 1] });
+  });
+
+  it("plus et moins rendent un sens de zoom (avec leurs variantes de clavier)", () => {
+    expect(resolveCameraKey(ev("+"))).toEqual({ zoom: 1 });
+    expect(resolveCameraKey(ev("="))).toEqual({ zoom: 1 });
+    expect(resolveCameraKey(ev("-"))).toEqual({ zoom: -1 });
+    expect(resolveCameraKey(ev("_"))).toEqual({ zoom: -1 });
+  });
+
+  it("ignore une touche quelconque et respecte la garde de saisie (modificateur)", () => {
+    expect(resolveCameraKey(ev("a"))).toBeNull();
+    expect(resolveCameraKey(ev("ArrowLeft", { ctrlKey: true }))).toBeNull();
+  });
+
+  it("le recentrage est une touche personnalisable de la table, pas une touche caméra", () => {
+    expect(resolveCameraKey(ev("c"))).toBeNull();
+    expect(resolveShortcut(ev("c"))?.id).toBe("recenter_map");
   });
 });
 

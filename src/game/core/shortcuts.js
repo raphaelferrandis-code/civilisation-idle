@@ -35,6 +35,8 @@ export const SHORTCUT_DEFS = [
     hint: { fr: "Achète toute l'Infrastructure abordable", en: "Buys all affordable Infrastructure" } },
   { id: "contemplation", key: "f", label: { fr: "Mode contemplation", en: "Contemplation mode" },
     hint: { fr: "Efface toute l'interface, il ne reste que la ville. Échap en sort.", en: "Hides the whole interface, leaving only the city. Esc leaves it." } },
+  { id: "recenter_map", key: "c", label: { fr: "Recentrer la carte", en: "Recenter map" },
+    hint: { fr: "Ramène la caméra au centre de la ville, en vol amorti", en: "Glides the camera back to the city centre" } },
 ];
 
 // { [id]: { key: string|null, off: boolean } } — `key` null = touche par défaut.
@@ -123,6 +125,27 @@ export function resolveShortcut(event) {
     if (shortcutKey(def) === key) return def;
   }
   return null;
+}
+
+// Touches de CAMÉRA (A9) : flèches = panoramique amorti, +/- = zoom. Ce sont des
+// touches de NAVIGATION, refusées à la table personnalisable (FORBIDDEN_KEYS) :
+// elles ne peuvent donc pas entrer en conflit avec un raccourci d'achat, et n'ont
+// pas à être réattribuables. Le recentrage, lui, est une touche simple : il vit
+// dans SHORTCUT_DEFS (id `recenter_map`) et se résout par `resolveShortcut`.
+// Renvoie une action normalisée { pan: [sdx, sdy] } | { zoom: ±1 }, ou null.
+// Même garde que le reste (`shortcutsBlocked`) : rien pendant une saisie ou un
+// dialogue ouvert.
+export function resolveCameraKey(event) {
+  if (shortcutsBlocked(event)) return null;
+  switch (event.key) {
+    case "ArrowLeft": return { pan: [-1, 0] };
+    case "ArrowRight": return { pan: [1, 0] };
+    case "ArrowUp": return { pan: [0, -1] };
+    case "ArrowDown": return { pan: [0, 1] };
+    case "+": case "=": return { zoom: 1 };
+    case "-": case "_": return { zoom: -1 };
+    default: return null;
+  }
 }
 
 // Index de vue pour les touches 1 à 8, ou -1. Les chiffres restent hors table :

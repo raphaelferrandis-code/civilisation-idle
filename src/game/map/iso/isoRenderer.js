@@ -4129,6 +4129,46 @@ function drawIsoSmoke(box, s, now, k) {
   ctx.imageSmoothingEnabled = prevAA;
 }
 
+// ── CHEVRON « NOUVEAU BÂTIMENT » (A4) ────────────────────────────────────────
+// Quand un achat fait sortir une maison-moteur de terre, le runtime estampille la
+// tuile (t._revealPinAt, cf. cityMapRuntime). Ici on pose un chevron doré discret
+// au-dessus, item du tri peintre à la profondeur du bâtiment (comme la fumée), le
+// temps de REVEAL_PIN_MS. AUCUN recadrage caméra : c'est la moitié « pastille
+// seule » de la fiche, le vol amorti reste à A9. Vectoriel comme les halos.
+const REVEAL_PIN_MS = 1200;
+function drawIsoRevealPin(box, born, now) {
+  if (!box) return;
+  const age = (now || 0) - born;
+  if (age < 0 || age >= REVEAL_PIN_MS) return;
+  // Fondu : montée rapide (~130 ms), plateau, chute douce (~360 ms).
+  const a = Math.max(0, Math.min(1, Math.min(age / 130, (REVEAL_PIN_MS - age) / 360)));
+  if (a <= 0.02) return;
+  const ctx = CM.ctx;
+  // Taille indexée sur la largeur RÉELLE du sprite (suit le zoom), bornée pour
+  // rester discrète et ne pas écraser une petite maison au dézoom.
+  const w = Math.max(4, Math.min(11, box.dw * 0.30));   // demi-largeur du chevron
+  const h = w * 1.15;                                    // hauteur (pointe vers le bas)
+  const bob = Math.sin(age / 130) * (w * 0.18);          // léger flottement
+  const cx = Math.round(box.dx + box.dw / 2);
+  const topY = Math.round(box.dy - h - w * 0.5 + bob);   // planant au-dessus du toit
+  ctx.save();
+  ctx.globalAlpha = a;
+  // Chevron plein pointant vers le bas (repère « ici ») + liseré sombre pour le
+  // détacher des toits clairs.
+  ctx.beginPath();
+  ctx.moveTo(cx - w, topY);
+  ctx.lineTo(cx + w, topY);
+  ctx.lineTo(cx, topY + h);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,206,84,0.96)';
+  ctx.fill();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(1, w * 0.16);
+  ctx.strokeStyle = 'rgba(70,46,8,0.85)';
+  ctx.stroke();
+  ctx.restore();
+}
+
 // ── PLUIE ───────────────────────────────────────────────────────────────────
 // Surcouche plein écran, JAMAIS un second jeu de sprites : traits d'un pixel
 // inclinés par le vent, position = fonction PURE de (now, index) comme les
@@ -4257,6 +4297,12 @@ function drawIsoLive(now) {
     if (smokeK > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
       if (t._smokeS === undefined) t._smokeS = cmHash('smk:' + t.gx + ':' + t.gy) >>> 0;
       if (t._smokeS % SMOKE_TUNE.share === 0) items.push({ d: d + 0.001, kind: 'smoke', t });
+    }
+    // CHEVRON « nouveau bâtiment » (A4) : item SÉPARÉ juste au-dessus du sien
+    // (profondeur > fumée), le temps de REVEAL_PIN_MS après l'achat. Coupé par le
+    // cran « Vie de la carte » comme la fumée ; pixelHouseReady garantit une boîte.
+    if (t._revealPinAt && (CM.ambianceK ?? 1) > 0 && now - t._revealPinAt < REVEAL_PIN_MS && pixelHouseReady(t)) {
+      items.push({ d: d + 0.002, kind: 'revealpin', t });
     }
     // BATEAU AMARRÉ du port : item SÉPARÉ trié à SA position — dessiné dans la
     // scène riveraine il héritait de la profondeur de l'EMPRISE du bâtiment et
@@ -4599,6 +4645,13 @@ function drawIsoLive(now) {
       // MÊME appel de géométrie que le dessin du sprite : la source de la fumée
       // se recale donc automatiquement sur tout changement de cadrage du sprite.
       drawIsoSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._smokeS, now, smokeK);
+    } else if (it.kind === 'revealpin') {
+      const t = it.t;
+      const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
+      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
+      // MÊME géométrie que le sprite (cf. fumée) → le chevron suit tout recadrage.
+      drawIsoRevealPin(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._revealPinAt, now);
     } else if (it.kind === 'wonder') {
       // MERVEILLE au tri peintre : drawWonder gère ancre/cull/érection lui-même.
       drawWonder(it.w, it.wi, now);
