@@ -6,6 +6,7 @@ import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar from '../ui/CrisisActionBar.jsx';
 import CycleReportBanner from '../ui/CycleReportBanner.jsx';
+import FirstStepsPanel from '../ui/FirstStepsPanel.jsx';
 import IdleReportPanel from '../ui/IdleReportPanel.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
@@ -490,6 +491,9 @@ export default function CityView() {
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
         <div className="city-aux" ref={cityAuxRef}>
+          {/* PREMIERS PAS (E1) : au-dessus des outils, il disparaît de lui-même
+              une fois les trois étapes franchies et ne revient jamais. */}
+          <FirstStepsPanel />
           <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
             {chronicleVisible && (
               <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })} aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>

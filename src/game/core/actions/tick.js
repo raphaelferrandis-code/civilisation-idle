@@ -31,6 +31,7 @@ import {
 } from '../mechanics.js';
 
 import { tr } from '../i18n.js';
+import { refreshOnboarding } from '../onboarding.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { BOONS } from '../../data/boons.js';
 
@@ -103,6 +104,15 @@ export function tick(dt) {
   if (gamePaused || collapseInProgress) return;
 
   bumpFrame(); // invalide les 5 caches de frame en une fois (cf. state.js)
+
+  // PREMIERS PAS (E1). ⚠ AVANT le retour anticipé de la crise terminale, et
+  // c'est la seule place correcte : placé plus bas, le latch ne tournait pas
+  // pendant toute une crise terminale — c'est-à-dire pile au moment où la
+  // Rupture est au maximum et où le joueur attend que l'étape se coche. Vu en
+  // jeu sur une partie à 21 cycles dont les trois drapeaux restaient à false.
+  // Latch à sens unique, une lecture de booléen par tick une fois les trois
+  // posés, donc gratuit à mettre si haut.
+  refreshOnboarding(state, totalBuildingCount());
 
   if (state.crisisLimitAnnounced) {
     if (state.instability >= 1) state.instability = 1;

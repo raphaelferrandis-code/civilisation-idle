@@ -328,6 +328,11 @@ export const defaultState = () => ({
   // (les bâtiments et les pics repartent au socle), donc un latch par cycle
   // rejouerait la même rafale toutes les deux ou trois minutes.
   revealedBuildings: {},
+  // Premiers pas (E1) : trois drapeaux latchés à SENS UNIQUE par le tick. Ils
+  // ne se relisent jamais sur l'état courant — la chute vide les bâtiments et
+  // le Grand Reset remet `cycles` à zéro, donc une condition relue ferait
+  // revenir le fil chez un joueur qui l'a fini depuis longtemps.
+  onboarding: { built: false, pressureSeen: false, collapsed: false },
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -1321,6 +1326,13 @@ export function hydrateState(parsed = {}) {
     // premier tick annoncera donc d'un coup ce qui est déjà à portée, en UN
     // seul message groupé, puis plus jamais.
     revealedBuildings: normalizeMythsCompleted(source.revealedBuildings),
+    // Objet PLEIN et jamais null, comme templeAuto : le sélecteur le lit à
+    // chaque tick et un null y coûterait un test de garde à chaque lecture.
+    onboarding: {
+      built: Boolean(source.onboarding?.built),
+      pressureSeen: Boolean(source.onboarding?.pressureSeen),
+      collapsed: Boolean(source.onboarding?.collapsed)
+    },
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -1844,6 +1856,10 @@ export const GR_PERSISTENT_FIELDS = [
   // joueur reconstruit tout, et lui rejouer la découverte des Cueilleurs serait
   // du bruit sur une mécanique qu'il connaît par cœur.
   "revealedBuildings",
+  // Premiers pas (E1) : un Grand Reset ne refait PAS le didacticiel. Sans cette
+  // entrée, `cycles` repartant à zéro, le fil se rouvrirait chez un joueur qui
+  // vient d'accomplir la chose la plus avancée du jeu.
+  "onboarding",
   // Augments du Temple (2026-07-15) : boosters de jeu ÉTERNELS — survivent au
   // Grand Reset ; la Faveur (le carburant) se re-gagne, elle, à chaque cycle GR.
   // templeAuto = réglages d'automatisation (Phase 2) : éternels aussi.

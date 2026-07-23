@@ -172,6 +172,82 @@
   pointer-events: none;
 }
 
+/* ── PREMIERS PAS (E1) ──────────────────────────────────────────────────────
+   Une seule étape à la fois, dans le rail droit de la Cité, au-dessus des
+   outils. Volontairement discret : c'est un fil qu'on suit ou qu'on ignore, pas
+   un didacticiel qui réclame. Il disparaît définitivement au bout des trois.
+
+   `pointer-events: auto` est OBLIGATOIRE : `.city-aux` est en `none` pour
+   laisser la carte se manipuler à travers, et un enfant n'en sort pas tout
+   seul. Sans cette ligne le panneau serait bien là, mais on ne pourrait ni le
+   survoler ni le sélectionner. */
+.first-steps {
+  pointer-events: auto;
+  max-width: 15rem;
+  margin-bottom: 0.5rem;
+  padding: calc(0.6rem * var(--density-k, 1)) calc(0.7rem * var(--density-k, 1));
+  border: 1px solid var(--border-soft);
+  border-left: 2px solid var(--brand-gold, var(--text-strong));
+  border-radius: var(--r-card, 6px);
+  background: color-mix(in srgb, var(--surface-panel) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.first-steps-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.first-steps-kicker {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-gold, var(--text-mid));
+}
+
+.first-steps-count {
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.first-steps-label {
+  margin: 0.25rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.first-steps-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Les étapes franchies restent visibles en creux : le fil doit montrer d'où
+   l'on vient, sinon il donne l'impression de ne jamais avancer. */
+.first-steps-dots {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-steps-dots li {
+  width: 1.1rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.first-steps-dots li.is-done { background: var(--brand-gold, var(--text-mid)); opacity: 0.55; }
+.first-steps-dots li.is-current { background: var(--brand-gold, var(--text-strong)); }
+
 .hud-dock {
   display: flex;
   flex-direction: column;
