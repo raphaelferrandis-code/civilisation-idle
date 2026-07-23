@@ -184,17 +184,51 @@
    Il ne vole pas le focus et n'interrompt rien : on revient dans son jeu, on ne
    se fait pas accueillir par une fenetre a cliquer.
    ============================================================================ */
+/* RAPPORT DE REPRISE — CENTRÉ SUR LA CARTE, DANS LE CADRE GREC.
+   Il était collé en haut à gauche, où il partageait la bande des 3,2 rem avec
+   le bilan de cycle : deux encarts pouvaient s'y superposer au retour d'une
+   absence suivie d'un effondrement. Le centrer règle la collision au passage.
+
+   Le cadre est celui des panneaux de la Chronique, de l'Effondrement et des
+   Mythes (frames.css). Ses règles :
+     - `round` et non `stretch`, la tuile du milieu vaut UNE période de méandre ;
+     - `padding: 0`, les bordures SONT la marge intérieure ;
+     - le cadre ne peint que son anneau, le fond du panneau reste visible.
+
+   La largeur monte de 20 à 30 rem : les 88 px de cadre horizontal se prennent
+   sur le contenu, et l'ancienne largeur n'aurait laissé que ~230 px pour des
+   lignes « libellé + montant ». */
 .idle-report {
   position: absolute;
-  top: 3.2rem;
-  left: 1rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 7;
-  width: min(20rem, 42%);
-  padding: 0.7rem 0.9rem 0.8rem;
-  border: 1px solid var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
-  border-radius: 3px;
+  width: min(30rem, 86%);
+  max-height: 84%;
+  overflow-y: auto;
+  padding: 0;
+  border-style: solid;
+  border-width: 48px 40px 42px 48px;
+  border-color: transparent;
+  border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
+  border-radius: 0;
+  image-rendering: pixelated;
   background: linear-gradient(180deg, rgba(20, 17, 13, 0.95), rgba(13, 11, 9, 0.93));
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* Sous 720 px, le cadre mangerait 88 px de largeur utile. Même repli que
+   frames.css : on revient au panneau nu plutôt que d'écraser le dessin. */
+@media (max-width: 720px) {
+  .idle-report {
+    width: min(22rem, 92%);
+    padding: 0.7rem 0.9rem 0.8rem;
+    border-width: 1px;
+    border-image: none;
+    border-color: var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
+    border-radius: 3px;
+  }
 }
 
 .idle-report-head {
