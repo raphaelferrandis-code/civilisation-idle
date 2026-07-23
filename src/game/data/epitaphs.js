@@ -67,11 +67,37 @@ export const EPITAPH_LEGACIES = [
   }
 ];
 
+// LES QUATRE CAUSES DE CHUTE, registre unique. C'est l'ensemble EXACT des
+// valeurs que rend collapseCause() (core/events.js) ; toute table indexée par
+// une cause doit les couvrir toutes les quatre, et la porte de test
+// cycleReport.test.js échoue sinon.
+//
+// ⚠ NE PAS CONFONDRE avec le `reason` d'un effondrement (« manual »,
+// « auto_collapse », « forced », « auto_script »), qui dit par quel CHEMIN la
+// cité est tombée et non de quoi elle est morte. Les deux voyagent côte à côte
+// et sous le même nom de champ : state.lastCycleReport.cause porte la cause
+// physique, state.prevCycle.cause porte le reason. Le bandeau de bilan a
+// justement été écrit avec deux clés de reason dans sa table de causes, et
+// imprimait la clé brute sur deux chutes sur quatre.
+export const COLLAPSE_CAUSES = ["time", "famine", "avarice", "rupture"];
+
 export const FAVORED_CAUSE_LABELS = {
   famine: { fr: "chute par famine", en: "fall by famine" },
   time: { fr: "chute par usure du temps", en: "fall by the wear of time" },
   rupture: { fr: "chute par rupture", en: "fall by rupture" },
   avarice: { fr: "chute par avarice", en: "fall by avarice" }
+};
+
+// Même clé, autre phrase. Le bandeau de bilan de cycle écrit « Emportée par X »,
+// donc un groupe nominal avec son article, quand le sceau écrit X tout seul.
+// Les deux tables vivent ici plutôt que dans leur composant pour que le registre
+// et ses libellés se relisent d'un seul coup d'œil, et parce qu'une constante
+// exportée depuis un .jsx casse le rafraîchissement à chaud (react-refresh).
+export const COLLAPSE_CAUSE_LABELS = {
+  time: { fr: "l'usure du temps", en: "the wear of time" },
+  famine: { fr: "la famine", en: "famine" },
+  avarice: { fr: "l'avarice de ses élites", en: "the avarice of its elites" },
+  rupture: { fr: "la Rupture", en: "Rupture" }
 };
 
 export function epitaphLegacyById(id) {
@@ -132,3 +158,4 @@ export function epitaphLegacyChips(legacy, cause) {
 // lecture dans epitaphLegacyChips().
 localizeData(EPITAPH_LEGACIES);
 localizeData(FAVORED_CAUSE_LABELS);
+localizeData(COLLAPSE_CAUSE_LABELS);

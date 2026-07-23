@@ -4,6 +4,7 @@ import { clearCycleReport } from '../../game/core/state.js';
 import { fmt } from '../../game/core/utils.js';
 import { D } from '../../game/core/num.js';
 import { tr } from '../../game/core/i18n.js';
+import { COLLAPSE_CAUSE_LABELS } from '../../game/data/epitaphs.js';
 
 // BILAN DE FIN DE CYCLE (D9). Sur le chemin SILENCIEUX de l'effondrement (Édit
 // automatique, ou testament déjà gravé), la civilisation tombait sans un mot,
@@ -11,13 +12,6 @@ import { tr } from '../../game/core/i18n.js';
 // récapitulatif sans jamais voler le focus : ce n'est PAS un dialogue, rien ne
 // se met en pause, l'automatisation continue, et il s'efface tout seul.
 const SHOW_MS = 9000;
-
-const CAUSE_LABELS = {
-  famine: { fr: "la famine", en: "famine" },
-  instability: { fr: "la révolte", en: "revolt" },
-  time: { fr: "l'usure du temps", en: "the wear of time" },
-  auto_collapse: { fr: "l'Édit d'effondrement", en: "the Collapse Edict" }
-};
 
 // Durée en langage courant : « 4 min 12 s », « 1 h 07 ». Un cycle se raconte,
 // il ne se lit pas en secondes.
@@ -59,7 +53,10 @@ export default function CycleReportBanner() {
   // plafond float, un écart calculé en natif partirait en Infinity.
   const gainDelta = prevGain && prevGain.gt(0) ? deltaFromRatio(gain.div(prevGain).toNumber()) : null;
   const timeDelta = shown.prevCycleSec > 0 ? deltaFromRatio(shown.cycleSec / shown.prevCycleSec) : null;
-  const causeLabel = CAUSE_LABELS[shown.cause] ? tr(CAUSE_LABELS[shown.cause]) : shown.cause;
+  // Table aplatie par localizeData() au chargement : la valeur est déjà une
+  // chaîne de la langue courante. Repli sur la clé pour ne jamais rendre vide,
+  // et une porte de test garantit que les quatre causes réelles y sont.
+  const causeLabel = COLLAPSE_CAUSE_LABELS[shown.cause] || shown.cause;
 
   return (
     <div className="cycle-report" role="status">

@@ -41,6 +41,11 @@ export function openChoiceDialog({ title, body, options, mourning = false, varia
   return requestChoiceDialog({ title, body, options, mourning, variant, preventClose, footnote, inscription });
 }
 
+// De quoi la cité est morte. Les quatre valeurs rendues ici sont recensées dans
+// COLLAPSE_CAUSES (data/epitaphs.js) : en ajouter une cinquième oblige à l'y
+// inscrire, sans quoi les tables de libellés indexées par cause afficheront la
+// clé brute. Ne pas confondre avec le `reason` de l'effondrement, qui dit par
+// quel chemin la chute est arrivée.
 export function collapseCause() {
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
