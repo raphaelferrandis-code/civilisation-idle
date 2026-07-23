@@ -59,6 +59,11 @@ function PurchaseRow({
   // Calculé par le parent, qui seul dispose de l'échéance en secondes ; le
   // déduire ici du libellé d'ETA obligerait à parser une phrase TRADUITE.
   rowState = "locked",
+  // Gain relatif du lot (B6) : DEUX CHAÎNES déjà formatées, jamais un objet.
+  // La rangée est mémoïsée et arePropsEqual compare des primitives ; un objet
+  // recréé à chaque rendu parent casserait la mémoïsation de toutes les rangées.
+  gainLabel = "",
+  gainTitle = "",
   milestoneInfo,
   step,
   tier,
@@ -302,6 +307,17 @@ function PurchaseRow({
               {queuePos ? <span className="pr-pin-pos">{queuePos}</span> : null}
             </button>
           )}
+          {/* GAIN RELATIF (B6). « +31 % » se lit d'un coup d'œil là où comparer
+              4.2e12 à 8.7e11 d'une rangée à l'autre est impossible. Le chip
+              porte la ressource la plus servie, l'infobulle les détaille toutes. */}
+          {gainLabel && (
+            <span className="pr-gain" {...tipProps(
+              tr({ fr: "Ce que ce lot ajoute", en: "What this batch adds" }),
+              gainTitle
+            )}>
+              {gainLabel}
+            </span>
+          )}
           <span className="pr-count" {...tipProps(null, tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` }))} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
             <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
           </span>
@@ -343,7 +359,12 @@ function arePropsEqual(prev, next) {
     // État à trois valeurs (E5). Même piège que l'ETA juste au-dessus : la
     // rangée est mémoïsée, donc TOUT ce qui s'affiche doit être comparé ici,
     // sinon le pip reste figé sur son premier état jusqu'au prochain achat.
-    prev.rowState === next.rowState
+    prev.rowState === next.rowState &&
+    // Gain relatif (B6), deux chaînes formatées. Même règle que l'ETA et
+    // l'état : tout ce qui s'affiche se compare ici, sinon le chip se fige sur
+    // sa première valeur jusqu'au prochain achat.
+    prev.gainLabel === next.gainLabel &&
+    prev.gainTitle === next.gainTitle
   );
 }
 

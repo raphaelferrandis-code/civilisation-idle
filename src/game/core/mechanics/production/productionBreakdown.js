@@ -71,6 +71,101 @@ function socleBase(resource) {
   return 0;
 }
 
+// Facteurs communs à la base d'un bâtiment, exactement ceux que getBuildingSums
+// puis la boucle par catégorie de rates() appliquent : synergie de jalon, rives
+// fécondes, Babel sur la SEULE catégorie déclarée, Langue commune, et le bonus
+// d'Héphaïstos réservé à l'infrastructure. Un seul endroit pour que le bilan
+// (B3) et le gain marginal (B6) ne puissent pas diverger.
+function facteursDeBase(b, count, champ, ctx) {
+  const cat = b.category || "other";
+  const synergie = ctx.overflow
+    ? toNum(buildingOutputMultiplierDec(b, count).mul(riverEngineFactor(b)))
+    : buildingOutputMultiplier(b, count) * riverEngineFactor(b);
+  const catMult = (ctx.babelActive && cat === state.babelCategory ? ctx.babelMult : 1) * babelCommonTongueMult(cat);
+  const hephBonus = (ctx.hephInfra > 1 && cat === "infra" && champ === "infra") ? ctx.hephInfra : 1;
+  return synergie * catMult * hephBonus;
+}
+
+function contexteDeBase() {
+  const babelActive = isMythEffectActive("mythe_de_babel");
+  return {
+    overflow: getBuildingSums().overflow,
+    babelActive,
+    babelMult: babelActive ? babelExponentialMult() : 1,
+    hephInfra: hephInfraMult()
+  };
+}
+
+/**
+ * ÉCHELLES DE CONVERSION base → débit affiché (B6).
+ *
+ * Rend, par ressource, `{ k, rate }` où `k` transforme une base en unités du
+ * débit lisible en haut de l'écran : `débit = base × k + additif`. C'est la même
+ * mise à l'échelle que productionBreakdown, extraite pour être calculée UNE
+ * fois par rendu de la boutique au lieu d'une fois par rangée — sinon chaque
+ * rangée relancerait une passe sur les trente bâtiments.
+ */
+export function productionScales() {
+  const ctx = contexteDeBase();
+  const totaux = {};
+  for (const res of BREAKDOWN_RESOURCES) totaux[res] = socleBase(res);
+  for (const b of buildings) {
+    const count = state.buildings[b.id] || 0;
+    if (count <= 0) continue;
+    for (const res of BREAKDOWN_RESOURCES) {
+      const champ = CHAMP_PAR_RESSOURCE[res];
+      const parUnite = b[champ] || 0;
+      if (parUnite === 0) continue;
+      totaux[res] += parUnite * count * facteursDeBase(b, count, champ, ctx);
+    }
+  }
+  const r = rates();
+  const scales = {};
+  for (const res of BREAKDOWN_RESOURCES) {
+    const rate = toNum(r[res]);
+    const additif = (res === "knowledge" && has("trait_theocracy")) ? toNum(D(state.gold).mul(0.01)) : 0;
+    const base = totaux[res];
+    scales[res] = {
+      rate,
+      k: base > 0 && Number.isFinite(rate) ? (rate - additif) / base : 0
+    };
+  }
+  return { scales, ctx };
+}
+
+/**
+ * GAIN MARGINAL D'UN LOT (B6), en part du débit affiché.
+ *
+ * ⚠ MARGINAL, jamais la production totale de la ligne. La synergie de jalon est
+ * exponentielle en `count` : rapporter la sortie ENTIÈRE du bâtiment au débit
+ * ferait afficher un gain énorme à ce qu'on possède déjà en nombre, c'est-à-dire
+ * exactement l'inverse du conseil utile. On compare donc l'état APRÈS l'achat à
+ * l'état avant.
+ *
+ * Rend les ressources touchées, la plus forte d'abord, avec `pct` = part du
+ * débit courant. `pct` vaut null quand la ressource n'a pas encore de débit :
+ * diviser par zéro donnerait +Infini % sur le premier grenier d'une partie.
+ */
+export function buildingRelativeGain(b, count, amount, prepared) {
+  const { scales, ctx } = prepared || productionScales();
+  const apres = count + Math.max(0, amount);
+  const out = [];
+  for (const res of BREAKDOWN_RESOURCES) {
+    const champ = CHAMP_PAR_RESSOURCE[res];
+    const parUnite = b[champ] || 0;
+    if (parUnite === 0) continue;
+    const baseAvant = count > 0 ? parUnite * count * facteursDeBase(b, count, champ, ctx) : 0;
+    const baseApres = parUnite * apres * facteursDeBase(b, apres, champ, ctx);
+    const delta = baseApres - baseAvant;
+    if (!(delta > 0)) continue;
+    const s = scales[res];
+    const ajout = delta * s.k;
+    if (!Number.isFinite(ajout) || ajout <= 0) continue;
+    out.push({ resource: res, add: ajout, pct: s.rate > 0 ? ajout / s.rate : null });
+  }
+  return out.sort((x, y) => (y.pct ?? Infinity) - (x.pct ?? Infinity));
+}
+
 /**
  * Contributions à une ressource, classées de la plus grosse à la plus petite.
  *
@@ -82,15 +177,10 @@ export function productionBreakdown(resource) {
   const champ = CHAMP_PAR_RESSOURCE[resource];
   if (!champ) throw new Error(`productionBreakdown : ressource inconnue "${resource}"`);
 
-  const sums = getBuildingSums();
-  const babelActive = isMythEffectActive("mythe_de_babel");
-  const babelMult = babelActive ? babelExponentialMult() : 1;
-  const hephInfra = hephInfraMult();
+  // Contexte et facteurs PARTAGÉS avec le gain marginal (B6) : recopier ces
+  // règles ici les ferait diverger au premier équilibrage.
+  const ctx = contexteDeBase();
 
-  // Base par bâtiment, avec EXACTEMENT les facteurs que getBuildingSums puis la
-  // boucle par catégorie de rates() appliquent : synergie de jalon, rives
-  // fécondes, Babel sur la seule catégorie déclarée, Langue commune, et le
-  // bonus d'Héphaïstos réservé à l'infrastructure.
   const bases = [];
   let baseTotale = socleBase(resource);
   for (const b of buildings) {
@@ -98,15 +188,7 @@ export function productionBreakdown(resource) {
     const parUnite = b[champ] || 0;
     if (count <= 0 || parUnite === 0) continue;
     const cat = b.category || "other";
-    // Au-delà du plafond float les synergies débordent : on emprunte le même
-    // miroir Decimal que getBuildingSums, puis on redescend en number pour la
-    // part (une part est toujours dans [0,1], elle ne déborde jamais).
-    const synergie = sums.overflow
-      ? toNum(buildingOutputMultiplierDec(b, count).mul(riverEngineFactor(b)))
-      : buildingOutputMultiplier(b, count) * riverEngineFactor(b);
-    const catMult = (babelActive && cat === state.babelCategory ? babelMult : 1) * babelCommonTongueMult(cat);
-    const hephBonus = (hephInfra > 1 && cat === "infra" && champ === "infra") ? hephInfra : 1;
-    const base = parUnite * count * synergie * catMult * hephBonus;
+    const base = parUnite * count * facteursDeBase(b, count, champ, ctx);
     if (!(base > 0)) continue;
     bases.push({ key: b.id, label: b.name, count, base, category: cat });
     baseTotale += base;

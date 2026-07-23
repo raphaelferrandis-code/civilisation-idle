@@ -75,6 +75,23 @@
   opacity: 0.7;
 }
 
+/* ── GAIN RELATIF DU LOT (B6) ───────────────────────────────────────────────
+   Discret, à gauche du compteur. Teinte prise dans la palette d'états, SANS
+   glow : la règle du projet réserve le glow au palier critique, et un chip
+   qui brille sur trente rangées ne hiérarchise plus rien. */
+.pr-gain {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--state-soon);
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.purchase-row[data-state="affordable"] .pr-gain {
+  color: var(--state-affordable);
+  opacity: 1;
+}
+
 /* Pied de carte : bouton d'achat (gauche) + compteur possédé (droite), collé en bas. */
 .pr-footer {
   display: flex;

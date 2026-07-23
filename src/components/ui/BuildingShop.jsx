@@ -18,12 +18,36 @@ import { canQueue, toggleBuyQueue, clearBuyQueue } from '../../game/core/actions
 import { buyableInMass } from '../../game/core/actions/building.js';
 import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
 import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
+import { productionScales, buildingRelativeGain } from '../../game/core/mechanics/production/productionBreakdown.js';
 
 // Seuil de l'état « bientôt » (E5) : payable en moins d'une minute au rythme
 // actuel. Une minute est le palier de quantizeEta juste au-dessus des pas de
 // 5 s, donc le seuil tombe pile sur une frontière de quantification et ne peut
 // pas osciller.
 const SOON_ETA_SECONDS = 60;
+
+// Noms de ressource pour l'infobulle de gain (B6). labelFor rend des formes
+// abrégées et minuscules (« Ray. », « tresor ») taillées pour les coûts serrés
+// d'une rangée ; ici la bulle a la place d'écrire le mot en entier.
+const RES_NAMES = {
+  population: { fr: "Rayonnement", en: "Radiance" },
+  food: { fr: "Nourriture", en: "Food" },
+  gold: { fr: "Trésor", en: "Treasury" },
+  knowledge: { fr: "Savoir", en: "Knowledge" },
+  infrastructure: { fr: "Infrastructure", en: "Infrastructure" }
+};
+
+// Gain en part du débit courant. `null` quand la ressource ne coule pas encore :
+// diviser par zéro donnerait « +Infini % » sur le premier grenier d'une partie,
+// et « +0 % » serait tout aussi faux. On rend une chaîne vide, l'appelant dit
+// alors « premier apport ».
+function fmtGainPct(pct) {
+  if (pct == null || !Number.isFinite(pct) || pct <= 0) return "";
+  const p = pct * 100;
+  if (p < 0.1) return "<0.1 %";
+  if (p >= 100) return `+${Math.round(p)} %`;
+  return `+${p.toFixed(p < 10 ? 1 : 0)} %`;
+}
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
@@ -113,6 +137,20 @@ function BuildingShop() {
   // dans les coûts/l'état.
   const globalMult = useGameState(() => Number(globalMultiplier().toPrecision(4)));
   const sqrtGlobalMult = Math.sqrt(globalMult);
+
+  // GAIN RELATIF (B6). Les échelles base → débit sont calculées UNE fois par
+  // rendu, pas une fois par rangée : sinon chaque rangée relancerait une passe
+  // sur les trente bâtiments. Recalculées quand le multiplicateur arrondi ou un
+  // achat bougent, ce qui suffit à une aide à la décision — c'est un conseil
+  // d'achat, pas un compteur à la seconde.
+  //
+  // ⚠ ON NE PART PAS DE buildingProductionSegments. Ces segments servent
+  // l'AFFICHAGE et sont pondérés par un globalMult arrondi à 4 chiffres
+  // significatifs (choix de mémoïsation, juste au-dessus) ; les diviser par
+  // rates() mélangerait deux arrondis et donnerait un pourcentage faux de
+  // quelques points. Le gain part des bases, comme les Comptes de la cité.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const gainScales = useMemo(() => productionScales(), [globalMult, buildingsVersion, buyAmount]);
 
   // FILE D'ACHATS (C8). On s'abonne à une SIGNATURE (chaîne) et non au tableau :
   // le sélecteur reconstruirait un tableau neuf à chaque tick, donc un rendu par
@@ -371,6 +409,24 @@ function BuildingShop() {
 
           const pulse = b.id === firstAffordableId;
 
+          // GAIN RELATIF (B6). La quantité doit être celle que le bouton va
+          // RÉELLEMENT acheter, sinon le pourcentage annonce autre chose que le
+          // prix affiché juste à côté. « Palier » se résout comme dans la
+          // rangée (nextIn), et « Max » vaut 1 parce que c'est ce que
+          // buildingBatchCost chiffre pour ce mode.
+          const stepSize = milestoneStep || 25;
+          const gainAmount = buyAmount === "max" ? 1
+            : buyAmount === "step" ? (stepSize - (count % stepSize))
+            : (Number(buyAmount) || 1);
+          const gains = buildingRelativeGain(b, count, gainAmount, gainScales);
+          // Deux CHAÎNES, jamais un objet : la rangée est mémoïsée et
+          // arePropsEqual compare des primitives. Le détail par ressource part
+          // dans l'infobulle, la plus forte seule sur le chip.
+          const gainLabel = gains.length ? fmtGainPct(gains[0].pct) : "";
+          const gainTitle = gains.length
+            ? gains.map((g) => `${tr(RES_NAMES[g.resource])} ${fmtGainPct(g.pct) || tr({ fr: "premier apport", en: "first output" })}`).join(" · ")
+            : "";
+
           return (
             <PurchaseRow
               key={b.id}
@@ -391,6 +447,8 @@ function BuildingShop() {
               production={buildingProductionSegments(b, outputCount, globalMult, sqrtGlobalMult, outputMult)}
               globalMult={globalMult}
               lackingKey={lackingKey}
+              gainLabel={gainLabel}
+              gainTitle={gainTitle}
               pulse={pulse}
               queuePos={queuePosById[b.id] || 0}
               queueable={canQueue(b)}
