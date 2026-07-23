@@ -18,6 +18,8 @@ import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
 import { tr, getLang } from './game/core/i18n.js';
+import { applyMotionAttribute } from './game/map/ambianceMode.js';
+import { applyDensityAttribute } from './game/core/uiPrefs.js';
 import logoFr from './assets/LOGO.png';
 import logoEn from './assets/LOGO_collapse.png';
 
@@ -92,6 +94,12 @@ export default function App() {
   }, [eraIdx]);
 
   useEffect(() => {
+    // Préférences d'interface (E4) : les attributs sont posés sur <html> AVANT
+    // le premier rendu utile, sinon la page s'ouvre en densité normale puis
+    // saute au cran choisi. Ils sont relus du localStorage à l'import du
+    // module, donc rien à attendre.
+    applyMotionAttribute();
+    applyDensityAttribute();
     initAudio();
     const cleanup = startGameLoop();
 

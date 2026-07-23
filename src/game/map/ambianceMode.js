@@ -37,4 +37,31 @@ export function setAmbianceMode(mode) {
   try {
     localStorage.setItem(AMBIANCE_KEY, ambianceMode);
   } catch { /* stockage indisponible : le réglage vaut pour la session */ }
+  applyMotionAttribute();
+}
+
+// ── LE CRAN PILOTE AUSSI L'INTERFACE (E4) ───────────────────────────────────
+// Arbitrage : UN SEUL contrôle de mouvement, et c'est celui-ci. Deux curseurs
+// pour la même intention rendraient le joueur responsable d'une distinction
+// (canvas contre CSS) qui ne l'intéresse pas.
+//
+// ⚠ LE CRAN INTERMÉDIAIRE NE VAUT QUE POUR LA CARTE, et c'est une limite du
+// support, pas un oubli : une animation CSS se coupe ou ne se coupe pas, il n'y
+// a pas de demi-mesure. `sober` atténue donc la carte (K = 0,4) tout en laissant
+// l'interface intacte ; seul `none` fige aussi l'interface. Le libellé des
+// Options doit dire cette asymétrie plutôt que la masquer.
+//
+// L'attribut est posé sur <html> et non sur `.app` : les modales <dialog>
+// vivent dans le top layer et ne descendent pas de `.app`, un sélecteur ancré
+// là les manquerait entièrement.
+const MOTION_BY_MODE = { full: "full", sober: "full", none: "none" };
+
+export function motionMode() {
+  return MOTION_BY_MODE[ambianceMode] ?? "full";
+}
+
+export function applyMotionAttribute() {
+  try {
+    document.documentElement.setAttribute("data-motion", motionMode());
+  } catch { /* pas de DOM (tests, worker) : rien à poser */ }
 }

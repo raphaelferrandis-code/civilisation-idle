@@ -3,7 +3,13 @@
 }
 
 /* Accessibilité : coupe toutes les animations/transitions pour les joueurs
-   qui demandent moins de mouvement (Audit UI Phase 6) */
+   qui demandent moins de mouvement (Audit UI Phase 6).
+
+   ⚠ CE BLOC NE COUPE QUE LE CSS. La carte est un canvas peint en JS, qui
+   n'écoute aucune media query : un joueur dont le système demande moins de
+   mouvement a donc l'interface figée et la carte en pleine agitation. Le cran
+   « Mouvement » des Options (data-motion, juste en dessous) est le seul à
+   couvrir les deux. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -14,6 +20,30 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Cran « Mouvement » des Options (E4) : le MÊME réglage que la vie de la carte.
+   Une animation CSS se coupe ou ne se coupe pas — il n'y a pas de demi-mesure —
+   donc seul le cran « Aucune » descend jusqu'ici. Le cran intermédiaire
+   n'atténue que la carte, où le mouvement est continu et graduable. */
+:root[data-motion="none"] *,
+:root[data-motion="none"] *::before,
+:root[data-motion="none"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── DENSITÉ DES PANNEAUX (E4) ──────────────────────────────────────────────
+   Le design system n'a AUCUN jeton d'espacement : chaque marge est écrite dans
+   sa règle. Plutôt que d'en introduire un et de relire six cents règles, le
+   réglage cible les surfaces qui coûtent réellement de la hauteur — les listes
+   qu'on fait défiler. C'est là qu'un joueur sur petit écran souffre, et c'est
+   mesurable : le nombre de rangées visibles sans défiler.
+   Le facteur est publié pour que d'autres surfaces s'y branchent au besoin. */
+:root { --density-k: 1; }
+:root[data-density="aere"] { --density-k: 1.15; }
+:root[data-density="compacte"] { --density-k: 0.78; }
 
 html,
 body {
@@ -161,7 +191,9 @@ main {
 
 .panel {
   min-width: 0;
-  padding: 1rem;
+  /* Densité (E4) : le rembourrage des panneaux suit le cran. Seul l'espace
+     bouge, jamais la taille du texte — compacter ne doit pas rendre illisible. */
+  padding: calc(1rem * var(--density-k, 1));
 }
 
 .panel.focus {
