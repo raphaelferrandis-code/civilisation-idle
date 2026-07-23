@@ -33,6 +33,7 @@ import {
   epitaphLegacyChips,
   epitaphRuinMultiplier
 } from '../data/epitaphs.js';
+import { cycleVowRuinMult } from '../data/vows.js';
 import { fmt } from './utils.js';
 import { D } from './num.js';
 import { tr } from './i18n.js';
@@ -159,7 +160,8 @@ export async function runCollapseSequence(gain, reason) {
     const previousCycle = state.prevCycle;
     const fallYear = cycleYear();
     const fallPeak = crediblePopulation(state.cyclePeaks?.population || state.population);
-    completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round(), fallenDynasty, epitaph, reason);
+    // Vœu du cycle (D2) : lu AVANT completeCollapse, qui remet le vœu à zéro.
+    completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).mul(cycleVowRuinMult(state)).round(), fallenDynasty, epitaph, reason);
     // Pas de bandeau quand les notifications sont en pause : le rattrapage hors
     // ligne enchaîne les effondrements (jusqu'à OFFLINE_MAX_COLLAPSES) et
     // empilerait autant de bilans, dont un seul serait encore d'actualité.
@@ -192,7 +194,7 @@ export async function runCollapseSequence(gain, reason) {
   const lastWillId = state.nextEpitaphLegacy?.id || null;
   const options = EPITAPH_LEGACIES.map((legacy) => {
     const mult = epitaphRuinMultiplier(legacy, cause);
-    const ruinGain = gainBase.mul(mult).round();
+    const ruinGain = gainBase.mul(mult).mul(cycleVowRuinMult(state)).round();
     const deltaPct = Math.round((mult - 1) * 100);
     const favored = legacy.favoredCause === cause;
     // Renfort d'affinité matérialisé aussi côté ruines (Pillage : +25% → +35%).
@@ -260,7 +262,9 @@ export async function runCollapseSequence(gain, reason) {
     chosenCycle: state.cycles || 0,
     startedAt: Date.now()
   };
-  const finalGain = choice.ruinGain ?? gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).round();
+  // choice.ruinGain (calculé plus haut, vœu compris) est toujours défini ; le
+  // repli garde le facteur de vœu par cohérence si un jour il tombait.
+  const finalGain = choice.ruinGain ?? gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).mul(cycleVowRuinMult(state)).round();
 
   completeCollapse(finalGain, fallenDynasty, epitaph, reason);
   logCollapseLine(reason, gain);

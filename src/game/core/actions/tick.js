@@ -56,6 +56,7 @@ import {
 import { log, chronicle } from './utils.js';
 import { eras, eraTier } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
+import { refreshCycleVowDone, cycleVowStatus, rollCycleVow } from '../../data/vows.js';
 import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
@@ -334,6 +335,25 @@ export function tick(dt) {
       kind: "gain"
     });
     log(tr({ fr: `La cité sait désormais bâtir : ${liste}.`, en: `The city now knows how to build: ${liste}.` }));
+  }
+
+  // VŒU DU CYCLE (D2). Amorce paresseuse : le PREMIER cycle (et les vieilles
+  // sauvegardes, et l'après-pacte) n'ont pas de vœu tiré par completeCollapse —
+  // on en propose un ici pour qu'il y en ait toujours un à prêter.
+  if (!state.cycleVow) state.cycleVow = rollCycleVow(state);
+  // Latch dès l'objectif atteint. Posé INCONDITIONNELLEMENT (le vœu se tient aussi
+  // pendant le rattrapage hors ligne, pour que le joueur qui revient le trouve
+  // accompli) ; l'ANNONCE seule passe sous garde — même patron que les sceaux et
+  // les bâtiments juste au-dessus.
+  if (refreshCycleVowDone(state) && !isNotifyPaused()) {
+    const vowSt = cycleVowStatus(state);
+    if (vowSt) {
+      pushOutcomeFloat({ label: tr({ fr: `🕊️ Vœu tenu : ${tr(vowSt.def.name)}`, en: `🕊️ Vow kept: ${tr(vowSt.def.name)}` }), kind: "gain" });
+      log(tr({
+        fr: `Le vœu du cycle est tenu : la moisson de la prochaine chute sera majorée de ${Math.round((vowSt.ruinMult - 1) * 100)} %.`,
+        en: `The cycle's vow is kept: the next collapse's harvest will be raised by ${Math.round((vowSt.ruinMult - 1) * 100)}%.`
+      }));
+    }
   }
 
   // Ruine active « Fardeau du ciel » : voir crisis.js — « Atlas prend le coup »

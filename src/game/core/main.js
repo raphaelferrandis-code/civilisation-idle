@@ -55,6 +55,7 @@ import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js
 import { resumeActiveRuinsChoiceIfPending } from './actions/myths.js';
 import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
+import { cycleVowRuinMult } from '../data/vows.js';
 import { BRAISIERS_DURATION_MS } from '../data/myths.js';
 import { D } from './num.js';
 import { decideTickCredit } from './offlineCredit.js';
@@ -270,7 +271,9 @@ function simulateAwayCrises(elapsedSeconds) {
       const legacy = epitaphLegacyById(state.testamentLegacyId) || epitaphLegacyById(state.nextEpitaphLegacy?.id);
       const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
       const gainBase = ruinGain(true).floor().max(0).mul(riteBonus).round();
-      const gain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).round();
+      // Vœu du cycle (D2), reconduit hors ligne : lu avant que completeCollapse
+      // ne le remette à zéro (et n'en reconduise un pour le cycle suivant).
+      const gain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).mul(cycleVowRuinMult(state)).round();
       if (D(gain).gt(0)) {
         if (legacy) state.nextEpitaphLegacy = { id: legacy.id, cause, chosenCycle: state.cycles || 0, startedAt: Date.now() };
         completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), "auto_collapse");
@@ -453,6 +456,21 @@ export function spendStoredTime(seconds = Infinity) {
   save();
   render();
   return { ok: true, spent: spend, collapses: farm ? farm.collapses : 0 };
+}
+
+// Le joueur prête son vœu du cycle (D2) parmi les trois proposés. Rendu immédiat
+// pour que la rangée bascule de « choisir » à « en cours » au clic, sans attendre
+// le prochain tick. Idempotent : une fois choisi, le vœu ne se rechange plus.
+export function chooseCycleVow(id) {
+  const cv = state.cycleVow;
+  if (!cv || cv.chosen || !Array.isArray(cv.offered)) return false;
+  const entry = cv.offered.find((o) => o.id === id);
+  if (!entry) return false;
+  // Nouvelle RÉFÉRENCE : le sélecteur plat de useCityViewState compare en surface.
+  state.cycleVow = { ...cv, chosen: { id: entry.id, target: entry.target, base: entry.base }, done: false };
+  save();
+  render();
+  return true;
 }
 
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {

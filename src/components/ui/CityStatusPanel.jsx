@@ -1,10 +1,13 @@
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
-import { globalMultiplier, currentEraIndex, nextEraProgress, claimableGrandResetCount } from '../../game/core/mechanics.js';
+import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
-import { getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
-import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime } from '../../game/core/main.js';
+import { state, getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
+import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime, chooseCycleVow } from '../../game/core/main.js';
+import { cycleVowStatus, vowById } from '../../game/data/vows.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
@@ -57,7 +60,7 @@ function sedimentTipText(nextPalier, cycleStartedAt) {
 export default function CityStatusPanel() {
   const {
     cycles, bestEraIndex, cycleStartedAt,
-    timeWear, tickNow, storedSeconds
+    timeWear, tickNow, storedSeconds, cycleVow
   } = useCityViewState();
 
   const eraIdx = currentEraIndex();
@@ -99,11 +102,60 @@ export default function CityStatusPanel() {
     empty: tr({ fr: "Il faut au moins une minute de réserve.", en: "At least one minute of reserve is needed." })
   }[refusal];
 
-  // PASTILLE DE SAUVEGARDE : l'information n'existait nulle part sans cliquer.
-  // On lit `tickNow` et non `Date.now()` — ce composant est déjà réabonné au
-  // tick, s'appuyer sur l'horloge murale ferait diverger l'âge affiché du reste
-  // de l'encart entre deux rendus.
-  const sceauxPrets = claimableGrandResetCount();
+  // VŒU DU CYCLE (D2). Lu sur le state vivant (comme currentEraIndex ci-dessus) ;
+  // le composant se re-rend déjà à 1 Hz via tickNow, donc l'avancement suit. Un
+  // vœu PRÊTÉ (chosen) affiche sa jauge ; sinon on propose les trois candidats.
+  const vowStatus = cycleVow && cycleVow.chosen ? cycleVowStatus(state) : null;
+  const vowOffered = cycleVow && !cycleVow.chosen ? (cycleVow.offered || []) : [];
+
+  // Les trois propositions s'ouvrent en SURCOUCHE et non dans la gouttière : à
+  // trois pastilles côte à côte, il fallait descendre sous 8 px de texte pour
+  // tenir — illisible. En surcouche, chaque option garde son libellé entier à une
+  // taille lisible, et l'encart ne gagne pas un pixel de hauteur.
+  const [vowPickerOpen, setVowPickerOpen] = useState(false);
+  const [vowPickerPos, setVowPickerPos] = useState(null);
+  const vowTriggerRef = useRef(null);
+  // Coordonnées calculées À L'OUVERTURE depuis le bouton (surcouche en position
+  // fixe). Repliée AU-DESSUS du bouton si elle sortirait par le bas de l'écran.
+  const toggleVowPicker = () => {
+    setVowPickerOpen((open) => {
+      if (open) return false;
+      const r = vowTriggerRef.current?.getBoundingClientRect();
+      if (r) {
+        const guess = 34 * Math.max(1, vowOffered.length) + 12;   // hauteur estimée
+        const below = r.bottom + 4;
+        // On s'ouvre VERS LE HAUT dès que le bouton est dans le bas de l'écran :
+        // vers le bas, la surcouche retomberait pile sur les actions rapides
+        // (Sauver/Exporter/Importer/Options) et les masquerait le temps du choix.
+        const openUp = r.top > window.innerHeight * 0.55 || below + guess > window.innerHeight;
+        setVowPickerPos({
+          left: Math.round(r.left),
+          top: Math.round(openUp ? Math.max(4, r.top - guess - 4) : below),
+        });
+      }
+      return true;
+    });
+  };
+  useEffect(() => {
+    if (!vowPickerOpen) return undefined;
+    // Fermeture au clic extérieur. PAS de garde Échap : cette touche ouvre déjà
+    // les Options (App.jsx), et les deux écouteurs vivent sur document.
+    // La surcouche est PORTÉE dans <body> : elle n'est plus un descendant de
+    // .csp-vow, il faut donc l'exclure explicitement, sinon le mousedown la
+    // fermerait avant que le clic n'atteigne l'option.
+    // Sur `click` et NON `mousedown` : fermer au mousedown re-rend l'arbre entre
+    // le mousedown et le mouseup, et le clic du bouton visé (Sauver, Options…)
+    // était alors AVALÉ — il fallait cliquer deux fois. Au click, le bouton a
+    // déjà reçu le sien.
+    const onDocClick = (e) => {
+      const inside = e.target.closest && (e.target.closest('.csp-vow') || e.target.closest('.csp-vow-picker'));
+      if (!inside) setVowPickerOpen(false);
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [vowPickerOpen]);
+  // Un vœu prêté (ou disparu) referme la surcouche.
+  useEffect(() => { if (!vowOffered.length) setVowPickerOpen(false); }, [vowOffered.length]);
 
   const saveError = getLastSaveError();
   const lastSaveAt = getLastSaveAt();
@@ -172,6 +224,80 @@ export default function CityStatusPanel() {
         </div>
       </div>
 
+      {/* VŒU DU CYCLE (D2). Le seul objectif court terme VOLONTAIRE du jeu :
+          proposé au début du cycle, tenu il majore la moisson de la prochaine
+          chute, manqué il ne coûte rien. Bloc conditionnel comme la clepsydre. */}
+      {cycleVow && (vowStatus || vowOffered.length > 0) && (
+        <div
+          className="csp-vow"
+          {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), tr({
+            fr: "Un objectif court terme, libre à toi de le tenir. Réussi, il majore la moisson de Ruines de la prochaine chute ; manqué, il ne coûte rien.",
+            en: "A short-term goal, yours to keep or not. Fulfilled, it raises the next collapse's Ruin harvest; missed, it costs nothing."
+          }))}
+        >
+          {vowStatus ? (
+            <>
+              <div className="csp-vow-line">
+                <span className="csp-vow-tag">{tr({ fr: 'Vœu', en: 'Vow' })}</span>
+                <span className={`csp-vow-goal ${vowStatus.done ? 'is-done' : ''}`}>
+                  {vowStatus.done ? '✓ ' : ''}{tr(vowStatus.def.short(vowStatus.target))}
+                </span>
+                <strong className={`csp-vow-mult ${vowStatus.done ? 'is-done' : ''}`}>
+                  +{Math.round((vowStatus.ruinMult - 1) * 100)}%
+                </strong>
+              </div>
+              <span className="csp-vow-bar">
+                <span
+                  className={`csp-vow-bar-fill ${vowStatus.done ? 'is-done' : ''}`}
+                  style={{ width: `${vowStatus.progress * 100}%` }}
+                ></span>
+              </span>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="csp-vow-trigger"
+                ref={vowTriggerRef}
+                aria-expanded={vowPickerOpen}
+                onClick={toggleVowPicker}
+              >
+                <span className="csp-vow-tag">{tr({ fr: 'Vœu du cycle', en: 'Cycle vow' })}</span>
+                <span className="csp-vow-cta">{tr({ fr: 'choisir', en: 'choose' })} ▸</span>
+              </button>
+              {/* PORTÉE dans <body> : la barre latérale forme son propre contexte
+                  d'empilement et le contenu principal se peint AU-DESSUS — une
+                  surcouche laissée dans l'encart n'était pas cliquable, quel que
+                  soit son z-index. */}
+              {vowPickerOpen && createPortal(
+                <div
+                  className="csp-vow-picker"
+                  style={vowPickerPos ? { left: `${vowPickerPos.left}px`, top: `${vowPickerPos.top}px` } : undefined}
+                >
+                  {vowOffered.map((o) => {
+                    const def = vowById(o.id);
+                    if (!def) return null;
+                    const pctBonus = Math.round((def.ruinMult - 1) * 100);
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className="csp-vow-option"
+                        onClick={() => { chooseCycleVow(o.id); setVowPickerOpen(false); }}
+                      >
+                        <span className="csp-vow-option-goal">{tr(def.describe(o.target))}</span>
+                        <strong className="csp-vow-option-mult">+{pctBonus}%</strong>
+                      </button>
+                    );
+                  })}
+                </div>,
+                document.body
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Classes DÉDIÉES et non .csp-label/.csp-value : entre 981 et 1500px, ces
           deux-là sont masquées et l'encart deviendrait muet. Ici la valeur reste
           lisible à tous les paliers, seul le libellé se raccourcit. */}
@@ -231,24 +357,9 @@ export default function CityStatusPanel() {
         </div>
       )}
 
-      {/* SCEAUX PRÊTS (B9, point 5). Reporté ici parce que le plateau vit dans
-          l'onglet Effondrement : sans ce rappel, le joueur peut laisser un sceau
-          dormir des heures. AUCUN nouvel abonnement — le composant se re-rend
-          déjà à 1 Hz via tickNow, et compter revient à filtrer onze entrées. */}
-      {sceauxPrets > 0 && (
-        <div
-          className="csp-seals"
-          {...tipProps(null, tr({
-            fr: "Des sceaux du Grand Reset sont prêts à être réclamés, dans l'onglet Effondrement.",
-            en: "Grand Reset seals are ready to claim, in the Collapse tab."
-          }))}
-        >
-          {tr({
-            fr: `${sceauxPrets} sceau${sceauxPrets > 1 ? 'x' : ''} à réclamer`,
-            en: `${sceauxPrets} seal${sceauxPrets > 1 ? 's' : ''} to claim`
-          })}
-        </div>
-      )}
+      {/* Le rappel « N sceaux à réclamer » (B9, point 5) a été RETIRÉ de l'encart
+          à la demande de Raph : la gouttière est pleine et le plateau des sceaux
+          vit déjà dans l'onglet Effondrement, qui porte sa propre pastille. */}
 
       {/* Un ÉCHEC de sauvegarde reste affiché tant qu'il est vrai : il ne peut
           pas passer par les toasts, qui s'effacent au bout de 2,4 s. */}

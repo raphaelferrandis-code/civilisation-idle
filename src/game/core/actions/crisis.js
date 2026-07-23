@@ -44,6 +44,7 @@ import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
+import { rollCycleVow } from '../../data/vows.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
@@ -516,6 +517,12 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT);
   }
   state.phoenixNextForceAt = null;
+
+  // Le vœu du cycle (D2) : la civilisation neuve prête un nouveau vœu, tiré
+  // maintenant que son ère de départ est fixée. Chute AUTOMATIQUE hors ligne
+  // (auto_collapse) : on reconduit le vœu déjà choisi — aucun dialogue ne peut
+  // s'ouvrir pour en proposer un, comme la « dernière volonté » des épitaphes.
+  state.cycleVow = rollCycleVow(state, { reconduct: reason === "auto_collapse" });
 
   resetCameraCenter();
 }

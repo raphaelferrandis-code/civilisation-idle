@@ -15,6 +15,9 @@ export function useCityViewState() {
     cycles:                        s.cycles,
     bestEraIndex:                  s.bestEraIndex,
     cycleStartedAt:                s.cycleStartedAt,
+    // Vœu du cycle (D2). Réf. remplacée à chaque changement (choix, latch, tirage)
+    // → le shallow-compare du hook le détecte ; l'avancement suit `tickNow`.
+    cycleVow:                      s.cycleVow,
     archaeologyUses:               s.archaeologyUses,
     activeMythId:                  s.activeMythId,
     sisypheCran:                   s.sisypheCran,
