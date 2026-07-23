@@ -21,6 +21,7 @@ import {
 } from '../ui/faveurShopMeta.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from '../ui/FaveurIcon.jsx';
+import { tipProps } from '../ui/HelpBubble.jsx';
 import AutoDials, { RateBadge } from '../ui/TempleAutoDials.jsx';
 
 // Effet « vivant » des upgrades qui scalent avec l'état (à la manière de la
@@ -285,7 +286,7 @@ export default function HeritageView() {
 
         {/* Portefeuille : plaque de comptoir. La Boutique ne se paie QU'EN FAVEUR. */}
         <div className="boutique-wallet">
-          <span className="wallet-balance wallet-faveur" title={tr({ fr: 'Faveur. Se gagne aux jeux du temple (Régulation).', en: 'Favor. Earned at the temple games (Regulation).' })}>
+          <span className="wallet-balance wallet-faveur" {...tipProps(null, tr({ fr: 'Faveur. Se gagne aux jeux du temple (Régulation).', en: 'Favor. Earned at the temple games (Regulation).' }))}>
             <span className="wallet-icon" aria-hidden="true"><FaveurIcon /></span>
             <span className="wallet-amount">{fmt(faveur)}</span>
           </span>
@@ -419,7 +420,8 @@ export default function HeritageView() {
                   <button
                     disabled={cadmosFull}
                     onClick={() => engraveCadmosEpitaph(entry.id)}
-                    title={cadmosFull ? tr({ fr: `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint`, en: `Maximum of ${CADMOS_MAX_PERMANENT_EPITAPHS} epitaphs reached` }) : tr({ fr: "Graver cette épitaphe de façon permanente", en: "Engrave this epitaph permanently" })}
+                    title={cadmosFull ? tr({ fr: `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint`, en: `Maximum of ${CADMOS_MAX_PERMANENT_EPITAPHS} epitaphs reached` }) : undefined}
+                    {...tipProps(null, cadmosFull ? null : tr({ fr: "Graver cette épitaphe de façon permanente", en: "Engrave this epitaph permanently" }))}
                   >
                     {cadmosFull ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Graver", en: "Engrave" })}
                   </button>

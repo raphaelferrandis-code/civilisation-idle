@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { tr } from '../../game/core/i18n.js';
+import { tipProps } from '../ui/HelpBubble.jsx';
 
 export default function ChoiceDialog({ dialog, onChoose }) {
   const dialogRef = useRef(null);
@@ -151,9 +152,9 @@ export default function ChoiceDialog({ dialog, onChoose }) {
                 {(option.rowLabelNow || hasBadges) && (
                   <span className="choice-badges-row">
                     {option.lastWill && (
-                      <span className="choice-badge choice-badge--lastwill" title={tr({ fr: "Gravé à la chute précédente", en: "Engraved at the previous fall" })}>↺</span>
+                      <span className="choice-badge choice-badge--lastwill" {...tipProps(null, tr({ fr: "Gravé à la chute précédente", en: "Engraved at the previous fall" }))}>↺</span>
                     )}
-                    {option.badge && <span className="choice-badge" title={option.badgeTitle || undefined}>{option.badge}</span>}
+                    {option.badge && <span className="choice-badge" {...tipProps(null, option.badgeTitle || undefined)}>{option.badge}</span>}
                   </span>
                 )}
                 {headlineEl && (option.rowLabelNow ? (

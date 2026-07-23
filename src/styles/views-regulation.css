@@ -1289,39 +1289,10 @@
   margin: 0.2rem 0;
 }
 
-/* ── Bulles d'aide — MÊME recette que .rt-tooltip (arbre des Ruines) :
-   bulle sombre épurée nom + effet, position fixe sous l'élément survolé. ── */
-.regul-tip {
-  position: fixed;
-  z-index: 80;
-  max-width: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(14, 18, 28, 0.98);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
-  pointer-events: none;
-}
-
-.regul-tip--flip { transform: translateY(-100%); }
-
-.regul-tip-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-strong);
-  line-height: 1.2;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.regul-tip-text {
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
+/* Les règles .regul-tip ont déménagé dans components.css (B1) : la bulle n'est
+   plus une pièce de la Régulation mais l'infobulle de TOUT le jeu, montée dans
+   App et portée hors de `.app`. Le nom de classe est conservé, il est écrit sur
+   ~140 sites d'appel et le renommer n'apprendrait rien au joueur. */
 
 /* ==========================================================================
    Mini-jeu : la Table des augures (AuguryDialog) — rite, osselets, second jet.

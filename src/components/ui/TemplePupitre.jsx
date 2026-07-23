@@ -170,10 +170,10 @@ export default function TemplePupitre() {
               <button
                 type="button"
                 className={`pupitre-flame${auto.on ? ' is-on' : ''}`}
-                title={tr({
+                {...tipProps(null, () => tr({
                   fr: auto.on ? 'La flamme brûle : l’auto joue. Souffler pour la suspendre.' : 'La flamme est éteinte. Cliquer pour la rallumer.',
                   en: auto.on ? 'The flame burns: the automation plays. Blow to pause it.' : 'The flame is out. Click to relight it.'
-                })}
+                }))}
                 aria-label={tr(g.name)}
                 aria-pressed={auto.on}
                 onClick={(e) => { e.stopPropagation(); setTempleAuto(g.id, { on: !auto.on }); }}

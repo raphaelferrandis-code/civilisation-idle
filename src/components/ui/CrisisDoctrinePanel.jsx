@@ -3,6 +3,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { setCrisisPosture, setAutoCollapseConfig } from '../../game/core/actions.js';
 import { tr } from '../../game/core/i18n.js';
 import TestamentSeals from './TestamentSeals.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Doctrine de crise — refonte dé-boxée (retour Raph 2026-07-13) : trois
@@ -54,10 +55,10 @@ export default function CrisisDoctrinePanel() {
         <section className="doctrine-group">
           <h3
             className="doctrine-group-title"
-            title={tr({
+            {...tipProps(tr({ fr: "Conseil de crise", en: "Crisis council" }), tr({
               fr: "Le Conseil applique ta posture à chaque palier de Rupture, sans interrompre le jeu. Se débloque dans l'Arbre des Ruines (dès le cycle 2).",
               en: "The Council enforces your stance at each Rupture threshold, without interrupting the game. Unlocks in the Ruins Tree (from cycle 2)."
-            })}
+            }))}
           >
             {tr({ fr: "Conseil de crise", en: "Crisis council" })}
           </h3>
@@ -72,7 +73,7 @@ export default function CrisisDoctrinePanel() {
                     <button
                       key={v}
                       type="button"
-                      title={tr(tip)}
+                      {...tipProps(tr(t), tr(tip))}
                       className={`doctrine-seg-btn${(crisisDoctrine[key] || 'ask') === v ? ' is-active' : ''}`}
                       onClick={() => handleSetPosture(key, v)}
                     >
@@ -89,10 +90,10 @@ export default function CrisisDoctrinePanel() {
         <section className="doctrine-group">
           <h3
             className="doctrine-group-title"
-            title={tr({
+            {...tipProps(tr({ fr: "Édit d'effondrement", en: "Collapse Edict" }), tr({
               fr: "La cité tombe seule au déclencheur choisi, héritage préservé, sans dialogue. Se débloque dans l'Arbre des Ruines.",
               en: "The city falls on its own at the chosen trigger, heritage preserved, without any dialog. Unlocks in the Ruins Tree."
-            })}
+            }))}
           >
             {tr({ fr: "Édit d'effondrement", en: "Collapse Edict" })}
           </h3>
@@ -120,7 +121,7 @@ export default function CrisisDoctrinePanel() {
                         <button
                           key={v}
                           type="button"
-                          title={tr(tip)}
+                          {...tipProps(tr(t), tr(tip))}
                           className={`doctrine-seg-btn${autoCollapse.trigger === v ? ' is-active' : ''}`}
                           onClick={() => handleAutoCollapse({ trigger: v })}
                         >
@@ -167,7 +168,7 @@ export default function CrisisDoctrinePanel() {
                   <div className="doctrine-line">
                     <span
                       className="doctrine-line-label"
-                      title={tr({ fr: "Rationner puis Réformes avant d'effondrer, si la crise est résoluble.", en: "Ration then Reforms before collapsing, if the crisis is solvable." })}
+                      {...tipProps(tr({ fr: "Sauver avant", en: "Save first" }), tr({ fr: "Rationner puis Réformes avant d'effondrer, si la crise est résoluble.", en: "Ration then Reforms before collapsing, if the crisis is solvable." }))}
                     >
                       {tr({ fr: "Sauver avant", en: "Save first" })}
                     </span>

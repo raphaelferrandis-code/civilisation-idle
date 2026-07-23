@@ -16,6 +16,7 @@ import { clampStakeMult } from '../../game/core/actions/templePot.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
 
@@ -176,7 +177,7 @@ export default function AuguryStage({ table, onClose }) {
             {rebate > 0.001 && (
               <span
                 className="augury-chip augury-chip--favor"
-                title={tr({ fr: 'Clémence : tes revers allègent l’offrande (les gains suivent la mise payée). Un gain remet le compteur à zéro.', en: 'Clemency: your setbacks lighten the offering (winnings follow the paid stake). A win resets the counter.' })}
+                {...tipProps(null, tr({ fr: 'Clémence : tes revers allègent l’offrande (les gains suivent la mise payée). Un gain remet le compteur à zéro.', en: 'Clemency: your setbacks lighten the offering (winnings follow the paid stake). A win resets the counter.' }))}
               >
                 {tr({ fr: 'pitié : offrande', en: 'mercy: offering' })} −{Math.round(rebate * 100)} %
               </span>
@@ -204,7 +205,7 @@ export default function AuguryStage({ table, onClose }) {
                   <button
                     type="button"
                     className="stake-pick"
-                    title={tr(rite.desc)}
+                    {...tipProps(tr(rite.label), tr(rite.desc))}
                     onClick={() => setRiteId(rite.id)}
                   >
                     <strong>{tr(rite.label)}</strong>
@@ -310,7 +311,7 @@ export default function AuguryStage({ table, onClose }) {
                       <button
                         type="button"
                         className="augury-tempt"
-                        title={tr({ fr: "Gagné : la Faveur redouble. Perdu : la Faveur gagnée est reprise. La Clémence ne s'applique pas.", en: 'Won: the Favor doubles. Lost: the Favor won is taken back. Clemency does not apply.' })}
+                        {...tipProps(null, tr({ fr: "Gagné : la Faveur redouble. Perdu : la Faveur gagnée est reprise. La Clémence ne s'applique pas.", en: 'Won: the Favor doubles. Lost: the Favor won is taken back. Clemency does not apply.' }))}
                         onClick={onDouble}
                       >
                         {tr({ fr: `Défier les dieux : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy the gods: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
@@ -359,7 +360,7 @@ export default function AuguryStage({ table, onClose }) {
                       <button
                         type="button"
                         className="augury-tempt"
-                        title={tr({ fr: "L'Échelle de Vénus : tout ce qui est sur la table se rejoue. Gagné : la Faveur redouble encore. Perdu : tout revient aux dieux.", en: "The Ladder of Venus: everything on the table is staked again. Won: the Favor doubles again. Lost: it all returns to the gods." })}
+                        {...tipProps(null, tr({ fr: "L'Échelle de Vénus : tout ce qui est sur la table se rejoue. Gagné : la Faveur redouble encore. Perdu : tout revient aux dieux.", en: "The Ladder of Venus: everything on the table is staked again. Won: the Favor doubles again. Lost: it all returns to the gods." }))}
                         onClick={onDouble}
                       >
                         {tr({ fr: `Défier encore : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy again: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}

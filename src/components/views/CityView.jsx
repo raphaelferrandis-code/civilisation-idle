@@ -9,6 +9,7 @@ import CycleReportBanner from '../ui/CycleReportBanner.jsx';
 import IdleReportPanel from '../ui/IdleReportPanel.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
+import { tipProps } from '../ui/HelpBubble.jsx';
 import {
   cityVitals,
   pressureBreakdown,
@@ -294,6 +295,20 @@ export default function CityView() {
     eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
   ].filter(Boolean).length;
 
+  // Infobulles longues des boutons de mythe : un seul texte, servi soit par le
+  // title natif (bouton désactivé, où Chrome ne délivre aucun événement souris),
+  // soit par la bulle maison (bouton actif).
+  const atridesTransmettreTip = tr({ fr: "Désactive le drain, gains de ruines x1.5, mais malus de production de 20% au cycle suivant", en: "Disables the drain, ruins gains x1.5, but a 20% production penalty on the next cycle" });
+  const ragnarokOffrirTip = ragnarokLot
+    ? tr({
+        fr: `Verser une offrande : ${fmt(ragnarokLot.food)} Nourriture + ${fmt(ragnarokLot.gold)} Trésor + ${fmt(ragnarokLot.knowledge)} Savoir + ${fmt(ragnarokLot.infrastructure)} Infrastructure. Le prix a été scellé au pacte, à la mesure de la cité d'avant ; l'Arche n'accepte qu'une offrande toutes les ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)} s.`,
+        en: `Pour an offering: ${fmt(ragnarokLot.food)} Food + ${fmt(ragnarokLot.gold)} Treasury + ${fmt(ragnarokLot.knowledge)} Knowledge + ${fmt(ragnarokLot.infrastructure)} Infrastructure. The price was sealed at the pact, to the measure of the city that was; the Ark accepts one offering every ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)}s.`
+      })
+    : null;
+  const atlasEpaulerTip = (atlasFardeau || 0) < ATLAS_COUNT_THRESHOLD
+    ? tr({ fr: `Le ciel est léger : ce geste soulagerait sans compter (compte dès ${ATLAS_COUNT_THRESHOLD} %).`, en: `The sky is light: this act would relieve without counting (counts from ${ATLAS_COUNT_THRESHOLD}%).` })
+    : tr({ fr: "Soutenir le ciel — récupération avant le geste suivant.", en: "Bear the sky — recovery before the next act." });
+
   return (
     <section className="view active" id="city">
       <div className="city-left-col">
@@ -347,14 +362,14 @@ export default function CityView() {
             />
             <span
               className="city-population-label"
-              title={tr({ fr: "Habitants de la cité, à l'échelle de son âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Inhabitants of the city, to the scale of its age. Radiance measures the overall rise of the civilization." })}
+              {...tipProps(null, tr({ fr: "Habitants de la cité, à l'échelle de son âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Inhabitants of the city, to the scale of its age. Radiance measures the overall rise of the civilization." }))}
             >
               <i className="fa-solid fa-people-roof" aria-hidden="true"></i>
               {fmtHabitants(crediblePopulation(population))}
             </span>
             <span
               className="city-personality-label"
-              title={tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" })}
+              {...tipProps(null, tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" }))}
             >
               {cityPersonalityLabel}
             </span>
@@ -378,26 +393,33 @@ export default function CityView() {
             // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
             const targetLvl = clamp01(pressure.total);
             const projectedRuin = ruinGain(true);
-            // Tooltip détaillé : sources de pression (données de pressureBreakdown)
+            // Bulle détaillée : une ligne par source de pression (B1). Fonction et
+            // non chaîne, et relue sur pressureBreakdown() : les parts bougent au
+            // tick, un contenu figé à l'ouverture mentirait au bout de 2 s.
             const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
-            const pressureTooltip = [
-              tr(tier.desc),
-              "",
-              tr({ fr: "Sources de pression :", en: "Sources of pressure:" }),
-              tr({ fr: `Rareté ${pp(pressure.scarcity)} · Inégalités ${pp(pressure.inequality)}`, en: `Scarcity ${pp(pressure.scarcity)} · Inequality ${pp(pressure.inequality)}` }),
-              tr({ fr: `Complexité ${pp(pressure.complexity)} · Dissidence ${pp(pressure.dissent)}`, en: `Complexity ${pp(pressure.complexity)} · Dissent ${pp(pressure.dissent)}` }),
-              tr({ fr: `Structurel ${pp(pressure.structural)} · Atténuation -${(pressure.mitigation * 100).toFixed(0)}%`, en: `Structural ${pp(pressure.structural)} · Mitigation -${(pressure.mitigation * 100).toFixed(0)}%` }),
-              pressure.demesure > 0 ? tr({ fr: `Démesure ${pp(pressure.demesure)} (irréductible)`, en: `Hubris ${pp(pressure.demesure)} (irreducible)` }) : null
-            ].filter(Boolean).join("\n");
+            const pressureTooltip = () => {
+              const p = pressureBreakdown();
+              return [
+                { label: tr(tier.desc) },
+                { label: tr({ fr: "Sources de pression :", en: "Sources of pressure:" }) },
+                { label: tr({ fr: "Rareté", en: "Scarcity" }), value: pp(p.scarcity) },
+                { label: tr({ fr: "Inégalités", en: "Inequality" }), value: pp(p.inequality) },
+                { label: tr({ fr: "Complexité", en: "Complexity" }), value: pp(p.complexity) },
+                { label: tr({ fr: "Dissidence", en: "Dissent" }), value: pp(p.dissent) },
+                { label: tr({ fr: "Structurel", en: "Structural" }), value: pp(p.structural) },
+                { label: tr({ fr: "Atténuation", en: "Mitigation" }), value: `-${(p.mitigation * 100).toFixed(0)}%` },
+                p.demesure > 0 ? { label: tr({ fr: "Démesure (irréductible)", en: "Hubris (irreducible)" }), value: pp(p.demesure) } : null
+              ];
+            };
             return (
               <div
                 className={`stability-gauge ${tier.cls}`}
-                title={pressureTooltip}
+                {...tipProps(tr(tier.label), pressureTooltip)}
                 aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}%, ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}%, ${tr(tier.label)}` })}
               >
                 <div className="sg-meta">
                   <span className="sg-label">{tr(tier.label)}</span>
-                  <span className="sg-collapse-gain" title={tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}>+{fmt(projectedRuin)}</span>
+                  <span className="sg-collapse-gain" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." }))}>+{fmt(projectedRuin)}</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -405,7 +427,12 @@ export default function CityView() {
                     <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
                   ))}
                   <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
-                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} title={tr({ fr: `Cible : ${Math.round(targetLvl * 100)} %. La jauge dérive vers ce niveau.`, en: `Target: ${Math.round(targetLvl * 100)}%. The gauge drifts toward this level.` })}></span>
+                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} {...tipProps(null, () => {
+                    // Fonction : la cible dérive au tick, une chaîne resterait au
+                    // pourcentage lu à l'ouverture de la bulle.
+                    const pct = Math.round(clamp01(pressureBreakdown().total) * 100);
+                    return tr({ fr: `Cible : ${pct} %. La jauge dérive vers ce niveau.`, en: `Target: ${pct}%. The gauge drifts toward this level.` });
+                  })}></span>
                   {lvl >= 0.68 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
                       {[
@@ -548,7 +575,8 @@ export default function CityView() {
                   onClick={rembourserAtridesDebt}
                   disabled={!canRepayAtrides}
                   className="btn-primary"
-                  title={tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" })}
+                  title={!canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" }) : undefined}
+                  {...tipProps(null, canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" }) : null)}
                 >
                   {tr({ fr: `Rembourser (${fmt(atridesRepayCost)} Or)`, en: `Repay (${fmt(atridesRepayCost)} Gold)` })}
                 </button>
@@ -557,7 +585,8 @@ export default function CityView() {
                   onClick={renegocierAtridesDebt}
                   disabled={isRenegotiationOnCooldown}
                   className="btn-secondary"
-                  title={tr({ fr: "Réduit le taux de croissance de la dette de 70% pour 30s", en: "Reduces the debt growth rate by 70% for 30s" })}
+                  title={isRenegotiationOnCooldown ? tr({ fr: "Réduit le taux de croissance de la dette de 70% pour 30s", en: "Reduces the debt growth rate by 70% for 30s" }) : undefined}
+                  {...tipProps(null, isRenegotiationOnCooldown ? null : tr({ fr: "Réduit le taux de croissance de la dette de 70% pour 30s", en: "Reduces the debt growth rate by 70% for 30s" }))}
                 >
                   {isRenegotiationOnCooldown ? tr({ fr: `Renégocier (${renegocierCooldownSecs}s)`, en: `Renegotiate (${renegocierCooldownSecs}s)` }) : tr({ fr: "Renégocier (120s CD)", en: "Renegotiate (120s CD)" })}
                 </button>
@@ -566,7 +595,8 @@ export default function CityView() {
                   onClick={transmettreAtrides}
                   disabled={atridesDrainDisabled}
                   className="btn-danger"
-                  title={tr({ fr: "Désactive le drain, gains de ruines x1.5, mais malus de production de 20% au cycle suivant", en: "Disables the drain, ruins gains x1.5, but a 20% production penalty on the next cycle" })}
+                  title={atridesDrainDisabled ? atridesTransmettreTip : undefined}
+                  {...tipProps(null, atridesDrainDisabled ? null : atridesTransmettreTip)}
                 >
                   {atridesDrainDisabled ? tr({ fr: "Transmis", en: "Transmitted" }) : tr({ fr: "Transmettre (Ruines x1.5)", en: "Transmit (Ruins x1.5)" })}
                 </button>
@@ -619,7 +649,8 @@ export default function CityView() {
                 onClick={migrerEnee}
                 disabled={!eneeDegraded}
                 className="btn-critical enee-migrate-btn"
-                title={eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Rayonnement, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Radiance, Knowledge)" }) : tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." })}
+                title={!eneeDegraded ? tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." }) : undefined}
+                {...tipProps(null, eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Rayonnement, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Radiance, Knowledge)" }) : null)}
               >
                 {eneeDegraded ? tr({ fr: "MIGRER (Nouveau Territoire)", en: "MIGRATE (New Territory)" }) : tr({ fr: "Territoire viable (Attendre dégradation)", en: "Territory viable (Await degradation)" })}
               </button>
@@ -634,10 +665,10 @@ export default function CityView() {
                   OFFRIR paie le lot figé à l'activation (title du bouton). */}
               {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/ragnarok.png — à générer. */}
               {isRagnarok && (
-                <div className="myth-status-card ragnarok" title={tr({
+                <div className="myth-status-card ragnarok" {...tipProps(tr({ fr: "Ragnarok", en: "Ragnarok" }), tr({
                   fr: `Achever l'Arche (${RAGNAROK_ARK_TARGET} offrandes) avant la Fin. La prophétie : l'Hiver à 8 min (production ÷2), le Loup à 14 min (dévore les bâtiments), le Feu à 20 min (Rupture inexorable), la Fin à ${RAGNAROK_DURATION_MS / 60_000} min.`,
                   en: `Complete the Ark (${RAGNAROK_ARK_TARGET} offerings) before the End. The prophecy: the Winter at 8 min (production ÷2), the Wolf at 14 min (devours buildings), the Fire at 20 min (relentless Rupture), the End at ${RAGNAROK_DURATION_MS / 60_000} min.`
-                })}>
+                }))}>
                   <PixelIcon name="myths/pacte" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Ragnarok", en: "Ragnarok" })}</span>
@@ -650,12 +681,8 @@ export default function CityView() {
                     <div className="myth-card-actions">
                       <button type="button" className={ragnarokPayable ? "btn-primary" : "btn-secondary"}
                         onClick={ragnarokOffrir} disabled={!ragnarokPayable}
-                        title={ragnarokLot
-                          ? tr({
-                              fr: `Verser une offrande : ${fmt(ragnarokLot.food)} Nourriture + ${fmt(ragnarokLot.gold)} Trésor + ${fmt(ragnarokLot.knowledge)} Savoir + ${fmt(ragnarokLot.infrastructure)} Infrastructure. Le prix a été scellé au pacte, à la mesure de la cité d'avant ; l'Arche n'accepte qu'une offrande toutes les ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)} s.`,
-                              en: `Pour an offering: ${fmt(ragnarokLot.food)} Food + ${fmt(ragnarokLot.gold)} Treasury + ${fmt(ragnarokLot.knowledge)} Knowledge + ${fmt(ragnarokLot.infrastructure)} Infrastructure. The price was sealed at the pact, to the measure of the city that was; the Ark accepts one offering every ${Math.round(RAGNAROK_ARK_COOLDOWN_MS / 1000)}s.`
-                            })
-                          : undefined}>
+                        title={!ragnarokPayable ? ragnarokOffrirTip : undefined}
+                        {...tipProps(null, ragnarokPayable ? ragnarokOffrirTip : null)}>
                         {ragnarokCdLeft > 0 ? tr({ fr: `Offrir (${ragnarokCdLeft}s)`, en: `Offer (${ragnarokCdLeft}s)` }) : tr({ fr: "Offrir", en: "Offer" })}
                       </button>
                     </div>
@@ -667,10 +694,10 @@ export default function CityView() {
                   Mythe neutralise les bonus). Sacré en direct dès la cible en vue. */}
               {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/chaos.png — à générer. */}
               {isChaos && (
-                <div className="myth-status-card chaos" title={tr({
+                <div className="myth-status-card chaos" {...tipProps(tr({ fr: "Chaos", en: "Chaos" }), tr({
                   fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, tous les bonus de méta-progression coupés.`,
                   en: `Earn ${CHAOS_RAW_RUIN_TARGET} raw Ruins in a single cycle, with every meta-progression bonus cut off.`
-                })}>
+                }))}>
                   <PixelIcon name="myths/pacte" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Chaos", en: "Chaos" })}</span>
@@ -689,10 +716,10 @@ export default function CityView() {
                   ⚠ Icône PLACEHOLDER : myths/promethee.png n'existe pas, et PixelIcon
                   n'a aucun repli sur fichier manquant. À générer. */}
               {isPromethee && (
-                <div className="myth-status-card promethee" title={tr({
+                <div className="myth-status-card promethee" {...tipProps(tr({ fr: "Prométhée", en: "Prometheus" }), tr({
                   fr: `Porter le Rayonnement à ${PROMETHEE_POP_TARGET} avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
                   en: `Bring Radiance to ${PROMETHEE_POP_TARGET} before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
-                })}>
+                }))}>
                   <PixelIcon name="ruins/node-rites_feu_court" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Prométhée", en: "Prometheus" })}</span>
@@ -718,10 +745,10 @@ export default function CityView() {
                   la montée lâche le rocher (building.js) ; le premier sommet
                   retombe toujours, le second scelle. */}
               {isSisyphe && (
-                <div className="myth-status-card sisyphus" title={tr({
+                <div className="myth-status-card sisyphus" {...tipProps(tr({ fr: "Sisyphe", en: "Sisyphus" }), tr({
                   fr: `Hisser le rocher au sommet ${SISYPHE_MONTEES_TARGET} fois (${SISYPHE_CRANS} crans). Chaque matière ré-employée double son prix ; bâtir pendant la montée lâche le rocher. Au premier sommet, il retombe — toujours.`,
                   en: `Haul the boulder to the summit ${SISYPHE_MONTEES_TARGET} times (${SISYPHE_CRANS} notches). Each reused material doubles its price; building during the climb lets go of the boulder. At the first summit, it rolls back — always.`
-                })}>
+                }))}>
                   <PixelIcon name="myths/sisyphe" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Sisyphe", en: "Sisyphus" })}</span>
@@ -739,14 +766,17 @@ export default function CityView() {
                         { key: "infrastructure", stock: infrastructure, glyphe: "🏛️", nom: tr({ fr: "Infrastructure", en: "Infrastructure" }), uses: sisypheUsesInfra || 0 }
                       ].map((m) => {
                         const cout = SISYPHE_STEP_BASE[m.key] * Math.pow(2, m.uses);
+                        const sisypheOff = !D(m.stock || 0).gte(cout);
+                        const sisypheTip = tr({
+                          fr: `Pousser en payant ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (prix ×${Math.pow(2, m.uses)} — matière déjà employée ${m.uses}× cette montée)` : ""}.`,
+                          en: `Push by paying ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (price ×${Math.pow(2, m.uses)} — material already used ${m.uses}× this climb)` : ""}.`
+                        });
                         return (
                           <button key={m.key} type="button" className="btn-secondary"
                             onClick={() => sisyphePousser(m.key)}
-                            disabled={!D(m.stock || 0).gte(cout)}
-                            title={tr({
-                              fr: `Pousser en payant ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (prix ×${Math.pow(2, m.uses)} — matière déjà employée ${m.uses}× cette montée)` : ""}.`,
-                              en: `Push by paying ${fmt(cout)} ${m.nom}${m.uses > 0 ? ` (price ×${Math.pow(2, m.uses)} — material already used ${m.uses}× this climb)` : ""}.`
-                            })}>
+                            disabled={sisypheOff}
+                            title={sisypheOff ? sisypheTip : undefined}
+                            {...tipProps(null, sisypheOff ? null : sisypheTip)}>
                             {m.glyphe} {fmt(cout)}
                           </button>
                         );
@@ -760,9 +790,9 @@ export default function CityView() {
                   normal, sans plafond. MONTER coûte de la Rupture immédiate et
                   accélère sa montée — redescendre est gratuit. */}
               {showVol && (
-                <div className="myth-status-card icare" title={isIcare
+                <div className="myth-status-card icare" {...tipProps(isIcare ? tr({ fr: "Icare", en: "Icarus" }) : tr({ fr: "L'Aile", en: "The Wing" }), isIcare
                   ? tr({ fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, Rupture immédiate et accélérée.`, en: `Reach altitude ${ICARE_ALTITUDE_TARGET}. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, instant and hastened Rupture.` })
-                  : tr({ fr: "L'Aile : choisis ton altitude — la production grimpe, la Rupture s'emballe.", en: "The Wing: choose your altitude — production soars, Rupture races." })}>
+                  : tr({ fr: "L'Aile : choisis ton altitude — la production grimpe, la Rupture s'emballe.", en: "The Wing: choose your altitude — production soars, Rupture races." }))}>
                   <PixelIcon name="myths/icare" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{isIcare ? tr({ fr: "Icare", en: "Icarus" }) : tr({ fr: "L'Aile", en: "The Wing" })}</span>
@@ -773,11 +803,12 @@ export default function CityView() {
                     </strong>
                     <div className="myth-card-actions">
                       <button type="button" className="btn-primary" onClick={icareClimb}
-                        title={tr({ fr: "Production ×2, Rupture immédiate et accélérée.", en: "Production ×2, instant and hastened Rupture." })}>
+                        {...tipProps(null, tr({ fr: "Production ×2, Rupture immédiate et accélérée.", en: "Production ×2, instant and hastened Rupture." }))}>
                         {tr({ fr: "Monter", en: "Climb" })}
                       </button>
                       <button type="button" className="btn-secondary" onClick={icareDescend} disabled={(icareAltitude || 0) <= 0}
-                        title={tr({ fr: "Gratuit : n'efface que l'accélération, pas le mal déjà fait.", en: "Free: only removes the haste, not the harm already done." })}>
+                        title={(icareAltitude || 0) <= 0 ? tr({ fr: "Gratuit : n'efface que l'accélération, pas le mal déjà fait.", en: "Free: only removes the haste, not the harm already done." }) : undefined}
+                        {...tipProps(null, (icareAltitude || 0) <= 0 ? null : tr({ fr: "Gratuit : n'efface que l'accélération, pas le mal déjà fait.", en: "Free: only removes the haste, not the harm already done." }))}>
                         {tr({ fr: "Redescendre", en: "Descend" })}
                       </button>
                     </div>
@@ -788,9 +819,9 @@ export default function CityView() {
                   le Mythe ; en héritage, « la Langue commune » (déclarer une
                   catégorie 1×/cycle → +20 % de production). */}
               {showBabel && (
-                <div className="myth-status-card babel" title={isBabel
+                <div className="myth-status-card babel" {...tipProps(isBabel ? "Babel" : tr({ fr: "La Langue commune", en: "The Common Tongue" }), isBabel
                   ? tr({ fr: `Ériger la tour : ${BABEL_TOWER_TARGET} bâtiments de la catégorie choisie. Seule cette catégorie est constructible ce cycle ; la Rupture monte ×2.`, en: `Raise the tower: ${BABEL_TOWER_TARGET} buildings of the chosen category. Only that category can be built this cycle; Rupture rises ×2.` })
-                  : tr({ fr: "La Langue commune : une fois par cycle, déclare une langue — la catégorie choisie produit +20 % jusqu'à la fin du cycle.", en: "The Common Tongue: once per cycle, declare a language — the chosen category produces +20% until the end of the cycle." })}>
+                  : tr({ fr: "La Langue commune : une fois par cycle, déclare une langue — la catégorie choisie produit +20 % jusqu'à la fin du cycle.", en: "The Common Tongue: once per cycle, declare a language — the chosen category produces +20% until the end of the cycle." }))}>
                   <PixelIcon name="myths/babel" className="myth-card-icon" />
                   <div className="myth-card-info">
                     {isBabel ? (
@@ -807,9 +838,9 @@ export default function CityView() {
                               déclarée d'elle-même à chaque cycle. */}
                           <button type="button" className={babelAutoTongue ? "btn-primary" : "btn-secondary"}
                             onClick={babelToggleAutoTongue}
-                            title={babelAutoTongue
+                            {...tipProps(null, babelAutoTongue
                               ? tr({ fr: "Lever le réglage automatique — chaque cycle re-choisira sa langue à la main.", en: "Lift the automatic setting — each cycle will pick its tongue by hand." })
-                              : tr({ fr: `Redéclarer « ${tr(BABEL_CAT_LABELS[babelCommonTongue])} » automatiquement à chaque nouveau cycle (réglage conservé, même après un Grand Reset).`, en: `Automatically redeclare "${tr(BABEL_CAT_LABELS[babelCommonTongue])}" each new cycle (setting kept, even through a Grand Reset).` })}>
+                              : tr({ fr: `Redéclarer « ${tr(BABEL_CAT_LABELS[babelCommonTongue])} » automatiquement à chaque nouveau cycle (réglage conservé, même après un Grand Reset).`, en: `Automatically redeclare "${tr(BABEL_CAT_LABELS[babelCommonTongue])}" each new cycle (setting kept, even through a Grand Reset).` }))}>
                             {babelAutoTongue ? tr({ fr: "Auto ✓", en: "Auto ✓" }) : tr({ fr: "Auto", en: "Auto" })}
                           </button>
                         </div>
@@ -822,7 +853,7 @@ export default function CityView() {
                           {Object.keys(BABEL_CAT_LABELS).map((cat) => (
                             <button key={cat} type="button" className="btn-secondary"
                               onClick={() => babelDeclareTongue(cat)}
-                              title={tr({ fr: `Toute la catégorie « ${tr(BABEL_CAT_LABELS[cat])} » produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à la fin du cycle. Une déclaration par cycle.`, en: `The whole "${tr(BABEL_CAT_LABELS[cat])}" category produces +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the end of the cycle. One declaration per cycle.` })}>
+                              {...tipProps(null, tr({ fr: `Toute la catégorie « ${tr(BABEL_CAT_LABELS[cat])} » produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à la fin du cycle. Une déclaration par cycle.`, en: `The whole "${tr(BABEL_CAT_LABELS[cat])}" category produces +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the end of the cycle. One declaration per cycle.` }))}>
                               {tr(BABEL_CAT_LABELS[cat])}
                             </button>
                           ))}
@@ -835,10 +866,10 @@ export default function CityView() {
               {/* Âge d'Or — « les Caravanes » : conclure 8 marchés. Le bouton ouvre
                   la négociation ; le déséquilibre Nourriture/Trésor brûle l'Usure ×3. */}
               {isOr && (
-                <div className="myth-status-card age-or" title={tr({
+                <div className="myth-status-card age-or" {...tipProps(tr({ fr: "Âge d'Or", en: "Golden Age" }), tr({
                   fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes. Marchander baisse le prix, mais un marchand vexé s'en va. Le déséquilibre Nourriture/Trésor brûle l'Usure.`,
                   en: `Close ${OR_DEALS_TARGET} deals with the caravans. Haggling lowers the price, but an offended merchant walks away. Food/Treasury imbalance burns Wear.`
-                })}>
+                }))}>
                   <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Âge d'Or", en: "Golden Age" })}</span>
@@ -850,7 +881,7 @@ export default function CityView() {
                     </strong>
                     <div className="myth-card-actions">
                       <button type="button" className="btn-primary" onClick={negotiateOrDeal}
-                        title={tr({ fr: "Une caravane attend au portail.", en: "A caravan waits at the gate." })}>
+                        {...tipProps(null, tr({ fr: "Une caravane attend au portail.", en: "A caravan waits at the gate." }))}>
                         {tr({ fr: "Négocier", en: "Negotiate" })}
                       </button>
                     </div>
@@ -863,9 +894,9 @@ export default function CityView() {
                   dialogue de crise (1×/cycle), pas ici. */}
               {/* ⚠ Icône PLACEHOLDER (myths/age-or) : pas de myths/atlas.png — à générer. */}
               {showEpaule && (
-                <div className="myth-status-card atlas" title={isAtlas
+                <div className="myth-status-card atlas" {...tipProps(isAtlas ? tr({ fr: "Atlas", en: "Atlas" }) : tr({ fr: "L'Épaule", en: "The Shoulder" }), isAtlas
                   ? tr({ fr: `Épauler ${ATLAS_SHOULDER_TARGET} fois le ciel à pleine charge (Fardeau ≥ ${ATLAS_COUNT_THRESHOLD} %). En dessous, le geste soulage mais ne compte pas — et gaspille la récupération. À 100 %, écrasement.`, en: `Shoulder the sky at full weight ${ATLAS_SHOULDER_TARGET} times (Burden ≥ ${ATLAS_COUNT_THRESHOLD}%). Below, the act relieves but does not count — and wastes the recovery. At 100%, crushed.` })
-                  : tr({ fr: "L'Épaule : une fois par cycle, « Atlas prend le coup » — une gestion de crise au choix passe sans effet. L'option apparaît dans la crise elle-même.", en: "The Shoulder: once per cycle, \"Atlas takes the hit\" — one crisis management of your choice passes with no effect. The option appears in the crisis itself." })}>
+                  : tr({ fr: "L'Épaule : une fois par cycle, « Atlas prend le coup » — une gestion de crise au choix passe sans effet. L'option apparaît dans la crise elle-même.", en: "The Shoulder: once per cycle, \"Atlas takes the hit\" — one crisis management of your choice passes with no effect. The option appears in the crisis itself." }))}>
                   <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{isAtlas ? tr({ fr: "Atlas", en: "Atlas" }) : tr({ fr: "L'Épaule", en: "The Shoulder" })}</span>
@@ -887,9 +918,8 @@ export default function CityView() {
                         <button type="button"
                           className={(atlasFardeau || 0) >= ATLAS_COUNT_THRESHOLD ? "btn-primary" : "btn-secondary"}
                           onClick={atlasEpauler} disabled={atlasCdLeft > 0}
-                          title={(atlasFardeau || 0) < ATLAS_COUNT_THRESHOLD
-                            ? tr({ fr: `Le ciel est léger : ce geste soulagerait sans compter (compte dès ${ATLAS_COUNT_THRESHOLD} %).`, en: `The sky is light: this act would relieve without counting (counts from ${ATLAS_COUNT_THRESHOLD}%).` })
-                            : tr({ fr: "Soutenir le ciel — récupération avant le geste suivant.", en: "Bear the sky — recovery before the next act." })}>
+                          title={atlasCdLeft > 0 ? atlasEpaulerTip : undefined}
+                          {...tipProps(null, atlasCdLeft > 0 ? null : atlasEpaulerTip)}>
                           {atlasCdLeft > 0 ? tr({ fr: `Épauler (${atlasCdLeft}s)`, en: `Shoulder (${atlasCdLeft}s)` }) : tr({ fr: "Épauler", en: "Shoulder" })}
                         </button>
                       </div>
@@ -898,7 +928,7 @@ export default function CityView() {
                 </div>
               )}
               {isPhoenix && (
-                <div className="myth-status-card phoenix" title={tr({ fr: "Le mythe du Phénix est actif", en: "The myth of the Phoenix is active" })}>
+                <div className="myth-status-card phoenix" {...tipProps(tr({ fr: "Phénix", en: "Phoenix" }), tr({ fr: "Le mythe du Phénix est actif", en: "The myth of the Phoenix is active" }))}>
                   <PixelIcon name="myths/phenix" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Phénix", en: "Phoenix" })}</span>
@@ -907,7 +937,7 @@ export default function CityView() {
                 </div>
               )}
               {isHeph && (
-                <div className="myth-status-card heph" title={tr({ fr: "Le mythe d'Héphaïstos est actif", en: "The myth of Hephaestus is active" })}>
+                <div className="myth-status-card heph" {...tipProps(tr({ fr: "Héphaïstos", en: "Hephaestus" }), tr({ fr: "Le mythe d'Héphaïstos est actif", en: "The myth of Hephaestus is active" }))}>
                   <PixelIcon name="myths/hephaistos" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Héphaïstos", en: "Hephaestus" })} {hephGoalReached && tr({ fr: " (Pacte accompli !)", en: " (Pact fulfilled!)" })}</span>
@@ -916,7 +946,7 @@ export default function CityView() {
                 </div>
               )}
               {isAtrides && (
-                <div className="myth-status-card atrides" title={tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" })}>
+                <div className="myth-status-card atrides" {...tipProps(tr({ fr: "Atrides", en: "Atreides" }), tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" }))}>
                   <PixelIcon name="myths/atrides" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Atrides", en: "Atreides" })}</span>
@@ -925,7 +955,7 @@ export default function CityView() {
                 </div>
               )}
               {atridesPactActive && (
-                <div className="myth-status-card atrides-pact" title={tr({ fr: "Pacte des Atrides scellé", en: "Atreides Pact sealed" })}>
+                <div className="myth-status-card atrides-pact" {...tipProps(tr({ fr: "Pacte Atrides", en: "Atreides Pact" }), tr({ fr: "Pacte des Atrides scellé", en: "Atreides Pact sealed" }))}>
                   <PixelIcon name="myths/pacte" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Pacte Atrides", en: "Atreides Pact" })}</span>
@@ -940,7 +970,7 @@ export default function CityView() {
                 </div>
               )}
               {atridesNextRunPenaltyActive && (
-                <div className="myth-status-card atrides-penalty" title={tr({ fr: "Malus de transmission des Atrides actif", en: "Atreides transmission penalty active" })}>
+                <div className="myth-status-card atrides-penalty" {...tipProps(tr({ fr: "Fardeau Atrides", en: "Atreides Burden" }), tr({ fr: "Malus de transmission des Atrides actif", en: "Atreides transmission penalty active" }))}>
                   <PixelIcon name="myths/atrides" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Fardeau Atrides", en: "Atreides Burden" })}</span>
@@ -949,7 +979,7 @@ export default function CityView() {
                 </div>
               )}
               {isMythEffectActive("mythe_d_enee") && (
-                <div className="myth-status-card enee" title={tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" })}>
+                <div className="myth-status-card enee" {...tipProps(tr({ fr: "Énée", en: "Aeneas" }), tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" }))}>
                   <PixelIcon name="myths/enee" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Énée", en: "Aeneas" })}</span>
@@ -958,7 +988,7 @@ export default function CityView() {
                 </div>
               )}
               {eneeHeritage && cycleSeconds < 30 && (
-                <div className="myth-status-card enee-heritage" title={tr({ fr: "Bénédiction d'Énée active pour le début du cycle", en: "Aeneas's Blessing active for the start of the cycle" })}>
+                <div className="myth-status-card enee-heritage" {...tipProps(tr({ fr: "Bénédiction Énée", en: "Aeneas's Blessing" }), tr({ fr: "Bénédiction d'Énée active pour le début du cycle", en: "Aeneas's Blessing active for the start of the cycle" }))}>
                   <PixelIcon name="myths/benediction" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Bénédiction Énée", en: "Aeneas's Blessing" })}</span>
@@ -969,7 +999,10 @@ export default function CityView() {
               {hasActiveEpitaphLegacy && (
                 <div
                   className="myth-status-card epitaph-legacy"
-                  title={`${activeEpitaphDefinition.tagline}\n${epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => chip.label).join(" · ")}`}
+                  {...tipProps(activeEpitaphDefinition.label, [
+                    { label: activeEpitaphDefinition.tagline },
+                    ...epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => ({ label: chip.label }))
+                  ])}
                 >
                   <PixelIcon name="myths/epitaph" className="myth-card-icon" />
                   <div className="myth-card-info">
@@ -981,7 +1014,7 @@ export default function CityView() {
                 </div>
               )}
               {hasLatent && (
-                <div className="myth-status-card latent" id="cityLatentRow" title={tr({ fr: "Bonus de ruines non dépensées", en: "Bonus from unspent ruins" })}>
+                <div className="myth-status-card latent" id="cityLatentRow" {...tipProps(tr({ fr: "Puissance Latente", en: "Latent Power" }), tr({ fr: "Bonus de ruines non dépensées", en: "Bonus from unspent ruins" }))}>
                   <PixelIcon name="myths/latente" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Puissance Latente", en: "Latent Power" })}</span>

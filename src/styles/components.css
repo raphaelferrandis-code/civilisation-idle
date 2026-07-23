@@ -1295,3 +1295,75 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ── L'INFOBULLE UNIQUE (B1) ───────────────────────────────────────────────
+   Même recette que .rt-tooltip (arbre des Ruines) : bulle sombre épurée, nom
+   puis contenu, en position fixe sous l'élément survolé. Venue de
+   views-regulation.css : ce n'est plus une pièce d'une vue, c'est la bulle de
+   tout le jeu, et elle est rendue par un portail hors de `.app`.
+
+   z-index 80 suffit dans body ; DANS une modale, c'est le top layer du
+   navigateur qui la met au-dessus, pas cette valeur. */
+.regul-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(14, 18, 28, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.regul-tip--flip { transform: translateY(-100%); }
+
+.regul-tip-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.2;
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+}
+
+.regul-tip-text {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* Contenu STRUCTURÉ : une ligne par couple libellé / valeur. Les valeurs
+   s'alignent à droite en chiffres tabulaires, sinon une pile de nombres
+   tremble d'une ligne à l'autre. Le libellé cède la place en premier. */
+.regul-tip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin: 0;
+}
+
+.regul-tip-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.regul-tip-row dt {
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.regul-tip-row dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

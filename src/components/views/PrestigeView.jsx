@@ -23,6 +23,7 @@ import { tr } from '../../game/core/i18n.js';
 import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
 import GrandResetLadder from '../ui/GrandResetLadder.jsx';
 import TestamentSeals from '../ui/TestamentSeals.jsx';
+import { tipProps } from '../ui/HelpBubble.jsx';
 
 export default function PrestigeView() {
   const instability = useGameState(s => s.instability);
@@ -213,7 +214,7 @@ export default function PrestigeView() {
                   key={m}
                   className="barometer-mark"
                   style={{ left: `${m * 100}%` }}
-                  title={`${Math.round(m * 100)} %`}
+                  {...tipProps(null, `${Math.round(m * 100)} %`)}
                 ></span>
               ))}
               {hoverTarget != null && (
@@ -253,7 +254,7 @@ export default function PrestigeView() {
                     return (
                       <section className={`crisis-edict${used ? " edict-sealed" : ""}`} key={def.type}>
                         {/* La description vit en tooltip (retirée de l'écran — dé-boxing). */}
-                        <div className="edict-head" title={def.desc}>
+                        <div className="edict-head" {...tipProps(def.title, def.desc)}>
                           <PixelIcon name={def.iconName} className="edict-emblem" />
                           <h4>{def.title}</h4>
                         </div>
@@ -332,13 +333,19 @@ export default function PrestigeView() {
                   {tr({ fr: "Ruines récupérées à l'effondrement.", en: "Ruins recovered at the collapse." })}
                 </p>
                 <ul className="harvest-factors">
-                  <li title={tr({ fr: "Grandit avec la durée de vie du cycle. Figée pendant la crise.", en: "Grows with the cycle's lived time. Frozen during the crisis." })}>
+                  <li {...tipProps(
+                    tr({ fr: "Patience du cycle", en: "Cycle patience" }),
+                    tr({ fr: "Grandit avec la durée de vie du cycle. Figée pendant la crise.", en: "Grows with the cycle's lived time. Frozen during the crisis." })
+                  )}>
                     <span>{tr({ fr: "Patience du cycle", en: "Cycle patience" })}</span>
                     <strong>×{factors.patience.toFixed(2)}</strong>
                   </li>
                   <li
                     className={factors.preparationBonus > 0 ? undefined : "factor-idle"}
-                    title={tr({ fr: "Chaque édit scellé augmente les Ruines récupérées.", en: "Each sealed edict increases the Ruins recovered." })}
+                    {...tipProps(
+                      tr({ fr: "Édits scellés", en: "Sealed edicts" }),
+                      tr({ fr: "Chaque édit scellé augmente les Ruines récupérées.", en: "Each sealed edict increases the Ruins recovered." })
+                    )}
                   >
                     <span>{tr({ fr: "Édits scellés", en: "Sealed edicts" })}</span>
                     <strong>+{Math.round(factors.preparationBonus * 100)} %</strong>
@@ -346,6 +353,9 @@ export default function PrestigeView() {
                 </ul>
                 <TestamentSeals />
                 <div className="collapse-main-buttons">
+                  {/* Le `title` natif survit pour le SEUL état désactivé : un bouton
+                      disabled ne reçoit aucun événement souris, la bulle maison ne
+                      s'ouvrirait jamais dessus. L'état actif, lui, passe en bulle. */}
                   <button
                     ref={holdBtnRef}
                     className="collapse-btn-primary collapse-hold"
@@ -353,7 +363,10 @@ export default function PrestigeView() {
                     disabled={!canCollapse}
                     title={!canCollapse
                       ? tr({ fr: "Effondrement pas encore possible", en: "Collapse not yet possible" })
-                      : tr({ fr: "Maintenir pour confirmer", en: "Hold to confirm" })}
+                      : undefined}
+                    {...tipProps(null, canCollapse
+                      ? tr({ fr: "Maintenir pour confirmer", en: "Hold to confirm" })
+                      : null)}
                     onPointerDown={startHold}
                     onPointerUp={cancelHold}
                     onPointerLeave={cancelHold}

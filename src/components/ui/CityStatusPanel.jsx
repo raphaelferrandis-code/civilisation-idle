@@ -9,6 +9,7 @@ import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Encart d'état de la civilisation, logé dans la barre latérale au-dessus des
@@ -39,6 +40,20 @@ function fmtCycleTime(totalSecs) {
   return `${s}s`;
 }
 
+// Contenu VIVANT de la bulle « Usure » : le compte à rebours du prochain palier
+// descend seconde par seconde, une chaîne se figerait à l'ouverture et mentirait
+// dès la seconde suivante. Hors du composant parce que la bulle la rappelle
+// toutes les 250 ms, jamais pendant un rendu : `tickNow` serait celui du rendu
+// qui a ouvert la bulle, donc gelé.
+function sedimentTipText(nextPalier, cycleStartedAt) {
+  if (!nextPalier) return tr({ fr: 'Bonus sédiment maximum atteint', en: 'Maximum sediment bonus reached' });
+  const restant = Math.max(0, Math.ceil(nextPalier.secs - (Date.now() - cycleStartedAt) / 1000));
+  return tr({
+    fr: `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(restant)}`,
+    en: `Next sediment tier: +${nextPalier.bonus}% in ${fmtSecs(restant)}`
+  });
+}
+
 export default function CityStatusPanel() {
   const {
     cycles, bestEraIndex, cycleStartedAt,
@@ -60,7 +75,6 @@ export default function CityStatusPanel() {
     if (cycleElapsed >= SEDIMENT_PALIERS[i].secs) { sedimentIdx = i; break; }
   }
   const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
-  const nextPalierInSecs = nextPalier ? Math.ceil(nextPalier.secs - cycleElapsed) : 0;
 
   // RÉSERVE D'ABSENCE : le plafond d'idle, en clair. Volontairement STATIQUE et
   // non une jauge de remplissage : `state.lastTick` est réécrit à chaque tick,
@@ -99,10 +113,10 @@ export default function CityStatusPanel() {
     <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
       <div
         className="csp-block"
-        title={tr({
+        {...tipProps(tr({ fr: 'Âge', en: 'Age' }), tr({
           fr: `Progression vers l'âge suivant. ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V.`,
           en: `Progress toward the next age. ${eraTheme.epochLabel}, era ${eraTheme.epochNumeral}/V.`
-        })}
+        }))}
       >
         <div className="csp-block-head">
           <span className="csp-label">{tr({ fr: 'Âge', en: 'Age' })}</span>
@@ -115,12 +129,7 @@ export default function CityStatusPanel() {
 
       <div
         className="csp-block"
-        title={nextPalier
-          ? tr({
-              fr: `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(nextPalierInSecs)}`,
-              en: `Next sediment tier: +${nextPalier.bonus}% in ${fmtSecs(nextPalierInSecs)}`
-            })
-          : tr({ fr: 'Bonus sédiment maximum atteint', en: 'Maximum sediment bonus reached' })}
+        {...tipProps(tr({ fr: 'Usure', en: 'Wear' }), () => sedimentTipText(nextPalier, cycleStartedAt))}
       >
         <div className="csp-block-head">
           <span className="csp-label">{tr({ fr: 'Usure', en: 'Wear' })}</span>
@@ -141,22 +150,22 @@ export default function CityStatusPanel() {
       <div className="csp-divider" aria-hidden="true"></div>
 
       <div className="csp-stats">
-        <div className="csp-stat" title={tr({ fr: "Cycles accomplis", en: "Cycles completed" })}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Cycles', en: 'Cycles' }), tr({ fr: "Cycles accomplis", en: "Cycles completed" }))}>
           <PixelIcon name="glyphs/cycles" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
         </div>
-        <div className="csp-stat" title={tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" })}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Multi.', en: 'Multi.' }), tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" }))}>
           <PixelIcon name="glyphs/mult" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Multi.', en: 'Multi.' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>
         </div>
-        <div className="csp-stat" title={tr({ fr: "Meilleure ère atteinte à ce jour", en: "Best era reached so far" })}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Âge max', en: 'Max age' }), tr({ fr: "Meilleure ère atteinte à ce jour", en: "Best era reached so far" }))}>
           <PixelIcon name="glyphs/trophee" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Âge max', en: 'Max age' })}</span>
           <strong className="csp-stat-era">{eras[bestEraIndex].name}</strong>
         </div>
-        <div className="csp-stat" title={tr({ fr: "Durée du cycle actuel", en: "Duration of the current cycle" })}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Temps', en: 'Time' }), tr({ fr: "Durée du cycle actuel", en: "Duration of the current cycle" }))}>
           <PixelIcon name="glyphs/temps" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Temps', en: 'Time' })}</span>
           <strong>{cycleTimeLabel}</strong>
@@ -168,7 +177,7 @@ export default function CityStatusPanel() {
           lisible à tous les paliers, seul le libellé se raccourcit. */}
       <div
         className="csp-idle"
-        title={idleNext
+        {...tipProps(tr({ fr: "Réserve d'absence", en: 'Away reserve' }), idleNext
           ? tr({
               fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Au-delà, le temps est perdu. « ${idleNext.name} » porte la réserve à ${fmtSecs(idleNext.cap)}.`,
               en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Beyond that, time is lost. "${idleNext.name}" raises the reserve to ${fmtSecs(idleNext.cap)}.`
@@ -176,7 +185,7 @@ export default function CityStatusPanel() {
           : tr({
               fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Réserve maximale atteinte.`,
               en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Maximum reserve reached.`
-            })}
+            }))}
       >
         <span className="csp-idle-label">{tr({ fr: "Réserve d'absence", en: 'Away reserve' })}</span>
         <strong className="csp-idle-value">{fmtSecs(idleCap)}</strong>
@@ -188,10 +197,10 @@ export default function CityStatusPanel() {
       {stored > 0 && (
         <div
           className="csp-clepsydre"
-          title={tr({
+          {...tipProps(tr({ fr: 'Clepsydre', en: 'Clepsydra' }), tr({
             fr: `Le temps reçu au-dessus de la réserve n'est plus perdu : il attend ici, jusqu'à ${fmtSecs(clepsydreCap)}. Le verser rejoue ce temps comme une absence — la cité produit et vieillit, et si l'Édit d'effondrement est actif elle peut chuter et rebâtir.`,
             en: `Time received above the reserve is no longer lost: it waits here, up to ${fmtSecs(clepsydreCap)}. Pouring it replays that time as an absence — the city produces and ages, and if the Collapse Edict is active it may fall and rebuild.`
-          })}
+          }))}
         >
           <div className="csp-clepsydre-head">
             <span className="csp-idle-label">{tr({ fr: 'Clepsydre', en: 'Clepsydra' })}</span>
@@ -229,10 +238,10 @@ export default function CityStatusPanel() {
       {sceauxPrets > 0 && (
         <div
           className="csp-seals"
-          title={tr({
+          {...tipProps(null, tr({
             fr: "Des sceaux du Grand Reset sont prêts à être réclamés, dans l'onglet Effondrement.",
             en: "Grand Reset seals are ready to claim, in the Collapse tab."
-          })}
+          }))}
         >
           {tr({
             fr: `${sceauxPrets} sceau${sceauxPrets > 1 ? 'x' : ''} à réclamer`,
@@ -244,11 +253,11 @@ export default function CityStatusPanel() {
       {/* Un ÉCHEC de sauvegarde reste affiché tant qu'il est vrai : il ne peut
           pas passer par les toasts, qui s'effacent au bout de 2,4 s. */}
       {saveError ? (
-        <div className="csp-save is-error" title={tr({ fr: `Sauvegarde impossible : ${saveError}. La partie continue en mémoire, mais elle ne survivra pas à la fermeture.`, en: `Cannot save: ${saveError}. The game continues in memory, but it will not survive closing.` })}>
+        <div className="csp-save is-error" {...tipProps(null, tr({ fr: `Sauvegarde impossible : ${saveError}. La partie continue en mémoire, mais elle ne survivra pas à la fermeture.`, en: `Cannot save: ${saveError}. The game continues in memory, but it will not survive closing.` }))}>
           {tr({ fr: "Sauvegarde impossible", en: "Cannot save" })}
         </div>
       ) : saveAgeSec !== null && (
-        <div className="csp-save" title={tr({ fr: "Dernière sauvegarde réussie. Le jeu sauvegarde aussi tout seul.", en: "Last successful save. The game also saves on its own." })}>
+        <div className="csp-save" {...tipProps(null, tr({ fr: "Dernière sauvegarde réussie. Le jeu sauvegarde aussi tout seul.", en: "Last successful save. The game also saves on its own." }))}>
           {saveAgeSec < 5
             ? tr({ fr: "sauvegardé à l'instant", en: "saved just now" })
             : tr({ fr: `sauvegardé il y a ${saveAgeSec} s`, en: `saved ${saveAgeSec}s ago` })}

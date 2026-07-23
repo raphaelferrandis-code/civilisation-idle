@@ -2,6 +2,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { has } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
+import { tipProps } from './HelpBubble.jsx';
 
 export default function BuyToolbar() {
   const buyAmount = useGameState(s => s.buyAmount);
@@ -36,10 +37,10 @@ export default function BuyToolbar() {
         <button
           className={`buy-mode buy-mode-step ${buyAmount === 'step' ? 'active' : ''}`}
           onClick={() => handleSetAmount('step')}
-          title={tr({
+          {...tipProps(tr({ fr: "Palier", en: "Milestone" }), tr({
             fr: "Achète exactement de quoi franchir le prochain palier de ce bâtiment, ni plus ni moins.",
             en: "Buys exactly what it takes to cross this building's next milestone, no more, no less."
-          })}
+          }))}
         >
           {tr({ fr: "Palier", en: "Milestone" })}
         </button>

@@ -47,6 +47,7 @@ function ClauseRow({ slot, clause, choices, now }) {
     ? FOYER_OFFICE[REGULATION_ACTIONS_BY_ID[clause.actionId]?.foyer || BASE_ACTION_FOYER[clause.actionId]]
     : null;
   const sinceLast = clause.lastAt ? Math.round((now - clause.lastAt) / 1000) : null;
+  const off = !clause.actionId;
   return (
     <div className={`steward-clause${clause.enabled ? ' is-armed' : ''}`}>
       <div className="steward-clause-line">
@@ -69,10 +70,13 @@ function ClauseRow({ slot, clause, choices, now }) {
         </select>
         <button
           className={`steward-toggle${clause.enabled ? ' is-on' : ''}`}
-          disabled={!clause.actionId}
-          title={clause.actionId
-            ? tr({ fr: "Armer ou suspendre la consigne. L'intendance ne paie que si l'édit est payable, et se met en veille quand l'administration est fatiguée.", en: 'Arm or suspend the clause. The stewardship only pays when the edict is affordable, and stands by when the administration is weary.' })
-            : tr({ fr: "Choisissez d'abord un édit à déléguer.", en: 'Choose an edict to delegate first.' })}
+          disabled={off}
+          title={off
+            ? tr({ fr: "Choisissez d'abord un édit à déléguer.", en: 'Choose an edict to delegate first.' })
+            : undefined}
+          {...tipProps(null, off
+            ? null
+            : tr({ fr: "Armer ou suspendre la consigne. L'intendance ne paie que si l'édit est payable, et se met en veille quand l'administration est fatiguée.", en: 'Arm or suspend the clause. The stewardship only pays when the edict is affordable, and stands by when the administration is weary.' }))}
           onClick={() => setStewardClause(slot, { enabled: !clause.enabled })}
         >
           {clause.enabled ? `● ${tr({ fr: 'en vigueur', en: 'in force' })}` : `○ ${tr({ fr: 'suspendue', en: 'suspended' })}`}
@@ -124,7 +128,7 @@ export default function StewardPanel() {
         <span className="regul-block-count">{armed}/{slots || 0}</span>
       </h3>
       {resting && (
-        <p className="steward-resting" title={tr({ fr: "Au-delà de 50 % de fatigue, l'intendance attend que l'administration récupère.", en: 'Beyond 50% fatigue, the stewardship waits for the administration to recover.' })}>
+        <p className="steward-resting" {...tipProps(null, tr({ fr: "Au-delà de 50 % de fatigue, l'intendance attend que l'administration récupère.", en: 'Beyond 50% fatigue, the stewardship waits for the administration to recover.' }))}>
           😮‍💨 {tr({ fr: "l'administration souffle, consignes en pause", en: 'the administration is catching its breath, clauses paused' })}
         </p>
       )}

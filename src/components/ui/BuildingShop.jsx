@@ -23,6 +23,7 @@ import { tr } from '../../game/core/i18n.js';
 import { D } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 /* Segments de production [[ressource, valeur/s], …] — mêmes formules que
    l'ancien texte "Produit/Ajoute", rendu en icônes par PurchaseRow. */
@@ -238,7 +239,7 @@ function BuildingShop() {
                 aria-selected={activeTab === tab.id}
               >
                 <span className="subtab-label">{tr(tab.label)}</span>
-                {n > 0 && <span className="subtab-badge" title={tr({ fr: `${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`, en: `${n} purchase${n > 1 ? "s" : ""} available` })}>{n}</span>}
+                {n > 0 && <span className="subtab-badge" {...tipProps(null, tr({ fr: `${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`, en: `${n} purchase${n > 1 ? "s" : ""} available` }))}>{n}</span>}
               </button>
             );
           })}
@@ -248,7 +249,7 @@ function BuildingShop() {
           className="shop-collapse-toggle"
           aria-expanded={open}
           onClick={toggleOpen}
-          title={open ? tr({ fr: "Réduire la boutique", en: "Collapse the shop" }) : tr({ fr: "Déplier la boutique", en: "Expand the shop" })}
+          {...tipProps(null, open ? tr({ fr: "Réduire la boutique", en: "Collapse the shop" }) : tr({ fr: "Déplier la boutique", en: "Expand the shop" }))}
         >
           <span className="hud-panel-chevron" aria-hidden="true"></span>
         </button>
@@ -273,7 +274,7 @@ function BuildingShop() {
               type="button"
               className="shop-queue-clear"
               onClick={() => { clearBuyQueue(); render(); }}
-              title={tr({ fr: "Vider la file", en: "Clear the queue" })}
+              {...tipProps(null, tr({ fr: "Vider la file", en: "Clear the queue" }))}
             >
               {tr({ fr: "Vider", en: "Clear" })}
             </button>
@@ -303,7 +304,7 @@ function BuildingShop() {
                     className="sq-remove"
                     onClick={() => handleToggleQueue(entry.id)}
                     aria-label={tr({ fr: `Retirer ${tr(b.name)} de la file`, en: `Remove ${tr(b.name)} from the queue` })}
-                    title={tr({ fr: "Retirer de la file", en: "Remove from the queue" })}
+                    {...tipProps(null, tr({ fr: "Retirer de la file", en: "Remove from the queue" }))}
                   >
                     ×
                   </button>

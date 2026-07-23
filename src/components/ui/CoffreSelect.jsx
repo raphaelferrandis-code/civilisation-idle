@@ -1,5 +1,6 @@
 import { tr } from '../../game/core/i18n.js';
 import { coffreLevel, fmtMult } from './coffreMeta.js';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Les coffres du temple — sélecteur de PUISSANCE de mise partagé par les 4
@@ -18,10 +19,10 @@ export default function CoffreSelect({ value, onChange }) {
       className="coffre-select"
       role="group"
       aria-label={tr({ fr: 'Puissance de mise (coffre du temple)', en: 'Stake power (temple chest)' })}
-      title={tr({
+      {...tipProps(null, tr({
         fr: 'Le coffre du temple : chaque rang autorise une mise dix fois plus lourde. Les gains suivent la mise.',
         en: 'The temple chest: each rank allows a tenfold heavier stake. Winnings follow the stake.'
-      })}
+      }))}
     >
       <span className="coffre-select-label">🏺 {tr({ fr: 'coffre', en: 'chest' })}</span>
       {opts.map((m) => (

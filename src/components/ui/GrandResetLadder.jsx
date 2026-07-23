@@ -18,6 +18,7 @@ import { fmt } from '../../game/core/utils.js';
 // domaine lisible, passe par le format compact.
 const grNombre = (v) => (typeof v === "number" ? String(Math.floor(v)) : fmt(v));
 import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
 
@@ -186,7 +187,7 @@ export default function GrandResetLadder() {
               <span className="gr-rung-body">
                 <span className="gr-rung-jalon">
                   {revealed ? tr(m.name)
-                    : <span className="gr-rune-line" title={tr({ fr: "Sceau scellé", en: "Sealed" })} />}
+                    : <span className="gr-rune-line" {...tipProps(null, tr({ fr: "Sceau scellé", en: "Sealed" }))} />}
                 </span>
                 <span className="gr-rung-sub">
                   {ragnarokLocked
@@ -204,9 +205,16 @@ export default function GrandResetLadder() {
                 {!ragnarokLocked && jauge && (
                   <span
                     className={`gr-gauge${jauge.acquis ? ' is-acquis' : ''}`}
-                    title={revealed
-                      ? tr({ fr: `${chiffres} vers ce sceau`, en: `${chiffres} toward this seal` })
-                      : tr({ fr: "Progression vers un sceau encore scellé", en: "Progress toward a still-sealed milestone" })}
+                    {...tipProps(null, revealed
+                      // Valeur VIVANTE : le compteur avance pendant qu'on lit. La
+                      // bulle relit la progression tant qu'elle est ouverte, sinon
+                      // le chiffre se figerait alors que celui d'à côté avance.
+                      ? () => {
+                        const vif = grandResetMilestoneProgress(m);
+                        const n = vif ? `${grNombre(vif.current)} / ${grNombre(vif.target)}` : chiffres;
+                        return tr({ fr: `${n} vers ce sceau`, en: `${n} toward this seal` });
+                      }
+                      : tr({ fr: "Progression vers un sceau encore scellé", en: "Progress toward a still-sealed milestone" }))}
                   >
                     <span className="gr-gauge-track">
                       <span className="gr-gauge-fill" style={{ width: `${Math.round(jauge.ratio * 100)}%` }}></span>
@@ -220,11 +228,11 @@ export default function GrandResetLadder() {
               <span className="gr-rung-reward">{reward}</span>
               <span className="gr-rung-status">
                 {claimed ? (
-                  <span className="gr-rung-done" title={tr({ fr: "Sceau réclamé", en: "Seal claimed" })}>✓</span>
+                  <span className="gr-rung-done" {...tipProps(null, tr({ fr: "Sceau réclamé", en: "Seal claimed" }))}>✓</span>
                 ) : ready ? (
                   <>
                     {multi && (
-                      <label className="gr-rung-pick" title={tr({ fr: "Ajouter ce sceau au lot", en: "Add this seal to the batch" })}>
+                      <label className="gr-rung-pick" {...tipProps(null, tr({ fr: "Ajouter ce sceau au lot", en: "Add this seal to the batch" }))}>
                         <input
                           type="checkbox"
                           checked={checked.has(m.gr)}
@@ -238,7 +246,7 @@ export default function GrandResetLadder() {
                     </button>
                   </>
                 ) : ragnarokLocked ? (
-                  <span className="gr-rung-pending" title={tr({ fr: "Honore le pacte du Ragnarök pour le réclamer", en: "Honor the Ragnarök pact to claim it" })}>🔒</span>
+                  <span className="gr-rung-pending" {...tipProps(null, tr({ fr: "Honore le pacte du Ragnarök pour le réclamer", en: "Honor the Ragnarök pact to claim it" }))}>🔒</span>
                 ) : null}
               </span>
             </li>

@@ -5,7 +5,6 @@ import StewardPanel from '../ui/StewardPanel.jsx';
 import AuguresPanel from '../ui/AuguresPanel.jsx';
 import TemplePupitre from '../ui/TemplePupitre.jsx';
 import RegulationStage from '../ui/RegulationStage.jsx';
-import { HelpBubbleLayer } from '../ui/HelpBubble.jsx';
 
 /**
  * Onglet Régulation — la « Chancellerie ». Layout (réorg 2026-07-14) :
@@ -18,7 +17,9 @@ import { HelpBubbleLayer } from '../ui/HelpBubble.jsx';
  *     restant (osselets et Vol d'Icare s'y animent en grand).
  * NB : la Boutique de Faveur a déménagé dans l'onglet Boutique (2026-07-15) —
  * la Faveur se GAGNE ici (jeux), se DÉPENSE là-bas.
- * Bulles d'aide (HelpBubbleLayer, DA de l'arbre des Ruines) partout.
+ * Les bulles d'aide restent partout, mais la COUCHE qui les rend est montée
+ * dans App depuis B1 : `showFn` est un singleton de module, deux couches
+ * montées en même temps se voleraient la référence.
  */
 export default function RegulationView() {
   return (
@@ -36,7 +37,6 @@ export default function RegulationView() {
         </div>
       </div>
       <RegulationStage />
-      <HelpBubbleLayer />
     </section>
   );
 }

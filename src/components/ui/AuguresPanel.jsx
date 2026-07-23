@@ -83,9 +83,15 @@ export default function AuguresPanel() {
             <button
               type="button"
               className={`augures-trunk-auto${trunkAuto.on ? ' is-on' : ''}`}
-              title={tr({
-                fr: trunkAuto.on ? 'Auto-relève active : les offrandes sont encaissées avant de déborder. Cliquer pour suspendre.' : 'Auto-relève suspendue. Cliquer pour la réactiver.',
-                en: trunkAuto.on ? 'Auto-collect active: the offerings are cashed before they overflow. Click to pause.' : 'Auto-collect paused. Click to resume.'
+              {...tipProps(null, () => {
+                // Contenu VIVANT : le clic bascule l'auto sous le curseur, bulle
+                // ouverte. Un texte figé à l'ouverture annoncerait l'état inverse,
+                // donc l'état est relu à chaque rafraîchissement.
+                const on = Boolean(state.templeAuto?.tronc?.on);
+                return tr({
+                  fr: on ? 'Auto-relève active : les offrandes sont encaissées avant de déborder. Cliquer pour suspendre.' : 'Auto-relève suspendue. Cliquer pour la réactiver.',
+                  en: on ? 'Auto-collect active: the offerings are cashed before they overflow. Click to pause.' : 'Auto-collect paused. Click to resume.'
+                });
               })}
               onClick={() => setTempleAuto('tronc', { on: !trunkAuto.on })}
             >
@@ -152,7 +158,7 @@ export default function AuguresPanel() {
               <span className="augures-pips" aria-label={tr({ fr: 'Derniers jets', en: 'Latest rolls' })}>
                 {pips.map((v, i) => (
                   <i key={i} className={`augures-pip${v === 1 ? ' is-win' : v === 2 ? ' is-dog' : v === 0 ? ' is-loss' : ''}`}
-                    title={v === 2 ? tr({ fr: 'Le Chien', en: 'The Dog' }) : undefined}></i>
+                    {...tipProps(null, v === 2 ? tr({ fr: 'Le Chien', en: 'The Dog' }) : undefined)}></i>
                 ))}
               </span>
               {rebatePct > 0
@@ -213,7 +219,7 @@ export default function AuguresPanel() {
         >
           <span className="icarus-banner-title">{tr({ fr: "Le Vol d'Icare", en: 'The Flight of Icarus' })}</span>
           {freeFlights > 0 && (
-            <span className="icarus-banner-free" title={tr({ fr: 'Vols offerts par les Coups de Vénus (mise Plume) et par les trois Soleils du gratteux (mise du ticket). Le temple paie la mise.', en: 'Flights offered by Venus throws (Feather stake) and by three Suns on a ticket (the ticket stake). The temple pays the stake.' })}>
+            <span className="icarus-banner-free" {...tipProps(null, tr({ fr: 'Vols offerts par les Coups de Vénus (mise Plume) et par les trois Soleils du gratteux (mise du ticket). Le temple paie la mise.', en: 'Flights offered by Venus throws (Feather stake) and by three Suns on a ticket (the ticket stake). The temple pays the stake.' }))}>
               {freeFlights} {tr({ fr: 'vol(s) offert(s)', en: 'free flight(s)' })}
             </span>
           )}

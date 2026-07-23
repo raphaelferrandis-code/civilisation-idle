@@ -305,9 +305,9 @@ export default function IcarusStage({ table, onClose }) {
                     type="button"
                     className="stake-pick"
                     onClick={() => setStakeId(s.id)}
-                    title={freeHere
+                    {...tipProps(tr(s.label), freeHere
                       ? tr({ fr: `Vol offert par un Coup de Vénus. Le temple paie la mise. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(s.faveur) * 100)} % de la cagnotte.`, en: `Flight offered by a Venus throw. The temple pays the stake. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(s.faveur) * 100)}% of the pot.` })
-                      : tr({ fr: `Mise de ${cost} Faveur. Se poser à ×m rapporte ${cost} × m. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(cost) * 100)} % de la cagnotte : la part suit la mise.`, en: `${cost} Favor stake. Landing at ×m pays ${cost} × m. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(cost) * 100)}% of the pot: the share follows the stake.` })}
+                      : tr({ fr: `Mise de ${cost} Faveur. Se poser à ×m rapporte ${cost} × m. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(cost) * 100)} % de la cagnotte : la part suit la mise.`, en: `${cost} Favor stake. Landing at ×m pays ${cost} × m. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(cost) * 100)}% of the pot: the share follows the stake.` }))}
                   >
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>

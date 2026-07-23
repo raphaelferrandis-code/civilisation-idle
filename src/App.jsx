@@ -4,6 +4,7 @@ import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
 import PixelIcon from './components/ui/PixelIcon.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
+import { HelpBubbleLayer, tipProps } from './components/ui/HelpBubble.jsx';
 import ContemplationBar from './components/ui/ContemplationBar.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
@@ -241,13 +242,19 @@ export default function App() {
         </div>
         
         <nav className="tabs" aria-label="Vues">
+          {/* AUCUNE BULLE SUR LES ONGLETS EN ÉTAT NORMAL (B1). L'ancien `title`
+              répétait simplement le nom de l'onglet, déjà écrit juste en
+              dessous dans .tab-label : le migrer aurait ouvert une bulle sombre
+              sous chaque onglet survolé pour n'y rien apprendre. Seul le
+              message de crise reste, et il reste NATIF puisque le bouton est
+              alors désactivé, état où la bulle ne peut pas s'ouvrir. */}
           {tabs.map(tab => tab.unlocked && (
             <button
               key={tab.id}
               className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
               disabled={crisisLocked && tab.id !== 'prestige'}
               onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
-              title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : tr(tab.label)}
+              title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
               <PixelIcon name={tab.icon} className="tab-icon" />
@@ -261,10 +268,10 @@ export default function App() {
               {badges[tab.id] > 0 && (
                 <span
                   className="tab-badge"
-                  title={tr({
+                  {...tipProps(null, tr({
                     fr: `${badges[tab.id]} chose${badges[tab.id] > 1 ? 's' : ''} à réclamer, sans rien dépenser`,
                     en: `${badges[tab.id]} thing${badges[tab.id] > 1 ? 's' : ''} to claim, at no cost`
-                  })}
+                  }))}
                 >
                   {badges[tab.id] > 9 ? '9+' : badges[tab.id]}
                 </span>
@@ -276,16 +283,16 @@ export default function App() {
         <CityStatusPanel />
 
         <div className="quick-actions">
-          <button className="btn-tiny" onClick={handleSave} title="Sauvegarder">
+          <button className="btn-tiny" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
             <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
           </button>
-          <button className="btn-tiny" onClick={handleExport} title="Exporter">
+          <button className="btn-tiny" onClick={handleExport} {...tipProps(null, "Exporter")}>
             <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
           </button>
-          <button className="btn-tiny" onClick={() => setIsImportOpen(true)} title="Importer">
+          <button className="btn-tiny" onClick={() => setIsImportOpen(true)} {...tipProps(null, "Importer")}>
             <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
-          <button className="btn-tiny" onClick={() => setIsOptionsOpen(true)} title="Options">
+          <button className="btn-tiny" onClick={() => setIsOptionsOpen(true)} {...tipProps(null, "Options")}>
             <PixelIcon name="nav/options" className="qa-icon" /><span className="qa-label">Options</span>
           </button>
         </div>
@@ -342,6 +349,11 @@ export default function App() {
         onChoose={handleChoice}
       />
       <OutcomeFloatLayer />
+      {/* Infobulle unique du jeu (B1). Montée ICI et nulle part ailleurs : la
+          couche pilote un singleton de module, et elle doit survivre au
+          changement de vue comme à l'ouverture d'une modale. Elle se rend
+          elle-même par un portail, sa position dans l'arbre n'importe pas. */}
+      <HelpBubbleLayer />
 
       {eraBanner && (
         <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} role="status" aria-live="polite">

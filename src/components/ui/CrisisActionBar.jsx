@@ -10,6 +10,7 @@ import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulat
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Actions de régulation des foyers de tension (Subsistance / Inégalités /
@@ -114,7 +115,7 @@ function RegulButton({ a, label, btnClass }) {
     return (
       <button
         className={cls}
-        title={tr({ fr: `Ouvre la table des augures : choisis ton rite (la mise, en Faveur, pilote la variance), jette les osselets, et tente le quitte ou double si les dieux sourient.`, en: `Opens the augurs' table: choose your rite (the Favor stake shapes variance), cast the knucklebones, and try double-or-nothing if the gods smile.` })}
+        {...tipProps(null, tr({ fr: `Ouvre la table des augures : choisis ton rite (la mise, en Faveur, pilote la variance), jette les osselets, et tente le quitte ou double si les dieux sourient.`, en: `Opens the augurs' table: choose your rite (the Favor stake shapes variance), cast the knucklebones, and try double-or-nothing if the gods smile.` }))}
         onClick={() => openAuguryTable(a.id)}
       >
         <span className="regul-btn-line">
@@ -129,11 +130,18 @@ function RegulButton({ a, label, btnClass }) {
   }
   if (a.reform) {
     const cls = `${btnClass}${btnClass ? ' ' : ''}regul-reform`.trim();
+    const reformOff = a.atCap || !canPayCost(a.cost);
+    const reformTip = tr({ fr: "Réforme de fond : recul DURABLE de ce foyer (ne décline pas, jusqu'au prochain effondrement). Coût lourd.", en: 'Deep reform: LASTING reduction of this hotspot (does not decay, until the next collapse). Heavy cost.' });
     return (
+      // TERNAIRE COUPÉ (B1) : Chrome ne délivre aucun événement souris à un
+      // bouton `disabled`, donc la bulle maison ne peut pas s'y ouvrir. Chaque
+      // état a son porteur, sans perte ni doublon. Sans cette coupe, les
+      // réformes payables gardaient une infobulle système au milieu des bulles.
       <button
         className={cls}
-        disabled={a.atCap || !canPayCost(a.cost)}
-        title={tr({ fr: "Réforme de fond : recul DURABLE de ce foyer (ne décline pas, jusqu'au prochain effondrement). Coût lourd.", en: 'Deep reform: LASTING reduction of this hotspot (does not decay, until the next collapse). Heavy cost.' })}
+        disabled={reformOff}
+        title={reformOff ? reformTip : undefined}
+        {...tipProps(null, reformOff ? null : reformTip)}
         onClick={() => runCrisisAction(a.id)}
       >
         <span className="regul-btn-line">
@@ -157,12 +165,12 @@ function RegulButton({ a, label, btnClass }) {
       {(a.malusRes || a.bonus) && (
         <span className="regul-btn-line regul-btn-sub">
           {a.malusRes && (
-            <span className="regul-malus" title={tr({ fr: "Malus de production cumulatif, jusqu'au prochain effondrement", en: 'Cumulative production penalty, until the next collapse' })}>
+            <span className="regul-malus" {...tipProps(null, tr({ fr: "Malus de production cumulatif, jusqu'au prochain effondrement", en: 'Cumulative production penalty, until the next collapse' }))}>
               ↓{Math.round(a.malusPct * 100)}% {tr(RES_LABEL[a.malusRes]) || a.malusRes}
             </span>
           )}
           {a.bonus && (
-            <span className="regul-bonus" title={tr({ fr: 'Bénéfice durable pour la cité', en: 'Lasting benefit for the city' })}>
+            <span className="regul-bonus" {...tipProps(null, tr({ fr: 'Bénéfice durable pour la cité', en: 'Lasting benefit for the city' }))}>
               {tr(BONUS_LABEL[a.bonus]) || a.bonus}
             </span>
           )}
@@ -207,11 +215,16 @@ function policyCostLabel(cost) {
 // Bascule d'une politique permanente (Levier C) : ralentit la montée, coût continu.
 function PolicyRow({ p, slotsFull }) {
   const disabled = !p.active && (p.locked || slotsFull);
+  const policyTip = p.locked ? `${tr({ fr: 'Se débloque', en: 'Unlocks' })} : ${p.unlockLabel}` : p.desc;
   return (
+    // Ternaire coupé (B1), même raison que les réformes : une politique active
+    // ou activable porte la bulle maison, une politique verrouillée ou hors
+    // emplacement garde le `title` natif, seul à s'afficher sur un bouton grisé.
     <button
       className={`policy-btn${p.active ? ' is-active' : ''}${p.locked ? ' regul-locked' : ''}`}
       disabled={disabled}
-      title={p.locked ? `${tr({ fr: 'Se débloque', en: 'Unlocks' })} : ${p.unlockLabel}` : p.desc}
+      title={disabled ? policyTip : undefined}
+      {...tipProps(null, disabled ? null : policyTip)}
       onClick={() => togglePolicy(p.id)}
     >
       {/* Sceau gravé de la politique (pierre & or) — apposé quand elle est active. */}
@@ -333,7 +346,7 @@ export default function CrisisActionBar() {
   // Fatigue de régulation : indicateur (affiché dès qu'elle est sensible).
   const fatiguePct = Math.round(regulFatigue * 100);
   const fatigueIndicator = fatiguePct >= 3 ? (
-    <div className="crisis-fatigue" title={tr({ fr: "Fatigue de l'administration : chaque action la fait monter. Plus elle est haute, moins les actions sont efficaces et plus elles coûtent cher. Elle redescend si vous espacez vos interventions.", en: 'Administration fatigue: each action raises it. The higher it is, the less effective actions become and the more they cost. It drops if you space out your interventions.' })}>
+    <div className="crisis-fatigue" {...tipProps(tr({ fr: 'Fatigue de régulation', en: 'Regulation Fatigue' }), tr({ fr: "Fatigue de l'administration : chaque action la fait monter. Plus elle est haute, moins les actions sont efficaces et plus elles coûtent cher. Elle redescend si vous espacez vos interventions.", en: 'Administration fatigue: each action raises it. The higher it is, the less effective actions become and the more they cost. It drops if you space out your interventions.' }))}>
       <span className="crisis-fatigue-label">😮‍💨 {tr({ fr: 'Fatigue de régulation', en: 'Regulation Fatigue' })}</span>
       <span className="crisis-fatigue-track"><span className="crisis-fatigue-fill" style={{ width: `${Math.min(100, fatiguePct)}%` }}></span></span>
       <span className="crisis-fatigue-val">{fatiguePct}%</span>
@@ -345,7 +358,7 @@ export default function CrisisActionBar() {
         <div className="crisis-regul-head">
           <span className="crisis-regul-title">{tr({ fr: 'Régulation des tensions', en: 'Tension Regulation' })}</span>
           {mitigationPct > 0 && (
-            <span className="crisis-regul-buffer" title={tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure). Building infrastructure lastingly pushes back the Rupture.' })}>
+            <span className="crisis-regul-buffer" {...tipProps(null, tr({ fr: "Pression absorbée en continu par tes institutions (infrastructure). Construire de l'infrastructure recule durablement la Rupture.", en: 'Pressure absorbed continuously by your institutions (infrastructure). Building infrastructure lastingly pushes back the Rupture.' }))}>
               {tr({ fr: 'Institutions : −', en: 'Institutions: −' })}{mitigationPct}{tr({ fr: '% de pression absorbée', en: '% of pressure absorbed' })}
             </span>
           )}
@@ -354,11 +367,11 @@ export default function CrisisActionBar() {
         <div className="crisis-regul-grid">
           {foyers.map((f) => (
             <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`}>
-              <summary className="crisis-foyer-head" title={tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' })}>
+              <summary className="crisis-foyer-head" {...tipProps(f.label, tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' }))}>
                 <img className="crisis-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
                 <span className="crisis-foyer-name">{f.label}</span>
-                {isReformed(f.key) && <span className="crisis-foyer-reformed" title={tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' })}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
-                {isSoothed(f.key) && <span className="crisis-foyer-soothed" title={tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' })}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
+                {isReformed(f.key) && <span className="crisis-foyer-reformed" {...tipProps(null, tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' }))}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
+                {isSoothed(f.key) && <span className="crisis-foyer-soothed" {...tipProps(null, tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' }))}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}
                 <span className="crisis-foyer-chevron" aria-hidden="true"></span>
                 <span className="crisis-foyer-track" aria-hidden="true">
                   <span

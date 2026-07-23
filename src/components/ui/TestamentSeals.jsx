@@ -9,6 +9,7 @@ import {
 } from '../../game/data/epitaphs.js';
 import { tr } from '../../game/core/i18n.js';
 import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Testament — pré-gravure du legs d'épitaphe (arbitrage 2026-07-13).
@@ -40,13 +41,20 @@ export default function TestamentSeals() {
           const delta = Math.round((mult - 1) * 100);
           const favored = legacy.favoredCause === cause;
           const isEngraved = legacy.id === testamentLegacyId;
-          const chips = epitaphLegacyChips(legacy, cause).map(c => c.label).join(" · ");
+          const chips = epitaphLegacyChips(legacy, cause);
           return (
             <div key={legacy.id} className="testament-seal-wrap">
+              {/* L'ancien `title` tenait sur trois lignes séparées par des \n,
+                  rendues au bon vouloir de l'OS : elles deviennent des LIGNES de
+                  bulle, un effet par ligne. */}
               <button
                 type="button"
                 className={`testament-seal${isEngraved ? " is-engraved" : ""}${favored ? " is-favored" : ""}`}
-                title={`${legacy.label}${favored ? tr({ fr: " · ⚡ affinité avec la chute annoncée", en: " · ⚡ affinity with the foretold fall" }) : ""}\n${legacy.tagline}\n${chips}`}
+                {...tipProps(legacy.label, [
+                  favored && { label: tr({ fr: "⚡ Affinité avec la chute annoncée", en: "⚡ Affinity with the foretold fall" }) },
+                  { label: legacy.tagline },
+                  ...chips.map((c) => ({ label: c.label }))
+                ])}
                 aria-pressed={isEngraved}
                 onClick={() => setTestamentLegacy(isEngraved ? null : legacy.id)}
               >

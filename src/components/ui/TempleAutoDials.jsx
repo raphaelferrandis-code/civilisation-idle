@@ -5,6 +5,7 @@ import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import { coffreLevel, fmtMult } from './coffreMeta.js';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Les CADRANS des automatisations du Temple (osselets = rite ; Icare = mise +
@@ -54,10 +55,10 @@ export function RateBadge({ game }) {
   return (
     <span
       className="temple-auto-rate"
-      title={tr({
+      {...tipProps(null, tr({
         fr: "Débit de Faveur estimé aux réglages actuels, coffre compris. 0 si à l'arrêt ou avant l'ère requise. Négatif tant que la table garde un avantage ; positif quand tes augments l'ont retourné.",
         en: 'Estimated Favor throughput at current settings, chest included. 0 when off or before the required era. Negative while the table keeps an edge; positive once your augments have turned it around.'
-      })}
+      }))}
     >
       <FaveurIcon /> {v < 0 ? `−${fmt(-v)}` : fmt(v)}<span className="temple-auto-rate-unit"> {tr({ fr: '/min', en: '/min' })}</span>
     </span>
@@ -73,10 +74,10 @@ function FaveurFloor({ game }) {
     <div className="doctrine-line">
       <span
         className="doctrine-line-label"
-        title={tr({
+        {...tipProps(tr({ fr: 'Plancher de Faveur', en: 'Favor floor' }), tr({
           fr: "Réserve de Faveur à garder. L'auto ne joue que si la Faveur reste au-dessus de ce niveau après la mise.",
           en: 'Favor reserve to keep. The automation only plays if Favor stays above this level after the stake.'
-        })}
+        }))}
       >
         {tr({ fr: 'Plancher de Faveur', en: 'Favor floor' })}
       </span>
@@ -141,10 +142,10 @@ function CoffreLine({ game }) {
     <div className="doctrine-line">
       <span
         className="doctrine-line-label"
-        title={tr({
+        {...tipProps(tr({ fr: 'Coffre', en: 'Chest' }), tr({
           fr: 'La puissance de mise du coffre. L’auto mise ×10 par rang choisi ; les gains suivent la mise, le plancher aussi.',
           en: 'The chest’s stake power. The automation stakes ×10 per chosen rank; winnings follow the stake, so does the floor.'
-        })}
+        }))}
       >
         {tr({ fr: 'Coffre', en: 'Chest' })}
       </span>
@@ -170,10 +171,10 @@ function TempoLine({ game }) {
     <div className="doctrine-line">
       <span
         className="doctrine-line-label"
-        title={tr({
+        {...tipProps(tr({ fr: 'Tempo', en: 'Tempo' }), tr({
           fr: "Cadence de l'auto. Recueilli joue deux fois moins souvent, fervent deux fois plus. L'espérance par partie ne change pas : le tempo règle le débit.",
           en: 'Automation pace. Unhurried plays half as often, fervent twice as much. The expectation per game does not change: tempo sets the throughput.'
-        })}
+        }))}
       >
         {tr({ fr: 'Tempo', en: 'Tempo' })}
       </span>
@@ -213,10 +214,10 @@ export default function AutoDials({ game }) {
           <div className="doctrine-line">
             <span
               className="doctrine-line-label"
-              title={tr({
+              {...tipProps(tr({ fr: 'Cible', en: 'Target' }), tr({
                 fr: 'Multiplicateur où encaisser : bas = revenu régulier, haut = gros coups (faibles chances). Le jackpot (cagnotte + jalon) reste manuel.',
                 en: 'Cash-out multiplier: low = steady income, high = big wins (low odds). The jackpot (pot + milestone) stays manual.'
-              })}
+              }))}
             >
               {tr({ fr: 'Cible', en: 'Target' })}
             </span>
@@ -244,10 +245,10 @@ export default function AutoDials({ game }) {
         <div className="doctrine-line">
           <span
             className="doctrine-line-label"
-            title={tr({
+            {...tipProps(tr({ fr: 'Mise', en: 'Stake' }), tr({
               fr: "L'auto joue la stratégie de la mesure (tirer ou rester), jamais le double. Les séries de l'oracle ne comptent que tes mains.",
               en: 'The automation plays the measure (hit or stand), never the double. Oracle streaks only count your own hands.'
-            })}
+            }))}
           >
             {tr({ fr: 'Mise', en: 'Stake' })}
           </span>

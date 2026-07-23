@@ -5,6 +5,7 @@ import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../g
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
+import { tipProps } from './HelpBubble.jsx';
 import { splashSrcFor } from '../../game/data/pixelSplash.js';
 
 const RES_CLASS = {
@@ -140,11 +141,11 @@ function PurchaseRow({
       onPointerDown={handleRowPointerDown}
     >
       <div className="pr-name-row">
-        <h3 className="pr-name" title={tr(b.desc)}>{tr(b.name)}</h3>
+        <h3 className="pr-name" {...tipProps(tr(b.name), tr(b.desc))}>{tr(b.name)}</h3>
         {milestoneInfo && (
           <span
             className="pr-milestone-badge"
-            title={tr({ fr: `Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`, en: `Milestone production bonus: ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})` })}
+            {...tipProps(null, tr({ fr: `Bonus de production de palier : ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})`, en: `Milestone production bonus: ×${fmt(milestoneInfo.bonus)} (${milestoneInfo.label})` }))}
           >
             <i className="fa-solid fa-bolt" aria-hidden="true"></i>
             {"×"}{fmtShort(milestoneInfo.bonus)}
@@ -167,7 +168,7 @@ function PurchaseRow({
                 <span
                   key={key}
                   className={`pr-prod-item ${RES_CLASS[key] || ""}`}
-                  title={`${labelFor(key)} : ${signed(value)}/s`}
+                  {...tipProps(null, `${labelFor(key)} : ${signed(value)}/s`)}
                 >
                   {signedShort(r.value)}{r.unit}
                 </span>
@@ -179,9 +180,16 @@ function PurchaseRow({
             return (
               <span
                 className="pr-prod-item res-infra"
-                title={tr({
-                  fr: `${net.rank} : ${net.pct} % des bâtiments-moteur sont reliés au réseau. Bonus de production global : +${net.bonus} % (maximum +10 % quand tout est relié). Chaque route achetée étend le réseau d'une tuile vers le bâtiment le plus proche.`,
-                  en: `${net.rank}: ${net.pct}% of engine buildings are linked to the network. Global production bonus: +${net.bonus}% (up to +10% when everything is linked). Each road purchased extends the network one tile toward the nearest building.`
+                {...tipProps(null, () => {
+                  // VALEUR VIVANTE : la couverture est écrite par la carte dans
+                  // state.roadCoverage, hors des props comparées par
+                  // arePropsEqual — une chaîne figerait le pourcentage à
+                  // l'ouverture de la bulle. On relit donc à chaque passe.
+                  const live = roadNetworkInfo();
+                  return tr({
+                    fr: `${live.rank} : ${live.pct} % des bâtiments-moteur sont reliés au réseau. Bonus de production global : +${live.bonus} % (maximum +10 % quand tout est relié). Chaque route achetée étend le réseau d'une tuile vers le bâtiment le plus proche.`,
+                    en: `${live.rank}: ${live.pct}% of engine buildings are linked to the network. Global production bonus: +${live.bonus}% (up to +10% when everything is linked). Each road purchased extends the network one tile toward the nearest building.`
+                  });
                 })}
               >
                 {net.rank} · {net.pct}% {tr({ fr: "relié", en: "linked" })} (+{net.bonus}%)
@@ -192,7 +200,7 @@ function PurchaseRow({
 
         <div
           className="pr-step-track"
-          title={tr({ fr: `Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`, en: `${stepLabel} milestone in ${nextIn} purchase${nextIn > 1 ? "s" : ""}` })}
+          {...tipProps(null, tr({ fr: `Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`, en: `${stepLabel} milestone in ${nextIn} purchase${nextIn > 1 ? "s" : ""}` }))}
           aria-hidden="true"
         >
           <span style={{ width: `${stepPct}%` }}></span>
@@ -205,21 +213,29 @@ function PurchaseRow({
         {etaLabel && (
           <div
             className="pr-eta"
-            title={tr({
+            {...tipProps(null, tr({
               fr: "Au rythme actuel de production. Un bonus temporaire ou une chute de rendement le change.",
               en: "At the current production rate. A temporary bonus or a drop in output changes it."
-            })}
+            }))}
           >
             {etaLabel}
           </div>
         )}
 
         <div className="pr-footer">
+          {/* TERNAIRE COUPÉ (B1). Un bouton `disabled` ne reçoit aucun événement
+              souris dans Chrome, ni lui ni ses enfants : la bulle maison ne peut
+              donc pas s'y ouvrir, alors que le `title` natif s'y affiche encore.
+              On garde les deux, chacun sur son état — bulle quand la rangée est
+              payable (le cas courant), `title` quand elle ne l'est pas, là où le
+              coût exact est justement ce qu'on cherche. Tout garder en natif
+              laissait une infobulle système sur chaque rangée abordable. */}
           <button
             className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
             disabled={!affordable}
             onClick={handleBuy}
-            title={tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" })}
+            title={affordable ? undefined : tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" })}
+            {...tipProps(null, affordable ? tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" }) : null)}
           >
             {floats.map((f) => (
               <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
@@ -238,7 +254,8 @@ function PurchaseRow({
                 <span
                   key={currency}
                   className={`bp-cost-item${lackingSet?.has(currency) ? " is-lacking" : ""}`}
-                  title={`${exactLabel(amount)} ${labelFor(currency)}`}
+                  title={affordable ? undefined : `${exactLabel(amount)} ${labelFor(currency)}`}
+                  {...tipProps(null, affordable ? `${exactLabel(amount)} ${labelFor(currency)}` : null)}
                 >
                   <i className={`fa-solid ${RES_ICONS[currency] || "fa-circle"}`} aria-hidden="true"></i>
                   {fmtShort(amount)}
@@ -250,23 +267,29 @@ function PurchaseRow({
               finançable. Absente pour ce qui ne s'achète pas en masse (coût en
               Ruines) — la file ne doit jamais ponctionner l'arbre permanent. */}
           {queueable && (
+            // Même ternaire coupé que le bouton d'achat : l'épingle ne se
+            // désactive que dans un seul cas, file pleine ET cible non épinglée,
+            // qui est aussi le seul où son libellé explique quoi faire.
             <button
               type="button"
               className={`pr-pin${queuePos ? " is-queued" : ""}`}
               disabled={!queuePos && queueFull}
               onClick={(e) => { e.stopPropagation(); onToggleQueue(b.id); }}
               aria-pressed={!!queuePos}
-              title={queuePos
-                ? tr({ fr: `Cible n° ${queuePos} de la file (×${buyAmount === "step" ? nextIn : buyAmount}). Cliquer pour retirer.`, en: `Target #${queuePos} in the queue. Click to remove.` })
-                : queueFull
-                  ? tr({ fr: "La file est pleine : retire une cible d'abord.", en: "The queue is full: remove a target first." })
-                  : tr({ fr: "Épingler : la cité l'achètera dès que ce sera finançable, dans l'ordre de la file.", en: "Pin: the city will buy it as soon as it is affordable, in queue order." })}
+              title={!queuePos && queueFull
+                ? tr({ fr: "La file est pleine : retire une cible d'abord.", en: "The queue is full: remove a target first." })
+                : undefined}
+              {...tipProps(null, !queuePos && queueFull
+                ? null
+                : queuePos
+                  ? tr({ fr: `Cible n° ${queuePos} de la file (×${buyAmount === "step" ? nextIn : buyAmount}). Cliquer pour retirer.`, en: `Target #${queuePos} in the queue. Click to remove.` })
+                  : tr({ fr: "Épingler : la cité l'achètera dès que ce sera finançable, dans l'ordre de la file.", en: "Pin: the city will buy it as soon as it is affordable, in queue order." }))}
             >
               <i className="fa-solid fa-thumbtack" aria-hidden="true"></i>
               {queuePos ? <span className="pr-pin-pos">{queuePos}</span> : null}
             </button>
           )}
-          <span className="pr-count" title={tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` })} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
+          <span className="pr-count" {...tipProps(null, tr({ fr: `Possédés : ${countLabel}`, en: `Owned: ${countLabel}` }))} aria-label={tr({ fr: `${countLabel} possédés`, en: `${countLabel} owned` })}>
             <span className="pr-count-x" aria-hidden="true">×</span>{countLabel}
           </span>
         </div>

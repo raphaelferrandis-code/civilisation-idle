@@ -5,6 +5,7 @@ import { currentEraIndex, crisisOpen } from '../../game/core/mechanics.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 import { getJournalTheme } from './journalThemes.js';
 import { tr } from '../../game/core/i18n.js';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Bandeau-dépêche : remplace l'ancien panneau JournalPanel (Audit UI Phase 2).
@@ -54,9 +55,9 @@ export default function ChronicleTicker() {
     <div
       className={`chronicle-ticker ${theme.cssClass}${isCrisis ? ' is-crisis' : ''}${expanded ? ' is-expanded' : ''}`}
       aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })}
-      title={expanded
+      {...tipProps(null, expanded
         ? tr({ fr: `${theme.tradition} · Prix : ${theme.price}`, en: `${theme.tradition} · Price: ${theme.price}` })
-        : tr({ fr: 'Cliquer pour lire la dépêche', en: 'Click to read the dispatch' })}
+        : tr({ fr: 'Cliquer pour lire la dépêche', en: 'Click to read the dispatch' }))}
       onClick={toggle}
     >
       <span className="ticker-masthead">

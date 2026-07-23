@@ -383,7 +383,7 @@ export default function ScratchStage({ table, onClose }) {
                     type="button"
                     className="stake-pick"
                     onClick={() => setChosenStake(s.id)}
-                    title={tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` })}
+                    {...tipProps(tr(s.label), tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` }))}
                   >
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>
@@ -437,7 +437,7 @@ export default function ScratchStage({ table, onClose }) {
               <button
                 type="button"
                 className="scratch-replay"
-                title={tr({ fr: 'L’offrande recopiée : le trésor du temple paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the temple hoard pays the same ticket’s stake, once. It must cover it in full.' })}
+                {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor du temple paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the temple hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
                 onClick={onReplay}
               >
                 {tr({ fr: `La cella rejoue le ticket (${fmt(outcome.stakeFaveur)})`, en: `The cella replays the ticket (${fmt(outcome.stakeFaveur)})` })}

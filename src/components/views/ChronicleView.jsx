@@ -18,6 +18,7 @@ import { tr } from '../../game/core/i18n.js';
 import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
+import { tipProps } from '../ui/HelpBubble.jsx';
 
 // Chiffres romains pour les Grands Resets & actes de Mythes (1..11).
 const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
@@ -50,7 +51,7 @@ function fmtCount(n) {
 // Tuile de statistique du Bilan : libellé, valeur, icône et infobulle optionnelles.
 function StatTile({ label, value, icon, hint }) {
   return (
-    <div className="chronicle-bilan-stat" title={hint}>
+    <div className="chronicle-bilan-stat" {...tipProps(label, hint)}>
       <span>{label}</span>
       <strong>{value}{icon && <> <PixelIcon name={icon} /></>}</strong>
     </div>
@@ -61,7 +62,7 @@ function StatTile({ label, value, icon, hint }) {
 function StatSection({ title, hint, children }) {
   return (
     <div className="chronicle-bilan-section">
-      <div className="chronicle-bilan-head" title={hint}>
+      <div className="chronicle-bilan-head" {...tipProps(title, hint)}>
         <h3>{title}</h3>
       </div>
       <div className="chronicle-bilan-grid">{children}</div>
@@ -312,7 +313,10 @@ function TempleRegistry() {
         <div className="chronicle-bilan-section">
           <div
             className="chronicle-bilan-head"
-            title={tr({ fr: "Cumul à vie par jeu : le bilan net = Faveur gagnée moins misée.", en: "Lifetime totals per game: net = Favor won minus wagered." })}
+            {...tipProps(
+              tr({ fr: "Jeux du temple", en: "Temple games" }),
+              tr({ fr: "Cumul à vie par jeu : le bilan net = Faveur gagnée moins misée.", en: "Lifetime totals per game: net = Favor won minus wagered." })
+            )}
           >
             <h3>{tr({ fr: "Jeux du temple", en: "Temple games" })}</h3>
           </div>
@@ -431,7 +435,7 @@ export default function ChronicleView() {
                 <div className="era-timeline-body">
                   <div className="era-timeline-head">
                     <h3>{reached ? era.name : '???'}</h3>
-                    <span className="era-timeline-pop" title={tr({ fr: `Rayonnement requis : ${fmt(era.at)}`, en: `Radiance required: ${fmt(era.at)}` })}>
+                    <span className="era-timeline-pop" {...tipProps(null, tr({ fr: `Rayonnement requis : ${fmt(era.at)}`, en: `Radiance required: ${fmt(era.at)}` }))}>
                       ≈ {fmt(crediblePopulation(era.at))} {tr({ fr: 'habitants', en: 'inhabitants' })}
                     </span>
                     {isCurrent && <span className="era-timeline-now">{tr({ fr: 'Âge actuel', en: 'Current Age' })}</span>}

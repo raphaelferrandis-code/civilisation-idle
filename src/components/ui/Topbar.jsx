@@ -9,8 +9,10 @@ import {
 } from '../../game/core/mechanics.js';
 import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, rateScale } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
+import { state } from '../../game/core/state.js';
 import OdometerNumber from './OdometerNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 import { crediblePopulation } from '../../game/core/demographics.js';
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
@@ -60,47 +62,79 @@ export default function Topbar() {
   // render (déclenché par le changement de population via le hook).
   const habitants = crediblePopulation(population);
 
-  /* Humeurs (déplacées en tooltip) */
-  const foodMood = mood(vitals.foodScore, [
+  /* Humeurs (déplacées en tooltip). Les TABLES restent ici, mais l'humeur est
+     choisie DANS l'infobulle, sur des vitales relues à l'appel : le contenu de
+     la bulle est vivant, et fermer sur les vitales du rendu le figerait. */
+  const foodMoods = [
     { fr: "Famine proche", en: "Famine looms" },
     { fr: "Entrepôts modestes", en: "Modest warehouses" },
     { fr: "Surplus rassurant", en: "Reassuring surplus" },
     { fr: "Abondance", en: "Abundance" }
-  ]);
-  const goldMood = mood(vitals.goldScore, [
+  ];
+  const goldMoods = [
     { fr: "Troc local", en: "Local barter" },
     { fr: "Bourses maigres", en: "Lean purses" },
     { fr: "Commerce actif", en: "Lively trade" },
     { fr: "Trésor florissant", en: "Flourishing treasury" }
-  ]);
-  const knowledgeMood = mood(vitals.knowledgeScore, [
+  ];
+  const knowledgeMoods = [
     { fr: "Traditions orales", en: "Oral traditions" },
     { fr: "Archives naissantes", en: "Nascent archives" },
     { fr: "Savoirs partagés", en: "Shared knowledge" },
     { fr: "Culture savante", en: "Learned culture" }
-  ]);
+  ];
 
+  /* Infobulles des cartes (B1) : des FONCTIONS qui rendent un TABLEAU de lignes.
+     Une fonction, parce que ces chiffres bougent à chaque tick et qu'une chaîne
+     se figerait à l'ouverture de la bulle. Un tableau, parce que ces libellés
+     étaient multi-lignes : les couples libellé / valeur s'alignent en colonnes
+     au lieu d'être coupés au bon vouloir de l'OS. */
   const tooltips = {
-    population: tr({
-      fr: `Essor global de votre civilisation : ce qui fait grandir la cité et franchir les âges.\nHabitants estimés : ${fmtHabitants(habitants)}`,
-      en: `The overall rise of your civilization: what grows the city and crosses the ages.\nEstimated inhabitants: ${fmtHabitants(habitants)}`
-    }),
-    food: tr({
-      fr: `Réserves : ${tr(foodMood)}\nCroissance du rayonnement ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`,
-      en: `Reserves: ${tr(foodMood)}\nRadiance growth ${multLabel(vitals.populationMult)} · rupture -${fmt(clamp01(vitals.foodScore - 0.92) * 1.8)} pts`
-    }),
-    gold: tr({
-      fr: `Économie : ${tr(goldMood)}\nOr ${multLabel(vitals.goldMult)} · infrastructure ${multLabel(vitals.infraMult)}`,
-      en: `Economy: ${tr(goldMood)}\nTreasury ${multLabel(vitals.goldMult)} · infrastructure ${multLabel(vitals.infraMult)}`
-    }),
-    knowledge: tr({
-      fr: `Mémoire : ${tr(knowledgeMood)}\nSavoir ${multLabel(vitals.knowledgeMult)} · rupture -${fmt(vitals.instabilityRelief * 100)} pts`,
-      en: `Memory: ${tr(knowledgeMood)}\nKnowledge ${multLabel(vitals.knowledgeMult)} · rupture -${fmt(vitals.instabilityRelief * 100)} pts`
-    }),
-    infrastructure: tr({
-      fr: `Réseau routier et solidité technique.${showNomadCap ? `\nCap nomade : ${fmt(nomadCap)}` : ""}`,
-      en: `Road network and technical resilience.${showNomadCap ? `\nNomad cap: ${fmt(nomadCap)}` : ""}`
-    })
+    population: () => [
+      { label: tr({
+        fr: "Essor global de votre civilisation : ce qui fait grandir la cité et franchir les âges.",
+        en: "The overall rise of your civilization: what grows the city and crosses the ages."
+      }) },
+      {
+        label: tr({ fr: "Habitants estimés", en: "Estimated inhabitants" }),
+        value: fmtHabitants(crediblePopulation(state.population))
+      }
+    ],
+    food: () => {
+      const v = cityVitals();
+      return [
+        { label: tr({ fr: "Réserves", en: "Reserves" }), value: tr(mood(v.foodScore, foodMoods)) },
+        { label: tr({ fr: "Croissance du rayonnement", en: "Radiance growth" }), value: multLabel(v.populationMult) },
+        { label: tr({ fr: "Rupture", en: "Rupture" }), value: `-${fmt(clamp01(v.foodScore - 0.92) * 1.8)} pts` }
+      ];
+    },
+    gold: () => {
+      const v = cityVitals();
+      return [
+        { label: tr({ fr: "Économie", en: "Economy" }), value: tr(mood(v.goldScore, goldMoods)) },
+        { label: tr({ fr: "Or", en: "Treasury" }), value: multLabel(v.goldMult) },
+        { label: tr({ fr: "Infrastructure", en: "Infrastructure" }), value: multLabel(v.infraMult) }
+      ];
+    },
+    knowledge: () => {
+      const v = cityVitals();
+      return [
+        { label: tr({ fr: "Mémoire", en: "Memory" }), value: tr(mood(v.knowledgeScore, knowledgeMoods)) },
+        { label: tr({ fr: "Savoir", en: "Knowledge" }), value: multLabel(v.knowledgeMult) },
+        { label: tr({ fr: "Rupture", en: "Rupture" }), value: `-${fmt(v.instabilityRelief * 100)} pts` }
+      ];
+    },
+    infrastructure: () => [
+      { label: tr({
+        fr: "Réseau routier et solidité technique.",
+        en: "Road network and technical resilience."
+      }) },
+      // Ligne conditionnelle : `false` est jeté par normalizeTipContent.
+      showNomadCap && {
+        label: tr({ fr: "Cap nomade", en: "Nomad cap" }),
+        value: fmt(nomadInfrastructureCap())
+      }
+    ]
   };
 
   // Ancres visuelles : icônes pixel-art dédiées (public/pixelart/ui/res/),
@@ -138,7 +172,7 @@ export default function Topbar() {
             key={c.key}
             className={`resource-card-unified ${c.cls}`}
             id={`${c.key}Resource`}
-            title={tooltips[c.key]}
+            {...tipProps(tr(c.name), tooltips[c.key])}
           >
             <div className="resource-title-wrapper">
               {/* size explicite : la taille vient de `.topbar .resource-icon .px-icon`,
@@ -151,7 +185,11 @@ export default function Topbar() {
                 perdue de la barre était horizontale, on l'occupe donc en
                 largeur au lieu d'empiler une troisième ligne — nom en haut,
                 valeur en bas à gauche, débit en bas à droite. */}
-            <span className="resource-value" id={c.valueId} title={`${tr(c.name)} : ${exactLabel(c.value)}`}>
+            {/* Valeur EXACTE en infobulle : relue dans l'état à chaque
+                réévaluation (les clés de carte sont celles de l'état), sinon le
+                nombre se figerait à l'ouverture de la bulle alors que le
+                cadran, lui, continue de tourner juste à côté. */}
+            <span className="resource-value" id={c.valueId} {...tipProps(tr(c.name), () => exactLabel(state[c.key]))}>
               {/* Odomètre : chiffres qui roulent verticalement, pulse
                   uniquement aux jalons (changement de suffixe K→M→B).
                   `rate` = le VRAI débit : il fixe la précision affichée pour
@@ -161,7 +199,7 @@ export default function Topbar() {
             </span>
             <div className="resource-rate-row">
               {crisisFrozen ? (
-                <span className="rate-value rate-frozen" title={tr({ fr: "Cité figée par la crise terminale. La production est suspendue.", en: "City frozen by the terminal crisis. Production is suspended." })}>
+                <span className="rate-value rate-frozen" {...tipProps(null, tr({ fr: "Cité figée par la crise terminale. La production est suspendue.", en: "City frozen by the terminal crisis. Production is suspended." }))}>
                   {tr({ fr: "figé", en: "frozen" })}
                 </span>
               ) : (
@@ -194,10 +232,16 @@ export default function Topbar() {
             (rien dans la simulation ne le relit) qui vivait jusqu'ici caché
             dans une infobulle — il occupe l'espace récupéré avec la seule
             information à échelle humaine de la barre. */}
-        <div className="resource-card-unified topbar-people" title={tr({
-          fr: `Habitants estimés de la cité, dérivés du Rayonnement.\nAucun effet de jeu : c'est la taille que la cité aurait à ce stade.`,
-          en: `Estimated inhabitants, derived from Radiance.\nNo gameplay effect: the size the city would have at this stage.`
-        })}>
+        <div className="resource-card-unified topbar-people" {...tipProps(tr({ fr: "Habitants", en: "Inhabitants" }), [
+          { label: tr({
+            fr: "Habitants estimés de la cité, dérivés du Rayonnement.",
+            en: "Estimated inhabitants, derived from Radiance."
+          }) },
+          { label: tr({
+            fr: "Aucun effet de jeu : c'est la taille que la cité aurait à ce stade.",
+            en: "No gameplay effect: the size the city would have at this stage."
+          }) }
+        ])}>
           <div className="resource-title-wrapper">
             <span className="resource-icon"><PixelIcon name="ruins/population" size={24} /></span>
             <span className="resource-name">{tr({ fr: "Habitants", en: "Inhabitants" })}</span>

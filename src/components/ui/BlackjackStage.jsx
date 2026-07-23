@@ -17,6 +17,7 @@ import { clampStakeMult } from '../../game/core/actions/templePot.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -190,7 +191,7 @@ export default function BlackjackStage({ table, onClose }) {
       {history.length > 0 && (
         <div className="bj-history" aria-label={tr({ fr: 'Dernières mains', en: 'Last hands' })}>
           {history.map((r, i) => (
-            <span key={`${r}-${i}`} className={`bj-chip is-${r}`} title={tr(BJ_RESULT_LABEL[r] || { fr: r, en: r })}>
+            <span key={`${r}-${i}`} className={`bj-chip is-${r}`} {...tipProps(null, tr(BJ_RESULT_LABEL[r] || { fr: r, en: r }))}>
               {r === 'blackjack' ? '21' : r === 'win' ? '✓' : r === 'push' ? '=' : '✕'}
             </span>
           ))}
@@ -217,7 +218,7 @@ export default function BlackjackStage({ table, onClose }) {
                     type="button"
                     className="stake-pick"
                     onClick={() => setChosenStake(s.id)}
-                    title={tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` })}
+                    {...tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
                   >
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>
@@ -279,7 +280,7 @@ export default function BlackjackStage({ table, onClose }) {
           {phase === 'player' && (
             <>
               {advice && (
-                <p className="bj-measure" title={tr({ fr: 'La mesure gravée : le conseil de la stratégie de base, contre la carte visible de l’oracle.', en: 'The graven measure: basic strategy advice, against the oracle’s visible card.' })}>
+                <p className="bj-measure" {...tipProps(null, tr({ fr: 'La mesure gravée : le conseil de la stratégie de base, contre la carte visible de l’oracle.', en: 'The graven measure: basic strategy advice, against the oracle’s visible card.' }))}>
                   {tr(MEASURE_LABEL[advice] || MEASURE_LABEL.stand)}
                 </p>
               )}
@@ -290,7 +291,7 @@ export default function BlackjackStage({ table, onClose }) {
                   <button
                     type="button"
                     className="bj-double"
-                    title={tr({ fr: `Double la mise (${fmt(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmt(hand.stakeFaveur)} more), one single card, and the hand passes.` })}
+                    {...tipProps(tr({ fr: 'Doubler', en: 'Double' }), tr({ fr: `Double la mise (${fmt(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmt(hand.stakeFaveur)} more), one single card, and the hand passes.` }))}
                     onClick={onDouble}
                   >
                     {tr({ fr: 'Doubler', en: 'Double' })}
@@ -300,7 +301,7 @@ export default function BlackjackStage({ table, onClose }) {
                   <button
                     type="button"
                     className="bj-double"
-                    title={tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmt(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmt(hand.stakeFaveur)} more). A split 21 pays ×2.` })}
+                    {...tipProps(tr({ fr: 'Refendre', en: 'Split' }), tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmt(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmt(hand.stakeFaveur)} more). A split 21 pays ×2.` }))}
                     onClick={onSplit}
                   >
                     {tr({ fr: 'Refendre', en: 'Split' })}
