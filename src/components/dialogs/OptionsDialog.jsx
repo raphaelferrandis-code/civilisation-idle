@@ -17,7 +17,7 @@ import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
 import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
 import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
 import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
-import { densityMode as density, setDensityMode } from '../../game/core/uiPrefs.js';
+import { densityMode as density, setDensityMode, contrastMode as contrast, setContrastMode } from '../../game/core/uiPrefs.js';
 import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
 import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
 import {
@@ -161,6 +161,12 @@ export default function OptionsDialog({ isOpen, onClose }) {
   const handleDensityChange = (mode) => {
     if (mode === density) return;
     setDensityMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleContrastChange = (mode) => {
+    if (mode === contrast) return;
+    setContrastMode(mode);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -608,6 +614,33 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     onClick={() => handleDensityChange('compacte')}
                   >
                     {tr({ fr: "Compacte", en: "Compact" })}
+                  </button>
+                </div>
+              </div>
+
+              {/* CONTRASTE RENFORCÉ (E12). La passe de contraste, elle, est déjà
+                  appliquée pour tout le monde dans variables.css : un ton mesuré
+                  illisible se répare, il ne s'offre pas en option. Ce réglage
+                  est le cran au-dessus. */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Contraste renforcé", en: "High contrast" })}</span>
+                  <small>{tr({ fr: "Éclaircit les textes secondaires et marque les séparations entre panneaux. Utile sur un écran peu contrasté, en plein jour, ou si les petits textes gris vous demandent un effort.", en: "Brightens secondary text and strengthens the separations between panels. Useful on a low-contrast display, in daylight, or if small grey text takes you effort." })}</small>
+                </div>
+                <div className="number-format-control">
+                  <button
+                    className={`format-option ${contrast === 'normal' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleContrastChange('normal')}
+                  >
+                    {tr({ fr: "Normal", en: "Normal" })}
+                  </button>
+                  <button
+                    className={`format-option ${contrast === 'high' ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => handleContrastChange('high')}
+                  >
+                    {tr({ fr: "Renforcé", en: "High" })}
                   </button>
                 </div>
               </div>

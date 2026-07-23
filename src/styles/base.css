@@ -45,6 +45,31 @@
 :root[data-density="aere"] { --density-k: 1.15; }
 :root[data-density="compacte"] { --density-k: 0.78; }
 
+/* ── CONTRASTE RENFORCÉ (E12) ───────────────────────────────────────────────
+   La passe de contraste de variables.css profite à tout le monde sans rien
+   activer. Ce mode-ci est le cran au-dessus, pour qui en a besoin : chaque
+   niveau de texte monte d'un rang, et les séparations cessent d'être
+   suggérées par un blanc à 8 % d'opacité.
+
+   ⚠ ON NE REDÉFINIT QUE DES JETONS, jamais une règle de composant. Le système
+   de couleurs a une source de vérité unique (variables.css) et six cents règles
+   la consomment : les surcharger une à une garantirait d'en oublier, et le mode
+   mentirait sur les écrans oubliés.
+
+   ⚠ CE MODE NE PEUT RIEN POUR LE DEUIL. `.app.mourning` applique
+   `filter: grayscale(1) brightness(0.2)` à l'application ENTIÈRE : aucune valeur
+   de jeton ne survit à une luminosité divisée par cinq. C'est un choix
+   narratif assumé, et il reste hors de portée de ce réglage. */
+:root[data-contrast="high"] {
+  --text-mid: #C4CCDD;
+  --text-weak: #9AA4BC;
+  --text-secondary: #DDE3EF;
+  --border: #4A5673;
+  --border-soft: #3E4966;
+  --panel-border: rgba(255, 255, 255, 0.18);
+  --line: #4A5673;
+}
+
 /* ── ARRIVÉE D'UNE VUE (E7) ─────────────────────────────────────────────────
    Changer d'onglet remplaçait un écran par un autre d'un seul coup, sans que
    l'œil ait de quoi suivre. Un fondu court avec une montée de quelques pixels

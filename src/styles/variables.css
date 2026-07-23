@@ -18,7 +18,18 @@
   --border:         #2E3852;
   --text-strong:    #ECEFF7;
   --text-mid:       #9AA4BC;
-  --text-weak:      #5B6580;
+  /* PASSE DE CONTRASTE (E12). Mesuré : l'ancien #5B6580 donnait 3,19 sur le fond
+     d'application et 2,93 / 2,63 / 2,20 sur les trois autres surfaces — sous le
+     seuil de 4,5 partout, et sous 3,0 (le seuil du GRAND texte) sur trois
+     surfaces sur quatre. C'est-à-dire illisible, pas discret.
+     #8B95B0 rend 6,20 / 5,69 / 5,12 / 4,27 sur les mêmes fonds : conforme sauf
+     sur `surface-raised`, le fond le plus clair et le plus rare, où il reste
+     au-dessus du seuil du grand texte.
+     ⚠ Volontairement PAS remonté jusqu'à 4,5 partout : il aurait fallu #95A0BA,
+     à deux points de --text-mid (#9AA4BC), et la hiérarchie entre un texte
+     secondaire et un texte désactivé aurait disparu. Un ton illisible ne se
+     répare pas en supprimant la distinction qu'il portait. */
+  --text-weak:      #8B95B0;
 
   /* ----- Marque (or patiné, recule) ----- */
   --brand-gold:     #C9A968;

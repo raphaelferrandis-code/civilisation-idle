@@ -19,7 +19,7 @@ import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
 import { tr, getLang, applyDocumentLang } from './game/core/i18n.js';
 import { applyMotionAttribute } from './game/map/ambianceMode.js';
-import { applyDensityAttribute } from './game/core/uiPrefs.js';
+import { applyDensityAttribute, applyContrastAttribute } from './game/core/uiPrefs.js';
 import logoFr from './assets/LOGO.png';
 import logoEn from './assets/LOGO_collapse.png';
 
@@ -150,6 +150,7 @@ export default function App() {
     // module, donc rien à attendre.
     applyMotionAttribute();
     applyDensityAttribute();
+    applyContrastAttribute();
     // La langue déclarée à la machine (E8) : index.html la fige à « fr ».
     applyDocumentLang();
     initAudio();
