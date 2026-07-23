@@ -5,6 +5,7 @@
 // sous-module mechanics → racine du DAG, aucun cycle possible.
 import { state, renderCache } from '../state.js';
 import { upgrades } from '../../data/upgrades.js';
+import { buildings } from '../../data/buildings.js';
 import { eras } from '../../data/world.js';
 import { isMythEffectActive } from '../../data/myths.js';
 import { D } from '../num.js';
@@ -33,6 +34,35 @@ export function isUnlocked(item) {
     if (state.cycles < minCycles) return false;
   }
   return true;
+}
+
+// LATCH DE RÉVÉLATION DES BÂTIMENTS (D6). L'apparition économique était
+// totalement silencieuse : un bâtiment se révélait au passage d'un seuil de pic,
+// et le joueur pouvait le rater pendant des heures.
+//
+// ⚠ LE LATCH EST À VIE, et c'est la décision qui compte. `isUnlocked` retombe à
+// faux à chaque effondrement, puisque completeCollapse vide state.buildings et
+// remet les pics au socle : un latch par cycle rejouerait la même rafale
+// d'annonces toutes les deux ou trois minutes. Une fois annoncé, un bâtiment ne
+// se réannonce jamais, et la map traverse le Grand Reset (GR_PERSISTENT_FIELDS).
+//
+// Se pose INCONDITIONNELLEMENT, la garde d'affichage restant chez l'appelant :
+// patron exact de refreshGrandResetReveal. Poser le latch sous `isNotifyPaused`
+// ferait que le rattrapage hors ligne n'annoncerait rien ET n'enregistrerait
+// rien, donc annoncerait tout à la première seconde de retour.
+//
+// Retourne les bâtiments fraîchement révélés ce tick, pour un message GROUPÉ :
+// en début de partie plusieurs franchissent leur seuil dans le même tick.
+export function refreshBuildingReveal() {
+  if (!state.revealedBuildings) state.revealedBuildings = {};
+  const fresh = [];
+  for (const b of buildings) {
+    if (state.revealedBuildings[b.id]) continue;
+    if (!isUnlocked(b)) continue;
+    state.revealedBuildings[b.id] = true;
+    fresh.push(b);
+  }
+  return fresh;
 }
 
 export function totalBuildingCount() {

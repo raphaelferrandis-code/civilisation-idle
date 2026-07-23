@@ -26,6 +26,7 @@ import {
   totalBuildingCount,
   activeEpitaphLegacy,
   refreshGrandResetReveal,
+  refreshBuildingReveal,
   GRAND_RESET_MILESTONES
 } from '../mechanics.js';
 
@@ -299,6 +300,30 @@ export function tick(dt) {
       pushOutcomeFloat({ label: `👑 Grand Reset à portée : ${tr(mm.name)}`, kind: "gain" });
       log(`Un seuil s'illumine : « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`);
     }
+  }
+
+  // APPARITION D'UN BÂTIMENT (D6). Elle était totalement muette : le joueur
+  // pouvait passer des heures sans voir qu'une rangée neuve l'attendait. Même
+  // patron que le sceau ci-dessus — le latch se pose inconditionnellement, la
+  // garde ne porte que sur l'ANNONCE, sinon le rattrapage hors ligne
+  // n'enregistrerait rien et déballerait tout au retour.
+  //
+  // MESSAGE GROUPÉ, pas un par bâtiment : en début de partie plusieurs seuils
+  // tombent dans le même tick, et sur une sauvegarde d'avant D6 le premier tick
+  // en trouve une poignée d'un coup.
+  const freshBuildings = refreshBuildingReveal();
+  if (freshBuildings.length && !isNotifyPaused()) {
+    const noms = freshBuildings.map((b) => tr(b.name));
+    const tete = noms.slice(0, 3).join(", ");
+    const reste = noms.length - 3;
+    const liste = reste > 0
+      ? tr({ fr: `${tete} et ${reste} autre${reste > 1 ? "s" : ""}`, en: `${tete} and ${reste} more` })
+      : tete;
+    pushOutcomeFloat({
+      label: tr({ fr: `🏗️ À portée : ${noms[0]}`, en: `🏗️ Within reach: ${noms[0]}` }),
+      kind: "gain"
+    });
+    log(tr({ fr: `La cité sait désormais bâtir : ${liste}.`, en: `The city now knows how to build: ${liste}.` }));
   }
 
   // Ruine active « Fardeau du ciel » : voir crisis.js — « Atlas prend le coup »

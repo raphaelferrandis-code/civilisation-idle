@@ -141,7 +141,19 @@ function BuildingShop() {
   const babelActive = isMythEffectActive("mythe_de_babel");
   const babelCat = babelActive ? (babelCategory || "") : "";
 
-  const categoryData = (catId) => {
+  // RÉVÉLATION (D6). Ce composant est memo() SANS props et n'avait AUCUN
+  // abonnement lisant state.cyclePeaks : un bâtiment qui franchissait son seuil
+  // n'apparaissait donc pas de lui-même, il attendait qu'une autre signature
+  // bouge (une abordabilité qui bascule, le multiplicateur qui change de cran).
+  // Le latch du tick donne enfin une clé d'invalidation honnête, et le compte
+  // suffit puisque la map ne fait que grandir.
+  const revealVersion = useGameState((s) => Object.keys(s.revealedBuildings || {}).length);
+
+  // Mémoïsé sur cette clé et non sur « buildings, cycles, ère » comme le
+  // proposait la fiche : isUnlocked lit state.buildings, state.cycles ET
+  // state.cyclePeaks, donc ces dépendances-là auraient GELÉ l'apparition
+  // économique, c'est-à-dire cassé la chose même que D6 vient rendre visible.
+  const categoryData = useMemo(() => (catId) => {
     const order = buildingDisplayOrder[catId] || [];
     const all = buildings
       .filter((b) => b.category === catId)
@@ -150,7 +162,8 @@ function BuildingShop() {
       visible: all.filter((b) => isUnlocked(b)),
       nextLocked: all.find((b) => !isUnlocked(b))
     };
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealVersion, buildingsVersion]);
 
   /* Badge "n achetables" par onglet */
   const affordableCount = (catId) => {

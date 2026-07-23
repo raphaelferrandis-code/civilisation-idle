@@ -18,6 +18,7 @@
 // pour que l'API publique soit exactement celle d'avant.
 export {
   isUnlocked,
+  refreshBuildingReveal,
   totalBuildingCount,
   has,
   ruinEffectSum,

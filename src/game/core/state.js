@@ -323,6 +323,11 @@ export const defaultState = () => ({
   // condition atteinte une fois (banké, réclamable à vie) ; grClaimed[gr] = encaissé
   // via un Grand Reset. grandResetCount = nombre de sceaux réclamés (|grClaimed|).
   grClaimed: {},
+  // Bâtiments dont l'apparition a DÉJÀ été annoncée (D6) : { [id]: true }.
+  // À VIE, et c'est le point : isUnlocked retombe à faux à chaque effondrement
+  // (les bâtiments et les pics repartent au socle), donc un latch par cycle
+  // rejouerait la même rafale toutes les deux ou trois minutes.
+  revealedBuildings: {},
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -1311,6 +1316,11 @@ export function hydrateState(parsed = {}) {
       ...normalizeGrSet(source.grClaimed),
       ...(isPlainObject(source.grClaimed) ? {} : legacyClaimedFromCount(finiteInteger(source.grandResetCount, 0, 0)))
     },
+    // Même forme et mêmes bornes que mythsCompleted : une map d'identifiants
+    // vers true. Une sauvegarde d'avant D6 n'en a pas, elle repart de {} — le
+    // premier tick annoncera donc d'un coup ce qui est déjà à portée, en UN
+    // seul message groupé, puis plus jamais.
+    revealedBuildings: normalizeMythsCompleted(source.revealedBuildings),
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),
     mythActsAnnounced: normalizeMythActsAnnounced(source.mythActsAnnounced),
@@ -1830,6 +1840,10 @@ export const GR_PERSISTENT_FIELDS = [
   "cadmosHeritage", "cadmosPermanentEpitaphs", "cadmosLastRunChronicle",
   "anteeHeritage", "ragnarokHeritage", "finalChronicleTitle",
   "olympus", "grRevealed", "grClaimed",
+  // Bâtiments déjà annoncés (D6) : le latch est à VIE. Après un Grand Reset le
+  // joueur reconstruit tout, et lui rejouer la découverte des Cueilleurs serait
+  // du bruit sur une mécanique qu'il connaît par cœur.
+  "revealedBuildings",
   // Augments du Temple (2026-07-15) : boosters de jeu ÉTERNELS — survivent au
   // Grand Reset ; la Faveur (le carburant) se re-gagne, elle, à chaque cycle GR.
   // templeAuto = réglages d'automatisation (Phase 2) : éternels aussi.
