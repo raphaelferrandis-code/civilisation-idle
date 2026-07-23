@@ -53,7 +53,10 @@
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 0.75rem 1rem 1.5rem;
+  /* Bas volontairement SERRÉ (0.9rem et non 1.5rem) : la barre est en 100vh sans
+     overflow, donc chaque pixel de marge basse en trop pousse les actions rapides
+     SOUS l'écran, où elles deviennent inatteignables (pas de défilement). */
+  padding: 0.75rem 1rem 0.9rem;
   border-right: 1px solid var(--line);
   background: linear-gradient(180deg, var(--surface-panel), var(--surface-app) 72%);
   box-shadow: inset -1px 0 0 rgba(var(--era-rgb), 0.16), 4px 0 24px rgba(0, 0, 0, 0.45);
@@ -245,6 +248,14 @@
   margin-top: auto;
   display: flex;
   flex-direction: column;
+  /* La barre latérale est en `height: 100vh` : si l'encart garde sa taille de
+     contenu, il POUSSE les actions rapides sous le bas de l'écran, où elles
+     deviennent inatteignables (rien ne défile). C'est LUI qui doit encaisser le
+     manque de place : il se comprime et défile en interne, jamais les boutons.
+     Sur un écran assez haut, aucune barre n'apparaît. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 0.65rem;
   padding: 0.75rem 0.8rem;
   border: 1px solid rgba(var(--era-rgb), 0.24);
@@ -471,10 +482,23 @@
     line-height: 1.05rem;
   }
 
+  /* 2×2 et NON une colonne : à ce palier les libellés sont masqués (boutons à
+     l'icône seule), et les empiler coûtait ~155 px de haut dans une gouttière de
+     72 px — assez pour pousser Export/Import/Options SOUS le bas de l'écran, où
+     ils devenaient inatteignables (la barre est en `overflow: visible` et ne
+     défile pas). En 2×2 le bloc tombe à ~65 px. */
   .quick-actions {
     width: 100%;
-    grid-template-columns: 1fr;
-    gap: 0.4rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.25rem;
+    padding-top: 0.25rem;
+  }
+
+  /* Gouttière resserrée : l'encart porte six blocs, 0.65rem entre chacun coûtait
+     une douzaine de pixels dont on a besoin pour garder les actions à l'écran. */
+  .city-status-panel {
+    gap: 0.5rem;
+    padding: 0.6rem 0.7rem;
   }
 
   .quick-actions .qa-label {
@@ -482,8 +506,14 @@
   }
 
   .quick-actions .btn-tiny {
-    min-height: 2.1rem;
+    min-height: 1.6rem;
+    padding: 0 0.2rem;
     font-size: 0.85rem;
+  }
+
+  .quick-actions .qa-icon.px-icon {
+    width: 20px;
+    height: 20px;
   }
 
   main {
@@ -687,7 +717,124 @@
   opacity: 0.85;
 }
 
+/* VŒU DU CYCLE (D2). La gouttière est PLEINE (la barre latérale est en 100vh sans
+   overflow) : ce bloc tient donc sur UNE ligne + un filet de 2 px, et tout le
+   detail (objectif complet, bonus) part dans l'infobulle. Doré comme les sceaux —
+   c'est une invitation, pas une alerte. */
+.csp-vow { position: relative; }
+
+.csp-vow-line {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.csp-vow-tag { flex: 0 0 auto; color: var(--muted); }
+
+/* Ligne d'appel quand aucun vœu n'est prêté. Un bouton PLEINE LARGEUR et lisible,
+   pas trois pastilles tassées : les trois propositions s'ouvrent en surcouche. */
+.csp-vow-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 0;              /* base.css impose 2.5rem à tout bouton */
+  padding: 0.12rem 0;
+  font-family: inherit;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.csp-vow-cta { flex: 0 0 auto; color: var(--gold-ivory); }
+.csp-vow-trigger:hover .csp-vow-cta { text-decoration: underline; }
+
+/* SURCOUCHE des trois propositions : elle sort de la gouttière (la barre latérale
+   est en overflow visible), donc chaque option garde son libellé entier. */
+.csp-vow-picker {
+  /* FIXE et non absolue : l'encart défile en interne (overflow-y), une surcouche
+     absolue y serait rognée. Les coordonnées viennent du bouton, calculées à
+     l'ouverture. */
+  position: fixed;
+  z-index: 60;
+  width: max-content;
+  min-width: 11rem;
+  max-width: 15rem;
+  padding: 0.22rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  background: rgba(20, 17, 14, 0.98);
+  border: 1px solid rgba(210, 180, 110, 0.45);
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.csp-vow-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 0;              /* idem : sinon 2.5rem par option */
+  padding: 0.3rem 0.4rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  color: inherit;
+  background: rgba(200, 170, 90, 0.1);
+  border: 1px solid rgba(210, 180, 110, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.csp-vow-option:hover {
+  background: rgba(215, 185, 110, 0.24);
+  border-color: rgba(235, 205, 140, 0.7);
+}
+.csp-vow-option-goal { flex: 1 1 auto; }
+.csp-vow-option-mult { flex: 0 0 auto; color: var(--gold-ivory); font-variant-numeric: tabular-nums; }
+
+.csp-vow-goal {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.csp-vow-goal.is-done { color: #9fe0a2; }
+
+.csp-vow-mult { flex: 0 0 auto; color: var(--gold-ivory); font-variant-numeric: tabular-nums; }
+.csp-vow-mult.is-done { color: #9fe0a2; }
+
+/* Filet d'avancement : 2 px, pas la barre pleine des autres blocs. */
+.csp-vow-bar {
+  display: block;
+  height: 2px;
+  margin-top: 0.14rem;
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.csp-vow-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(200, 170, 90, 0.6), rgba(235, 205, 130, 0.95));
+}
+.csp-vow-bar-fill.is-done {
+  background: linear-gradient(90deg, rgba(110, 180, 120, 0.65), rgba(160, 220, 165, 0.95));
+}
+
 @media (max-width: 1500px) and (min-width: 981px) {
+  /* La gouttière se resserre, mais le vœu NE rapetisse PAS : c'est une ligne, et
+     illisible elle ne sert à rien. Seul le mot d'appel se raccourcit au besoin. */
   .city-status-panel .csp-clepsydre-head { justify-content: center; }
   .city-status-panel .csp-clepsydre-why { display: none; } /* la gouttiere est trop etroite : le title le porte */
   .city-status-panel .csp-clepsydre-pour { font-size: 0.54rem; }
