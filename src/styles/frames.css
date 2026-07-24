@@ -55,9 +55,16 @@
   --ui-greek-slice: 48 40 42 48;
 }
 
+/* `.options-dialog` rejoint les panneaux de vue : les Options sont devenues un
+   écran à part entière du jeu, elles portent le même chrome que Chronique,
+   Effondrement et Mythes. Le cadre est posé sur la FENÊTRE et non sur l'encart
+   intérieur : c'est la fenêtre que le joueur lit comme un panneau, et les bandes
+   haute et basse (90 px) auraient dévoré la zone de défilement.
+   `border-radius: 0` est indispensable ici, la règle générale `dialog` en pose 12. */
 #history .panel,
 #prestige .panel,
-#mythView .panel {
+#mythView .panel,
+.options-dialog {
   border-style: solid;
   border-width: 48px 40px 42px 48px;
   border-color: transparent;

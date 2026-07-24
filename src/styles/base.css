@@ -908,7 +908,27 @@ body::before {
   margin: 1rem 0;
   border: 1px solid var(--border);
   border-radius: 6px;
+  /* HAUTEUR FIXE, et non un simple plancher. Les Options sont devenues une
+     fenêtre centrale du jeu : elle ne doit plus changer de taille d'un onglet
+     à l'autre. « Son » tient en trois lignes, « Affichage » en douze — sans
+     cadre fixe, la fenêtre sautait du simple au triple et le bouton Fermer se
+     déplaçait sous le curseur entre deux clics. Chaque groupe défile
+     désormais dans le même cadre.
+     `min()` pour que le cadre se resserre sur un écran bas au lieu de pousser
+     Fermer hors de la fenêtre ; `min-height: 0` pour l'autoriser à se
+     comprimer en tant qu'élément flex du formulaire. */
+  /* L'encart ABSORBE la place restante au lieu de la dicter : c'est la fenêtre
+     qui porte maintenant une hauteur définie, calée sur la grille du cadre
+     (cf. .options-dialog dans components.css). Le résultat pour le joueur est
+     le même — une fenêtre de taille identique sur tous les onglets — mais la
+     contrainte vient du cadre, à qui il faut un compte entier de tuiles. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  /* La barre de défilement n'apparaît que sur les onglets longs : sans gouttière
+     réservée, l'encart perdait 10 px de large en passant d'Affichage à Son et
+     tout le contenu se décalait. Mesuré, pas supposé. */
+  scrollbar-gutter: stable;
 }
 
 .options-row {
@@ -924,7 +944,17 @@ body::before {
 
 .options-row-danger { background: rgba(120, 30, 20, 0.08); }
 
-.options-row > div {
+/* ⚠ `:not([class])` NE VISE QUE LE BLOC DE DESCRIPTION. Écrit `.options-row > div`,
+   ce sélecteur emportait AUSSI tous les conteneurs de commandes —
+   .number-format-control, .shortcut-controls, .save-slot-actions, .volume-control —
+   parce qu'il est plus spécifique (0,1,1) que leurs propres règles (0,1,0). Il leur
+   imposait donc une COLONNE flex et `min-width: 0` : Auto/Dégagé/Pluie s'empilaient
+   au lieu de tenir sur une ligne, la touche de raccourci passait au-dessus de son
+   interrupteur, et le bloc se laissait comprimer jusqu'à sortir du cadre (barre de
+   défilement horizontale dans l'encart).
+   Invariant du balisage : tout conteneur de commandes porte une classe, le bloc de
+   texte n'en a jamais. */
+.options-row > div:not([class]) {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;

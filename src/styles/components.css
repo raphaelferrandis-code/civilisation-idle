@@ -1008,17 +1008,38 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
    ============================================================================ */
 
 
+/* 52rem et non 44 : les rangées portent un libellé, sa description ET jusqu'à cinq
+   boutons (Saison), et le cadre grec ci-dessous prend 88 px en largeur. À 44rem les
+   boutons sortaient du cadre. Le `padding` passe à 0 : les 48 px du cadre SONT la
+   marge intérieure (même règle que les panneaux de vue, cf. frames.css). */
+/* ⚠ LA BOÎTE EST CALÉE SUR LA GRILLE DE 19 px DU CADRE, et ce n'est pas une
+   coquetterie. La tuile du méandre vaut EXACTEMENT 19 px (panel-greek.png fait
+   107x109, tranches 48/40/42/48). `border-image ... round` en fait tenir un
+   nombre entier, mais il ATTEINT ce compte EN ÉTIRANT la tuile : à 832 px de
+   large, la bande valait 744 px, soit 39 tuiles de 19,077 px. Rendu en
+   `pixelated`, cet étirement duplique une colonne de pixels dans une tuile sur
+   treize — et chaque colonne dupliquée casse le méandre. Verticalement c'était
+   une tuile sur quatre.
+   En retranchant le cadre puis en arrondissant à la grille, le facteur d'échelle
+   tombe à 1,0 exactement : plus un seul pixel rééchantillonné.
+   La première déclaration de chaque paire est le REPLI : si `round()` manquait,
+   la seconde serait invalide et ignorée, sans casser la mise en page.
+   88px = 48+40 (bandes gauche et droite), 90px = 48+42 (haute et basse). */
 .options-dialog {
-  width: min(44rem, calc(100vw - 2rem));
+  width: min(52rem, calc(100vw - 2rem));
+  width: calc(88px + round(down, min(52rem, 100vw - 2rem) - 88px, 19px));
   max-height: calc(100vh - 2rem);
-  padding: 1.15rem;
+  height: calc(90px + round(down, min(48rem, 100vh - 2rem) - 90px, 19px));
+  padding: 0;
   overflow: hidden;
 }
 
 .options-dialog form {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 4.3rem);
+  /* La fenêtre a désormais une hauteur DÉFINIE : le formulaire la remplit, et
+     c'est l'encart qui absorbe le reste (cf. .options-rows). */
+  height: 100%;
   overflow: hidden;
 }
 
