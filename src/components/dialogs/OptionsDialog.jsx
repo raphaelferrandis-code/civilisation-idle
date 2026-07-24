@@ -662,7 +662,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Météo", en: "Weather" })}</span>
-                  <small>{tr({ fr: "« Auto » fait passer une averse courte de temps en temps : la lumière baisse, il pleut, les rues se vident, puis le temps se dégage. Figez sur Dégagé si vous préférez une image stable.", en: "“Auto” brings a short shower now and then: the light dims, it rains, the streets empty, then it clears. Set to Clear if you prefer a stable image." })}</small>
+                  <small>{tr({ fr: "« Auto » fait passer une averse courte de temps en temps : la lumière baisse, il pleut, les rues se vident, puis le temps se dégage. En hiver la même averse tombe en neige. Figez sur Dégagé si vous préférez une image stable.", en: "“Auto” brings a short shower now and then: the light dims, it rains, the streets empty, then it clears. In winter the same shower falls as snow. Set to Clear if you prefer a stable image." })}</small>
                 </div>
                 <div className="number-format-control">
                   <button
@@ -684,7 +684,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
                     type="button"
                     onClick={() => handleWeatherChange('rain')}
                   >
-                    {tr({ fr: "Pluie", en: "Rain" })}
+                    {tr({ fr: "Averse", en: "Shower" })}
                   </button>
                 </div>
               </div>

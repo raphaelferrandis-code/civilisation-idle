@@ -10,6 +10,7 @@ import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingSh
 import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
 import { wonderAnchor } from './iso/projection.js';
+import { queueFlameGlow, flameAssetGlow } from './flameGlow.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -392,6 +393,10 @@ function wonderFlamesData(id) {
 // `sc` (échelle overlay/élément cuit) et `ms` (durée d'une frame). Pendant
 // l'érection (e<0.98) le sprite pousse écrasé, sans overlays (les éléments
 // cuits du sprite assurent l'intérim).
+// Poids d'UN halo de merveille : le Mausolée rang V porte 57 braseros et les
+// lueurs s'ADDITIONNENT — à pleine intensité la façade virerait au blanc. C'est
+// leur SOMME qui doit faire le monument incandescent, pas chaque flamme.
+const WONDER_FLAME_MUL = 0.55;
 function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
   const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
@@ -441,6 +446,15 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
       } else {
         ctx.drawImage(strip.img, k * a.fw, 0, a.fw, a.fh, dx, dy, dw, dh);
       }
+      // Chaque FEU éclaire (braseros du Mausolée, brasero de la Vigie…). Cœur du
+      // halo au bas-milieu de l'overlay : l'ancre est au PIED de la flamme et
+      // celle-ci monte, la lumière naît donc sous sa mi-hauteur. Déphasage `i`
+      // repris de l'animation → un brasero scintille en phase avec ses propres
+      // images. Les éclats de gemme, rayons et pulsations sont déjà de la
+      // lumière : flameAssetGlow les écarte (règle par l'asset, pas par merveille).
+      // La lueur elle-même est posée plus tard, par-dessus le voile de nuit.
+      const gcol = flameAssetGlow(a);
+      if (gcol) queueFlameGlow(dx + dw / 2, dy + dh * 0.62, (dw + dh) * 0.42, gcol, now, i * 2.63, WONDER_FLAME_MUL);
     }
   }
   ctx.imageSmoothingEnabled = prev;

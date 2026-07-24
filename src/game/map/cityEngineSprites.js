@@ -9,6 +9,7 @@
  * ========================================================================== */
 import { drawEraGroundFill } from './pixelTerrain.js';
 import { CM } from './layout.js';
+import { queueFlameGlow } from './flameGlow.js';
 
 // ── Taille des HUMAINS de scène = celle des HABITANTS de la carte ────────────
 // Les scènes moteur reçoivent une BOÎTE (ox,oy,sw,sh) dont la taille CROÎT avec
@@ -270,56 +271,33 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   return true;
 }
 
-// Comme blitProp mais avec MIROIR horizontal optionnel : pour un véhicule de profil qui
-// fait la navette (sprite orienté vers la DROITE par défaut → retourné pour aller à gauche).
-function blitPropH(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, flip) {
-  const im = propImg[p]; if (!im) return;
+// Prop de PROFIL posé au sol : même cadrage que blitProp mais ancré par le BAS DU
+// CONTENU opaque (propBBox) au lieu du centre. Les sprites PixelLab gardent une marge
+// transparente sous les roues/pieds : centrés sur cy, ils LÉVITAIENT au-dessus de leur
+// halte. fy = ligne de sol en fraction de boîte.
+function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
+  const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
+  const bb = propBBox(p), footF = bb ? bb.y0f + bb.hf : 1;
   const drawW = sw * wFrac, drawH = sh * hFrac;
-  const cxp = ox + sw * cx, top = oy + sh * cy - drawH / 2;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - footF * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  if (flip) {
-    ctx.save(); ctx.translate(cxp, 0); ctx.scale(-1, 1);
-    ctx.drawImage(im, -drawW / 2, top, drawW, drawH); ctx.restore();
-  } else {
-    ctx.drawImage(im, cxp - drawW / 2, top, drawW, drawH);
-  }
-  ctx.imageSmoothingEnabled = prev;
-}
-
-// ── Véhicules des caravanes ANIMÉS (bandes multi-frames PixelLab animate_object) ──
-// Bande /pixelart/agents/buildings/veh-<key>.png = N frames CARRÉES-du-canvas (112×64)
-// côte à côte : roues qui tournent, cheval qui trotte, fumée, lueurs. Joué en boucle,
-// avec miroir H selon le sens (comme blitPropH). Repli sur le prop STATIQUE si pas chargé.
-const VEH_ANIM = { 'caravan-wagon': 9, 'caravan-truck': 9, 'caravan-pod': 9 }; // frames/bande (v3: 8 + réf)
-const vehAnimImg = {};
-let vehAnimInit = false;
-function ensureVehAnim() {
-  if (vehAnimInit || typeof Image === 'undefined') return;
-  vehAnimInit = true;
-  for (const k in VEH_ANIM) { const im = new Image(); im.src = '/pixelart/agents/buildings/veh-' + k + '.png'; vehAnimImg[k] = im; }
-}
-const vehAnimReady = (k) => { ensureVehAnim(); const im = vehAnimImg[k]; return !!(im && im.complete && im.naturalWidth > 0); };
-// Blit d'une frame de la bande, centré en (cx,cy), taille wFrac×hFrac, miroir optionnel.
-function blitVehAnim(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip) {
-  const im = vehAnimImg[k]; if (!im || !(im.naturalWidth > 0)) return false;
-  const nf = VEH_ANIM[k] || 1, fw = im.naturalWidth / nf, fh = im.naturalHeight;
-  const frame = Math.floor((now || 0) / 110) % nf;
-  const drawW = sw * wFrac, drawH = sh * hFrac, cxp = ox + sw * cx, top = oy + sh * cy - drawH / 2;
-  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  if (flip) {
-    ctx.save(); ctx.translate(cxp, 0); ctx.scale(-1, 1);
-    ctx.drawImage(im, frame * fw, 0, fw, fh, -drawW / 2, top, drawW, drawH); ctx.restore();
-  } else {
-    ctx.drawImage(im, frame * fw, 0, fw, fh, cxp - drawW / 2, top, drawW, drawH);
-  }
+  ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
   return true;
 }
-// Véhicule : bande animée si chargée, sinon prop statique (blitPropH). Même cadre/miroir.
-function blitVehicle(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip) {
-  if (vehAnimReady(k)) { blitVehAnim(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, now, flip); return; }
-  blitPropH(ctx, ox, oy, sw, sh, k, cx, cy, wFrac, hFrac, flip);
-}
+
+// Échelle des HALTES de caravane (stades 1-3). Les deux valeurs vont ENSEMBLE : le
+// véhicule était cadré à 0.66 de boîte et l'homme à 0.40 de tuile, ce qui rendait le
+// bonhomme 1,4× plus HAUT qu'un chariot bâché — invisible tant que le véhicule
+// traversait la scène, criant dès qu'il stationne à côté de lui. Toucher l'un sans
+// l'autre casse le rapport. (Le rapport physique exact, ~6 m de chariot pour 1,7 m
+// d'homme, déborderait la boîte : on garde une échelle de jeu, chariot ≈ 1,1× l'homme.)
+const VEH_W = 0.86, VEH_MAN = 0.34;
+
+// NOTE — les bandes animées de véhicules (/pixelart/agents/buildings/veh-caravan-*.png,
+// générées par scripts/fetchCaravanVehAnims.mjs) ne sont plus jouées : elles servaient
+// au va-et-vient supprimé, et leur cheval de trait DÉTACHÉ du timon bougeait par rapport
+// au chariot d'une frame à l'autre. Les stades 1-3 posent le prop statique à la halte.
 
 // Centre des pixels OPAQUES d'un prop (fraction 0..1 du sprite), calculé une fois et
 // mis en cache. Sert de PIVOT de rotation : une roue dont le moyeu n'est pas au centre
@@ -385,58 +363,85 @@ function blitPropRot(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, angle) {
   return true;
 }
 
-// ── Caravane : mulet bâté pixel (PixelLab, quadrupède) MENÉ par le marchand ───
-// Le « système de transport » : un mulet chargé (cargo baké dans le sprite) marche
-// la piste en va-et-vient, le marchand (humain Forager réutilisé) le mène devant.
-// Bandes /pixelart/agents/caravan-mule-{east,west}.png (7 frames, 80px). Repli sur
-// la scène procédurale (mulet + marchand vectoriels) tant que rien n'est chargé.
-const MULE_FW = 80, MULE_FH = 80;
-const MULE_CLIPS = { east: 7, west: 7 };
-const muleImg = {};
-let muleInit = false, muleReadyN = 0;
-function ensureMule() {
-  if (muleInit || typeof Image === 'undefined') return;
-  muleInit = true;
-  for (const d of Object.keys(MULE_CLIPS)) {
-    const im = new Image();
-    im.onload = () => { muleReadyN += 1; };
-    im.src = '/pixelart/agents/buildings/caravan-mule-' + d + '.png';
-    muleImg[d] = im;
-  }
-}
-const muleReady = () => { ensureMule(); return muleReadyN >= Object.keys(MULE_CLIPS).length; };
-function blitMule(ctx, ox, oy, sw, sh, dir, frame, cx, fy, hFrac) {
-  const im = muleImg[dir]; if (!im) return;
+// ── Caravane : la HALTE ──────────────────────────────────────────────────────
+// Le va-et-vient d'un mulet (ou d'un véhicule) d'un bord à l'autre de la boîte ne
+// marchait pas, pour trois raisons cumulées :
+//   1. il GLISSE — le cycle de marche avance de ~5 px de jambes pendant que le sprite
+//      parcourt ~40 px d'écran, donc la bête patine au lieu de marcher ;
+//   2. il FLOTTE — les blits de scène ancrent les pieds à 0.88 du cadre (mesure du
+//      bonhomme Forager) alors que les pieds du mulet sont à 0.78 du sien ;
+//   3. rien ne motive le trajet : la boîte fait une tuile, l'aller-retour est un
+//      métronome qui attire l'œil sans rien raconter.
+// On joue donc une HALTE de caravane : plus RIEN ne traverse la scène, la vie est
+// LOCALE — le mulet est couché et lève la tête, le marchand travaille au dépôt.
+// Bande /pixelart/agents/buildings/caravan-mule-rest.png (80 px/frame, PixelLab).
+
+// Blit d'une frame de bande carrée ancrée au sol par la fraction de pied MESURÉE du
+// sprite (footF), et non par le 0.88 des humains : un sprite couché n'occupe que le bas
+// de son cadre et flotterait au-dessus de son ombre.
+function blitStripFoot(ctx, im, ox, oy, sw, sh, fw, frame, cx, fy, hFrac, footF) {
+  if (!im || !(im.naturalWidth > 0)) return;
   const drawH = sceneHumanH(hFrac), drawW = drawH;
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - footF * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, frame * MULE_FW, 0, MULE_FW, MULE_FH, left, top, drawW, drawH);
+  ctx.drawImage(im, frame * fw, 0, fw, im.naturalHeight, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
 }
-// Caravane en marche : va-et-vient lent sur la piste (est puis ouest), marchand DEVANT.
-// Une ZONE DE SACS (dépôt de marchandises, statique) marque le poste de transport.
-function drawCaravan(ctx, ox, oy, sw, sh, now) {
-  // Dépôt de sacs (côté droit, au fond) — dessiné AVANT la caravane (elle passe devant).
+
+// Mulet bâté COUCHÉ qui baisse et relève la tête (bande PixelLab, corps immobile).
+const MULE_REST_FW = 80, MULE_REST_NF = 9;
+// Fraction de pied MESURÉE sur la bande (bas du ventre / des jambes repliées), identique
+// sur les 9 images — le corps ne bouge pas d'un pixel, seule la tête travaille. Le mulet
+// couché tient dans le bas de son cadre : ancré au 0.88 des humains, il flotterait.
+const MULE_REST_FOOT = 0.713;
+let muleRestImg = null, muleRestInit = false;
+function ensureMuleRest() {
+  if (muleRestInit || typeof Image === 'undefined') return;
+  muleRestInit = true;
+  const im = new Image();
+  im.src = '/pixelart/agents/buildings/caravan-mule-rest.png';
+  muleRestImg = im;
+}
+const muleRestReady = () => { ensureMuleRest(); return !!(muleRestImg && muleRestImg.complete && muleRestImg.naturalWidth > 0); };
+
+// Cycle « tête » : la bande va de la tête HAUTE (image 0, l'animal veille) à la tête
+// BASSE (dernières images, il fouille le sol du naseau). On la joue en VA-ET-VIENT
+// d'images avec une PAUSE tête haute — un simple modulo ramènerait la tête d'un coup
+// en fin de boucle, ce qui CLAQUE. T = période complète (ms).
+function muleRestFrame(now, T) {
+  const c = ((((now || 0) / T) % 1) + 1) % 1;
+  if (c < 0.42) return 0;                                        // il veille, tête haute
+  const k = c < 0.71 ? (c - 0.42) / 0.29 : 1 - (c - 0.71) / 0.29; // baisse puis relève
+  return Math.min(MULE_REST_NF - 1, Math.floor(k * (MULE_REST_NF - 1) + 0.5));
+}
+
+// Marchand accroupi au dépôt : le clip `crouch-south` est une TRANSITION debout→accroupi
+// (pas une boucle), joué en va-et-vient il donne « il se penche, travaille, se relève ».
+// Les pieds remontent dans le cadre à mesure qu'il se plie (0.824 → 0.706) : sans cette
+// table par frame il décollerait du sol au plus bas de son geste.
+const CROUCH_FOOT = [0.824, 0.824, 0.824, 0.779, 0.706];
+function drawCrouchWorker(ctx, ox, oy, sw, sh, now, cx, fy, T, phase, hFrac) {
+  const n = FORAGER_CLIPS['crouch-south'];
+  const c = ((((now || 0) / T) + (phase || 0)) % 1 + 1) % 1;
+  const k = c < 0.5 ? c * 2 : (1 - c) * 2;
+  const f = Math.min(n - 1, Math.floor(k * (n - 1) + 0.5));
+  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.18);
+  blitStripFoot(ctx, foragerImg['crouch-south'], ox, oy, sw, sh, FORAGER_FW, f, cx, fy, hFrac, CROUCH_FOOT[f]);
+}
+
+// Halte de caravane du stade 0 : dépôt de sacs, mulet couché qui lève la tête,
+// marchand accroupi qui charge. Rien ne traverse la boîte.
+function drawCaravanHalt(ctx, ox, oy, sw, sh, now) {
+  const FY = 0.82, MULE_H = 0.41;
+  // Dépôt de sacs (côté droit) — au fond, le mulet et le marchand passent devant.
   if (propReady('caravan-prop-sacks')) {
-    blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.82, 0.76, 0.26 * 64 / 48, 0.26);
+    blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.86, 0.73, 0.24 * 64 / 48, 0.24);
   }
-  const T = 11000;
-  const cyc = ((now || 0) / T) % 1;
-  const going = cyc < 0.5;                       // est (→) puis ouest (←)
-  const k = going ? cyc * 2 : (1 - cyc) * 2;     // 0 → 1 → 0
-  const muleX = 0.22 + (0.64 - 0.22) * k, FY = 0.78;
-  const dir = going ? 'east' : 'west';
-  const lead = going ? 0.17 : -0.17;             // le marchand mène (devant)
-  // Ombre de contact du mulet (∝ sa taille, élargie : quadrupède)
-  sceneHumanShadow(ctx, ox, oy, sw, sh, muleX, FY, 0.64, 0.22, 1.5);
-  // Marchand devant (réutilise les marches Forager) ; mulet derrière.
-  if (foragerReady()) {
-    const ff = Math.floor((now || 0) / 150) % FORAGER_CLIPS['walk-' + dir];
-    sceneHumanShadow(ctx, ox, oy, sw, sh, muleX + lead, FY, 0.4, 0.18);
-    blitForager(ctx, ox, oy, sw, sh, muleX + lead, FY, 'walk-' + dir, ff, 0.4);
-  }
-  const mf = Math.floor((now || 0) / 150) % MULE_CLIPS[dir];
-  blitMule(ctx, ox, oy, sw, sh, dir, mf, muleX, FY, 0.64);
+  // Mulet couché : ombre de contact large (il repose sur tout son flanc), tête animée.
+  sceneHumanShadow(ctx, ox, oy, sw, sh, 0.38, FY, MULE_H, 0.22, 2.4);
+  blitStripFoot(ctx, muleRestImg, ox, oy, sw, sh, MULE_REST_FW, muleRestFrame(now, 5200), 0.38, FY, MULE_H, MULE_REST_FOOT);
+  // Marchand accroupi au pied du dépôt, dos au mulet (au premier plan, il passe devant).
+  if (foragerReady()) drawCrouchWorker(ctx, ox, oy, sw, sh, now, 0.74, FY + 0.04, 3400, 0, VEH_MAN);
 }
 
 // ── Bandes animées « feu pixel » (PixelLab animate_object → composite qui FIGE le
@@ -457,6 +462,24 @@ const ANIM_BANDS = {
   // Filet d'eau croupie de la station égouts (verts foliage, remap feu).
   'sewers-water': { fw: 96, fh: 80, frames: 7, ms: 140 },
 };
+// FOYERS MESURÉS des bandes de feu — d'où part la lueur, en fraction de la frame.
+// Mesure : le bâtiment est FIGÉ dans ces bandes, seul le feu bouge ; le centroïde
+// des pixels à la fois CHAUDS (opaques, clairs, r-b > 60) et MOUVANTS (variance
+// sur les 7 frames) est donc la flamme elle-même, et rien d'autre — ni le mur
+// ocre, ni les étincelles froides. `sig` = rayon quadratique moyen de ce nuage
+// (fraction de la LARGEUR de frame) : la lueur suit la taille réelle du foyer.
+// Une bande absente de cette table n'éclaire pas (eau d'aqueduc, égouts).
+// Valeurs revérifiées par src/game/map/__tests__/flameGlow.test.js, qui relit
+// les PNG : régénérer un sprite en déplaçant son feu casse la garde.
+const ANIM_FIRE_CORES = {
+  'mint-forge-fire': { fx: 0.477, fy: 0.443, sig: 0.116, col: '255,168,64' },
+  'storyteller-fire': { fx: 0.489, fy: 0.300, sig: 0.110, col: '255,175,70' },
+  'ancestralcult-fire': { fx: 0.494, fy: 0.441, sig: 0.084, col: '255,150,45' },
+  'watch-fire': { fx: 0.514, fy: 0.153, sig: 0.108, col: '255,170,70' },
+};
+// Rayon du halo = sig × ce facteur : la lumière déborde du foyer (sinon elle se
+// confond avec la flamme au lieu de l'entourer).
+const FIRE_GLOW_SPREAD = 2.6;
 const animImg = {};
 let animInit = false;
 const animReadyN = {};
@@ -472,6 +495,10 @@ function ensureAnim() {
 }
 const animReady = (k) => { ensureAnim(); return animReadyN[k] === 1; };
 // Blit de la frame courante d'une bande, centrée sur (cx,cy) en fraction de tuile.
+// Si la bande est un FEU (ANIM_FIRE_CORES), son foyer annonce sa lumière : elle
+// sera posée par la passe de nuit, PAR-DESSUS le voile (cf. flameGlow.js). Les
+// coordonnées sortent de la boîte réellement dessinée — le site d'appel peut donc
+// changer cx/cy/échelle sans jamais désaligner la lueur.
 function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
   const meta = ANIM_BANDS[key], im = animImg[key]; if (!meta || !im) return;
   const frame = Math.floor((now || 0) / meta.ms) % meta.frames;   // ~7.7 fps
@@ -480,6 +507,15 @@ function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * meta.fw, 0, meta.fw, meta.fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+  const core = ANIM_FIRE_CORES[key];
+  if (core) {
+    // Phase de scintillement liée à la BANDE et non à l'écran : deux forges
+    // battraient de toute façon à l'unisson (la frame se calcule sur `now`, pas
+    // par instance), et une phase tirée des coordonnées écran ferait sauter le
+    // scintillement au moindre déplacement de caméra.
+    queueFlameGlow(left + drawW * core.fx, top + drawH * core.fy,
+      drawW * core.sig * FIRE_GLOW_SPREAD, core.col, now, key.length * 0.7, 1);
+  }
 }
 
 
@@ -1419,12 +1455,12 @@ function drawCityEngineSprite(context) {
     const stage = engineStage(ei);
     const nF = parseFloat(litGold.slice(litGold.lastIndexOf(",") + 1)) || 0;
     if (stage === 0) {
-      if (muleReady()) {
-      // ── STADE 0 · CARAVANE EN MARCHE — mulet bâté pixel mené par le marchand ──
+      if (muleRestReady()) {
+      // ── STADE 0 · HALTE DE CARAVANE — mulet couché qui lève la tête, marchand au dépôt ──
       // Piste battue passée par softGround : elle était peinte À LA MAIN ici, donc
       // elle survivait à DRAW_BUILDING_GROUND=false et lisait comme une ombre noire.
       softGround(ctx, ox, oy, sw, sh, 0.84, 0.62, 0.2, "36,26,12", 0.72); // piste (désactivée par défaut)
-      drawCaravan(ctx, ox, oy, sw, sh, now);
+      drawCaravanHalt(ctx, ox, oy, sw, sh, now);
       } else {
       // ── STADE 0 · MULET BÂTÉ — bête de somme menée par un marchand ──────
       // Le commerce le plus ancien : on charge une bête et on part sur la piste.
@@ -1484,16 +1520,17 @@ function drawCityEngineSprite(context) {
       if (going) { ctx.fillStyle = "#9a6a2c"; ctx.beginPath(); ctx.ellipse(ox+sw*(wx-0.012), oy+sh*(wy-0.115), sw*0.036, sh*0.026, -0.35, 0, Math.PI*2); ctx.fill(); }
       }
     } else if (stage === 1) {
-      // ── STADE 1 · CONVOI CARAVANIER — file de charrettes sur route pavée ──
+      // ── STADE 1 · RELAIS DE CONVOI — chariot dételé à la halte, on sangle le fret ──
       // La ville se pave et règne : le commerce s'organise en convois gardés.
-      // Pixel-art (dépôt réutilisé + chariot bâché en navette) ; repli procédural dessous.
+      // Le chariot ne fait plus la navette (cf. drawCaravanHalt) : il stationne au dépôt.
+      // Bénéfice de côté — le cheval du sprite est DÉTACHÉ du timon ; à l'arrêt ce
+      // décalage lit comme une bête dételée, en mouvement il lisait comme un attelage cassé.
       if (propReady('caravan-wagon')) {
         softGround(ctx, ox, oy, sw, sh, 0.7, 0.54, 0.3, "36,31,22", 0.5); // sol/chaussée (désactivé par défaut)
-        if (propReady('caravan-prop-sacks')) blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.85, 0.74, 0.28 * 64 / 48, 0.28); // dépôt réutilisé
-        const vcyc = (now / 9000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
-        const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 220) * 0.006;
-        /* ombre de contact retirée */
-        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-wagon', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
+        if (propReady('caravan-prop-sacks')) blitProp(ctx, ox, oy, sw, sh, 'caravan-prop-sacks', 0.88, 0.73, 0.24 * 64 / 48, 0.24); // dépôt réutilisé
+        blitPropGrounded(ctx, ox, oy, sw, sh, 'caravan-wagon', 0.42, 0.82, VEH_W, VEH_W * 64 / 112);
+        // Charretier accroupi entre le chariot et le dépôt (au premier plan, il passe devant).
+        if (foragerReady()) drawCrouchWorker(ctx, ox, oy, sw, sh, now, 0.78, 0.9, 3800, 0.35, VEH_MAN);
         return true;
       }
       px(0.0, 0.58, 1.0, 0.42, "#2a2418");          // accotement
@@ -1569,19 +1606,24 @@ function drawCityEngineSprite(context) {
         if (pgo) { ctx.fillStyle = "#9a6a3a"; ctx.beginPath(); ctx.ellipse(ox+sw*(ppx+0.03), oy+sh*(ppy-0.06), sw*0.02, sh*0.036, 0.3, 0, Math.PI*2); ctx.fill(); }
       }
     } else if (stage === 2) {
-      // ── STADE 2 · FRET INDUSTRIEL — wagon à vapeur sur rails + quai ──────
-      // Fonte et vapeur : la marchandise roule sur rail, fumée et acier.
-      // Pixel-art (camion à vapeur en navette + caisses + fumée) ; repli procédural dessous.
+      // ── STADE 2 · DÉPÔT DE FRET — locomobile à l'arrêt sous pression, on charge ──
+      // Fonte et vapeur : la marchandise s'entasse au quai, la machine chauffe sur place.
+      // Plus de navette (cf. drawCaravanHalt) : la vie vient de la fumée et du manutentionnaire.
       if (propReady('caravan-truck')) {
         softGround(ctx, ox, oy, sw, sh, 0.72, 0.54, 0.3, "24,20,15", 0.5); // sol/chaussée (désactivé par défaut)
-        if (propReady('granary-crates')) blitProp(ctx, ox, oy, sw, sh, 'granary-crates', 0.85, 0.73, 0.26, 0.24); // dépôt réutilisé
-        const vcyc = (now / 8000) % 1, vgoing = vcyc < 0.5, vk = vgoing ? vcyc * 2 : (1 - vcyc) * 2;
-        const vx = 0.24 + vk * 0.46, vbob = Math.sin(now / 200) * 0.005;
-        /* ombre de contact retirée */
-        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-truck', vx, 0.58 + vbob, 0.66, 0.66 * 64 / 112, now, !vgoing);
-        // Fumée qui monte de la cheminée (côté avant selon le sens).
-        const stx = vx + (vgoing ? 0.15 : -0.15);
-        for (let s = 0; s < 3; s++) { const sp = ((now / 1500) + s * 0.33) % 1; ctx.fillStyle = `rgba(120,116,110,${(0.32 * (1 - sp)).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox + sw * (stx + Math.sin(sp * 3) * 0.02), oy + sh * (0.44 - sp * 0.22), sw * (0.015 + sp * 0.035), 0, Math.PI * 2); ctx.fill(); }
+        if (propReady('granary-crates')) blitProp(ctx, ox, oy, sw, sh, 'granary-crates', 0.88, 0.73, 0.22, 0.2); // dépôt réutilisé
+        const VX = 0.42, VW = VEH_W, VH = VEH_W * 64 / 112, VFY = 0.82;
+        blitPropGrounded(ctx, ox, oy, sw, sh, 'caravan-truck', VX, VFY, VW, VH);
+        // Fumée : la cheminée est à 0.75 du sprite en x, sa gueule à 0.19 en y (bas du
+        // contenu à 0.844) — repérée sur le PNG, pas devinée, sinon le panache flotte à côté.
+        const stx = VX + (0.75 - 0.5) * VW, sty = VFY - (0.844 - 0.19) * VH;
+        for (let s = 0; s < 3; s++) {
+          const sp = ((now / 1500) + s * 0.33) % 1;
+          ctx.fillStyle = `rgba(120,116,110,${(0.32 * (1 - sp)).toFixed(2)})`;
+          ctx.beginPath(); ctx.arc(ox + sw * (stx + Math.sin(sp * 3) * 0.02), oy + sh * (sty - sp * 0.22), sw * (0.015 + sp * 0.035), 0, Math.PI * 2); ctx.fill();
+        }
+        // Manutentionnaire accroupi au quai, devant la machine.
+        if (foragerReady()) drawCrouchWorker(ctx, ox, oy, sw, sh, now, 0.77, 0.9, 3400, 0.6, VEH_MAN);
         return true;
       }
       px(0.0, 0.6, 1.0, 0.4, "#1c1a16");            // ballast sombre
@@ -1645,20 +1687,37 @@ function drawCityEngineSprite(context) {
       // ── STADE 3 · LOGISTIQUE AUTONOME — pod cargo à sustentation néon ──
       // Néon froid, automatisation : plus aucun humain, le fret se charge seul.
       // Pixel-art (pod cargo néon qui glisse + halo qui respire) ; repli procédural dessous. (Pas de bras robot.)
+      // Plus de glissade d'un bord à l'autre (cf. drawCaravanHalt) : le pod est À QUAI,
+      // soute ouverte. La vie tient au balayage du scanner de chargement et au halo.
       if (propReady('caravan-pod')) {
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         px(0.04, 0.8, 0.92, 0.02, "#16323a");
         ctx.fillStyle = "#2f8fa0"; ctx.fillRect(ox + sw * 0.04, oy + sh * 0.805, sw * 0.92, Math.max(1, sh * 0.006)); // rail cyan
-        const vglide = Math.sin(now / 5000) * 0.28, vbob = Math.sin(now / 900) * 0.01;
-        const vx = 0.5 + vglide, vgoing = Math.cos(now / 5000) > 0;
-        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * vx, oy + sh * 0.8, sw * 0.2, sh * 0.03, 0, 0, Math.PI * 2); ctx.fill();
-        blitVehicle(ctx, ox, oy, sw, sh, 'caravan-pod', vx, 0.56 + vbob, 0.62, 0.62 * 64 / 112, now, !vgoing);
+        const VX = 0.46, VW = VEH_W * 0.94, VH = VEH_W * 0.94 * 64 / 112, VFY = 0.81;
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * VX, oy + sh * VFY, sw * VW * 0.4, sh * 0.028, 0, 0, Math.PI * 2); ctx.fill();
+        blitPropGrounded(ctx, ox, oy, sw, sh, 'caravan-pod', VX, VFY, VW, VH);
+        // Faisceau du scanner qui balaie la soute de bout en bout (le pod, lui, ne bouge pas).
+        // Borné au CONTENU du sprite (y 0.25..0.781 du PNG) : calé sur le cadre, il dépassait
+        // du toit et lisait comme une antenne verte plantée dans le décor.
+        const sk = (Math.sin(now / 1900) + 1) / 2, sx = VX + (sk - 0.5) * VW * 0.62;
+        const roofY = VFY - (0.781 - 0.25) * VH;
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = "rgba(120,240,220,0.34)";
+        ctx.fillRect(ox + sw * sx - Math.max(1, sw * 0.008), oy + sh * roofY, Math.max(1, sw * 0.016), sh * (VFY - roofY) * 0.82);
+        ctx.restore();
+        // Pile de conteneurs au quai (le pod n'a plus de dépôt pixel : sans elle la dalle
+        // est vide et la scène ne dit plus « logistique »). Liseré cyan qui pulse en décalé.
+        for (let s = 0; s < 3; s++) {
+          const cy2 = 0.78 - s * 0.055, pulse = 0.5 + 0.5 * Math.sin(now / 900 + s * 1.1);
+          ctx.fillStyle = s % 2 ? "#243038" : "#2a3a44"; ctx.fillRect(ox + sw * 0.85, oy + sh * cy2, sw * 0.11, sh * 0.052);
+          ctx.fillStyle = `rgba(47,143,160,${(0.55 + 0.45 * pulse).toFixed(2)})`; ctx.fillRect(ox + sw * 0.85, oy + sh * cy2, sw * 0.11, Math.max(1, sh * 0.005));
+        }
         if (nF > 0.02) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const pulse = nF * (0.24 + 0.08 * Math.sin(now / 240));
-          const gg = ctx.createRadialGradient(ox + sw * vx, oy + sh * 0.68, 0, ox + sw * vx, oy + sh * 0.68, sw * 0.34);
+          const gg = ctx.createRadialGradient(ox + sw * VX, oy + sh * 0.68, 0, ox + sw * VX, oy + sh * 0.68, sw * 0.34);
           gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * vx, oy + sh * 0.68, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * VX, oy + sh * 0.68, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         }
         return true;
       }
@@ -3985,4 +4044,5 @@ function drawCityEngineSprite(context) {
   return false;
 }
 
-export { drawCityEngineSprite, engineStage, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim };
+export { drawCityEngineSprite, engineStage, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim, ANIM_BANDS, ANIM_FIRE_CORES };
+export { muleRestFrame, MULE_REST_NF }; // exportés pour le test du cycle de tête (halte de caravane)

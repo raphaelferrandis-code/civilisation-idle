@@ -221,22 +221,38 @@ const WONDER_CLEAR_R = 5; // rayon libre (tuiles) — repli pour merveille sans 
 // DANS L'EAU : elle est de facto seule, on ne la dégage pas (pont/riverains).
 // PPT doit rester synchronisé avec renderBuildings.js (WONDER_PPT / PPT = 34).
 const WONDER_PPT = 34;
-const WONDER_SPRITE_MAX = {
-  dynasty1:        { nw: 351, nh: 352 },
-  pop1m:           { nw: 181, nh: 371 },
-  era_kingdom:     { nw: 400, nh: 256 },
-  era_empire:      { nw: 399, nh: 344 },
-  era_mega:        { nw: 180, nh: 362 },
-  era_singularity: { nw: 288, nh: 288 }
+// Dimensions natives de CHAQUE RANG (mesurées sur /pixelart/wonders/<id>-t<n>.png,
+// le fichier que wonderPixelSprite charge — même source que le rendu).
+//
+// ⚠ L'emprise se dérivait des dims du rang V pour TOUS les rangs (retour Raph
+// 2026-07-24 : « là c'est direct de la taille rang max »). Un era_kingdom rang I
+// fait 128×88 et trônait au milieu d'un parvis taillé pour 400×256 : la place
+// naissait finie, et la montée en rang ne se voyait que sur le monument. Le rang
+// est maintenant porté jusqu'ici (cf. cmWonderExtent) et l'emprise grandit avec
+// la pierre — parvis, réserve, carve des routes et socle piéton compris.
+const WONDER_SPRITE_TIERS = {
+  dynasty1:        [{ nw: 166, nh: 161 }, { nw: 248, nh: 213 }, { nw: 296, nh: 251 }, { nw: 331, nh: 293 }, { nw: 351, nh: 352 }],
+  pop1m:           [{ nw: 128, nh: 150 }, { nw: 152, nh: 215 }, { nw: 188, nh: 271 }, { nw: 141, nh: 306 }, { nw: 181, nh: 371 }],
+  era_kingdom:     [{ nw: 128, nh:  88 }, { nw: 176, nh: 112 }, { nw: 240, nh: 152 }, { nw: 320, nh: 208 }, { nw: 400, nh: 256 }],
+  era_empire:      [{ nw: 172, nh: 156 }, { nw: 204, nh: 187 }, { nw: 267, nh: 248 }, { nw: 303, nh: 265 }, { nw: 399, nh: 344 }],
+  era_mega:        [{ nw: 107, nh: 185 }, { nw:  88, nh: 267 }, { nw: 103, nh: 316 }, { nw: 169, nh: 367 }, { nw: 180, nh: 362 }],
+  era_singularity: [{ nw:  80, nh:  80 }, { nw: 128, nh: 128 }, { nw: 176, nh: 176 }, { nw: 224, nh: 224 }, { nw: 288, nh: 288 }]
 };
+// Dims du rang demandé (1..5), rang V par défaut. `tier` non fourni = ancien
+// comportement au bit près : les appelants non migrés ne changent pas de rendu.
+function cmWonderSpriteDims(id, tier) {
+  const arr = WONDER_SPRITE_TIERS[id];
+  if (!arr) return null;
+  return arr[Math.max(0, Math.min(arr.length - 1, ((tier == null ? 5 : tier) | 0) - 1))];
+}
 // Emprise au sol en tuiles autour du slot : PARVIS CARRÉ CENTRÉ sur le monument
 // (Raph 2026-07-13 : « met les merveilles au centre de la zone »). L'ancienne
 // emprise nord-biaisée (nh/34+1 au nord, 2 au sud) collait le monument au bord
 // de sa clairière ; on redistribue la même portée également dans les 4 sens —
 // côté = max(demi-largeur du sprite, moitié de l'ancienne étendue N+S). Le
 // sprite, dessiné en DERNIER, recouvre correctement ce qui dépasse au nord.
-function cmWonderExtent(id) {
-  const d = WONDER_SPRITE_MAX[id];
+function cmWonderExtent(id, tier) {
+  const d = cmWonderSpriteDims(id, tier);
   if (!d) return { halfW: WONDER_CLEAR_R, north: WONDER_CLEAR_R, south: WONDER_CLEAR_R };
   const halfW = Math.ceil(d.nw / (2 * WONDER_PPT)) + 1;
   const reach = Math.max(2, Math.ceil((Math.ceil(d.nh / WONDER_PPT) + 3) / 2));
@@ -245,15 +261,16 @@ function cmWonderExtent(id) {
 }
 // Rayon (Chebyshev) du SOCLE au sol autour du slot : cœur NON-MARCHABLE du
 // parvis (les badauds tournent autour, jamais dans le monument). Dérivé de la
-// demi-largeur native max du sprite (la base bâtie ≈ moitié de l'envergure).
-function cmWonderCoreR(id) {
-  const d = WONDER_SPRITE_MAX[id];
+// demi-largeur native du sprite DU RANG (la base bâtie ≈ moitié de l'envergure) :
+// au rang I le monument est étroit, les badauds doivent pouvoir l'approcher.
+function cmWonderCoreR(id, tier) {
+  const d = cmWonderSpriteDims(id, tier);
   if (!d) return 2;
   return Math.max(2, Math.round(d.nw / (2 * WONDER_PPT) * 0.55));
 }
 // Itère les clés "gx,gy" de l'emprise d'un slot (bornées à la grille N×N).
-function cmForEachWonderCell(slot, id, N, fn) {
-  const { halfW, north, south } = cmWonderExtent(id);
+function cmForEachWonderCell(slot, id, N, fn, tier) {
+  const { halfW, north, south } = cmWonderExtent(id, tier);
   for (let dy = -north; dy <= south; dy += 1) {
     const gy = slot.gy + dy; if (gy < 0 || gy >= N) continue;
     for (let dx = -halfW; dx <= halfW; dx += 1) {
@@ -356,6 +373,35 @@ function cmWaterMillSpan(level) {
   const t = cmEngineTier(level);
   return { w: t >= 2 ? 4 : 3, h: t >= 2 ? 4 : 3 };
 }
+// ── Densité : COMBIEN de bâtiments de ce type se dressent dans la ville ──────
+// Le compteur d'achats pilote le NOMBRE de bâtiments, jamais leur TAILLE. C'est ce
+// couplage-là qui produisait les deux défauts majeurs de la carte : des scènes
+// étirées sur 3×3 (paniers de fruits hauts comme un homme, cf. capture Raph) et,
+// au 10e achat, la DISPARITION de 9 cabanes remplacées par un bloc unique — le
+// joueur achetait et la ville rétrécissait. Ici rien ne fusionne jamais.
+//   1 pour 1 jusqu'à CM_ENGINE_LIN (« 1 achat = 1 bâtiment » au pied de la lettre),
+//   puis en racine pour que la fin de partie reste une ville et pas une grille.
+// Continu en CM_ENGINE_LIN (f(12)=12, f(13)=13 : aucune marche).
+// Cap = LE curseur de densité : 48 aujourd'hui (~1400 objets carte pleine),
+// ~80 vise la mégalopole et demande le placement append-only avant d'être armé.
+// Molette : window.__engineDensityCap.
+const CM_ENGINE_LIN = 12, CM_ENGINE_K = 2.6, CM_ENGINE_CAP = 48;
+function cmEngineCount(n) {
+  if (n <= CM_ENGINE_LIN) return n;
+  const cap = (typeof globalThis !== "undefined" && globalThis.__engineDensityCap) || CM_ENGINE_CAP;
+  return Math.min(cap, CM_ENGINE_LIN + Math.round(CM_ENGINE_K * (Math.sqrt(n - CM_ENGINE_LIN + 1) - 1)));
+}
+// Emprise d'un groupe. La HALLE (idx 0) garde la croissance historique — c'est le
+// seul objet du type autorisé à devenir monumental. Un ATELIER a une emprise
+// CONSTANTE : celle pour laquelle sa scène a été composée (tier 0), bornée à 2
+// cellules. Sans cette borne, 48 ministères à 3×3 rendraient à la carte tout le
+// terrain que le dé-fusionnement lui fait gagner.
+function cmEngineGroupFoot(id, groupLevel, idx) {
+  return idx === 0 ? cmEngineFootprint(id, groupLevel) : cmEngineAtelierFoot(id);
+}
+// Emprise d'un ATELIER de ce type — l'unité d'échelle du type. Exportée : le rendu
+// iso s'en sert pour BORNER la taille de dessin de la halle (cf. drawIsoEngineScene).
+function cmEngineAtelierFoot(id) { return Math.min(2, cmEngineFootprint(id, 1)); }
 function cmEngineInstances(count, id) {
   if (id === "aqueducts") return count > 0 ? [Math.floor(count)] : [];
   // Champs : une seule ceinture agricole qui grandit (pas de tuiles dispersées).
@@ -364,35 +410,12 @@ function cmEngineInstances(count, id) {
   // (pas de quais ni de moulins éparpillés sur la berge).
   if (id === "river_ports" || id === "water_mills") return count > 0 ? [Math.floor(count)] : [];
   if (count <= 0) return [];
-  // maxGroups relevé 6 → 16 (demande Raphaël : « ne plus bloquer à 6 groupes/type »).
-  // Les groupes EN TROP sont MOYENS (25) puis petits — on multiplie les BLOCS sans
-  // empiler des méga-groupes de 64 (footprint 5) qui feraient exploser enginePressure.
-  // À ~250 achats/type, cmEngineInstances ne produit QUE ~12 groupes → 16 laisse de la
-  // marge aux gros acheteurs (500-1000/type). Le vrai coût qui montait avec le nombre
-  // d'instances était la connexion routière ; elle est désormais maintenue de façon
-  // INCRÉMENTALE (cf. relaxFrom) → ~1,7× plus rapide au whale, ce qui rend 16 abordable.
-  // Le cap reste le garde-fou anti-whale (borne les tuiles-moteur). Pour aller BIEN
-  // plus haut (30-50) sans hitch → persister le réseau routier ENTRE recomputes.
-  // Molette de test : window.__maxGroupsOverride.
-  const out = [], n = Math.floor(count),
-    maxGroups = (typeof globalThis !== "undefined" && globalThis.__maxGroupsOverride) || 16;
-  if (n >= 10) out.push(10);
-  if (n >= 25) out.push(25);
-  if (n >= 64) out.push(64);
-  if (n < 10) {
-    for (let i = 0; i < n && out.length < maxGroups; i += 1) out.push(1);
-    return out;
-  }
-  // Extras en groupes MOYENS (25) puis 10 — PLUS de groupes de taille 1 : ils
-  // changeaient la structure à CHAQUE achat (+1 = un nouveau bloc), forçant un
-  // recompute complet du layout à chaque clic. Sans eux, la structure des gros blocs
-  // ne bouge que par paliers (~tous les 10-25 achats) → le layout peut sauter le
-  // recompute entre-temps (cf. cmEngineGroupSig + cityMapRuntime). Le « 1 achat = 1
-  // bâtiment » est porté par la NAPPE (rendu-seul, croît à chaque achat via t.level).
-  const covered = n >= 64 ? 64 : n >= 25 ? 25 : 10;
-  let extra = Math.max(0, n - covered);
-  while (extra >= 25 && out.length < maxGroups) { out.push(25); extra -= 25; }
-  while (extra >= 10 && out.length < maxGroups) { out.push(10); extra -= 10; }
+  // nº 0 = la HALLE : seule instance à porter le compteur ENTIER, donc le tier
+  // (scène riche) et l'emprise croissante. Les suivantes sont des ATELIERS de
+  // niveau 1 → tier 0 → scène humble à taille fixe. La monumentalité vient de la
+  // halle, la quantité des ateliers : un quartier, pas un bloc.
+  const n = Math.floor(count), out = [n], k = cmEngineCount(n);
+  for (let i = 1; i < k; i += 1) out.push(1);
   return out;
 }
 
@@ -406,7 +429,7 @@ export function cmEngineGroupSig(s) {
   for (const meta of CM_MAP_BUILDINGS) {
     const lvl = Math.floor(s.buildings[meta.id] || 0);
     if (lvl <= 0) continue;
-    out += meta.id + cmEngineInstances(lvl, meta.id).map((g) => cmEngineFootprint(meta.id, g)).join(",") + ";";
+    out += meta.id + cmEngineInstances(lvl, meta.id).map((g, i) => cmEngineGroupFoot(meta.id, g, i)).join(",") + ";";
   }
   return out;
 }
@@ -893,12 +916,20 @@ function cityCounts(s) {
   // structSig → AUCUN recompute par clic (croît par lot au palier ; la révélation
   // per-buit vient en Phase 2). Ajouté APRÈS le clamp houseCap (sinon écrêté) et
   // JAMAIS dans enginePressure (sinon double-compte de la pression). Molette __engineHomesK.
+  // ⚠ Seule la HALLE traîne des maisons-compagnes. Ce terme existait quand un type
+  // ne posait que quelques blocs : les maisons étaient le SEUL signe visible qu'on
+  // achetait. Depuis « halle + ateliers », chaque achat pose de VRAIS bâtiments —
+  // adosser en plus une maison à chacun des 47 ateliers doublait la population de
+  // tuiles, donc la grille N, dont le recompute est ~O(N²). Mesuré à 29 types ×
+  // 64 achats : N 128 → 114 et le recompute chute d'autant, pour zéro perte de
+  // lecture (les ateliers sont déjà là). Molette __engineHomesK.
   let engineHomes = 0;
   const eK = (typeof globalThis !== "undefined" && globalThis.__engineHomesK) || 0.6;
   for (const meta of CM_MAP_BUILDINGS) {
     const lvl = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
     if (lvl <= 0) continue;
-    for (const g of cmEngineInstances(lvl, meta.id)) engineHomes += Math.round(Math.sqrt(g) * eK);
+    const inst = cmEngineInstances(lvl, meta.id);
+    if (inst.length) engineHomes += Math.round(Math.sqrt(inst[0]) * eK);
   }
   const infraRings     = cmClamp(infraDepth * 0.5 + eraIndex * 0.18, 0, ringCap);
   const megaDistricts  = eraBand < 3 ? 0 : cmClamp(Math.pow(Math.max(0, eraIndex - 7), 1.35) * 1.25 + Math.max(0, popDepth - 6.2) * 2 + Math.max(0, infraDepth - 5.5) * 1.45, 0, districtCap);
@@ -1216,9 +1247,12 @@ function computeCityLayout(s) {
   const personality = computeCityPersonality(mapSeed, s);
   const ageCfg = ageConfigFor(c.eraBand);
   const total = c.houses + (c.engineHomes || 0);   // maisons pop + maisons-moteur (pour dimensionner N)
+  // `meta.id` est désormais PASSÉ à cmEngineInstances : sans lui, les 4 singletons
+  // (aqueduc, champs, port, moulin) retombaient sur le découpage générique et
+  // facturaient à la grille plusieurs blocs pour une structure unique.
   const enginePressure = CM_MAP_BUILDINGS.reduce((sum, meta) => {
     const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
-    return sum + cmEngineInstances(level).reduce((acc, group) => acc + Math.max(1, cmEngineFootprint(meta.id, group) ** 2), 0);
+    return sum + cmEngineInstances(level, meta.id).reduce((acc, group, i) => acc + Math.max(1, cmEngineGroupFoot(meta.id, group, i) ** 2), 0);
   }, 0);
   // Facteur de packing : village dense (0.27) → mégalopole diffuse (0.13)
   const packFactor = 0.27 - c.eraFrac * 0.14;
@@ -1378,6 +1412,20 @@ function computeCityLayout(s) {
   // Runtime seulement : le save n'est jamais touché ; __show/__hideWonder
   // invalident CM.layout pour que ce choix s'applique/se retire aussitôt.
   if (CM.previewWonder && CM_WONDERS.some((w) => w.id === CM.previewWonder.id)) builtWonderIds.add(CM.previewWonder.id);
+  // RANG ATTEINT par merveille : c'est lui qui dimensionne l'emprise (parvis,
+  // réserve, carve des routes, socle piéton). Résolu UNE fois ici et PUBLIÉ sur
+  // le layout (L.wonderTiers) — le runtime et le rendu doivent lire le rang que
+  // le PLAN a utilisé, pas relire l'état : `state` peut avoir bougé entre le
+  // calcul du plan et la frame, et un désaccord d'un cran ferait déborder le
+  // dallage hors des cellules réellement réservées. L'aperçu dev impose le sien.
+  const wonderTiers = {};
+  for (const w of CM_WONDERS) {
+    if (!builtWonderIds.has(w.id)) continue;
+    const pv = CM.previewWonder && CM.previewWonder.id === w.id ? CM.previewWonder.tier : null;
+    const t = pv != null ? pv : ((s && s.wonderTiers && s.wonderTiers[w.id]) || 1);
+    wonderTiers[w.id] = Math.max(1, Math.min(5, t | 0));
+  }
+  const tierOf = (id) => wonderTiers[id];
   const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
   const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
     ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
@@ -1390,7 +1438,7 @@ function computeCityLayout(s) {
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue; // era_mega : dans l'eau
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => occupiedFoot.add(k));
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => occupiedFoot.add(k), tierOf(w.id));
   }
   const footFits = (gx, gy, size) => {
     if (gx < 1 || gy < 1 || gx + size > N - 1 || gy + size > N - 1) return false;
@@ -1436,7 +1484,7 @@ function computeCityLayout(s) {
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => { reserved.add(k); wonderGround.add(k); });
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => { reserved.add(k); wonderGround.add(k); }, tierOf(w.id));
   }
   // ── Carve : aucune ROUTE sous l'emprise d'une merveille sèche. Les routes sont
   //    figées avant le calcul des slots ; on retire ici les cellules qui tombent
@@ -1451,7 +1499,7 @@ function computeCityLayout(s) {
     cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => {
       if (isBridgeSpanCell(gx, k)) return; // JAMAIS carver la travée du pont central sanctuarisé
       if (roadKey.has(k)) { roadKey.delete(k); roadMeta.delete(k); }
-    });
+    }, tierOf(w.id));
   }
   { // compacte `roads` en cohérence avec roadKey (même geste que trimDemandlessRoads)
     const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy));
@@ -1512,7 +1560,7 @@ function computeCityLayout(s) {
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => claimed.add(k));
+    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => claimed.add(k), tierOf(w.id));
   }
   const footprintFits = (gx, gy, sizeX, allowBank = false, allowRoad = false, sizeY = sizeX, allowWater = false) => {
     if (gx < 0 || gy < 0 || gx + sizeX > N || gy + sizeY > N) return false;
@@ -1571,38 +1619,128 @@ function computeCityLayout(s) {
     engineBaseCache.set(cacheKey, base);
     return base;
   };
-  // Fonction chaude (une exécution par bâtiment moteur × toutes les cellules) :
-  // clés dans un Float64Array + argsort d'indices, jitter par hash entier —
-  // pas d'objets temporaires ni de hash de chaîne par cellule.
-  const engineCandidates = (zone, affinity, size, id, index = 0, total = 1, limit = 1024) => {
+  // ── Géométrie de pool, calculée UNE fois et partagée par les instances ──────
+  // Le placement à froid (slots vides = 1er layout d'un cycle) dominait tout :
+  // 558 ms sur 756 mesurés au profileur à 29 types × 64 achats, soit 74 % du
+  // layout. Cause : engineCandidates refaisait un Math.hypot, un Math.atan2 et
+  // deux Math.imul PAR CELLULE, pour CHACUNE des ~700 instances — alors que ces
+  // trois grandeurs ne dépendent QUE de la cellule. Le score de toutes les zones
+  // terrestres se décompose en `radial(cellule) + poids × écart_angulaire` : seuls
+  // l'écart angulaire et le grain dépendent de l'instance.
+  //
+  // ⚠ L'ORDRE des additions est reproduit à l'identique zone par zone (radB avant
+  // ou après le terme angulaire selon la zone, cf. gyFirst). Ce n'est pas du zèle :
+  // le score départage des cellules candidates, et réassocier les flottants peut
+  // renverser une égalité, donc déplacer un bâtiment. On optimise le COÛT, jamais
+  // la disposition.
+  const ZONE_W = { center: 1.8, mid: 2.4, caravan: 1.4, edge: 2, outside: 1.2, knowledge: 2, ruin: 1.5 };
+  const engineGeoCache = new Map();
+  const engineGeoFor = (zone, affinity, size, cacheKey) => {
+    let g = engineGeoCache.get(cacheKey);
+    if (g) return g;
     const base = engineBaseFor(zone, affinity, size);
-    const waterAffine = cmWaterAffine(affinity);
-    const half = size / 2;
-    const idHash = cmHash(id + ":" + index) >>> 0;
-    const angleTarget = (Math.PI * 2 * index) / Math.max(1, total) + (cmHash(id) % 628) / 100;
-    const n = base.length;
-    const keys = new Float64Array(n);
+    const n = base.length, half = size / 2;
+    const ang = new Float64Array(n), radA = new Float64Array(n), radB = new Float64Array(n), h = new Int32Array(n);
     for (let i = 0; i < n; i += 1) {
       const cell = base[i];
       const px = cell.gx + half, py = cell.gy + half;
       const dist = Math.hypot(px - cx, py - cy);
-      let angular = Math.abs(Math.atan2(py - cy, px - cx) - angleTarget);
-      if (angular > Math.PI) angular = Math.PI * 2 - angular;
-      const jitter = (((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ idHash) >>> 0) % 1000) / 1000;
-      let k;
-      // Un bâtiment affine à l'eau se range le long du fil du courant, quelle
-      // que soit sa zone nominale.
-      if (waterAffine || zone === "river") k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
-      else if (zone === "center")    k = dist + angular * 1.8;
-      else if (zone === "mid")       k = Math.abs(dist - N * 0.24) + angular * 2.4;
-      else if (zone === "caravan")   k = Math.abs(dist - N * 0.38) + angular * 1.4;
-      else if (zone === "edge")      k = Math.abs(dist - N * 0.44) + angular * 2 + Math.max(0, cell.gy - cy) * 0.02;
-      else if (zone === "outside")   k = Math.abs(dist - N * 0.48) + Math.max(0, cy - cell.gy) * 0.025 + angular * 1.2;
-      else if (zone === "knowledge") k = Math.abs(dist - N * 0.28) + angular * 2 + Math.max(0, cell.gy - cy) * 0.01;
-      else if (zone === "ruin")      k = Math.abs(dist - N * 0.4) + angular * 1.5 + Math.max(0, cy - cell.gy) * 0.018;
-      else                           k = Math.abs(dist - N * 0.42) + angular * 1.8;
-      keys[i] = k + jitter;
+      ang[i] = Math.atan2(py - cy, px - cx);
+      h[i] = Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663);
+      if (zone === "center")         { radA[i] = dist; }
+      else if (zone === "mid")       { radA[i] = Math.abs(dist - N * 0.24); }
+      else if (zone === "caravan")   { radA[i] = Math.abs(dist - N * 0.38); }
+      else if (zone === "edge")      { radA[i] = Math.abs(dist - N * 0.44); radB[i] = Math.max(0, cell.gy - cy) * 0.02; }
+      else if (zone === "outside")   { radA[i] = Math.abs(dist - N * 0.48); radB[i] = Math.max(0, cy - cell.gy) * 0.025; }
+      else if (zone === "knowledge") { radA[i] = Math.abs(dist - N * 0.28); radB[i] = Math.max(0, cell.gy - cy) * 0.01; }
+      else if (zone === "ruin")      { radA[i] = Math.abs(dist - N * 0.4);  radB[i] = Math.max(0, cy - cell.gy) * 0.018; }
+      else                           { radA[i] = Math.abs(dist - N * 0.42); }
     }
+    // « outside » est la SEULE zone à poser son terme de latitude AVANT le terme
+    // angulaire — d'où le drapeau plutôt qu'un ordre unique.
+    g = { base, ang, radA, radB, h, w: ZONE_W[zone] ?? 1.8, gyFirst: zone === "outside" };
+    engineGeoCache.set(cacheKey, g);
+    return g;
+  };
+  // Tampon de scores RÉUTILISÉ. Il était alloué par appel : à 1204 instances ×
+  // ~25 000 cellules en fin de partie, cela faisait ~240 Mo de Float64Array jetés
+  // au ramasse-miettes pour un seul layout. Les appels sont synchrones et ne
+  // s'imbriquent pas, donc un seul tampon suffit ; on ne lit jamais au-delà de n.
+  let _engKeys = null;
+  const engineKeyBuf = (n) => {
+    if (!_engKeys || _engKeys.length < n) _engKeys = new Float64Array(n);
+    return _engKeys;
+  };
+  // Fonction chaude (une exécution par bâtiment moteur × toutes les cellules) :
+  // clés dans un Float64Array + argsort d'indices, jitter par hash entier —
+  // pas d'objets temporaires ni de hash de chaîne par cellule.
+  const engineCandidates = (zone, affinity, size, id, index = 0, total = 1,
+    limit = ((typeof globalThis !== "undefined" && globalThis.__engineTopK) || 1024)) => {
+    const _t0 = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? performance.now() : 0;
+    const waterAffine = cmWaterAffine(affinity);
+    const idHash = cmHash(id + ":" + index) >>> 0;
+    const angleTarget = (Math.PI * 2 * index) / Math.max(1, total) + (cmHash(id) % 628) / 100;
+    let base, keys, n;
+    // Bascule d'équivalence (A/B) : `globalThis.__engineGeoCache = false` rejoue le
+    // scoring d'origine, cellule par cellule. Sert à prouver que le cache produit
+    // une ville IDENTIQUE, pas seulement plus vite.
+    const legacy = (typeof globalThis !== "undefined" && globalThis.__engineGeoCache === false);
+    if (legacy) {
+      base = engineBaseFor(zone, affinity, size);
+      const half = size / 2;
+      n = base.length;
+      keys = engineKeyBuf(n);
+      for (let i = 0; i < n; i += 1) {
+        const cell = base[i];
+        const px = cell.gx + half, py = cell.gy + half;
+        const dist = Math.hypot(px - cx, py - cy);
+        let angular = Math.abs(Math.atan2(py - cy, px - cx) - angleTarget);
+        if (angular > Math.PI) angular = Math.PI * 2 - angular;
+        const jitter = (((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ idHash) >>> 0) % 1000) / 1000;
+        let k;
+        if (waterAffine || zone === "river") k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
+        else if (zone === "center")    k = dist + angular * 1.8;
+        else if (zone === "mid")       k = Math.abs(dist - N * 0.24) + angular * 2.4;
+        else if (zone === "caravan")   k = Math.abs(dist - N * 0.38) + angular * 1.4;
+        else if (zone === "edge")      k = Math.abs(dist - N * 0.44) + angular * 2 + Math.max(0, cell.gy - cy) * 0.02;
+        else if (zone === "outside")   k = Math.abs(dist - N * 0.48) + Math.max(0, cy - cell.gy) * 0.025 + angular * 1.2;
+        else if (zone === "knowledge") k = Math.abs(dist - N * 0.28) + angular * 2 + Math.max(0, cell.gy - cy) * 0.01;
+        else if (zone === "ruin")      k = Math.abs(dist - N * 0.4) + angular * 1.5 + Math.max(0, cy - cell.gy) * 0.018;
+        else                           k = Math.abs(dist - N * 0.42) + angular * 1.8;
+        keys[i] = k + jitter;
+      }
+    } else if (waterAffine || zone === "river") {
+      // Riverains : le score dépend de l'INSTANCE (fil du courant + décalage par
+      // index) donc rien n'est mutualisable — et ils sont une poignée. Boucle
+      // d'origine, inchangée.
+      base = engineBaseFor(zone, affinity, size);
+      const half = size / 2;
+      n = base.length;
+      keys = engineKeyBuf(n);
+      for (let i = 0; i < n; i += 1) {
+        const cell = base[i];
+        const px = cell.gx + half, py = cell.gy + half;
+        const jitter = (((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ idHash) >>> 0) % 1000) / 1000;
+        keys[i] = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22 + jitter;
+      }
+    } else {
+      const g = engineGeoFor(zone, affinity, size, "z:" + zone + ":" + size);
+      const ang = g.ang, radA = g.radA, radB = g.radB, gh = g.h, w = g.w, gyFirst = g.gyFirst;
+      base = g.base;
+      n = base.length;
+      keys = engineKeyBuf(n);
+      for (let i = 0; i < n; i += 1) {
+        let angular = Math.abs(ang[i] - angleTarget);
+        if (angular > Math.PI) angular = Math.PI * 2 - angular;
+        const jitter = (((gh[i] ^ idHash) >>> 0) % 1000) / 1000;
+        keys[i] = (gyFirst ? radA[i] + radB[i] + angular * w : radA[i] + angular * w + radB[i]) + jitter;
+      }
+    }
+    // Compteurs de diagnostic (uniquement sous __layoutProfile) : appels, cellules
+    // scorées, et répartition score/sélection. Sans eux on optimise à l'aveugle.
+    const _dbg = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? globalThis.__engCand : null;
+    if (_dbg) { _dbg.calls += 1; _dbg.cells += n; _dbg.scoreMs += performance.now() - _t0; }
+    const _t1 = _dbg ? performance.now() : 0;
     // Sélection top-K (tas max) : on n'a besoin que des ~meilleures cellules,
     // trier les dizaines de milliers d'autres serait du travail perdu.
     const K = Math.min(n, limit);
@@ -1612,6 +1750,7 @@ function computeCityLayout(s) {
       idx.sort((a, b) => keys[a] - keys[b]);
       const out = new Array(n);
       for (let i = 0; i < n; i += 1) out[i] = base[idx[i]];
+      if (_dbg) { _dbg.heapMs += performance.now() - _t1; _dbg.full += 1; }
       return out;
     }
     const heap = new Uint32Array(K);
@@ -1642,6 +1781,7 @@ function computeCityLayout(s) {
     idx.sort((a, b) => keys[a] - keys[b]);
     const out = new Array(idx.length);
     for (let i = 0; i < idx.length; i += 1) out[i] = base[idx[i]];
+    if (_dbg) _dbg.heapMs += performance.now() - _t1;
     return out;
   };
 
@@ -1656,7 +1796,7 @@ function computeCityLayout(s) {
     for (let ei = 0; ei < instances.length; ei += 1) {
       const groupLevel = instances[ei];
       requests.push({ meta, level, groupLevel, groupIndex: ei + 1, groupTotal: instances.length,
-        tier: cmEngineTier(groupLevel), size: cmEngineFootprint(meta.id, groupLevel), slotKey: cmMapSlotKey(s.cycles, meta.id, ei) });
+        tier: cmEngineTier(groupLevel), size: cmEngineGroupFoot(meta.id, groupLevel, ei), slotKey: cmMapSlotKey(s.cycles, meta.id, ei) });
     }
   }
   const placedSlotKeys = new Set();
@@ -1903,13 +2043,27 @@ function computeCityLayout(s) {
     if (!placed) {
       const candidates = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
       for (const cell of candidates) if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
-      // Si le top-K est saturé (toutes les bonnes cellules déjà prises),
-      // on retombe sur la liste complète.
+      // Top-K saturé (toutes les bonnes cellules déjà prises) : on ÉLARGIT par
+      // paliers au lieu de demander la liste complète d'un coup.
+      //
+      // Ce repli était LE coût du placement à froid. Mesuré en fin de partie
+      // (29 types × 300 achats, 20 573 cellules par pool) : 127 replis sur 1327
+      // appels, mais 1949 ms des 2318 ms du placement — parce que `Infinity`
+      // bascule engineCandidates sur un argsort COMPLET avec comparateur (~300 k
+      // comparaisons par appel), là où un top-K passe par un tas et reste ~O(n).
+      // Élargir géométriquement garde le tas tant que K < n, et l'ordre des
+      // candidats est le même (le top-4096 commence par le top-1024) : la ville
+      // posée est identique, seul le chemin pour y arriver change.
       if (!placed) {
-        const all = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity);
-        for (let ci = candidates.length; ci < all.length; ci += 1) {
-          const cell = all[ci];
-          if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
+        let scanned = candidates.length;
+        for (const wider of [2048, 4096, 8192, 16384, 32768, Infinity]) {
+          const list = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal, wider);
+          for (let ci = scanned; ci < list.length; ci += 1) {
+            const cell = list[ci];
+            if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
+          }
+          if (placed || list.length <= scanned) break;   // trouvé, ou pool épuisé
+          scanned = list.length;
         }
       }
       // Repli taille-1 pour les bâtiments affines à l'eau (rive souvent étroite).
@@ -2112,6 +2266,32 @@ function computeCityLayout(s) {
     if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
   }
   for (const k of occupiedFoot) if (!riverSet.has(k)) urbanSet.add(k);
+  // ── Un bâtiment se tient TOUJOURS sur du sol de ville ──────────────────────
+  // Le sol urbain venait presque uniquement d'organicLimit, un rayon dérivé des
+  // COMPTEURS (cityReachBase ← houses + engineHomes + enginePressure), alors que
+  // les bâtiments sont posés par anneaux de zone et, surtout, RELUS depuis
+  // `s.cityMapSlots` d'un recompute à l'autre. Les deux peuvent donc diverger :
+  // il suffit que le rayon se réduise (moins de maisons-compagnes, population qui
+  // baisse, réglage) pour que des bâtiments POSÉS quand la ville était plus large
+  // se retrouvent sur l'herbe. Mesuré sur ce cas exact : 239 moteurs sur 2058
+  // (12 %) plantés dans l'herbe, alors qu'un recompute à froid n'en montrait que 6.
+  // Signalé par Raph sur sa sauvegarde (« certains bâtiments n'ont plus de sols »),
+  // invisible sur toutes mes reproductions à froid.
+  //
+  // On ferme donc la divergence à la SOURCE plutôt qu'en retouchant le rayon :
+  // l'emprise de chaque bâtiment, plus une cellule de pourtour, appartient au sol
+  // de ville. La marge n'est pas cosmétique — une cellule urbaine ISOLÉE au milieu
+  // de l'herbe se lit comme une tache géométrique (même écueil que les losanges
+  // isolés de la lisière) ; avec le pourtour, un bâtiment écarté a une COUR.
+  for (const t of tiles) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = -1; ax <= sx; ax += 1) for (let ay = -1; ay <= sy; ay += 1) {
+      const gx = t.gx + ax, gy = t.gy + ay;
+      if (gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
+      const k = gx + "," + gy;
+      if (!riverSet.has(k)) urbanSet.add(k);
+    }
+  }
   lp("urbain");
   lpEnd();
   // Nombre de maisons-moteur RÉELLEMENT posées (road-limité) → base de la révélation
@@ -2121,7 +2301,7 @@ function computeCityLayout(s) {
     engineHomePlaced,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround,
+    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed
@@ -2179,6 +2359,7 @@ export {
   cmCheckWonders,
   cmClamp,
   cmBuildRoadGraph,
+  cmEngineAtelierFoot,
   cmHash,
   cmIsBridgeRoad,
   cmIsWalkableRoad,
@@ -2188,6 +2369,7 @@ export {
   cmWonderActive,
   cmWonderActiveIds,
   cmWonderExtent,
+  cmWonderSpriteDims,
   cmWonderCoreR,
   cmForEachWonderCell,
   WONDER_TIER_NAMES,

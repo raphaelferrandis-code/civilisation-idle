@@ -180,6 +180,18 @@
       "id": "c6f3fceb-265d-4e81-9532-1603187221bb",
       "anim": true,
       "prompt": "near-future megacity child, small, puffy charcoal techwear hooded jacket with glowing cyan neon trim, graphite trousers with luminous stripe, chunky light-up sneakers, cyan neon accents, realistic proportions, clean pixel art"
+    },
+    {
+      "name": "basket-man",
+      "id": "c218ee29-c4e0-47a4-af7f-6c61492ea33b",
+      "anim": true,
+      "prompt": "PAS la DA Figurine : ROTATION v3 (reference_image_base64) du sprite sud cardinal existant 3840227c → 8 dirs 100px, pour que les bandes diagonales collent aux cardinales encore utilisées par les scènes de marché. ⚠ APRÈS TOUT --force : la rotation sud-ouest de PixelLab est ratée (perso à 44 % de la frame contre 64 % ailleurs, pieds tronqués) → relancer `node scripts/mirrorAgentBand.mjs basket-man southeast southwest`, sinon le porteur rétrécit en marchant vers le sud"
+    },
+    {
+      "name": "basket-woman",
+      "id": "856be42d-2cdf-450f-b910-cc048f6ec6a3",
+      "anim": true,
+      "prompt": "PAS la DA Figurine : ROTATION v3 du sprite sud cardinal existant 674cfd45 → 8 dirs 88px (idem basket-man)"
     }
   ],
   "vehicles": [

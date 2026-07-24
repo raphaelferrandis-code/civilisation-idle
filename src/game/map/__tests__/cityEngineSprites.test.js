@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { drawCityEngineSprite } from "../cityEngineSprites.js";
 
-// cityEngineSprites.js porte un `/* eslint-disable */` : no-undef n'y est PAS
-// vérifié. Ce smoke-test exécute donc réellement le sprite pour attraper toute
-// variable indéfinie / erreur runtime, sur tous les stades d'ère et tiers.
+// Le lint ne voit pas ce qui se passe DANS une branche de stade : ce smoke-test
+// exécute réellement le sprite pour attraper toute variable indéfinie / erreur
+// runtime, sur tous les stades d'ère et tiers.
 
 // Mini-mock de CanvasRenderingContext2D : no-op + compteur de fillRect pour
 // vérifier qu'on dessine effectivement quelque chose.
@@ -17,8 +17,14 @@ function makeCtx() {
   for (const m of [
     "beginPath", "moveTo", "lineTo", "arc", "ellipse", "closePath", "fill",
     "stroke", "save", "restore", "translate", "rotate", "scale",
-    "quadraticCurveTo", "arcTo", "rect", "strokeRect", "fillText",
+    "quadraticCurveTo", "bezierCurveTo", "arcTo", "rect", "roundRect",
+    "strokeRect", "fillText", "clip", "setLineDash", "drawImage",
   ]) ctx[m] = () => {};
+  // Les scènes qui halonnent (nuit, néon) demandent un dégradé : sans ces deux-là le
+  // smoke-test s'arrête sur une méthode absente du MOCK et non sur un vrai défaut.
+  const grad = { addColorStop: () => {} };
+  ctx.createRadialGradient = () => grad;
+  ctx.createLinearGradient = () => grad;
   ctx.fillRect = () => { ctx._fills += 1; };
   return ctx;
 }
@@ -39,7 +45,7 @@ function makeContext({ id, ei, tier, now }) {
 // Un âge représentatif par stade (ei<10/<20/<30/sinon).
 const stages = [{ ei: 4 }, { ei: 14 }, { ei: 24 }, { ei: 32 }];
 
-describe.each(["water_mills", "mint_houses", "imperial_exchanges"])("drawCityEngineSprite — %s", (id) => {
+describe.each(["water_mills", "mint_houses", "imperial_exchanges", "caravans"])("drawCityEngineSprite — %s", (id) => {
   it("dessine les 4 stades d'ère pour chaque tier sans planter", () => {
     for (const { ei } of stages) {
       for (const tier of [0, 1, 2]) {

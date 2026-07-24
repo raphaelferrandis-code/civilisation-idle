@@ -41,6 +41,7 @@ import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune } from './iso/isoRenderer.js';
+import { fpBegin, fp, fpEnd } from './framePerf.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -151,6 +152,12 @@ function cityMapResizeCanvas(canvas) {
     // au-delà de la marge — « pas de textures avant de bouger la caméra ».
     CM._groundBake = null; CM._isoGroundBake = null;
   }
+  if (CM.quayCanvas) {
+    CM.quayCanvas.width = onw;
+    CM.quayCanvas.height = onh;
+    CM.qctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    CM._quayBake = null;
+  }
 }
 
 // Remet à null les états RÉELLEMENT relus par cityMapBakeMargin → re-bake à la
@@ -164,6 +171,7 @@ function cmInvalidateBakes() {
   CM._tileBake = null;
   CM._groundBake = null;
   CM._isoGroundBake = null;   // le sol iso partage CM.groundCanvas
+  CM._quayBake = null;
 }
 
 // Cible de foule pour un layout donné et un multiplicateur de densité. Extrait
@@ -808,7 +816,13 @@ function cityMapEnsureLayout(now, deps = {}) {
   // Les merveilles réservent leur clairière au prochain calcul du plan : leur
   // érection doit donc invalider le layout, sinon elles s'affichent par-dessus
   // les bâtiments existants jusqu'à la régénération suivante.
-  const wonderSig = cmWonderActiveIds(state).size;
+  // Le COMPTE ne suffit plus : depuis que l'emprise suit le rang (cf.
+  // cmWonderExtent), une montée de rang change le parvis, la réserve et le carve
+  // des routes sans changer le nombre de merveilles érigées. Avec le seul compte,
+  // le plan restait figé sur l'ancienne emprise et la place ne grandissait
+  // jamais — le rang entre donc dans la signature, trié pour rester stable.
+  const wonderSig = [...cmWonderActiveIds(state)].sort()
+    .map((id) => id + ':' + (((state.wonderTiers && state.wonderTiers[id]) || 1) | 0)).join(',');
   // Routes achetées → budget de connexion du réseau (connectBuildingsToNetwork) : un
   // achat change la signature → recompute. Dans `sig` seulement (pas `coreSig`) → mis à
   // jour sur le chemin throttlé (≤1/1500ms), sûr même si une automation en achète en rafale.
@@ -988,7 +1002,11 @@ function cityMapEnsureLayout(now, deps = {}) {
       const slot = L.wonderSlots[wi];
       // Le slot n'appartient au parvis que si la merveille est érigée dans CE plan.
       if (!slot || !L.wonderGround.has(slot.gx + "," + slot.gy)) continue;
-      const coreR = cmWonderCoreR(w.id);
+      // Rang LU SUR LE PLAN (L.wonderTiers), pas relu dans `state` : c'est celui
+      // qui a dimensionné wonderGround. Un cran d'écart et l'anneau piéton
+      // tomberait hors du parvis réellement pavé.
+      const tier = (L.wonderTiers && L.wonderTiers[w.id]) || 1;
+      const coreR = cmWonderCoreR(w.id, tier);
       cmForEachWonderCell(slot, w.id, L.gridN, (gx, gy, k) => {
         if (!L.wonderGround.has(k)) return;
         if (rivC && rivC.has(k)) return;             // parvis rogné par le fleuve
@@ -1001,7 +1019,7 @@ function cityMapEnsureLayout(now, deps = {}) {
           const face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 0) : (dy > 0 ? 3 : 2);
           CM.wonderGatherCells.push({ gx, gy, face });
         }
-      });
+      }, tier);
     }
     for (const k of CM.wonderWalkSet) CM.walkRoadSet.add(k);
   }
@@ -1333,11 +1351,17 @@ function initCityMap(canvas, options = {}) {
     // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
     CM.groundCanvas = _mkOC(_pw, _ph);
     CM.gctx = CM.groundCanvas.getContext('2d');
+    // QUAIS : même raison que le sol — géométrie statique (promenade le long du
+    // ruban) qui pesait ~10 000 lineTo par frame en direct. Canvas SÉPARÉ du sol :
+    // le quai se dessine APRÈS le fleuve live, il ne peut pas partager son bake.
+    CM.quayCanvas = _mkOC(_pw, _ph);
+    CM.qctx = CM.quayCanvas.getContext('2d');
     // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
-    if (!CM.sctx || !CM.tctx || !CM.gctx) { CM.inited = false; return; }
+    if (!CM.sctx || !CM.tctx || !CM.gctx || !CM.qctx) { CM.inited = false; return; }
     CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+    CM.qctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
     // module qui survit au démontage : sans ça, les états de bake du montage
     // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
@@ -1399,8 +1423,12 @@ function initCityMap(canvas, options = {}) {
     // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).
     const active = isActive() || !!CM.capture;
     if (active && CM.canvas && CM.cw > 0) {
+      // Relevé de frame (cf. framePerf.js). Ouvert ICI et non dans le renderer :
+      // le préambule ci-dessous coûtait 93 ms contre 32 ms pour tout le dessin.
+      fpBegin();
       if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
+      fp('layout');
       // A9 — Clavier tenu (flèches/+/-) puis rattrapage amorti, AVANT le clamp
       // (qui reste le juge final du cadre) : zoom qui glisse, vol de recentrage,
       // inertie de pan.
@@ -1408,6 +1436,7 @@ function initCityMap(canvas, options = {}) {
       cmCameraGlide(dt);
       cmClampCamera();
       cmCheckWonders(now);
+      fp('camera-merveilles');
 
       // Arrivée progressive des citoyens : cadence selon l'ère et la population
       const target = CM.citizenTarget || 0;
@@ -1430,6 +1459,7 @@ function initCityMap(canvas, options = {}) {
       // mais l'option ne force que l'AFFICHAGE : l'horloge simulée continue de
       // tourner pour le gameplay via CM.riotWindow, sinon figer le ciel
       // désactiverait les émeutes (bug trouvé en revue 2026-07-20).
+      fp('foule-spawn');
       const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
       // En capture, la fenêtre est COUPÉE : un cliché est déterministe, l'heure
       // murale ne doit pas décider si une foule d'émeute y figure (captureFrame
@@ -1459,6 +1489,10 @@ function initCityMap(canvas, options = {}) {
         // Lissage : la palette glisse au fil des secondes, elle ne saute pas.
         CM.healthF += (healthT - CM.healthF) * Math.min(1, dt * 0.8);
       }
+      // pressureBreakdown() + cityVitals() tournent ICI, à chaque frame : deux
+      // calculs d'ÉCONOMIE au service d'une teinte qui, elle, est lissée sur
+      // plusieurs secondes. Suspect nº 1 du préambule — d'où son propre poste.
+      fp('sante-economie');
       // LOD : sous ce zoom, les sprites individuels deviennent du bruit — on
       // bascule sur des masses de quartier + la couche de lumières. Seuil piloté
       // par le préréglage Qualité (cmLodZoom) : 0 en « Élevée » → jamais de LOD,
@@ -1505,6 +1539,7 @@ function initCityMap(canvas, options = {}) {
         CM.frameEraIndex = CM.layout.counts.eraIndex || 0;
         CM.frameRuined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
       }
+      fp('ambiance-meteo-saison');
       // Detection d'effondrement (anim de destruction centre -> exterieur).
       if (typeof collapseInProgress !== "undefined" && collapseInProgress) { if (!CM.collapseAt) CM.collapseAt = now; }
       else { CM.collapseAt = 0; }
@@ -1547,6 +1582,7 @@ function initCityMap(canvas, options = {}) {
           CM._revealSeen = _rev;
         }
       }
+      fp('reveal-per-achat');
       // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
       // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
       // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
@@ -1698,6 +1734,7 @@ function initCityMap(canvas, options = {}) {
       drawVehicles(now, "air"); // drones au-dessus
       if (!CM.lodActive) drawCitizenThoughts(now);
       } // fin du pipeline legacy (voir la bascule CM.iso en tête de bloc)
+      fpEnd();
     }
   }
   // Premiere mise en page immediate puis boucle.

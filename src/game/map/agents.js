@@ -160,6 +160,19 @@ function riotEraKey(band) {
 }
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
 
+// Roster des personnages que le rendu ISO peut réclamer en vue DIAGONALE :
+// habitants d'ère + porteurs de panier (le porteur est un « véhicule » côté
+// moteur mais se dessine comme un piéton). Un nom SANS ses 4 bandes diagonales
+// retombe silencieusement sur la bande cardinale et marche donc de face sur une
+// route en biais — invisible au lint comme au rendu automatisé, d'où la garde
+// d'existence de __tests__/isoAgentDiagonals.test.js.
+const BASKET_CARRIERS = ['basket-man', 'basket-woman'];
+const ISO_AGENT_NAMES = [...new Set([
+  ...[AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_FUTURE]
+    .flatMap((set) => [...set.men, ...set.women, set.child].map((s) => s.name)),
+  ...BASKET_CARRIERS,
+])];
+
 ensureAgentChar('villager');
 for (const set of [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_FUTURE])
   for (const s of [...set.men, ...set.women, set.child]) ensureAgentChar(s.name);
@@ -2119,4 +2132,4 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir };

@@ -13,7 +13,8 @@
 //     re-générés en diagonales en Phase 4) ; véhicules mis à jour mais PAS dessinés ;
 //   - PAS de nuit/santé/LOD/lumières/ponts/quais/merveilles ici (Phases 3-5).
 // Tuiles PixelLab iso : APRÈS le go (le jalon protège le budget d'art).
-import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
+import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
+import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, visibleCellBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
@@ -21,7 +22,8 @@ import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, 
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEngineSprites.js';
-import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate } from '../renderWorld.js';
+import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
+import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
 import {
@@ -976,24 +978,68 @@ if (typeof window !== 'undefined') {
 // Demande Raph 2026-07-13 : la grande zone réservée d'une merveille (dès le
 // rang I) doit se LIRE comme une PLACE, pas comme du sol urbain ordinaire — et
 // le monument trône en son CENTRE (emprise carrée, cf. cmWonderExtent).
-// Dallage = tuile de PLACE pixel-art (iso-plaza, cf. ISO_TILE_KEYS.wonder),
-// intemporel quelle que soit l'ère ; repli (PNG pas prêt) = aplat ivoire en
-// damier doux + joints de dalles. Sur tout le POURTOUR, marche d'ombre +
-// MARGELLE claire (arêtes dont le voisin n'est pas du parvis).
-// Réglage live : __wonderGround({ tone, checker, joint, rim }) / (false).
-// Défauts calés à la capture (2026-07-13) : base ROSÉE (s'accorde au tuilage
-// iso-plaza et tranche sur le sol urbain crème des ères claires) + voile 0.6.
-const WONDER_GROUND = { on: true, tone: [219, 199, 181], checker: 0.05, joint: 0.10, rim: 1.10, tileAlpha: 0.6 };
-function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg, tiled) {
+// Base = aplat ROSÉ STRICTEMENT UNI, dallage = joints tracés en coordonnées
+// MONDE (drawWonderPaving). Sur tout le POURTOUR, marche d'ombre + MARGELLE
+// claire (arêtes dont le voisin n'est pas du parvis).
+// Réglage live : __wonderGround({ tone, pave, joint, rim, tileAlpha }) / (false).
+//
+// ⚠ TROIS MOTIFS AU PAS DE LA CELLULE RETIRÉS le 2026-07-24 (retour Raph :
+// « l'effet carré des plaques au sol »). Le parvis cumulait un damier ±5 % par
+// cellule, un joint le long de deux arêtes de CHAQUE losange, et la tuile
+// iso-plaza (quatre grandes dalles dessinées) reblittée par cellule avec un
+// miroir un coup sur deux. Trois périodes égales à celle de la grille : l'œil
+// ne lisait pas un dallage mais des plaques, parce qu'une cellule vaut un LOT
+// DE MAISON et qu'un pavé de cette taille n'existe pas. C'est la règle déjà
+// écrite plus bas pour tous les autres sols (« aucune valeur par CELLULE ») ;
+// le parvis en était la seule exception, et c'est elle qui se voyait.
+// La tuile reste branchée sous tileAlpha (défaut 0) pour rester essayable.
+// `pave` calé à la capture : 3 donne une dalle large comme un tiers de lot, qui
+// se relit en plaques dès qu'on dézoome ; 4 tient l'échelle (une dalle pour un
+// quart de lot) et le champ reste calme. Sous 3 le motif redevient la grille.
+export const WONDER_GROUND = { on: true, tone: [219, 199, 181], pave: 4, joint: 0.07, rim: 1.10, tileAlpha: 0 };
+// DALLAGE : joints d'un appareillage posé dans le repère MONDE, au pas TILE/pave,
+// À JOINTS DÉCALÉS (une rangée sur deux glisse d'une demi-dalle). Le décalage est
+// ce qui compte : sans lui les joints de bout se réalignent en maille croisée et
+// on retombe sur un quadrillage, juste plus fin.
+//
+// Tout tient DANS le losange de la cellule (les indices de dalle sont absolus,
+// `pave` divise la cellule) : pas de clip, coût borné à pave + pave² segments par
+// cellule, et le motif ne glisse pas d'un pan à l'autre. Les rangs `dk` et les
+// joints `dj` s'arrêtent à div-1 : l'arête SO et l'arête SE appartiennent à la
+// cellule suivante, qui trace les siens — chaque joint interne est tracé une fois
+// et les lignes se raboutent d'une cellule à l'autre.
+export function drawWonderPaving(ctx, gx, gy, px, py, hw, hh) {
+  const div = WONDER_GROUND.pave | 0;
+  if (div < 1 || !(WONDER_GROUND.joint > 0)) return;
+  // Trop loin : sous ~5 px la dalle, la trame vire au gris sale — on rend
+  // l'aplat nu, comme le bake allégé rend le sol sans ses détails fins.
+  if ((hw * 2) / div < 5) return;
+  const ex = hw / div, ey = hh / div;        // pas d'UNE dalle en x monde, projeté
+  const sx = (dj, dk) => px + (dj - dk) * ex;
+  const sy = (dj, dk) => py + (dj + dk) * ey;
+  ctx.beginPath();
+  for (let dk = 0; dk < div; dk += 1) {
+    // RANG : joint long, continu d'une cellule à la suivante.
+    ctx.moveTo(sx(0, dk), sy(0, dk));
+    ctx.lineTo(sx(div, dk), sy(div, dk));
+    // JOINTS DE BOUT du rang, décalés d'une demi-dalle un rang sur deux. L'indice
+    // ABSOLU du rang décide (gy * div + dk), sinon le décalage se remettrait à
+    // zéro à chaque cellule et redessinerait la grille qu'on retire.
+    const off = ((gy * div + dk) & 1) ? 0.5 : 0;
+    for (let dj = 0; dj < div; dj += 1) {
+      const a = dj + off;
+      ctx.moveTo(sx(a, dk), sy(a, dk));
+      ctx.lineTo(sx(a, dk + 1), sy(a, dk + 1));
+    }
+  }
+  ctx.strokeStyle = rgb(WONDER_GROUND.tone, 1 - WONDER_GROUND.joint);
+  ctx.lineWidth = Math.max(1, Math.round((hw * 2) / div * 0.045));
+  ctx.stroke();
+}
+function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg) {
   const shade = (f) => rgb(WONDER_GROUND.tone, f);
   const N = [px, py], E = [px + hw, py + hh], S = [px, py + hh * 2], W = [px - hw, py + hh];
   const seg = (a, b, style, lw) => { ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); };
-  // Joints de dalles : SEULEMENT en repli procédural (la tuile pixel porte son
-  // propre dallage — des joints par-dessus feraient un quadrillage parasite).
-  if (!tiled) {
-    const jl = shade(1 - WONDER_GROUND.joint), lw = Math.max(1, hw * 0.03);
-    seg(N, E, jl, lw); seg(N, W, jl, lw);
-  }
   // Pourtour : marche d'ombre (nu extérieur) + margelle claire en retrait. Traits
   // RENTRÉS vers le centre pour survivre au liseré anti-couture des cellules
   // voisines (dessinées après : elles recouvrent l'arête partagée).
@@ -1015,14 +1061,16 @@ function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg, tiled) {
 function wonderGroundSet(L) {
   const pv = CM.previewWonder;
   if (!pv) return L.wonderGround || null;
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + pv.id;
+  // Le RANG entre dans la clé de mémoïsation : __showWonder(id, rang) change
+  // l'emprise sans recalculer le plan, et le cache renvoyait l'ancienne taille.
+  const sig = (CM.layoutRecomputeAt || 0) + ':' + pv.id + ':' + pv.tier;
   const cache = CM._pvWonderGround;
   if (cache && cache.sig === sig) return cache.set;
   const set = new Set(L.wonderGround || []);
   const wi = CM_WONDERS.findIndex((w) => w.id === pv.id);
   if (wi >= 0 && pv.id !== 'era_mega' && L.gridN) {
     const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
-    cmForEachWonderCell(slot, pv.id, L.gridN, (gx, gy, k) => set.add(k));
+    cmForEachWonderCell(slot, pv.id, L.gridN, (gx, gy, k) => set.add(k), pv.tier);
   }
   CM._pvWonderGround = { sig, set };
   return set;
@@ -1061,6 +1109,7 @@ function drawIsoGround() {
   const roadMap = L.roadMap;
   const roads = [];                    // cellules-route de la passe (rubans après le fond)
   const fringes = [];                  // arêtes herbe↔sol de la passe (frange après le fond)
+  const wonderCells = [];              // (gx, gy, px, py) du parvis — dallage + margelle après le fond
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;   // parvis des merveilles
   // Résolution du TYPE de sol par cellule, MÉMOÏSÉE : le même verdict sert au
   // fond ET aux tests de voisinage de la frange d'herbe (aucune divergence
@@ -1184,9 +1233,10 @@ function drawIsoGround() {
       // et place gardent leur tuile pleine (elles portent bien le détail).
       // Urbain : plus de tuile générique (0) — la MATIÈRE par ère (drawUrbanDetail)
       // porte tout le détail. dirt garde son grain, place/reste sa tuile pleine.
-      // Parvis : la tuile de place en VOILE dosé (pleine force, son motif écaillé
-      // répété sur 15×15 cellules criait — même défaut que la v2 urbaine) ; le
-      // damier ivoire de l'aplat reste la base, la tuile n'apporte que le grain pixel.
+      // Parvis : tuile COUPÉE (tileAlpha 0). Même en voile dosé, iso-plaza dessine
+      // quatre grandes dalles : reblittée par cellule, son motif se répétait au pas
+      // de la grille et le miroir cassait net au bord — deux tiers de « l'effet
+      // plaques ». Le dallage passe désormais par drawWonderPaving (repère MONDE).
       const texAlpha = kind === 'urban' ? 0 : kind === 'dirt' ? 0.5
         : kind === 'wonder' ? WONDER_GROUND.tileAlpha
           : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
@@ -1199,9 +1249,11 @@ function drawIsoGround() {
         // Raph 2026-07-16 — même écueil que l'herbe jadis : toute variation par
         // CELLULE montre la grille). La vie vient de motifs CONTINUS (trame de
         // cailloux à densité lissée, frange, fleurs), jamais d'un ton par cellule.
-        // Seule exception : le parvis, DAMIER régulier 2 teintes (dallage voulu).
-        const v = kind === 'wonder' ? (((gx + gy) & 1) ? 1 : 1 - WONDER_GROUND.checker) : 1;
-        ctx.fillStyle = rgb(tone, v);
+        // PLUS D'EXCEPTION : le parvis portait un damier 2 teintes indexé sur
+        // (gx+gy)&1 — un dallage VOULU, mais dessiné au pas de la cellule, donc
+        // exactement la faute que le reste du paragraphe interdit. Retiré le
+        // 2026-07-24 ; le dallage se lit maintenant aux joints de drawWonderPaving.
+        ctx.fillStyle = rgb(tone, 1);
         diamondPath(ctx, p.x, p.y, hw, hh);
         ctx.fill();
         // Anti-couture : fin liseré de la même couleur par-dessus les bords partagés.
@@ -1213,10 +1265,15 @@ function drawIsoGround() {
         // depuis que la trame terre est dosée. Retour Raph : les retirer.)
         if (PR) PR.flat += performance.now() - tF;
       }
-      if (tileReady) {
+      // `texAlpha > 0` : à 0 le blit ne peignait rien mais coûtait plein pot (c'est
+      // le cas du parvis depuis que sa tuile est coupée). Le MIROIR est refusé au
+      // parvis : le flip un coup sur deux fait une cassure DURE au bord de cellule,
+      // soit précisément la couture qu'on retire — s'il rallume tileAlpha pour
+      // essayer, il ne doit pas récupérer le défaut avec.
+      if (tileReady && texAlpha > 0) {
         const tT = PR && performance.now();
         if (texAlpha < 1) ctx.globalAlpha = texAlpha;
-        blitIsoTile(ctx, kind, p.x, p.y, hw, mir);
+        blitIsoTile(ctx, kind, p.x, p.y, hw, kind !== 'wonder' && mir);
         if (texAlpha < 1) ctx.globalAlpha = 1;
         if (PR) PR.tiles += performance.now() - tT;
       }
@@ -1283,9 +1340,12 @@ function drawIsoGround() {
           ctx.fill();
         }
       }
-      // Parvis : bordure de pourtour (+ joints de dalles tant que la tuile n'est
-      // qu'un voile — elles portent la structure du dallage ; tuile PLEINE = motif à elle).
-      if (kind === 'wonder') drawWonderGroundDetail(ctx, gx, gy, p.x, p.y, hw, hh, wg, tileReady && texAlpha >= 1);
+      // Parvis : dallage + margelle DIFFÉRÉS après le fond, même raison que la
+      // frange d'herbe — les deux mordent sur des arêtes partagées, et la cellule
+      // voisine peinte plus tard repasse son liseré anti-couture dessus. Tracés
+      // dans la boucle, la moitié des joints internes survivait selon l'ordre de
+      // balayage (une lacune qui se lit comme un défaut de dallage).
+      if (kind === 'wonder') wonderCells.push(gx, gy, p.x, p.y);
       // Frange d'herbe : mémorise chaque arête sol↔herbe de cette cellule — la
       // frange se dessine APRÈS le fond (elle mord sur des voisins déjà peints,
       // quel que soit l'ordre de balayage). Sols urbain/terre seulement : les
@@ -1310,6 +1370,16 @@ function drawIsoGround() {
     }
   }
   if (PR) PR.cells = performance.now() - tLoop;
+  // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
+  // encadre le parvis et doit rester au-dessus des joints, comme avant.
+  if (wonderCells.length) {
+    for (let i = 0; i < wonderCells.length; i += 4) {
+      drawWonderPaving(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh);
+    }
+    for (let i = 0; i < wonderCells.length; i += 4) {
+      drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg);
+    }
+  }
   // Voiles d'herbe puis FLEURS : même ordre qu'avant (voile sous fleur), mais en
   // fills d'union groupés. Les motifs de drawGrassDetail tiennent dans leur
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
@@ -2056,7 +2126,11 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const t = (now || 0) / 1000;
   // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
   // (cityMapRuntime) — une mesure faite en capture ne voit JAMAIS le cas pluie.
-  const rf = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
+  // EN HIVER l'averse tombe en NEIGE (cf. precipKind) : le ciel se couvre encore
+  // un peu, mais un flocon ne CREUSE pas l'eau. On garde donc un tiers de l'effet
+  // — sans quoi l'eau se mettait à claquer comme sous l'orage pendant qu'il neige.
+  const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
+  const rf = precipKind(CM.season, rf0) === 'snow' ? rf0 * 0.35 : rf0;
   const mix = (a, b) => a + (b - a) * rf;
   const fps = mix(G.fair.fps, G.rain.fps);
   const drift = mix(G.fair.drift, G.rain.drift);
@@ -2976,6 +3050,11 @@ function drawIsoNight(now) {
   // Reflets de la ville sur l'eau : APRÈS le voile (sinon le multiply les éteint),
   // avant les halos de lampadaires — même ordre additif que le legacy.
   drawIsoCityReflections(ctx, now);
+  // Feux de la ville (scènes moteur, braseros des merveilles) : ils ont déposé
+  // leur lumière pendant la passe des bâtiments, on la pose ici. AVANT le retour
+  // anticipé ci-dessous : un feu brûle aussi de jour et hors LOD-lampes, et une
+  // file jamais vidée traînerait d'une frame sur l'autre.
+  paintFlameGlows(ctx);
   if (!L || CM.lodActive || !LAMP_LIGHT.on) return;   // pas de sprites-lampes en LOD → pas de lumières
   const T = CM.TILE, z = CM.cam.zoom;
   const b = visibleCellBounds(0);
@@ -3407,7 +3486,14 @@ function drawIsoVehicle(ctx, v, now, z) {
   const p = worldToScreen(wx, wy);
   if (p.x < -s * 2 || p.y < -s * 2 || p.x > CM.cw + s * 2 || p.y > CM.ch + s * 2) return;
   if (v.type === 'basket') {                       // porteurs de panier (ères anciennes)
-    drawNamedAgent(ctx, p.x, p.y, z, v.woman ? 'basket-woman' : 'basket-man', 0.85, v.dir, (v.pauseT || 0) <= 0, now, v.x * 0.02);
+    // Le porteur marche sur une route, donc toujours en biais à l'écran : vue
+    // DIAGONALE si sa bande est livrée (même contrat que les habitants d'ère,
+    // animation par DISTANCE via l'odomètre v.rollDist), sinon repli cardinal.
+    const nm = v.woman ? 'basket-woman' : 'basket-man';
+    const walking = (v.pauseT || 0) <= 0;
+    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 0.85, v.dir, walking, now, v.x * 0.02, 1, v.rollDist != null ? v.rollDist : null)) {
+      drawNamedAgent(ctx, p.x, p.y, z, nm, 0.85, v.dir, walking, now, v.x * 0.02);
+    }
     return;
   }
   const size = VEH_SIZES[v.type];
@@ -3576,9 +3662,150 @@ function drawIsoRioter(ctx, p, now, z) {
 // les scènes est déjà coupé game-wide (DRAW_BUILDING_GROUND=false). Molette
 // __isoEngineScenes(false) → retour aux socles ; une scène qui jette est mise en
 // quarantaine (socle) pour la session, sans casser la frame.
+// Taille de dessin MAXIMALE d'une halle, en multiples de l'atelier de son type.
+// Valeur choisie À L'ŒIL sur captures comparées (foragers 60, band 0, zoom 3.2) :
+//   1.35 → panier à la taille d'un atelier : la halle devient INDISCERNABLE, on
+//          perd le monument que le modèle « halle + ateliers » promet ;
+//   1.7  → panier à hauteur de poitrine : nettement le plus gros du quartier,
+//          et encore un objet qu'un humain peut porter. ← retenu
+//   2.1  → panier à l'épaule, on repart vers l'absurde ;
+//   3    → aucun bornage : la scène s'étire sur toute l'emprise.
+// Molette de réglage en live : window.__hallSceneMax.
+const HALL_SCENE_MAX_DEFAULT = 1.7;
+// ⚠ Le bornage ne vaut QUE pour les ères où la scène est un DIORAMA D'OBJETS
+// (campements, paniers, huttes : bandes 0-2). Là, agrandir la scène agrandit un
+// panier de fruits, ce qui est absurde. À partir de la pierre (bande 3+), la
+// scène EST un bâtiment, terrasse et perron compris dans le sprite : le borner
+// rétrécissait le bâtiment ET escamotait son socle — « certains bâtiments n'ont
+// plus de sols » (Raph, capture d'une ville band 4 ; halle des guildes mesurée à
+// 0,57× et sa terrasse pavée disparue avec elle). Un bâtiment de pierre plus
+// grand est simplement un plus grand bâtiment : rien à corriger.
+const HALL_SCENE_CAP_MAX_BAND = 2;
 const isoEngineScenesFlag = { on: true };
 if (typeof window !== 'undefined') window.__isoEngineScenes = (on) => { isoEngineScenesFlag.on = on !== false; return isoEngineScenesFlag.on; };
 const _isoSceneQuarantine = new Set();   // buildingIds dont la scène a jeté (repli socle)
+
+// ── SILHOUETTE DORÉE DU MOTEUR SURVOLÉ ──────────────────────────────────────
+// Les habitations ont leur liseré depuis A3 (drawPixelHouseOutline) : elles ont
+// UNE image, on la décale quatre fois et on remplit en source-in. Un moteur n'en
+// a pas une mais une SCÈNE — des props PixelLab blités plus quelques détails
+// procéduraux. On la redessine donc HORS ÉCRAN pour obtenir la même chose.
+//
+// ⚠ CE QUI REND L'ÉCHANGE POSSIBLE : drawEngineSprite ne reçoit pas de contexte,
+// il lit CM.ctx une fois en tête ; et cityEngineSprites, lui, reçoit le sien
+// d'en haut et ne relit jamais CM.ctx. Échanger CM.ctx le temps du tracé
+// redirige donc la scène ENTIÈRE, props compris. Vérifié avant d'écrire.
+//
+// La scène n'est dessinée QU'UNE FOIS hors écran (elle est chère), et ce sont
+// ses quatre copies décalées qui sont bon marché. Ne tourne que pour la tuile
+// survolée : au plus un moteur par frame.
+// ── EMPRISE RÉELLE D'UNE SCÈNE MOTEUR (encre), en fractions de sa boîte ─────
+// ⚠ LA BOÎTE D'UNE SCÈNE EST CARRÉE, de côté égal à la largeur du losange. Or
+// un losange iso est deux fois plus large que haut : le carré déborde donc
+// ÉNORMÉMENT au-dessus du bâtiment, sur du vide transparent. Publier ce carré
+// tel quel au hit-test faisait qu'un moteur volait le survol de ses voisins —
+// souris sur la guilde, ce sont les Tribunaux qui s'allumaient. Les habitations
+// n'ont jamais eu ce défaut : drawPixelHouse rend une boîte ROGNÉE sur le
+// contenu du sprite.
+//
+// On mesure donc l'encre une fois par espèce de bâtiment, à taille de
+// référence, et on met le résultat en cache. Le rendu d'une scène dépend de
+// l'identifiant, du palier d'achat et de l'ère : la clé les porte tous.
+const ENG_INK_REF = 96;                 // côté de la mesure, assez fin sans coûter
+const _engInkCache = new Map();
+let _engInkCanvas = null;
+function engineInkFrac(t, now) {
+  if (typeof document === 'undefined') return null;
+  const key = (t.buildingId || t.variant || '?') + ':' + (t.tier || 0)
+    + ':' + (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
+  const cached = _engInkCache.get(key);
+  if (cached) return cached;
+  if (!_engInkCanvas) {
+    _engInkCanvas = document.createElement('canvas');
+    _engInkCanvas.width = ENG_INK_REF; _engInkCanvas.height = ENG_INK_REF;
+  }
+  const c = _engInkCanvas;
+  const cctx = c.getContext('2d', { willReadFrequently: true });
+  cctx.clearRect(0, 0, ENG_INK_REF, ENG_INK_REF);
+  const prevCtx = CM.ctx;
+  CM.ctx = cctx;
+  try { drawEngineSprite(t, 0, 0, ENG_INK_REF, ENG_INK_REF, now); }
+  catch { CM.ctx = prevCtx; return null; }
+  CM.ctx = prevCtx;
+
+  const d = cctx.getImageData(0, 0, ENG_INK_REF, ENG_INK_REF).data;
+  let x0 = ENG_INK_REF, y0 = ENG_INK_REF, x1 = -1, y1 = -1;
+  for (let y = 0; y < ENG_INK_REF; y += 1) {
+    for (let x = 0; x < ENG_INK_REF; x += 1) {
+      if (d[(y * ENG_INK_REF + x) * 4 + 3] < 16) continue;   // quasi transparent
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  // Rien d'encré : props pas encore chargés, ou scène en repli. On ne met RIEN
+  // en cache — sinon la première frame, celle où les PNG manquent encore,
+  // figerait une emprise fausse pour toute la session.
+  if (x1 < x0 || y1 < y0) return null;
+  const frac = {
+    x0: x0 / ENG_INK_REF,
+    y0: y0 / ENG_INK_REF,
+    w: (x1 - x0 + 1) / ENG_INK_REF,
+    h: (y1 - y0 + 1) / ENG_INK_REF
+  };
+  _engInkCache.set(key, frac);
+  return frac;
+}
+
+let _engOutlineA = null, _engOutlineB = null;
+function drawIsoEngineOutline(t, bx, by, bw, now, color) {
+  if (typeof document === 'undefined') return;
+  const p = 1;
+  const w = Math.max(1, Math.ceil(bw));
+  const cw = w + p * 2;
+  if (!_engOutlineA) { _engOutlineA = document.createElement('canvas'); _engOutlineB = document.createElement('canvas'); }
+  const a = _engOutlineA, b = _engOutlineB;
+  if (a.width < w || a.height < w) { a.width = w; a.height = w; }
+  if (b.width < cw || b.height < cw) { b.width = cw; b.height = cw; }
+  const actx = a.getContext('2d'), bctx = b.getContext('2d');
+  actx.clearRect(0, 0, a.width, a.height);
+  bctx.clearRect(0, 0, b.width, b.height);
+
+  const prevCtx = CM.ctx;
+  CM.ctx = actx;
+  // Les feux ne doivent PAS éclairer pendant cette passe : le remplissage
+  // source-in ci-dessous convertit tout pixel non transparent en or, si bien
+  // qu'un halo doux deviendrait une auréole autour du bâtiment au lieu d'un
+  // liseré net. La silhouette veut la MATIÈRE de la scène, pas sa lumière.
+  suspendFlameGlow(true);
+  try {
+    drawEngineSprite(t, 0, 0, w, w, now);
+  } catch {
+    suspendFlameGlow(false);
+    CM.ctx = prevCtx;
+    return;                       // une scène qui jette ne doit pas coûter la frame
+  }
+  suspendFlameGlow(false);
+  CM.ctx = prevCtx;
+
+  // On ne blitte QUE la zone utile : le canevas est réutilisé et peut être plus
+  // grand que la boîte courante (il ne rétrécit jamais).
+  for (const [dx, dy] of [[0, p], [p * 2, p], [p, 0], [p, p * 2]]) {
+    bctx.drawImage(a, 0, 0, w, w, dx, dy, w, w);
+  }
+  bctx.globalCompositeOperation = 'source-in';
+  bctx.fillStyle = color;
+  bctx.fillRect(0, 0, cw, cw);
+  bctx.globalCompositeOperation = 'source-over';
+
+  const ctx = CM.ctx;
+  const sm = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(b, 0, 0, cw, cw, bx - p, by - p, cw, cw);
+  ctx.imageSmoothingEnabled = sm;
+}
+
 function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
   const id = t.buildingId || t.variant || '?';
   if (_isoSceneQuarantine.has(id)) return false;
@@ -3587,12 +3814,67 @@ function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
   // la capture : irrigated_fields 10×6 par-dessus le fleuve). Elles retombent sur
   // le rendu d'emprise iso dédié (parcelle plate à sillons / bloc bas).
   if (/field|farm|crop|orchard|aqueduct/i.test(id)) return false;
-  const bw = (spanX + spanY) * T * z * ISO_X * 0.72;
-  const bx = anchor.x - bw / 2;
-  const by = anchor.y - bw + hh * 0.5;   // bas de boîte ≈ coin sud du lot
+  // ── Échelle de la scène : BORNÉE, jamais l'emprise brute ────────────────────
+  // La halle occupe un grand lot, mais sa scène ne doit pas être celle d'un
+  // atelier AGRANDIE : c'est exactement ce qui peignait un panier de fruits plus
+  // haut qu'un homme (capture Raph). On borne la taille de dessin à
+  // HALL_SCENE_MAX fois celle d'un atelier du MÊME type — l'unité d'échelle de ce
+  // type, celle pour laquelle sa scène a été composée. Le lot excédentaire devient
+  // une CLAIRIÈRE : un bâtiment important a sa place dégagée autour de lui, il
+  // n'est pas un atelier soufflé. Un atelier, lui, remplit son lot → f = 1 → cette
+  // branche ne change rien pour lui.
+  const spanSum = spanX + spanY;
+  const unit = T * z * ISO_X * 0.72;
+  const HALL_SCENE_MAX = (typeof window !== 'undefined' && window.__hallSceneMax) || HALL_SCENE_MAX_DEFAULT;
+  const sceneBand = CM.layout?.counts?.eraBand ?? 0;
+  const capSum = sceneBand <= HALL_SCENE_CAP_MAX_BAND
+    ? (cmEngineAtelierFoot(id) || 1) * 2 * HALL_SCENE_MAX
+    : Infinity;                                  // bâtiments de pierre : aucun bornage
+  let bw = Math.min(spanSum, capSum) * unit;
+  const f = spanSum > 0 ? Math.min(spanSum, capSum) / spanSum : 1;
+  // Pieds : au coin SUD tant que le bâtiment remplit son lot (comportement
+  // historique, inchangé pour les ateliers), ramenés vers le CENTRE du lot à
+  // mesure qu'il s'y fait plus petit — sinon la halle se collerait au bord sud de
+  // sa clairière au lieu d'y trôner.
+  const ctr = worldToScreen((t.gx + spanX / 2) * T, (t.gy + spanY / 2) * T);
+  let bx = ctr.x + (anchor.x - ctr.x) * f - bw / 2;
+  let by = ctr.y + (anchor.y - ctr.y) * f - bw + hh * 0.5;
+  // ── Variation par instance ────────────────────────────────────────────────
+  // Les moteurs étaient les SEULES tuiles privées de jitter (renderBuildings le
+  // réserve aux maisons via `if (t.type !== "engine")`). Tolérable tant qu'un type
+  // ne posait que 13 blocs ; avec 48 ateliers alignés, l'absence de variation
+  // donne un damier. Graine stable sur (gx,gy) → invariante entre frames ET entre
+  // recomputes. `>>> 0` obligatoire : cmHash est SIGNÉ.
+  // La HALLE (groupIndex 1) reste d'aplomb et à l'échelle : c'est le monument du
+  // quartier, il ne doit ni pencher ni rapetisser.
+  if ((t.groupIndex || 1) > 1) {
+    const sd = cmHash(t.gx + ':' + t.gy) >>> 0;
+    const k = 0.92 + (sd % 17) / 17 * 0.16;                  // 0.92..1.08
+    // Ancrage par le BAS : la boîte se redimensionne sur ses pieds, sinon un
+    // atelier réduit flotte au-dessus de son lot.
+    by += bw * (1 - k) + ((((sd >> 9) % 5) - 2) * bw * 0.008);
+    bx += bw * (1 - k) / 2 + ((((sd >> 5) % 5) - 2) * bw * 0.012);
+    bw *= k;
+  }
   try {
+    // SURVOL : la silhouette se pose AVANT la scène, sinon elle la mange au
+    // lieu de la cerner (même geste que les habitations).
+    if (CM.hover && CM.hover.tile === t) drawIsoEngineOutline(t, bx, by, bw, now, HOVER_GOLD);
     drawEngineSprite(t, bx, by, bw, bw, now);
-    return true;
+    // Rend la boîte publiée à l'appelant pour le hit-test au survol. Sans elle,
+    // viser un moteur haut (une école, un temple) retombait sur la cellule
+    // projetée sous le curseur, c'est-à-dire celle SITUÉE DERRIÈRE.
+    //
+    // ⚠ ROGNÉE SUR L'ENCRE, jamais la boîte carrée brute : celle-ci est aussi
+    // HAUTE que large alors qu'un losange iso est deux fois plus large que haut,
+    // donc elle couvre un large vide au-dessus du bâtiment. Publiée telle
+    // quelle, ce vide volait le survol aux voisins — souris sur la guilde,
+    // Tribunaux qui s'allument. Repli sur la boîte entière tant que l'encre
+    // n'est pas mesurable (props en cours de chargement).
+    const ink = engineInkFrac(t, now);
+    return ink
+      ? { dx: bx + bw * ink.x0, dy: by + bw * ink.y0, dw: bw * ink.w, dh: bw * ink.h }
+      : { dx: bx, dy: by, dw: bw, dh: bw };
   } catch (e) {
     _isoSceneQuarantine.add(id);
     if (typeof console !== 'undefined') console.warn('[iso] scène moteur en quarantaine:', id, e);
@@ -4169,7 +4451,7 @@ function drawIsoRevealPin(box, born, now) {
   ctx.restore();
 }
 
-// ── PLUIE ───────────────────────────────────────────────────────────────────
+// ── PRÉCIPITATIONS ──────────────────────────────────────────────────────────
 // Surcouche plein écran, JAMAIS un second jeu de sprites : traits d'un pixel
 // inclinés par le vent, position = fonction PURE de (now, index) comme les
 // particules d'ambiance → rien à faire vivre entre les frames, captures
@@ -4177,6 +4459,11 @@ function drawIsoRevealPin(box, born, now) {
 // runtime (weatherMode.js). L'assombrissement passe par un aplat, et non par un
 // filtre canvas, pour préserver les contrastes comme le fait le voile de nuit.
 // La brume de rivière retirée le 2026-07-13 n'est PAS ressuscitée ici.
+//
+// EN HIVER LA MÊME AVERSE TOMBE EN NEIGE (cf. drawIsoSnowfall). Un seul signal
+// météo, deux gestes : rien de nouveau n'est publié, donc tout ce qui lit déjà
+// la météo (la foule qui rentre, les cheminées qui fument) vaut aussi sous la
+// neige. La saison décide de la FORME, jamais de la fréquence.
 // Molette : __rain({ on, drops, len, alpha }).
 const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1 };
 if (typeof window !== 'undefined') {
@@ -4184,9 +4471,19 @@ if (typeof window !== 'undefined') {
 }
 const RAIN_CAP = 900;
 
+// Ce qui tombe pour une saison et une intensité données. Exporté pour le test :
+// c'est le seul embranchement de la fiche, et il ne se voit sur aucune image.
+export function precipKind(season, rainF) {
+  if (!(rainF > 0.01)) return 'none';
+  return (season | 0) === WINTER ? 'snow' : 'rain';
+}
+
 function drawIsoRain(now) {
   const r = CM.rainF || 0;
-  if (!RAIN_TUNE.on || r <= 0.01) return;
+  if (!RAIN_TUNE.on) return;
+  const kind = precipKind(CM.season, r);
+  if (kind === 'none') return;
+  if (kind === 'snow') { drawIsoSnowfall(now, r); return; }
   const ctx = CM.ctx, W = CM.cw, H = CM.ch;
   // Assombrissement : même geste que NIGHT_VEIL, un aplat ardoise.
   ctx.fillStyle = `rgba(38,46,62,${(r * 0.18).toFixed(3)})`;
@@ -4220,6 +4517,94 @@ function drawIsoRain(now) {
   ctx.imageSmoothingEnabled = prevAA;
 }
 
+// ── NEIGE (hiver) ───────────────────────────────────────────────────────────
+// Repeindre la pluie en blanc donne de la pluie blanche. Trois écarts, tous
+// nécessaires pour que l'œil lise « neige » :
+//   - un CARRÉ, pas un trait. Une goutte se lit à sa TRAÎNÉE, un flocon à sa
+//     forme. Deux tailles, la grosse plus rapide et plus opaque : la profondeur
+//     vient de ce parallaxe, pas d'un dégradé.
+//   - dix fois plus LENT (≈ 100 px/s contre 900 à 1600). C'est la vitesse qui
+//     dit « neige » avant même la couleur.
+//   - il DÉRIVE : tangage propre au flocon EN PLUS du vent de l'averse. Sans
+//     lui, mille carrés descendent en rails et on retombe sur la pluie.
+// Le voile est PÂLE et non ardoise : la neige diffuse la lumière au lieu de
+// l'éteindre. C'est la règle du liseré au sol (cf. SNOW plus haut), où tout ce
+// qui ajoutait du SOMBRE a été refusé.
+// AUCUNE ACCUMULATION au sol : le sol est baké et la saison entre dans sa clé
+// (cf. seasonMode.js). Faire blanchir la ville pendant l'averse paierait une
+// recuisson à chaque cran d'intensité. La neige posée reste le liseré d'hiver.
+// Molette : __snowfall({ on, flakes, size, alpha }).
+const SNOWFALL_TUNE = { on: true, flakes: 1, size: 1, alpha: 1 };
+if (typeof window !== 'undefined') {
+  window.__snowfall = (o) => { if (o) Object.assign(SNOWFALL_TUNE, o); return { ...SNOWFALL_TUNE }; };
+}
+// Calibré à l'écran (1208×611, TILE 32, zoom 1) : ~490 flocons de 3 px et 2 px.
+// Les deux crans essayés à côté disent pourquoi c'est ce couple et pas un autre :
+// à 140 flocons on ne voit RIEN sur une image fixe, et à 2 px / 1 px le rideau
+// se lit comme de la poussière, plus comme de la neige.
+const SNOWFALL_CAP = 900;
+const SNOWFALL_AREA = 1500;       // px² d'écran par flocon à pleine averse
+const SNOWFALL_UNIT = 0.10;       // taille du gros flocon, en fraction de tuile à l'écran
+const SNOW_DRIFT = 0.42;          // dérive horizontale par pixel de chute, à plein vent
+
+// Un flocon, position PURE : f(index, temps) → rien à faire vivre entre les
+// frames, capture reproductible (même contrat que la pluie). Exporté pour le
+// test : la lenteur de la chute et l'absence de colonne vide au bord au vent
+// sont deux choses qu'aucune image ne montre.
+export function isoSnowFlake(i, t, W, H, wind, unit) {
+  // ⚠ QUATRE tirages, et le placement en X a le SIEN. La pluie dérive son x du
+  // même hash que sa vitesse ; sur des traits qui traversent l'écran en 0,5 s
+  // ça ne se voit pas, mais sur des flocons lents la corrélation x↔vitesse
+  // dessine des diagonales creuses dans le rideau.
+  const sd = _rnd(i, 1), sd2 = _rnd(i, 2), sd3 = _rnd(i, 3), sd4 = _rnd(i, 4);
+  const near = sd3 > 0.62;                            // ~1 flocon sur 3 au premier plan
+  const size = near ? Math.max(2, unit) : Math.max(1, Math.round(unit * 0.6));
+  const speed = (near ? 118 : 74) + sd2 * 44;         // px/s, flocons de vitesses variées
+  const y = _frac((t * speed) / (H * 1000) + sd) * (H + size * 2) - size;
+  // Bande de chute en PARALLÉLOGRAMME : la dérive est comptée depuis le MILIEU
+  // de l'écran, donc la densité reste la même en haut et en bas. Comptée depuis
+  // le haut, tout le vent se payait en flocons hors cadre d'un côté.
+  const drift = wind * SNOW_DRIFT;
+  const margin = Math.abs(drift) * H * 0.5 + size + 4;
+  const x0 = sd4 * (W + margin * 2) - margin;
+  const sway = Math.sin(t / (1500 + sd * 1200) + sd2 * 6.283) * (size * 2.2 + 3);
+  return { x: x0 + drift * (y - H * 0.5) + sway, y, size, near };
+}
+
+function drawIsoSnowfall(now, r) {
+  const ctx = CM.ctx, W = CM.cw, H = CM.ch;
+  // Voile PÂLE : le ciel se couvre et la lumière se diffuse. Le voile ardoise de
+  // l'averse donnait, sous la neige, une nuit sale en plein midi.
+  ctx.fillStyle = `rgba(206,214,228,${(r * 0.14).toFixed(3)})`;
+  ctx.fillRect(0, 0, W, H);
+  // Comme l'averse, la neige est de l'agitation d'ambiance : elle suit le
+  // réglage Vie de la carte.
+  const k = CM.ambianceK ?? 1;
+  if (!SNOWFALL_TUNE.on || k <= 0) return;
+  const n = Math.min(SNOWFALL_CAP, Math.round((W * H) / SNOWFALL_AREA * r * k * SNOWFALL_TUNE.flakes));
+  if (n <= 0) return;
+  // Taille indexée sur la tuile à l'écran, comme les particules d'ambiance : au
+  // dézoom le flocon reste un pixel d'art, il ne devient pas un pavé.
+  const unit = Math.max(1, Math.round(CM.TILE * CM.cam.zoom * SNOWFALL_UNIT * SNOWFALL_TUNE.size));
+  const wind = CM.windX || 0;
+  const t = now || 0;
+  const prevAA = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  // Lointain d'abord, premier plan ensuite : la profondeur se joue à l'ordre.
+  // Les gros sont MIS DE CÔTÉ au passage plutôt que recalculés — deux fillStyle
+  // pour toute la couche, et une seule évaluation par flocon.
+  const near = [];
+  ctx.fillStyle = `rgba(${SNOW_SHADE[0]},${SNOW_SHADE[1]},${SNOW_SHADE[2]},${(0.44 * r * SNOWFALL_TUNE.alpha).toFixed(3)})`;
+  for (let i = 0; i < n; i += 1) {
+    const f = isoSnowFlake(i, t, W, H, wind, unit);
+    if (f.near) { near.push(Math.round(f.x), Math.round(f.y), f.size); continue; }
+    ctx.fillRect(Math.round(f.x), Math.round(f.y), f.size, f.size);
+  }
+  ctx.fillStyle = `rgba(${SNOW_TOP[0]},${SNOW_TOP[1]},${SNOW_TOP[2]},${(0.72 * r * SNOWFALL_TUNE.alpha).toFixed(3)})`;
+  for (let j = 0; j < near.length; j += 3) ctx.fillRect(near[j], near[j + 1], near[j + 2], near[j + 2]);
+  ctx.imageSmoothingEnabled = prevAA;
+}
+
 // ── SURVOL ──────────────────────────────────────────────────────────────────
 // CM.hover (posé par cityMapShowTooltip) porte enfin la tuile et la cellule
 // visées : il était écrit deux fois et relu nulle part. On s'en sert pour
@@ -4233,11 +4618,30 @@ function drawIsoHoverCell(ctx, hw, hh) {
   const h = CM.hover;
   if (!h || !h.cell) return;
   const c = h.cell.split(',');
-  const p = worldToScreen((+c[0]) * CM.TILE, (+c[1]) * CM.TILE);   // coin NORD
+  const gx = +c[0], gy = +c[1];
+  // ⚠ L'EMPREINTE ENTIÈRE, pas une cellule. `cell` porte le coin NORD du lot ;
+  // un bâtiment de 2×2 ou 3×2 voyait donc son losange tracé sur la seule case
+  // d'origine, celle qui est la PLUS ÉLOIGNÉE à l'écran — on croyait voir « la
+  // case derrière le bâtiment s'allumer », alors que c'était bien la sienne,
+  // mais réduite à son coin nord. Les habitations tiennent sur une case, d'où
+  // un défaut invisible sur elles et criant sur les moteurs.
+  const t = h.tile;
+  const spanX = (t && (t.spanX || t.size)) || 1;
+  const spanY = (t && (t.spanY || t.size)) || 1;
+  const T = CM.TILE;
+  const n = worldToScreen(gx * T, gy * T);                     // coin nord
+  const e = { x: n.x + spanX * hw, y: n.y + spanX * hh };      // est
+  const s = { x: n.x + (spanX - spanY) * hw, y: n.y + (spanX + spanY) * hh };
+  const w = { x: n.x - spanY * hw, y: n.y + spanY * hh };      // ouest
   ctx.save();
   ctx.strokeStyle = HOVER_CELL;
   ctx.lineWidth = 1;
-  diamondPath(ctx, p.x, p.y, hw, hh);
+  ctx.beginPath();
+  ctx.moveTo(n.x, n.y);
+  ctx.lineTo(e.x, e.y);
+  ctx.lineTo(s.x, s.y);
+  ctx.lineTo(w.x, w.y);
+  ctx.closePath();
   ctx.stroke();
   ctx.restore();
 }
@@ -4483,7 +4887,9 @@ function drawIsoLive(now) {
       items.push({ d: isoUnitDepth(p.x + laneX, p.y + laneY), kind: 'riot', p });
     }
   }
+  fp('vif-collecte');
   items.sort((a, bb) => a.d - bb.d);
+  fp('vif-tri');
   // HALO d'émeute : nappe rouge pulsée AU SOL, sous toute la scène vivante (le
   // cercle écran du legacy devient une ellipse iso 2:1). Mêmes rayon et alphas.
   if (CM.riotDraw) {
@@ -4535,6 +4941,7 @@ function drawIsoLive(now) {
         }
       }
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;  // largeur allouée au sprite (~78 % du losange)
+      let engineBox;   // boîte rendue par la scène moteur, publiée pour le survol
       if (isHouse && pixelHouseReady(t)) {
         const hpx = wpx;                                    // seul y+h compte (ancre pieds)
         const hx = anchor.x - wpx / 2, hy = anchor.y - hpx - hh * 0.5;
@@ -4548,8 +4955,15 @@ function drawIsoLive(now) {
         // Ordre de la liste = ordre du peintre (loin → près) : le hit-test la
         // parcourt à l'envers pour toucher d'abord ce qui est devant.
         if (box && houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: box, t });
-      } else if (t.type === 'engine' && isoEngineScenesFlag.on && drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now)) {
+      } else if (t.type === 'engine' && isoEngineScenesFlag.on && (engineBox = drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now))) {
         // Scène moteur legacy posée sur le losange (Phase 3-lite) — cf. helper.
+        // ⚠ ON PUBLIE SA BOÎTE, exactement comme les habitations juste au-dessus.
+        // Sans ça, un moteur haut (école, temple) n'existait pas pour le
+        // hit-test : viser son toit retombait sur la cellule projetée dessous,
+        // celle SITUÉE DERRIÈRE, et c'est elle que le losange de survol
+        // illuminait — alors que l'infobulle, elle, tombait juste par le repli
+        // sur la grille. Symptôme signalé par Raph, capture à l'appui.
+        if (houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: engineBox, t });
       } else {
         const id2 = t.buildingId || t.variant || '';
         const n = worldToScreen(t.gx * T, t.gy * T);
@@ -4809,6 +5223,7 @@ function drawIsoLive(now) {
     }
   }
   ctx.imageSmoothingEnabled = prevSmooth;
+  fp('vif-peinture');
   // Anneaux d'apaisement (clic sur un émeutier) : anneaux AU SOL projetés en
   // ellipse iso — mêmes minuterie et teinte que le legacy (drawCrisis).
   if (CM.calmPoofs && CM.calmPoofs.length) {
@@ -4834,10 +5249,18 @@ function drawIsoLive(now) {
 // trop court rendrait la recuisson plus fréquente entre deux à-coups. 110 ms est
 // un compromis net/fluide. Ancienne valeur : 160 ms.
 const ISO_SETTLE_MS = 110;
+// Budget d'une recuisson de sol EN PLEIN GESTE. Au-delà, on préfère le re-blit
+// compensé (flou bref) : une image nette qui coûte un tiers de seconde n'est plus
+// de la netteté, c'est un gel. 45 ms ≈ trois images à 60 fps — assez pour laisser
+// le geste net sur les petites villes, assez bas pour ne jamais figer les grandes.
+const ISO_CRISP_BUDGET_MS = 45;
 
 // Point d'entrée : rend la frame iso. Renvoie false si layout absent (repli legacy).
 // helpers = { bakeMargin, blitMargin } (les caches offscreen du runtime, déjà
 // compatibles iso : le pan est projeté dans cityMapBakeMargin/BlitMargin).
+// Le renderer JALONNE la frame (fp) mais n'en est pas propriétaire : le relevé
+// est ouvert et clos par cityMapRuntime.frame(), qui englobe aussi le préambule.
+// Cf. framePerf.js pour le pourquoi.
 export function drawIsoWorld(dt, now, helpers) {
   const L = CM.layout;
   if (!L) return false;
@@ -4852,6 +5275,7 @@ export function drawIsoWorld(dt, now, helpers) {
   updateCitizens(dt);
   updateVehicles(dt);
   updateCrisis(dt, now);   // émeute : même sim que le legacy ; rendu via le peintre (drawIsoLive)
+  fp('sim-agents');
   // Fond hors-monde (nature sombre) puis sol baké.
   const ctx = CM.ctx;
   ctx.fillStyle = rgb(SEASON_WILD, 0.9);
@@ -4897,12 +5321,35 @@ export function drawIsoWorld(dt, now, helpers) {
       // bakeMargin recuise vraiment (sinon le soft collerait pour toujours).
       if (bm && bm.soft) bm.other = '__soft__';
       ISO_GROUND_LOD.on = lod;
+      const t0 = performance.now();
       helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake', key + (lod ? ':lod' : ''), drawIsoGround);
       ISO_GROUND_LOD.on = false;
-      if (CM._isoGroundBake !== bm) CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
+      if (CM._isoGroundBake !== bm) {
+        CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
+        // Coût RÉEL de la dernière recuisson PLEINE : c'est lui qui décide si l'on
+        // peut encore se permettre de recuire en plein geste (cf. juste dessous).
+        if (!lod) CM._isoGroundBakeMs = performance.now() - t0;
+      }
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
     };
-    if (CM.crispGesture && !settled && bm && !sameContent) {
+    // ── « Sol net pendant le geste » : désormais CONDITIONNÉ AU COÛT MESURÉ ────
+    // Le palier « Élevée » recuisait le sol NET à chaque cran de zoom. Arbitrage
+    // tenable quand une recuisson coûtait quelques dizaines de ms ; intenable
+    // depuis que les villes ont grossi — mesuré sur une ville de 2 058 tuiles :
+    // 140 ms à zoom 1, 640 ms à 0,5, **962 ms à 0,35**. Or la clé change à CHAQUE
+    // frame d'un geste : on payait donc ~1 s par image, et le dézoom se figeait
+    // (signalé par Raph : « le dézoom fait laguer à mort »).
+    //
+    // Le préréglage ne peut pas trancher seul : il est choisi d'après le nombre de
+    // cœurs (16 cœurs → « Élevée » d'office), pas d'après la taille de la ville. On
+    // mesure donc la dernière recuisson réelle et on n'insiste que si elle tient
+    // dans le budget. Sinon on retombe sur le re-blit compensé — flou bref type
+    // carte web, déjà implémenté plus bas — et le sol NET revient dès l'arrêt.
+    // Auto-calibrant : la 1re recuisson chère est payée une fois, puis évitée.
+    // Molette : window.__crispBudgetMs.
+    const crispBudget = (typeof window !== 'undefined' && window.__crispBudgetMs) || ISO_CRISP_BUDGET_MS;
+    const crispAffordable = (CM._isoGroundBakeMs || 0) <= crispBudget;
+    if (CM.crispGesture && crispAffordable && !settled && bm && !sameContent) {
       // MAXIMALE : zoom/dézoom en cours → au lieu du re-blit LISSÉ (flou), on
       // recuit le sol NET à l'échelle exacte de la frame (la clé change à chaque
       // cran de zoom, donc on rebake de toute façon : on le fait proprement).
@@ -4913,7 +5360,17 @@ export function drawIsoWorld(dt, now, helpers) {
     } else if (sameContent && inMargin && !(settled && isLod)) {
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
     } else if (settled) {
-      bake(false);                    // repos → sol plein, tous les détails
+      // Repos → sol plein, tous les détails.
+      //
+      // ⚠ TENTÉ PUIS REJETÉ (2026-07-24) : recuire en ALLÉGÉ sous un seuil de zoom,
+      // au motif que touffes et franges y passent sous le pixel. Gain réel mesuré
+      // −35 % à zoom 0,5 (1 015 → 662 ms) et −42 % à 0,4 (1 345 → 782). Mais la
+      // comparaison À L'ŒIL est sans appel : le pavage perd sa texture et devient un
+      // APLAT uniforme, marquages compris, et cela se voit dès 0,5 comme à 0,35.
+      // On paierait une perte de matière visible pour une saccade qui resterait de
+      // ~0,8 s. Le vrai correctif est d'accélérer la boucle par cellule (607 ms des
+      // 1 018 à zoom 0,4), pas de retirer du dessin.
+      bake(false);
     } else if (sameContent && !inMargin) {
       // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
       // bord d'attaque → bake ALLÉGÉ (≈ 4× moins cher : ni touffes, ni franges,
@@ -4936,6 +5393,7 @@ export function drawIsoWorld(dt, now, helpers) {
   } else {
     drawIsoGround();
   }
+  fp('sol');
   // Fleuve LIVE (animé) par-dessus le sol baké → QUAIS par ère (promenade le
   // long du ruban, partagés avec le legacy : cityMapDrawQuays projette via le
   // module iso) → SOUS-STRUCTURE des ponts (ombre sur l'eau + piles) → bateaux
@@ -4945,19 +5403,54 @@ export function drawIsoWorld(dt, now, helpers) {
   // DEBOUT plantés dans la passe vivante (drawIsoLive) — la projection à plat
   // de l'art legacy « couchait » les plantes bakées (retour Raph).
   drawIsoRiver(now);
-  cityMapDrawQuays(now);
+  fp('fleuve');
+  // QUAIS BAKÉS. Recensé en direct : ~10 000 lineTo, 1 000 traits et 390 arcs par
+  // frame — 90 % de tout le travail de chemins de la carte, pour une promenade
+  // qui ne bouge jamais. Même traitement que le sol, qui coûtait ~7 ms/frame avant
+  // d'être baké et en coûte 0,1 depuis.
+  //
+  // La clé porte TOUT ce qui change le tracé. La nuit y est QUANTIFIÉE au dixième :
+  // le point de lampe bascule de couleur à 0,25 et `cmDayNightF` est une fonction
+  // à plateaux, donc cela ne coûte que quelques recuissons par cycle jour/nuit.
+  // Les lueurs (additives) restent EN DIRECT, cf. le mode dans cityMapDrawQuays.
+  // A/B : globalThis.__quayBake = false rejoue le tracé en direct (référence).
+  if (CM.quayCanvas && helpers && globalThis.__quayBake !== false) {
+    const qk = 'q:' + CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(3)
+      + ':b' + ((L.counts && L.counts.eraBand) | 0)
+      + ':n' + (CM.nightF || 0).toFixed(1)
+      + ':l' + (CM.lodActive ? 1 : 0)
+      + ':w' + ((state.timeWear || 0) > 0.7 ? 1 : 0)
+      + ':c' + (CM.collapseAt ? 1 : 0)
+      // La molette __quayWall change le tracé à chaud → elle doit casser la clé.
+      + ':t' + (quayWallTune.on ? 1 : 0) + (quayWallTune.full ? 1 : 0)
+      + (quayWallTune.joints ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light;
+    helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => cityMapDrawQuays(now, 'base'));
+    helpers.blitMargin(CM.quayCanvas, '_quayBake');
+    cityMapDrawQuays(now, 'glow');
+  } else {
+    cityMapDrawQuays(now);
+  }
+  fp('quais');
   drawIsoBridgeUnder(now);
+  fp('ponts-dessous');
   drawIsoShips(dt, now);
+  fp('bateaux');
   drawIsoBridges(now);
+  fp('ponts');
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
+  fp('scene-vivante');
   drawIsoBirds(now);     // nuée : passe aérienne, avant les drones
   drawIsoDrones(now);
+  fp('ciel');
   drawIsoNight(now);
   drawIsoBridgeNight(now);   // lanternes de pont : halos + reflets dans l'eau, par-dessus le voile
+  fp('nuit');
   drawIsoRain(now);      // averse — après la nuit : la pluie passe DEVANT les halos
   drawIsoAmbient(now);   // feuilles / lucioles / motes — par-dessus le voile de nuit
+  fp('meteo-ambiance');
   // Bulles de pensée (cartouches pixel cliquables) : tout en haut, comme le
   // legacy — la fonction est PARTAGÉE (projection worldToScreen dans agents.js).
   if (!CM.lodActive) drawCitizenThoughts(now);
+  fp('bulles');
   return true;
 }

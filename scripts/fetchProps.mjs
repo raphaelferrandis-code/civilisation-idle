@@ -168,10 +168,30 @@ const PROPS = [
     prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal vertical-farm ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep setbacks erupting into raw violet crystal geodes; crystalline hydroponic terrace-racks of luminous crops step up the tiers with greenhouse light, a violet leaf-sprout emblem crowning the spire. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── ENTREPÔTS (granaries_city) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
+  // Stades 0 et 1 REFAITS le 2026-07-24 : les deux sortaient DE FACE (caméra basse, ni pan
+  // de toit ni dalle) alors que les stades 2/3 et le romain sont en 3/4 top-down — l'échelle
+  // ne raccordait pas. Recette v2 = celle du band 4 : view "high top-down", outline
+  // "lineless", shading "basic shading", detail "medium detail". Post-DL, DEUX pas :
+  //   1. remapPalette --no-accent --ramps <celles de la famille> --max 22 (cf. note ci-dessous)
+  //   2. re-cadré sur la boîte d'encre de l'ancien sprite (hauteur, PIED, centre X) —
+  //      le code ancre volontairement le pied du stade 0 sur la ligne de sol (cyp ≈ 0.82)
+  //      via une base de cadre à 0.92, donc décaler le pied fait flotter ou enterrer le prop.
+  // ⚠ Le remap SANS --ramps envoie le chaume doré sur `foliage` (toit vert acide) : la famille
+  //   entrepôt n'utilise QUE le cœur, jamais foliage/water/metalSlate. Rampes mesurées sur les
+  //   sprites existants — silo : timberClay/skin/inkShadow(+earthStone,clayCopper pour la
+  //   terre battue) ; halle : timberClay/earthStone/universal/boneWhite/clayCopper/inkShadow.
+  {
+    key: 'granary-prop-silo',
+    id: '7f76b5b4-d708-406c-8c1c-0f3a664652f4', // stade 0 — grenier sur pilotis (80×96), v2 2026-07-24
+    prompt: 'a small primitive raised grain granary storehouse on wooden stilts seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a square wattle-and-daub grain box raised on four short stout wooden stilt posts above the ground, mud-plastered basketry walls banded with horizontal withies, a small plank door hatch on the front face, a conical thatched straw roof clearly visible from above showing its sloping thatch plane and a bound straw finial at the peak, a short notched log ladder leaning up to the door, two woven straw grain baskets and a spilled handful of golden grain on the bare earth below, standing on a small patch of packed earth, a LIMITED FLAT palette of only a few solid colors (straw gold thatch, warm ochre daub, weathered brown timber, packed earth brown), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background',
+  },
   {
     key: 'granary-hall',
-    id: 'beab33f5-8d9c-4bbf-8c33-980e7d7ca586', // stade 1 — halle de pierre (arcade + toit tuiles + fanion) (112×96)
-    prompt: 'a small medieval stone granary storehouse hall, completely deserted, no people, no figures, no person: a sturdy rectangular building of pale dressed-stone blocks with a rounded arched wooden doorway, a steep red clay tile gabled roof, a small heraldic pennant on a pole at the roof peak, standing on a small patch of cobbled ground, warm earthy stone and terracotta palette, soft light from the upper-left casting shadows to the lower-right',
+    // stade 1 — halle de pierre (arcade + toit tuiles + fanion) (112×96). v2 2026-07-24 = REFONTE
+    // 3/4 top-down (v1 beab33f5 sortait DE FACE). « portes CLOSES, pas d'intérieur » : la variante
+    // grange ouverte rendait un trou blanc, et « NO grey » évite la pierre froide après quantification.
+    id: 'dc912b14-7191-44fb-9dd9-a9e2a0f53608',
+    prompt: 'a small medieval stone granary storehouse seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a compact rectangular grain storehouse built of warm honey-cream dressed limestone ashlar blocks, its front gable end pierced by a tall round-arched double door of dark oak planks firmly CLOSED and solid, no interior visible, no open doorway, no dark hole, a small timber hoist beam with a rope pulley jutting out above the door, a row of narrow slit ventilation windows high along the long side wall, three thick stepped stone buttresses down that side, a steep gabled roof of orderly red terracotta clay tiles clearly visible from above showing one full sloping plane of tile rows with the ridge running away from the viewer, a small crimson heraldic pennant on a short pole at the roof peak, two plump grain sacks and a terracotta amphora stacked against the wall beside the door, standing on a small tidy patch of warm sandy cobbles, a LIMITED FLAT palette of only a few WARM solid colors (honey cream limestone, warm ochre tan, terracotta red-orange roof tiles, dark oak brown, warm shadow brown), absolutely NO grey stone, NO blue, NO green, basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background',
   },
   {
     key: 'granary-jars',
@@ -212,8 +232,10 @@ const PROPS = [
     prompt: 'Gigantic 3/4 top-down pixel-art map tower, tall portrait, seen from above at a top-down angle showing the front face, one side, and a hint of the crown. A colossal storage ziggurat hundreds of meters tall in Demiurge violet-crystalline style — a blackest-onyx brutalist spire with deep monumental setbacks; stacked obsidian silo-monoliths and cargo-container blocks bundle around the core, crystalline reserve-cores glowing within, holographic fill-gauge bars banding the mass. Violet and amethyst neon (deep #8e49ab, mid #c9afd4, bright #e8e0eb) radiating from crystal and edge-seams against near-black onyx, no cyan. no people, no figures, transparent background, no ground.',
   },
   // ── CARAVANES (caravans) stades 1-3 + cosmique — passage pixel-art (2026-07-05) ──
-  // Véhicules de PROFIL (view side) qui font la navette (blitPropH, miroir selon le sens) ;
-  // portails cosmiques (low top-down). Dépôts réutilisés : caravan-prop-sacks / granary-crates.
+  // Véhicules de PROFIL (view side) posés À LA HALTE, orientés vers la droite et jamais
+  // retournés (blitPropGrounded) : le va-et-vient d'un bord à l'autre a été supprimé, il
+  // patinait. Portails cosmiques (low top-down). Dépôts réutilisés : caravan-prop-sacks /
+  // granary-crates.
   {
     key: 'caravan-wagon',
     id: '21b1d1dc-2ff3-48ba-a49e-0a1e9794a7c0', // stade 1 — chariot bâché tiré par un cheval, profil (112×64)
@@ -746,8 +768,9 @@ const PROPS = [
   { key: 'works-camp', id: 'cb34421e-2858-41ef-9984-4c6716acb1ed', prompt: 'primitive builders work shed + stone blocks + lever hoist (112x88)' },
   { key: 'archive-hut', id: '063a1825-ccae-47d8-adf3-816e0e8c40a7', prompt: 'primitive archive hut + clay tablet/scroll shelves (112x88)' },
   { key: 'ruins-camp', id: 'a3d6533c-28fd-49d6-95c4-1d1c58ce93e5', prompt: 'primitive surveyors camp hut beside an ancient ruin (112x88)' },
-  // NB : les props du trio (forager-prop-tree/-basket, granary-prop-silo, caravan-prop-sacks)
-  // ont été récupérés avant ce script — déjà sur disque, ids non consignés.
+  // NB : les props du trio (forager-prop-tree/-basket, caravan-prop-sacks) ont été récupérés
+  // avant ce script — déjà sur disque, ids non consignés. (granary-prop-silo a été refait
+  // le 2026-07-24, son entrée est remontée avec les entrepôts.)
   // ── band 4 (Marbre / toges) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12). ──
   // Recette DA : create_map_object view "high top-down" (caravane "side"), shading "basic shading",
   // outline "lineless", detail "medium detail", puis quantize @16. Remplacent le stade pierre à band 4.

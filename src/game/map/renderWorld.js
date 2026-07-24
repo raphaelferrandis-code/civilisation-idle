@@ -22,6 +22,7 @@ import { mapThemeForBand } from '../data/eraThemes.js';
 import { plazaPropReady, plazaPropImage, plazaAnimReady, blitPlazaAnim, blitPlazaProp, setPlazaPropOnLoad } from './plazaProps.js';
 import { drawPixelMedians, setMedianOnLoad } from './pixelMedian.js';
 import { setRoadPavingOnLoad } from './roadPaving.js';
+import { paintFlameGlows } from './flameGlow.js';
 
 // La dalle de sol des places est cuite dans le cache STATIQUE de la carte
 // (cityMapDrawPlazaSurface). Ses tuiles se chargent en asynchrone : dès qu'une
@@ -457,6 +458,12 @@ function cityMapDrawTerrain() {
 
 // Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
 // Helper partagé par le fleuve, le gating des quais et le tracé des quais.
+// ⚠ MESURÉ, NE PAS « OPTIMISER » : cette fonction est appelée ~15 000 fois par
+// frame par `pt()` (tracé des quais) et alloue un {nx,ny} à chaque appel — cible
+// évidente. Mémoriser le tableau des normales par layout a été implémenté puis
+// RETIRÉ le 2026-07-24 : A/B alterné dans les deux sens, 6,7 ms contre 6,5 ms,
+// soit rien. V8 élimine ces objets courts (analyse d'échappement). Le coût des
+// quais est la RASTÉRISATION des chemins, pas le JS autour.
 function cmRiverNormalAt(sm, i) {
   const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
   let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
@@ -553,7 +560,22 @@ function lightenHex(hex, t) {
 // JAMAIS par cellule (le bankSet diverge du bleu peint dans les courbes => escalier).
 // Dessiné live, juste après le fleuve et avant les bateaux/le blit statique
 // (ponts/routes/bâtiments le recouvrent donc gratuitement aux croisements).
-function cityMapDrawQuays(now) {
+// `mode` (2026-07-24, chantier perf) : le quai est de la géométrie STATIQUE
+// redessinée en direct à chaque frame — recensé à ~10 000 lineTo, 1 000 traits et
+// 390 arcs par image, soit 90 % de tout le travail de chemins de la carte, pour
+// une promenade qui ne bouge jamais. Il est donc baké comme le sol l'est déjà.
+//   'base' → tout SAUF les passes ADDITIVES  (bakable)
+//   'glow' → UNIQUEMENT les passes additives (doit rester en direct)
+//   absent → tout, comportement d'origine (pipeline legacy, inchangé)
+// ⚠ Pourquoi ce découpage plutôt qu'un bake intégral : les lueurs (liseré néon,
+// halo des lampadaires) sont dessinées en `globalCompositeOperation = "lighter"`.
+// Bakées sur un offscreen TRANSPARENT puis blittées en source-over, elles ne
+// s'ajoutent plus à l'eau en dessous : le halo devient un aplat coloré. Le bake
+// serait « presque » identique, et c'est exactement le genre d'écart qu'on ne
+// remarque qu'une fois en jeu, de nuit.
+function cityMapDrawQuays(now, mode) {
+  const baseOn = mode !== 'glow';
+  const glowOn = mode !== 'base';
   const L = CM.layout;
   if (!L || !L.river || !L.river.present || !L.river.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
@@ -652,7 +674,7 @@ function cityMapDrawQuays(now) {
     const cWalk = lightenHex(st.walk, LT), cCop = lightenHex(st.coping, LT);
     const cWallTop = lightenHex(st.wallTop, LT), cWallBot = lightenHex(st.wallBot, LT);
     // 1) DESSUS PLAT de la berge (uniforme jusqu'au bord d'eau, offset 0..W).
-    fillStrip(a, b, side, 0, W, cWalk);
+    if (baseOn) fillStrip(a, b, side, 0, W, cWalk);
 
     // 2) MUR DU BORD (berge maçonnée façon TheoTown). L'axe VERTICAL du monde se
     // projette en Z-écran pur (screen-Y vers le bas) → un parement vertical est un
@@ -663,7 +685,7 @@ function cityMapDrawQuays(now) {
     // Évalué PAR SAMPLE (robuste aux courbes ET aux longues berges "full") → on ne
     // dessine le parement que sur les sous-tronçons où c'est vrai ; l'autre rive
     // n'a que la margelle (parement occulté par sa propre promenade).
-    if (wallOn && !lod) {
+    if (baseOn && wallOn && !lod) {
       const wh = st.wallTiles * quayWallTune.heightK * T * z;   // hauteur écran du parement
       const N = b - a + 1;
       // wbelow par sample (l'eau est "devant" = plus bas à l'écran) → robuste courbes/full.
@@ -723,7 +745,7 @@ function cityMapDrawQuays(now) {
     }
 
     // 3) Joints de dalles du DESSUS : ticks perpendiculaires (pierre/marbre).
-    if (st.joints && !lod) {
+    if (baseOn && st.joints && !lod) {
       ctx.strokeStyle = st.joints; ctx.lineWidth = Math.max(1, z * 0.5);
       for (let i = a; i <= b; i += 1) {
         const ta = tt(i, a, b); if (ta < 0.4) continue;
@@ -732,26 +754,31 @@ function cityMapDrawQuays(now) {
       }
     }
     // 4) Côté terre : garde-corps (fonte/néon) sinon liseré clair.
-    if (st.rail) strokeAt(a, b, side, W, st.rail, Math.max(1, z * 0.7));
-    else strokeAt(a, b, side, W, st.edge, Math.max(1, z * 0.5));
-    // 5) MARGELLE : cap clair au bord d'eau = le haut du mur (les deux rives).
-    strokeAt(a, b, side, 0, cCop, Math.max(1, z * 1.0));
-    // 6) Bord lumineux (néon / énergie cosmique), avivé la nuit.
-    if (st.glow) strokeAt(a, b, side, 0, `rgba(${st.glow},${(0.30 + 0.45 * night).toFixed(2)})`, Math.max(1, z * 0.7), true);
+    if (baseOn) {
+      if (st.rail) strokeAt(a, b, side, W, st.rail, Math.max(1, z * 0.7));
+      else strokeAt(a, b, side, W, st.edge, Math.max(1, z * 0.5));
+      // 5) MARGELLE : cap clair au bord d'eau = le haut du mur (les deux rives).
+      strokeAt(a, b, side, 0, cCop, Math.max(1, z * 1.0));
+    }
+    // 6) Bord lumineux (néon / énergie cosmique), avivé la nuit. ADDITIF → live.
+    if (glowOn && st.glow) strokeAt(a, b, side, 0, `rgba(${st.glow},${(0.30 + 0.45 * night).toFixed(2)})`, Math.max(1, z * 0.7), true);
     // 7) Lampadaires le long de la promenade ; lueur chaude la nuit.
+    // Le HALO est additif (live) ; le point de la lampe ne l'est pas (bakable).
     if (!lod && st.lamp) {
       for (let i = a; i <= b; i += 1) {
         if (i % 2 !== 0) continue;
         const ta = tt(i, a, b); if (ta < 0.6) continue;
         const p = pt(i, side, W * 0.8, ta), lx = p[0], ly = p[1];
-        if (night > 0.25) {
+        if (glowOn && night > 0.25) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const r = Math.max(4, z * 1.7), g2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
           g2.addColorStop(0, `rgba(${st.lamp},${(0.5 * night).toFixed(2)})`); g2.addColorStop(1, `rgba(${st.lamp},0)`);
           ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         }
-        ctx.fillStyle = night > 0.25 ? `rgba(${st.lamp},0.95)` : "rgba(28,24,18,0.8)";
-        ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, z * 0.35), 0, Math.PI * 2); ctx.fill();
+        if (baseOn) {
+          ctx.fillStyle = night > 0.25 ? `rgba(${st.lamp},0.95)` : "rgba(28,24,18,0.8)";
+          ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, z * 0.35), 0, Math.PI * 2); ctx.fill();
+        }
       }
     }
   };
@@ -1174,10 +1201,17 @@ function cityMapDrawNight(now) {
     ctx2.fillStyle = `rgba(${warmCol},${((twilight - 0.25) * 0.16).toFixed(3)})`;
     ctx2.fillRect(0, 0, CM.cw, CM.ch);
   }
-  if (n < 0.05) return;
   const ctx = CM.ctx;
-  ctx.fillStyle = `rgba(10,16,34,${(n * 0.5).toFixed(3)})`;
-  ctx.fillRect(0, 0, CM.cw, CM.ch);
+  if (n >= 0.05) {
+    ctx.fillStyle = `rgba(10,16,34,${(n * 0.5).toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+  }
+  // Feux de la ville (scènes moteur, braseros des merveilles) : la lumière qu'ils
+  // ont déposée pendant la passe des bâtiments se pose ici, APRÈS le voile (qui
+  // l'éteindrait) et AVANT le retour du plein jour — un feu brûle aussi à midi,
+  // et une file jamais vidée traînerait sa lumière d'une frame sur l'autre.
+  paintFlameGlows(ctx);
+  if (n < 0.05) return;
   if (CM.layout && CM.layout.counts && CM.layout.counts.eraBand >= 2) {
     const sx = (CM.layout.cx * CM.TILE - CM.cam.x) * CM.cam.zoom + CM.cw / 2;
     const sy = (CM.layout.cy * CM.TILE - CM.cam.y) * CM.cam.zoom + CM.ch / 2;
@@ -1209,7 +1243,7 @@ function cityMapPlazaBlockedByWonder(p) {
     const w = CM_WONDERS[wi];
     if (w.id === "era_mega" || !cmWonderActive(w, state)) continue;
     const slot = cmWonderSlot(wi, N, CM.layout.cx, CM.layout.cy);
-    const e = cmWonderExtent(w.id);
+    const e = cmWonderExtent(w.id, (CM.layout.wonderTiers && CM.layout.wonderTiers[w.id]) || 1);
     // chevauchement AABB place[gx±ph]×[gy±ph] vs emprise (marge +0.5)
     if (Math.abs(p.gx - slot.gx) <= e.halfW + ph + 0.5 &&
         p.gy - ph <= slot.gy + e.south + 0.5 &&
