@@ -487,14 +487,37 @@ function scheduleBoonDelay() {
 // l'horloge douce (maybeFireBoon) et la « Stagnation féconde » (tick).
 // Hors ligne, l'aubaine CRÉDITE toujours mais reste muette : la Chronique de la
 // simulation est jetée, et empiler des dizaines de floats au retour ferait un mur.
+// ⚠ ON NE TIRE QUE PARMI LES AUBAINES QUI RAPPORTERAIENT VRAIMENT.
+//
+// Avant, le tirage était uniforme sur les cinq et abandonnait ensuite si la
+// ressource choisie ne produisait rien. Or c'est un état COURANT, pas un cas
+// limite : l'Or vaut 0/s tant que le Rayonnement est sous 25, ce qui est la
+// situation de départ de chaque cycle. Une aubaine sur cinq tombait donc dans
+// le vide — et, pire, l'horloge avait déjà été reprogrammée (voir
+// maybeFireBoon) : le joueur repartait pour un intervalle complet sans avoir
+// rien reçu ni rien vu.
+//
+// Le filtre porte sur le GAIN ARRONDI, pas sur le débit : un débit minuscule
+// (0,001/s sur 110 s) donne 0,11, que `floor()` ramène à zéro. Filtrer sur
+// « le débit est positif » aurait laissé passer exactement le même trou.
+//
+// Rend true si l'aubaine a été créditée, ce dont dépend la reprogrammation.
 function fireBoon(r, silent = false) {
-  const boon = BOONS[Math.floor(Math.random() * BOONS.length)];
-  const gain = D(r[boon.resource]).max(0).mul(boon.seconds).floor();
-  if (gain.lte(0)) return; // production nulle sur cette ressource : pas d'aubaine vide
+  const eligibles = [];
+  for (const b of BOONS) {
+    const gain = D(r[b.resource]).max(0).mul(b.seconds).floor();
+    if (gain.gt(0)) eligibles.push({ boon: b, gain });
+  }
+  // Rien ne produit assez pour valoir une aubaine (tout début de partie, ou
+  // Énée qui met la Nourriture et l'Or à zéro) : on ne crédite rien ET on ne
+  // consomme pas l'attente.
+  if (!eligibles.length) return false;
+  const { boon, gain } = eligibles[Math.floor(Math.random() * eligibles.length)];
   state[boon.resource] = D(state[boon.resource]).add(gain);
-  if (silent) { offlineBoons += 1; return; }
+  if (silent) { offlineBoons += 1; return true; }
   pushOutcomeFloat({ label: `${boon.icon} +${fmt(gain)}`, kind: "gain" });
   chronicle(boon.chronicle(fmt(gain)));
+  return true;
 }
 
 // Aubaines créditées pendant l'absence en cours. Leur cadence les borne déjà
@@ -508,6 +531,11 @@ function maybeFireBoon(r, silent = false) {
   const now = Date.now();
   if (!state.nextBoonAt) { state.nextBoonAt = now + scheduleBoonDelay(); return; }
   if (now < state.nextBoonAt) return;
-  state.nextBoonAt = now + scheduleBoonDelay();
-  fireBoon(r, silent);
+  // ⚠ ON NE REPROGRAMME QUE SI L'AUBAINE A ÉTÉ CRÉDITÉE. L'ordre inverse était
+  // le bug : l'horloge repartait AVANT le tirage, donc une aubaine tombée dans
+  // le vide coûtait au joueur un intervalle entier — jusqu'à trente minutes
+  // d'attente pour rien, et sans le moindre signe que quelque chose avait été
+  // tenté. Ici l'échéance reste échue tant que rien ne peut être crédité : dès
+  // que la cité produit à nouveau, l'aubaine due tombe.
+  if (fireBoon(r, silent)) state.nextBoonAt = now + scheduleBoonDelay();
 }

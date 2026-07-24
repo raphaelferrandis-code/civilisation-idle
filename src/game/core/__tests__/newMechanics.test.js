@@ -158,8 +158,12 @@ describe("B2 — Aubaines", () => {
   it("se déclenche à l'échéance, crédite la ressource et reprogramme l'horloge", () => {
     state.nextBoonAt = FIXED_NOW - 1; // échéance dépassée → déclenche au prochain tick
     // Cible explicitement l'aubaine « caravane » (or) par son id, indépendamment
-    // de l'ordre de BOONS : tick tire BOONS[floor(random·len)], donc random dans
-    // [i/len, (i+1)/len) sélectionne l'index i.
+    // de l'ordre de BOONS : tick tire dans [i/len, (i+1)/len) pour l'index i.
+    // ⚠ Ce calage ne tient QUE parce que la fixture mid-game fait produire les
+    // cinq ressources, donc les cinq aubaines sont éligibles et le tirage porte
+    // encore sur la liste entière. Depuis le correctif D10, le tirage ne vise
+    // que les aubaines qui rapporteraient au moins une unité : sur un état où
+    // une ressource est à zéro, cet index ne désignerait plus la caravane.
     const caravanIdx = BOONS.findIndex((b) => b.id === "caravan");
     const rnd = vi.spyOn(Math, "random").mockReturnValue((caravanIdx + 0.5) / BOONS.length);
     const goldBefore = D(state.gold);
