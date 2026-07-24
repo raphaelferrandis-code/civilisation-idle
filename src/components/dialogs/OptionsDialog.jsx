@@ -926,6 +926,42 @@ export default function OptionsDialog({ isOpen, onClose }) {
               qui rend le jeu conforme, ne pas le retirer sans retirer l'asset. */}
           {activeGroup === 'credits' && (
             <>
+              {/* ⚠ La musique et les icônes exigent ce crédit, ce n'est pas une
+                  politesse. Abstraction demande le titre de la piste, son nom et
+                  un lien ; Font Awesome Free est en CC BY 4.0. Ne pas retirer. */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Musique", en: "Music" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Track 5 », de l'album « Ludum Dare 30 », par Abstraction (Benjamin Burnes). Musique de fond du jeu, utilisée selon ses conditions. abstractionmusic.com",
+                      en: "“Track 5”, from the album “Ludum Dare 30”, by Abstraction (Benjamin Burnes). The game's background music, used under his terms. abstractionmusic.com"
+                    })}
+                  </small>
+                </div>
+              </div>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Icônes de l'interface", en: "Interface icons" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Font Awesome Free » par Fonticons. Icônes sous licence Creative Commons Attribution 4.0. fontawesome.com",
+                      en: "“Font Awesome Free” by Fonticons. Icons under the Creative Commons Attribution 4.0 license. fontawesome.com"
+                    })}
+                  </small>
+                </div>
+              </div>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Polices", en: "Typefaces" })}</span>
+                  <small>
+                    {tr({
+                      fr: "Pixelify Sans, Silkscreen et Inter, les trois polices du jeu, sous licence SIL Open Font 1.1.",
+                      en: "Pixelify Sans, Silkscreen and Inter, the game's three typefaces, under the SIL Open Font License 1.1."
+                    })}
+                  </small>
+                </div>
+              </div>
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Cartes à jouer", en: "Playing cards" })}</span>
