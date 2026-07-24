@@ -112,29 +112,39 @@ export default function CityStatusPanel() {
   // trois pastilles côte à côte, il fallait descendre sous 8 px de texte pour
   // tenir — illisible. En surcouche, chaque option garde son libellé entier à une
   // taille lisible, et l'encart ne gagne pas un pixel de hauteur.
-  const [vowPickerOpen, setVowPickerOpen] = useState(false);
+  // ON NE RETIENT PAS UN BOOLÉEN « ouverte » MAIS L'OFFRE POUR LAQUELLE elle
+  // l'est. Un booléen devait être remis à false par un effet dès que l'offre
+  // disparaissait (vœu prêté, nouveau cycle) : un rendu en cascade, refusé par
+  // le lint, et la surcouche restait visible le temps d'une frame. Avec la clé
+  // de l'offre, la visibilité se DÉDUIT — l'offre change, la surcouche se ferme
+  // d'elle-même, et une offre neuve ne peut pas la rouvrir toute seule.
+  const vowOfferKey = vowOffered.map((o) => o.id).join('|');
+  const [vowPickerFor, setVowPickerFor] = useState(null);
+  const vowPickerOpen = vowOffered.length > 0 && vowPickerFor === vowOfferKey;
   const [vowPickerPos, setVowPickerPos] = useState(null);
   const vowTriggerRef = useRef(null);
   // Coordonnées calculées À L'OUVERTURE depuis le bouton (surcouche en position
   // fixe). Repliée AU-DESSUS du bouton si elle sortirait par le bas de l'écran.
+  //
+  // ⚠ Les deux setState sont posés CÔTE À CÔTE, jamais l'un dans l'updater de
+  // l'autre : React rejoue les updaters (deux fois en StrictMode), et une
+  // fonction qui en profite pour écrire un AUTRE état n'est plus rejouable.
   const toggleVowPicker = () => {
-    setVowPickerOpen((open) => {
-      if (open) return false;
-      const r = vowTriggerRef.current?.getBoundingClientRect();
-      if (r) {
-        const guess = 34 * Math.max(1, vowOffered.length) + 12;   // hauteur estimée
-        const below = r.bottom + 4;
-        // On s'ouvre VERS LE HAUT dès que le bouton est dans le bas de l'écran :
-        // vers le bas, la surcouche retomberait pile sur les actions rapides
-        // (Sauver/Exporter/Importer/Options) et les masquerait le temps du choix.
-        const openUp = r.top > window.innerHeight * 0.55 || below + guess > window.innerHeight;
-        setVowPickerPos({
-          left: Math.round(r.left),
-          top: Math.round(openUp ? Math.max(4, r.top - guess - 4) : below),
-        });
-      }
-      return true;
-    });
+    if (vowPickerOpen) { setVowPickerFor(null); return; }
+    const r = vowTriggerRef.current?.getBoundingClientRect();
+    if (r) {
+      const guess = 34 * Math.max(1, vowOffered.length) + 12;   // hauteur estimée
+      const below = r.bottom + 4;
+      // On s'ouvre VERS LE HAUT dès que le bouton est dans le bas de l'écran :
+      // vers le bas, la surcouche retomberait pile sur les actions rapides
+      // (Sauver/Exporter/Importer/Options) et les masquerait le temps du choix.
+      const openUp = r.top > window.innerHeight * 0.55 || below + guess > window.innerHeight;
+      setVowPickerPos({
+        left: Math.round(r.left),
+        top: Math.round(openUp ? Math.max(4, r.top - guess - 4) : below),
+      });
+    }
+    setVowPickerFor(vowOfferKey);
   };
   useEffect(() => {
     if (!vowPickerOpen) return undefined;
@@ -149,13 +159,11 @@ export default function CityStatusPanel() {
     // déjà reçu le sien.
     const onDocClick = (e) => {
       const inside = e.target.closest && (e.target.closest('.csp-vow') || e.target.closest('.csp-vow-picker'));
-      if (!inside) setVowPickerOpen(false);
+      if (!inside) setVowPickerFor(null);
     };
     document.addEventListener('click', onDocClick);
     return () => document.removeEventListener('click', onDocClick);
   }, [vowPickerOpen]);
-  // Un vœu prêté (ou disparu) referme la surcouche.
-  useEffect(() => { if (!vowOffered.length) setVowPickerOpen(false); }, [vowOffered.length]);
 
   const saveError = getLastSaveError();
   const lastSaveAt = getLastSaveAt();
@@ -283,7 +291,7 @@ export default function CityStatusPanel() {
                         key={o.id}
                         type="button"
                         className="csp-vow-option"
-                        onClick={() => { chooseCycleVow(o.id); setVowPickerOpen(false); }}
+                        onClick={() => { chooseCycleVow(o.id); setVowPickerFor(null); }}
                       >
                         <span className="csp-vow-option-goal">{tr(def.describe(o.target))}</span>
                         <strong className="csp-vow-option-mult">+{pctBonus}%</strong>
