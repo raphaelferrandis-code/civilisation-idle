@@ -10,11 +10,24 @@ export function useDialogModal(isOpen, onClose) {
   // dont l'identité change à chaque rendu. La mettre en dépendance de l'effet le
   // relancerait sans cesse — donc fermer puis rouvrir la fenêtre en boucle.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  // Rafraîchi dans un effet et non pendant le rendu (react-hooks/refs) : les
+  // écouteurs ci-dessous ne le lisent qu'au moment d'un évènement, toujours
+  // après que les effets du rendu ont été appliqués.
+  useEffect(() => { onCloseRef.current = onClose; });
   // Élément qui avait le focus AVANT l'ouverture (E8). Fermer un dialogue
   // renvoyait le focus au début du document : au clavier, il fallait retraverser
   // toute la barre latérale pour revenir au bouton qu'on venait d'actionner.
   const focusAvantRef = useRef(null);
+  // ⚠ `dialog.close()` NE DÉCLENCHE PAS `close` TOUT DE SUITE : la spec met
+  // l'évènement en file d'attente. Une fermeture que NOUS provoquons (le
+  // nettoyage ci-dessous) retombe donc plus tard, quand l'effet a déjà été
+  // RE-MONTÉ et son écouteur ré-attaché — qui la prend alors pour une fermeture
+  // du joueur et appelle onClose. En <StrictMode> React monte, nettoie et
+  // remonte chaque effet d'affilée : la fenêtre s'ouvrait, se refermait et se
+  // démontait dans la même frame, sous 60 ms. « Le bouton Options ne fait
+  // rien », alors que showModal() avait bien réussi. Ce drapeau fait ignorer
+  // l'évènement dont nous sommes nous-mêmes l'auteur.
+  const autoFermetureRef = useRef(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -26,7 +39,12 @@ export function useDialogModal(isOpen, onClose) {
     // bouton paraît DÉFINITIVEMENT mort jusqu'au rechargement de la page.
     // La propriété React `onClose` ne suffit pas ici (l'évènement `close` ne
     // remonte pas) : c'est pour ça que ChoiceDialog écoute déjà en natif.
-    const handleNativeClose = () => { onCloseRef.current?.(); };
+    const handleNativeClose = () => {
+      // Fermeture de NOTRE fait (voir autoFermetureRef) : on consomme le drapeau
+      // et on se tait. L'appelant n'a jamais demandé à fermer.
+      if (autoFermetureRef.current) { autoFermetureRef.current = false; return; }
+      onCloseRef.current?.();
+    };
     dialog.addEventListener("close", handleNativeClose);
     if (isOpen && !dialog.open) {
       // Capturé AVANT showModal : après, le focus est déjà dans le dialogue.
@@ -47,7 +65,9 @@ export function useDialogModal(isOpen, onClose) {
       dialog.removeEventListener("close", handleNativeClose);
       // Fermer AVANT de rendre le focus : tant qu'une modale est ouverte, le
       // navigateur ignore un focus() posé en dehors d'elle.
-      if (dialog.open) dialog.close();
+      // Le drapeau est posé AVANT close() : l'évènement partira plus tard, et
+      // c'est l'écouteur du prochain montage qui le recevra (cf. plus haut).
+      if (dialog.open) { autoFermetureRef.current = true; dialog.close(); }
       const cible = focusAvantRef.current;
       focusAvantRef.current = null;
       // `isConnected` : le bouton qui a ouvert le dialogue peut avoir été

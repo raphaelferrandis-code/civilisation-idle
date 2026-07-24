@@ -51,7 +51,9 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
       ref={dialogRef}
       className="event-dialog import-dialog"
       style={{ display: 'block' }}
-      onClose={handleClose}
+      // Pas de `onClose` : useDialogModal s'en charge (cf. OptionsDialog). Le
+      // `setText("")` de handleClose n'y perd rien — le composant est démonté
+      // par App à la fermeture, son état part avec lui.
     >
       <form onSubmit={handleImport}>
         <h2>

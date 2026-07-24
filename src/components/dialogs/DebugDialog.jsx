@@ -38,7 +38,7 @@ export default function DebugDialog({ isOpen, onClose }) {
       ref={dialogRef}
       id="debugDialog"
       onClick={handleOverlayClick}
-      onClose={onClose}
+      // Pas de `onClose` : useDialogModal s'en charge (cf. OptionsDialog).
     >
       <form method="dialog" onSubmit={(e) => e.preventDefault()}>
         <h2>Mode debug</h2>
