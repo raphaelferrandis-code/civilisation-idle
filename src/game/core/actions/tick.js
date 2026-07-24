@@ -44,7 +44,6 @@ import {
 import { tickOlympus } from './olympus.js';
 import { runMythTicks } from './mythTicks.js';
 import { tickSteward } from './steward.js';
-import { resolveBuyQueue } from './buyQueue.js';
 import { tickTempleAutomation } from './templeAutomation.js';
 import { pushAnnalsSample } from '../annals.js';
 
@@ -421,13 +420,6 @@ export function tick(dt) {
   if (state.phoenixHeritage && !collapseInProgress && !gamePaused) {
     checkAutoScriptRules();
   }
-
-  // FILE D'ACHATS (C8) — après les automatismes, avant les protocoles d'urgence.
-  // Cet ordre est un choix : ce que le joueur a épinglé à la main passe APRÈS
-  // ce que ses automates achètent d'eux-mêmes (ils entretiennent la cité, la
-  // file la fait grandir), mais AVANT les dépenses de crise, qui ne doivent pas
-  // se voir souffler leur trésorerie par un achat planifié.
-  if (!collapseInProgress && !gamePaused) resolveBuyQueue();
 
   if (has("protocoles_urgence") && !crisisOpen() && !gamePaused && !collapseInProgress
     && Date.now() - lastAutoCrisisAt >= AUTO_CRISIS_COOLDOWN_MS) {

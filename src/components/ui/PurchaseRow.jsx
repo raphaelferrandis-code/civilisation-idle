@@ -70,10 +70,6 @@ function PurchaseRow({
   production,
   lackingKey,
   pulse,
-  queuePos,
-  queueable,
-  queueFull,
-  onToggleQueue,
   etaLabel
 }) {
   // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0").
@@ -155,9 +151,14 @@ function PurchaseRow({
       style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
       onPointerDown={handleRowPointerDown}
     >
-      {/* Pastille d'état (E5). Purement visuelle : l'état est déjà dit en
-          toutes lettres par le libellé d'échéance et par le bouton d'achat. */}
-      <span className="pr-state-pip" aria-hidden="true" />
+      {/* Pastille d'état (E5). ⚠ AUCUNE PASTILLE QUAND C'EST ACHETABLE : la
+          carte s'illumine déjà (bordure et liseré gauche passent à l'or, cf.
+          .is-affordable), et un second signal pour la même chose n'ajoute que
+          du bruit — retour de test de Raphaël. Elle ne sert donc qu'à séparer
+          « bientôt » de « verrouillé », deux états que le cadre confond en un
+          seul aspect atténué. Purement visuelle : l'échéance est dite en toutes
+          lettres juste à côté. */}
+      {rowState !== 'affordable' && <span className="pr-state-pip" aria-hidden="true" />}
       <div className="pr-name-row">
         <h3 className="pr-name" {...tipProps(tr(b.name), tr(b.desc))}>{tr(b.name)}</h3>
         {milestoneInfo && (
@@ -281,32 +282,6 @@ function PurchaseRow({
               ))}
             </span>
           </button>
-          {/* ÉPINGLE (C8) : la file achètera cette cible dès qu'elle sera
-              finançable. Absente pour ce qui ne s'achète pas en masse (coût en
-              Ruines) — la file ne doit jamais ponctionner l'arbre permanent. */}
-          {queueable && (
-            // Même ternaire coupé que le bouton d'achat : l'épingle ne se
-            // désactive que dans un seul cas, file pleine ET cible non épinglée,
-            // qui est aussi le seul où son libellé explique quoi faire.
-            <button
-              type="button"
-              className={`pr-pin${queuePos ? " is-queued" : ""}`}
-              disabled={!queuePos && queueFull}
-              onClick={(e) => { e.stopPropagation(); onToggleQueue(b.id); }}
-              aria-pressed={!!queuePos}
-              title={!queuePos && queueFull
-                ? tr({ fr: "La file est pleine : retire une cible d'abord.", en: "The queue is full: remove a target first." })
-                : undefined}
-              {...tipProps(null, !queuePos && queueFull
-                ? null
-                : queuePos
-                  ? tr({ fr: `Cible n° ${queuePos} de la file (×${buyAmount === "step" ? nextIn : buyAmount}). Cliquer pour retirer.`, en: `Target #${queuePos} in the queue. Click to remove.` })
-                  : tr({ fr: "Épingler : la cité l'achètera dès que ce sera finançable, dans l'ordre de la file.", en: "Pin: the city will buy it as soon as it is affordable, in queue order." }))}
-            >
-              <i className="fa-solid fa-thumbtack" aria-hidden="true"></i>
-              {queuePos ? <span className="pr-pin-pos">{queuePos}</span> : null}
-            </button>
-          )}
           {/* GAIN RELATIF (B6). « +31 % » se lit d'un coup d'œil là où comparer
               4.2e12 à 8.7e11 d'une rangée à l'autre est impossible. Le chip
               porte la ressource la plus servie, l'infobulle les détaille toutes. */}
@@ -346,12 +321,6 @@ function arePropsEqual(prev, next) {
     prev.pulse === next.pulse &&
     prev.globalMult === next.globalMult &&  // production = f(count, globalMult, building)
     prev.lackingKey === next.lackingKey &&  // highlight is-lacking par devise
-    // File d'achats (C8). Sans ces trois-là, l'épingle resterait figée sur son
-    // ancien rang jusqu'au prochain achat : la rangée est mémoïsée, tout ce qui
-    // s'affiche doit être comparé ici.
-    prev.queuePos === next.queuePos &&
-    prev.queueable === next.queueable &&
-    prev.queueFull === next.queueFull &&
     // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
     // une primitive. L'oublier ici figerait le compte à rebours sur sa première
     // valeur jusqu'au prochain achat, en silence.

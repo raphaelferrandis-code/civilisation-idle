@@ -29,9 +29,15 @@
    Le jeu se joue sous une vignette de crise rouge, et le mode deuil passe
    l'application ENTIÈRE en grayscale : une teinte n'y survit pas. Le pip porte
    donc une FORME différente par état, la couleur n'étant qu'un renfort.
-     achetable — disque plein
      bientôt   — anneau creux
      verrouillé— simple tiret
+
+   ⚠ RIEN POUR « ACHETABLE », retour de test de Raphaël. La carte s'illumine
+   déjà dans cet état (bordure et liseré gauche passent à l'or, cf.
+   .is-affordable), et un second signal pour la même chose n'ajoutait que du
+   bruit. Le pip ne sert donc plus qu'à séparer « bientôt » de « verrouillé »,
+   deux états que le cadre confond en un seul aspect atténué. Il n'est pas
+   masqué en CSS mais PAS RENDU du tout (cf. PurchaseRow).
 
    ⚠ ÉLÉMENT DÉDIÉ, PAS UN PSEUDO. La fiche demandait un ::before « sans nouvel
    élément JSX » : les DEUX pseudos de .purchase-row sont pris par le splash-art
@@ -53,12 +59,6 @@
   background: var(--state-locked);
   opacity: 0.75;
   pointer-events: none;
-}
-
-.purchase-row[data-state="affordable"] .pr-state-pip {
-  background: var(--state-affordable);
-  opacity: 1;
-  box-shadow: 0 0 5px color-mix(in srgb, var(--state-affordable) 60%, transparent);
 }
 
 .purchase-row[data-state="soon"] .pr-state-pip {
@@ -386,157 +386,6 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
-/* ----- Epingle de la FILE D'ACHATS (C8) -----
-   Discrete tant que la cible n'est pas epinglee : c'est un geste de planification,
-   pas l'action principale de la rangee (qui reste ACHETER). */
-.pr-pin {
-  flex: 0 0 auto;
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.14rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 72%);
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--bg-inset), transparent 25%);
-  color: color-mix(in srgb, var(--gold-bright), transparent 55%);
-  font-size: 0.66rem;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.pr-pin:hover:not(:disabled) {
-  color: var(--gold-bright);
-  border-color: var(--gold);
-}
-
-.pr-pin:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Epinglee : l'etat se voit au rang, pas seulement a la couleur. */
-.pr-pin.is-queued {
-  color: var(--gold-bright);
-  border-color: var(--gold);
-  background: color-mix(in srgb, var(--gold), transparent 78%);
-}
-
-.pr-pin-pos {
-  font-family: var(--font-number);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-/* ----- La FILE, en tete de boutique -----
-   Hors des onglets : elle vise des batiments de categories differentes, la
-   ranger dans un onglet la rendrait invisible la moitie du temps. */
-.shop-queue {
-  margin-bottom: 0.7rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 78%);
-  border-radius: var(--r-card);
-  background: color-mix(in srgb, var(--bg-inset), transparent 20%);
-}
-
-.shop-queue-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.3rem;
-}
-
-.shop-queue-title {
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.shop-queue-clear {
-  padding: 0 0.25rem;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 0.58rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.shop-queue-clear:hover { color: var(--gold-bright); }
-
-.shop-queue-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.shop-queue-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.68rem;
-  color: color-mix(in srgb, var(--gold-ivory), transparent 25%);
-  opacity: 0.72;
-}
-
-/* La TETE seule est en cours : la file achete dans l'ordre, laisser croire que
-   les suivantes progressent en parallele serait un mensonge. */
-.shop-queue-list li.is-current {
-  opacity: 1;
-  color: var(--gold-ivory);
-}
-
-.sq-rank {
-  flex: 0 0 auto;
-  width: 1.05rem;
-  text-align: center;
-  font-family: var(--font-number);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.6rem;
-  color: var(--muted);
-}
-
-.sq-name {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sq-amount {
-  flex: 0 0 auto;
-  font-family: var(--font-number);
-  font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--gold-bright), transparent 35%);
-}
-
-.sq-status {
-  flex: 0 0 auto;
-  font-size: 0.56rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.sq-remove {
-  flex: 0 0 auto;
-  padding: 0 0.2rem;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 0.85rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.sq-remove:hover { color: var(--red, #e06a55); }
 
 /* ----- Bouton d'achat : action + coût intégré ----- */
 .btn-purchase {
