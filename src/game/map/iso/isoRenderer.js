@@ -1125,6 +1125,18 @@ function drawIsoGround() {
   // retour Raph) : les cellules plaza redeviennent du sol urbain calme.
   const plazaEra = plazaEraForBand(band);
   const plazaSceneReady = !!(plazaEra && isoArt('plaza-' + plazaEra).ready);
+  // ⚠ MESURÉ, NE PAS « OPTIMISER » : cette Map est reconstruite à chaque
+  // recuisson, donc à chaque cran de zoom, alors que le verdict de kindAt ne
+  // dépend NI du zoom NI de la caméra (seulement du layout, du décodage du sprite
+  // de place, de l'aperçu de merveille et des molettes __wonderGround/__frontier).
+  // La mettre en cache sur l'objet layout — même geste que builtCells(L) juste
+  // au-dessus — a été implémenté puis RETIRÉ le 2026-07-24 : cache vérifié
+  // effectivement réutilisé (même objet, 27 252 cellules, signature stable sur 4
+  // recuissons) et le temps n'a PAS bougé (2326 / 2116 / 1650 / 1971 ms). A/B
+  // alterné dans les deux sens : 2029 contre 2066 ms.
+  // Le coût de cette boucle est la RASTÉRISATION des losanges (aplat + liseré
+  // anti-couture par cellule), pas la classification. Même conclusion que pour les
+  // quais : sur cette carte, ce qui coûte est toujours le tracé, jamais le JS.
   const kinds = new Map();
   // ── Décision de la LISIÈRE QUI DIVAGUE, déclarée AVANT kindAt qui l'appelle.
   // (Un const déclaré après son appelant marche tant que l'appel est différé,
@@ -1217,8 +1229,26 @@ function drawIsoGround() {
   ctx.fillStyle = rgb(SEASON_GRASS, 1);
   ctx.fillRect(0, 0, CM.cw, CM.ch);
   const tLoop = PR && performance.now();
+  // ── CULL ÉCRAN PAR CELLULE ────────────────────────────────────────────────
+  // visibleCellBounds rend un RECTANGLE de grille (gx0..gx1, gy0..gy1) : la boîte
+  // englobante des 4 coins d'écran projetés en monde. Or en isométrique, un écran
+  // rectangulaire se projette en LOSANGE — la boîte englobante d'un losange fait
+  // le double de son aire. Compté directement : 49 à 51 % des cellules parcourues
+  // sont ENTIÈREMENT hors écran, à tous les zooms (2 006 visibles sur 3 969 à
+  // zoom 1 ; 12 124 sur 24 649 à zoom 0,4). La moitié de la recuisson — le poste
+  // le plus cher de la carte — était dépensée à classer, remplir et border des
+  // losanges que personne ne peut voir.
+  // Le test est un rejet précoce, avant kindAt et tout tracé.
+  // ⚠ Marge d'une cellule pleine : le losange pend SOUS son coin nord (2*hh) et
+  // les tuiles/touffes débordent un peu. Trop serré, on raboterait le bord.
+  // A/B : globalThis.__isoCellCull = false rejoue le balayage complet.
+  const cullPadX = hw * 2, cullPadY = hh * 4;
+  const cullOn = globalThis.__isoCellCull !== false;
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
+      const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
+      if (cullOn && (p.x < -cullPadX || p.x > CM.cw + cullPadX
+        || p.y < -cullPadY || p.y > CM.ch + cullPadY)) continue;
       if (PR) PR.n += 1;
       const key = gx + ',' + gy;
       const isRoad = L.roadSet.has(key);
@@ -1229,7 +1259,6 @@ function drawIsoGround() {
       const kind = kindAt(gx, gy);
       const tone = kind === 'plaza' ? PLAZA : kind === 'wonder' ? WONDER_GROUND.tone
         : kind === 'grass' ? SEASON_GRASS : urb;
-      const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
       const mir = ((cmHash(key) >>> 3) & 1) === 1;
       // Dosage par matière : l'URBAIN reste un aplat CALME avec un simple GRAIN de
       // texture (alpha faible) — la tuile pleine tapissait la ville d'un motif
