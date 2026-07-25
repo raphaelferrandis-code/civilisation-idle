@@ -16,8 +16,16 @@ export const pixelHousesFlag = { on: true };
 
 // B — VARIATION PAR INSTANCE. Sans elle, les 12 archétypes sont stampés à l'identique
 // sur le millier d'habitations d'une grande ville : c'est ça, et non le nombre de
-// modèles, qui fait « ville photocopiée ». Le levier est la TEINTE — une permutation
-// de rampes de matière (cf. housePalette.js), 3 états par archétype, 36 en tout.
+// modèles, qui fait « ville photocopiée ». Le levier est la TEINTE — un échange de
+// rampes de matière (cf. housePalette.js), 2 états sur 8 archétypes, 20 aspects en tout.
+// Les 4 habitations vernaculaires (tent, hut, longhouse, courtyard) restent à l'identique :
+// la terre cuite y est l'identité, aucun échange de matière ne leur va.
+//
+// C'était 3 états et 36 aspects jusqu'au 2026-07-25 : les archétypes recevaient les
+// deux 3-cycles sur {brique, pierre, ardoise}, sans égard pour leur matière. Rendu en
+// jeu « criard et bizarre », et pour cause — mesuré, deux tours sur trois finissaient en
+// terre cuite et les maisons anciennes en gris. Un archétype ne reçoit plus que la
+// matière qui lui va ; le détail et les chiffres sont dans housePalette.js.
 //
 // Le miroir horizontal a été essayé puis RETIRÉ : l'éclairage et l'ombre portée sont
 // cuits dans les sprites, les retourner mettait la maison en contradiction avec ses
@@ -71,15 +79,19 @@ function spriteKeyFor(variant) {
 }
 
 // B — Teinte d'une tuile. Déterministe sur (gx, gy).
-// ⚠ cmHash rend un entier SIGNÉ : sans `>>> 0` le modulo part en négatif et le tirage
-// se biaise silencieusement (même piège que le seed de fumée juste à côté).
+// ⚠ cmHash rend un entier SIGNÉ : sans `>>> 0` le tirage se biaise silencieusement
+// (même piège que le seed de fumée juste à côté).
+//
+// La teinte dépend de la VARIANTE et pas seulement du hash : chaque archétype n'a droit
+// qu'aux matières qui lui vont (cf. FAMILY dans housePalette.js). Sans ce filtre, les
+// tours de verre sortaient en terre cuite deux fois sur trois.
 //
 // Les skins COSMIQUES sont exclus : leur couleur de bande (émeraude 7, or 8, violet 9)
 // est un signal de progression assorti aux tours-moteur, la permuter mentirait au joueur.
 function houseTintOf(t, key) {
   if (!houseVarTune.on) return 0;
   if (key.indexOf("-cosmic-") >= 0) return 0;
-  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0);
+  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0, t.variant);
 }
 
 // B — Canvas d'une teinte, RECADRÉ sur la bbox de contenu et mis en cache. Renvoie null
