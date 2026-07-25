@@ -174,17 +174,124 @@ function isoTileFace(img, bb) {
     return fc;
   } catch { return null; }
 }
+
+/* ---------------------------------------------------------------------------
+ * ÉCHELLE DU MOTIF DE SOL — « les tuiles sont trop grosses » (Raph 2026-07-25,
+ * même diagnostic que l'eau, cf. waterTilesTune).
+ *
+ * Une tuile = UNE CELLULE : à zoom 1 ses 64 px d'art couvrent les 64 px du
+ * losange, donc un pavé de 8 px d'art fait 8 px d'écran sur un lot qui porte une
+ * maison entière — des pavés d'un mètre et demi, des dalles de deux. `rep`
+ * subdivise la cellule en rep×rep SOUS-LOSANGES qui reçoivent chacun la tuile
+ * entière : le motif rétrécit d'autant. La subdivision est EXACTE — les rep²
+ * sous-losanges sont l'image d'un découpage régulier du carré monde par une
+ * projection AFFINE, ils pavent le losange de cellule sans trou ni chevauchement
+ * — donc rien à recoller, et le coût par cellule ne bouge pas : la face répétée
+ * est composée UNE FOIS par (tuile, rep), le blit du sol reste un drawImage.
+ *
+ * ⚠ `insetF` N'EST PAS UN DÉTAIL DE RÉGLAGE. Ces tuiles sont des DALLES EN
+ * VOLUME (cf. isoTileFace juste au-dessus) : le pourtour de leur face est un
+ * LISERÉ de dalle. À rep=1 ce liseré tombe pile sur l'arête de cellule et se
+ * noie dans le recouvrement des voisines ; recopié tel quel dans chaque
+ * sous-losange il se retrouve rep fois PAR cellule et dessine un quadrillage
+ * diagonal en travers de tout le sol. Vérifié en aperçu hors-jeu avant d'écrire
+ * une ligne de moteur : lignes franches à rep 2 comme à rep 3, disparues en
+ * échantillonnant l'INTÉRIEUR de la face (losange rétréci de insetF de sa
+ * largeur). 5 % = 3 px sur une tuile de 64, 2 px sur une de 48.
+ *
+ * Réduction en NEAREST (imageSmoothingEnabled=false), pas en moyenne de boîte :
+ * la moyenne lisse mieux les joints d'un pixel mais fabrique des teintes entre
+ * deux entrées de la palette maître.
+ * ------------------------------------------------------------------------- */
+export const groundTileTune = { rep: 2, insetF: 0.05 };
+if (typeof window !== 'undefined') {
+  // Molette : __groundTile(1) rejoue l'ancien sol (1 tuile = 1 cellule) ;
+  // __groundTile(3) va plus fin ; __groundTile({ insetF: 0.08 }) creuse le liseré.
+  window.__groundTile = (arg) => {
+    if (typeof arg === 'number') groundTileTune.rep = arg;
+    else if (arg && typeof arg === 'object') Object.assign(groundTileTune, arg);
+    isoTileCache.forEach((e) => { e.tiled = null; });
+    CM._isoGroundBake = null;   // le sol est CUIT : sans ça la molette ne se voit pas
+    return { ...groundTileTune };
+  };
+}
+// Rectangle (flottant) du sous-losange (i,j) dans une face fw×fh découpée en
+// rep×rep. Exporté pour le test : c'est CETTE géométrie qui garantit le pavage
+// exact du losange de cellule — si elle dérape, le sol se troue ou se recouvre.
+// Fenêtre d'échantillonnage dans la face : on rentre de `ix` px sur les côtés
+// pour ne JAMAIS recopier le liseré de la dalle (cf. le ⚠ ci-dessus). ix est
+// forcé PAIR pour que iy = ix/2 tombe juste : la fenêtre doit rester en 2:1
+// comme la face, sinon les sous-losanges s'écrasent d'un demi-pixel et le motif
+// « glisse » d'une sous-tuile à l'autre. Exportée pour le test — recalculer la
+// formule dans le test reviendrait à la comparer à elle-même.
+export function isoFaceInset(fw, insetF) {
+  const ix = 2 * Math.max(1, Math.round((fw * insetF) / 2));
+  return { ix, iy: ix / 2 };
+}
+export function isoSubTileRect(i, j, fw, fh, rep) {
+  const sw = fw / rep, sh = fh / rep;
+  // Coin NORD du sous-losange : la projection iso d'un pas de sous-cellule,
+  // exactement ce que worldToScreen ferait à l'échelle 1/rep (x ∝ i−j, y ∝ i+j).
+  return { x: fw / 2 + (i - j) * sw / 2 - sw / 2, y: (i + j) * sh / 2, w: sw, h: sh };
+}
+// Face d'une cellule pavée de rep×rep copies de `face`. Renvoie `face` tel quel
+// à rep ≤ 1 (ou si les pixels sont illisibles) : le sol garde son rendu d'avant.
+function isoFaceTiled(face, rep, insetF) {
+  const fw = face && face.width, fh = face && face.height;
+  if (!fw || !fh || !(rep > 1)) return face;
+  try {
+    const c = (typeof OffscreenCanvas !== 'undefined') ? new OffscreenCanvas(fw, fh) : document.createElement('canvas');
+    c.width = fw; c.height = fh;
+    const cx = c.getContext('2d', { willReadFrequently: true });
+    cx.imageSmoothingEnabled = false;
+    const sw = fw / rep, sh = fh / rep;                      // sous-losange (flottant)
+    const dw = Math.ceil(sw) + 1, dh = Math.ceil(sh) + 1;    // +1 px : anti-couture interne
+    const { ix, iy } = isoFaceInset(fw, insetF);
+    const sww = fw - 2 * ix, shh = fh - 2 * iy;
+    if (sww < 4 || shh < 2) return face;
+    for (let j = 0; j < rep; j += 1) {
+      for (let i = 0; i < rep; i += 1) {
+        const r = isoSubTileRect(i, j, fw, fh, rep);
+        cx.drawImage(face, ix, iy, sww, shh, Math.round(r.x), Math.round(r.y), dw, dh);
+      }
+    }
+    // Le +1 px des sous-tuiles du pourtour sort du losange de cellule : on
+    // remasque avec la MÊME géométrie (isoFaceKeeps), sinon la face redevient un
+    // rectangle et le quadrillage revient d'un cran plus haut, entre cellules.
+    const dat = cx.getImageData(0, 0, fw, fh);
+    for (let y = 0; y < fh; y += 1) {
+      for (let x = 0; x < fw; x += 1) {
+        if (!isoFaceKeeps(x, y, fw, fh)) dat.data[(y * fw + x) * 4 + 3] = 0;
+      }
+    }
+    cx.putImageData(dat, 0, 0);
+    return c;
+  } catch { return face; }
+}
+// Face à blitter pour cette tuile, au `rep` courant. Composée paresseusement et
+// gardée sur l'entrée de cache : une molette la périme, pas chaque recuisson.
+function isoFaceFor(e) {
+  const G = groundTileTune;
+  const rep = Math.max(1, Math.round(G.rep || 1));
+  if (rep <= 1 || !e.face) return e.face;
+  if (!e.tiled || e.tiled.rep !== rep || e.tiled.insetF !== G.insetF) {
+    e.tiled = { rep, insetF: G.insetF, c: isoFaceTiled(e.face, rep, G.insetF) };
+  }
+  return e.tiled.c || e.face;
+}
+
 function ensureIsoTileKey(key) {
   if (!key) return null;
   let e = isoTileCache.get(key);
   if (e) return e;
-  e = { img: null, ready: false, bbox: null, face: null, failed: false };
+  e = { img: null, ready: false, bbox: null, face: null, tiled: null, failed: false };
   isoTileCache.set(key, e);
   if (typeof Image !== 'undefined') {
     const im = new Image();
     im.onload = () => {
       e.bbox = isoTileBBox(im);
       e.face = isoTileFace(im, e.bbox);   // face masquée au losange (une fois)
+      e.tiled = null;                     // la face répétée se recompose à la demande
       e.ready = !!e.bbox;
       // Invalidation DOUCE : le bake reste re-blittable, la recuisson (chère sur
       // mégapole) est coalescée par drawIsoWorld — une rafale de décodages au
@@ -219,9 +326,12 @@ function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false) {
   const k = (hw * 2) / bb.w;
   const dw = Math.ceil(bb.w * k) + 1;          // +1 px : anti-couture entre losanges
   const dh = Math.ceil(faceH * k) + 1;
-  // Source : la face masquée si elle a pu être construite, sinon la tuile brute.
-  const src = e.face || e.img;
-  const sx = e.face ? 0 : bb.x0, sy = e.face ? 0 : bb.y0;
+  // Source : la face masquée (répétée rep×rep, cf. groundTileTune) si elle a pu
+  // être construite, sinon la tuile brute. La face répétée fait la MÊME taille
+  // que la simple (bb.w × faceH) — le blit ci-dessous ne change pas d'un iota.
+  const face = isoFaceFor(e);
+  const src = face || e.img;
+  const sx = face ? 0 : bb.x0, sy = face ? 0 : bb.y0;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   if (mirror) {
