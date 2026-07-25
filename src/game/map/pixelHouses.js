@@ -10,6 +10,7 @@
 // chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
 import { CM, cmHash } from './layout.js';
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
+import { lightCutImage } from './lightLayer.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -232,6 +233,11 @@ export function drawPixelHouse(t, x, y, w, h) {
   ctx.imageSmoothingEnabled = false;        // pixel net
   ctx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
   ctx.imageSmoothingEnabled = prev;
+  // Cette maison est peinte APRÈS les lampes qui se trouvent derrière elle :
+  // elle doit donc effacer leur halo là où sa silhouette passe devant (cf.
+  // lightLayer.js). Même image, même géométrie → découpe au pixel. No-op quand
+  // aucune lumière n'a été déposée dans ce coin de l'écran.
+  lightCutImage(g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
   return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh };
 }
 

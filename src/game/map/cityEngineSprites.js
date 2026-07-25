@@ -10,6 +10,7 @@
 import { drawEraGroundFill } from './pixelTerrain.js';
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
+import { lightCut, lightCutImage } from './lightLayer.js';
 
 // ── Taille des HUMAINS de scène = celle des HABITANTS de la carte ────────────
 // Les scènes moteur reçoivent une BOÎTE (ox,oy,sw,sh) dont la taille CROÎT avec
@@ -246,6 +247,8 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+  // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
+  lightCutImage(im, left, top, drawW, drawH);
 }
 
 // TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
@@ -261,6 +264,7 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+  lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   if (cp && cp.glow) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const a = 0.16 + 0.10 * Math.sin(now / 720 + band), gy = baseY - drawH * 0.30;
@@ -283,6 +287,7 @@ function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+  lightCutImage(im, left, top, drawW, drawH);
   return true;
 }
 
@@ -360,6 +365,13 @@ function blitPropRot(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, angle) {
   ctx.save(); ctx.translate(ox + sw * cx, oy + sh * cy); ctx.rotate(angle);
   ctx.drawImage(im, -drawW * piv.x, -drawH * piv.y, drawW, drawH); ctx.restore();
   ctx.imageSmoothingEnabled = prev;
+  // Découpe SOUS LE MÊME REPÈRE que le blit (la pièce tourne) ; l'emprise passée
+  // au test de couverture est le disque circonscrit, majorant sûr de toute rotation.
+  const rr = Math.hypot(drawW, drawH) / 2, rx = ox + sw * cx, ry = oy + sh * cy;
+  lightCut(rx - rr, ry - rr, rx + rr, ry + rr, (lc) => {
+    lc.save(); lc.translate(rx, ry); lc.rotate(angle);
+    lc.drawImage(im, -drawW * piv.x, -drawH * piv.y, drawW, drawH); lc.restore();
+  });
   return true;
 }
 
@@ -507,6 +519,9 @@ function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * meta.fw, 0, meta.fw, meta.fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
+  // Découpe AVANT la lueur du foyer : la bande masque les halos déposés derrière
+  // elle, mais surtout pas le sien, qui s'annonce juste après.
+  lightCutImage(im, left, top, drawW, drawH, frame * meta.fw, 0, meta.fw, meta.fh);
   const core = ANIM_FIRE_CORES[key];
   if (core) {
     // Phase de scintillement liée à la BANDE et non à l'écran : deux forges

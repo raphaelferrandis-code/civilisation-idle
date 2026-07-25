@@ -23,6 +23,10 @@ import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEngineSprites.js';
 import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
+import {
+  LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
+  lightCtx, lightCut, lightCutImage, paintLightLayer,
+} from '../lightLayer.js';
 import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
@@ -2334,6 +2338,7 @@ function drawIsoGroundedArt(ctx, e, px, py, targetW) {
   const dx = px - boxW * cxf, dy = py + targetW / 4 - boxH * cbf;
   ctx.drawImage(e.img, dx, dy, boxW, boxH);
   ctx.imageSmoothingEnabled = prev;
+  lightCutImage(e.img, dx, dy, boxW, boxH);   // masque les halos déposés derrière (lightLayer.js)
   // Géométrie du draw (px écran) : permet de re-projeter un OVERLAY calé sur
   // les pixels source (eau de fontaine animée des places).
   return { x: dx, y: dy, w: boxW, h: boxH };
@@ -2917,8 +2922,18 @@ function lampFlicker(style, now, ph) {
 }
 const lampPhase = (lp) => ((lp.gx * 73 + lp.gy * 179) % 628) / 100;
 // Glow radial additif (le contexte doit être en composite 'lighter').
+//
+// ⚠ GARDES ÉCRITES EN NÉGATIF, et ce n'est pas un tic de style : toute
+// comparaison avec NaN est FAUSSE, donc `alpha <= 0.004 || r < 0.6` laissait
+// passer un rayon NaN jusqu'à createRadialGradient, qui JETTE — frame perdue,
+// carte figée. C'est arrivé pour une phase de scintillement calculée sur un
+// gx/gy absent. Sous cette forme, NaN ressort ici.
+//
+// (Remplacer ce dégradé par un disque pré-cuit blité a été mesuré comme un gain
+// NUL : 290 dégradés = 0,7 ms de jour, 1 001 = 1,7 ms de nuit, quand un blit
+// coûte ~5 µs pièce. Ne pas y retourner — cf. le relevé du profileur de frame.)
 function addGlow(ctx, x, y, r, col, alpha) {
-  if (alpha <= 0.004 || r < 0.6) return;
+  if (!(alpha > 0.004) || !(r >= 0.6) || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `rgba(${col},${alpha.toFixed(3)})`);
   g.addColorStop(1, `rgba(${col},0)`);
@@ -3055,57 +3070,104 @@ function drawIsoNight(now) {
   // anticipé ci-dessous : un feu brûle aussi de jour et hors LOD-lampes, et une
   // file jamais vidée traînerait d'une frame sur l'autre.
   paintFlameGlows(ctx);
-  if (!L || CM.lodActive || !LAMP_LIGHT.on) return;   // pas de sprites-lampes en LOD → pas de lumières
-  const T = CM.TILE, z = CM.cam.zoom;
+  // Halos des lampadaires : DÉPOSÉS pendant la passe vivante, chacun à la
+  // profondeur de son mât, puis posés ici par-dessus le voile — c'est ce
+  // détour qui leur fait respecter le tri peintre (cf. lightLayer.js). Le
+  // dessin direct ci-dessous n'est plus qu'un REPLI (calque indisponible ou
+  // molette __lightOcclusion({on:false})) : il ignore l'occultation.
+  if (paintLightLayer(ctx)) return;
+  if (!L || CM.lodActive) return;                     // pas de sprites-lampes en LOD → pas de lumières
+  const K = isoLampLightFrame(L);
+  if (!K) return;
   const b = visibleCellBounds(0);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const lp of isoLamps(L, K.band)) {
+    if (lp.gx < b.gx0 || lp.gx > b.gx1 || lp.gy < b.gy0 || lp.gy > b.gy1) continue;
+    if (!lampLit(lp, K)) continue;
+    paintLampGlow(ctx, lp, worldToScreen(lp.wx, lp.wy), K, now);
+  }
+  ctx.restore();
+}
+
+// Constantes d'éclairage des mâts pour LA frame (null = personne n'éclaire) :
+// teinte de l'ère, métriques du sprite, visibilité jour/nuit. Extrait de la
+// passe de nuit pour servir aux deux chemins — dépôt dans le calque (nominal)
+// et dessin direct (repli).
+function isoLampLightFrame(L) {
+  if (!LAMP_LIGHT.on || CM.lodActive || !L || !L.roadMap) return null;
   const band = (L.counts && L.counts.eraBand) | 0;
-  const lamps = isoLamps(L, band);
-  if (!lamps.length) return;
   const lig = LAMP_LIGHTS[lampEraForBand(band)] || LAMP_LIGHTS.antique;
+  const n = CM.nightF || 0;
   const vis = lig.day + (1 - lig.day) * n;            // visibilité diurne/nocturne de la source
-  if (vis <= 0.02) return;
+  if (vis <= 0.02) return null;
   // Métriques du sprite pour placer les sources sur la tête (mêmes calculs que le peintre).
   const art = isoArt('lamp-' + lampEraForBand(band) + '?v=' + LAMP_V);
   const m = (art.ready && lampFootMetrics(art)) || { footXf: 0.5, footYf: 0.97, usedHf: 0.92 };
-  const hpx = T * z * LAMP_TUNE.h / (m.usedHf || 1);
+  const unit = CM.TILE * CM.cam.zoom;
+  const hpx = unit * LAMP_TUNE.h / (m.usedHf || 1);
   const wpx = art.ready ? hpx * ((art.img.naturalWidth || 1) / (art.img.naturalHeight || 1)) : hpx * 0.5;
-  const gain = LAMP_LIGHT.gain;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  let count = 0;
-  for (const lp of lamps) {
-    if (count > 320) break;
+  return { band, lig, m, hpx, wpx, vis, n, unit, gain: LAMP_LIGHT.gain, stride: isoLampStride(L, band) };
+}
+
+// Plafond de mâts éclairés par frame (garde-fou perf historique) — rendu
+// RÉPARTI. Depuis que les halos se déposent dans le tri peintre, « éclairer les
+// 320 premiers » n'a plus le même sens : le tri les prend du NORD au SUD, si
+// bien que le plafond dessinait une frontière horizontale nette au milieu de la
+// ville, moitié haute allumée, moitié basse éteinte (vu au dézoom d'une
+// mégapole). On compte donc les mâts VISIBLES et on n'en éclaire qu'un sur k,
+// tirés par hash de cellule : stable d'une frame à l'autre (pas de clignotement
+// au pan) et réparti sur toute la vue.
+const LAMP_LIGHT_CAP = 320;
+function isoLampStride(L, band) {
+  const b = visibleCellBounds(0);
+  let nVis = 0;
+  for (const lp of isoLamps(L, band)) {
     if (lp.gx < b.gx0 || lp.gx > b.gx1 || lp.gy < b.gy0 || lp.gy > b.gy1) continue;
-    count += 1;
-    const p = worldToScreen(lp.wx, lp.wy);
-    const boxL = p.x - wpx * m.footXf, boxT = p.y - hpx * m.footYf;
-    const ph = lampPhase(lp);
-    const fl = lampFlicker(lig.style, now, ph);
-    // — NUIT : halo ambiant à la tête + flaque au sol (n uniquement), scintillés.
-    if (n > 0.03) {
-      const hx = boxL + lig.hx * wpx, hy = boxT + lig.hy * hpx;
-      addGlow(ctx, hx, hy, Math.max(4, T * z * 0.78) * (0.9 + 0.2 * fl), lig.col, Math.min(0.6, 0.5 * n) * fl * gain);
-      const rp = Math.max(4, T * z * 0.8);
-      const g2 = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rp);
-      g2.addColorStop(0, `rgba(${lig.col},${(0.17 * n * fl * gain).toFixed(3)})`);
-      g2.addColorStop(1, `rgba(${lig.col},0)`);
-      ctx.fillStyle = g2;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, rp * 0.8, rp * 0.4, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // — SOURCE VIVE (jour + nuit) : cœur lumineux scintillant sur chaque flamme/lanterne.
-    for (const e of lig.em) {
-      let ex = boxL + e.fx * wpx, ey = boxT + e.fy * hpx;
-      if (lig.style === 'fire') {              // la flamme ondule : monte quand elle brille, oscille un peu
-        ey -= wpx * 0.10 * (fl - 0.72);
-        ex += wpx * 0.05 * Math.sin((now || 0) * 0.021 + ph);
-      }
-      const r = T * z * e.r * (0.8 + 0.35 * fl);
-      addGlow(ctx, ex, ey, r, lig.col, Math.min(0.85, 0.62 * vis * fl * gain));
-    }
+    nVis += 1;
   }
-  ctx.restore();
+  return Math.max(1, Math.ceil(nVis / LAMP_LIGHT_CAP));
+}
+const lampLit = (lp, K) => K.stride <= 1 || ((cmHash('lmpcap:' + lp.gx + ':' + lp.gy) >>> 0) % K.stride) === 0;
+
+// Emprise ÉCRAN, généreuse, de la lumière d'un mât : nappe de tête, flaque au
+// sol et cœurs réunis. Elle décide quels sprites paieront une découpe — la
+// majorer coûte quelques découpes de plus, la minorer laisserait de la lumière
+// traverser un mur.
+function lampGlowBox(p, K) {
+  const R = K.unit * 1.05;
+  return { x0: p.x - K.wpx - R, y0: p.y - K.hpx * K.m.footYf - R, x1: p.x + K.wpx + R, y1: p.y + R * 0.6 };
+}
+
+// Peint le halo d'UN mât sur `pctx` (composite additif déjà posé).
+function paintLampGlow(pctx, lp, p, K, now) {
+  const { lig, m, hpx, wpx, vis, n, unit, gain } = K;
+  const boxL = p.x - wpx * m.footXf, boxT = p.y - hpx * m.footYf;
+  const ph = lampPhase(lp);
+  const fl = lampFlicker(lig.style, now, ph);
+  // — NUIT : halo ambiant à la tête + flaque au sol (n uniquement), scintillés.
+  if (n > 0.03) {
+    const hx = boxL + lig.hx * wpx, hy = boxT + lig.hy * hpx;
+    addGlow(pctx, hx, hy, Math.max(4, unit * 0.78) * (0.9 + 0.2 * fl), lig.col, Math.min(0.6, 0.5 * n) * fl * gain);
+    const rp = Math.max(4, unit * 0.8);
+    const g2 = pctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rp);
+    g2.addColorStop(0, `rgba(${lig.col},${(0.17 * n * fl * gain).toFixed(3)})`);
+    g2.addColorStop(1, `rgba(${lig.col},0)`);
+    pctx.fillStyle = g2;
+    pctx.beginPath();
+    pctx.ellipse(p.x, p.y, rp * 0.8, rp * 0.4, 0, 0, Math.PI * 2);
+    pctx.fill();
+  }
+  // — SOURCE VIVE (jour + nuit) : cœur lumineux scintillant sur chaque flamme/lanterne.
+  for (const e of lig.em) {
+    let ex = boxL + e.fx * wpx, ey = boxT + e.fy * hpx;
+    if (lig.style === 'fire') {              // la flamme ondule : monte quand elle brille, oscille un peu
+      ey -= wpx * 0.10 * (fl - 0.72);
+      ex += wpx * 0.05 * Math.sin((now || 0) * 0.021 + ph);
+    }
+    const r = unit * e.r * (0.8 + 0.35 * fl);
+    addGlow(pctx, ex, ey, r, lig.col, Math.min(0.85, 0.62 * vis * fl * gain));
+  }
 }
 
 // ── PARTICULES D'AMBIANCE (feuilles / lucioles / motes d'énergie) ────────────
@@ -3729,8 +3791,14 @@ function engineInkFrac(t, now) {
   cctx.clearRect(0, 0, ENG_INK_REF, ENG_INK_REF);
   const prevCtx = CM.ctx;
   CM.ctx = cctx;
+  // Mesure hors écran : ni lueur de feu ni découpe de lumière ne doivent en
+  // sortir (la scène est dessinée en (0,0) d'un canvas de 96 px).
+  suspendFlameGlow(true);
+  suspendLightLayer(true);
   try { drawEngineSprite(t, 0, 0, ENG_INK_REF, ENG_INK_REF, now); }
-  catch { CM.ctx = prevCtx; return null; }
+  catch { CM.ctx = prevCtx; suspendFlameGlow(false); suspendLightLayer(false); return null; }
+  suspendFlameGlow(false);
+  suspendLightLayer(false);
   CM.ctx = prevCtx;
 
   const d = cctx.getImageData(0, 0, ENG_INK_REF, ENG_INK_REF).data;
@@ -3778,15 +3846,20 @@ function drawIsoEngineOutline(t, bx, by, bw, now, color) {
   // source-in ci-dessous convertit tout pixel non transparent en or, si bien
   // qu'un halo doux deviendrait une auréole autour du bâtiment au lieu d'un
   // liseré net. La silhouette veut la MATIÈRE de la scène, pas sa lumière.
+  // Même raison pour la COUCHE DE LUMIÈRE : la scène est redessinée en (0,0),
+  // dans un canvas auxiliaire — une découpe partirait à l'autre bout de l'écran.
   suspendFlameGlow(true);
+  suspendLightLayer(true);
   try {
     drawEngineSprite(t, 0, 0, w, w, now);
   } catch {
     suspendFlameGlow(false);
+    suspendLightLayer(false);
     CM.ctx = prevCtx;
     return;                       // une scène qui jette ne doit pas coûter la frame
   }
   suspendFlameGlow(false);
+  suspendLightLayer(false);
   CM.ctx = prevCtx;
 
   // On ne blitte QUE la zone utile : le canevas est réutilisé et peut être plus
@@ -4806,7 +4879,9 @@ function drawIsoLive(now) {
         if (lp.gx < b.gx0 || lp.gx > b.gx1 || lp.gy < b.gy0 || lp.gy > b.gy1) continue;
         // lp.d = clé précalculée (computeIsoLamps) : pied wx+wy, REMONTÉE devant le
         // bâtiment mitoyen quand le mât longe sa façade sud/est (sinon avalé).
-        items.push({ d: lp.d, kind: 'lamp', wx: lp.wx, wy: lp.wy, art: lampArt });
+        // gx/gy suivent le mât jusqu'ici : c'est d'eux que sort la PHASE de
+        // scintillement de son halo, déposé dans la foulée du sprite.
+        items.push({ d: lp.d, kind: 'lamp', wx: lp.wx, wy: lp.wy, gx: lp.gx, gy: lp.gy, art: lampArt });
       }
     }
   }
@@ -4907,6 +4982,13 @@ function drawIsoLive(now) {
     ctx.restore();
   }
   const prevSmooth = ctx.imageSmoothingEnabled;
+  // COUCHE DE LUMIÈRE : armée pour toute la durée du peintre. Les lampes y
+  // déposent leur halo à leur place dans le tri, les sprites peints ensuite y
+  // découpent leur silhouette. Désarmée juste après la boucle — rien de ce qui
+  // suit (oiseaux, drones, voile) n'a de profondeur à faire valoir. Sous une
+  // tuile de LIGHT_LAYER.minUnit pixels on y renonce (halos minuscules, découpes
+  // innombrables) et la passe de nuit repeint les halos en direct, comme avant.
+  const lampK = beginLightLayer(T * z >= LIGHT_LAYER.minUnit) ? isoLampLightFrame(L) : null;
   for (const it of items) {
     if (it.kind === 'tile') {
       const t = it.t;
@@ -5005,6 +5087,14 @@ function drawIsoLive(now) {
         ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(s.x, s.y); ctx.lineTo(s.x, s.y - hgt); ctx.lineTo(e.x, e.y - hgt); ctx.closePath(); ctx.fill();
         ctx.fillStyle = rgb(c, v);
         ctx.beginPath(); ctx.moveTo(n.x, n.y - hgt); ctx.lineTo(e.x, e.y - hgt); ctx.lineTo(s.x, s.y - hgt); ctx.lineTo(w.x, w.y - hgt); ctx.closePath(); ctx.fill();
+        // Le bloc de repli masque lui aussi les halos déposés derrière lui : sa
+        // silhouette est le PRISME (losange du toit + deux murs), tracé d'un trait.
+        lightCut(w.x, n.y - hgt, e.x, s.y, (lc) => {
+          lc.beginPath();
+          lc.moveTo(n.x, n.y - hgt); lc.lineTo(e.x, e.y - hgt); lc.lineTo(e.x, e.y);
+          lc.lineTo(s.x, s.y); lc.lineTo(w.x, w.y); lc.lineTo(w.x, w.y - hgt);
+          lc.closePath(); lc.fill();
+        });
       }
     } else if (it.kind === 'tree') {
       // ARBRES PIXEL (retour Raph : les sapins-triangles « pas faits
@@ -5022,8 +5112,10 @@ function drawIsoLive(now) {
         // (variante, saison) dans un canvas hors écran : les arbres visibles se
         // comptent en centaines, une passe multiply par arbre et par frame
         // coûterait bien plus cher que 20 canvas gardés en cache.
-        ctx.drawImage(seasonTree(tArt, 't' + tv) || tArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
+        const tImg = seasonTree(tArt, 't' + tv) || tArt.img;
+        ctx.drawImage(tImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
         ctx.imageSmoothingEnabled = prevTS;
+        lightCutImage(tImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
       }
@@ -5185,6 +5277,14 @@ function drawIsoLive(now) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx);
       ctx.imageSmoothingEnabled = prevLS;
+      // HALO DÉPOSÉ ICI, à la profondeur du mât : tout ce que le peintre dessine
+      // après lui (donc devant) viendra le découper. Sans ce dépôt en place, le
+      // halo se peignait à plat en fin de frame et traversait les façades.
+      if (lampK && lampLit(it, lampK)) {
+        const bx = lampGlowBox(p, lampK);
+        const lc = lightCtx(bx.x0, bx.y0, bx.x1, bx.y1);
+        if (lc) paintLampGlow(lc, it, p, lampK, now);
+      }
     } else if (it.kind === 'bush') {
       // Buisson de terre-plein : feuillu réutilisé petit, pied sur la couture.
       const p = worldToScreen(it.wx, it.wy);
@@ -5200,8 +5300,10 @@ function drawIsoLive(now) {
         const hpx = T * z * it.r * 2.7;
         const prevBS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(seasonTree(bArt, bKey) || bArt.img, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
+        const bImg = seasonTree(bArt, bKey) || bArt.img;
+        ctx.drawImage(bImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
         ctx.imageSmoothingEnabled = prevBS;
+        lightCutImage(bImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
       }
     } else if (it.kind === 'bridgeSeg') {
       drawIsoBridgeSeg(ctx, it, now);
@@ -5222,6 +5324,7 @@ function drawIsoLive(now) {
       }
     }
   }
+  endLightLayer();
   ctx.imageSmoothingEnabled = prevSmooth;
   fp('vif-peinture');
   // Anneaux d'apaisement (clic sur un émeutier) : anneaux AU SOL projetés en

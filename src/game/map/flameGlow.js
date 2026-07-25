@@ -1,4 +1,5 @@
 import { CM } from './layout.js';
+import { lightCtx } from './lightLayer.js';
 
 /* ============================================================================
  * LUEUR DES FLAMMES — « chaque flamme doit émettre une lueur ».
@@ -90,8 +91,22 @@ export function queueFlameGlow(x, y, r, col, now, phase, mul) {
   // plus chaud), et seulement la nuit.
   const night = (CM && CM.nightF) || 0;
   const ha = a * FLAME_GLOW.haloA * night;
-  if (ha > 0.004 && queue.length < MAX_QUEUE - 1) queue.push({ x, y, r: R * FLAME_GLOW.halo, col: c, a: Math.min(1, ha) });
-  queue.push({ x, y, r: R, col: c, a: Math.min(1, a) });
+  const halo = ha > 0.004 ? { x, y, r: R * FLAME_GLOW.halo, col: c, a: Math.min(1, ha) } : null;
+  const core = { x, y, r: R, col: c, a: Math.min(1, a) };
+  // COUCHE DE LUMIÈRE ARMÉE (rendu iso) : on dépose la lueur SUR PLACE, à
+  // l'instant du tri peintre où le feu est dessiné — c'est ce qui la fait
+  // masquer par les bâtiments qui passent devant. La couche est blitée après le
+  // voile de nuit, donc la doctrine « jamais de lumière avant le voile » tient
+  // toujours. Sans couche (chemin legacy, tests), on retombe sur la file.
+  const big = halo || core;
+  const lc = lightCtx(big.x - big.r, big.y - big.r, big.x + big.r, big.y + big.r);
+  if (lc) {
+    if (halo) paintGlow(lc, halo);
+    paintGlow(lc, core);
+    return true;
+  }
+  if (halo && queue.length < MAX_QUEUE - 1) queue.push(halo);
+  queue.push(core);
   return true;
 }
 
@@ -105,29 +120,33 @@ export function paintFlameGlows(ctx) {
   const prevOp = ctx.globalCompositeOperation, prevA = ctx.globalAlpha;
   const prevSm = ctx.imageSmoothingEnabled;
   ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < n; i += 1) {
-    const g = queue[i];
-    const puff = glowPuff(g.col);
-    if (puff) {
-      ctx.imageSmoothingEnabled = true;          // un halo est LISSE, même sur du pixel-art
-      ctx.globalAlpha = g.a;
-      ctx.drawImage(puff, 0, 0, PUFF, PUFF, g.x - g.r, g.y - g.r, g.r * 2, g.r * 2);
-    } else {
-      // Repli sans canvas hors écran (Node/test, contexte exotique) : même
-      // dégradé, recalculé à chaque appel.
-      const rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
-      rg.addColorStop(0, `rgba(${g.col},${g.a.toFixed(3)})`);
-      rg.addColorStop(0.45, `rgba(${g.col},${(g.a * 0.34).toFixed(3)})`);
-      rg.addColorStop(1, `rgba(${g.col},0)`);
-      ctx.fillStyle = rg;
-      ctx.fillRect(g.x - g.r, g.y - g.r, g.r * 2, g.r * 2);
-    }
-  }
+  for (let i = 0; i < n; i += 1) paintGlow(ctx, queue[i]);
   ctx.globalAlpha = prevA;
   ctx.globalCompositeOperation = prevOp;
   ctx.imageSmoothingEnabled = prevSm;
   queue.length = 0;
   return n;
+}
+
+// Une lueur, en additif (le composite est posé par l'appelant). Partagé par la
+// file et par le dépôt direct dans la couche de lumière : une seule recette.
+function paintGlow(ctx, g) {
+  const puff = glowPuff(g.col);
+  if (puff) {
+    ctx.imageSmoothingEnabled = true;          // un halo est LISSE, même sur du pixel-art
+    ctx.globalAlpha = g.a;
+    ctx.drawImage(puff, 0, 0, PUFF, PUFF, g.x - g.r, g.y - g.r, g.r * 2, g.r * 2);
+    ctx.globalAlpha = 1;
+  } else {
+    // Repli sans canvas hors écran (Node/test, contexte exotique) : même
+    // dégradé, recalculé à chaque appel.
+    const rg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+    rg.addColorStop(0, `rgba(${g.col},${g.a.toFixed(3)})`);
+    rg.addColorStop(0.45, `rgba(${g.col},${(g.a * 0.34).toFixed(3)})`);
+    rg.addColorStop(1, `rgba(${g.col},0)`);
+    ctx.fillStyle = rg;
+    ctx.fillRect(g.x - g.r, g.y - g.r, g.r * 2, g.r * 2);
+  }
 }
 
 // Nombre de lueurs en attente (diagnostic/test — la file est privée).
