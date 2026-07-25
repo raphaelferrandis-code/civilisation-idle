@@ -991,9 +991,29 @@ body::before {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }
 
+/* Rangée de choix des Options (Langue, Format des nombres, Qualité, Saison…).
+   ⚠ C'était `repeat(3, minmax(5.2rem, 1fr))` EN DUR alors que le nombre de
+   boutons va de 2 à 5. Mesuré le 2026-07-25, onglet Affichage à 1280px :
+     · Qualité (4 boutons) et Saison (5) laissaient le dernier bouton SEUL sur
+       une 2e rangée — « Performance » et « Hiver » ;
+     · Langue et Contraste renforcé (2 boutons) gardaient une colonne fantôme ;
+     · les libellés débordaient de leur cellule (« Performance » +26px,
+       « Printemps » +5px, « Compacte » +3px) — visible depuis que la prose est
+       passée à Inter, plus large que Pixelify au même corps.
+   Flex + wrap règle les trois : chaque bouton prend la largeur de son texte
+   (plancher 5.2rem pour que « Auto » et « Été » ne rétrécissent pas), la rangée
+   se remplit par la droite, et elle ne se coupe que si elle ne tient vraiment
+   pas. À 375px la Qualité passe même de 4 rangées à 3.
+   ⚠ `flex: 0 0 auto` sur le CONTENEUR est indispensable : c'est le `minmax` de
+   la grille qui tenait sa largeur, et sans lui le bloc de description (qui a
+   `min-width: 0`) l'écrase et TOUT s'empile — essayé, 3 rangées sur des lignes
+   qui en tenaient une. Coût assumé : l'onglet Affichage gagne 48px de haut à
+   1280px, les descriptions étant un peu plus étroites. Il défilait déjà. */
 .number-format-control {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(5.2rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 0 auto;
   gap: 0.4rem;
 }
 
@@ -1003,6 +1023,11 @@ body::before {
   border-radius: 6px;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.number-format-control > .format-option {
+  flex: 0 0 auto;
+  min-width: 5.2rem;
 }
 
 .format-option.active {

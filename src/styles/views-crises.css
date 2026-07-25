@@ -724,7 +724,7 @@
 
 .seal-delta {
   font-family: var(--font-number);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   color: var(--muted);
 }
 
@@ -765,7 +765,7 @@
 }
 
 .testament-detail-affinity {
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--gold-bright);
 }
@@ -1170,8 +1170,8 @@
 #prestige .crisis-regul-buffer--full,
 #regulation .crisis-regul-buffer--full { font-size: 0.85rem; }
 #prestige .policy-active-tag,
-#regulation .policy-active-tag { font-size: 0.66rem; }
+#regulation .policy-active-tag { font-size: 0.6875rem; }
 #prestige .crisis-foyer-soothed,
 #prestige .crisis-foyer-reformed,
 #regulation .crisis-foyer-soothed,
-#regulation .crisis-foyer-reformed { font-size: 0.66rem; }
+#regulation .crisis-foyer-reformed { font-size: 0.6875rem; }

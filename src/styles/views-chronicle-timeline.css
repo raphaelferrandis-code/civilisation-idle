@@ -64,7 +64,7 @@
 }
 
 .chronicle-bilan-stat span {
-  font-size: 0.67rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -129,7 +129,7 @@
 
 .chronicle-game-plays {
   margin-left: auto;
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -151,7 +151,7 @@
 }
 
 .chronicle-game-net span {
-  font-size: 0.64rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -169,7 +169,7 @@
 }
 
 .chronicle-game-hl {
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   color: var(--muted);
   font-style: italic;
 }
@@ -237,7 +237,7 @@
 .chronicle-reg-name em {
   margin-left: 0.45rem;
   font-style: normal;
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;

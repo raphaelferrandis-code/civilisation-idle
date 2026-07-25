@@ -136,7 +136,7 @@
   color: var(--gold-bright);
   font-family: var(--font-number);
   font-variant-numeric: tabular-nums;
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   line-height: 1.25rem;
   text-align: center;
   text-shadow: none;
@@ -289,7 +289,7 @@
 .csp-label {
   flex: 0 0 auto;
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -319,7 +319,7 @@
 
 .csp-laps {
   margin-left: auto;
-  font-size: 0.5rem;
+  font-size: 0.6875rem;
   line-height: 1;
   letter-spacing: 1px;
 }
@@ -414,12 +414,12 @@
   .city-status-panel .csp-stat {
     justify-content: center;
     gap: 0.35rem;
-    font-size: 0.64rem;
+    font-size: 0.6875rem;
   }
 
   .city-status-panel .csp-stat strong {
     margin-left: 0;
-    font-size: 0.6rem;
+    font-size: 0.6875rem;
   }
 }
 
@@ -478,7 +478,7 @@
     margin-left: 0;
     min-width: 0.9rem;
     padding: 0 0.15rem;
-    font-size: 0.52rem;
+    font-size: 0.6875rem;
     line-height: 1.05rem;
   }
 
@@ -625,7 +625,7 @@
 
 .csp-idle-label {
   flex: 1 1 auto;
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -641,7 +641,7 @@
 /* Palier suivant : un OBJECTIF nomme, pas une punition decouverte au retour. */
 .csp-idle-next {
   flex: 0 0 100%;
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   color: var(--muted);
   opacity: 0.85;
 }
@@ -654,7 +654,7 @@
   }
   .city-status-panel .csp-idle-label { display: none; }
   .city-status-panel .csp-idle-value { font-size: 0.7rem; }
-  .city-status-panel .csp-idle-next { text-align: center; font-size: 0.54rem; }
+  .city-status-panel .csp-idle-next { text-align: center; font-size: 0.6875rem; }
 }
 
 
@@ -686,7 +686,7 @@
   margin-top: 0.35rem;
   padding: 0.28rem 0.4rem;
   font-family: inherit;
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--gold-ivory);
@@ -711,7 +711,7 @@
 .csp-clepsydre-why {
   display: block;
   margin-top: 0.25rem;
-  font-size: 0.55rem;
+  font-size: 0.6875rem;
   line-height: 1.35;
   color: var(--muted);
   opacity: 0.85;
@@ -727,7 +727,7 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   line-height: 1.3;
   min-width: 0;
 }
@@ -745,7 +745,7 @@
   min-height: 0;              /* base.css impose 2.5rem à tout bouton */
   padding: 0.12rem 0;
   font-family: inherit;
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   line-height: 1.3;
   text-align: left;
   color: inherit;
@@ -837,7 +837,7 @@
      illisible elle ne sert à rien. Seul le mot d'appel se raccourcit au besoin. */
   .city-status-panel .csp-clepsydre-head { justify-content: center; }
   .city-status-panel .csp-clepsydre-why { display: none; } /* la gouttiere est trop etroite : le title le porte */
-  .city-status-panel .csp-clepsydre-pour { font-size: 0.54rem; }
+  .city-status-panel .csp-clepsydre-pour { font-size: 0.6875rem; }
 }
 
 
@@ -850,14 +850,14 @@
   border-radius: 3px;
   background: color-mix(in srgb, var(--gold), transparent 82%);
   color: var(--gold-bright);
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.04em;
   text-align: center;
 }
 
 @media (max-width: 1500px) and (min-width: 981px) {
   /* Gouttiere etroite : le compte suffit, le titre porte la phrase. */
-  .city-status-panel .csp-seals { font-size: 0.5rem; padding: 0.18rem 0.15rem; }
+  .city-status-panel .csp-seals { font-size: 0.6875rem; padding: 0.18rem 0.15rem; }
 }
 
 /* Pastille de SAUVEGARDE (C10) : l'information n'existait nulle part sans
@@ -865,7 +865,7 @@
    cas-la ne peut pas passer par les toasts, qui s'effacent en 2,4 s. */
 .csp-save {
   margin-top: 0.35rem;
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.04em;
   color: var(--muted);
   opacity: 0.75;
@@ -879,7 +879,7 @@
 }
 
 @media (max-width: 1500px) and (min-width: 981px) {
-  .city-status-panel .csp-save { font-size: 0.5rem; }
+  .city-status-panel .csp-save { font-size: 0.6875rem; }
   /* Gouttiere etroite : le texte complet ne tient pas, le titre le porte. */
   .city-status-panel .csp-save:not(.is-error) { display: none; }
 }

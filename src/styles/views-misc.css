@@ -276,7 +276,7 @@
   margin-top: 0.55rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   color: var(--muted, #9a8f7d);
 }
 

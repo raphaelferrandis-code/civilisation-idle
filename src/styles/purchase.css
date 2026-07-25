@@ -268,7 +268,7 @@
   white-space: nowrap;
 }
 
-.pr-milestone-badge i { font-size: 0.62rem; }
+.pr-milestone-badge i { font-size: 0.6875rem; }
 
 /* Production : segments icône + valeur */
 .pr-prod {
@@ -370,7 +370,7 @@
    avertissement : jamais de rouge. */
 .pr-eta {
   margin-top: 0.2rem;
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.03em;
   color: var(--muted);
   opacity: 0.9;
@@ -436,7 +436,7 @@
   white-space: nowrap;
 }
 
-.bp-cost-item i { font-size: 0.68rem; opacity: 0.85; }
+.bp-cost-item i { font-size: 0.6875rem; opacity: 0.85; }
 
 /* Coût impayable : la ressource manquante passe en rouge */
 .bp-cost-item.is-lacking {
@@ -550,7 +550,7 @@
   background: var(--gold);
   color: #140d06;
   font-family: var(--font-pixel);
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;

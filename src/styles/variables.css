@@ -122,9 +122,17 @@
   --shine: rgba(255, 255, 255, 0.05);
 
   /* ----- Typographie -----
-     Identité PIXEL : « Pixelify Sans » (police variable 400→700, proportionnelle
-     et lisible même en prose) est la police universelle du jeu. On la met en tête
-     de CHAQUE rôle.
+     DEUX NIVEAUX, depuis la mesure du 2026-07-25 (vue Cité, rendu réel) :
+     Pixelify Sans peignait 128 des 131 textes de l'écran mobile, et Inter, bien
+     qu'empaquetée dans le .exe et chargée par le navigateur, n'en peignait
+     AUCUN — elle n'a jamais été qu'en 2e position derrière une police toujours
+     présente. Le jeu n'avait donc qu'un seul niveau, et « tout en pixel » usait
+     l'identité autant que la lisibilité.
+       · IDENTITÉ (titres, chiffres, badges rétro) : Pixelify Sans / Silkscreen.
+         Là où la police pixel se voit et sert.
+       · LECTURE (prose, petits caractères) : Inter. Là où elle coûtait sans
+         rien rapporter, surtout en français : sous ~11 px il ne reste plus de
+         ligne de pixels pour poser un accent.
      ⚠ Le repli n'est plus « le CDN ne répond pas » : depuis E9 les trois familles
      réellement rendues (Pixelify Sans, Silkscreen, Inter) sont EMPAQUETÉES avec
      le jeu, donc toujours présentes, y compris dans le .exe hors ligne.
@@ -136,7 +144,7 @@
      qu'aucune ne couvre (✦ ⚠ ✓ ▼ → ∞) viennent d'une police système, avant
      comme après. Le repli terminal est donc système, et il est réel. */
   --font-title: "Pixelify Sans", Georgia, serif;
-  --font-body: "Pixelify Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
   --font-serif: "Pixelify Sans", Georgia, serif;
   /* Chiffres « idle » : Silkscreen — chiffres 5×5 canoniques, chasse fixe
      (compteurs stables, 8≠S). Choisie contre VT323 (essai 2026-07-10) ;
@@ -159,11 +167,13 @@
      3 règles qui s'en servent rendaient déjà en Pixelify Sans (vérifié en
      mesurant la largeur du même texte en VT323 et en famille inexistante :
      identique au centième). Le rôle dit donc enfin ce qu'il fait.
-     ⚠ La raison d'origine reste valable et NON réglée : Pixelify déforme les
-     chiffres aux petits corps (« x25 » lu « x88 », Raph 2026-07-10). Si la
-     confusion revient, le remède est le CORPS (monter au-dessus de ~14 px),
-     pas une police étrangère au reste du jeu. */
-  --font-small: "Pixelify Sans", "Inter", system-ui, sans-serif;
+     ⚠ La raison d'origine (Pixelify déforme les chiffres aux petits corps,
+     « x25 » lu « x88 », Raph 2026-07-10) est traitée le 2026-07-25 par les DEUX
+     bouts : le corps ne descend plus sous 11 px (66 déclarations remontées au
+     plancher, dont 7 qui rendaient entre 8 et 8,8 px), et le rôle passe à Inter,
+     dessinée pour les petits corps. Le remède « monter le corps » notait juste :
+     il manquait seulement de constater que le plancher n'était pas tenu. */
+  --font-small: "Inter", system-ui, sans-serif;
 
   /* Échelle (plancher absolu : 11px / 0.6875rem) */
   --fs-h1: 1.75rem;

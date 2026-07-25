@@ -201,14 +201,14 @@
 }
 
 .first-steps-kicker {
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--brand-gold, var(--text-mid));
 }
 
 .first-steps-count {
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
@@ -292,7 +292,7 @@
   background: var(--gold);
   color: #16100a;
   font-family: var(--font-body);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -408,7 +408,7 @@
 }
 .app[data-active-view="city"] .city-controls-panel .policy-effect,
 .app[data-active-view="city"] .city-controls-panel .regul-cost {
-  font-size: 0.66rem;
+  font-size: 0.6875rem;
   line-height: 1.25;
 }
 
