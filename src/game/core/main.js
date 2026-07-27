@@ -58,7 +58,7 @@ import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { cycleVowRuinMult } from '../data/vows.js';
 import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, isMythEffectActive } from '../data/myths.js';
-import { epitaphLegacyEffect } from './mechanics/production/mythEffects.js';
+import { epitaphLegacyEffect, epitaphLegacyDurationMs } from './mechanics/production/mythEffects.js';
 import { D } from './num.js';
 import { decideTickCredit } from './offlineCredit.js';
 
@@ -402,13 +402,49 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
 // versement de clepsydre — c'est la garantie que verser une heure vaut
 // exactement une heure d'absence, et pas une seconde arithmétique parallèle qui
 // dériverait à la première correction d'équilibrage.
+// Crédit linéaire SCINDÉ aux bornes des fenêtres temporelles (Bénédiction,
+// Braisiers, Atrides/pacte, Cendres fertiles, Énée, legs d'épitaphe). rates()
+// évalué une seule fois à l'heure du retour ne voyait plus les fenêtres
+// expirées PENDANT l'absence : les minutes bénies restantes à la fermeture
+// étaient créditées ×1 (l'inverse du piège que la clepsydre refuse). Les
+// fenêtres sont des fonctions en ESCALIER de Date.now : chaque segment est
+// évalué sous son instant d'ouverture, ce qui suffit à les faire (dé)tomber
+// juste — même recette d'horloge virtuelle que la sim, sans rejouer de ticks.
+function creditSpanSegmented(seconds) {
+  const realDateNow = Date.now;
+  const end = realDateNow.call(Date);
+  const start = end - seconds * 1000;
+  const cs = state.cycleStartedAt || 0;
+  const ep = state.activeEpitaphLegacy;
+  const cuts = [
+    state.blessingUntil || 0,
+    cs + BRAISIERS_DURATION_MS,
+    cs + 120_000, // Atrides / pacte
+    cs + REGROWTH_RUSH_MS,
+    cs + ENEE_HERITAGE_DURATION_MS,
+    ep && ep.startedAt ? ep.startedAt + epitaphLegacyDurationMs() : 0
+  ].filter((t) => t > start && t < end).sort((a, b) => a - b);
+  const points = [start, ...cuts, end];
+  try {
+    for (let i = 0; i < points.length - 1; i++) {
+      Date.now = () => points[i];
+      invalidateRenderCache("all"); // rates() est cachée par frame
+      creditSpan((points[i + 1] - points[i]) / 1000);
+    }
+  } finally {
+    Date.now = realDateNow;
+    invalidateRenderCache("all");
+  }
+}
+
 function advanceWorldBy(seconds, opts = {}) {
   const wearBefore = state.timeWear || 0;
   const farm = simulateAwayCrises(seconds, opts); // null si non éligible → chemin linéaire
   if (!farm) {
-    // Production au taux courant (bâtiments constants hors-ligne → rates() stable).
+    // Production au taux courant (bâtiments constants hors-ligne → rates() stable),
+    // scindée aux bornes des fenêtres de bonus actives au départ.
     invalidateRenderCache("all");
-    creditSpan(seconds);
+    creditSpanSegmented(seconds);
     invalidateRenderCache("all");
     // Usure, MÊME durée que la prod (couplage : on ne vieillit jamais plus que ce
     // qu'on a produit). Plus de facteur ×0.35.
