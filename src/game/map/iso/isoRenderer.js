@@ -1909,7 +1909,10 @@ export const fishTune = { on: true, count: 0.07, alpha: 0.34, speed: 1, size: 1 
 if (typeof window !== 'undefined') window.__fishTune = fishTune;
 function drawIsoFishShadows(ctx, rv, T, z, now) {
   if (!fishTune.on || z < 0.5) return;
-  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return;
+  // L'Usure ne vide plus le fleuve de ses poissons (Raph, 2026-07-27, même
+  // arbitrage que la texture d'eau, les quais et le bas-fond) : une cité usée
+  // reste une cité, pas un décor mort. Seul l'effondrement en cours les retire.
+  if (CM.collapseAt) return;
   const sm = rv.samples, len = sm.length;
   if (len < 4) return;
   const n = Math.max(3, Math.min(12, Math.round(len * fishTune.count)));
@@ -3260,7 +3263,9 @@ function drawIsoCityReflections(ctx, now) {
   if (!rv || !rv.present || !rv.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
   if (band <= 1) return;                                     // campement : pas de ville riveraine
-  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return;  // fleuve ruiné : pas de reflet
+  // Reflets des bâtiments riverains : l'Usure ne les coupe plus non plus
+  // (Raph, 2026-07-27). Seul l'effondrement en cours éteint la surface.
+  if (CM.collapseAt) return;
   ensureQuayGate();
   const g = CM.quayGate;
   if (!g) return;

@@ -1526,7 +1526,9 @@ function cityMapDrawCityReflections(now) {
   if (!L || !L.river || !L.river.present || !L.river.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
   if (band <= 1) return;                                     // campement : pas de ville riveraine
-  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return; // fleuve ruiné : pas de reflet
+  // Reflets riverains (chemin legacy, jumeau de drawIsoRiverside) : l'Usure ne
+  // les coupe plus (Raph, 2026-07-27). Seul l'effondrement en cours les retire.
+  if (CM.collapseAt) return;
   ensureQuayGate();
   const g = CM.quayGate;
   if (!g) return;
