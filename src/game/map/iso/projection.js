@@ -115,6 +115,23 @@ export function tileDiamond(gx, gy) {
   };
 }
 
+// BORNES EN LOSANGE du viewport — le complément de visibleCellBounds. En iso,
+// l'écran projeté en monde est un LOSANGE dont visibleCellBounds prend la boîte
+// englobante : ~2× l'aire, donc ~1,8× trop d'items retenus par le peintre
+// (mesuré : 437 tuiles pour 246 visibles à zoom 1, PERF-CARTE-REPRISE §6). Or
+// les coordonnées écran sont AFFINES en u = wx − wy (ne dépend que de sx) et
+// v = wx + wy (ne dépend que de sy) : le viewport est un simple RECTANGLE dans
+// le repère (u, v). Une emprise [wx0..wx1]×[wy0..wy1] se teste alors par
+// recouvrement d'intervalles — deux soustractions, quatre comparaisons.
+// Marge basse séparée (`marginDownPx`) : les sprites se DRESSENT depuis leur
+// base — une base sous le bord bas de l'écran peut encore montrer sa tour.
+export function visibleDiamondBounds(marginPx = 0, marginDownPx = 0) {
+  if (!CM.iso) return null; // legacy : la boîte englobante est déjà exacte
+  const l = screenToWorld(-marginPx, 0), r = screenToWorld(CM.cw + marginPx, 0);
+  const t = screenToWorld(0, -marginPx), bo = screenToWorld(0, CM.ch + marginDownPx);
+  return { u0: l.x - l.y, u1: r.x - r.y, v0: t.x + t.y, v1: bo.x + bo.y };
+}
+
 // Bornes de cellules (gx/gy) couvrant le viewport élargi de `marginPx` — culling
 // des boucles de rendu. Passe par screenToWorld des 4 coins (correct dans les 2 modes).
 export function visibleCellBounds(marginPx = 0) {

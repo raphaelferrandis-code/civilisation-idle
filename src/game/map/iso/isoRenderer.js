@@ -16,7 +16,7 @@
 import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
@@ -5016,6 +5016,16 @@ function drawIsoLive(now) {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
   const hw = T * z * ISO_X, hh = T * z * ISO_Y;
   const b = visibleCellBounds(hw * 2);
+  // CULL EN LOSANGE, complément de la boîte b : l'écran iso est un losange dont
+  // b prend la boîte englobante — ~44 % des tuiles retenues étaient hors écran
+  // mais triées ET dessinées quand même (PERF-CARTE-REPRISE §6). Marge basse
+  // généreuse (10·hh) : un sprite se dresse depuis sa base, une base sous le
+  // bord bas peut encore montrer sa tour. Molette __isoCullOff = 1 pour couper
+  // (vérification par paire de captures, recette REPRISE).
+  const dv = (typeof window !== 'undefined' && window.__isoCullOff)
+    ? null : visibleDiamondBounds(hw * 2, hw * 2 + hh * 10);
+  const dvVis = (wx0, wy0, wx1, wy1) => !dv
+    || !(wx1 - wy0 < dv.u0 || wx0 - wy1 > dv.u1 || wx1 + wy1 < dv.v0 || wx0 + wy0 > dv.v1);
   // Boîtes des habitations pour le survol (cf. drawIsoWorld). null en LOD.
   const houseBoxes = CM._houseBoxes;
   // Marqueur de cellule AVANT le peintre : il est au sol, donc tout ce qui est
@@ -5043,6 +5053,7 @@ function drawIsoLive(now) {
     // arbres/piétons du bout opposé). Repli pièces manquantes = canal plat.
     if (/aqueduct/i.test(idf)) {
       if (t.gx + sx < b.gx0 || t.gx > b.gx1 || t.gy + sy < b.gy0 || t.gy > b.gy1) continue;
+      if (!dvVis(t.gx * T, t.gy * T, (t.gx + sx) * T, (t.gy + sy) * T)) continue;
       const P = isoAqueductPieces(band, eraIdx);
       if (P) {
         for (let ai = 0; ai < sx; ai += 1) {
@@ -5053,7 +5064,11 @@ function drawIsoLive(now) {
       items.push({ d: depthOf(t.gx * T, t.gy * T), kind: 'tile', t });
       continue;
     }
-    if (t.gx < b.gx0 || t.gx > b.gx1 || t.gy < b.gy0 || t.gy > b.gy1) continue;
+    // Recouvrement d'EMPRISE (et non la seule cellule d'origine, dont la sortie
+    // d'écran faisait disparaître d'un bloc un champ 10×6 encore aux 3/4 visible
+    // — G.44 de l'audit), puis test exact contre le losange.
+    if (t.gx + sx < b.gx0 || t.gx > b.gx1 || t.gy + sy < b.gy0 || t.gy > b.gy1) continue;
+    if (!dvVis(t.gx * T, t.gy * T, (t.gx + sx) * T, (t.gy + sy) * T)) continue;
     // Empreintes À PLAT (champ) = SOL : elles ne se dressent pas → rien
     // ne doit passer DERRIÈRE elles. Profondeur au coin NORD (min wx+wy) et non au
     // coin sud : ainsi tout objet qui les chevauche (arbre/bâtiment/véhicule/piéton,
@@ -5114,6 +5129,7 @@ function drawIsoLive(now) {
   // un rocher du décor mordait la culée au débouché (vu par Raph à la capture).
   for (const tr of (L.trees || [])) {
     if (tr.gx < b.gx0 || tr.gx > b.gx1 || tr.gy < b.gy0 || tr.gy > b.gy1) continue;
+    if (!dvVis(tr.gx * T, tr.gy * T, (tr.gx + 1) * T, (tr.gy + 1) * T)) continue;
     if (treeBlocked(tr.gx, tr.gy)) continue;
     if (bridgeBlocks((tr.gx + 0.5) * T, (tr.gy + 0.5) * T, T * 0.45)) continue;
     items.push({ d: depthOf((tr.gx + 0.5) * T, (tr.gy + 0.9) * T), kind: 'tree', tr });
@@ -5122,6 +5138,7 @@ function drawIsoLive(now) {
   // Culling aux bornes visibles ; le jitter (jx/jy) casse l'alignement sur la grille.
   for (const wt of isoWildForest(L, b)) {
     if (wt.gx < b.gx0 || wt.gx > b.gx1 || wt.gy < b.gy0 || wt.gy > b.gy1) continue;
+    if (!dvVis(wt.gx * T, wt.gy * T, (wt.gx + 1) * T, (wt.gy + 1) * T)) continue;
     if (treeBlocked(wt.gx, wt.gy)) continue;
     if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
     items.push({ d: depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T), kind: 'tree', tr: wt });
@@ -5170,6 +5187,7 @@ function drawIsoLive(now) {
     if (lampArt.ready) {
       for (const lp of isoLamps(L, band)) {
         if (lp.gx < b.gx0 || lp.gx > b.gx1 || lp.gy < b.gy0 || lp.gy > b.gy1) continue;
+        if (!dvVis(lp.wx, lp.wy, lp.wx, lp.wy)) continue;
         // lp.d = clé précalculée (computeIsoLamps) : pied wx+wy, REMONTÉE devant le
         // bâtiment mitoyen quand le mât longe sa façade sud/est (sinon avalé).
         // gx/gy suivent le mât jusqu'ici : c'est d'eux que sort la PHASE de
@@ -5230,7 +5248,11 @@ function drawIsoLive(now) {
   if (!CM.lodActive) {
     for (const p of CM.citizens) {
       if (p._nightHidden) continue;
-      items.push({ d: isoUnitDepth(p.x + (p.lox || 0), p.y + (p.loy || 0)), kind: 'cit', p });
+      const pwx = p.x + (p.lox || 0), pwy = p.y + (p.loy || 0);
+      // Cull écran ABSENT jusqu'ici en iso (le legacy l'avait) : jusqu'à 450
+      // piétons hors champ payaient tri + drawImage à chaque frame.
+      if (!dvVis(pwx, pwy, pwx, pwy)) continue;
+      items.push({ d: isoUnitDepth(pwx, pwy), kind: 'cit', p });
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
     // carrosserie est dessinée CENTRÉE sur l'ancre (drawIsoVehicle) : son
@@ -5241,6 +5263,7 @@ function drawIsoLive(now) {
     for (const v of CM.vehicles) {
       if (v.type === 'drone') continue;
       const lo = vehicleLaneOffset(v, T);
+      if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
       const h = T * 0.30 * (VEH_SIZES[v.type] || 0);
       items.push({ d: isoUnitDepth(v.x + lo.x + h, v.y + lo.y + h), kind: 'veh', v });
     }
