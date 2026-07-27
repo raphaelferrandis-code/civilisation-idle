@@ -784,6 +784,25 @@ let _cachedEngineGroupSig = "";
 let _cachedCityCounts = null;
 let _cachedCityCountsPopKey = "";
 
+// RECOMPUTE DIFFÉRÉ PENDANT LES GESTES DE CAMÉRA. Sur la machine de jeu, un
+// recompute complet coûte 200-300 ms ; or sur une partie vivante il se
+// déclenche EN PLEIN dézoom/pan (achats des automates → palier de bloc ou
+// route, et la progression d'ère fait bouger eraFrac en continu — le throttle
+// de 1500 ms autorisait donc un gel toutes les 1,5 s pendant le geste,
+// mesuré p90 49,7 ms / max 214-306 ms chez Raph). Tant que la caméra bouge
+// (< LAYOUT_GESTURE_STILL_MS d'immobilité), tout recompute attend l'accalmie
+// — le bâtiment neuf apparaît une demi-seconde plus tard, à l'arrêt, au lieu
+// de geler le geste. Plafond LAYOUT_DEFER_MAX_MS : un pan ininterrompu ne
+// repousse pas la vérité de la carte indéfiniment. Suivi de mouvement
+// AUTONOME (les deux pipelines passent ici, pas seulement l'iso).
+// Molette d'A/B : window.__layoutDefer = false pour retrouver l'ancien
+// comportement.
+const LAYOUT_GESTURE_STILL_MS = 280;
+const LAYOUT_DEFER_MAX_MS = 2500;
+let _lyCamX = NaN, _lyCamY = NaN, _lyCamZ = NaN;
+let _lyCamMoveAt = -1e9;
+let _lyDeferredAt = 0;
+
 function cityMapEnsureLayout(now, deps = {}) {
   const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
   const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "cart"; };
@@ -843,6 +862,19 @@ function cityMapEnsureLayout(now, deps = {}) {
   const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineGroupSig;
   const coreChanged = coreSig !== CM.layoutCoreSig;
   if (CM.layout && !coreChanged && (now - CM.layoutRecomputeAt) < 1500) return;
+  // Geste de caméra en cours → recompute différé à l'accalmie (cf. bloc de
+  // constantes plus haut). Jamais pendant une capture (déterminisme du harnais).
+  if (typeof window === 'undefined' || window.__layoutDefer !== false) {
+    const cam = CM.cam;
+    if (cam.x !== _lyCamX || cam.y !== _lyCamY || cam.zoom !== _lyCamZ) {
+      _lyCamX = cam.x; _lyCamY = cam.y; _lyCamZ = cam.zoom; _lyCamMoveAt = now;
+    }
+    if (CM.layout && !CM.capture && now - _lyCamMoveAt < LAYOUT_GESTURE_STILL_MS) {
+      if (!_lyDeferredAt) _lyDeferredAt = now;
+      if (now - _lyDeferredAt < LAYOUT_DEFER_MAX_MS) return; // on retente à chaque frame
+    }
+    _lyDeferredAt = 0;
+  }
   CM.layoutSig = sig;
   CM.layoutStructSig = structSig;
   CM.layoutCoreSig = coreSig;
