@@ -5491,6 +5491,19 @@ function drawIsoLive(now) {
 // trop court rendrait la recuisson plus fréquente entre deux à-coups. 110 ms est
 // un compromis net/fluide. Ancienne valeur : 160 ms.
 const ISO_SETTLE_MS = 110;
+// SECOND palier d'accalmie : délai avant le sol PLEIN (le bake cher). Entre
+// ISO_SETTLE_MS et celui-ci, on pose le bake ALLÉGÉ — sol présent et aligné,
+// sans touffes ni franges ni textures, ~4× moins cher (cf. la branche de pan).
+//
+// Pourquoi deux paliers : un dézoom à la molette n'est pas UN geste, c'est une
+// SUITE de gestes courts séparés de 200–400 ms. Avec le seul seuil de 110 ms,
+// chaque cran retombait au repos et payait une recuisson PLEINE. Mesuré au
+// profileur sur 13 s de dézoom (fenêtre 2005×1369) : drawIsoGround 1 197 ms et
+// cityMapBakeMargin 1 223 ms, pendant que le thread principal n'était occupé
+// qu'à 35 % — c'est le GPU qui saturait, noyé sous les blits par cellule.
+// 400 ms couvre l'intervalle entre deux crans : on ne paie plus le sol plein
+// qu'une fois, quand le joueur a réellement fini de dézoomer.
+const ISO_CRISP_SETTLE_MS = 400;
 // Budget d'une recuisson de sol EN PLEIN GESTE. Au-delà, on préfère le re-blit
 // compensé (flou bref) : une image nette qui coûte un tiers de seconde n'est plus
 // de la netteté, c'est un gel. 45 ms ≈ trois images à 60 fps — assez pour laisser
@@ -5551,7 +5564,11 @@ export function drawIsoWorld(dt, now, helpers) {
     if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
       CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
     }
-    const settled = CM.capture || nowMs - (CM._igMoveAt || 0) > ISO_SETTLE_MS;
+    const stillMs = nowMs - (CM._igMoveAt || 0);
+    const settled = CM.capture || stillMs > ISO_SETTLE_MS;
+    // `restful` = accalmie LONGUE (cf. ISO_CRISP_SETTLE_MS) : elle seule autorise
+    // le sol plein. `settled` ne donne plus que le sol allégé.
+    const restful = CM.capture || stillMs > ISO_CRISP_SETTLE_MS;
     // Le suffixe ':lod' marque un bake ALLÉGÉ (posé pendant un geste) : même
     // contenu de base, détails en moins → à remplacer par un bake plein au repos.
     const baseOf = (k) => (k && k.endsWith(':lod') ? k.slice(0, -4) : k);
@@ -5599,7 +5616,9 @@ export function drawIsoWorld(dt, now, helpers) {
       // l'arbitrage assumé de ce palier. Le pan pur (clé stable) garde son blit
       // translaté fluide via les branches ci-dessous.
       bake(false);
-    } else if (sameContent && inMargin && !(settled && isLod)) {
+    } else if (sameContent && inMargin && !(restful && isLod)) {
+      // `restful` et non `settled` : tant que le joueur enchaîne les crans, on
+      // GARDE le bake allégé au lieu de le remplacer par un plein à chaque pause.
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
     } else if (settled) {
       // Repos → sol plein, tous les détails.
@@ -5612,7 +5631,12 @@ export function drawIsoWorld(dt, now, helpers) {
       // On paierait une perte de matière visible pour une saccade qui resterait de
       // ~0,8 s. Le vrai correctif est d'accélérer la boucle par cellule (607 ms des
       // 1 018 à zoom 0,4), pas de retirer du dessin.
-      bake(false);
+      //
+      // Ce qui suit ne rouvre PAS ce débat : l'allégé n'est ici que TRANSITOIRE,
+      // le temps que le joueur finisse d'enchaîner ses crans (≤ ISO_CRISP_SETTLE_MS),
+      // exactement comme la branche de pan hors marge juste dessous. Le sol plein
+      // revient dès l'arrêt réel — on ne perd pas de matière, on la retarde.
+      bake(!restful);
     } else if (sameContent && !inMargin) {
       // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
       // bord d'attaque → bake ALLÉGÉ (≈ 4× moins cher : ni touffes, ni franges,
@@ -5630,7 +5654,7 @@ export function drawIsoWorld(dt, now, helpers) {
         (CM.cw + 2 * M) * s, (CM.ch + 2 * M) * s);
       ctx.imageSmoothingEnabled = prev;
     } else {
-      bake(!settled);                 // rien à réutiliser (1er bake, canvas effacé)
+      bake(!restful);                 // rien à réutiliser (1er bake, canvas effacé)
     }
   } else {
     drawIsoGround();
