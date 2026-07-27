@@ -1,5 +1,9 @@
 # Revue fraîche ciblée — 2026-07-27 (phase 2)
 
+> ⚠ **TRAITÉ le 27/07 au soir** : les 7 MAJEUR et l'essentiel des basses sont
+> corrigés par la campagne de nettoyage (6 commits, `b0a32f7`→`e64f8ad`).
+> L'état qui fait foi est **`CAMPAGNE-NETTOYAGE-2026-07-27.md`**.
+
 Complète le re-tri de `RETRI-2026-07-27.md`. Périmètre : **ce que l'audit du
 21/07 n'a jamais vu** — le diff `31fe1cf..HEAD` (63 commits, 172 fichiers,
 +17 189 lignes : lots QoL, refonte typo, gros œuvre carte) et les angles morts
