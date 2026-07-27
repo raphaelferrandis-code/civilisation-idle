@@ -5857,17 +5857,27 @@ function scrollGroundOnPan(bm, pd, helpers) {
   const dwp = screenDeltaToPan(sdx / dpr, sdy / dpr);
   bm.camX += dwp.x; bm.camY += dwp.y;
   // 3) Bandes exposées, au niveau du contenu en place (un lod reste un lod —
-  //    les tranches du repos l'upgraderont, comme avant).
+  //    les tranches du repos l'upgraderont, comme avant). ⚠ Dessinées sous la
+  //    caméra de l'ANCRE, pas la caméra courante : le canvas vit sur la grille
+  //    de son ancre (± un demi-pixel de la caméra réelle) — dessiner les bandes
+  //    sous la caméra courante les décalait de ce résidu sous-pixel, et le
+  //    mélange de phases miroitait pendant le drag (« frisson », retour Raph).
   const o = String(bm.other || '');
   const level = o.endsWith(':lodl') ? 'light' : o.endsWith(':lod') ? true : false;
   const W = gc.width / dpr, H = gc.height / dpr;
-  if (sdy !== 0) {
-    const h = Math.abs(sdy) / dpr;
-    bakeGroundStrip(level, null, sdy > 0 ? [H - h, H] : [0, h]);
-  }
-  if (sdx !== 0) {
-    const w = Math.abs(sdx) / dpr;
-    bakeGroundStrip(level, sdx > 0 ? [W - w, W] : [0, w], null);
+  const camRX = CM.cam.x, camRY = CM.cam.y;
+  CM.cam.x = bm.camX; CM.cam.y = bm.camY;
+  try {
+    if (sdy !== 0) {
+      const h = Math.abs(sdy) / dpr;
+      bakeGroundStrip(level, null, sdy > 0 ? [H - h, H] : [0, h]);
+    }
+    if (sdx !== 0) {
+      const w = Math.abs(sdx) / dpr;
+      bakeGroundStrip(level, sdx > 0 ? [W - w, W] : [0, w], null);
+    }
+  } finally {
+    CM.cam.x = camRX; CM.cam.y = camRY;
   }
   helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
   return true;

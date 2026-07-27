@@ -243,7 +243,15 @@ function cityMapBlitMargin(canvas, stateName) {
   const b = CM[stateName]; if (!canvas || !b) return;
   const M = CM._bakeMargin || 0;
   const pd = panDeltaToScreen(b.camX - CM.cam.x, b.camY - CM.cam.y);
-  CM.ctx.drawImage(canvas, pd.x - M, pd.y - M, CM.cw + 2 * M, CM.ch + 2 * M);
+  // Position ARRONDIE au pixel device entier : un blit fractionnaire re-snappe
+  // (lissage coupé) ou re-floute (lissage actif) différemment à chaque frame —
+  // avec le défilement incrémental (ré-ancrages fréquents, delta qui oscille
+  // près de zéro), ça se voyait comme un « frisson » du sol (retour Raph).
+  // Au pixel entier, le sol est stable ; il avance par pas d'un pixel, la norme
+  // du pixel-art.
+  const dpr = CM.dpr || 1;
+  const bx = Math.round(pd.x * dpr) / dpr, by = Math.round(pd.y * dpr) / dpr;
+  CM.ctx.drawImage(canvas, bx - M, by - M, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
 // Monde↔écran : délégué à la projection unique (iso/projection.js). Identique au
