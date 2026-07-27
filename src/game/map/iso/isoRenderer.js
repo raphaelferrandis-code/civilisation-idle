@@ -22,6 +22,7 @@ import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, 
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox, propImage } from '../cityEngineSprites.js';
+import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
@@ -4180,6 +4181,10 @@ function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
   // la capture : irrigated_fields 10×6 par-dessus le fleuve). Elles retombent sur
   // le rendu d'emprise iso dédié (parcelle plate à sillons / bloc bas).
   if (/field|farm|crop|orchard|aqueduct/i.test(id)) return false;
+  // Jalon profileur : clôt la tranche générique du peintre — tout ce qui suit
+  // (scène + mesure d'encre) s'impute au poste dédié 'vif-moteurs'. C'est la
+  // mesure qui décide du chantier « scènes cuites » (étape 0 du plan).
+  fp('vif-peinture');
   // ── Échelle de la scène : BORNÉE, jamais l'emprise brute ────────────────────
   // La halle occupe un grand lot, mais sa scène ne doit pas être celle d'un
   // atelier AGRANDIE : c'est exactement ce qui peignait un panier de fruits plus
@@ -4226,7 +4231,12 @@ function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
     // SURVOL : la silhouette se pose AVANT la scène, sinon elle la mange au
     // lieu de la cerner (même geste que les habitations).
     if (CM.hover && CM.hover.tile === t) drawIsoEngineOutline(t, bx, by, bw, now, HOVER_GOLD);
-    drawEngineSprite(t, bx, by, bw, bw, now);
+    // SCÈNE CUITE (engineSceneCache) : plans statiques blittés, animé en direct.
+    // false = cache indisponible (molette off, échelle hors bornes, cuisson
+    // échouée) → dessin direct intégral, comme avant.
+    if (!drawCachedEngineScene(ctx, t, bx, by, bw, now)) {
+      drawEngineSprite(t, bx, by, bw, bw, now);
+    }
     // Rend la boîte publiée à l'appelant pour le hit-test au survol. Sans elle,
     // viser un moteur haut (une école, un temple) retombait sur la cellule
     // projetée sous le curseur, c'est-à-dire celle SITUÉE DERRIÈRE.
@@ -4238,10 +4248,12 @@ function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
     // Tribunaux qui s'allument. Repli sur la boîte entière tant que l'encre
     // n'est pas mesurable (props en cours de chargement).
     const ink = engineInkFrac(t, now);
+    fp('vif-moteurs');
     return ink
       ? { dx: bx + bw * ink.x0, dy: by + bw * ink.y0, dw: bw * ink.w, dh: bw * ink.h }
       : { dx: bx, dy: by, dw: bw, dh: bw };
   } catch (e) {
+    fp('vif-moteurs');
     _isoSceneQuarantine.add(id);
     if (typeof console !== 'undefined') console.warn('[iso] scène moteur en quarantaine:', id, e);
     return false;
