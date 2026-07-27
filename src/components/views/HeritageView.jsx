@@ -118,9 +118,10 @@ export default function HeritageView() {
     const tr_ = t.tronc || {};
     const arts = Object.keys(s.templeArtifacts || {}).sort().join(',');
     // Un fragment de clé par auto de jeu : les 4 jeux ont les mêmes cadrans
-    // (on/mise ou rite/tempo/plancher), Icare a la cible en plus.
+    // (on/mise ou rite/tempo/plancher), Icare a la cible en plus. stakePow (le
+    // cadran Coffre) en fait partie : l'omettre retardait son affichage d'un tick.
     const autoKey = ['osselets', 'icarus', 'gratteux', 'vingtetun']
-      .map((k) => { const g = t[k] || {}; return `${g.unlocked}:${g.on}:${g.rite || g.stakeId}:${g.tempo}:${g.faveurFloor}:${g.target || 0}`; })
+      .map((k) => { const g = t[k] || {}; return `${g.unlocked}:${g.on}:${g.rite || g.stakeId}:${g.tempo}:${g.faveurFloor}:${g.target || 0}:${g.stakePow || 0}`; })
       .join('|');
     return `${s.diceLevel || 0}:${s.wingLevel || 0}:${s.styletLevel || 0}:${s.blessingUntil || 0}:${Math.floor((s.instability || 0) * 1000)}:${arts}:${tr_.unlocked}:${autoKey}`;
   });

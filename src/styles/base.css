@@ -1079,10 +1079,10 @@ body::before {
 }
 
 @media (max-width: 620px) {
-  .options-dialog {
-    width: calc(100vw - 1rem);
-    padding: 0.9rem;
-  }
+  /* Les dimensions mobiles de .options-dialog ne vivent PLUS ici : le bloc
+     était lettre morte, écrasé par components.css (taille calée sur le cadre)
+     puis frames.css, importés après base.css. La source de vérité mobile est
+     désormais le repli du cadre dans frames.css (@media 720px). */
   .options-row {
     align-items: stretch;
     flex-direction: column;

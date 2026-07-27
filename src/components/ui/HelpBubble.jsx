@@ -42,6 +42,11 @@ const TIP_ID = 'help-bubble';
 let showFn = null;
 let lastHideAt = 0;
 let openTimer = null;
+// Une bulle est-elle RÉELLEMENT affichée ? Posé à l'ouverture effective
+// (showTipAt), consommé dans hideTip : sans ce drapeau, traverser vite un
+// panneau horodatait lastHideAt à chaque simple annulation du timer de 120 ms,
+// et la grâce de réouverture (openDelayFor) court-circuitait le délai partout.
+let tipVisible = false;
 
 function hostFor(el) {
   const dialog = el.closest?.('dialog');
@@ -67,6 +72,7 @@ function showTipAt(el, name, source) {
   if (!content) return;
   const { left, top, flip } = placeTip(el.getBoundingClientRect(), window.innerWidth, window.innerHeight);
   showFn({ left, top, flip, name, content, source, el, host: hostFor(el) });
+  tipVisible = true;
 }
 
 function cancelPending() {
@@ -94,7 +100,10 @@ function openTip(el, name, source) {
 function hideTip() {
   cancelPending();
   if (showFn) {
-    lastHideAt = Date.now();
+    // lastHideAt SEULEMENT si une bulle était ouverte : fermer un simple timer
+    // d'ouverture ne doit pas armer la grâce de réouverture.
+    if (tipVisible) lastHideAt = Date.now();
+    tipVisible = false;
     showFn(null);
   }
 }
@@ -129,7 +138,10 @@ export function HelpBubbleLayer() {
 
   useEffect(() => {
     showFn = setTip;
-    const hide = () => setTip(null);
+    // Fermeture par la couche elle-même (Échap, scroll, blur, poll) : le
+    // drapeau d'ouverture retombe aussi, sinon un hideTip ultérieur armerait
+    // la grâce de réouverture pour une bulle déjà partie.
+    const hide = () => { tipVisible = false; setTip(null); };
     // Échap ferme une modale sans qu'aucun mouseleave ne parte : on coupe tout
     // de suite plutôt que d'attendre le contrôle de survie.
     const onKey = (e) => { if (e.key === 'Escape') hide(); };
@@ -150,7 +162,13 @@ export function HelpBubbleLayer() {
   useEffect(() => {
     if (!tip) return undefined;
     const id = setInterval(() => {
-      if (!tipStillAlive(tip.el)) {
+      // La cible peut aussi rester montée mais avoir PERDU ses écouteurs : le
+      // motif « ternaire coupé » ({...tipProps(null, cond ? tip : null)}) les
+      // retire tous quand l'état bascule sous la souris — onMouseLeave compris,
+      // et un bouton devenu disabled n'émet plus rien non plus. On ferme donc
+      // aussi dès que la cible n'est plus ni survolée ni focalisée.
+      if (!tipStillAlive(tip.el) || !tip.el.matches(':hover, :focus-within')) {
+        tipVisible = false;
         setTip(null);
         return;
       }

@@ -30,86 +30,98 @@ export default function IdleReportPanel() {
     return () => clearTimeout(id);
   }, [report, shown, lineCount]);
 
-  if (!report) return null;
-
   // Ce qui a dépassé le plafond se lit en DEUX parts : ce que la clepsydre a
   // recueilli (C7) et ce qui reste vraiment perdu, une fois la clepsydre pleine.
   // Les confondre en un seul « perdu » ferait mentir le rapport dans le sens qui
   // décourage — le joueur croirait jeté un temps qu'on vient de lui garder.
-  const above = Math.max(0, report.awaySec - report.creditedSec);
-  const stored = Math.max(0, report.storedSec || 0);
+  const above = report ? Math.max(0, report.awaySec - report.creditedSec) : 0;
+  const stored = report ? Math.max(0, report.storedSec || 0) : 0;
   const lost = Math.max(0, above - stored);
   const visible = (index) => (index < shown ? 'is-in' : '');
+  const heading = report
+    ? (report.heading || tr({ fr: "Pendant ton absence", en: "While you were away" }))
+    : "";
 
+  // L'annonce vocale vit dans une région sr-only PÉRENNE (motif RuinsTreePixel) :
+  // un <aside role="status"> qui n'existe que quand le rapport arrive est
+  // inséré déjà rempli, et les lecteurs d'écran n'annoncent que les MUTATIONS
+  // d'une région déjà montée. L'encart visuel, lui, reste conditionnel.
   return (
-    <aside className="idle-report" role="status">
-      <div className="idle-report-head">
-        <strong>{report.heading || tr({ fr: "Pendant ton absence", en: "While you were away" })}</strong>
-        <button
-          type="button"
-          className="idle-report-close"
-          onClick={() => setReport(null)}
-          aria-label={tr({ fr: "Fermer le rapport", en: "Close the report" })}
-        >
-          ×
-        </button>
+    <>
+      <div className="sr-only" role="status" aria-live="polite">
+        {report ? `${heading} — ${report.title}` : ""}
       </div>
+      {report && (
+        <aside className="idle-report">
+          <div className="idle-report-head">
+            <strong>{heading}</strong>
+            <button
+              type="button"
+              className="idle-report-close"
+              onClick={() => setReport(null)}
+              aria-label={tr({ fr: "Fermer le rapport", en: "Close the report" })}
+            >
+              ×
+            </button>
+          </div>
 
-      <p className="idle-report-title">{report.title}</p>
+          <p className="idle-report-title">{report.title}</p>
 
-      {/* La réserve d'abord : c'est elle qui explique pourquoi une longue
-          absence ne rapporte pas proportionnellement, et elle rend les
-          Veilleurs de nuit désirables au lieu de subis. */}
-      <p className={`idle-report-cap ${visible(0)}`}>
-        {tr({
-          fr: `${fmtSecs(report.creditedSec)} créditées sur ${fmtSecs(report.capSec)} de réserve`,
-          en: `${fmtSecs(report.creditedSec)} credited out of ${fmtSecs(report.capSec)} of reserve`
-        })}
-        {stored > 60 && (
-          <span className="idle-report-stored">
-            {tr({ fr: `, ${fmtSecs(stored)} versées dans la clepsydre`, en: `, ${fmtSecs(stored)} poured into the clepsydra` })}
-          </span>
-        )}
-        {lost > 60 && (
-          <span className="idle-report-lost">
-            {tr({ fr: `, ${fmtSecs(lost)} perdues (clepsydre pleine)`, en: `, ${fmtSecs(lost)} lost (clepsydra full)` })}
-          </span>
-        )}
-      </p>
+          {/* La réserve d'abord : c'est elle qui explique pourquoi une longue
+              absence ne rapporte pas proportionnellement, et elle rend les
+              Veilleurs de nuit désirables au lieu de subis. */}
+          <p className={`idle-report-cap ${visible(0)}`}>
+            {tr({
+              fr: `${fmtSecs(report.creditedSec)} créditées sur ${fmtSecs(report.capSec)} de réserve`,
+              en: `${fmtSecs(report.creditedSec)} credited out of ${fmtSecs(report.capSec)} of reserve`
+            })}
+            {stored > 60 && (
+              <span className="idle-report-stored">
+                {tr({ fr: `, ${fmtSecs(stored)} versées dans la clepsydre`, en: `, ${fmtSecs(stored)} poured into the clepsydra` })}
+              </span>
+            )}
+            {lost > 60 && (
+              <span className="idle-report-lost">
+                {tr({ fr: `, ${fmtSecs(lost)} perdues (clepsydre pleine)`, en: `, ${fmtSecs(lost)} lost (clepsydra full)` })}
+              </span>
+            )}
+          </p>
 
-      {/* Chemin farm : la cité a vraiment chuté et rebâti, donc les ressources
-          peuvent avoir BAISSÉ (la cité est plus jeune). Le résultat à retenir
-          est le gain de Ruines, pas le solde. */}
-      {report.farm && report.collapses > 0 && (
-        <p className={`idle-report-farm ${visible(1)}`}>
-          {tr({
-            fr: `${report.collapses} chute${report.collapses > 1 ? 's' : ''} rejouée${report.collapses > 1 ? 's' : ''}`,
-            en: `${report.collapses} collapse${report.collapses > 1 ? 's' : ''} replayed`
-          })}
-          {report.ruinsGained && <strong> · +{report.ruinsGained} {tr({ fr: "ruines", en: "ruins" })}</strong>}
-        </p>
+          {/* Chemin farm : la cité a vraiment chuté et rebâti, donc les ressources
+              peuvent avoir BAISSÉ (la cité est plus jeune). Le résultat à retenir
+              est le gain de Ruines, pas le solde. */}
+          {report.farm && report.collapses > 0 && (
+            <p className={`idle-report-farm ${visible(1)}`}>
+              {tr({
+                fr: `${report.collapses} chute${report.collapses > 1 ? 's' : ''} rejouée${report.collapses > 1 ? 's' : ''}`,
+                en: `${report.collapses} collapse${report.collapses > 1 ? 's' : ''} replayed`
+              })}
+              {report.ruinsGained && <strong> · +{report.ruinsGained} {tr({ fr: "ruines", en: "ruins" })}</strong>}
+            </p>
+          )}
+
+          <ul className="idle-report-lines">
+            {report.deltas.map((d, i) => (
+              <li key={d.key} className={`${d.negative ? 'is-down' : 'is-up'} ${visible(i + 2)}`}>
+                <span>{d.label}</span>
+                <strong>{d.negative ? '' : '+'}{d.amount}</strong>
+              </li>
+            ))}
+          </ul>
+
+          {report.wearDelta > 0 && (
+            <p className="idle-report-wear">
+              {tr({ fr: `Usure +${report.wearDelta} %`, en: `Wear +${report.wearDelta}%` })}
+            </p>
+          )}
+
+          {/* Sans cette liste, l'écart avec l'attente est lu comme un bug. */}
+          <p className="idle-report-idle">
+            {tr({ fr: "N'a pas tourné : ", en: "Did not run: " })}
+            {report.idle.map((x) => x.label).join(', ')}.
+          </p>
+        </aside>
       )}
-
-      <ul className="idle-report-lines">
-        {report.deltas.map((d, i) => (
-          <li key={d.key} className={`${d.negative ? 'is-down' : 'is-up'} ${visible(i + 2)}`}>
-            <span>{d.label}</span>
-            <strong>{d.negative ? '' : '+'}{d.amount}</strong>
-          </li>
-        ))}
-      </ul>
-
-      {report.wearDelta > 0 && (
-        <p className="idle-report-wear">
-          {tr({ fr: `Usure +${report.wearDelta} %`, en: `Wear +${report.wearDelta}%` })}
-        </p>
-      )}
-
-      {/* Sans cette liste, l'écart avec l'attente est lu comme un bug. */}
-      <p className="idle-report-idle">
-        {tr({ fr: "N'a pas tourné : ", en: "Did not run: " })}
-        {report.idle.map((x) => x.label).join(', ')}.
-      </p>
-    </aside>
+    </>
   );
 }

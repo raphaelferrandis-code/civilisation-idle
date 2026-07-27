@@ -463,8 +463,20 @@ export default function App() {
           elle-même par un portail, sa position dans l'arbre n'importe pas. */}
       <HelpBubbleLayer />
 
+      {/* Annonce vocale du changement d'ère dans une région sr-only PÉRENNE
+          (motif RuinsTreePixel) : un bandeau inséré déjà rempli n'est jamais
+          annoncé — les lecteurs d'écran ne lisent que les MUTATIONS d'une
+          région aria-live déjà montée. Le bandeau visuel reste conditionnel,
+          masqué à la synthèse pour ne pas doubler l'annonce. */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {eraBanner
+          ? `${eraBanner.epoch
+              ? tr({ fr: `Une nouvelle époque s'ouvre : ${eraBanner.epoch}`, en: `A new epoch opens: ${eraBanner.epoch}` })
+              : tr({ fr: 'Un nouvel âge commence', en: 'A new age begins' })} — ${eraBanner.name}`
+          : ''}
+      </div>
       {eraBanner && (
-        <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} role="status" aria-live="polite">
+        <div className={`era-banner ${eraBanner.epoch ? 'era-banner--epoch' : ''}`} aria-hidden="true">
           <span className="era-banner-kicker">
             {eraBanner.epoch
               ? tr({ fr: `Une nouvelle époque s'ouvre : ${eraBanner.epoch}`, en: `A new epoch opens: ${eraBanner.epoch}` })

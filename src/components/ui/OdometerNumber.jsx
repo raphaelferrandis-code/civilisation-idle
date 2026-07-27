@@ -160,9 +160,16 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   }
 
   return (
-    <span className="odo roll-pulse" key={shape} style={{ '--odo-w': wEm.toFixed(3) }}>
-      {slots}
-      {suffix && <span className="odo-sep odo-suffix">{suffix}</span>}
-    </span>
+    <>
+      {/* Le cadran est MASQUÉ aux lecteurs d'écran : ses bandes de chiffres se
+          lisent « 4 5 0 1 2 3… », du charabia. La valeur lisible vit dans le
+          frère .sr-only (position: absolute, cf. components.css) — hors flux,
+          donc sans effet sur la mesure de largeur --odo-w du cadran. */}
+      <span className="odo roll-pulse" key={shape} style={{ '--odo-w': wEm.toFixed(3) }} aria-hidden="true">
+        {slots}
+        {suffix && <span className="odo-sep odo-suffix">{suffix}</span>}
+      </span>
+      <span className="sr-only">{fmtShortLive(value)}</span>
+    </>
   );
 }

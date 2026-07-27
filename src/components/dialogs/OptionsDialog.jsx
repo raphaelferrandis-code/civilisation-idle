@@ -278,10 +278,19 @@ export default function OptionsDialog({ isOpen, onClose }) {
   };
 
   const handleSaveToFile = async () => {
-    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    // Horodatage À LA SECONDE (slice 19, pas 16) : deux exports dans la même
+    // minute écrasaient le même fichier en silence.
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const res = await saveToFile(encodeSaveText(JSON.stringify(state)), `civilisation-${stamp}.txt`);
+    // Dans le .exe, l'écriture part dans Documents sans dialogue : le float dit
+    // OÙ (res.path) — sinon le joueur cherche son fichier sans indice.
     pushOutcomeFloat(res.ok
-      ? { label: tr({ fr: "Sauvegarde écrite", en: "Save written" }), kind: "gain" }
+      ? {
+          label: res.path
+            ? tr({ fr: `Sauvegarde écrite : ${res.path}`, en: `Save written: ${res.path}` })
+            : tr({ fr: "Sauvegarde écrite", en: "Save written" }),
+          kind: "gain"
+        }
       : { label: tr({ fr: "Écriture du fichier impossible", en: "Could not write the file" }), kind: "cost" });
   };
 
@@ -362,10 +371,15 @@ export default function OptionsDialog({ isOpen, onClose }) {
       <form method="dialog" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
         <h2>{tr({ fr: "Options", en: "Options" })}</h2>
 
-        <div className="options-tabs" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })}>
+        {/* ARIA d'onglets : role="tablist"/"tab" + aria-selected — sans eux le
+            lecteur d'écran annonce cinq boutons sans dire lequel est actif ni
+            qu'ils forment un groupe d'onglets. */}
+        <div className="options-tabs" role="tablist" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })}>
           <button
             className={`options-tab ${activeGroup === 'display' ? 'active' : ''}`}
             type="button"
+            role="tab"
+            aria-selected={activeGroup === 'display'}
             onClick={() => setActiveGroup('display')}
           >
             {tr({ fr: "Affichage", en: "Display" })}
@@ -373,6 +387,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
           <button
             className={`options-tab ${activeGroup === 'sound' ? 'active' : ''}`}
             type="button"
+            role="tab"
+            aria-selected={activeGroup === 'sound'}
             onClick={() => setActiveGroup('sound')}
           >
             {tr({ fr: "Son", en: "Sound" })}
@@ -380,6 +396,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
           <button
             className={`options-tab ${activeGroup === 'shortcuts' ? 'active' : ''}`}
             type="button"
+            role="tab"
+            aria-selected={activeGroup === 'shortcuts'}
             onClick={() => setActiveGroup('shortcuts')}
           >
             {tr({ fr: "Raccourcis", en: "Shortcuts" })}
@@ -387,6 +405,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
           <button
             className={`options-tab ${activeGroup === 'other' ? 'active' : ''}`}
             type="button"
+            role="tab"
+            aria-selected={activeGroup === 'other'}
             onClick={() => setActiveGroup('other')}
           >
             {tr({ fr: "Autre", en: "Other" })}
@@ -394,6 +414,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
           <button
             className={`options-tab ${activeGroup === 'credits' ? 'active' : ''}`}
             type="button"
+            role="tab"
+            aria-selected={activeGroup === 'credits'}
             onClick={() => setActiveGroup('credits')}
           >
             {tr({ fr: "Crédits", en: "Credits" })}
@@ -403,6 +425,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
             <button
               className={`options-tab ${activeGroup === 'script' ? 'active' : ''}`}
               type="button"
+              role="tab"
+              aria-selected={activeGroup === 'script'}
               onClick={() => setActiveGroup('script')}
             >
               {tr({ fr: "Automatisation", en: "Automation" })}
@@ -413,6 +437,8 @@ export default function OptionsDialog({ isOpen, onClose }) {
             <button
               className={`options-tab ${activeGroup === 'automates' ? 'active' : ''}`}
               type="button"
+              role="tab"
+              aria-selected={activeGroup === 'automates'}
               onClick={() => setActiveGroup('automates')}
             >
               {tr({ fr: "Automates", en: "Automatons" })}
@@ -423,7 +449,7 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
         {/* Hauteur fixée en CSS, pas ici : voir .options-rows. Un onglet court
             (Son) et un onglet long (Affichage) doivent rendre la MÊME fenêtre. */}
-        <div className="options-rows">
+        <div className="options-rows" role="tabpanel">
           {/* DISPLAY PANEL */}
           {activeGroup === 'display' && (
             <>

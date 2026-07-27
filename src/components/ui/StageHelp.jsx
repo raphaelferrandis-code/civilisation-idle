@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { tr } from '../../game/core/i18n.js';
 
 /**
@@ -22,6 +22,18 @@ export default function StageHelp({ children }) {
   const popRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null); // { left, top?, bottom? } en px viewport
+  // id unique par instance : plusieurs scènes peuvent monter leur « ? ».
+  const popId = useId();
+
+  // Échap ferme le feuillet (WCAG 1.4.13 : un contenu au survol doit être
+  // congédiable sans bouger la souris) — même écoute fenêtre que HelpBubble,
+  // car au survol seul, aucun keydown n'atteint le wrapper.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open]);
 
   // Positionne le feuillet AU-DESSUS du bouton, aligné à droite, en évitant les
   // bords ; bascule dessous si le haut manque de place. Mesuré après paint
@@ -68,9 +80,16 @@ export default function StageHelp({ children }) {
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
     >
-      <button type="button" className="stage-help" aria-label={tr({ fr: 'Règles du jeu', en: 'Game rules' })}>?</button>
+      <button
+        type="button"
+        className="stage-help"
+        aria-label={tr({ fr: 'Règles du jeu', en: 'Game rules' })}
+        // Posé seulement quand le feuillet existe : un aria-describedby qui
+        // pointe dans le vide est ignoré, mais autant ne rien promettre.
+        aria-describedby={open ? popId : undefined}
+      >?</button>
       {open && (
-        <div className="stage-help-pop" role="tooltip" ref={popRef} style={style}>{children}</div>
+        <div className="stage-help-pop" id={popId} role="tooltip" ref={popRef} style={style}>{children}</div>
       )}
     </span>
   );

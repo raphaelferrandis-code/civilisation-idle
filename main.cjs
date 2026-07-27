@@ -1,5 +1,6 @@
-const { app, BrowserWindow, protocol, net } = require("electron");
+const { app, BrowserWindow, dialog, protocol, net } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const { pathToFileURL } = require("url");
 
 // Autorise la musique de fond à démarrer sans clic préalable de l'utilisateur.
@@ -76,8 +77,25 @@ app.whenReady().then(() => {
     if (filePath !== distRoot && !filePath.startsWith(distRoot + path.sep)) {
       return new Response("Not found", { status: 404 });
     }
+    // Fichier absent : net.fetch sur un file:// inexistant REJETTE, et la
+    // fenêtre restait blanche sans un mot. Un 404 franc laisse la page vivre
+    // et l'absence se lit dans la console au lieu d'être avalée.
+    if (!fs.existsSync(filePath)) {
+      return new Response("Not found", { status: 404 });
+    }
     return net.fetch(pathToFileURL(filePath).toString());
   });
+
+  // dist/ pas construit : sans ce contrôle, la fenêtre s'ouvrait blanche et
+  // muette (le 404 ci-dessus ne dit rien à qui n'ouvre pas les DevTools).
+  if (!fs.existsSync(path.join(distRoot, "index.html"))) {
+    dialog.showErrorBox(
+      "Civilisation Idle — fichiers manquants",
+      "dist/index.html est introuvable. Lancer `npm run build` d'abord, puis relancer le jeu."
+    );
+    app.quit();
+    return;
+  }
 
   createWindow();
 

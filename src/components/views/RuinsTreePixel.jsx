@@ -211,7 +211,9 @@ export default function RuinsTreePixel() {
       wheelTimer = setTimeout(() => el.classList.remove("rt-interacting"), 220);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => { clearTimeout(wheelTimer); el.removeEventListener("wheel", onWheel); };
+    // La classe aussi : le timer purgé ne la retirera plus, et un démontage en
+    // pleine molette la laissait collée au conteneur.
+    return () => { clearTimeout(wheelTimer); el.classList.remove("rt-interacting"); el.removeEventListener("wheel", onWheel); };
   }, [zoomAt]);
 
   const onPointerDown = useCallback((e) => {

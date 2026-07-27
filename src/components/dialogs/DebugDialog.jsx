@@ -14,9 +14,20 @@ export default function DebugDialog({ isOpen, onClose }) {
   const dialogRef = useDialogModal(isOpen, onClose);
 
   const handleOverlayClick = (e) => {
-    if (e.target === dialogRef.current) {
-      onClose();
-    }
+    const dialog = dialogRef.current;
+    if (!dialog || e.target !== dialog) return;
+    // Avec showModal(), un clic sur le fond (::backdrop) a pour cible la
+    // <dialog> elle-même — mais un clic sur son PADDING interne aussi. Seules
+    // les coordonnées disent s'il est tombé dedans ou à côté (même mesure que
+    // OptionsDialog) : sans elle, cliquer entre deux boutons fermait la fenêtre.
+    const rect = dialog.getBoundingClientRect();
+    const isInDialog = (
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom
+    );
+    if (!isInDialog) onClose();
   };
 
   const handleForceRupture = () => {

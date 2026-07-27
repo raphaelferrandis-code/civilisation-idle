@@ -90,11 +90,22 @@
 @media (max-width: 720px) {
   #history .panel,
   #prestige .panel,
-  #mythView .panel {
+  #mythView .panel,
+  .options-dialog {
     border-width: 1px;
     border-image: none;
     border-color: var(--border-soft);
     padding: 1rem;
+  }
+  /* La fenêtre Options rejoint le repli : ses dimensions de components.css
+     étaient calées sur la grille de tuiles du cadre (88/90 px de bandes,
+     round() au pas de 19 px) — sans cadre, on reprend les mêmes bornes sans
+     l'arrondi, plein écran en largeur. SEULE source de vérité mobile : l'ancien
+     bloc @media 620px de base.css, écrasé par l'ordre d'import, a été purgé. */
+  .options-dialog {
+    width: calc(100vw - 1rem);
+    height: min(48rem, calc(100vh - 2rem));
+    padding: 0.9rem;
   }
   #history .panel > .panel-heading,
   #prestige .panel > .panel-heading,

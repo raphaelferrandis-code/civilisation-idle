@@ -50,7 +50,9 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
     <dialog
       ref={dialogRef}
       className="event-dialog import-dialog"
-      style={{ display: 'block' }}
+      // Pas de `display: block` inline : il neutralisait le display:none natif
+      // des dialogues fermés (une frame de flash hors modale à l'ouverture) —
+      // useDialogModal gère déjà l'affichage.
       // Pas de `onClose` : useDialogModal s'en charge (cf. OptionsDialog). Le
       // `setText("")` de handleClose n'y perd rien — le composant est démonté
       // par App à la fermeture, son état part avec lui.

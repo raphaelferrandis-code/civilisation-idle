@@ -261,6 +261,9 @@ export default function ScratchStage({ table, onClose }) {
   const chosenCost = chosen ? chosen.faveur * effMult : 0;
 
   const startTicket = (res) => {
+    // Défense en profondeur : un ticket encore en attente d'application ne doit
+    // pas être écrasé sans avoir crédité (apply est idempotent — cf. reveal).
+    if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
     pendingRef.current = res.apply;
     outcomeRef.current = res;
     setOutcome(res);

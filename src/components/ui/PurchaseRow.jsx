@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
@@ -97,15 +97,21 @@ function PurchaseRow({
   const [shaking, setShaking] = useState(false);
   const floatId = useRef(0);
 
+  // Les minuteries des floats (900 ms) et du shake (400 ms) survivaient au
+  // démontage de la rangée (changement d'ère, filtre de boutique) : setState
+  // sur un composant démonté. Motif classique : ids collectés, purge à l'adieu.
+  const timersRef = useRef([]);
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+
   const spawnFloat = (text) => {
     const id = ++floatId.current;
     setFloats((f) => [...f, { id, text }]);
-    setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 900);
+    timersRef.current.push(setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 900));
   };
 
   const doShake = () => {
     setShaking(true);
-    setTimeout(() => setShaking(false), 400);
+    timersRef.current.push(setTimeout(() => setShaking(false), 400));
   };
 
   const handleBuy = (event) => {

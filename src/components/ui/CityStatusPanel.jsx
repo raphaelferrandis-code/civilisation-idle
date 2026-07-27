@@ -99,12 +99,16 @@ export default function CityStatusPanel() {
   const stored = Math.floor(storedSeconds || 0);
   const clepsydreCap = clepsydreCapSeconds();
   const refusal = stored > 0 ? clepsydreRefusal() : "empty";
-  const refusalText = {
+  // Table motif → phrase GARDÉE ENTIÈRE (pas indexée tout de suite) : le clic
+  // relit le motif réel renvoyé par spendStoredTime (res.reason), qui peut
+  // différer de celui du rendu si l'état a bougé entre les deux.
+  const refusalTexts = {
     busy: tr({ fr: "Impossible pendant un effondrement ou une fenêtre ouverte.", en: "Not while a collapse or a window is in progress." }),
     crisis: tr({ fr: "Impossible pendant une crise : règle d'abord la cité.", en: "Not during a crisis: settle the city first." }),
     bonus: tr({ fr: "Impossible pendant un bonus de production : il s'étalerait sur tout le temps versé.", en: "Not during a production bonus: it would spread over all the poured time." }),
     empty: tr({ fr: "Il faut au moins une minute de réserve.", en: "At least one minute of reserve is needed." })
-  }[refusal];
+  };
+  const refusalText = refusalTexts[refusal];
 
   // VŒU DU CYCLE (D2). Lu sur le state vivant (comme currentEraIndex ci-dessus) ;
   // le composant se re-rend déjà à 1 Hz via tickNow, donc l'avancement suit. Un
@@ -355,7 +359,13 @@ export default function CityStatusPanel() {
             disabled={!!refusal}
             onClick={() => {
               const res = spendStoredTime();
-              if (!res.ok) pushOutcomeFloat({ label: refusalText, kind: 'info' });
+              if (!res.ok) {
+                // Motif RELU du refus réel (res.reason) : celui du rendu peut
+                // être périmé — voire absent si le bouton semblait cliquable —
+                // et le versement était alors refusé en silence.
+                const label = refusalTexts[res.reason] || refusalText;
+                if (label) pushOutcomeFloat({ label, kind: 'info' });
+              }
             }}
           >
             {tr({ fr: `Verser ${fmtSecs(stored)}`, en: `Pour ${fmtSecs(stored)}` })}

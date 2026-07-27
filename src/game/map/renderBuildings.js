@@ -350,7 +350,12 @@ const wonderFlameStrips = new Map(); // fichier -> { img, ready }
 function wonderFlamesData(id) {
   if (!wonderFlamesCfgs.has(id)) {
     wonderFlamesCfgs.set(id, null);
-    fetch("/pixelart/wonders/" + id + "-flames.json").then((r) => r.json()).then((j) => {
+    fetch("/pixelart/wonders/" + id + "-flames.json").then((r) => {
+      // Un 404 servi en HTML passait r.json() → SyntaxError avalée, et le
+      // sentinel null restait posé pour toujours : plus jamais de flammes.
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then((j) => {
       wonderFlamesCfgs.set(id, j);
       for (const a of Object.values(j.asset)) {
         if (wonderFlameStrips.has(a.file)) continue;
@@ -359,7 +364,12 @@ function wonderFlamesData(id) {
         st.img.src = "/pixelart/wonders/" + a.file;
         wonderFlameStrips.set(a.file, st);
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      // Sentinel effacé : le prochain rendu retentera (réseau revenu, asset
+      // redéployé) au lieu d'un échec définitif et silencieux.
+      console.warn("flammes de merveille illisibles (" + id + ") :", err);
+      wonderFlamesCfgs.delete(id);
+    });
   }
   return wonderFlamesCfgs.get(id);
 }

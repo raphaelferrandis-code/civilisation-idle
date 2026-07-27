@@ -1097,7 +1097,9 @@
 
 .scratch-jackpot-banner {
   text-align: center;
-  font-family: var(--font-number);
+  /* PROSE, pas chiffres : la règle typo du dépôt réserve Silkscreen
+     (--font-number) aux nombres — même pile que .scratch-result--lose. */
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
   color: var(--gold-bright);
   font-size: 1rem;
   text-shadow: 0 0 10px color-mix(in srgb, var(--gold), transparent 40%);
@@ -1465,7 +1467,9 @@
 
 .augury-callout {
   text-align: center;
-  font-family: var(--font-number);
+  /* PROSE, pas chiffres : Silkscreen (--font-number) est réservée aux nombres
+     — même pile que .scratch-result--lose. */
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
   font-size: 1.05rem;
   letter-spacing: 0.04em;
   margin: 0.2rem 0;

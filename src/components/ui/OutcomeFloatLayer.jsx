@@ -22,8 +22,11 @@ export default function OutcomeFloatLayer() {
     return () => clearInterval(id);
   }, [busy]);
 
-  if (!stack.visible.length) return null;
-
+  // PAS de `return null` quand la pile est vide : les lecteurs d'écran
+  // n'annoncent que les MUTATIONS d'une région aria-live DÉJÀ présente — une
+  // région démontée puis ré-insérée déjà remplie reste muette. Le conteneur et
+  // la zone sr-only restent donc montés en permanence ; seuls les enfants
+  // vont et viennent.
   return (
     <>
       <div className="outcome-float-layer">

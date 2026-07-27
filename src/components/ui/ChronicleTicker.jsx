@@ -59,6 +59,17 @@ export default function ChronicleTicker() {
         ? tr({ fr: `${theme.tradition} · Prix : ${theme.price}`, en: `${theme.tradition} · Price: ${theme.price}` })
         : tr({ fr: 'Cliquer pour lire la dépêche', en: 'Click to read the dispatch' }))}
       onClick={toggle}
+      // Un <div onClick> est invisible au clavier : role="button" + tabIndex le
+      // remettent dans l'ordre de tabulation, Entrée/Espace déplient comme le
+      // clic (preventDefault sur Espace, sinon la page défile).
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === ' ') e.preventDefault();
+          toggle();
+        }
+      }}
     >
       <span className="ticker-masthead">
         {theme.masthead}
