@@ -52,7 +52,7 @@ const PLAZA = [214, 206, 182];       // dallage d'esplanade
 // (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
 // « remets un liseré bleu clair sur les bords du fleuve »). Teintes = bleus gris
 // CLAIRS de la famille de l'eau ardoise (pas de cyan). Réglable live via
-// window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
+// window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3, lodMerge,lodW,lodA,lodC }).
 //
 // ⚠ EXCLUSION MUTUELLE AVEC LE QUAI, ET SON TROU. Dès la bande 2 la berge
 // maçonnée porte SON propre bas-fond au pied du mur (shoreLine de drawRun) : les
@@ -69,7 +69,21 @@ export const waterShoreTune = {
   lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
   a1: 0.45, a2: 0.58, a3: 0.75,                            // alphas (bord = plus opaque)
-  c1: '120,160,175', c2: '150,192,205', c3: '190,224,232'  // bleus clairs, du doux au liseré
+  c1: '120,160,175', c2: '150,192,205', c3: '190,224,232', // bleus clairs, du doux au liseré
+  // FUSION AU DÉZOOM (LOD) : les trois bandes tombent alors à 6,3 / 3,5 / 1,6 px
+  // et se confondent en une seule lisière à l'œil, tout en coûtant six traits
+  // pleine longueur dans un clip. On les remplace par UN trait.
+  //
+  // ⚠ RÉGLAGE CALÉ À L'ŒIL SUR CAPTURE, pas déduit. Le premier essai prenait la
+  // teinte MÉDIANE c2 à 0,62 — comparaison à ×4 sans appel : le liseré clair
+  // disparaissait presque. Ce qui porte la lecture du bord, c'est la teinte VIVE
+  // c3, pas la moyenne des trois : empilées, les trois bandes culminent à ~0,94
+  // d'opacité sur c3 au ras de la rive. Trois essais capturés au même instant
+  // figé (10/0,80 · 12/0,70 · 8/0,90), c'est 12/0,70 qui recolle à la référence.
+  lodMerge: true,
+  lodW: 12,                                                // largeur du trait fusionné (× zoom)
+  lodA: 0.70,                                              // opacité
+  lodC: '190,224,232'                                      // = c3, la teinte VIVE du liseré
 };
 // Matière de chaussée par ère (calée sur la progression du jeu) :
 // terre battue → pavé de pierre → asphalte industriel → voie sombre futuriste.
@@ -1858,7 +1872,10 @@ function drawIsoGround() {
 // droite calculées en MONDE (pos ± normale·hw) puis projetées. Dessin LIVE à
 // chaque frame (un polygone + liserés + reflets) → l'eau peut s'animer alors
 // que le sol reste baké. Bateaux/quais : Phase 5 complète.
-function riverRibbonPath(ctx, pts, T) {
+// Rives GAUCHE et DROITE du ruban, projetées à l'écran. Extrait de
+// riverRibbonPath pour que le pavage de l'eau (drawIsoWaterTiles) puisse borner
+// ses colonnes sur la vraie emprise du ruban, et pas sur sa boîte englobante.
+function riverRibbonScreen(pts, T) {
   const left = [], right = [];
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i];
@@ -1869,6 +1886,10 @@ function riverRibbonPath(ctx, pts, T) {
     left.push(worldToScreen((p.x + nx * p.hw) * T, (p.y + ny * p.hw) * T));
     right.push(worldToScreen((p.x - nx * p.hw) * T, (p.y - ny * p.hw) * T));
   }
+  return { left, right };
+}
+function riverRibbonPath(ctx, pts, T) {
+  const { left, right } = riverRibbonScreen(pts, T);
   ctx.beginPath();
   ctx.moveTo(left[0].x, left[0].y);
   for (let i = 1; i < left.length; i += 1) ctx.lineTo(left[i].x, left[i].y);
@@ -2241,9 +2262,20 @@ function waterTilesImage() {
 
 function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const G = waterTilesTune;
-  if (!G.on || z < G.minZoom || G.strength <= 0) return;
+  // Diagnostic opt-in (globalThis.__waterSpanStats = true) : dit PAR QUEL
+  // garde-fou la nappe est coupée. Éteint, coût nul (un test de drapeau).
+  // Hors du bloc de cull, sinon __waterSpanCull = false le rendait muet.
+  const dbg = globalThis.__waterSpanStats
+    ? (sortie, extra) => {
+      globalThis.__waterSpanStatsLast = {
+        sortie, on: G.on, zoom: +z.toFixed(3), minZoom: G.minZoom, strength: G.strength,
+        image: !!waterTilesImg && !!waterTilesImg.ready, ...extra,
+      };
+    }
+    : null;
+  if (!G.on || z < G.minZoom || G.strength <= 0) { if (dbg) dbg('reglage'); return; }
   const img = waterTilesImage();
-  if (!img) return;
+  if (!img) { if (dbg) dbg('image non prete'); return; }
   const len = pts.length;
   // Boîte écran du fleuve (mêmes bornes que le grain : on ne tile que le visible).
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxHw = 0;
@@ -2256,7 +2288,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const pad = maxHw * T * z * 2 + 4;
   bx0 = Math.max(0, bx0 - pad); by0 = Math.max(0, by0 - pad);
   bx1 = Math.min(CM.cw, bx1 + pad); by1 = Math.min(CM.ch, by1 + pad);
-  if (bx1 <= bx0 || by1 <= by0) return;
+  if (bx1 <= bx0 || by1 <= by0) { if (dbg) dbg('boite vide', { bx0, by0, bx1, by1, cw: CM.cw, ch: CM.ch }); return; }
   // Aval en espace écran : la nappe dérive avec le courant, jamais en travers.
   const pA = worldToScreen(pts[0].x * T, pts[0].y * T);
   const pB = worldToScreen(pts[len - 1].x * T, pts[len - 1].y * T);
@@ -2264,7 +2296,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   const anchor = worldToScreen(0, 0);
   const step = WATER_TILE * G.worldPx * z;               // période à l'écran
-  if (step < 2) return;
+  if (step < 2) { if (dbg) dbg('pas trop fin', { step }); return; }
   const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
   const t = (now || 0) / 1000;
   // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
@@ -2300,6 +2332,63 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const ox = anchor.x + dx * d, oy = anchor.y + dy * d;
   const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
   const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
+  // ── EMPRISE RÉELLE DU RUBAN, BANDE DE LIGNE PAR BANDE DE LIGNE ──────────────
+  // Le pavage balayait la BOÎTE ENGLOBANTE du fleuve. Or un ruban en diagonale
+  // n'occupe qu'une fraction de sa boîte : sur une fenêtre de 2005×1369 à zoom
+  // 0,35 (pas de 11 px), cela faisait ~22 000 drawImage par frame dont ~85 %
+  // étaient intégralement jetés par le clip() — mais seulement APRÈS avoir été
+  // envoyés au GPU. Or c'est le GPU qui sature (relevé DevTools sur 13 s de
+  // dézoom : piste GPU pleine du début à la fin, thread principal à 35 %).
+  //
+  // On borne donc les colonnes bande par bande. L'enveloppe est CONSERVATRICE :
+  // pour chaque quadrilatère du ruban (entre deux échantillons consécutifs) on
+  // marque sa boîte englobante sur toutes les bandes qu'il traverse, élargie
+  // d'une bande de chaque côté. C'est un sur-ensemble strict de l'aire clippée,
+  // y compris si le fleuve serpente ou repasse sur lui-même — le clip reste seul
+  // juge du découpage. Ce filtre ne retire QUE des tuiles déjà invisibles : le
+  // rendu est identique au pixel près.
+  // A/B : globalThis.__waterSpanCull = false rejoue le balayage complet.
+  const nRows = r1 - r0 + 1;
+  let spanLo = null, spanHi = null;
+  if (nRows > 0 && globalThis.__waterSpanCull !== false) {
+    spanLo = new Float64Array(nRows).fill(Infinity);
+    spanHi = new Float64Array(nRows).fill(-Infinity);
+    const { left: rl, right: rr } = riverRibbonScreen(pts, T);
+    for (let i = 1; i < rl.length; i += 1) {
+      const x0 = Math.min(rl[i - 1].x, rl[i].x, rr[i - 1].x, rr[i].x);
+      const x1 = Math.max(rl[i - 1].x, rl[i].x, rr[i - 1].x, rr[i].x);
+      const y0 = Math.min(rl[i - 1].y, rl[i].y, rr[i - 1].y, rr[i].y);
+      const y1 = Math.max(rl[i - 1].y, rl[i].y, rr[i - 1].y, rr[i].y);
+      let ra = Math.floor((y0 - oy) / step) - r0 - 1;   // −1/+1 : une tuile est
+      let rb = Math.floor((y1 - oy) / step) - r0 + 1;   // plus haute qu'une bande
+      if (rb < 0 || ra >= nRows) continue;
+      if (ra < 0) ra = 0;
+      if (rb >= nRows) rb = nRows - 1;
+      for (let r = ra; r <= rb; r += 1) {
+        if (x0 < spanLo[r]) spanLo[r] = x0;
+        if (x1 > spanHi[r]) spanHi[r] = x1;
+      }
+    }
+  }
+  // Diagnostic : on est arrivé jusqu'au dessin. Rapporte combien de bandes ont
+  // été marquées (0 = le cull écarte tout, donc il est faux) et les bornes qui
+  // ont servi. Posé HORS du bloc de cull pour rester lisible même quand
+  // __waterSpanCull = false.
+  if (dbg) {
+    let marked = 0, lo = Infinity, hi = -Infinity;
+    if (spanLo) {
+      for (let r = 0; r < nRows; r += 1) {
+        if (spanHi[r] >= spanLo[r]) { marked += 1; if (spanLo[r] < lo) lo = spanLo[r]; if (spanHi[r] > hi) hi = spanHi[r]; }
+      }
+    }
+    dbg('dessine', {
+      cull: !!spanLo, nRows, marked, r0, r1, c0, c1,
+      step: +step.toFixed(2), oy: +oy.toFixed(1),
+      by0: +by0.toFixed(1), by1: +by1.toFixed(1),
+      spanX: marked ? [+lo.toFixed(1), +hi.toFixed(1)] : null,
+      cw: CM.cw, ch: CM.ch,
+    });
+  }
   const prevS = ctx.imageSmoothingEnabled, prevA = ctx.globalAlpha;
   // Nearest-neighbor tant qu'un pixel de tuile couvre au moins un pixel écran
   // (pixel art NET, la règle du projet). En dessous, le nearest SAUTE des pixels
@@ -2312,7 +2401,15 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   ctx.clip();
   ctx.globalAlpha = Math.min(1, G.strength);
   for (let row = r0; row <= r1; row += 1) {
-    for (let col = c0; col <= c1; col += 1) {
+    let cA = c0, cB = c1;
+    if (spanLo) {
+      const ri = row - r0;
+      if (spanHi[ri] < spanLo[ri]) continue;                     // bande hors ruban
+      // −1 : une tuile posée à gauche de l'emprise déborde dedans (sz > step).
+      cA = Math.max(c0, Math.floor((spanLo[ri] - ox) / step) - 1);
+      cB = Math.min(c1, Math.ceil((spanHi[ri] - ox) / step) + 1);
+    }
+    for (let col = cA; col <= cB; col += 1) {
       ctx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE,
         Math.floor(ox + col * step), Math.floor(oy + row * step), sz, sz);
     }
@@ -2364,26 +2461,52 @@ function drawIsoRiver(now) {
     const quayDrawsShore = bandW > maxB && !CM.lodActive && !ruined;
     const shoreOn = S.on && (S.lodFallback && !ruined ? !quayDrawsShore : bandW <= maxB);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
-    const shore = (color, width) => {
-      ctx.strokeStyle = color; ctx.lineWidth = width;
+    if (shoreOn) {
+      // Les deux rives décalées, projetées UNE SEULE FOIS. Avant, chacune des
+      // trois bandes rejouait la même projection (nAt + worldToScreen sur tous
+      // les échantillons) : six parcours complets du ruban par frame.
+      const edges = [];
       for (const sgn of [1, -1]) {
-        ctx.beginPath();
+        const path = [];
         for (let i = 0; i < len0; i += 1) {
           const p = pts[i], n = nAt(i);
-          const w = worldToScreen((p.x + sgn * n.nx * p.hw) * T, (p.y + sgn * n.ny * p.hw) * T);
-          if (i === 0) ctx.moveTo(w.x, w.y); else ctx.lineTo(w.x, w.y);
+          path.push(worldToScreen((p.x + sgn * n.nx * p.hw) * T, (p.y + sgn * n.ny * p.hw) * T));
         }
-        ctx.stroke();
+        edges.push(path);
       }
-    };
-    if (shoreOn) {
+      const shore = (color, width) => {
+        ctx.strokeStyle = color; ctx.lineWidth = width;
+        for (const path of edges) {
+          ctx.beginPath();
+          ctx.moveTo(path[0].x, path[0].y);
+          for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
+          ctx.stroke();
+        }
+      };
       ctx.save();
       riverRibbonPath(ctx, pts, T);
       ctx.clip();
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      shore(`rgba(${S.c1},${S.a1})`, Math.max(3, z * S.w1));   // bas-fond large et doux
-      shore(`rgba(${S.c2},${S.a2})`, Math.max(2, z * S.w2));   // eau peu profonde
-      shore(`rgba(${S.c3},${S.a3})`, Math.max(1, z * S.w3));   // liseré clair au bord
+      // A/B utilisable EN PRODUCTION (globalThis.__waterShoreMerge = false),
+      // comme __waterSpanCull : la molette __waterShore, elle, est gardée par
+      // import.meta.env.DEV et n'existe pas dans le .exe — or c'est justement
+      // là que le lag se reproduit. Pour RÉGLER l'aspect (lodW/lodA/lodC),
+      // passer par `npm run dev`.
+      if (S.lodMerge && CM.lodActive && globalThis.__waterShoreMerge !== false) {
+        // AU DÉZOOM : UN SEUL TRAIT. Les trois bandes (18/10/4,5 × zoom) se
+        // réduisent alors à 6,3 / 3,5 / 1,6 px : elles se confondent à l'œil en
+        // une seule lisière claire, mais coûtent toujours six traits pleine
+        // longueur DANS UN CLIP — et ce, précisément quand le LOD vient de les
+        // rallumer (le quai cesse de tracer son bas-fond, cf. quayDrawsShore).
+        // On garde donc la lecture du bord clair — demandée « tout le temps »
+        // le 2026-07-22 — pour un tiers du tracé. Réglable à chaud :
+        // window.__waterShore({ lodMerge, lodW, lodC, lodA }).
+        shore(`rgba(${S.lodC},${S.lodA})`, Math.max(2, z * S.lodW));
+      } else {
+        shore(`rgba(${S.c1},${S.a1})`, Math.max(3, z * S.w1));   // bas-fond large et doux
+        shore(`rgba(${S.c2},${S.a2})`, Math.max(2, z * S.w2));   // eau peu profonde
+        shore(`rgba(${S.c3},${S.a3})`, Math.max(1, z * S.w3));   // liseré clair au bord
+      }
       ctx.restore();
     }
   }
