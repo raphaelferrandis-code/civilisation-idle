@@ -1218,10 +1218,21 @@ if (typeof window !== 'undefined') {
 // de matière urbaine + voile, joints de trottoir, frange de chaussée. ~4× moins
 // cher (ils pèsent ~75 % de la recuisson) → un pan hors marge tient en ~1 frame au
 // lieu de figer. Le bake plein reprend la main dès l'arrêt (~160 ms).
-const ISO_GROUND_LOD = { on: false };
+// DEUX niveaux d'allégé (2026-07-27, retour Raph « sol tout blanc quand la
+// caméra bouge ») :
+//   - HARD (l'historique) : ni textures ni voiles ni détails — l'aplat. Réservé
+//     aux machines où même le light ne tient pas le budget.
+//   - LIGHT : garde les TEXTURES de tuiles (urbain/routes/terre) et les VOILES
+//     de nuance/prés — ce qui tue l'aplat — et ne sacrifie que les détails fins
+//     par cellule (touffes/fleurs, frange d'herbe, joints de trottoir, flancs
+//     de chaussée), mesurés comme le vrai gros du coût (herbe 25 ms + frange
+//     22,5 ms sur 108 ms à zoom 0,35).
+const ISO_GROUND_LOD = { on: false, light: false };
 function drawIsoGround() {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
   const LOD = ISO_GROUND_LOD.on;
+  // HARD = l'allégé historique ; en light, les gates marqués !HARD restent actifs.
+  const HARD = LOD && !ISO_GROUND_LOD.light;
   const hw = T * z * ISO_X;            // demi-largeur du losange
   const hh = T * z * ISO_Y;            // demi-hauteur
   const b = visibleCellBounds(hw * 2);
@@ -1397,7 +1408,7 @@ function drawIsoGround() {
       const texAlpha = kind === 'urban' ? 0 : kind === 'dirt' ? 0.5
         : kind === 'wonder' ? WONDER_GROUND.tileAlpha
           : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
-      const tile = (kind && !LOD) ? ensureIsoTile(kind) : null;
+      const tile = (kind && !HARD) ? ensureIsoTile(kind) : null;
       const tileReady = !!(tile && tile.ready);
       if (kind !== 'grass' && (!tileReady || texAlpha < 1)) {
         const tF = PR && performance.now();
@@ -1438,7 +1449,7 @@ function drawIsoGround() {
       // la base. La variation est INDÉPENDANTE de la grille (fini la couture dure
       // in-grid↔sauvage révélée en calmant la tuile) : plaques douces via un hash de
       // bloc ~4 cellules, biaisé clair (nz²) → alpha faible, pas de bord franc.
-      if (kind === 'grass' && !LOD) {
+      if (kind === 'grass' && !HARD) {
         const tG = PR && performance.now();
         // PRÉS (meadow) : plaques lentes foncé/clair par bruit LISSÉ — aucune
         // couture (ni maillage par cellule ni bord de bloc). Foncé = herbe
@@ -1459,7 +1470,9 @@ function drawIsoGround() {
           const a = GRASS_DETAIL.wildShade * nz * nz;
           if (a > 0.015) veilPush(2, a, p.x, p.y);
         }
-        if (GRASS_DETAIL.on) grassCells.push(gx, gy, p.x, p.y);   // fleurs après les voiles
+        // Le tapis vivant (touffes/speckle/fleurs) reste réservé au bake PLEIN :
+        // c'est le poste cher de l'herbe — le light garde prés et ombrage.
+        if (GRASS_DETAIL.on && !LOD) grassCells.push(gx, gy, p.x, p.y);   // fleurs après les voiles
         if (PR) PR.grass += performance.now() - tG;
       }
       // Sol urbain : tuile PixelLab de l'ère (par-dessus l'aplat, miroir anti-répétition)
@@ -1468,7 +1481,7 @@ function drawIsoGround() {
       // d'une trame de cailloux répétée — on la DOSE en alpha (tileA), CONSTANT
       // par défaut (retour Raph 2026-07-20 : « continu et pas haché » — les
       // plaques par bruit lissé lisaient comme des tas de terre épars).
-      if (kind === 'urban' && URBAN_DETAIL.on && !LOD) {
+      if (kind === 'urban' && URBAN_DETAIL.on && !HARD) {
         let drew = false;
         if (URBAN_DETAIL.tiles && mat.tile) {
           if (mat.type === 'earth') {
@@ -1488,7 +1501,7 @@ function drawIsoGround() {
       // bruit lissé, PAR-DESSUS aplat ET trame (sous une tuile opaque il serait
       // invisible) — la grande nappe de terre n'est plus un aplat monotone.
       // __groundMat({ noiseAmp: 0 }) pour couper.
-      if ((kind === 'urban' || kind === 'dirt') && URBAN_DETAIL.noiseAmp > 0 && !LOD) {
+      if ((kind === 'urban' || kind === 'dirt') && URBAN_DETAIL.noiseAmp > 0 && !HARD) {
         const nzv = smoothNoise(gx, gy, 5, 'veil') - 0.5;
         const av = Math.abs(nzv) * URBAN_DETAIL.noiseAmp;
         if (av > 0.012) {
@@ -1760,7 +1773,7 @@ function drawIsoGround() {
     if (mask & ROAD_W) pathWorldQuad(ctx, r.gx * T, cy - wb, cx - wb, cy + wb);
     if (mask & ROAD_S) pathWorldQuad(ctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
     if (mask & ROAD_N) pathWorldQuad(ctx, cx - wb, r.gy * T, cx + wb, cy - wb);
-    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !LOD) ? ensureIsoTileKey(rmat.tile) : null;
+    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !HARD) ? ensureIsoTileKey(rmat.tile) : null;
     if (rTile && rTile.ready) {
       ctx.save(); ctx.clip();
       const rp = worldToScreen(r.gx * T, r.gy * T);
@@ -5653,6 +5666,10 @@ const ISO_CRISP_SETTLE_MS = 400;
 // (c'est la définition du soft) : on le re-blitte et on ne recuit qu'une fois
 // par fenêtre — la cascade devient au pire 2-3 recuissons.
 const ISO_SOFT_BAKE_MIN_MS = 250;
+// Budget de l'allégé LIGHT en plein pan : au-delà, on retombe sur l'aplat HARD.
+// ~4-5 images à 60 fps — le pan hors marge n'arrive qu'aux franchissements de
+// marge, pas à chaque frame, donc l'à-coup reste rare et court.
+const ISO_LIGHT_BUDGET_MS = 70;
 // Budget d'une recuisson de sol EN PLEIN GESTE. Au-delà, on préfère le re-blit
 // compensé (flou bref) : une image nette qui coûte un tiers de seconde n'est plus
 // de la netteté, c'est un gel. 45 ms ≈ trois images à 60 fps — assez pour laisser
@@ -5718,28 +5735,38 @@ export function drawIsoWorld(dt, now, helpers) {
     // `restful` = accalmie LONGUE (cf. ISO_CRISP_SETTLE_MS) : elle seule autorise
     // le sol plein. `settled` ne donne plus que le sol allégé.
     const restful = CM.capture || stillMs > ISO_CRISP_SETTLE_MS;
-    // Le suffixe ':lod' marque un bake ALLÉGÉ (posé pendant un geste) : même
-    // contenu de base, détails en moins → à remplacer par un bake plein au repos.
-    const baseOf = (k) => (k && k.endsWith(':lod') ? k.slice(0, -4) : k);
+    // Les suffixes ':lod' (allégé HARD) et ':lodl' (allégé LIGHT, textures et
+    // voiles gardés) marquent un bake posé pendant un geste : même contenu de
+    // base, détails en moins → à remplacer par un bake plein au repos.
+    const baseOf = (k) => (k && k.endsWith(':lodl') ? k.slice(0, -5)
+      : k && k.endsWith(':lod') ? k.slice(0, -4) : k);
     const sameContent = !!bm && !bm.soft && baseOf(bm.other) === key;
     const inMargin = !!bm && !!M && Math.abs(pd.x) <= M && Math.abs(pd.y) <= M;
-    const isLod = !!bm && !!bm.other && bm.other.endsWith(':lod');
-    const bake = (lod) => {
+    const isLod = !!bm && !!bm.other && (bm.other.endsWith(':lod') || bm.other.endsWith(':lodl'));
+    // `level` : false = PLEIN, 'light' = allégé textures/voiles gardés, true =
+    // allégé HARD (l'aplat historique, repli des machines lentes).
+    const bake = (level) => {
       // Une invalidation douce ne change pas la clé : forcer le mismatch pour que
       // bakeMargin recuise vraiment (sinon le soft collerait pour toujours).
       if (bm && bm.soft) bm.other = '__soft__';
-      ISO_GROUND_LOD.on = lod;
+      ISO_GROUND_LOD.on = level !== false;
+      ISO_GROUND_LOD.light = level === 'light';
       const t0 = performance.now();
-      helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake', key + (lod ? ':lod' : ''), drawIsoGround);
+      helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake',
+        key + (level === 'light' ? ':lodl' : level ? ':lod' : ''), drawIsoGround);
       ISO_GROUND_LOD.on = false;
+      ISO_GROUND_LOD.light = false;
       // Toute recuisson réelle ouvre la fenêtre de coalescence des softs : un
       // décodage qui arrive 50 ms après un bake frais attendra la fin de fenêtre.
       CM._isoSoftBakeAt = nowMs;
       if (CM._isoGroundBake !== bm) {
         CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
-        // Coût RÉEL de la dernière recuisson PLEINE : c'est lui qui décide si l'on
-        // peut encore se permettre de recuire en plein geste (cf. juste dessous).
-        if (!lod) CM._isoGroundBakeMs = performance.now() - t0;
+        // Coûts RÉELS mesurés : le plein décide du « sol net en plein geste »
+        // (crispAffordable), le light décide si le pan hors marge peut se payer
+        // les textures (lightAffordable) — auto-calibrants tous les deux.
+        const dt = performance.now() - t0;
+        if (level === false) CM._isoGroundBakeMs = dt;
+        else if (level === 'light') CM._isoGroundLightMs = dt;
       }
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
     };
@@ -5760,6 +5787,7 @@ export function drawIsoWorld(dt, now, helpers) {
     // Molette : window.__crispBudgetMs.
     const crispBudget = (typeof window !== 'undefined' && window.__crispBudgetMs) || ISO_CRISP_BUDGET_MS;
     const crispAffordable = (CM._isoGroundBakeMs || 0) <= crispBudget;
+    const lightBudget = (typeof window !== 'undefined' && window.__lightBudgetMs) || ISO_LIGHT_BUDGET_MS;
     if (CM.crispGesture && crispAffordable && !settled && bm && !sameContent) {
       // MAXIMALE : zoom/dézoom en cours → au lieu du re-blit LISSÉ (flou), on
       // recuit le sol NET à l'échelle exacte de la frame (la clé change à chaque
@@ -5796,12 +5824,16 @@ export function drawIsoWorld(dt, now, helpers) {
       // le temps que le joueur finisse d'enchaîner ses crans (≤ ISO_CRISP_SETTLE_MS),
       // exactement comme la branche de pan hors marge juste dessous. Le sol plein
       // revient dès l'arrêt réel — on ne perd pas de matière, on la retarde.
-      bake(!restful);
+      // L'accalmie COURTE pose désormais le LIGHT (textures/voiles gardés) : le
+      // « sol tout blanc » entre deux crans était le premier reproche visuel.
+      bake(restful ? false : 'light');
     } else if (sameContent && !inMargin) {
       // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
-      // bord d'attaque → bake ALLÉGÉ (≈ 4× moins cher : ni touffes, ni franges,
-      // ni textures). Net, sans trou, ~1 frame ; le plein arrive à l'arrêt.
-      bake(true);
+      // bord d'attaque → bake allégé, net, sans trou, ~1 frame ; le plein arrive
+      // à l'arrêt. LIGHT (textures/voiles) tant que son coût mesuré tient dans
+      // le budget — sinon repli sur l'aplat HARD des machines lentes.
+      // Molette : window.__lightBudgetMs.
+      bake((CM._isoGroundLightMs || 0) <= lightBudget ? 'light' : true);
     } else if (bm && bm.zoomB != null) {
       // ZOOM en cours : re-blit du bake existant compensé (échelle zoom/z_bake +
       // delta de pan) — flou bref type carte web, zéro gel, net ~160 ms après.
@@ -5814,7 +5846,7 @@ export function drawIsoWorld(dt, now, helpers) {
         (CM.cw + 2 * M) * s, (CM.ch + 2 * M) * s);
       ctx.imageSmoothingEnabled = prev;
     } else {
-      bake(!restful);                 // rien à réutiliser (1er bake, canvas effacé)
+      bake(restful ? false : 'light'); // rien à réutiliser (1er bake, canvas effacé)
     }
   } else {
     drawIsoGround();
