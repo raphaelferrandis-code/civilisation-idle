@@ -5926,6 +5926,34 @@ const ISO_CRISP_BUDGET_MS = 45;
 export function drawIsoWorld(dt, now, helpers) {
   const L = CM.layout;
   if (!L) return false;
+  // ── CAMÉRA DE RENDU QUANTIFIÉE AU PIXEL DEVICE ────────────────────────────
+  // La physique du geste vit sur une caméra CONTINUE, mais chaque couche
+  // dessinée à des positions fractionnaires snappe à sa façon (le sol au blit,
+  // chaque sprite à son drawImage) : les phases relatives dérivaient d'une
+  // frame à l'autre — « l'image frissonne » au drag/dézoom (retour Raph, encore
+  // présent après l'unification du sol seul). Remède canonique du pixel-art :
+  // le RENDU entier se fait sous une caméra snappée pour que la projection
+  // tombe sur la grille device — toutes les couches partagent LA même grille,
+  // le monde avance par pas d'un pixel franc, aucune phase relative ne bouge.
+  // (u,v) = axes écran de la projection iso ; l'inverse est exact.
+  const camRX = CM.cam.x, camRY = CM.cam.y;
+  {
+    const z = CM.cam.zoom, dpr = CM.dpr || 1;
+    const ku = ISO_X * z * dpr, kv = ISO_Y * z * dpr;
+    const u = Math.round((camRX - camRY) * ku) / ku;
+    const v = Math.round((camRX + camRY) * kv) / kv;
+    CM.cam.x = (u + v) / 2;
+    CM.cam.y = (v - u) / 2;
+  }
+  try {
+    return drawIsoWorldInner(dt, now, helpers);
+  } finally {
+    CM.cam.x = camRX; CM.cam.y = camRY;
+  }
+}
+
+function drawIsoWorldInner(dt, now, helpers) {
+  const L = CM.layout;
   // Boîtes écran des habitations réellement dessinées, collectées par la passe
   // vivante (drawIsoLive) et consommées par le SURVOL : hit-test à la silhouette
   // puis liseré. Remise à zéro ICI, en tête de frame : c'est le seul point qui
