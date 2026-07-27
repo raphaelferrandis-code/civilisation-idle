@@ -376,7 +376,12 @@ export function tick(dt) {
 
   // Ruine active « Bûcher programmé » : la chute s'impose à heure fixe, quels que
   // soient les réglages du Script. On passe par le chemin d'effondrement normal.
-  if (hasActiveRuin(state, "phenix") && !collapseInProgress) {
+  // ⚠ JAMAIS pendant la simulation hors-ligne : collapse() lance une séquence
+  // ASYNC (deuil 2 s en temps réel) qui pose gamePaused — la boucle de sim
+  // casserait, créditerait le reliquat dans une cité condamnée, puis la séquence
+  // en suspens raserait tout ~2 s après le retour. Hors-ligne, seul l'Édit
+  // (chemin synchrone completeCollapse de simulateAwayCrises) effondre.
+  if (hasActiveRuin(state, "phenix") && !collapseInProgress && !isOfflineSim()) {
     const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
     if (ageSec >= ACTIVE_RUIN_PHENIX_FORCED_SEC) {
       log("Bûcher programmé : l'heure est venue, la cité s'embrase sans attendre ton ordre.");
@@ -386,10 +391,10 @@ export function tick(dt) {
   }
 
   // « L'Hiver Fimbul » : la FIN à 24 minutes — effondrement forcé, même chemin
-  // que le bûcher du Phénix. Si l'Arche n'est pas prête, le pacte se brise
-  // (checkMythOnCollapse le constatera) ; si elle l'est, le Mythe s'est déjà
-  // sacré en direct et ce bloc ne tourne plus (le pacte est levé).
-  if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress) {
+  // que le bûcher du Phénix (même garde hors-ligne). Si l'Arche n'est pas prête,
+  // le pacte se brise (checkMythOnCollapse le constatera) ; si elle l'est, le
+  // Mythe s'est déjà sacré en direct et ce bloc ne tourne plus (le pacte est levé).
+  if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && !isOfflineSim()) {
     if (ragnarokAge() >= RAGNAROK_DURATION_MS) {
       log("La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.");
       collapse("forced");

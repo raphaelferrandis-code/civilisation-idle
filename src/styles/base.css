@@ -34,6 +34,30 @@
   scroll-behavior: auto !important;
 }
 
+/* ⚠ EXCEPTION aux deux blocs ci-dessus — retours de gameplay à `forwards` dont
+   la keyframe 100 % est opacity:0 (gains flottants, bandeau d'ère, bulles
+   d'alerte de la carte). Une durée écrasée à 0.01ms les fait SAUTER à leur état
+   final invisible : le joueur en mouvement réduit ne voyait ni ses gains, ni
+   les changements d'ère, ni les alertes d'émeute (M22 de l'audit) — et le toast
+   cliquable restait un bouton invisible posé sur la carte. Sans animation, la
+   règle de base est visible (opacity 1) et c'est REACT qui retire le nœud à la
+   fin de sa vie : affichage statique puis disparition, le bon comportement. */
+@media (prefers-reduced-motion: reduce) {
+  .outcome-float,
+  .pr-float,
+  .era-banner,
+  .map-bubble-alert {
+    animation: none !important;
+  }
+}
+
+:root[data-motion="none"] .outcome-float,
+:root[data-motion="none"] .pr-float,
+:root[data-motion="none"] .era-banner,
+:root[data-motion="none"] .map-bubble-alert {
+  animation: none !important;
+}
+
 /* ── DENSITÉ DES PANNEAUX (E4) ──────────────────────────────────────────────
    Le design system n'a AUCUN jeton d'espacement : chaque marge est écrite dans
    sa règle. Plutôt que d'en introduire un et de relire six cents règles, le

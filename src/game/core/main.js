@@ -23,6 +23,7 @@ import {
   crisisCosts,
   autoCollapseDelay,
   ruinGain,
+  ruinEffectSum,
   timeWearRate,
   rates,
   crisisOpen,
@@ -34,7 +35,7 @@ import {
 
 import {
   IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES,
-  CLEPSYDRE_CAP_MULT, CLEPSYDRE_MIN_POUR_SECONDS
+  CLEPSYDRE_CAP_MULT, CLEPSYDRE_MIN_POUR_SECONDS, REGROWTH_RUSH_MS
 } from './balance.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
 import { publishIdleReport } from './idleReport.js';
@@ -56,7 +57,8 @@ import { resumeActiveRuinsChoiceIfPending } from './actions/myths.js';
 import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { cycleVowRuinMult } from '../data/vows.js';
-import { BRAISIERS_DURATION_MS } from '../data/myths.js';
+import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, isMythEffectActive } from '../data/myths.js';
+import { epitaphLegacyEffect } from './mechanics/production/mythEffects.js';
 import { D } from './num.js';
 import { decideTickCredit } from './offlineCredit.js';
 
@@ -221,7 +223,7 @@ function creditSpan(seconds) {
 // cité ne se rebâtit pas seule et on retombe sur le crédit linéaire (return null).
 // Effets de bord neutralisés : notifications React suspendues, crises narratives
 // 25/50/75 supprimées (évite les dialogues async), spam de Chronique jeté.
-function simulateAwayCrises(elapsedSeconds) {
+function simulateAwayCrises(elapsedSeconds, opts = {}) {
   const ac = state.crisisDoctrine && state.crisisDoctrine.autoCollapse;
   if (!state.hephHeritage || !has("edit_effondrement") || !ac || !ac.enabled) return null;
 
@@ -235,6 +237,25 @@ function simulateAwayCrises(elapsedSeconds) {
   let virtual = realDateNow.call(Date) - elapsedSeconds * 1000;
   let collapses = 0;
   const markThresholds = () => { state.crisisThresholds = { _25: true, _50: true, _75: true }; };
+
+  // VERSEMENT DE CLEPSYDRE (C7 × C12) : contrairement à une absence, les jalons
+  // temporels du Temple (templeAuto[jeu].lastAt) et des aubaines (nextBoonAt)
+  // viennent d'être écrits en temps RÉEL — le jeu tournait à l'instant. Sous
+  // l'horloge virtuelle qui part de now − spend, ils seraient tous « dans le
+  // futur » : zéro partie de temple, zéro aubaine, alors que le contrat
+  // d'advanceWorldBy est « verser une heure vaut une heure d'absence ». On les
+  // décale du versement entier : « joué il y a X » reste « joué il y a X » dans
+  // le référentiel virtuel. JAMAIS sur le chemin absence, où les jalons datent
+  // d'avant le départ et sont déjà corrects.
+  if (opts.fromStore) {
+    const shiftMs = elapsedSeconds * 1000;
+    if (state.templeAuto && typeof state.templeAuto === "object") {
+      for (const auto of Object.values(state.templeAuto)) {
+        if (auto && typeof auto === "object" && Number.isFinite(auto.lastAt)) auto.lastAt -= shiftMs;
+      }
+    }
+    if (Number.isFinite(state.nextBoonAt)) state.nextBoonAt -= shiftMs;
+  }
 
   // Capstone « Phénix calendaire » : le plafond d'effondrements saute (il ne
   // reste qu'une borne de sécurité perf).
@@ -376,9 +397,9 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
 // versement de clepsydre — c'est la garantie que verser une heure vaut
 // exactement une heure d'absence, et pas une seconde arithmétique parallèle qui
 // dériverait à la première correction d'équilibrage.
-function advanceWorldBy(seconds) {
+function advanceWorldBy(seconds, opts = {}) {
   const wearBefore = state.timeWear || 0;
-  const farm = simulateAwayCrises(seconds); // null si non éligible → chemin linéaire
+  const farm = simulateAwayCrises(seconds, opts); // null si non éligible → chemin linéaire
   if (!farm) {
     // Production au taux courant (bâtiments constants hors-ligne → rates() stable).
     invalidateRenderCache("all");
@@ -412,6 +433,18 @@ export function clepsydreRefusal() {
   if ((state.blessingUntil || 0) > Date.now()) return "bonus";
   if (state.prometheeBraisiers
       && Date.now() - (state.cycleStartedAt || 0) < BRAISIERS_DURATION_MS) return "bonus";
+  // MÊME PIÈGE, AUTRES SOURCES : toutes les fenêtres temporelles que rates()
+  // évalue au temps réel. Cendres fertiles (3 premières minutes du cycle),
+  // Atrides et son pacte (2 premières), l'essor d'Énée (30 s), et le legs
+  // d'épitaphe quand il porte un multiplicateur de PRODUCTION. Sans ces refus,
+  // verser 24 h pendant la fenêtre payait tout le trajet au taux ×3.
+  const cycleElapsed = Date.now() - (state.cycleStartedAt || 0);
+  if (ruinEffectSum("regrowthRush") > 0 && cycleElapsed < REGROWTH_RUSH_MS) return "bonus";
+  if ((isMythEffectActive("mythe_atrides") || state.atridesPactActive) && cycleElapsed < 120_000) return "bonus";
+  if (state.eneeHeritage && cycleElapsed < ENEE_HERITAGE_DURATION_MS) return "bonus";
+  const ep = epitaphLegacyEffect();
+  if (ep.globalMult !== 1 || ep.foodMult !== 1 || ep.goldMult !== 1
+      || ep.knowledgeMult !== 1 || ep.infraMult !== 1) return "bonus";
   if (Math.floor(state.storedSeconds || 0) < CLEPSYDRE_MIN_POUR_SECONDS) return "empty";
   return null;
 }
@@ -433,7 +466,7 @@ export function spendStoredTime(seconds = Infinity) {
 
   const before = {};
   for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
-  const { farm, wearBefore } = advanceWorldBy(spend);
+  const { farm, wearBefore } = advanceWorldBy(spend, { fromStore: true });
 
   // Même récit que la reprise d'absence : c'est le même temps, joué au même
   // taux. Seul l'en-tête du rapport dit que c'est la clepsydre qui l'a rendu.

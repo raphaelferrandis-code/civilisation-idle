@@ -109,7 +109,10 @@ export function activeEpitaphLegacy() {
   if (!legacy) return null;
   const startedAt = active.startedAt || state.cycleStartedAt || Date.now();
   const elapsed = Date.now() - startedAt;
-  if (elapsed > epitaphLegacyDurationMs()) return null;
+  // elapsed < 0 : sous l'horloge virtuelle d'un versement de clepsydre, un legs
+  // gravé « dans le futur » du référentiel n'est pas actif — sans ce garde, son
+  // multiplicateur s'étalait sur tout le temps versé.
+  if (elapsed < 0 || elapsed > epitaphLegacyDurationMs()) return null;
   return { ...active, definition: legacy, elapsed };
 }
 

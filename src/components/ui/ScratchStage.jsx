@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
+import { state, save } from '../../game/core/state.js';
 import {
   playScratch,
   scratchStakes,
@@ -187,6 +187,25 @@ export default function ScratchStage({ table, onClose }) {
   // Démontage : un ticket acheté mais non gratté DOIT se résoudre (mise payée).
   useEffect(() => () => {
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
+  }, []);
+
+  // F5 / fermeture d'onglet pendant un ticket non gratté : un rechargement
+  // n'exécute AUCUN cleanup React — la mise payée restait sans issue (M4).
+  // save() explicite : la sauvegarde de sortie de main.js est enregistrée AVANT
+  // ce handler, elle est donc déjà passée quand le flush mute l'état.
+  useEffect(() => {
+    const flushOnExit = () => {
+      if (!pendingRef.current) return;
+      pendingRef.current();
+      pendingRef.current = null;
+      save();
+    };
+    window.addEventListener('pagehide', flushOnExit);
+    window.addEventListener('beforeunload', flushOnExit);
+    return () => {
+      window.removeEventListener('pagehide', flushOnExit);
+      window.removeEventListener('beforeunload', flushOnExit);
+    };
   }, []);
 
   // Effondrement pendant le grattage : la scène se referme (nouveau cycle).

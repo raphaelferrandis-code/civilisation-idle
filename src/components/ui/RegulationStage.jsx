@@ -50,7 +50,12 @@ export default function RegulationStage() {
       {empty ? (
         <span className="stage-watermark" aria-hidden="true">🎲</span>
       ) : (
-        <Stage table={game} onClose={() => closeTempleStage()} />
+        /* key OBLIGATOIRE : rouvrir le MÊME jeu doit REMONTER la scène, comme
+           ouvrir un jeu différent. Sans elle, le cleanup de l'effet openedAt
+           coupait le ticker d'Icare et l'effet [phase] ne repartait jamais
+           (phase déjà 'flying') : multiplicateur gelé, mise inencaissable (M3).
+           openedAt est déjà le contrat de reset des scènes — on le donne à React. */
+        <Stage key={`${game.kind}:${game.openedAt}`} table={game} onClose={() => closeTempleStage()} />
       )}
     </section>
   );

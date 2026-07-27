@@ -12,6 +12,7 @@ import {
 } from '../../game/core/actions.js';
 import { AUGURY_DOUBLE_P, AUGURY_DOUBLE_MAX_CRANS } from '../../game/core/balance.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
+import { save } from '../../game/core/state.js';
 import { clampStakeMult } from '../../game/core/actions/templePot.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
@@ -70,6 +71,24 @@ export default function AuguryStage({ table, onClose }) {
       pendingRef.current = null;
     }
   };
+
+  // F5 / fermeture d'onglet pendant un jet en l'air : aucun cleanup React ne
+  // court au rechargement — la mise payée restait sans issue (M4, trou plus
+  // étroit qu'aux grattables : ~1,8 s d'animation). save() explicite, car la
+  // sauvegarde de sortie de main.js est déjà passée quand ce flush mute l'état.
+  useEffect(() => {
+    const flushOnExit = () => {
+      if (!pendingRef.current) return;
+      flushPending();
+      save();
+    };
+    window.addEventListener('pagehide', flushOnExit);
+    window.addEventListener('beforeunload', flushOnExit);
+    return () => {
+      window.removeEventListener('pagehide', flushOnExit);
+      window.removeEventListener('beforeunload', flushOnExit);
+    };
+  }, []);
 
   useEffect(() => {
     flushPending();

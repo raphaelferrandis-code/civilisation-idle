@@ -71,8 +71,10 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   // Braisiers — l'HÉRITAGE — multiplient encore ce facteur.
   let prometheeFoodMult = 1;
   if (state.prometheeBraisiers) {
+    // cycleElapsed >= 0 : sous l'horloge virtuelle d'un versement de clepsydre,
+    // un elapsed NÉGATIF (virtual < cycleStartedAt) ne doit pas armer la fenêtre.
     const cycleElapsed = Date.now() - (state.cycleStartedAt || Date.now());
-    if (cycleElapsed < BRAISIERS_DURATION_MS) prometheeFoodMult *= BRAISIERS_FOOD_MULT;
+    if (cycleElapsed >= 0 && cycleElapsed < BRAISIERS_DURATION_MS) prometheeFoodMult *= BRAISIERS_FOOD_MULT;
   }
   const _epitaphEffect = epitaphLegacyEffect();
   const _rawInstability = Math.max(0, pressure.total - vitals.instabilityRelief)

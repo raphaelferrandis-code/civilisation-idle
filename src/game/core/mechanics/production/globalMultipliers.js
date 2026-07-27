@@ -148,16 +148,21 @@ function globalScalarFactors() {
   // montée (icareClimb). Remplace l'ancien ×100 subi et la Surchauffe.
   const icareAltitude   = (isMythEffectActive("mythe_d_icare") || state.icareHeritage) ? (state.icareAltitude || 0) : 0;
   const icareMult       = icareAltitude > 0 ? Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude) : 1;
+  // Sous l'horloge VIRTUELLE d'un versement de clepsydre, Date.now() peut être
+  // ANTÉRIEUR à cycleStartedAt (elapsed négatif) : les fenêtres « début de
+  // cycle » ne doivent alors PAS s'armer — sans ce garde, verser 24 h rejouait
+  // tout le trajet sous Atrides ×3 / Cendres fertiles.
   const elapsed = Date.now() - (state.cycleStartedAt || Date.now());
-  const atridesMult = (isMythEffectActive("mythe_atrides") && elapsed < 120_000) ? 3 : 1;
+  const inCycleWindow = (ms) => elapsed >= 0 && elapsed < ms;
+  const atridesMult = (isMythEffectActive("mythe_atrides") && inCycleWindow(120_000)) ? 3 : 1;
   let pactMult = 1;
   if (state.atridesPactActive) {
-    if (elapsed < 120_000) pactMult = 2.0;
+    if (inCycleWindow(120_000)) pactMult = 2.0;
     else if (crisisOpen()) pactMult = 0.5;
   }
   const nextRunPenaltyMult = state.atridesNextRunPenaltyActive ? ATRIDES_NEXT_RUN_PENALTY_MULT : 1;
   let eneeBoost = 1;
-  if (state.eneeHeritage && elapsed < ENEE_HERITAGE_DURATION_MS) {
+  if (state.eneeHeritage && inCycleWindow(ENEE_HERITAGE_DURATION_MS)) {
     eneeBoost = 1 + ENEE_HERITAGE_BOOST_PER_COLLAPSE * Math.min(10, state.eneeCollapseCount || 0);
   }
   // Facteurs de l'Arbre des Ruines refondu (tous bornés → un seul produit,
@@ -168,7 +173,7 @@ function globalScalarFactors() {
   //   abîme     — dogme Abîme assumé (+20 % tant que la Rupture ≥ 70 %).
   const vestigeMult = 1 + ruinEffectSum("vestigePower") * Math.min(VESTIGE_POWER_CAP, (state.vestiges || []).length);
   const rushSum = ruinEffectSum("regrowthRush");
-  const regrowthMult = (rushSum > 0 && elapsed < REGROWTH_RUSH_MS) ? 1 + rushSum : 1;
+  const regrowthMult = (rushSum > 0 && inCycleWindow(REGROWTH_RUSH_MS)) ? 1 + rushSum : 1;
   const abyssDogmaMult = (has("dogma_abime_assume") && (state.instability || 0) >= ABYSS_DOGMA_THRESHOLD)
     ? 1 + ABYSS_DOGMA_PROD_BONUS
     : 1;

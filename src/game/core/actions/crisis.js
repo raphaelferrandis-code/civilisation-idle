@@ -355,6 +355,13 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     cause: reason || ""
   };
 
+  // Horodatage du DÉCLENCHEMENT, consommé et remis à zéro à chaque effondrement
+  // (un tampon qui traînerait fausserait la fenêtre d'un effondrement ultérieur).
+  // Les chemins qui appellent completeCollapse sans passer par collapse() — la
+  // simulation hors-ligne — retombent sur Date.now(), sans délai de dialogue.
+  const collapseAt = collapseTriggeredAt ?? Date.now();
+  collapseTriggeredAt = null;
+
   const wasAtrides = isMythEffectActive("mythe_atrides");
   const applyAtridesPenalty = wasAtrides && state.atridesDrainDisabled;
   const wasPhoenix = state.activeMythId === "mythe_du_phenix";
@@ -368,7 +375,10 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     // Renaissance chronométrée : le cycle qui s'achève compte s'il a atteint la
     // cible de population (60× le reliquat) DANS la fenêtre. Sinon la chaîne se
     // brise et on repart de zéro.
-    const cycleAgeMs = Date.now() - (state.cycleStartedAt || Date.now());
+    // Mesurée au DÉCLENCHEMENT (collapseAt) et non ici : entre les deux vivent
+    // les 2 s de deuil et la délibération d'épitaphe — la chaîne cassait alors
+    // que la règle affichée était respectée (M8 de l'audit).
+    const cycleAgeMs = collapseAt - (state.cycleStartedAt || collapseAt);
     const cyclePeakPop = D(state.cyclePeaks?.population || state.population);
     const rebirthTarget = D(state.phoenixRebirthTargetPop || 0);
     const renaissanceOk = rebirthTarget.gt(0) && cyclePeakPop.gte(rebirthTarget) && cycleAgeMs <= PHENIX_REBIRTH_WINDOW_MS;
@@ -432,7 +442,11 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   const memoireSavoirBonus = has("codex_mythique") ? codexSavoirBonus(state.bestEraIndex) : 0;
   state.knowledge = keptKnowledge.max(startFloor("Knowledge", 0)).add(memoireSavoirBonus);
 
-  state.infrastructure = keptInfra.add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);
+  // L'Infrastructure a droit au même socle *PctPeak que les quatre autres :
+  // « Reliquaire des pics / scellé » promettent une fraction du pic de CHAQUE
+  // ressource, et cyclePeaks.infrastructure est tracké comme les autres.
+  state.infrastructure = keptInfra.max(startFloor("Infrastructure", 0))
+    .add(has("fallen_roads") ? D(state.ruins).sqrt().mul(0.25).max(1) : 0);
   
   // nextEpitaphLegacy n'est volontairement PAS consommé ici : il survit comme
   // « dernière volonté », re-gravée (cause rafraîchie, multiplicateur appliqué)
@@ -527,6 +541,12 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   resetCameraCenter();
 }
 
+// Posé par collapse(), lu par completeCollapse : la fenêtre du Phénix se juge à
+// l'instant où le joueur déclenche la chute. Variable de MODULE et non champ
+// d'état — un champ partirait dans l'autosave et survivrait à un F5 en plein
+// deuil, faussant la mesure d'un effondrement bien plus tard.
+let collapseTriggeredAt = null;
+
 export function collapse(reason) {
   if (collapseInProgress) return;
   if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return;
@@ -539,6 +559,8 @@ export function collapse(reason) {
   if (reason === "auto_script" && D(gain).floor().lte(0)) return;
   setCollapseInProgress(true);
   setGamePaused(true);
+  // La fenêtre du Phénix se juge ICI, pas après le deuil et la stèle (M8).
+  collapseTriggeredAt = Date.now();
   // La chronique de l'effondrement est écrite par runCollapseSequence APRÈS le
   // point de non-retour : l'écrire ici la persistait avant le deuil, et un reload
   // pendant le deuil la gravait sur une cité NON effondrée — ligne trompeuse,

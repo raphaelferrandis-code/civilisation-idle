@@ -7,7 +7,8 @@ import {
   AUTOMATE_FIELD_BOUNDS,
   invalidateRenderCache,
   render,
-  save
+  save,
+  isOfflineSim
 } from '../state.js';
 
 import {
@@ -54,6 +55,10 @@ export function setAutoScriptThreshold(id, raw) {
 }
 
 export function checkAutoScriptRules() {
+  // Pendant la simulation hors-ligne, seul l'Édit effondre (chemin synchrone de
+  // simulateAwayCrises) : collapse() y lancerait une séquence async qui pose
+  // gamePaused et casse la boucle de sim (même garde que le Bûcher, tick.js).
+  if (isOfflineSim()) return;
   for (const rule of getAutoScriptRules()) {
     if (!rule.enabled) continue;
     let triggered = false;

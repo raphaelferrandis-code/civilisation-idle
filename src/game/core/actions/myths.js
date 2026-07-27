@@ -715,7 +715,9 @@ export function resetCivilization() {
   state.food = startFloor("Food", 35);
   state.gold = startFloor("Gold", 0);
   state.knowledge = startFloor("Knowledge", 0);
-  state.infrastructure = D(0);
+  // Même socle que les autres ressources (le Reliquaire couvre CHAQUE pic) ;
+  // enforceInfrastructureCap() ci-dessous garde le plafond structurel.
+  state.infrastructure = startFloor("Infrastructure", 0);
   state.activeEpitaphLegacy = null;
   state.nextEpitaphLegacy = null;
   state.buildings = { ...defaultState().buildings };

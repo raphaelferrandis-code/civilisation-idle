@@ -7,6 +7,7 @@
 // pas pouvoir écraser la partie en cours par accident.
 import { SAVE_KEY } from './saveKey.js';
 import { state, hydrateState, setState, invalidateRenderCache, render, save } from './state.js';
+import { cloudMirrorSave } from './cloudSave.js';
 
 export const SLOT_COUNT = 3;
 const slotKey = (i) => `${SAVE_KEY}-slot${i}`;
@@ -42,6 +43,15 @@ export function slotIsEmpty(i) {
 // plutôt que d'être avalé comme le fait save().
 export function writeSlot(i) {
   const payload = JSON.stringify(state);
+  // Lus AVANT d'écrire : setItem est atomique par clé, donc un échec de quota
+  // laisse l'ancienne valeur en place — l'instantané précédent doit SURVIVRE à
+  // un « Écraser » qui échoue, pas être supprimé avec le brouillon.
+  let prevPayload = null;
+  let prevMeta = null;
+  try {
+    prevPayload = localStorage.getItem(slotKey(i));
+    prevMeta = localStorage.getItem(metaKey(i));
+  } catch { /* stockage indisponible : l'écriture ci-dessous échouera pareil */ }
   try {
     localStorage.setItem(slotKey(i), payload);
     localStorage.setItem(metaKey(i), JSON.stringify({
@@ -52,9 +62,20 @@ export function writeSlot(i) {
     }));
     return { ok: true };
   } catch (e) {
-    // Quota dépassé : on retire ce qu'on vient peut-être d'écrire à moitié,
-    // sinon un emplacement à demi rempli se lirait comme valide.
-    try { localStorage.removeItem(slotKey(i)); localStorage.removeItem(metaKey(i)); } catch { /* rien à faire */ }
+    // Quota dépassé. Le seul vrai risque est la paire désynchronisée (payload
+    // neuf écrit, méta refusée) : on RESTAURE l'ancien couple. L'ancien payload
+    // tenait déjà dans le stockage, sa ré-écriture ne peut pas déborder plus
+    // que celle qui vient d'échouer.
+    try {
+      if (prevPayload != null) {
+        localStorage.setItem(slotKey(i), prevPayload);
+        if (prevMeta != null) localStorage.setItem(metaKey(i), prevMeta);
+        else localStorage.removeItem(metaKey(i));
+      } else {
+        localStorage.removeItem(slotKey(i));
+        localStorage.removeItem(metaKey(i));
+      }
+    } catch { /* même le retour arrière déborde : on laisse l'existant tel quel */ }
     return { ok: false, full: true, message: e?.message || String(e) };
   }
 }
@@ -69,6 +90,12 @@ export function loadSlot(i) {
     setState(hydrateState(JSON.parse(raw)));
     invalidateRenderCache("all");
     save();
+    // Chargement VOLONTAIRE : il fait autorité, même si l'instantané est moins
+    // avancé (c'est le cas nominal — un emplacement est un état PASSÉ). Sans le
+    // force, mayOverwriteCloud refuse le miroir ET pose cloudDirty=false : au
+    // prochain démarrage, « la plus avancée gagne » ressusciterait la partie
+    // qu'on vient d'abandonner. Même geste qu'importSave (main.js).
+    cloudMirrorSave({ force: true });
     render();
     return true;
   } catch {
