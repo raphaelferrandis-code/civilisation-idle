@@ -59,6 +59,14 @@ export function riverEngineFactor(building) {
   return 1 + ruinEffectSum("riverEngineMult");
 }
 
+// Facteur unitaire COMPLET d'un bâtiment : synergie de jalons × Rives fécondes.
+// Source UNIQUE consommée par getBuildingSums ET par l'aperçu de la boutique
+// (BuildingShop) — l'aperçu recomposait le sien sans riverEngineFactor et
+// mentait sur les ports/moulins.
+export function buildingUnitFactor(building, count) {
+  return buildingOutputMultiplier(building, count) * riverEngineFactor(building);
+}
+
 export function getBuildingSums() {
   if (renderCache._buildingSums) return renderCache._buildingSums;
 
@@ -80,7 +88,7 @@ export function getBuildingSums() {
     }
 
     if (count > 0) {
-      const synergy = buildingOutputMultiplier(b, count) * riverEngineFactor(b);
+      const synergy = buildingUnitFactor(b, count);
       const cat = b.category || "other";
       if (!baseSumsByCategory[cat]) {
         baseSumsByCategory[cat] = { pop: 0, food: 0, gold: 0, knowledge: 0, infra: 0 };

@@ -48,6 +48,10 @@ export default function PressureAnatomy() {
   const demesureCutPct = Math.round((g.demesureCut || 0) * 100);
   const gracesPct = Math.round((g.graces || 0) * 100);
   const ruinStabPct = Math.round((g.ruinStability || 0) * 100);
+  // Théocratie (ruptureGrowthMultiplier, seule source du facteur) : amplifie la
+  // somme des affluents avant le barrage. Affichée seulement quand ≠ 1, sinon
+  // les lignes ne se réconcilient pas avec la cible.
+  const ruptureGrowthX = g.ruptureGrowth || 1;
 
   // Le moteur chiffré de chaque affluent (ex-sous-ligne) OUVRE le tooltip,
   // suivi de l'explication longue.
@@ -134,6 +138,20 @@ export default function PressureAnatomy() {
             {ruinStabPct > 0 && <span>{tr({ fr: 'ruines', en: 'ruins' })} +{ruinStabPct} %</span>}
             {gracesPct > 0 && <span>{tr({ fr: 'grâces', en: 'graces' })} +{gracesPct} %</span>}
           </span>
+          {ruptureGrowthX !== 1 && (
+            <span
+              className="anatomy-amp"
+              {...tipProps(
+                tr({ fr: 'Théocratie', en: 'Theocracy' }),
+                tr({
+                  fr: 'Le trait Théocratie amplifie la somme des affluents avant le barrage.',
+                  en: 'The Theocracy trait amplifies the sum of the tributaries before the dam.'
+                })
+              )}
+            >
+              {tr({ fr: 'théocratie', en: 'theocracy' })} ×{ruptureGrowthX.toFixed(2)}
+            </span>
+          )}
         </div>
         <span className="anatomy-arrow" aria-hidden="true">→</span>
         <div className={`anatomy-target${p.total >= 1 ? ' is-over' : ''}`}>

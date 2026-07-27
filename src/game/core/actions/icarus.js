@@ -250,14 +250,19 @@ export function cashOutIcarus() {
   let jackpotFaveur = null;
   if (mR >= ICARUS_JACKPOT_MULT && (state.icarusPotFaveur || 0) > 0) {
     const { rake, left } = potRake(state.icarusPotFaveur, flight.stakeFaveur);
-    jackpotFaveur = rake;
-    state.faveur += jackpotFaveur;
-    state.icarusPotFaveur = left;
-    // Jalon du Grand Reset VII : décrocher un jackpot (compteur remis à 0 au GR).
-    state.icarusJackpots = (state.icarusJackpots || 0) + 1;
-    chronicle(left > 0
-      ? `Icare frôle le soleil sans fondre : il emporte sa part de la cagnotte du temple (+${fmt(jackpotFaveur)} faveur). La cella en garde ${fmt(Math.round(left))}.`
-      : `Icare frôle le soleil sans fondre : la cagnotte de Faveur du temple se déverse (+${fmt(jackpotFaveur)} faveur).`);
+    // rake > 0 obligatoire : sur un pot fractionnaire minuscule, la part arrondie
+    // tombe à 0 — jalon GR VII décroché et chronique « +0 faveur » sans rafle
+    // réelle. Le payout ×10, lui, est déjà servi plus haut dans tous les cas.
+    if (rake > 0) {
+      jackpotFaveur = rake;
+      state.faveur += jackpotFaveur;
+      state.icarusPotFaveur = left;
+      // Jalon du Grand Reset VII : décrocher un jackpot (compteur remis à 0 au GR).
+      state.icarusJackpots = (state.icarusJackpots || 0) + 1;
+      chronicle(left > 0
+        ? `Icare frôle le soleil sans fondre : il emporte sa part de la cagnotte du temple (+${fmt(jackpotFaveur)} faveur). La cella en garde ${fmt(Math.round(left))}.`
+        : `Icare frôle le soleil sans fondre : la cagnotte de Faveur du temple se déverse (+${fmt(jackpotFaveur)} faveur).`);
+    }
   }
   // La cagnotte est nourrie sur l'EDGE à CHAQUE résolution, y compris gagnée : le
   // versement ne dépend plus de l'issue, et c'est ce qui rend l'espérance exacte et

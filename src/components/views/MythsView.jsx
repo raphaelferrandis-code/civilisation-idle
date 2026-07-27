@@ -45,6 +45,12 @@ function actUnlockHint(act) {
 
 const FALLBACK_OLYMPUS = defaultOlympusState(0);
 
+// Consécration : le moteur ajoute (ferveur/100) par effondrement (olympus.js),
+// donc 0,8 cran à 80 de ferveur — jamais un cran entier. Une décimale, en
+// PLANCHER et non en arrondi : « 12,0/12 » avant la proclamation serait un
+// mensonge, et l'ancien floor entier semblait figé après un effondrement.
+const consecration = (p) => (Math.floor((p || 0) * 10) / 10).toFixed(1);
+
 export default function MythsView() {
   const activeMythId = useGameState(s => s.activeMythId);
   const gamePaused = useGameState(s => s.gamePaused);
@@ -137,8 +143,8 @@ export default function MythsView() {
                 (ferveur, consécration) sont illisibles — c'était le reproche. */}
             <p className="olympus-explain">
               {tr({
-                fr: `La cité observe ta manière de régner : la ferveur de chaque culte suit tes habitudes. À chaque effondrement où le culte dominant atteint ${OLYMPUS_MIN_DOMINANT_SCORE} de ferveur, sa consécration grave un cran — au ${OLYMPUS_COMPLETION_SCORE}e, la religion est proclamée, une seule et pour toujours.`,
-                en: `The city watches how you reign: each cult's fervor follows your habits. At every collapse where the dominant cult reaches ${OLYMPUS_MIN_DOMINANT_SCORE} fervor, its consecration carves one notch — at the ${OLYMPUS_COMPLETION_SCORE}th, the religion is proclaimed, one and forever.`
+                fr: `La cité observe ta manière de régner : la ferveur de chaque culte suit tes habitudes. À chaque effondrement où le culte dominant atteint ${OLYMPUS_MIN_DOMINANT_SCORE} de ferveur, sa consécration progresse au prorata de la ferveur — 0,8 cran à 80 de ferveur. Au ${OLYMPUS_COMPLETION_SCORE}e cran, la religion est proclamée, une seule et pour toujours.`,
+                en: `The city watches how you reign: each cult's fervor follows your habits. At every collapse where the dominant cult reaches ${OLYMPUS_MIN_DOMINANT_SCORE} fervor, its consecration advances pro rata to fervor — 0.8 notch at 80 fervor. At the ${OLYMPUS_COMPLETION_SCORE}th notch, the religion is proclaimed, one and forever.`
               })}
             </p>
 
@@ -150,8 +156,8 @@ export default function MythsView() {
                 {olympusUnlocked
                   ? tr({ fr: `Héritage actif : ${olympusUnlocked.heritageDescription}`, en: `Active heritage: ${olympusUnlocked.heritageDescription}` })
                   : tr({
-                      fr: `Ferveur ${olympusDominant.score}/100 · Consécration ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}`,
-                      en: `Fervor ${olympusDominant.score}/100 · Consecration ${Math.floor(olympusProgress[olympusDominant.profile.id] || 0)}/${OLYMPUS_COMPLETION_SCORE}`
+                      fr: `Ferveur ${olympusDominant.score}/100 · Consécration ${consecration(olympusProgress[olympusDominant.profile.id]).replace('.', ',')}/${OLYMPUS_COMPLETION_SCORE}`,
+                      en: `Fervor ${olympusDominant.score}/100 · Consecration ${consecration(olympusProgress[olympusDominant.profile.id])}/${OLYMPUS_COMPLETION_SCORE}`
                     })}
               </small>
             </div>
@@ -159,7 +165,7 @@ export default function MythsView() {
             <div className="olympus-profile-grid">
               {Object.values(OLYMPUS_PROFILES).map(profile => {
                 const score = olympusDominant.scores[profile.id] || 0;
-                const progress = Math.floor(olympusProgress[profile.id] || 0);
+                const progress = olympusProgress[profile.id] || 0;
                 const isDominant = profile.id === olympusDominant.profile.id;
                 const isUnlocked = olympusUnlocked?.id === profile.id;
                 return (
@@ -177,7 +183,7 @@ export default function MythsView() {
                       {tr({ fr: `Ferveur ${score}/100`, en: `Fervor ${score}/100` })}
                       {/* La consécration n'avance que pour le culte DOMINANT : on ne
                           l'affiche ailleurs que si elle a déjà des crans gravés. */}
-                      {(isDominant || progress > 0) && tr({ fr: ` · Consécration ${progress}/${OLYMPUS_COMPLETION_SCORE}`, en: ` · Consecration ${progress}/${OLYMPUS_COMPLETION_SCORE}` })}
+                      {(isDominant || progress > 0) && tr({ fr: ` · Consécration ${consecration(progress).replace('.', ',')}/${OLYMPUS_COMPLETION_SCORE}`, en: ` · Consecration ${consecration(progress)}/${OLYMPUS_COMPLETION_SCORE}` })}
                     </small>
                     <small className="olympus-heritage">
                       {isUnlocked

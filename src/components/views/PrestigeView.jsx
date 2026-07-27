@@ -34,6 +34,13 @@ export default function PrestigeView() {
   const history = useGameState(s => s.history);
   const crisisExtensions = useGameState(s => s.crisisExtensions);
   const terminalPreparations = useGameState(s => s.terminalPreparations);
+  // L'auto-effondrement « rupture100 » est la SEULE configuration où le moteur
+  // applique le délai de grâce après l'annonce de crise (cf. checkAutoCollapse,
+  // main.js) — les déclencheurs usure/temps n'attendent pas ce décompte.
+  const autoRupture100 = useGameState(s => {
+    const ac = s.crisisDoctrine?.autoCollapse;
+    return Boolean(ac && ac.enabled && ac.trigger === "rupture100");
+  });
 
   // Compte à rebours d'auto-effondrement : texte + fraction restante (intégré
   // au bouton d'effondrement — bandeau qui se consume).
@@ -48,8 +55,11 @@ export default function PrestigeView() {
 
   useEffect(() => {
     const checkCountdown = () => {
-      const hasIntendant = has("intendant_de_crise");
-      if (crisisLimitAnnounced && hasIntendant && crisisOpenedAt) {
+      // « intendant_de_crise » n'existe plus (migré vers conseil_de_crise +
+      // edit_effondrement, cf. state.js) : le décompte suit la même garde que
+      // le moteur — Édit possédé ET doctrine « rupture100 » armée.
+      const autoArmed = autoRupture100 && has("edit_effondrement");
+      if (crisisLimitAnnounced && autoArmed && crisisOpenedAt) {
         const delay = autoCollapseDelay();
         const left = Math.max(0, delay - (Date.now() - crisisOpenedAt));
         const mins = Math.floor(left / 60000);
@@ -68,7 +78,7 @@ export default function PrestigeView() {
     checkCountdown();
     const timer = setInterval(checkCountdown, 1000);
     return () => clearInterval(timer);
-  }, [crisisLimitAnnounced, crisisOpenedAt]);
+  }, [crisisLimitAnnounced, crisisOpenedAt, autoRupture100]);
 
   // Dérivé plutôt que resetté en effet (lint set-state-in-effect) : le clic sur
   // un palier remet déjà la valeur à zéro, ceci couvre la fermeture de crise.

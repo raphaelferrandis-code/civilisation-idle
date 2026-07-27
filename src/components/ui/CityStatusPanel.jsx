@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
-import { globalMultiplier, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
+import { globalMultiplier, globalMultiplierDec, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
@@ -67,7 +67,11 @@ export default function CityStatusPanel() {
   const currentEra = eras[eraIdx];
   const eraProgress = nextEraProgress(eraIdx);
   const eraTheme = getEraTheme(eraIdx);
-  const globalMult = globalMultiplier();
+  // Au-delà du float, globalMultiplier() déborde à Infinity par design (le
+  // moteur bascule sur le miroir Decimal, cf. rates.js) : « ×inf » n'apprend
+  // rien — RollingNumber accepte un Decimal et fmt sait l'écrire.
+  const globalMultF = globalMultiplier();
+  const globalMult = Number.isFinite(globalMultF) ? globalMultF : globalMultiplierDec();
 
   const cycleSeconds = Math.floor((tickNow - (cycleStartedAt || tickNow)) / 1000);
   const cycleTimeLabel = fmtCycleTime(cycleSeconds);

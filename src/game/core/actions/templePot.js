@@ -124,10 +124,13 @@ export function potRakeShare(stakeFaveur) {
 
 // Montant réellement emporté (Faveur ENTIÈRE) et solde restant, à partir du pot
 // courant et de la mise. Retourne { rake, left } — `left` garde la fraction, comme
-// le tronc (offeringTrunk.js) : rien n'est perdu à l'arrondi, et `left` ne peut pas
-// devenir négatif quand round() arrondit la part vers le haut.
+// le tronc (offeringTrunk.js) : rien n'est perdu à l'arrondi.
+// Le plafond est floor(pot) et non pot : quand la part vaut 1 (Hécatombe, serres)
+// et que le pot est fractionnaire, round() arrondissait AU-DESSUS du pot et le
+// min() retombait sur le pot fractionnaire — seule brèche du contrat « Faveur
+// ENTIÈRE » (le solde du joueur devenait fractionnaire). La fraction reste en pot.
 export function potRake(potFaveur, stakeFaveur) {
   const pot = Math.max(0, Number(potFaveur) || 0);
-  const rake = Math.min(pot, Math.round(pot * potRakeShare(stakeFaveur)));
+  const rake = Math.min(Math.floor(pot), Math.round(pot * potRakeShare(stakeFaveur)));
   return { rake, left: Math.max(0, pot - rake) };
 }

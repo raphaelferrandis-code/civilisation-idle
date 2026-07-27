@@ -88,11 +88,17 @@ export default function BlackjackStage({ table, onClose }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronise la scène sur l'état module (blackjackActive) à la (ré)ouverture
     setOutcome(null);
-    setChosenStake(null);
     if (blackjackActive()) {
-      setHand(blackjackHand());
+      const h = blackjackHand();
+      setHand(h);
+      // Main reprise : on RESTAURE la mise réelle depuis le moteur — sinon
+      // « Redistribuer » retombait sur la première mise ×1 (une royale ×coffre
+      // rejouée en légère). Même geste qu'IcarusStage à la reprise d'un vol.
+      setChosenStake(h?.stakeId ?? null);
+      setCoffreMult(h?.stakeMult ?? 1);
       setPhase('player');
     } else {
+      setChosenStake(null);
       setHand(null);
       setPhase('bet');
     }

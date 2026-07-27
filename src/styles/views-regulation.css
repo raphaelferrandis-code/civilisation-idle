@@ -310,6 +310,14 @@
   color: var(--muted);
 }
 
+/* Théocratie (ruptureGrowth) : amplifie la SOMME des affluents avant le barrage.
+   N'apparaît que quand le facteur ≠ 1 — teinte « aggravante », comme la Démesure. */
+.anatomy-amp {
+  font-size: 0.6875rem;
+  color: #d97a4e;
+  white-space: nowrap;
+}
+
 .anatomy-target {
   grid-column: 5;
   grid-row: 1 / 3;

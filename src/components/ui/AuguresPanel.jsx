@@ -175,7 +175,7 @@ export default function AuguresPanel() {
           className="scratch-banner augure-fresque fresque-tickets"
           {...tipProps(
             tr({ fr: 'Tickets à gratter', en: 'Scratch tickets' }),
-            tr({ fr: 'Gratte le vernis : découvre 3 symboles identiques pour gagner de la Faveur. Trois Soleils raflent la cagnotte du temple, trois Vénus offrent un vol d’Icare.', en: 'Scratch the varnish: reveal 3 matching symbols to win Favor. Three Suns sweep the temple pot, three Venus grant an Icarus flight.' })
+            tr({ fr: 'Gratte le vernis : découvre 3 symboles identiques pour gagner de la Faveur. Trois Soleils offrent un vol d’Icare à la mise du ticket, trois Vénus un vol à la mise Plume — le temple paie la mise.', en: 'Scratch the varnish: reveal 3 matching symbols to win Favor. Three Suns grant an Icarus flight at the ticket’s stake, three Venus a Feather-stake flight — the temple pays the stake.' })
           )}
           onClick={() => openScratch()}
         >

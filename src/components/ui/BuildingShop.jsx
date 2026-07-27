@@ -3,10 +3,12 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import {
   globalMultiplier,
+  globalMultiplierDec,
   isUnlocked,
   buildingBatchCost,
-  buildingOutputMultiplier,
+  buildingUnitFactor,
   buildingMilestoneInfo,
+  babelExponentialMult,
   milestoneStepSize,
   currentEraIndex
 } from '../../game/core/mechanics.js';
@@ -48,21 +50,30 @@ function fmtGainPct(pct) {
   return `+${p.toFixed(p < 10 ? 1 : 0)} %`;
 }
 import { tr } from '../../game/core/i18n.js';
-import { D } from '../../game/core/num.js';
+import { D, Decimal } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
 import { tipProps } from './HelpBubble.jsx';
 
 /* Segments de production [[ressource, valeur/s], …] — mêmes formules que
-   l'ancien texte "Produit/Ajoute", rendu en icônes par PurchaseRow. */
+   l'ancien texte "Produit/Ajoute", rendu en icônes par PurchaseRow.
+   `outputMult` est le facteur unitaire COMPLET (jalons × Rives fécondes ×
+   Babel), composé dans la rangée depuis les mêmes helpers que le moteur.
+   `globalMult`/`sqrtGlobalMult` peuvent être des Decimal (au-delà du float,
+   cf. l'abonnement plus bas) : le produit reste alors en Decimal —
+   rateScale/signedShort savent déjà l'afficher, « inf » n'apprend rien. */
 function buildingProductionSegments(building, outputCount, globalMult, sqrtGlobalMult, outputMult) {
+  const estDec = globalMult instanceof Decimal;
+  const seg = (base, mult) => estDec
+    ? mult.mul(base * outputCount).mul(outputMult)
+    : base * outputCount * mult * outputMult;
   return [
-    ["population", building.pop * outputCount * globalMult * outputMult],
-    ["food", building.food * outputCount * sqrtGlobalMult * outputMult],
-    ["gold", building.gold * outputCount * sqrtGlobalMult * outputMult],
-    ["knowledge", building.knowledge * outputCount * globalMult * outputMult],
-    ["infrastructure", building.infra * outputCount * globalMult * outputMult]
-  ].filter(([, value]) => Math.abs(value) > 0.0001);
+    ["population", seg(building.pop, globalMult)],
+    ["food", seg(building.food, sqrtGlobalMult)],
+    ["gold", seg(building.gold, sqrtGlobalMult)],
+    ["knowledge", seg(building.knowledge, globalMult)],
+    ["infrastructure", seg(building.infra, globalMult)]
+  ].filter(([, value]) => (estDec ? value.abs().toNumber() : Math.abs(value)) > 0.0001);
 }
 
 const TABS = [
@@ -133,8 +144,15 @@ function BuildingShop() {
   // (et ce composant) ne re-render que quand le /s changerait vraiment. Usage
   // strictement cosmétique ici (production affichée + sqrt), jamais réinjecté
   // dans les coûts/l'état.
-  const globalMult = useGameState(() => Number(globalMultiplier().toPrecision(4)));
-  const sqrtGlobalMult = Math.sqrt(globalMult);
+  // Au-delà du float, globalMultiplier() déborde à Infinity PAR DESIGN (le
+  // moteur bascule sur globalMultiplierDec, cf. rates.js) : l'affichage suit la
+  // même bascule — un Decimal quantifié à 4 chiffres significatifs lui aussi
+  // (shallowEqual compare mantisse/exposant, la mémoïsation des rangées tient).
+  const globalMult = useGameState(() => {
+    const m = globalMultiplier();
+    return Number.isFinite(m) ? Number(m.toPrecision(4)) : D(globalMultiplierDec().toExponential(3));
+  });
+  const sqrtGlobalMult = globalMult instanceof Decimal ? globalMult.sqrt() : Math.sqrt(globalMult);
 
   // GAIN RELATIF (B6). Les échelles base → débit sont calculées UNE fois par
   // rendu, pas une fois par rangée : sinon chaque rangée relancerait une passe
@@ -152,6 +170,11 @@ function BuildingShop() {
 
   const babelActive = isMythEffectActive("mythe_de_babel");
   const babelCat = babelActive ? (babelCategory || "") : "";
+  // Babel : le moteur multiplie la catégorie élue par le mult exponentiel
+  // (rates.js). Même source (babelExponentialMult), calculée UNE fois par rendu
+  // — sans elle, les rangées de la catégorie élue mentaient d'un facteur
+  // potentiellement énorme.
+  const babelExpMult = babelActive && babelCat ? babelExponentialMult() : 1;
 
   // RÉVÉLATION (D6). Ce composant est memo() SANS props et n'avait AUCUN
   // abonnement lisant state.cyclePeaks : un bâtiment qui franchissait son seuil
@@ -309,7 +332,11 @@ function BuildingShop() {
         {visibleBuildings.map((b) => {
           const prices = costById[b.id];
           const count = stateBuildings[b.id] || 0;
-          const outputMult = buildingOutputMultiplier(b, count);
+          // Facteur unitaire = le MÊME que getBuildingSums (jalons × Rives
+          // fécondes), × Babel sur la catégorie élue comme dans rates() — pas
+          // de formule recopiée, seulement recomposée depuis les helpers moteur.
+          const outputMult = buildingUnitFactor(b, count)
+            * (babelActive && b.category === babelCat ? babelExpMult : 1);
           const outputCount = Math.max(1, count);
           const milestoneInfo = buildingMilestoneInfo(b, count);
           const babelBlocked = babelActive && babelCat && b.category !== babelCat;
@@ -361,6 +388,7 @@ function BuildingShop() {
               tier={milestoneTier}
               production={buildingProductionSegments(b, outputCount, globalMult, sqrtGlobalMult, outputMult)}
               globalMult={globalMult}
+              outputMult={outputMult}
               lackingKey={lackingKey}
               gainLabel={gainLabel}
               gainTitle={gainTitle}

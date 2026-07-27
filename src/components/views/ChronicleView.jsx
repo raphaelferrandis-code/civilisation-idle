@@ -5,9 +5,11 @@ import {
   currentEraIndex,
   ruinGain,
   ruinMultiplier,
+  ruinMultiplierDec,
   heritageQuality,
   totalBuildingCount,
   globalMultiplier,
+  globalMultiplierDec,
   globalMultiplierBreakdown,
   rates
 } from '../../game/core/mechanics.js';
@@ -17,7 +19,7 @@ import { renderCache, state } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
 import { fmt, fmtShort, rateScale } from '../../game/core/utils.js';
 import { crediblePopulation } from '../../game/core/demographics.js';
-import { D, toNum } from '../../game/core/num.js';
+import { D, Decimal, toNum } from '../../game/core/num.js';
 import { tr } from '../../game/core/i18n.js';
 import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
@@ -52,6 +54,11 @@ function fmtCount(n) {
   return v < 1000 ? String(Math.floor(v)) : fmt(v);
 }
 
+// « ×inf » au-delà du float : quand la version float d'un multiplicateur déborde
+// à Infinity (par design — le moteur bascule alors sur son miroir Decimal,
+// cf. rates.js), on affiche le miroir. fmt sait écrire un Decimal (« 1.23e456 »).
+const fmtMult = (f, dec) => (Number.isFinite(f) ? fmt(f) : fmt(dec()));
+
 // Tuile de statistique du Bilan : libellé, valeur, icône et infobulle optionnelles.
 function StatTile({ label, value, icon, hint }) {
   return (
@@ -84,6 +91,9 @@ function StatSection({ title, hint, children }) {
 // D'où cette écriture locale, en ×, avec la précision qui suit l'ordre de
 // grandeur — trois décimales sur un ×1,002 qu'on écraserait sinon à ×1.
 function fmtFactor(v) {
+  // Au-delà du float, la pile bascule sur les miroirs Decimal (cf.
+  // globalMultiplierBreakdown) : fmt sait les écrire (« 1.23e456 »).
+  if (v instanceof Decimal) return `×${fmt(v)}`;
   if (!Number.isFinite(v)) return tr({ fr: "au delà du float", en: "beyond float" });
   if (v === 1) return "×1";
   const abs = Math.abs(v);
@@ -91,11 +101,16 @@ function fmtFactor(v) {
   return `×${v.toFixed(dec)}`;
 }
 
+// ×1 exact, number ou Decimal : un facteur neutre ne mérite pas de ligne.
+// (L'arithmétique native sur un Decimal est piégée en dev, cf. num.js.)
+const isOne = (v) => (v instanceof Decimal ? v.eq(1) : v === 1);
+
 function FactorRow({ label, value, sub = false }) {
+  const malus = value instanceof Decimal ? value.lt(1) : value < 1;
   return (
     <div className={`mult-row${sub ? ' mult-row--sub' : ''}`}>
       <span className="mult-row-label">{tr(label)}</span>
-      <span className={`mult-row-value${value < 1 ? ' is-malus' : ''}`}>{fmtFactor(value)}</span>
+      <span className={`mult-row-value${malus ? ' is-malus' : ''}`}>{fmtFactor(value)}</span>
     </div>
   );
 }
@@ -107,13 +122,15 @@ function FactorRow({ label, value, sub = false }) {
 function MultiplierAnatomy() {
   useGameState(() => {
     const m = globalMultiplier();
-    return Number.isFinite(m) ? Math.round(m * 1000) : String(m);
+    // Au-delà du float, la signature suit le miroir Decimal formaté — un
+    // String(Infinity) constant figerait le panneau alors que la pile grandit.
+    return Number.isFinite(m) ? Math.round(m * 1000) : fmt(globalMultiplierDec());
   });
   const { factors, parts, product } = globalMultiplierBreakdown();
   // Un facteur à 1 ne multiplie rien : l'afficher noierait les 3 qui comptent
   // sous 13 lignes inertes.
-  const actifs = factors.filter((f) => f.value !== 1);
-  const arbreActif = factors.some((f) => f.key === "ruinTree" && f.value !== 1);
+  const actifs = factors.filter((f) => !isOne(f.value));
+  const arbreActif = factors.some((f) => f.key === "ruinTree" && !isOne(f.value));
 
   return (
     <div className="chronicle-bilan-section mult-anatomy">
@@ -157,8 +174,8 @@ function MultiplierAnatomy() {
           le dire apprend une fausse leçon au joueur qui arbitre ses achats. */}
       <p className="mult-note">
         {tr({
-          fr: `La Nourriture et le Trésor n'en reçoivent que la racine, soit ${fmtFactor(Math.sqrt(product))}.`,
-          en: `Food and Treasury only receive its square root, that is ${fmtFactor(Math.sqrt(product))}.`
+          fr: `La Nourriture et le Trésor n'en reçoivent que la racine, soit ${fmtFactor(product instanceof Decimal ? product.sqrt() : Math.sqrt(product))}.`,
+          en: `Food and Treasury only receive its square root, that is ${fmtFactor(product instanceof Decimal ? product.sqrt() : Math.sqrt(product))}.`
         })}
       </p>
     </div>
@@ -334,7 +351,7 @@ function CivilizationReview() {
         <StatTile label={tr({ fr: "Bâtiments debout", en: "Standing buildings" })} value={fmtCount(totalBuildingCount())} />
         <StatTile
           label={tr({ fr: "Multi. de production", en: "Production multi." })}
-          value={`x${fmt(globalMultiplier())}`}
+          value={`x${fmtMult(globalMultiplier(), globalMultiplierDec)}`}
           icon="glyphs/mult"
           // L'ancienne prose énumérait des sources sans un chiffre (« ruines,
           // ères, merveilles, routes… »). Le détail chiffré vit maintenant dans
@@ -382,7 +399,7 @@ function CivilizationReview() {
         <StatTile label={tr({ fr: "Ruines en réserve", en: "Ruins in reserve" })} value={fmt(ruins)} icon="glyphs/ruines" />
         <StatTile
           label={tr({ fr: "Bonus de production", en: "Production bonus" })}
-          value={`x${fmt(ruinMultiplier())}`}
+          value={`x${fmtMult(ruinMultiplier(), ruinMultiplierDec)}`}
           hint={tr({ fr: "Multiplicateur permanent conféré par les ruines en réserve.", en: "Permanent multiplier granted by the ruins in reserve." })}
         />
         <StatTile label={tr({ fr: "Meilleur âge atteint", en: "Best age reached" })} value={eras[bestEraIndex].name} icon="glyphs/trophee" />

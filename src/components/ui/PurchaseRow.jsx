@@ -180,8 +180,9 @@ function PurchaseRow({
               // UNITÉ ADAPTATIVE (B4). Les effets indirects de la boutique sont
               // souvent bien sous 1/s — les Conteurs rendent 0,01 Rayonnement,
               // affiché « +0.0/s », c'est-à-dire rien. En horaire, 36/h.
-              // ⚠ `value` est un NUMBER natif ici (le produit est fait en
-              // flottant par buildingProductionSegments), pas un Decimal.
+              // `value` est un NUMBER natif sous le plafond float ; au-delà,
+              // buildingProductionSegments passe en Decimal — rateScale,
+              // signed et signedShort branchent déjà sur instanceof.
               const r = rateScale(value);
               return (
                 <span
@@ -319,7 +320,11 @@ function arePropsEqual(prev, next) {
     prev.babelBlocked === next.babelBlocked &&
     prev.tier === next.tier &&
     prev.pulse === next.pulse &&
-    prev.globalMult === next.globalMult &&  // production = f(count, globalMult, building)
+    prev.globalMult === next.globalMult &&  // production = f(count, globalMult, outputMult, building)
+    // Facteur unitaire (jalons × Rives fécondes × Babel) : il bouge SANS que
+    // count change (nœud de ruines, achats ailleurs dans la catégorie élue de
+    // Babel) — l'oublier figerait la production affichée des autres rangées.
+    prev.outputMult === next.outputMult &&
     prev.lackingKey === next.lackingKey &&  // highlight is-lacking par devise
     // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
     // une primitive. L'oublier ici figerait le compte à rebours sur sa première

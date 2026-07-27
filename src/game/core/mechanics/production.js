@@ -51,6 +51,7 @@ export {
   milestoneStepSize,
   buildingOutputMultiplier,
   buildingOutputMultiplierDec,
+  buildingUnitFactor,
   buildingMilestoneInfo
 } from './production/buildingOutput.js';
 

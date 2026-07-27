@@ -36,6 +36,7 @@ import { hasFreeFlight } from './templeFlights.js';
 import { clampStakeMult } from './templePot.js';
 import { ARTIFACT_LINEAGES, ARTIFACT_NODES } from '../../data/artifacts.js';
 import { chronicle } from './utils.js';
+import { recordShopSpend } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import {
   AUTO_AUGURY_INTERVAL_MS,
@@ -274,6 +275,10 @@ export function unlockTempleAuto(game) {
   const cost = AUTO_UNLOCK_COSTS[game];
   if ((state.faveur || 0) < cost) return false;
   state.faveur = Math.max(0, (state.faveur || 0) - cost);
+  // Registre de la Chronique : même déclaration que les deux autres kinds de
+  // l'arbre d'artefacts (faveurShop.js) — sans elle, les cinq capstones
+  // manquaient au compteur de dépenses à vie.
+  recordShopSpend(cost);
   g.unlocked = true;
   g.on = true;
   const label = AUTO_LABELS[game];

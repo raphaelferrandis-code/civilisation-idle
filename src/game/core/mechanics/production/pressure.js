@@ -192,7 +192,11 @@ export function pressureBreakdown(forceDecimalPath = false) {
     policyDemesureDamp()
   );
   const demesure = softCap(demesureRaw, DEMESURE_SOFT_CAP) * (1 - demesureCut);
-  const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowthMultiplier() - mitigation);
+  // Théocratie (ruptureGrowthMultiplier) : amplifie la SOMME des affluents avant
+  // le barrage. Hissé en variable pour être exposé dans gauges — sans lui,
+  // l'Anatomie ne se réconcilie pas avec la cible.
+  const ruptureGrowth = ruptureGrowthMultiplier();
+  const baseTotal = Math.max(0, (scarcity + inequality + complexity + dissent + structural + ruinEffectSum("ruptureHaste")) * ruptureGrowth - mitigation);
   const total = baseTotal + demesure;
 
   const result = {
@@ -212,7 +216,8 @@ export function pressureBreakdown(forceDecimalPath = false) {
       popLog,
       demesureCut,
       ruinStability: ruinEffectSum("stability"),
-      graces: foundingGrace + settlingGrace
+      graces: foundingGrace + settlingGrace,
+      ruptureGrowth
     }
   };
   if (!forceDecimalPath) {

@@ -133,6 +133,8 @@ export function blackjackHand() {
     playerValue: handValue(act.cards),
     dealerValue: handValue(hand.dealer),
     stakeFaveur: act.stake,
+    stakeId: hand.stakeId || null,
+    stakeMult: hand.stakeMult || 1,
     doubled: Boolean(act.doubled),
     split: hand.hands.length > 1,
     active: hand.active,
@@ -311,7 +313,11 @@ export function dealBlackjack(stakeId, options = {}) {
     active: 0,
     phase: "player",
     resolved: false,
-    cycle: state.cycles || 0 // tampon de cycle : un effondrement abandonne la main
+    cycle: state.cycles || 0, // tampon de cycle : un effondrement abandonne la main
+    // Mise d'ORIGINE (id + rang de coffre) : la scène rouverte en pleine main les
+    // restaure — sans eux, « Redistribuer » retombait sur la première mise ×1.
+    stakeId,
+    stakeMult: mult
   };
   lastOutcome = null;
   if (isBlackjack(player) || isBlackjack(dealer)) resolve(); // naturel → résolution immédiate

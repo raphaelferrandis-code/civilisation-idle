@@ -467,6 +467,9 @@ export function doubleAugury(id, stake, options = {}) {
   if (!a || a.kind !== "gamble") return null;
   const wager = Math.max(0, Math.round(Number(stake) || 0));
   if (wager <= 0) return null;
+  // Garde MOTEUR : la mise doit être sur la table au moment du jet. Sans elle,
+  // un solde déjà entamé jouait quand même un double à mise pleine.
+  if ((state.faveur || 0) < wager) return null;
 
   // Issue tirée maintenant (pour l'animation), effet différé comme castAugury.
   const win = Math.random() < AUGURY_DOUBLE_P;
@@ -476,14 +479,22 @@ export function doubleAugury(id, stake, options = {}) {
   result.apply = () => {
     if (applied) return result;
     applied = true;
+    // Mise EFFECTIVE bornée au solde de la RÉSOLUTION : entre le jet et la chute
+    // des dés (~1,8 s), les automatisations du temple peuvent débiter la Faveur.
+    // Avant, seule la PERTE était écrêtée au solde (le gain payait plein) : EV
+    // positive dès que le solde passait sous le wager. Symétrique désormais.
+    const wagerEff = Math.min(wager, Math.max(0, Math.round(state.faveur || 0)));
     if (win) {
-      state.faveur = Math.max(0, (state.faveur || 0) + wager);
+      state.faveur = Math.max(0, (state.faveur || 0) + wagerEff);
       chronicle(`Défiés une seconde fois sur « ${a.label} », les dieux sourient encore : la Faveur redouble.`);
     } else {
-      state.faveur = Math.max(0, (state.faveur || 0) - wager);
+      state.faveur = Math.max(0, (state.faveur || 0) - wagerEff);
       chronicle(`Les dieux se lassent d'être éprouvés : la Faveur de « ${a.label} » leur revient.`);
     }
-    pushOutcomeFloat({ label: win ? `🎲 +${wager} faveur !` : "🎲 Le jet du Chien…", kind: win ? "gain" : "cost" });
+    // Registre de la Chronique — le double n'avait AUCUN compteur : ses gains et
+    // pertes étaient invisibles de faveurEarned et de games.osselets.
+    recordOsselets({ wagered: win ? 0 : wagerEff, won: win ? wagerEff : 0 });
+    pushOutcomeFloat({ label: win ? `🎲 +${wagerEff} faveur !` : "🎲 Le jet du Chien…", kind: win ? "gain" : "cost" });
     if (doRender) render();
     return result;
   };

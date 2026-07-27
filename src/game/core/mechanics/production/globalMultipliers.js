@@ -271,10 +271,31 @@ export function globalMultiplierBreakdown() {
   ];
   let product = 1;
   for (const [, value] of factors) product *= value;
+
+  // Très tard en partie, ruines/infra/ruines non dépensées débordent le float
+  // PAR DESIGN (rates() bascule alors sur globalMultiplierDec) : l'affichage
+  // suit la même bascule, facteur par facteur — fmt sait écrire un Decimal,
+  // « inf » n'apprend rien. Affichage seul : le produit du MOTEUR reste
+  // globalMultiplier()/globalMultiplierDec(), l'ordre float ci-dessus est
+  // inchangé bit-à-bit tant que tout est fini.
+  const DEC_MIRRORS = {
+    ruins: ruinMultiplierDec,
+    infra: infraMultiplierDec,
+    unspentRuins: unspentRuinsPowerMultiplierDec
+  };
+  const shown = factors.map(([key, value]) => ({
+    key,
+    label: BREAKDOWN_LABELS[key],
+    value: (!Number.isFinite(value) && DEC_MIRRORS[key]) ? DEC_MIRRORS[key]() : value
+  }));
   return {
-    factors: factors.map(([key, value]) => ({ key, label: BREAKDOWN_LABELS[key], value })),
+    factors: shown,
     parts: Object.entries(s.ruinTreeParts).map(([key, value]) => ({ key, label: RUIN_TREE_LABELS[key], value })),
-    product
+    // Produit total : même bascule — recomposé depuis les facteurs affichés
+    // (mêmes appels, même passe) pour que la pile se multiplie à son total.
+    product: Number.isFinite(product)
+      ? product
+      : shown.reduce((acc, f) => acc.mul(f.value), new Decimal(1))
   };
 }
 

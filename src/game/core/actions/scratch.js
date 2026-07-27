@@ -74,12 +74,14 @@ export function scratchPrizesEff() {
 }
 
 // RTP de RÉFÉRENCE d'une mise, DÉRIVÉ de la table effective — jamais saisi à la
-// main. Il inclut : (1) l'ARRONDI RÉEL du payout (round(4 × 1,2) = 5, pas 4,8 :
-// l'obole rend plus que le nominal) ; (2) la VALEUR DES VOLS OFFERTS (Vénus →
-// Plume, Soleil → la mise du ticket), comptée au PLANCHER d'edge d'Icare — elle
-// MAJORE la valeur réelle. C'est ce total-là que feedPot doit connaître : le
-// sous-estimer gonflerait le versement à la cagnotte et rongerait l'invariant
-// rtp_base + recycle × (1 − rtp_base) < 1.
+// main. Il inclut : (1) le payout NOMINAL exact — le payout réel passe par
+// payRound, d'espérance exacte (E[payRound(x)] = x), donc la ligne vaut son
+// payoutMult tel quel (l'ancien Math.round surévaluait l'obole de ~0,7 pt et
+// rendait le badge d'auto-gratteux optimiste autour de la bascule) ; (2) la
+// VALEUR DES VOLS OFFERTS (Vénus → Plume, Soleil → la mise du ticket), comptée
+// au PLANCHER d'edge d'Icare — elle MAJORE la valeur réelle. C'est ce total-là
+// que feedPot doit connaître : le sous-estimer gonflerait le versement à la
+// cagnotte et rongerait l'invariant rtp_base + recycle × (1 − rtp_base) < 1.
 export function scratchRtpRef(stakeId) {
   const stake = SCRATCH_STAKES.find((s) => s.id === stakeId) || SCRATCH_STAKES[0];
   const flightEv = (id) => (ICARUS_STAKES.find((s) => s.id === id)?.faveur || 0) * (1 - ICARUS_EDGE_FLOOR);
@@ -87,7 +89,7 @@ export function scratchRtpRef(stakeId) {
   for (const p of scratchPrizesEff()) {
     if (p.symbol === "blank") continue;
     const w = p.weight / SCRATCH_WEIGHT_TOTAL;
-    rtp += w * (Math.round(stake.faveur * p.payoutMult) / stake.faveur);
+    rtp += w * p.payoutMult;
     if (p.freeFlight) rtp += w * (flightEv("plume") / stake.faveur);
     if (p.sunFlight) rtp += w * (flightEv(SCRATCH_SUN_FLIGHT[stake.id]) / stake.faveur);
   }
@@ -242,8 +244,10 @@ export function playScratch(stakeId, options = {}) {
     // référence suit le niveau des planches du graveur (moins d'edge à recycler).
     feedPot(stakeFaveur, scratchRtpRef(stakeId));
     // Registre de la Chronique : un ticket de plus (mise, gain, temps forts
-    // trois-Vénus / trois-Soleils via le symbole d'issue).
-    recordScratch({ wagered: stakeFaveur, won: result.faveurGain, symbol: prize.symbol });
+    // trois-Vénus / trois-Soleils via le symbole d'issue). Une relance payée par
+    // la CELLA (potFunded) n'est pas une mise du joueur — sa Faveur n'a pas bougé,
+    // comme la branche freeFlight d'Icare.
+    recordScratch({ wagered: potFunded ? 0 : stakeFaveur, won: result.faveurGain, symbol: prize.symbol });
 
     if (!silent) {
       const floatLabel = win
