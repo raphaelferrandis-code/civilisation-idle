@@ -798,12 +798,12 @@ let _cachedCityCountsPopKey = "";
 // Molette d'A/B : window.__layoutDefer = false pour retrouver l'ancien
 // comportement.
 const LAYOUT_GESTURE_STILL_MS = 280;
-// 6 s et non 2,5 : mesuré sur la machine de jeu, un dézoom énergique dépasse
-// facilement 2,5 s sans pause — le plafond forçait alors le recompute EN PLEIN
-// geste (pire frame 268-300 ms classée « pendant le geste » au relevé). Les
-// gestes réels finissent presque tous sous 6 s ; au-delà on assume le gel
-// plutôt qu'une carte mensongère.
-const LAYOUT_DEFER_MAX_MS = 6000;
+// 10 s : mesuré sur la machine de jeu (deux relevés), un dézoom énergique tient
+// facilement 6 s sans pause de 280 ms — le plafond forçait alors le recompute
+// EN PLEIN geste (layout ~235 ms dans la pire frame, deux fois de suite). Les
+// explorations réelles marquent une pause avant 10 s ; au-delà on assume le
+// gel plutôt qu'une carte mensongère.
+const LAYOUT_DEFER_MAX_MS = 10000;
 let _lyCamX = NaN, _lyCamY = NaN, _lyCamZ = NaN;
 let _lyCamMoveAt = -1e9;
 let _lyDeferredAt = 0;
