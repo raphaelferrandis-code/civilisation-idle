@@ -580,7 +580,11 @@ function cityMapDrawQuays(now, mode) {
   if (!L || !L.river || !L.river.present || !L.river.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
   if (band <= 1) return;                                   // campement primitif : pas de quai
-  if (CM.collapseAt || (state.timeWear || 0) > 0.7) return; // fleuve ruiné : pas de quai
+  // ⚠ L'USURE NE RETIRE PLUS LE QUAI (demande de Raph, 2026-07-27) : au-delà de
+  // 70 % la berge maçonnée disparaissait d'un coup et le fleuve se retrouvait
+  // bordé de terre nue, ce qui se lit comme un bug plutôt que comme un déclin.
+  // Seul l'effondrement en cours efface encore le quai.
+  if (CM.collapseAt) return;
   ensureQuayGate();
   const g = CM.quayGate;
   if (!g) return;

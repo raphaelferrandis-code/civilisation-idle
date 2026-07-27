@@ -2438,9 +2438,16 @@ function drawIsoRiver(now) {
   ctx.fillStyle = rgb(WATER, 1);
   ctx.fill();
   // Surface de l'eau, SOUS les liserés de bas-fond (qui portent la lecture du
-  // bord) et sous poissons/vaguelettes. Eau morte en déclin : surface nue.
+  // bord) et sous poissons/vaguelettes.
   // La tuile animée porte le relief ; le grain procédural reste là, coupé.
-  if (!CM.collapseAt && (state.timeWear || 0) <= 0.7) {
+  //
+  // ⚠ L'USURE NE COUPE PLUS LA TEXTURE (demande de Raph, 2026-07-27). Avant,
+  // au-delà de 70 % d'Usure le fleuve retombait à un aplat ardoise nu — l'idée
+  // était « l'eau morte en déclin ». En jeu, à 78 % d'Usure sur une partie
+  // avancée, ça se lit comme un bug d'affichage et non comme une intention :
+  // le fleuve perd sa matière alors que toute la ville garde la sienne.
+  // Seul l'EFFONDREMENT en cours (CM.collapseAt) dénude encore l'eau.
+  if (!CM.collapseAt) {
     drawIsoWaterTiles(ctx, pts, T, z, now);
     drawIsoWaterGrain(ctx, pts, T, z, now);
   }
@@ -2456,8 +2463,14 @@ function drawIsoRiver(now) {
     // Partout ailleurs c'est nous, sinon la rive perd sa lecture pile quand on
     // prend du recul. Fleuve RUINÉ exclu du relais : l'eau morte n'a ni tuile ni
     // grain, lui ajouter un liseré clair la ferait paraître vivante.
+    //
+    // ⚠ « RUINÉ » NE COUVRE PLUS L'USURE (demande de Raph, 2026-07-27, en même
+    // temps que la texture d'eau et le quai). Sans ce changement l'exclusion
+    // mutuelle se retournait : le quai revenait à 78 % d'Usure mais `ruined`
+    // restait vrai, donc NI le quai NI le fleuve ne traçait le bas-fond, et la
+    // rive perdait sa lisière claire alors même que son mur était revenu.
     const maxB = S.maxBand != null ? S.maxBand : 1;
-    const ruined = !!CM.collapseAt || (state.timeWear || 0) > 0.7;
+    const ruined = !!CM.collapseAt;
     const quayDrawsShore = bandW > maxB && !CM.lodActive && !ruined;
     const shoreOn = S.on && (S.lodFallback && !ruined ? !quayDrawsShore : bandW <= maxB);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
