@@ -1385,6 +1385,10 @@ function drawIsoGround() {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
       if (cullOn && (p.x < -cullPadX || p.x > CM.cw + cullPadX
         || p.y < -cullPadY || p.y > CM.ch + cullPadY)) continue;
+      // Recuisson en TRANCHES : seules les cellules de la bande courante
+      // travaillent (le clip garantit les pixels, ce test évite le calcul).
+      if (ISO_GROUND_SLICE.on && (p.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
+        || p.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
       if (PR) PR.n += 1;
       const key = gx + ',' + gy;
       const isRoad = L.roadSet.has(key);
@@ -1761,6 +1765,12 @@ function drawIsoGround() {
   }
   if (PR) PR.roadsGroove = performance.now() - tU3;
   for (const r of roads) {
+    if (ISO_GROUND_SLICE.on) {
+      // Même cull de bande que les cellules (coin nord projeté).
+      const pr = worldToScreen(r.gx * T, r.gy * T);
+      if (pr.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
+        || pr.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot) continue;
+    }
     const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T;
     const wb = wbR;
     const mask = r.cell ? (r.cell.mask | 0) : 0;
@@ -5735,6 +5745,78 @@ const ISO_SOFT_BAKE_MIN_MS = 250;
 // ~4-5 images à 60 fps — le pan hors marge n'arrive qu'aux franchissements de
 // marge, pas à chaque frame, donc l'à-coup reste rare et court.
 const ISO_LIGHT_BUDGET_MS = 70;
+
+// ── SOL PLEIN EN TRANCHES (2026-07-27, relevé machine de jeu : la recuisson
+// pleine au repos coûtait 110 ms d'un coup — pire frame du joueur une fois le
+// gel de layout corrigé). À l'accalmie longue, le plein ne remplace plus le
+// light en une frame : il l'écrase BANDE PAR BANDE sur N frames (~coût/N
+// chacune). Même caméra, même clé, même géométrie → chaque bande recouvre
+// exactement sa part du light, l'œil voit le détail « se poser » en un
+// balayage d'une poignée de frames. Les bandes se recouvrent de 2 px vers le
+// bas : la bande suivante repeint les lignes de bord où l'antialiasing du clip
+// aurait mélangé light et plein (aucune couture). Abandon automatique si la
+// caméra, le zoom ou la clé changent en cours de route (le light reste
+// affiché, la tranche repart de zéro au prochain repos). La capture (__cityShot)
+// garde sa recuisson immédiate — déterminisme du harnais.
+// Molettes : __solSlices (nombre de bandes, 0 = désactivé → plein immédiat).
+// Budget-cible par bande : le nombre de bandes s'AUTO-CALIBRE sur le coût réel
+// de la dernière recuisson pleine (même philosophie que crispAffordable) —
+// 110 ms mesurés → 3 bandes, une mégapole à 300 ms → 8.
+const SOL_SLICE_BUDGET_MS = 40;
+const ISO_GROUND_SLICE = { on: false, y0: 0, y1: 0, padTop: 0, padBot: 0 };
+let _solSlice = null; // { key, i, n, camX, camY, zoom, ms }
+function runGroundSliceStep(key, nowMs, helpers) {
+  const gc = CM.groundCanvas, gctx = CM.gctx;
+  const M = CM._bakeMargin || 0;
+  const N = Math.max(2, Math.min(8,
+    (typeof window !== 'undefined' && window.__solSlices)
+    || Math.ceil((CM._isoGroundBakeMs || 120) / SOL_SLICE_BUDGET_MS)));
+  if (!_solSlice || _solSlice.key !== key || _solSlice.camX !== CM.cam.x
+    || _solSlice.camY !== CM.cam.y || _solSlice.zoom !== CM.cam.zoom || _solSlice.n !== N) {
+    _solSlice = { key, i: 0, n: N, camX: CM.cam.x, camY: CM.cam.y, zoom: CM.cam.zoom, ms: 0 };
+  }
+  const t0 = performance.now();
+  const mainCtx = CM.ctx, cw0 = CM.cw, ch0 = CM.ch;
+  // Même gonflage de viewport que cityMapBakeMargin : la projection couvre la marge.
+  CM.cw = cw0 + 2 * M; CM.ch = ch0 + 2 * M;
+  CM.ctx = gctx;
+  const fullH = ch0 + 2 * M;
+  const y0 = fullH * _solSlice.i / N;
+  const y1 = fullH * (_solSlice.i + 1) / N;
+  const hh2 = CM.TILE * CM.cam.zoom * ISO_Y;
+  ISO_GROUND_SLICE.on = true;
+  ISO_GROUND_SLICE.y0 = y0; ISO_GROUND_SLICE.y1 = y1;
+  // Une cellule peint de ~1 hh au-dessus de son coin nord à ~4 hh en dessous
+  // (losange + franges) : marges généreuses, la sur-inclusion ne coûte qu'un peu.
+  ISO_GROUND_SLICE.padTop = hh2 * 5; ISO_GROUND_SLICE.padBot = hh2 * 2;
+  gctx.save();
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.beginPath();
+  // Clip étendu de 2 px DES DEUX CÔTÉS : la bande suivante (peinte après)
+  // repeint la rangée frontière comme une rangée INTÉRIEURE de son clip —
+  // l'antialiasing du bord de clip ne laisse plus de couture (mesuré : les
+  // rangées frontières concentraient 180-220 px d'écart avant ce recouvrement).
+  gctx.rect(0, Math.floor((y0 - 2) * CM.dpr), gc.width, Math.ceil((y1 - y0 + 4) * CM.dpr));
+  gctx.clip();
+  gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+  try {
+    drawIsoGround();
+  } finally {
+    gctx.restore();
+    ISO_GROUND_SLICE.on = false;
+    CM.ctx = mainCtx; CM.cw = cw0; CM.ch = ch0;
+  }
+  _solSlice.ms += performance.now() - t0;
+  _solSlice.i += 1;
+  if (_solSlice.i >= _solSlice.n) {
+    CM._isoGroundBake = { camX: _solSlice.camX, camY: _solSlice.camY, other: key };
+    CM._isoGroundBake.zoomB = CM.cam.zoom;
+    CM._isoGroundBakeMs = _solSlice.ms; // coût plein RÉEL (pilote crispAffordable)
+    CM._isoSoftBakeAt = nowMs;
+    _solSlice = null;
+  }
+  helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
+}
 // Budget d'une recuisson de sol EN PLEIN GESTE. Au-delà, on préfère le re-blit
 // compensé (flou bref) : une image nette qui coûte un tiers de seconde n'est plus
 // de la netteté, c'est un gel. 45 ms ≈ trois images à 60 fps — assez pour laisser
@@ -5891,7 +5973,16 @@ export function drawIsoWorld(dt, now, helpers) {
       // revient dès l'arrêt réel — on ne perd pas de matière, on la retarde.
       // L'accalmie COURTE pose désormais le LIGHT (textures/voiles gardés) : le
       // « sol tout blanc » entre deux crans était le premier reproche visuel.
-      bake(restful ? false : 'light');
+      if (!restful) {
+        bake('light');
+      } else if (bm && isLod && !CM.capture && baseOf(bm.other) === key && inMargin
+        && (typeof window === 'undefined' || window.__solSlices !== 0)) {
+        // Repos long avec un LIGHT de la même clé à l'écran : le plein arrive
+        // EN TRANCHES (cf. runGroundSliceStep) au lieu d'un gel d'une frame.
+        runGroundSliceStep(key, nowMs, helpers);
+      } else {
+        bake(false);
+      }
     } else if (sameContent && !inMargin) {
       // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
       // bord d'attaque → bake allégé, net, sans trou, ~1 frame ; le plein arrive
