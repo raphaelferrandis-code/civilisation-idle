@@ -5024,6 +5024,11 @@ function drawIsoHoverCell(ctx, hw, hh) {
   ctx.restore();
 }
 
+// Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
+// persistants au module : capacité conservée d'une frame à l'autre.
+const ISO_ITEM_POOL = [];
+const ISO_ITEM_VIEW = [];
+
 function drawIsoLive(now) {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
   const hw = T * z * ISO_X, hh = T * z * ISO_Y;
@@ -5048,7 +5053,30 @@ function drawIsoLive(now) {
   const smokeK = SMOKE_TUNE.on ? smokeSeason() * (CM.ambianceK ?? 1) : 0;
   const band = (L.counts && L.counts.eraBand) | 0;
   const eraIdx = (L.counts && L.counts.eraIndex) | 0;
-  const items = [];
+  // POOL D'ITEMS : la collecte fabriquait 3-4 000 littéraux d'objet par frame,
+  // jetés au tri suivant — sur la machine de jeu, le ramasse-miettes passait à
+  // la caisse d'un coup (pics vif-collecte à 26-39 ms contre 6 de moyenne).
+  // Les objets du pool sont RÉUTILISÉS d'une frame à l'autre (forme unique →
+  // hidden class stable) ; seule la vue `items` est repartie de zéro. Les refs
+  // de la frame précédente restent dans les objets non réutilisés : sans effet
+  // (chaque kind relit ses propres champs, posés au push). Les items de pont
+  // (pushIsoBridgeItems) restent des littéraux — 30-150 par frame, négligeable.
+  const items = ISO_ITEM_VIEW;
+  items.length = 0;
+  let itemN = 0;
+  const pushItem = () => {
+    let it = ISO_ITEM_POOL[itemN];
+    if (!it) {
+      it = ISO_ITEM_POOL[itemN] = {
+        d: 0, kind: '', t: null, tr: null, p: null, v: null, w: null, wi: 0,
+        moor: null, art: null, eraKey: '', axis: '', wx: 0, wy: 0, gx: 0, gy: 0,
+        px: 0, py: 0, x0: 0, x1: 0, y0: 0, y1: 0, r: 0, i: 0, n: 0, pieces: null,
+      };
+    }
+    itemN += 1;
+    items.push(it);
+    return it;
+  };
   // Bâtiments (tuiles du layout) : maisons = sprite existant ; le reste = socle.
   for (const t of L.tiles) {
     // Révélation per-achat (parité legacy drawTile) : une maison-moteur du pool
@@ -5069,11 +5097,13 @@ function drawIsoLive(now) {
       const P = isoAqueductPieces(band, eraIdx);
       if (P) {
         for (let ai = 0; ai < sx; ai += 1) {
-          items.push({ d: depthOf((t.gx + ai + 1) * T, (t.gy + sy) * T), kind: 'aqSlice', t, i: ai, n: sx, pieces: P });
+          const it = pushItem();
+          it.d = depthOf((t.gx + ai + 1) * T, (t.gy + sy) * T); it.kind = 'aqSlice';
+          it.t = t; it.i = ai; it.n = sx; it.pieces = P;
         }
         continue;
       }
-      items.push({ d: depthOf(t.gx * T, t.gy * T), kind: 'tile', t });
+      { const it = pushItem(); it.d = depthOf(t.gx * T, t.gy * T); it.kind = 'tile'; it.t = t; }
       continue;
     }
     // Recouvrement d'EMPRISE (et non la seule cellule d'origine, dont la sortie
@@ -5088,12 +5118,12 @@ function drawIsoLive(now) {
     // Un socle (bâtiment volumétrique) garde son ancre au coin SUD (tri par les pieds).
     const flat = /field|farm|crop|orchard/i.test(idf);
     const d = flat ? depthOf(t.gx * T, t.gy * T) : depthOf((t.gx + sx) * T, (t.gy + sy) * T);
-    items.push({ d, kind: 'tile', t });
+    { const it = pushItem(); it.d = d; it.kind = 'tile'; it.t = t; }
     // FUMÉE : item SÉPARÉ, juste derrière son bâtiment dans l'ordre du peintre —
     // elle doit passer sous le voisin situé au nord, pas par-dessus tout.
     if (smokeK > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
       if (t._smokeS === undefined) t._smokeS = cmHash('smk:' + t.gx + ':' + t.gy) >>> 0;
-      if (t._smokeS % SMOKE_TUNE.share === 0) items.push({ d: d + 0.001, kind: 'smoke', t });
+      if (t._smokeS % SMOKE_TUNE.share === 0) { const it = pushItem(); it.d = d + 0.001; it.kind = 'smoke'; it.t = t; }
     }
     // CHEVRON « nouveau bâtiment » (A4) : item SÉPARÉ juste au-dessus du sien
     // (profondeur > fumée), le temps de REVEAL_PIN_MS après l'achat. Coupé par le
@@ -5144,7 +5174,7 @@ function drawIsoLive(now) {
     if (!dvVis(tr.gx * T, tr.gy * T, (tr.gx + 1) * T, (tr.gy + 1) * T)) continue;
     if (treeBlocked(tr.gx, tr.gy)) continue;
     if (bridgeBlocks((tr.gx + 0.5) * T, (tr.gy + 0.5) * T, T * 0.45)) continue;
-    items.push({ d: depthOf((tr.gx + 0.5) * T, (tr.gy + 0.9) * T), kind: 'tree', tr });
+    { const it = pushItem(); it.d = depthOf((tr.gx + 0.5) * T, (tr.gy + 0.9) * T); it.kind = 'tree'; it.tr = tr; }
   }
   // Forêt sauvage (ceinture autour de la ville, hors sol urbain) — cf. isoWildForest.
   // Culling aux bornes visibles ; le jitter (jx/jy) casse l'alignement sur la grille.
@@ -5153,7 +5183,7 @@ function drawIsoLive(now) {
     if (!dvVis(wt.gx * T, wt.gy * T, (wt.gx + 1) * T, (wt.gy + 1) * T)) continue;
     if (treeBlocked(wt.gx, wt.gy)) continue;
     if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
-    items.push({ d: depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T), kind: 'tree', tr: wt });
+    { const it = pushItem(); it.d = depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T); it.kind = 'tree'; it.tr = wt; }
   }
   // PLACE : scène complète de l'ère posée sur la dalle (profondeur au CENTRE :
   // les passants au sud de la fontaine passent devant, ceux au nord derrière).
@@ -5204,7 +5234,7 @@ function drawIsoLive(now) {
         // bâtiment mitoyen quand le mât longe sa façade sud/est (sinon avalé).
         // gx/gy suivent le mât jusqu'ici : c'est d'eux que sort la PHASE de
         // scintillement de son halo, déposé dans la foulée du sprite.
-        items.push({ d: lp.d, kind: 'lamp', wx: lp.wx, wy: lp.wy, gx: lp.gx, gy: lp.gy, art: lampArt });
+        { const it = pushItem(); it.d = lp.d; it.kind = 'lamp'; it.wx = lp.wx; it.wy = lp.wy; it.gx = lp.gx; it.gy = lp.gy; it.art = lampArt; }
       }
     }
   }
@@ -5264,7 +5294,7 @@ function drawIsoLive(now) {
       // Cull écran ABSENT jusqu'ici en iso (le legacy l'avait) : jusqu'à 450
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
-      items.push({ d: isoUnitDepth(pwx, pwy), kind: 'cit', p });
+      { const it = pushItem(); it.d = isoUnitDepth(pwx, pwy); it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
     // carrosserie est dessinée CENTRÉE sur l'ancre (drawIsoVehicle) : son
@@ -5277,7 +5307,7 @@ function drawIsoLive(now) {
       const lo = vehicleLaneOffset(v, T);
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
       const h = T * 0.30 * (VEH_SIZES[v.type] || 0);
-      items.push({ d: isoUnitDepth(v.x + lo.x + h, v.y + lo.y + h), kind: 'veh', v });
+      { const it = pushItem(); it.d = isoUnitDepth(v.x + lo.x + h, v.y + lo.y + h); it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
