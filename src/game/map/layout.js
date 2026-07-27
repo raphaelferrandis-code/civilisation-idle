@@ -283,10 +283,18 @@ function cmForEachWonderCell(slot, id, N, fn, tier) {
 // ── Utilitaires purs ─────────────────────────────────────────────────────────
 function cmClamp(v, a, b) { return Math.max(a, Math.min(b, Math.round(v))); }
 
+// FNV-1a 32 bits. `String(text)` est HISSÉ hors de la boucle : il y était appelé
+// deux fois PAR CARACTÈRE (condition + charCodeAt), soit 16 conversions pour une
+// clé de 8 signes. Anodin à l'unité, mais cmHash est appelé par cellule dans le
+// pavage du sol iso (deux fois : 'gd:' et 'gd2:') — relevé au profileur sur un
+// dézoom de 13 s, il pesait 285 ms de temps PROPRE, 6,5 % de la frame.
+// La valeur rendue est inchangée (cf. houseVariants.test.js, qui verrouille la
+// distribution des teintes de maisons sur ce hash exact).
 function cmHash(text) {
+  const str = String(text);
   let h = 2166136261;
-  for (let i = 0; i < String(text).length; i += 1) {
-    h ^= String(text).charCodeAt(i);
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
