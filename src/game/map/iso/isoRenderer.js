@@ -5645,6 +5645,14 @@ const ISO_SETTLE_MS = 110;
 // 400 ms couvre l'intervalle entre deux crans : on ne paie plus le sol plein
 // qu'une fois, quand le joueur a réellement fini de dézoomer.
 const ISO_CRISP_SETTLE_MS = 400;
+// Coalescence des invalidations DOUCES (sprite décodé en retard, bm.soft) :
+// au chargement d'une mégapole, ~10-20 PNG décodent étalés sur autant de
+// frames, et chacun déclenchait une recuisson PLEINE immédiate (caméra
+// immobile → settled). Mesuré le 2026-07-27 : 110-190 ms PAR FRAME, 1,6 s de
+// gel cumulé pour 12 décodages. Le contenu du bake existant reste VALABLE
+// (c'est la définition du soft) : on le re-blitte et on ne recuit qu'une fois
+// par fenêtre — la cascade devient au pire 2-3 recuissons.
+const ISO_SOFT_BAKE_MIN_MS = 250;
 // Budget d'une recuisson de sol EN PLEIN GESTE. Au-delà, on préfère le re-blit
 // compensé (flou bref) : une image nette qui coûte un tiers de seconde n'est plus
 // de la netteté, c'est un gel. 45 ms ≈ trois images à 60 fps — assez pour laisser
@@ -5724,6 +5732,9 @@ export function drawIsoWorld(dt, now, helpers) {
       const t0 = performance.now();
       helpers.bakeMargin(CM.groundCanvas, CM.gctx, '_isoGroundBake', key + (lod ? ':lod' : ''), drawIsoGround);
       ISO_GROUND_LOD.on = false;
+      // Toute recuisson réelle ouvre la fenêtre de coalescence des softs : un
+      // décodage qui arrive 50 ms après un bake frais attendra la fin de fenêtre.
+      CM._isoSoftBakeAt = nowMs;
       if (CM._isoGroundBake !== bm) {
         CM._isoGroundBake.zoomB = CM.cam.zoom;  // ancre du stale-blit
         // Coût RÉEL de la dernière recuisson PLEINE : c'est lui qui décide si l'on
@@ -5761,7 +5772,15 @@ export function drawIsoWorld(dt, now, helpers) {
       // `restful` et non `settled` : tant que le joueur enchaîne les crans, on
       // GARDE le bake allégé au lieu de le remplacer par un plein à chaque pause.
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
-    } else if (settled) {
+    } else if (settled
+      // RAFALE DE DÉCODAGES (cascade au chargement) : quand la SEULE raison
+      // d'arriver ici est une invalidation douce (clé inchangée, dans la marge),
+      // le bake existant est encore valable — on le re-blitte tel quel et on
+      // coalesce la recuisson (au plus une par ISO_SOFT_BAKE_MIN_MS, fenêtre
+      // rouverte par toute recuisson réelle). La capture reste déterministe :
+      // elle recuit toujours tout de suite.
+      && (CM.capture || !(bm && bm.soft && baseOf(bm.other) === key && inMargin
+           && nowMs - (CM._isoSoftBakeAt || 0) < ISO_SOFT_BAKE_MIN_MS))) {
       // Repos → sol plein, tous les détails.
       //
       // ⚠ TENTÉ PUIS REJETÉ (2026-07-24) : recuire en ALLÉGÉ sous un seuil de zoom,
