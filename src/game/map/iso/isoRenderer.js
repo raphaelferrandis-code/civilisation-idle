@@ -16,7 +16,7 @@
 import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
@@ -1385,10 +1385,15 @@ function drawIsoGround() {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
       if (cullOn && (p.x < -cullPadX || p.x > CM.cw + cullPadX
         || p.y < -cullPadY || p.y > CM.ch + cullPadY)) continue;
-      // Recuisson en TRANCHES : seules les cellules de la bande courante
-      // travaillent (le clip garantit les pixels, ce test évite le calcul).
-      if (ISO_GROUND_SLICE.on && (p.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
-        || p.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
+      // Recuisson en BANDE (tranche horizontale ou bande verticale du
+      // défilement) : seules les cellules de la bande travaillent — le clip
+      // garantit les pixels, ce test évite le calcul.
+      if (ISO_GROUND_SLICE.on) {
+        if (ISO_GROUND_SLICE.yOn && (p.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
+          || p.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
+        if (ISO_GROUND_SLICE.xOn && (p.x < ISO_GROUND_SLICE.x0 - ISO_GROUND_SLICE.padX
+          || p.x > ISO_GROUND_SLICE.x1 + ISO_GROUND_SLICE.padX)) continue;
+      }
       if (PR) PR.n += 1;
       const key = gx + ',' + gy;
       const isRoad = L.roadSet.has(key);
@@ -1768,8 +1773,10 @@ function drawIsoGround() {
     if (ISO_GROUND_SLICE.on) {
       // Même cull de bande que les cellules (coin nord projeté).
       const pr = worldToScreen(r.gx * T, r.gy * T);
-      if (pr.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
-        || pr.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot) continue;
+      if (ISO_GROUND_SLICE.yOn && (pr.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
+        || pr.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
+      if (ISO_GROUND_SLICE.xOn && (pr.x < ISO_GROUND_SLICE.x0 - ISO_GROUND_SLICE.padX
+        || pr.x > ISO_GROUND_SLICE.x1 + ISO_GROUND_SLICE.padX)) continue;
     }
     const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T;
     const wb = wbR;
@@ -5763,10 +5770,111 @@ const ISO_LIGHT_BUDGET_MS = 70;
 // de la dernière recuisson pleine (même philosophie que crispAffordable) —
 // 110 ms mesurés → 3 bandes, une mégapole à 300 ms → 8.
 const SOL_SLICE_BUDGET_MS = 40;
-const ISO_GROUND_SLICE = { on: false, y0: 0, y1: 0, padTop: 0, padBot: 0 };
+// Bornes de bande génériques : yOn (tranches horizontales — recuisson au repos,
+// bande basse/haute du défilement) et xOn (bandes verticales du défilement).
+const ISO_GROUND_SLICE = { on: false, yOn: true, y0: 0, y1: 0, padTop: 0, padBot: 0, xOn: false, x0: 0, x1: 0, padX: 0 };
+// Cuit UNE bande du canvas de sol (bornes logiques xr/yr, null = tout l'axe)
+// au niveau demandé (false = plein, 'light', true = hard) — partagé par les
+// tranches du repos et les bandes exposées du défilement. Clip débordant de
+// 2 px de chaque côté : la rangée frontière est repeinte à l'identique (même
+// grille de rastérisation), l'antialiasing du bord de clip tombe sur des
+// pixels identiques — pas de couture.
+function bakeGroundStrip(level, xr, yr) {
+  const gc = CM.groundCanvas, gctx = CM.gctx, dpr = CM.dpr || 1;
+  const M = CM._bakeMargin || 0;
+  const mainCtx = CM.ctx, cw0 = CM.cw, ch0 = CM.ch;
+  CM.cw = cw0 + 2 * M; CM.ch = ch0 + 2 * M;
+  CM.ctx = gctx;
+  ISO_GROUND_LOD.on = level !== false;
+  ISO_GROUND_LOD.light = level === 'light';
+  const hh2 = CM.TILE * CM.cam.zoom * ISO_Y;
+  const hw2 = CM.TILE * CM.cam.zoom * ISO_X;
+  ISO_GROUND_SLICE.on = true;
+  ISO_GROUND_SLICE.yOn = !!yr;
+  ISO_GROUND_SLICE.xOn = !!xr;
+  if (yr) {
+    ISO_GROUND_SLICE.y0 = yr[0]; ISO_GROUND_SLICE.y1 = yr[1];
+    ISO_GROUND_SLICE.padTop = hh2 * 5; ISO_GROUND_SLICE.padBot = hh2 * 2;
+  }
+  if (xr) {
+    ISO_GROUND_SLICE.x0 = xr[0]; ISO_GROUND_SLICE.x1 = xr[1];
+    ISO_GROUND_SLICE.padX = hw2 * 3;
+  }
+  gctx.save();
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.beginPath();
+  const rx0 = xr ? Math.floor((xr[0] - 2) * dpr) : 0;
+  const rx1 = xr ? Math.ceil((xr[1] + 2) * dpr) : gc.width;
+  const ry0 = yr ? Math.floor((yr[0] - 2) * dpr) : 0;
+  const ry1 = yr ? Math.ceil((yr[1] + 2) * dpr) : gc.height;
+  gctx.rect(rx0, ry0, rx1 - rx0, ry1 - ry0);
+  gctx.clip();
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try {
+    drawIsoGround();
+  } finally {
+    gctx.restore();
+    ISO_GROUND_SLICE.on = false; ISO_GROUND_SLICE.xOn = false; ISO_GROUND_SLICE.yOn = true;
+    ISO_GROUND_LOD.on = false; ISO_GROUND_LOD.light = false;
+    CM.ctx = mainCtx; CM.cw = cw0; CM.ch = ch0;
+  }
+}
+
+// ── DÉFILEMENT INCRÉMENTAL AU PAN. Un franchissement de marge recuisait TOUT
+// le canvas (49-84 ms sur la machine de jeu, en allégé qui plus est). Ici :
+// auto-copie du canvas décalée d'un nombre ENTIER de pixels device (mode
+// 'copy' : ce qui sort disparaît, ce qui entre devient transparent), ré-ancrage
+// EXACT de la caméra du bake via screenDeltaToPan (l'inverse de la projection —
+// aucune dérive, même après cent franchissements), puis recuisson des SEULES
+// bandes exposées, au MÊME niveau de détail que le contenu existant. Le décalage
+// entier préserve la grille de rastérisation : bandes et contenu défilé
+// s'alignent au pixel près, par construction. Conséquence joueur : le pan reste
+// à PLEINE qualité sur toutes les machines — plus de bascule light/aplat.
+// Molette : __solScroll = false → l'ancienne recuisson complète.
+// Pas de défilement fin : seuil de delta (px logiques) avant de faire glisser
+// le canvas — assez grand pour amortir le coût fixe d'une bande, assez petit
+// pour que la bande reste minuscule.
+const SOL_SCROLL_STEP = 64;
+function scrollGroundOnPan(bm, pd, helpers) {
+  if (typeof window !== 'undefined' && window.__solScroll === false) return false;
+  if (CM.capture) return false;
+  const gc = CM.groundCanvas, gctx = CM.gctx, dpr = CM.dpr || 1;
+  if (!gc || !gctx) return false;
+  // Sécurité : le zoom doit être EXACTEMENT celui du bake (même grille).
+  if (bm.zoomB != null && bm.zoomB !== CM.cam.zoom) return false;
+  const sdx = Math.round(pd.x * dpr), sdy = Math.round(pd.y * dpr);
+  // Fling géant : deux bandes quasi pleines coûteraient plus qu'une recuisson.
+  if (Math.abs(sdx) > gc.width * 0.45 || Math.abs(sdy) > gc.height * 0.45) return false;
+  // 1) Auto-défilement (blit sur soi, pixels entiers, net).
+  gctx.save();
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.imageSmoothingEnabled = false;
+  gctx.globalCompositeOperation = 'copy';
+  gctx.drawImage(gc, -sdx, -sdy);
+  gctx.globalCompositeOperation = 'source-over';
+  gctx.restore();
+  // 2) Ré-ancrage exact : le monde équivalent du décalage entier copié.
+  const dwp = screenDeltaToPan(sdx / dpr, sdy / dpr);
+  bm.camX += dwp.x; bm.camY += dwp.y;
+  // 3) Bandes exposées, au niveau du contenu en place (un lod reste un lod —
+  //    les tranches du repos l'upgraderont, comme avant).
+  const o = String(bm.other || '');
+  const level = o.endsWith(':lodl') ? 'light' : o.endsWith(':lod') ? true : false;
+  const W = gc.width / dpr, H = gc.height / dpr;
+  if (sdy !== 0) {
+    const h = Math.abs(sdy) / dpr;
+    bakeGroundStrip(level, null, sdy > 0 ? [H - h, H] : [0, h]);
+  }
+  if (sdx !== 0) {
+    const w = Math.abs(sdx) / dpr;
+    bakeGroundStrip(level, sdx > 0 ? [W - w, W] : [0, w], null);
+  }
+  helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
+  return true;
+}
+
 let _solSlice = null; // { key, i, n, camX, camY, zoom, ms }
 function runGroundSliceStep(key, nowMs, helpers) {
-  const gc = CM.groundCanvas, gctx = CM.gctx;
   const M = CM._bakeMargin || 0;
   const N = Math.max(2, Math.min(8,
     (typeof window !== 'undefined' && window.__solSlices)
@@ -5776,36 +5884,12 @@ function runGroundSliceStep(key, nowMs, helpers) {
     _solSlice = { key, i: 0, n: N, camX: CM.cam.x, camY: CM.cam.y, zoom: CM.cam.zoom, ms: 0 };
   }
   const t0 = performance.now();
-  const mainCtx = CM.ctx, cw0 = CM.cw, ch0 = CM.ch;
-  // Même gonflage de viewport que cityMapBakeMargin : la projection couvre la marge.
-  CM.cw = cw0 + 2 * M; CM.ch = ch0 + 2 * M;
-  CM.ctx = gctx;
-  const fullH = ch0 + 2 * M;
+  const fullH = CM.ch + 2 * M;
   const y0 = fullH * _solSlice.i / N;
   const y1 = fullH * (_solSlice.i + 1) / N;
-  const hh2 = CM.TILE * CM.cam.zoom * ISO_Y;
-  ISO_GROUND_SLICE.on = true;
-  ISO_GROUND_SLICE.y0 = y0; ISO_GROUND_SLICE.y1 = y1;
-  // Une cellule peint de ~1 hh au-dessus de son coin nord à ~4 hh en dessous
-  // (losange + franges) : marges généreuses, la sur-inclusion ne coûte qu'un peu.
-  ISO_GROUND_SLICE.padTop = hh2 * 5; ISO_GROUND_SLICE.padBot = hh2 * 2;
-  gctx.save();
-  gctx.setTransform(1, 0, 0, 1, 0, 0);
-  gctx.beginPath();
-  // Clip étendu de 2 px DES DEUX CÔTÉS : la bande suivante (peinte après)
-  // repeint la rangée frontière comme une rangée INTÉRIEURE de son clip —
-  // l'antialiasing du bord de clip ne laisse plus de couture (mesuré : les
-  // rangées frontières concentraient 180-220 px d'écart avant ce recouvrement).
-  gctx.rect(0, Math.floor((y0 - 2) * CM.dpr), gc.width, Math.ceil((y1 - y0 + 4) * CM.dpr));
-  gctx.clip();
-  gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-  try {
-    drawIsoGround();
-  } finally {
-    gctx.restore();
-    ISO_GROUND_SLICE.on = false;
-    CM.ctx = mainCtx; CM.cw = cw0; CM.ch = ch0;
-  }
+  // Toute la mécanique (gonflage, clip débordant anti-couture, culls) vit dans
+  // bakeGroundStrip, partagée avec les bandes du défilement incrémental.
+  bakeGroundStrip(false, null, [y0, y1]);
   _solSlice.ms += performance.now() - t0;
   _solSlice.i += 1;
   if (_solSlice.i >= _solSlice.n) {
@@ -5946,7 +6030,16 @@ export function drawIsoWorld(dt, now, helpers) {
     } else if (sameContent && inMargin && !(restful && isLod)) {
       // `restful` et non `settled` : tant que le joueur enchaîne les crans, on
       // GARDE le bake allégé au lieu de le remplacer par un plein à chaque pause.
-      helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
+      // DÉFILEMENT FIN : sans attendre le franchissement de marge (delta accumulé
+      // de 250+ px → bande de ~20 % du canvas → à-coup de 25-50 ms), le canvas
+      // glisse dès SOL_SCROLL_STEP px de delta — bandes minuscules (~6 % du
+      // canvas), coût lissé en ~5-10 ms tous les quelques frames de drag.
+      if (!CM.capture && (Math.abs(pd.x) >= SOL_SCROLL_STEP || Math.abs(pd.y) >= SOL_SCROLL_STEP)
+        && scrollGroundOnPan(bm, pd, helpers)) {
+        // scrollGroundOnPan a ré-ancré et bliité.
+      } else {
+        helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
+      }
     } else if (settled
       // RAFALE DE DÉCODAGES (cascade au chargement) : quand la SEULE raison
       // d'arriver ici est une invalidation douce (clé inchangée, dans la marge),
@@ -5984,12 +6077,15 @@ export function drawIsoWorld(dt, now, helpers) {
         bake(false);
       }
     } else if (sameContent && !inMargin) {
-      // PAN hors marge, même zoom : le stale-blit laisserait une bande vide au
-      // bord d'attaque → bake allégé, net, sans trou, ~1 frame ; le plein arrive
-      // à l'arrêt. LIGHT (textures/voiles) tant que son coût mesuré tient dans
-      // le budget — sinon repli sur l'aplat HARD des machines lentes.
-      // Molette : window.__lightBudgetMs.
-      bake((CM._isoGroundLightMs || 0) <= lightBudget ? 'light' : true);
+      // PAN hors marge, même zoom : DÉFILEMENT INCRÉMENTAL — auto-copie du
+      // canvas décalée au pixel entier + recuisson des seules bandes exposées,
+      // au niveau de détail du contenu en place (pleine qualité conservée sur
+      // toutes les machines). Repli sur l'ancienne recuisson complète allégée
+      // (light si abordable, sinon aplat — molette __lightBudgetMs) pour les
+      // flings géants, la capture ou un zoom intra-cran désaligné.
+      if (!scrollGroundOnPan(bm, pd, helpers)) {
+        bake((CM._isoGroundLightMs || 0) <= lightBudget ? 'light' : true);
+      }
     } else if (bm && bm.zoomB != null) {
       // ZOOM en cours : re-blit du bake existant compensé (échelle zoom/z_bake +
       // delta de pan) — flou bref type carte web, zéro gel, net ~160 ms après.
