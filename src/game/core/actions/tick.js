@@ -447,7 +447,12 @@ export function tick(dt) {
   // Mêmes gardes que l'Intendance ; ses propres cooldowns/plancher d'or dedans.
   if (!gamePaused && !collapseInProgress) tickTempleAutomation();
 
-  checkAndTriggerChronicleEntries(state, dt);
+  // Gazette gardée comme les aubaines/annales : pendant la simulation hors-ligne,
+  // chaque publication faisait un save() complet ANTIDATÉ (horloge virtuelle,
+  // miroir nuage battu), et les dépêches persistées n'étaient pas restaurées par
+  // le finally de la sim (qui ne rend que state.history). Rien n'est dû ici :
+  // la gazette est du flavor en direct, pas un crédit.
+  if (!isNotifyPaused()) checkAndTriggerChronicleEntries(state, dt);
 
   checkCrisisThresholds();
   if (gamePaused || collapseInProgress) return;

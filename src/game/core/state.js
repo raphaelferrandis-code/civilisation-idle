@@ -1650,6 +1650,18 @@ export function save() {
   cloudMirrorSave(); // miroir Google Drive du .exe (throttlé) — no-op en navigateur
 }
 
+// save() DIFFÉRÉE pour les entrées CONTINUES (curseurs, champs numériques) :
+// sérialiser tout l'état à chaque événement d'input coûtait des dizaines de
+// JSON.stringify + miroirs nuage par geste (audit A.8). Le render() reste
+// immédiat chez l'appelant — seul l'enregistrement attend la fin du geste.
+// Un timer encore en vol à la fermeture est couvert par la save() de sortie
+// (beforeunload, main.js).
+let saveSoonTimer = null;
+export function saveSoon(delayMs = 800) {
+  if (saveSoonTimer) clearTimeout(saveSoonTimer);
+  saveSoonTimer = setTimeout(() => { saveSoonTimer = null; save(); }, delayMs);
+}
+
 // Invalide d'un seul coup les 5 caches de frame (vitals, pressure, globalMult,
 // globalMultDec, rates) : il suffit d'avancer la version, les getters comparent
 // eux-mêmes. Appelé 1× en tête de tick (remplace 5 nullages) et par scope "all".

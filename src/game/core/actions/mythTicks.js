@@ -2,7 +2,8 @@
 
 import {
   invalidateRenderCache,
-  buildingById
+  buildingById,
+  isNotifyPaused
 } from '../state.js';
 import { tr } from '../i18n.js';
 
@@ -193,6 +194,13 @@ export const MYTH_TICK_HANDLERS = {
 
   mythe_de_cadmos: (state) => {
     if (state.cadmosPromptPending) return;
+    // JAMAIS pendant la simulation hors-ligne : promptCadmosAgeName est async et
+    // pose cadmosPromptPending sans setGamePaused — la sécurité « gamePaused →
+    // break » de la sim ne le voyait pas, et chaque tick suivant sortait AVANT
+    // checkCrisisThresholds : l'auto-effondrement rupture100 ne tirait plus de
+    // toute l'absence. Les seuils étant absolus, la modale s'ouvrira simplement
+    // au premier tick en ligne — rien n'est perdu.
+    if (isNotifyPaused()) return;
     // Les seuils sont ABSOLUS : une cité qui a farmé les franchit tous d'emblée, et
     // c'est voulu (cf. myths.js). Mais on ne réclame plus un nom une fois l'objectif
     // atteint — sinon franchir dix paliers d'un coup imposait dix modales bloquantes

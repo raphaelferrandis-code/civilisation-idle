@@ -23,7 +23,7 @@
 //   - Icare : resolveIcarusHeadless(stakeId, cible) — même loi que le jeu
 //     interactif, sans état de vol ni timer.
 
-import { state, render, save, isNotifyPaused, isOfflineSim, defaultTempleAuto } from '../state.js';
+import { state, render, save, saveSoon, isNotifyPaused, isOfflineSim, defaultTempleAuto } from '../state.js';
 import { regulationActionUnlocked } from '../mechanics.js';
 import { castAugury, auguryStake, auguryPaytable, AUGURY_RITES } from './augures.js';
 import { collectTrunk, trunkValue } from './offeringTrunk.js';
@@ -235,7 +235,10 @@ export function setTempleAuto(game, patch) {
   if (game === "icarus" && "target" in p) {
     g.target = Math.max(AUTO_ICARUS_TARGET_MIN, Math.min(AUTO_ICARUS_TARGET_MAX, Number(p.target) || AUTO_ICARUS_TARGET_MIN));
   }
-  save();
+  // saveSoon : le curseur « Cible » et le plancher de Faveur appellent ce verbe
+  // à CHAQUE pas du geste — une save() pleine par événement d'input sérialisait
+  // tout l'état des dizaines de fois par glissement (audit A.8).
+  saveSoon();
   render();
 }
 

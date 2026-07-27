@@ -362,14 +362,19 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
     deltas.push({ key, label: labelFor(key), amount: fmt(diff), negative: diff.lt(0) });
   }
   // Ce qui NE tourne PAS pendant l'absence. Sans cette liste, l'écart avec
-  // l'attente se lit comme un bug. Le Temple et les aubaines n'y figurent plus
-  // depuis qu'ils tournent (C12).
+  // l'attente se lit comme un bug. Le Temple et les aubaines ne tournent (C12)
+  // que sur le chemin FARM (la vraie boucle rejouée) : sur le chemin linéaire,
+  // les cadrans payés ne jouent pas et aucune aubaine ne tombe — le taire
+  // ferait chercher un bug à qui a payé ses automatisations 500-700 ✦.
   const idle = [
     { label: tr({ fr: "les fêtes de jalon", en: "milestone celebrations" }) },
     { label: tr({ fr: "les bulles d'habitants", en: "citizen bubbles" }) }
   ];
   if (!farm) {
-    idle.push({ label: tr({ fr: "la Rupture, gelée hors ligne", en: "Rupture, frozen while away" }) });
+    idle.push(
+      { label: tr({ fr: "les cadrans du temple et les aubaines", en: "temple dials and boons" }) },
+      { label: tr({ fr: "la Rupture, gelée hors ligne", en: "Rupture, frozen while away" }) }
+    );
   }
   return {
     title: narrative,

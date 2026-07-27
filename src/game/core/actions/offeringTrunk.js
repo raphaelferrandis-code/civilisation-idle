@@ -11,7 +11,7 @@
 // Reset (defaultState). L'auto-relève (templeAutomation) appelle collectTrunk
 // quand le tronc frôle le plafond.
 
-import { state, save, render } from '../state.js';
+import { state, save, render, isNotifyPaused, isOfflineSim } from '../state.js';
 import { TRUNK_RATE_PER_S, TRUNK_CAP } from '../balance.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordOffering } from '../chronicleStats.js';
@@ -40,8 +40,13 @@ export function collectTrunk(options = {}) {
   state.trunkAt = now;
   // Registre de la Chronique : offrandes récoltées (et Faveur gagnée à vie).
   recordOffering(gain);
-  if (!silent) pushOutcomeFloat({ label: `🏺 +${gain} faveur`, kind: "gain" });
-  save();
+  // isNotifyPaused : l'auto-relève tourne aussi pendant la simulation hors-ligne
+  // (C12) — sans ce garde, chaque relève virtuelle empilait un float, et le
+  // retour d'une longue absence ouvrait sur une rafale de « +N faveur ».
+  if (!silent && !isNotifyPaused()) pushOutcomeFloat({ label: `🏺 +${gain} faveur`, kind: "gain" });
+  // La sim hors-ligne sauve UNE fois à la fin : un save() par relève sous
+  // horloge virtuelle écrivait des dizaines d'états antidatés (miroir compris).
+  if (!isOfflineSim()) save();
   if (doRender) render();
   return gain;
 }

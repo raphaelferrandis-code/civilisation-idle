@@ -7,9 +7,20 @@
 // hydrateState, et une place dans la sauvegarde — trois obligations pour une
 // donnée qui vit dix secondes.
 let showIdleReport = null;
+// File d'attente de UN : le rapport est publié par startGameLoop AVANT que la
+// vue Cité — seul point de montage du panneau — ne soit forcément montée
+// (activeView est persistée : revenir d'absence sur l'onglet Régulation jetait
+// le rapport, la seule explication du solde qui a bougé). Le dernier rapport
+// non consommé attend l'enregistrement du prochain handler.
+let pendingReport = null;
 
 export function registerIdleReport(handler) {
   showIdleReport = typeof handler === "function" ? handler : null;
+  if (showIdleReport && pendingReport) {
+    const report = pendingReport;
+    pendingReport = null;
+    showIdleReport(report);
+  }
   return () => {
     if (showIdleReport === handler) showIdleReport = null;
   };
@@ -27,5 +38,7 @@ export function registerIdleReport(handler) {
 //   idle         [{ label }] ce qui n'a PAS tourné, pour que l'écart avec
 //                l'attente ne soit pas lu comme un bug
 export function publishIdleReport(report) {
-  if (showIdleReport && report) showIdleReport(report);
+  if (!report) return;
+  if (showIdleReport) showIdleReport(report);
+  else pendingReport = report;
 }

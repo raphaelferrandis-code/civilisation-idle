@@ -8,6 +8,7 @@ import {
   invalidateRenderCache,
   render,
   save,
+  saveSoon,
   isOfflineSim
 } from '../state.js';
 
@@ -105,7 +106,9 @@ export function setAutomateField(id, field, raw) {
   if (!rule || !(field in rule)) return;
   const val = parseFloat(raw);
   if (!isNaN(val)) rule[field] = clamp(Math.round(val), bounds[0], bounds[1]);
-  save();
+  // saveSoon : branché sur l'onChange des champs réserve/débit — même motif que
+  // setTempleAuto, une save() pleine par frappe est un gaspillage (audit A.8).
+  saveSoon();
   render();
 }
 
