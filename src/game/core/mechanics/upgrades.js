@@ -3,7 +3,7 @@
 // Disponibilité des upgrades, nœuds de l'arbre de prestige et dogmes. Leaf.
 import { upgradeById } from '../state.js';
 import { upgrades, dogmaIds, PRESTIGE_TREE, PRESTIGE_DOGMAS } from '../../data/upgrades.js';
-import { fmt, labelFor, canPayCost } from '../utils.js';
+import { canPayCost } from '../utils.js';
 import { has, isUnlocked, ruinEffectSum } from './shared.js';
 
 // Coût EFFECTIF en ruines d'un nœud de l'arbre : coût nominal × remise
@@ -30,10 +30,6 @@ export function ownedRuinBranchPurchaseCount(branchId) {
 // a plus de nœuds que le seuil, l'aval reste toujours atteignable (anti-softlock).
 export function ownedInBranchBelowTier(branchId, tier) {
   return PRESTIGE_TREE.filter((node) => node.branch === branchId && node.tier < tier && has(node.id)).length;
-}
-
-export function upgradeCostText(upgrade) {
-  return Object.entries(upgrade.cost).map(([key, value]) => `${fmt(value)} ${labelFor(key)}`).join(" + ");
 }
 
 export function canBuyUpgrade(upgrade) {

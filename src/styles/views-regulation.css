@@ -799,64 +799,6 @@
 }
 
 
-/* ── Boutique de Faveur (emplacement v1 : aperçu grisé « bientôt ») ── */
-.faveur-shop-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.faveur-shop-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.36rem 0.1rem;
-  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
-  cursor: default;
-}
-
-.faveur-shop-item.is-active {
-  border-color: color-mix(in srgb, var(--res-food), transparent 55%);
-}
-
-.faveur-shop-icon { font-size: 1rem; width: 1.3rem; text-align: center; }
-
-.faveur-shop-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
-
-.faveur-shop-name { font-size: 0.8rem; color: var(--text-strong); }
-
-.faveur-shop-lvl { color: var(--muted); font-family: var(--font-number); font-size: 0.72rem; }
-
-.faveur-shop-fx { font-size: 0.7rem; color: var(--muted); }
-
-.faveur-shop-item.is-active .faveur-shop-fx { color: var(--res-food); }
-
-.faveur-shop-buy {
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--gold), transparent 88%);
-  color: var(--gold-bright);
-  font-family: var(--font-number);
-  font-size: 0.74rem;
-  padding: 0.18rem 0.6rem;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.faveur-shop-buy:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--gold), transparent 78%);
-  border-color: var(--gold);
-}
-
-.faveur-shop-buy:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.faveur-shop-maxed {
-  font-size: 0.6875rem;
-  color: var(--res-food);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.8;
-}
-
 .regulation-stage.is-empty { align-items: center; justify-content: center; }
 
 /* Scène au repos : filigrane discret (sans texte — retour Raph), pas de spoiler. */

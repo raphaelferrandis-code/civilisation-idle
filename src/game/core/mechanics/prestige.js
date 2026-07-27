@@ -16,7 +16,6 @@ import {
   RUIN_SHORT_CYCLE_SEC,
   CRISIS_RESOLVE_RUIN_CAP,
   PREP_FUNEBRE_BOOST,
-  MYTH_GATE_START_GR,
   TIME_WEAR_BASE_RATE,
   TIME_WEAR_MITIGATION_CAP,
   STAGNATION_USURE_RAMP_SEC,
@@ -186,12 +185,6 @@ export function ruinGain(projected = false, extraPrep = 0) {
   const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
   const restProduct = ageDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod * chaosHeritageMod;
   return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
-}
-
-// Nombre de Mythes complétés requis pour le n-ième Grand Reset (gating doux :
-// GR3 : 1, GR4 : 2, … — les Mythes sont les chapitres de la route principale).
-export function grandResetMythsRequired(nextCount) {
-  return nextCount >= MYTH_GATE_START_GR ? nextCount - (MYTH_GATE_START_GR - 1) : 0;
 }
 
 export function completedMythCount() {

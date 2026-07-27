@@ -57,8 +57,8 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
 
   const _babelExpMult  = babelExponentialMult();
   const _hephInfraFactor = hephInfraMult();
-  // Étouffement de la production de population par les Mythes (Héphaïstos : déclin ;
-  // Âge d'Or : plafond). Neutre (×1) hors de ces Mythes.
+  // Étouffement de la production de population sous Héphaïstos (déclin).
+  // Neutre (×1) hors de ce Mythe.
   const _popSuppressFactor = hephPopProdMult();
   const babelActive = isMythEffectActive("mythe_de_babel");
 

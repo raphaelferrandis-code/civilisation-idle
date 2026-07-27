@@ -797,12 +797,6 @@ export const FOUNDING_GRACE_BUILDINGS = 80;
 export const RUIN_POP_DEPTH_REF = 15000;  // population de référence (ancien : 25000)
 export const RUIN_POP_DEPTH_EXP = 0.45;   // exposant (ancien : 0.42)
 
-// Gating doux des Grand Resets par les Mythes : à partir de MYTH_GATE_START_GR,
-// chaque GR exige un Mythe complété de plus (GR3 : 1, GR4 : 2, … GR10 : 8).
-// Les Mythes deviennent les chapitres de la route principale au lieu d'un
-// contenu optionnel contournable (le bot a atteint GR10 avec 1 seul Mythe).
-export const MYTH_GATE_START_GR = 3;
-
 // Récompense de la « rafale d'ères » post-GR : chaque palier d'ère maximale
 // jamais atteint ajoute un bonus PLAT de ruines à chaque effondrement. La
 // retraversée express des ères devient une pluie de gains visibles.

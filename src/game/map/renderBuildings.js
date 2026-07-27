@@ -326,28 +326,6 @@ function drawTile(t, now, timeWear, maxD2) {
 
 }
 
-function drawMinimap() {
-  if (!CM.mctx) return;
-  const m = CM.mctx, size = 150, world = CM.gridN * CM.TILE, sc = size / world;
-  m.clearRect(0, 0, size, size);
-  m.fillStyle = "#1a1208"; m.fillRect(0, 0, size, size);
-  if (CM.layout) {
-    m.fillStyle = "#3a3326";
-    for (const r of CM.layout.roads) m.fillRect(r.gx * CM.TILE * sc, r.gy * CM.TILE * sc, Math.max(1, CM.TILE * sc), Math.max(1, CM.TILE * sc));
-    for (const t of CM.layout.tiles) {
-      m.fillStyle = t.type === "engine" ? (CM_INFRA_IDS.has(t.buildingId) ? "#b8a882" : CM_KNOWLEDGE_IDS.has(t.buildingId) ? "#6bb6ff" : "#d4a017") : "#8b6914";
-      const span = t.size || 1;
-      m.fillRect(t.gx * CM.TILE * sc, t.gy * CM.TILE * sc, Math.max(1, span * CM.TILE * sc), Math.max(1, span * CM.TILE * sc));
-    }
-  }
-  // Rectangle de la zone visible.
-  const vx = (CM.cam.x - CM.cw / 2 / CM.cam.zoom) * sc;
-  const vy = (CM.cam.y - CM.ch / 2 / CM.cam.zoom) * sc;
-  const vw = (CM.cw / CM.cam.zoom) * sc, vh = (CM.ch / CM.cam.zoom) * sc;
-  m.strokeStyle = "#ffffff"; m.lineWidth = 1;
-  m.strokeRect(vx, vy, vw, vh);
-}
-
 // ── Merveilles pixel-art ─────────────────────────────────────────────────────
 // Sprites 5 rangs (public/pixelart/wonders/<id>-t<rang>.png) + flammes animées
 // en overlay, positionnées par <id>-flames.json (ancres curées à la main).
@@ -937,4 +915,4 @@ function drawWonder(w, idx, now) {
   ctx.globalAlpha = 1;
 }
 
-export { drawMinimap, drawTile, drawWonder };
+export { drawTile, drawWonder };

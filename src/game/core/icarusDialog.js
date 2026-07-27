@@ -6,12 +6,8 @@
 // Le moteur (actions/icarus.js) reste autoritaire : rouvrir pendant un vol le
 // REPREND en cours (le timer de chute n'a jamais cessé de courir).
 
-import { openTempleGame, closeTempleStage } from './templeGames.js';
+import { openTempleGame } from './templeGames.js';
 
 export function openIcarusFlight() {
   openTempleGame('icarus');
-}
-
-export function closeIcarusFlight() {
-  closeTempleStage();
 }

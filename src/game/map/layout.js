@@ -5,7 +5,7 @@ import { seededRng, fmtShort } from '../core/utils.js';
 import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
-import { setCityMapEngineTileMap, setCaptureVestigeHandler } from './cityMapBridge.js';
+import { setCaptureVestigeHandler } from './cityMapBridge.js';
 import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
@@ -16,7 +16,7 @@ import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildin
 import { createWaterModel } from './procedural/waterModel.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
 import {
-  CM_ENGINE_BUILDINGS, CM_KNOWLEDGE_BUILDINGS, CM_INFRA_BUILDINGS, CM_MAP_BUILDINGS,
+  CM_MAP_BUILDINGS,
   CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
 } from './cityBuildings.js';
 

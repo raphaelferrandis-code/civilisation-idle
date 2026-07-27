@@ -2,6 +2,11 @@
 // marqués + un voile mauve) : désature vers la luminance, biais chaud léger,
 // SANS toucher l'alpha ni les dimensions. Chantier iso, sol Phase 1+.
 //
+// ⚠⚠⚠ NON IDEMPOTENT — ÉCRIT EN PLACE SANS COPIE ⚠⚠⚠
+// Chaque exécution re-applique SAT/LIFT/WARM sur le RÉSULTAT de la précédente
+// (la désaturation se compose) : relancer deux fois = tuile deux fois assagie.
+// Ne relancer qu'après restauration des _orig.
+//
 // Usage: node scripts/isoToneDown.cjs <png> [--sat 0.4] [--lift 0.06] [--warm 6]
 //   --sat  part de couleur conservée (0..1, défaut 0.4 = 60 % désaturé)
 //   --lift éclaircit vers le blanc (0..1, défaut 0.06)

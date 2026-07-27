@@ -161,10 +161,11 @@ function BuildingShop() {
   // suffit puisque la map ne fait que grandir.
   const revealVersion = useGameState((s) => Object.keys(s.revealedBuildings || {}).length);
 
-  // Mémoïsé sur cette clé et non sur « buildings, cycles, ère » comme le
-  // proposait la fiche : isUnlocked lit state.buildings, state.cycles ET
-  // state.cyclePeaks, donc ces dépendances-là auraient GELÉ l'apparition
-  // économique, c'est-à-dire cassé la chose même que D6 vient rendre visible.
+  // ATTENTION à la forme : ce useMemo mémoïse une FONCTION, pas ses résultats —
+  // chaque appel de categoryData(catId) ré-exécute filter+sort. Pas un cache,
+  // donc : juste une identité stable entre deux re-renders. Le vrai déclencheur
+  // d'apparition, c'est l'abonnement revealVersion ci-dessus, qui force le
+  // re-render (et donc le recalcul) quand un bâtiment se révèle.
   const categoryData = useMemo(() => (catId) => {
     const order = buildingDisplayOrder[catId] || [];
     const all = buildings

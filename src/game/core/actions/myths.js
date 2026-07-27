@@ -143,10 +143,9 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
     preventClose: required,
     multiSelectOptions: choices.map((definition) => ({
       id: definition.id,
-      label: `${definition.title} (${definition.source})${definition.pending ? " - slot futur" : ""}`,
+      label: `${definition.title} (${definition.source})`,
       bonus: `Bonus: ${definition.bonus}`,
-      malus: `Malus: ${definition.malus}`,
-      disabled: Boolean(definition.pending)
+      malus: `Malus: ${definition.malus}`
     })),
     defaultSelectedIds: state.activeRuinIds || [],
     options: [
@@ -166,7 +165,7 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
   });
 
   const selectedIds = choice.label === "Aucune Ruine active" ? [] : (choice.selectedIds || []);
-  const allowedIds = new Set(choices.filter((definition) => !definition.pending).map((definition) => definition.id));
+  const allowedIds = new Set(choices.map((definition) => definition.id));
   state.activeRuinIds = selectedIds.filter((id, index, array) => allowedIds.has(id) && array.indexOf(id) === index);
   state.pendingActiveRuinsChoice = false;
   if (state.activeRuinIds.includes("enee")) {
@@ -725,7 +724,6 @@ export function resetCivilization() {
   resetTemporaryRunState(state);
 
   // Overwrite any properties that have custom starting values on reset:
-  state.orPopPeak = state.population;
   state.hephPopPeak = state.population;
   state.eneeTerritoryStartedAt = isMythEffectActive("mythe_d_enee") ? Date.now() : null;
   

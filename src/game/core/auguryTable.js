@@ -6,12 +6,8 @@
 // crise…) bascule sur l'onglet Régulation et monte la scène des osselets ;
 // bufferisé si la vue n'est pas encore prête (cf. templeGames.js).
 
-import { openTempleGame, closeTempleStage } from './templeGames.js';
+import { openTempleGame } from './templeGames.js';
 
 export function openAuguryTable(id) {
   openTempleGame('augury', { id });
-}
-
-export function closeAuguryTable() {
-  closeTempleStage();
 }

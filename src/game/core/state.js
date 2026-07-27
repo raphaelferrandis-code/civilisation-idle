@@ -30,8 +30,6 @@ export { SAVE_KEY };
 // v4 : rétro-correctif des « Braisiers ancestraux » — l'héritage de Prométhée était
 // effacé par resetTemporaryRunState à l'effondrement même qui l'accordait, donc
 // aucune save ne peut le porter. On le re-dérive de mythsCompleted.
-// v5 : « La Veille du feu » remplace les Braisiers comme héritage de Prométhée.
-// Un Mythe accompli le reste (D7) : le nouveau déblocage est re-dérivé lui aussi.
 export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSave.js sans importer state.js)
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).

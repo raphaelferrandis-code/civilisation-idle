@@ -253,11 +253,11 @@ export function cityVitals(forceDecimalPath = false) {
     foodBonus,
     goldBonus,
     knowledgeBonus,
-    populationMult: Math.max(0.7, 1 + foodBonus),
+    populationMult: 1 + foodBonus,
     foodMult: 1,
-    goldMult: Math.max(0.85, 1 + goldBonus),
-    knowledgeMult: Math.max(0.85, 1 + knowledgeBonus),
-    infraMult: Math.max(0.85, 1 + goldBonus * 0.35 + knowledgeBonus * 0.22),
+    goldMult: 1 + goldBonus,
+    knowledgeMult: 1 + knowledgeBonus,
+    infraMult: 1 + goldBonus * 0.35 + knowledgeBonus * 0.22,
     instabilityRelief: Math.max(0, clamp01(foodScore - 0.92) * 0.018 + knowledgeBonus * 0.06)
   };
   if (!forceDecimalPath) {

@@ -6,12 +6,8 @@
 // Le moteur (actions/blackjack.js) reste autoritaire : rouvrir la scène pendant
 // une main la REPREND en cours (l'état module n'a pas bougé).
 
-import { openTempleGame, closeTempleStage } from './templeGames.js';
+import { openTempleGame } from './templeGames.js';
 
 export function openBlackjack() {
   openTempleGame('blackjack');
-}
-
-export function closeBlackjack() {
-  closeTempleStage();
 }

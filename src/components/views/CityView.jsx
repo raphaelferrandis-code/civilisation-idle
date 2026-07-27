@@ -234,8 +234,8 @@ export default function CityView() {
   const ragnarokCompteARebours = ragnarokNext
     ? `${Math.floor((ragnarokNext[0] - ragnarokAgeMs) / 60_000)}:${String(Math.floor(((ragnarokNext[0] - ragnarokAgeMs) % 60_000) / 1000)).padStart(2, "0")}`
     : null;
-  // Prix VIVANT de l'offrande (secondes de prod courante, cliqueté à la hausse) —
-  // recalculé au rythme du re-render 1 Hz, comme les taux du Comptoir.
+  // Prix de l'offrande : le lot FIGÉ à l'activation du pacte (state.ragnarokArkCost,
+  // cf. ragnarokOfferingCost) — le tooltip le dit : « Le prix a été scellé au pacte ».
   const ragnarokLot = isRagnarok ? ragnarokOfferingCost() : null;
   const ragnarokCdLeft = Math.max(0, Math.ceil(((ragnarokArkNextAt || 0) - now) / 1000));
   const ragnarokPayable = Boolean(ragnarokLot) && ragnarokCdLeft <= 0 &&

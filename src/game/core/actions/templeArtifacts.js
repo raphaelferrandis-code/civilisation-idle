@@ -7,7 +7,7 @@
 // templeAutomation.js (qui ont besoin des gardes d'ère → évite le cycle ici).
 
 import { state } from '../state.js';
-import { IVORY_DOG_CUT, IVORY_VENUS_BONUS, NOYE_POT_MULT } from '../balance.js';
+import { IVORY_DOG_CUT, IVORY_VENUS_BONUS } from '../balance.js';
 
 // Possession d'un artefact booléen (dé d'ivoire, osselet du noyé, plumes, solaires).
 export function hasTempleArtifact(id) {
@@ -23,10 +23,4 @@ export function ivoryDogCut() {
 }
 export function ivoryVenusBonus() {
   return hasTempleArtifact("ivoire") ? IVORY_VENUS_BONUS : 0;
-}
-
-// Osselet du noyé — refonte ÉCONOMIQUE : les revers d'osselets nourrissent ×N la
-// cagnotte d'Icare (lu dans castAugury.apply, branche perte).
-export function noyePotMult() {
-  return hasTempleArtifact("noye") ? NOYE_POT_MULT : 1;
 }

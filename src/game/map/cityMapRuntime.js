@@ -1,15 +1,11 @@
 /* eslint-disable */
-import { state, collapseInProgress, setCollapseInProgress, buildingById, renderCache } from '../core/state.js';
+import { state, collapseInProgress, setCollapseInProgress, renderCache } from '../core/state.js';
 import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 import {
   CM,
   CM_MAP_BUILDINGS,
   CM_WONDERS,
-  ROAD_E,
-  ROAD_N,
-  ROAD_S,
-  ROAD_W,
   cmWonderSlot,
   cmWonderActiveIds,
   cmWonderCoreR,
@@ -65,7 +61,7 @@ import {
   cityMapCalmRioterAt,
   quayWallTune
 } from './renderWorld.js';
-import { drawTile, drawWonder, drawMinimap } from './renderBuildings.js';
+import { drawTile, drawWonder } from './renderBuildings.js';
 import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
@@ -1426,7 +1422,6 @@ function initCityMap(canvas, options = {}) {
       // Relevé de frame (cf. framePerf.js). Ouvert ICI et non dans le renderer :
       // le préambule ci-dessous coûtait 93 ms contre 32 ms pour tout le dessin.
       fpBegin();
-      if (!CM.cw) resize();
       cityMapEnsureLayout(now, cityMapRuntimeDeps);
       fp('layout');
       // A9 — Clavier tenu (flèches/+/-) puis rattrapage amorti, AVANT le clamp

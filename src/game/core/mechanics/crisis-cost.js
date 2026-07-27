@@ -11,7 +11,8 @@ import {
   CRISIS_COST_ACTION_GROWTH,
   FOYER_REFORM,
   FATIGUE_EFFECT_PENALTY,
-  FATIGUE_COST_PENALTY
+  FATIGUE_COST_PENALTY,
+  AUGURY_DOG_CLEMENCY_CRANS
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
@@ -39,7 +40,7 @@ export function clemencyCrans(id) {
   const rolls = state.gambleHistory?.[id];
   if (!Array.isArray(rolls) || !rolls.length) return 0;
   let crans = 0;
-  for (let i = rolls.length - 1; i >= 0 && rolls[i] !== 1; i--) crans += rolls[i] === 2 ? 2 : 1;
+  for (let i = rolls.length - 1; i >= 0 && rolls[i] !== 1; i--) crans += rolls[i] === 2 ? AUGURY_DOG_CLEMENCY_CRANS : 1;
   return crans;
 }
 

@@ -11,13 +11,17 @@
 //                 => un fichier déjà propre n'est PAS réécrit (diff git minimal)
 //     --dry       n'écrit rien, affiche seulement ce qui serait fait
 //
-// Dossiers TOUJOURS ignorés (sécurité) : _orig, _archive, splash, palettes.
+// Dossiers TOUJOURS ignorés (sécurité) : _orig, _archive, splash, palettes,
+// wonders (calibrées à 32 teintes — le lot @24 les écraserait ; même liste que
+// remapPalette.mjs). Fichiers protégés : tree-base.png (fresque peinte ~1150
+// teintes, cf. l'avertissement de remapPalette.mjs — l'indexer la détruirait).
 
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
 
-const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes'];
+const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders'];
+const PROTECTED_FILES = ['tree-base.png'];
 
 // ---- CLI ----
 const argv = process.argv.slice(2);
@@ -77,7 +81,13 @@ function quantize(png, N) {
 
 function listPngs(p) {
   const st = fs.statSync(p);
-  if (st.isFile()) return p.toLowerCase().endsWith('.png') ? [p] : [];
+  if (st.isFile()) {
+    if (PROTECTED_FILES.includes(path.basename(p).toLowerCase())) {
+      console.warn('skip (fichier protégé, cf. PROTECTED_FILES):', p);
+      return [];
+    }
+    return p.toLowerCase().endsWith('.png') ? [p] : [];
+  }
   const out = [];
   for (const e of fs.readdirSync(p)) {
     const fp = path.join(p, e);
@@ -85,6 +95,7 @@ function listPngs(p) {
       if (SKIP_DIRS.includes(e)) continue;
       out.push(...listPngs(fp));
     } else if (e.toLowerCase().endsWith('.png')) {
+      if (PROTECTED_FILES.includes(e.toLowerCase())) continue;
       out.push(fp);
     }
   }

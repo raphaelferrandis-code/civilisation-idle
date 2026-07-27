@@ -68,10 +68,6 @@ export function hephPopProdMult() {
   return elapsed > HEPH_POP_DECAY_START_MIN ? HEPH_POP_PROD_MULT : 1;
 }
 
-// Sous l'Âge d'Or, la population est PLAFONNÉE : sa production tombe à 0 une fois
-// le plafond atteint (max plancher absolu / relatif au départ du cycle). La cité
-// dorée prospère sans s'étaler — sans cet arrêt dur, la pop explose (mesuré 10^45)
-// et rend l'objectif « ne pas dépasser le plafond » injouable à l'échelle post-GR.
 // ── Cadmos ─────────────────────────────────────────────────────────────────
 function cadmosPermanentBonus(orientation) {
   return (state.cadmosPermanentEpitaphs || [])

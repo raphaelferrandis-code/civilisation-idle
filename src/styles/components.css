@@ -332,7 +332,7 @@
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  /* Petits chiffres : rôle --font-small (= Pixelify Sans, cf. variables.css). */
+  /* Petits chiffres : rôle --font-small (= Inter, cf. variables.css). */
   font-family: var(--font-small);
   font-size: 0.9rem;
 }

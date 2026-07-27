@@ -171,8 +171,8 @@ export const BUY_ALL_CURRENCIES = new Set(["food", "gold", "knowledge", "infrast
 // Jamais atteint en pratique : les coûts explosent géométriquement (scale^count).
 const BUY_ALL_MAX_ITERS = 10000;
 
-// Exportée pour la file d'achats (C8), qui a besoin EXACTEMENT de la même
-// garde : ce qui ne s'achète pas en masse ne s'épingle pas non plus.
+// Exportée pour BuildingShop.jsx (délai avant achat, B5), qui a besoin EXACTEMENT
+// de la même garde : ce qui ne s'achète pas en masse n'entre pas dans le délai.
 export function buyableInMass(building) {
   if (!BUY_ALL_CATEGORIES.has(building.category)) return false;
   if (!isUnlocked(building)) return false;

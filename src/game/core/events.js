@@ -162,9 +162,11 @@ export async function runCollapseSequence(gain, reason) {
     const fallPeak = crediblePopulation(state.cyclePeaks?.population || state.population);
     // Vœu du cycle (D2) : lu AVANT completeCollapse, qui remet le vœu à zéro.
     completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).mul(cycleVowRuinMult(state)).round(), fallenDynasty, epitaph, reason);
-    // Pas de bandeau quand les notifications sont en pause : le rattrapage hors
-    // ligne enchaîne les effondrements (jusqu'à OFFLINE_MAX_COLLAPSES) et
-    // empilerait autant de bilans, dont un seul serait encore d'actualité.
+    // Ceinture de sécurité : AUJOURD'HUI cette garde est toujours vraie ici — le
+    // rattrapage hors ligne (qui pause les notifications) appelle completeCollapse
+    // directement, jamais runCollapseSequence. On la garde au cas où un futur
+    // chemin pauserait les notifications : enchaîner les effondrements empilerait
+    // autant de bilans, dont un seul serait encore d'actualité.
     if (!isNotifyPaused()) {
       state.lastCycleReport = {
         year: fallYear,

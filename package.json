@@ -20,6 +20,9 @@
     "productName": "Civilisation Idle",
     "files": [
       "dist/**/*",
+      "!dist/**/_orig/**",
+      "!dist/**/_archive/**",
+      "!dist/**/Asepritelayers/**",
       "main.cjs",
       "preload.cjs"
     ],

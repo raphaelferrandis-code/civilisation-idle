@@ -52,8 +52,8 @@ export const RAGNAROK_ID = "mythe_du_ragnarok";
 //   « figé APRÈS le reset » → prix planchers, bot en 2 min 45 ;
 //   « vivant sur la prod courante » → croître se retournait contre l'Arche
 //   (et ne rien bâtir = planchers) ; bot en échec permanent.
-// L'Arche n'accepte qu'UNE offrande toutes les 2 min : la 8e ne peut pas tomber
-// avant ~14 min — on ne rushe pas la Fin, on la traverse. Équilibrage voulu
+// L'Arche n'accepte qu'UNE offrande toutes les 100 s : la 8e ne peut pas tomber
+// avant ~11 min 40 — on ne rushe pas la Fin, on la traverse. Équilibrage voulu
 // (demande Raph) : l'Hiver divise le revenu — le Comptoir de marchandage, les
 // jeux du temple, l'Aile, la Langue commune et les moteurs comblent l'écart.
 export const RAGNAROK_DURATION_MS          = 24 * 60_000;
@@ -526,33 +526,6 @@ export const MYTHS = [
     heritageDescription: {
       fr: `La Langue commune : une fois par cycle, déclare une langue — la catégorie choisie produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à la fin du cycle. Réglable en automatique.`,
       en: `The Common Tongue: once per cycle, declare a language — the chosen category produces +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the end of the cycle. Can be set to automatic.`
-    },
-
-    buildChoiceHTML() {
-      const cats = [
-        { value: "city",      label: tr({ fr: "Cite", en: "City" }),                   desc: tr({ fr: "Nourriture, Commerce, Rayonnement", en: "Food, Commerce, Radiance" }) },
-        { value: "knowledge", label: tr({ fr: "Savoir", en: "Knowledge" }),           desc: tr({ fr: "Connaissance, Academies, Archives", en: "Learning, Academies, Archives" }) },
-        { value: "infra",     label: tr({ fr: "Infrastructure", en: "Infrastructure" }), desc: tr({ fr: "Aqueducs, Routes, Batisseurs", en: "Aqueducts, Roads, Builders" }) }
-      ];
-      return `
-        <div class="myth-modal-row">
-          <span class="myth-modal-label">${tr({ fr: "Type de bâtiment", en: "Building type" })}</span>
-          <div class="babel-category-choice">
-            ${cats.map((c, i) => `
-              <label class="babel-cat-option">
-                <input type="radio" name="babelCategory" value="${c.value}"${i === 0 ? " checked" : ""}>
-                <span class="babel-cat-name">${c.label}</span>
-                <span class="babel-cat-desc">${c.desc}</span>
-              </label>
-            `).join("")}
-          </div>
-        </div>
-      `;
-    },
-
-    readChoice(dialog) {
-      const checked = dialog.querySelector('[name="babelCategory"]:checked');
-      state.babelCategory = checked ? checked.value : "city";
     },
 
     onActivate() {},
