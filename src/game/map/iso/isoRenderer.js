@@ -2935,6 +2935,11 @@ const GL_RUN_MIN = 120;
 // lit UNE fois par frame (constante d'import : la molette n'aurait aucun effet
 // après chargement).
 
+// Seuil d'éclaircie de la forêt : taille de tuile écran sous laquelle les
+// arbres se chevauchent au point qu'en retirer devient invisible (à 11 px, un
+// arbre en couvre ~21 et ses voisins mordent dessus).
+const WILD_THIN_UNIT = 14;
+
 const WILD_BLOCK = 32;                  // cellules par côté de bloc
 const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
 
@@ -5395,9 +5400,24 @@ function drawIsoLive(now) {
   }
   // Forêt sauvage (ceinture autour de la ville, hors sol urbain) — cf. isoWildForest.
   // Culling aux bornes visibles ; le jitter (jx/jy) casse l'alignement sur la grille.
+  // ÉCLAIRCIE AU DÉZOOM (opt-in, comparaison visuelle en cours) : sous
+  // WILD_THIN_UNIT px de tuile, les arbres de la ceinture se chevauchent
+  // largement et l'œil ne distingue plus les individus. En sauter une part
+  // (choix STABLE par cellule, donc pas de scintillement au pan) libère le
+  // premier poste de la frame. Réglage : window.__wildThin = fraction gardée
+  // (1 = tout, 0.5 = un sur deux).
+  const wildKeep = (typeof window !== 'undefined' && window.__wildThin != null) ? window.__wildThin : 1;
+  const wildThinOn = wildKeep < 1 && T * z < WILD_THIN_UNIT;
   for (const wt of isoWildForest(L, b)) {
     if (wt.gx < b.gx0 || wt.gx > b.gx1 || wt.gy < b.gy0 || wt.gy > b.gy1) continue;
     if (!dvVis(wt.gx * T, wt.gy * T, (wt.gx + 1) * T, (wt.gy + 1) * T)) continue;
+    if (wildThinOn) {
+      // Rang STABLE par arbre (mémoïsé) : le même arbre est gardé ou écarté
+      // d'une frame à l'autre — un tirage par frame ferait clignoter la forêt.
+      let rk = wt._rk;
+      if (rk === undefined) rk = wt._rk = (cmHash('wk:' + wt.gx + ':' + wt.gy) % 1000) / 1000;
+      if (rk >= wildKeep) continue;
+    }
     if (treeBlocked(wt.gx, wt.gy)) continue;
     if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
     { const it = pushItem(); it.d = depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T); it.kind = 'tree'; it.tr = wt; }
