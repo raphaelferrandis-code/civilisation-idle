@@ -1467,7 +1467,17 @@ function initCityMap(canvas, options = {}) {
     // initCityMap relance une boucle neuve au prochain montage).
     if (!CM.ctx || !CM.canvas) return;
     CM.raf = requestAnimationFrame(frame);
-    if (now - last < cmFrameMs && !CM.capture) return; // capture : court-circuite le throttle
+    // ⚠ TOLÉRANCE D'UNE DEMI-VSYNC (8 ms) — sans elle, le cap N fps sur un écran
+    // à N Hz BOITE. Les timestamps rAF arrivent à ~16,67 ms ± un bruit d'horloge :
+    // dès qu'un delta mesure 16,6 < cmFrameMs, la frame est sautée et la suivante
+    // arrive à 33,3 ms. Mesuré (2026-07-28, palier Élevée, écran 60 Hz) : la carte
+    // ne se mettait à jour que ~41 fois/s en rythme 1-2-1-2 (45 % des intervalles
+    // = 2 vsync) — un boitement plus visible que du 30 fps régulier. Le bug était
+    // MASQUÉ tant que le GPU saturait (frame ≥ 2 vsync de toute façon) ; la levée
+    // de la falaise de l'eau l'a exposé. Avec la tolérance : cap 60 → chaque
+    // vsync passe (60 réguliers) ; cap 30 → 16,7 ms reste refusé, 33,3 accepté
+    // (30 réguliers, inchangé). La capture, elle, court-circuite le throttle.
+    if (now - last < cmFrameMs - 8 && !CM.capture) return;
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
     // Capture déterministe : rendre MÊME si la vue est « inactive » (modal de crise,
     // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).

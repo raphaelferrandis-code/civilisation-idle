@@ -2508,6 +2508,24 @@ function waterTilesImage() {
   im.src = '/pixelart/water/river-tiles.png';
   return null;
 }
+// ── NAPPE EN MOTIF RÉPÉTÉ ────────────────────────────────────────────────────
+// `createPattern` répète TOUTE l'image, pas un rectangle source : la frame
+// courante de la bande doit donc vivre dans son propre canvas 16×16. Huit
+// frames, cuites une fois pour la session (le contenu ne dépend que du PNG).
+let waterFrameTiles = null;
+function waterFrameTile(img, fi) {
+  if (!waterFrameTiles) waterFrameTiles = new Array(WATER_FRAMES).fill(null);
+  let c = waterFrameTiles[fi];
+  if (c) return c;
+  if (typeof OffscreenCanvas !== 'undefined') c = new OffscreenCanvas(WATER_TILE, WATER_TILE);
+  else { c = document.createElement('canvas'); c.width = WATER_TILE; c.height = WATER_TILE; }
+  const cx = c.getContext('2d');
+  if (!cx) return null;
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE, 0, 0, WATER_TILE, WATER_TILE);
+  waterFrameTiles[fi] = c;
+  return c;
+}
 
 function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const G = waterTilesTune;
@@ -2579,6 +2597,51 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const fi = ((Math.floor(phaseFrame) % WATER_FRAMES) + WATER_FRAMES) % WATER_FRAMES;
   const d = (((phaseDrift % spatial) + spatial) % spatial) * z;
   const ox = anchor.x + dx * d, oy = anchor.y + dy * d;
+  // ── UN SEUL FILL, AU LIEU DE MILLIERS DE TUILES SOUS CLIP ───────────────────
+  // MESURE 2026-07-28 (build de production, Electron, barrière GPU par
+  // getImageData) : au dézoom maximum cette nappe pesait 1 147 drawImage pour
+  // 0,19 Mpx — et **18 ms de GPU sur les 33 de la frame**. Cent fois le coût au
+  // pixel de tout le reste de la carte : ce n'est pas du remplissage, c'est le
+  // `clip()` de forme complexe (le ruban, des centaines de points) que le GPU
+  // ré-applique à CHAQUE tuile.
+  //
+  // Or ce double balayage n'est qu'un pavage régulier : exactement ce qu'un
+  // motif répété fait en UN appel, le ruban servant alors de RÉGION DE
+  // REMPLISSAGE au lieu de clip. Même réseau de tuiles (origines à ox + k·step),
+  // même frame d'animation, même alpha — et plus de coutures, la répétition
+  // étant faite par l'échantillonneur au lieu du `+1 px` de recouvrement.
+  // Le cull par bandes ci-dessous devient sans objet : rien à écarter quand il
+  // n'y a qu'un fill. A/B : globalThis.__waterPattern = false rejoue les tuiles.
+  if (globalThis.__waterPattern !== false) {
+    // Repli SILENCIEUX sur le pavage tuile à tuile si le motif n'est pas
+    // disponible (canvas hors écran refusé, source pas décodable) : la nappe
+    // s'affiche toujours, elle coûte seulement plus cher.
+    let pat = null;
+    try {
+      const tile = waterFrameTile(img, fi);
+      if (tile) pat = ctx.createPattern(tile, 'repeat');
+    } catch { pat = null; }
+    if (pat) {
+      if (dbg) dbg('motif', { step: +step.toFixed(2), ox: +ox.toFixed(1), oy: +oy.toFixed(1) });
+      const k = step / WATER_TILE;
+      pat.setTransform({ a: k, b: 0, c: 0, d: k, e: ox, f: oy });
+      ctx.save();
+      ctx.imageSmoothingEnabled = G.worldPx * z < 1;
+      ctx.globalAlpha = Math.min(1, G.strength);
+      ctx.fillStyle = pat;
+      riverRibbonPath(ctx, pts, T);
+      ctx.fill();
+      if (tint !== 0) {
+        ctx.globalAlpha = 1;
+        const a = Math.min(1, Math.abs(tint)).toFixed(3);
+        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(158,184,192,${a})`;
+        riverRibbonPath(ctx, pts, T);
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+  }
   const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
   const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
   // ── EMPRISE RÉELLE DU RUBAN, BANDE DE LIGNE PAR BANDE DE LIGNE ──────────────
@@ -6406,8 +6469,8 @@ function drawIsoWorldInner(dt, now, helpers) {
         // (crispAffordable), le light décide si le pan hors marge peut se payer
         // les textures (lightAffordable) — auto-calibrants tous les deux.
         const dt = performance.now() - t0;
-        if (level === false) CM._isoGroundBakeMs = dt;
-        else if (level === 'light') CM._isoGroundLightMs = dt;
+        if (level === false) { CM._isoGroundBakeMs = dt; CM._isoGroundBakeMsZ = CM.cam.zoom; }
+        else if (level === 'light') { CM._isoGroundLightMs = dt; CM._isoGroundLightMsZ = CM.cam.zoom; }
       }
       helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');
     };
@@ -6427,7 +6490,27 @@ function drawIsoWorldInner(dt, now, helpers) {
     // Auto-calibrant : la 1re recuisson chère est payée une fois, puis évitée.
     // Molette : window.__crispBudgetMs.
     const crispBudget = (typeof window !== 'undefined' && window.__crispBudgetMs) || ISO_CRISP_BUDGET_MS;
-    const crispAffordable = (CM._isoGroundBakeMs || 0) <= crispBudget;
+    // PRÉDICTIF, pas seulement rétrospectif (2026-07-28) : la dernière mesure
+    // date souvent du zoom de JEU, où le bake est bon marché — au début de chaque
+    // geste de DÉZOOM, le budget autorisait donc 2-3 recuissons pleines dont le
+    // coût grimpe avec l'aire visible (gels « sol » de 25→68 ms relevés au
+    // profil de geste) avant d'apprendre. Or ce coût est ∝ cellules visibles,
+    // donc ∝ 1/zoom² : on extrapole la mesure au zoom courant et on coupe AVANT
+    // de payer le premier gel. Au zoom de jeu l'estimation vaut la mesure
+    // (rapport ≈ 1) : le sol net du palier Élevée y reste entier.
+    const crispZ = CM._isoGroundBakeMsZ || CM.cam.zoom;
+    const crispEstMs = (CM._isoGroundBakeMs || 0) * Math.max(1, (crispZ / CM.cam.zoom) ** 2);
+    const crispAffordable = crispEstMs <= crispBudget;
+    // Même prédiction pour le bake ALLÉGÉ : lui n'était budgeté que sur le pan
+    // hors marge, alors qu'un GESTE DE MOLETTE réel l'atteint par une autre
+    // porte — les crans s'espacent de plus d'ISO_SETTLE_MS (110 ms < cadence
+    // humaine), donc chaque cran est « accalmie courte » → bake('light') SANS
+    // garde-fou. Au dézoom d'une mégapole ce light coûte ~100 ms : un gel PAR
+    // CRAN de molette (profil de geste 2026-07-28 : gels « sol » de 98-134 ms).
+    // Sur-budget → aplat HARD transitoire (10-20 ms), textures au repos long —
+    // le même arbitrage que le pan hors marge fait depuis toujours.
+    const lightZ = CM._isoGroundLightMsZ || CM.cam.zoom;
+    const lightEstMs = (CM._isoGroundLightMs || 0) * Math.max(1, (lightZ / CM.cam.zoom) ** 2);
     const lightBudget = (typeof window !== 'undefined' && window.__lightBudgetMs) || ISO_LIGHT_BUDGET_MS;
     if (CM.crispGesture && crispAffordable && !settled && bm && !sameContent) {
       // MAXIMALE : zoom/dézoom en cours → au lieu du re-blit LISSÉ (flou), on
@@ -6477,7 +6560,7 @@ function drawIsoWorldInner(dt, now, helpers) {
       // L'accalmie COURTE pose désormais le LIGHT (textures/voiles gardés) : le
       // « sol tout blanc » entre deux crans était le premier reproche visuel.
       if (!restful) {
-        bake('light');
+        bake(lightEstMs <= lightBudget ? 'light' : true);
       } else if (bm && isLod && !CM.capture && baseOf(bm.other) === key && inMargin
         && (typeof window === 'undefined' || window.__solSlices !== 0)) {
         // Repos long avec un LIGHT de la même clé à l'écran : le plein arrive
@@ -6494,7 +6577,7 @@ function drawIsoWorldInner(dt, now, helpers) {
       // (light si abordable, sinon aplat — molette __lightBudgetMs) pour les
       // flings géants, la capture ou un zoom intra-cran désaligné.
       if (!scrollGroundOnPan(bm, pd, helpers)) {
-        bake((CM._isoGroundLightMs || 0) <= lightBudget ? 'light' : true);
+        bake(lightEstMs <= lightBudget ? 'light' : true);
       }
     } else if (bm && bm.zoomB != null) {
       // ZOOM en cours : re-blit du bake existant compensé (échelle zoom/z_bake +
@@ -6508,7 +6591,8 @@ function drawIsoWorldInner(dt, now, helpers) {
         (CM.cw + 2 * M) * s, (CM.ch + 2 * M) * s);
       ctx.imageSmoothingEnabled = prev;
     } else {
-      bake(restful ? false : 'light'); // rien à réutiliser (1er bake, canvas effacé)
+      // Rien à réutiliser (1er bake, canvas effacé) — light lui aussi sous budget.
+      bake(restful ? false : (lightEstMs <= lightBudget ? 'light' : true));
     }
   } else {
     drawIsoGround();
