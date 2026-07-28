@@ -290,11 +290,5 @@
       "antique": "4af430b9-20a1-465f-9979-1417582586a4",
       "modern": "ec4d0b70-459f-4788-bbf5-751a35f8f2e3"
     }
-  },
-  "millWheelsIso": {
-    "_doc": "v2 (retour Raph « il faut la voir de 3/4 ») : objets 8-DIRECTIONS 96px, la rotation south-west EST le 3/4 (audit wheel-rot-audit.png), animée seule « turning » 6 frames — fetch → public/pixelart/iso/mill-wheel-{k}.png. v1 (1-dir promus, trop de face) : cbf15046/a199b969/76e7fc8a",
-    "wood": "cdd96a5f-cea2-4224-9d43-8c9b86bdf1c0",
-    "metal": "147f5ccd-6976-42e4-98fb-8c03fbdac8cb",
-    "turbine": "0a8e0026-ac14-44dc-b0e9-2aea1a0fb62a"
   }
 }

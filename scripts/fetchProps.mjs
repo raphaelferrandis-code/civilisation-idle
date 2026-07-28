@@ -108,22 +108,28 @@ const PROPS = [
   },
   {
     key: 'mill-prop-house',
-    // moulin stade 0 — CABANE-MOULIN EN BOIS (vue 3/4, 64×64) posée sur la berge ;
-    // roue à aubes montée sur le flanc GAUCHE (cadrage moteur : boîte ~carrée 1.5×1.5,
-    // cf. cityEngineSprites.js, branche `if (stage === 0 && propReady('mill-prop-house'))`).
-    id: '18515690-7517-4c3d-aead-91541a9be8e0', // cabane bois VALIDÉE (2026-06-30). NB : objet né d'un prompt « tour » — PixelLab a rendu cette cabane, qu'on a adoptée. Variante plus LARGE dispo : 2e2d2b83-eb67-4857-9736-a7670a354d5c (72×64, prompt = celui ci-dessous).
-    // ⚠ POST-TRAITEMENT obligatoire : verrou palette d'âge « bois » via
-    //   `node scripts/remapPalette.mjs <fichier> --epoch bois` (~19 teintes). Pas de
-    //   coverDoor (la cabane a une porte assumée). Piste abandonnée : tour de PIERRE
-    //   df5b54c1 recolorée bois (silhouette tour trop étroite — l'utilisateur a préféré
-    //   la cabane). Le prompt ci-dessous est la consigne de RÉGÉN cabane (≠ prompt tour
-    //   d'origine de 18515690) ; régénérer → remap bois.
-    prompt: 'a small cozy wooden riverside watermill house, three-quarter side view, completely deserted, no people, no figures, NO water wheel and no circular shapes: a compact log cabin mill building with brown timber plank walls, exposed corner beams and a steep wooden shingle gabled roof, a low stone foundation along the bottom, a small wooden door and one small window on the right-hand front, the LEFT side wall kept flat and bare ready to mount a water wheel, built of warm weathered brown timber and wood planks, soft light from the upper-left casting shadows to the lower-right, transparent background',
+    // moulin stade 0 — TOUR DE MOULIN À VENT EN BOIS (refonte éolienne 2026-07-28 :
+    // water_mills est un moteur TERRESTRE multi-instances, plus rien de riverain).
+    // Générée SANS ailes (l'hélice est un sprite séparé tourné par blitPropRot).
+    // Post-DL, DEUX pas : `node scripts/millPost.mjs crop` (blitProp REMPLIT sa boîte,
+    // le pied du PNG doit être le pied de la tour) puis remapPalette
+    // `--epoch bois --no-accent --ramps timberClay,earthStone,clayCopper,skin,inkShadow`.
+    // Moyeu ancré à 0.64 de la hauteur (fraction MESURÉE sous l'avant-toit de chaume,
+    // table HUB_F de cityEngineSprites.js). Ancienne cabane riveraine : 18515690.
+    id: '436a12b0-62e9-4d08-bf2f-9f4c3a3662ce', // map-object 80×112 → 49×97 recadré (⚠ endpoint /mcp/map-objects/, id périmé ~8 h)
+    prompt: 'a small primitive wooden windmill tower seen from a low top-down front angle, completely deserted, no people, no figures, no person, NO windmill sails, no blades, no rotor, no cross: a squat tapering tower of weathered vertical brown timber planks with exposed corner posts and beams, a plain flat upper front face with a small dark round wooden hub mount plate set high just under the roof ready to receive the sails, a small plank door at the base and one tiny window, a simple pointed cap roof of golden straw thatch, a LIMITED FLAT palette of only a few solid colors (weathered brown timber, straw gold thatch, dark shadow brown), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background, no ground',
   },
   {
     key: 'mill-prop-wheel',
-    id: '70692c85-6180-4a41-a382-ba28c75ff34a', // moulin stade 0 — roue à aubes SYMÉTRIQUE & centrée (96×96, side), tournée via blitPropRot autour du centroïde (now/900) ; v1 e6bd2451 = roue de char asymétrique → wobble (rejeté)
-    prompt: 'a watermill paddle water wheel seen edge-on in flat front view, perfectly circular and centered in the frame, a small round central hub with twelve straight wooden spokes radiating evenly to a thick round outer rim, the rim lined all the way around with many evenly spaced flat rectangular paddle boards sticking outward, weathered brown timber, completely empty, no people, no figures, radially symmetric like a gear, soft even light, transparent background',
+    // moulin stades 0-1 — HÉLICE 4 pales bois/toile (96×96, side), tournée en continu
+    // par blitPropRot autour du centroïde opaque. ⚠ SYMÉTRIE RADIALE OBLIGATOIRE :
+    // toute asymétrie fait une ORBITE (leçon roue de char v1 e6bd2451, wobble rejeté).
+    // Post-DL, DEUX pas : `node scripts/millPost.mjs sym` (reconstruction 4 axes exacte,
+    // attendre « rot90-mismatch=0 ») puis remapPalette
+    // `--epoch bois --no-accent --ramps timberClay,boneWhite,earthStone,inkShadow`.
+    // Ancienne roue à aubes riveraine : 70692c85.
+    id: '5d972336-14db-46fd-a94e-a06529efa8c1', // map-object 96×96 (⚠ endpoint /mcp/map-objects/, id périmé ~8 h)
+    prompt: 'four wooden windmill sails arranged in a perfect symmetric cross, seen flat face-on in front view, perfectly centered in the frame, radially symmetric like a plus sign: a small dark round wooden hub at the exact center with four identical long rectangular lattice-frame sails radiating straight up, down, left and right, each sail a straight wooden stock carrying a rectangular lattice grid frame covered by pale cream canvas cloth, weathered brown timber and cream canvas, completely empty background, no people, no figures, no tower, no building, no pole, no landscape, a LIMITED FLAT palette of only a few solid colors, basic flat shading with no gradients, soft even light, transparent background',
   },
   // ── CUEILLEUR (foragers) stades 1-3 — passage pixel-art (2026-07-05) ──────────
   {
@@ -383,34 +389,54 @@ const PROPS = [
     id: '62f77f33-37c0-468d-b112-c444cf200daa', // stade 3 — dock béton/métal + liseré cyan (80×112)
     prompt: 'a modern concrete and metal dock pier extending straight forward over water, top-down view, completely deserted, no people, no figures, no person, transparent background no water: a wide flat concrete deck with metal edge rails and glowing cyan guidance strip lights along both sides, sturdy metal pilings, sleek grey concrete and dark metal with cyan neon accents, soft glow lighting',
   },
-  // ── MOULIN (water_mills) stades 1-3 — RIVERAIN comme le port (2026-07-05) ──
-  // Bâtiments face-au-fleuve (flanc gauche plat pour la roue) + roues SYMÉTRIQUES (side,
-  // tournées via blitPropRot). Bâtiment + roue GRANDISSENT par ère (leçon port).
+  // ── MOULIN À VENT (water_mills) stades 1-3 — refonte éolienne TERRESTRE (2026-07-28) ──
+  // Plus rien de riverain : tours générées SANS ailes (l'hélice est un sprite séparé,
+  // symétrie radiale, tourné par blitPropRot au moyeu). Post-DL, DEUX pas partout :
+  //   tours   : `node scripts/millPost.mjs crop`  puis remapPalette --no-accent --ramps <famille>
+  //   hélices : `node scripts/millPost.mjs sym`   puis remapPalette (rot90-mismatch=0 exigé)
+  // Le moyeu est ancré par tour sur une fraction MESURÉE (table HUB_F, cityEngineSprites.js).
+  // ⚠ ids = map-objects (endpoint /mcp/map-objects/), périmés ~8 h après création.
   {
     key: 'mill-house-stone',
-    // ⚠ v1 = maison 3/4 (8e8e705d) — Raph a préféré une TOUR ; v2 = tour de pierre haute (80×128).
-    id: '7a1b119b-a48f-4f1b-906f-837cf588e239', // stade 1 — TOUR de moulin médiévale pierre (80×128)
-    prompt: 'a tall medieval stone watermill tower building seen from a low top-down front angle facing the water, completely deserted, no people, no figures, no person: a tall narrow multi-storey round stone tower with small windows up its height, a conical pointed wooden shingle roof on top, the left side wall kept flat and bare ready to mount a water wheel, warm earthy stone palette, soft light from the upper-left casting shadows to the lower-right, transparent background no ground',
+    // stade 1 — TOUR de moulin à vent médiévale pierre (80×128 → 58×115 recadrée), moyeu 0.72.
+    // remap `--epoch pierre --no-accent --ramps earthStone,timberClay,inkShadow,boneWhite,skin,foliage`.
+    // Anciennes tours riveraines : v1 8e8e705d (maison), v2 7a1b119b (tour à roue).
+    id: '681c2a2e-edf5-402c-8ac2-c94778b47e6c',
+    prompt: 'a tall medieval stone windmill tower mill seen from a low top-down front angle, completely deserted, no people, no figures, no person, NO windmill sails, no blades, no rotor, no cross: a tall round gently tapering tower of warm weathered beige stone masonry blocks, two small windows up its height and a small plank door at the base, a boat-shaped cap roof of dark timber shingles on top, a small dark round wooden hub mount plate high on the front face just under the cap ready to receive the sails, a LIMITED FLAT palette of only a few solid colors (warm beige stone, dark timber brown, deep shadow brown), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background, no ground',
   },
   {
     key: 'mill-house-industrial',
-    id: '15c90e4a-f6e6-49a0-bb5c-ddc48db2e5b8', // stade 2 — TOUR minoterie brique haute (80×128)
-    prompt: 'a tall industrial brick watermill tower building seen from a low top-down front angle facing the water, completely deserted, no people, no figures, no person: a tall narrow multi-storey dark red brick tower with stone corner quoins, arched windows on each floor, a pointed slate roof, the left side wall kept flat and bare ready to mount a water wheel, dark brick and slate palette, soft light from the upper-left casting shadows to the lower-right, transparent background no ground',
+    // stade 2 — TOUR de moulin brique à galerie (80×128 → 76×120 recadrée), moyeu 0.72
+    // (les ailes balaient devant la galerie, comme un vrai moulin-tour à étage).
+    // remap `--epoch fonte --no-accent --ramps universal,clayCopper,metalSlate,inkShadow,earthStone,timberClay`.
+    // Ancienne tour minoterie riveraine : 15c90e4a.
+    id: '59e10bbe-206a-428c-96b0-d35891a30673',
+    prompt: 'a tall industrial brick windmill tower mill seen from a low top-down front angle, completely deserted, no people, no figures, no person, NO windmill sails, no blades, no rotor, no cross: a tall round gently tapering tower of dark red brick with pale stone quoin bands, arched windows on each floor and an iron-railed gallery balcony ringing the tower partway up, a dark iron ogee dome cap on top, a small dark round iron hub mount plate high on the front face just under the cap ready to receive the sails, a LIMITED FLAT palette of only a few solid colors (dark red brick, pale stone, dark iron, deep shadow brown), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background, no ground',
   },
   {
-    key: 'mill-house-hydro',
-    id: '897a65ea-2aae-4383-9aa9-ebf25e9e26e7', // stade 3 — TOUR hydro béton/verre haute (80×128)
-    prompt: 'a tall futuristic hydroelectric tower building seen from a low top-down front angle facing the water, completely deserted, no people, no figures, no person: a tall narrow sleek concrete-and-glass tower with glowing cyan window strips up its height, a flat roof, a metal penstock pipe running down the left side ready to mount a turbine, cool grey concrete and dark metal with cyan neon accents, soft glow lighting, transparent background no ground',
+    key: 'mill-house-modern',
+    // stade 3 — MÂT D'ÉOLIENNE moderne (80×128 → 24×127 recadré : un vrai mât fin,
+    // la scène préserve l'aspect quand le plafond de hauteur mord), moyeu 0.93 (nacelle).
+    // remap `--epoch neon --ramps metalSlate,boneWhite,earthStone,inkShadow` (accents cyan gardés).
+    // Remplace mill-house-hydro (barrage 897a65ea, trop aquatique au milieu des champs — retiré).
+    id: '51927730-6eeb-4899-93b6-d854cb0011ee',
+    prompt: 'a tall modern wind turbine tower seen from a low top-down front angle, completely deserted, no people, no figures, no person, NO rotor blades, no propeller, no sails: a sleek smoothly tapering pale grey steel and concrete tower, a compact rounded nacelle housing at the very top facing forward with a small dark round hub mount plate on its front face ready to receive the rotor, a small access door at the base and one thin subtle glowing cyan light strip, clean minimal design, a LIMITED FLAT palette of only a few solid colors (pale cool grey steel, mid grey concrete, dark slate, a small cyan accent), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background, no ground',
   },
   {
     key: 'mill-wheel-metal',
-    id: '9950e90d-ce12-4e93-8661-3c2bb04c9e46', // stade 2 — roue à aubes FER industrielle, symétrique (96×96, side)
-    prompt: 'an industrial iron watermill paddle wheel seen edge-on in flat front view, perfectly circular and centered in the frame, a small round central hub with twelve straight riveted iron spokes radiating evenly to a thick round outer rim, the rim lined all the way around with many evenly spaced flat metal paddle boards sticking outward, dark riveted iron and steel, completely empty, no people, no figures, radially symmetric like a gear, soft even light, transparent background',
+    // stade 2 — HÉLICE 4 pales FER à persiennes (96×96, side), symétrisée par millPost sym.
+    // remap `--epoch fonte --no-accent --ramps metalSlate,inkShadow,earthStone`.
+    // Ancienne roue à aubes fer : 9950e90d.
+    id: '35bb566d-bc9a-42f3-8090-f30f9fd682cb',
+    prompt: 'four industrial iron windmill sails arranged in a perfect symmetric cross, seen flat face-on in front view, perfectly centered in the frame, radially symmetric like a plus sign: a small round riveted iron hub at the exact center with four identical long rectangular riveted iron lattice sails radiating straight up, down, left and right, each sail a dark iron frame filled with narrow steel slat shutters, dark riveted iron and steel, completely empty background, no people, no figures, no tower, no building, no pole, no landscape, a LIMITED FLAT palette of only a few solid colors, basic flat shading with no gradients, soft even light, transparent background',
   },
   {
     key: 'mill-turbine',
-    id: '0e02f150-c216-443b-86ed-c79a293a9973', // stade 3 — turbine hydro néon, symétrique (96×96, side)
-    prompt: 'a futuristic hydro turbine rotor seen edge-on in flat front view, perfectly circular and centered in the frame, a small round central hub with many evenly spaced curved metal turbine blades radiating symmetrically to a round outer ring, glowing cyan energy accents along the blades, sleek dark metal, completely empty, no people, no figures, radially symmetric like a gear, soft glow lighting, transparent background',
+    // stade 3 + cosmique — ROTOR d'éolienne moderne 4 pales (96×96, side), symétrisé par
+    // millPost sym. remap `--epoch neon --ramps metalSlate,boneWhite,inkShadow` (bouts cyan).
+    // Ancienne turbine hydro : 0e02f150.
+    id: 'ce1b6b80-ebad-4307-a80f-281b78fc0c91',
+    prompt: 'a modern wind turbine rotor with four sleek aerodynamic blades arranged in a perfect symmetric cross, seen flat face-on in front view, perfectly centered in the frame, radially symmetric like a plus sign: a smooth round dark metal hub nose cone at the exact center with four identical long slender tapering aerodynamic blades radiating straight up, down, left and right, sleek pale grey metal blades with a small subtle glowing cyan tip accent, completely empty background, no people, no figures, no tower, no building, no pole, no landscape, a LIMITED FLAT palette of only a few solid colors, basic flat shading with no gradients, soft glow lighting, transparent background',
   },
   // ── MONNAIES (mint_houses) stades 2-3 + cosmique — bâtiment CLOS (2026-07-05) ──
   // Stades 0 (atelier+feu animé) et 1 (mint-prop-house) déjà pixel. Emblème pièce doré = identité.
@@ -791,7 +817,10 @@ const PROPS = [
   { key: "universities-classical", id: "a0c9b6d9-e635-47d9-87e4-23686f2c7b7c", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman athenaeum and school of rhetoric seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a grand marble hall of higher learning with a columned portico of tall fluted travertine columns supporting a triangular pediment carved with a wreath, joined to an open semicircular tiered auditorium of stepped marble seats (an exedra) where rhetoric and philosophy were declaimed, a colonnaded inner courtyard framed by white marble columns, low terracotta tiled roofs on the flanking wings, a couple of tall bronze lecterns and a marble stele of inscribed learning in the court, dressed white marble and honey travertine with terracotta-orange roof tiles, a LIMITED FLAT palette of only a few solid colors, basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
   { key: "observatories-horologium", id: "40d46ac5-57b2-4cf6-add8-f3d91218eef8", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman horologium astronomical tower seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: an octagonal marble tower of the winds with a conical terracotta-tiled roof crowned by a small bronze weathervane, sundial dials carved into its upper marble faces, standing on a raised travertine-paved plaza; the plaza floor is inlaid with a radiating bronze meridian sundial line and a tall slender stone gnomon obelisk casting a long shadow, and beside it a bronze verdigris armillary sphere mounted on a fluted marble plinth; a short columned portico with a triangular pediment marks the tower entrance, dressed stone steps around the base, a LIMITED FLAT palette of only a few solid colors, cream travertine and white marble with terracotta-orange roof tiles and verdigris bronze accents, basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
   { key: "libraries-classical", id: "e9ce1800-0a4c-4c6a-97a8-026301ca2b96", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman bibliotheca library seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a rectangular marble public library building in the manner of the Library of Celsus, a low-pitched terracotta-tiled gable roof with a triangular pediment carved with a scroll-and-open-book emblem, a colonnaded portico of fluted white marble columns with Corinthian capitals running across the front, deep shaded arched niches (armaria) between the columns holding rolled papyrus scrolls stacked on shelves, travertine steps leading up to a central bronze-fitted doorway, dressed ashlar stone walls with pilasters along the sides, a LIMITED FLAT palette of only a few solid colors, white and cream marble, warm travertine tan, terracotta-red roof tiles, dark bronze and shadow accents, basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
-  { key: "mill-house-roman", id: "fcc6e693-343c-4095-a4b5-36a5fbfd80d4", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman stone watermill seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a compact Roman mill house (mola aquaria) built of pale dressed travertine ashlar blocks with thin red brick banding courses, a low terracotta clay-tiled hipped roof seen from above, a small round-arched doorway and a couple of small square windows, a raised stone aqueduct millrace channel carried on little masonry arches running along the LEFT side and pouring water down onto that flank which is kept flat and open with a timber sluice ready to mount a wooden overshot water wheel, standing on a paved stone quay at the water's edge, a LIMITED FLAT palette of only a few solid colors (cream travertine stone, warm terracotta roof tiles, grey masonry, brown timber), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background no ground" },
+  // band 4 — TOUR de moulin à vent romaine (refonte éolienne 2026-07-28, remplace la mola aquaria fcc6e693).
+  // 80×128 → 47×120 recadrée (millPost crop), moyeu 0.67 (platine bronze VISIBLE sous l'avant-toit).
+  // remap `--epoch marbre --no-accent --ramps boneWhite,earthStone,clayCopper,universal,timberClay,skin,inkShadow`.
+  { key: "mill-house-roman", id: "4d6d3bcd-c887-4266-93d5-8ce9901d2361", shading: 'basic shading', quantize: 16, prompt: "a tall ancient Roman stone windmill tower seen from a low top-down front angle, completely deserted, no people, no figures, no person, NO windmill sails, no blades, no rotor, no cross: a tall round gently tapering tower of pale cream travertine ashlar blocks with thin red brick banding courses, a small round-arched doorway at the base and two small square windows up the height, a conical roof of red terracotta clay tiles, a small dark round bronze hub mount plate high on the front face just under the roof ready to receive the sails, a LIMITED FLAT palette of only a few solid colors (cream travertine stone, terracotta roof tiles, warm brick red, deep shadow brown), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background, no ground" },
   { key: "printing-scriptorium", id: "84dabccc-c18c-44d5-b37a-e500b981d9fa", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman book scriptorium workshop building (a taberna libraria) seen from a high top-down angle looking down at it from above, a compact building seen from OUTSIDE, NOT an interior, no floor plan, no open room: a small rectangular travertine-and-brick building with a low red terracotta tile roof clearly visible from above, a round-arched doorway flanked by two short marble pilasters at the front, one open shopfront window on the front revealing tall wooden pigeonhole shelves stacked with rolled papyrus scrolls, a couple of terracotta scroll jars and a writing desk with an inkpot beside the doorway, a small carved scroll-and-stylus emblem on a plaque over the door, completely deserted, no people, no figures, no person, on a small stone-paved patch, clean simple pixel art with a LIMITED FLAT palette of only a few solid colors (cream travertine, terracotta roof, warm ochre wood, parchment cream scrolls), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
   { key: "ministries-curia", id: "403d67b5-7664-45c0-9fb3-df8b0d5784d7", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman senate house Curia seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a dignified rectangular government hall of dressed travertine and marble with a terracotta tiled gable roof of red-orange rows seen from above, a colonnaded portico of tall fluted marble columns across the front carrying a low triangular pediment, wide marble entrance steps leading up to a pair of tall bronze double doors, a stone-paved forum patch around the base, a limited flat palette of only a few solid colors (cream travertine, warm sandstone, red-orange terracotta tiles, dark bronze doors), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
   { key: "works-classical", id: "d0da81ef-a308-42b8-afdd-1f8b07f4dc72", shading: 'basic shading', quantize: 16, prompt: "a small ancient Roman engineers' and masons' construction stoneyard seen from a high top-down angle looking down at it from above, completely deserted, no people, no figures, no person: a tall Roman timber treadwheel crane (a large human-powered wooden wheel mounted on a sturdy A-frame timber gantry with a rope-and-pulley boom hoisting a squared block on a chain) standing over the yard, several neatly dressed rectangular ashlar blocks of cream marble and pale travertine stacked and half-worked with visible chisel scoring, a low half-built stone arch of wedge-shaped voussoirs rising on a short wooden scaffold, stonemason tools — iron mallets, chisels, a set-square and a plumb-line — leaning against the blocks, a couple of small terracotta-tiled lean-to workshop roofs along one edge, everything sitting on a neat stone-paved yard, clean simple pixel art with a LIMITED FLAT palette of only a few solid colors (cream marble, travertine tan, warm timber brown, terracotta roof tiles, cool grey stone), basic flat shading with very few color shades and no gradients, soft light from the upper-left casting shadows to the lower-right, transparent background" },
@@ -813,13 +842,17 @@ for (const p of PROPS) {
   if (!p.id) { console.log(p.key, '— pas d\'id, skip'); continue; }
   let png = null;
   for (let i = 0; i < 80 && !png; i += 1) {
-    try {
-      const r = await fetch(`https://api.pixellab.ai/mcp/objects/${p.id}/download`);
-      if (r.ok) {
-        const buf = Buffer.from(await r.arrayBuffer());
-        if (buf.length > 500 && buf.subarray(0, 4).equals(PNG_SIG)) png = buf;
-      }
-    } catch { /* pas prêt */ }
+    // Deux familles d'ids selon l'outil de création : objets classiques (/objects/)
+    // et map-objects (/map-objects/, ex. tours et hélices du moulin à vent 2026-07-28).
+    for (const kind of ['objects', 'map-objects']) {
+      try {
+        const r = await fetch(`https://api.pixellab.ai/mcp/${kind}/${p.id}/download`);
+        if (r.ok) {
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (buf.length > 500 && buf.subarray(0, 4).equals(PNG_SIG)) { png = buf; break; }
+        }
+      } catch { /* pas prêt */ }
+    }
     if (!png) await sleep(15000);
   }
   if (!png) { console.warn(p.key, '— pas prêt (timeout, objet expiré ?), skip'); continue; }

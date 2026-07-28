@@ -104,6 +104,8 @@ const SPRITE_EPOCH_TAGS = {
   'granary-prop-silo': 'bois', 'caravan-prop-sacks': 'bois',
   'field-prop-crop-green': 'bois', 'field-prop-crop-gold': 'bois', 'field-prop-fallow': 'bois',
   'mill-prop-house': 'bois', 'mill-prop-wheel': 'bois',
+  'mill-house-stone': 'pierre', 'mill-house-roman': 'marbre', 'mill-house-industrial': 'fonte',
+  'mill-house-modern': 'neon', 'mill-wheel-metal': 'fonte', 'mill-turbine': 'neon',
   'port-prop-house': 'bois', 'port-prop-pontoon': 'bois',
   'mint-prop-house': 'pierre', 'mint-prop-forge': 'feu', 'exchange-prop-stall': 'feu',
   'storyteller-prop-fire': 'feu', 'storyteller-fire': 'feu', 'storyteller-reader': 'feu', 'storyteller-back': 'feu',
