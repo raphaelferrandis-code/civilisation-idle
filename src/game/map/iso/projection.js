@@ -17,7 +17,7 @@
 // une pure translation écran → les bakes offscreen restent valides (offset projeté).
 //
 // Profondeur du peintre (Phase 2) : depthOf = wx + wy (diagonales SE), remplace wy.
-import { CM, cmWonderSlot } from '../layout.js';
+import { CM, cmWonderSlot, cmWonderExtent, cmWonderHeightTiles, CM_WONDERS } from '../layout.js';
 
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
@@ -85,16 +85,68 @@ export function depthOf(wx, wy) {
   return CM.iso ? wx + wy : wy;
 }
 
-// SOURCE UNIQUE de l'ancre écran d'une merveille : centre-BAS de la tuile de son
-// slot, projetée. Le sprite reste debout (front-view), seul ce point change de
-// projection. Le rendu (drawWonder) ET le survol (cityMapHitTest) doivent lire
-// cette fonction : la formule était dupliquée, et la copie du hit-test projetait
-// encore à la main façon legacy — donc en iso la zone survolable ne tombait plus
-// sur la merveille dessinée. Cf. la règle d'or en tête de ce fichier.
-export function wonderAnchor(idx, gridN, cx, cy) {
+// SOURCE UNIQUE de l'ancre écran d'une merveille. Le sprite reste debout
+// (front-view), seul ce point change de projection. Le rendu (drawWonder) ET le
+// survol (cityMapHitTest) doivent lire cette fonction : la formule était
+// dupliquée, et la copie du hit-test projetait encore à la main façon legacy —
+// donc en iso la zone survolable ne tombait plus sur la merveille dessinée.
+// Cf. la règle d'or en tête de ce fichier.
+//
+// LEGACY : centre-BAS de la tuile du slot, à l'identique (flag off ⇒ zéro
+// changement, au bit près).
+//
+// ISO : le monument DESCEND d'une demi-hauteur de sprite (Raph 2026-07-28,
+// « centre bien les merveilles »). Un sprite front-view est un PANNEAU DEBOUT :
+// sa masse monte tout entière AU-DESSUS de son point d'appui. Posé au centre de
+// son parvis — ce qu'était le centre-bas de la tuile du slot, à un demi-losange
+// près — le monument occupait la moitié NORD de sa place et laissait l'autre
+// moitié vide devant lui. C'est la boîte du SPRITE qu'on veut centrée, pas son
+// point d'appui.
+//
+// Décalage = (k, k) tuiles depuis le centre du slot. En (u−v) il s'annule (le
+// monument reste sur l'axe vertical de son losange — plus de biais vers la
+// gauche), et en (u+v) il vaut 2k, soit k·(2·hh) = k·hw px vers le BAS. Poser
+// k = hauteur/2 en tuiles descend donc la base d'exactement une demi-hauteur de
+// sprite : la boîte se retrouve à cheval sur le centre du parvis, à tous les
+// zooms (les deux termes sont en tuiles) et à tous les rangs.
+//
+// ⚠ PREMIER JET : k = coreR + ½, le coin sud du socle. Juste pour un monument
+// HAUT (la Couronne rang V tombait à 0,3 tuile près) mais faux pour un monument
+// BAS : au rang I le sprite ne fait que 2,6 tuiles de haut et descendait de 2,5
+// — il se retrouvait planté au bord sud de son parvis, tout le dallage derrière
+// lui. Ce n'est pas l'emprise au sol qui commande, c'est la hauteur.
+// Garde-fou : k borné à R−½ pour que la base ne sorte jamais du parvis (aucun
+// rang connu ne l'atteint — le plus haut, l'Aiguille, est exclue).
+//
+// era_mega est EXCLUE : l'Aiguille est plantée dans le fleuve, sans parvis ni
+// socle au sol (cf. wonderGround) ; la glisser vers le sud la ferait dériver le
+// long de l'eau et vers la travée du pont, pour corriger un cadrage qui ne se
+// pose pas — elle n'a pas de place autour d'elle.
+// Point d'appui en px MONDE — la seule chose qui bouge ; wonderAnchor n'est que
+// sa projection. Le TRI DU PEINTRE doit lire ce point-là et pas un autre : il
+// décide qui passe devant le monument, et une profondeur calculée sur un point
+// différent de celui où le sprite se pose fait disparaître derrière lui les
+// badauds qui sont visiblement DEVANT (l'anneau d'attroupement est au sud du
+// socle, exactement dans l'écart).
+export function wonderFootWorld(idx, gridN, cx, cy) {
   const slot = cmWonderSlot(idx, gridN, cx, cy);
   const T = CM.TILE;
-  return worldToScreen(slot.gx * T + T / 2, slot.gy * T + T);
+  const legacy = { x: slot.gx * T + T / 2, y: slot.gy * T + T };
+  if (!CM.iso) return legacy;
+  const w = CM_WONDERS[idx];
+  if (!w || w.id === "era_mega") return legacy;
+  // Rang LU SUR LE PLAN (celui qui a dimensionné le parvis), aperçu prioritaire :
+  // un cran d'écart et le monument se poserait à côté de son socle.
+  const pv = CM.previewWonder;
+  const tier = (pv && pv.id === w.id) ? pv.tier
+    : ((CM.layout && CM.layout.wonderTiers && CM.layout.wonderTiers[w.id]) || 1);
+  const R = cmWonderExtent(w.id, tier).halfW + 0.5;          // demi-côté du parvis
+  const k = Math.max(0.5, Math.min(R - 0.5, cmWonderHeightTiles(w.id, tier) / 2));
+  return { x: (slot.gx + 0.5 + k) * T, y: (slot.gy + 0.5 + k) * T };
+}
+export function wonderAnchor(idx, gridN, cx, cy) {
+  const f = wonderFootWorld(idx, gridN, cx, cy);
+  return worldToScreen(f.x, f.y);
 }
 
 // Les 4 coins écran du losange de la cellule (gx,gy) (ordre N,E,S,W) + centre.

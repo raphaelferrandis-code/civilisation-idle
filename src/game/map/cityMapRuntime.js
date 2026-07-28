@@ -553,18 +553,38 @@ function cityMapHitTest(sx, sy) {
     return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant" };
   }
   if (Array.isArray(state.wonders)) {
-    const activeWonders = cmWonderActiveIds(state);
-    for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+    const wonderTip = (wi) => {
       const w = CM_WONDERS[wi];
-      if (!activeWonders.has(w.id)) continue;
-      // Ancre PARTAGÉE avec drawWonder : ce hit-test projetait encore à la main,
-      // façon legacy, donc en iso la zone survolable ne tombait plus sur la
-      // merveille dessinée.
-      const ws = wonderAnchor(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
-      if (Math.hypot(ws.x - sx, ws.y - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) {
-        const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
-        const next = w.tiers && tier < w.tiers.length ? ` · prochain rang : ${w.tierLabel(w.tiers[tier])}` : " · rang maximal";
-        return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
+      const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
+      const next = w.tiers && tier < w.tiers.length ? ` · prochain rang : ${w.tierLabel(w.tiers[tier])}` : " · rang maximal";
+      return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
+    };
+    // BOÎTES RÉELLEMENT DESSINÉES à la dernière frame (publiées par drawWonder),
+    // parcourues à l'envers : la liste est en ordre du peintre, ce qui est DEVANT
+    // gagne. Même geste que CM._houseBoxes juste en dessous, et pour la même
+    // raison — viser le sol rate ce qui monte au-dessus.
+    // ⚠ L'ancien test était un DISQUE de 2,5 tuiles autour de l'ancre, donc AU
+    // SOL. L'Œil de la Singularité LÉVITE (drawWonder le monte de H·0,34, près de
+    // 3 tuiles) : le disque et le sprite ne se recouvraient jamais et il n'a
+    // jamais eu d'infobulle (Raph 2026-07-28). Les autres n'étaient survolables
+    // que par leur pied.
+    const wb = CM._wonderBoxes;
+    if (wb && wb.length) {
+      for (let i = wb.length - 1; i >= 0; i -= 1) {
+        const b = wb[i];
+        if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) continue;
+        return wonderTip(b.wi);
+      }
+    } else {
+      // Repli (legacy top-down, ou 1re frame avant publication) : le disque au
+      // sol d'avant. Ancre PARTAGÉE avec drawWonder — ce hit-test projetait
+      // encore à la main, façon legacy, donc en iso la zone survolable ne
+      // tombait plus sur la merveille dessinée.
+      const activeWonders = cmWonderActiveIds(state);
+      for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+        if (!activeWonders.has(CM_WONDERS[wi].id)) continue;
+        const ws = wonderAnchor(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
+        if (Math.hypot(ws.x - sx, ws.y - sy) < Math.max(32, CM.TILE * CM.cam.zoom * 2.5)) return wonderTip(wi);
       }
     }
   }

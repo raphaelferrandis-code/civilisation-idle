@@ -15,12 +15,20 @@
 // exactement le défaut qu'on retire. `pave: 3` (impair) est choisi ici parce
 // que c'est le cas où rang local et rang absolu DIVERGENT : à pas pair les deux
 // coïncident et le test ne mordrait pas.
-import { describe, it, expect, afterEach } from 'vitest';
+//
+// ⚠ LE DALLAGE PROCÉDURAL EST ÉTEINT PAR DÉFAUT depuis le 2026-07-28 : le parvis
+// a reçu sa propre tuile PixelLab (`iso-wonder`, mosaïque), qui porte ses joints
+// dans l'art — deux appareillages superposés faisaient une trame double, donc
+// `WONDER_GROUND.joint` vaut 0. Le tracé reste, et ce test le garde vivant : il
+// ALLUME le knob dans son montage, comme il allumait déjà `pave: 3`. Sans ça les
+// quatre invariants de géométrie passaient au vert sur zéro segment dessiné.
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { drawWonderPaving, WONDER_GROUND } from '../iso/isoRenderer.js';
 
 const HW = 64, HH = 32;                 // demi-losange écran (2:1), valeurs rondes
 const PX = 500, PY = 300;               // coin NORD de la cellule de référence
 const DIV = 3;
+const JOINT = 0.07;                     // valeur d'avant l'extinction : le dallage tracé
 
 // ctx d'enregistrement : on ne garde que les couples moveTo/lineTo.
 function recorder() {
@@ -63,11 +71,11 @@ function paveCell(gx, gy, div) {
 const near = (v, t) => Math.abs(v - t) < 1e-6;
 const isHalfInteger = (v) => near(Math.abs(v - Math.round(v)), 0.5);
 
-afterEach(() => { WONDER_GROUND.pave = 4; });
+beforeEach(() => { WONDER_GROUND.pave = DIV; WONDER_GROUND.joint = JOINT; });
+afterEach(() => { WONDER_GROUND.pave = 4; WONDER_GROUND.joint = 0; });   // défauts réels
 
 describe('dallage du parvis : appareillage en repère monde', () => {
   it('ne trace aucun joint au pas de la cellule (le défaut retiré)', () => {
-    WONDER_GROUND.pave = DIV;
     const segs = paveCell(0, 0, DIV);
     expect(segs.length).toBeGreaterThan(0);
     // Un joint « de cellule » relierait deux SOMMETS du losange : dans le repère
@@ -79,7 +87,6 @@ describe('dallage du parvis : appareillage en repère monde', () => {
   });
 
   it('décale une rangée sur deux d une demi-dalle (sinon : maille croisée)', () => {
-    WONDER_GROUND.pave = DIV;
     const cross = paveCell(0, 0, DIV).filter((s) => near(s.a.j, s.b.j));
     for (const s of cross) {
       const k = Math.min(s.a.k, s.b.k);          // rang du bandeau
@@ -89,7 +96,6 @@ describe('dallage du parvis : appareillage en repère monde', () => {
   });
 
   it('le décalage suit le rang ABSOLU : il ne se remet pas à zéro d une cellule à l autre', () => {
-    WONDER_GROUND.pave = DIV;
     // Cellule (0,1) : ses rangs sont 3, 4, 5 → le rang 3 est IMPAIR, donc décalé.
     // Un décalage indexé sur le rang local (0,1,2) le rendrait pair = non décalé,
     // et le raccord avec la cellule du dessus casserait pile sur la grille.
@@ -100,7 +106,6 @@ describe('dallage du parvis : appareillage en repère monde', () => {
   });
 
   it('les rangs longs se raboutent d une cellule à la suivante (aucun trou)', () => {
-    WONDER_GROUND.pave = DIV;
     const rows = (gx) => paveCell(gx, 0, DIV).filter((s) => near(s.a.k, s.b.k));
     const r0 = rows(0), r1 = rows(1);
     expect(r0.length).toBe(DIV);
@@ -112,7 +117,6 @@ describe('dallage du parvis : appareillage en repère monde', () => {
   });
 
   it('chaque joint interne est tracé UNE fois : les cellules ne redessinent pas les arêtes de la voisine', () => {
-    WONDER_GROUND.pave = DIV;
     // La cellule ne trace ni son arête SO (rang div) ni ses joints de bout de
     // colonne div : ils appartiennent à la cellule suivante. Sans cette règle le
     // trait partagé serait tracé deux fois et ressortirait plus sombre — soit
@@ -126,14 +130,12 @@ describe('dallage du parvis : appareillage en repère monde', () => {
   });
 
   it('se tait quand la dalle passe sous ~5 px écran (trame illisible = gris sale)', () => {
-    WONDER_GROUND.pave = DIV;
     const ctx = recorder();
     drawWonderPaving(ctx, 0, 0, PX, PY, 6, 3);   // dalle = 2·6/3 = 4 px
     expect(ctx.segs.length).toBe(0);
   });
 
   it('se tait si le joint est mis à zéro (knob de retour)', () => {
-    WONDER_GROUND.pave = DIV;
     const saved = WONDER_GROUND.joint;
     WONDER_GROUND.joint = 0;
     const ctx = recorder();

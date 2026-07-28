@@ -385,11 +385,137 @@ function wonderFlamesData(id) {
 // lueurs s'ADDITIONNENT — à pleine intensité la façade virerait au blanc. C'est
 // leur SOMME qui doit faire le monument incandescent, pas chaque flamme.
 const WONDER_FLAME_MUL = 0.55;
+// ── ANNEAUX TOURNANTS DE L'ŒIL ───────────────────────────────────────────────
+// Raph 2026-07-28 : « les anneaux autour de l'œil fluides ». Le sprite de la
+// Singularité est un MANDALA — un œil au centre, cerclé d'anneaux (runes au rang
+// V, roue à rayons au III, bâti mécanique au II). Il était figé.
+//
+// On le fend en DEUX zones concentriques : le CŒUR reste fixe, tout ce qui
+// l'entoure tourne. La coupure n'est pas cosmétique — le reflet spéculaire de
+// l'œil (la tache blanche en haut de l'iris) doit rester en place : une lumière
+// ne tourne pas avec l'objet qu'elle éclaire, et un œil dont le reflet orbite
+// louche. Même raison pour la pupille, qui doit fixer la caméra.
+//
+// RAYON DE COUPURE mesuré sprite par sprite (profil radial de luminance des cinq
+// PNG : l'iris est le plateau clair, l'anneau la chute qui suit). Il ne se déduit
+// pas d'une règle — les cinq rangs sont des dessins différents, pas un même
+// motif agrandi. Fraction de la DEMI-LARGEUR du sprite.
+const SINGULARITY_EYE_R = [0.30, 0.42, 0.28, 0.36, 0.46];
+// Tour complet en `periodSec`. Lent : à 34 s l'anneau avance d'un dixième de
+// degré par frame — le mouvement se voit sans jamais attirer l'œil, et le
+// scintillement du pixel tourné (blit NEAREST, même idiome que les ailes de
+// moulin, cf. blitPropRot) reste sous le seuil.
+export const singularityRings = { on: true, periodSec: 34, dir: 1 };
+if (typeof window !== "undefined") {
+  window.__eyeRings = (o) => {
+    if (o === false) singularityRings.on = false;
+    else if (o && typeof o === "object") { singularityRings.on = true; Object.assign(singularityRings, o); }
+    else singularityRings.on = true;
+    return { ...singularityRings };
+  };
+}
+// Blit du sprite, cœur FIXE + pourtour TOURNÉ. Le pourtour est clippé au
+// complément du disque de cœur (evenodd : dans le disque le compte est pair,
+// donc exclu) — les deux zones ne se recouvrent jamais, aucun risque de double
+// dessin ni de glyphe fantôme. Le rectangle de clip est élargi d'une largeur de
+// part et d'autre : tourné, le sprite déborde de sa boîte droite.
+function blitWonderSpin(ctx, img, left, top, W, H, rEyeF, ang) {
+  const cx = left + W / 2, cy = top + H / 2, rEye = rEyeF * W / 2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, rEye, 0, Math.PI * 2); ctx.clip();
+  ctx.drawImage(img, left, top, W, H);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(left - W, top - H, W * 3, H * 3);
+  ctx.arc(cx, cy, rEye, 0, Math.PI * 2);
+  ctx.clip("evenodd");
+  ctx.translate(cx, cy); ctx.rotate(ang); ctx.translate(-cx, -cy);
+  ctx.drawImage(img, left, top, W, H);
+  ctx.restore();
+}
+// ── GYROSCOPE DE L'ŒIL — trois grands cercles pointillés sur une sphère ──────
+// C'était une BANDE de 24 images à 200 ms, soit CINQ images par seconde : la
+// rotation sautait (Raph 2026-07-28, « les anneaux autour de l'œil fluides »).
+// Aucune bande ne peut y arriver — lisser une rotation demande ~25 images par
+// seconde, donc 120 images pour le même cycle de 4,8 s, et un PNG de 11 520 px
+// de large pour une figure qui tient en dix lignes de trigonométrie. Une
+// rotation ne se cuit pas en images : elle se calcule à la frame.
+//
+// Le tracé reprend la bande de près : trois grands cercles (les trois plans du
+// repère), les deux teintes relevées sur ses pixels, le même cycle de 4,8 s, le
+// même fondu additif. Deux choses lui restent fidèles et comptent :
+//   • les points sont des CARRÉS posés sur pixel ENTIER — le mouvement avance au
+//     pas du pixel, comme tout le reste de la DA, pas en sous-pixel flou ;
+//   • le NOMBRE de points est fixe (44 par cercle, compté sur la bande), pas
+//     leur espacement : c'est ce qui garde la même densité à tous les zooms.
+// La profondeur (z) module l'alpha — c'est elle, et rien d'autre, qui fait lire
+// une sphère plutôt que trois ellipses.
+export const eyeGyro = { on: true, cycleSec: 4.8, dots: 44, tilt: 0.42, precess: 0.31 };
+if (typeof window !== "undefined") {
+  window.__eyeGyro = (o) => {
+    if (o === false) eyeGyro.on = false;
+    else if (o && typeof o === "object") { eyeGyro.on = true; Object.assign(eyeGyro, o); }
+    else eyeGyro.on = true;
+    return { ...eyeGyro };
+  };
+}
+const GYRO_GOLD = [255, 216, 120], GYRO_PALE = [210, 225, 255];
+// Les trois grands cercles = les trois plans du repère, chacun donné par ses
+// deux vecteurs directeurs. Une base ORTHOGONALE : trois cercles quelconques se
+// recouperaient n'importe où et la figure ne lirait plus comme une sphère.
+const GYRO_RINGS = [
+  { u: [1, 0, 0], v: [0, 1, 0], c: GYRO_GOLD },
+  { u: [0, 1, 0], v: [0, 0, 1], c: GYRO_GOLD },
+  { u: [0, 0, 1], v: [1, 0, 0], c: GYRO_PALE },
+];
+function drawEyeGyro(ctx, cx, cy, R, now) {
+  if (!(R > 2)) return;
+  const G = eyeGyro;
+  const t = (now / 1000) * (Math.PI * 2 / Math.max(0.2, G.cycleSec));
+  // Bascule = rotation propre (a) + précession lente (c) autour d'un axe
+  // incliné d'un angle FIXE (b). Sans la précession la figure repasserait deux
+  // fois par tour par le même profil et l'œil y lirait un battement, pas une
+  // rotation libre.
+  const ca = Math.cos(t), sa = Math.sin(t);
+  const cb = Math.cos(G.tilt), sb = Math.sin(G.tilt);
+  const cc = Math.cos(t * G.precess), sc2 = Math.sin(t * G.precess);
+  // p → Ry(a) → Rx(b) → Rz(c), développé (une seule passe, pas de matrices).
+  const rot = (p) => {
+    const x1 = p[0] * ca + p[2] * sa, y1 = p[1], z1 = -p[0] * sa + p[2] * ca;
+    const x2 = x1, y2 = y1 * cb - z1 * sb, z2 = y1 * sb + z1 * cb;
+    return [x2 * cc - y2 * sc2, x2 * sc2 + y2 * cc, z2];
+  };
+  const d = Math.max(1, Math.round(R * 0.031));   // côté du point, en px écran
+  const N = Math.max(8, G.dots | 0);
+  const prevOp = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  for (const ring of GYRO_RINGS) {
+    const U = rot(ring.u), V = rot(ring.v);
+    for (let k = 0; k < N; k += 1) {
+      const ph = (Math.PI * 2 * k) / N, cp = Math.cos(ph), sp = Math.sin(ph);
+      const x = U[0] * cp + V[0] * sp, y = U[1] * cp + V[1] * sp, z = U[2] * cp + V[2] * sp;
+      ctx.fillStyle = `rgba(${ring.c[0]},${ring.c[1]},${ring.c[2]},${(0.3 + 0.7 * (z + 1) / 2).toFixed(3)})`;
+      ctx.fillRect(Math.round(cx + x * R - d / 2), Math.round(cy + y * R - d / 2), d, d);
+    }
+  }
+  ctx.globalCompositeOperation = prevOp;
+}
 function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
   const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(px.img, cxs - W / 2, baseY - H, W, H);
+  // Anneaux tournants : réservé à l'Œil, et seulement une fois DRESSÉ (pendant
+  // l'érection le sprite est écrasé en hauteur — le disque de clip, lui, resterait
+  // rond, et le cœur fixe se décollerait de l'iris aplati).
+  const spinR = (wid === "era_singularity" && singularityRings.on && e >= 0.98)
+    ? SINGULARITY_EYE_R[Math.max(0, Math.min(4, tier - 1))] : 0;
+  if (spinR > 0) {
+    const ang = (now / 1000) * (Math.PI * 2 / Math.max(1, singularityRings.periodSec)) * singularityRings.dir;
+    blitWonderSpin(ctx, px.img, cxs - W / 2, baseY - H, W, H, spinR, ang);
+  } else {
+    ctx.drawImage(px.img, cxs - W / 2, baseY - H, W, H);
+  }
   const cfg = wonderFlamesData(wid);
   const tierCfg = cfg && cfg.tiers && cfg.tiers["t" + tier];
   if (tierCfg && e >= 0.98) {
@@ -397,6 +523,12 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
     const left = cxs - W / 2, top = baseY - H;
     for (let i = 0; i < tierCfg.flames.length; i += 1) {
       const f = tierCfg.flames[i];
+      // GYROSCOPE : calculé, plus blitté (cf. drawEyeGyro). L'entrée reste dans
+      // le JSON — c'est elle qui porte l'ancre et le diamètre.
+      if (f.kind === "gyro" && eyeGyro.on) {
+        drawEyeGyro(ctx, left + f.x * sx, top + f.y * sy, f.w * sx / 2, now);
+        continue;
+      }
       const a = cfg.asset[f.kind];
       const strip = a && wonderFlameStrips.get(a.file);
       if (!strip || !strip.ready) continue;
@@ -451,12 +583,13 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
 function drawWonder(w, idx, now) {
   const L = CM.layout; if (!L) return;
   const z = CM.cam.zoom, s = CM.TILE * z;
-  // Ancre = centre-bas de la tuile du slot, PROJETÉE. wonderAnchor renvoie le
-  // mapping legacy À L'IDENTITÉ quand CM.iso est éteint (0 changement top-down,
-  // au bit près) ; en iso, le monument se pose sur le bon losange. Le sprite
-  // reste DEBOUT (front-view) : seul son point d'ancrage change de projection.
-  // SOURCE UNIQUE partagée avec le survol (cityMapHitTest), qui projetait encore
-  // sa propre copie planaire et visait donc à côté en iso.
+  // Ancre PROJETÉE : en legacy le centre-bas de la tuile du slot (à l'identité) ;
+  // en iso le coin SUD du socle du monument, pour qu'un sprite front-view se
+  // dresse AU-DESSUS de son emprise au lieu d'être posé derrière — tout le
+  // raisonnement est en tête de wonderAnchor. Le sprite reste DEBOUT : seul son
+  // point d'ancrage bouge. SOURCE UNIQUE partagée avec le survol
+  // (cityMapHitTest), qui projetait encore sa propre copie planaire et visait
+  // donc à côté en iso.
   const anchor = wonderAnchor(idx, L.gridN, L.cx, L.cy);
   const cxs = anchor.x, baseY = anchor.y;
   let H_MAX = s * 7, W = s * 3.6;
@@ -500,6 +633,7 @@ function drawWonder(w, idx, now) {
   if (px) {
     if (H < 3) return;
     ctx.globalAlpha = e;
+    let drawBaseY = baseY;
     if (w.id === "era_singularity") {
       // Bâtiment VOLANT : l'Œil lévite au-dessus de sa case avec un léger bob,
       // et projette une ombre portée AU SOL en dessous — l'écart entre l'Œil et
@@ -511,10 +645,17 @@ function drawWonder(w, idx, now) {
       ctx.beginPath();
       ctx.ellipse(cxs + s * 0.08, baseY - s * 0.02, W * 0.26 * shr, W * 0.08 * shr, 0, 0, Math.PI * 2);
       ctx.fill();
-      drawWonderPixelSprite(w.id, px, tier, cxs, baseY - hoverH, W, H, e, now);
-    } else {
-      drawWonderPixelSprite(w.id, px, tier, cxs, baseY, W, H, e, now);
+      drawBaseY = baseY - hoverH;
     }
+    drawWonderPixelSprite(w.id, px, tier, cxs, drawBaseY, W, H, e, now);
+    // BOÎTE RÉELLEMENT DESSINÉE, publiée pour le SURVOL — même idiome que
+    // CM._houseBoxes. Le hit-test se contentait d'un disque de 2,5 tuiles autour
+    // de l'ANCRE, c'est-à-dire au SOL : il ratait tout ce qui ne touche pas le
+    // sol. L'Œil LÉVITE de H·0,34 (près de 3 tuiles) — le disque et le sprite ne
+    // se recouvraient jamais et son infobulle ne sortait tout simplement pas
+    // (Raph 2026-07-28). Les grandes merveilles n'étaient survolables que par le
+    // bas. La boîte, elle, est par construction ce qu'on voit.
+    if (CM._wonderBoxes) CM._wonderBoxes.push({ dx: cxs - W / 2, dy: drawBaseY - H, dw: W, dh: H, wi: idx });
     ctx.globalAlpha = 1;
     return;
   }

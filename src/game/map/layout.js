@@ -269,6 +269,14 @@ function cmWonderCoreR(id, tier) {
   if (!d) return 2;
   return Math.max(2, Math.round(d.nw / (2 * WONDER_PPT) * 0.55));
 }
+// HAUTEUR du sprite d'un rang, EN TUILES — la même densité que le rendu
+// (drawWonder dimensionne à nh/PPT) et que l'emprise (cmWonderExtent). Source
+// unique : c'est aussi ce nombre qui pose le monument au milieu de son parvis
+// (cf. wonderFootWorld), et un PPT recopié une troisième fois dériverait.
+function cmWonderHeightTiles(id, tier) {
+  const d = cmWonderSpriteDims(id, tier);
+  return d ? d.nh / WONDER_PPT : 4;
+}
 // Itère les clés "gx,gy" de l'emprise d'un slot (bornées à la grille N×N).
 function cmForEachWonderCell(slot, id, N, fn, tier) {
   const { halfW, north, south } = cmWonderExtent(id, tier);
@@ -2747,6 +2755,7 @@ export {
   cmWonderExtent,
   cmWonderSpriteDims,
   cmWonderCoreR,
+  cmWonderHeightTiles,
   cmForEachWonderCell,
   WONDER_TIER_NAMES,
   computeCityLayout,

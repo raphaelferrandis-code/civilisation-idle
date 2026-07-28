@@ -16,7 +16,7 @@
 import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
@@ -112,10 +112,13 @@ const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},$
 // tile » déborde vers le sud : recouverte par les rangées suivantes (le bake
 // balaie gy croissant) → lisière naturelle sur les bords sud. Invalide le bake
 // sol iso à chaque PNG décodé (sinon l'aplat reste gelé dans le cache).
-// wonder → la tuile de PLACE (dallage pixel-art clair) : « une sorte de place en
-// pixel » (Raph) pour le parvis des merveilles. Quasi libre d'usage ailleurs
-// depuis que les places d'ère affichent leur scène PixelLab.
-const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza: 'iso-plaza', wonder: 'iso-plaza' };
+// wonder → `iso-wonder`, MATIÈRE PROPRE au parvis des merveilles depuis le
+// 2026-07-28 (Raph : « je veux une génération pixel lab » pour ces sols) :
+// MOSAÏQUE ocre et blanche. Il empruntait jusque-là la tuile de place (iso-plaza), au
+// point qu'un parvis de merveille et une place de quartier avaient le même sol —
+// rien ne disait que le monument était important. Le prompt et les gardes sont
+// dans scripts/fetchGroundTiles.mjs.
+const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza: 'iso-plaza', wonder: 'iso-wonder' };
 // VARIANTES par matière — public/pixelart/iso/<clé>-1..N.png (scripts/fetchGroundTiles.mjs).
 // Clé absente ou N ≤ 1 : tuile unique <clé>.png, comme avant.
 //
@@ -131,6 +134,7 @@ const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza
 // d'une cellule à l'autre est alors le DESSIN seul, jamais la valeur ni la
 // teinte. La règle tient, la variante passe.
 export const ISO_TILE_VARIANTS = {
+  'iso-wonder': 4,
   'iso-grass': 4, 'iso-dirt': 4, 'iso-plaza': 4,
   'ground-earth': 4, 'ground-cobble': 4, 'ground-flagstone': 4,
   'ground-concrete': 4, 'ground-tech': 4,
@@ -1224,9 +1228,9 @@ if (typeof window !== 'undefined') {
 // Demande Raph 2026-07-13 : la grande zone réservée d'une merveille (dès le
 // rang I) doit se LIRE comme une PLACE, pas comme du sol urbain ordinaire — et
 // le monument trône en son CENTRE (emprise carrée, cf. cmWonderExtent).
-// Base = aplat ROSÉ STRICTEMENT UNI, dallage = joints tracés en coordonnées
-// MONDE (drawWonderPaving). Sur tout le POURTOUR, marche d'ombre + MARGELLE
-// claire (arêtes dont le voisin n'est pas du parvis).
+// Base = TUILE `iso-wonder` (MOSAÏQUE ocre et blanche, 4 variantes égalisées)
+// posée à plat sur l'aplat de repli. Sur tout le POURTOUR, marche d'ombre +
+// MARGELLE claire (arêtes dont le voisin n'est pas du parvis).
 // Réglage live : __wonderGround({ tone, pave, joint, rim, tileAlpha }) / (false).
 //
 // ⚠ TROIS MOTIFS AU PAS DE LA CELLULE RETIRÉS le 2026-07-24 (retour Raph :
@@ -1235,14 +1239,27 @@ if (typeof window !== 'undefined') {
 // iso-plaza (quatre grandes dalles dessinées) reblittée par cellule avec un
 // miroir un coup sur deux. Trois périodes égales à celle de la grille : l'œil
 // ne lisait pas un dallage mais des plaques, parce qu'une cellule vaut un LOT
-// DE MAISON et qu'un pavé de cette taille n'existe pas. C'est la règle déjà
-// écrite plus bas pour tous les autres sols (« aucune valeur par CELLULE ») ;
-// le parvis en était la seule exception, et c'est elle qui se voyait.
-// La tuile reste branchée sous tileAlpha (défaut 0) pour rester essayable.
-// `pave` calé à la capture : 3 donne une dalle large comme un tiers de lot, qui
-// se relit en plaques dès qu'on dézoome ; 4 tient l'échelle (une dalle pour un
-// quart de lot) et le champ reste calme. Sous 3 le motif redevient la grille.
-export const WONDER_GROUND = { on: true, tone: [219, 199, 181], pave: 4, joint: 0.07, rim: 1.10, tileAlpha: 0 };
+// DE MAISON et qu'un pavé de cette taille n'existe pas.
+//
+// LA TUILE EST RALLUMÉE le 2026-07-28 (tileAlpha 0 → 1, Raph : « je veux une
+// génération pixel lab »), et le grief ci-dessus est traité, pas contourné :
+//   • ce n'étaient pas LES tuiles qui plaquaient, c'était CELLE-LÀ — iso-plaza
+//     dessinait quatre grandes dalles avec leur liseré, un objet de la taille
+//     d'une cellule, donc une période égale à la grille ;
+//   • la mosaïque est une texture de TESSELLES (période ~1/16 de cellule) ;
+//   • ses 4 variantes sont ÉGALISÉES par canal au fetch (écart de luminance
+//     ramené de 8,9 à 0,0) : ce qui change d'une cellule à l'autre est le
+//     dessin seul, jamais la valeur — la règle du fichier, à la lettre ;
+//   • et ce qui reste de période cellulaire se lit comme un PANNEAU de mosaïque,
+//     ce dont un sol d'apparat antique est fait. Vérifié au pan 7×7 avant de
+//     câbler (scripts/tilePan.mjs) : c'est LE test du parvis, seul sol du jeu à
+//     couvrir un carré plein. Les trois autres matières du lot y ont échoué —
+//     le détail des quatre verdicts est dans scripts/fetchGroundTiles.mjs.
+//
+// `pave`/`joint` : le DALLAGE PROCÉDURAL (drawWonderPaving) est coupé par défaut
+// depuis que l'art porte ses propres joints — deux appareillages superposés
+// faisaient une trame double. Le tracé reste, `joint` le rallume.
+export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 0, rim: 1.10, tileAlpha: 1 };
 // DALLAGE : joints d'un appareillage posé dans le repère MONDE, au pas TILE/pave,
 // À JOINTS DÉCALÉS (une rangée sur deux glisse d'une demi-dalle). Le décalage est
 // ce qui compte : sans lui les joints de bout se réalignent en maille croisée et
@@ -1532,11 +1549,9 @@ function drawIsoGround() {
       // fissuré qui concurrençait les bâtiments (v2 refusée à la capture). Herbe
       // et place gardent leur tuile pleine (elles portent bien le détail).
       // Urbain : plus de tuile générique (0) — la MATIÈRE par ère (drawUrbanDetail)
-      // porte tout le détail. dirt garde son grain, place/reste sa tuile pleine.
-      // Parvis : tuile COUPÉE (tileAlpha 0). Même en voile dosé, iso-plaza dessine
-      // quatre grandes dalles : reblittée par cellule, son motif se répétait au pas
-      // de la grille et le miroir cassait net au bord — deux tiers de « l'effet
-      // plaques ». Le dallage passe désormais par drawWonderPaving (repère MONDE).
+      // porte tout le détail. dirt garde son grain, place/parvis/reste leur tuile
+      // pleine. Parvis : tileAlpha 1 depuis qu'il a SA matière (iso-wonder) au
+      // lieu d'emprunter iso-plaza — cf. WONDER_GROUND pour le pourquoi du retour.
       // dirt 0.5 → 1 (Raph 2026-07-28, même décision que l'herbe) : la tuile de
       // terre regénérée se montre pleine, le voile date de l'ancienne tuile unique.
       const texAlpha = kind === 'urban' ? 0
@@ -1567,11 +1582,13 @@ function drawIsoGround() {
         // depuis que la trame terre est dosée. Retour Raph : les retirer.)
         if (PR) PR.flat += performance.now() - tF;
       }
-      // `texAlpha > 0` : à 0 le blit ne peignait rien mais coûtait plein pot (c'est
-      // le cas du parvis depuis que sa tuile est coupée). Le MIROIR est refusé au
-      // parvis : le flip un coup sur deux fait une cassure DURE au bord de cellule,
-      // soit précisément la couture qu'on retire — s'il rallume tileAlpha pour
-      // essayer, il ne doit pas récupérer le défaut avec.
+      // `texAlpha > 0` : à 0 le blit ne peindrait rien mais coûterait plein pot.
+      // Le MIROIR était refusé au parvis tant qu'il empruntait iso-plaza : le flip
+      // un coup sur deux cassait NET au bord de cellule, parce que le motif était
+      // un objet centré (quatre grandes dalles) dont le miroir déplaçait le
+      // liseré. Rendu à sa propre matière — une texture continue de petits
+      // carreaux, cf. WONDER_GROUND — le parvis reprend le miroir comme toutes
+      // les autres : c'est lui qui casse la répétition des 3 variantes.
       if (tileReady && texAlpha > 0) {
         const tT = PR && performance.now();
         // Herbe : aplat d'OMBRE sous la tuile — ses creux (noFill) doivent lire
@@ -1586,7 +1603,7 @@ function drawIsoGround() {
           ctx.stroke();
         }
         if (texAlpha < 1) ctx.globalAlpha = texAlpha;
-        blitIsoTile(ctx, kind, p.x, p.y, hw, kind !== 'wonder' && mir, cellH);
+        blitIsoTile(ctx, kind, p.x, p.y, hw, mir, cellH);
         if (texAlpha < 1) ctx.globalAlpha = 1;
         if (PR) PR.tiles += performance.now() - tT;
       }
@@ -5514,8 +5531,12 @@ function drawIsoLive(now) {
       const w = CM_WONDERS[wi];
       if (activeW.has(w.id) || (pvW && pvW.id === w.id)) {
         if (!CM.born['wonder:' + w.id]) CM.born['wonder:' + w.id] = now;
-        const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
-        items.push({ d: depthOf((slot.gx + 0.5) * T, (slot.gy + 1) * T), kind: 'wonder', w, wi });
+        // Profondeur au POINT D'APPUI du sprite (wonderFootWorld), la MÊME
+        // source que son ancre de dessin : c'est ce point qui décide qui passe
+        // devant. Trié sur un autre, le monument recouvre les badauds de
+        // l'anneau d'attroupement, qui sont pourtant visiblement devant lui.
+        const foot = wonderFootWorld(wi, L.gridN, L.cx, L.cy);
+        items.push({ d: depthOf(foot.x, foot.y), kind: 'wonder', w, wi });
       } else if (CM.born['wonder:' + w.id]) {
         delete CM.born['wonder:' + w.id];
       }
@@ -6487,6 +6508,10 @@ function drawIsoWorldInner(dt, now, helpers) {
   // garantit qu'aucune boîte d'une frame précédente (caméra bougée depuis) ne
   // survit. null en LOD, où l'on ne dessine plus de sprite individuel.
   CM._houseBoxes = CM.lodActive ? null : [];
+  // Idem pour les MERVEILLES (publiées par drawWonder) : leur survol se faisait
+  // sur un disque au sol, qui rate une merveille qui lève — l'Œil flotte.
+  // Jamais null, même en LOD : une merveille reste dessinée sprite par sprite.
+  CM._wonderBoxes = [];
   refreshSeasonPalette();
   // Sim : mêmes mises à jour que le pipeline legacy (les agents vivent).
   updateCitizens(dt);

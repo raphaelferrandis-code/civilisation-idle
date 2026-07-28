@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { CM } from "../../layout.js";
+import { CM, CM_WONDERS, cmWonderExtent, cmWonderHeightTiles } from "../../layout.js";
 import {
   worldToScreen, screenToWorld, panDeltaToScreen, depthOf, tileDiamond,
-  visibleCellBounds, wonderAnchor, ISO_X, ISO_Y,
+  visibleCellBounds, wonderAnchor, wonderFootWorld, ISO_X, ISO_Y,
 } from "../projection.js";
 
 // La projection est LE pivot du chantier iso : legacy = identité translatée au
@@ -116,9 +116,47 @@ describe("projection — mode iso (losange 2:1)", () => {
     expect(Math.hypot(a.x - legacy.x, a.y - legacy.y)).toBeGreaterThan(CM.TILE);
   });
 
-  it("wonderAnchor = centre-BAS de la tuile du slot, projeté (ancre du rendu)", () => {
+  it("wonderAnchor descend d'une DEMI-HAUTEUR de sprite (boîte centrée sur le parvis)", () => {
+    // Un sprite front-view est un panneau DEBOUT : posé au centre de son parvis,
+    // sa masse monte tout entière au nord et le monument occupe la moitié de sa
+    // place, l'autre vide devant lui. On descend la base d'une demi-hauteur pour
+    // que la BOÎTE du sprite soit à cheval sur le centre.
     pinWonderSlot(26, 14);
+    const k = cmWonderHeightTiles(CM_WONDERS[0].id, 1) / 2;
     const a = wonderAnchor(0, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
+    const expected = worldToScreen((26 + 0.5 + k) * 32, (14 + 0.5 + k) * 32);
+    expect(a.x).toBeCloseTo(expected.x, 9);
+    expect(a.y).toBeCloseTo(expected.y, 9);
+    // Sur l'axe VERTICAL de son losange : le décalage s'annule en (u−v), donc
+    // plus de biais vers la gauche que portait le centre-bas de la tuile.
+    expect(a.x).toBeCloseTo(worldToScreen((26 + 0.5) * 32, (14 + 0.5) * 32).x, 9);
+    // …et la descente vaut bien une demi-hauteur de sprite en px écran.
+    const c = worldToScreen((26 + 0.5) * 32, (14 + 0.5) * 32);
+    expect(a.y - c.y).toBeCloseTo(k * 32 * CM.cam.zoom, 6);
+  });
+
+  it("la base ne sort jamais du parvis (garde-fou sur k)", () => {
+    // Un sprite très haut sur une petite emprise poserait le monument hors de sa
+    // place. k est borné à R−½ ; le test épingle la borne, pas un rang précis.
+    pinWonderSlot(26, 14);
+    for (let idx = 0; idx < CM_WONDERS.length; idx += 1) {
+      const w = CM_WONDERS[idx];
+      if (w.id === "era_mega") continue;
+      CM.layout = { wonderSlots: Array.from({ length: idx + 1 }, () => ({ gx: 26, gy: 14, ...WSLOT })), wonderTiers: { [w.id]: 5 } };
+      const f = wonderFootWorld(idx, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
+      const k = f.x / 32 - 26 - 0.5;
+      expect(k, w.id).toBeLessThanOrEqual(cmWonderExtent(w.id, 5).halfW);
+      expect(k, w.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("era_mega garde l'ancre centre-bas (plantée dans le fleuve, pas de socle au sol)", () => {
+    // La glisser vers le sud la ferait dériver le long de l'eau et vers la
+    // travée du pont, pour corriger un cadrage qui ne se pose pas : l'Aiguille
+    // n'a ni parvis ni emprise autour d'elle (cf. wonderGround).
+    const mi = CM_WONDERS.findIndex((w) => w.id === "era_mega");
+    CM.layout = { wonderSlots: Array.from({ length: mi + 1 }, () => ({ gx: 26, gy: 14, ...WSLOT })) };
+    const a = wonderAnchor(mi, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
     const expected = worldToScreen(26 * 32 + 16, 14 * 32 + 32);
     expect(a.x).toBeCloseTo(expected.x, 9);
     expect(a.y).toBeCloseTo(expected.y, 9);

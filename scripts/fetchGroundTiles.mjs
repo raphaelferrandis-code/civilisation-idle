@@ -104,6 +104,46 @@ const LOTS = [
       { key: 'ground-earth', tiles: [1, 5, 9, 13], derim: true },   // terre battue — bandes 0-1
     ],
   },
+  // PARVIS DES MERVEILLES (Raph 2026-07-28 : « je veux une génération pixel lab »
+  // pour les sols de merveilles) — MOSAÏQUE ocre et blanche, la seule matière du
+  // jeu qui ne puisse se confondre ni avec le sol urbain ni avec le dallage de
+  // place (iso-plaza), et qui dit « bâtiment important » sans qu'on l'explique.
+  // Lot rangé PAR RANGÉE (mesuré : 7-17 d'écart par rangée, 157-175 par colonne).
+  //
+  // ⚠ 1er jet JETÉ (lot c7e3c951) : le prompt décrivait les matières en phrases
+  // longues et décorées (« polished cream white marble paving, fine grey veining,
+  // tight thin joints, subtle sheen ») et NUMÉROTAIT les 16 tuiles. Le modèle a
+  // rendu 16 OBJETS — des dalles en volume, avec leur liseré et, pour le grès,
+  // un cadre à médaillon centré. Exactement le piège déjà écrit en tête du lot 2.
+  // Le prompt qui marche est celui du lot 50c1b9f1, au mot près : le préambule
+  // « seamless continuous ground textures, no borders, no frames, no centered
+  // feature, texture runs off all edges », puis QUATRE matières décrites en trois
+  // mots (« many small square tiles in a regular grid »). C'est le nombre d'items
+  // qui fixe le nombre de MATIÈRES ; les 4 variantes viennent toutes seules.
+  //
+  // ⚠⚠ LE PARVIS EST LE SEUL SOL À JUGER AU PAN, PAS À LA PLANCHE. C'est le seul
+  // endroit du jeu où une matière couvre un carré PLEIN (15×15 cellules au rang V)
+  // au lieu de cellules éparses. Les 4 rangées du lot ont été normalisées et
+  // panées à 7×7 (scripts/tilePan.mjs) avant de choisir :
+  //   • rangée 1, marbre crème à JOINTS D'OR — la plus belle en vignette, la pire
+  //     au pan : la grille de carreaux est CONTINUE dans la tuile mais s'arrête
+  //     net au bord de cellule, et le raccord raté se lit comme un patchwork.
+  //     Un motif régulier ne survit pas au blit par cellule, quoi qu'on égalise.
+  //   • rangée 0, marbre veiné — grandes veines = grandes taches, damier franc.
+  //   • rangée 3, porphyre sombre — le plus propre au pan (mouchetis fin et
+  //     isotrope, la cellule disparaît) mais un carré NOIR de 15×15 dans une
+  //     ville claire. Gardé en réserve.
+  //   • rangée 2, MOSAÏQUE — retenue. Les tesselles sont assez fines pour que le
+  //     raccord ne saute pas aux yeux, et le motif par cellule se lit comme un
+  //     PANNEAU de mosaïque : un vrai sol d'apparat antique est fait de panneaux
+  //     répétés, donc la période de la grille devient une intention, pas un défaut.
+  //     C'est la seule des quatre où « la cellule se voit » n'est pas un grief.
+  {
+    id: '675befa7-6736-4dcc-81a2-5c0e9778949e', seed: 909,
+    mats: [
+      { key: 'iso-wonder', tiles: [12, 13, 14, 15], equalize: true },   // porphyre sombre (essai Raph)
+    ],
+  },
   // CHAUSSÉES (Raph 2026-07-28 : « des chemins/routes plutôt que cette route à
   // toutes les ères ») — même recette texture. Consommées par le ruban de
   // chaussée (ROAD_MATS/ROAD_DETAIL.tiles), clippées au tracé.
@@ -434,7 +474,17 @@ for (const lot of LOTS) {
     // l'instant ») : l'égalisation ramenait les variantes au même ton et rendait
     // le sol « pareil qu'avant, voire pire » — les écarts clair/sombre entre
     // variantes SONT le patchwork voulu. `--equalize` la réactive au besoin.
-    const target = process.argv.includes('--equalize') ? equalize(tiles)
+    //
+    // …SAUF POUR UN SOL FORMEL, où c'est l'inverse (`equalize: true` par matière).
+    // Le patchwork est tolérable tant qu'une matière couvre des cellules
+    // ÉPARSES : une place fait 2-3 cellules, personne ne lit le damier. Le PARVIS
+    // d'une merveille est le seul endroit du jeu où une matière couvre un carré
+    // PLEIN de 15×15 — le damier de valeur y devient le motif dominant (vérifié
+    // au pan 7×7 : iso-plaza, déjà en service, l'a aussi ; il ne se voyait
+    // simplement nulle part). Sur un dallage d'apparat, ce qui doit varier d'une
+    // cellule à l'autre est le DESSIN seul — la règle déjà écrite en tête de ce
+    // fichier, appliquée là où elle mord.
+    const target = (mat.equalize || process.argv.includes('--equalize')) ? equalize(tiles)
       : [0, 1, 2].map((c) => tiles.reduce((a, p) => a + meanRGB(p)[c], 0) / tiles.length);
     const after = tiles.map((p) => lum(meanRGB(p)));
     const rest = Math.max(...after) - Math.min(...after);
@@ -453,7 +503,10 @@ for (const lot of LOTS) {
       }
       return o / ins;
     });
-    console.log(`${mat.key.padEnd(17)} 4 variantes — écart de luminance ${rest.toFixed(1)}`
+    // Le NOMBRE de variantes est celui de `mat.tiles`, pas 4 en dur : une matière
+    // peut n'en retenir que trois (cf. iso-wonder, tuile hors famille écartée) et
+    // le journal annonçait « 4 variantes » quoi qu'il arrive.
+    console.log(`${mat.key.padEnd(17)} ${tiles.length} variantes — écart de luminance ${rest.toFixed(1)}`
       + ` (brut ${spread.toFixed(1)}), losange rempli ${(100 * Math.min(...fill)).toFixed(1)} %,`
       + ` ton [${target.map(Math.round).join(', ')}]`);
   }
