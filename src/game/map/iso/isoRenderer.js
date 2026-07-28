@@ -6352,6 +6352,25 @@ function runGroundSliceStep(key, nowMs, helpers) {
 // le geste net sur les petites villes, assez bas pour ne jamais figer les grandes.
 const ISO_CRISP_BUDGET_MS = 45;
 
+// ── CACHE DU SOL PAR CRAN DE ZOOM ────────────────────────────────────────────
+// Demande Raph 2026-07-28 : « le jeu oublie dès qu'on fait un zoom dézoom et
+// doit recharger ». Chaque bake PLEIN est photographié, indexé par sa clé
+// complète — qui contient le zoom : la molette retombant toujours sur les mêmes
+// crans (×1,12 par cran, cf. CAM_FEEL.wheelStep), revenir à un zoom déjà visité
+// redevient un HIT exact, sans re-échelle donc sans flou. Restaurer coûte UNE
+// copie de canvas (~2-4 ms) au lieu de la remontée aplat → light → tranches →
+// plein (~0,5-1 s ressentie). Pré-cuire le monde entier à toutes les échelles ne
+// tiendrait pas en mémoire (l'empreinte du seul plancher de zoom se compte en
+// dizaines de Mpx) ; ici : N bakes écran+marge (~9 Mo pièce), éviction LRU.
+// Invalidation : la clé porte layout/saison/band/preview, et le snapshot purge
+// les entrées du layout mort. La capture ignore le cache (déterminisme).
+// A/B : globalThis.__groundZoomCache = false.
+// Diagnostic : globalThis.__groundZoomCacheStats = { restores, snapshots } —
+// lisible en prod (le harnais de mesure n'a pas accès aux hooks dev).
+const GROUND_ZOOM_CACHE_MAX = 6;
+const gzcStats = { restores: 0, snapshots: 0 };
+if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcStats;
+
 // Point d'entrée : rend la frame iso. Renvoie false si layout absent (repli legacy).
 // helpers = { bakeMargin, blitMargin } (les caches offscreen du runtime, déjà
 // compatibles iso : le pan est projeté dans cityMapBakeMargin/BlitMargin).
@@ -6410,9 +6429,14 @@ function drawIsoWorldInner(dt, now, helpers) {
     // La SAISON entre dans la clé : elle change l'herbe, les brins et les fleurs,
     // qui sont bakés. Elle ne bouge que par crans très espacés (cf. seasonMode),
     // donc elle ne peut pas déclencher de recuisson en rafale.
-    const key = 'iso:' + CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(3) + ':' + ((L.counts && L.counts.eraBand) | 0)
+    // `keyBase` = la clé SANS le zoom : l'identité de CONTENU. Le cache de crans
+    // s'en sert pour reconnaître « même monde, autre échelle » (restore approché).
+    const keyPre = 'iso:' + CM.layoutRecomputeAt + ':';
+    const keySuf = ':' + ((L.counts && L.counts.eraBand) | 0)
       + ':s' + (CM.season | 0)
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
+    const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
+    const keyBase = keyPre + keySuf;
     // RECUISSON COALESCÉE : recuire le sol coûte des centaines de ms sur une
     // mégapole — on ne le fait JAMAIS pendant un geste. Tant que la clé bouge
     // (zoom en cours) ou que le pan déborde la marge, on re-blitte le bake
@@ -6423,6 +6447,53 @@ function drawIsoWorldInner(dt, now, helpers) {
     // `soft` = invalidation DOUCE (sprite décodé en retard) : contenu encore
     // valable → coalescée ici ; `null` reste l'invalidation DURE (canvas
     // effacé/recréé : rien à re-blitter) → recuisson immédiate.
+    // ── CACHE DE CRANS : RESTAURATION, EXACTE OU APPROCHÉE ────────────────────
+    // EXACTE (même clé, zoom compris) : on repose la photo dans le canvas de
+    // travail et la cascade n'y voit qu'un bake valide (sameContent) — blit
+    // direct, zéro recuisson. C'est l'atterrissage instantané d'un zoom déjà
+    // visité.
+    // APPROCHÉE : pendant le GESTE, le zoom GLISSE (cmCameraGlide) par des
+    // valeurs intermédiaires qu'aucune clé exacte ne re-matchera jamais — la
+    // première version du cache n'avait donc AUCUN hit en geste (mesuré :
+    // 1 restore sur tout un aller-retour). On sert alors le cran caché le plus
+    // PROCHE en échelle (≤ ½ cran de molette, soit ±5,8 %) comme SOURCE du
+    // re-blit compensé : il reste un blit compensé (other garde la clé d'origine
+    // de la photo, la cascade compense zoom/zoomB), mais depuis une image du bon
+    // voisinage au lieu du bake de départ du geste — quasi net au lieu de flou
+    // croissant. Un bake courant déjà plus proche (ou aussi proche) est gardé.
+    if (!CM.capture && globalThis.__groundZoomCache !== false) {
+      const cur = CM._isoGroundBake;
+      if (!(cur && !cur.soft && cur.other === key)) {
+        const gc = CM._groundZoomCache;
+        if (gc && gc.size) {
+          let best = null, bestD = Infinity;
+          for (const e of gc.values()) {
+            if (e.base !== keyBase || !e.canvas) continue;
+            if (e.canvas.width !== CM.groundCanvas.width || e.canvas.height !== CM.groundCanvas.height) continue;
+            const d = Math.abs(Math.log(e.z / CM.cam.zoom));
+            if (d < bestD) { bestD = d; best = e; }
+          }
+          // ½ cran de molette (cf. CAM_FEEL.wheelStep = 1,12).
+          const HALF_STEP = Math.log(1.12) / 2;
+          // Distance d'échelle du bake courant — un lod/soft ne compte pas
+          // (une photo PLEINE, même approchée, vaut mieux qu'un allégé exact).
+          const curLod = !!cur && (!!cur.soft || !cur.other || cur.other.endsWith(':lod') || cur.other.endsWith(':lodl'));
+          const curD = (cur && !curLod && cur.zoomB != null) ? Math.abs(Math.log(cur.zoomB / CM.cam.zoom)) : Infinity;
+          if (best && bestD <= HALF_STEP && (cur ? cur.other !== best.key : true) && bestD < curD - 1e-9) {
+            gc.delete(best.key); gc.set(best.key, best);   // rafraîchit le rang LRU
+            const g = CM.gctx;
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.clearRect(0, 0, CM.groundCanvas.width, CM.groundCanvas.height);
+            g.drawImage(best.canvas, 0, 0);
+            g.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
+            // bestD = 0 : clé identique → bake exact (sameContent → blit direct).
+            // Sinon : la photo garde SA clé et SON échelle → re-blit compensé.
+            CM._isoGroundBake = { camX: best.camX, camY: best.camY, other: best.key, zoomB: best.z };
+            gzcStats.restores += 1;
+          }
+        }
+      }
+    }
     const bm = CM._isoGroundBake;
     const M = CM._bakeMargin || 0;
     const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : null;
@@ -6593,6 +6664,54 @@ function drawIsoWorldInner(dt, now, helpers) {
     } else {
       // Rien à réutiliser (1er bake, canvas effacé) — light lui aussi sous budget.
       bake(restful ? false : (lightEstMs <= lightBudget ? 'light' : true));
+    }
+    // ── CACHE DE CRANS : SNAPSHOT ─────────────────────────────────────────────
+    // Un bake PLEIN vient d'être posé (recuisson, tranches, ou déjà en place) :
+    // on le photographie pour son cran. AU REPOS SEULEMENT (`settled`) : pendant
+    // un geste au zoom de jeu, le crisp pose un plein par frame de GLIDE — des
+    // zooms intermédiaires quelconques qui photographiés pourrissaient le LRU
+    // (mesuré : 17 photos dont 14 de crans jamais revisitables). Re-photographie
+    // seulement si l'ancre a dérivé de plus d'une demi-marge (les pans au même
+    // zoom rafraîchissent la photo, les frames immobiles ne coûtent qu'une
+    // comparaison).
+    if (!CM.capture && settled && globalThis.__groundZoomCache !== false) {
+      const b2 = CM._isoGroundBake;
+      if (b2 && !b2.soft && b2.other === key) {
+        const gc = CM._groundZoomCache || (CM._groundZoomCache = new Map());
+        let e = gc.get(key);
+        let moved = true;
+        if (e) {
+          const dse = panDeltaToScreen(b2.camX - e.camX, b2.camY - e.camY);
+          moved = Math.abs(dse.x) > M / 2 || Math.abs(dse.y) > M / 2;
+        }
+        if (moved) {
+          const W = CM.groundCanvas.width, H = CM.groundCanvas.height;
+          if (e) gc.delete(key);
+          else e = { canvas: null, camX: 0, camY: 0, zoomB: CM.cam.zoom, key, base: keyBase, z: CM.cam.zoom };
+          gc.set(key, e);
+          if (!e.canvas || e.canvas.width !== W || e.canvas.height !== H) {
+            if (typeof OffscreenCanvas !== 'undefined') e.canvas = new OffscreenCanvas(W, H);
+            else { e.canvas = document.createElement('canvas'); e.canvas.width = W; e.canvas.height = H; }
+          }
+          const ec = e.canvas.getContext('2d');
+          if (ec) {
+            ec.setTransform(1, 0, 0, 1, 0, 0);
+            ec.clearRect(0, 0, W, H);
+            ec.drawImage(CM.groundCanvas, 0, 0);
+            e.camX = b2.camX; e.camY = b2.camY;
+            e.zoomB = (b2.zoomB != null) ? b2.zoomB : CM.cam.zoom;
+            e.key = key; e.base = keyBase; e.z = CM.cam.zoom;
+            gzcStats.snapshots += 1;
+            // Purge : les entrées d'un layout mort ne re-matcheront jamais leur
+            // clé — autant rendre la mémoire tout de suite. Puis éviction LRU.
+            const pref = 'iso:' + CM.layoutRecomputeAt + ':';
+            for (const k0 of [...gc.keys()]) if (!k0.startsWith(pref)) gc.delete(k0);
+            while (gc.size > GROUND_ZOOM_CACHE_MAX) gc.delete(gc.keys().next().value);
+          } else {
+            gc.delete(key);   // contexte refusé : pas d'entrée fantôme
+          }
+        }
+      }
     }
   } else {
     drawIsoGround();
