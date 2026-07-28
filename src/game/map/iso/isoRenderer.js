@@ -6367,12 +6367,14 @@ const ISO_CRISP_BUDGET_MS = 45;
 // A/B : globalThis.__groundZoomCache = false.
 // Diagnostic : globalThis.__groundZoomCacheStats = { restores, snapshots } —
 // lisible en prod (le harnais de mesure n'a pas accès aux hooks dev).
-const GROUND_ZOOM_CACHE_MAX = 6;
+// 8 photos : le cran courant + le plancher + ~5 jalons intermédiaires de la
+// pré-cuisson, avec une place de battement (~75 Mo au pire — palier Élevée).
+const GROUND_ZOOM_CACHE_MAX = 8;
 // `missBase` : un restore a échoué faute d'entrée de la MÊME BASE (la base a
 // changé sous le cache — recompute de layout, saison…) ; `purges` : entrées de
 // base morte retirées au snapshot. Ensemble ils disent si le cache MEURT plus
 // vite qu'il ne sert — le doute que le banc à sim GELÉE ne peut pas lever.
-const gzcStats = { restores: 0, snapshots: 0, missBase: 0, purges: 0 };
+const gzcStats = { restores: 0, snapshots: 0, missBase: 0, purges: 0, prebakes: 0 };
 if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcStats;
 // Identité de CONTENU du sol — ce que drawIsoGround consomme réellement.
 // La clé du bake vivant porte `layoutRecomputeAt`, un TIMESTAMP : en sim
@@ -6386,6 +6388,50 @@ if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcSt
 // recuit de toute façon au recompute : une photo périmée ne survivrait que
 // jusqu'au premier repos sur son cran, qui la re-photographie.
 // Mémoïsée par RÉFÉRENCE de layout : un calcul par recompute, zéro par frame.
+// ── PRÉ-CUISSON EN FOND (v2 du cache — demande Raph : « un chargement au
+// début puis plus rien ») : au repos long, une fois l'écran servi, on cuit
+// silencieusement les crans de zoom que le joueur ATTEINDRA — le plancher
+// d'abord (le dézoom max est le geste réflexe), puis un jalon tous les DEUX
+// crans jusqu'au zoom courant (l'approché à ± ½ cran comble les impairs).
+// Chaque cran se cuit PAR TRANCHES de ~8 ms sur les frames de repos (même
+// mécanique que le sol plein en tranches) vers un canvas tiers : jamais de
+// gel, le 60 fps du repos est préservé. Cuire à un AUTRE zoom que l'écran =
+// poser CM.cam.zoom le temps d'une tranche (restauré en finally) — la caméra
+// ne bouge pas (restful exigé, pré-bake ANNULÉ si elle bouge en cours).
+// La photo du plancher est ancrée à la caméra courante : le clamp du vrai
+// dézoom recentrera peut-être ailleurs — le défilement incrémental recuira
+// alors les seules bandes exposées, et le premier repos re-photographie.
+// Diagnostic : __groundZoomCacheStats.prebakes.
+let gzcPre = null;   // { base, z, canvas, pctx, i, n, W, H, camX, camY, z0 }
+function gzcPrebakeStrip(canvas, pctx, z2, yr) {
+  const dpr = CM.dpr || 1;
+  const M = CM._bakeMargin || 0;
+  const mainCtx = CM.ctx, cw0 = CM.cw, ch0 = CM.ch, z0 = CM.cam.zoom;
+  CM.cw = cw0 + 2 * M; CM.ch = ch0 + 2 * M;
+  CM.ctx = pctx;
+  CM.cam.zoom = z2;
+  const hh2 = CM.TILE * z2 * ISO_Y;
+  ISO_GROUND_SLICE.on = true;
+  ISO_GROUND_SLICE.yOn = true; ISO_GROUND_SLICE.xOn = false;
+  ISO_GROUND_SLICE.y0 = yr[0]; ISO_GROUND_SLICE.y1 = yr[1];
+  ISO_GROUND_SLICE.padTop = hh2 * 5; ISO_GROUND_SLICE.padBot = hh2 * 2;
+  pctx.save();
+  pctx.setTransform(1, 0, 0, 1, 0, 0);
+  pctx.beginPath();
+  const ry0 = Math.floor((yr[0] - 2) * dpr), ry1 = Math.ceil((yr[1] + 2) * dpr);
+  pctx.rect(0, ry0, canvas.width, ry1 - ry0);
+  pctx.clip();
+  pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try {
+    drawIsoGround();
+  } finally {
+    pctx.restore();
+    ISO_GROUND_SLICE.on = false; ISO_GROUND_SLICE.xOn = false; ISO_GROUND_SLICE.yOn = true;
+    CM.cam.zoom = z0;
+    CM.ctx = mainCtx; CM.cw = cw0; CM.ch = ch0;
+  }
+}
+
 let gzcSigL = null, gzcSig = '';
 function groundContentSig(L) {
   if (L === gzcSigL) return gzcSig;
@@ -6754,6 +6800,81 @@ function drawIsoWorldInner(dt, now, helpers) {
             while (gc.size > GROUND_ZOOM_CACHE_MAX) gc.delete(gc.keys().next().value);
           } else {
             gc.delete(cacheKey);   // contexte refusé : pas d'entrée fantôme
+          }
+        }
+      }
+    }
+    // ── CACHE DE CRANS : PRÉ-CUISSON EN FOND ──────────────────────────────────
+    // (cf. gzcPrebakeStrip) — une tranche par frame de repos LONG, écran déjà
+    // servi en plein ; jamais pendant un aperçu de merveille (sol transitoire)
+    // ni pendant les tranches écran (_solSlice) — un seul chantier à la fois.
+    // HYSTÉRÉSIS DE CONTENU : en pleine croissance, la signature du sol change
+    // réellement toutes les quelques secondes — sans garde-fou la pré-cuisson
+    // tournait en tapis roulant (mesuré : 18 pré-cuissons, 14 purgées aussitôt
+    // sur 20 s de sim vivante). On attend que le CONTENU soit stable ≥ 3 s.
+    if (CM._gzcSigSeen !== cacheBase) { CM._gzcSigSeen = cacheBase; CM._gzcSigAt = nowMs; }
+    if (!CM.capture && restful && !CM.previewWonder && _solSlice === null
+      && nowMs - (CM._gzcSigAt || 0) > 3000
+      && globalThis.__groundZoomCache !== false) {
+      const bNow = CM._isoGroundBake;
+      if (bNow && !bNow.soft && bNow.other === key) {
+        // Annulé si le monde, l'écran ou la caméra ont bougé depuis l'amorce :
+        // des tranches cuites sous deux caméras ne se raccordent pas.
+        if (gzcPre && (gzcPre.base !== cacheBase || gzcPre.W !== CM.groundCanvas.width
+          || gzcPre.H !== CM.groundCanvas.height || gzcPre.camX !== CM.cam.x
+          || gzcPre.camY !== CM.cam.y || gzcPre.z0 !== CM.cam.zoom)) gzcPre = null;
+        if (!gzcPre) {
+          // Prochaine cible : le plancher, puis un jalon tous les DEUX crans
+          // sous le zoom courant — la suite que la molette suivra réellement,
+          // les crans impairs étant servis par le restore approché (± ½ cran).
+          const targets = [0.35];
+          for (let zt = CM.cam.zoom / (1.12 * 1.12); zt > 0.35 * 1.06; zt /= (1.12 * 1.12)) targets.push(zt);
+          const gcm = CM._groundZoomCache;
+          let pick = null;
+          for (const t of targets) {
+            let has = false;
+            if (gcm) {
+              for (const e of gcm.values()) {
+                if (e.base === cacheBase && Math.abs(Math.log(e.z / t)) < Math.log(1.12) / 4) { has = true; break; }
+              }
+            }
+            if (!has) { pick = t; break; }
+          }
+          if (pick != null) {
+            const W = CM.groundCanvas.width, H = CM.groundCanvas.height;
+            let cnv;
+            if (typeof OffscreenCanvas !== 'undefined') cnv = new OffscreenCanvas(W, H);
+            else { cnv = document.createElement('canvas'); cnv.width = W; cnv.height = H; }
+            const pctx = cnv.getContext('2d');
+            if (pctx) {
+              // Tranches de ~8 ms : coût du cran extrapolé de la dernière
+              // recuisson pleine mesurée (∝ 1/zoom², comme crispEstMs).
+              const est = (CM._isoGroundBakeMs || 60)
+                * Math.max(1, ((CM._isoGroundBakeMsZ || CM.cam.zoom) / pick) ** 2);
+              gzcPre = {
+                base: cacheBase, z: pick, canvas: cnv, pctx, i: 0,
+                n: Math.max(3, Math.min(120, Math.ceil(est / 8))),
+                W, H, camX: CM.cam.x, camY: CM.cam.y, z0: CM.cam.zoom,
+              };
+            }
+          }
+        }
+        if (gzcPre) {
+          const fullH = CM.ch + 2 * M;
+          gzcPrebakeStrip(gzcPre.canvas, gzcPre.pctx, gzcPre.z,
+            [fullH * gzcPre.i / gzcPre.n, fullH * (gzcPre.i + 1) / gzcPre.n]);
+          gzcPre.i += 1;
+          if (gzcPre.i >= gzcPre.n) {
+            const gcm2 = CM._groundZoomCache || (CM._groundZoomCache = new Map());
+            const kC = cacheBase + '@' + gzcPre.z.toFixed(3);
+            gcm2.delete(kC);
+            gcm2.set(kC, {
+              canvas: gzcPre.canvas, camX: gzcPre.camX, camY: gzcPre.camY,
+              zoomB: gzcPre.z, key: kC, base: cacheBase, z: gzcPre.z,
+            });
+            gzcStats.prebakes = (gzcStats.prebakes || 0) + 1;
+            while (gcm2.size > GROUND_ZOOM_CACHE_MAX) gcm2.delete(gcm2.keys().next().value);
+            gzcPre = null;
           }
         }
       }
