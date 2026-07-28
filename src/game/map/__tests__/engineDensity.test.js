@@ -57,7 +57,7 @@ describe('densité moteur — la ville ne rétrécit jamais', () => {
   });
 
   it('acheter n\'enlève jamais un bâtiment (1 → 400 achats)', () => {
-    for (const id of ['foragers', 'ministries', 'schools']) {
+    for (const id of ['foragers', 'ministries', 'schools', 'water_mills']) {
       for (let n = 1; n < 400; n += 1) {
         expect(count(id, n + 1), `${id} : ${n} → ${n + 1} achats`).toBeGreaterThanOrEqual(count(id, n));
       }
@@ -67,6 +67,7 @@ describe('densité moteur — la ville ne rétrécit jamais', () => {
   it('1 achat = 1 bâtiment jusqu\'à 12, sans marche ensuite', () => {
     for (let n = 1; n <= 12; n += 1) expect(count('foragers', n)).toBe(n);
     expect(count('foragers', 13)).toBe(13);      // continuité : pas de saut au raccord
+    expect(count('water_mills', 13)).toBe(13);   // le moulin à vent suit le régime commun
   });
 
   it('la fin de partie est une ville, pas une dizaine de blocs', () => {
@@ -83,7 +84,7 @@ describe('échelle — les paniers de fruits ne grossissent plus', () => {
   const sceneBox = (foot) => (foot + foot) * 32 * 1 * 1 * 0.72;
 
   it('un atelier garde la même emprise — donc la même boîte — à tout compteur', () => {
-    for (const id of ['foragers', 'ministries', 'schools', 'markets']) {
+    for (const id of ['foragers', 'ministries', 'schools', 'markets', 'water_mills']) {
       const ref = foots(id, 400).slice(1);
       expect(ref.length).toBeGreaterThan(0);
       for (const n of [13, 25, 64, 150, 300, 400]) {
@@ -96,7 +97,7 @@ describe('échelle — les paniers de fruits ne grossissent plus', () => {
   });
 
   it('un atelier ne dépasse jamais 2 cellules', () => {
-    for (const id of ['foragers', 'ministries', 'imperial_exchanges', 'universities']) {
+    for (const id of ['foragers', 'ministries', 'imperial_exchanges', 'universities', 'water_mills']) {
       for (const f of foots(id, 300).slice(1)) expect(f).toBeLessThanOrEqual(2);
     }
   });
@@ -104,14 +105,17 @@ describe('échelle — les paniers de fruits ne grossissent plus', () => {
   it('la halle, elle, grandit toujours avec l\'investissement', () => {
     expect(foots('foragers', 300)[0]).toBeGreaterThan(foots('foragers', 1)[0]);
     expect(foots('ministries', 300)[0]).toBeGreaterThan(foots('ministries', 1)[0]);
+    expect(foots('water_mills', 300)[0]).toBe(3);   // la halle-moulin plafonne à 3×3
   });
 });
 
 describe('cas particuliers', () => {
-  it('les 4 structures uniques restent uniques', () => {
-    // Aqueduc, ceinture de champs, port, moulin : de vraies structures qui
-    // s'étendent, pas des blobs — elles gardent leur croissance d'un seul tenant.
-    for (const id of ['aqueducts', 'irrigated_fields', 'river_ports', 'water_mills']) {
+  it('les 3 structures uniques restent uniques', () => {
+    // Aqueduc, ceinture de champs, port : de vraies structures qui s'étendent,
+    // pas des blobs — elles gardent leur croissance d'un seul tenant. Le moulin
+    // n'en fait plus partie : devenu moulin à vent terrestre, il suit le régime
+    // halle + ateliers comme les autres moteurs.
+    for (const id of ['aqueducts', 'irrigated_fields', 'river_ports']) {
       for (const n of [1, 10, 64, 300]) expect(count(id, n), `${id} @ ${n}`).toBe(1);
     }
   });

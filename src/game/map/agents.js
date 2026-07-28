@@ -657,8 +657,15 @@ function citizenChooseNext(p) {
   // sur le trottoir DESSINÉ, et suivent ses molettes (__sidewalkIso). Legacy : 0.42 fixe.
   // Réglable live : window.__pedEdge (fraction de tuile) force tout.
   const bandPed = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+  // Hiérarchie des largeurs : la ligne de marche suit la chaussée de LA cellule
+  // (sentier étroit = accotement resserré, boulevard = trottoir au large) via les
+  // tables par rang publiées par le renderer ; repli sur les scalaires (rang
+  // inconnu / hors-route / molette d'avant la hiérarchie).
+  const sidewalkEra = bandPed >= (CM.isoSidewalkMinBand != null ? CM.isoSidewalkMinBand : 2);
+  const pedByRank = sidewalkEra ? CM.isoPedEdgeByRank : CM.isoPedEdgeLowByRank;
   const isoPed = CM.iso && CM.isoPedEdge != null
-    ? (bandPed >= (CM.isoSidewalkMinBand != null ? CM.isoSidewalkMinBand : 2) ? CM.isoPedEdge : CM.isoPedEdgeLow)
+    ? (pedByRank && pedByRank[rank] != null ? pedByRank[rank]
+      : (sidewalkEra ? CM.isoPedEdge : CM.isoPedEdgeLow))
     : null;
   let pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge
     : (isoPed != null ? isoPed : 0.42));
@@ -1200,9 +1207,11 @@ function vehicleLaneTarget(v) {
     // pur RENDU (pathfinding centré), partagé phares/carrosserie, nudge __vehLaneBias.
     const eiR = CM.layout?.counts?.eraIndex ?? 13;
     const laneBias = (typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
-    // ISO : centre de voie = demi-chaussée dessinée / 2 (CM.isoVehLane) — la file
-    // colle au ruban réel ; legacy : heuristique sur les largeurs procédurales.
-    const lane = (CM.iso && CM.isoVehLane != null) ? CM.isoVehLane
+    // ISO : centre de voie = demi-chaussée dessinée / 2 — par RANG de la cellule
+    // (hiérarchie des largeurs : la file colle au ruban réel, étroit ou large),
+    // repli sur le scalaire CM.isoVehLane ; legacy : heuristique procédurale.
+    const lane = (CM.iso && CM.isoVehLane != null)
+      ? ((CM.isoVehLaneByRank && CM.isoVehLaneByRank[rank] != null) ? CM.isoVehLaneByRank[rank] : CM.isoVehLane)
       : Math.min(0.24, Math.max(0.13, (medianHalfFor(rank, eiR) + roadWidthFor(rank, eiR) / 2) / 2));
     const m = s * (lane + laneBias);
     // Bord DROIT du sens de marche (même convention que le décalage-trottoir piéton) :

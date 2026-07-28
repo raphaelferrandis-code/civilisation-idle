@@ -416,6 +416,17 @@ export const defaultState = () => ({
   // Persistée : sans elle, un reload calculait la progression OFFLINE sans le
   // bonus routes (la carte n'est pas encore montée à ce moment-là).
   roadCoverage: 0,
+  // Chantiers de voirie : 1 achat = 1 chantier (raccord d'un moteur, puis
+  // élargissement du tronçon le plus emprunté), avancé par le tick sur
+  // l'horloge virtuelle. `roadNext` (prochain chantier proposé) et
+  // `roadWidened` (tronçons élargis appliqués) sont écrits par la CARTE,
+  // même canal que roadCoverage ; le sim et la boutique ne font que lire.
+  roadWorks: { active: null, queue: [] },
+  roadNext: null,
+  roadWidened: 0,
+  // Compteur de chantiers de l'ÈRE courante (rampe de durée) : remis à zéro au
+  // changement d'ère par roadWorksEraIndex(), et avec le cycle à l'Effondrement.
+  roadWorksEra: { era: 0, count: 0 },
   // A6 — Temps cumulé (s) passé sous le seuil de Rupture « stagnation » : monte
   // l'Usure d'une cité sur-stabilisée. Monte/descend dans le tick, reset au cycle.
   stagnationSec: 0,
@@ -917,6 +928,50 @@ export function normalizeCrisisActions(raw, fallback) {
     out[key] = finiteInteger(source[key], fallback[key], 0, 999);
   }
   return out;
+}
+
+// ── Chantiers de voirie ─────────────────────────────────────────────────────
+// Un chantier = { kind: "link"|"widen", tiles, targetId?, toRank?, total, left }.
+// `left` avance dans le tick (horloge virtuelle) ; la file est courte (borne
+// large à 8 par sécurité, la vraie limite d'achat est ROAD_WORK_QUEUE_MAX).
+function normalizeRoadWork(raw) {
+  if (!isPlainObject(raw)) return null;
+  const tiles = finiteNumber(raw.tiles, 0, 1, 4096);
+  const total = finiteNumber(raw.total, 0, 1, 86400);
+  if (!(tiles > 0) || !(total > 0)) return null;
+  return {
+    kind: raw.kind === "widen" ? "widen" : "link",
+    tiles,
+    targetId: typeof raw.targetId === "string" ? raw.targetId.slice(0, 64) : null,
+    toRank: raw.toRank === "avenue" || raw.toRank === "main" ? raw.toRank : null,
+    total,
+    left: finiteNumber(raw.left, total, 0, total)
+  };
+}
+
+export function normalizeRoadWorks(raw) {
+  const source = isPlainObject(raw) ? raw : {};
+  const queue = Array.isArray(source.queue)
+    ? source.queue.map(normalizeRoadWork).filter(Boolean).slice(0, 8)
+    : [];
+  return { active: normalizeRoadWork(source.active), queue };
+}
+
+// Prochain chantier proposé (écrit par la carte, comme roadCoverage) : lisible
+// même hors-carte pour que la boutique affiche un prix dès le chargement.
+export function normalizeRoadNext(raw) {
+  if (!isPlainObject(raw)) return null;
+  const tiles = finiteNumber(raw.tiles, 0, 1, 65536);
+  if (raw.kind === "done") return { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null };
+  if (!(tiles > 0)) return null;
+  return {
+    kind: raw.kind === "widen" ? "widen" : "link",
+    tiles,
+    // Vague de raccord : nombre de bâtiments servis par ce chantier (≥ 1).
+    count: finiteInteger(raw.count, 1, 1, 4096),
+    targetId: typeof raw.targetId === "string" ? raw.targetId.slice(0, 64) : null,
+    toRank: raw.toRank === "avenue" || raw.toRank === "main" ? raw.toRank : null
+  };
 }
 
 export function normalizeCrisisThresholds(raw) {
@@ -1450,6 +1505,12 @@ export function hydrateState(parsed = {}) {
     // Couverture routière : persiste le dernier calcul de la carte (l'offline au
     // chargement applique ainsi le bonus routes d'avant-fermeture).
     roadCoverage: clamp01(finiteNumber(source.roadCoverage, base.roadCoverage)),
+    roadWorks: normalizeRoadWorks(source.roadWorks),
+    roadNext: normalizeRoadNext(source.roadNext),
+    roadWidened: finiteInteger(source.roadWidened, base.roadWidened, 0, 9999),
+    roadWorksEra: isPlainObject(source.roadWorksEra)
+      ? { era: finiteInteger(source.roadWorksEra.era, 0, 0, 999), count: finiteInteger(source.roadWorksEra.count, 0, 0, 9999) }
+      : { era: 0, count: 0 },
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     stagnationSec: finiteNumber(source.stagnationSec, base.stagnationSec, 0),
     popMilestoneExp: finiteInteger(source.popMilestoneExp, base.popMilestoneExp, 0),

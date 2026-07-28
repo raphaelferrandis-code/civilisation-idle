@@ -95,6 +95,7 @@ import {
 } from '../../data/activeRuins.js';
 import { icareClimb, checkMythLiveCompletion } from './myths.js';
 import { collapse } from './crisis.js';
+import { tickRoadWorks } from './roadWorks.js';
 
 // Dernier déclenchement automatique de protocoles_urgence (cooldown anti-verrou :
 // l'automation seule ne doit pas pouvoir maintenir la jauge sous le seuil de crise).
@@ -140,6 +141,10 @@ export function tick(dt) {
   state.infrastructure = D(state.infrastructure).add(r.infrastructure.mul(dt)).max(0);
 
   enforceInfrastructureCap();
+
+  // Chantiers de voirie : la pose avance sur l'horloge virtuelle (hors-ligne
+  // compris) ; une complétion incrémente buildings.roads, la carte rejoue.
+  tickRoadWorks(dt);
 
   // A2 — Entretien : l'infra excédentaire (au-delà de INFRA_UPKEEP_TOLERANCE × la
   // demande de couverture) se dégrade. Le stock n'étant jamais consommé, il

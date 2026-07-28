@@ -55,6 +55,13 @@ afterEach(() => {
   delete globalThis.__engineTopK;
 });
 
+// Ces gardes comparent DEUX layouts denses complets à froid : ~4-5 s quand la
+// suite entière sature les cœurs (forks parallèles), soit pile le testTimeout
+// vitest par défaut (5 s) → échec en timeout SEULEMENT en suite complète,
+// vert en isolé. Ce sont des gardes de DÉTERMINISME, pas de performance : on
+// leur donne la marge explicitement.
+const SLOW = 20000;
+
 describe('placement moteur — les optimisations ne déplacent rien', () => {
   it('le cache de géométrie pose exactement la ville du calcul cellule par cellule', () => {
     globalThis.__engineGeoCache = false;      // chemin de référence, sans cache
@@ -64,7 +71,7 @@ describe('placement moteur — les optimisations ne déplacent rien', () => {
 
     expect(reference.length).toBeGreaterThan(0);
     expect(fast).toBe(reference);
-  });
+  }, SLOW);
 
   it('l\'élargissement du top-K pose la même ville que le top-K large', () => {
     // __engineTopK = 8 force PRESQUE TOUTES les instances dans le repli : c'est
@@ -76,7 +83,7 @@ describe('placement moteur — les optimisations ne déplacent rien', () => {
 
     expect(large.length).toBeGreaterThan(0);
     expect(widened).toBe(large);
-  });
+  }, SLOW);
 
   it('CONTRÔLE NÉGATIF : l\'empreinte réagit bien à un déplacement', () => {
     // Si cette empreinte ne bougeait pas quand la ville change, les deux gardes

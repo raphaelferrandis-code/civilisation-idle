@@ -51,12 +51,17 @@ function homeless(L) {
 
 afterEach(() => { delete globalThis.__engineHomesK; });
 
+// Deux layouts denses complets à froid frôlent le testTimeout vitest par défaut
+// (5 s) quand la suite entière sature les cœurs → échec en timeout SEULEMENT en
+// suite complète. Garde d'INVARIANT, pas de performance : marge explicite.
+const SLOW = 20000;
+
 describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
   it('couvre chaque emprise à la génération normale', () => {
     const L = computeCityLayout(city(60));
     expect(L.tiles.length).toBeGreaterThan(100);
     expect(homeless(L)).toEqual([]);
-  });
+  }, SLOW);
 
   it('couvre encore quand le rayon urbain SE RÉTRÉCIT sous des positions figées', () => {
     const s = city(60);
@@ -77,7 +82,7 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
       .toBeGreaterThan(0);
 
     expect(homeless(reduit)).toEqual([]);
-  });
+  }, SLOW);
 
   it('le sol s\'arrête tout de même : il ne recouvre pas la carte', () => {
     // Garde-fou opposé — si l'emprise + pourtour pavait tout, la campagne, la
@@ -85,5 +90,5 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
     const L = computeCityLayout(city(60));
     const N = L.gridN;
     expect(L.urbanSet.size).toBeLessThan(N * N * 0.85);
-  });
+  }, SLOW);
 });

@@ -918,6 +918,14 @@ function cityMapEnsureLayout(now, deps = {}) {
   {
     const rc = L.roadCover;
     state.roadCoverage = (rc && rc.engineTotal > 0) ? rc.engineConnected / rc.engineTotal : 0;
+    // Chantiers de voirie : la carte fait foi sur le prochain chantier proposé
+    // (nature, tuiles, cible) et sur les tronçons élargis appliqués — la
+    // boutique (prix) et le sim (bonus) ne font que lire ces caches.
+    const rw = L.roadWorksInfo;
+    if (rw) {
+      state.roadNext = rw.next || null;
+      state.roadWidened = Math.max(0, rw.widened | 0);
+    }
   }
 
   // Naissance des nouvelles tuiles (anim de construction 0.5s).

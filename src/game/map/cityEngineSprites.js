@@ -220,7 +220,7 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
   // ── band 4 (Marbre) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12) ──
   'forager-hortus-classical', 'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
   'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
@@ -623,7 +623,7 @@ function drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold) {
 function engineStage(ei) { return ei < 10 ? 0 : ei < 25 ? 1 : ei < 30 ? 2 : 3; }
 
 function drawCityEngineSprite(context) {
-  const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1, pass = 'all' } = context;
+  const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1, pass = 'all', seed = 0 } = context;
   // Passes de cache : 'back' = statique dessiné SOUS les animations · 'anim' = tout ce qui
   // lit `now`, une bande animée ou sceneHumanH · 'front' = statique dessiné PAR-DESSUS.
   // Avec pass='all' (défaut) les trois booléens valent true → ordre et appels STRICTEMENT
@@ -633,8 +633,8 @@ function drawCityEngineSprite(context) {
   const dFront = pass === 'all' || pass === 'front';
   // ── band 4 (Marbre / toges) : sprite ROMAIN classique à la place du stade pierre médiéval. ──
   // Repli AUTOMATIQUE sur le dispatch de stade tant que le PNG n'est pas chargé (propReady=false).
-  // port/mill (rive : dock+bateau à préserver), caravans (véhicule) et markets (branche dédiée)
-  // sont traités séparément — pas dans cette table.
+  // port (rive : dock+bateau à préserver), mill (tour + hélice dédiées), caravans
+  // (véhicule) et markets (branche dédiée) sont traités séparément — pas dans cette table.
   const RB4 = { foragers: 'forager-hortus-classical', granaries_city: 'granary-horreum-classical', guilds: 'guild-collegium', mint_houses: 'mint-moneta', imperial_exchanges: 'bank-basilica-roman' };
   if (band === 4 && RB4[id] && propReady(RB4[id])) { if (dBack) blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
   if (id === "foragers") {
@@ -3388,233 +3388,101 @@ function drawCityEngineSprite(context) {
     return true;
   }
   if (id === "water_mills") {
-    if (band >= 7) { // ROUE D'ÉNERGIE cosmique : moulin sur berge, roue qui plonge dans le VRAI fleuve (pas d'eau fake)
+    // ── MOULIN À VENT terrestre (refonte éolienne 2026-07-28) ────────────────
+    // Tour statique en passe back + hélice qui tourne en passe anim, moyeu monté
+    // HAUT sur la face. Plus rien d'aquatique : le moulin est un moteur de
+    // périphérie multi-instances (halle + ateliers) posé loin du fleuve.
+    // ⚠ `seed` (désynchronisation par instance) n'est lu QUE sous dAnim : les
+    // passes back/front sont CUITES et PARTAGÉES entre instances (clé de cache
+    // sans gx/gy, cf. engineSceneCache) — une variation par instance dans le
+    // back fausserait la cuisson commune sans jamais se voir.
+    const ph = ((seed % 1024) / 1024) * Math.PI * 2;   // phase de départ de l'hélice
+    const pj = 1 + ((((seed >>> 10) % 16) - 8) / 160); // période ±5 % par instance
+    if (band >= 7) { // TOUR-ROTOR cosmique : tour néon + rotor d'énergie au sommet
       const cp = COSMIC_PAL[band] || COSMIC_PAL[9];
-      // PAS de plateforme cosmique : le vrai fleuve + le sol de la carte restent visibles dessous
-      // Corps du moulin = TOUR hydro cosmique (sprite posé sur la berge) ; la ROUE qui tourne
-      // dans le fleuve est gardée et dessinée PAR-DESSUS (montée sur le flanc gauche). Repli procédural.
       const mk = 'mill-cosmic-' + band;
       if (propReady(mk)) {
-        if (dAnim) blitCosmicTower(ctx, ox, oy, sw, sh, mk, now, band, cp, (typeof window !== 'undefined' && window.__cosmicRiverBase) || 0.6); // halo → animée en bloc
+        if (dAnim) blitCosmicTower(ctx, ox, oy, sw, sh, mk, now, band, cp); // halo intégré → animée en bloc
       } else if (dBack) {
-        // Gros bâtiment du moulin (droite) — ENTIÈREMENT statique
-        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.44, oy + sh * 0.2, sw * 0.44, sh * 0.5, sw * 0.03); ctx.fill();
-        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.7, oy + sh * 0.2, sw * 0.18, sh * 0.5);
-        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.46, oy + sh * 0.22, sw * 0.4, sh * 0.05);
-        if (band === 9) { ctx.fillStyle = cp.lite; ctx.beginPath(); ctx.moveTo(ox + sw * 0.44, oy + sh * 0.2); ctx.lineTo(ox + sw * 0.66, oy + sh * 0.08); ctx.lineTo(ox + sw * 0.88, oy + sh * 0.2); ctx.closePath(); ctx.fill(); }
-        else { for (let i = 0; i < 3; i++) { ctx.fillStyle = cp.lite; ctx.fillRect(ox + sw * (0.5 + i * 0.12), oy + sh * 0.36, sw * 0.08, sh * 0.09); } }
+        // Silhouette de tour (repli) — ENTIÈREMENT statique
+        ctx.fillStyle = cp.mid; ctx.beginPath(); ctx.roundRect(ox + sw * 0.36, oy + sh * 0.16, sw * 0.28, sh * 0.56, sw * 0.03); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * 0.53, oy + sh * 0.16, sw * 0.11, sh * 0.56);
+        ctx.fillStyle = cp.edge; ctx.fillRect(ox + sw * 0.38, oy + sh * 0.18, sw * 0.24, sh * 0.05);
       }
-      // ROUE cosmique = SPRITE (mill-turbine) qui tourne, montée sur le flanc GAUCHE et plongeant
-      // dans le VRAI fleuve (blitPropRot, sprite symétrique → pas de wobble). Repli roue métal/bois.
+      // ROTOR cosmique = sprite (mill-turbine) tourné en continu au SOMMET de la
+      // tour (blitPropRot, sprite symétrique → pas de wobble). Repli métal/bois.
       const WHEEL = propReady('mill-turbine') ? 'mill-turbine' : (propReady('mill-wheel-metal') ? 'mill-wheel-metal' : (propReady('mill-prop-wheel') ? 'mill-prop-wheel' : null));
-      if (dAnim && WHEEL) blitPropRot(ctx, ox, oy, sw, sh, WHEEL, 0.26, 0.6, 2.1 / Math.max(1, gw), 2.1 / Math.max(1, gh), -(now || 0) / 320); // roue qui TOURNE → animée
+      if (dAnim && WHEEL) blitPropRot(ctx, ox, oy, sw, sh, WHEEL, 0.5, 0.18, 0.55, 0.55, ph - (now || 0) / (320 * pj));
       return true;
     }
-    // ── MOULIN À EAU UNIQUE — posé sur la rive, eau au sud (comme le port) ──────
-    // L'emprise plonge jusqu'au centre du fleuve : la moitié basse du sprite est de
-    // l'eau RÉELLEMENT peinte (cf. layout cmWaterMillSpan + branche de pose). On ne
-    // peint donc plus de « bief » : on laisse le fleuve transparaître sous la ligne
-    // d'eau et la roue/turbine y plonge. 4 stades d'ère (bois → pierre → brique →
-    // hydro), le tier enrichissant chacun (fenêtres, fumée, lueur).
     const stage = engineStage(ei);
-    // ── PIXEL-ART (stade 0) : remplace le moulin procédural par des SPRITES
-    //    TRANSPARENTS posés sur la tuile NATURELLE (berge+fleuve déjà rendus = base
-    //    nickel) : bâtiment de moulin sur la berge + ROUE À AUBES qui tourne en
-    //    plongeant dans le fleuve (sprite statique tourné via ctx, vitesse now/900 =
-    //    la roue procédurale). AUCUN procédural/fond peint/hack moteur (leçon du port).
-    if (propReady('mill-prop-house')) {   // pixel-art TOUS STADES (riverain, clean, comme le port)
-      // Bâtiment de moulin par STADE (0 = cabane bois validée ; 1 = pierre ; 2 = minoterie
-      // brique ; 3 = centrale hydro). Repli sur la cabane → JAMAIS de procédural (carré brun).
-      // ⚠ GRANDIT par ère (anticipé du port : bâtiment + roue croissent ENSEMBLE) ; boîte
-      // ~carrée (pas de distorsion) ; base ~0.53 constante (raccord roue).
-      const stageHouse = (band === 4 && propReady('mill-house-roman')) ? 'mill-house-roman' : ['mill-prop-house', 'mill-house-stone', 'mill-house-industrial', 'mill-house-hydro'][stage];
+    // Corps par stade — tours PixelLab de la phase art (2026-07-28) : bois →
+    // pierre (romaine en band 4) → brique industrielle → mât d'éolienne moderne.
+    // Sprites recadrés sur leur encre (le pied du PNG EST le pied de la tour).
+    const stageHouse = (band === 4 && propReady('mill-house-roman')) ? 'mill-house-roman'
+      : ['mill-prop-house', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern'][stage];
+    if (propReady(stageHouse) || propReady('mill-prop-house')) {
       const HOUSE = propReady(stageHouse) ? stageHouse : 'mill-prop-house';
-      // TOUR (stades 1-3) : haute et étroite (sprite 80×128, aspect ~1.6) ; stade 0 =
-      // cabane carrée validée. Largeur+hauteur grandissent par ère ; base ~0.53 constante.
-      const isTower = stage >= 1;
-      const twWc = [1.5, 1.7, 1.95, 2.2][stage];
-      const twW = twWc / Math.max(1, gw);
-      const twH = (isTower ? twWc * 1.6 : twWc) / Math.max(1, gh);
-      const twCx = 0.58, twBaseCy = 0.53, twCy = twBaseCy - twH / 2;
-      if (dBack) blitProp(ctx, ox, oy, sw, sh, HOUSE, twCx, twCy, twW, twH);
-      // Roue/turbine par STADE (bois 0-1 → fer 2 → turbine 3), qui GRANDIT, montée sur le
-      // flanc GAUCHE et plongeant dans le fleuve. Tournée via blitPropRot (sprite symétrique
-      // → pas de wobble) ; la turbine tourne plus vite. Repli sur la roue bois → jamais de procédural.
+      // Corps à l'ASPECT NATUREL du PNG (blitProp remplit sa boîte : une boîte
+      // haute et étroite écrasait la tour en largeur, vu à la capture). Quand le
+      // plafond de hauteur mord, la LARGEUR suit — le mât moderne (24×127) reste
+      // un mât, il n'est pas étiré à la largeur des tours.
+      const hIm = propImg[HOUSE];
+      const asp = (hIm && hIm.naturalWidth > 0) ? hIm.naturalHeight / hIm.naturalWidth : 1;
+      let twW = stage === 0 ? 0.54 : 0.58;
+      let twH = twW * asp * (sw / Math.max(1, sh));
+      if (twH > 1.2) { twW *= 1.2 / twH; twH = 1.2; }
+      const baseY = 0.88;                 // pied de la tour (ligne de sol de la scène)
+      if (dBack) {
+        softGround(ctx, ox, oy, sw, sh, baseY, 0.40, 0.16, "38,26,12", 0.40);
+        blitProp(ctx, ox, oy, sw, sh, HOUSE, 0.5, baseY - twH / 2, twW, twH);
+      }
       const stageWheel = ['mill-prop-wheel', 'mill-prop-wheel', 'mill-wheel-metal', 'mill-turbine'][stage];
       const WHEEL = propReady(stageWheel) ? stageWheel : (propReady('mill-prop-wheel') ? 'mill-prop-wheel' : null);
-      if (dAnim && WHEEL) { // roue/turbine qui TOURNE (angle en `now`) → animée
-
-        const wFc = [1.06, 1.4, 1.75, 2.1][stage];
-        const wAng = -(now || 0) / (stage === 3 ? 320 : 900);   // sens inversé ; turbine + rapide
-        const wCx = twCx - twW * (stage === 0 ? 0.27 : 0.45);   // MOYEU sur le flanc gauche (tour = plus au bord)
-        blitPropRot(ctx, ox, oy, sw, sh, WHEEL, wCx, 0.46, wFc / Math.max(1, gw), wFc / Math.max(1, gh), wAng);
+      if (dAnim && WHEEL) {
+        // Hélice = sprite à symétrie radiale parfaite (reconstruite par rotations
+        // exactes de 90°) tourné en continu par blitPropRot, pivot au centroïde
+        // opaque. Moyeu ancré sur la fraction MESURÉE de chaque tour (sous
+        // l'avant-toit ; nacelle pour le mât moderne) — jamais un chiffre supposé.
+        const HUB_F = { 'mill-prop-house': 0.64, 'mill-house-stone': 0.72, 'mill-house-roman': 0.67, 'mill-house-industrial': 0.72, 'mill-house-modern': 0.93 };
+        const period = (stage >= 3 ? 420 : stage === 2 ? 700 : 900) * pj;
+        const hubY = baseY - twH * (HUB_F[HOUSE] || 0.72);
+        const wFc = [0.70, 0.76, 0.78, 0.68][stage];
+        blitPropRot(ctx, ox, oy, sw, sh, WHEEL, 0.5, hubY, wFc, wFc, ph - (now || 0) / period);
       }
       return true;
     }
-    const nF = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
-    const minWH = Math.min(sw, sh);
-    // Volume (lumière en haut-gauche) : face DROITE à l'ombre + lisère clair en
-    // haut. Appliqué à chaque corps/soubassement pour donner du relief à tous les âges.
-    const shadeBox = (x, y, w, h) => {
-      ctx.fillStyle = "rgba(0,0,0,0.20)"; ctx.fillRect(ox + sw * (x + w * 0.64), oy + sh * y, sw * w * 0.36, sh * h);
-      ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(ox + sw * x, oy + sh * y, sw * w, Math.max(1, sh * h * 0.05));
-    };
-    // Moitié droite d'un toit en pignon, à l'ombre (apex → base droite → aplomb).
-    const shadeTri = (ax, ay, brx, byy) => {
-      ctx.fillStyle = "rgba(0,0,0,0.18)";
-      ctx.beginPath(); ctx.moveTo(ox + sw * ax, oy + sh * ay); ctx.lineTo(ox + sw * brx, oy + sh * byy); ctx.lineTo(ox + sw * ax, oy + sh * byy); ctx.closePath(); ctx.fill();
-    };
-
-    // ── Soubassement / pierrée sous le corps (gauche, x<0.60) : ancre le moulin
-    //    au-dessus de l'eau et masque la ligne de berge (variable selon le fleuve).
-    //    À droite (x>0.60) on laisse l'eau libre pour que la roue y plonge. ───────
-    const baseTop = 0.46, baseBot = 0.74;
-    const foundCol = ["#5a3a18", "#6b6358", "#7c6c60", "#39454f"][stage];
+    // ── Repli procédural (sprites pas décodés, ou node en test) : tour conique
+    //    + croix de 4 pales toilées. La porte passe par px() → le fillRect que
+    //    le smoke-test exige reste garanti sur la passe 'all'.
+    const bodyCol = ["#8a6a30", "#9a8050", "#9a4e3c", "#33414f"][stage];
+    const roofCol = ["#6a5018", "#5a3a10", "#3c4450", "#27333d"][stage];
+    const hubX = 0.5, hubY = 0.30, rr = Math.min(sw, sh) * 0.26;
     if (dBack) {
-    px(0.06, baseTop, 0.56, baseBot - baseTop, foundCol);
-    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(ox + sw * (0.06 + 0.56 * 0.66), oy + sh * baseTop, sw * 0.56 * 0.34, sh * (baseBot - baseTop)); // face droite à l'ombre
-    px(0.06, baseBot - 0.025, 0.56, 0.025, "rgba(0,0,0,0.32)");      // lèvre humide
-    const pileCol = ["#3a2810", "#4a4640", "#564b44", "#27313b"][stage];
-    for (const fx of [0.16, 0.34, 0.52]) px(fx - 0.012, baseBot, 0.024, 0.16, pileCol); // pilotis dans l'eau
+      // Corps conique (trapèze) + face droite à l'ombre + calotte
+      ctx.fillStyle = bodyCol;
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.36, oy + sh * 0.84); ctx.lineTo(ox + sw * 0.42, oy + sh * 0.30); ctx.lineTo(ox + sw * 0.58, oy + sh * 0.30); ctx.lineTo(ox + sw * 0.64, oy + sh * 0.84); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.beginPath(); ctx.moveTo(ox + sw * 0.53, oy + sh * 0.30); ctx.lineTo(ox + sw * 0.58, oy + sh * 0.30); ctx.lineTo(ox + sw * 0.64, oy + sh * 0.84); ctx.lineTo(ox + sw * 0.55, oy + sh * 0.84); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = roofCol;
+      ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.30, sw * 0.085, Math.PI, 0); ctx.fill();
+      px(0.46, 0.72, 0.08, 0.12, "#2a1a0c");               // porte
+      ctx.fillStyle = litWarm; ctx.fillRect(ox + sw * 0.465, oy + sh * 0.50, sw * 0.07, sh * 0.07); // fenêtre
     }
-
-    // ── Corps du moulin selon le stade ────────────────────────────────────────
-    if (stage === 0) {
-      // Bois + toit de chaume (moulin primitif) — statique
-      if (dBack) {
-      px(0.10, 0.18, 0.46, 0.32, "#8a6a30");
-      shadeBox(0.10, 0.18, 0.46, 0.32);
-      ctx.fillStyle = "#6a5018";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.06, oy + sh * 0.20); ctx.lineTo(ox + sw * 0.33, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.60, oy + sh * 0.20); ctx.closePath(); ctx.fill();
-      shadeTri(0.33, 0.04, 0.60, 0.20);
-      px(0.18, 0.32, 0.10, 0.16, "#2a1a0c");                          // porte
-      ctx.fillStyle = litWarm; ctx.fillRect(ox + sw * 0.37, oy + sh * 0.28, sw * 0.10, sh * 0.09); // fenêtre
-      }
-    } else if (stage === 1) {
-      // Pierre + colombage + double lucarne (moulin médiéval) + bief en bois — statique
-      if (dBack) {
-      px(0.10, 0.16, 0.46, 0.34, "#9a8050");
-      shadeBox(0.10, 0.16, 0.46, 0.34);
-      ctx.strokeStyle = "rgba(70,45,12,0.5)"; ctx.lineWidth = Math.max(0.5, sw * 0.016);
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.10, oy + sh * 0.33); ctx.lineTo(ox + sw * 0.56, oy + sh * 0.33); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.33, oy + sh * 0.16); ctx.lineTo(ox + sw * 0.33, oy + sh * 0.48); ctx.stroke();
-      ctx.fillStyle = "#5a3a10";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.05, oy + sh * 0.18); ctx.lineTo(ox + sw * 0.33, oy + sh * 0.02); ctx.lineTo(ox + sw * 0.61, oy + sh * 0.18); ctx.closePath(); ctx.fill();
-      shadeTri(0.33, 0.02, 0.61, 0.18);
-      ctx.fillStyle = litWarm; ctx.fillRect(ox + sw * 0.18, oy + sh * 0.22, sw * 0.10, sh * 0.08); ctx.fillRect(ox + sw * 0.38, oy + sh * 0.22, sw * 0.10, sh * 0.08);
-      // Bief / vanne de bois amenant l'eau en haut de la roue (overshot)
-      ctx.fillStyle = "#6a4a1c";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.52, oy + sh * 0.40); ctx.lineTo(ox + sw * 0.74, oy + sh * 0.50); ctx.lineTo(ox + sw * 0.74, oy + sh * 0.56); ctx.lineTo(ox + sw * 0.52, oy + sh * 0.46); ctx.closePath(); ctx.fill();
-      }
-    } else if (stage === 2) {
-      if (dBack) {
-      // Minoterie industrielle : brique multi-étages, chaînage de pierre aux angles,
-      // toit d'ardoise à deux pentes, lucarne de levage (poulie qui hisse les sacs),
-      // grande cheminée à bandeau. Fenêtres en arc éclairées (rangées ∝ tier).
-      px(0.09, 0.16, 0.50, 0.34, "#9a4e3c");
-      // Assises de brique (lignes claires fines)
-      ctx.strokeStyle = "rgba(40,16,10,0.28)"; ctx.lineWidth = Math.max(0.5, sw * 0.008);
-      for (let r = 1; r < 5; r += 1) { const yy = 0.16 + 0.34 * r / 5; ctx.beginPath(); ctx.moveTo(ox + sw * 0.09, oy + sh * yy); ctx.lineTo(ox + sw * 0.59, oy + sh * yy); ctx.stroke(); }
-      shadeBox(0.09, 0.16, 0.50, 0.34);
-      // Chaînage de pierre aux angles
-      ctx.fillStyle = "#c9b48a";
-      ctx.fillRect(ox + sw * 0.09, oy + sh * 0.16, sw * 0.028, sh * 0.34);
-      ctx.fillRect(ox + sw * 0.562, oy + sh * 0.16, sw * 0.028, sh * 0.34);
-      // Toit d'ardoise à deux pentes
-      ctx.fillStyle = "#3c4450";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.06, oy + sh * 0.16); ctx.lineTo(ox + sw * 0.34, oy + sh * 0.04); ctx.lineTo(ox + sw * 0.62, oy + sh * 0.16); ctx.closePath(); ctx.fill();
-      shadeTri(0.34, 0.04, 0.62, 0.16);
-      // Lucarne de levage + potence + poulie
-      ctx.fillStyle = "#5a4a40"; ctx.fillRect(ox + sw * 0.30, oy + sh * 0.075, sw * 0.10, sh * 0.085);
-      ctx.fillStyle = "#1e1712"; ctx.fillRect(ox + sw * 0.325, oy + sh * 0.10, sw * 0.05, sh * 0.06);
-      ctx.strokeStyle = "#2e2620"; ctx.lineWidth = Math.max(1, sw * 0.016); ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.35, oy + sh * 0.075); ctx.lineTo(ox + sw * 0.35, oy + sh * 0.025); ctx.lineTo(ox + sw * 0.44, oy + sh * 0.035); ctx.stroke();
-      ctx.lineCap = "butt";
-      ctx.fillStyle = "#1e1712"; ctx.beginPath(); ctx.arc(ox + sw * 0.44, oy + sh * 0.055, sw * 0.012, 0, Math.PI * 2); ctx.fill();
-      // Fenêtres en arc éclairées (2 colonnes × 1-2 rangées)
-      const wcols = [0.18, 0.40], wrows = [0.225, 0.355];
-      const nRows = tier >= 1 ? 2 : 1;
-      for (let ci = 0; ci < wcols.length; ci += 1) for (let ri = 0; ri < nRows; ri += 1) {
-        const wx = wcols[ci], wy = wrows[ri];
-        ctx.fillStyle = "#2a1410"; ctx.fillRect(ox + sw * wx, oy + sh * wy, sw * 0.09, sh * 0.085);
-        ctx.beginPath(); ctx.arc(ox + sw * (wx + 0.045), oy + sh * wy, sw * 0.045, Math.PI, 0); ctx.fill();
-        ctx.fillStyle = litGold; ctx.fillRect(ox + sw * (wx + 0.013), oy + sh * (wy + 0.004), sw * 0.064, sh * 0.078);
-        ctx.beginPath(); ctx.arc(ox + sw * (wx + 0.045), oy + sh * (wy + 0.004), sw * 0.032, Math.PI, 0); ctx.fill();
-      }
-      // Grande cheminée à bandeau (gauche) + fumée
-      px(0.035, 0.0, 0.05, 0.50, "#7a3e30");
-      px(0.03, 0.04, 0.06, 0.028, "#caa07a");
-      ctx.fillStyle = "rgba(0,0,0,0.20)"; ctx.fillRect(ox + sw * 0.066, oy, sw * 0.019, sh * 0.50); // face droite cheminée
-      }
-      if (dAnim) {
-      const smk = (now / 700) % 1;
-      ctx.fillStyle = `rgba(120,110,100,${((1 - smk) * 0.35).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(ox + sw * (0.06 + smk * 0.02), oy + sh * (-smk * 0.05), sw * (0.03 + smk * 0.05), 0, Math.PI * 2); ctx.fill();
-      }
-    } else {
-      // Béton/verre + conduite forcée + baies cyan pulsées (centrale hydro)
-      if (dBack) {
-      px(0.10, 0.14, 0.50, 0.36, "#33414f");
-      shadeBox(0.10, 0.14, 0.50, 0.36);
-      px(0.08, 0.10, 0.54, 0.05, "#27333d");
-      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(ox + sw * (0.08 + 0.54 * 0.66), oy + sh * 0.10, sw * 0.54 * 0.34, sh * 0.05);
-      }
-      if (dAnim) {
-      const pulse = 0.5 + 0.3 * Math.sin(now / 500);
-      ctx.fillStyle = `rgba(80,200,255,${(0.28 + nF * 0.4 + pulse * 0.15).toFixed(2)})`;
-      for (let i = 0; i < 3; i += 1) ctx.fillRect(ox + sw * (0.13 + i * 0.15), oy + sh * 0.20, sw * 0.10, sh * 0.12);
-      }
-      if (dFront) { // conduite forcée : statique dessinée APRÈS les baies animées
-      // Conduite forcée (penstock) vers la turbine
-      ctx.strokeStyle = "#5a6470"; ctx.lineWidth = Math.max(2, sw * 0.05); ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(ox + sw * 0.56, oy + sh * 0.40); ctx.lineTo(ox + sw * 0.72, oy + sh * 0.62); ctx.stroke(); ctx.lineCap = "butt";
-      }
-    }
-
-    // ── Roue à aubes / turbine (identité du moulin) — moitié basse dans l'eau.
-    //    Jante/rayons/aubes/moyeu entrelacés autour de l'angle en `now` → ANIMÉE en bloc,
-    //    éclaboussures comprises.
-    const cx = ox + sw * 0.76, cy = oy + sh * 0.72, rr = minWH * 0.20;
-    if (!dAnim) return true;
-    if (stage < 3) {
-      const rimCol = ["#4a2e0c", "#5a3a14", "#3a3a40"][stage];
-      const armCol = ["#7a5418", "#8a5e1e", "#6a6a72"][stage];
-      ctx.strokeStyle = rimCol; ctx.lineWidth = Math.max(1.5, sw * 0.045);
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = rimCol; ctx.lineWidth = Math.max(1, sw * 0.028);
-      ctx.beginPath(); ctx.arc(cx, cy, rr * 0.55, 0, Math.PI * 2); ctx.stroke();
-      for (let i = 0; i < 8; i += 1) {
-        const a = now / 620 + i * Math.PI / 4;
-        ctx.strokeStyle = armCol; ctx.lineWidth = Math.max(1, sw * 0.022);
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); ctx.stroke();
-        ctx.save();
-        ctx.translate(cx + Math.cos(a) * rr * 0.92, cy + Math.sin(a) * rr * 0.92);
-        ctx.rotate(a + Math.PI / 2);
-        ctx.fillStyle = armCol; ctx.fillRect(-sw * 0.04, -sh * 0.014, sw * 0.08, sh * 0.028);
+    if (dAnim) {
+      // Croix de 4 pales : rayon en trait + toile rectangulaire le long du rayon.
+      const a0 = ph - (now || 0) / ((stage >= 3 ? 420 : 900) * pj);
+      const hx = ox + sw * hubX, hy = oy + sh * hubY;
+      ctx.strokeStyle = roofCol; ctx.lineWidth = Math.max(1.5, sw * 0.028); ctx.lineCap = "round";
+      for (let i = 0; i < 4; i += 1) {
+        const a = a0 + i * Math.PI / 2;
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(a) * rr, hy + Math.sin(a) * rr); ctx.stroke();
+        ctx.save(); ctx.translate(hx + Math.cos(a) * rr * 0.62, hy + Math.sin(a) * rr * 0.62); ctx.rotate(a);
+        ctx.fillStyle = "rgba(230,224,206,0.85)"; ctx.fillRect(-rr * 0.34, rr * 0.04, rr * 0.68, rr * 0.16);
         ctx.restore();
       }
-      ctx.fillStyle = rimCol; ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.5, rr * 0.14), 0, Math.PI * 2); ctx.fill();
-    } else {
-      // Turbine hydro : carter + rotor cyan lumineux qui tourne
-      ctx.fillStyle = "#2c3640"; ctx.beginPath(); ctx.arc(cx, cy, rr * 1.12, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = `rgba(80,200,255,${(0.4 + nF * 0.5).toFixed(2)})`; ctx.lineWidth = Math.max(1.5, sw * 0.04);
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
-      for (let i = 0; i < 7; i += 1) {
-        const a = now / 360 + i * Math.PI * 2 / 7;
-        ctx.strokeStyle = `rgba(120,220,255,${(0.5 + nF * 0.4).toFixed(2)})`; ctx.lineWidth = Math.max(1, sw * 0.03);
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * rr * 0.92, cy + Math.sin(a) * rr * 0.92); ctx.stroke();
-      }
-      ctx.fillStyle = `rgba(160,235,255,${(0.6 + nF * 0.4).toFixed(2)})`; ctx.beginPath(); ctx.arc(cx, cy, rr * 0.2, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // ── Éclaboussures / remous là où la roue frappe l'eau réelle ───────────────
-    const splCol = stage >= 3 ? "180,235,255" : "210,235,255";
-    for (let si = 0; si < 4; si += 1) {
-      const sph = ((now / 450) + si / 4) % 1;
-      ctx.fillStyle = `rgba(${splCol},${((1 - sph) * 0.55).toFixed(2)})`;
-      ctx.beginPath();
-      ctx.arc(cx - rr * 0.3 + sph * rr * 0.6, cy + rr * 0.9 - sph * sh * 0.05, Math.max(0.8, sw * 0.015), 0, Math.PI * 2);
-      ctx.fill();
+      ctx.lineCap = "butt";
+      ctx.fillStyle = "#2a2118"; ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.5, sw * 0.026), 0, Math.PI * 2); ctx.fill();
     }
     return true;
   }

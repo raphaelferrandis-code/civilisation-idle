@@ -865,6 +865,40 @@ export const COMPLEXITY_COVERAGE_ABSORB = 0.5;
 // Le cap commence à 2 h GRATUITES (corrige « ferme l'onglet → rien » dès le départ),
 // puis les upgrades « Veilleurs de nuit » l'étendent. Le rendement idle scalant
 // déjà ~×13/ère, on ne vend que des HEURES (pas besoin de scaler le cap par ère).
+// ── Chantiers de voirie ──────────────────────────────────────────────────────
+// L'achat de routes n'est plus « +1 tuile » à coût géométrique (mur exponentiel
+// contre un besoin linéaire) : 1 achat = 1 CHANTIER, un objet fini — raccord
+// d'un moteur entier d'abord, élargissement du tronçon le plus emprunté quand
+// tout est relié. Le coût est ∝ tuiles du chantier, ancré sur l'ère ; la
+// CADENCE vient du temps de pose (une équipe, une petite file), pas du prix.
+export const ROAD_WORK_QUEUE_MAX = 3;            // chantier actif + file d'attente
+export const ROAD_TILE_COST_BASE = 30;           // savoir par tuile à l'ère 0
+// Croissance par ère SOUS celle de la production (~×13/ère) : la voirie devient
+// relativement plus abordable en fin de partie, jamais un mur.
+export const ROAD_TILE_COST_GROWTH = 11;
+export const ROAD_WIDEN_COST_MULT = { avenue: 2, main: 4 };  // rang visé
+export const ROAD_TILE_SECONDS = 1.6;            // secondes de pose par tuile (ère 0)
+// RACCORD PAR VAGUE (échelle late game, mesuré : 200 à 650 moteurs non reliés
+// dans une grande ville — « 1 chantier = 1 moteur » ne passe pas l'échelle) :
+// chaque chantier de raccord connecte la FRACTION la plus proche du manquant,
+// minimum 1 → ~15 chantiers couvrent une ville, quelle que soit sa taille.
+export const ROAD_LINK_WAVE_FRACTION = 0.25;
+// L'équipe s'améliore avec l'ère (outils, engins) : le temps de pose PAR TUILE
+// est divisé par (1 + taux × eraIndex) — sans quoi les grandes vagues du late
+// game se poseraient en dizaines de minutes.
+export const ROAD_CREW_SPEED_PER_ERA = 0.12;
+// Durée d'un chantier = (base + tuiles × s/tuile ÷ vitesse d'équipe) × (1 +
+// rampe × index), où l'index compte les chantiers de l'ÈRE COURANTE (achetés,
+// file comprise) : le premier d'une ère se pose vite, le dixième se mérite —
+// et la remontée éclair post-Effondrement, qui traverse les ères, ne traîne
+// jamais la rampe du cycle entier. Plafond de sécurité.
+export const ROAD_WORK_BASE_SECONDS = 8;
+export const ROAD_WORK_TIME_RAMP = 0.35;
+export const ROAD_WORK_TIME_MAX = 1800;
+export const ROAD_NEXT_FALLBACK_TILES = 10;      // estimation avant le 1er calcul carte
+export const ROAD_WIDEN_BONUS_EACH = 0.01;       // +1 % par tronçon élargi…
+export const ROAD_WIDEN_BONUS_MAX = 0.08;        // …plafonné (la couverture fait +10 % à côté)
+
 export const IDLE_BASE_CAP_SECONDS = 2 * 3600;        // cap gratuit pour tous
 // Incrément de cap (secondes) débloqué par chaque palier de ruines. Cumulés à la
 // base : 2h → 8h → 24h (Veille fondue dans Cycle & Crise → 2 paliers). Coûts dans upgrades.js.

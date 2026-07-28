@@ -56,6 +56,7 @@ import { resetCameraCenter } from '../../map/cityMapBridge.js';
 import { recordGrPerformed } from '../chronicleStats.js';
 import { purgeIcarusFlight } from './icarus.js';
 import { purgeBlackjackHand } from './blackjack.js';
+import { buyRoadWorkCore } from './roadWorks.js';
 
 // Retourne le résultat de buyBuildingCore (true = achat effectué) : permet aux
 // appelants — et aux tests — de distinguer un achat réel d'un refus (verrou
@@ -79,6 +80,10 @@ export function buyBuilding(id) {
 export function buyBuildingCore(id, { amount: amountOverride = null, silent = false } = {}) {
   const building = buildingById[id];
   if (!building) return false;
+  // Les routes ne s'achètent plus au compteur : tout chemin d'achat (clavier,
+  // automation, boutique) débouche sur le CHANTIER de voirie — un seul par clic,
+  // au coût du chantier, mis en file. Cf. actions/roadWorks.js.
+  if (id === "roads") return buyRoadWorkCore();
   if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return false;
   // state.buyAmount est la source de vérité : la variable module exportée par
   // state.js n'est pas resynchronisée par setState (Grand Reset, import de save).
@@ -174,6 +179,9 @@ const BUY_ALL_MAX_ITERS = 10000;
 // Exportée pour BuildingShop.jsx (délai avant achat, B5), qui a besoin EXACTEMENT
 // de la même garde : ce qui ne s'achète pas en masse n'entre pas dans le délai.
 export function buyableInMass(building) {
+  // Voirie : l'achat de masse ne doit ni vider la file de chantiers ni payer
+  // N fois le même « prochain chantier » — la rangée s'achète à la main.
+  if (building.id === "roads") return false;
   if (!BUY_ALL_CATEGORIES.has(building.category)) return false;
   if (!isUnlocked(building)) return false;
   if (!BUY_ALL_CURRENCIES.has(building.currency)) return false;

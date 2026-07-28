@@ -1676,7 +1676,13 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
     }
     return;
   }
-  if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei, gw: t.spanX || 1, gh: t.spanY || 1, pass })) return;
+  // `seed` : graine stable par instance (hash entier des coordonnées de tuile,
+  // le même que le jitter du layout) pour DÉSYNCHRONISER les animations d'un
+  // même type. Jamais dérivée d'ox/oy (la phase sauterait au pan) ; à ne lire
+  // que sous dAnim — les passes back/front sont cuites et PARTAGÉES entre
+  // instances (clé de cache sans gx/gy, cf. engineSceneCache).
+  if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei, gw: t.spanX || 1, gh: t.spanY || 1, pass,
+    seed: ((Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663)) >>> 0) })) return;
 
 }
 

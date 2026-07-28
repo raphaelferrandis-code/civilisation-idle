@@ -19,6 +19,8 @@ import {
   ABYSS_DOGMA_THRESHOLD,
   ABYSS_DOGMA_PROD_BONUS,
   RECURRING_AGE_ERA_ANCHOR,
+  ROAD_WIDEN_BONUS_EACH,
+  ROAD_WIDEN_BONUS_MAX,
   grandResetProductionMult
 } from '../../balance.js';
 import {
@@ -85,15 +87,17 @@ function marketMultiplier() {
 }
 
 // Réseau routier : couverture (bâtiments-moteur reliés au réseau / total) → jusqu'à
-// +10 % de production globale. La couverture est GÉOMÉTRIQUE (dépend des distances
-// réelles → « 1 route achetée = 1 tuile de connecteur, du plus proche au plus loin »),
-// donc calculée par la carte (connectBuildingsToNetwork) et déposée dans
-// `state.roadCoverage` ; le sim ne fait que la lire (défaut 0 : pas encore calculée).
+// +10 % de production globale, plus un bonus par tronçon ÉLARGI (chantiers de
+// voirie, borné). Couverture et élargissements sont GÉOMÉTRIQUES (dépendent du
+// tracé réel), donc calculés par la carte et déposés dans `state.roadCoverage` /
+// `state.roadWidened` ; le sim ne fait que les lire (défaut 0 : pas encore calculés).
 function roadNetworkMultiplier() {
   const cov = state.roadCoverage;
   const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
+  const widened = Number.isFinite(state.roadWidened) ? Math.max(0, state.roadWidened) : 0;
+  const widenBonus = Math.min(ROAD_WIDEN_BONUS_MAX, widened * ROAD_WIDEN_BONUS_EACH);
   // « Grand cadastre » (roadCapBonus) relève le plafond de +10 % à +15 %.
-  return 1 + c * (0.10 + ruinEffectSum("roadCapBonus"));
+  return 1 + c * (0.10 + ruinEffectSum("roadCapBonus")) + widenBonus;
 }
 
 // Multiplicateur d'infra : 1 + log10(infra+1)·0.018. La SORTIE est toujours petite,

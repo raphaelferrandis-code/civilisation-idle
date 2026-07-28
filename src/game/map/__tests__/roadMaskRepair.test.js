@@ -74,6 +74,10 @@ function maskComponents(roadMap) {
   return comps.sort((a, b) => b.length - a.length);
 }
 
+// 105 générations complètes : frôle le testTimeout vitest par défaut (5 s) sous
+// contention de suite. Garde d'invariant, pas de performance : marge explicite.
+const SLOW = 20000;
+
 describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
   it("le graphe final = UNE composante par masques (terre), toutes recettes", () => {
     for (const A of ARCHETYPES) {
@@ -91,7 +95,7 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         }
       }
     }
-  });
+  }, SLOW);
 
   it("avec fleuve : une seule composante par masques après validation des ponts", () => {
     for (const A of ARCHETYPES) {
@@ -112,7 +116,7 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         expect(comps.length, `${A}/s${seed}: fragments par masques (fleuve)`).toBe(1);
       }
     }
-  });
+  }, SLOW);
 
   it("les tampons de réparation restent hors de l'eau (sémantique de pont droit)", () => {
     for (let seed = 1; seed <= 5; seed += 1) {
@@ -135,5 +139,5 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         }
       }
     }
-  });
+  }, SLOW);
 });

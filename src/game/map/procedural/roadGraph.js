@@ -20,6 +20,13 @@ import { rngFrom } from "./seedManager.js";
 const RANK_WEIGHT = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
 const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+// Archétypes ORGANIQUES : leur réseau final est retracé par la DESSERTE
+// (layout.js) — le générateur ne fournit que le squelette identitaire + un
+// échafaudage de placement dissous ensuite. Les archétypes géométriques
+// (radial, districts, capital, megalopolis) gardent leur réseau tel quel :
+// rocades et grilles sont des tracés voulus, pas des résidus.
+const ORGANIC_ARCHETYPES = new Set(["scattered", "crossroads", "linear"]);
+
 export function generateRoadsGraph({
   plan, seed, counts, ageCfg, N,
   riverSet, bankSet, riverBridgeX, organicLimit
@@ -29,6 +36,20 @@ export function generateRoadsGraph({
   const core = { x: Math.round(plan.core.x), y: Math.round(plan.core.y) };
   const span = Math.ceil((plan.reachBase || 8) + 6);
   const mainRank = ageCfg.roadRanks.main ? "main" : "secondary";
+  const A = plan.archetype;
+
+  // ── Squelette identitaire vs échafaudage (archétypes organiques) ────────────
+  // Deux natures de cellules pour scattered/crossroads/linear :
+  //   - SQUELETTE (racine du cœur, traversée du pont, axes identitaires, places) :
+  //     ce que la ville a « toujours eu », conservé tel quel ;
+  //   - ÉCHAFAUDAGE (anneaux d'ancres, escaliers vers/entre les ancres, traverses,
+  //     vieux sentiers) : il ne sert qu'à guider le PLACEMENT des bâtiments, puis
+  //     layout.js le DISSOUT (dissolveToSkeleton) et retrace la desserte réelle
+  //     bâtiment par bâtiment. Fini le labyrinthe résiduel des motifs que
+  //     l'émondage ne sait pas manger (une boucle n'a pas de feuille).
+  const skeleton = ORGANIC_ARCHETYPES.has(A) ? new Set() : null;
+  let skel = false;                 // vrai pendant la pose d'une primitive du squelette
+  const asSkel = (fn) => { if (!skeleton) { fn(); return; } skel = true; fn(); skel = false; };
 
   // Largeur du pont : DOUBLE-VOIE (2 tuiles) dès la bande 2 (Pierre) ; 1 voie aux
   // âges Feu/Bois. Chaque colonne de voie est un pont droit 1-large INDÉPENDANT
@@ -66,6 +87,7 @@ export function generateRoadsGraph({
     if ((RANK_WEIGHT[rank] || 0) > (RANK_WEIGHT[m.rank] || 0)) m.rank = rank;
     meta.set(k, m);
     cells.add(k);
+    if (skel && skeleton) skeleton.add(k);
     return true;
   }
 
@@ -132,7 +154,10 @@ export function generateRoadsGraph({
       const dx = tx - x, dy = ty - y;
       const goH = dy === 0 ? true : dx === 0 ? false
         : horizontalFirst ? Math.abs(dx) >= Math.abs(dy) * (0.5 + rng()) : Math.abs(dx) * (0.5 + rng()) > Math.abs(dy);
-      const run = 2 + Math.floor(rng() * 3);
+      // Segments de 4 à 7 cellules (avant : 2 à 4) : un axe qui tourne toutes les
+      // deux cellules tricotait des « pâtés zigzag » une fois les rubans dessinés
+      // (Raph 2026-07-28) — une route se lit par ses longues jambes droites.
+      const run = 4 + Math.floor(rng() * 4);
       if (goH) {
         const step = Math.sign(dx) || 1;
         const len = Math.min(run, Math.abs(dx));
@@ -206,13 +231,14 @@ export function generateRoadsGraph({
   }
 
   // ── Squelette par archétype ─────────────────────────────────────────────────
-  const A = plan.archetype;
   // Racine : garantit une cellule au cœur à laquelle tout se raccroche.
-  addCell(core.x, core.y, "h", "path");
-  addCell(core.x, core.y, "v", "path");
+  asSkel(() => {
+    addCell(core.x, core.y, "h", "path");
+    addCell(core.x, core.y, "v", "path");
+  });
 
   if (A === "scattered") {
-    bridgeCrossing("path");
+    asSkel(() => bridgeCrossing("path"));
     let prevA = null;
     for (const a of plan.anchors) {
       staircase(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
@@ -227,15 +253,15 @@ export function generateRoadsGraph({
     const bendY = core.y + Math.round((rng() - 0.5) * 4);
     const bendX = core.x + Math.round((rng() - 0.5) * 4);
     const west = clampRay(Math.PI, span), east = clampRay(0, span);
-    staircase(west.x, bendY, east.x, core.y, mainRank, "cr:h");
-    bridgeCrossing(mainRank);
+    asSkel(() => staircase(west.x, bendY, east.x, core.y, mainRank, "cr:h"));
+    asSkel(() => bridgeCrossing(mainRank));
     const north = clampRay(-Math.PI / 2, Math.min(span, 6 + span * 0.3));
-    staircase(bendX, north.y, core.x, core.y, "secondary", "cr:v");
+    asSkel(() => staircase(bendX, north.y, core.x, core.y, "secondary", "cr:v"));
     for (const a of plan.anchors)
       staircase(core.x, core.y, a.gx, a.gy, a.band <= 1 ? "path" : "secondary", "cr:" + a.label);
   } else if (A === "linear") {
-    linearMainStreet(mainRank);
-    bridgeCrossing("secondary");
+    asSkel(() => linearMainStreet(mainRank));
+    asSkel(() => bridgeCrossing("secondary"));
     for (const a of plan.anchors)
       staircase(a.gx, core.y, a.gx, a.gy, "path", "ln:" + a.label);
   } else if (A === "radial") {
@@ -296,7 +322,26 @@ export function generateRoadsGraph({
     for (const a of founders) staircase(core.x, core.y, a.gx, a.gy, "path", "old:" + a.label);
   }
 
-  for (const p of plan.plazas || []) plaza(p);
+  // ÉCHAFAUDAGE DE PERMÉABILITÉ (organiques denses) : un quadrillage de ruelles
+  // en RÉSERVE sur toute la silhouette, dissous après le placement comme le
+  // reste de l'échafaudage. Le placement ne bâtit jamais sur une cellule de
+  // route : ces couloirs restent donc du sol LIBRE qui traverse chaque quartier
+  // — la desserte peut atteindre chaque bâtiment, et les blocs-moteurs ne se
+  // soudent plus en dalles scellées. Sans lui, à forte densité, la moitié de la
+  // ville devenait injoignable (mesuré : 76 tuiles-moteur sur 809 au contact,
+  // 120 maisons sur 232 sans venelle) pendant que la couverture affichait
+  // 100 %. GATE par la taille : un petit hameau ne peut rien sceller, et son
+  // arbre de desserte à main levée est plus beau sans trame sous-jacente.
+  const permSize = (counts.houses || 0) + (counts.engineHomesRaw || 0);
+  if (skeleton && permSize > 150) {
+    const rngP = rngFrom(seed, "perm");
+    const spacing = 4;
+    const off = Math.floor(rngP() * spacing);
+    for (let gy = off; gy < N; gy += spacing) runLine("h", gy, core.x, "path");
+    for (let gx = off; gx < N; gx += spacing) runLine("v", gx, core.y, "path");
+  }
+
+  asSkel(() => { for (const p of plan.plazas || []) plaza(p); });
 
   // ── Ville-rue : grand-rue E-O sinueuse + traverses, en polyligne connexe ────
   function linearMainStreet(rank) {
@@ -316,6 +361,9 @@ export function generateRoadsGraph({
           }
         }
         if (Math.abs(x - core.x) % 4 === 2) {
+          // Traverses = ÉCHAFAUDAGE (guides de placement), pas le squelette : la
+          // desserte les remplace par de vraies venelles tracées à la demande.
+          const wasSkel = skel; skel = false;
           const len = 2 + Math.floor(rng() * (2 + counts.eraBand * 1.5));
           addCell(x, yy, "v", "secondary");
           for (const sdir of [1, -1]) {
@@ -325,6 +373,7 @@ export function generateRoadsGraph({
               addCell(x, ty, "v", "secondary");
             }
           }
+          skel = wasSkel;
         }
       }
     };
@@ -336,12 +385,17 @@ export function generateRoadsGraph({
   // Une seule BFS terrestre multi-source depuis la composante du cœur ; chaque
   // fragment descend l'arbre `from` jusqu'au réseau. (Les fragments d'outre-fleuve
   // sans pont terrestre restent rares et seront écartés par cmBuildRoadGraph.)
-  stitchComponents();
+  stitchComponents(cells, false);
+  // Couture du SQUELETTE seul : les archétypes organiques seront DISSOUS sur lui
+  // (layout.js) — il doit être connexe PAR LUI-MÊME (cœur ↔ pont ↔ places), sinon
+  // l'élagage de cmBuildRoadGraph jetterait le pont et tout son quartier. Les
+  // liens tracés ici rejoignent cells ET skeleton (nouvelles cellules comprises).
+  if (skeleton) stitchComponents(skeleton, true);
 
-  function components() {
+  function components(target) {
     const seen = new Set();
     const comps = [];
-    for (const k of cells) {
+    for (const k of target) {
       if (seen.has(k)) continue;
       const comp = [];
       const stack = [k];
@@ -353,7 +407,7 @@ export function generateRoadsGraph({
         const gx = +cur.slice(0, c), gy = +cur.slice(c + 1);
         for (const [dx, dy] of ORTHO) {
           const nk = (gx + dx) + "," + (gy + dy);
-          if (cells.has(nk) && !seen.has(nk)) { seen.add(nk); stack.push(nk); }
+          if (target.has(nk) && !seen.has(nk)) { seen.add(nk); stack.push(nk); }
         }
       }
       comps.push(comp);
@@ -361,8 +415,8 @@ export function generateRoadsGraph({
     return comps;
   }
 
-  function stitchComponents() {
-    const comps = components();
+  function stitchComponents(target, markSkel) {
+    const comps = components(target);
     if (comps.length <= 1) return;
     // Composante du cœur = celle qui contient la cellule la plus proche du cœur.
     let coreIdx = 0, bestD = Infinity;
@@ -400,6 +454,7 @@ export function generateRoadsGraph({
       if (axis === "h") m.h = true; else m.v = true;
       meta.set(k, m);
       cells.add(k);
+      if (markSkel) skeleton.add(k);
     };
     for (let i = 0; i < comps.length; i += 1) {
       if (i === coreIdx) continue;
@@ -428,7 +483,7 @@ export function generateRoadsGraph({
     }
   }
 
-  // ── Rastérisation : { roads, roadKey, roadMeta, bridgeCols } ────────────────
+  // ── Rastérisation : { roads, roadKey, roadMeta, bridgeCols, skeletonKey } ───
   const roads = [], roadKey = new Set(), roadMeta = new Map();
   for (const k of cells) {
     const c = k.indexOf(",");
@@ -436,7 +491,32 @@ export function generateRoadsGraph({
     roadKey.add(k);
     roadMeta.set(k, meta.get(k) || { h: false, v: false, rank: "path" });
   }
-  return { roads, roadKey, roadMeta, bridgeCols };
+  // skeletonKey ≠ null ⇔ archétype organique : layout.js dissout l'échafaudage
+  // après le placement (dissolveToSkeleton) puis retrace la desserte réelle.
+  return { roads, roadKey, roadMeta, bridgeCols, skeletonKey: skeleton };
+}
+
+/* ----------------------------------------------------------------------------
+ * dissolveToSkeleton — dissolution de l'échafaudage (archétypes organiques)
+ *   Après le PLACEMENT des bâtiments (qui s'est appuyé sur l'échafaudage pour
+ *   créer les slots), on ne garde que le squelette identitaire : racine du
+ *   cœur, traversée(s) de pont, axes, places, et leurs coutures. Le réseau
+ *   réel est ensuite RETRACÉ par la desserte (connectBuildingsToNetwork) :
+ *   chaque bâtiment se raccorde au réseau existant par le plus court chemin →
+ *   un ARBRE de sentiers qui mènent quelque part, au lieu du labyrinthe
+ *   résiduel du motif. Mute roadKey/roadMeta et compacte `roads` en place.
+ * -------------------------------------------------------------------------- */
+export function dissolveToSkeleton({ roads, roadKey, roadMeta, skeletonKey }) {
+  if (!skeletonKey) return roads;
+  for (const k of Array.from(roadKey)) {
+    if (skeletonKey.has(k)) continue;
+    roadKey.delete(k);
+    roadMeta.delete(k);
+  }
+  const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy));
+  roads.length = 0;
+  for (const r of kept) roads.push(r);
+  return roads;
 }
 
 /* ----------------------------------------------------------------------------

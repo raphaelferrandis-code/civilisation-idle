@@ -128,16 +128,18 @@ export const buildings = [
     id: "roads",
     category: "infra",
     name: { fr: "Routes", en: "Roads" },
-    desc: { fr: "La distance n'a pas change. Le temps qu'elle prend, si. Chaque route relie un batiment de plus au reseau : une ville bien reliee produit jusqu'a +10 %.", en: "The distance hasn't changed. The time it takes has. Each road links one more building to the network: a well-connected city produces up to +10% more." },
+    desc: { fr: "Un chantier a la fois. La voirie raccorde chaque batiment au reseau, puis elargit les axes les plus empruntes. Ville bien reliee : jusqu'a +10 %. Axes elargis : encore un peu plus.", en: "One work site at a time. The road crew links each building to the network, then widens the busiest streets. A well-connected city produces up to +10% more. Widened streets: a little more still." },
+    // Voirie : le coût réel vient du CHANTIER (roadWorkCost, ∝ tuiles) ; base et
+    // scale ne servent plus qu'aux chemins génériques qui les lisent encore.
     base: 300,
     scale: 1.33,
     currency: "knowledge",
-    pop: 0.06,
+    pop: 0,
     food: 0,
     gold: 0,
     knowledge: 0,
-    infra: 0.45,
-    instability: 0.0015
+    infra: 0,
+    instability: 0
   },
   {
     id: "watch",
@@ -219,7 +221,7 @@ export const buildings = [
     id: "water_mills",
     category: "city",
     name: { fr: "Moulins", en: "Mills" },
-    desc: { fr: "La riviere travaille aussi la nuit. C'est une idee qui change tout.", en: "The river works through the night too. An idea that changes everything." },
+    desc: { fr: "Le vent ne dort pas et ne reclame aucun salaire. La meule tourne tant qu'il souffle.", en: "The wind never sleeps and asks for no wages. The millstone turns as long as it blows." },
     unlockCycles: 2,
     base: 100000000,
     scale: 1.25,

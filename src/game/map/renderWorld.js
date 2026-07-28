@@ -514,11 +514,12 @@ function ensureQuayGate() {
     return d;
   };
   const plus = smoothSide(rawPlus), minus = smoothSide(rawMinus);
-  // Les RIVERAINS (port/moulin) INTERROMPENT le quai sur leur emprise : leur
-  // scène pose son propre front d'eau (ponton, roue à aubes) — la promenade
-  // passait sous la roue du moulin (vu à la capture iso, vrai aussi en legacy).
+  // Le PORT (seul riverain restant) INTERROMPT le quai sur son emprise : sa
+  // scène pose son propre front d'eau (ponton) — la promenade passait dessous.
+  // ⚠ La coupe porte sur l'intervalle X de la tuile sans test Y : n'y admettre
+  // que de vrais riverains, un moteur terrestre trouerait les deux rives.
   for (const t of (L.tiles || [])) {
-    if (t.buildingId !== "river_ports" && t.buildingId !== "water_mills") continue;
+    if (t.buildingId !== "river_ports") continue;
     const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
     for (let i = 0; i < n0; i += 1) {
       if (sm[i].x >= x0 && sm[i].x <= x1) { plus[i] = 0; minus[i] = 0; }
@@ -541,7 +542,7 @@ function ensureQuayGate() {
 
 // Réglage molette du BORD de quai (berge maçonnée, cf. drawRun dans cityMapDrawQuays) :
 // window.__quayWall({ on, full, heightK, joints, light }). Quai LIVE → pas de rebake.
-//   full: true  → berge maçonnée TOUT LE LONG de l'eau (2 rives, sauf port/moulin)
+//   full: true  → berge maçonnée TOUT LE LONG de l'eau (2 rives, sauf port)
 //   full: false → seulement le long des berges URBAINES (proches d'une route)
 //   light: 0..1 → éclaircit la pierre (fondu vers le blanc) — dessus + parement + margelle
 export const quayWallTune = { on: true, full: true, heightK: 1, joints: true, light: 0.16 };
@@ -630,12 +631,12 @@ function cityMapDrawQuays(now, mode) {
   const W = st.W, faceW = W * 0.30;  // bande côté eau (ombre) vs promenade (côté terre)
 
   // Effilement smoothstep aux deux bouts d'un run (hauteur/largeur -> 0) : fondu DOUX
-  // aux interruptions EN VILLE (port/moulin) — retour Raph « c'était plus fluide quand
+  // aux interruptions EN VILLE (port) — retour Raph « c'était plus fluide quand
   // c'était affiné ». Le SPIKE de la source est évité autrement (skip QUAY_END/QUAY_MIN_HW
   // dans le gate + bas-fond à offset CONSTANT), PAS en retirant l'effilement.
   const TAPER = 2;
   // Effilement ASYMÉTRIQUE : on n'effile un bout QUE s'il borde une INTERRUPTION EN
-  // VILLE (port/moulin) → fondu DOUX voulu par Raph. Aux bouts bordant une berge
+  // VILLE (port) → fondu DOUX voulu par Raph. Aux bouts bordant une berge
   // NATURELLE (source/embouchure/fleuve étroit), PAS d'effilement → fin carrée nette,
   // pas de POINTE fuyante. `ctaperA/ctaperB` sont posés par drawRun d'après `naturalOff`.
   let ctaperA = true, ctaperB = true, naturalOff = null;
@@ -669,7 +670,7 @@ function cityMapDrawQuays(now, mode) {
 
   const wallOn = quayWallTune.on;
   const drawRun = (a, b, side) => {
-    // Effiler un bout SEULEMENT s'il borde une interruption VILLE (port/moulin), pas
+    // Effiler un bout SEULEMENT s'il borde une interruption VILLE (port), pas
     // une berge naturelle (source/étroit) : `naturalOff[a-1|b+1]` distingue les deux.
     ctaperA = a > 0 && naturalOff ? !naturalOff[a - 1] : (a > 0);
     ctaperB = b < n0 - 1 && naturalOff ? !naturalOff[b + 1] : (b < n0 - 1);
@@ -789,13 +790,13 @@ function cityMapDrawQuays(now, mode) {
 
   // Gate des runs. Par défaut la berge suit le liseré URBAIN (quayGate, proche des
   // routes). En mode `full` (défaut), la berge maçonnée court TOUT LE LONG de l'eau :
-  // 1 partout, SAUF sous les riverains (port/moulin) qui posent leur propre front.
+  // 1 partout, SAUF sous le port (seul riverain) qui pose son propre front.
   // Copies FRAÎCHES (ne pas muter le quayGate caché) : full = 1 partout, urbain = le gate.
   const plusG = new Uint8Array(n0), minusG = new Uint8Array(n0);
   if (quayWallTune.full) {
     plusG.fill(1); minusG.fill(1);
     for (const t of (L.tiles || [])) {
-      if (t.buildingId !== "river_ports" && t.buildingId !== "water_mills") continue;
+      if (t.buildingId !== "river_ports") continue;
       const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
       for (let i = 0; i < n0; i += 1) if (sm[i].x >= x0 && sm[i].x <= x1) { plusG[i] = 0; minusG[i] = 0; }
     }
@@ -806,7 +807,7 @@ function cityMapDrawQuays(now, mode) {
   // CONVERGENT) : sinon les murs se rejoignent en une longue POINTE triangulaire
   // (retour Raph « le début du quai ça ne va pas »). Seuil sur la demi-largeur.
   const QUAY_MIN_HW = 1.6, QUAY_END = 3;   // + source/embouchure (premiers/derniers samples) = berge naturelle
-  naturalOff = new Uint8Array(n0);          // 1 = gate coupé pour raison NATURELLE (≠ port/moulin) → bout carré
+  naturalOff = new Uint8Array(n0);          // 1 = gate coupé pour raison NATURELLE (≠ port) → bout carré
   for (let i = 0; i < n0; i += 1) if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) { plusG[i] = 0; minusG[i] = 0; naturalOff[i] = 1; }
   for (let si = 0; si < 2; si += 1) {
     const side = si ? -1 : 1, gate = si ? minusG : plusG;

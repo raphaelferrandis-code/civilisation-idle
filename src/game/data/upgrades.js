@@ -133,7 +133,7 @@ export const upgrades = [
     name: { fr: "Rives fécondes", en: "Fertile banks" },
     cost: { ruins: 5 },
     desc: { fr: "Le fleuve se souvient de chaque quai. Il rend au centuple ce qu'on lui confie.", en: "The river remembers every wharf. It returns a hundredfold what it is entrusted." },
-    effect: { fr: "Les moteurs riverains (Ports fluviaux, Moulins riverains) produisent +60%.", en: "Riverside engines (River ports, Water mills) produce +60%." }
+    effect: { fr: "Les Ports fluviaux et les Moulins produisent +60%.", en: "River ports and Mills produce +60%." }
   },
   {
     id: "fallen_roads",

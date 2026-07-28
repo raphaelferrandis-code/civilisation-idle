@@ -6,7 +6,7 @@
 // (double blit, donc double liseré = le quadrillage qu'on passe son temps à
 // retirer). C'est ce que ce fichier vérifie, à la géométrie près du moteur.
 import { describe, it, expect } from "vitest";
-import { isoSubTileRect, isoFaceInset, isoFaceKeeps, groundTileTune } from "../iso/isoRenderer.js";
+import { isoSubTileRect, isoFaceInset, isoFaceKeeps, groundTileTune, isoTileIsFlat } from "../iso/isoRenderer.js";
 
 const FW = 64, FH = 32;   // géométrie réelle de ground-cobble / iso-grass / iso-plaza
 
@@ -94,7 +94,19 @@ describe("sous-pavage de la face de sol iso", () => {
     expect(ix).toBeLessThan(FW / 4);                                // au-delà, on mange le motif
   });
 
-  it("le réglage par défaut rétrécit bien le motif", () => {
-    expect(groundTileTune.rep).toBeGreaterThanOrEqual(2);
+  // Depuis la regénération (2026-07-28, sols PUIS chaussées), toutes les tuiles
+  // en service sont PLATES et natives en 64×32 : elles COURT-CIRCUITENT le
+  // sous-pavage via isoTileIsFlat — rep > 1 les rééchantillonnerait à un ratio
+  // non entier (×1,757 à rep=2) et détruirait la grille de pixels, le défaut
+  // même qui avait effacé les pierres du pavé. Le sous-pavage (et son inset)
+  // reste la molette __groundTile pour toute DALLE EN VOLUME résiduelle
+  // (iso-pavement, un asset regénéré avec le mauvais outil…) : la géométrie
+  // testée plus haut est toujours en service. Le format 64×32 des tuiles
+  // livrées est vérifié sur les ASSETS (isoGroundTileAssets.test.js) ; ici on
+  // vérifie que le prédicat sépare bien les deux familles.
+  it("les tuiles plates natives échappent au sous-pavage, les dalles non", () => {
+    expect(isoTileIsFlat(64, 32)).toBe(true);     // sols et chaussées regénérés
+    expect(isoTileIsFlat(48, 48)).toBe(false);    // anciennes road-* (dalles)
+    expect(isoTileIsFlat(64, 64)).toBe(false);    // anciennes dalles / iso-pavement
   });
 });

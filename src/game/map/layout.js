@@ -11,7 +11,8 @@ import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
-import { generateRoadsGraph, trimDemandlessRoads } from './procedural/roadGraph.js';
+import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton } from './procedural/roadGraph.js';
+import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
@@ -347,7 +348,7 @@ function cmEngineFootprint(id, count) {
   if (id === "printing_houses" || id === "schools")   return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
   if (id === "observatories")   return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
   if (id === "storytellers" || id === "scribes")      return tier >= 2 ? 2 : 1;
-  if (id === "river_ports"  || id === "water_mills")  return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
+  if (id === "river_ports")     return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
   if (id === "irrigated_fields") return tier >= 1 ? 3 : 2;
   return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
 }
@@ -372,14 +373,6 @@ function cmRiverPortSpan(level) {
   // h : profondeur de repli ; la vraie profondeur est dérivée du fleuve à la pose
   // (assez pour atteindre l'eau au sud tout en gardant le dos sur terre, ≥ 3).
   return { w: t >= 3 ? 5 : t >= 2 ? 4 : t >= 1 ? 3 : 2, h: t >= 2 ? 4 : 3 };
-}
-function cmWaterMillSpan(level) {
-  // Moulin à eau UNIQUE : même pose riveraine que le port (bord SUD plaqué au
-  // centre du fleuve → la roue plonge dans l'eau RÉELLEMENT peinte ; on a donc
-  // retiré le bief peint du sprite). Emprise plus étroite que le port (pas de quai
-  // à bateaux) ; la profondeur réelle est dérivée du fleuve à la pose.
-  const t = cmEngineTier(level);
-  return { w: t >= 2 ? 4 : 3, h: t >= 2 ? 4 : 3 };
 }
 // ── Densité : COMBIEN de bâtiments de ce type se dressent dans la ville ──────
 // Le compteur d'achats pilote le NOMBRE de bâtiments, jamais leur TAILLE. C'est ce
@@ -414,9 +407,10 @@ function cmEngineInstances(count, id) {
   if (id === "aqueducts") return count > 0 ? [Math.floor(count)] : [];
   // Champs : une seule ceinture agricole qui grandit (pas de tuiles dispersées).
   if (id === "irrigated_fields") return count > 0 ? [Math.floor(count)] : [];
-  // Port fluvial / moulin à eau : un seul bâtiment riverain qui grandit
-  // (pas de quais ni de moulins éparpillés sur la berge).
-  if (id === "river_ports" || id === "water_mills") return count > 0 ? [Math.floor(count)] : [];
+  // Port fluvial : un seul bâtiment riverain qui grandit (pas de quais
+  // éparpillés sur la berge). Le moulin, devenu moulin à vent terrestre,
+  // suit le régime commun halle + ateliers ci-dessous.
+  if (id === "river_ports") return count > 0 ? [Math.floor(count)] : [];
   if (count <= 0) return [];
   // nº 0 = la HALLE : seule instance à porter le compteur ENTIER, donc le tier
   // (scène riche) et l'emprise croissante. Les suivantes sont des ATELIERS de
@@ -1000,7 +994,16 @@ function connectBuildingsToNetwork(o) {
   // Une cellule de route peut vivre HORS grille (sortie de carte) : roadG ne la
   // couvre pas, on retombe alors sur le Set (rare, hors du chemin chaud).
   const isRoadAt = (x, y) => (inB(x, y) ? roadG[y * N + x] === 1 : roadKey.has(K(x, y)));
-  const touchesRoad = (t) => footCells(t).some(([x, y]) => O4.some(([dx, dy]) => isRoadAt(x + dx, y + dy)));
+  // Boucles INLINE (pas de footCells) : appelé des millions de fois sur une
+  // métropole — l'allocation du tableau d'empreinte dominait la connexion.
+  const touchesRoad = (t) => {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) {
+      const fx = t.gx + ax, fy = t.gy + ay;
+      for (let oi = 0; oi < 4; oi += 1) if (isRoadAt(fx + O4[oi][0], fy + O4[oi][1])) return true;
+    }
+    return false;
+  };
 
   // Pose (ou complète) une cellule de route avec un flag d'axe + un rang.
   const lay = (x, y, axis, rank) => {
@@ -1082,18 +1085,29 @@ function connectBuildingsToNetwork(o) {
     }
   };
 
-  // Meilleur seuil (case libre adjacente à l'emprise) + chemin remonté jusqu'au réseau.
-  const plan = (t) => {
-    let best = null;
-    for (const [fx, fy] of footCells(t)) for (const [dx, dy] of O4) {
-      const sx = fx + dx, sy = fy + dy;
-      if (!inB(sx, sy)) continue;
-      const si = sy * N + sx;
-      if (roadG[si] === 1) continue;
-      const d = dist[si]; if (d === -1) continue;
-      if (!best || d < best.d) best = { x: sx, y: sy, d };
+  // Meilleur seuil (case libre adjacente à l'emprise). Le COÛT du raccord est la
+  // valeur du champ (dist = longueur du chemin) : la boucle de sélection n'a
+  // besoin QUE de lui — remonter le chemin de chaque candidat à chaque itération
+  // était le poste dominant de la connexion (O(candidats × longueur) par pose).
+  const planCost = (t) => {
+    let bx = 0, by = 0, bd = -1;
+    const tsx = t.spanX || t.size || 1, tsy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < tsx; ax += 1) for (let ay = 0; ay < tsy; ay += 1) {
+      const fx = t.gx + ax, fy = t.gy + ay;
+      for (let oi = 0; oi < 4; oi += 1) {
+        const sx = fx + O4[oi][0], sy = fy + O4[oi][1];
+        if (!inB(sx, sy)) continue;
+        const si = sy * N + sx;
+        if (roadG[si] === 1) continue;
+        const d = dist[si]; if (d === -1) continue;
+        if (bd === -1 || d < bd) { bd = d; bx = sx; by = sy; }
+      }
     }
-    if (!best) return null;
+    return bd === -1 ? null : { x: bx, y: by, d: bd };
+  };
+
+  // Chemin remonté jusqu'au réseau — construit UNE fois, pour l'élu seulement.
+  const planPath = (best) => {
     const path = []; let cx = best.x, cy = best.y;
     for (let steps = 0; steps <= NN; steps += 1) { // garde-fou absolu
       if (isRoadAt(cx, cy)) break;
@@ -1116,9 +1130,95 @@ function connectBuildingsToNetwork(o) {
     }
   };
 
-  let budget = Math.max(0, o.roadBudget | 0);
+  // ── Redressement : un connecteur se trace en L, pas en escalier ────────────
+  // Le chemin remonté du champ BFS est un plus court chemin, mais sa FORME suit
+  // l'ordre d'expansion de l'onde : sur corridor long, ça zigzague (le « chemin
+  // ivre »). On lui substitue, quand elle est LIBRE, la polyligne à un seul
+  // virage de même longueur (grande jambe d'abord : se lit comme un tracé
+  // volontaire). Si un obstacle a forcé le détour BFS, on garde le chemin BFS.
+  const straighten = (p) => {
+    if (p.path.length < 3) return;
+    const [ax, ay] = p.path[0];                       // seuil (porte du bâtiment)
+    const [bx, by] = p.attach;                        // cellule de route rejointe
+    const dx = bx - ax, dy = by - ay;
+    if (dx === 0 || dy === 0) return;                 // déjà droit
+    if (Math.abs(dx) + Math.abs(dy) !== p.cost) return; // le détour était forcé
+    const tryL = (horizFirst) => {
+      const out = [];
+      let x = ax, y = ay;
+      const walk = (tx, ty) => {
+        const sx = Math.sign(tx - x), sy = Math.sign(ty - y);
+        while (x !== tx || y !== ty) {
+          if (!(x === ax && y === ay)) {
+            if (!inB(x, y)) return false;
+            const i = y * N + x;
+            if (blockedG[i] === 1 || roadG[i] === 1) return false;
+          }
+          out.push([x, y]);
+          x += sx; y += sy;
+        }
+        return true;
+      };
+      const cornerX = horizFirst ? bx : ax, cornerY = horizFirst ? ay : by;
+      if (!walk(cornerX, cornerY) || !walk(bx, by)) return null;
+      return out;                                     // seuil → … → dernière avant attach
+    };
+    const first = Math.abs(dx) >= Math.abs(dy);
+    const straightPath = tryL(first) || tryL(!first);
+    if (straightPath && straightPath.length === p.path.length) p.path = straightPath;
+  };
+
+  // Chantiers de voirie : le budget des MOTEURS se compte en VAGUES — 1
+  // chantier payé raccorde les `ceil(manquants × ROAD_LINK_WAVE_FRACTION)`
+  // moteurs les plus proches (corridors ENTIERS, min 1). Mesuré : une grande
+  // ville a 200 à 650 moteurs non reliés — « 1 chantier = 1 moteur » ne passait
+  // pas l'échelle ; en vagues, ~15 chantiers couvrent n'importe quelle ville.
+  // Le prix ∝ tuiles de la vague est réglé à l'achat (roadWorkCost).
+  let engineWorks = Math.max(0, o.engineWorks | 0);
+  let engineWorksUsed = 0;
+  let waveLeft = 0;                 // moteurs restant à servir dans la vague ouverte
   const rank = o.connectorRank || "secondary";
-  const MAX_FREE = 4; // plafond de connexion gratuite d'un décoratif (sécurité)
+  // Plafond de connexion gratuite d'un décoratif (sécurité). En mode DESSERTE
+  // (archétype organique, échafaudage dissous), le corridor est la règle et non
+  // l'exception : l'appelant passe un plafond à l'échelle du rayon de la ville.
+  const MAX_FREE = Math.max(4, o.freeCap | 0);
+
+  // ── QUARTIERS-MOTEURS : l'unité de desserte des moteurs est le BLOC contigu ─
+  // (halle + ateliers collés : la rue dessert le bloc à son BORD, la cour
+  // intérieure fait le reste). Compter par TUILE plafonnait la couverture vers
+  // 50 % (les ateliers intérieurs, murés par leurs voisins, sont injoignables
+  // par le champ) et gonflait le dénominateur en centaines — par bloc, une
+  // ville entière se couvre en ~15 chantiers.
+  const engineTiles = tiles.filter((t) => t.type === "engine");
+  const clusterOf = new Map();          // tuile moteur -> bloc { tiles, connected }
+  {
+    const owner = new Map();            // "x,y" -> index de tuile moteur
+    engineTiles.forEach((t, i) => { for (const [x, y] of footCells(t)) owner.set(K(x, y), i); });
+    const parent = engineTiles.map((_, i) => i);
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    engineTiles.forEach((t, i) => {
+      for (const [x, y] of footCells(t)) for (const [dx, dy] of O4) {
+        const oI = owner.get(K(x + dx, y + dy));
+        if (oI != null && oI !== i) { const ra = find(i), rb = find(oI); if (ra !== rb) parent[ra] = rb; }
+      }
+    });
+    const byRoot = new Map();
+    engineTiles.forEach((t, i) => {
+      const r = find(i);
+      let c = byRoot.get(r);
+      if (!c) { c = { tiles: [], connected: false }; byRoot.set(r, c); }
+      c.tiles.push(t);
+    });
+    for (const c of byRoot.values()) for (const t of c.tiles) clusterOf.set(t, c);
+  }
+  // Monotone (le réseau ne fait que grandir) → mémoïsé dès le premier contact.
+  const clusterConnected = (c) => c.connected === true
+    ? true
+    : (c.tiles.some(touchesRoad) ? (c.connected = true) : false);
+  // Une tuile est « servie » : décoratif au contact d'une route ; moteur dont le
+  // BLOC touche le réseau quelque part.
+  const served = (t) => (t.type === "engine" ? clusterConnected(clusterOf.get(t)) : touchesRoad(t));
+
   // Candidats = tuiles PAS ENCORE reliées, maintenus entre itérations (l'ancienne
   // version rescannait TOUTES les tuiles à chaque bâtiment connecté). L'ordre
   // relatif de `tiles` est préservé → mêmes ex æquo, même pick.
@@ -1126,7 +1226,7 @@ function connectBuildingsToNetwork(o) {
   // après chaque carve. `window.__incrConnect = false` → ancien régime (recompute
   // complet à chaque itération) pour A/B.
   const useIncr = !(typeof globalThis !== "undefined" && globalThis.__incrConnect === false);
-  let pending = tiles.filter((t) => !touchesRoad(t));
+  let pending = tiles.filter((t) => !served(t));
   let guard = tiles.length + 8;
   if (useIncr) computeField();
   while (guard-- > 0 && pending.length > 0) {
@@ -1134,25 +1234,227 @@ function connectBuildingsToNetwork(o) {
     let pick = null;
     const still = [];
     for (const t of pending) {
-      if (touchesRoad(t)) continue; // reliée par un carve précédent → sort des candidats
+      if (served(t)) continue; // reliée (ou bloc relié) par un carve précédent → sort
       still.push(t);
       const isEngine = t.type === "engine";
-      const p = plan(t); if (!p || p.cost === 0) continue;
-      if (isEngine) { if (p.cost > budget) continue; }
-      else if (p.cost > MAX_FREE) continue;
-      const rk = (isEngine ? 1e6 : 0) + p.cost; // décoratifs d'abord, puis coût croissant
-      if (!pick || rk < pick.rk) pick = { t, p, isEngine, rk };
+      const best = planCost(t); if (!best || best.d === 0) continue;
+      if (isEngine) { if (waveLeft <= 0 && engineWorksUsed >= engineWorks) continue; }
+      else if (best.d > MAX_FREE) continue;
+      const rk = (isEngine ? 1e6 : 0) + best.d; // décoratifs d'abord, puis coût croissant
+      if (!pick || rk < pick.rk) pick = { t, best, isEngine, rk };
     }
     pending = still;
     if (!pick) break;
-    carve(pick.p, rank);
-    if (useIncr) relaxFrom(pick.p.attach, pick.p.path); // MAJ champ (au lieu de recompute complet)
-    if (pick.isEngine) budget -= pick.p.cost;
-    pending = pending.filter((t) => t !== pick.t || !touchesRoad(t));
+    const p = planPath(pick.best);
+    straighten(p);
+    // Les HABITATIONS sont desservies par des SENTIERS (rang path : étroits, sans
+    // trottoir, l'allée de seuil fait le raccord) À TOUTES les ères — seule une
+    // venelle très empruntée devient une rue via upgradeTrunkByUsage. Les MOTEURS
+    // gardent le connecteur d'ère (connectorRank) : une halle se paie une vraie rue.
+    carve(p, pick.isEngine ? rank : "path");
+    if (useIncr) relaxFrom(p.attach, p.path); // MAJ champ (au lieu de recompute complet)
+    if (pick.isEngine) {
+      if (waveLeft <= 0) {
+        // Ouverture d'une vague : sa taille se fige sur les BLOCS manquants du
+        // moment (les carves précédents ont pu en relier au passage).
+        engineWorksUsed += 1;
+        const remCl = new Set();
+        for (const t of pending) {
+          if (t.type !== "engine") continue;
+          const c = clusterOf.get(t);
+          if (c && !clusterConnected(c)) remCl.add(c);
+        }
+        waveLeft = Math.max(1, Math.ceil(remCl.size * ROAD_LINK_WAVE_FRACTION));
+      }
+      waveLeft -= 1;
+    }
+    // RAFALE des raccords à UNE tuile : avec l'échafaudage de perméabilité,
+    // l'essentiel de la desserte est un seuil collé au réseau — les carver un
+    // par itération faisait O(P²) de re-scans (mesuré : 244 ms de connexion sur
+    // une métropole). Posés en rafale dans la même passe : chaque mini-carve
+    // est revalidé (planCost) et relaxé, le champ reste exact.
+    for (const t of still) {
+      if (t === pick.t || t.type === "engine" || served(t)) continue;
+      const b1 = planCost(t);
+      if (!b1 || b1.d !== 1) continue;
+      const p1 = planPath(b1);
+      carve(p1, "path");
+      if (useIncr) relaxFrom(p1.attach, p1.path);
+    }
+    pending = pending.filter((t) => t !== pick.t || !served(t));
   }
 
-  const engines = tiles.filter((t) => t.type === "engine");
-  return { engineTotal: engines.length, engineConnected: engines.filter(touchesRoad).length };
+  // Prochaine VAGUE proposée (chantiers de voirie) : les B moteurs non reliés
+  // les plus proches (B = fraction du manquant), tuiles cumulées estimées sur le
+  // champ final — la boutique en tire le prix. null = tout est relié. (Les
+  // corridors se raccourcissent entre eux pendant une vraie vague : l'estimation
+  // majore un peu, assumé.)
+  let nextEngine = null;
+  let bestByClSize = 0;
+  {
+    // Un candidat par BLOC : son meilleur seuil (corridor le plus court).
+    const bestByCl = new Map();
+    for (const t of pending) {
+      if (t.type !== "engine") continue;
+      const c = clusterOf.get(t);
+      if (!c || clusterConnected(c)) continue;
+      const b = planCost(t);
+      if (!b || b.d === 0) continue;
+      const cur = bestByCl.get(c);
+      if (!cur || b.d < cur.d) bestByCl.set(c, { d: b.d, id: t.buildingId || t.variant || null });
+    }
+    bestByClSize = bestByCl.size;
+    if (bestByCl.size) {
+      const costs = [...bestByCl.values()].sort((a, b2) => a.d - b2.d);
+      const waveN = Math.max(1, Math.ceil(costs.length * ROAD_LINK_WAVE_FRACTION));
+      let tilesSum = 0;
+      for (let i = 0; i < waveN; i += 1) tilesSum += costs[i].d;
+      nextEngine = { tiles: tilesSum, count: waveN, targetId: costs[0].id };
+    }
+  }
+
+  // Couverture par BLOC : blocs dont AU MOINS une tuile touche le réseau, sur
+  // les blocs ATTEIGNABLES seulement (relié + joignables par le champ). Un bloc
+  // muré par ses voisins est hors-jeu : le compter rendrait le 100 % (donc le
+  // plein bonus) définitivement inatteignable.
+  const allClusters = new Set(clusterOf.values());
+  let connectedClusters = 0;
+  for (const c of allClusters) if (clusterConnected(c)) connectedClusters += 1;
+  return {
+    engineTotal: connectedClusters + bestByClSize,
+    engineConnected: connectedClusters,
+    engineWorksUsed,
+    nextEngine
+  };
+}
+
+// ── Usage du réseau : combien de bâtiments passent par chaque cellule ───────
+// Arbre BFS sur les cellules de route depuis la racine (cellule la plus proche
+// du cœur) ; chaque bâtiment remonte l'arbre depuis sa « porte » (première
+// cellule de réseau adjacente à l'emprise), +1 par cellule traversée. Sert au
+// TRONC gratuit des hameaux (path → secondary) ET aux ÉLARGISSEMENTS payés
+// (chantiers de voirie : secondary → avenue → main).
+function computeRoadUsage({ roadKey, tiles, coreX, coreY }) {
+  const use = new Map();
+  if (!roadKey || roadKey.size === 0) return { use, served: 0 };
+  const O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  let root = null, rootD = Infinity;
+  for (const k of roadKey) {
+    const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+    const d = (x - coreX) * (x - coreX) + (y - coreY) * (y - coreY);
+    if (d < rootD) { rootD = d; root = k; }
+  }
+  const parent = new Map([[root, null]]);
+  const q = [root];
+  let head = 0;
+  while (head < q.length) {
+    const cur = q[head++];
+    const ci = cur.indexOf(","), x = +cur.slice(0, ci), y = +cur.slice(ci + 1);
+    for (const [dx, dy] of O4) {
+      const nk = (x + dx) + "," + (y + dy);
+      if (roadKey.has(nk) && !parent.has(nk)) { parent.set(nk, cur); q.push(nk); }
+    }
+  }
+  let served = 0;
+  for (const t of tiles) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    let door = null;
+    for (let ax = 0; ax < sx && !door; ax += 1) for (let ay = 0; ay < sy && !door; ay += 1) {
+      for (const [dx, dy] of O4) {
+        const nk = (t.gx + ax + dx) + "," + (t.gy + ay + dy);
+        if (parent.has(nk)) { door = nk; break; }
+      }
+    }
+    if (!door) continue;
+    served += 1;
+    for (let cur = door, guard = roadKey.size + 2; cur && guard-- > 0; cur = parent.get(cur))
+      use.set(cur, (use.get(cur) || 0) + 1);
+  }
+  return { use, served };
+}
+
+// ── Hiérarchie par l'usage (mode desserte) ──────────────────────────────────
+// Le tronc n'est pas décrété, il ÉMERGE : au-dessus du seuil d'usage, `path`
+// passe `secondary` (on ne rétrograde jamais, on ne touche ni avenue/main ni
+// plaza) : au rendu, le chemin le plus emprunté s'élargit (roadWidthFor) — la
+// grand-voie du hameau vers le pont se lit d'elle-même.
+function upgradeTrunkByUsage({ roadKey, roadMeta, tiles, coreX, coreY, usage = null }) {
+  const { use, served } = usage || computeRoadUsage({ roadKey, tiles, coreX, coreY });
+  // Seuil : « tronc » = une vraie part du hameau passe par là (≥ 30 %, plancher 4).
+  const T = Math.max(4, Math.ceil(served * 0.3));
+  for (const [k, n] of use) {
+    if (n < T) continue;
+    const m = roadMeta.get(k);
+    if (m && m.rank === "path") m.rank = "secondary";
+  }
+}
+
+// ── Élargissements PAYÉS (chantiers de voirie) ──────────────────────────────
+// Quand tous les moteurs sont raccordés, chaque chantier suivant promeut d'un
+// rang le TRONÇON le plus emprunté (secondary → avenue → main). Un tronçon =
+// run contiguë de cellules de même rang et même axe (≥ MIN_RUN, hors eau) ;
+// score = usage cumulé. Déterministe : tri score desc puis clé, appliqué
+// itérativement (le même grand axe peut monter deux rangs avant le suivant).
+// Renvoie { applied, next } — next = le tronçon que paierait le chantier
+// suivant ({ tiles, toRank }), null si plus rien à élargir.
+function applyRoadWidenings({ roadKey, roadMeta, usage, riverSet, count }) {
+  const MIN_RUN = 3;
+  const PROMOTE = { secondary: "avenue", avenue: "main" };
+  const use = usage && usage.use ? usage.use : new Map();
+  const collectRuns = () => {
+    const runs = [];
+    const seenH = new Set(), seenV = new Set();
+    for (const k of roadKey) {
+      const m = roadMeta.get(k);
+      if (!m || !PROMOTE[m.rank]) continue;
+      if (riverSet && riverSet.has(k)) continue;
+      const ci = k.indexOf(","), gx = +k.slice(0, ci), gy = +k.slice(ci + 1);
+      const sameRank = (x, y) => {
+        const kk = x + "," + y;
+        if (!roadKey.has(kk) || (riverSet && riverSet.has(kk))) return false;
+        const mm = roadMeta.get(kk);
+        return !!(mm && mm.rank === m.rank);
+      };
+      if (m.h && !seenH.has(k)) {
+        let x0 = gx, x1 = gx;
+        while (sameRank(x0 - 1, gy) && roadMeta.get((x0 - 1) + "," + gy).h) x0 -= 1;
+        while (sameRank(x1 + 1, gy) && roadMeta.get((x1 + 1) + "," + gy).h) x1 += 1;
+        let score = 0;
+        for (let x = x0; x <= x1; x += 1) { seenH.add(x + "," + gy); score += use.get(x + "," + gy) || 0; }
+        if (x1 - x0 + 1 >= MIN_RUN) runs.push({ axis: "h", fixed: gy, g0: x0, g1: x1, rank: m.rank, len: x1 - x0 + 1, score });
+      }
+      if (m.v && !seenV.has(k)) {
+        let y0 = gy, y1 = gy;
+        while (sameRank(gx, y0 - 1) && roadMeta.get(gx + "," + (y0 - 1)).v) y0 -= 1;
+        while (sameRank(gx, y1 + 1) && roadMeta.get(gx + "," + (y1 + 1)).v) y1 += 1;
+        let score = 0;
+        for (let y = y0; y <= y1; y += 1) { seenV.add(gx + "," + y); score += use.get(gx + "," + y) || 0; }
+        if (y1 - y0 + 1 >= MIN_RUN) runs.push({ axis: "v", fixed: gx, g0: y0, g1: y1, rank: m.rank, len: y1 - y0 + 1, score });
+      }
+    }
+    runs.sort((a, b) => (b.score - a.score)
+      || (a.axis < b.axis ? -1 : a.axis > b.axis ? 1 : 0)
+      || (a.fixed - b.fixed) || (a.g0 - b.g0));
+    return runs;
+  };
+  const promote = (run) => {
+    const to = PROMOTE[run.rank];
+    for (let g = run.g0; g <= run.g1; g += 1) {
+      const k = run.axis === "h" ? g + "," + run.fixed : run.fixed + "," + g;
+      const m = roadMeta.get(k);
+      if (m && m.rank === run.rank) m.rank = to;
+    }
+  };
+  let applied = 0;
+  for (let i = 0; i < count; i += 1) {
+    const runs = collectRuns();
+    if (!runs.length) break;
+    promote(runs[0]);
+    applied += 1;
+  }
+  const after = collectRuns();
+  const next = after.length ? { tiles: after[0].len, toRank: PROMOTE[after[0].rank] } : null;
+  return { applied, next };
 }
 
 // ── Terre-plein central = ENTITÉ décorable ──────────────────────────────────
@@ -1398,7 +1700,7 @@ function computeCityLayout(s) {
 
   // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
   // Moteur graphe : réseau connexe par construction (cf. roadGraph.js).
-  const { roads, roadKey, roadMeta } = generateRoadsGraph({
+  const { roads, roadKey, roadMeta, skeletonKey } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
   });
@@ -1914,15 +2216,13 @@ function computeCityLayout(s) {
       placedSlotKeys.add(req.slotKey);
       return true;
     }
-    // ── Port fluvial / moulin à eau : bâtiment UNIQUE forcé sur la rive ───────
+    // ── Port fluvial : bâtiment UNIQUE forcé sur la rive ──────────────────────
     // Emprise rectangulaire posée sur la rive nord, bord SUD plaqué contre l'eau
-    // VISIBLE (waterSide "S" garanti, jamais de repli N/E/O) : le ponton (port) ou
-    // la roue à aubes (moulin) plonge alors pile dans le fleuve et le corps s'étire
-    // derrière sur la berge. Placement déterministe (colonnes triées par proximité
-    // au cœur) → stable. Le port étant posé avant le moulin, ce dernier prend la
-    // meilleure colonne libre restante sur la même rive.
-    if (req.meta.id === "river_ports" || req.meta.id === "water_mills") {
-      const rp = req.meta.id === "water_mills" ? cmWaterMillSpan(req.level) : cmRiverPortSpan(req.level);
+    // VISIBLE (waterSide "S" garanti, jamais de repli N/E/O) : le ponton plonge
+    // alors pile dans le fleuve et le corps s'étire derrière sur la berge.
+    // Placement déterministe (colonnes triées par proximité au cœur) → stable.
+    if (req.meta.id === "river_ports") {
+      const rp = cmRiverPortSpan(req.level);
       let spanX = rp.w, spanY = rp.h, placed = null;
       // Rangée nord (dos du bâtiment) hors de l'eau : le corps reste sur terre.
       const northRowDry = (gx, gy, sx) => {
@@ -2034,7 +2334,11 @@ function computeCityLayout(s) {
     let size = req.size, placed = null;
     const { allowWater, allowBank } = cmWaterAllow(aff);
     const slot = slotStore[req.slotKey];
-    if (preferSavedSlot && slot) {
+    // Un slot hérité d'une autre zone est écarté (ex : slot de moulin RIVERAIN
+    // d'avant la refonte éolienne, dy pointé sur le centre du fleuve) : sans ce
+    // garde la halle se recollerait au fleuve pour un cycle via le re-tri local.
+    const slotCompat = slot && !(slot.zone && slot.zone !== req.meta.zone);
+    if (preferSavedSlot && slotCompat) {
       const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - size), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - size) };
       if (footprintFits(saved.gx, saved.gy, size, allowBank, false, size, allowWater)) {
         placed = saved;
@@ -2155,12 +2459,33 @@ function computeCityLayout(s) {
   }
   lp("decor");
 
+  // ── Desserte (archétypes organiques) : dissolution de l'échafaudage ────────
+  // L'échafaudage (anneaux d'ancres, escaliers, traverses…) a guidé le placement
+  // ci-dessus ; on ne garde que le squelette identitaire (cœur, pont, axes,
+  // places) et connectBuildingsToNetwork retracera la desserte réelle : chaque
+  // bâtiment rejoint le réseau existant par le plus court chemin → un arbre de
+  // sentiers qui mènent quelque part, sans boucle accidentelle. (Le labyrinthe
+  // résiduel du motif était immortel : l'émondage ne mange que des feuilles, et
+  // une boucle n'en a pas.)
+  if (skeletonKey) dissolveToSkeleton({ roads, roadKey, roadMeta, skeletonKey });
+  lp("dissolve");
+
   // ── Trim à la demande : émonde les routes qui ne bordent aucun bâtiment
   //    (approche de pont vers le vide, antennes mortes des secteurs sous-bâtis).
   //    N'enlève que des feuilles → ne coupe aucun axe traversant ni n'isole le
   //    réseau. Posé AVANT cmBuildRoadGraph : un pont devenu inutile perd son
   //    ancrage terrestre et sera écarté par sa validation.
   const demand = new Set(reserved); // merveilles + districts comptent comme demande
+  // Mode desserte : la racine du squelette est sanctuarisée — garantit AU MOINS
+  // une source de réseau même si aucun bâtiment ne borde le cœur exact (sans
+  // elle, un hameau dégénéré perdrait tout au trim et la desserte n'aurait plus
+  // de réseau à rejoindre). ⚠ trimDemandlessRoads protège une cellule si un de
+  // ses VOISINS ortho est dans `demand` : pour couvrir la racine elle-même, on
+  // sème la cellule ET ses 4 voisines.
+  if (skeletonKey) {
+    const rx = Math.round(plan.core.x), ry = Math.round(plan.core.y);
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) demand.add((rx + dx) + "," + (ry + dy));
+  }
   const addFoot = (gx, gy, sx, sy) => {
     for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) demand.add((gx + ax) + "," + (gy + ay));
   };
@@ -2194,16 +2519,52 @@ function computeCityLayout(s) {
   //    de base qui suit la ville) ; moteurs au budget = nb de routes achetées
   //    (1 route = 1 tuile), du plus proche au plus loin. Posé APRÈS le trim pour
   //    que les connecteurs ne soient pas émondés, AVANT cmBuildRoadGraph.
-  const roadBudget = Math.floor((s.buildings && s.buildings.roads) || 0);
-  // Rang des connecteurs = mêmes seuils d'ère que les stades de bâtiment
-  // (eraIndex <10/<20/<30/≥30) → sentier / route / avenue / boulevard : les tuiles
-  // s'élargissent avec l'ère (largeur au rendu via roadWidthFor(rank, eraIndex)).
+  // Chantiers de voirie RÉALISÉS (state.buildings.roads) : rejoués ici de façon
+  // déterministe — d'abord les RACCORDS de moteurs (corridors entiers, du plus
+  // proche au plus loin), puis les ÉLARGISSEMENTS des tronçons les plus
+  // empruntés. Le compteur reste la seule vérité côté save.
+  const roadWorksTotal = Math.floor((s.buildings && s.buildings.roads) || 0);
+  // Rang des connecteurs de MOTEURS = mêmes seuils d'ère que les stades de
+  // bâtiment (eraIndex <10/<20/<30/≥30) → sentier / route / avenue / boulevard.
+  // Les HABITATIONS, elles, sont toujours desservies en `path` (venelles sans
+  // trottoir) : voir carve() dans connectBuildingsToNetwork.
   const ei = c.eraIndex;
   const connectorRank = ei >= 30 ? "main" : ei >= 20 ? "avenue" : ei >= 10 ? "secondary" : "path";
   const netCover = connectBuildingsToNetwork({
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
-    claimed, engineFootprint, occupiedFoot, roadBudget, connectorRank
+    claimed, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
+    // Mode desserte : les corridors sont la règle (échafaudage dissous) — le
+    // plafond gratuit passe à l'échelle du rayon de la ville.
+    freeCap: skeletonKey ? Math.max(12, Math.round(cityReachBase * 2.4)) : 0
   });
+  // Usage du réseau (bâtiments par cellule), calculé UNE fois : sert au tronc
+  // gratuit des hameaux ET aux élargissements payés.
+  const usage = computeRoadUsage({
+    roadKey, tiles,
+    coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y)
+  });
+  // Mode desserte : la hiérarchie émerge de l'usage (le tronc vers le cœur/pont
+  // s'élargit path → secondary selon le nombre de bâtiments qui l'empruntent).
+  if (skeletonKey) upgradeTrunkByUsage({
+    roadKey, roadMeta, tiles,
+    coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y), usage
+  });
+  // Chantiers restants après les raccords → élargissements payés.
+  const widenRes = applyRoadWidenings({
+    roadKey, roadMeta, usage, riverSet,
+    count: Math.max(0, roadWorksTotal - netCover.engineWorksUsed)
+  });
+  // Prochain chantier proposé + réalisés, déposés sur le layout : le runtime les
+  // écrit dans state (roadNext / roadWidened), même canal que roadCoverage.
+  const roadWorksInfo = {
+    used: netCover.engineWorksUsed,
+    widened: widenRes.applied,
+    next: netCover.nextEngine
+      ? { kind: "link", tiles: netCover.nextEngine.tiles, count: netCover.nextEngine.count, targetId: netCover.nextEngine.targetId, toRank: null }
+      : widenRes.next
+        ? { kind: "widen", tiles: widenRes.next.tiles, count: 1, targetId: null, toRank: widenRes.next.toRank }
+        : { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null }
+  };
   lp("connexion");
 
   let maxD2 = 1;
@@ -2215,7 +2576,10 @@ function computeCityLayout(s) {
   const maxR  = Math.max(1, Math.hypot(cx, cy));
   const treeMul = ageCfg.treeDensity * (personality.treeMul || 1);
   for (const cell of cells) {
-    if (usedKeys.has(cell.gx + "," + cell.gy)) continue;
+    const cellKey = cell.gx + "," + cell.gy;
+    // Jamais d'arbre SUR une route : `cells` est bâti avant la connexion, or les
+    // connecteurs carvés depuis (moteurs + desserte organique) l'ont trouée.
+    if (usedKeys.has(cellKey) || roadKey.has(cellKey)) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
     const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
     const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul;
@@ -2309,7 +2673,7 @@ function computeCityLayout(s) {
     engineHomePlaced,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
+    districts, trees, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed
@@ -2367,6 +2731,10 @@ export {
   cmCheckWonders,
   cmClamp,
   cmBuildRoadGraph,
+  connectBuildingsToNetwork,
+  upgradeTrunkByUsage,
+  computeRoadUsage,
+  applyRoadWidenings,
   cmEngineAtelierFoot,
   cmHash,
   cmIsBridgeRoad,

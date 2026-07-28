@@ -12,7 +12,7 @@ export const CM_ENGINE_BUILDINGS = [
   { id: "guilds",            name: "Guildes",              zone: "center"  },
   { id: "irrigated_fields",  name: "Champs",               zone: "outer"   },
   { id: "river_ports",       name: "Ports",                zone: "river",   water: "bank" },
-  { id: "water_mills",       name: "Moulins",              zone: "river",   water: "bank" },
+  { id: "water_mills",       name: "Moulins",              zone: "outer"   },
   { id: "mint_houses",       name: "Hotels des monnaies",  zone: "center"  },
   { id: "imperial_exchanges",name: "Banques Nationnales",  zone: "center"  }
 ];
