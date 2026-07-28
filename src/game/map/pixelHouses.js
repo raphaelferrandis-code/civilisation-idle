@@ -140,6 +140,15 @@ function ensure(key) {
   return e;
 }
 
+// Images d'habitation DÉJÀ décodées — accesseur de DIAGNOSTIC (banc du batcher
+// WebGL : il lui faut de vraies sources, aux vraies dimensions). Lecture seule,
+// aucun chargement déclenché.
+export function pixelHouseImages() {
+  const out = [];
+  for (const e of cache.values()) if (e.ready && e.img) out.push(e.img);
+  return out;
+}
+
 // Précharge les sprites d'habitation susceptibles d'apparaître AVANT qu'une tuile ne
 // les demande, pour que pixelHouseReady soit déjà vrai à la 1re apparition d'une
 // variante → plus de repli procédural VISIBLE (le « flash de l'ancien sprite » à

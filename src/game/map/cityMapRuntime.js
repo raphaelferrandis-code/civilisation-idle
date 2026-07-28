@@ -32,7 +32,8 @@ import { ambianceK } from './ambianceMode.js';
 import { weatherState } from './weatherMode.js';
 import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
-import { preloadHouseSprites, houseSpriteHeightTiles } from './pixelHouses.js';
+import { preloadHouseSprites, houseSpriteHeightTiles, pixelHouseImages } from './pixelHouses.js';
+import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
@@ -1845,6 +1846,73 @@ function initCityMap(canvas, options = {}) {
     // renvoyer une COPIE fraîche sans layout/forceFrame — piloter via __CM.
     window.__CM = CM;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; cmInvalidateBakes(); };
+    // BANC DU BATCHER WebGL (chantier rendu) : compare, sur les VRAIS sprites du
+    // jeu et à l'échelle d'une frame de dézoom, le débit de Canvas 2D (un
+    // `drawImage` par sprite) et celui du batcher (un seul appel de dessin).
+    // C'est la mesure qui décide de la greffe — et elle doit se faire sur la
+    // machine de JEU, la seule dont le GPU compte. Usage : await __glBench().
+    window.__glBench = async (opts = {}) => {
+      const N = opts.n || 3000;
+      const passes = opts.passes || 12;
+      if (!glInit()) return { erreur: 'WebGL2 indisponible sur ce poste' };
+      // Sources RÉELLES : les habitations décodées de la bande courante.
+      const srcs = [];
+      for (const im of pixelHouseImages()) if (im && (im.naturalWidth || im.width)) srcs.push(im);
+      if (!srcs.length) return { erreur: 'aucun sprite décodé — ouvre la carte puis relance' };
+      const W = CM.cw || 1200, H = CM.ch || 600;
+      const ctx = CM.ctx;
+      // Positions tirées une fois : les deux chemins dessinent EXACTEMENT la
+      // même chose, au même endroit, dans le même ordre.
+      const items = [];
+      for (let i = 0; i < N; i++) {
+        const s = srcs[i % srcs.length];
+        const sw = s.naturalWidth || s.width, sh = s.naturalHeight || s.height;
+        const k = 0.5;
+        items.push({ s, sw, sh, x: Math.round((cmHash('bx' + i) % 10000) / 10000 * W), y: Math.round((cmHash('by' + i) % 10000) / 10000 * H), w: Math.round(sw * k), h: Math.round(sh * k) });
+      }
+      // ⚠ SYNCHRONISATION OBLIGATOIRE. Les deux pipelines sont asynchrones :
+      // sans forcer l'attente, on chronomètre le remplissage d'une file, pas le
+      // travail du GPU (le piège « drawImage/s ne mesure rien quand le GPU
+      // sature » de la reprise perf). `getImageData(1×1)` vide le pipeline 2D,
+      // `glFinish` bloque jusqu'à la fin du GPU.
+      const sync2d = () => ctx.getImageData(0, 0, 1, 1);
+      // DÉBIT SOUTENU : `passes` répétitions enchaînées puis UNE synchronisation,
+      // divisé par le nombre de passes. Synchroniser à chaque passe mesurerait
+      // surtout l'attente du vsync (~16 ms), qui écraserait le signal.
+      let refuses = 0, rendus = 0;
+      const run2d = () => {
+        const prev = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        for (const it of items) ctx.drawImage(it.s, 0, 0, it.sw, it.sh, it.x, it.y, it.w, it.h);
+        ctx.imageSmoothingEnabled = prev;
+      };
+      const runGl = () => {
+        glBegin(W, H, CM.dpr || 1);
+        for (const it of items) if (!glQuad(it.s, 0, 0, it.sw, it.sh, it.x, it.y, it.w, it.h)) refuses++;
+        rendus = glFlush();
+        ctx.drawImage(glGetCanvas(), 0, 0, W, H);   // composition dans la frame
+      };
+      // Chauffe (compilation de shaders, upload d'atlas, caches du pilote).
+      run2d(); runGl(); sync2d(); glFinish();
+      let t0 = performance.now();
+      for (let p = 0; p < passes; p++) run2d();
+      sync2d();
+      const m2d = +((performance.now() - t0) / passes).toFixed(2);
+      refuses = 0;
+      t0 = performance.now();
+      for (let p = 0; p < passes; p++) runGl();
+      glFinish(); sync2d();
+      const mgl = +((performance.now() - t0) / passes).toFixed(2);
+      window.__glBenchLast = { rendus, refuses: Math.round(refuses / passes) };
+      return {
+        sprites: N,
+        canvas2D_ms: m2d,
+        webgl_ms: mgl,
+        gain: m2d > 0 ? '×' + (m2d / mgl).toFixed(1) + ' plus rapide' : 'n/a',
+        rendusParLot: window.__glBenchLast,
+        atlas: glStats(),
+      };
+    };
     // MONTAGE DE DÉMO EN UN APPEL (Phase 0 chantier iso) — concentre tous les gotchas
     // du harnais : fige tick+autosave (clearInterval), pompe l'état SANS déclencher la
     // crise (instability/timeWear remis à 0 avant ET après), recompute, fait tourner la
