@@ -2889,31 +2889,86 @@ const ISO_BUSH_VARIANTS = 6;
 // ne rebalaie le bruit de placement que si le layout change ou si la caméra sort
 // de la région couverte — même idiome que les bakes à marge.
 const WILD_PAD = 12;                    // cellules de marge : pan sans reconstruire
+// Emprises des BÂTIMENTS (tuiles du layout) : la forêt sauvage ne pousse PAS
+// dessus. La plupart des emprises sont déjà dans urbanSet, mais le CHAMP (posé
+// sur l'herbe par la voie « ceinture agricole », hors urbanSet/occupiedFoot) y
+// échappait → des arbres sauvages le traversaient, révélés depuis que les
+// empreintes à plat se trient SOUS les objets. On couvre toutes les emprises.
+//
+// ⚠ MÉMOÏSÉ SUR LE LAYOUT, pas sur la vue : ce Set ne dépend que des tuiles,
+// alors qu'il était reconstruit à CHAQUE régénération de la forêt — c'est-à-dire
+// à chaque franchissement des bornes cachées, donc en plein pan. Mesuré sur une
+// ville de 1 151 tuiles : la régénération coûtait 16 ms de surcoût médian
+// (pics à 33 ms), les pics de `vif-collecte` relevés sur la machine de jeu.
+function isoBuildFootSet(L) {
+  const at = CM.layoutRecomputeAt || 0;
+  const n = (L.tiles && L.tiles.length) | 0;
+  const c = CM._isoBuildFoot;
+  if (c && c.at === at && c.n === n) return c.set;
+  const set = new Set();
+  for (const t of (L.tiles || [])) {
+    const tsx = t.spanX || t.size || 1, tsy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < tsx; ax += 1) for (let ay = 0; ay < tsy; ay += 1) set.add((t.gx + ax) + ',' + (t.gy + ay));
+  }
+  CM._isoBuildFoot = { at, n, set };
+  return set;
+}
+
+// ── FORÊT SAUVAGE PAR BLOCS ──────────────────────────────────────────────────
+// La dispersion était mémoïsée sur la ZONE VISIBLE : dès que la vue sortait des
+// bornes cachées (donc en plein pan), TOUTE la zone était rebalayée — mesuré
+// 14-16 ms de surcoût médian, pics à 33 ms : les pics de `vif-collecte` relevés
+// sur la machine de jeu. Le balayage se fait désormais par BLOCS alignés sur la
+// grille (invariants par pan, comme les tuiles d'une carte) : franchir une
+// frontière ne coûte que le ou les blocs nouvellement entrés, jamais la zone
+// entière. La liste concaténée est elle-même mémoïsée tant que l'ensemble des
+// blocs visibles ne change pas.
+const WILD_BLOCK = 32;                  // cellules par côté de bloc
+const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
+
+function isoWildForestBlock(L, bx, by, ctx) {
+  const gx0 = bx * WILD_BLOCK, gy0 = by * WILD_BLOCK;
+  const gx1 = gx0 + WILD_BLOCK - 1, gy1 = gy0 + WILD_BLOCK - 1;
+  const { isWild, nearCity, cellNoise } = ctx;
+  const arr = [];
+  for (let gy = gy0; gy <= gy1; gy += 1) {
+    for (let gx = gx0; gx <= gx1; gx += 1) {
+      if (!isWild(gx, gy)) continue;
+      let thr = cellNoise(gx, gy) * 1.25 - 0.08;       // fourrés (haut) / trouées (bas)
+      if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
+      if ((cmHash(gx + 'f' + gy) % 1000) / 1000 >= thr) continue;
+      // Décalage sous-cellule + taille par arbre (hash riche) : casse la grille et
+      // l'uniformité — mêmes plages que les arbres décoratifs (r ≈ 0.62..0.96).
+      const h = cmHash('wf:' + gx + ':' + gy);
+      const jx = ((h % 100) / 100 - 0.5) * 0.6;
+      const jy = (((h >> 7) % 100) / 100 - 0.5) * 0.6;
+      const r = 0.62 + (h % 30) / 80;
+      arr.push({ gx, gy, jx, jy, r });
+    }
+  }
+  return arr;
+}
+
 function isoWildForest(L, b) {
-  const cache = CM._isoWildForest;
   // ':pv…' : le parvis d'une merveille en APERÇU (hors urbanSet, contrairement aux
   // actives) doit chasser les arbres sauvages → la dispersion se refait à l'aller-retour.
   const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
     + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
-  if (cache && cache.sig === sig
-    && b.gx0 >= cache.gx0 && b.gx1 <= cache.gx1
-    && b.gy0 >= cache.gy0 && b.gy1 <= cache.gy1) return cache.list;
-  const gx0 = b.gx0 - WILD_PAD, gy0 = b.gy0 - WILD_PAD;
-  const gx1 = b.gx1 + WILD_PAD, gy1 = b.gy1 + WILD_PAD;
+  let st = CM._isoWildForest;
+  if (!st || st.sig !== sig || st.blocks.size > WILD_BLOCK_CAP) {
+    st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '' };
+  }
+  const bx0 = Math.floor((b.gx0 - WILD_PAD) / WILD_BLOCK);
+  const bx1 = Math.floor((b.gx1 + WILD_PAD) / WILD_BLOCK);
+  const by0 = Math.floor((b.gy0 - WILD_PAD) / WILD_BLOCK);
+  const by1 = Math.floor((b.gy1 + WILD_PAD) / WILD_BLOCK);
+  const key = bx0 + ':' + bx1 + ':' + by0 + ':' + by1;
+  if (key === st.key) return st.list;   // mêmes blocs visibles → rien à refaire
   const urbanSet = L.urbanSet, roadSet = L.roadSet;
   const riverCells = (L.river && L.river.present && L.river.cells) || null;
   const banks = (L.river && L.river.banks) || null;
   const has = (s, gx, gy) => !!s && s.has(gx + ',' + gy);
-  // Emprises des BÂTIMENTS (tuiles du layout) : la forêt sauvage ne pousse PAS
-  // dessus. La plupart des emprises sont déjà dans urbanSet, mais le CHAMP (posé
-  // sur l'herbe par la voie « ceinture agricole », hors urbanSet/occupiedFoot) y
-  // échappait → des arbres sauvages le traversaient, révélés depuis que les
-  // empreintes à plat se trient SOUS les objets. On couvre toutes les emprises.
-  const buildFoot = new Set();
-  for (const t of (L.tiles || [])) {
-    const tsx = t.spanX || t.size || 1, tsy = t.spanY || t.size || 1;
-    for (let ax = 0; ax < tsx; ax += 1) for (let ay = 0; ay < tsy; ay += 1) buildFoot.add((t.gx + ax) + ',' + (t.gy + ay));
-  }
+  const buildFoot = isoBuildFootSet(L);
   // Herbe sauvage = ni sol urbain, ni route (les routes de campagne restent nues),
   // ni eau, ni berge (roseaux/quais y vivent déjà), ni emprise de bâtiment, ni
   // PARVIS de merveille (les emprises actives sont déjà urbaines ; celle d'un
@@ -2935,23 +2990,20 @@ function isoWildForest(L, b) {
     const n2 = (cmHash(Math.floor(gx / 11) + 'm' + Math.floor(gy / 11)) % 1000) / 1000;
     return n1 * 0.6 + n2 * 0.4;
   };
-  const list = [];
-  for (let gy = gy0; gy <= gy1; gy += 1) {
-    for (let gx = gx0; gx <= gx1; gx += 1) {
-      if (!isWild(gx, gy)) continue;
-      let thr = cellNoise(gx, gy) * 1.25 - 0.08;       // fourrés (haut) / trouées (bas)
-      if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
-      if ((cmHash(gx + 'f' + gy) % 1000) / 1000 >= thr) continue;
-      // Décalage sous-cellule + taille par arbre (hash riche) : casse la grille et
-      // l'uniformité — mêmes plages que les arbres décoratifs (r ≈ 0.62..0.96).
-      const h = cmHash('wf:' + gx + ':' + gy);
-      const jx = ((h % 100) / 100 - 0.5) * 0.6;
-      const jy = (((h >> 7) % 100) / 100 - 0.5) * 0.6;
-      const r = 0.62 + (h % 30) / 80;
-      list.push({ gx, gy, jx, jy, r });
+  const ctx = { isWild, nearCity, cellNoise };
+  // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
+  // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
+  const list = st.list;
+  list.length = 0;
+  for (let by = by0; by <= by1; by += 1) {
+    for (let bx = bx0; bx <= bx1; bx += 1) {
+      const bk = bx + ',' + by;
+      let arr = st.blocks.get(bk);
+      if (!arr) { arr = isoWildForestBlock(L, bx, by, ctx); st.blocks.set(bk, arr); }
+      for (let i = 0; i < arr.length; i += 1) list.push(arr[i]);
     }
   }
-  CM._isoWildForest = { sig, gx0, gy0, gx1, gy1, list };
+  st.key = key;
   return list;
 }
 
