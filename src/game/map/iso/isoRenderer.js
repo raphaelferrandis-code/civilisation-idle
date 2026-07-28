@@ -23,6 +23,7 @@ import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
+import { glInit, glBegin, glQuad, glFlush, glGetCanvas } from '../glPainter.js';
 import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
@@ -2923,6 +2924,12 @@ function isoBuildFootSet(L) {
 // frontière ne coûte que le ou les blocs nouvellement entrés, jamais la zone
 // entière. La liste concaténée est elle-même mémoïsée tant que l'ensemble des
 // blocs visibles ne change pas.
+// Longueur minimale d'une série de sprites pour valoir une bascule GL : sous ce
+// seuil, la composition (un blit plein écran) coûterait plus que les
+// `drawImage` économisés. 120 capture les ceintures forestières et laisse la
+// poussière de séries courtes au chemin 2D.
+const GL_RUN_MIN = 120;
+
 const WILD_BLOCK = 32;                  // cellules par côté de bloc
 const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
 
@@ -5528,6 +5535,103 @@ function drawIsoLive(now) {
   fp('vif-collecte');
   items.sort((a, bb) => a.d - bb.d);
   fp('vif-tri');
+  // DIAGNOSTIC DE GREFFE (opt-in, coût nul éteint) : composition du lot et
+  // surtout nombre d'ALTERNANCES entre items « quad pur » (batchables en GL) et
+  // items procéduraux. C'est ce chiffre qui décide de l'architecture du batcher :
+  // une alternance = un vidage de lot, donc une composition plein écran.
+  if (globalThis.__isoItemStats) {
+    const st = { total: items.length, kinds: {}, alternances: 0, quads: 0, proc: 0 };
+    let prevQuad = null;
+    for (const it of items) {
+      st.kinds[it.kind] = (st.kinds[it.kind] || 0) + 1;
+      // « Quad pur » : un seul drawImage, sans géométrie vectorielle (cf. la
+      // cartographie). Les scènes moteur en deviennent quand le cache est actif.
+      const q = it.kind === 'cit' || it.kind === 'tree' || it.kind === 'bush' || it.kind === 'lamp'
+        || (it.kind === 'tile' && it.t && (it.t.type === 'house' || it.t.type === 'enginehome'));
+      if (q) st.quads += 1; else st.proc += 1;
+      if (prevQuad !== null && q !== prevQuad) st.alternances += 1;
+      prevQuad = q;
+    }
+    // Distribution des SÉRIES de quads consécutives : c'est elle qui décide si
+    // une composition par série est jouable (peu de séries longues) ou non
+    // (poussière de séries courtes).
+    const runs = [];
+    let cur = 0;
+    for (const it of items) {
+      const q = it.kind === 'cit' || it.kind === 'tree' || it.kind === 'bush' || it.kind === 'lamp'
+        || (it.kind === 'tile' && it.t && (it.t.type === 'house' || it.t.type === 'enginehome'));
+      if (q) cur += 1;
+      else { if (cur) runs.push(cur); cur = 0; }
+    }
+    if (cur) runs.push(cur);
+    runs.sort((a, b) => b - a);
+    st.series = { nombre: runs.length, plusLongues: runs.slice(0, 6), medianeTaille: runs.length ? runs[runs.length >> 1] : 0 };
+    st.couvertureTop8 = runs.slice(0, 8).reduce((a, b) => a + b, 0);
+    globalThis.__isoItemStatsLast = st;
+  }
+  // ── GREFFE WebGL DES LONGUES SÉRIES ─────────────────────────────────────────
+  // L'ordre du peintre entrelace sprites et procédural : composer à chaque
+  // alternance serait ruineux (572 alternances mesurées au dézoom). Mais la
+  // distribution est très inégale — au dézoom, DEUX séries (les ceintures
+  // forestières nord et sud) portent à elles seules 2 975 des 5 401 sprites.
+  // On ne bascule donc en GL que les séries LONGUES : elles partent en un seul
+  // appel de dessin, et leur composition tombe à SA PLACE dans la file, donc
+  // l'ordre du peintre est rigoureusement conservé. Tout le reste garde le
+  // chemin Canvas 2D, inchangé.
+  // ⚠ OPT-IN (window.__glPainter = true) — VERDICT MESURÉ du 28/07, poste de dev :
+  //  • gain nul (×1,02, dans le bruit) : au dézoom les arbres sont MINUSCULES,
+  //    leur `drawImage` coûte déjà presque rien, et la composition du lot mange
+  //    ce qu'on économise. Le banc __glBench dit pourtant ×12,7 à 12 000
+  //    sprites : le batcher est bon, c'est la MATIÈRE qui manque ici — le vrai
+  //    poids de `vif-peinture` est le dessin VECTORIEL (scènes, ponts, champs),
+  //    pas les sprites (cf. cartographie : « les blits ne coûtent rien »).
+  //  • écart de rééchantillonnage : 3,7 % des pixels (plancher de bruit 0,6 %),
+  //    invisible à l'œil mais réel — GL et Canvas 2D ne choisissent pas les
+  //    mêmes texels quand un sprite est redimensionné.
+  // La bascule redeviendra intéressante quand le procédural sera devenu des
+  // sprites (cache de scènes actif, ponts et champs cuits) : la matière sera là.
+  // À re-mesurer sur la machine de JEU, dont le GPU sature sur le NOMBRE
+  // d'appels — le profil qui, lui, favorise le batcher.
+  const glWanted = (typeof window !== 'undefined' && window.__glPainter === true) && items.length >= GL_RUN_MIN * 2;
+  const glOn = glWanted && glInit();
+  let glPending = 0, glRuns = 0, glSprites = 0;
+  if (glOn) {
+    for (const it of items) it._gl = 0;
+    let start = -1;
+    for (let i = 0; i <= items.length; i += 1) {
+      const it = i < items.length ? items[i] : null;
+      // Seuls les kinds à sprite ENTIER et sans géométrie vectorielle sont
+      // éligibles : un arbre/buisson = un blit, rien d'autre.
+      const q = !!it && (it.kind === 'tree' || it.kind === 'bush');
+      if (q) { if (start < 0) start = i; continue; }
+      if (start >= 0 && i - start >= GL_RUN_MIN) { for (let k = start; k < i; k += 1) items[k]._gl = 1; glRuns += 1; }
+      start = -1;
+    }
+    if (glRuns) glBegin(CM.cw, CM.ch, CM.dpr || 1);
+  }
+  // Emprise écran du lot courant : composer PLEIN ÉCRAN coûterait plus cher que
+  // les sprites économisés (une ceinture forestière, ce sont des milliers de
+  // sprites minuscules — 1,3 Mpx au total — contre 1,5 Mpx par composition
+  // plein cadre). On ne recopie donc que le rectangle réellement couvert.
+  let gbx0 = 1e9, gby0 = 1e9, gbx1 = -1e9, gby1 = -1e9;
+  const glCompose = () => {
+    if (!glPending) return;
+    glSprites += glFlush();
+    const dpr = CM.dpr || 1;
+    const x0 = Math.max(0, Math.floor(gbx0)), y0 = Math.max(0, Math.floor(gby0));
+    const x1 = Math.min(CM.cw, Math.ceil(gbx1)), y1 = Math.min(CM.ch, Math.ceil(gby1));
+    if (x1 > x0 && y1 > y0) {
+      const prevS = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(glGetCanvas(),
+        Math.round(x0 * dpr), Math.round(y0 * dpr), Math.round((x1 - x0) * dpr), Math.round((y1 - y0) * dpr),
+        x0, y0, x1 - x0, y1 - y0);
+      ctx.imageSmoothingEnabled = prevS;
+    }
+    glPending = 0;
+    gbx0 = 1e9; gby0 = 1e9; gbx1 = -1e9; gby1 = -1e9;
+    glBegin(CM.cw, CM.ch, CM.dpr || 1);   // repart d'un cadre vierge
+  };
   // HALO d'émeute : nappe rouge pulsée AU SOL, sous toute la scène vivante (le
   // cercle écran du legacy devient une ellipse iso 2:1). Mêmes rayon et alphas.
   if (CM.riotDraw) {
@@ -5553,6 +5657,9 @@ function drawIsoLive(now) {
   // innombrables) et la passe de nuit repeint les halos en direct, comme avant.
   const lampK = beginLightLayer(T * z >= LIGHT_LAYER.minUnit) ? isoLampLightFrame(L) : null;
   for (const it of items) {
+    // Un item NON basculé doit être peint APRÈS le lot en cours : on compose
+    // d'abord, sinon la série GL passerait par-dessus lui.
+    if (glPending && !it._gl) glCompose();
     if (it.kind === 'tile') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
@@ -5669,16 +5776,34 @@ function drawIsoLive(now) {
       const tArt = isoArt('tree-' + tv);
       if (tArt.ready) {
         const hpx = T * z * (tr.r || 0.7) * 2.7;
-        const prevTS = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
         // Feuillage TEINTÉ par la saison. La teinte est cuite une fois par
         // (variante, saison) dans un canvas hors écran : les arbres visibles se
         // comptent en centaines, une passe multiply par arbre et par frame
         // coûterait bien plus cher que 20 canvas gardés en cache.
         const tImg = seasonTree(tArt, 't' + tv) || tArt.img;
-        ctx.drawImage(tImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
-        ctx.imageSmoothingEnabled = prevTS;
-        lightCutImage(tImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
+        const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
+        // Série basculée : le sprite part au batcher (un seul appel de dessin
+        // pour toute la série). Refus du batcher (atlas plein, source pas
+        // décodée) → chemin 2D, sprite par sprite, comme avant.
+        let batched = false;
+        if (it._gl) {
+          const sw = tImg.naturalWidth || tImg.width | 0, sh = tImg.naturalHeight || tImg.height | 0;
+          batched = glQuad(tImg, 0, 0, sw, sh, tdx, tdy, hpx, hpx);
+          if (batched) {
+            glPending += 1;
+            if (tdx < gbx0) gbx0 = tdx; if (tdy < gby0) gby0 = tdy;
+            if (tdx + hpx > gbx1) gbx1 = tdx + hpx; if (tdy + hpx > gby1) gby1 = tdy + hpx;
+          }
+        }
+        if (!batched) {
+          const prevTS = ctx.imageSmoothingEnabled;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
+          ctx.imageSmoothingEnabled = prevTS;
+        }
+        // L'occultation du calque de lumière vit dans un AUTRE canvas : elle
+        // reste identique quel que soit le pipeline du sprite.
+        lightCutImage(tImg, tdx, tdy, hpx, hpx);
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
       }
@@ -5886,6 +6011,10 @@ function drawIsoLive(now) {
         drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
       }
     }
+  }
+  glCompose();                     // dernière série éventuelle
+  if (glOn) {
+    globalThis.__glPainterLast = { series: glRuns, sprites: glSprites };
   }
   endLightLayer();
   ctx.imageSmoothingEnabled = prevSmooth;
