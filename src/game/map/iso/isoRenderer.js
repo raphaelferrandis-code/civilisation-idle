@@ -6368,8 +6368,35 @@ const ISO_CRISP_BUDGET_MS = 45;
 // Diagnostic : globalThis.__groundZoomCacheStats = { restores, snapshots } —
 // lisible en prod (le harnais de mesure n'a pas accès aux hooks dev).
 const GROUND_ZOOM_CACHE_MAX = 6;
-const gzcStats = { restores: 0, snapshots: 0 };
+// `missBase` : un restore a échoué faute d'entrée de la MÊME BASE (la base a
+// changé sous le cache — recompute de layout, saison…) ; `purges` : entrées de
+// base morte retirées au snapshot. Ensemble ils disent si le cache MEURT plus
+// vite qu'il ne sert — le doute que le banc à sim GELÉE ne peut pas lever.
+const gzcStats = { restores: 0, snapshots: 0, missBase: 0, purges: 0 };
 if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcStats;
+// Identité de CONTENU du sol — ce que drawIsoGround consomme réellement.
+// La clé du bake vivant porte `layoutRecomputeAt`, un TIMESTAMP : en sim
+// VIVANTE il tourne toutes les ~10 s (croissance, automation) et tuait le
+// cache alors que le sol n'avait pas bougé d'un pixel (mesuré : 3 purges et
+// 1 missBase en 8 s d'idle — retour Raph « ça se recalcule encore en zoom
+// dézoom », le banc à sim gelée ne pouvait pas le voir). Le CACHE indexe donc
+// par les tailles des ensembles qui dessinent le sol + la graine du monde.
+// Deux plans différents à comptes STRICTEMENT égaux partageraient une photo —
+// tracés dérivés du seed et des comptes, cas théorique ; et le bake VIVANT se
+// recuit de toute façon au recompute : une photo périmée ne survivrait que
+// jusqu'au premier repos sur son cran, qui la re-photographie.
+// Mémoïsée par RÉFÉRENCE de layout : un calcul par recompute, zéro par frame.
+let gzcSigL = null, gzcSig = '';
+function groundContentSig(L) {
+  if (L === gzcSigL) return gzcSig;
+  gzcSigL = L;
+  const n = (x) => (x ? ((x.size != null ? x.size : x.length) | 0) : 0);
+  gzcSig = (L.gridN | 0) + '.' + (L.mapSeed | 0)
+    + '.' + n(L.roadSet) + '.' + n(L.urbanSet) + '.' + n(L.roadMap)
+    + '.' + n(L.meadow) + '.' + n(L.wonderGround)
+    + '.' + (L.river && L.river.present ? n(L.river.cells) : 0);
+  return gzcSig;
+}
 
 // Point d'entrée : rend la frame iso. Renvoie false si layout absent (repli legacy).
 // helpers = { bakeMargin, blitMargin } (les caches offscreen du runtime, déjà
@@ -6436,7 +6463,9 @@ function drawIsoWorldInner(dt, now, helpers) {
       + ':s' + (CM.season | 0)
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
     const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
-    const keyBase = keyPre + keySuf;
+    // Base du CACHE DE CRANS : identité de contenu (signature du sol), PAS le
+    // timestamp de recompute — cf. groundContentSig pour le pourquoi.
+    const cacheBase = 'isoC:' + groundContentSig(L) + keySuf;
     // RECUISSON COALESCÉE : recuire le sol coûte des centaines de ms sur une
     // mégapole — on ne le fait JAMAIS pendant un geste. Tant que la clé bouge
     // (zoom en cours) ou que le pan déborde la marge, on re-blitte le bake
@@ -6468,27 +6497,40 @@ function drawIsoWorldInner(dt, now, helpers) {
         if (gc && gc.size) {
           let best = null, bestD = Infinity;
           for (const e of gc.values()) {
-            if (e.base !== keyBase || !e.canvas) continue;
+            if (e.base !== cacheBase || !e.canvas) continue;
             if (e.canvas.width !== CM.groundCanvas.width || e.canvas.height !== CM.groundCanvas.height) continue;
             const d = Math.abs(Math.log(e.z / CM.cam.zoom));
             if (d < bestD) { bestD = d; best = e; }
           }
+          if (!best) gzcStats.missBase += 1;
           // ½ cran de molette (cf. CAM_FEEL.wheelStep = 1,12).
           const HALF_STEP = Math.log(1.12) / 2;
+          // Une photo est « exacte » au grain de la clé vivante (zoom à 3
+          // décimales) : sous ±0,05 % l'écart d'échelle est sous le pixel.
+          const exact = !!best && Math.abs(best.z - CM.cam.zoom) < CM.cam.zoom * 5e-4;
           // Distance d'échelle du bake courant — un lod/soft ne compte pas
           // (une photo PLEINE, même approchée, vaut mieux qu'un allégé exact).
           const curLod = !!cur && (!!cur.soft || !cur.other || cur.other.endsWith(':lod') || cur.other.endsWith(':lodl'));
           const curD = (cur && !curLod && cur.zoomB != null) ? Math.abs(Math.log(cur.zoomB / CM.cam.zoom)) : Infinity;
-          if (best && bestD <= HALF_STEP && (cur ? cur.other !== best.key : true) && bestD < curD - 1e-9) {
+          // Déjà installé ? (exact : la clé vivante ; approché : le marqueur et
+          // SON échelle) — sinon on recopierait la photo à chaque frame.
+          const installed = !!cur && (exact
+            ? cur.other === key
+            : (cur.other === '__zoomcache__' && best && Math.abs((cur.zoomB || 0) - best.z) < 1e-9));
+          if (best && bestD <= HALF_STEP && !installed && (exact || bestD < curD - 1e-9)) {
             gc.delete(best.key); gc.set(best.key, best);   // rafraîchit le rang LRU
             const g = CM.gctx;
             g.setTransform(1, 0, 0, 1, 0, 0);
             g.clearRect(0, 0, CM.groundCanvas.width, CM.groundCanvas.height);
             g.drawImage(best.canvas, 0, 0);
             g.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-            // bestD = 0 : clé identique → bake exact (sameContent → blit direct).
-            // Sinon : la photo garde SA clé et SON échelle → re-blit compensé.
-            CM._isoGroundBake = { camX: best.camX, camY: best.camY, other: best.key, zoomB: best.z };
+            // EXACTE → la photo prend la clé VIVANTE COURANTE (pas celle de sa
+            // naissance : le timestamp a pu tourner depuis) → sameContent →
+            // blit direct. APPROCHÉE → marqueur jamais égal à une clé vivante :
+            // la cascade choisit le re-blit compensé depuis cette photo.
+            CM._isoGroundBake = exact
+              ? { camX: best.camX, camY: best.camY, other: key, zoomB: CM.cam.zoom }
+              : { camX: best.camX, camY: best.camY, other: '__zoomcache__', zoomB: best.z };
             gzcStats.restores += 1;
           }
         }
@@ -6678,7 +6720,10 @@ function drawIsoWorldInner(dt, now, helpers) {
       const b2 = CM._isoGroundBake;
       if (b2 && !b2.soft && b2.other === key) {
         const gc = CM._groundZoomCache || (CM._groundZoomCache = new Map());
-        let e = gc.get(key);
+        // La photo vit sous SA clé de cache (contenu + zoom), détachée du
+        // timestamp de la clé vivante : elle survit aux recomputes muets.
+        const cacheKey = cacheBase + '@' + CM.cam.zoom.toFixed(3);
+        let e = gc.get(cacheKey);
         let moved = true;
         if (e) {
           const dse = panDeltaToScreen(b2.camX - e.camX, b2.camY - e.camY);
@@ -6686,9 +6731,9 @@ function drawIsoWorldInner(dt, now, helpers) {
         }
         if (moved) {
           const W = CM.groundCanvas.width, H = CM.groundCanvas.height;
-          if (e) gc.delete(key);
-          else e = { canvas: null, camX: 0, camY: 0, zoomB: CM.cam.zoom, key, base: keyBase, z: CM.cam.zoom };
-          gc.set(key, e);
+          if (e) gc.delete(cacheKey);
+          else e = { canvas: null, camX: 0, camY: 0, zoomB: CM.cam.zoom, key: cacheKey, base: cacheBase, z: CM.cam.zoom };
+          gc.set(cacheKey, e);
           if (!e.canvas || e.canvas.width !== W || e.canvas.height !== H) {
             if (typeof OffscreenCanvas !== 'undefined') e.canvas = new OffscreenCanvas(W, H);
             else { e.canvas = document.createElement('canvas'); e.canvas.width = W; e.canvas.height = H; }
@@ -6700,15 +6745,15 @@ function drawIsoWorldInner(dt, now, helpers) {
             ec.drawImage(CM.groundCanvas, 0, 0);
             e.camX = b2.camX; e.camY = b2.camY;
             e.zoomB = (b2.zoomB != null) ? b2.zoomB : CM.cam.zoom;
-            e.key = key; e.base = keyBase; e.z = CM.cam.zoom;
+            e.key = cacheKey; e.base = cacheBase; e.z = CM.cam.zoom;
             gzcStats.snapshots += 1;
-            // Purge : les entrées d'un layout mort ne re-matcheront jamais leur
-            // clé — autant rendre la mémoire tout de suite. Puis éviction LRU.
-            const pref = 'iso:' + CM.layoutRecomputeAt + ':';
-            for (const k0 of [...gc.keys()]) if (!k0.startsWith(pref)) gc.delete(k0);
+            // Purge : les photos d'un AUTRE contenu de sol (signature ou saison
+            // différentes) ne serviront plus — rendre la mémoire tout de suite.
+            // Puis éviction LRU.
+            for (const [k0, e0] of [...gc.entries()]) if (e0.base !== cacheBase) { gc.delete(k0); gzcStats.purges += 1; }
             while (gc.size > GROUND_ZOOM_CACHE_MAX) gc.delete(gc.keys().next().value);
           } else {
-            gc.delete(key);   // contexte refusé : pas d'entrée fantôme
+            gc.delete(cacheKey);   // contexte refusé : pas d'entrée fantôme
           }
         }
       }
