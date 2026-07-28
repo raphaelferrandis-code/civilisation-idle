@@ -2930,6 +2930,11 @@ function isoBuildFootSet(L) {
 // poussière de séries courtes au chemin 2D.
 const GL_RUN_MIN = 120;
 
+// Pesée fine de la passe vivante (opt-in : globalThis.__isoProfParts = true) :
+// isole les postes procéduraux candidats à la cuisson en texture. Le drapeau se
+// lit UNE fois par frame (constante d'import : la molette n'aurait aucun effet
+// après chargement).
+
 const WILD_BLOCK = 32;                  // cellules par côté de bloc
 const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
 
@@ -5592,6 +5597,20 @@ function drawIsoLive(now) {
   // sprites (cache de scènes actif, ponts et champs cuits) : la matière sera là.
   // À re-mesurer sur la machine de JEU, dont le GPU sature sur le NOMBRE
   // d'appels — le profil qui, lui, favorise le batcher.
+  const profParts = !!globalThis.__isoProfParts;   // pesée fine, cf. plus haut
+  // SPRITES D'ARBRE RÉSOLUS UNE FOIS PAR FRAME (et non par arbre). Mesuré à
+  // dézoom : les arbres pesaient 12,7 ms sur 34, soit le premier poste de la
+  // frame — et l'essentiel n'était pas le blit mais ce qui l'entoure, refait
+  // pour CHACUN des 4 648 arbres : un hash de chaîne pour la variante, une
+  // recherche de sprite par concaténation, une résolution de teinte
+  // saisonnière. Or tout cela ne dépend que de la VARIANTE (4 en tout) : on le
+  // résout une fois par frame, et chaque arbre n'a plus qu'à lire son entrée.
+  const treeMemo = typeof window === 'undefined' || window.__treeMemo !== false;
+  const treeImgs = [];
+  for (let tv = 1; tv <= ISO_TREE_VARIANTS; tv += 1) {
+    const a = isoArt('tree-' + tv);
+    treeImgs[tv] = a.ready ? (seasonTree(a, 't' + tv) || a.img) : null;
+  }
   const glWanted = (typeof window !== 'undefined' && window.__glPainter === true) && items.length >= GL_RUN_MIN * 2;
   const glOn = glWanted && glInit();
   let glPending = 0, glRuns = 0, glSprites = 0;
@@ -5695,6 +5714,7 @@ function drawIsoLive(now) {
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;  // largeur allouée au sprite (~78 % du losange)
       let engineBox;   // boîte rendue par la scène moteur, publiée pour le survol
       if (isHouse && pixelHouseReady(t)) {
+        if (profParts) fp('vif-peinture');
         const hpx = wpx;                                    // seul y+h compte (ancre pieds)
         const hx = anchor.x - wpx / 2, hy = anchor.y - hpx - hh * 0.5;
         // SURVOL : le liseré se dessine AVANT le sprite (blob élargi puis sprite
@@ -5707,6 +5727,7 @@ function drawIsoLive(now) {
         // Ordre de la liste = ordre du peintre (loin → près) : le hit-test la
         // parcourt à l'envers pour toucher d'abord ce qui est devant.
         if (box && houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: box, t });
+        if (profParts) fp('vif-maisons');
       } else if (t.type === 'engine' && isoEngineScenesFlag.on && (engineBox = drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now))) {
         // Scène moteur legacy posée sur le losange (Phase 3-lite) — cf. helper.
         // ⚠ ON PUBLIE SA BOÎTE, exactement comme les habitations juste au-dessus.
@@ -5725,7 +5746,9 @@ function drawIsoLive(now) {
         if (/field|farm|crop|orchard/i.test(id2)) {
           // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
+          if (profParts) fp('vif-peinture');
           drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
+          if (profParts) fp('vif-champs');
           continue;
         }
         if (/aqueduct/i.test(id2)) {
@@ -5767,20 +5790,26 @@ function drawIsoLive(now) {
         });
       }
     } else if (it.kind === 'tree') {
+      if (profParts) fp('vif-peinture');
       // ARBRES PIXEL (retour Raph : les sapins-triangles « pas faits
       // correctement du tout ») : sprite PixelLab /pixelart/iso/tree-N.png,
       // variante stable par hash de cellule ; repli = triangle procédural.
       const tr = it.tr;
       const p = worldToScreen((tr.gx + 0.5 + (tr.jx || 0)) * T, (tr.gy + 0.9 + (tr.jy || 0)) * T);
-      const tv = 1 + (cmHash('tree:' + tr.gx + ':' + tr.gy) % ISO_TREE_VARIANTS);
-      const tArt = isoArt('tree-' + tv);
-      if (tArt.ready) {
+      // Variante mémoïsée SUR L'ARBRE : elle ne dépend que de sa cellule, et
+      // les objets d'arbre sont persistants (layout, et cache par blocs pour la
+      // forêt sauvage) — le hash de chaîne ne se paie donc qu'une fois par arbre
+      // et par vie de cache, au lieu d'une fois par arbre et par frame.
+      let tv = tr._tv;
+      if (tv === undefined || !treeMemo) tv = tr._tv = 1 + (cmHash('tree:' + tr.gx + ':' + tr.gy) % ISO_TREE_VARIANTS);
+      // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
+      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 't' + tv) || a.img) : null; })();
+      if (tImg0) {
         const hpx = T * z * (tr.r || 0.7) * 2.7;
-        // Feuillage TEINTÉ par la saison. La teinte est cuite une fois par
-        // (variante, saison) dans un canvas hors écran : les arbres visibles se
-        // comptent en centaines, une passe multiply par arbre et par frame
-        // coûterait bien plus cher que 20 canvas gardés en cache.
-        const tImg = seasonTree(tArt, 't' + tv) || tArt.img;
+        // Feuillage TEINTÉ par la saison : la teinte est cuite une fois par
+        // (variante, saison) dans un canvas hors écran, et l'image résolue nous
+        // vient de treeImgs (une fois par frame, cf. plus haut).
+        const tImg = tImg0;
         const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
         // Série basculée : le sprite part au batcher (un seul appel de dessin
         // pour toute la série). Refus du batcher (atlas plein, source pas
@@ -5807,6 +5836,7 @@ function drawIsoLive(now) {
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
       }
+      if (profParts) fp('vif-arbres');
     } else if (it.kind === 'plazaScene') {
       // Losange de CONTENU mesuré calé pile sur l'emprise de la dalle (le
       // canvas brut décalait la scène — retour Raph).
@@ -5994,7 +6024,12 @@ function drawIsoLive(now) {
         lightCutImage(bImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
       }
     } else if (it.kind === 'bridgeSeg') {
+      // Jalons de pesée (opt-in) : ces deux postes sont les candidats à la
+      // cuisson en texture — il faut leur coût RÉEL avant d'y consacrer une
+      // séance. Coût nul profileur éteint.
+      if (profParts) fp('vif-peinture');
       drawIsoBridgeSeg(ctx, it, now);
+      if (profParts) fp('vif-ponts');
     } else if (it.kind === 'portBoat') {
       drawIsoPortBoat(ctx, it.moor, now, z, T);
     } else if (it.kind === 'veh') {
