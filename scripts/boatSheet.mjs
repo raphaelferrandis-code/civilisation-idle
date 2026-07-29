@@ -17,7 +17,8 @@ const SECTORS = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest',
 const GROUPS = [
   { label: 'marchands', names: ['raft', 'sail', 'steam', 'container'] },
   { label: 'plaisance', names: ['rowboat', 'dinghy', 'motorboat'] },
-  { label: 'peche', names: ['fisher'] },
+  // Le pêcheur a DEUX poses : canne tendue à l'ancre, canne rangée en route.
+  { label: 'peche', names: ['fisher', 'fisher-row'] },
 ];
 const GAP = 4, SEP = 14, BG = [26, 30, 38];
 

@@ -17,9 +17,36 @@ import { shipVisual, tradeStage } from "../iso/isoRenderer.js";
 describe("shipVisual — le pêcheur ne vieillit pas", () => {
   it("garde la même barque de la première à la dernière ère", () => {
     const eres = [[0, 1], [2, 8], [4, 18], [5, 27], [6, 34], [9, 44]];
-    const keys = new Set(eres.map(([band, ei]) => shipVisual("fisher", band, ei).key));
-    expect(keys.size).toBe(1);
-    expect([...keys][0]).toBe("fisher");
+    // L'ère ne doit RIEN changer, dans l'une comme dans l'autre pose : seul
+    // l'état de la barque a le droit de faire varier le sprite.
+    for (const st of ["anchor", "cruise"]) {
+      const keys = new Set(eres.map(([band, ei]) => shipVisual("fisher", band, ei, st).key));
+      expect(keys.size).toBe(1);
+    }
+    expect(shipVisual("fisher", 0, 1, "anchor").key).toBe("fisher");
+  });
+
+  it("ne sort sa canne qu'à l'ARRÊT", () => {
+    // « On ne pêche pas en naviguant » (Raph) : deux poses du même bonhomme, la
+    // bascule se fait sur l'état de la barque et sur rien d'autre.
+    const pose = shipVisual("fisher", 4, 18, "anchor").key;
+    const route = shipVisual("fisher", 4, 18, "cruise").key;
+    expect(pose).not.toBe(route);
+    expect(pose).toBe("fisher");
+    // Tout ce qui n'est pas l'ancre est en route — y compris un état inconnu,
+    // sinon un futur état ferait pêcher le bonhomme en pleine traversée.
+    for (const st of ["cruise", "dock", undefined, "", "leave"]) {
+      expect(shipVisual("fisher", 4, 18, st).key).toBe(route);
+    }
+  });
+
+  it("garde la même barque et la même échelle dans les deux poses", () => {
+    const a = shipVisual("fisher", 4, 18, "anchor");
+    const b = shipVisual("fisher", 4, 18, "cruise");
+    expect(a.sizeMul).toBe(b.sizeMul);
+    expect(a.stage).toBe(b.stage);
+    expect(a.wake).toBe(0);
+    expect(b.wake).toBe(0);
   });
 
   it("ne laisse aucun sillage : il est à l'ancre", () => {

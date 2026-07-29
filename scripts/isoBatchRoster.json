@@ -266,6 +266,11 @@
       "prompt": "light wood rowboat with a man in a bright straw hat and blue shirt lying back inside, holding a very long fishing rod that points far out over the water, high contrast (8-dir 80px) — INTEMPOREL, meme barque de la 1re a la derniere ere. ⚠ v1 (cc40a4b6) REJETEE : coque trop sombre, homme et canne indiscernables au zoom de jeu — la barque se lisait comme un debris flottant. Le contraste prime sur le realisme a cette taille."
     },
     {
+      "name": "fisher-row",
+      "id": "38ad109c-44df-4b50-9fd1-fd8b525857aa",
+      "prompt": "meme barque que fisher, homme assis SANS canne (8-dir 80px) — vue EN ROUTE : la canne ne se voit qu'a l'arret (Raph). Le rendu bascule sur fisher des que l'ancre est jetee."
+    },
+    {
       "name": "rowboat",
       "id": "3cb8b9bb-487c-4955-b14f-95e37ef84ea1",
       "prompt": "small wooden rowboat with two oars, empty (8-dir 80px) — plaisance, age 1 (eres 1-9)"

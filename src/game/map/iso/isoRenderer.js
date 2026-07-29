@@ -25,6 +25,9 @@ import { engineStage, propReady, blitProp, propBBox } from '../cityEngineSprites
 import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { glInit, glBegin, glQuad, glFlush, glGetCanvas } from '../glPainter.js';
 import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
+// Outil de calibrage des feux de position : n'expose que window.__navCalib et
+// ne fait rien tant qu'on ne l'appelle pas (aucun coût en jeu).
+import './navCalib.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -3357,6 +3360,34 @@ if (typeof window !== 'undefined') {
 export const NAV_PORT_COL = '255,60,52';    // bâbord — rouge
 export const NAV_STBD_COL = '60,255,110';   // tribord — vert
 
+// Ancrage des feux PAR STADE, en fraction de la largeur du sprite (donc
+// indépendant du zoom). Une valeur unique pour toute la flotte ne peut pas être
+// juste : le mât d'un voilier, la passerelle d'un vapeur et le roof-bar d'une
+// vedette ne sont pas à la même hauteur, et les coques n'ont pas la même largeur
+// utile dans leur cadre de 85 px.
+//   mast = hauteur au-dessus du centre de coque ; beam = demi-écartement.
+// Se calibre AU CLIC : `__navCalib()`, deux clics par bateau (rouge puis vert),
+// le HUD rend le bloc à recopier ici. Même geste que `__shopCalibPool` pour les
+// bouteilles de l'échoppe. `__navAnchor(stage, {mast, beam})` règle à chaud.
+const NAV_ANCHOR_DEFAULT = { mast: 0.30, beam: 0.16 };
+const NAV_ANCHOR = {
+  // Valeurs de départ, à remplacer par le bloc que rend __navCalib().
+  raft: { mast: 0.22, beam: 0.14 },
+  sail: { mast: 0.34, beam: 0.13 },
+  steam: { mast: 0.30, beam: 0.16 },
+  container: { mast: 0.26, beam: 0.20 },
+  rowboat: { mast: 0.20, beam: 0.12 },
+  dinghy: { mast: 0.34, beam: 0.12 },
+  motorboat: { mast: 0.26, beam: 0.15 },
+};
+export function navAnchorFor(stage) { return NAV_ANCHOR[stage] || NAV_ANCHOR_DEFAULT; }
+if (typeof window !== 'undefined') {
+  window.__navAnchor = (stage, o) => {
+    if (stage && o) NAV_ANCHOR[stage] = { ...navAnchorFor(stage), ...o };
+    return stage ? navAnchorFor(stage) : { ...NAV_ANCHOR };
+  };
+}
+
 // Un bateau à l'ancre ne porte pas de feux de route. C'est une règle de métier,
 // pas un détail de rendu : le pêcheur DOIT rester noir sur l'eau.
 export function boatHasNavLights(kind) { return kind !== 'fisher'; }
@@ -3391,12 +3422,13 @@ function drawIsoShipNight(now) {
   ctx.globalCompositeOperation = 'lighter';
   for (const sh of CM.ships) {
     if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh.kind)) continue;
-    const { x, y, dw, heading } = sh._nav;
-    // « En haut du mât » : au-dessus de la coque, pas sur la flottaison. 0,30 et
-    // pas 0,42 — au-delà, les feux se détachent du bateau et flottent dans le
-    // vide (les sprites portent beaucoup de transparent au-dessus de la coque).
-    const my = y - dw * 0.30;
-    const off = navLightOffsets(heading, dw * 0.16);
+    const { x, y, dw, heading, stage } = sh._nav;
+    // Ancrage PAR STADE (cf. NAV_ANCHOR) : la hauteur du mât et l'écartement
+    // dépendent de la coque, pas d'un gabarit unique. Réglable au clic via
+    // __navCalib(), à chaud via __navAnchor(stage, {mast, beam}).
+    const an = navAnchorFor(stage);
+    const my = y - dw * an.mast;
+    const off = navLightOffsets(heading, dw * an.beam);
     const px = Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
     for (const [o, col] of [[off.port, NAV_PORT_COL], [off.stbd, NAV_STBD_COL]]) {
       ctx.fillStyle = `rgba(${col},${Math.min(1, a).toFixed(3)})`;
@@ -3408,11 +3440,19 @@ function drawIsoShipNight(now) {
 
 // Aspect d'un bateau pour la frame : sprite, échelle, et force du sillage. Le
 // pêcheur n'en laisse aucun (il est à l'ancre), le plaisancier à peine.
-export function shipVisual(kind, band, ei) {
+export function shipVisual(kind, band, ei, shipState) {
   // Le pêcheur est le seul bateau qu'on regarde DURER : il tient la même pose
   // 90 s. S'il n'est qu'une tache brune, sa scène ne se lit pas — d'où une
   // échelle plus généreuse que sa taille réelle ne le voudrait.
-  if (kind === 'fisher') return { key: 'fisher', sizeMul: 1.75, wake: 0, stage: 'fisher' };
+  //
+  // DEUX POSES (Raph) : on ne pêche pas en naviguant. Canne tendue seulement à
+  // l'ancre ; en route, la même barque et le même homme, canne rangée. C'est le
+  // seul bateau du fleuve dont le sprite dépend de ce qu'il est en train de
+  // FAIRE, et c'est ce qui donne à son arrivée et à son départ un sens lisible.
+  if (kind === 'fisher') {
+    const posed = shipState === 'anchor';
+    return { key: posed ? 'fisher' : 'fisher-row', sizeMul: 1.75, wake: 0, stage: 'fisher' };
+  }
   if (kind === 'yacht') {
     const y = yachtStage(ei);
     return { key: y.key, sizeMul: y.sizeMul, wake: 0.35, stage: y.key };
@@ -3438,10 +3478,19 @@ function drawIsoShips(now) {
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
   // Les trois aspects sont CONSTANTS sur la frame (même ère pour tout le monde) :
   // on les calcule une fois, pas une fois par bateau.
-  const VIS = { trade: shipVisual('trade', band, ei), yacht: shipVisual('yacht', band, ei), fisher: shipVisual('fisher', band, ei) };
+  // Les aspects sont CONSTANTS sur la frame (même ère pour tous) : on les
+  // calcule une fois. Le pêcheur en a deux — canne tendue à l'ancre, rangée en
+  // route — d'où ses deux entrées, choisies par bateau selon son état.
+  const VIS = {
+    trade: shipVisual('trade', band, ei), yacht: shipVisual('yacht', band, ei),
+    fisherPosed: shipVisual('fisher', band, ei, 'anchor'),
+    fisherRow: shipVisual('fisher', band, ei, 'cruise'),
+  };
   const docks = CM.shipDocks || [];
   for (const sh of CM.ships) {
-    const vis = VIS[sh.kind] || VIS.trade;
+    const vis = sh.kind === 'fisher'
+      ? (sh.state === 'anchor' ? VIS.fisherPosed : VIS.fisherRow)
+      : (VIS[sh.kind] || VIS.trade);
     const vstage = vis.stage, sizeMul = vis.sizeMul;
     // Repli profil legacy : réservé aux stades marchands, seuls à avoir une
     // bande top-down sous /agents/boats/.
@@ -3548,7 +3597,7 @@ function drawIsoShips(now) {
     ctx.imageSmoothingEnabled = prevSm;
     // Ancre écran pour la passe de nuit (drawIsoShipNight) : les feux de
     // position ne peuvent pas être peints ici, le voile passerait dessus.
-    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading };
+    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading, stage: vis.key };
     sh._navAt = now;
     ctx.globalAlpha = prevAlpha;
   }
