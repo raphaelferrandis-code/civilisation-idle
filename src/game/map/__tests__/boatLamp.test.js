@@ -33,16 +33,17 @@ describe("feux de navigation — qui en porte", () => {
 });
 
 describe("feux de navigation — placement", () => {
-  it("les deux feux encadrent le mât, perpendiculairement au cap", () => {
+  const PLAT = { mast: 0, beam: 1, foreP: 0, foreS: 0 };
+
+  it("les deux feux encadrent l'axe, perpendiculairement au cap", () => {
     for (const heading of [0, 0.7, Math.PI / 2, 2.4, -1.1]) {
-      const { port, stbd } = navLightOffsets(heading, 10);
-      // Opposés l'un à l'autre.
+      const { port, stbd } = navLightOffsets(heading, 10, PLAT);
+      // Opposés l'un à l'autre (même avance, écartement symétrique).
       expect(port.x).toBeCloseTo(-stbd.x, 6);
       expect(port.y).toBeCloseTo(-stbd.y, 6);
       // Perpendiculaires au cap : produit scalaire nul avec le vecteur d'avance.
       const dot = port.x * Math.cos(heading) + port.y * Math.sin(heading);
       expect(Math.abs(dot)).toBeLessThan(1e-9);
-      // Et à la bonne distance.
       expect(Math.hypot(port.x, port.y)).toBeCloseTo(10, 6);
     }
   });
@@ -50,9 +51,34 @@ describe("feux de navigation — placement", () => {
   it("bâbord est bien à GAUCHE du sens de marche", () => {
     // Cap vers la droite de l'écran (est) : la gauche du marin est vers le HAUT
     // de l'écran, donc y négatif.
-    const { port, stbd } = navLightOffsets(0, 10);
+    const { port, stbd } = navLightOffsets(0, 10, PLAT);
     expect(port.y).toBeLessThan(0);
     expect(stbd.y).toBeGreaterThan(0);
+  });
+
+  it("chaque feu a sa propre AVANCE, qui suit le cap", () => {
+    // La régression qui a motivé les deux `fore` : sans eux, les feux étaient
+    // cloués sur l'axe central et un clic à gauche ou à droite du sprite ne
+    // changeait rien du tout.
+    const an = { mast: 0, beam: 0, foreP: 1, foreS: -1 };
+    const est = navLightOffsets(0, 10, an);
+    expect(est.port.x).toBeCloseTo(10, 6);    // bâbord à la proue
+    expect(est.stbd.x).toBeCloseTo(-10, 6);   // tribord à la poupe
+    // Cap au sud (écran, y vers le bas) : l'avance devient verticale.
+    const sud = navLightOffsets(Math.PI / 2, 10, an);
+    expect(sud.port.y).toBeCloseTo(10, 6);
+    expect(sud.stbd.y).toBeCloseTo(-10, 6);
+  });
+
+  it("l'ÉLÉVATION reste verticale quand le bateau vire", () => {
+    // Un mât ne se couche pas dans un virage : `mast` est le seul terme qui ne
+    // tourne pas avec le cap.
+    const an = { mast: 1, beam: 0, foreP: 0, foreS: 0 };
+    for (const heading of [0, 1.2, Math.PI, -2.0]) {
+      const { port } = navLightOffsets(heading, 10, an);
+      expect(port.x).toBeCloseTo(0, 6);
+      expect(port.y).toBeCloseTo(-10, 6);
+    }
   });
 });
 

@@ -3375,20 +3375,33 @@ export const NAV_STBD_COL = '60,255,110';   // tribord — vert
 // juste : le mât d'un voilier, la passerelle d'un vapeur et le roof-bar d'une
 // vedette ne sont pas à la même hauteur, et les coques n'ont pas la même largeur
 // utile dans leur cadre de 85 px.
-//   mast = hauteur au-dessus du centre de coque ; beam = demi-écartement.
-// Se calibre AU CLIC : `__navCalib()`, deux clics par bateau (rouge puis vert),
-// le HUD rend le bloc à recopier ici. Même geste que `__shopCalibPool` pour les
-// bouteilles de l'échoppe. `__navAnchor(stage, {mast, beam})` règle à chaud.
-const NAV_ANCHOR_DEFAULT = { mast: 0.30, beam: 0.16 };
+// QUATRE valeurs, pas deux — chaque feu se pose LIBREMENT sur le sprite :
+//   mast  = élévation commune au-dessus du centre de coque (verticale écran) ;
+//   beam  = demi-écartement travers, signé (bâbord d'un bord, tribord de l'autre) ;
+//   foreP = avance du feu BÂBORD le long de l'axe du bateau ;
+//   foreS = avance du feu TRIBORD.
+//
+// ⚠ Les deux `fore` ont été ajoutés après coup : sans eux, les feux étaient
+// cloués sur l'axe central du bateau et le clic de calibrage ne comptait que sa
+// hauteur. « Ça ne marche que sur la même ligne du milieu ? » (Raph). Un feu de
+// mât et un feu de poupe ne sont pas à la même avance, et sur une coque longue
+// comme un porte-conteneurs la différence saute aux yeux.
+//
+// L'élévation reste VERTICALE à l'écran quand le bateau tourne, tandis que
+// `fore` et `beam` suivent le cap : c'est ce qui garde le rouge à gauche du
+// marin quelle que soit sa route.
+// Se calibre AU CLIC : `__navCalib()`, un clic par feu, n'importe où sur le
+// sprite. `__navAnchor(stage, {...})` règle à chaud.
+const NAV_ANCHOR_DEFAULT = { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 };
 const NAV_ANCHOR = {
   // Valeurs de départ, à remplacer par le bloc que rend __navCalib().
-  raft: { mast: 0.22, beam: 0.14 },
-  sail: { mast: 0.34, beam: 0.13 },
-  steam: { mast: 0.30, beam: 0.16 },
-  container: { mast: 0.26, beam: 0.20 },
-  rowboat: { mast: 0.20, beam: 0.12 },
-  dinghy: { mast: 0.34, beam: 0.12 },
-  motorboat: { mast: 0.26, beam: 0.15 },
+  raft: { mast: 0.22, beam: 0.14, foreP: 0, foreS: 0 },
+  sail: { mast: 0.34, beam: 0.13, foreP: 0, foreS: 0 },
+  steam: { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 },
+  container: { mast: 0.26, beam: 0.20, foreP: 0, foreS: 0 },
+  rowboat: { mast: 0.20, beam: 0.12, foreP: 0, foreS: 0 },
+  dinghy: { mast: 0.34, beam: 0.12, foreP: 0, foreS: 0 },
+  motorboat: { mast: 0.26, beam: 0.15, foreP: 0, foreS: 0 },
 };
 export function navAnchorFor(stage) { return NAV_ANCHOR[stage] || NAV_ANCHOR_DEFAULT; }
 // Le calibreur travaille sur le SPRITE : il lui faut la pose exacte de l'image
@@ -3413,12 +3426,27 @@ export function boatLampMul(nightF, gain) {
   return Math.max(0, nightF || 0) * 0.62 * (gain == null ? 1 : gain);
 }
 
-// Positions écran des deux feux : perpendiculaires au CAP, de part et d'autre.
-// En repère écran (y vers le bas), tourner le cap de -90° donne la gauche du
-// sens de marche, donc bâbord. Renvoie { port, stbd } en décalages px.
-export function navLightOffsets(heading, d) {
-  const sx = Math.sin(heading) * d, sy = -Math.cos(heading) * d;
-  return { port: { x: sx, y: sy }, stbd: { x: -sx, y: -sy } };
+// Décalages écran des deux feux, en px, depuis le centre de coque.
+//
+// Repère du bateau projeté : l'axe d'AVANCE suit le cap écran, l'axe TRAVERS
+// est sa perpendiculaire (tourner le cap de -90° en repère y-vers-le-bas donne
+// la gauche du marin, donc bâbord), et l'ÉLÉVATION reste verticale à l'écran —
+// c'est la convention iso : un mât ne se couche pas quand le bateau vire.
+//
+// `an` = { mast, beam, foreP, foreS } en fraction de dw ; chaque feu a sa propre
+// avance, ce qui permet de les poser n'importe où sur la coque et pas seulement
+// sur son axe.
+export function navLightOffsets(heading, dw, an) {
+  const a = an || NAV_ANCHOR_DEFAULT;
+  const cx = Math.cos(heading), cy = Math.sin(heading);      // avance
+  const tx = Math.sin(heading), ty = -Math.cos(heading);     // travers, vers bâbord
+  const lift = -(a.mast || 0) * dw;                          // élévation (écran)
+  const b = (a.beam || 0) * dw;
+  const fp = (a.foreP || 0) * dw, fs = (a.foreS || 0) * dw;
+  return {
+    port: { x: fp * cx + b * tx, y: lift + fp * cy + b * ty },
+    stbd: { x: fs * cx - b * tx, y: lift + fs * cy - b * ty },
+  };
 }
 
 // Passe de nuit des bateaux : APRÈS drawIsoNight, comme les lanternes de pont.
@@ -3436,16 +3464,14 @@ function drawIsoShipNight(now) {
   for (const sh of CM.ships) {
     if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh.kind)) continue;
     const { x, y, dw, heading, stage } = sh._nav;
-    // Ancrage PAR STADE (cf. NAV_ANCHOR) : la hauteur du mât et l'écartement
-    // dépendent de la coque, pas d'un gabarit unique. Réglable au clic via
-    // __navCalib(), à chaud via __navAnchor(stage, {mast, beam}).
-    const an = navAnchorFor(stage);
-    const my = y - dw * an.mast;
-    const off = navLightOffsets(heading, dw * an.beam);
+    // Ancrage PAR STADE (cf. NAV_ANCHOR) : élévation, écartement et avance de
+    // CHAQUE feu dépendent de la coque, pas d'un gabarit unique. Réglable au
+    // clic via __navCalib(), à chaud via __navAnchor(stage, {...}).
+    const off = navLightOffsets(heading, dw, navAnchorFor(stage));
     const px = Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
     for (const [o, col] of [[off.port, NAV_PORT_COL], [off.stbd, NAV_STBD_COL]]) {
       ctx.fillStyle = `rgba(${col},${Math.min(1, a).toFixed(3)})`;
-      ctx.fillRect(Math.round(x + o.x - px / 2), Math.round(my + o.y - px / 2), px, px);
+      ctx.fillRect(Math.round(x + o.x - px / 2), Math.round(y + o.y - px / 2), px, px);
     }
   }
   ctx.globalCompositeOperation = prevOp;
@@ -6379,7 +6405,7 @@ function drawIsoLive(now) {
     } else if (it.kind === 'plazaProp') {
       // PLACE COMPOSÉE : un prop, à sa taille en TUILES (jamais en fraction de
       // la place). Tout le calcul est dans isoPlaza.js.
-      drawIsoPlazaProp(ctx, it.art, it.eraKey);
+      drawIsoPlazaProp(ctx, it.art, it.eraKey, now);
     } else if (it.kind === 'plazaGrid') {
       drawIsoPlazaGrid(ctx, it.art);     // overlay de travail (__plaza({grid|ruler}))
     } else if (it.kind === 'plazaScene') {
