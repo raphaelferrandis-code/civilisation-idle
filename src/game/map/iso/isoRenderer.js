@@ -26,8 +26,9 @@ import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { glInit, glBegin, glQuad, glFlush, glGetCanvas } from '../glPainter.js';
 import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
 // Outil de calibrage des feux de position : n'expose que window.__navCalib et
-// ne fait rien tant qu'on ne l'appelle pas (aucun coût en jeu).
-import './navCalib.js';
+// ne fait rien tant qu'on ne l'appelle pas (aucun coût en jeu). Il ne nous
+// importe RIEN en retour (cycle ES = zone morte) : on lui pousse sa config.
+import { configureNavCalib } from './navCalib.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -3253,6 +3254,15 @@ function boatSector(angle) {
 // Stades couverts par l'art iso (cosmique : repli legacy/procédural conservé).
 const BOAT_ISO = { raft: 1, sail: 1, steam: 1, container: 1 };
 
+// ── Pose du sprite de coque, SOURCE UNIQUE ──────────────────────────────────
+// Le sprite est dessiné 1,15× plus large que l'unité qui sert aux feux de
+// position, et son bord haut est à 0,58 de largeur au-dessus du centre de coque.
+// Ces deux nombres sont exportés parce que le calibrage (navCalib.js) doit
+// convertir un clic SUR LE SPRITE en (mast, beam) : s'ils divergeaient, l'outil
+// mesurerait une chose et le rendu en dessinerait une autre.
+export const BOAT_IMG_K = 1.15;
+export const BOAT_IMG_TOP = 0.58;
+
 // ── Les trois MÉTIERS du fleuve (cf. riverFleet.js) ─────────────────────────
 // Le marchand traverse l'Histoire avec le port (radeau → voilier → vapeur →
 // porte-conteneurs → vaisseau) ; le plaisancier a ses trois âges à lui ; le
@@ -3381,6 +3391,9 @@ const NAV_ANCHOR = {
   motorboat: { mast: 0.26, beam: 0.15 },
 };
 export function navAnchorFor(stage) { return NAV_ANCHOR[stage] || NAV_ANCHOR_DEFAULT; }
+// Le calibreur travaille sur le SPRITE : il lui faut la pose exacte de l'image
+// et le réglage courant, sans jamais nous importer en retour.
+configureNavCalib({ K: BOAT_IMG_K, TOP: BOAT_IMG_TOP, anchorFor: navAnchorFor });
 if (typeof window !== 'undefined') {
   window.__navAnchor = (stage, o) => {
     if (stage && o) NAV_ANCHOR[stage] = { ...navAnchorFor(stage), ...o };
@@ -3572,8 +3585,8 @@ function drawIsoShips(now) {
     const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
     const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
     if (isoBoat && isoBoat.ready) {
-      const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15;
-      ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * 0.58 + bob, dw, dw);
+      const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * BOAT_IMG_K;
+      ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * BOAT_IMG_TOP + bob, dw, dw);
     } else if (sh.kind !== 'trade') {
       // Repli des métiers dont l'art n'est pas encore récolté. SANS lui on ne
       // verrait rien du tout et il serait impossible de régler vitesses, voies
