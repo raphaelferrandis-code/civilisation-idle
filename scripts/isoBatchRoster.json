@@ -259,6 +259,26 @@
       "name": "container",
       "id": "1509f658-ff78-41f2-9385-16276a2463ab",
       "prompt": "container barge (8-dir 80px)"
+    },
+    {
+      "name": "fisher",
+      "id": "97d37a02-80d7-4b14-9259-c311856f5271",
+      "prompt": "light wood rowboat with a man in a bright straw hat and blue shirt lying back inside, holding a very long fishing rod that points far out over the water, high contrast (8-dir 80px) — INTEMPOREL, meme barque de la 1re a la derniere ere. ⚠ v1 (cc40a4b6) REJETEE : coque trop sombre, homme et canne indiscernables au zoom de jeu — la barque se lisait comme un debris flottant. Le contraste prime sur le realisme a cette taille."
+    },
+    {
+      "name": "rowboat",
+      "id": "3cb8b9bb-487c-4955-b14f-95e37ef84ea1",
+      "prompt": "small wooden rowboat with two oars, empty (8-dir 80px) — plaisance, age 1 (eres 1-9)"
+    },
+    {
+      "name": "dinghy",
+      "id": "3c589507-5a8f-4c03-86d8-66020449d9ae",
+      "prompt": "small pleasure sailing dinghy with a white triangular sail (8-dir 80px) — plaisance, age 2 (eres 10-24)"
+    },
+    {
+      "name": "motorboat",
+      "id": "a0faf269-5efe-4b5c-8d84-4910fc5739a1",
+      "prompt": "small white motorboat with windshield and outboard engine (8-dir 80px) — plaisance, age 3 (eres 25+, garde en cosmique)"
     }
   ],
   "decorIso": {

@@ -3269,10 +3269,16 @@ function tradeSizeMul(stage, band) {
 // Plaisance : barque à rames, puis petit voilier, puis vedette à moteur. En ère
 // cosmique on garde la vedette — un plaisancier reste un plaisancier, et rien
 // ne justifiait un quatrième stade d'art pour un bateau qu'on regarde passer.
+// ⚠ Échelles RELEVÉES après la première capture : aux valeurs « réalistes »
+// (1,05 / 1,45 / 1,9) la plaisance était illisible. Deux raisons cumulées — les
+// coques de barque occupent bien moins de leur cadre 85 px que les gros
+// marchands, et à ce zoom une silhouette sous ~40 px n'est plus qu'un grain.
+// Ce qui compte n'est pas l'échelle vraie d'une barque mais qu'on RECONNAISSE
+// le métier.
 const YACHT_STAGES = [
-  { key: 'rowboat', sizeMul: 1.05 },
-  { key: 'dinghy', sizeMul: 1.45 },
-  { key: 'motorboat', sizeMul: 1.9 },
+  { key: 'rowboat', sizeMul: 1.4 },
+  { key: 'dinghy', sizeMul: 1.7 },
+  { key: 'motorboat', sizeMul: 2.0 },
 ];
 function yachtStage(ei) { return ei >= 25 ? YACHT_STAGES[2] : ei >= 10 ? YACHT_STAGES[1] : YACHT_STAGES[0]; }
 
@@ -3321,7 +3327,10 @@ function drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh) {
 // Aspect d'un bateau pour la frame : sprite, échelle, et force du sillage. Le
 // pêcheur n'en laisse aucun (il est à l'ancre), le plaisancier à peine.
 export function shipVisual(kind, band, ei) {
-  if (kind === 'fisher') return { key: 'fisher', sizeMul: 1.15, wake: 0, stage: 'fisher' };
+  // Le pêcheur est le seul bateau qu'on regarde DURER : il tient la même pose
+  // 90 s. S'il n'est qu'une tache brune, sa scène ne se lit pas — d'où une
+  // échelle plus généreuse que sa taille réelle ne le voudrait.
+  if (kind === 'fisher') return { key: 'fisher', sizeMul: 1.75, wake: 0, stage: 'fisher' };
   if (kind === 'yacht') {
     const y = yachtStage(ei);
     return { key: y.key, sizeMul: y.sizeMul, wake: 0.35, stage: y.key };
