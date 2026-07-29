@@ -114,6 +114,10 @@ const PLAZA_TUNE = {
   // toujours un MAXIMUM — un côté trop court en met moins, tout seul.
   benchPerSide: 4,
   furnScale: 1,       // grossit ou rapetisse TOUT le mobilier en `p` d'un coup
+  // Ce qui tient le CENTRE. 'auto' = la fontaine de la recette, un arbre si la
+  // recette n'en a pas. 'tree' force l'arbre. Le centre n'est JAMAIS vide.
+  centre: 'auto',
+  pairTight: 0.95,    // serrage du duo de bancs, en largeurs de banc
   benchInset: 0.62,   // distance du bord de la place au pied du banc
   cornerKeep: 1.0,    // dégagement gardé à chaque coin (les lampadaires y sont)
   sideGap: 0.68,      // écart banc ↔ compagnon le long du bord
@@ -175,6 +179,7 @@ const LEGACY_ERA = {
 const LEGACY_PROP = {
   bench: 'bench', planter: 'planter', bush: 'bush', fountain: 'fountain',
   flag: 'flag', amphora: 'planter', bollard: null, stall: null, statue: null,
+  bin: null,                            // pas d'équivalent dans le kit legacy
 };
 
 // ── RECETTES PAR ÈRE ────────────────────────────────────────────────────────
@@ -210,7 +215,7 @@ const RECIPES = {
   antique: {
     centre: { prop: 'fountain', p: 1.25 },
     bench: { p: 0.70 },
-    side: [{ prop: 'planter', p: 0.55 }],
+    side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
@@ -218,7 +223,7 @@ const RECIPES = {
   medieval: {
     centre: { prop: 'fountain', p: 1.60 },
     bench: { p: 0.70 },
-    side: [{ prop: 'planter', p: 0.55 }],
+    side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
@@ -226,7 +231,7 @@ const RECIPES = {
   industrial: {
     centre: { prop: 'fountain', p: 1.95 },
     bench: { p: 0.70 },
-    side: [{ prop: 'planter', p: 0.55 }],
+    side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
@@ -234,7 +239,7 @@ const RECIPES = {
   modern: {
     centre: { prop: 'fountain', p: 2.25 },
     bench: { p: 0.68 },
-    side: [{ prop: 'planter', p: 0.55 }],
+    side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
@@ -244,7 +249,7 @@ const RECIPES = {
     bench: { p: 0.66 },
     // 🚫 Pas de `bollard` ici : aucun art n'existe pour lui, un compagnon sur
     //    deux serait un gabarit gris. À rajouter le jour où le sprite existe.
-    side: [{ prop: 'planter', p: 0.55 }],
+    side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
@@ -282,45 +287,62 @@ function fmix32(h) {
 }
 const h01 = (k) => fmix32(cmHash(k) >>> 0) / 4294967296;
 
-// ── BOÎTE DE LA PLACE ───────────────────────────────────────────────────────
-// ⚠ Composante CONNEXE de la dalle centrale (flood-fill), PAS la bbox de
-// toutes les cellules 'plaza' : des cellules plaza isolées existent ailleurs et
-// gonflaient la bbox à la ville entière (scène géante en fond d'écran). On
-// garde la PLUS GRANDE composante — le flood depuis la cellule médiane tombait
-// parfois sur une cellule isolée, donnant une boîte minuscule.
-let _boxCache = { at: -1, box: null };
-export function isoPlazaBox(L) {
-  if (_boxCache.at === CM.layoutRecomputeAt) return _boxCache.box;
+// ── LES BOÎTES DES PLACES ───────────────────────────────────────────────────
+// ⚠ Composantes CONNEXES (flood-fill), PAS la bbox de toutes les cellules
+// 'plaza' : des cellules plaza isolées existent ailleurs et gonflaient la bbox à
+// la ville entière (scène géante en fond d'écran).
+//
+// ⚠ Et TOUTES les composantes, pas seulement la plus grande. Ne garder que la
+// plus grande était un garde-fou contre cette bbox géante — mais il jetait au
+// passage les places de quartier, qui recevaient leur dallage sans jamais un
+// banc (« il n'y a que la place centrale qui construit, les autres ont le sol
+// mais aucun élément »). On filtre plutôt par TAILLE : une composante trop
+// petite pour porter une composition n'est pas une place, c'est une cellule
+// 'plaza' égarée dans le réseau de rues.
+const PLAZA_MIN_CELLS = 9;              // au moins l'équivalent d'un 3×3
+const PLAZA_MIN_SIDE = 3;               // et pas un couloir d'une cellule de large
+let _boxCache = { at: -1, boxes: null };
+export function isoPlazaBoxes(L) {
+  if (_boxCache.at === CM.layoutRecomputeAt && _boxCache.boxes) return _boxCache.boxes;
   const cells = new Set();
   if (L.roadMap) for (const c of L.roadMap.values()) if (c.rank === 'plaza') cells.add(c.gx + ',' + c.gy);
-  let box = null;
-  if (cells.size) {
-    const remaining = new Set(cells);
-    let best = null;
-    while (remaining.size) {
-      const start = remaining.values().next().value;
-      remaining.delete(start);
-      const comp = [start];
-      const stack = [start.split(',').map(Number)];
-      while (stack.length) {
-        const [x, y] = stack.pop();
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const k = (x + dx) + ',' + (y + dy);
-          if (remaining.has(k)) { remaining.delete(k); comp.push(k); stack.push([x + dx, y + dy]); }
-        }
+  const boxes = [];
+  const remaining = new Set(cells);
+  while (remaining.size) {
+    const start = remaining.values().next().value;
+    remaining.delete(start);
+    const comp = [start];
+    const stack = [start.split(',').map(Number)];
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const k = (x + dx) + ',' + (y + dy);
+        if (remaining.has(k)) { remaining.delete(k); comp.push(k); stack.push([x + dx, y + dy]); }
       }
-      if (!best || comp.length > best.length) best = comp;
     }
+    if (comp.length < PLAZA_MIN_CELLS) continue;
     let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity;
-    for (const k of best) {
+    for (const k of comp) {
       const [x, y] = k.split(',').map(Number);
       if (x < gx0) gx0 = x; if (x > gx1) gx1 = x;
       if (y < gy0) gy0 = y; if (y > gy1) gy1 = y;
     }
-    box = { gx0, gx1, gy0, gy1 };
+    if (gx1 - gx0 + 1 < PLAZA_MIN_SIDE || gy1 - gy0 + 1 < PLAZA_MIN_SIDE) continue;
+    boxes.push({ gx0, gx1, gy0, gy1, cells: comp.length });
   }
-  _boxCache = { at: CM.layoutRecomputeAt, box };
-  return _boxCache.box;
+  // Ordre STABLE et indépendant de l'itération de la Map : la plus grande
+  // d'abord (c'est la place centrale), puis par position. Les tirages par place
+  // sont graînés sur son COIN, pas sur son rang — deux places voisines ne
+  // doivent pas se ressembler juste parce qu'elles sont arrivées dans cet ordre.
+  boxes.sort((u, v) => v.cells - u.cells || u.gx0 - v.gx0 || u.gy0 - v.gy0);
+  _boxCache = { at: CM.layoutRecomputeAt, boxes };
+  return boxes;
+}
+// La PLUS GRANDE — c'est la place centrale. Gardée pour le mode 'scene', qui
+// n'a jamais su afficher qu'une seule place.
+export function isoPlazaBox(L) {
+  const b = isoPlazaBoxes(L);
+  return b.length ? b[0] : null;
 }
 
 // ── RÔLES DES CELLULES ──────────────────────────────────────────────────────
@@ -351,6 +373,7 @@ export function isoPlazaCells(L, box) {
 const PROP_ASPECT = {
   bench: 1.6, planter: 1.4, bush: 1.1, amphora: 0.8, fountain: 1.2,
   flag: 0.5, statue: 0.6, stall: 1.5, bollard: 0.5, obelisk: 0.4, tree: TREE_ASPECT,
+  bin: 0.75,                            // corbeille : plus haute que large
   grate: 2.0,                           // large et plate : elle cercle le tronc
 };
 // Props qui ne prennent JAMAIS de gabarit : une grille absente doit laisser le
@@ -376,23 +399,23 @@ const aspectOf = (prop) => PROP_ASPECT[prop] || 1;
 //
 // Les positions sont en CELLULES fractionnaires ; `wx, wy` en px monde = le
 // point où le prop TOUCHE LE SOL. Mémoïsé par (layout, ère, réglages).
-let _compCache = { key: '', comp: null };
-export function isoPlazaComposition(L, band) {
-  const era = PLAZA_TUNE.era || plazaEraForBand(band);
-  const box = isoPlazaBox(L);
-  if (!box || !era || !RECIPES[era]) return null;
+let _compCache = { key: '', comps: null };
+// Compose UNE place. `box` = son emprise ; toutes les places de la ville passent
+// par ici, chacune avec sa propre graine (son coin), donc deux places voisines
+// ne se ressemblent pas.
+function composeOne(L, era, box) {
+  const R = RECIPES[era];
+  if (!box || !R) return null;
   // ⚠ AGENT_SCALE entre dans la CLÉ : le mobilier en `p` en dépend, donc bouger
   // __villagerScale doit reconstruire la composition, pas ressortir le cache.
-  const key = CM.layoutRecomputeAt + '|' + era + '|' + PLAZA_TUNE.rev + '|'
-    + PLAZA_TUNE.seed + '|' + AGENT_SCALE;
-  if (_compCache.key === key) return _compCache.comp;
-
-  const T = CM.TILE, R = RECIPES[era];
+  const T = CM.TILE;
   const w = box.gx1 - box.gx0 + 1, h = box.gy1 - box.gy0 + 1;
   const cxc = box.gx0 + w / 2, cyc = box.gy0 + h / 2;      // centre en CELLULES
   const cells = isoPlazaCells(L, box);
   const props = [];
-  const sd = ':' + PLAZA_TUNE.seed + ':' + era;
+  // Graine PAR PLACE : son coin entre dans la clé, sinon toutes les places de la
+  // ville tirent la même chose et se ressemblent au pixel près.
+  const sd = ':' + PLAZA_TUNE.seed + ':' + era + ':' + box.gx0 + ':' + box.gy0;
   // Résolution d'une hauteur. `p` (multiples d'habitant) est résolu ICI, à la
   // composition, pas à l'import : figé au chargement il vaudrait la taille des
   // habitants d'avant le premier réglage de molette. `furnScale` permet de
@@ -442,21 +465,40 @@ export function isoPlazaComposition(L, band) {
   // ne le franchit pas, il s'impose.
   const treeHT = TREE_INK_HT * PLAZA_TUNE.treeR;
   let trees = 0;
+  // (fx, fy) = où doivent tomber les RACINES. « L'arbre n'est pas central, il
+  // faut que ses racines soient au centre » — deux décalages s'additionnaient :
+  //   1. la REMONTÉE au-dessus de la margelle (0.11 cellule, ~5 px). C'est donc
+  //      la MARGELLE qui descend maintenant, pas l'arbre qui monte : l'écart
+  //      visuel entre les deux est le même, mais le point de référence devient
+  //      celui de l'arbre ;
+  //   2. le PIED du sprite n'est pas au centre de son canvas (footCx 0.474 à
+  //      0.521 selon la variante) alors que le pipeline d'arbres de la carte
+  //      dessine centré sur le CANVAS. On corrige avec les métriques MESURÉES,
+  //      quand elles sont disponibles — la clé de composition porte leur nombre,
+  //      donc la place se recale toute seule au décodage des sprites.
   const putTree = (fx, fy, ci, net) => {
     const tv = 1 + (Math.floor(h01('plz' + sd + ':t:' + ci) * 4) % 4);
-    // REMONTÉE de l'arbre au-dessus de sa margelle. Reculer d'autant EN X ET EN
-    // Y remonte à la VERTICALE de l'écran sans dériver latéralement : l'écran lit
-    // x−y en abscisse (inchangé) et (x+y)/2 en ordonnée (−lift). C'est la seule
-    // façon de monter droit en iso. La margelle, elle, ne bouge pas.
     const lift = R.grate ? PLAZA_TUNE.treeLift : 0;
-    const tx = fx - lift, ty = fy - lift;
-    // ⚠ Le filet teste la position FINALE, pas celle d'avant la remontée :
+    // Recentrage sur le pied MESURÉ. Un décalage ÉCRAN (dsx, dsy) en tuiles se
+    // traduit en monde par dx = dsx/2 + dsy, dy = −dsx/2 + dsy (l'écran lit x−y
+    // en abscisse et (x+y)/2 en ordonnée).
+    let cx0 = fx, cy0 = fy;
+    const m = treeFootMetrics(tv);
+    if (m) {
+      const canvasT = PLAZA_TUNE.treeR * 2.7;
+      const dsx = -(m.footCx - 0.5) * canvasT, dsy = -(m.footBottom - 0.92) * canvasT;
+      cx0 += dsx / 2 + dsy; cy0 += -dsx / 2 + dsy;
+    }
+    // ⚠ Le filet teste la position FINALE, pas celle d'avant recentrage :
     // valider un point que l'arbre n'occupe plus laisse repasser exactement le
-    // chevauchement qu'il est censé empêcher (vu à l'ajout de la remontée).
-    if (net) { if (!fits(tx, ty, 'tree', treeHT)) return false; }
-    else reserve(tx, ty, 'tree', treeHT);
+    // chevauchement qu'il est censé empêcher.
+    if (net) { if (!fits(cx0, cy0, 'tree', treeHT)) return false; }
+    else reserve(cx0, cy0, 'tree', treeHT);
+    const tx = cx0, ty = cy0;
     const gx = Math.floor(tx), gy = Math.floor(ty);
     const treeD = depthOf(tx * T, ty * T);
+    // La MARGELLE descend de `lift` : c'est elle qui bouge, l'arbre reste au point.
+    const mx0 = fx + lift, my0 = fy + lift;
     // MARGELLE au pied, à une profondeur juste sous celle de l'ARBRE REMONTÉ (et
     // non sous sa position d'origine — la remontée baisse la profondeur de
     // l'arbre, la margelle repasserait par-dessus). Pas de gabarit : art absent
@@ -465,7 +507,7 @@ export function isoPlazaComposition(L, band) {
       // De QUEL arbre : c'est son pied mesuré qui décide du centrage et de la
       // largeur au dessin (les 4 variantes n'ont pas le même).
       const base = {
-        prop: 'grate', variant: null, wx: fx * T, wy: fy * T, spot: ci,
+        prop: 'grate', variant: null, wx: mx0 * T, wy: my0 * T, spot: ci,
         hT: hOf('grate', R.grate), treeV: tv, treeR: PLAZA_TUNE.treeR,
       };
       props.push({ ...base, d: treeD - 0.001 });
@@ -538,10 +580,16 @@ export function isoPlazaComposition(L, band) {
   // Écart INTERNE au duo : les deux bancs se touchent presque, c'est ce qui les
   // fait lire comme une paire et non comme deux bancs isolés.
   const duo = wBench * PLAZA_TUNE.pairTight;
-  // Écart banc ↔ bac, mesuré de centre à centre sur les demi-largeurs.
-  const mate = Math.max((wBench + wMate) * 0.5 * PLAZA_TUNE.minGap, minStep * 0.6);
-  // Empreinte d'un groupe complet, le long du bord.
-  const groupSpan = duo + (sideOn ? 2 * mate : 0);
+  // Écart banc ↔ bac. ⚠ Il doit rester PLUS GRAND que l'écart interne au duo,
+  // sinon le bac est plus proche du banc que son jumeau et la paire ne se lit
+  // plus comme une paire (attrapé par le test du « banc jumeau »). Un bac étant
+  // bien plus étroit qu'un banc, la demi-somme des largeurs seule ne suffit pas.
+  const mate = Math.max((wBench + wMate) * 0.5 * PLAZA_TUNE.minGap, minStep * 0.6, duo * 1.2);
+  // Empreinte d'un DUO seul le long du bord. Les bacs, eux, ne font pas partie
+  // du groupe : ils se logent dans les INTERVALLES (les deux bouts, et entre
+  // deux duos). C'est ce qui permet de tenir deux duos là où deux groupes
+  // « bac + duo + bac » ne tenaient pas.
+  const spanFor = () => duo;
   let benchPerSide = 0;
 
   for (let si = 0; si < SIDES.length; si += 1) {
@@ -552,13 +600,15 @@ export function isoPlazaComposition(L, band) {
     // minimal entre eux. Un côté trop court en met moins, tout seul.
     const usable = side.span - 2 * PLAZA_TUNE.cornerKeep;
     let g = Math.max(0, Math.floor((PLAZA_TUNE.benchPerSide | 0) / 2));
-    while (g > 1 && usable / g < groupSpan + minStep) g -= 1;
-    if (g > 0 && usable < groupSpan) g = 0;
+    while (g > 1 && usable / g < spanFor() + 2 * minStep) g -= 1;
+    if (g > 0 && usable < spanFor()) g = 0;
     benchPerSide = Math.max(benchPerSide, g * 2);
 
+    const segAt = (k) => side.base + (k - (g - 1) / 2) * (usable / g);
+    let poseUnDuo = false;
     for (let k = 0; k < g; k += 1) {
-      // Centre du groupe, symétrique autour du milieu du côté.
-      const seg = side.base + (k - (g - 1) / 2) * (usable / g);
+      // Centre du duo, symétrique autour du milieu du côté.
+      const seg = segAt(k);
       const jit = (h01('plz' + sd + ':j:' + si + ':' + k) - 0.5) * PLAZA_TUNE.jitter;
       // LE DUO. Deux bancs accolés, tournés tous les deux vers le centre.
       let poses = 0;
@@ -567,108 +617,91 @@ export function isoPlazaComposition(L, band) {
         if (Math.hypot(bx - cxc, by - cyc) < PLAZA_TUNE.coreR) continue;
         if (add('bench', side.face, bx, by, hOf('bench', R.bench))) poses += 1;
       }
-      if (!poses || !sideOn) continue;
+      if (!poses) continue;
       // UN BAC DE CHAQUE CÔTÉ du duo — symétrique, et les coins restent aux
       // lampadaires. Le compagnon prend la MÊME face que ses bancs : un bac
       // rectangulaire posé le long d'un bord doit suivre l'angle de ce bord,
       // sinon il les croise. Sans art directionnel, propImage retombe seul sur
       // le sprite unique.
-      for (let mi = 0; mi < 2; mi += 1) {
-        const pick = R.side[Math.floor(h01('plz' + sd + ':s:' + si + ':' + k + ':' + mi) * R.side.length) % R.side.length];
-        const off = (mi === 0 ? -1 : 1) * (duo / 2 + mate);
-        const [mx, my] = at(side, seg + off + jit);
+      poseUnDuo = true;
+    }
+    // LES BACS vont dans les INTERVALLES : aux deux bouts de la rangée, et entre
+    // deux duos. Ils sont la GARNITURE, pas la structure — s'il n'y a pas la
+    // place pour l'un d'eux, le filet le refuse et c'est très bien ; ce qui ne
+    // doit jamais sauter en silence, ce sont les bancs.
+    if (sideOn && poseUnDuo && g > 0) {
+      const creux = [segAt(0) - (duo / 2 + mate), segAt(g - 1) + (duo / 2 + mate)];
+      for (let k = 1; k < g; k += 1) creux.push((segAt(k - 1) + segAt(k)) / 2);
+      for (let mi = 0; mi < creux.length; mi += 1) {
+        const pick = R.side[Math.floor(h01('plz' + sd + ':s:' + si + ':m:' + mi) * R.side.length) % R.side.length];
+        const [mx, my] = at(side, creux[mi]);
         add(pick.prop, side.face, mx, my, hOf(pick.prop, pick));
       }
     }
   }
-  // 4. LES ARBRES, de part et d'autre de la fontaine.
+  // 4. LES ARBRES de côté, de part et d'autre du centre.
   //    ⚠ PAS aux angles de la place, essayé et refusé par le filet : l'angle
   //    d'un losange iso est BEAUCOUP plus étroit qu'il n'en a l'air, l'arbre y
   //    tombait sur le banc voisin du côté perpendiculaire. On les pose sur
   //    l'ANTI-diagonale monde (x + y constant), qui se projette à l'HORIZONTALE
-  //    à l'écran : un seul arbre va à droite de la fontaine, deux l'encadrent.
+  //    à l'écran : un arbre va à droite du centre, deux l'encadrent.
   //    (La diagonale x = y, elle, se projette à la verticale — deux arbres y
   //    seraient l'un devant l'autre. Elle ne sert que de repli.)
-  //    Le dégagement du cœur ne s'applique pas ici : le filet d'empreinte est le
-  //    seul juge, et il est plus fin qu'un rayon.
-  let trees = 0;
   if (R.trees && (PLAZA_TUNE.treeMax | 0) > 0) {
-    // DISTANCE DES ARBRES AU CENTRE. `treeSpread` n'est qu'un PLANCHER : la
-    // fontaine grandit d'ère en ère, et un arbre posé à distance fixe finissait
-    // par la toucher. Il basculait alors sur un emplacement de repli DERRIÈRE
-    // elle — où il mangeait deux bancs (vu à l'industrielle sur une place 4×4,
-    // attrapé par le test « la fontaine qui grandit ne mange pas le mobilier »).
-    // Un emplacement à (cxc + d, cyc − d) est à sx = 2d de l'axe de la fontaine,
-    // d'où la DEMI-somme des demi-largeurs.
-    // ⚠ `hT` DOIT être déclaré avant `td`, qui le lit : un const n'est pas hissé,
-    // et l'inverse lève une TDZ qui vide toute la composition sans un mot.
-    const hT = TREE_INK_HT * PLAZA_TUNE.treeR;
-    const fHW = (R.centre ? hOf(R.centre.prop, R.centre) : 0) * aspectOf('fountain') * 0.5;
-    const tHW = hT * aspectOf('tree') * 0.5;
+    // DISTANCE AU CENTRE. `treeSpread` n'est qu'un PLANCHER : la pièce maîtresse
+    // grandit d'ère en ère, et un arbre posé à distance fixe finissait par la
+    // toucher. Il basculait alors sur un emplacement de repli DERRIÈRE elle — où
+    // il mangeait deux bancs (vu à l'industrielle sur une place 4×4, attrapé par
+    // le test « la fontaine qui grandit ne mange pas le mobilier »). Un
+    // emplacement à (cxc + d, cyc − d) est à sx = 2d de l'axe du centre, d'où la
+    // DEMI-somme des demi-largeurs.
+    const cHW = (R.centre ? hOf(R.centre.prop, R.centre) * aspectOf('fountain') : treeHT * aspectOf('tree')) * 0.5;
+    const tHW = treeHT * aspectOf('tree') * 0.5;
     const td = Math.max(
       PLAZA_TUNE.treeSpread * Math.min(w, h) / 2,
-      (fHW + tHW) * PLAZA_TUNE.minGap / 2 + PLAZA_TUNE.treeClear,
+      (cHW + tHW) * PLAZA_TUNE.minGap / 2 + PLAZA_TUNE.treeClear,
     );
     const SPOTS = [
       [cxc + td, cyc - td],      // droite de l'écran
       [cxc - td, cyc + td],      // gauche de l'écran
-      [cxc - td, cyc - td],      // derrière la fontaine
-      [cxc + td, cyc + td],      // devant — dernier recours, il la masque
+      [cxc - td, cyc - td],      // derrière le centre
+      [cxc + td, cyc + td],      // devant — dernier recours, il le masque
     ];
+    // Le compte inclut l'arbre du CENTRE quand c'est lui qui le tient : « 1 ou
+    // 2 max » vaut pour la place entière, pas par emplacement.
     const want = plazaTreeCount(w, h);
     for (let ci = 0; ci < SPOTS.length && trees < want; ci += 1) {
-      if (putTree(SPOTS[ci][0], SPOTS[ci][1], ci, true)) trees += 1;
-    }
-  }
-  if (false) {
-    for (let ci = 0; ci < 0; ci += 1) {
-      const fx = 0, fy = 0;
-      const tv = 1;
-      // REMONTÉE de l'arbre au-dessus de sa margelle. Reculer d'autant EN X ET EN
-      // Y remonte à la VERTICALE de l'écran sans dériver latéralement : l'écran
-      // lit x−y en abscisse (inchangé) et (x+y)/2 en ordonnée (−lift). C'est la
-      // seule façon de monter droit en iso. La margelle, elle, ne bouge pas.
-      const lift = R.grate ? PLAZA_TUNE.treeLift : 0;
-      const tx = fx - lift, ty = fy - lift;
-      // ⚠ Le filet teste la position FINALE, pas celle d'avant la remontée :
-      // valider un point que l'arbre n'occupe plus laisse repasser exactement le
-      // chevauchement qu'il est censé empêcher (vu à l'ajout de la remontée).
-      if (!fits(tx, ty, 'tree', hT)) continue;
-      const gx = Math.floor(tx), gy = Math.floor(ty);
-      const treeD = depthOf(tx * T, ty * T);
-      // MARGELLE au pied, à une profondeur juste sous celle de l'ARBRE REMONTÉ
-      // (et non sous sa position d'origine — la remontée baisse la profondeur de
-      // l'arbre, la margelle repasserait par-dessus). Pas de gabarit : art
-      // absent = pied nu.
-      if (R.grate) {
-        // De QUEL arbre : c'est son pied mesuré qui décide du centrage et de la
-        // largeur au dessin (les 4 variantes n'ont pas le même).
-        const base = {
-          prop: 'grate', variant: null, wx: fx * T, wy: fy * T, spot: ci,
-          hT: hOf('grate', R.grate), treeV: tv, treeR: PLAZA_TUNE.treeR,
-        };
-        props.push({ ...base, d: treeD - 0.001 });
-        // ARC AVANT redessiné PAR-DESSUS l'arbre : c'est lui qui enterre les
-        // racines. Sans lui, l'arbre passe en entier au-dessus de l'anneau et
-        // ses racines ont l'air posées sur la pierre (retour Raph 2026-07-29).
-        if (PLAZA_TUNE.grateFrontF > 0) props.push({ ...base, d: treeD + 0.001, front: true });
-      }
-      // `tr` au FORMAT des arbres de la carte : isoRenderer le dessine avec son
-      // propre pipeline (sprites tree-1..4, teinte de saison, batching), on ne
-      // redessine rien ici. L'ancre carte est (gx+0.5+jx, gy+0.9+jy) : on en
-      // déduit le jitter qui pose l'arbre pile où on le veut.
-      props.push({
-        prop: 'tree', variant: null, wx: tx * T, wy: ty * T, hT, d: treeD, spot: ci,
-        tr: { gx, gy, jx: tx - 0.5 - gx, jy: ty - 0.9 - gy, r: PLAZA_TUNE.treeR, _tv: tv },
-      });
-      trees += 1;
+      putTree(SPOTS[ci][0], SPOTS[ci][1], ci, true);
     }
   }
   props.sort((a, b) => a.d - b.d);
 
-  const comp = { box, era, w, h, cxc, cyc, cells, props, benchPerSide, trees, lamps };
-  _compCache = { key, comp };
-  return comp;
+  return { box, era, w, h, cxc, cyc, cells, props, benchPerSide, trees, centrePris, lamps };
+}
+
+// TOUTES les places de la ville, mémoïsées ensemble.
+export function isoPlazaCompositions(L, band) {
+  const era = PLAZA_TUNE.era || plazaEraForBand(band);
+  if (!era || !RECIPES[era]) return [];
+  // ⚠ AGENT_SCALE et le nombre de pieds d'arbre mesurés entrent dans la CLÉ : le
+  // mobilier en `p` dépend du premier, le recentrage des arbres du second.
+  const key = CM.layoutRecomputeAt + '|' + era + '|' + PLAZA_TUNE.rev + '|'
+    + PLAZA_TUNE.seed + '|' + AGENT_SCALE + '|' + treeFootCache.size;
+  if (_compCache.key === key && _compCache.comps) return _compCache.comps;
+  const comps = [];
+  for (const box of isoPlazaBoxes(L)) {
+    const c = composeOne(L, era, box);
+    if (c) comps.push(c);
+  }
+  _compCache = { key, comps };
+  return comps;
+}
+
+// La place CENTRALE seule — la plus grande. Gardée pour les tests et pour tout
+// ce qui n'a besoin que d'un exemplaire.
+export function isoPlazaComposition(L, band) {
+  const all = isoPlazaCompositions(L, band);
+  return all.length ? all[0] : null;
 }
 
 // Lampadaires de la place, au FORMAT du système de mâts existant
@@ -745,8 +778,11 @@ export const isoPlazaSceneCoversGround = (band) => isoPlazaSceneOn(band);
 // d'un banc passe devant et celui du nord derrière. C'est exactement ce que la
 // scène unique ne savait pas faire (un seul item pour toute la place).
 export function isoPlazaItems(L, band, pushItem, visible) {
-  const comp = isoPlazaComposition(L, band);
-  if (!comp) return 0;
+  let n = 0;
+  for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible);
+  return n;
+}
+function pushOne(comp, pushItem, visible) {
   let n = 0;
   if (PLAZA_TUNE.grid || PLAZA_TUNE.ruler) {
     const it = pushItem();
@@ -773,8 +809,9 @@ export function isoPlazaItems(L, band, pushItem, visible) {
 // Lampadaires de la place, à concaténer à ceux des rues.
 export function isoPlazaLamps(L, band) {
   if (!isoPlazaKitOn(band)) return [];
-  const comp = isoPlazaComposition(L, band);
-  return comp ? comp.lamps : [];
+  const out = [];
+  for (const comp of isoPlazaCompositions(L, band)) out.push(...comp.lamps);
+  return out;
 }
 
 // ── ENCRE D'UN SPRITE ───────────────────────────────────────────────────────

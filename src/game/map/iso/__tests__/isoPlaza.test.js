@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../../layout.js";
 import {
-  isoPlazaBox, isoPlazaCells, isoPlazaComposition, plazaEraForBand,
+  isoPlazaBox, isoPlazaBoxes, isoPlazaCells, isoPlazaComposition, isoPlazaCompositions, plazaEraForBand,
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
   PLAZA_TUNE, RECIPES, HOUSE_HT, TALL_PROPS, personHT,
 } from "../isoPlaza.js";
@@ -67,15 +67,70 @@ function freshLayout(...args) {
   return plazaLayout(...args);
 }
 
-describe("emprise de la place", () => {
-  it("prend la plus GRANDE composante connexe, pas la bbox de toutes les cellules", () => {
+// Colle plusieurs places carrées dans un même layout.
+function multiPlazas(specs, extra = []) {
+  recomputeAt += 1;
+  CM.layoutRecomputeAt = recomputeAt;
+  const roadMap = new Map();
+  for (const [n, gx0, gy0] of specs) {
+    for (let iy = 0; iy < n; iy += 1) {
+      for (let ix = 0; ix < n; ix += 1) {
+        const gx = gx0 + ix, gy = gy0 + iy;
+        roadMap.set(gx + "," + gy, { gx, gy, rank: "plaza" });
+      }
+    }
+  }
+  for (const [gx, gy] of extra) roadMap.set(gx + "," + gy, { gx, gy, rank: "plaza" });
+  return { roadMap };
+}
+
+describe("emprise des places", () => {
+  it("découpe en composantes connexes, pas en une bbox de toutes les cellules", () => {
     const L = freshLayout(5, 10, 10, [[40, 40], [41, 41]]);
-    expect(isoPlazaBox(L)).toEqual({ gx0: 10, gx1: 14, gy0: 10, gy1: 14 });
+    expect(isoPlazaBox(L)).toMatchObject({ gx0: 10, gx1: 14, gy0: 10, gy1: 14 });
   });
 
   it("rend null quand aucune cellule de place n'existe", () => {
     recomputeAt += 1; CM.layoutRecomputeAt = recomputeAt;
     expect(isoPlazaBox({ roadMap: new Map() })).toBe(null);
+  });
+
+  it("rend TOUTES les places, pas seulement la plus grande", () => {
+    // Le défaut signalé : « il n'y a que la place centrale qui construit, les
+    // autres ont le sol mais aucun élément ». Ne garder que la plus grande
+    // composante était un garde-fou contre une bbox géante — il jetait au
+    // passage toutes les places de quartier.
+    const L = multiPlazas([[6, 10, 10], [4, 30, 30], [5, 10, 40]]);
+    const boxes = isoPlazaBoxes(L);
+    expect(boxes).toHaveLength(3);
+    // Triées par taille : la centrale d'abord, et c'est elle que rend isoPlazaBox.
+    expect(boxes[0]).toMatchObject({ gx0: 10, gy0: 10 });
+    expect(isoPlazaBox(L)).toBe(boxes[0]);
+  });
+
+  it("écarte les cellules 'plaza' ÉGARÉES, qui ne sont pas des places", () => {
+    // Des cellules plaza isolées existent dans le réseau de rues. Une composante
+    // trop petite pour porter une composition n'est pas une place.
+    const L = multiPlazas([[5, 10, 10]], [[40, 40], [41, 40], [40, 41], [41, 41]]);
+    const boxes = isoPlazaBoxes(L);
+    expect(boxes).toHaveLength(1);          // le carré 2×2 égaré est écarté
+    expect(boxes[0]).toMatchObject({ gx0: 10, gx1: 14 });
+  });
+
+  it("chaque place est meublée, et deux places ne se ressemblent pas", () => {
+    const L = multiPlazas([[6, 10, 10], [5, 30, 30], [5, 10, 40]]);
+    const comps = isoPlazaCompositions(L, 3);
+    expect(comps).toHaveLength(3);
+    for (const c of comps) {
+      expect(c.props.length, `place ${c.box.gx0},${c.box.gy0}`).toBeGreaterThan(10);
+      expect(c.centrePris).toBe(true);
+      expect(c.lamps).toHaveLength(4);
+    }
+    // Les deux places 5×5 ont la même géométrie mais pas le même tirage : la
+    // graine porte le COIN de la place, pas son rang.
+    const [, a, b] = comps;
+    const suite = (c) => c.props.map((p) => p.prop).join();
+    expect(suite(a)).not.toBe(suite(b));
   });
 });
 
@@ -128,12 +183,14 @@ describe("INVARIANT D'ÉCHELLE — le bug d'origine", () => {
     // compagnons par côté sans que les coins se télescopent : elle retombe à 1
     // par côté. C'est un arbitrage EXPLICITE, pas une suppression silencieuse
     // par le filet anti-chevauchement.
+    // Les bancs vont par DUOS : un côté loge un ou plusieurs groupes, jamais un
+    // banc seul. Une place 4×4 tient UN duo par côté, une 5×5 en tient deux.
     expect(isoPlazaComposition(freshLayout(4), 3).benchPerSide).toBe(2);
-    expect(isoPlazaComposition(freshLayout(5), 3).benchPerSide).toBe(3);
+    expect(isoPlazaComposition(freshLayout(5), 3).benchPerSide).toBe(4);
     // 8 bancs + 8 bacs + 1 fontaine + 1 arbre + sa margelle en DEUX morceaux ;
-    // puis 12 + 12 + 1 + 2 arbres + 4 morceaux.
+    // puis 16 bancs + 12 bacs + 1 + 2 arbres + 4 morceaux.
     expect(isoPlazaComposition(freshLayout(4), 3).props).toHaveLength(20);
-    expect(isoPlazaComposition(freshLayout(5), 3).props).toHaveLength(31);
+    expect(isoPlazaComposition(freshLayout(5), 3).props).toHaveLength(35);
   });
 
   it("les hauteurs écran sont celles attendues EN DUR (TILE 32, zoom 1)", () => {
@@ -255,21 +312,21 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     expect(perFace).toEqual({ n, s: n, e: n, w: n });
   });
 
-  it("un compagnon (buisson ou pot) à côté de CHAQUE banc", () => {
+  it("les bacs garnissent les intervalles, toujours au contact d'un duo", () => {
+    // Les bacs ne sont plus attachés à UN banc : ils se logent dans les creux de
+    // la rangée (les deux bouts, et entre deux duos). Ils sont la GARNITURE —
+    // s'il manque la place pour l'un, le filet le refuse et c'est sans gravité.
+    // Ce qui ne doit jamais sauter en silence, ce sont les bancs.
     const comp = isoPlazaComposition(freshLayout(5), 3);
     const benches = comp.props.filter((p) => p.prop === "bench");
     const mates = comp.props.filter((p) => !["bench", "fountain", "tree", "grate"].includes(p.prop));
-    expect(mates).toHaveLength(benches.length);
-    // Chaque compagnon est COLLÉ à un banc (moins d'une cellule), jamais posé à
-    // l'autre bout de la place, et chaque banc a le sien.
+    expect(mates.length).toBeGreaterThanOrEqual(4);        // au moins un par côté
+    expect(mates.length).toBeLessThanOrEqual(benches.length);
     const T = CM.TILE;
-    const claimed = new Set();
     for (const m of mates) {
-      const b = benches.find((x) => !claimed.has(x) && Math.hypot(x.wx - m.wx, x.wy - m.wy) / T <= 1);
-      expect(b, m.prop + "@" + m.wx + "," + m.wy).toBeTruthy();
-      claimed.add(b);
+      const proche = benches.some((x) => Math.hypot(x.wx - m.wx, x.wy - m.wy) / T <= 1);
+      expect(proche, m.prop + "@" + m.wx + "," + m.wy).toBe(true);
     }
-    expect(claimed.size).toBe(benches.length);
   });
 
   it("le compagnon suit l'angle de son banc", () => {
@@ -279,10 +336,14 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     const T = CM.TILE;
     const benches = comp.props.filter((p) => p.prop === "bench");
     const mates = comp.props.filter((p) => !["bench", "fountain", "tree", "grate"].includes(p.prop));
-    expect(mates.length).toBe(benches.length);
+    expect(mates.length).toBeGreaterThan(0);
     for (const m of mates) {
-      const b = benches.find((x) => Math.hypot(x.wx - m.wx, x.wy - m.wy) / T <= 1);
-      expect(m.variant, m.prop + " vs son banc").toBe(b.variant);
+      // ⚠ Chercher « le banc le plus proche » ne suffit PAS : un bac de bout de
+      // rangée est parfois plus près d'un banc du côté ADJACENT que des siens.
+      // Ce qu'on vérifie, c'est qu'il a bien un banc DE SA FACE au contact.
+      const sien = benches.some((x) => x.variant === m.variant
+        && Math.hypot(x.wx - m.wx, x.wy - m.wy) / T <= 1);
+      expect(sien, m.prop + " sans banc de sa face au contact").toBe(true);
     }
   });
 
@@ -437,9 +498,10 @@ describe("molette", () => {
   it("benchPerSide pilote le nombre de bancs, sideOn les compagnons", () => {
     resetTune({ benchPerSide: 0, treeMax: 0 });
     expect(isoPlazaComposition(freshLayout(6), 3).props).toHaveLength(1);   // la fontaine seule
+    // Le plafond compte des BANCS, mais ils vont par deux : 3 donne un seul duo.
     resetTune({ benchPerSide: 3, treeMax: 0 });
-    const three = isoPlazaComposition(freshLayout(8), 3);
-    expect(three.props.filter((p) => p.prop === "bench")).toHaveLength(12);
+    const trois = isoPlazaComposition(freshLayout(8), 3);
+    expect(trois.props.filter((p) => p.prop === "bench")).toHaveLength(8);
     resetTune({ sideOn: false, treeMax: 0, benchPerSide: 2 });
     const bare = isoPlazaComposition(freshLayout(6), 3);
     expect(bare.props.filter((p) => p.prop === "bench")).toHaveLength(8);
@@ -530,6 +592,90 @@ describe("ANCRAGE — le défaut « les éléments volent »", () => {
     const large = plazaAnchor({ x0: 9, y0: 9, w: 30, h: 30 }, 48, 48, 0, 0, 16);
     expect(30 * (serre.dh / 30)).toBeCloseTo(30 * (large.dh / 48), 6);
     expect(serre.inkW).toBeCloseTo(large.inkW, 6);
+  });
+});
+
+describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
+  // Retour Raph 2026-07-29 : « tu peux faire en sorte que 2 bancs soient côte à
+  // côte ? Et il faut que le centre de la place soit pris, soit par un arbre,
+  // soit une fontaine, mais obligatoirement quelque chose. »
+  const T = () => CM.TILE;
+
+  it("chaque banc a un banc JUMEAU plus proche que tout autre prop", () => {
+    for (const n of [4, 5, 6, 8]) {
+      const comp = isoPlazaComposition(freshLayout(n), 3);
+      const benches = comp.props.filter((p) => p.prop === "bench");
+      expect(benches.length % 2, `${n}×${n} : un nombre PAIR de bancs`).toBe(0);
+      for (const b of benches) {
+        const d = (o) => Math.hypot(o.wx - b.wx, o.wy - b.wy) / T();
+        const jumeau = Math.min(...benches.filter((o) => o !== b).map(d));
+        const autre = Math.min(...comp.props.filter((o) => o.prop !== "bench").map(d));
+        expect(jumeau, `${n}×${n} : le voisin le plus proche d'un banc est un banc`)
+          .toBeLessThan(autre);
+      }
+    }
+  });
+
+  it("le centre est occupé sur TOUTES les ères et TOUTES les emprises", () => {
+    for (const era of ["antique", "medieval", "industrial", "modern", "cosmic"]) {
+      for (const n of [4, 5, 6, 8]) {
+        resetTune({ era });
+        const comp = isoPlazaComposition(freshLayout(n), 3);
+        expect(comp.centrePris, `${era} ${n}×${n}`).toBe(true);
+        // Et il y a bien un prop AU milieu géométrique, pas juste un drapeau.
+        const auCentre = comp.props.some((p) => Math.hypot(
+          p.wx / T() - comp.cxc, p.wy / T() - comp.cyc,
+        ) < 0.3);
+        expect(auCentre, `${era} ${n}×${n} : rien au milieu`).toBe(true);
+      }
+    }
+  });
+
+  it("un ARBRE peut tenir le centre à la place de la fontaine", () => {
+    resetTune({ centre: "tree" });
+    const comp = isoPlazaComposition(freshLayout(5), 3);
+    expect(comp.centrePris).toBe(true);
+    expect(comp.props.some((p) => p.prop === "fountain")).toBe(false);
+    const centre = comp.props.find((p) => p.prop === "tree"
+      && Math.hypot(p.wx / T() - comp.cxc, p.wy / T() - comp.cyc) < 0.3);
+    expect(centre, "un arbre au milieu").toBeTruthy();
+    // ⚠ Ses RACINES tombent PILE au centre, pas « à peu près » (« l'arbre n'est
+    // pas central, il faut que ses racines soient au centre »). C'est la
+    // MARGELLE qui se décale, pas l'arbre.
+    expect(centre.wx / T()).toBeCloseTo(comp.cxc, 6);
+    expect(centre.wy / T()).toBeCloseTo(comp.cyc, 6);
+    // Il garde sa margelle : c'est le MÊME geste que sur les côtés.
+    const arcs = comp.props.filter((p) => p.prop === "grate" && p.spot === centre.spot);
+    expect(arcs).toHaveLength(2);
+    for (const a of arcs) {
+      expect(a.wx / T()).toBeCloseTo(comp.cxc + PLAZA_TUNE.treeLift, 6);
+      expect(a.wy / T()).toBeCloseTo(comp.cyc + PLAZA_TUNE.treeLift, 6);
+    }
+  });
+
+  it("la garniture alterne bacs et corbeilles, elle n'est pas dégénérée", () => {
+    // Deux garnitures au catalogue depuis que la corbeille existe. Le tirage
+    // passe par cmHash : consommé brut il donnerait une seule espèce partout
+    // (le bit faible n'est que la parité de l'entrée). On vérifie que les DEUX
+    // sortent bien sur un échantillon de graines.
+    const vus = new Set();
+    for (let seed = 0; seed < 6; seed += 1) {
+      resetTune({ seed });
+      for (const p of isoPlazaComposition(freshLayout(6), 3).props) {
+        if (!["bench", "fountain", "tree", "grate"].includes(p.prop)) vus.add(p.prop);
+      }
+    }
+    expect([...vus].sort()).toEqual(["bin", "planter"]);
+  });
+
+  it("le centre s'impose au filet, il ne lui demande pas la permission", () => {
+    // La pièce maîtresse est réservée SANS test d'empreinte. Si elle passait par
+    // le filet, un mât ou un prop mal placé pourrait la refuser et la place
+    // resterait vide en son milieu — exactement ce que Raph refuse.
+    resetTune({ minGap: 99 });                 // filet absurdement strict
+    const comp = isoPlazaComposition(freshLayout(5), 3);
+    expect(comp.centrePris).toBe(true);
+    expect(comp.props.filter((p) => p.prop === "fountain")).toHaveLength(1);
   });
 });
 
