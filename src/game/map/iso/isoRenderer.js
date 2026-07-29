@@ -24,7 +24,7 @@ import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { glInit, glBegin, glQuad, glFlush, glGetCanvas } from '../glPainter.js';
-import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
+import { suspendFlameGlow, paintFlameGlows, queueFlameGlow } from '../flameGlow.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -3324,6 +3324,69 @@ function drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh) {
   ctx.restore();
 }
 
+// ── FANAL DE NUIT ───────────────────────────────────────────────────────────
+// Aucun bateau ne lisait `nightF` : la nuit tombée, le fleuve devenait un ruban
+// mort pendant que la ville s'allumait. Chaque coque porte donc un feu, et ce
+// feu se REFLÈTE — c'est le reflet, plus que la source, qui fait qu'un bateau
+// nocturne se lit comme posé SUR de l'eau et non collé dessus.
+//
+// ⚠ La lumière passe par queueFlameGlow (flameGlow.js) et JAMAIS par un halo
+// posé sur place : le voile de nuit passe après le tri peintre, il mangerait
+// plus de la moitié de l'intensité et virerait le feu au bleu. Piège déjà payé
+// sur les flammes des scènes moteur.
+//
+// Teinte par ÈRE plutôt que par métier : une lanterne à huile et un feu de
+// position à LED n'ont pas la même couleur, et c'est ce qui date la scène.
+// Molette : __boatLamp({ on, gain, r }).
+const BOAT_LAMP = { on: true, gain: 1, r: 1 };
+if (typeof window !== 'undefined') {
+  window.__boatLamp = (o) => { if (o) Object.assign(BOAT_LAMP, o); return { ...BOAT_LAMP }; };
+}
+// Poids de la lueur d'un fanal. DEUX choses y sont enfermées, et les deux ont
+// été payées :
+//   • le facteur 2,6 — réglé au cliché de nuit, pas au raisonnement. À 1, les
+//     fanaux étaient noyés par les lampadaires de la rive : un fleuve encore
+//     mort à côté d'une ville allumée. À 2,6 ils tiennent leur rang sans écraser
+//     la berge, en vue large comme au zoom.
+//   • le produit par nightF — SANS LUI un fanal brillerait en plein midi.
+//     `flameGlowAlpha` porte un plancher de jour DÉLIBÉRÉ (FLAME_GLOW.day) pour
+//     qu'une forge brûle aussi à midi ; un feu de position, lui, n'a rien à
+//     éclairer de jour. C'est la seule raison d'être de cette fonction, et le
+//     test boatLamp.test.js monte la garde dessus.
+export function boatLampMul(nightF, gain) {
+  return Math.max(0, nightF || 0) * 2.6 * (gain == null ? 1 : gain);
+}
+export function boatLampCol(band) {
+  return band >= 7 ? '150,220,255'      // tech — feu froid
+    : band >= 6 ? '226,236,255'         // moderne — halogène blanc
+      : band >= 5 ? '255,214,150'       // industriel — lampe à pétrole
+        : '255,172,72';                 // huile et suif (FLAME_COL)
+}
+function drawIsoBoatLamp(ctx, p, s, sizeMul, sh, band, now) {
+  const night = CM.nightF || 0;
+  if (!BOAT_LAMP.on || night <= 0.02) return;
+  const col = boatLampCol(band);
+  const dw = s * 0.7 * sizeMul;
+  // Le fanal est porté à l'avant, un peu au-dessus de la ligne de flottaison.
+  const lx = p.x, ly = p.y - dw * 0.22;
+  const r = Math.max(2, dw * 0.22) * BOAT_LAMP.r;
+  const K = boatLampMul(night, BOAT_LAMP.gain);
+  queueFlameGlow(lx, ly, r, col, now, sh.id * 1.7, K);
+  // REFLET : deux nappes empilées vers le bas, de plus en plus larges et pâles.
+  // C'est lui, plus que la source, qui fait lire le bateau comme posé SUR de
+  // l'eau. Une vraie traînée verticale coûterait un dégradé de plus par bateau ;
+  // deux glows décalés donnent la même lecture pour rien.
+  queueFlameGlow(lx, ly + dw * 0.30, r * 1.5, col, now, sh.id * 1.7 + 2, K * 0.42);
+  queueFlameGlow(lx, ly + dw * 0.60, r * 2.2, col, now, sh.id * 1.7 + 4, K * 0.20);
+  // La SOURCE elle-même : sans ce point vif, on aurait une auréole sans lampe.
+  const prevOp = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = `rgba(${col},${(0.55 * night).toFixed(3)})`;
+  const px = Math.max(1, Math.round(dw * 0.05));
+  ctx.fillRect(Math.round(lx - px / 2), Math.round(ly - px / 2), px, px);
+  ctx.globalCompositeOperation = prevOp;
+}
+
 // Aspect d'un bateau pour la frame : sprite, échelle, et force du sillage. Le
 // pêcheur n'en laisse aucun (il est à l'ancre), le plaisancier à peine.
 export function shipVisual(kind, band, ei) {
@@ -3464,6 +3527,7 @@ function drawIsoShips(now) {
       ctx.restore();
     }
     ctx.imageSmoothingEnabled = prevSm;
+    drawIsoBoatLamp(ctx, p, s, sizeMul, sh, band, now);
     ctx.globalAlpha = prevAlpha;
   }
 }
