@@ -63,10 +63,11 @@ import {
   quayWallTune
 } from './renderWorld.js';
 import { drawTile, drawWonder } from './renderBuildings.js';
-import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor } from './agents.js';
+import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
+import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
 // ── Qualité de rendu (préréglage joueur, cf. qualityMode.js) ─────────────────
@@ -199,7 +200,23 @@ function cmRecomputeCitizenTarget() {
   if (!L || !L.counts) return;
   const want = cmCitizenTargetFor(L, cmCrowdMul());
   CM.citizenTarget = (CM.walkRoadList && CM.walkRoadList.length) ? want : 0;
-  if (CM.citizens && CM.citizens.length > CM.citizenTarget) CM.citizens.splice(CM.citizenTarget);
+  cmRetireExcessCitizens(CM.citizenTarget);
+}
+
+// Excédent de foule : on ne l'efface plus d'un coup là où il se trouve (« ils
+// disparaissent au milieu de la rue », Raph 2026-07-29). Les habitants en trop sont
+// marqués EN PARTANCE : ils gagnent le seuil le plus proche et s'y effacent
+// (citizenChooseNext / updateCitizens), puis quittent la liste. Garde-fou : sur une
+// chute VIOLENTE de la cible — préréglage de qualité au minimum, plan rebâti de zéro —
+// on coupe quand même net, sinon le rendu paierait des centaines de piétons fantômes.
+// Le seuil est large À DESSEIN : les paliers de PLUIE (70 % puis 35 % de la cible) sont
+// exactement le cas où la sortie doit rester gracieuse, puisque c'est elle qui met la
+// foule à l'abri en courant (cf. citizenSheltering, agents.js).
+function cmRetireExcessCitizens(want) {
+  const list = CM.citizens;
+  if (!list || list.length <= want) return;
+  if (list.length > want * 4 + 60) { list.splice(want); return; }
+  for (let i = want; i < list.length; i += 1) list[i].leaving = true;
 }
 
 // Rebranche le préréglage de qualité à chaud (appelé par l'UI des options) :
@@ -839,7 +856,7 @@ let _lyDeferredAt = 0;
 
 function cityMapEnsureLayout(now, deps = {}) {
   const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
-  const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "cart"; };
+  const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "wagon"; };
 
   // engineSig : ne reconstruire que si les bâtiments ont changé (renderCache._buildingsVersion)
   if (renderCache._buildingsVersion !== _cachedEngineSigBuildVer) {
@@ -939,6 +956,10 @@ function cityMapEnsureLayout(now, deps = {}) {
   {
     const rc = L.roadCover;
     state.roadCoverage = (rc && rc.engineTotal > 0) ? rc.engineConnected / rc.engineTotal : 0;
+    // Portes réelles (sur rue / total brut, murés compris) : affichage seul.
+    state.roadDoors = rc
+      ? { onRoad: rc.engineConnected | 0, total: Math.max(rc.engineConnected | 0, rc.engineAll | 0) }
+      : null;
     // Chantiers de voirie : la carte fait foi sur le prochain chantier proposé
     // (nature, tuiles, cible) et sur les tronçons élargis appliqués — la
     // boutique (prix) et le sim (bonus) ne font que lire ces caches.
@@ -1114,6 +1135,21 @@ function cityMapEnsureLayout(now, deps = {}) {
     };
     for (const t of L.tiles) edgeRoads(t, t.type === "engine" ? CM.workRoadCells : CM.homeRoadCells);
   }
+  // SEUILS : union DÉDUPLIQUÉE des cellules-route bordant un bâtiment, logement ou
+  // moteur. Deux usages, tous deux dans agents.js : les habitants NAISSENT sur un
+  // seuil de logement et ne s'EFFACENT que sur un seuil quelconque (« ils popent et
+  // disparaissent au milieu de la rue », Raph 2026-07-29). Dédupliqué ici, au
+  // contraire des deux listes ci-dessus dont les doublons pondèrent le tirage.
+  CM.buildingEdgeSet = new Set();
+  CM.buildingEdgeList = [];
+  for (const src of [CM.homeRoadCells, CM.workRoadCells]) {
+    for (const c of src) {
+      const k = c.gx * 10000 + c.gy;
+      if (CM.buildingEdgeSet.has(k)) continue;
+      CM.buildingEdgeSet.add(k);
+      CM.buildingEdgeList.push(c);
+    }
+  }
   // Ponts précalculés : évite Array.filter à chaque frame dans cityMapDrawBridges
   CM.bridgeList = CM.roadList.filter((r) => r.roadSurface === "bridge");
   // Spans de pont (composantes connexes) + repérage du pont HISTORIQUE (le plus
@@ -1249,9 +1285,9 @@ function cityMapEnsureLayout(now, deps = {}) {
   const want = cmCitizenTargetFor(L, cmCrowdMul());
   CM.citizenTarget = CM.walkRoadList.length ? want : 0;
   if (!CM.walkRoadList.length) {
-    CM.citizens = [];
-  } else if (CM.citizens.length > want) {
-    CM.citizens.splice(want);
+    CM.citizens = [];       // plus une seule route marchable : rien où s'effacer, on vide
+  } else {
+    cmRetireExcessCitizens(want);
   }
 
   // Trafic evolutif : paniers -> charrettes -> chars/convois -> voitures -> drones.
@@ -1289,25 +1325,14 @@ function cityMapEnsureLayout(now, deps = {}) {
     }
   }
 
-  // Trafic fluvial lié au PORT : la flotte grandit avec le niveau de river_ports
-  // (+ un peu de marchés/ère pour la variété). Sans port, juste une barque isolée
-  // sur un fleuve de village. Pas de fleuve → rien.
+  // Trafic fluvial : l'EFFECTIF VOULU par métier (marchand / plaisancier /
+  // pêcheur) — la vie de chaque bateau est pilotée par riverFleet.js, appelé une
+  // fois par frame en amont de la bascule iso/legacy. Ici on ne fait plus que
+  // publier la consigne ; la flotte n'est plus reconstruite en bloc (un pêcheur
+  // en pose de 90 s n'y survivait pas).
   const hasRiver = !!(L.river && L.river.present);
   const portLvl = hasRiver ? Math.floor((state.buildings && state.buildings.river_ports) || 0) : 0;
-  const mktLvl = Math.floor((state.buildings && state.buildings.markets) || 0);
-  let wantShips = 0;
-  if (hasRiver) {
-    if (portLvl > 0) wantShips = cmClamp(Math.round(1 + portLvl * 0.7 + mktLvl * 0.12 + L.counts.eraIndex * 0.2), 2, 12);
-    else if (L.counts.eraBand >= 2) wantShips = 1;
-  }
-  if (CM.ships.length !== wantShips) {
-    CM.ships = [];
-    for (let n = 0; n < wantShips; n += 1) {
-      // lane = voie transversale propre (∈ [-0.8, 0.8]) → les bateaux s'étalent sur la
-      // largeur du fleuve au lieu de suivre la ligne centrale ; phase = louvoiement.
-      CM.ships.push({ t: (n / Math.max(1, wantShips)), dir: n % 2 ? 1 : -1, speed: 0.008 + (n % 4) * 0.003, lane: (Math.random() * 2 - 1) * 0.8, phase: Math.random() * Math.PI * 2 });
-    }
-  }
+  CM.shipBudget = riverFleetBudget(state, L);
 
   // Quais d'escale : position sur le ruban de chaque PORT fluvial (pas les moulins),
   // mis en cache par layout. side = vers quelle berge le bateau dérive pour accoster
@@ -1330,12 +1355,36 @@ function cityMapEnsureLayout(now, deps = {}) {
         CM.shipDocks.push({ t: bi / Math.max(1, len - 1), side });
       }
     }
+    // Endroits où le PÊCHEUR ne jette pas l'ancre : les chenaux de port (on ne
+    // pose pas sa ligne dans le trafic) et le droit des ponts (sa barque
+    // disparaîtrait sous le tablier). Même unité que shipDocks : la position t
+    // le long du ruban.
+    // (Les ponts sont des CELLULES DE ROUTE `roadSurface === 'bridge'` dans
+    // roadMap — il n'existe pas de liste de ponts dans le layout.)
+    CM.shipAvoidT = CM.shipDocks.map((d) => d.t);
+    if (hasRiver && L.river.samples && L.roadMap) {
+      const sm = L.river.samples, len = sm.length;
+      const seen = new Set();
+      for (const c of L.roadMap.values()) {
+        if (c.roadSurface !== "bridge") continue;
+        let bi = 0, bd = Infinity;
+        for (let i = 0; i < len; i += 1) { const dd = (sm[i].x - c.gx) ** 2 + (sm[i].y - c.gy) ** 2; if (dd < bd) { bd = dd; bi = i; } }
+        if (seen.has(bi)) continue;          // un pont large couvre plusieurs cellules
+        seen.add(bi);
+        CM.shipAvoidT.push(bi / Math.max(1, len - 1));
+      }
+    }
   }
 }
 
 function spawnOneCitizen(L) {
   const n = CM.citizens.length;
-  const r = CM.walkRoadList[(n * 37) % CM.walkRoadList.length];
+  // Cellule d'APPARITION : le seuil d'un logement (citizenSpawnCell, agents.js) — plus
+  // de piéton qui se matérialise au milieu de la chaussée. Tirage à part du seed
+  // d'apparence, qui garde sa formule d'origine (cellule comprise) et donc sa
+  // distribution : garde-robe, coiffe et type d'habitant ne bougent pas.
+  const r = citizenSpawnCell(cmHash(`${state.cycles || 0}:${n}:seuil`));
+  if (!r) return;
   const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
   // Rôles définis par la config d'âge (huttes → tours), fallback legacy.
   const roleList = (L.ageCfg && L.ageCfg.citizenRoles)
@@ -1367,7 +1416,10 @@ function spawnOneCitizen(L) {
   // temps). Repli null tant que la ville n'a ni logement ni atelier bordé de route →
   // le piéton garde alors la flânerie libre (cf. citizenChooseNext).
   const homeCells = CM.homeRoadCells, workCells = CM.workRoadCells;
-  const home = homeCells && homeCells.length ? homeCells[seed % homeCells.length] : null;
+  // Le domicile EST la cellule d'apparition : il sort de chez lui, et c'est là que le
+  // soir le ramène (homeBias, citizenChooseNext). Null tant que la ville n'a aucun
+  // logement bordé de route — le spawn s'est alors rabattu sur la voirie.
+  const home = homeCells && homeCells.length ? r : null;
   const work = workCells && workCells.length ? workCells[(seed >> 8) % workCells.length] : null;
   CM.citizens.push({
     gx: r.gx, gy: r.gy,
@@ -1594,9 +1646,13 @@ function initCityMap(canvas, options = {}) {
       // assombrissement, densité de foule). En capture, temps dégagé : un cliché
       // est déterministe, l'horloge murale ne décide pas s'il y pleut.
       {
-        const w = CM.capture ? { rainF: 0, windX: 0 } : weatherState();
+        const w = CM.capture ? { rainF: 0, windX: 0, gustF: 0 } : weatherState();
         CM.rainF = w.rainF;
         CM.windX = w.windX;
+        // RAFALE en cours (0..1) : densité, vitesse et inclinaison de l'averse,
+        // et l'agitation de l'eau. Un seul signal de plus, lu par les mêmes
+        // couches — rien de nouveau à faire vivre entre les frames.
+        CM.gustF = w.gustF;
         // Sous l'averse, les rues se vident. On ne recale la foule que par
         // PALIERS (cmRecomputeCitizenTarget tronque la liste des piétons, donc
         // l'appeler à chaque frame hacherait la foule).
@@ -1662,6 +1718,19 @@ function initCityMap(canvas, options = {}) {
         }
       }
       fp('reveal-per-achat');
+      // FLOTTE : un SEUL point de simulation, ici, en amont de la bascule
+      // iso/legacy — les deux rendus ne font plus que dessiner. Avant, chacun
+      // avançait `t` de son côté dans sa fonction de dessin, ce qui a laissé les
+      // deux versions diverger en silence (l'escale à quai n'existait qu'en
+      // legacy, et le seuil d'ère du vapeur n'était pas le même des deux côtés).
+      if (!CM.fleetCtl) CM.fleetCtl = makeFleetCtl();
+      const _noLife = !!(CM.capture && CM.capture.citizens === 'none');
+      updateRiverFleet(CM.ships, CM.fleetCtl,
+        _noLife ? { trade: 0, yacht: 0, fisher: 0 } : (CM.shipBudget || { trade: 0, yacht: 0, fisher: 0 }), dt, {
+          docks: CM.shipDocks || [],
+          avoidT: CM.shipAvoidT || [],
+        });
+      fp('flotte');
       // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
       // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
       // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
@@ -1725,7 +1794,7 @@ function initCityMap(canvas, options = {}) {
       cityMapDrawCityReflections(now);
       // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
       // bâtiments (le blit statique les recouvre aux croisements).
-      drawShips(dt);
+      drawShips();
       if (CM.staticCanvas) {
         cityMapBlitMargin(CM.staticCanvas, '_staticBake');
       } else {
@@ -1836,7 +1905,11 @@ function initCityMap(canvas, options = {}) {
       calmed: CM.riotCalmed, calmDecayT: CM.riotCalmDecayT, draw: CM.riotDraw,
     };
     CM.rioters = [];
-    CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1 };
+    // `citizens` est mémorisé sur CM.capture : vider les pools ne suffisait pas,
+    // la frame les regarnissait aussitôt (l'ancien code reconstruisait la flotte
+    // dès que son effectif ne collait plus). Le budget doit être coupé À LA
+    // SOURCE pour qu'un cliché « sans vie » ait vraiment un fleuve vide.
+    CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1, citizens: opts.citizens };
     if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
     last = -1e9; // by-passe le throttle pour forcer un vrai rendu
     resize();

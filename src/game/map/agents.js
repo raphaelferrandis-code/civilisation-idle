@@ -49,8 +49,8 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
   }
   // Fallback historique (layout pas encore généré).
   if (eraIndex < 3) return "basket";
-  if (eraIndex < 6) return seed % 3 === 0 ? "barrow" : "cart";
-  if (eraIndex < 9) return seed % 3 === 0 ? "chariot" : seed % 3 === 1 ? "wagon" : "cart";
+  if (eraIndex < 6) return "wagon";                   // véhicules poussés à la main retirés (Raph 2026-07-29)
+  if (eraIndex < 9) return seed % 2 === 0 ? "chariot" : "wagon";
   if (eraIndex < 11) return seed % 3 === 0 ? "caravan" : seed % 3 === 1 ? "wagon" : "chariot";
   if (eraIndex >= 13 && seed % 4 === 0) return "drone";
   if (eraIndex >= 11 && (rank === "main" || rank === "avenue")) return seed % 3 === 0 ? "tram" : "car";
@@ -71,7 +71,13 @@ const CM_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const VILLAGER_DIRS = ['east', 'west', 'south', 'north'];
 const AGENT_NF = 6, AGENT_FW = 68, AGENT_FH = 68;
 const AGENT_FEET = 0.88; // pieds à ~88% du cadre → ancrage au sol
-let AGENT_SCALE = 0.8;   // multiplicateur global de taille des habitants (défaut réduit ; live __villagerScale)
+// Multiplicateur global de taille des habitants (live __villagerScale). Réduit à
+// 62,5 % de l'ancien 0.8 (demande Raph 2026-07-29 : moitié, puis remontée de 25 %) :
+// la ville a grandi, les silhouettes étaient trop grosses pour l'échelle des
+// bâtiments. Toute la vie humaine de la carte passe par ici (habitants, pousseurs,
+// bêtes de trait, émeutiers, porteurs de panier) + les humains des scènes moteur
+// (cityEngineSprites.js) et le pas des piétons (__strideLen ci-dessous).
+let AGENT_SCALE = 0.5;
 
 // Cache générique : name -> { img:{dir->Image}, ready:n }
 const agentChars = {};
@@ -299,7 +305,10 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   let frame = 0;
   if (walking) {
     if (distPx != null) {
-      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.2;
+      // Pas exprimé AVANT AGENT_SCALE (2.75 · 0.8 = 2.2, le réglage d'origine) : la
+      // longueur d'un pas suit la taille du sprite, sinon un habitant rétréci couvre
+      // toujours 2.2 px monde par frame et ses petites jambes patinent.
+      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
       frame = Math.floor(distPx / Math.max(0.5, stride) + (phase || 0) * nf) % nf;
     } else {
       frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
@@ -344,9 +353,16 @@ const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
 // Valeur = hauteur de rendu en tuiles (par type). Repli sur le rendu procédural si absent.
-// Tailles réduites (Raphaël) pour cart / barrow / car ; global via __vehScale.
-const VEH_SIZES = { cart: 0.5, barrow: 0.42, wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72, tram: 1.4 };
-const VEH_PUSH = { cart: 1, barrow: 1 }; // poussés par un humain (de l'ère) placé derrière
+// Taille réduite (Raphaël) pour car ; global via __vehScale.
+// Les véhicules POUSSÉS À LA MAIN sont retirés du jeu (Raph 2026-07-29, « ça ne rend pas
+// bien ») : d'abord la brouette, puis la charrette à bras qui a la même silhouette — plus
+// aucun tirage ne les produit (chooseRoadVehicleType, ageVisualConfig, cityPersonality) et
+// leur absence d'ici suffit à ne plus charger leurs sprites. L'art reste sur le disque.
+const VEH_SIZES = { wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72, tram: 1.4 };
+// Poussés par un humain (de l'ère) placé derrière. Table VIDE depuis le retrait de la
+// brouette et de la charrette : la mécanique du pousseur reste en place (ici et dans
+// drawIsoVehicle) pour un futur véhicule à bras, elle ne s'arme simplement plus.
+const VEH_PUSH = {};
 // Véhicules TRACTÉS : un (ou deux) animaux de trait dessinés DEVANT, dans le sens de
 // la marche, reliés par un timon procédural. animal = bande agent (horse/ox), n = nombre
 // de bêtes, scale = hauteur en tuiles, dist = distance véhicule→attelage (en tuiles).
@@ -356,7 +372,13 @@ const VEH_PULL = {
   wagon:   { animal: 'ox',    n: 1, scale: 0.74, dist: 0.44 }, // wagon lourd : un bœuf
   caravan: { animal: 'horse', n: 1, scale: 0.72, dist: 0.46 }, // caravane : un cheval
 };
-let VEH_SCALE = 1; // multiplicateur global (réglage live)
+// Multiplicateur global des véhicules (réglage live __vehScale). Réduit à 62,5 %
+// (demande Raph 2026-07-29 : moitié, puis remontée de 25 %) en même temps que
+// AGENT_SCALE : véhicules et piétons doivent rester à la MÊME échelle relative. Il
+// porte aussi les DISTANCES d'attelage (pousseur, bêtes de trait) — sans ça
+// l'équipage décrocherait de la carrosserie rétrécie — et le pas de roue des bandes
+// diagonales. Lu aussi par le rendu ISO (liaison vive à l'import).
+let VEH_SCALE = 0.625;
 const vehImg = {};
 function ensureVeh(type) {
   let c = vehImg[type];
@@ -519,6 +541,72 @@ function crossBankGoal(gx, gy) {
   return { gx: r.gx, gy: r.gy };
 }
 
+// ── Naître devant chez soi, s'effacer devant une porte ───────────────────────
+// « Les habitants popent au hasard et disparaissent au milieu de la rue » (Raph
+// 2026-07-29). Les deux bouts de vie d'un piéton se raccrochent donc aux SEUILS,
+// les cellules-route qui bordent un bâtiment (CM.buildingEdgeSet / homeRoadCells,
+// publiés par cityMapEnsureLayout) : il sort d'un logement, il rentre par la
+// première porte venue.
+
+// Cellule d'APPARITION : un seuil de LOGEMENT (les doublons de homeRoadCells font
+// sortir plus de monde des quartiers denses). Repli sur la voirie tant qu'aucun
+// logement n'est bordé de route — un hameau de départ n'a encore que des chemins.
+function citizenSpawnCell(seed) {
+  const homes = CM.homeRoadCells;
+  if (homes && homes.length) return homes[seed % homes.length];
+  const list = CM.walkRoadList;
+  return (list && list.length) ? list[seed % list.length] : null;
+}
+
+// Est-il DEVANT UNE PORTE ? Tant que la ville ne publie pas ses seuils (partie
+// neuve, harnais de test), on répond oui : mieux vaut l'ancien comportement qu'un
+// habitant increvable qui garderait la foule au-dessus de sa cible pour toujours.
+function citizenAtDoorstep(p) {
+  const set = CM.buildingEdgeSet;
+  if (!set || !set.size) return true;
+  return set.has(cityMapWalkRoadKey(p.gx, p.gy));
+}
+
+// Seuil le plus proche, pour l'habitant EN PARTANCE (la ville dépasse sa cible de
+// foule). Sans ce cap il flânerait au hasard en attendant de croiser une porte, et
+// la foule mettrait très longtemps à redescendre. Scan linéaire assumé : une seule
+// fois par départ, sur une liste dédupliquée.
+function nearestDoorstep(p) {
+  const list = CM.buildingEdgeList;
+  if (!list || !list.length) return null;
+  let best = null, bestD = Infinity;
+  for (const c of list) {
+    const d = (c.gx - p.gx) * (c.gx - p.gx) + (c.gy - p.gy) * (c.gy - p.gy);
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+
+// ── S'ABRITER SOUS L'AVERSE ─────────────────────────────────────────────────
+// Il ne manquait presque rien (Raph 2026-07-29, « les faire courir jusqu'à chez eux
+// quand il pleut ») : le palier météo de cityMapRuntime baisse déjà la cible de foule
+// dès rainF > 0.15 (70 %, puis 35 % au-delà de 0.6) et les habitants en trop sont
+// marqués EN PARTANCE — depuis les seuils, ils rentrent au lieu de s'évaporer. On
+// ajoute le GESTE : on rentre CHEZ SOI quand c'est à portée, on court, et on ne
+// s'attarde plus sur une place.
+const RAIN_SHELTER = 0.15;   // même seuil que le 1er palier de foule (une seule vérité)
+const RUN_K = 1.9;           // allure de course tant qu'on cherche l'abri
+const SHELTER_HOME_MAX = 14; // au-delà (en tuiles), on se met à couvert sous le 1er toit
+const citizenSheltering = (p) => !!p.leaving && (CM.rainF || 0) > RAIN_SHELTER;
+
+// Où s'efface-t-on ? Le DORMEUR entre par la porte la plus proche : il ne va nulle
+// part, il rentre. Celui qui s'ABRITE, lui, ne s'efface qu'à SA porte (p.leaveCell) —
+// sinon, dans une ville dense où trois cellules sur quatre bordent un bâtiment, il se
+// volatiliserait au deuxième pas et la course vers l'abri ne se verrait jamais. Tant
+// que son cap n'est pas choisi (il l'est au pas suivant, citizenChooseNext), il ne
+// s'efface pas — sauf si la ville ne publie aucun seuil : l'ancien comportement reprend
+// alors la main plutôt que de laisser un habitant increvable.
+function citizenAtShelter(p) {
+  if (!p.leaving) return citizenAtDoorstep(p);
+  if (p.leaveCell) return p.gx === p.leaveCell.gx && p.gy === p.leaveCell.gy;
+  return !CM.buildingEdgeList || !CM.buildingEdgeList.length;
+}
+
 function citizenChooseNext(p) {
   if (!CM.walkRoadList.length) return;
   const reachable = (c) => !!c && CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy));
@@ -541,7 +629,22 @@ function citizenChooseNext(p) {
     return;
   }
   if (arrived) p.goal = null; // hors place : on repart immédiatement, sans halte ni pas parasite
-  if (!p.goal || Math.random() < 0.05) {
+  // EN PARTANCE (la ville dépasse sa cible de foule) : cap immédiat sur le seuil le
+  // plus proche, choisi UNE fois (repris s'il a été rasé par un recalcul). Traité
+  // AVANT le tirage des envies du jour, et sans son re-tirage aléatoire : un partant
+  // ne doit pas repartir en flânerie, sinon la foule ne redescend jamais.
+  if (p.leaving) {
+    if (!reachable(p.leaveCell)) {
+      // Cap sur SON logement s'il est à portée — c'est chez soi qu'on rentre, sous
+      // l'averse comme au départ. Trop loin (ou rasé) : le seuil le plus proche, on
+      // ne traverse pas la ville entière sous la pluie pour son propre toit.
+      const home = reachable(p.home) ? p.home : null;
+      const dHome = home ? Math.abs(home.gx - p.gx) + Math.abs(home.gy - p.gy) : Infinity;
+      p.leaveCell = dHome <= SHELTER_HOME_MAX ? home : nearestDoorstep(p);
+    }
+    if (reachable(p.leaveCell)) { p.goal = p.leaveCell; p.social = false; }
+  }
+  if (!p.goal || (!p.leaving && Math.random() < 0.05)) {
     const nf = CM.nightF || 0;
     const day = nf < 0.45;
     // Envie de rentrer : nulle en plein jour, croissante à la tombée du soir (0 quand
@@ -820,6 +923,16 @@ function isCitizenInFront(p) {
 // (drawOneCitizen / drawOneVehicle), pour que piétons et véhicules soient triés ENSEMBLE
 // par profondeur dans drawGroundAgents. Avant, tous les piétons PUIS tous les véhicules =
 // une voiture recouvrait toujours un piéton de la même passe, même au SUD (devant) d'elle.
+// Allure de marche RALENTIE (demande Raph 2026-07-29, dans la foulée de la réduction de
+// taille) : à silhouette rétrécie, l'ancienne allure faisait traverser la rue en un clin
+// d'œil. Facteur calé sur la réduction (0.625) → autant de « longueurs de corps » par
+// seconde qu'avant. Appliqué au DÉPLACEMENT (pas au spawn) : la molette __pedSpeed agit
+// donc tout de suite, sans attendre un recalcul du plan. Concerne les gens À PIED —
+// habitants ici, porteurs de panier dans updateVehicles ; attelages et voitures gardent
+// leur vitesse. Distinct de __isoWalkSpeed, qui compense la projection iso.
+const PED_SPEED = { k: 0.625 };
+if (typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_SPEED.k = +v; return PED_SPEED.k; };
+
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -864,6 +977,7 @@ function updateCitizens(dt) {
     }
   }
 
+  let anyDead = false;   // un partant a fini son fondu → compaction en fin de boucle
   for (const p of CM.citizens) {
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
     if (p.thoughtType === undefined) p.thoughtType = null;
@@ -900,8 +1014,38 @@ function updateCitizens(dt) {
     }
     if (p.fade === undefined) p.fade = 1;
     else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 4); // apparition rapide (~0,25 s) : plus d'effet « fantôme »
+
+    // ── Fondu de DISPARITION : jamais au milieu de la rue ─────────────────────
+    // Deux causes d'effacement — le tiers « dormeur » quand la nuit s'installe, et
+    // le DÉPART (p.leaving) quand la ville dépasse sa cible de foule. Dans les deux
+    // cas le fondu ne S'AMORCE que sur un SEUIL (cellule bordant un bâtiment) : on
+    // rentre par une porte, on ne s'évapore pas sur la chaussée (Raph 2026-07-29).
+    // Une fois amorcé il est piloté par dt et non par nightF : amorcé tard dans la
+    // nuit, le vieux fondu en nightF durait zéro seconde et faisait POP l'habitant —
+    // exactement ce qu'il était censé éviter.
+    const nightF = CM.nightF || 0;
+    const sleeper = nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0;
+    if ((sleeper || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
+    if (p._vanish !== undefined) {
+      const back = !sleeper && !p.leaving;   // le jour se lève : il ressort par sa porte
+      p._vanish = back ? Math.min(1, p._vanish + dt * 2.2) : Math.max(0, p._vanish - dt * 2.2);
+      if (back && p._vanish >= 1) p._vanish = undefined;
+    }
+    p._sleepFade = p._vanish === undefined ? 1 : p._vanish;
+    if (p._sleepFade <= 0) {
+      // Effacé : il est RENTRÉ. Il ne marche plus (sinon le dormeur ressortirait au
+      // matin à l'autre bout de la ville) et, s'il partait pour de bon, il quitte la
+      // liste — la compaction se fait après la boucle.
+      p._nightHidden = true;
+      if (p.leaving) { p._dead = true; anyDead = true; }
+      continue;
+    }
+
     let moved = 0;   // distance parcourue CE tick (pilote le lissage du trottoir)
-    if (p.pauseT > 0) {
+    // Qui court s'abriter ne flâne plus : l'averse coupe court à la halte des badauds
+    // (place, parvis de merveille) au lieu de les laisser contempler sous la pluie.
+    const abri = citizenSheltering(p);
+    if (p.pauseT > 0 && !abri) {
       p.pauseT -= dt;
     } else {
       const dx = p.tx - p.x, dy = p.ty - p.y, dist = Math.hypot(dx, dy);
@@ -912,7 +1056,9 @@ function updateCitizens(dt) {
         // paraît plus rapide. Facteur de calme dédié (retour Raph « ils glissent »),
         // molette window.__isoWalkSpeed (défaut 0.72). Sans effet en legacy.
         const isoK = CM.iso ? ((typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72) : 1;
-        const sp = p.speed * dt * isoK;
+        // Course sous l'averse : l'animation étant cadencée par la DISTANCE parcourue
+        // (walkDist ci-dessous), les jambes accélèrent d'elles-mêmes, sans bande dédiée.
+        const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : 1);
         p.x += dx / dist * sp;
         p.y += dy / dist * sp;
         // Odomètre de marche : pilote l'animation PAR DISTANCE (les pieds suivent
@@ -921,17 +1067,6 @@ function updateCitizens(dt) {
         moved = sp;
       }
     }
-    // La nuit, une partie de la population rentre dormir : plutôt que de disparaître
-    // net au passage du seuil, le tiers « dormeur » s'estompe progressivement quand
-    // la nuit s'installe (nightF 0.55 → 0.75), puis cesse d'être dessiné.
-    const nightF = CM.nightF || 0;
-    let sleepFade = 1;
-    if (nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0) {
-      sleepFade = Math.max(0, 1 - (nightF - 0.55) / 0.2);
-      if (sleepFade <= 0) { p._nightHidden = true; continue; }
-    }
-    p._sleepFade = sleepFade;   // lu par drawOneCitizen (indépendant de l'ordre de dessin)
-
     // Marche au BORD de la chaussée : décalage latéral (unités monde) lissé vers sa
     // cible « trottoir » (p.tox/p.toy, bord droit du sens), deux sens de marche =
     // deux files le long de chaque bord. Lissage PAR DISTANCE PARCOURUE
@@ -949,6 +1084,10 @@ function updateCitizens(dt) {
       p.loy += (toy - p.loy) * k;
     }
   }
+  // Compaction : les partants rentrés quittent la liste. Filtre alloué SEULEMENT
+  // quand il y a eu un départ (une allocation par frame sur 450 habitants serait un
+  // gaspillage pur), et jamais pendant l'itération ci-dessus.
+  if (anyDead) CM.citizens = CM.citizens.filter((c) => !c._dead);
 }
 
 // Dessine UN habitant à sa position écran courante. La MAJ (position, fondu, nuit) a déjà
@@ -1335,7 +1474,9 @@ function updateVehicles(dt) {
     if (d < 2.4) {
       vehicleChooseNext(v);
     } else {
-      const sp = v.speed * dt;
+      // Le porteur de panier est un « véhicule » côté moteur mais un PIÉTON à l'écran :
+      // il suit le ralentissement des habitants, pas l'allure des attelages.
+      const sp = v.speed * dt * (v.type === 'basket' ? PED_SPEED.k : 1);
       v.x += dx / d * sp;
       v.y += dy / d * sp;
       // Odomètre (px monde) : les bandes diagonales iso animent les ROUES par
@@ -1480,7 +1621,7 @@ function drawOneVehicle(v, now) {
         const manSpec = agentSetForBand(band).men[0];
         const man = ensureAgentChar(manSpec.name);
         if (agentReady(man)) {
-          const D = CM.TILE * z * 0.34;                  // distance véhicule↔pousseur
+          const D = CM.TILE * z * 0.34 * VEH_SCALE;      // distance véhicule↔pousseur (suit la taille)
           // Pousseur TOUJOURS DERRIÈRE le véhicule (opposé au sens de marche) → la
           // charrette est toujours DEVANT lui, jamais dans son dos. Il regarde le sens.
           const off = [[-D, 0], [D, 0], [0, -D], [0, D]][v.dir] || [0, 0];
@@ -1503,7 +1644,7 @@ function drawOneVehicle(v, now) {
       if (pull) {
         const beast = ensureAgentChar(pull.animal);
         if (agentReady(beast)) {
-          const D = CM.TILE * z * (pull.dist || 0.44);   // distance véhicule↔attelage
+          const D = CM.TILE * z * (pull.dist || 0.44) * VEH_SCALE; // distance véhicule↔attelage (suit la taille)
           // DEVANT le véhicule (dans le sens de la marche) : +CM_DIRS[dir].
           const front = [[D, 0], [-D, 0], [0, D], [0, -D]][v.dir] || [0, 0];
           teamBelow = front[1] > 0;                       // attelage plus bas → dessiné devant
@@ -1578,7 +1719,9 @@ function drawOneVehicle(v, now) {
       // Taille globale du drone (sprite + ombre + LED + hélices, tout scale avec).
       // Réduit sous l'ancien 0.85 : un drone de livraison ne doit pas être aussi
       // gros qu'une voiture (retour Raph 2026-07-10). Réglable via window.__droneSize.
-      const dScale = CM.droneSize || 0.58;
+      // Multiplié par VEH_SCALE : le drone EST un véhicule, il suit la même échelle
+      // que les voitures (sinon il doublerait de taille relative après la réduction).
+      const dScale = (CM.droneSize || 0.58) * VEH_SCALE;
       ctx.fillStyle = `rgba(0,0,0,${(0.1 + 0.06 * Math.sin(t2 / 380)).toFixed(2)})`;
       ctx.beginPath();
       ctx.ellipse(sx, sy + s * 0.55 + hover, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2);
@@ -1804,10 +1947,6 @@ function drawOneVehicle(v, now) {
         ctx.lineTo(s * 0.24, s * 0.09);
         ctx.stroke();
       }
-    } else if (v.type === "barrow") {
-      ctx.fillStyle = "#8f6534";
-      ctx.fillRect(-s * 0.11, -s * 0.07, s * 0.22, s * 0.12);
-      drawVehicleWheelSet(ctx, s, [0.08], 0.065, 0.024, 0.013, "#2a1a0c");
     } else if (v.type === "chariot") {
       ctx.fillStyle = "#9a7440";
       ctx.fillRect(-s * 0.18, -s * 0.08, s * 0.3, s * 0.16);
@@ -1839,7 +1978,10 @@ function drawOneVehicle(v, now) {
     if (CM.headlightDepth !== false) drawVehicleHeadlights(ctx, v);
 }
 
-function drawShips(dt) {
+// Rendu TOP-DOWN de la flotte (chemin legacy, __iso(false)). Ne simule plus
+// rien — la vie des bateaux est pilotée par riverFleet.js — et ne dessine que
+// les MARCHANDS : pêcheur et plaisancier n'existent qu'en iso.
+function drawShips() {
   if (!CM.layout || !CM.layout.river || !CM.layout.river.present) return;
   const ctx = CM.ctx, z = CM.cam.zoom, s = CM.TILE * z, T = CM.TILE;
   const sm = CM.layout.river.samples;
@@ -1848,7 +1990,6 @@ function drawShips(dt) {
   const now = performance.now();
   const docks = CM.shipDocks || [];
   const DOCK_RANGE = 0.05;   // demi-zone d'escale autour d'un port (unités de t)
-  const DOCK_DWELL = 2.5;    // durée d'arrêt à quai (s)
   // ── Stade & échelle, CONSTANTS sur la frame (même ère pour tous les bateaux) ──
   // Stade ALIGNÉ sur le port (river_ports, cityEngineSprites) : radeau → voilier →
   // vapeur → porte-conteneurs par ère, vaisseau cosmique en band ≥ 7. Échelle de
@@ -1862,24 +2003,21 @@ function drawShips(dt) {
   const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;   // taille de rendu effective (tuiles)
   const boatKey = vstage === "cosmic" ? "cosmic-" + Math.min(9, Math.max(7, band)) : vstage;
   for (const sh of CM.ships) {
-    if (sh.dwellT === undefined) { sh.dwellT = 0; sh.lastDock = -1; }
+    // Le top-down ne montre QUE les marchands. Pêcheur et plaisancier sont des
+    // métiers du rendu iso (le losange est le jeu) : sans cette garde ils
+    // seraient dessinés ici avec la coque d'un cargo, ce qui serait pire que de
+    // ne pas les montrer. Cf. la note en tête de drawShips.
+    if (sh.kind && sh.kind !== 'trade') continue;
     // ── Escale : proximité au quai le plus proche (distance circulaire en t) ──
-    let prox = 0, dockSide = 0, bestIdx = -1, bestD = Infinity;
+    // La position et l'escale sont SIMULÉES en amont (riverFleet.js) : ce qu'on
+    // recalcule ici ne sert qu'à raccourcir le sillage à l'approche d'un quai.
+    let prox = 0, dockSide = 0, bestD = Infinity;
     for (let di = 0; di < docks.length; di += 1) {
       let dd = Math.abs(sh.t - docks[di].t); if (dd > 0.5) dd = 1 - dd;
-      if (dd < bestD) { bestD = dd; bestIdx = di; dockSide = docks[di].side; }
+      if (dd < bestD) { bestD = dd; dockSide = docks[di].side; }
     }
-    if (bestIdx >= 0) { const p = Math.max(0, 1 - bestD / DOCK_RANGE); prox = p * p * (3 - 2 * p); }
-    let moveF;
-    if (sh.dwellT > 0) {
-      sh.dwellT -= dt; moveF = 0;                            // arrêt à quai
-    } else {
-      moveF = 1 - 0.85 * prox;                               // ralentit en approchant
-      sh.t += sh.dir * sh.speed * moveF * dt;
-      if (sh.t > 1) sh.t -= 1; if (sh.t < 0) sh.t += 1;
-      if (prox > 0.9 && bestIdx !== sh.lastDock) { sh.dwellT = DOCK_DWELL; sh.lastDock = bestIdx; }
-      else if (bestD > DOCK_RANGE * 1.6) sh.lastDock = -1;   // assez loin : ré-escale possible
-    }
+    if (bestD < Infinity) { const p = Math.max(0, 1 - bestD / DOCK_RANGE); prox = p * p * (3 - 2 * p); }
+    const moveF = sh.state === 'dock' || sh.state === 'anchor' ? 0 : 1 - 0.85 * prox;
     const fi = sh.t * (sm.length - 1);
     const i0 = Math.max(0, Math.min(sm.length - 1, Math.floor(fi)));
     const i1 = Math.min(sm.length - 1, i0 + 1);
@@ -2141,4 +2279,7 @@ function drawShips(dt) {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir };
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+  citizenSpawnCell, citizenAtDoorstep };
+// AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
+// à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

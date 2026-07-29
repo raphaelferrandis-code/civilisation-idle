@@ -37,8 +37,16 @@ import {
   drawVehicleHeadlights, drawCitizenThoughts,
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
   ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors,
-  ensureVehDiag, vehDiagReady, riotEraKey,
+  ensureVehDiag, vehDiagReady, riotEraKey, AGENT_SCALE, VEH_SCALE,
 } from '../agents.js';
+// PLACE COMPOSÉE : tout le modèle (rôles des cellules, recettes par ère, tailles
+// en tuiles, molette __plaza) vit dans isoPlaza.js. Ici on ne fait que pousser
+// ses items dans le tri peintre. Cf. docs/PLACES-ISO-COMPOSEES.md.
+import {
+  isoPlazaBox, plazaEraForBand, isoPlazaItems, isoPlazaLamps,
+  isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround,
+  drawIsoPlazaProp, drawIsoPlazaGrid,
+} from './isoPlaza.js';
 
 // ── Palette Phase 1 (flat, calée sur les teintes du rendu actuel) ────────────
 const GRASS = [116, 138, 84];        // herbe / nature (référence = été)
@@ -95,12 +103,21 @@ export const waterShoreTune = {
 // repli tant que le PNG décode, de teinte LOD, et de base à l'ÉPAULEMENT
 // (shoulderMix) : s'ils divergeaient des tuiles, l'accotement jurerait avec sa
 // chaussée.
-function roadTone(band) {
+function roadToneRaw(band) {
   return band >= 7 ? [73, 86, 102]     // tech — voie bleu-gris sombre
     : band >= 6 ? [65, 62, 64]         // asphalte
       : band >= 4 ? [128, 116, 100]    // pierre — voie dallée claire
         : band >= 2 ? [108, 104, 92]   // pavé — rue grise
           : [116, 79, 55];             // terre — sentier
+}
+// Ton EFFECTIF de la chaussée = tuile + VOILE DE LECTURE de l'ère (ROAD_VEIL,
+// plus bas). Une seule vérité : l'épaulement, l'aplat de repli et la teinte de
+// dézoom suivent ce que la rue montre VRAIMENT — sinon l'accotement d'une rue
+// voilée jurerait avec sa propre chaussée, et le réseau se rebrouillerait au
+// premier cran de dézoom (là où le ruban n'est plus qu'un aplat).
+function roadTone(band) {
+  const t = roadToneRaw(band), v = roadVeilFor(band);
+  return v ? [0, 1, 2].map((i) => Math.round(t[i] + (v[i] - t[i]) * v[3])) : t;
 }
 const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
 
@@ -297,7 +314,7 @@ if (typeof window !== 'undefined') {
   window.__groundTile = (arg) => {
     if (typeof arg === 'number') groundTileTune.rep = arg;
     else if (arg && typeof arg === 'object') Object.assign(groundTileTune, arg);
-    isoTileCache.forEach((e) => { e.tiled = null; });
+    isoTileCache.forEach((e) => { e.tiled = null; e.veiled = null; });
     CM._isoGroundBake = null;   // le sol est CUIT : sans ça la molette ne se voit pas
     return { ...groundTileTune };
   };
@@ -366,12 +383,42 @@ function isoFaceFor(e) {
   }
   return e.tiled.c || e.face;
 }
+// VOILE DE LECTURE cuit dans la face (cf. ROAD_VEIL) : composé UNE FOIS par
+// (tuile, voile) et gardé sur l'entrée de cache — coût nul par cellule.
+// ⚠ Pourquoi pas un aplat en alpha rempli sur le ruban après le blit, qui aurait
+// tenu en deux lignes : le ruban est tracé PAR CELLULE (pavé + bras), et deux
+// cellules voisines partagent une arête. Une couche opaque ne le voit pas, une
+// couche en ALPHA double-blende le cheveu d'antialiasing du raccord → un
+// quadrillage fantôme en travers des rues, précisément ce que les passes-union
+// des autres couches (ourlet, gorge, trottoir) existent pour éviter.
+// `source-atop` ne peint que les pixels déjà opaques : le masque losange de la
+// face est préservé tel quel. Sans face (débord d'herbe, pixels illisibles) on
+// rend la face nue — les chaussées sont toutes plates, le cas ne se présente pas.
+function isoFaceVeiled(e, veil) {
+  const face = isoFaceFor(e);
+  if (!face || !veil) return face;
+  const sig = veil.join(',') + '|' + groundTileTune.rep + '|' + groundTileTune.insetF;
+  if (e.veiled && e.veiled.sig === sig && e.veiled.c) return e.veiled.c;
+  try {
+    const w = face.width, h = face.height;
+    const c = (typeof OffscreenCanvas !== 'undefined') ? new OffscreenCanvas(w, h) : document.createElement('canvas');
+    c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(face, 0, 0);
+    cx.globalCompositeOperation = 'source-atop';
+    cx.fillStyle = `rgba(${veil[0]},${veil[1]},${veil[2]},${veil[3]})`;
+    cx.fillRect(0, 0, w, h);
+    e.veiled = { sig, c };
+    return c;
+  } catch { return face; }
+}
 
 function ensureIsoTileKey(key) {
   if (!key) return null;
   let e = isoTileCache.get(key);
   if (e) return e;
-  e = { img: null, ready: false, bbox: null, face: null, tiled: null, failed: false, flat: false, over: 0 };
+  e = { img: null, ready: false, bbox: null, face: null, tiled: null, veiled: null, failed: false, flat: false, over: 0 };
   isoTileCache.set(key, e);
   if (typeof Image !== 'undefined') {
     const im = new Image();
@@ -388,6 +435,7 @@ function ensureIsoTileKey(key) {
       // précisément les brins qu'on veut garder — blit brut depuis e.img.
       e.face = e.over ? null : isoTileFace(im, e.bbox);   // face masquée au losange (une fois)
       e.tiled = null;                     // la face répétée se recompose à la demande
+      e.veiled = null;                    // …et la face voilée avec elle
       e.ready = !!e.bbox;
       // Invalidation DOUCE : le bake reste re-blittable, la recuisson (chère sur
       // mégapole) est coalescée par drawIsoWorld — une rafale de décodages au
@@ -414,7 +462,7 @@ function ensureIsoTile(kind) { return ensureIsoTileKey(ISO_TILE_KEYS[kind]); }
 function blitIsoTile(ctx, kind, nx, ny, hw, mirror = false, h = 0) {
   return blitIsoTileKey(ctx, ISO_TILE_KEYS[kind], nx, ny, hw, mirror, h);
 }
-function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0) {
+function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil = null) {
   // HIVER : bascule vers la tuile enneigée si elle existe ET est décodée —
   // sinon on garde l'été pour cette recuisson (le décodage la rappellera).
   if (CM.season === WINTER && ISO_TILE_WINTER[key]) {
@@ -439,7 +487,7 @@ function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0) {
   // Source : la face masquée (répétée rep×rep, cf. groundTileTune) si elle a pu
   // être construite, sinon la tuile brute. La face répétée fait la MÊME taille
   // que la simple (bb.w × faceH) — le blit ci-dessous ne change pas d'un iota.
-  const face = isoFaceFor(e);
+  const face = isoFaceVeiled(e, veil);
   const src = face || e.img;
   const sx = face ? 0 : bb.x0, sy = face ? 0 : bb.y0;
   const prev = ctx.imageSmoothingEnabled;
@@ -1105,10 +1153,52 @@ const ROAD_MATS = [
 // creux » des rues top-down), sans toucher au bord net de la dalle.
 // feather/featherA : OURLET — bande de fondu au-delà de l'épaulement (même teinte
 // en alpha) → la jonction épaulement→sol n'a plus de 2e arête dure.
+// veilK : multiplicateur global du VOILE DE LECTURE (0 = éteint, cf. ROAD_VEIL).
 const ROAD_DETAIL = {
   on: true, tiles: true, band: null, shoulderMix: 0.55, shoulderV: 0.92, edgeFringe: 0,
-  groove: 0.03, grooveA: 0.28, feather: 0.05, featherA: 0.4,
+  groove: 0.03, grooveA: 0.28, feather: 0.05, featherA: 0.4, veilK: 1,
 };   // band≠null = force ère (preview)
+// ── VOILE DE LECTURE de la chaussée (Raph 2026-07-29 : « les routes de cette ère
+// ne se distinguent pas assez du sol des maisons ») ───────────────────────────
+// Rien ne garantit qu'une ère tire son sol de lot et sa chaussée de deux familles
+// différentes, et au BOURG les deux sortent du même gris : `ground-cobble`
+// (gravier fin) et `road-cobble` (pavés moussus) ne sont séparés que par 32 de
+// distance RGB mesurée sur les PNG — moitié moins que n'importe quel autre
+// couple d'ère (80 à 111). À l'échelle du jeu la rue disparaît dans le sol et
+// c'est le TROTTOIR, plus clair, qui dessine seul le réseau : la ville lit comme
+// une nappe de pavé rayée de liserés crème.
+// Le voile est un ton posé sur la chaussée SEULE, en alpha : chaque pierre de la
+// tuile reste lisible, mais la rue devient un pavé usé plus sombre et plus chaud
+// — exactement la lecture de l'ère impériale (voie brune sur dalles pâles), la
+// seule que personne n'a jamais eu de mal à suivre.
+// ⚠ Il ne s'applique QUE là où le couple MESURÉ se confond : les bandes 0-1 (80),
+// 4-5 (84), 6 (111) et 7-9 (43) lisent déjà — les voiler n'assombrirait qu'une
+// ville qui va bien. Garde sur les PNG : __tests__/isoRoadGroundContrast.test.js.
+// Cuit DANS la face de tuile (isoFaceVeiled), jamais posé en aplat par cellule :
+// un alpha par cellule marquerait les coutures que les passes-union évitent.
+const ROAD_VEIL = [
+  null, null,
+  [58, 42, 30, 0.30],   // 2 bourg — pavé usé, chaud, contre le gravier gris des lots
+  [58, 42, 30, 0.30],   // 3 fortifié
+  null, null, null, null, null, null,
+];
+function roadVeilFor(band) {
+  if (!(ROAD_DETAIL.veilK > 0)) return null;
+  const v = ROAD_VEIL[Math.max(0, Math.min(ROAD_VEIL.length - 1, band | 0))];
+  if (!v) return null;
+  return ROAD_DETAIL.veilK === 1 ? v : [v[0], v[1], v[2], Math.min(1, v[3] * ROAD_DETAIL.veilK)];
+}
+// Couple de surfaces d'une ère, tel que le sol le PEINT (aucun forçage d'aperçu).
+// Exporté pour la garde de contraste : elle lit les PNG que ces clés désignent —
+// recopier les clés dans le test reviendrait à le comparer à lui-même.
+export function isoEraSurface(band) {
+  const b = Math.max(0, Math.min(URBAN_MATS.length - 1, band | 0));
+  return {
+    ground: URBAN_MATS[b].tile,
+    road: ROAD_MATS[Math.max(0, Math.min(ROAD_MATS.length - 1, b))].tile,
+    veil: ROAD_VEIL[Math.max(0, Math.min(ROAD_VEIL.length - 1, b))],
+  };
+}
 // ── FRANGE DE CHAUSSÉE : même grammaire que la lisière d'herbe, entre la dalle
 // et son épaulement — l'épaulement MORD sur le bord du ruban par petits blocs
 // (1..2 pu, deux tons), et la matière de la route s'égrène en GRAVILLONS épars
@@ -1151,14 +1241,16 @@ function roadMatFor(band) {
 }
 if (typeof window !== 'undefined') {
   // Molette chaussée : __roadMat(false) off ; ({tiles,band,shoulderMix,shoulderV,
-  // groove,grooveA,feather,featherA,edgeFringe}) réglage fin (shoulder* = teinte
-  // de l'épaulement ; groove* = gorge d'ombre au contact de la dalle ; feather* =
-  // ourlet de fondu épaulement→sol ; edgeFringe = crantage rejeté, 0). Rebake immédiat.
+  // groove,grooveA,feather,featherA,edgeFringe,veilK}) réglage fin (shoulder* =
+  // teinte de l'épaulement ; groove* = gorge d'ombre au contact de la dalle ;
+  // feather* = ourlet de fondu épaulement→sol ; edgeFringe = crantage rejeté, 0 ;
+  // veilK = dose du voile de lecture, 0 rend la rue à sa tuile nue). Rebake immédiat.
   window.__roadMat = (arg) => {
     if (arg === false) ROAD_DETAIL.on = false;
     else if (arg && typeof arg === 'object') { ROAD_DETAIL.on = true; Object.assign(ROAD_DETAIL, arg); }
     else ROAD_DETAIL.on = true;
     syncIsoStreetGeom();   // la gorge participe à la géométrie publiée aux agents
+    isoTileCache.forEach((e) => { e.veiled = null; });   // veilK repeint les faces voilées
     CM._isoGroundBake = null;
     return { ...ROAD_DETAIL };
   };
@@ -1393,8 +1485,11 @@ function drawIsoGround() {
   // Quand la SCÈNE de place de l'ère est décodée, la dalle claire disparaît
   // (la scène porte son propre dallage — l'ancienne dalle dépassait autour,
   // retour Raph) : les cellules plaza redeviennent du sol urbain calme.
+  // En place COMPOSÉE (mode par défaut) il n'y a plus d'image qui porte le
+  // dallage : la dalle de sol redevient l'esplanade, et le mobilier se pose
+  // dessus. D'où le test sur le MODE, pas seulement sur le décodage du PNG.
   const plazaEra = plazaEraForBand(band);
-  const plazaSceneReady = !!(plazaEra && isoArt('plaza-' + plazaEra).ready);
+  const plazaSceneReady = !!(plazaEra && isoPlazaSceneCoversGround(band) && isoArt('plaza-' + plazaEra).ready);
   // ⚠ MESURÉ, NE PAS « OPTIMISER » : cette Map est reconstruite à chaque
   // recuisson, donc à chaque cran de zoom, alors que le verdict de kindAt ne
   // dépend NI du zoom NI de la caméra (seulement du layout, du décodage du sprite
@@ -1741,6 +1836,7 @@ function drawIsoGround() {
   // connexion (rectangles MONDE projetés → parallélogrammes écran continus).
   const tRd = PR && performance.now();
   const rmat = roadMatFor(band);
+  const rVeil = roadVeilFor(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band);   // voile de lecture (forçage d'aperçu honoré)
   // Constantes de la passe route : teinte d'ÉPAULEMENT (mélange sol↔route un peu
   // assombri — la rue s'assoit dans le sol au lieu d'avoir l'air tamponnée),
   // tons de la FRANGE de chaussée (morsures = épaulement en 2 valeurs,
@@ -1965,11 +2061,12 @@ function drawIsoGround() {
       const rp = worldToScreen(r.gx * T, r.gy * T);
       const rH = cmHash('rr:' + r.gx + ',' + r.gy);
       const rmir = ((rH >>> 3) & 1) === 1;
-      blitIsoTileKey(ctx, rmat.tile, rp.x, rp.y, hw, rmir, rH);
+      blitIsoTileKey(ctx, rmat.tile, rp.x, rp.y, hw, rmir, rH, rVeil);
       ctx.restore();
     } else {
-      // DALLE LISSE : surface PLEINE de chaussée, teinte par ère (roadTone). Lisse et
-      // propre (pas de texture qui transparaît) — la « dalle lisse » demandée par Raph.
+      // DALLE LISSE : surface PLEINE de chaussée, teinte par ère (roadTone, qui
+      // porte DÉJÀ le voile de lecture). Lisse et propre (pas de texture qui
+      // transparaît) — la « dalle lisse » demandée par Raph.
       ctx.fillStyle = rgb(road, v);
       ctx.fill();
     }
@@ -2589,10 +2686,19 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   // un peu, mais un flocon ne CREUSE pas l'eau. On garde donc un tiers de l'effet
   // — sans quoi l'eau se mettait à claquer comme sous l'orage pendant qu'il neige.
   const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
-  const rf = precipKind(CM.season, rf0) === 'snow' ? rf0 * 0.35 : rf0;
+  const snow = precipKind(CM.season, rf0) === 'snow';
+  const rf = snow ? rf0 * 0.35 : rf0;
   const mix = (a, b) => a + (b - a) * rf;
-  const fps = mix(G.fair.fps, G.rain.fps);
-  const drift = mix(G.fair.drift, G.rain.drift);
+  // RAFALE : la bouffée passe SUR l'eau, la surface claque et file le temps
+  // qu'elle traverse — c'est là qu'on la voit le mieux, mieux que dans le ciel.
+  // Sur le RYTHME et la DÉRIVE seulement : la teinte reste celle de l'averse,
+  // sinon la bourrasque assombrirait le ruban hors de sa palette. Sans danger
+  // pour la phase, qui est intégrée (cf. ⚠⚠ PHASE ACCUMULÉE) — une vitesse qui
+  // bouge est exactement ce qu'elle a été écrite pour absorber.
+  const gustK = 1 + 0.35 * (snow ? 0.35 : 1)
+    * Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.gustF || 0) * RAIN_TUNE.gust : 0));
+  const fps = mix(G.fair.fps, G.rain.fps) * gustK;
+  const drift = mix(G.fair.drift, G.rain.drift) * gustK;
   const tint = mix(G.fair.tint, G.rain.tint);
   // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
   // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
@@ -3104,52 +3210,13 @@ function isoWildForest(L, b) {
   return list;
 }
 
-// ── PLACE : scène complète par ère (DA validée par Raph 2026-07-12 : fontaine
-// monumentale évolutive + parterres fleuris + bancs/réverbères, minérale
-// claire, UNE scène PixelLab par grande ère posée sur la dalle) ──────────────
-let _isoPlazaCache = { at: -1, box: null };
-function isoPlazaBox(L) {
-  if (_isoPlazaCache.at === CM.layoutRecomputeAt) return _isoPlazaCache.box;
-  // ⚠ Composante CONNEXE de la dalle centrale (flood-fill depuis la cellule
-  // médiane), PAS la bbox de toutes les cellules 'plaza' : des cellules plaza
-  // isolées existent ailleurs et gonflaient la bbox à la ville entière (scène
-  // géante en fond d'écran, vu à la capture).
-  const cells = new Set();
-  if (L.roadMap) for (const c of L.roadMap.values()) if (c.rank === 'plaza') cells.add(c.gx + ',' + c.gy);
-  let box = null;
-  if (cells.size) {
-    // PLUS GRANDE composante connexe = la vraie place. (Avant : flood depuis la cellule
-    // MÉDIANE — si le seed tombait sur une case 'plaza' isolée, box minuscule → scène
-    // invisible. Robustifié : on parcourt toutes les composantes, on garde la + grande.)
-    const remaining = new Set(cells);
-    let best = null;
-    while (remaining.size) {
-      const start = remaining.values().next().value;
-      remaining.delete(start);
-      const comp = [start];
-      const stack = [start.split(',').map(Number)];
-      while (stack.length) {
-        const [x, y] = stack.pop();
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const k = (x + dx) + ',' + (y + dy);
-          if (remaining.has(k)) { remaining.delete(k); comp.push(k); stack.push([x + dx, y + dy]); }
-        }
-      }
-      if (!best || comp.length > best.length) best = comp;
-    }
-    let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity;
-    for (const k of best) {
-      const [x, y] = k.split(',').map(Number);
-      if (x < gx0) gx0 = x; if (x > gx1) gx1 = x;
-      if (y < gy0) gy0 = y; if (y > gy1) gy1 = y;
-    }
-    box = { gx0, gx1, gy0, gy1 };
-  }
-  _isoPlazaCache = { at: CM.layoutRecomputeAt, box };
-  return _isoPlazaCache.box;
-}
-// Pas de scène aux stades primitifs (cohérence, comme les lampadaires).
-const plazaEraForBand = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern' : band >= 5 ? 'industrial' : band >= 4 ? 'medieval' : band >= 2 ? 'antique' : null);
+// ── PLACE ───────────────────────────────────────────────────────────────────
+// `isoPlazaBox` (composante connexe de la dalle) et `plazaEraForBand` ont
+// DÉMÉNAGÉ dans isoPlaza.js : la place composée et l'ancienne scène doivent
+// lire la MÊME emprise et la MÊME ère, une copie ici les ferait diverger.
+// Ce qui reste ci-dessous ne sert qu'au mode 'scene' (__plaza({mode:'scene'})),
+// gardé comme référence d'A/B : la scène par ère validée le 2026-07-12
+// (fontaine monumentale + parterres + bancs, UNE image posée sur la dalle).
 // ── FONTAINE ANIMÉE : l'eau de la scène de place, bakée en strip 8 frames
 // (/pixelart/iso/anim/plaza-fountain-<ère>.png, scripts/fetchFountainAnims.mjs)
 // et blittée PAR-DESSUS la scène à l'emplacement exact du crop source. Hors
@@ -3183,31 +3250,121 @@ function boatSector(angle) {
 // Stades couverts par l'art iso (cosmique : repli legacy/procédural conservé).
 const BOAT_ISO = { raft: 1, sail: 1, steam: 1, container: 1 };
 
+// ── Les trois MÉTIERS du fleuve (cf. riverFleet.js) ─────────────────────────
+// Le marchand traverse l'Histoire avec le port (radeau → voilier → vapeur →
+// porte-conteneurs → vaisseau) ; le plaisancier a ses trois âges à lui ; le
+// pêcheur garde sa barque en bois du début à la fin (arbitrage Raph : c'est
+// justement ce qui le rend intemporel au milieu d'une ville qui mute).
+//
+// ⚠ Le seuil du VAPEUR est ei >= 25, pas 20. L'iso avait gardé l'ancienne
+// valeur alors que le legacy l'avait corrigée en documentant pourquoi : à 20, un
+// vapeur croisait dès la bande Marbre devant des habitants en toge.
+export function tradeStage(band, ei) {
+  return band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 25 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
+}
+function tradeSizeMul(stage, band) {
+  return stage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
+    : stage === 'container' ? 3.2 : stage === 'steam' ? 2.4 : stage === 'sail' ? 1.8 : 1.36;
+}
+// Plaisance : barque à rames, puis petit voilier, puis vedette à moteur. En ère
+// cosmique on garde la vedette — un plaisancier reste un plaisancier, et rien
+// ne justifiait un quatrième stade d'art pour un bateau qu'on regarde passer.
+const YACHT_STAGES = [
+  { key: 'rowboat', sizeMul: 1.05 },
+  { key: 'dinghy', sizeMul: 1.45 },
+  { key: 'motorboat', sizeMul: 1.9 },
+];
+function yachtStage(ei) { return ei >= 25 ? YACHT_STAGES[2] : ei >= 10 ? YACHT_STAGES[1] : YACHT_STAGES[0]; }
+
+// Coque de REPLI pour un métier dont l'art n'est pas encore là : une barque en
+// bois vue de trois quarts, plus l'attribut qui identifie le métier (canne
+// pliée pour le pêcheur, voile pour le plaisancier). Volontairement grossier —
+// c'est un échafaudage de réglage, pas une proposition graphique.
+function drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh) {
+  const fisher = sh.kind === 'fisher';
+  ctx.save();
+  ctx.translate(p.x, p.y + bob);
+  ctx.rotate(heading);
+  ctx.scale(sizeMul, sizeMul);
+  ctx.fillStyle = '#6b4a2c';                       // coque
+  ctx.beginPath();
+  ctx.moveTo(s * 0.26, 0);
+  ctx.lineTo(s * 0.02, -s * 0.09);
+  ctx.lineTo(-s * 0.24, -s * 0.05);
+  ctx.lineTo(-s * 0.24, s * 0.05);
+  ctx.lineTo(s * 0.02, s * 0.09);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#8d6740';                       // plat-bord
+  ctx.fillRect(-s * 0.2, -s * 0.02, s * 0.4, Math.max(1, s * 0.02));
+  if (fisher) {
+    ctx.strokeStyle = '#c8b48a';                   // canne tendue vers l'arrière
+    ctx.lineWidth = Math.max(1, s * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.06, -s * 0.02);
+    ctx.lineTo(-s * 0.3, -s * 0.16);
+    ctx.stroke();
+    ctx.fillStyle = '#9c8f7a';                     // le pêcheur, allongé
+    ctx.fillRect(-s * 0.1, -s * 0.05, s * 0.2, Math.max(1, s * 0.05));
+  } else {
+    ctx.fillStyle = '#e6e2d6';                     // voile
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.06);
+    ctx.lineTo(0, -s * 0.32);
+    ctx.lineTo(s * 0.16, -s * 0.07);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Aspect d'un bateau pour la frame : sprite, échelle, et force du sillage. Le
+// pêcheur n'en laisse aucun (il est à l'ancre), le plaisancier à peine.
+export function shipVisual(kind, band, ei) {
+  if (kind === 'fisher') return { key: 'fisher', sizeMul: 1.15, wake: 0, stage: 'fisher' };
+  if (kind === 'yacht') {
+    const y = yachtStage(ei);
+    return { key: y.key, sizeMul: y.sizeMul, wake: 0.35, stage: y.key };
+  }
+  const stage = tradeStage(band, ei);
+  return { key: stage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : stage,
+    sizeMul: tradeSizeMul(stage, band), wake: 1, stage };
+}
+
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
 // sillage additif, coque « toujours droite ») mais TOUT passe par la projection :
-// position monde → worldToScreen, inclinaison = tangente PROJETÉE. Escales
-// simplifiées (ralentit près d'un quai, pas d'arrêt long). Dessinés APRÈS le
-// fleuve et AVANT les ponts → ils passent sous les tabliers.
-function drawIsoShips(dt, now) {
+// position monde → worldToScreen, inclinaison = tangente PROJETÉE. Dessinés
+// APRÈS le fleuve et AVANT les ponts → ils passent sous les tabliers.
+// NE SIMULE PLUS RIEN : la vie de la flotte (naissance, escale, mort) est
+// pilotée par riverFleet.js, appelé une fois par frame par le runtime.
+function drawIsoShips(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !CM.ships || !CM.ships.length) return;
   const sm = rv.samples;
   if (!sm || sm.length < 2) return;
   const T = CM.TILE, ctx = CM.ctx, z = CM.cam.zoom, s = T * z;
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
-  const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
-  const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
-    : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
-  const boatKey = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : vstage;
-  const chr = BOAT_SIZES[vstage] ? ensureBoat(boatKey) : null;
+  // Les trois aspects sont CONSTANTS sur la frame (même ère pour tout le monde) :
+  // on les calcule une fois, pas une fois par bateau.
+  const VIS = { trade: shipVisual('trade', band, ei), yacht: shipVisual('yacht', band, ei), fisher: shipVisual('fisher', band, ei) };
   const docks = CM.shipDocks || [];
   for (const sh of CM.ships) {
-    let prox = 0;
-    for (const d of docks) { let dd = Math.abs(sh.t - d.t); if (dd > 0.5) dd = 1 - dd; prox = Math.max(prox, Math.max(0, 1 - dd / 0.05)); }
-    const moveF = 1 - 0.7 * prox;
-    sh.t += sh.dir * sh.speed * moveF * dt;
-    if (sh.t > 1) sh.t -= 1; if (sh.t < 0) sh.t += 1;
+    const vis = VIS[sh.kind] || VIS.trade;
+    const vstage = vis.stage, sizeMul = vis.sizeMul;
+    // Repli profil legacy : réservé aux stades marchands, seuls à avoir une
+    // bande top-down sous /agents/boats/.
+    const chr = BOAT_SIZES[vstage] ? ensureBoat(vis.key) : null;
+    // La position est SIMULÉE en amont (riverFleet.js, un seul point pour les
+    // deux rendus) : ici on ne fait plus que lire. `moveF` ne sert donc qu'à
+    // l'écume — un bateau à l'arrêt ne traîne pas de sillage.
+    const stopped = sh.state === 'dock' || sh.state === 'anchor';
+    let moveF = stopped ? 0 : 1;
+    if (!stopped && sh.kind === 'trade' && !sh.done) {
+      let prox = 0;
+      for (const d of docks) { let dd = Math.abs(sh.t - d.t); if (dd > 0.5) dd = 1 - dd; prox = Math.max(prox, Math.max(0, 1 - dd / 0.05)); }
+      moveF = 1 - 0.7 * prox;
+    }
     const fi = sh.t * (sm.length - 1);
     const i0 = Math.max(0, Math.min(sm.length - 1, Math.floor(fi)));
     const i1 = Math.min(sm.length - 1, i0 + 1);
@@ -3234,15 +3391,21 @@ function drawIsoShips(dt, now) {
     const sgn = sh.dir < 0 ? -1 : 1;
     const heading = Math.atan2(sgn * (b2.y - a2.y), sgn * (b2.x - a2.x));
     const spd01 = Math.max(0, Math.min(1, (sh.speed - 0.008) / 0.012));
+    // Fondu d'entrée : un bateau naît sur le bord du ruban, qui reste visible en
+    // vue dézoomée — sans ce fondu il POPPE au bord de la carte.
+    const prevAlpha = ctx.globalAlpha;
+    if ((sh.fade || 0) < 1) ctx.globalAlpha = prevAlpha * (sh.fade || 0);
     // Sillage additif derrière la poupe + ombre : pivotés au CAP COMPLET (l'eau
     // suit la pente, seul le sprite de coque reste droit).
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(heading);
-    {
+    if (vis.wake > 0) {
       const WL = s * (0.85 + spd01 * 0.8) * (0.35 + 0.65 * moveF) * sizeMul * 0.7;
       const foam = vstage === 'cosmic' ? '150,220,255' : '225,238,245';
-      const wa = (0.10 + spd01 * 0.10) * moveF;
+      // Le sillage dit le MÉTIER autant que la coque : un cargo laboure, un
+      // plaisancier effleure, un pêcheur à l'ancre ne trouble rien du tout.
+      const wa = (0.10 + spd01 * 0.10) * moveF * vis.wake;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const gt = ctx.createLinearGradient(-s * 0.18 * sizeMul, 0, -WL, 0);
@@ -3265,12 +3428,18 @@ function drawIsoShips(dt, now) {
     ctx.restore();
     // COQUE : rotation d'objet PixelLab au SECTEUR du cap (8 vues, Phase 5 —
     // fini le profil penché « qui tombe »), sinon repli profil legacy amorti.
-    const isoBoat = BOAT_ISO[vstage] ? isoArt('boat-' + vstage + '-' + boatSector(heading)) : null;
+    const isoBoat = isoArt('boat-' + vis.key + '-' + boatSector(heading));
     const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
     if (isoBoat && isoBoat.ready) {
       const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15;
-      const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
       ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * 0.58 + bob, dw, dw);
+    } else if (sh.kind !== 'trade') {
+      // Repli des métiers dont l'art n'est pas encore récolté. SANS lui on ne
+      // verrait rien du tout et il serait impossible de régler vitesses, voies
+      // et durées avant que les sprites arrivent — or c'est précisément ce
+      // réglage-là qui décide si le fleuve est vivant.
+      drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh);
     } else if (chr && boatReady(chr)) {
       const tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
       ctx.save();
@@ -3286,6 +3455,7 @@ function drawIsoShips(dt, now) {
       ctx.restore();
     }
     ctx.imageSmoothingEnabled = prevSm;
+    ctx.globalAlpha = prevAlpha;
   }
 }
 
@@ -3391,7 +3561,7 @@ function drawIsoDrones(now) {
     if (p.x < -s || p.y < -s * 2 || p.x > CM.cw + s || p.y > CM.ch + s) continue;
     const t2 = now || 0;
     const hover = Math.sin(t2 / 380 + v.x * 0.04) * s * 0.04;
-    const dScale = CM.droneSize || 0.58;
+    const dScale = (CM.droneSize || 0.58) * VEH_SCALE;   // le drone est un véhicule : même échelle
     // Ombre AU SOL (à la position projetée), drone en altitude au-dessus.
     ctx.fillStyle = 'rgba(0,0,0,0.12)';
     ctx.beginPath(); ctx.ellipse(p.x, p.y, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2); ctx.fill();
@@ -3432,12 +3602,19 @@ function drawIsoDrones(now) {
 // lampadaires aux stades primitifs (cohérence demandée). Sprites
 // /pixelart/iso/lamp-{antique|gas|electric|energy}.png, posés au PEINTRE
 // (drawIsoLive) ; la nuit, le halo se dessine À LA TÊTE de chaque mât.
-let _isoLampCache = { at: -1, lamps: null };
+let _isoLampCache = { at: -1, key: '', lamps: null };
 function isoLamps(L, band) {
   if (band < 2 || !L.roadMap) return [];
-  if (_isoLampCache.at === CM.layoutRecomputeAt && _isoLampCache.lamps) return _isoLampCache.lamps;
-  const lamps = computeIsoLamps(L, CM.TILE);
-  _isoLampCache = { at: CM.layoutRecomputeAt, lamps };
+  // Les mâts de la PLACE viennent d'isoPlaza (computeIsoLamps saute les cellules
+  // 'plaza' : la place était éclairée par son PNG). Même format → ils héritent
+  // des sprites d'ère, des halos, du vacillement et du LOD sans une ligne de
+  // plus ici. La clé de cache porte leur nombre : changer __plaza({mode}) ou une
+  // recette doit rallumer ou éteindre la place sans recharger la page.
+  const plazaLamps = isoPlazaLamps(L, band);
+  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length;
+  if (_isoLampCache.key === key && _isoLampCache.lamps) return _isoLampCache.lamps;
+  const lamps = computeIsoLamps(L, CM.TILE).concat(plazaLamps);
+  _isoLampCache = { at: CM.layoutRecomputeAt, key, lamps };
   return lamps;
 }
 // Corps PUR (exporté pour les tests) : positions + PROFONDEUR peintre de chaque mât.
@@ -4177,10 +4354,9 @@ const VEH_DIRS = ['east', 'west', 'south', 'north'];
 // Corrections d'orientation PAR TYPE (audit visuel des rotations d'objets PixelLab,
 // planches .preview-shots/<type>-4views.png, bug vu par Raph « profil d'ouest en
 // est ») : le générateur INVERSE les deux vues SUD sur certains objets (voiture,
-// char, caravane, tram), et les BRANCARDS de la charrette sont son « avant » pour
-// le générateur alors que NOUS la poussons (brancards à l'arrière). Tableau =
-// fichier à afficher pour la dir MONDE 0..3 (E,O,S,N → écran SE,NO,SO,NE).
-// wagon et barrow sont corrects tels quels (default).
+// char, caravane, tram). Tableau = fichier à afficher pour la dir MONDE 0..3
+// (E,O,S,N → écran SE,NO,SO,NE). Le wagon est correct tel quel (default).
+// L'entrée `cart` est partie avec le retrait des véhicules poussés à la main.
 const VEH_DIAG_MAP = {
   default: ['southeast', 'northwest', 'southwest', 'northeast'],
   car: ['southwest', 'northwest', 'southeast', 'northeast'],
@@ -4189,12 +4365,15 @@ const VEH_DIAG_MAP = {
   // v3 a « redressé » l'orientation, re-audit veh-audit2.png 2026-07-11) → map
   // par défaut. ⚠ RE-AUDITER après toute régénération : les labels bougent.
   tram: ['southwest', 'northwest', 'southeast', 'northeast'],
-  cart: ['northwest', 'southwest', 'northeast', 'southeast'],
 };
-// Pas de roue (fraction de tuile parcourue par frame de bande diagonale) —
-// molette __vehStride(0.09) pour caler la vitesse de rotation apparente.
-const vehStrideT = { v: 0.09 };
-if (typeof window !== 'undefined') window.__vehStride = (x) => { if (x > 0) vehStrideT.v = x; return vehStrideT.v; };
+// Pas de roue (fraction de tuile parcourue par frame de bande diagonale) : par défaut
+// il SUIT VEH_SCALE (0.144 · 0.625 = 0.09, le réglage d'origine à taille pleine) — une
+// roue rétrécie couvre moins de sol par tour, sinon elle glisse au lieu de rouler.
+// __vehStride(x) impose une valeur fixe (unités finales), __vehStride(0) rend la main
+// au suivi automatique. Même contrat que __strideLen pour le pas des piétons.
+const vehStrideT = { v: null };
+function vehStride() { return vehStrideT.v != null ? vehStrideT.v : 0.144 * VEH_SCALE; }
+if (typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = x > 0 ? x : null; return vehStride(); };
 
 // Bête de trait (cheval/bœuf) en VUE DIAGONALE : bandes veh-{animal}-{diag}.png
 // (objets 8-dir PixelLab animés « walking » 6 frames), frame par DISTANCE
@@ -4209,9 +4388,12 @@ function drawDraftIso(ctx, x, yFeet, z, animal, v) {
   if (!img || !(img.naturalWidth > 0)) return false;
   const fh = img.naturalHeight || 68;
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
-  const fr = nf > 1 ? Math.floor((v.rollDist || 0) / (CM.TILE * vehStrideT.v)) % nf : 0;
+  const fr = nf > 1 ? Math.floor((v.rollDist || 0) / (CM.TILE * vehStride())) % nf : 0;
   const s = CM.TILE * z;
-  const dh2 = s * 0.78, dw2 = dh2;   // ≈ bêtes legacy (scale 0.72-0.74), l'objet a du vide autour
+  // Hauteur exprimée AVANT AGENT_SCALE, comme les `scale` d'agents (0.975·0.8 = 0.78
+  // tuile, l'ancienne valeur en dur) : la bête de trait suit donc la taille des
+  // habitants. Plus haut que le 0.72-0.74 legacy parce que l'objet a du vide autour.
+  const dh2 = s * 0.975 * AGENT_SCALE, dw2 = dh2;
   ctx.drawImage(img, fr * fh, 0, fh, fh, x - dw2 / 2, yFeet - dh2 * 0.82, dw2, dh2);
   return true;
 }
@@ -4235,7 +4417,10 @@ function drawIsoVehicle(ctx, v, now, z) {
   }
   const size = VEH_SIZES[v.type];
   if (!size) return;                               // type sans sprite (broken_cart…) : rien en iso
-  const dh = s * size, dw = dh;
+  // VEH_SCALE (molette __vehScale) était ignoré ICI : la vue iso dessinait les
+  // véhicules à leur taille d'art brute. Il est appliqué à la carrosserie ET aux
+  // distances d'attelage plus bas, sinon l'équipage décroche de la carrosserie.
+  const dh = s * size * VEH_SCALE, dw = dh;
   // VUE DIAGONALE si disponible (rotations d'objets PixelLab, direction-correcte,
   // multi-frames « rolling » quand la bande animée est livrée), sinon repli sur
   // la bande CARDINALE (animée mais orientée écran).
@@ -4258,7 +4443,7 @@ function drawIsoVehicle(ctx, v, now, z) {
   // patinage, molette __vehStride en fraction de tuile/frame). Cardinales :
   // cadence temporelle legacy inchangée.
   const fr = nf <= 1 ? 0
-    : usedDiag ? Math.floor((v.rollDist || 0) / (T * vehStrideT.v)) % nf
+    : usedDiag ? Math.floor((v.rollDist || 0) / (T * vehStride())) % nf
       : Math.floor((now || 0) / 130 + v.x * 0.1) % nf;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
@@ -4271,7 +4456,7 @@ function drawIsoVehicle(ctx, v, now, z) {
   const pull = VEH_PULL[v.type];
   let drawTeam = null, teamBelow = false;
   if (pull) {
-    const D = (pull.dist || 0.44) * T;
+    const D = (pull.dist || 0.44) * T * VEH_SCALE;
     const front = [[D, 0], [-D, 0], [0, D], [0, -D]][v.dir] || [0, 0];
     const ap = worldToScreen(wx + front[0], wy + front[1]);
     teamBelow = ap.y > p.y;
@@ -4293,7 +4478,7 @@ function drawIsoVehicle(ctx, v, now, z) {
   // Pousseur : humain de l'ère DERRIÈRE (charrette/brouette).
   let drawPusher = null, pusherBelow = false;
   if (VEH_PUSH[v.type]) {
-    const D = 0.34 * T;
+    const D = 0.34 * T * VEH_SCALE;
     const back = [[-D, 0], [D, 0], [0, -D], [0, D]][v.dir] || [0, 0];
     const pp = worldToScreen(wx + back[0], wy + back[1]);
     pusherBelow = pp.y > p.y;
@@ -4704,9 +4889,8 @@ function portDockGeom(t, spanX, T, band, ei, rv) {
   const ccx = t.gx + spanX / 2;
   const rb = ribbonAtX(rv, ccx);
   const yEdge = rb.y - rb.hw;
-  const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
-  const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
-    : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
+  const vstage = tradeStage(band, ei);
+  const sizeMul = tradeSizeMul(vstage, band);
   const smR = rv.samples;
   const iA = Math.max(0, rb.i - 2), iB = Math.min(smR.length - 1, rb.i + 2);
   const mRiv = (smR[iB].y - smR[iA].y) / ((smR[iB].x - smR[iA].x) || 1e-6);
@@ -4797,9 +4981,8 @@ function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const rhw = rb.hw;
   const yEdge = rb.y - rhw;              // rive NORD du ruban AU DROIT du lot
   // Tailles par ère : mêmes formules que la scène legacy (tout grandit ensemble).
-  const vstage = band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 20 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
-  const sizeMul = vstage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
-    : vstage === 'container' ? 3.2 : vstage === 'steam' ? 2.4 : vstage === 'sail' ? 1.8 : 1.36;
+  const vstage = tradeStage(band, ei);
+  const sizeMul = tradeSizeMul(vstage, band);
 
   // ── PORT : ponton PERPENDICULAIRE au fleuve + corps de quai + bateau ────────
   const stageHouse = ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
@@ -5133,10 +5316,12 @@ function drawIsoRevealPin(box, born, now) {
 
 // ── PRÉCIPITATIONS ──────────────────────────────────────────────────────────
 // Surcouche plein écran, JAMAIS un second jeu de sprites : traits d'un pixel
-// inclinés par le vent, position = fonction PURE de (now, index) comme les
-// particules d'ambiance → rien à faire vivre entre les frames, captures
-// reproductibles. Lit CM.rainF / CM.windX publiés une fois par frame par le
-// runtime (weatherMode.js). L'assombrissement passe par un aplat, et non par un
+// inclinés par le vent, position = fonction pure de (phase, index) comme les
+// particules d'ambiance — aucune goutte n'est un objet qu'on fait vivre. Seule
+// la PHASE de chute est portée d'une image à l'autre, et pour une raison
+// précise : les rafales font varier la vitesse (cf. stepRainPhase). Lit
+// CM.rainF / CM.windX / CM.gustF publiés une fois par frame par le runtime
+// (weatherMode.js). L'assombrissement passe par un aplat, et non par un
 // filtre canvas, pour préserver les contrastes comme le fait le voile de nuit.
 // La brume de rivière retirée le 2026-07-13 n'est PAS ressuscitée ici.
 //
@@ -5144,12 +5329,58 @@ function drawIsoRevealPin(box, born, now) {
 // météo, deux gestes : rien de nouveau n'est publié, donc tout ce qui lit déjà
 // la météo (la foule qui rentre, les cheminées qui fument) vaut aussi sous la
 // neige. La saison décide de la FORME, jamais de la fréquence.
-// Molette : __rain({ on, drops, len, alpha }).
-const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1 };
+//
+// RAFALES (CM.gustF, cf. weatherMode.js) : l'averse arrive par paquets. Ce que
+// la bourrasque ajoute à pleine force est réglé ci-dessous ; à gustF = 0 tout
+// retombe EXACTEMENT sur l'averse d'avant.
+// Molette : __rain({ on, drops, len, alpha, gust, width }) — gust: 0 coupe les
+// rafales, width: 0.6 rend le filet d'un pixel d'avant.
+const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1 };
 if (typeof window !== 'undefined') {
   window.__rain = (o) => { if (o) Object.assign(RAIN_TUNE, o); return { ...RAIN_TUNE }; };
 }
 const RAIN_CAP = 900;
+const RAIN_FALL_PX = 900;      // px/s de la goutte la plus LENTE (les autres, jusqu'à ×1,78)
+const GUST_DROPS = 0.8;        // rideau de rafale : + 80 % de gouttes, en FONDU (cf. rainSheet)
+const GUST_SPEED = 0.5;        // + 50 % de vitesse de chute
+const GUST_LEAN = 0.55;        // + 55 % d'inclinaison, plus une poussée plancher
+const GUST_KICK = 0.15;        // ...sinon une averse sans vent ne se couche pas du tout
+const GUST_LEN = 0.45;         // traits plus longs : c'est ce qui SE LIT comme de la vitesse
+
+// ⚠ MÊME PIÈGE QUE L'EAU (cf. ⚠⚠ PHASE ACCUMULÉE) : sous rafale la vitesse de
+// chute VARIE, et une vitesse variable ne se multiplie JAMAIS par un temps
+// absolu — le rideau bondirait à chaque bouffée, et REMONTERAIT pendant qu'elle
+// retombe. On intègre donc la descente image par image. Chaque goutte garde son
+// facteur de vitesse propre (constant), donc le rideau reste dispersé, et le dt
+// est plafonné : un retour d'onglet ne téléporte plus l'averse.
+// PAS DE MODULO sur cette phase : la borner ferait sauter le rideau (chaque
+// goutte a son facteur, aucune période commune). float64 tient des années à
+// ~1,5 écran/s. Exportée pure pour le test : c'est sa CONTINUITÉ qui compte.
+let rainPhase = 0, rainPhaseAt = -1;
+export function stepRainPhase(prev, t, rate) {
+  const dt = prev.at < 0 ? 0 : Math.min(0.25, Math.max(0, t - prev.at));
+  return { at: t, phase: prev.phase + dt * rate };
+}
+
+// Un rideau de gouttes : positions pures en (index, phase), une seule passe de
+// trait pour tout le rideau. Deux rideaux se superposent — celui du fond,
+// toujours là, et celui de la rafale, qui n'existe qu'en OPACITÉ.
+function rainSheet(ctx, seed, n, phase, W, H, dx, dy, col) {
+  ctx.strokeStyle = col;
+  ctx.beginPath();
+  // Bande de chute élargie en X : avec du vent, les gouttes doivent entrer par le
+  // bord au vent, sinon une colonne vide se creuse le long de ce bord.
+  const spanX = W + Math.abs(dx) * 2 + 40;
+  const x0 = -Math.abs(dx) - 20 + (dx < 0 ? Math.abs(dx) : 0);
+  for (let i = 0; i < n; i += 1) {
+    const sd = _rnd(seed + i, 1), sd2 = _rnd(seed + i, 2);
+    const y = _frac(phase * (1 + sd2 * 0.78) + sd) * (H + dy * 2) - dy;   // gouttes de vitesses variées
+    const x = _frac(sd2 + sd * 0.37) * spanX + x0;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y + dy);
+  }
+  ctx.stroke();
+}
 
 // Ce qui tombe pour une saison et une intensité données. Exporté pour le test :
 // c'est le seul embranchement de la fiche, et il ne se voit sur aucune image.
@@ -5158,42 +5389,66 @@ export function precipKind(season, rainF) {
   return (season | 0) === WINTER ? 'snow' : 'rain';
 }
 
+// Inclinaison sous rafale. Le SIGNE du vent est celui de l'averse entière (cf.
+// windAt) et n'est JAMAIS touché : une bourrasque couche la pluie, elle ne la
+// fait pas tourner sous les yeux du joueur. Seule l'amplitude enfle — plus une
+// poussée plancher, sans quoi une averse tirée à vent quasi nul ne montrerait
+// ses rafales qu'en densité.
+function gustWind(g) {
+  const w = CM.windX || 0;
+  return w + (w < 0 ? -1 : 1) * (Math.abs(w) * GUST_LEAN + GUST_KICK) * g;
+}
+
 function drawIsoRain(now) {
   const r = CM.rainF || 0;
   if (!RAIN_TUNE.on) return;
   const kind = precipKind(CM.season, r);
-  if (kind === 'none') return;
-  if (kind === 'snow') { drawIsoSnowfall(now, r); return; }
+  if (kind === 'none') { rainPhaseAt = -1; return; }   // horloge relâchée : l'averse suivante repart à plat
+  const g = Math.max(0, Math.min(1, (CM.gustF || 0) * RAIN_TUNE.gust));
+  if (kind === 'snow') { drawIsoSnowfall(now, r, g); return; }
   const ctx = CM.ctx, W = CM.cw, H = CM.ch;
-  // Assombrissement : même geste que NIGHT_VEIL, un aplat ardoise.
-  ctx.fillStyle = `rgba(38,46,62,${(r * 0.18).toFixed(3)})`;
+  // Assombrissement : même geste que NIGHT_VEIL, un aplat ardoise. La bouffée
+  // charge le ciel d'un cran au passage, puis le rend.
+  ctx.fillStyle = `rgba(38,46,62,${(r * 0.18 * (1 + 0.22 * g)).toFixed(3)})`;
   ctx.fillRect(0, 0, W, H);
   // L'averse est de l'agitation d'ambiance : elle suit le réglage Vie de la carte.
   const k = CM.ambianceK ?? 1;
   if (k <= 0) return;
   const n = Math.min(RAIN_CAP, Math.round((W * H) / 2600 * r * k * RAIN_TUNE.drops));
   if (n <= 0) return;
-  const wind = CM.windX || 0;
+  // Phase intégrée (cf. stepRainPhase) : c'est ELLE qui accélère sous la rafale.
+  // Jamais dans un cliché — `captureFrame` force rainF à 0, donc cette couche ne
+  // dessine pas en capture et la phase n'y entre pas.
+  const st = stepRainPhase(
+    { at: rainPhaseAt, phase: rainPhase }, (now || 0) / 1000,
+    (RAIN_FALL_PX / Math.max(1, H)) * (1 + GUST_SPEED * g)
+  );
+  rainPhaseAt = st.at; rainPhase = st.phase;
+  const wind = gustWind(g);
   const len = (10 + 14 * r) * RAIN_TUNE.len;          // px, trait plus long sous l'averse
-  const dx = wind * len * 0.8, dy = len;
-  const t = now || 0;
   const prevAA = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.strokeStyle = `rgba(186,206,232,${(0.30 * r * RAIN_TUNE.alpha).toFixed(3)})`;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  // Bande de chute élargie en X : avec du vent, les gouttes doivent entrer par le
-  // bord au vent, sinon une colonne vide se creuse le long de ce bord.
-  const spanX = W + Math.abs(dx) * 2 + 40;
-  for (let i = 0; i < n; i += 1) {
-    const sd = _rnd(i, 1), sd2 = _rnd(i, 2);
-    const speed = 900 + sd2 * 700;                    // px/s, gouttes de vitesses variées
-    const y = _frac((t * speed) / (H * 1000) + sd) * (H + len * 2) - len;
-    const x = _frac(sd2 + sd * 0.37) * spanX - Math.abs(dx) - 20 + (wind < 0 ? Math.abs(dx) : 0);
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + dx, y + dy);
+  // ÉPAISSEUR DU FILET. Un trait d'un pixel posé à coordonnées fractionnaires est
+  // ÉTALÉ par l'anticrénelage sur deux colonnes à demi-opacité : il paraît plus
+  // fin ET plus pâle qu'un vrai pixel (retour Raph 2026-07-29 : « le filet est un
+  // peu trop fin »). On épaissit donc, et à l'ENTIER — 2 px sous l'averse pleine,
+  // 1 px sur une bruine — plutôt que de monter l'opacité, qui aurait donné du
+  // gris sale au lieu d'une goutte. La rafale ajoute sa part comme au reste.
+  ctx.lineWidth = Math.max(1, Math.round((1 + 0.6 * r + 0.35 * g) * RAIN_TUNE.width));
+  const lenB = len * (1 + 0.25 * g);
+  rainSheet(ctx, 0, n, st.phase, W, H, wind * lenB * 0.8, lenB,
+    `rgba(186,206,232,${(0.30 * r * RAIN_TUNE.alpha).toFixed(3)})`);
+  // RIDEAU DE RAFALE — un SECOND jeu de gouttes, de nombre CONSTANT, dont seule
+  // l'opacité suit la bouffée. Faire varier le NOMBRE ferait naître des gouttes
+  // en plein vol (le compte se lit en bout de liste) : la densité doit enfler par
+  // FONDU. Il tombe un peu plus vite et plus long que le fond, ce qui creuse la
+  // profondeur au lieu d'épaissir uniformément le rideau.
+  if (g > 0.02) {
+    const lenG = len * (1 + GUST_LEN * g);
+    rainSheet(ctx, 7919, Math.round(n * GUST_DROPS), st.phase * 1.18, W, H,
+      wind * lenG * 0.8, lenG,
+      `rgba(198,216,238,${(0.30 * r * g * RAIN_TUNE.alpha).toFixed(3)})`);
   }
-  ctx.stroke();
   ctx.imageSmoothingEnabled = prevAA;
 }
 
@@ -5251,11 +5506,17 @@ export function isoSnowFlake(i, t, W, H, wind, unit) {
   return { x: x0 + drift * (y - H * 0.5) + sway, y, size, near };
 }
 
-function drawIsoSnowfall(now, r) {
+// La rafale traverse aussi l'hiver, mais elle s'y dit AUTREMENT : sur un rideau
+// qui descend dix fois moins vite, ce qui se lit c'est la POUSSÉE LATÉRALE, pas
+// la densité. La bourrasque de neige couche donc les flocons (gustWind) et
+// épaissit le rideau par l'opacité — aucun second jeu de flocons, aucun
+// changement de vitesse : accélérer la neige la ramènerait vers la pluie, ce que
+// toute cette fonction s'emploie à éviter.
+function drawIsoSnowfall(now, r, g = 0) {
   const ctx = CM.ctx, W = CM.cw, H = CM.ch;
   // Voile PÂLE : le ciel se couvre et la lumière se diffuse. Le voile ardoise de
   // l'averse donnait, sous la neige, une nuit sale en plein midi.
-  ctx.fillStyle = `rgba(206,214,228,${(r * 0.14).toFixed(3)})`;
+  ctx.fillStyle = `rgba(206,214,228,${(r * 0.14 * (1 + 0.2 * g)).toFixed(3)})`;
   ctx.fillRect(0, 0, W, H);
   // Comme l'averse, la neige est de l'agitation d'ambiance : elle suit le
   // réglage Vie de la carte.
@@ -5266,7 +5527,8 @@ function drawIsoSnowfall(now, r) {
   // Taille indexée sur la tuile à l'écran, comme les particules d'ambiance : au
   // dézoom le flocon reste un pixel d'art, il ne devient pas un pavé.
   const unit = Math.max(1, Math.round(CM.TILE * CM.cam.zoom * SNOWFALL_UNIT * SNOWFALL_TUNE.size));
-  const wind = CM.windX || 0;
+  const wind = gustWind(g);
+  const gk = 1 + 0.3 * g;                              // rideau plus dense à l'œil, sans flocon neuf
   const t = now || 0;
   const prevAA = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
@@ -5274,13 +5536,13 @@ function drawIsoSnowfall(now, r) {
   // Les gros sont MIS DE CÔTÉ au passage plutôt que recalculés — deux fillStyle
   // pour toute la couche, et une seule évaluation par flocon.
   const near = [];
-  ctx.fillStyle = `rgba(${SNOW_SHADE[0]},${SNOW_SHADE[1]},${SNOW_SHADE[2]},${(0.44 * r * SNOWFALL_TUNE.alpha).toFixed(3)})`;
+  ctx.fillStyle = `rgba(${SNOW_SHADE[0]},${SNOW_SHADE[1]},${SNOW_SHADE[2]},${(0.44 * r * gk * SNOWFALL_TUNE.alpha).toFixed(3)})`;
   for (let i = 0; i < n; i += 1) {
     const f = isoSnowFlake(i, t, W, H, wind, unit);
     if (f.near) { near.push(Math.round(f.x), Math.round(f.y), f.size); continue; }
     ctx.fillRect(Math.round(f.x), Math.round(f.y), f.size, f.size);
   }
-  ctx.fillStyle = `rgba(${SNOW_TOP[0]},${SNOW_TOP[1]},${SNOW_TOP[2]},${(0.72 * r * SNOWFALL_TUNE.alpha).toFixed(3)})`;
+  ctx.fillStyle = `rgba(${SNOW_TOP[0]},${SNOW_TOP[1]},${SNOW_TOP[2]},${(Math.min(1, 0.72 * r * gk) * SNOWFALL_TUNE.alpha).toFixed(3)})`;
   for (let j = 0; j < near.length; j += 3) ctx.fillRect(near[j], near[j + 1], near[j + 2], near[j + 2]);
   ctx.imageSmoothingEnabled = prevAA;
 }
@@ -5502,19 +5764,30 @@ function drawIsoLive(now) {
     if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
     { const it = pushItem(); it.d = depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T); it.kind = 'tree'; it.tr = wt; }
   }
-  // PLACE : scène complète de l'ère posée sur la dalle (profondeur au CENTRE :
-  // les passants au sud de la fontaine passent devant, ceux au nord derrière).
+  // PLACE. Deux modes, arbitrés par __plaza({mode}) :
+  //   'kit'   (défaut) — place COMPOSÉE : un item PAR PROP, chacun trié à SA
+  //           profondeur. C'est ce qui permet à un passant de croiser un banc
+  //           (la scène unique n'avait qu'une profondeur pour toute la place)
+  //           ET aux props de garder leur taille quand la place s'agrandit.
+  //   'scene' — l'ancienne image unique, gardée comme référence d'A/B.
   {
     const pb = isoPlazaBox(L);
     const pKey = plazaEraForBand(band);
     if (pb && pKey) {
-      const pArt = isoArt('plaza-' + pKey);
-      if (pArt.ready) {
-        const cxw = ((pb.gx0 + pb.gx1 + 1) / 2) * T, cyw = ((pb.gy0 + pb.gy1 + 1) / 2) * T;
-        items.push({
-          d: depthOf(cxw, cyw), kind: 'plazaScene', wx: cxw, wy: cyw,
-          px: pb.gx1 - pb.gx0 + 1, py: pb.gy1 - pb.gy0 + 1, art: pArt, eraKey: pKey,
-        });
+      if (isoPlazaKitOn(band)) {
+        // Culling par une boîte d'UNE cellule autour du pied : un prop monte
+        // au-dessus de son point d'ancrage, un test sur le point seul le ferait
+        // disparaître au ras du bord haut de l'écran.
+        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T));
+      } else if (isoPlazaSceneOn(band)) {
+        const pArt = isoArt('plaza-' + pKey);
+        if (pArt.ready) {
+          const cxw = ((pb.gx0 + pb.gx1 + 1) / 2) * T, cyw = ((pb.gy0 + pb.gy1 + 1) / 2) * T;
+          items.push({
+            d: depthOf(cxw, cyw), kind: 'plazaScene', wx: cxw, wy: cyw,
+            px: pb.gx1 - pb.gx0 + 1, py: pb.gy1 - pb.gy0 + 1, art: pArt, eraKey: pKey,
+          });
+        }
       }
     }
   }
@@ -5627,7 +5900,7 @@ function drawIsoLive(now) {
       if (v.type === 'drone') continue;
       const lo = vehicleLaneOffset(v, T);
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
-      const h = T * 0.30 * (VEH_SIZES[v.type] || 0);
+      const h = T * 0.30 * (VEH_SIZES[v.type] || 0) * VEH_SCALE;
       { const it = pushItem(); it.d = isoUnitDepth(v.x + lo.x + h, v.y + lo.y + h); it.kind = 'veh'; it.v = v; }
     }
   }
@@ -5941,6 +6214,12 @@ function drawIsoLive(now) {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
       }
       if (profParts) fp('vif-arbres');
+    } else if (it.kind === 'plazaProp') {
+      // PLACE COMPOSÉE : un prop, à sa taille en TUILES (jamais en fraction de
+      // la place). Tout le calcul est dans isoPlaza.js.
+      drawIsoPlazaProp(ctx, it.art, it.eraKey);
+    } else if (it.kind === 'plazaGrid') {
+      drawIsoPlazaGrid(ctx, it.art);     // overlay de travail (__plaza({grid|ruler}))
     } else if (it.kind === 'plazaScene') {
       // Losange de CONTENU mesuré calé pile sur l'emprise de la dalle (le
       // canvas brut décalait la scène — retour Raph).
@@ -6947,7 +7226,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   fp('quais');
   drawIsoBridgeUnder(now);
   fp('ponts-dessous');
-  drawIsoShips(dt, now);
+  drawIsoShips(now);
   fp('bateaux');
   drawIsoBridges(now);
   fp('ponts');

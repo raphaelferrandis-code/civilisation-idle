@@ -1,0 +1,65 @@
+import { describe, it, expect } from "vitest";
+
+import { shipVisual, tradeStage } from "../iso/isoRenderer.js";
+
+// Trois métiers sur le fleuve, trois aspects (riverFleet.js pilote leur vie, ce
+// module décide de quoi ils ont l'air). Deux invariants tiennent la fiche :
+//   • le PÊCHEUR garde sa barque en bois du début à la fin — c'est ce qui le
+//     rend intemporel au milieu d'une ville qui mute (arbitrage Raph) ;
+//   • le PLAISANCIER, lui, évolue en trois âges.
+//
+// Le troisième cas est une correction : l'iso avait gardé le seuil `ei >= 20`
+// pour le vapeur alors que le legacy l'avait déjà repoussé à 25 EN DOCUMENTANT
+// pourquoi (à 20, un vapeur croisait dès la bande Marbre devant des habitants
+// en toge). Les deux rendus avaient divergé sans que personne le voie ; le
+// seuil vivait même à trois endroits du seul fichier iso.
+
+describe("shipVisual — le pêcheur ne vieillit pas", () => {
+  it("garde la même barque de la première à la dernière ère", () => {
+    const eres = [[0, 1], [2, 8], [4, 18], [5, 27], [6, 34], [9, 44]];
+    const keys = new Set(eres.map(([band, ei]) => shipVisual("fisher", band, ei).key));
+    expect(keys.size).toBe(1);
+    expect([...keys][0]).toBe("fisher");
+  });
+
+  it("ne laisse aucun sillage : il est à l'ancre", () => {
+    expect(shipVisual("fisher", 4, 18).wake).toBe(0);
+    // Et le marchand, lui, laboure.
+    expect(shipVisual("trade", 4, 18).wake).toBeGreaterThan(shipVisual("yacht", 4, 18).wake);
+    expect(shipVisual("yacht", 4, 18).wake).toBeGreaterThan(0);
+  });
+});
+
+describe("shipVisual — le plaisancier a trois âges", () => {
+  it("passe de la barque au voilier puis à la vedette", () => {
+    const rames = shipVisual("yacht", 1, 4).key;
+    const voile = shipVisual("yacht", 3, 15).key;
+    const moteur = shipVisual("yacht", 5, 28).key;
+    expect(new Set([rames, voile, moteur]).size).toBe(3);
+    // Et il GRANDIT à chaque âge : une vedette ne peut pas être plus petite
+    // qu'une barque à rames.
+    expect(shipVisual("yacht", 1, 4).sizeMul)
+      .toBeLessThan(shipVisual("yacht", 3, 15).sizeMul);
+    expect(shipVisual("yacht", 3, 15).sizeMul)
+      .toBeLessThan(shipVisual("yacht", 5, 28).sizeMul);
+  });
+
+  it("reste une vedette en ère cosmique (pas de quatrième stade)", () => {
+    expect(shipVisual("yacht", 9, 44).key).toBe(shipVisual("yacht", 5, 28).key);
+  });
+});
+
+describe("tradeStage — le vapeur ne double plus les toges", () => {
+  it("n'arrive qu'à partir de l'ère 25", () => {
+    expect(tradeStage(4, 20)).toBe("sail");
+    expect(tradeStage(4, 24)).toBe("sail");
+    expect(tradeStage(5, 25)).toBe("steam");
+  });
+
+  it("garde la marche complète des ères", () => {
+    expect(tradeStage(1, 3)).toBe("raft");
+    expect(tradeStage(3, 12)).toBe("sail");
+    expect(tradeStage(6, 32)).toBe("container");
+    expect(tradeStage(8, 40)).toBe("cosmic");
+  });
+});
