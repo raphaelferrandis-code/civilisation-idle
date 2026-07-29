@@ -76,8 +76,10 @@ describe("riverFleet — cycle de vie", () => {
     expect(first).toBeDefined();
     const id = first.id;
     const dir = first.dir;
-    // Assez longtemps pour traverser tout le ruban à la vitesse la plus lente.
-    run(ships, ctl, ONLY("trade"), 200);
+    // Durée DÉDUITE de la vitesse la plus lente, jamais écrite en dur : les
+    // marchands ont déjà été ralentis une fois, et une constante en dur aurait
+    // rendu ce test faussement vert (le bateau n'aurait pas fini sa traversée).
+    run(ships, ctl, ONLY("trade"), 1 / FLEET_TUNE.speed.trade[0] + 30);
     // Le bateau de départ n'est plus là : il est sorti par le bord opposé.
     expect(ships.some((s) => s.id === id)).toBe(false);
     // Et aucun survivant n'a rebouclé : tous les `t` restent dans les bornes.
@@ -104,7 +106,7 @@ describe("riverFleet — cycle de vie", () => {
     // Passée la pose, il reprend sa route et finit par sortir de la carte.
     run(ships, ctl, ONLY("fisher"), FLEET_TUNE.fisherDwell + 10, env);
     expect(f.state).toBe("cruise");
-    run(ships, ctl, ONLY("fisher"), 200, env);
+    run(ships, ctl, ONLY("fisher"), 1 / FLEET_TUNE.speed.fisher[0] + 30, env);
     expect(ships.some((s) => s.id === f.id)).toBe(false);
   });
 

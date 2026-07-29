@@ -49,7 +49,11 @@ export const FLEET_TUNE = {
   fisherDwell: 90,     // pose du pêcheur (s) — 90 s pour que le cycle se voie
   fadeIn: 1.2,         // apparition au bord de carte (s)
   // Vitesses en FRACTION DE RUBAN par seconde (mêmes unités qu'avant).
-  speed: { trade: [0.008, 0.017], yacht: [0.0035, 0.006], fisher: [0.006, 0.009] },
+  // Marchands RALENTIS (Raph, 2026-07-29) : ils filaient trop vite pour des
+  // bateaux de charge, ce qui contredisait le plafond et les creux — un fleuve
+  // peu peuplé mais parcouru au pas de course reste agité. Une traversée entière
+  // prend maintenant 2 à 3 minutes.
+  speed: { trade: [0.005, 0.010], yacht: [0.0035, 0.006], fisher: [0.006, 0.009] },
 };
 
 export const FLEET_KINDS = ['trade', 'yacht', 'fisher'];

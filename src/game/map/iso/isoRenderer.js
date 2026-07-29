@@ -24,7 +24,7 @@ import { drawWonder } from '../renderBuildings.js';
 import { engineStage, propReady, blitProp, propBBox } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { glInit, glBegin, glQuad, glFlush, glGetCanvas } from '../glPainter.js';
-import { suspendFlameGlow, paintFlameGlows, queueFlameGlow } from '../flameGlow.js';
+import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -43,7 +43,7 @@ import {
 // en tuiles, molette __plaza) vit dans isoPlaza.js. Ici on ne fait que pousser
 // ses items dans le tri peintre. Cf. docs/PLACES-ISO-COMPOSEES.md.
 import {
-  isoPlazaBox, plazaEraForBand, isoPlazaItems, isoPlazaLamps,
+  isoPlazaBox, isoPlazaBoxes, plazaEraForBand, isoPlazaItems, isoPlazaLamps,
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround,
   drawIsoPlazaProp, drawIsoPlazaGrid,
 } from './isoPlaza.js';
@@ -3324,66 +3324,85 @@ function drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh) {
   ctx.restore();
 }
 
-// ── FANAL DE NUIT ───────────────────────────────────────────────────────────
+// ── FEUX DE NAVIGATION ──────────────────────────────────────────────────────
 // Aucun bateau ne lisait `nightF` : la nuit tombée, le fleuve devenait un ruban
-// mort pendant que la ville s'allumait. Chaque coque porte donc un feu, et ce
-// feu se REFLÈTE — c'est le reflet, plus que la source, qui fait qu'un bateau
-// nocturne se lit comme posé SUR de l'eau et non collé dessus.
+// mort pendant que la ville s'allumait.
 //
-// ⚠ La lumière passe par queueFlameGlow (flameGlow.js) et JAMAIS par un halo
-// posé sur place : le voile de nuit passe après le tri peintre, il mangerait
-// plus de la moitié de l'intensité et virerait le feu au bleu. Piège déjà payé
-// sur les flammes des scènes moteur.
+// La première version posait UN fanal ambre avec halo et reflet. Rejeté par
+// Raph (2026-07-29) au profit du vrai : un bateau porte DEUX feux de position en
+// haut du mât, ROUGE à bâbord et VERT à tribord. Deux points colorés discrets
+// racontent mieux « bateau » qu'une belle lueur — et ils donnent gratuitement le
+// SENS DE MARCHE, ce que le halo ne faisait pas.
 //
-// Teinte par ÈRE plutôt que par métier : une lanterne à huile et un feu de
-// position à LED n'ont pas la même couleur, et c'est ce qui date la scène.
-// Molette : __boatLamp({ on, gain, r }).
-const BOAT_LAMP = { on: true, gain: 1, r: 1 };
+// Trois conséquences tenues ici :
+//   • plus aucun halo ni reflet — rien que deux pixels ;
+//   • intensité franchement baissée (un feu de position balise, il n'éclaire pas) ;
+//   • le PÊCHEUR n'en porte aucun : il est à l'ancre, hors des règles de route,
+//     et sa scène est celle d'un type tranquille dans le noir.
+//
+// ⚠ ILS SONT PEINTS DANS UNE PASSE À PART, APRÈS LE VOILE DE NUIT. J'ai d'abord
+// cru que supprimer le halo dispensait de la doctrine « jamais de lumière avant
+// le voile » — qu'un simple pixel additif y survivrait. Faux, et vérifié à
+// l'encre : zéro pixel rouge ou vert dans le PNG de nuit, le voile les avait
+// tous mangés. Ce n'est pas le halo qui impose la doctrine, c'est le VOILE, et
+// il tombe sur tout ce que la passe vivante a peint.
+// La couche de lumière (lightCtx) ne servait pas non plus : elle n'est armée que
+// pendant drawIsoLive, et les bateaux sont dessinés AVANT. D'où drawIsoShipNight,
+// exactement sur le modèle des lanternes de pont (drawIsoBridgeNight).
+// Molette : __navLights({ on, gain, size }).
+const NAV_LIGHTS = { on: true, gain: 1, size: 1 };
 if (typeof window !== 'undefined') {
-  window.__boatLamp = (o) => { if (o) Object.assign(BOAT_LAMP, o); return { ...BOAT_LAMP }; };
+  window.__navLights = (o) => { if (o) Object.assign(NAV_LIGHTS, o); return { ...NAV_LIGHTS }; };
 }
-// Poids de la lueur d'un fanal. DEUX choses y sont enfermées, et les deux ont
-// été payées :
-//   • le facteur 2,6 — réglé au cliché de nuit, pas au raisonnement. À 1, les
-//     fanaux étaient noyés par les lampadaires de la rive : un fleuve encore
-//     mort à côté d'une ville allumée. À 2,6 ils tiennent leur rang sans écraser
-//     la berge, en vue large comme au zoom.
-//   • le produit par nightF — SANS LUI un fanal brillerait en plein midi.
-//     `flameGlowAlpha` porte un plancher de jour DÉLIBÉRÉ (FLAME_GLOW.day) pour
-//     qu'une forge brûle aussi à midi ; un feu de position, lui, n'a rien à
-//     éclairer de jour. C'est la seule raison d'être de cette fonction, et le
-//     test boatLamp.test.js monte la garde dessus.
+export const NAV_PORT_COL = '255,60,52';    // bâbord — rouge
+export const NAV_STBD_COL = '60,255,110';   // tribord — vert
+
+// Un bateau à l'ancre ne porte pas de feux de route. C'est une règle de métier,
+// pas un détail de rendu : le pêcheur DOIT rester noir sur l'eau.
+export function boatHasNavLights(kind) { return kind !== 'fisher'; }
+
+// Intensité des feux. Le produit par nightF est la garde qui compte :
+// `flameGlowAlpha` porte un plancher de JOUR délibéré pour qu'une forge brûle à
+// midi, et la première version en héritait. Un feu de position n'a rien à
+// signaler de jour. Le 0,62 remplace l'ancien 2,6 — Raph les trouvait trop forts.
 export function boatLampMul(nightF, gain) {
-  return Math.max(0, nightF || 0) * 2.6 * (gain == null ? 1 : gain);
+  return Math.max(0, nightF || 0) * 0.62 * (gain == null ? 1 : gain);
 }
-export function boatLampCol(band) {
-  return band >= 7 ? '150,220,255'      // tech — feu froid
-    : band >= 6 ? '226,236,255'         // moderne — halogène blanc
-      : band >= 5 ? '255,214,150'       // industriel — lampe à pétrole
-        : '255,172,72';                 // huile et suif (FLAME_COL)
+
+// Positions écran des deux feux : perpendiculaires au CAP, de part et d'autre.
+// En repère écran (y vers le bas), tourner le cap de -90° donne la gauche du
+// sens de marche, donc bâbord. Renvoie { port, stbd } en décalages px.
+export function navLightOffsets(heading, d) {
+  const sx = Math.sin(heading) * d, sy = -Math.cos(heading) * d;
+  return { port: { x: sx, y: sy }, stbd: { x: -sx, y: -sy } };
 }
-function drawIsoBoatLamp(ctx, p, s, sizeMul, sh, band, now) {
+
+// Passe de nuit des bateaux : APRÈS drawIsoNight, comme les lanternes de pont.
+// Elle consomme l'ancre écran que drawIsoShips a laissée sur chaque coque —
+// `_navAt` la date, sinon une coque sortie du champ garderait sa position de la
+// frame d'avant et sèmerait deux pixels au milieu de l'eau.
+function drawIsoShipNight(now) {
   const night = CM.nightF || 0;
-  if (!BOAT_LAMP.on || night <= 0.02) return;
-  const col = boatLampCol(band);
-  const dw = s * 0.7 * sizeMul;
-  // Le fanal est porté à l'avant, un peu au-dessus de la ligne de flottaison.
-  const lx = p.x, ly = p.y - dw * 0.22;
-  const r = Math.max(2, dw * 0.22) * BOAT_LAMP.r;
-  const K = boatLampMul(night, BOAT_LAMP.gain);
-  queueFlameGlow(lx, ly, r, col, now, sh.id * 1.7, K);
-  // REFLET : deux nappes empilées vers le bas, de plus en plus larges et pâles.
-  // C'est lui, plus que la source, qui fait lire le bateau comme posé SUR de
-  // l'eau. Une vraie traînée verticale coûterait un dégradé de plus par bateau ;
-  // deux glows décalés donnent la même lecture pour rien.
-  queueFlameGlow(lx, ly + dw * 0.30, r * 1.5, col, now, sh.id * 1.7 + 2, K * 0.42);
-  queueFlameGlow(lx, ly + dw * 0.60, r * 2.2, col, now, sh.id * 1.7 + 4, K * 0.20);
-  // La SOURCE elle-même : sans ce point vif, on aurait une auréole sans lampe.
+  if (!NAV_LIGHTS.on || night <= 0.02 || !CM.ships || !CM.ships.length) return;
+  const a = boatLampMul(night, NAV_LIGHTS.gain);
+  if (a <= 0.01) return;
+  const ctx = CM.ctx;
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = `rgba(${col},${(0.55 * night).toFixed(3)})`;
-  const px = Math.max(1, Math.round(dw * 0.05));
-  ctx.fillRect(Math.round(lx - px / 2), Math.round(ly - px / 2), px, px);
+  for (const sh of CM.ships) {
+    if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh.kind)) continue;
+    const { x, y, dw, heading } = sh._nav;
+    // « En haut du mât » : au-dessus de la coque, pas sur la flottaison. 0,30 et
+    // pas 0,42 — au-delà, les feux se détachent du bateau et flottent dans le
+    // vide (les sprites portent beaucoup de transparent au-dessus de la coque).
+    const my = y - dw * 0.30;
+    const off = navLightOffsets(heading, dw * 0.16);
+    const px = Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
+    for (const [o, col] of [[off.port, NAV_PORT_COL], [off.stbd, NAV_STBD_COL]]) {
+      ctx.fillStyle = `rgba(${col},${Math.min(1, a).toFixed(3)})`;
+      ctx.fillRect(Math.round(x + o.x - px / 2), Math.round(my + o.y - px / 2), px, px);
+    }
+  }
   ctx.globalCompositeOperation = prevOp;
 }
 
@@ -3527,7 +3546,10 @@ function drawIsoShips(now) {
       ctx.restore();
     }
     ctx.imageSmoothingEnabled = prevSm;
-    drawIsoBoatLamp(ctx, p, s, sizeMul, sh, band, now);
+    // Ancre écran pour la passe de nuit (drawIsoShipNight) : les feux de
+    // position ne peuvent pas être peints ici, le voile passerait dessus.
+    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading };
+    sh._navAt = now;
     ctx.globalAlpha = prevAlpha;
   }
 }
@@ -5793,10 +5815,15 @@ function drawIsoLive(now) {
   // reste). AÉRATION (retour Raph « tout est trop collé ») : pas d'arbre décoratif
   // à moins de 1.5 cellule de la place ni à moins de 1 cellule d'un terre-plein
   // (ils chevauchaient la fontaine et les haies).
-  const pbT = isoPlazaBox(L);
+  // ⚠ TOUTES les places, pas seulement la centrale : les places de quartier ont
+  // droit au même dégagement, sinon un arbre du décor vient chevaucher leur
+  // mobilier.
+  const pbT = isoPlazaBoxes(L);
   const segsT = L.terrePlein || [];
   const treeBlocked = (gx, gy) => {
-    if (pbT && gx >= pbT.gx0 - 1.5 && gx <= pbT.gx1 + 1.5 && gy >= pbT.gy0 - 1.5 && gy <= pbT.gy1 + 1.5) return true;
+    for (const b of pbT) {
+      if (gx >= b.gx0 - 1.5 && gx <= b.gx1 + 1.5 && gy >= b.gy0 - 1.5 && gy <= b.gy1 + 1.5) return true;
+    }
     for (const sg of segsT) {
       if (sg.axis === 'v') {
         if (Math.abs(gx + 0.5 - (sg.x + 1)) < 1.0 && gy >= sg.y0 - 1 && gy <= sg.y1 + 1.5) return true;
@@ -7310,6 +7337,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   fp('ciel');
   drawIsoNight(now);
   drawIsoBridgeNight(now);   // lanternes de pont : halos + reflets dans l'eau, par-dessus le voile
+  drawIsoShipNight(now);     // feux de position rouge/vert — même raison : le voile les mangeait
   fp('nuit');
   drawIsoRain(now);      // averse — après la nuit : la pluie passe DEVANT les halos
   drawIsoAmbient(now);   // feuilles / lucioles / motes — par-dessus le voile de nuit
