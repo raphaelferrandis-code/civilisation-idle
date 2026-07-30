@@ -90,6 +90,13 @@ const PLAZA_ERA_TONE = {
 // entière au repos — jamais les deux à la fois, jamais deux lignes parallèles.
 export const waterShoreTune = {
   on: true,
+  // SUIT LE CORPS D'EAU (Raph, 2026-07-30). Depuis les coloris pilotés par l'état
+  // (cf. WATER_SHEETS), un liseré figé en bleu-gris ardoise jurait franchement sur
+  // un fleuve azur ou turquoise : c'est la MÊME eau, en moins profond, donc sa
+  // teinte doit venir du même endroit. `follow: false` rend la main aux c1/c2/c3
+  // ci-dessous, qui restent le jeu ardoise d'origine (et le repli si la table des
+  // coloris ne dit rien).
+  follow: true,
   maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
   lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
@@ -2561,6 +2568,39 @@ function riverRibbonScreen(pts, T) {
 // (NAV_STAGES l'a montré) serait en zone morte et jetterait au chargement.
 configureRiverLife({ ribbonPath: riverRibbonPath, precipKind });
 
+// Chemin du ruban d'eau, ÎLES COMPRISES.
+//
+// ⚠ Les îles sont des SOUS-CHEMINS SÉPARÉS, et tout consommateur doit donc
+// remplir ou clipper en 'evenodd' (cf. WATER_FILL) : en règle nonzero, une île
+// tracée dans le même sens que le ruban ne creuserait rien du tout et l'eau
+// passerait par-dessus la terre. C'est le seul piège de ce fichier, et il est
+// silencieux — l'image est juste « comme avant ».
+//
+// Le contour d'île est tracé en MONDE puis projeté point par point : une ellipse
+// écran serait fausse, la projection iso écrase l'axe vertical de moitié et fait
+// tourner les axes avec le cap du fleuve.
+const WATER_FILL = 'evenodd';
+
+// Contour d'une île en points ÉCRAN. Tracé en MONDE puis projeté point par
+// point : une ellipse écran serait fausse, la projection iso écrase l'axe
+// vertical de moitié et fait tourner les axes avec le cap du fleuve.
+// Partagé par le chemin d'eau et le bas-fond, pour que la berge de l'île tombe
+// exactement sur le bord de l'eau.
+function islandOutline(il, T, N = 30) {
+  const out = [];
+  for (let i = 0; i <= N; i += 1) {
+    const a = (i / N) * Math.PI * 2;
+    const al = Math.cos(a) * il.rx, cr = Math.sin(a) * il.ry;
+    // Repère de l'île : `al` le long du courant, `cr` en travers.
+    out.push(worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T));
+  }
+  return out;
+}
+const riverIslands = () => {
+  const rv = CM.layout && CM.layout.river;
+  return (rv && rv.islands) || null;
+};
+
 function riverRibbonPath(ctx, pts, T) {
   const { left, right } = riverRibbonScreen(pts, T);
   ctx.beginPath();
@@ -2568,6 +2608,14 @@ function riverRibbonPath(ctx, pts, T) {
   for (let i = 1; i < left.length; i += 1) ctx.lineTo(left[i].x, left[i].y);
   for (let i = right.length - 1; i >= 0; i -= 1) ctx.lineTo(right[i].x, right[i].y);
   ctx.closePath();
+  const isles = riverIslands();
+  if (!isles) return;
+  for (const il of isles) {
+    const o = islandOutline(il, T);
+    ctx.moveTo(o[0].x, o[0].y);
+    for (let i = 1; i < o.length; i += 1) ctx.lineTo(o[i].x, o[i].y);
+    ctx.closePath();
+  }
 }
 // ── OMBRES DE POISSONS (retour Raph, réf. Animal Crossing) ───────────────────
 // Silhouettes sombres fusiformes qui dérivent SOUS la surface : corps + queue
@@ -2592,7 +2640,7 @@ function drawIsoFishShadows(ctx, rv, T, z, now) {
   const t = (now || 0) / 1000;
   ctx.save();
   riverRibbonPath(ctx, sm, T);
-  ctx.clip();
+  ctx.clip(WATER_FILL);
   for (let i = 0; i < n; i += 1) {
     // ⚠ cmHash renvoie du SIGNÉ (piège connu) : h forcé en unsigned, sinon les
     // modulos sortent négatifs → tailles négatives (ellipse() jette) et alphas
@@ -2833,7 +2881,7 @@ function drawIsoWaterGrain(ctx, pts, T, z, now) {
   ctx.imageSmoothingEnabled = false;
   ctx.save();
   riverRibbonPath(ctx, pts, T);
-  ctx.clip();
+  ctx.clip(WATER_FILL);
   for (const ly of G.layers) {
     const d = t * ly.speed * z;
     const ox = anchor.x + dx * d - dy * d * (ly.lat || 0);
@@ -2964,16 +3012,58 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
 // : ici la teinte EST l'information, la rabattre sur WATER la détruirait — c'est
 // l'exception assumée à la règle « la texture ne déplace pas le ton du fleuve ».
 //
-// `pale` = la teinte la plus CLAIRE de la bande, celle que le voile de beau temps
-// (tint < 0) vient poser. Elle est prise DANS la bande et non fixée une fois pour
-// toutes, sinon l'éclat ardoise de l'ancienne planche viendrait désaturer l'azur.
-const WATER_SHEETS = {
-  beau: { src: '/pixelart/water/river-tiles-calm-azur.png', pale: '207,255,255' },
-  usure: { src: '/pixelart/water/river-tiles-calm-turquoise.png', pale: '207,255,255' },
-  hiver: { src: '/pixelart/water/river-tiles-calm-hiver.png', pale: '219,243,243' },
-  pluie: { src: '/pixelart/water/river-tiles-calm.png', pale: '158,184,192' },
-  brute: { src: '/pixelart/water/river-tiles.png', pale: '158,184,192' },
+// Chaque coloris porte TOUT ce qui doit s'accorder à lui, et pas seulement son
+// PNG — sinon le fleuve change de couleur en laissant derrière lui un liseré et
+// des reflets restés en ardoise (constaté en jeu le 2026-07-30) :
+//   `pale`  la teinte la plus CLAIRE de la bande, celle que le voile de beau temps
+//           (tint < 0) vient poser. Prise DANS la bande, sinon l'éclat ardoise de
+//           l'ancienne planche désature l'azur.
+//   `dim`   AJOUTÉ au tint (positif = plus sombre). Retour Raph « l'état normal est
+//           un peu trop flashy en jeu » : l'azur natif est nettement plus vif que
+//           la carte, et il recevait EN PLUS le voile pâle du beau temps (−0,10),
+//           donc on l'éclaircissait encore. `dim` renverse ce voile et pose un
+//           soupçon d'ardoise par-dessus. Les autres coloris restent à 0.
+//   `shore` les 3 bandes du bas-fond, du halo doux au liseré vif (waterShoreTune).
+//   `quay`  le bas-fond que trace le MUR DE QUAI (renderWorld drawRun) dès la
+//           bande 2 : sans lui, faire suivre le liseré n'aurait rien changé aux
+//           ères qui ont des quais, c'est-à-dire presque toutes.
+//   `wash`  la teinte vers laquelle on tire les reflets nocturnes de la ville.
+// Exportée : un coloris ajouté sans son accord complet ferait retomber le liseré
+// en ardoise sans que rien ne proteste — c'est la table elle-même qu'on teste.
+export const WATER_SHEETS = {
+  beau: {
+    src: '/pixelart/water/river-tiles-calm-azur.png', pale: '207,255,255', dim: 0.14,
+    shore: ['96,175,250', '140,212,252', '206,242,255'],
+    quay: ['rgba(120,190,235,0.50)', 'rgba(206,238,252,0.62)'], wash: '95,200,250',
+  },
+  usure: {
+    src: '/pixelart/water/river-tiles-calm-turquoise.png', pale: '207,255,255', dim: 0,
+    shore: ['74,190,175', '132,222,210', '206,248,242'],
+    quay: ['rgba(110,200,188,0.50)', 'rgba(206,244,236,0.62)'], wash: '80,220,205',
+  },
+  hiver: {
+    src: '/pixelart/water/river-tiles-calm-hiver.png', pale: '219,243,243', dim: 0,
+    shore: ['140,168,214', '178,202,232', '224,240,248'],
+    quay: ['rgba(160,186,214,0.50)', 'rgba(224,238,248,0.62)'], wash: '150,190,225',
+  },
+  // Ardoise : valeurs HISTORIQUES à l'identique (liseré validé le 2026-07-16,
+  // bas-fond de quai d'origine) — ce coloris ne doit rien changer à l'existant.
+  pluie: {
+    src: '/pixelart/water/river-tiles-calm.png', pale: '158,184,192', dim: 0,
+    shore: ['120,160,175', '150,192,205', '190,224,232'],
+    quay: ['rgba(150,184,180,0.50)', 'rgba(202,224,214,0.62)'], wash: '150,190,205',
+  },
+  brute: {
+    src: '/pixelart/water/river-tiles.png', pale: '158,184,192', dim: 0,
+    shore: ['120,160,175', '150,192,205', '190,224,232'],
+    quay: ['rgba(150,184,180,0.50)', 'rgba(202,224,214,0.62)'], wash: '150,190,205',
+  },
 };
+// Molette des coloris : régler à chaud la teinte d'un corps d'eau et de tout ce qui
+// s'y accorde, p.ex. `__waterSheets.beau.dim = 0.2` ou `.shore[2] = '210,240,255'`.
+// ⚠ Posée APRÈS la table : un `window.x = WATER_SHEETS` écrit plus haut dans le
+// module lève un ReferenceError de TDZ à l'import et tue tout le renderer.
+if (typeof window !== 'undefined') window.__waterSheets = WATER_SHEETS;
 // PRIORITÉ : averse > hiver > usure > beau fixe. La précipitation et la saison
 // habillent TOUTE la scène (sol enneigé, voile de pluie) — un fleuve turquoise au
 // milieu d'une carte blanche se lirait comme un bug, alors que l'usure, elle, se
@@ -2992,7 +3082,11 @@ export function waterBandKey({ rainF = 0, snow = false, winter = false, ruined =
 // le temps du décodage — de quoi faire conclure « la bande calme ne s'affiche
 // pas » alors qu'elle n'est simplement pas encore prête. Ici c'est devenu
 // indispensable : les coloris s'échangent en cours de partie.
-const waterSheets = new Map();            // clé -> { img, ready, frames, pale }
+// ⚠ CETTE ENTRÉE NE PORTE QUE L'IMAGE. Elle a d'abord recopié `pale` depuis la
+// table, et le jour où `dim` est arrivé la recopie ne l'a pas suivi : le réglage
+// existait, les tests passaient, et le rendu lisait `undefined`. Les teintes se
+// lisent donc TOUJOURS dans WATER_SHEETS (via wb.cfg), jamais ici.
+const waterSheets = new Map();            // clé -> { img, ready, frames }
 function waterSheet(key) {
   const cfg = WATER_SHEETS[key] || WATER_SHEETS.pluie;
   let e = waterSheets.get(key);
@@ -3001,7 +3095,7 @@ function waterSheet(key) {
   const im = new Image();
   // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis la Map dans le
   // callback : deux chargements peuvent se croiser au basculement.
-  e = { img: im, ready: false, frames: null, pale: cfg.pale };
+  e = { img: im, ready: false, frames: null };
   waterSheets.set(key, e);
   im.onload = () => { e.ready = true; };
   im.onerror = () => { e.ready = false; };   // PNG absent → fill WATER nu
@@ -3024,6 +3118,7 @@ export function stepWaterBand(prev, t, key, fade) {
   return { key, from: prev.from, mix: fade > 0 ? Math.min(1, prev.mix + dt / fade) : 1, at: t };
 }
 let waterBand = { key: null, from: null, mix: 1, at: -1 };
+let waterPreloaded = false;               // déclaré AVANT son lecteur (piège de TDZ)
 // ── NAPPE EN MOTIF RÉPÉTÉ ────────────────────────────────────────────────────
 // `createPattern` répète TOUTE l'image, pas un rectangle source : la frame
 // courante de la bande doit donc vivre dans son propre canvas 16×16. Huit
@@ -3044,25 +3139,43 @@ function waterFrameTile(sheet, fi) {
   return c;
 }
 
-function drawIsoWaterTiles(ctx, pts, T, z, now) {
-  const G = waterTilesTune;
-  const t = (now || 0) / 1000;
+// Coloris courant du fleuve — RÉSOLU UNE FOIS PAR FRAME, au tout début du dessin
+// du fleuve, et publié sur CM pour tout ce qui doit s'y accorder (bas-fond du
+// quai dans renderWorld, reflets nocturnes). Il ne peut pas vivre dans
+// `drawIsoWaterTiles` : cette fonction ne s'exécute pas pendant un effondrement,
+// or le liseré, lui, continue de se dessiner — il aurait gardé le coloris d'avant.
+// ⚠ À n'appeler QU'UNE FOIS par frame : le fondu s'intègre pas à pas.
+function waterBandNow(now) {
+  const G = waterTilesTune, t = (now || 0) / 1000;
   // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
   // (cityMapRuntime) — une mesure faite en capture ne voit JAMAIS le cas pluie.
+  const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
   // EN HIVER l'averse tombe en NEIGE (cf. precipKind) : le ciel se couvre encore
   // un peu, mais un flocon ne CREUSE pas l'eau. On garde donc un tiers de l'effet
   // — sans quoi l'eau se mettait à claquer comme sous l'orage pendant qu'il neige.
-  // Résolu ICI et non plus bas : le coloris du fleuve en dépend.
-  const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
   const snow = precipKind(CM.season, rf0) === 'snow';
-  // Coloris de l'état + fondu. En capture on force le fondu à son terme : une
-  // frame de synthèse doit être reproductible, pas prise au milieu d'un mélange.
-  const bandK = waterBandKey({
+  const key = waterBandKey({
     rainF: rf0, snow, winter: CM.season === WINTER, ruined: !!CM.frameRuined, calm: G.calm,
   });
+  // En capture on force le fondu à son terme : une frame de synthèse doit être
+  // reproductible, pas prise au milieu d'un mélange.
   let band;
-  if (CM.capture) band = { key: bandK, from: bandK, mix: 1, at: t };
-  else { waterBand = stepWaterBand(waterBand, t, bandK, G.fade); band = waterBand; }
+  if (CM.capture) band = { key, from: key, mix: 1, at: t };
+  else { waterBand = stepWaterBand(waterBand, t, key, G.fade); band = waterBand; }
+  const cfg = WATER_SHEETS[band.key] || WATER_SHEETS.pluie;
+  CM.waterShore = cfg;
+  // PRÉCHARGE des autres coloris, une seule fois. Un coloris demandé pour la
+  // première fois n'est pas décodé : `drawIsoWaterTiles` sort alors sur « image
+  // non prête » et le fleuve retombe à l'aplat ardoise le temps du décodage. Le
+  // fondu masque ce trou (l'ancienne bande tient l'écran), mais pas au tout
+  // premier passage d'une partie. Quatre PNG de 2,7 ko : autant les tenir prêts.
+  if (!waterPreloaded) { waterPreloaded = true; for (const k of Object.keys(WATER_SHEETS)) waterSheet(k); }
+  return { band, cfg, rf0, snow, t };
+}
+
+function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
+  const G = waterTilesTune;
+  const { band, rf0, snow, t } = wb;
   // Diagnostic opt-in (globalThis.__waterSpanStats = true) : dit PAR QUEL
   // garde-fou la nappe est coupée. Éteint, coût nul (un test de drapeau).
   // Hors du bloc de cull, sinon __waterSpanCull = false le rendait muet.
@@ -3114,7 +3227,9 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
     * Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.gustF || 0) * RAIN_TUNE.gust : 0));
   const fps = mix(G.fair.fps, G.rain.fps) * gustK;
   const drift = mix(G.fair.drift, G.rain.drift) * gustK;
-  const tint = mix(G.fair.tint, G.rain.tint);
+  // `dim` du coloris : l'azur natif recevait le voile PÂLE du beau temps, donc on
+  // l'éclaircissait encore alors qu'il était déjà trop vif (cf. WATER_SHEETS).
+  const tint = mix(G.fair.tint, G.rain.tint) + (wb.cfg.dim || 0);
   // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
   // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
   // temps × vitesse ne saute pas et reste déterministe, ce qu'exige une capture.
@@ -3167,7 +3282,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = pat;
       riverRibbonPath(ctx, pts, T);
-      ctx.fill();
+      ctx.fill(WATER_FILL);
       return true;
     };
     ctx.save();
@@ -3186,9 +3301,9 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
         const a = Math.min(1, Math.abs(tint)).toFixed(3);
         // Le voile clair est l'ÉCLAT DE LA BANDE elle-même : pris ailleurs, il
         // désaturerait l'azur avec le gris de l'ancienne planche ardoise.
-        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${sheet.pale},${a})`;
+        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${wb.cfg.pale},${a})`;
         riverRibbonPath(ctx, pts, T);
-        ctx.fill();
+        ctx.fill(WATER_FILL);
       }
       ctx.restore();
       return;
@@ -3263,7 +3378,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   ctx.imageSmoothingEnabled = G.worldPx * z < 1;
   ctx.save();
   riverRibbonPath(ctx, pts, T);
-  ctx.clip();
+  ctx.clip(WATER_FILL);
   ctx.globalAlpha = Math.min(1, G.strength);
   for (let row = r0; row <= r1; row += 1) {
     let cA = c0, cB = c1;
@@ -3285,9 +3400,9 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   if (tint !== 0) {
     ctx.globalAlpha = 1;
     const a = Math.min(1, Math.abs(tint)).toFixed(3);
-    ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${sheet.pale},${a})`;
+    ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${wb.cfg.pale},${a})`;
     riverRibbonPath(ctx, pts, T);
-    ctx.fill();
+    ctx.fill(WATER_FILL);
   }
   ctx.restore();
   ctx.globalAlpha = prevA;
@@ -3299,10 +3414,13 @@ function drawIsoRiver(now) {
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
   const T = CM.TILE, ctx = CM.ctx, z = CM.cam.zoom;
   const pts = rv.samples;
+  // Coloris de l'état AVANT tout dessin : le liseré ci-dessous, le bas-fond du
+  // quai (renderWorld) et les reflets nocturnes le lisent tous sur CM.
+  const wb = waterBandNow(now);
   // Corps d'eau (ardoise).
   riverRibbonPath(ctx, pts, T);
   ctx.fillStyle = rgb(WATER, 1);
-  ctx.fill();
+  ctx.fill(WATER_FILL);
   // Surface de l'eau, SOUS les liserés de bas-fond (qui portent la lecture du
   // bord) et sous poissons/vaguelettes.
   // La tuile animée porte le relief ; le grain procédural reste là, coupé.
@@ -3314,7 +3432,7 @@ function drawIsoRiver(now) {
   // le fleuve perd sa matière alors que toute la ville garde la sienne.
   // Seul l'EFFONDREMENT en cours (CM.collapseAt) dénude encore l'eau.
   if (!CM.collapseAt) {
-    drawIsoWaterTiles(ctx, pts, T, z, now);
+    drawIsoWaterTiles(ctx, pts, T, z, now, wb);
     drawIsoWaterGrain(ctx, pts, T, z, now);
   }
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
@@ -3353,6 +3471,12 @@ function drawIsoRiver(now) {
         }
         edges.push(path);
       }
+      // La BERGE D'UNE ÎLE est une rive comme les autres : elle reçoit le même
+      // bas-fond. Sans ça, l'île se découpait au couteau dans l'eau — un ovale
+      // posé sur le fleuve au lieu d'une terre qui en émerge. Le clip en
+      // 'evenodd' garde la moitié du trait qui tombe dans l'eau, exactement
+      // comme pour les rives.
+      for (const il of (riverIslands() || [])) edges.push(islandOutline(il, T));
       const shore = (color, width) => {
         ctx.strokeStyle = color; ctx.lineWidth = width;
         for (const path of edges) {
@@ -3364,13 +3488,17 @@ function drawIsoRiver(now) {
       };
       ctx.save();
       riverRibbonPath(ctx, pts, T);
-      ctx.clip();
+      ctx.clip(WATER_FILL);
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       // A/B utilisable EN PRODUCTION (globalThis.__waterShoreMerge = false),
       // comme __waterSpanCull : la molette __waterShore, elle, est gardée par
       // import.meta.env.DEV et n'existe pas dans le .exe — or c'est justement
       // là que le lag se reproduit. Pour RÉGLER l'aspect (lodW/lodA/lodC),
       // passer par `npm run dev`.
+      // Teintes DU CORPS D'EAU COURANT (cf. waterShoreTune.follow) : le bas-fond
+      // est la même eau en moins profond, il ne peut pas rester ardoise sous un
+      // fleuve azur. Repli sur les c1/c2/c3 du réglage si `follow` est coupé.
+      const sc = (S.follow !== false && wb.cfg.shore) ? wb.cfg.shore : [S.c1, S.c2, S.c3];
       if (S.lodMerge && CM.lodActive && globalThis.__waterShoreMerge !== false) {
         // AU DÉZOOM : UN SEUL TRAIT. Les trois bandes (18/10/4,5 × zoom) se
         // réduisent alors à 6,3 / 3,5 / 1,6 px : elles se confondent à l'œil en
@@ -3380,11 +3508,14 @@ function drawIsoRiver(now) {
         // On garde donc la lecture du bord clair — demandée « tout le temps »
         // le 2026-07-22 — pour un tiers du tracé. Réglable à chaud :
         // window.__waterShore({ lodMerge, lodW, lodC, lodA }).
-        shore(`rgba(${S.lodC},${S.lodA})`, Math.max(2, z * S.lodW));
+        // lodC EST la teinte vive du liseré (= c3) : elle suit donc le coloris
+        // comme les trois autres, sinon le dézoom ramènerait l'ardoise.
+        const lc = (S.follow !== false && wb.cfg.shore) ? sc[2] : S.lodC;
+        shore(`rgba(${lc},${S.lodA})`, Math.max(2, z * S.lodW));
       } else {
-        shore(`rgba(${S.c1},${S.a1})`, Math.max(3, z * S.w1));   // bas-fond large et doux
-        shore(`rgba(${S.c2},${S.a2})`, Math.max(2, z * S.w2));   // eau peu profonde
-        shore(`rgba(${S.c3},${S.a3})`, Math.max(1, z * S.w3));   // liseré clair au bord
+        shore(`rgba(${sc[0]},${S.a1})`, Math.max(3, z * S.w1));   // bas-fond large et doux
+        shore(`rgba(${sc[1]},${S.a2})`, Math.max(2, z * S.w2));   // eau peu profonde
+        shore(`rgba(${sc[2]},${S.a3})`, Math.max(1, z * S.w3));   // liseré clair au bord
       }
       ctx.restore();
     }
@@ -4637,7 +4768,14 @@ if (typeof window !== 'undefined') {
  * conserve les angles — faux en iso. On projette donc DEUX points monde (ancrage
  * à la berge, pointe vers le centre) et on déduit angle et longueur À L'ÉCRAN.
  * ------------------------------------------------------------------------- */
-export const cityReflectionTune = { on: true, gain: 1, stride: 2, reach: 1 };
+// `bandMix` : part de la teinte du CORPS D'EAU dans le reflet (Raph, 2026-07-30 —
+// « fais suivre les reflets au coloris »). ⚠ Correction d'une erreur que j'avais
+// écrite : ces reflets ne sont PAS bleu-gris ardoise, ce sont les LAMPES DE QUAI
+// de l'ère (chaud, cyan, vert néon…). Les repeindre entièrement à la couleur de
+// l'eau effacerait cette lecture par ère. On les tire donc vers la teinte de
+// l'eau sans les y noyer : un reflet sur de l'azur prend un cast bleu, ce qui est
+// aussi ce que fait la vraie eau. 0 = lampe pure, 1 = eau pure.
+export const cityReflectionTune = { on: true, gain: 1, stride: 2, reach: 1, bandMix: 0.35 };
 if (typeof window !== 'undefined') window.__cityReflect = cityReflectionTune;
 function drawIsoCityReflections(ctx, now) {
   const RT = cityReflectionTune;
@@ -4656,10 +4794,18 @@ function drawIsoCityReflections(ctx, now) {
   if (!g) return;
   const sm = rv.samples, n0 = sm.length, T = CM.TILE;
   const t = now || 0;
-  // Teintes reprises telles quelles du legacy (accordées aux lampes de quai).
-  const glow = band <= 5 ? '255,210,140'
+  // Teintes reprises telles quelles du legacy (accordées aux lampes de quai),
+  // puis tirées vers la teinte de l'eau courante (cf. bandMix).
+  const lamp = band <= 5 ? '255,210,140'
     : band === 6 ? '150,225,255'
       : band === 7 ? '90,240,180' : band === 8 ? '255,205,120' : '170,140,255';
+  const glow = (() => {
+    const w = CM.waterShore && CM.waterShore.wash;
+    const k = Math.max(0, Math.min(1, RT.bandMix != null ? RT.bandMix : 0));
+    if (!w || k <= 0) return lamp;
+    const a = lamp.split(',').map(Number), b = w.split(',').map(Number);
+    return a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',');
+  })();
   const nAt = (i) => {
     const o = sm[Math.max(0, i - 1)], q = sm[Math.min(n0 - 1, i + 1)];
     let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1;
@@ -4667,7 +4813,7 @@ function drawIsoCityReflections(ctx, now) {
   };
   ctx.save();
   riverRibbonPath(ctx, sm, T);
-  ctx.clip();                                                // les nappes restent SUR l'eau
+  ctx.clip(WATER_FILL);                                                // les nappes restent SUR l'eau
   ctx.globalCompositeOperation = 'lighter';
   const STRIDE = Math.max(1, RT.stride | 0);
   for (let si = 0; si < 2; si += 1) {
@@ -8048,6 +8194,14 @@ function drawIsoWorldInner(dt, now, helpers) {
       + ':l' + (CM.lodActive ? 1 : 0)
       + ':w' + ((state.timeWear || 0) > 0.7 ? 1 : 0)
       + ':c' + (CM.collapseAt ? 1 : 0)
+      // ⚠ LE CORPS D'EAU FAIT PARTIE DU TRACÉ DEPUIS 2026-07-30 : le bas-fond au
+      // pied du mur prend la teinte du coloris courant (CM.waterShore.quay). Sans
+      // cette clé, le quai garde le bas-fond du coloris PRÉCÉDENT jusqu'à ce qu'un
+      // autre facteur invalide le bake — c'est-à-dire, en pratique, très longtemps.
+      // Le fondu du fleuve, lui, n'entre PAS dans la clé : il recuirait le quai à
+      // chaque frame de la transition. Le bas-fond bascule donc d'un coup, sur un
+      // trait de 1 à 5 px, pendant que la nappe fond — invisible à l'usage.
+      + ':e' + (CM.waterShore ? (CM.waterShore.quay[0] + CM.waterShore.quay[1]) : '-')
       // La molette __quayWall change le tracé à chaud → elle doit casser la clé.
       + ':t' + (quayWallTune.on ? 1 : 0) + (quayWallTune.full ? 1 : 0)
       + (quayWallTune.joints ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light;

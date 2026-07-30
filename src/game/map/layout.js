@@ -1794,6 +1794,88 @@ function computeCityLayout(s) {
     ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
     : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
 
+  // ── ÎLE DE L'AIGUILLE : le fleuve se sépare en deux bras ──────────────────
+  // Modèle assumé : l'Île de la Cité (Raph, 2026-07-30). La merveille ne se
+  // contente plus de tenir au milieu de l'eau — le lit S'ÉVASE autour d'elle et
+  // la contourne par deux bras, comme la Seine autour de Notre-Dame.
+  //
+  // ⚠ L'ORDRE EST LA CLÉ. Le fleuve est tracé bien plus haut, mais le slot de
+  // l'Aiguille ne se connaît qu'ICI (il se cherche AVEC riverSet, donc après
+  // lui). On creuse donc l'île à cet instant précis : assez tard pour savoir où
+  // est la merveille, assez tôt pour que la pose des bâtiments (l. ~1900) et le
+  // graphe routier (l. ~2680) voient le fleuve MODIFIÉ. Déplacer ce bloc plus
+  // bas planterait des maisons dans les bras neufs.
+  //
+  // Les Set et le tableau de samples sont passés PAR RÉFÉRENCE au modèle d'eau :
+  // les muter ici met à jour `river`/`water` sans avoir à le reconstruire.
+  const islands = [];
+  {
+    const megaIdx = CM_WONDERS.findIndex((w) => w.id === "era_mega");
+    const slot = megaIdx >= 0 ? wonderSlots[megaIdx] : null;
+    if (slot && builtWonderIds.has("era_mega")) {
+      // Sample le plus proche : centre de l'île et repère de sa tangente.
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < riverSamples.length; i += 1) {
+        const dd = (riverSamples[i].x - slot.gx) ** 2 + (riverSamples[i].y - slot.gy) ** 2;
+        if (dd < bd) { bd = dd; bi = i; }
+      }
+      if (Math.sqrt(bd) <= riverSamples[bi].hw + 1.5) {
+        const s0 = riverSamples[bi];
+        const a = riverSamples[Math.max(0, bi - 2)], b = riverSamples[Math.min(riverSamples.length - 1, bi + 2)];
+        let tx = b.x - a.x, ty = b.y - a.y;
+        const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;   // tangente du courant
+        // Île OVALE, allongée DANS LE SENS DU COURANT : une île ronde ferait
+        // barrage, un fuseau se laisse contourner — c'est la forme de toutes
+        // les îles de rivière, et celle de la Cité.
+        const rx = 4.6, ry = 2.4;                                  // demi-axes, en tuiles
+        // Le lit s'évase pour loger l'île ET laisser deux vrais bras : sans
+        // cela, les bras seraient deux filets d'eau et l'île mangerait le
+        // fleuve. La bosse s'étale sur ~2,5 fois la longueur de l'île pour que
+        // les rives s'ouvrent en douceur au lieu de faire un renflement carré.
+        const etale = rx * 2.5;
+        for (const sp of riverSamples) {
+          const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
+          if (d > etale) continue;
+          const u = 1 - d / etale;
+          sp.hw += (ry + 1.9) * u * u * (3 - 2 * u);
+        }
+        islands.push({ x: s0.x, y: s0.y, rx, ry, tx, ty });
+        // Le lit ayant changé, on RECALCULE les cellules d'eau autour de l'île,
+        // puis on rend l'île à la terre ferme. Elle passe en BERGE et non en
+        // sec : c'est bien une rive, et les places comme les merveilles sèches
+        // évitent déjà le corridor eau ∪ berge — donc rien ne viendra s'y poser
+        // par accident.
+        const R = etale + 6;
+        for (const sp of riverSamples) {
+          if (Math.hypot(sp.x - s0.x, sp.y - s0.y) > R) continue;
+          const H = sp.hw;
+          for (let gx = Math.floor(sp.x - H - 3); gx <= Math.ceil(sp.x + H + 3); gx += 1) {
+            for (let gy = Math.floor(sp.y - H - 3); gy <= Math.ceil(sp.y + H + 3); gy += 1) {
+              const d = Math.hypot(gx + 0.5 - sp.x, gy + 0.5 - sp.y);
+              const k = gx + "," + gy;
+              if (d <= H + 0.5) { riverSet.add(k); bankSet.delete(k); nearSet.delete(k); }
+              else if (d <= H + 1.4) { if (!riverSet.has(k)) { bankSet.add(k); nearSet.delete(k); } }
+              else if (d <= H + 3.2) { if (!riverSet.has(k) && !bankSet.has(k)) nearSet.add(k); }
+            }
+          }
+        }
+        for (let gx = Math.floor(s0.x - rx - 2); gx <= Math.ceil(s0.x + rx + 2); gx += 1) {
+          for (let gy = Math.floor(s0.y - rx - 2); gy <= Math.ceil(s0.y + rx + 2); gy += 1) {
+            const dx = gx + 0.5 - s0.x, dy = gy + 0.5 - s0.y;
+            const along = dx * tx + dy * ty, cross = -dx * ty + dy * tx;
+            if ((along / rx) ** 2 + (cross / ry) ** 2 > 1) continue;
+            const k = gx + "," + gy;
+            riverSet.delete(k);
+            bankSet.add(k);
+            nearSet.delete(k);
+          }
+        }
+      }
+    }
+  }
+  river.islands = islands;
+  water.islands = islands;
+
   // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
   // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
   const districts = [];
