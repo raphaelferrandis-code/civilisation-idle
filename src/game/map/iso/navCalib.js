@@ -36,7 +36,10 @@
 // d'évaluation en zone morte. Ça passerait aujourd'hui — rien n'est lu au niveau
 // module — mais la première constante lue au chargement exploserait, et ce projet
 // a déjà payé ce piège (TDZ sur buildingById). isoRenderer POUSSE donc sa config.
-const CFG = { K: 1.15, TOP: 0.58, anchorFor: () => ({ mast: 0.3, beam: 0.16 }), stages: null };
+const CFG = {
+  K: 1.15, TOP: 0.58, anchorFor: () => ({ mast: 0.3, beam: 0.16 }),
+  stages: null, sectors: null, uvFor: () => null,
+};
 export function configureNavCalib(o) { Object.assign(CFG, o); }
 
 // Les stades à calibrer viennent d'isoRenderer (NAV_STAGES) : une liste tenue
@@ -48,28 +51,39 @@ const SPRITE = 85;      // taille source d'une rotation
 const ZOOM = 6;         // sprite affiché ×6 — un pixel source reste cliquable
 const VIEW = SPRITE * ZOOM;
 
-const state = { on: false, idx: 0, pts: [], captured: {}, el: null, cnv: null, img: null };
+const SECTORS = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'north', 'northeast'];
+
+// `captured` est indexé par stade PUIS par face : { sail: { east: {p,s}, … } }.
+const state = { on: false, idx: 0, sec: 0, pts: [], captured: {}, el: null, cnv: null, img: null };
 
 export const navCalibOn = () => state.on;
 
 const list = () => CFG.stages || STAGES;
+const secs = () => CFG.sectors || SECTORS;
 const stage = () => list()[state.idx];
-// Réglage courant d'un stade : ce qu'on a relevé, sinon ce que le jeu utilise.
-const current = (st) => state.captured[st] || CFG.anchorFor(st);
+const sector = () => secs()[state.sec];
+const capturedAt = (st, se) => (state.captured[st] || {})[se] || null;
 
 function codeBlock() {
   const f = (n) => n.toFixed(3);
-  const rows = list().filter((s) => state.captured[s]).map((s) => {
-    const v = state.captured[s];
-    return `  ${s}: { mast: ${f(v.mast)}, beam: ${f(v.beam)}, foreP: ${f(v.foreP)}, foreS: ${f(v.foreS)} },`;
+  const pair = (c) => `[${f(c[0])}, ${f(c[1])}]`;
+  const blocs = list().filter((s) => state.captured[s]).map((s) => {
+    const faces = secs().filter((se) => state.captured[s][se]).map((se) => {
+      const v = state.captured[s][se];
+      return `    ${se}: { p: ${pair(v.p)}, s: ${pair(v.s)} },`;
+    });
+    return `  ${s}: {\n${faces.join('\n')}\n  },`;
   });
-  return rows.length ? `const NAV_ANCHOR = {\n${rows.join('\n')}\n};` : '';
+  return blocs.length ? `const NAV_UV = {\n${blocs.join('\n')}\n};` : '';
 }
 
-// Position écran (fraction du sprite) d'un feu, à partir du réglage. Inverse
-// exact de la formule de relevé — c'est ce qui permet de VOIR le réglage actuel
-// avant de le corriger.
-function posOf(an, port) {
+// Position (fraction du sprite) des deux feux pour la face affichée : le relevé
+// s'il existe, sinon la PROJECTION du réglage de profil — c'est cette projection
+// qu'on est justement en train de corriger face par face, autant la voir.
+function posOf(port) {
+  const c = capturedAt(stage(), sector());
+  if (c) { const q = port ? c.p : c.s; return { u: q[0], v: q[1] }; }
+  const an = CFG.anchorFor(stage());
   const fore = (port ? an.foreP : an.foreS) || 0;
   const sign = port ? 1 : -1;
   return {
@@ -90,7 +104,7 @@ function paint() {
   // déjà changé, et on calibrerait alors une coque en croyant en viser une autre
   // (vu à la capture — le HUD disait « steam » sur le sprite du voilier).
   const img = state.img;
-  if (img && img._stage === stage() && img.complete && img.naturalWidth) {
+  if (img && img._key === stage() + ':' + sector() && img.complete && img.naturalWidth) {
     g.imageSmoothingEnabled = false;
     g.drawImage(img, 0, 0, VIEW, VIEW);
   }
@@ -101,9 +115,8 @@ function paint() {
   g.moveTo(VIEW / 2, 0); g.lineTo(VIEW / 2, VIEW);
   g.moveTo(0, CFG.TOP * VIEW); g.lineTo(VIEW, CFG.TOP * VIEW);
   g.stroke();
-  const an = current(stage());
   for (const [port, col] of [[true, '#ff3c34'], [false, '#3cff6e']]) {
-    const p = posOf(an, port);
+    const p = posOf(port);
     const x = Math.round(p.u * VIEW), y = Math.round(p.v * VIEW);
     g.fillStyle = col;
     g.fillRect(x - 4, y - 4, 8, 8);
@@ -118,10 +131,13 @@ function paint() {
 function loadSprite() {
   state.pts = [];
   const img = new Image();
-  img._stage = stage();                 // lu par paint() : jamais le mauvais sprite
+  // La clé porte la FACE en plus du stade : sans elle, changer de rotation
+  // laissait l'image précédente sous le nouveau label (déjà corrigé une fois
+  // entre stades, le même piège revient entre faces).
+  img._key = stage() + ':' + sector();
   img.onload = paint;
   img.onerror = paint;
-  img.src = `/pixelart/iso/boat-${img._stage}-east.png`;
+  img.src = `/pixelart/iso/boat-${stage()}-${sector()}.png`;
   state.img = img;
   paint();
   render();
@@ -135,16 +151,20 @@ function onCanvasClick(ev) {
     // tribord. Trier par y interdirait de poser le rouge à la proue et le vert à
     // la poupe — c'est justement ce qu'on vient d'ouvrir.
     const [a, b] = state.pts;
-    const u1 = a.x / VIEW, v1 = a.y / VIEW;
-    const u2 = b.x / VIEW, v2 = b.y / VIEW;
-    state.captured[stage()] = {
-      mast: CFG.K * (CFG.TOP - (v1 + v2) / 2),
-      beam: CFG.K * (v2 - v1) / 2,
-      foreP: CFG.K * (u1 - 0.5),
-      foreS: CFG.K * (u2 - 0.5),
+    // Position BRUTE sur le sprite de CETTE face — aucune projection, aucune
+    // trigonométrie : le feu sera dessiné au pixel désigné. C'est tout l'intérêt
+    // de calibrer face par face plutôt que de dériver les 7 autres d'un profil.
+    const st = stage(), se = sector();
+    (state.captured[st] || (state.captured[st] = {}))[se] = {
+      p: [a.x / VIEW, a.y / VIEW],
+      s: [b.x / VIEW, b.y / VIEW],
     };
     state.pts = [];
+    // Enchaîne sur la face suivante : 8 par bateau, autant ne pas avoir à
+    // cliquer « suivant » entre chaque.
+    goFace(1);
     console.log(codeBlock());
+    return;
   }
   paint();
   render();
@@ -153,6 +173,13 @@ function onCanvasClick(ev) {
 function go(d) {
   const n = list().length;
   state.idx = (state.idx + d + n) % n;
+  state.sec = 0;
+  loadSprite();
+}
+
+function goFace(d) {
+  const n = secs().length;
+  state.sec = (state.sec + d + n) % n;
   loadSprite();
 }
 
@@ -160,17 +187,20 @@ function render() {
   if (!state.el) return;
   const hud = state.el.querySelector('[data-hud]');
   if (!hud) return;
-  const an = current(stage());
-  const done = list().filter((s) => state.captured[s]);
-  const f = (n) => (n || 0).toFixed(3);
-  hud.textContent = `${stage()}  (${state.idx + 1}/${list().length})`
-    + `${state.captured[stage()] ? '  ← relevé' : ''}\n`
-    + `mast ${f(an.mast)}  beam ${f(an.beam)}\n`
-    + `foreP ${f(an.foreP)}  foreS ${f(an.foreS)}\n\n`
+  // Avancement PAR BATEAU : 8 faces chacun, on veut voir d'un coup d'œil celles
+  // qui restent plutôt que de compter.
+  const faits = secs().map((se) => (capturedAt(stage(), se) ? '●' : '·')).join(' ');
+  const nFaits = list().reduce((n, s) => n + secs().filter((se) => capturedAt(s, se)).length, 0);
+  const nTotal = list().length * secs().length;
+  hud.textContent = `${stage()}  (${state.idx + 1}/${list().length})\n`
+    + `face ${sector()}  (${state.sec + 1}/${secs().length})`
+    + `${capturedAt(stage(), sector()) ? '  ← relevée' : ''}\n`
+    + `${faits}\n\n`
     + (state.pts.length
       ? 'Clique le feu VERT (tribord), où tu veux.\n'
       : 'Clique le feu ROUGE (bâbord), puis le VERT.\nN\'importe où sur le sprite.\n')
-    + `Relevés : ${done.length ? done.join(', ') : '(aucun)'}\n\n`
+    + 'La face suivante s\'enchaîne toute seule.\n\n'
+    + `Total : ${nFaits}/${nTotal} faces\n\n`
     + (codeBlock() || '(rien à copier pour l\'instant)');
 }
 
@@ -199,16 +229,25 @@ function mount() {
   hud.style.cssText = 'margin:0;padding:10px 12px;background:rgba(20,24,32,0.95);'
     + 'border:1px solid #4a4438;border-radius:4px;white-space:pre-wrap;'
     + 'flex:1;overflow:auto;min-height:0';
+  const mkRow = (defs) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px';
+    for (const [txt, fn] of defs) {
+      const b = document.createElement('button');
+      b.textContent = txt;
+      b.style.cssText = 'flex:1;padding:6px 10px;background:#2a3140;color:#e8e4d8;'
+        + 'border:1px solid #4a4438;border-radius:3px;cursor:pointer;font:inherit';
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+    }
+    return row;
+  };
   const nav = document.createElement('div');
-  nav.style.cssText = 'display:flex;gap:8px';
-  for (const [txt, d] of [['◀ précédent', -1], ['suivant ▶', 1]]) {
-    const b = document.createElement('button');
-    b.textContent = txt;
-    b.style.cssText = 'flex:1;padding:6px 10px;background:#2a3140;color:#e8e4d8;'
-      + 'border:1px solid #4a4438;border-radius:3px;cursor:pointer;font:inherit';
-    b.addEventListener('click', () => go(d));
-    nav.appendChild(b);
-  }
+  nav.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  nav.append(
+    mkRow([['◀ bateau', () => go(-1)], ['bateau ▶', () => go(1)]]),
+    mkRow([['◀ face', () => goFace(-1)], ['face ▶', () => goFace(1)]]),
+  );
   const quit = document.createElement('button');
   quit.textContent = 'terminer (__navCalib)';
   quit.style.cssText = 'padding:6px 10px;background:#3a2f22;color:#e8e4d8;'

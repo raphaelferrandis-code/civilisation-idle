@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { boatLampMul, boatHasNavLights, navLightOffsets, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
+import { boatLampMul, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
 import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 
 // Aucun bateau ne lisait nightF : la nuit tombée, le fleuve restait un ruban
@@ -118,6 +118,31 @@ function countGlows(mul) {
   queueFlameGlow(100, 100, 12, "255,172,72", 0, 0, mul);
   return paintFlameGlows(ctx);
 }
+
+describe("feux de navigation — position par face", () => {
+  const poses = [];
+  const pose = (st, se, o) => { poses.push([st, se]); setNavUv(st, se, o); };
+  afterEach(() => { for (const [st, se] of poses.splice(0)) setNavUv(st, se, null); });
+
+  it("une face calibrée prime sur la projection du profil", () => {
+    // Les 8 vues d'un bateau ne sont pas la rotation rigide d'un même objet :
+    // PixelLab les redessine, le mât se déplace, la coque change de longueur
+    // apparente. Projeter le profil sur les 7 autres est donc une APPROXIMATION,
+    // et une face relevée doit toujours l'emporter.
+    expect(navUvFor("steam", "north")).toBe(null);
+    pose("steam", "north", { p: [0.4, 0.3], s: [0.6, 0.35] });
+    expect(navUvFor("steam", "north")).toEqual({ p: [0.4, 0.3], s: [0.6, 0.35] });
+    // Les autres faces du même bateau restent sur le repli.
+    expect(navUvFor("steam", "south")).toBe(null);
+  });
+
+  it("les 8 faces sont indépendantes", () => {
+    pose("sail", "east", { p: [0.1, 0.1], s: [0.2, 0.2] });
+    pose("sail", "west", { p: [0.8, 0.1], s: [0.9, 0.2] });
+    expect(navUvFor("sail", "east").p[0]).not.toBe(navUvFor("sail", "west").p[0]);
+    expect(navUvFor("sail", "northeast")).toBe(null);
+  });
+});
 
 describe("feux de navigation — éteints le jour", () => {
   const saved = { ...FLAME_GLOW };

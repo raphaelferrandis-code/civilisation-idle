@@ -3395,13 +3395,14 @@ export const NAV_STBD_COL = '60,255,110';   // tribord — vert
 const NAV_ANCHOR_DEFAULT = { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 };
 // (Ni raft ni rowboat : ils ne s'allument pas, cf. NAV_DARK. Leur laisser un
 // ancrage aurait entretenu l'idée qu'ils portent des feux.)
+// Relevé de Raph au calibreur (2026-07-30), sur la vue de PROFIL. Sert de repli
+// pour toute face que NAV_UV ne couvre pas encore.
 const NAV_ANCHOR = {
-  // Valeurs de départ, à remplacer par le bloc que rend __navCalib().
-  sail: { mast: 0.34, beam: 0.13, foreP: 0, foreS: 0 },
-  steam: { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 },
-  container: { mast: 0.26, beam: 0.20, foreP: 0, foreS: 0 },
-  dinghy: { mast: 0.34, beam: 0.12, foreP: 0, foreS: 0 },
-  motorboat: { mast: 0.26, beam: 0.15, foreP: 0, foreS: 0 },
+  sail: { mast: 0.487, beam: 0.001, foreP: 0.009, foreS: 0.029 },
+  steam: { mast: 0.054, beam: 0.051, foreP: -0.465, foreS: -0.467 },
+  container: { mast: 0.136, beam: 0.011, foreP: -0.440, foreS: -0.462 },
+  dinghy: { mast: 0.520, beam: 0.001, foreP: 0.014, foreS: 0.029 },
+  motorboat: { mast: 0.144, beam: 0.015, foreP: 0.201, foreS: 0.203 },
 };
 export function navAnchorFor(stage) { return NAV_ANCHOR[stage] || NAV_ANCHOR_DEFAULT; }
 if (typeof window !== 'undefined') {
@@ -3429,13 +3430,48 @@ export function boatHasNavLights(stage) { return !NAV_DARK.has(stage); }
 // s'allume vraiment.
 export const NAV_STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
 
+// ── Position des feux PAR FACE ──────────────────────────────────────────────
+// Le relevé de profil ci-dessus est projeté mathématiquement sur les 7 autres
+// rotations (l'avance suit le cap, l'élévation reste verticale). Ça suppose que
+// les 8 vues sont la rotation rigide d'un même objet — ce qu'elles NE SONT PAS :
+// PixelLab les redessine une par une, la coque change de longueur apparente, le
+// mât se déplace, la cheminée change de côté. « On devrait faire toutes les
+// faces des sprites, tu ne crois pas ? » (Raph, 2026-07-30). Oui.
+//
+// Une face calibrée donne donc directement la position de chaque feu EN
+// FRACTION DU SPRITE — plus de projection, plus de trigonométrie, le feu est au
+// pixel qu'on a désigné. Les faces absentes retombent sur NAV_ANCHOR : la
+// migration peut se faire face par face sans rien casser.
+//   NAV_UV[stade][secteur] = { p: [u, v], s: [u, v] }   (p = bâbord, s = tribord)
+const NAV_UV = {};
+export function navUvFor(stage, sector) {
+  const f = NAV_UV[stage];
+  return (f && f[sector]) || null;
+}
+// Réglage à chaud, exporté plutôt que posé sur `window` : les tests tournent en
+// Node sans DOM et doivent pouvoir régler la table sans passer par un global.
+export function setNavUv(stage, sector, o) {
+  if (!stage || !sector) return;
+  if (o) (NAV_UV[stage] || (NAV_UV[stage] = {}))[sector] = o;
+  else if (NAV_UV[stage]) delete NAV_UV[stage][sector];
+}
+if (typeof window !== 'undefined') {
+  window.__navUv = (stage, sector, o) => {
+    setNavUv(stage, sector, o);
+    return stage ? (NAV_UV[stage] || null) : NAV_UV;
+  };
+}
+
 // Le calibreur travaille sur le SPRITE : il lui faut la pose exacte de l'image,
 // le réglage courant et la liste des stades — sans jamais nous importer en
 // retour. ⚠ CET APPEL DOIT RESTER SOUS NAV_STAGES : placé plus haut dans le
 // fichier, il lisait la constante avant son initialisation et jetait une TDZ au
 // chargement du module (attrapé par les tests). Le même piège que celui qui
 // interdit le cycle d'imports, à l'intérieur d'un seul fichier cette fois.
-configureNavCalib({ K: BOAT_IMG_K, TOP: BOAT_IMG_TOP, anchorFor: navAnchorFor, stages: NAV_STAGES });
+configureNavCalib({
+  K: BOAT_IMG_K, TOP: BOAT_IMG_TOP, anchorFor: navAnchorFor,
+  stages: NAV_STAGES, sectors: BOAT_SECTORS, uvFor: navUvFor,
+});
 
 // Intensité des feux. Le produit par nightF est la garde qui compte :
 // `flameGlowAlpha` porte un plancher de JOUR délibéré pour qu'une forge brûle à
@@ -3482,11 +3518,18 @@ function drawIsoShipNight(now) {
   ctx.globalCompositeOperation = 'lighter';
   for (const sh of CM.ships) {
     if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh._nav.stage)) continue;
-    const { x, y, dw, heading, stage } = sh._nav;
-    // Ancrage PAR STADE (cf. NAV_ANCHOR) : élévation, écartement et avance de
-    // CHAQUE feu dépendent de la coque, pas d'un gabarit unique. Réglable au
-    // clic via __navCalib(), à chaud via __navAnchor(stage, {...}).
-    const off = navLightOffsets(heading, dw, navAnchorFor(stage));
+    const { x, y, dw, heading, stage, sector } = sh._nav;
+    // FACE CALIBRÉE d'abord : la position est lue telle quelle sur le sprite de
+    // cette rotation. Sinon, repli sur le relevé de profil projeté au cap.
+    const uv = navUvFor(stage, sector);
+    let off;
+    if (uv) {
+      const dwImg = dw * BOAT_IMG_K;
+      const at = (c) => ({ x: (c[0] - 0.5) * dwImg, y: (c[1] - BOAT_IMG_TOP) * dwImg });
+      off = { port: at(uv.p), stbd: at(uv.s) };
+    } else {
+      off = navLightOffsets(heading, dw, navAnchorFor(stage));
+    }
     const px = Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
     for (const [o, col] of [[off.port, NAV_PORT_COL], [off.stbd, NAV_STBD_COL]]) {
       ctx.fillStyle = `rgba(${col},${Math.min(1, a).toFixed(3)})`;
@@ -3658,7 +3701,7 @@ function drawIsoShips(now) {
     // ⚠ `vis.stage` et NON `vis.key` : la clé porte la POSE (fisher / fisher-row)
     // alors que le stade porte la COQUE. Avec la clé, un pêcheur en route serait
     // passé à côté de la liste des coques sans feux et se serait allumé.
-    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading, stage: vis.stage };
+    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading, stage: vis.stage, sector: boatSector(heading) };
     sh._navAt = now;
     ctx.globalAlpha = prevAlpha;
   }
