@@ -67,7 +67,7 @@ const PLAZA = [214, 206, 182];       // dallage d'esplanade (repli, toutes ères
 // n'est plus blittée : sans lui, une place changeait de couleur en dézoomant.
 // Clé absente : on garde PLAZA.
 const PLAZA_ERA_TONE = {
-  antique: [219, 204, 185], medieval: [112, 115, 119], industrial: [51, 52, 55],
+  antique: [219, 204, 185], medieval: [112, 115, 119], industrial: [89, 91, 97],
   modern: [190, 194, 197], cosmic: [233, 223, 211],
 };
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond

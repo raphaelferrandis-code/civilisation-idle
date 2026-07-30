@@ -649,6 +649,61 @@ describe("BANDES D'EAU ANIMÉE", () => {
     }
   });
 
+  it("SEULE L'EAU bouge : aucun pixel de pierre n'est animé", async () => {
+    // Retour Raph 2026-07-30 : « je vois des pixels de la fontaine qui ne
+    // devraient pas bouger ». PixelLab n'anime pas que l'eau, il REDESSINE
+    // l'objet — margelle, arêtes, contour. Figer « tout ce qui ne bouge pas » ne
+    // suffit donc pas : cette pierre-là bouge pour de bon.
+    //
+    // Ce qui tranche est la PALETTE, qui est quantifiée (tous ces sprites
+    // passent par remapPalette) : relevé sur les cinq fontaines, l'eau vit à
+    // b − r = 52, 67 et 73, les gris FROIDS de pierre et d'ombre à 10, 14, 15 et
+    // 16. Un trou de 36 sépare les deux familles, et le seuil se pose dedans.
+    // ⚠ C'est bien un seuil de PALETTE, pas un réglage à l'œil : mon premier
+    // essai à 12 tombait dans la queue de la grappe pierre, et 53 à 67 % des
+    // pixels animés étaient de la margelle.
+    if (!fs.existsSync(ANIM)) return;
+    const { PNG } = await import("pngjs");
+    const BLEU = 40;
+    for (const f of fs.readdirSync(ANIM).filter((x) => x.endsWith(".png"))) {
+      const st = PNG.sync.read(fs.readFileSync(path.join(STAT, f)));
+      const sp = PNG.sync.read(fs.readFileSync(path.join(ANIM, f)));
+      const { width: w, height: h } = st;
+      const N = Math.round(sp.width / w);
+      const fautes = [];
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          const s = (y * w + x) * 4;
+          let bouge = false, eau = st.data[s + 3] >= 128 && st.data[s + 2] - st.data[s] >= BLEU;
+          for (let i = 0; i < N; i += 1) {
+            const d = (y * sp.width + i * w + x) * 4;
+            for (let c = 0; c < 4; c += 1) if (sp.data[d + c] !== st.data[s + c]) { bouge = true; break; }
+            if (sp.data[d + 3] >= 128 && sp.data[d + 2] - sp.data[d] >= BLEU) eau = true;
+          }
+          // Tolérance d'UN pixel autour de l'eau : le bord alterne eau/pierre
+          // d'une frame à l'autre et clignoterait s'il était coupé net.
+          if (!bouge || eau) continue;
+          let voisine = false;
+          for (let dy = -1; dy <= 1 && !voisine; dy += 1) {
+            for (let dx = -1; dx <= 1 && !voisine; dx += 1) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              const t = (ny * w + nx) * 4;
+              if (st.data[t + 3] >= 128 && st.data[t + 2] - st.data[t] >= BLEU) { voisine = true; break; }
+              for (let i = 0; i < N && !voisine; i += 1) {
+                const d = (ny * sp.width + i * w + nx) * 4;
+                if (sp.data[d + 3] >= 128 && sp.data[d + 2] - sp.data[d] >= BLEU) voisine = true;
+              }
+            }
+          }
+          if (!voisine) fautes.push(`${x},${y}`);
+        }
+      }
+      expect(fautes, `${f} : ${fautes.length} px de PIERRE animés (${fautes.slice(0, 6).join(" ")})`)
+        .toHaveLength(0);
+    }
+  });
+
   it("aucune frame n'est identique au sprite statique", async () => {
     // PixelLab rend la frame 0 d'une anim v3 comme frame de RÉFÉRENCE : elle
     // reproduit le sprite d'origine. Gardée dans la boucle, l'eau se FIGE une

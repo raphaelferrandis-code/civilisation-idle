@@ -171,15 +171,22 @@ const LOTS = [
       { key: 'iso-plaza-antique', tiles: [0, 1, 2, 3], equalize: true },   // calcaire crème, joints ocre
     ],
   },
-  // Industrielle — pavé de basalte SUIÉ. Rangée 0 (basalte pur, lum ~30) écartée :
-  // le parvis des merveilles avait déjà tranché la question, un carré noir de
-  // plusieurs cellules dans une ville claire ne se lit pas comme un sol.
-  // ⚠ Ce lot est sorti en OCTOGONES (pointes du losange rognées d'~8 px) : c'est
-  // normalize() qui rétablit le losange, et le journal doit annoncer 100 %.
+  // Industrielle — pavé de basalte SUIÉ, ÉCLAIRCI. Sorti à lum 51, jugé trop
+  // sombre en jeu (Raph : « éclaircis l'industrielle ») : au pan c'était le plus
+  // propre des cinq, mais un carré presque noir de 4×4 cellules dans une ville
+  // claire ne se lit pas comme un sol — le verdict déjà rendu sur le porphyre
+  // des parvis, que j'ai eu tort de re-tenter.
+  // ⚠ Un lot de REMPLACEMENT plus clair a été généré (ff25a57c) puis ÉCARTÉ : ses
+  // quatre candidates avaient de plus grosses pierres et remontraient le réseau
+  // des cellules au pan. Le grief portait sur la VALEUR, pas sur le motif — donc
+  // on garde ce motif-ci et on le remonte à ~90, entre le médiéval (112) et
+  // l'ancien noir. Rangée 0 (basalte pur, lum ~30) toujours écartée.
+  // ⚠⚠ Ce lot est sorti en OCTOGONES (pointes du losange rognées d'~8 px) :
+  // normalize() rétablit le losange, et le journal doit annoncer 100 %.
   {
     id: 'e3a906a5-87a7-4682-94e9-eb3208a6519b', seed: 1303,
     mats: [
-      { key: 'iso-plaza-industrial', tiles: [4, 5, 6, 7], equalize: true },
+      { key: 'iso-plaza-industrial', tiles: [4, 5, 6, 7], equalize: true, lighten: 90 },
     ],
   },
   // Reprise du médiéval, du moderne et de la cosmique — LE MOT EST « COBBLES ».
@@ -432,6 +439,26 @@ const meanRGB = (p) => {
 };
 const lum = (m) => 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];
 
+// ÉCLAIRCISSEMENT vers une luminance cible (`lighten: <lum>` par matière).
+// Gain MULTIPLICATIF, jamais un décalage : sur une matière sombre le décalage
+// écrase le contraste (tout se tasse vers le gris) alors que le gain l'ÉTIRE —
+// un joint à 15 et une pierre à 90 deviennent 26 et 158, l'écart passe de 75 à
+// 132. On s'en sert pour éclaircir une matière dont le MOTIF est bon : refaire
+// l'art rend d'autres pierres, donc d'autres risques (mesuré sur le 3e lot
+// industriel, plus clair mais à plus grosses pierres — la grille au pan).
+// ⚠ Déclarée APRÈS meanRGB et lum, qu'elle lit : ce fichier a déjà payé un TDZ.
+function lighten(tiles, cible) {
+  const avant = tiles.map((p) => lum(meanRGB(p)));
+  const g = Math.max(1, cible / (avant.reduce((a, b) => a + b, 0) / avant.length));
+  for (const p of tiles) {
+    for (let k = 0; k < p.width * p.height; k += 1) {
+      if (p.data[k * 4 + 3] < 8) continue;
+      for (let c = 0; c < 3; c += 1) p.data[k * 4 + c] = Math.min(255, Math.round(p.data[k * 4 + c] * g));
+    }
+  }
+  return g;
+}
+
 // ITÉRÉ. Un seul passage ne suffit pas : le gain est borné (une variante trop
 // écartée ne rejoint pas la cible en un coup) et l'écrêtage à 255 mange une
 // partie du gain sur les tuiles claires. Mesuré sur la terre battue : 38,8
@@ -542,6 +569,9 @@ for (const lot of LOTS) {
     // simplement nulle part). Sur un dallage d'apparat, ce qui doit varier d'une
     // cellule à l'autre est le DESSIN seul — la règle déjà écrite en tête de ce
     // fichier, appliquée là où elle mord.
+    // ⚠ AVANT l'égalisation : celle-ci vise la médiane du lot, donc éclaircir
+    // après la contredirait sur-le-champ (elle ramènerait tout où c'était).
+    const gain = mat.lighten ? lighten(tiles, mat.lighten) : 1;
     const target = (mat.equalize || process.argv.includes('--equalize')) ? equalize(tiles)
       : [0, 1, 2].map((c) => tiles.reduce((a, p) => a + meanRGB(p)[c], 0) / tiles.length);
     const after = tiles.map((p) => lum(meanRGB(p)));
@@ -566,7 +596,8 @@ for (const lot of LOTS) {
     // le journal annonçait « 4 variantes » quoi qu'il arrive.
     console.log(`${mat.key.padEnd(17)} ${tiles.length} variantes — écart de luminance ${rest.toFixed(1)}`
       + ` (brut ${spread.toFixed(1)}), losange rempli ${(100 * Math.min(...fill)).toFixed(1)} %,`
-      + ` ton [${target.map(Math.round).join(', ')}]`);
+      + ` ton [${target.map(Math.round).join(', ')}]`
+      + (gain > 1 ? `, ÉCLAIRCI ×${gain.toFixed(2)}` : ''));
   }
 }
 if (tones.length) {
