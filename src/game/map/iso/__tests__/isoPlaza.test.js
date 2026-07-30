@@ -6,7 +6,7 @@ import { CM } from "../../layout.js";
 import {
   isoPlazaBox, isoPlazaBoxes, isoPlazaCells, isoPlazaComposition, isoPlazaCompositions, plazaEraForBand,
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
-  PLAZA_TUNE, RECIPES, HOUSE_HT, TALL_PROPS, personHT,
+  PLAZA_TUNE, RECIPES, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS,
 } from "../isoPlaza.js";
 
 // ── CE QUE CES TESTS PROTÈGENT ──────────────────────────────────────────────
@@ -630,6 +630,22 @@ describe("BANDES D'EAU ANIMÉE", () => {
       // Et le nombre déduit par isoPlaza (largeur/hauteur) doit tomber juste :
       // c'est ce calcul-là qui découpe la bande au rendu.
       expect(Math.round(a.w / a.h), `${f} : frames déduites`).toBe(n);
+    }
+  });
+
+  it("les props déclarés animés et les bandes livrées se répondent exactement", () => {
+    // Deux fautes symétriques, toutes deux MUETTES. Déclarer un prop sans bande
+    // fait réclamer un fichier absent à chaque dessin : en dev Vite répond 200
+    // (repli SPA), donc rien ne casse — mais le .exe le compte en
+    // ERR_FILE_NOT_FOUND. Livrer une bande sans la déclarer, à l'inverse, laisse
+    // de l'art mort sur le disque que personne ne dessinera jamais.
+    if (!fs.existsSync(ANIM)) return;
+    const bandes = fs.readdirSync(ANIM).filter((f) => f.endsWith(".png"));
+    const props = new Set(bandes.map((f) => f.replace(/-[^-]+\.png$/, "")));
+    expect([...props].sort()).toEqual([...ANIM_PROPS].sort());
+    for (const p of ANIM_PROPS) {
+      const eres = bandes.filter((f) => f.startsWith(p + "-")).map((f) => f.slice(p.length + 1, -4));
+      expect(eres.sort(), `${p} : une bande par ère`).toEqual(Object.keys(RECIPES).sort());
     }
   });
 

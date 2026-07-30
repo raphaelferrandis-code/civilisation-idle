@@ -273,7 +273,15 @@ const RECIPES = {
 // par frame la ferait bouger d'une image à l'autre, et la fontaine tremblerait
 // sur son socle. Les frames partagent le canvas du statique, donc la même
 // géométrie de blit vaut pour toutes.
+//
+// ⚠ LISTE EXPLICITE, et pas « on demande, on verra bien ». Sonder chaque prop
+// faisait réclamer une bande pour le banc, le bac, la corbeille et la margelle :
+// en dev Vite REND 200 sur un fichier absent (repli SPA, c'est de l'HTML), donc
+// rien ne cassait et rien ne se voyait — mais le .exe, lui, les compte en
+// ERR_FILE_NOT_FOUND. Un prop qui s'anime se déclare ici.
+export const ANIM_PROPS = new Set(['fountain']);
 function propAnim(prop, era) {
+  if (!ANIM_PROPS.has(prop)) return null;
   const e = art('/pixelart/iso/plaza/anim/' + prop + '-' + era + '.png');
   if (!e.ready) return null;
   const w = e.img.naturalWidth | 0, h = e.img.naturalHeight | 0;
