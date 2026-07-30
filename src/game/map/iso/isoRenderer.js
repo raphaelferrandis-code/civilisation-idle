@@ -2740,13 +2740,20 @@ export const waterTilesTune = {
   //   tint > 0 : voile ardoise rgba(38,46,62)  → eau sombre (aspect averse)
   //   tint < 0 : voile pâle rgba(158,184,192)  → eau claire (aspect beau temps)
   // Le pâle EST l'éclat de la tuile elle-même : impossible de dériver hors palette.
-  // ⚠ LE FPS N'EST PAS LE LEVIER DU CALME, IL EN EST LE SECOND. Ce qu'on perçoit,
-  // c'est le produit churn × fps (part de surface qui change par seconde) : avant,
-  // 48,6 % × 3 = 1,46 ; avec la bande calme au même rythme, 0,32. On profite du
-  // gain pour poser encore un peu le rythme — mais l'écart beau temps / averse
-  // reste franc (× 2,2), c'était la moitié de la lecture météo.
-  fair: { fps: 1.8, drift: 0.5, tint: -0.10 },   // beau temps : claire, clapot posé
-  rain: { fps: 4, drift: 1.6, tint: 0.18 },      // averse : sombre et agitée
+  // ⚠⚠ LA DÉRIVE EST LE SECOND BRUIT, ET ON NE LE VOIT QU'À L'ÉCRAN. La bande ne
+  // dit que la moitié de l'histoire : la nappe DÉFILE aussi, et un motif à fort
+  // contraste translaté d'une fraction de pixel fait BASCULER ses bords d'un ton
+  // à l'autre (nearest-neighbor, règle du projet) — un scintillement de bord qui
+  // ne se lit dans aucun PNG. Mesuré en jeu à zoom 0,55 sur 46 102 px de fleuve
+  // visible, en comptant les pixels qui changent de plus de 20 de luminance en
+  // une seconde, fond de scène déduit :
+  //   dérive 0,7 → 0,5 → 0,2 → 0 : 26 024 / 10 063 / 7 156 / 4 632 px.
+  // À 0,7 px monde/s la nappe met 46 s à parcourir une période : personne n'y lit
+  // un sens de courant, mais tout le monde en voit le grésillement. On garde donc
+  // juste un souffle de courant au beau fixe, et on met la vraie vitesse sous
+  // l'averse — où l'eau DOIT s'agiter, et où Raph l'avait justement trouvée bien.
+  fair: { fps: 1.8, drift: 0.2, tint: -0.10 },   // beau temps : claire, clapot posé
+  rain: { fps: 4, drift: 1.2, tint: 0.18 },      // averse : sombre et agitée
 };
 if (typeof window !== 'undefined') window.__waterTiles = waterTilesTune;
 
@@ -2781,35 +2788,35 @@ const WATER_SHEETS = {
   calm: '/pixelart/water/river-tiles-calm.png',
   lively: '/pixelart/water/river-tiles.png',
 };
-let waterTilesImg = null;                 // { src, img, ready }
-// Déclaré AVANT le chargeur, qui le remet à zéro au changement de bande — un
-// `let` plus bas dans le module marcherait par chance (rien ne dessine avant la
-// fin de l'import) mais c'est exactement la forme du piège de TDZ déjà rencontré.
-let waterFrameTiles = null;
-function waterTilesImage() {
+// Une entrée PAR BANDE, et non une seule remplacée au basculement : sinon
+// chaque aller-retour d'A/B relance un chargement et le fleuve retombe à l'aplat
+// le temps du décodage — de quoi faire conclure « la bande calme ne s'affiche
+// pas » alors qu'elle n'est simplement pas encore prête.
+const waterSheets = new Map();            // src -> { img, ready, frames }
+function waterSheet() {
   const src = waterTilesTune.calm ? WATER_SHEETS.calm : WATER_SHEETS.lively;
-  if (waterTilesImg && waterTilesImg.src === src) return waterTilesImg.ready ? waterTilesImg.img : null;
+  let e = waterSheets.get(src);
+  if (e) return e;
   if (typeof Image === 'undefined') return null;
   const im = new Image();
-  // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis `waterTilesImg` : au
-  // basculement d'A/B deux chargements se croisent, et un onload qui relit la
-  // variable de module marquerait « prêt » la bande de l'AUTRE fichier.
-  const e = { src, img: im, ready: false };
-  waterTilesImg = e;
-  waterFrameTiles = null;                 // les frames cuites appartiennent à l'ancienne bande
+  // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis la Map dans le
+  // callback : deux chargements peuvent se croiser au basculement.
+  e = { img: im, ready: false, frames: null };
+  waterSheets.set(src, e);
   im.onload = () => { e.ready = true; };
   im.onerror = () => { e.ready = false; };   // PNG absent → fill WATER nu
   im.src = src;
-  return null;
+  return e;
 }
 // ── NAPPE EN MOTIF RÉPÉTÉ ────────────────────────────────────────────────────
 // `createPattern` répète TOUTE l'image, pas un rectangle source : la frame
 // courante de la bande doit donc vivre dans son propre canvas 16×16. Huit
-// frames, cuites une fois pour la session (le contenu ne dépend que du PNG).
-// (`waterFrameTiles` est déclaré plus haut, avec le chargeur qui l'invalide.)
-function waterFrameTile(img, fi) {
-  if (!waterFrameTiles) waterFrameTiles = new Array(WATER_FRAMES).fill(null);
-  let c = waterFrameTiles[fi];
+// frames, cuites une fois pour la session (le contenu ne dépend que du PNG) et
+// portées par l'entrée de bande, donc jamais mélangées entre les deux planches.
+function waterFrameTile(sheet, fi) {
+  const img = sheet.img;
+  if (!sheet.frames) sheet.frames = new Array(WATER_FRAMES).fill(null);
+  let c = sheet.frames[fi];
   if (c) return c;
   if (typeof OffscreenCanvas !== 'undefined') c = new OffscreenCanvas(WATER_TILE, WATER_TILE);
   else { c = document.createElement('canvas'); c.width = WATER_TILE; c.height = WATER_TILE; }
@@ -2817,7 +2824,7 @@ function waterFrameTile(img, fi) {
   if (!cx) return null;
   cx.imageSmoothingEnabled = false;
   cx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE, 0, 0, WATER_TILE, WATER_TILE);
-  waterFrameTiles[fi] = c;
+  sheet.frames[fi] = c;
   return c;
 }
 
@@ -2826,17 +2833,18 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   // Diagnostic opt-in (globalThis.__waterSpanStats = true) : dit PAR QUEL
   // garde-fou la nappe est coupée. Éteint, coût nul (un test de drapeau).
   // Hors du bloc de cull, sinon __waterSpanCull = false le rendait muet.
+  const sheet = waterSheet();
   const dbg = globalThis.__waterSpanStats
     ? (sortie, extra) => {
       globalThis.__waterSpanStatsLast = {
         sortie, on: G.on, zoom: +z.toFixed(3), minZoom: G.minZoom, strength: G.strength,
-        image: !!waterTilesImg && !!waterTilesImg.ready, ...extra,
+        calm: !!G.calm, image: !!sheet && !!sheet.ready, ...extra,
       };
     }
     : null;
   if (!G.on || z < G.minZoom || G.strength <= 0) { if (dbg) dbg('reglage'); return; }
-  const img = waterTilesImage();
-  if (!img) { if (dbg) dbg('image non prete'); return; }
+  if (!sheet || !sheet.ready) { if (dbg) dbg('image non prete'); return; }
+  const img = sheet.img;
   const len = pts.length;
   // Boîte écran du fleuve (mêmes bornes que le grain : on ne tile que le visible).
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxHw = 0;
@@ -2921,7 +2929,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
     // s'affiche toujours, elle coûte seulement plus cher.
     let pat = null;
     try {
-      const tile = waterFrameTile(img, fi);
+      const tile = waterFrameTile(sheet, fi);
       if (tile) pat = ctx.createPattern(tile, 'repeat');
     } catch { pat = null; }
     if (pat) {
@@ -3619,17 +3627,47 @@ export const NAV_STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
 // pixel qu'on a désigné. Les faces absentes retombent sur NAV_ANCHOR : la
 // migration peut se faire face par face sans rien casser.
 //   NAV_UV[stade][secteur] = { p: [u, v], s: [u, v] }   (p = bâbord, s = tribord)
+// Relevé de Raph au calibreur (2026-07-30). Les faces absentes (sail-northeast,
+// motorboat-east, et tout le dinghy) retombent sur le profil projeté de
+// NAV_ANCHOR — c'est le but du repli, la table n'a pas à être complète.
 const NAV_UV = {
-  // Relevé de Raph au calibreur (2026-07-30), face par face.
+  sail: {
+    east: { p: [0.506, 0.156], s: [0.524, 0.160] },
+    southeast: { p: [0.510, 0.158], s: [0.520, 0.158] },
+    south: { p: [0.510, 0.158], s: [0.520, 0.162] },
+    southwest: { p: [0.490, 0.164], s: [0.506, 0.162] },
+    west: { p: [0.480, 0.240], s: [0.465, 0.217] },
+    northwest: { p: [0.302, 0.319], s: [0.653, 0.160] },
+    north: { p: [0.255, 0.217], s: [0.757, 0.219] },
+  },
+  steam: {
+    east: { p: [0.096, 0.489], s: [0.094, 0.575] },
+    southeast: { p: [0.273, 0.323], s: [0.137, 0.399] },
+    south: { p: [0.610, 0.264], s: [0.396, 0.266] },
+    southwest: { p: [0.875, 0.397], s: [0.739, 0.317] },
+    west: { p: [0.916, 0.570], s: [0.910, 0.491] },
+    northwest: { p: [0.688, 0.709], s: [0.863, 0.603] },
+    north: { p: [0.380, 0.728], s: [0.641, 0.730] },
+    northeast: { p: [0.151, 0.593], s: [0.353, 0.705] },
+  },
   container: {
-    east: { p: [0.155, 0.311], s: [0.155, 0.319] },
-    southeast: { p: [0.843, 0.207], s: [0.657, 0.119] },
-    south: { p: [0.647, 0.128], s: [0.365, 0.130] },
-    southwest: { p: [0.367, 0.128], s: [0.190, 0.221] },
-    west: { p: [0.853, 0.305], s: [0.855, 0.309] },
-    northwest: { p: [0.629, 0.499], s: [0.822, 0.374] },
-    north: { p: [0.369, 0.485], s: [0.639, 0.489] },
-    northeast: { p: [0.192, 0.370], s: [0.373, 0.477] },
+    east: { p: [0.178, 0.313], s: [0.192, 0.315] },
+    southeast: { p: [0.822, 0.226], s: [0.645, 0.132] },
+    south: { p: [0.369, 0.146], s: [0.643, 0.148] },
+    southwest: { p: [0.371, 0.134], s: [0.194, 0.236] },
+    west: { p: [0.820, 0.307], s: [0.824, 0.311] },
+    northwest: { p: [0.625, 0.489], s: [0.833, 0.374] },
+    north: { p: [0.365, 0.487], s: [0.641, 0.481] },
+    northeast: { p: [0.196, 0.372], s: [0.388, 0.493] },
+  },
+  motorboat: {
+    southeast: { p: [0.565, 0.570], s: [0.304, 0.438] },
+    south: { p: [0.696, 0.515], s: [0.314, 0.507] },
+    southwest: { p: [0.582, 0.583], s: [0.306, 0.448] },
+    west: { p: [0.327, 0.477], s: [0.327, 0.450] },
+    northwest: { p: [0.247, 0.438], s: [0.537, 0.325] },
+    north: { p: [0.331, 0.395], s: [0.673, 0.395] },
+    northeast: { p: [0.416, 0.360], s: [0.739, 0.460] },
   },
 };
 export function navUvFor(stage, sector) {
