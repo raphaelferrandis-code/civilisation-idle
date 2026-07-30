@@ -4060,15 +4060,33 @@ export function shipVisual(kind, band, ei, shipState) {
 //
 // `lat` de l'obstacle est signé dans le même repère que `lateral` (tuiles depuis
 // l'axe du ruban), donc les deux se comparent directement.
-// Molette : __riverDodge({ on, range, clear }).
-const DODGE = { on: true, range: 0.045, clear: 1.0 };
+// Molette : __riverDodge({ on, range, clear, gateRange }).
+// `gateRange` est plus large que `range` : on se présente à une passe de loin,
+// alors qu'on ne s'écarte d'un obstacle qu'en le serrant.
+const DODGE = { on: true, range: 0.045, clear: 1.0, gateRange: 0.07 };
 if (typeof window !== 'undefined') {
   window.__riverDodge = (o) => { if (o) Object.assign(DODGE, o); return { ...DODGE }; };
 }
-export function riverDodge(lateral, t, effSize, hw, obstacles) {
+export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
   const obs = obstacles || CM.riverObstacles;
-  if (!DODGE.on || !obs || !obs.length) return lateral;
+  const gts = gates || CM.riverGates;
+  if (!DODGE.on) return lateral;
   let out = lateral;
+  // ── PASSES : le pont n'est franchissable QU'AU MILIEU ──────────────────────
+  // La travée centrale est ouverte (isoBridge retire les palées du chenal), mais
+  // un bateau qui arrive au ras d'une berge passerait quand même dans la pierre.
+  // On le RECENTRE avant l'ouvrage. C'est l'inverse exact d'un obstacle : ici on
+  // attire au lieu d'écarter.
+  if (gts && gts.length) {
+    for (const g of gts) {
+      let dt = Math.abs(t - g.t);
+      if (dt > 0.5) dt = 1 - dt;
+      if (dt > DODGE.gateRange) continue;
+      const p = 1 - dt / DODGE.gateRange;
+      out += ((g.lat || 0) - out) * (p * p * (3 - 2 * p));
+    }
+  }
+  if (!obs || !obs.length) return out;
   for (const o of obs) {
     let dt = Math.abs(t - o.t);
     if (dt > 0.5) dt = 1 - dt;
@@ -4154,7 +4172,7 @@ function drawIsoShips(now) {
     // mordaient la berge près du pont (vu à la capture).
     const laneRoom = Math.max(0, hw * 0.78 - effSize * 0.3 - 0.25);
     const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
-    const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw);
+    const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null);
     cgx += nx * lateral; cgy += ny * lateral;
     const p = worldToScreen(cgx * T, cgy * T);
     if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;

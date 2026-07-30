@@ -59,6 +59,10 @@ export const bridgeTune = {
   brace: true,         // contreventement en X des palées bois
   arches: true,        // arches dans la face des ponts maçonnés
   posts: true,         // poteaux de tête aux entrées
+  // Demi-largeur de la PASSE NAVIGABLE, en tuiles : les palées du milieu du
+  // chenal sautent pour laisser filer les bateaux. 1,7 laisse 3,4 tuiles de
+  // large — le porte-conteneurs, le plus gros de la flotte, en fait 2,24.
+  passHalf: 1.7,
 };
 if (typeof window !== 'undefined') window.__bridgeTune = bridgeTune;
 
@@ -209,6 +213,28 @@ function bridgeGeoms() {
           }
           if (wet) piles.push({ l, ph: (cmHash('bpile:' + sp.gx0 + ':' + sp.gy0 + ':' + i) % 1000) / 1000 });
         }
+      }
+    }
+    // ── PASSE NAVIGABLE ──────────────────────────────────────────────────────
+    // Les palées tombaient TOUS LES 1,15 à 1,6 tuiles d'une berge à l'autre. Un
+    // porte-conteneurs en fait 2,24 de large : il ne pouvait passer nulle part,
+    // et traversait donc la pierre (Raph : « qu'ils passent entre les poteaux »).
+    //
+    // On ouvre la travée du milieu, comme un vrai pont : les palées du chenal
+    // sautent et les deux qui bordent la passe deviennent ses culées. Ça règle le
+    // problème par la GÉOMÉTRIE plutôt qu'en faisant slalomer les bateaux dans un
+    // espace où ils ne tiennent pas.
+    // (Le RECENTRAGE des bateaux sur cette passe est publié à part, par le
+    // runtime, à partir des cellules de pont : CM.riverGates.)
+    if (piles.length > 2) {
+      const mid = (wetA + wetB) / 2;
+      const half = bridgeTune.passHalf * T;
+      const garde = piles.filter((p) => Math.abs(p.l - mid) > half);
+      // Jamais moins de deux palées : sans elles, la face n'a plus de quoi
+      // s'appuyer et le tablier flotte.
+      if (garde.length >= 2) {
+        piles.length = 0;
+        piles.push(...garde);
       }
     }
     // LANTERNES : une aux deux têtes de pont + une paire médiane sur les longs
@@ -468,7 +494,10 @@ export function drawIsoBridgeSeg(ctx, it, now) {
   // Écart max entre palées voisines pour les relier (arche, croix) : au-delà,
   // c'est un TROU du filtre « pied sur l'eau » (berge en biais) — on ne jette
   // pas une travée par-dessus.
-  const linkMax = st.pileEvery * T * 1.7;
+  // ⚠ Doit couvrir la PASSE NAVIGABLE, dont les palées ont été retirées : sans
+  // ça, l'ouverture du chenal laissait un TROU dans la face au lieu de la grande
+  // arche centrale qu'on veut y voir.
+  const linkMax = Math.max(st.pileEvery * 1.7, bridgeTune.passHalf * 2 + st.pileEvery) * T;
   // 1) FACE d'épaisseur (tronçon mouillé ∩ segment) : 2 assises + ombre de
   // contact. Sur la berge le tablier affleure le sol → pas de face au sec.
   const fA = Math.max(it.l0, Math.max(g.a, g.wetA - T * 0.10));

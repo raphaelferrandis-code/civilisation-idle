@@ -81,3 +81,39 @@ describe("évitement d'un obstacle planté dans l'eau", () => {
     expect(riverDodge(0.42, 0.5, SIZE, HW, [])).toBe(0.42);
   });
 });
+
+// Les palées d'un pont tombaient tous les 1,15 à 1,6 tuiles d'une berge à
+// l'autre, alors qu'un porte-conteneurs en fait 2,24 de large : il ne pouvait
+// passer NULLE PART et traversait la pierre. isoBridge ouvre maintenant la
+// travée du milieu ; encore faut-il que les bateaux s'y présentent.
+const GATE = (t = 0.5) => [{ t }];
+
+describe("passe navigable sous un pont", () => {
+  it("recentre le bateau au droit de l'ouvrage", () => {
+    const aBord = 2.4;
+    const auPont = riverDodge(aBord, 0.5, SIZE, HW, [], GATE());
+    expect(Math.abs(auPont)).toBeLessThan(Math.abs(aBord) * 0.2);
+  });
+
+  it("le recentrage s'annonce de LOIN", () => {
+    // On se présente à une passe bien avant d'y être — l'inverse d'un obstacle,
+    // qu'on ne serre qu'au dernier moment.
+    const suite = [0.5 - 0.065, 0.5 - 0.04, 0.5 - 0.02, 0.5]
+      .map((t) => Math.abs(riverDodge(2.4, t, SIZE, HW, [], GATE())));
+    for (let i = 1; i < suite.length; i += 1) {
+      expect(suite[i]).toBeLessThanOrEqual(suite[i - 1]);
+    }
+    expect(suite[0]).toBeLessThan(2.4);          // déjà amorcé au plus loin
+  });
+
+  it("ne touche à rien loin du pont", () => {
+    expect(riverDodge(2.1, 0.1, SIZE, HW, [], GATE())).toBe(2.1);
+  });
+
+  it("l'obstacle l'emporte sur la passe s'ils se superposent", () => {
+    // Un monument planté juste sous un pont : mieux vaut sortir de l'axe que
+    // rentrer dans la pierre. L'évitement s'applique APRÈS le recentrage.
+    const r = riverDodge(0.8, 0.5, SIZE, HW, OBS(0), GATE());
+    expect(Math.abs(r)).toBeGreaterThan(1);
+  });
+});

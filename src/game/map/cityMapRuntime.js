@@ -1363,6 +1363,7 @@ function cityMapEnsureLayout(now, deps = {}) {
     // (Les ponts sont des CELLULES DE ROUTE `roadSurface === 'bridge'` dans
     // roadMap — il n'existe pas de liste de ponts dans le layout.)
     CM.shipAvoidT = CM.shipDocks.map((d) => d.t);
+    CM.riverGates = [];
     if (hasRiver && L.river.samples && L.roadMap) {
       const sm = L.river.samples, len = sm.length;
       const seen = new Set();
@@ -1373,6 +1374,12 @@ function cityMapEnsureLayout(now, deps = {}) {
         if (seen.has(bi)) continue;          // un pont large couvre plusieurs cellules
         seen.add(bi);
         CM.shipAvoidT.push(bi / Math.max(1, len - 1));
+        // PASSE NAVIGABLE : la travée du milieu du pont est ouverte (les palées
+        // du chenal sautent, cf. isoBridge). Encore faut-il que les bateaux s'y
+        // présentent — un cargo qui franchit le pont au ras de la berge passe
+        // dans la pierre. On publie donc le droit du pont comme un point de
+        // RECENTRAGE, et l'axe du fleuve est la passe.
+        CM.riverGates.push({ t: bi / Math.max(1, len - 1) });
       }
     }
     // ── OBSTACLES PLANTÉS DANS L'EAU ────────────────────────────────────────
