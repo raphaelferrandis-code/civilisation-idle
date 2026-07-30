@@ -45,12 +45,19 @@ describe("shipVisual — le pêcheur ne vieillit pas", () => {
     const b = shipVisual("fisher", 4, 18, "cruise");
     expect(a.sizeMul).toBe(b.sizeMul);
     expect(a.stage).toBe(b.stage);
-    expect(a.wake).toBe(0);
-    expect(b.wake).toBe(0);
   });
 
-  it("ne laisse aucun sillage : il est à l'ancre", () => {
-    expect(shipVisual("fisher", 4, 18).wake).toBe(0);
+  it("ne laisse un sillage QUE lorsqu'il avance", () => {
+    // ⚠ CE TEST DISAIT L'INVERSE JUSQU'AU 2026-07-30 : « ne laisse aucun sillage,
+    // il est à l'ancre ». C'était vrai du seul pêcheur qui existait alors — celui
+    // qui traverse et se pose 90 s. Depuis que celui de l'île TOURNE autour d'elle,
+    // une barque qui rame sans rien laisser derrière elle glisse comme un décalque
+    // (Raph : « il faut qu'il ait des clapotis autour de lui et un sillage »).
+    // Ce qui reste vrai, et c'est ce qui rend la pose lisible : à l'ancre, RIEN.
+    expect(shipVisual("fisher", 4, 18, "anchor").wake).toBe(0);
+    expect(shipVisual("fisher", 4, 18, "cruise").wake).toBeGreaterThan(0);
+    // ...mais il reste le plus discret du fleuve : une barque n'est pas un cargo.
+    expect(shipVisual("fisher", 4, 18, "cruise").wake).toBeLessThan(shipVisual("trade", 4, 18).wake);
     // Et le marchand, lui, laboure.
     expect(shipVisual("trade", 4, 18).wake).toBeGreaterThan(shipVisual("yacht", 4, 18).wake);
     expect(shipVisual("yacht", 4, 18).wake).toBeGreaterThan(0);

@@ -252,7 +252,20 @@ export function drawIsoRiverLife(now) {
   if (!vis) return;                                   // fleuve hors champ
   stats.leaves = 0; stats.jump = 0;
   ctx.save();
-  if (CFG.ribbonPath) { CFG.ribbonPath(ctx, sm, T); ctx.clip(); }   // tout reste SUR l'eau
+  // Tout reste SUR L'EAU, et le clip est en 'evenodd' comme l'exige le contrat du
+  // chemin d'eau (cf. WATER_FILL, isoRenderer) : les ÎLES y sont des SOUS-CHEMINS
+  // SÉPARÉS, et seule cette règle garantit qu'elles creusent un trou.
+  //
+  // ⚠ CE N'ÉTAIT PAS UN BUG, ET C'EST JUSTEMENT LE PROBLÈME. Le `ctx.clip()` nu
+  // d'avant (règle nonzero) donnait EXACTEMENT le même résultat — vérifié à
+  // l'`isPointInPath` le 2026-07-30 : le centre de l'île est dehors dans les deux
+  // règles. Il ne le doit qu'au sens de rotation du contour d'île, opposé à celui
+  // du ruban ; en nonzero, deux sous-chemins de MÊME sens ne se creusent pas. La
+  // correction ne change donc pas un pixel aujourd'hui — elle retire une
+  // dépendance ACCIDENTELLE à une convention que rien n'énonce, et qu'un jour où
+  // l'on inverserait la paramétrisation de l'ellipse ferait tomber en silence
+  // (feuilles, sauts de poisson et ronds de pluie sur la terre ferme).
+  if (CFG.ribbonPath) { CFG.ribbonPath(ctx, sm, T); ctx.clip('evenodd'); }
   const prevA = ctx.globalAlpha;
   if (k < 1) ctx.globalAlpha = prevA * k;
   drawLeaves(ctx, sm, T, z, now, vis);

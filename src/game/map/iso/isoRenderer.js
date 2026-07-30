@@ -32,6 +32,7 @@ import { configureNavCalib } from './navCalib.js';
 // Vie de surface de l'eau. Même contrat que navCalib : il ne nous importe rien
 // en retour (cycle ES = zone morte), on lui pousse ce dont il a besoin.
 import { configureRiverLife, drawIsoRiverLife } from './isoRiverLife.js';
+import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -221,11 +222,34 @@ export const ISO_TILE_WINTER = {
   'ground-cobble': 'ground-cobble-winter',
   'ground-flagstone': 'ground-flagstone-winter',
   'ground-concrete': 'ground-concrete-winter',
-  'iso-shingle': 'iso-shingle-winter',
-  // Le sable emprunte le gravier enneigé : il n'y a pas de sable sous la neige
-  // dans le lot, et une plage couverte n'a plus de couleur propre de toute façon.
-  'iso-sand': 'iso-shingle-winter',
 };
+// ── LA GRÈVE NE PREND PAS LA NEIGE ───────────────────────────────────────────
+// Retour Raph, 2026-07-30 : « laisse le sable même quand il neige sur l'île ».
+// Ces deux matières étaient DANS la table ci-dessus, au motif qu'« une plage
+// couverte n'a plus de couleur propre » — mais c'est justement l'inverse qui se
+// voit en jeu : le rivage est la moitié de l'Aiguille (une île de 4,8 tuiles de
+// large bordée de 0,8 de sable), et le voir blanchir efface l'île entière dans
+// le blanc du reste. Le vrai argument est physique en plus d'être graphique :
+// une grève que le ressac lave douze fois par minute ne tient pas la neige.
+// Elles vivent donc à part, et `__beach.snow = true` rend l'ancien comportement.
+const ISO_TILE_WINTER_BEACH = {
+  'iso-shingle': 'iso-shingle-winter',
+  'iso-sand': 'iso-shingle-winter',      // pas de sable enneigé dans le lot
+};
+// Tuile d'hiver d'une matière, grève comprise. ⚠ Déclarée en `function` et non
+// en `const` : elle est appelée depuis blitIsoTileKey, plus haut dans le fichier
+// que `BEACH` — une const serait en zone morte au chargement (le piège que
+// NAV_STAGES a déjà tendu ici).
+function isoWinterTile(key) {
+  return ISO_TILE_WINTER[key] || (BEACH.snow ? ISO_TILE_WINTER_BEACH[key] : null);
+}
+// Ton MOYEN de la grève — aplat de repli du bake, bande de sable, rivage d'île.
+// UN seul endroit : ces trois couches se superposent au pixel près, deux règles
+// de saison différentes feraient lire la plage en deux matières selon la couche.
+function beachTone(mat) {
+  if (CM.season === WINTER && BEACH.snow) return SHINGLE_TONE_WINTER;
+  return mat === 'sand' ? SAND_TONE : SHINGLE_TONE;
+}
 // Clé de la variante d'une cellule, depuis le hash DÉJÀ calculé par l'appelant
 // (celui qui décide aussi le miroir) — pas de second cmHash par cellule.
 // ⚠ bits 5-6, JAMAIS le bit faible : sur FNV-1a le bit 0 n'est que la parité de
@@ -532,9 +556,11 @@ export function plazaEraTileKey(era) {
 function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil = null) {
   // HIVER : bascule vers la tuile enneigée si elle existe ET est décodée —
   // sinon on garde l'été pour cette recuisson (le décodage la rappellera).
-  if (CM.season === WINTER && ISO_TILE_WINTER[key]) {
-    const we = ensureIsoTileKey(isoVariantKey(ISO_TILE_WINTER[key], h));
-    if (we && we.ready) key = ISO_TILE_WINTER[key];
+  // (La GRÈVE n'en a pas, sauf `__beach.snow` — cf. ISO_TILE_WINTER_BEACH.)
+  const wKey = CM.season === WINTER ? isoWinterTile(key) : null;
+  if (wKey) {
+    const we = ensureIsoTileKey(isoVariantKey(wKey, h));
+    if (we && we.ready) key = wKey;
   }
   const e = ensureIsoTileKey(isoVariantKey(key, h));
   if (!e || !e.ready) return false;
@@ -672,6 +698,12 @@ export const BEACH = {
   // demandé le sable en les voyant en place (2026-07-30) — les deux matières
   // restent cuites, le basculement est un mot : `__beach.mat = 'shingle'`.
   mat: 'sand',
+  // La grève prend-elle la neige en hiver ? NON depuis le 2026-07-30 (cf.
+  // ISO_TILE_WINTER_BEACH pour le pourquoi). Porte les QUATRE couches d'un coup —
+  // cellules bakées, bande de sable, rivage d'île, frange mouillée — parce qu'elles
+  // se superposent au pixel près : n'en enneiger que certaines ferait lire la plage
+  // en deux matières selon la couche, ce qui est pire que les deux choix francs.
+  snow: false,
   // Largeur du rivage d'île, en TUILES depuis le bord de l'ellipse.
   //
   // ⚠ PAS un rayon normalisé : premier jet à 0,62 de rayon, et l'île y passait
@@ -2151,8 +2183,8 @@ function drawIsoGround() {
       const kind = kindAt(gx, gy);
       const tone = kind === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : kind === 'wonder' ? WONDER_GROUND.tone
         : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE
-          : kind === 'shingle' ? (CM.season === WINTER ? SHINGLE_TONE_WINTER : SHINGLE_TONE)
-            : kind === 'sand' ? (CM.season === WINTER ? SHINGLE_TONE_WINTER : SAND_TONE) : urb;
+          : kind === 'shingle' ? beachTone('shingle')
+            : kind === 'sand' ? beachTone('sand') : urb;
       // UN hash par cellule pour les deux tirages : le miroir (bit 3) et la
       // variante de tuile (bits 5-6, cf. isoVariantKey). Deux cmHash séparés ne
       // coûteraient rien de plus qu'ils ne rapporteraient — mêmes bits, même
@@ -2747,19 +2779,261 @@ function drawIsoGround() {
 // droite calculées en MONDE (pos ± normale·hw) puis projetées. Dessin LIVE à
 // chaque frame (un polygone + liserés + reflets) → l'eau peut s'animer alors
 // que le sol reste baké. Bateaux/quais : Phase 5 complète.
+/* ── LE RESSAC : LE FLEUVE MONTE ET REDESCEND LE LONG DE SES BERGES ───────────
+ * Demande de Raph (2026-07-30) : « des vagues — pour l'instant juste faire monter
+ * et descendre le niveau d'eau partout, légèrement ».
+ *
+ * ⚠ LA VAGUE EST AU BORD, PAS SUR LA SURFACE — et ce n'est pas une humeur, c'est
+ * le seul terrain qui reste. Le milieu du fleuve a déjà refusé trois fois ce
+ * qu'on pourrait y poser : le grain procédural (trois calibrages, trois refus),
+ * les vaguelettes vectorielles retirées le 2026-07-22 (« enlève les traits blancs
+ * du courant, on n'en a plus besoin »), et la bande d'eau elle-même qu'il a fallu
+ * CALMER le 2026-07-30 (« le fleuve est trop bruyant »). Y rajouter du mouvement,
+ * c'est rouvrir les trois d'un coup. Au BORD, rien n'a jamais été refusé — et
+ * c'est là qu'une vague se lit vraiment : ce qu'on reconnaît d'une vague, ce
+ * n'est pas sa crête au large, c'est l'eau qui monte sur le sable et redescend.
+ *
+ * ⚠⚠ L'EAU N'AVANCE QUE, ELLE NE RECULE JAMAIS SOUS SON LIT PEINT. Le sol sous le
+ * ruban est BAKÉ, et c'est de l'HERBE (berges douces, cf. drawIsoGround) : une eau
+ * qui se retirerait en deçà de son bord habituel découvrirait du vert au ras de
+ * l'onde, une fois par seconde, sur toute la longueur du fleuve. On pose donc le
+ * lit peint comme MARÉE BASSE et la houle ne fait qu'y ajouter (`hw + amp·u`,
+ * u ∈ [0,1]). Avancer ne peut que RECOUVRIR — il n'existe aucun cas où ça
+ * découvre quoi que ce soit. C'est ce qui rend l'effet sûr PARTOUT, y compris
+ * dans les configurations qu'on n'a pas regardées.
+ *
+ * Où ça se voit : partout où le ruban borde la terre — campements, plages, îles,
+ * emprise du port, extrémités du cours. Sous les QUAIS, la promenade est peinte
+ * APRÈS le fleuve, de son bord d'eau jusqu'à 0,7 tuile côté terre (`fillStrip`
+ * dans renderWorld) : elle recouvre une avancée qui plafonne à 0,22. Le ressac y
+ * est donc simplement invisible, sans un pixel d'eau sur la pierre — rien à
+ * masquer, et c'est pour ça qu'il n'y a pas de garde par ère ici.
+ *
+ * ⚠ PUREMENT f(now), ET C'EST L'INVERSE DE stepWaterPhase — À DESSEIN. La phase de
+ * la nappe, elle, DOIT être intégrée parce que sa vitesse suit la météo (cf. ⚠⚠
+ * PHASE ACCUMULÉE, et le bug « à l'envers » de juillet). Ici la vitesse est
+ * CONSTANTE par construction : l'averse ne touche QUE l'amplitude. Un temps absolu
+ * × une vitesse constante ne saute jamais — on garde donc une fonction pure, et
+ * une capture (now figé) reste reproductible. Ne JAMAIS faire dépendre `len` ou
+ * `period` de la météo sans passer d'abord à une phase intégrée.
+ *
+ * Molette : window.__waves. `len = 0` retombe sur la MARÉE du premier jet — tout
+ * le fleuve monte et descend ensemble, sans onde qui voyage.
+ * ------------------------------------------------------------------------- */
+export const waveTune = {
+  on: true,
+  // Avancée MAXIMALE de l'eau au-delà de son lit peint, en TUILES. Se juge contre
+  // la bande de sable des berges (BEACH.bankBand = 0,55 tuile) : la vague reste
+  // dedans, elle mouille le sable sans jamais atteindre l'herbe.
+  amp: 0.22,
+  len: 9, period: 3.4,                     // houle principale : longueur d'onde (tuiles), temps de parcours (s)
+  len2: 4.3, period2: 2.1, mix2: 0.38,     // seconde houle — sans elle, l'onde bat la mesure comme un métronome
+  // Les deux rives ne respirent PAS ensemble : en phase, le fleuve « gonfle » et
+  // se dégonfle comme un tuyau au lieu de battre contre chacune de ses berges.
+  sidePhase: 1.7,
+  rainAmp: 0.7,                            // × amplitude à averse pleine (l'AMPLITUDE seule, jamais la vitesse)
+  // Fondu au dézoom : sous 3 px d'écran l'onde ne se lit plus, elle scintille.
+  minZoom: 0.3, fullZoom: 0.5,
+  // ── SILLAGE D'ÎLE ─────────────────────────────────────────────────────────
+  // Une île DIVISE le courant : l'eau s'empile sur la pointe amont et la pointe
+  // aval est à l'abri. C'est le seul endroit de la carte où l'eau rencontre un
+  // obstacle, donc le seul où elle peut le DIRE. On module l'amplitude du ressac
+  // autour du fuseau (0 = île qui respire uniformément, comme une berge).
+  wake: 0.75,
+  // Écume de proue : l'arc de bas-fond VIF sur la pointe amont, là où l'onde se
+  // brise. C'est la partie qu'on VOIT — la modulation d'amplitude, elle, ne vaut
+  // que quelques pixels au zoom de jeu. Reste dans la famille admise (un trait au
+  // CONTACT de la terre et de l'eau, comme le rivage d'île), et non une nappe
+  // posée au milieu du fleuve — celles-là ont été refusées trois fois.
+  bow: 1, bowArc: 0.34, bowW: 2.2,         // intensité, demi-ouverture (tours), × largeur du liseré
+  // ── LA LAISSE ─────────────────────────────────────────────────────────────
+  // Combien de temps le sable garde la trace de l'eau, et en combien de pas on
+  // regarde en arrière. `wetMem = 0` recolle la frange à la ligne d'eau, soit
+  // exactement le comportement d'avant le 2026-07-30.
+  wetMem: 2.2, wetSteps: 8,
+};
+if (typeof window !== 'undefined') window.__waves = waveTune;
+
+// Hauteur de l'onde en un point, normalisée 0..1 (0 = lit peint, 1 = crête).
+// `s` = abscisse curviligne en TUILES, `t` = secondes, `side` = ±1 (la rive).
+// Exportée PURE : c'est la forme de l'onde qui se teste, pas le dessin.
+export function waveReach(s, t, side = 1, G = waveTune) {
+  // len ≤ 0 : le terme spatial disparaît et toute la berge monte en même temps —
+  // c'est la MARÉE demandée au départ, gardée comme A/B et non comme un cas mort.
+  const ph = side < 0 ? G.sidePhase : 0;
+  const sp1 = G.len > 0 ? s / G.len : 0, sp2 = G.len2 > 0 ? s / G.len2 : 0;
+  const tp1 = G.period > 0 ? t / G.period : 0, tp2 = G.period2 > 0 ? t / G.period2 : 0;
+  const m = Math.max(0, Math.min(1, G.mix2));
+  return 0.5 + 0.5 * ((1 - m) * Math.sin(2 * Math.PI * (sp1 - tp1) + ph)
+    + m * Math.sin(2 * Math.PI * (sp2 - tp2) + ph * 1.6));
+}
+
+// Variante BOUCLÉE, pour le contour d'une île.
+//
+// ⚠ UN CONTOUR FERMÉ NE TOLÈRE PAS UNE ONDE QUELCONQUE : évaluée sur l'abscisse
+// curviligne comme sur les berges, l'onde ne retomberait pas sur sa valeur de
+// départ après un tour, et l'île se refermerait sur une MARCHE — une encoche fixe
+// dans le rivage, à l'endroit où la polyligne boucle. On arrondit donc chaque
+// houle au nombre ENTIER de périodes le plus proche le long du périmètre : le
+// motif garde son échelle (à un demi-cran près sur une île de ~30 tuiles de tour)
+// et sin(2πk·u) reprend exactement sa valeur en u = 1. `u` = tour parcouru, 0..1.
+export function waveReachLoop(u, perim, t, phase = 0, G = waveTune) {
+  const k1 = G.len > 0 ? Math.max(1, Math.round(perim / G.len)) : 0;
+  const k2 = G.len2 > 0 ? Math.max(1, Math.round(perim / G.len2)) : 0;
+  const tp1 = G.period > 0 ? t / G.period : 0, tp2 = G.period2 > 0 ? t / G.period2 : 0;
+  const m = Math.max(0, Math.min(1, G.mix2));
+  return 0.5 + 0.5 * ((1 - m) * Math.sin(2 * Math.PI * (k1 * u - tp1) + phase)
+    + m * Math.sin(2 * Math.PI * (k2 * u - tp2) + phase * 1.6));
+}
+
+/* ── LA LAISSE : JUSQU'OÙ L'EAU EST MONTÉE RÉCEMMENT ──────────────────────────
+ * Demande de Raph (2026-07-30) : « laisser un liseré sombre quand les vagues
+ * reviennent dans l'eau ». C'est la laisse de haute mer — le sable reste mouillé
+ * là où l'eau vient de passer, et sèche derrière elle. Jusqu'ici la frange humide
+ * était collée à la ligne d'eau, donc elle ne laissait jamais rien : elle montait
+ * et redescendait avec la vague au lieu de marquer son passage.
+ *
+ * ⚠ SANS AUCUN ÉTAT, ET C'EST CE QUI LA REND JUSTE. La hauteur d'eau étant une
+ * fonction PURE du temps, « jusqu'où l'eau est montée dans les dernières secondes »
+ * se lit en rééchantillonnant l'onde EN ARRIÈRE. Un maximum glissant accumulé
+ * frame par frame aurait marché aussi — et aurait rendu les captures dépendantes
+ * de leur histoire, avec un séchage qui dérive selon le nombre d'images par
+ * seconde. Ici, deux machines au même `now` voient la même laisse.
+ *
+ * Le terme `− k·h·dry` est le SÉCHAGE. Sans lui, la laisse resterait accrochée à
+ * la dernière crête puis retomberait D'UN COUP le jour où celle-ci sort de la
+ * fenêtre — un liseré qui saute au lieu de s'effacer. Avec lui elle redescend
+ * doucement vers la ligne d'eau. Et comme le pas k = 0 n'est pas amorti, le
+ * maximum est toujours ≥ la hauteur du moment : la laisse ne peut jamais passer
+ * SOUS l'eau, ce qui la ferait disparaître par le mauvais côté.
+ * ------------------------------------------------------------------------- */
+export function waveWetReach(s, t, side = 1, G = waveTune) {
+  if (!(G.wetMem > 0)) return waveReach(s, t, side, G);
+  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = 1 / G.wetMem;
+  let best = 0;
+  for (let k = 0; k <= n; k += 1) {
+    const v = waveReach(s, t - k * h, side, G) - k * h * dry;
+    if (v > best) best = v;
+  }
+  return best;
+}
+
+// Même laisse, sur le contour BOUCLÉ d'une île (cf. waveReachLoop).
+export function waveWetReachLoop(u, perim, t, phase = 0, G = waveTune) {
+  if (!(G.wetMem > 0)) return waveReachLoop(u, perim, t, phase, G);
+  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = 1 / G.wetMem;
+  let best = 0;
+  for (let k = 0; k <= n; k += 1) {
+    const v = waveReachLoop(u, perim, t - k * h, phase, G) - k * h * dry;
+    if (v > best) best = v;
+  }
+  return best;
+}
+
+// SILLAGE : de combien l'onde est amplifiée ou éteinte au tour d'une île, selon
+// l'angle `a` dans le repère du fuseau.
+//
+// ⚠ `il.tx/ty` pointe vers l'AVAL (il est calculé sur des samples d'indice
+// CROISSANT, et la nappe d'eau dérive dans le même sens) : donc a = 0 est la
+// pointe aval — celle qui est À L'ABRI — et a = π la pointe amont, où l'eau
+// s'empile. Inverser ces deux-là ferait un fleuve qui remonte, et rien à l'écran
+// ne le dirait franchement : d'où le rappel ici plutôt qu'un signe nu.
+//
+// Périodique en `a` par construction (un cosinus), donc le contour d'île se
+// referme toujours exactement — cf. waveReachLoop, même exigence.
+// Pure et exportée : c'est la forme du sillage qui se teste.
+export function islandWakeK(a, G = waveTune) {
+  const w = Math.max(0, Math.min(1, G.wake));
+  return 1 - w * Math.cos(a);
+}
+
+// État de l'onde pour LA frame en cours, posé une seule fois par drawIsoRiver et
+// lu par tout ce qui touche au bord de l'eau (ruban, îles, bas-fond, frange
+// mouillée, clips de la vie de surface). UNE seule source par frame, et c'est la
+// raison d'être de ces variables : si le ruban et le liseré évaluaient chacun leur
+// sinus, le moindre écart de `now` entre deux appels décollerait le liseré du bord.
+let waveAmp = 0, waveT = 0;
+let waveArc = null, waveArcPts = null;      // abscisse curviligne des samples, en tuiles
+let waveHwCache = null;                     // demi-largeurs visuelles de la frame
+
+// Abscisse curviligne, cuite une fois par cours d'eau. Clé = l'IDENTITÉ du tableau
+// de samples : un recompute de layout en crée un neuf (cf. `const riverSamples =
+// []`), donc la comparaison suffit et ne peut pas servir une vieille géométrie —
+// là où une clé temporelle (layoutRecomputeAt) aurait tourné pour rien.
+function ensureWaveArc(pts) {
+  if (waveArcPts === pts && waveArc && waveArc.length === pts.length) return waveArc;
+  const a = new Float64Array(pts.length);
+  for (let i = 1; i < pts.length; i += 1) {
+    a[i] = a[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  }
+  waveArc = a; waveArcPts = pts;
+  return a;
+}
+
+// Ouvre la frame : fige l'instant et l'amplitude. Appelée UNE fois, en tête de
+// drawIsoRiver — tout ce qui suit dans la frame lit la même onde.
+function beginWaveFrame(now, z) {
+  const G = waveTune;
+  waveT = (now || 0) / 1000;
+  // Fleuve MORT pendant l'effondrement : ni tuile, ni grain, ni poisson, ni
+  // liseré — donc pas de ressac non plus. (L'USURE, elle, ne coupe plus rien
+  // depuis le 2026-07-27 : une cité usée reste une cité.)
+  if (!G.on || !(G.amp > 0) || CM.collapseAt) { waveAmp = 0; return; }
+  const k = Math.max(0, Math.min(1, (z - G.minZoom) / Math.max(1e-3, G.fullZoom - G.minZoom)));
+  const rf = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
+  waveAmp = G.amp * k * (1 + G.rainAmp * rf);
+}
+
+// Demi-largeurs VISUELLES des deux rives pour la frame (lit peint + ressac), ou
+// null quand l'onde est éteinte — les appelants retombent alors sur `p.hw` au bit
+// près, ce qui garantit « molette off ⇒ exactement l'image d'avant ».
+// Les tableaux sont RÉUTILISÉS d'une frame à l'autre : le ruban est reprojeté une
+// demi-douzaine de fois par frame, en allouer deux à chaque fois ferait des
+// centaines de ko/s de déchets pour un résultat identique.
+function waveHalfWidths(pts) {
+  if (waveAmp <= 0) return null;
+  let c = waveHwCache;
+  if (c && c.pts === pts && c.t === waveT && c.amp === waveAmp) return c;
+  const n = pts.length;
+  if (!c || c.plus.length !== n) {
+    c = waveHwCache = {
+      pts: null, t: -1, amp: -1,
+      plus: new Float64Array(n), minus: new Float64Array(n),
+      wetPlus: new Float64Array(n), wetMinus: new Float64Array(n),
+    };
+  }
+  const arc = ensureWaveArc(pts);
+  for (let i = 0; i < n; i += 1) {
+    const hw = pts[i].hw;
+    c.plus[i] = hw + waveAmp * waveReach(arc[i], waveT, 1);
+    c.minus[i] = hw + waveAmp * waveReach(arc[i], waveT, -1);
+    // La LAISSE : jusqu'où l'eau est montée récemment. Toujours ≥ la ligne d'eau
+    // du moment (cf. waveWetReach), donc côté TERRE d'elle par construction.
+    c.wetPlus[i] = hw + waveAmp * waveWetReach(arc[i], waveT, 1);
+    c.wetMinus[i] = hw + waveAmp * waveWetReach(arc[i], waveT, -1);
+  }
+  c.pts = pts; c.t = waveT; c.amp = waveAmp;
+  return c;
+}
+
 // Rives GAUCHE et DROITE du ruban, projetées à l'écran. Extrait de
 // riverRibbonPath pour que le pavage de l'eau (drawIsoWaterTiles) puisse borner
 // ses colonnes sur la vraie emprise du ruban, et pas sur sa boîte englobante.
+// C'est aussi LE goulot du ressac : les sept appels du ruban dans une frame
+// passent tous par ici, donc corps d'eau, nappe animée, voile, poissons, vie de
+// surface et clips restent collés au bord de l'eau du moment sans un mot de plus.
 function riverRibbonScreen(pts, T) {
   const left = [], right = [];
+  const wv = waveHalfWidths(pts);
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i];
     const o = pts[Math.max(0, i - 1)], q = pts[Math.min(pts.length - 1, i + 1)];
     let tx = q.x - o.x, ty = q.y - o.y;
     const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
     const nx = -ty, ny = tx;
-    left.push(worldToScreen((p.x + nx * p.hw) * T, (p.y + ny * p.hw) * T));
-    right.push(worldToScreen((p.x - nx * p.hw) * T, (p.y - ny * p.hw) * T));
+    const hl = wv ? wv.plus[i] : p.hw, hr = wv ? wv.minus[i] : p.hw;
+    left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T));
+    right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T));
   }
   return { left, right };
 }
@@ -2787,11 +3061,31 @@ const WATER_FILL = 'evenodd';
 // vertical de moitié et fait tourner les axes avec le cap du fleuve.
 // Partagé par le chemin d'eau et le bas-fond, pour que la berge de l'île tombe
 // exactement sur le bord de l'eau.
-function islandOutline(il, T, N = 30) {
+// `mode` : quelle des TROIS lignes de l'île tracer.
+//   'wave' — le bord de l'eau du moment (le ruban et son clip)
+//   'wet'  — la LAISSE, jusqu'où l'eau est montée récemment (frange humide)
+//   'base' — le lit peint, fixe (le sable du rivage, qui ne bouge pas)
+// Elles se confondent toutes les trois quand l'onde est éteinte.
+function islandOutline(il, T, N = 30, mode = 'wave') {
   const out = [];
+  // Le ressac fait aussi le tour des îles, en RONGEANT leur contour et jamais en
+  // l'élargissant : une île est un TROU dans le ruban, donc « l'eau avance » s'y
+  // dit « le trou rétrécit ». Même règle que les berges, même sûreté — l'herbe
+  // bakée de l'île se fait recouvrir, jamais découvrir.
+  const on = mode !== 'base' && waveAmp > 0;
+  const reach = mode === 'wet' ? waveWetReachLoop : waveReachLoop;
+  const rMid = (il.rx + il.ry) / 2, perim = 2 * Math.PI * rMid;
+  // Phase propre à chaque île (sa position) : sans elle, les deux îles des bras du
+  // fleuve battraient à l'unisson, ce qui se remarque tout de suite.
+  const ph = on ? (il.x * 0.7 + il.y * 1.3) % (Math.PI * 2) : 0;
   for (let i = 0; i <= N; i += 1) {
     const a = (i / N) * Math.PI * 2;
-    const al = Math.cos(a) * il.rx, cr = Math.sin(a) * il.ry;
+    const d = on ? waveAmp * islandWakeK(a) * reach(i / N, perim, waveT, ph) : 0;
+    // Retrait MÉTRIQUE sur les deux axes (et non un facteur d'échelle) : l'Aiguille
+    // fait rx 7,6 pour ry 2,4, une homothétie y creuserait trois fois plus dans le
+    // sens du courant qu'en travers.
+    const rx = Math.max(0.25, il.rx - d), ry = Math.max(0.25, il.ry - d);
+    const al = Math.cos(a) * rx, cr = Math.sin(a) * ry;
     // Repère de l'île : `al` le long du courant, `cr` en travers.
     out.push(worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T));
   }
@@ -3630,7 +3924,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
 let beachPatCache = null;               // { key, canvas }
 function beachPatternCanvas() {
   const mat = ISO_TILE_KEYS[BEACH.mat] || 'iso-sand';
-  const key = CM.season === WINTER ? (ISO_TILE_WINTER[mat] || mat) : mat;
+  const key = (CM.season === WINTER && isoWinterTile(mat)) || mat;
   if (beachPatCache && beachPatCache.key === key) return beachPatCache.canvas;
   const e = ensureIsoTileKey(isoVariantKey(key, 0));
   if (!e || !e.ready || !e.img) return null;
@@ -3648,8 +3942,7 @@ function beachPatternCanvas() {
 // Style de tracé de la plage : la texture si elle est décodée, sinon l'aplat au ton
 // MESURÉ de la même matière (repli silencieux le temps du décodage).
 function beachStrokeStyle(ctx, z) {
-  const tone = CM.season === WINTER ? SHINGLE_TONE_WINTER
-    : (BEACH.mat === 'sand' ? SAND_TONE : SHINGLE_TONE);
+  const tone = beachTone(BEACH.mat);
   const canvas = beachPatternCanvas();
   if (canvas) {
     try {
@@ -3686,6 +3979,164 @@ function beachStrokeStyle(ctx, z) {
  * la tuile est très fin (écart de 4,0 entre variantes), donc un aplat à la même
  * moyenne se lit comme elle à l'échelle d'un rebord d'une tuile.
  * ------------------------------------------------------------------------- */
+/* ── L'EAU AUTOUR DU PÊCHEUR : CLAPOTIS, ET SON BANC DE POISSONS ──────────────
+ * Raph, 2026-07-30 : « il faut qu'il ait des clapotis autour de lui et un sillage,
+ * et à l'arrêt un petit banc de poissons qui tourne autour de son bateau ».
+ *
+ * Le sillage est rendu par la mécanique d'écume des bateaux (shipVisual, `wake`) ;
+ * ici on pose les deux choses que le fleuve seul peut dire : l'eau qui clapote
+ * contre la coque, et le banc qui vient tourner quand la ligne est à l'eau.
+ *
+ * ⚠ DESSINÉ AVANT LES BATEAUX (depuis drawIsoRiver, avec les ombres de poissons)
+ * et non avec eux : un poisson passe SOUS la barque. Peint après, le banc lui
+ * serait monté dessus — le même défaut de couche que les feuilles sur l'île.
+ *
+ * Le banc EST la pose : c'est lui qui la rend lisible. Retour de Raph avant celui-
+ * ci : « je le vois tourner mais pas s'arrêter » — la barque s'immobilisait bien
+ * (35 s toutes les ~90 s, mesuré) mais rien ne le SIGNALAIT à cette taille. Les
+ * poissons arrivent et repartent en fondu autour de la pose : on ne voit plus un
+ * bateau qui cesse d'avancer, on voit un pêcheur qui a trouvé son coin.
+ *
+ * Purement f(now) comme les ombres de poissons : aucune sim, aucun état, une
+ * capture au même `now` redonne la même scène.
+ * ------------------------------------------------------------------------- */
+export const FISHER_WATER = {
+  on: true, rings: 2, ringR: 0.62, ringA: 0.30, ringP: 2600,   // clapotis : nombre, rayon (tuiles), alpha, période (ms)
+  school: 6, schoolR: 0.95, schoolA: 0.38, schoolP: 9000,      // banc : effectif, rayon, alpha, tour complet (ms)
+  fade: 3.5,                                                    // s d'arrivée et de départ du banc
+};
+if (typeof window !== 'undefined') window.__fisherWater = FISHER_WATER;
+
+function drawIsoFisherWater(ctx, T, z, now, wb) {
+  const F = FISHER_WATER;
+  if (!F.on || CM.lodActive || z < 0.5 || CM.collapseAt) return;
+  const ships = CM.ships;
+  if (!ships || !ships.length) return;
+  const isles = riverIslands();
+  const il = isles && isles[0];
+  if (!il) return;
+  const tone = (wb && wb.cfg && wb.cfg.shore) ? wb.cfg.shore[2] : '206,242,255';
+  const t = (now || 0) / 1000;
+  for (const sh of ships) {
+    if (!sh.orbit) continue;
+    const o = orbitPoint(il, sh.orbit.ang);
+    const p = worldToScreen(o.x * T, o.y * T);
+    const s = T * z;
+    if (p.x < -s * 4 || p.x > CM.cw + s * 4 || p.y < -s * 4 || p.y > CM.ch + s * 4) continue;
+    ctx.save();
+    // Le sol iso est un losange 2:1 : tout ce qui est POSÉ À PLAT sur l'eau se
+    // dessine en cercle puis s'écrase de moitié. Un vrai ovale calculé donnerait
+    // le même résultat pour plus cher.
+    ctx.translate(p.x, p.y);
+    ctx.scale(1, 0.5);
+    // ── CLAPOTIS : l'eau bat contre la coque, à l'arrêt comme en route ────────
+    ctx.lineWidth = Math.max(1, z * 0.9);
+    for (let i = 0; i < F.rings; i += 1) {
+      // Anneaux DÉPHASÉS qui naissent au bordé et s'élargissent en s'effaçant.
+      const k = ((t * 1000 / F.ringP) + i / F.rings) % 1;
+      const r = s * F.ringR * (0.45 + k * 0.85);
+      const a = F.ringA * (1 - k) * (sh.state === 'anchor' ? 1 : 0.55);
+      if (a < 0.02) continue;
+      ctx.strokeStyle = `rgba(${tone},${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+    }
+    // ── LE BANC : il ne vient QUE quand la ligne est à l'eau ──────────────────
+    if (sh.state === 'anchor' && F.school > 0) {
+      // Fondu sur la pose : `stateT` décompte le temps restant. Les poissons
+      // arrivent, tournent, repartent — un banc qui apparaîtrait d'un coup se
+      // lirait comme un défaut d'affichage.
+      const reste = Math.max(0, sh.stateT || 0);
+      const ecoule = FLEET_TUNE.orbitDwell - reste;
+      const g = Math.max(0, Math.min(1, Math.min(ecoule, reste) / F.fade));
+      if (g > 0.01) {
+        const h0 = (cmHash('school:' + sh.id) >>> 0);
+        for (let i = 0; i < F.school; i += 1) {
+          const h = (h0 + i * 2654435761) >>> 0;
+          // Chacun sa voie et son allure : un banc parfaitement régulier tourne
+          // comme un manège, pas comme des poissons.
+          const rr = s * F.schoolR * (0.62 + ((h >>> 3) % 100) / 220);
+          const spd = 1 + ((h >>> 9) % 100) / 260;
+          const ang = (t * 1000 / F.schoolP) * Math.PI * 2 * spd
+            + (i / F.school) * Math.PI * 2 + ((h >>> 15) % 100) / 100;
+          const fx = Math.cos(ang) * rr, fy = Math.sin(ang) * rr;
+          // ⚠ MÊME ÉCHELLE QUE LES POISSONS DU FLEUVE (drawIsoFishShadows :
+          // `T·z·0,18`). Le premier jet était à 0,085, soit la moitié — lisible
+          // au cadrage serré de la vérif, et rigoureusement invisible au zoom où
+          // l'on joue. Un banc qu'il faut zoomer pour voir ne signale aucune pose.
+          const L2 = s * 0.15 * (0.8 + ((h >>> 21) % 100) / 250);
+          ctx.fillStyle = `rgba(12,26,34,${(F.schoolA * g).toFixed(3)})`;
+          // Cap TANGENT au cercle : un poisson qui tourne regarde où il va.
+          ctx.save();
+          ctx.translate(fx, fy);
+          ctx.rotate(ang + Math.PI / 2);
+          ctx.beginPath(); ctx.ellipse(0, 0, L2, L2 * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+          // Queue qui bat, comme les ombres de poissons du fleuve.
+          const wag = Math.sin(t * 6.1 + i) * L2 * 0.3;
+          ctx.beginPath(); ctx.ellipse(-L2 * 1.2, wag, L2 * 0.36, L2 * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+  }
+}
+
+/* ── ÉCUME DE PROUE : LE SILLAGE, MAIS VISIBLE ────────────────────────────────
+ * La modulation d'amplitude autour du fuseau (islandWakeK) dit la bonne chose mais
+ * ne vaut que quelques pixels au zoom de jeu. Ce qui se VOIT, c'est que l'eau
+ * blanchit là où elle se brise : on repasse donc un liseré vif sur le seul arc
+ * AMONT. Rien en aval — le calme de l'abri se lit par contraste, sans rien
+ * dessiner, ce qui est la moitié gratuite de l'effet.
+ *
+ * Le trait est du même bois que le rivage d'île, et c'est ce qui le rend
+ * admissible : il est AU CONTACT de la terre et de l'eau, pas posé en plein
+ * courant. Les trois nappes vectorielles refusées sur ce projet (grain ×3,
+ * vaguelettes) étaient toutes au milieu du fleuve.
+ *
+ * ⚠ PASSE À PART, ET C'EST LE FRUIT D'UN ÉCHEC. Écrite d'abord dans le bloc du
+ * bas-fond des berges, elle n'a JAMAIS rien dessiné : ce bloc est gardé par
+ * `waterShoreTune.islands`, qui vaut **false** — les îles ont été délibérément
+ * retirées du bas-fond parce que leur rivage de sable dit déjà le bord. Le
+ * sillage n'est pas un liseré de berge, il n'a donc rien à faire sous ce drapeau.
+ *
+ * Il PULSE avec la houle qui arrive sur la pointe — MÊME valeur d'onde que le
+ * contour au même endroit (u = 0,5, soit a = π) : l'écume monte exactement quand
+ * l'eau monte. Deux horloges séparées se seraient vues tout de suite.
+ * ------------------------------------------------------------------------- */
+function drawIsoIslandWake(ctx, pts, T, z, wb) {
+  const G = waveTune;
+  if (waveAmp <= 0 || !(G.bow > 0) || CM.lodActive) return;
+  const isles = riverIslands();
+  if (!isles || !isles.length) return;
+  const S = waterShoreTune;
+  // Teinte du CORPS D'EAU COURANT, comme le reste des liserés : une écume restée
+  // ardoise sous un fleuve azur se verrait comme un calque étranger.
+  const tone = (S.follow !== false && wb && wb.cfg && wb.cfg.shore) ? wb.cfg.shore[2] : S.c3;
+  ctx.save();
+  riverRibbonPath(ctx, pts, T);
+  ctx.clip(WATER_FILL);                      // la moitié terrestre du trait tombe
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, z * S.w3 * G.bowW);
+  for (const il of isles) {
+    const path = islandOutline(il, T);
+    if (!path || path.length < 3) continue;
+    const n = path.length - 1;               // contour FERMÉ : le dernier point = le premier
+    const half = Math.max(1, Math.round(n * G.bowArc / 2));
+    const mid = Math.round(n / 2);           // a = π, la pointe AMONT (cf. islandWakeK)
+    const perim = 2 * Math.PI * ((il.rx + il.ry) / 2);
+    const ph = (il.x * 0.7 + il.y * 1.3) % (Math.PI * 2);
+    const puls = 0.45 + 0.55 * waveReachLoop(0.5, perim, waveT, ph);
+    ctx.strokeStyle = `rgba(${tone},${(S.a3 * G.bow * puls).toFixed(3)})`;
+    ctx.beginPath();
+    for (let i = mid - half; i <= mid + half; i += 1) {
+      const p = path[i];
+      if (i === mid - half) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawIsoIslandShore(ctx, T, z) {
   if (!BEACH.on || BEACH.islandW <= 0) return;
   const isles = riverIslands();
@@ -3696,19 +4147,26 @@ function drawIsoIslandShore(ctx, T, z) {
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.strokeStyle = beachStrokeStyle(ctx, z);
   ctx.lineWidth = w;
+  const trace = (path) => {
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
+    ctx.closePath();
+  };
   for (const il of isles) {
-    const path = islandOutline(il, T);
-    if (!path || path.length < 3) continue;
+    // DEUX contours, et c'est tout le principe du ressac sur une île : le sable ne
+    // bouge pas (il est tracé sur le contour FIXE), c'est l'eau qui le RONGE — le
+    // clip, lui, suit le bord d'eau du moment. Tracer le sable sur le contour animé
+    // aurait fait glisser tout le rivage avec l'onde : une plage qui respire au
+    // lieu d'une eau qui monte. Et le clipper sur le contour fixe aurait repeint du
+    // sable par-dessus l'eau montée, effaçant la vague à chaque frame.
+    const clipPath = islandOutline(il, T);
+    const sandPath = waveAmp > 0 ? islandOutline(il, T, undefined, 'base') : clipPath;
+    if (!clipPath || clipPath.length < 3) continue;
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(path[0].x, path[0].y);
-    for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
-    ctx.closePath();
-    ctx.clip();                                          // le sable reste sur l'île
-    ctx.beginPath();
-    ctx.moveTo(path[0].x, path[0].y);
-    for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
-    ctx.closePath();
+    trace(clipPath);
+    ctx.clip();                                          // le sable reste sur l'île, sous le bord d'eau
+    trace(sandPath);
     ctx.stroke();
     ctx.restore();
   }
@@ -3720,6 +4178,11 @@ function drawIsoRiver(now) {
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
   const T = CM.TILE, ctx = CM.ctx, z = CM.cam.zoom;
   const pts = rv.samples;
+  // RESSAC : l'instant et l'amplitude de l'onde, figés pour toute la frame. ⚠ À
+  // n'appeler QU'ICI et AVANT le premier tracé du ruban : tout ce qui borde l'eau
+  // (ruban, îles, bas-fond, sable, vie de surface, reflets) lit cet état-là, et
+  // deux évaluations décalées décolleraient le liseré du bord de l'eau.
+  beginWaveFrame(now, z);
   // Coloris de l'état AVANT tout dessin : le liseré ci-dessous, le bas-fond du
   // quai (renderWorld) et les reflets nocturnes le lisent tous sur CM.
   const wb = waterBandNow(now);
@@ -3744,6 +4207,9 @@ function drawIsoRiver(now) {
   // Rivage des îles : par-dessus le sol baké (qui y peint l'herbe ou le sol de la
   // merveille), sous la frange humide qui viendra border l'eau.
   drawIsoIslandShore(ctx, T, z);
+  // Sillage : par-dessus le rivage de sable (l'écume est DANS l'eau, elle passe
+  // donc devant la grève) et sous la frange humide qui bordera le tout.
+  drawIsoIslandWake(ctx, pts, T, z, wb);
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
   // l'eau plus clairs ») : l'eau S'ÉCLAIRCIT au bord (peu profond) et fonce vers le
   // centre (profond). Bandes strokées le long du ruban, CLIPPÉES → seule la moitié
@@ -3811,31 +4277,53 @@ function drawIsoRiver(now) {
       // les échantillons) : six parcours complets du ruban par frame.
       // Chaque bord porte SES tronçons : les deux rives sont découpées par le
       // masque du quai, les îles sont d'un seul morceau.
-      const edges = [];
-      [1, -1].forEach((sgn, si) => {
-        const runs = si ? runsMinus : runsPlus;
-        if (!runs.length) return;
-        const path = [];
-        for (let i = 0; i < len0; i += 1) {
-          const p = pts[i], n = nAt(i);
-          path.push(worldToScreen((p.x + sgn * n.nx * p.hw) * T, (p.y + sgn * n.ny * p.hw) * T));
+      // TROIS jeux de rives depuis le RESSAC : le BORD D'EAU DU MOMENT (qui porte
+      // le bas-fond — il EST l'eau, il monte avec elle), la LAISSE (jusqu'où l'eau
+      // est montée récemment : c'est là que va la frange mouillée, pour qu'elle
+      // reste sur le sable quand la vague se retire) et le LIT PEINT, fixe, réservé
+      // au SABLE sec. Le sable ne bouge pas :
+      // sa bande reste sur le lit peint et c'est le ruban, animé, qui la ronge par
+      // son clip quand la vague monte. Coller le sable au bord de l'eau aurait fait
+      // glisser toute la plage avec l'onde — une plage qui respire au lieu d'une eau
+      // qui monte. Onde éteinte : les deux jeux sont identiques et on n'en bâtit
+      // qu'un (`edgesBase = edges`), donc pas un projeté de plus qu'avant.
+      const wv = waveHalfWidths(pts);
+      // `mode` : 'wave' (bord de l'eau), 'wet' (la LAISSE) ou 'base' (le lit peint).
+      const buildEdges = (mode) => {
+        const out = [];
+        [1, -1].forEach((sgn, si) => {
+          const runs = si ? runsMinus : runsPlus;
+          if (!runs.length) return;
+          const path = [];
+          for (let i = 0; i < len0; i += 1) {
+            const p = pts[i], n = nAt(i);
+            // ⚠ `si = 0` ↔ `sgn = +1` ↔ rive `plus` : même convention de signe que
+            // riverRibbonScreen (left = +n). L'inverser décollerait le liseré du
+            // bord de l'eau d'un côté sur deux, et seulement quand l'onde est haute.
+            const hw = (mode === 'base' || !wv) ? p.hw
+              : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
+                : (si ? wv.minus[i] : wv.plus[i]);
+            path.push(worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T));
+          }
+          out.push({ path, runs });
+        });
+        // La BERGE D'UNE ÎLE est une rive comme les autres : elle reçoit le même
+        // bas-fond. Sans ça, l'île se découpait au couteau dans l'eau — un ovale
+        // posé sur le fleuve au lieu d'une terre qui en émerge. Le clip en
+        // 'evenodd' garde la moitié du trait qui tombe dans l'eau, exactement
+        // comme pour les rives.
+        if (islandsOn) {
+          for (const il of (riverIslands() || [])) {
+            const path = islandOutline(il, T, undefined, mode);
+            if (path && path.length > 1) out.push({ path, runs: [[0, path.length - 1]] });
+          }
         }
-        edges.push({ path, runs });
-      });
-      // La BERGE D'UNE ÎLE est une rive comme les autres : elle reçoit le même
-      // bas-fond. Sans ça, l'île se découpait au couteau dans l'eau — un ovale
-      // posé sur le fleuve au lieu d'une terre qui en émerge. Le clip en
-      // 'evenodd' garde la moitié du trait qui tombe dans l'eau, exactement
-      // comme pour les rives.
-      if (islandsOn) {
-        for (const il of (riverIslands() || [])) {
-          const path = islandOutline(il, T);
-          if (path && path.length > 1) edges.push({ path, runs: [[0, path.length - 1]] });
-        }
-      }
-      const shore = (color, width) => {
+        return out;
+      };
+      const edges = buildEdges('wave');
+      const shore = (color, width, set = edges) => {
         ctx.strokeStyle = color; ctx.lineWidth = width;
-        for (const e of edges) {
+        for (const e of set) {
           for (const [a, b] of e.runs) {
             if (b <= a) continue;
             ctx.beginPath();
@@ -3908,18 +4396,42 @@ function drawIsoRiver(now) {
         if (BEACH.bankBand > 0) {
           ctx.save();
           ctx.imageSmoothingEnabled = false;
-          shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2));
+          // SUR LE LIT PEINT, pas sur le bord d'eau du moment (cf. les deux jeux de
+          // rives plus haut) : la grève est fixe, c'est la vague qui la recouvre.
+          // Le clip côté terre, lui, est bien celui du ruban ANIMÉ — d'où la bande
+          // qui s'amincit quand l'onde monte et se rouvre quand elle redescend.
+          shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2),
+            wv ? buildEdges('base') : edges);
           ctx.restore();
         }
-        const wt = CM.season === WINTER ? BEACH.wetWinter
+        // Frange mouillée : elle suit la MATIÈRE, donc la même règle de neige que
+        // le sable sec au-dessus d'elle — sinon la grève reste sable et sa lisière
+        // d'eau vire au gris d'hiver, ce qui se lit comme une bande étrangère.
+        const wt = (CM.season === WINTER && BEACH.snow) ? BEACH.wetWinter
           : (BEACH.wetTone[BEACH.mat] || BEACH.wetTone.shingle);
-        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW));
+        // ── SUR LA LAISSE, ET NON SUR LA LIGNE D'EAU ───────────────────────────
+        // Demande de Raph : « laisser un liseré sombre quand les vagues reviennent
+        // dans l'eau ». Collée au bord de l'eau, cette frange montait et
+        // redescendait AVEC la vague : elle ne marquait donc jamais rien. Posée sur
+        // la laisse — jusqu'où l'eau est montée dans les dernières secondes — elle
+        // se DÉCROCHE quand l'onde se retire, reste sur le sable, et sèche.
+        //
+        // Le trait est CENTRÉ sur la laisse et large de `wetW` : à l'échelle où ça
+        // se joue (l'écart entre l'eau et la laisse plafonne à ~4 px au zoom de
+        // jeu), il couvre le sable mouillé sans qu'on ait besoin d'un polygone
+        // entre les deux courbes — lequel coûterait un remplissage de plus par
+        // rive pour un résultat indiscernable.
+        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW),
+          wv ? buildEdges('wet') : edges);
         ctx.restore();
       }
     }
   }
   // OMBRES DE POISSONS : sous les reflets (dessinées AVANT les vaguelettes).
   drawIsoFishShadows(ctx, rv, T, z, now);
+  // Clapotis du pêcheur et son banc : même couche que les poissons du fleuve —
+  // sous la surface, donc SOUS les coques (les bateaux passent bien après).
+  drawIsoFisherWater(ctx, T, z, now, wb);
   // (Vaguelettes animées RETIRÉES le 2026-07-22 — nappe de petits traits clairs
   // rgba(184,214,224) dont la brillance courait vers l'aval. Elles portaient la
   // lecture du courant tant que l'eau était un APLAT ; la tuile animée
@@ -4024,6 +4536,11 @@ const ISO_TREE_VARIANTS = 4;
 // PNG manque (cf. les sprites absents du .exe hors ligne : un art absent ne doit
 // rien effacer).
 const ISO_BUSH_VARIANTS = 6;
+// Végétation de l'île (cf. son bloc dans drawIsoLive). `rMin/rMax` sont des rayons
+// NORMALISÉS de l'ellipse : le tiers central est laissé à la merveille.
+// Molette : window.__islandDeco.
+export const ISLAND_DECO = { on: true, count: 9, rMin: 0.5, rMax: 0.88, size: 0.3 };
+if (typeof window !== 'undefined') window.__islandDeco = ISLAND_DECO;
 
 // ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
 // Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol
@@ -4567,7 +5084,13 @@ export function shipVisual(kind, band, ei, shipState) {
   // FAIRE, et c'est ce qui donne à son arrivée et à son départ un sens lisible.
   if (kind === 'fisher') {
     const posed = shipState === 'anchor';
-    return { key: posed ? 'fisher' : 'fisher-row', sizeMul: 1.75, wake: 0, stage: 'fisher' };
+    // ⚠ LE `wake: 0` DATAIT DU TEMPS OÙ LE PÊCHEUR NE BOUGEAIT PAS. Il valait 0
+    // dans les deux poses au motif qu'« il est à l'ancre » — vrai du pêcheur qui
+    // traverse et se pose 90 s, faux depuis que celui de l'île TOURNE (Raph,
+    // 2026-07-30 : « il faut qu'il ait des clapotis autour de lui et un sillage »).
+    // À l'arrêt il n'en laisse toujours aucun, et c'est ce contraste qui fait lire
+    // la pose : l'écume s'éteint quand il pose sa ligne.
+    return { key: posed ? 'fisher' : 'fisher-row', sizeMul: 1.75, wake: posed ? 0 : 0.4, stage: 'fisher' };
   }
   if (kind === 'yacht') {
     const y = yachtStage(ei);
@@ -4596,6 +5119,71 @@ const DODGE = { on: true, range: 0.045, clear: 1.0, gateRange: 0.07 };
 if (typeof window !== 'undefined') {
   window.__riverDodge = (o) => { if (o) Object.assign(DODGE, o); return { ...DODGE }; };
 }
+/* ── UNE ÎLE EST UN OBSTACLE LONG, PAS UN CAILLOU ──────────────────────────────
+ * L'Aiguille publie sa position comme un disque de 1,6 (cf. riverObstacles dans
+ * cityMapRuntime). Depuis qu'une ÎLE l'entoure — 7,6 × 2,4 tuiles de demi-axes,
+ * soit 15 tuiles de long — ce disque ne couvre plus qu'un dixième de ce qu'il faut
+ * contourner : les bateaux évitaient le monument et labouraient l'île (Raph,
+ * 2026-07-30, « ils passent encore dessus »).
+ *
+ * On publie donc une CHAÎNE de points le long du grand axe, chacun portant la
+ * demi-largeur LOCALE du fuseau : l'ellipse se contourne comme elle est faite et
+ * non comme si c'était un rond, et les deux bras du fleuve redeviennent deux
+ * vraies passes.
+ *
+ * ⚠ POURQUOI PAS UN SEUL POINT AU CENTRE, AVEC UN GROS RAYON. Parce que la portée
+ * de l'évitement (DODGE.range) est une fraction du fleuve ENTIER : ~22 tuiles à
+ * gridN 136, mais seulement 7,8 à gridN 46 — pour une île qui, elle, fait 15
+ * tuiles quelle que soit la carte. Un point unique tiendrait sur une grande carte
+ * et laisserait les bateaux couper les deux pointes sur une petite, c'est-à-dire
+ * le bug d'origine mais seulement pour les joueurs en début de partie. La chaîne
+ * ne dépend que de la taille de l'île, donc elle tient partout.
+ *
+ * Vit ICI et non côté runtime : publier et éviter sont les deux moitiés d'un même
+ * contrat (le format {t, lat, r}), et le piège du rayon nul ci-dessous ne se lit
+ * que si `riverDodge` est sous les yeux. Pure et exportée — c'est la GÉOMÉTRIE
+ * qui se teste, pas le dessin.
+ * ------------------------------------------------------------------------- */
+export function riverIslandObstacles(islands, sm) {
+  const out = [];
+  if (!islands || !sm || sm.length < 2) return out;
+  const len = sm.length;
+  for (const il of islands) {
+    // Un point tous les ~ry le long du fuseau : assez serré pour que les zones
+    // d'influence se recouvrent franchement, même sur la plus petite carte.
+    const n = Math.max(3, Math.ceil((2 * il.rx) / Math.max(0.6, il.ry)));
+    for (let k = 0; k <= n; k += 1) {
+      const al = -il.rx + 2 * il.rx * (k / n);          // abscisse le long du courant
+      const px = il.x + al * il.tx, py = il.y + al * il.ty;
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < len; i += 1) {
+        const dd = (sm[i].x - px) ** 2 + (sm[i].y - py) ** 2;
+        if (dd < bd) { bd = dd; bi = i; }
+      }
+      const s0 = sm[bi];
+      const a = sm[Math.max(0, bi - 1)], b = sm[Math.min(len - 1, bi + 1)];
+      let tx = b.x - a.x, ty = b.y - a.y;
+      const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      const nx = -ty, ny = tx;
+      // Le grand axe de l'île est DROIT alors que le fleuve tourne : `lat` s'écarte
+      // de zéro vers les pointes, et c'est exactement ce qu'on veut publier — la
+      // chaîne suit l'ÎLE, pas l'axe du courant.
+      const lat = (px - s0.x) * nx + (py - s0.y) * ny;
+      // Demi-largeur du fuseau EN TRAVERS du courant à cette abscisse.
+      // ⚠ PLANCHER À 0,35 ET NON ZÉRO : `riverDodge` lit `o.r || 1.4`, donc un rayon
+      // nul aux pointes retomberait EN SILENCE sur le défaut de 1,4 — plus large
+      // que l'île n'y est. Un zéro qui se change en gros nombre est le genre de
+      // bug qu'on ne voit jamais en relisant le code.
+      const u = Math.max(0, 1 - (al / il.rx) ** 2);
+      out.push({
+        t: bi / Math.max(1, len - 1), lat,
+        r: Math.max(0.35, il.ry * Math.sqrt(u)), id: 'island',
+      });
+    }
+  }
+  return out;
+}
+
 export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
   const obs = obstacles || CM.riverObstacles;
   const gts = gates || CM.riverGates;
@@ -4637,7 +5225,15 @@ export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
       const autre = o.lat - side * clear;
       cible = Math.abs(autre) <= bord ? autre : Math.max(-bord, Math.min(bord, cible));
     }
-    out += (cible - out) * force;
+    // ⚠ UN OBSTACLE ÉCARTE, IL N'ATTIRE JAMAIS. Sans cette borne, `out += (cible -
+    // out) · force` RAMÈNE le bateau vers l'obstacle quand il est déjà plus au
+    // large que le dégagement demandé. Invisible tant qu'il n'y avait qu'un seul
+    // obstacle ponctuel (l'Aiguille) ; fatal dès qu'une ÎLE en publie une chaîne,
+    // parce que les points étroits des pointes viennent alors défaire l'écart que
+    // le point large du milieu vient d'obtenir — et la coque repasse sur la terre,
+    // exactement le défaut qu'on croyait corriger.
+    const vise = out + (cible - out) * force;
+    out = side > 0 ? Math.max(out, vise) : Math.min(out, vise);
   }
   return out;
 }
@@ -4685,31 +5281,57 @@ function drawIsoShips(now) {
       for (const d of docks) { let dd = Math.abs(sh.t - d.t); if (dd > 0.5) dd = 1 - dd; prox = Math.max(prox, Math.max(0, 1 - dd / 0.05)); }
       moveF = 1 - 0.7 * prox;
     }
-    const fi = sh.t * (sm.length - 1);
-    const i0 = Math.max(0, Math.min(sm.length - 1, Math.floor(fi)));
-    const i1 = Math.min(sm.length - 1, i0 + 1);
-    const f = fi - i0;
-    let cgx = sm[i0].x + (sm[i1].x - sm[i0].x) * f;
-    let cgy = sm[i0].y + (sm[i1].y - sm[i0].y) * f;
-    // Voie latérale propre + louvoiement (repris du legacy).
-    const hw = sm[i0].hw || 2;
-    let nx = -(sm[i1].y - sm[i0].y), ny = sm[i1].x - sm[i0].x;
-    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
-    const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;
-    // Voie RESSERRÉE (hw×0.78) : dans les coudes, l'interpolation linéaire des
-    // samples dérive du ruban lissé → à pleine demi-largeur les coques
-    // mordaient la berge près du pont (vu à la capture).
-    const laneRoom = Math.max(0, hw * 0.78 - effSize * 0.3 - 0.25);
-    const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
-    const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null);
-    cgx += nx * lateral; cgy += ny * lateral;
-    const p = worldToScreen(cgx * T, cgy * T);
-    if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
-    // Cap PROJETÉ complet (rad écran), signé par le sens de navigation.
-    const a2 = worldToScreen(sm[i0].x * T, sm[i0].y * T);
-    const b2 = worldToScreen(sm[i1].x * T, sm[i1].y * T);
-    const sgn = sh.dir < 0 ? -1 : 1;
-    const heading = Math.atan2(sgn * (b2.y - a2.y), sgn * (b2.x - a2.x));
+    // ── OÙ EST-IL ? DEUX RÉGIMES ────────────────────────────────────────────
+    // Presque tous les bateaux vivent sur le RUBAN (position `t` + voie latérale).
+    // Le pêcheur de l'île, lui, vit sur son ORBITE : sa position ne se lit pas du
+    // tout de la même façon, mais tout ce qui suit (coque, sillage, ombre, nuit)
+    // ne connaît que `p` et `heading` — d'où cette bifurcation, et elle seule.
+    // `tilt` = l'inclinaison de la COQUE legacy, calée sur la pente ÉCRAN de la
+    // route suivie (et non sur le sens de marche : une coque ne se retourne pas
+    // quand le bateau fait demi-tour). Calculé dans les deux régimes plutôt que
+    // reconstruit depuis `heading`, qui, lui, porte le sens.
+    const orbIle = sh.orbit ? (rv.islands || [])[0] : null;
+    let p, heading, tilt;
+    if (orbIle) {
+      const o = orbitPoint(orbIle, sh.orbit.ang);
+      p = worldToScreen(o.x * T, o.y * T);
+      if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
+      // Cap = tangente de l'orbite, PROJETÉE (et non l'angle monde) : en iso, une
+      // trajectoire circulaire devient une ellipse écrasée de moitié, un cap pris
+      // dans le monde ferait naviguer la coque en crabe sur les flancs.
+      const da = 0.06 * (sh.orbit.dir < 0 ? -1 : 1);
+      const o2 = orbitPoint(orbIle, sh.orbit.ang + da);
+      const q = worldToScreen(o2.x * T, o2.y * T);
+      heading = Math.atan2(q.y - p.y, q.x - p.x);
+      tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(q.y - p.y, Math.abs(q.x - p.x) || 1e-6) * 0.45));
+    } else {
+      const fi = sh.t * (sm.length - 1);
+      const i0 = Math.max(0, Math.min(sm.length - 1, Math.floor(fi)));
+      const i1 = Math.min(sm.length - 1, i0 + 1);
+      const f = fi - i0;
+      let cgx = sm[i0].x + (sm[i1].x - sm[i0].x) * f;
+      let cgy = sm[i0].y + (sm[i1].y - sm[i0].y) * f;
+      // Voie latérale propre + louvoiement (repris du legacy).
+      const hw = sm[i0].hw || 2;
+      let nx = -(sm[i1].y - sm[i0].y), ny = sm[i1].x - sm[i0].x;
+      const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+      const effSize = (BOAT_SIZES[vstage] || 0.7) * sizeMul;
+      // Voie RESSERRÉE (hw×0.78) : dans les coudes, l'interpolation linéaire des
+      // samples dérive du ruban lissé → à pleine demi-largeur les coques
+      // mordaient la berge près du pont (vu à la capture).
+      const laneRoom = Math.max(0, hw * 0.78 - effSize * 0.3 - 0.25);
+      const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
+      const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null);
+      cgx += nx * lateral; cgy += ny * lateral;
+      p = worldToScreen(cgx * T, cgy * T);
+      if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
+      // Cap PROJETÉ complet (rad écran), signé par le sens de navigation.
+      const a2 = worldToScreen(sm[i0].x * T, sm[i0].y * T);
+      const b2 = worldToScreen(sm[i1].x * T, sm[i1].y * T);
+      const sgn = sh.dir < 0 ? -1 : 1;
+      heading = Math.atan2(sgn * (b2.y - a2.y), sgn * (b2.x - a2.x));
+      tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
+    }
     const spd01 = Math.max(0, Math.min(1, (sh.speed - 0.008) / 0.012));
     // Fondu d'entrée : un bateau naît sur le bord du ruban, qui reste visible en
     // vue dézoomée — sans ce fondu il POPPE au bord de la carte.
@@ -4761,7 +5383,6 @@ function drawIsoShips(now) {
       // réglage-là qui décide si le fleuve est vivant.
       drawIsoBoatStub(ctx, p, s, sizeMul, heading, bob, sh);
     } else if (chr && boatReady(chr)) {
-      const tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(tilt);
@@ -7239,6 +7860,43 @@ function drawIsoLive(now) {
             items.push({ d: depthOf((x + 0.06) * T, wy), kind: 'bush', wx: (x + 0.06) * T, wy, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + Math.round(x * 10) + ':' + sg.y) % ISO_BUSH_VARIANTS) });
           }
         }
+      }
+    }
+  }
+  // ── L'ÎLE QUE PERSONNE N'ENTRETIENT ─────────────────────────────────────────
+  // Demande de Raph (2026-07-30), en même temps que le sillage : « peut-être du
+  // décor dessus, petit caillou ou autre chose qu'on ait déjà ». Les CAILLOUX
+  // n'existent plus : le mode `rocks` a été retiré de sliceCainosPlants avec ses
+  // PNG, après deux refus (pierres plates « en tuile » dans l'herbe, puis blocs
+  // ronds). On prend donc ce qui reste et qui dit la bonne chose : des BUISSONS.
+  //
+  // Et ils disent précisément la bonne : l'île est le socle d'une merveille où
+  // l'on ne débarque jamais (Raph : « je veux que ça reste une île inaccessible »).
+  // De la végétation qui repousse sur le sable, c'est le seul décor qui raconte
+  // qu'aucune main ne passe là — un banc, une barrière ou un sentier diraient
+  // l'inverse. Aucun sur le tiers central : la merveille y est posée.
+  //
+  // Placement par HASH de la position de l'île, donc stable d'une frame à l'autre
+  // et d'une session à l'autre — un décor qui se retire au hasard chaque recompute
+  // scintillerait à chaque recalcul de plan.
+  if (!CM.lodActive && ISLAND_DECO.on) {
+    for (const il of ((L.river && L.river.islands) || [])) {
+      for (let k = 0; k < ISLAND_DECO.count; k += 1) {
+        const h = cmHash('ideco:' + Math.round(il.x * 4) + ':' + Math.round(il.y * 4) + ':' + k) >>> 0;
+        const a = ((h % 1000) / 1000) * Math.PI * 2;
+        // Rayon normalisé tenu vers le BORD : au centre il y a la merveille, et
+        // c'est de toute façon le pourtour d'une île de rivière qui se végétalise.
+        const rr = ISLAND_DECO.rMin + (((h >>> 10) % 1000) / 1000) * (ISLAND_DECO.rMax - ISLAND_DECO.rMin);
+        const al = Math.cos(a) * il.rx * rr, cr = Math.sin(a) * il.ry * rr;
+        const wx = (il.x + al * il.tx - cr * il.ty) * T;
+        const wy = (il.y + al * il.ty + cr * il.tx) * T;
+        const gx = wx / T, gy = wy / T;
+        if (gx < b.gx0 - 2 || gx > b.gx1 + 2 || gy < b.gy0 - 2 || gy > b.gy1 + 2) continue;
+        items.push({
+          d: depthOf(wx, wy), kind: 'bush', wx, wy,
+          r: ISLAND_DECO.size * (0.8 + ((h >>> 20) % 100) / 250),
+          v: 1 + ((h >>> 27) % ISO_BUSH_VARIANTS),
+        });
       }
     }
   }

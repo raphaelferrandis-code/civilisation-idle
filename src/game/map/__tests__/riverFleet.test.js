@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { makeFleetCtl, riverFleetBudget, updateRiverFleet, FLEET_TUNE } from "../riverFleet.js";
+import { makeFleetCtl, riverFleetBudget, updateRiverFleet, orbitPoint, FLEET_TUNE } from "../riverFleet.js";
 
 // « Les bateaux arrivent, foncent au port, repartent » — sauf qu'ils ne
 // repartaient pas : `CM.ships` était un anneau et la flotte se reconstruisait
@@ -198,5 +198,97 @@ describe("riverFleet — densité", () => {
     const before = s.t;
     updateRiverFleet(ships, ctl, ONLY("trade"), 600, {});
     expect(Math.abs(s.t - before)).toBeLessThan(0.01);
+  });
+});
+
+/* ── LE PÊCHEUR DE L'ÎLE ───────────────────────────────────────────────────────
+ * Raph, 2026-07-30 : « je veux que ça reste une île inaccessible, avec le pêcheur
+ * qui tourne autour ». C'est le seul bateau du fleuve dont la trajectoire N'EST
+ * PAS le fleuve : sa position vit dans un angle, pas dans `t`. Tout ce que les
+ * tests ci-dessous protègent tient à cette exception — les gardes écrites pour
+ * des bateaux qui traversent (mort au bord de carte, avance de `t`, escale) ne
+ * doivent PAS s'appliquer à lui, et c'est silencieux quand ça rate : un pêcheur
+ * qui meurt au bout du ruban laisse juste une île sans personne.
+ * ------------------------------------------------------------------------- */
+const ILE = { x: 40, y: 20, rx: 7.6, ry: 2.4, tx: 1, ty: 0 };
+
+// Distance normalisée au fuseau : > 1 = hors de l'île.
+function dansLIle(p, il = ILE) {
+  const dx = p.x - il.x, dy = p.y - il.y;
+  const al = dx * il.tx + dy * il.ty, cr = -dx * il.ty + dy * il.tx;
+  return (al / il.rx) ** 2 + (cr / il.ry) ** 2 <= 1;
+}
+
+describe("riverFleet — le pêcheur tourne autour de l'île", () => {
+  it("son circuit ne passe JAMAIS sur l'île", () => {
+    for (let k = 0; k < 360; k += 1) {
+      expect(dansLIle(orbitPoint(ILE, (k / 360) * Math.PI * 2))).toBe(false);
+    }
+  });
+
+  it("garde une distance CONSTANTE à la berge, pointes comprises", () => {
+    // Une orbite circulaire passerait à trois tuiles au large des flancs et
+    // raserait les pointes : sur un fuseau de 7,6 × 2,4, l'écart n'est pas un
+    // détail. L'ellipse homothétique, elle, tient le même dégagement partout.
+    const marges = [];
+    for (let k = 0; k < 180; k += 1) {
+      const a = (k / 180) * Math.PI * 2;
+      const p = orbitPoint(ILE, a);
+      const bord = orbitPoint({ ...ILE }, a, 0);      // le même angle SUR le contour
+      marges.push(Math.hypot(p.x - bord.x, p.y - bord.y));
+    }
+    const lo = Math.min(...marges), hi = Math.max(...marges);
+    expect(lo).toBeGreaterThan(FLEET_TUNE.orbitClear * 0.9);
+    expect(hi - lo).toBeLessThan(FLEET_TUNE.orbitClear * 0.5);
+  });
+
+  it("ne meurt PAS au bout du ruban : c'est le pêcheur de cette île", () => {
+    // Sa permanence est tout l'effet : une île habitée par personne mais REGARDÉE.
+    const ships = [], ctl = makeFleetCtl();
+    run(ships, ctl, ONLY("fisher"), 400, { island: ILE });
+    const orb = ships.filter((s) => s.orbit);
+    expect(orb.length).toBe(1);
+    expect(Number.isFinite(orb[0].orbit.ang)).toBe(true);
+  });
+
+  it("n'en désigne qu'UN, même quand le fleuve en porte plusieurs", () => {
+    // Deux barques tournant en rond autour du même caillou se liraient comme un
+    // bug d'animation, pas comme une habitude.
+    const ships = [], ctl = makeFleetCtl();
+    run(ships, ctl, { trade: 0, yacht: 0, fisher: 3 }, 500, { island: ILE });
+    expect(ships.filter((s) => s.orbit).length).toBe(1);
+    expect(ships.length).toBeGreaterThan(1);
+  });
+
+  it("fait vraiment le tour, et s'arrête pour pêcher", () => {
+    const ships = [], ctl = makeFleetCtl();
+    run(ships, ctl, ONLY("fisher"), 60, { island: ILE });
+    const s = ships.find((x) => x.orbit);
+    const a0 = s.orbit.ang;
+    let pose = false;
+    for (let i = 0; i < Math.round(300 / DT); i += 1) {
+      updateRiverFleet(ships, ctl, ONLY("fisher"), DT, { island: ILE });
+      if (s.state === "anchor") pose = true;
+    }
+    expect(Math.abs(s.orbit.ang - a0)).toBeGreaterThan(Math.PI * 2);   // au moins un tour
+    expect(pose).toBe(true);                                           // et il a pêché
+  });
+
+  it("si l'île disparaît, il redevient un pêcheur ordinaire (pas d'évaporation)", () => {
+    // Merveille perdue, nouveau cycle : un bateau qui s'efface au milieu de l'eau
+    // se voit. Il reprend sa route et sortira par un bord, comme tout le monde.
+    const ships = [], ctl = makeFleetCtl();
+    run(ships, ctl, ONLY("fisher"), 80, { island: ILE });
+    const s = ships.find((x) => x.orbit);
+    expect(s).toBeTruthy();
+    run(ships, ctl, ONLY("fisher"), 2, {});          // plus d'île
+    expect(s.orbit).toBeUndefined();
+    expect(ships).toContain(s);
+  });
+
+  it("sans île, personne ne tourne : rien ne change pour le fleuve d'avant", () => {
+    const ships = [], ctl = makeFleetCtl();
+    run(ships, ctl, ONLY("fisher"), 300, {});
+    expect(ships.some((s) => s.orbit)).toBe(false);
   });
 });
