@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { boatLampMul, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
+import { boatLampMul, boatLampFlicker, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
 import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 
 // Aucun bateau ne lisait nightF : la nuit tombée, le fleuve restait un ruban
@@ -164,6 +164,42 @@ describe("feux de navigation — position par face", () => {
         }
       }
     }
+  });
+});
+
+describe("feux de navigation — battement", () => {
+  it("respire LENTEMENT et LÉGÈREMENT", () => {
+    // « Les lumières des bateaux peuvent clignoter légèrement et lentement ? »
+    // (Raph). Léger : un feu de position n'est pas un gyrophare. Lent : sinon ça
+    // se lit comme une balise de danger.
+    let min = Infinity, max = -Infinity;
+    for (let t = 0; t < 30000; t += 25) {
+      const v = boatLampFlicker(t, 0);
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    // Amplitude perceptible mais discrète : sous 5 % l'œil ne voit rien, au delà
+    // de 45 % ça clignote.
+    expect(max - min).toBeGreaterThan(0.08);
+    expect(max - min).toBeLessThan(0.45);
+    // Et ça ne s'éteint jamais complètement : un feu qui disparaît, c'est un
+    // bateau qui disparaît.
+    expect(min).toBeGreaterThan(0.5);
+  });
+
+  it("chaque bateau a SA phase", () => {
+    // Sans phase par coque, toute la flotte respirerait à l'unisson — l'œil y
+    // verrait un clignotant commun, pas des bateaux distincts.
+    const t = 4321;
+    const vals = [1, 2, 3, 4, 5].map((id) => boatLampFlicker(t, id * 0.7));
+    expect(new Set(vals.map((v) => v.toFixed(4))).size).toBe(vals.length);
+  });
+
+  it("ne bat pas comme une horloge", () => {
+    // Un sinus unique se reconnaît dès qu'on le regarde : deux périodes premières
+    // entre elles évitent le battement métronomique.
+    const P = 1160 * 2 * Math.PI;                 // période du premier sinus seul
+    expect(Math.abs(boatLampFlicker(0, 0) - boatLampFlicker(P, 0))).toBeGreaterThan(1e-4);
   });
 });
 

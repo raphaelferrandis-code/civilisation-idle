@@ -90,10 +90,13 @@ describe("vie de surface — molette", () => {
   it("chaque effet se coupe séparément", () => {
     const saved = { ...riverLifeTune };
     try {
-      for (const key of ["rain", "leaves", "props", "jumps"]) {
+      for (const key of ["rain", "leaves", "jumps"]) {
         expect(riverLifeTune[key]).toBeGreaterThan(0);
       }
       expect(riverLifeTune.on).toBe(true);
+      // `props` a disparu avec les bouées, rejetées par Raph : illisibles à
+      // trois pixels sur l'eau. La molette ne doit pas survivre à son effet.
+      expect(riverLifeTune.props).toBeUndefined();
     } finally {
       Object.assign(riverLifeTune, saved);
     }

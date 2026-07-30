@@ -960,56 +960,154 @@ function builtCells(L) {
  * Réglage live : `__cour(false)` rend la ville minérale d'avant, `__cour({near,
  * far, sidewalk})` déplace les contours.
  * -------------------------------------------------------------------------- */
-export const COUR = { on: true, near: 1, far: 3, sidewalk: true };
+/* ── v2, 2026-07-30 : QUARTIERS, pas confetti ────────────────────────────────
+ * Retour de Raph sur une mégalopole : « on n'a plus de quartier, et le retour des
+ * multiples petits carrés de sol entre les routes ». Mesuré sur la ville qui a
+ * produit ce retour : **364 taches de cour, médiane 1 cellule, 64 % d'une ou deux
+ * cellules**.
+ *
+ * ⚠ LA CAUSE N'EST PAS CELLE QU'ON CROIT, et je m'y suis trompé une fois avant
+ * d'écrire ceci. Ce n'est pas que le seuil « bavait » d'une cellule à l'autre :
+ * c'est que **le réseau viaire découpe déjà le sol en petits blocs**. Entre deux
+ * rues il n'y a qu'une à quatre cellules. Dès lors, toute matière qui change d'un
+ * bloc au bloc voisin se lit comme un carré isolé, même si le champ qui la décide
+ * est parfaitement lisse à l'échelle de la cellule. Le confetti est un effet de la
+ * TRAME DES RUES, pas du bruit du critère.
+ *
+ * Corollaire, et c'est lui qui dicte la solution : la matière doit varier À UNE
+ * ÉCHELLE PLUS GRANDE QUE LE BLOC. Un critère local — distance au bâti, fermeture
+ * morphologique — ne peut pas y arriver, parce qu'il change justement à l'échelle
+ * du bloc. (Essayé : une fermeture de rayon 2 sur des bâtiments PONCTUELS les
+ * restitue à l'identique, elle ne soude rien. La dilatation ajoute, l'érosion
+ * reprend exactement autant.)
+ *
+ * v2 décide donc sur la DENSITÉ BÂTIE LISSÉE : pour chaque cellule, la part de
+ * sol bâti dans un carré de rayon `scale`. Un champ moyenné sur 6 cellules varie
+ * lentement, donc deux blocs voisins reçoivent presque toujours la même matière,
+ * et les frontières deviennent de grandes courbes — des QUARTIERS. Seuils :
+ * au-dessus de `coreDens` c'est le quartier bâti (pavé), au-dessus de `ringDens`
+ * son faubourg (terre), en dessous la friche.
+ *
+ * Une passe finale ABSORBE toute tache plus petite que `minPatch`. Ce n'est pas
+ * une ceinture de plus : c'est la seule formulation qui rende le grief de Raph
+ * VÉRIFIABLE (« aucune tache en dessous de N »), là où « ça fait moins de
+ * confetti » ne se teste pas.
+ * -------------------------------------------------------------------------- */
+// Les seuils sont calés sur la densité MESURÉE des villes du jeu : une mégalopole
+// tourne autour de 8 à 11 % de sol bâti (2 242 emprises sur 21 024 cellules pour
+// la dense, 1 713 pour la clairsemée). `coreDens` doit donc mordre un peu en
+// dessous de cette moyenne, sinon les bords d'un pâté pourtant dense — dont la
+// fenêtre de lissage déborde sur le vide — retomberaient en cour.
+export const COUR = { on: true, scale: 6, coreDens: 0.07, ringDens: 0.02, minPatch: 10, sidewalk: true };
+const ORTHO4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/**
+ * Matière de chaque cellule de sol de ville : `urban` (le quartier), `dirt` (sa
+ * couronne de cour), `grass` (la friche). Pure et exportée — c'est elle qui
+ * décide de l'aspect de la moitié de la ville, et la garde la mesure en TACHES.
+ */
+export function courField(urbanSet, builtSet, cfg = COUR) {
+  const kind = new Map();
+  if (!cfg.on) { for (const k of urbanSet) kind.set(k, 'urban'); return kind; }
+  // ── 1. DENSITÉ BÂTIE LISSÉE, par table de sommes préfixées ────────────────
+  // Part de sol bâti dans le carré de rayon `scale` autour de chaque cellule.
+  // La table de sommes rend le calcul indépendant de `scale` : quatre lectures
+  // par cellule, quel que soit le rayon. Sans elle, un rayon 6 coûterait 169
+  // lectures par cellule sur 20 000 cellules à chaque recompute.
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const k of urbanSet) {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    if (gx < x0) x0 = gx; if (gx > x1) x1 = gx;
+    if (gy < y0) y0 = gy; if (gy > y1) y1 = gy;
+  }
+  if (x1 < x0) return kind;
+  const scale = Math.max(1, cfg.scale | 0);
+  const W = x1 - x0 + 1, H = y1 - y0 + 1;
+  const sum = new Int32Array((W + 1) * (H + 1));
+  for (const k of builtSet) {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c) - x0, gy = +k.slice(c + 1) - y0;
+    if (gx < 0 || gy < 0 || gx >= W || gy >= H) continue;
+    sum[(gy + 1) * (W + 1) + gx + 1] = 1;
+  }
+  for (let y = 1; y <= H; y += 1) {
+    for (let x = 1; x <= W; x += 1) {
+      sum[y * (W + 1) + x] += sum[(y - 1) * (W + 1) + x] + sum[y * (W + 1) + x - 1] - sum[(y - 1) * (W + 1) + x - 1];
+    }
+  }
+  const dens = (gx, gy) => {
+    const ax = Math.max(0, gx - x0 - scale), ay = Math.max(0, gy - y0 - scale);
+    const bx = Math.min(W - 1, gx - x0 + scale), by = Math.min(H - 1, gy - y0 + scale);
+    if (bx < ax || by < ay) return 0;
+    const n = sum[(by + 1) * (W + 1) + bx + 1] - sum[ay * (W + 1) + bx + 1]
+      - sum[(by + 1) * (W + 1) + ax] + sum[ay * (W + 1) + ax];
+    return n / ((bx - ax + 1) * (by - ay + 1));
+  };
+  // ── 2. SEUILS. Le bâti reste toujours pavé : un quartier d'une seule maison
+  //    au milieu des champs garde son sol, on ne repeint pas sous ses murs.
+  for (const k of urbanSet) {
+    if (builtSet.has(k)) { kind.set(k, 'urban'); continue; }
+    const c = k.indexOf(',');
+    const d = dens(+k.slice(0, c), +k.slice(c + 1));
+    kind.set(k, d >= cfg.coreDens ? 'urban' : d >= cfg.ringDens ? 'dirt' : 'grass');
+  }
+  // ── 3. ABSORPTION DES MIETTES. Un champ lissé laisse quand même des îlots là
+  //    où il frôle un seuil ; ce sont EUX que Raph voit. Toute tache sous
+  //    `minPatch` rejoint la matière qui la borde le plus. Le bâti n'est jamais
+  //    absorbé.
+  const minPatch = Math.max(1, cfg.minPatch | 0);
+  if (minPatch > 1) {
+    const seen = new Set();
+    for (const start of urbanSet) {
+      if (seen.has(start)) continue;
+      const kd = kind.get(start);
+      const comp = [start];
+      seen.add(start);
+      const bord = new Map();
+      for (let i = 0; i < comp.length; i += 1) {
+        const c = comp[i].indexOf(',');
+        const gx = +comp[i].slice(0, c), gy = +comp[i].slice(c + 1);
+        for (const [dx, dy] of ORTHO4) {
+          const nk = (gx + dx) + ',' + (gy + dy);
+          if (!urbanSet.has(nk)) continue;
+          const nkd = kind.get(nk);
+          if (nkd === kd) { if (!seen.has(nk)) { seen.add(nk); comp.push(nk); } }
+          else bord.set(nkd, (bord.get(nkd) || 0) + 1);
+        }
+      }
+      if (comp.length >= minPatch || !bord.size) continue;
+      // …sauf une tache qui porte du bâti : un quartier d'une seule maison reste
+      // un quartier, on ne va pas repeindre le sol sous ses murs.
+      if (comp.some((k) => builtSet.has(k))) continue;
+      let best = null, bestN = -1;
+      for (const [nkd, n] of bord) if (n > bestN) { best = nkd; bestN = n; }
+      for (const k of comp) kind.set(k, best);
+    }
+  }
+  return kind;
+}
 // Ton moyen MESURÉ de `iso-dirt` : l'aplat de repli d'une cour doit rester dans
 // la famille de la tuile qui le recouvre, sinon le sol saute au décodage du PNG.
 // (Avant ce lot, `dirt` retombait sur le ton URBAIN — le kind n'était plus
 // produit, personne ne voyait le décalage.)
 const DIRT_TONE = [169, 125, 88];
-// Distance, en cellules et À TRAVERS LE SOL DE VILLE (4-connexité), de chaque
-// cellule urbaine à l'emprise bâtie la plus proche. Pure et exportée : c'est
-// elle qui décide de la matière de la moitié de la ville.
-// ⚠ La propagation ne traverse QUE `urbanSet` : une poche de sol urbain coupée
-// du bâti par de l'herbe reste hors d'atteinte (undefined) et vire en friche,
-// ce qui est exactement ce qu'on veut d'un îlot de dallage perdu dans la plaine.
-export function builtDistanceField(urbanSet, builtSet) {
-  const dist = new Map();
-  const q = [];
-  for (const k of builtSet) if (urbanSet.has(k)) { dist.set(k, 0); q.push(k); }
-  for (let i = 0; i < q.length; i += 1) {
-    const cur = q[i], d = dist.get(cur);
-    const c = cur.indexOf(',');
-    const gx = +cur.slice(0, c), gy = +cur.slice(c + 1);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nk = (gx + dx) + ',' + (gy + dy);
-      if (dist.has(nk) || !urbanSet.has(nk)) continue;
-      dist.set(nk, d + 1);
-      q.push(nk);
-    }
-  }
-  return dist;
-}
-// Matière d'une cellule de sol de ville selon son éloignement du bâti.
-// Exportée pour la garde : les seuils sont le cœur du lot.
-export function courKind(d, cfg = COUR) {
-  if (!cfg.on) return 'urban';
-  if (d == null) return 'grass';
-  if (d <= cfg.near) return 'urban';
-  if (d <= cfg.far) return 'dirt';
-  return 'grass';
-}
-function builtDist(L) {
-  if (!L._builtDist) L._builtDist = builtDistanceField(L.urbanSet || new Set(), builtCells(L));
-  return L._builtDist;
+// Champ de matières du sol de ville, mémoïsé sur le layout (les tuiles sont
+// reconstruites à chaque recompute, le cache se périme donc tout seul).
+function courOf(L) {
+  if (!L._courField) L._courField = courField(L.urbanSet || new Set(), builtCells(L));
+  return L._courField;
 }
 if (typeof window !== 'undefined') {
   // Molette cour/friche : __cour(false) rend la nappe minérale d'avant le lot ;
-  // __cour({near,far,sidewalk}) déplace les contours (near = dernière distance
-  // encore pavée, far = dernière distance en terre battue). Rebake immédiat.
+  // __cour({near,ring,minPatch,sidewalk}) règle la morphologie — near = rayon de
+  // fermeture (soude les bâtiments d'un même pâté et bouche les trous plus
+  // petits que 2·near), ring = largeur de la couronne de cour, minPatch = taille
+  // en dessous de laquelle une tache est absorbée. Rebake immédiat.
   window.__cour = (arg) => {
     if (arg === false) COUR.on = false;
     else if (arg && typeof arg === 'object') { COUR.on = true; Object.assign(COUR, arg); }
     else COUR.on = true;
+    if (CM.layout) CM.layout._courField = null;
     CM._isoGroundBake = null;
     return { ...COUR };
   };
@@ -1710,7 +1808,7 @@ function drawIsoGround() {
   // l'inverse bouclerait.
   const urbanLogical = (gx, gy) => !!(L.urbanSet && L.urbanSet.has(gx + ',' + gy));
   const built = builtCells(L);
-  const bDist = builtDist(L);   // éloignement du bâti → pavé / cour / friche (cf. COUR)
+  const courK = courOf(L);      // quartier / cour / friche par cellule (cf. COUR)
   const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, urbanLogical, built);
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
@@ -1732,7 +1830,7 @@ function drawIsoGround() {
     else if (!isWater && L.urbanSet && L.urbanSet.has(key)) {
       // Sol de ville : pavé près du bâti, cour de terre plus loin, friche au-delà
       // (cf. COUR — c'est ici que la moitié vide de la ville cesse d'être minérale).
-      k = courKind(bDist.get(key));
+      k = courK.get(key) || 'urban';
     } else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
       && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
         || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
@@ -3847,6 +3945,20 @@ export function boatLampMul(nightF, gain) {
   return Math.max(0, nightF || 0) * 0.62 * (gain == null ? 1 : gain);
 }
 
+// Battement d'un feu de position : LENT et LÉGER (Raph). Un feu de nav ne
+// clignote pas comme un gyrophare — il respire, et c'est ce souffle qui le
+// distingue d'un pixel mort collé sur la coque.
+//   période ~7,3 s, amplitude ±18 % : sous 10 % l'œil ne voit rien, au-delà de
+//   30 % ça se met à clignoter et le bateau ressemble à une balise.
+// Deux sinus de périodes premières entre elles plutôt qu'un seul : un battement
+// parfaitement régulier s'entend comme une horloge dès qu'on le regarde un peu.
+// La phase vient du bateau, sinon toute la flotte respire à l'unisson.
+export function boatLampFlicker(now, phase) {
+  const t = now || 0, ph = phase || 0;
+  const a = 0.62 * Math.sin(t / 1160 + ph) + 0.38 * Math.sin(t / 2870 + ph * 1.7);
+  return 1 + 0.18 * a;
+}
+
 // Décalages écran des deux feux, en px, depuis le centre de coque.
 //
 // Repère du bateau projeté : l'axe d'AVANCE suit le cap écran, l'axe TRAVERS
@@ -3877,13 +3989,16 @@ export function navLightOffsets(heading, dw, an) {
 function drawIsoShipNight(now) {
   const night = CM.nightF || 0;
   if (!NAV_LIGHTS.on || night <= 0.02 || !CM.ships || !CM.ships.length) return;
-  const a = boatLampMul(night, NAV_LIGHTS.gain);
-  if (a <= 0.01) return;
+  const base = boatLampMul(night, NAV_LIGHTS.gain);
+  if (base <= 0.01) return;
   const ctx = CM.ctx;
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
   for (const sh of CM.ships) {
     if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh._nav.stage)) continue;
+    // Battement propre à CE bateau : sans phase par coque, toute la flotte
+    // respirerait au même rythme et l'œil y verrait un clignotant commun.
+    const a = base * boatLampFlicker(now, sh.id * 0.7);
     const { x, y, dw, heading, stage, sector } = sh._nav;
     // FACE CALIBRÉE d'abord : la position est lue telle quelle sur le sprite de
     // cette rotation. Sinon, repli sur le relevé de profil projeté au cap.

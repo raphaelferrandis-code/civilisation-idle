@@ -23,12 +23,13 @@ import { worldToScreen } from './projection.js';
 const CFG = { ribbonPath: null, precipKind: () => 'rain' };
 export function configureRiverLife(o) { Object.assign(CFG, o); }
 
-// Molette : __riverLife({ on, rain, leaves, props, jumps }).
-export const riverLifeTune = { on: true, rain: 1, leaves: 1, props: 1, jumps: 1 };
+// Molette : __riverLife({ on, rain, leaves, jumps }). (`props` a disparu avec les
+// bouées, cf. le bloc 3.)
+export const riverLifeTune = { on: true, rain: 1, leaves: 1, jumps: 1 };
 // Diagnostic (__riverLifeStats) : ce qui a VRAIMENT été peint à la dernière
 // frame. Une couche qui ne dessine rien et une couche qui dessine hors champ
 // donnent la même image ; seuls ces compteurs les séparent.
-const stats = { rings: 0, ringsSkipped: 0, leaves: 0, floats: 0, jump: 0, why: '' };
+const stats = { rings: 0, ringsSkipped: 0, leaves: 0, jump: 0, why: '' };
 if (typeof window !== 'undefined') {
   window.__riverLife = (o) => { if (o) Object.assign(riverLifeTune, o); return { ...riverLifeTune }; };
   window.__riverLifeStats = () => ({ ...stats });
@@ -99,25 +100,34 @@ function drawRainRings(ctx, sm, T, z, now, rainF, vis) {
   if (k <= 0 || rainF <= 0.02) { stats.why = 'rainF=' + rainF + ' k=' + k; return; }
   const kind = CFG.precipKind(CM.season, rainF);
   if (kind !== 'rain') { stats.why = 'precip=' + kind; return; }
-  const n = Math.round(46 * rainF * k);
+  // 130 et non 46 : à la première livraison Raph a trouvé l'averse « trop
+  // discrète » sur l'eau. Une pluie battante crible la surface, elle n'y pose pas
+  // trois ronds. Le coût reste une ellipse par impact, sur la seule portion vue.
+  const n = Math.round(130 * rainF * k);
   const s = T * z;
   const t = now || 0;
-  ctx.lineWidth = Math.max(1, s * 0.012);
   for (let i = 0; i < n; i += 1) {
     const P = 620 + h32(i * 7 + 1) * 520;              // durée de vie de l'anneau
     const ph = ((t + h32(i * 13 + 2) * P) % P) / P;    // 0 → 1
     // Position RETIRÉE À CHAQUE CYCLE : sans le numéro de cycle dans le hash,
-    // les impacts retomberaient éternellement aux mêmes 46 points et l'œil
-    // verrait un motif clignoter au lieu d'une averse.
+    // les impacts retomberaient éternellement aux mêmes points et l'œil verrait
+    // un motif clignoter au lieu d'une averse.
     const cyc = Math.floor((t + h32(i * 13 + 2) * P) / P);
     const g = i * 977 + cyc * 31;
     const p = ribbonPoint(sm, vis.t0 + h32(g + 3) * (vis.t1 - vis.t0), h32(g + 4) * 2 - 1);
     const sc = S(p, T);
     if (sc.x < -20 || sc.x > CM.cw + 20 || sc.y < -20 || sc.y > CM.ch + 20) { stats.ringsSkipped += 1; continue; }
-    const r = s * (0.03 + ph * 0.20);
-    const a = (1 - ph) * (1 - ph) * 0.42 * rainF;
+    // TAILLE PROPRE À CHAQUE GOUTTE (0,55× à 1,75×) : à calibre unique, cent
+    // anneaux identiques se lisaient comme une trame régulière — un motif, pas
+    // une averse. C'est la dispersion des tailles qui fait le désordre.
+    const gros = 0.55 + h32(g + 5) * 1.2;
+    const r = s * (0.03 + ph * 0.20) * gros;
+    const a = (1 - ph) * (1 - ph) * 0.58 * rainF;
     if (a < 0.01) { stats.ringsSkipped += 1; continue; }
     stats.rings += 1;
+    // Trait plus épais pour les gros impacts : sinon un grand anneau tracé au
+    // même filet paraît plus PÂLE que ses voisins, l'inverse de l'effet voulu.
+    ctx.lineWidth = Math.max(1, s * 0.012 * Math.sqrt(gros));
     ctx.strokeStyle = `rgba(214,232,240,${a.toFixed(3)})`;
     ctx.beginPath();
     ctx.ellipse(sc.x, sc.y, r, r * 0.5, 0, 0, Math.PI * 2);   // au SOL : écrasé de moitié
@@ -158,57 +168,31 @@ function drawLeaves(ctx, sm, T, z, now, vis) {
   }
 }
 
-// ── 3. CE QUE LES RIVERAINS ONT LAISSÉ ──────────────────────────────────────
-// Bouées et nasses, ancrées près d'une berge et immobiles à part le clapot.
-// Contrairement à tout le reste ici, leur position ne dépend PAS du temps mais
-// du layout : ce sont des points de repère, ils doivent être au même endroit
-// d'une frame à l'autre et d'une session à l'autre.
-function drawFloats(ctx, sm, T, z, now) {
-  const k = riverLifeTune.props;
-  if (k <= 0 || z < 0.55) return;                    // sous ce zoom, 2 px illisibles
-  const seed = (CM.layoutRecomputeAt || 0) % 100000;
-  const n = Math.round(12 * k);
-  const s = T * z;
-  const t = now || 0;
-  for (let i = 0; i < n; i += 1) {
-    const g = i * 613 + seed;
-    const side = h32(g + 1) < 0.5 ? -1 : 1;
-    const p = ribbonPoint(sm, 0.06 + h32(g + 2) * 0.88, side * (0.62 + h32(g + 3) * 0.3));
-    const sc = S(p, T);
-    if (sc.x < -14 || sc.x > CM.cw + 14 || sc.y < -14 || sc.y > CM.ch + 14) continue;
-    stats.floats += 1;
-    const bob = Math.sin(t / 900 + h32(g + 4) * 6.28) * s * 0.018;
-    const y = sc.y + bob;
-    const r = Math.max(1, s * 0.05);
-    const nasse = h32(g + 5) < 0.4;
-    // Ombre portée sur l'eau : sans elle, le prop a l'air collé au ruban.
-    ctx.fillStyle = 'rgba(10,25,35,0.22)';
-    ctx.beginPath();
-    ctx.ellipse(sc.x, sc.y + r * 0.5, r * 1.2, r * 0.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (nasse) {
-      ctx.fillStyle = '#6b5a3a';                     // casier d'osier, à peine émergé
-      ctx.fillRect(Math.round(sc.x - r), Math.round(y - r * 0.5), Math.max(1, Math.round(r * 2)), Math.max(1, Math.round(r)));
-      ctx.fillStyle = 'rgba(212,200,170,0.5)';
-      ctx.fillRect(Math.round(sc.x - r), Math.round(y - r * 0.5), Math.max(1, Math.round(r * 2)), 1);
-    } else {
-      ctx.fillStyle = h32(g + 6) < 0.5 ? '#b6483a' : '#c8983a';   // bouée
-      ctx.beginPath();
-      ctx.ellipse(sc.x, y, r, r * 0.85, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(240,236,224,0.75)';      // liseré clair, lisible de loin
-      ctx.fillRect(Math.round(sc.x - r), Math.round(y - 1), Math.max(1, Math.round(r * 2)), 1);
-    }
-  }
-}
+// ── 3. BOUÉES ET NASSES : 🚫 RETIRÉES ───────────────────────────────────────
+// Livrées puis rejetées par Raph (2026-07-30) : « c'est ça les bouées ? retire,
+// ça ne va pas. » À la taille où elles se lisent sur le fleuve, une bouée n'est
+// qu'un pâté de trois pixels — la forme ne dit rien, seule la couleur ressort, et
+// elle ressort comme une salissure sur l'eau plutôt que comme un objet.
+//
+// Ce que ça apprend pour la suite : sur cette carte, un objet FLOTTANT ne peut
+// pas être lu par sa silhouette. Ce qui marche sur l'eau, ce sont les choses
+// qu'on reconnaît à leur MOUVEMENT (le sillage d'un bateau, un anneau qui
+// s'élargit, une feuille qui dérive) ou de vrais sprites à l'échelle d'une coque.
+// Ne pas retenter des props procéduraux de quelques pixels.
 
-// ── 4. LE POISSON QUI SAUTE ─────────────────────────────────────────────────
-// Rare et bref : un saut toutes les ~34 s, moins d'une demi-seconde en l'air.
-// C'est l'événement qu'on n'attend pas et qu'on est content d'avoir vu — donc il
-// ne doit surtout PAS revenir souvent. Le numéro de saut vient de l'horloge, sa
-// place d'un hash de ce numéro : deux sauts de suite ne sont jamais au même
-// endroit, et une capture reste reproductible.
-const JUMP_PERIOD = 34000, JUMP_MS = 460;
+// ── 4. LES POISSONS QUI SAUTENT ─────────────────────────────────────────────
+// Bref : moins d'une demi-seconde en l'air. Un saut TOUTES LES 11 s, et non plus
+// toutes les 34 — Raph en voulait « un peu plus ». Assez rare pour rester un
+// événement, assez fréquent pour qu'on en croise en regardant le fleuve.
+//
+// TROIS CALIBRES (0,7× à 1,55×) : l'alevin qui gobe et la grosse pièce qui
+// claque. À taille unique, revoir exactement le même saut trahissait la boucle ;
+// c'est la variété de gabarit qui fait croire à des poissons différents.
+//
+// Le numéro de saut vient de l'horloge, sa place et sa taille d'un hash de ce
+// numéro : deux sauts de suite ne se ressemblent pas, et une capture reste
+// reproductible.
+const JUMP_PERIOD = 11000, JUMP_MS = 460;
 function drawFishJump(ctx, sm, T, z, now, vis) {
   const k = riverLifeTune.jumps;
   if (k <= 0 || z < 0.5) return;
@@ -216,33 +200,36 @@ function drawFishJump(ctx, sm, T, z, now, vis) {
   const idx = Math.floor(t / JUMP_PERIOD);
   const ph = (t % JUMP_PERIOD) / JUMP_MS;
   if (ph > 1) return;                                 // l'essentiel du temps : rien
-  // DANS le champ, et c'est essentiel : un saut toutes les 34 secondes tiré sur
-  // tout le ruban se produirait presque toujours hors de l'écran, et le joueur
-  // n'en verrait jamais un seul de sa partie.
+  // DANS le champ, et c'est essentiel : un saut tiré sur tout le ruban se
+  // produirait presque toujours hors de l'écran, et le joueur n'en verrait
+  // jamais un seul de sa partie.
   const p = ribbonPoint(sm, vis.t0 + h32(idx * 17 + 1) * (vis.t1 - vis.t0), (h32(idx * 17 + 2) * 2 - 1) * 0.7);
   const sc = S(p, T);
   if (sc.x < -30 || sc.x > CM.cw + 30 || sc.y < -30 || sc.y > CM.ch + 30) return;
   stats.jump += 1;
   const s = T * z;
-  // Cloche : sort de l'eau, culmine, y retombe.
-  const lift = Math.sin(ph * Math.PI) * s * 0.30;
+  const gros = 0.7 + h32(idx * 17 + 7) * 0.85;        // calibre de la bête
+  // Cloche : sort de l'eau, culmine, y retombe. Une grosse pièce saute plus haut
+  // et plus loin — la hauteur suit le calibre, sinon tous les sauts se
+  // superposent malgré des tailles différentes.
+  const lift = Math.sin(ph * Math.PI) * s * 0.30 * gros;
   const dir = h32(idx * 17 + 3) < 0.5 ? -1 : 1;
-  const x = sc.x + dir * (ph - 0.5) * s * 0.34;
+  const x = sc.x + dir * (ph - 0.5) * s * 0.34 * gros;
   const y = sc.y - lift;
   // Anneaux au départ ET à l'arrivée : c'est l'eau qui raconte le saut.
   for (const [when, at] of [[0, 0], [1, 1]]) {
     const d = ph - when;
     if (d < 0 || d > 0.55) continue;
     const q = d / 0.55;
-    const rx = sc.x + at * dir * s * 0.17;
-    const r = s * (0.04 + q * 0.16);
+    const rx = sc.x + at * dir * s * 0.17 * gros;
+    const r = s * (0.04 + q * 0.16) * gros;
     ctx.strokeStyle = `rgba(214,232,240,${((1 - q) * 0.5).toFixed(3)})`;
     ctx.lineWidth = Math.max(1, s * 0.014);
     ctx.beginPath();
     ctx.ellipse(rx, sc.y, r, r * 0.5, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  const px = Math.max(1, Math.round(s * 0.05));
+  const px = Math.max(1, Math.round(s * 0.05 * gros));
   ctx.fillStyle = 'rgba(196,206,196,0.92)';           // le poisson, de flanc
   ctx.fillRect(Math.round(x - px), Math.round(y - px / 2), px * 2, px);
   ctx.fillStyle = 'rgba(232,240,236,0.75)';           // éclat sur le dos
@@ -263,12 +250,11 @@ export function drawIsoRiverLife(now) {
   const ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom, sm = rv.samples;
   const vis = visibleT(sm, T);
   if (!vis) return;                                   // fleuve hors champ
-  stats.leaves = 0; stats.floats = 0; stats.jump = 0;
+  stats.leaves = 0; stats.jump = 0;
   ctx.save();
   if (CFG.ribbonPath) { CFG.ribbonPath(ctx, sm, T); ctx.clip(); }   // tout reste SUR l'eau
   const prevA = ctx.globalAlpha;
   if (k < 1) ctx.globalAlpha = prevA * k;
-  drawFloats(ctx, sm, T, z, now);
   drawLeaves(ctx, sm, T, z, now, vis);
   drawFishJump(ctx, sm, T, z, now, vis);
   drawRainRings(ctx, sm, T, z, now, CM.rainF || 0, vis);
