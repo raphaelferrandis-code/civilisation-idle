@@ -3,14 +3,16 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { state, setState, defaultState, hydrateState, invalidateRenderCache, buildingById } from "../state.js";
 import { D } from "../num.js";
 import {
-  buyRoadWorkCore, tickRoadWorks, roadWorkCost, roadWorksCount, roadNextInfo, roadWorkDuration
+  buyRoadWorkCore, tickRoadWorks, roadWorkCost, roadWorksCount, roadNextInfo, roadWorkDuration,
+  roadTilePrice
 } from "../actions/roadWorks.js";
 import { buyBuildingCore, buyableInMass, buyAllAffordable } from "../actions/building.js";
 import {
-  ROAD_WORK_QUEUE_MAX, ROAD_TILE_COST_BASE,
+  ROAD_WORK_QUEUE_MAX, ROAD_TILE_COST_BASE, ROAD_COST_ERA_ANCHOR, ROAD_TILE_COST_MIN,
   ROAD_WIDEN_COST_MULT, ROAD_NEXT_FALLBACK_TILES, ROAD_WORK_TIME_MAX,
   ROAD_WORKS_BANK_MAX
 } from "../balance.js";
+import { eras } from "../../data/world.js";
 
 // Chantiers de voirie (design validé 2026-07-28) : 1 achat = 1 chantier
 // (raccord entier puis élargissement), coût ∝ tuiles ancré sur l'ère, cadence
@@ -20,17 +22,19 @@ import {
 beforeEach(() => { setState(defaultState()); invalidateRenderCache("all"); });
 
 const giveKnowledge = (n) => { state.knowledge = D(n); };
+// L'ère se lit sur la POPULATION : c'est le seul levier pour cadrer un prix.
+const setEra = (i) => { state.population = D(eras[i].at); };
 
 describe("chantiers de voirie — coût", () => {
   it("le coût suit les tuiles du prochain chantier écrit par la carte", () => {
     state.roadNext = { kind: "link", tiles: 14, targetId: null, toRank: null };
-    // Ère 0 (partie neuve) : pas de croissance d'ère.
-    expect(roadWorkCost().toNumber()).toBe(ROAD_TILE_COST_BASE * 14);
+    expect(roadWorkCost().toNumber()).toBeCloseTo(roadTilePrice().toNumber() * 14, 9);
   });
 
   it("un élargissement coûte plus cher selon le rang visé", () => {
     state.roadNext = { kind: "widen", tiles: 10, targetId: null, toRank: "main" };
-    expect(roadWorkCost().toNumber()).toBe(ROAD_TILE_COST_BASE * 10 * ROAD_WIDEN_COST_MULT.main);
+    expect(roadWorkCost().toNumber())
+      .toBeCloseTo(roadTilePrice().toNumber() * 10 * ROAD_WIDEN_COST_MULT.main, 9);
   });
 
   it("sans calcul de carte, une estimation raisonnable donne quand même un prix", () => {
@@ -42,14 +46,51 @@ describe("chantiers de voirie — coût", () => {
   it("réseau achevé : l'achat reste possible au prix plat de la réserve", () => {
     state.roadNext = { kind: "done", tiles: 0, targetId: null, toRank: null };
     // Prix plat d'un chantier moyen (l'achat partira en réserve).
-    expect(roadWorkCost().toNumber()).toBe(ROAD_TILE_COST_BASE * ROAD_NEXT_FALLBACK_TILES);
+    expect(roadWorkCost().toNumber())
+      .toBeCloseTo(roadTilePrice().toNumber() * ROAD_NEXT_FALLBACK_TILES, 9);
+  });
+
+  // ── Régression d'équilibrage (2026-07-31) ────────────────────────────────
+  // Le prix était ancré sur l'ère 0 alors que le savoir ne coule qu'à partir de
+  // l'ère 3 : mesuré sur partie neuve, un chantier valait 480 k de savoir à
+  // l'ère 3 (9 h de production) et 5,3 M à l'ère 4 — la rangée était morte
+  // toute la première heure. Ces bornes verrouillent l'ordre de grandeur.
+  it("la tuile est cotée à l'ère d'ancrage, et pas au-delà avant", () => {
+    setEra(ROAD_COST_ERA_ANCHOR);
+    expect(roadTilePrice().toNumber()).toBeCloseTo(ROAD_TILE_COST_BASE, 6);
+    // Avant l'ancre le prix RETOMBE, jusqu'au plancher : la voirie des premières
+    // ères est un petit achat, pas un mur.
+    setEra(0);
+    expect(roadTilePrice().toNumber()).toBe(ROAD_TILE_COST_MIN);
+    setEra(2);
+    const era2 = roadTilePrice().toNumber();
+    expect(era2).toBeLessThan(ROAD_TILE_COST_BASE);
+    expect(era2).toBeGreaterThanOrEqual(ROAD_TILE_COST_MIN);
+  });
+
+  it("reste payable sur la production de savoir réelle du début de partie", () => {
+    // Mesures sonde d'affordabilité (partie neuve, achat glouton) : savoir/s
+    // et taille de vague typique observées sur la carte.
+    const MESURES = [
+      { era: 3, savoirParSec: 14, tuiles: 12 },
+      { era: 4, savoirParSec: 293, tuiles: 12 }
+    ];
+    for (const m of MESURES) {
+      setEra(m.era);
+      state.roadNext = { kind: "link", tiles: m.tuiles, targetId: null, toRank: null };
+      const secondes = roadWorkCost().toNumber() / m.savoirParSec;
+      // Un chantier vaut au plus 2 min de production — jamais des heures.
+      expect(secondes).toBeLessThan(120);
+      // …et coûte quand même quelque chose : ce n'est pas un clic gratuit.
+      expect(secondes).toBeGreaterThan(5);
+    }
   });
 });
 
 describe("chantiers de voirie — file et tick", () => {
   it("achat : encaisse, met en file, ne touche PAS le compteur avant complétion", () => {
     state.roadNext = { kind: "link", tiles: 5, targetId: "granaries_city", toRank: null };
-    giveKnowledge(ROAD_TILE_COST_BASE * 5);
+    giveKnowledge(roadWorkCost());
     const before = state.buildings.roads || 0;
     expect(buyRoadWorkCore()).toBe(true);
     expect(state.knowledge.toNumber()).toBe(0);

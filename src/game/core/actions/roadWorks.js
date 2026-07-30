@@ -23,6 +23,8 @@ import { currentEraIndex } from '../mechanics/shared.js';
 import {
   ROAD_WORK_QUEUE_MAX,
   ROAD_TILE_COST_BASE,
+  ROAD_COST_ERA_ANCHOR,
+  ROAD_TILE_COST_MIN,
   ROAD_TILE_COST_GROWTH,
   ROAD_WIDEN_COST_MULT,
   ROAD_TILE_SECONDS,
@@ -64,6 +66,17 @@ export function roadWorksBank() {
   return Number.isFinite(b) ? Math.max(0, Math.min(ROAD_WORKS_BANK_MAX, Math.floor(b))) : 0;
 }
 
+// Prix de la tuile à l'ère courante. L'exposant est RELATIF à l'ère d'ancrage
+// (celle où le savoir commence à couler) : avant elle il devient négatif, et
+// c'est voulu — la voirie des toutes premières ères doit être presque gratuite,
+// sans quoi la rangée reste morte tant qu'aucun conteur n'est payable. Le
+// plancher garde quand même un prix à payer.
+export function roadTilePrice() {
+  const p = D(ROAD_TILE_COST_BASE)
+    .mul(D(ROAD_TILE_COST_GROWTH).pow(currentEraIndex() - ROAD_COST_ERA_ANCHOR));
+  return p.lt(ROAD_TILE_COST_MIN) ? D(ROAD_TILE_COST_MIN) : p;
+}
+
 // Coût du prochain chantier : tuiles × prix de la tuile de l'ère, rang visé en
 // facteur pour les élargissements. Decimal de bout en bout (les ères tardives
 // dépassent le float). Réseau achevé : prix PLAT d'un chantier moyen — l'achat
@@ -72,14 +85,10 @@ export function roadWorkCost() {
   const n = roadNextInfo();
   if (n.kind === 'done') {
     if (roadWorksBank() >= ROAD_WORKS_BANK_MAX) return null;
-    return D(ROAD_TILE_COST_BASE)
-      .mul(D(ROAD_TILE_COST_GROWTH).pow(Math.max(0, currentEraIndex())))
-      .mul(ROAD_NEXT_FALLBACK_TILES);
+    return roadTilePrice().mul(ROAD_NEXT_FALLBACK_TILES);
   }
   const mult = n.kind === 'widen' ? (ROAD_WIDEN_COST_MULT[n.toRank] || ROAD_WIDEN_COST_MULT.avenue) : 1;
-  return D(ROAD_TILE_COST_BASE)
-    .mul(D(ROAD_TILE_COST_GROWTH).pow(Math.max(0, currentEraIndex())))
-    .mul(Math.max(1, n.tiles) * mult);
+  return roadTilePrice().mul(Math.max(1, n.tiles) * mult);
 }
 
 // Chantiers de l'ÈRE COURANTE (rampe) : compteur remis à zéro quand l'ère

@@ -872,7 +872,20 @@ export const COMPLEXITY_COVERAGE_ABSORB = 0.5;
 // tout est relié. Le coût est ∝ tuiles du chantier, ancré sur l'ère ; la
 // CADENCE vient du temps de pose (une équipe, une petite file), pas du prix.
 export const ROAD_WORK_QUEUE_MAX = 3;            // chantier actif + file d'attente
-export const ROAD_TILE_COST_BASE = 30;           // savoir par tuile à l'ère 0
+// Le prix de la tuile est coté à l'ÈRE OÙ LE SAVOIR COMMENCE À COULER, pas à
+// l'ère 0. Mesuré sur partie neuve (achat glouton, sonde d'affordabilité) :
+//   ère 0-2 → 0 savoir/s (aucun conteur payable) ; ère 3 → 14/s ; ère 4 → 293/s.
+// Ancrer la puissance sur l'ère 0 revenait à demander 480 k de savoir à l'ère 3
+// (9 h de production) et 5,3 M à l'ère 4 (5 h) : la rangée Voirie était morte
+// toute la première heure — et une ville sans rue n'est pas un choix de jeu,
+// c'est un décor raté. Ancrée à l'ère 3, elle vaut ~1 min de production à son
+// ouverture, ~30 s à l'ère 4 : un vrai coût, jamais un mur.
+export const ROAD_TILE_COST_BASE = 66;           // savoir par tuile à l'ère d'ancrage
+export const ROAD_COST_ERA_ANCHOR = 3;           // ère où le savoir commence à couler
+// Plancher : sous l'ancre la puissance devient négative et le prix tendrait vers
+// zéro. Une tuile vaut au moins 1 savoir — les premières voiries restent un
+// achat (≈ 12 savoir le chantier), jamais un clic gratuit.
+export const ROAD_TILE_COST_MIN = 1;
 // Croissance par ère SOUS celle de la production (~×13/ère) : la voirie devient
 // relativement plus abordable en fin de partie, jamais un mur.
 export const ROAD_TILE_COST_GROWTH = 11;
