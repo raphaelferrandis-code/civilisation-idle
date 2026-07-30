@@ -571,3 +571,121 @@ export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand }) {
   for (const r of kept) roads.push(r);
   return roads;
 }
+
+/* ── ÉMONDAGE DES QUARTIERS DE RUES VIDES ─────────────────────────────────────
+ * Lot L8 de docs/PLAN-TISSU-URBAIN.md, demandé par Raph le 2026-07-29 devant une
+ * capture : « on a encore des carrés 2×2 pas très cohérents, il faudrait que ça
+ * n'arrive plus ». Une fois le sol vide repeint en herbe (lot L2), ce qui reste
+ * saute aux yeux : des pans entiers de maillage viaire posés sur de la friche,
+ * qui ne mènent nulle part et ne desservent personne.
+ *
+ * `trimDemandlessRoads`, juste au-dessus, ne peut PAS les enlever, et son
+ * commentaire le dit déjà : « l'émondage ne mange que des feuilles, et une
+ * boucle n'en a pas ». Un quadrillage est fait de boucles — chaque cellule y a
+ * deux voisines ou plus, donc aucune n'est jamais une feuille. Le maillage était
+ * littéralement immortel.
+ *
+ * Mesuré sur une ville de 1 528 bâtiments (4 000 cellules de rue) : 2 250
+ * cellules touchent un bâtiment, mais **471 sont à quatre pas ou plus de la
+ * moindre porte**, et l'arbre minimal qui dessert tout ne pèse que 3 369
+ * cellules — **631 de surplus, 15,8 %**. Peu en proportion, très visible en
+ * pratique : ce surplus n'est pas saupoudré, il est groupé en quartiers entiers.
+ *
+ * LA RÈGLE, et pourquoi elle est SÛRE. On garde deux choses :
+ *   1. tout ce qui est à `reach` pas ou moins d'une porte (le tissu de desserte
+ *      local, BOUCLES COMPRISES — une ville bâtie garde son quadrillage) ;
+ *   2. l'arbre des plus courts chemins de chaque porte vers le cœur (la route
+ *      qui va à la ferme isolée reste, même sur dix cellules de friche).
+ * L'union des deux est CONNEXE par construction : un chemin de longueur ≤ reach
+ * vers une porte n'est fait que de cellules elles aussi à ≤ reach d'une porte,
+ * donc conservées, et il aboutit sur une porte, qui est dans l'arbre. Ce n'est
+ * pas une propriété qu'on espère, c'est une propriété qu'on démontre — d'où
+ * l'absence de vérification de connexité par candidat, qui aurait été en O(n²).
+ *
+ * ⚠ Ce qui est SANCTUARISÉ (jamais émondé) : les cellules de `demand`
+ * elles-mêmes — la travée du pont y est semée par l'appelant — et les places
+ * (rang `plaza`), qui appartiennent au réseau sans desservir de porte.
+ * ------------------------------------------------------------------------- */
+export const ROAD_PRUNE = { on: true, reach: 2 };
+export function pruneUnservedRoads({ roads, roadKey, roadMeta, demand, coreX, coreY }) {
+  const cfg = ROAD_PRUNE;
+  const reach = Math.max(0, (typeof globalThis !== "undefined" && globalThis.__roadPruneReach != null)
+    ? globalThis.__roadPruneReach | 0 : cfg.reach | 0);
+  if (!cfg.on || !roadKey.size) return roads;
+  const isPlaza = (k) => { const m = roadMeta.get(k); return !!(m && m.rank === "plaza"); };
+  const at = (k, fn) => { const c = k.indexOf(","); return fn(+k.slice(0, c), +k.slice(c + 1)); };
+
+  // SEEDS = les cellules de rue qui ont une raison d'exister par elles-mêmes.
+  const seeds = [];
+  for (const k of roadKey) {
+    const served = demand.has(k) || isPlaza(k)
+      || at(k, (gx, gy) => ORTHO.some(([dx, dy]) => demand.has((gx + dx) + "," + (gy + dy))));
+    if (served) seeds.push(k);
+  }
+  if (!seeds.length) return roads;   // réseau sans aucune demande : on n'y touche pas
+
+  // 1. Distance de chaque rue à la porte la plus proche, EN SUIVANT LES RUES.
+  const dist = new Map();
+  for (const k of seeds) dist.set(k, 0);
+  for (let i = 0, q = seeds.slice(); i < q.length; i += 1) {
+    const cur = q[i], d = dist.get(cur);
+    at(cur, (gx, gy) => {
+      for (const [dx, dy] of ORTHO) {
+        const nk = (gx + dx) + "," + (gy + dy);
+        if (dist.has(nk) || !roadKey.has(nk)) continue;
+        dist.set(nk, d + 1);
+        q.push(nk);
+      }
+    });
+  }
+
+  // 2. Arbre des plus courts chemins depuis le cœur (ou, à défaut, une porte).
+  const core = coreX + "," + coreY;
+  const root = roadKey.has(core) ? core : seeds[0];
+  const par = new Map([[root, null]]);
+  for (let i = 0, q = [root]; i < q.length; i += 1) {
+    const cur = q[i];
+    at(cur, (gx, gy) => {
+      for (const [dx, dy] of ORTHO) {
+        const nk = (gx + dx) + "," + (gy + dy);
+        if (par.has(nk) || !roadKey.has(nk)) continue;
+        par.set(nk, cur);
+        q.push(nk);
+      }
+    });
+  }
+
+  const keep = new Set();
+  for (const [k, d] of dist) if (d <= reach) keep.add(k);
+  // ⚠ La remontée vers le cœur se garde par `linked`, PAS par `keep`. Toute
+  // porte est à distance 0 d'elle-même, donc déjà dans `keep` : s'arrêter « quand
+  // c'est déjà gardé » faisait sortir la boucle au premier pas et aucun chemin
+  // n'était jamais tracé. Les quartiers lointains restaient conservés mais
+  // DÉTACHÉS du reste — le réseau se cassait en morceaux, et la preuve de
+  // connexité ci-dessus n'y pouvait rien puisque son hypothèse était fausse.
+  // `linked` = cellules dont le chemin jusqu'au cœur est acquis.
+  const linked = new Set([root]);
+  keep.add(root);
+  for (const sk of seeds) {
+    const path = [];
+    let cur = sk;
+    while (cur != null && !linked.has(cur)) { path.push(cur); cur = par.get(cur); }
+    // cur == null : porte d'une composante séparée du cœur (réseau pas encore
+    // recollé). On garde son chemin tel quel ; l'élagage de connectivité de
+    // cmBuildRoadGraph tranchera, c'est son métier.
+    for (const p of path) { keep.add(p); linked.add(p); }
+  }
+
+  let cut = 0;
+  for (const k of [...roadKey]) {
+    if (keep.has(k)) continue;
+    roadKey.delete(k);
+    roadMeta.delete(k);
+    cut += 1;
+  }
+  if (!cut) return roads;
+  const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy));
+  roads.length = 0;
+  for (const r of kept) roads.push(r);
+  return roads;
+}

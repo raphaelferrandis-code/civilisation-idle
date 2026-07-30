@@ -11,7 +11,7 @@ import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
-import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton } from './procedural/roadGraph.js';
+import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
@@ -1191,41 +1191,16 @@ function connectBuildingsToNetwork(o) {
   // l'exception : l'appelant passe un plafond à l'échelle du rayon de la ville.
   const MAX_FREE = Math.max(4, o.freeCap | 0);
 
-  // ── QUARTIERS-MOTEURS : l'unité de desserte des moteurs est le BLOC contigu ─
-  // (halle + ateliers collés : la rue dessert le bloc à son BORD, la cour
-  // intérieure fait le reste). Compter par TUILE plafonnait la couverture vers
-  // 50 % (les ateliers intérieurs, murés par leurs voisins, sont injoignables
-  // par le champ) et gonflait le dénominateur en centaines — par bloc, une
-  // ville entière se couvre en ~15 chantiers.
-  const engineTiles = tiles.filter((t) => t.type === "engine");
-  const clusterOf = new Map();          // tuile moteur -> bloc { tiles, connected }
-  {
-    const owner = new Map();            // "x,y" -> index de tuile moteur
-    engineTiles.forEach((t, i) => { for (const [x, y] of footCells(t)) owner.set(K(x, y), i); });
-    const parent = engineTiles.map((_, i) => i);
-    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-    engineTiles.forEach((t, i) => {
-      for (const [x, y] of footCells(t)) for (const [dx, dy] of O4) {
-        const oI = owner.get(K(x + dx, y + dy));
-        if (oI != null && oI !== i) { const ra = find(i), rb = find(oI); if (ra !== rb) parent[ra] = rb; }
-      }
-    });
-    const byRoot = new Map();
-    engineTiles.forEach((t, i) => {
-      const r = find(i);
-      let c = byRoot.get(r);
-      if (!c) { c = { tiles: [], connected: false }; byRoot.set(r, c); }
-      c.tiles.push(t);
-    });
-    for (const c of byRoot.values()) for (const t of c.tiles) clusterOf.set(t, c);
-  }
-  // Monotone (le réseau ne fait que grandir) → mémoïsé dès le premier contact.
-  const clusterConnected = (c) => c.connected === true
-    ? true
-    : (c.tiles.some(touchesRoad) ? (c.connected = true) : false);
-  // Une tuile est « servie » : décoratif au contact d'une route ; moteur dont le
-  // BLOC touche le réseau quelque part.
-  const served = (t) => (t.type === "engine" ? clusterConnected(clusterOf.get(t)) : touchesRoad(t));
+  // ── UN BÂTIMENT = UNE PORTE SUR RUE ────────────────────────────────────────
+  // (Raph 2026-07-29, devant une ville affichée « 100 % relié » avec des
+  // dizaines de bâtiments sans rue.) L'unité de desserte est le BÂTIMENT, pas
+  // le bloc : compter par bloc — « le pâté touche une rue par un coin, ses 20
+  // bâtiments sont servis » — rendait la jauge aveugle (mesuré : 100 % affiché
+  // pour 73 % de bâtiments réellement sur rue). Les VENELLES tirées jusqu'à la
+  // case libre d'un bâtiment enclavé règlent la quasi-totalité des cas (mesuré :
+  // 125 des 163 orphelins ont une case libre ; le reste est muré par
+  // construction et sort du dénominateur).
+  const served = touchesRoad;
 
   // Candidats = tuiles PAS ENCORE reliées, maintenus entre itérations (l'ancienne
   // version rescannait TOUTES les tuiles à chaque bâtiment connecté). L'ordre
@@ -1263,16 +1238,12 @@ function connectBuildingsToNetwork(o) {
     if (useIncr) relaxFrom(p.attach, p.path); // MAJ champ (au lieu de recompute complet)
     if (pick.isEngine) {
       if (waveLeft <= 0) {
-        // Ouverture d'une vague : sa taille se fige sur les BLOCS manquants du
-        // moment (les carves précédents ont pu en relier au passage).
+        // Ouverture d'une vague : sa taille se fige sur les BÂTIMENTS manquants
+        // du moment (les carves précédents ont pu en relier au passage).
         engineWorksUsed += 1;
-        const remCl = new Set();
-        for (const t of pending) {
-          if (t.type !== "engine") continue;
-          const c = clusterOf.get(t);
-          if (c && !clusterConnected(c)) remCl.add(c);
-        }
-        waveLeft = Math.max(1, Math.ceil(remCl.size * ROAD_LINK_WAVE_FRACTION));
+        let rem = 0;
+        for (const t of pending) if (t.type === "engine" && !served(t)) rem += 1;
+        waveLeft = Math.max(1, Math.ceil(rem * ROAD_LINK_WAVE_FRACTION));
       }
       waveLeft -= 1;
     }
@@ -1298,22 +1269,20 @@ function connectBuildingsToNetwork(o) {
   // corridors se raccourcissent entre eux pendant une vraie vague : l'estimation
   // majore un peu, assumé.)
   let nextEngine = null;
-  let bestByClSize = 0;
+  let servableOrphans = 0;
   {
-    // Un candidat par BLOC : son meilleur seuil (corridor le plus court).
-    const bestByCl = new Map();
+    // Un candidat par BÂTIMENT non relié JOIGNABLE (venelle possible jusqu'à sa
+    // case libre) ; les murés par construction n'ont pas de plan et sortent.
+    const costs = [];
     for (const t of pending) {
-      if (t.type !== "engine") continue;
-      const c = clusterOf.get(t);
-      if (!c || clusterConnected(c)) continue;
+      if (t.type !== "engine" || served(t)) continue;
       const b = planCost(t);
       if (!b || b.d === 0) continue;
-      const cur = bestByCl.get(c);
-      if (!cur || b.d < cur.d) bestByCl.set(c, { d: b.d, id: t.buildingId || t.variant || null });
+      costs.push({ d: b.d, id: t.buildingId || t.variant || null });
     }
-    bestByClSize = bestByCl.size;
-    if (bestByCl.size) {
-      const costs = [...bestByCl.values()].sort((a, b2) => a.d - b2.d);
+    servableOrphans = costs.length;
+    if (costs.length) {
+      costs.sort((a, b2) => a.d - b2.d);
       const waveN = Math.max(1, Math.ceil(costs.length * ROAD_LINK_WAVE_FRACTION));
       let tilesSum = 0;
       for (let i = 0; i < waveN; i += 1) tilesSum += costs[i].d;
@@ -1321,16 +1290,23 @@ function connectBuildingsToNetwork(o) {
     }
   }
 
-  // Couverture par BLOC : blocs dont AU MOINS une tuile touche le réseau, sur
-  // les blocs ATTEIGNABLES seulement (relié + joignables par le champ). Un bloc
-  // muré par ses voisins est hors-jeu : le compter rendrait le 100 % (donc le
-  // plein bonus) définitivement inatteignable.
-  const allClusters = new Set(clusterOf.values());
-  let connectedClusters = 0;
-  for (const c of allClusters) if (clusterConnected(c)) connectedClusters += 1;
+  // Couverture PAR BÂTIMENT : bâtiments achetables ayant une rue à leur porte,
+  // sur les bâtiments SERVABLES (reliés + joignables par une venelle). Ceux que
+  // leurs voisins murent par construction sortent du dénominateur : les compter
+  // rendrait le 100 % (donc le plein bonus) définitivement inatteignable.
+  let engineConnected = 0, engineAll = 0;
+  for (const t of tiles) if (t.type === "engine") {
+    engineAll += 1;
+    if (touchesRoad(t)) engineConnected += 1;
+  }
   return {
-    engineTotal: connectedClusters + bestByClSize,
-    engineConnected: connectedClusters,
+    engineTotal: engineConnected + servableOrphans,
+    engineConnected,
+    // Total BRUT (murés compris) : sert à DIRE la vérité dans l'encart — la
+    // jauge se joue sur les servables (sinon le plein bonus serait hors
+    // d'atteinte), mais le joueur qui voit un cœur d'îlot sans rue mérite le
+    // chiffre exact plutôt qu'un 100 % qui le contredit.
+    engineAll,
     engineWorksUsed,
     nextEngine
   };
@@ -1398,17 +1374,60 @@ function upgradeTrunkByUsage({ roadKey, roadMeta, tiles, coreX, coreY, usage = n
 }
 
 // ── Élargissements PAYÉS (chantiers de voirie) ──────────────────────────────
-// Quand tous les moteurs sont raccordés, chaque chantier suivant promeut d'un
-// rang le TRONÇON le plus emprunté (secondary → avenue → main). Un tronçon =
-// run contiguë de cellules de même rang et même axe (≥ MIN_RUN, hors eau) ;
-// score = usage cumulé. Déterministe : tri score desc puis clé, appliqué
-// itérativement (le même grand axe peut monter deux rangs avant le suivant).
-// Renvoie { applied, next } — next = le tronçon que paierait le chantier
-// suivant ({ tiles, toRank }), null si plus rien à élargir.
-function applyRoadWidenings({ roadKey, roadMeta, usage, riverSet, count }) {
-  const MIN_RUN = 3;
-  const PROMOTE = { secondary: "avenue", avenue: "main" };
+// Quand tous les moteurs sont raccordés, chaque chantier suivant promeut le
+// TRONÇON le plus emprunté (secondary → avenue → main → AUTOROUTE). Un tronçon
+// = run contiguë de cellules de même rang et même axe, hors eau ; score =
+// usage cumulé. Anti-PÂTÉ (Raph 2026-07-28, « des masses grises ») : seules de
+// vraies ARTÈRES sont promues — longueur ≥ MIN_RUN, et jamais un tronçon dont
+// la parallèle immédiate est déjà large (c'est ce qui fusionnait le cœur en
+// pâtés). L'échelon final creuse la VOIE JUMELLE d'un boulevard (autoroute
+// 2 tuiles, terre-plein sur la couture) sur les cellules libres du côté le plus
+// dégagé — un bâtiment interrompt la jumelle, sous 60 % posable pas
+// d'autoroute ici. Les deux voies se disqualifient ensuite mutuellement par la
+// règle anti-parallèle : l'échelle se clôt d'elle-même. Déterministe : tri
+// score desc puis clé, appliqué itérativement. Renvoie { applied, next } —
+// next = { tiles, toRank } (toRank "twin" = doubler en autoroute), null si
+// plus rien à élargir.
+function applyRoadWidenings({ roads, roadKey, roadMeta, usage, riverSet, count, cellFree }) {
+  // 6 = au-dessus de la jambe courte d'un axe en escalier (4-7) : les vrais
+  // segments d'artère qualifient, les bouts de 3 cellules ne deviennent plus
+  // jamais des « boulevards » de poche.
+  const MIN_RUN = 6;
+  const PROMOTE = { secondary: "avenue", avenue: "main", main: "twin" };
+  const WIDE = { avenue: 1, main: 1 };
+  const free = typeof cellFree === "function" ? cellFree : () => false;
   const use = usage && usage.use ? usage.use : new Map();
+  const K2 = (x, y) => x + "," + y;
+  const runCellKey = (run, g, s = 0) => run.axis === "h" ? K2(g, run.fixed + s) : K2(run.fixed + s, g);
+  // Part du run dont la parallèle immédiate (±1) est déjà avenue/main.
+  const parallelWideShare = (run) => {
+    let n = 0;
+    for (let g = run.g0; g <= run.g1; g += 1) {
+      for (const s of [-1, 1]) {
+        const m = roadMeta.get(runCellKey(run, g, s));
+        if (m && WIDE[m.rank]) { n += 1; break; }
+      }
+    }
+    return n / run.len;
+  };
+  // Voie jumelle d'un boulevard : cellules posables le long du run, meilleur côté.
+  const twinPlan = (run) => {
+    const laneCells = (s) => {
+      const cells = [];
+      for (let g = run.g0; g <= run.g1; g += 1) {
+        const x = run.axis === "h" ? g : run.fixed + s;
+        const y = run.axis === "h" ? run.fixed + s : g;
+        const kk = K2(x, y);
+        if (roadKey.has(kk) || (riverSet && riverSet.has(kk)) || !free(x, y)) continue;
+        cells.push([x, y]);
+      }
+      return cells;
+    };
+    const south = laneCells(1), north = laneCells(-1);
+    const best = south.length >= north.length ? south : north;
+    if (best.length < Math.ceil(run.len * 0.6)) return null;
+    return best;
+  };
   const collectRuns = () => {
     const runs = [];
     const seenH = new Set(), seenV = new Set();
@@ -1440,15 +1459,39 @@ function applyRoadWidenings({ roadKey, roadMeta, usage, riverSet, count }) {
         if (y1 - y0 + 1 >= MIN_RUN) runs.push({ axis: "v", fixed: gx, g0: y0, g1: y1, rank: m.rank, len: y1 - y0 + 1, score });
       }
     }
-    runs.sort((a, b) => (b.score - a.score)
+    // Éligibilité et prix : anti-parallèle pour tous ; le rang main exige un
+    // plan de voie jumelle (tiles = cellules à creuser), les autres montent sur
+    // place (tiles = longueur du run).
+    const eligible = [];
+    for (const r of runs) {
+      if (parallelWideShare(r) > 0.3) continue;
+      if (r.rank === "main") {
+        const twin = twinPlan(r);
+        if (!twin) continue;
+        eligible.push({ ...r, twin, tiles: twin.length });
+      } else {
+        eligible.push({ ...r, tiles: r.len });
+      }
+    }
+    eligible.sort((a, b) => (b.score - a.score)
       || (a.axis < b.axis ? -1 : a.axis > b.axis ? 1 : 0)
       || (a.fixed - b.fixed) || (a.g0 - b.g0));
-    return runs;
+    return eligible;
   };
   const promote = (run) => {
+    if (run.twin) {
+      // Autoroute : la jumelle se CREUSE (nouvelles cellules main, axe du run).
+      for (const [x, y] of run.twin) {
+        const k = K2(x, y);
+        roadKey.add(k);
+        roadMeta.set(k, { h: run.axis === "h", v: run.axis === "v", rank: "main" });
+        if (roads) roads.push({ gx: x, gy: y });
+      }
+      return;
+    }
     const to = PROMOTE[run.rank];
     for (let g = run.g0; g <= run.g1; g += 1) {
-      const k = run.axis === "h" ? g + "," + run.fixed : run.fixed + "," + g;
+      const k = runCellKey(run, g);
       const m = roadMeta.get(k);
       if (m && m.rank === run.rank) m.rank = to;
     }
@@ -1461,7 +1504,9 @@ function applyRoadWidenings({ roadKey, roadMeta, usage, riverSet, count }) {
     applied += 1;
   }
   const after = collectRuns();
-  const next = after.length ? { tiles: after[0].len, toRank: PROMOTE[after[0].rank] } : null;
+  const next = after.length
+    ? { tiles: after[0].tiles, toRank: after[0].twin ? "twin" : PROMOTE[after[0].rank] }
+    : null;
   return { applied, next };
 }
 
@@ -2541,10 +2586,36 @@ function computeCityLayout(s) {
   const netCover = connectBuildingsToNetwork({
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
     claimed, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
-    // Mode desserte : les corridors sont la règle (échafaudage dissous) — le
-    // plafond gratuit passe à l'échelle du rayon de la ville.
-    freeCap: skeletonKey ? Math.max(12, Math.round(cityReachBase * 2.4)) : 0
+    // Contrat de base (rappelé par Raph 2026-07-29 : « les routes reliées à
+    // TOUS les bâtiments ») : les habitations sont TOUJOURS desservies,
+    // gratuitement, quel que soit l'archétype — sur les villes en grille les
+    // venelles complètent les mailles (mesuré : 4 % de maisons seules sinon,
+    // 75 maisons sans rue sur une mégalopole).
+    freeCap: Math.max(12, Math.round(cityReachBase * 2.4))
   });
+  // ── Émondage des QUARTIERS DE RUES VIDES (Raph 2026-07-29 : « des carrés 2×2
+  //    pas très cohérents, il faudrait que ça n'arrive plus »). Le trim ci-dessus
+  //    ne mange que des feuilles ; un quadrillage posé sur de la friche n'en a
+  //    aucune, il était immortel. Ici on garde la desserte locale (boucles
+  //    comprises) plus l'arbre qui relie chaque porte au cœur, et on coupe le
+  //    reste — cf. pruneUnservedRoads pour la preuve de connexité.
+  //    ⚠ APRÈS la connexion (les connecteurs frais comptent comme desserte) et
+  //    AVANT usage/élargissements : sans quoi on paierait des chantiers sur des
+  //    tronçons qu'on s'apprête à supprimer.
+  pruneUnservedRoads({
+    roads, roadKey, roadMeta, demand,
+    coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y)
+  });
+  // …puis on REPASSE l'émondage par feuilles. Couper des boucles en fabrique de
+  // nouvelles : là où le quadrillage vide touchait le tissu, la rue conservée par
+  // la marge de desserte se termine désormais à deux cellules de la dernière
+  // maison, en plein champ (mesuré : 0 cul-de-sac sans rien avant l'émondage,
+  // 12 après). Les deux passes sont complémentaires et ne se recouvrent pas :
+  // celle-ci ne mange que des feuilles, l'autre ne sait couper que des boucles.
+  // Les corridors vers les bâtiments isolés ne risquent rien — leurs cellules
+  // sont de degré 2, et leur extrémité touche une emprise, donc la demande.
+  trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
+  lp("prune");
   // Usage du réseau (bâtiments par cellule), calculé UNE fois : sert au tronc
   // gratuit des hameaux ET aux élargissements payés.
   const usage = computeRoadUsage({
@@ -2557,10 +2628,25 @@ function computeCityLayout(s) {
     roadKey, roadMeta, tiles,
     coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y), usage
   });
-  // Chantiers restants après les raccords → élargissements payés.
+  // Chantiers restants après les raccords → élargissements payés. `cellFree`
+  // rejoue les obstacles des corridors (eau, rives, emprises, réservations) :
+  // la voie jumelle d'une autoroute ne se creuse que sur du sol vraiment libre.
+  const widenBlocked = new Set();
+  for (const t of tiles) {
+    const tsx = t.spanX || t.size || 1, tsy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < tsx; ax += 1) for (let ay = 0; ay < tsy; ay += 1)
+      widenBlocked.add((t.gx + ax) + "," + (t.gy + ay));
+  }
+  const widenFree = (x, y) => {
+    if (x < 0 || y < 0 || x >= N || y >= N) return false;
+    const k = x + "," + y;
+    return !widenBlocked.has(k) && !bankSet.has(k) && !claimed.has(k)
+      && !engineFootprint.has(k) && !occupiedFoot.has(k);
+  };
   const widenRes = applyRoadWidenings({
-    roadKey, roadMeta, usage, riverSet,
-    count: Math.max(0, roadWorksTotal - netCover.engineWorksUsed)
+    roads, roadKey, roadMeta, usage, riverSet,
+    count: Math.max(0, roadWorksTotal - netCover.engineWorksUsed),
+    cellFree: widenFree
   });
   // Prochain chantier proposé + réalisés, déposés sur le layout : le runtime les
   // écrit dans state (roadNext / roadWidened), même canal que roadCoverage.
