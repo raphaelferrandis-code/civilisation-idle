@@ -662,14 +662,32 @@ describe("BANDES D'EAU ANIMÉE", () => {
     // ⚠ C'est bien un seuil de PALETTE, pas un réglage à l'œil : mon premier
     // essai à 12 tombait dans la queue de la grappe pierre, et 53 à 67 % des
     // pixels animés étaient de la margelle.
+    // ⚠ AUCUNE tolérance de voisinage. La dilatation d'un pixel — celle qui
+    // empêche le bord de l'eau de clignoter — est REDONDANTE : un pixel qui
+    // prend une couleur d'eau ne serait-ce qu'une frame passe déjà, puisqu'on
+    // interroge toutes les frames. Ce qu'elle ajoutait était donc exactement
+    // l'ensemble des pixels qui ne sont eau dans AUCUNE frame, soit de la pierre
+    // par définition — 252 px sur la moderne, le liseré du bord bas que Raph a
+    // vu bouger. Le remède fabriquait le défaut.
+    //
+    // ZONE PEINTE : quand anim/zone/<nom>.png existe, c'est ELLE qui fait foi et
+    // la couleur ne dit plus rien. Il le faut : sur la fontaine cosmique les
+    // cascades sont peintes dans la palette du MARBRE (crème 216,205,180, blanc
+    // 251,250,244), aucun seuil de teinte ne peut les séparer de la pierre.
     if (!fs.existsSync(ANIM)) return;
     const { PNG } = await import("pngjs");
     const BLEU = 40;
+    const ZONE = path.join(ANIM, "zone");
     for (const f of fs.readdirSync(ANIM).filter((x) => x.endsWith(".png"))) {
       const st = PNG.sync.read(fs.readFileSync(path.join(STAT, f)));
       const sp = PNG.sync.read(fs.readFileSync(path.join(ANIM, f)));
+      const fz = path.join(ZONE, f);
+      const zone = fs.existsSync(fz) ? PNG.sync.read(fs.readFileSync(fz)) : null;
       const { width: w, height: h } = st;
       const N = Math.round(sp.width / w);
+      if (zone) {
+        expect([zone.width, zone.height], `${f} : zone au format du statique`).toEqual([w, h]);
+      }
       const fautes = [];
       for (let y = 0; y < h; y += 1) {
         for (let x = 0; x < w; x += 1) {
@@ -680,26 +698,11 @@ describe("BANDES D'EAU ANIMÉE", () => {
             for (let c = 0; c < 4; c += 1) if (sp.data[d + c] !== st.data[s + c]) { bouge = true; break; }
             if (sp.data[d + 3] >= 128 && sp.data[d + 2] - sp.data[d] >= BLEU) eau = true;
           }
-          // Tolérance d'UN pixel autour de l'eau : le bord alterne eau/pierre
-          // d'une frame à l'autre et clignoterait s'il était coupé net.
-          if (!bouge || eau) continue;
-          let voisine = false;
-          for (let dy = -1; dy <= 1 && !voisine; dy += 1) {
-            for (let dx = -1; dx <= 1 && !voisine; dx += 1) {
-              const nx = x + dx, ny = y + dy;
-              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-              const t = (ny * w + nx) * 4;
-              if (st.data[t + 3] >= 128 && st.data[t + 2] - st.data[t] >= BLEU) { voisine = true; break; }
-              for (let i = 0; i < N && !voisine; i += 1) {
-                const d = (ny * sp.width + i * w + nx) * 4;
-                if (sp.data[d + 3] >= 128 && sp.data[d + 2] - sp.data[d] >= BLEU) voisine = true;
-              }
-            }
-          }
-          if (!voisine) fautes.push(`${x},${y}`);
+          if (zone) eau = zone.data[s + 3] >= 128;
+          if (bouge && !eau) fautes.push(`${x},${y}`);
         }
       }
-      expect(fautes, `${f} : ${fautes.length} px de PIERRE animés (${fautes.slice(0, 6).join(" ")})`)
+      expect(fautes, `${f} : ${fautes.length} px hors ${zone ? "ZONE" : "EAU"} animés (${fautes.slice(0, 6).join(" ")})`)
         .toHaveLength(0);
     }
   });

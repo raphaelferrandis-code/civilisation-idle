@@ -48,9 +48,8 @@ const ECRIRE = argv.includes('--ecrire');
 // grappe — d'où la margelle qui frissonnait. À 40 on est dans le creux, et la
 // marge est telle qu'aucun réglage fin n'est nécessaire.
 const BLEU = +flag('bleu', 40);
-const CHAUD = +flag('chaud', 4);     // b − r en deçà duquel il lit « pierre » (refus)
-const TRAIT = +flag('trait', 70);    // luminance sous laquelle c'est un CONTOUR (refus)
-const DILAT = +flag('dilat', 1);
+const TRAIT = +flag('trait', 70);    // luminance sous laquelle c'est un CONTOUR
+const GABARIT = argv.includes('--gabarit');
 const ERE = flag('ere', null);
 const eras = ERE ? [ERE] : ERAS;
 
@@ -99,31 +98,79 @@ for (const era of eras) {
       if (bleu) eau[p] = 1;
     }
   }
-  // Dilatation d'un pixel, bornée au MOUVEMENT réel — et JAMAIS vers la pierre.
-  // Sans cette seconde borne, la dilatation qui empêche le bord de l'eau de
-  // clignoter rendait en même temps un liseré de margelle animé tout autour du
-  // bassin : le défaut qu'on vient de retirer, réintroduit par son remède.
-  // Deux refus explicites : un pixel CHAUD (pierre éclairée) et un pixel très
-  // SOMBRE (trait de contour — c'est lui qui fait onduler la silhouette).
-  const garde = new Uint8Array(W * H);
-  for (let y = 0; y < H; y += 1) {
-    for (let x = 0; x < W; x += 1) {
-      const p = y * W + x;
-      if (!bouge[p]) continue;
-      if (!eau[p]) {
-        const s = p * 4;
+  // ⛔ PAS DE DILATATION. fetchPlazaAnim en posait une pour empêcher le bord de
+  // l'eau — qui alterne eau/pierre — de clignoter s'il était coupé net. Elle est
+  // REDONDANTE ici, et c'est un raisonnement, pas un réglage : un pixel qui prend
+  // une couleur d'eau ne serait-ce qu'une frame passe DÉJÀ le test principal,
+  // puisqu'on interroge toutes les frames. Ce que la dilatation ajoutait, c'est
+  // donc exactement l'ensemble des pixels qui ne sont eau dans AUCUNE frame —
+  // de la pierre, par définition. Mesuré : 252 px sur la moderne (25 % du
+  // masque), et ce sont eux que Raph voyait bouger sur le contour bas.
+  //
+  // ── ZONE PEINTE À LA MAIN, quand la couleur ne peut pas trancher ───────────
+  // anim/zone/fountain-<ère>.png : tout pixel OPAQUE y déclare « ici, ce qui
+  // bouge est de l'eau ». Elle REMPLACE le critère de couleur pour cette ère.
+  // Pourquoi ça existe : sur la fontaine cosmique, PixelLab a peint les cascades
+  // dans la palette du MARBRE (relevé des pixels perdus : crème 216,205,180 ·
+  // blanc 251,250,244 · gris froids 170,176,184). Aucun seuil de teinte ne peut
+  // les distinguer de la pierre — c'est une limite de l'art, pas du critère.
+  // `--gabarit` écrit un point de départ à corriger dans Aseprite : tout ce qui
+  // bouge, MOINS le contour sombre et MOINS le pourtour de la silhouette (les
+  // deux qui font onduler la forme). On en RETIRE, on n'en ajoute pas.
+  const fZone = path.join(DIR, 'anim', 'zone', `fountain-${era}.png`);
+  let garde = eau;
+  if (fs.existsSync(fZone)) {
+    const z = PNG.sync.read(fs.readFileSync(fZone));
+    if (z.width !== W || z.height !== H) {
+      console.error(`${era} — zone ${z.width}×${z.height} ≠ statique ${W}×${H}, ignorée`);
+    } else {
+      garde = new Uint8Array(W * H);
+      for (let p = 0; p < W * H; p += 1) garde[p] = bouge[p] && z.data[p * 4 + 3] >= 128 ? 1 : 0;
+    }
+  }
+  if (GABARIT) {
+    const g = new PNG({ width: W, height: H });
+    const opaque = (x, y) => x >= 0 && y >= 0 && x < W && y < H && st.data[(y * W + x) * 4 + 3] >= 128;
+    for (let y = 0; y < H; y += 1) {
+      for (let x = 0; x < W; x += 1) {
+        const p = y * W + x, s = p * 4;
+        if (!bouge[p]) continue;
         const lum = 0.299 * st.data[s] + 0.587 * st.data[s + 1] + 0.114 * st.data[s + 2];
-        if (st.data[s + 3] >= 128 && (bleuite(st.data, s) <= -CHAUD || lum < TRAIT)) continue;
+        if (st.data[s + 3] >= 128 && lum < TRAIT) continue;             // trait de contour
+        let bord = false;
+        for (let dy = -1; dy <= 1 && !bord; dy += 1) {
+          for (let dx = -1; dx <= 1 && !bord; dx += 1) if (!opaque(x + dx, y + dy)) bord = true;
+        }
+        if (bord) continue;                                             // pourtour de silhouette
+        g.data[s] = 255; g.data[s + 1] = 255; g.data[s + 2] = 255; g.data[s + 3] = 255;
       }
-      let on = 0;
-      for (let dy = -DILAT; dy <= DILAT && !on; dy += 1) {
-        for (let dx = -DILAT; dx <= DILAT && !on; dx += 1) {
+    }
+    // ARÊTES REDESSINÉES : une composante haute d'un ou deux pixels et large de
+    // six ou plus est un TRAIT, donc une arête de margelle que le modèle a
+    // repeinte — jamais de l'eau, qui tombe en colonnes ou s'étale en flaques.
+    // C'est la règle qui retire le liseré du bord bas que Raph a pointé, et elle
+    // se lit sur la FORME, pas sur une position devinée dans le sprite.
+    const vu = new Uint8Array(W * H);
+    for (let p0 = 0; p0 < W * H; p0 += 1) {
+      if (vu[p0] || g.data[p0 * 4 + 3] < 128) continue;
+      const pile = [p0], comp = []; vu[p0] = 1;
+      while (pile.length) {
+        const q = pile.pop(); comp.push(q);
+        const x = q % W, y = (q / W) | 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nx = x + dx, ny = y + dy;
-          if (nx >= 0 && ny >= 0 && nx < W && ny < H && eau[ny * W + nx]) on = 1;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const r = ny * W + nx;
+          if (!vu[r] && g.data[r * 4 + 3] >= 128) { vu[r] = 1; pile.push(r); }
         }
       }
-      garde[p] = on;
+      const ys = comp.map((q) => (q / W) | 0), xs = comp.map((q) => q % W);
+      const h = Math.max(...ys) - Math.min(...ys) + 1, w = Math.max(...xs) - Math.min(...xs) + 1;
+      if (h <= 2 && w >= 6) for (const q of comp) g.data[q * 4 + 3] = 0;
     }
+    fs.mkdirSync(path.dirname(fZone), { recursive: true });
+    fs.writeFileSync(fZone, PNG.sync.write(g));
+    console.log(`  gabarit → ${fZone}`);
   }
 
   const nB = bouge.reduce((s, v) => s + v, 0), nG = garde.reduce((s, v) => s + v, 0);
