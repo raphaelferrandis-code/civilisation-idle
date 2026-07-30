@@ -39,6 +39,7 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
+import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 import {
   cityMapDrawGround,
   cityMapDrawTerrain,
@@ -1374,6 +1375,35 @@ function cityMapEnsureLayout(now, deps = {}) {
         CM.shipAvoidT.push(bi / Math.max(1, len - 1));
       }
     }
+    // ── OBSTACLES PLANTÉS DANS L'EAU ────────────────────────────────────────
+    // L'Aiguille Céleste est délibérément posée EN PLEIN FLEUVE (c'est un phare,
+    // cf. cmWetWonderSlot) : les bateaux, qui suivent le ruban, lui rentraient
+    // dedans. On publie sa position sur le ruban ET son décalage transversal —
+    // c'est ce dernier qui dit de quel côté passer.
+    //
+    // Le test porte sur la GÉOMÉTRIE (la merveille est-elle dans l'eau ?) et non
+    // sur son identité : toute future merveille aquatique sera contournée sans
+    // qu'on ait à y penser, et une Aiguille qui finirait sur la berge cesserait
+    // d'encombrer le chenal pour rien.
+    CM.riverObstacles = [];
+    if (hasRiver && L.river.samples && Array.isArray(L.wonderSlots)) {
+      const sm = L.river.samples, len = sm.length;
+      const actifs = cmWonderActiveIds(state);
+      for (let idx = 0; idx < CM_WONDERS.length; idx += 1) {
+        const w = CM_WONDERS[idx], slot = L.wonderSlots[idx];
+        if (!w || !slot || !actifs.has(w.id)) continue;
+        let bi = 0, bd = Infinity;
+        for (let i = 0; i < len; i += 1) { const dd = (sm[i].x - slot.gx) ** 2 + (sm[i].y - slot.gy) ** 2; if (dd < bd) { bd = dd; bi = i; } }
+        const s0 = sm[bi];
+        const hw = s0.hw || 2;
+        if (Math.sqrt(bd) > hw) continue;         // à sec : rien à contourner
+        const a = sm[Math.max(0, bi - 1)], b = sm[Math.min(len - 1, bi + 1)];
+        let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+        const nx = -ty, ny = tx;
+        const lat = (slot.gx - s0.x) * nx + (slot.gy - s0.y) * ny;   // signé, en tuiles
+        CM.riverObstacles.push({ t: bi / Math.max(1, len - 1), lat, r: 1.6, id: w.id });
+      }
+    }
   }
 }
 
@@ -1949,6 +1979,16 @@ function initCityMap(canvas, options = {}) {
     // renvoyer une COPIE fraîche sans layout/forceFrame — piloter via __CM.
     window.__CM = CM;
     window.__cityRecompute = () => { CM.layout = null; CM.centered = false; cmInvalidateBakes(); };
+    // TISSU URBAIN : part de voirie / bâti / vide, maille, taille des îlots.
+    // C'est le tableau de bord du chantier « micmacs de routes »
+    // (docs/PLAN-TISSU-URBAIN.md) : chaque lot se juge dessus AVANT de se juger
+    // à l'œil. `__tissu()` imprime le rapport et rend les nombres bruts.
+    window.__tissu = () => {
+      if (!CM.layout) return { err: 'carte pas construite — ouvre la Cité' };
+      const m = tissuMetrics(CM.layout);
+      console.log(tissuReport(m));
+      return m;
+    };
     // BANC DU BATCHER WebGL (chantier rendu) : compare, sur les VRAIS sprites du
     // jeu et à l'échelle d'une frame de dézoom, le débit de Canvas 2D (un
     // `drawImage` par sprite) et celui du batcher (un seul appel de dessin).

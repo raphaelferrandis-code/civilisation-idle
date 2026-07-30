@@ -866,7 +866,12 @@ if (typeof window !== 'undefined') {
  * dans l'eau) ni place (déjà dallée). Mémoïsé sur la tuile — les tuiles sont
  * reconstruites à chaque recompute, le cache se périme donc tout seul.
  * ------------------------------------------------------------------------- */
-export const FRONT = { on: true, push: 0.14, gap: 0.06 };
+// push 0.14 → 0.19 (Raph, 2026-07-30, sur planche des trois doses). 0,19 n'est pas
+// un chiffre rond : c'est TOUTE la place disponible devant une rue ordinaire
+// (0,5 − demi-chaussée 0,25 − gap 0,06). Au-delà, le rabotage rendrait la même
+// valeur et monter le réglage ne ferait plus rien. Devant une avenue ou un
+// boulevard il rabote à 0,11 et 0,08, automatiquement.
+export const FRONT = { on: true, push: 0.19, gap: 0.06 };
 const FRONT_DIRS = [[0, 1], [1, 0], [-1, 0], [0, -1]];   // S, E, O, N
 export function isoBuildingFront(t, roadMap) {
   if (t._front !== undefined) return t._front;
@@ -4044,6 +4049,52 @@ export function shipVisual(kind, band, ei, shipState) {
     sizeMul: tradeSizeMul(stage, band), wake: 1, stage };
 }
 
+// ── ÉVITEMENT DES OBSTACLES PLANTÉS DANS L'EAU ──────────────────────────────
+// L'Aiguille Céleste est posée EN PLEIN FLEUVE (c'est un phare, cf.
+// cmWetWonderSlot) : les bateaux, qui suivent le ruban, lui rentraient dedans.
+//
+// La manœuvre se joue sur la seule VOIE TRANSVERSALE, jamais sur `t` : on ne
+// dévie pas la route du fleuve, on se range d'un bord. Le bateau choisit le côté
+// où il est DÉJÀ, ce qui évite qu'il traverse le monument pour l'éviter — et
+// l'écart se creuse progressivement à l'approche plutôt que d'un coup de barre.
+//
+// `lat` de l'obstacle est signé dans le même repère que `lateral` (tuiles depuis
+// l'axe du ruban), donc les deux se comparent directement.
+// Molette : __riverDodge({ on, range, clear }).
+const DODGE = { on: true, range: 0.045, clear: 1.0 };
+if (typeof window !== 'undefined') {
+  window.__riverDodge = (o) => { if (o) Object.assign(DODGE, o); return { ...DODGE }; };
+}
+export function riverDodge(lateral, t, effSize, hw, obstacles) {
+  const obs = obstacles || CM.riverObstacles;
+  if (!DODGE.on || !obs || !obs.length) return lateral;
+  let out = lateral;
+  for (const o of obs) {
+    let dt = Math.abs(t - o.t);
+    if (dt > 0.5) dt = 1 - dt;
+    if (dt > DODGE.range) continue;
+    // Approche lissée : 0 au bord de la zone, 1 au droit de l'obstacle.
+    const p = 1 - dt / DODGE.range;
+    const force = p * p * (3 - 2 * p);
+    // Dégagement voulu : le rayon de l'obstacle plus la demi-coque, plus une
+    // marge. Un bateau large se range donc plus loin qu'une barque.
+    const clear = (o.r || 1.4) + effSize * 0.5 + DODGE.clear * 0.5;
+    // Côté déjà pris — et non le plus dégagé : un bateau qui traverserait le
+    // monument pour se ranger « du bon côté » serait pire que le défaut.
+    const side = out >= o.lat ? 1 : -1;
+    let cible = o.lat + side * clear;
+    // Le contournement reste DANS l'eau : au besoin on passe de l'autre bord
+    // plutôt que d'échouer le bateau sur la berge.
+    const bord = hw * 0.86 - effSize * 0.3;
+    if (Math.abs(cible) > bord) {
+      const autre = o.lat - side * clear;
+      cible = Math.abs(autre) <= bord ? autre : Math.max(-bord, Math.min(bord, cible));
+    }
+    out += (cible - out) * force;
+  }
+  return out;
+}
+
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
 // sillage additif, coque « toujours droite ») mais TOUT passe par la projection :
@@ -4103,7 +4154,7 @@ function drawIsoShips(now) {
     // mordaient la berge près du pont (vu à la capture).
     const laneRoom = Math.max(0, hw * 0.78 - effSize * 0.3 - 0.25);
     const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
-    const lateral = ((sh.lane || 0) + wave) * laneRoom;
+    const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw);
     cgx += nx * lateral; cgy += ny * lateral;
     const p = worldToScreen(cgx * T, cgy * T);
     if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
