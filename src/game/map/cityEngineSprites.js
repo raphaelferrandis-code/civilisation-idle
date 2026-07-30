@@ -8,6 +8,7 @@
  * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
  * ========================================================================== */
 import { drawEraGroundFill } from './pixelTerrain.js';
+import { AGENT_SCALE } from './agents.js';
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
@@ -18,15 +19,20 @@ import { lightCut, lightCutImage } from './lightLayer.js';
 // un humain sur `sh` (l'ancien `sh·hFrac`) le transformait donc en GÉANT sur les gros
 // lots — d'où le retour « on dirait des géants ». On les cale désormais sur la TUILE
 // écran (CM.TILE·zoom), EXACTEMENT comme les habitants animés (drawEraAgentIso :
-// CM.TILE·zoom · scale(≈0.85) · AGENT_SCALE(0.8) ≈ 0.68 tuile), INDÉPENDAMMENT de la
+// CM.TILE·zoom · scale(≈0.85) · AGENT_SCALE), INDÉPENDAMMENT de la
 // boîte. L'ancien `hFrac` (fraction de boîte ≈0.38..0.5) est réinterprété en simple
 // multiplicateur RELATIF autour de l'adulte de référence (0.46) → foreground/arrière-plan.
-const SCENE_HUMAN = { k: 0.68, ref: 0.46 };
+// `k` est exprimé AVANT AGENT_SCALE, exactement comme les `scale` des habitants (0.85
+// pour un adulte) : la multiplication par AGENT_SCALE se fait dans sceneHumanH. L'ancien
+// 0.68 était le PRODUIT figé (0.85 × 0.8) — il ne suivait donc pas les changements
+// d'échelle des habitants (Raph 2026-07-29 : « applique la dif de taille aux humains des
+// scènes moteur »). Molette live __sceneHumanScale(0.85 = défaut).
+const SCENE_HUMAN = { k: 0.85, ref: 0.46 };
 if (typeof window !== 'undefined') window.__sceneHumanScale = (v) => { if (v != null) SCENE_HUMAN.k = +v; return SCENE_HUMAN.k; };
 // Hauteur écran cible d'un humain de scène (px), calquée sur un habitant adulte.
 function sceneHumanH(hFrac) {
   const tile = (CM.TILE || 32) * ((CM.cam && CM.cam.zoom) || 1);
-  return tile * SCENE_HUMAN.k * ((hFrac || SCENE_HUMAN.ref) / SCENE_HUMAN.ref);
+  return tile * SCENE_HUMAN.k * AGENT_SCALE * ((hFrac || SCENE_HUMAN.ref) / SCENE_HUMAN.ref);
 }
 // Ombre de contact d'un humain/mulet, proportionnelle à SA taille (plus à la boîte).
 // cx/fy = centre/ligne de pieds en fraction de boîte (comme les blit*) ; wMul élargit

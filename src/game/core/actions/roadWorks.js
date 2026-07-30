@@ -30,6 +30,7 @@ import {
   ROAD_WORK_BASE_SECONDS,
   ROAD_WORK_TIME_RAMP,
   ROAD_WORK_TIME_MAX,
+  ROAD_WORKS_BANK_MAX,
   ROAD_NEXT_FALLBACK_TILES
 } from '../balance.js';
 
@@ -57,12 +58,24 @@ export function roadNextInfo() {
   return { kind: 'link', tiles: ROAD_NEXT_FALLBACK_TILES, targetId: null, toRank: null };
 }
 
+// Réserve de chantiers prépayés (réseau achevé) : toujours un entier sain.
+export function roadWorksBank() {
+  const b = state.roadWorksBank;
+  return Number.isFinite(b) ? Math.max(0, Math.min(ROAD_WORKS_BANK_MAX, Math.floor(b))) : 0;
+}
+
 // Coût du prochain chantier : tuiles × prix de la tuile de l'ère, rang visé en
 // facteur pour les élargissements. Decimal de bout en bout (les ères tardives
-// dépassent le float). null = réseau achevé, rien à vendre.
+// dépassent le float). Réseau achevé : prix PLAT d'un chantier moyen — l'achat
+// part en RÉSERVE ; null seulement quand la réserve est pleine.
 export function roadWorkCost() {
   const n = roadNextInfo();
-  if (n.kind === 'done') return null;
+  if (n.kind === 'done') {
+    if (roadWorksBank() >= ROAD_WORKS_BANK_MAX) return null;
+    return D(ROAD_TILE_COST_BASE)
+      .mul(D(ROAD_TILE_COST_GROWTH).pow(Math.max(0, currentEraIndex())))
+      .mul(ROAD_NEXT_FALLBACK_TILES);
+  }
   const mult = n.kind === 'widen' ? (ROAD_WIDEN_COST_MULT[n.toRank] || ROAD_WIDEN_COST_MULT.avenue) : 1;
   return D(ROAD_TILE_COST_BASE)
     .mul(D(ROAD_TILE_COST_GROWTH).pow(Math.max(0, currentEraIndex())))
@@ -95,12 +108,28 @@ export function roadWorkDuration(tiles, index, eraIndex = null) {
 
 export function buyRoadWorkCore() {
   const rw = roadWorksState();
-  if (roadWorksCount() >= ROAD_WORK_QUEUE_MAX) return false;
   const n = roadNextInfo();
-  if (n.kind === 'done') return false;
+  // Réseau achevé : l'achat se STOCKE (chantier prépayé, lancé tout seul par le
+  // tick dès qu'un nouveau bâtiment ouvre un raccord). Pas de file ici.
+  if (n.kind === 'done') {
+    if (roadWorksBank() >= ROAD_WORKS_BANK_MAX) return false;
+    const bankCost = roadWorkCost();
+    if (!bankCost || D(state.knowledge).lt(bankCost)) return false;
+    state.knowledge = D(state.knowledge).sub(bankCost);
+    state.roadWorksBank = roadWorksBank() + 1;
+    return true;
+  }
+  if (roadWorksCount() >= ROAD_WORK_QUEUE_MAX) return false;
   const cost = roadWorkCost();
   if (!cost || D(state.knowledge).lt(cost)) return false;
   state.knowledge = D(state.knowledge).sub(cost);
+  enqueueRoadWork(rw, n);
+  return true;
+}
+
+// Mise en file d'un chantier pour le prochain objectif `n` (achat direct ou
+// lancement depuis la réserve) : durée sur la rampe de l'ère courante.
+function enqueueRoadWork(rw, n) {
   const we = roadWorksEraIndex();
   const total = roadWorkDuration(n.tiles, we.count);
   we.count += 1;
@@ -113,7 +142,6 @@ export function buyRoadWorkCore() {
     left: total
   };
   if (!rw.active) rw.active = work; else rw.queue.push(work);
-  return true;
 }
 
 export function buyRoadWork() {
@@ -133,6 +161,17 @@ export function tickRoadWorks(dt) {
   const rw = state.roadWorks;
   if (!rw || typeof rw !== 'object') return;
   if (!Array.isArray(rw.queue)) rw.queue = [];
+  // RÉSERVE : un chantier prépayé se lance TOUT SEUL dès que la carte propose du
+  // travail (nouveaux bâtiments après un achat ou une ère). Un par tick suffit,
+  // la file se remplit en quelques battements.
+  if (roadWorksBank() > 0 && roadWorksCount() < ROAD_WORK_QUEUE_MAX) {
+    const n = state.roadNext;
+    if (n && typeof n === 'object' && n.kind && n.kind !== 'done'
+      && Number.isFinite(n.tiles) && n.tiles > 0) {
+      state.roadWorksBank = roadWorksBank() - 1;
+      enqueueRoadWork(roadWorksState(), n);
+    }
+  }
   if (!rw.active && rw.queue.length) rw.active = rw.queue.shift();
   if (!rw.active || !(dt > 0)) return;
   rw.active.left -= dt;

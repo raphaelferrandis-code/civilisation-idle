@@ -128,7 +128,7 @@ export const buildings = [
     id: "roads",
     category: "infra",
     name: { fr: "Routes", en: "Roads" },
-    desc: { fr: "Un chantier a la fois. La voirie raccorde chaque batiment au reseau, puis elargit les axes les plus empruntes. Ville bien reliee : jusqu'a +10 %. Axes elargis : encore un peu plus.", en: "One work site at a time. The road crew links each building to the network, then widens the busiest streets. A well-connected city produces up to +10% more. Widened streets: a little more still." },
+    desc: { fr: "Un chantier a la fois. La voirie raccorde chaque quartier de batiments au reseau, puis elargit les axes les plus empruntes ; les habitations se relient d'elles-memes. Ville bien reliee : jusqu'a +10 %. Axes elargis : encore un peu plus.", en: "One work site at a time. The road crew links each district of buildings to the network, then widens the busiest streets; homes link themselves. A well-connected city produces up to +10% more. Widened streets: a little more still." },
     // Voirie : le coût réel vient du CHANTIER (roadWorkCost, ∝ tuiles) ; base et
     // scale ne servent plus qu'aux chemins génériques qui les lisent encore.
     base: 300,

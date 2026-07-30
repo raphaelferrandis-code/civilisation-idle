@@ -49,12 +49,60 @@ export function windAt(cycleIndex) {
   return (h - Math.floor(h)) * 1.4 - 0.7;
 }
 
+// ── RAFALES ─────────────────────────────────────────────────────────────────
+// Une averse ne tombe pas à débit constant : elle arrive par paquets. Le sursaut
+// qu'on voyait en revenant sur l'onglet (l'horloge d'animation avait sauté, tout
+// le rideau se redistribuait d'un coup et l'œil lisait « bourrasque ») plaisait
+// à Raph — on le rend DÉLIBÉRÉ et répété au lieu de le laisser à un accident
+// d'horloge.
+//
+// ATTAQUE BRÈVE, RETOMBÉE LONGUE : une rafale FRAPPE puis s'apaise. Une
+// enveloppe symétrique (sinus) donne un soufflet qui respire, jamais un coup de
+// vent — c'est le seul point de forme qui compte vraiment, et il est testé.
+//
+// Amplitude, décalage et durée tirés du NUMÉRO de rafale (hash pur, comme
+// windAt) : deux bourrasques de suite ne se ressemblent pas, et la suite reste
+// reproductible d'une session à l'autre. Le vent d'averse, lui, ne bouge pas :
+// la rafale COUCHE la pluie, elle ne la fait pas tourner (cf. drawIsoRain).
+const GUST_SLOT_MS = 9000;      // une rafale par créneau de 9 s
+const GUST_ATTACK_MS = 480;     // montée : moins d'une demi-seconde
+const GUST_DECAY_MS = 4200;     // retombée de référence, ×0,7 à ×1,5 selon la rafale
+
+const gustHash = (k, s) => {
+  const h = Math.sin(k * 127.1 + s * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+};
+
+// Enveloppe d'UNE rafale (créneau k) au temps t, nulle hors de sa fenêtre et
+// continue partout (la retombée atterrit à pente nulle). Fenêtre la plus longue
+// possible : 0,55 × 9000 + 480 + 6300 ≈ 11,7 s, donc une rafale déborde au plus
+// sur le créneau SUIVANT — d'où les deux créneaux testés par gustAt.
+function gustPulse(k, t) {
+  const start = k * GUST_SLOT_MS + gustHash(k, 1) * GUST_SLOT_MS * 0.55;
+  const u = t - start;
+  if (u < 0) return 0;
+  const amp = 0.4 + gustHash(k, 2) * 0.6;
+  if (u < GUST_ATTACK_MS) return amp * smooth01(u / GUST_ATTACK_MS);
+  const v = (u - GUST_ATTACK_MS) / (GUST_DECAY_MS * (0.7 + gustHash(k, 3) * 0.8));
+  if (v >= 1) return 0;
+  return amp * (1 - v) * (1 - v);          // chute franche, puis longue traîne
+}
+
+// Force de la bourrasque en cours ∈ [0,1]. Le max (et non la somme) : deux
+// rafales qui se chevauchent ne s'additionnent pas en un mur de pluie.
+export function gustAt(t) {
+  const k = Math.floor(t / GUST_SLOT_MS);
+  return Math.max(gustPulse(k, t), gustPulse(k - 1, t));
+}
+
 // État météo courant. `nowMs` injectable pour les tests (défaut : horloge murale,
 // donc la position dans le cycle survit aux rechargements, comme le jour/nuit).
 export function weatherState(nowMs) {
   const t = nowMs === undefined ? Date.now() : nowMs;
   const cycle = Math.floor(t / WEATHER_CYCLE_MS);
-  if (weatherMode === "clear") return { rainF: 0, windX: 0 };
-  if (weatherMode === "rain") return { rainF: 1, windX: windAt(cycle) };
-  return { rainF: rainAt((t / WEATHER_CYCLE_MS) % 1), windX: windAt(cycle) };
+  if (weatherMode === "clear") return { rainF: 0, windX: 0, gustF: 0 };
+  const rainF = weatherMode === "rain" ? 1 : rainAt((t / WEATHER_CYCLE_MS) % 1);
+  // La rafale est une MODULATION de l'averse : pas d'averse, pas de bourrasque,
+  // et les premières gouttes ne claquent pas (elle monte avec l'intensité).
+  return { rainF, windX: windAt(cycle), gustF: rainF > 0 ? gustAt(t) * rainF : 0 };
 }

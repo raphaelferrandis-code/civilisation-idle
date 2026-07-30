@@ -39,14 +39,14 @@ const PERSONALITIES = {
     buildingBias: { public: 1.3, house: 1.05, farm: 0.9, library: 0.9 },
     variantBias: "trade",
     densityMul: 1.12, orderDelta: -0.05, plazaBias: 1.5,
-    vehicleBias: { caravan: 1.8, cart: 1.4, wagon: 1.3 }, treeMul: 0.9
+    vehicleBias: { caravan: 1.8, wagon: 1.3 }, treeMul: 0.9
   },
   agricole: {
     id: "agricole", label: { fr: "cité agricole", en: "agricultural city" },
     buildingBias: { farm: 1.7, house: 1, public: 0.85, library: 0.85 },
     variantBias: "rural",
     densityMul: 0.82, orderDelta: -0.12, plazaBias: 0.9,
-    vehicleBias: { barrow: 1.5, cart: 1.3 }, treeMul: 1.25
+    vehicleBias: { basket: 1.5, wagon: 1.2 }, treeMul: 1.25   // brouette et charrette à bras retirées : le rural porte et attelle
   },
   imperiale: {
     id: "imperiale", label: { fr: "cité impériale", en: "imperial city" },
@@ -60,7 +60,7 @@ const PERSONALITIES = {
     buildingBias: { house: 1.2, farm: 1.1, public: 0.75, library: 0.7 },
     variantBias: "poor",
     densityMul: 1.05, orderDelta: -0.15, plazaBias: 0.6,
-    vehicleBias: { basket: 1.4, barrow: 1.4 }, treeMul: 1.05
+    vehicleBias: { basket: 1.6 }, treeMul: 1.05   // brouette et charrette à bras retirées : la cité modeste porte à dos d'homme
   },
   luxueuse: {
     id: "luxueuse", label: { fr: "cité fastueuse", en: "lavish city" },

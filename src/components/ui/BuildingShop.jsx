@@ -53,6 +53,7 @@ import { tr } from '../../game/core/i18n.js';
 import { D, Decimal } from '../../game/core/num.js';
 import BuyToolbar from './BuyToolbar.jsx';
 import PurchaseRow from './PurchaseRow.jsx';
+import RoadworksPanel from './RoadworksPanel.jsx';
 import { tipProps } from './HelpBubble.jsx';
 
 /* Segments de production [[ressource, valeur/s], …] — mêmes formules que
@@ -330,6 +331,10 @@ function BuildingShop() {
 
       <div className="shop-list shop-cat active">
         {visibleBuildings.map((b) => {
+          // Voirie : encart tableau de bord dédié (jauges + bouton-verbe), une
+          // architecture À PART des rangées — il lit l'état des chantiers
+          // lui-même, aucun des props calculés ici ne le concerne.
+          if (b.id === "roads") return <RoadworksPanel key={b.id} building={b} />;
           const prices = costById[b.id];
           const count = stateBuildings[b.id] || 0;
           // Facteur unitaire = le MÊME que getBuildingSums (jalons × Rives

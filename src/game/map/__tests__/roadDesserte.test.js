@@ -378,29 +378,192 @@ describe("chantiers de voirie — replay carte", () => {
     expect(res.nextEngine.tiles).toBeGreaterThanOrEqual(res.nextEngine.count);
   });
 
-  it("élargissements : les plus empruntés d'abord, borné, zéro chantier = zéro effet", () => {
-    const a = runPipeline("scattered", 1, 1, { withRiver: true });
-    const usageA = computeRoadUsage({ roadKey: a.out.roadKey, tiles: a.tiles, coreX: 32, coreY: 26 });
-    const r1 = applyRoadWidenings({ roadKey: a.out.roadKey, roadMeta: a.out.roadMeta, usage: usageA, riverSet: a.inp.riverSet, count: 2 });
-    expect(r1.applied).toBeGreaterThan(0);
-    expect(r1.applied).toBeLessThanOrEqual(2);
-    const ranksA = new Set([...a.out.roadMeta.values()].map((m) => m.rank));
-    expect(ranksA.has("avenue") || ranksA.has("main"), "un tronçon promu").toBe(true);
+  // Harnais synthétique des élargissements : une ligne droite de rang donné,
+  // usage décroissant depuis l'ouest — le contrôle total sur la géométrie que
+  // le pipeline organique ne garantit pas (jambes d'escalier 4-7 < MIN_RUN).
+  function makeLine({ y = 10, x0 = 4, x1 = 15, rank = "secondary" } = {}) {
+    const roads = [], roadKey = new Set(), roadMeta = new Map();
+    const use = new Map();
+    for (let x = x0; x <= x1; x += 1) {
+      const k = x + "," + y;
+      roads.push({ gx: x, gy: y });
+      roadKey.add(k);
+      roadMeta.set(k, { h: true, v: false, rank });
+      use.set(k, 100 - x);
+    }
+    return { roads, roadKey, roadMeta, usage: { use, served: 20 }, y, x0, x1, len: x1 - x0 + 1 };
+  }
 
+  it("élargissements : l'échelle monte rue → avenue → boulevard → AUTOROUTE (voie jumelle creusée)", () => {
+    const L = makeLine();
+    const free = () => true;
+    const r = applyRoadWidenings({
+      roads: L.roads, roadKey: L.roadKey, roadMeta: L.roadMeta, usage: L.usage,
+      riverSet: new Set(), count: 3, cellFree: free
+    });
+    expect(r.applied).toBe(3);
+    // Les cellules d'origine ont fini boulevard…
+    for (let x = L.x0; x <= L.x1; x += 1) expect(L.roadMeta.get(x + "," + L.y).rank).toBe("main");
+    // …et la voie JUMELLE a été creusée (autoroute 2 tuiles) : mêmes x, rangée
+    // adjacente, rang main, axe h, présente dans roads/roadKey.
+    let twinRow = null;
+    for (const s of [1, -1]) if (L.roadKey.has(L.x0 + "," + (L.y + s))) twinRow = L.y + s;
+    expect(twinRow, "voie jumelle creusée").not.toBeNull();
+    for (let x = L.x0; x <= L.x1; x += 1) {
+      const m = L.roadMeta.get(x + "," + twinRow);
+      expect(m && m.rank).toBe("main");
+      expect(m.h).toBe(true);
+      expect(L.roads.some((c) => c.gx === x && c.gy === twinRow)).toBe(true);
+    }
+    // L'échelle se clôt : les deux voies se disqualifient mutuellement.
+    expect(r.next).toBeNull();
+  });
+
+  it("anti-pâté : un tronçon collé à un axe déjà large n'est JAMAIS promu ; un bout court non plus", () => {
+    // Deux lignes parallèles collées : la plus empruntée monte, l'autre reste
+    // secondary pour toujours (au lieu de fusionner en pâté).
+    const L = makeLine({ y: 10 });
+    const other = makeLine({ y: 11 });
+    for (const c of other.roads) L.roads.push(c);
+    for (const k of other.roadKey) L.roadKey.add(k);
+    for (const [k, m] of other.roadMeta) L.roadMeta.set(k, m);
+    for (const [k, u] of other.usage.use) L.usage.use.set(k, u - 50);   // moins empruntée
+    const r = applyRoadWidenings({
+      roads: L.roads, roadKey: L.roadKey, roadMeta: L.roadMeta, usage: L.usage,
+      riverSet: new Set(), count: 10, cellFree: () => true
+    });
+    // La ligne 10 monte avenue puis main ; dès « avenue », la ligne 11 est
+    // disqualifiée (parallèle large) ET la jumelle de la 10 ne peut se creuser
+    // que côté nord (le sud est occupé par la 11).
+    expect(r.applied).toBeGreaterThanOrEqual(2);
+    for (let x = 4; x <= 15; x += 1) expect(L.roadMeta.get(x + ",11").rank).toBe("secondary");
+    // Bout court : une ligne de 4 (< MIN_RUN 6) n'est jamais éligible.
+    const S = makeLine({ y: 30, x0: 4, x1: 7 });
+    const rs = applyRoadWidenings({
+      roads: S.roads, roadKey: S.roadKey, roadMeta: S.roadMeta, usage: S.usage,
+      riverSet: new Set(), count: 5, cellFree: () => true
+    });
+    expect(rs.applied).toBe(0);
+    expect(rs.next).toBeNull();
+  });
+
+  it("contrat : AUCUN bâtiment servable ne reste sans rue (ville en grille réelle)", async () => {
+    // Raph 2026-07-29 : « les routes reliées à TOUS les bâtiments ». L'invariant
+    // qui MORD n'est pas un pourcentage global (une jauge par blocs affichait
+    // 100 % avec 163 bâtiments sans rue) mais : tout bâtiment qui a une case
+    // LIBRE à sa porte finit sur une venelle. Seuls les murés par construction
+    // (tous voisins bâtis) sont tolérés. Ville RÉELLE via computeCityLayout —
+    // l'ère vient de l'état GLOBAL (currentEraIndex lit state, pas l'argument).
+    const { computeCityLayout } = await import("../layout.js");
+    const { state, setState, defaultState } = await import("../../core/state.js");
+    const { D } = await import("../../core/num.js");
+    const s = defaultState();
+    s.cycles = 3;
+    s.mapSeed = 0x51a7c0de;
+    s.population = D("1e25");
+    s.infrastructure = D("1e23");
+    s.knowledge = D("1e22");
+    for (const k of Object.keys(s.buildings)) s.buildings[k] = 40;
+    // Budget de chantiers LARGE : on teste la desserte, pas le rationnement (à
+    // 15 chantiers il reste normalement une poignée de bâtiments en attente de
+    // leur vague — c'est le jeu, pas un défaut).
+    s.buildings.roads = 60;
+    s.cityArchetype = "capital";
+    setState(s);
+    const L = computeCityLayout(state);
+    expect(L.plan.archetype).toBe("capital");
+    const rs = L.roadSet;
+    const O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const touches = (t) => {
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1)
+        for (const [dx, dy] of O4) if (rs.has((t.gx + ax + dx) + "," + (t.gy + ay + dy))) return true;
+      return false;
+    };
+    // Occupation réelle : une case est LIBRE si aucun bâtiment, ni eau, ni route.
+    const occ = new Set();
+    for (const t of L.tiles) {
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) occ.add((t.gx + ax) + "," + (t.gy + ay));
+    }
+    const water = (L.river && L.river.cells) ? L.river.cells : new Set();
+    const N = L.gridN;
+    const freeCell = (x, y) => x >= 0 && y >= 0 && x < N && y < N
+      && !occ.has(x + "," + y) && !water.has(x + "," + y) && !rs.has(x + "," + y);
+    // ATTEIGNABILITÉ calculée ICI, indépendamment du moteur (une garde qui
+    // redemande son verdict à l'algorithme testé ne mord pas) : BFS sur les
+    // cases LIBRES depuis le réseau. Une case libre au fond d'une cour fermée
+    // n'est PAS atteignable — le bâtiment qu'elle dessert est hors-jeu.
+    const reach = new Set();
+    {
+      const q = [];
+      for (const k of rs) {
+        const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+        for (const [dx, dy] of O4) {
+          const nk = (x + dx) + "," + (y + dy);
+          if (freeCell(x + dx, y + dy) && !reach.has(nk)) { reach.add(nk); q.push([x + dx, y + dy]); }
+        }
+      }
+      for (let h = 0; h < q.length; h += 1) {
+        const [x, y] = q[h];
+        for (const [dx, dy] of O4) {
+          const nk = (x + dx) + "," + (y + dy);
+          if (freeCell(x + dx, y + dy) && !reach.has(nk)) { reach.add(nk); q.push([x + dx, y + dy]); }
+        }
+      }
+    }
+    const audit = (types) => {
+      let total = 0, onRoad = 0, servableOrphan = 0, walled = 0;
+      for (const t of L.tiles) {
+        if (!types.includes(t.type)) continue;
+        total += 1;
+        const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+        let openable = false;
+        for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1)
+          for (const [dx, dy] of O4) if (reach.has((t.gx + ax + dx) + "," + (t.gy + ay + dy))) openable = true;
+        if (touches(t)) onRoad += 1;
+        else if (openable) servableOrphan += 1;
+        else walled += 1;
+      }
+      return { total, onRoad, servableOrphan, walled };
+    };
+    const eng = audit(["engine"]);
+    const hou = audit(["house", "enginehome"]);
+    expect(eng.total).toBeGreaterThan(300);
+    expect(hou.total).toBeGreaterThan(300);
+    // L'INVARIANT : personne de servable ne reste sans rue. (Avant le passage à
+    // la desserte par bâtiment : 125 moteurs et 31 maisons dans ce cas.)
+    expect(eng.servableOrphan, "moteurs servables sans rue").toBe(0);
+    // Habitations : même invariant, à la marge des RÉSERVATIONS près (parvis de
+    // merveille, emprises claimées) — libres à l'œil du test, interdites à la
+    // pioche. Mesuré 8/888 ; le seuil mord bien avant le régime d'avant (31).
+    expect(hou.servableOrphan / hou.total, "maisons servables sans rue").toBeLessThan(0.02);
+    // Les MURÉS (aucune rue, aucune porte atteignable : entourés de bâtis) sont
+    // le cœur des pâtés denses — ils se lisent comme un intérieur d'îlot, pas
+    // comme un bâtiment perdu dans un champ. Ils restent minoritaires.
+    expect(eng.walled / eng.total).toBeLessThan(0.15);
+    expect(hou.walled / hou.total).toBeLessThan(0.15);
+    // La couverture PUBLIÉE ne ment plus : elle colle à l'adjacence réelle.
+    const cov = L.roadCover;
+    expect(cov.engineConnected).toBe(eng.onRoad);
+    setState(defaultState());
+  }, 60000);
+
+  it("élargissements : zéro chantier = zéro effet, et déterminisme sur le pipeline réel", () => {
     const b = runPipeline("scattered", 1, 1, { withRiver: true });
     const usageB = computeRoadUsage({ roadKey: b.out.roadKey, tiles: b.tiles, coreX: 32, coreY: 26 });
-    const r0 = applyRoadWidenings({ roadKey: b.out.roadKey, roadMeta: b.out.roadMeta, usage: usageB, riverSet: b.inp.riverSet, count: 0 });
+    const r0 = applyRoadWidenings({ roadKey: b.out.roadKey, roadMeta: b.out.roadMeta, usage: usageB, riverSet: b.inp.riverSet, count: 0, cellFree: () => true });
     expect(r0.applied).toBe(0);
     const ranksB = new Set([...b.out.roadMeta.values()].map((m) => m.rank));
     expect(ranksB.has("avenue") || ranksB.has("main")).toBe(false);
-    // Le prochain élargissement proposé est un vrai tronçon (≥ 3 tuiles).
-    expect(r0.next).toBeTruthy();
-    expect(r0.next.tiles).toBeGreaterThanOrEqual(3);
 
-    // Déterminisme : mêmes entrées, mêmes promotions.
+    // Déterminisme : mêmes entrées, mêmes promotions (même si rien n'est éligible).
+    const a = runPipeline("scattered", 1, 1, { withRiver: true });
+    const usageA = computeRoadUsage({ roadKey: a.out.roadKey, tiles: a.tiles, coreX: 32, coreY: 26 });
+    applyRoadWidenings({ roadKey: a.out.roadKey, roadMeta: a.out.roadMeta, usage: usageA, riverSet: a.inp.riverSet, count: 2, cellFree: () => true });
     const c1 = runPipeline("scattered", 1, 1, { withRiver: true });
     const uC = computeRoadUsage({ roadKey: c1.out.roadKey, tiles: c1.tiles, coreX: 32, coreY: 26 });
-    applyRoadWidenings({ roadKey: c1.out.roadKey, roadMeta: c1.out.roadMeta, usage: uC, riverSet: c1.inp.riverSet, count: 2 });
+    applyRoadWidenings({ roadKey: c1.out.roadKey, roadMeta: c1.out.roadMeta, usage: uC, riverSet: c1.inp.riverSet, count: 2, cellFree: () => true });
     const dump = (meta) => [...meta.entries()].map(([k, m]) => k + ":" + m.rank).sort().join("|");
     expect(dump(c1.out.roadMeta)).toBe(dump(a.out.roadMeta));
   });

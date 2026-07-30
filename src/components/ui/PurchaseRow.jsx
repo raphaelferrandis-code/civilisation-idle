@@ -1,12 +1,9 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
-import { state, setBuyAmount, invalidateRenderCache, buildingById } from '../../game/core/state.js';
+import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
-import { D } from '../../game/core/num.js';
-import { roadWorkCost, roadNextInfo, roadWorksCount, roadWorksState } from '../../game/core/actions/roadWorks.js';
-import { ROAD_WORK_QUEUE_MAX } from '../../game/core/balance.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { tipProps } from './HelpBubble.jsx';
 import { splashSrcFor } from '../../game/data/pixelSplash.js';
@@ -27,22 +24,6 @@ function exactLabel(value) {
   }
   if (Math.abs(n) >= 1e15) return n.toExponential(3);
   return Math.round(n).toLocaleString("fr-FR");
-}
-
-/* État du réseau routier pour la rangée `roads` : les routes RELIENT les bâtiments
-   (couverture = bâtiments-moteur reliés / total, écrite par la carte dans
-   state.roadCoverage) et donnent jusqu'à +10 % de production (roadNetworkMultiplier).
-   Le rang suit l'ère, mêmes seuils que le rang des connecteurs (layout.js). */
-function roadNetworkInfo() {
-  const cov = state.roadCoverage;
-  const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
-  const ei = currentEraIndex();
-  const rank = ei >= 30
-    ? { fr: "Boulevards", en: "Boulevards" }
-    : ei >= 20 ? { fr: "Avenues", en: "Avenues" }
-    : ei >= 10 ? { fr: "Routes", en: "Roads" }
-    : { fr: "Sentiers", en: "Paths" };
-  return { pct: Math.round(c * 100), bonus: Math.round(c * 100) / 10, rank: tr(rank) };
 }
 
 /**
@@ -118,14 +99,6 @@ function PurchaseRow({
   };
 
   const handleBuy = (event) => {
-    // Voirie : un clic = UN chantier mis en file (pas d'achat de masse) ; le
-    // compteur ne monte qu'à la COMPLÉTION, le retour visuel vient du retour
-    // de l'action, pas du delta de compteur.
-    if (b.id === "roads") {
-      if (buyBuilding(b.id)) spawnFloat(tr({ fr: "+1 chantier", en: "+1 work site" }));
-      else doShake();
-      return;
-    }
     const before = state.buildings[b.id] || 0;
     if (event.shiftKey || event.ctrlKey) {
       const previous = state.buyAmount;
@@ -143,43 +116,12 @@ function PurchaseRow({
 
   /* Clic sur une rangée impayable (le bouton disabled n'émet pas de click) */
   const handleRowPointerDown = () => {
-    if (!rowAffordable) doShake();
+    if (!affordable) doShake();
   };
-
-  // Voirie : l'état de la rangée vient du CHANTIER (prix ∝ tuiles, file, réseau
-  // achevé), pas du coût géométrique base×scale^n que le parent calcule pour
-  // toutes les autres rangées.
-  const isRoads = b.id === "roads";
-  const roadInfo = isRoads ? (() => {
-    const next = roadNextInfo();
-    const cost = roadWorkCost();
-    const queued = roadWorksCount();
-    const active = roadWorksState().active;
-    const targetMeta = next.kind === "link" && next.targetId ? buildingById[next.targetId] : null;
-    const tilesFr = `${next.tiles} tuile${next.tiles > 1 ? "s" : ""}`;
-    const tilesEn = `${next.tiles} tile${next.tiles > 1 ? "s" : ""}`;
-    const label = next.kind === "done"
-      ? tr({ fr: "Réseau achevé, tout est relié", en: "Network complete, everything is linked" })
-      : next.kind === "widen"
-        ? tr({
-          fr: `Élargir le grand axe en ${next.toRank === "main" ? "boulevard" : "avenue"} · ${tilesFr}`,
-          en: `Widen the main street into ${next.toRank === "main" ? "a boulevard" : "an avenue"} · ${tilesEn}`
-        })
-        : (next.count || 1) > 1
-          // Vague de raccord (late game) : un chantier sert plusieurs bâtiments.
-          ? tr({ fr: `Raccorder ${next.count} bâtiments · ${tilesFr}`, en: `Link ${next.count} buildings · ${tilesEn}` })
-          : targetMeta
-            ? tr({ fr: `Raccorder : ${tr(targetMeta.name)} · ${tilesFr}`, en: `Link: ${tr(targetMeta.name)} · ${tilesEn}` })
-            : tr({ fr: `Raccorder le prochain bâtiment · ${tilesFr}`, en: `Link the next building · ${tilesEn}` });
-    const full = queued >= ROAD_WORK_QUEUE_MAX;
-    const buyable = next.kind !== "done" && !full && !!cost && D(state.knowledge).gte(cost);
-    return { next, cost, queued, active, label, full, buyable };
-  })() : null;
-  const rowAffordable = isRoads ? roadInfo.buyable : affordable;
 
   const rowClass = [
     "purchase-row",
-    rowAffordable ? "is-affordable" : "is-locked-cost",
+    affordable ? "is-affordable" : "is-locked-cost",
     babelBlocked ? "babel-blocked" : "",
     pulse ? "pr-pulse" : "",
     shaking ? "pr-shake" : "",
@@ -243,60 +185,7 @@ function PurchaseRow({
               );
             })
           )}
-          {isRoads && (() => {
-            const net = roadNetworkInfo();
-            return (
-              <span
-                className="pr-prod-item res-infra"
-                {...tipProps(null, () => {
-                  // VALEUR VIVANTE : la couverture est écrite par la carte dans
-                  // state.roadCoverage, hors des props comparées par
-                  // arePropsEqual — une chaîne figerait le pourcentage à
-                  // l'ouverture de la bulle. On relit donc à chaque passe.
-                  const live = roadNetworkInfo();
-                  return tr({
-                    fr: `${live.rank} : ${live.pct} % des bâtiments-moteur sont reliés au réseau. Bonus de production global : +${live.bonus} % (maximum +10 % quand tout est relié), plus un léger bonus par grand axe élargi. Chaque chantier raccorde un bâtiment entier, puis élargit les axes les plus empruntés.`,
-                    en: `${live.rank}: ${live.pct}% of engine buildings are linked to the network. Global production bonus: +${live.bonus}% (up to +10% when everything is linked), plus a small bonus per widened street. Each work site links a whole building, then widens the busiest streets.`
-                  });
-                })}
-              >
-                {net.rank} · {net.pct}% {tr({ fr: "relié", en: "linked" })} (+{net.bonus}%)
-              </span>
-            );
-          })()}
         </div>
-
-        {/* CHANTIERS DE VOIRIE : prochain chantier + file + avancement du chantier
-            actif. De VRAIS éléments DOM (⚠ les deux pseudo-éléments de
-            .purchase-row appartiennent au splash-art, cf. lot « rangée d'achat »). */}
-        {isRoads && (
-          <div className="pr-roadworks" style={{ marginTop: 4 }}>
-            <div style={{ fontSize: "0.78em", opacity: 0.85 }}>
-              {roadInfo.label}
-              {roadInfo.queued > 0 && (
-                <span style={{ marginLeft: 8, opacity: 0.8 }}>
-                  {tr({ fr: `file : ${roadInfo.queued}/${ROAD_WORK_QUEUE_MAX}`, en: `queue: ${roadInfo.queued}/${ROAD_WORK_QUEUE_MAX}` })}
-                </span>
-              )}
-            </div>
-            {roadInfo.active && (
-              <div
-                style={{ marginTop: 3, height: 4, background: "rgba(255,255,255,0.14)", borderRadius: 2, overflow: "hidden" }}
-                {...tipProps(null, tr({
-                  fr: roadInfo.active.kind === "widen" ? "Élargissement en cours" : "Raccord en cours",
-                  en: roadInfo.active.kind === "widen" ? "Widening in progress" : "Link in progress"
-                }))}
-              >
-                <div style={{
-                  height: "100%",
-                  width: `${Math.round(100 * Math.max(0, Math.min(1, 1 - roadInfo.active.left / roadInfo.active.total)))}%`,
-                  background: "#c9a84c",
-                  transition: "width 0.3s linear"
-                }} />
-              </div>
-            )}
-          </div>
-        )}
 
         <div
           className="pr-step-track"
@@ -332,44 +221,25 @@ function PurchaseRow({
               laissait une infobulle système sur chaque rangée abordable. */}
           <button
             className={`btn-purchase${floats.length ? " bp-flash" : ""}`}
-            disabled={!rowAffordable}
+            disabled={!affordable}
             onClick={handleBuy}
-            title={isRoads || rowAffordable ? undefined : tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" })}
-            {...tipProps(null, !isRoads && rowAffordable ? tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" }) : null)}
+            title={affordable ? undefined : tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" })}
+            {...tipProps(null, affordable ? tr({ fr: "Shift-clic : ×10 · Ctrl-clic : ×100", en: "Shift-click: ×10 · Ctrl-click: ×100" }) : null)}
           >
             {floats.map((f) => (
               <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
             ))}
             <span className="bp-action">
-              {isRoads
-                ? (roadInfo.next.kind === "done"
-                  ? tr({ fr: "Réseau achevé", en: "Network complete" })
-                  : roadInfo.full
-                    ? tr({ fr: "File pleine", en: "Queue full" })
-                    // Un chantier tourne déjà : les suivants se FINANCENT (ils
-                    // attendent leur tour), seul le premier se LANCE.
-                    : roadInfo.queued > 0
-                      ? tr({ fr: "Financer le chantier", en: "Fund the work site" })
-                      : tr({ fr: "Lancer le chantier", en: "Start the work site" }))
-                : buyAmount === "max"
-                  ? tr({ fr: "Acheter Max", en: "Buy Max" })
-                  : buyAmount === "step"
-                    // La quantité est propre à cette rangée : on l'affiche, sinon
-                    // « Acheter Palier » ne dit pas ce qu'on s'apprête à payer.
-                    ? tr({ fr: `Acheter ×${nextIn}`, en: `Buy ×${nextIn}` })
-                    : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
+              {buyAmount === "max"
+                ? tr({ fr: "Acheter Max", en: "Buy Max" })
+                : buyAmount === "step"
+                  // La quantité est propre à cette rangée : on l'affiche, sinon
+                  // « Acheter Palier » ne dit pas ce qu'on s'apprête à payer.
+                  ? tr({ fr: `Acheter ×${nextIn}`, en: `Buy ×${nextIn}` })
+                  : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
             </span>
             <span className="bp-cost">
-              {isRoads ? (roadInfo.cost && roadInfo.next.kind !== "done" && (
-                <span
-                  className={`bp-cost-item${roadInfo.buyable ? "" : " is-lacking"}`}
-                  title={rowAffordable ? undefined : `${exactLabel(roadInfo.cost)} ${labelFor("knowledge")}`}
-                  {...tipProps(null, rowAffordable ? `${exactLabel(roadInfo.cost)} ${labelFor("knowledge")}` : null)}
-                >
-                  <i className={`fa-solid ${RES_ICONS.knowledge || "fa-circle"}`} aria-hidden="true"></i>
-                  {fmtShort(roadInfo.cost)}
-                </span>
-              )) : Object.entries(prices).map(([currency, amount]) => (
+              {Object.entries(prices).map(([currency, amount]) => (
                 <span
                   key={currency}
                   className={`bp-cost-item${lackingSet?.has(currency) ? " is-lacking" : ""}`}

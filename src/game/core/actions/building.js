@@ -47,7 +47,7 @@ import { clamp, clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
-import { MILESTONE_BOON_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from '../balance.js';
+import { MILESTONE_BOON_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult, ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from '../balance.js';
 import { PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
 import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP } from '../../data/activeRuins.js';
 import { chronicleBuilding, chronicle, log } from './utils.js';
@@ -179,8 +179,9 @@ const BUY_ALL_MAX_ITERS = 10000;
 // Exportée pour BuildingShop.jsx (délai avant achat, B5), qui a besoin EXACTEMENT
 // de la même garde : ce qui ne s'achète pas en masse n'entre pas dans le délai.
 export function buyableInMass(building) {
-  // Voirie : l'achat de masse ne doit ni vider la file de chantiers ni payer
-  // N fois le même « prochain chantier » — la rangée s'achète à la main.
+  // Voirie : hors du GLOUTON (son prix ne rentre pas dans l'ordre « plus cher
+  // d'abord ») et du délai B5 — mais « Tout acheter » la sert quand même par
+  // son propre guichet (file + réserve), cf. buyAllAffordable.
   if (building.id === "roads") return false;
   if (!BUY_ALL_CATEGORIES.has(building.category)) return false;
   if (!isUnlocked(building)) return false;
@@ -233,15 +234,29 @@ export function buyAllAffordable(category = null) {
     bought += 1;
   }
 
-  if (bought > 0) {
+  // VOIRIE (Raph 2026-07-29 : « branche le raccourci Tout acheter ») : les
+  // chantiers passent par leur propre guichet, hors du glouton — buyRoadWorkCore
+  // borne tout (file de ROAD_WORK_QUEUE_MAX, réserve plafonnée), la boucle
+  // s'arrête donc d'elle-même. La rangée vit dans l'onglet Infrastructure et
+  // respecte le verrou de Babel comme les autres.
+  let works = 0;
+  if ((!category || category === "infra") && (!babelLock || babelLock === "infra")) {
+    while (works < ROAD_WORK_QUEUE_MAX + ROAD_WORKS_BANK_MAX && buyRoadWorkCore()) works += 1;
+  }
+
+  if (bought > 0 || works > 0) {
     const catLabel = category ? BUY_ALL_CATEGORY_LABELS[category] : null;
+    const worksFr = works > 0 ? ` · +${fmt(works)} chantier${works > 1 ? "s" : ""}` : "";
+    const worksEn = works > 0 ? ` · +${fmt(works)} work site${works > 1 ? "s" : ""}` : "";
     pushOutcomeFloat({
-      label: catLabel
-        ? `🏗️ +${fmt(bought)} ${tr(catLabel)}`
-        : tr({ fr: `🏗️ +${fmt(bought)} bâtiments`, en: `🏗️ +${fmt(bought)} buildings` }),
+      label: bought > 0
+        ? (catLabel
+          ? `🏗️ +${fmt(bought)} ${tr(catLabel)}${tr({ fr: worksFr, en: worksEn })}`
+          : tr({ fr: `🏗️ +${fmt(bought)} bâtiments${worksFr}`, en: `🏗️ +${fmt(bought)} buildings${worksEn}` }))
+        : tr({ fr: `🏗️ +${fmt(works)} chantiers de voirie`, en: `🏗️ +${fmt(works)} road work sites` }),
       kind: "gain"
     });
-    chronicle(catLabel
+    if (bought > 0) chronicle(catLabel
       ? tr({
           fr: `Un programme de construction érige ${fmt(bought)} bâtiments (${tr(catLabel)}) d'un seul élan.`,
           en: `A building program raises ${fmt(bought)} ${tr(catLabel)} buildings in a single sweep.`
@@ -254,7 +269,7 @@ export function buyAllAffordable(category = null) {
     invalidateRenderCache("buildings");
     render();
   }
-  return bought;
+  return bought + works;
 }
 
 export async function exhumeVestige() {

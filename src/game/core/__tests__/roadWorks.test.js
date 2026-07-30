@@ -5,10 +5,11 @@ import { D } from "../num.js";
 import {
   buyRoadWorkCore, tickRoadWorks, roadWorkCost, roadWorksCount, roadNextInfo, roadWorkDuration
 } from "../actions/roadWorks.js";
-import { buyBuildingCore, buyableInMass } from "../actions/building.js";
+import { buyBuildingCore, buyableInMass, buyAllAffordable } from "../actions/building.js";
 import {
   ROAD_WORK_QUEUE_MAX, ROAD_TILE_COST_BASE,
-  ROAD_WIDEN_COST_MULT, ROAD_NEXT_FALLBACK_TILES, ROAD_WORK_TIME_MAX
+  ROAD_WIDEN_COST_MULT, ROAD_NEXT_FALLBACK_TILES, ROAD_WORK_TIME_MAX,
+  ROAD_WORKS_BANK_MAX
 } from "../balance.js";
 
 // Chantiers de voirie (design validé 2026-07-28) : 1 achat = 1 chantier
@@ -38,11 +39,10 @@ describe("chantiers de voirie — coût", () => {
     expect(roadWorkCost().gt(0)).toBe(true);
   });
 
-  it("réseau achevé : rien à vendre", () => {
+  it("réseau achevé : l'achat reste possible au prix plat de la réserve", () => {
     state.roadNext = { kind: "done", tiles: 0, targetId: null, toRank: null };
-    expect(roadWorkCost()).toBe(null);
-    giveKnowledge("1e9");
-    expect(buyRoadWorkCore()).toBe(false);
+    // Prix plat d'un chantier moyen (l'achat partira en réserve).
+    expect(roadWorkCost().toNumber()).toBe(ROAD_TILE_COST_BASE * ROAD_NEXT_FALLBACK_TILES);
   });
 });
 
@@ -80,6 +80,36 @@ describe("chantiers de voirie — file et tick", () => {
     expect(roadWorkDuration(400, 0, 20)).toBeLessThan(roadWorkDuration(400, 0, 0) / 2);
     // …et une grande vague de late game reste sous le plafond en pratique.
     expect(roadWorkDuration(400, 4, 30)).toBeLessThan(600);
+  });
+
+  it("réserve : à réseau achevé l'achat se STOCKE, puis le tick le lance tout seul", () => {
+    state.roadNext = { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null };
+    giveKnowledge("1e9");
+    // L'achat ne va pas en file : il part en réserve (prépayé).
+    expect(buyRoadWorkCore()).toBe(true);
+    expect(state.roadWorksBank).toBe(1);
+    expect(state.roadWorks.active).toBeNull();
+    // La ville grandit : la carte repropose un raccord → le tick lance le
+    // chantier prépayé de lui-même, sans re-clic ni nouveau paiement.
+    const before = D(state.knowledge).toString();
+    state.roadNext = { kind: "link", tiles: 4, count: 1, targetId: null, toRank: null };
+    tickRoadWorks(0.001);
+    expect(state.roadWorksBank).toBe(0);
+    expect(state.roadWorks.active).toBeTruthy();
+    expect(state.roadWorks.active.tiles).toBe(4);
+    expect(D(state.knowledge).toString()).toBe(before);
+    // Et il se termine comme un chantier normal.
+    tickRoadWorks(state.roadWorks.active.total + 1);
+    expect(Math.floor(state.buildings.roads)).toBe(1);
+  });
+
+  it("réserve : plafonnée — au cap, plus rien à vendre", () => {
+    state.roadNext = { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null };
+    giveKnowledge("1e18");
+    state.roadWorksBank = ROAD_WORKS_BANK_MAX;
+    expect(roadWorkCost()).toBeNull();
+    expect(buyRoadWorkCore()).toBe(false);
+    expect(state.roadWorksBank).toBe(ROAD_WORKS_BANK_MAX);
   });
 
   it("la rampe se remet à zéro quand l'ère change (remontée post-Effondrement)", () => {
@@ -153,8 +183,23 @@ describe("chantiers de voirie — intégration achat", () => {
     expect(roadWorksCount()).toBe(1);
   });
 
-  it("la voirie est exclue de l'achat de masse", () => {
+  it("« Tout acheter » sert la voirie par son guichet : file remplie, hors du glouton", () => {
+    // Hors du GLOUTON (pas d'ordre de prix) et du délai B5…
     expect(buyableInMass(buildingById.roads)).toBe(false);
+    // …mais la touche E remplit la file de chantiers.
+    state.roadNext = { kind: "link", tiles: 5, count: 1, targetId: null, toRank: null };
+    giveKnowledge("1e9");
+    const n = buyAllAffordable("infra");
+    expect(roadWorksCount()).toBe(ROAD_WORK_QUEUE_MAX);
+    expect(n).toBeGreaterThanOrEqual(ROAD_WORK_QUEUE_MAX);
+  });
+
+  it("« Tout acheter » à réseau achevé : la réserve se remplit jusqu'au cap", () => {
+    state.roadNext = { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null };
+    giveKnowledge("1e12");
+    buyAllAffordable("infra");
+    expect(state.roadWorksBank).toBe(ROAD_WORKS_BANK_MAX);
+    expect(roadWorksCount()).toBe(0);
   });
 
   it("hydratation : une file sauvegardée revient saine, une corrompue est purgée", () => {

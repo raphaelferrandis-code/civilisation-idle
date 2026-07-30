@@ -427,6 +427,12 @@ export const defaultState = () => ({
   // Compteur de chantiers de l'ÈRE courante (rampe de durée) : remis à zéro au
   // changement d'ère par roadWorksEraIndex(), et avec le cycle à l'Effondrement.
   roadWorksEra: { era: 0, count: 0 },
+  // Chantiers PRÉPAYÉS en réserve (réseau achevé) : lancés tout seuls par le
+  // tick dès que la carte repropose du travail.
+  roadWorksBank: 0,
+  // Portes réelles écrites par la carte (affichage seul) : bâtiments achetables
+  // ayant une rue à leur porte / total brut, cœurs d'îlots murés compris.
+  roadDoors: null,
   // A6 — Temps cumulé (s) passé sous le seuil de Rupture « stagnation » : monte
   // l'Usure d'une cité sur-stabilisée. Monte/descend dans le tick, reset au cycle.
   stagnationSec: 0,
@@ -970,7 +976,8 @@ export function normalizeRoadNext(raw) {
     // Vague de raccord : nombre de bâtiments servis par ce chantier (≥ 1).
     count: finiteInteger(raw.count, 1, 1, 4096),
     targetId: typeof raw.targetId === "string" ? raw.targetId.slice(0, 64) : null,
-    toRank: raw.toRank === "avenue" || raw.toRank === "main" ? raw.toRank : null
+    // "twin" = doubler un boulevard en autoroute (voie jumelle creusée).
+    toRank: raw.toRank === "avenue" || raw.toRank === "main" || raw.toRank === "twin" ? raw.toRank : null
   };
 }
 
@@ -1511,6 +1518,7 @@ export function hydrateState(parsed = {}) {
     roadWorksEra: isPlainObject(source.roadWorksEra)
       ? { era: finiteInteger(source.roadWorksEra.era, 0, 0, 999), count: finiteInteger(source.roadWorksEra.count, 0, 0, 9999) }
       : { era: 0, count: 0 },
+    roadWorksBank: finiteInteger(source.roadWorksBank, 0, 0, 999),
     timeWear: clamp01(finiteNumber(source.timeWear, base.timeWear)),
     stagnationSec: finiteNumber(source.stagnationSec, base.stagnationSec, 0),
     popMilestoneExp: finiteInteger(source.popMilestoneExp, base.popMilestoneExp, 0),

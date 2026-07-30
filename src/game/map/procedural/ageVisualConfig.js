@@ -34,7 +34,7 @@ const AGE_CONFIG = [
     parkChance: 0.24,
     treeDensity: 1.1,
     citizenRoles: ["porte un panier", "revient des champs", "parle au puits", "mène une chèvre", "bat le grain"],
-    vehicles: [{ type: "basket", weight: 2 }, { type: "barrow", weight: 2 }, { type: "cart", weight: 1 }],
+    vehicles: [{ type: "basket", weight: 2 }],   // brouette ET charrette à bras retirées : le hameau ne porte plus qu'à dos d'homme
     decorDensity: 0.35
   },
   { // 2 — bourg : marché, halles, premières rues pavées
@@ -46,7 +46,7 @@ const AGE_CONFIG = [
     parkChance: 0.18,
     treeDensity: 0.95,
     citizenRoles: ["traverse le marché", "livre des sacs", "crie une annonce", "marchande au comptoir", "pousse une brouette"],
-    vehicles: [{ type: "cart", weight: 1 }, { type: "barrow", weight: 2 }, { type: "wagon", weight: 1 }],
+    vehicles: [{ type: "basket", weight: 1 }, { type: "wagon", weight: 2 }],   // brouette ET charrette à bras retirées : panier + attelage à bœuf
     decorDensity: 0.5
   },
   { // 3 — fortifié/royaume : pierre, donjons, voies structurées
@@ -58,7 +58,7 @@ const AGE_CONFIG = [
     parkChance: 0.14,
     treeDensity: 0.85,
     citizenRoles: ["suit les remparts", "rejoint l'atelier", "porte un message", "monte la garde", "prie au sanctuaire"],
-    vehicles: [{ type: "cart", weight: 1 }, { type: "wagon", weight: 2 }, { type: "chariot", weight: 2 }, { type: "caravan", weight: 1 }],
+    vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 2 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.6
   },
   { // 4 — impérial : avenues, forums, quartiers denses
@@ -70,7 +70,7 @@ const AGE_CONFIG = [
     parkChance: 0.12,
     treeDensity: 0.7,
     citizenRoles: ["sort d'une avenue", "compte les chariots", "file vers les quais", "déclame un édit", "escorte un convoi"],
-    vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 3 }, { type: "caravan", weight: 2 }, { type: "cart", weight: 1 }],
+    vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 3 }, { type: "caravan", weight: 2 }],
     decorDensity: 0.75
   },
   { // 5 — capitale monumentale / métropole

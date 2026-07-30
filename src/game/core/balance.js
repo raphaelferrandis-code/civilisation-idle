@@ -876,7 +876,7 @@ export const ROAD_TILE_COST_BASE = 30;           // savoir par tuile à l'ère 0
 // Croissance par ère SOUS celle de la production (~×13/ère) : la voirie devient
 // relativement plus abordable en fin de partie, jamais un mur.
 export const ROAD_TILE_COST_GROWTH = 11;
-export const ROAD_WIDEN_COST_MULT = { avenue: 2, main: 4 };  // rang visé
+export const ROAD_WIDEN_COST_MULT = { avenue: 2, main: 4, twin: 6 };  // rang visé (twin = autoroute)
 export const ROAD_TILE_SECONDS = 1.6;            // secondes de pose par tuile (ère 0)
 // RACCORD PAR VAGUE (échelle late game, mesuré : 200 à 650 moteurs non reliés
 // dans une grande ville — « 1 chantier = 1 moteur » ne passe pas l'échelle) :
@@ -895,6 +895,11 @@ export const ROAD_CREW_SPEED_PER_ERA = 0.12;
 export const ROAD_WORK_BASE_SECONDS = 8;
 export const ROAD_WORK_TIME_RAMP = 0.35;
 export const ROAD_WORK_TIME_MAX = 1800;
+// RÉSERVE de chantiers : quand il n'y a plus rien à raccorder ni à élargir,
+// l'achat se stocke (prix plat d'un chantier moyen) et se LANCE TOUT SEUL dès
+// que de nouveaux bâtiments apparaissent — la rangée ne meurt jamais, la
+// couverture se maintient d'elle-même pendant la croissance.
+export const ROAD_WORKS_BANK_MAX = 25;
 export const ROAD_NEXT_FALLBACK_TILES = 10;      // estimation avant le 1er calcul carte
 export const ROAD_WIDEN_BONUS_EACH = 0.01;       // +1 % par tronçon élargi…
 export const ROAD_WIDEN_BONUS_MAX = 0.08;        // …plafonné (la couverture fait +10 % à côté)

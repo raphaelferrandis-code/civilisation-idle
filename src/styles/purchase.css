@@ -652,3 +652,76 @@
 .purchase-row.pr-shake .bp-cost-item.is-lacking {
   animation: lack-blink 350ms ease 2;
 }
+
+/* ── ENCART VOIRIE : tableau de bord de chantier ────────────────────────────
+   Architecture À PART des .purchase-row (leurs pseudo-éléments appartiennent
+   au splash-art) : trois étages — jauge réseau → bonus, vie du chantier
+   (barre + file en pastilles, pips de réserve à réseau achevé), bouton-verbe.
+   Chrome pixel : coins crantés par clip-path, liseré or quand c'est payable. */
+.roadworks-panel {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.45rem * var(--density-k, 1));
+  padding: calc(0.6rem * var(--density-k, 1)) 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-card);
+  background:
+    linear-gradient(180deg, rgba(201, 168, 76, 0.05), rgba(0, 0, 0, 0.12)),
+    var(--bg-card);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+}
+.roadworks-panel.is-affordable { border-color: var(--state-affordable); }
+.rw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.rw-name { margin: 0; font-size: 0.95em; }
+.rw-net { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.rw-net-track { width: 84px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.rw-net-fill { display: block; height: 100%; background: #8aa65b; transition: width 0.4s ease; }
+.rw-net-fill.is-full { background: #a8c47f; }
+.rw-net-label { font-size: 0.72em; color: #a8c47f; white-space: nowrap; }
+.rw-line { display: flex; align-items: center; gap: 8px; min-height: 14px; }
+.rw-line-icon { font-size: 0.72em; color: var(--gold); opacity: 0.9; }
+.rw-bank-icon { color: #8fa3b8; }
+.rw-work-track { flex: 1; height: 7px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.rw-work-fill { display: block; height: 100%; background: var(--gold); transition: width 0.3s linear; }
+.rw-queue { display: inline-flex; gap: 4px; }
+.rw-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.28); }
+.rw-dot.is-filled { background: var(--gold); border-color: var(--gold); }
+.rw-bank-pips { display: inline-flex; gap: 3px; flex-wrap: wrap; flex: 1; }
+.rw-pip { width: 7px; height: 11px; border-radius: 1px; border: 1px solid rgba(143, 163, 184, 0.45); }
+.rw-pip.is-filled { background: #8fa3b8; border-color: #8fa3b8; }
+.rw-bank-count { font-size: 0.72em; color: #8fa3b8; white-space: nowrap; }
+.rw-buy {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: calc(0.45rem * var(--density-k, 1)) 0.7rem;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: rgba(201, 168, 76, 0.10);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.rw-buy:hover:not(:disabled) { background: rgba(201, 168, 76, 0.18); }
+.rw-buy:disabled { border-color: var(--border-soft); background: rgba(255, 255, 255, 0.04); cursor: default; opacity: 0.75; }
+.rw-buy-icon { color: var(--gold); font-size: 0.85em; }
+.rw-buy:disabled .rw-buy-icon { color: inherit; opacity: 0.6; }
+.rw-buy-verb { flex: 1; text-align: left; font-size: 0.85em; }
+.rw-buy-tiles { font-size: 0.75em; opacity: 0.65; white-space: nowrap; }
+.rw-buy-cost { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8em; color: var(--gold); white-space: nowrap; }
+.rw-buy-cost.is-lacking { color: #e07a5f; }
+.rw-float {
+  position: absolute;
+  right: 8px;
+  top: -0.4em;
+  font-size: 0.75em;
+  color: var(--state-affordable);
+  animation: rwFloat 0.9s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes rwFloat { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-12px); } }
+.rw-shake { animation: rwShake 0.35s; }
+@keyframes rwShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
