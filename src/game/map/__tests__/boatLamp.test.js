@@ -119,28 +119,51 @@ function countGlows(mul) {
   return paintFlameGlows(ctx);
 }
 
+const SECTORS = ["east", "southeast", "south", "southwest", "west", "northwest", "north", "northeast"];
+
 describe("feux de navigation — position par face", () => {
   const poses = [];
   const pose = (st, se, o) => { poses.push([st, se]); setNavUv(st, se, o); };
   afterEach(() => { for (const [st, se] of poses.splice(0)) setNavUv(st, se, null); });
 
+  // ⚠ On travaille sur `dinghy`, le SEUL stade dont aucune face n'est relevée.
+  // Ce test visait steam/north à l'écriture ; le relevé de Raph l'a peuplé et le
+  // test est tombé. Un cas de départ doit être choisi pour ce qu'il est — vide —
+  // et non pour ce qu'il se trouve être un jour donné.
   it("une face calibrée prime sur la projection du profil", () => {
     // Les 8 vues d'un bateau ne sont pas la rotation rigide d'un même objet :
     // PixelLab les redessine, le mât se déplace, la coque change de longueur
     // apparente. Projeter le profil sur les 7 autres est donc une APPROXIMATION,
     // et une face relevée doit toujours l'emporter.
-    expect(navUvFor("steam", "north")).toBe(null);
-    pose("steam", "north", { p: [0.4, 0.3], s: [0.6, 0.35] });
-    expect(navUvFor("steam", "north")).toEqual({ p: [0.4, 0.3], s: [0.6, 0.35] });
+    expect(navUvFor("dinghy", "north")).toBe(null);
+    pose("dinghy", "north", { p: [0.4, 0.3], s: [0.6, 0.35] });
+    expect(navUvFor("dinghy", "north")).toEqual({ p: [0.4, 0.3], s: [0.6, 0.35] });
     // Les autres faces du même bateau restent sur le repli.
-    expect(navUvFor("steam", "south")).toBe(null);
+    expect(navUvFor("dinghy", "south")).toBe(null);
   });
 
   it("les 8 faces sont indépendantes", () => {
-    pose("sail", "east", { p: [0.1, 0.1], s: [0.2, 0.2] });
-    pose("sail", "west", { p: [0.8, 0.1], s: [0.9, 0.2] });
-    expect(navUvFor("sail", "east").p[0]).not.toBe(navUvFor("sail", "west").p[0]);
-    expect(navUvFor("sail", "northeast")).toBe(null);
+    pose("dinghy", "east", { p: [0.1, 0.1], s: [0.2, 0.2] });
+    pose("dinghy", "west", { p: [0.8, 0.1], s: [0.9, 0.2] });
+    expect(navUvFor("dinghy", "east").p[0]).not.toBe(navUvFor("dinghy", "west").p[0]);
+    expect(navUvFor("dinghy", "northeast")).toBe(null);
+  });
+
+  it("le relevé de Raph est bien en place et complet là où il doit l'être", () => {
+    // Garde de non-régression sur les données elles-mêmes : un copier-coller
+    // tronqué ou un stade oublié se verrait ici et nulle part ailleurs.
+    for (const st of ["sail", "steam", "container", "motorboat"]) {
+      const faces = SECTORS.filter((se) => navUvFor(st, se));
+      expect(faces.length, `${st} : ${faces.length} faces relevées`).toBeGreaterThanOrEqual(7);
+      for (const se of faces) {
+        const uv = navUvFor(st, se);
+        for (const c of [uv.p, uv.s]) {
+          expect(c).toHaveLength(2);
+          expect(c[0]).toBeGreaterThanOrEqual(0); expect(c[0]).toBeLessThanOrEqual(1);
+          expect(c[1]).toBeGreaterThanOrEqual(0); expect(c[1]).toBeLessThanOrEqual(1);
+        }
+      }
+    }
   });
 });
 

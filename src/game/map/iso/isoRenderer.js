@@ -29,6 +29,9 @@ import { suspendFlameGlow, paintFlameGlows } from '../flameGlow.js';
 // ne fait rien tant qu'on ne l'appelle pas (aucun coût en jeu). Il ne nous
 // importe RIEN en retour (cycle ES = zone morte) : on lui pousse sa config.
 import { configureNavCalib } from './navCalib.js';
+// Vie de surface de l'eau. Même contrat que navCalib : il ne nous importe rien
+// en retour (cycle ES = zone morte), on lui pousse ce dont il a besoin.
+import { configureRiverLife, drawIsoRiverLife } from './isoRiverLife.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
@@ -845,6 +848,80 @@ if (typeof window !== 'undefined') {
 // source du rendu des bâtiments). Sert de garde : on ne rend jamais en herbe une
 // cellule qui porte quelque chose. Cuit une fois par layout — le cache meurt avec
 // lui puisqu'un recalcul reconstruit l'objet.
+/* ── FRONT DE RUE : le bâtiment cesse de flotter au milieu de son lot (lot L3) ─
+ * docs/PLAN-TISSU-URBAIN.md. Un bâtiment est ancré au coin SUD de son emprise et
+ * dessiné centré dessus : il flotte au milieu de sa cellule, entouré de sol sur
+ * ses quatre côtés. Il n'y a donc aucun MUR DE RUE, et c'est lui qui fait qu'une
+ * ville se lit comme une ville : une rue est un couloir entre deux façades, pas
+ * une clairière entre deux objets.
+ *
+ * On pousse donc chaque bâtiment vers LA rue qu'il dessert. Cette face est déjà
+ * calculée ailleurs — la passe des allées de seuil la cherche pour poser son
+ * trait de la porte à la chaussée — mais elle y était enfouie dans la boucle de
+ * dessin. On l'extrait ici : le sprite et son seuil DOIVENT désigner la même
+ * façade, sinon le trait sortirait d'un mur aveugle.
+ *
+ * Priorité S puis E puis O puis N : la porte des sprites regarde la caméra, donc
+ * à choisir on ouvre sur la rue que le joueur voit. Ni pont (le seuil plongerait
+ * dans l'eau) ni place (déjà dallée). Mémoïsé sur la tuile — les tuiles sont
+ * reconstruites à chaque recompute, le cache se périme donc tout seul.
+ * ------------------------------------------------------------------------- */
+export const FRONT = { on: true, push: 0.14, gap: 0.06 };
+const FRONT_DIRS = [[0, 1], [1, 0], [-1, 0], [0, -1]];   // S, E, O, N
+export function isoBuildingFront(t, roadMap) {
+  if (t._front !== undefined) return t._front;
+  let out = null;
+  if (roadMap) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (const [dx, dy] of FRONT_DIRS) {
+      const hits = [];
+      for (let ax = 0; ax < sx; ax += 1) {
+        for (let ay = 0; ay < sy; ay += 1) {
+          const hx = t.gx + ax, hy = t.gy + ay;
+          const rc = roadMap.get((hx + dx) + ',' + (hy + dy));
+          if (!rc || rc.roadSurface === 'bridge' || rc.rank === 'plaza') continue;
+          hits.push([hx, hy, rc]);
+        }
+      }
+      if (!hits.length) continue;
+      // Le MILIEU de la façade : une halle de trois cellules a sa porte centrée,
+      // pas collée au coin.
+      const [hx, hy, rc] = hits[hits.length >> 1];
+      out = { dx, dy, hx, hy, rank: rc.rank };
+      break;
+    }
+  }
+  t._front = out;
+  return out;
+}
+// Décalage du sprite vers sa façade, en fraction de tuile.
+// ⚠ Le poussé est BORNÉ par la largeur de la chaussée d'en face : l'ancre du
+// sprite est son point le plus au sud, et la chaussée d'une cellule voisine
+// commence à `0,5 − demi-largeur` de son centre. Un poussé fixe qui va bien
+// contre une rue (demi-largeur 0,25) plante le bâtiment DANS un boulevard
+// (0,36). La borne se calcule, elle ne se règle pas à l'œil.
+export function isoFrontOffset(t, roadMap, cfg = FRONT) {
+  if (!cfg.on || !cfg.push) return null;
+  const f = isoBuildingFront(t, roadMap);
+  if (!f) return null;
+  const room = 0.5 - isoRoadHalfW(f.rank) - cfg.gap;
+  const push = Math.max(0, Math.min(cfg.push, room));
+  if (push <= 0) return null;
+  return { ox: f.dx * push, oy: f.dy * push };
+}
+if (typeof window !== 'undefined') {
+  // Molette front de rue : __front(false) recentre les bâtiments comme avant ;
+  // __front({push,gap}) règle le poussé (push = fraction de tuile vers la rue,
+  // gap = marge minimale gardée jusqu'à la chaussée).
+  window.__front = (arg) => {
+    if (arg === false) FRONT.on = false;
+    else if (arg && typeof arg === 'object') { FRONT.on = true; Object.assign(FRONT, arg); }
+    else FRONT.on = true;
+    if (CM.layout && CM.layout.tiles) for (const t of CM.layout.tiles) delete t._front;
+    CM._isoGroundBake = null;   // les allées de seuil vivent dans le bake
+    return { ...FRONT };
+  };
+}
 function builtCells(L) {
   if (L._builtCells) return L._builtCells;
   const s = new Set();
@@ -2286,37 +2363,24 @@ function drawIsoGround() {
       alN += 1;
       if (alN >= 256) { ctx.fill(); ctx.beginPath(); alN = 0; }
     };
-    const DIRS = [[0, 1], [1, 0], [-1, 0], [0, -1]];   // S, E, O, N
     for (const t2 of L.tiles) {
       const isEng = t2.type === 'engine';
       if (!isEng && t2.type !== 'house' && t2.type !== 'enginehome') continue;
       // Les CHAMPS n'ont pas de seuil : une parcelle se laboure, elle n'a pas
       // de porte (Raph 2026-07-28) — seuls moteurs exclus des allées.
       if (isEng && t2.buildingId === 'irrigated_fields') continue;
-      const sx = t2.spanX || t2.size || 1, sy = t2.spanY || t2.size || 1;
-      let done = false;
-      for (const [dx, dy] of DIRS) {
-        if (done) break;
-        // Cellules de l'emprise ouvrant sur une route de CE côté ; le seuil se
-        // pose au MILIEU de la façade (une halle de 3 cellules a sa porte
-        // centrée, pas collée au coin). Ni pont (le seuil plongerait dans
-        // l'eau) ni place (déjà toute dallée).
-        const hits = [];
-        for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) {
-          const hx = t2.gx + ax, hy = t2.gy + ay;
-          const rc = roadMap.get((hx + dx) + ',' + (hy + dy));
-          if (!rc || rc.roadSurface === 'bridge' || rc.rank === 'plaza') continue;
-          hits.push([hx, hy, rc]);
-        }
-        if (!hits.length) continue;
-        const [hx, hy, rc] = hits[hits.length >> 1];
+      // La façade est résolue par isoBuildingFront (partagée avec le poussé du
+      // sprite, cf. FRONT) : le seuil et le bâtiment DOIVENT désigner le même
+      // côté, sinon le trait sortirait d'un mur aveugle.
+      const f2 = isoBuildingFront(t2, roadMap);
+      if (f2) {
+        const { dx, dy, hx, hy, rank } = f2;
         const rx = hx + dx, ry = hy + dy;
-        const rw = isoRoadHalfW(rc.rank);
+        const rw = isoRoadHalfW(rank);
         if (dy === 1) allee((hx + 0.5) * T - aw, (hy + 1) * T - tuck, (hx + 0.5) * T + aw, (ry + 0.5 - rw) * T);
         else if (dy === -1) allee((hx + 0.5) * T - aw, (ry + 0.5 + rw) * T, (hx + 0.5) * T + aw, hy * T + tuck);
         else if (dx === 1) allee((hx + 1) * T - tuck, (hy + 0.5) * T - aw, (rx + 0.5 - rw) * T, (hy + 0.5) * T + aw);
         else allee((rx + 0.5 + rw) * T, (hy + 0.5) * T - aw, hx * T + tuck, (hy + 0.5) * T + aw);
-        done = true;
       }
     }
     if (alN) ctx.fill();
@@ -2388,6 +2452,12 @@ function riverRibbonScreen(pts, T) {
   }
   return { left, right };
 }
+// Config de la vie de surface. ⚠ Elle passe DEUX FONCTIONS, et c'est ce qui la
+// rend sûre ici : `riverRibbonPath` et `precipKind` sont des déclarations de
+// fonction, donc hoistées — on peut les référencer avant leur ligne. Une `const`
+// (NAV_STAGES l'a montré) serait en zone morte et jetterait au chargement.
+configureRiverLife({ ribbonPath: riverRibbonPath, precipKind });
+
 function riverRibbonPath(ctx, pts, T) {
   const { left, right } = riverRibbonScreen(pts, T);
   ctx.beginPath();
@@ -2729,8 +2799,10 @@ export const waterTilesTune = {
   // recompose donc la bande — substrat gelé + seuls les éclats réimprimés,
   // frames réordonnées pour que les reflets se déplacent au lieu de sauter.
   // Mesuré : churn 48,6 % → 10,5 %, ton du fleuve inchangé (dérive 1/1/0).
-  // A/B : window.__waterTiles.calm = false rejoue la bande d'origine.
+  // A/B : window.__waterTiles.calm = false rejoue la bande d'origine (brute) —
+  // et court-circuite du même coup les coloris d'état (cf. WATER_SHEETS).
   calm: true,
+  fade: 1.2,            // secondes de fondu quand le fleuve change de coloris
   // DEUX AMBIANCES, interpolées par CM.rainF (le même signal que l'averse).
   // Retour Raph : sous la pluie l'eau sombre et agitée « c'était très bien », mais
   // il la veut CLAIRE et le clapot LENT par beau temps. `drawIsoRain` ne touche
@@ -2782,32 +2854,73 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
     drift: wrap(prev.drift + dt * drift, spatial)
   };
 }
-// Deux bandes interchangeables (cf. `calm` ci-dessus) : la recomposée, calme, et
-// celle du pack telle que cuite le 2026-07-22, gardée pour l'A/B.
+// ── QUATRE CORPS D'EAU, UN PAR ÉTAT DE LA PARTIE ────────────────────────────
+// Demande de Raph (2026-07-30) : le fleuve change de coloris selon ce que vit la
+// cité — azur quand tout va bien, turquoise quand l'usure monte, bleu pâle en
+// hiver, ardoise sous l'averse. Coloris NATIFS du pack (`bakeWaterTiles --native`)
+// : ici la teinte EST l'information, la rabattre sur WATER la détruirait — c'est
+// l'exception assumée à la règle « la texture ne déplace pas le ton du fleuve ».
+//
+// `pale` = la teinte la plus CLAIRE de la bande, celle que le voile de beau temps
+// (tint < 0) vient poser. Elle est prise DANS la bande et non fixée une fois pour
+// toutes, sinon l'éclat ardoise de l'ancienne planche viendrait désaturer l'azur.
 const WATER_SHEETS = {
-  calm: '/pixelart/water/river-tiles-calm.png',
-  lively: '/pixelart/water/river-tiles.png',
+  beau: { src: '/pixelart/water/river-tiles-calm-azur.png', pale: '207,255,255' },
+  usure: { src: '/pixelart/water/river-tiles-calm-turquoise.png', pale: '207,255,255' },
+  hiver: { src: '/pixelart/water/river-tiles-calm-hiver.png', pale: '219,243,243' },
+  pluie: { src: '/pixelart/water/river-tiles-calm.png', pale: '158,184,192' },
+  brute: { src: '/pixelart/water/river-tiles.png', pale: '158,184,192' },
 };
+// PRIORITÉ : averse > hiver > usure > beau fixe. La précipitation et la saison
+// habillent TOUTE la scène (sol enneigé, voile de pluie) — un fleuve turquoise au
+// milieu d'une carte blanche se lirait comme un bug, alors que l'usure, elle, se
+// lit ailleurs (bâtiments, palette). Et l'averse ne peut pas entrer en conflit
+// avec l'hiver : en hiver elle tombe en NEIGE (precipKind), donc `snow` coupe la
+// branche pluie. Pure et exportée : c'est une table de décision, ça se teste.
+export function waterBandKey({ rainF = 0, snow = false, winter = false, ruined = false, calm = true }) {
+  if (!calm) return 'brute';
+  if (!snow && rainF > 0.3) return 'pluie';
+  if (winter) return 'hiver';
+  if (ruined) return 'usure';
+  return 'beau';
+}
 // Une entrée PAR BANDE, et non une seule remplacée au basculement : sinon
 // chaque aller-retour d'A/B relance un chargement et le fleuve retombe à l'aplat
 // le temps du décodage — de quoi faire conclure « la bande calme ne s'affiche
-// pas » alors qu'elle n'est simplement pas encore prête.
-const waterSheets = new Map();            // src -> { img, ready, frames }
-function waterSheet() {
-  const src = waterTilesTune.calm ? WATER_SHEETS.calm : WATER_SHEETS.lively;
-  let e = waterSheets.get(src);
+// pas » alors qu'elle n'est simplement pas encore prête. Ici c'est devenu
+// indispensable : les coloris s'échangent en cours de partie.
+const waterSheets = new Map();            // clé -> { img, ready, frames, pale }
+function waterSheet(key) {
+  const cfg = WATER_SHEETS[key] || WATER_SHEETS.pluie;
+  let e = waterSheets.get(key);
   if (e) return e;
   if (typeof Image === 'undefined') return null;
   const im = new Image();
   // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis la Map dans le
   // callback : deux chargements peuvent se croiser au basculement.
-  e = { img: im, ready: false, frames: null };
-  waterSheets.set(src, e);
+  e = { img: im, ready: false, frames: null, pale: cfg.pale };
+  waterSheets.set(key, e);
   im.onload = () => { e.ready = true; };
   im.onerror = () => { e.ready = false; };   // PNG absent → fill WATER nu
-  im.src = src;
+  im.src = cfg.src;
   return e;
 }
+// FONDU ENTRE COLORIS. Un changement sec se verrait claquer sur toute la largeur
+// du fleuve d'une frame à l'autre. On intègre donc la transition pas à pas —
+// même raison que la phase (cf. ⚠⚠ PHASE ACCUMULÉE) : jamais de fonction du
+// temps ABSOLU, sans quoi un changement d'état en plein fondu ferait sauter le
+// mélange. Pure et exportée pour la même raison qu'elle : c'est la continuité
+// qui compte, pas le dessin.
+export function stepWaterBand(prev, t, key, fade) {
+  const dt = prev.at < 0 ? 0 : Math.min(0.25, Math.max(0, t - prev.at));
+  if (prev.key == null) return { key, from: key, mix: 1, at: t };
+  // Nouvel état : on repart de la bande actuellement DOMINANTE. Si un fondu
+  // était en cours, sa source est déjà largement recouverte — repartir d'elle
+  // rendrait le nouveau fondu invisible.
+  if (key !== prev.key) return { key, from: prev.mix < 0.5 ? prev.from : prev.key, mix: 0, at: t };
+  return { key, from: prev.from, mix: fade > 0 ? Math.min(1, prev.mix + dt / fade) : 1, at: t };
+}
+let waterBand = { key: null, from: null, mix: 1, at: -1 };
 // ── NAPPE EN MOTIF RÉPÉTÉ ────────────────────────────────────────────────────
 // `createPattern` répète TOUTE l'image, pas un rectangle source : la frame
 // courante de la bande doit donc vivre dans son propre canvas 16×16. Huit
@@ -2830,15 +2943,34 @@ function waterFrameTile(sheet, fi) {
 
 function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const G = waterTilesTune;
+  const t = (now || 0) / 1000;
+  // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
+  // (cityMapRuntime) — une mesure faite en capture ne voit JAMAIS le cas pluie.
+  // EN HIVER l'averse tombe en NEIGE (cf. precipKind) : le ciel se couvre encore
+  // un peu, mais un flocon ne CREUSE pas l'eau. On garde donc un tiers de l'effet
+  // — sans quoi l'eau se mettait à claquer comme sous l'orage pendant qu'il neige.
+  // Résolu ICI et non plus bas : le coloris du fleuve en dépend.
+  const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
+  const snow = precipKind(CM.season, rf0) === 'snow';
+  // Coloris de l'état + fondu. En capture on force le fondu à son terme : une
+  // frame de synthèse doit être reproductible, pas prise au milieu d'un mélange.
+  const bandK = waterBandKey({
+    rainF: rf0, snow, winter: CM.season === WINTER, ruined: !!CM.frameRuined, calm: G.calm,
+  });
+  let band;
+  if (CM.capture) band = { key: bandK, from: bandK, mix: 1, at: t };
+  else { waterBand = stepWaterBand(waterBand, t, bandK, G.fade); band = waterBand; }
   // Diagnostic opt-in (globalThis.__waterSpanStats = true) : dit PAR QUEL
   // garde-fou la nappe est coupée. Éteint, coût nul (un test de drapeau).
   // Hors du bloc de cull, sinon __waterSpanCull = false le rendait muet.
-  const sheet = waterSheet();
+  const sheet = waterSheet(band.key);
+  const fromSheet = band.mix < 1 && band.from !== band.key ? waterSheet(band.from) : null;
   const dbg = globalThis.__waterSpanStats
     ? (sortie, extra) => {
       globalThis.__waterSpanStatsLast = {
         sortie, on: G.on, zoom: +z.toFixed(3), minZoom: G.minZoom, strength: G.strength,
-        calm: !!G.calm, image: !!sheet && !!sheet.ready, ...extra,
+        calm: !!G.calm, bande: band.key, depuis: band.from, mix: +band.mix.toFixed(2),
+        image: !!sheet && !!sheet.ready, ...extra,
       };
     }
     : null;
@@ -2867,14 +2999,6 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
   const step = WATER_TILE * G.worldPx * z;               // période à l'écran
   if (step < 2) { if (dbg) dbg('pas trop fin', { step }); return; }
   const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
-  const t = (now || 0) / 1000;
-  // Météo : même signal que l'averse. ⚠ `captureFrame` force rainF à 0
-  // (cityMapRuntime) — une mesure faite en capture ne voit JAMAIS le cas pluie.
-  // EN HIVER l'averse tombe en NEIGE (cf. precipKind) : le ciel se couvre encore
-  // un peu, mais un flocon ne CREUSE pas l'eau. On garde donc un tiers de l'effet
-  // — sans quoi l'eau se mettait à claquer comme sous l'orage pendant qu'il neige.
-  const rf0 = Math.max(0, Math.min(1, RAIN_TUNE.on ? (CM.rainF || 0) : 0));
-  const snow = precipKind(CM.season, rf0) === 'snow';
   const rf = snow ? rf0 * 0.35 : rf0;
   const mix = (a, b) => a + (b - a) * rf;
   // RAFALE : la bouffée passe SUR l'eau, la surface claque et file le temps
@@ -2927,31 +3051,46 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
     // Repli SILENCIEUX sur le pavage tuile à tuile si le motif n'est pas
     // disponible (canvas hors écran refusé, source pas décodable) : la nappe
     // s'affiche toujours, elle coûte seulement plus cher.
-    let pat = null;
-    try {
-      const tile = waterFrameTile(sheet, fi);
-      if (tile) pat = ctx.createPattern(tile, 'repeat');
-    } catch { pat = null; }
-    if (pat) {
-      if (dbg) dbg('motif', { step: +step.toFixed(2), ox: +ox.toFixed(1), oy: +oy.toFixed(1) });
-      const k = step / WATER_TILE;
+    const k = step / WATER_TILE;
+    const paint = (sh, alpha) => {
+      if (!sh || !sh.ready || alpha <= 0) return false;
+      let pat = null;
+      try {
+        const tile = waterFrameTile(sh, fi);
+        if (tile) pat = ctx.createPattern(tile, 'repeat');
+      } catch { pat = null; }
+      if (!pat) return false;
       pat.setTransform({ a: k, b: 0, c: 0, d: k, e: ox, f: oy });
-      ctx.save();
-      ctx.imageSmoothingEnabled = G.worldPx * z < 1;
-      ctx.globalAlpha = Math.min(1, G.strength);
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = pat;
       riverRibbonPath(ctx, pts, T);
       ctx.fill();
+      return true;
+    };
+    ctx.save();
+    ctx.imageSmoothingEnabled = G.worldPx * z < 1;
+    // FONDU : l'ancien coloris à plein, le nouveau par-dessus à `mix`. Le second
+    // fill n'existe QUE pendant la transition (une seconde environ) — le reste du
+    // temps on reste au fill unique qui avait fait tomber les 18 ms de GPU.
+    const fade = !!fromSheet && fromSheet !== sheet;
+    if (fade) paint(fromSheet, Math.min(1, G.strength));
+    let ok = paint(sheet, Math.min(1, G.strength) * (fade ? band.mix : 1));
+    if (!ok && fade) ok = true;               // le nouveau n'est pas décodé : l'ancien tient l'écran
+    if (ok) {
+      if (dbg) dbg('motif', { step: +step.toFixed(2), ox: +ox.toFixed(1), oy: +oy.toFixed(1), fondu: fade });
       if (tint !== 0) {
         ctx.globalAlpha = 1;
         const a = Math.min(1, Math.abs(tint)).toFixed(3);
-        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(158,184,192,${a})`;
+        // Le voile clair est l'ÉCLAT DE LA BANDE elle-même : pris ailleurs, il
+        // désaturerait l'azur avec le gris de l'ancienne planche ardoise.
+        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${sheet.pale},${a})`;
         riverRibbonPath(ctx, pts, T);
         ctx.fill();
       }
       ctx.restore();
       return;
     }
+    ctx.restore();
   }
   const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
   const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
@@ -3038,11 +3177,12 @@ function drawIsoWaterTiles(ctx, pts, T, z, now) {
     }
   }
   // Voile de météo, même geste que l'averse mais confiné au ruban : ardoise pour
-  // assombrir sous la pluie, éclat de la tuile pour éclaircir au beau fixe.
+  // assombrir sous la pluie, éclat de la BANDE COURANTE pour éclaircir au beau
+  // fixe (ce repli tuile à tuile ne fait pas de fondu : un seul coloris à la fois).
   if (tint !== 0) {
     ctx.globalAlpha = 1;
     const a = Math.min(1, Math.abs(tint)).toFixed(3);
-    ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(158,184,192,${a})`;
+    ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${sheet.pale},${a})`;
     riverRibbonPath(ctx, pts, T);
     ctx.fill();
   }
@@ -6170,7 +6310,13 @@ function drawIsoLive(now) {
     // dont le pied a forcément une profondeur ≥ ce coin nord) se trie APRÈS → au-dessus.
     // Un socle (bâtiment volumétrique) garde son ancre au coin SUD (tri par les pieds).
     const flat = /field|farm|crop|orchard/i.test(idf);
-    const d = flat ? depthOf(t.gx * T, t.gy * T) : depthOf((t.gx + sx) * T, (t.gy + sy) * T);
+    // FRONT DE RUE : le poussé décale l'ancre du sprite, donc il DOIT décaler sa
+    // clé de tri du même geste — sinon un bâtiment avancé de 0,14 tuile vers la
+    // rue se dessine devant son voisin mais se trie derrière lui. Une parcelle à
+    // plat ne bouge pas (elle n'a pas de porte, cf. les allées de seuil).
+    const fo = flat ? null : isoFrontOffset(t, L.roadMap);
+    const d = flat ? depthOf(t.gx * T, t.gy * T)
+      : depthOf((t.gx + sx + (fo ? fo.ox : 0)) * T, (t.gy + sy + (fo ? fo.oy : 0)) * T);
     { const it = pushItem(); it.d = d; it.kind = 'tile'; it.t = t; }
     // FUMÉE : item SÉPARÉ, juste derrière son bâtiment dans l'ordre du peintre —
     // elle doit passer sous le voisin situé au nord, pas par-dessus tout.
@@ -6553,8 +6699,14 @@ function drawIsoLive(now) {
     if (it.kind === 'tile') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
-      // Ancre = coin SUD de l'empreinte (point monde (gx+spanX, gy+spanY)).
-      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      // Ancre = coin SUD de l'empreinte (point monde (gx+spanX, gy+spanY)),
+      // DÉCALÉE vers la façade sur rue (cf. FRONT) : sans ça le bâtiment flotte
+      // au milieu de son lot et la rue n'a pas de mur. Le même décalage est
+      // appliqué à la clé de tri, plus haut — les deux ne se séparent jamais.
+      const fOff = /field|farm|crop|orchard/i.test(t.buildingId || t.variant || '')
+        ? null : isoFrontOffset(t, L.roadMap);
+      const anchor = worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T,
+        (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
       const isHouse = t.type === 'house' || t.type === 'enginehome';
       // Bâtiment RIVERAIN (port : l'empreinte mord la berge/l'eau) : scène iso
       // DÉDIÉE (drawIsoRiverside — bâtiment sur berge, ponton vers le ruban,
@@ -7690,6 +7842,10 @@ function drawIsoWorldInner(dt, now, helpers) {
   // DEBOUT plantés dans la passe vivante (drawIsoLive) — la projection à plat
   // de l'art legacy « couchait » les plantes bakées (retour Raph).
   drawIsoRiver(now);
+  // Vie de SURFACE (iso/isoRiverLife.js) : ronds de pluie, feuilles à la dérive,
+  // bouées et nasses, saut de poisson. Ici et pas plus tard : sur l'eau, sous
+  // les coques — la pluie crible le fleuve, pas les bateaux.
+  drawIsoRiverLife(now);
   fp('fleuve');
   // QUAIS BAKÉS. Recensé en direct : ~10 000 lineTo, 1 000 traits et 390 arcs par
   // frame — 90 % de tout le travail de chemins de la carte, pour une promenade
