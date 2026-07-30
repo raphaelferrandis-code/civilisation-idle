@@ -637,6 +637,24 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
   // La sanctuarisation couvre les `bridgeLaneW` colonnes du pont (2 en double-voie).
   const protectedBridgeX = river && river.bridge ? Math.round(river.bridge.x) : null;
   const isProtectedBridgeCol = (x) => protectedBridgeX !== null && x >= protectedBridgeX && x < protectedBridgeX + (bridgeLaneW || 1);
+  // ── Aucun pont NÉ DE L'ÎLE ────────────────────────────────────────────────
+  // L'évasement du lit autour de l'Aiguille peut passer sous une route qui
+  // longeait la rive : elle se retrouve « sur l'eau » et devient un tablier.
+  // Résultat, un pont que personne n'a demandé, apparu par simple débordement
+  // (Raph : « ça a activé la création d'un pont que je ne veux pas »).
+  // Toute traversée qui touche la zone de l'île est donc élaguée — sauf le pont
+  // historique, qui reste protégé par sa colonne.
+  const _isles = (river && river.islands) || null;
+  const inIslandZone = (gx, gy) => {
+    if (!_isles) return false;
+    for (const il of _isles) {
+      // Rayon = l'emprise de l'évasement, pas seulement l'île : c'est bien là
+      // que le lit a gonflé et donc là que de faux ponts peuvent naître.
+      const r = il.rx * 2.1;
+      if ((gx + 0.5 - il.x) ** 2 + (gy + 0.5 - il.y) ** 2 < r * r) return true;
+    }
+    return false;
+  };
   const buildGraph = (activeSet) => {
     const isCore  = (gx, gy) => activeSet.has(key(gx, gy));
     const metaAt  = (gx, gy) => {
@@ -799,13 +817,14 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
     if (seen.has(startKey)) continue;
     const stack = [startKey], component = [], exits = [];
     seen.add(startKey);
-    let isProtected = false;
+    let isProtected = false, nearIsland = false;
     while (stack.length) {
       const k = stack.pop();
       const r = graph.roadMap.get(k);
       if (!r) continue;
       component.push(r);
       if (isProtectedBridgeCol(r.gx)) isProtected = true;
+      if (inIslandZone(r.gx, r.gy)) nearIsland = true;
       for (const d of dirInfo) {
         if (!(r.mask & d.bit)) continue;
         const nk = key(r.gx + d.dx, r.gy + d.dy);
@@ -816,7 +835,7 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
     }
     // Le pont central est exempté : jamais supprimé, même s'il n'atterrit pas encore
     // sur un réseau des deux côtés (rive non bâtie en début de partie).
-    if (!isProtected && !isStraightBridgeSegment(component, exits)) {
+    if (!isProtected && (nearIsland || !isStraightBridgeSegment(component, exits))) {
       for (const r of component) invalid.add(key(r.gx, r.gy));
     }
   }
@@ -1827,17 +1846,26 @@ function computeCityLayout(s) {
         // Île OVALE, allongée DANS LE SENS DU COURANT : une île ronde ferait
         // barrage, un fuseau se laisse contourner — c'est la forme de toutes
         // les îles de rivière, et celle de la Cité.
-        const rx = 4.6, ry = 2.4;                                  // demi-axes, en tuiles
+        // ALLONGÉE (Raph, 2e passe) : 7,6 et non 4,6. Une île de rivière est un
+        // fuseau étiré par le courant, pas un œuf ; à 4,6 elle se lisait comme
+        // un rond posé au milieu de l'eau.
+        const rx = 7.6, ry = 2.4;                                  // demi-axes, en tuiles
         // Le lit s'évase pour loger l'île ET laisser deux vrais bras : sans
         // cela, les bras seraient deux filets d'eau et l'île mangerait le
-        // fleuve. La bosse s'étale sur ~2,5 fois la longueur de l'île pour que
+        // fleuve. La bosse s'étale sur ~1,9 fois la longueur de l'île pour que
         // les rives s'ouvrent en douceur au lieu de faire un renflement carré.
-        const etale = rx * 2.5;
+        //
+        // ⚠ L'évasement TRANSVERSAL reste MODESTE (ry + 0,8, et non ry + 1,9 du
+        // premier jet) : chaque bras garde 3,9 tuiles, largement de quoi passer,
+        // mais le fleuve cesse de mordre le terrain alentour. Un lit trop gonflé
+        // passait sous une route existante, qui devenait un pont — un ouvrage
+        // que personne n'avait demandé, né d'un simple débordement.
+        const etale = rx * 1.9;
         for (const sp of riverSamples) {
           const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
           if (d > etale) continue;
           const u = 1 - d / etale;
-          sp.hw += (ry + 1.9) * u * u * (3 - 2 * u);
+          sp.hw += (ry + 0.8) * u * u * (3 - 2 * u);
         }
         islands.push({ x: s0.x, y: s0.y, rx, ry, tx, ty });
         // Le lit ayant changé, on RECALCULE les cellules d'eau autour de l'île,

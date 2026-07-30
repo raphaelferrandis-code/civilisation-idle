@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 
 // Mêmes valeurs que layout.js — si elles y changent, ce test doit suivre, et
 // c'est voulu : ce sont elles qui décident de la forme de l'île.
-const RX = 4.6, RY = 2.4, ETALE = RX * 2.5, BOSSE = RY + 1.9;
+const RX = 7.6, RY = 2.4, ETALE = RX * 1.9, BOSSE = RY + 0.8;
 
 // Ruban droit, largeur de base 3 (soit 6 tuiles de lit) — le fleuve du jeu.
 function litApres(nSamples = 60, hw0 = 3) {
@@ -68,9 +68,23 @@ describe("île de l'Aiguille — le fleuve se sépare en deux bras", () => {
     expect(sm[sm.length - 1].hw).toBeCloseTo(3, 5);
   });
 
-  it("l'île est un FUSEAU, pas un rond", () => {
+  it("l'île est un FUSEAU FRANC, pas un œuf", () => {
     // Une île ronde ferait barrage ; un fuseau allongé dans le sens du courant
     // se laisse contourner — c'est la forme de toutes les îles de rivière.
-    expect(RX).toBeGreaterThan(RY * 1.5);
+    // À 1,9 fois plus longue que large (premier jet) elle se lisait encore
+    // comme un rond : Raph l'a fait allonger. Le rapport est la mesure de ce
+    // retour, pas une valeur de confort.
+    expect(RX / RY).toBeGreaterThan(2.5);
+  });
+
+  it("l'évasement du lit reste MODESTE", () => {
+    // Un lit trop gonflé mord le terrain alentour et passe sous une route, qui
+    // devient alors un pont que personne n'a demandé. La bosse doit suffire aux
+    // deux bras et pas davantage.
+    const { sm, centre } = litApres();
+    const hw = sm.find((s) => s.x === centre.x).hw;
+    const bras = hw - RY;
+    expect(bras).toBeGreaterThan(2.24);          // navigable
+    expect(bras).toBeLessThan(2.24 * 2.2);       // mais pas un lac
   });
 });
