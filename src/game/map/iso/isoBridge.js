@@ -103,6 +103,19 @@ const STYLES = {
     railH: 7, railPostEvery: 0.5, railPostW: 2.5, rail: [140, 132, 116], railTop: [190, 182, 160],
     kind: 'stone', arch: [46, 44, 44],
   },
+  // ── SUSPENDUS (bande 4+) ───────────────────────────────────────────────────
+  // `suspended` : AUCUNE palée dans l'eau. Deux pylônes plantés sur les berges,
+  // un câble porteur en caténaire, des suspentes verticales, et le tablier
+  // franchit d'un seul jet. C'est la vraie réponse au problème des bateaux qui
+  // traversaient la pierre (Raph) : le suspendu ne le contourne pas, il le
+  // supprime — plus rien ne se dresse dans le chenal.
+  //
+  // À partir du FER et pas avant : le suspendu naît avec la métallurgie. Un pont
+  // suspendu à l'âge du bronze serait la même faute que le vapeur croisant
+  // devant des habitants en toge, déjà corrigée sur ce chantier.
+  //
+  // towerH = hauteur du pylône au-dessus du tablier ; sag = flèche du câble
+  // (fraction de la portée) ; hangEvery = pas des suspentes, en tuiles.
   fer: {
     deck: [96, 92, 88], plankPitch: 8, plankVar: 0.06, joint: 'rgba(16,16,18,0.22)',
     stringer: [58, 54, 52],
@@ -110,6 +123,8 @@ const STYLES = {
     pileH: 9, pileW: 4, pileEvery: 1.5, pile: [70, 66, 62], pileDark: [42, 40, 38],
     railH: 8, railPostEvery: 0.5, railPostW: 1.6, rail: [50, 48, 46], railTop: [104, 98, 92],
     kind: 'metal',
+    suspended: true, towerH: 30, towerW: 3.4, sag: 0.30, hangEvery: 0.62,
+    cable: [58, 56, 54], cableLite: [126, 122, 116], tower: [78, 74, 70], towerDark: [46, 44, 42],
   },
   beton: {
     deck: [122, 122, 124], plankPitch: 16, plankVar: 0.04, joint: 'rgba(20,20,24,0.14)',
@@ -118,6 +133,8 @@ const STYLES = {
     pileH: 9, pileW: 6, pileEvery: 1.9, pile: [100, 100, 102], pileDark: [66, 66, 70],
     railH: 6.5, railPostEvery: 0.62, railPostW: 2, rail: [96, 96, 100], railTop: [150, 150, 150],
     kind: 'stone', arch: [40, 42, 46],
+    suspended: true, towerH: 34, towerW: 4.2, sag: 0.26, hangEvery: 0.7,
+    cable: [92, 92, 96], cableLite: [168, 168, 168], tower: [132, 132, 134], towerDark: [82, 82, 86],
   },
   energie: {
     deck: [104, 110, 128], plankPitch: 12, plankVar: 0.05, joint: 'rgba(12,14,20,0.20)',
@@ -126,6 +143,8 @@ const STYLES = {
     pileH: 10, pileW: 5, pileEvery: 1.9, pile: [76, 82, 100], pileDark: [44, 48, 62],
     railH: 7, railPostEvery: 0.62, railPostW: 1.8, rail: [70, 76, 94], railTop: [214, 178, 108],
     kind: 'metal', glow: '255,196,110',   // lisse lumineuse ambre (jamais cyan)
+    suspended: true, towerH: 38, towerW: 3.8, sag: 0.22, hangEvery: 0.68,
+    cable: [70, 76, 94], cableLite: [214, 178, 108], tower: [84, 90, 108], towerDark: [50, 54, 68],
   },
 };
 
@@ -224,6 +243,16 @@ function bridgeGeoms() {
     // sautent et les deux qui bordent la passe deviennent ses culées. Ça règle le
     // problème par la GÉOMÉTRIE plutôt qu'en faisant slalomer les bateaux dans un
     // espace où ils ne tiennent pas.
+    // ── SUSPENDU : le chenal est VIDE ────────────────────────────────────────
+    // Toutes les palées mouillées sautent, remplacées par deux pylônes plantés
+    // en retrait sur la terre ferme. C'est ce qui rend la passe navigable
+    // inutile pour ces ères : il n'y a plus rien à éviter d'un bout à l'autre de
+    // la traversée.
+    const towers = [];
+    if (st.suspended) {
+      piles.length = 0;
+      towers.push(wetA - T * 0.35, wetB + T * 0.35);
+    }
     // (Le RECENTRAGE des bateaux sur cette passe est publié à part, par le
     // runtime, à partir des cellules de pont : CM.riverGates.)
     if (piles.length > 2) {
@@ -254,7 +283,7 @@ function bridgeGeoms() {
       }
     }
     list.push({
-      sp, vertical, c, wD, a, b, wetA, wetB, lanes, piles, lamps,
+      sp, vertical, c, wD, a, b, wetA, wetB, lanes, piles, lamps, towers,
       P: vertical ? (l, t) => worldToScreen(t, l) : (l, t) => worldToScreen(l, t),
       D: vertical ? (l, t) => depthOf(t, l) : (l, t) => depthOf(l, t),
     });
@@ -273,6 +302,15 @@ function spanVisible(g, z) {
 }
 
 function styleFor(L) { return STYLES[bridgeEraForBand((L.counts && L.counts.eraBand) | 0)] || STYLES.bois; }
+
+// Le pont de cette bande est-il un SUSPENDU (donc sans aucune palée en eau) ?
+// Exporté pour le test : la règle « pas avant le fer » est exactement le genre
+// de seuil qui dérive en silence — celui du vapeur avait fini recopié à trois
+// endroits avec deux valeurs différentes.
+export function bridgeIsSuspended(band) {
+  const st = STYLES[bridgeEraForBand(band | 0)];
+  return !!(st && st.suspended);
+}
 
 // Emprise « pont » pour les poseurs EXTÉRIEURS (bateau amarré du port, arbres
 // et rochers du décor…) : vrai si le point monde (wx, wy) tombe sur un
@@ -600,6 +638,87 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     }
     // 3) PARAPET aval : par-dessus la face, devant les jambes des traverseurs.
     drawRailRun(ctx, g, st, tAval, it.l0, it.l1, z);
+    // 4) SUSPENSION : pylônes, câble porteur, suspentes — dessinés APRÈS le
+    // parapet, ils passent devant lui comme dans la réalité.
+    if (st.suspended && !lod) drawSuspension(ctx, g, st, it, z);
+  }
+}
+
+// ── Suspension : deux pylônes, un câble, des suspentes ──────────────────────
+// Tout est tracé côté AVAL, dans le même ruban vertical écran que la face et le
+// parapet : la verticalité du jeu est toujours de l'écran, jamais du monde.
+//
+// Le câble suit une PARABOLE (approximation classique de la caténaire, et la
+// seule qui se lise à cette taille) entre les deux têtes de pylône. La flèche
+// vaut `sag` × la portée : c'est ce ventre qui dit « suspendu » d'un coup d'œil,
+// bien plus qu'un pylône isolé.
+function drawSuspension(ctx, g, st, it, z) {
+  const tw = g.towers;
+  if (!tw || tw.length < 2) return;
+  const tAval = g.c + g.wD;
+  const [lA, lB] = tw;
+  const portee = lB - lA;
+  if (!(portee > 0)) return;
+  const topH = st.towerH * z;                       // hauteur au-dessus du tablier
+  const sag = st.sag * portee;                      // flèche, en px monde longitudinal
+  // Hauteur du câble au-dessus du tablier, à la position l. 0 aux pylônes,
+  // -sag au milieu (on descend vers le tablier).
+  const yCable = (l) => {
+    const u = (l - lA) / portee;                    // 0..1
+    const v = 4 * u * (1 - u);                      // parabole, 1 au milieu
+    return -topH + v * Math.min(topH * 0.92, sag * z * 0.5);
+  };
+  const inSeg = (l) => l >= it.l0 - 1 && l <= it.l1 + 1;
+
+  // 1) SUSPENTES d'abord : elles passent DERRIÈRE le câble et les pylônes.
+  ctx.strokeStyle = rgb(st.cable, 1.08);
+  ctx.lineWidth = Math.max(1, z * 0.55);
+  ctx.beginPath();
+  const pas = Math.max(1, st.hangEvery * (CM.TILE || 32));
+  for (let l = lA + pas; l < lB - pas * 0.5; l += pas) {
+    if (!inSeg(l)) continue;
+    const p = g.P(l, tAval);
+    const yTop = p.y + yCable(l);
+    if (yTop >= p.y - 2) continue;                  // câble déjà sur le tablier
+    ctx.moveTo(Math.round(p.x) + 0.5, yTop);
+    ctx.lineTo(Math.round(p.x) + 0.5, p.y);
+  }
+  ctx.stroke();
+
+  // 2) CÂBLE PORTEUR, en deux passes : un trait sombre épais puis un filet clair
+  // au-dessus. Un câble d'une seule teinte disparaît sur un ciel de ville ; le
+  // liseré lui donne son galbe.
+  for (const [col, lw, dy] of [[st.cable, 1.5, 0], [st.cableLite, 0.8, -0.8]]) {
+    ctx.strokeStyle = rgb(col);
+    ctx.lineWidth = Math.max(1, z * lw);
+    ctx.beginPath();
+    let first = true;
+    for (let l = lA; l <= lB; l += Math.max(2, portee / 26)) {
+      const p = g.P(l, tAval);
+      const y = p.y + yCable(l) + dy * z;
+      if (first) { ctx.moveTo(p.x, y); first = false; } else ctx.lineTo(p.x, y);
+    }
+    const pEnd = g.P(lB, tAval);
+    ctx.lineTo(pEnd.x, pEnd.y + yCable(lB) + dy * z);
+    ctx.stroke();
+  }
+
+  // 3) PYLÔNES par-dessus tout : ils tiennent le câble, ils doivent le couper.
+  const pw = Math.max(2, st.towerW * z);
+  for (const l of tw) {
+    if (!inSeg(l)) continue;
+    const p = g.P(l, tAval);
+    const x = Math.round(p.x - pw / 2);
+    const yTop = Math.round(p.y - topH);
+    const h = Math.round(topH + st.faceH * z);
+    ctx.fillStyle = rgb(st.towerDark);
+    ctx.fillRect(x, yTop, Math.ceil(pw), h);
+    ctx.fillStyle = rgb(st.tower);
+    ctx.fillRect(x, yTop, Math.max(1, Math.round(pw * 0.45)), h);
+    // Traverse sous la tête : sans elle le pylône n'est qu'un poteau.
+    const bw = Math.ceil(pw * 2.1);
+    ctx.fillStyle = rgb(st.towerDark);
+    ctx.fillRect(Math.round(p.x - bw / 2), yTop + Math.round(topH * 0.22), bw, Math.max(1, Math.round(z * 1.4)));
   }
 }
 
