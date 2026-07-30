@@ -114,9 +114,12 @@ const PLAZA_TUNE = {
   // toujours un MAXIMUM — un côté trop court en met moins, tout seul.
   benchPerSide: 4,
   furnScale: 1,       // grossit ou rapetisse TOUT le mobilier en `p` d'un coup
-  // Ce qui tient le CENTRE. 'auto' = la fontaine de la recette, un arbre si la
-  // recette n'en a pas. 'tree' force l'arbre. Le centre n'est JAMAIS vide.
+  // Ce qui tient le CENTRE — jamais vide. 'auto' TIRE par place : certaines ont
+  // leur fontaine, d'autres un arbre (« ça dépend de la place »). 'fountain' et
+  // 'tree' forcent. Le tirage est graîné sur le COIN de la place, donc stable :
+  // une place ne change pas d'avis d'une frame à l'autre.
   centre: 'auto',
+  centreTreeP: 0.4,   // part des places qui prennent un arbre plutôt qu'une fontaine
   pairTight: 0.95,    // serrage du duo de bancs, en largeurs de banc
   benchInset: 0.62,   // distance du bord de la place au pied du banc
   cornerKeep: 1.0,    // dégagement gardé à chaque coin (les lampadaires y sont)
@@ -156,6 +159,11 @@ const PLAZA_TUNE = {
   shadow: 0.16,       // opacité de l'ombre douce au pied
   grid: false,        // overlay : rôles des cellules + empreintes
   ruler: false,       // overlay : étalon (empreinte de maison + barre de tuile)
+  // EAU ANIMÉE des fontaines. 240 ms par frame et pas 120 : à 120 les
+  // ondulations « allaient trop vite » (retour Raph sur l'ancienne scène), une
+  // eau de fontaine doit rester paisible.
+  anim: true,
+  animMs: 240,
   placeholders: true, // gabarit plat quand aucun art n'existe pour le prop
   rev: 0,
 };
@@ -255,6 +263,23 @@ const RECIPES = {
     lamps: 'corners',
   },
 };
+
+// ── BANDES D'ANIMATION ──────────────────────────────────────────────────────
+// /pixelart/iso/plaza/anim/<prop>-<ère>.png : une bande HORIZONTALE de N frames
+// carrées, au format EXACT du sprite statique (même canvas). Le nombre de frames
+// se déduit de largeur/hauteur — aucune méta à tenir à jour.
+//
+// ⚠ L'ancrage vient du sprite STATIQUE, pas de la frame : mesurer l'encre frame
+// par frame la ferait bouger d'une image à l'autre, et la fontaine tremblerait
+// sur son socle. Les frames partagent le canvas du statique, donc la même
+// géométrie de blit vaut pour toutes.
+function propAnim(prop, era) {
+  const e = art('/pixelart/iso/plaza/anim/' + prop + '-' + era + '.png');
+  if (!e.ready) return null;
+  const w = e.img.naturalWidth | 0, h = e.img.naturalHeight | 0;
+  const n = h > 0 ? Math.max(1, Math.round(w / h)) : 1;
+  return n > 1 ? { img: e.img, n, fw: w / n, fh: h } : null;
+}
 
 // ── ARBRES DE LA PLACE ──────────────────────────────────────────────────────
 // Ils ne passent PAS par le registre d'art d'ici : on pousse un item `tree` au
@@ -464,6 +489,10 @@ function composeOne(L, era, box) {
   // des arbres de la CARTE. `net` = passer par le filet d'empreinte ; le centre
   // ne le franchit pas, il s'impose.
   const treeHT = TREE_INK_HT * PLAZA_TUNE.treeR;
+  // AMORÇAGE des mesures de pied : sans cet appel, le chargement des sprites
+  // d'arbre ne démarrait qu'au premier dessin de margelle — et si la margelle
+  // manquait, jamais. Même piège que `ensureProps()` sur les scènes de moteur.
+  for (let v = 1; v <= 4; v += 1) treeFootMetrics(v);
   let trees = 0;
   // (fx, fy) = où doivent tomber les RACINES. « L'arbre n'est pas central, il
   // faut que ses racines soient au centre » — deux décalages s'additionnaient :
@@ -543,7 +572,9 @@ function composeOne(L, era, box) {
   //    maîtresse s'impose, tout le reste s'écarte d'elle.
   //    `centre` de la molette : 'fountain' (défaut, si la recette en a une),
   //    'tree' pour un arbre, 'auto' = fontaine sinon arbre.
-  const veutArbre = PLAZA_TUNE.centre === 'tree' || !R.centre;
+  const veutArbre = PLAZA_TUNE.centre === 'tree' || !R.centre
+    || (PLAZA_TUNE.centre === 'auto' && R.trees
+        && h01('plz' + sd + ':centre') < PLAZA_TUNE.centreTreeP);
   let centrePris = false;
   if (veutArbre && R.trees) {
     centrePris = putTree(cxc, cyc, 9, false);
@@ -686,7 +717,7 @@ export function isoPlazaCompositions(L, band) {
   // ⚠ AGENT_SCALE et le nombre de pieds d'arbre mesurés entrent dans la CLÉ : le
   // mobilier en `p` dépend du premier, le recentrage des arbres du second.
   const key = CM.layoutRecomputeAt + '|' + era + '|' + PLAZA_TUNE.rev + '|'
-    + PLAZA_TUNE.seed + '|' + AGENT_SCALE + '|' + treeFootCache.size;
+    + PLAZA_TUNE.seed + '|' + AGENT_SCALE + '|' + _artRev;
   if (_compCache.key === key && _compCache.comps) return _compCache.comps;
   const comps = [];
   for (const box of isoPlazaBoxes(L)) {
@@ -734,6 +765,13 @@ function buildLamps(box, w, h, R, T) {
 // gabarit plat. Le décodage d'un sprite invalide DOUCEMENT le bake du sol (même
 // geste que isoArt) : sans ça le sol garderait son état d'avant le décodage.
 const artCache = new Map();
+// RÉVISION D'ART. ⚠ Le recentrage des arbres sur leur pied dépend d'une mesure
+// qui n'existe qu'APRÈS décodage du PNG. Faire porter la clé de composition par
+// le seul nombre de pieds mesurés ne suffisait pas : rien ne garantissait qu'on
+// re-mesure une fois l'image prête, la composition restait figée sur sa version
+// non corrigée jusqu'au prochain recalcul de layout. On incrémente donc à CHAQUE
+// décodage, et la clé le porte — la place se recale à la frame suivante.
+let _artRev = 0;
 function art(src) {
   let e = artCache.get(src);
   if (e) return e;
@@ -743,6 +781,7 @@ function art(src) {
     const im = new Image();
     im.onload = () => {
       e.img = im; e.ready = true;
+      _artRev += 1;                       // → recompose : cf. la clé plus bas
       if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
     };
     im.src = src;
@@ -941,7 +980,7 @@ export function plazaAnchor(bb, iw, ih, px, py, hPx) {
 // Ombre DOUCE au pied et rien d'autre — le socle carré a été rejeté (il marque
 // le conflit au lieu de le régler) — et calée sur la LARGEUR D'ENCRE, pas sur
 // celle du canvas, sinon elle déborde de l'objet.
-export function drawIsoPlazaProp(ctx, rec, era) {
+export function drawIsoPlazaProp(ctx, rec, era, now) {
   const T = CM.TILE, z = CM.cam.zoom;
   const p = worldToScreen(rec.wx, rec.wy);
   let hPx = rec.hT * T * z * PLAZA_TUNE.propScale;
@@ -976,8 +1015,20 @@ export function drawIsoPlazaProp(ctx, rec, era) {
     ctx.ellipse(px, py, rx, rx * 0.34, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  // EAU ANIMÉE : même géométrie que le statique, seule la SOURCE change. Le
+  // cran d'ambiance « aucune » l'arrête avec le reste ; « sobre » la garde,
+  // c'est une animation lente, locale et attendue.
+  const an = (PLAZA_TUNE.anim && (CM.ambianceK ?? 1) > 0 && !rec.front)
+    ? propAnim(rec.prop, era) : null;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
+  if (an) {
+    const f = Math.floor((now || 0) / PLAZA_TUNE.animMs) % an.n;
+    ctx.drawImage(an.img, f * an.fw, 0, an.fw, an.fh, g.dx, g.dy, g.dw, g.dh);
+    lightCutImage(im, g.dx, g.dy, g.dw, g.dh);
+    ctx.imageSmoothingEnabled = prev;
+    return;
+  }
   if (rec.front) {
     // Seule la MOITIÉ BASSE de l'encre : sur une ellipse posée au sol et vue en
     // iso, c'est exactement l'arc AVANT. Découpe en px écran autour du point

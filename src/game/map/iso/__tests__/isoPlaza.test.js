@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 
 import { CM } from "../../layout.js";
 import {
@@ -44,6 +46,11 @@ function plazaLayout(n, gx0 = 10, gy0 = 10, extra = []) {
 const TUNE0 = { ...PLAZA_TUNE, hT: {} };
 function resetTune(over) {
   Object.assign(PLAZA_TUNE, TUNE0, { hT: {} }, over || {});
+  // ⚠ Le centre est TIRÉ par place en 'auto' : laissé tel quel, la moitié des
+  // tests basculerait au hasard entre fontaine et arbre selon la position de la
+  // place d'essai. On l'épingle sur la fontaine par défaut — chaque test reste
+  // ainsi sur SON sujet — et les tests du tirage passent 'auto' explicitement.
+  if (!over || over.centre === undefined) PLAZA_TUNE.centre = "fountain";
   PLAZA_TUNE.rev += 1;
 }
 
@@ -595,6 +602,63 @@ describe("ANCRAGE — le défaut « les éléments volent »", () => {
   });
 });
 
+describe("BANDES D'EAU ANIMÉE", () => {
+  // isoPlaza déduit le nombre de frames de largeur/hauteur, et blite chaque
+  // frame avec la géométrie du sprite STATIQUE. Si une bande n'est pas un
+  // multiple exact du canvas statique, le découpage glisse et la fontaine
+  // dérive d'une frame à l'autre — un défaut qu'aucun test de composition ne
+  // peut voir, parce qu'il vit dans les FICHIERS.
+  const ANIM = "public/pixelart/iso/plaza/anim";
+  const STAT = "public/pixelart/iso/plaza";
+  const dims = (f) => {
+    const b = fs.readFileSync(f);
+    return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+  };
+
+  it("chaque bande est un multiple EXACT du canvas de son sprite statique", () => {
+    if (!fs.existsSync(ANIM)) return;                 // pas encore d'animation
+    const bandes = fs.readdirSync(ANIM).filter((f) => f.endsWith(".png"));
+    expect(bandes.length, "au moins une bande").toBeGreaterThan(0);
+    for (const f of bandes) {
+      const statique = path.join(STAT, f);
+      expect(fs.existsSync(statique), `${f} sans sprite statique`).toBe(true);
+      const a = dims(path.join(ANIM, f)), s = dims(statique);
+      expect(a.h, `${f} : hauteur`).toBe(s.h);
+      expect(a.w % s.w, `${f} : largeur pas multiple de ${s.w}`).toBe(0);
+      const n = a.w / s.w;
+      expect(n, `${f} : nombre de frames`).toBeGreaterThan(1);
+      // Et le nombre déduit par isoPlaza (largeur/hauteur) doit tomber juste :
+      // c'est ce calcul-là qui découpe la bande au rendu.
+      expect(Math.round(a.w / a.h), `${f} : frames déduites`).toBe(n);
+    }
+  });
+
+  it("aucune frame n'est identique au sprite statique", async () => {
+    // PixelLab rend la frame 0 d'une anim v3 comme frame de RÉFÉRENCE : elle
+    // reproduit le sprite d'origine. Gardée dans la boucle, l'eau se FIGE une
+    // image sur N — sur une fontaine, ce hoquet se voit tout de suite. Le
+    // symptôme est invisible aux dimensions : la bande reste un multiple exact,
+    // seul le CONTENU trahit. D'où une comparaison pixel à pixel.
+    if (!fs.existsSync(ANIM)) return;
+    const { PNG } = await import("pngjs");
+    for (const f of fs.readdirSync(ANIM).filter((x) => x.endsWith(".png"))) {
+      const st = PNG.sync.read(fs.readFileSync(path.join(STAT, f)));
+      const sp = PNG.sync.read(fs.readFileSync(path.join(ANIM, f)));
+      const { width: w, height: h } = st;
+      for (let i = 0; i < sp.width / w; i += 1) {
+        let diff = 0;
+        for (let y = 0; y < h; y += 1) {
+          for (let x = 0; x < w; x += 1) {
+            const s = (y * w + x) * 4, d = (y * sp.width + i * w + x) * 4;
+            for (let c = 0; c < 4; c += 1) if (sp.data[d + c] !== st.data[s + c]) { diff += 1; break; }
+          }
+        }
+        expect(diff, `${f} frame ${i} : rejoue le statique, l'eau se fige`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
   // Retour Raph 2026-07-29 : « tu peux faire en sorte que 2 bancs soient côte à
   // côte ? Et il faut que le centre de la place soit pris, soit par un arbre,
@@ -629,6 +693,33 @@ describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
         expect(auCentre, `${era} ${n}×${n} : rien au milieu`).toBe(true);
       }
     }
+  });
+
+  it("ça dépend de la place : certaines ont leur fontaine, d'autres un arbre", () => {
+    // Retour Raph : « ça dépend de la place ». Le tirage est graîné sur le COIN
+    // de la place — donc stable d'une frame à l'autre, et différent d'une place
+    // à sa voisine.
+    const specs = [];
+    for (let k = 0; k < 12; k += 1) specs.push([5, 10 + k * 8, 10 + (k % 3) * 9]);
+    const centreDe = (c) => {
+      const t = c.props.find((p) => p.prop === "tree"
+        && Math.hypot(p.wx / CM.TILE - c.cxc, p.wy / CM.TILE - c.cyc) < 1e-6);
+      return t ? "tree" : "fountain";
+    };
+    resetTune({ centre: "auto" });
+    const comps = isoPlazaCompositions(multiPlazas(specs), 3);
+    expect(comps).toHaveLength(12);
+    const kinds = comps.map(centreDe);
+    expect(kinds.filter((k) => k === "tree").length, "des places à arbre").toBeGreaterThan(0);
+    expect(kinds.filter((k) => k === "fountain").length, "des places à fontaine").toBeGreaterThan(0);
+    // STABLE : le même layout redonne exactement le même partage.
+    resetTune({ centre: "auto" });
+    expect(isoPlazaCompositions(multiPlazas(specs), 3).map(centreDe)).toEqual(kinds);
+    // Et forçable dans les deux sens.
+    resetTune({ centre: "fountain" });
+    expect(isoPlazaCompositions(multiPlazas(specs), 3).map(centreDe).every((k) => k === "fountain")).toBe(true);
+    resetTune({ centre: "tree" });
+    expect(isoPlazaCompositions(multiPlazas(specs), 3).map(centreDe).every((k) => k === "tree")).toBe(true);
   });
 
   it("un ARBRE peut tenir le centre à la place de la fontaine", () => {
