@@ -1,0 +1,101 @@
+/* ---------------------------------------------------------------------------
+ * CLÔTURES : quelles ARÊTES de cellule en portent une (lot L9).
+ * docs/PLAN-TISSU-URBAIN.md.
+ *
+ * La règle, arrêtée avec Raph et suffisante à elle seule :
+ *
+ *   > Une clôture ne se pose que sur un bord qui SÉPARE DEUX MATIÈRES
+ *   > DIFFÉRENTES. Jamais entre deux cellules de même matière.
+ *
+ * Ce n'est pas une précaution parmi d'autres, c'est ce qui écarte le seul vrai
+ * risque du lot. À l'intérieur d'un quartier homogène, aucune arête ne qualifie,
+ * donc rien n'apparaît : on ne peut pas fabriquer par accident le treillis qu'on
+ * vient de passer une séance à retirer. Un plafond serait un pansement ; la règle,
+ * elle, rend le débordement structurellement impossible.
+ *
+ * Deuxième garde-fou, celui-là contre l'accident inverse : une clôture ne part
+ * que d'une SOURCE explicitement autorisée (le parvis d'une merveille, la berge
+ * bâtie). Sans liste blanche, « deux matières différentes » désignerait aussi
+ * chaque couture cour/pavé de la ville — des milliers d'arêtes.
+ *
+ * Module PUR : il ne connaît ni Canvas, ni CM, ni le renderer. Il reçoit des
+ * ensembles et une fonction de matière, il rend une liste d'arêtes. C'est ce qui
+ * le rend testable sans monter une carte.
+ * ------------------------------------------------------------------------- */
+
+// Voisin par côté. Le nom du côté est celui du MONDE, comme les sprites
+// (fence-n/s/e/w-<ère>.png) et comme les allées de seuil.
+const SIDES = [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]];
+
+export const FENCE = {
+  on: true,
+  wonders: true,     // parvis des merveilles — un périmètre, très peu de panneaux
+  quays: true,       // berge bâtie — une LIGNE le long de l'eau, aucun bruit de grille
+  cap: 4000,         // garde-fou de dernier recours, cf. plus bas
+};
+
+/**
+ * Arêtes à clôturer.
+ *
+ * @param {object} o
+ * @param {Set<string>}  o.urbanSet   sol de ville ("gx,gy")
+ * @param {(k:string)=>string} o.matOf matière d'une cellule (urban/dirt/grass…)
+ * @param {Set<string>}  [o.wonderSet] emprise des parvis de merveille
+ * @param {Set<string>}  [o.waterSet]  cellules d'eau
+ * @param {object}       [cfg]        FENCE par défaut
+ * @returns {Array<{gx:number,gy:number,side:string}>} arêtes, ordre déterministe
+ */
+export function fenceEdges(o, cfg = FENCE) {
+  const out = [];
+  if (!cfg.on) return out;
+  const urbanSet = o.urbanSet || new Set();
+  const wonderSet = o.wonderSet || new Set();
+  const waterSet = o.waterSet || new Set();
+  const matOf = o.matOf || (() => 'urban');
+
+  // SOURCES : les seules cellules qui ont le droit de porter une clôture.
+  // Triées, pour que deux calculs du même layout rendent la même liste — un
+  // décor qui se réordonne d'un recompute à l'autre scintille au tri peintre.
+  const sources = new Set();
+  if (cfg.wonders) for (const k of wonderSet) if (urbanSet.has(k)) sources.add(k);
+  if (cfg.quays) {
+    // Berge BÂTIE seulement : une cellule de sol de ville qui touche l'eau. La
+    // rive sauvage n'a pas de garde-corps, elle a de l'herbe.
+    for (const k of urbanSet) {
+      const c = k.indexOf(',');
+      const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+      for (const [, dx, dy] of SIDES) {
+        if (waterSet.has((gx + dx) + ',' + (gy + dy))) { sources.add(k); break; }
+      }
+    }
+  }
+
+  for (const k of [...sources].sort()) {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    const mine = waterSet.has(k) ? 'water' : matOf(k);
+    for (const [side, dx, dy] of SIDES) {
+      const nk = (gx + dx) + ',' + (gy + dy);
+      // Hors sol de ville et hors eau : c'est la campagne, pas une couture à
+      // souligner — la lisière a déjà sa frange d'herbe.
+      const isWater = waterSet.has(nk);
+      if (!isWater && !urbanSet.has(nk)) continue;
+      const theirs = isWater ? 'water' : matOf(nk);
+      if (theirs === mine) continue;               // LA règle
+      // Une arête est partagée : sans ce départage, le parvis et la rue d'en
+      // face poseraient chacun leur panneau au même endroit, en double.
+      // On la donne à la cellule SOURCE ; si les deux sont sources, à la
+      // première dans l'ordre de tri, qui est stable.
+      if (sources.has(nk) && nk < k) continue;
+      out.push({ gx, gy, side });
+      if (out.length >= cfg.cap) return out;       // plafond : voir ci-dessous
+    }
+  }
+  return out;
+}
+
+/* Le PLAFOND n'est pas un réglage de dosage, c'est un fusible. La règle des deux
+ * matières borne déjà le résultat au périmètre des sources ; si ce nombre
+ * explose un jour, c'est qu'une source a été ouverte trop large ou qu'une ère
+ * nouvelle a changé la donne — et on veut que ça s'arrête net et se voie dans le
+ * compteur, plutôt que de découvrir dix mille panneaux à la capture. */
