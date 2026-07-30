@@ -428,6 +428,47 @@ la perspective infinie d'une rue droite). Alignements d'arbres sur les avenues.
 
 ---
 
+### L9 — Clôtures : art livré, pose à faire
+
+**Art livré** (2026-07-30) : `fence-{n,s,e,w}-{antique,medieval,industrial,modern,
+cosmic}.png` dans `public/pixelart/iso/plaza/`, 20 fichiers, même pipeline que les
+bancs (objet 8 directions → 4 diagonales écran → écrasement ×0,5).
+
+**LA RÈGLE DE POSE, et elle suffit à écarter le risque :** une clôture ne se pose que
+sur un bord qui **sépare deux matières différentes** — parvis ↔ rue, friche ↔ pavé,
+quai ↔ eau, lot ↔ rue. Jamais entre deux cellules de même matière. À l'intérieur d'un
+quartier homogène aucun bord ne qualifie, donc rien n'apparaît : **pas de nouveau
+treillis**, ce qui annulerait la séance passée à en retirer un. Le champ de matières
+de L2 sait déjà trancher.
+
+**Ordre retenu** (du plus rentable au plus risqué) :
+1. **parvis des merveilles** — un périmètre, quelques dizaines de panneaux, et le
+   parvis cesse de finir sur une simple arête de matière ;
+2. **quai et berge bâtie** — un garde-corps le long de l'eau est une LIGNE, pas une
+   maille : aucun bruit de grille ajouté ;
+3. **bord des grandes friches et cours** — 19 taches de médiane 52 cellules, donc peu
+   de périmètres et longs : « une zone verte » devient « un parc » ;
+4. **trou dans le front de rue** — celui qui paie le lot (mur de rue enfin continu, ce
+   que le poussé de L3 ne peut pas faire), mais le plus nombreux : en dernier, sous
+   plafond.
+
+**🚫 Écarté** : autour de chaque maison (nouveau treillis), autour des places (une
+place est publique, l'enclore en fait un enclos — des bornes aux angles si besoin),
+autour des tours (leur emprise se lit déjà comme une enceinte).
+
+**⚠ Deux contraintes techniques.**
+- **Tri peintre, jamais la cuisson du sol.** Une clôture est par définition sur une
+  arête, donc à cheval sur deux cellules — et un décor à cheval cuit dans le sol est
+  rogné au défilement (le refus tombé sept fois sur la jonction herbe/ville). Dans la
+  passe vivante, comme les lampadaires, le problème n'existe pas.
+- **Un compteur avant de livrer.** « Ça alourdit » ne se teste pas, « tant de panneaux
+  à l'écran » si. Compteur dans `__tissu()` et plafond dur, pour qu'une ère future ne
+  puisse pas en faire pousser dix mille sans que ça se voie.
+
+**⚠ À vérifier au branchement** : ces panneaux ont des poteaux d'about, donc deux
+bouts à bout feront un double poteau. Plausible sur du bois, moins sur de la pierre.
+Si ça jure, générer une variante « milieu de course » — mais le voir en jeu d'abord.
+
 ## 5. Ordre de livraison
 
 | Jalon | Lots | État |
