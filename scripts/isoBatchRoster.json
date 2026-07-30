@@ -257,8 +257,8 @@
     },
     {
       "name": "container",
-      "id": "1509f658-ff78-41f2-9385-16276a2463ab",
-      "prompt": "container barge (8-dir 80px)"
+      "id": "b2284154-7bf5-4166-9d71-4fd53a90bc73",
+      "prompt": "container cargo ship seen from every side, pale turquoise hull with a dark red waterline stripe, cream white bridge tower standing at the stern, deck fully stacked with vivid shipping containers in brick red, forest green and cream, sandy tan foredeck, identical paint scheme on all sides (8-dir 85px) — ⚠ v1 (1509f658, prompt vague « container barge ») REFAITE : 2 faces sur 8 (northwest, northeast) racontaient un autre bateau, chateau blanc disparu et pont couvert d'ocre. Une tentative v2 avec image de REFERENCE a corrige la coherence mais fait deriver la palette (coque verte, chateau vert) — c'est le PROMPT detaille qui a marche, pas la reference. Verif : node scripts/boatFaces.mjs container"
     },
     {
       "name": "fisher",
