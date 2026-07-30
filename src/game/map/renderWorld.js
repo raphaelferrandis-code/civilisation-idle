@@ -477,10 +477,14 @@ function cmRiverNormalAt(sm, i) {
 // NB : gating PUR (urbain ou non) — la décision de dessiner dépend de l'ère/usure,
 // évaluée par frame côté appelant (pas figée dans ce cache).
 const QUAY_GATE_LAND = 1.0;   // échantillonnage : ~1 tuile au-delà du bord d'eau
+// La clé porte le layout ET le mode `full` de la molette : depuis que le masque
+// EFFECTIF du quai est calculé ici (cf. plus bas), il dépend de `full`, et un
+// cache indexé sur le seul layout aurait servi l'ancien masque après bascule.
+const gateKey = () => CM.layoutRecomputeAt + (quayWallTune.full ? ':f' : ':u');
 function ensureQuayGate() {
   const L = CM.layout;
   if (!L || !L.river || !L.river.present || !L.river.samples) { CM.quayGate = null; CM.quayBankCells = null; return; }
-  if (CM.quayGate && CM.quayGate.key === CM.layoutRecomputeAt) return;
+  if (CM.quayGate && CM.quayGate.key === gateKey()) return;
   const sm = L.river.samples, n0 = sm.length, roadSet = L.roadSet;
   const urbanAt = (px, py) => {
     if (!roadSet) return false;
@@ -536,8 +540,94 @@ function ensureQuayGate() {
         bankCells.add(Math.floor(s.x + side * n.nx * off) + "," + Math.floor(s.y + side * n.ny * off));
     }
   }
-  CM.quayGate = { key: CM.layoutRecomputeAt, plus, minus };
+  // ── MASQUE EFFECTIF DU QUAI, ET POURQUOI IL VIT ICI ─────────────────────────
+  // `plus`/`minus` disent seulement « la berge est-elle urbaine ». Ce que le quai
+  // TRACE vraiment, c'est autre chose : en mode `full` il court partout SAUF sous
+  // le port, et dans les deux modes il s'efface là où le fleuve est trop étroit
+  // et aux deux extrémités. Ce calcul vivait dans cityMapDrawQuays, donc APRÈS le
+  // dessin du fleuve dans la frame — inutilisable par le bas-fond du ruban, qui a
+  // besoin de savoir où le quai NE trace PAS pour prendre le relais (Raph,
+  // 2026-07-30 : « il n'y a plus de quais ni de liseré, ça fait une coupe nette »).
+  // Remonté ici, il est calculé une fois par layout et lisible par tout le monde.
+  const QUAY_MIN_HW = 1.6, QUAY_END = 3;
+  const drawPlus = new Uint8Array(n0), drawMinus = new Uint8Array(n0);
+  const naturalOff = new Uint8Array(n0);   // 1 = coupé pour raison NATURELLE (≠ port) → bout carré
+  if (quayWallTune.full) {
+    drawPlus.fill(1); drawMinus.fill(1);
+    for (const t of (L.tiles || [])) {
+      if (t.buildingId !== "river_ports") continue;
+      const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
+      for (let i = 0; i < n0; i += 1) if (sm[i].x >= x0 && sm[i].x <= x1) { drawPlus[i] = 0; drawMinus[i] = 0; }
+    }
+  } else { drawPlus.set(plus); drawMinus.set(minus); }
+  for (let i = 0; i < n0; i += 1) {
+    if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) {
+      drawPlus[i] = 0; drawMinus[i] = 0; naturalOff[i] = 1;
+    }
+  }
+  // Un run d'UN seul sample ne produit aucun trait (`if (i > a) drawRun(...)`) :
+  // on le retire du masque, sinon le ruban croirait que le quai s'en occupe et on
+  // garderait un trou d'un sample sans bas-fond ni maçonnerie.
+  for (const m of [drawPlus, drawMinus]) {
+    let i = 0;
+    while (i < n0) {
+      if (!m[i]) { i += 1; continue; }
+      const a = i; while (i + 1 < n0 && m[i + 1]) i += 1;
+      if (i === a) m[a] = 0;
+      i += 1;
+    }
+  }
+  // ── CELLULES DU TROU, PAS DU QUAI ───────────────────────────────────────────
+  // C'est là que va la plage de galets (bake du sol). ⚠ Le premier jet prenait le
+  // COMPLÉMENT des cellules couvertes par le quai : inutilisable, parce qu'en mode
+  // `full` le quai longe tout le fleuve, donc « pas de quai » ne désignait qu'une
+  // poussière de cellules éparses que l'échantillonnage du quai avait manquées —
+  // des taches grises au hasard, pas un rivage. On sample donc directement les
+  // samples où le masque est à 0 : l'emprise du port, les passages trop étroits
+  // pour un mur, les extrémités. Un patch CONTIGU, exactement là où la coupe nette
+  // se voit. Élargi à 2 tuiles côté terre : une plage d'une cellule de large se
+  // retrouve presque entièrement sous le ruban du fleuve.
+  //
+  // ⚠⚠ ON PUBLIE DES POINTS, PAS DES CELLULES, ET C'EST LE FRUIT DE DEUX ÉCHECS.
+  //  1. Le complément des cellules couvertes par le quai : en mode `full` le quai
+  //     longe tout le fleuve, donc « pas de quai » ne désignait qu'une poussière de
+  //     cellules éparses manquées par l'échantillonnage — des taches au hasard.
+  //  2. L'échantillonnage des normales sur le trou ÉLARGI : là où le fleuve est
+  //     étroit ou coudé, `s.hw + 2` le long de la normale tombe à l'intérieur des
+  //     terres — on obtenait des plaques de galets loin de l'eau, au milieu de la
+  //     ville. Une normale n'est pas une garantie de proximité de l'eau.
+  // La forme juste est donc : le consommateur part de `river.banks` (par
+  // construction la couronne de cellules qui TOUCHE l'eau — impossible de dériver
+  // vers l'intérieur) et ne garde que celles proches d'un de ces points. Un point
+  // par sample sans quai : le port, les passages trop étroits, les extrémités.
+  const gapPts = [];
+  for (let i = 0; i < n0; i += 1) {
+    if (drawPlus[i] && drawMinus[i]) continue;
+    gapPts.push({ x: sm[i].x, y: sm[i].y });
+  }
+  CM.quayGate = { key: gateKey(), plus, minus, drawPlus, drawMinus, naturalOff, gapPts };
   CM.quayBankCells = bankCells;
+}
+
+// Tronçons où le quai ne trace RIEN : les runs de 0 du masque effectif. C'est là
+// que le bas-fond clair du ruban doit reprendre la main (drawIsoRiver).
+//
+// `pad` étend chaque run de N samples DANS le territoire du quai. Sans ce
+// recouvrement, les deux traits s'arrêtent au même sample et laissent une couture
+// visible ; le quai fait déjà exactement ça pour ses segments de mur.
+//
+// Pure et exportée : c'est de la découpe d'intervalles, ça se teste sans canvas.
+export function quayGapRuns(mask, n, pad = 1) {
+  const out = [];
+  if (!mask) return [[0, Math.max(0, n - 1)]];       // pas de masque → tout le ruban
+  let i = 0;
+  while (i < n) {
+    if (mask[i]) { i += 1; continue; }
+    const a = i; while (i + 1 < n && !mask[i + 1]) i += 1;
+    out.push([Math.max(0, a - pad), Math.min(n - 1, i + pad)]);
+    i += 1;
+  }
+  return out;
 }
 
 // Réglage molette du BORD de quai (berge maçonnée, cf. drawRun dans cityMapDrawQuays) :
@@ -745,8 +835,16 @@ function cityMapDrawQuays(now, mode) {
         }
         ctx.stroke();
       };
-      shoreLine("rgba(150,184,180,0.50)", Math.max(3, z * 5));    // bas-fond doux (halo)
-      shoreLine("rgba(202,224,214,0.62)", Math.max(1, z * 2.2));  // liseré clair AU bord
+      // TEINTES DU CORPS D'EAU COURANT (Raph, 2026-07-30). Depuis les coloris
+      // pilotés par l'état, ce bas-fond restait bleu-gris ardoise au pied du mur
+      // alors que le fleuve passait à l'azur ou au turquoise. Il est publié par
+      // le renderer iso sur CM.waterShore (isoRenderer, waterBandNow) plutôt
+      // qu'importé : ce fichier est le tronc commun des deux pipelines, et un
+      // import croisé vers isoRenderer ferait un cycle. Repli = les valeurs
+      // d'origine, donc le pipeline legacy et le fleuve ruiné ne changent pas.
+      const wq = (CM.waterShore && CM.waterShore.quay) || ["rgba(150,184,180,0.50)", "rgba(202,224,214,0.62)"];
+      shoreLine(wq[0], Math.max(3, z * 5));    // bas-fond doux (halo)
+      shoreLine(wq[1], Math.max(1, z * 2.2));  // liseré clair AU bord
     }
 
     // 3) Joints de dalles du DESSUS : ticks perpendiculaires (pierre/marbre).
@@ -788,27 +886,13 @@ function cityMapDrawQuays(now, mode) {
     }
   };
 
-  // Gate des runs. Par défaut la berge suit le liseré URBAIN (quayGate, proche des
-  // routes). En mode `full` (défaut), la berge maçonnée court TOUT LE LONG de l'eau :
-  // 1 partout, SAUF sous le port (seul riverain) qui pose son propre front.
-  // Copies FRAÎCHES (ne pas muter le quayGate caché) : full = 1 partout, urbain = le gate.
-  const plusG = new Uint8Array(n0), minusG = new Uint8Array(n0);
-  if (quayWallTune.full) {
-    plusG.fill(1); minusG.fill(1);
-    for (const t of (L.tiles || [])) {
-      if (t.buildingId !== "river_ports") continue;
-      const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
-      for (let i = 0; i < n0; i += 1) if (sm[i].x >= x0 && sm[i].x <= x1) { plusG[i] = 0; minusG[i] = 0; }
-    }
-  } else {
-    plusG.set(g.plus); minusG.set(g.minus);
-  }
-  // Pas de quai là où le fleuve est TROP ÉTROIT (début/fin où les 2 berges
-  // CONVERGENT) : sinon les murs se rejoignent en une longue POINTE triangulaire
-  // (retour Raph « le début du quai ça ne va pas »). Seuil sur la demi-largeur.
-  const QUAY_MIN_HW = 1.6, QUAY_END = 3;   // + source/embouchure (premiers/derniers samples) = berge naturelle
-  naturalOff = new Uint8Array(n0);          // 1 = gate coupé pour raison NATURELLE (≠ port) → bout carré
-  for (let i = 0; i < n0; i += 1) if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) { plusG[i] = 0; minusG[i] = 0; naturalOff[i] = 1; }
+  // Gate des runs : le masque EFFECTIF, calculé par ensureQuayGate (mode `full`
+  // + coupe du port + fleuve trop étroit + extrémités, cf. son commentaire).
+  // Il vit là-bas et plus ici parce que le bas-fond du ruban, dessiné AVANT les
+  // quais dans la frame, a besoin du même masque pour prendre le relais là où la
+  // maçonnerie s'arrête — sinon plus personne ne dessine le bord de l'eau.
+  const plusG = g.drawPlus, minusG = g.drawMinus;
+  naturalOff = g.naturalOff;
   for (let si = 0; si < 2; si += 1) {
     const side = si ? -1 : 1, gate = si ? minusG : plusG;
     let i = 0;

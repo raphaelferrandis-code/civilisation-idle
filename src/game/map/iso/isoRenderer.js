@@ -36,7 +36,7 @@ import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
 } from '../lightLayer.js';
-import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune } from '../renderWorld.js';
+import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune, quayGapRuns } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
 import {
@@ -97,6 +97,15 @@ export const waterShoreTune = {
   // ci-dessous, qui restent le jeu ardoise d'origine (et le repli si la table des
   // coloris ne dit rien).
   follow: true,
+  // ÎLES : pas de liseré (Raph, 2026-07-30 — « tu peux pas poser le liseré autour
+  // de l'île, et remplacer sa texture par le sable ? »). Le bas-fond clair leur
+  // avait été rendu le matin même, quand un booléen global l'éteignait à tort ;
+  // mais depuis que le rivage de SABLE borde l'île, les deux disent la même chose
+  // au même endroit — et deux franges concentriques autour d'un fuseau de 4,8
+  // tuiles de large, c'est une cible, pas une berge. Le sable porte seul la
+  // transition. La berge du FLEUVE garde son liseré : c'est lui qui a réglé la
+  // coupe nette au port.
+  islands: false,
   maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
   lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
@@ -157,7 +166,7 @@ const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},$
 // point qu'un parvis de merveille et une place de quartier avaient le même sol —
 // rien ne disait que le monument était important. Le prompt et les gardes sont
 // dans scripts/fetchGroundTiles.mjs.
-const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza: 'iso-plaza', wonder: 'iso-wonder' };
+const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza: 'iso-plaza', wonder: 'iso-wonder', shingle: 'iso-shingle', sand: 'iso-sand' };
 // VARIANTES par matière — public/pixelart/iso/<clé>-1..N.png (scripts/fetchGroundTiles.mjs).
 // Clé absente ou N ≤ 1 : tuile unique <clé>.png, comme avant.
 //
@@ -175,6 +184,12 @@ const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza
 export const ISO_TILE_VARIANTS = {
   'iso-wonder': 4,
   'iso-grass': 4, 'iso-dirt': 4, 'iso-plaza': 4,
+  // Galets de rivage : les 4 variantes échelonnent le CALIBRE de la pierre, pas
+  // la valeur (écart de luminance 1,9 mesuré) — rien à égaliser, cf. le lot
+  // 4dc13d54 dans fetchGroundTiles.mjs.
+  'iso-shingle': 4, 'iso-shingle-winter': 4,
+  // Sable de rivage : réserve de l'ancien lot road-tech, écart 4,0 entre variantes.
+  'iso-sand': 4,
   // Dallage de place PAR ÈRE (Raph 2026-07-30 : « je veux des sprites de dalles,
   // pas de traits »). Appareillage en ARCS — le tracé rayonnant qu'il avait
   // refusé était dessiné à la volée par la place ; ici le rayonnement est CUIT
@@ -206,6 +221,10 @@ export const ISO_TILE_WINTER = {
   'ground-cobble': 'ground-cobble-winter',
   'ground-flagstone': 'ground-flagstone-winter',
   'ground-concrete': 'ground-concrete-winter',
+  'iso-shingle': 'iso-shingle-winter',
+  // Le sable emprunte le gravier enneigé : il n'y a pas de sable sous la neige
+  // dans le lot, et une plage couverte n'a plus de couleur propre de toute façon.
+  'iso-sand': 'iso-shingle-winter',
 };
 // Clé de la variante d'une cellule, depuis le hash DÉJÀ calculé par l'appelant
 // (celui qui décide aussi le miroir) — pas de second cmHash par cellule.
@@ -641,6 +660,68 @@ const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45, speck
 // olive du bake (plus clair que les brins → relief inversé, points clairs).
 // = ton moyen mesuré du lot (l'aperçu validé par Raph posait exactement ça).
 // La version HIVER suit la tuile enneigée (ton mesuré par fetchGroundTiles).
+// Galets de rivage : tons MESURÉS sur les tuiles normalisées (imprimés par
+// fetchGroundTiles.mjs). Servent d'aplat de repli le temps que le PNG décode, et
+// de teinte au dézoom. `BEACH` est la molette de la plage : window.__beach.
+const SHINGLE_TONE = [127, 130, 136];
+const SHINGLE_TONE_WINTER = [174, 178, 183];
+const SAND_TONE = [221, 195, 158];
+export const BEACH = {
+  on: true,
+  // MATIÈRE du rivage. Raph a d'abord choisi les galets gris sur planche, puis
+  // demandé le sable en les voyant en place (2026-07-30) — les deux matières
+  // restent cuites, le basculement est un mot : `__beach.mat = 'shingle'`.
+  mat: 'sand',
+  // Largeur du rivage d'île, en TUILES depuis le bord de l'ellipse.
+  //
+  // ⚠ PAS un rayon normalisé : premier jet à 0,62 de rayon, et l'île y passait
+  // presque entière aux galets. L'Aiguille fait rx 7,6 pour ry 2,4 — un rayon
+  // constant donne une bande de 2,9 tuiles dans le sens du courant et de 0,9 en
+  // travers, donc un plateau de gravier avec des mouchoirs d'herbe au milieu au
+  // lieu d'une île herbue bordée de galets. La largeur doit être MÉTRIQUE, la
+  // même partout, ce qui demande la distance au bord et pas le rayon.
+  // ⚠ ET LA LARGEUR SE JUGE AU RAPPORT À L'ÎLE, PAS DANS L'ABSOLU : 1,3 tuile
+  // paraissait modeste, mais l'Aiguille ne fait que 4,8 tuiles de LARGE (ry 2,4)
+  // — le rivage en mangeait la moitié et se lisait comme une allée de gravier.
+  // 0,75 donne un rebord d'une cellule, deux aux pointes du fuseau (la courbure y
+  // fait grandir la distance au bord), ce qui est exactement le dessin d'une
+  // langue de galets à la pointe d'une île de rivière.
+  // Largeur du rivage d'île, en TUILES, mesurée depuis le bord de l'ellipse. C'est
+  // un TRAIT le long de la courbe (cf. drawIsoIslandShore) et non des cellules :
+  // sur un fuseau de 4,8 tuiles de large, la grille ne peut pas rendre un contour
+  // régulier, quelle que soit la règle de classement.
+  islandW: 0.8,
+  // Bande de sable TEXTURÉE le long des berges du fleuve, côté terre, en tuiles.
+  // Elle double les cellules bakées : celles-ci donnent la profondeur vers
+  // l'intérieur, la bande donne le bord NET contre l'eau (les cellules, elles,
+  // s'arrêtent en escalier). 0 la coupe.
+  bankBand: 0.55,
+  // ⛔ IL Y AVAIT ICI UN TIRAGE AU SORT SUR LA LARGEUR, RETIRÉ (Raph : « on veut un
+  // joli contour identique »). Faire divaguer une lisière marche sur une grande
+  // étendue — c'est ce que fait FRONTIER pour la limite ville↔campagne — mais sur
+  // un anneau étroit ça ne fabrique pas un rivage irrégulier, ça fabrique des
+  // TROUS. Ne pas le réintroduire pour les îles.
+  // Rayon d'influence, en tuiles, autour d'un point de berge sans quai : le port
+  // ne coupe la maçonnerie que sur 4 samples (≈ 4,5 tuiles), et sa propre emprise
+  // en occupe l'essentiel — sans rayon, la grève faisait UNE cellule.
+  bankR: 7,
+  // Frange MOUILLÉE au ras de l'eau (couche vectorielle, cf. son bloc). Le ton
+  // suit la matière : pour les galets c'est la 4e rangée du lot, mesurée à
+  // [95,100,106] — des cailloux sombres et luisants ; pour le sable c'est le ton
+  // sec assombri, parce que du sable humide est du sable, pas du gris.
+  wet: 0.55, wetW: 5,
+  wetTone: { sand: '156,132,100', shingle: '95,100,106' },
+  wetWinter: '132,140,148',
+};
+if (typeof window !== 'undefined') window.__beach = BEACH;
+// ⛔ IL Y AVAIT ICI DEUX MESURES DE DISTANCE AU BORD DE L'ÎLE, en tuiles, pour
+// décider CELLULE PAR CELLULE si elle appartenait au rivage. Les deux sont
+// retirées avec l'approche : le contour d'île est désormais TRACÉ le long de son
+// ellipse (drawIsoIslandShore). Elles étaient justes — la seconde fermait
+// effectivement l'anneau, et un test le prouvait — mais aucune règle par cellule
+// ne peut donner une largeur RÉGULIÈRE sur un objet de 4,8 tuiles de large, et
+// c'était la demande. Leurs tests partent avec elles : garder des gardes sur du
+// code que plus rien n'appelle, c'est de la décoration.
 const GRASS_TILE_UNDER = [42, 85, 39];
 const GRASS_TILE_UNDER_WINTER = [126, 143, 137];   // ton mesuré du lot hiver (fetchGroundTiles)
 const GD_BLADE = [66, 100, 46];      // brin foncé
@@ -1822,6 +1903,95 @@ function drawIsoGround() {
   const built = builtCells(L);
   const courK = courOf(L);      // quartier / cour / friche par cellule (cf. COUR)
   const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, urbanLogical, built);
+  // ── PLAGE DES BERGES DU FLEUVE (Raph, 2026-07-30 : « il faut générer une
+  // plage ») ──────────────────────────────────────────────────────────────────
+  // Elle va là où la maçonnerie du quai s'arrête : l'emprise du port (que
+  // `ensureQuayGate` coupe exprès), les passages trop étroits pour un mur, les deux
+  // extrémités du fleuve. Le pourtour des ÎLES, lui, est TRACÉ (drawIsoIslandShore)
+  // et non baké : voir son en-tête, la grille est trop grossière à cette taille.
+  //
+  // ⚠ POURQUOI UNE MATIÈRE BAKÉE PAR CELLULE SUR LES BERGES. Ce projet a déjà
+  // rejeté trois fois une nappe lisse posée sur du pixel art (le grain d'eau, les
+  // vaguelettes, les filets de courant) : sur une large étendue, une plage doit
+  // être de la MATIÈRE avec du grain, pas un aplat. Le prix est que la cellule est
+  // alignée sur la grille, donc le bord EXTÉRIEUR de la plage est en escalier.
+  // Ça passe ici, contrairement à la jonction herbe↔ville (7 refus) : le bord
+  // INTÉRIEUR, au ras de l'eau, est recouvert par le ruban du fleuve — l'escalier
+  // ne touche jamais la ligne d'eau — et un bord sable↔herbe dentelé se lit comme
+  // un rivage irrégulier, là où un escalier eau↔terre se lit comme un bug.
+  // ⚠ Le gate doit être FRAIS ici : le sol est baké AVANT le fleuve dans la frame,
+  // donc personne ne l'a encore calculé au premier passage. Idempotent et caché
+  // par layout, l'appel ne coûte rien les fois suivantes.
+  ensureQuayGate();
+  const beachIsles = (L.river && L.river.islands) || null;
+  // ÎLES : toute cellule que l'ellipse touche. Les 4 coins et le centre sont
+  // testés, donc les cellules du bord entrent aussi — l'île est pleine, sans trou.
+  const beachIslandAt = (gx, gy) => {
+    if (!BEACH.on || !beachIsles || !beachIsles.length) return false;
+    for (const il of beachIsles) {
+      const rx = Math.max(0.001, il.rx), ry = Math.max(0.001, il.ry);
+      for (const [px, py] of [[gx, gy], [gx + 1, gy], [gx, gy + 1], [gx + 1, gy + 1], [gx + 0.5, gy + 0.5]]) {
+        const dx = px - il.x, dy = py - il.y;
+        const al = dx * il.tx + dy * il.ty, cr = -dx * il.ty + dy * il.tx;
+        if (Math.hypot(al / rx, cr / ry) <= 1) return true;
+      }
+    }
+    return false;
+  };
+  const beachBanks = (L.river && L.river.banks) || null;
+  // ⚠ LE PORT EST EXEMPTÉ DE L'EXCLUSION DES CELLULES BÂTIES. Retour Raph : « il y
+  // a une bande de gazon au port qui coupe la plage en 2 ». Mesuré : sur les 72
+  // cellules de berge concernées, 4 étaient écartées comme bâties — et les 4
+  // appartiennent au port. Son emprise (4×5) mord la berge en plein milieu de la
+  // grève et y laissait l'herbe. Or un port de rivière est un PONTON posé sur le
+  // rivage : du sable dessous est juste, et son sprite recouvre les cellules de
+  // toute façon. Les autres bâtiments gardent l'exclusion — pas de sable sous une
+  // maison — et les ROUTES aussi (une rampe vers le quai reste une rampe).
+  const beachPortCells = new Set();
+  for (const t of (L.tiles || [])) {
+    if (t.buildingId !== 'river_ports') continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) beachPortCells.add((t.gx + ax) + ',' + (t.gy + ay));
+  }
+  const beachPts = (CM.quayGate && CM.quayGate.gapPts) || null;
+  // BERGES : une cellule de `river.banks` — donc qui TOUCHE l'eau par construction,
+  // impossible de dériver vers l'intérieur des terres — et proche d'un point où le
+  // quai ne trace pas (cf. gapPts dans renderWorld pour les deux formes ratées qui
+  // ont mené à celle-ci). Le rayon fait de la coupe de 4 samples du port une
+  // grève d'une douzaine de tuiles, assez pour se lire, et fond la plage dans la
+  // maçonnerie au lieu de l'arrêter net contre elle.
+  const beachBankAt = (gx, gy, key) => {
+    if (!BEACH.on || !beachBanks || !beachPts || !beachPts.length) return false;
+    if (!beachBanks.has(key)) return false;
+    const cx = gx + 0.5, cy = gy + 0.5, r2 = BEACH.bankR * BEACH.bankR;
+    for (const p of beachPts) {
+      const dx = cx - p.x, dy = cy - p.y;
+      if (dx * dx + dy * dy <= r2) return true;
+    }
+    return false;
+  };
+  // ÎLES : anneau extérieur de l'ellipse, en coordonnées de l'île (`tx,ty` = le sens
+  // du courant). Test ANALYTIQUE, donc exact quelle que soit l'orientation — aucun
+  // jeu de cellules à maintenir pour l'île.
+  //
+  // ⚠ TESTÉ AVANT LE SOL DE VILLE, et c'est indispensable : les cellules de l'île
+  // sont dans `urbanSet` (c'est l'emprise de la merveille qui l'a fait naître), donc
+  // la branche « sol de ville » les prenait toutes et la plage ne sortait JAMAIS.
+  // Mesuré sur l'Aiguille : 60 cellules urbaines sur les 89 de l'ellipse, 0 berge
+  // classée. Le parvis d'une merveille (kind 'wonder') garde en revanche la
+  // priorité, et les routes aussi — un pont qui traverse l'île reste un pont.
+  // ⚠⚠ ON TESTE LA CELLULE ENTIÈRE, PAS SON CENTRE — et sans tirage au sort.
+  // Retour Raph : « le contour n'est pas bien fait, on veut un joli contour
+  // identique ». La v1 testait le seul centre de la cellule et faisait divaguer la
+  // largeur au hasard : sur un fuseau de 4,8 tuiles de large, la grille est trop
+  // grossière pour ça et le rivage sortait en POINTILLÉ — des bouts de sable
+  // séparés par des bouts d'herbe. Le hasard qui donne une jolie lisière sur une
+  // grande étendue (cf. FRONTIER) casse un anneau étroit.
+  //
+  // On échantillonne donc les 4 coins ET le centre, on garde la distance MINIMALE,
+  // et un point hors de l'ellipse compte pour 0 : toute cellule que le bord
+  // TRAVERSE entre dans l'anneau. L'anneau est alors FERMÉ par construction —
+  // aucune cellule frontière ne peut être sautée — et d'épaisseur régulière.
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
     const hit = kinds.get(key);
@@ -1834,6 +2004,29 @@ function drawIsoGround() {
     // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
     // garde la priorité — le ruban du fleuve passe dessus, berges douces).
     else if (!isWater && wg && wg.has(key)) k = 'wonder';
+    // ── L'ÎLE EST ENTIÈREMENT EN SABLE ────────────────────────────────────────
+    // Demande de Raph (2026-07-30, après l'anneau) : « fais toute l'île en sable ».
+    // Toute cellule que l'ellipse touche, pas seulement son pourtour — le test
+    // porte sur les 4 coins et le centre, donc les cellules du bord entrent aussi
+    // et il ne reste aucun trou. Le contour TRACÉ (drawIsoIslandShore) garde son
+    // rôle : lui seul suit la courbe au pixel et lisse l'escalier des cellules
+    // sur la ligne d'eau. Priorité AVANT le sol de ville, sans quoi l'emprise de
+    // la merveille reprendrait l'île (mesuré : 60 cellules urbaines sur 89).
+    else if (!isWater && !isRoad && (!built.has(key) || beachPortCells.has(key))
+      && beachIslandAt(gx, gy)) k = BEACH.mat;
+    // ── PLAGE SUR LES BERGES DU FLEUVE, AVANT LE SOL DE VILLE ─────────────────
+    // ⚠ Cette priorité est le cœur du correctif, et elle a coûté deux essais.
+    // Les cellules concernées sont presque toutes dans `urbanSet` : celles de
+    // l'ÎLE parce que c'est l'emprise de la merveille qui l'a fait naître (mesuré
+    // 60 sur 89), celles du PORT parce que le port et son tissu sont de la ville
+    // (mesuré 13 des 59 cellules du trou de quai). Testée après « sol de ville »,
+    // la plage ne sortait donc JAMAIS là où Raph la demandait — seulement aux
+    // extrémités du fleuve, hors carte. Ce qui garde la priorité : le parvis d'une
+    // merveille, les ROUTES (un pont qui traverse l'île reste un pont) et toute
+    // cellule BÂTIE — sauf le PORT lui-même, cf. beachPortCells : son emprise
+    // mordait la grève en plein milieu et y laissait une bande d'herbe.
+    else if (!isWater && !isRoad && (!built.has(key) || beachPortCells.has(key))
+      && beachBankAt(gx, gy, key)) k = BEACH.mat;
     // Routes HORS tissu urbain : fond d'HERBE depuis le 2026-07-20 (retour Raph :
     // le fond de cellule 'dirt' — aplat terre + tuile de mottes — dépassait du
     // ruban en « pavé de terre » cranté à la jonction herbe↔sol). Le chemin se
@@ -1861,6 +2054,12 @@ function drawIsoGround() {
     if (FRONTIER.on && !isRoad && !isWater && (k === 'urban' || k === 'dirt' || k === 'grass')) {
       const cityish = k !== 'grass';
       if (frontierFlips(gx, gy, cityish)) k = cityish ? 'grass' : (COUR.on ? 'dirt' : 'urban');
+    }
+    // Diagnostic opt-in (globalThis.__beachStats = true) : combien de cellules de
+    // chaque matière le bake a classées. Éteint, coût nul (un test de drapeau).
+    if (globalThis.__beachStats) {
+      const s = globalThis.__beachStatsLast || (globalThis.__beachStatsLast = {});
+      s[k] = (s[k] || 0) + 1;
     }
     kinds.set(key, k);
     return k;
@@ -1951,7 +2150,9 @@ function drawIsoGround() {
       const isWater = !!(riverCells && riverCells.has(key));
       const kind = kindAt(gx, gy);
       const tone = kind === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : kind === 'wonder' ? WONDER_GROUND.tone
-        : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE : urb;
+        : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE
+          : kind === 'shingle' ? (CM.season === WINTER ? SHINGLE_TONE_WINTER : SHINGLE_TONE)
+            : kind === 'sand' ? (CM.season === WINTER ? SHINGLE_TONE_WINTER : SAND_TONE) : urb;
       // UN hash par cellule pour les deux tirages : le miroir (bit 3) et la
       // variante de tuile (bits 5-6, cf. isoVariantKey). Deux cmHash séparés ne
       // coûteraient rien de plus qu'ils ne rapporteraient — mêmes bits, même
@@ -2601,9 +2802,11 @@ const riverIslands = () => {
   return (rv && rv.islands) || null;
 };
 
-function riverRibbonPath(ctx, pts, T) {
+// `keep` : n'ouvre PAS un chemin neuf, ajoute le ruban à celui en cours. Sert au
+// clip « côté TERRE » (rect plein + ruban en evenodd) du liseré de galets humides.
+function riverRibbonPath(ctx, pts, T, keep = false) {
   const { left, right } = riverRibbonScreen(pts, T);
-  ctx.beginPath();
+  if (!keep) ctx.beginPath();
   ctx.moveTo(left[0].x, left[0].y);
   for (let i = 1; i < left.length; i += 1) ctx.lineTo(left[i].x, left[i].y);
   for (let i = right.length - 1; i >= 0; i -= 1) ctx.lineTo(right[i].x, right[i].y);
@@ -3409,6 +3612,109 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   ctx.imageSmoothingEnabled = prevS;
 }
 
+/* ── MOTIF RÉPÉTABLE DE LA MATIÈRE DE PLAGE ───────────────────────────────────
+ * Retour Raph : « tu ne peux pas faire le liseré en texture de sable ? » — oui, et
+ * c'est mieux qu'un aplat : le trait cesse d'être un trait, il devient la matière.
+ *
+ * ⚠ LE PIÈGE EST LA FORME DE LA TUILE. Les tuiles de sol sont des LOSANGES 64×32
+ * aux quatre coins transparents : passée telle quelle à `createPattern`, la
+ * répétition laisse un trou en losange à chaque angle. On recompose donc un carré
+ * PLEIN en dessinant la même tuile cinq fois — au centre, puis décalée d'un
+ * demi-pas dans les quatre diagonales : les voisins bouchent exactement les coins.
+ * C'est la géométrie du pavage iso, pas une bidouille.
+ *
+ * Cuit une fois par (matière, saison). Le motif est ensuite posé à l'échelle du
+ * zoom et ancré à worldToScreen(0,0), comme la nappe d'eau : la projection iso
+ * étant affine, la texture translate exactement avec le monde au pan et au zoom.
+ * ------------------------------------------------------------------------- */
+let beachPatCache = null;               // { key, canvas }
+function beachPatternCanvas() {
+  const mat = ISO_TILE_KEYS[BEACH.mat] || 'iso-sand';
+  const key = CM.season === WINTER ? (ISO_TILE_WINTER[mat] || mat) : mat;
+  if (beachPatCache && beachPatCache.key === key) return beachPatCache.canvas;
+  const e = ensureIsoTileKey(isoVariantKey(key, 0));
+  if (!e || !e.ready || !e.img) return null;
+  const W = 64, H = 32;
+  let c;
+  if (typeof OffscreenCanvas !== 'undefined') c = new OffscreenCanvas(W, H);
+  else { c = document.createElement('canvas'); c.width = W; c.height = H; }
+  const g = c.getContext('2d');
+  if (!g) return null;
+  g.imageSmoothingEnabled = false;
+  for (const [ox, oy] of [[0, 0], [-32, -16], [32, -16], [-32, 16], [32, 16]]) g.drawImage(e.img, ox, oy);
+  beachPatCache = { key, canvas: c };
+  return c;
+}
+// Style de tracé de la plage : la texture si elle est décodée, sinon l'aplat au ton
+// MESURÉ de la même matière (repli silencieux le temps du décodage).
+function beachStrokeStyle(ctx, z) {
+  const tone = CM.season === WINTER ? SHINGLE_TONE_WINTER
+    : (BEACH.mat === 'sand' ? SAND_TONE : SHINGLE_TONE);
+  const canvas = beachPatternCanvas();
+  if (canvas) {
+    try {
+      const pat = ctx.createPattern(canvas, 'repeat');
+      if (pat) {
+        const a = worldToScreen(0, 0);
+        pat.setTransform({ a: z, b: 0, c: 0, d: z, e: a.x, f: a.y });
+        return pat;
+      }
+    } catch { /* motif refusé : on garde l'aplat */ }
+  }
+  return rgb(tone, 1);
+}
+
+/* ── RIVAGE D'ÎLE : UN TRAIT, PAS DES CELLULES ────────────────────────────────
+ * Raph, 2026-07-30 : « le contour n'est pas bien fait, on veut un joli contour
+ * identique ». Deux essais par cellule ont échoué pour la même raison de fond :
+ * l'Aiguille ne fait que 4,8 tuiles de large, donc son pourtour tient dans une à
+ * deux cellules — à cette échelle la grille ne peut pas rendre une largeur
+ * régulière. Tester le centre de la cellule donnait un POINTILLÉ ; tester la
+ * cellule entière fermait bien l'anneau mais son épaisseur sautait de une à trois
+ * cellules selon l'orientation locale du bord.
+ *
+ * On trace donc le contour LE LONG de l'ellipse (islandOutline, la même polyligne
+ * que le ruban utilise pour percer son trou), clippé à l'intérieur de l'île, avec
+ * une épaisseur DOUBLE : la moitié extérieure tombe dans l'eau et le clip la
+ * retire, il reste exactement `islandW` tuiles de sable à l'intérieur, partout
+ * pareil. C'est le seul endroit du rivage où un trait est justifié — et c'est
+ * assumé : il est au CONTACT de l'eau, pas posé au milieu du sol, et il ne bouge
+ * pas (les nappes vectorielles rejetées trois fois sur ce projet étaient toutes
+ * animées et posées en plein sol).
+ *
+ * Le ton est celui MESURÉ de la matière (SAND_TONE / SHINGLE_TONE) : le grain de
+ * la tuile est très fin (écart de 4,0 entre variantes), donc un aplat à la même
+ * moyenne se lit comme elle à l'échelle d'un rebord d'une tuile.
+ * ------------------------------------------------------------------------- */
+function drawIsoIslandShore(ctx, T, z) {
+  if (!BEACH.on || BEACH.islandW <= 0) return;
+  const isles = riverIslands();
+  if (!isles || !isles.length) return;
+  const w = Math.max(2, BEACH.islandW * T * z * 2);      // ×2 : la moitié part dans l'eau
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;                     // pixel art NET, règle du projet
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = beachStrokeStyle(ctx, z);
+  ctx.lineWidth = w;
+  for (const il of isles) {
+    const path = islandOutline(il, T);
+    if (!path || path.length < 3) continue;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
+    ctx.closePath();
+    ctx.clip();                                          // le sable reste sur l'île
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 function drawIsoRiver(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
@@ -3435,6 +3741,9 @@ function drawIsoRiver(now) {
     drawIsoWaterTiles(ctx, pts, T, z, now, wb);
     drawIsoWaterGrain(ctx, pts, T, z, now);
   }
+  // Rivage des îles : par-dessus le sol baké (qui y peint l'herbe ou le sol de la
+  // merveille), sous la frange humide qui viendra border l'eau.
+  drawIsoIslandShore(ctx, T, z);
   // BAS-FOND CLAIR le long des rives (façon TheoTown, retour Raph « les bords de
   // l'eau plus clairs ») : l'eau S'ÉCLAIRCIT au bord (peu profond) et fonce vers le
   // centre (profond). Bandes strokées le long du ruban, CLIPPÉES → seule la moitié
@@ -3453,37 +3762,87 @@ function drawIsoRiver(now) {
     // mutuelle se retournait : le quai revenait à 78 % d'Usure mais `ruined`
     // restait vrai, donc NI le quai NI le fleuve ne traçait le bas-fond, et la
     // rive perdait sa lisière claire alors même que son mur était revenu.
+    // ⚠⚠ L'EXCLUSION ÉTAIT UN BOOLÉEN GLOBAL POUR UN QUAI QUI, LUI, EST LOCAL.
+    // Retour Raph 2026-07-30 (capture du port) : « il n'y a plus de quais ni de
+    // liseré, ça fait une coupe nette ». Cause : `quayDrawsShore = band > maxB &&
+    // !lod` supposait que dès qu'une ère a des quais, le quai dessine le bord de
+    // l'eau PARTOUT. Faux. `ensureQuayGate` le COUPE EXPRÈS sur l'emprise du port
+    // (« sa scène pose son propre front d'eau »), là où le fleuve est trop étroit
+    // pour un mur, et sur les 3 premiers/derniers samples. Mesuré sur une démo
+    // d'ère 7 : 4 samples coupés au port (≈ 4,5 tuiles de berge) + 3 à chaque
+    // bout — et sur ces tronçons PERSONNE ne dessinait le bord d'eau, ni quai, ni
+    // bas-fond, ni roseaux (le rendu iso n'en a pas). Il ne restait que le bord
+    // peint du ruban : un pixel. Le trou existait avant les coloris ; une eau
+    // ardoise contre une berge grise ne le montrait pas, l'azur l'a révélé.
+    //
+    // On reprend donc la main TRONÇON PAR TRONÇON, sur le complément exact du
+    // masque que le quai va utiliser (publié par ensureQuayGate, cf. quayGapRuns).
     const maxB = S.maxBand != null ? S.maxBand : 1;
     const ruined = !!CM.collapseAt;
-    const quayDrawsShore = bandW > maxB && !CM.lodActive && !ruined;
-    const shoreOn = S.on && (S.lodFallback && !ruined ? !quayDrawsShore : bandW <= maxB);
+    const quayEra = bandW > maxB;
+    const tout = [[0, len0 - 1]];
+    let runsPlus, runsMinus;
+    if (ruined) {
+      // Fleuve mort : comportement d'avant à l'identique. L'eau morte n'a ni tuile
+      // ni grain, un liseré clair la ferait paraître vivante.
+      runsPlus = runsMinus = quayEra ? [] : tout;
+    } else if (!quayEra || !quayWallTune.on || (CM.lodActive && S.lodFallback)) {
+      // Aucun quai (ère de campement, molette coupée) ou quai qui lâche son
+      // bas-fond au dézoom : le ruban porte tout.
+      runsPlus = runsMinus = tout;
+    } else if (CM.lodActive) {
+      runsPlus = runsMinus = [];               // lodFallback coupé : on ne reprend pas la main
+    } else {
+      ensureQuayGate();
+      const g = CM.quayGate;
+      runsPlus = quayGapRuns(g && g.drawPlus, len0);
+      runsMinus = quayGapRuns(g && g.drawMinus, len0);
+    }
+    // ÎLES : aucun quai ne les borde, donc rien ne leur dispute le bord de l'eau —
+    // mais le rivage de sable le dit déjà (cf. `islands` dans le réglage). Le
+    // drapeau reste là parce que sans plage (BEACH.on = false) le liseré redevient
+    // la seule chose qui adoucit leur découpe.
+    const islandsOn = S.islands !== false && (!ruined || !quayEra);
+    const shoreOn = S.on && (runsPlus.length > 0 || runsMinus.length > 0 || islandsOn);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
     if (shoreOn) {
       // Les deux rives décalées, projetées UNE SEULE FOIS. Avant, chacune des
       // trois bandes rejouait la même projection (nAt + worldToScreen sur tous
       // les échantillons) : six parcours complets du ruban par frame.
+      // Chaque bord porte SES tronçons : les deux rives sont découpées par le
+      // masque du quai, les îles sont d'un seul morceau.
       const edges = [];
-      for (const sgn of [1, -1]) {
+      [1, -1].forEach((sgn, si) => {
+        const runs = si ? runsMinus : runsPlus;
+        if (!runs.length) return;
         const path = [];
         for (let i = 0; i < len0; i += 1) {
           const p = pts[i], n = nAt(i);
           path.push(worldToScreen((p.x + sgn * n.nx * p.hw) * T, (p.y + sgn * n.ny * p.hw) * T));
         }
-        edges.push(path);
-      }
+        edges.push({ path, runs });
+      });
       // La BERGE D'UNE ÎLE est une rive comme les autres : elle reçoit le même
       // bas-fond. Sans ça, l'île se découpait au couteau dans l'eau — un ovale
       // posé sur le fleuve au lieu d'une terre qui en émerge. Le clip en
       // 'evenodd' garde la moitié du trait qui tombe dans l'eau, exactement
       // comme pour les rives.
-      for (const il of (riverIslands() || [])) edges.push(islandOutline(il, T));
+      if (islandsOn) {
+        for (const il of (riverIslands() || [])) {
+          const path = islandOutline(il, T);
+          if (path && path.length > 1) edges.push({ path, runs: [[0, path.length - 1]] });
+        }
+      }
       const shore = (color, width) => {
         ctx.strokeStyle = color; ctx.lineWidth = width;
-        for (const path of edges) {
-          ctx.beginPath();
-          ctx.moveTo(path[0].x, path[0].y);
-          for (let i = 1; i < path.length; i += 1) ctx.lineTo(path[i].x, path[i].y);
-          ctx.stroke();
+        for (const e of edges) {
+          for (const [a, b] of e.runs) {
+            if (b <= a) continue;
+            ctx.beginPath();
+            ctx.moveTo(e.path[a].x, e.path[a].y);
+            for (let i = a + 1; i <= b; i += 1) ctx.lineTo(e.path[i].x, e.path[i].y);
+            ctx.stroke();
+          }
         }
       };
       ctx.save();
@@ -3518,6 +3877,45 @@ function drawIsoRiver(now) {
         shore(`rgba(${sc[2]},${S.a3})`, Math.max(1, z * S.w3));   // liseré clair au bord
       }
       ctx.restore();
+      // ── GALETS HUMIDES, CÔTÉ TERRE ──────────────────────────────────────────
+      // Ce qui fait lire une plage comme une plage : galets secs → galets MOUILLÉS
+      // → eau. La matière sèche est bakée par cellule (kind 'shingle') ; cette
+      // frange-ci ne peut pas l'être, parce que c'est exactement au ras de l'eau
+      // que l'alignement sur la grille se verrait. Un trait est ici le bon outil :
+      // mince, il suit la spline, et il est au CONTACT de l'eau — pas posé au
+      // milieu du sol, là où une nappe vectorielle sur du pixel art a déjà été
+      // rejetée trois fois.
+      //
+      // Clip « côté terre » : rectangle plein + le ruban (îles comprises) en
+      // evenodd → l'intérieur du fleuve est retiré, l'intérieur des îles rendu.
+      // La moitié intérieure du trait tombe donc dans l'eau et disparaît, et il ne
+      // reste que la lisière mouillée sur la berge. Même géométrie, mêmes tronçons
+      // que le bas-fond : les deux franges se répondent au pixel.
+      if (BEACH.on && BEACH.wet > 0 && !CM.lodActive) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, CM.cw, CM.ch);
+        riverRibbonPath(ctx, pts, T, true);
+        ctx.clip(WATER_FILL);
+        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        // BANDE DE SABLE, en TEXTURE (Raph : « tu ne peux pas faire le liseré en
+        // texture de sable ? »). Même géométrie et mêmes tronçons que le bas-fond,
+        // mais de l'autre côté de la ligne d'eau : elle suit la spline au pixel, là
+        // où les cellules bakées de la berge s'arrêtent en escalier. Les deux se
+        // complètent — les cellules donnent la profondeur vers l'intérieur, la
+        // bande donne le bord net contre l'eau. Épaisseur DOUBLE : la moitié qui
+        // tombe dans le fleuve est retirée par le clip.
+        if (BEACH.bankBand > 0) {
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2));
+          ctx.restore();
+        }
+        const wt = CM.season === WINTER ? BEACH.wetWinter
+          : (BEACH.wetTone[BEACH.mat] || BEACH.wetTone.shingle);
+        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW));
+        ctx.restore();
+      }
     }
   }
   // OMBRES DE POISSONS : sous les reflets (dessinées AVANT les vaguelettes).
@@ -7778,6 +8176,10 @@ function drawIsoWorldInner(dt, now, helpers) {
   ctx.fillStyle = rgb(SEASON_WILD, 0.9);
   ctx.fillRect(0, 0, CM.cw, CM.ch);
   if (CM.groundCanvas && helpers) {
+    // Le masque du quai entre dans la clé (cf. ':qg') et la plage le consomme dans
+    // le bake : il doit être résolu AVANT de composer la clé, pas au moment où le
+    // fleuve se dessine, bien plus loin dans la frame.
+    ensureQuayGate();
     // ':pv…' : l'aperçu __showWonder ajoute son parvis au sol → rebake à l'aller-retour.
     // La SAISON entre dans la clé : elle change l'herbe, les brins et les fleurs,
     // qui sont bakés. Elle ne bouge que par crans très espacés (cf. seasonMode),
@@ -7787,6 +8189,13 @@ function drawIsoWorldInner(dt, now, helpers) {
     const keyPre = 'iso:' + CM.layoutRecomputeAt + ':';
     const keySuf = ':' + ((L.counts && L.counts.eraBand) | 0)
       + ':s' + (CM.season | 0)
+      // ⚠ LA PLAGE EST DANS LE SOL BAKÉ (kind 'shingle') : sa géométrie dépend du
+      // masque effectif du quai, donc de `quayGate.key` (layout + mode `full`) et
+      // de la molette __beach. Sans ces crans, basculer `full` ou couper la plage
+      // laissait les galets gelés dans le bake — le piège d'invalidation déjà
+      // rencontré trois fois sur ce projet.
+      + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
+      + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
     const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
     // Base du CACHE DE CRANS : identité de contenu (signature du sol), PAS le

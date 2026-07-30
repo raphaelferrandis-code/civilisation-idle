@@ -230,7 +230,16 @@ const LOTS = [
     id: 'fd9b156e-02c9-4e2e-8e72-13f13cf8a262', seed: 505,
     mats: [
       { key: 'road-tech', tiles: [0, 1, 2, 3] },          // voie tech — bandes 7+
-      // rangées 2-4 (béton clair / gravier / sable) : réserves non câblées
+      // SABLE DE RIVAGE (Raph 2026-07-30 : « remplace sa texture par le sable »,
+      // après avoir vu les galets gris en place). La réserve annoncée ci-dessous
+      // était la bonne : rien à générer. Lot rangé PAR RANGÉE (écarts 2,6 / 17,1 /
+      // 1,1 / 4,9 par rangée contre 110 à 117 par colonne), rangée 3 = sable fin
+      // et chaud, ton [221,196,159], écart 4,9 entre variantes → aucune égalisation.
+      // ⚠ Il n'y a PAS de sable enneigé dans ce lot : l'hiver emprunte le gravier
+      // saupoudré des galets (cf. ISO_TILE_WINTER) — une plage sous la neige n'a
+      // plus de couleur propre de toute façon.
+      { key: 'iso-sand', tiles: [12, 13, 14, 15] },       // sable de rivage
+      // rangées 1-2 (béton clair / gravier) : réserves non câblées
     ],
   },
   // JEU D'HIVER (Raph 2026-07-28 : sprites dédiés après suppression du liseré et
@@ -263,6 +272,31 @@ const LOTS = [
       { key: 'ground-cobble-winter', tiles: [4, 5, 6, 7] },       // pavés + neige aux joints
       { key: 'ground-earth-winter', tiles: [8, 9, 10, 11] },      // terre + plaques
       { key: 'ground-flagstone-winter', tiles: [12, 13, 14, 15] }, // dalles + plaques
+    ],
+  },
+  // GALETS DE RIVAGE (Raph 2026-07-30 : « il faut générer une plage, aussi autour
+  // de l'île de l'aiguille ») — la matière qui remplace la coupe nette là où la
+  // maçonnerie du quai s'arrête : emprise du port, passages étroits, extrémités du
+  // fleuve, pourtour des îles. Galets choisis contre le sable clair : la carte est
+  // désaturée, et un fleuve urbain a des berges de galets, pas une plage tropicale.
+  //
+  // Lot rangé PAR RANGÉE (mesuré : écarts 11,5 / 1,1 / 15,9 / 1,7 par rangée
+  // contre 70,0 / 74,7 / 84,7 / 84,1 par colonne — sans ambiguïté).
+  //   rangée 0 (gravier très fin, lum ~150) — ÉCARTÉE : le grain tombe sous le
+  //     pixel de la cellule et se lit comme du béton moucheté, pas comme un rivage.
+  //   rangée 1 (galets ronds, lum ~131) — RETENUE. Les cailloux font 4-6 px, la
+  //     même granularité que le pavé et la dalle du jeu, et la taille de pierre
+  //     monte de t4 à t7 : ce qui varie d'une cellule à l'autre est le CALIBRE,
+  //     jamais la valeur (écart 1,1, donc aucun damier clair/sombre à égaliser).
+  //   rangée 2 (gravier saupoudré de neige, lum ~176) — version d'HIVER.
+  //   rangée 3 (galets sombres mouillés, lum ~99) — en réserve : ce serait la
+  //     matière d'un liseré de galet humide au ras de l'eau si le trait vectoriel
+  //     de la couche C ne suffisait pas.
+  {
+    id: '4dc13d54-e150-410d-8223-c92233844a91', seed: 1505,
+    mats: [
+      { key: 'iso-shingle', tiles: [4, 5, 6, 7] },              // galets ronds gris
+      { key: 'iso-shingle-winter', tiles: [8, 9, 10, 11] },     // gravier + neige
     ],
   },
 ];

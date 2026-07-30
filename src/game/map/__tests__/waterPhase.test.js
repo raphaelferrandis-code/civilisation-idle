@@ -8,10 +8,15 @@
 // premier correctif (`t % period`) ne changeait rien : `period` dérivait de la
 // vitesse, donc sautait aussi. La phase est désormais INTÉGRÉE pas à pas.
 import { describe, it, expect } from "vitest";
-import { stepWaterPhase } from "../iso/isoRenderer.js";
+import { stepWaterPhase, waterTilesTune } from "../iso/isoRenderer.js";
 
-const FRAMES = 8, SPATIAL = 32;          // 8 images ; période spatiale 16 × worldPx 2
-const FPS_FAIR = 3, FPS_RAIN = 7;        // waterTilesTune.fair/rain
+// ⚠ LU DEPUIS LE RÉGLAGE, pas recopié. Les valeurs bougent à l'oreille (fps 2,5
+// → 3,5 → 3 le 2026-07-22, puis 1,8 le 2026-07-30 avec la bande calme) : des
+// constantes en dur auraient continué à passer en décrivant un rythme mort.
+const FRAMES = 8;
+const SPATIAL = 16 * waterTilesTune.worldPx;              // période spatiale, en px monde
+const FPS_FAIR = waterTilesTune.fair.fps, FPS_RAIN = waterTilesTune.rain.fps;
+const DR_FAIR = waterTilesTune.fair.drift, DR_RAIN = waterTilesTune.rain.drift;
 
 // Avance la phase sur une rampe de météo, en pas de 1/60 s, et renvoie la suite
 // des phases de frame vues (déroulées : on annule le rebouclage du modulo).
@@ -22,7 +27,7 @@ function run(rainAt, seconds = 8, dtStep = 1 / 60) {
   for (let t = 0; t <= seconds; t += dtStep) {
     const rf = rainAt(t);
     const fps = FPS_FAIR + (FPS_RAIN - FPS_FAIR) * rf;
-    const drift = 0.7 + (2.2 - 0.7) * rf;
+    const drift = DR_FAIR + (DR_RAIN - DR_FAIR) * rf;
     st = stepWaterPhase(st, t, fps, drift, SPATIAL);
     if (st.frame < prev - FRAMES / 2) turns += 1;      // rebouclage du modulo
     unwrapped.push(st.frame + turns * FRAMES);
@@ -44,8 +49,8 @@ describe("phase de l'eau animée sous météo variable", () => {
   it("reste continue quand la vitesse change (le bug « ça saccade »)", () => {
     // Averse brutale : 0 → 1 d'un coup, le pire cas pour une phase recalculée.
     const xs = run((t) => (t < 4 ? 0 : 1));
-    // À 7 images/s et 1/60 s de pas, un pas légitime vaut ~0,117 image.
-    expect(biggestStep(xs)).toBeLessThan(0.2);
+    // Un pas légitime vaut fps / 60 image ; on tolère le double.
+    expect(biggestStep(xs)).toBeLessThan(2 * FPS_RAIN / 60);
   });
 
   it("TÉMOIN : l'ancienne formule `t * fps` reculait ET sautait sur la même rampe", () => {
@@ -81,16 +86,16 @@ describe("phase de l'eau animée sous météo variable", () => {
 
   it("borne un retour d'onglet : un trou de 30 s ne fait pas bondir la nappe", () => {
     let st = { at: -1, frame: 0, drift: 0 };
-    st = stepWaterPhase(st, 0, FPS_FAIR, 0.7, SPATIAL);
+    st = stepWaterPhase(st, 0, FPS_FAIR, DR_FAIR, SPATIAL);
     const avant = st.frame;
-    st = stepWaterPhase(st, 30, FPS_FAIR, 0.7, SPATIAL);   // onglet caché 30 s
+    st = stepWaterPhase(st, 30, FPS_FAIR, DR_FAIR, SPATIAL);   // onglet caché 30 s
     // dt est plafonné à 0,25 s → au plus 0,625 image, pas 75.
     expect(st.frame - avant).toBeLessThanOrEqual(FPS_FAIR * 0.25 + 1e-9);
   });
 
   it("garde la phase dans ses bornes (jamais de dérive numérique qui s'accumule)", () => {
     let st = { at: -1, frame: 0, drift: 0 };
-    for (let t = 0; t <= 600; t += 0.1) st = stepWaterPhase(st, t, FPS_RAIN, 2.2, SPATIAL);
+    for (let t = 0; t <= 600; t += 0.1) st = stepWaterPhase(st, t, FPS_RAIN, DR_RAIN, SPATIAL);
     expect(st.frame).toBeGreaterThanOrEqual(0);
     expect(st.frame).toBeLessThan(FRAMES);
     expect(st.drift).toBeGreaterThanOrEqual(0);

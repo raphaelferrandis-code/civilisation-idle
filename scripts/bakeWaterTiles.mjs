@@ -46,6 +46,11 @@ const SRC = arg('src', null);
 const SHEET = arg('sheet', 'Horizontal');
 const ROW = Number(arg('row', 4));
 const OUT = arg('out', path.join(process.cwd(), 'public/pixelart/water/river-tiles.png'));
+// --native : on GARDE les couleurs du pack au lieu de les rabattre sur l'ardoise.
+// Sert aux coloris pilotés par l'état de la partie (azur / turquoise / bleu
+// d'hiver) : c'est justement leur teinte qui porte l'information, la ramener sur
+// WATER la détruirait. Le contrôle de moyenne n'a alors plus d'objet.
+const NATIVE = process.argv.includes('--native');
 
 if (!SRC) {
   console.error('usage: node scripts/bakeWaterTiles.mjs --src <dossier du pack décompressé> [--sheet Horizontal|Swirly|Vertical] [--row 4]');
@@ -82,28 +87,30 @@ for (let f = 0; f < FRAMES; f++) {
   }
 }
 const pal = [...counts.entries()].map(([k, n]) => ({ c: k.split(',').map(Number), n })).sort((a, b) => lum(a.c) - lum(b.c));
-if (pal.length !== RAMP.length) {
-  console.error(`la source a ${pal.length} teintes, la rampe en a ${RAMP.length} — grille ou coloris faux`);
+const CIBLE = NATIVE ? pal.map(p => p.c) : RAMP;
+if (pal.length !== CIBLE.length) {
+  console.error(`la source a ${pal.length} teintes, la rampe en a ${CIBLE.length} — grille ou coloris faux`);
   process.exit(1);
 }
 
 // 2. Contrôle de moyenne : la texture ne doit pas déplacer le ton du fleuve.
+//    Sans objet en --native, où la teinte EST l'information (cf. en-tête).
 const total = pal.reduce((s, p) => s + p.n, 0);
-const mean = [0, 1, 2].map(i => Math.round(pal.reduce((s, p, j) => s + RAMP[j][i] * p.n, 0) / total));
+const mean = [0, 1, 2].map(i => Math.round(pal.reduce((s, p, j) => s + CIBLE[j][i] * p.n, 0) / total));
 const drift = [0, 1, 2].map(i => Math.abs(mean[i] - WATER[i]));
 
-console.log(`planche : ${path.basename(file)}  coloris ${ROW}  ${FRAMES} frames de ${T}x${T}`);
-console.log('remap (par rang de luminance) :');
-pal.forEach((p, i) => console.log(`  ${String(p.c.join(',')).padEnd(13)} x${String(p.n).padStart(4)} (${String(Math.round(100 * p.n / total)).padStart(2)}%)  ->  ${RAMP[i].join(',')}`));
+console.log(`planche : ${path.basename(file)}  coloris ${ROW}  ${FRAMES} frames de ${T}x${T}${NATIVE ? '  [NATIF, sans remap]' : ''}`);
+console.log(NATIVE ? 'palette conservée (par rang de luminance) :' : 'remap (par rang de luminance) :');
+pal.forEach((p, i) => console.log(`  ${String(p.c.join(',')).padEnd(13)} x${String(p.n).padStart(4)} (${String(Math.round(100 * p.n / total)).padStart(2)}%)  ->  ${CIBLE[i].join(',')}`));
 console.log(`moyenne pondérée obtenue ${mean.join(',')} contre WATER ${WATER.join(',')}  -> dérive ${drift.join('/')}`);
-if (Math.max(...drift) > MEAN_TOL) {
+if (!NATIVE && Math.max(...drift) > MEAN_TOL) {
   console.error(`ABANDON : la rampe déplace le ton du fleuve de plus de ${MEAN_TOL} par canal.`);
   process.exit(1);
 }
 
 // 3. Cuisson : bande horizontale de 8 frames (128x16).
 const out = new PNG({ width: T * FRAMES, height: T });
-const key = new Map(pal.map((p, i) => [p.c.join(','), RAMP[i]]));
+const key = new Map(pal.map((p, i) => [p.c.join(','), CIBLE[i]]));
 for (let f = 0; f < FRAMES; f++) {
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
     const c = at(src, OX + f * PITCH + x, OY + ROW * PITCH + y);
