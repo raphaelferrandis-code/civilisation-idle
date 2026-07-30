@@ -857,6 +857,86 @@ function builtCells(L) {
   L._builtCells = s;
   return s;
 }
+/* ── COUR ET FRICHE : le lot vide cesse d'être minéral (lot L2) ───────────────
+ * docs/PLAN-TISSU-URBAIN.md. Le grief de Raph était « des gros micmacs de
+ * routes » ; la mesure (tissuMetrics, lot L0) dit autre chose. Sur une ville de
+ * 1 528 bâtiments, band 4 : voirie 30,8 %, bâti 22,0 %, **vide 47,2 %**. Les
+ * routes ne sont pas trop nombreuses — c'est le VIDE qui est la plus grande
+ * surface de la ville, et comme `kindAt` ne connaissait que urban/grass, ce vide
+ * portait exactement la matière minérale d'une cellule bâtie. La ville se lit
+ * donc comme une nappe de pierre où les rues ne sont qu'un motif.
+ *
+ * Le vide n'est pas d'un seul tenant, et c'est ce qui commande la règle. Mesuré
+ * par distance au bâti le plus proche : 29 % à une cellule (l'arrière-cour d'un
+ * bâtiment), 18 % à deux ou trois, **43 % à cinq et plus** (des étendues que la
+ * ville n'a jamais atteintes — `urbanSet` vient d'un RAYON dérivé des compteurs,
+ * pas de ce qui est bâti). Une seule matière pour les deux serait un contresens :
+ *   d ≤ near  → `urban`  le sol pavé du bâti et de son devant de parcelle
+ *   d ≤ far   → `dirt`   la cour de terre battue, l'arrière du lot
+ *   au-delà   → `grass`  la friche : la ville n'est pas arrivée là
+ * On obtient le dégradé qu'une vraie ville a toujours, et la cité gagne enfin un
+ * BORD au lieu de s'étaler en disque minéral jusqu'à la limite des compteurs.
+ *
+ * ⚠ Aucun de ces deux kinds n'est nouveau : `dirt` et `grass` ont déjà toute
+ * leur plomberie (tuile, texAlpha, frange d'herbe, voile). On ne change QUE la
+ * cellule à qui on les donne. C'est ce qui rend le lot petit.
+ * Réglage live : `__cour(false)` rend la ville minérale d'avant, `__cour({near,
+ * far, sidewalk})` déplace les contours.
+ * -------------------------------------------------------------------------- */
+export const COUR = { on: true, near: 1, far: 3, sidewalk: true };
+// Ton moyen MESURÉ de `iso-dirt` : l'aplat de repli d'une cour doit rester dans
+// la famille de la tuile qui le recouvre, sinon le sol saute au décodage du PNG.
+// (Avant ce lot, `dirt` retombait sur le ton URBAIN — le kind n'était plus
+// produit, personne ne voyait le décalage.)
+const DIRT_TONE = [169, 125, 88];
+// Distance, en cellules et À TRAVERS LE SOL DE VILLE (4-connexité), de chaque
+// cellule urbaine à l'emprise bâtie la plus proche. Pure et exportée : c'est
+// elle qui décide de la matière de la moitié de la ville.
+// ⚠ La propagation ne traverse QUE `urbanSet` : une poche de sol urbain coupée
+// du bâti par de l'herbe reste hors d'atteinte (undefined) et vire en friche,
+// ce qui est exactement ce qu'on veut d'un îlot de dallage perdu dans la plaine.
+export function builtDistanceField(urbanSet, builtSet) {
+  const dist = new Map();
+  const q = [];
+  for (const k of builtSet) if (urbanSet.has(k)) { dist.set(k, 0); q.push(k); }
+  for (let i = 0; i < q.length; i += 1) {
+    const cur = q[i], d = dist.get(cur);
+    const c = cur.indexOf(',');
+    const gx = +cur.slice(0, c), gy = +cur.slice(c + 1);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nk = (gx + dx) + ',' + (gy + dy);
+      if (dist.has(nk) || !urbanSet.has(nk)) continue;
+      dist.set(nk, d + 1);
+      q.push(nk);
+    }
+  }
+  return dist;
+}
+// Matière d'une cellule de sol de ville selon son éloignement du bâti.
+// Exportée pour la garde : les seuils sont le cœur du lot.
+export function courKind(d, cfg = COUR) {
+  if (!cfg.on) return 'urban';
+  if (d == null) return 'grass';
+  if (d <= cfg.near) return 'urban';
+  if (d <= cfg.far) return 'dirt';
+  return 'grass';
+}
+function builtDist(L) {
+  if (!L._builtDist) L._builtDist = builtDistanceField(L.urbanSet || new Set(), builtCells(L));
+  return L._builtDist;
+}
+if (typeof window !== 'undefined') {
+  // Molette cour/friche : __cour(false) rend la nappe minérale d'avant le lot ;
+  // __cour({near,far,sidewalk}) déplace les contours (near = dernière distance
+  // encore pavée, far = dernière distance en terre battue). Rebake immédiat.
+  window.__cour = (arg) => {
+    if (arg === false) COUR.on = false;
+    else if (arg && typeof arg === 'object') { COUR.on = true; Object.assign(COUR, arg); }
+    else COUR.on = true;
+    CM._isoGroundBake = null;
+    return { ...COUR };
+  };
+}
 // Cette cellule frontalière rend-elle la matière de l'AUTRE côté ? Pure et
 // exportée : c'est ici que vit le garde qui empêche une maison de se retrouver
 // plantée dans l'herbe, et un garde non testé ne protège rien.
@@ -1553,6 +1633,7 @@ function drawIsoGround() {
   // l'inverse bouclerait.
   const urbanLogical = (gx, gy) => !!(L.urbanSet && L.urbanSet.has(gx + ',' + gy));
   const built = builtCells(L);
+  const bDist = builtDist(L);   // éloignement du bâti → pavé / cour / friche (cf. COUR)
   const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, urbanLogical, built);
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
@@ -1572,7 +1653,9 @@ function drawIsoGround() {
     // lit par sa dalle + ourlet/épaulement CONTINUS ; le kind 'dirt' n'est plus
     // produit mais sa plomberie (texAlpha/fringe) reste, knob de retour facile.
     else if (!isWater && L.urbanSet && L.urbanSet.has(key)) {
-      k = 'urban';
+      // Sol de ville : pavé près du bâti, cour de terre plus loin, friche au-delà
+      // (cf. COUR — c'est ici que la moitié vide de la ville cesse d'être minérale).
+      k = courKind(bDist.get(key));
     } else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
       && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
         || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
@@ -1583,8 +1666,14 @@ function drawIsoGround() {
     // LISIÈRE QUI DIVAGUE : la frontière ville↔campagne serpente au lieu de
     // suivre l'emprise au cordeau (cf. FRONTIER). Retour de matière SEULEMENT :
     // ni route, ni eau, ni dallage formel, et jamais une cellule bâtie.
-    if (FRONTIER.on && !isRoad && !isWater && (k === 'urban' || k === 'grass')) {
-      if (frontierFlips(gx, gy, k === 'urban')) k = k === 'urban' ? 'grass' : 'urban';
+    // Depuis le lot COUR, la limite ville↔campagne n'est plus `urban`↔`grass`
+    // mais `dirt`↔`grass` : la friche s'intercale. Faire divaguer l'ANCIENNE
+    // couture ne ferait plus rien (les deux matières ne se touchent presque
+    // jamais) — c'est le bord de la cour qui doit serpenter, et une cellule
+    // reprise à l'herbe revient en TERRE, pas en pavé.
+    if (FRONTIER.on && !isRoad && !isWater && (k === 'urban' || k === 'dirt' || k === 'grass')) {
+      const cityish = k !== 'grass';
+      if (frontierFlips(gx, gy, cityish)) k = cityish ? 'grass' : (COUR.on ? 'dirt' : 'urban');
     }
     kinds.set(key, k);
     return k;
@@ -1675,7 +1764,7 @@ function drawIsoGround() {
       const isWater = !!(riverCells && riverCells.has(key));
       const kind = kindAt(gx, gy);
       const tone = kind === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : kind === 'wonder' ? WONDER_GROUND.tone
-        : kind === 'grass' ? SEASON_GRASS : urb;
+        : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE : urb;
       // UN hash par cellule pour les deux tirages : le miroir (bit 3) et la
       // variante de tuile (bits 5-6, cf. isoVariantKey). Deux cmHash séparés ne
       // coûteraient rien de plus qu'ils ne rapporteraient — mêmes bits, même
@@ -1975,7 +2064,15 @@ function drawIsoGround() {
     // se lit rustique (ourlet + épaulement), même en plein cœur urbain — le
     // trottoir commence à la vraie rue (Raph 2026-07-28).
     const isPathRank = !!(r2.cell && r2.cell.rank === 'path');
-    if (swOn && !isPathRank && L.urbanSet && L.urbanSet.has(r2.gx + ',' + r2.gy)) swRoads.push(r2);
+    // …et le trottoir s'arrête où la ville s'arrête. Le test portait sur
+    // `urbanSet`, un RAYON dérivé des compteurs : une rue traversant des
+    // hectares que la ville n'a jamais bâtis y gagnait quand même ses dalles de
+    // centre-ville. On demande maintenant au sol : si la cellule est peinte en
+    // cour ou en friche (cf. COUR), la rue reprend son ourlet de campagne.
+    const inCity = COUR.on && COUR.sidewalk
+      ? kindAt(r2.gx, r2.gy) === 'urban'
+      : !!(L.urbanSet && L.urbanSet.has(r2.gx + ',' + r2.gy));
+    if (swOn && !isPathRank && inCity) swRoads.push(r2);
     else shRoads.push(r2);
   }
   // Couloirs construits UNE fois par liste, rejoués à chaque passe (les largeurs
@@ -2615,6 +2712,25 @@ export const waterTilesTune = {
   minZoom: 0.32,        // sous ce zoom la structure passe sous le pixel : on ne paie pas
   worldPx: 2,           // px MONDE par pixel de tuile (cf. ⚠ ÉCHELLE ci-dessus)
   strength: 1,          // 0..1 — mélange au fill WATER, sans dérive de teinte
+  // ── BANDE CALME (retour Raph 2026-07-30 : « le fleuve est trop bruyant ») ───
+  // Les 8 frames du pack ne sont pas une vague qui avance, ce sont huit champs
+  // de bruit indépendants : 48,6 % des pixels changent à CHAQUE transition, dont
+  // 30,4 points dans le seul CORPS de l'eau, et PAS UN SEUL pixel n'est stable
+  // sur le cycle. À worldPx = 2 un pixel de tuile fait ~1 px écran : l'œil ne
+  // résout plus les formes, il ne perçoit que le clignotement → neige de télé.
+  // Et aucun réglage n'en sort : la distance MINIMALE entre deux frames
+  // quelconques est de 33 %, donc ni un fps plus bas ni un sous-ensemble de
+  // frames ne calment quoi que ce soit — baisser le fps ne fait que ralentir le
+  // bouillonnement, ce qui rend chaque saut plus visible, pas moins.
+  //
+  // La règle des tutos d'eau pixel art (Slynyrd « Water in Motion », Wolthera
+  // « Animating Water Tiles ») : on n'anime PAS toute la surface, on FIGE le
+  // corps et on ne fait bouger que les reflets. `scripts/calmWaterTiles.mjs`
+  // recompose donc la bande — substrat gelé + seuls les éclats réimprimés,
+  // frames réordonnées pour que les reflets se déplacent au lieu de sauter.
+  // Mesuré : churn 48,6 % → 10,5 %, ton du fleuve inchangé (dérive 1/1/0).
+  // A/B : window.__waterTiles.calm = false rejoue la bande d'origine.
+  calm: true,
   // DEUX AMBIANCES, interpolées par CM.rainF (le même signal que l'averse).
   // Retour Raph : sous la pluie l'eau sombre et agitée « c'était très bien », mais
   // il la veut CLAIRE et le clapot LENT par beau temps. `drawIsoRain` ne touche
@@ -2624,8 +2740,13 @@ export const waterTilesTune = {
   //   tint > 0 : voile ardoise rgba(38,46,62)  → eau sombre (aspect averse)
   //   tint < 0 : voile pâle rgba(158,184,192)  → eau claire (aspect beau temps)
   // Le pâle EST l'éclat de la tuile elle-même : impossible de dériver hors palette.
-  fair: { fps: 3, drift: 0.7, tint: -0.10 },     // beau temps : claire, clapot posé
-  rain: { fps: 7, drift: 2.2, tint: 0.18 },      // averse : sombre et agitée
+  // ⚠ LE FPS N'EST PAS LE LEVIER DU CALME, IL EN EST LE SECOND. Ce qu'on perçoit,
+  // c'est le produit churn × fps (part de surface qui change par seconde) : avant,
+  // 48,6 % × 3 = 1,46 ; avec la bande calme au même rythme, 0,32. On profite du
+  // gain pour poser encore un peu le rythme — mais l'écart beau temps / averse
+  // reste franc (× 2,2), c'était la moitié de la lecture météo.
+  fair: { fps: 1.8, drift: 0.5, tint: -0.10 },   // beau temps : claire, clapot posé
+  rain: { fps: 4, drift: 1.6, tint: 0.18 },      // averse : sombre et agitée
 };
 if (typeof window !== 'undefined') window.__waterTiles = waterTilesTune;
 
@@ -2654,22 +2775,38 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
     drift: wrap(prev.drift + dt * drift, spatial)
   };
 }
-let waterTilesImg = null;
+// Deux bandes interchangeables (cf. `calm` ci-dessus) : la recomposée, calme, et
+// celle du pack telle que cuite le 2026-07-22, gardée pour l'A/B.
+const WATER_SHEETS = {
+  calm: '/pixelart/water/river-tiles-calm.png',
+  lively: '/pixelart/water/river-tiles.png',
+};
+let waterTilesImg = null;                 // { src, img, ready }
+// Déclaré AVANT le chargeur, qui le remet à zéro au changement de bande — un
+// `let` plus bas dans le module marcherait par chance (rien ne dessine avant la
+// fin de l'import) mais c'est exactement la forme du piège de TDZ déjà rencontré.
+let waterFrameTiles = null;
 function waterTilesImage() {
-  if (waterTilesImg) return waterTilesImg.ready ? waterTilesImg.img : null;
+  const src = waterTilesTune.calm ? WATER_SHEETS.calm : WATER_SHEETS.lively;
+  if (waterTilesImg && waterTilesImg.src === src) return waterTilesImg.ready ? waterTilesImg.img : null;
   if (typeof Image === 'undefined') return null;
   const im = new Image();
-  waterTilesImg = { img: im, ready: false };
-  im.onload = () => { waterTilesImg.ready = true; };
-  im.onerror = () => { waterTilesImg.ready = false; };   // PNG absent → fill WATER nu
-  im.src = '/pixelart/water/river-tiles.png';
+  // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis `waterTilesImg` : au
+  // basculement d'A/B deux chargements se croisent, et un onload qui relit la
+  // variable de module marquerait « prêt » la bande de l'AUTRE fichier.
+  const e = { src, img: im, ready: false };
+  waterTilesImg = e;
+  waterFrameTiles = null;                 // les frames cuites appartiennent à l'ancienne bande
+  im.onload = () => { e.ready = true; };
+  im.onerror = () => { e.ready = false; };   // PNG absent → fill WATER nu
+  im.src = src;
   return null;
 }
 // ── NAPPE EN MOTIF RÉPÉTÉ ────────────────────────────────────────────────────
 // `createPattern` répète TOUTE l'image, pas un rectangle source : la frame
 // courante de la bande doit donc vivre dans son propre canvas 16×16. Huit
 // frames, cuites une fois pour la session (le contenu ne dépend que du PNG).
-let waterFrameTiles = null;
+// (`waterFrameTiles` est déclaré plus haut, avec le chargeur qui l'invalide.)
 function waterFrameTile(img, fi) {
   if (!waterFrameTiles) waterFrameTiles = new Array(WATER_FRAMES).fill(null);
   let c = waterFrameTiles[fi];
@@ -3482,7 +3619,19 @@ export const NAV_STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
 // pixel qu'on a désigné. Les faces absentes retombent sur NAV_ANCHOR : la
 // migration peut se faire face par face sans rien casser.
 //   NAV_UV[stade][secteur] = { p: [u, v], s: [u, v] }   (p = bâbord, s = tribord)
-const NAV_UV = {};
+const NAV_UV = {
+  // Relevé de Raph au calibreur (2026-07-30), face par face.
+  container: {
+    east: { p: [0.155, 0.311], s: [0.155, 0.319] },
+    southeast: { p: [0.843, 0.207], s: [0.657, 0.119] },
+    south: { p: [0.647, 0.128], s: [0.365, 0.130] },
+    southwest: { p: [0.367, 0.128], s: [0.190, 0.221] },
+    west: { p: [0.853, 0.305], s: [0.855, 0.309] },
+    northwest: { p: [0.629, 0.499], s: [0.822, 0.374] },
+    north: { p: [0.369, 0.485], s: [0.639, 0.489] },
+    northeast: { p: [0.192, 0.370], s: [0.373, 0.477] },
+  },
+};
 export function navUvFor(stage, sector) {
   const f = NAV_UV[stage];
   return (f && f[sector]) || null;
@@ -3921,7 +4070,16 @@ export function computeIsoLamps(L, T) {
     const thH = !!((mask & ROAD_E) && (mask & ROAD_W));
     const thV = !!((mask & ROAD_S) && (mask & ROAD_N));
     if (thH === thV) continue;                    // carrefour / impasse : pas de mât
-    if (((c.gx + c.gy) % 3) !== 0) continue;      // espacement ~3 cellules
+    // LES SENTIERS NE S'ÉCLAIRENT PAS (lot L6). Un mât tous les 3 tronçons sur
+    // CHAQUE voie, sentiers de desserte compris, revenait à poser une marque
+    // régulière sur tout le maillage : le lampadaire soulignait la grille qu'on
+    // cherche à effacer, et le rang `path` est de loin le plus nombreux du réseau
+    // (147 sentiers contre 462 rues sur la ville de mesure). Une venelle non
+    // éclairée est en plus la bonne lecture : on éclaire les rues, pas les
+    // arrière-cours. Molette `__lampTune({paths:true})` pour rejouer l'ancien.
+    if (!LAMP_TUNE.paths && c.rank === 'path') continue;
+    const step = Math.max(1, LAMP_TUNE.step | 0);
+    if (((c.gx + c.gy) % step) !== 0) continue;   // espacement le long de la rue
     // Côté de chaussée CONSTANT le long d'une même rue (hash par RUE, pas par
     // cellule) : les mâts forment une ligne continue au lieu de zigzaguer.
     // Le mât se plante DANS LE TROTTOIR (les 20% extérieurs de la cellule hors
@@ -3976,9 +4134,15 @@ const LAMP_V = 3;
 // headF = hauteur de la tête lumineuse (halo). curb = recul du pied depuis le bord
 // de cellule (fraction de tuile) : plante le mât dans le trottoir, hors chaussée.
 // Molette : __lampTune({ h, headF, curb }).
-const LAMP_TUNE = { h: 0.8, headF: 0.8, curb: 0.05 };
+// step : espacement des mâts en cellules le long d'une rue. paths : un sentier
+// s'éclaire-t-il ? (lot L6 de docs/PLAN-TISSU-URBAIN.md — voir computeIsoLamps.)
+const LAMP_TUNE = { h: 0.8, headF: 0.8, curb: 0.05, step: 3, paths: false };
 if (typeof window !== 'undefined') {
-  window.__lampTune = (o) => { if (o) Object.assign(LAMP_TUNE, o); return { ...LAMP_TUNE }; };
+  window.__lampTune = (o) => {
+    if (o) Object.assign(LAMP_TUNE, o);
+    _isoLampCache = { at: -1, key: '', lamps: null };   // step/paths repeuplent la liste
+    return { ...LAMP_TUNE };
+  };
 }
 // Métriques de pied mémoïsées par sprite (fractions du canvas) — même idiome
 // canvas-scan que isoTileBBox, plus le centre de masse des 4 rangées basses.

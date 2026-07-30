@@ -58,6 +58,30 @@ const state = { on: false, idx: 0, sec: 0, pts: [], captured: {}, el: null, cnv:
 
 export const navCalibOn = () => state.on;
 
+// ── Le relevé SURVIT au rechargement ────────────────────────────────────────
+// 40 faces à cliquer, et tout vivait dans une variable de module : un F5, un
+// HMR, un onglet fermé par mégarde, et le travail était perdu sans aucun moyen
+// de le retrouver — le bloc n'existait que dans l'historique de la console.
+// Il est donc écrit dans localStorage à CHAQUE relevé, pas à la fin.
+const STORE = 'cmNavCalib';
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify(state.captured)); } catch { /* privé/plein */ }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (raw) Object.assign(state.captured, JSON.parse(raw));
+  } catch { /* illisible : on repart de zéro plutôt que de planter l'outil */ }
+}
+load();
+
+// Re-cracher le bloc à tout moment, sans rouvrir l'outil ni recliquer :
+// `__navCalibDump()`. `__navCalibClear()` repart de zéro.
+if (typeof window !== 'undefined') {
+  window.__navCalibDump = () => { const b = codeBlock(); console.log(b || '(aucun relevé)'); return b; };
+  window.__navCalibClear = () => { state.captured = {}; save(); return 'relevés effacés'; };
+}
+
 const list = () => CFG.stages || STAGES;
 const secs = () => CFG.sectors || SECTORS;
 const stage = () => list()[state.idx];
@@ -160,6 +184,7 @@ function onCanvasClick(ev) {
       s: [b.x / VIEW, b.y / VIEW],
     };
     state.pts = [];
+    save();                      // à CHAQUE relevé, pas à la fin
     // Enchaîne sur la face suivante : 8 par bateau, autant ne pas avoir à
     // cliquer « suivant » entre chaque.
     goFace(1);
