@@ -36,12 +36,14 @@
 // d'évaluation en zone morte. Ça passerait aujourd'hui — rien n'est lu au niveau
 // module — mais la première constante lue au chargement exploserait, et ce projet
 // a déjà payé ce piège (TDZ sur buildingById). isoRenderer POUSSE donc sa config.
-const CFG = { K: 1.15, TOP: 0.58, anchorFor: () => ({ mast: 0.3, beam: 0.16 }) };
+const CFG = { K: 1.15, TOP: 0.58, anchorFor: () => ({ mast: 0.3, beam: 0.16 }), stages: null };
 export function configureNavCalib(o) { Object.assign(CFG, o); }
 
-// Les stades qui PORTENT des feux. Le pêcheur n'y est pas : il est à l'ancre,
-// hors des règles de route, et ne porte rien.
-const STAGES = ['raft', 'sail', 'steam', 'container', 'rowboat', 'dinghy', 'motorboat'];
+// Les stades à calibrer viennent d'isoRenderer (NAV_STAGES) : une liste tenue
+// ici aurait fini par diverger de celle des coques qui s'allument, et on aurait
+// passé du temps à régler des feux qui ne s'allument jamais. Le repli ne sert
+// qu'aux tests, avant que la config soit poussée.
+const STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
 const SPRITE = 85;      // taille source d'une rotation
 const ZOOM = 6;         // sprite affiché ×6 — un pixel source reste cliquable
 const VIEW = SPRITE * ZOOM;
@@ -50,13 +52,14 @@ const state = { on: false, idx: 0, pts: [], captured: {}, el: null, cnv: null, i
 
 export const navCalibOn = () => state.on;
 
-const stage = () => STAGES[state.idx];
+const list = () => CFG.stages || STAGES;
+const stage = () => list()[state.idx];
 // Réglage courant d'un stade : ce qu'on a relevé, sinon ce que le jeu utilise.
 const current = (st) => state.captured[st] || CFG.anchorFor(st);
 
 function codeBlock() {
   const f = (n) => n.toFixed(3);
-  const rows = STAGES.filter((s) => state.captured[s]).map((s) => {
+  const rows = list().filter((s) => state.captured[s]).map((s) => {
     const v = state.captured[s];
     return `  ${s}: { mast: ${f(v.mast)}, beam: ${f(v.beam)}, foreP: ${f(v.foreP)}, foreS: ${f(v.foreS)} },`;
   });
@@ -148,7 +151,8 @@ function onCanvasClick(ev) {
 }
 
 function go(d) {
-  state.idx = (state.idx + d + STAGES.length) % STAGES.length;
+  const n = list().length;
+  state.idx = (state.idx + d + n) % n;
   loadSprite();
 }
 
@@ -157,9 +161,9 @@ function render() {
   const hud = state.el.querySelector('[data-hud]');
   if (!hud) return;
   const an = current(stage());
-  const done = STAGES.filter((s) => state.captured[s]);
+  const done = list().filter((s) => state.captured[s]);
   const f = (n) => (n || 0).toFixed(3);
-  hud.textContent = `${stage()}  (${state.idx + 1}/${STAGES.length})`
+  hud.textContent = `${stage()}  (${state.idx + 1}/${list().length})`
     + `${state.captured[stage()] ? '  ← relevé' : ''}\n`
     + `mast ${f(an.mast)}  beam ${f(an.beam)}\n`
     + `foreP ${f(an.foreP)}  foreS ${f(an.foreS)}\n\n`

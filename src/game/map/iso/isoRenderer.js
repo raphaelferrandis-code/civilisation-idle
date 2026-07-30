@@ -3393,20 +3393,17 @@ export const NAV_STBD_COL = '60,255,110';   // tribord — vert
 // Se calibre AU CLIC : `__navCalib()`, un clic par feu, n'importe où sur le
 // sprite. `__navAnchor(stage, {...})` règle à chaud.
 const NAV_ANCHOR_DEFAULT = { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 };
+// (Ni raft ni rowboat : ils ne s'allument pas, cf. NAV_DARK. Leur laisser un
+// ancrage aurait entretenu l'idée qu'ils portent des feux.)
 const NAV_ANCHOR = {
   // Valeurs de départ, à remplacer par le bloc que rend __navCalib().
-  raft: { mast: 0.22, beam: 0.14, foreP: 0, foreS: 0 },
   sail: { mast: 0.34, beam: 0.13, foreP: 0, foreS: 0 },
   steam: { mast: 0.30, beam: 0.16, foreP: 0, foreS: 0 },
   container: { mast: 0.26, beam: 0.20, foreP: 0, foreS: 0 },
-  rowboat: { mast: 0.20, beam: 0.12, foreP: 0, foreS: 0 },
   dinghy: { mast: 0.34, beam: 0.12, foreP: 0, foreS: 0 },
   motorboat: { mast: 0.26, beam: 0.15, foreP: 0, foreS: 0 },
 };
 export function navAnchorFor(stage) { return NAV_ANCHOR[stage] || NAV_ANCHOR_DEFAULT; }
-// Le calibreur travaille sur le SPRITE : il lui faut la pose exacte de l'image
-// et le réglage courant, sans jamais nous importer en retour.
-configureNavCalib({ K: BOAT_IMG_K, TOP: BOAT_IMG_TOP, anchorFor: navAnchorFor });
 if (typeof window !== 'undefined') {
   window.__navAnchor = (stage, o) => {
     if (stage && o) NAV_ANCHOR[stage] = { ...navAnchorFor(stage), ...o };
@@ -3414,9 +3411,31 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// Un bateau à l'ancre ne porte pas de feux de route. C'est une règle de métier,
-// pas un détail de rendu : le pêcheur DOIT rester noir sur l'eau.
-export function boatHasNavLights(kind) { return kind !== 'fisher'; }
+// Coques qui ne portent AUCUN feu. Ce n'est pas un détail de rendu mais une
+// règle de monde, et elle a deux motifs distincts :
+//   • le pêcheur est à l'ancre, hors des règles de route ;
+//   • un radeau de rondins et une barque à rames n'ont rien pour en porter —
+//     pas de mât, pas de bord franc, et surtout aucune ère où ça aurait un sens
+//     (Raph, 2026-07-29). Un feu de position sur un rafiot primitif faisait
+//     mentir toute la ligne du temps que la flotte raconte par ailleurs.
+// Clé = le STADE de la coque (raft, sail, rowboat…), pas le métier : c'est la
+// coque qui décide, et un même métier en traverse plusieurs.
+const NAV_DARK = new Set(['fisher', 'raft', 'rowboat']);
+export function boatHasNavLights(stage) { return !NAV_DARK.has(stage); }
+
+// Les stades à CALIBRER, servis au calibreur. Une liste tenue de son côté aurait
+// fini par diverger de NAV_DARK — le seuil du vapeur avait déjà pris cette
+// pente, recopié à trois endroits. Un test vérifie que tout ce qui est ici
+// s'allume vraiment.
+export const NAV_STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
+
+// Le calibreur travaille sur le SPRITE : il lui faut la pose exacte de l'image,
+// le réglage courant et la liste des stades — sans jamais nous importer en
+// retour. ⚠ CET APPEL DOIT RESTER SOUS NAV_STAGES : placé plus haut dans le
+// fichier, il lisait la constante avant son initialisation et jetait une TDZ au
+// chargement du module (attrapé par les tests). Le même piège que celui qui
+// interdit le cycle d'imports, à l'intérieur d'un seul fichier cette fois.
+configureNavCalib({ K: BOAT_IMG_K, TOP: BOAT_IMG_TOP, anchorFor: navAnchorFor, stages: NAV_STAGES });
 
 // Intensité des feux. Le produit par nightF est la garde qui compte :
 // `flameGlowAlpha` porte un plancher de JOUR délibéré pour qu'une forge brûle à
@@ -3462,7 +3481,7 @@ function drawIsoShipNight(now) {
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
   for (const sh of CM.ships) {
-    if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh.kind)) continue;
+    if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh._nav.stage)) continue;
     const { x, y, dw, heading, stage } = sh._nav;
     // Ancrage PAR STADE (cf. NAV_ANCHOR) : élévation, écartement et avance de
     // CHAQUE feu dépendent de la coque, pas d'un gabarit unique. Réglable au
@@ -3636,7 +3655,10 @@ function drawIsoShips(now) {
     ctx.imageSmoothingEnabled = prevSm;
     // Ancre écran pour la passe de nuit (drawIsoShipNight) : les feux de
     // position ne peuvent pas être peints ici, le voile passerait dessus.
-    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading, stage: vis.key };
+    // ⚠ `vis.stage` et NON `vis.key` : la clé porte la POSE (fisher / fisher-row)
+    // alors que le stade porte la COQUE. Avec la clé, un pêcheur en route serait
+    // passé à côté de la liste des coques sans feux et se serait allumé.
+    sh._nav = { x: p.x, y: p.y, dw: s * 0.7 * sizeMul, heading, stage: vis.stage };
     sh._navAt = now;
     ctx.globalAlpha = prevAlpha;
   }

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { boatLampMul, boatHasNavLights, navLightOffsets, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
+import { boatLampMul, boatHasNavLights, navLightOffsets, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
 import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 
 // Aucun bateau ne lisait nightF : la nuit tombée, le fleuve restait un ruban
@@ -18,10 +18,34 @@ import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 //      et la v1 en héritait.
 
 describe("feux de navigation — qui en porte", () => {
-  it("le pêcheur reste noir sur l'eau", () => {
-    expect(boatHasNavLights("fisher")).toBe(false);
-    expect(boatHasNavLights("trade")).toBe(true);
-    expect(boatHasNavLights("yacht")).toBe(true);
+  it("ni le pêcheur, ni le radeau, ni la barque à rames", () => {
+    // Le pêcheur est à l'ancre ; le radeau et la barque n'ont tout simplement
+    // rien pour porter un feu, et à leur ère ça n'aurait aucun sens.
+    for (const dark of ["fisher", "raft", "rowboat"]) {
+      expect(boatHasNavLights(dark)).toBe(false);
+    }
+    // Tout ce qui a un pont ou un mât en porte.
+    for (const lit of ["sail", "steam", "container", "cosmic", "dinghy", "motorboat"]) {
+      expect(boatHasNavLights(lit)).toBe(true);
+    }
+  });
+
+  it("la garde porte sur la COQUE, pas sur la pose du pêcheur", () => {
+    // Le pêcheur a deux sprites (fisher / fisher-row) mais un seul stade. Si la
+    // garde regardait la clé de sprite, il s'allumerait dès qu'il navigue —
+    // exactement ce qu'on ne veut pas.
+    expect(shipVisual("fisher", 4, 18, "anchor").stage).toBe("fisher");
+    expect(shipVisual("fisher", 4, 18, "cruise").stage).toBe("fisher");
+    expect(boatHasNavLights(shipVisual("fisher", 4, 18, "cruise").stage)).toBe(false);
+  });
+
+  it("la liste à calibrer et celle qui s'allume ne peuvent pas diverger", () => {
+    // Deux listes à tenir séparément auraient fini par se contredire — le seuil
+    // du vapeur avait déjà pris cette pente, recopié à trois endroits. Ici le
+    // calibreur reçoit NAV_STAGES ; ce test vérifie que tout ce qu'on y calibre
+    // s'allume pour de vrai.
+    expect(NAV_STAGES.length).toBeGreaterThan(0);
+    for (const s of NAV_STAGES) expect(boatHasNavLights(s)).toBe(true);
   });
 
   it("bâbord est rouge, tribord est vert", () => {
