@@ -103,6 +103,8 @@ export default function App() {
   // Purement présentationnel — le rendu et la simulation continuent à l'identique,
   // c'est ce qui rend ce mode bon marché.
   const [contemplation, setContemplation] = useState(false);
+  // Feuille d'état, régime tactile uniquement (cf. data-status-sheet plus bas).
+  const [statusSheet, setStatusSheet] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   // Texte d'export à copier à la main quand le presse-papiers a échoué. null =
   // pas de repli en cours (une chaîne vide reste un état valide à afficher).
@@ -306,6 +308,13 @@ export default function App() {
       className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
       data-active-view={activeView}
       data-contemplation={contemplation && activeView === 'city' ? 'on' : undefined}
+      // Feuille d'ÉTAT (P5, tactile) : la barre basse n'a pas la place d'afficher
+      // l'encart Âge/Usure/Vœu/Clepsydre, mais l'Usure est l'échéance de toute la
+      // partie — la masquer sur téléphone reviendrait à jouer sans montre. Elle
+      // s'ouvre donc à la demande. L'attribut est posé quel que soit le régime :
+      // c'est le CSS tactile qui lui donne un sens, et le bouton qui l'actionne
+      // n'existe que là (sur un écran de bureau l'encart est déjà en vue).
+      data-status-sheet={statusSheet ? 'on' : undefined}
       style={{
         // Style universel : le chrome n'est plus teinté par l'âge — l'accent or
         // canonique de variables.css s'applique partout. L'âge ne pilote plus
@@ -385,18 +394,35 @@ export default function App() {
 
         <CityStatusPanel />
 
+        {/* `data-qa` : prise CSS par action. Le régime tactile ne garde que
+            « Options » et « État » dans la barre basse (demande Raph) — Save,
+            Export et Import vivent alors DANS les Options, où le joueur les
+            cherche de toute façon sur téléphone. */}
         <div className="quick-actions">
-          <button className="btn-tiny" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
+          <button className="btn-tiny" data-qa="save" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
             <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
           </button>
-          <button className="btn-tiny" onClick={handleExport} {...tipProps(null, "Exporter")}>
+          <button className="btn-tiny" data-qa="export" onClick={handleExport} {...tipProps(null, "Exporter")}>
             <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
           </button>
-          <button className="btn-tiny" onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
+          <button className="btn-tiny" data-qa="import" onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
             <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
-          <button className="btn-tiny" onClick={() => reopenDialog(setIsOptionsOpen)} {...tipProps(null, "Options")}>
+          <button className="btn-tiny" data-qa="options" onClick={() => reopenDialog(setIsOptionsOpen)} {...tipProps(null, "Options")}>
             <PixelIcon name="nav/options" className="qa-icon" /><span className="qa-label">Options</span>
+          </button>
+          {/* Bouton d'ouverture de la feuille d'état. Rendu TOUJOURS, masqué par
+              le CSS hors régime tactile : sur un écran de bureau l'encart est
+              déjà affiché en permanence dans la barre latérale, un bouton pour
+              le montrer n'y voudrait rien dire. */}
+          <button
+            className="btn-tiny qa-status"
+            aria-expanded={statusSheet}
+            onClick={() => setStatusSheet((v) => !v)}
+            {...tipProps(null, tr({ fr: "État de la civilisation", en: "Civilization status" }))}
+          >
+            <i className="fa-solid fa-gauge-high qa-icon" aria-hidden="true"></i>
+            <span className="qa-label">{tr({ fr: "État", en: "Status" })}</span>
           </button>
         </div>
       </aside>
@@ -443,7 +469,19 @@ export default function App() {
 
       {/* Modals Option / Import / Debug */}
       <Suspense fallback={null}>
-        {isOptionsOpen && <OptionsDialog isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />}
+        {/* Les trois gestes de sauvegarde sont PASSÉS aux Options : sur
+            téléphone la barre basse ne garde que l'icône Options, et c'est là
+            qu'on doit les retrouver. Ils restent aussi dans la barre latérale du
+            bureau — même fonction, deux portes, aucune duplication de logique. */}
+        {isOptionsOpen && (
+          <OptionsDialog
+            isOpen={isOptionsOpen}
+            onClose={() => setIsOptionsOpen(false)}
+            onSave={handleSave}
+            onExport={handleExport}
+            onImport={() => { setIsOptionsOpen(false); reopenDialog(setIsImportOpen); }}
+          />
+        )}
         {isImportOpen && <ImportDialog isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />}
         {/* Repli d'export : le presse-papiers a échoué, on montre le texte à
             copier dans le MÊME dialogue, en lecture seule. */}

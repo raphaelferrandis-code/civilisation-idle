@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 /**
  * État ouvert/replié d'un encart, mémorisé en localStorage (clé `hud:<storageKey>`,
@@ -17,15 +17,23 @@ export function useCollapsiblePanel(storageKey, defaultOpen = true) {
     }
   });
 
-  const toggle = () => setOpen((o) => {
-    const next = !o;
+  const persist = useCallback((next) => {
     try {
       if (storageKey) localStorage.setItem(`hud:${storageKey}`, next ? '1' : '0');
     } catch {
       // localStorage indisponible : on garde quand même l'état en mémoire.
     }
     return next;
-  });
+  }, [storageKey]);
 
-  return [open, toggle];
+  const toggle = useCallback(() => setOpen((o) => persist(!o)), [persist]);
+
+  // Ouverture/fermeture PILOTÉE (et non basculée) : sert à déplier d'autorité un
+  // encart qu'il serait dangereux de laisser fermé — la Régulation quand la crise
+  // s'ouvre. Mémorisée comme un clic : le joueur retrouve l'état qu'il voit.
+  // ⚠ Stable (useCallback) : les appelants la mettent en dépendance d'effet, une
+  // identité qui change à chaque rendu y relancerait l'effet en boucle.
+  const set = useCallback((v) => setOpen(() => persist(!!v)), [persist]);
+
+  return [open, toggle, set];
 }

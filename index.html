@@ -3,7 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ⚠ `viewport-fit=cover` n'est PAS décoratif : sans lui, `env(safe-area-inset-*)`
+         vaut 0 sur les téléphones à encoche, et toutes les réserves de la coquille
+         tactile (touch-shell.css) se calculent comme si l'écran allait jusqu'au bord.
+         La barre d'onglets finit alors sous la barre gestuelle du système. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Installation sur l'écran d'accueil (P6). En mode `standalone` la barre
+         d'adresse disparaît : le jeu gagne sa hauteur, et surtout `dvh` cesse de
+         varier au défilement — c'est ce qui rend la mise en page mobile stable.
+         Tout est LOCAL (cf. la note E9 ci-dessous) : aucun lien distant. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#0E1320" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <!-- AUCUN lien distant ici (E9). La typographie et Font Awesome sont
          rapatriés dans le bundle : src/assets/fonts.css (généré par
          scripts/vendorFonts.mjs) et node_modules/@fortawesome, tous deux

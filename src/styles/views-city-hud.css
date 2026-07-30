@@ -21,13 +21,26 @@
      carte. Le passage par 5.8rem valait pour la version valeur+débit côte à
      côte, abandonnée (Raph préfère le centrage). */
   --city-topbar-h: 6.8rem;
-  /* Budget vertical de la VALEUR auto-taillée (components.css) : la hauteur
-     de barre moins tout ce qui entoure la valeur dans sa cellule — CADRE or
-     9-slice de la plaque 12.2px (borders, frames.css) + paddings de plaque
-     15.2 + de cellule 9.1 + label 20 + gaps 3.2 + ligne de débit 17 ≈ 77px
-     (+1 de marge), mesuré au rendu. Ni les chiffres NI le débit ne peuvent
-     ainsi déborder de la plaque, quelle que soit --city-topbar-h. */
-  --odo-cap: calc(var(--city-topbar-h) - 78px);
+  /* Ce qui entoure la valeur dans sa cellule — CADRE or 9-slice de la plaque
+     12.2px (borders, frames.css) + paddings de plaque 15.2 + de cellule 9.1 +
+     label 20 + gaps 3.2 + ligne de débit 17 ≈ 77px (+1 de marge), mesuré au
+     rendu. VARIABLE et non constante en dur : les crans de densité (bas de
+     fichier) resserrent ces paddings, et le budget doit suivre — sinon baisser
+     la barre rognerait les chiffres alors que c'est le CHROME qui a maigri. */
+  --odo-chrome: 78px;
+  /* Budget vertical de la VALEUR auto-taillée (components.css). Ni les chiffres
+     NI le débit ne peuvent déborder de la plaque, quelle que soit la hauteur. */
+  --odo-cap: calc(var(--city-topbar-h) - var(--odo-chrome));
+
+  /* ---- Gabarit des couches flottantes du HUD ----
+     Les trois réservations que le HUD prend à la carte, en UN seul endroit :
+     c'est ce que les crans de densité règlent. Avant, la largeur de la boutique
+     était écrite DEUX fois (ici pour le calage de la barre de régulation, et
+     dans views-world-fullframe.css pour le dock lui-même) : deux valeurs à
+     garder d'accord à la main, qui divergent au premier réglage. */
+  --hud-gap: 1rem;                          /* marge des couches au bord */
+  --hud-id-w: clamp(22rem, 32vw, 32rem);    /* encart identité (haut gauche) */
+  --shop-w: clamp(20rem, 26vw, 26rem);      /* dock boutique (droite) */
 }
 
 .app[data-active-view="city"] main {
@@ -98,7 +111,7 @@
    L'encart identité est COLLÉ sous la barre et au bord gauche (demande Raph). */
 .app[data-active-view="city"] .city-stage-hud {
   inset: 0 auto auto 0;
-  width: clamp(22rem, 32vw, 32rem);
+  width: var(--hud-id-w);
   padding: 0.5rem 1rem 0.65rem;
   background: rgba(13, 15, 23, 0.66);
   backdrop-filter: blur(14px);
@@ -160,7 +173,7 @@
 /* ---- Rail gauche : dock d'icônes + popover, sous l'encart identité ---- */
 .app[data-active-view="city"] .city-aux {
   position: absolute;
-  left: 1rem;
+  left: var(--hud-gap);
   /* Repli avant la première mesure : CityView recale `top` en JS sous le bord
      RÉEL de l'encart identité, dont la hauteur varie (cf. stageHudRef). */
   top: 10.1rem;
@@ -344,8 +357,10 @@
 
 /* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */
 .app[data-active-view="city"] .city-shop-dock {
-  top: 0.5rem;
-  bottom: 1rem;
+  /* MÊME gouttière que la barre de régulation : les deux docks bordent la
+     carte, un écart de quelques pixels entre leurs bords bas se voit. */
+  top: calc(var(--hud-gap) / 2);
+  bottom: var(--hud-gap);
 }
 /* Boutique repliée : le dock se dé-stretch et se contracte sur la hauteur du
    seul bandeau-titre, libérant la carte (au lieu d'un panneau de verre vide). */
@@ -356,9 +371,9 @@
 /* ---- Régulation : barre basse en overlay (libère la place du dock à droite) ---- */
 .app[data-active-view="city"] .city-controls-panel {
   position: absolute;
-  left: 1rem;
-  right: calc(2.8rem + clamp(20rem, 26vw, 26rem));
-  bottom: 1rem;
+  left: var(--hud-gap);
+  right: calc(2.8rem + var(--shop-w));
+  bottom: var(--hud-gap);
   z-index: 20;
   margin: 0;
   background: rgba(30, 35, 45, 0.44);
@@ -543,3 +558,159 @@
 @media (prefers-reduced-motion: reduce) {
   .contemplation-bar { transition: none; }
 }
+
+
+/* ============================================================================
+   CRANS DE DENSITÉ (P1) — petit écran : l'interface SE RESSERRE, elle ne
+   rapetisse pas. La place reprise au chrome est rendue à la carte.
+
+   ⚠ POURQUOI PAS UNE ÉCHELLE GLOBALE (racine fluide, zoomFactor) : le jeu a un
+   plancher typographique de 11px (variables.css, passe du 2026-07-25) et tout
+   est en rem. Réduire la racine de 10 % repasse SOUS ce plancher les 66
+   déclarations qu'on venait d'y remonter — en français, sous ~11px il ne reste
+   plus de ligne de pixels pour poser un accent. On resserre donc les paddings,
+   les gouttières et les réservations ; les corps de texte ne bougent pas.
+
+   ⚠ POURQUOI DES CONDITIONS EN « , » (OR) : la largeur seule ne dit pas tout.
+   Une fenêtre 1600×700 posée dans un coin d'écran est large et pourtant
+   étranglée en hauteur — c'est le cas d'usage « idle dans un coin » de Raph. La
+   hauteur déclenche donc les mêmes crans que la largeur.
+
+   ⚠ CHAQUE CRAN RÈGLE --odo-chrome AVEC la hauteur de barre. Les deux vont
+   ensemble : baisser --city-topbar-h sans baisser le chrome fait fondre les
+   chiffres (le budget --odo-cap est leur différence), et ce sont EUX qu'on
+   veut garder — 30px au cran 0, 30 au cran 1, 26 au cran 2, pour ~21px de
+   carte gagnés. Les valeurs de chrome sont la somme mesurée : cadre 12.2 +
+   paddings de plaque + de cellule + label 20 + gaps + ligne de débit 17.
+
+   ⚠ LA BARRE DE RESSOURCES N'EST PAS SCOPÉE à la vue Cité, volontairement :
+   components.css cale TOUTES les vues sur le même gabarit (--city-topbar-h),
+   la barre doit garder la même allure en changeant d'onglet.
+   ============================================================================ */
+
+/* ---- Cran 1 « dense » : laptop 1366×768, ou fenêtre basse de plafond ----
+   Les chiffres ne bougent PAS (chrome 78→66 pendant que la barre passe de
+   6.8 à 6rem) : 13px rendus à la carte pour zéro perte de lisibilité. */
+@media (max-width: 1500px), (max-height: 840px) {
+  .app {
+    --city-topbar-h: 6rem;
+    --odo-chrome: 66px;
+    --hud-gap: 0.7rem;
+    --hud-id-w: clamp(18rem, 27vw, 24rem);
+    --shop-w: clamp(18rem, 24vw, 23rem);
+  }
+
+  .topbar-resources {
+    padding: 0.3rem 0.8rem 0.28rem;
+  }
+
+  .topbar .resource-card-unified {
+    padding: 0.15rem 0.5rem 0.2rem;
+    gap: 0.06rem;
+  }
+
+  .app[data-active-view="city"] .city-controls-panel {
+    padding: 0.55rem 0.8rem 0.6rem;
+  }
+
+  /* Casiers plus étroits = les politiques tiennent sur MOINS de rangées, et
+     c'est la hauteur de cette barre qui mordait sur le rail gauche. */
+  .app[data-active-view="city"] .city-controls-panel .crisis-policies-grid {
+    grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+  }
+
+  .app[data-active-view="city"] .city-stage-hud {
+    padding: 0.4rem 0.8rem 0.5rem;
+  }
+}
+
+/* ---- Cran 2 « très dense » : 1280×720 (1080p à 150 % de mise à l'échelle
+   Windows) et fenêtre réduite. Les chiffres cèdent 4px, tout le reste tient. */
+@media (max-width: 1280px), (max-height: 745px) {
+  .app {
+    --city-topbar-h: 5.5rem;
+    --odo-chrome: 62px;
+    --hud-gap: 0.5rem;
+    --hud-id-w: clamp(15rem, 22vw, 19rem);
+    /* PLANCHER 17.5rem et pas moins : MESURÉ, sous ~280px les trois libellés
+       d'onglets de la boutique (« Moteurs / Savoir / Infrastructure ») se font
+       rogner de 4 à 8px, alors même que le cran de repli de police de
+       views-world-fullframe.css a déjà joué (0.92→0.8rem sous 1280px). En
+       dessous il faudrait descendre la police sous le plancher de 11px : on
+       préfère rendre 8px de carte que rendre un onglet illisible. */
+    --shop-w: clamp(17.5rem, 23vw, 21rem);
+  }
+
+  .topbar-resources {
+    padding: 0.22rem 0.6rem 0.2rem;
+  }
+
+  .topbar .resource-card-unified {
+    padding: 0.1rem 0.4rem 0.14rem;
+    gap: 0.04rem;
+  }
+
+  .app[data-active-view="city"] .city-controls-panel {
+    padding: 0.45rem 0.65rem 0.5rem;
+  }
+
+  .app[data-active-view="city"] .city-controls-panel .crisis-policies-grid {
+    grid-template-columns: repeat(auto-fit, minmax(6.8rem, 1fr));
+  }
+
+  /* Le nom de la cité reste un TITRE — on lui retire seulement sa démesure : à
+     ce palier son clamp haut (2.7rem) tombait sur un encart de 240px de large,
+     où il passait à la ligne et poussait la jauge hors de vue. Le `!important`
+     répond à celui de views-city.css, pas à un caprice. */
+  .app[data-active-view="city"] .city-stage-hud .city-name-input {
+    font-size: clamp(1.15rem, 2.4vw, 1.6rem) !important;
+  }
+
+  .app[data-active-view="city"] .city-stage-hud {
+    padding: 0.3rem 0.65rem 0.4rem;
+  }
+}
+
+/* ---- Cran 3 « fenêtre étroite » (≤980px) : le HUD cesse de se partager la
+   largeur en trois colonnes, il se superpose. La barre latérale est déjà passée
+   en gouttière d'icônes à ce palier (layout.css). ---- */
+@media (max-width: 980px) {
+  .app {
+    --hud-id-w: clamp(11rem, 26vw, 14rem);
+  }
+
+  /* Le nom de la ressource ne tient plus sur une cellule de ~105px : on lui
+     retire son interlettrage d'apparat et on descend au plancher lisible (11px),
+     PAS en dessous — c'est le nom qui identifie la colonne, l'icône seule ne
+     distingue pas Savoir d'Infrastructure d'un coup d'œil. */
+  .topbar .resource-name {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* La barre de régulation prend TOUTE la largeur au lieu de se serrer à gauche
+     de la boutique. Mesuré en 780×800 : coincée, il ne lui restait que 207px,
+     soit UNE carte de politique par rangée et un panneau qui montait sur toute
+     la hauteur de l'écran. Dépliée elle recouvre donc la boutique — c'est un
+     geste volontaire du joueur, réversible d'un clic, et elle est repliée par
+     défaut à ce palier. Sa poignée, elle, reste une bande fine. */
+  .app[data-active-view="city"] .city-controls-panel {
+    right: var(--hud-gap);
+  }
+
+  /* La poignée barre toute la largeur du bas : le dock s'arrête au-dessus,
+     sinon elle masquait les 35 derniers pixels de la liste d'achats (mesuré).
+     On réserve la POIGNÉE, pas le panneau déplié — celui-ci recouvre, mais
+     c'est un état momentané que le joueur a demandé. */
+  .app[data-active-view="city"] .city-shop-dock {
+    bottom: calc(var(--hud-gap) + 2.6rem);
+  }
+}
+
+/* ⚠ NE PAS rétrécir `.first-steps` ici (essayé, 15→13rem) : le panneau ne perd
+   pas de surface, il la reporte en HAUTEUR (126→143px mesuré) — et c'est la
+   hauteur qui le fait percuter la barre de régulation dans le rail gauche.
+   MESURÉ : ce conflit n'existe QUE sur une partie neuve. Les Premiers pas
+   disparaissent au bout de trois étapes ; ensuite le rail est vide (hauteur 0)
+   et il n'y a plus aucun chevauchement, même en 1000×700. La vraie réponse est
+   le repli de la barre de régulation (P2), pas un rabotage de l'accueil. */

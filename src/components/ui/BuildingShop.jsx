@@ -83,11 +83,21 @@ const TABS = [
   { id: "infra", label: { fr: "Infrastructure", en: "Infrastructure" } }
 ];
 
-function BuildingShop() {
+function BuildingShop({ open: openProp, onToggle }) {
   const [activeTab, setActiveTab] = useState("city"); // "city", "knowledge", "infra"
   // Encart pliable (même mécanique que la Régulation des tensions) : on peut
   // réduire la boutique à son seul bandeau-titre pour rendre la carte au regard.
-  const [open, toggleOpen] = useCollapsiblePanel("shop", true);
+  //
+  // ÉTAT REMONTABLE (M1) : sur téléphone la boutique n'est plus un panneau posé
+  // à côté de la carte mais une FEUILLE qu'on ouvre depuis un bouton flottant —
+  // et ce bouton vit à l'extérieur de ce composant. Quand `open`/`onToggle` sont
+  // fournis, ils font autorité ; sinon la boutique garde son état interne, et le
+  // bureau ne change pas d'un iota.
+  // ⚠ Le crochet est appelé DANS TOUS LES CAS (jamais sous condition) : c'est
+  // seulement la valeur retenue qui change.
+  const [ownOpen, ownToggle] = useCollapsiblePanel("shop", true);
+  const open = openProp === undefined ? ownOpen : openProp;
+  const toggleOpen = onToggle || ownToggle;
 
   // Subscriptions to trigger component update on state mutations
   const stateBuildings = useGameState(s => ({ ...s.buildings }));

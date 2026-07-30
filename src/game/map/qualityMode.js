@@ -47,6 +47,35 @@ function detectAutoTier() {
   try {
     const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
     const cores = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
+    // ⚠ APPAREIL TACTILE (P3) — testé AVANT le reste, et c'est le point du spike.
+    // La règle « HiDPI + peu de cœurs » ci-dessous a été écrite pour des portables :
+    // un téléphone récent annonce 6 à 8 cœurs et un dpr de 2,5 à 3, donc elle le
+    // classait « élevé » — plafond dpr 2, aucun LOD, 60 fps visés et recuisson
+    // nette pendant le geste. C'est-à-dire le pire réglage possible, sur la
+    // machine la plus faible, avec le coût GPU qui monte en dpr² (la carte est
+    // GPU-bound, cf. la séance du 2026-07-27).
+    //
+    // ⚠⚠ `(pointer: coarse) and (hover: none)` NE SUFFIT PAS — MESURÉ sur le
+    // téléphone de Raph le 2026-07-28 : la conjonction ne matchait pas et
+    // l'appareil est reparti en « élevé ». C'est `hover` qui trahit : plusieurs
+    // navigateurs mobiles annoncent `hover: hover` (héritage, stylet, mode
+    // « site pour ordinateur »). Le signal FIABLE est le pointeur grossier seul ;
+    // `hover: none` ne sert plus qu'à rattraper un appareil purement tactile qui
+    // n'annoncerait pas `coarse`. Un portable à écran tactile garde un pointeur
+    // FIN en primaire, donc il n'est pas pris ici — c'est ce qui compte.
+    const mq = (q) => typeof window !== "undefined" && typeof window.matchMedia === "function"
+      && window.matchMedia(q).matches;
+    const points = (typeof navigator !== "undefined" && navigator.maxTouchPoints) || 0;
+    const tactile = mq("(pointer: coarse)") || (points > 0 && mq("(hover: none)"));
+    // ⚠ LE dpr NE SERT PAS à juger la faiblesse d'un appareil tactile — corrigé
+    // le 2026-07-28 sur mesure réelle. Un écran dense n'est pas une machine
+    // lente, et le plafond de résolution du palier traite DÉJÀ le coût de
+    // remplissage : sur un téléphone en dpr 3, plafonner à 1,5 divise déjà la
+    // surface à peindre par quatre. Compter le dpr une seconde fois ici faisait
+    // tomber en « perf » (dpr 1, moitié des habitants, LOD précoce) un téléphone
+    // qui tenait 60-120 fps AU PALIER LE PLUS LOURD. On ne garde donc que le
+    // nombre de cœurs, qui dit vraiment la classe de l'appareil.
+    if (tactile) return cores <= 4 ? "perf" : "balanced";
     const weak = (dpr >= 2 && cores <= 4) || cores <= 2;
     return weak ? "balanced" : "high";
   } catch {

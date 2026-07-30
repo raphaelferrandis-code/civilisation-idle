@@ -24,3 +24,8 @@
 @import './styles/frames.css';
 /* Interface allégée (LE skin du jeu) : après frames.css pour arbitrer en dernier. */
 @import './styles/ui-light.css';
+/* Coquille TACTILE (P4) : tout en dernier, car c'est une surcouche de régime
+   (`:root[data-pointer="coarse"]`) et non une variante à négocier règle par
+   règle. ⚠ Le piège des 35 déclarations mortes de base.css vient précisément
+   d'un fichier responsive placé AVANT ceux qu'il prétendait corriger. */
+@import './styles/touch-shell.css';

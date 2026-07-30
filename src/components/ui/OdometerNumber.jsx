@@ -98,6 +98,12 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   const Dint = Math.floor(D);
   const resting = display === target;
   // À l'arrêt (anim finie), on fige les colonnes sur le glyphe entier.
+  // ⚠ NE PAS re-figer le roulis sur téléphone : essayé le 2026-07-31, ANNULÉ
+  // après vérification de Raph sur l'appareil — l'illisibilité de la barre ne
+  // venait pas de là, mais du dimensionnement de la valeur (elle était calculée
+  // sur TOUTE la largeur de la cellule, icône non déduite, donc elle débordait
+  // et se faisait rogner des deux côtés). Le roulis est la signature du cadran ;
+  // il reste partout.
   const fracD = resting ? 0 : D - Dint;
 
   // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Utilisée

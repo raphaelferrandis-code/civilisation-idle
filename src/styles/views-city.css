@@ -301,10 +301,10 @@
    Partagée par la variante compacte (.crisis-foyer--*) et la variante full
    (.tactical-card--*). Dissidence = usure (violet d'état), plus l'ancien
    violet « infra » qui entrait en collision avec l'infrastructure. */
-.crisis-foyer--food,  .tactical-card--food  { --foyer-color: var(--res-food); }
-.crisis-foyer--gold,  .tactical-card--gold  { --foyer-color: var(--res-treasure); }
-.crisis-foyer--know,  .tactical-card--know  { --foyer-color: var(--res-knowledge); }
-.crisis-foyer--usure, .tactical-card--usure { --foyer-color: var(--state-usure); }
+.crisis-foyer--food,  .tactical-card--food,  .regul-summary-foyer--food  { --foyer-color: var(--res-food); }
+.crisis-foyer--gold,  .tactical-card--gold,  .regul-summary-foyer--gold  { --foyer-color: var(--res-treasure); }
+.crisis-foyer--know,  .tactical-card--know,  .regul-summary-foyer--know  { --foyer-color: var(--res-knowledge); }
+.crisis-foyer--usure, .tactical-card--usure, .regul-summary-foyer--usure { --foyer-color: var(--state-usure); }
 
 /* Carte tactique (variante full) : liseré gauche teinté par la ressource. */
 .tactical-card[class*="tactical-card--"] {
@@ -892,6 +892,18 @@
   background: transparent;
   cursor: grab;
   text-align: left;
+  /* TACTILE (P3) — OBLIGATOIRE, pas un confort : sans `touch-action: none` le
+     navigateur revendique le geste pour faire défiler ou zoomer la page, et
+     `pointermove` s'arrête au bout de quelques pixels (le pan meurt en cours de
+     route, le pincement n'arrive jamais). `overscroll-behavior` coupe en plus le
+     « tirer pour rafraîchir » quand on pane vers le bas depuis le haut. */
+  touch-action: none;
+  overscroll-behavior: contain;
+  /* Un appui long sur la carte doit ouvrir NOTRE infobulle, pas la loupe de
+     sélection de texte du navigateur. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .map-interaction-hint {

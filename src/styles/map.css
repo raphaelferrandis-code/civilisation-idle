@@ -170,6 +170,12 @@ h1, h2, h3,
   width: 100%;
   height: 100%;
   display: block;
+  /* TACTILE (P3) : c'est CE nœud qui porte les écouteurs pointer, donc c'est lui
+     qui doit refuser les gestes du navigateur. Le conteneur le déclare aussi,
+     mais le dire ici est ce qui compte — `touch-action` ne s'hérite pas, et
+     compter sur la résolution par les ancêtres rend la règle fragile au moindre
+     nœud intercalé. Sans ça, `pointermove` s'arrête après quelques pixels. */
+  touch-action: none;
 }
 
 

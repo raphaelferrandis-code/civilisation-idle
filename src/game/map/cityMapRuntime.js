@@ -28,6 +28,7 @@ import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapB
 import { resolveShortcut, resolveCameraKey } from '../core/shortcuts.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
+import { mountFpsProbe } from './fpsProbe.js';
 import { ambianceK } from './ambianceMode.js';
 import { weatherState } from './weatherMode.js';
 import { currentSeason } from './seasonMode.js';
@@ -37,7 +38,7 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
-import { drawIsoWorld, waterShoreTune } from './iso/isoRenderer.js';
+import { drawIsoWorld, waterShoreTune, riverIslandObstacles } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 import {
@@ -129,33 +130,45 @@ function cityMapResizeCanvas(canvas) {
     CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   // Offscreen dimensionnés AVEC la marge (onw/onh > écran). Invalide les bakes.
-  if (CM.staticCanvas) {
-    CM.staticCanvas.width = onw;
-    CM.staticCanvas.height = onh;
-    CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM._staticBake = null;
-  }
-  if (CM.tileCanvas) {
-    CM.tileCanvas.width = onw;
-    CM.tileCanvas.height = onh;
-    CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM._tileBake = null;
-  }
-  if (CM.groundCanvas) {
-    CM.groundCanvas.width = onw;
-    CM.groundCanvas.height = onh;
-    CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // Le sol ISO bake dans CE canvas sous _isoGroundBake : réallouer l'EFFACE,
-    // donc les deux états tombent ensemble. Sinon le bake iso se croit valide et
-    // on blitte un canvas vide jusqu'au prochain changement de clé (zoom) ou pan
-    // au-delà de la marge — « pas de textures avant de bouger la caméra ».
-    CM._groundBake = null; CM._isoGroundBake = null;
-  }
-  if (CM.quayCanvas) {
-    CM.quayCanvas.width = onw;
-    CM.quayCanvas.height = onh;
-    CM.qctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    CM._quayBake = null;
+  // ⚠ GARDE `!offSame` — le pendant EXACT du `if (!mainSame)` ci-dessus, et pour
+  // la même raison (note de 1994-… : « réallouer un canvas, même à taille
+  // IDENTIQUE, l'efface »). Elle manquait ici, et ça ne se voyait pas tant que
+  // les deux tailles bougeaient ensemble. Le cas où elles divergent est
+  // pourtant le plus fréquent : à CHAQUE retour sur l'onglet Cité, React fournit
+  // un canvas DOM neuf (300×150 par défaut) alors que les offscreen, tenus par
+  // le singleton CM, ont survécu à la bonne taille. `mainSame` était donc faux,
+  // la fonction poursuivait, et ces quatre blocs effaçaient des cuissons
+  // parfaitement valides. MESURÉ sur le téléphone de Raph (2026-07-28) : ~1 s à
+  // 14 fps en arrivant sur la carte, contre 60-120 le reste du temps.
+  if (!offSame) {
+    if (CM.staticCanvas) {
+      CM.staticCanvas.width = onw;
+      CM.staticCanvas.height = onh;
+      CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      CM._staticBake = null;
+    }
+    if (CM.tileCanvas) {
+      CM.tileCanvas.width = onw;
+      CM.tileCanvas.height = onh;
+      CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      CM._tileBake = null;
+    }
+    if (CM.groundCanvas) {
+      CM.groundCanvas.width = onw;
+      CM.groundCanvas.height = onh;
+      CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Le sol ISO bake dans CE canvas sous _isoGroundBake : réallouer l'EFFACE,
+      // donc les deux états tombent ensemble. Sinon le bake iso se croit valide et
+      // on blitte un canvas vide jusqu'au prochain changement de clé (zoom) ou pan
+      // au-delà de la marge — « pas de textures avant de bouger la caméra ».
+      CM._groundBake = null; CM._isoGroundBake = null;
+    }
+    if (CM.quayCanvas) {
+      CM.quayCanvas.width = onw;
+      CM.quayCanvas.height = onh;
+      CM.qctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      CM._quayBake = null;
+    }
   }
 }
 
@@ -760,6 +773,119 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     canvas.style.cursor = "grab";
   }, { signal });
 
+  // ── TACTILE (P3) ─────────────────────────────────────────────────────────
+  // Écouteurs POINTER filtrés sur `pointerType !== "mouse"`, POSÉS À CÔTÉ du
+  // chemin souris au lieu de le remplacer. Le drag souris ci-dessus est réglé au
+  // millimètre (seuil de 6px, inertie mesurée sur le dernier segment, curseur) :
+  // le convertir en pointer events aurait mis tout ça en jeu pour un spike dont
+  // la question est « le doigt marche-t-il ? », pas « peut-on réécrire la souris ? ».
+  // Les deux chemins partagent le MÊME état (CM.drag, CM.panVel, CM.zoomGoal),
+  // donc l'inertie, le zoom qui glisse et le recentrage marchent d'emblée.
+  //
+  // ⚠ Le canvas doit porter `touch-action: none` (map.css) : sans lui le
+  // navigateur avale le geste pour faire défiler la page, et pointermove
+  // s'interrompt au bout de quelques pixels.
+  const touches = new Map();           // pointerId → dernière position écran
+  let pinch = null;                    // { dist, zoom } au début du pincement
+  let pressTimer = null;               // appui long → infobulle (remplace le survol)
+
+  const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+  const localXY = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+  const twoTouches = () => {
+    const [a, b] = [...touches.values()];
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  };
+
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    // Capture : la suite du geste arrive même si le doigt sort du canvas — c'est
+    // ce qui remplace les écouteurs `window` du chemin souris.
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* capture refusée : le geste reste borné au canvas */ }
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    clearHover();
+    if (touches.size === 1) {
+      CM.drag = { x: e.clientX, y: e.clientY, camx: CM.cam.x, camy: CM.cam.y, moved: 0 };
+      CM.panVel = null;                // un nouveau doigt STOPPE l'inertie en cours
+      const p = localXY(e);
+      // L'appui long remplace le survol : au doigt il n'y a pas de « passer
+      // dessus sans cliquer », et sans lui toute l'information des infobulles
+      // de la carte devient inatteignable.
+      pressTimer = setTimeout(() => { pressTimer = null; CM.drag = null; showHover(p.x, p.y); }, 500);
+    } else if (touches.size === 2) {
+      CM.drag = null;                  // deux doigts : ce n'est plus un pan
+      cancelPress();
+      pinch = { dist: twoTouches().dist, zoom: CM.zoomGoal ?? CM.cam.zoom };
+    }
+  }, { signal });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "mouse" || !touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pinch && touches.size >= 2) {
+      const t = twoTouches();
+      if (pinch.dist > 8) {
+        const rect = canvas.getBoundingClientRect();
+        CM.zoomGoal = Math.max(0.35, Math.min(3.2, pinch.zoom * (t.dist / pinch.dist)));
+        // Ancre = le milieu des deux doigts : le point pincé reste sous eux.
+        CM.zoomAnchor = { mx: t.cx - rect.left, my: t.cy - rect.top };
+        CM.camGoal = null;
+      }
+      return;
+    }
+    if (!CM.drag) return;
+
+    const dx = e.clientX - CM.drag.x;
+    const dy = e.clientY - CM.drag.y;
+    CM.drag.moved += Math.abs(dx) + Math.abs(dy);
+    if (CM.drag.moved > 10) cancelPress();   // ça glisse : ce n'est plus un appui long
+    const pd = screenDeltaToPan(dx, dy);
+    CM.cam.x = CM.drag.camx - pd.x;
+    CM.cam.y = CM.drag.camy - pd.y;
+    const tv = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (CM.drag._lt) {
+      const seg = screenDeltaToPan(e.clientX - CM.drag._lx, e.clientY - CM.drag._ly);
+      const ms = Math.max(1, tv - CM.drag._lt);
+      CM.drag._vx = (-seg.x / ms) * 1000;
+      CM.drag._vy = (-seg.y / ms) * 1000;
+    }
+    CM.drag._lx = e.clientX; CM.drag._ly = e.clientY; CM.drag._lt = tv;
+  }, { signal });
+
+  const endTouch = (e) => {
+    if (e.pointerType === "mouse" || !touches.has(e.pointerId)) return;
+    touches.delete(e.pointerId);
+    cancelPress();
+    if (touches.size < 2) pinch = null;
+    if (touches.size === 1) {
+      // Un doigt reste après un pincement : il reprend le pan, et on repart de SA
+      // position — sinon la carte saute de l'écart entre les deux doigts.
+      const [p] = [...touches.values()];
+      CM.drag = { x: p.x, y: p.y, camx: CM.cam.x, camy: CM.cam.y, moved: 0 };
+      return;
+    }
+    if (touches.size === 0 && CM.drag) {
+      // Même règle qu'à la souris : au-delà de 6px c'était un pan, donc le clic
+      // de fin de geste ne doit pas être pris pour une sélection.
+      if (CM.drag.moved > 6) CM.dragged = true;
+      const tv = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      if (CM.drag._lt && tv - CM.drag._lt < 60 && CM.drag._vx != null) {
+        const cap = 4200;
+        CM.panVel = {
+          x: Math.max(-cap, Math.min(cap, CM.drag._vx)),
+          y: Math.max(-cap, Math.min(cap, CM.drag._vy)),
+        };
+        CM.camGoal = null;
+      }
+      CM.drag = null;
+    }
+  };
+  canvas.addEventListener("pointerup", endTouch, { signal });
+  canvas.addEventListener("pointercancel", endTouch, { signal });
+
   if (mapRoot) mapRoot.addEventListener("click", (e) => {
     if (CM.dragged) {
       e.stopImmediatePropagation();
@@ -786,6 +912,10 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       callbacks.onCitizenThoughtClicked(hitCitizen, type);
     }
   }, { capture: true, signal });
+
+  // Sonde de fluidité (P3) : éteinte sauf `?fps=1`. Montée ici pour vivre et
+  // mourir avec la carte (même AbortController), sans toucher la boucle de rendu.
+  mountFpsProbe({ signal, quality: qualitySettings });
 
   // A9 — CLAVIER CAMÉRA (flèches, +/-, recentrage C), au plus près du wheel/drag.
   // Écouté sur window mais MONTÉ AVEC LA CARTE (même AbortController) : sur une
@@ -1411,6 +1541,28 @@ function cityMapEnsureLayout(now, deps = {}) {
         CM.riverObstacles.push({ t: bi / Math.max(1, len - 1), lat, r: 1.6, id: w.id });
       }
     }
+    // L'ÎLE : un obstacle LONG et non un caillou. Le calcul vit avec `riverDodge`
+    // (isoRenderer), qui consomme ces points — publier et éviter sont deux moitiés
+    // d'un même contrat, et le piège du rayon nul se lit alors d'un seul coup d'œil.
+    CM.riverIslandT = null;
+    if (hasRiver && L.river.samples && L.river.islands && L.river.islands.length) {
+      for (const o of riverIslandObstacles(L.river.islands, L.river.samples)) {
+        CM.riverObstacles.push(o);
+      }
+      // POSITION DE L'ÎLE SUR LE RUBAN. Le pêcheur qui tourne autour n'a pas de
+      // `t` à lui — sa position vit dans un angle. S'il perd son orbite (merveille
+      // redevenue dormante), il faut bien qu'il reprenne la route quelque part :
+      // sans cette valeur il repartirait de son `t` de NAISSANCE, c'est-à-dire du
+      // bord de la carte, et se téléporterait à travers toute la ville avant de
+      // s'ancrer. On lui garde donc l'endroit où il se trouve vraiment.
+      const sm = L.river.samples, il = L.river.islands[0];
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < sm.length; i += 1) {
+        const dd = (sm[i].x - il.x) ** 2 + (sm[i].y - il.y) ** 2;
+        if (dd < bd) { bd = dd; bi = i; }
+      }
+      CM.riverIslandT = bi / Math.max(1, sm.length - 1);
+    }
   }
 }
 
@@ -1502,31 +1654,66 @@ function initCityMap(canvas, options = {}) {
     const _mkOC = (w, h) => typeof OffscreenCanvas !== 'undefined'
       ? new OffscreenCanvas(w, h)
       : (() => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; })();
-    CM.staticCanvas = _mkOC(_pw, _ph);
-    CM.sctx = CM.staticCanvas.getContext('2d');
-    CM.tileCanvas = _mkOC(_pw, _ph);
-    CM.tctx = CM.tileCanvas.getContext('2d');
-    // Sol (procédural + pixel + relief) : statique à caméra fixe → baké ici,
-    // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
-    CM.groundCanvas = _mkOC(_pw, _ph);
-    CM.gctx = CM.groundCanvas.getContext('2d');
-    // QUAIS : même raison que le sol — géométrie statique (promenade le long du
-    // ruban) qui pesait ~10 000 lineTo par frame en direct. Canvas SÉPARÉ du sol :
-    // le quai se dessine APRÈS le fleuve live, il ne peut pas partager son bake.
-    CM.quayCanvas = _mkOC(_pw, _ph);
-    CM.qctx = CM.quayCanvas.getContext('2d');
-    // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
-    if (!CM.sctx || !CM.tctx || !CM.gctx || !CM.qctx) { CM.inited = false; return; }
+
+    // ── RÉUTILISATION DES CUISSONS ENTRE DEUX MONTAGES ──────────────────────
+    // `App.jsx` monte la vue Cité en `{activeView === 'city' && <CityView/>}` :
+    // quitter l'onglet la DÉMONTE, et y revenir rappelle ici. Tout réallouer
+    // coûtait, à chaque retour, quatre offscreen pleine résolution PLUS une
+    // recuisson complète du sol, du décor, des tuiles et des quais.
+    // MESURÉ sur le téléphone de Raph (2026-07-28) : ~1 s à 14 fps en arrivant
+    // sur la carte, alors qu'elle tourne à 60-120 le reste du temps. Le même
+    // coût existe sur desktop, juste assez court pour passer inaperçu.
+    //
+    // Or ces offscreen ne sont PAS dans le DOM : ce sont des objets tenus par le
+    // singleton CM, que React n'a jamais touchés — leurs PIXELS ont survécu au
+    // démontage. S'ils ont exactement la bonne taille, on les garde tels quels
+    // AVEC leurs états de bake, et il n'y a plus rien à recuire.
+    //
+    // ⚠ CE N'EST PAS UN PARI SUR « RIEN N'A CHANGÉ » : la simulation continue de
+    // tourner pendant qu'on est sur un autre onglet. Chaque bake est gardé par
+    // une CLÉ DE CONTENU (cityMapBakeMargin) — zoom, layoutRecomputeAt, usure,
+    // santé… Si quoi que ce soit a bougé, la clé diffère et la recuisson se fait
+    // normalement. On ne supprime pas une vérification, on cesse d'en forcer le
+    // résultat.
+    // ⚠ On teste l'EXISTENCE, pas les dimensions : `resize()` vient de tourner
+    // (juste au-dessus) et c'est LUI qui détient la bonne taille — écran PLUS la
+    // marge de pan. Comparer ici à `_pw × _ph`, la taille sans marge, ne
+    // correspondait à rien et faisait tout réallouer à chaque fois.
+    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.groundCanvas && CM.quayCanvas
+      && CM.sctx && CM.tctx && CM.gctx && CM.qctx;
+
+    if (!_reutilisable) {
+      CM.staticCanvas = _mkOC(_pw, _ph);
+      CM.sctx = CM.staticCanvas.getContext('2d');
+      CM.tileCanvas = _mkOC(_pw, _ph);
+      CM.tctx = CM.tileCanvas.getContext('2d');
+      // Sol (procédural + pixel + relief) : statique à caméra fixe → baké ici,
+      // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
+      CM.groundCanvas = _mkOC(_pw, _ph);
+      CM.gctx = CM.groundCanvas.getContext('2d');
+      // QUAIS : même raison que le sol — géométrie statique (promenade le long du
+      // ruban) qui pesait ~10 000 lineTo par frame en direct. Canvas SÉPARÉ du sol :
+      // le quai se dessine APRÈS le fleuve live, il ne peut pas partager son bake.
+      CM.quayCanvas = _mkOC(_pw, _ph);
+      CM.qctx = CM.quayCanvas.getContext('2d');
+      // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
+      if (!CM.sctx || !CM.tctx || !CM.gctx || !CM.qctx) { CM.inited = false; return; }
+      // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
+      // module qui survit au démontage : sans ça, les états de bake du montage
+      // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
+      // premier changement de clé (sortie/retour sur la vue Cité, StrictMode).
+      // ⚠ CETTE INVALIDATION RESTE INDISPENSABLE ICI, et seulement ici : elle
+      // accompagne des canvas VIDES. La déplacer hors de cette branche
+      // annulerait tout le bénéfice ci-dessus.
+      cmInvalidateBakes();
+      CM.tileDirtyUntil = 0;
+    }
+    // setTransform est ABSOLU : le rejouer sur un contexte réutilisé est sans
+    // effet de bord, et il est obligatoire sur un contexte neuf.
     CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.qctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
-    // module qui survit au démontage : sans ça, les états de bake du montage
-    // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
-    // premier changement de clé (sortie/retour sur la vue Cité, StrictMode).
-    cmInvalidateBakes();
-    CM.tileDirtyUntil = 0;
   }
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
   // PNG démarrent tout de suite → pixelHouseReady vrai à la 1re apparition d'un bâtiment,
@@ -1766,6 +1953,13 @@ function initCityMap(canvas, options = {}) {
         _noLife ? { trade: 0, yacht: 0, fisher: 0 } : (CM.shipBudget || { trade: 0, yacht: 0, fisher: 0 }), dt, {
           docks: CM.shipDocks || [],
           avoidT: CM.shipAvoidT || [],
+          // L'île, si elle existe : c'est elle qui donne au pêcheur son circuit.
+          // Passée PAR RÉFÉRENCE plutôt que recopiée dans le bateau — un pêcheur
+          // qui garderait une copie de la géométrie tournerait autour d'une île
+          // d'avant le dernier recalcul, donc à côté de la vraie.
+          island: (CM.layout && CM.layout.river && CM.layout.river.islands
+            && CM.layout.river.islands[0]) || null,
+          islandT: CM.riverIslandT,
         });
       fp('flotte');
       // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le

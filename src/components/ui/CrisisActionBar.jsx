@@ -47,6 +47,17 @@ function describeAction(id, cost) {
   };
 }
 
+// Métadonnées d'affichage des 4 foyers. SOURCE UNIQUE, partagée par le panneau
+// déplié (tableau d'actions) et par sa POIGNÉE repliée (RegulSummary, bas de
+// fichier) : sans elle, renommer un foyer d'un côté le ferait mentir de l'autre.
+const FOYER_META = [
+  { key: 'scarcity',   tone: 'food',  label: { fr: 'Subsistance', en: 'Subsistence' } },
+  { key: 'inequality', tone: 'gold',  label: { fr: 'Inégalités',  en: 'Inequality' } },
+  { key: 'complexity', tone: 'know',  label: { fr: 'Complexité',  en: 'Complexity' } },
+  { key: 'dissent',    tone: 'usure', label: { fr: 'Dissidence',  en: 'Dissent' } }
+];
+const FOYER_BY_KEY = Object.fromEntries(FOYER_META.map((m) => [m.key, m]));
+
 // Action id de la réforme de fond par foyer.
 const REFORM_ID = {
   scarcity: 'reformScarcity',
@@ -245,6 +256,53 @@ function PolicyRow({ p, slotsFull }) {
   );
 }
 
+/**
+ * POIGNÉE de la Régulation repliée (P2) : les 4 foyers réduits à leurs jauges,
+ * plus la pression absorbée par les institutions. Rendue DANS le bouton de
+ * l'encart (cf. HudPanel `summary`), donc sans aucun élément interactif — un
+ * bouton dans un bouton n'est pas un document valide, et le clic irait au
+ * mauvais endroit.
+ *
+ * C'est ce qui rend le repli honnête : on perd les actions et le détail, jamais
+ * la surveillance. Replier ne doit pas revenir à éteindre le tableau de bord.
+ */
+export function RegulSummary() {
+  // Même abonnement que le panneau déplié : la pression bouge au tick (1 Hz).
+  useGameState((s) => s.instability);
+  const pressure = pressureBreakdown();
+  const mitigationPct = Math.round((pressure.mitigation || 0) * 100);
+  // Les valeurs en TEXTE partent dans l'infobulle : les jauges sont muettes pour
+  // un lecteur d'écran, et `tipProps` pose l'aria-describedby qui les lui rend.
+  const detail = FOYER_META
+    .map((m) => `${tr(m.label)} ${Math.round(Math.min(1, pressure[m.key] || 0) * 100)} %`)
+    .join(' · ');
+
+  return (
+    <span
+      className="regul-summary"
+      {...tipProps(
+        tr({ fr: 'Foyers de tension', en: 'Tension hotspots' }),
+        `${detail}${mitigationPct > 0 ? ` — ${tr({ fr: 'institutions : −', en: 'institutions: −' })}${mitigationPct}${tr({ fr: ' % absorbés', en: '% absorbed' })}` : ''}`
+      )}
+    >
+      {FOYER_META.map((m) => (
+        <span key={m.key} className={`regul-summary-foyer regul-summary-foyer--${m.tone}`} aria-hidden="true">
+          <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${m.key}.png`} alt="" />
+          <span className="regul-summary-track">
+            <span
+              className="regul-summary-fill"
+              style={{ width: `${Math.min(1, pressure[m.key] || 0) * 100}%` }}
+            ></span>
+          </span>
+        </span>
+      ))}
+      {mitigationPct > 0 && (
+        <span className="regul-summary-buffer" aria-hidden="true">−{mitigationPct}%</span>
+      )}
+    </span>
+  );
+}
+
 export default function CrisisActionBar() {
   useGameState(s => s.instability);
   const cycles = useGameState(s => s.cycles);
@@ -295,19 +353,19 @@ export default function CrisisActionBar() {
     .map((a) => describeRegAction(a, costs[a.id], ctx, reform[foyerKey]));
   const foyers = [
     {
-      key: 'scarcity', icon: '🌾', label: tr({ fr: 'Subsistance', en: 'Subsistence' }), tone: 'food', value: pressure.scarcity,
+      key: 'scarcity', icon: '🌾', label: tr(FOYER_BY_KEY.scarcity.label), tone: FOYER_BY_KEY.scarcity.tone, value: pressure.scarcity,
       actions: [act('rationing', tr({ fr: 'Rationner', en: 'Ration' })), ref('scarcity'), ...regFor('scarcity')]
     },
     {
-      key: 'inequality', icon: '⚖️', label: tr({ fr: 'Inégalités', en: 'Inequality' }), tone: 'gold', value: pressure.inequality,
+      key: 'inequality', icon: '⚖️', label: tr(FOYER_BY_KEY.inequality.label), tone: FOYER_BY_KEY.inequality.tone, value: pressure.inequality,
       actions: [act('festivals', tr({ fr: 'Jeux civiques', en: 'Civic Games' })), ref('inequality'), ...regFor('inequality')]
     },
     {
-      key: 'complexity', icon: '🏛️', label: tr({ fr: 'Complexité', en: 'Complexity' }), tone: 'know', value: pressure.complexity,
+      key: 'complexity', icon: '🏛️', label: tr(FOYER_BY_KEY.complexity.label), tone: FOYER_BY_KEY.complexity.tone, value: pressure.complexity,
       actions: [act('census', tr({ fr: 'Recenser', en: 'Census' })), act('reforms', tr({ fr: 'Réformes', en: 'Reforms' })), ref('complexity'), ...regFor('complexity')]
     },
     {
-      key: 'dissent', icon: '📜', label: tr({ fr: 'Dissidence', en: 'Dissent' }), tone: 'usure', value: pressure.dissent,
+      key: 'dissent', icon: '📜', label: tr(FOYER_BY_KEY.dissent.label), tone: FOYER_BY_KEY.dissent.tone, value: pressure.dissent,
       actions: [
         showAncestorBtn && act('ancestorCrisis', tr({ fr: 'Culte des ancêtres', en: 'Ancestor Cult' })),
         showArchiveBtn && act('archiveCrisis', tr({ fr: 'Catastrophes', en: 'Catastrophes' })),

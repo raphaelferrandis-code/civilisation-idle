@@ -1,10 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { useGameState } from '../../hooks/useGameState.js';
+import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
-import CrisisActionBar from '../ui/CrisisActionBar.jsx';
+import CrisisActionBar, { RegulSummary } from '../ui/CrisisActionBar.jsx';
 import CycleReportBanner from '../ui/CycleReportBanner.jsx';
 import FirstStepsPanel from '../ui/FirstStepsPanel.jsx';
 import IdleReportPanel from '../ui/IdleReportPanel.jsx';
@@ -83,6 +84,11 @@ import {
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 
+// Petit écran : MÊME condition que le cran 2 des crans de densité
+// (views-city-hud.css). ⚠ Les deux doivent rester d'accord — c'est le même
+// arbitrage « la place manque » exprimé une fois en CSS, une fois en JS.
+const REGUL_DENSE_QUERY = '(max-width: 1280px), (max-height: 745px)';
+
 export default function CityView() {
   const {
     cityName, population, food, gold, knowledge, infrastructure,
@@ -130,6 +136,29 @@ export default function CityView() {
     const top = hud.getBoundingClientRect().bottom - parent.getBoundingClientRect().top;
     aux.style.top = `${Math.round(top + 12)}px`;
   });
+  // Régulation : sur petit écran elle part REPLIÉE (elle vaut jusqu'à ~40 % de la
+  // hauteur utile en 1000×700, et c'est la carte qui payait). Sa poignée garde
+  // les 4 jauges visibles, donc on ne replie que le détail et les actions.
+  // ⚠ Lu UNE fois au montage, et uniquement pour le tout premier lancement : dès
+  // que le joueur a plié ou déplié une fois, son choix est mémorisé et gagne
+  // (useCollapsiblePanel). On ne réécrit jamais une décision explicite.
+  const [regulDefaultOpen] = useState(() => {
+    try {
+      return !window.matchMedia(REGUL_DENSE_QUERY).matches;
+    } catch {
+      return true;
+    }
+  });
+  // Crise ouverte → la Régulation se déplie d'elle-même (front montant seul, cf.
+  // HudPanel). On passe par crisisOpen() plutôt que de recopier ses seuils ici :
+  // le jour où ils bougent, cet écran suit sans qu'on y pense.
+  const inCrisis = useGameState(() => crisisOpen());
+  // État de la boutique REMONTÉ ICI (M1) : le bouton flottant qui l'ouvre vit à
+  // côté d'elle, pas dedans. Même clé de mémoire qu'avant, donc le bureau
+  // retrouve exactement l'état qu'il avait — on a seulement déplacé le siège de
+  // la vérité, pas changé le comportement.
+  const [shopOpen, toggleShop] = useCollapsiblePanel('shop', true);
+
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
   const toggleDock = (id) => setOpenDock((cur) => (cur === id ? null : id));
@@ -480,12 +509,36 @@ export default function CityView() {
 
           {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
           <aside className="city-shop-dock" aria-label={tr({ fr: "Construction", en: "Construction" })}>
-            <BuildingShop />
+            <BuildingShop open={shopOpen} onToggle={toggleShop} />
           </aside>
+          {/* BOUTON FLOTTANT « CONSTRUIRE » (M1, tactile seulement — masqué par
+              le CSS ailleurs). Sur téléphone la boutique est une feuille : quand
+              elle est fermée, plus rien à l'écran ne permettrait de la rouvrir,
+              puisque son propre chevron part avec elle. Ce bouton est donc sa
+              poignée extérieure. Il vit sur la carte, au pouce, et laisse la
+              ville entière visible tant qu'on ne construit pas. */}
+          <button
+            type="button"
+            className="shop-fab"
+            aria-expanded={shopOpen}
+            onClick={toggleShop}
+            aria-label={shopOpen
+              ? tr({ fr: "Fermer la construction", en: "Close construction" })
+              : tr({ fr: "Ouvrir la construction", en: "Open construction" })}
+          >
+            <i className={`fa-solid ${shopOpen ? 'fa-xmark' : 'fa-hammer'}`} aria-hidden="true"></i>
+          </button>
         </div>{/* /city-stage */}
 
         {/* Régulation des tensions + politiques : encart pliable, sous la carte */}
-        <HudPanel className="city-controls-panel" storageKey="regul" title={tr({ fr: "Régulation des tensions", en: "Tension Regulation" })}>
+        <HudPanel
+          className="city-controls-panel"
+          storageKey="regul"
+          title={tr({ fr: "Régulation des tensions", en: "Tension Regulation" })}
+          defaultOpen={regulDefaultOpen}
+          openWhen={inCrisis}
+          summary={<RegulSummary />}
+        >
           <CrisisActionBar />
         </HudPanel>
 

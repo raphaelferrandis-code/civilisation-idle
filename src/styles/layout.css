@@ -393,11 +393,17 @@
   color: var(--gold-ivory) !important;
 }
 
-/* Sidebar icônes-seules (981–1500px : gouttière de 4,5rem) : variante condensée.
+/* Sidebar icônes-seules (≤1500px : gouttière de 4,5rem) : variante condensée.
    Les barres Âge/Usure/Légitimité restent (libellés et valeurs en tooltip), et
-   les stats passent en icône + valeur centrées. À ≤980px la sidebar redevient un
-   bloc pleine largeur : l'encart s'y affiche au format normal, aucune surcharge. */
-@media (max-width: 1500px) and (min-width: 981px) {
+   les stats passent en icône + valeur centrées.
+   ⚠ La borne basse `min-width: 981px` a été RETIRÉE (P2b). Elle laissait la
+   barre reprendre ses 15rem sous 980px — soit 31 % d'une fenêtre de 780px — en
+   pariant sur le repli « sidebar en bandeau horizontal » de base.css, qui est
+   MORT (layout.css est importé après et le réécrit). Résultat mesuré : ni l'un
+   ni l'autre, une colonne de 240px et des onglets tronqués. La gouttière
+   d'icônes est de toute façon le bon repli en fenêtre étroite : un bandeau
+   horizontal coûterait de la HAUTEUR, la ressource la plus rare ici. */
+@media (max-width: 1500px) {
   .city-status-panel {
     width: 100%;
     gap: 0.5rem;
@@ -425,7 +431,7 @@
 
 /* ── Breakpoint laptop (981–1500px) : sidebar compacte icônes-seules,
    densité réduite, zéro débordement horizontal (Audit UI Phases 2+6) ── */
-@media (max-width: 1500px) and (min-width: 981px) {
+@media (max-width: 1500px) {
   .app {
     grid-template-columns: 4.5rem minmax(0, 1fr);
   }
@@ -447,6 +453,11 @@
   .tabs {
     width: 100%;
     gap: 0.45rem;
+    /* UNE colonne, explicitement : base.css passe les onglets en 4 colonnes sous
+       980px et en 2 sous 560px (repli « bandeau horizontal » de l'ère
+       pré-HUD). Dans une gouttière de 4,5rem ça donnait 4 boutons de 18px.
+       Déclaré ici parce que layout.css est importé APRÈS base.css. */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .tab {
@@ -534,7 +545,8 @@
   }
 }
 
-/* ── Tablette (≤980px) : une colonne, topbar sticky compacte ── */
+/* ── Fenêtre étroite (≤980px) : barre de ressources collante dans les vues qui
+   défilent (la vue Cité, elle, la fixe en haut de son HUD). ── */
 @media (max-width: 980px) {
   .topbar {
     position: sticky;
@@ -549,9 +561,11 @@
     justify-content: center;
   }
 
-  .quick-actions {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  /* ⚠ PLUS de `.quick-actions { repeat(4, 1fr) }` ici (P2b) : cette règle venait
+     du repli « sidebar en bandeau horizontal », où les quatre actions avaient
+     toute la largeur de l'écran. La barre est désormais une gouttière de 4,5rem
+     à ce palier aussi — quatre boutons y tombaient à 45px et affichaient
+     « Sav », « Expo », « Impo », « Optio ». Le 2×2 du bloc ≤1500px s'applique. */
 }
 
 /* ── Bandeau de changement d''âge (Audit UI Phase 7) ──
@@ -647,7 +661,7 @@
 }
 
 /* Sidebar condensee : le libelle disparait, la valeur et le palier restent. */
-@media (max-width: 1500px) and (min-width: 981px) {
+@media (max-width: 1500px) {
   .city-status-panel .csp-idle {
     justify-content: center;
     gap: 0.2rem;
@@ -832,7 +846,7 @@
   background: linear-gradient(90deg, rgba(110, 180, 120, 0.65), rgba(160, 220, 165, 0.95));
 }
 
-@media (max-width: 1500px) and (min-width: 981px) {
+@media (max-width: 1500px) {
   /* La gouttière se resserre, mais le vœu NE rapetisse PAS : c'est une ligne, et
      illisible elle ne sert à rien. Seul le mot d'appel se raccourcit au besoin. */
   .city-status-panel .csp-clepsydre-head { justify-content: center; }
@@ -855,7 +869,7 @@
   text-align: center;
 }
 
-@media (max-width: 1500px) and (min-width: 981px) {
+@media (max-width: 1500px) {
   /* Gouttiere etroite : le compte suffit, le titre porte la phrase. */
   .city-status-panel .csp-seals { font-size: 0.6875rem; padding: 0.18rem 0.15rem; }
 }
@@ -878,7 +892,7 @@
   font-weight: 700;
 }
 
-@media (max-width: 1500px) and (min-width: 981px) {
+@media (max-width: 1500px) {
   .city-status-panel .csp-save { font-size: 0.6875rem; }
   /* Gouttiere etroite : le texte complet ne tient pas, le titre le porte. */
   .city-status-panel .csp-save:not(.is-error) { display: none; }

@@ -316,6 +316,7 @@ function CivilizationReview() {
   const grandResetCount = useGameState(s => s.grandResetCount);
   const bestEraIndex = useGameState(s => s.bestEraIndex);
   const cycleStartedAt = useGameState(s => s.cycleStartedAt);
+  const cityName = useGameState(s => s.cityName);
   const cycleCrisesResolved = useGameState(s => s.cycleCrisesResolved);
   const lifetimePurchases = useGameState(s => s.lifetimePurchases);
   const playTimeSec = useGameState(s => s.playTimeSec);
@@ -335,6 +336,17 @@ function CivilizationReview() {
       </div>
 
       <StatSection title={tr({ fr: "Cycle en cours", en: "Current cycle" })}>
+        {/* IDENTITÉ DE LA CITÉ (demande Raph 2026-07-28). Sur téléphone, l'encart
+            du nom disparaît de la carte — il n'y restait que la jauge de Rupture.
+            Le nom et la personnalité doivent donc exister QUELQUE PART, et la
+            Chronique est leur place : c'est la page qui raconte cette
+            civilisation. Affiché pour tout le monde, le bureau y gagne aussi. */}
+        <StatTile
+          label={tr({ fr: "Cité", en: "City" })}
+          value={cityName}
+          icon="glyphs/temps"
+          hint={tr({ fr: "Nom et caractère de la cité en cours. Le nom se modifie depuis la vue Cité.", en: "Name and character of the current city. The name can be edited from the City view." })}
+        />
         <StatTile
           label={tr({ fr: "Temps de cycle", en: "Cycle time" })}
           value={fmtDuration(cycleSeconds)}

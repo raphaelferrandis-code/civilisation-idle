@@ -53,6 +53,68 @@
   padding-bottom: 0;
 }
 
+/* ── POIGNÉE d'un encart replié (P2) ────────────────────────────────────────
+   Le résumé vit DANS le bouton de repli, entre le titre et le chevron. Il ne
+   rétrécit jamais (flex 0 0 auto) : c'est le titre, déjà en ellipsis, qui cède
+   la place — un résumé à moitié coupé ne surveille plus rien, alors qu'un titre
+   raccourci reste compréhensible à côté de son chevron. */
+.hud-panel-summary {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Jauges des 4 foyers, réduites à l'os : l'icône dit lequel, la barre dit
+   combien. Les couleurs viennent de --foyer-color (views-city.css), la même
+   source que le panneau déplié. */
+.regul-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.regul-summary-foyer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.regul-summary-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
+
+.regul-summary-track {
+  display: block;
+  width: 2.1rem;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.regul-summary-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--foyer-color, var(--gold));
+  transition: width 0.4s ease;
+}
+
+/* Pression absorbée par les institutions : la seule valeur chiffrée gardée —
+   c'est elle qui dit si la Rupture recule ou avance. */
+.regul-summary-buffer {
+  font-family: var(--font-number);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--res-infrastructure);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* Régulation enveloppée : on masque le titre interne dupliqué (le HudPanel le
    porte déjà), on garde le bandeau « Institutions : … ». */
 .app[data-active-view="city"] .city-controls-panel.hud-panel .crisis-regul-head .crisis-regul-title {

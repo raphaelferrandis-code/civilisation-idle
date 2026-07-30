@@ -23,16 +23,20 @@ export default function ChronicleTicker() {
   const theme = getJournalTheme(eraIndex);
   const latest = entries[0];
 
-  // Par défaut on n'affiche que le titre ; un clic déplie la dépêche complète.
-  // On replie automatiquement dès qu'une nouvelle dépêche arrive.
-  const [expanded, setExpanded] = useState(false);
-  // Repli à chaque nouvelle dépêche : ajustement d'état PENDANT le rendu
+  // La dépêche s'affiche ENTIÈRE d'emblée (demande Raph 2026-07-31, bureau ET
+  // téléphone). Avant : un premier geste ouvrait le titre, un second seulement
+  // donnait l'article — deux gestes pour lire trois lignes, sur un bandeau qui
+  // ne reste affiché qu'une minute. On la donne à lire tout de suite ; le clic
+  // ne sert plus qu'à la refermer si elle gêne.
+  const [expanded, setExpanded] = useState(true);
+  // Ré-ouverture à chaque nouvelle dépêche : ajustement d'état PENDANT le rendu
   // (pattern React recommandé) plutôt qu'un setState dans un effet — évite le
-  // rendu en cascade signalé par react-hooks/set-state-in-effect.
+  // rendu en cascade signalé par react-hooks/set-state-in-effect. Une dépêche
+  // qui arrive doit être lisible, même si la précédente avait été refermée.
   const lastSeenId = useRef(latest?.id);
   if (lastSeenId.current !== latest?.id) {
     lastSeenId.current = latest?.id;
-    setExpanded(false);
+    setExpanded(true);
   }
 
   // Fenêtre d'affichage : 1 min après publication. Les dépêches d'anciens

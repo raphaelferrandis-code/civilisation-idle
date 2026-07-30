@@ -20,7 +20,11 @@
   bottom: 0.9rem;
   z-index: 7;
   display: flex;
-  width: clamp(20rem, 26vw, 26rem);
+  /* Réservation UNIQUE, définie avec les autres couches du HUD dans
+     views-city-hud.css : la barre de régulation se cale dessus, et les crans de
+     densité la resserrent d'un seul geste. Le repli garde la valeur d'origine
+     si la variable venait à disparaître. */
+  width: var(--shop-w, clamp(20rem, 26vw, 26rem));
   overflow: hidden;
   pointer-events: auto;
 }
@@ -311,21 +315,17 @@
   opacity: 0.8;
 }
 
-/* ── Tablette (≤980px) : carte réduite (déclaré ici pour primer sur la règle
-   de base, views.css étant chargé après layout.css) ── */
-@media (max-width: 980px) {
-  .civilization-map-interactive,
-  .city-stage .civilization-map-interactive {
-    height: clamp(16rem, 42vh, 26rem) !important;
-    min-height: 16rem;
-  }
-
-  /* Écran étroit : la boutique se dé-docke et repasse sous la carte. */
-  .city-shop-dock {
-    position: static;
-    width: auto;
-    margin-top: 0.75rem;
-    overflow: visible;
-  }
-}
+/* ── Fenêtre étroite (≤980px) ──────────────────────────────────────────────
+   ⚠ CE PALIER A ÉTÉ VIDÉ DE SES DEUX RÈGLES (P2b, mesuré en 780×800). Il datait
+   de la vue Cité « document » : la page défilait, la carte se réduisait à 42vh
+   et la boutique se dé-dockait pour repasser dessous. La Cité est depuis un HUD
+   PLEIN ÉCRAN — `main` est en `height: 100vh; overflow: hidden`. Dans ce cadre :
+     · `position: static` sur le dock envoyait la boutique en y = 812 pour une
+       fenêtre de 800 de haut, c'est-à-dire HORS DE L'ÉCRAN et sans rien pour
+       défiler jusqu'à elle : la surface d'achat devenait injoignable ;
+     · le clamp de hauteur ne rangeait plus rien non plus, la scène ayant déjà
+       une hauteur imposée par son ancêtre absolu.
+   La boutique reste donc DOCKÉE à toutes les largeurs (arbitrage Raph : carte
+   et boutique sont les deux surfaces permanentes), simplement plus étroite —
+   c'est `--shop-w` et ses crans de densité qui s'en chargent. */
 

@@ -53,11 +53,18 @@
   margin-top: 0.6rem;
 }
 
+/* « ITEM : DONNÉE » SUR UNE LIGNE (demande Raph 2026-07-31), et non le libellé
+   empilé au-dessus de sa valeur. Une tuile de statistique se lit comme une
+   phrase courte ; empilée, elle prenait deux fois la hauteur pour la même
+   information et la liste devenait un mur. Le libellé est calé à gauche, la
+   valeur à droite : l'œil descend une colonne de valeurs alignées. */
 .chronicle-bilan-stat {
   display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  padding: 0.55rem 0.7rem;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -69,9 +76,26 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Le libellé passe à la ligne au lieu d'être amputé : sur une seule ligne
+     partagée avec la valeur, « Temps de jeu (ce prestige) » se faisait couper.
+     Deux lignes courtes se lisent, une ligne tronquée non. */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+}
+
+/* Le deux-points vit dans le STYLE, pas dans les chaînes traduites : il sépare
+   deux champs, il ne fait pas partie du libellé — et l'ajouter aux traductions
+   obligerait à le refaire dans chaque langue. Espace insécable avant, comme le
+   veut la typographie française. */
+.chronicle-bilan-stat span::after {
+  content: "\00a0:";
+}
+
+.chronicle-bilan-stat strong {
+  flex: 0 0 auto;
+  text-align: right;
 }
 
 .chronicle-bilan-stat strong {

@@ -41,7 +41,7 @@ import {
 } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
-export default function OptionsDialog({ isOpen, onClose }) {
+export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImport }) {
   const dialogRef = useDialogModal(isOpen, onClose);
   const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "credits", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
@@ -393,8 +393,13 @@ export default function OptionsDialog({ isOpen, onClose }) {
           >
             {tr({ fr: "Son", en: "Sound" })}
           </button>
+          {/* `data-group` : la seule prise que le CSS ait sur ces onglets. Le
+              régime tactile masque « Raccourcis » — un réglage de touches n'a
+              aucun sens sur un appareil sans clavier, et c'est un onglet entier
+              de choix rendus au joueur qui n'en a pas l'usage. */}
           <button
             className={`options-tab ${activeGroup === 'shortcuts' ? 'active' : ''}`}
+            data-group="shortcuts"
             type="button"
             role="tab"
             aria-selected={activeGroup === 'shortcuts'}
@@ -628,7 +633,12 @@ export default function OptionsDialog({ isOpen, onClose }) {
                   réglage cible les surfaces qui coûtent de la hauteur (la
                   boutique, les panneaux) parce que le design system n'a aucun
                   jeton d'espacement à multiplier globalement. */}
-              <div className="options-row">
+              {/* `data-opt` : prise CSS pour le régime tactile, qui masque cette
+                  rangée. La densité des panneaux est le réglage FIN du bureau ;
+                  sur téléphone c'est la coquille tactile qui fixe les
+                  espacements, et laisser le curseur ouvert reviendrait à offrir
+                  un réglage qui se bat avec la mise en page. */}
+              <div className="options-row" data-opt="density">
                 <div>
                   <span>{tr({ fr: "Densité des panneaux", en: "Panel density" })}</span>
                   <small>{tr({ fr: "Espacement des panneaux et des rangées de la boutique. « Compacte » fait tenir plus de lignes à l'écran sans rien réduire du texte, utile sur un petit écran.", en: "Spacing of panels and shop rows. “Compact” fits more lines on screen without shrinking any text, useful on a small display." })}</small>
@@ -857,6 +867,35 @@ export default function OptionsDialog({ isOpen, onClose }) {
 
           {/* OTHER PANEL */}
           {activeGroup === 'other' && (<>
+            {/* SAUVEGARDER / EXPORTER / IMPORTER (demande Raph 2026-07-28).
+                Sur téléphone la barre basse ne porte plus que l'icône Options :
+                ces trois gestes doivent donc exister ICI, sans quoi ils
+                deviendraient inatteignables. Rendus pour tout le monde — sur le
+                bureau ils doublent la barre latérale, ce qui ne coûte rien et
+                donne un endroit évident où les chercher. Les fonctions viennent
+                d'App en props : aucune logique n'est réécrite ici. */}
+            {(onSave || onExport || onImport) && (
+              <div className="options-row" data-opt="save-actions">
+                <div>
+                  <span>{tr({ fr: "Sauvegarde", en: "Save" })}</span>
+                  <small>{tr({
+                    fr: "La partie s'enregistre toute seule ; ces boutons servent à forcer un enregistrement, à sortir une copie de secours ou à en recharger une.",
+                    en: "The game saves itself; these buttons force a save, produce a backup copy, or load one back."
+                  })}</small>
+                </div>
+                <div className="options-save-actions">
+                  {onSave && (
+                    <button type="button" onClick={onSave}>{tr({ fr: "Sauvegarder", en: "Save" })}</button>
+                  )}
+                  {onExport && (
+                    <button type="button" onClick={onExport}>{tr({ fr: "Exporter", en: "Export" })}</button>
+                  )}
+                  {onImport && (
+                    <button type="button" onClick={onImport}>{tr({ fr: "Importer", en: "Import" })}</button>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Emplacements manuels : l'autosave écrase en continu, une partie
                 qui dure des mois n'avait aucun filet avant un geste risqué. */}
             <div className="options-row">

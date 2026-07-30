@@ -1,0 +1,1118 @@
+/* ============================================================================
+   COQUILLE TACTILE (P4) — la mise en page du DOIGT.
+
+   Tout est scopé à `:root[data-pointer="coarse"]`, posé au démarrage par
+   game/core/pointerMode.js. UN seul point d'entrée, donc une seule règle à
+   corriger — et surtout FORÇABLE par `?touch=1`, ce qui rend la disposition
+   mobile vérifiable depuis un poste de bureau au lieu d'exiger un téléphone à
+   chaque itération.
+
+   ⚠⚠ NE PAS reconvertir ce fichier en `@media (pointer: coarse)`. Outre la
+   perte du forçage, la condition a déjà menti une fois : le 2026-07-28, la
+   variante `(pointer: coarse) and (hover: none)` ne matchait PAS sur le
+   téléphone de Raph (plusieurs navigateurs mobiles annoncent `hover: hover`).
+   La détection vit dans pointerMode.js, avec son filet ; ici on ne fait que
+   consommer son verdict.
+
+   ⚠ Ce fichier est importé EN DERNIER (index.css) : il arbitre après ui-light,
+   frames et les crans de densité. C'est voulu — le régime du doigt est une
+   surcouche assumée, pas une variante négociée règle par règle.
+
+   PRINCIPE : la barre latérale devient une barre BASSE (le pouce vit en bas de
+   l'écran), les vues occupent tout, et rien du HUD ne se glisse sous la barre.
+   ============================================================================ */
+
+:root[data-pointer="coarse"] {
+  /* Hauteur de la barre basse, SANS l'encoche. Tout ce qui est ancré en bas
+     s'en sert : c'est la seule valeur à changer si la barre grossit.
+     ⚠ Elle est IMPOSÉE à la barre (`height` ci-dessous), pas devinée. Première
+     version : une barre en hauteur automatique (92px réels) et une constante à
+     3.9rem (62px) — la boutique passait 22px SOUS la barre, visible et
+     intouchable. Une réserve qui ne vaut que si on y pense n'est pas une
+     réserve : ici le contenu tient dans la valeur, ou il déborde de la barre,
+     ce qui se voit tout de suite.
+     Détail du compte (border-box, donc paddings inclus) : 0.3rem de padding
+     haut + 2rem d'actions rapides + 0.3rem de gouttière + 2.75rem d'onglets
+     + 0.3rem de padding bas ≈ 5.65rem, arrondi au-dessus. */
+  --touch-nav-h: 5.7rem;
+  /* Réserve réelle en bas de l'écran = barre + zone système (encoche, barre
+     gestuelle iOS/Android). `env()` vaut 0 sur un appareil qui n'en a pas. */
+  --touch-nav-total: calc(var(--touch-nav-h) + env(safe-area-inset-bottom, 0px));
+  /* Cible tactile minimale. 44px est le plancher retenu par les guides Apple et
+     Google ; en dessous, on rate le bouton une fois sur trois. */
+  --touch-target: 2.75rem;
+  /* Réserve de la poignée de Régulation, au-dessus de laquelle se posait la
+     feuille boutique. ⚠ RAMENÉE À ZÉRO EN M1 : la Régulation ne s'affiche plus
+     sur la carte (elle a son propre onglet), il n'y a donc plus rien à réserver.
+     La variable RESTE pour que le calcul d'empilement de la feuille garde sa
+     forme lisible — et parce que le jour où une bande revient en bas, c'est ici
+     qu'on la chiffre. La laisser à 4.1rem faisait déborder la feuille de 12px
+     PAR LE HAUT (mesuré) : une réserve pour un absent reste une réserve. */
+  --touch-regul-h: 0rem;
+  /* LE PARTAGE ville / boutique quand la feuille est ouverte, en un seul
+     nombre. C'est l'arbitrage « la carte ET la boutique » rendu réglable :
+     monter la valeur donne des rangées d'achat, la baisser rend de la ville.
+     ⚠ PASSÉ DE 46 À 85dvh EN M1. À 46 la feuille cohabitait en permanence avec
+     la carte et aucune des deux n'avait la place de servir. Elle ne cohabite
+     plus : fermée elle n'existe pas, ouverte elle prend l'écran. */
+  --touch-sheet-h: 85dvh;
+}
+
+/* ---- Gabarit : une seule colonne, la barre latérale sort du flux ---- */
+:root[data-pointer="coarse"] .app {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---- BARRE BASSE ---------------------------------------------------------
+   La même barre latérale, couchée. On ne change pas de composant : les onglets
+   restent les mêmes nœuds, avec leurs pastilles et leurs états. */
+:root[data-pointer="coarse"] .sidebar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 50;
+  /* Hauteur IMPOSÉE (cf. la note de --touch-nav-h) : c'est ce qui rend la
+     réserve du bas fiable pour tout ce qui s'ancre au-dessus. */
+  height: var(--touch-nav-total);
+  flex-direction: column-reverse;   /* les ONGLETS collés au bord bas, sous le pouce */
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+  border-right: 0;
+  border-top: 1px solid var(--line);
+  /* L'ombre part vers le HAUT : la barre est posée SUR la vue, pas à côté. */
+  box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.55);
+}
+
+/* Le logo n'a pas sa place dans une barre de 4rem : c'est de l'identité, et
+   l'identité est déjà partout ailleurs (titre de la cité, palette, typo). */
+:root[data-pointer="coarse"] .brand {
+  display: none;
+}
+
+/* Les onglets passent en RANGÉE, chacun une colonne égale. `auto-fit` et non un
+   nombre fixe : le jeu déverrouille ses onglets au fil des ères (4 au début, 7
+   ensuite) et la barre doit suivre sans qu'on la recompte. */
+:root[data-pointer="coarse"] .tabs {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: none;
+  gap: 0.25rem;
+  margin-bottom: 0;
+  width: 100%;
+}
+
+:root[data-pointer="coarse"] .tab {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.12rem;
+  min-height: var(--touch-target);
+  padding: 0.2rem 0.1rem;
+}
+
+/* Le libellé revient SOUS l'icône : dans une gouttière verticale il n'y avait
+   pas la place, ici la largeur est celle de l'écran. Une icône seule se devine,
+   un mot se lit — et sur un écran tactile il n'y a pas d'infobulle au survol
+   pour rattraper une icône obscure. */
+:root[data-pointer="coarse"] .tab .tab-label {
+  display: block;
+  max-width: 100%;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: center;
+}
+
+:root[data-pointer="coarse"] .tab .tab-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* La pastille d'attention sort du flux ici : en colonne, `margin-left: auto` la
+   posait sous le libellé et faisait grandir le bouton. Le clip-path de `.tab`
+   la découperait — d'où le retrait de ce clip dans le régime tactile. */
+:root[data-pointer="coarse"] .tab {
+  clip-path: none;
+  position: relative;
+}
+
+:root[data-pointer="coarse"] .tab .tab-badge {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.45rem;
+  margin-left: 0;
+}
+
+/* Actions rapides : rangée compacte AU-DESSUS des onglets (l'ordre visuel vient
+   du `column-reverse` de la barre). Elles restent atteignables sans devenir le
+   sujet — on navigue plus souvent qu'on n'exporte. */
+:root[data-pointer="coarse"] .quick-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+  width: 100%;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+:root[data-pointer="coarse"] .quick-actions .btn-tiny {
+  min-height: 2rem;
+  padding: 0 0.2rem;
+}
+
+/* L'ENCART D'ÉTAT (Âge / Usure / vœu / clepsydre) ne peut pas tenir dans une
+   barre basse : six blocs, 150px de haut. Il ne disparaît pas pour autant —
+   l'Usure est l'échéance de toute la partie, jouer sans elle revient à jouer
+   sans montre. Il devient une FEUILLE qu'on ouvre par le bouton « État » des
+   actions rapides, et qui se referme du même geste. */
+:root[data-pointer="coarse"] .city-status-panel {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .app[data-status-sheet="on"] .city-status-panel {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Posée SUR la barre d'onglets, jamais dessous : le bouton qui l'a ouverte
+     doit rester visible et sous le pouce pour la refermer. */
+  bottom: var(--touch-nav-total);
+  z-index: 49;
+  max-height: 62dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface-panel);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+}
+
+/* Le bouton n'existe QUE sur le régime du doigt : ailleurs l'encart est déjà à
+   l'écran en permanence, et proposer de « l'afficher » n'aurait pas de sens. */
+.quick-actions .qa-status {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .quick-actions {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+:root[data-pointer="coarse"] .quick-actions .qa-status {
+  display: inline-flex;
+}
+
+/* La feuille ouverte, le bouton reste allumé : sans ce retour, deux appuis
+   successifs donnent l'impression d'un bouton qui ne répond pas. */
+:root[data-pointer="coarse"] .app[data-status-sheet="on"] .qa-status {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+/* ---- Les vues occupent tout, sans passer sous la barre ---- */
+:root[data-pointer="coarse"] main {
+  padding: 0.6rem 0.6rem calc(0.6rem + var(--touch-nav-total));
+}
+
+/* La vue Cité est un HUD plein écran : sa hauteur doit être celle de l'écran
+   RÉEL. `100dvh` et non `100vh` — sur mobile, `vh` compte la barre d'adresse
+   comme si elle n'existait pas, et le bas de la carte finit sous elle. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] main {
+  height: 100dvh;
+  padding: 0;
+}
+
+/* Tout ce qui est ancré en bas du HUD remonte au-dessus de la barre. Sans ça,
+   la poignée de Régulation et le bas de la boutique passent DESSOUS : visibles
+   mais intouchables, ce qui est pire qu'invisibles. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock {
+  bottom: calc(var(--hud-gap) + var(--touch-nav-total));
+}
+
+/* Le mode contemplation retire le HUD : la barre basse part avec, sinon elle
+   resterait le seul meuble d'un écran censé n'être que la ville. */
+:root[data-pointer="coarse"] .app[data-contemplation="on"] .sidebar {
+  display: none !important;
+}
+
+/* ---- Confort du doigt ----
+   Pas de surbrillance bleue au tap (Android/iOS la posent par défaut sur tout
+   élément cliquable, et elle jure avec la palette). */
+:root[data-pointer="coarse"] .tab,
+:root[data-pointer="coarse"] .btn-tiny,
+:root[data-pointer="coarse"] button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Les effets de survol n'ont pas de sens au doigt : sans curseur, ils restent
+   COLLÉS après le tap (le navigateur simule un survol persistant) et donnent
+   des boutons qui paraissent sélectionnés au hasard. */
+:root[data-pointer="coarse"] .tab:hover:not(:disabled):not(.active) {
+  transform: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.14));
+  border-color: rgba(var(--era-rgb), 0.22);
+  color: var(--muted);
+}
+
+/* Le rebond de fin de page (« overscroll ») fait glisser toute l'interface sur
+   un geste de trop : sur une page qui ne défile pas, c'est juste du flottement. */
+:root[data-pointer="coarse"] body {
+  overscroll-behavior-y: none;
+}
+
+
+/* ============================================================================
+   VUE CITÉ AU DOIGT (P5)
+
+   Arbitrage de Raph : la CARTE et la BOUTIQUE sont les deux surfaces
+   permanentes. Sur un écran de 390px, le dock de droite en réclamait 280 —
+   72 % de la largeur, la ville réduite à une bande. Un dock vertical ne
+   fonctionne pas sur un téléphone : la largeur y est la ressource rare, la
+   hauteur non. La boutique passe donc EN BAS, pleine largeur.
+
+   ⚠ AUCUN NOUVEL ÉTAT REACT : la boutique est déjà pliable (`is-collapsed` /
+   `is-open`, mémorisé par useCollapsiblePanel). En tactile ces deux états
+   deviennent « poignée » et « feuille » — même bouton, même mémoire, même
+   composant. Ajouter un troisième état aurait demandé un mécanisme parallèle
+   qui aurait fini par diverger de celui du bureau.
+   ============================================================================ */
+
+/* La boutique cesse d'être une colonne de droite et devient une feuille basse,
+   ancrée AU-DESSUS de la barre d'onglets. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock:has(.shop-panel.is-collapsed) {
+  top: auto;
+  left: var(--hud-gap);
+  right: var(--hud-gap);
+  /* Empilement du bas vers le haut : barre d'onglets, poignée de Régulation,
+     puis la feuille. `--touch-regul-h` réserve la poignée REPLIÉE (mesurée à
+     35px) — dépliée, la Régulation recouvre la feuille, exactement comme sur le
+     bureau étroit : c'est un geste que le joueur a demandé, réversible d'un
+     appui. Sans cette réserve, les deux se terminaient au même pixel et la
+     poignée mordait le bas de la liste d'achats. */
+  bottom: calc(var(--hud-gap) + var(--touch-nav-total) + var(--touch-regul-h));
+  width: auto;
+  height: var(--touch-sheet-h);
+}
+
+/* ---- M1 : LA BOUTIQUE DEVIENT UN ÉCRAN, PAS UNE BANDE ----------------------
+   Le partage permanent ville/boutique (46dvh chacun) était un compromis de
+   bureau transposé : sur 384px il donnait deux surfaces trop petites pour
+   servir — deux rangées et demie d'un côté, une meurtrière de l'autre.
+   Arbitrage validé par Raph : LA VILLE PAR DÉFAUT, LA BOUTIQUE À UN TAP.
+
+   Fermée, la feuille n'occupe plus RIEN (et non plus un bandeau de 56px) : la
+   carte a tout l'écran. Ouverte, elle prend 85dvh — assez pour lire six rangées
+   au lieu de deux et demie. C'est la règle du genre : un écran = une chose. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock {
+  height: var(--touch-sheet-h);
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock:has(.shop-panel.is-collapsed) {
+  display: none;
+}
+
+/* ⚠ La poignée d'ouverture ne peut PAS vivre dans la feuille, puisque la
+   feuille disparaît. C'est le bouton flottant (CityView) qui la remplace. */
+.shop-fab {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .shop-fab {
+  position: absolute;
+  right: var(--hud-gap);
+  bottom: calc(var(--hud-gap) + var(--touch-nav-total));
+  z-index: 24;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 14%);
+  color: var(--gold-bright);
+  font-size: 1.15rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+/* ⚠ FEUILLE OUVERTE : LE BOUTON S'EFFACE. Première version : on le remontait
+   au-dessus de la feuille — mais celle-ci fait 85dvh, il ne reste pas 54px
+   au-dessus d'elle et le bouton partait hors écran (mesuré à y = -7).
+   Le laisser en bas à droite l'aurait posé SUR la dernière rangée d'achat.
+   Une feuille ouverte a déjà sa fermeture : le chevron de son bandeau, à 44px,
+   en haut à droite — c'est le vocabulaire habituel des feuilles basses. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock:not(:has(.shop-panel.is-collapsed)) ~ .shop-fab {
+  display: none;
+}
+
+/* ---- M1 : LA RÉGULATION QUITTE LA CARTE ----
+   Elle existe DÉJÀ comme onglet à part entière dans la barre du bas. En garder
+   une copie posée sur la ville, c'était payer deux fois la même fonction — et
+   la payer en pixels, sur l'écran où ils sont le plus rares. Le raccourci reste
+   entier : un tap sur « Régulation ». */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
+  display: none;
+}
+
+/* Poignée d'attrape : une barrette claire en haut de la feuille. Purement
+   visuelle (le bouton reste le chevron), mais c'est ELLE qui dit « ça
+   s'ouvre » — sur mobile ce vocabulaire est acquis, une feuille sans barrette
+   se lit comme un panneau figé. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock .shop-panel::before {
+  content: "";
+  position: absolute;
+  top: 0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2.4rem;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-shop-dock .shop-panel {
+  padding-top: 0.9rem;   /* dégage la barrette */
+}
+
+/* Le chevron devient une vraie cible : 24px au doigt, on le rate une fois sur
+   deux. On l'agrandit sans le déplacer. */
+:root[data-pointer="coarse"] .shop-panel .shop-collapse-toggle {
+  top: 0.5rem;
+  right: 0.4rem;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: grid;
+  place-items: center;
+}
+
+/* L'encart d'identité (nom + jauge) rétrécit : sur 390px il occupait 240px, soit
+   61 % de la largeur, posés juste au-dessus d'une carte déjà courte. */
+:root[data-pointer="coarse"] .app {
+  --hud-id-w: min(56vw, 12rem);
+}
+
+/* Régulation dépliée : elle ne doit JAMAIS pousser la carte hors de l'écran.
+   Plafonnée à 45dvh et défilante en interne — sur un téléphone, ses quatre
+   foyers plus les politiques dépassent largement la hauteur disponible. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
+  max-height: 45dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- BARRE DE RESSOURCES SUR UNE SEULE LIGNE (demande Raph, capture du
+   2026-07-28) ----------------------------------------------------------------
+   Sur le bureau, chaque cellule empile nom / valeur / débit — trois lignes et
+   109px de haut. Sur un téléphone c'était 88px pris à la ville pour six
+   colonnes de 64px où plus rien ne tenait : les valeurs se chevauchaient.
+   La cellule passe donc à UNE ligne : icône + valeur, côte à côte.
+
+   ⚠ CE QU'ON PERD, ET C'EST UN CHOIX, PAS UN OUBLI : le NOM de la ressource
+   (l'icône pixel la porte, elle est colorée et distincte) et surtout le DÉBIT
+   « /s ». Six colonnes de 64px ne peuvent pas contenir une valeur ET un débit
+   lisibles — il aurait fallu deux lignes, ce que la demande exclut. Le débit
+   reste lisible sur le bureau et n'existe plus sur téléphone : à rouvrir si
+   Raph le veut, par exemple en le montrant à la place de la valeur au tap. */
+:root[data-pointer="coarse"] .app {
+  --city-topbar-h: 2.6rem;
+  /* Le chrome maigrit d'autant : plus de libellé (20px) ni de ligne de débit
+     (17px), et des paddings au minimum. Il ne reste que le cadre or et un
+     souffle. Si on ne baissait pas ce nombre AVEC la hauteur, --odo-cap
+     deviendrait négatif et les chiffres tomberaient à leur plancher. */
+  --odo-chrome: 18px;
+}
+
+/* CENTRÉ, pas calé à gauche (demande Raph) : deux colonnes AUTO — donc larges
+   comme leur contenu — et le couple icône+valeur centré dans la cellule. Avec
+   `1fr` sur la valeur, la colonne prenait toute la place restante et le nombre
+   s'accrochait à son bord gauche : les cinq cellules paraissaient décalées les
+   unes par rapport aux autres selon la longueur du nombre. */
+:root[data-pointer="coarse"] .topbar .resource-card-unified {
+  grid-template-areas: "nom valeur";
+  grid-template-columns: auto minmax(0, auto);
+  justify-content: center;
+  align-items: center;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 0 0.15rem;
+}
+
+/* ⚠ SIX COLONNES, IMPOSÉES. Des règles préexistantes replient la barre en 5
+   colonnes sous 1200px puis en 2 sous 768px — stratégie « on empile » de l'ère
+   où la page défilait. Sur un téléphone elle donne 2 colonnes × 3 RANGÉES, donc
+   exactement ce que la demande exclut ; et combinée à la hauteur d'une ligne
+   imposée ci-dessus, elle écrasait les trois rangées à 8px chacune (mesuré).
+   Une seule rangée, six colonnes : c'est l'odomètre qui rétrécit pour tenir
+   dans sa cellule (il se dimensionne en cqw), pas la barre qui se replie. */
+:root[data-pointer="coarse"] .topbar-resources {
+  /* `auto-flow: column` plutôt qu'un nombre figé : le module Habitants est
+     masqué sous 1200px par une règle d'origine (ce n'est pas une ressource), on
+     affiche donc 5 cellules sur téléphone et 6 sur une tablette large. Un
+     `repeat(6, …)` laisserait une colonne vide dans le premier cas, un
+     `repeat(5, …)` renverrait la sixième à la ligne dans le second. Ici la
+     rangée s'ajuste au nombre RÉEL de cellules, quel qu'il soit. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: none;
+  padding: 0.15rem 0.35rem;
+}
+
+/* ⚠ PLANCHER DE POLICE DE L'ODOMÈTRE ABAISSÉ, sinon rien de tout ceci ne tient.
+   La règle d'origine (components.css) borne la taille par `clamp(1.25rem, …)` :
+   la valeur ne descend JAMAIS sous 20px, même quand sa cellule n'en fait plus
+   que 60 de large — mesuré, elle débordait. Ce plancher a été calibré pour des
+   cellules de bureau ; ici c'est la largeur qui commande. On garde la même
+   mécanique (dimensionnement en cqw, arrondi au pixel entier), on descend
+   seulement les bornes — et 0.75rem = 12px reste au-dessus du plancher de
+   lisibilité de 11px du jeu. */
+:root[data-pointer="coarse"] .topbar .resource-value .odo {
+  font-size: round(down, clamp(0.75rem, min(calc(100cqw / var(--odo-w, 6.75)), var(--odo-cap, 1.5rem)), 1.5rem), 1px);
+}
+
+:root[data-pointer="coarse"] .topbar .resource-name,
+:root[data-pointer="coarse"] .topbar .resource-rate-row {
+  display: none;
+}
+
+/* Icône réduite (demande Raph) : elle identifie la ressource, elle n'a pas à
+   disputer la place au nombre — et chaque pixel qu'elle rend est un pixel de
+   plus pour la valeur. */
+:root[data-pointer="coarse"] .topbar .resource-icon .px-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* ⚠⚠ LA CAUSE RÉELLE DE LA BARRE ILLISIBLE — mesurée le 2026-07-31 en rejouant
+   les ORDRES DE GRANDEUR de la partie de Raph (74M, 122.2Qi, 8.741K…).
+   L'auto-taille de la valeur divise `100cqw` — TOUTE la largeur de la cellule —
+   par la largeur du cadran. Sur le bureau c'est juste : la valeur y est SEULE
+   sur sa ligne. En tactile on a mis l'icône À CÔTÉ d'elle, sans jamais la
+   déduire : la valeur était donc dimensionnée pour 72px alors qu'il ne lui en
+   restait que 55. Résultat, 4 cellules sur 5 débordaient de 2 à 6px — et comme
+   le contenu est centré, il était rogné des DEUX côtés : d'où des chiffres, des
+   icônes et des unités qui paraissent se marcher dessus.
+   On déduit donc l'icône et sa gouttière (12 + 3.2 = 15.2px, arrondi à 1.05rem
+   par sécurité). Le reste du mécanisme est inchangé. */
+:root[data-pointer="coarse"] .topbar .resource-value .odo {
+  font-size: round(down, clamp(0.75rem, min(calc((100cqw - 1.05rem) / var(--odo-w, 6.75)), var(--odo-cap, 1.5rem)), 1.5rem), 1px);
+}
+
+/* SÉPARER LES RESSOURCES (demande Raph). Le filet or existe sur le bureau mais
+   se perdait ici : on le remonte en opacité et on l'étire sur toute la hauteur
+   de la barre — cinq nombres collés sans frontière se lisent comme un seul. */
+:root[data-pointer="coarse"] .topbar .resource-card-unified:not(:first-child)::before {
+  top: 12%;
+  bottom: 12%;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--gold), transparent 25%) 18% 82%, transparent);
+}
+
+:root[data-pointer="coarse"] .topbar .resource-value {
+  justify-self: center;
+  justify-content: center;
+}
+
+/* ---- L'UNITÉ DOIT SE VOIR (demande Raph) ----
+   Le suffixe d'échelle (K, M, Dc…) est rendu à 0.72em et atténué de 32 % : sur
+   un écran de bureau c'est une nuance élégante — « 8.70K » se lit valeur puis
+   unité. Sur un téléphone, à 17-20px de base, ça donne une marque de 12px
+   translucide que la capture montre comme un accent parasite. Or l'unité PORTE
+   L'ORDRE DE GRANDEUR : sans elle, 2.06 peut valoir deux ou deux milliards.
+   On la remonte à 0.85em et on lui rend presque toute son opacité — elle reste
+   plus petite que les chiffres, donc la hiérarchie tient. */
+:root[data-pointer="coarse"] .topbar .odo-suffix {
+  font-size: 0.85em;
+  color: color-mix(in srgb, currentColor, transparent 10%);
+}
+
+
+/* ---- PLUS DE SPLASH-ART DANS LES RANGÉES D'ACHAT (demande Raph) ----
+   Sur le bureau le splash-art EST la carte : il porte l'identité du bâtiment.
+   Sur un téléphone il tient sous un texte serré dans une feuille de 46dvh, où
+   il ne décore plus rien — il brouille. Le voile de lisibilité qui l'accompagne
+   part avec lui, sinon il assombrit une rangée devenue nue.
+   ⚠ Bénéfice caché : un pseudo-élément en `display: none` ne déclenche PAS le
+   téléchargement de son image de fond. Ce ne sont donc pas seulement des pixels
+   en moins à l'écran, ce sont ~150 splashs que le téléphone ne charge jamais. */
+:root[data-pointer="coarse"] .pr-has-splash::before,
+:root[data-pointer="coarse"] .pr-has-splash::after {
+  display: none;
+}
+
+/* La rangée reprend le fond des cartes SANS splash, sinon elle serait
+   transparente sur la feuille de verre et illisible. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row.pr-has-splash {
+  background: color-mix(in srgb, var(--surface-panel), transparent 10%);
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row.pr-has-splash.is-affordable {
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
+}
+
+
+/* ---- OPTIONS : MOINS DE CHOIX (demande Raph) ----
+   On ne retire que ce qui n'a PAS DE SENS au doigt — pas des réglages de jeu.
+   Chaque ligne cachée est justifiée, faute de quoi on ampute une fonction au
+   lieu de simplifier un écran. */
+
+/* Raccourcis clavier : un onglet entier de réglages de touches, sur un appareil
+   qui n'a pas de clavier. */
+:root[data-pointer="coarse"] .options-tab[data-group="shortcuts"] {
+  display: none;
+}
+
+/* Densité des panneaux : le réglage FIN du bureau. Ici c'est la coquille
+   tactile qui fixe les espacements, et les deux se contrediraient. */
+:root[data-pointer="coarse"] .options-row[data-opt="density"] {
+  display: none;
+}
+
+/* Les trois boutons de sauvegarde tiennent sur une ligne dans leur rangée. */
+.options-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+
+/* ============================================================================
+   PASSE DE RÉDUCTION №2 (demande Raph, 2e capture téléphone)
+   ============================================================================ */
+
+/* ---- BARRE BASSE SUR UNE SEULE RANGÉE ----
+   Deux rangées (actions puis onglets) coûtaient 91px. La demande : ne garder en
+   bas que les onglets, plus l'icône Options à côté de Chronique. Save, Export et
+   Import s'en vont — ils vivent désormais DANS les Options (onglet « Autre »),
+   donc rien n'est perdu, seulement déplacé là où on le cherche.
+   La barre redevient une RANGÉE : les onglets prennent la place disponible, les
+   deux boutons utilitaires gardent une largeur fixe à droite. */
+:root[data-pointer="coarse"] .sidebar {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
+  height: calc(var(--touch-nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* ⚠⚠ `width: auto` OBLIGATOIRE SUR LES DEUX. Ces conteneurs héritent d'un
+   `width: 100%` écrit pour la barre EN COLONNE (bloc ≤1500px de layout.css, et
+   la première version tactile). Dans une rangée, ce 100 % fait prendre TOUTE la
+   largeur au premier conteneur qui le porte : mesuré, `.quick-actions` occupait
+   368px sur 384 et écrasait `.tabs` à 12px — quatre onglets de 5px de large,
+   impossibles à toucher, tassés à gauche. Le jeu devenait injouable au doigt.
+   RÈGLE : en basculant un flex de colonne à rangée, tout `width: 100%` écrit
+   pour la colonne devient un bug ; il faut le révoquer explicitement. */
+:root[data-pointer="coarse"] .tabs {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
+:root[data-pointer="coarse"] .quick-actions {
+  flex: 0 0 auto;
+  width: auto;
+  align-self: stretch;
+  align-items: stretch;
+  grid-template-columns: repeat(2, 2.6rem);
+}
+
+/* Sauvegarde / Export / Import : retirés de la barre, présents dans les Options. */
+:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="save"],
+:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="export"],
+:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="import"] {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .quick-actions .btn-tiny {
+  min-height: 0;
+  height: auto;
+}
+
+:root[data-pointer="coarse"] .quick-actions .qa-label {
+  display: none;
+}
+
+/* Une seule rangée : la barre maigrit de 91 à ~56px, et tout ce qui s'ancre
+   au-dessus suit automatiquement (--touch-nav-total). */
+:root[data-pointer="coarse"] {
+  --touch-nav-h: 3.5rem;
+}
+
+
+/* ---- IDENTITÉ RÉDUITE À LA JAUGE DE RUPTURE ----
+   Le nom, la personnalité et le compteur d'habitants quittent la carte : sur un
+   téléphone ils prenaient le quart haut de la ville pour une information qu'on
+   lit une fois. Ils sont désormais dans la Chronique (rangée « Cité »).
+   NE RESTE QUE LA JAUGE — c'est la seule chose qu'on surveille en continu. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .city-title-wrapper {
+  display: none;
+}
+
+/* M1 — LA JAUGE DEVIENT UN FILET SOUS LES CHIFFRES.
+   Elle occupait sa propre bande de 60px : un libellé (« CIVILISATION STABLE »),
+   un gain de ruines, un pourcentage et une piste épaisse. Sur téléphone c'est
+   la deuxième bande la plus coûteuse de l'écran pour une information qu'on
+   surveille d'un coup d'œil. On garde LE NIVEAU (la piste) et LE CHIFFRE, on
+   jette le reste — le libellé se déduit de la couleur, le gain de ruines vit
+   dans la page Effondrement. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud {
+  width: auto;
+  right: 0;
+  padding: 0.15rem 0.5rem 0.2rem;
+  border-radius: 0;
+  background: rgba(13, 15, 23, 0.72);
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-meta {
+  margin: 0;
+  gap: 0.35rem;
+}
+
+/* Le libellé d'état et le gain de ruines quittent la carte : la couleur de la
+   jauge dit déjà « stable / tendu / critique », et personne ne lit un gain
+   projeté en jouant. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-label,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-collapse-gain {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-pct {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+/* La piste s'amincit — mais PAS jusqu'au filet.
+   ⚠⚠ RÉGRESSION CORRIGÉE (Raph : « la jauge de rupture ne se remplit pas »).
+   J'avais posé `height: 6px`. Or `.sg-track` porte des bordures TRANSPARENTES
+   de 5px en haut et en bas : elles ne dessinent rien, elles réservent
+   l'épaisseur du cadre pixel (`gauge-frame.png`, 9-slice 5/10/5/9 peint en
+   surcouche) et calent le chenal. Avec `box-sizing: border-box`, une hauteur de
+   6px pour 10px de bordures donne un chenal de hauteur NÉGATIVE, donc nulle :
+   le remplissage existait, mesurait 25 % de large… et 0 de haut. Invisible.
+   La hauteur ne peut donc pas descendre sous 10px + le chenal voulu. 18px
+   laisse 8px de chenal (contre 23 sur le bureau) — assez fin pour la barre,
+   assez épais pour qu'on voie la couleur monter.
+   ⚠ NE PAS toucher aux `border-width` pour gagner de la place : ce sont les
+   tranches du sprite, les réduire déformerait le cadre. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-track {
+  height: 18px;
+}
+
+
+/* ---- RANGÉES D'ACHAT RESSERRÉES ----
+   Leur hauteur minimale (6.5rem, soit 104px) était calibrée pour accueillir un
+   splash-art. Il n'y en a plus en tactile : la carte se referme sur son contenu
+   réel — un nom, ses gains, un bouton. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row {
+  min-height: 0;
+  gap: 0.15rem;
+  padding: 0.3rem 0.45rem;
+}
+
+/* Le nom et les lignes de production descendent d'un cran — ils restent au-dessus
+   du plancher de 11px, mais cessent d'occuper la place d'un titre. */
+:root[data-pointer="coarse"] .city-shop-dock .pr-name {
+  font-size: 0.86rem;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .pr-prod-item,
+:root[data-pointer="coarse"] .city-shop-dock .pr-gain {
+  font-size: 0.72rem;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .pr-count {
+  font-size: 0.8rem;
+}
+
+/* ⚠ LE BOUTON D'ACHAT NE RÉTRÉCIT PAS — il grandit même un peu (34 → 40px).
+   C'est LE geste du jeu, répété des centaines de fois : le resserrer avec le
+   reste reviendrait à optimiser la place au détriment de la seule chose qu'on
+   fait vraiment. Tout le gain de hauteur vient donc du texte et des marges. */
+:root[data-pointer="coarse"] .city-shop-dock .btn-purchase {
+  min-height: 2.5rem;
+  padding: 0.2rem 0.5rem;
+}
+
+
+/* ============================================================================
+   M2 — LA RANGÉE D'ACHAT : UN SEUL GESTE, ÉVIDENT
+
+   Une rangée portait SIX informations pour UNE action : nom, deux débits,
+   avancement vers le palier, délai de paiement, pourcentage de gain, compteur
+   possédé — et le bouton, noyé au milieu, partageait sa ligne avec deux d'entre
+   elles. La convention du genre (AdVenture Capitalist, Idle Miner, TheoTown) est
+   l'inverse : UNE cible principale par rangée, large, le prix écrit dessus, et
+   tout le reste en second plan.
+
+   On ne SUPPRIME aucune information — on la hiérarchise :
+     · ligne 1 : le nom, et le compteur possédé calé à droite ;
+     · ligne 2 : les débits, en petit ;
+     · ligne 3 : LE BOUTON, qui prend la largeur, avec le gain à sa droite.
+   ============================================================================ */
+
+/* ÉPURATION (demande Raph 2026-07-31) : la rangée tombe à DEUX lignes.
+     · ligne 1 : le nom, et ses débits à droite ;
+     · ligne 2 : le bouton, et le compteur possédé à droite.
+   Le pourcentage d'augmentation disparaît — c'est un chiffre de comparaison
+   fine, il n'a pas sa place sur l'écran où l'on achète au pouce.
+
+   Les quatre blocs sont des FRÈRES dans le balisage (nom, débits, piste,
+   pied) : on les replace par zones de grille plutôt que de toucher au
+   composant, qui sert aussi au bureau. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-template-areas:
+    "nom   debits"
+    "piste piste"
+    "pied  pied";
+  align-items: center;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-name-row { grid-area: nom; }
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-step-track { grid-area: piste; }
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-footer { grid-area: pied; }
+
+/* Les débits rejoignent le nom, calés à droite : « ce que ça rapporte » se lit
+   avec « ce que c'est », pas trois lignes plus bas. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-prod {
+  grid-area: debits;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* Le pourcentage d'augmentation s'en va. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-gain {
+  display: none;
+}
+
+/* Le pied : le bouton prend toute la place, le compteur possédé se pose à sa
+   droite — une seule cible, et l'inventaire juste à côté. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .btn-purchase {
+  width: 100%;
+  justify-content: center;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row .pr-count {
+  margin: 0;
+}
+
+/* ⚠ MULTIPLICATEURS D'ACHAT (x1 / x10 / x25 / x100 / Palier) : mesurés à
+   31×18px par l'audit tactile. Ils sont volontairement discrets sur le bureau
+   (« rangée basse et petite », views-world-fullframe.css) — mais 18px de haut,
+   c'est la moitié du seuil du doigt, et ce sont eux qui décident de CE QU'ON
+   ACHÈTE. Se tromper de multiplicateur coûte une fortune. */
+:root[data-pointer="coarse"] .city-shop-dock .shop-controls-row .buy-mode {
+  height: auto;
+  min-height: 2.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.8rem;
+}
+
+:root[data-pointer="coarse"] .city-shop-dock .shop-controls-row .buy-toolbar {
+  width: 100%;
+}
+
+
+/* ---- PREMIERS PAS REPLIÉS = UNE PASTILLE « i » ----
+   Replié, l'encart gardait une barre de 61px en travers de la ville pour dire
+   « Premiers pas 1/3 » — une bande pleine largeur au service d'une information
+   qu'on a déjà lue. Au doigt il devient ce qu'il aurait toujours dû être une
+   fois refermé : une pastille ronde posée au bord, qu'on rouvre d'un tap.
+   Le compteur reste en `aria-label` via le titre du bouton, donc rien ne se
+   perd pour un lecteur d'écran. */
+:root[data-pointer="coarse"] .first-steps.is-collapsed {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  margin-bottom: 0.4rem;
+  border-radius: 50%;
+  border-left-width: 1px;
+  display: grid;
+  place-items: center;
+}
+
+:root[data-pointer="coarse"] .first-steps.is-collapsed .first-steps-head {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  /* ⚠ `place-items` NE SUFFIT PAS et c'est le piège : il centre le CONTENU DE
+     CHAQUE CASE, pas les cases elles-mêmes. Le bouton hérite d'un
+     `justify-content: space-between` (disposition dépliée, titre à gauche et
+     compteur à droite) ; avec une seule piste restante, « space-between » la
+     colle au bord GAUCHE — le « 3/3 » tombait 9px hors du centre du rond.
+     `place-content` centre les pistes, `place-items` ce qu'il y a dedans. */
+  place-content: center;
+  place-items: center;
+  gap: 0;
+}
+
+/* Le libellé et le chevron s'effacent ; il ne reste que le compteur, qui EST
+   l'information utile (« où j'en suis »), assez court pour tenir dans un rond. */
+:root[data-pointer="coarse"] .first-steps.is-collapsed .first-steps-kicker,
+:root[data-pointer="coarse"] .first-steps.is-collapsed .hud-panel-chevron {
+  display: none;
+}
+
+:root[data-pointer="coarse"] .first-steps.is-collapsed .first-steps-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brand-gold, var(--text-strong));
+}
+
+
+/* ============================================================================
+   M3 — LISIBILITÉ
+
+   Deux causes, mesurées sur les captures de Raph, et une seule des deux est
+   une question de taille.
+
+   1. LE FOND. Tous les panneaux du HUD sont en verre : `rgba(…, 0.4-0.6)` plus
+      un `backdrop-filter: blur`. Posés sur une carte calme, c'est élégant.
+      Posés sur une forêt en damier vert/blanc — le vrai fond du jeu — le texte
+      se lit SUR DES ARBRES. Aucune taille de police ne rattrape ça : c'est le
+      contraste qui manque, pas les pixels. Sur téléphone les panneaux
+      deviennent donc OPAQUES. On perd l'effet de profondeur ; on gagne des
+      textes qu'on peut lire en marchant.
+
+   2. LE PLANCHER TYPOGRAPHIQUE. Les 11px du jeu ont été calibrés sur un écran
+      de bureau tenu à 60cm. Un téléphone est plus près mais bouge, et son
+      pixel CSS porte 3 pixels physiques : les petits caractères y sont nets
+      mais minuscules. Le plancher tactile passe donc à ~12,5px.
+   ============================================================================ */
+
+:root[data-pointer="coarse"] .city-shop-dock .shop-panel,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .chronicle-ticker,
+:root[data-pointer="coarse"] .first-steps,
+:root[data-pointer="coarse"] .hud-pop {
+  background: var(--surface-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* La barre d'onglets aussi : c'est elle qu'on vise en aveugle, au pouce. */
+:root[data-pointer="coarse"] .sidebar {
+  background: var(--surface-panel);
+}
+
+/* Le voile de la barre de ressources cesse d'être un dégradé transparent : les
+   cinq nombres du jeu ne peuvent pas se lire sur des cimes d'arbres. */
+:root[data-pointer="coarse"] .topbar-resources {
+  background: var(--surface-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Plancher relevé sur les petits caractères de la boutique — c'est la surface
+   qu'on lit le plus longtemps. 0.78rem = 12,5px, contre 11,5 avant. */
+:root[data-pointer="coarse"] .city-shop-dock .pr-prod-item,
+:root[data-pointer="coarse"] .city-shop-dock .pr-gain,
+:root[data-pointer="coarse"] .city-shop-dock .pr-eta,
+:root[data-pointer="coarse"] .city-shop-dock .pr-count {
+  font-size: 0.78rem;
+}
+
+/* Le nom du bâtiment redevient un vrai titre de rangée : c'est par lui qu'on
+   reconnaît ce qu'on achète, et il était descendu au niveau de ses chiffres. */
+:root[data-pointer="coarse"] .city-shop-dock .pr-name {
+  font-size: 0.95rem;
+}
+
+
+/* ---- LA VIGNETTE ROUGE DE CRISE NE S'APPLIQUE PAS AU DOIGT ----
+   Décision de Raph (2026-07-31) : la retirer entièrement sur téléphone.
+   Le voile est un `box-shadow` INSET rouge posé sur toute l'application, dont
+   l'étalement va jusqu'à 80px. Sur un écran de bureau haut de 900px, c'est le
+   liseré discret qu'il doit être. Sur 697px, il mord 67px depuis le bord haut —
+   c'est-à-dire qu'il AVALE la barre de ressources entière (53px), et au-delà de
+   90 % de Rupture il se met à pulser : la barre paraissait clignoter en rouge.
+   La crise reste lisible par sa jauge et par la teinte de la carte. */
+:root[data-pointer="coarse"] .app::after {
+  display: none;
+}
+
+/* ---- LE POURCENTAGE QUITTE LA JAUGE (demande Raph) ----
+   La barre elle-même dit le niveau, et son remplissage se compare d'un coup
+   d'œil. Le chiffre était de la précision dont personne ne se sert en jouant. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-pct {
+  display: none;
+}
+
+/* ---- LES PASTILLES PASSENT DERRIÈRE LA FEUILLE D'ACHAT (demande Raph) ----
+   Le rail gauche (Premiers pas, journal) est à z-index 20, le dock de la
+   boutique à 7 : les pastilles flottaient donc PAR-DESSUS la feuille dépliée.
+   Sur téléphone la feuille est un écran à part entière — rien ne doit la
+   percer. Le bouton flottant, lui, garde son rang : il est la fermeture. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-aux {
+  z-index: 5;
+}
+
+
+/* (Le repli à la ligne des libellés de statistique vit désormais dans
+   views-chronicle-timeline.css, avec la mise en page « item : donnée » — il
+   vaut pour les deux régimes, ce n'était pas un correctif mobile.) */
+
+
+/* ============================================================================
+   JEUX DU TEMPLE AU DOIGT (demande Raph 2026-07-31)
+
+   Bonne nouvelle d'abord : côté MÉCANIQUE ils sont déjà tactiles. Le ticket à
+   gratter utilise des pointer events avec capture ET porte `touch-action: none`
+   (views-regulation.css) — le seul geste continu du lot. Les trois autres
+   (Icare, vingt-et-un, osselets) sont des enchaînements de BOUTONS, qui
+   marchent au doigt sans rien changer.
+
+   Ce qui manquait, c'est le GABARIT : ces scènes ont été dessinées pour une
+   colonne de bureau, avec des commandes compactes. Miser, tirer ou encaisser
+   sont des gestes à conséquence — on ne peut pas les rater d'un pouce.
+
+   ⚠ NON VÉRIFIÉ EN DIRECT, ET IL FAUT LE DIRE : les quatre jeux se
+   déverrouillent au fil de la partie, et une partie neuve n'en affiche aucun
+   (0 bouton mesuré dans la Chancellerie). Ces règles sont donc posées par
+   raisonnement, pas par mesure — à confirmer sur l'appareil de Raph, qui a la
+   progression. Elles ne font qu'AGRANDIR des cibles : le pire risque est une
+   scène un peu plus haute que nécessaire.
+   ============================================================================ */
+:root[data-pointer="coarse"] .icarus-stage button,
+:root[data-pointer="coarse"] .blackjack-stage button,
+:root[data-pointer="coarse"] .scratch-stage button,
+:root[data-pointer="coarse"] .augury-stage button,
+:root[data-pointer="coarse"] .temple-pupitre button {
+  min-height: var(--touch-target);
+}
+
+/* Les bandeaux d'appel des jeux (« jouer », « encaisser ») portaient des
+   pastilles de 0.18rem de haut : au doigt, une cible de la taille du texte. */
+:root[data-pointer="coarse"] .icarus-banner-cta,
+:root[data-pointer="coarse"] .scratch-banner button {
+  min-height: 2.25rem;
+  padding: 0.2rem 0.9rem;
+}
+
+/* Le ticket à gratter doit rester assez grand pour qu'un doigt — bien plus
+   large qu'un curseur — puisse le parcourir sans sortir de la case. */
+:root[data-pointer="coarse"] .scratch-grid {
+  gap: 0.5rem;
+}
+
+
+/* ---- INFOBULLE COLLÉE APRÈS UN TAP (bug vu sur capture) ----
+   Les infobulles s'ouvrent sur `mouseenter` et se ferment sur `mouseleave`
+   (HelpBubble). Au doigt, un tap déclenche un `mouseenter` SIMULÉ mais jamais le
+   `mouseleave` correspondant : la bulle reste affichée au milieu de l'écran
+   jusqu'au tap suivant — c'est l'étiquette « Exporter » posée sur la carte dans
+   la capture du 2026-07-28. Sans survol, une infobulle de survol n'a de toute
+   façon aucun sens : on la coupe. L'information reste accessible par les mêmes
+   textes dans les Options et les panneaux. */
+:root[data-pointer="coarse"] #help-bubble {
+  display: none !important;
+}
+
+
+/* ============================================================================
+   FENÊTRES AU DOIGT (P6)
+
+   Les <dialog> vivent dans le « top layer » du navigateur : elles passent
+   DEVANT la barre d'onglets sans qu'on ait à s'occuper des z-index. Le vrai
+   risque est ailleurs — une fenêtre plus haute que l'écran dont on n'atteint
+   jamais le bas, et des contrôles calibrés pour un curseur.
+   ============================================================================ */
+:root[data-pointer="coarse"] dialog {
+  width: calc(100vw - 1rem);
+  /* `dvh` : sur mobile la barre d'adresse se rétracte au défilement, et une
+     fenêtre calée sur `vh` dépasse alors le bas de l'écran. */
+  max-height: calc(100dvh - 1.5rem);
+  padding: 1rem;
+  overflow-y: auto;
+  /* Le défilement s'arrête à la fenêtre : sans ça, arriver en bout de liste
+     entraîne la PAGE derrière, et la fenêtre paraît glisser toute seule. */
+  overscroll-behavior: contain;
+}
+
+/* La fenêtre Options a sa propre taille (repli sans cadre sous 720px) : on la
+   rend simplement plein écran, elle est de loin la plus longue du jeu. */
+:root[data-pointer="coarse"] .options-dialog {
+  width: calc(100vw - 0.75rem);
+  height: calc(100dvh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+}
+
+/* Tout ce qui se tape dans une fenêtre passe au gabarit du doigt. 40px (le
+   min-height des boutons du jeu) marche à la souris ; au pouce on rate, et
+   dans une fenêtre les commandes sont serrées les unes contre les autres —
+   c'est précisément là qu'un rang manqué coûte un réglage changé par erreur. */
+:root[data-pointer="coarse"] dialog button,
+:root[data-pointer="coarse"] dialog .toggle-btn,
+:root[data-pointer="coarse"] dialog select,
+:root[data-pointer="coarse"] dialog input[type="text"],
+:root[data-pointer="coarse"] dialog input[type="number"] {
+  min-height: var(--touch-target);
+}
+
+/* Les rangées d'options passent en colonne dès 620px (base.css) : au doigt on
+   élargit en plus les commandes à toute la largeur, pour que la cible soit la
+   ligne entière et non un bouton perdu à droite. */
+:root[data-pointer="coarse"] .options-row .toggle-btn {
+  width: 100%;
+}
+
+
+/* ============================================================================
+   RATTRAPAGES DE L'AUDIT TACTILE (P6)
+   Trouvés en balayant la vue Cité en 390×844 — pas devinés.
+   ============================================================================ */
+
+/* Onglets de catégorie de la boutique : 30px de haut, soit la cible qu'on rate
+   une fois sur trois. Ils commandent tout l'achat, ce sont les boutons les plus
+   pressés du jeu. */
+:root[data-pointer="coarse"] .shop-panel .shop-head .shop-subtab {
+  min-height: var(--touch-target);
+}
+
+/* Poignée d'un encart replié : le bouton ne faisait que 15px de haut (son
+   `min-height: 0` sert à ne pas gonfler la barre latérale du bureau). Au doigt
+   c'est un trait, pas une commande. */
+:root[data-pointer="coarse"] .hud-panel-toggle {
+  min-height: var(--touch-target);
+}
+
+/* Le résumé passe SOUS le titre au lieu de lui disputer la ligne : à 374px de
+   large, « Régulation des tensions » perdait 151px et se coupait au milieu d'un
+   mot. Chacun sa ligne, chacun toute la largeur — et la poignée reste une seule
+   cible, celle du bouton entier. */
+:root[data-pointer="coarse"] .hud-panel-toggle {
+  flex-wrap: wrap;
+  row-gap: 0.15rem;
+}
+
+:root[data-pointer="coarse"] .hud-panel-summary {
+  flex: 1 0 100%;
+  justify-content: flex-start;
+}
+
+/* Le nom de personnalité de la cité (« Cité impériale au long cours… ») est un
+   texte PROCÉDURAL de longueur imprévisible : dans un encart de 192px il se
+   coupait toujours. On le laisse passer à la ligne — deux lignes lisibles valent
+   mieux qu'une ligne amputée, et l'encart flotte au-dessus de la carte, donc il
+   ne pousse rien. */
+:root[data-pointer="coarse"] .city-stage-hud .city-personality-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
