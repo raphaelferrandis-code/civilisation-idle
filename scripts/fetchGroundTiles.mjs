@@ -144,6 +144,64 @@ const LOTS = [
       { key: 'iso-wonder', tiles: [12, 13, 14, 15], equalize: true },   // porphyre sombre (essai Raph)
     ],
   },
+  // DALLAGE DE PLACE PAR ÈRE (Raph 2026-07-30 : « je veux des sprites de dalles,
+  // pas de traits ») — APPAREILLAGE EN ARCS, le pavage en queue de paon des vraies
+  // places. Il répond au « rayonnant » demandé sans qu'aucun trait ne soit tracé
+  // à la volée : le rayonnement est CUIT dans la matière.
+  //
+  // ⚠ Pourquoi ce motif-là et pas une grille : le parvis des merveilles a déjà
+  // montré (2026-07-28) qu'un motif RÉGULIER meurt au blit par cellule — la
+  // grille est continue dans la tuile et s'arrête net au bord, le raccord se lit
+  // comme un patchwork. Les arcs sont courbes et courts : aucun alignement
+  // franc ne traverse la cellule, il n'y a donc rien qui puisse « rater ».
+  //
+  // ⚠⚠ `equalize` sur les TROIS : une place composée fait de 3×3 à 8×8 cellules,
+  // c'est le second endroit du jeu (avec le parvis) où une matière couvre un
+  // carré PLEIN. Le damier clair/sombre entre variantes, tolérable sur des
+  // cellules éparses, y devient le motif dominant. Ce qui doit varier d'une
+  // cellule à l'autre est le DESSIN seul.
+  //
+  // Lot rangé PAR RANGÉE (mesuré : 52,8 d'écart moyen par rangée contre 91,0 par
+  // colonne). SEULE la rangée du calcaire a survécu au pan — ses trois voisines
+  // (petits pavés de granit, dalles grises, dalles de béton) y montraient la
+  // grille et sont reprises par le lot a372e6e6 plus bas.
+  {
+    id: 'e09816ea-1c6f-4377-a482-1bdfb7acbceb', seed: 1101,
+    mats: [
+      { key: 'iso-plaza-antique', tiles: [0, 1, 2, 3], equalize: true },   // calcaire crème, joints ocre
+    ],
+  },
+  // Industrielle — pavé de basalte SUIÉ. Rangée 0 (basalte pur, lum ~30) écartée :
+  // le parvis des merveilles avait déjà tranché la question, un carré noir de
+  // plusieurs cellules dans une ville claire ne se lit pas comme un sol.
+  // ⚠ Ce lot est sorti en OCTOGONES (pointes du losange rognées d'~8 px) : c'est
+  // normalize() qui rétablit le losange, et le journal doit annoncer 100 %.
+  {
+    id: 'e3a906a5-87a7-4682-94e9-eb3208a6519b', seed: 1303,
+    mats: [
+      { key: 'iso-plaza-industrial', tiles: [4, 5, 6, 7], equalize: true },
+    ],
+  },
+  // Reprise du médiéval, du moderne et de la cosmique — LE MOT EST « COBBLES ».
+  // Le 1er lot avait « setts » (médiéval) et « pavers » (moderne) : au PAN, les
+  // premiers donnaient du bruit et les seconds une grille franche, parce que
+  // l'éventail de chaque tuile converge au même point et que cette convergence
+  // se répète en réseau dès que les pierres sont assez grosses pour la montrer.
+  // Des cobbles petits et irréguliers noient la convergence — c'est exactement
+  // ce qui faisait passer la rangée calcaire du 1er lot. Le grief n'est PAS la
+  // couleur ni le style : c'est la TAILLE de la pierre par rapport à la cellule.
+  {
+    id: 'a372e6e6-7f98-46f6-9edc-8436fb40f29c', seed: 1505,
+    mats: [
+      { key: 'iso-plaza-medieval', tiles: [0, 1, 2, 3], equalize: true },  // granit gris
+      // ⚠ tuile 9 ÉCARTÉE au pan : elle porte une tache claire beige au centre de
+      // son éventail. Invisible sur la planche (18,5 d'écart de luminance, sous la
+      // garde), elle CONSTELLAIT la place de points brillants sur le réseau des
+      // variantes. Une seule variante tachée suffit à trahir la grille.
+      { key: 'iso-plaza-modern', tiles: [8, 10, 11], equalize: true },     // pavé gris clair
+      { key: 'iso-plaza-cosmic', tiles: [12, 13, 14, 15], equalize: true }, // marbre blanc, joints ambrés
+    ],
+  },
   // CHAUSSÉES (Raph 2026-07-28 : « des chemins/routes plutôt que cette route à
   // toutes les ères ») — même recette texture. Consommées par le ruban de
   // chaussée (ROAD_MATS/ROAD_DETAIL.tiles), clippées au tracé.

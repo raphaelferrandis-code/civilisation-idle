@@ -61,7 +61,15 @@ const GRASS_WILD = [98, 120, 76];    // hors ville (léger contraste)
 // la clé du bake. Les constantes ci-dessus restent la référence d'été.
 let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SEASON_FLOWER_MUL = 1;
 const WATER = [74, 98, 109];         // eau ardoise (cf. fleuve)
-const PLAZA = [214, 206, 182];       // dallage d'esplanade
+const PLAZA = [214, 206, 182];       // dallage d'esplanade (repli, toutes ères)
+// DALLAGE PAR ÈRE — ton d'APLAT de chaque matière, mesuré par fetchGroundTiles.
+// Il sert au repli (tuile pas encore décodée) et au LOD lointain, où la tuile
+// n'est plus blittée : sans lui, une place changeait de couleur en dézoomant.
+// Clé absente : on garde PLAZA.
+const PLAZA_ERA_TONE = {
+  antique: [219, 204, 185], medieval: [112, 115, 119], industrial: [51, 52, 55],
+  modern: [190, 194, 197], cosmic: [233, 223, 211],
+};
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
 // (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
 // « remets un liseré bleu clair sur les bords du fleuve »). Teintes = bleus gris
@@ -157,6 +165,16 @@ const ISO_TILE_KEYS = { grass: 'iso-grass', dirt: 'iso-dirt', urban: null, plaza
 export const ISO_TILE_VARIANTS = {
   'iso-wonder': 4,
   'iso-grass': 4, 'iso-dirt': 4, 'iso-plaza': 4,
+  // Dallage de place PAR ÈRE (Raph 2026-07-30 : « je veux des sprites de dalles,
+  // pas de traits »). Appareillage en ARCS — le tracé rayonnant qu'il avait
+  // refusé était dessiné à la volée par la place ; ici le rayonnement est CUIT
+  // dans la matière, donc il tient à tous les zooms et ne coûte rien au bake.
+  // ⚠ le moderne n'en a que TROIS : sa 4e variante constellait la place de taches
+  // claires au pan (cf. fetchGroundTiles). Le compte doit suivre les FICHIERS —
+  // annoncer 4 ferait demander un PNG absent, et blitIsoTileKey rendrait false
+  // sur une cellule sur quatre, qui resterait en aplat au milieu du dallage.
+  'iso-plaza-antique': 4, 'iso-plaza-medieval': 4, 'iso-plaza-industrial': 4,
+  'iso-plaza-modern': 3, 'iso-plaza-cosmic': 4,
   'ground-earth': 4, 'ground-cobble': 4, 'ground-flagstone': 4,
   'ground-concrete': 4, 'ground-tech': 4,
   'road-dirt': 4, 'road-cobble': 4, 'road-stone': 4, 'road-asphalt': 4, 'road-tech': 4,
@@ -453,7 +471,26 @@ function ensureIsoTileKey(key) {
   }
   return e;
 }
-function ensureIsoTile(kind) { return ensureIsoTileKey(ISO_TILE_KEYS[kind]); }
+// (Les enveloppes par `kind` — ensureIsoTile / blitIsoTile — ont disparu le
+// 2026-07-30 : depuis que la place résout SA matière par l'ère, le sol passe par
+// la clé, et deux transferts sans consommateur ne valaient pas d'être gardés.)
+// Matière de dallage de l'ÈRE, ou la générique tant qu'elle n'est pas là.
+// ⚠ On exige les QUATRE variantes décodées avant de basculer. Basculer dès la
+// première donnerait un sol MI-ÈRE MI-GÉNÉRIQUE le temps des autres décodages :
+// blitIsoTileKey rend false sur une variante absente, et ces cellules-là
+// resteraient en aplat au milieu du dallage. Chaque décodage invalide DOUCEMENT
+// le bake (cf. ensureIsoTileKey), la bascule se fait donc d'elle-même à la
+// recuisson suivante — rien à cadencer ici.
+export function plazaEraTileKey(era) {
+  const k = era && ('iso-plaza-' + era);
+  const n = k && ISO_TILE_VARIANTS[k];
+  if (!n) return ISO_TILE_KEYS.plaza;
+  for (let v = 1; v <= n; v += 1) {
+    const e = ensureIsoTileKey(k + '-' + v);
+    if (!e || !e.ready) return ISO_TILE_KEYS.plaza;
+  }
+  return k;
+}
 // Blit une tuile de sol sur la cellule dont le coin NORD projeté est (nx, ny).
 // ⚠ FACE SEULE, MASQUÉE AU LOSANGE (e.face, cf. isoTileFace) : l'épaisseur du
 // « thin tile » ne se contente pas de déborder sous la pointe sud, ses faces
@@ -463,9 +500,6 @@ function ensureIsoTile(kind) { return ensureIsoTileKey(ISO_TILE_KEYS[kind]); }
 // Un sol plat doit être une SURFACE continue, pas un empilement de dalles.
 // Repli (pixels illisibles) : recadrage rectangulaire historique depuis e.img.
 // Renvoie false si pas prête (l'appelant garde l'aplat).
-function blitIsoTile(ctx, kind, nx, ny, hw, mirror = false, h = 0) {
-  return blitIsoTileKey(ctx, ISO_TILE_KEYS[kind], nx, ny, hw, mirror, h);
-}
 function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil = null) {
   // HIVER : bascule vers la tuile enneigée si elle existe ET est décodée —
   // sinon on garde l'été pour cette recuisson (le décodage la rappellera).
@@ -1494,6 +1528,11 @@ function drawIsoGround() {
   // dessus. D'où le test sur le MODE, pas seulement sur le décodage du PNG.
   const plazaEra = plazaEraForBand(band);
   const plazaSceneReady = !!(plazaEra && isoPlazaSceneCoversGround(band) && isoArt('plaza-' + plazaEra).ready);
+  // Résolu UNE FOIS par recuisson : l'ère est celle de la bande, elle ne change
+  // pas d'une cellule à l'autre. Résoudre par cellule ferait 4 lectures de cache
+  // sur chaque cellule de place pour un verdict identique.
+  const plazaKey = plazaEraTileKey(plazaEra);
+  const keyOfKind = (k) => (k === 'plaza' ? plazaKey : ISO_TILE_KEYS[k]);
   // ⚠ MESURÉ, NE PAS « OPTIMISER » : cette Map est reconstruite à chaque
   // recuisson, donc à chaque cran de zoom, alors que le verdict de kindAt ne
   // dépend NI du zoom NI de la caméra (seulement du layout, du décodage du sprite
@@ -1635,7 +1674,7 @@ function drawIsoGround() {
       const isBridge = !!(cell && cell.roadSurface === 'bridge');
       const isWater = !!(riverCells && riverCells.has(key));
       const kind = kindAt(gx, gy);
-      const tone = kind === 'plaza' ? PLAZA : kind === 'wonder' ? WONDER_GROUND.tone
+      const tone = kind === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : kind === 'wonder' ? WONDER_GROUND.tone
         : kind === 'grass' ? SEASON_GRASS : urb;
       // UN hash par cellule pour les deux tirages : le miroir (bit 3) et la
       // variante de tuile (bits 5-6, cf. isoVariantKey). Deux cmHash séparés ne
@@ -1656,7 +1695,7 @@ function drawIsoGround() {
       const texAlpha = kind === 'urban' ? 0
         : kind === 'wonder' ? WONDER_GROUND.tileAlpha
           : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
-      const tile = (kind && !HARD) ? ensureIsoTile(kind) : null;
+      const tile = (kind && !HARD) ? ensureIsoTileKey(keyOfKind(kind)) : null;
       const tileReady = !!(tile && tile.ready);
       if (kind !== 'grass' && (!tileReady || texAlpha < 1)) {
         const tF = PR && performance.now();
@@ -1702,7 +1741,7 @@ function drawIsoGround() {
           ctx.stroke();
         }
         if (texAlpha < 1) ctx.globalAlpha = texAlpha;
-        blitIsoTile(ctx, kind, p.x, p.y, hw, mir, cellH);
+        blitIsoTileKey(ctx, keyOfKind(kind), p.x, p.y, hw, mir, cellH);
         if (texAlpha < 1) ctx.globalAlpha = 1;
         if (PR) PR.tiles += performance.now() - tT;
       }
