@@ -496,11 +496,14 @@ const ANIM_BANDS = {
 // Une bande absente de cette table n'éclaire pas (eau d'aqueduc, égouts).
 // Valeurs revérifiées par src/game/map/__tests__/flameGlow.test.js, qui relit
 // les PNG : régénérer un sprite en déplaçant son feu casse la garde.
+// Les teintes suivent la rampe rouge feu (public/pixelart/fire-ramp.json) : elles
+// restent plus chaudes que la flamme elle-même — un feu éclaire orange — mais plus
+// rouges que l'ambre d'avant, qui grisait des flammes désormais écarlates.
 const ANIM_FIRE_CORES = {
-  'mint-forge-fire': { fx: 0.477, fy: 0.443, sig: 0.116, col: '255,168,64' },
-  'storyteller-fire': { fx: 0.489, fy: 0.300, sig: 0.110, col: '255,175,70' },
-  'ancestralcult-fire': { fx: 0.494, fy: 0.441, sig: 0.084, col: '255,150,45' },
-  'watch-fire': { fx: 0.514, fy: 0.153, sig: 0.108, col: '255,170,70' },
+  'mint-forge-fire': { fx: 0.477, fy: 0.443, sig: 0.116, col: '255,134,40' },
+  'storyteller-fire': { fx: 0.489, fy: 0.322, sig: 0.110, col: '255,142,46' },
+  'ancestralcult-fire': { fx: 0.494, fy: 0.441, sig: 0.084, col: '255,118,30' },
+  'watch-fire': { fx: 0.514, fy: 0.153, sig: 0.108, col: '255,138,44' },
 };
 // Rayon du halo = sig × ce facteur : la lumière déborde du foyer (sinon elle se
 // confond avec la flamme au lieu de l'entourer).

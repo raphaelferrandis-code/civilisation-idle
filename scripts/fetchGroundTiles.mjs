@@ -249,17 +249,29 @@ const LOTS = [
   // couverture de neige — si le lot est rangé par colonne, [0,1,2,3] mélange les
   // niveaux, ce qui fait un patchwork encore meilleur ; regarder la planche).
   // ⚠ Rangée 0 (tuiles 0-3) DIFFORME (losanges partiels 53-61 px, la garde
-  // anti-rééchantillonnage l'a rejetée). Retenues à l'œil sur la planche :
-  // 10-13 = congères + herbe visible, même famille sombre, couvertures variées.
+  // anti-rééchantillonnage l'a rejetée).
+  // ⚠⚠ Rangée 3 (tuiles 12-15) DIFFORME AUSSI, et elle est passée — c'est le
+  // quartet 10-13 livré jusqu'au 2026-07-31, dont Raph a vu en jeu qu'il laissait
+  // « une bande transparente sur la tuile » (variantes 2, 3 et 4). Le losange de
+  // la rangée 3 n'est PLEIN qu'à 56×28, soit ×0,875 du format de cellule ; au
+  // meilleur calage possible, t12 ne couvre que 77,6 % du losange et t15 78,9 %
+  // (t13 et t14 montent à 95,7 et 96,0, mais avec une encoche à la pointe sud).
+  // Les remonter à 64×32 demanderait un facteur ×1,143 — un rééchantillonnage à
+  // ratio non entier, exactement ce que tout ce fichier existe pour éviter.
+  // La RANGÉE 2 (8-11), elle, est intacte : 98,7 / 100 / 100 / 99,3 % une fois
+  // recalée, et c'est la même famille — congères et herbe visible, couvertures
+  // échelonnées de la plaque presque nue (t8, lum 125) au manteau franc (t9,
+  // lum 191). C'est elle qu'on prend, en entier : deux des quatre variantes
+  // livrées (t10, t11) en faisaient déjà partie.
   {
     id: '34e3e8ab-67f3-442a-9041-e3679cbb77e1', seed: 707,
     mats: [
-      // spreadMax 110 : l'écart de luminance entre ces 4 variantes (79,7) est
-      // VOULU — c'est la couverture de neige qui varie d'une cellule à l'autre
-      // (congères au niveau de la tuile), pas un lot mal groupé. Choix à l'œil
-      // sur la planche, pas un groupement aveugle : la garde 1 reste utile pour
-      // les autres matières.
-      { key: 'iso-grass-winter', tiles: [10, 11, 12, 13], overshoot: true, spreadMax: 110 },
+      // spreadMax 75 : l'écart de luminance entre ces 4 variantes (65,9 mesuré)
+      // est VOULU — c'est la couverture de neige qui varie d'une cellule à
+      // l'autre (congères au niveau de la tuile), pas un lot mal groupé. Choix à
+      // l'œil sur la planche, pas un groupement aveugle : la garde 1 reste utile
+      // pour les autres matières.
+      { key: 'iso-grass-winter', tiles: [8, 9, 10, 11], overshoot: true, spreadMax: 75 },
     ],
   },
   // ⚠ Rangé PAR RANGÉE (garde 2 l'a prouvé sur ma 1re hypothèse colonne : les 4
@@ -311,6 +323,8 @@ const keeps = (x, y, fw, fh, tol = 0.75) => {
   const cx = fw / 2, cy = fh / 2;
   return Math.abs(x + 0.5 - cx) / cx + Math.abs(y + 0.5 - cy) / cy <= 1 + tol / cx;
 };
+const DIAMOND = [];
+for (let y = 0; y < FH; y += 1) for (let x = 0; x < FW; x += 1) if (keeps(x, y, FW, FH)) DIAMOND.push([x, y]);
 
 function bboxOf(p) {
   const { width: w, height: h, data: d } = p;
@@ -349,28 +363,79 @@ function normalize(p, noFill = false) {
   return out;
 }
 
+// ASSISE DU LOSANGE — se caler sur l'ART, pas sur la bbox.
+//
+// La 1re version ancrait la fenêtre sur la BBOX : coin bas de la bbox = pointe
+// sud du losange, colonne x0 = bord ouest. Ça marche tant que le modèle dessine
+// son losange centré dans le canevas de 64×64 — et c'est faux une fois sur
+// trois. Sur le lot d'hiver 34e3e8ab, les tuiles des colonnes extérieures de la
+// planche dérivent latéralement de 9 à 11 px (mesuré : t8 −10, t11 +9, contre 0
+// pour t9 et t10) : la bbox reste 64 de large — le blob est simplement ROGNÉ au
+// bord du canevas — donc l'ancienne garde `bb.w !== FW` ne voyait rien passer, et
+// les tuiles sortaient avec un coin de losange VIDE. C'est ce que Raph a vu en
+// jeu le 2026-07-31 : « une bande transparente sur la tuile ».
+//
+// On cherche donc la translation ENTIÈRE (dx, dy) qui couvre le mieux le
+// losange, à égalité la plus proche de l'assise naturelle (dx = 0, pointe sud
+// sur la dernière ligne opaque) — ce qui laisse les lots déjà droits, l'herbe
+// d'été comprise, rigoureusement inchangés. Toujours aucun rééchantillonnage :
+// une translation entière préserve la grille de pixels, une mise à l'échelle non.
+//
+// ENROULEMENT EN X. Une fois recalée, la tuile déborde du canevas du côté d'où
+// elle vient : on y échantillonne modulo la largeur. Ce n'est pas un bouche-trou,
+// c'est la géométrie du pavage — dans un réseau iso de tuiles 64×32, +64 en x
+// est la somme de deux pas de cellule (NE puis SE), donc un point ÉQUIVALENT du
+// même damier. Mesuré sur le lot d'hiver : 94,9 % de couverture en bornant au
+// canevas contre 99,3 % en enroulant, et aucune couture visible (le raccord
+// tombe dans la pointe est ou ouest, large de quelques pixels).
+const wrapX = (x, w) => ((x % w) + w) % w;
+function seatDiamond(p) {
+  let y0 = p.height, y1 = -1;
+  for (let y = 0; y < p.height; y += 1) for (let x = 0; x < p.width; x += 1) {
+    if (p.data[(y * p.width + x) * 4 + 3] > 16) { if (y < y0) y0 = y; if (y > y1) y1 = y; break; }
+  }
+  if (y1 < 0) throw new Error('tuile entièrement transparente');
+  const dyNat = Math.max(0, Math.min(p.height - FH, y1 - FH + 1));
+  const cover = (dx, dy) => {
+    let ok = 0;
+    for (const [x, y] of DIAMOND) {
+      const sy = y + dy;
+      if (sy < 0 || sy >= p.height) continue;
+      if (p.data[(sy * p.width + wrapX(x + dx, p.width)) * 4 + 3] > 16) ok += 1;
+    }
+    return ok / DIAMOND.length;
+  };
+  let best = { c: -1, dx: 0, dy: dyNat, d: Infinity };
+  for (let dy = Math.max(0, dyNat - 6); dy <= Math.min(p.height - FH, dyNat + 6); dy += 1) {
+    for (let dx = -16; dx <= 16; dx += 1) {
+      const c = cover(dx, dy), d = Math.abs(dx) + Math.abs(dy - dyNat);
+      if (c > best.c + 1e-9 || (Math.abs(c - best.c) < 1e-9 && d < best.d)) best = { c, dx, dy, d };
+    }
+  }
+  return { ...best, y0 };
+}
+
 // DÉBORD EN PERSPECTIVE (Raph 2026-07-28 : « les tuiles d'herbe respectent la
 // perspective : au sud du sol, elles passent devant ») — sortie 64×(32+OV), SANS
-// rééchantillonnage : le losange source (déjà natif ~2:1, ancré au BAS de la
-// bbox) occupe les 32 dernières lignes, et les OV lignes de brins au-dessus du
-// coin nord sont GARDÉES. Le moteur blitte ces lignes en plus au-dessus du coin
-// nord de la cellule ; comme le bake balaie nord→sud, elles recouvrent le voisin
-// du nord — sol compris. Masque : moitié BASSE hors losange coupée (elle
-// mordrait sur des voisins peints APRÈS nous) ; moitié HAUTE gardée entière
-// (brins au-dessus des arêtes NO/NE — c'est le débord). Jamais de fillHoles.
+// rééchantillonnage : le losange source (déjà natif ~2:1) occupe les 32 dernières
+// lignes, et les OV lignes de brins au-dessus du coin nord sont GARDÉES. Le
+// moteur blitte ces lignes en plus au-dessus du coin nord de la cellule ; comme
+// le bake balaie nord→sud, elles recouvrent le voisin du nord — sol compris.
+// Masque : moitié BASSE hors losange coupée (elle mordrait sur des voisins peints
+// APRÈS nous) ; moitié HAUTE gardée entière (brins au-dessus des arêtes NO/NE —
+// c'est le débord). Jamais de fillHoles.
 function normalizeOvershoot(p) {
-  const bb = bboxOf(p);
-  if (bb.w !== FW) throw new Error(`overshoot : bbox ${bb.w}px, attendu ${FW} (pas de rééchantillonnage ici)`);
-  const OV = Math.max(0, Math.min(12, bb.h - FH));
+  const seat = seatDiamond(p);
+  const OV = Math.max(0, Math.min(12, seat.dy - seat.y0));
   const H = FH + OV;
   const out = new PNG({ width: FW, height: H });
   const inDiamond = new Uint8Array(FW * H);
   for (let y = 0; y < H; y += 1) for (let x = 0; x < FW; x += 1) {
     const di = (y * FW + x) * 4;
-    const sy = bb.y0 + (bb.h - H) + y;              // ancrage BAS : dernière ligne = pointe sud
-    if (sy < 0 || sy >= p.height) continue;
-    const si = (sy * p.width + x + bb.x0) * 4;
     const yD = y - OV;                              // ligne dans le repère du losange
+    const sy = seat.dy + yD;
+    if (sy < 0 || sy >= p.height) continue;
+    const si = (sy * p.width + wrapX(x + seat.dx, p.width)) * 4;
     const inD = yD >= 0 && keeps(x, yD, FW, FH);
     if (inD) inDiamond[y * FW + x] = 1;
     const upper = y < OV + FH / 2;                  // moitié haute : débord permis
@@ -403,7 +468,7 @@ function normalizeOvershoot(p) {
     if (out.data[i * 4 + 3] > 16 && !seen[i] && !inDiamond[i]) { out.data[i * 4 + 3] = 0; ghosts += 1; }
   }
   if (ghosts) console.log(`   (débord : ${ghosts} px de fragments fantômes effacés)`);
-  return out;
+  return { tile: out, cover: seat.c, dx: seat.dx };
 }
 
 // Rebouche les pixels transparents DANS le losange par dilatation depuis le
@@ -542,16 +607,21 @@ for (const lot of LOTS) {
   const batch = [];
   for (const mat of lot.mats) {
     if (FILTER && !mat.key.includes(FILTER)) continue;
-    const tiles = [];
+    const tiles = [], seats = [];
     let missing = false;
     for (const t of mat.tiles) {
       const buf = await grab(`${BUCKET}/${lot.id}/tile_${t}.png`);
       if (!buf) { console.warn(mat.key, `— tile_${t} indisponible (lot pas prêt ?), matière ignorée`); missing = true; break; }
       const src = PNG.sync.read(buf);
-      const tile = mat.overshoot ? normalizeOvershoot(src) : normalize(src, !!mat.noFill);
+      let tile;
+      if (mat.overshoot) {
+        const r = normalizeOvershoot(src);
+        tile = r.tile;
+        seats.push({ t, cover: r.cover, dx: r.dx });
+      } else tile = normalize(src, !!mat.noFill);
       tiles.push(mat.derim ? derim(tile) : tile);
     }
-    if (!missing) batch.push({ mat, tiles, mean: null, spread: 0 });
+    if (!missing) batch.push({ mat, tiles, seats, mean: null, spread: 0 });
   }
   let lotBad = false;
   for (const b of batch) {
@@ -567,6 +637,22 @@ for (const lot of LOTS) {
     if (b.spread > (b.mat.spreadMax || 60)) {
       console.error(`${b.mat.key} — ÉCART DE LUMINANCE ${b.spread.toFixed(1)} entre les 4 tuiles`
         + ` [${b.mat.tiles.join(', ')}] : ce ne sont pas des variantes d'une même matière.`);
+      lotBad = true;
+    }
+    // GARDE 3 (débord) : le losange doit ressortir COUVERT. En mode débord on ne
+    // rebouche rien — un losange que l'art ne remplit pas laisse voir l'aplat de
+    // la cellule, et à 4 variantes il suffit d'une tuile trouée pour semer des
+    // taches nues sur toute la carte. Le calage cherche déjà le meilleur
+    // placement : s'il n'atteint pas le plancher, c'est que la tuile est
+    // DIFFORME et aucune translation ne la sauvera. Mesuré sur 34e3e8ab : 98,7
+    // à 100 % pour la rangée 2, 72 à 79 % pour la rangée 3 (dont le losange
+    // n'est plein qu'à 56×28, soit ×0,875 — et on ne remet pas à l'échelle).
+    // ⚠ Le plancher est franc parce que ce que le calage laisse au sol, ce sont
+    // les creux entre brins, jamais un pan entier : 98,0 % au pire sur l'été.
+    for (const s of b.seats || []) {
+      if (s.cover >= 0.97) continue;
+      console.error(`${b.mat.key} — tile_${s.t} ne couvre le losange qu'à ${(100 * s.cover).toFixed(1)} %`
+        + ` (meilleur calage dx=${s.dx}) : losange difforme, choisir une autre tuile sur la planche.`);
       lotBad = true;
     }
   }
@@ -588,7 +674,7 @@ for (const lot of LOTS) {
     }
   }
   if (lotBad) { console.error(`lot ${lot.id.slice(0, 8)} — RIEN ÉCRIT.`); process.exitCode = 2; continue; }
-  for (const { mat, tiles, spread } of batch) {
+  for (const { mat, tiles, spread, seats } of batch) {
     // BRUTES PAR DÉFAUT (Raph 2026-07-28 : « oublie la palette maîtresse pour
     // l'instant ») : l'égalisation ramenait les variantes au même ton et rendait
     // le sol « pareil qu'avant, voire pire » — les écarts clair/sombre entre
@@ -628,10 +714,15 @@ for (const lot of LOTS) {
     // Le NOMBRE de variantes est celui de `mat.tiles`, pas 4 en dur : une matière
     // peut n'en retenir que trois (cf. iso-wonder, tuile hors famille écartée) et
     // le journal annonçait « 4 variantes » quoi qu'il arrive.
+    // Les décalages de calage sont ANNONCÉS : une tuile recentrée de 9 px, c'est
+    // une planche dont les colonnes dérivent, donc une info à reporter dans le
+    // commentaire du lot — pas une correction à faire en silence.
+    const shifted = (seats || []).filter((s) => s.dx).map((s) => `tile_${s.t} dx=${s.dx > 0 ? '+' : ''}${s.dx}`);
     console.log(`${mat.key.padEnd(17)} ${tiles.length} variantes — écart de luminance ${rest.toFixed(1)}`
       + ` (brut ${spread.toFixed(1)}), losange rempli ${(100 * Math.min(...fill)).toFixed(1)} %,`
       + ` ton [${target.map(Math.round).join(', ')}]`
-      + (gain > 1 ? `, ÉCLAIRCI ×${gain.toFixed(2)}` : ''));
+      + (gain > 1 ? `, ÉCLAIRCI ×${gain.toFixed(2)}` : '')
+      + (shifted.length ? `, recentré : ${shifted.join(', ')}` : ''));
   }
 }
 if (tones.length) {

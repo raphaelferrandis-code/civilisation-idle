@@ -5,13 +5,15 @@
       "file": "flame-small.png",
       "fw": 16,
       "fh": 24,
-      "frames": 9
+      "frames": 9,
+      "loop": "forward"
     },
     "large": {
       "file": "flame-large.png",
       "fw": 32,
       "fh": 53,
-      "frames": 9
+      "frames": 9,
+      "loop": "forward"
     }
   },
   "tiers": {

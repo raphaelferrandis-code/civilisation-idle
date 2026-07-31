@@ -2499,11 +2499,11 @@ function drawRiotWeapon(ctx, hx, hy, u, weapon, now, phase, pulse) {
     const tipX = hx + u * 0.2 + wave, tipY = hy - u * 1.2;
     ctx.beginPath(); ctx.moveTo(hx - u * 0.1, hy + u * 0.3); ctx.lineTo(tipX, tipY); ctx.stroke();
     const flick = 0.75 + 0.25 * Math.sin(now / 90 + (phase || 0) * 5);
-    ctx.fillStyle = `rgba(255,170,40,${(0.18 * flick).toFixed(2)})`;
+    ctx.fillStyle = `rgba(255,138,44,${(0.18 * flick).toFixed(2)})`;
     ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.2, u * 0.9 * flick, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(255,150,40,${(0.65 + 0.3 * pulse).toFixed(2)})`;
+    ctx.fillStyle = `rgba(239,42,11,${(0.65 + 0.3 * pulse).toFixed(2)})`;
     ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.15, u * 0.32 * flick, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "rgba(255,230,120,0.9)";
+    ctx.fillStyle = "rgba(255,188,78,0.9)";
     ctx.beginPath(); ctx.arc(tipX, tipY - u * 0.12, u * 0.16 * flick, 0, Math.PI * 2); ctx.fill();
   }
 }
@@ -2726,8 +2726,8 @@ function drawCrisis(dt, now) {
             const prevOp = ctx.globalCompositeOperation;
             ctx.globalCompositeOperation = "lighter";
             const g2 = ctx.createRadialGradient(gx2, gy2, 0, gx2, gy2, gr);
-            g2.addColorStop(0, `rgba(255,180,70,${(0.2 * (CM.nightF || 0) * flick).toFixed(2)})`);
-            g2.addColorStop(1, "rgba(255,150,40,0)");
+            g2.addColorStop(0, `rgba(255,120,40,${(0.2 * (CM.nightF || 0) * flick).toFixed(2)})`);
+            g2.addColorStop(1, "rgba(255,90,20,0)");
             ctx.fillStyle = g2;
             ctx.beginPath(); ctx.arc(gx2, gy2, gr, 0, Math.PI * 2); ctx.fill();
             ctx.globalCompositeOperation = prevOp;

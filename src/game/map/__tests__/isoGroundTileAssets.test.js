@@ -53,11 +53,18 @@ describe("tuiles de sol livrées", () => {
   // du nord au blit (« au sud du sol, elle passe devant », Raph 2026-07-28).
   // C'est le prédicat e.over du moteur : hauteur dans (w/2, w/2+12].
   const OVERSHOOT_MAX = { 'iso-grass': 12, 'iso-grass-winter': 12 };
-  // Plancher de remplissage du losange par clé. L'herbe d'ÉTÉ garde ses petits
-  // creux entre brins (~0,98 mesuré) ; l'herbe d'HIVER est bien plus TROUÉE par
-  // construction (couverture de neige variable, variante éparse mesurée à
-  // 0,614 — les creux lisent sur la sous-couche GRASS_TILE_UNDER_WINTER).
-  const FILL_MIN = { 'iso-grass': 0.9, 'iso-grass-winter': 0.55 };
+  // Plancher de remplissage du losange par clé. Les deux herbes gardent leurs
+  // petits creux entre brins (~0,98 mesuré), rien de plus.
+  // ⚠ CE PLANCHER ÉTAIT À 0,55 POUR L'HIVER, et c'est ce qui a laissé passer le
+  // défaut : trois variantes sur quatre ne remplissaient leur losange qu'à 61 à
+  // 84 %, ce que Raph a vu en jeu le 2026-07-31 (« une bande transparente sur la
+  // tuile »). Le 0,55 s'appuyait sur une variante « éparse » mesurée à 0,614 —
+  // sauf que ces 39 % manquants n'étaient PAS des creux entre brins : c'était un
+  // pan entier du losange, une tuile de la rangée 3 du lot dont l'art ne fait
+  // que 56×28. Un plancher calé sur le pire cas OBSERVÉ ne mesure plus rien : il
+  // recopie le défaut. Celui-ci est calé sur ce que l'art SAIN produit (98,7 %
+  // au pire des huit tuiles d'herbe, été et hiver confondus).
+  const FILL_MIN = { 'iso-grass': 0.9, 'iso-grass-winter': 0.95 };
 
   for (const key of KEYS) {
     const n = ISO_TILE_VARIANTS[key];
@@ -108,11 +115,12 @@ describe("tuiles de sol livrées", () => {
       // et lu par rangée) : quatre MATIÈRES différentes sous une même clé. Mesuré
       // 1 à 50 d'écart de luminance pour de vraies variantes, 149 à 194 pour un
       // groupement faux — le seuil 60 est la même garde que fetchGroundTiles.
-      // L'herbe d'HIVER est l'exception assumée (79,7 mesuré) : sa couverture de
+      // L'herbe d'HIVER est l'exception assumée (65,9 mesuré) : sa couverture de
       // neige varie PAR CHOIX d'une variante à l'autre (congères au niveau des
       // tuiles), quartet choisi à l'œil — même dérogation que `spreadMax` côté
-      // script.
-      const max = key === 'iso-grass-winter' ? 110 : 60;
+      // script, et même valeur : 75, pas les 110 d'avant, qui laissaient passer
+      // n'importe quel groupement une fois le quartet ramené à la rangée 2.
+      const max = key === 'iso-grass-winter' ? 75 : 60;
       expect(Math.max(...Ls) - Math.min(...Ls)).toBeLessThan(max);
     });
   }

@@ -42,9 +42,22 @@ if (typeof window !== 'undefined') {
   window.__flameGlow = (o) => { if (o) Object.assign(FLAME_GLOW, o); return { ...FLAME_GLOW }; };
 }
 
-// Teinte par défaut d'un feu (ambre chaud, accordée aux lampadaires antiques
-// '255,186,84' et aux halos de stade existants).
-export const FLAME_COL = '255,172,72';
+// Teinte par défaut d'un feu. ⚠ ACCORDÉE À public/pixelart/fire-ramp.json : les
+// flammes de la cité sont peintes sur une rampe ROUGE FEU (#8c1206 → #fff0c8), un
+// halo ambre pâle par-dessus les rendait grises par contraste. La lumière reste
+// plus chaude que la flamme (un feu éclaire orange, il ne teinte pas les murs en
+// rouge) : c'est le `glow.core` du JSON, pas un pas de la rampe.
+export const FLAME_COL = '255,138,44';
+
+// Encres du feu pour les flammes VECTORIELLES (replis quand un sprite n'est pas
+// décodé, cercle de torches des merveilles) : mêmes teintes que la rampe des
+// sprites, sinon un repli tire vers l'ambre pendant que le sprite brûle rouge.
+export const FIRE_INK = {
+  deep: '#8c1206',    // braise — contour
+  body: '#ef2a0b',    // rouge feu — la masse
+  hot: '#ff8a20',     // orange ardent
+  core: '#ffbc4e',    // or de cœur
+};
 
 // Le halo se TAIT pendant la passe de silhouette dorée du survol : celle-ci
 // redessine la scène hors écran puis la remplit en source-in, si bien qu'un

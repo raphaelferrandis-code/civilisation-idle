@@ -86,3 +86,8 @@ _sprite_backups/
 public/pixelart/wonders/arc-t5-candidats/
 public/pixelart/palettes/
 public/pixelart/agents/_orig/
+
+# Packs d'assets achetés : le matériel dérivé est embarqué (sprites recolorés),
+# mais l'ARCHIVE SOURCE ne doit pas être republiée — la licence Crusenho
+# l'interdit explicitement. Et c'est 5,9 Mo de binaire à vie dans l'historique.
+*.7z

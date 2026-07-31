@@ -1,0 +1,43 @@
+{
+  "_comment": "RAMPE DU FEU — la seule teinte que la cité a le droit de brûler. Volontairement HORS de master-palette.json : le feu n'est pas un pigment, c'est une source. Le remap anti-bloat (scripts/remapPalette.mjs) rabat sur le coeur de la palette, où le rouge saturé n'existe pas : le 2026-07-01 il a donc repeint les quatre feux animés en bois/argile/peau (#f2c2a3, #c98f5c…) et la ville s'est retrouvee avec des flammes couleur chair. D'ou cette rampe separee, et la garde src/game/map/__tests__/flameHue.test.js qui refuse tout feu delave.",
+  "name": "rouge feu",
+  "steps": [
+    {
+      "hex": "#4a0c05",
+      "name": "braise-eteinte"
+    },
+    {
+      "hex": "#8c1206",
+      "name": "braise"
+    },
+    {
+      "hex": "#c4180a",
+      "name": "rouge-profond"
+    },
+    {
+      "hex": "#ef2a0b",
+      "name": "rouge-feu"
+    },
+    {
+      "hex": "#ff5312",
+      "name": "vermillon"
+    },
+    {
+      "hex": "#ff8a20",
+      "name": "orange-ardent"
+    },
+    {
+      "hex": "#ffbc4e",
+      "name": "or-de-coeur"
+    },
+    {
+      "hex": "#fff0c8",
+      "name": "coeur-blanc"
+    }
+  ],
+  "glow": {
+    "_comment": "Teintes des lueurs additives (flameGlow.js) accordees a la rampe : la lumiere d'un feu est plus chaude que sa flamme, sinon le halo bave en rouge sale sur les murs.",
+    "core": "255,138,44",
+    "torch": "255,120,40"
+  }
+}

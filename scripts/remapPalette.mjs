@@ -273,10 +273,24 @@ if (dir) {
   // assets PEINTS non pixel-lockés, et les merveilles (leur OR/pourpre signature n'existe pas
   // dans le cœur → un snap aveugle les rabat sur du cuivre ; elles ont leur propre pipeline
   // wonders/lock-palette.cjs, ou se repassent une par une avec --extra "#or,#pourpre").
-  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders'];
+  // `ruins` = même raison, apprise à la dure : la fresque de l'Arbre des Ruines et ses 47
+  // emblèmes sont du FEU, et le cœur anti-jaune n'a pas de rampe d'incandescence — la passe
+  // de 913 sprites a rabattu les flammes sur de la terre cuite (#ec360f → #b06a48) et éteint
+  // l'œuvre. Son pipeline est scratch/install-tree.cjs (cf. scratch/fireRamp.cjs).
+  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders', 'ruins'];
+  // Même leçon, au niveau du FICHIER cette fois : les feux de la cité (bandes
+  // animées des scènes moteur, scènes de repli qui portent un foyer, et les 80
+  // bandes de torche d'émeutier) vivent dans des dossiers qu'on remappe. La passe
+  // du 2026-07-01 les a rabattus sur les rampes bois/argile/PEAU — la flamme de
+  // la tour de guet était littéralement peinte en skin-lit. Ils ont leur propre
+  // rampe (public/pixelart/fire-ramp.json) et leur propre outil
+  // (scripts/reflame.mjs) ; la garde __tests__/flameHue.test.js tombe si on
+  // repasse le remap dessus.
+  const SKIP_FIRE = /(-fire\.png$|-torch-|^(?:watch-prop|ancestralcult-prop|mint-prop-forge|cult-vesta)\.png$)/;
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(d, e.name);
     if (e.isDirectory()) return SKIP_DIRS.includes(e.name) ? [] : walk(p);
+    if (SKIP_FIRE.test(e.name)) return [];
     return e.name.endsWith('.png') && !e.name.endsWith('.remap.png') ? [p] : [];
   });
   files = walk(dir);

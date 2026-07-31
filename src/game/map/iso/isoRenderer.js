@@ -772,14 +772,26 @@ const GD_TUFTS = 15;                 // deco/tuft-1..15
 // table, aucun calcul de couleur — l'interpolation libre est explicitement
 // exclue (cf. seasonMode.js), il n'y a donc rien à mélanger.
 // Feuillage teinté par saison, cuit à la demande et gardé en cache par
-// (variante, saison). Renvoie null en été (sprite d'origine, coût nul) ou tant
+// (sprite, saison). Renvoie null en été (sprite d'origine, coût nul) ou tant
 // que l'image n'est pas décodée.
+//
+// ⚠ L'HIVER NE PASSE PLUS PAR LA TEINTE. Elle vaut rgba(178,186,190,0.34) en
+// multiply, soit 10 % de valeur en moins : un feuillu lime restait un feuillu
+// lime, posé sur un sol enneigé (Raph, 2026-07-31 : « il faut faire les arbres
+// enneigés »). La neige est maintenant CUITE dans un sprite `-winter` dérivé du
+// sprite d'été (scripts/snowTrees.mjs) — même doctrine que le sol d'hiver, et
+// même repli : tant que le PNG n'est pas décodé (ou absent, cf. le .exe hors
+// ligne), on retombe sur la teinte, jamais sur du vide.
 const _seasonTrees = new Map();
-function seasonTree(art, variant) {
+function seasonTree(art, name) {
   const s = CM.season | 0;
+  if (s === WINTER) {
+    const wa = isoArt(name + '-winter');
+    if (wa.ready && wa.img) return wa.img;
+  }
   const tint = seasonCanopyTint(s);
   if (!tint || !art.ready || !art.img) return null;
-  const key = variant + ':' + s;
+  const key = name + ':' + s;
   const hit = _seasonTrees.get(key);
   if (hit) return hit;
   const w = art.img.naturalWidth || art.img.width;
@@ -6571,8 +6583,8 @@ function drawIsoRioter(ctx, p, now, z) {
       const prevOp = ctx.globalCompositeOperation;
       ctx.globalCompositeOperation = 'lighter';
       const g2 = ctx.createRadialGradient(gx2, gy2, 0, gx2, gy2, gr);
-      g2.addColorStop(0, `rgba(255,180,70,${(0.2 * (CM.nightF || 0) * flick).toFixed(2)})`);
-      g2.addColorStop(1, 'rgba(255,150,40,0)');
+      g2.addColorStop(0, `rgba(255,120,40,${(0.2 * (CM.nightF || 0) * flick).toFixed(2)})`);
+      g2.addColorStop(1, 'rgba(255,90,20,0)');
       ctx.fillStyle = g2;
       ctx.beginPath(); ctx.arc(gx2, gy2, gr, 0, Math.PI * 2); ctx.fill();
       ctx.globalCompositeOperation = prevOp;
@@ -8062,7 +8074,7 @@ function drawIsoLive(now) {
   const treeImgs = [];
   for (let tv = 1; tv <= ISO_TREE_VARIANTS; tv += 1) {
     const a = isoArt('tree-' + tv);
-    treeImgs[tv] = a.ready ? (seasonTree(a, 't' + tv) || a.img) : null;
+    treeImgs[tv] = a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null;
   }
   const glWanted = (typeof window !== 'undefined' && window.__glPainter === true) && items.length >= GL_RUN_MIN * 2;
   const glOn = glWanted && glInit();
@@ -8262,7 +8274,7 @@ function drawIsoLive(now) {
       let tv = tr._tv;
       if (tv === undefined || !treeMemo) tv = tr._tv = 1 + (cmHash('tree:' + tr.gx + ':' + tr.gy) % ISO_TREE_VARIANTS);
       // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
-      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 't' + tv) || a.img) : null; })();
+      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null; })();
       if (tImg0) {
         const hpx = T * z * (tr.r || 0.7) * 2.7;
         // Feuillage TEINTÉ par la saison : la teinte est cuite une fois par
@@ -8477,8 +8489,8 @@ function drawIsoLive(now) {
       // La clé de saison suit l'art RÉELLEMENT dessiné : sur les premières
       // frames le buisson n'est pas encore décodé et on tombe sur l'arbre —
       // une clé fixe aurait figé cet arbre teinté dans le cache pour de bon.
-      let bArt = isoArt('bush-' + it.v), bKey = 'b' + it.v;
-      if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 't' + fv; }
+      let bArt = isoArt('bush-' + it.v), bKey = 'bush-' + it.v;
+      if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 'tree-' + fv; }
       if (bArt.ready) {
         const hpx = T * z * it.r * 2.7;
         const prevBS = ctx.imageSmoothingEnabled;

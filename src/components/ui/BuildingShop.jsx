@@ -20,6 +20,7 @@ import { buyableInMass } from '../../game/core/actions/building.js';
 import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
 import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
 import { productionScales, buildingRelativeGain } from '../../game/core/mechanics/production/productionBreakdown.js';
+import PixelIcon from './PixelIcon.jsx';
 
 // Seuil de l'état « bientôt » (E5) : payable en moins d'une minute au rythme
 // actuel. Une minute est le palier de quantizeEta juste au-dessus des pas de
@@ -432,8 +433,12 @@ function BuildingShop({ open: openProp, onToggle }) {
               style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
             >
               <div className="pr-name-row">
+                {/* `.pr-icon` est un fente à `font-size: 1rem`, donc 16 px fixes :
+                    c'est le seul des 14 glyphes Font Awesome du jeu qui soit à une
+                    taille de l'échelle native. Les treize autres sont posés dans des
+                    lignes de texte, à la taille de la police. */}
                 <span className="pr-icon" aria-hidden="true">
-                  <i className="fa-solid fa-lock"></i>
+                  <PixelIcon name="glyphs/verrou" size={16} />
                 </span>
                 <h3 className="pr-name">{tr(nextLocked.name)}</h3>
               </div>

@@ -10,7 +10,7 @@ import { drawEngineSprite, drawHouseShape, BUILDING_HEIGHTS } from './buildingSh
 import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
 import { wonderAnchor } from './iso/projection.js';
-import { queueFlameGlow, flameAssetGlow } from './flameGlow.js';
+import { queueFlameGlow, flameAssetGlow, flameFlicker } from './flameGlow.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -532,6 +532,12 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
       const a = cfg.asset[f.kind];
       const strip = a && wonderFlameStrips.get(a.file);
       if (!strip || !strip.ready) continue;
+      // Cadence de la bande. Le défaut est un ALLER-RETOUR (0..n-1 puis n-2..1) :
+      // il convient à ce qui respire — un éclat de gemme, une pulsation. ⚠ PAS À
+      // UNE FLAMME : un feu monte, il ne se rembobine pas, et l'aller-retour se
+      // voit comme un hoquet régulier. Les bandes de flamme (PixelLab) sont déjà
+      // bouclées bord à bord : elles déclarent "loop": "forward", comme le rayon
+      // de l'Aiguille et le gyroscope de l'Œil.
       const seq = a.loop === "forward" ? a.frames : a.frames * 2 - 2;
       const st = Math.floor(now / (a.ms || 90) + i * 2.63) % seq;
       const k = a.loop === "forward" || st < a.frames ? st : seq - st;
@@ -990,9 +996,17 @@ function drawWonder(w, idx, now) {
       const ty = baseY + Math.sin(a) * plazaRy * 0.82;
       ctx.strokeStyle = "#4a3a22"; ctx.lineWidth = Math.max(1, s * 0.04);
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty - s * 0.42); ctx.stroke();
-      const fl = 0.55 + 0.45 * Math.abs(Math.sin(now / 180 + ti * 1.9));
-      ctx.fillStyle = `rgba(255,170,50,${(0.55 + fl * 0.45).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(tx, ty - s * 0.46, Math.max(1.5, s * 0.07) * (0.8 + fl * 0.3), 0, Math.PI * 2); ctx.fill();
+      // Scintillement PARTAGÉ (flameFlicker) : `|sin|` donnait un rebond
+      // parfaitement métronomique — un feu qui bat la mesure. La somme de sinus
+      // déphasés est la recette de tous les autres feux de la carte.
+      const fl = flameFlicker(now, ti * 1.9);
+      // Rouge feu au corps, cœur d'or : mêmes encres que les braseros bakés des
+      // merveilles, sinon le cercle de torches vire à l'ambre à côté d'eux.
+      const tr = Math.max(1.5, s * 0.07) * (0.8 + fl * 0.3);
+      ctx.fillStyle = `rgba(239,42,11,${(0.55 + fl * 0.45).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(tx, ty - s * 0.46, tr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,188,78,${(0.5 + fl * 0.5).toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(tx, ty - s * 0.47, tr * 0.45, 0, Math.PI * 2); ctx.fill();
     }
   }
   if (tier >= 3) {

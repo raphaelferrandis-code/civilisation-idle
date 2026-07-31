@@ -15,7 +15,8 @@ import {
   CHRONICLE_COOLDOWN_SEC,
   RERUN_NO_REPEAT_WINDOW
 } from "../chronicleEvaluator.js";
-import { state, setState, hydrateState } from "../state.js";
+import { state, setState, hydrateState, markChronicleRead } from "../state.js";
+import { shallowEqual } from "../../../hooks/useGameState.js";
 import { FIXED_NOW } from "./fixtures.js";
 
 beforeAll(() => {
@@ -24,6 +25,51 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.restoreAllMocks();
+});
+
+describe("Les Échos — accusé de lecture de la pastille", () => {
+  const uneDepeche = (isNew) => ({
+    id: "test", title: "T", body: "B", author: "A", date: "An 1",
+    category: "Chronique", isNew, isRerun: false, publishedAt: FIXED_NOW
+  });
+  // ⚠ `setState` SUPPRIME toutes les clés avant d'assigner (state.js:1815) : ce
+  // n'est pas un merge. Poser `setState({ chronicleEntries })` laissait l'état
+  // réduit à cette seule clé et cassait quatre tests plus bas dans le fichier.
+  // On repart donc d'un état hydraté complet, comme le fait déjà « publie une
+  // dépêche fraîche ».
+  const avecDepeches = (...depeches) => {
+    setState(hydrateState({}));
+    state.chronicleEntries = depeches;
+  };
+
+  it("marque la dépêche lue", () => {
+    avecDepeches(uneDepeche(true), uneDepeche(false));
+    markChronicleRead();
+    expect(state.chronicleEntries[0].isNew).toBe(false);
+    expect(state.chronicleEntries).toHaveLength(2);
+  });
+
+  it("ne touche à rien si la dépêche est déjà lue", () => {
+    avecDepeches(uneDepeche(false));
+    const avant = state.chronicleEntries;
+    markChronicleRead();
+    expect(state.chronicleEntries).toBe(avant);
+  });
+
+  // ⚠ LE TEST QUI MORD. `useGameState` sélectionne `chronicleEntries[0]` et compare
+  // par `shallowEqual`, qui rend `true` dès que les deux références sont identiques.
+  // Une implémentation qui ferait `entries[0].isNew = false` passerait les deux
+  // tests ci-dessus ET NE REDESSINERAIT RIEN : la pastille resterait à l'écran.
+  // On exige donc explicitement une NOUVELLE référence, jugée par le comparateur
+  // réel du store et non par une reformulation de la règle.
+  it("rend une entrée que le comparateur du store voit comme différente", () => {
+    avecDepeches(uneDepeche(true));
+    const avant = state.chronicleEntries[0];
+    markChronicleRead();
+    const apres = state.chronicleEntries[0];
+    expect(apres).not.toBe(avant);
+    expect(shallowEqual(avant, apres)).toBe(false);
+  });
 });
 
 describe("Les Échos — cohérence du cast", () => {

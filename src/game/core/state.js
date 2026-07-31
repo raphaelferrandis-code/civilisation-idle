@@ -278,6 +278,22 @@ export const clearCycleReport = () => {
   state.lastCycleReport = null;
   notify();
 };
+// Éteint la pastille « dépêche non lue » : ouvrir la Chronique vaut lecture.
+// ⚠ `isNew` était posé à true à la publication (chronicleEvaluator.js) et remis
+// à false NULLE PART — la pastille ne s'éteignait donc jamais d'elle-même, elle
+// attendait la dépêche suivante. Elle est persistée dans la save, donc la marquer
+// lue tient aussi après un rechargement.
+// ⚠⚠ ON REMPLACE L'ENTRÉE, ON NE LA MUTE PAS. `useGameState` compare par
+// `shallowEqual`, qui rend `true` DÈS QUE les deux références sont identiques
+// (useGameState.js:6). Muter `isNew` en place aurait notifié dans le vide : le
+// sélecteur `chronicleEntries[0]` aurait rendu le même objet, donc aucun rendu,
+// donc une pastille qui reste allumée. C'est ce que vérifie le test.
+export const markChronicleRead = () => {
+  const entries = state.chronicleEntries || [];
+  if (!entries[0]?.isNew) return;
+  state.chronicleEntries = [{ ...entries[0], isNew: false }, ...entries.slice(1)];
+  notify();
+};
 export const notify = () => {
   if (notifyPaused) return;
   listeners.forEach(l => l());

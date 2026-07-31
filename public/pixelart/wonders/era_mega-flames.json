@@ -25,7 +25,8 @@
       "file": "flame-large.png",
       "fw": 32,
       "fh": 53,
-      "frames": 9
+      "frames": 9,
+      "loop": "forward"
     }
   },
   "tiers": {
