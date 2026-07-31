@@ -5184,11 +5184,14 @@ export function riverIslandObstacles(islands, sm) {
   return out;
 }
 
-export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
+export function riverDodge(lateral, t, effSize, hw, obstacles, gates, memo) {
   const obs = obstacles || CM.riverObstacles;
   const gts = gates || CM.riverGates;
   if (!DODGE.on) return lateral;
   let out = lateral;
+  // Groupes d'obstacles frôlés à CETTE frame : sert à oublier le bord choisi
+  // une fois l'île doublée (cf. le bloc de mémoire plus bas).
+  const vus = memo ? new Set() : null;
   // ── PASSES : le pont n'est franchissable QU'AU MILIEU ──────────────────────
   // La travée centrale est ouverte (isoBridge retire les palées du chenal), mais
   // un bateau qui arrive au ras d'une berge passerait quand même dans la pierre.
@@ -5214,9 +5217,28 @@ export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
     // Dégagement voulu : le rayon de l'obstacle plus la demi-coque, plus une
     // marge. Un bateau large se range donc plus loin qu'une barque.
     const clear = (o.r || 1.4) + effSize * 0.5 + DODGE.clear * 0.5;
-    // Côté déjà pris — et non le plus dégagé : un bateau qui traverserait le
-    // monument pour se ranger « du bon côté » serait pire que le défaut.
-    const side = out >= o.lat ? 1 : -1;
+    // ⚠ LE BORD SE CHOISIT UNE FOIS, PUIS NE BOUGE PLUS. Recalculé à chaque
+    // frame, `out >= o.lat` bascule dès que le LOUVOIEMENT fait passer la coque
+    // d'un côté à l'autre de l'axe — et le bateau se téléporte d'un bras de
+    // l'île à l'autre au lieu de la contourner (Raph). La bascule est invisible
+    // sur un obstacle ponctuel au milieu du fleuve, elle saute aux yeux dès que
+    // l'obstacle est une île qu'on longe pendant plusieurs secondes.
+    //
+    // La mémoire est prise par GROUPE (`o.id`) : l'île publie une chaîne de
+    // points qui partagent le même id, donc toute la chaîne s'accorde sur un
+    // seul bord — sinon les pointes et le milieu pourraient se contredire.
+    const gid = o.id || 'x';
+    let side;
+    if (memo) {
+      vus.add(gid);
+      const mem = memo._dodgeSide || (memo._dodgeSide = {});
+      if (mem[gid] === undefined) mem[gid] = out >= o.lat ? 1 : -1;
+      side = mem[gid];
+    } else {
+      // Côté déjà pris — et non le plus dégagé : un bateau qui traverserait le
+      // monument pour se ranger « du bon côté » serait pire que le défaut.
+      side = out >= o.lat ? 1 : -1;
+    }
     let cible = o.lat + side * clear;
     // Le contournement reste DANS l'eau : au besoin on passe de l'autre bord
     // plutôt que d'échouer le bateau sur la berge.
@@ -5234,6 +5256,13 @@ export function riverDodge(lateral, t, effSize, hw, obstacles, gates) {
     // exactement le défaut qu'on croyait corriger.
     const vise = out + (cible - out) * force;
     out = side > 0 ? Math.max(out, vise) : Math.min(out, vise);
+  }
+  // L'île doublée, on oublie le bord : au prochain passage le bateau choisira
+  // de nouveau selon sa route. Sans cet oubli, un marchand qui a serré à gauche
+  // une fois serrerait à gauche pour le restant de sa vie, même arrivé par
+  // l'autre bout du fleuve.
+  if (memo && memo._dodgeSide) {
+    for (const k of Object.keys(memo._dodgeSide)) if (!vus.has(k)) delete memo._dodgeSide[k];
   }
   return out;
 }
@@ -5321,7 +5350,9 @@ function drawIsoShips(now) {
       // mordaient la berge près du pont (vu à la capture).
       const laneRoom = Math.max(0, hw * 0.78 - effSize * 0.3 - 0.25);
       const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
-      const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null);
+      // `sh` sert de MÉMOIRE : le bord choisi pour doubler une île y reste
+      // accroché tant que le bateau la longe (cf. riverDodge).
+      const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null, sh);
       cgx += nx * lateral; cgy += ny * lateral;
       p = worldToScreen(cgx * T, cgy * T);
       if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;

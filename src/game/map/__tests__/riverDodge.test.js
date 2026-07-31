@@ -110,6 +110,49 @@ describe("passe navigable sous un pont", () => {
     expect(riverDodge(2.1, 0.1, SIZE, HW, [], GATE())).toBe(2.1);
   });
 
+  it("le bord choisi NE BASCULE PAS quand la coque louvoie", () => {
+    // LE bug : `out >= o.lat` était recalculé à chaque frame. Le louvoiement
+    // fait passer la coque d'un côté à l'autre de l'axe plusieurs fois par
+    // seconde ; le côté basculait avec lui et le bateau se TÉLÉPORTAIT d'un bras
+    // de l'île à l'autre au lieu de la contourner (Raph).
+    //
+    // On rejoue une île (chaîne de points de même id) et un bateau qui louvoie
+    // autour de l'axe, comme en jeu.
+    const ile = [-2, -1, 0, 1, 2].map((d) => ({ t: 0.5 + d * 0.004, lat: 0, r: 2, id: "island" }));
+    const memo = {};
+    const cotes = new Set();
+    for (let k = 0; k < 40; k += 1) {
+      const wave = Math.sin(k * 0.7) * 0.5;          // louvoiement, change de signe
+      const r = riverDodge(wave, 0.5, SIZE, HW, ile, [], memo);
+      cotes.add(Math.sign(r));
+    }
+    // Un seul bord sur toute la traversée.
+    expect(cotes.size).toBe(1);
+  });
+
+  it("SANS mémoire, la bascule se produit — c'est le bug d'origine", () => {
+    // Contrôle négatif : le même scénario sans objet mémoire doit bel et bien
+    // montrer le défaut, sinon le test précédent ne prouverait rien.
+    const ile = [-2, -1, 0, 1, 2].map((d) => ({ t: 0.5 + d * 0.004, lat: 0, r: 2, id: "island" }));
+    const cotes = new Set();
+    for (let k = 0; k < 40; k += 1) {
+      const wave = Math.sin(k * 0.7) * 0.5;
+      cotes.add(Math.sign(riverDodge(wave, 0.5, SIZE, HW, ile, [])));
+    }
+    expect(cotes.size).toBeGreaterThan(1);
+  });
+
+  it("oublie le bord une fois l'île doublée", () => {
+    // Sinon un marchand qui a serré à gauche une fois serrerait à gauche pour le
+    // restant de sa vie, même en revenant par l'autre bout du fleuve.
+    const ile = [{ t: 0.5, lat: 0, r: 2, id: "island" }];
+    const memo = {};
+    riverDodge(0.4, 0.5, SIZE, HW, ile, [], memo);
+    expect(memo._dodgeSide.island).toBe(1);
+    riverDodge(-0.4, 0.9, SIZE, HW, ile, [], memo);   // loin : plus dans la zone
+    expect(memo._dodgeSide.island).toBeUndefined();
+  });
+
   it("l'obstacle l'emporte sur la passe s'ils se superposent", () => {
     // Un monument planté juste sous un pont : mieux vaut sortir de l'axe que
     // rentrer dans la pierre. L'évitement s'applique APRÈS le recentrage.
