@@ -36,8 +36,8 @@ import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
 import {
-  SHORTCUT_DEFS, shortcutKey, shortcutOff, shortcutLabel,
-  shortcutRejection, setShortcutKey, setShortcutOff
+  SHORTCUT_DEFS, shortcutKey, shortcutLabel,
+  shortcutRejection, setShortcutKey
 } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
@@ -319,11 +319,6 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     setOptionRevision((revision) => revision + 1);
   };
 
-  const handleShortcutOff = (id, off) => {
-    setShortcutOff(id, off);
-    setOptionRevision((revision) => revision + 1);
-  };
-
   const handleAutomateField = (id, field, value) => {
     setAutomateField(id, field, value);
     setOptionRevision((revision) => revision + 1);
@@ -489,9 +484,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                 <button
                   type="button"
                   className={`toggle-btn ${notifEnabled ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: notifEnabled ? 'Activé' : 'Désactivé', en: notifEnabled ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(notifEnabled)}
                   onClick={handleNotifToggle}
                 >
-                  {notifEnabled ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
+                  
                 </button>
               </div>
 
@@ -762,9 +759,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                 <button
                   type="button"
                   className={`toggle-btn ${musicEnabled ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: musicEnabled ? 'Activé' : 'Désactivé', en: musicEnabled ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(musicEnabled)}
                   onClick={handleMusicToggle}
                 >
-                  {musicEnabled ? tr({ fr: "Active", en: "On" }) : tr({ fr: "Desactive", en: "Off" })}
+                  
                 </button>
               </div>
 
@@ -797,9 +796,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                 <button
                   type="button"
                   className={`toggle-btn ${musicActiveTabOnly ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: musicActiveTabOnly ? 'Activé' : 'Désactivé', en: musicActiveTabOnly ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(musicActiveTabOnly)}
                   onClick={handleActiveTabToggle}
                 >
-                  {musicActiveTabOnly ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
+                  
                 </button>
               </div>
             </>
@@ -811,10 +812,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
           {activeGroup === 'shortcuts' && (
             <>
               {SHORTCUT_DEFS.map((def) => {
-                const off = shortcutOff(def);
                 const capturing = capturingId === def.id;
                 return (
-                  <div key={def.id} className={`options-row ${off ? 'is-off' : ''}`}>
+                  /* plus de classe `is-off` : un raccourci ne s'éteint plus,
+                     il se réattribue. */
+                  <div key={def.id} className="options-row">
                     <div>
                       <span>{tr(def.label)}</span>
                       <small>{tr(def.hint)}</small>
@@ -828,17 +830,6 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                         {...tipProps(null, tr({ fr: "Cliquer puis appuyer sur la touche voulue", en: "Click then press the desired key" }))}
                       >
                         {capturing ? tr({ fr: "…", en: "…" }) : shortcutLabel(shortcutKey(def))}
-                      </button>
-                      <button
-                        type="button"
-                        className={`toggle-btn ${off ? 'off' : 'on'}`}
-                        onClick={() => handleShortcutOff(def.id, !off)}
-                        {...tipProps(null, tr({
-                          fr: "Une touche gênante peut être désactivée sans être remplacée.",
-                          en: "A bothersome key can be disabled without being replaced."
-                        }))}
-                      >
-                        {off ? tr({ fr: "Inactif", en: "Off" }) : tr({ fr: "Actif", en: "On" })}
                       </button>
                     </div>
                   </div>
@@ -1089,9 +1080,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <button
                     type="button"
                     className={`toggle-btn ${r.enabled ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: r.enabled ? 'Activé' : 'Désactivé', en: r.enabled ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(r.enabled)}
                     onClick={() => handleAutoScriptToggle(r.id)}
                   >
-                    {r.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
+                    
                   </button>
                 </div>
               ))}
@@ -1158,9 +1151,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     <button
                       type="button"
                       className={`toggle-btn ${r.enabled ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: r.enabled ? 'Activé' : 'Désactivé', en: r.enabled ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(r.enabled)}
                       onClick={() => handleAutomateToggle(r.id)}
                     >
-                      {r.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
+                      
                     </button>
                   </div>
                 );

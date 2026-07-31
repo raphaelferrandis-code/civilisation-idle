@@ -55,6 +55,22 @@ function persist() {
   } catch { /* stockage indisponible : le réglage vaut pour la session */ }
 }
 
+/* ⚠ PURGE DES `off` HÉRITÉS (2026-07-31). La bascule actif/inactif a été retirée
+   des Options : plus rien ne peut poser ce drapeau, mais rien ne pouvait plus
+   l'ENLEVER non plus. Un joueur ayant éteint une touche avant ce changement
+   serait resté avec un raccourci mort et aucune commande pour le rallumer.
+   Le moteur continue d'honorer `off` — la garde qui l'a introduit répondait à
+   un vrai problème (« le E parti au moindre appui », cf. shortcuts.test.js) et
+   on ne la supprime pas. On efface seulement l'état devenu inatteignable.
+   Une touche gênante se RÉATTRIBUE désormais, au lieu de s'éteindre. */
+{
+  let purge = false;
+  for (const id of Object.keys(shortcutPrefs)) {
+    if (shortcutPrefs[id]?.off) { delete shortcutPrefs[id].off; purge = true; }
+  }
+  if (purge) persist();
+}
+
 export const shortcutKey = (def) => (shortcutPrefs[def.id]?.key || def.key);
 export const shortcutOff = (def) => Boolean(shortcutPrefs[def.id]?.off);
 

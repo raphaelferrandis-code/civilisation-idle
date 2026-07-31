@@ -804,42 +804,39 @@ button:disabled::before,
   background: color-mix(in srgb, var(--skin-field), transparent 70%);
 }
 
-/* ── LES BASCULES : un INTERRUPTEUR, pas un bouton qui change de mot ────────
-   `.toggle-btn` affichait « Activé » ou « Désactivé » en changeant de couleur :
-   il fallait LIRE pour connaître l'état. Un interrupteur se lit de loin, à la
-   position du curseur — c'est le point du § 4.3 de l'audit.
-   ⚠ le curseur est un `::after` : `::before` porte déjà la plaque. */
+/* ── LES BASCULES : une CASE À COCHER ───────────────────────────────────────
+   `.toggle-btn` affichait « Activé » ou « Désactivé » : il fallait LIRE pour
+   connaître l'état. Le libellé de la ligne dit déjà de quoi il s'agit
+   (« Notifications du fil »), répéter « Activé » à côté n'apprend rien de plus.
+   Reste donc le strict nécessaire : un carré, vert quand c'est en marche.
+   ⚠ le bouton n'a plus de texte : son nom accessible passe par `aria-label`,
+   posé dans le JSX, sinon il devient anonyme pour un lecteur d'écran.
+   ⚠ le témoin est un `::after` — `::before` porte déjà la plaque. */
 .app .toggle-btn {
   position: relative;
   isolation: isolate;
-  min-width: 6rem;
-  /* la place du curseur, à droite du libellé */
-  padding-right: 2.2rem;
-  text-align: left;
+  width: 1.6rem;
+  min-width: 0;
+  height: 1.6rem;
+  min-height: 0;
+  padding: 0;
+  flex: 0 0 auto;
 }
 .app .toggle-btn::after {
   content: "";
   position: absolute;
-  top: 50%;
-  width: 0.85rem;
-  height: 0.85rem;
-  transform: translateY(-50%);
-  background: var(--skin-cream);
-  box-shadow:
-    0 0 0 1px var(--skin-ink),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.28);
-  /* glissement franc, pas d'accélération continue : objet pixel */
-  transition: left 110ms linear, background-color 110ms linear;
+  inset: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+  /* franc, sans accélération continue : objet pixel */
+  transition: background-color 110ms linear;
 }
-/* Éteint : curseur à gauche, terne. */
+/* Éteint : le creux reste sombre. */
 .app .toggle-btn.off::after {
-  left: 0.45rem;
-  background: var(--skin-raise);
+  background: color-mix(in srgb, var(--skin-ink), transparent 20%);
 }
-/* Allumé : curseur à droite, et il prend le vert du système — l'or dit
-   « payable », le vert dit « en marche » (components.css:1073). */
+/* Allumé : le vert du système. L'or dit « payable », le vert dit « en
+   marche » — voir components.css:1073, on ne fait pas mentir la couleur. */
 .app .toggle-btn.on::after {
-  left: calc(100% - 1.3rem);
   background: #A8C860;
 }
 
