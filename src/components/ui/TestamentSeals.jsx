@@ -59,8 +59,11 @@ export default function TestamentSeals() {
                 onClick={() => setTestamentLegacy(isEngraved ? null : legacy.id)}
               >
                 {/* size explicite : taille portée par `.testament-seal .px-icon` (ancêtre). */}
+                {/* ⚡ RETIRÉ : la chute annoncée est déjà nommée en toutes
+                    lettres juste au-dessus (« Chute annoncée : … »), et
+                    l'affinité reste dite dans l'infobulle. Un éclair de plus
+                    sur une tuile, c'était un signal en double. */}
                 <PixelIcon name={legacy.pixIcon} size={24} />
-                {favored && <span className="seal-affinity" aria-hidden="true">⚡</span>}
               </button>
               <span className="seal-delta">{delta ? `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%` : "·"}</span>
             </div>

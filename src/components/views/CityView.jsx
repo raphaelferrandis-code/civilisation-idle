@@ -42,7 +42,7 @@ import {
   migrerEnee,
   rewardCitizenThought
 } from '../../game/core/actions.js';
-import { save, setCityName, commitCityName, state } from '../../game/core/state.js';
+import { save, setCityName, commitCityName, state, markChronicleRead } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { fmt, clamp01, fmtHabitants } from '../../game/core/utils.js';
@@ -161,7 +161,12 @@ export default function CityView() {
 
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
-  const toggleDock = (id) => setOpenDock((cur) => (cur === id ? null : id));
+  // Accusé de lecture des pastilles du dock. Une pastille ne doit crier qu'une
+  // fois : ouvrir le panneau vaut lecture, et elle ne revient QUE si la chose
+  // qu'elle signale a changé depuis. On mémorise donc la VALEUR vue, pas un
+  // simple booléen — sinon un nouveau mythe après lecture ne préviendrait plus.
+  // (La chronique, elle, a son `isNew` persisté dans la save : voir markChronicleRead.)
+  const [vu, setVu] = useState({ exhume: null, myths: 0 });
   const latestChronicle = useGameState((s) => (s.chronicleEntries || [])[0]);
 
   // Personnalité procédurale de la ville (stable par cycle ; la surcouche
@@ -324,6 +329,29 @@ export default function CityView() {
     atridesPactActive, atridesNextRunPenaltyActive, isMythEffectActive("mythe_d_enee"),
     eneeHeritage && cycleSeconds < 30, hasActiveEpitaphLegacy, hasLatent
   ].filter(Boolean).length;
+
+  // ── PASTILLES DU DOCK : elles s'éteignent une fois le panneau ouvert ────────
+  // Une pastille ne signale que du NOUVEAU. On compare donc à la valeur vue lors
+  // de la dernière ouverture, jamais à un booléen « déjà cliqué une fois ».
+  //   · mythes  — crie quand le compte MONTE au-dessus du dernier vu. Si un mythe
+  //     s'éteint, on redescend le repère avec lui : sans ça, un mythe qui revient
+  //     au même palier ne préviendrait plus.
+  //   · exhumer — crie tant qu'on n'a pas regardé cette charge-ci. `archaeologyUses`
+  //     change quand on fouille ET repart à zéro au cycle suivant : c'est donc le
+  //     bon repère, la pastille se rallume toute seule à la charge d'après.
+  const usesNow = archaeologyUses || 0;
+  const mythsNouveaux = mythCount > Math.min(vu.myths, mythCount);
+  const exhumeNouveau = vu.exhume !== usesNow;
+  // ⚠ les effets sont HORS de l'updater de `setOpenDock` : StrictMode exécute
+  // deux fois les fonctions passées à un setter, et un updater doit rester pur.
+  const toggleDock = (id) => {
+    const ouvre = openDock !== id;
+    setOpenDock(ouvre ? id : null);
+    if (!ouvre) return;
+    if (id === 'chronique') markChronicleRead();
+    if (id === 'myths') setVu((v) => ({ ...v, myths: mythCount }));
+    if (id === 'exhume') setVu((v) => ({ ...v, exhume: usesNow }));
+  };
 
   // Infobulles longues des boutons de mythe : un seul texte, servi soit par le
   // title natif (bouton désactivé, où Chrome ne délivre aucun événement souris),
@@ -550,20 +578,23 @@ export default function CityView() {
           <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
             {chronicleVisible && (
               <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })} aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>
-                <i className="fa-solid fa-newspaper" aria-hidden="true"></i>
+                {/* Même destination que l'onglet de nav, donc MÊME icône : la Chronique.
+                    Ce n'est pas un doublon, c'est ce qui apprend au joueur que les deux
+                    chemins mènent au même endroit. */}
+                <PixelIcon name="nav/chronique" size={24} />
                 {chronicleNew && <span className="hud-dock-dot" aria-hidden="true"></span>}
               </button>
             )}
             {showExhume && (
               <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label={tr({ fr: "Exhumer un vestige archéologique", en: "Exhume an archaeological vestige" })} aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
-                <i className="fa-solid fa-trowel" aria-hidden="true"></i>
-                <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>
+                <PixelIcon name="nav/exhumer" size={24} />
+                {exhumeNouveau && <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>}
               </button>
             )}
             {showMythsPanel && (
               <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label={tr({ fr: "Mythes actifs et bénédictions", en: "Active myths and blessings" })} aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
-                <i className="fa-solid fa-scroll" aria-hidden="true"></i>
-                {mythCount > 0 && <span className="hud-dock-badge">{mythCount}</span>}
+                <PixelIcon name="nav/mythes" size={24} />
+                {mythsNouveaux && <span className="hud-dock-badge">{mythCount}</span>}
               </button>
             )}
           </div>
@@ -1061,7 +1092,11 @@ export default function CityView() {
                     ...epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => ({ label: chip.label }))
                   ])}
                 >
-                  <PixelIcon name="myths/epitaph" className="myth-card-icon" />
+                  {/* L'icône du LEGS, pas une stèle générique : c'est le même
+                      objet que la tuile du Testament, il doit se reconnaître
+                      d'un écran à l'autre. Repli sur la stèle si un legs futur
+                      arrivait sans `pixIcon`. */}
+                  <PixelIcon name={activeEpitaphDefinition.pixIcon || "myths/epitaph"} className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{tr({ fr: `Legs : ${activeEpitaphDefinition.logLabel}`, en: `Legacy: ${activeEpitaphDefinition.logLabel}` })}</span>
                     <strong>

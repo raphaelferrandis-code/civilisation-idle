@@ -608,8 +608,25 @@ button:disabled::before,
 .app .testament-seal:hover:not(:disabled)::before {
   filter: brightness(0.85) saturate(0.85);
 }
-.app .testament-seal.is-favored::before,
+/* ⚠ GRAVÉ ≠ AFFINITÉ, et je les rendais à l'identique : deux états distincts
+   avec exactement la même luminosité, impossible de les distinguer.
+   La hiérarchie suit qui parle : le legs GRAVÉ est le choix du joueur, c'est
+   le signal principal → il s'éclaircit. L'AFFINITÉ n'est qu'une indication du
+   cycle en cours → elle se contente d'un halo. */
 .app .testament-seal.is-engraved::before {
+  filter: brightness(1) saturate(1);
+}
+
+/* Affinité avec la chute annoncée : teinte du repos, et un HALO qui dit
+   « celui-ci résonne avec la chute » sans hausser le ton. */
+.app .testament-seal.is-favored::before {
+  filter: brightness(0.52) saturate(0.65);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand-gold), transparent 45%),
+    0 0 7px 1px color-mix(in srgb, var(--brand-gold), transparent 60%);
+}
+/* En affinité ET gravé : la tuile éclaircie garde son halo. */
+.app .testament-seal.is-favored.is-engraved::before {
   filter: brightness(1) saturate(1);
 }
 
@@ -734,6 +751,96 @@ button:disabled::before,
     100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
     3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
   );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3 quinquies · LE SEGMENTÉ ET LES BASCULES  (lot 5 de l'audit)
+   ----------------------------------------------------------------------------
+   Les 28 `.format-option` d'Options formaient 28 boutons séparés alors qu'ils
+   ne posent que **9 questions** à choix unique (langue, format des nombres,
+   cycle jour/nuit, qualité, mouvement, densité, contraste, météo, saison).
+   Vingt-huit objets pour neuf décisions : l'œil doit relire à chaque fois quels
+   boutons vont ensemble.
+   Bonne nouvelle, la structure existait déjà — les neuf groupes sont tous dans
+   un `.number-format-control`. Il ne manquait que la forme : **un seul bloc,
+   des segments jointifs séparés par un filet, un seul rempli**.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Le bloc porte la matière, une fois, pour tout le groupe. */
+.app .number-format-control {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  position: relative;
+  isolation: isolate;
+  /* ⚠ pas de `border` : il grossirait la boîte. Le filet du pourtour est une
+     ombre interne, comme partout ailleurs dans cette feuille. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--skin-ink), transparent 20%);
+  background: color-mix(in srgb, var(--skin-field), transparent 88%);
+}
+
+/* Les segments perdent leur plaque individuelle : dans un bloc unique, chacun
+   n'est plus un objet, c'est une part. */
+.app .number-format-control > .format-option::before {
+  border-image: none;
+  border-width: 0;
+}
+.app .number-format-control > .format-option {
+  flex: 0 0 auto;
+  border-radius: 0;
+  /* le filet de séparation, en ombre interne : zéro coût de mise en page */
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--skin-ink), transparent 45%);
+}
+.app .number-format-control > .format-option:first-child {
+  box-shadow: none;
+}
+/* Le segment retenu : cuir plein, comme le reste du système. L'or reste
+   réservé à ce qui appelle un clic maintenant. */
+.app .number-format-control > .format-option.active {
+  background: color-mix(in srgb, var(--skin-field), transparent 35%);
+  color: var(--skin-cream);
+}
+.app .number-format-control > .format-option:hover:not(.active) {
+  background: color-mix(in srgb, var(--skin-field), transparent 70%);
+}
+
+/* ── LES BASCULES : un INTERRUPTEUR, pas un bouton qui change de mot ────────
+   `.toggle-btn` affichait « Activé » ou « Désactivé » en changeant de couleur :
+   il fallait LIRE pour connaître l'état. Un interrupteur se lit de loin, à la
+   position du curseur — c'est le point du § 4.3 de l'audit.
+   ⚠ le curseur est un `::after` : `::before` porte déjà la plaque. */
+.app .toggle-btn {
+  position: relative;
+  isolation: isolate;
+  min-width: 6rem;
+  /* la place du curseur, à droite du libellé */
+  padding-right: 2.2rem;
+  text-align: left;
+}
+.app .toggle-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.85rem;
+  height: 0.85rem;
+  transform: translateY(-50%);
+  background: var(--skin-cream);
+  box-shadow:
+    0 0 0 1px var(--skin-ink),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.28);
+  /* glissement franc, pas d'accélération continue : objet pixel */
+  transition: left 110ms linear, background-color 110ms linear;
+}
+/* Éteint : curseur à gauche, terne. */
+.app .toggle-btn.off::after {
+  left: 0.45rem;
+  background: var(--skin-raise);
+}
+/* Allumé : curseur à droite, et il prend le vert du système — l'or dit
+   « payable », le vert dit « en marche » (components.css:1073). */
+.app .toggle-btn.on::after {
+  left: calc(100% - 1.3rem);
+  background: #A8C860;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
