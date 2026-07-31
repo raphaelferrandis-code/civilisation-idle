@@ -635,6 +635,108 @@ button:disabled::before,
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
+   3 quater · LES PASTILLES — 16 familles, 3 rôles  (lot 4 de l'audit)
+   ----------------------------------------------------------------------------
+   L'audit avait relevé quatorze familles concurrentes ; le recensement en a
+   trouvé SEIZE, chacune redéfinie dans sa propre feuille pour trois fonctions
+   seulement. Elles avaient déjà toutes l'angle vif (purge des rayons), mais
+   chacune avait inventé son rembourrage, sa bordure, son fond et son corps.
+
+   ⛔ CE NE SONT PAS DES BOUTONS. Elles ne portent donc NI cran NI socle : c'est
+   l'autre moitié de la grammaire — cranté = ça se clique, angle vif = ça
+   s'affiche. Leur matière est plate, posée en ombre interne, sans plaque.
+
+   Trois rôles, et la couleur reste ce qu'elle était : elle porte le SENS, on
+   n'unifie que la forme.
+     · VALEUR  — un nombre, un débit, une mise      (fond très dilué, filet dur)
+     · ÉTAT    — un mot, un statut, un palier       (idem, teinté par son sens)
+     · COMPTE  — un compteur de notification        (le seul objet CRANTÉ, parce
+                 qu'il se superpose à un bouton et doit s'en détacher)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── base commune aux 16 ─────────────────────────────────────────────────── */
+.app .annals-chip,
+.app .augury-chip,
+.app .effect-chip,
+.app .level-chip,
+.app .output-chip,
+.app .scratch-chip,
+.app .bj-chip,
+.app .icarus-crash-chip,
+.app .choice-badge,
+.app .milestone-badge,
+.app .myth-status-badge,
+.app .chronicle-reg-badge,
+.app .pr-milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--skin-ink), transparent 25%);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--skin-field), transparent 88%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* ⚠ `--font-small` (Inter) et pas la police pixel : sous 11 px il ne reste
+     plus de ligne de pixels pour poser un accent, et ces pastilles sont
+     pleines de « é » et de « à ». C'est la règle posée dans variables.css. */
+  font-family: var(--font-small);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* ── VALEUR : un nombre. Les chiffres passent en chasse fixe pour que les
+      colonnes ne dansent pas quand la valeur change. ─────────────────────── */
+.app .annals-chip,
+.app .output-chip,
+.app .scratch-chip,
+.app .bj-chip,
+.app .icarus-crash-chip,
+.app .chronicle-reg-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ÉTAT : un mot. Un peu plus d'air, jamais de fond plein — un statut
+      permanent ne doit pas crier (même raison que le Testament). ─────────── */
+.app .choice-badge,
+.app .milestone-badge,
+.app .myth-status-badge,
+.app .pr-milestone-badge,
+.app .level-chip {
+  padding: 0.12rem 0.5rem;
+  /* ⛔ `.level-chip` portait un DÉGRADÉ 3 couleurs (olive → vert → jaune) et
+     `.milestone-badge` un dégradé d'or : deux aplats de plus dans une UI qui
+     n'en veut plus. Le sens tient dans la couleur du texte. */
+  background-image: none;
+}
+
+/* ── COMPTE : le seul objet cranté, parce qu'il se pose SUR un bouton et doit
+      s'en détacher. `.subtab-badge` portait déjà exactement ça — on aligne les
+      deux autres dessus au lieu d'inventer une troisième forme. ──────────── */
+.app .tab-badge,
+.app .hud-dock-badge {
+  border: 2px solid #100a06;
+  border-radius: 0;
+  background: var(--brand-gold);
+  color: #140d06;
+  font-family: var(--font-pixel);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    inset 0 0.12rem 0 rgba(255, 255, 255, 0.28),
+    inset 0 -0.12rem 0 rgba(0, 0, 0, 0.3);
+  filter: drop-shadow(0.12rem 0.12rem 0 rgba(0, 0, 0, 0.55));
+  clip-path: polygon(
+    0 3px, 3px 3px, 3px 0,
+    calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
    4 · LES CHAMPS
    ⚠ PAS de plaque : un contrôle de formulaire natif peint ses propres internes
    par-dessus. On habille à plat, avec les tons du pack.
