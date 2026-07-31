@@ -4752,21 +4752,14 @@ function tradeSizeMul(stage, band) {
   return stage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
     : stage === 'container' ? 3.2 : stage === 'steam' ? 2.4 : stage === 'sail' ? 1.8 : 1.36;
 }
-// Plaisance : barque à rames, puis petit voilier, puis vedette à moteur. En ère
-// cosmique on garde la vedette — un plaisancier reste un plaisancier, et rien
-// ne justifiait un quatrième stade d'art pour un bateau qu'on regarde passer.
-// ⚠ Échelles RELEVÉES après la première capture : aux valeurs « réalistes »
-// (1,05 / 1,45 / 1,9) la plaisance était illisible. Deux raisons cumulées — les
-// coques de barque occupent bien moins de leur cadre 85 px que les gros
-// marchands, et à ce zoom une silhouette sous ~40 px n'est plus qu'un grain.
-// Ce qui compte n'est pas l'échelle vraie d'une barque mais qu'on RECONNAISSE
-// le métier.
-const YACHT_STAGES = [
-  { key: 'rowboat', sizeMul: 1.4 },
-  { key: 'dinghy', sizeMul: 1.7 },
-  { key: 'motorboat', sizeMul: 2.0 },
-];
-function yachtStage(ei) { return ei >= 25 ? YACHT_STAGES[2] : ei >= 10 ? YACHT_STAGES[1] : YACHT_STAGES[0]; }
+// 🚫 LE PLAISANCIER A ÉTÉ RETIRÉ (Raph, 2026-07-30) — ses trois âges (rames,
+// voilier, vedette), sa dérive d'une berge à l'autre et son art calibré face par
+// face. Le fleuve est plus lisible sans lui : il raconte le TRAVAIL, le port qui
+// charge et l'homme qui pêche, et un promeneur y ajoutait du mouvement sans y
+// ajouter de sens. Ne pas le reproposer.
+// Les sprites (boat-rowboat / dinghy / motorboat) et leur relevé de feux restent
+// sur le disque et dans le roster : la génération est payée, le retour arrière ne
+// coûterait qu'un budget à rouvrir dans riverFleet.
 
 // Coque de REPLI pour un métier dont l'art n'est pas encore là : une barque en
 // bois vue de trois quarts, plus l'attribut qui identifie le métier (canne
@@ -4901,7 +4894,9 @@ export function boatHasNavLights(stage) { return !NAV_DARK.has(stage); }
 // fini par diverger de NAV_DARK — le seuil du vapeur avait déjà pris cette
 // pente, recopié à trois endroits. Un test vérifie que tout ce qui est ici
 // s'allume vraiment.
-export const NAV_STAGES = ['sail', 'steam', 'container', 'dinghy', 'motorboat'];
+// (Plus de dinghy ni de motorboat : le plaisancier est retiré. Les laisser ici
+// ferait perdre du temps à calibrer les feux d'un bateau qui ne navigue plus.)
+export const NAV_STAGES = ['sail', 'steam', 'container'];
 
 // ── Position des feux PAR FACE ──────────────────────────────────────────────
 // Le relevé de profil ci-dessus est projeté mathématiquement sur les 7 autres
@@ -5090,11 +5085,12 @@ export function shipVisual(kind, band, ei, shipState) {
     // 2026-07-30 : « il faut qu'il ait des clapotis autour de lui et un sillage »).
     // À l'arrêt il n'en laisse toujours aucun, et c'est ce contraste qui fait lire
     // la pose : l'écume s'éteint quand il pose sa ligne.
-    return { key: posed ? 'fisher' : 'fisher-row', sizeMul: 1.75, wake: posed ? 0 : 0.4, stage: 'fisher' };
-  }
-  if (kind === 'yacht') {
-    const y = yachtStage(ei);
-    return { key: y.key, sizeMul: y.sizeMul, wake: 0.35, stage: y.key };
+    // Échelle RÉDUITE de 1,75 à 1,3 (Raph, 2026-07-30). La valeur généreuse
+    // datait du jour où le pêcheur v1, sombre, se perdait sur l'eau ; la barque
+    // claire actuelle se lit très bien plus petite, et une barque de pêche DOIT
+    // rester la plus petite chose qui flotte — à 1,75 elle rivalisait avec un
+    // vapeur.
+    return { key: posed ? 'fisher' : 'fisher-row', sizeMul: 1.3, wake: posed ? 0 : 0.4, stage: 'fisher' };
   }
   const stage = tradeStage(band, ei);
   return { key: stage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, band)) : stage,
@@ -5287,7 +5283,7 @@ function drawIsoShips(now) {
   // calcule une fois. Le pêcheur en a deux — canne tendue à l'ancre, rangée en
   // route — d'où ses deux entrées, choisies par bateau selon son état.
   const VIS = {
-    trade: shipVisual('trade', band, ei), yacht: shipVisual('yacht', band, ei),
+    trade: shipVisual('trade', band, ei),
     fisherPosed: shipVisual('fisher', band, ei, 'anchor'),
     fisherRow: shipVisual('fisher', band, ei, 'cruise'),
   };

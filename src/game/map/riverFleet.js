@@ -14,15 +14,21 @@
 // c'est lui (plus que le plafond) qui fait qu'on ne se sent plus sur une
 // autoroute fluviale.
 //
-// Trois métiers, trois cycles :
+// DEUX métiers, deux cycles :
 //   • trade  — le marchand. Entre, accoste au port, ressort. C'est LUI qui
 //              porte le signal de prospérité (son effectif suit river_ports).
-//   • yacht  — le plaisancier. Aucune destination : il vogue, sa voie dérive
-//              lentement d'une berge à l'autre. Trois stades d'ère (rames,
-//              voilier, vedette), cf. le rendu.
 //   • fisher — le pêcheur. Entre, jette l'ancre à l'écart des quais, ne bouge
 //              plus pendant 90 s, puis repart. Sa barque en bois ne change
 //              JAMAIS, de la première ère à la dernière (arbitrage Raph).
+//
+// 🚫 LE PLAISANCIER A ÉTÉ RETIRÉ (Raph, 2026-07-30). Il avait ses trois âges
+// (rames, voilier, vedette), sa dérive lente d'une berge à l'autre et son art
+// calibré — et le fleuve était plus lisible sans lui. Ne pas le reproposer : le
+// fleuve raconte le TRAVAIL (le port qui charge, l'homme qui pêche), et un
+// promeneur y ajoutait du mouvement sans y ajouter de sens.
+// Les sprites (boat-rowboat / dinghy / motorboat) restent sur le disque et dans
+// le roster : leur génération est payée, le retour arrière ne coûterait qu'un
+// budget à rouvrir.
 //
 // Module PUR : aucune dépendance au canvas ni à CM, uniquement `cmHash`. Toute
 // la logique est donc testable en vitest sans monter un rendu — c'est la raison
@@ -43,7 +49,6 @@ export const FLEET_TUNE = {
   tradeMax: 5,
   // Creux entre deux arrivées, en secondes. C'est le vrai levier de densité.
   tradeGap: [12, 32],
-  yachtGap: [18, 40],
   fisherGap: [30, 70],
   dockDwell: 2.5,      // escale marchande au quai (s) — reprise du legacy
   fisherDwell: 90,     // pose du pêcheur (s) — 90 s pour que le cycle se voie
@@ -53,7 +58,7 @@ export const FLEET_TUNE = {
   // bateaux de charge, ce qui contredisait le plafond et les creux — un fleuve
   // peu peuplé mais parcouru au pas de course reste agité. Une traversée entière
   // prend maintenant 2 à 3 minutes.
-  speed: { trade: [0.005, 0.010], yacht: [0.0035, 0.006], fisher: [0.006, 0.009] },
+  speed: { trade: [0.005, 0.010], fisher: [0.006, 0.009] },
   // ── LE PÊCHEUR DE L'ÎLE ────────────────────────────────────────────────────
   // Demande de Raph (2026-07-30) : l'île doit rester INACCESSIBLE, « avec le
   // pêcheur qui tourne autour ». C'est le seul bateau du fleuve qui ne traverse
@@ -76,7 +81,7 @@ export const FLEET_TUNE = {
   orbitDwell: 26,
 };
 
-export const FLEET_KINDS = ['trade', 'yacht', 'fisher'];
+export const FLEET_KINDS = ['trade', 'fisher'];
 
 // Un pas de sim plus long qu'un gros hoquet de frame ne veut rien dire : onglet
 // caché, l'horloge revient avec plusieurs secondes d'un coup et toute la flotte
@@ -89,14 +94,14 @@ const T_LO = -0.015, T_HI = 1.015;
 const lerp = (a, b, f) => a + (b - a) * f;
 
 export function makeFleetCtl() {
-  return { nextId: 1, birth: { trade: 0, yacht: 0, fisher: 0 } };
+  return { nextId: 1, birth: { trade: 0, fisher: 0 } };
 }
 
 // Effectif VOULU par métier. Les marchands gardent la formule historique (port
 // + un peu de marchés et d'ère), seul le plafond descend ; sans port, le fleuve
 // de village garde sa barque isolée à partir de l'âge de bronze.
 export function riverFleetBudget(state, L) {
-  const empty = { trade: 0, yacht: 0, fisher: 0 };
+  const empty = { trade: 0, fisher: 0 };
   if (!L || !L.river || !L.river.present) return empty;
   const b = (state && state.buildings) || {};
   const portLvl = Math.floor(b.river_ports || 0);
@@ -122,12 +127,10 @@ export function riverFleetBudget(state, L) {
   } else if (band >= 2) {
     trade = 1;
   }
-  // Plaisance et pêche ne dépendent PAS du port : on pêche et on canote sur le
-  // fleuve d'un village comme sur celui d'une mégapole. Un second plaisancier
-  // seulement quand la ville est assez grande pour qu'un seul se perde dedans.
-  const yacht = band >= 1 ? (portLvl >= 4 || eraIdx >= 22 ? 2 : 1) : 0;
+  // La pêche ne dépend PAS du port : on pêche sur le fleuve d'un village comme
+  // sur celui d'une mégapole.
   const fisher = 1;
-  return { trade, yacht, fisher };
+  return { trade, fisher };
 }
 
 // Point d'ancrage du pêcheur : à l'écart des quais (on ne jette pas l'ancre
@@ -169,12 +172,6 @@ function spawn(kind, ctl, env) {
     done: false,      // escale déjà faite : il file vers la sortie
     lastDock: -1,
   };
-  if (kind === 'yacht') {
-    // Le plaisancier n'a pas de cap : sa voie DÉRIVE lentement d'une berge à
-    // l'autre. C'est ce lent glissement latéral, plus que sa vitesse, qui le
-    // fait lire comme quelqu'un qui n'a nulle part où aller.
-    sh.laneV = (rnd01('shipLaneV:' + id) * 2 - 1) * 0.035;
-  }
   if (kind === 'fisher') sh.anchorT = pickAnchorT(id, env.avoidT || []);
   return sh;
 }
@@ -315,13 +312,6 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
     }
 
     sh.t += sh.dir * sh.speed * moveF * step;
-
-    // Dérive latérale du plaisancier, avec rebond doux sur les berges.
-    if (sh.kind === 'yacht') {
-      sh.lane += sh.laneV * step;
-      if (sh.lane > 0.85) { sh.lane = 0.85; sh.laneV = -sh.laneV; }
-      if (sh.lane < -0.85) { sh.lane = -0.85; sh.laneV = -sh.laneV; }
-    }
 
     // Sortie de carte : il a fini son voyage. Plus de wrap — c'est tout le
     // point du module.

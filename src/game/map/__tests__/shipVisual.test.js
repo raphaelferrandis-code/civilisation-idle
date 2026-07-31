@@ -58,28 +58,27 @@ describe("shipVisual — le pêcheur ne vieillit pas", () => {
     expect(shipVisual("fisher", 4, 18, "cruise").wake).toBeGreaterThan(0);
     // ...mais il reste le plus discret du fleuve : une barque n'est pas un cargo.
     expect(shipVisual("fisher", 4, 18, "cruise").wake).toBeLessThan(shipVisual("trade", 4, 18).wake);
-    // Et le marchand, lui, laboure.
-    expect(shipVisual("trade", 4, 18).wake).toBeGreaterThan(shipVisual("yacht", 4, 18).wake);
-    expect(shipVisual("yacht", 4, 18).wake).toBeGreaterThan(0);
+  });
+
+  it("reste la plus PETITE chose qui flotte", () => {
+    // Échelle ramenée de 1,75 à 1,3 (Raph). La valeur généreuse datait du
+    // pêcheur v1, sombre, qui se perdait sur l'eau ; la barque claire actuelle
+    // se lit très bien plus petite. Une barque de pêche qui rivalise de taille
+    // avec un vapeur ne se lit plus comme une barque.
+    const barque = shipVisual("fisher", 4, 18, "anchor").sizeMul;
+    for (const [band, ei] of [[2, 8], [5, 27], [6, 34]]) {
+      expect(barque).toBeLessThan(shipVisual("trade", band, ei).sizeMul);
+    }
   });
 });
 
-describe("shipVisual — le plaisancier a trois âges", () => {
-  it("passe de la barque au voilier puis à la vedette", () => {
-    const rames = shipVisual("yacht", 1, 4).key;
-    const voile = shipVisual("yacht", 3, 15).key;
-    const moteur = shipVisual("yacht", 5, 28).key;
-    expect(new Set([rames, voile, moteur]).size).toBe(3);
-    // Et il GRANDIT à chaque âge : une vedette ne peut pas être plus petite
-    // qu'une barque à rames.
-    expect(shipVisual("yacht", 1, 4).sizeMul)
-      .toBeLessThan(shipVisual("yacht", 3, 15).sizeMul);
-    expect(shipVisual("yacht", 3, 15).sizeMul)
-      .toBeLessThan(shipVisual("yacht", 5, 28).sizeMul);
-  });
-
-  it("reste une vedette en ère cosmique (pas de quatrième stade)", () => {
-    expect(shipVisual("yacht", 9, 44).key).toBe(shipVisual("yacht", 5, 28).key);
+describe("shipVisual — le plaisancier a été retiré", () => {
+  it("ne connaît plus que le marchand et le pêcheur", () => {
+    // 🚫 Retiré par Raph le 2026-07-30 : le fleuve raconte le TRAVAIL, et un
+    // promeneur y ajoutait du mouvement sans y ajouter de sens. Un `kind`
+    // inconnu doit retomber sur le marchand plutôt que d'inventer un bateau.
+    expect(shipVisual("yacht", 4, 18).stage).toBe(shipVisual("trade", 4, 18).stage);
+    expect(shipVisual("promeneur", 4, 18).stage).toBe(shipVisual("trade", 4, 18).stage);
   });
 });
 

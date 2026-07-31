@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { makeFleetCtl, riverFleetBudget, updateRiverFleet, orbitPoint, FLEET_TUNE } from "../riverFleet.js";
+import { makeFleetCtl, riverFleetBudget, updateRiverFleet, orbitPoint, FLEET_TUNE, FLEET_KINDS } from "../riverFleet.js";
 
 // « Les bateaux arrivent, foncent au port, repartent » — sauf qu'ils ne
 // repartaient pas : `CM.ships` était un anneau et la flotte se reconstruisait
@@ -25,14 +25,14 @@ function run(ships, ctl, budget, seconds, env = {}) {
   return ships;
 }
 
-const ONLY = (kind) => ({ trade: 0, yacht: 0, fisher: 0, [kind]: 1 });
+const ONLY = (kind) => ({ trade: 0, fisher: 0, [kind]: 1 });
 
 describe("riverFleet — effectifs", () => {
   const L = { river: { present: true }, counts: { eraIndex: 20, eraBand: 4 } };
 
   it("sans fleuve, aucun métier ne tourne", () => {
     const b = riverFleetBudget({ buildings: { river_ports: 9 } }, { river: { present: false } });
-    expect(b).toEqual({ trade: 0, yacht: 0, fisher: 0 });
+    expect(b).toEqual({ trade: 0, fisher: 0 });
   });
 
   it("l'effectif marchand suit le port et sature au plafond", () => {
@@ -61,10 +61,21 @@ describe("riverFleet — effectifs", () => {
     expect(new Set(paliers).size).toBeGreaterThanOrEqual(3);
   });
 
-  it("pêche et plaisance ne dépendent pas du port", () => {
+  it("la pêche ne dépend pas du port", () => {
+    // On pêche sur le fleuve d'un village comme sur celui d'une mégapole.
     const sansPort = riverFleetBudget({ buildings: {} }, L);
     expect(sansPort.fisher).toBe(1);
-    expect(sansPort.yacht).toBeGreaterThan(0);
+  });
+
+  it("le plaisancier ne navigue PLUS", () => {
+    // 🚫 Retiré par Raph le 2026-07-30. La garde porte sur le budget, seul
+    // endroit qui décide qui naît : tant qu'il ne publie pas de plaisancier,
+    // aucun ne peut apparaître, quoi que sache encore le rendu.
+    for (const b of [{}, { river_ports: 40, markets: 40 }]) {
+      expect(riverFleetBudget({ buildings: b }, L).yacht).toBeUndefined();
+    }
+    expect(FLEET_KINDS).not.toContain("yacht");
+    expect(FLEET_KINDS).toEqual(["trade", "fisher"]);
   });
 });
 
