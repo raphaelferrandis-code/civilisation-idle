@@ -98,15 +98,19 @@ export const waterShoreTune = {
   // ci-dessous, qui restent le jeu ardoise d'origine (et le repli si la table des
   // coloris ne dit rien).
   follow: true,
-  // ÎLES : pas de liseré (Raph, 2026-07-30 — « tu peux pas poser le liseré autour
-  // de l'île, et remplacer sa texture par le sable ? »). Le bas-fond clair leur
-  // avait été rendu le matin même, quand un booléen global l'éteignait à tort ;
-  // mais depuis que le rivage de SABLE borde l'île, les deux disent la même chose
-  // au même endroit — et deux franges concentriques autour d'un fuseau de 4,8
-  // tuiles de large, c'est une cible, pas une berge. Le sable porte seul la
-  // transition. La berge du FLEUVE garde son liseré : c'est lui qui a réglé la
-  // coupe nette au port.
-  islands: false,
+  // ÎLES : liseré clair OUI — et l'aller-retour vaut d'être raconté, pour que
+  // personne ne le « corrige » en croyant rétablir un choix.
+  //   · le matin du 2026-07-30, Raph le fait RETIRER : à ce moment-là le sable et
+  //     le bleu tombaient au même endroit, et deux franges concentriques sur un
+  //     fuseau étroit faisaient une cible plutôt qu'une berge ;
+  //   · le soir, il le redemande — « il faut le liseré clair tout autour de
+  //     l'île ». Entre les deux, le rivage de sable s'est posé pour de bon CÔTÉ
+  //     TERRE (cf. le drapeau `withIslands` de buildEdges). Les deux ne se
+  //     doublent donc plus : le sable dit la grève, le bleu dit le bas-fond, de
+  //     part et d'autre de la ligne d'eau — exactement comme sur les berges du
+  //     fleuve.
+  // Ce n'est pas un avis qui a changé, c'est la scène.
+  islands: true,
   maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
   lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
@@ -4094,10 +4098,12 @@ function drawIsoFisherWater(ctx, T, z, now, wb) {
  * vaguelettes) étaient toutes au milieu du fleuve.
  *
  * ⚠ PASSE À PART, ET C'EST LE FRUIT D'UN ÉCHEC. Écrite d'abord dans le bloc du
- * bas-fond des berges, elle n'a JAMAIS rien dessiné : ce bloc est gardé par
- * `waterShoreTune.islands`, qui vaut **false** — les îles ont été délibérément
- * retirées du bas-fond parce que leur rivage de sable dit déjà le bord. Le
- * sillage n'est pas un liseré de berge, il n'a donc rien à faire sous ce drapeau.
+ * bas-fond des berges, elle n'a JAMAIS rien dessiné : ce bloc était alors gardé
+ * par `waterShoreTune.islands`, à false à l'époque. Le drapeau est repassé à true
+ * depuis, mais la passe RESTE à part, et pour une raison qui ne dépend pas de
+ * lui : le sillage n'est pas un liseré de berge. Il ne suit qu'un ARC, il pulse
+ * avec la houle, et sous le bloc des berges il hériterait de leurs tronçons de
+ * quai et de leur épaisseur. Ne pas l'y replier en voyant le drapeau relevé.
  *
  * Il PULSE avec la houle qui arrive sur la pointe — MÊME valeur d'onde que le
  * contour au même endroit (u = 0,5, soit a = π) : l'écume monte exactement quand
@@ -4264,10 +4270,10 @@ function drawIsoRiver(now) {
       runsPlus = quayGapRuns(g && g.drawPlus, len0);
       runsMinus = quayGapRuns(g && g.drawMinus, len0);
     }
-    // ÎLES : aucun quai ne les borde, donc rien ne leur dispute le bord de l'eau —
-    // mais le rivage de sable le dit déjà (cf. `islands` dans le réglage). Le
-    // drapeau reste là parce que sans plage (BEACH.on = false) le liseré redevient
-    // la seule chose qui adoucit leur découpe.
+    // ÎLES : aucun quai ne les borde, donc rien ne leur dispute le bord de l'eau,
+    // et elles entrent d'un seul morceau. Le drapeau `islands` (cf. le réglage)
+    // dit s'il faut leur donner le bas-fond bleu — il a fait l'aller-retour en un
+    // jour, l'histoire est racontée là-bas.
     const islandsOn = S.islands !== false && (!ruined || !quayEra);
     const shoreOn = S.on && (runsPlus.length > 0 || runsMinus.length > 0 || islandsOn);
     const nAt = (i) => { const o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)]; let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1; return { nx: -ty / tl, ny: tx / tl }; };
@@ -4290,13 +4296,15 @@ function drawIsoRiver(now) {
       const wv = waveHalfWidths(pts);
       // `mode` : 'wave' (bord de l'eau), 'wet' (la LAISSE) ou 'base' (le lit peint).
       // `withIslands` — ⚠ DEUX RÉGLAGES DISTINCTS SE PARTAGEAIENT UN SEUL DRAPEAU.
-      // `S.islands` a été mis à false pour retirer le BAS-FOND BLEU autour de
-      // l'île (deux franges concentriques sur un fuseau étroit faisaient une
-      // cible). Mais il coupait du même coup la bande de sable et la FRANGE
-      // HUMIDE, qui ne sont ni de la même couleur ni du même côté de la ligne
-      // d'eau — d'où une île qui se découpait au couteau alors que Raph demandait
-      // « le liseré des vagues et du sable humide aussi autour de l'île ».
-      // Le bas-fond passe donc `islandsOn`, la plage passe `true`.
+      // Quand `S.islands` est passé à false pour retirer le BAS-FOND BLEU autour
+      // de l'île, il a coupé du même coup la bande de sable et la FRANGE HUMIDE,
+      // qui ne sont ni de la même couleur ni du même côté de la ligne d'eau —
+      // d'où une île découpée au couteau. Le bas-fond passe donc `islandsOn`, la
+      // plage passe `true` en dur.
+      // Le drapeau est repassé à true depuis, si bien que les deux chemins
+      // coïncident aujourd'hui : NE PAS EN CONCLURE que la séparation est morte.
+      // C'est elle qui garantit qu'un futur retrait du bleu ne remmènera pas le
+      // sable avec lui. Elle ne se voit que le jour où le drapeau retombe.
       const buildEdges = (mode, withIslands = islandsOn) => {
         const out = [];
         [1, -1].forEach((sgn, si) => {
