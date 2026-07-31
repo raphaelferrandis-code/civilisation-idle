@@ -766,10 +766,20 @@ button:disabled::before,
    des segments jointifs séparés par un filet, un seul rempli**.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* Le bloc porte la matière, une fois, pour tout le groupe. */
+/* Le bloc porte la matière, une fois, pour tout le groupe.
+   ⚠ `wrap` ET PAS `nowrap`, mesuré sur téléphone le 2026-07-31 : `nowrap` posé
+   ici gagnait (0,2,0) contre le `flex-wrap: wrap` de base.css (0,1,0), lequel
+   existait précisément pour le 375px — son commentaire le dit, « à 375px la
+   Qualité passe de 4 rangées à 3 ». Avec les segments à `min-width: 5.2rem` et
+   le bloc à `justify-content: flex-end`, le débordement partait VERS LA GAUCHE,
+   hors écran et hors défilement : « Auto » de la Saison à x = −104, « Auto » de
+   la Qualité rogné à −50. Deux réglages devenus intappables au doigt.
+   `wrap` ne change RIEN au bureau — le bloc y est en `inline-flex` dimensionné
+   au contenu, il n'a jamais à se replier ; il ne mord que là où ça ne tient pas
+   (dialogue étroit, portrait), c'est-à-dire exactement le cas cassé. */
 .app .number-format-control {
   display: inline-flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0;
   position: relative;
   isolation: isolate;
@@ -786,7 +796,12 @@ button:disabled::before,
   border-width: 0;
 }
 .app .number-format-control > .format-option {
-  flex: 0 0 auto;
+  /* `1 0 auto` et pas `0 0 auto` : quand le bloc se replie (cf. plus haut), les
+     segments d'une rangée incomplète s'étirent pour la remplir. Sans ça le bloc
+     garde un bord dentelé — la 2e rangée finit à droite, la 1re commence dans le
+     vide. Au bureau le conteneur est dimensionné au contenu : pas d'espace libre
+     à distribuer, donc `grow` n'a aucun effet et le rendu est inchangé. */
+  flex: 1 0 auto;
   border-radius: 0;
   /* le filet de séparation, en ombre interne : zéro coût de mise en page */
   box-shadow: inset 1px 0 0 color-mix(in srgb, var(--skin-ink), transparent 45%);
