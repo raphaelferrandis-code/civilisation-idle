@@ -4289,7 +4289,15 @@ function drawIsoRiver(now) {
       // qu'un (`edgesBase = edges`), donc pas un projeté de plus qu'avant.
       const wv = waveHalfWidths(pts);
       // `mode` : 'wave' (bord de l'eau), 'wet' (la LAISSE) ou 'base' (le lit peint).
-      const buildEdges = (mode) => {
+      // `withIslands` — ⚠ DEUX RÉGLAGES DISTINCTS SE PARTAGEAIENT UN SEUL DRAPEAU.
+      // `S.islands` a été mis à false pour retirer le BAS-FOND BLEU autour de
+      // l'île (deux franges concentriques sur un fuseau étroit faisaient une
+      // cible). Mais il coupait du même coup la bande de sable et la FRANGE
+      // HUMIDE, qui ne sont ni de la même couleur ni du même côté de la ligne
+      // d'eau — d'où une île qui se découpait au couteau alors que Raph demandait
+      // « le liseré des vagues et du sable humide aussi autour de l'île ».
+      // Le bas-fond passe donc `islandsOn`, la plage passe `true`.
+      const buildEdges = (mode, withIslands = islandsOn) => {
         const out = [];
         [1, -1].forEach((sgn, si) => {
           const runs = si ? runsMinus : runsPlus;
@@ -4312,7 +4320,7 @@ function drawIsoRiver(now) {
         // posé sur le fleuve au lieu d'une terre qui en émerge. Le clip en
         // 'evenodd' garde la moitié du trait qui tombe dans l'eau, exactement
         // comme pour les rives.
-        if (islandsOn) {
+        if (withIslands) {
           for (const il of (riverIslands() || [])) {
             const path = islandOutline(il, T, undefined, mode);
             if (path && path.length > 1) out.push({ path, runs: [[0, path.length - 1]] });
@@ -4386,6 +4394,12 @@ function drawIsoRiver(now) {
         riverRibbonPath(ctx, pts, T, true);
         ctx.clip(WATER_FILL);
         ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        // Les deux jeux de rives de la PLAGE, bâtis UNE fois. Ils portent les
+        // îles même quand le bas-fond bleu ne les porte pas, donc ils ne peuvent
+        // pas réutiliser `edges` — mais rien n'oblige à les reconstruire à
+        // chaque trait, et le ruban est déjà le goulot de la frame.
+        const edgesSand = buildEdges('base', true);
+        const edgesWet = wv ? buildEdges('wet', true) : edgesSand;
         // BANDE DE SABLE, en TEXTURE (Raph : « tu ne peux pas faire le liseré en
         // texture de sable ? »). Même géométrie et mêmes tronçons que le bas-fond,
         // mais de l'autre côté de la ligne d'eau : elle suit la spline au pixel, là
@@ -4400,8 +4414,7 @@ function drawIsoRiver(now) {
           // rives plus haut) : la grève est fixe, c'est la vague qui la recouvre.
           // Le clip côté terre, lui, est bien celui du ruban ANIMÉ — d'où la bande
           // qui s'amincit quand l'onde monte et se rouvre quand elle redescend.
-          shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2),
-            wv ? buildEdges('base') : edges);
+          shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2), edgesSand);
           ctx.restore();
         }
         // Frange mouillée : elle suit la MATIÈRE, donc la même règle de neige que
@@ -4421,8 +4434,10 @@ function drawIsoRiver(now) {
         // jeu), il couvre le sable mouillé sans qu'on ait besoin d'un polygone
         // entre les deux courbes — lequel coûterait un remplissage de plus par
         // rive pour un résultat indiscernable.
-        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW),
-          wv ? buildEdges('wet') : edges);
+        // Îles COMPRISES (dernier argument) : c'est la frange que Raph veut voir
+        // border l'île, et elle est indépendante du bas-fond bleu qu'il a fait
+        // retirer — sable mouillé côté terre contre bleu clair côté eau.
+        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW), edgesWet);
         ctx.restore();
       }
     }
