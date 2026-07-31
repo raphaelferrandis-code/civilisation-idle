@@ -3038,7 +3038,10 @@ function waveHalfWidths(pts) {
 // C'est aussi LE goulot du ressac : les sept appels du ruban dans une frame
 // passent tous par ici, donc corps d'eau, nappe animée, voile, poissons, vie de
 // surface et clips restent collés au bord de l'eau du moment sans un mot de plus.
-function riverRibbonScreen(pts, T) {
+// `mode` : 'wave' (le bord de l'eau du moment, défaut) ou 'wet' (la LAISSE,
+// jusqu'où l'eau est montée récemment). Même vocabulaire que buildEdges et
+// islandOutline — c'est ce qui permet de CLIPPER sur la laisse.
+function riverRibbonScreen(pts, T, mode = 'wave') {
   const left = [], right = [];
   const wv = waveHalfWidths(pts);
   for (let i = 0; i < pts.length; i += 1) {
@@ -3047,7 +3050,8 @@ function riverRibbonScreen(pts, T) {
     let tx = q.x - o.x, ty = q.y - o.y;
     const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
     const nx = -ty, ny = tx;
-    const hl = wv ? wv.plus[i] : p.hw, hr = wv ? wv.minus[i] : p.hw;
+    const hl = wv ? (mode === 'wet' ? wv.wetPlus[i] : wv.plus[i]) : p.hw;
+    const hr = wv ? (mode === 'wet' ? wv.wetMinus[i] : wv.minus[i]) : p.hw;
     left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T));
     right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T));
   }
@@ -3114,8 +3118,10 @@ const riverIslands = () => {
 
 // `keep` : n'ouvre PAS un chemin neuf, ajoute le ruban à celui en cours. Sert au
 // clip « côté TERRE » (rect plein + ruban en evenodd) du liseré de galets humides.
-function riverRibbonPath(ctx, pts, T, keep = false) {
-  const { left, right } = riverRibbonScreen(pts, T);
+// `mode` : 'wave' (le bord de l'eau du moment) ou 'wet' (la LAISSE). Le second sert
+// à BORNER la frange mouillée au terrain que la vague vient de découvrir.
+function riverRibbonPath(ctx, pts, T, keep = false, mode = 'wave') {
+  const { left, right } = riverRibbonScreen(pts, T, mode);
   if (!keep) ctx.beginPath();
   ctx.moveTo(left[0].x, left[0].y);
   for (let i = 1; i < left.length; i += 1) ctx.lineTo(left[i].x, left[i].y);
@@ -3124,7 +3130,7 @@ function riverRibbonPath(ctx, pts, T, keep = false) {
   const isles = riverIslands();
   if (!isles) return;
   for (const il of isles) {
-    const o = islandOutline(il, T);
+    const o = islandOutline(il, T, undefined, mode);
     ctx.moveTo(o[0].x, o[0].y);
     for (let i = 1; i < o.length; i += 1) ctx.lineTo(o[i].x, o[i].y);
     ctx.closePath();
@@ -4457,7 +4463,34 @@ function drawIsoRiver(now) {
         // Îles COMPRISES (dernier argument) : c'est la frange que Raph veut voir
         // border l'île, et elle est indépendante du bas-fond bleu qu'il a fait
         // retirer — sable mouillé côté terre contre bleu clair côté eau.
-        shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW), edgesWet);
+        //
+        // ── ⚠ BORNÉE PAR LA LAISSE : JAMAIS DEVANT LA VAGUE ────────────────────
+        // Retour Raph : « le liseré sombre ne doit pas s'avancer devant la vague,
+        // juste être sur le retrait de celle-ci ». Le trait est CENTRÉ sur la
+        // laisse, donc sa moitié terrestre débordait au-delà — sur du sable que
+        // l'eau n'avait jamais atteint. Il se lisait comme une bande sombre qui
+        // PRÉCÈDE l'onde au lieu de marquer ce qu'elle vient de quitter.
+        //
+        // On ajoute donc un second clip, le ruban de la LAISSE. L'intersection
+        // avec le clip côté terre (le ruban de l'eau DU MOMENT) ne laisse
+        // exactement que la bande découverte : entre la ligne d'eau et la laisse.
+        // Elle s'ouvre quand l'onde se retire, se referme quand l'onde remonte —
+        // et disparaît quand l'eau est à son plus haut, ce qui est juste : il n'y
+        // a alors plus de sable mouillé à voir.
+        //
+        // Vaut pour les ÎLES par la même construction : leur contour de laisse est
+        // un trou du même chemin, donc l'intersection y donne l'anneau entre les
+        // deux lignes. Onde éteinte (`wv` nul), les deux rubans se confondent et
+        // le clip viderait tout : on garde alors l'ancien tracé, non borné.
+        if (wv) {
+          ctx.save();
+          riverRibbonPath(ctx, pts, T, false, 'wet');
+          ctx.clip(WATER_FILL);
+          shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW), edgesWet);
+          ctx.restore();
+        } else {
+          shore(`rgba(${wt},${BEACH.wet})`, Math.max(2, z * BEACH.wetW), edgesWet);
+        }
         ctx.restore();
       }
     }
