@@ -348,7 +348,7 @@ export default function BlackjackStage({ table, onClose }) {
                   {tr({ fr: `Redistribuer (${fmt(chosenCost)})`, en: `Deal again (${fmt(chosenCost)})` })}
                 </button>
                 <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
-                <button type="button" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+                <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
               </menu>
             </>
           )}

@@ -118,7 +118,7 @@
   -webkit-backdrop-filter: blur(14px);
   /* Soudé au coin barre/bord : seuls les coins « libres » s'arrondissent —
      le bas-droit surtout, qui regarde la carte. */
-  border-radius: 0 0 var(--r-panel) 0;
+  border-radius: 0;
 }
 .app[data-active-view="city"] .city-stage-hud .stability-gauge { width: 100%; }
 
@@ -130,7 +130,7 @@
   align-items: stretch;
   gap: 0.3rem;
   padding: 0.7rem 0.85rem;
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(30, 35, 45, 0.5);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -201,7 +201,7 @@
   padding: calc(0.6rem * var(--density-k, 1)) calc(0.7rem * var(--density-k, 1));
   border: 1px solid var(--border-soft);
   border-left: 2px solid var(--brand-gold, var(--text-strong));
-  border-radius: var(--r-card, 6px);
+  border-radius: 0;
   background: color-mix(in srgb, var(--surface-panel) 92%, transparent);
   backdrop-filter: blur(6px);
 }
@@ -254,7 +254,7 @@
 .first-steps-dots li {
   width: 1.1rem;
   height: 3px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--border);
 }
 
@@ -269,27 +269,32 @@
 }
 .hud-dock:empty { display: none; }
 
+/* Les trois outils de la cité portent la plaque de cuir comme tout bouton du jeu
+   (chrome-wizard.css). Ce qui vivait ici — bordure d'1 px, fond translucide,
+   `backdrop-filter`, `scale(0.95)` au clic — a été retiré, et pas par goût :
+   `.app button` (0,1,1) bat `.hud-dock-btn` (0,1,0), donc la bordure et le fond
+   étaient DÉJÀ neutralisés. Il ne restait qu'un `backdrop-filter` qui floutait la
+   carte derrière une boîte sans cadre, et un `scale` qui contredit la doctrine
+   (le mouvement est l'enfoncement de la PLAQUE, jamais du bouton). Mesuré dans la
+   page avant de toucher : `border: 0px none`, `background: rgba(0,0,0,0)`.
+   L'état ouvert se lit par la lumière, réglé dans chrome-wizard.css. */
 .hud-dock-btn {
   position: relative;
   width: 2.9rem;
   height: 2.9rem;
   display: grid;
   place-items: center;
-  border-radius: var(--r-card);
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
-  background: rgba(13, 15, 23, 0.62);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0;
   color: var(--gold-bright);
-  font-size: 1.05rem;
   cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
 }
-.hud-dock-btn:hover { border-color: var(--gold); background: rgba(20, 23, 33, 0.82); }
-.hud-dock-btn:active { transform: scale(0.95); }
-.hud-dock-btn.is-active {
-  border-color: var(--gold);
-  background: color-mix(in srgb, var(--gold), transparent 80%);
+/* ⚠ `.px-icon` vaut 16 px par défaut (components.css:17). Sans cette règle, le
+   fichier @24 était servi puis ÉCRASÉ à 16 par le CSS — mesuré dans la page :
+   naturalWidth 24, offsetWidth 16. C'est le défaut que l'échelle native existe
+   précisément pour éviter. Même convention que `.topbar .resource-icon .px-icon`. */
+.hud-dock-btn .px-icon {
+  width: 24px;
+  height: 24px;
 }
 
 .hud-dock-badge {
@@ -301,7 +306,7 @@
   padding: 0 0.2rem;
   display: grid;
   place-items: center;
-  border-radius: var(--r-pill);
+  border-radius: 0;
   background: var(--gold);
   color: #16100a;
   font-family: var(--font-body);
@@ -315,7 +320,7 @@
   right: -0.2rem;
   width: 0.55rem;
   height: 0.55rem;
-  border-radius: var(--r-pill);
+  border-radius: 0;
   background: var(--res-know);
   box-shadow: 0 0 0 2px rgba(13, 15, 23, 0.85);
 }
@@ -545,7 +550,7 @@
 .contemplation-bar button {
   padding: 0.3rem 0.7rem;
   border: 1px solid var(--brand-gold-dim, rgba(200, 170, 100, 0.4));
-  border-radius: 2px;
+  border-radius: 0;
   background: rgba(16, 13, 10, 0.72);
   color: var(--gold-ivory, #ecdfc0);
   font-family: var(--font-body, sans-serif);

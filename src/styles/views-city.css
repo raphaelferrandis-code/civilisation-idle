@@ -10,7 +10,7 @@
   gap: 0.9rem;
   padding: 1.25rem 1.5rem;
   border: 1px solid rgba(var(--era-rgb), 0.22);
-  border-radius: 12px;
+  border-radius: 0;
   background: radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.12), transparent 75%), var(--panel);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   margin-bottom: 1rem;
@@ -149,7 +149,7 @@
 .crisis-foyer {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 9px;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.22);
 }
 
@@ -210,7 +210,7 @@
 .crisis-foyer-track {
   flex: 0 0 100%;
   height: 4px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
@@ -218,7 +218,7 @@
 .crisis-foyer-fill {
   display: block;
   height: 100%;
-  border-radius: inherit;
+  border-radius: 0;
   background: var(--foyer-color, var(--gold));
   transition: width 0.4s ease;
 }
@@ -242,7 +242,7 @@
   gap: 0.3rem;
   padding: 0.45rem;
   border: 1px solid rgba(var(--era-rgb), 0.32);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--surface-panel);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
 }
@@ -254,7 +254,7 @@
   gap: 0.18rem;
   padding: 0.4rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 58%);
-  border-radius: 7px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 90%);
   color: var(--text-strong);
   font-family: var(--font-body);
@@ -357,7 +357,7 @@
   color: #9bd17a;
   background: rgba(155, 209, 122, 0.12);
   border: 1px solid rgba(155, 209, 122, 0.35);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.02rem 0.34rem;
   line-height: 1.4;
 }
@@ -410,7 +410,7 @@
   color: var(--gold);
   background: color-mix(in srgb, var(--gold), transparent 88%);
   border: 1px solid color-mix(in srgb, var(--gold), transparent 60%);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.02rem 0.34rem;
   line-height: 1.4;
 }
@@ -481,7 +481,7 @@
   text-align: left;
   padding: 0.5rem 0.7rem;
   border: 1px solid rgba(127, 198, 230, 0.28);
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(20, 30, 40, 0.5);
   cursor: pointer;
 }
@@ -566,14 +566,14 @@
   flex: 1 1 auto;
   max-width: 180px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 .crisis-fatigue-fill {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   background: linear-gradient(90deg, #e0934a, #d8632b);
   transition: width 0.3s ease;
 }
@@ -591,7 +591,7 @@
   padding: 1.5rem;
   border: 1px solid rgba(var(--era-rgb), 0.28);
   border-left: 4px solid var(--gold);
-  border-radius: 12px;
+  border-radius: 0;
   background: 
     linear-gradient(135deg, rgba(var(--era-rgb), 0.06) 0%, transparent 45%),
     rgba(22, 28, 43, 0.96);
@@ -637,7 +637,7 @@
   color: rgba(var(--era-rgb), 0.7);
   background: rgba(var(--era-rgb), 0.1);
   padding: 0.25rem 0.65rem;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid rgba(var(--era-rgb), 0.15);
 }
 
@@ -652,14 +652,14 @@
   height: 8px;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(var(--era-rgb), 0.15);
-  border-radius: 999px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .era-progress-fill {
   display: block;
   height: 100%;
-  border-radius: inherit;
+  border-radius: 0;
   background: linear-gradient(90deg, #a8a14e, var(--gold), #c2603a);
   box-shadow: 0 0 12px rgba(var(--era-rgb), 0.35);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -781,7 +781,7 @@
   padding-left: 7px;
   bottom: 0;
   display: block;
-  border-radius: inherit;
+  border-radius: 0;
   background: var(--sg-color);
   box-shadow: 0 0 8px var(--sg-glow);
   transition:
@@ -798,7 +798,7 @@
   bottom: 0;
   width: 2px;
   margin-left: -1px;
-  border-radius: 2px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
   transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -867,7 +867,7 @@
 .city-map-container {
   position: relative;
   border: 1px solid rgba(var(--era-rgb), 0.2);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--surface-app);
   overflow: hidden;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
@@ -915,7 +915,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.35rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(13, 10, 7, 0.78);
   border: 1px solid rgba(var(--era-rgb), 0.3);
   backdrop-filter: blur(6px);
@@ -930,7 +930,7 @@
   width: 6px;
   height: 6px;
   background: var(--gold-bright);
-  border-radius: 50%;
+  border-radius: 0;
   animation: hintPulse 2s infinite ease-in-out;
 }
 
@@ -954,7 +954,7 @@
   gap: 0.4rem;
   padding: 0.7rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1093,14 +1093,14 @@
 .mini-gauge-bar {
   height: 5px;
   background: rgba(0, 0, 0, 0.4);
-  border-radius: 999px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .gauge-fill {
   display: block;
   height: 100%;
-  border-radius: inherit;
+  border-radius: 0;
   transition: width 0.3s ease;
 }
 
@@ -1173,7 +1173,7 @@
   margin-bottom: 1rem;
   padding: 0.75rem 1.5rem;
   border: 1px solid var(--gold);
-  border-radius: 8px;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(var(--era-rgb), 0.18) 0%, rgba(22, 28, 43, 0.95) 100%);
   color: var(--gold-bright);
   font-family: var(--font-title);
@@ -1198,7 +1198,7 @@
   gap: 0.75rem;
   padding: 1.25rem 1.5rem;
   border: 1px solid rgba(var(--era-rgb), 0.18);
-  border-radius: 12px;
+  border-radius: 0;
   background: rgba(18, 20, 28, 0.45);
   backdrop-filter: blur(16px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -1228,7 +1228,7 @@
   gap: 0.65rem;
   padding: 0.65rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -1323,7 +1323,7 @@
   gap: 0.3rem;
   max-width: min(60vw, 520px);
   padding: 0.5rem 1.15rem 0.55rem;
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(12, 10, 8, 0.92);
   border: 1px solid var(--gold);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
@@ -1370,7 +1370,7 @@
 
 .myth-panel {
   margin-top: 1rem;
-  border-radius: var(--r-panel);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -1430,7 +1430,7 @@
   flex-direction: column;
   padding: 0.75rem;
   border-left: 3px solid var(--stat-color);
-  border-radius: var(--r-tiny);
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -1474,7 +1474,7 @@
 .myth-alert {
   padding: 0.75rem;
   border: 1px solid rgba(220, 50, 50, 0.3);
-  border-radius: var(--r-tiny);
+  border-radius: 0;
   background: rgba(220, 50, 50, 0.1);
   font-size: 0.85rem;
   color: var(--red);
@@ -1493,7 +1493,7 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--green);
-  border-radius: var(--r-card);
+  border-radius: 0;
   background: rgba(76, 201, 168, 0.15);
 }
 
@@ -1515,7 +1515,7 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--gold);
-  border-radius: var(--r-card);
+  border-radius: 0;
   background: rgba(201, 100, 76, 0.1);
   overflow: hidden;
 }
@@ -1603,7 +1603,7 @@
 .city-stage .city-map-container {
   margin-bottom: 0;
   border-color: rgba(var(--era-rgb), 0.28);
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 /* Carte plus haute : c'est le héros. La régulation est passée DESSOUS, donc on
@@ -1627,7 +1627,7 @@
     rgba(8, 6, 3, 0.88) 0%,
     rgba(8, 6, 3, 0.55) 50%,
     transparent 100%);
-  border-radius: 14px 14px 0 0;
+  border-radius: 0;
 }
 
 /* Seuls les éléments interactifs captent la souris ; ailleurs le clic/drag
@@ -1672,7 +1672,7 @@
   margin-bottom: 1rem;
   padding: 1rem 1.25rem 1.15rem;
   border: 1px solid rgba(var(--era-rgb), 0.14);
-  border-radius: 12px;
+  border-radius: 0;
   background:
     radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.08), transparent 70%),
     var(--panel);
@@ -1692,7 +1692,7 @@
 .comptoir-row {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center;
   gap: 0.8rem; padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line, rgba(128,128,128,0.25)); border-radius: 6px;
+  border: 1px solid var(--line, rgba(128,128,128,0.25)); border-radius: 0;
 }
 .comptoir-row--sell { margin-top: 0.5rem; }
 .comptoir-icon.px-icon { width: 32px; height: 32px; }

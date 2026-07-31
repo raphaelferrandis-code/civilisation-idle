@@ -1005,6 +1005,21 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   </small>
                 </div>
               </div>
+              {/* ⚠ La licence Crusenho impose le crédit ET un lien vers la page
+                  produit, et impose d'indiquer que le matériel a été modifié
+                  (les sprites sont recolorés en or de marque). Ne pas retirer
+                  sans retirer le chrome de public/pixelart/ui/chrome/wizard/. */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Chrome de l'interface", en: "Interface chrome" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Complete UI Book Styles Pack » par Crusenho Agus Hennihuno (crusenho.itch.io). Boutons, onglets, cartes et jauges viennent de ce pack, recolorés aux couleurs du jeu.",
+                      en: "“Complete UI Book Styles Pack” by Crusenho Agus Hennihuno (crusenho.itch.io). Buttons, tabs, cards and gauges come from this pack, recoloured to the game's palette."
+                    })}
+                  </small>
+                </div>
+              </div>
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Icônes de l'interface", en: "Interface icons" })}</span>
@@ -1158,7 +1173,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
         </div>
 
         <menu style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={onClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
+          <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
         </menu>
       </form>
     </dialog>

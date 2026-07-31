@@ -66,7 +66,7 @@ export default function DebugDialog({ isOpen, onClose }) {
           <button type="button" onClick={debugBuyEarlyRuins}>Acheter ruines debut</button>
         </div>
         <menu>
-          <button type="button" onClick={onClose} value="cancel">Fermer</button>
+          <button type="button" className="btn-close" onClick={onClose} value="cancel">Fermer</button>
         </menu>
       </form>
     </dialog>

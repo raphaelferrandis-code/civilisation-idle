@@ -37,7 +37,7 @@
   min-width: 0;
   padding: 0.95rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--panel);
   box-shadow: inset 0 1px 0 var(--shine);
 }
@@ -77,7 +77,7 @@
   min-width: 0;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--panel);
 }
 
@@ -108,7 +108,7 @@
   align-items: center;
   padding: 0.85rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 0;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   box-shadow: inset 0 1px 0 var(--shine);
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
@@ -374,7 +374,7 @@
   align-items: center;
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--wood-lit);
-  border-radius: 8px;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.72));
   box-shadow: inset 0 1px 0 rgba(255, 200, 130, 0.12);
 }
@@ -398,7 +398,7 @@
   height: 62px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
   z-index: 3;
@@ -454,7 +454,7 @@
   transform: translateX(-50%);
   white-space: nowrap;
   padding: 0.16rem 0.5rem;
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(14, 9, 5, 0.94);
   border: 1px solid var(--wood-lit);
   color: var(--gold-ivory);
@@ -487,7 +487,7 @@
   transform: translateX(-50%);
   max-width: 92%;
   padding: 0.45rem 0.75rem;
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(0, 0, 0, 0.88);
   border: 1px solid var(--gold);
   color: var(--gold-ivory);
@@ -513,7 +513,7 @@
   gap: 0.9rem;
   padding: 0.7rem 1.1rem;
   border: 1px solid var(--wood-lit);
-  border-radius: 10px;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(30, 20, 12, 0.92), rgba(16, 11, 7, 0.96));
   box-shadow: inset 0 1px 0 rgba(255, 200, 130, 0.1), 0 4px 14px rgba(0, 0, 0, 0.5);
 }
@@ -527,7 +527,7 @@
 .shop-detail-cost--faveur { color: var(--gold-ivory); }
 .shop-detail-buy {
   border: 1px solid color-mix(in srgb, var(--gold), transparent 40%);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 0.35rem 0.9rem;
   background: linear-gradient(180deg, color-mix(in srgb, var(--gold), transparent 74%), rgba(30, 20, 10, 0.92));
   color: var(--gold-ivory);
@@ -542,7 +542,7 @@
 /* Cadmos (conditionnel) : panneau simple sous la scène, ton chaud. */
 .boutique-shop .upgrade {
   border: none;
-  border-radius: 9px 9px 3px 3px;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(74, 52, 30, 0.5), rgba(32, 21, 12, 0.6));
   box-shadow: inset 0 1px 0 rgba(255, 205, 135, 0.12), 0 3px 7px rgba(0, 0, 0, 0.45);
 }
@@ -696,7 +696,7 @@
   gap: 0.65rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--surface-card);
 }
 
@@ -727,7 +727,7 @@
   transform: translateY(-50%);
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -865,7 +865,7 @@
 .gr-rung-done {
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--gold-dim);
   display: inline-flex;
   align-items: center;
@@ -890,7 +890,7 @@
   color: var(--gold-bright);
   font-weight: 700;
   border: 1px solid var(--gold-dim);
-  border-radius: 4px;
+  border-radius: 0;
   background: rgba(216, 179, 106, 0.08);
   padding: 2px 8px;
 }
@@ -935,7 +935,7 @@
 
 .shop-item, .upgrade {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--panel);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1011,7 +1011,7 @@
   margin-bottom: 0;
   padding: 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--surface-panel);
 }
 
@@ -1021,7 +1021,7 @@
   min-height: 2.45rem;
   padding: 0 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 0;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
   font-family: var(--font-body);

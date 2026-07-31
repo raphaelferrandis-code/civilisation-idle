@@ -1,0 +1,730 @@
+/* ============================================================================
+   PEAU « CUIR » — chrome des boutons, segments, cartes et jauges
+   ----------------------------------------------------------------------------
+   Sprites du pack **Complete UI Book Styles** (02_WizardBook) de Crusenho
+   Agus Hennihuno — https://crusenho.itch.io/complete-ui-book-styles-pack
+   Usage commercial autorisé, modification autorisée, CRÉDIT OBLIGATOIRE.
+   La ligne de crédit est dans l'onglet Crédits des Options : ne pas la retirer
+   sans retirer aussi `public/pixelart/ui/chrome/wizard/`.
+
+   Découpe et variantes : `node scripts/exportWizardChrome.mjs`
+
+   ── ⛔ LA RÈGLE D'OR : LA MATIÈRE NE DOIT RIEN COÛTER À LA MISE EN PAGE ──────
+   La v3 posait le `border-image` sur l'ÉLÉMENT. Mesuré dans la page, ça
+   déplaçait tout :
+       `.btn-tiny`     24×26 → 24×29, **décalé de 6 px vers le haut**
+       `.shop-subtab`  glissé de 2 px horizontalement
+   Sur l'arbre des Ruines, où 37 nœuds sont posés en ABSOLU sur un dessin, et
+   dans la boutique, calibrée au pixel, ça se lit comme « toutes les icônes ont
+   bougé ». C'était une régression, pas un choix.
+
+   → La matière vit donc sur un **`::before` en position absolue**, `inset: 0`.
+   Un pseudo-élément absolu ne participe PAS au flux : la boîte du bouton est
+   exactement celle d'avant ce chantier. C'est non négociable, toute règle
+   ajoutée ici doit peindre sur `::before`, jamais sur l'élément.
+
+   ── POURQUOI DES SPRITES ET PLUS DU CSS ──────────────────────────────────────
+   Le pack ne met que **2 à 6 tons** par objet, souvent MOINS que le CSS qu'il
+   remplace. Sa profondeur vient d'ailleurs, mesuré :
+     · un **contour opaque d'1 px très sombre** qui cerne la matière (#32211B) ;
+     · des biseaux en **tons pleins**, pas des voiles `rgba` à 6 % ;
+     · un **socle** de 6 px sur lequel la plaque repose.
+
+   ── OR = ACTIONNABLE, CUIR = ÉTAT ────────────────────────────────────────────
+   Retour de Raph : « de gros boutons jaune ocre pas très beaux », et surtout
+   « la chute annoncée est présélectionnée donc toujours en jaune, ça ne va
+   pas ». Il a raison : un état PERMANENT peint en or, c'est du bruit permanent.
+       · **Or** = ce qui appelle un clic MAINTENANT (achat payable, action
+         principale). Transitoire.
+       · **Cuir** = ce qui est simplement retenu / actif. Persistant.
+   Un segment choisi porte donc la plaque de cuir, pas l'or.
+
+   ── TRANCHES 9-SLICE, MESURÉES SPRITE PAR SPRITE ─────────────────────────────
+   Par signature de ligne/colonne (première identique au milieu), pas à l'œil.
+   Tous les milieux sont UNIFORMES → `stretch` ne peut pas produire de couture.
+     button.png      26×18   T3 R3 B6 L3   (B6 = le socle)
+     button-sm.png   11×8    T2 R1 B2 L2
+     segment.png     60×12   T2
+     card.png        24×24   T6 R3 B6 L3
+     gauge.png       46×8    T3 R4
+   ============================================================================ */
+
+:root {
+  /* Rampe CUIR, relevée AU PIXEL sur le pack (Button08a / Slot01a / Bar01a). */
+  --skin-ink:    #32211B;
+  --skin-field:  #6C534B;
+  --skin-bevel:  #5B3E3B;
+  --skin-raise:  #846A65;
+  --skin-cream:  #E7CCBA;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   1 · LA BASE
+   ----------------------------------------------------------------------------
+   Purge des cinq tics génériques relevés au § 1.1 de l'audit : rayon 8px, fond
+   `rgba(255,255,255,.04)`, liseré de verre, `transition: all` + easing Material,
+   et le `translateY(-1px)` au survol.
+   ⚠⚠ `button` seul est en (0,0,1). Recensement statique : **32 règles** posent
+   un `border:` raccourci atteignant un bouton, et le raccourci REMET
+   `border-image` à `none`. Déclarer aussi sur `.app button` (0,1,1) en couvre
+   29 d'un coup. Conséquence : **toute exclusion ou tout rôle doit être préfixé
+   `.app`**, sinon il perd contre la base.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ⛔⛔ `position` EST DÉCLARÉ EN (0,0,1), JAMAIS PLUS HAUT — ET C'EST VITAL.
+   Bug causé et corrigé le 2026-07-31 : cette règle portait `position: relative`
+   sur `.app button` (0,1,1), qui BAT `.rt-node { position: absolute }`
+   (ruinsTree.css:486, spécificité 0,1,0). Les 37 nœuds de l'Arbre des Ruines
+   perdaient donc leur placement absolu et s'empilaient dans l'ordre du
+   document — « aucun n'est sur les branches ». Les portes, elles, sont des
+   `<div>` : elles restaient justes, d'où le symptôme trompeur.
+   Vérifié par vidage du layout : `pixelLayout` sortait 37 nœuds corrects
+   (x source 294..532, zéro écart) — la donnée n'a jamais été en cause.
+   → sur `button` nu, n'importe quelle classe qui positionne l'emporte, et la
+   plaque marche quand même : un bouton en absolu est aussi un bloc conteneur. */
+button {
+  position: relative;
+  /* Contexte d'empilement local : la plaque en z-index -1 passe sous le contenu
+     sans tomber derrière le fond du panneau qui porte le bouton. */
+  isolation: isolate;
+}
+
+button,
+.app button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--skin-cream);
+  /* ⚠ pas de `transition: all`, pas de cubic-bezier de Material : un objet
+     pixel n'a pas d'accélération continue. */
+  transition: color 120ms linear, filter 120ms linear;
+}
+
+/* LA PLAQUE. Absolue, donc invisible pour la mise en page. */
+button::before,
+.app button::before,
+.app .icarus-banner-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: solid transparent;
+  /* ⚠ ×2 SUR LE CRAN, ET C'EST GRATUIT.
+     Le chanfrein des sprites mesure exactement **2 px** (relevé sur l'alpha :
+     2 pixels transparents en y=0, 1 en y=1). Rendu à 1:1 il est invisible à
+     l'échelle de l'écran — retour de Raph : « il n'y a pas les encoches de
+     boutons ». En doublant `border-width` par rapport à la tranche, chaque
+     pixel source est rendu sur 2 : le cran passe à 4 px et se lit enfin, comme
+     le crantage maison de `.tab` (3 px).
+     Ça ne coûte RIEN parce que la plaque est un pseudo absolu : la boîte du
+     bouton ne bouge pas d'un pixel. Sur l'élément, ça aurait ajouté 18 px. */
+  /* ⚠ 6px sur les QUATRE côtés, pas 12 en bas. `border-width` est par côté, et
+     le facteur d'échelle du 9-slice l'est aussi : les tranches latérales (3)
+     rendues sur 6 px doublent — le chanfrein se lit — tandis que la tranche
+     basse (6) rendue sur 6 px reste à 1:1, donc le socle garde sa hauteur
+     dessinée. À 12 px il mangeait un tiers d'un bouton de 34 px et Raph le
+     voyait comme « un pixel perdu en bas ». */
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/button.png") 3 3 6 3 fill stretch;
+  /* Sans ça le 9-slice est interpolé et le grain pixel disparaît. */
+  image-rendering: pixelated;
+  transition: filter 120ms linear;
+}
+
+/* `Jeter` / `Gratter` / `Jouer` / `Voler` sont des <span>, pas des boutons :
+   ce sont les libellés d'appel des bandeaux de mini-jeu. Ils ont donc besoin
+   d'être positionnés pour porter leur plaque. */
+.app .icarus-banner-cta {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+  color: var(--skin-cream);
+}
+
+/* Survol : la matière s'éclaire, elle ne lévite pas. */
+button:hover:not(:disabled)::before,
+.app button:hover:not(:disabled)::before,
+.app .augure-fresque:hover .icarus-banner-cta::before {
+  filter: brightness(1.18);
+}
+button:hover:not(:disabled) {
+  transform: none;
+}
+/* Enfoncement : la plaque s'assoit dans son socle. Seul mouvement du système,
+   il remplace le lift générique (17 occurrences dans le dépôt).
+   ⚠ le `translateY` est sur la PLAQUE, pas sur le bouton : déplacer le bouton
+   déplacerait aussi son libellé et, sur un nœud d'arbre positionné en absolu,
+   la cible elle-même. */
+button:active:not(:disabled)::before,
+.app button:active:not(:disabled)::before {
+  /* moitié du socle (6 → 3) : la plaque s'assoit dedans */
+  border-bottom-width: 3px;
+  transform: translateY(3px);
+  filter: brightness(0.94);
+}
+button:disabled {
+  color: var(--text-weak);
+}
+button:disabled::before,
+.app button:disabled::before {
+  filter: grayscale(0.7) brightness(0.55);
+}
+
+/* ⛔ EXCLUSION `.tab` : la navigation latérale a son propre chrome
+   (layout.css:100) et son `::before` porte le marqueur or de l'onglet actif.
+
+   ⛔⛔ EXCLUSION `.rt-node` — LES NŒUDS DE L'ARBRE DES RUINES SONT DES `<button>`
+   (`TreeNode.jsx:3` : « un vrai <button> (a11y native) »). Ils héritaient donc
+   de la plaque de cuir, posée en CARRÉ derrière un médaillon ROND : 37 pastilles
+   avec un rectangle brun dans le dos. C'est ce que Raph voyait encore après la
+   restauration des rayons.
+   Leur chrome est intégralement dessiné par `.rt-frame` (disque + anneau pixel
+   `frame.png` + emblème) : ils ne veulent AUCUNE matière de cette feuille.
+   (`.testament-seal` a été RETIRÉ de cette exclusion : le rendre nu tuait aussi
+   son affordance de bouton — voir le bloc « LE TESTAMENT » plus bas.) */
+.app .tab::before,
+.app .rt-node::before,
+.app .rt-node:hover::before,
+.app .rt-node:active::before,
+.app .rt-node:focus-visible::before {
+  border-image: none;
+  border-width: 0;
+  filter: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   2 · LES RÔLES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── PAYABLE / ACTIONNABLE — le seul or du système ──────────────────────────
+   Réservé à ce qui appelle un clic maintenant. Pas aux états retenus. */
+.app .purchase-row.is-affordable .btn-purchase::before,
+.app .roadworks-panel.is-affordable .rw-buy::before,
+.app .btn-primary:not(:disabled)::before,
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled)::before,
+.city-shop-dock .shop-panel .purchase-row.is-affordable .btn-purchase:not(:disabled)::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-gold.png") 3 3 6 3 fill stretch;
+}
+.app .purchase-row.is-affordable .btn-purchase,
+.app .roadworks-panel.is-affordable .rw-buy,
+.city-shop-dock .purchase-row.is-affordable .btn-purchase:not(:disabled) {
+  color: #2A1D06;
+}
+
+/* ── CRITIQUE — irréversible ────────────────────────────────────────────────
+   ⚠ CORRECTION D'UNE HIÉRARCHIE À L'ENVERS : `.btn-critical` était le SEUL
+   bouton plein du jeu et le SEUL avec une ombre portée colorée, donc le plus
+   attirant de l'écran — et il déclenche un effondrement. Le rouge ne dit plus
+   que la conséquence, il n'appelle plus le clic. */
+.app .btn-critical,
+.app .btn-danger,
+.app button.danger,
+.app .collapse-hold {
+  color: #F0A090;
+  font-weight: 700;
+}
+.app .btn-critical::before,
+.app .btn-danger::before,
+.app button.danger::before,
+.app .collapse-hold::before {
+  filter: hue-rotate(-28deg) saturate(1.5);
+}
+
+/* ── UTILITAIRES ET ART — sans plaque ───────────────────────────────────────
+   `.btn-close` est LE RÔLE MANQUANT relevé par l'audit : « Fermer / Quitter »
+   revenait ONZE fois sans jamais avoir de nom.
+   ⛔ Les fresques des Augures (`.augure-fresque`, bandeaux 400×32 DESSINÉS) et
+   les bannières de mini-jeu sont de l'ART : une plaque par-dessus masquerait le
+   dessin. Elles réagissent au survol par la luminosité seule. */
+.app .btn-ghost::before,
+.app .btn-close::before,
+.app .stage-close::before,
+.app .shop-collapse-toggle::before,
+.app .hud-panel-toggle::before,
+.app .stage-help::before,
+.app .idle-report-close::before,
+.app .rt-zoom-btn::before,
+.app .shop-hotspot::before,
+.app .first-steps-head::before,
+.app .augure-fresque::before,
+.app .scratch-banner::before,
+.app .icarus-banner::before,
+.app .outcome-float::before {
+  border-image: none;
+  border-width: 0;
+}
+/* ⛔ Les CHEVRONS DE REPLI n'allument rien au survol. Ce sont des poignées, pas
+   des objets : leur faire apparaître un cadre au passage de la souris crée un
+   clignotement dans un en-tête qu'on survole sans arrêt (« quand j'hover la
+   souris pour réduire la boutique ça illumine un cadre, faut pas »).
+   Leur retour de survol passe par la couleur du chevron, gérée ailleurs. */
+.app .btn-ghost:hover:not(:disabled)::before,
+.app .btn-close:hover:not(:disabled)::before,
+.app .stage-close:hover:not(:disabled)::before,
+.app .stage-help:hover:not(:disabled)::before,
+.app .idle-report-close:hover:not(:disabled)::before,
+.app .rt-zoom-btn:hover:not(:disabled)::before {
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+}
+
+/* ── LE DOCK DE LA CITÉ — trois bascules posées SUR la carte ─────────────────
+   `.hud-dock-btn` était dans la liste « sans plaque » ci-dessus, entre les
+   fresques et les poignées de repli. Il n'est ni l'un ni l'autre : ce sont trois
+   objets qu'on clique (`aria-pressed`), et le cran doit le dire — c'est la
+   grammaire même du chantier. Retiré de l'exclusion, il prend donc la plaque
+   normale, socle compris, comme n'importe quel bouton.
+   ⚠ Pas de dimming au repos, contrairement au segmenté : là-bas un choix est
+   TOUJOURS retenu, donc assombrir les autres crée un contraste. Ici les trois
+   peuvent être fermés à la fois — les assombrir en permanence les ferait passer
+   pour désactivés.
+   Le panneau OUVERT se lit donc par la lumière seule, jamais par un cadre en
+   plus : même doctrine que le segmenté retenu. */
+.app .hud-dock-btn.is-active::before {
+  filter: brightness(1.32);
+}
+
+/* ── SEGMENTÉ — un choix exclusif ───────────────────────────────────────────
+   Fantômes au repos, le retenu prend la plaque de CUIR.
+   ⚠ Le retenu N'EST PAS EN OR. Sur la Doctrine de crise, un des trois est
+   toujours choisi et sur le Testament une chute est toujours présélectionnée :
+   les peindre en or donnait « de gros boutons jaune ocre » en permanence.
+   ⚠ TROIS conventions d'état coexistent dans le dépôt : `.active`,
+   `.is-active` et `.is-chosen` (le coffre). Les trois sont nommées ; en
+   oublier une laisse le bouton retenu sans matière. */
+/* ⚠ NON SÉLECTIONNÉ N'EST PAS « SANS MATIÈRE ».
+   Première version : `border-image: none` au repos. Retour de Raph : « tu as
+   enlevé les encoches des boutons non sélectionnés des doctrines de crise ».
+   Il a raison, et ça contredisait la grammaire même du chantier : le cran dit
+   « ça se clique ». Un segment au repos reste cliquable — le retirer laissait
+   « Demander » et « Temporiser » en simple texte, indistinguables d'un libellé.
+   → petite plaque, volontairement ASSOMBRIE : la silhouette et son cran
+   subsistent, le poids visuel recule. La hiérarchie passe par la luminosité,
+   pas par la présence ou l'absence de l'objet. */
+.app .buy-mode::before,
+.app .format-option::before,
+.app .options-tab::before,
+.app .compte-tab::before,
+.app .shop-subtab::before,
+.app .doctrine-seg-btn::before,
+.app .coffre-mult::before,
+.app .csp-vow-option::before,
+.app .csp-vow-trigger::before,
+.app .edict-tier::before,
+.app .stake-pick::before {
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+  filter: brightness(0.52) saturate(0.65);
+}
+.app .buy-mode:hover:not(.active)::before,
+.app .format-option:hover:not(.active)::before,
+.app .options-tab:hover:not(.active)::before,
+.app .compte-tab:hover:not(.active):not(.is-active)::before,
+.app .shop-subtab:hover:not(.active)::before,
+.app .doctrine-seg-btn:hover:not(.active):not(.is-active)::before,
+.app .coffre-mult:hover:not(.is-chosen)::before,
+.app .stake-pick:hover:not(.active)::before,
+.app .edict-tier:hover:not(.active)::before {
+  filter: brightness(0.85) saturate(0.85);
+}
+.app .buy-mode.active::before,
+.app .buy-mode-max.active::before,
+.app .format-option.active::before,
+.app .options-tab.active::before,
+.app .compte-tab.active::before,
+.app .compte-tab.is-active::before,
+.app .shop-subtab.active::before,
+.app .doctrine-seg-btn.active::before,
+.app .doctrine-seg-btn.is-active::before,
+.app .coffre-mult.is-chosen::before,
+.app .stake-pick.active::before,
+.app .stake-pick.is-active::before,
+.app .edict-tier.active::before,
+.app .csp-vow-option.active::before {
+  /* ⚠ MÊME PLAQUE que le repos, pas une autre. `segment.png` (Frame04a) a un
+     liseré CLAIR : rendu au double, il sortait un cadre pâle épais qui pesait
+     plus que le bouton d'achat. Le retenu porte donc le même cuir que ses
+     voisins, et ne s'en distingue QUE par la luminosité — c'est exactement la
+     doctrine posée plus haut : la hiérarchie passe par la lumière, pas par un
+     objet différent. */
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+  /* ⚠ indispensable : la règle du repos plus haut assombrit à 0,52 et ne
+     déclare pas `filter` ici — sans ce `none`, le segment RETENU héritait de
+     l'assombrissement et se distinguait à peine de ses voisins. */
+  filter: none;
+}
+.app .buy-mode.active,
+.app .format-option.active,
+.app .options-tab.active,
+.app .compte-tab.active,
+.app .compte-tab.is-active,
+.app .shop-subtab.active,
+.app .doctrine-seg-btn.active,
+.app .doctrine-seg-btn.is-active,
+.app .coffre-mult.is-chosen,
+.app .stake-pick.active,
+.app .edict-tier.active {
+  color: var(--skin-cream);
+}
+
+/* ── BASCULE ────────────────────────────────────────────────────────────────
+   ⚠ L'allumé garde son VERT (components.css:1073), il ne passe pas à l'or :
+   l'or dit « payable », le vert dit « en marche ». Les confondre ferait mentir
+   la couleur, seul levier réservé au SENS. */
+.app .toggle-btn.on,
+.app .steward-toggle.on {
+  color: #E8F0C8;
+}
+.app .toggle-btn.on::before,
+.app .steward-toggle.on::before {
+  border-width: 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/segment.png") 2 fill stretch;
+  filter: hue-rotate(58deg) saturate(0.9);
+}
+
+/* ── CARTES CLIQUABLES ──────────────────────────────────────────────────────
+   ⛔ PAS `.purchase-row` : ses deux pseudo-éléments appartiennent au splash-art
+   et son bord gauche de 3 px est déjà son témoin d'état, lu comme tel. */
+.app .policy-btn::before,
+.app .gr-rung-btn::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+}
+.app .policy-btn.regul-locked::before,
+.app .policy-btn:disabled::before {
+  filter: grayscale(0.8) brightness(0.5);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3 · LES JAUGES — hiérarchie PAR LA MATIÈRE
+   ----------------------------------------------------------------------------
+   ⛔ LES DEUX JAUGES HÉROS SONT EXCLUES, ET C'EST MESURÉ.
+   `gauge.png` fait **8 px** de haut. Les pistes fines du jeu font 8 px : 1:1,
+   nickel. Mais `.sg-track` fait **33 px** — le sprite y était **étiré 4,1×**,
+   ses capuchons de 3 px devenaient des bavures de 12 px, d'où le rendu
+   « cheap ». `gauge-frame.png` (PixelLab, 20×33) est dessiné POUR 33 px.
+   **Règle : piste ≤ 12 px → pack ; jauge HÉROS → jonc dédié.**
+   Les héros gardent leur montage 3 couches (braise `::before`, jonc `::after`
+   z-index 3) : `.sg-track` (views-city.css:758) et
+   `.crisis-hero .barometer-track.rupture-bar` (views-crises.css:134).
+   ⚠ Ici la bordure EST sur l'élément : une piste de jauge n'a pas de contenu
+   à décaler, et le remplissage doit être clippé par elle.
+   ════════════════════════════════════════════════════════════════════════════ */
+.app .pr-step-track,
+.app .era-track,
+.app .gr-gauge,
+.app .olympus-score-track,
+.app .rw-net-track,
+.app .rw-work-track,
+.app .work-bar,
+.app .branch-progress-bar,
+.app .compte-row-bar {
+  min-height: 8px;
+  border-style: solid;
+  border-width: 3px 4px;
+  border-color: transparent;
+  border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3 bis · LES SECTIONS SANS CADRE
+   ----------------------------------------------------------------------------
+   « Les comptes de la cité » et « Anatomie du multiplicateur » flottaient nus
+   sous le Bilan, qui porte lui le cadre grec : la page se lisait comme un
+   panneau suivi de texte en vrac. Elles reçoivent le même chrome, avec les
+   mêmes tranches que `frames.css` et `.idle-report`.
+   ⚠ Repli sous 720 px comme les autres consommateurs du cadre : ses 88 px de
+   bordure horizontale mangeraient la largeur utile.
+   ════════════════════════════════════════════════════════════════════════════ */
+.app .chronicle-bilan-section.city-accounts,
+.app .chronicle-bilan-section.mult-anatomy {
+  padding: 0.9rem 1.1rem;
+  border-style: solid;
+  border-width: 48px 40px 42px 48px;
+  border-color: transparent;
+  border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
+  border-radius: 0;
+  image-rendering: pixelated;
+}
+@media (max-width: 720px) {
+  .app .chronicle-bilan-section.city-accounts,
+  .app .chronicle-bilan-section.mult-anatomy {
+    border-width: 1px;
+    border-image: none;
+    border-color: var(--border-soft);
+  }
+}
+
+/* ── LES ENCARTS DE STATISTIQUE ─────────────────────────────────────────────
+   « Tous les carrés encarts et tableau signent IA aussi ». Mesuré :
+   `.chronicle-bilan-stat` portait `rgba(255,255,255,0.035)` — le verre sombre
+   générique, exactement le tic nº2 de l'audit, sur ~20 tuiles par écran.
+   Elles prennent la matière de carte, comme les autres objets du jeu.
+   ⚠ ce sont des `<div>`, pas des boutons : il faut les positionner pour
+   qu'elles portent leur plaque. Leurs deux pseudo-éléments sont libres
+   (relevé : seuls `span::after`, `strong` et `.px-icon` sont pris). */
+.app .chronicle-bilan-stat {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  /* ⚠ DÉBORDEMENT DE TEXTE, mesuré en injectant une valeur longue
+     (« Maîtrise du bois ») dans les 26 tuiles : la rangée était en
+     `nowrap` + `space-between`, donc la VALEUR poussait et le LIBELLÉ
+     s'écrasait — les 26 tombaient à **32 px de large**, jusqu'à 68 px de
+     texte perdu. D'où « MEI… » au lieu de « MEILLEUR ÂGE ATTEINT ».
+     Le défaut ne se voit qu'avec une ère au nom long : invisible sur une
+     partie de début, systématique en fin de partie.
+     → la valeur passe à la ligne au lieu d'écraser le libellé. */
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+}
+.app .chronicle-bilan-stat > span {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.app .chronicle-bilan-stat > strong {
+  margin-left: auto;
+}
+.app .chronicle-bilan-stat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: solid transparent;
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  image-rendering: pixelated;
+  /* Une tuile de lecture n'est pas un objet à saisir : la matière recule. */
+  filter: brightness(0.5) saturate(0.7);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3 ter · LA DA SUR LE RESTE DU JEU
+   ----------------------------------------------------------------------------
+   « Colle la DA à tout le jeu ». Trois surfaces retenues : tableaux et lignes
+   de données, panneaux de Mythes, encart d'état de la barre latérale.
+
+   ⚠ ICI LA MATIÈRE PASSE PAR DES OMBRES INTERNES, PAS PAR UN SPRITE.
+   Deux raisons, mesurées : `.myth-card::before` est **déjà pris**, et ces
+   objets sont des `<div>` dans des grilles — un `border-image` sur l'élément
+   rejouerait la régression de mise en page corrigée plus haut. Un
+   `box-shadow: inset` ne coûte RIEN au flux et donne les deux choses qui font
+   la profondeur du pack : le **contour opaque** et le **biseau en tons pleins**.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Les débits : DÉSATURATION DU TEXTE SEUL.
+   ⚠ Correction d'un contresens : ce ne sont PAS `--green` / `--red`. Mesuré
+   dans la page, un débit est peint à la couleur de SA RESSOURCE — `+96/s` sort
+   en `#2E936B` (Nourriture), `+23/s` en terre cuite (Habitants), `+21/min` en
+   or (Trésor). Toucher les tokens aurait repeint les icônes et la carte.
+   Un `filter` sur le texte désature le chiffre sans déplacer aucun token :
+   la teinte reste identifiable, la saturation « tableau de bord » tombe. */
+.app .rate-value,
+.app .pr-prod-item,
+.app .pr-gain,
+.app .compte-row-value {
+  filter: saturate(0.55) brightness(0.94);
+}
+
+/* Les LIGNES DE DONNÉES : pas de boîte, un filet et une alternance.
+   Un tableau n'est pas une pile de cartes — lui coller une plaque par ligne
+   rendrait la lecture pire. La matière ne sert ici qu'à séparer. */
+.app .compte-row,
+.app .mult-anatomy .compte-row {
+  /* ⚠ ombre interne et pas `border-bottom` : mesuré, le filet ajoutait 1 px à
+     CHAQUE ligne, donc décalait toute la colonne. Même règle d'or que la
+     plaque — la matière ne coûte rien à la mise en page. */
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--skin-ink), transparent 45%);
+  background: transparent;
+}
+.app .compte-row:nth-child(even) {
+  background: color-mix(in srgb, var(--skin-field), transparent 92%);
+}
+.app .compte-row--total {
+  box-shadow: inset 0 2px 0 var(--skin-bevel);
+  background: color-mix(in srgb, var(--skin-field), transparent 84%);
+}
+
+/* Les PANNEAUX DE MYTHES et le profil de l'Olympe : champ de cuir très dilué,
+   contour dur, biseau haut clair et socle bas sombre — la recette du pack,
+   posée en ombres. */
+.app .myth-card,
+.app .olympus-profile,
+.app .active-myth-banner {
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--skin-field), transparent 88%);
+  box-shadow:
+    inset 0 0 0 2px var(--skin-ink),
+    inset 0 3px 0 -1px var(--skin-raise),
+    inset 0 -4px 0 -1px var(--skin-bevel);
+}
+.app .myth-card.myth-available {
+  background: color-mix(in srgb, var(--skin-field), transparent 78%);
+}
+
+/* L'ENCART D'ÉTAT de la barre latérale. Il portait déjà le crantage maison
+   (layout.css:263) : on ne lui ajoute que la matière, pas une seconde forme. */
+.app .csp-block {
+  background: color-mix(in srgb, var(--skin-field), transparent 90%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--skin-ink), transparent 30%),
+    inset 0 2px 0 -1px color-mix(in srgb, var(--skin-raise), transparent 55%);
+}
+/* Les jauges d'âge et d'usure : même chenal creux que les autres pistes. */
+.app .csp-bar {
+  border-radius: 0;
+  background: var(--skin-ink);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* ── LE TESTAMENT : ce sont des BOUTONS ─────────────────────────────────────
+   ⚠ Correction d'une sur-réaction de ma part. Pour tuer le surlignage permanent
+   de la chute annoncée, j'avais rendu `.testament-seal` totalement NU — et
+   supprimé du même coup toute affordance : « le testament ne montre pas que ce
+   sont des boutons cliquables ».
+   Le bon réglage est celui déjà posé pour les segments : plaque au repos,
+   ASSOMBRIE, et le retenu s'éclaircit. La hiérarchie passe par la lumière, pas
+   par la présence ou l'absence de l'objet — et une chute présélectionnée en
+   permanence ne crie plus. */
+.app .testament-seal::before {
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+  filter: brightness(0.52) saturate(0.65);
+}
+.app .testament-seal:hover:not(:disabled)::before {
+  filter: brightness(0.85) saturate(0.85);
+}
+.app .testament-seal.is-favored::before,
+.app .testament-seal.is-engraved::before {
+  filter: brightness(1) saturate(1);
+}
+
+/* ── LES PASTILLES DE BONUS ─────────────────────────────────────────────────
+   ⚠ `#86efac` et `#fca5a5` sont EXACTEMENT `green-300` et `red-300` de
+   Tailwind : la palette générique par excellence, et c'est ce que Raph voyait
+   (« les couleurs de bonus n'ont pas été mises à jour ici »).
+   On garde le SENS (positif / coût) et on descend la saturation vers la palette
+   du jeu — même geste que sur les débits, mais ici les teintes sont écrites en
+   dur dans `components.css`, un `filter` ne suffisait pas. */
+.app .effect-chip {
+  border-radius: 0;
+}
+.app .effect-chip.is-gain {
+  color: #9CC08A;
+  border-color: rgba(122, 148, 100, 0.4);
+  background: rgba(122, 148, 100, 0.1);
+}
+.app .effect-chip.is-cost {
+  color: #C98C74;
+  border-color: rgba(181, 101, 74, 0.4);
+  background: rgba(181, 101, 74, 0.1);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   4 · LES CHAMPS
+   ⚠ PAS de plaque : un contrôle de formulaire natif peint ses propres internes
+   par-dessus. On habille à plat, avec les tons du pack.
+   ════════════════════════════════════════════════════════════════════════════ */
+select,
+textarea,
+input[type="text"],
+input[type="number"],
+input[type="search"] {
+  border: 2px solid var(--skin-ink);
+  border-radius: 0;
+  background: var(--skin-bevel);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
+  color: var(--skin-cream);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  border-radius: 0;
+  accent-color: var(--brand-gold);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   5 · LES CONTENEURS — angle vif
+   Si tout portait la matière, elle ne dirait plus rien.
+   ════════════════════════════════════════════════════════════════════════════ */
+.app .panel,
+.app .hud-panel,
+.app .shop-panel,
+.app .purchase-row,
+.app .roadworks-panel,
+.app .tactical-card,
+.app .city-status-panel {
+  border-radius: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   6 · NEUTRALISATIONS
+   ⚠ Un fond peint sur l'ÉLÉMENT se voit à travers la plaque là où le sprite est
+   transparent — c'est-à-dire dans les COINS COUPÉS, qui ressortiraient en
+   carré. Ces règles antérieures gagnaient contre `.app button` ; relevées dans
+   la page, pas devinées, et couvertes une par une plutôt qu'au `!important`.
+   ════════════════════════════════════════════════════════════════════════════ */
+.app .shop-subtab,
+.app .shop-subtab.active,
+.app .buy-mode,
+.app .buy-mode.active,
+.app .buy-mode-max.active,
+.app .compte-tab,
+.app .compte-tab.active,
+.app .compte-tab.is-active,
+.app .format-option,
+.app .format-option.active,
+.app .options-tab,
+.app .options-tab.active,
+.app .toggle-btn.on,
+.app .toggle-btn.off,
+.app .policy-btn,
+.app .policy-btn.regul-locked,
+.app .doctrine-seg-btn,
+.app .testament-seal,
+.app .stake-pick,
+.app .coffre-mult,
+.app[data-active-view="city"] .city-controls-panel .policy-btn,
+.app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked,
+.city-shop-dock .shop-panel .purchase-row .btn-purchase,
+.city-shop-dock .shop-panel .purchase-row.is-affordable .btn-purchase:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+  border-radius: 0;
+}
+
+/* ⚠ DÉFAUT DE MISE EN PAGE trouvé en posant la matière : le chevron de repli de
+   la Boutique faisait **140 × 40 px** contre 39 px par sous-onglet, soit 43 %
+   d'un en-tête large de 323 px. AUCUNE règle ne le dimensionnait : il étirait
+   l'espace libre du flex. C'était la cause des libellés tronqués « M… » /
+   « Inf… ». Un chevron se cale sur son contenu. */
+.app .shop-panel .shop-collapse-toggle {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  min-width: 0;
+  padding: 0;
+}
+
+/* ⚠ DÉBORDEMENT PRÉEXISTANT, révélé de la même façon.
+   `views-world-fullframe.css:156` pose `flex: 1; min-width: 0` et
+   `.buy-toolbar` est à `width: 50%` : les CINQ boutons se partageaient 161 px,
+   soit 26 px chacun. « x100 » et « Palier » n'y tiennent pas. */
+.app .shop-panel .shop-controls-row .buy-mode {
+  flex: 0 0 auto;
+  min-width: max-content;
+  padding: 0 0.4rem;
+}

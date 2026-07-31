@@ -68,7 +68,7 @@
   position: relative;
   flex: 1;
   height: 7px;
-  border-radius: 4px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -77,7 +77,7 @@
   top: 0;
   bottom: 0;
   left: 0;
-  border-radius: 4px;
+  border-radius: 0;
   transition: width 0.3s ease;
 }
 
@@ -92,7 +92,7 @@
   width: 2px;
   margin-left: -1px;
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 1px;
+  border-radius: 0;
   transition: left 0.3s ease;
 }
 
@@ -151,7 +151,7 @@
   gap: 0.32rem;
   padding: 0.1rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(38, 24, 8, 0.55);
   color: var(--gold-bright);
   font-family: var(--font-number);
@@ -255,7 +255,7 @@
 
 .anatomy-track {
   height: 5px;
-  border-radius: 3px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
@@ -263,7 +263,7 @@
 .anatomy-fill {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--foyer-color, var(--gold));
   transition: width 0.3s ease;
 }
@@ -402,12 +402,12 @@
 .annals-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 0;
   display: inline-block;
 }
 
-.annals-dot--diamond { border-radius: 2px; transform: rotate(45deg); }
-.annals-dot--square { border-radius: 1px; }
+.annals-dot--diamond { border-radius: 0; transform: rotate(45deg); }
+.annals-dot--square { border-radius: 0; }
 
 .annals-dot--tri {
   width: 0;
@@ -496,7 +496,7 @@
   background: rgba(0, 0, 0, 0.3);
   color: var(--text-strong);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 0.16rem 0.35rem;
   font-size: 0.75rem;
 }
@@ -506,7 +506,7 @@
 .steward-toggle {
   margin-left: auto;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   font-size: 0.7rem;
@@ -540,7 +540,7 @@
   width: 100%;
   padding: 0.42rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 10px;
+  border-radius: 0;
   background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
   color: var(--text-strong);
   cursor: pointer;
@@ -574,7 +574,7 @@
 .icarus-banner-cta {
   margin-left: auto;
   border: 1px solid var(--gold);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.18rem 0.75rem;
   font-size: 0.74rem;
   font-weight: 700;
@@ -600,7 +600,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 0;
   pointer-events: none;
 }
 
@@ -633,7 +633,7 @@
 .augures-row.augure-fresque {
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 0.32rem 0.7rem;
   margin-top: 0.2rem;
   background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
@@ -684,7 +684,7 @@
 .augures-pip {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--line);
   display: inline-block;
 }
@@ -709,7 +709,7 @@
 
 .augures-throw {
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 999px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--gold), transparent 88%);
   color: var(--gold-bright);
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
@@ -741,7 +741,7 @@
   flex: 1 1 3rem;
   min-width: 2.4rem;
   height: 0.34rem;
-  border-radius: 999px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--gold), transparent 88%);
   border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
   overflow: hidden;
@@ -750,14 +750,14 @@
 .augures-trunk-gauge i {
   display: block;
   height: 100%;
-  border-radius: inherit;
+  border-radius: 0;
   background: linear-gradient(90deg, color-mix(in srgb, var(--gold), transparent 35%), var(--gold-bright));
   transition: width 0.6s ease;
 }
 
 .augures-trunk-auto {
   border: 1px solid color-mix(in srgb, var(--gold), transparent 62%);
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   font-size: 0.6875rem;
@@ -800,7 +800,7 @@
   justify-content: flex-start;
   overflow-y: auto;
   border: 1px dashed color-mix(in srgb, var(--line), transparent 55%);
-  border-radius: 12px;
+  border-radius: 0;
   /* Marge latérale : depuis que la scène remplit le tapis, on écarte le contenu
      du bord (et du liseré ::before à 5px) pour qu'il respire. */
   padding: 0.6rem 1rem;
@@ -845,7 +845,7 @@
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 0.06rem 0.45rem;
   font-size: 0.78rem;
   cursor: pointer;
@@ -905,7 +905,7 @@
   text-align: center;
   padding: 0.05rem 0.28rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.8rem;
   background: rgba(15, 20, 30, 0.35);
 }
@@ -927,7 +927,7 @@
   align-items: center;
   padding: 0.55rem 0.4rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(15, 20, 30, 0.35);
   color: var(--text-strong);
   cursor: pointer;
@@ -982,7 +982,7 @@
   max-width: 320px;
   margin: 0.4rem auto;
   aspect-ratio: 1 / 1;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   --ticket-art: url("/pixelart/ui/scratch/ticket-drachme.png");
   --ticket-dark: 78%;
@@ -1027,7 +1027,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 0;
   user-select: none;
 }
 
@@ -1126,7 +1126,7 @@
   text-align: center;
   padding: 0.05rem 0.3rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 0;
   font-family: var(--font-number);
   font-size: 0.72rem;
   background: rgba(15, 20, 30, 0.35);
@@ -1152,7 +1152,7 @@
   /* La gouttière du sabot (64 px de sprite + 8 px d'air) : rien du jeu ne passe
      dessous, ni les mains, ni les valeurs, ni le filet de séparation. */
   padding: 0.7rem calc(0.85rem + 72px) 0.85rem 0.85rem;
-  border-radius: 14px;
+  border-radius: 0;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
   background: radial-gradient(120% 95% at 50% 0%, #33204a 0%, #251437 55%, #190d27 100%);
   box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -1267,7 +1267,7 @@
   font-family: "Inter", "Baloo 2", system-ui, sans-serif;
   font-size: 0.78rem;
   padding: 0.18rem 0.6rem;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line);
   color: var(--muted);
 }
@@ -1319,7 +1319,7 @@
   gap: 0.32rem;
   padding: 0.6rem 0.65rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(15, 20, 30, 0.35);
   text-align: left;
   color: var(--text-strong);
@@ -1455,7 +1455,7 @@
      n'a ni fond ni bordure, la rangée serait sinon invisible pendant le jet. */
   .augury-die:not([data-face]) {
     box-shadow: inset 0 0 0 2px rgba(216, 199, 162, 0.35);
-    border-radius: 12px;
+    border-radius: 0;
   }
 }
 
@@ -1523,7 +1523,7 @@
   font-family: var(--font-number);
   font-size: 0.7rem;
   padding: 0.14rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line);
 }
 
@@ -1586,7 +1586,7 @@
   width: 100%;
   max-width: none;
   margin-inline: auto;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background: linear-gradient(
     to top,
@@ -1752,7 +1752,7 @@
   align-items: center;
   padding: 0.55rem 0.4rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(15, 20, 30, 0.35);
   color: var(--text-strong);
   cursor: pointer;
@@ -1814,7 +1814,7 @@
   position: relative;
   padding: 0.3rem 2.2rem 0.3rem 0.35rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 0;
   min-height: 0;
   margin-bottom: 0.25rem;
 }
@@ -1861,7 +1861,7 @@
   font-family: var(--font-number);
   font-size: 0.74rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
-  border-radius: 3px;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -2113,7 +2113,7 @@
   color: var(--gold-bright);
   text-shadow: 0 0 14px rgba(255, 210, 90, 0.75);
   border: 1px solid var(--gold);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 0.5rem 0.6rem;
   margin: 0.2rem 0 0.4rem;
   background: rgba(60, 42, 8, 0.5);
@@ -2204,7 +2204,7 @@
 /* Les chips (chance, solde, pitié…) : des jetons d'os coins crantés, posés
    sans être alignés au pixel près. */
 .augury-chip {
-  border-radius: 2px;
+  border-radius: 0;
   clip-path: polygon(
     0 2px, 2px 2px, 2px 0,
     calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,

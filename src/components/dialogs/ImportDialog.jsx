@@ -77,10 +77,10 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
           onChange={(e) => setText(e.target.value)}
           onFocus={readOnly ? (e) => e.target.select() : undefined}
           placeholder={tr({ fr: "Collez votre code de sauvegarde ici...", en: "Paste your save code here..." })}
-          style={{ width: '100%', minHeight: '150px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem', borderRadius: '4px', resize: 'vertical' }}
+          style={{ width: '100%', minHeight: '150px', padding: '0.5rem', resize: 'vertical' }}
         />
         <menu style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button type="button" onClick={handleClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
+          <button type="button" className="btn-close" onClick={handleClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
           {readOnly ? (
             <button type="button" className="confirm-btn" onClick={handleCopy}>{tr({ fr: "Copier", en: "Copy" })}</button>
           ) : (

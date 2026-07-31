@@ -350,7 +350,7 @@ export default function AuguryStage({ table, onClose }) {
                     <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); }}>
                       {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
-                    <button type="button" onClick={onClose}>
+                    <button type="button" className="btn-close" onClick={onClose}>
                       {tr({ fr: 'Refermer la table', en: 'Close the table' })}
                     </button>
                   </menu>
@@ -395,7 +395,7 @@ export default function AuguryStage({ table, onClose }) {
                     <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>
                       {tr({ fr: 'Changer de mise', en: 'Change stake' })}
                     </button>
-                    <button type="button" onClick={onClose}>{tr({ fr: 'Refermer la table', en: 'Close the table' })}</button>
+                    <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Refermer la table', en: 'Close the table' })}</button>
                   </menu>
                 </>
               )}

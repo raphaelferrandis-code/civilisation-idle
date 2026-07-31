@@ -25,7 +25,7 @@ export default function ContemplationBar({ onExit }) {
       <button type="button" onClick={handleShot}>
         {tr({ fr: "Garder une image", en: "Keep an image" })}
       </button>
-      <button type="button" onClick={onExit}>
+      <button type="button" className="btn-close" onClick={onExit}>
         {tr({ fr: "Quitter (Échap)", en: "Leave (Esc)" })}
       </button>
     </div>

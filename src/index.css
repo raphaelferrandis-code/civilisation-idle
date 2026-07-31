@@ -24,6 +24,11 @@
 @import './styles/frames.css';
 /* Interface allégée (LE skin du jeu) : après frames.css pour arbitrer en dernier. */
 @import './styles/ui-light.css';
+/* Peau « cuir » — tranche verticale du chantier boutons (Boutique seule).
+   APRÈS ui-light : elle en prolonge la doctrine (remplissage, pas contour) en
+   ajoutant la silhouette crantée, et doit donc arbitrer après elle.
+   AVANT touch-shell : le tactile reste un régime qui prime sur tout. */
+@import './styles/chrome-wizard.css';
 /* Coquille TACTILE (P4) : tout en dernier, car c'est une surcouche de régime
    (`:root[data-pointer="coarse"]`) et non une variante à négocier règle par
    règle. ⚠ Le piège des 35 déclarations mortes de base.css vient précisément

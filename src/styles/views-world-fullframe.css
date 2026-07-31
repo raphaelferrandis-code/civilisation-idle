@@ -223,7 +223,7 @@
    plus de pastille ronde — le splash-art porte l'identité de la carte. */
 /* Bouton d'achat : coins francs → arrondi généreux */
 .city-shop-dock .btn-purchase {
-  border-radius: 13px;
+  border-radius: 0;
 }
 
 /* ── Bouton d'achat : laiton patiné élégant (PAS un jaune pétard), texte sombre,

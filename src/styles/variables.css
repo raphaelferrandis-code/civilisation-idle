@@ -185,9 +185,18 @@
   --fs-label: 0.6875rem;
   --fs-tiny: 0.6875rem;
 
-  /* ----- Rayons ----- */
-  --r-panel: 12px;
-  --r-card: 6px;
-  --r-tiny: 4px;
-  --r-pill: 999px;
+  /* ----- Rayons -----
+     TOUS À ZÉRO depuis la refonte d'identité des boutons (2026-07-31,
+     docs/AUDIT-BOUTONS-IDENTITE.md). Le jeu ne connaît plus le coin arrondi :
+     l'affordance passe par la SILHOUETTE CRANTÉE (cranté = ça se clique, angle
+     vif = ça s'affiche), pas par un rayon. L'audit avait relevé 15 valeurs de
+     rayon différentes dans le dépôt et 256 déclarations : le coin arrondi ne
+     signifiait plus rien.
+     ⚠ Les noms sont CONSERVÉS, pas supprimés : une centaine de règles les
+     nomment encore, et les garder à 0 évite un renommage massif pour rien.
+     Y toucher rouvrirait le look générique sur tout le jeu d'un coup. */
+  --r-panel: 0;
+  --r-card: 0;
+  --r-tiny: 0;
+  --r-pill: 0;
 }

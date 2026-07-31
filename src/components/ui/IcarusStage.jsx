@@ -369,7 +369,7 @@ export default function IcarusStage({ table, onClose }) {
             <button type="button" onClick={() => { setPhase('ready'); setStakeId(null); setOutcome(null); setM(1); }}>
               {tr({ fr: 'Changer de mise', en: 'Change stake' })}
             </button>
-            <button type="button" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
           </menu>
         </>
       )}
@@ -399,7 +399,7 @@ export default function IcarusStage({ table, onClose }) {
             <button type="button" onClick={() => { setPhase('ready'); setStakeId(null); setOutcome(null); setM(1); }}>
               {tr({ fr: 'Changer de mise', en: 'Change stake' })}
             </button>
-            <button type="button" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
           </menu>
         </>
       )}

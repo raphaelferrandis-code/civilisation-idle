@@ -131,7 +131,7 @@
   min-width: 1.15rem;
   padding: 0 0.28rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: var(--r-pill);
+  border-radius: 0;
   background: color-mix(in srgb, var(--gold), transparent 78%);
   color: var(--gold-bright);
   font-family: var(--font-number);
@@ -706,7 +706,7 @@
   color: var(--gold-ivory);
   background: rgba(120, 170, 200, 0.14);
   border: 1px solid rgba(150, 195, 220, 0.42);
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
 }
 
@@ -787,7 +787,7 @@
   gap: 0.16rem;
   background: rgba(20, 17, 14, 0.98);
   border: 1px solid rgba(210, 180, 110, 0.45);
-  border-radius: 4px;
+  border-radius: 0;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
 }
 
@@ -806,7 +806,7 @@
   color: inherit;
   background: rgba(200, 170, 90, 0.1);
   border: 1px solid rgba(210, 180, 110, 0.3);
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
 }
 .csp-vow-option:hover {
@@ -834,7 +834,7 @@
   height: 2px;
   margin-top: 0.14rem;
   background: rgba(255, 255, 255, 0.09);
-  border-radius: 1px;
+  border-radius: 0;
   overflow: hidden;
 }
 .csp-vow-bar-fill {
@@ -861,7 +861,7 @@
   margin-top: 0.4rem;
   padding: 0.22rem 0.4rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 3px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--gold), transparent 82%);
   color: var(--gold-bright);
   font-size: 0.6875rem;

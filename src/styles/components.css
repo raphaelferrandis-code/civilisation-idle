@@ -484,7 +484,7 @@
   height: 1.65rem;
   min-width: 2.5rem;
   padding: 0 0.45rem;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 0.76rem;
 }
 
@@ -508,7 +508,7 @@
   height: 0.6rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--bg-inset);
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
@@ -546,7 +546,7 @@
 dialog {
   width: min(42rem, calc(100vw - 2rem));
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--panel-2);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -609,7 +609,7 @@ dialog::backdrop {
   font-size: 0.6875rem;
   font-weight: 700;
   padding: 0.14rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--gold-bright);
   border: 1px solid rgba(var(--era-rgb), 0.45);
   background: rgba(var(--era-rgb), 0.12);
@@ -711,7 +711,7 @@ dialog::backdrop {
   font-weight: 600;
   line-height: 1.4;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
@@ -764,7 +764,7 @@ dialog::backdrop {
   font-weight: 800;
   white-space: nowrap;
   padding: 0.4rem 1rem;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(10, 12, 14, 0.88);
   color: var(--gold-ivory);
@@ -847,7 +847,7 @@ dialog::backdrop {
   padding: 0.85rem 1rem;
   border: 1px solid rgba(215, 109, 86, 0.5);
   border-left: 3px solid var(--red);
-  border-radius: 8px;
+  border-radius: 0;
   background: linear-gradient(135deg, rgba(215, 109, 86, 0.1) 0%, transparent 60%),
     rgba(30, 14, 12, 0.95);
   animation: crisis-alert-in 350ms ease-out;
@@ -859,7 +859,7 @@ dialog::backdrop {
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 50%;
+  border-radius: 0;
   border: 2px solid rgba(215, 109, 86, 0.7);
   color: var(--red);
   font-weight: 800;
@@ -902,7 +902,7 @@ small, .chip, .doctrine-display small {
 
 .buy-mode {
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 0;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
   /* Petits caractères : Pixelify déformait les chiffres (« x25 » lu « x88 »).
@@ -945,7 +945,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   gap: 0.25rem;
   padding: 0.75rem 1rem 0.8rem;
   border-left: 3px solid var(--gold);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0;
   background: linear-gradient(90deg, rgba(var(--era-rgb),0.1) 0%, transparent 80%);
 }
 
@@ -1059,7 +1059,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   min-height: 2rem;
   padding: 0.35rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--surface-card);
   color: var(--muted);
   font-size: 0.8rem;
@@ -1098,7 +1098,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   min-height: 2.5rem;
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border-soft);
-  border-radius: var(--r-card);
+  border-radius: 0;
   background: var(--panel);
   cursor: default;
   transition: border-color 0.3s ease, background 0.3s ease;
@@ -1162,7 +1162,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--cyan);
   box-shadow: 0 0 6px var(--cyan);
   animation: ticker-dot 2s ease-in-out infinite;
@@ -1226,7 +1226,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   border-right: 6px solid #4a1515;
   border-top: 1px solid #cc9955;
   border-bottom: 1px solid #cc9955;
-  border-radius: 2px;
+  border-radius: 0;
 }
 .chronicle-ticker.is-scroll .ticker-masthead { color: #ffd899; letter-spacing: 0.14em; }
 .chronicle-ticker.is-scroll .ticker-line { color: #ebd6c4; }
@@ -1251,7 +1251,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   width: 6px;
   height: 6px;
   background-color: #ff3b30;
-  border-radius: 50%;
+  border-radius: 0;
   box-shadow: 0 0 6px #ff3b30;
   animation: pressLedBlink 1.5s infinite steps(1);
 }
@@ -1335,7 +1335,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   z-index: 200;
   padding: 0.5rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--panel);
   color: var(--text-strong);
   font-size: 0.85rem;
@@ -1373,7 +1373,7 @@ main:focus { outline: none; }
   gap: 0.3rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(14, 18, 28, 0.98);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;

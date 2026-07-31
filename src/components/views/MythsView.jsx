@@ -386,7 +386,7 @@ export default function MythsView() {
                 <button className="myth-confirm-btn" onClick={handleConfirmPact}>
                   {tr({ fr: 'Sceller ce pacte', en: 'Seal this pact' })}
                 </button>
-                <button type="button" onClick={() => setModalMyth(null)}>
+                <button type="button" className="btn-close" onClick={() => setModalMyth(null)}>
                   {tr({ fr: 'Annuler', en: 'Cancel' })}
                 </button>
               </menu>
