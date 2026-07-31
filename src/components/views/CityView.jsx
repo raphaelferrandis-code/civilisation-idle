@@ -40,7 +40,8 @@ import {
   transmettreAtrides,
   activateAtridesPact,
   migrerEnee,
-  rewardCitizenThought
+  rewardCitizenThought,
+  buyAllAffordable
 } from '../../game/core/actions.js';
 import { save, setCityName, commitCityName, state, markChronicleRead } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
@@ -158,6 +159,11 @@ export default function CityView() {
   // retrouve exactement l'état qu'il avait — on a seulement déplacé le siège de
   // la vérité, pas changé le comportement.
   const [shopOpen, toggleShop] = useCollapsiblePanel('shop', true);
+  // Même remontée pour la RÉGULATION, et pour la même raison : au doigt, sa
+  // poignée n'est plus son propre bandeau (l'encart disparaît quand il est
+  // replié, exactement comme la boutique) mais un bouton flottant posé sur la
+  // carte. La clé de mémoire ne change pas : le bureau retrouve son état.
+  const [regulOpen, toggleRegul, setRegulOpen] = useCollapsiblePanel('regul', regulDefaultOpen);
 
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
@@ -400,8 +406,12 @@ export default function CityView() {
         )}
 
         {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
-            posées en HUD par-dessus (on montre le monde d'abord). */}
-        <div className="city-stage">
+            posées en HUD par-dessus (on montre le monde d'abord).
+            `data-sheet` dit QUELLE feuille basse est ouverte : au doigt, une
+            feuille recouvre le bas de l'écran, donc les boutons flottants qui y
+            vivent doivent s'effacer. Un seul attribut plutôt que trois classes —
+            les feuilles s'excluent l'une l'autre, autant le dire. */}
+        <div className="city-stage" data-sheet={shopOpen ? 'shop' : regulOpen ? 'regul' : 'none'}>
           {/* Bilan de fin de cycle : bandeau posé SUR la carte, jamais un
               dialogue — il n'interrompt rien et s'efface tout seul. */}
           <CycleReportBanner />
@@ -556,14 +566,62 @@ export default function CityView() {
           >
             <i className={`fa-solid ${shopOpen ? 'fa-xmark' : 'fa-hammer'}`} aria-hidden="true"></i>
           </button>
+
+          {/* POIGNÉE DE LA RÉGULATION (tactile seulement). Elle avait été retirée
+              de la carte faute de place ; elle revient sous la forme que la
+              boutique a déjà : un bouton flottant qui ouvre une feuille basse.
+              L'icône est celle de l'onglet Régulation — même destination, même
+              signe — posée AU-DESSUS de son libellé. */}
+          <button
+            type="button"
+            className="regul-fab"
+            aria-expanded={regulOpen}
+            onClick={toggleRegul}
+            aria-label={regulOpen
+              ? tr({ fr: "Fermer la régulation des tensions", en: "Close tension regulation" })
+              : tr({ fr: "Ouvrir la régulation des tensions", en: "Open tension regulation" })}
+          >
+            <PixelIcon name="nav/regulation" size={24} />
+            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tensions", en: "Tensions" })}</span>
+          </button>
+
+          {/* TOUT ACHETER (tactile seulement) : le pendant au doigt du raccourci
+              « e » du clavier — même action, même ordre d'achat (cf. App.jsx,
+              BUY_BY_ID.buy_all = null = toutes les catégories). Sans lui, un
+              joueur au téléphone n'a AUCUN moyen de déclencher ce que le clavier
+              fait d'une touche : il lui reste à ouvrir la feuille et à taper
+              chaque rangée.
+              TRANSPARENT (demande Raph) : c'est un geste répété posé sur la
+              ville, pas un meuble — il ne prend que la place de son signe. */}
+          <button
+            type="button"
+            className="buy-all-fab"
+            onClick={() => buyAllAffordable(null)}
+            aria-label={tr({ fr: "Tout acheter", en: "Buy all" })}
+            {...tipProps(
+              tr({ fr: "Tout acheter", en: "Buy all" }),
+              tr({
+                fr: "Achète Moteurs + Savoir + Infrastructure, du plus cher au moins cher. Même action que la touche E.",
+                en: "Buys Engines + Knowledge + Infrastructure, most expensive first. Same as the E key."
+              })
+            )}
+          >
+            <i className="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
+          </button>
         </div>{/* /city-stage */}
 
-        {/* Régulation des tensions + politiques : encart pliable, sous la carte */}
+        {/* Régulation des tensions + politiques : encart pliable, sous la carte.
+            État PILOTÉ depuis ici (cf. `regulOpen`) : au doigt, sa poignée est le
+            bouton flottant ci-dessus, qui vit dans la carte et non dans l'encart. */}
         <HudPanel
           className="city-controls-panel"
           storageKey="regul"
           title={tr({ fr: "Régulation des tensions", en: "Tension Regulation" })}
           defaultOpen={regulDefaultOpen}
+          open={regulOpen}
+          onToggle={toggleRegul}
+          onOpenChange={setRegulOpen}
           openWhen={inCrisis}
           summary={<RegulSummary />}
         >

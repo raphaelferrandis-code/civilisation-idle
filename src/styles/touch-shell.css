@@ -346,13 +346,113 @@
   display: none;
 }
 
-/* ---- M1 : LA RÉGULATION QUITTE LA CARTE ----
-   Elle existe DÉJÀ comme onglet à part entière dans la barre du bas. En garder
-   une copie posée sur la ville, c'était payer deux fois la même fonction — et
-   la payer en pixels, sur l'écran où ils sont le plus rares. Le raccourci reste
-   entier : un tap sur « Régulation ». */
-:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
+/* ---- LES DEUX AUTRES POIGNÉES FLOTTANTES ----------------------------------
+   `.regul-fab` (poignée de la Régulation) et `.buy-all-fab` (« Tout acheter »,
+   le pendant au doigt de la touche E) n'existent QUE sous le pointeur grossier :
+   au curseur, l'une doublerait un bandeau déjà visible et l'autre un raccourci
+   clavier. Elles sont donc éteintes par défaut, comme `.shop-fab`.
+   Toutes deux portent leur ICÔNE AU-DESSUS de leur libellé (demande Raph) : à
+   cette taille un signe seul demande d'avoir appris ce qu'il veut dire. */
+.regul-fab,
+.buy-all-fab {
   display: none;
+}
+
+:root[data-pointer="coarse"] .app[data-active-view="city"] .regul-fab,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .buy-all-fab {
+  position: absolute;
+  bottom: calc(var(--hud-gap) + var(--touch-nav-total));
+  z-index: 24;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.1rem;
+  width: 3.4rem;
+  height: auto;
+  min-height: 3.4rem;
+  padding: 0.3rem 0.15rem;
+  border-radius: 0;
+  line-height: 1.05;
+}
+
+/* Le libellé reste au plancher de lisibilité du jeu (11px) : en dessous il ne
+   sert plus à rien, autant ne pas l'écrire. Deux lignes autorisées — « Tout
+   acheter » ne tient pas sur 54px, et le couper par une ellipse le rendrait
+   moins lisible qu'un retour à la ligne. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .fab-label {
+  font-family: var(--font-body);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+/* La Régulation reprend la matière de la construction — même objet, même
+   grammaire — et s'EMPILE au-dessus d'elle, dans le pouce droit. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .regul-fab {
+  right: var(--hud-gap);
+  bottom: calc(var(--hud-gap) + var(--touch-nav-total) + 3.4rem + 0.45rem);
+  border: 1px solid var(--gold);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 14%);
+  color: var(--gold-bright);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+/* « Tout acheter » : à GAUCHE, et TRANSPARENT (demande Raph) — c'est un geste
+   répété posé sur la ville, pas un meuble. Il ne prend que la place de son
+   signe.
+   ⚠ La lisibilité ne vient donc plus d'une plaque mais d'un CERNE D'OMBRE : la
+   carte change de couleur à chaque ère et à chaque heure du jour, un glyphe nu
+   s'y perdrait la moitié du temps. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .buy-all-fab {
+  left: var(--hud-gap);
+  border: 0;
+  background: transparent;
+  color: var(--gold-bright);
+  box-shadow: none;
+  font-size: 1.15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92), 0 0 7px rgba(0, 0, 0, 0.75);
+}
+
+/* ⚠ SANS CECI, « TRANSPARENT » NE L'EST PAS : `chrome-wizard.css` pose une
+   plaque de cuir en `::before` sur TOUT `.app button`. On l'éteint ici — cette
+   feuille arbitre en dernier — plutôt que d'ajouter une exception là-bas, parce
+   que le bouton n'existe qu'au doigt. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .buy-all-fab::before {
+  display: none;
+}
+
+/* UNE FEUILLE OUVERTE RECOUVRE LE BAS DE L'ÉCRAN : les poignées s'effacent,
+   sinon elles flottent SUR la liste d'achats ou sur les politiques. La feuille
+   ouverte a déjà sa fermeture (son bandeau, 44px). */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage[data-sheet="shop"] .regul-fab,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage[data-sheet="shop"] .buy-all-fab,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage[data-sheet="regul"] .regul-fab,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage[data-sheet="regul"] .buy-all-fab,
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage[data-sheet="regul"] .shop-fab {
+  display: none;
+}
+
+/* ---- LA RÉGULATION REVIENT, EN FEUILLE ----
+   M1 l'avait retirée de la carte (« elle a déjà son onglet ») : Raph a répondu
+   « la barre n'existe plus ? ». Elle revient donc, mais sous la forme que la
+   boutique a déjà — REPLIÉE ELLE DISPARAÎT, un bouton flottant la rouvre, et
+   ouverte elle est une feuille basse. Aucun pixel permanent volé à la ville, et
+   le raccourci du HUD est de nouveau là où on regarde.
+   ⚠ Repliée, l'encart ne laisse RIEN : c'est ce qui justifie la poignée
+   extérieure (`.regul-fab`), exactement comme `.shop-fab` pour la boutique. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel.is-collapsed {
+  display: none;
+}
+
+/* Ouverte : pleine largeur, ancrée au-dessus de la barre d'onglets (le `bottom`
+   est posé plus haut, avec celui de la boutique). Elle passe DEVANT la feuille
+   de construction et devant les boutons flottants — deux feuilles ne cohabitent
+   pas, `data-sheet` sur `.city-stage` efface les seconds. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
+  left: var(--hud-gap);
+  right: var(--hud-gap);
+  z-index: 26;
 }
 
 /* Poignée d'attrape : une barrette claire en haut de la feuille. Purement
@@ -519,10 +619,23 @@
    unité. Sur un téléphone, à 17-20px de base, ça donne une marque de 12px
    translucide que la capture montre comme un accent parasite. Or l'unité PORTE
    L'ORDRE DE GRANDEUR : sans elle, 2.06 peut valoir deux ou deux milliards.
-   On la remonte à 0.85em et on lui rend presque toute son opacité — elle reste
-   plus petite que les chiffres, donc la hiérarchie tient. */
+   On lui rend presque toute son opacité, et elle passe à la TAILLE DES CHIFFRES.
+
+   ⚠ 0.85em NE SUFFISAIT PAS, et le 2026-07-31 Raph le voyait encore disparaître.
+   Mesuré dans la barre, cellule de 65px : le cadran tombe à 13px sur une valeur
+   longue (« 122.2Qi »), donc l'unité était peinte à 0.85 × 13 = 11px — le
+   plancher de lisibilité du jeu, pour la marque qui porte l'ordre de grandeur.
+   Sur une cellule plus étroite elle était en plus ROGNÉE : le modèle de largeur
+   du cadran (OdometerNumber.jsx) budgétait un suffixe à 0.72em pendant qu'on en
+   peignait un à 0.85, la valeur débordait et, centrée, se faisait couper des
+   deux côtés — le suffixe est le dernier glyphe, c'est lui qui partait.
+   À 1em l'unité est un glyphe comme les autres, et c'est la TEINTE qui garde la
+   hiérarchie (10 % de retrait) au lieu de la taille.
+   ⚠⚠ CETTE VALEUR EST UN CONTRAT : elle est reprise dans `SUF_EM_COARSE`
+   (OdometerNumber.jsx), qui dimensionne le cadran. Changer l'une sans l'autre
+   fait réapparaître le rognage. */
 :root[data-pointer="coarse"] .topbar .odo-suffix {
-  font-size: 0.85em;
+  font-size: 1em;
   color: color-mix(in srgb, currentColor, transparent 10%);
 }
 

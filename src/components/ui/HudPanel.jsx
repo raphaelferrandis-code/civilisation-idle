@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 
+const NO_OP = () => {};
+
 /**
  * Encart de HUD pliable : un titre cliquable, un corps qui se replie.
  * En late game le HUD de la Cité déborde — chaque encart peut donc être réduit
@@ -25,9 +27,28 @@ export default function HudPanel({
   defaultOpen = true,
   summary = null,
   openWhen = false,
+  open: openProp,
+  onToggle,
+  onOpenChange,
   children,
 }) {
-  const [open, toggle, setOpen] = useCollapsiblePanel(storageKey, defaultOpen);
+  const [selfOpen, selfToggle, setSelfOpen] = useCollapsiblePanel(storageKey, defaultOpen);
+  // PILOTAGE EXTERNE (`open` + `onToggle`) : quand la poignée de l'encart n'est
+  // PAS son bandeau — au doigt, la Régulation se replie hors de l'écran et c'est
+  // un bouton flottant posé sur la carte qui l'ouvre — l'état doit vivre chez
+  // l'appelant, sinon deux `useCollapsiblePanel` sur la même clé tiennent deux
+  // vérités qui divergent au premier clic.
+  // ⚠ Le hook interne est appelé QUAND MÊME (un hook ne se met pas sous
+  // condition) ; en mode piloté sa valeur est simplement ignorée, et comme rien
+  // n'appelle plus son `toggle`, il n'écrit jamais dans localStorage : l'appelant
+  // reste seul à mémoriser.
+  const pilote = typeof openProp === 'boolean';
+  const open = pilote ? openProp : selfOpen;
+  const toggle = pilote ? onToggle : selfToggle;
+  // ⚠ Repli STABLE et non un `() => {}` écrit ici : `setOpen` est en dépendance
+  // de l'effet `openWhen`, une identité neuve à chaque rendu le relancerait à
+  // chaque tick (1 Hz en vue Cité).
+  const setOpen = pilote ? (onOpenChange || NO_OP) : setSelfOpen;
 
   // Front montant seulement : sans cette mémoire, la condition restant vraie
   // rouvrirait l'encart à chaque rendu (1 Hz en vue Cité) et le bouton

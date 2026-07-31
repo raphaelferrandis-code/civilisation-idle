@@ -8,6 +8,30 @@ import { idealDecimals, reconcilePrecision, SETTLE_MS, COOLDOWN_MS } from './odo
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
 const DEFAULT_DURATION = 1100;
 
+// TAILLE DU SUFFIXE D'ÉCHELLE (K, M, Qi…), en em de la valeur. Elle vit dans le
+// CSS — `.odo-suffix` (components.css) au curseur, sa surcharge tactile
+// (touch-shell.css) au doigt — mais le calcul de largeur du cadran, plus bas, en
+// DÉPEND : les chasses y sont exprimées pour un suffixe à 0.72 em.
+// ⚠ SI LES DEUX DIVERGENT, L'UNITÉ DISPARAÎT. Mesuré le 2026-07-31 : le tactile
+// peignait le suffixe à 0.85 em pendant que le modèle le budgétait à 0.72, donc
+// le cadran était calé trop grand pour sa cellule ; comme la valeur est CENTRÉE
+// (touch-shell.css), le débordement se rogne des deux côtés et le suffixe, qui
+// est le dernier glyphe, y laisse sa peau. D'où « on ne voit plus les unités ».
+// Les deux valeurs se lisent donc ici, et le CSS les cite en retour.
+// Exportées pour la garde : odoSuffixContract.test.js relit les deux feuilles et
+// refuse qu'elles s'écartent de ces nombres.
+export const SUF_EM_FINE = 0.72;
+export const SUF_EM_COARSE = 1;
+
+// Le régime de pointage change EN COURS DE SESSION (souris branchée, tablette
+// posée sur son clavier — cf. pointerMode.js), donc on le relit à chaque rendu
+// plutôt que de le figer au chargement du module. Un accès `dataset` ne coûte
+// rien à côté d'un rendu de cadran.
+function suffixEm() {
+  if (typeof document === 'undefined') return SUF_EM_FINE;
+  return document.documentElement.dataset.pointer === 'coarse' ? SUF_EM_COARSE : SUF_EM_FINE;
+}
+
 /**
  * Compteur ODOMÈTRE : chaque chiffre est une colonne qui roule verticalement,
  * comme un compteur mécanique. Le dernier chiffre roule en continu (position
@@ -120,7 +144,10 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   // 0.918 max à 2 lettres (Qa). Arrondi vers le haut : sous-estimer la largeur
   // donnerait une police trop grande, donc un débordement de cellule.
   // Même granularité que `shape` → la taille ne change qu'au re-mount jalon.
-  const wEm = count * 0.595 + (decimals > 0 ? 0.24 : 0) + (suffix ? (suffix.length > 1 ? 0.92 : 0.56) : 0);
+  // ⚠ La chasse du suffixe se met à l'échelle de sa taille RÉELLE (cf. suffixEm)
+  // : les 0.56 / 0.92 valent pour 0.72 em, pas dans l'absolu.
+  const sufAdv = suffix ? (suffix.length > 1 ? 0.92 : 0.56) * (suffixEm() / SUF_EM_FINE) : 0;
+  const wEm = count * 0.595 + (decimals > 0 ? 0.24 : 0) + sufAdv;
 
   const slots = [];
   for (let k = count - 1; k >= 0; k--) {
