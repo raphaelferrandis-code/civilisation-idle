@@ -19,7 +19,11 @@
 // est explicite : APRÈS UNE PREMIÈRE PARTIE EN LIGNE, tout ce qu'on a vu est
 // disponible hors ligne ; un sprite jamais affiché ne l'est pas encore.
 
-const CACHE = 'civ-effondrement-v1';
+// ⚠ LE NUMÉRO SE BOUSSE QUAND LA STRATÉGIE CHANGE. `activate` supprime tout
+// cache dont le nom diffère : c'est le seul moyen de purger d'un coup ce qu'un
+// ancien service worker avait figé chez un joueur. v2 = passage du « cache
+// d'abord » au « réseau d'abord » pour les navigations (cf. plus bas).
+const CACHE = 'civ-effondrement-v2';
 
 // La coquille : ce qui doit être là AVANT tout, sinon la page ne démarre pas.
 // Les noms des scripts portent une empreinte qui change à chaque build — on ne
@@ -51,6 +55,33 @@ self.addEventListener('fetch', (e) => {
   // On ne s'occupe QUE des lectures de notre propre origine. Les requêtes POST
   // (le harnais de capture en dev) et les domaines tiers passent au travers.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
+  // ⛔⛔ LA NAVIGATION VA AU RÉSEAU D'ABORD, ET C'EST CE QUI REND LES MISES À
+  // JOUR POSSIBLES. En « cache d'abord », `index.html` servi depuis le cache
+  // gelait la version installée POUR TOUJOURS : il porte les empreintes des
+  // scripts du build, donc le navigateur ne demandait jamais les nouveaux ; et
+  // comme un déploiement ne change pas `sw.js`, aucun nouveau service worker ne
+  // s'installait, donc aucun cache n'était purgé. Résultat : on republie, et
+  // l'appareil qui a déjà ouvert le jeu une fois ne voit RIEN changer.
+  // Réseau d'abord / cache en secours : en ligne on prend la dernière version,
+  // hors ligne le jeu reste jouable sur la dernière page vue.
+  // ⚠ Les RESSOURCES gardent le « cache d'abord » : leur nom porte une empreinte
+  // (assets/index-BSLJ9UEz.js), un contenu qui change change d'URL. Les sprites,
+  // eux, sont stables et n'ont aucune raison d'être redemandés.
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req)
+        .then((rep) => {
+          if (rep && rep.ok && rep.type === 'basic') {
+            const copie = rep.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copie));
+          }
+          return rep;
+        })
+        .catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(req).then((enCache) => {
