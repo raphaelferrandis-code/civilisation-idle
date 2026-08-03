@@ -152,6 +152,13 @@ export function createBuildingPlacer({
   const SUPER_SLOTS = new Set([0, 12]);
   const SUPER_DIST = 10;
   const supers = new Map();
+  // ÎLOTS UNIFORMES aux bandes cosmiques (Raph 2026-08-03 : « de grosses
+  // mégalopoles d'immeubles tel cyberpunk, ou ce qu'on voit en Chine ») : le
+  // tirage est quantifié par pâté de BLOCK_Q×BLOCK_Q cellules — tout un îlot
+  // porte le MÊME variant et se lit en rangées d'immeubles identiques, pas en
+  // bric-à-brac. Les teintes suivent déjà : les skins cosmiques n'en ont pas
+  // (houseTintOf les exclut). Avant la bande 7, tirage historique inchangé.
+  const BLOCK_Q = 3;
 
   const chooseVariant = (category, n, cell) => {
     if (category === "house" && counts.eraBand >= 7 && SUPER_SLOTS.has(n)) {
@@ -165,6 +172,10 @@ export function createBuildingPlacer({
       }
     }
     const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
+    if (counts.eraBand >= 7) {
+      const hq = hashString(seed + ":" + category + ":q" + Math.floor(cell.gx / BLOCK_Q) + ":" + Math.floor(cell.gy / BLOCK_Q));
+      return list[hq % list.length];
+    }
     const h = hashString(seed + ":" + category + ":" + cell.gx + ":" + cell.gy);
     return list[(n + h) % list.length];
   };
