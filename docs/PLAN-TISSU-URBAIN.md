@@ -528,6 +528,71 @@ mais c'est le poste qui décide du calendrier.
 - **Réduire la maille dans le générateur.** Restait la solution évidente tant qu'on
   croyait la voirie à 75 %. Elle est à 28,9 % après L8 : la question ne se pose plus.
 
+## 10. REPRISE 2026-08-03 — la mégalopole (chantier ÉCHELLE, suite)
+
+(Section ajoutée après coup — elle suit chronologiquement le §9.)
+
+Retour Raph sur captures bande 8-9 : « on a toujours le problème des places et
+des routes qui font la taille d'un immeuble ». Le contexte a changé depuis §8 :
+le bâti cosmique fait désormais 7-14 tuiles de haut (docs/PLAN-ECHELLE.md) et le
+grief n'est plus le POURCENTAGE de voirie (12,7 % mesuré en bande 8, archétype
+capital, maille 6) mais le GRAIN : un couloir-rue d'une tuile = l'empreinte d'une
+tour, une rue toutes les 4-6 cellules = « une route par immeuble ».
+
+> ⚠ Le « Écarté volontairement : réduire la maille dans le générateur » de §8
+> tombe DONC pour les bandes 7+ — décision Raph 2026-08-03 (« attaque les
+> superblocks »). Avant la bande 7, il tient toujours.
+
+### S — Superblocks cosmiques ✅ LIVRÉ (v1)
+
+Aux bandes 7+, `superMesh` (roadGraph.js, molette `globalThis.__superMesh`,
+défaut +2, recompute nécessaire) élargit d'un même geste :
+- les pas d'ARTÈRES : capital 6→8, mégalopole 5→7, grilles de quartier
+  « districts » 3→5 ;
+- le TREILLIS de perméabilité 4→6 — **plafonné à +2** : `HOUSE_ROAD_RADIUS = 4`
+  doit couvrir l'intérieur des îlots (6/2 = 3 ≤ 4), sinon le cœur des
+  superblocks refuserait les maisons.
+
+Mesuré (bande 8, `__tissu()`) : maille 6 → **7**, roadShare 12,7 → 13,7 %
+(stable — le but était le grain, pas le pourcentage), **1 904 logements posés**
+(aucun effondrement de placement). Avant la bande 7 : zéro changement, et les
+tests du générateur le gardent.
+
+### W — Tours de plusieurs tuiles de large ✅ LIVRÉ
+
+« Repenser la possibilité de faire les tours âge cosmique de plusieurs tuiles
+de large » (Raph) : fait via `HOUSE_FOOTPRINT_COSMIC` (buildingGenerator.js) —
+**tower 1×2 → 2×2, supertower 2×2 → 3×3 aux bandes 7+** (`houseFootprint`
+prend l'eraBand, passé par le ctx du placement par slots ; défaut 0 = tables
+historiques, les tests legacy inchangés).
+
+⚠ **L'ART SUIT L'EMPREINTE, sinon il rapetisse** : l'échelle de dessin est
+`unit = w/spanX` (pixelHouseGeom) — les diviseurs px→tuiles valent ÷18,8 en
+1×2 mais ÷28,2 en 2×2 et 3×3. Les 6 sprites régénérés pour CES empreintes :
+- tower-cosmic 7/8/9 : monolithes 96×320, contenu 74-88 px de large →
+  **10,9-11,2 t** dessinées (masse ×3 vs les aiguilles, même hauteur) ;
+- supertower-cosmic 7/8/9 : colosses 144×400, contenu ~132-144 px →
+  **13,6-14,2 t** (Raph : « 13-14 t » ✓).
+
+⚠⚠ **GOTCHA PixelLab découvert : à 144×400, le fond « transparent » est resté
+OPAQUE** (plaque blanche/grise pleine) sur les TROIS colosses — jamais vu aux
+canvas ≤ 128. Contrôle qui l'attrape : bbox alpha = plein cadre. Détourage par
+flood depuis les bords ; ⚠ la plaque de la bande 8 était en DÉGRADÉ (159→175) :
+un flood à tolérance fixe s'arrête au milieu et laisse une douve transparente
+qui bloque les passes suivantes — le flood final compare au gris de PLAQUE
+(seuil 30) et traverse le transparent. À la prochaine fournée grand format :
+vérifier les coins AVANT quantize.
+
+### P — La place cosmique — À FAIRE (décision Raph attendue)
+
+La place est cotée 4-5 tuiles (`buildPlazas`, cityPlan.js:128) avec une recette
+de mobilier pensée pour un bâti de 3 tuiles : à côté de tours de 11-14 t, ce
+parvis quasi vide fait village. Deux pistes, non exclusives :
+- (a) **rétrécir** aux bandes 7+ (size 4-5 → 3) — ⚠ les recettes d'isoPlaza ne
+  sont testées que pour n = 4-6, il faut une recette 3 ;
+- (b) **densifier** la recette cosmique (jardins, kiosques, foule, dallage plus
+  fin) — une place de mégalopole est PLEINE, pas vide.
+
 ## 9. Périmètre : ce qui a bougé en cours de route
 
 Le plan s'ouvrait sur « le générateur est hors périmètre, tout doit être additif »

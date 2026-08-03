@@ -37,6 +37,19 @@ export function generateRoadsGraph({
   const span = Math.ceil((plan.reachBase || 8) + 6);
   const mainRank = ageCfg.roadRanks.main ? "main" : "secondary";
   const A = plan.archetype;
+  // ── SUPERBLOCKS cosmiques (chantier tissu urbain, reprise mégalopole
+  // 2026-08-03, docs/PLAN-TISSU-URBAIN.md §10). Aux bandes 7+, le bâti fait
+  // 7-14 tuiles de haut sur des empreintes de 2-3 tuiles : une rue toutes les
+  // 4-6 cellules se lisait « une route par immeuble » (retour Raph). Ce bump
+  // élargit d'un même geste les pas d'ARTÈRES (capital/mégalopole, grilles de
+  // quartier « districts ») et le TREILLIS de perméabilité : les îlots passent
+  // à ~7-8 cellules — la place de rangées entières d'immeubles identiques.
+  // ⚠ Le treillis est plafonné à +2 (pas 6) : HOUSE_ROAD_RADIUS = 4 doit
+  // continuer de couvrir l'intérieur des îlots (6/2 = 3 ≤ 4), sinon le cœur
+  // des superblocks refuserait les maisons. Avant la bande 7 : zéro changement.
+  // Molette : globalThis.__superMesh (défaut +2 ; 0 = trame historique) —
+  // recompute nécessaire (__cityRecompute), c'est du layout.
+  const superMesh = (counts.eraBand >= 7) ? (globalThis.__superMesh ?? 2) : 0;
 
   // ── Squelette identitaire vs échafaudage (archétypes organiques) ────────────
   // Deux natures de cellules pour scattered/crossroads/linear :
@@ -282,7 +295,7 @@ export function generateRoadsGraph({
     runLineWide("h", core.y, core.x, mainRank);
     for (const a of plan.anchors) {
       staircase(core.x, core.y, a.gx, a.gy, a.band >= 3 ? "avenue" : "secondary", "dt:" + a.label);
-      localGrid(Math.round(a.gx), Math.round(a.gy), Math.round(a.r + 1), 3, "secondary", "dt:" + a.label);
+      localGrid(Math.round(a.gx), Math.round(a.gy), Math.round(a.r + 1), 3 + superMesh, "secondary", "dt:" + a.label);
     }
     const rng = rngFrom(seed, "districts-extra");
     for (let ri = 1; ri <= Math.min(3, counts.infraRings); ri += 1)
@@ -291,7 +304,7 @@ export function generateRoadsGraph({
     const rng = rngFrom(seed, "capital");
     // Espacement ÉLARGI + moins de lanes + décalage SYMÉTRIQUE : évite les paquets de
     // routes serrées qui se soudaient en grands aplats gris (cf. plafond roadMedian).
-    const spacing = A === "megalopolis" ? 5 : 6;
+    const spacing = (A === "megalopolis" ? 5 : 6) + superMesh;
     runLineWide("h", core.y, core.x, mainRank);
     bridgeCrossing(mainRank);
     runLineWide("v", core.x, core.y, mainRank);
@@ -335,7 +348,7 @@ export function generateRoadsGraph({
   const permSize = (counts.houses || 0) + (counts.engineHomesRaw || 0);
   if (skeleton && permSize > 150) {
     const rngP = rngFrom(seed, "perm");
-    const spacing = 4;
+    const spacing = 4 + Math.min(2, superMesh);   // plafonné : cf. superMesh (HOUSE_ROAD_RADIUS)
     const off = Math.floor(rngP() * spacing);
     for (let gy = off; gy < N; gy += spacing) runLine("h", gy, core.x, "path");
     for (let gx = off; gx < N; gx += spacing) runLine("v", gx, core.y, "path");

@@ -44,9 +44,18 @@ const HOUSE_FOOTPRINT = {
   manor: [2, 2],                  // grande demeure (sprite ~1,3 tuile de large) : réserve son lot pour garder sa masse sans déborder
   tenement: [1, 2], tower: [1, 2],
   megablock: [2, 2], arcologyhome: [2, 2],
-  supertower: [2, 2]              // super-tour B3 : rare (cf. SUPER_SLOTS), ~11 tuiles de haut
+  supertower: [2, 2]              // super-tour B3 : rare (cf. SUPER_SLOTS), la plus haute du bâti
 };
-export const houseFootprint = (variant) => HOUSE_FOOTPRINT[variant] || [1, 1];
+// EMPREINTES ÉLARGIES aux bandes cosmiques (reprise mégalopole, Raph 2026-08-03 :
+// « les tours âge cosmique de plusieurs tuiles de large ») : la tour cesse d'être
+// une aiguille d'une tuile pour devenir un monolithe 2×2, la Tour-monde un
+// colosse 3×3. ⚠ L'ART DOIT SUIVRE : l'échelle de dessin dépend de l'empreinte
+// (pixelHouseGeom : unit = w/spanX) — un sprite cousu pour 1×2 dessiné sur 2×2
+// RAPETISSE d'un tiers. Les sprites tower-cosmic/supertower-cosmic sont générés
+// pour CES empreintes (contenu ≤ 95 px / ≤ 142 px). Avant la bande 7, rien ne bouge.
+const HOUSE_FOOTPRINT_COSMIC = { tower: [2, 2], supertower: [3, 3] };
+export const houseFootprint = (variant, eraBand = 0) =>
+  (eraBand >= 7 && HOUSE_FOOTPRINT_COSMIC[variant]) || HOUSE_FOOTPRINT[variant] || [1, 1];
 
 // Affinité catégorie ↔ type de quartier : un bonus de placement quand la
 // cellule est dans le rayon d'une ancre du bon kind.
@@ -247,7 +256,8 @@ export function createBuildingPlacer({
 export function placeCategorySlotted(category, count, ctx) {
   const {
     ordered, store, live, cx, cy, N, cycle,
-    cellFree, chooseVariant, quarterKindAt, pushTile, clamp
+    cellFree, chooseVariant, quarterKindAt, pushTile, clamp,
+    eraBand = 0
   } = ctx;
   const slotKey = (i) => cycle + ":dec_" + category + ":" + i;
   let placed = 0;
@@ -258,7 +268,7 @@ export function placeCategorySlotted(category, count, ctx) {
     const variant = chooseVariant(category, i, cell);
     // Empreinte multi-tuiles des grands bâtiments : refuse la pose si le rectangle
     // complet ne tient pas (cellFree est span-aware côté runtime) → refit ailleurs.
-    const [spanX, spanY] = houseFootprint(variant);
+    const [spanX, spanY] = houseFootprint(variant, eraBand);
     if ((spanX > 1 || spanY > 1) && !cellFree(cell.gx, cell.gy, spanX, spanY)) return false;
     const dx = cell.gx - cx, dy = cell.gy - cy;
     pushTile({

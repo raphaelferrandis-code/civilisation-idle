@@ -2615,6 +2615,7 @@ function computeCityLayout(s) {
       ordered: placer.orderedList(category),
       store: slotStore, live: liveSlotKeys,
       cx, cy, N, cycle: s.cycles || 0,
+      eraBand: c.eraBand | 0,
       cellFree: decCellFree,
       chooseVariant: placer.chooseVariant,
       quarterKindAt: placer.quarterKindAt,
