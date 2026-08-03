@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 
 import { ROAD_N, ROAD_E, ROAD_S, ROAD_W, computeTerrePleinSegments } from "../layout.js";
 
-// Terre-plein des boulevards : deux voies EXACTEMENT collées (2 de large) → un
-// segment sur la couture, en runs continus (≥3), interrompu aux intersections
-// (le couloir y devient « plus large que 2 »), jamais sur pont ni place.
+// Terre-plein des boulevards : deux voies de rang MAIN exactement collées
+// (2 de large — le seul rang tracé en double par runLineWide) → un segment sur
+// la couture, en runs continus (≥3), interrompu aux intersections (le couloir
+// y devient « plus large que 2 »), jamais sur pont ni place, et JAMAIS sur deux
+// dessertes collées par accident (le refuge est le mobilier des grands axes).
 
 const V = ROAD_N | ROAD_S;
 const H = ROAD_E | ROAD_W;
@@ -14,7 +16,7 @@ function makeRoadMap(cells) {
   for (const c of cells) {
     roadMap.set(c.gx + "," + c.gy, {
       gx: c.gx, gy: c.gy, mask: c.mask,
-      rank: c.rank || "secondary",
+      rank: c.rank || "main",           // les fixtures sont des boulevards sauf mention
       roadSurface: c.surface || "road",
     });
   }
@@ -44,6 +46,14 @@ describe("computeTerrePleinSegments — couture des voies collées", () => {
     expect(computeTerrePleinSegments(rm, 20)).toEqual([]);
   });
 
+  it("deux dessertes SECONDARY collées par accident → rien (réservé au rang main)", () => {
+    const rm = makeRoadMap(lanes([5, 6], [2, 3, 4, 5, 6, 7, 8], { rank: "secondary" }));
+    expect(computeTerrePleinSegments(rm, 20)).toEqual([]);
+    // Une seule des deux voies en main ne suffit pas non plus.
+    const mixed = [...lanes([5], [2, 3, 4, 5, 6], { rank: "main" }), ...lanes([6], [2, 3, 4, 5, 6], { rank: "secondary" })];
+    expect(computeTerrePleinSegments(makeRoadMap(mixed), 20)).toEqual([]);
+  });
+
   it("une intersection coupe le ruban en deux runs propres", () => {
     // Boulevard vertical x=5|6 (y 2..8) traversé par une rue horizontale en y=5.
     const cells = lanes([5, 6], [2, 3, 4, 5, 6, 7, 8]);
@@ -52,6 +62,19 @@ describe("computeTerrePleinSegments — couture des voies collées", () => {
     expect(segs).toEqual([
       { axis: "v", x: 5, y0: 2, y1: 4 },
       { axis: "v", x: 5, y0: 6, y1: 8 },
+    ]);
+  });
+
+  it("couloir qui se décale d'une colonne → priorité au long, le voisin est tronqué", () => {
+    // Boulevard 5|6 (y 2..8) qui se décale en 6|7 (y 9..12) : deux coutures
+    // ADJACENTES aboutées en diagonale — à l'écran leurs caps se chevauchaient
+    // (« pourquoi deux qui se superposent plutôt qu'un long ? »). Le plus long
+    // garde sa place ; le court est tronqué d'une cellule de respiration.
+    const cells = [...lanes([5, 6], [2, 3, 4, 5, 6, 7, 8]), ...lanes([6, 7], [9, 10, 11, 12])];
+    const segs = computeTerrePleinSegments(makeRoadMap(cells), 20);
+    expect(segs).toEqual([
+      { axis: "v", x: 5, y0: 2, y1: 8 },
+      { axis: "v", x: 6, y0: 10, y1: 12 },
     ]);
   });
 

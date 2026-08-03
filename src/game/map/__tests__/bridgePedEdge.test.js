@@ -16,7 +16,9 @@ const COL = 5;
 const BRIDGE_YS = new Set([5, 6, 7]);          // cellules-pont
 const NEAR_YS = new Set([4, 5, 6, 7, 8]);      // pont + atterrissages (± 1 cellule)
 const FULL_EDGE = TILE * 0.42;                 // trottoir normal
-const BRIDGE_EDGE = TILE * 0.16;               // resserré sur le tablier
+// 0.09 depuis le pont SPRITE (guirlandes aux bords — retour Raph) ; 0.16 du
+// temps du tablier procédural nu.
+const BRIDGE_EDGE = TILE * 0.09;               // resserré sur le tablier
 
 function setupCorridor() {
   CM.TILE = TILE;

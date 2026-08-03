@@ -39,7 +39,7 @@ import {
 } from '../lightLayer.js';
 import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune, quayGapRuns } from '../renderWorld.js';
 import { drawPixelBridges } from '../pixelBridge.js';
-import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, isoBridge3dFlag } from './isoBridge.js';
+import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, bridgeLiftScreen, isoBridge3dFlag } from './isoBridge.js';
 import {
   updateCitizens, updateVehicles, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso,
   drawVehicleHeadlights, drawCitizenThoughts,
@@ -2746,35 +2746,164 @@ function drawIsoGround() {
     ctx.globalAlpha = 1;
   }
   if (PR) PR.allees = performance.now() - tAl;
-  // Terre-plein PLANTÉ des boulevards 2-cellules (couture L.terrePlein) : bande
-  // de gazon centrée sur la couture + touffes sombres espacées. Statique → dans
-  // le bake. (Le vrai pixel-art planté du legacy viendra avec l'art Phase 5.)
-  // Quand les SEGMENTS plantés PixelLab sont décodés, la bande gazon + touffes
-  // du bake est SAUTÉE (elle restait visible sous/à côté de l'art — retour Raph).
-  // Gazon procédural sauté dès que les pièces 3-slice d'une orientation sont là
-  // (le sprite porte sa propre base) — vaut par orientation, mais on coupe la
-  // bande dès que l'UNE est prête (les segments de l'autre gardent le repli buisson).
+  // Terre-plein PLANTÉ des boulevards 2-cellules (couture L.terrePlein), façon
+  // PLACE : le bake ne porte que le SOL — capsule d'herbe à bouts ronds (prolongée
+  // de MEDIAN_TUNE.ext dans les carrefours), ombre portée bas-droite (lumière
+  // haut-gauche), liseré de pierre, touffes et fleurs. Les BUISSONS (relief) sont
+  // des items du peintre par-dessus, cf. drawIsoLive. La bande sprite 3-slice a
+  // été RETIRÉE (« rendu étiré, peu de relief », Raph 2026-08-03).
   const tMd = PR && performance.now();
-  const medUp = isoArt('median-se-mid').ready || isoArt('median-sw-mid').ready;
-  const tp = medUp ? null : L.terrePlein;
+  const tp = L.terrePlein;
   if (tp && tp.length) {
-    const wtp = T * 0.2;
+    const wtp = T * 0.26;                        // demi-largeur monde de la capsule (< refuge agents ±0.34)
+    const ext = MEDIAN_TUNE.ext * T;
+    // Trace la capsule en MONDE (bouts = demi-cercles échantillonnés) : projetée
+    // par worldToScreen, elle s'écrase naturellement en rondelle iso au sol.
+    const capsulePath = (ax, ay, bx, by, w) => {
+      const dl = Math.hypot(bx - ax, by - ay) || 1;
+      const ux = (bx - ax) / dl, uy = (by - ay) / dl, pxw = -uy, pyw = ux;
+      ctx.beginPath();
+      const N = 7;
+      for (let i = 0; i <= N; i += 1) {          // bout A : +perp → −axe → −perp
+        const th = Math.PI * (i / N);
+        const q = worldToScreen(ax + (pxw * Math.cos(th) - ux * Math.sin(th)) * w, ay + (pyw * Math.cos(th) - uy * Math.sin(th)) * w);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      for (let i = 0; i <= N; i += 1) {          // bout B : −perp → +axe → +perp
+        const th = Math.PI * (i / N);
+        const q = worldToScreen(bx + (-pxw * Math.cos(th) + ux * Math.sin(th)) * w, by + (-pyw * Math.cos(th) + uy * Math.sin(th)) * w);
+        ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    };
     for (const seg of tp) {
-      ctx.fillStyle = rgb([96, 118, 66], 1);
-      if (seg.axis === 'h') fillWorldQuad(ctx, seg.x0 * T, (seg.y + 1) * T - wtp, (seg.x1 + 1) * T, (seg.y + 1) * T + wtp);
-      else fillWorldQuad(ctx, (seg.x + 1) * T - wtp, seg.y0 * T, (seg.x + 1) * T + wtp, (seg.y1 + 1) * T);
-      ctx.fillStyle = 'rgba(58,82,44,0.9)';
-      if (seg.axis === 'h') {
-        const sy = (seg.y + 1) * T;
-        for (let x = seg.x0 + 0.5; x <= seg.x1 + 0.5; x += 1.25) {
-          const q = worldToScreen(x * T, sy);
-          ctx.beginPath(); ctx.ellipse(q.x, q.y, Math.max(1, z * 2.6), Math.max(1, z * 1.4), 0, 0, Math.PI * 2); ctx.fill();
+      let ax, ay, bx, by;
+      if (seg.axis === 'h') { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
+      else { ax = (seg.x + 1) * T; ay = seg.y0 * T - ext; bx = ax; by = (seg.y1 + 1) * T + ext; }
+      // Ombre portée : même capsule décalée bas-droite écran, SOUS le gazon.
+      ctx.save();
+      ctx.translate(z * 1.4, z * 1.0);
+      capsulePath(ax, ay, bx, by, wtp);
+      ctx.fillStyle = 'rgba(18,24,12,0.22)';
+      ctx.fill();
+      ctx.restore();
+      capsulePath(ax, ay, bx, by, wtp);
+      // Fond uni : REPLI tant que la texture décode, et bouche-trou sous ses
+      // pixels de bord. En saison verte : herbe SAISONNIÈRE éclaircie d'un cran
+      // (gazon municipal plus frais que le pré). En HIVER : blanc neige — la
+      // ville entière est enneigée (tuiles d'herbe hiver), un gazon resté vert
+      // jurait au milieu de la neige (retour Raph « l'hiver ne va pas du tout »).
+      const winterTP = CM.season === WINTER;
+      const lawn = winterTP
+        ? [224, 232, 236]
+        : [Math.min(255, SEASON_GRASS[0] + 6), Math.min(255, SEASON_GRASS[1] + 12), Math.max(0, SEASON_GRASS[2] - 2)];
+      ctx.fillStyle = rgb(lawn, 1);
+      ctx.fill();
+      // GAZON PixelLab (`median-lawn[-winter]`, tuile vue du dessus — l'hiver est
+      // une texture de NEIGE piquée de brins) posé en PATTERN écrasé 2:1 — la
+      // perspective du sol iso, comme les tuiles losange — et ANCRÉ AU MONDE
+      // (origine = worldToScreen(0,0)) : la texture ne « nage » pas au pan, une
+      // répétition couvre une tuile. Même contrat que blitIsoTileKey (la saison
+      // en place est gardée tant que la tuile de l'autre décode).
+      const lawnArt = isoArt(winterTP ? 'median-lawn-winter' : 'median-lawn');
+      let lawnTex = false;
+      if (lawnArt.ready) {
+        const pat = ctx.createPattern(lawnArt.img, 'repeat');
+        if (pat) {
+          const s = (T * z) / (lawnArt.img.naturalWidth || 64);
+          const o = worldToScreen(0, 0);
+          if (pat.setTransform) pat.setTransform(new DOMMatrix([s, 0, 0, s * 0.5, o.x, o.y]));
+          capsulePath(ax, ay, bx, by, wtp);
+          ctx.fillStyle = pat;
+          ctx.fill();
+          lawnTex = true;
         }
-      } else {
-        const sx = (seg.x + 1) * T;
-        for (let y = seg.y0 + 0.5; y <= seg.y1 + 0.5; y += 1.25) {
-          const q = worldToScreen(sx, y * T);
-          ctx.beginPath(); ctx.ellipse(q.x, q.y, Math.max(1, z * 2.6), Math.max(1, z * 1.4), 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(198,188,154,0.95)'; // liseré pierre (margelle fine)
+      ctx.lineWidth = Math.max(1, z * 0.9);
+      ctx.stroke();
+      const dl = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / dl, uy = (by - ay) / dl;
+      const pxw = -uy, pyw = ux;
+      const pu = Math.max(1, Math.round(T * z * 0.028));   // pixel d'art (cf. drawGrassDetail)
+      const segKey = seg.axis + ':' + (seg.axis === 'h' ? seg.y + ':' + seg.x0 : seg.x + ':' + seg.y0);
+      // MOUCHETIS de tonte : REPLI du gazon PixelLab (aplat + points 2 tons)
+      // tant que la texture n'est pas décodée — elle porte son propre grain.
+      if (!lawnTex) {
+        const mowL = rgb([Math.min(255, lawn[0] + 15), Math.min(255, lawn[1] + 15), Math.min(255, lawn[2] + 10)], 1);
+        const mowD = rgb([Math.max(0, lawn[0] - 13), Math.max(0, lawn[1] - 11), Math.max(0, lawn[2] - 8)], 1);
+        for (let t = wtp * 0.5; t <= dl - wtp * 0.5; t += T * 0.115) {
+          for (let kRow = -2; kRow <= 2; kRow += 1) {
+            const h = cmHash('tpm:' + segKey + ':' + Math.round(t * 100) + ':' + kRow);
+            if ((h & 255) / 255 > 0.52) continue;
+            const off = kRow * wtp * 0.36 + (((h >>> 9) % 64) / 64 - 0.5) * wtp * 0.3;
+            const jt = (((h >>> 16) % 64) / 64 - 0.5) * T * 0.09;
+            const q = worldToScreen(ax + ux * (t + jt) + pxw * off, ay + uy * (t + jt) + pyw * off);
+            ctx.fillStyle = (h & 1) ? mowL : mowD;
+            ctx.fillRect(Math.round(q.x), Math.round(q.y), pu, pu);
+          }
+        }
+      }
+      // PARTERRES DE FLEURS (slots pairs, cf. medianSlots — les impairs portent
+      // les buissons du peintre) : sprite PixelLab `flowerbed-1..4` (bac de
+      // terre + fleurs denses, robe par hash — planche 1e1aedaa découpée par
+      // scripts/sliceFlowerBeds.mjs) ; REPLI procédural (bordure + feuillage +
+      // tapis de points) tant que le PNG décode — le bake se recuit tout seul
+      // au décodage (invalidation douce d'isoArt).
+      for (const sl of medianSlots(seg, T)) {
+        if (sl.kind !== 'bed') continue;
+        // HIVER : pas de bacs du tout — seuls les buissons enneigés rendent bien
+        // (retour Raph ; les bacs de neige recolorés ont été retirés). Le peintre
+        // pose alors un buisson sur CES slots aussi, la bande garde son rythme.
+        if (winterTP) continue;
+        const br = T * (0.18 + ((sl.h >>> 3) % 40) / 730);           // rayon 0.18-0.235 tuile
+        const bedArt = isoArt('flowerbed-' + (1 + ((sl.h >>> 8) % 4)));
+        if (bedArt.ready) {
+          // Largeur écran EXACTE de l'ellipse du disque monde (2√2·c·br, c
+          // mesuré par projection) ; le bac « pose » son ovale autour du centre.
+          const qc = worldToScreen(sl.wx, sl.wy);
+          const cbr = worldToScreen(sl.wx + br, sl.wy).x - qc.x;
+          const dw = 2 * Math.SQRT2 * cbr * 1.12;                    // léger bonus : le PNG a sa marge
+          const iw = bedArt.img.naturalWidth || 1, ih = bedArt.img.naturalHeight || 1;
+          // Été et hiver partagent la MÊME géométrie 3/4 (les bacs d'hiver sont
+          // les bacs d'été recolorés par scripts/recolorWinterBeds.mjs — fleurs
+          // → paquets de neige à modelé conservé) : ratio naturel du PNG.
+          const dh = dw * (ih / iw);
+          const prevSm = ctx.imageSmoothingEnabled;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(bedArt.img, Math.round(qc.x - dw / 2), Math.round(qc.y + dw * 0.25 - dh), dw, dh);
+          ctx.imageSmoothingEnabled = prevSm;
+          continue;
+        }
+        const ring = (rr) => {
+          ctx.beginPath();
+          for (let i = 0; i <= 14; i += 1) {
+            const th = (i / 14) * Math.PI * 2;
+            const q = worldToScreen(sl.wx + Math.cos(th) * rr, sl.wy + Math.sin(th) * rr);
+            if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+          }
+          ctx.closePath();
+        };
+        ring(br);
+        ctx.fillStyle = 'rgb(88,68,50)';                              // terre de plate-bande
+        ctx.fill();
+        ring(br * 0.84);
+        ctx.fillStyle = 'rgb(58,84,44)';                              // feuillage du massif
+        ctx.fill();
+        const pal = BED_PALETTES[(sl.h >>> 8) % BED_PALETTES.length];
+        const step = T * 0.048, rIn = br * 0.8;
+        for (let dxw = -rIn; dxw <= rIn; dxw += step) {
+          for (let dyw = -rIn; dyw <= rIn; dyw += step) {
+            if (dxw * dxw + dyw * dyw > rIn * rIn) continue;
+            const h4 = cmHash('tpb:' + segKey + ':' + Math.round(sl.wx + dxw) + ':' + Math.round(sl.wy + dyw));
+            if ((h4 & 255) / 255 > 0.80) continue;                    // trouées de feuillage
+            const jx = (((h4 >>> 8) % 32) / 32 - 0.5) * step, jy = (((h4 >>> 13) % 32) / 32 - 0.5) * step;
+            const q = worldToScreen(sl.wx + dxw + jx, sl.wy + dyw + jy);
+            // dominante ×2, accent ×1 → un massif « à robe », pas des confettis
+            const ci = (h4 >>> 18) % 4;
+            ctx.fillStyle = rgb(pal[ci === 3 ? 2 : ci >> 1], 1);
+            const fs = ((h4 >>> 22) % 10) < 3 ? pu + 1 : pu;          // quelques grosses fleurs
+            ctx.fillRect(Math.round(q.x - fs / 2), Math.round(q.y - fs / 2), fs, fs);
+          }
         }
       }
     }
@@ -5706,9 +5835,41 @@ function isoLamps(L, band) {
 // peintre l'AVALAIT (116 mâts sur 339 en ville band 4). On aligne sa clé juste
 // devant ce bâtiment. Côté 0.86 le bâtiment mitoyen est au sud/est du mât → le mât
 // est derrière lui, l'ordre naturel wx+wy est déjà le bon.
+// Mât posé sur la COUTURE d'un terre-plein : il partage la bande avec les slots
+// plantés (medianSlots). S'il tombe à moins d'une demi-tuile d'un bac/buisson,
+// on le GLISSE le long de l'axe au MILIEU de l'intervalle libre le plus proche
+// (à 0.625 T des deux slots voisins) — « les lampadaires dessus j'aime bien
+// mais il ne faut pas que ça chevauche les plantes » (Raph 2026-08-03).
+// `w` = coordonnée monde LE LONG de l'axe du segment (wx pour h, wy pour v).
+function lampSlideClear(seg, T, w) {
+  const ext = MEDIAN_TUNE.ext * T;
+  const horiz = seg.axis === 'h';
+  const a = (horiz ? seg.x0 : seg.y0) * T - ext;
+  const len = ((horiz ? seg.x1 - seg.x0 : seg.y1 - seg.y0) + 1) * T + 2 * ext;
+  const P = T * 1.25, margin = T * 0.62;
+  const t = w - a;
+  const nSlots = Math.floor((len - 2 * margin) / P) + 1;
+  if (nSlots <= 0) return w;
+  const i = Math.max(0, Math.min(nSlots - 1, Math.round((t - margin) / P)));
+  const ts = margin + i * P;
+  if (Math.abs(t - ts) >= T * 0.5) return w;    // assez loin du slot : rien à faire
+  const cand = [];
+  if (ts - P / 2 >= T * 0.25) cand.push(ts - P / 2);
+  if (ts + P / 2 <= len - T * 0.25) cand.push(ts + P / 2);
+  if (!cand.length) return w;
+  cand.sort((u, v) => Math.abs(u - t) - Math.abs(v - t));
+  return a + cand[0];
+}
 export function computeIsoLamps(L, T) {
   const lamps = [];
   const solid = isoSolidSouthCorners(L, T);
+  // Index des coutures plantées par rangée/colonne, pour repérer en O(1) les
+  // mâts qui se plantent SUR une bande de terre-plein.
+  const tpH = new Map(), tpV = new Map();
+  for (const sg of (L.terrePlein || [])) {
+    if (sg.axis === 'h') { if (!tpH.has(sg.y)) tpH.set(sg.y, []); tpH.get(sg.y).push(sg); }
+    else { if (!tpV.has(sg.x)) tpV.set(sg.x, []); tpV.get(sg.x).push(sg); }
+  }
   for (const c of L.roadMap.values()) {
     if (c.roadSurface === 'bridge' || c.rank === 'plaza') continue;
     const mask = c.mask | 0;
@@ -5733,8 +5894,26 @@ export function computeIsoLamps(L, T) {
     // route » (Raph) ; CURB petit recule le socle ET les bras au sec.
     const CURB = LAMP_TUNE.curb;
     const side = (cmHash(thH ? 'lmp:h:' + c.gy : 'lmp:v:' + c.gx) & 1) ? 1 - CURB : CURB;
-    const wx = (thH ? c.gx + 0.5 : c.gx + side) * T;
-    const wy = (thH ? c.gy + side : c.gy + 0.5) * T;
+    let wx = (thH ? c.gx + 0.5 : c.gx + side) * T;
+    let wy = (thH ? c.gy + side : c.gy + 0.5) * T;
+    // Ce côté de trottoir est-il la COUTURE d'un terre-plein ? (side ~1 → couture
+    // au sud/est de la cellule = seg à c.gy/c.gx ; side ~0 → couture au nord/ouest
+    // = seg à c.gy-1/c.gx-1.) Si oui, glisser le mât entre les plantes.
+    if (thH) {
+      const cy = side > 0.5 ? c.gy : c.gy - 1;
+      for (const sg of (tpH.get(cy) || [])) {
+        if (c.gx < sg.x0 || c.gx > sg.x1) continue;
+        wx = lampSlideClear(sg, T, wx);
+        break;
+      }
+    } else {
+      const cx = side > 0.5 ? c.gx : c.gx - 1;
+      for (const sg of (tpV.get(cx) || [])) {
+        if (c.gy < sg.y0 || c.gy > sg.y1) continue;
+        wy = lampSlideClear(sg, T, wy);
+        break;
+      }
+    }
     let d = wx + wy;
     if (side < 0.5) {
       const bd = solid.get(thH ? c.gx + ':' + (c.gy - 1) : (c.gx - 1) + ':' + c.gy);
@@ -5821,18 +6000,50 @@ function lampFootMetrics(e) {
   e._foot = m;
   return m;
 }
-// Terre-plein : remontée de la bande au-dessus de la couture des deux voies, en
-// fraction de sa largeur (0 = à cheval pile). 0.30 la faisait flotter (« décalée
-// vers le haut », Raph) : le sprite est déjà centré. Molette : __medianLift(0.1).
-// ext = prolongement des bouts (fraction de tuile MONDE de chaque côté) : les
-// segments terrePlein s'arrêtent au bord de la cellule-carrefour, laissant un
-// vide de chaussée nue avant la transversale (« il manque une légère longueur »,
-// Raph) — la bande mord un peu sur la cellule d'intersection sans la traverser.
-const MEDIAN_TUNE = { lift: 0.06, ext: 0.32 };
+// Terre-plein « comme la place » (2026-08-03, après rejet de la bande sprite
+// 3-slice « étirée, peu de relief ») : le SOL est une capsule d'herbe bakée
+// (voir drawIsoGround), les buissons du jeu se posent PAR-DESSUS au peintre.
+// ext = ajustement des bouts (fraction de tuile MONDE de chaque côté). Depuis la
+// capsule à bouts RONDS, l'arrondi (wtp 0.26) dépasse déjà du segment : l'ancien
+// prolongement 0.32 hérité des bouts droits 3-slice envoyait la pointe à 0.58 T
+// dans la cellule voisine — elle mordait trottoir et pavé (« pourquoi dépasse-t-il
+// sur le sol ? », Raph). ext NÉGATIF = léger retrait : pointe à ~0.21 T, sur le
+// trottoir de la transversale, jamais sur sa chaussée ni sur le sol.
+const MEDIAN_TUNE = { ext: -0.05 };
 if (typeof window !== 'undefined') {
-  window.__medianLift = (v) => { if (typeof v === 'number') MEDIAN_TUNE.lift = v; return MEDIAN_TUNE.lift; };
   window.__medianExt = (v) => { if (typeof v === 'number') MEDIAN_TUNE.ext = v; return MEDIAN_TUNE.ext; };
 }
+// Palettes de PARTERRES du terre-plein (réfs municipales de Raph 2026-08-03) :
+// massifs à DOMINANTE (jaune/orange, rouge/rose, lavande, mix) + blanc d'accent,
+// tirés par hash de slot — deux parterres voisins n'ont pas la même robe.
+const BED_PALETTES = [
+  [[244, 216, 102], [232, 168, 72], [240, 242, 228]],   // jaune / orange
+  [[224, 104, 96], [236, 152, 178], [240, 242, 228]],   // rouge / rose
+  [[184, 148, 216], [150, 132, 220], [240, 242, 228]],  // lavande / violet
+  [[244, 216, 102], [224, 104, 96], [184, 148, 216]],   // mix vif
+];
+// Slots décoratifs du terre-plein : PARTERRE (dessiné au bake) et BUISSON (item
+// du peintre) alternés le long de la couture, période fixe. Les deux passes
+// lisent CETTE liste — même géométrie, même hash, zéro chevauchement.
+function medianSlots(seg, T) {
+  const ext = MEDIAN_TUNE.ext * T;
+  let ax, ay, ux, uy, len;
+  if (seg.axis === 'h') {
+    ax = seg.x0 * T - ext; ay = (seg.y + 1) * T;
+    ux = 1; uy = 0; len = (seg.x1 + 1) * T + ext - ax;
+  } else {
+    ax = (seg.x + 1) * T; ay = seg.y0 * T - ext;
+    ux = 0; uy = 1; len = (seg.y1 + 1) * T + ext - ay;
+  }
+  const out = [];
+  const P = T * 1.25, margin = T * 0.62;    // 1er slot passé l'arrondi du bout
+  const key = seg.axis + ':' + (seg.axis === 'h' ? seg.y + ':' + seg.x0 : seg.x + ':' + seg.y0);
+  for (let t = margin, i = 0; t <= len - margin; t += P, i += 1) {
+    out.push({ kind: (i & 1) ? 'bush' : 'bed', wx: ax + ux * t, wy: ay + uy * t, h: cmHash('tps:' + key + ':' + i) });
+  }
+  return out;
+}
+if (typeof window !== 'undefined') window.__medianSlots = medianSlots;   // sonde dev
 // ── FLAMMES & LUMIÈRES DES LAMPADAIRES (animées) ─────────────────────────────
 // Chaque ère a sa/ses source(s) lumineuse(s), repérées en FRACTION du canvas du
 // sprite (fx depuis la gauche du sprite dessiné, fy depuis le haut) — mesurées sur
@@ -6515,6 +6726,8 @@ function drawIsoVehicle(ctx, v, now, z) {
   const wx = v.x + lo.x, wy = v.y + lo.y;
   const p = worldToScreen(wx, wy);
   if (p.x < -s * 2 || p.y < -s * 2 || p.x > CM.cw + s * 2 || p.y > CM.ch + s * 2) return;
+  // Dos d'âne du pont sprite : attelages et porteurs montent avec le tablier.
+  p.y -= bridgeLiftScreen(wx, wy);
   if (v.type === 'basket') {                       // porteurs de panier (ères anciennes)
     // Le porteur marche sur une route, donc toujours en biais à l'écran : vue
     // DIAGONALE si sa bande est livrée (même contrat que les habitants d'ère,
@@ -6626,6 +6839,8 @@ function drawIsoRioter(ctx, p, now, z) {
   const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
   const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
   const sp = worldToScreen(p.x + laneX, p.y + laneY);
+  // Dos d'âne du pont sprite : l'émeute aussi passe par-dessus, pas au travers.
+  sp.y -= bridgeLiftScreen(p.x + laneX, p.y + laneY);
   const wob = Math.sin(now / 170 + (p.phase || 0)) * 0.8;
   const sx = sp.x, groundY = sp.y + wob * z;
   if (sx < -24 || groundY < -24 || sx > CM.cw + 24 || groundY > CM.ch + 24) return;
@@ -7296,11 +7511,17 @@ function isoUnitFiches() {
   return m;
 }
 // Clé peintre d'une unité au sol dont les PIEDS (contact sol visuel) sont en (wx, wy).
-export function isoUnitDepth(wx, wy) {
+// isoUnitDepthEx renvoie AUSSI `hidden` : vrai quand un occulteur franc au sud plafonne
+// l'unité (elle sera dessinée AVANT lui, donc recouverte par son sprite s'il est assez
+// haut) — c'est le signal de la passe SILHOUETTE FANTÔME. Objet de sortie PARTAGÉ
+// (zéro alloc, ~600 appels/frame) : à consommer immédiatement, ne pas retenir.
+const _depthOut = { d: 0, hidden: false };
+export function isoUnitDepthEx(wx, wy) {
   const d = wx + wy;
-  if (!isoUnitDepthFlag.on) return d;
+  _depthOut.d = d; _depthOut.hidden = false;
+  if (!isoUnitDepthFlag.on) return _depthOut;
   const F = isoUnitFiches();
-  if (!F) return d;
+  if (!F) return _depthOut;
   const T = CM.TILE, gx = Math.floor(wx / T), gy = Math.floor(wy / T);
   const sxScr = wx - wy;                             // colonne écran (px monde)
   let lift = d, cap = Infinity;
@@ -7322,7 +7543,33 @@ export function isoUnitDepth(wx, wy) {
     }
   }
   const out = lift < cap ? lift : cap;
-  return out > d ? out : d;
+  _depthOut.d = out > d ? out : d;
+  _depthOut.hidden = cap < Infinity;
+  return _depthOut;
+}
+export function isoUnitDepth(wx, wy) {
+  return isoUnitDepthEx(wx, wy).d;
+}
+
+// Dessin d'UN habitant du tri peintre (partagé entre la passe normale et la passe
+// silhouette fantôme — même rendu, seul globalAlpha diffère).
+function drawIsoCitizenItem(ctx, p, now, z) {
+  const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  // Dos d'âne du pont sprite : le piéton suit le tablier (rampes + plateau).
+  sp.y -= bridgeLiftScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  const walking = (p.pauseT || 0) <= 0;
+  // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
+  // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
+  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null)) {
+    drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
+  }
+}
+
+// Silhouettes fantômes : réglage live. __ghost({ on: false }) coupe, __ghost({ alpha: 0.5 })
+// renforce. L'alpha par défaut est volontairement discret — on devine, on ne lit pas.
+const GHOST_TUNE = { on: true, alpha: 0.34 };
+if (typeof window !== 'undefined') {
+  window.__ghost = (o) => { if (o) Object.assign(GHOST_TUNE, o); return { ...GHOST_TUNE }; };
 }
 
 // ── FUMÉE DE CHEMINÉE (habitations) ─────────────────────────────────────────
@@ -7956,45 +8203,31 @@ function drawIsoLive(now) {
       }
     }
   }
-  // TERRE-PLEIN RICHE : UNE bande CONTINUE par segment (kind 'medianRun'), rendue
-  // en 3-SLICE cap/milieu/cap (cf. rendu) — largeur route, vraie longueur, plus
-  // d'empilement. 3 pièces par orientation : median-{se,sw}-{start,mid,end}.
-  // Repli buissons épars tant que les pièces ne sont pas décodées.
+  // TERRE-PLEIN façon PLACE (2026-08-03) : le sol (gazon moucheté + PARTERRES
+  // de fleurs) est dans le BAKE ; ici on ne pose que les BUISSONS par-dessus —
+  // les slots IMPAIRS de medianSlots (les pairs portent les parterres), petits
+  // (r 0.14-0.21, réfs municipales de Raph), légèrement décalés de l'axe, avec
+  // ombre d'ancrage au pied (shadow) — fini les buissons « qui volent ».
   if (!CM.lodActive) {
-    // UNE seule paire de pièces (SE, jugée « nettement plus jolie » par Raph)
-    // sert aux DEUX orientations : le rendu pivote pour rester « dessus en haut »
-    // (flip d'angle θ-180 sur l'axe vertical) — plus de médian à l'envers.
-    const seP = { s: isoArt('median-se-start'), m: isoArt('median-se-mid'), e: isoArt('median-se-end') };
-    const seReady = seP.s.ready && seP.m.ready && seP.e.ready;
     for (const sg of (L.terrePlein || [])) {
       if (sg.axis === 'v') {
         if (sg.x + 1 < b.gx0 - 1 || sg.x + 1 > b.gx1 + 1) continue;
         if (sg.y1 < b.gy0 - 2 || sg.y0 > b.gy1 + 2) continue;
-        const wx = (sg.x + 1) * T;
-        if (seReady) {
-          // APLAT AU SOL : profondeur au coin NORD du segment (− marge : ext,
-          // demi-largeur, relief) et non au centre — sinon la bande se dessinait
-          // PAR-DESSUS piétons/attelages de la moitié nord (même geste que 'field').
-          items.push({ d: depthOf(wx, sg.y0 * T) - T * 1.2, kind: 'medianRun', axis: 'v', wx, y0: sg.y0, y1: sg.y1, pieces: seP });
-        } else {
-          for (let y = sg.y0 + 0.55; y < sg.y1 + 1; y += 1.15) {
-            const jj = ((cmHash('tp:' + sg.x + ':' + Math.round(y * 10)) % 100) / 100);
-            items.push({ d: depthOf(wx, (y + 0.06) * T), kind: 'bush', wx, wy: (y + 0.06) * T, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + sg.x + ':' + Math.round(y * 10)) % ISO_BUSH_VARIANTS) });
-          }
-        }
       } else {
         if (sg.y + 1 < b.gy0 - 1 || sg.y + 1 > b.gy1 + 1) continue;
         if (sg.x1 < b.gx0 - 2 || sg.x0 > b.gx1 + 2) continue;
-        const wy = (sg.y + 1) * T;
-        if (seReady) {
-          // APLAT AU SOL : coin NORD (cf. axe v).
-          items.push({ d: depthOf(sg.x0 * T, wy) - T * 1.2, kind: 'medianRun', axis: 'h', wy, x0: sg.x0, x1: sg.x1, pieces: seP });
-        } else {
-          for (let x = sg.x0 + 0.55; x < sg.x1 + 1; x += 1.15) {
-            const jj = ((cmHash('tp:' + Math.round(x * 10) + ':' + sg.y) % 100) / 100);
-            items.push({ d: depthOf((x + 0.06) * T, wy), kind: 'bush', wx: (x + 0.06) * T, wy, r: 0.24 + jj * 0.1, v: 1 + (cmHash('tv:' + Math.round(x * 10) + ':' + sg.y) % ISO_BUSH_VARIANTS) });
-          }
-        }
+      }
+      // En HIVER, les slots à BAC portent aussi un buisson : les bacs sont
+      // retirés du bake (seuls les buissons enneigés rendent bien, retour Raph)
+      // et la bande garde son rythme plein — un buisson par ~1.25 tuile.
+      const winterBush = CM.season === WINTER;
+      for (const sl of medianSlots(sg, T)) {
+        if (sl.kind !== 'bush' && !winterBush) continue;
+        const po = (((sl.h >>> 5) % 100) / 100 - 0.5) * T * 0.12;   // écart léger à l'axe
+        const wx = sg.axis === 'v' ? sl.wx + po : sl.wx;
+        const wy = sg.axis === 'v' ? sl.wy : sl.wy + po;
+        const jj = ((sl.h >>> 12) % 100) / 100;
+        items.push({ d: depthOf(wx, wy), kind: 'bush', wx, wy, r: 0.14 + jj * 0.07, v: 1 + ((sl.h >>> 9) % ISO_BUSH_VARIANTS), shadow: true });
       }
     }
   }
@@ -8049,7 +8282,7 @@ function drawIsoLive(now) {
       // Cull écran ABSENT jusqu'ici en iso (le legacy l'avait) : jusqu'à 450
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
-      { const it = pushItem(); it.d = isoUnitDepth(pwx, pwy); it.kind = 'cit'; it.p = p; }
+      { const dx = isoUnitDepthEx(pwx, pwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
     // carrosserie est dessinée CENTRÉE sur l'ancre (drawIsoVehicle) : son
@@ -8062,7 +8295,7 @@ function drawIsoLive(now) {
       const lo = vehicleLaneOffset(v, T);
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
       const h = T * 0.30 * (VEH_SIZES[v.type] || 0) * VEH_SCALE;
-      { const it = pushItem(); it.d = isoUnitDepth(v.x + lo.x + h, v.y + lo.y + h); it.kind = 'veh'; it.v = v; }
+      { const dx = isoUnitDepthEx(v.x + lo.x + h, v.y + lo.y + h); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
@@ -8072,7 +8305,7 @@ function drawIsoLive(now) {
     for (const p of CM.riotDraw.pts) {
       const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
       const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
-      items.push({ d: isoUnitDepth(p.x + laneX, p.y + laneY), kind: 'riot', p });
+      { const dx = isoUnitDepthEx(p.x + laneX, p.y + laneY); items.push({ d: dx.d, ghost: dx.hidden, kind: 'riot', p }); }
     }
   }
   fp('vif-collecte');
@@ -8429,59 +8662,6 @@ function drawIsoLive(now) {
     } else if (it.kind === 'wonder') {
       // MERVEILLE au tri peintre : drawWonder gère ancre/cull/érection lui-même.
       drawWonder(it.w, it.wi, now);
-    } else if (it.kind === 'medianRun') {
-      // Bande de terre-plein CONTINUE en 3-SLICE (retour Raph : répéter le sprite
-      // ENTIER empilait ses bouts + son arbre). start (cap) → mid (période) ×N →
-      // end (cap), posés dans un repère PIVOTÉ sur la couture (angle iso réel de
-      // A→B) : le mid tuile sans empilement, largeur = chaussée, longueur de bout
-      // en bout. Anti-couture/anti-trou : un nombre ENTIER de mids remplit pile
-      // la travée, chacun très légèrement étiré (< 1 période, invisible).
-      const P = it.pieces;
-      const ext = MEDIAN_TUNE.ext * T;           // prolonge les bouts vers les carrefours (monde)
-      let A, B;
-      if (it.axis === 'h') { A = worldToScreen(it.x0 * T - ext, it.wy); B = worldToScreen((it.x1 + 1) * T + ext, it.wy); }
-      else { A = worldToScreen(it.wx, it.y0 * T - ext); B = worldToScreen(it.wx, (it.y1 + 1) * T + ext); }
-      // Garder le DESSUS EN HAUT : si la couture « pointe vers la gauche »
-      // (|θ| > 90°, cas de l'axe vertical → bas-gauche), on inverse les deux bouts
-      // pour ramener l'angle dans (−90°, 90°] — petite rotation, plus de médian
-      // à l'envers, éclairage haut-gauche conservé.
-      if (Math.abs(Math.atan2(B.y - A.y, B.x - A.x)) > Math.PI / 2) { const tmp = A; A = B; B = tmp; }
-      const Lpx = Math.hypot(B.x - A.x, B.y - A.y);
-      const th = Math.atan2(B.y - A.y, B.x - A.x);
-      const roadW = T * z * 0.62;               // largeur ≈ chaussée
-      const ph = P.s.img.naturalHeight || 1;
-      const sc = roadW / ph;
-      const wS = (P.s.img.naturalWidth || 1) * sc;
-      const wM = (P.m.img.naturalWidth || 1) * sc;
-      const wE = (P.e.img.naturalWidth || 1) * sc;
-      const lift = roadW * MEDIAN_TUNE.lift;     // léger : la bande reste À CHEVAL sur la couture
-      const prevMS = ctx.imageSmoothingEnabled;
-      ctx.imageSmoothingEnabled = false;
-      ctx.save();
-      ctx.translate(A.x, A.y);
-      ctx.rotate(th);
-      ctx.beginPath();
-      ctx.rect(-1, -roadW * 3, Lpx + 2, roadW * 6);   // borne la LONGUEUR (bouts nets), large en hauteur pour le relief
-      ctx.clip();
-      const put = (art, x, w) => ctx.drawImage(art.img, x, -(art.img.naturalHeight || 1) * sc / 2 - lift, w, (art.img.naturalHeight || 1) * sc);
-      if (Lpx <= wS + wE) {
-        // Filet segments minuscules (caps retaillés ≈ 2×roadW : un run ≥ 3 tuiles
-        // n'entre plus ici) : caps compressés au prorata, JAMAIS superposés —
-        // l'ancien end posé PAR-DESSUS le start plantait sa coupe brute en plein
-        // bout de bande (buisson tranché, sans liseré).
-        const k = Lpx / (wS + wE);
-        put(P.s, 0, wS * k);
-        put(P.e, wS * k, wE * k);
-      } else {
-        put(P.s, 0, wS);
-        const midSpan = Lpx - wS - wE;
-        const nMid = Math.max(1, Math.round(midSpan / wM));
-        const step = midSpan / nMid;             // remplit PILE : chaque mid étiré à `step` (< 1 période d'écart)
-        for (let i = 0; i < nMid; i += 1) put(P.m, wS + i * step, step + 0.6);
-        put(P.e, Lpx - wE, wE);
-      }
-      ctx.restore();
-      ctx.imageSmoothingEnabled = prevMS;
     } else if (it.kind === 'aqSlice') {
       // AQUEDUC 3-SLICE debout (bande CONTINUE start → mid ×N étirés → end,
       // nombre entier de mids = remplit PILE) posée par CISAILLEMENT sur l'axe
@@ -8566,6 +8746,14 @@ function drawIsoLive(now) {
       if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 'tree-' + fv; }
       if (bArt.ready) {
         const hpx = T * z * treeCanvasT(it.r);
+        // Ombre d'ancrage au pied (terre-plein) : sans elle le buisson « vole »
+        // au-dessus du gazon (retour Raph 2026-08-03) — l'île garde son rendu nu.
+        if (it.shadow) {
+          ctx.fillStyle = 'rgba(28,40,22,0.38)';
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y + hpx * 0.01, hpx * 0.30, hpx * 0.115, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         const prevBS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
         const bImg = seasonTree(bArt, bKey) || bArt.img;
@@ -8587,19 +8775,30 @@ function drawIsoLive(now) {
     } else if (it.kind === 'riot') {
       drawIsoRioter(ctx, it.p, now, z);
     } else {
-      const p = it.p;
-      const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
-      const walking = (p.pauseT || 0) <= 0;
-      // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
-      // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
-      if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null)) {
-        drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
-      }
+      drawIsoCitizenItem(ctx, it.p, now, z);
     }
   }
   glCompose();                     // dernière série éventuelle
   if (glOn) {
     globalThis.__glPainterLast = { series: glRuns, sprites: glSprites };
+  }
+  // ── SILHOUETTES FANTÔMES ────────────────────────────────────────────────────
+  // La vie urbaine disparaissait derrière le bâti haut (correct en 3/4, mais on ne
+  // voyait plus vivre la ville — Raph 2026-08-03, « à tous les âges »). Toute unité
+  // marquée `ghost` par isoUnitDepthEx (un occulteur franc au sud la recouvre) est
+  // REDESSINÉE par-dessus le peintre en transparence : on la devine à travers la
+  // façade. AVANT endLightLayer pour qu'elle vive sous la même lumière que la scène.
+  // Molette : __ghost({ on, alpha }) — alpha 0 = coupé.
+  if (GHOST_TUNE.on && GHOST_TUNE.alpha > 0 && !CM.lodActive) {
+    const prevGA = ctx.globalAlpha;
+    ctx.globalAlpha = GHOST_TUNE.alpha;
+    for (const it of items) {
+      if (!it.ghost) continue;
+      if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
+      else if (it.kind === 'veh') drawIsoVehicle(ctx, it.v, now, z);
+      else if (it.kind === 'riot') drawIsoRioter(ctx, it.p, now, z);
+    }
+    ctx.globalAlpha = prevGA;
   }
   endLightLayer();
   ctx.imageSmoothingEnabled = prevSmooth;

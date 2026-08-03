@@ -3,6 +3,7 @@ import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
+import { bridgeLiftScreen } from './iso/isoBridge.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -806,13 +807,16 @@ function citizenChooseNext(p) {
   // PONT : pas de trottoir hors du tablier — à 0.42 tuile le piéton marche dans l'eau.
   // Sur une cellule-pont ET ses cellules d'atterrissage (le lissage lox/loy converge
   // ainsi AVANT d'engager la travée), l'offset est resserré vers l'axe du tablier.
-  // Réglable live : window.__bridgePedEdge (fraction de tuile, défaut 0.16).
+  // Réglable live : window.__bridgePedEdge (fraction de tuile, défaut 0.09 —
+  // 0.16 datait du tablier procédural nu ; sur le pont SPRITE, les guirlandes
+  // du garde-corps mangent les bords et les traverseurs frôlaient les cordes,
+  // retour Raph « ils marchent trop à l'extérieur, recentre-les »).
   const rmB = CM.layout && CM.layout.roadMap;
   const isBridgeCell = (x, y) => { const c = rmB && rmB.get(x + "," + y); return !!(c && c.roadSurface === "bridge"); };
   if (isBridgeCell(p.gx, p.gy)
     || isBridgeCell(p.gx + 1, p.gy) || isBridgeCell(p.gx - 1, p.gy)
     || isBridgeCell(p.gx, p.gy + 1) || isBridgeCell(p.gx, p.gy - 1)) {
-    const bridgeEdge = CM.TILE * ((typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : 0.16);
+    const bridgeEdge = CM.TILE * ((typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : 0.09);
     pedEdge = Math.min(pedEdge, bridgeEdge);
   }
   if (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
@@ -1296,6 +1300,9 @@ function thoughtBubbleBox(ctx, bx, by, r, color) {
 // entre le rendu (ci-dessous) et le hit-test du clic (cityMapRuntime).
 function thoughtBubbleAnchor(p) {
   const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  // Dos d'âne du pont sprite : la bulle suit la tête, qui suit le tablier —
+  // rendu ET hit-test du clic lisent cette ancre (source unique).
+  sp.y -= bridgeLiftScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
   const spec = agentSpecFor(agentSetForBand(band), p.charType || 0) || AGENT_FALLBACK;
   const drawH = CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE;

@@ -1663,24 +1663,32 @@ function computeMedianSegments(roadMap) {
 }
 
 // ── Terre-plein DÉCORABLE des boulevards (rendu pixel) ──────────────────────
-// Deux voies EXACTEMENT collées (2 de large, pas 3+) = boulevard : un terre-plein
-// se glisse sur la COUTURE entre les deux voies, en runs continus (≥ MIN_RUN, sinon
-// miettes). Il s'interrompt naturellement AUX intersections (le croisement rend le
-// couloir « plus large que 2 » → la traversée reste dégagée), et exclut ponts et
-// places. Entité PURE exposée en `L.terrePlein` : le rendu (pixelTerrain) ET toute
-// déco future (fleurs/arbres/lampadaires) itèrent ces segments.
+// Deux voies de rang MAIN exactement collées (2 de large, pas 3+) = boulevard :
+// un terre-plein se glisse sur la COUTURE entre les deux voies, en runs continus
+// (≥ MIN_RUN, sinon miettes). Il s'interrompt naturellement AUX intersections (le
+// croisement rend le couloir « plus large que 2 » → la traversée reste dégagée),
+// exclut ponts et places, et IGNORE les paires d'autres rangs (dessertes collées
+// par accident). Entité PURE exposée en `L.terrePlein` : le rendu (pixelTerrain)
+// ET toute déco future (fleurs/arbres/lampadaires) itèrent ces segments.
 //   { axis:"v", x,  y0, y1 } = couture verticale entre les colonnes x et x+1 ;
 //   { axis:"h", y,  x0, x1 } = couture horizontale entre les rangées y et y+1.
 function computeTerrePleinSegments(roadMap, N) {
   const MIN_RUN = 3;
   const get = (x, y) => roadMap.get(x + "," + y);
   const lane = (c) => !!c && c.roadSurface !== "bridge" && c.rank !== "plaza";
+  // La PAIRE doit être un boulevard VOULU : seul le rang "main" est tracé en
+  // double (runLineWide) — le refuge central est SON mobilier. Sans ce filtre,
+  // deux dessertes collées par accident gagnaient un terre-plein en pleine
+  // ruelle, en travers des portes (« un terre-plein pour empêcher les gens de
+  // sortir de leur maison ?? », Raph 2026-08-03). L'exclusion latérale, elle,
+  // reste sur TOUTE route : une 3e voie de n'importe quel rang élargit le couloir.
+  const boulevard = (c) => lane(c) && c.rank === "main";
   const segments = [];
   // Coutures VERTICALES : colonnes x|x+1 en voies, rien en x-1 ni x+2.
   for (let x = 0; x < N - 1; x += 1) {
     let y0 = -1;
     for (let y = 0; y <= N; y += 1) {
-      const ok = y < N && lane(get(x, y)) && lane(get(x + 1, y)) && !lane(get(x - 1, y)) && !lane(get(x + 2, y));
+      const ok = y < N && boulevard(get(x, y)) && boulevard(get(x + 1, y)) && !lane(get(x - 1, y)) && !lane(get(x + 2, y));
       if (ok && y0 < 0) y0 = y;
       else if (!ok && y0 >= 0) { if (y - y0 >= MIN_RUN) segments.push({ axis: "v", x, y0, y1: y - 1 }); y0 = -1; }
     }
@@ -1689,12 +1697,37 @@ function computeTerrePleinSegments(roadMap, N) {
   for (let y = 0; y < N - 1; y += 1) {
     let x0 = -1;
     for (let x = 0; x <= N; x += 1) {
-      const ok = x < N && lane(get(x, y)) && lane(get(x, y + 1)) && !lane(get(x, y - 1)) && !lane(get(x, y + 2));
+      const ok = x < N && boulevard(get(x, y)) && boulevard(get(x, y + 1)) && !lane(get(x, y - 1)) && !lane(get(x, y + 2));
       if (ok && x0 < 0) x0 = x;
       else if (!ok && x0 >= 0) { if (x - x0 >= MIN_RUN) segments.push({ axis: "h", y, x0, x1: x - 1 }); x0 = -1; }
     }
   }
-  return segments;
+  // DÉDOUBLONNAGE des coutures PARALLÈLES ADJACENTES : quand le couloir de 2 se
+  // décale d'une colonne/rangée en cours de route, la détection produit DEUX
+  // segments voisins dont les plages se chevauchent — deux bandes qui se
+  // superposent à l'écran (« pourquoi deux plutôt qu'un long ? », Raph). Priorité
+  // au plus LONG ; l'autre est tronqué hors du chevauchement (+1 de respiration),
+  // un résidu < MIN_RUN disparaît. L'ordre du tableau d'origine est préservé.
+  const segLen = (s) => (s.axis === "v" ? s.y1 - s.y0 : s.x1 - s.x0);
+  const byPriority = segments.map((s, i) => ({ s, i })).sort((a, b) => segLen(b.s) - segLen(a.s) || a.i - b.i);
+  const kept = [], dead = new Set();
+  for (const { s, i } of byPriority) {
+    let cur = s;
+    for (const k of kept) {
+      if (k.axis !== cur.axis) continue;
+      if (Math.abs(cur.axis === "v" ? cur.x - k.x : cur.y - k.y) !== 1) continue;
+      const a0 = cur.axis === "v" ? cur.y0 : cur.x0, a1 = cur.axis === "v" ? cur.y1 : cur.x1;
+      const lo = Math.max(a0, (k.axis === "v" ? k.y0 : k.x0) - 1);
+      const hi = Math.min(a1, (k.axis === "v" ? k.y1 : k.x1) + 1);
+      if (lo > hi) continue;                       // pas de chevauchement
+      const nBefore = lo - a0, nAfter = a1 - hi;   // longueurs restantes de part et d'autre
+      if (nBefore >= MIN_RUN && nBefore >= nAfter) { if (cur.axis === "v") cur.y1 = lo - 1; else cur.x1 = lo - 1; }
+      else if (nAfter >= MIN_RUN) { if (cur.axis === "v") cur.y0 = hi + 1; else cur.x0 = hi + 1; }
+      else { cur = null; break; }
+    }
+    if (cur) kept.push(cur); else dead.add(i);
+  }
+  return segments.filter((s, i) => !dead.has(i));
 }
 
 // ── Profilage DEV du layout ──────────────────────────────────────────────────
@@ -2895,7 +2928,10 @@ function computeCityLayout(s) {
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy, bridgeLaneW);
   lp("graphe");
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
-  const terrePlein = computeTerrePleinSegments(roadGraph.roadMap, N); // couture des voies collées
+  // Refuge planté = mobilier d'avenue : réservé aux âges qui en tracent (band 2+,
+  // cf. pixelMedian « à partir des avenues »). Avant, un camp/hameau laissait des
+  // haies fleuries au milieu de ses pistes dès que deux voies se collaient.
+  const terrePlein = ageCfg.roadRanks.avenue ? computeTerrePleinSegments(roadGraph.roadMap, N) : []; // couture des voies collées
   // Cellules de SOL (ni route, ni bâti, ni eau) coincées ENTRE deux routes (route à l'ouest
   // ET à l'est, OU au nord ET au sud) : ce sont les « carrés de sol » qui apparaissent au
   // milieu quand deux routes passent près l'une de l'autre (faux carrefours). On les
