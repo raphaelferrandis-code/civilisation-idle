@@ -137,10 +137,9 @@ const AGENT_MODERN = { // band 6 (époque Néon, ères 30-34) : citoyen near-fut
   women: [{ name: 'modernwoman', scale: 1.24 }, { name: 'modernwoman2', scale: 1.24 }],
   child: { name: 'modernchild', scale: 0.87 },
 };
-const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi — scales régé FLAT (ratio 0.50, sauf
-  // futurewoman sortie plus grande dans son canvas : ratio 0.72 → 0.86 pour la même hauteur écran)
+const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi — scales ×1.46 (régé FLAT, ratio 0.50)
   men: [{ name: 'futureman', scale: 1.24 }, { name: 'futureman2', scale: 1.24 }],       // + variante peau noire + tenue
-  women: [{ name: 'futurewoman', scale: 0.86 }, { name: 'futurewoman2', scale: 1.24 }],
+  women: [{ name: 'futurewoman', scale: 1.24 }, { name: 'futurewoman2', scale: 1.24 }],
   child: { name: 'futurechild', scale: 0.87 },
 };
 function agentSetForBand(band) {
