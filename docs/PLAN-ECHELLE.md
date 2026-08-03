@@ -239,7 +239,21 @@ Mêmes noms de fichiers → zéro câblage. Vérifier quand même :
   cf. fiche « jeu sur téléphone ».
 - Refaire les 3 captures de référence par bande (7/8/9).
 
-### B3 — CONDITIONNEL (si la fournée B1 plaît) : la super-tour rare
+### B3 — la super-tour rare : « Tour-monde »
+
+> **ÉTAT 2026-08-03 : LIVRÉ** (avec la régé v2 du megablock jade — grappe de
+> trois tours au lieu de la dalle, même gabarit 96×224). Variant `supertower` :
+> promotion des SLOTS PERSISTANTS 0 et 12 (les mieux classés du tri → près du
+> cœur, stables à jamais) dès la bande 7, dans `chooseVariant`
+> (buildingGenerator.js) ; espacement par registre au recalcul (démotion de la
+> seconde si Chebyshev < 10, clé PAR SLOT pour survivre au refit d'empreinte).
+> Câblé : `HOUSE_FOOTPRINT` [2,2], `AVAILABLE`+`COSMIC_VARIANTS`
+> (pixelHouses.js — pas de PNG de base, la clé est toujours cosmique),
+> `BUILDING_HEIGHTS` 4,4 (repli), libellé « Tour-monde » (cityMapRuntime.js).
+> 3 PNG `supertower-cosmic-7/8/9` (66-82 px de large, 342-344 px → **12,1-12,2 t
+> mesurés en jeu**, vs tour 10,6). 3 tests de contrat (rareté 1-2, espacement,
+> gate bande 7) — 1533 verts. En démo saturée elle est « première parmi
+> beaucoup » ; sur une vraie save (moins dense) elle dominera davantage.
 
 1-2 exemplaires par ville, près du cœur : la perception du maximum FAIT le
 maximum.

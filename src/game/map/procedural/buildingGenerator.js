@@ -43,7 +43,8 @@ function variantList(table, band, bias) {
 const HOUSE_FOOTPRINT = {
   manor: [2, 2],                  // grande demeure (sprite ~1,3 tuile de large) : réserve son lot pour garder sa masse sans déborder
   tenement: [1, 2], tower: [1, 2],
-  megablock: [2, 2], arcologyhome: [2, 2]
+  megablock: [2, 2], arcologyhome: [2, 2],
+  supertower: [2, 2]              // super-tour B3 : rare (cf. SUPER_SLOTS), ~11 tuiles de haut
 };
 export const houseFootprint = (variant) => HOUSE_FOOTPRINT[variant] || [1, 1];
 
@@ -138,7 +139,31 @@ export function createBuildingPlacer({
     return orderedFor[category];
   };
 
+  // ── SUPER-TOUR (chantier ÉCHELLE, Lot B3 — docs/PLAN-ECHELLE.md) ───────────
+  // La perception du maximum FAIT le maximum : 1-2 exemplaires par ville
+  // suffisent à crever la skyline, pas besoin que tout grandisse. Deux SLOTS
+  // persistants précis (0 et 12 — les mieux classés du tri, donc près du cœur,
+  // posés tôt, et qui ne bougent plus jamais) deviennent « supertower » dès la
+  // bande 7. Espacement : registre par RECALCUL (le placer est recréé à chaque
+  // compute) ; la seconde est DÉMOTÉE au tirage normal si elle tombe à moins de
+  // SUPER_DIST de l'autre — jamais deux côte à côte. Clé PAR SLOT : quand la
+  // passe 1 refuse l'empreinte 2×2 et refit le slot ailleurs, il se ré-évalue
+  // sans être bloqué par son propre fantôme.
+  const SUPER_SLOTS = new Set([0, 12]);
+  const SUPER_DIST = 10;
+  const supers = new Map();
+
   const chooseVariant = (category, n, cell) => {
+    if (category === "house" && counts.eraBand >= 7 && SUPER_SLOTS.has(n)) {
+      let far = true;
+      for (const [si, s] of supers) {
+        if (si !== n && Math.max(Math.abs(s.gx - cell.gx), Math.abs(s.gy - cell.gy)) < SUPER_DIST) { far = false; break; }
+      }
+      if (far) {
+        supers.set(n, { gx: cell.gx, gy: cell.gy });
+        return "supertower";
+      }
+    }
     const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
     const h = hashString(seed + ":" + category + ":" + cell.gx + ":" + cell.gy);
     return list[(n + h) % list.length];
