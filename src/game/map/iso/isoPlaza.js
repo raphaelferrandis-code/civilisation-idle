@@ -219,6 +219,14 @@ const LEGACY_PROP = {
 //    ⚠ L'art suit : chaque fontaine est générée à EXACTEMENT le double de sa
 //    taille d'affichage puis écrasée ×0,5 — blitée au pixel près. Le plafond de
 //    168 px de PixelLab borne la progression par le haut.
+// DENSIFICATION DE TOUTES LES ÈRES (Raph 2026-08-03, suite du lot P cosmique :
+// « les places d'avant l'ère cosmique sont nues ») : au dézoom, seuls les ARBRES
+// et la garniture de cœur se voient — le mobilier à l'échelle du corps disparaît.
+// Chaque ère reçoit donc ses surcharges benchPerSide / treeWant / field, en
+// PROGRESSION STRICTE vers le cosmique (même principe que la fontaine qui
+// grandit) : le forum antique respire (2 arbres), le square moderne est un
+// jardin (4). Le filet anti-chevauchement et la géométrie des côtés restent les
+// juges : une petite place en met moins toute seule, rien ne déborde.
 const RECIPES = {
   antique: {
     centre: { prop: 'fountain', p: 1.25 },
@@ -227,6 +235,9 @@ const RECIPES = {
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
+    benchPerSide: 6,
+    treeWant: 2,
+    field: [{ prop: 'planter', p: 0.55 }],
   },
   medieval: {
     centre: { prop: 'fountain', p: 1.60 },
@@ -235,6 +246,9 @@ const RECIPES = {
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
+    benchPerSide: 6,
+    treeWant: 3,
+    field: [{ prop: 'planter', p: 0.55 }],
   },
   industrial: {
     centre: { prop: 'fountain', p: 1.95 },
@@ -243,6 +257,9 @@ const RECIPES = {
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
+    benchPerSide: 6,
+    treeWant: 3,
+    field: [{ prop: 'planter', p: 0.55 }],
   },
   modern: {
     centre: { prop: 'fountain', p: 2.25 },
@@ -251,6 +268,9 @@ const RECIPES = {
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
+    benchPerSide: 8,
+    treeWant: 4,
+    field: [{ prop: 'planter', p: 0.55 }],
   },
   cosmic: {
     centre: { prop: 'fountain', p: 2.60 },

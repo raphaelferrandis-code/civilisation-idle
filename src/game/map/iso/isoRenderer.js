@@ -3583,6 +3583,28 @@ export const WATER_SHEETS = {
 // ⚠ Posée APRÈS la table : un `window.x = WATER_SHEETS` écrit plus haut dans le
 // module lève un ReferenceError de TDZ à l'import et tue tout le renderer.
 if (typeof window !== 'undefined') window.__waterSheets = WATER_SHEETS;
+// ── L'EAU SUIT LES ÈRES ─────────────────────────────────────────────────────
+// Raph 2026-08-03 : « le fleuve garde le même bleu vif du néolithique à l'ère
+// cosmique — au milieu des tours sombres il vire au bleu plastique ». Un cran
+// d'ardoise par PALIER de bande, AJOUTÉ au tint comme le `dim` du coloris (même
+// canal, mêmes deux chemins de rendu motif/tuiles) : le corps de l'eau se
+// rabat, le liseré du bas-fond et le quai gardent leur éclat — c'est le
+// contraste voulu d'une eau profonde. États DIRIGÉS, jamais d'interpolation
+// libre (la règle des saisons vaut ici aussi). S'additionne uniformément à
+// tous les coloris : l'averse reste plus sombre que le beau temps, l'usure
+// reste turquoise — les rapports entre humeurs ne bougent pas. En dessous de
+// la bande 5, zéro : l'azur validé des ères basses ne change pas d'un pixel.
+// Molette : window.__waterEra (p.ex. __waterEra[0] = [9, 0.3]).
+export const WATER_ERA_DIM = [
+  [9, 0.34],   // cosmique : eau profonde, presque d'encre sous les tours
+  [7, 0.22],   // futuriste : nettement rabattue
+  [5, 0.10],   // industrielle/moderne : un voile discret
+];
+export function waterEraDim(band) {
+  for (const [b, d] of WATER_ERA_DIM) if (band >= b) return d;
+  return 0;
+}
+if (typeof window !== 'undefined') window.__waterEra = WATER_ERA_DIM;
 // PRIORITÉ : averse > hiver > usure > beau fixe. La précipitation et la saison
 // habillent TOUTE la scène (sol enneigé, voile de pluie) — un fleuve turquoise au
 // milieu d'une carte blanche se lirait comme un bug, alors que l'usure, elle, se
@@ -3748,7 +3770,9 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   const drift = mix(G.fair.drift, G.rain.drift) * gustK;
   // `dim` du coloris : l'azur natif recevait le voile PÂLE du beau temps, donc on
   // l'éclaircissait encore alors qu'il était déjà trop vif (cf. WATER_SHEETS).
-  const tint = mix(G.fair.tint, G.rain.tint) + (wb.cfg.dim || 0);
+  // + le cran d'ÈRE (WATER_ERA_DIM) : l'eau se rabat aux bandes hautes.
+  const tint = mix(G.fair.tint, G.rain.tint) + (wb.cfg.dim || 0)
+    + waterEraDim(CM.layout && CM.layout.counts ? CM.layout.counts.eraBand | 0 : 0);
   // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
   // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
   // temps × vitesse ne saute pas et reste déterministe, ce qu'exige une capture.
