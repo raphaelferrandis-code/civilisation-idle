@@ -20,6 +20,7 @@ import {
   cmHash,
   CM_ROLES,
   cmCitizenName,
+  cmResidenceName,
   cmPick,
   WONDER_CLEAR_R,
   WONDER_TIER_NAMES
@@ -541,6 +542,15 @@ function cityMapVariantLabel(type, variant) {
   return "Batiment";
 }
 
+// Habitat COLLECTIF : un immeuble ne porte pas le nom d'une personne (une
+// « Tour d'habitation de Marc le Tanneur » n'a pas de sens) mais un nom de
+// résidence (cmResidenceName). Le logement individuel garde le nom de son
+// occupant. Les districts (dense/arcology/grid) sont rangés côté collectif.
+const CM_COLLECTIVE_HOMES = new Set([
+  "block", "tenement", "tower", "megablock", "arcologyhome",
+  "dense", "arcology", "grid"
+]);
+
 function cityMapDescribeTile(t) {
   if (t.type === "engine") {
     const density = t.tier >= 3 ? "quartier dense" : t.tier >= 2 ? "complexe" : t.tier >= 1 ? "groupe" : "unite";
@@ -549,9 +559,10 @@ function cityMapDescribeTile(t) {
   }
   const seed = cmHash(`${t.key}:${state.cycles || 0}`);
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
-  const title = t.type === "house"
-    ? `${cityMapVariantLabel(t.type, t.variant)} de ${cmCitizenName(seed, band)}`
-    : cityMapVariantLabel(t.type, t.variant);
+  const label = cityMapVariantLabel(t.type, t.variant);
+  const title = t.type !== "house" ? label
+    : CM_COLLECTIVE_HOMES.has(t.variant) ? `${label} ${cmResidenceName(seed)}`
+    : `${label} de ${cmCitizenName(seed, band)}`;
   return { title };
 }
 
@@ -645,8 +656,9 @@ function cityMapHitTest(sx, sy) {
   return null;
 }
 
-function cityMapShowTooltip(hit, sx, sy) {
+function cityMapShowTooltip(hit, sx, sy, { immediate = false } = {}) {
   if (!CM.tooltip) return;
+  if (CM.tipTimer) { clearTimeout(CM.tipTimer); CM.tipTimer = null; }
   if (!hit) {
     CM.tooltip.classList.remove("visible");
     CM.hover = null;
@@ -664,7 +676,19 @@ function cityMapShowTooltip(hit, sx, sy) {
   }
   CM.tooltip.style.left = `${Math.min(CM.cw - 18, sx + 14)}px`;
   CM.tooltip.style.top = `${Math.max(12, sy - 8)}px`;
-  CM.tooltip.classList.add("visible");
+  // Délai d'apparition façon `title` natif : la bulle ne surgit que si la souris
+  // SE POSE — chaque mouvement remet le compteur à zéro tant qu'elle n'est pas
+  // visible. Une fois visible, elle suit le curseur sans re-délai jusqu'à sortir
+  // sur du vide. Le liseré doré (CM.hover, lu par le rendu iso) reste instantané.
+  // `immediate` = appui long tactile, qui porte déjà son propre délai de 500 ms.
+  if (immediate || CM.tooltip.classList.contains("visible")) {
+    CM.tooltip.classList.add("visible");
+  } else {
+    CM.tipTimer = setTimeout(() => {
+      CM.tipTimer = null;
+      if (CM.hover === hit) CM.tooltip.classList.add("visible");
+    }, window.__tipDelay ?? 500);
+  }
 }
 
 
@@ -813,7 +837,7 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       // L'appui long remplace le survol : au doigt il n'y a pas de « passer
       // dessus sans cliquer », et sans lui toute l'information des infobulles
       // de la carte devient inatteignable.
-      pressTimer = setTimeout(() => { pressTimer = null; CM.drag = null; showHover(p.x, p.y); }, 500);
+      pressTimer = setTimeout(() => { pressTimer = null; CM.drag = null; showHover(p.x, p.y, { immediate: true }); }, 500);
     } else if (touches.size === 2) {
       CM.drag = null;                  // deux doigts : ce n'est plus un pan
       cancelPress();
@@ -1724,7 +1748,7 @@ function initCityMap(canvas, options = {}) {
   if (resizeObserver) resizeObserver.observe(canvas);
   window.addEventListener("resize", resize);
   const cleanupInput = bindCityMapInput(canvas, mapRoot, {
-    showHover: (sx, sy) => cityMapShowTooltip(cityMapHitTest(sx, sy), sx, sy),
+    showHover: (sx, sy, opts) => cityMapShowTooltip(cityMapHitTest(sx, sy), sx, sy, opts),
     clearHover: () => cityMapShowTooltip(null),
     onCitizenThoughtClicked: options.onCitizenThoughtClicked
   });

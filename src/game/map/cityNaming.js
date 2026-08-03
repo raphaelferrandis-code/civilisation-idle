@@ -1,8 +1,9 @@
 "use strict";
 
-// Données de nommage procédural : prénoms, épithètes, métiers, maisons, rôles et
-// rues. Extrait de layout.js (Audit Phase 6 / E-02) — pures listes de chaînes,
-// aucune dépendance géométrique ; consommées par cmCitizenName / cmRoadName.
+// Données de nommage procédural : prénoms, épithètes, métiers, maisons, rôles,
+// rues et résidences. Extrait de layout.js (Audit Phase 6 / E-02) — pures listes
+// de chaînes, aucune dépendance géométrique ; consommées par cmCitizenName /
+// cmRoadName / cmResidenceName.
 
 export const CM_GIVEN = [
   "Aldric", "Sibylle", "Garin", "Mahaut", "Renaud", "Ysoria", "Tassin", "Oda",
@@ -37,4 +38,13 @@ export const CM_STREET_OF = [
   "des Tanneurs", "du Levant", "des Halles", "du Puits", "des Granges", "des Forges",
   "du Marche", "des Ponts", "du Vieux Mur", "des Lampes", "du Sillon", "des Cendres",
   "du Fleuve", "des Archives", "du Rempart", "des Entrepots", "du Couchant", "des Orfevres"
+];
+// Noms de résidences pour l'habitat COLLECTIF (immeubles, tours, grands
+// ensembles…) : un immeuble ne porte pas le nom d'une personne mais un nom de
+// résidence, comme dans la vraie tradition française (« les Tilleuls »).
+export const CM_RESIDENCES = [
+  "des Tilleuls", "des Glycines", "des Peupliers", "des Amandiers", "des Mimosas",
+  "des Fontaines", "des Terrasses", "du Belvedere", "du Grand Parc", "de la Colline",
+  "de l'Aurore", "du Zenith", "du Meridien", "des Etoiles", "de l'Horizon",
+  "des Jardins Hauts", "du Beffroi", "des Quatre Vents"
 ];

@@ -15,7 +15,7 @@ import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnser
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
-import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF } from './cityNaming.js';
+import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
   CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
@@ -54,6 +54,7 @@ const CM = {
   walkRoadSet: new Set(),
   tileGrid: null,
   tooltip: null,
+  tipTimer: null,
   hover: null,
   dynastyIdx: 0,
   vehicles: [],
@@ -487,6 +488,62 @@ function cmCitizenName(seed, band) {
   if (band <= 3) return `${given} ${cmPick(CM_TRADES, Math.floor(seed / 7))}`;
   return `${given} ${cmPick(CM_HOUSES, Math.floor(seed / 7))}`;
 }
+// Nom de résidence pour l'habitat collectif (immeubles, tours, grands
+// ensembles) : « Immeuble populaire des Tilleuls », jamais le nom d'un occupant.
+function cmResidenceName(seed) {
+  return cmPick(CM_RESIDENCES, seed);
+}
+
+// Poids des rangs de voirie (partagé orientation + vocabulaire). La place pèse
+// comme un chemin : simple liaison faible, elle porte son propre nom ailleurs.
+const CM_RANK_W = { main: 4, avenue: 3, secondary: 2, path: 1, plaza: 1 };
+
+// Orientation d'une cellule de rue (vrai = verticale) d'après sa connectivité
+// réelle — le mask (liaisons MUTUELLES posées par buildGraph), pas la simple
+// présence d'un voisin : deux rues parallèles collées ne se « touchent » pas
+// dans le mask. Chaque axe est noté (rang du meilleur voisin relié, puis nombre
+// de liaisons) : au carrefour, la voie la mieux classée impose son orientation —
+// la tuile partagée avenue×venelle affiche le nom de l'avenue. Égalité parfaite
+// (carrefour symétrique, cellule isolée) : repli sur la position vis-à-vis du
+// centre.
+function cmRoadCellVertical(L, gx, gy, road) {
+  const cx = L ? L.cx : 0, cy = L ? L.cy : 0;
+  const rankAt = (x, y) => {
+    const e = L && L.roadMap && L.roadMap.get(x + "," + y);
+    return e ? (CM_RANK_W[e.rank] || 3) : 1;   // rang inconnu = avenue (repli de roadWidthFor)
+  };
+  const m = road && road.mask ? road.mask : 0;
+  const vN = m & ROAD_N ? rankAt(gx, gy - 1) : 0;
+  const vS = m & ROAD_S ? rankAt(gx, gy + 1) : 0;
+  const hE = m & ROAD_E ? rankAt(gx + 1, gy) : 0;
+  const hW = m & ROAD_W ? rankAt(gx - 1, gy) : 0;
+  const vScore = Math.max(vN, vS) * 10 + (vN ? 1 : 0) + (vS ? 1 : 0);
+  const hScore = Math.max(hE, hW) * 10 + (hE ? 1 : 0) + (hW ? 1 : 0);
+  return vScore !== hScore ? vScore > hScore : Math.abs(gx - cx) >= Math.abs(gy - cy);
+}
+
+// Rang d'une LIGNE de rue entière, mémoïsé sur le layout (recréé à chaque
+// recompute → le mémo meurt avec lui). Le mot du nom (« Avenue », « Sente »…)
+// doit être une propriété de la RUE, pas de la tuile : un axe qui part en main
+// au centre et finit en chemin au bord garderait sinon un nom qui change en
+// cours de route — exactement le défaut corrigé pour l'orientation.
+function cmRoadLineRankW(L, vertical, coord) {
+  if (!L || !L.roadMap) return 1;
+  let memo = L._lineRankW;
+  if (!memo) {
+    memo = new Map();
+    for (const e of L.roadMap.values()) {
+      if (e.rank === "plaza") continue;
+      const v = cmRoadCellVertical(L, e.gx, e.gy, e);
+      const id = v ? "v" + e.gx : "h" + e.gy;
+      const w = CM_RANK_W[e.rank] || 3;
+      if ((memo.get(id) || 0) < w) memo.set(id, w);
+    }
+    L._lineRankW = memo;
+  }
+  return memo.get((vertical ? "v" : "h") + coord) || 1;
+}
+
 function cmRoadName(gx, gy) {
   const L = CM.layout;
   const cx = L ? L.cx : 0, cy = L ? L.cy : 0;
@@ -510,13 +567,28 @@ function cmRoadName(gx, gy) {
       : band >= 4 ? ["Grande Place", "Place", "Esplanade"] : ["Place", "Place Commune"];
     return `${cmPick(kindList, cmHash("pk" + pKey))} ${cmPick(CM_STREET_OF, cmHash("pof" + pKey))}`;
   }
-  const vertical = Math.abs(gx - cx) >= Math.abs(gy - cy);
+  // Une rue = UNE ligne (sa rangée ou sa colonne, choisie par la connectivité
+  // réelle — cmRoadCellVertical) : l'ancienne heuristique par position basculait
+  // à mi-parcours et la rue changeait de nom à chaque tuile dès que |gx-cx|
+  // dépassait |gy-cy|. Le nom entier (mot + complément) ne dépend que de la
+  // ligne, donc il tient d'un bout à l'autre.
+  const vertical = cmRoadCellVertical(L, gx, gy, road);
   const lineId = vertical ? 1000 + gx : 2000 + gy;
-  const major = gx === cx || gy === cy;
+  // « Grande voie » = l'axe qui PASSE par le centre — propriété de la ligne
+  // entière, sinon chaque rue devenait « Avenue » sur la seule tuile où elle
+  // croise l'axe central.
+  const major = vertical ? gx === cx : gy === cy;
   const of = cmPick(CM_STREET_OF, cmHash("of" + lineId));
-  const kindList = major
-    ? (band >= 4 ? ["Avenue", "Boulevard", "Grande Voie"] : ["Grand-Rue", "Grande Voie", "Voie"])
-    : (band >= 4 ? ["Rue", "Avenue", "Passage"] : ["Rue", "Ruelle", "Venelle", "Sente"]);
+  // Le MOT du nom suit le RANG de la voie (rang pris sur la ligne entière) :
+  // une artère s'appelle Avenue, une venelle Sente — plus de « Avenue » tirée
+  // au sort sur un chemin de terre. Deux registres d'époque : bourg (bandes
+  // 0-3) et ville moderne (4+).
+  const w = major ? 4 : cmRoadLineRankW(L, vertical, vertical ? gx : gy);
+  const kindList =
+    w >= 4 ? (band >= 4 ? ["Avenue", "Boulevard"] : ["Grand-Rue", "Grande Voie"])
+    : w === 3 ? (band >= 4 ? ["Boulevard", "Cours"] : ["Route", "Grande Voie"])
+    : w === 2 ? (band >= 4 ? ["Rue"] : ["Rue", "Ruelle"])
+    : (band >= 4 ? ["Passage", "Venelle"] : ["Sente", "Venelle", "Ruelle"]);
   return `${cmPick(kindList, cmHash("k" + lineId))} ${of}`;
 }
 
@@ -2967,6 +3039,7 @@ export {
   cmIsBridgeRoad,
   cmIsWalkableRoad,
   cmPick,
+  cmResidenceName,
   cmRoadName,
   cmWonderSlot,
   cmWonderActive,
