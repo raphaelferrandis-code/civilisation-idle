@@ -494,6 +494,12 @@ function cmResidenceName(seed) {
   return cmPick(CM_RESIDENCES, seed);
 }
 
+// Élision française : « de Aldric » → « d'Aldric ». Les noms composés commencent
+// toujours par le prénom, la première lettre suffit à décider.
+function cmDeName(name) {
+  return (/^[aeiouyàâäéèêëîïôöùûü]/i.test(name) ? "d'" : "de ") + name;
+}
+
 // Poids des rangs de voirie (partagé orientation + vocabulaire). La place pèse
 // comme un chemin : simple liaison faible, elle porte son propre nom ailleurs.
 const CM_RANK_W = { main: 4, avenue: 3, secondary: 2, path: 1, plaza: 1 };
@@ -3038,6 +3044,7 @@ export {
   cmHash,
   cmIsBridgeRoad,
   cmIsWalkableRoad,
+  cmDeName,
   cmPick,
   cmResidenceName,
   cmRoadName,

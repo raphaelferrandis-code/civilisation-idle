@@ -20,6 +20,7 @@ import {
   cmHash,
   CM_ROLES,
   cmCitizenName,
+  cmDeName,
   cmResidenceName,
   cmPick,
   WONDER_CLEAR_R,
@@ -514,23 +515,23 @@ function cityMapVariantLabel(type, variant) {
     tent: "Tente",
     hut: "Cabane",
     longhouse: "Longue maison",
-    courtyard: "Maison a cour",
+    courtyard: "Maison à cour",
     townhouse: "Maison de ville",
     manor: "Manoir",
     stonehouse: "Maison de pierre",
     tenement: "Immeuble populaire",
-    block: "Bloc residentiel",
+    block: "Bloc résidentiel",
     tower: "Tour d'habitation",
     megablock: "Grand ensemble",
     arcologyhome: "Logement d'arcologie",
     // Grands complexes (districts) conservés :
-    market: "Marche",
+    market: "Marché",
     temple: "Temple",
     keep: "Donjon",
     forum: "Forum",
     palace: "Palais",
     station: "Station civique",
-    spire: "Fleche administrative",
+    spire: "Flèche administrative",
     archive: "Archives",
     observatory: "Observatoire",
     dense: "Quartier dense",
@@ -539,7 +540,7 @@ function cityMapVariantLabel(type, variant) {
   };
   if (labels[variant]) return labels[variant];
   if (type === "house") return "Logement";
-  return "Batiment";
+  return "Bâtiment";
 }
 
 // Habitat COLLECTIF : un immeuble ne porte pas le nom d'une personne (une
@@ -553,16 +554,27 @@ const CM_COLLECTIVE_HOMES = new Set([
 
 function cityMapDescribeTile(t) {
   if (t.type === "engine") {
-    const density = t.tier >= 3 ? "quartier dense" : t.tier >= 2 ? "complexe" : t.tier >= 1 ? "groupe" : "unite";
-    const spread = t.groupTotal > 1 ? ` | groupe ${t.groupIndex}/${t.groupTotal} (${t.groupLevel})` : "";
-    return { title: t.buildingName || cityMapVariantLabel(t.type, t.variant), body: `Niveau total ${t.level || 1}${spread} - ${density}` };
+    // Corps en français d'atelier, pas en données brutes : « Édifice principal ·
+    // niveau 12 · 2 annexes » remplace « Niveau total 12 | groupe 1/3 (4) -
+    // complexe ». L'édifice nº 1 porte le niveau entier, les suivants sont des
+    // annexes de niveau 1 (cf. cmEngineInstances).
+    const title = t.buildingName || cityMapVariantLabel(t.type, t.variant);
+    const stage = t.tier >= 3 ? "quartier dense" : t.tier >= 2 ? "complexe" : t.tier >= 1 ? "groupe de bâtiments" : "";
+    const annexes = (t.groupTotal || 1) - 1;
+    const lvl = Math.floor(t.level || 1);
+    const body = annexes > 0
+      ? (t.groupIndex === 1
+        ? `Édifice principal · niveau ${lvl} · ${annexes} annexe${annexes > 1 ? "s" : ""}${stage ? ` · ${stage}` : ""}`
+        : `Annexe de l'édifice principal · niveau ${Math.floor(t.groupLevel || 1)}`)
+      : `Niveau ${lvl}${stage ? ` · ${stage}` : ""}`;
+    return { title, body };
   }
   const seed = cmHash(`${t.key}:${state.cycles || 0}`);
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
   const label = cityMapVariantLabel(t.type, t.variant);
   const title = t.type !== "house" ? label
     : CM_COLLECTIVE_HOMES.has(t.variant) ? `${label} ${cmResidenceName(seed)}`
-    : `${label} de ${cmCitizenName(seed, band)}`;
+    : `${label} ${cmDeName(cmCitizenName(seed, band))}`;
   return { title };
 }
 
@@ -641,13 +653,13 @@ function cityMapHitTest(sx, sy) {
     for (let i = hb.length - 1; i >= 0; i -= 1) {
       const b = hb[i].b, t = hb[i].t;
       if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) continue;
-      return { ...cityMapDescribeTile(t), kind: t.type === "house" ? "Logement" : "Batiment", tile: t, cell: t.gx + "," + t.gy };
+      return { ...cityMapDescribeTile(t), kind: t.type === "house" ? "Logement" : "Bâtiment", tile: t, cell: t.gx + "," + t.gy };
     }
   }
   const tile = CM.tileGrid?.get(gx + "," + gy);
   if (tile) {
     const info = cityMapDescribeTile(tile);
-    return { ...info, kind: tile.type === "house" ? "Logement" : "Batiment", tile, cell: tile.gx + "," + tile.gy };
+    return { ...info, kind: tile.type === "house" ? "Logement" : "Bâtiment", tile, cell: tile.gx + "," + tile.gy };
   }
   if (CM.roadSet.has(`${gx},${gy}`)) {
     const road = CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);

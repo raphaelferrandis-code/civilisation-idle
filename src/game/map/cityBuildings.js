@@ -6,37 +6,37 @@
 
 export const CM_ENGINE_BUILDINGS = [
   { id: "foragers",          name: "Cueilleurs",          zone: "outer"   },
-  { id: "granaries_city",    name: "Entrepots",            zone: "outer"   },
+  { id: "granaries_city",    name: "Entrepôts",            zone: "outer"   },
   { id: "caravans",          name: "Caravanes",            zone: "caravan" },
-  { id: "markets",           name: "Marches",              zone: "mid"     },
+  { id: "markets",           name: "Marchés",              zone: "mid"     },
   { id: "guilds",            name: "Guildes",              zone: "center"  },
   { id: "irrigated_fields",  name: "Champs",               zone: "outer"   },
   { id: "river_ports",       name: "Ports",                zone: "river",   water: "bank" },
   { id: "water_mills",       name: "Moulins",              zone: "outer"   },
-  { id: "mint_houses",       name: "Hotels des monnaies",  zone: "center"  },
-  { id: "imperial_exchanges",name: "Banques Nationnales",  zone: "center"  }
+  { id: "mint_houses",       name: "Hôtels des monnaies",  zone: "center"  },
+  { id: "imperial_exchanges",name: "Banques nationales",   zone: "center"  }
 ];
 export const CM_KNOWLEDGE_BUILDINGS = [
   { id: "storytellers",   name: "Conteurs",              zone: "outer"  },
   { id: "scribes",        name: "Scribes",               zone: "outer"  },
-  { id: "schools",        name: "Ecoles",                zone: "mid"    },
-  { id: "academies",      name: "Academies",             zone: "center" },
-  { id: "ancestral_cult", name: "Culte des ancetres",    zone: "center" },
+  { id: "schools",        name: "Écoles",                zone: "mid"    },
+  { id: "academies",      name: "Académies",             zone: "center" },
+  { id: "ancestral_cult", name: "Culte des ancêtres",    zone: "center" },
   { id: "observatories",  name: "Observatoires",         zone: "edge"   },
-  { id: "libraries",      name: "Bibliotheques",         zone: "mid"    },
-  { id: "universities",   name: "Universites",           zone: "center" },
+  { id: "libraries",      name: "Bibliothèques",         zone: "mid"    },
+  { id: "universities",   name: "Universités",           zone: "center" },
   { id: "printing_houses",name: "Imprimeries",           zone: "mid"    },
-  { id: "think_tanks",    name: "Instituts strategiques",zone: "edge"   }
+  { id: "think_tanks",    name: "Instituts stratégiques",zone: "edge"   }
 ];
 export const CM_INFRA_BUILDINGS = [
   { id: "aqueducts",     name: "Aqueducs",             zone: "outside"   },
   { id: "watch",         name: "Veilleurs",            zone: "edge"      },
-  { id: "sewers",        name: "Egouts",               zone: "mid"       },
+  { id: "sewers",        name: "Égouts",               zone: "mid"       },
   { id: "bureaucracy",   name: "Bureaucratie",         zone: "center"    },
   { id: "courthouses",   name: "Tribunaux",            zone: "center"    },
   { id: "public_works",  name: "Grands travaux",       zone: "outer"     },
-  { id: "ministries",    name: "Ministeres",           zone: "center"    },
-  { id: "archive_grids", name: "Reseaux d'archives",   zone: "knowledge" },
+  { id: "ministries",    name: "Ministères",           zone: "center"    },
+  { id: "archive_grids", name: "Réseaux d'archives",   zone: "knowledge" },
   { id: "ruin_architects",name:"Architectes des ruines",zone: "ruin"     }
 ];
 export const CM_MAP_BUILDINGS = CM_ENGINE_BUILDINGS.concat(CM_KNOWLEDGE_BUILDINGS, CM_INFRA_BUILDINGS);

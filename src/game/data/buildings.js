@@ -36,7 +36,7 @@ export const buildings = [
   {
     id: "granaries_city",
     category: "city",
-    name: { fr: "Entrepots", en: "Warehouses" },
+    name: { fr: "Entrepôts", en: "Warehouses" },
     desc: { fr: "La premiere victoire contre la famine, c'est d'avoir quelque chose a perdre.", en: "The first victory over famine is having something to lose." },
     base: 150,
     scale: 1.2,
@@ -96,7 +96,7 @@ export const buildings = [
   {
     id: "schools",
     category: "knowledge",
-    name: { fr: "Ecoles", en: "Schools" },
+    name: { fr: "Écoles", en: "Schools" },
     desc: { fr: "Pour la premiere fois, le savoir peut traverser une vie sans se perdre dans la suivante.", en: "For the first time, knowledge can cross one lifetime without being lost in the next." },
     base: 400000,
     scale: 1.31,
@@ -159,7 +159,7 @@ export const buildings = [
   {
     id: "markets",
     category: "city",
-    name: { fr: "Marches", en: "Markets" },
+    name: { fr: "Marchés", en: "Markets" },
     desc: { fr: "La ou les gens se retrouvent librement, le prix des choses revele ce qu'ils veulent vraiment.", en: "Where people gather freely, the price of things reveals what they truly want." },
     base: 40000,
     scale: 1.21,
@@ -236,7 +236,7 @@ export const buildings = [
   {
     id: "mint_houses",
     category: "city",
-    name: { fr: "Hotels des monnaies", en: "Mints" },
+    name: { fr: "Hôtels des monnaies", en: "Mints" },
     desc: { fr: "L'or circulait deja. Maintenant il porte un nom, un sceau, une autorite.", en: "Gold already circulated. Now it bears a name, a seal, an authority." },
     unlockCycles: 3,
     base: 1000000000,
@@ -252,7 +252,7 @@ export const buildings = [
   {
     id: "imperial_exchanges",
     category: "city",
-    name: { fr: "Banques Nationnales", en: "National Banks" },
+    name: { fr: "Banques nationales", en: "National Banks" },
     desc: { fr: "Ici les chiffres ont remplace les visages. Les fortunes bougent plus vite que les armees.", en: "Here numbers have replaced faces. Fortunes move faster than armies." },
     unlockCycles: 5,
     base: 10000000000,
@@ -268,7 +268,7 @@ export const buildings = [
   {
     id: "academies",
     category: "knowledge",
-    name: { fr: "Academies", en: "Academies" },
+    name: { fr: "Académies", en: "Academies" },
     desc: { fr: "On n'y apprend pas a avoir raison. On y apprend a douter proprement.", en: "They do not teach you to be right. They teach you to doubt properly." },
     base: 8000000,
     scale: 1.33,
@@ -301,7 +301,7 @@ export const buildings = [
   {
     id: "libraries",
     category: "knowledge",
-    name: { fr: "Bibliotheques", en: "Libraries" },
+    name: { fr: "Bibliothèques", en: "Libraries" },
     desc: { fr: "Toutes les erreurs passees sont ici, archivees et consultables. Rarement lues.", en: "Every past mistake is here, archived and available. Rarely read." },
     unlockCycles: 3,
     base: 1000000000,
@@ -333,7 +333,7 @@ export const buildings = [
   {
     id: "sewers",
     category: "infra",
-    name: { fr: "Egouts", en: "Sewers" },
+    name: { fr: "Égouts", en: "Sewers" },
     desc: { fr: "La civilisation, c'est peut-etre surtout ca : s'organiser pour faire partir les mauvaises choses.", en: "Civilization may be mostly this: organizing to carry the bad things away." },
     base: 120000,
     scale: 1.39,
@@ -380,7 +380,7 @@ export const buildings = [
   {
     id: "ministries",
     category: "infra",
-    name: { fr: "Ministeres", en: "Ministries" },
+    name: { fr: "Ministères", en: "Ministries" },
     desc: { fr: "L'empire est devenu trop grand pour une seule tete. Il en faut une pour chaque probleme.", en: "The empire has grown too large for a single head. It needs one for every problem." },
     unlockCycles: 3,
     base: 1000000000,
@@ -396,7 +396,7 @@ export const buildings = [
   {
     id: "archive_grids",
     category: "infra",
-    name: { fr: "Reseaux d'archives", en: "Archive Networks" },
+    name: { fr: "Réseaux d'archives", en: "Archive Networks" },
     desc: { fr: "Gouverner sans memoire, c'est commettre les memes erreurs avec plus d'efficacite.", en: "To govern without memory is to make the same mistakes more efficiently." },
     unlockCycles: 5,
     base: 10000000000,
@@ -429,7 +429,7 @@ export const buildings = [
   {
     id: "ancestral_cult",
     category: "knowledge",
-    name: { fr: "Culte des ancetres", en: "Ancestor Cult" },
+    name: { fr: "Culte des ancêtres", en: "Ancestor Cult" },
     desc: { fr: "Les ancetres siegent encore dans cette cite. Leur opinion pese lourd.", en: "The ancestors still hold their seats in this city. Their opinion carries weight." },
     unlockCycles: 1,
     base: 10000000,
@@ -446,7 +446,7 @@ export const buildings = [
   {
     id: "universities",
     category: "knowledge",
-    name: { fr: "Universites", en: "Universities" },
+    name: { fr: "Universités", en: "Universities" },
     desc: { fr: "Les idees y fermentent plus vite que les civilisations ne s'effondrent. Parfois.", en: "Ideas ferment there faster than civilizations collapse. Sometimes." },
     unlockCycles: 5,
     base: 10000000000,
@@ -480,7 +480,7 @@ export const buildings = [
   {
     id: "think_tanks",
     category: "knowledge",
-    name: { fr: "Instituts strategiques", en: "Strategic Institutes" },
+    name: { fr: "Instituts stratégiques", en: "Strategic Institutes" },
     desc: { fr: "Ils ne savent pas ce qui va arriver. Mais ils ont des modeles pour tout.", en: "They don't know what's coming. But they have models for everything." },
     unlockCycles: 10,
     base: 1000000000000,
