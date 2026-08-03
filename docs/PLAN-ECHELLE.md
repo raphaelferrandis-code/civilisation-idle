@@ -169,6 +169,18 @@ doit être < 1).
 
 ## 3. LOT B — Le bâti cosmique régénéré (art + intégration)
 
+> **ÉTAT 2026-08-03 : B0+B1+B2 FAITS.** B0 : diviseurs §1.3 CONFIRMÉS à l'écran
+> (tour 5,06 t mesurée vs 5,05 prédite ; megablock 6,47 vs 6,45 — via
+> `CM._houseBoxes`, boîte réellement dessinée) ; bande 9 = pop `1e200` (ei 161).
+> B1 : 9 sprites régénérés (`create_map_object`, low top-down, high detail,
+> detailed shading, selective outline, quantize @24) — canvas ÉTROITS pour tuer
+> le clamp à la source (tours 48 px, 2×2 96 px). B2 : mesuré EN JEU après pose :
+> **tour 10,63 t · megablock 8,24 t · arcologie 6,42 t** (avant : 5,06/6,47/~5,3),
+> plus aucun clamp (largeurs contenu 35-48 et 86-96 px). Identités tenues :
+> jade/émeraude (7), obsidienne+or (8), obsidienne+cristal de glace (9).
+> Captures `lotB-final-*` dans `.preview-shots/`. RESTE : avis Raph sur la
+> fournée → B3 si go ; perf dézoom sur VRAIE save à surveiller (fillrate).
+
 Objectif : plafond de la skyline de ~6,5 t à **~10 t**, hiérarchie lisible
 entre les trois familles, et plus AUCUN clamp.
 
