@@ -51,7 +51,13 @@ if (typeof window !== 'undefined') {
 
 // Cotes en px MONDE (× zoom au rendu). Partagées entre matières sauf mention.
 export const bridgeTune = {
-  deckHalf: 0.44,      // demi-largeur du tablier par voie (fraction de tuile)
+  // Demi-largeur du tablier par voie (fraction de tuile). 0,44 → 0,36 au
+  // chantier ÉCHELLE (Lot A, docs/PLAN-ECHELLE.md §A3) : un tablier large se
+  // lit « petit fleuve, gros pont » et rapetissait la ville. Garde-fous tenus :
+  // piétons à ±0,16 de l'axe de voie + demi-corps ~0,13 = 0,29 < 0,36 ; en iso
+  // les véhicules roulent CENTRÉS sur leur cellule de pont (vehicleLaneTarget,
+  // rang main → offset nul).
+  deckHalf: 0.36,
   landing: 0.55,       // débord du platelage dans la cellule d'atterrissage (fraction)
   shadowA: 0.20,       // alpha de l'ombre portée sur l'eau
   shadowDx: 2.5, shadowDy: 6,   // décalage écran de l'ombre (lumière haut-gauche)
@@ -61,7 +67,9 @@ export const bridgeTune = {
   posts: true,         // poteaux de tête aux entrées
   // Demi-largeur de la PASSE NAVIGABLE, en tuiles : les palées du milieu du
   // chenal sautent pour laisser filer les bateaux. 1,7 laisse 3,4 tuiles de
-  // large — le porte-conteneurs, le plus gros de la flotte, en fait 2,24.
+  // large — la plus grosse coque (cosmique bande 9 ÉCRÊTÉ, cf. FLEET_SCALE
+  // d'isoRenderer) fait 0,7×3,2 = 2,24 : la passe retrouve sa cote d'origine,
+  // que la flotte cosmique d'avant l'écrêtage (3,9 tuiles) débordait.
   passHalf: 1.7,
 };
 if (typeof window !== 'undefined') window.__bridgeTune = bridgeTune;
@@ -116,34 +124,37 @@ const STYLES = {
   //
   // towerH = hauteur du pylône au-dessus du tablier ; sag = flèche du câble
   // (fraction de la portée) ; hangEvery = pas des suspentes, en tuiles.
+  // ⚠ Gabarits fer/béton/énergie AFFINÉS au chantier ÉCHELLE (Lot A, §A3) :
+  // rails, piles et pylônes −10/15 % en même temps que deckHalf — un parapet
+  // épais à l'échelle d'une voiture rendait le pont plus « gros » que les tours.
   fer: {
     deck: [96, 92, 88], plankPitch: 8, plankVar: 0.06, joint: 'rgba(16,16,18,0.22)',
     stringer: [58, 54, 52],
     faceH: 7, faceTop: [78, 74, 70], faceBot: [46, 44, 42],
-    pileH: 9, pileW: 4, pileEvery: 1.5, pile: [70, 66, 62], pileDark: [42, 40, 38],
-    railH: 8, railPostEvery: 0.5, railPostW: 1.6, rail: [50, 48, 46], railTop: [104, 98, 92],
+    pileH: 9, pileW: 3.4, pileEvery: 1.5, pile: [70, 66, 62], pileDark: [42, 40, 38],
+    railH: 7, railPostEvery: 0.5, railPostW: 1.4, rail: [50, 48, 46], railTop: [104, 98, 92],
     kind: 'metal',
-    suspended: true, towerH: 30, towerW: 3.4, sag: 0.30, hangEvery: 0.62,
+    suspended: true, towerH: 30, towerW: 3.1, sag: 0.30, hangEvery: 0.62,
     cable: [58, 56, 54], cableLite: [126, 122, 116], tower: [78, 74, 70], towerDark: [46, 44, 42],
   },
   beton: {
     deck: [122, 122, 124], plankPitch: 16, plankVar: 0.04, joint: 'rgba(20,20,24,0.14)',
     stringer: [156, 156, 154],
     faceH: 8, faceTop: [104, 104, 106], faceBot: [70, 70, 74],
-    pileH: 9, pileW: 6, pileEvery: 1.9, pile: [100, 100, 102], pileDark: [66, 66, 70],
-    railH: 6.5, railPostEvery: 0.62, railPostW: 2, rail: [96, 96, 100], railTop: [150, 150, 150],
+    pileH: 9, pileW: 5.2, pileEvery: 1.9, pile: [100, 100, 102], pileDark: [66, 66, 70],
+    railH: 6, railPostEvery: 0.62, railPostW: 1.7, rail: [96, 96, 100], railTop: [150, 150, 150],
     kind: 'stone', arch: [40, 42, 46],
-    suspended: true, towerH: 34, towerW: 4.2, sag: 0.26, hangEvery: 0.7,
+    suspended: true, towerH: 34, towerW: 3.7, sag: 0.26, hangEvery: 0.7,
     cable: [92, 92, 96], cableLite: [168, 168, 168], tower: [132, 132, 134], towerDark: [82, 82, 86],
   },
   energie: {
     deck: [104, 110, 128], plankPitch: 12, plankVar: 0.05, joint: 'rgba(12,14,20,0.20)',
     stringer: [64, 58, 44],
     faceH: 8, faceTop: [84, 90, 108], faceBot: [50, 54, 68],
-    pileH: 10, pileW: 5, pileEvery: 1.9, pile: [76, 82, 100], pileDark: [44, 48, 62],
-    railH: 7, railPostEvery: 0.62, railPostW: 1.8, rail: [70, 76, 94], railTop: [214, 178, 108],
+    pileH: 10, pileW: 4.4, pileEvery: 1.9, pile: [76, 82, 100], pileDark: [44, 48, 62],
+    railH: 6.5, railPostEvery: 0.62, railPostW: 1.6, rail: [70, 76, 94], railTop: [214, 178, 108],
     kind: 'metal', glow: '255,196,110',   // lisse lumineuse ambre (jamais cyan)
-    suspended: true, towerH: 38, towerW: 3.8, sag: 0.22, hangEvery: 0.68,
+    suspended: true, towerH: 38, towerW: 3.4, sag: 0.22, hangEvery: 0.68,
     cable: [70, 76, 94], cableLite: [214, 178, 108], tower: [84, 90, 108], towerDark: [50, 54, 68],
   },
 };

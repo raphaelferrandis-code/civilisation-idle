@@ -13,7 +13,7 @@
 //     re-générés en diagonales en Phase 4) ; véhicules mis à jour mais PAS dessinés ;
 //   - PAS de nuit/santé/LOD/lumières/ponts/quais/merveilles ici (Phases 3-5).
 // Tuiles PixelLab iso : APRÈS le go (le jalon protège le budget d'art).
-import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
+import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell, treeBandMul, treeCanvasT } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
@@ -4816,9 +4816,23 @@ export const BOAT_IMG_TOP = 0.58;
 export function tradeStage(band, ei) {
   return band >= 7 ? 'cosmic' : ei >= 30 ? 'container' : ei >= 25 ? 'steam' : ei >= 10 ? 'sail' : 'raft';
 }
+// ÉCRÊTAGE DE LA FLOTTE (chantier ÉCHELLE, Lot A — docs/PLAN-ECHELLE.md §A1).
+// Historique : container 3.2, cosmique 4.0/4.8/5.6 — le vaisseau bande 9 faisait
+// 4,5 tuiles, ~70 % de la masse du plus haut bâtiment : c'est lui qui « rapetissait »
+// la ville. Et à 0.7×5.6 = 3,9 tuiles de coque, il ne TENAIT plus dans la passe
+// navigable du pont (3,4 tuiles, cf. bridgeTune.passHalf). Table ÉCRÊTÉE mais
+// MONOTONE : un cargo ne doit jamais rétrécir en montant d'ère (steam 2.4 →
+// container 2.6 → cosmique 2.8/3.0/3.2). Le plus gros fait 0.7×3.2 = 2,24 tuiles
+// de coque — pile le gabarit pour lequel la passe a été cotée.
+// Le pêcheur ne passe pas par cette table : sa gonflette (sizeMul 1.3, cf.
+// shipVisual) est le cas « petite silhouette illisible », pas celui qui écrase
+// la ville — et le plaisancier a quitté le fleuve (retrait 2026-07-30).
+// Molette live : window.__fleetScale (objet muté, la flotte n'est pas bakée).
+const FLEET_SCALE = { raft: 1.36, sail: 1.8, steam: 2.4, container: 2.6, cosmic7: 2.8, cosmic8: 3.0, cosmic9: 3.2 };
+if (typeof window !== 'undefined') window.__fleetScale = FLEET_SCALE;
 function tradeSizeMul(stage, band) {
-  return stage === 'cosmic' ? (band >= 9 ? 5.6 : band >= 8 ? 4.8 : 4.0)
-    : stage === 'container' ? 3.2 : stage === 'steam' ? 2.4 : stage === 'sail' ? 1.8 : 1.36;
+  return stage === 'cosmic' ? (band >= 9 ? FLEET_SCALE.cosmic9 : band >= 8 ? FLEET_SCALE.cosmic8 : FLEET_SCALE.cosmic7)
+    : FLEET_SCALE[stage] || FLEET_SCALE.raft;
 }
 // 🚫 LE PLAISANCIER A ÉTÉ RETIRÉ (Raph, 2026-07-30) — ses trois âges (rames,
 // voilier, vedette), sa dérive d'une berge à l'autre et son art calibré face par
@@ -6171,7 +6185,7 @@ function drawIsoAmbient(now) {
         if ((a.s % 2) !== 0) continue;                   // ~1 arbre sur 2 perd des feuilles
         if (!thin(a)) continue;
         const p = worldToScreen(a.wx, a.wy);
-        const th = T * z * a.r * 2.7;                    // hauteur du sprite d'arbre
+        const th = T * z * treeCanvasT(a.r);             // hauteur du sprite d'arbre (suit l'ère)
         const topY = p.y - th * 0.78, canW = th * 0.42, fall = th * 1.25;   // tombe JUSQU'AU SOL
         for (let i = 0; i < 2; i += 1) {
           const sd = _rnd(a.s, i), sd2 = _rnd(a.s, i + 9);
@@ -6203,7 +6217,7 @@ function drawIsoAmbient(now) {
     for (const a of anchors) {
       if (!thin(a)) continue;
       const p = worldToScreen(a.wx, a.wy);
-      const th = T * z * a.r * 2.7;
+      const th = T * z * treeCanvasT(a.r);
       if (cosmic) {
         if ((a.s % 3) !== 0) continue;                   // ~1/3 des ancres
         for (let i = 0; i < 2; i += 1) {
@@ -8309,7 +8323,7 @@ function drawIsoLive(now) {
       // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
       const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null; })();
       if (tImg0) {
-        const hpx = T * z * (tr.r || 0.7) * 2.7;
+        const hpx = T * z * treeCanvasT(tr.r, tr.fixed);
         // Feuillage TEINTÉ par la saison : la teinte est cuite une fois par
         // (variante, saison) dans un canvas hors écran, et l'image résolue nous
         // vient de treeImgs (une fois par frame, cf. plus haut).
@@ -8338,7 +8352,7 @@ function drawIsoLive(now) {
         // reste identique quel que soit le pipeline du sprite.
         lightCutImage(tImg, tdx, tdy, hpx, hpx);
       } else {
-        drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3);
+        drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3 * treeBandMul(tr.fixed));
       }
       if (profParts) fp('vif-arbres');
     } else if (it.kind === 'plazaProp') {
@@ -8525,7 +8539,7 @@ function drawIsoLive(now) {
       let bArt = isoArt('bush-' + it.v), bKey = 'bush-' + it.v;
       if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 'tree-' + fv; }
       if (bArt.ready) {
-        const hpx = T * z * it.r * 2.7;
+        const hpx = T * z * treeCanvasT(it.r);
         const prevBS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
         const bImg = seasonTree(bArt, bKey) || bArt.img;

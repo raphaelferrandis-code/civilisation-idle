@@ -49,7 +49,7 @@
 //   que CM/cmHash, la projection et le calque de lumière.
 // ============================================================================
 
-import { CM, cmHash } from '../layout.js';
+import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { AGENT_SCALE } from '../agents.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage } from '../lightLayer.js';
@@ -522,7 +522,9 @@ function composeOne(L, era, box) {
     let cx0 = fx, cy0 = fy;
     const m = treeFootMetrics(tv);
     if (m) {
-      const canvasT = PLAZA_TUNE.treeR * 2.7;
+      // `fixed` : l'arbre de place est EXEMPT du multiplicateur d'ère (cf.
+      // TREE_TUNE, layout.js) — ce canvas doit rester celui du dessin.
+      const canvasT = treeCanvasT(PLAZA_TUNE.treeR, true);
       const dsx = -(m.footCx - 0.5) * canvasT, dsy = -(m.footBottom - 0.92) * canvasT;
       cx0 += dsx / 2 + dsy; cy0 += -dsx / 2 + dsy;
     }
@@ -559,7 +561,10 @@ function composeOne(L, era, box) {
     // le jitter qui pose l'arbre pile où on le veut.
     props.push({
       prop: 'tree', variant: null, wx: tx * T, wy: ty * T, hT: treeHT, d: treeD, spot: ci,
-      tr: { gx, gy, jx: tx - 0.5 - gx, jy: ty - 0.9 - gy, r: PLAZA_TUNE.treeR, _tv: tv },
+      // `fixed` : exempt du multiplicateur d'ère (TREE_TUNE) — margelle et
+      // recette de place sont cotées sur CE canvas, et un parc de poche garde
+      // son arbre monumental au milieu des tours.
+      tr: { gx, gy, jx: tx - 0.5 - gx, jy: ty - 0.9 - gy, r: PLAZA_TUNE.treeR, _tv: tv, fixed: true },
     });
     trees += 1;
     return true;
@@ -1008,7 +1013,7 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
   if (rec.treeV) {
     const m = treeFootMetrics(rec.treeV);
     if (m) {
-      const canvasPx = rec.treeR * 2.7 * T * z;
+      const canvasPx = treeCanvasT(rec.treeR, true) * T * z;   // fixed : cf. putTree
       const g2 = grateFit(bb.w / bb.h, hPx, m, canvasPx, PLAZA_TUNE.grateMargin);
       hPx = g2.hPx; px += g2.ox; py += g2.oy;
     }

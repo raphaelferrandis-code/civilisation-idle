@@ -383,6 +383,28 @@ function cmRiverPortSpan(level) {
   return { w: t >= 3 ? 5 : t >= 2 ? 4 : t >= 1 ? 3 : 2, h: t >= 2 ? 4 : 3 };
 }
 // ── Densité : COMBIEN de bâtiments de ce type se dressent dans la ville ──────
+// ── ARBRES & BUISSONS : côté de canvas PARTAGÉ (chantier ÉCHELLE, Lot A) ─────
+// Le facteur 2.7 (côté du canvas carré en tuiles, pour r=1) vivait recopié dans
+// SEPT sites : dessin des arbres, repli procédural, buissons de terre-plein,
+// particules d'ambiance (×2 — la canopée doit suivre le sprite, sinon feuilles
+// et lucioles flottent au-dessus des arbres), recentrage des arbres de place
+// (×2 — la margelle est cotée sur ce canvas). Source unique ici.
+// `mulMid`/`mulLate` : la végétation SUIT L'ÉCHELLE DE L'ÈRE — un arbre de
+// 1,9 tuile à côté d'une hutte est un arbre, à côté d'une arcologie c'est un
+// séquoia qui rapetisse toute la ville (docs/PLAN-ECHELLE.md, §A2). Les arbres
+// de PLACE sont exempts (`fixed`) : recette et margelle sont cotées pour eux,
+// et un parc de poche garde son arbre monumental au milieu des tours.
+// Molette : window.__treeScale({ mulLate: 0.5 }) — les arbres ne sont pas bakés.
+const TREE_TUNE = { h: 2.7, mulMid: 0.85, mulLate: 0.65 };
+if (typeof window !== "undefined") window.__treeScale = (o = {}) => { Object.assign(TREE_TUNE, o); return { ...TREE_TUNE }; };
+function treeBandMul(fixed) {
+  if (fixed) return 1;
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+  return band >= 7 ? TREE_TUNE.mulLate : band >= 5 ? TREE_TUNE.mulMid : 1;
+}
+// Côté du canvas (carré) d'un arbre/buisson en TUILES — r = rayon de recette (~0.7).
+function treeCanvasT(r, fixed) { return (r || 0.7) * TREE_TUNE.h * treeBandMul(fixed); }
+
 // Le compteur d'achats pilote le NOMBRE de bâtiments, jamais leur TAILLE. C'est ce
 // couplage-là qui produisait les deux défauts majeurs de la carte : des scènes
 // étirées sur 3×3 (paniers de fruits hauts comme un homme, cf. capture Raph) et,
@@ -2954,6 +2976,9 @@ export {
   cmWonderHeightTiles,
   cmForEachWonderCell,
   WONDER_TIER_NAMES,
+  TREE_TUNE,
+  treeBandMul,
+  treeCanvasT,
   computeCityLayout,
   computeMedianSegments,
   computeTerrePleinSegments
