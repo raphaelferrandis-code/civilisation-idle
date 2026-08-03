@@ -58,9 +58,44 @@ const COSMIC_PAL = {
 // Repli sur le perso vectoriel tant que tout n'est pas chargé. Frame carré → pieds
 // ancrés à 0.88 du cadre, centré en x. Clips : walk-east/west (navette),
 // pick-east (bras tendu dans l'arbre), crouch-south (accroupi au panier).
-const FORAGER_FW = 68, FORAGER_FH = 68;
+// Métriques MESURÉES sur la frame 0 d'une bande (cache par Image) :
+// - foot : bas de la bbox opaque / fh — les vieilles bandes étaient cadrées pieds à
+//   ~0.88, les bandes FLAT 2026-08 centrent le perso (~0.75) ; un ancrage constant
+//   ferait flotter l'un ou l'autre. Même logique que agentFootF (agents.js).
+// - k : compensation de taille 0.728/ratio — sceneHumanH cible un CANVAS d'habitant
+//   historique (perso = 72,8 % du cadre) ; les bandes flat ne logent le perso qu'à
+//   ~50 % → sans k il ferait les 2/3 de la taille voulue. Vieille bande (~0.78) → k≈0.93.
+const stripMetricsCache = new WeakMap();
+function stripMetrics(img) {
+  const fallback = { foot: 0.88, k: 1 };
+  if (!img || !(img.naturalWidth > 0)) return fallback;
+  let m = stripMetricsCache.get(img);
+  if (m) return m;
+  try {
+    const fh = img.naturalHeight;
+    const cv = document.createElement('canvas');
+    cv.width = fh; cv.height = fh;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0, fh, fh, 0, 0, fh, fh);
+    const data = g.getImageData(0, 0, fh, fh).data;
+    let top = -1, bottom = -1;
+    for (let y = 0; y < fh; y += 1) {
+      for (let x = 0; x < fh; x += 1) {
+        if (data[(y * fh + x) * 4 + 3] > 16) { if (top < 0) top = y; bottom = y; break; }
+      }
+    }
+    const ratio = bottom >= 0 ? (bottom - top + 1) / fh : 0.728;
+    m = { foot: bottom >= 0 ? (bottom + 1) / fh : 0.88, k: 0.728 / Math.max(0.2, ratio) };
+  } catch { m = fallback; }
+  stripMetricsCache.set(img, m);
+  return m;
+}
+const stripFootF = (img, fallback = 0.88) => (img && img.naturalWidth > 0 ? stripMetrics(img).foot : fallback);
+const FORAGER_FH = 68; // repli si l'image n'est pas décodée (les bandes flat sortent en 56-60)
 const FORAGER_CLIPS = { 'walk-east': 6, 'walk-west': 6, 'pick-east': 7, 'crouch-south': 5 };
 const foragerImg = {};       // 'clip' -> Image
+const foragerHalf = {};      // 'clip' -> bande demi-taille pré-cuite (optionnelle, un essai)
 let foragerInit = false, foragerReadyN = 0;
 function ensureForager() {
   if (foragerInit || typeof Image === 'undefined') return;
@@ -70,39 +105,56 @@ function ensureForager() {
     im.onload = () => { foragerReadyN += 1; };
     im.src = '/pixelart/agents/buildings/forager-' + clip + '.png';
     foragerImg[clip] = im;
+    const hf = new Image();
+    hf.src = '/pixelart/agents/buildings/forager-' + clip + '-half.png';
+    foragerHalf[clip] = hf;
   }
 }
 const foragerReady = () => { ensureForager(); return foragerReadyN >= Object.keys(FORAGER_CLIPS).length; };
 // Blit d'une frame : coords en FRACTION de tuile (cx centre, fy = ligne de pieds),
 // hFrac = hauteur du cadre en fraction de sh (le perso remplit ~70 % du cadre).
+// Taille de frame DÉDUITE de l'image (frames carrées) + coordonnées ENTIÈRES + bascule
+// sur la bande -half sous 70 % de la pleine : mêmes règles que drawNamedAgentIso
+// (agents.js), sinon le nearest sous-pixel fourmille et le détail se noie au petit zoom.
 function blitForager(ctx, ox, oy, sw, sh, cx, fy, clip, frame, hFrac) {
-  const img = foragerImg[clip]; if (!img) return;
-  const drawH = sceneHumanH(hFrac), drawW = drawH;
-  const left = ox + sw * cx - drawW / 2;
-  const top = oy + sh * fy - 0.88 * drawH;
+  let img = foragerImg[clip]; if (!img) return;
+  let fh = img.naturalHeight || FORAGER_FH;
+  const drawH = Math.max(1, Math.round(sceneHumanH(hFrac) * stripMetrics(img).k)), drawW = drawH;
+  const half = foragerHalf[clip];
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { img = half; fh = half.naturalHeight; }
+  const left = Math.round(ox + sw * cx - drawW / 2);
+  const top = Math.round(oy + sh * fy - stripFootF(img) * drawH);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, frame * FORAGER_FW, 0, FORAGER_FW, FORAGER_FH, left, top, drawW, drawH);
+  ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
 }
 
 // ── Paysan des CHAMPS : perso PixelLab dédié (chapeau de paille + fourche) qui
 // MARCHE le long du champ. 4 directions, 6 frames, 68px. /pixelart/agents/farmer-<dir>.png.
-const FARMER_FW = 68, FARMER_FH = 68, FARMER_NF = 6;
+const FARMER_FH = 68, FARMER_NF = 6; // FH = repli si l'image n'est pas décodée
 const FARMER_DIRS = ['south', 'east', 'north', 'west'];
 const farmerImg = {};
+const farmerHalf = {};
 let farmerInit = false, farmerReadyN = 0;
 function ensureFarmer() {
   if (farmerInit || typeof Image === 'undefined') return;
   farmerInit = true;
-  for (const d of FARMER_DIRS) { const im = new Image(); im.onload = () => { farmerReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/farmer-' + d + '.png'; farmerImg[d] = im; }
+  for (const d of FARMER_DIRS) {
+    const im = new Image(); im.onload = () => { farmerReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/farmer-' + d + '.png'; farmerImg[d] = im;
+    const hf = new Image(); hf.src = '/pixelart/agents/inhabitants/farmer-' + d + '-half.png'; farmerHalf[d] = hf;
+  }
 }
 const farmerReady = () => { ensureFarmer(); return farmerReadyN >= FARMER_DIRS.length; };
+// Mêmes règles que blitForager : frame déduite, coordonnées entières, bascule -half.
 function blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
-  const im = farmerImg[dir]; if (!im) return;
-  const drawH = sceneHumanH(hFrac), drawW = drawH;
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  let im = farmerImg[dir]; if (!im) return;
+  let fh = im.naturalHeight || FARMER_FH;
+  const drawH = Math.max(1, Math.round(sceneHumanH(hFrac) * stripMetrics(im).k)), drawW = drawH;
+  const half = farmerHalf[dir];
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { im = half; fh = half.naturalHeight; }
+  const left = Math.round(ox + sw * cx - drawW / 2), top = Math.round(oy + sh * fy - stripFootF(im) * drawH);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, frame * FARMER_FW, 0, FARMER_FW, FARMER_FH, left, top, drawW, drawH);
+  ctx.drawImage(im, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
 }
 
@@ -190,21 +242,30 @@ function drawFarmerShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac
 // ── Chaland des MARCHÉS : personne au PANIER réutilisée (inhabitant `basket-man`, 4 dir ×
 // 6 frames 68px, /pixelart/agents/inhabitants/basket-man-<dir>.png ; panier BAKÉ dans le
 // sprite) qui fait la navette bord ↔ comptoir. Même structure que le paysan (blitFarmer).
-const BASKET_FW = 68, BASKET_FH = 68, BASKET_NF = 6;
+const BASKET_FH = 68, BASKET_NF = 6; // FH = repli si l'image n'est pas décodée
 const BASKET_DIRS = ['south', 'east', 'north', 'west'];
 const basketImg = {};
+const basketHalf = {};
 let basketInit = false, basketReadyN = 0;
 function ensureBasket() {
   if (basketInit || typeof Image === 'undefined') return;
   basketInit = true;
-  for (const d of BASKET_DIRS) { const im = new Image(); im.onload = () => { basketReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/basket-man-' + d + '.png'; basketImg[d] = im; }
+  for (const d of BASKET_DIRS) {
+    const im = new Image(); im.onload = () => { basketReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/basket-man-' + d + '.png'; basketImg[d] = im;
+    const hf = new Image(); hf.src = '/pixelart/agents/inhabitants/basket-man-' + d + '-half.png'; basketHalf[d] = hf;
+  }
 }
 const basketReady = () => { ensureBasket(); return basketReadyN >= BASKET_DIRS.length; };
+// Mêmes règles que blitForager : frame déduite, coordonnées entières, bascule -half.
 function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
-  const im = basketImg[dir]; if (!im) return;
-  const drawH = sceneHumanH(hFrac), drawW = drawH, left = ox + sw * cx - drawW / 2, top = oy + sh * fy - 0.88 * drawH;
+  let im = basketImg[dir]; if (!im) return;
+  let fh = im.naturalHeight || BASKET_FH;
+  const drawH = Math.max(1, Math.round(sceneHumanH(hFrac) * stripMetrics(im).k)), drawW = drawH;
+  const half = basketHalf[dir];
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { im = half; fh = half.naturalHeight; }
+  const left = Math.round(ox + sw * cx - drawW / 2), top = Math.round(oy + sh * fy - stripFootF(im) * drawH);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, frame * BASKET_FW, 0, BASKET_FW, BASKET_FH, left, top, drawW, drawH);
+  ctx.drawImage(im, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
 }
 // Chaland en navette entre xA (bord) et xB (comptoir) sur la ligne de pieds fy ; T période,
@@ -406,8 +467,10 @@ function blitPropRot(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, angle) {
 // de son cadre et flotterait au-dessus de son ombre.
 function blitStripFoot(ctx, im, ox, oy, sw, sh, fw, frame, cx, fy, hFrac, footF) {
   if (!im || !(im.naturalWidth > 0)) return;
-  const drawH = sceneHumanH(hFrac), drawW = drawH;
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - footF * drawH;
+  // stripMetrics().k : cf. blitForager — les bandes flat logent le perso à ~50 % du
+  // cadre (les anciennes ~78 %) ; la mule et les vieilles bandes donnent k≈0.9-1.
+  const drawH = Math.max(1, Math.round(sceneHumanH(hFrac) * stripMetrics(im).k)), drawW = drawH;
+  const left = Math.round(ox + sw * cx - drawW / 2), top = Math.round(oy + sh * fy - footF * drawH);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * fw, 0, fw, im.naturalHeight, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
@@ -444,14 +507,17 @@ function muleRestFrame(now, T) {
 // (pas une boucle), joué en va-et-vient il donne « il se penche, travaille, se relève ».
 // Les pieds remontent dans le cadre à mesure qu'il se plie (0.824 → 0.706) : sans cette
 // table par frame il décollerait du sol au plus bas de son geste.
-const CROUCH_FOOT = [0.824, 0.824, 0.824, 0.779, 0.706];
+// Re-mesurée sur le clip FLAT 2026-08 (template picking-up : les pieds restent posés,
+// contrairement à l'ancienne transition debout→accroupi qui les remontait).
+const CROUCH_FOOT = [0.733, 0.733, 0.733, 0.733, 0.75];
 function drawCrouchWorker(ctx, ox, oy, sw, sh, now, cx, fy, T, phase, hFrac) {
   const n = FORAGER_CLIPS['crouch-south'];
   const c = ((((now || 0) / T) + (phase || 0)) % 1 + 1) % 1;
   const k = c < 0.5 ? c * 2 : (1 - c) * 2;
   const f = Math.min(n - 1, Math.floor(k * (n - 1) + 0.5));
   sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.18);
-  blitStripFoot(ctx, foragerImg['crouch-south'], ox, oy, sw, sh, FORAGER_FW, f, cx, fy, hFrac, CROUCH_FOOT[f]);
+  const im = foragerImg['crouch-south'];
+  blitStripFoot(ctx, im, ox, oy, sw, sh, (im && im.naturalHeight) || FORAGER_FH, f, cx, fy, hFrac, CROUCH_FOOT[f]);
 }
 
 // Halte de caravane du stade 0 : dépôt de sacs, mulet couché qui lève la tête,

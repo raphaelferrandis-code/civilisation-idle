@@ -6497,8 +6497,10 @@ function drawIsoVehicle(ctx, v, now, z) {
     // animation par DISTANCE via l'odomètre v.rollDist), sinon repli cardinal.
     const nm = v.woman ? 'basket-woman' : 'basket-man';
     const walking = (v.pauseT || 0) <= 0;
-    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 0.85, v.dir, walking, now, v.x * 0.02, 1, v.rollDist != null ? v.rollDist : null)) {
-      drawNamedAgent(ctx, p.x, p.y, z, nm, 0.85, v.dir, walking, now, v.x * 0.02);
+    // 1.24 = compensation des bandes FLAT (ratio perso/canvas 0.50 vs 0.73 avant,
+    // cf. tables AGENT_* d'agents.js) — diagonales ET cardinales régénérées 2026-08-03.
+    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, v.x * 0.02, 1, v.rollDist != null ? v.rollDist : null)) {
+      drawNamedAgent(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, v.x * 0.02);
     }
     return;
   }

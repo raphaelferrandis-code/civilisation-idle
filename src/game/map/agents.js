@@ -201,12 +201,15 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
   const chr = ensureAgentChar(name);
   if (!agentReady(chr)) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
-  const drawH = CM.TILE * z * scale * AGENT_SCALE * scaleMul, drawW = drawH;
+  const drawH = Math.max(1, Math.round(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
   const img = chr.img[VILLAGER_DIRS[d]] || chr.img.south;
+  // Frame DÉDUITE de l'image (frames carrées) : les bandes flat 2026-08 sortent en
+  // 56-60 px, plus au 68 historique. Coordonnées entières contre le fourmillement.
+  const fh = img.naturalHeight || AGENT_FH;
   const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % AGENT_NF) : 0;
-  const left = sx - drawW / 2, top = groundY - AGENT_FEET * drawH;
+  const left = Math.round(sx - drawW / 2), top = Math.round(groundY - AGENT_FEET * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, frame * AGENT_FW, 0, AGENT_FW, AGENT_FH, left, top, drawW, drawH);
+  ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;
   return { drawW, drawH, top };
 }
@@ -1826,7 +1829,7 @@ function drawOneVehicle(v, now) {
       // une fois et figé sur le véhicule. Repli vectoriel plus bas si pas chargé.
       const groundY = sy + ph * 1.35;
       if (v.woman === undefined) v.woman = Math.random() < 0.5;
-      const dim = drawNamedAgent(ctx, sx, groundY, z, v.woman ? 'basket-woman' : 'basket-man', 0.85, v.dir, (v.pauseT || 0) <= 0, now, v.x * 0.02);
+      const dim = drawNamedAgent(ctx, sx, groundY, z, v.woman ? 'basket-woman' : 'basket-man', 1.24, v.dir, (v.pauseT || 0) <= 0, now, v.x * 0.02);
       if (dim) { if (v.fade < 1) ctx.globalAlpha = 1; return; }
       // ── Repli vectoriel : sprites pas encore chargés ──
       // Jambes alternées

@@ -4,6 +4,9 @@
 // bascule sur {name}-{dir}-half.png quand drawH ≤ 70 % de la bande pleine).
 //   node scripts/fetchAgentFlat.mjs assemble <name> <charId>   → backup tmp + zip → 4 bandes
 //   node scripts/fetchAgentFlat.mjs half <name>                → 4 bandes -half (÷2 box + palette + alpha binaire)
+// Flag --cardinal : travaille les 4 vues CARDINALES (south/east/north/west, fichiers
+// {name}-south.png…) au lieu des diagonales — pour les consommateurs de scènes
+// (blitFarmer/blitBasket de cityEngineSprites.js) et le rendu legacy top-down.
 // ⚠ Le zip /download renvoie HTTP 423 tant qu'UN job de fond du perso pend (2e gen
 // v3, anim en cours…) → réessayer plus tard, ou passer par scripts/assembleAgentUrls.mjs.
 // Après assemble : passer chaque bande à scripts/quantize.cjs --colors 24 PUIS lancer half.
@@ -13,13 +16,17 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 import AdmZip from 'adm-zip';
 
-const NAME = process.argv[3];
-const CHAR_ID = process.argv[4];
+const CARDINAL = process.argv.includes('--cardinal');
+const args = process.argv.filter((a) => a !== '--cardinal');
+const NAME = args[3];
+const CHAR_ID = args[4];
 const OUT = 'public/pixelart/agents/inhabitants';
 const BACKUP = path.join(os.tmpdir(), 'civ-agents-backup');
-const DIRS = ['south-east', 'south-west', 'north-east', 'north-west'];
+const DIRS = CARDINAL ? ['south', 'east', 'north', 'west'] : ['south-east', 'south-west', 'north-east', 'north-west'];
 const FRAMES = 6;
-const RX = /animations\/[^/]+\/(south-east|south-west|north-east|north-west)\/frame_(\d+)\.png$/i;
+const RX = CARDINAL
+  ? /animations\/[^/]+\/(south|east|north|west)\/frame_(\d+)\.png$/i
+  : /animations\/[^/]+\/(south-east|south-west|north-east|north-west)\/frame_(\d+)\.png$/i;
 
 const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]; };
 const setPx = (img, x, y, [r, g, b, a]) => { const i = (y * img.width + x) * 4; img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = a; };
