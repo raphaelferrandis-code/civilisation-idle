@@ -239,7 +239,15 @@ Mêmes noms de fichiers → zéro câblage. Vérifier quand même :
   cf. fiche « jeu sur téléphone ».
 - Refaire les 3 captures de référence par bande (7/8/9).
 
-### B3 — la super-tour rare : « Tour-monde »
+### B3 — la super-tour rare : « Tour-monde » — 🚫 RETIRÉE le 2026-08-03
+
+> **RETRAIT décidé par Raph** (« on peut oublier la tour-monde, le rendu n'est
+> pas pertinent ») : une fois les tours ordinaires devenues des monolithes 2×2
+> de 11 t (PLAN-TISSU-URBAIN §10 lot W), le colosse de 14 t ne crevait plus la
+> skyline — il n'était que « le premier parmi beaucoup ». Variant, promotion
+> des slots, empreinte, libellé, tests et les 3 PNG retirés ; les slots 0/12
+> retombent sur le tirage normal, rien n'est sérialisé, les saves ne voient
+> rien. **Ne pas re-proposer.** L'historique technique reste ci-dessous.
 
 > **ÉTAT 2026-08-03 : LIVRÉ** (avec la régé v2 du megablock jade — grappe de
 > trois tours au lieu de la dalle, même gabarit 96×224). Variant `supertower` :
@@ -254,6 +262,15 @@ Mêmes noms de fichiers → zéro câblage. Vérifier quand même :
 > mesurés en jeu**, vs tour 10,6). 3 tests de contrat (rareté 1-2, espacement,
 > gate bande 7) — 1533 verts. En démo saturée elle est « première parmi
 > beaucoup » ; sur une vraie save (moins dense) elle dominera davantage.
+>
+> **REPRISE 2026-08-03 (`badbb67`), retour Raph ×2** : (1) Tour-monde agrandie
+> à **13,2-13,9 t** (canvas 96×392) ; (2) toute la fournée sortait en élévation
+> FRONTALE — les 12 sprites régénérés en **3/4 coin-en-avant** (« the CORNER
+> faces the viewer, TWO visible facades, rooftop slightly visible » — le seul
+> « not a flat facade » ne suffit PAS, il faut le mot CORNER). Pyramide jade
+> reprise 2× (v2 trapue 4 t → v3 « TALL … filling the whole canvas » 6,3 t).
+> Mesures finales en jeu : **supertour 13,7 · tour 10,6 · megablock 8,0 ·
+> arcologie 6,3-6,6 t**.
 
 1-2 exemplaires par ville, près du cœur : la perception du maximum FAIT le
 maximum.

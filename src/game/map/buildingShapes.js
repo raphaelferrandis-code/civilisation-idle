@@ -17,8 +17,7 @@ import { drawEngineSprite } from './engineSprites.js';
 const BUILDING_HEIGHTS = {
   tent: 0.5, hut: 0.6, longhouse: 0.8, townhouse: 1.1,
   courtyard: 0.9, stonehouse: 1.1, manor: 1.4, block: 1.8, tenement: 2.2,
-  tower: 3.2, megablock: 2.8, arcologyhome: 3.4,
-  supertower: 4.4   // super-tour B3 (repli procédural seulement : le sprite fait ~11 t)
+  tower: 3.2, megablock: 2.8, arcologyhome: 3.4
 };
 
 // ── Helpers du langage commun ───────────────────────────────────────────────

@@ -41,17 +41,14 @@ export const houseVarTune = { on: true };
 // pas de gate par bande, on se fie à la variante de la tuile.
 const AVAILABLE = new Set([
   "tent", "hut", "longhouse", "courtyard", "townhouse", "stonehouse",
-  "manor", "block", "tenement", "tower", "megablock", "arcologyhome",
-  // Super-tour B3 : n'existe QU'EN bandes 7-9 (cf. SUPER_SLOTS du générateur),
-  // donc pas de PNG de base — spriteKeyFor donne toujours la clé cosmique.
-  "supertower"
+  "manor", "block", "tenement", "tower", "megablock", "arcologyhome"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /
 // 9 violet) — cohérence avec les tours-moteur cosmiques (cf. blitCosmicTower). Aux
 // ères 35+ elles chargent « <variant>-cosmic-<band>.png » ; partout ailleurs, leur
 // sprite de base. Les autres variantes gardent un sprite unique quelle que soit l'ère.
-const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome", "supertower"]);
+const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome"]);
 
 // Largeur de contenu (px du PNG) qui remplit ~1 tuile d'emprise. Les autres sprites
 // scalent au MÊME facteur → leur taille relative (calibrée sur BUILDING_HEIGHTS à la

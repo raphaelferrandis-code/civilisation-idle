@@ -583,15 +583,25 @@ qui bloque les passes suivantes — le flood final compare au gris de PLAQUE
 (seuil 30) et traverse le transparent. À la prochaine fournée grand format :
 vérifier les coins AVANT quantize.
 
-### P — La place cosmique — À FAIRE (décision Raph attendue)
+### P — La place cosmique ✅ LIVRÉ (option b : densifier)
 
-La place est cotée 4-5 tuiles (`buildPlazas`, cityPlan.js:128) avec une recette
-de mobilier pensée pour un bâti de 3 tuiles : à côté de tours de 11-14 t, ce
-parvis quasi vide fait village. Deux pistes, non exclusives :
-- (a) **rétrécir** aux bandes 7+ (size 4-5 → 3) — ⚠ les recettes d'isoPlaza ne
-  sont testées que pour n = 4-6, il faut une recette 3 ;
-- (b) **densifier** la recette cosmique (jardins, kiosques, foule, dallage plus
-  fin) — une place de mégalopole est PLEINE, pas vide.
+Arbitrage Raph 2026-08-03 : « densifie la place cosmique ». Fait par
+**surcharges DE RECETTE** (isoPlaza.js — les autres ères gardent les plafonds
+de `PLAZA_TUNE`, zéro impact hors bandes 7+) :
+- `benchPerSide: 8` (le côté trop court en met moins tout seul — la géométrie
+  reste juge via la boucle de rétrécissement) ;
+- `treeWant: 4` — un JARDIN autour de la pièce maîtresse (les SPOTS et le
+  filet restent les juges de ce qui tient) ;
+- `field: [planter]` — nouvelle GARNITURE DE CŒUR : quatre props sur les axes
+  cardinaux à mi-chemin du centre, passés au filet (garniture, pas structure —
+  même contrat que les bacs des intervalles). Le champ intérieur des grandes
+  places cesse d'être une dalle nue.
+Les gardes existantes tiennent (bancs = benchPerSide×4, une seule fontaine,
+plafonds de hauteur) — 1 533 tests verts, recettes vérifiées aux tailles 4-6.
+
+**⚠ Au même moment, la Tour-monde (lot W, 3×3) a été RETIRÉE** — Raph : « le
+rendu n'est pas pertinent » (noyée parmi les monolithes 2×2 de 11 t). Le lot W
+se réduit donc à : **tower 2×2 monolithe**. Ne pas re-proposer de super-tour.
 
 ## 9. Périmètre : ce qui a bougé en cours de route
 

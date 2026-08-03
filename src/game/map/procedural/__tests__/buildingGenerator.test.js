@@ -44,9 +44,9 @@ function nearRoad(roadKey, gx, gy, R = ROAD_RADIUS) {
   return false;
 }
 
-// Scénario cosmique pour la SUPER-TOUR (chantier ÉCHELLE, B3) : même grille,
-// bande paramétrée. Le tirage promeut les slots 0 et 12 en « supertower » dès
-// la bande 7, avec un garde d'espacement — on vérifie le contrat, pas le hasard.
+// Scénario à bande paramétrée (ex-harnais de la Tour-monde, RETIRÉE 2026-08-03
+// — Raph : « le rendu n'est pas pertinent »). Sert aux contrats cosmiques :
+// îlots uniformes (BLOCK_Q) et absence de variant fantôme.
 function scenarioBand(eraBand, seed = 4242) {
   const N = 40;
   const core = { x: 20, y: 20 };
@@ -69,32 +69,34 @@ function scenarioBand(eraBand, seed = 4242) {
   return tiles;
 }
 
-describe("buildingGenerator — super-tour (chantier ÉCHELLE, B3)", () => {
-  it("bandes cosmiques : 1 à 2 par ville, jamais plus", () => {
-    for (const band of [7, 8, 9]) {
-      for (const seed of [1, 4242, 987654]) {
-        const supers = scenarioBand(band, seed).filter((t) => t.variant === "supertower");
-        expect(supers.length, `bande ${band} seed ${seed}`).toBeGreaterThanOrEqual(1);
-        expect(supers.length, `bande ${band} seed ${seed}`).toBeLessThanOrEqual(2);
-      }
-    }
-  });
-
-  it("jamais deux côte à côte : espacement Chebyshev >= 10 quand il y en a deux", () => {
-    for (const seed of [1, 4242, 987654]) {
-      const supers = scenarioBand(9, seed).filter((t) => t.variant === "supertower");
-      if (supers.length === 2) {
-        const [a, b] = supers;
-        const d = Math.max(Math.abs(a.gx - b.gx), Math.abs(a.gy - b.gy));
-        expect(d, `seed ${seed}`).toBeGreaterThanOrEqual(10);
-      }
-    }
-  });
-
-  it("avant la bande 7 : aucune", () => {
-    for (const band of [0, 5, 6]) {
+describe("buildingGenerator — tirage cosmique", () => {
+  it("la Tour-monde retirée ne réapparaît jamais", () => {
+    for (const band of [0, 6, 7, 8, 9]) {
       expect(scenarioBand(band).filter((t) => t.variant === "supertower")).toHaveLength(0);
     }
+  });
+
+  it("îlots uniformes aux bandes 7+ : un pâté de 3×3 porte UN seul variant", () => {
+    const tiles = scenarioBand(8);
+    const byBlock = new Map();
+    for (const t of tiles) {
+      const k = Math.floor(t.gx / 3) + ":" + Math.floor(t.gy / 3);
+      if (!byBlock.has(k)) byBlock.set(k, new Set());
+      byBlock.get(k).add(t.variant);
+    }
+    for (const [k, set] of byBlock) expect(set.size, `pâté ${k}`).toBe(1);
+  });
+
+  it("avant la bande 7 : tirage historique, les pâtés restent mélangés", () => {
+    const tiles = scenarioBand(5);
+    const byBlock = new Map();
+    for (const t of tiles) {
+      const k = Math.floor(t.gx / 3) + ":" + Math.floor(t.gy / 3);
+      if (!byBlock.has(k)) byBlock.set(k, new Set());
+      byBlock.get(k).add(t.variant);
+    }
+    const mixed = [...byBlock.values()].filter((s) => s.size > 1).length;
+    expect(mixed).toBeGreaterThan(0);
   });
 });
 

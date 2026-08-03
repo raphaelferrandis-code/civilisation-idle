@@ -522,7 +522,6 @@ function cityMapVariantLabel(type, variant) {
     tower: "Tour d'habitation",
     megablock: "Grand ensemble",
     arcologyhome: "Logement d'arcologie",
-    supertower: "Tour-monde",
     // Grands complexes (districts) conservés :
     market: "Marche",
     temple: "Temple",

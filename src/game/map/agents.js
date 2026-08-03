@@ -107,19 +107,25 @@ const agentReady = (c) => !!c && c.ready >= VILLAGER_DIRS.length;
 // (p.skinVariant) et FIXÉE au spawn. La variante « 2 » (peau métisse) est ajoutée au fil des
 // générations PixelLab ; tant que ses sprites manquent, le rendu retombe sur la variante 0.
 const AGENT_PREHISTORIC = {
-  men: [{ name: 'caveman', scale: 0.9 }, { name: 'caveman2', scale: 0.9 }],       // + variante peau noire + tenue
-  women: [{ name: 'cavewoman', scale: 0.86 }, { name: 'cavewoman2', scale: 0.86 }],
-  child: { name: 'cavechild', scale: 0.62 },
+  // Scales ×~1.46 depuis la régé FLAT 2026-08-03 (ratio perso/canvas 0.50 vs 0.728
+  // des anciennes bandes) : même hauteur de perso à l'écran qu'avant.
+  men: [{ name: 'caveman', scale: 1.31 }, { name: 'caveman2', scale: 1.31 }],       // + variante peau noire + tenue
+  women: [{ name: 'cavewoman', scale: 1.25 }, { name: 'cavewoman2', scale: 1.25 }],
+  child: { name: 'cavechild', scale: 0.87 },
 };
-const AGENT_MEDIEVAL = { // ère 2 (band 2-3) : paysans médiévaux
-  men: [{ name: 'villager', scale: 0.85 }, { name: 'villager2', scale: 0.85 }],             // + variante métisse
-  women: [{ name: 'villagerwoman', scale: 0.85 }, { name: 'villagerwoman2', scale: 0.85 }], // + variante métisse
+const AGENT_MEDIEVAL = { // ère 2 (band 2-3) : paysans médiévaux — scales ×1.46 (régé FLAT, ratio 0.50)
+  men: [{ name: 'villager', scale: 1.24 }, { name: 'villager2', scale: 1.24 }],             // + variante métisse
+  women: [{ name: 'villagerwoman', scale: 1.24 }, { name: 'villagerwoman2', scale: 0.85 }], // + variante métisse
   child: { name: 'villagerchild', scale: 0.6 },
 };
 const AGENT_ANTIQUITY = { // ère 3 (band 4) : gréco-romain (tunique, drapé)
-  men: [{ name: 'greekman', scale: 0.85 }, { name: 'greekman2', scale: 0.85 }],       // + variante peau noire + tenue
-  women: [{ name: 'greekwoman', scale: 0.85 }, { name: 'greekwoman2', scale: 0.85 }],
-  child: { name: 'greekchild', scale: 0.6 },
+  // ⚠ greekman = PILOTE de la DA flat 2026-08-03 (canvas 56, perso 28 px → ratio
+  // perso/canvas 0,50 contre 0,73 pour les bandes v3 « figurine » 92 px) : son scale
+  // compense pour garder la MÊME hauteur de perso à l'écran que ses voisins (0,85 ×
+  // 0,73/0,50 ≈ 1,24). À généraliser (ou re-normaliser à 0,85) au batch des 25.
+  men: [{ name: 'greekman', scale: 1.24 }, { name: 'greekman2', scale: 1.24 }],       // + variante peau noire + tenue
+  women: [{ name: 'greekwoman', scale: 1.24 }, { name: 'greekwoman2', scale: 1.24 }],
+  child: { name: 'greekchild', scale: 0.87 },
 };
 const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel (redingote, ouvriers)
   men: [{ name: 'industrialman', scale: 0.85 }, { name: 'industrialman2', scale: 0.85 }],       // + variante peau noire + tenue
@@ -243,7 +249,7 @@ const agentDiagChars = {};
 function ensureAgentDiag(name) {
   let c = agentDiagChars[name];
   if (c) return c;
-  c = { img: {}, ready: 0, failed: 0 };
+  c = { img: {}, imgHalf: {}, ready: 0, failed: 0 };
   agentDiagChars[name] = c;
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
     c.img[d] = loadWithRetry(
@@ -251,6 +257,13 @@ function ensureAgentDiag(name) {
       () => { c.ready += 1; },
       () => { c.failed += 1; },
     );
+    // Bande DEMI-TAILLE pré-cuite optionnelle ({name}-{d}-half.png, réduction ÷2
+    // box+palette faite hors ligne) : au petit zoom le canvas la dessine à ~1:1 au
+    // lieu d'écraser la bande pleine à ×0,4-0,5 (bruit + fourmillement de marche).
+    // Asset optionnel : un seul essai sans retry ; absent → bande pleine comme avant.
+    const im = new Image();
+    c.imgHalf[d] = im;
+    im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '-half.png';
   }
   return c;
 }
@@ -298,10 +311,18 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
-  const img = c.img[ISO_DIAG[d]];
-  const fh = img.naturalHeight || AGENT_FH;
+  let img = c.img[ISO_DIAG[d]];
+  let fh = img.naturalHeight || AGENT_FH;
+  // Taille ENTIÈRE : en sous-pixel, le nearest ré-échantillonne différemment à
+  // chaque position → le sprite fourmille en marchant. Et sous 70 % de la bande
+  // pleine, bascule sur la bande -half pré-cuite (ratio rendu ~1:1, fini le bruit).
+  const drawH = Math.max(1, Math.round(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
+  const half = c.imgHalf[ISO_DIAG[d]];
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) {
+    img = half;
+    fh = half.naturalHeight;
+  }
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
-  const drawH = CM.TILE * z * scale * AGENT_SCALE * scaleMul, drawW = drawH;
   let frame = 0;
   if (walking) {
     if (distPx != null) {
@@ -315,7 +336,7 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
     }
   }
   const feetF = groundFeet ? agentFootF(c, img) : AGENT_FEET;
-  const left = sx - drawW / 2, top = groundY - feetF * drawH;
+  const left = Math.round(sx - drawW / 2), top = Math.round(groundY - feetF * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;

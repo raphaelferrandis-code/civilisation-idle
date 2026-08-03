@@ -43,17 +43,17 @@ function variantList(table, band, bias) {
 const HOUSE_FOOTPRINT = {
   manor: [2, 2],                  // grande demeure (sprite ~1,3 tuile de large) : réserve son lot pour garder sa masse sans déborder
   tenement: [1, 2], tower: [1, 2],
-  megablock: [2, 2], arcologyhome: [2, 2],
-  supertower: [2, 2]              // super-tour B3 : rare (cf. SUPER_SLOTS), la plus haute du bâti
+  megablock: [2, 2], arcologyhome: [2, 2]
 };
 // EMPREINTES ÉLARGIES aux bandes cosmiques (reprise mégalopole, Raph 2026-08-03 :
 // « les tours âge cosmique de plusieurs tuiles de large ») : la tour cesse d'être
-// une aiguille d'une tuile pour devenir un monolithe 2×2, la Tour-monde un
-// colosse 3×3. ⚠ L'ART DOIT SUIVRE : l'échelle de dessin dépend de l'empreinte
-// (pixelHouseGeom : unit = w/spanX) — un sprite cousu pour 1×2 dessiné sur 2×2
-// RAPETISSE d'un tiers. Les sprites tower-cosmic/supertower-cosmic sont générés
-// pour CES empreintes (contenu ≤ 95 px / ≤ 142 px). Avant la bande 7, rien ne bouge.
-const HOUSE_FOOTPRINT_COSMIC = { tower: [2, 2], supertower: [3, 3] };
+// une aiguille d'une tuile pour devenir un monolithe 2×2. ⚠ L'ART DOIT SUIVRE :
+// l'échelle de dessin dépend de l'empreinte (pixelHouseGeom : unit = w/spanX) —
+// un sprite cousu pour 1×2 dessiné sur 2×2 RAPETISSE d'un tiers. Les sprites
+// tower-cosmic sont générés pour CETTE empreinte (contenu ≤ 95 px). Avant la
+// bande 7, rien ne bouge. (La « Tour-monde » 3×3 a été RETIRÉE — Raph
+// 2026-08-03, « le rendu n'est pas pertinent » : noyée parmi les monolithes.)
+const HOUSE_FOOTPRINT_COSMIC = { tower: [2, 2] };
 export const houseFootprint = (variant, eraBand = 0) =>
   (eraBand >= 7 && HOUSE_FOOTPRINT_COSMIC[variant]) || HOUSE_FOOTPRINT[variant] || [1, 1];
 
@@ -148,19 +148,12 @@ export function createBuildingPlacer({
     return orderedFor[category];
   };
 
-  // ── SUPER-TOUR (chantier ÉCHELLE, Lot B3 — docs/PLAN-ECHELLE.md) ───────────
-  // La perception du maximum FAIT le maximum : 1-2 exemplaires par ville
-  // suffisent à crever la skyline, pas besoin que tout grandisse. Deux SLOTS
-  // persistants précis (0 et 12 — les mieux classés du tri, donc près du cœur,
-  // posés tôt, et qui ne bougent plus jamais) deviennent « supertower » dès la
-  // bande 7. Espacement : registre par RECALCUL (le placer est recréé à chaque
-  // compute) ; la seconde est DÉMOTÉE au tirage normal si elle tombe à moins de
-  // SUPER_DIST de l'autre — jamais deux côte à côte. Clé PAR SLOT : quand la
-  // passe 1 refuse l'empreinte 2×2 et refit le slot ailleurs, il se ré-évalue
-  // sans être bloqué par son propre fantôme.
-  const SUPER_SLOTS = new Set([0, 12]);
-  const SUPER_DIST = 10;
-  const supers = new Map();
+  // (La promotion « supertower » des slots 0/12 vivait ici — RETIRÉE le
+  // 2026-08-03, décision Raph : « le rendu n'est pas pertinent ». Depuis que
+  // les tours ordinaires sont des monolithes 2×2 de 11 t, un colosse de 14 t
+  // ne crevait plus la skyline. Ne pas re-proposer ; l'historique complet est
+  // dans docs/PLAN-ECHELLE.md §B3 et docs/PLAN-TISSU-URBAIN.md §10.)
+  //
   // ÎLOTS UNIFORMES aux bandes cosmiques (Raph 2026-08-03 : « de grosses
   // mégalopoles d'immeubles tel cyberpunk, ou ce qu'on voit en Chine ») : le
   // tirage est quantifié par pâté de BLOCK_Q×BLOCK_Q cellules — tout un îlot
@@ -170,16 +163,6 @@ export function createBuildingPlacer({
   const BLOCK_Q = 3;
 
   const chooseVariant = (category, n, cell) => {
-    if (category === "house" && counts.eraBand >= 7 && SUPER_SLOTS.has(n)) {
-      let far = true;
-      for (const [si, s] of supers) {
-        if (si !== n && Math.max(Math.abs(s.gx - cell.gx), Math.abs(s.gy - cell.gy)) < SUPER_DIST) { far = false; break; }
-      }
-      if (far) {
-        supers.set(n, { gx: cell.gx, gy: cell.gy });
-        return "supertower";
-      }
-    }
     const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
     if (counts.eraBand >= 7) {
       const hq = hashString(seed + ":" + category + ":q" + Math.floor(cell.gx / BLOCK_Q) + ":" + Math.floor(cell.gy / BLOCK_Q));

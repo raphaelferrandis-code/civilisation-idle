@@ -261,6 +261,17 @@ const RECIPES = {
     trees: true,
     grate: { p: 0.44 },
     lamps: 'corners',
+    // DENSIFICATION (Raph 2026-08-03, chantier mégalopole — PLAN-TISSU-URBAIN
+    // §10 lot P) : à côté de monolithes de 11 tuiles, la place au mobilier de
+    // village faisait parvis VIDE. Une place de mégalopole est PLEINE : deux
+    // fois plus de bancs (le côté trop court en met moins tout seul), un
+    // JARDIN de quatre arbres autour de la pièce maîtresse, et une garniture
+    // de cœur (jardinières aux quatre axes, passées au filet — elles cèdent
+    // la place au lieu de se chevaucher). Surcharges DE RECETTE : les autres
+    // ères gardent les plafonds de PLAZA_TUNE.
+    benchPerSide: 8,
+    treeWant: 4,
+    field: [{ prop: 'planter', p: 0.55 }],
   },
 };
 
@@ -643,7 +654,10 @@ function composeOne(L, era, box) {
     // tenir, et deux groupes voisins ne doivent pas se toucher — d'où le pas
     // minimal entre eux. Un côté trop court en met moins, tout seul.
     const usable = side.span - 2 * PLAZA_TUNE.cornerKeep;
-    let g = Math.max(0, Math.floor((PLAZA_TUNE.benchPerSide | 0) / 2));
+    // Plafond de bancs : la RECETTE peut surcharger la molette (densification
+    // cosmique) — la géométrie du côté reste le vrai juge, via le while dessous.
+    const benchCap = (R.benchPerSide != null ? R.benchPerSide : PLAZA_TUNE.benchPerSide) | 0;
+    let g = Math.max(0, Math.floor(benchCap / 2));
     while (g > 1 && usable / g < spanFor() + 2 * minStep) g -= 1;
     if (g > 0 && usable < spanFor()) g = 0;
     benchPerSide = Math.max(benchPerSide, g * 2);
@@ -712,10 +726,26 @@ function composeOne(L, era, box) {
       [cxc + td, cyc + td],      // devant — dernier recours, il le masque
     ];
     // Le compte inclut l'arbre du CENTRE quand c'est lui qui le tient : « 1 ou
-    // 2 max » vaut pour la place entière, pas par emplacement.
-    const want = plazaTreeCount(w, h);
+    // 2 max » vaut pour la place entière, pas par emplacement. La RECETTE peut
+    // vouloir davantage (jardin cosmique, treeWant) — le filet et la liste de
+    // SPOTS restent les juges de ce qui tient vraiment.
+    const want = R.treeWant != null ? (R.treeWant | 0) : plazaTreeCount(w, h);
     for (let ci = 0; ci < SPOTS.length && trees < want; ci += 1) {
       putTree(SPOTS[ci][0], SPOTS[ci][1], ci, true);
+    }
+  }
+  // 5. GARNITURE DE CŒUR (recette `field`, densification cosmique) : quatre
+  //    props sur les axes cardinaux MONDE, à mi-chemin entre le centre et le
+  //    bord — le champ intérieur d'une grande place restait une dalle nue.
+  //    Tous passent au FILET : sur une petite place ils cèdent simplement la
+  //    place au lieu de se chevaucher (garniture, pas structure — comme les
+  //    bacs des intervalles).
+  if (R.field && R.field.length) {
+    const fd = Math.max(1.6, Math.min(w, h) * 0.28);
+    const F_SPOTS = [[cxc + fd, cyc], [cxc - fd, cyc], [cxc, cyc + fd], [cxc, cyc - fd]];
+    for (let fi = 0; fi < F_SPOTS.length; fi += 1) {
+      const pick = R.field[Math.floor(h01('plz' + sd + ':f:' + fi) * R.field.length) % R.field.length];
+      add(pick.prop, null, F_SPOTS[fi][0], F_SPOTS[fi][1], hOf(pick.prop, pick));
     }
   }
   props.sort((a, b) => a.d - b.d);
