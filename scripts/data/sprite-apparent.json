@@ -20,7 +20,7 @@
    "key": "mint-prop-house",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3731)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3727)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -40,7 +40,7 @@
    "key": "exchange-prop-stall",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (cityEngineSprites.js:4033)",
+   "densNote": "hFrac 0.73 (cityEngineSprites.js:4029)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -170,7 +170,7 @@
    "key": "bank-house-renaissance",
    "famille": "engine",
    "densite": 0.901,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4113)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4109)",
    "densPetit": 0.45,
    "densHalleMax": 2.252,
    "door": {
@@ -256,7 +256,7 @@
    "key": "guild-prop-lodge",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2657)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2653)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -472,7 +472,7 @@
    "key": "market-hall-glass",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2424)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2420)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -512,7 +512,7 @@
    "key": "mint-prop-forge",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (cityEngineSprites.js:3651)",
+   "densNote": "hFrac 0.73 (cityEngineSprites.js:3647)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -706,7 +706,7 @@
    "key": "market-hall-tent",
    "famille": "engine",
    "densite": 0.71,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2334)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2330)",
    "densPetit": 0.355,
    "densHalleMax": 1.776,
    "door": {
@@ -770,7 +770,7 @@
    "key": "market-macellum",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:2127)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:2124)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -852,7 +852,7 @@
    "key": "market-prop-stall",
    "famille": "engine",
    "densite": 0.883,
-   "densNote": "hFrac 0.69 (cityEngineSprites.js:2223)",
+   "densNote": "hFrac 0.69 (cityEngineSprites.js:2219)",
    "densPetit": 0.442,
    "densHalleMax": 2.208,
    "door": {
@@ -930,7 +930,7 @@
    "key": "guild-consortium",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2938)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2934)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1150,7 +1150,7 @@
    "key": "forager-greenhouse",
    "famille": "engine",
    "densite": 0.648,
-   "densNote": "hFrac 0.675 (cityEngineSprites.js:1072)",
+   "densNote": "hFrac 0.675 (cityEngineSprites.js:1068)",
    "densPetit": 0.324,
    "densHalleMax": 1.62,
    "door": {
@@ -1170,7 +1170,7 @@
    "key": "granary-hall",
    "famille": "engine",
    "densite": 0.672,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1323)",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1320)",
    "densPetit": 0.336,
    "densHalleMax": 1.68,
    "door": {
@@ -1346,7 +1346,7 @@
    "key": "bank-basilica-roman",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:737)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:733)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -1360,7 +1360,7 @@
    "key": "bank-house-glass",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4312)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4308)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1380,7 +1380,7 @@
    "key": "bank-house-neoclassical",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4207)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4203)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1716,7 +1716,7 @@
    "key": "forager-hortus-classical",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:737)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:733)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -1752,7 +1752,7 @@
    "key": "granary-hall-grand",
    "famille": "engine",
    "densite": 0.605,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1322) palier spanSum 6",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1319) palier spanSum 6",
    "densPetit": 0.302,
    "densHalleMax": 1.512,
    "door": {
@@ -1772,7 +1772,7 @@
    "key": "granary-horreum-classical",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:737)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:733)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -1785,13 +1785,13 @@
   {
    "key": "granary-horreum-grand",
    "famille": "engine",
-   "densite": 0.674,
-   "densNote": "hFrac 0.78 (cityEngineSprites.js:736) palier spanSum 6",
-   "densPetit": 0.337,
-   "densHalleMax": 1.685,
+   "densite": 0.605,
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:732) palier spanSum 6",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
    "door": {
-    "hSource": 22,
-    "apparent": 14.8,
+    "hSource": 30,
+    "apparent": 18.1,
     "bande": "portail",
     "ecart": 0
    }
@@ -1800,7 +1800,7 @@
    "key": "granary-hub-grand",
    "famille": "engine",
    "densite": 0.648,
-   "densNote": "hFrac 0.75 (cityEngineSprites.js:1567) palier spanSum 6",
+   "densNote": "hFrac 0.75 (cityEngineSprites.js:1564) palier spanSum 6",
    "densPetit": 0.324,
    "densHalleMax": 1.62,
    "door": {
@@ -1820,7 +1820,7 @@
    "key": "granary-warehouse",
    "famille": "engine",
    "densite": 0.672,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1450)",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1447)",
    "densPetit": 0.336,
    "densHalleMax": 1.68,
    "door": {
@@ -1840,7 +1840,7 @@
    "key": "granary-warehouse-grand",
    "famille": "engine",
    "densite": 0.605,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1449) palier spanSum 6",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1446) palier spanSum 6",
    "densPetit": 0.302,
    "densHalleMax": 1.512,
    "door": {
@@ -1864,7 +1864,7 @@
    "key": "guild-chamber",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2879)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2875)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1888,7 +1888,7 @@
    "key": "guild-collegium",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:737)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:733)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -1928,7 +1928,7 @@
    "key": "guild-house",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2763)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2759)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2086,7 +2086,7 @@
    "key": "market-plaza-neon",
    "famille": "engine",
    "densite": 0.71,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2505)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2501)",
    "densPetit": 0.355,
    "densHalleMax": 1.776,
    "door": {
@@ -2196,7 +2196,7 @@
    "key": "mint-house-digital",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3906)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3902)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2216,7 +2216,7 @@
    "key": "mint-house-steam",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3821)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3817)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2236,7 +2236,7 @@
    "key": "mint-moneta",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:737)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:733)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {

@@ -729,11 +729,7 @@ function drawCityEngineSprite(context) {
   if (band === 4 && RB4[id] && propReady(RB4[id])) {
     const grandRB4 = Math.max(gw, gh) >= 3 && RB4_GRAND[id] && propReady(RB4_GRAND[id]);
     if (dBack) {
-      // 0.858/0.78 (et non 0.77/0.7 comme les autres paliers) : le horreum est
-      // un bâtiment LONG et BAS, son entrée ne fait que 22 px de haut dans le
-      // canvas — la fraction plus généreuse la ramène à 14,8 px apparents,
-      // dans la bande portail. Mesuré, pas choisi par symétrie.
-      if (grandRB4) blitProp(ctx, ox, oy, sw, sh, RB4_GRAND[id], 0.5, 0.46, 0.858, 0.78);
+      if (grandRB4) blitProp(ctx, ox, oy, sw, sh, RB4_GRAND[id], 0.5, 0.46, 0.77, 0.7);
       else blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76);
     }
     return true;
@@ -1149,8 +1145,9 @@ function drawCityEngineSprite(context) {
         if (dBack) {
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         px(0.1, 0.74, 0.18, 0.1, "#1a2228"); strokeRect(0.1, 0.74, 0.18, 0.1, "#2c3a44"); // bac récepteur (gauche)
-        // Rack (centre, 96×128 → haut) : ombre + prop ; taille montante selon le tier.
-        ctx.fillStyle = "rgba(0,0,0,0.32)"; ctx.beginPath(); ctx.ellipse(ox + sw * prx, oy + sh * 0.86, sw * 0.2, sh * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+        // Rack (centre, 96×128 → haut) ; taille montante selon le tier.
+        /* ombre de contact retirée (retour Raph 2026-08-04 : l'ellipse sous un
+           BÂTIMENT le fait flotter — cf. isoRenderer, même refus) */
         blitProp(ctx, ox, oy, sw, sh, 'forager-hydro-rack', prx, pry, prkH * 0.75, prkH);
         }
         // Halo néon additif qui RESPIRE, piloté par la nuit (le prop porte déjà le glow
@@ -1558,7 +1555,7 @@ function drawCityEngineSprite(context) {
         const hbx = 0.5, hby = 0.5, hbH = 0.7 + Math.min(2, tier) * 0.03;
         if (dBack) {
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
-        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * hbx, oy + sh * 0.84, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        /* ombre de contact retirée (retour Raph 2026-08-04) */
         // PALIER 2 (grain) : le TERMINAL d'empreinte ≥ 3 (trois silos + grange
         // à toit damier, 176×160). Fractions LITTÉRALES, sans la croissance au
         // tier du petit : un palier est calibré, il ne gonfle plus (porte de
@@ -2134,9 +2131,8 @@ function drawCityEngineSprite(context) {
       const colX = (i) => Lx + span * i / (nCol - 1);
       const yBase = 0.68, yCap = 0.365, shaftH = yBase - yCap;
       if (dBack) {
-      // contact shadow (bas-droite)
-      ctx.fillStyle = "rgba(0,0,0,0.2)";
-      ctx.beginPath(); ctx.ellipse(ox + sw * 0.52, oy + sh * 0.82, sw * 0.42, sh * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+      /* ombre de contact retirée (retour Raph 2026-08-04) : le stylobate
+         ci-dessous suffit à asseoir le temple, l'ellipse le faisait flotter. */
       // stylobate (socle marbre stepé) : face avant ombrée + dalle éclairée
       px(Lx - 0.05, yBase, span + 0.10, 0.06, POD_F);
       px(Lx - 0.05, yBase, span + 0.10, 0.016, POD_T);

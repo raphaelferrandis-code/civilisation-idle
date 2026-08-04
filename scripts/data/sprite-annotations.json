@@ -1221,16 +1221,16 @@
    "key": "granary-horreum-grand",
    "nature": "batiment",
    "door": {
-    "x": 30,
-    "y": 91,
-    "w": 14,
-    "h": 22
+    "x": 121,
+    "y": 99,
+    "w": 18,
+    "h": 30
    },
    "doorKind": "portail",
    "window": null,
    "floorPitch": null,
-   "confidence": 0.8,
-   "note": "palier 2 romain bande 4, entree a volee de marches ; arcades de 18 px a cote"
+   "confidence": 0.85,
+   "note": "palier 2 romain bande 4, pose au sol sans dalle ; sprite MIROIR pour la lumiere"
   },
   {
    "key": "granary-hub",

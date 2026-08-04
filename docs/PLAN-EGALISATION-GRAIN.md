@@ -284,7 +284,7 @@ attendent leur art, G1 traite le reste.
 > | Palier | Ères | Sprite | Porte source | Densité | Apparent |
 > |---|---|---|---|---|---|
 > | halle de pierre | ei 10-24 (hors b4) | `granary-hall-grand` 176×160 | 31 px | 0,605 | **18,7** |
-> | horreum romain | bande 4 | `granary-horreum-grand` 176×160 | 22 px | 0,674 | **14,8** |
+> | horreum romain | bande 4 | `granary-horreum-grand` 176×160 | 30 px | 0,605 | **18,1** |
 > | entrepôt | ei 25-29 | `granary-warehouse-grand` 176×160 | 30 px | 0,605 | **18,1** |
 > | terminal | ei 30+ | `granary-hub-grand` 176×160 | 17 px | 0,648 | **11,0** |
 >
@@ -315,6 +315,25 @@ attendent leur art, G1 traite le reste.
 > **Reste pour la famille** : le stade 0 (`granary-prop-silo`, ei < 10) n'a pas
 > de palier — rare (il faut 25 greniers avant l'ère 10) mais possible, mesuré à
 > ~26 px apparents dans ce cas. À faire si un joueur y arrive.
+>
+> **Retours Raph du 2026-08-04 (appliqués), deux règles d'ART pour la série :**
+> - ⛔ **Aucun bâtiment sur une DALLE / un podium.** Le horreum livré sur un
+>   podium à degrés a été refusé (« je n'aime pas le bâtiment élevé sur une
+>   dalle ») → régénéré avec « standing DIRECTLY on the bare ground, no podium,
+>   no platform, no steps ». À mettre dans TOUS les prompts de la série.
+> - ⛔ **Aucune ombre de contact ELLIPTIQUE sous un bâtiment** (« ça donne
+>   l'impression qu'ils volent ») — refus déjà enregistré ailleurs
+>   (`isoRenderer.js:5958`), il restait 3 survivantes retirées le 2026-08-04 :
+>   hub des greniers, tour hydroponique, temple procédural. Les ombres sous les
+>   ACCESSOIRES (jarres, caisses, chariots, mulet) restent, elles.
+> - 🔁 **Le miroir horizontal RÉPARE une lumière inversée.** Le horreum
+>   régénéré est sorti éclairé par la DROITE (façade gauche 120 de luminance
+>   contre 172 à droite, quand toute la famille a la gauche plus claire) : le
+>   retourner l'a remis dans la doctrine (et l'a fait coïncider avec la
+>   composition du petit horreum, arcade à gauche). ⚠ Ne pas confondre avec le
+>   miroir REJETÉ des habitations, qui cassait une lumière déjà juste — ici on
+>   mesure AVANT (`lightCheck.mjs` + luminance des deux murs) et on ne
+>   retourne que si le sprite est effectivement à l'envers.
 
 Sprites hors bande même après G1 (fix requis hors [0,8-1,25], ou incohérence
 INTERNE porte/fenêtres). Estimation à confirmer par l'audit : 10-20 sprites.
