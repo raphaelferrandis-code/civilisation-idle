@@ -294,7 +294,7 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-warehouse-grand', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-hall-grand', 'granary-jars', 'granary-warehouse', 'granary-warehouse-grand', 'granary-crates', 'granary-hub', 'granary-hub-grand', 'granary-horreum-grand', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
   // ── band 4 (Marbre) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12) ──
   'forager-hortus-classical', 'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
   'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
@@ -721,7 +721,23 @@ function drawCityEngineSprite(context) {
   // port (rive : dock+bateau à préserver), mill (tour + hélice dédiées), caravans
   // (véhicule) et markets (branche dédiée) sont traités séparément — pas dans cette table.
   const RB4 = { foragers: 'forager-hortus-classical', granaries_city: 'granary-horreum-classical', guilds: 'guild-collegium', mint_houses: 'mint-moneta', imperial_exchanges: 'bank-basilica-roman' };
-  if (band === 4 && RB4[id] && propReady(RB4[id])) { if (dBack) blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
+  // PALIER 2 (grain) du registre romain : la HALLE d'empreinte ≥ 3 prend la
+  // grande version quand elle existe, aux fractions du canvas 176×160 — sinon
+  // le sprite d'atelier, étiré à la boîte de la halle, ouvrait un portail de
+  // 32 px apparents (mesuré). Les autres types retombent sur RB4 inchangé.
+  const RB4_GRAND = { granaries_city: 'granary-horreum-grand' };
+  if (band === 4 && RB4[id] && propReady(RB4[id])) {
+    const grandRB4 = Math.max(gw, gh) >= 3 && RB4_GRAND[id] && propReady(RB4_GRAND[id]);
+    if (dBack) {
+      // 0.858/0.78 (et non 0.77/0.7 comme les autres paliers) : le horreum est
+      // un bâtiment LONG et BAS, son entrée ne fait que 22 px de haut dans le
+      // canvas — la fraction plus généreuse la ramène à 14,8 px apparents,
+      // dans la bande portail. Mesuré, pas choisi par symétrie.
+      if (grandRB4) blitProp(ctx, ox, oy, sw, sh, RB4_GRAND[id], 0.5, 0.46, 0.858, 0.78);
+      else blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76);
+    }
+    return true;
+  }
   if (id === "foragers") {
     if (band >= 7) {
       // STADE COSMIQUE (ères 35+) : jardin bioluminescent (Noosphère) → serre
@@ -1296,9 +1312,15 @@ function drawCityEngineSprite(context) {
         if (dBack) { // scène ENTIÈREMENT statique (aucun `now`)
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.28, "30,28,22", 0.68); // sol (désactivé par défaut)
         // Halle de pierre (centre-droit, 112×96) ; ombre + prop.
+        // PALIER 2 (grain) : la HALLE d'empreinte ≥ 3 prend la grande version
+        // (176×160, corps long + tour + aile), mêmes matières, porte d'homme
+        // conservée (31 px source → 18,8 apparents). Fractions au ratio du
+        // canvas (0.77/0.7 = 1.10) pour ne pas l'étirer.
         const ghx = 0.56, ghy = 0.46;
+        const hallGrand = Math.max(gw, gh) >= 3 && propReady('granary-hall-grand');
         /* ombre de contact retirée */
-        blitProp(ctx, ox, oy, sw, sh, 'granary-hall', ghx, ghy, 0.82, 0.7);
+        if (hallGrand) blitProp(ctx, ox, oy, sw, sh, 'granary-hall-grand', ghx, ghy, 0.77, 0.7);
+        else blitProp(ctx, ox, oy, sw, sh, 'granary-hall', ghx, ghy, 0.82, 0.7);
         // Amphores à grain (gauche-devant) ; ombre + prop.
         const gjx = 0.19, gjy = 0.76;
         ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(ox + sw * gjx, oy + sh * (gjy + 0.05), sw * 0.14, sh * 0.035, 0, 0, Math.PI * 2); ctx.fill();
@@ -1537,7 +1559,13 @@ function drawCityEngineSprite(context) {
         if (dBack) {
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.3, "16,22,26", 0.6); // dalle (désactivée par défaut)
         ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(ox + sw * hbx, oy + sh * 0.84, sw * 0.34, sh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-        blitProp(ctx, ox, oy, sw, sh, 'granary-hub', hbx, hby, hbH * 1.333, hbH); // 128×96 → large
+        // PALIER 2 (grain) : le TERMINAL d'empreinte ≥ 3 (trois silos + grange
+        // à toit damier, 176×160). Fractions LITTÉRALES, sans la croissance au
+        // tier du petit : un palier est calibré, il ne gonfle plus (porte de
+        // service 17 px source → 11,2 apparents, rideau 26 → 17).
+        if (Math.max(gw, gh) >= 3 && propReady('granary-hub-grand')) {
+          blitProp(ctx, ox, oy, sw, sh, 'granary-hub-grand', hbx, hby, 0.825, 0.75);
+        } else blitProp(ctx, ox, oy, sw, sh, 'granary-hub', hbx, hby, hbH * 1.333, hbH); // 128×96 → large
         }
         if (dAnim && nF > 0.02) { // halo cyan qui respire (lit `now`)
           ctx.save(); ctx.globalCompositeOperation = "lighter";

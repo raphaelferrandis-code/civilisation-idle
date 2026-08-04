@@ -1183,6 +1183,26 @@
    "note": "jambages fondus dans le colombage"
   },
   {
+   "key": "granary-hall-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 100,
+    "w": 22,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 68,
+    "y": 88,
+    "w": 5,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "palier 2 halle de pierre, arche livree en bande sans chirurgie"
+  },
+  {
    "key": "granary-horreum-classical",
    "nature": "batiment",
    "door": {
@@ -1198,6 +1218,21 @@
    "note": "arcade de trois arches"
   },
   {
+   "key": "granary-horreum-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 91,
+    "w": 14,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "palier 2 romain bande 4, entree a volee de marches ; arcades de 18 px a cote"
+  },
+  {
    "key": "granary-hub",
    "nature": "batiment",
    "door": {
@@ -1211,6 +1246,26 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "deux granges et deux silos"
+  },
+  {
+   "key": "granary-hub-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 80,
+    "y": 101,
+    "w": 8,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 97,
+    "y": 92,
+    "w": 5,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "palier 2 terminal, porte de service ; rideau de chargement 15x26 a cote"
   },
   {
    "key": "granary-jars",
@@ -1275,7 +1330,7 @@
    },
    "floorPitch": 28,
    "confidence": 0.9,
-   "note": "palier 2 halle empreinte 3, arc aveugle mure au-dessus du linteau"
+   "note": "palier 2 entrepot, arc aveugle mure au-dessus du linteau"
   },
   {
    "key": "guild-chamber",

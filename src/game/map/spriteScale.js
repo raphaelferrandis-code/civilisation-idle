@@ -36,7 +36,10 @@ export const GRAIN_FIX = { tenement: 1.1, tower: 1.1, townhouse: 1.1 };
 // G2 — PALIERS DE HALLES : spanSum de la boîte pour laquelle un sprite de
 // palier est calibré (audit + planches ; le runtime, lui, reçoit la vraie
 // boîte). Un sprite absent d'ici est jugé à l'ATELIER (spanSum 4).
-export const PALIER_SPANSUM = { 'granary-warehouse-grand': 6 };
+export const PALIER_SPANSUM = {
+  'granary-warehouse-grand': 6, 'granary-hall-grand': 6, 'granary-hub-grand': 6,
+  'granary-horreum-grand': 6,
+};
 const fixFor = (key) => {
   if (!grainTune.on || !key) return 1;
   const f = GRAIN_FIX[key];

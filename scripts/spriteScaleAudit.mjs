@@ -129,9 +129,20 @@ function fractions() {
       if (!Number.isFinite(hNum)) { dynamiques.push({ keyExpr: keyExpr.trim(), site: `${fichier}:${i + 1}`, hFrac: hf.trim() }); return; }
       const lit = keyExpr.trim().match(/^'([^']+)'$/);
       if (lit) { pose(lit[1], Number.isFinite(wNum) ? wNum : null, hNum, fichier, i + 1); return; }
-      // Cle en VARIABLE : resoudre les cles candidates dans les 8 lignes au-dessus
-      // (tableaux de stades `['', 'a-b', ...]`, ternaires de cles, map RB4 inline).
-      // Toutes les cles trouvees recoivent CES fractions — c'est le meme appel.
+      // Cle en ACCES DE TABLE (`RB4[id]`) : resoudre la table PAR SON NOM, ou
+      // qu'elle soit declaree — se fier aux lignes voisines casse des qu'on
+      // insere du code entre la table et son blit (vecu).
+      const table = keyExpr.trim().match(/^([A-Za-z_$][\w$]*)\s*\[/);
+      if (table) {
+        const decl = src.match(new RegExp(`const ${table[1]}\\s*=\\s*\\{([\\s\\S]*?)\\}`));
+        if (decl) {
+          const vals = [...decl[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+          if (vals.length) { for (const k of vals) pose(k, Number.isFinite(wNum) ? wNum : null, hNum, fichier, i + 1); return; }
+        }
+      }
+      // Sinon : cles candidates dans les 8 lignes au-dessus (tableaux de stades
+      // `['', 'a-b', ...]`, ternaires de cles). Toutes recoivent CES fractions —
+      // c'est le meme appel.
       const contexte = lignes.slice(Math.max(0, i - 8), i + 1).join('\n');
       const cles = [...contexte.matchAll(/'([a-z0-9]+(?:-[a-z0-9]+)+)'/g)].map((x) => x[1])
         .filter((k) => !/^rgba?$/.test(k));

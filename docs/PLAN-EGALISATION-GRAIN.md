@@ -276,6 +276,45 @@ attendent leur art, G1 traite le reste.
 > - La sonde `__grainAudit` est polluée par l'échelle de cuisson du CACHE de
 >   scènes (recDens normalise par cam.zoom, or la cuisson blitte à sa propre
 >   échelle) — à corriger en normalisant par l'échelle de boîte, pas le zoom.
+>   ⚠ La HALLE, elle, est dessinée en direct : ses densités mesurées en jeu
+>   sont fiables (elles ont confirmé les 4 paliers au millième).
+>
+> **FAMILLE GRENIER COMPLÈTE le 2026-08-04** — 4 paliers, tous à écart 0 :
+>
+> | Palier | Ères | Sprite | Porte source | Densité | Apparent |
+> |---|---|---|---|---|---|
+> | halle de pierre | ei 10-24 (hors b4) | `granary-hall-grand` 176×160 | 31 px | 0,605 | **18,7** |
+> | horreum romain | bande 4 | `granary-horreum-grand` 176×160 | 22 px | 0,674 | **14,8** |
+> | entrepôt | ei 25-29 | `granary-warehouse-grand` 176×160 | 30 px | 0,605 | **18,1** |
+> | terminal | ei 30+ | `granary-hub-grand` 176×160 | 17 px | 0,648 | **11,0** |
+>
+> Captures `.preview-shots/grain/palier-*`. Chirurgie d'arche nécessaire sur le
+> SEUL entrepôt : les trois autres sont sortis en bande du premier coup.
+>
+> **Lois de production apprises (à appliquer telles quelles à la série) :**
+> - **La taille de la porte se pilote par la QUANTITÉ D'ÉLÉMENTS demandée**, pas
+>   par des consignes de taille (que PixelLab ignore). Trop d'éléments (hub v1 :
+>   4 silos + gantry + 2 granges) → porte à 9 px apparents et un ouvrier de 7 px
+>   dessiné dedans ; trop peu (horreum v3-v4 : « few large simple elements ») →
+>   le bâtiment perd son identité et redevient un pavillon carré. Le point juste
+>   est 3-5 masses.
+> - ⛔ **Ne jamais écrire « front facade » dans le prompt** : ça déclenche
+>   l'élévation FRONTALE (horreum v1), même avec le mot CORNER. Formule qui
+>   marche : « along BOTH visible sides » + « isometric three-quarter view » +
+>   « the CORNER points toward the viewer » + « TWO visible facades receding to
+>   the left and to the right ».
+> - Les fractions ne sont PAS une constante de la campagne : elles se calculent
+>   par sprite (`hFrac = apparent_visé × canvas_h / (spanSum × 32 × 0,72)`).
+>   Un bâtiment long et bas (horreum) en demande une plus généreuse qu'un
+>   bâtiment haut. `wFrac = hFrac × largeur_canvas / hauteur_canvas`, sinon le
+>   sprite est ÉTIRÉ (blitProp ne préserve pas le ratio natif).
+> - Une table de clés (`RB4[id]`) est résolue PAR SON NOM par
+>   `spriteScaleAudit fractions` — se fier aux lignes voisines cassait dès qu'on
+>   insérait du code entre la table et son blit (vécu, corrigé).
+>
+> **Reste pour la famille** : le stade 0 (`granary-prop-silo`, ei < 10) n'a pas
+> de palier — rare (il faut 25 greniers avant l'ère 10) mais possible, mesuré à
+> ~26 px apparents dans ce cas. À faire si un joueur y arrive.
 
 Sprites hors bande même après G1 (fix requis hors [0,8-1,25], ou incohérence
 INTERNE porte/fenêtres). Estimation à confirmer par l'audit : 10-20 sprites.
