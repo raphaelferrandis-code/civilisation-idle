@@ -74,6 +74,9 @@ export const PALIER_SPANSUM = {
   'bureau-tower-grand': 6,
   'market-hall-glass-grand': 6, 'market-macellum-grand': 6,
   'market-prop-stall-grand': 6, 'market-plaza-neon-grand': 6,
+  'printing-media-grand': 6, 'printing-press-shop-grand': 6,
+  'printing-prop-workshop-grand': 6, 'printing-factory-grand': 6,
+  'printing-scriptorium-grand': 6,
 };
 
 // Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf

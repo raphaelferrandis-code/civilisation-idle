@@ -3358,6 +3358,26 @@
    "note": "porte coulissante plus large a droite"
   },
   {
+   "key": "printing-factory-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 50,
+    "y": 93,
+    "w": 12,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 52,
+    "y": 77,
+    "w": 8,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "brique rouge et ardoise, baie vitree comme entree"
+  },
+  {
    "key": "printing-media",
    "nature": "batiment",
    "door": {
@@ -3376,6 +3396,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "porte vitree en retrait sous auvent"
+  },
+  {
+   "key": "printing-media-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 119,
+    "y": 107,
+    "w": 9,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 37,
+    "y": 60,
+    "w": 7,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "bloc creme, stores rouges, miroite"
   },
   {
    "key": "printing-press-shop",
@@ -3398,6 +3438,26 @@
    "note": "auvent pose sur la porte d'echoppe"
   },
   {
+   "key": "printing-press-shop-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 53,
+    "y": 106,
+    "w": 19,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 36,
+    "y": 76,
+    "w": 10,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "colombage creme et chene, tuiles orange"
+  },
+  {
    "key": "printing-prop-workshop",
    "nature": "batiment",
    "door": {
@@ -3418,6 +3478,26 @@
    "note": "porte charretiere"
   },
   {
+   "key": "printing-prop-workshop-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 94,
+    "w": 26,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 29,
+    "y": 86,
+    "w": 8,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "grange de planches, deux portails croises"
+  },
+  {
    "key": "printing-scriptorium",
    "nature": "batiment",
    "door": {
@@ -3436,6 +3516,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "double porte haute"
+  },
+  {
+   "key": "printing-scriptorium-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 79,
+    "w": 14,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 74,
+    "y": 83,
+    "w": 9,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "stuc creme et aile de bois sombre"
   },
   {
    "key": "ruins-camp",

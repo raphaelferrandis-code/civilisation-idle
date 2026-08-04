@@ -3433,6 +3433,66 @@
    }
   },
   {
+   "key": "printing-factory-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 19,
+    "apparent": 11.5,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 8,
+    "apparent": 4.8,
+    "bande": "fenetre",
+    "ecart": -0.2
+   }
+  },
+  {
+   "key": "printing-media-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 22,
+    "apparent": 13.3,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 13,
+    "apparent": 7.9,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "printing-press-shop-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 11,
+    "apparent": 6.7,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "printing-prop-workshop",
    "famille": "engine",
    "densite": 0.838,
@@ -3447,6 +3507,26 @@
    },
    "window": {
     "hSource": 8,
+    "apparent": 6.7,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "printing-prop-workshop-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 31,
+    "apparent": 18.7,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 11,
     "apparent": 6.7,
     "bande": "fenetre",
     "ecart": 0
@@ -3468,6 +3548,26 @@
    "window": {
     "hSource": 7,
     "apparent": 5.6,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "printing-scriptorium-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 29,
+    "apparent": 17.5,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 14,
+    "apparent": 8.5,
     "bande": "fenetre",
     "ecart": 0
    }

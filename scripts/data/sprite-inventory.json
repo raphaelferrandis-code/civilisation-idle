@@ -459,6 +459,25 @@
    "classe": "prop"
   },
   {
+   "key": "academies-prop-yard-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 29,
+    "y0": 2,
+    "w": 120,
+    "h": 124
+   },
+   "ink40": {
+    "x0": 29,
+    "y0": 2,
+    "w": 120,
+    "h": 124
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "academies-prop-yard",
    "famille": "engine",
    "w": 96,
@@ -2568,6 +2587,25 @@
    "classe": "strip"
   },
   {
+   "key": "forager-greenhouse-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 18,
+    "y0": 17,
+    "w": 141,
+    "h": 124
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 17,
+    "w": 141,
+    "h": 124
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "forager-greenhouse",
    "famille": "engine",
    "w": 128,
@@ -2604,6 +2642,25 @@
     "h": 45
    },
    "classe": "prop"
+  },
+  {
+   "key": "forager-hortus-classical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 17,
+    "y0": 11,
+    "w": 143,
+    "h": 139
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 11,
+    "w": 143,
+    "h": 139
+   },
+   "classe": "orphelin"
   },
   {
    "key": "forager-hortus-classical",
@@ -3041,6 +3098,25 @@
     "h": 48
    },
    "classe": "prop"
+  },
+  {
+   "key": "granary-prop-silo-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 22,
+    "y0": 5,
+    "w": 127,
+    "h": 141
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 5,
+    "w": 127,
+    "h": 141
+   },
+   "classe": "orphelin"
   },
   {
    "key": "granary-prop-silo",
@@ -5076,6 +5152,25 @@
    "classe": "prop"
   },
   {
+   "key": "schools-campus-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 20,
+    "y0": 19,
+    "w": 135,
+    "h": 117
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 19,
+    "w": 135,
+    "h": 117
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "schools-campus",
    "famille": "engine",
    "w": 112,
@@ -5133,6 +5228,25 @@
    "classe": "prop"
   },
   {
+   "key": "schools-schoolhouse-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 28,
+    "y0": 3,
+    "w": 129,
+    "h": 144
+   },
+   "ink40": {
+    "x0": 28,
+    "y0": 3,
+    "w": 129,
+    "h": 144
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "schools-schoolhouse",
    "famille": "engine",
    "w": 112,
@@ -5150,6 +5264,25 @@
     "h": 62
    },
    "classe": "prop"
+  },
+  {
+   "key": "schools-victorian-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 10,
+    "y0": 20,
+    "w": 156,
+    "h": 123
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 20,
+    "w": 156,
+    "h": 123
+   },
+   "classe": "orphelin"
   },
   {
    "key": "schools-victorian",
