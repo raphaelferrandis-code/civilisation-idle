@@ -238,6 +238,23 @@ attendent leur art, G1 traite le reste.
 
 ## 5. Lot G2 — La vague d'art (les irréductibles)
 
+> **✅ CAMPAGNE DES PALIERS TERMINÉE le 2026-08-04.** 94 sprites de palier
+> livrés sur 23 familles, **91 à écart 0 (97 %)**. Les halles sont passées de
+> 3-4 % de portes en bande à 97 %. Deux sprites restent hors bande, assumés :
+> le mât de l'éolienne moderne (−1,8 px, c'est un mât, pas un bâtiment) et le
+> ludus romain (+0,7 px, invisible à l'œil).
+>
+> **Ce qui N'A PAS été traité, en connaissance de cause** : les sprites
+> d'ATELIER (empreinte 2) gardent leur dispersion d'origine — 73 % en bande,
+> exactement le chiffre de l'audit G0. C'était le foyer n°3 du diagnostic, le
+> plus modéré ; le corriger demanderait de retoucher ~66 petits sprites, un
+> chantier distinct. Les 4 familles dont la halle plafonne à l'empreinte 2
+> (égouts, guet, scribes, conteurs) n'ont donc rien reçu, et c'est correct.
+> Les sprites COSMIQUES sont hors périmètre (chemin `blitCosmicTower`).
+>
+> Vérifié en jeu aux ères 18, 20, 22, 26 et 33 (captures
+> `.preview-shots/grain/`), 1563 tests verts, lint propre.
+
 > **ÉTAT 2026-08-04 : PILOTE « halle à paliers » LIVRÉ (greniers, stade
 > entrepôt).** Arbitrages Raph : greniers, et « le même bâtiment en plus
 > massif ». Recette VERROUILLÉE, prête à sérialiser :
