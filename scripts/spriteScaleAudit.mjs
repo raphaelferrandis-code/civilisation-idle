@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
-import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H } from '../src/game/map/spriteScale.js';
+import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM } from '../src/game/map/spriteScale.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const DATA = path.join(ROOT, 'scripts', 'data');
@@ -182,8 +182,12 @@ function apparent() {
       } else {
         const fr = fracByKey.get(a.key);
         const hFrac = fr ? fr.hFrac : 0.75;
-        dens = (4 * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
-        densNote = fr ? `hFrac ${hFrac} (l.${fr.ligne})` : 'hFrac 0.75 SUPPOSÉ (site dynamique)';
+        // Sprites de PALIER : juges dans la boite pour laquelle ils sont
+        // calibres (PALIER_SPANSUM), les autres a l'atelier (spanSum 4).
+        const spanSum = PALIER_SPANSUM[a.key] || 4;
+        dens = (spanSum * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
+        densNote = (fr ? `hFrac ${hFrac} (${fr.site || 'l.' + fr.ligne})` : 'hFrac 0.75 SUPPOSÉ (site dynamique)')
+          + (spanSum !== 4 ? ` palier spanSum ${spanSum}` : '');
       }
     }
     if (dens == null) continue;

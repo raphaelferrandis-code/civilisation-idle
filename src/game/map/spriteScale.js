@@ -32,6 +32,11 @@ export const houseFitTune = { on: true, margin: 0.08 };
 // sur la bande → +10 %. Molettes : __grainFix / __grainFloor (pixelHouses.js).
 export const grainTune = { on: true, floor: 0.7 };
 export const GRAIN_FIX = { tenement: 1.1, tower: 1.1, townhouse: 1.1 };
+
+// G2 — PALIERS DE HALLES : spanSum de la boîte pour laquelle un sprite de
+// palier est calibré (audit + planches ; le runtime, lui, reçoit la vraie
+// boîte). Un sprite absent d'ici est jugé à l'ATELIER (spanSum 4).
+export const PALIER_SPANSUM = { 'granary-warehouse-grand': 6 };
 const fixFor = (key) => {
   if (!grainTune.on || !key) return 1;
   const f = GRAIN_FIX[key];

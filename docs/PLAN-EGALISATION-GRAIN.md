@@ -238,6 +238,45 @@ attendent leur art, G1 traite le reste.
 
 ## 5. Lot G2 — La vague d'art (les irréductibles)
 
+> **ÉTAT 2026-08-04 : PILOTE « halle à paliers » LIVRÉ (greniers, stade
+> entrepôt).** Arbitrages Raph : greniers, et « le même bâtiment en plus
+> massif ». Recette VERROUILLÉE, prête à sérialiser :
+> 1. Générer `create_map_object` (176×160, low top-down, high detail, detailed
+>    shading, selective outline, « the CORNER faces the viewer, TWO visible
+>    facades ») en décrivant les MATÉRIAUX du petit sprite.
+> 2. GATE porte : PixelLab dessine l'entrée à ~1/3 de façade (46 px ici) et
+>    IGNORE les demandes de réduction (une passe `edit_image` n'a rien changé).
+>    Le remède qui marche : CHIRURGIE — murer l'arche en ARC AVEUGLE de brique
+>    en refend (assises 3 px, tons ~0,85 de la face, un cran plus sombre rend
+>    encore « ouverture ») + linteau crème 2 px, ne garder que ~28 px de porte.
+>    Prototype `doorFix.mjs` (scratchpad session), à généraliser en script.
+> 3. `quantize.cjs --colors 22` ; **PAS de remapPalette sur cette famille** (il
+>    éteint la brique rouge → brun, précédent Raven « posé brut »).
+> 4. Calibrage : mêmes fractions que le petit (0,7 de hauteur de boîte), le
+>    canvas plus haut fait la densité — 0,605 au palier (spanSum 6), porte
+>    18,1 px apparents, écart 0 (table `apparent`, via `PALIER_SPANSUM`).
+> 5. Bascule dans la scène : `Math.max(gw, gh) >= 3` → sprite `-grand`, mêmes
+>    fractions, repli petit tant que le PNG charge.
+>
+> Vérifié EN JEU (bande 5, ei 29, halle 3×3 en clairière) : capture
+> `.preview-shots/grain/pilote-halle-grande-b5.png` + planche comparative
+> `pilote-compare-atelier-halle.png`. Bonus : les ateliers de grenier (1×1)
+> retombent à 14,1 px de porte grâce au plancher G1.
+>
+> **Pièges découverts, à connaître pour la série :**
+> - `engineSprites.js` passait `gw: t.spanX || 1` or les moteurs CARRÉS portent
+>   `size` → gw valait toujours 1 (corrigé : `spanX || size || 1`). Sans ce
+>   correctif, aucun palier ne s'armait.
+> - Les FENÊTRES de stades sont inégales : la démo bande 6 dessine déjà le HUB
+>   (ei ≥ 30) — le stade entrepôt (ei 25-29) est une fenêtre courte. Les
+>   paliers rentables par famille sont donc surtout HALL (ei 10-24) et HUB
+>   (ei 30+, jusqu'au cosmique) ; l'entrepôt-grand servira peu mais a validé
+>   la recette. Reste pour la famille grenier : `granary-hall-grand`,
+>   `granary-hub-grand` (+ `horreum-grand` bande 4 si envie).
+> - La sonde `__grainAudit` est polluée par l'échelle de cuisson du CACHE de
+>   scènes (recDens normalise par cam.zoom, or la cuisson blitte à sa propre
+>   échelle) — à corriger en normalisant par l'échelle de boîte, pas le zoom.
+
 Sprites hors bande même après G1 (fix requis hors [0,8-1,25], ou incohérence
 INTERNE porte/fenêtres). Estimation à confirmer par l'audit : 10-20 sprites.
 

@@ -2568,6 +2568,25 @@
    "classe": "prop"
   },
   {
+   "key": "granary-warehouse-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 7,
+    "y0": 5,
+    "w": 163,
+    "h": 150
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 5,
+    "w": 163,
+    "h": 150
+   },
+   "classe": "prop"
+  },
+  {
    "key": "granary-warehouse",
    "famille": "engine",
    "w": 112,

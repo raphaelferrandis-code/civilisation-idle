@@ -4,167 +4,172 @@
   "caravan-prop-sacks": {
    "wFrac": null,
    "hFrac": 0.24,
-   "site": "cityEngineSprites.js:529"
+   "site": "cityEngineSprites.js:539"
   },
   "forager-hortus-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:714"
+   "site": "cityEngineSprites.js:724"
   },
   "granary-horreum-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:714"
+   "site": "cityEngineSprites.js:724"
   },
   "guild-collegium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:714"
+   "site": "cityEngineSprites.js:724"
   },
   "mint-moneta": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:714"
+   "site": "cityEngineSprites.js:724"
   },
   "bank-basilica-roman": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:714"
+   "site": "cityEngineSprites.js:724"
   },
   "forager-prop-tree": {
    "wFrac": 0.74,
    "hFrac": 0.78,
-   "site": "cityEngineSprites.js:794"
+   "site": "cityEngineSprites.js:804"
   },
   "forager-prop-basket": {
    "wFrac": 0.34,
    "hFrac": 0.32,
-   "site": "cityEngineSprites.js:900"
+   "site": "cityEngineSprites.js:910"
   },
   "forager-orchard-tree": {
    "wFrac": 0.78,
    "hFrac": 0.78,
-   "site": "cityEngineSprites.js:928"
+   "site": "cityEngineSprites.js:938"
   },
   "forager-orchard-crates": {
    "wFrac": 0.34,
    "hFrac": 0.34,
-   "site": "cityEngineSprites.js:940"
+   "site": "cityEngineSprites.js:950"
   },
   "forager-greenhouse": {
    "wFrac": 0.9,
    "hFrac": 0.675,
-   "site": "cityEngineSprites.js:1046"
+   "site": "cityEngineSprites.js:1056"
   },
   "forager-handcart": {
    "wFrac": 0.36,
    "hFrac": 0.32,
-   "site": "cityEngineSprites.js:1057"
+   "site": "cityEngineSprites.js:1067"
   },
   "granary-hall": {
    "wFrac": 0.82,
    "hFrac": 0.7,
-   "site": "cityEngineSprites.js:1291"
+   "site": "cityEngineSprites.js:1301"
   },
   "granary-jars": {
    "wFrac": 0.3,
    "hFrac": 0.24,
-   "site": "cityEngineSprites.js:1295"
+   "site": "cityEngineSprites.js:1305"
+  },
+  "granary-warehouse-grand": {
+   "wFrac": 0.77,
+   "hFrac": 0.7,
+   "site": "cityEngineSprites.js:1427"
   },
   "granary-warehouse": {
    "wFrac": 0.82,
    "hFrac": 0.7,
-   "site": "cityEngineSprites.js:1409"
+   "site": "cityEngineSprites.js:1428"
   },
   "granary-crates": {
    "wFrac": 0.3,
    "hFrac": 0.27,
-   "site": "cityEngineSprites.js:1420"
+   "site": "cityEngineSprites.js:1439"
   },
   "market-macellum": {
    "wFrac": 0.88,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:2080"
+   "site": "cityEngineSprites.js:2099"
   },
   "market-prop-stall": {
    "wFrac": 0.92,
    "hFrac": 0.69,
-   "site": "cityEngineSprites.js:2176"
+   "site": "cityEngineSprites.js:2195"
   },
   "market-hall-tent": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2287"
+   "site": "cityEngineSprites.js:2306"
   },
   "market-hall-glass": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2377"
+   "site": "cityEngineSprites.js:2396"
   },
   "market-plaza-neon": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2458"
+   "site": "cityEngineSprites.js:2477"
   },
   "guild-prop-lodge": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2610"
+   "site": "cityEngineSprites.js:2629"
   },
   "guild-house": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2716"
+   "site": "cityEngineSprites.js:2735"
   },
   "guild-chamber": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2832"
+   "site": "cityEngineSprites.js:2851"
   },
   "guild-consortium": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2891"
+   "site": "cityEngineSprites.js:2910"
   },
   "mint-prop-forge": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "cityEngineSprites.js:3604"
+   "site": "cityEngineSprites.js:3623"
   },
   "mint-prop-house": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3684"
+   "site": "cityEngineSprites.js:3703"
   },
   "mint-house-steam": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3774"
+   "site": "cityEngineSprites.js:3793"
   },
   "mint-house-digital": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3859"
+   "site": "cityEngineSprites.js:3878"
   },
   "exchange-prop-stall": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "cityEngineSprites.js:3986"
+   "site": "cityEngineSprites.js:4005"
   },
   "bank-house-renaissance": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4066"
+   "site": "cityEngineSprites.js:4085"
   },
   "bank-house-neoclassical": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4160"
+   "site": "cityEngineSprites.js:4179"
   },
   "bank-house-glass": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4265"
+   "site": "cityEngineSprites.js:4284"
   },
   "storyteller-odeon": {
    "wFrac": 0.86,
@@ -515,62 +520,62 @@
  "dynamiques": [
   {
    "keyExpr": "p",
-   "site": "cityEngineSprites.js:317",
+   "site": "cityEngineSprites.js:324",
    "hFrac": "hFrac"
   },
   {
    "keyExpr": "p",
-   "site": "cityEngineSprites.js:356",
+   "site": "cityEngineSprites.js:365",
    "hFrac": "hFrac"
   },
   {
    "keyExpr": "'forager-hydro-rack'",
-   "site": "cityEngineSprites.js:1128",
+   "site": "cityEngineSprites.js:1138",
    "hFrac": "prkH"
   },
   {
    "keyExpr": "'granary-prop-silo'",
-   "site": "cityEngineSprites.js:1259",
+   "site": "cityEngineSprites.js:1269",
    "hFrac": "hFrac"
   },
   {
    "keyExpr": "'granary-hub'",
-   "site": "cityEngineSprites.js:1521",
+   "site": "cityEngineSprites.js:1540",
    "hFrac": "hbH"
   },
   {
    "keyExpr": "'caravan-wagon'",
-   "site": "cityEngineSprites.js:1725",
+   "site": "cityEngineSprites.js:1744",
    "hFrac": "VEH_W * 64 / 112"
   },
   {
    "keyExpr": "'caravan-truck'",
-   "site": "cityEngineSprites.js:1818",
+   "site": "cityEngineSprites.js:1837",
    "hFrac": "VH"
   },
   {
    "keyExpr": "'caravan-pod'",
-   "site": "cityEngineSprites.js:1918",
+   "site": "cityEngineSprites.js:1937",
    "hFrac": "VH"
   },
   {
    "keyExpr": "DOCK",
-   "site": "cityEngineSprites.js:3106",
+   "site": "cityEngineSprites.js:3125",
    "hFrac": "0.9 + sizeMul * 0.24"
   },
   {
    "keyExpr": "DOCK",
-   "site": "cityEngineSprites.js:3167",
+   "site": "cityEngineSprites.js:3186",
    "hFrac": "gw"
   },
   {
    "keyExpr": "PORT_HOUSE",
-   "site": "cityEngineSprites.js:3172",
+   "site": "cityEngineSprites.js:3191",
    "hFrac": "bhF"
   },
   {
    "keyExpr": "HOUSE",
-   "site": "cityEngineSprites.js:3513",
+   "site": "cityEngineSprites.js:3532",
    "hFrac": "twH"
   },
   {

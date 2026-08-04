@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
-import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H } from '../src/game/map/spriteScale.js';
+import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM } from '../src/game/map/spriteScale.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const DATA = path.join(ROOT, 'scripts', 'data');
@@ -166,9 +166,10 @@ function plancheMoteurs(outDir) {
     const cosmique = e.classe === 'prop-cosmic';
     const fr = fracs.entries[a.key];
     const hFrac = fr ? fr.hFrac : 0.75;
+    const spanSum = PALIER_SPANSUM[a.key] || 4;                  // paliers juges dans LEUR boite
     const dens = cosmique
       ? (4 * TILE_REF * ENGINE_UNIT_F * COSMIC_TOWER_H) / e.h    // chemin blitCosmicTower
-      : (4 * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;            // densite ATELIER
+      : (spanSum * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;      // densite atelier ou palier
     rows.push({ key: a.key, e, a, dens, sc: dens * VIEW, doorApp: a.door.h * dens, supposee: !cosmique && !fr });
   }
   rows.sort((x, y) => y.doorApp - x.doorApp);
