@@ -16,7 +16,7 @@
 import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell, treeBandMul, treeCanvasT } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, screenToWorld, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { grainTune } from '../spriteScale.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
@@ -7685,8 +7685,8 @@ function drawIsoRevealPin(box, born, now) {
 }
 
 // ── PRÉCIPITATIONS ──────────────────────────────────────────────────────────
-// Surcouche plein écran, JAMAIS un second jeu de sprites : traits d'un pixel
-// inclinés par le vent, position = fonction pure de (phase, index) comme les
+// Surcouche plein écran : gouttes tracées en PIXELS et inclinées par le vent
+// (cf. rainStreakPixels), position = fonction pure de (phase, index) comme les
 // particules d'ambiance — aucune goutte n'est un objet qu'on fait vivre. Seule
 // la PHASE de chute est portée d'une image à l'autre, et pour une raison
 // précise : les rafales font varier la vitesse (cf. stepRainPhase). Lit
@@ -7707,15 +7707,23 @@ function drawIsoRevealPin(box, born, now) {
 // rafales, width: 0.6 rend le filet d'un pixel d'avant.
 const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1 };
 if (typeof window !== 'undefined') {
-  window.__rain = (o) => { if (o) Object.assign(RAIN_TUNE, o); return { ...RAIN_TUNE }; };
+  window.__rain = (o) => {
+    if (o) Object.assign(RAIN_TUNE, o);
+    return { ...RAIN_TUNE, etampes: rainStamps.size, forges: rainStampBuilds };
+  };
 }
 const RAIN_CAP = 900;
 const RAIN_FALL_PX = 900;      // px/s de la goutte la plus LENTE (les autres, jusqu'à ×1,78)
-const GUST_DROPS = 0.8;        // rideau de rafale : + 80 % de gouttes, en FONDU (cf. rainSheet)
+const GUST_DROPS = 0.8;        // rideau de rafale : + 80 % de densité, en FONDU (cf. drawRainVeil)
 const GUST_SPEED = 0.5;        // + 50 % de vitesse de chute
 const GUST_LEAN = 0.55;        // + 55 % d'inclinaison, plus une poussée plancher
 const GUST_KICK = 0.15;        // ...sinon une averse sans vent ne se couche pas du tout
-const GUST_LEN = 0.45;         // traits plus longs : c'est ce qui SE LIT comme de la vitesse
+const RAIN_COL = [186, 206, 232];
+// ⚠ DEUX RÉGLAGES RETIRÉS avec le passage aux nappes (cf. plus bas) : le rideau
+// de rafale ne peut plus être NI plus long (GUST_LEN, +45 %) NI plus clair
+// (sa propre teinte) que celui du fond, puisqu'il RÉUTILISE ses nappes. Il garde
+// ce qui portait l'effet : la densité en fondu, la vitesse, et l'inclinaison —
+// laquelle profite aussi au fond, dont la nappe se reforge sous la bourrasque.
 
 // ⚠ MÊME PIÈGE QUE L'EAU (cf. ⚠⚠ PHASE ACCUMULÉE) : sous rafale la vitesse de
 // chute VARIE, et une vitesse variable ne se multiplie JAMAIS par un temps
@@ -7732,24 +7740,179 @@ export function stepRainPhase(prev, t, rate) {
   return { at: t, phase: prev.phase + dt * rate };
 }
 
-// Un rideau de gouttes : positions pures en (index, phase), une seule passe de
-// trait pour tout le rideau. Deux rideaux se superposent — celui du fond,
-// toujours là, et celui de la rafale, qui n'existe qu'en OPACITÉ.
-function rainSheet(ctx, seed, n, phase, W, H, dx, dy, col) {
-  ctx.strokeStyle = col;
-  ctx.beginPath();
-  // Bande de chute élargie en X : avec du vent, les gouttes doivent entrer par le
-  // bord au vent, sinon une colonne vide se creuse le long de ce bord.
-  const spanX = W + Math.abs(dx) * 2 + 40;
-  const x0 = -Math.abs(dx) - 20 + (dx < 0 ? Math.abs(dx) : 0);
-  for (let i = 0; i < n; i += 1) {
-    const sd = _rnd(seed + i, 1), sd2 = _rnd(seed + i, 2);
-    const y = _frac(phase * (1 + sd2 * 0.78) + sd) * (H + dy * 2) - dy;   // gouttes de vitesses variées
-    const x = _frac(sd2 + sd * 0.37) * spanX + x0;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + dx, y + dy);
+// ── LA GOUTTE EST UN PIXEL, PAS UN TRAIT LISSÉ ──────────────────────────────
+// Le rideau était le dernier élément ANTICRÉNELÉ de la carte. Un segment
+// diagonal posé à coordonnées fractionnaires est étalé par l'anticrénelage sur
+// deux colonnes à demi-opacité : la goutte paraît plus FINE et plus PÂLE qu'un
+// vrai pixel — c'est ce qui avait fait épaissir le filet le 2026-07-29, un
+// pansement sur le lissage. La neige, juste en dessous, est déjà en pixels
+// pleins (`fillRect` à coordonnées ARRONDIES) ; la pluie s'y aligne.
+//
+// ⛔ SURTOUT PAS UN SPRITE DESSINÉ. L'inclinaison n'est pas figée : elle vit
+// avec `windX` et enfle sous rafale (cf. gustWind). Un dessin à angle fixe ne se
+// recolle qu'en le DÉFORMANT, et une skew sur du pixel rend du flou — soit
+// exactement ce qu'on cherche à supprimer. On trace donc la goutte en escalier,
+// à l'entier, une fois par rideau, et on la ré-étampe telle quelle.
+const RAIN_TAIL = 0.34;          // opacité de la QUEUE : le dégradé fait la goutte, pas la longueur
+const RAIN_STAMP_MAX = 64;       // le vent bouge en continu : la table se purge, elle n'enfle pas
+
+// Pixels d'une goutte : escalier de la queue (0,0) vers la tête (dx,dy), pointe
+// épaissie, queue effacée. Pur et exporté — c'est la CONTINUITÉ de l'escalier
+// qui compte et aucune image ne la montre. ⚠ LE PAS SUIT L'AXE MAJEUR : à vent
+// fort dx dépasse dy, et un pixel par LIGNE laisserait alors des trous en
+// colonne (cf. le témoin du test).
+export function rainStreakPixels(dx, dy, w = 1) {
+  const X = Math.round(dx), Y = Math.max(1, Math.round(dy));
+  const th = Math.max(1, w | 0);
+  const steps = Math.max(Math.abs(X), Math.abs(Y));
+  const ox = X < 0 ? -X : 0;                       // la queue n'est pas au bord quand le vent souffle à gauche
+  const sw = Math.abs(X) + th, sh = Math.abs(Y) + th;
+  const at = new Map();
+  for (let s = 0; s <= steps; s += 1) {
+    const u = s / steps;
+    const a = RAIN_TAIL + (1 - RAIN_TAIL) * u * u;
+    const tw = Math.max(1, Math.round(1 + (th - 1) * u));   // la goutte S'ÉFFILE vers l'arrière
+    const px = ox + Math.round(X * u), py = Math.round(Y * u);
+    for (let bx = 0; bx < tw; bx += 1) {
+      for (let by = 0; by < tw; by += 1) {
+        const k = (py + by) * sw + (px + bx);
+        if (!(at.get(k) >= a)) at.set(k, a);       // la tête l'emporte sur la queue au recouvrement
+      }
+    }
   }
-  ctx.stroke();
+  const px = [];
+  for (const [k, a] of at) px.push({ x: k % sw, y: (k / sw) | 0, a });
+  return { w: sw, h: sh, ox, px };
+}
+
+// Étampe d'un rideau : un seul dessin pour toutes ses gouttes. Géométrie
+// QUANTIFIÉE à 2 px — l'angle et la longueur glissent en continu pendant les
+// 480 ms d'attaque de la rafale, sans quoi on reconstruirait une étampe par
+// image. À cette taille, 2 px de longueur ne se voient pas tomber.
+const rainStamps = new Map();
+let rainStampBuilds = 0;          // diagnostic : une étampe neuve coûte un canvas + un putImageData
+function rainStamp(dx, dy, w, rgb) {
+  const kx = Math.round(dx / 2) * 2, ky = Math.max(2, Math.round(dy / 2) * 2);
+  const kw = Math.max(1, w | 0);
+  const key = kx + ',' + ky + ',' + kw + ',' + rgb;
+  const hit = rainStamps.get(key);
+  if (hit) return hit;
+  if (typeof document === 'undefined') return null;
+  rainStampBuilds += 1;
+  const s = rainStreakPixels(kx, ky, kw);
+  const cv = document.createElement('canvas');
+  cv.width = s.w; cv.height = s.h;
+  const c2 = cv.getContext('2d');
+  const img = c2.createImageData(s.w, s.h), d = img.data;
+  const R = +rgb[0], G = +rgb[1], B = +rgb[2];
+  for (let i = 0; i < s.px.length; i += 1) {
+    const p = s.px[i], o = (p.y * s.w + p.x) * 4;
+    d[o] = R; d[o + 1] = G; d[o + 2] = B; d[o + 3] = Math.round(p.a * 255);
+  }
+  c2.putImageData(img, 0, 0);
+  const out = { cv, ox: s.ox };
+  if (rainStamps.size >= RAIN_STAMP_MAX) rainStamps.clear();
+  rainStamps.set(key, out);
+  return out;
+}
+
+// ── LE RIDEAU DÉFILE, IL NE SE REDESSINE PAS GOUTTE PAR GOUTTE ──────────────
+// Étamper les gouttes une à une, c'est UN APPEL DE DESSIN PAR GOUTTE : 617 sur
+// la fenêtre de Raph, 1111 sous rafale quand le second rideau s'ajoute. À ~1,5 µs
+// l'appel ça fait près de 2 ms, et il l'a senti (« ça ralentit un peu ») alors
+// que le profileur de frame ne voyait RIEN — la pane ne compose pas, elle empile
+// les commandes sans jamais payer le rendu (cf. la fiche du harnais).
+//
+// Or les gouttes tombent TOUT DROIT : le vent penche leur FORME, pas leur
+// trajectoire (dans le rideau d'avant, x était fixe et seul y avançait). Un
+// rideau est donc une NAPPE qui défile, et une nappe se blitte en deux appels.
+// Les gouttes sont réparties sur QUATRE nappes de vitesses différentes — c'est
+// leur glissement les unes sur les autres qui garde le rideau dispersé ; une
+// nappe unique tomberait d'un bloc et ça se verrait. La frame coûte 8 appels au
+// lieu de 617, et 16 sous rafale au lieu de 1111.
+//
+// ⚠ BOUCLAGE EN Y : la nappe se répète tous les H pixels, donc une goutte qui
+// déborde en bas doit AUSSI être peinte H plus haut. Sans ça, une bande vide
+// large d'une goutte traverse l'écran à chaque tour — une ligne d'horizon qui
+// descend, impossible à ne plus voir une fois repérée.
+//
+// ⚠ COÛT MÉMOIRE : quatre canvas plein écran (~27 Mo sur une grande fenêtre).
+// Ils sont LIBÉRÉS dès que l'averse s'arrête — la pluie ne tombe que 12 % du
+// cycle, rien ne justifie de les garder au sec.
+const RAIN_LANES = 4;
+const LANE_SPEED = [1, 1.26, 1.52, 1.78];   // même éventail qu'au temps du (1 + sd2 × 0,78) par goutte
+let rainVeil = null;
+
+// Où semer les gouttes d'une nappe, et sur quelle voie. DEUX POSES PAR GOUTTE :
+// la sienne, et la même H plus haut — c'est ce doublon qui fait que la nappe se
+// raccorde à elle-même quand elle reboucle. Pur et exporté : la couture est
+// invisible sur une image fixe, elle ne se trahit qu'en mouvement, et trop tard.
+export function rainVeilDraws(n, lw, lh, ox = 0) {
+  const out = [];
+  for (let i = 0; i < n; i += 1) {
+    const sd = _rnd(i, 1), sd2 = _rnd(i, 2);
+    const lane = i % RAIN_LANES;
+    const x = Math.round(_frac(sd2 + sd * 0.37) * lw) - ox;
+    const y = Math.round(sd * lh);
+    out.push({ lane, x, y }, { lane, x, y: y - lh });
+  }
+  return out;
+}
+
+// La nappe pour une géométrie donnée, reforgée seulement quand elle change.
+// ⚠ QUANTIFIER, sinon on reforge à CHAQUE IMAGE : sous rafale l'inclinaison et
+// la longueur glissent en continu pendant les 480 ms d'attaque. Au pas de 4 px
+// une bourrasque coûte cinq reforges au lieu de trente.
+function rainVeilFor(n, dx, dy, th, W, H) {
+  if (typeof document === 'undefined' || n <= 0) return null;
+  const dpr = CM.dpr || 1;
+  const kdx = Math.round(dx / 4) * 4, kdy = Math.max(2, Math.round(dy / 4) * 4);
+  const kn = n < 24 ? n : Math.round(n / 8) * 8;
+  const marge = Math.abs(kdx) + th + 8;
+  const lw = W + marge * 2, lh = Math.max(1, H);
+  const key = [kn, kdx, kdy, th, lw, lh, dpr].join(',');
+  if (rainVeil && rainVeil.key === key) return rainVeil;
+  const st = rainStamp(kdx, kdy, th, RAIN_COL);
+  if (!st) return null;
+  const V = rainVeil && rainVeil.cv.length === RAIN_LANES ? rainVeil
+    : { key: '', marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
+  const pw = Math.max(1, Math.round(lw * dpr)), ph = Math.max(1, Math.round(lh * dpr));
+  for (let l = 0; l < RAIN_LANES; l += 1) {
+    let cv = V.cv[l];
+    if (!cv) { cv = V.cv[l] = document.createElement('canvas'); V.cx[l] = cv.getContext('2d'); }
+    if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+    const c2 = V.cx[l];
+    if (!c2) return null;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0);   // même repère que CM.ctx : on peint en pixels LOGIQUES
+    c2.clearRect(0, 0, lw, lh);
+    c2.imageSmoothingEnabled = false;
+  }
+  // La nappe est plus large que l'écran (les gouttes de bord doivent être
+  // ENTIÈRES) : on sème donc au prorata, sans quoi la marge diluerait l'averse.
+  const plan = rainVeilDraws(Math.round(kn * (lw / Math.max(1, W))), lw, lh, st.ox);
+  for (let i = 0; i < plan.length; i += 1) {
+    const d = plan[i];
+    V.cx[d.lane].drawImage(st.cv, d.x, d.y);
+  }
+  V.key = key; V.marge = marge; V.lw = lw; V.lh = lh;
+  rainVeil = V;
+  return V;
+}
+
+// Un rideau = les quatre nappes posées à leur avancement propre. `tour` fait
+// tourner l'attribution nappe↔vitesse : le rideau de rafale réutilise les mêmes
+// dessins que celui du fond, et sans ce décalage les deux se superposeraient
+// EXACTEMENT chaque fois que leurs phases se rejoignent — la bourrasque se
+// lirait alors comme un coup d'opacité au lieu d'un surcroît de gouttes.
+function drawRainVeil(ctx, V, phase, tour, alpha) {
+  if (!(alpha > 0.002)) return;
+  ctx.globalAlpha = Math.min(1, alpha);
+  for (let l = 0; l < RAIN_LANES; l += 1) {
+    const cv = V.cv[(l + tour) % RAIN_LANES];
+    const s = Math.round(_frac(phase * LANE_SPEED[l]) * V.lh);   // à l'ENTIER : la nappe reste sur la grille
+    ctx.drawImage(cv, -V.marge, s, V.lw, V.lh);
+    ctx.drawImage(cv, -V.marge, s - V.lh, V.lw, V.lh);
+  }
 }
 
 // Ce qui tombe pour une saison et une intensité données. Exporté pour le test :
@@ -7773,7 +7936,9 @@ function drawIsoRain(now) {
   const r = CM.rainF || 0;
   if (!RAIN_TUNE.on) return;
   const kind = precipKind(CM.season, r);
-  if (kind === 'none') { rainPhaseAt = -1; return; }   // horloge relâchée : l'averse suivante repart à plat
+  // Horloge relâchée (l'averse suivante repart à plat) ET nappes rendues : elles
+  // pèsent des dizaines de mégaoctets, et le ciel est dégagé 88 % du cycle.
+  if (kind === 'none') { rainPhaseAt = -1; rainVeil = null; splashes.length = 0; return; }
   const g = Math.max(0, Math.min(1, (CM.gustF || 0) * RAIN_TUNE.gust));
   if (kind === 'snow') { drawIsoSnowfall(now, r, g); return; }
   const ctx = CM.ctx, W = CM.cw, H = CM.ch;
@@ -7798,27 +7963,233 @@ function drawIsoRain(now) {
   const len = (10 + 14 * r) * RAIN_TUNE.len;          // px, trait plus long sous l'averse
   const prevAA = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  // ÉPAISSEUR DU FILET. Un trait d'un pixel posé à coordonnées fractionnaires est
-  // ÉTALÉ par l'anticrénelage sur deux colonnes à demi-opacité : il paraît plus
-  // fin ET plus pâle qu'un vrai pixel (retour Raph 2026-07-29 : « le filet est un
-  // peu trop fin »). On épaissit donc, et à l'ENTIER — 2 px sous l'averse pleine,
-  // 1 px sur une bruine — plutôt que de monter l'opacité, qui aurait donné du
-  // gris sale au lieu d'une goutte. La rafale ajoute sa part comme au reste.
-  ctx.lineWidth = Math.max(1, Math.round((1 + 0.6 * r + 0.35 * g) * RAIN_TUNE.width));
+  // ÉPAISSEUR DE LA GOUTTE, en pixels PLEINS — 2 px de tête sous l'averse, 1 px
+  // sur une bruine, la rafale ajoutant sa part comme au reste. C'est la même
+  // courbe qu'au temps du trait lissé (retour Raph 2026-07-29 : « le filet est un
+  // peu trop fin »), sauf qu'elle épaississait alors pour COMPENSER
+  // l'anticrénelage ; ici elle dessine vraiment la goutte, et la queue s'affine
+  // toute seule dans l'étampe.
+  const th = Math.max(1, Math.round((1 + 0.6 * r + 0.35 * g) * RAIN_TUNE.width));
   const lenB = len * (1 + 0.25 * g);
-  rainSheet(ctx, 0, n, st.phase, W, H, wind * lenB * 0.8, lenB,
-    `rgba(186,206,232,${(0.30 * r * RAIN_TUNE.alpha).toFixed(3)})`);
-  // RIDEAU DE RAFALE — un SECOND jeu de gouttes, de nombre CONSTANT, dont seule
-  // l'opacité suit la bouffée. Faire varier le NOMBRE ferait naître des gouttes
-  // en plein vol (le compte se lit en bout de liste) : la densité doit enfler par
-  // FONDU. Il tombe un peu plus vite et plus long que le fond, ce qui creuse la
-  // profondeur au lieu d'épaissir uniformément le rideau.
-  if (g > 0.02) {
-    const lenG = len * (1 + GUST_LEN * g);
-    rainSheet(ctx, 7919, Math.round(n * GUST_DROPS), st.phase * 1.18, W, H,
-      wind * lenG * 0.8, lenG,
-      `rgba(198,216,238,${(0.30 * r * g * RAIN_TUNE.alpha).toFixed(3)})`);
+  // Les impacts D'ABORD : ils sont au sol, le rideau leur passe devant.
+  drawIsoSplashes(now, r, g);
+  const V = rainVeilFor(n, wind * lenB * 0.8, lenB, th, W, H);
+  if (!V) { ctx.imageSmoothingEnabled = prevAA; return; }
+  // L'opacité passe par le CONTEXTE et non par la couleur : l'étampe porte déjà
+  // son propre dégradé tête/queue, on ne fait que la doser.
+  const prevAlpha = ctx.globalAlpha;
+  drawRainVeil(ctx, V, st.phase, 0, 0.42 * r * RAIN_TUNE.alpha);
+  // RIDEAU DE RAFALE — les mêmes nappes, repassées plus vite et à une autre
+  // attribution de vitesses, dont seule l'OPACITÉ suit la bouffée. La densité
+  // doit enfler par FONDU et jamais par le nombre : ajouter des gouttes les
+  // ferait NAÎTRE en plein vol (le compte se lit en bout de liste).
+  if (g > 0.02) drawRainVeil(ctx, V, st.phase * 1.18, 2, 0.42 * r * g * GUST_DROPS * RAIN_TUNE.alpha);
+  ctx.globalAlpha = prevAlpha;
+  ctx.imageSmoothingEnabled = prevAA;
+}
+
+// ── IMPACTS AU SOL ──────────────────────────────────────────────────────────
+// Ce qui fait lire « il pleut » n'est pas le rideau, c'est ce que la pluie FAIT
+// au sol. Trois images : le choc, un anneau qui s'ouvre, un anneau plus large
+// qui s'efface.
+//
+// ⚠ L'ANNEAU EST ISO, jamais un rond. Le sol est un losange vu de trois quarts :
+// un cercle posé dessus se lit comme une bille qui flotte au-dessus du pavé.
+// Deux fois plus large que haut, comme la tuile.
+//
+// ⚠ UN POOL, PAS UNE FONCTION DU TEMPS. Tout le reste de l'ambiance est pur en
+// (index, temps) — ici c'est impossible : un éclat est ancré au SOL, et une
+// position tirée en coordonnées ÉCRAN glisserait sur le pavé dès que Raph
+// déplace la carte (un quart de seconde de vie, mais 100 px de dérive sur un
+// drag). On garde donc la position MONDE de chaque éclat, et on la reprojette.
+//
+// ⚠ OÙ ON A LE DROIT DE FRAPPER. La pluie passe APRÈS le peintre : à ce moment
+// les bâtiments sont déjà posés, et un éclat n'a plus aucun moyen de passer
+// derrière eux. On ne frappe donc que la VOIRIE, et on écarte les points qu'un
+// sprite recouvre — sinon l'éclat se pose sur le mur de la maison d'en face.
+// La règle n'est pas réinventée : c'est CELLE DU Y-SORT des habitants
+// (CM.buildingInfo, cf. agents.js) — base plus SUD, recouvrement de COLONNE,
+// et portée du sprite vers le nord. Un test cellulaire « y a-t-il un bâtiment à
+// côté ? » se trompe deux fois : il refuse une venelle entière à cause d'une
+// scène basse, et il accepte le pied d'une tour.
+const SPLASH_TUNE = { on: true, count: 1, size: 1, alpha: 1 };
+if (typeof window !== 'undefined') {
+  window.__splash = (o) => { if (o) Object.assign(SPLASH_TUNE, o); return { ...SPLASH_TUNE, vivants: splashes.length }; };
+}
+const SPLASH_LIFE = 260;         // ms de vie d'un éclat
+const SPLASH_AREA = 26000;       // px² d'écran par éclat à pleine averse
+const SPLASH_CAP = 110;          // plafond dur : un éclat = un appel de dessin
+const SPLASH_TILE_MIN = 18;      // px : sous cette taille de tuile l'éclat n'est que du bruit
+const SPLASH_BIRTHS = 6;         // naissances par image : un pool qui se remplit d'un coup pique
+// ⚠ ESSAIS PAR NAISSANCE. Le tirage-rejet ne trouve la voirie qu'à hauteur de sa
+// PART D'ÉCRAN : sur un village de 70 cellules de route, six essais ne
+// remplissaient qu'un dixième du pool (9 éclats pour 82 visés). On insiste — et
+// c'est le rejet, pas la cible, qui borne alors la densité : peu de pavé, peu
+// d'éclats, ce qui est exactement ce qu'on veut voir.
+const SPLASH_TRIES = 14;
+const SPLASH_COL = [206, 224, 244];
+let splashes = [];
+let splashSig = '';
+
+// Le point monde (wx,wy) peut-il porter un éclat ? `road` = voirie marchable
+// (clés gx×10000+gy), `binfo` = fiches peintre des bâtiments (world px).
+// Exporté pour le test : une règle d'OCCULTATION ne se voit que sur les rares
+// images où elle a échoué, et elle échoue sur un éclat de 5 px qui dure 0,26 s.
+export function splashPointOk(road, binfo, wx, wy, T) {
+  if (!road) return false;
+  const gx = Math.floor(wx / T), gy = Math.floor(wy / T);
+  if (!road.has(gx * 10000 + gy)) return false;
+  if (!binfo) return true;
+  // ⚠ TROIS RANGÉES VERS LE SUD, pas seulement la voisine. Une maison remonte de
+  // 2,2 tuiles, mais une TOUR bien plus haut : basée trois rangs plus bas, son
+  // sprite recouvre encore notre pavé. Latéralement, en revanche, rien à
+  // chercher — une empreinte qui recouvre notre colonne occupe forcément une
+  // cellule de notre colonne (les emprises sont rectangulaires).
+  for (let d = 1; d <= 3; d += 1) {
+    const b = binfo.get(gx * 10000 + (gy + d));
+    if (!b) continue;
+    if (b.baseY > wy && b.topY <= wy && wx >= b.x0 && wx <= b.x1) return false;
   }
+  return true;
+}
+
+// Pixels d'un anneau ISO de demi-largeur rx (demi-hauteur = rx/2). `arcs` ne
+// garde que les flancs gauche et droit — un anneau qui s'ouvre finit en deux
+// virgules, pas en bulle de savon. Pur et exporté.
+export function splashRingPixels(rx, arcs = false) {
+  const ax = Math.max(1, Math.round(rx));
+  // ⚠ ARRONDI VERS LE BAS. Un anneau de 3 px de rayon dont on ARRONDIT la
+  // demi-hauteur mesure 7 × 5 px : rapport 1,4, l'œil y lit un rond. À ces
+  // tailles le ±1 pixel pèse plus que le rapport visé — dans le doute, plus
+  // PLAT, jamais plus rond.
+  const ay = Math.max(1, Math.floor(ax / 2));
+  const seen = new Set(), px = [];
+  const n = Math.max(12, ax * 6);
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * Math.PI * 2;
+    const c = Math.cos(a);
+    if (arcs && Math.abs(c) < 0.42) continue;
+    const x = Math.round(c * ax), y = Math.round(Math.sin(a) * ay);
+    const k = x + ',' + y;
+    if (seen.has(k)) continue;
+    seen.add(k); px.push({ x, y });
+  }
+  return px;
+}
+
+// Une image d'éclat, en pixels centrés sur le POINT D'IMPACT (0,0).
+export function splashFramePixels(frame, unit) {
+  const u = Math.max(4, unit);
+  if (frame === 0) {
+    // Le choc : un noyau ramassé, plus une pointe qui rejaillit. C'est la seule
+    // image qui a de la matière au centre — les suivantes sont creuses.
+    const w = Math.max(1, Math.round(u * 0.035));
+    const px = [];
+    for (let x = -w; x <= w; x += 1) px.push({ x, y: 0, a: 1 });
+    px.push({ x: 0, y: -1, a: 0.7 });
+    return px;
+  }
+  if (frame === 1) {
+    const rx = Math.max(2, Math.round(u * 0.09));
+    const px = splashRingPixels(rx).map((p) => ({ ...p, a: 1 }));
+    // deux gouttelettes qui montent, de part et d'autre : c'est ce qui donne la
+    // VERTICALE, sans laquelle l'anneau se lit comme une flaque et non un choc.
+    const ry = Math.max(1, Math.round(rx / 2));
+    px.push({ x: -rx, y: -ry - 2, a: 0.75 }, { x: rx, y: -ry - 2, a: 0.75 });
+    return px;
+  }
+  // ⚠ L'ÉCHELLE EST LE PIÈGE. Premier jet à 0,28 tuile : 25 px de large sur une
+  // tuile de 42, ça ne se lit plus comme un impact mais comme une FLAQUE. Un
+  // éclat de pluie est petit — il est vu de loin, et c'est son nombre qui parle.
+  const rx = Math.max(3, Math.round(u * 0.19));
+  return splashRingPixels(rx, true).map((p) => ({ ...p, a: 0.55 }));
+}
+
+// Étampes des trois images pour une taille de tuile donnée (le zoom change,
+// l'éclat suit — un pixel d'art, jamais un pavé, comme les flocons).
+const splashStamps = new Map();
+function splashStamp(frame, unit) {
+  const key = frame + ':' + unit;
+  const hit = splashStamps.get(key);
+  if (hit) return hit;
+  if (typeof document === 'undefined') return null;
+  const px = splashFramePixels(frame, unit);
+  let x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+  for (const p of px) {
+    if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+    if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+  }
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const c2 = cv.getContext('2d');
+  const img = c2.createImageData(w, h), d = img.data;
+  for (const p of px) {
+    const o = ((p.y - y0) * w + (p.x - x0)) * 4;
+    d[o] = SPLASH_COL[0]; d[o + 1] = SPLASH_COL[1]; d[o + 2] = SPLASH_COL[2];
+    d[o + 3] = Math.round((p.a ?? 1) * 255);
+  }
+  c2.putImageData(img, 0, 0);
+  const out = { cv, ox: -x0, oy: -y0 };      // où tombe le point d'impact dans l'étampe
+  if (splashStamps.size >= 24) splashStamps.clear();
+  splashStamps.set(key, out);
+  return out;
+}
+
+// Tire un point d'impact sur la voirie VISIBLE. Tirage-rejet en coordonnées
+// ÉCRAN : chaque essai tombe forcément dans le cadre, alors qu'un tirage dans la
+// boîte de cellules visibles gaspillerait la moitié des coups (le champ est un
+// losange dans une boîte carrée).
+function splashSpawn(now, essais) {
+  const road = CM.walkRoadSet;
+  if (!road || !road.size) return null;
+  const T = CM.TILE;
+  for (let t = 0; t < essais; t += 1) {
+    const w = screenToWorld(Math.random() * CM.cw, Math.random() * CM.ch);
+    if (!splashPointOk(road, CM.buildingInfo, w.x, w.y, T)) continue;
+    return { wx: w.x, wy: w.y, born: now };
+  }
+  return null;
+}
+
+function drawIsoSplashes(now, r, g) {
+  if (!SPLASH_TUNE.on || !CM.iso || CM.lodActive) { splashes.length = 0; return; }
+  const unit = CM.TILE * CM.cam.zoom;
+  const k = CM.ambianceK ?? 1;
+  if (k <= 0 || unit < SPLASH_TILE_MIN) { splashes.length = 0; return; }
+  // Le plan a changé (achat, émondage) : la route sous un éclat a pu être rasée.
+  const sig = String(CM.layoutRecomputeAt || 0);
+  if (sig !== splashSig) { splashSig = sig; splashes.length = 0; }
+  const cible = Math.min(SPLASH_CAP, Math.round(
+    (CM.cw * CM.ch) / SPLASH_AREA * r * k * (1 + 0.5 * g) * SPLASH_TUNE.count));
+  // Remplacer sur place plutôt que vider/remplir : la liste ne se réalloue pas,
+  // et un éclat mort laisse sa place à un NOUVEAU point d'impact.
+  for (let i = splashes.length - 1; i >= 0; i -= 1) {
+    if (splashes.length > cible) { splashes.splice(i, 1); continue; }
+    if (now - splashes[i].born <= SPLASH_LIFE) continue;
+    const s = splashSpawn(now, SPLASH_TRIES);
+    if (s) splashes[i] = s; else splashes.splice(i, 1);
+  }
+  for (let b = 0; b < SPLASH_BIRTHS && splashes.length < cible; b += 1) {
+    const s = splashSpawn(now, SPLASH_TRIES);
+    if (!s) break;
+    s.born = now - Math.random() * SPLASH_LIFE;   // âges dispersés, sinon la volée éclate en chœur
+    splashes.push(s);
+  }
+  const ctx = CM.ctx, prevA = ctx.globalAlpha, prevAA = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const taille = unit * SPLASH_TUNE.size;
+  for (let i = 0; i < splashes.length; i += 1) {
+    const s = splashes[i];
+    const u = (now - s.born) / SPLASH_LIFE;
+    if (u < 0 || u > 1) continue;
+    const st = splashStamp(u < 0.34 ? 0 : (u < 0.67 ? 1 : 2), Math.round(taille));
+    if (!st) break;
+    const p = worldToScreen(s.wx, s.wy);
+    ctx.globalAlpha = Math.min(1, 0.6 * r * (1 - u * 0.45) * SPLASH_TUNE.alpha);
+    ctx.drawImage(st.cv, Math.round(p.x) - st.ox, Math.round(p.y) - st.oy);
+  }
+  ctx.globalAlpha = prevA;
   ctx.imageSmoothingEnabled = prevAA;
 }
 
