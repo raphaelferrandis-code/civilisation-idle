@@ -26,6 +26,19 @@ import {
 // le mobilier est déclaré en `p` (multiples d'habitant), pas en tuiles.
 const effHT = (post) => (post.p != null ? post.p * personHT() : post.hT);
 
+// Deux GARNITURES bien distinctes, longtemps confondues par ces tests parce
+// qu'une seule existait :
+//  · les compagnons DE BORD (bacs, corbeilles) accompagnent une rangée de bancs,
+//    prennent sa face et se jugent à son contact ;
+//  · la garniture de CŒUR (`field`) meuble le champ intérieur d'une grande place,
+//    sur les axes cardinaux, sans face et sans banc à côté.
+// Les mélanger faisait réclamer « un banc de sa face au contact » à une
+// jardinière posée au milieu de la place, qui n'en a jamais eu.
+const bordMates = (comp) => comp.props.filter(
+  (p) => !p.field && !["bench", "fountain", "tree", "grate"].includes(p.prop),
+);
+const coeurMates = (comp) => comp.props.filter((p) => p.field);
+
 // Place carrée de `n` cellules, coin en (gx0, gy0), au format roadMap du layout.
 function plazaLayout(n, gx0 = 10, gy0 = 10, extra = []) {
   const roadMap = new Map();
@@ -194,10 +207,15 @@ describe("INVARIANT D'ÉCHELLE — le bug d'origine", () => {
     // banc seul. Une place 4×4 tient UN duo par côté, une 5×5 en tient deux.
     expect(isoPlazaComposition(freshLayout(4), 3).benchPerSide).toBe(2);
     expect(isoPlazaComposition(freshLayout(5), 3).benchPerSide).toBe(4);
-    // 8 bancs + 8 bacs + 1 fontaine + 1 arbre + sa margelle en DEUX morceaux ;
-    // puis 16 bancs + 12 bacs + 1 + 2 arbres + 4 morceaux.
+    // 4×4 : 8 bancs + 8 bacs + 1 fontaine + 1 arbre + sa margelle en DEUX
+    // morceaux = 20. Elle ne reçoit AUCUNE garniture de cœur, et c'est voulu :
+    // entre le cœur réservé (coreR 1,15) et la rangée de bancs (1,38 tuile du
+    // centre) il ne reste pas de champ intérieur où poser quoi que ce soit.
+    // 5×5 : 16 bancs + 12 bacs + 4 jardinières de cœur + 1 fontaine + 2 arbres +
+    // 4 morceaux de margelle = 39. Ces 4 jardinières SONT la densification du
+    // 2026-08-03 — c'est la plus petite place où elle se voit.
     expect(isoPlazaComposition(freshLayout(4), 3).props).toHaveLength(20);
-    expect(isoPlazaComposition(freshLayout(5), 3).props).toHaveLength(35);
+    expect(isoPlazaComposition(freshLayout(5), 3).props).toHaveLength(39);
   });
 
   it("les hauteurs écran sont celles attendues EN DUR (TILE 32, zoom 1)", () => {
@@ -326,7 +344,7 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     // Ce qui ne doit jamais sauter en silence, ce sont les bancs.
     const comp = isoPlazaComposition(freshLayout(5), 3);
     const benches = comp.props.filter((p) => p.prop === "bench");
-    const mates = comp.props.filter((p) => !["bench", "fountain", "tree", "grate"].includes(p.prop));
+    const mates = bordMates(comp);
     expect(mates.length).toBeGreaterThanOrEqual(4);        // au moins un par côté
     expect(mates.length).toBeLessThanOrEqual(benches.length);
     const T = CM.TILE;
@@ -336,13 +354,37 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     }
   });
 
+  it("la garniture de CŒUR meuble le champ intérieur, et seulement lui", () => {
+    // Densification du 2026-08-03. Elle a un domaine PRÉCIS : la bande entre le
+    // cœur réservé et la rangée de bancs. Une place 4×4 n'en a pas — ses bancs
+    // sont à 1,38 tuile du centre et le cœur est réservé jusqu'à 1,15 — mais le
+    // plancher de distance qui existait alors (1,60 tuile) l'envoyait quand même,
+    // AU-DELÀ de la rangée : les jardinières atterrissaient à 0,32 tuile d'un banc
+    // dont le jumeau est à 0,45, et le duo cessait de se lire comme un duo.
+    expect(coeurMates(isoPlazaComposition(freshLayout(4), 3))).toHaveLength(0);
+    const cinq = isoPlazaComposition(freshLayout(5), 3);
+    expect(coeurMates(cinq)).toHaveLength(4);
+    const T = CM.TILE;
+    const benches = cinq.props.filter((p) => p.prop === "bench");
+    // Bornes MESURÉES sur la composition rendue, pas recalculées depuis la
+    // formule : la rangée de bancs est là où sont les bancs.
+    const rangee = Math.min(...benches.map(
+      (b) => Math.hypot(b.wx / T - cinq.cxc, b.wy / T - cinq.cyc),
+    ));
+    for (const m of coeurMates(cinq)) {
+      const d = Math.hypot(m.wx / T - cinq.cxc, m.wy / T - cinq.cyc);
+      expect(d, "posée dans le cœur réservé").toBeGreaterThan(PLAZA_TUNE.coreR);
+      expect(d, "posée au-delà de la rangée de bancs").toBeLessThan(rangee);
+    }
+  });
+
   it("le compagnon suit l'angle de son banc", () => {
     // Un bac rectangulaire posé le long d'un bord doit avoir la même face que
     // le banc auquel il est accolé, sinon les deux se croisent à l'écran.
     const comp = isoPlazaComposition(freshLayout(5), 3);
     const T = CM.TILE;
     const benches = comp.props.filter((p) => p.prop === "bench");
-    const mates = comp.props.filter((p) => !["bench", "fountain", "tree", "grate"].includes(p.prop));
+    const mates = bordMates(comp);
     expect(mates.length).toBeGreaterThan(0);
     for (const m of mates) {
       // ⚠ Chercher « le banc le plus proche » ne suffit PAS : un bac de bout de
@@ -503,8 +545,17 @@ describe("placement", () => {
 
 describe("molette", () => {
   it("benchPerSide pilote le nombre de bancs, sideOn les compagnons", () => {
-    resetTune({ benchPerSide: 0, treeMax: 0 });
+    // DÉNUDER la place : plus de bancs, plus d'arbres, plus de garniture — ni de
+    // bord ni de cœur. `sideOn` éteint les DEUX, sinon la molette ne peut plus
+    // isoler la pièce maîtresse pour en juger l'art.
+    resetTune({ benchPerSide: 0, treeMax: 0, sideOn: false });
     expect(isoPlazaComposition(freshLayout(6), 3).props).toHaveLength(1);   // la fontaine seule
+    // Les molettes sont INDÉPENDANTES : couper les bancs ne coupe pas la
+    // garniture de cœur, qui ne dépend pas d'eux.
+    resetTune({ benchPerSide: 0, treeMax: 0 });
+    const sansBancs = isoPlazaComposition(freshLayout(6), 3);
+    expect(sansBancs.props.filter((p) => p.prop === "bench")).toHaveLength(0);
+    expect(coeurMates(sansBancs)).toHaveLength(4);
     // Le plafond compte des BANCS, mais ils vont par deux : 3 donne un seul duo.
     resetTune({ benchPerSide: 3, treeMax: 0 });
     const trois = isoPlazaComposition(freshLayout(8), 3);
@@ -513,6 +564,30 @@ describe("molette", () => {
     const bare = isoPlazaComposition(freshLayout(6), 3);
     expect(bare.props.filter((p) => p.prop === "bench")).toHaveLength(8);
     expect(bare.props).toHaveLength(9);          // 8 bancs + la fontaine
+  });
+
+  it("la molette PASSE DEVANT la recette de l'ère", () => {
+    // Depuis la densification du 2026-08-03, CHAQUE recette déclare son propre
+    // benchPerSide. Quand c'était elle qui l'emportait, __plaza({benchPerSide})
+    // ne faisait plus rien du tout : la branche molette était devenue
+    // inatteignable, et l'outil de réglage était mort sans un mot. On vérifie sur
+    // une ère qui en déclare un ÉLEVÉ (le square moderne, 8) que le chiffre de la
+    // molette gagne — et qu'il gagne vers le BAS, là où la recette ne le ferait
+    // jamais toute seule.
+    resetTune({ era: "modern", treeMax: 0 });
+    expect(isoPlazaComposition(freshLayout(8), 3).benchPerSide).toBe(8);
+    resetTune({ era: "modern", treeMax: 0, benchPerSide: 2 });
+    expect(isoPlazaComposition(freshLayout(8), 3).benchPerSide).toBe(2);
+  });
+
+  it("treeMax reste un PLAFOND, au-dessus de la recette", () => {
+    // Le square moderne veut 4 arbres, plus que l'ancien plafond de 2. Si la
+    // recette pouvait franchir treeMax, le mot « plafond » serait faux dans
+    // PLAZA_TUNE — et c'est ce qu'il était devenu.
+    resetTune({ era: "modern" });
+    expect(isoPlazaComposition(freshLayout(12), 3).trees).toBe(4);
+    resetTune({ era: "modern", treeMax: 1 });
+    expect(isoPlazaComposition(freshLayout(12), 3).trees).toBe(1);
   });
 
   it("une surcharge hT ne touche QUE le prop visé", () => {
@@ -740,16 +815,28 @@ describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
   const T = () => CM.TILE;
 
   it("chaque banc a un banc JUMEAU plus proche que tout autre prop", () => {
-    for (const n of [4, 5, 6, 8]) {
-      const comp = isoPlazaComposition(freshLayout(n), 3);
-      const benches = comp.props.filter((p) => p.prop === "bench");
-      expect(benches.length % 2, `${n}×${n} : un nombre PAIR de bancs`).toBe(0);
-      for (const b of benches) {
-        const d = (o) => Math.hypot(o.wx - b.wx, o.wy - b.wy) / T();
-        const jumeau = Math.min(...benches.filter((o) => o !== b).map(d));
-        const autre = Math.min(...comp.props.filter((o) => o.prop !== "bench").map(d));
-        expect(jumeau, `${n}×${n} : le voisin le plus proche d'un banc est un banc`)
-          .toBeLessThan(autre);
+    // ⚠ Balayer les ÈRES, pas seulement les tailles. Ce test ne tournait qu'à
+    // l'antique (band 3), et c'est exactement par là que le défaut est passé : la
+    // densification cosmique a cassé la paire sur les places 4×4 sans que rien ne
+    // le dise, et il a fallu descendre les mêmes surcharges aux autres ères pour
+    // que la garde le voie enfin. La largeur du banc change d'une recette à
+    // l'autre (0,66 à 0,70 habitant), donc l'écart du duo aussi : à 6×6 le bac
+    // d'intervalle tombait du bon côté au cosmique et du mauvais à l'antique, à
+    // un centième de tuile près. Une garde de composition doit tourner sur TOUTE
+    // la table des recettes.
+    for (const era of ["antique", "medieval", "industrial", "modern", "cosmic"]) {
+      for (const n of [4, 5, 6, 8]) {
+        resetTune({ era });
+        const comp = isoPlazaComposition(freshLayout(n), 3);
+        const benches = comp.props.filter((p) => p.prop === "bench");
+        expect(benches.length % 2, `${era} ${n}×${n} : un nombre PAIR de bancs`).toBe(0);
+        for (const b of benches) {
+          const d = (o) => Math.hypot(o.wx - b.wx, o.wy - b.wy) / T();
+          const jumeau = Math.min(...benches.filter((o) => o !== b).map(d));
+          const autre = Math.min(...comp.props.filter((o) => o.prop !== "bench").map(d));
+          expect(jumeau, `${era} ${n}×${n} : le voisin le plus proche d'un banc est un banc`)
+            .toBeLessThan(autre);
+        }
       }
     }
   });

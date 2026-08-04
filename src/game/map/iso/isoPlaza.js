@@ -108,11 +108,14 @@ const PLAZA_TUNE = {
   mode: 'kit',        // 'kit' (composée) | 'scene' (ancien PNG) | 'off'
   propScale: 1,       // multiplie TOUTES les hauteurs
   // Géométrie de la composition (cf. § COMPOSITION) — tout en CELLULES.
-  // PLAFOND de bancs par côté. Relevé de 2 à 4 le 2026-07-29 : le mobilier étant
-  // passé à l'échelle du corps, il est ~1,6× plus petit et il en tient davantage
-  // (« ça permet de réduire la taille des éléments pour en mettre plus »). C'est
-  // toujours un MAXIMUM — un côté trop court en met moins, tout seul.
-  benchPerSide: 4,
+  // PLAFOND de bancs par côté. `null` = suivre la recette de l'ère (6 au forum
+  // antique, 8 au square moderne) ; un nombre posé ici PASSE DEVANT elle.
+  // ⚠ La molette doit garder le dernier mot. Quand c'était la recette qui gagnait,
+  // __plaza({benchPerSide}) ne faisait plus rien du tout — depuis la densification
+  // du 2026-08-03, TOUTES les ères en déclarent un, donc la branche molette était
+  // devenue inatteignable. C'est toujours un MAXIMUM : un côté trop court en met
+  // moins, tout seul.
+  benchPerSide: null,
   furnScale: 1,       // grossit ou rapetisse TOUT le mobilier en `p` d'un coup
   // Ce qui tient le CENTRE — jamais vide. 'auto' TIRE par place : certaines ont
   // leur fontaine, d'autres un arbre (« ça dépend de la place »). 'fountain' et
@@ -124,7 +127,11 @@ const PLAZA_TUNE = {
   benchInset: 0.62,   // distance du bord de la place au pied du banc
   cornerKeep: 1.0,    // dégagement gardé à chaque coin (les lampadaires y sont)
   sideGap: 0.68,      // écart banc ↔ compagnon le long du bord
-  treeMax: 2,         // arbres sur la place — plafond (le compte suit l'emprise)
+  // Arbres sur la place — PLAFOND DUR, au-dessus de la recette comme de l'emprise.
+  // Relevé de 2 à 4 avec la densification du 2026-08-03 : le square moderne veut
+  // son jardin, et le laisser à 2 aurait rendu ce plafond MENTEUR — la recette le
+  // franchissait sans que rien ne le dise.
+  treeMax: 4,
   treeSpread: 0.36,   // écart à la fontaine — PLANCHER, en fraction du demi-côté
   treeClear: 0.12,    // marge gardée entre l'arbre et la fontaine (cellules)
   treeR: 0.7,         // rayon, au sens des arbres de la CARTE (hpx = T·z·r·2.7)
@@ -287,8 +294,9 @@ const RECIPES = {
     // fois plus de bancs (le côté trop court en met moins tout seul), un
     // JARDIN de quatre arbres autour de la pièce maîtresse, et une garniture
     // de cœur (jardinières aux quatre axes, passées au filet — elles cèdent
-    // la place au lieu de se chevaucher). Surcharges DE RECETTE : les autres
-    // ères gardent les plafonds de PLAZA_TUNE.
+    // la place au lieu de se chevaucher). Ces surcharges sont descendues à
+    // TOUTES les ères le 2026-08-03, en progression stricte : PLAZA_TUNE ne
+    // porte donc plus le défaut, seulement le dernier mot de la molette.
     benchPerSide: 8,
     treeWant: 4,
     field: [{ prop: 'planter', p: 0.55 }],
@@ -514,10 +522,10 @@ function composeOne(L, era, box) {
   // vide en son milieu.
   const reserve = (gxf, gyf, prop, hT) => { placed.push(foot(gxf, gyf, prop, hT)); };
 
-  const add = (prop, variant, gxf, gyf, hT) => {
+  const add = (prop, variant, gxf, gyf, hT, extra) => {
     if (!fits(gxf, gyf, prop, hT)) return false;
     const wx = gxf * T, wy = gyf * T;
-    props.push({ prop, variant, wx, wy, hT, d: depthOf(wx, wy) });
+    props.push({ prop, variant, wx, wy, hT, d: depthOf(wx, wy), ...extra });
     return true;
   };
 
@@ -666,6 +674,20 @@ function composeOne(L, era, box) {
   // « bac + duo + bac » ne tenaient pas.
   const spanFor = () => duo;
   let benchPerSide = 0;
+  // LA RÈGLE DU DUO, opposable à TOUTE garniture. Un banc doit avoir son jumeau
+  // pour plus proche voisin — c'est la demande de Raph (« 2 bancs côte à côte »),
+  // et une garniture qui s'intercale la casse : la rangée se lit alors comme des
+  // bancs isolés séparés par des bacs. Les bacs de BOUT de rangée respectaient
+  // déjà l'écart `mate` ≥ 1,2 duo, avec le commentaire qui l'explique ; ceux des
+  // INTERVALLES et la garniture de cœur, eux, ne demandaient rien à personne.
+  // Le défaut a dormi tant qu'un côté ne portait que deux duos — l'intervalle
+  // était large. À trois duos sur un côté de 6 cellules (densification du
+  // 2026-08-03) le bac tombe à 0,44 tuile d'un banc alors que le duo est serré à
+  // 0,45 : le jumeau perd. On MESURE donc, au lieu de supposer que l'écart suffit.
+  const benchPts = [];
+  const loinDesBancs = (gxf, gyf) => !benchPts.some(
+    ([bx, by]) => Math.hypot(bx - gxf, by - gyf) <= duo,
+  );
 
   for (let si = 0; si < SIDES.length; si += 1) {
     const side = SIDES[si];
@@ -674,9 +696,11 @@ function composeOne(L, era, box) {
     // tenir, et deux groupes voisins ne doivent pas se toucher — d'où le pas
     // minimal entre eux. Un côté trop court en met moins, tout seul.
     const usable = side.span - 2 * PLAZA_TUNE.cornerKeep;
-    // Plafond de bancs : la RECETTE peut surcharger la molette (densification
-    // cosmique) — la géométrie du côté reste le vrai juge, via le while dessous.
-    const benchCap = (R.benchPerSide != null ? R.benchPerSide : PLAZA_TUNE.benchPerSide) | 0;
+    // Plafond de bancs : la MOLETTE d'abord — elle sert à régler, donc elle
+    // tranche — sinon la recette de l'ère. La géométrie du côté reste le vrai
+    // juge, via le while dessous.
+    const benchCap = (PLAZA_TUNE.benchPerSide != null ? PLAZA_TUNE.benchPerSide
+      : R.benchPerSide != null ? R.benchPerSide : 4) | 0;
     let g = Math.max(0, Math.floor(benchCap / 2));
     while (g > 1 && usable / g < spanFor() + 2 * minStep) g -= 1;
     if (g > 0 && usable < spanFor()) g = 0;
@@ -693,7 +717,7 @@ function composeOne(L, era, box) {
       for (const dd of [-0.5, 0.5]) {
         const [bx, by] = at(side, seg + dd * duo + jit);
         if (Math.hypot(bx - cxc, by - cyc) < PLAZA_TUNE.coreR) continue;
-        if (add('bench', side.face, bx, by, hOf('bench', R.bench))) poses += 1;
+        if (add('bench', side.face, bx, by, hOf('bench', R.bench))) { poses += 1; benchPts.push([bx, by]); }
       }
       if (!poses) continue;
       // UN BAC DE CHAQUE CÔTÉ du duo — symétrique, et les coins restent aux
@@ -713,7 +737,7 @@ function composeOne(L, era, box) {
       for (let mi = 0; mi < creux.length; mi += 1) {
         const pick = R.side[Math.floor(h01('plz' + sd + ':s:' + si + ':m:' + mi) * R.side.length) % R.side.length];
         const [mx, my] = at(side, creux[mi]);
-        add(pick.prop, side.face, mx, my, hOf(pick.prop, pick));
+        if (loinDesBancs(mx, my)) add(pick.prop, side.face, mx, my, hOf(pick.prop, pick));
       }
     }
   }
@@ -745,27 +769,42 @@ function composeOne(L, era, box) {
       [cxc - td, cyc - td],      // derrière le centre
       [cxc + td, cyc + td],      // devant — dernier recours, il le masque
     ];
-    // Le compte inclut l'arbre du CENTRE quand c'est lui qui le tient : « 1 ou
-    // 2 max » vaut pour la place entière, pas par emplacement. La RECETTE peut
-    // vouloir davantage (jardin cosmique, treeWant) — le filet et la liste de
-    // SPOTS restent les juges de ce qui tient vraiment.
-    const want = R.treeWant != null ? (R.treeWant | 0) : plazaTreeCount(w, h);
+    // Le compte inclut l'arbre du CENTRE quand c'est lui qui le tient : il vaut
+    // pour la place entière, pas par emplacement. Il SUIT L'EMPRISE (« plus la
+    // place est grande, plus on met d'éléments ») et la recette le BORNE par le
+    // haut — `treeWant` dit combien l'ère en veut AU PLUS, pas combien elle en
+    // pose. Le filet et la liste de SPOTS restent juges de ce qui tient vraiment.
+    // ⚠ Prendre `treeWant` tel quel rendait plazaTreeCount INATTEIGNABLE — toutes
+    // les ères en déclarent un depuis le 2026-08-03 — et un parvis 4×4 recevait
+    // alors le jardin d'une place 12×12. La règle d'emprise n'avait pas été
+    // retirée : elle était devenue du code mort.
+    const emprise = plazaTreeCount(w, h);
+    const want = R.treeWant != null ? Math.min(R.treeWant | 0, emprise) : emprise;
     for (let ci = 0; ci < SPOTS.length && trees < want; ci += 1) {
       putTree(SPOTS[ci][0], SPOTS[ci][1], ci, true);
     }
   }
-  // 5. GARNITURE DE CŒUR (recette `field`, densification cosmique) : quatre
-  //    props sur les axes cardinaux MONDE, à mi-chemin entre le centre et le
-  //    bord — le champ intérieur d'une grande place restait une dalle nue.
-  //    Tous passent au FILET : sur une petite place ils cèdent simplement la
-  //    place au lieu de se chevaucher (garniture, pas structure — comme les
-  //    bacs des intervalles).
-  if (R.field && R.field.length) {
-    const fd = Math.max(1.6, Math.min(w, h) * 0.28);
+  // 5. GARNITURE DE CŒUR (recette `field`) : quatre props sur les axes cardinaux
+  //    MONDE, à mi-chemin entre le centre et le bord — le champ intérieur d'une
+  //    grande place restait une dalle nue. C'est de la GARNITURE, donc `sideOn`
+  //    l'éteint avec le reste : sans ça la molette ne pouvait plus dénuder une
+  //    place pour juger son mobilier seul.
+  //    ⚠ AUCUN plancher de distance. `Math.max(1.6, …)` SUPPOSAIT qu'un champ
+  //    intérieur existe toujours ; sur un 4×4 il n'en existe pas — bancs à 1,38
+  //    tuile du centre, cœur réservé jusqu'à 1,15 — et le plancher y envoyait
+  //    quand même les jardinières, AU-DELÀ de la rangée, à 0,32 tuile d'un banc
+  //    dont le jumeau est à 0,45. Une place trop petite n'en reçoit donc plus, et
+  //    ce sont deux MESURES qui le disent — chacune suffirait, on garde les deux
+  //    parce qu'elles disent des choses différentes : sortir du cœur réservé
+  //    (`fd > coreR`) et tenir la règle du duo (`loinDesBancs`).
+  const fd = Math.min(w, h) * 0.28;
+  if (R.field && R.field.length && sideOn && fd > PLAZA_TUNE.coreR) {
     const F_SPOTS = [[cxc + fd, cyc], [cxc - fd, cyc], [cxc, cyc + fd], [cxc, cyc - fd]];
     for (let fi = 0; fi < F_SPOTS.length; fi += 1) {
+      const [fx, fy] = F_SPOTS[fi];
+      if (!loinDesBancs(fx, fy)) continue;
       const pick = R.field[Math.floor(h01('plz' + sd + ':f:' + fi) * R.field.length) % R.field.length];
-      add(pick.prop, null, F_SPOTS[fi][0], F_SPOTS[fi][1], hOf(pick.prop, pick));
+      add(pick.prop, null, fx, fy, hOf(pick.prop, pick), { field: true });
     }
   }
   props.sort((a, b) => a.d - b.d);
