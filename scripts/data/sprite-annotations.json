@@ -2268,6 +2268,26 @@
    "note": "entree en retrait sous auvent"
   },
   {
+   "key": "market-hall-glass-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 102,
+    "w": 12,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 62,
+    "y": 99,
+    "w": 5,
+    "h": 27
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "halle de fer et verre, sortie du premier coup"
+  },
+  {
    "key": "market-hall-tent",
    "nature": "batiment",
    "door": {
@@ -2308,6 +2328,26 @@
    "note": "double porte haute"
   },
   {
+   "key": "market-macellum-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 114,
+    "y": 90,
+    "w": 19,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 85,
+    "y": 98,
+    "w": 7,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "arches murees, linteau en ESCALIER pour suivre la pente iso"
+  },
+  {
    "key": "market-plaza-neon",
    "nature": "batiment",
    "door": {
@@ -2328,6 +2368,26 @@
    "note": "haut de porte masque par l'auvent raye"
   },
   {
+   "key": "market-plaza-neon-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 90,
+    "w": 29,
+    "h": 34
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 19,
+    "y": 80,
+    "w": 8,
+    "h": 25
+   },
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "porte vitree sous store, tete cachee par l auvent"
+  },
+  {
    "key": "market-prop-stall",
    "nature": "batiment",
    "door": {
@@ -2341,6 +2401,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "double battant en facade"
+  },
+  {
+   "key": "market-prop-stall-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 91,
+    "w": 26,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 16,
+    "y": 81,
+    "w": 7,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "halle close adobe et chaume, nappe tuee en v4"
   },
   {
    "key": "megablock",

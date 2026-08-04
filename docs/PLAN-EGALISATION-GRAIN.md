@@ -366,6 +366,11 @@ attendent leur art, G1 traite le reste.
 >   — sans ce snap on réinjecte ~40 teintes de dégradé (58 mesurées avant,
 >   27 après). Un sprite à feu finit donc à 27-28 teintes = 22 pigments + la
 >   rampe, exception déjà admise.
+> - ⚠ **Sur une façade FUYANTE, le linteau doit être en ESCALIER** : `blindArch`
+>   pose un linteau horizontal, qui jure sur une façade iso en pente. Recette
+>   qui marche (macellum) : murer en bandes de 2 px et décaler le linteau d'un
+>   cran par bande, pour suivre la pente. À intégrer à l'outil si la série
+>   en redemande.
 > - ⚠ **`blindArch` ne vaut que pour une VRAIE arche** dans un mur d'appareil.
 >   Sur une porte à planches il barbouille les joints sombres du vantail et le
 >   résultat est à jeter — dans ce cas, régénérer ou assumer l'écart.

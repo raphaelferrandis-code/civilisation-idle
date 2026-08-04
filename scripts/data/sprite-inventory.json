@@ -4791,6 +4791,25 @@
    "classe": "prop"
   },
   {
+   "key": "printing-factory-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 9,
+    "w": 128,
+    "h": 118
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 9,
+    "w": 128,
+    "h": 118
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "printing-factory",
    "famille": "engine",
    "w": 112,
@@ -4808,6 +4827,25 @@
     "h": 82
    },
    "classe": "prop"
+  },
+  {
+   "key": "printing-media-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 25,
+    "y0": 11,
+    "w": 126,
+    "h": 137
+   },
+   "ink40": {
+    "x0": 25,
+    "y0": 11,
+    "w": 126,
+    "h": 137
+   },
+   "classe": "orphelin"
   },
   {
    "key": "printing-media",
@@ -4829,6 +4867,25 @@
    "classe": "prop"
   },
   {
+   "key": "printing-press-shop-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 24,
+    "y0": 5,
+    "w": 123,
+    "h": 139
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 5,
+    "w": 123,
+    "h": 139
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "printing-press-shop",
    "famille": "engine",
    "w": 112,
@@ -4848,6 +4905,25 @@
    "classe": "prop"
   },
   {
+   "key": "printing-prop-workshop-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 15,
+    "y0": 6,
+    "w": 151,
+    "h": 136
+   },
+   "ink40": {
+    "x0": 15,
+    "y0": 6,
+    "w": 151,
+    "h": 136
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "printing-prop-workshop",
    "famille": "engine",
    "w": 96,
@@ -4865,6 +4941,25 @@
     "h": 79
    },
    "classe": "prop"
+  },
+  {
+   "key": "printing-scriptorium-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 31,
+    "y0": 7,
+    "w": 117,
+    "h": 108
+   },
+   "ink40": {
+    "x0": 31,
+    "y0": 7,
+    "w": 117,
+    "h": 108
+   },
+   "classe": "orphelin"
   },
   {
    "key": "printing-scriptorium",

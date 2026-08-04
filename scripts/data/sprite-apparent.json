@@ -2727,6 +2727,46 @@
    }
   },
   {
+   "key": "market-hall-glass-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 30,
+    "apparent": 18.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 27,
+    "apparent": 16.3,
+    "bande": "fenetre",
+    "ecart": 7.3
+   }
+  },
+  {
+   "key": "market-macellum-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 30,
+    "apparent": 18.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "market-plaza-neon",
    "famille": "engine",
    "densite": 0.71,
@@ -2744,6 +2784,46 @@
     "apparent": 10.7,
     "bande": "fenetre",
     "ecart": 1.7
+   }
+  },
+  {
+   "key": "market-plaza-neon-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 34,
+    "apparent": 20.6,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 25,
+    "apparent": 15.1,
+    "bande": "fenetre",
+    "ecart": 6.1
+   }
+  },
+  {
+   "key": "market-prop-stall-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 29,
+    "apparent": 17.5,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 16,
+    "apparent": 9.7,
+    "bande": "fenetre",
+    "ecart": 0.7
    }
   },
   {
