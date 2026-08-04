@@ -3936,6 +3936,25 @@
    "classe": "strip"
   },
   {
+   "key": "mint-house-digital-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 25,
+    "y0": 9,
+    "w": 126,
+    "h": 116
+   },
+   "ink40": {
+    "x0": 25,
+    "y0": 9,
+    "w": 126,
+    "h": 116
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mint-house-digital",
    "famille": "engine",
    "w": 96,
@@ -3953,6 +3972,25 @@
     "h": 74
    },
    "classe": "prop"
+  },
+  {
+   "key": "mint-house-steam-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 7,
+    "w": 136,
+    "h": 145
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 7,
+    "w": 136,
+    "h": 145
+   },
+   "classe": "orphelin"
   },
   {
    "key": "mint-house-steam",
@@ -3974,6 +4012,25 @@
    "classe": "prop"
   },
   {
+   "key": "mint-moneta-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 26,
+    "y0": 16,
+    "w": 128,
+    "h": 107
+   },
+   "ink40": {
+    "x0": 26,
+    "y0": 16,
+    "w": 128,
+    "h": 107
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mint-moneta",
    "famille": "engine",
    "w": 112,
@@ -3993,6 +4050,25 @@
    "classe": "prop"
   },
   {
+   "key": "mint-prop-forge-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 17,
+    "y0": 3,
+    "w": 146,
+    "h": 126
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 3,
+    "w": 146,
+    "h": 126
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mint-prop-forge",
    "famille": "engine",
    "w": 96,
@@ -4010,6 +4086,25 @@
     "h": 72
    },
    "classe": "prop"
+  },
+  {
+   "key": "mint-prop-house-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 18,
+    "y0": 6,
+    "w": 139,
+    "h": 119
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 6,
+    "w": 139,
+    "h": 119
+   },
+   "classe": "orphelin"
   },
   {
    "key": "mint-prop-house",

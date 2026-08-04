@@ -2563,6 +2563,26 @@
    "note": "porte vitree sous auvent"
   },
   {
+   "key": "mint-house-digital-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 51,
+    "y": 90,
+    "w": 10,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 35,
+    "y": 57,
+    "w": 8,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "banque basse, version tour rejetee porte a 9 px"
+  },
+  {
    "key": "mint-house-steam",
    "nature": "batiment",
    "door": {
@@ -2581,6 +2601,26 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "grande porte en arc"
+  },
+  {
+   "key": "mint-house-steam-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 47,
+    "y": 112,
+    "w": 14,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 68,
+    "y": 87,
+    "w": 6,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "arc aveugle pose, 25 px ramenes a 20"
   },
   {
    "key": "mint-moneta",
@@ -2603,6 +2643,26 @@
    "note": "portail charretier en arc"
   },
   {
+   "key": "mint-moneta-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 117,
+    "y": 87,
+    "w": 16,
+    "h": 23
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 64,
+    "y": 84,
+    "w": 8,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte bois 23 px, feu rabattu sur fire-ramp"
+  },
+  {
    "key": "mint-prop-forge",
    "nature": "batiment",
    "door": {
@@ -2616,6 +2676,21 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "ouverture du foyer avec feu"
+  },
+  {
+   "key": "mint-prop-forge-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 73,
+    "y": 87,
+    "w": 14,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "baie de forge, feu rabattu sur fire-ramp apres quantize"
   },
   {
    "key": "mint-prop-house",
@@ -2636,6 +2711,26 @@
    "floorPitch": null,
    "confidence": 0.5,
    "note": "porte de grange pleine facade"
+  },
+  {
+   "key": "mint-prop-house-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 78,
+    "w": 19,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 75,
+    "y": 79,
+    "w": 13,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "25 px entre les deux bandes, arc aveugle refuse sur porte a planches"
   },
   {
    "key": "observatories-array",

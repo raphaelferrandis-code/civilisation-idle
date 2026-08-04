@@ -2745,6 +2745,26 @@
    }
   },
   {
+   "key": "mint-house-digital-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 17,
+    "apparent": 10.3,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 16,
+    "apparent": 9.7,
+    "bande": "fenetre",
+    "ecart": 0.7
+   }
+  },
+  {
    "key": "mint-house-steam",
    "famille": "engine",
    "densite": 0.826,
@@ -2765,6 +2785,26 @@
    }
   },
   {
+   "key": "mint-house-steam-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 20,
+    "apparent": 12.1,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 18,
+    "apparent": 10.9,
+    "bande": "fenetre",
+    "ecart": 1.9
+   }
+  },
+  {
    "key": "mint-moneta",
    "famille": "engine",
    "densite": 0.73,
@@ -2780,6 +2820,60 @@
    "window": {
     "hSource": 10,
     "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "mint-moneta-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 7,
+    "apparent": 4.2,
+    "bande": "fenetre",
+    "ecart": -0.8
+   }
+  },
+  {
+   "key": "mint-prop-forge-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 22,
+    "apparent": 13.3,
+    "bande": "porte",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "mint-prop-house-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 25,
+    "apparent": 15.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 13,
+    "apparent": 7.9,
     "bande": "fenetre",
     "ecart": 0
    }

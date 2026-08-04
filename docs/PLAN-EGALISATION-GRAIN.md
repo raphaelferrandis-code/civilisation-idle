@@ -348,6 +348,27 @@ attendent leur art, G1 traite le reste.
 > - ⚠ **Les défauts de `blindArch` ne conviennent qu'au bois SOMBRE** : sur du
 >   chêne clair ou du stuc pâle, `--lum 72` ne mure rien (relever à 112-150) et
 >   le linteau auto (mur × 1,35) sature en blanc — passer `--trim` explicite.
+> - ✅ **LA LUMIÈRE SE COMMANDE DANS LE PROMPT** (trouvaille de la famille
+>   monnaie, à mettre partout) : *« sunlight from the upper left so the LEFT
+>   facade is brightly lit and the RIGHT facade is in shadow »* → 5 sprites sur
+>   5 corrects du premier coup, zéro miroir. Sans cette phrase, 12 miroirs ont
+>   été nécessaires sur les 26 autres. Le miroir reste le rattrapage, plus la
+>   méthode.
+> - ⛔ **Les NÉGATIONS de sol peuvent AGGRAVER la dalle** : sur la monnaie,
+>   14 générations sur 15 en portaient une, et la variante qui disait « with
+>   bare soil beneath it » a produit les pires socles. Deux remèdes selon le
+>   cas : la clause de découpe (ci-dessus) OU, quand elle échoue, une **coupe
+>   GÉOMÉTRIQUE** — seuil par colonne suivant le V de la base du bâtiment,
+>   tout ce qui est dessous est effacé. Jamais par couleur (cf. ci-dessus).
+> - ⛔ **`quantize --colors 22` ÉTEINT LE FEU** (forge sans flamme, moneta
+>   délavée). Remède conforme à la doctrine `SKIP_FIRE` : recopier les pixels
+>   chauds de la source en les RABATTANT sur `public/pixelart/fire-ramp.json`
+>   — sans ce snap on réinjecte ~40 teintes de dégradé (58 mesurées avant,
+>   27 après). Un sprite à feu finit donc à 27-28 teintes = 22 pigments + la
+>   rampe, exception déjà admise.
+> - ⚠ **`blindArch` ne vaut que pour une VRAIE arche** dans un mur d'appareil.
+>   Sur une porte à planches il barbouille les joints sombres du vantail et le
+>   résultat est à jeter — dans ce cas, régénérer ou assumer l'écart.
 > - ⚠ **Convention de mesure à normaliser** : certains annotateurs prennent la
 >   seule ouverture, d'autres l'ouverture + son chambranle — 3 à 5 px d'écart,
 >   soit ~2-3 px apparents. À harmoniser sur « ouverture + encadrement » (la
