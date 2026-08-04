@@ -3648,6 +3648,26 @@
    "note": "porte sous porche"
   },
   {
+   "key": "ruins-institute-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 47,
+    "y": 101,
+    "w": 14,
+    "h": 23
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 31,
+    "y": 89,
+    "w": 7,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte cintree 23 px"
+  },
+  {
    "key": "ruins-lab",
    "nature": "batiment",
    "door": {
@@ -3666,6 +3686,26 @@
    "floorPitch": null,
    "confidence": 0.55,
    "note": "rideau metallique cadenasse"
+  },
+  {
+   "key": "ruins-lab-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 49,
+    "y": 104,
+    "w": 11,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 25,
+    "y": 66,
+    "w": 8,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porte a 15 px, 2 sous la bande"
   },
   {
    "key": "ruins-lodge",
@@ -3688,6 +3728,26 @@
    "note": "porte cintree a deux vantaux"
   },
   {
+   "key": "ruins-lodge-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 70,
+    "y": 99,
+    "w": 10,
+    "h": 18
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 66,
+    "y": 101,
+    "w": 6,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "entree sous galerie, lecture incertaine, miroite"
+  },
+  {
    "key": "ruins-restoration-roman",
    "nature": "batiment",
    "door": {
@@ -3706,6 +3766,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "haute baie ouverte de chantier"
+  },
+  {
+   "key": "ruins-restoration-roman-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 54,
+    "y": 91,
+    "w": 17,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 72,
+    "y": 102,
+    "w": 8,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "arche et chambranle pierre, nappe coupee au V"
   },
   {
    "key": "schools-campus",
@@ -4738,6 +4818,26 @@
    "note": "cabane de rondins"
   },
   {
+   "key": "works-camp-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 114,
+    "y": 87,
+    "w": 15,
+    "h": 23
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 136,
+    "y": 92,
+    "w": 13,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "sans nappe, mesure sur copie eclaircie"
+  },
+  {
    "key": "works-classical",
    "nature": "batiment",
    "door": {
@@ -4756,6 +4856,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "grande arche d'atelier"
+  },
+  {
+   "key": "works-classical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 85,
+    "w": 22,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 106,
+    "y": 84,
+    "w": 6,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "grande arche romaine, voussoirs exclus"
   },
   {
    "key": "works-depot",
@@ -4778,6 +4898,21 @@
    "note": "baies coulissantes en serie"
   },
   {
+   "key": "works-depot-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 89,
+    "y": 115,
+    "w": 9,
+    "h": 23
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "porte de service annotee, baies coulissantes 32 px a cote"
+  },
+  {
    "key": "works-industrial",
    "nature": "batiment",
    "door": {
@@ -4796,6 +4931,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "seconde porte charretiere a droite"
+  },
+  {
+   "key": "works-industrial-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 123,
+    "y": 108,
+    "w": 16,
+    "h": 27
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 26,
+    "y": 71,
+    "w": 8,
+    "h": 22
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "livre sans nappe ni miroir du premier coup"
   },
   {
    "key": "works-yard",

@@ -991,6 +991,26 @@
    }
   },
   {
+   "key": "ruins-lab-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 15,
+    "apparent": 9.1,
+    "bande": "porte",
+    "ecart": -0.9
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "printing-press-shop",
    "famille": "engine",
    "densite": 0.775,
@@ -3685,6 +3705,26 @@
    }
   },
   {
+   "key": "ruins-institute-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "ruins-lab",
    "famille": "engine",
    "densite": 0.785,
@@ -3729,6 +3769,26 @@
    }
   },
   {
+   "key": "ruins-lodge-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 18,
+    "apparent": 10.9,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 14,
+    "apparent": 8.5,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "ruins-restoration-roman",
    "famille": "engine",
    "densite": 0.796,
@@ -3744,6 +3804,26 @@
    "window": {
     "hSource": 9,
     "apparent": 7.2,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "ruins-restoration-roman-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 32,
+    "apparent": 19.4,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 11,
+    "apparent": 6.7,
     "bande": "fenetre",
     "ecart": 0
    }
@@ -4505,6 +4585,26 @@
    }
   },
   {
+   "key": "works-camp-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 14,
+    "apparent": 8.5,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "works-classical",
    "famille": "engine",
    "densite": 0.796,
@@ -4522,6 +4622,26 @@
     "apparent": 6.4,
     "bande": "fenetre",
     "ecart": 0
+   }
+  },
+  {
+   "key": "works-classical-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 32,
+    "apparent": 19.4,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 6,
+    "apparent": 3.6,
+    "bande": "fenetre",
+    "ecart": -1.4
    }
   },
   {
@@ -4545,6 +4665,20 @@
    }
   },
   {
+   "key": "works-depot-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "porte",
+    "ecart": 0
+   }
+  },
+  {
    "key": "works-industrial",
    "famille": "engine",
    "densite": 0.785,
@@ -4562,6 +4696,26 @@
     "apparent": 9.4,
     "bande": "fenetre",
     "ecart": 0.4
+   }
+  },
+  {
+   "key": "works-industrial-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 27,
+    "apparent": 16.3,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 22,
+    "apparent": 13.3,
+    "bande": "fenetre",
+    "ecart": 4.3
    }
   }
  ]
