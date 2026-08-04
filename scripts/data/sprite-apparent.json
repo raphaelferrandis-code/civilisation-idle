@@ -85,28 +85,6 @@
    }
   },
   {
-   "key": "tenement",
-   "famille": "house",
-   "densite": 1.702,
-   "densNote": "lot 1x2",
-   "door": {
-    "hSource": 12,
-    "apparent": 20.4,
-    "bande": "porte",
-    "ecart": 6.4
-   },
-   "window": {
-    "hSource": 6,
-    "apparent": 10.2,
-    "bande": "fenetre",
-    "ecart": 1.2
-   },
-   "floorPitch": {
-    "source": 10,
-    "apparent": 17
-   }
-  },
-  {
    "key": "cosmic-hall-7",
    "famille": "engine",
    "densite": 0.708,
@@ -396,28 +374,6 @@
    "floorPitch": {
     "source": 18,
     "apparent": 13.9
-   }
-  },
-  {
-   "key": "tower",
-   "famille": "house",
-   "densite": 1.702,
-   "densNote": "lot 1x2",
-   "door": {
-    "hSource": 10,
-    "apparent": 17,
-    "bande": "porte",
-    "ecart": 3
-   },
-   "window": {
-    "hSource": 5,
-    "apparent": 8.5,
-    "bande": "fenetre",
-    "ecart": 0
-   },
-   "floorPitch": {
-    "source": 8,
-    "apparent": 13.6
    }
   },
   {
@@ -907,6 +863,28 @@
    }
   },
   {
+   "key": "tenement",
+   "famille": "house",
+   "densite": 1.248,
+   "densNote": "lot 1x2",
+   "door": {
+    "hSource": 12,
+    "apparent": 15,
+    "bande": "porte",
+    "ecart": 1
+   },
+   "window": {
+    "hSource": 6,
+    "apparent": 7.5,
+    "bande": "fenetre",
+    "ecart": 0
+   },
+   "floorPitch": {
+    "source": 10,
+    "apparent": 12.5
+   }
+  },
+  {
    "key": "arcologyhome",
    "famille": "house",
    "densite": 1.135,
@@ -970,28 +948,6 @@
    "floorPitch": {
     "source": 17,
     "apparent": 14
-   }
-  },
-  {
-   "key": "townhouse",
-   "famille": "house",
-   "densite": 1.135,
-   "densNote": "lot 1x1",
-   "door": {
-    "hSource": 8,
-    "apparent": 9.1,
-    "bande": "porte",
-    "ecart": -0.9
-   },
-   "window": {
-    "hSource": 7,
-    "apparent": 7.9,
-    "bande": "fenetre",
-    "ecart": 0
-   },
-   "floorPitch": {
-    "source": 17,
-    "apparent": 19.3
    }
   },
   {
@@ -2905,6 +2861,28 @@
    }
   },
   {
+   "key": "tower",
+   "famille": "house",
+   "densite": 1.248,
+   "densNote": "lot 1x2",
+   "door": {
+    "hSource": 10,
+    "apparent": 12.5,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 5,
+    "apparent": 6.2,
+    "bande": "fenetre",
+    "ecart": 0
+   },
+   "floorPitch": {
+    "source": 8,
+    "apparent": 10
+   }
+  },
+  {
    "key": "tower-cosmic-7",
    "famille": "house",
    "densite": 1.135,
@@ -2968,6 +2946,28 @@
    "floorPitch": {
     "source": 7,
     "apparent": 7.9
+   }
+  },
+  {
+   "key": "townhouse",
+   "famille": "house",
+   "densite": 1.248,
+   "densNote": "lot 1x1",
+   "door": {
+    "hSource": 8,
+    "apparent": 10,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 7,
+    "apparent": 8.7,
+    "bande": "fenetre",
+    "ecart": 0
+   },
+   "floorPitch": {
+    "source": 17,
+    "apparent": 21.2
    }
   },
   {

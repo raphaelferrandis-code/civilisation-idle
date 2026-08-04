@@ -18,6 +18,7 @@ import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
+import { grainTune } from '../spriteScale.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
@@ -7096,6 +7097,15 @@ function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
     ? (cmEngineAtelierFoot(id) || 1) * 2 * HALL_SCENE_MAX
     : Infinity;                                  // bâtiments de pierre : aucun bornage
   let bw = Math.min(spanSum, capSum) * unit;
+  // GRAIN G1.2 (PLAN-EGALISATION-GRAIN §4.2) : plancher de densité aux petites
+  // empreintes. Un moteur d'empreinte 1 (spanSum 2) dessinait ses portes moitié
+  // moins hautes qu'à l'atelier (spanSum 4) — 4 % du corpus en bande, mesuré en
+  // G0. On regonfle la boîte VERS la densité atelier, sans jamais la dépasser ;
+  // le débord de lot qui en résulte est le pendant du clamp maisons, assumé aux
+  // toutes premières empreintes. Molette : __grainFloor (0 = off).
+  if (grainTune.on && grainTune.floor > 0 && spanSum > 0 && spanSum < 4) {
+    bw *= Math.max(1, Math.min(grainTune.floor * (4 / spanSum), 4 / spanSum));
+  }
   const f = spanSum > 0 ? Math.min(spanSum, capSum) / spanSum : 1;
   // Pieds : au coin SUD tant que le bâtiment remplit son lot (comportement
   // historique, inchangé pour les ateliers), ramenés vers le CENTRE du lot à

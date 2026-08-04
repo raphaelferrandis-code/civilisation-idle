@@ -12,6 +12,13 @@ import { AGENT_SCALE } from './agents.js';
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
+import { recDens } from './spriteScale.js';
+
+// Sonde du grain : densité blitée (px écran par px source) normalisée à zoom 1,
+// pour __grainAudit — la vérité runtime qui calibrera les paliers de halles.
+const recBlitDens = (key, drawH, nat) => {
+  if (nat > 0) recDens(key, drawH / nat / ((CM.cam && CM.cam.zoom) || 1));
+};
 
 // ── Taille des HUMAINS de scène = celle des HABITANTS de la carte ────────────
 // Les scènes moteur reçoivent une BOÎTE (ox,oy,sw,sh) dont la taille CROÎT avec
@@ -317,6 +324,7 @@ const propImage = (k) => { ensureProps(); return propImg[k] || null; };
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const im = propImg[p]; if (!im) return;
   const drawW = sw * wFrac, drawH = sh * hFrac;
+  recBlitDens(p, drawH, im.naturalHeight);
   const left = ox + sw * cx - drawW / 2, top = oy + sh * cy - drawH / 2;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);
@@ -334,6 +342,7 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
   const BASE = baseOverride != null ? baseOverride : ((typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95);
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
+  recBlitDens(key, drawH, im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
@@ -357,6 +366,7 @@ function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
   const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
   const bb = propBBox(p), footF = bb ? bb.y0f + bb.hf : 1;
   const drawW = sw * wFrac, drawH = sh * hFrac;
+  recBlitDens(p, drawH, im.naturalHeight);
   const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - footF * drawH;
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, left, top, drawW, drawH);

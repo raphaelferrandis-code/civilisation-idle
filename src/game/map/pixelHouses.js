@@ -11,7 +11,9 @@
 import { CM, cmHash } from './layout.js';
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { lightCutImage } from './lightLayer.js';
-import { HOUSE_UNIT, houseFitTune, houseScaleK } from './spriteScale.js';
+import { HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
+import { isoFlag } from './iso/projection.js';
+import { houseFootprint } from './procedural/buildingGenerator.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -214,7 +216,12 @@ function pixelHouseGeom(t, x, y, w, h) {
   const span = t.spanX || t.size || 1;
   // Facteur commun + clamp au lot : LA formule vit dans spriteScale.js
   // (houseScaleK), partagée avec l'audit du grain — ne pas la recopier ici.
-  const k = houseScaleK(span, w, bb.w);
+  // Côté iso, la boîte w est cousue sur (spanX+spanY) → on passe la vraie
+  // profondeur pour l'unité honnête (correction 1×2, G1) ; le legacy top-down
+  // passe spanY = span et garde son unité historique (jamais eu l'anomalie).
+  const spanY = isoFlag.on ? (t.spanY || span) : span;
+  const k = houseScaleK(span, w, bb.w, spanY, key);
+  recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k));
   const dh = Math.max(1, Math.round(bb.h * k));
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)
@@ -298,9 +305,16 @@ export function drawPixelHouseOutline(t, x, y, w, h, color) {
 // même math que drawPixelHouse (dh/unit = bb.h/HOUSE_UNIT), donc la portée RÉELLE du
 // sprite au-dessus de sa base. null tant que le PNG n'est pas mesuré (l'appelant met
 // un défaut). Suit le skin cosmique courant via spriteKeyFor.
+// G1 : suit AUSSI la correction de forme 1×2 et GRAIN_FIX, sinon la portée
+// peintre des tenements/towers mentirait d'un tiers depuis l'unité honnête.
 export function houseSpriteHeightTiles(variant) {
-  const e = cache.get(spriteKeyFor(variant));
-  return (e && e.ready && e.bbox) ? e.bbox.h / HOUSE_UNIT : null;
+  const key = spriteKeyFor(variant);
+  const e = cache.get(key);
+  if (!(e && e.ready && e.bbox)) return null;
+  const [sx, sy] = houseFootprint(variant, CM.layout?.counts?.eraBand | 0);
+  const shape = isoFlag.on ? (2 * sx) / (sx + sy) : 1;
+  const f = grainTune.on && GRAIN_FIX[key] ? Math.max(0.8, Math.min(1.25, GRAIN_FIX[key])) : 1;
+  return (e.bbox.h / HOUSE_UNIT) * shape * f;
 }
 
 // Dev : bascule le rendu pixel des habitations. __pixelHouses(false) → procédural.
@@ -317,6 +331,20 @@ if (typeof window !== "undefined") {
   // B — variation par instance. __houseVar(false) = retour aux 12 sprites stampés,
   // l'A/B qui montre ce que la variation apporte.
   window.__houseVar = (on) => { houseVarTune.on = on !== false; CM._tileBake = null; return houseVarTune.on; };
+  // G1 — grain. __grainFix(false) coupe TOUTES les compensations (formule
+  // honnête nue), __grainFix({ tower: 1.2 }) ajuste un sprite en live ;
+  // __grainFloor(0.8) règle le plancher des petites empreintes moteur (0 = off).
+  window.__grainFix = (o) => {
+    if (o === false) grainTune.on = false;
+    else { grainTune.on = true; if (o && typeof o === 'object') Object.assign(GRAIN_FIX, o); }
+    CM._tileBake = null;
+    return { on: grainTune.on, ...GRAIN_FIX };
+  };
+  window.__grainFloor = (v) => {
+    if (typeof v === 'number') grainTune.floor = Math.max(0, Math.min(1, v));
+    CM._tileBake = null;
+    return grainTune.floor;
+  };
   // Répartition réelle des teintes sur les habitations du layout — pour vérifier d'un
   // coup d'œil que le tirage ne s'est pas effondré sur une seule.
   window.__houseVarStats = () => {

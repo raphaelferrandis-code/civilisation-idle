@@ -198,25 +198,43 @@ Aucune retouche dans ce lot.
 
 ## 4. Lot G1 — Unification mécanique (code seul, tout sous molettes)
 
-Redresser sans toucher un pixel d'art, compensations par sprite comprises.
+> **ÉTAT 2026-08-04 : FAIT** (même séance que G0). Formule honnête + GRAIN_FIX
+> dans `spriteScale.js` (une seule source, testée garde cassée comprise),
+> plancher moteur dans `isoRenderer.js`, sonde `recDens`/`__grainAudit`
+> branchée sur les TROIS chemins (maisons, blitProp×2, blitCosmicTower).
+> Vérifié EN JEU : bande 5 → `tenement`/`tower` blittés à 1,248 (= 1,135 × 1,1)
+> au lieu de 1,70, rue harmonieuse, Y-sort et ancrages intacts ; bande 0 →
+> étal 0,62 / grenier 0,56 de densité (portes 10,6 et 12,4 px, contre ~7 avant
+> le plancher), pas de débord choquant ; bande 7 inchangée hors 1×2. Captures
+> `.preview-shots/grain/b0|b5|b7-apresG1.png`, planche
+> `planche-habitations-apresG1.png`. La sonde a aussi donné la vérité runtime
+> des socles cosmiques moteur : densités 0,67-1,42 selon l'empreinte réelle —
+> la matière qui calibrera les paliers G2. Molettes livrées : `__grainFix`
+> (on/off + table live), `__grainFloor` (0 = off, défaut 0,7). Restent dans le
+> lot : rien — arbitrages fins des valeurs à l'usage, par les molettes.
 
-1. **Module de densité unique** `src/game/map/spriteScale.js` : densité de
-   référence D = 1,135 (celle des lots carrés, majorité du parc), consommée
-   par maisons ET merveilles (PPT 34 → aligné, +20 % sur les merveilles, à
-   valider à l'œil sur planche). Les cinq constantes du §1.1 pointent dessus.
-2. **Formule 1×2 corrigée** (`unit` indépendant de la forme du lot) **+
-   compensation par sprite** : table `fix` générée depuis l'audit G0, bornée
-   [0,8-1,25], qui rend à `tenement`/`tower` l'échelle nette qu'ils avaient —
-   le clamp au lot reste l'ultime garde-fou. Un sprite dont le `fix` requis
-   sort de la borne passe en liste G2 (art).
-3. **Scènes moteur** : les props À PORTE passent du blit en fraction de boîte
-   au gabarit ancré tuile (généraliser le schéma `lampFootMetrics` :
-   hauteur cible en tuiles ÷ hauteur utile mesurée, ratio natif préservé,
-   pied mesuré). Les props de décor (tas, enclos, étals) peuvent rester en
-   fraction. DÉCISION RAPH sur la croissance des halles (§7).
-4. **Molettes** : `__grainScale` (D, fix par sprite, on/off compensation),
-   `__grainAudit()` qui logue les tailles apparentes des sprites posés à
-   l'écran. A/B live, valeurs gravées après arbitrage.
+Redresser sans toucher un pixel d'art, compensations par sprite comprises.
+Périmètre recentré après l'arbitrage « art par palier » (§7.2) : les halles
+attendent leur art, G1 traite le reste.
+
+1. **Formule 1×2 corrigée** dans `houseScaleK` (source unique) : `unit`
+   indépendant de la forme du lot côté iso (`2w/(spanX+spanY)`, le legacy
+   top-down garde `w/span` qui n'a jamais eu l'anomalie) **+ compensation par
+   sprite** : table `GRAIN_FIX` bornée [0,8-1,25], valeurs initiales dérivées
+   de l'audit (`tenement`/`tower`/`townhouse` ~1,1), le clamp au lot reste
+   l'ultime garde-fou. ⚠ `houseSpriteHeightTiles` (Y-sort) doit suivre la
+   MÊME correction, sinon la portée peintre ment d'un tiers sur les 1×2.
+2. **Plancher des petites empreintes moteur** : aux empreintes < atelier, les
+   props de scène sont dessinés à `max(dens, plancher × densité atelier)`
+   (molette `__grainFloor`, départ 0,75-0,8), débord latéral toléré comme le
+   clamp maisons. Corrige le début de partie (4 % en bande → l'essentiel).
+3. **Sonde runtime `__grainAudit()`** : capture dev des densités réellement
+   blitées (par clé de prop + maisons + tours cosmiques), croisées avec les
+   annotations → la vérité runtime qui remplace l'extraction statique des
+   fractions ; c'est elle qui calibrera les paliers de G2.
+4. **Molettes** : `__grainFix` (table par sprite, on/off), `__grainFloor`.
+   A/B live, valeurs gravées après validation sur planche + captures.
+5. Merveilles : inchangées en G1 (cf. §7.3).
 
 ## 5. Lot G2 — La vague d'art (les irréductibles)
 
@@ -246,17 +264,30 @@ INTERNE porte/fenêtres). Estimation à confirmer par l'audit : 10-20 sprites.
 
 ---
 
-## 7. Décisions à trancher (Raph) avant G1
+## 7. Décisions (arbitrages Raph)
 
-1. **La bande de porte** : 10-14 px apparents (reco : dérivée du corpus sain
-   hut/stonehouse/manor, pas inventée) — ou plus stricte ?
-2. **Les halles qui gonflent** : (a) étendre le cap 1,7× à TOUTES les bandes
-   et compenser la monumentalité par le NOMBRE (reco — aligne la doctrine
-   « le compteur pilote le nombre, jamais la taille ») ; (b) art par palier
-   (2-3 sprites de halle par moteur — cher) ; (c) statu quo assumé.
-3. **Merveilles alignées sur D = 1,135** (+20 %) ou PPT 34 conservé ?
-4. **Périmètre de la vague d'art G2** : après la table G0 — combien de
-   sprites on accepte de retoucher.
+1. **La bande de porte : 10-14 px apparents** — confirmée de fait par G0 (la
+   médiane du corpus à l'échelle atelier tombe dedans).
+2. **Les halles qui gonflent : ART PAR PALIER** (arbitré le 2026-08-04). La
+   halle continue de grossir avec les achats, mais change de sprite à 2-3
+   paliers, chaque palier redessiné avec plus d'étages/travées pour que la
+   PORTE reste à taille humaine sur sa plage d'empreintes. Conséquences :
+   - G2 devient la campagne « halles à paliers » : ~25 familles de moteur ×
+     1-2 sprites de palier supplémentaires (le sprite actuel sert de palier 1),
+     chaque livraison passant le gate mesuré (porte annotée dans la bande à
+     l'empreinte MÉDIANE de son palier).
+   - Architecture retenue : chaque palier est dessiné à densité FIXE calibrée
+     pour sa plage (la porte reste juste sur toute la plage, pas seulement au
+     milieu) ; l'excédent de lot entre deux seuils devient clairière/annexes,
+     et le SAUT de palier apporte la masse. Le gonflement continu disparaît.
+   - En attendant l'art, G1 ne touche PAS à l'échelle des halles (pas de
+     régression visuelle d'ici les paliers) ; seul le PLANCHER des petites
+     empreintes est posé (§4.2), sous molette.
+3. **Merveilles** : non annotées en G0 (hors bande par principe) — l'alignement
+   éventuel sur D = 1,135 se jugera sur planche en fin de G1, décision reportée.
+4. **Périmètre de la vague d'art G2** (hors halles) : ~12 portes trop grandes,
+   ~10 trop petites dont les socles cosmiques moteur — à confirmer sur la table
+   résiduelle après G1.
 
 ## 8. Ordre, harnais, pièges
 

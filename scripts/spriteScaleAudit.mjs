@@ -165,7 +165,9 @@ function apparent() {
     if (e.famille === 'house') {
       const { spanX, spanY } = houseSpan(a.key);
       const wpx = (spanX + spanY) * TILE_REF * HOUSE_LOT_WF;
-      dens = houseScaleK(spanX, wpx, (e.ink16 || { w: e.w }).w);
+      // spanY + clé : unité honnête iso et GRAIN_FIX (G1) — l'audit rapporte
+      // donc le RÉSIDUEL après compensation, pas l'état d'avant.
+      dens = houseScaleK(spanX, wpx, (e.ink16 || { w: e.w }).w, spanY, a.key);
       densNote = `lot ${spanX}x${spanY}`;
     } else if (e.famille === 'engine') {
       // drawH = hFrac × côté de boîte ; boîte = spanSum × T × 0.72 (jitter

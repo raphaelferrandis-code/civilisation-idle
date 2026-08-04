@@ -127,7 +127,7 @@ function plancheHabitations(outDir) {
     const [spanX, spanY] = HOUSE_FOOTPRINT[base] && !(COSMIC.has(base) && /-cosmic-/.test(key) && base === 'tower')
       ? HOUSE_FOOTPRINT[base] : (base === 'tower' && /-cosmic-/.test(key) ? [2, 2] : (HOUSE_FOOTPRINT[base] || [1, 1]));
     const wpx = (spanX + spanY) * TILE_REF * HOUSE_LOT_WF;
-    const k = houseScaleK(spanX, wpx, e.ink16.w);
+    const k = houseScaleK(spanX, wpx, e.ink16.w, spanY, key);
     return { key, e, sc: k * VIEW };
   }));
   const largeurs = items.map((row) => row.reduce((s, it) => s + Math.round(it.e.ink16.w * it.sc) + GAP, MARGE + 30));
