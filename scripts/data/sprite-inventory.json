@@ -4601,6 +4601,25 @@
    "classe": "prop"
   },
   {
+   "key": "observatories-dome-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 32,
+    "y0": 7,
+    "w": 112,
+    "h": 126
+   },
+   "ink40": {
+    "x0": 32,
+    "y0": 7,
+    "w": 112,
+    "h": 126
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "observatories-dome",
    "famille": "engine",
    "w": 112,
@@ -4618,6 +4637,25 @@
     "h": 85
    },
    "classe": "prop"
+  },
+  {
+   "key": "observatories-horologium-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 46,
+    "y0": 3,
+    "w": 84,
+    "h": 135
+   },
+   "ink40": {
+    "x0": 46,
+    "y0": 3,
+    "w": 84,
+    "h": 135
+   },
+   "classe": "orphelin"
   },
   {
    "key": "observatories-horologium",

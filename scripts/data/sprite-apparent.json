@@ -3367,6 +3367,26 @@
    }
   },
   {
+   "key": "observatories-array-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 17,
+    "apparent": 10.3,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 10,
+    "apparent": 6,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "observatories-dome",
    "famille": "engine",
    "densite": 0.775,
@@ -3384,6 +3404,26 @@
     "apparent": 12.4,
     "bande": "fenetre",
     "ecart": 3.4
+   }
+  },
+  {
+   "key": "observatories-dome-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 25,
+    "apparent": 15.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 14,
+    "apparent": 8.5,
+    "bande": "fenetre",
+    "ecart": 0
    }
   },
   {
@@ -3407,6 +3447,26 @@
    }
   },
   {
+   "key": "observatories-horologium-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 19,
+    "apparent": 11.5,
+    "bande": "fenetre",
+    "ecart": 2.5
+   }
+  },
+  {
    "key": "observatories-tower",
    "famille": "engine",
    "densite": 0.775,
@@ -3424,6 +3484,26 @@
     "apparent": 13.2,
     "bande": "fenetre",
     "ecart": 4.2
+   }
+  },
+  {
+   "key": "observatories-tower-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 28,
+    "apparent": 16.9,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
    }
   },
   {

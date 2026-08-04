@@ -3203,6 +3203,26 @@
    "note": "porte technique sombre"
   },
   {
+   "key": "observatories-array-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 53,
+    "y": 95,
+    "w": 8,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 105,
+    "y": 89,
+    "w": 9,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "beton pale et parabole, nappe retiree"
+  },
+  {
    "key": "observatories-dome",
    "nature": "batiment",
    "door": {
@@ -3223,6 +3243,26 @@
    "note": "arc d'entree desservi par sentier"
   },
   {
+   "key": "observatories-dome-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 55,
+    "y": 96,
+    "w": 13,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 76,
+    "y": 106,
+    "w": 6,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porte 25 px"
+  },
+  {
    "key": "observatories-horologium",
    "nature": "batiment",
    "door": {
@@ -3241,6 +3281,26 @@
    "floorPitch": null,
    "confidence": 0.65,
    "note": "porte en arc"
+  },
+  {
+   "key": "observatories-horologium-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 62,
+    "y": 107,
+    "w": 13,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 68,
+    "y": 64,
+    "w": 11,
+    "h": 19
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "v2 a 4 masses, porte passee de 15 a 21 px"
   },
   {
    "key": "observatories-prop-dial",
@@ -3271,6 +3331,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "haut portail en arc"
+  },
+  {
+   "key": "observatories-tower-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 59,
+    "y": 85,
+    "w": 15,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 101,
+    "y": 55,
+    "w": 3,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "calcaire ivoire et dome bronze, nappe coupee en V"
   },
   {
    "key": "port-cosmic-7",
