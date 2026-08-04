@@ -1295,6 +1295,25 @@
    "classe": "prop"
   },
   {
+   "key": "bureau-chancery-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 34,
+    "y0": 6,
+    "w": 109,
+    "h": 129
+   },
+   "ink40": {
+    "x0": 34,
+    "y0": 6,
+    "w": 109,
+    "h": 129
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bureau-chancery",
    "famille": "engine",
    "w": 112,
@@ -1312,6 +1331,25 @@
     "h": 78
    },
    "classe": "prop"
+  },
+  {
+   "key": "bureau-hut-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 31,
+    "y0": 6,
+    "w": 114,
+    "h": 128
+   },
+   "ink40": {
+    "x0": 31,
+    "y0": 6,
+    "w": 114,
+    "h": 128
+   },
+   "classe": "orphelin"
   },
   {
    "key": "bureau-hut",
@@ -1333,6 +1371,25 @@
    "classe": "prop"
   },
   {
+   "key": "bureau-office-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 6,
+    "w": 129,
+    "h": 145
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 6,
+    "w": 129,
+    "h": 145
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bureau-office",
    "famille": "engine",
    "w": 112,
@@ -1352,6 +1409,25 @@
    "classe": "prop"
   },
   {
+   "key": "bureau-tabularium-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 25,
+    "y0": 12,
+    "w": 124,
+    "h": 135
+   },
+   "ink40": {
+    "x0": 25,
+    "y0": 12,
+    "w": 124,
+    "h": 135
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bureau-tabularium",
    "famille": "engine",
    "w": 112,
@@ -1369,6 +1445,25 @@
     "h": 71
    },
    "classe": "prop"
+  },
+  {
+   "key": "bureau-tower-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 43,
+    "y0": 7,
+    "w": 91,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 43,
+    "y0": 7,
+    "w": 91,
+    "h": 134
+   },
+   "classe": "orphelin"
   },
   {
    "key": "bureau-tower",

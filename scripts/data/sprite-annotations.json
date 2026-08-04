@@ -978,6 +978,26 @@
    "note": "oculus au fronton, panneaux rouges entre colonnes ambigus"
   },
   {
+   "key": "courthouses-basilica-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 43,
+    "y": 84,
+    "w": 18,
+    "h": 35
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 120,
+    "y": 48,
+    "w": 15,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "travertin, arche 2 px au-dessus de la bande"
+  },
+  {
    "key": "courthouses-lodge",
    "nature": "batiment",
    "door": {
@@ -996,6 +1016,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "grande porte de bois quasi pleine hauteur"
+  },
+  {
+   "key": "courthouses-lodge-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 122,
+    "y": 96,
+    "w": 19,
+    "h": 33
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 52,
+    "y": 88,
+    "w": 19,
+    "h": 19
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "chaume et chene sombre, baies ajourees bouchees"
   },
   {
    "key": "courthouses-modern",
@@ -1018,6 +1058,26 @@
    "note": "hall vitre en entree, baies toute hauteur"
   },
   {
+   "key": "courthouses-modern-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 37,
+    "y": 99,
+    "w": 21,
+    "h": 23
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 98,
+    "y": 94,
+    "w": 4,
+    "h": 29
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "calcaire creme, perron coupe au V"
+  },
+  {
    "key": "courthouses-neoclassical",
    "nature": "batiment",
    "door": {
@@ -1038,6 +1098,26 @@
    "note": "porche a colonnes tres sombre, seuil estime"
   },
   {
+   "key": "courthouses-neoclassical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 80,
+    "y": 91,
+    "w": 17,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 35,
+    "y": 68,
+    "w": 7,
+    "h": 29
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "marbre et fronton dore, podium coupe au V"
+  },
+  {
    "key": "courthouses-tribunal",
    "nature": "batiment",
    "door": {
@@ -1056,6 +1136,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "arche cochere en pierre avec vantaux de bois"
+  },
+  {
+   "key": "courthouses-tribunal-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 57,
+    "y": 106,
+    "w": 22,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 107,
+    "y": 78,
+    "w": 11,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "enduit creme et ardoise, sorti propre du premier coup"
   },
   {
    "key": "courtyard",

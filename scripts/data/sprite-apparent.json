@@ -1769,6 +1769,26 @@
    }
   },
   {
+   "key": "courthouses-basilica-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 35,
+    "apparent": 21.2,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 9,
+    "apparent": 5.4,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "courthouses-lodge",
    "famille": "engine",
    "densite": 0.785,
@@ -1786,6 +1806,26 @@
     "apparent": 5.5,
     "bande": "fenetre",
     "ecart": 0
+   }
+  },
+  {
+   "key": "courthouses-lodge-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 33,
+    "apparent": 20,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 19,
+    "apparent": 11.5,
+    "bande": "fenetre",
+    "ecart": 2.5
    }
   },
   {
@@ -1809,6 +1849,26 @@
    }
   },
   {
+   "key": "courthouses-modern-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 29,
+    "apparent": 17.5,
+    "bande": "fenetre",
+    "ecart": 8.5
+   }
+  },
+  {
    "key": "courthouses-neoclassical",
    "famille": "engine",
    "densite": 0.785,
@@ -1829,6 +1889,26 @@
    }
   },
   {
+   "key": "courthouses-neoclassical-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 29,
+    "apparent": 17.5,
+    "bande": "fenetre",
+    "ecart": 8.5
+   }
+  },
+  {
    "key": "courthouses-tribunal",
    "famille": "engine",
    "densite": 0.785,
@@ -1846,6 +1926,26 @@
     "apparent": 7.1,
     "bande": "fenetre",
     "ecart": 0
+   }
+  },
+  {
+   "key": "courthouses-tribunal-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 31,
+    "apparent": 18.7,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 15,
+    "apparent": 9.1,
+    "bande": "fenetre",
+    "ecart": 0.1
    }
   },
   {
