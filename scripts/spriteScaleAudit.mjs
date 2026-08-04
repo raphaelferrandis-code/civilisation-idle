@@ -339,6 +339,10 @@ function serie() {
     if (!e || e.famille !== 'engine' || a.nature !== 'batiment' || !a.door) continue;
     if (PALIER_SPANSUM[a.key]) continue;                       // c'est un palier
     if (invByKey.has(a.key + '-grand')) continue;              // son palier existe deja
+    // Les sprites COSMIQUES ne passent pas par blitProp mais par
+    // blitCosmicTower (H = 1,72 de la boite, ratio natif) : la substitution de
+    // palier ne les touche pas, ils sont hors campagne.
+    if (e.classe === 'prop-cosmic') continue;
     if (a.key === 'granary-horreum-classical' && invByKey.has('granary-horreum-grand')) continue;
     const pref = Object.keys(FAMILLES).find((p) => a.key.startsWith(p));
     if (!pref) continue;
