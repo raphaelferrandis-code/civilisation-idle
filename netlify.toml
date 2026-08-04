@@ -1,0 +1,24 @@
+# DÉPLOIEMENT NETLIFY — lu automatiquement quand le dépôt est connecté à un site
+# ("Import an existing project"). Il n'y a alors RIEN à configurer dans
+# l'interface : un push sur `main` déclenche `npm run build` et publie `dist/`.
+#
+# ⚠ Ce fichier ne sert QUE pour le déploiement par Git. Un dépôt déposé à la main
+# (Netlify Drop) publie le contenu du zip tel quel — le zip est fabriqué à partir
+# de `dist/`, ce fichier vit à la racine du dépôt, il n'y entre donc jamais.
+#
+# ⚠ PAS DE REDIRECTION FOURRE-TOUT (`/* /index.html 200`). Le jeu est MONO-PAGE
+# sans routeur : aucune URL profonde à rattraper. En poser une transformerait
+# chaque asset manquant en page HTML servie avec un code 200 — le sprite ne
+# s'afficherait pas et le 404 qui l'aurait expliqué disparaîtrait. Le jour où une
+# vraie route apparaît, c'est trois lignes à ajouter ici.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Épinglé sur la version qui construit la maison (Node 22.14 en local). Sans
+  # ça on hérite du défaut de Netlify, qui bouge sans prévenir : Vite 8 exige
+  # Node 20+, et un build qui casse six mois plus tard sans qu'on ait rien
+  # touché coûte une soirée à diagnostiquer.
+  NODE_VERSION = "22"

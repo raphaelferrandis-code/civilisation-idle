@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "electron": "electron .",
-    "dist-win": "vite build && electron-builder --win"
+    "dist-win": "vite build && electron-builder --win",
+    "zip:netlify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zip-netlify.ps1"
   },
   "build": {
     "appId": "com.civilisationidle.game",
