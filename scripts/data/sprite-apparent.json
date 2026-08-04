@@ -4471,6 +4471,44 @@
    }
   },
   {
+   "key": "universities-classical-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 31,
+    "apparent": 18.7,
+    "bande": "portail",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "universities-collegiate-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 20,
+    "apparent": 12.1,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 16,
+    "apparent": 9.7,
+    "bande": "fenetre",
+    "ecart": 0.7
+   },
+   "floorPitch": {
+    "source": 20,
+    "apparent": 12.1
+   }
+  },
+  {
    "key": "universities-gothic",
    "famille": "engine",
    "densite": 0.775,
@@ -4491,6 +4529,50 @@
    }
   },
   {
+   "key": "universities-gothic-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 29,
+    "apparent": 17.5,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 30,
+    "apparent": 18.1,
+    "bande": "fenetre",
+    "ecart": 9.1
+   }
+  },
+  {
+   "key": "universities-modern-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 26,
+    "apparent": 15.7,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "fenetre",
+    "ecart": 3.7
+   },
+   "floorPitch": {
+    "source": 30,
+    "apparent": 18.1
+   }
+  },
+  {
    "key": "universities-prop-hall",
    "famille": "engine",
    "densite": 0.838,
@@ -4501,6 +4583,26 @@
     "hSource": 14,
     "apparent": 11.7,
     "bande": "porte",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "universities-prop-hall-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 30,
+    "apparent": 18.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
     "ecart": 0
    }
   },

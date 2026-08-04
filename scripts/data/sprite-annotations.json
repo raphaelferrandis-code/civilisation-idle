@@ -4623,6 +4623,21 @@
    "note": "porte sous portique dans l'ombre"
   },
   {
+   "key": "universities-classical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 108,
+    "y": 87,
+    "w": 14,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "porte entre colonnes, sans nappe ni miroir"
+  },
+  {
    "key": "universities-collegiate",
    "nature": "batiment",
    "door": {
@@ -4641,6 +4656,26 @@
    "floorPitch": 11,
    "confidence": 0.7,
    "note": "entree a entablement clair"
+  },
+  {
+   "key": "universities-collegiate-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 116,
+    "y": 101,
+    "w": 7,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 35,
+    "y": 66,
+    "w": 9,
+    "h": 16
+   },
+   "floorPitch": 20,
+   "confidence": 0.75,
+   "note": "porte de porche etroite, pelouse retiree au seuil de colonne"
   },
   {
    "key": "universities-gothic",
@@ -4663,6 +4698,26 @@
    "note": "chapelle, arc brise, lancettes"
   },
   {
+   "key": "universities-gothic-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 100,
+    "w": 21,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 45,
+    "y": 67,
+    "w": 15,
+    "h": 30
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "arc brise de pierre, miroite"
+  },
+  {
    "key": "universities-modern",
    "nature": "batiment",
    "door": {
@@ -4683,6 +4738,26 @@
    "note": "entree vitree sombre au centre"
   },
   {
+   "key": "universities-modern-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 106,
+    "w": 15,
+    "h": 26
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 36,
+    "y": 64,
+    "w": 9,
+    "h": 21
+   },
+   "floorPitch": 30,
+   "confidence": 0.6,
+   "note": "baie vitree d entree a 26 px"
+  },
+  {
    "key": "universities-prop-hall",
    "nature": "batiment",
    "door": {
@@ -4696,6 +4771,26 @@
    "floorPitch": null,
    "confidence": 0.5,
    "note": "halle primitive"
+  },
+  {
+   "key": "universities-prop-hall-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 53,
+    "y": 96,
+    "w": 19,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 60,
+    "y": 80,
+    "w": 10,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "portail de bois entre poteaux, nappe retiree, miroite"
   },
   {
    "key": "watch-back",
