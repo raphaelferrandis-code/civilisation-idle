@@ -77,6 +77,10 @@ export const PALIER_SPANSUM = {
   'printing-media-grand': 6, 'printing-press-shop-grand': 6,
   'printing-prop-workshop-grand': 6, 'printing-factory-grand': 6,
   'printing-scriptorium-grand': 6,
+  'schools-prop-yard-grand': 6, 'schools-victorian-grand': 6,
+  'schools-schoolhouse-grand': 6, 'schools-campus-grand': 6,
+  'academies-prop-yard-grand': 6, 'forager-greenhouse-grand': 6,
+  'forager-hortus-classical-grand': 6, 'granary-prop-silo-grand': 6,
 };
 
 // Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf

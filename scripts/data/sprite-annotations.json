@@ -78,6 +78,26 @@
    "note": "hutte au toit de chaume"
   },
   {
+   "key": "academies-prop-yard-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 76,
+    "y": 102,
+    "w": 25,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 58,
+    "y": 102,
+    "w": 6,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "case ronde a chaume, miroite"
+  },
+  {
    "key": "academies-renaissance",
    "nature": "batiment",
    "door": {
@@ -1513,6 +1533,26 @@
    "note": "serre, porte au pignon droit"
   },
   {
+   "key": "forager-greenhouse-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 91,
+    "w": 14,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 66,
+    "y": 93,
+    "w": 18,
+    "h": 25
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "cinq masses ont ramene la porte vitree de 42 a 32"
+  },
+  {
    "key": "forager-handcart",
    "nature": "prop-sans-bati",
    "door": null,
@@ -1536,6 +1576,21 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "grange horticole"
+  },
+  {
+   "key": "forager-hortus-classical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 110,
+    "y": 93,
+    "w": 27,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "tympan mure, arche 49 ramenee a 32"
   },
   {
    "key": "forager-hydro-rack",
@@ -1741,6 +1796,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "grenier sur pilotis, panneau avant lu comme porte"
+  },
+  {
+   "key": "granary-prop-silo-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 75,
+    "w": 20,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 88,
+    "y": 90,
+    "w": 9,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "pilotis gardes, veranda ajoutee"
   },
   {
    "key": "granary-warehouse",
@@ -3653,6 +3728,26 @@
    "note": "entree sous auvent sombre"
   },
   {
+   "key": "schools-campus-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 96,
+    "w": 13,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 23,
+    "y": 66,
+    "w": 7,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "nappe retiree par coupe geometrique puis miroir"
+  },
+  {
    "key": "schools-ludus",
    "nature": "batiment",
    "door": {
@@ -3693,6 +3788,26 @@
    "note": "pitch sur pignon droit"
   },
   {
+   "key": "schools-prop-yard-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 107,
+    "y": 91,
+    "w": 33,
+    "h": 35
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 34,
+    "y": 78,
+    "w": 16,
+    "h": 23
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "arche 35 px, 2 hors bande, quatre relances sur dalle d herbe"
+  },
+  {
    "key": "schools-schoolhouse",
    "nature": "batiment",
    "door": {
@@ -3713,6 +3828,26 @@
    "note": "arche porche quasi pleine facade"
   },
   {
+   "key": "schools-schoolhouse-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 43,
+    "y": 104,
+    "w": 19,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 116,
+    "y": 85,
+    "w": 15,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "en bande du premier coup"
+  },
+  {
    "key": "schools-victorian",
    "nature": "batiment",
    "door": {
@@ -3731,6 +3866,26 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "porte en arc sous le pignon"
+  },
+  {
+   "key": "schools-victorian-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 106,
+    "w": 16,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 63,
+    "y": 92,
+    "w": 9,
+    "h": 17
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "brique rouge et ardoise, miroite"
   },
   {
    "key": "scribes-archive",

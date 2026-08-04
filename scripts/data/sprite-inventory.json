@@ -5076,6 +5076,25 @@
    "classe": "prop"
   },
   {
+   "key": "ruins-institute-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 22,
+    "y0": 8,
+    "w": 131,
+    "h": 129
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 8,
+    "w": 131,
+    "h": 129
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ruins-institute",
    "famille": "engine",
    "w": 112,
@@ -5093,6 +5112,25 @@
     "h": 81
    },
    "classe": "prop"
+  },
+  {
+   "key": "ruins-lab-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 22,
+    "y0": 13,
+    "w": 138,
+    "h": 117
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 13,
+    "w": 138,
+    "h": 117
+   },
+   "classe": "orphelin"
   },
   {
    "key": "ruins-lab",
@@ -5114,6 +5152,25 @@
    "classe": "prop"
   },
   {
+   "key": "ruins-lodge-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 10,
+    "y0": 10,
+    "w": 142,
+    "h": 111
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 10,
+    "w": 142,
+    "h": 111
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ruins-lodge",
    "famille": "engine",
    "w": 112,
@@ -5131,6 +5188,25 @@
     "h": 87
    },
    "classe": "prop"
+  },
+  {
+   "key": "ruins-restoration-roman-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 33,
+    "y0": 6,
+    "w": 111,
+    "h": 126
+   },
+   "ink40": {
+    "x0": 33,
+    "y0": 6,
+    "w": 111,
+    "h": 126
+   },
+   "classe": "orphelin"
   },
   {
    "key": "ruins-restoration-roman",
@@ -5207,6 +5283,25 @@
     "h": 72
    },
    "classe": "prop"
+  },
+  {
+   "key": "schools-prop-yard-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 20,
+    "y0": 9,
+    "w": 137,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 9,
+    "w": 137,
+    "h": 134
+   },
+   "classe": "orphelin"
   },
   {
    "key": "schools-prop-yard",
@@ -6140,6 +6235,25 @@
    "classe": "prop"
   },
   {
+   "key": "works-camp-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 35,
+    "y0": 11,
+    "w": 119,
+    "h": 112
+   },
+   "ink40": {
+    "x0": 35,
+    "y0": 11,
+    "w": 119,
+    "h": 112
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "works-camp",
    "famille": "engine",
    "w": 112,
@@ -6157,6 +6271,25 @@
     "h": 67
    },
    "classe": "prop"
+  },
+  {
+   "key": "works-classical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 20,
+    "y0": 17,
+    "w": 137,
+    "h": 111
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 17,
+    "w": 137,
+    "h": 111
+   },
+   "classe": "orphelin"
   },
   {
    "key": "works-classical",
@@ -6178,6 +6311,25 @@
    "classe": "prop"
   },
   {
+   "key": "works-depot-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 7,
+    "y0": 19,
+    "w": 164,
+    "h": 122
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 19,
+    "w": 164,
+    "h": 122
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "works-depot",
    "famille": "engine",
    "w": 112,
@@ -6195,6 +6347,25 @@
     "h": 68
    },
    "classe": "prop"
+  },
+  {
+   "key": "works-industrial-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 17,
+    "y0": 14,
+    "w": 143,
+    "h": 131
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 14,
+    "w": 143,
+    "h": 131
+   },
+   "classe": "orphelin"
   },
   {
    "key": "works-industrial",

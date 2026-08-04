@@ -1321,6 +1321,26 @@
    }
   },
   {
+   "key": "academies-prop-yard-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 22,
+    "apparent": 13.3,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 6,
+    "apparent": 3.6,
+    "bande": "fenetre",
+    "ecart": -1.4
+   }
+  },
+  {
    "key": "archive-grid-grand",
    "famille": "engine",
    "densite": 0.605,
@@ -2189,6 +2209,26 @@
    }
   },
   {
+   "key": "forager-greenhouse-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 32,
+    "apparent": 19.4,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 25,
+    "apparent": 15.1,
+    "bande": "fenetre",
+    "ecart": 6.1
+   }
+  },
+  {
    "key": "forager-hortus-classical",
    "famille": "engine",
    "densite": 0.73,
@@ -2199,6 +2239,20 @@
     "hSource": 19,
     "apparent": 13.9,
     "bande": "porte",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "forager-hortus-classical-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 32,
+    "apparent": 19.4,
+    "bande": "portail",
     "ecart": 0
    }
   },
@@ -2290,6 +2344,26 @@
     "apparent": 4.5,
     "bande": "fenetre",
     "ecart": -0.5
+   }
+  },
+  {
+   "key": "granary-prop-silo-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 30,
+    "apparent": 18.1,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 8,
+    "apparent": 4.8,
+    "bande": "fenetre",
+    "ecart": -0.2
    }
   },
   {
@@ -3675,6 +3749,26 @@
    }
   },
   {
+   "key": "schools-campus-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 15,
+    "apparent": 9.1,
+    "bande": "fenetre",
+    "ecart": 0.1
+   }
+  },
+  {
    "key": "schools-ludus",
    "famille": "engine",
    "densite": 0.796,
@@ -3719,6 +3813,26 @@
    }
   },
   {
+   "key": "schools-prop-yard-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 35,
+    "apparent": 21.2,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 23,
+    "apparent": 13.9,
+    "bande": "fenetre",
+    "ecart": 4.9
+   }
+  },
+  {
    "key": "schools-schoolhouse",
    "famille": "engine",
    "densite": 0.775,
@@ -3739,6 +3853,26 @@
    }
   },
   {
+   "key": "schools-schoolhouse-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 18,
+    "apparent": 10.9,
+    "bande": "fenetre",
+    "ecart": 1.9
+   }
+  },
+  {
    "key": "schools-victorian",
    "famille": "engine",
    "densite": 0.775,
@@ -3756,6 +3890,26 @@
     "apparent": 8.5,
     "bande": "fenetre",
     "ecart": 0
+   }
+  },
+  {
+   "key": "schools-victorian-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 21,
+    "apparent": 12.7,
+    "bande": "porte",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 17,
+    "apparent": 10.3,
+    "bande": "fenetre",
+    "ecart": 1.3
    }
   },
   {
