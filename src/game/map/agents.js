@@ -3,7 +3,7 @@ import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
-import { bridgeLiftScreen } from './iso/isoBridge.js';
+import { bridgeLiftScreen, bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -804,20 +804,45 @@ function citizenChooseNext(p) {
     if (p.pedJ === undefined) p.pedJ = ((((p.phase || 0) * 389.71) % 1) - 0.5) * 2;
     pedEdge += p.pedJ * CM.TILE * CM.isoPedSpread;
   }
-  // PONT : pas de trottoir hors du tablier — à 0.42 tuile le piéton marche dans l'eau.
-  // Sur une cellule-pont ET ses cellules d'atterrissage (le lissage lox/loy converge
-  // ainsi AVANT d'engager la travée), l'offset est resserré vers l'axe du tablier.
-  // Réglable live : window.__bridgePedEdge (fraction de tuile, défaut 0.09 —
-  // 0.16 datait du tablier procédural nu ; sur le pont SPRITE, les guirlandes
-  // du garde-corps mangent les bords et les traverseurs frôlaient les cordes,
-  // retour Raph « ils marchent trop à l'extérieur, recentre-les »).
+  // ── PONT : une ZONE DE PASSAGE, pas une ligne ──────────────────────────────
+  // Hors tablier, le trottoir à 0.42 tuile ferait marcher le piéton DANS L'EAU.
+  // La 1re parade resserrait tout le monde à ±0.09 tuile de l'axe de voie : une
+  // file au cordeau, et — l'axe de voie n'étant PAS le milieu du tablier
+  // DESSINÉ (cf. spanBand dans isoBridge) — une file plaquée contre le
+  // garde-corps aval (« ils sont tous sur les barrières du bas », Raph
+  // 2026-08-04, capture pont-files).
+  // Désormais : bridgeWalkBand donne le milieu et la demi-largeur du platelage
+  // dessiné, et chacun tient SA ligne dedans — biais à droite du sens de marche
+  // (les deux sens se doublent sans se traverser) + décalage PERSONNEL stable
+  // (dérivé de la phase, donc identique pas après pas : pas de zigzag). Les
+  // deux plages se CHEVAUCHENT au milieu : le tablier se lit comme une foule
+  // qui passe, pas comme deux rails.
+  // Réglages live : __bridgeTune.pedMargin / pedSide / pedSpread ; repli
+  // __bridgePedEdge (fraction de tuile) pour re-figer l'ancienne ligne.
   const rmB = CM.layout && CM.layout.roadMap;
   const isBridgeCell = (x, y) => { const c = rmB && rmB.get(x + "," + y); return !!(c && c.roadSurface === "bridge"); };
-  if (isBridgeCell(p.gx, p.gy)
+  const onBridge = isBridgeCell(p.gx, p.gy)
     || isBridgeCell(p.gx + 1, p.gy) || isBridgeCell(p.gx - 1, p.gy)
-    || isBridgeCell(p.gx, p.gy + 1) || isBridgeCell(p.gx, p.gy - 1)) {
-    const bridgeEdge = CM.TILE * ((typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : 0.09);
-    pedEdge = Math.min(pedEdge, bridgeEdge);
+    || isBridgeCell(p.gx, p.gy + 1) || isBridgeCell(p.gx, p.gy - 1);
+  if (onBridge) {
+    const forced = (typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : null;
+    const band = forced == null ? bridgeWalkBand((p.gx + 0.5) * CM.TILE, (p.gy + 0.5) * CM.TILE) : null;
+    if (band) {
+      // Côté DROIT du sens de marche, sur l'axe transverse du pont (span
+      // vertical → x ; horizontal → y) : même convention que le trottoir.
+      const side = band.vertical
+        ? (p.dir === 3 ? 1 : p.dir === 2 ? -1 : 0)
+        : (p.dir === 0 ? 1 : p.dir === 1 ? -1 : 0);
+      if (p.pedJ === undefined) p.pedJ = ((((p.phase || 0) * 389.71) % 1) - 0.5) * 2;
+      const u = Math.max(-1, Math.min(1, bridgeTune.pedSide * side + bridgeTune.pedSpread * p.pedJ));
+      const t = band.axis + band.half * u;
+      if (band.vertical) { p.tox = t - (p.gx + 0.5) * CM.TILE; p.toy = 0; }
+      else { p.toy = t - (p.gy + 0.5) * CM.TILE; p.tox = 0; }
+      return;
+    }
+    // Repli (legacy top-down, pont procédural sans géométrie, molette forcée) :
+    // l'ancien resserrement sur l'axe.
+    pedEdge = Math.min(pedEdge, CM.TILE * (forced != null ? forced : 0.09));
   }
   if (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
     // ESPLANADE : pas de trottoir — décalage PERSONNEL STABLE, tiré UNE fois par
@@ -1364,6 +1389,26 @@ function vehicleRoadRank(gx, gy) {
 function vehicleLaneTarget(v) {
   const s = 1;   // fractions de tuile (les appelants scalent via vehicleLaneOffset)
   if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
+  // PONT : même zone de passage que les piétons (bridgeWalkBand). L'attelage
+  // roulait « centré sur sa cellule », c'est-à-dire sur l'AXE DE VOIE — donc,
+  // le tablier dessiné étant décalé en amont, une roue sur le garde-corps aval.
+  // Il tient maintenant sa file dans la bande réelle, côté droit du sens.
+  {
+    const bT = CM.TILE;
+    const cell = CM.layout && CM.layout.roadMap && CM.layout.roadMap.get(v.gx + "," + v.gy);
+    if (cell && cell.roadSurface === "bridge") {
+      const band = bridgeWalkBand((v.gx + 0.5) * bT, (v.gy + 0.5) * bT);
+      if (band) {
+        const side = band.vertical
+          ? (v.dir === 3 ? 1 : v.dir === 2 ? -1 : 0)
+          : (v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0);
+        const t = band.axis + band.half * bridgeTune.pedSide * side;
+        return band.vertical
+          ? { x: (t - (v.gx + 0.5) * bT) / bT, y: 0 }
+          : { x: 0, y: (t - (v.gy + 0.5) * bT) / bT };
+      }
+    }
+  }
   const rank = vehicleRoadRank(v.gx, v.gy);
   if (rank === "plaza") return { x: 0, y: 0 };         // esplanades : jamais de véhicule (défensif)
   if (rank !== "main") {

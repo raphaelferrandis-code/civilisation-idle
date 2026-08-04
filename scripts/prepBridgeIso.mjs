@@ -23,6 +23,10 @@ import { PNG } from 'pngjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = path.join(ROOT, 'public', 'pixelart', 'iso');
 
+// Filtre de matière : `node scripts/prepBridgeIso.mjs pierre` ne (re)fabrique
+// QUE ce stade — les autres PNG, retouchés main, restent intouchés.
+const only = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+
 // footHi = pied du bout « l = a » (NE écran pour l'axe ne, NW pour nw),
 // footLo = bout opposé — pointés sur zoom ×4 quadrillé des BRUTS (scratch).
 // Bruts = objet « perfectly symmetric footbridge » f132852c (le 1er dos plat
@@ -56,7 +60,91 @@ const SPECS = {
     footHi: [14, 78], footLo: [143, 142.5],
     rail: { xr: [20, 140], dyA: -21, s: +0.5, bandUp: 13, bandDn: 3, latestOff: -5, posts: [37, 52, 67, 82, 97, 112, 127] },
   },
+  // ── PIERRE (bandes 2-3) — objet e7da4474, 2e stade du moule ────────────────
+  // Même recette : dos plat symétrique, arches SOUS LES EXTRÉMITÉS seulement,
+  // parapets pleins continus (pas de poteaux → pas d'autocorrélation possible,
+  // c'est le scan de planéité qui choisit la fenêtre). Pieds pointés sur les
+  // PILES DES ARCHES (le point bas de chaque about) : elles donnent l'axe réel
+  // (−0,56 mesuré), la bbox est biaisée par les culées.
+  pierreNe: {
+    // Base = image de RÉFÉRENCE 400 px détourée (mode map_object, canvas libre :
+    // c est lui qui donne le ratio longueur/hauteur ~10 impossible en carré).
+    // footLo est DÉRIVÉ pour imposer la pente du PARAPET (−0,309 mesurée) :
+    // le dessin n est pas rigoureux, c est le parapet (long et visible) qui
+    // sert de référence, pas les abouts.
+    raw: 'bridge-pierre-ref-detoure.png', from: 'aseprite-pont/ref-pont-pierre-3.png',
+    out: 'bridge-pierre-ne.png', slope: -0.5,
+    // Palette du DESIGN VALIDÉ (pont de pierre dérivé du bois, objet
+    // ed54edf0) : la forme vient de l image longue, les teintes du pont que
+    // Raph avait approuvé. Les 4 noirs purs de ce design sont ÉCARTÉS — c est
+    // le liseré dur de l image de référence qu on veut adoucir.
+    palette: [[208,192,181],[200,183,171],[212,199,190],[179,167,161],[167,155,150],[160,146,141],[154,140,136],[146,134,132],[136,125,124],[126,117,118],[118,110,112],[104,100,99],[93,87,86],[71,71,69],[56,51,48],[33,33,33],[16,15,13],[8,7,6]],
+    footHi: [378, 44], footLo: [8, 158],
+  },
+  pierreNw: {
+    raw: 'bridge-pierre-ref-detoure-mir.png', out: 'bridge-pierre-nw.png', slope: +0.5,
+    palette: [[208,192,181],[200,183,171],[212,199,190],[179,167,161],[167,155,150],[160,146,141],[154,140,136],[146,134,132],[136,125,124],[126,117,118],[118,110,112],[104,100,99],[93,87,86],[71,71,69],[56,51,48],[33,33,33],[16,15,13],[8,7,6]],
+    footHi: [21, 44], footLo: [391, 158],
+  },
 };
+
+// ── DÉTOURAGE d'une image de référence (mode map_object) ────────────────────
+// ⚠ `public/pixelart/iso/_orig/` est GITIGNORÉ : les bruts détourés ne sont pas
+// versionnés. La chaîne doit donc pouvoir les REFABRIQUER depuis la source
+// versionnée (aseprite-pont/…). Deux pièges du format map_object :
+//   · le PNG téléchargé a un FOND OPAQUE malgré « background: transparent » →
+//     flood fill depuis les bords, tolérance SERRÉE (à 26 le tablier beige
+//     partait avec le fond et les parapets se retrouvaient à flotter) ;
+//   · le générateur appose parfois un FILIGRANE dans un coin → on ne garde que
+//     la plus grande composante connexe.
+function detourer(srcPath, outPath, mirrorPath) {
+  const p = PNG.sync.read(fs.readFileSync(srcPath));
+  const { width: w, height: h, data } = p;
+  const c0 = [data[0], data[1], data[2]];
+  const near = (i) => Math.abs(data[i] - c0[0]) <= 8 && Math.abs(data[i + 1] - c0[1]) <= 8 && Math.abs(data[i + 2] - c0[2]) <= 8;
+  const seen = new Uint8Array(w * h), st = [];
+  for (let x = 0; x < w; x += 1) { st.push([x, 0], [x, h - 1]); }
+  for (let y = 0; y < h; y += 1) { st.push([0, y], [w - 1, y]); }
+  while (st.length) {
+    const [x, y] = st.pop();
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const k = y * w + x;
+    if (seen[k]) continue;
+    const i = k * 4;
+    if (!near(i)) continue;
+    seen[k] = 1; data[i + 3] = 0;
+    st.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  const lab = new Int32Array(w * h).fill(-1);
+  let best = -1, bestN = 0, id = 0;
+  for (let y0 = 0; y0 < h; y0 += 1) for (let x0 = 0; x0 < w; x0 += 1) {
+    const k0 = y0 * w + x0;
+    if (lab[k0] >= 0 || data[k0 * 4 + 3] < 64) continue;
+    const s2 = [[x0, y0]]; let n = 0;
+    while (s2.length) {
+      const [x, y] = s2.pop();
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const k = y * w + x;
+      if (lab[k] >= 0 || data[k * 4 + 3] < 64) continue;
+      lab[k] = id; n += 1;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) if (dx || dy) s2.push([x + dx, y + dy]);
+    }
+    if (n > bestN) { bestN = n; best = id; }
+    id += 1;
+  }
+  for (let k = 0; k < w * h; k += 1) if (lab[k] >= 0 && lab[k] !== best) data[k * 4 + 3] = 0;
+  fs.writeFileSync(outPath, PNG.sync.write(p));
+  // L'axe opposé est le MIROIR horizontal (le pont est symétrique) : la pente
+  // passe de −0,5 à +0,5 sans nouvelle génération.
+  const m = new PNG({ width: w, height: h });
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+    const si = (y * w + x) * 4, di = (y * w + (w - 1 - x)) * 4;
+    m.data[di] = data[si]; m.data[di + 1] = data[si + 1];
+    m.data[di + 2] = data[si + 2]; m.data[di + 3] = data[si + 3];
+  }
+  fs.writeFileSync(mirrorPath, PNG.sync.write(m));
+  console.log(`  détourage : ${path.basename(srcPath)} → ${path.basename(outPath)} (+ miroir)`);
+}
 
 function profiles(png) {
   const { width: w, height: h, data } = png;
@@ -163,6 +251,14 @@ function steppedShear(dyIdeal, posts, x0, x1, boundsAt) {
 }
 
 for (const [axe, sp] of Object.entries(SPECS)) {
+  if (only.length && !only.some((o) => sp.out.includes(o))) continue;
+  // Brut absent (clone frais : _orig est gitignoré) → le refabriquer depuis la
+  // source VERSIONNÉE indiquée par .
+  if (sp.from && !fs.existsSync(path.join(DIR, '_orig', sp.raw))) {
+    detourer(path.join(ROOT, sp.from),
+      path.join(DIR, '_orig', sp.raw),
+      path.join(DIR, '_orig', sp.raw.replace('.png', '-mir.png')));
+  }
   const src = PNG.sync.read(fs.readFileSync(path.join(DIR, '_orig', sp.raw)));
   const [xHi, yHi] = sp.footHi, [xLo, yLo] = sp.footLo;
   const slopeSrc = (yLo - yHi) / (xLo - xHi);
@@ -276,7 +372,7 @@ for (const [axe, sp] of Object.entries(SPECS)) {
   // RÉPÉTÉE seulement, l'or est rabattu vers le bois — les culées gardent leur
   // ornement, la travée devient calme. (Le quantize repasse derrière et
   // unifie ces teintes avec la palette.)
-  if (!sp.retouche) {
+  if (!sp.retouche && sp.warm) {
     const { width: w2, data: d2 } = g2.png;
     let n = 0;
     for (let x = w0; x < w1; x += 1) {
@@ -297,7 +393,7 @@ for (const [axe, sp] of Object.entries(SPECS)) {
   // est rabattu au plus proche des 13 teintes du pont v2 (objet f132852c, le
   // bois chaud jugé bon par Raph) — figées ICI pour que le prep reste
   // reproductible sans les bruts v2.
-  if (!sp.retouche) {
+  if (!sp.retouche && sp.warm) {
     const WARM = [
       [155, 101, 69], [53, 30, 33], [164, 106, 71], [144, 93, 67],
       [119, 75, 58], [104, 64, 52], [48, 23, 28], [131, 84, 63],
@@ -315,6 +411,68 @@ for (const [axe, sp] of Object.entries(SPECS)) {
       }
       d2[i] = best[0]; d2[i + 1] = best[1]; d2[i + 2] = best[2]; d2[i + 3] = 255;
     }
+  }
+
+  let xHiEff = xHi, xLoEff = xLo, w0Eff = w0, w1Eff = w1, yShiftEff = 0;
+  if (sp.rampStretch && sp.rampStretch !== 1) {
+    const k = sp.rampStretch;
+    const src2 = g2.png;
+    const { width: sw, height: sh, data: sd } = src2;
+    const pC = profiles(src2);
+    const xsC = pC.yTop.map((t, i) => (t >= 0 ? i : -1)).filter((i) => i >= 0);
+    const xMin = xsC[0], xMax = xsC[xsC.length - 1];
+    const mapX = (x) => (x < w0 ? w0 - (w0 - x) * k : x > w1 ? w1 + (x - w1) * k : x);
+    const off = (w0 - xMin) * (k - 1);
+    const nx = (x) => mapX(x) + off;
+    const dyAt2 = (x) => sp.slope * (nx(x) - x);
+    let dyMin2 = Infinity, dyMax2 = -Infinity;
+    for (let x = xMin; x <= xMax; x += 1) {
+      const d = dyAt2(x);
+      if (d < dyMin2) dyMin2 = d; if (d > dyMax2) dyMax2 = d;
+    }
+    const newW = Math.ceil(nx(xMax)) + 2;
+    const newH = Math.ceil(sh + (dyMax2 - dyMin2)) + 2;
+    const out2 = new PNG({ width: newW, height: newH });
+    for (let x = xMin; x <= xMax; x += 1) {
+      const a0 = Math.round(nx(x)), a1 = Math.max(a0 + 1, Math.round(nx(x + 1)));
+      const dy = Math.round(dyAt2(x) - dyMin2);
+      for (let cx = a0; cx < a1; cx += 1) {
+        if (cx < 0 || cx >= newW) continue;
+        for (let y = 0; y < sh; y += 1) {
+          const si = (y * sw + x) * 4;
+          if (sd[si + 3] < 64) continue;
+          const cy = y + dy;
+          if (cy < 0 || cy >= newH) continue;
+          const di = (cy * newW + cx) * 4;
+          out2.data[di] = sd[si]; out2.data[di + 1] = sd[si + 1];
+          out2.data[di + 2] = sd[si + 2]; out2.data[di + 3] = 255;
+        }
+      }
+    }
+    g2.png = out2;
+    xHiEff = Math.round(nx(xHi)); xLoEff = Math.round(nx(xLo));
+    w0Eff = Math.round(nx(w0)); w1Eff = Math.round(nx(w1));
+    yShiftEff = Math.round(dyAt2(xHi) - dyMin2);
+    console.log(`  rampes ×${k} : ${sw}x${sh} → ${newW}x${newH}`);
+  }
+  // ── 3 bis-b) PALETTE IMPOSÉE (`palette`) ────────────────────────────────
+  // Les images de référence (map_object) sortent dans un rendu pâle et lisse,
+  // étranger à la DA du jeu (retour Raph : « le design était parfait » sur les
+  // ponts dérivés du bois). On rabat chaque pixel sur la palette de CE design
+  // validé : la forme vient de l image longue, les teintes du pont approuvé.
+  if (sp.palette) {
+    const d3 = g2.png.data;
+    for (let i = 0; i < d3.length; i += 4) {
+      if (d3[i + 3] < 64) { d3[i + 3] = 0; continue; }
+      let best = null, bd = Infinity;
+      for (const c of sp.palette) {
+        const dr = d3[i] - c[0], dg = d3[i + 1] - c[1], db = d3[i + 2] - c[2];
+        const dd = dr * dr + dg * dg + db * db;
+        if (dd < bd) { bd = dd; best = c; }
+      }
+      d3[i] = best[0]; d3[i + 1] = best[1]; d3[i + 2] = best[2]; d3[i + 3] = 255;
+    }
+    console.log('  palette imposée : ' + sp.palette.length + ' teintes du design validé');
   }
   fs.writeFileSync(path.join(DIR, sp.out), PNG.sync.write(g2.png));
   // 3 bis) CALQUE GARDE-CORPS AVAL (<out>-rail.png) : DUPLICATA de la lisse et
@@ -348,16 +506,18 @@ for (const [axe, sp] of Object.entries(SPECS)) {
     }
   }
   // 4) Specs moteur (coordonnées de BORD ; over = bouts du contenu +1 côté max).
+  // ⚠ Coordonnées EFFECTIVES : après un rampStretch, pieds et fenêtre ont
+  // bougé — tout se lit sur les variables *Eff (identiques sans étirement).
   const p2 = profiles(g2.png);
   const xs = p2.yTop.map((t, i) => (t >= 0 ? i : -1)).filter((i) => i >= 0);
-  const yHi3 = yHi2 + g2.shift;
+  const yHi3 = yHi2 + g2.shift + yShiftEff;
   const sgn = sp.slope < 0 ? -1 : 1;
-  const capHi = sgn < 0 ? xHi - w1 : w0 - xHi;
-  const capLo = sgn < 0 ? w0 - xLo : xLo - w1;
+  const capHi = sgn < 0 ? xHiEff - w1Eff : w0Eff - xHiEff;
+  const capLo = sgn < 0 ? w0Eff - xLoEff : xLoEff - w1Eff;
   const over = sgn < 0 ? [xs[xs.length - 1] + 1, xs[0]] : [xs[0], xs[xs.length - 1] + 1];
-  const yLoStr = (yHi3 + Math.abs(xLo - xHi) * 0.5).toFixed(1).replace(/\.0$/, '');
-  console.log(`${sp.out}  ${g2.png.width}x${g2.png.height}  pente=${slopeSrc.toFixed(3)}→${sp.slope}  fenêtre=[${w0}..${w1}] (${w1 - w0}px)`);
-  console.log(`  ${axe}: { key: 'bridge-bois-${axe}', sgn: ${sgn},`);
-  console.log(`    footHi: [${xHi}, ${yHi3}], footLo: [${xLo}, ${yLoStr}],`);
-  console.log(`    over: [${over[0]}, ${over[1]}], capHi: ${capHi}, capLo: ${capLo}, capOver: 11 },`);
+  const yLoStr = (yHi3 + Math.abs(xLoEff - xHiEff) * 0.5).toFixed(1).replace(/\.0$/, '');
+  console.log(`${sp.out}  ${g2.png.width}x${g2.png.height}  pente=${slopeSrc.toFixed(3)}→${sp.slope}  fenêtre=[${w0Eff}..${w1Eff}] (${w1Eff - w0Eff}px)`);
+  console.log(`  ${axe}: { key: '${sp.out.replace('.png', '')}', sgn: ${sgn},`);
+  console.log(`    footHi: [${xHiEff}, ${yHi3}], footLo: [${xLoEff}, ${yLoStr}],`);
+  console.log(`    over: [${over[0]}, ${over[1]}], capHi: ${capHi}, capLo: ${capLo} },`);
 }

@@ -2538,13 +2538,21 @@ function computeCityLayout(s) {
         if (!footprintFits(gx, gy, sx, true, false, sy, true)) return null; // dock/eau toléré
         return { gx, gy, sy };
       };
+      // DÉGAGEMENT DU PONT : le port ne doit pas se coller à la travée — son
+      // PONTON plonge vers le sud et venait se loger sous l'ouvrage, où les
+      // deux se recouvrent n'importe comment (retour Raph : « dans le creux du
+      // ponton du port, le rendu n'est pas bon »). La marge tient compte de la
+      // LARGEUR du port (son ponton part de son milieu) et non plus d'un simple
+      // ±2 fixe. ⚠ Appliquée AUSSI au slot mémorisé : c'était le trou — un port
+      // enregistré près du pont y restait à chaque recompute, sans contrôle.
+      const farFromBridge = (gx, sx) => Math.abs(gx + sx / 2 - riverBridge.x) >= 2.5 + sx / 2;
       const slot = slotStore[req.slotKey];
       if (preferSavedSlot && slot) {
         // dy = rangée SUD (centre du fleuve), sy = profondeur mémorisée.
         const sy = cmClamp(Number(slot.sy) || spanY, 3, 5);
         const sgx = cmClamp(cx + (Number(slot.dx) || 0), 0, N - spanX);
         const sgy = cmClamp(cy + (Number(slot.dy) || 0), 0, N - 1) - sy;
-        if (sgy >= 0 && northRowDry(sgx, sgy, spanX)
+        if (sgy >= 0 && farFromBridge(sgx, spanX) && northRowDry(sgx, sgy, spanX)
           && footprintFits(sgx, sgy, spanX, true, false, sy, true)) { placed = { gx: sgx, gy: sgy }; spanY = sy; }
       }
       if (!placed) {
@@ -2555,7 +2563,7 @@ function computeCityLayout(s) {
           for (let gx = 1; gx <= N - sx - 1; gx += 1) cols.push(gx);
           cols.sort((a, b) => (Math.abs(a + sx / 2 - baseX) - Math.abs(b + sx / 2 - baseX)) || (a - b));
           for (const gx of cols) {
-            if (Math.abs(gx + sx / 2 - riverBridge.x) < 2) continue; // laisser la travée du pont libre
+            if (!farFromBridge(gx, sx)) continue;   // laisser la travée du pont libre
             const cand = fitOnShore(gx, sx);
             if (cand) { placed = cand; spanX = sx; spanY = cand.sy; break; }
           }

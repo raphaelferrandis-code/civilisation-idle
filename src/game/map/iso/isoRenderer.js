@@ -6786,6 +6786,11 @@ function drawIsoVehicle(ctx, v, now, z) {
     const D = (pull.dist || 0.44) * T * VEH_SCALE;
     const front = [[D, 0], [-D, 0], [0, D], [0, -D]][v.dir] || [0, 0];
     const ap = worldToScreen(wx + front[0], wy + front[1]);
+    // Dos d'âne : la BÊTE monte aussi, et à SA position — sur la rampe elle
+    // précède la carrosserie donc elle est déjà plus haut. Sans ça l'attelage
+    // restait au niveau du sol et traversait le tablier (retour Raph : « les
+    // animaux ne montent pas dessus »).
+    ap.y -= bridgeLiftScreen(wx + front[0], wy + front[1]);
     teamBelow = ap.y > p.y;
     drawTeam = () => {
       ctx.strokeStyle = 'rgba(38,26,15,0.72)';
@@ -6808,6 +6813,7 @@ function drawIsoVehicle(ctx, v, now, z) {
     const D = 0.34 * T * VEH_SCALE;
     const back = [[-D, 0], [D, 0], [0, -D], [0, D]][v.dir] || [0, 0];
     const pp = worldToScreen(wx + back[0], wy + back[1]);
+    pp.y -= bridgeLiftScreen(wx + back[0], wy + back[1]);   // idem attelage
     pusherBelow = pp.y > p.y;
     drawPusher = () => {
       // Vue diagonale du pousseur (nouvelle DA) si dispo, sinon bande cardinale.

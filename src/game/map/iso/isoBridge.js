@@ -29,9 +29,11 @@
 //     Seul compromis : un bateau émergeant côté aval glisse quelques px
 //     DERRIÈRE les piles (lecture « encore sous le pont », acceptable).
 //   nuit  drawIsoBridgeNight — après le voile : lanternes (halos, reflets).
-// Les piétons/attelages traversent à ±0.16 tuile de l'axe de leur voie (cf.
-// __bridgePedEdge) : jamais dans les parapets, et leur profondeur les place
-// entre parapet amont et parapet aval de leur cellule.
+// Les piétons/attelages traversent dans la ZONE DE PASSAGE publiée par
+// bridgeWalkBand (milieu + demi-largeur du platelage DESSINÉ) : jamais dans
+// les parapets, et leur profondeur les place entre parapet amont et parapet
+// aval de leur cellule. Cette bande est la source de vérité commune des
+// agents, du dos d'âne et de la profondeur de tri du tablier.
 // Bord AVAL = bord +x (span vertical) ou +y (span horizontal) : celui dont la
 // normale DESCEND à l'écran — propriété fixe de la projection, aucun test par
 // sample. Hypothèse héritée du legacy : les spans sont RECTILIGNES (bbox).
@@ -109,6 +111,19 @@ export const bridgeTune = {
   // maisons se posaient sur les marches (retour Raph) ; à 0,7 l'about reste
   // sur la route d'atterrissage.
   spriteLanding: 0.7,
+  // ── ZONE DE PASSAGE sur le tablier (piétons & attelages) ───────────────────
+  // Le tablier DESSINÉ n'est pas centré sur l'axe logique de la voie : le pied
+  // pointé (footHi) tombe au bord AVAL de la culée, si bien que tout le dessin
+  // s'étale vers l'AMONT de l'axe. Les habitants, eux, marchaient sur l'axe à
+  // ±0,09 tuile — donc collés au garde-corps du bas, en file indienne (« ils
+  // sont tous sur les barrières du bas », Raph 2026-08-04).
+  // La bande de passage est donc décrite PAR SPRITE (pedC/pedHalf, px SOURCE
+  // transverses depuis l'ancre, même repère et même signe que `dt`) et non
+  // plus déduite de l'axe : cf. bridgeWalkBand, seule source de vérité pour
+  // les agents, le dos d'âne et la profondeur du tri.
+  pedMargin: 0.10,   // retrait de chaque bord du tablier (fraction de tuile) — demi-corps
+  pedSide: 0.42,     // biais « à droite du sens de marche » (fraction de la demi-bande)
+  pedSpread: 0.62,   // étalement PERSONNEL dans la bande (fraction de la demi-bande)
 };
 if (typeof window !== 'undefined') window.__bridgeTune = bridgeTune;
 
@@ -129,6 +144,10 @@ if (typeof window !== 'undefined') {
   };
   // Sonde du dos d'âne : __bridgeLift(wx, wy) → px écran (0 hors pont sprite).
   window.__bridgeLift = (wx, wy) => bridgeLiftScreen(wx, wy);
+  // Sonde de la ZONE DE PASSAGE : __bridgeWalk(wx, wy) → { axis, half } en px
+  // monde (null hors pont). Calibrage : poser des marqueurs à axis ± half et
+  // vérifier qu'ils tombent sur le platelage, garde-corps exclus.
+  window.__bridgeWalk = (wx, wy) => bridgeWalkBand(wx, wy);
 }
 
 // ── Styles par matière ────────────────────────────────────────────────────────
@@ -143,12 +162,17 @@ const STYLES = {
     pileH: 9, pileW: 2.6, pileEvery: 1.15, pile: [82, 58, 36], pileDark: [56, 38, 22],
     railH: 8.5, railPostEvery: 0.56, railPostW: 2, rail: [96, 68, 40], railTop: [128, 94, 56],
     kind: 'wood',
-    // Ce style a un PONT SPRITE (cf. en-tête) : arc de bois PixelLab en dos
-    // d'âne, sans palée. Le marqueur vit sur le STYLE (pas sur le décodage de
-    // l'art) : la géométrie (landing élargi) ne doit pas sauter quand les PNG
-    // finissent de charger.
-    sprite: true,
+    // Ce style a un PONT SPRITE (cf. en-tête) : clé de la famille dans
+    // BRIDGE_SPRITES. Le marqueur vit sur le STYLE (pas sur le décodage de
+    // l'art) : la géométrie (landing élargi, quantification) ne doit pas
+    // sauter quand les PNG finissent de charger.
+    spriteKey: 'bois',
   },
+  // PIERRE (bandes 2-3) : base = IMAGE DE RÉFÉRENCE 400 px (mode map_object,
+  // canvas libre) détourée et redressée — c'est le seul format qui donne le
+  // ratio longueur/hauteur (~10) d'un pont LONG et BAS ; le générateur de
+  // sprites, en canvas carré, plafonnait à ~2,7 et sortait des ouvrages
+  // monumentaux. tilePx 37 (au lieu de 28) : cette image est plus dense.
   pierre: {
     deck: [148, 142, 128], plankPitch: 15, plankVar: 0.05, joint: 'rgba(30,26,20,0.16)',
     stringer: [186, 178, 156],          // margelle claire au bord des dalles
@@ -156,6 +180,7 @@ const STYLES = {
     pileH: 8, pileW: 5.5, pileEvery: 1.6, pile: [112, 106, 92], pileDark: [78, 72, 60],
     railH: 7, railPostEvery: 0.5, railPostW: 2.5, rail: [140, 132, 116], railTop: [190, 182, 160],
     kind: 'stone', arch: [46, 44, 44],
+    spriteKey: 'pierre',
   },
   // ── SUSPENDUS (bande 4+) ───────────────────────────────────────────────────
   // `suspended` : AUCUNE palée dans l'eau. Deux pylônes plantés sur les berges,
@@ -227,25 +252,124 @@ const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},$
 // de pixel : un rect [x0, x1] dessine les colonnes [x0..x1−1]. Avec un index,
 // la dernière colonne de la fenêtre n'était jamais blittée → fente d'eau d'un
 // px source à chaque jonction (vu au crop).
+// Indexé PAR MATIÈRE (clé `spriteKey` du style, cf. STYLES / bridgeEraForBand)
+// puis par axe : une matière sans entrée ici retombe sur le procédural, ce qui
+// permet de livrer les stades un par un.
 const BRIDGE_SPRITES = {
-  ne: {
-    key: 'bridge-bois-ne', sgn: -1,            // x source DÉCROÎT quand l croît
-    footHi: [156, 83], footLo: [37, 142.5],
-    over: [167, 4], capHi: 33, capLo: 42,
-    // dt : le dessin (about surtout) est décalé de ~4-5 px vers l aval par
-    // rapport à son axe — recentré sous la route et la ligne de marche
-    // (calibré au marqueur, retour Raph « centre la route sur le pont »).
-    dt: -4,
+  bois: {
+    ne: {
+      key: 'bridge-bois-ne', sgn: -1,          // x source DÉCROÎT quand l croît
+      footHi: [156, 83], footLo: [37, 142.5],
+      over: [167, 4], capHi: 33, capLo: 42,
+      // dt : le dessin (about surtout) est décalé de ~4-5 px vers l aval par
+      // rapport à son axe — recentré sous la route et la ligne de marche
+      // (calibré au marqueur, retour Raph « centre la route sur le pont »).
+      dt: -4,
+      // ZONE DE PASSAGE (cf. bridgeTune.pedMargin) : centre et demi-largeur du
+      // PLATELAGE DESSINÉ, px source transverses depuis l'ancre. Mesurés au
+      // harnais de marqueurs (une pastille tous les 4 px monde posée sur le
+      // tablier, lift compris) : le platelage court de −31 à +5 px source —
+      // il est donc ENTIÈREMENT en amont de l'axe de voie, le pied pointé
+      // tombant sur son bord aval. C'est ce décalage qui plaquait la file
+      // contre le garde-corps du bas.
+      pedC: -13, pedHalf: 18,
+    },
+    nw: {
+      key: 'bridge-bois-nw', sgn: +1,
+      footHi: [14, 78], footLo: [143, 142.5],
+      over: [3, 166], capHi: 46, capLo: 53,
+      // Même biais supposé que le ne (jamais vu en jeu — à recalibrer au
+      // premier pont est-ouest croisé : __bridgeSpecs.bois.nw.dt en live).
+      dt: -4,
+      pedC: -13, pedHalf: 18,
+    },
   },
-  nw: {
-    key: 'bridge-bois-nw', sgn: +1,
-    footHi: [14, 78], footLo: [143, 142.5],
-    over: [3, 166], capHi: 46, capLo: 53,
-    // Même biais supposé que le ne (jamais vu en jeu — à recalibrer au
-    // premier pont est-ouest croisé : __bridgeSpecs.nw.dt en live).
-    dt: -4,
+  // PIERRE (bandes 2-3) : même moule, parapets pleins. Pas de calque -rail
+  // pour l'instant (le parapet plein masque déjà par sa hauteur dessinée) —
+  // à ajouter si un traverseur passe visiblement DEVANT le muret aval.
+  // PIERRE (bandes 2-3) : base = IMAGE DE RÉFÉRENCE 400 px (mode map_object,
+  // canvas LIBRE), détourée puis redressée. C'est le seul format qui donne le
+  // ratio longueur/hauteur (~10) d'un pont LONG et BAS : le générateur de
+  // sprites, contraint à un canvas carré, plafonnait à ~2,7 et ne sortait que
+  // des ouvrages monumentaux à rampes raides.
+  // `tilePx` 37 (au lieu de 28) : cette image est plus dense — c'est ce
+  // réglage qui met le tablier à ~1 tuile de haut, comme le pont de bois.
+  pierre: {
+    ne: {
+      key: 'bridge-pierre-ne', sgn: -1,
+      // ⚠ footHi.y DESCENDU de la hauteur du tablier (49 → 75) et humpH = 0 :
+      // le dessin n'a pas de rampes (tablier à 26 px du sol d'un bout à
+      // l'autre), il se raccordait donc à la route par une MARCHE. Posé au
+      // niveau du sol, le tablier affleure la chaussée et les arches plongent
+      // dans l'eau — ce que fait un vrai pont.
+      footHi: [378, 23], footLo: [8, 208],
+      over: [383, 5], capHi: 252, capLo: 31,
+      tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
+    },
+    nw: {
+      key: 'bridge-pierre-nw', sgn: +1,
+      footHi: [21, 23], footLo: [391, 208],
+      over: [17, 395], capHi: 253, capLo: 30,
+      tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
+    },
   },
 };
+
+// ── BANDE DE PASSAGE d'un span : { axis, half } en px MONDE ──────────────────
+// SOURCE UNIQUE de « où l'on marche sur ce pont » : les habitants (agents.js),
+// les attelages, le dos d'âne (bridgeLiftScreen) et la profondeur de tri du
+// platelage lisent tous cette bande. Avant, chacun repartait de l'axe de voie
+// (g.c) et de la demi-emprise géométrique (g.wD) — or le tablier DESSINÉ n'est
+// centré ni sur l'un ni sur l'autre (cf. pedC/pedHalf).
+// Sans sprite calibré (stades procéduraux, PNG pas encore décodé, matière
+// livrée sans mesure) : repli sur l'axe et l'emprise, comportement d'avant.
+// ⚠ Chemin CHAUD (bridgeLiftScreen l'appelle par agent et par frame) : on part
+// de g._sprite, posé à la frame courante par pushIsoBridgeItems — styleFor et
+// le cache d'images ne sont relus que s'il manque encore.
+function spanBand(g, st) {
+  const T = CM.TILE;
+  let spr = g._sprite;
+  if (!spr) {
+    const stl = st || (CM.layout ? styleFor(CM.layout) : null);
+    spr = stl ? spanSprite(g, stl) : null;
+  }
+  const sp = spr && spr.spec;
+  const kpx = T / tilePxOf(sp);   // échelle PAR MATIÈRE (cf. tilePxOf)
+  const axis = sp && sp.pedC != null ? g.c + ((sp.dt || 0) + sp.pedC) * kpx : g.c;
+  const raw = sp && sp.pedHalf != null ? sp.pedHalf * kpx : g.wD;
+  return { axis, half: Math.max(T * 0.05, raw - T * bridgeTune.pedMargin) };
+}
+
+// Bande de passage sous un point MONDE, ou null hors pont. Consommée par
+// agents.js (ligne de marche des habitants et des attelages) : le test
+// longitudinal est LARGE (les cellules d'atterrissage en font partie — la
+// convergence lox/loy doit commencer avant d'engager la travée).
+export function bridgeWalkBand(wx, wy) {
+  if (!CM.iso || !isoBridge3dFlag.on) return null;
+  const geos = bridgeGeoms();
+  if (!geos) return null;
+  const T = CM.TILE;
+  const st = styleFor(CM.layout);
+  for (const g of geos) {
+    const l = g.vertical ? wy : wx, t = g.vertical ? wx : wy;
+    if (l < g.a - T || l > g.b + T) continue;
+    if (Math.abs(t - g.c) > g.wD + T * 2) continue;
+    const b = spanBand(g, st);
+    return { vertical: g.vertical, axis: b.axis, half: b.half };
+  }
+  return null;
+}
+
+// Échelle du sprite : px SOURCE par tuile monde. Par MATIÈRE (une image de
+// référence 400 px n'a pas la même densité qu'un sprite 168 px) — défaut =
+// la molette globale.
+function tilePxOf(sp) { return (sp && sp.tilePx) || bridgeTune.spriteTilePx; }
+
+// Spec sprite d'un style pour un axe donné (null → chemin procédural).
+function spriteSpecFor(st, vertical) {
+  const fam = st && st.spriteKey ? BRIDGE_SPRITES[st.spriteKey] : null;
+  return fam ? fam[vertical ? 'ne' : 'nw'] : null;
+}
 
 // Cache paresseux des PNG (/pixelart/iso/<key>.png). Copie locale du pattern
 // isoArt d'isoRenderer : l'importer créerait un cycle isoRenderer ↔ isoBridge.
@@ -263,6 +387,37 @@ function bridgeArt(key) {
   return e;
 }
 
+// ── SILHOUETTE d'un sprite de pont (pour l'ombre portée sur l'eau) ──────────
+// Le sprite teinté en noir, une fois pour toutes, dans un canvas hors écran :
+// l'ombre épouse alors la forme RÉELLE du dessin (arches comprises) au lieu du
+// tablier logique. Sans elle le pont flottait sur l'eau ; avec l'ancienne
+// (rectangle du tablier logique) elle sortait décalée à côté de l'ouvrage.
+const _silCache = new Map();
+function bridgeSilhouette(art, key) {
+  let c = _silCache.get(key);
+  if (c !== undefined) return c;
+  c = null;
+  try {
+    if (typeof document !== 'undefined' && art && art.img) {
+      const w = art.img.naturalWidth || art.img.width;
+      const h = art.img.naturalHeight || art.img.height;
+      if (w && h) {
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d');
+        cx.imageSmoothingEnabled = false;
+        cx.drawImage(art.img, 0, 0);
+        cx.globalCompositeOperation = 'source-in';
+        cx.fillStyle = '#000';
+        cx.fillRect(0, 0, w, h);
+        c = cv;
+      }
+    }
+  } catch { c = null; }          // pas de DOM (tests) : pas d'ombre, tant pis
+  _silCache.set(key, c);
+  return c;
+}
+
 // A/B express : __bridgeSprite(false) rebranche le procédural (mute la molette).
 // __bridgeSpecs : les specs des sprites, MUTABLES en live (calibrage du dt
 // transverse & co à la capture — le pont n est pas baké, effet immédiat).
@@ -276,8 +431,9 @@ if (typeof window !== 'undefined') {
 // lisse+poteaux extrait par prepBridgeIso) est OPTIONNEL : sans lui, pas
 // d'occlusion fine, le pont reste entier.
 function spanSprite(g, st) {
-  if (!bridgeTune.sprite || st !== STYLES.bois) return null;
-  const spec = BRIDGE_SPRITES[g.vertical ? 'ne' : 'nw'];
+  if (!bridgeTune.sprite) return null;
+  const spec = spriteSpecFor(st, g.vertical);
+  if (!spec) return null;
   const art = bridgeArt(spec.key);
   if (!art.ready) return null;
   const railArt = bridgeArt(spec.key + '-rail');
@@ -301,19 +457,33 @@ export function bridgeLiftScreen(wx, wy) {
     if (!g._sprite) continue;
     const l = g.vertical ? wy : wx, t = g.vertical ? wx : wy;
     const sp = g._sprite.spec;
-    const kpx = T / bridgeTune.spriteTilePx;
+    const kpx = T / tilePxOf(sp);
     // Bornes ÉTENDUES aux débords d'about : les marches dessinées au-delà des
     // pieds font partie du pont (cf. pushSpriteItems) — la montée commence dès
     // le premier pas sur l'about, pas au pied théorique.
     const aExt = g.a - Math.abs(sp.over[0] - sp.footHi[0]) * kpx;
     const bExt = g.b + Math.abs(sp.over[1] - sp.footLo[0]) * kpx;
-    if (l < aExt || l > bExt || Math.abs(t - g.c) > g.wD + T * 0.35) continue;
+    // Fenêtre TRANSVERSE = la bande de passage, pas l'axe de voie : le tablier
+    // dessiné étant décalé en amont (cf. spanBand), un habitant du bord amont
+    // sortait de l'ancienne fenêtre `|t − c| ≤ wD + 0,35` et perdait son lift
+    // — il traversait le pont EN DESSOUS. Côté aval la fenêtre se resserre
+    // d'autant : les agents de la berge aval ne flottent plus près des culées.
+    const bd = spanBand(g);
+    if (l < aExt || l > bExt || Math.abs(t - bd.axis) > bd.half + T * 0.35) continue;
     const half = (bExt - aExt) / 2;
     const rHi = Math.min((sp.capHi + Math.abs(sp.over[0] - sp.footHi[0])) * kpx, half);
     const rLo = Math.min((sp.capLo + Math.abs(sp.over[1] - sp.footLo[0])) * kpx, half);
     const f = Math.max(0, Math.min((l - aExt) / rHi, (bExt - l) / rLo, 1));
-    const sm = f * f * (3 - 2 * f);
-    return sm * bridgeTune.humpH * kpx * CM.cam.zoom;
+    // Profil de montée : SMOOTHSTEP par défaut (dos d'âne du bois, la pente
+    // s'adoucit aux deux bouts), LINÉAIRE quand le dessin porte de vraies
+    // RAMPES droites (pierre) — un smoothstep sur une rampe droite décolle le
+    // traverseur du tablier au bas de la pente puis le rattrape brutalement.
+    const sm = sp.rampEase === 'linear' ? f : f * f * (3 - 2 * f);
+    // humpH PAR MATIÈRE (la pierre porte son tablier bien plus haut que le
+    // bois) : hauteur du tablier DESSINÉ au-dessus de la ligne de sol, en px
+    // source — mesurée sur le PNG, pas devinée.
+    const hump = sp.humpH != null ? sp.humpH : bridgeTune.humpH;
+    return sm * hump * kpx * CM.cam.zoom;
   }
   return 0;
 }
@@ -332,7 +502,7 @@ function bridgeGeoms() {
   const T = CM.TILE, rv = L.river;
   const st = styleFor(L);
   // Style sprité → rampes qui mordent la berge : débord d'atterrissage élargi.
-  const landing = (bridgeTune.sprite && st.sprite) ? bridgeTune.spriteLanding : bridgeTune.landing;
+  const landing = (bridgeTune.sprite && st.spriteKey) ? bridgeTune.spriteLanding : bridgeTune.landing;
   const list = [];
   for (const sp of CM.bridgeSpans) {
     const vertical = sp.vertical;
@@ -387,7 +557,7 @@ function bridgeGeoms() {
       // (vu à la capture). Le platelage PLAT du procédural masquait cette eau
       // de sa face ; le dos d'âne, non. On étend b jusqu'à ce que la colonne
       // d'écran sous le pied soit sèche sur ~2 tuiles de diagonale.
-      if (bridgeTune.sprite && st.sprite) {
+      if (bridgeTune.sprite && st.spriteKey) {
         const wetAt = (wx, wy) => {
           for (const s of rv.samples) {
             const dx = s.x * T - wx, dy = s.y * T - wy, m = ((s.hw || 0) - 0.05) * T;
@@ -412,9 +582,9 @@ function bridgeGeoms() {
         // Raph). On étire/rogne les bouts (±½ fenêtre au total, réparti sur
         // les deux landings) pour ne poser QUE des répétitions entières —
         // plus aucune coupe de phase nulle part.
-        const spq = BRIDGE_SPRITES[vertical ? 'ne' : 'nw'];
+        const spq = spriteSpecFor(st, vertical);
         if (spq) {
-          const kpx = T / bridgeTune.spriteTilePx;
+          const kpx = T / tilePxOf(spq);
           const caps = (spq.capHi + spq.capLo) * kpx;
           const midW = (Math.abs(spq.footLo[0] - spq.footHi[0]) - spq.capHi - spq.capLo) * kpx;
           const L = b - a;
@@ -571,8 +741,64 @@ export function drawIsoBridgeUnder() {
   const geos = bridgeGeoms(); if (!geos) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
   _drew.under += 1;
+  const st = styleFor(L);
   for (const g of geos) {
     if (!spanVisible(g, z)) continue;
+    // ⚠ PONT SPRITÉ posé DANS l'eau (piles immergées) : l'ombre du tablier
+    // LOGIQUE (g.wD) n'a ni sa largeur ni sa position — elle sortait en dalle
+    // sombre à côté de l'ouvrage (retour Raph « le liseré noir n'est pas
+    // bon »). On dessine à la place la SILHOUETTE DU DESSIN, décalée, en UNE
+    // SEULE passe : découpée par tranche, les recouvrements empileraient leur
+    // alpha en bandes plus sombres.
+    const spr = spanSprite(g, st);
+    if (spr && spr.spec && (spr.spec.humpH || 0) === 0) {
+      const sil = bridgeSilhouette(spr.art, spr.spec.key);
+      if (!sil) continue;
+      const sp = spr.spec, kpx = T / tilePxOf(sp);
+      const s = kpx * z;
+      const ih = sil.height;
+      const ySol0 = sp.footHi[1];
+      ctx.save();
+      ctx.globalAlpha = bridgeTune.shadowA;
+      ctx.translate(bridgeTune.shadowDx * z, bridgeTune.shadowDy * z);
+      const prevSm = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      // Mêmes pièces que la pose (culée a / travées / culée b), sans la
+      // sous-découpe par tuile : l'ombre n'a pas besoin du tri fin.
+      const ovHi = Math.abs(sp.over[0] - sp.footHi[0]);
+      const ovLo = Math.abs(sp.over[1] - sp.footLo[0]);
+      const D = (g.b - g.a) / kpx;
+      const midW = Math.abs(sp.footLo[0] - sp.footHi[0]) - sp.capHi - sp.capLo;
+      const runs = [];
+      if (midW < 8 || D <= sp.capHi + sp.capLo) {
+        const cut = D * sp.capHi / (sp.capHi + sp.capLo);
+        runs.push(['hi', -ovHi, cut], ['lo', cut, D + ovLo]);
+      } else {
+        runs.push(['hi', -ovHi, sp.capHi]);
+        const dEnd = D - sp.capLo;
+        for (let sd = sp.capHi; sd < dEnd - 0.01; sd += midW) runs.push(['mid', sd, Math.min(sd + midW, dEnd)]);
+        runs.push(['lo', dEnd, D + ovLo]);
+      }
+      const midX0 = sp.footHi[0] + sp.sgn * sp.capHi;
+      for (const [part, e0, e1] of runs) {
+        const ax = part === 'hi' ? sp.footHi[0] : part === 'lo' ? sp.footLo[0] : midX0;
+        const al = part === 'hi' ? g.a : part === 'lo' ? g.b : g.a + e0 * kpx;
+        const xAt = part === 'hi' ? (e) => sp.footHi[0] + sp.sgn * e
+          : part === 'lo' ? (e) => sp.footLo[0] - sp.sgn * (D - e)
+            : (e) => midX0 + sp.sgn * (e - e0);
+        const xa = xAt(e0), xb = xAt(e1);
+        const sx = Math.round(Math.min(xa, xb)), sx1 = Math.round(Math.max(xa, xb));
+        if (sx1 <= sx) continue;
+        const E = g.P(al, g.c + (sp.dt || 0) * kpx);
+        const x0 = Math.round(E.x - (ax - sx) * s);
+        const x1 = Math.round(E.x - (ax - sx1) * s);
+        const dy = Math.round(E.y - (ySol0 + Math.abs(ax - sp.footHi[0]) * 0.5) * s);
+        if (x1 > x0) ctx.drawImage(sil, sx, 0, sx1 - sx, ih, x0, dy, x1 - x0, Math.round(ih * s));
+      }
+      ctx.imageSmoothingEnabled = prevSm;
+      ctx.restore();
+      continue;
+    }
     // Silhouette du tablier (tronçon mouillé seulement, marge aux berges)
     // translatée EN ÉCRAN bas-droite — même convention que les bâtiments.
     const sA = g.wetA + T * 0.12, sB = g.wetB - T * 0.12;
@@ -715,7 +941,7 @@ function drawRailRun(ctx, g, st, side, l0, l1, z) {
 // source fractionnaire re-échantillonne : colonne dupliquée aux coutures).
 function pushSpriteItems(items, bounds, g, si) {
   const T = CM.TILE, sp = g._sprite.spec;
-  const kpx = T / bridgeTune.spriteTilePx;          // px monde par px source
+  const kpx = T / tilePxOf(sp);                    // px monde par px source
   const D = (g.b - g.a) / kpx;                      // déroulé total, px source
   // Débords d'about (marches finales, bouts de rambarde dessinés AU-DELÀ des
   // pieds) : INTÉGRÉS au déroulé — dessinés hors [a..b] à la profondeur du
@@ -759,13 +985,19 @@ function pushSpriteItems(items, bounds, g, si) {
     }
     let e0 = sd0;
     // Sous-découpe au SIXIÈME de tuile : le tablier étant SURÉLEVÉ, la tranche
-    // suivante recouvre un traverseur dès qu'il est à plus de (wD + t_off) de
-    // la couture — et t_off est NÉGATIF pour la file AMONT (−0,09 tuile − le
-    // jitter personnel) : la borne réelle est wD − 5 px ≈ 6,5 px monde. T/3
-    // (10,7 px) laissait une bande de disparition pour cette file (vu par
-    // Raph sur la rampe) ; T/6 (5,3 px) passe sous la borne pour les DEUX
-    // files, et l'habitant reste devant le garde-corps de sa propre tranche.
+    // suivante recouvre un traverseur dès que sa profondeur la dépasse. Une
+    // tranche est triée en tRef ; un traverseur en (l, t) avec l dans la
+    // tranche passe devant la SUIVANTE tant que t > tRef + step (pire cas
+    // l = l0). D'où tRef = bord AMONT de la bande de passage − step : toute
+    // la zone piétonne, d'un garde-corps à l'autre, est alors garantie devant
+    // sa propre tranche ET devant la suivante.
+    // ⚠ Ancien tRef = c − wD : il ne couvrait que ±0,09 tuile autour de l'axe.
+    // Dès qu'un habitant s'écartait vers l'amont (t < c − 6 px monde) il
+    // DISPARAISSAIT sous la tranche suivante — c'est ce qui a longtemps
+    // interdit d'élargir la file, et fait ressembler le pont à un rail.
     const step = T / 6;
+    const bd = spanBand(g);
+    const tRef = Math.min(g.c - g.wD, bd.axis - bd.half - step);
     while (e0 < sd1 - 0.01) {
       const l0 = g.a + e0 * kpx;
       const e1 = Math.min(sd1, ((Math.floor(l0 / step + 1e-6) + 1) * step - g.a) / kpx);
@@ -783,15 +1015,15 @@ function pushSpriteItems(items, bounds, g, si) {
       const gy = g.vertical ? Math.floor((l0 + l1) / 2 / T) : Math.floor(g.c / T);
       // Marge d'une cellule : l'about et la hauteur du sprite débordent la tuile.
       if (gx >= bounds.gx0 - 1 && gx <= bounds.gx1 + 1 && gy >= bounds.gy0 - 1 && gy <= bounds.gy1 + 1) {
-        items.push({ d: g.D(l0, g.c - g.wD), kind: 'bridgeSeg', si, part: 'sprite', sx, sw: sx1 - sx, ax, al });
+        items.push({ d: g.D(l0, tRef), kind: 'bridgeSeg', si, part: 'sprite', sx, sw: sx1 - sx, ax, al });
         // GARDE-CORPS AVAL par-dessus les traverseurs : duplicata (calque
-        // -rail) redessiné à la profondeur du bord AVAL de la tranche — les
-        // habitants (t ≤ axe + 0,16 tuile) se trient entre les deux, donc
-        // derrière la lisse du bas et devant celle du haut (retour Raph ;
-        // même geste que le parapet 'down' du procédural).
+        // -rail) redessiné à la profondeur du bord AVAL de la BANDE — les
+        // habitants se trient entre les deux, donc derrière la lisse du bas
+        // et devant celle du haut (retour Raph ; même geste que le parapet
+        // 'down' du procédural).
         if (g._sprite.railArt) {
           items.push({
-            d: g.D((l0 + l1) / 2, g.c + g.wD), kind: 'bridgeSeg', si,
+            d: g.D((l0 + l1) / 2, Math.max(g.c + g.wD, bd.axis + bd.half)), kind: 'bridgeSeg', si,
             part: 'sprite', rail: true, sx, sw: sx1 - sx, ax, al,
           });
         }
@@ -842,12 +1074,12 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     const spr = g._sprite; if (!spr) return;
     if (it.rail && !spr.railArt) return;
     const sp = spr.spec, img = (it.rail ? spr.railArt : spr.art).img;
-    const s = (T / bridgeTune.spriteTilePx) * z;
+    const s = (T / tilePxOf(sp)) * z;
     // dt : offset TRANSVERSE (px source, + vers l aval) — centre le DESSIN
     // sur l axe logique de la route (retour Raph « centrer la route sur le
     // pont ») ; la ligne de marche et le lift restent sur l axe, c est le
     // sprite qui vient sous leurs pieds.
-    const E = g.P(it.al, g.c + (sp.dt || 0) * (T / bridgeTune.spriteTilePx));
+    const E = g.P(it.al, g.c + (sp.dt || 0) * (T / tilePxOf(sp)));
     // ySol de l'ancre : LA droite d'axe-sol du sprite (pente ±0,5 depuis
     // footHi) — culées ET travée, une seule référence : les raccords ne
     // peuvent plus dériver (le cran du module séparé venait de son ancre à lui).

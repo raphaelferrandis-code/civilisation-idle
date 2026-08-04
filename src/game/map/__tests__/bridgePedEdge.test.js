@@ -3,6 +3,13 @@ import { describe, it, expect } from "vitest";
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
 
+// ⚠ CE FICHIER COUVRE LE CHEMIN DE REPLI (CM.iso = false). En ISO — le mode du
+// jeu — la ligne de marche vient désormais de bridgeWalkBand (isoBridge.js) :
+// une ZONE de la largeur du tablier DESSINÉ, pas un offset autour de l'axe de
+// voie (cf. citizenChooseNext, chantier « zone de passage » 2026-08-04). Le
+// resserrement ci-dessous ne s'applique plus qu'au legacy top-down, aux spans
+// sans géométrie iso, et quand __bridgePedEdge force l'ancienne ligne.
+//
 // Décalage-trottoir sur les PONTS. Le trottoir piéton (0.42 tuile) déborde du tablier :
 // sur une cellule-pont, l'habitant marchait DANS L'EAU. Le fix resserre l'offset vers
 // l'axe du tablier (0.16 tuile par défaut, molette __bridgePedEdge) sur les cellules
