@@ -263,6 +263,21 @@
    "note": "panneau de racks lumineux a droite, pas une fenetre"
   },
   {
+   "key": "archive-grid-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 112,
+    "w": 9,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "baie vitree encastree, miroite"
+  },
+  {
    "key": "archive-hut",
    "nature": "batiment",
    "door": {
@@ -276,6 +291,26 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "porte en planches, linteau inclus"
+  },
+  {
+   "key": "archive-hut-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 50,
+    "y": 94,
+    "w": 16,
+    "h": 27
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 43,
+    "y": 66,
+    "w": 5,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "vantail de planches sous linteau, miroite"
   },
   {
    "key": "archive-records",
@@ -298,6 +333,26 @@
    "note": "auvent compris dans l'encadrement"
   },
   {
+   "key": "archive-records-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 48,
+    "y": 110,
+    "w": 14,
+    "h": 26
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 29,
+    "y": 70,
+    "w": 9,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "arche de pierre, 2 px sous la bande"
+  },
+  {
    "key": "archive-tabularium",
    "nature": "batiment",
    "door": {
@@ -318,6 +373,26 @@
    "note": "porte cintree a double battant"
   },
   {
+   "key": "archive-tabularium-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 90,
+    "w": 18,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 54,
+    "y": 67,
+    "w": 8,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "edicule a colonnes, miroite"
+  },
+  {
    "key": "archive-vault",
    "nature": "batiment",
    "door": {
@@ -336,6 +411,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "portail a archivolte double incluse"
+  },
+  {
+   "key": "archive-vault-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 44,
+    "y": 100,
+    "w": 18,
+    "h": 33
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 38,
+    "y": 73,
+    "w": 5,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "arche gothique, croix de faitage effacee"
   },
   {
    "key": "arcologyhome",

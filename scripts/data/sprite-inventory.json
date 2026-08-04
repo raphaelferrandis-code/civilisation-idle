@@ -896,6 +896,25 @@
    "classe": "strip"
   },
   {
+   "key": "archive-grid-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 29,
+    "y0": 10,
+    "w": 119,
+    "h": 140
+   },
+   "ink40": {
+    "x0": 29,
+    "y0": 10,
+    "w": 119,
+    "h": 140
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "archive-grid",
    "famille": "engine",
    "w": 112,
@@ -913,6 +932,25 @@
     "h": 79
    },
    "classe": "prop"
+  },
+  {
+   "key": "archive-hut-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 29,
+    "y0": 9,
+    "w": 119,
+    "h": 126
+   },
+   "ink40": {
+    "x0": 29,
+    "y0": 9,
+    "w": 119,
+    "h": 126
+   },
+   "classe": "orphelin"
   },
   {
    "key": "archive-hut",
@@ -934,6 +972,25 @@
    "classe": "prop"
   },
   {
+   "key": "archive-records-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 17,
+    "y0": 5,
+    "w": 143,
+    "h": 150
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 5,
+    "w": 143,
+    "h": 150
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "archive-records",
    "famille": "engine",
    "w": 112,
@@ -953,6 +1010,25 @@
    "classe": "prop"
   },
   {
+   "key": "archive-tabularium-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 10,
+    "y0": 14,
+    "w": 147,
+    "h": 120
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 14,
+    "w": 147,
+    "h": 120
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "archive-tabularium",
    "famille": "engine",
    "w": 112,
@@ -970,6 +1046,25 @@
     "h": 80
    },
    "classe": "prop"
+  },
+  {
+   "key": "archive-vault-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 24,
+    "y0": 8,
+    "w": 130,
+    "h": 141
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 8,
+    "w": 130,
+    "h": 141
+   },
+   "classe": "orphelin"
   },
   {
    "key": "archive-vault",
@@ -1846,6 +1941,25 @@
    "classe": "prop-cosmic"
   },
   {
+   "key": "courthouses-basilica-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 12,
+    "y0": 14,
+    "w": 152,
+    "h": 136
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 14,
+    "w": 152,
+    "h": 136
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "courthouses-basilica",
    "famille": "engine",
    "w": 112,
@@ -1863,6 +1977,25 @@
     "h": 82
    },
    "classe": "prop"
+  },
+  {
+   "key": "courthouses-lodge-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 6,
+    "y0": 4,
+    "w": 163,
+    "h": 150
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 4,
+    "w": 163,
+    "h": 150
+   },
+   "classe": "orphelin"
   },
   {
    "key": "courthouses-lodge",
@@ -1884,6 +2017,25 @@
    "classe": "prop"
   },
   {
+   "key": "courthouses-modern-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 14,
+    "y0": 14,
+    "w": 146,
+    "h": 130
+   },
+   "ink40": {
+    "x0": 14,
+    "y0": 14,
+    "w": 146,
+    "h": 130
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "courthouses-modern",
    "famille": "engine",
    "w": 112,
@@ -1903,6 +2055,25 @@
    "classe": "prop"
   },
   {
+   "key": "courthouses-neoclassical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 19,
+    "y0": 6,
+    "w": 139,
+    "h": 126
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 6,
+    "w": 139,
+    "h": 126
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "courthouses-neoclassical",
    "famille": "engine",
    "w": 112,
@@ -1920,6 +2091,25 @@
     "h": 79
    },
    "classe": "prop"
+  },
+  {
+   "key": "courthouses-tribunal-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 46,
+    "y0": 4,
+    "w": 90,
+    "h": 145
+   },
+   "ink40": {
+    "x0": 46,
+    "y0": 4,
+    "w": 90,
+    "h": 145
+   },
+   "classe": "orphelin"
   },
   {
    "key": "courthouses-tribunal",

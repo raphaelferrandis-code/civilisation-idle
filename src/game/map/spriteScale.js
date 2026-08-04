@@ -64,6 +64,8 @@ export const PALIER_SPANSUM = {
   'mint-prop-house-grand': 6, 'mint-prop-forge-grand': 6,
   'mint-house-steam-grand': 6, 'mint-house-digital-grand': 6,
   'mint-moneta-grand': 6,
+  'archive-vault-grand': 6, 'archive-tabularium-grand': 6,
+  'archive-records-grand': 6, 'archive-hut-grand': 6, 'archive-grid-grand': 6,
 };
 
 // Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf

@@ -1321,6 +1321,60 @@
    }
   },
   {
+   "key": "archive-grid-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 20,
+    "apparent": 12.1,
+    "bande": "porte",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "archive-hut-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 27,
+    "apparent": 16.3,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 9,
+    "apparent": 5.4,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
+   "key": "archive-records-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 26,
+    "apparent": 15.7,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 16,
+    "apparent": 9.7,
+    "bande": "fenetre",
+    "ecart": 0.7
+   }
+  },
+  {
    "key": "archive-tabularium",
    "famille": "engine",
    "densite": 0.796,
@@ -1341,6 +1395,26 @@
    }
   },
   {
+   "key": "archive-tabularium-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 28,
+    "apparent": 16.9,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 12,
+    "apparent": 7.3,
+    "bande": "fenetre",
+    "ecart": 0
+   }
+  },
+  {
    "key": "archive-vault",
    "famille": "engine",
    "densite": 0.785,
@@ -1358,6 +1432,26 @@
     "apparent": 9.4,
     "bande": "fenetre",
     "ecart": 0.4
+   }
+  },
+  {
+   "key": "archive-vault-grand",
+   "famille": "engine",
+   "densite": 0.605,
+   "densNote": "palier spanSum 6, hFrac 0.7",
+   "densPetit": 0.302,
+   "densHalleMax": 1.512,
+   "door": {
+    "hSource": 33,
+    "apparent": 20,
+    "bande": "portail",
+    "ecart": 0
+   },
+   "window": {
+    "hSource": 15,
+    "apparent": 9.1,
+    "bande": "fenetre",
+    "ecart": 0.1
    }
   },
   {
