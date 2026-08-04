@@ -88,6 +88,8 @@ export const PALIER_SPANSUM = {
   'universities-gothic-grand': 6, 'universities-prop-hall-grand': 6,
   'universities-collegiate-grand': 6, 'universities-modern-grand': 6,
   'universities-classical-grand': 6,
+  'port-house-medieval-grand': 6, 'port-house-industrial-grand': 6,
+  'port-house-classical-grand': 6, 'port-house-modern-grand': 6,
 };
 
 // Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf

@@ -4563,6 +4563,25 @@
    "classe": "prop"
   },
   {
+   "key": "observatories-array-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 17,
+    "y0": 6,
+    "w": 138,
+    "h": 128
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 6,
+    "w": 138,
+    "h": 128
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "observatories-array",
    "famille": "engine",
    "w": 112,
@@ -4637,6 +4656,25 @@
     "h": 68
    },
    "classe": "prop"
+  },
+  {
+   "key": "observatories-tower-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 50,
+    "y0": 1,
+    "w": 78,
+    "h": 127
+   },
+   "ink40": {
+    "x0": 50,
+    "y0": 1,
+    "w": 78,
+    "h": 127
+   },
+   "classe": "orphelin"
   },
   {
    "key": "observatories-tower",
@@ -4753,6 +4791,25 @@
    "classe": "prop"
   },
   {
+   "key": "port-house-classical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 13,
+    "y0": 18,
+    "w": 150,
+    "h": 124
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 18,
+    "w": 150,
+    "h": 124
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "port-house-classical",
    "famille": "engine",
    "w": 96,
@@ -4770,6 +4827,25 @@
     "h": 82
    },
    "classe": "prop"
+  },
+  {
+   "key": "port-house-industrial-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 22,
+    "y0": 8,
+    "w": 134,
+    "h": 136
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 8,
+    "w": 134,
+    "h": 136
+   },
+   "classe": "orphelin"
   },
   {
    "key": "port-house-industrial",
@@ -4791,6 +4867,25 @@
    "classe": "prop"
   },
   {
+   "key": "port-house-medieval-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 20,
+    "y0": 5,
+    "w": 136,
+    "h": 145
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 5,
+    "w": 136,
+    "h": 145
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "port-house-medieval",
    "famille": "engine",
    "w": 96,
@@ -4808,6 +4903,25 @@
     "h": 93
    },
    "classe": "prop"
+  },
+  {
+   "key": "port-house-modern-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 9,
+    "y0": 15,
+    "w": 159,
+    "h": 127
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 15,
+    "w": 159,
+    "h": 127
+   },
+   "classe": "orphelin"
   },
   {
    "key": "port-house-modern",

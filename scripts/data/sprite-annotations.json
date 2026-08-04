@@ -3323,6 +3323,21 @@
    "note": "trois arches identiques"
   },
   {
+   "key": "port-house-classical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 74,
+    "w": 24,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "halle romaine a arcade, miroite"
+  },
+  {
    "key": "port-house-industrial",
    "nature": "batiment",
    "door": {
@@ -3341,6 +3356,26 @@
    "floorPitch": 10,
    "confidence": 0.85,
    "note": "grand portail d'entrepot facade droite"
+  },
+  {
+   "key": "port-house-industrial-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 111,
+    "w": 17,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 37,
+    "y": 85,
+    "w": 9,
+    "h": 17
+   },
+   "floorPitch": 25,
+   "confidence": 0.85,
+   "note": "brique rouge et ardoise, double vantail"
   },
   {
    "key": "port-house-medieval",
@@ -3363,6 +3398,26 @@
    "note": "grande porte de grange facade droite"
   },
   {
+   "key": "port-house-medieval-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 114,
+    "w": 16,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 62,
+    "y": 83,
+    "w": 15,
+    "h": 19
+   },
+   "floorPitch": 27,
+   "confidence": 0.85,
+   "note": "colombage creme et tuiles orange, miroite"
+  },
+  {
    "key": "port-house-modern",
    "nature": "batiment",
    "door": {
@@ -3381,6 +3436,26 @@
    "floorPitch": null,
    "confidence": 0.5,
    "note": "volet de chargement"
+  },
+  {
+   "key": "port-house-modern-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 120,
+    "y": 96,
+    "w": 26,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 88,
+    "y": 96,
+    "w": 6,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "bardage nervure, enseigne aplatie apres inversion par le miroir"
   },
   {
    "key": "port-prop-house",
