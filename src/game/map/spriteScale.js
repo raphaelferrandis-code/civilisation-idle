@@ -36,10 +36,53 @@ export const GRAIN_FIX = { tenement: 1.1, tower: 1.1, townhouse: 1.1 };
 // G2 — PALIERS DE HALLES : spanSum de la boîte pour laquelle un sprite de
 // palier est calibré (audit + planches ; le runtime, lui, reçoit la vraie
 // boîte). Un sprite absent d'ici est jugé à l'ATELIER (spanSum 4).
+// MANIFESTE DES PALIERS — la seule liste qui fasse foi. Une clé y figure dès
+// que `public/pixelart/agents/buildings/<clé>.png` existe ; le rendu s'en sert
+// pour savoir quoi charger (pas de 404 à l'aveugle) et l'audit pour mesurer.
+// La valeur = le spanSum pour lequel le sprite est CALIBRÉ (6 = empreinte 3).
+// `node scripts/spriteScaleAudit.mjs manifeste` régénère ces lignes.
 export const PALIER_SPANSUM = {
   'granary-warehouse-grand': 6, 'granary-hall-grand': 6, 'granary-hub-grand': 6,
-  'granary-horreum-grand': 6,
+  'granary-horreum-classical-grand': 6,
+  'exchange-prop-stall-grand': 6, 'bank-house-renaissance-grand': 6,
+  'bank-house-glass-grand': 6, 'bank-basilica-roman-grand': 6,
+  'bank-house-neoclassical-grand': 6,
+  'mill-prop-house-grand': 6, 'mill-house-stone-grand': 6,
+  'mill-house-roman-grand': 6, 'mill-house-industrial-grand': 6,
+  'ministries-council-grand': 6, 'ministries-tower-grand': 6,
+  'ministries-capitol-grand': 6, 'ministries-curia-grand': 6,
+  'ministries-palace-grand': 6,
+  'cult-shrine-grand': 6, 'cult-mausoleum-grand': 6, 'cult-memorial-grand': 6,
+  'think-prop-council-grand': 6, 'think-institute-grand': 6,
+  'think-modern-grand': 6, 'think-chancellery-grand': 6,
+  'think-stoa-roman-grand': 6,
+  'guild-prop-lodge-grand': 6, 'guild-chamber-grand': 6,
+  'guild-house-grand': 6, 'guild-collegium-grand': 6,
+  'libraries-prop-archive-grand': 6, 'libraries-monastic-grand': 6,
+  'libraries-classical-grand': 6, 'libraries-modern-grand': 6,
+  'libraries-grand-grand': 6,
 };
+
+// Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf
+// exception MESURÉE (le terminal a une porte de service courte, il lui faut un
+// peu plus). Change la taille dessinée ET la porte apparente : ne bouger que
+// sur mesure, jamais à l'œil.
+export const PALIER_HFRAC_DEFAUT = 0.7;
+export const PALIER_HFRAC = { 'granary-hub-grand': 0.75 };
+export const palierHFrac = (cle) => PALIER_HFRAC[cle] || PALIER_HFRAC_DEFAUT;
+
+// Facteur de COMPENSATION d'un sprite de palier posé dans une boîte plus grande
+// que celle pour laquelle il est calibré. Sans lui, une halle d'empreinte 5
+// (spanSum 10) étirerait le sprite calibré pour l'empreinte 3 (spanSum 6) d'un
+// facteur 1,67 et rouvrirait un portail de 30 px apparents — le mal qu'on
+// soigne. Avec lui, le bâtiment garde sa taille écran quand son LOT grandit :
+// l'excédent devient une clairière, et c'est le SAUT DE PALIER (changement
+// d'ère) qui apporte la masse. Doctrine §7.2 du plan.
+// Jamais > 1 : une boîte plus PETITE que le calibrage ne regonfle pas le sprite.
+export function palierK(spanSumCalibre, spanSumReel) {
+  if (!(spanSumReel > 0) || !(spanSumCalibre > 0)) return 1;
+  return Math.min(1, spanSumCalibre / spanSumReel);
+}
 const fixFor = (key) => {
   if (!grainTune.on || !key) return 1;
   const f = GRAIN_FIX[key];

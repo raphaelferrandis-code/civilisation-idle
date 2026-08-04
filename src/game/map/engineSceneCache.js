@@ -107,7 +107,13 @@ function sceneKey(t, side, now) {
   const id = t.buildingId || t.variant || '?';
   t._scnEp = ep;
   t._scnSide = side;
-  t._scnKey = id + ':' + (t.tier || 0) + ':' + side + ':' + (t.spanX || 1) + 'x' + (t.spanY || 1) + ':' + ep;
+  // ⚠ `size` en repli : les moteurs CARRÉS (halle + ateliers) portent leur
+  // empreinte dans `size`, pas dans spanX/spanY — sans lui la clé disait « 1x1 »
+  // pour tout le monde et ne tenait que par `side`, qui se confond d'un zoom à
+  // l'autre. Une halle et un atelier pouvaient alors partager une scène cuite,
+  // et donc le sprite de PALIER (substitué sur l'empreinte, cf. palierImg).
+  const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+  t._scnKey = id + ':' + (t.tier || 0) + ':' + side + ':' + sx + 'x' + sy + ':' + ep;
   return t._scnKey;
 }
 

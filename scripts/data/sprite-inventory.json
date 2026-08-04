@@ -162,14 +162,14 @@
    "ink16": {
     "x0": 8,
     "y0": 1,
-    "w": 57,
-    "h": 55
+    "w": 54,
+    "h": 54
    },
    "ink40": {
     "x0": 8,
     "y0": 1,
-    "w": 57,
-    "h": 55
+    "w": 54,
+    "h": 54
    },
    "classe": "house"
   },
@@ -991,6 +991,25 @@
    "classe": "prop"
   },
   {
+   "key": "bank-basilica-roman-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 3,
+    "y0": 18,
+    "w": 170,
+    "h": 136
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 18,
+    "w": 170,
+    "h": 136
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bank-basilica-roman",
    "famille": "engine",
    "w": 112,
@@ -1067,6 +1086,25 @@
    "classe": "prop-cosmic"
   },
   {
+   "key": "bank-house-glass-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 7,
+    "y0": 5,
+    "w": 155,
+    "h": 147
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 5,
+    "w": 155,
+    "h": 147
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bank-house-glass",
    "famille": "engine",
    "w": 96,
@@ -1086,6 +1124,25 @@
    "classe": "prop"
   },
   {
+   "key": "bank-house-neoclassical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 13,
+    "y0": 12,
+    "w": 150,
+    "h": 136
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 12,
+    "w": 150,
+    "h": 136
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "bank-house-neoclassical",
    "famille": "engine",
    "w": 96,
@@ -1103,6 +1160,25 @@
     "h": 76
    },
    "classe": "prop"
+  },
+  {
+   "key": "bank-house-renaissance-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 15,
+    "y0": 4,
+    "w": 146,
+    "h": 151
+   },
+   "ink40": {
+    "x0": 15,
+    "y0": 4,
+    "w": 146,
+    "h": 151
+   },
+   "classe": "orphelin"
   },
   {
    "key": "bank-house-renaissance",
@@ -1865,6 +1941,25 @@
    "classe": "prop"
   },
   {
+   "key": "cult-mausoleum-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 18,
+    "y0": 12,
+    "w": 141,
+    "h": 135
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 12,
+    "w": 141,
+    "h": 135
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "cult-mausoleum",
    "famille": "engine",
    "w": 112,
@@ -1884,6 +1979,25 @@
    "classe": "prop"
   },
   {
+   "key": "cult-memorial-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 22,
+    "y0": 5,
+    "w": 140,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 5,
+    "w": 140,
+    "h": 134
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "cult-memorial",
    "famille": "engine",
    "w": 112,
@@ -1901,6 +2015,25 @@
     "h": 83
    },
    "classe": "prop"
+  },
+  {
+   "key": "cult-shrine-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 13,
+    "y0": 10,
+    "w": 132,
+    "h": 124
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 10,
+    "w": 132,
+    "h": 124
+   },
+   "classe": "orphelin"
   },
   {
    "key": "cult-shrine",
@@ -1939,6 +2072,25 @@
     "h": 72
    },
    "classe": "prop"
+  },
+  {
+   "key": "exchange-prop-stall-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 9,
+    "y0": 10,
+    "w": 158,
+    "h": 139
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 10,
+    "w": 158,
+    "h": 139
+   },
+   "classe": "orphelin"
   },
   {
    "key": "exchange-prop-stall",
@@ -2489,7 +2641,7 @@
     "w": 145,
     "h": 145
    },
-   "classe": "prop"
+   "classe": "orphelin"
   },
   {
    "key": "granary-hall",
@@ -2511,6 +2663,25 @@
    "classe": "prop"
   },
   {
+   "key": "granary-horreum-classical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 24,
+    "y0": 19,
+    "w": 128,
+    "h": 120
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 19,
+    "w": 128,
+    "h": 120
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "granary-horreum-classical",
    "famille": "engine",
    "w": 112,
@@ -2526,25 +2697,6 @@
     "y0": 5,
     "w": 99,
     "h": 85
-   },
-   "classe": "prop"
-  },
-  {
-   "key": "granary-horreum-grand",
-   "famille": "engine",
-   "w": 176,
-   "h": 160,
-   "ink16": {
-    "x0": 24,
-    "y0": 19,
-    "w": 128,
-    "h": 120
-   },
-   "ink40": {
-    "x0": 24,
-    "y0": 19,
-    "w": 128,
-    "h": 120
    },
    "classe": "prop"
   },
@@ -2565,7 +2717,7 @@
     "w": 166,
     "h": 138
    },
-   "classe": "prop"
+   "classe": "orphelin"
   },
   {
    "key": "granary-hub",
@@ -2641,7 +2793,7 @@
     "w": 163,
     "h": 150
    },
-   "classe": "prop"
+   "classe": "orphelin"
   },
   {
    "key": "granary-warehouse",
@@ -2663,6 +2815,25 @@
    "classe": "prop"
   },
   {
+   "key": "guild-chamber-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 28,
+    "y0": 7,
+    "w": 117,
+    "h": 133
+   },
+   "ink40": {
+    "x0": 28,
+    "y0": 7,
+    "w": 117,
+    "h": 133
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "guild-chamber",
    "famille": "engine",
    "w": 96,
@@ -2680,6 +2851,25 @@
     "h": 92
    },
    "classe": "prop"
+  },
+  {
+   "key": "guild-collegium-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 16,
+    "y0": 7,
+    "w": 141,
+    "h": 146
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 7,
+    "w": 141,
+    "h": 146
+   },
+   "classe": "orphelin"
   },
   {
    "key": "guild-collegium",
@@ -2777,6 +2967,25 @@
    "classe": "prop-cosmic"
   },
   {
+   "key": "guild-house-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 8,
+    "w": 129,
+    "h": 142
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 8,
+    "w": 129,
+    "h": 142
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "guild-house",
    "famille": "engine",
    "w": 96,
@@ -2794,6 +3003,25 @@
     "h": 77
    },
    "classe": "prop"
+  },
+  {
+   "key": "guild-prop-lodge-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 19,
+    "y0": 3,
+    "w": 147,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 3,
+    "w": 147,
+    "h": 134
+   },
+   "classe": "orphelin"
   },
   {
    "key": "guild-prop-lodge",
@@ -2815,6 +3043,25 @@
    "classe": "prop"
   },
   {
+   "key": "libraries-classical-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 4,
+    "y0": 1,
+    "w": 168,
+    "h": 157
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 1,
+    "w": 168,
+    "h": 157
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "libraries-classical",
    "famille": "engine",
    "w": 112,
@@ -2832,6 +3079,25 @@
     "h": 78
    },
    "classe": "prop"
+  },
+  {
+   "key": "libraries-grand-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 6,
+    "w": 130,
+    "h": 147
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 6,
+    "w": 130,
+    "h": 147
+   },
+   "classe": "orphelin"
   },
   {
    "key": "libraries-grand",
@@ -2853,6 +3119,25 @@
    "classe": "prop"
   },
   {
+   "key": "libraries-modern-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 11,
+    "y0": 5,
+    "w": 158,
+    "h": 145
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 5,
+    "w": 158,
+    "h": 145
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "libraries-modern",
    "famille": "engine",
    "w": 112,
@@ -2872,6 +3157,25 @@
    "classe": "prop"
   },
   {
+   "key": "libraries-monastic-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 4,
+    "y0": 2,
+    "w": 168,
+    "h": 157
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 2,
+    "w": 168,
+    "h": 157
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "libraries-monastic",
    "famille": "engine",
    "w": 112,
@@ -2889,6 +3193,25 @@
     "h": 84
    },
    "classe": "prop"
+  },
+  {
+   "key": "libraries-prop-archive-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 2,
+    "y0": 5,
+    "w": 172,
+    "h": 146
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 5,
+    "w": 172,
+    "h": 146
+   },
+   "classe": "orphelin"
   },
   {
    "key": "libraries-prop-archive",
@@ -3119,6 +3442,25 @@
    "classe": "prop-cosmic"
   },
   {
+   "key": "mill-house-industrial-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 40,
+    "y0": 9,
+    "w": 112,
+    "h": 142
+   },
+   "ink40": {
+    "x0": 40,
+    "y0": 9,
+    "w": 112,
+    "h": 142
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mill-house-industrial",
    "famille": "engine",
    "w": 76,
@@ -3157,6 +3499,25 @@
    "classe": "prop"
   },
   {
+   "key": "mill-house-roman-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 38,
+    "y0": 6,
+    "w": 99,
+    "h": 143
+   },
+   "ink40": {
+    "x0": 38,
+    "y0": 6,
+    "w": 99,
+    "h": 143
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mill-house-roman",
    "famille": "engine",
    "w": 47,
@@ -3176,6 +3537,25 @@
    "classe": "prop"
   },
   {
+   "key": "mill-house-stone-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 23,
+    "y0": 4,
+    "w": 135,
+    "h": 139
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 4,
+    "w": 135,
+    "h": 139
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "mill-house-stone",
    "famille": "engine",
    "w": 58,
@@ -3193,6 +3573,25 @@
     "h": 115
    },
    "classe": "prop"
+  },
+  {
+   "key": "mill-prop-house-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 29,
+    "y0": 4,
+    "w": 108,
+    "h": 149
+   },
+   "ink40": {
+    "x0": 29,
+    "y0": 4,
+    "w": 108,
+    "h": 149
+   },
+   "classe": "orphelin"
   },
   {
    "key": "mill-prop-house",
@@ -3271,6 +3670,25 @@
    "classe": "prop"
   },
   {
+   "key": "ministries-capitol-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 6,
+    "y0": 8,
+    "w": 161,
+    "h": 142
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 8,
+    "w": 161,
+    "h": 142
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ministries-capitol",
    "famille": "engine",
    "w": 112,
@@ -3288,6 +3706,25 @@
     "h": 67
    },
    "classe": "prop"
+  },
+  {
+   "key": "ministries-council-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 13,
+    "y0": 4,
+    "w": 149,
+    "h": 146
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 4,
+    "w": 149,
+    "h": 146
+   },
+   "classe": "orphelin"
   },
   {
    "key": "ministries-council",
@@ -3309,6 +3746,25 @@
    "classe": "prop"
   },
   {
+   "key": "ministries-curia-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 16,
+    "y0": 10,
+    "w": 144,
+    "h": 140
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 10,
+    "w": 144,
+    "h": 140
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ministries-curia",
    "famille": "engine",
    "w": 112,
@@ -3328,6 +3784,25 @@
    "classe": "prop"
   },
   {
+   "key": "ministries-palace-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 13,
+    "y0": 13,
+    "w": 149,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 13,
+    "w": 149,
+    "h": 134
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ministries-palace",
    "famille": "engine",
    "w": 112,
@@ -3345,6 +3820,25 @@
     "h": 65
    },
    "classe": "prop"
+  },
+  {
+   "key": "ministries-tower-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 44,
+    "y0": 12,
+    "w": 92,
+    "h": 113
+   },
+   "ink40": {
+    "x0": 44,
+    "y0": 12,
+    "w": 92,
+    "h": 113
+   },
+   "classe": "orphelin"
   },
   {
    "key": "ministries-tower",
@@ -4487,6 +4981,25 @@
    "classe": "prop"
   },
   {
+   "key": "think-chancellery-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 0,
+    "y0": 4,
+    "w": 176,
+    "h": 149
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 4,
+    "w": 176,
+    "h": 149
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "think-chancellery",
    "famille": "engine",
    "w": 112,
@@ -4504,6 +5017,25 @@
     "h": 82
    },
    "classe": "prop"
+  },
+  {
+   "key": "think-institute-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 21,
+    "y0": 5,
+    "w": 134,
+    "h": 149
+   },
+   "ink40": {
+    "x0": 21,
+    "y0": 5,
+    "w": 134,
+    "h": 149
+   },
+   "classe": "orphelin"
   },
   {
    "key": "think-institute",
@@ -4525,6 +5057,25 @@
    "classe": "prop"
   },
   {
+   "key": "think-modern-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 7,
+    "y0": 19,
+    "w": 163,
+    "h": 124
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 19,
+    "w": 163,
+    "h": 124
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "think-modern",
    "famille": "engine",
    "w": 112,
@@ -4544,6 +5095,25 @@
    "classe": "prop"
   },
   {
+   "key": "think-prop-council-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 0,
+    "y0": 3,
+    "w": 176,
+    "h": 152
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 3,
+    "w": 176,
+    "h": 152
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "think-prop-council",
    "famille": "engine",
    "w": 96,
@@ -4561,6 +5131,25 @@
     "h": 73
    },
    "classe": "prop"
+  },
+  {
+   "key": "think-stoa-roman-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 12,
+    "y0": 22,
+    "w": 152,
+    "h": 115
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 22,
+    "w": 152,
+    "h": 115
+   },
+   "classe": "orphelin"
   },
   {
    "key": "think-stoa-roman",

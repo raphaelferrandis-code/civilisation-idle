@@ -312,7 +312,48 @@ attendent leur art, G1 traite le reste.
 >   `spriteScaleAudit fractions` — se fier aux lignes voisines cassait dès qu'on
 >   insérait du code entre la table et son blit (vécu, corrigé).
 >
-> **Reste pour la famille** : le stade 0 (`granary-prop-silo`, ei < 10) n'a pas
+> ### Vague 1 de la série (2026-08-04) — 7 familles, 31 paliers posés
+>
+> **Le câblage est mort : le palier est GÉNÉRIQUE.** `blitProp` substitue lui-même
+> `<clé>-grand` dès que la tuile dessinée est une halle (spanSum ≥ 6, cf.
+> `palierImg` dans cityEngineSprites.js). Poser un palier = déposer le PNG +
+> ajouter UNE ligne au manifeste `PALIER_SPANSUM` (spriteScale.js). Plus aucune
+> branche `if (Math.max(gw,gh) >= 3)` à écrire — il en aurait fallu ~96.
+> Corollaire : la clé du cache de scènes a dû être réparée (elle lisait `spanX`,
+> absent des moteurs CARRÉS qui portent `size`) — sans ça une halle et un
+> atelier pouvaient partager une scène cuite à deux zooms différents, et donc
+> le sprite de palier.
+>
+> **Lois de production, complétées par la vague 1 (à appliquer telles quelles) :**
+> - ⛔ **« no podium / no platform / no steps » NE SUFFIT PAS** à empêcher la
+>   nappe de sol : 5 générations sur 8 revenaient sur un socle de diorama. La
+>   clause qui MARCHE, à mettre dans tous les prompts : *« The building is cut
+>   out on an empty transparent background: nothing under it, nothing around
+>   it, no grass, no dirt, no paving, no path, no ground plane, no base slab,
+>   no cast shadow. »* Corollaire mesuré : dès que le prompt nomme un objet
+>   POSÉ AU SOL (clôture, stèle, brasero, buisson) ou nomme le sol en positif
+>   (« flat bare earth »), PixelLab redessine un plan de sol.
+> - ⛔ **Ne jamais retirer une dalle par remplissage de COULEUR** : sur le
+>   collegium, le gris du pavage était byte-identique à la façade à l'ombre →
+>   le remplissage a mangé le mur. Régénérer est plus sûr. Si retrait il y a :
+>   amorces 2 px À L'INTÉRIEUR de la nappe et tri des composantes en
+>   4-CONNEXITÉ (en 8-connexité une bordure en pointillé diagonal raccroche le
+>   décor au bâtiment et survit au tri par taille).
+> - ⚠ **`lightCheck.mjs` ment sur un bâtiment à couronnement CLAIR** (chaume,
+>   dôme crème) ou à galette de sol claire : le centroïde lumineux monte ou
+>   descend et l'axe vertical devient un artefact de composition. Trancher
+>   TOUJOURS à la luminance moyenne des DEUX murs (la façade gauche doit être
+>   la plus claire) — jamais sur le seul verdict de l'outil. 12 miroirs sur 31
+>   sprites ont ainsi été décidés sur mesure.
+> - ⚠ **Les défauts de `blindArch` ne conviennent qu'au bois SOMBRE** : sur du
+>   chêne clair ou du stuc pâle, `--lum 72` ne mure rien (relever à 112-150) et
+>   le linteau auto (mur × 1,35) sature en blanc — passer `--trim` explicite.
+> - ⚠ **Convention de mesure à normaliser** : certains annotateurs prennent la
+>   seule ouverture, d'autres l'ouverture + son chambranle — 3 à 5 px d'écart,
+>   soit ~2-3 px apparents. À harmoniser sur « ouverture + encadrement » (la
+>   convention des habitations) lors d'une passe de vérification par overlay.
+>
+> **Reste pour la famille grenier** : le stade 0 (`granary-prop-silo`, ei < 10) n'a pas
 > de palier — rare (il faut 25 greniers avant l'ère 10) mais possible, mesuré à
 > ~26 px apparents dans ce cas. À faire si un joueur y arrive.
 >

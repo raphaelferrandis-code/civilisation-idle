@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
-import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM } from '../src/game/map/spriteScale.js';
+import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM, palierHFrac } from '../src/game/map/spriteScale.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
 const DATA = path.join(ROOT, 'scripts', 'data');
@@ -125,7 +125,11 @@ function fractions() {
       const m = l.match(re);
       if (!m) return;
       const [, keyExpr, , , wf, hf] = m;
-      const wNum = Number(wf.trim()), hNum = Number(hf.trim());
+      // `0.7 * kP` : la fraction CALIBREE est le litteral ; le facteur en
+      // variable est la compensation de palier (palierK), qui depend de la
+      // boite reelle et n'entre pas dans la mesure de reference.
+      const litFrac = (s) => Number(String(s).trim().replace(/\s*\*\s*[A-Za-z_$][\w$]*\s*$/, ''));
+      const wNum = litFrac(wf), hNum = litFrac(hf);
       if (!Number.isFinite(hNum)) { dynamiques.push({ keyExpr: keyExpr.trim(), site: `${fichier}:${i + 1}`, hFrac: hf.trim() }); return; }
       const lit = keyExpr.trim().match(/^'([^']+)'$/);
       if (lit) { pose(lit[1], Number.isFinite(wNum) ? wNum : null, hNum, fichier, i + 1); return; }
@@ -190,15 +194,17 @@ function apparent() {
         // Chemin dédié blitCosmicTower : drawH = H × boîte, ratio natif préservé.
         dens = (4 * TILE_REF * ENGINE_UNIT_F * COSMIC_TOWER_H) / e.h;
         densNote = `tour cosmique H=${COSMIC_TOWER_H}`;
+      } else if (PALIER_SPANSUM[a.key]) {
+        // PALIER : pose par blitProp lui-meme (pas d'appel litteral a extraire),
+        // dans la boite pour laquelle il est CALIBRE et a sa hauteur de calibrage.
+        const spanSum = PALIER_SPANSUM[a.key], hFrac = palierHFrac(a.key);
+        dens = (spanSum * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
+        densNote = `palier spanSum ${spanSum}, hFrac ${hFrac}`;
       } else {
         const fr = fracByKey.get(a.key);
         const hFrac = fr ? fr.hFrac : 0.75;
-        // Sprites de PALIER : juges dans la boite pour laquelle ils sont
-        // calibres (PALIER_SPANSUM), les autres a l'atelier (spanSum 4).
-        const spanSum = PALIER_SPANSUM[a.key] || 4;
-        dens = (spanSum * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
-        densNote = (fr ? `hFrac ${hFrac} (${fr.site || 'l.' + fr.ligne})` : 'hFrac 0.75 SUPPOSÉ (site dynamique)')
-          + (spanSum !== 4 ? ` palier spanSum ${spanSum}` : '');
+        dens = (4 * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
+        densNote = fr ? `hFrac ${hFrac} (${fr.site || 'l.' + fr.ligne})` : 'hFrac 0.75 SUPPOSÉ (site dynamique)';
       }
     }
     if (dens == null) continue;
@@ -280,8 +286,92 @@ function merge(dir) {
   for (const er of erreurs) console.log('  ERREUR:', er);
 }
 
+// ── serie ───────────────────────────────────────────────────────────────────
+// Chiffre le RESTE de la campagne des paliers (G2) : pour chaque famille de
+// moteur, la plus grande empreinte que sa HALLE peut atteindre, et la taille
+// de porte que ses sprites y prendraient. Une famille dont la halle plafonne a
+// l'empreinte 2 (= l'atelier) n'a besoin d'AUCUN palier.
+//
+// L'empreinte max est LUE dans layout.js (cmEngineFootprint n'est pas
+// exportee) : chaque regle y est un `if (id === "x" ...) return a : b : c;`.
+// On parse les nombres du return — derive de la source, jamais recopie.
+const FAMILLES = {
+  'forager-': 'foragers', 'granary-': 'granaries_city', 'caravan-': 'caravans',
+  'market-': 'markets', 'guild-': 'guilds', 'field-': 'irrigated_fields',
+  'port-': 'river_ports', 'mill-': 'mills', 'mint-': 'mint_houses',
+  'bank-': 'imperial_exchanges', 'exchange-': 'imperial_exchanges',
+  'storyteller-': 'storytellers', 'scribes-': 'scribes', 'schools-': 'schools',
+  'academies-': 'academies', 'cult-': 'ancestral_cult', 'ancestralcult-': 'ancestral_cult',
+  'observatories-': 'observatories', 'libraries-': 'libraries', 'universities-': 'universities',
+  'printing-': 'printing_houses', 'think-': 'think_tanks', 'aqueduct-': 'aqueducts',
+  'watch-': 'watch', 'ministries-': 'ministries', 'courthouses-': 'courthouses',
+  'bureau-': 'bureaucracy', 'works-': 'public_works', 'archive-': 'archive_grids',
+  'ruins-': 'ruin_architects', 'sewers-': 'sewers', 'cosmic-': '(cosmique)',
+};
+function empreintesMax() {
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'game', 'map', 'layout.js'), 'utf8');
+  const m = src.match(/function cmEngineFootprint\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+  if (!m) throw new Error('cmEngineFootprint introuvable dans layout.js');
+  const parId = {};
+  let defaut = null;
+  for (const ligne of m[1].split('\n')) {
+    const ret = ligne.match(/return ([^;]+);/);
+    if (!ret) continue;
+    const nombres = [...ret[1].matchAll(/(?:^|[^\w.])(\d+)(?=\s*(?::|;|$))/g)].map((x) => +x[1]);
+    if (!nombres.length) continue;
+    const max = Math.max(...nombres);
+    const ids = [...ligne.matchAll(/id === "([^"]+)"/g)].map((x) => x[1]);
+    if (ids.length) for (const id of ids) parId[id] = max;
+    else if (/^\s*return/.test(ligne)) defaut = max;
+  }
+  if (defaut == null) throw new Error('defaut de cmEngineFootprint non trouve');
+  return { parId, defaut };
+}
+function serie() {
+  const { parId, defaut } = empreintesMax();
+  const inv = JSON.parse(fs.readFileSync(path.join(DATA, 'sprite-inventory.json'), 'utf8'));
+  const ann = JSON.parse(fs.readFileSync(path.join(DATA, 'sprite-annotations.json'), 'utf8'));
+  const fr = JSON.parse(fs.readFileSync(path.join(DATA, 'engine-fractions.json'), 'utf8')).entries;
+  const invByKey = new Map(inv.entries.map((e) => [e.key, e]));
+  const parFamille = new Map();
+  for (const a of ann.entries) {
+    const e = invByKey.get(a.key);
+    if (!e || e.famille !== 'engine' || a.nature !== 'batiment' || !a.door) continue;
+    if (PALIER_SPANSUM[a.key]) continue;                       // c'est un palier
+    if (invByKey.has(a.key + '-grand')) continue;              // son palier existe deja
+    if (a.key === 'granary-horreum-classical' && invByKey.has('granary-horreum-grand')) continue;
+    const pref = Object.keys(FAMILLES).find((p) => a.key.startsWith(p));
+    if (!pref) continue;
+    const id = FAMILLES[pref];
+    const foot = parId[id] != null ? parId[id] : defaut;
+    const hFrac = fr[a.key] ? fr[a.key].hFrac : 0.75;
+    const dens = (2 * foot * TILE_REF * ENGINE_UNIT_F * hFrac) / e.h;
+    const app = a.door.h * dens;
+    const [lo, hi] = a.doorKind === 'portail' ? BANDES.portail : BANDES.porte;
+    const ecart = app < lo ? app - lo : app > hi ? app - hi : 0;
+    if (!parFamille.has(id)) parFamille.set(id, { id, foot, sprites: [] });
+    parFamille.get(id).sprites.push({ key: a.key, app: +app.toFixed(1), ecart: +ecart.toFixed(1) });
+  }
+  const rows = [...parFamille.values()].map((f) => {
+    const hors = f.sprites.filter((s) => s.ecart !== 0);
+    return { ...f, hors: hors.length, pire: hors.length ? Math.max(...hors.map((s) => Math.abs(s.ecart))) : 0 };
+  }).sort((a, b) => b.pire - a.pire);
+  const aFaire = rows.filter((r) => r.foot >= 3 && r.hors > 0);
+  const saines = rows.filter((r) => r.foot < 3 || r.hors === 0);
+  console.log(`FAMILLES A TRAITER : ${aFaire.length} — sprites de palier a produire : ${aFaire.reduce((s, r) => s + r.hors, 0)}`);
+  for (const r of aFaire) {
+    console.log(`  ${r.id} (empreinte max ${r.foot}) — ${r.hors} sprite(s), pire ecart ${r.pire}`);
+    for (const s of r.sprites.filter((x) => x.ecart !== 0).sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart))) {
+      console.log(`      ${s.key} → ${s.app} px apparents (ecart ${s.ecart})`);
+    }
+  }
+  console.log(`\nFAMILLES SANS RIEN A FAIRE : ${saines.length}`);
+  for (const r of saines) console.log(`  ${r.id} (empreinte max ${r.foot}${r.foot < 3 ? ', plafonne a l atelier' : ', deja en bande'})`);
+}
+
 const cmd = process.argv[2];
-if (cmd === 'inventory') inventory();
+if (cmd === 'serie') serie();
+else if (cmd === 'inventory') inventory();
 else if (cmd === 'fractions') fractions();
 else if (cmd === 'apparent') apparent();
 else if (cmd === 'merge' && process.argv[3]) merge(process.argv[3]);

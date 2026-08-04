@@ -433,6 +433,26 @@
    "note": "edicule d'entree facade droite"
   },
   {
+   "key": "bank-basilica-roman-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 104,
+    "w": 12,
+    "h": 20
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 100,
+    "y": 67,
+    "w": 5,
+    "h": 17
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "trois croix dorees effacees, PixelLab avait dessine une eglise"
+  },
+  {
    "key": "bank-cosmic-7",
    "nature": "batiment",
    "door": {
@@ -473,6 +493,26 @@
    "note": "vitrines sous auvent, porte au centre"
   },
   {
+   "key": "bank-house-glass-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 107,
+    "y": 112,
+    "w": 13,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 110,
+    "y": 80,
+    "w": 5,
+    "h": 9
+   },
+   "floorPitch": 16,
+   "confidence": 0.7,
+   "note": "entree vitree en retrait, peu contrastee apres quantification"
+  },
+  {
    "key": "bank-house-neoclassical",
    "nature": "batiment",
    "door": {
@@ -493,6 +533,26 @@
    "note": "porte doree masquee par la colonnade"
   },
   {
+   "key": "bank-house-neoclassical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 51,
+    "y": 76,
+    "w": 14,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 97,
+    "y": 85,
+    "w": 7,
+    "h": 31
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "portique a colonnes, sorti en bande"
+  },
+  {
    "key": "bank-house-renaissance",
    "nature": "batiment",
    "door": {
@@ -511,6 +571,26 @@
    "floorPitch": 17,
    "confidence": 0.8,
    "note": "reverbere exclu de la porte"
+  },
+  {
+   "key": "bank-house-renaissance-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 113,
+    "y": 103,
+    "w": 16,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 116,
+    "y": 75,
+    "w": 11,
+    "h": 20
+   },
+   "floorPitch": 26,
+   "confidence": 0.8,
+   "note": "palazzo trois niveaux, v1 regeneree sans entree lisible"
   },
   {
    "key": "block",
@@ -923,6 +1003,21 @@
    "note": "fenetre en arc du tambour"
   },
   {
+   "key": "cult-mausoleum-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 101,
+    "w": 13,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "facades aveugles, miroir pour la lumiere"
+  },
+  {
    "key": "cult-memorial",
    "nature": "batiment",
    "door": {
@@ -936,6 +1031,26 @@
    "floorPitch": null,
    "confidence": 0.65,
    "note": "pylone egyptien, aucune fenetre visible"
+  },
+  {
+   "key": "cult-memorial-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 47,
+    "y": 93,
+    "w": 12,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 48,
+    "y": 60,
+    "w": 9,
+    "h": 21
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "nappe de sable retiree, toit en pente vs plat d origine"
   },
   {
    "key": "cult-shrine",
@@ -956,6 +1071,26 @@
    "floorPitch": null,
    "confidence": 0.55,
    "note": "arche pierre quasi pleine facade"
+  },
+  {
+   "key": "cult-shrine-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 99,
+    "w": 21,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 74,
+    "y": 99,
+    "w": 8,
+    "h": 20
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "socle de diorama retire, identite de chapelle"
   },
   {
    "key": "cult-vesta",
@@ -986,6 +1121,26 @@
    "floorPitch": null,
    "confidence": 0.7,
    "note": "echoppe close, grande porte a barreaux"
+  },
+  {
+   "key": "exchange-prop-stall-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 105,
+    "y": 83,
+    "w": 18,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 111,
+    "y": 66,
+    "w": 5,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "grange d echange en pierre, miroir pour la lumiere"
   },
   {
    "key": "field-crop-neon",
@@ -1218,7 +1373,7 @@
    "note": "arcade de trois arches"
   },
   {
-   "key": "granary-horreum-grand",
+   "key": "granary-horreum-classical-grand",
    "nature": "batiment",
    "door": {
     "x": 121,
@@ -1353,6 +1508,26 @@
    "note": ""
   },
   {
+   "key": "guild-chamber-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 106,
+    "y": 107,
+    "w": 15,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 37,
+    "y": 66,
+    "w": 7,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porche a colonnes, lumiere juste sans miroir"
+  },
+  {
    "key": "guild-collegium",
    "nature": "batiment",
    "door": {
@@ -1371,6 +1546,26 @@
    "floorPitch": null,
    "confidence": 0.8,
    "note": "entree a pilastres"
+  },
+  {
+   "key": "guild-collegium-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 105,
+    "w": 20,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 28,
+    "y": 79,
+    "w": 7,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "deux arches murees, porte ramenee de 46 a 31 px"
   },
   {
    "key": "guild-consortium",
@@ -1433,6 +1628,26 @@
    "note": "porte en arc de brique"
   },
   {
+   "key": "guild-house-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 62,
+    "y": 115,
+    "w": 19,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 42,
+    "y": 75,
+    "w": 7,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "porte en arc, sprite miroite pour la lumiere"
+  },
+  {
    "key": "guild-prop-lodge",
    "nature": "batiment",
    "door": {
@@ -1446,6 +1661,26 @@
    "floorPitch": null,
    "confidence": 0.65,
    "note": "panneau outils croises = enseigne"
+  },
+  {
+   "key": "guild-prop-lodge-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 123,
+    "y": 101,
+    "w": 20,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 41,
+    "y": 56,
+    "w": 7,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "chaume clair fausse lightCheck, murs tranches a la luminance"
   },
   {
    "key": "hut",
@@ -1483,6 +1718,26 @@
    "note": "entree en retrait derriere colonnes"
   },
   {
+   "key": "libraries-classical-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 49,
+    "y": 90,
+    "w": 18,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 24,
+    "y": 84,
+    "w": 8,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "arche muree de 51 a 31 px, blindArch --lum 150"
+  },
+  {
    "key": "libraries-grand",
    "nature": "batiment",
    "door": {
@@ -1501,6 +1756,26 @@
    "floorPitch": 20,
    "confidence": 0.75,
    "note": "lucarnes de comble"
+  },
+  {
+   "key": "libraries-grand-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 115,
+    "y": 110,
+    "w": 12,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 52,
+    "y": 80,
+    "w": 6,
+    "h": 18
+   },
+   "floorPitch": 31,
+   "confidence": 0.8,
+   "note": "porte cintree bois sombre, miroir"
   },
   {
    "key": "libraries-modern",
@@ -1523,6 +1798,26 @@
    "note": "haut des baies masque par auvents"
   },
   {
+   "key": "libraries-modern-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 99,
+    "w": 8,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 82,
+    "y": 85,
+    "w": 8,
+    "h": 14
+   },
+   "floorPitch": 18,
+   "confidence": 0.75,
+   "note": "vantail turquoise sous arc creme"
+  },
+  {
    "key": "libraries-monastic",
    "nature": "batiment",
    "door": {
@@ -1543,6 +1838,26 @@
    "note": "fenetre en arc au pignon"
   },
   {
+   "key": "libraries-monastic-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 50,
+    "y": 87,
+    "w": 12,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 105,
+    "y": 82,
+    "w": 6,
+    "h": 20
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "chene sous arc brise, miroir"
+  },
+  {
    "key": "libraries-prop-archive",
    "nature": "batiment",
    "door": {
@@ -1561,6 +1876,26 @@
    "floorPitch": null,
    "confidence": 0.8,
    "note": "cabane, porte pleine hauteur du mur"
+  },
+  {
+   "key": "libraries-prop-archive-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 118,
+    "y": 75,
+    "w": 15,
+    "h": 26
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 68,
+    "y": 65,
+    "w": 11,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "26 px, 4 au-dessus de la bande ; le petit d origine fait pareil"
   },
   {
    "key": "longhouse",
@@ -1828,6 +2163,26 @@
    "note": "tour de moulin, porte d'atelier en arche"
   },
   {
+   "key": "mill-house-industrial-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 70,
+    "y": 127,
+    "w": 13,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 75,
+    "y": 97,
+    "w": 7,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "tour de brique et galerie, tympan mure"
+  },
+  {
    "key": "mill-house-modern",
    "nature": "batiment",
    "door": {
@@ -1863,6 +2218,26 @@
    "note": "porte en arche"
   },
   {
+   "key": "mill-house-roman-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 97,
+    "y": 121,
+    "w": 11,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 71,
+    "y": 47,
+    "w": 7,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "tour octogonale, tympans mures"
+  },
+  {
    "key": "mill-house-stone",
    "nature": "batiment",
    "door": {
@@ -1883,6 +2258,26 @@
    "note": "porte d'atelier en arche massive"
   },
   {
+   "key": "mill-house-stone-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 66,
+    "y": 104,
+    "w": 13,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 71,
+    "y": 63,
+    "w": 5,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "tour ronde de calcaire, aucune retouche"
+  },
+  {
    "key": "mill-prop-house",
    "nature": "batiment",
    "door": {
@@ -1896,6 +2291,26 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "corps de moulin en bois, auvent-linteau inclus"
+  },
+  {
+   "key": "mill-prop-house-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 99,
+    "y": 113,
+    "w": 13,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 68,
+    "y": 80,
+    "w": 9,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "tour de bois et appentis, corps seul sans ailes"
   },
   {
    "key": "mill-prop-wheel",
@@ -1948,6 +2363,26 @@
    "note": "porte derriere la colonnade"
   },
   {
+   "key": "ministries-capitol-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 91,
+    "w": 14,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 22,
+    "y": 77,
+    "w": 6,
+    "h": 27
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "dome et deux ailes, porte visible entre les colonnes"
+  },
+  {
    "key": "ministries-council",
    "nature": "batiment",
    "door": {
@@ -1968,6 +2403,26 @@
    "note": "porte en planches presumee"
   },
   {
+   "key": "ministries-council-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 120,
+    "y": 108,
+    "w": 19,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 126,
+    "y": 75,
+    "w": 7,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "halle en rondins et chaume, miroir pour la lumiere"
+  },
+  {
    "key": "ministries-curia",
    "nature": "batiment",
    "door": {
@@ -1981,6 +2436,21 @@
    "floorPitch": null,
    "confidence": 0.6,
    "note": "cella sombre derriere colonnade"
+  },
+  {
+   "key": "ministries-curia-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 109,
+    "y": 85,
+    "w": 12,
+    "h": 31
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "ATTENTION stylobate a degres subsiste, a reprendre"
   },
   {
    "key": "ministries-palace",
@@ -2003,6 +2473,26 @@
    "note": "portail en arc sur pignon"
   },
   {
+   "key": "ministries-palace-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 100,
+    "w": 18,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 25,
+    "y": 65,
+    "w": 8,
+    "h": 13
+   },
+   "floorPitch": 29,
+   "confidence": 0.85,
+   "note": "palazzo ocre, miroir pour la lumiere"
+  },
+  {
    "key": "ministries-tower",
    "nature": "batiment",
    "door": {
@@ -2021,6 +2511,26 @@
    "floorPitch": 9,
    "confidence": 0.7,
    "note": "portes jumelles au rez"
+  },
+  {
+   "key": "ministries-tower-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 59,
+    "y": 97,
+    "w": 12,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 101,
+    "y": 62,
+    "w": 4,
+    "h": 10
+   },
+   "floorPitch": 15,
+   "confidence": 0.8,
+   "note": "dalle pavee retiree au pixel"
   },
   {
    "key": "mint-cosmic-7",
@@ -3023,6 +3533,26 @@
    "note": "pitch 9-10 selon colonne"
   },
   {
+   "key": "think-chancellery-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 43,
+    "y": 86,
+    "w": 12,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 74,
+    "y": 68,
+    "w": 7,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "tour d escalier, epaisseur de terre rabotee"
+  },
+  {
    "key": "think-institute",
    "nature": "batiment",
    "door": {
@@ -3041,6 +3571,26 @@
    "floorPitch": 13,
    "confidence": 0.8,
    "note": "porte a auvent blanc"
+  },
+  {
+   "key": "think-institute-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 48,
+    "y": 110,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 33,
+    "y": 77,
+    "w": 9,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "brique rouge et mansarde ; porte mesuree SANS chambranle"
   },
   {
    "key": "think-modern",
@@ -3063,6 +3613,26 @@
    "note": "entree sombre entre pilastres"
   },
   {
+   "key": "think-modern-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 100,
+    "y": 84,
+    "w": 7,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 35,
+    "y": 69,
+    "w": 4,
+    "h": 30
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "pavillon calcaire ; porte mesuree SANS chambranle"
+  },
+  {
    "key": "think-prop-council",
    "nature": "batiment",
    "door": {
@@ -3076,6 +3646,21 @@
    "floorPitch": null,
    "confidence": 0.55,
    "note": "hutte de conseil"
+  },
+  {
+   "key": "think-prop-council-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 114,
+    "y": 96,
+    "w": 14,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "halle longue en bois, miroir ; porte mesuree SANS chambranle"
   },
   {
    "key": "think-stoa-roman",
@@ -3096,6 +3681,21 @@
    "floorPitch": null,
    "confidence": 0.75,
    "note": "entree entre deux colonnes"
+  },
+  {
+   "key": "think-stoa-roman-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 121,
+    "y": 87,
+    "w": 12,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "colonnade six colonnes, stylobate bas"
   },
   {
    "key": "tower",
