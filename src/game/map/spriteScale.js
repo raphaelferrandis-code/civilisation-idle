@@ -69,6 +69,9 @@ export const PALIER_SPANSUM = {
   'courthouses-lodge-grand': 6, 'courthouses-basilica-grand': 6,
   'courthouses-tribunal-grand': 6, 'courthouses-modern-grand': 6,
   'courthouses-neoclassical-grand': 6,
+  'bureau-hut-grand': 6, 'bureau-chancery-grand': 6,
+  'bureau-tabularium-grand': 6, 'bureau-office-grand': 6,
+  'bureau-tower-grand': 6,
 };
 
 // Hauteur de calibrage d'un palier, en fraction de sa boîte. 0,7 partout sauf

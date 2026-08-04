@@ -3575,6 +3575,25 @@
    "classe": "prop-cosmic"
   },
   {
+   "key": "market-hall-glass-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 10,
+    "y0": 9,
+    "w": 156,
+    "h": 142
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 9,
+    "w": 156,
+    "h": 142
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "market-hall-glass",
    "famille": "engine",
    "w": 112,
@@ -3613,6 +3632,25 @@
    "classe": "prop"
   },
   {
+   "key": "market-macellum-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 8,
+    "y0": 14,
+    "w": 158,
+    "h": 134
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 14,
+    "w": 158,
+    "h": 134
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "market-macellum",
    "famille": "engine",
    "w": 112,
@@ -3632,6 +3670,25 @@
    "classe": "prop"
   },
   {
+   "key": "market-plaza-neon-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 11,
+    "y0": 9,
+    "w": 154,
+    "h": 142
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 9,
+    "w": 154,
+    "h": 142
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "market-plaza-neon",
    "famille": "engine",
    "w": 112,
@@ -3649,6 +3706,25 @@
     "h": 77
    },
    "classe": "prop"
+  },
+  {
+   "key": "market-prop-stall-grand",
+   "famille": "engine",
+   "w": 176,
+   "h": 160,
+   "ink16": {
+    "x0": 4,
+    "y0": 8,
+    "w": 168,
+    "h": 143
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 8,
+    "w": 168,
+    "h": 143
+   },
+   "classe": "orphelin"
   },
   {
    "key": "market-prop-stall",

@@ -369,6 +369,16 @@ attendent leur art, G1 traite le reste.
 > - ⚠ **`blindArch` ne vaut que pour une VRAIE arche** dans un mur d'appareil.
 >   Sur une porte à planches il barbouille les joints sombres du vantail et le
 >   résultat est à jeter — dans ce cas, régénérer ou assumer l'écart.
+> - ⚠ **La clause de découpe échoue encore souvent** (6 générations sur 6 pour
+>   trois sprites de la bureaucratie, toujours un diorama d'herbe). Ordre de
+>   bataille confirmé : clause de découpe d'abord, **coupe GÉOMÉTRIQUE en
+>   rattrapage** (seuil par colonne suivant la ligne de sol, puis tri des
+>   composantes en 4-connexité). ⚠ La pente de la base d'un bâtiment PixelLab
+>   n'est PAS celle de la nappe iso (0,29 mesuré contre 0,5) : un V à 0,5 rogne
+>   les extrémités du bâtiment, sauf sur une boîte franche.
+> - ⛔ **Ne jamais lancer un outil RÉCURSIF sur un dossier du scratchpad** : il
+>   est partagé entre agents frères. Un `quantize.cjs <dossier>` a réécrit les
+>   agrandissements de mesure d'un autre agent. Viser les fichiers un par un.
 > - ⚠ **Convention de mesure à normaliser** : certains annotateurs prennent la
 >   seule ouverture, d'autres l'ouverture + son chambranle — 3 à 5 px d'écart,
 >   soit ~2-3 px apparents. À harmoniser sur « ouverture + encadrement » (la

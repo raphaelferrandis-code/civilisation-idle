@@ -728,6 +728,26 @@
    "note": "pitch lucarne-rez"
   },
   {
+   "key": "bureau-chancery-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 109,
+    "y": 92,
+    "w": 16,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 93,
+    "y": 83,
+    "w": 9,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "ardoise et colombage, arche de chene, nappe coupee"
+  },
+  {
    "key": "bureau-hut",
    "nature": "batiment",
    "door": {
@@ -746,6 +766,26 @@
    "floorPitch": null,
    "confidence": 0.8,
    "note": "croisee integree au battant"
+  },
+  {
+   "key": "bureau-hut-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 58,
+    "y": 89,
+    "w": 13,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 113,
+    "y": 56,
+    "w": 10,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "colombage et chaume, nappe retiree par coupe geometrique"
   },
   {
    "key": "bureau-office",
@@ -768,6 +808,26 @@
    "note": "maison de ville 2 niveaux, porte sous petit porche"
   },
   {
+   "key": "bureau-office-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 52,
+    "y": 108,
+    "w": 13,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 53,
+    "y": 80,
+    "w": 8,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "pierre ivoire et mansarde, sans nappe"
+  },
+  {
    "key": "bureau-tabularium",
    "nature": "batiment",
    "door": {
@@ -788,6 +848,26 @@
    "note": "seconde porte charretiere plus large sur la facade droite"
   },
   {
+   "key": "bureau-tabularium-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 52,
+    "y": 103,
+    "w": 13,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 71,
+    "y": 80,
+    "w": 8,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "tuile romaine et travertin, sans nappe du premier coup"
+  },
+  {
    "key": "bureau-tower",
    "nature": "batiment",
    "door": {
@@ -806,6 +886,26 @@
    "floorPitch": 11,
    "confidence": 0.6,
    "note": "entree vitree eclairee du rez, contour peu net"
+  },
+  {
+   "key": "bureau-tower-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 113,
+    "w": 11,
+    "h": 18
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 53,
+    "y": 70,
+    "w": 6,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "beton ivoire, nappe retiree par coupe en V"
   },
   {
    "key": "caravan-cosmic-7",
