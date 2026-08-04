@@ -1,0 +1,4890 @@
+{
+ "_doc": "Genere par spriteScaleAudit.mjs inventory — ne pas editer a la main.",
+ "date": "2026-08-04",
+ "entries": [
+  {
+   "key": "arcologyhome-cosmic-7",
+   "famille": "house",
+   "w": 96,
+   "h": 208,
+   "ink16": {
+    "x0": 1,
+    "y0": 3,
+    "w": 93,
+    "h": 201
+   },
+   "ink40": {
+    "x0": 1,
+    "y0": 3,
+    "w": 93,
+    "h": 201
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "arcologyhome-cosmic-8",
+   "famille": "house",
+   "w": 96,
+   "h": 208,
+   "ink16": {
+    "x0": 0,
+    "y0": 4,
+    "w": 96,
+    "h": 200
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 4,
+    "w": 96,
+    "h": 200
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "arcologyhome-cosmic-9",
+   "famille": "house",
+   "w": 96,
+   "h": 208,
+   "ink16": {
+    "x0": 3,
+    "y0": 0,
+    "w": 90,
+    "h": 208
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 0,
+    "w": 90,
+    "h": 208
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "arcologyhome",
+   "famille": "house",
+   "w": 112,
+   "h": 128,
+   "ink16": {
+    "x0": 12,
+    "y0": 5,
+    "w": 89,
+    "h": 111
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 5,
+    "w": 89,
+    "h": 111
+   },
+   "classe": "house"
+  },
+  {
+   "key": "block",
+   "famille": "house",
+   "w": 64,
+   "h": 84,
+   "ink16": {
+    "x0": 10,
+    "y0": 5,
+    "w": 53,
+    "h": 71
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 5,
+    "w": 53,
+    "h": 71
+   },
+   "classe": "house"
+  },
+  {
+   "key": "courtyard",
+   "famille": "house",
+   "w": 64,
+   "h": 52,
+   "ink16": {
+    "x0": 8,
+    "y0": 7,
+    "w": 49,
+    "h": 40
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 7,
+    "w": 49,
+    "h": 40
+   },
+   "classe": "house"
+  },
+  {
+   "key": "hut",
+   "famille": "house",
+   "w": 44,
+   "h": 44,
+   "ink16": {
+    "x0": 5,
+    "y0": 3,
+    "w": 35,
+    "h": 35
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 3,
+    "w": 35,
+    "h": 35
+   },
+   "classe": "house"
+  },
+  {
+   "key": "longhouse",
+   "famille": "house",
+   "w": 64,
+   "h": 44,
+   "ink16": {
+    "x0": 16,
+    "y0": 3,
+    "w": 36,
+    "h": 33
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 3,
+    "w": 36,
+    "h": 33
+   },
+   "classe": "house"
+  },
+  {
+   "key": "manor",
+   "famille": "house",
+   "w": 72,
+   "h": 64,
+   "ink16": {
+    "x0": 8,
+    "y0": 1,
+    "w": 57,
+    "h": 55
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 1,
+    "w": 57,
+    "h": 55
+   },
+   "classe": "house"
+  },
+  {
+   "key": "megablock-cosmic-7",
+   "famille": "house",
+   "w": 96,
+   "h": 224,
+   "ink16": {
+    "x0": 5,
+    "y0": 1,
+    "w": 87,
+    "h": 213
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 1,
+    "w": 87,
+    "h": 213
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "megablock-cosmic-8",
+   "famille": "house",
+   "w": 96,
+   "h": 232,
+   "ink16": {
+    "x0": 0,
+    "y0": 2,
+    "w": 96,
+    "h": 227
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 2,
+    "w": 96,
+    "h": 227
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "megablock-cosmic-9",
+   "famille": "house",
+   "w": 96,
+   "h": 240,
+   "ink16": {
+    "x0": 4,
+    "y0": 2,
+    "w": 89,
+    "h": 233
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 2,
+    "w": 89,
+    "h": 233
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "megablock",
+   "famille": "house",
+   "w": 104,
+   "h": 100,
+   "ink16": {
+    "x0": 11,
+    "y0": 1,
+    "w": 90,
+    "h": 91
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 1,
+    "w": 90,
+    "h": 91
+   },
+   "classe": "house"
+  },
+  {
+   "key": "stonehouse",
+   "famille": "house",
+   "w": 48,
+   "h": 60,
+   "ink16": {
+    "x0": 5,
+    "y0": 4,
+    "w": 41,
+    "h": 49
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 4,
+    "w": 41,
+    "h": 49
+   },
+   "classe": "house"
+  },
+  {
+   "key": "tenement",
+   "famille": "house",
+   "w": 56,
+   "h": 100,
+   "ink16": {
+    "x0": 10,
+    "y0": 3,
+    "w": 45,
+    "h": 90
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 3,
+    "w": 45,
+    "h": 90
+   },
+   "classe": "house"
+  },
+  {
+   "key": "tent",
+   "famille": "house",
+   "w": 40,
+   "h": 40,
+   "ink16": {
+    "x0": 3,
+    "y0": 3,
+    "w": 35,
+    "h": 28
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 3,
+    "w": 35,
+    "h": 28
+   },
+   "classe": "house"
+  },
+  {
+   "key": "tower-cosmic-7",
+   "famille": "house",
+   "w": 96,
+   "h": 320,
+   "ink16": {
+    "x0": 11,
+    "y0": 6,
+    "w": 74,
+    "h": 308
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 6,
+    "w": 74,
+    "h": 308
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "tower-cosmic-8",
+   "famille": "house",
+   "w": 96,
+   "h": 320,
+   "ink16": {
+    "x0": 4,
+    "y0": 4,
+    "w": 88,
+    "h": 315
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 4,
+    "w": 88,
+    "h": 315
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "tower-cosmic-9",
+   "famille": "house",
+   "w": 96,
+   "h": 320,
+   "ink16": {
+    "x0": 7,
+    "y0": 5,
+    "w": 81,
+    "h": 306
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 5,
+    "w": 81,
+    "h": 306
+   },
+   "classe": "house-cosmic"
+  },
+  {
+   "key": "tower",
+   "famille": "house",
+   "w": 56,
+   "h": 120,
+   "ink16": {
+    "x0": 6,
+    "y0": 3,
+    "w": 47,
+    "h": 110
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 3,
+    "w": 47,
+    "h": 110
+   },
+   "classe": "house"
+  },
+  {
+   "key": "townhouse",
+   "famille": "house",
+   "w": 48,
+   "h": 60,
+   "ink16": {
+    "x0": 7,
+    "y0": 2,
+    "w": 38,
+    "h": 53
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 2,
+    "w": 38,
+    "h": 53
+   },
+   "classe": "house"
+  },
+  {
+   "key": "academies-athenaeum",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 9,
+    "w": 96,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 9,
+    "w": 96,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "academies-institute",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 6,
+    "y0": 7,
+    "w": 100,
+    "h": 75
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 7,
+    "w": 100,
+    "h": 75
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "academies-modern",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 8,
+    "w": 104,
+    "h": 74
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 8,
+    "w": 104,
+    "h": 74
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "academies-prop-yard",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 7,
+    "y0": 6,
+    "w": 82,
+    "h": 67
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 6,
+    "w": 82,
+    "h": 67
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "academies-renaissance",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 10,
+    "y0": 10,
+    "w": 92,
+    "h": 75
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 10,
+    "w": 92,
+    "h": 75
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ancestralcult-back",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 5,
+    "y0": 6,
+    "w": 86,
+    "h": 66
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 6,
+    "w": 86,
+    "h": 66
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ancestralcult-fire",
+   "famille": "engine",
+   "w": 672,
+   "h": 80,
+   "ink16": {
+    "x0": 36,
+    "y0": 17,
+    "w": 601,
+    "h": 44
+   },
+   "ink40": {
+    "x0": 36,
+    "y0": 17,
+    "w": 601,
+    "h": 44
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "ancestralcult-prop",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 5,
+    "y0": 6,
+    "w": 86,
+    "h": 66
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 6,
+    "w": 86,
+    "h": 66
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-intake",
+   "famille": "engine",
+   "w": 48,
+   "h": 72,
+   "ink16": {
+    "x0": 0,
+    "y0": 20,
+    "w": 38,
+    "h": 30
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 20,
+    "w": 38,
+    "h": 30
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-iron-intake",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 6,
+    "w": 64,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 6,
+    "w": 64,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-iron-outlet",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 38,
+    "w": 64,
+    "h": 53
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 38,
+    "w": 64,
+    "h": 53
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-iron-scene",
+   "famille": "engine",
+   "w": 192,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 6,
+    "w": 192,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 6,
+    "w": 192,
+    "h": 85
+   },
+   "classe": "orphelin"
+  },
+  {
+   "key": "aqueduct-iron-seg",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 38,
+    "w": 64,
+    "h": 24
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 38,
+    "w": 64,
+    "h": 24
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-modern-intake",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 35,
+    "w": 64,
+    "h": 25
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 35,
+    "w": 64,
+    "h": 25
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-modern-outlet",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 33,
+    "w": 64,
+    "h": 27
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 33,
+    "w": 64,
+    "h": 27
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-modern-scene",
+   "famille": "engine",
+   "w": 192,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 33,
+    "w": 192,
+    "h": 27
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 33,
+    "w": 192,
+    "h": 27
+   },
+   "classe": "orphelin"
+  },
+  {
+   "key": "aqueduct-modern-seg",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 42,
+    "w": 64,
+    "h": 18
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 42,
+    "w": 64,
+    "h": 18
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-outlet",
+   "famille": "engine",
+   "w": 48,
+   "h": 72,
+   "ink16": {
+    "x0": 9,
+    "y0": 23,
+    "w": 39,
+    "h": 27
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 23,
+    "w": 39,
+    "h": 27
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-roman-intake",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 34,
+    "w": 50,
+    "h": 22
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 34,
+    "w": 50,
+    "h": 22
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-roman-outlet",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 17,
+    "y0": 34,
+    "w": 47,
+    "h": 22
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 34,
+    "w": 47,
+    "h": 22
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-roman-scene",
+   "famille": "engine",
+   "w": 192,
+   "h": 96,
+   "ink16": {
+    "x0": 17,
+    "y0": 34,
+    "w": 161,
+    "h": 22
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 34,
+    "w": 161,
+    "h": 22
+   },
+   "classe": "orphelin"
+  },
+  {
+   "key": "aqueduct-roman-seg",
+   "famille": "engine",
+   "w": 64,
+   "h": 96,
+   "ink16": {
+    "x0": 0,
+    "y0": 34,
+    "w": 64,
+    "h": 22
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 34,
+    "w": 64,
+    "h": 22
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-seg",
+   "famille": "engine",
+   "w": 48,
+   "h": 72,
+   "ink16": {
+    "x0": 0,
+    "y0": 23,
+    "w": 48,
+    "h": 27
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 23,
+    "w": 48,
+    "h": 27
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "aqueduct-water-intake",
+   "famille": "engine",
+   "w": 336,
+   "h": 72,
+   "ink16": {
+    "x0": 0,
+    "y0": 24,
+    "w": 324,
+    "h": 6
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 24,
+    "w": 324,
+    "h": 6
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "aqueduct-water-outlet",
+   "famille": "engine",
+   "w": 336,
+   "h": 72,
+   "ink16": {
+    "x0": 13,
+    "y0": 26,
+    "w": 323,
+    "h": 16
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 26,
+    "w": 323,
+    "h": 16
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "aqueduct-water-seg",
+   "famille": "engine",
+   "w": 336,
+   "h": 72,
+   "ink16": {
+    "x0": 0,
+    "y0": 26,
+    "w": 336,
+    "h": 4
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 26,
+    "w": 336,
+    "h": 4
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "archive-grid",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 6,
+    "w": 100,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 6,
+    "w": 100,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "archive-hut",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 13,
+    "y0": 6,
+    "w": 86,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 6,
+    "w": 86,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "archive-records",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 10,
+    "y0": 3,
+    "w": 89,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 3,
+    "w": 89,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "archive-tabularium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 4,
+    "w": 102,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 4,
+    "w": 102,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "archive-vault",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 0,
+    "w": 100,
+    "h": 88
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 0,
+    "w": 100,
+    "h": 88
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bank-basilica-roman",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 7,
+    "y0": 5,
+    "w": 98,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 5,
+    "w": 98,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bank-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 16,
+    "y0": 24,
+    "w": 98,
+    "h": 191
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 24,
+    "w": 98,
+    "h": 191
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "bank-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 20,
+    "y0": 20,
+    "w": 95,
+    "h": 204
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 20,
+    "w": 95,
+    "h": 204
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "bank-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 6,
+    "y0": 9,
+    "w": 116,
+    "h": 211
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 9,
+    "w": 116,
+    "h": 211
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "bank-house-glass",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 4,
+    "y0": 6,
+    "w": 88,
+    "h": 84
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 6,
+    "w": 88,
+    "h": 84
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bank-house-neoclassical",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 3,
+    "y0": 10,
+    "w": 90,
+    "h": 76
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 10,
+    "w": 90,
+    "h": 76
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bank-house-renaissance",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 12,
+    "y0": 4,
+    "w": 92,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 4,
+    "w": 92,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bureau-chancery",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 21,
+    "y0": 5,
+    "w": 71,
+    "h": 78
+   },
+   "ink40": {
+    "x0": 21,
+    "y0": 5,
+    "w": 71,
+    "h": 78
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bureau-hut",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 9,
+    "y0": 5,
+    "w": 99,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 5,
+    "w": 99,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bureau-office",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 0,
+    "w": 101,
+    "h": 87
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 0,
+    "w": 101,
+    "h": 87
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bureau-tabularium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 20,
+    "y0": 8,
+    "w": 66,
+    "h": 71
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 8,
+    "w": 66,
+    "h": 71
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "bureau-tower",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 24,
+    "y0": 2,
+    "w": 64,
+    "h": 84
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 2,
+    "w": 64,
+    "h": 84
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "caravan-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 8,
+    "y0": 18,
+    "w": 112,
+    "h": 206
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 18,
+    "w": 112,
+    "h": 206
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "caravan-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 5,
+    "y0": 13,
+    "w": 118,
+    "h": 211
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 13,
+    "w": 118,
+    "h": 211
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "caravan-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 5,
+    "y0": 10,
+    "w": 118,
+    "h": 214
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 10,
+    "w": 118,
+    "h": 214
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "caravan-mule-east",
+   "famille": "engine",
+   "w": 560,
+   "h": 80,
+   "ink16": {
+    "x0": 7,
+    "y0": 13,
+    "w": 539,
+    "h": 49
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 13,
+    "w": 539,
+    "h": 49
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "caravan-mule-rest",
+   "famille": "engine",
+   "w": 720,
+   "h": 80,
+   "ink16": {
+    "x0": 9,
+    "y0": 13,
+    "w": 701,
+    "h": 44
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 13,
+    "w": 701,
+    "h": 44
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "caravan-mule-west",
+   "famille": "engine",
+   "w": 560,
+   "h": 80,
+   "ink16": {
+    "x0": 14,
+    "y0": 13,
+    "w": 539,
+    "h": 49
+   },
+   "ink40": {
+    "x0": 14,
+    "y0": 13,
+    "w": 539,
+    "h": 49
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "caravan-oxcart-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 64,
+   "ink16": {
+    "x0": 13,
+    "y0": 13,
+    "w": 88,
+    "h": 37
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 13,
+    "w": 88,
+    "h": 37
+   },
+   "classe": "orphelin"
+  },
+  {
+   "key": "caravan-pod",
+   "famille": "engine",
+   "w": 112,
+   "h": 64,
+   "ink16": {
+    "x0": 16,
+    "y0": 16,
+    "w": 79,
+    "h": 34
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 16,
+    "w": 79,
+    "h": 34
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "caravan-prop-sacks",
+   "famille": "engine",
+   "w": 64,
+   "h": 48,
+   "ink16": {
+    "x0": 12,
+    "y0": 7,
+    "w": 40,
+    "h": 34
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 7,
+    "w": 40,
+    "h": 34
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "caravan-truck",
+   "famille": "engine",
+   "w": 112,
+   "h": 64,
+   "ink16": {
+    "x0": 10,
+    "y0": 11,
+    "w": 84,
+    "h": 43
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 11,
+    "w": 84,
+    "h": 43
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "caravan-wagon",
+   "famille": "engine",
+   "w": 112,
+   "h": 64,
+   "ink16": {
+    "x0": 13,
+    "y0": 15,
+    "w": 55,
+    "h": 37
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 15,
+    "w": 55,
+    "h": 37
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "cosmic-arch-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 6,
+    "y0": 10,
+    "w": 116,
+    "h": 214
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 10,
+    "w": 116,
+    "h": 214
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-arch-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 19,
+    "y0": 17,
+    "w": 90,
+    "h": 207
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 17,
+    "w": 90,
+    "h": 207
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-arch-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 2,
+    "y0": 8,
+    "w": 124,
+    "h": 216
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 8,
+    "w": 124,
+    "h": 216
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-dome-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 8,
+    "y0": 15,
+    "w": 112,
+    "h": 209
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 15,
+    "w": 112,
+    "h": 209
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-dome-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 10,
+    "y0": 30,
+    "w": 108,
+    "h": 194
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 30,
+    "w": 108,
+    "h": 194
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-dome-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 3,
+    "y0": 14,
+    "w": 122,
+    "h": 210
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 14,
+    "w": 122,
+    "h": 210
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-frame-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 14,
+    "y0": 17,
+    "w": 100,
+    "h": 207
+   },
+   "ink40": {
+    "x0": 14,
+    "y0": 17,
+    "w": 100,
+    "h": 207
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-frame-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 13,
+    "y0": 17,
+    "w": 102,
+    "h": 207
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 17,
+    "w": 102,
+    "h": 207
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-frame-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 17,
+    "y0": 13,
+    "w": 95,
+    "h": 211
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 13,
+    "w": 95,
+    "h": 211
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-hall-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 10,
+    "y0": 16,
+    "w": 108,
+    "h": 208
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 16,
+    "w": 108,
+    "h": 208
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-hall-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 8,
+    "y0": 18,
+    "w": 112,
+    "h": 206
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 18,
+    "w": 112,
+    "h": 206
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-hall-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 10,
+    "y0": 18,
+    "w": 109,
+    "h": 206
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 18,
+    "w": 109,
+    "h": 206
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-spire-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 18,
+    "y0": 14,
+    "w": 92,
+    "h": 210
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 14,
+    "w": 92,
+    "h": 210
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-spire-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 9,
+    "y0": 12,
+    "w": 110,
+    "h": 212
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 12,
+    "w": 110,
+    "h": 212
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-spire-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 17,
+    "y0": 18,
+    "w": 94,
+    "h": 206
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 18,
+    "w": 94,
+    "h": 206
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-temple-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 7,
+    "y0": 11,
+    "w": 114,
+    "h": 213
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 11,
+    "w": 114,
+    "h": 213
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-temple-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 3,
+    "y0": 6,
+    "w": 123,
+    "h": 218
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 6,
+    "w": 123,
+    "h": 218
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "cosmic-temple-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 4,
+    "y0": 12,
+    "w": 120,
+    "h": 212
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 12,
+    "w": 120,
+    "h": 212
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "courthouses-basilica",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 5,
+    "w": 104,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 5,
+    "w": 104,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "courthouses-lodge",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 112,
+    "h": 88
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 112,
+    "h": 88
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "courthouses-modern",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 6,
+    "w": 96,
+    "h": 78
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 6,
+    "w": 96,
+    "h": 78
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "courthouses-neoclassical",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 9,
+    "y0": 5,
+    "w": 94,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 5,
+    "w": 94,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "courthouses-tribunal",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 20,
+    "y0": 5,
+    "w": 71,
+    "h": 75
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 5,
+    "w": 71,
+    "h": 75
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "cult-mausoleum",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 6,
+    "y0": 7,
+    "w": 99,
+    "h": 74
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 7,
+    "w": 99,
+    "h": 74
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "cult-memorial",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 83
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 83
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "cult-shrine",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 17,
+    "y0": 5,
+    "w": 78,
+    "h": 71
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 5,
+    "w": 78,
+    "h": 71
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "cult-vesta",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 24,
+    "y0": 7,
+    "w": 62,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 7,
+    "w": 62,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "exchange-prop-stall",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 3,
+    "y0": 2,
+    "w": 90,
+    "h": 76
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 2,
+    "w": 90,
+    "h": 76
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "field-crop-neon",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 5,
+    "y0": 9,
+    "w": 55,
+    "h": 47
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 9,
+    "w": 55,
+    "h": 47
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "field-prop-crop-gold",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 12,
+    "y0": 11,
+    "w": 42,
+    "h": 41
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 11,
+    "w": 42,
+    "h": 41
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "field-prop-crop-green",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 8,
+    "y0": 9,
+    "w": 48,
+    "h": 46
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 9,
+    "w": 48,
+    "h": 46
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "field-prop-fallow",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 13,
+    "y0": 12,
+    "w": 38,
+    "h": 40
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 12,
+    "w": 38,
+    "h": 40
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 10,
+    "y0": 13,
+    "w": 108,
+    "h": 211
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 13,
+    "w": 108,
+    "h": 211
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "forager-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 20,
+    "y0": 12,
+    "w": 88,
+    "h": 212
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 12,
+    "w": 88,
+    "h": 212
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "forager-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 15,
+    "y0": 10,
+    "w": 99,
+    "h": 214
+   },
+   "ink40": {
+    "x0": 15,
+    "y0": 10,
+    "w": 99,
+    "h": 214
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "forager-crouch-south-half",
+   "famille": "engine",
+   "w": 150,
+   "h": 30,
+   "ink16": {
+    "x0": 10,
+    "y0": 8,
+    "w": 130,
+    "h": 14
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 8,
+    "w": 130,
+    "h": 14
+   },
+   "classe": "strip-half"
+  },
+  {
+   "key": "forager-crouch-south",
+   "famille": "engine",
+   "w": 300,
+   "h": 60,
+   "ink16": {
+    "x0": 20,
+    "y0": 15,
+    "w": 260,
+    "h": 30
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 15,
+    "w": 260,
+    "h": 30
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "forager-greenhouse",
+   "famille": "engine",
+   "w": 128,
+   "h": 96,
+   "ink16": {
+    "x0": 10,
+    "y0": 9,
+    "w": 104,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 9,
+    "w": 104,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-handcart",
+   "famille": "engine",
+   "w": 72,
+   "h": 64,
+   "ink16": {
+    "x0": 2,
+    "y0": 10,
+    "w": 64,
+    "h": 45
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 10,
+    "w": 64,
+    "h": 45
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-hortus-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 2,
+    "y0": 7,
+    "w": 108,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 7,
+    "w": 108,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-hydro-rack",
+   "famille": "engine",
+   "w": 96,
+   "h": 128,
+   "ink16": {
+    "x0": 16,
+    "y0": 25,
+    "w": 66,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 25,
+    "w": 66,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-orchard-crates",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 7,
+    "y0": 3,
+    "w": 51,
+    "h": 58
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 3,
+    "w": 51,
+    "h": 58
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-orchard-tree",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 16,
+    "y0": 10,
+    "w": 60,
+    "h": 76
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 10,
+    "w": 60,
+    "h": 76
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-pick-east-half",
+   "famille": "engine",
+   "w": 210,
+   "h": 30,
+   "ink16": {
+    "x0": 12,
+    "y0": 7,
+    "w": 188,
+    "h": 15
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 7,
+    "w": 188,
+    "h": 15
+   },
+   "classe": "strip-half"
+  },
+  {
+   "key": "forager-pick-east",
+   "famille": "engine",
+   "w": 420,
+   "h": 60,
+   "ink16": {
+    "x0": 23,
+    "y0": 13,
+    "w": 378,
+    "h": 32
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 13,
+    "w": 378,
+    "h": 32
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "forager-prop-basket",
+   "famille": "engine",
+   "w": 48,
+   "h": 48,
+   "ink16": {
+    "x0": 9,
+    "y0": 7,
+    "w": 30,
+    "h": 33
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 7,
+    "w": 30,
+    "h": 33
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-prop-tree",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 13,
+    "y0": 8,
+    "w": 37,
+    "h": 48
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 8,
+    "w": 37,
+    "h": 48
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "forager-walk-east-half",
+   "famille": "engine",
+   "w": 180,
+   "h": 30,
+   "ink16": {
+    "x0": 12,
+    "y0": 8,
+    "w": 156,
+    "h": 15
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 8,
+    "w": 156,
+    "h": 15
+   },
+   "classe": "strip-half"
+  },
+  {
+   "key": "forager-walk-east",
+   "famille": "engine",
+   "w": 360,
+   "h": 60,
+   "ink16": {
+    "x0": 23,
+    "y0": 16,
+    "w": 313,
+    "h": 30
+   },
+   "ink40": {
+    "x0": 23,
+    "y0": 16,
+    "w": 313,
+    "h": 30
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "forager-walk-west-half",
+   "famille": "engine",
+   "w": 180,
+   "h": 30,
+   "ink16": {
+    "x0": 12,
+    "y0": 8,
+    "w": 157,
+    "h": 14
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 8,
+    "w": 157,
+    "h": 14
+   },
+   "classe": "strip-half"
+  },
+  {
+   "key": "forager-walk-west",
+   "famille": "engine",
+   "w": 360,
+   "h": 60,
+   "ink16": {
+    "x0": 24,
+    "y0": 16,
+    "w": 314,
+    "h": 29
+   },
+   "ink40": {
+    "x0": 24,
+    "y0": 16,
+    "w": 314,
+    "h": 29
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "granary-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 17,
+    "y0": 11,
+    "w": 95,
+    "h": 213
+   },
+   "ink40": {
+    "x0": 17,
+    "y0": 11,
+    "w": 95,
+    "h": 213
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "granary-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 26,
+    "y0": 15,
+    "w": 76,
+    "h": 209
+   },
+   "ink40": {
+    "x0": 26,
+    "y0": 15,
+    "w": 76,
+    "h": 209
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "granary-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 7,
+    "y0": 14,
+    "w": 114,
+    "h": 210
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 14,
+    "w": 114,
+    "h": 210
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "granary-crates",
+   "famille": "engine",
+   "w": 72,
+   "h": 64,
+   "ink16": {
+    "x0": 6,
+    "y0": 10,
+    "w": 62,
+    "h": 49
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 10,
+    "w": 62,
+    "h": 49
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-hall",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 3,
+    "y0": 3,
+    "w": 106,
+    "h": 90
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 3,
+    "w": 106,
+    "h": 90
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-horreum-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 6,
+    "y0": 5,
+    "w": 99,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 5,
+    "w": 99,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-hub",
+   "famille": "engine",
+   "w": 128,
+   "h": 96,
+   "ink16": {
+    "x0": 4,
+    "y0": 4,
+    "w": 120,
+    "h": 89
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 4,
+    "w": 120,
+    "h": 89
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-jars",
+   "famille": "engine",
+   "w": 72,
+   "h": 56,
+   "ink16": {
+    "x0": 5,
+    "y0": 4,
+    "w": 62,
+    "h": 48
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 4,
+    "w": 62,
+    "h": 48
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-prop-silo",
+   "famille": "engine",
+   "w": 80,
+   "h": 96,
+   "ink16": {
+    "x0": 8,
+    "y0": 10,
+    "w": 64,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 10,
+    "w": 64,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "granary-warehouse",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 18,
+    "y0": 4,
+    "w": 71,
+    "h": 78
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 4,
+    "w": 71,
+    "h": 78
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "guild-chamber",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 10,
+    "y0": 2,
+    "w": 76,
+    "h": 92
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 2,
+    "w": 76,
+    "h": 92
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "guild-collegium",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 6,
+    "y0": 3,
+    "w": 100,
+    "h": 89
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 3,
+    "w": 100,
+    "h": 89
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "guild-consortium",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 9,
+    "y0": 5,
+    "w": 79,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 5,
+    "w": 79,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "guild-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 12,
+    "y0": 16,
+    "w": 105,
+    "h": 208
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 16,
+    "w": 105,
+    "h": 208
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "guild-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 6,
+    "y0": 8,
+    "w": 116,
+    "h": 216
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 8,
+    "w": 116,
+    "h": 216
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "guild-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 18,
+    "y0": 15,
+    "w": 93,
+    "h": 209
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 15,
+    "w": 93,
+    "h": 209
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "guild-house",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 12,
+    "y0": 9,
+    "w": 72,
+    "h": 77
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 9,
+    "w": 72,
+    "h": 77
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "guild-prop-lodge",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 2,
+    "y0": 9,
+    "w": 92,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 9,
+    "w": 92,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "libraries-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 13,
+    "y0": 6,
+    "w": 89,
+    "h": 78
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 6,
+    "w": 89,
+    "h": 78
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "libraries-grand",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 0,
+    "w": 98,
+    "h": 88
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 0,
+    "w": 98,
+    "h": 88
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "libraries-modern",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 16,
+    "y0": 4,
+    "w": 83,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 4,
+    "w": 83,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "libraries-monastic",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 1,
+    "w": 96,
+    "h": 84
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 1,
+    "w": 96,
+    "h": 84
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "libraries-prop-archive",
+   "famille": "engine",
+   "w": 96,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 4,
+    "w": 90,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 4,
+    "w": 90,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "market-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 7,
+    "y0": 14,
+    "w": 114,
+    "h": 210
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 14,
+    "w": 114,
+    "h": 210
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "market-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 9,
+    "y0": 9,
+    "w": 111,
+    "h": 215
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 9,
+    "w": 111,
+    "h": 215
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "market-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 6,
+    "y0": 8,
+    "w": 116,
+    "h": 216
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 8,
+    "w": 116,
+    "h": 216
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "market-hall-glass",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 3,
+    "w": 109,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 3,
+    "w": 109,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "market-hall-tent",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 19,
+    "y0": 6,
+    "w": 76,
+    "h": 76
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 6,
+    "w": 76,
+    "h": 76
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "market-macellum",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 90
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 90
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "market-plaza-neon",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 4,
+    "y0": 11,
+    "w": 104,
+    "h": 77
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 11,
+    "w": 104,
+    "h": 77
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "market-prop-stall",
+   "famille": "engine",
+   "w": 96,
+   "h": 72,
+   "ink16": {
+    "x0": 11,
+    "y0": 4,
+    "w": 75,
+    "h": 61
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 4,
+    "w": 75,
+    "h": 61
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 22,
+    "y0": 1,
+    "w": 84,
+    "h": 223
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 1,
+    "w": 84,
+    "h": 223
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mill-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 16,
+    "y0": 7,
+    "w": 97,
+    "h": 217
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 7,
+    "w": 97,
+    "h": 217
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mill-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 10,
+    "y0": 24,
+    "w": 108,
+    "h": 200
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 24,
+    "w": 108,
+    "h": 200
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mill-house-industrial",
+   "famille": "engine",
+   "w": 76,
+   "h": 120,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 76,
+    "h": 120
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 76,
+    "h": 120
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-house-modern",
+   "famille": "engine",
+   "w": 24,
+   "h": 127,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 24,
+    "h": 127
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 24,
+    "h": 127
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-house-roman",
+   "famille": "engine",
+   "w": 47,
+   "h": 120,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 47,
+    "h": 120
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 47,
+    "h": 120
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-house-stone",
+   "famille": "engine",
+   "w": 58,
+   "h": 115,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 58,
+    "h": 115
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 58,
+    "h": 115
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-prop-house",
+   "famille": "engine",
+   "w": 49,
+   "h": 97,
+   "ink16": {
+    "x0": 0,
+    "y0": 0,
+    "w": 49,
+    "h": 97
+   },
+   "ink40": {
+    "x0": 0,
+    "y0": 0,
+    "w": 49,
+    "h": 97
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-prop-wheel",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 8,
+    "y0": 8,
+    "w": 80,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 8,
+    "w": 80,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-turbine",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 2,
+    "y0": 2,
+    "w": 92,
+    "h": 92
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 2,
+    "w": 92,
+    "h": 92
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mill-wheel-metal",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 22,
+    "y0": 22,
+    "w": 52,
+    "h": 52
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 22,
+    "w": 52,
+    "h": 52
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ministries-capitol",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 16,
+    "y0": 11,
+    "w": 81,
+    "h": 67
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 11,
+    "w": 81,
+    "h": 67
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ministries-council",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 15,
+    "y0": 3,
+    "w": 84,
+    "h": 70
+   },
+   "ink40": {
+    "x0": 15,
+    "y0": 3,
+    "w": 84,
+    "h": 70
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ministries-curia",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 8,
+    "w": 105,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 8,
+    "w": 105,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ministries-palace",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 22,
+    "y0": 8,
+    "w": 69,
+    "h": 65
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 8,
+    "w": 69,
+    "h": 65
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ministries-tower",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 18,
+    "y0": 6,
+    "w": 77,
+    "h": 78
+   },
+   "ink40": {
+    "x0": 18,
+    "y0": 6,
+    "w": 77,
+    "h": 78
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mint-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 8,
+    "y0": 21,
+    "w": 113,
+    "h": 203
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 21,
+    "w": 113,
+    "h": 203
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mint-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 16,
+    "y0": 12,
+    "w": 96,
+    "h": 212
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 12,
+    "w": 96,
+    "h": 212
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mint-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 9,
+    "y0": 17,
+    "w": 110,
+    "h": 207
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 17,
+    "w": 110,
+    "h": 207
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "mint-forge-fire",
+   "famille": "engine",
+   "w": 672,
+   "h": 80,
+   "ink16": {
+    "x0": 9,
+    "y0": 3,
+    "w": 653,
+    "h": 71
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 3,
+    "w": 653,
+    "h": 71
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "mint-house-digital",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 5,
+    "y0": 13,
+    "w": 85,
+    "h": 74
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 13,
+    "w": 85,
+    "h": 74
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mint-house-steam",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 5,
+    "y0": 3,
+    "w": 86,
+    "h": 89
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 3,
+    "w": 86,
+    "h": 89
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mint-moneta",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 6,
+    "y0": 4,
+    "w": 101,
+    "h": 88
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 4,
+    "w": 101,
+    "h": 88
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mint-prop-forge",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 5,
+    "y0": 3,
+    "w": 86,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 3,
+    "w": 86,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "mint-prop-house",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 12,
+    "y0": 10,
+    "w": 70,
+    "h": 65
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 10,
+    "w": 70,
+    "h": 65
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "observatories-array",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 19,
+    "y0": 15,
+    "w": 73,
+    "h": 58
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 15,
+    "w": 73,
+    "h": 58
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "observatories-dome",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 1,
+    "w": 108,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 1,
+    "w": 108,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "observatories-horologium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 16,
+    "y0": 2,
+    "w": 81,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 2,
+    "w": 81,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "observatories-prop-dial",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 10,
+    "y0": 6,
+    "w": 76,
+    "h": 68
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 6,
+    "w": 76,
+    "h": 68
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "observatories-tower",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 16,
+    "y0": 3,
+    "w": 77,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 3,
+    "w": 77,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-cosmic-7",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 4,
+    "y0": 9,
+    "w": 120,
+    "h": 215
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 9,
+    "w": 120,
+    "h": 215
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "port-cosmic-8",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 8,
+    "y0": 27,
+    "w": 112,
+    "h": 197
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 27,
+    "w": 112,
+    "h": 197
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "port-cosmic-9",
+   "famille": "engine",
+   "w": 128,
+   "h": 224,
+   "ink16": {
+    "x0": 9,
+    "y0": 7,
+    "w": 110,
+    "h": 217
+   },
+   "ink40": {
+    "x0": 9,
+    "y0": 7,
+    "w": 110,
+    "h": 217
+   },
+   "classe": "prop-cosmic"
+  },
+  {
+   "key": "port-dock-modern",
+   "famille": "engine",
+   "w": 80,
+   "h": 112,
+   "ink16": {
+    "x0": 21,
+    "y0": 5,
+    "w": 38,
+    "h": 98
+   },
+   "ink40": {
+    "x0": 21,
+    "y0": 5,
+    "w": 38,
+    "h": 98
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-dock-stone",
+   "famille": "engine",
+   "w": 80,
+   "h": 112,
+   "ink16": {
+    "x0": 11,
+    "y0": 3,
+    "w": 57,
+    "h": 102
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 3,
+    "w": 57,
+    "h": 102
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-house-classical",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 1,
+    "y0": 7,
+    "w": 95,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 1,
+    "y0": 7,
+    "w": 95,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-house-industrial",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 1,
+    "w": 104,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 1,
+    "w": 104,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-house-medieval",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 5,
+    "y0": 1,
+    "w": 89,
+    "h": 93
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 1,
+    "w": 89,
+    "h": 93
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-house-modern",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 3,
+    "y0": 15,
+    "w": 91,
+    "h": 64
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 15,
+    "w": 91,
+    "h": 64
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-prop-house",
+   "famille": "engine",
+   "w": 96,
+   "h": 96,
+   "ink16": {
+    "x0": 2,
+    "y0": 6,
+    "w": 92,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 6,
+    "w": 92,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "port-prop-pontoon",
+   "famille": "engine",
+   "w": 56,
+   "h": 112,
+   "ink16": {
+    "x0": 12,
+    "y0": 0,
+    "w": 39,
+    "h": 112
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 0,
+    "w": 39,
+    "h": 112
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "printing-factory",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 3,
+    "w": 108,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 3,
+    "w": 108,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "printing-media",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 6,
+    "w": 97,
+    "h": 75
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 6,
+    "w": 97,
+    "h": 75
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "printing-press-shop",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 1,
+    "w": 92,
+    "h": 86
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 1,
+    "w": 92,
+    "h": 86
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "printing-prop-workshop",
+   "famille": "engine",
+   "w": 96,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 4,
+    "w": 85,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 4,
+    "w": 85,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "printing-scriptorium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 6,
+    "w": 97,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 6,
+    "w": 97,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ruins-camp",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 2,
+    "w": 106,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ruins-institute",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 10,
+    "y0": 3,
+    "w": 94,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 3,
+    "w": 94,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ruins-lab",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 12,
+    "y0": 7,
+    "w": 89,
+    "h": 74
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 7,
+    "w": 89,
+    "h": 74
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ruins-lodge",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 0,
+    "w": 108,
+    "h": 87
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 0,
+    "w": 108,
+    "h": 87
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "ruins-restoration-roman",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 3,
+    "w": 102,
+    "h": 83
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 3,
+    "w": 102,
+    "h": 83
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "schools-campus",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 9,
+    "w": 104,
+    "h": 69
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 9,
+    "w": 104,
+    "h": 69
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "schools-ludus",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 9,
+    "w": 94,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 9,
+    "w": 94,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "schools-prop-yard",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 6,
+    "y0": 3,
+    "w": 84,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 3,
+    "w": 84,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "schools-schoolhouse",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 25,
+    "y0": 10,
+    "w": 59,
+    "h": 62
+   },
+   "ink40": {
+    "x0": 25,
+    "y0": 10,
+    "w": 59,
+    "h": 62
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "schools-victorian",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 2,
+    "w": 103,
+    "h": 83
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 2,
+    "w": 103,
+    "h": 83
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "scribes-archive",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 0,
+    "w": 96,
+    "h": 88
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 0,
+    "w": 96,
+    "h": 88
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "scribes-data",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 16,
+    "y0": 11,
+    "w": 80,
+    "h": 67
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 11,
+    "w": 80,
+    "h": 67
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "scribes-prop-hall",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 6,
+    "y0": 10,
+    "w": 84,
+    "h": 60
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 10,
+    "w": 84,
+    "h": 60
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "scribes-scriptorium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 3,
+    "w": 107,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 3,
+    "w": 107,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "scribes-tabularium",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 12,
+    "y0": 9,
+    "w": 86,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 9,
+    "w": 86,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "sewers-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 5,
+    "y0": 4,
+    "w": 102,
+    "h": 81
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 4,
+    "w": 102,
+    "h": 81
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "sewers-medieval",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 3,
+    "w": 105,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 3,
+    "w": 105,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "sewers-plant",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 8,
+    "w": 104,
+    "h": 74
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 8,
+    "w": 104,
+    "h": 74
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "sewers-prop",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 3,
+    "y0": 9,
+    "w": 90,
+    "h": 64
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 9,
+    "w": 90,
+    "h": 64
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "sewers-water",
+   "famille": "engine",
+   "w": 672,
+   "h": 80,
+   "ink16": {
+    "x0": 48,
+    "y0": 57,
+    "w": 606,
+    "h": 15
+   },
+   "ink40": {
+    "x0": 48,
+    "y0": 57,
+    "w": 606,
+    "h": 15
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "sewers-works",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 8,
+    "y0": 4,
+    "w": 94,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 8,
+    "y0": 4,
+    "w": 94,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-back",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 7,
+    "y0": 22,
+    "w": 81,
+    "h": 52
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 22,
+    "w": 81,
+    "h": 52
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-fire",
+   "famille": "engine",
+   "w": 672,
+   "h": 80,
+   "ink16": {
+    "x0": 19,
+    "y0": 6,
+    "w": 636,
+    "h": 60
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 6,
+    "w": 636,
+    "h": 60
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "storyteller-hall",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 0,
+    "w": 97,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 0,
+    "w": 97,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-media",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 15,
+    "y0": 11,
+    "w": 83,
+    "h": 66
+   },
+   "ink40": {
+    "x0": 15,
+    "y0": 11,
+    "w": 83,
+    "h": 66
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-odeon",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 9,
+    "w": 102,
+    "h": 76
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 9,
+    "w": 102,
+    "h": 76
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-prop-fire",
+   "famille": "engine",
+   "w": 96,
+   "h": 80,
+   "ink16": {
+    "x0": 7,
+    "y0": 8,
+    "w": 81,
+    "h": 66
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 8,
+    "w": 81,
+    "h": 66
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-reader",
+   "famille": "engine",
+   "w": 64,
+   "h": 64,
+   "ink16": {
+    "x0": 11,
+    "y0": 4,
+    "w": 42,
+    "h": 56
+   },
+   "ink40": {
+    "x0": 11,
+    "y0": 4,
+    "w": 42,
+    "h": 56
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "storyteller-theater",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 10,
+    "y0": 5,
+    "w": 91,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 5,
+    "w": 91,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "think-chancellery",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 3,
+    "w": 105,
+    "h": 82
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 3,
+    "w": 105,
+    "h": 82
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "think-institute",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 6,
+    "y0": 1,
+    "w": 101,
+    "h": 86
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 1,
+    "w": 101,
+    "h": 86
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "think-modern",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 25,
+    "y0": 13,
+    "w": 69,
+    "h": 64
+   },
+   "ink40": {
+    "x0": 25,
+    "y0": 13,
+    "w": 69,
+    "h": 64
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "think-prop-council",
+   "famille": "engine",
+   "w": 96,
+   "h": 88,
+   "ink16": {
+    "x0": 7,
+    "y0": 5,
+    "w": 83,
+    "h": 73
+   },
+   "ink40": {
+    "x0": 7,
+    "y0": 5,
+    "w": 83,
+    "h": 73
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "think-stoa-roman",
+   "famille": "engine",
+   "w": 112,
+   "h": 96,
+   "ink16": {
+    "x0": 5,
+    "y0": 15,
+    "w": 102,
+    "h": 72
+   },
+   "ink40": {
+    "x0": 5,
+    "y0": 15,
+    "w": 102,
+    "h": 72
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "universities-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 4,
+    "y0": 5,
+    "w": 104,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 5,
+    "w": 104,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "universities-collegiate",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 6,
+    "y0": 3,
+    "w": 99,
+    "h": 84
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 3,
+    "w": 99,
+    "h": 84
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "universities-gothic",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 1,
+    "w": 104,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 1,
+    "w": 104,
+    "h": 85
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "universities-modern",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 12,
+    "y0": 11,
+    "w": 85,
+    "h": 70
+   },
+   "ink40": {
+    "x0": 12,
+    "y0": 11,
+    "w": 85,
+    "h": 70
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "universities-prop-hall",
+   "famille": "engine",
+   "w": 96,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 3,
+    "w": 92,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 3,
+    "w": 92,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "veh-caravan-pod",
+   "famille": "engine",
+   "w": 1008,
+   "h": 64,
+   "ink16": {
+    "x0": 16,
+    "y0": 14,
+    "w": 975,
+    "h": 36
+   },
+   "ink40": {
+    "x0": 16,
+    "y0": 14,
+    "w": 975,
+    "h": 36
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "veh-caravan-truck",
+   "famille": "engine",
+   "w": 1008,
+   "h": 64,
+   "ink16": {
+    "x0": 10,
+    "y0": 9,
+    "w": 980,
+    "h": 45
+   },
+   "ink40": {
+    "x0": 10,
+    "y0": 9,
+    "w": 980,
+    "h": 45
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "veh-caravan-wagon",
+   "famille": "engine",
+   "w": 1008,
+   "h": 64,
+   "ink16": {
+    "x0": 13,
+    "y0": 12,
+    "w": 951,
+    "h": 40
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 12,
+    "w": 951,
+    "h": 40
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "watch-back",
+   "famille": "engine",
+   "w": 80,
+   "h": 96,
+   "ink16": {
+    "x0": 4,
+    "y0": 12,
+    "w": 72,
+    "h": 83
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 12,
+    "w": 72,
+    "h": 83
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "watch-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 128,
+   "ink16": {
+    "x0": 22,
+    "y0": 20,
+    "w": 66,
+    "h": 92
+   },
+   "ink40": {
+    "x0": 22,
+    "y0": 20,
+    "w": 66,
+    "h": 92
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "watch-fire",
+   "famille": "engine",
+   "w": 560,
+   "h": 96,
+   "ink16": {
+    "x0": 26,
+    "y0": 1,
+    "w": 513,
+    "h": 25
+   },
+   "ink40": {
+    "x0": 26,
+    "y0": 1,
+    "w": 513,
+    "h": 25
+   },
+   "classe": "strip"
+  },
+  {
+   "key": "watch-industrial",
+   "famille": "engine",
+   "w": 88,
+   "h": 112,
+   "ink16": {
+    "x0": 19,
+    "y0": 1,
+    "w": 51,
+    "h": 99
+   },
+   "ink40": {
+    "x0": 19,
+    "y0": 1,
+    "w": 51,
+    "h": 99
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "watch-modern",
+   "famille": "engine",
+   "w": 88,
+   "h": 112,
+   "ink16": {
+    "x0": 20,
+    "y0": 2,
+    "w": 48,
+    "h": 107
+   },
+   "ink40": {
+    "x0": 20,
+    "y0": 2,
+    "w": 48,
+    "h": 107
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "watch-prop",
+   "famille": "engine",
+   "w": 80,
+   "h": 96,
+   "ink16": {
+    "x0": 4,
+    "y0": 1,
+    "w": 72,
+    "h": 94
+   },
+   "ink40": {
+    "x0": 4,
+    "y0": 1,
+    "w": 72,
+    "h": 94
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "watch-stone",
+   "famille": "engine",
+   "w": 88,
+   "h": 112,
+   "ink16": {
+    "x0": 6,
+    "y0": 2,
+    "w": 76,
+    "h": 108
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 2,
+    "w": 76,
+    "h": 108
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "works-camp",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 6,
+    "y0": 3,
+    "w": 88,
+    "h": 67
+   },
+   "ink40": {
+    "x0": 6,
+    "y0": 3,
+    "w": 88,
+    "h": 67
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "works-classical",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 4,
+    "w": 106,
+    "h": 80
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 4,
+    "w": 106,
+    "h": 80
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "works-depot",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 13,
+    "y0": 12,
+    "w": 94,
+    "h": 68
+   },
+   "ink40": {
+    "x0": 13,
+    "y0": 12,
+    "w": 94,
+    "h": 68
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "works-industrial",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 6,
+    "w": 108,
+    "h": 79
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 6,
+    "w": 108,
+    "h": 79
+   },
+   "classe": "prop"
+  },
+  {
+   "key": "works-yard",
+   "famille": "engine",
+   "w": 112,
+   "h": 88,
+   "ink16": {
+    "x0": 2,
+    "y0": 1,
+    "w": 108,
+    "h": 85
+   },
+   "ink40": {
+    "x0": 2,
+    "y0": 1,
+    "w": 108,
+    "h": 85
+   },
+   "classe": "prop"
+  }
+ ],
+ "propKeysManquants": []
+}

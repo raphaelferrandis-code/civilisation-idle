@@ -11,6 +11,7 @@
 import { CM, cmHash } from './layout.js';
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { lightCutImage } from './lightLayer.js';
+import { HOUSE_UNIT, houseFitTune, houseScaleK } from './spriteScale.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -50,20 +51,11 @@ const AVAILABLE = new Set([
 // sprite de base. Les autres variantes gardent un sprite unique quelle que soit l'ère.
 const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome"]);
 
-// Largeur de contenu (px du PNG) qui remplit ~1 tuile d'emprise. Les autres sprites
-// scalent au MÊME facteur → leur taille relative (calibrée sur BUILDING_HEIGHTS à la
-// génération) se retrouve à l'écran. Baisser = ville plus imposante ; monter = plus tassée.
-// 44 : bâtiments plus grands (les grands réservent leur empreinte multi-tuiles, donc
-// pas de retour du chevauchement). Doit rester cohérent avec HOUSE_FOOTPRINT
-// (buildingGenerator.js) : les variantes qui dépassent 1 tuile de large y ont une empreinte.
-const HOUSE_UNIT = 44;
-
-// A — AJUSTEMENT AU LOT (anti-débordement sur le trottoir/la route). Un sprite dont le
-// contenu dépasse la largeur de son empreinte (w = tuile × spanX) est rétréci pour tenir
-// dans w × (1 + margin), en scalant UNIFORMÉMENT (garde le ratio, donc ne s'étire pas).
-// `margin` = débord latéral toléré. Les grands variants ont l'empreinte (HOUSE_FOOTPRINT)
-// pour NE PAS être clampés → ils gardent leur masse. Molettes : __houseFit / __houseFitTune.
-export const houseFitTune = { on: true, margin: 0.08 };
+// HOUSE_UNIT, houseFitTune et LA formule d'échelle vivent depuis le lot G0 de la
+// campagne du grain dans spriteScale.js (module PUR, partagé avec l'audit hors
+// navigateur — docs/PLAN-EGALISATION-GRAIN.md). Ré-export pour les consommateurs
+// historiques ; les molettes __houseFit/__houseFitTune mutent le MÊME objet.
+export { houseFitTune };
 
 const cache = new Map();     // spriteKey -> { img, ready, bbox }
 const variants = new Map();  // "spriteKey:tint" -> canvas teinté, RECADRÉ sur la bbox
@@ -220,14 +212,9 @@ function pixelHouseGeom(t, x, y, w, h) {
   // toute la boîte → le sprite garde sa taille naturelle et NE grandit PAS avec
   // l'empreinte ; celle-ci ne sert qu'à réserver l'espace (anti-chevauchement).
   const span = t.spanX || t.size || 1;
-  const unit = w / span;
-  let k = unit / HOUSE_UNIT;                 // facteur commun (suit le zoom via unit≈TILE*zoom)
-  // A — clamp au lot : si le sprite dépasse la largeur de son empreinte + marge, on réduit k
-  // uniformément (garde le ratio) → il cesse de baver sur le trottoir. `w` = tuile × spanX.
-  if (houseFitTune.on) {
-    const maxW = w * (1 + houseFitTune.margin);
-    if (bb.w * k > maxW) k = maxW / bb.w;
-  }
+  // Facteur commun + clamp au lot : LA formule vit dans spriteScale.js
+  // (houseScaleK), partagée avec l'audit du grain — ne pas la recopier ici.
+  const k = houseScaleK(span, w, bb.w);
   const dw = Math.max(1, Math.round(bb.w * k));
   const dh = Math.max(1, Math.round(bb.h * k));
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)

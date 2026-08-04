@@ -1,0 +1,3421 @@
+{
+ "_doc": "Annotations portes/fenetres en px SOURCE, origine canvas haut-gauche. Fusion validee par spriteScaleAudit.mjs merge.",
+ "date": "2026-08-04",
+ "entries": [
+  {
+   "key": "academies-athenaeum",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 40,
+    "w": 5,
+    "h": 15
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 65,
+    "y": 47,
+    "w": 4,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "ouverture etroite entre colonnes"
+  },
+  {
+   "key": "academies-institute",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 38,
+    "w": 7,
+    "h": 18
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 64,
+    "y": 47,
+    "w": 6,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "double porte en bois sous porche"
+  },
+  {
+   "key": "academies-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 23,
+    "y": 47,
+    "w": 6,
+    "h": 9
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 23,
+    "y": 35,
+    "w": 6,
+    "h": 6
+   },
+   "floorPitch": 6,
+   "confidence": 0.7,
+   "note": "porte vitree gauche prise"
+  },
+  {
+   "key": "academies-prop-yard",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 41,
+    "w": 10,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "hutte au toit de chaume"
+  },
+  {
+   "key": "academies-renaissance",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 47,
+    "w": 8,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 66,
+    "y": 50,
+    "w": 6,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte centrale prise"
+  },
+  {
+   "key": "ancestralcult-back",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "cercle de megalithes, autel eteint"
+  },
+  {
+   "key": "ancestralcult-prop",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "meme cercle, feu allume"
+  },
+  {
+   "key": "aqueduct-intake",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "goulotte en bois sur treteaux"
+  },
+  {
+   "key": "aqueduct-iron-intake",
+   "nature": "infrastructure",
+   "door": {
+    "x": 48,
+    "y": 52,
+    "w": 5,
+    "h": 8
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 52,
+    "y": 39,
+    "w": 3,
+    "h": 3
+   },
+   "floorPitch": 6,
+   "confidence": 0.8,
+   "note": "maisonnette de pompe"
+  },
+  {
+   "key": "aqueduct-iron-outlet",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "aqueduct-iron-seg",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "aqueduct-modern-intake",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "fente d'aeration, pas une porte"
+  },
+  {
+   "key": "aqueduct-modern-outlet",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "portique de vanne"
+  },
+  {
+   "key": "aqueduct-modern-seg",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "aqueduct-outlet",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "deversoir dans un baquet"
+  },
+  {
+   "key": "aqueduct-roman-intake",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "about d'aqueduc, arches et rampe"
+  },
+  {
+   "key": "aqueduct-roman-outlet",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "sortie d'aqueduc en rampe"
+  },
+  {
+   "key": "aqueduct-roman-seg",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "segment d'arches avec canal"
+  },
+  {
+   "key": "aqueduct-seg",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "gouttiere en bois sur treteaux"
+  },
+  {
+   "key": "archive-grid",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 45,
+    "w": 9,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "panneau de racks lumineux a droite, pas une fenetre"
+  },
+  {
+   "key": "archive-hut",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 35,
+    "w": 15,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte en planches, linteau inclus"
+  },
+  {
+   "key": "archive-records",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 50,
+    "w": 11,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 30,
+    "y": 29,
+    "w": 6,
+    "h": 13
+   },
+   "floorPitch": 17,
+   "confidence": 0.85,
+   "note": "auvent compris dans l'encadrement"
+  },
+  {
+   "key": "archive-tabularium",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 43,
+    "w": 11,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 70,
+    "y": 45,
+    "w": 9,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte cintree a double battant"
+  },
+  {
+   "key": "archive-vault",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 45,
+    "w": 21,
+    "h": 27
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 66,
+    "y": 55,
+    "w": 6,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "portail a archivolte double incluse"
+  },
+  {
+   "key": "arcologyhome",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 92,
+    "w": 6,
+    "h": 8
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 62,
+    "y": 63,
+    "w": 3,
+    "h": 5
+   },
+   "floorPitch": 9,
+   "confidence": 0.6,
+   "note": ""
+  },
+  {
+   "key": "arcologyhome-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 186,
+    "w": 7,
+    "h": 10
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 28,
+    "y": 100,
+    "w": 3,
+    "h": 2
+   },
+   "floorPitch": 4,
+   "confidence": 0.5,
+   "note": "ouverture sous l'enseigne, corrige apres overlay"
+  },
+  {
+   "key": "arcologyhome-cosmic-8",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 170,
+    "w": 7,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 100,
+    "w": 3,
+    "h": 4
+   },
+   "floorPitch": 7,
+   "confidence": 0.6,
+   "note": ""
+  },
+  {
+   "key": "arcologyhome-cosmic-9",
+   "nature": "batiment",
+   "door": {
+    "x": 50,
+    "y": 188,
+    "w": 6,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 100,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 5,
+   "confidence": 0.5,
+   "note": "arcade du podium"
+  },
+  {
+   "key": "bank-basilica-roman",
+   "nature": "batiment",
+   "door": {
+    "x": 68,
+    "y": 48,
+    "w": 16,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "edicule d'entree facade droite"
+  },
+  {
+   "key": "bank-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 184,
+    "w": 12,
+    "h": 15
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 75,
+    "y": 146,
+    "w": 7,
+    "h": 6
+   },
+   "floorPitch": 6,
+   "confidence": 0.75,
+   "note": "baie jaune du socle"
+  },
+  {
+   "key": "bank-house-glass",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 56,
+    "w": 8,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 16,
+    "y": 51,
+    "w": 9,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "vitrines sous auvent, porte au centre"
+  },
+  {
+   "key": "bank-house-neoclassical",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 43,
+    "w": 5,
+    "h": 18
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 67,
+    "y": 39,
+    "w": 7,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "porte doree masquee par la colonnade"
+  },
+  {
+   "key": "bank-house-renaissance",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 46,
+    "w": 10,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 30,
+    "y": 29,
+    "w": 7,
+    "h": 13
+   },
+   "floorPitch": 17,
+   "confidence": 0.8,
+   "note": "reverbere exclu de la porte"
+  },
+  {
+   "key": "block",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 62,
+    "w": 5,
+    "h": 10
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 16,
+    "y": 28,
+    "w": 3,
+    "h": 7
+   },
+   "floorPitch": 15,
+   "confidence": 0.6,
+   "note": "rez commercant"
+  },
+  {
+   "key": "bureau-chancery",
+   "nature": "batiment",
+   "door": {
+    "x": 37,
+    "y": 55,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 30,
+    "y": 50,
+    "w": 6,
+    "h": 12
+   },
+   "floorPitch": 16,
+   "confidence": 0.75,
+   "note": "pitch lucarne-rez"
+  },
+  {
+   "key": "bureau-hut",
+   "nature": "batiment",
+   "door": {
+    "x": 71,
+    "y": 46,
+    "w": 13,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 74,
+    "y": 50,
+    "w": 8,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "croisee integree au battant"
+  },
+  {
+   "key": "bureau-office",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 50,
+    "w": 7,
+    "h": 14
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 31,
+    "y": 29,
+    "w": 5,
+    "h": 11
+   },
+   "floorPitch": 16,
+   "confidence": 0.7,
+   "note": "maison de ville 2 niveaux, porte sous petit porche"
+  },
+  {
+   "key": "bureau-tabularium",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 50,
+    "w": 9,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 33,
+    "y": 34,
+    "w": 5,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "seconde porte charretiere plus large sur la facade droite"
+  },
+  {
+   "key": "bureau-tower",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 70,
+    "w": 7,
+    "h": 8
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 29,
+    "y": 43,
+    "w": 5,
+    "h": 6
+   },
+   "floorPitch": 11,
+   "confidence": 0.6,
+   "note": "entree vitree eclairee du rez, contour peu net"
+  },
+  {
+   "key": "caravan-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 58,
+    "y": 47,
+    "w": 8,
+    "h": 4
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "tour fusee, sans entree"
+  },
+  {
+   "key": "caravan-pod",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "van futuriste vu de profil"
+  },
+  {
+   "key": "caravan-prop-sacks",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "tas de sacs et caisses"
+  },
+  {
+   "key": "caravan-truck",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "locomobile a vapeur chargee de tonneaux"
+  },
+  {
+   "key": "caravan-wagon",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "chariot bache"
+  },
+  {
+   "key": "cosmic-arch-7",
+   "nature": "batiment",
+   "door": {
+    "x": 29,
+    "y": 157,
+    "w": 13,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.45,
+   "note": "monument arche, passage sous jambe"
+  },
+  {
+   "key": "cosmic-dome-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 48,
+    "y": 124,
+    "w": 6,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "aucune baie au rez"
+  },
+  {
+   "key": "cosmic-frame-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 75,
+    "y": 179,
+    "w": 7,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "tour portique sur 4 piles"
+  },
+  {
+   "key": "cosmic-hall-7",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 185,
+    "w": 7,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 73,
+    "y": 76,
+    "w": 6,
+    "h": 4
+   },
+   "floorPitch": 9,
+   "confidence": 0.75,
+   "note": "gratte-ciel, fentes vertes par etage"
+  },
+  {
+   "key": "cosmic-spire-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "aiguille pleine sur parvis"
+  },
+  {
+   "key": "cosmic-temple-7",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 171,
+    "w": 14,
+    "h": 26
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 47,
+    "y": 62,
+    "w": 9,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "niche voutee a rosace au socle"
+  },
+  {
+   "key": "courthouses-basilica",
+   "nature": "batiment",
+   "door": {
+    "x": 66,
+    "y": 41,
+    "w": 10,
+    "h": 24
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 67,
+    "y": 29,
+    "w": 6,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "oculus au fronton, panneaux rouges entre colonnes ambigus"
+  },
+  {
+   "key": "courthouses-lodge",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 37,
+    "w": 14,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 27,
+    "y": 43,
+    "w": 6,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "grande porte de bois quasi pleine hauteur"
+  },
+  {
+   "key": "courthouses-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 44,
+    "w": 16,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 71,
+    "y": 47,
+    "w": 6,
+    "h": 17
+   },
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "hall vitre en entree, baies toute hauteur"
+  },
+  {
+   "key": "courthouses-neoclassical",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 38,
+    "w": 8,
+    "h": 19
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 69,
+    "y": 42,
+    "w": 7,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "porche a colonnes tres sombre, seuil estime"
+  },
+  {
+   "key": "courthouses-tribunal",
+   "nature": "batiment",
+   "door": {
+    "x": 28,
+    "y": 47,
+    "w": 19,
+    "h": 24
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 59,
+    "y": 55,
+    "w": 5,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "arche cochere en pierre avec vantaux de bois"
+  },
+  {
+   "key": "courtyard",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 29,
+    "w": 9,
+    "h": 13
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 15,
+    "y": 25,
+    "w": 2,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porche de cour"
+  },
+  {
+   "key": "cult-mausoleum",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 35,
+    "w": 13,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 43,
+    "y": 17,
+    "w": 5,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "fenetre en arc du tambour"
+  },
+  {
+   "key": "cult-memorial",
+   "nature": "batiment",
+   "door": {
+    "x": 43,
+    "y": 33,
+    "w": 17,
+    "h": 32
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "pylone egyptien, aucune fenetre visible"
+  },
+  {
+   "key": "cult-shrine",
+   "nature": "batiment",
+   "door": {
+    "x": 31,
+    "y": 34,
+    "w": 21,
+    "h": 28
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 35,
+    "y": 29,
+    "w": 5,
+    "h": 4
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "arche pierre quasi pleine facade"
+  },
+  {
+   "key": "cult-vesta",
+   "nature": "batiment",
+   "door": {
+    "x": 56,
+    "y": 39,
+    "w": 10,
+    "h": 18
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "temple rond, arche ouverte"
+  },
+  {
+   "key": "exchange-prop-stall",
+   "nature": "batiment",
+   "door": {
+    "x": 26,
+    "y": 36,
+    "w": 18,
+    "h": 27
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "echoppe close, grande porte a barreaux"
+  },
+  {
+   "key": "field-crop-neon",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "parcelle de cultures luminescentes"
+  },
+  {
+   "key": "field-prop-crop-gold",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "field-prop-crop-green",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "field-prop-fallow",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "champ en jachere"
+  },
+  {
+   "key": "forager-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 42,
+    "y": 55,
+    "w": 2,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.4,
+   "note": "megastructure de blocs jardins, aucune entree"
+  },
+  {
+   "key": "forager-greenhouse",
+   "nature": "batiment",
+   "door": {
+    "x": 93,
+    "y": 55,
+    "w": 9,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 49,
+    "y": 46,
+    "w": 7,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "serre, porte au pignon droit"
+  },
+  {
+   "key": "forager-handcart",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "charrette a bras"
+  },
+  {
+   "key": "forager-hortus-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 37,
+    "y": 40,
+    "w": 12,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "grange horticole"
+  },
+  {
+   "key": "forager-hydro-rack",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "tour hydroponique, portes techniques pleine facade non comptees"
+  },
+  {
+   "key": "forager-orchard-crates",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "caisses de pommes"
+  },
+  {
+   "key": "forager-orchard-tree",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "pommier"
+  },
+  {
+   "key": "forager-prop-basket",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "forager-prop-tree",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": ""
+  },
+  {
+   "key": "granary-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 55,
+    "y": 150,
+    "w": 5,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "silos lumineux, hublots ovales"
+  },
+  {
+   "key": "granary-crates",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "caisses et jarre, aucun mur"
+  },
+  {
+   "key": "granary-hall",
+   "nature": "batiment",
+   "door": {
+    "x": 62,
+    "y": 46,
+    "w": 26,
+    "h": 33
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 33,
+    "y": 53,
+    "w": 8,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "jambages fondus dans le colombage"
+  },
+  {
+   "key": "granary-horreum-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 76,
+    "y": 47,
+    "w": 17,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "arcade de trois arches"
+  },
+  {
+   "key": "granary-hub",
+   "nature": "batiment",
+   "door": {
+    "x": 15,
+    "y": 37,
+    "w": 13,
+    "h": 18
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "deux granges et deux silos"
+  },
+  {
+   "key": "granary-jars",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.95,
+   "note": "quatre jarres sur une natte"
+  },
+  {
+   "key": "granary-prop-silo",
+   "nature": "batiment",
+   "door": {
+    "x": 19,
+    "y": 43,
+    "w": 17,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "grenier sur pilotis, panneau avant lu comme porte"
+  },
+  {
+   "key": "granary-warehouse",
+   "nature": "batiment",
+   "door": {
+    "x": 27,
+    "y": 45,
+    "w": 18,
+    "h": 30
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 61,
+    "y": 54,
+    "w": 7,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "porte pietonne sombre 7x20 facade droite"
+  },
+  {
+   "key": "guild-chamber",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 63,
+    "w": 11,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 24,
+    "y": 37,
+    "w": 7,
+    "h": 13
+   },
+   "floorPitch": 20,
+   "confidence": 0.8,
+   "note": ""
+  },
+  {
+   "key": "guild-collegium",
+   "nature": "batiment",
+   "door": {
+    "x": 29,
+    "y": 46,
+    "w": 17,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 62,
+    "y": 48,
+    "w": 10,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "entree a pilastres"
+  },
+  {
+   "key": "guild-consortium",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 62,
+    "w": 10,
+    "h": 11
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 25,
+    "y": 32,
+    "w": 6,
+    "h": 14
+   },
+   "floorPitch": 17,
+   "confidence": 0.55,
+   "note": "haut de porte masque par l'auvent"
+  },
+  {
+   "key": "guild-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 44,
+    "y": 175,
+    "w": 11,
+    "h": 24
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 51,
+    "y": 102,
+    "w": 7,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "panneau porte sombre a embleme"
+  },
+  {
+   "key": "guild-house",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 57,
+    "w": 16,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 28,
+    "y": 45,
+    "w": 7,
+    "h": 8
+   },
+   "floorPitch": 15,
+   "confidence": 0.75,
+   "note": "porte en arc de brique"
+  },
+  {
+   "key": "guild-prop-lodge",
+   "nature": "batiment",
+   "door": {
+    "x": 57,
+    "y": 51,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "panneau outils croises = enseigne"
+  },
+  {
+   "key": "hut",
+   "nature": "batiment",
+   "door": {
+    "x": 14,
+    "y": 24,
+    "w": 7,
+    "h": 10
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": ""
+  },
+  {
+   "key": "libraries-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 39,
+    "w": 10,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 60,
+    "y": 42,
+    "w": 10,
+    "h": 13
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "entree en retrait derriere colonnes"
+  },
+  {
+   "key": "libraries-grand",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 47,
+    "w": 10,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 28,
+    "y": 30,
+    "w": 6,
+    "h": 12
+   },
+   "floorPitch": 20,
+   "confidence": 0.75,
+   "note": "lucarnes de comble"
+  },
+  {
+   "key": "libraries-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 68,
+    "y": 52,
+    "w": 8,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 37,
+    "y": 33,
+    "w": 6,
+    "h": 9
+   },
+   "floorPitch": 17,
+   "confidence": 0.55,
+   "note": "haut des baies masque par auvents"
+  },
+  {
+   "key": "libraries-monastic",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 45,
+    "w": 12,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 56,
+    "y": 55,
+    "w": 5,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "fenetre en arc au pignon"
+  },
+  {
+   "key": "libraries-prop-archive",
+   "nature": "batiment",
+   "door": {
+    "x": 26,
+    "y": 36,
+    "w": 16,
+    "h": 25
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 54,
+    "y": 45,
+    "w": 10,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "cabane, porte pleine hauteur du mur"
+  },
+  {
+   "key": "longhouse",
+   "nature": "batiment",
+   "door": {
+    "x": 25,
+    "y": 21,
+    "w": 9,
+    "h": 11
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "large ouverture de grange"
+  },
+  {
+   "key": "manor",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 38,
+    "w": 8,
+    "h": 12
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 40,
+    "y": 30,
+    "w": 4,
+    "h": 6
+   },
+   "floorPitch": 15,
+   "confidence": 0.65,
+   "note": "porche blanc"
+  },
+  {
+   "key": "market-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 47,
+    "y": 204,
+    "w": 4,
+    "h": 8
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 57,
+    "y": 85,
+    "w": 4,
+    "h": 5
+   },
+   "floorPitch": 13,
+   "confidence": 0.45,
+   "note": "petites baies en arcade au pied"
+  },
+  {
+   "key": "market-hall-glass",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 45,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 66,
+    "y": 47,
+    "w": 11,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "entree en retrait sous auvent"
+  },
+  {
+   "key": "market-hall-tent",
+   "nature": "batiment",
+   "door": {
+    "x": 48,
+    "y": 67,
+    "w": 11,
+    "h": 12
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 25,
+    "y": 39,
+    "w": 8,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "haut de porte masque par l'auvent"
+  },
+  {
+   "key": "market-macellum",
+   "nature": "batiment",
+   "door": {
+    "x": 22,
+    "y": 49,
+    "w": 13,
+    "h": 21
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 42,
+    "y": 57,
+    "w": 8,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "double porte haute"
+  },
+  {
+   "key": "market-plaza-neon",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 54,
+    "w": 12,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 67,
+    "y": 50,
+    "w": 7,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "haut de porte masque par l'auvent raye"
+  },
+  {
+   "key": "market-prop-stall",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 30,
+    "w": 13,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "double battant en facade"
+  },
+  {
+   "key": "megablock",
+   "nature": "batiment",
+   "door": {
+    "x": 28,
+    "y": 70,
+    "w": 4,
+    "h": 6
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 30,
+    "y": 40,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 4,
+   "confidence": 0.5,
+   "note": "baie du podium"
+  },
+  {
+   "key": "megablock-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 32,
+    "y": 188,
+    "w": 6,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 28,
+    "y": 100,
+    "w": 2,
+    "h": 4
+   },
+   "floorPitch": 6,
+   "confidence": 0.5,
+   "note": ""
+  },
+  {
+   "key": "megablock-cosmic-8",
+   "nature": "batiment",
+   "door": {
+    "x": 62,
+    "y": 197,
+    "w": 6,
+    "h": 11
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 120,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 6,
+   "confidence": 0.6,
+   "note": "arche doree"
+  },
+  {
+   "key": "megablock-cosmic-9",
+   "nature": "batiment",
+   "door": {
+    "x": 44,
+    "y": 215,
+    "w": 8,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 120,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 6,
+   "confidence": 0.5,
+   "note": ""
+  },
+  {
+   "key": "mill-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 53,
+    "y": 69,
+    "w": 5,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.45,
+   "note": "campanile a cascade d'eau"
+  },
+  {
+   "key": "mill-house-industrial",
+   "nature": "batiment",
+   "door": {
+    "x": 28,
+    "y": 90,
+    "w": 19,
+    "h": 27
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 33,
+    "y": 40,
+    "w": 8,
+    "h": 11
+   },
+   "floorPitch": 16,
+   "confidence": 0.8,
+   "note": "tour de moulin, porte d'atelier en arche"
+  },
+  {
+   "key": "mill-house-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 6,
+    "y": 111,
+    "w": 5,
+    "h": 10
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "mat d'eolienne, petite porte de service"
+  },
+  {
+   "key": "mill-house-roman",
+   "nature": "batiment",
+   "door": {
+    "x": 19,
+    "y": 98,
+    "w": 14,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 22,
+    "y": 72,
+    "w": 9,
+    "h": 12
+   },
+   "floorPitch": 27,
+   "confidence": 0.75,
+   "note": "porte en arche"
+  },
+  {
+   "key": "mill-house-stone",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 86,
+    "w": 18,
+    "h": 24
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 32,
+    "y": 35,
+    "w": 7,
+    "h": 12
+   },
+   "floorPitch": 24,
+   "confidence": 0.75,
+   "note": "porte d'atelier en arche massive"
+  },
+  {
+   "key": "mill-prop-house",
+   "nature": "batiment",
+   "door": {
+    "x": 16,
+    "y": 65,
+    "w": 20,
+    "h": 29
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "corps de moulin en bois, auvent-linteau inclus"
+  },
+  {
+   "key": "mill-prop-wheel",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.95,
+   "note": "ailes de moulin seules"
+  },
+  {
+   "key": "mill-turbine",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.95,
+   "note": "rotor d'eolienne seul"
+  },
+  {
+   "key": "mill-wheel-metal",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.95,
+   "note": "ailes metalliques seules"
+  },
+  {
+   "key": "ministries-capitol",
+   "nature": "batiment",
+   "door": {
+    "x": 59,
+    "y": 44,
+    "w": 11,
+    "h": 17
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 29,
+    "y": 38,
+    "w": 6,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porte derriere la colonnade"
+  },
+  {
+   "key": "ministries-council",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 44,
+    "w": 8,
+    "h": 19
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 23,
+    "y": 37,
+    "w": 7,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "porte en planches presumee"
+  },
+  {
+   "key": "ministries-curia",
+   "nature": "batiment",
+   "door": {
+    "x": 64,
+    "y": 39,
+    "w": 10,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "cella sombre derriere colonnade"
+  },
+  {
+   "key": "ministries-palace",
+   "nature": "batiment",
+   "door": {
+    "x": 29,
+    "y": 52,
+    "w": 10,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 60,
+    "y": 39,
+    "w": 4,
+    "h": 11
+   },
+   "floorPitch": 15,
+   "confidence": 0.75,
+   "note": "portail en arc sur pignon"
+  },
+  {
+   "key": "ministries-tower",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 56,
+    "w": 6,
+    "h": 14
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 39,
+    "y": 39,
+    "w": 6,
+    "h": 6
+   },
+   "floorPitch": 9,
+   "confidence": 0.7,
+   "note": "portes jumelles au rez"
+  },
+  {
+   "key": "mint-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "ni porte ni fenetre lisibles"
+  },
+  {
+   "key": "mint-house-digital",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 57,
+    "w": 7,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 20,
+    "y": 50,
+    "w": 7,
+    "h": 14
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte vitree sous auvent"
+  },
+  {
+   "key": "mint-house-steam",
+   "nature": "batiment",
+   "door": {
+    "x": 60,
+    "y": 48,
+    "w": 12,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 33,
+    "y": 49,
+    "w": 6,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "grande porte en arc"
+  },
+  {
+   "key": "mint-moneta",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 44,
+    "w": 15,
+    "h": 26
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 65,
+    "y": 45,
+    "w": 7,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "portail charretier en arc"
+  },
+  {
+   "key": "mint-prop-forge",
+   "nature": "batiment",
+   "door": {
+    "x": 59,
+    "y": 43,
+    "w": 11,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "ouverture du foyer avec feu"
+  },
+  {
+   "key": "mint-prop-house",
+   "nature": "batiment",
+   "door": {
+    "x": 53,
+    "y": 41,
+    "w": 16,
+    "h": 29
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 26,
+    "y": 47,
+    "w": 13,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "porte de grange pleine facade"
+  },
+  {
+   "key": "observatories-array",
+   "nature": "batiment",
+   "door": {
+    "x": 26,
+    "y": 44,
+    "w": 9,
+    "h": 13
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 70,
+    "y": 53,
+    "w": 4,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porte technique sombre"
+  },
+  {
+   "key": "observatories-dome",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 47,
+    "w": 11,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 54,
+    "y": 49,
+    "w": 12,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "arc d'entree desservi par sentier"
+  },
+  {
+   "key": "observatories-horologium",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 52,
+    "w": 9,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 54,
+    "y": 43,
+    "w": 5,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "porte en arc"
+  },
+  {
+   "key": "observatories-prop-dial",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "cadran solaire"
+  },
+  {
+   "key": "observatories-tower",
+   "nature": "batiment",
+   "door": {
+    "x": 37,
+    "y": 41,
+    "w": 12,
+    "h": 24
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 64,
+    "y": 41,
+    "w": 8,
+    "h": 17
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "haut portail en arc"
+  },
+  {
+   "key": "port-cosmic-7",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 74,
+    "y": 140,
+    "w": 4,
+    "h": 7
+   },
+   "floorPitch": 7,
+   "confidence": 0.5,
+   "note": "tour de controle vitree, sans entree lisible"
+  },
+  {
+   "key": "port-dock-modern",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "ponton avec bollards"
+  },
+  {
+   "key": "port-dock-stone",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "quai de pierre"
+  },
+  {
+   "key": "port-house-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 32,
+    "y": 41,
+    "w": 10,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "trois arches identiques"
+  },
+  {
+   "key": "port-house-industrial",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 54,
+    "w": 7,
+    "h": 14
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 31,
+    "y": 39,
+    "w": 6,
+    "h": 7
+   },
+   "floorPitch": 10,
+   "confidence": 0.85,
+   "note": "grand portail d'entrepot facade droite"
+  },
+  {
+   "key": "port-house-medieval",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 58,
+    "w": 10,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 22,
+    "y": 40,
+    "w": 6,
+    "h": 9
+   },
+   "floorPitch": 13,
+   "confidence": 0.85,
+   "note": "grande porte de grange facade droite"
+  },
+  {
+   "key": "port-house-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 54,
+    "w": 9,
+    "h": 12
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 58,
+    "y": 42,
+    "w": 6,
+    "h": 4
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "volet de chargement"
+  },
+  {
+   "key": "port-prop-house",
+   "nature": "batiment",
+   "door": {
+    "x": 44,
+    "y": 56,
+    "w": 6,
+    "h": 13
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 56,
+    "y": 43,
+    "w": 13,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "entree d'angle incertaine"
+  },
+  {
+   "key": "port-prop-pontoon",
+   "nature": "infrastructure",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "passerelle de planches"
+  },
+  {
+   "key": "printing-factory",
+   "nature": "batiment",
+   "door": {
+    "x": 36,
+    "y": 42,
+    "w": 8,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 26,
+    "y": 38,
+    "w": 7,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "porte coulissante plus large a droite"
+  },
+  {
+   "key": "printing-media",
+   "nature": "batiment",
+   "door": {
+    "x": 21,
+    "y": 42,
+    "w": 7,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 36,
+    "y": 48,
+    "w": 17,
+    "h": 18
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "porte vitree en retrait sous auvent"
+  },
+  {
+   "key": "printing-press-shop",
+   "nature": "batiment",
+   "door": {
+    "x": 27,
+    "y": 55,
+    "w": 9,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 29,
+    "y": 36,
+    "w": 5,
+    "h": 12
+   },
+   "floorPitch": 16,
+   "confidence": 0.8,
+   "note": "auvent pose sur la porte d'echoppe"
+  },
+  {
+   "key": "printing-prop-workshop",
+   "nature": "batiment",
+   "door": {
+    "x": 28,
+    "y": 44,
+    "w": 13,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 31,
+    "w": 8,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "porte charretiere"
+  },
+  {
+   "key": "printing-scriptorium",
+   "nature": "batiment",
+   "door": {
+    "x": 31,
+    "y": 41,
+    "w": 14,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 49,
+    "y": 50,
+    "w": 5,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "double porte haute"
+  },
+  {
+   "key": "ruins-camp",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": {
+    "x": 65,
+    "y": 45,
+    "w": 4,
+    "h": 4
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "ruine, breches irregulieres, aucune porte"
+  },
+  {
+   "key": "ruins-institute",
+   "nature": "batiment",
+   "door": {
+    "x": 43,
+    "y": 45,
+    "w": 11,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 36,
+    "y": 29,
+    "w": 6,
+    "h": 10
+   },
+   "floorPitch": 14,
+   "confidence": 0.75,
+   "note": "porte sous porche"
+  },
+  {
+   "key": "ruins-lab",
+   "nature": "batiment",
+   "door": {
+    "x": 46,
+    "y": 47,
+    "w": 12,
+    "h": 22
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 68,
+    "y": 51,
+    "w": 8,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "rideau metallique cadenasse"
+  },
+  {
+   "key": "ruins-lodge",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 48,
+    "w": 10,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 35,
+    "y": 45,
+    "w": 6,
+    "h": 11
+   },
+   "floorPitch": 17,
+   "confidence": 0.7,
+   "note": "porte cintree a deux vantaux"
+  },
+  {
+   "key": "ruins-restoration-roman",
+   "nature": "batiment",
+   "door": {
+    "x": 38,
+    "y": 40,
+    "w": 8,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 64,
+    "y": 50,
+    "w": 10,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "haute baie ouverte de chantier"
+  },
+  {
+   "key": "schools-campus",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 49,
+    "w": 7,
+    "h": 12
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 82,
+    "y": 34,
+    "w": 8,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "entree sous auvent sombre"
+  },
+  {
+   "key": "schools-ludus",
+   "nature": "batiment",
+   "door": {
+    "x": 61,
+    "y": 38,
+    "w": 10,
+    "h": 19
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 29,
+    "y": 38,
+    "w": 6,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "entree pleine hauteur entre pilastres"
+  },
+  {
+   "key": "schools-prop-yard",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 41,
+    "w": 7,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 32,
+    "y": 35,
+    "w": 9,
+    "h": 12
+   },
+   "floorPitch": 12,
+   "confidence": 0.55,
+   "note": "pitch sur pignon droit"
+  },
+  {
+   "key": "schools-schoolhouse",
+   "nature": "batiment",
+   "door": {
+    "x": 62,
+    "y": 43,
+    "w": 14,
+    "h": 20
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 34,
+    "y": 44,
+    "w": 5,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "arche porche quasi pleine facade"
+  },
+  {
+   "key": "schools-victorian",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 45,
+    "w": 10,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 54,
+    "y": 50,
+    "w": 6,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "porte en arc sous le pignon"
+  },
+  {
+   "key": "scribes-archive",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 48,
+    "w": 9,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 48,
+    "y": 55,
+    "w": 6,
+    "h": 11
+   },
+   "floorPitch": 18,
+   "confidence": 0.55,
+   "note": "porte a portique, bas dans l'ombre"
+  },
+  {
+   "key": "scribes-data",
+   "nature": "batiment",
+   "door": {
+    "x": 21,
+    "y": 44,
+    "w": 7,
+    "h": 18
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 70,
+    "y": 46,
+    "w": 9,
+    "h": 24
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "baies pleine hauteur facon serveurs"
+  },
+  {
+   "key": "scribes-prop-hall",
+   "nature": "batiment",
+   "door": {
+    "x": 54,
+    "y": 39,
+    "w": 10,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 33,
+    "y": 42,
+    "w": 7,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "table d'ecriture exterieure"
+  },
+  {
+   "key": "scribes-scriptorium",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 44,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 65,
+    "y": 45,
+    "w": 8,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "portail monastique cintre"
+  },
+  {
+   "key": "scribes-tabularium",
+   "nature": "batiment",
+   "door": {
+    "x": 67,
+    "y": 46,
+    "w": 9,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 41,
+    "y": 44,
+    "w": 5,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "fenetres hautes a volets"
+  },
+  {
+   "key": "sewers-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 40,
+    "w": 11,
+    "h": 19
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "bouche d'egout en arc"
+  },
+  {
+   "key": "sewers-medieval",
+   "nature": "batiment",
+   "door": {
+    "x": 31,
+    "y": 41,
+    "w": 10,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 63,
+    "y": 14,
+    "w": 3,
+    "h": 4
+   },
+   "floorPitch": null,
+   "confidence": 0.45,
+   "note": "porte probable en claire-voie"
+  },
+  {
+   "key": "sewers-plant",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 39,
+    "w": 7,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 50,
+    "y": 46,
+    "w": 7,
+    "h": 9
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "bassin circulaire accole"
+  },
+  {
+   "key": "sewers-prop",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 31,
+    "w": 27,
+    "h": 29
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "bouche d'egout, grande arche barree de pieux"
+  },
+  {
+   "key": "sewers-works",
+   "nature": "batiment",
+   "door": {
+    "x": 68,
+    "y": 44,
+    "w": 9,
+    "h": 18
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 34,
+    "y": 44,
+    "w": 5,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "porte en arche devinee sur pignon sombre"
+  },
+  {
+   "key": "stonehouse",
+   "nature": "batiment",
+   "door": {
+    "x": 12,
+    "y": 40,
+    "w": 7,
+    "h": 11
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 28,
+    "y": 31,
+    "w": 5,
+    "h": 7
+   },
+   "floorPitch": 16,
+   "confidence": 0.7,
+   "note": ""
+  },
+  {
+   "key": "storyteller-back",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "aire du conteur enneigee"
+  },
+  {
+   "key": "storyteller-hall",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 40,
+    "w": 13,
+    "h": 22
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 51,
+    "y": 47,
+    "w": 11,
+    "h": 17
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "porte en arche de bois"
+  },
+  {
+   "key": "storyteller-media",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 43,
+    "w": 8,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "trois baies pleine hauteur, centrale mesuree"
+  },
+  {
+   "key": "storyteller-odeon",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 43,
+    "w": 12,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 66,
+    "y": 49,
+    "w": 5,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "porte a edicule sous grande arche"
+  },
+  {
+   "key": "storyteller-prop-fire",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "feu de camp"
+  },
+  {
+   "key": "storyteller-reader",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.9,
+   "note": "personnage assis lisant"
+  },
+  {
+   "key": "storyteller-theater",
+   "nature": "batiment",
+   "door": {
+    "x": 39,
+    "y": 53,
+    "w": 6,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 70,
+    "y": 37,
+    "w": 5,
+    "h": 11
+   },
+   "floorPitch": 17,
+   "confidence": 0.6,
+   "note": "trois entrees, la centrale mesuree"
+  },
+  {
+   "key": "tenement",
+   "nature": "batiment",
+   "door": {
+    "x": 24,
+    "y": 80,
+    "w": 7,
+    "h": 12
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 18,
+    "y": 34,
+    "w": 4,
+    "h": 6
+   },
+   "floorPitch": 10,
+   "confidence": 0.6,
+   "note": "baie du rez"
+  },
+  {
+   "key": "tent",
+   "nature": "batiment",
+   "door": {
+    "x": 14,
+    "y": 20,
+    "w": 8,
+    "h": 9
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "rabat de tente"
+  },
+  {
+   "key": "think-chancellery",
+   "nature": "batiment",
+   "door": {
+    "x": 37,
+    "y": 44,
+    "w": 10,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 33,
+    "y": 34,
+    "w": 4,
+    "h": 7
+   },
+   "floorPitch": 9,
+   "confidence": 0.65,
+   "note": "pitch 9-10 selon colonne"
+  },
+  {
+   "key": "think-institute",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 48,
+    "w": 9,
+    "h": 16
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 34,
+    "y": 34,
+    "w": 5,
+    "h": 8
+   },
+   "floorPitch": 13,
+   "confidence": 0.8,
+   "note": "porte a auvent blanc"
+  },
+  {
+   "key": "think-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 41,
+    "y": 44,
+    "w": 10,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 75,
+    "y": 41,
+    "w": 7,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "entree sombre entre pilastres"
+  },
+  {
+   "key": "think-prop-council",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 42,
+    "w": 15,
+    "h": 20
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "hutte de conseil"
+  },
+  {
+   "key": "think-stoa-roman",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 45,
+    "w": 10,
+    "h": 19
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 33,
+    "y": 44,
+    "w": 7,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "entree entre deux colonnes"
+  },
+  {
+   "key": "tower",
+   "nature": "batiment",
+   "door": {
+    "x": 22,
+    "y": 100,
+    "w": 8,
+    "h": 10
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 16,
+    "y": 40,
+    "w": 3,
+    "h": 5
+   },
+   "floorPitch": 8,
+   "confidence": 0.6,
+   "note": "entree du socle"
+  },
+  {
+   "key": "tower-cosmic-7",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 294,
+    "w": 12,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 150,
+    "w": 2,
+    "h": 4
+   },
+   "floorPitch": 8,
+   "confidence": 0.6,
+   "note": "lobby lumineux"
+  },
+  {
+   "key": "tower-cosmic-8",
+   "nature": "batiment",
+   "door": {
+    "x": 52,
+    "y": 288,
+    "w": 14,
+    "h": 18
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 34,
+    "y": 150,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 7,
+   "confidence": 0.6,
+   "note": ""
+  },
+  {
+   "key": "tower-cosmic-9",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 287,
+    "w": 12,
+    "h": 19
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 34,
+    "y": 150,
+    "w": 2,
+    "h": 3
+   },
+   "floorPitch": 7,
+   "confidence": 0.55,
+   "note": ""
+  },
+  {
+   "key": "townhouse",
+   "nature": "batiment",
+   "door": {
+    "x": 19,
+    "y": 42,
+    "w": 6,
+    "h": 8
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 34,
+    "y": 28,
+    "w": 4,
+    "h": 7
+   },
+   "floorPitch": 17,
+   "confidence": 0.75,
+   "note": ""
+  },
+  {
+   "key": "universities-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 44,
+    "y": 39,
+    "w": 7,
+    "h": 14
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 69,
+    "y": 35,
+    "w": 7,
+    "h": 10
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "porte sous portique dans l'ombre"
+  },
+  {
+   "key": "universities-collegiate",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 54,
+    "w": 11,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 64,
+    "y": 48,
+    "w": 5,
+    "h": 9
+   },
+   "floorPitch": 11,
+   "confidence": 0.7,
+   "note": "entree a entablement clair"
+  },
+  {
+   "key": "universities-gothic",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 50,
+    "w": 11,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 68,
+    "y": 50,
+    "w": 5,
+    "h": 15
+   },
+   "floorPitch": null,
+   "confidence": 0.8,
+   "note": "chapelle, arc brise, lancettes"
+  },
+  {
+   "key": "universities-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 63,
+    "y": 53,
+    "w": 11,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 21,
+    "y": 46,
+    "w": 5,
+    "h": 8
+   },
+   "floorPitch": 9,
+   "confidence": 0.55,
+   "note": "entree vitree sombre au centre"
+  },
+  {
+   "key": "universities-prop-hall",
+   "nature": "batiment",
+   "door": {
+    "x": 34,
+    "y": 41,
+    "w": 11,
+    "h": 14
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.5,
+   "note": "halle primitive"
+  },
+  {
+   "key": "watch-back",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "mirador ouvert a echelle"
+  },
+  {
+   "key": "watch-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 33,
+    "y": 83,
+    "w": 12,
+    "h": 20
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 37,
+    "y": 59,
+    "w": 7,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.75,
+   "note": "une seule rangee de fenetres"
+  },
+  {
+   "key": "watch-industrial",
+   "nature": "batiment",
+   "door": {
+    "x": 25,
+    "y": 64,
+    "w": 16,
+    "h": 25
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 31,
+    "y": 38,
+    "w": 7,
+    "h": 9
+   },
+   "floorPitch": 27,
+   "confidence": 0.65,
+   "note": "arche a encadrement de pierre"
+  },
+  {
+   "key": "watch-modern",
+   "nature": "batiment",
+   "door": {
+    "x": 30,
+    "y": 88,
+    "w": 8,
+    "h": 15
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 25,
+    "y": 31,
+    "w": 5,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "vitrage continu du poste"
+  },
+  {
+   "key": "watch-prop",
+   "nature": "batiment",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "mirador de bois, brasero"
+  },
+  {
+   "key": "watch-stone",
+   "nature": "batiment",
+   "door": {
+    "x": 48,
+    "y": 73,
+    "w": 14,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 30,
+    "y": 52,
+    "w": 2,
+    "h": 6
+   },
+   "floorPitch": null,
+   "confidence": 0.65,
+   "note": "donjon rond, meurtriere"
+  },
+  {
+   "key": "works-camp",
+   "nature": "batiment",
+   "door": {
+    "x": 42,
+    "y": 37,
+    "w": 10,
+    "h": 18
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 73,
+    "y": 36,
+    "w": 11,
+    "h": 16
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "cabane de rondins"
+  },
+  {
+   "key": "works-classical",
+   "nature": "batiment",
+   "door": {
+    "x": 35,
+    "y": 37,
+    "w": 15,
+    "h": 24
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 72,
+    "y": 45,
+    "w": 8,
+    "h": 8
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "grande arche d'atelier"
+  },
+  {
+   "key": "works-depot",
+   "nature": "batiment",
+   "door": {
+    "x": 45,
+    "y": 45,
+    "w": 9,
+    "h": 21
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 26,
+    "y": 50,
+    "w": 5,
+    "h": 11
+   },
+   "floorPitch": null,
+   "confidence": 0.55,
+   "note": "baies coulissantes en serie"
+  },
+  {
+   "key": "works-industrial",
+   "nature": "batiment",
+   "door": {
+    "x": 40,
+    "y": 40,
+    "w": 9,
+    "h": 17
+   },
+   "doorKind": "porte",
+   "window": {
+    "x": 32,
+    "y": 35,
+    "w": 6,
+    "h": 12
+   },
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "seconde porte charretiere a droite"
+  },
+  {
+   "key": "works-yard",
+   "nature": "batiment",
+   "door": {
+    "x": 66,
+    "y": 47,
+    "w": 13,
+    "h": 16
+   },
+   "doorKind": "portail",
+   "window": {
+    "x": 29,
+    "y": 51,
+    "w": 3,
+    "h": 7
+   },
+   "floorPitch": null,
+   "confidence": 0.6,
+   "note": "baie de grange ouverte"
+  }
+ ]
+}
