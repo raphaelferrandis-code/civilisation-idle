@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
-import { HOUSE_TINTS, HOUSE_FAMILY, SWAP_PAIRS, pickHouseTint, applyHouseTint } from "../housePalette.js";
+import { HOUSE_TINTS, HOUSE_FAMILY, SWAP_PAIRS, COULEURS_PROTEGEES, pickHouseTint, applyHouseTint } from "../housePalette.js";
 
 // VARIATION PAR INSTANCE des habitations. Les 12 archétypes étaient stampés à
 // l'identique sur ~1300 tuiles : c'est la répétition, pas le nombre de modèles, qui
@@ -15,17 +15,11 @@ import { HOUSE_TINTS, HOUSE_FAMILY, SWAP_PAIRS, pickHouseTint, applyHouseTint } 
 
 const HOUSES_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../../../public/pixelart/houses");
 
-// Couleurs que l'échange ne doit JAMAIS toucher, et la raison de chacune. Un ajout de
-// rampe distrait qui les avalerait passerait inaperçu à l'œil sur une capture, mais
-// dissoudrait le trait ou peindrait un arbre en bleu sur toute la carte.
-const INTOUCHABLES = {
-  "#211a1d": "noir de contour (11 sprites sur 12)",
-  "#0d0b0c": "noir de contour cosmique",
-  "#5c7d38": "feuillage", "#8aa24a": "feuillage",
-  "#2c6b51": "feuillage", "#4a5f50": "feuillage", "#5aa87d": "feuillage",
-  "#dfe08a": "chaume (identité de l'ère 1)", "#b3c840": "chaume",
-  "#1f3a44": "teal (eau et verre)", "#356b78": "teal", "#6fb0b8": "teal"
-};
+// Couleurs que l'échange ne doit JAMAIS toucher. La liste vit dans housePalette.js
+// (cf. COULEURS_PROTEGEES) parce que l'outil de réparation snapTintRamp.mjs en a
+// besoin aussi : une garde et un outil qui divergeraient sur ce qui est intouchable
+// seraient pires que pas de liste du tout.
+const INTOUCHABLES = COULEURS_PROTEGEES;
 
 // Rampe terre cuite au complet. Aucun archétype de la famille FROIDE ne doit pouvoir en
 // recevoir un seul ton : c'est la tour de verre en terre cuite, le défaut d'origine.

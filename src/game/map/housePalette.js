@@ -119,6 +119,23 @@ export const HOUSE_TINTS = [
 // l'injectivité sur la MÊME donnée que le rendu (et pas sur une copie qui dériverait).
 export const SWAP_PAIRS = { calcaire: SWAP_CHAUD, ardoise: SWAP_FROID };
 
+// Couleurs que l'échange ne doit JAMAIS toucher, et la raison de chacune. Un ajout de
+// rampe distrait qui les avalerait passerait inaperçu à l'œil sur une capture, mais
+// dissoudrait le trait ou peindrait un arbre en bleu sur toute la carte.
+//
+// Vit ICI et non dans le test : deux consommateurs en ont besoin — la garde
+// (houseVariants.test.js vérifie qu'aucune teinte ne les repeint) ET l'outil de
+// réparation (scripts/snapTintRamp.mjs, qui doit rabattre un contour DÉCALÉ sur son
+// noir canonique et surtout pas sur le ton de rampe le plus proche).
+export const COULEURS_PROTEGEES = {
+  "#211a1d": "noir de contour (11 sprites sur 12)",
+  "#0d0b0c": "noir de contour cosmique",
+  "#5c7d38": "feuillage", "#8aa24a": "feuillage",
+  "#2c6b51": "feuillage", "#4a5f50": "feuillage", "#5aa87d": "feuillage",
+  "#dfe08a": "chaume (identité de l'ère 1)", "#b3c840": "chaume",
+  "#1f3a44": "teal (eau et verre)", "#356b78": "teal", "#6fb0b8": "teal"
+};
+
 // FAMILLE DE MATIÈRE PAR ARCHÉTYPE — assignée sur la matière DOMINANTE mesurée dans
 // chaque PNG, pas sur l'ère. C'est la garde qui empêche la tour de verre en terre cuite.
 //   chaude  : ≥ 30 % de pixels dans la rampe brique → l'échange brique ↔ pierre lit juste
