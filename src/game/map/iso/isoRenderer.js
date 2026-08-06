@@ -87,6 +87,9 @@ import {
 // MOBILIER DE TROTTOIR : la POSE vit là-bas (corps pur, testable), le dessin
 // reste celui du kit des places. Cf. § MOBILIER DE TROTTOIR plus bas.
 import { STREET_PROPS, computeStreetProps } from './isoStreetProps.js';
+// CLÔTURES (lot L9) : la RÈGLE de pose et les entrées dérivées d'un layout vivent
+// dans un module pur, partagé avec le compteur de `tissuMetrics` — cf. § CLÔTURES.
+import { fenceEdges, fenceInputs, FENCE } from '../fenceEdges.js';
 
 // ── Palette Phase 1 (flat, calée sur les teintes du rendu actuel) ────────────
 const GRASS = [116, 138, 84];        // herbe / nature (référence = été)
@@ -6330,6 +6333,109 @@ function isoStreetPropsFor(L, band) {
   if (typeof window !== 'undefined') window.__streetPropsCount = props.length;
   return props;
 }
+
+// ── CLÔTURES (lot L9, docs/PLAN-TISSU-URBAIN.md) ────────────────────────────
+// L'art était livré depuis le 2026-07-30 et la règle de pose écrite ET testée
+// (`fenceEdges.js`) : il ne manquait que ce branchement. Le compteur exigé par le plan
+// est arrivé avant (`__tissu().fences`) et il a levé le doute — 90 arêtes à la
+// bande 3, 563 à la bande 7, pour un plafond de 4 000.
+//
+// ⚠ PASSE VIVANTE, JAMAIS LA CUISSON DU SOL. Une clôture est sur une ARÊTE, donc à
+// cheval sur deux cellules, et un décor à cheval cuit dans le sol se fait rogner au
+// défilement — c'est le refus tombé sept fois sur la jonction herbe/ville. Poussée
+// ici comme les lampadaires, le problème n'existe pas.
+//
+// ⚠ AUCUNE BRANCHE DE DESSIN À ÉCRIRE. Les PNG vivent dans `iso/plaza/`, donc
+// `propImage` les résout depuis (prop `fence`, variant = côté, ère) et
+// `drawIsoPlazaProp` les blitte : même art et même tri que les bancs, exactement ce
+// que le plan annonçait (« même pipeline que les bancs »).
+//
+// `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place. Un garde-corps
+// arrive à la taille — pas un mur, pas une palissade.
+// Molette : `__fences(false)` éteint, `__fences({ p: 0.7 })` règle.
+// ⛔ **LIVRÉ ÉTEINT (2026-08-06).** Le branchement est complet et mesuré, mais l'ART
+// NE FERME PAS LA LIGNE — et c'est de l'arithmétique, pas un réglage :
+//
+//   arête de cellule à l'écran : hypot(32, 16) = 35,8 px à zoom 1
+//   encre du sprite            : 21 px de large (canvas 34×34, encre 21×31)
+//
+// Un panneau par arête laisse donc ~11 px de vide entre deux voisins, et les panneaux
+// se lisent comme des BLOCS DE PIERRE ABANDONNÉS éparpillés sur le sable — vérifié en
+// capture, y compris centré sur la plus longue suite contiguë (13 arêtes).
+// `minRun` a été ajouté pour écarter les panneaux isolés (92 → 68 poses à 3) : ça
+// supprime les pires, ça ne ferme pas la ligne.
+//
+// Le plan avait pressenti la moitié du problème (« ces panneaux ont des poteaux
+// d'about, donc deux bouts à bout feront un double poteau… si ça jure, générer une
+// variante milieu de course ») ; la mesure dit qu'ils ne se touchent même pas.
+//
+// Deux issues, toutes deux à arbitrer par Raph AVANT d'écrire quoi que ce soit :
+//  · poser PLUSIEURS panneaux par arête pour qu'ils s'abutent — et alors la variante
+//    « milieu de course » du plan devient nécessaire, sinon on aligne des poteaux ;
+//  · ou redessiner l'art en PANNEAU LARGE, une arête = un sprite.
+//
+// `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place.
+// `minRun` = longueur minimale d'une suite d'arêtes contiguës.
+// Molette : `__fences(true)` allume, `__fences({ p, minRun })` règle.
+export const FENCE_ISO = { on: false, p: 0.62, minRun: 3 };
+const NO_FENCES = [];
+let _fenceCache = { key: '', list: null };
+function isoFencesFor(L, band) {
+  const era = plazaEraForBand(band);
+  if (!L || !FENCE_ISO.on || !FENCE.on || !era) return NO_FENCES;
+  const key = CM.layoutRecomputeAt + ':' + band + ':' + FENCE_ISO.p
+    + ':' + FENCE_ISO.minRun + ':' + (COUR.on ? 1 : 0) + ':' + FENCE.cap;
+  if (_fenceCache.key === key && _fenceCache.list) return _fenceCache.list;
+  const T = CM.TILE;
+  const hT = personHT() * FENCE_ISO.p;
+  const list = [];
+  // ⚠ Les entrées viennent de `fenceInputs`, jamais d'un `matOf` local : le compteur
+  // et la pose doivent voir la MÊME carte de matières, sinon `__tissu()` annonce un
+  // nombre qui n'est pas celui des panneaux dessinés. Une copie a déjà dérivé ici.
+  const brutes = fenceEdges(fenceInputs(L));
+  // FILTRE DE LIGNE (cf. FENCE_ISO.minRun). Une arête ne se garde que si elle
+  // appartient à une suite contiguë assez longue, le long de SON axe : les côtés
+  // n/s se suivent en gx à gy fixe, les côtés e/w en gy à gx fixe.
+  let edges = brutes;
+  if (FENCE_ISO.minRun > 1) {
+    const vues = new Set();
+    for (const e of brutes) vues.add(e.side + ':' + e.gx + ':' + e.gy);
+    const long = (e) => {
+      const horiz = e.side === 'n' || e.side === 's';
+      let n = 1;
+      for (const dir of [-1, 1]) {
+        let gx = e.gx, gy = e.gy;
+        for (;;) {
+          if (horiz) gx += dir; else gy += dir;
+          if (!vues.has(e.side + ':' + gx + ':' + gy)) break;
+          n += 1;
+        }
+      }
+      return n;
+    };
+    edges = brutes.filter((e) => long(e) >= FENCE_ISO.minRun);
+  }
+  for (const e of edges) {
+    // Le panneau se pose SUR l'arête, au milieu du côté nommé — c'est ce qui le fait
+    // lire comme une limite et non comme un objet posé dans une cellule.
+    const wx = (e.gx + (e.side === 'e' ? 1 : e.side === 'w' ? 0 : 0.5)) * T;
+    const wy = (e.gy + (e.side === 's' ? 1 : e.side === 'n' ? 0 : 0.5)) * T;
+    list.push({ prop: 'fence', variant: e.side, wx, wy, hT, d: depthOf(wx, wy) });
+  }
+  _fenceCache = { key, list };
+  CM._fences = list;
+  if (typeof window !== 'undefined') window.__fencesCount = list.length;
+  return list;
+}
+if (typeof window !== 'undefined') {
+  window.__fences = (arg) => {
+    if (arg === false) FENCE_ISO.on = false;
+    else if (arg && typeof arg === 'object') { FENCE_ISO.on = true; Object.assign(FENCE_ISO, arg); }
+    else FENCE_ISO.on = true;
+    _fenceCache = { key: '', list: null };
+    return { ...FENCE_ISO, poses: window.__fencesCount | 0, dessinees: CM._fencesDrawn | 0 };
+  };
+}
 // Coin SUD (clé peintre, px monde wx+wy) de chaque cellule couverte par un bâtiment
 // DEBOUT. Les empreintes à plat (champs) trient au coin nord comme le sol → exclues.
 // (Une exception « aqueduc » vivait ici — la conduite se rendait en TRANCHES, donc
@@ -9136,6 +9242,23 @@ function drawIsoLive(now) {
     }
     CM._streetPropsDrawn = nSp;
   }
+  // CLÔTURES : même art, même tri et même seuil que le mobilier ci-dessus (elles
+  // sortent du même kit de place). Sautées en LOD pour la même raison — au dézoom un
+  // panneau fait moins d'un pixel, et ils sont quelques centaines.
+  CM._fencesDrawn = 0;
+  if (!CM.lodActive) {
+    const fen = isoFencesFor(L, band);
+    let nF = 0;
+    const minHF = 2 / (T * CM.cam.zoom);
+    for (const rec of fen) {
+      if (rec.hT < minHF) continue;
+      if (!dvVis(rec.wx - T, rec.wy - T, rec.wx + T, rec.wy + T)) continue;
+      const it = pushItem();
+      it.d = rec.d; it.kind = 'plazaProp'; it.art = rec; it.eraKey = plazaEraForBand(band);
+      nF += 1;
+    }
+    CM._fencesDrawn = nF;
+  }
   // MERVEILLES au TRI PEINTRE : profondeur = pied du monument (ancre drawWonder),
   // comme la scène de place — les badauds ATTROUPÉS au sud du socle passent
   // DEVANT, ceux au nord disparaissent derrière. Remplace l'ancien dessin « après
@@ -9654,6 +9777,11 @@ function drawIsoLive(now) {
         // exact qui a servi à évaser le lit.
         ctx.drawImage(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx);
         ctx.imageSmoothingEnabled = prevPS;
+        // Boîte RÉELLEMENT dessinée, publiée pour le hit-test du clic
+        // (cityMapRuntime). Publiée ICI et pas recalculée là-bas : deux
+        // projections séparées finissent toujours par diverger, et la zone
+        // cliquable se retrouverait à côté de la tour.
+        CM._plaisirsBox = { dx: p.x - wpx / 2, dy: p.y - hpx, dw: wpx, dh: hpx };
       }
     } else if (it.kind === 'lamp') {
       const p = worldToScreen(it.wx, it.wy);
