@@ -16,7 +16,10 @@ import { hashString, mixSeed } from "./seedManager.js";
 
 // ── Tables de variantes par bande d'ère ─────────────────────────────────────
 // Chaque entrée : { base: [variantes neutres], <variantBias>: [variantes biaisées] }
-const VARIANTS_HOUSE = [
+// Exportée pour la garde de contraste bâti/sol (isoBuildingGroundContrast.test.js) :
+// elle doit savoir QUELS archétypes une bande pose réellement, et le lire ici plutôt
+// que d'en tenir une copie — une garde déduite d'une copie dérive en silence.
+export const VARIANTS_HOUSE = [
   { base: ["tent"], poor: ["tent"], rich: ["hut"] },
   { base: ["hut", "hut", "longhouse"], poor: ["tent", "hut", "hut"], rich: ["longhouse", "hut"] },
   { base: ["townhouse", "townhouse", "courtyard"], poor: ["hut", "townhouse"], rich: ["courtyard", "townhouse", "manor"] },

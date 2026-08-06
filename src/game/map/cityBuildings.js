@@ -29,7 +29,11 @@ export const CM_KNOWLEDGE_BUILDINGS = [
   { id: "think_tanks",    name: "Instituts stratégiques",zone: "edge"   }
 ];
 export const CM_INFRA_BUILDINGS = [
-  { id: "aqueducts",     name: "Aqueducs",             zone: "outside"   },
+  // Points d'eau semés dans la ville. La zone n'est ici qu'un DÉFAUT : chaque
+  // instance reçoit la sienne par cmRequestZone (alternance des trois anneaux),
+  // sans quoi elles s'alignent toutes sur le même rayon. « outside » (la berge,
+  // du temps de l'aqueduc-conduite) est ce qu'on ne veut PLUS.
+  { id: "aqueducts",     name: "Service des eaux",     zone: "mid"       },
   { id: "watch",         name: "Veilleurs",            zone: "edge"      },
   { id: "sewers",        name: "Égouts",               zone: "mid"       },
   { id: "bureaucracy",   name: "Bureaucratie",         zone: "center"    },
@@ -42,4 +46,6 @@ export const CM_INFRA_BUILDINGS = [
 export const CM_MAP_BUILDINGS = CM_ENGINE_BUILDINGS.concat(CM_KNOWLEDGE_BUILDINGS, CM_INFRA_BUILDINGS);
 export const CM_KNOWLEDGE_IDS = new Set(CM_KNOWLEDGE_BUILDINGS.map((b) => b.id));
 export const CM_INFRA_IDS     = new Set(CM_INFRA_BUILDINGS.map((b) => b.id));
-export const CM_SLOT_PRIORITIES = { aqueducts: 0, infra: 1, knowledge: 2, engine: 3 };
+// (Les aqueducs avaient leur propre priorité 0 : la conduite devait réserver la
+//  berge avant tout le monde. Devenus points d'eau, ils passent avec les infra.)
+export const CM_SLOT_PRIORITIES = { infra: 1, knowledge: 2, engine: 3 };

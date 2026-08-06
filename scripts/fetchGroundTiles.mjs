@@ -311,6 +311,50 @@ const LOTS = [
       { key: 'iso-shingle-winter', tiles: [8, 9, 10, 11] },     // gravier + neige
     ],
   },
+  // ⚠⚠ LOT ÉCARTÉ LE JOUR MÊME (2026-08-05), gardé pour la leçon — NE PAS le
+  // relancer sans lire ceci. Ces tuiles ont été générées pour donner sa matière
+  // au trottoir, puis le trottoir lui-même a disparu : Raph a tranché que « le
+  // sol de ville EST le trottoir », donc qu'il n'a pas d'apparence propre — il
+  // n'y a plus qu'une MARCHE côté rue, et derrière elle le sol tel quel. Les
+  // PNG ont été supprimés de public/. Ce qui reste vrai et resservira :
+  //   • un dallage RÉGULIER cuit dans une tuile iso arrive toujours à 45° de la
+  //     rue (le motif suit les axes de l'IMAGE, dont l'horizontale est la
+  //     DIAGONALE du monde) — pour une bande orientée, il faut une matière
+  //     ISOTROPE et un appareillage tracé dans le repère de la rue ;
+  //   • « fine grain » et « fine joints » dans un prompt rendent des APLATS :
+  //     deux des quatre matières de ce lot sont sorties identiques d'une
+  //     variante à l'autre (écart de luminance 0,0 et 0,7). Demander des PIERRES.
+  //
+  // (Lot d'origine — TROTTOIRS, Raph 2026-08-05 : « le trottoir iso détonne trop
+  // de par le fait qu'il soit lisse et pas pixel ».)
+  //
+  // Une matière de trottoir n'est pas une matière de sol comme une autre : elle
+  // est vue dans une BANDE de 0,22 tuile (~7 px à zoom 1). Une grande dalle n'y
+  // tient pas — il faut une pierre PETITE, sinon on ne voit que des taches. Le
+  // dallage de place (iso-plaza-*) a d'ailleurs été essayé en place et rendait
+  // exactement ça : ses arcs sont dessinés pour un carré de 4×4 cellules.
+  //
+  // Lot rangé PAR COLONNE (mesuré : 0 à 10 d'écart par colonne, 93 à 96 par
+  // rangée — sans ambiguïté).
+  //   colonne 0 — CALCAIRE, petites dalles rectangulaires en rangées décalées,
+  //     lum ~205. Retenue : c'est un vrai appareillage de trottoir, et le
+  //     décalage des rangées évite l'alignement franc qui trahit la cellule.
+  //   colonne 1 — GRANIT, petits carrés gris, lum ~132. Retenue pour les ères
+  //     industrielle et suivantes.
+  //   colonnes 2 et 3 — ÉCARTÉES, et la mesure les dénonce avant l'œil : 0,0 et
+  //     0,7 d'écart interne, c'est-à-dire QUATRE VARIANTES IDENTIQUES. Le prompt
+  //     y demandait « fine straight joints » et « fine grain » : le modèle a
+  //     rendu deux aplats avec une croix de joints, soit précisément l'aplat
+  //     qu'on cherche à remplacer. Leçon pour la reprise (béton et tech) :
+  //     demander des PIERRES, jamais un grain ni des joints.
+    // { (lot ecarte, cf. ci-dessus)
+  // id: '87181e58-c01d-40e1-a8b6-c91e3ac026cc', seed: 1505,
+  // mats: [
+  // { key: 'walk-stone', tiles: [0, 4, 8, 12], equalize: true },     // calcaire clair — bandes 2-5
+  // { key: 'walk-granite', tiles: [1, 5, 9, 13], equalize: true },   // granit gris — bandes 6+
+  // ],
+  // },
+  // 
 ];
 const BUCKET = 'https://backblaze.pixellab.ai/file/pixellab-tiles/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const FILTER = process.argv[2] || '';

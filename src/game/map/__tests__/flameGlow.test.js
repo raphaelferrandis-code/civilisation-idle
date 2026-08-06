@@ -120,9 +120,12 @@ describe('foyers des bandes de feu — ancrés sur les PNG, pas sur eux-mêmes',
   });
 
   // Sans ceci la garde ci-dessus se viderait toute seule : une table vide passe.
-  it('les quatre feux animés du jeu sont couverts', () => {
+  // ⚠ Pas de compte dans le titre : la liste bouge (le stade 0 des conteurs a
+  // perdu son feu de camp le 2026-08-05, le culte ancestral a gagné son palier)
+  // et un intitulé chiffré oblige à renommer le test à chaque fois.
+  it('les feux animés du jeu sont tous couverts', () => {
     expect(Object.keys(ANIM_FIRE_CORES).sort()).toEqual(
-      ['ancestralcult-fire', 'mint-forge-fire', 'storyteller-fire', 'watch-fire']
+      ['ancestralcult-fire', 'ancestralcult-fire-grand', 'mint-forge-fire', 'watch-fire']
     );
   });
 });
@@ -245,7 +248,7 @@ describe('blitAnim — la lueur suit le feu, et rien que le feu', () => {
   });
 
   it('l\'eau qui coule ne brille pas', () => {
-    for (const key of ['aqueduct-water-seg', 'aqueduct-water-outlet', 'sewers-water']) {
+    for (const key of ['aqueduct-water-seg', 'aqueduct-water-outlet', 'aqueduct-water-intake']) {
       const ctx = makeCtx();
       blitAnim(ctx, 0, 0, 100, 100, key, 0, 0.5, 0.5, 1, 1);
       expect(pendingFlameGlows(), `${key} ne devrait pas éclairer`).toBe(0);

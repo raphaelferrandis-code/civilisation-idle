@@ -116,7 +116,11 @@ const SPRITE_EPOCH_TAGS = {
   'aqueduct-outlet': 'feu', 'aqueduct-seg': 'feu', 'aqueduct-intake': 'feu',
   'aqueduct-water-outlet': 'feu', 'aqueduct-water-seg': 'feu', 'aqueduct-water-intake': 'feu',
   'watch-back': 'feu', 'watch-fire': 'feu', 'watch-prop': 'feu',
-  'sewers-prop': 'feu', 'sewers-water': 'feu',
+  // Égouts : plus qu'un sprite par stade. Le tuyau posé par sewerOutfall.mjs ne
+  // pioche que dans la palette DÉJÀ présente sur chaque sprite, donc un remap ne
+  // le sépare jamais de son bâtiment. (Les bandes `sewers-*-flow` et l'ancienne
+  // `sewers-water` ont disparu avec l'eau de surface, cf. 2026-08-05.)
+  'sewers-prop': 'feu',
   // Agents (bonus — même cohérence par époque)
   'caveman': 'feu', 'cavewoman': 'feu', 'cavechild': 'feu', 'forager': 'feu',
   'villager': 'bois', 'villagerwoman': 'bois', 'villagerchild': 'bois', 'farmer': 'bois', 'ox': 'bois', 'horse': 'bois',

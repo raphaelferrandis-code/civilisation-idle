@@ -37,6 +37,11 @@ Le process principal Electron est `main.cjs`. Il sert les fichiers via le protoc
 - `src/game/map` : runtime canvas de la carte de cité, découpé par responsabilité (`layout`, agents, rendu monde, rendu bâtiments).
 - `public/audio` : musique de fond.
 
+## Crédits
+
+Les ressources externes (packs de sprites et d'icônes) et leurs licences sont listées dans
+[CREDITS.md](CREDITS.md).
+
 ## Notes
 
 La carte de cité n'est plus chargée depuis `public/js` par injection de scripts. Elle est importée depuis `src/game/map` et montée par `CityMapCanvas`.

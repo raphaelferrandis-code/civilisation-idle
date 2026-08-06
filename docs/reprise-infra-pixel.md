@@ -56,16 +56,54 @@ La série **INFRA** vient de démarrer :
 
 ## ÉGOUTS (`sewers`) — fait 2026-07-02, leçons
 
-- **Station** ✅ : hutte trapue en pierre sèche, toit bois, arche sombre + grille,
-  filet d'eau croupie en sortie. Sprites `sewers-prop.png` (96×80) +
-  `sewers-water.png` (bande 7 frames). Blit `0.5, 0.52, 0.92, 0.77`.
+- **Station** ✅ : hutte trapue en pierre sèche, toit bois, arche sombre + grille.
+  Sprite `sewers-prop.png` (96×80), blit `0.5, 0.52, 0.92, 0.77`.
 - **⚠ `animate_object` v3 a échoué 3/3** (« Generation failed ») sur ce map-object →
-  la bande d'eau est composée PROCÉDURALEMENT par `scripts/sewerWaterBand.mjs`
-  (VERSIONNÉ, contrairement aux scripts perdus de l'ancienne session) : masque =
-  verts vifs (g>r+40 && g>b+90) dans une fenêtre GATE sur le sprite RAW, onde de
-  brillance le long du flux en cyclant la rampe foliage + écume boneWhite ; les
-  couleurs sortent déjà dans la palette → aucun remap après. Réutilisable pour
-  tout filet/flux du même genre.
+  l'eau est composée PROCÉDURALEMENT, hors-ligne.
+
+### SORTIE DES ÉGOUTS — refonte du 2026-08-05
+
+⛔ **Les stations d'égouts ne montrent AUCUNE eau de surface.** Verdict de Raph après
+trois passes : « c'est vraiment le fait d'avoir de l'eau qui sort qui est bizarre. Il
+faudrait juste un tuyau qui rentre dans le sol. » Ne reproposer ni caniveau, ni flaque,
+ni filet, ni bassin. Un égout AVALE ; un réseau d'évacuation se raconte par ce qui
+DISPARAÎT sous terre. C'est la FONCTION du bâtiment qui dicte sa scène.
+
+Les trois passes, pour ne pas les refaire :
+
+1. **État d'origine** — une flaque isolée par stade, sans amont ni aval : stade 0 un
+   filet peint dans la rampe de l'HERBE (invisible hors mouvement), stade 1 une flaque
+   bleue à côté d'une arche sèche PLUS une seconde eau replacée par le code sur le
+   parvis, stades 2 et 3 rien, band 4 un bassin turquoise (teinte de l'eau PROPRE de
+   l'aqueduc). → « l'écoulement n'est pas logique ».
+2. **Caniveau à ciel ouvert** — bouche → lit → sortie du socle. → « la petite gouttière
+   ne va pas, étrange par rapport à la grande porte de sortie ». Leçon conservée
+   quand même, elle vaut pour tout : **une sortie se dimensionne sur SA BOUCHE**, pas
+   sur une constante (ouvertures mesurées : prop x 45..63 soit 19 px, medieval
+   x 66..76 soit 11 px ; un lit de 3 rangs sous une voûte de 19 px = un fil de fer).
+3. **Tuyau qui rentre dans le sol** — retenu.
+
+État livré :
+
+- **Un seul script fait foi** : `scripts/sewerOutfall.mjs`. Il pose un conduit DEBOUT
+  au pied du bâtiment (coude en haut, ombre portée sur la façade, col de terre remuée
+  au point d'entrée) et efface les flaques d'origine. Il lit ses entrées dans
+  `scripts/data/sewers-base/` (copie vierge) et jamais sa sortie : rejouable à l'octet.
+- **⚠ Le tuyau est DEBOUT, pas couché.** Une version posée au sol (le tuyau part du mur
+  et court sur le terrain en pente iso) a été peinte puis rejetée : à 3 rangs sur un sol
+  texturé, un cylindre horizontal se lit comme une brindille. Debout, il coupe le plan
+  de sol au lieu de s'y fondre.
+- **⚠ Un cylindre a besoin de son ombre portée.** Sans elle, sur un mur pâle son arête
+  claire vaut le crépi et il ne reste que le corps sombre — ça se lit comme une poutre.
+- **Aucune bande animée** : `ANIM_BANDS` ne déclare plus rien pour les égouts, et il n'y
+  a plus rien à animer. `sewers-water.png`, `sewers-*-flow.png` et
+  `scripts/sewerWaterBand.mjs` sont SUPPRIMÉS. Un test
+  (`src/game/map/__tests__/sewerOutfall.test.js`) garde qu'ils ne reviennent pas, que la
+  retouche ne peint rien hors de la silhouette d'origine, et que le verrou de 24 teintes
+  tient.
+- Le bassin turquoise de la romaine (425 px, art PixelLab d'origine) est effacé lui
+  aussi : il est au BORD du socle, donc l'effacement ne creuse pas de trou — le
+  bâtiment retombe sur sa terrasse de pierre.
 - **Plaques/caniveaux sur les routes : REJETÉ par Raph** (2026-07-02, « c'est
   nul ») après essai complet (BFS depuis les stations + motifs par ère). Code
   retiré (layout + pixelTerrain + test). NE PAS refaire sans nouvelle demande —

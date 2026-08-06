@@ -154,8 +154,30 @@ export const COULEURS_PROTEGEES = {
 // toute façon peu peuplés, la répétition s'y voit peu.
 // Ne pas les rajouter sans un NOUVEL échange fait pour eux (cf. « option B », un décalage
 // de nuance DANS la rampe terre cuite plutôt qu'un changement de matière).
+// ⛔ `townhouse` et `manor` RETIRÉS le 2026-08-05 — la même raison que les quatre
+// vernaculaires ci-dessus, cette fois CHIFFRÉE contre le sol.
+//
+// L'échange chaud les envoie sur `#8f8475` (rang 4 du calcaire), qui est la PIRE
+// valeur de toute la rampe face au sol de ville : distance RGB **20,7** au pavé de la
+// bande 3 et **11,9** à celui de la bande 2, quand tous les autres rangs du calcaire
+// sont à 41 ou plus. Résultat mesuré : `townhouse/calcaire` dissolvait **25,0 %** de
+// son encre dans le sol et `manor/calcaire` **32,2 %** — et dans les deux cas c'est le
+// MUR (centroïde 0,46 et 0,49), pas le toit.
+//
+// Ce n'est donc pas de la variation, c'est une DISPARITION : l'échange prend une
+// couleur qui lit (la brique, à 60-69 du sol) et la remplace par une qui ne lit pas.
+// Recherche exhaustive faite : sur les 41 teintes du cœur, aucune ne peut remplacer
+// `#8f8475` à cette luminance — les seules qui se détachent du sol sont des verts de
+// feuillage ou la rampe de brique elle-même. Le vrai remède est une teinte de calcaire
+// à créer (cf. docs/PLAN-RENDU-VILLE.md, « S13 se réduit à UNE teinte ») ; en
+// attendant, mieux vaut deux archétypes qui LISENT que deux archétypes qui varient
+// vers le fond.
+//
+// ⚠ Coût assumé : la bande 2 perd toute variation de matière (`townhouse` ×2 +
+// `courtyard`, aucun échangeable) et la bande 3 ne garde que `stonehouse`. À rétablir
+// le jour où la teinte existe — c'est la première chose à refaire à ce moment-là.
 const FAMILY = {
-  townhouse: 1, manor: 1, block: 1, tenement: 1,
+  block: 1, tenement: 1,
   stonehouse: 2, tower: 2, megablock: 2, arcologyhome: 2
 };
 

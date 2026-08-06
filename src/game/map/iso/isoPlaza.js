@@ -195,6 +195,14 @@ const LEGACY_PROP = {
   bench: 'bench', planter: 'planter', bush: 'bush', fountain: 'fountain',
   flag: 'flag', amphora: 'planter', bollard: null, stall: null, statue: null,
   bin: null,                            // pas d'équivalent dans le kit legacy
+  // PUITS (point d'eau de quartier, ex-aqueducs — cf. isoRenderer § POINTS D'EAU) :
+  // AUCUN repli, volontairement. Il a d'abord retombé sur la fontaine du kit
+  // top-down le temps que son art soit produit ; les 6 `well-<ère>.png` existent
+  // maintenant, et laisser ce repli en place serait un piège. Un PNG manquant
+  // rendrait alors silencieusement une fontaine de place à travers toute la ville
+  // — exactement la banalisation qu'on cherche à éviter, et invisible au test.
+  // Le gabarit gris, lui, se voit tout de suite. On préfère l'échec bruyant.
+  well: null,
 };
 
 // ── RECETTES PAR ÈRE ────────────────────────────────────────────────────────
@@ -447,6 +455,7 @@ const PROP_ASPECT = {
   flag: 0.5, statue: 0.6, stall: 1.5, bollard: 0.5, obelisk: 0.4, tree: TREE_ASPECT,
   bin: 0.75,                            // corbeille : plus haute que large
   grate: 2.0,                           // large et plate : elle cercle le tronc
+  well: 0.9,                            // puits de quartier : un peu plus haut que large
 };
 // Props qui ne prennent JAMAIS de gabarit : une grille absente doit laisser le
 // pied de l'arbre nu, pas y poser un bloc gris sous chaque arbre de la place.
@@ -1110,7 +1119,12 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
   const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx);
   // Pas d'ombre sous une margelle : elle est À PLAT dans le dallage, elle ne se
   // détache pas du sol — et son arbre porte déjà la sienne.
-  if (PLAZA_TUNE.shadow > 0 && !rec.treeV) {
+  // `rec.noShadow` : refus par PROP, pas par molette. PLAZA_TUNE.shadow est
+  // global — l'éteindre pour un objet déshabillerait bancs et bacs au passage.
+  // Les POINTS D'EAU s'en servent : Raph a refusé l'ellipse sombre sous eux
+  // (2026-08-05), même refus que sous un bâtiment. Elle marque le contact au
+  // lieu de le régler.
+  if (PLAZA_TUNE.shadow > 0 && !rec.treeV && !rec.noShadow) {
     const rx = g.inkW * 0.5;
     ctx.fillStyle = 'rgba(0,0,0,' + PLAZA_TUNE.shadow + ')';
     ctx.beginPath();

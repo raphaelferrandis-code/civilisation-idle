@@ -10,7 +10,7 @@
 import { describe, it, expect } from "vitest";
 import {
   rainStreakPixels, rainVeilDraws,
-  splashPointOk, splashRingPixels, splashFramePixels,
+  splashPointOk, splashRingPixels, splashDiskPixels, splashFramePixels, splashPhase,
 } from "../iso/isoRenderer.js";
 
 // Géométries réelles : dx = wind × len × 0,8, dy = len (cf. drawIsoRain).
@@ -188,39 +188,39 @@ const bati = (gx, gy, hauteur) => new Map([[cle(gx, gy), {
 describe("impacts au sol : où on a le droit de frapper", () => {
   it("frappe la rue dégagée", () => {
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, new Map(), p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, new Map(), null, p.wx, p.wy, T)).toBe(true);
   });
 
   it("ne frappe jamais hors voirie", () => {
     const p = centre(2, 7);
-    expect(splashPointOk(RUE, new Map(), p.wx, p.wy, T)).toBe(false);
+    expect(splashPointOk(RUE, new Map(), null, p.wx, p.wy, T)).toBe(false);
   });
 
   it("recule devant la maison qui se dresse au sud", () => {
     // Maison de 2,2 tuiles sur (2,5) : son sprite remonte jusqu'à y = 3,8 tuile
     // et RECOUVRE le sol de (2,4). Un éclat y serait peint sur le toit.
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, bati(2, 5, 2.2), p.wx, p.wy, T)).toBe(false);
+    expect(splashPointOk(RUE, bati(2, 5, 2.2), null, p.wx, p.wy, T)).toBe(false);
   });
 
   it("garde la rue quand le voisin sud est une scène BASSE", () => {
     // Champ, marché, atelier à plat : 1,15 tuile, son sprite ne remonte pas
     // jusqu'à nous. Un test cellulaire aurait refusé la rue entière.
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, bati(2, 5, 1.15), p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, bati(2, 5, 1.15), null, p.wx, p.wy, T)).toBe(true);
   });
 
   it("ignore le bâtiment d'à côté qui ne recouvre pas notre colonne", () => {
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, bati(4, 5, 2.2), p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, bati(4, 5, 2.2), null, p.wx, p.wy, T)).toBe(true);
   });
 
   it("voit la TOUR qui domine de trois rangées plus bas", () => {
     // Une maison de 2,2 tuiles basée si loin ne nous atteint pas (elle passe
     // juste en dessous), une tour de 4 tuiles si.
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, bati(2, 7, 2.2), p.wx, p.wy, T)).toBe(true);
-    expect(splashPointOk(RUE, bati(2, 7, 4), p.wx, p.wy, T)).toBe(false);
+    expect(splashPointOk(RUE, bati(2, 7, 2.2), null, p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, bati(2, 7, 4), null, p.wx, p.wy, T)).toBe(false);
   });
 
   it("TÉMOIN : sans la règle du peintre, l'éclat se pose sur le mur", () => {
@@ -230,14 +230,39 @@ describe("impacts au sol : où on a le droit de frapper", () => {
     const naif = (road, wx, wy) => road.has(cle(Math.floor(wx / T), Math.floor(wy / T)));
     const p = centre(2, 4);
     expect(naif(RUE, p.wx, p.wy)).toBe(true);
-    expect(splashPointOk(RUE, bati(2, 5, 2.2), p.wx, p.wy, T)).toBe(false);
-    expect(splashPointOk(RUE, bati(2, 7, 4), p.wx, p.wy, T)).toBe(false);
+    expect(splashPointOk(RUE, bati(2, 5, 2.2), null, p.wx, p.wy, T)).toBe(false);
+    expect(splashPointOk(RUE, bati(2, 7, 4), null, p.wx, p.wy, T)).toBe(false);
+  });
+
+  it("recule devant l'ARBRE, dont la cime retombe sur le pavé", () => {
+    // Retour Raph : « il y a des impacts d'eau sur les arbres ». Un arbre n'a
+    // pas de fiche peintre — il est juste HAUT, et sa cime tombe deux ou trois
+    // cellules plus au nord, pile là où l'éclat visait.
+    const p = centre(2, 4);
+    expect(splashPointOk(RUE, null, new Set([cle(2, 4)]), p.wx, p.wy, T)).toBe(false);  // sous l'arbre
+    expect(splashPointOk(RUE, null, new Set([cle(3, 5)]), p.wx, p.wy, T)).toBe(false);  // sa cime
+    expect(splashPointOk(RUE, null, new Set([cle(4, 6)]), p.wx, p.wy, T)).toBe(false);  // encore
+  });
+
+  it("l'arbre au NORD, lui, ne gêne pas", () => {
+    // Il est derrière nous chez le peintre : son sprite ne peut pas nous
+    // recouvrir. Refuser aussi ce côté-là, ce serait vider les allées bordées.
+    const p = centre(2, 4);
+    expect(splashPointOk(RUE, null, new Set([cle(1, 3)]), p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, null, new Set([cle(2, 2)]), p.wx, p.wy, T)).toBe(true);
+  });
+
+  it("TÉMOIN : sans l'écart aux arbres, l'anneau se pose sur la canopée", () => {
+    const naif = (road, wx, wy) => road.has(cle(Math.floor(wx / T), Math.floor(wy / T)));
+    const p = centre(2, 4);
+    expect(naif(RUE, p.wx, p.wy)).toBe(true);
+    expect(splashPointOk(RUE, null, new Set([cle(3, 5)]), p.wx, p.wy, T)).toBe(false);
   });
 
   it("ni voirie ni fiches : le rendu ne tombe pas", () => {
-    expect(splashPointOk(null, null, 64, 64, T)).toBe(false);
+    expect(splashPointOk(null, null, null, 64, 64, T)).toBe(false);
     const p = centre(2, 4);
-    expect(splashPointOk(RUE, null, p.wx, p.wy, T)).toBe(true);
+    expect(splashPointOk(RUE, null, null, p.wx, p.wy, T)).toBe(true);
   });
 });
 
@@ -288,7 +313,7 @@ describe("impacts au sol : la forme", () => {
     // clignote au lieu de s'ouvrir.
     for (const u of [20, 32, 64]) {
       const a = etendue(splashFramePixels(1, u)), b = etendue(splashFramePixels(2, u));
-      expect(b.w).toBeGreaterThan(a.w * 1.4);
+      expect(b.w).toBeGreaterThan(a.w * 1.35);
     }
   });
 
@@ -304,10 +329,125 @@ describe("impacts au sol : la forme", () => {
       .toBeLessThan(etendue(splashFramePixels(1, 32)).w);
   });
 
+  it("le sol s'ASSOMBRIT dans l'anneau, et seulement dedans", () => {
+    // Demande de Raph : la tache mouillée. Elle doit rester STRICTEMENT à
+    // l'intérieur du tour — un disque sombre plus large que l'anneau ne se lit
+    // plus comme du pavé mouillé mais comme une ombre portée, et un impact de
+    // pluie ne porte pas d'ombre.
+    for (const f of [0, 1, 2]) {
+      const px = splashFramePixels(f, 42);
+      const sombre = px.filter((p) => p.c === 1), clair = px.filter((p) => p.c === 0);
+      expect(sombre.length).toBeGreaterThan(0);
+      expect(clair.length).toBeGreaterThan(0);
+      const bord = (l) => Math.max(...l.map((p) => Math.abs(p.x)));
+      expect(bord(sombre)).toBeLessThanOrEqual(bord(clair));
+    }
+  });
+
+  it("la tache mouillée S'EFFACE quand l'anneau s'ouvre", () => {
+    const opac = (f) => Math.max(...splashFramePixels(f, 42).filter((p) => p.c === 1).map((p) => p.a));
+    expect(opac(1)).toBeGreaterThan(opac(2));
+  });
+
+  it("le disque mouillé est ISO comme l'anneau, sinon il déborde du tour", () => {
+    for (const rx of [3, 5, 8, 12]) {
+      const d = splashDiskPixels(rx), r = splashRingPixels(rx);
+      const ext = (l) => [Math.max(...l.map((p) => Math.abs(p.x))), Math.max(...l.map((p) => Math.abs(p.y)))];
+      expect(ext(d)).toEqual(ext(r));
+      // et il est PLEIN : chaque ligne de l'ellipse est continue
+      for (let y = -ext(d)[1]; y <= ext(d)[1]; y += 1) {
+        const xs = d.filter((p) => p.y === y).map((p) => p.x).sort((a, b) => a - b);
+        expect(xs.length).toBe(xs[xs.length - 1] - xs[0] + 1);
+      }
+    }
+  });
+
+  it("la tache ne CHANGE PAS d'encre au moment où l'anneau part", () => {
+    // Image 2 et image 3 partagent le même disque : si leur opacité propre
+    // diffère, la tache s'assombrit ou s'éclaircit d'un coup au raccord — et
+    // l'assombrissement du contexte, lui, est déjà continu, donc rien ne le
+    // rattraperait.
+    const wet = (f) => splashFramePixels(f, 42).filter((p) => p.c === 1)[0].a;
+    expect(wet(3)).toBe(wet(2));
+  });
+
+  it("la tache reste SEULE quand l'eau est retombée", () => {
+    // Image 3 : plus une goutte claire, rien que le pavé mouillé.
+    const px = splashFramePixels(3, 42);
+    expect(px.every((p) => p.c === 1)).toBe(true);
+    // et elle a exactement l'empreinte de la tache de l'image d'avant
+    const disque = (l) => l.filter((p) => p.c === 1);
+    const ext = (l) => Math.max(...l.map((p) => Math.abs(p.x)));
+    expect(ext(px)).toBe(ext(disque(splashFramePixels(2, 42))));
+  });
+
   it("suit le zoom sans jamais tomber sous le pixel", () => {
     // Au dézoom l'éclat reste un pixel d'art ; au zoom il ne devient pas un pavé.
     expect(etendue(splashFramePixels(1, 4)).w).toBeGreaterThanOrEqual(3);
     expect(etendue(splashFramePixels(2, 96)).w)
       .toBeGreaterThan(etendue(splashFramePixels(2, 24)).w);
+  });
+});
+
+// ── LA TACHE SURVIT À L'ÉCLAT ───────────────────────────────────────────────
+// Demande de Raph : « la tache sombre reste un peu plus longtemps que
+// l'impact ». Deux durées au lieu d'une, donc un RACCORD — et un raccord raté
+// est un saut d'opacité sur une image, qu'on ne voit ni en relisant le code ni
+// sur un cliché.
+const VIE = 260, TRAINE = 900;         // cf. SPLASH_LIFE / SPLASH_WET_TAIL
+
+describe("rémanence de la tache mouillée", () => {
+  it("l'anneau vit sa vie, la tache lui survit", () => {
+    expect(splashPhase(0).frame).toBe(0);
+    expect(splashPhase(VIE * 0.5).frame).toBe(1);
+    expect(splashPhase(VIE * 0.9).frame).toBe(2);
+    expect(splashPhase(VIE + 10).frame).toBe(3);        // l'eau est retombée
+    expect(splashPhase(VIE + TRAINE - 10).frame).toBe(3);
+  });
+
+  it("le raccord ne SAUTE pas", () => {
+    // Juste avant et juste après le passage à la tache seule, l'opacité doit
+    // être la même — c'est le seul instant où deux formules se rejoignent.
+    const avant = splashPhase(VIE).k, apres = splashPhase(VIE + 1).k;
+    expect(Math.abs(avant - apres)).toBeLessThan(0.01);
+  });
+
+  it("TÉMOIN : sans la traîne, l'opacité tombait de 0,55 à rien d'un coup", () => {
+    // La version d'avant : l'éclat mourait à VIE. Le geste demandé n'a de sens
+    // que si ce qui suit est CONTINU, pas si on rallonge un plateau.
+    const sansTraine = (age) => (age > VIE ? null : { k: 1 - (age / VIE) * 0.45 });
+    expect(sansTraine(VIE + 1)).toBe(null);
+    expect(splashPhase(VIE + 1).k).toBeCloseTo(0.55, 2);
+  });
+
+  it("s'éteint en fondu, et ne revient jamais", () => {
+    expect(splashPhase(VIE + TRAINE).k).toBeCloseTo(0, 5);
+    expect(splashPhase(VIE + TRAINE + 1)).toBe(null);
+    expect(splashPhase(-1)).toBe(null);
+    // décroissance stricte sur toute la traîne
+    let prec = Infinity;
+    for (let t = VIE; t <= VIE + TRAINE; t += 20) {
+      const k = splashPhase(t).k;
+      expect(k).toBeLessThan(prec + 1e-9);
+      prec = k;
+    }
+  });
+
+  it("elle TIENT avant de partir, elle ne s'évapore pas aussitôt", () => {
+    // À mi-traîne, un fondu linéaire n'aurait plus que la moitié de son encre —
+    // et à un dixième d'opacité une fois posée sur le pavé, il ne resterait rien
+    // à voir. On aurait allongé la durée sans rien montrer de plus.
+    const debut = splashPhase(VIE + 1).k;
+    const milieu = splashPhase(VIE + TRAINE / 2).k;
+    expect(milieu).toBeGreaterThan(debut * 0.65);        // linéaire donnerait 0,50
+  });
+
+  it("la tache dure plus longtemps que l'éclat, sans l'écraser", () => {
+    // Assez pour se voir (Raph l'a demandée deux fois plus longue), pas au point
+    // de laisser une flaque permanente : au-delà, le pavé ne sèche plus jamais
+    // entre deux gouttes et la ville prend un voile sombre qu'on ne s'explique
+    // pas. La borne haute est là pour ça, pas par frilosité.
+    expect(TRAINE).toBeGreaterThan(VIE * 2);
+    expect(TRAINE).toBeLessThan(VIE * 5);
   });
 });

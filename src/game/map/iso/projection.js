@@ -43,6 +43,52 @@ if (typeof window !== "undefined") {
   };
 }
 
+// ── S11 — QUANTIFICATION DU ZOOM (docs/PLAN-RENDU-VILLE.md) ─────────────────
+// Le pas de grille du sol vaut hw = TILE·z·ISO_X et hh = TILE·z·ISO_Y, soit 32z et
+// 16z px écran. À zoom CONTINU ces deux pas sont fractionnaires : deux losanges
+// voisins, chacun arrondi à l'entier écran, laissent un liseré transparent entre
+// eux. C'est la seule raison d'être du « +1 px anti-couture » de blitIsoTileKey —
+// qui duplique en échange une colonne ET une rangée d'art sur CHAQUE cellule
+// (source 64×32 → destination 65×33 à z = 1, mesuré).
+//
+// Contraindre z à un multiple de 1/8 rend 32z et 16z ENTIERS : les losanges se
+// joignent exactement, et le +1 n'a plus d'objet. C'est donc le PRÉREQUIS du lot
+// S7, pas un réglage de confort.
+//
+// ⚠ CE N'EST PAS le « taille-selon-le-zoom » écarté par Raph le 2026-08-03 :
+// aucune taille relative ne change, aucun sprite ne se redimensionne selon le
+// zoom, la toise habitants/bâtiments reste intacte. On limite seulement les
+// VALEURS que la variable zoom peut prendre.
+//
+// `dir` = le sens du geste, et il est INDISPENSABLE : un pas multiplicatif de
+// 1,12 depuis 0,375 rend 0,42, dont le cran le plus PROCHE est 0,375 — arrondir
+// au plus proche rendrait la molette morte en bas de plage. On arrondit donc dans
+// le sens du mouvement (ceil en zoomant, floor en dézoomant), ce qui garantit un
+// cran par cran de molette. `dir = 0` (recentrage, pincement) = au plus proche,
+// le geste y étant absolu et non incrémental.
+//
+// Molette : `__zoomQuant(0)` rend le zoom continu (l'A/B qui montre les coutures),
+// `__zoomQuant(4)` élargit les crans, `__zoomQuant(16)` les resserre.
+export const ZOOM_QUANT = { on: true, per: 8 };
+export function snapZoom(z, dir = 0) {
+  const q = ZOOM_QUANT.on ? (ZOOM_QUANT.per | 0) : 0;
+  if (!(q > 0) || !Number.isFinite(z)) return z;
+  const v = z * q;
+  // L'epsilon évite qu'une valeur DÉJÀ sur un cran ne soit poussée au cran
+  // suivant par le ceil (flottants) : sans lui, un zoom posé dériverait tout seul.
+  const n = dir > 0 ? Math.ceil(v - 1e-6) : dir < 0 ? Math.floor(v + 1e-6) : Math.round(v);
+  return Math.max(1, n) / q;
+}
+if (typeof window !== "undefined") {
+  window.__zoomQuant = (per) => {
+    if (per === false || per === 0) ZOOM_QUANT.on = false;
+    else { ZOOM_QUANT.on = true; if (typeof per === "number" && per > 0) ZOOM_QUANT.per = per | 0; }
+    // Le pas de grille change → les bakes du sol sont périmés.
+    CM._isoGroundBake = null; CM._tileBake = null; CM._quayBake = null;
+    return { ...ZOOM_QUANT };
+  };
+}
+
 // Monde → écran. Renvoie {x, y} en px écran.
 export function worldToScreen(wx, wy) {
   const z = CM.cam.zoom;

@@ -110,14 +110,31 @@ describe('échelle — les paniers de fruits ne grossissent plus', () => {
 });
 
 describe('cas particuliers', () => {
-  it('les 3 structures uniques restent uniques', () => {
-    // Aqueduc, ceinture de champs, port : de vraies structures qui s'étendent,
-    // pas des blobs — elles gardent leur croissance d'un seul tenant. Le moulin
-    // n'en fait plus partie : devenu moulin à vent terrestre, il suit le régime
-    // halle + ateliers comme les autres moteurs.
-    for (const id of ['aqueducts', 'irrigated_fields', 'river_ports']) {
+  it('les 2 structures uniques restent uniques', () => {
+    // Ceinture de champs et port : de vraies structures qui s'étendent, pas des
+    // blobs — elles gardent leur croissance d'un seul tenant. Le moulin n'en fait
+    // plus partie : devenu moulin à vent terrestre, il suit le régime halle +
+    // ateliers. L'AQUEDUC non plus, et pour une autre raison : il n'est plus une
+    // structure du tout (cf. le test suivant).
+    for (const id of ['irrigated_fields', 'river_ports']) {
       for (const n of [1, 10, 64, 300]) expect(count(id, n), `${id} @ ${n}`).toBe(1);
     }
+  });
+
+  it('les points d\'eau se multiplient sans jamais grossir', () => {
+    // L'aqueduc-conduite a été retiré le 2026-08-05 (il longeait la berge pour
+    // puiser dans le fleuve d'à côté). Ce qui le remplace est une poignée de
+    // POINTS D'EAU semés dans la ville, et c'est le compteur qui pilote leur
+    // NOMBRE — jamais leur taille. Ces trois gardes disent exactement cela.
+    for (const n of [1, 10, 64, 300]) {
+      for (const f of foots('aqueducts', n)) expect(f, `emprise @ ${n}`).toBe(1);
+    }
+    expect(count('aqueducts', 1)).toBe(1);            // le 1er achat = 1 point d'eau
+    // Croissance STRICTE tant que le plafond n'est pas atteint, puis plus rien :
+    // sans le plafond, une mégalopole finirait pavée de puits.
+    expect(count('aqueducts', 25)).toBeGreaterThan(count('aqueducts', 4));
+    expect(count('aqueducts', 300)).toBe(count('aqueducts', 64));
+    expect(count('aqueducts', 300)).toBeLessThanOrEqual(14);
   });
 
   it('le cap de densité est le seul curseur à bouger pour viser la mégalopole', () => {

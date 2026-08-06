@@ -82,6 +82,12 @@ const AGE_CONFIG = [
     parkChance: 0.1,
     treeDensity: 0.55,
     citizenRoles: ["prend une ligne rapide", "traverse un quartier haut", "sort d'une tour", "presse le pas sous les arches", "lit les proclamations"],
+    // ⛔ PAS DE FLOTTE MODERNE ICI (Raph 2026-08-05, en voyant sa capitale) : des
+    // berlines des années 2000 sur une ville de pierre et de colonnades, « ça ne
+    // va pas ». Cette ère garde la vieille automobile sombre ; le pack MinZinn
+    // n'entre qu'à la bande 6, avec les tours. Le gel est aussi côté skins
+    // (MODERN_FLEET_BAND dans agents.js), sinon la voiture d'ère 5 se repeindrait
+    // en berline rouge tout en gardant son nom de type.
     vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "wagon", weight: 1 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.85
   },
@@ -94,7 +100,11 @@ const AGE_CONFIG = [
     parkChance: 0.08,
     treeDensity: 0.4,
     citizenRoles: ["suit le flux civique", "rejoint une station", "marche sous les arches", "consulte un terminal", "surveille les niveaux"],
-    vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 }],
+    vehicles: [
+      { type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 },
+      { type: "bus", weight: 0.6 }, { type: "van", weight: 0.5 }, { type: "truck", weight: 0.4 },
+      { type: "taxi", weight: 0.5 }, { type: "police", weight: 0.25 }, { type: "ambulance", weight: 0.2 },
+    ],
     decorDensity: 1
   },
   // ── Époques TRANSCENDANTES (bands 7–9) ──────────────────────────────────────

@@ -72,6 +72,175 @@ const coverDoor = (buf) => {
   return PNG.sync.write(png);
 };
 
+// Déshabille un cercle de mégalithes de la GALETTE DE SOL que PixelLab lui peint
+// dessous quoi qu'on demande (« no podium » est une négation, donc ignorée), puis
+// réchauffe les ombres. Trois passes, toutes mesurées, aucune sur une boîte à la main :
+//   1. la galette est la plus grosse composante 4-connexe de pixels CLAIRS (l ≥ 150) —
+//      les faces éclairées des pierres, elles, forment des taches de 16 px au plus ;
+//   2. PixelLab ombre au violet (mesuré h≈250-295 sur 978 px) alors que le prompt
+//      réclamait du brun : on ramène la teinte à 22° en gardant la luminance ;
+//   3. un pixel qui reste avec moins de 2 voisins opaques est une miette de découpe.
+// Le remap master-palette ferait le travail 2 en gros, mais il repeint aussi le reste
+// (sol en saumon, pierres à moitié noires) — cf. la note du chantier du 2026-07-29.
+//
+// ⚠ La passe 1 n'a de sens QUE s'il y a une galette : un tirage propre existe (le
+// palier 2026-08-05 est sorti sans sol) et lui découper « la plus grosse tache
+// claire » lui arracherait une pierre. D'où la GARDE, mesurée sur les deux
+// familles : avec galette, la 1re composante écrase la 2e d'un facteur 13 à 53
+// (846 px contre 16 sur le stade 0, 4771 contre 379 sur un tirage du palier) ;
+// sans galette, ce rapport tombe à 1,0-1,2 (les faces éclairées se valent toutes).
+// Le seuil 4 laisse trois fois de marge de chaque côté.
+const GALETTE_RATIO = 4;
+const stoneCircle = (buf) => {
+  const png = PNG.sync.read(buf); const { width: W, height: H, data: D } = png;
+  const lum = (i) => (D[i] + D[i + 1] + D[i + 2]) / 3;
+  const isPale = (x, y) => { const i = (y * W + x) * 4; return D[i + 3] >= 128 && lum(i) >= 150; };
+
+  const seen = new Uint8Array(W * H); let best = [], deuxieme = 0;
+  for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
+    if (seen[y * W + x] || !isPale(x, y)) continue;
+    const st = [[x, y]]; seen[y * W + x] = 1; const px = [];
+    while (st.length) {
+      const [cx, cy] = st.pop(); px.push([cx, cy]);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[ny * W + nx] || !isPale(nx, ny)) continue;
+        seen[ny * W + nx] = 1; st.push([nx, ny]);
+      }
+    }
+    if (px.length > best.length) { deuxieme = best.length; best = px; }
+    else if (px.length > deuxieme) deuxieme = px.length;
+  }
+  if (best.length >= GALETTE_RATIO * Math.max(1, deuxieme)) {
+    for (const [x, y] of best) D[(y * W + x) * 4 + 3] = 0;
+    console.log(`   galette retirée : ${best.length} px (2e tache claire ${deuxieme} px)`);
+  } else console.log(`   pas de galette : 1re tache claire ${best.length} px, 2e ${deuxieme} px`);
+
+  const hsl = (r, g, b) => {
+    const R = r / 255, G = g / 255, B = b / 255;
+    const mx = Math.max(R, G, B), mn = Math.min(R, G, B), d = mx - mn;
+    let h = 0;
+    if (d) { if (mx === R) h = ((G - B) / d + (G < B ? 6 : 0)); else if (mx === G) h = (B - R) / d + 2; else h = (R - G) / d + 4; h *= 60; }
+    const l = (mx + mn) / 2;
+    return { h, s: d ? d / (1 - Math.abs(2 * l - 1)) : 0, l };
+  };
+  const toRgb = (h, s, l) => {
+    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0]
+      : h < 180 ? [0, c, x] : h < 240 ? [0, x, c]
+        : h < 300 ? [x, 0, c] : [c, 0, x];
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  };
+  for (let i = 0; i < D.length; i += 4) {
+    if (D[i + 3] < 128) continue;
+    const c = hsl(D[i], D[i + 1], D[i + 2]);
+    if (c.h >= 200 && c.h <= 340 && c.s > 0.12) {
+      const [r, g, b] = toRgb(22, Math.min(0.45, c.s), c.l);
+      D[i] = r; D[i + 1] = g; D[i + 2] = b;
+    }
+  }
+
+  for (let pass = 0; pass < 2; pass += 1) {
+    const alpha = new Uint8Array(W * H);
+    for (let k = 0; k < W * H; k += 1) alpha[k] = D[k * 4 + 3] >= 128 ? 1 : 0;
+    for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
+      if (!alpha[y * W + x]) continue;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        n += alpha[ny * W + nx];
+      }
+      if (n < 2) D[(y * W + x) * 4 + 3] = 0;
+    }
+  }
+
+  // Touffes EN L'AIR : sans sol à décorer, PixelLab sème quand même des brins
+  // d'herbe entre les pierres — ils flottent alors sur le terrain de la carte, à
+  // des hauteurs différentes, en étoile autour du foyer. Une touffe est une
+  // composante MINUSCULE et FRANCHEMENT VERTE ; la mousse qu'on garde, elle, est
+  // soudée à sa pierre. Mesuré sur le palier : 8 touffes de 5 à 19 px, 94-100 %
+  // de vert, contre 9 masses de 542 px et plus à 24 % de vert au maximum — et
+  // aucune touffe sur le stade 0, où la passe ne fait donc rien.
+  for (const comp of composantes(D, W, H)) {
+    if (comp.px.length > 40 || comp.vert < 0.7 * comp.px.length) continue;
+    for (const [x, y] of comp.px) D[(y * W + x) * 4 + 3] = 0;
+  }
+
+  // Cendres : PixelLab les sort en craie blanche, ce qui vole la vedette à la flamme
+  // qui se pose dessus. Luminance ≥ 185 DANS LE FOYER → cendre grise tiède.
+  // Le foyer se TROUVE, il ne se saisit pas : rien ne le relie aux pierres, c'est
+  // donc la composante 8-connexe opaque qui contient le centre de l'encre. (Une
+  // boîte en dur, 38..58 × 42..54, valait pour le seul canvas 96×80 ; sur les
+  // 192×160 du palier elle tombait sur une pierre de gauche.)
+  // On vise le BOL, pas l'anneau : la boîte est rentrée de 11 % en largeur et
+  // part à 28 % de la hauteur. Ces fractions ne sont pas au jugé — elles
+  // redonnent EXACTEMENT l'ancienne boîte à la main sur le 96×80 (35..61 → 38..58,
+  // 37..54 → 42..54). Sans elles la passe grise les dessus de pierres du rebord
+  // arrière, que le sprite approuvé garde en crème (13 px, vérifié par diff).
+  const c = composanteCentrale(D, W, H);
+  const foyer = c && {
+    x0: Math.round(c.x0 + 0.11 * (c.x1 - c.x0 + 1)), x1: Math.round(c.x1 - 0.11 * (c.x1 - c.x0 + 1)),
+    y0: Math.round(c.y0 + 0.28 * (c.y1 - c.y0 + 1)), y1: c.y1,
+  };
+  if (foyer) {
+    for (let y = foyer.y0; y <= foyer.y1; y += 1) for (let x = foyer.x0; x <= foyer.x1; x += 1) {
+      const i = (y * W + x) * 4;
+      if (D[i + 3] < 128 || lum(i) < 185) continue;
+      const g = (D[i] * 0.30 + D[i + 1] * 0.59 + D[i + 2] * 0.11) * 0.62;
+      D[i] = Math.round(g * 1.06); D[i + 1] = Math.round(g * 0.98); D[i + 2] = Math.round(g * 0.88);
+    }
+    console.log(`   foyer x${foyer.x0}..${foyer.x1} y${foyer.y0}..${foyer.y1}`);
+  }
+  return PNG.sync.write(png);
+};
+
+// Composantes opaques 8-connexes, avec leur boîte et leur compte de pixels VERTS
+// (h 60-165, sat > 0,15 — mousse et brins d'herbe).
+const composantes = (D, W, H) => {
+  const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && D[(y * W + x) * 4 + 3] >= 128;
+  const estVert = (i) => {
+    const R = D[i] / 255, G = D[i + 1] / 255, B = D[i + 2] / 255;
+    const mx = Math.max(R, G, B), mn = Math.min(R, G, B), d = mx - mn;
+    if (!d) return false;
+    let h = mx === R ? ((G - B) / d + (G < B ? 6 : 0)) : mx === G ? (B - R) / d + 2 : (R - G) / d + 4;
+    h *= 60;
+    const l = (mx + mn) / 2;
+    return h >= 60 && h <= 165 && d / (1 - Math.abs(2 * l - 1)) > 0.15;
+  };
+  const vu = new Uint8Array(W * H); const out = [];
+  for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
+    if (vu[y * W + x] || !op(x, y)) continue;
+    const st = [[x, y]]; vu[y * W + x] = 1;
+    const px = []; let vert = 0, x0 = x, x1 = x, y0 = y, y1 = y;
+    while (st.length) {
+      const [ax, ay] = st.pop(); px.push([ax, ay]);
+      if (estVert((ay * W + ax) * 4)) vert += 1;
+      if (ax < x0) x0 = ax; if (ax > x1) x1 = ax; if (ay < y0) y0 = ay; if (ay > y1) y1 = ay;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        const nx = ax + dx, ny = ay + dy;
+        if (!op(nx, ny) || vu[ny * W + nx]) continue;
+        vu[ny * W + nx] = 1; st.push([nx, ny]);
+      }
+    }
+    out.push({ px, vert, x0, x1, y0, y1 });
+  }
+  return out;
+};
+
+// Boîte de la composante qui contient le centre de l'encre — le foyer d'un cercle
+// de mégalithes, seul îlot au milieu du vide.
+const composanteCentrale = (D, W, H) => {
+  const comps = composantes(D, W, H);
+  if (!comps.length) return null;
+  const ix0 = Math.min(...comps.map((c) => c.x0)), ix1 = Math.max(...comps.map((c) => c.x1));
+  const iy0 = Math.min(...comps.map((c) => c.y0)), iy1 = Math.max(...comps.map((c) => c.y1));
+  const cx = Math.round((ix0 + ix1) / 2), cy = Math.round((iy0 + iy1) / 2);
+  const c = comps.find((k) => cx >= k.x0 && cx <= k.x1 && cy >= k.y0 && cy <= k.y1);
+  return c ? { x0: c.x0, x1: c.x1, y0: c.y0, y1: c.y1 } : null;
+};
+
 const OUT = 'public/pixelart/agents/buildings';
 const PROPS = [
   // clé = nom de fichier (sans .png) ; id = objet PixelLab ; prompt = description de génération.
@@ -666,8 +835,29 @@ const PROPS = [
   },
   // ── CULTE ANCESTRAL (ancestral_cult, engineSprites.js) — ÉVOLUTION 4 STADES (2026-07-05) ──
   // 10e et DERNIER bâtiment SAVOIR. Bâtiments CLOS, aucun perso. Identité = spirituel/mémoriel,
-  // fil de la FLAMME ÉTERNELLE (écho du feu rituel animé du S0). Stade 0 = mégalithes + feu
-  // animé (ancestralcult-back+ancestralcult-fire) inchangé. Cosmique gardé procédural.
+  // fil de la FLAMME ÉTERNELLE (écho du feu rituel animé du S0). Cosmique gardé procédural.
+  //
+  // Stade 0 REFAIT le 2026-08-05 (le seul sprite du parc que la refonte du 2026-07-29 avait
+  // sauté, parce qu'il vit en bande animée). L'ancien portait les trois défauts d'un sprite
+  // d'avant-refonte : une DALLE saumon sous le cercle (l'élément refusé le 2026-08-04), la
+  // lumière du fond à gauche et celle de l'avant nulle part, et une couche `-back` trouée là
+  // où le feu avait été gommé à la serpe. Le neuf : pierres PLANTÉES dans la terre, mousse au
+  // pied, aucun sol peint — le terrain de la carte passe entre les pierres, donc le cercle
+  // tient aussi bien sur l'herbe que sur la neige.
+  { key: 'ancestralcult-back', id: '6b5ce78a-b035-4e8f-8252-52c91eb130f6', flip: 'h', patch: 'circle',
+    prompt: 'a prehistoric ancestral stone circle seen from a low top-down angle, completely deserted, no people, no figures, no person: eight massive rough standing megaliths of weathered tan stone arranged in a wide ring, every stone a different height and tilting at its own slight angle so the ring looks hand-made and irregular, thick tufts of green moss and dry grass growing around the foot of every stone where it sinks into the soil; at the centre a low round hearth of small rough boulders filled with pale ash and two charred black logs, cold and unlit; each megalith shows one broad flat face and one narrow side face, the LEFT half of every stone is the brightest sunlit surface and the RIGHT half is much darker, deep warm chestnut brown for every shaded surface, weathered stone with lichen patches, crisp dark outlines and strong value contrast, big flat areas, few colours, transparent background, no terrain (96x80). ⚠ « no podium » est une NÉGATION, donc ignorée : deux tirages sur quatre ont quand même sorti une galette. C\'est `patch: circle` qui la retire, pas le prompt. ⚠ ne PAS repasser remapPalette dessus : sur ce sprite il repeint le sol en saumon et noircit la moitié des pierres.' },
+  // PALIER DE HALLE du stade 0 (docs/PLAN-EGALISATION-GRAIN.md §5, 2026-08-05).
+  // Dès que le lot du culte atteint l'empreinte 3, blitProp servait le 96×80 étiré
+  // — grain 1,26 contre 0,605 pour un palier, deux fois trop gros. Le grand est
+  // dessiné sur 192×160, soit le DOUBLE EXACT du stade 0 : ce n'est pas cosmétique,
+  // c'est ce qui permet à la flamme (bande séparée) de se transposer proprement.
+  // Sorti SANS galette du premier coup (garde de stoneCircle : 1re tache claire
+  // 54 px, 2e 53 px → rien à découper) ; ombres violettes réchauffées, comme le petit.
+  // 5 tirages sur 11 portaient une galette : la clause de découpe ne suffit
+  // toujours pas, mais « one single unbroken block of solid rock » + medium detail
+  // évite les murets de briques que sort le high detail sur ce canvas.
+  { key: 'ancestralcult-back-grand', id: 'b04f562b-3341-473c-9755-c08117f8efac', patch: 'circle',
+    prompt: 'a prehistoric ancestral stone circle seen from a low top-down angle, completely deserted, no people, no figures, no person: eight massive rough standing megaliths of weathered tan stone arranged in a wide ring, each megalith one single unbroken block of solid rock standing upright and taller than it is wide, every stone a different height and tilting at its own slight angle so the ring looks hand-made and irregular, thick tufts of green moss and dry grass growing around the foot of every stone where it sinks into the soil; at the centre a low round hearth of small rough boulders filled with pale ash and two charred black logs, cold and unlit; the sun is LOW in the upper left, so the flat top of each stone stays in half-shade and the broad LEFT face of every stone is by far the brightest sunlit surface while its RIGHT face is much darker, deep warm chestnut brown for every shaded surface, weathered stone with lichen patches, crisp dark outlines and strong value contrast, big flat areas, few colours, transparent background, no terrain (192x160). ⚠ map-object 192×160, view low top-down, MEDIUM detail (le high detail redessine les mégalithes en murets de briques), detailed shading, selective outline.' },
   {
     key: 'cult-shrine',
     id: 'c2c9ddf0-f56e-4f6b-a8c9-25875998000a', // stade 1 — sanctuaire tribal (totems + toit conique + brasier flamme) (112×88)
@@ -858,6 +1048,7 @@ for (const p of PROPS) {
   if (!png) { console.warn(p.key, '— pas prêt (timeout, objet expiré ?), skip'); continue; }
   if (p.flip === 'h') png = flipH(png);
   if (p.patch === 'door') png = coverDoor(png);
+  if (p.patch === 'circle') png = stoneCircle(png);
   fs.writeFileSync(`${OUT}/${p.key}.png`, png);
   console.log(p.key, '— écrit →', p.key + '.png', (p.flip ? '(flip ' + p.flip + ') ' : '') + `(${png.length} o)`);
 }

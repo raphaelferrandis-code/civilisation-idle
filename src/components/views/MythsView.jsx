@@ -350,7 +350,7 @@ export default function MythsView() {
                       {[
                         { value: "city", label: { fr: "Cite", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
                         { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Academies, Archives", en: "Knowledge, Academies, Archives" } },
-                        { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Aqueducs, Routes, Batisseurs", en: "Aqueducts, Roads, Builders" } }
+                        { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Eau, Routes, Batisseurs", en: "Water, Roads, Builders" } }
                       ].map(c => (
                         <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                           <input

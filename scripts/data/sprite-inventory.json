@@ -1,6 +1,6 @@
 {
  "_doc": "Genere par spriteScaleAudit.mjs inventory — ne pas editer a la main.",
- "date": "2026-08-04",
+ "date": "2026-08-05",
  "entries": [
   {
    "key": "arcologyhome-cosmic-7",
@@ -516,23 +516,61 @@
    "classe": "prop"
   },
   {
+   "key": "ancestralcult-back-grand",
+   "famille": "engine",
+   "w": 192,
+   "h": 160,
+   "ink16": {
+    "x0": 14,
+    "y0": 10,
+    "w": 164,
+    "h": 138
+   },
+   "ink40": {
+    "x0": 14,
+    "y0": 10,
+    "w": 164,
+    "h": 138
+   },
+   "classe": "orphelin"
+  },
+  {
    "key": "ancestralcult-back",
    "famille": "engine",
    "w": 96,
    "h": 80,
    "ink16": {
-    "x0": 5,
-    "y0": 6,
-    "w": 86,
-    "h": 66
+    "x0": 4,
+    "y0": 4,
+    "w": 89,
+    "h": 70
    },
    "ink40": {
-    "x0": 5,
-    "y0": 6,
-    "w": 86,
-    "h": 66
+    "x0": 4,
+    "y0": 4,
+    "w": 89,
+    "h": 70
    },
    "classe": "prop"
+  },
+  {
+   "key": "ancestralcult-fire-grand",
+   "famille": "engine",
+   "w": 1344,
+   "h": 160,
+   "ink16": {
+    "x0": 80,
+    "y0": 54,
+    "w": 1184,
+    "h": 38
+   },
+   "ink40": {
+    "x0": 80,
+    "y0": 54,
+    "w": 1184,
+    "h": 38
+   },
+   "classe": "strip"
   },
   {
    "key": "ancestralcult-fire",
@@ -540,16 +578,16 @@
    "w": 672,
    "h": 80,
    "ink16": {
-    "x0": 36,
-    "y0": 17,
-    "w": 601,
-    "h": 44
+    "x0": 38,
+    "y0": 23,
+    "w": 597,
+    "h": 25
    },
    "ink40": {
-    "x0": 36,
-    "y0": 17,
-    "w": 601,
-    "h": 44
+    "x0": 38,
+    "y0": 23,
+    "w": 597,
+    "h": 25
    },
    "classe": "strip"
   },
@@ -559,16 +597,16 @@
    "w": 96,
    "h": 80,
    "ink16": {
-    "x0": 5,
-    "y0": 6,
-    "w": 86,
-    "h": 66
+    "x0": 4,
+    "y0": 4,
+    "w": 89,
+    "h": 70
    },
    "ink40": {
-    "x0": 5,
-    "y0": 6,
-    "w": 86,
-    "h": 66
+    "x0": 4,
+    "y0": 4,
+    "w": 89,
+    "h": 70
    },
    "classe": "prop"
   },
@@ -5776,7 +5814,7 @@
     "w": 81,
     "h": 52
    },
-   "classe": "prop"
+   "classe": "orphelin"
   },
   {
    "key": "storyteller-fire",
@@ -5871,6 +5909,25 @@
     "w": 81,
     "h": 66
    },
+   "classe": "orphelin"
+  },
+  {
+   "key": "storyteller-prop-hut",
+   "famille": "engine",
+   "w": 96,
+   "h": 88,
+   "ink16": {
+    "x0": 3,
+    "y0": 2,
+    "w": 90,
+    "h": 83
+   },
+   "ink40": {
+    "x0": 3,
+    "y0": 2,
+    "w": 90,
+    "h": 83
+   },
    "classe": "prop"
   },
   {
@@ -5890,7 +5947,7 @@
     "w": 42,
     "h": 56
    },
-   "classe": "prop"
+   "classe": "orphelin"
   },
   {
    "key": "storyteller-theater",

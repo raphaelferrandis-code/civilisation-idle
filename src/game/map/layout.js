@@ -9,6 +9,7 @@ import { setCaptureVestigeHandler } from './cityMapBridge.js';
 import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
+import { CRITTER_HERD, CRITTER_PETS } from './critters.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
@@ -85,6 +86,92 @@ const ROAD_N = 1;
 const ROAD_E = 2;
 const ROAD_S = 4;
 const ROAD_W = 8;
+
+// ── DISTRIBUTION DES RANGS DE ROUTE (chantier « brouillon », 2026-08-05) ─────
+// Ce qui décide de la part d'avenues et de boulevards dans une ville. Trois
+// sources posent des rangs, et la mesure a désigné la coupable :
+//   1. le TRACÉ (roadGraph) — les axes identitaires de l'archétype, posés en
+//      `main` : c'est l'identité de la ville, on n'y touche pas ;
+//   2. les CONNECTEURS de moteurs — `connector` ci-dessous, LA cause mesurée
+//      du brouillon (cf. le § au point d'appel, dans computeCityLayout) ;
+//   3. les PROMOTIONS payées (applyRoadWidenings) et l'usage
+//      (upgradeTrunkByUsage) — la hiérarchie qui ÉMERGE, celle qu'on veut.
+// `connector` : rang d'un corridor de desserte de moteur (cf. le § au point
+// d'appel). `trunkUse` : part du bâti qui doit passer par une venelle pour
+// qu'elle devienne une RUE (upgradeTrunkByUsage) — c'est le robinet qui fait
+// émerger le tronc, et il se règle en regard de `connector` : desservir en
+// `path` sans ouvrir ce robinet rend une ville de 66 % de venelles, donc sans
+// trottoirs ni mobilier (mesuré).
+// Molette : __roadRanks({ connector, trunkUse, wideCap, capMinCells }) — recalcule
+// la carte. `__roadRanks({ wideCap: 1 })` rejoue l'ancienne promotion sans plafond,
+// c'est l'A/B du lot S1.
+// `streetFoot` : emprise (en cellules) à partir de laquelle un moteur mérite une
+// RUE plutôt qu'une venelle. 4 = un 2×2.
+// `wideCap` (lot S1, docs/PLAN-RENDU-VILLE.md) : part MAXIMALE du réseau que les
+// rangs LARGES (avenue + main) peuvent occuper. Mesuré à HEAD sur une ville de
+// bande 3 (2 000 à 2 600 cellules de rue), en faisant varier les routes achetées :
+//
+//   routes achetées :      0        32       128
+//   avenue + main :     13,6 %    20,0 %   46,2 %
+//
+// `applyRoadWidenings` n'avait AUCUN plafond — `for (i < count) promote(runs[0])`,
+// et `count` suit les achats sans borne. Un `main` fait 1,20 tuile avec ses
+// trottoirs : à 46 % du réseau, deux artères parallèles distantes d'une cellule ne
+// laissent plus un pixel de sol non minéral. C'est la nappe grise.
+//
+// ⚠ Le plafond porte sur avenue ET main ENSEMBLE, pas sur `main` seul : les demi-
+// largeurs valent 0,33 et 0,36, donc plafonner `main` seul déplacerait simplement
+// la masse d'un rang sans rien gagner à l'écran.
+//
+// 0,22 n'est pas rond au hasard : le SQUELETTE seul en pose déjà 13,6 % (9,0 de
+// main — chaque artère `main` est doublée en deux lignes collées par `runLineWide`,
+// c'est le boulevard à terre-plein — et 4,6 d'avenue). Un plafond sous ce plancher
+// n'aurait aucun effet sinon de fermer la progression d'entrée de jeu. 0,22 laisse
+// 8 points d'élargissements achetables, puis l'échelle se clôt.
+//
+// `capMinCells` : sous cette taille de réseau, une PART n'a pas de sens — la rue
+// unique d'un hameau EST son boulevard. Le plafond ne s'applique qu'au-delà.
+export const ROAD_RANKS = {
+  connector: "secondary", trunkUse: 0.15, streetFoot: 4,
+  wideCap: 0.22, capMinCells: 200,
+};
+if (typeof window !== "undefined") {
+  window.__roadRanks = (o) => {
+    if (o && typeof o === "object") Object.assign(ROAD_RANKS, o);
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...ROAD_RANKS };
+  };
+}
+
+// ── ÉCARTEMENT DES INSTANCES D'UN MÊME MÉTIER ────────────────────────────────
+// `gap` = distance minimale (en cellules, de centre à centre) entre deux
+// bâtiments du même type. Cf. le § PAS DEUX FOIS LE MÊME MÉTIER CÔTE À CÔTE
+// dans placeRequest : c'est un filtre d'acceptation, RELÂCHÉ automatiquement
+// quand la ville est trop pleine pour l'honorer — jamais un bâtiment acheté ne
+// reste au sol à cause de lui. 0 = comportement d'avant.
+// `reach` : de combien de cellules on accepte de s'écarter du choix d'origine
+// pour honorer le `gap`. C'est une DISTANCE et non un rang de candidate : un
+// rang dépendrait de la taille du top-K et casserait l'invariance « le top-K
+// élargi pose la même ville ». Au-delà, on sortirait de la zone que la desserte
+// sait raccorder et un bâtiment finirait sans rue (les deux mesurés).
+// Réglage MESURÉ (part de voisins du même type, band 4, 611 moteurs, 29 types ;
+// un mélange parfait donnerait 3,4 %) : gap 0 → 28 %, **gap 5/reach 8 → 14 %**,
+// gap 6/reach 12 → 7,9 %, gap 6/reach 16 → 2,7 %.
+// ⚠⚠ LES RÉGLAGES PLUS FRANCS SONT MEILLEURS À L'ŒIL ET POURTANT REFUSÉS : dès
+// `reach 12`, le glissement sort de la zone que la desserte sait raccorder et
+// DEUX contrats du jeu tombent — « aucun bâtiment servable sans rue »
+// (roadDesserte.test.js) et « aucun bâtiment planté dans l'herbe »
+// (urbanGroundCoversBuildings.test.js). Le curseur n'est pas borné par le goût
+// mais par ces contrats : 5/8 est le dernier cran qui les respecte, et il divise
+// déjà le groupement par deux. Ne pas le remonter sans relancer la suite.
+export const ENGINE_SPREAD = { gap: 5, reach: 8 };
+if (typeof window !== "undefined") {
+  window.__engineSpread = (o) => {
+    if (o && typeof o === "object") Object.assign(ENGINE_SPREAD, o);
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...ENGINE_SPREAD };
+  };
+}
 
 // SOURCE UNIQUE de la largeur de chaussée par rang/ère, partagée par le rendu
 // (corps de route + marquages, renderWorld) et les véhicules (décalage de file,
@@ -311,6 +398,70 @@ function cmHash(text) {
 }
 function cmPick(list, seed) { return list[seed % list.length]; }
 
+// BRUIT DE BLOC (lot S5, docs/PLAN-RENDU-VILLE.md) — deux échelles de bloc (5 et 11
+// cellules) mélangées 0,6/0,4. Rend une valeur [0..1] quasi CONSTANTE entre voisines,
+// contrairement à un hash par cellule qui rend du bruit blanc.
+//
+// C'est la différence entre des BOSQUETS et du poivre-et-sel. La forêt sauvage s'en
+// servait déjà — son commentaire dit « agglutine les arbres en fourrés et ménage des
+// trouées » — et elle lit en masses, alors que les arbres de VILLE étaient tirés par
+// un hash indépendant par cellule (donc en confettis).
+//
+// ⚠ Il vit ICI et pas dans un module à part : `cmHash` est ici, `isoRenderer` importe
+// déjà de ce fichier, et l'inverse serait un cycle. La forêt sauvage l'importe donc
+// au lieu d'en garder sa copie — une seule définition, un seul grain.
+//
+// ⚠ Ne PAS confondre avec une variation par CELLULE : celles-là ont été refusées
+// quatre fois (jitter d'aplat, voile en plaques, usure en ellipses, damier de parité).
+// Ici on ne peint rien — on module une PROBABILITÉ DE POSE à une échelle plus grande
+// que le bloc, ce qui est exactement le geste que la forêt sauvage a déjà validé.
+export function cmCellNoise(gx, gy) {
+  const n1 = (cmHash(Math.floor(gx / 5) + "n" + Math.floor(gy / 5)) % 1000) / 1000;
+  const n2 = (cmHash(Math.floor(gx / 11) + "m" + Math.floor(gy / 11)) % 1000) / 1000;
+  return n1 * 0.6 + n2 * 0.4;
+}
+
+// Amplitude du regroupement. Le facteur est centré sur 1 en moyenne (`cmCellNoise`
+// vaut 0,5 en moyenne), donc le NOMBRE d'arbres est conservé : on redistribue, on ne
+// densifie pas — c'était le contrôle du lot, et il passe (1270 → 1246 à amplitude
+// 1,9, soit −1,9 %).
+//
+// ⛔ **DÉFAUT À 0 : ÉTEINT.** Le mécanisme est écrit, testé et réglable, mais son
+// effet mesuré sur le champ d'arbres est NÉGLIGEABLE, et je ne livre pas un défaut
+// que je ne sais pas justifier. Mesuré en jeu, bande 3, A/B rejoué à l'identique :
+//
+//   amplitude 0   → 1270 arbres, 62,9 % groupés (≥2 voisins), 15,4 % isolés
+//   amplitude 1,9 → 1246 arbres, 61,7 % groupés,               16,6 % isolés
+//
+// …soit 1,2 point d'écart pour une modulation de probabilité de ×0,05 à ×1,95.
+//
+// ⚠ ET LA PRÉMISSE DU LOT EST FAUSSE. Le diagnostic disait « hash par cellule, donc
+// bruit blanc, donc confettis ». Mesuré : le champ occupe 9,1 % des 13 958 cellules
+// éligibles (le résidu n'est PAS mince : 3,77 voisines éligibles sur 4 par arbre,
+// donc aucun plafond structurel) — or un tirage indépendant à 9 % donnerait ~4 %
+// d'arbres à deux voisins, et on en mesure 62,9 %. Le champ est donc DÉJÀ fortement
+// aggloméré par un mécanisme que cette séance n'a pas identifié : soit `trees`
+// réunit deux populations (ceinture boisée + arbres de ville), soit la densité
+// radiale concentre bien plus que le modèle ne le prédit.
+//
+// **À faire avant de rallumer** : comprendre ce mécanisme. Tant qu'on ne l'a pas,
+// monter l'amplitude ne fait que remuer un champ déjà groupé. La molette est là pour
+// ça : `__treeClump(1.3)` puis recompter groupés/isolés.
+export const TREE_CLUMP = { amp: 0 };
+if (typeof window !== "undefined") {
+  window.__treeClump = (v) => {
+    if (v != null) TREE_CLUMP.amp = Math.max(0, Math.min(1.9, +v || 0));
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return TREE_CLUMP.amp;
+  };
+}
+// Facteur multiplicatif à appliquer à une probabilité de pose, de moyenne 1.
+export function cmClumpK(gx, gy) {
+  const a = TREE_CLUMP.amp;
+  if (a <= 0) return 1;
+  return (1 - a / 2) + a * cmCellNoise(gx, gy);
+}
+
 // Fraction d'ère [0..1] pour le dimensionnement de la ville (densité, portée…).
 // Ancrée sur 34 : les ères transcendantes (index dense ≥ 35) saturent à 1 (ville
 // maximale). Identique à l'origine pour les ères 0–34.
@@ -348,7 +499,7 @@ function cmEngineFootprint(id, count) {
   if (id === "ministries")         return count >= 64 ? 5 : count >= 25 ? 4 : 3;
   if (id === "universities")       return count >= 64 ? 4 : count >= 25 ? 3 : 2;
   if (id === "think_tanks")        return count >= 64 ? 4 : count >= 25 ? 3 : 2;
-  if (id === "aqueducts")          return tier >= 2 ? 4 : tier >= 1 ? 3 : 2;
+  if (id === "aqueducts")          return 1;   // point d'eau : une cellule, toujours
   if (id === "mint_houses")        return tier >= 2 ? 3 : 2;
   if (id === "courthouses"  || id === "archive_grids" || id === "ruin_architects") return tier >= 2 ? 3 : 2;
   if (id === "academies"    || id === "libraries"     || id === "ancestral_cult")  return tier >= 2 ? 3 : 2;
@@ -361,11 +512,48 @@ function cmEngineFootprint(id, count) {
   if (id === "irrigated_fields") return tier >= 1 ? 3 : 2;
   return tier >= 2 ? 3 : tier >= 1 ? 2 : 1;
 }
-function cmAqueductSpan(level) {
-  if (level >= 25) return 10;
-  if (level >= 10) return 7;
-  if (level >= 5)  return 5;
-  return 3;
+// ── POINTS D'EAU (ex-aqueducs) ──────────────────────────────────────────────
+// L'AQUEDUC-STRUCTURE A ÉTÉ RETIRÉ le 2026-08-05. C'était une conduite linéaire
+// (span×1) posée LE LONG DE LA BERGE, prise d'eau au bord : elle puisait donc
+// dans le fleuve d'à côté, ce que Raph a fini par refuser (« ça n'est pas
+// logique à côté d'une rivière d'en avoir »). Le fleuve étant TOUJOURS présent
+// (river.present est en dur), l'absurdité n'était pas accidentelle mais
+// systématique. La forme linéaire avait déjà résisté 5 fois : 4 réécritures de
+// son art (AQ_V était monté à 4, « design hyper étiré », « arcade minuscule sur
+// fond opaque ») et une orientation perpendiculaire essayée puis rejetée.
+// 🚫 NE PAS LA RESSUSCITER — ni en longeant la berge, ni en franchissant le
+//    fleuve : ce n'est pas le sprite qui a échoué, c'est l'objet. Un aqueduc est
+//    de l'infrastructure EN RÉSEAU, or ici ce n'est qu'un compteur d'achats.
+//
+// Le bâtiment ne change pas d'un iota (nom, coût, effets). Seule sa
+// REPRÉSENTATION change : des POINTS D'EAU semés dans la ville, dont le COMPTEUR
+// pilote le NOMBRE et jamais la TAILLE — même doctrine que halle + ateliers. Une
+// fontaine près d'un fleuve n'étonne personne, il n'y a plus rien à défendre.
+// Plafond bien plus bas que celui des ateliers (48) : un point d'eau est un
+// repère de quartier, pas un pavé ; au-delà d'une quinzaine ils se marchent
+// dessus. Courbe en sqrt, 1 au premier achat.
+const CM_WATER_POINT_CAP = 14;
+// Écart minimal entre deux points d'eau, en cellules. Environ deux lots de
+// maisons : assez pour qu'ils se lisent comme « un par quartier » et jamais comme
+// une rangée. Au plafond de 14 sur une ville de rayon ~0,44 N, la contrainte est
+// large — elle ne mord que sur les paquets, pas sur le placement.
+const CM_WATER_POINT_GAP = 5;
+function cmWaterPointCount(level) {
+  const n = Math.max(1, Math.floor(level));
+  return cmClamp(Math.round(1 + (Math.sqrt(n) - 1) * 1.9), 1, CM_WATER_POINT_CAP);
+}
+// Zone d'une instance — `meta.zone` pour tout le monde SAUF les points d'eau.
+// Chaque zone est un ANNEAU de rayon fixe : toutes les instances posées sur la
+// même y tombent, et 14 fontaines à rayon constant dessinent un CERCLE au lieu
+// d'être semées. On alterne donc les trois anneaux de la ville (milieu, cœur,
+// faubourg) — c'est la répartition qui fait « un point d'eau par quartier ».
+// ⚠ La zone retenue est aussi celle STOCKÉE dans le slot : slotCompat la
+// recompare pour valider un emplacement mémorisé. Passer par req.zone des deux
+// côtés est ce qui garde les deux en phase.
+const CM_WATER_POINT_ZONES = ["mid", "center", "edge"];
+function cmRequestZone(meta, index) {
+  if (meta.id !== "aqueducts") return meta.zone;
+  return CM_WATER_POINT_ZONES[index % CM_WATER_POINT_ZONES.length];
 }
 function cmFieldSpan(level) {
   // Ceinture de champs : un bloc unique, plus large que haut, qui grandit avec
@@ -435,7 +623,9 @@ function cmEngineGroupFoot(id, groupLevel, idx) {
 // iso s'en sert pour BORNER la taille de dessin de la halle (cf. drawIsoEngineScene).
 function cmEngineAtelierFoot(id) { return Math.min(2, cmEngineFootprint(id, 1)); }
 function cmEngineInstances(count, id) {
-  if (id === "aqueducts") return count > 0 ? [Math.floor(count)] : [];
+  // Points d'eau : N repères ÉGAUX semés dans la ville — pas de halle, donc pas
+  // d'instance nº 0 privilégiée : chacun est un tier 0 d'une seule cellule.
+  if (id === "aqueducts") return count > 0 ? new Array(cmWaterPointCount(count)).fill(1) : [];
   // Champs : une seule ceinture agricole qui grandit (pas de tuiles dispersées).
   if (id === "irrigated_fields") return count > 0 ? [Math.floor(count)] : [];
   // Port fluvial : un seul bâtiment riverain qui grandit (pas de quais
@@ -469,7 +659,9 @@ export function cmEngineGroupSig(s) {
 
 function cmMapSlotKey(cycle, buildingId, index) { return `${cycle || 0}:${buildingId}:${index}`; }
 function cmMapSlotPriority(meta) {
-  if (meta.id === "aqueducts")      return CM_SLOT_PRIORITIES.aqueducts;
+  // (Les aqueducs avaient ici une priorité 0 : ils devaient réserver la berge
+  //  avant tout le monde. Devenus points d'eau semés dans la ville, ils n'ont
+  //  plus rien à réserver et passent avec les autres infra.)
   if (CM_INFRA_IDS.has(meta.id))    return CM_SLOT_PRIORITIES.infra;
   if (CM_KNOWLEDGE_IDS.has(meta.id))return CM_SLOT_PRIORITIES.knowledge;
   return CM_SLOT_PRIORITIES.engine;
@@ -1351,9 +1543,17 @@ function connectBuildingsToNetwork(o) {
     straighten(p);
     // Les HABITATIONS sont desservies par des SENTIERS (rang path : étroits, sans
     // trottoir, l'allée de seuil fait le raccord) À TOUTES les ères — seule une
-    // venelle très empruntée devient une rue via upgradeTrunkByUsage. Les MOTEURS
-    // gardent le connecteur d'ère (connectorRank) : une halle se paie une vraie rue.
-    carve(p, pick.isEngine ? rank : "path");
+    // venelle très empruntée devient une rue via upgradeTrunkByUsage.
+    //
+    // Les MOTEURS, eux, se partagent selon leur TAILLE, et c'est une règle
+    // urbaine, pas un réglage : une grande halle appelle une rue (livraisons,
+    // façade, adresse), un petit atelier se contente d'une venelle. Desservir
+    // TOUS les moteurs en rue donnait 49 % de `secondary` — une ville dont la
+    // moitié des cellules porte deux trottoirs ; les desservir tous en venelle
+    // donnait 66 % de `path` et plus un trottoir nulle part (les deux mesurés
+    // band 4). L'emprise tranche, et elle tranche juste.
+    const foot = (pick.t.spanX || pick.t.size || 1) * (pick.t.spanY || pick.t.size || 1);
+    carve(p, (pick.isEngine && foot >= ROAD_RANKS.streetFoot) ? rank : "path");
     if (useIncr) relaxFrom(p.attach, p.path); // MAJ champ (au lieu de recompute complet)
     if (pick.isEngine) {
       if (waveLeft <= 0) {
@@ -1483,8 +1683,11 @@ function computeRoadUsage({ roadKey, tiles, coreX, coreY }) {
 // grand-voie du hameau vers le pont se lit d'elle-même.
 function upgradeTrunkByUsage({ roadKey, roadMeta, tiles, coreX, coreY, usage = null }) {
   const { use, served } = usage || computeRoadUsage({ roadKey, tiles, coreX, coreY });
-  // Seuil : « tronc » = une vraie part du hameau passe par là (≥ 30 %, plancher 4).
-  const T = Math.max(4, Math.ceil(served * 0.3));
+  // Seuil : « tronc » = une vraie part du bâti passe par là (plancher 4). La
+  // part est réglable (ROAD_RANKS.trunkUse) : c'est le robinet qui décide
+  // combien de venelles deviennent des rues, donc combien de trottoirs porte la
+  // ville. Il se règle EN REGARD de `connector` — les deux forment un couple.
+  const T = Math.max(4, Math.ceil(served * ROAD_RANKS.trunkUse));
   for (const [k, n] of use) {
     if (n < T) continue;
     const m = roadMeta.get(k);
@@ -1517,6 +1720,19 @@ function applyRoadWidenings({ roads, roadKey, roadMeta, usage, riverSet, count, 
   const free = typeof cellFree === "function" ? cellFree : () => false;
   const use = usage && usage.use ? usage.use : new Map();
   const K2 = (x, y) => x + "," + y;
+  // ── S1 — PLAFOND DES RANGS LARGES (cf. ROAD_RANKS.wideCap) ──────────────────
+  // Compteur tenu à jour dans `promote`, jamais recompté : `collectRuns` tourne
+  // une fois PAR promotion, et un recompte y serait O(count × réseau).
+  const capOn = roadKey.size >= ROAD_RANKS.capMinCells;
+  // Fonction et non constante : creuser une voie jumelle AJOUTE des cellules au
+  // réseau, donc le dénominateur bouge en cours de boucle.
+  const wideMax = () => Math.round(roadKey.size * ROAD_RANKS.wideCap);
+  let wideCells = 0;
+  if (capOn) for (const m of roadMeta.values()) if (WIDE[m.rank]) wideCells += 1;
+  // Cellules qui DEVIENNENT larges si ce run est promu. Une avenue qui passe
+  // boulevard n'en ajoute aucune (elle était déjà large) : seuls l'entrée dans la
+  // famille large (secondary → avenue) et la voie jumelle creusée en coûtent.
+  const wideAdd = (r) => (r.rank === "secondary" ? r.len : r.rank === "main" ? (r.twin ? r.twin.length : 0) : 0);
   const runCellKey = (run, g, s = 0) => run.axis === "h" ? K2(g, run.fixed + s) : K2(run.fixed + s, g);
   // Part du run dont la parallèle immédiate (±1) est déjà avenue/main.
   const parallelWideShare = (run) => {
@@ -1587,8 +1803,11 @@ function applyRoadWidenings({ roads, roadKey, roadMeta, usage, riverSet, count, 
       if (r.rank === "main") {
         const twin = twinPlan(r);
         if (!twin) continue;
-        eligible.push({ ...r, twin, tiles: twin.length });
+        const cand = { ...r, twin, tiles: twin.length };
+        if (capOn && wideCells + wideAdd(cand) > wideMax()) continue;   // S1
+        eligible.push(cand);
       } else {
+        if (capOn && wideCells + wideAdd(r) > wideMax()) continue;      // S1
         eligible.push({ ...r, tiles: r.len });
       }
     }
@@ -1598,6 +1817,7 @@ function applyRoadWidenings({ roads, roadKey, roadMeta, usage, riverSet, count, 
     return eligible;
   };
   const promote = (run) => {
+    wideCells += wideAdd(run);        // S1 : le budget se consomme ICI, pas au test
     if (run.twin) {
       // Autoroute : la jumelle se CREUSE (nouvelles cellules main, axe du run).
       for (const [x, y] of run.twin) {
@@ -2130,7 +2350,14 @@ function computeCityLayout(s) {
       // Espaces verts/vides : pilotés par la config d'âge et la personnalité
       // (une cité fastueuse garde ses jardins, une mégalopole bétonne tout).
       const parkBase = ageCfg.parkChance * (personality.treeMul || 1);
-      const parkChance = Math.max(0.05, Math.min(0.45, parkBase * 0.55 + Math.max(0, score - 0.58) * 0.42));
+      // S5 : le clump s'applique APRÈS le clamp — un bosquet a le droit de dépasser
+      // 0,45 localement, c'est ce qui en fait une masse. Moyenne 1, donc le NOMBRE de
+      // cellules vertes est conservé : elles se regroupent au lieu de s'éparpiller.
+      // Enjeu supplémentaire ici : une cellule verte est RETIRÉE du pool bâtissable
+      // (`.filter(cc => !cc.green)` juste en dessous), donc un semis en poivre-et-sel
+      // PERFORAIT les rangées de maisons une cellule à la fois.
+      const parkChance = Math.max(0.05, Math.min(0.45, parkBase * 0.55 + Math.max(0, score - 0.58) * 0.42))
+        * cmClumpK(gx, gy);
       cells.push({ gx, gy, d2: dx * dx + dy * dy, score, green: noise < parkChance });
     }
   }
@@ -2401,79 +2628,24 @@ function computeCityLayout(s) {
     const instances = cmEngineInstances(level, meta.id);
     for (let ei = 0; ei < instances.length; ei += 1) {
       const groupLevel = instances[ei];
-      requests.push({ meta, level, groupLevel, groupIndex: ei + 1, groupTotal: instances.length,
+      requests.push({ meta, level, groupLevel, groupIndex: ei + 1, groupTotal: instances.length, zone: cmRequestZone(meta, ei),
         tier: cmEngineTier(groupLevel), size: cmEngineGroupFoot(meta.id, groupLevel, ei), slotKey: cmMapSlotKey(s.cycles, meta.id, ei) });
     }
   }
   const placedSlotKeys = new Set();
+  // Cellules des points d'eau DÉJÀ posés dans ce layout — c'est contre elles que
+  // se mesure l'écart minimal (cf. `spaced` plus bas). Accumule sur les DEUX
+  // passes (slots mémorisés puis placement neuf) : un point rappelé par son slot
+  // compte autant qu'un point fraîchement posé pour repousser les suivants.
+  const waterPointCells = [];
+  // Centres des instances DÉJÀ posées, par type : c'est contre eux que se mesure
+  // l'écart minimal entre deux bâtiments d'un même métier (cf. ENGINE_SPREAD).
+  const sameTypeCells = new Map();
   const placeRequest   = (req, preferSavedSlot) => {
-    // ── Aqueduc : structure linéaire UNIQUE (span×1), le long de la berge ────
-    // L'orientation VERTICALE « bout-à-l'eau » a été essayée puis RETIRÉE (rendu
-    // jugé pas terrible) : l'aqueduc longe la berge, captage E/O au bord (miroir
-    // au rendu via waterEnd).
-    if (req.meta.id === "aqueducts") {
-      const spanX = cmAqueductSpan(req.level), spanY = 1;
-      let placed = null;
-      // Prise d'eau : distance de la MEILLEURE extrémité au bord du ruban PEINT
-      // (riverYAt/riverHwByCol — pas les Sets euclidiens plus larges). Cible =
-      // pile au bord (hw + 0.6 : cellule d'extrémité sur la berge, cf. aqFits).
-      const aqHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))] || 2;
-      const aqEndWater = (gx, gy) => {
-        const dW = Math.abs(Math.abs(gy + 0.5 - riverYAt(gx)) - (aqHwAt(gx) + 0.6));
-        const dE = Math.abs(Math.abs(gy + 0.5 - riverYAt(gx + spanX - 1)) - (aqHwAt(gx + spanX - 1) + 0.6));
-        return dW <= dE ? { d: dW, end: "W" } : { d: dE, end: "E" };
-      };
-      // Comme footprintFits mais les 2 cellules d'EXTRÉMITÉ peuvent mordre la berge
-      // (bankSet) — jamais l'eau : le captage/déversoir touche le bord, le corps non.
-      const aqFits = (gx, gy) => {
-        if (!footprintFits(gx, gy, spanX, true, false, spanY)) return false;
-        for (let ax = 1; ax < spanX - 1; ax += 1) if (bankSet.has((gx + ax) + "," + gy)) return false;
-        return true;
-      };
-      // slot.vert = vestige de l'orientation verticale retirée : on l'ignore pour
-      // forcer un re-placement horizontal propre (une fois, puis le slot est réécrit).
-      const slot = slotStore[req.slotKey];
-      if (preferSavedSlot && slot && !slot.vert) {
-        const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - spanX), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - spanY) };
-        if (aqFits(saved.gx, saved.gy)) placed = saved;
-      }
-      if (!placed) {
-        // Décore-trie-retire : score calculé une fois par cellule. L'aqueduc longe
-        // la lisière de la ville (reach + 2.5, pas le bord de grille) ; le terme
-        // « prise d'eau » (pondéré plus fort) tire vers les points où la lisière
-        // croise le fleuve : l'aqueduc se CONNECTE à l'eau.
-        const aqRing = Math.min(N * 0.44, cityReachBase + 2.5);
-        const aqCells = cells.filter((c2) => c2.gx + spanX <= N && c2.gy + spanY <= N)
-          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + 0.5 - cy) - aqRing) * 0.5
-            + aqEndWater(c2.gx, c2.gy).d * 1.2
-            + (cmHash("aq:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
-          .sort((a, b) => a.s - b.s)
-          .map((e) => e.c2);
-        for (const c2 of aqCells) {
-          if (aqFits(c2.gx, c2.gy)) { placed = c2; break; }
-        }
-      }
-      if (!placed) return false;
-      claimFootprint(placed.gx, placed.gy, spanX, spanY);
-      for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
-        engineFootprint.add((placed.gx + ax) + "," + (placed.gy + ay));
-        usedKeys.add((placed.gx + ax) + "," + (placed.gy + ay));
-      }
-      const dx = placed.gx + spanX / 2 - cx, dy = placed.gy + 0.5 - cy;
-      // waterEnd : quelle extrémité porte la PRISE D'EAU (sprite : captage à l'est,
-      // miroir horizontal au rendu si 'W'). Marquée seulement si le fleuve est
-      // vraiment à portée (≤ 2.5 tuiles du bord d'eau), sinon orientation par défaut.
-      const aqWat = aqEndWater(placed.gx, placed.gy);
-      tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: "aqueducts", buildingId: "aqueducts",
-        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
-        groupIndex: 1, groupTotal: 1, tier: req.tier, size: spanX, spanX, spanY,
-        waterEnd: aqWat.d <= 2.5 ? aqWat.end : "E",
-        key: `engine:aqueducts:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
-      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.meta.zone, id: req.meta.id };
-      liveSlotKeys.add(req.slotKey);
-      placedSlotKeys.add(req.slotKey);
-      return true;
-    }
+    // (Un bloc « aqueduc » vivait ici : structure linéaire span×1 posée le long
+    //  de la berge, prise d'eau au bord. Retiré le 2026-08-05 — cf. le pavé de
+    //  cmWaterPointCount. Les points d'eau sont des 1×1 ordinaires et passent
+    //  désormais par le chemin générique, comme n'importe quel atelier.)
     // ── Champs : ceinture agricole 2D (spanX × spanY) collée à la lisière ──
     // Un seul bloc qui grandit avec le niveau, placé tangent au bord de la ville
     // (comme la ferme qui s'étend autour du bourg) plutôt que des tuiles éparses.
@@ -2507,7 +2679,7 @@ function computeCityLayout(s) {
         buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
         groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(spanX, spanY), spanX, spanY,
         key: `engine:irrigated_fields:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
-      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.meta.zone, id: req.meta.id };
+      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.zone, id: req.meta.id };
       liveSlotKeys.add(req.slotKey);
       placedSlotKeys.add(req.slotKey);
       return true;
@@ -2582,7 +2754,7 @@ function computeCityLayout(s) {
         groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(spanX, spanY), spanX, spanY, waterSide: "S",
         key: `engine:${req.meta.id}:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
       // dy = rangée sud (centre du fleuve), sy = profondeur, pour rester plaqué.
-      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: (placed.gy + spanY) - cy, sy: spanY, zone: req.meta.zone, id: req.meta.id };
+      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: (placed.gy + spanY) - cy, sy: spanY, zone: req.zone, id: req.meta.id };
       liveSlotKeys.add(req.slotKey);
       placedSlotKeys.add(req.slotKey);
       return true;
@@ -2610,7 +2782,7 @@ function computeCityLayout(s) {
         // Passe 1 : fleuve au sud (orientation native parfaite). Passe 2 : tout bord.
         for (const wantSouth of [true, false]) {
           for (const sz of (bsize > 1 ? [bsize, 1] : [1])) {
-            for (const cell of engineCandidates(req.meta.zone, aff, sz, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity)) {
+            for (const cell of engineCandidates(req.zone, aff, sz, req.meta.id, req.groupIndex - 1, req.groupTotal, Infinity)) {
               const ws = tryAt(cell.gx, cell.gy, sz);
               if (ws && (!wantSouth || ws === "S")) { bplaced = cell; bside = ws; bsize = sz; break; }
             }
@@ -2630,35 +2802,103 @@ function computeCityLayout(s) {
         buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
         groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size: bsize, waterSide: bside,
         key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: bdx * bdx + bdy * bdy });
-      slotStore[req.slotKey] = { dx: bplaced.gx - cx, dy: bplaced.gy - cy, zone: req.meta.zone, id: req.meta.id };
+      slotStore[req.slotKey] = { dx: bplaced.gx - cx, dy: bplaced.gy - cy, zone: req.zone, id: req.meta.id };
       liveSlotKeys.add(req.slotKey);
       placedSlotKeys.add(req.slotKey);
       return true;
     }
     let size = req.size, placed = null;
     const { allowWater, allowBank } = cmWaterAllow(aff);
+    // ── ÉCART MINIMAL ENTRE POINTS D'EAU ──────────────────────────────────────
+    // Les points d'eau sont les seules instances TOUTES identiques et TOUTES d'une
+    // cellule : rien dans le score ne les empêche de se coller. Vérifié à l'écran,
+    // deux puits jointifs sur quatorze — et deux puits côte à côte se lisent comme
+    // une erreur, pas comme un quartier bien desservi. Le terme angulaire ne suffit
+    // pas près du cœur, où le tirage « center » tire tout le monde au même point.
+    // On impose donc l'écart EN DUR, à l'acceptation de la cellule.
+    // ⚠ Passe par `fits` et non par les appels directs à footprintFits : il y a
+    // QUATRE chemins d'acceptation ici (slot mémorisé, re-tri local, top-K,
+    // élargissements) et n'en garder que certains laisserait la règle fuir par les
+    // autres — c'est-à-dire une règle qui tient tant qu'on ne la teste pas.
+    const spaced = req.meta.id !== "aqueducts" ? null : (gx, gy) => {
+      for (const p of waterPointCells) if (Math.hypot(gx - p[0], gy - p[1]) < CM_WATER_POINT_GAP) return false;
+      return true;
+    };
+    // ── PAS DEUX FOIS LE MÊME MÉTIER CÔTE À CÔTE ──────────────────────────────
+    // Raph 2026-08-05 : « c'est bizarre d'avoir toutes les guildes au même
+    // endroit (ça vaut pour tous les bâtiments hein) ».
+    //
+    // MESURÉ, par bâtiment et non par cellule (un 3×3 est son propre voisin huit
+    // fois, ce qui gonflait un premier relevé à 60 % pour rien) : un moteur a
+    // **23,6 % de voisins du même type** là où 29 types disponibles en
+    // donneraient 3,4 %. Sept fois le hasard.
+    //
+    // LA CAUSE est dans le scoring : `angleTarget = 2π·index/total` range les
+    // instances d'un type en COURONNE RÉGULIÈRE sur l'anneau de leur zone. Deux
+    // instances consécutives y sont donc systématiquement voisines — chacune a
+    // ses deux jumelles de couronne pour compagnes, ce qui donne mécaniquement
+    // un quart de voisinage identique. Ce n'est pas un hasard mal tiré, c'est
+    // une géométrie qui les colle.
+    //
+    // LE REMÈDE, sans toucher au scoring (qui porte l'identité des zones : le
+    // temple au centre, les entrepôts au bord) : un ÉCART MINIMAL entre deux
+    // instances du même type, appliqué comme un filtre d'acceptation — le même
+    // mécanisme que les points d'eau juste au-dessus, généralisé. On passe par
+    // `fits`, donc les QUATRE chemins d'acceptation le respectent.
+    //
+    // ⚠ ET IL EST FACULTATIF PAR CONSTRUCTION : si aucune cellule ne satisfait
+    // l'écart, `placeRequest` retente SANS lui (cf. `relax` plus bas). Un
+    // bâtiment acheté doit toujours se poser — une règle de composition ne peut
+    // pas coûter un achat au joueur.
+    // Molette : __engineSpread({ gap }) ; 0 = comportement d'avant.
+    const sameCells = sameTypeCells.get(req.meta.id);
+    const apart = (gx, gy, sz) => {
+      if (!(ENGINE_SPREAD.gap > 0) || !sameCells || !sameCells.length) return true;
+      const cxr = gx + sz / 2, cyr = gy + sz / 2;
+      for (const p of sameCells) if (Math.hypot(cxr - p[0], cyr - p[1]) < ENGINE_SPREAD.gap) return false;
+      return true;
+    };
+    const fits = (gx, gy, sz) =>
+      (!spaced || spaced(gx, gy)) && footprintFits(gx, gy, sz, allowBank, false, sz, allowWater);
     const slot = slotStore[req.slotKey];
     // Un slot hérité d'une autre zone est écarté (ex : slot de moulin RIVERAIN
     // d'avant la refonte éolienne, dy pointé sur le centre du fleuve) : sans ce
     // garde la halle se recollerait au fleuve pour un cycle via le re-tri local.
-    const slotCompat = slot && !(slot.zone && slot.zone !== req.meta.zone);
+    const slotCompat = slot && !(slot.zone && slot.zone !== req.zone);
+    let fromSlot = false;   // position rappelée d'un slot mémorisé : ne glisse pas
     if (preferSavedSlot && slotCompat) {
       const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - size), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - size) };
-      if (footprintFits(saved.gx, saved.gy, size, allowBank, false, size, allowWater)) {
+      if (fits(saved.gx, saved.gy, size)) {
         placed = saved;
       } else {
         // Re-tri local autour du slot sauvegardé (décoré : un score par cellule).
         const slotHash = cmHash(req.slotKey) >>> 0;
-        const nearby = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal)
+        const nearby = engineCandidates(req.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal)
           .map((cell) => ({ cell, s: Math.hypot(cell.gx - saved.gx, cell.gy - saved.gy) + ((((Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663) ^ slotHash) >>> 0) % 100) / 500) }))
           .sort((a, b) => a.s - b.s)
           .map((e) => e.cell);
-        for (const cell of nearby) if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
+        for (const cell of nearby) if (fits(cell.gx, cell.gy, size)) { placed = cell; break; }
       }
+      fromSlot = !!placed;
     }
     if (!placed) {
-      const candidates = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
-      for (const cell of candidates) if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
+      const candidates = engineCandidates(req.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal);
+      // ⚠⚠ L'ÉCART NE DOIT JAMAIS ÉLOIGNER UN BÂTIMENT DE SA RUE. Sans borne, le
+      // contrat « aucun bâtiment servable ne reste sans rue » tombe : la cellule
+      // écartée sort de la zone que la desserte sait raccorder avec son budget
+      // (mesuré — 1 moteur orphelin, attrapé par roadDesserte.test.js).
+      //
+      // On procède donc en deux temps, et la borne est une DISTANCE, pas un rang
+      // dans la liste : un rang dépendrait de la taille du top-K, et l'invariance
+      // « le top-K élargi pose la même ville » sauterait (attrapé par
+      // enginePlacementPerf.test.js). Une distance, elle, ne dépend que de la
+      // géométrie — les cellules qu'un élargissement ajoute ont un plus mauvais
+      // score, donc elles viennent après et ne changent pas le choix.
+      //   1. `base` = la première cellule acceptable SANS écart : le choix
+      //      d'origine, celui dont on sait qu'il sera desservi ;
+      //   2. on ne lui préfère une cellule écartée que si elle est à moins de
+      //      `reach` cellules de lui.
+      for (const cell of candidates) if (fits(cell.gx, cell.gy, size)) { placed = cell; break; }
       // Top-K saturé (toutes les bonnes cellules déjà prises) : on ÉLARGIT par
       // paliers au lieu de demander la liste complète d'un coup.
       //
@@ -2673,10 +2913,10 @@ function computeCityLayout(s) {
       if (!placed) {
         let scanned = candidates.length;
         for (const wider of [2048, 4096, 8192, 16384, 32768, Infinity]) {
-          const list = engineCandidates(req.meta.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal, wider);
+          const list = engineCandidates(req.zone, aff, size, req.meta.id, req.groupIndex - 1, req.groupTotal, wider);
           for (let ci = scanned; ci < list.length; ci += 1) {
             const cell = list[ci];
-            if (footprintFits(cell.gx, cell.gy, size, allowBank, false, size, allowWater)) { placed = cell; break; }
+            if (fits(cell.gx, cell.gy, size)) { placed = cell; break; }
           }
           if (placed || list.length <= scanned) break;   // trouvé, ou pool épuisé
           scanned = list.length;
@@ -2685,11 +2925,61 @@ function computeCityLayout(s) {
       // Repli taille-1 pour les bâtiments affines à l'eau (rive souvent étroite).
       if (!placed && cmWaterAffine(aff) && size > 1) {
         size = 1;
-        for (const cell of engineCandidates(req.meta.zone, aff, 1, req.meta.id, req.groupIndex - 1, req.groupTotal))
-          if (footprintFits(cell.gx, cell.gy, 1, allowBank, false, 1, allowWater)) { placed = cell; break; }
+        for (const cell of engineCandidates(req.zone, aff, 1, req.meta.id, req.groupIndex - 1, req.groupTotal))
+          if (fits(cell.gx, cell.gy, 1)) { placed = cell; break; }
       }
     }
     if (!placed) return false;
+    // ── ÉCARTEMENT : un AJUSTEMENT LOCAL, appliqué APRÈS le choix ─────────────
+    // (cf. § PAS DEUX FOIS LE MÊME MÉTIER.) Le choix ci-dessus est celui d'avant,
+    // intact — c'est ce qui rend la manœuvre sûre. On se contente ensuite de
+    // GLISSER le bâtiment vers la cellule la plus proche qui respecte l'écart,
+    // dans un rayon borné.
+    //
+    // ⚠⚠ Deux tentatives précédentes ont été jetées, et leurs échecs disent
+    // pourquoi cette forme-ci :
+    //   • mêler l'écart au filtre `fits` du choix initial faisait sortir un
+    //     bâtiment de la zone que la desserte sait raccorder → « aucun bâtiment
+    //     servable sans rue » tombait (roadDesserte.test.js) ;
+    //   • chercher la cellule écartée en reparcourant `candidates` rendait le
+    //     résultat dépendant de la taille du top-K → l'invariance « le top-K
+    //     élargi pose la même ville » tombait (enginePlacementPerf.test.js).
+    // Un glissement BORNÉ, sur un voisinage géométrique, ne touche ni l'un ni
+    // l'autre : la cellule reste à `reach` du choix desservi, et le balayage ne
+    // dépend d'aucune liste. S'il ne trouve rien, on garde le choix d'origine —
+    // l'écart est une règle de composition, jamais une raison de ne pas poser un
+    // bâtiment acheté.
+    //
+    // ⚠⚠ ET SEULEMENT À LA PREMIÈRE POSE. Un bâtiment rappelé par son slot
+    // mémorisé ne glisse JAMAIS : `sameTypeCells` se remplit dans l'ordre du
+    // placement, qui n'est pas le même d'un recompute à l'autre (les slots
+    // sauvegardés passent avant les poses neuves) — un glissement rejoué ferait
+    // donc BOUGER les bâtiments déjà posés, à chaque recalcul de la carte.
+    // Attrapé par urbanGroundCoversBuildings.test.js, dont le scénario compare
+    // deux calculs successifs : le sol « réduit » sortait plus grand que le sol
+    // « large », signe que les positions avaient dérivé entre les deux.
+    if (!fromSlot && ENGINE_SPREAD.gap > 0 && !apart(placed.gx, placed.gy, size)) {
+      const R = Math.max(0, ENGINE_SPREAD.reach | 0);
+      let bestD = Infinity, slid = null;
+      for (let dy = -R; dy <= R; dy += 1) {
+        for (let dx = -R; dx <= R; dx += 1) {
+          const d = Math.hypot(dx, dy);
+          if (d > R || d >= bestD) continue;
+          const gx = placed.gx + dx, gy = placed.gy + dy;
+          if (!apart(gx, gy, size) || !fits(gx, gy, size)) continue;
+          slid = { gx, gy }; bestD = d;
+        }
+      }
+      if (slid) placed = slid;
+    }
+    if (spaced) waterPointCells.push([placed.gx, placed.gy]);
+    // Mémorise le CENTRE de l'instance posée : c'est contre lui que se mesure
+    // l'écart des suivantes du même type.
+    {
+      const arr = sameTypeCells.get(req.meta.id);
+      const c2 = [placed.gx + size / 2, placed.gy + size / 2];
+      if (arr) arr.push(c2); else sameTypeCells.set(req.meta.id, [c2]);
+    }
     claimFootprint(placed.gx, placed.gy, size);
     for (let ax = 0; ax < size; ax += 1) for (let ay = 0; ay < size; ay += 1) {
       engineFootprint.add((placed.gx + ax) + "," + (placed.gy + ay));
@@ -2700,7 +2990,7 @@ function computeCityLayout(s) {
       buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
       groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size,
       key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
-    slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.meta.zone, id: req.meta.id };
+    slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.zone, id: req.meta.id };
     liveSlotKeys.add(req.slotKey);
     placedSlotKeys.add(req.slotKey);
     return true;
@@ -2829,12 +3119,29 @@ function computeCityLayout(s) {
   // proche au plus loin), puis les ÉLARGISSEMENTS des tronçons les plus
   // empruntés. Le compteur reste la seule vérité côté save.
   const roadWorksTotal = Math.floor((s.buildings && s.buildings.roads) || 0);
-  // Rang des connecteurs de MOTEURS = mêmes seuils d'ère que les stades de
-  // bâtiment (eraIndex <10/<20/<30/≥30) → sentier / route / avenue / boulevard.
-  // Les HABITATIONS, elles, sont toujours desservies en `path` (venelles sans
-  // trottoir) : voir carve() dans connectBuildingsToNetwork.
-  const ei = c.eraIndex;
-  const connectorRank = ei >= 30 ? "main" : ei >= 20 ? "avenue" : ei >= 10 ? "secondary" : "path";
+  // ── RANG DES CONNECTEURS DE MOTEURS ────────────────────────────────────────
+  // ⚠⚠ C'ÉTAIT ICI, LE « BROUILLON » (Raph 2026-08-05, mesuré). Cette ligne
+  // donnait aux corridors de desserte le rang de l'ÈRE — `avenue` dès l'ère 20,
+  // `main` dès l'ère 30, par symétrie avec les stades de bâtiment. Or il y a un
+  // corridor PAR MOTEUR : à l'échelle où la ville en compte des dizaines, la
+  // desserte devenait le réseau, et le réseau devenait une nappe d'avenues.
+  //
+  // LA MESURE, sur la part de cellules-route par rang (0 puis 40 chantiers, même
+  // chiffre : les chantiers n'y étaient pour RIEN) :
+  //   band 4 → avenue 40,7 %, main 20,0 %, secondary 9,8 %, path 25,3 %
+  //   band 6 → main  44,8 %, avenue 12,7 %, secondary 17,4 %, path 22,8 %
+  // Chaque avenue porte une chaussée large, deux trottoirs, leurs bordures,
+  // leurs caniveaux et les allées de seuil qui s'y greffent : d'où les stries.
+  //
+  // LA RÈGLE, désormais : un connecteur est une DESSERTE, pas une artère. Une
+  // halle se paie une vraie RUE (`secondary`) — à toutes les ères. Ce que l'ère
+  // change, c'est la MATIÈRE de la chaussée (pavé → dalle → asphalte → tech),
+  // pas son RANG. La hiérarchie, elle, ÉMERGE comme le veut la doctrine du
+  // fichier : par l'usage (upgradeTrunkByUsage) et par les chantiers payés
+  // (applyRoadWidenings), qui promeuvent les tronçons réellement empruntés.
+  // Les HABITATIONS restent desservies en `path` (venelles sans trottoir).
+  // Molette : __roadRanks({ connector: 'avenue' }) rejoue l'ancien comportement.
+  const connectorRank = ROAD_RANKS.connector;
   const netCover = connectBuildingsToNetwork({
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
     claimed, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
@@ -2874,9 +3181,18 @@ function computeCityLayout(s) {
     roadKey, tiles,
     coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y)
   });
-  // Mode desserte : la hiérarchie émerge de l'usage (le tronc vers le cœur/pont
-  // s'élargit path → secondary selon le nombre de bâtiments qui l'empruntent).
-  if (skeletonKey) upgradeTrunkByUsage({
+  // La hiérarchie ÉMERGE de l'usage : le tronc vers le cœur/pont s'élargit
+  // path → secondary selon le nombre de bâtiments qui l'empruntent.
+  // ⚠ Cet appel était réservé au mode DESSERTE (`if (skeletonKey)`), donc les
+  // archétypes géométriques — grille, radial, damier — n'avaient AUCUN tronc
+  // émergent : leurs venelles restaient venelles quoi qu'il s'y passe. Le défaut
+  // ne se voyait pas tant que les connecteurs de moteurs arrivaient déjà en
+  // avenue (ils masquaient l'absence de hiérarchie sous une nappe de larges) ;
+  // depuis qu'ils desservent en `path`, il sautait aux yeux : 66 % de venelles
+  // et presque plus une rue (mesuré band 4). L'usage est calculé pour toutes les
+  // villes, il n'y a aucune raison de n'en tirer la hiérarchie que pour
+  // certaines — le tronc se mérite partout.
+  upgradeTrunkByUsage({
     roadKey, roadMeta, tiles,
     coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y), usage
   });
@@ -2919,6 +3235,10 @@ function computeCityLayout(s) {
   // Végétation : densité pilotée par l'âge (recul du front boisé) et la
   // personnalité (les ruines et cités agricoles laissent la nature revenir).
   const trees = [];
+  // Cellules boisées, retenues pour la passe suivante : une bête placée sous une
+  // canopée disparaît, et on ne peut pas le savoir en relisant `trees` (une
+  // recherche linéaire par cellule sur un millier d'arbres, à chaque plan).
+  const treeKey = new Set();
   const maxR  = Math.max(1, Math.hypot(cx, cy));
   const treeMul = ageCfg.treeDensity * (personality.treeMul || 1);
   for (const cell of cells) {
@@ -2928,10 +3248,87 @@ function computeCityLayout(s) {
     if (usedKeys.has(cellKey) || roadKey.has(cellKey)) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
     const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
-    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul;
-    if (hsh < prob) trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 });
+    // S5 : la probabilité radiale est modulée par le BRUIT DE BLOC, de moyenne 1 —
+    // des bosquets et des trouées franches au lieu de confettis, à compte conservé.
+    // Le hash par cellule reste le tirage (et le rayon de l'arbre) : lui seul casse
+    // la grille à l'intérieur d'un bosquet.
+    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul * cmClumpK(cell.gx, cell.gy);
+    if (hsh < prob) { trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 }); treeKey.add(cellKey); }
   }
   lp("arbres");
+
+  // Bétail et animaux de rue (sprites FIXES, cf. critters.js). Deux populations
+  // qui ne se mélangent pas :
+  //
+  //   LE BÉTAIL PAÎT AU BORD DES CHAMPS, jamais « à une certaine distance du
+  //   centre » : essayé d'abord, et le résultat parlait de lui-même — quatre
+  //   moutons plantés sur le pavé au milieu d'un pâté de maisons. Une pâture se
+  //   définit par ce qu'il y a À CÔTÉ, pas par un rayon. La référence est donc
+  //   l'emprise des champs irrigués : pas de champs, pas de bétail, et la ville
+  //   qui construit sa première ferme voit arriver ses moutons.
+  //   Il sort par TROUPEAUX : une cellule tirée porte deux à quatre bêtes
+  //   dispersées par un jitter. Une bête seule lit comme un bug, un troupeau lit
+  //   comme une campagne.
+  //
+  //   LES ANIMAUX DE RUE se posent au CONTACT du bâti, un par cellule, et
+  //   rarement : c'est un détail qu'on découvre, pas un décor.
+  //
+  // Rien de tout ça une fois la ville passée en régime cosmique (bandes 7+) :
+  // on n'élève pas de chèvres dans une mégastructure stellaire.
+  const critters = [];
+  if (c.eraBand <= 6) {
+    const taken = new Set();
+    const free = (gx, gy) => {
+      const k = gx + "," + gy;
+      return !usedKeys.has(k) && !roadKey.has(k) && !treeKey.has(k) && !riverSet.has(k)
+        && !bankSet.has(k) && !reserved.has(k) && !taken.has(k);
+    };
+    const herd = (gx, gy, h) => {
+      taken.add(gx + "," + gy);
+      const kind = CRITTER_HERD[(h >>> 10) % CRITTER_HERD.length];
+      const n = 2 + ((h >>> 13) % 3);
+      for (let i = 0; i < n; i += 1) {
+        const hi = cmHash(gx + ":" + gy + ":b" + i);
+        critters.push({
+          gx, gy,
+          jx: ((hi % 100) / 100 - 0.5) * 0.72,
+          jy: (((hi >>> 7) % 100) / 100 - 0.5) * 0.72,
+          kind, dir: (hi >>> 14) & 3,
+        });
+      }
+    };
+    // Anneau de pâture autour de chaque bloc de champs (l'emprise fait spanX×spanY).
+    for (const t of tiles) {
+      if (t.type !== "engine" || t.buildingId !== "irrigated_fields") continue;
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let gy = t.gy - 2; gy <= t.gy + sy + 1; gy += 1) {
+        for (let gx = t.gx - 2; gx <= t.gx + sx + 1; gx += 1) {
+          if (gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
+          // L'intérieur du bloc est la culture elle-même : on ne broute pas dedans.
+          if (gx >= t.gx && gx < t.gx + sx && gy >= t.gy && gy < t.gy + sy) continue;
+          if (!free(gx, gy)) continue;
+          const h = cmHash("herd:" + gx + "x" + gy + ":" + mapSeed);
+          if ((h % 1000) < 190) herd(gx, gy, h);
+        }
+      }
+    }
+    // Animal de rue : il lui faut un mur contre lequel se coucher.
+    const built = (gx, gy) => usedKeys.has(gx + "," + gy);
+    for (const cell of cells) {
+      if (!free(cell.gx, cell.gy)) continue;
+      if (!(built(cell.gx + 1, cell.gy) || built(cell.gx - 1, cell.gy) || built(cell.gx, cell.gy + 1) || built(cell.gx, cell.gy - 1))) continue;
+      const h = cmHash("pet:" + cell.gx + "x" + cell.gy + ":" + mapSeed);
+      if ((h % 1000) >= 7) continue;
+      taken.add(cell.gx + "," + cell.gy);
+      critters.push({
+        gx: cell.gx, gy: cell.gy,
+        jx: ((h % 100) / 100 - 0.5) * 0.5,
+        jy: (((h >>> 7) % 100) / 100 - 0.5) * 0.5,
+        kind: CRITTER_PETS[(h >>> 16) % CRITTER_PETS.length], dir: (h >>> 18) & 3,
+      });
+    }
+  }
+  lp("bétail");
 
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy, bridgeLaneW);
   lp("graphe");
@@ -3022,7 +3419,7 @@ function computeCityLayout(s) {
     engineHomePlaced,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
+    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
     personality, ageCfg, mapSeed

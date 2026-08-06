@@ -78,8 +78,8 @@ export const chroniclePeriod3 = [
     id: "p3_wear_aqueducts",
     period: 3,
     conditionType: "usure",
-    title: { fr: "LES AQUEDUCS SE LÉZARDENT", en: "THE AQUEDUCTS ARE CRACKING" },
-    text: { fr: "« Bâtis par les anciennes générations, mais jamais réparés par les nouvelles. On admire l'ouvrage en attendant qu'il nous tombe dessus. »", en: "\"Built by the old generations, but never mended by the new. We admire the work while waiting for it to fall on us.\"" },
+    title: { fr: "LES FONTAINES SE LÉZARDENT", en: "THE FOUNTAINS ARE CRACKING" },
+    text: { fr: "« Bâties par les anciennes générations, mais jamais réparées par les nouvelles. On admire l'ouvrage en attendant qu'il nous tombe dessus. »", en: "\"Built by the old generations, but never mended by the new. We admire the work while waiting for it to fall on us.\"" },
     author: { fr: "Garin, forgeron", en: "Garin, blacksmith" }
   },
   {

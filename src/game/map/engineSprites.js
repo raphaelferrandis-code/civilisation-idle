@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -139,6 +139,12 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
   const ox = x, oy = y, sw = w, sh = h;
   const band = CM.layout?.counts?.eraBand ?? 0;   // hissé ici : les blocs savoir/infra (return avant la fin) en ont besoin
   const ei = CM.layout?.counts?.eraIndex ?? 0;
+  // Empreinte du lot, pour la substitution de palier (grain G2). MÊME expression
+  // que la retombée sur drawCityEngineSprite en fin de fonction — mais posée
+  // ICI, parce que les familles savoir/infra dessinent et RETOURNENT bien avant
+  // de l'atteindre : elles héritaient sinon de l'empreinte de la tuile
+  // précédente, et servaient le sprite de halle sur un atelier (ou l'inverse).
+  setEngineSpan(t.spanX || t.size || 1, t.spanY || t.size || 1);
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   // Ombre de contact au sol RETIRÉE (demande Raph 2026-07-06 : plus d'ellipses noires sous les bâtiments).
@@ -184,22 +190,32 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
       }
       // sinon : repli sur la scène feu de camp (stade 0) ci-dessous → jamais de tuile vide.
     }
-    // Pixel-art = scène PixelLab en 2 COUCHES pour glisser la lectrice ENTRE le sol et
-    // le feu : `storyteller-back` (sol/pierres/livre, SANS feu) → lectrice assise →
-    // `storyteller-fire` (bande feu SEUL, animée, par-dessus). Repli = scène pleine
-    // `storyteller-prop-fire` (lectrice par-dessus), puis scène procédurale d'origine.
-    if (animReady('storyteller-fire') || propReady('storyteller-back') || propReady('storyteller-prop-fire')) {
-      if (propReady('storyteller-back')) {
-        if (dBack) blitProp(ctx, ox, oy, sw, sh, 'storyteller-back', 0.5, 0.52, 0.92, 0.77);                            // sol/pierres/livre (sans feu)
-        if (dBack && propReady('storyteller-reader')) blitProp(ctx, ox, oy, sw, sh, 'storyteller-reader', 0.316, 0.347, 0.345, 0.345); // lectrice ENTRE sol et feu
-        if (dAnim && animReady('storyteller-fire')) blitAnim(ctx, ox, oy, sw, sh, 'storyteller-fire', now, 0.5, 0.52, 0.92, 0.77);     // feu SEUL, DEVANT (animé)
-      } else {
-        if (dBack) blitProp(ctx, ox, oy, sw, sh, 'storyteller-prop-fire', 0.5, 0.52, 0.92, 0.77);                       // repli : scène pleine
-        if (dBack && propReady('storyteller-reader')) blitProp(ctx, ox, oy, sw, sh, 'storyteller-reader', 0.316, 0.347, 0.345, 0.345);
-      }
+    // Stade 0 (ères 1-9) = HUTTE DES CONTEURS : tambour d'argile ceint de masques
+    // sculptés, volume clos. Elle remplace la scène « veillée au feu de camp »
+    // (galette de terre battue + lectrice assise de face) : c'était la SEULE
+    // scène de stade 0 sans volume, et sa lectrice pesait 45 % de la boîte quand
+    // un habitant en fait 10 px. Refonte demandée par Raph le 2026-08-05, foyer
+    // retiré à sa demande — `storyteller-back`, `-reader`, `-prop-fire` et la
+    // bande animée `-fire` ne sont donc plus dessinés nulle part (leurs PNG
+    // restent sur le disque, gardés par flameHue.test.js).
+    // ⚠ Une hutte RONDE n'a ni arête ni faîte : elle ne lit en iso que si sa base
+    // et sa rive de toit sont des ellipses DEUX FOIS plus larges que hautes. Les
+    // tirages à base quasi circulaire rendaient de face et juraient avec la grille.
+    // Fractions ARBITRÉES PAR LA PORTE, pas par la masse (docs/PLAN-EGALISATION-GRAIN.md :
+    // la porte est le trait d'union avec l'habitant de 10 px). Caler la hauteur
+    // d'encre sur `schools-prop-yard` donnait hFrac 0.697 — et une porte à 19 px
+    // apparents, écart +5 hors bande 10-14, la plus grossière du parc : ce dessin
+    // a une porte cintrée haute (26 px source pour 83 px d'encre, soit 31 % de la
+    // hauteur du bâtiment contre 22 % chez les écoles). 0.623 ramène la porte à
+    // ~17 px, dans l'écart des ateliers déjà livrés (`guild-prop-lodge` 17,3,
+    // `granary-prop-silo` 15,8), au prix d'une hutte 11 % plus basse que ses
+    // voisines. Le rapport 0.68/0.623 vaut 96/88, la taille native : blitProp ne
+    // préserve pas l'aspect, l'oublier écraserait la hutte.
+    if (propReady('storyteller-prop-hut')) {
+      if (dBack) blitProp(ctx, ox, oy, sw, sh, 'storyteller-prop-hut', 0.5, 0.53, 0.68, 0.623);
       return;
     }
-    // === FEU DE CAMP (droite) ===
+    // === FEU DE CAMP PROCÉDURAL (dernier repli, le temps que le PNG charge) ===
     const fx = 0.66, fy = 0.66;
     // Sol + pierres/bûches/braises = socle STATIQUE du feu de camp
     if (dBack) {
@@ -493,10 +509,15 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
       }
       // sinon : repli sur le cercle de mégalithes (stade 0) ci-dessous → jamais de tuile vide.
     }
-    // Pixel-art = cercle de mégalithes PRIMITIF (pierres levées + autel + feu rituel).
-    // Feu ANIMÉ en 2 COUCHES (comme conteur/mint) pour ne pas faire gigoter les pierres :
-    // `ancestralcult-back` (pierres/autel SANS feu) → `ancestralcult-fire` (bande feu SEUL,
+    // Pixel-art = cercle de mégalithes PRIMITIF (pierres levées + foyer + feu rituel).
+    // Feu ANIMÉ en 2 COUCHES (comme mint) pour ne pas faire gigoter les pierres :
+    // `ancestralcult-back` (pierres/foyer SANS feu) → `ancestralcult-fire` (bande feu SEUL,
     // animée). Repli = scène pleine `ancestralcult-prop` (feu baké), puis procédural.
+    // Les deux couches partagent la MÊME ancre : la flamme est assise dans le foyer
+    // par sa position dans le PNG (scripts/ancestralCultFire.mjs, base y=47), pas ici.
+    // Refonte 2026-08-05 : le cercle ne porte plus de sol peint — le terrain de la
+    // carte passe entre les pierres, qui sont plantées dans leur mousse. Ne pas
+    // rajouter de softGround ici : c'est la dalle refusée sous une autre forme.
     if (animReady('ancestralcult-fire') && propReady('ancestralcult-back')) {
       if (dBack) blitProp(ctx, ox, oy, sw, sh, 'ancestralcult-back', 0.5, 0.53, 0.88, 0.73);
       if (dAnim) blitAnim(ctx, ox, oy, sw, sh, 'ancestralcult-fire', now, 0.5, 0.53, 0.88, 0.73);
@@ -1255,23 +1276,18 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
       const seb = ['', 'sewers-medieval', 'sewers-works', 'sewers-plant'][seStage];
       if (propReady(seb)) {
         drawStagePix(ctx, ox, oy, sw, sh, seb, now, seStage === 3 ? '95,215,225' : '255,178,80', { wf: 0.92, hf: 0.76, ph: 1.1 }, pass);
-        // Petite flaque de drainage ANIMÉE devant l'arche du drainage médiéval (stade 1
-        // seulement) : réutilise la bande d'eau S0 (sewers-water), repositionnée. Discrète
-        // (eau verte sur base moussue) mais l'ondulation la distingue.
-        if (dAnim && seStage === 1 && animReady('sewers-water')) blitAnim(ctx, ox, oy, sw, sh, 'sewers-water', now, 0.31, 0.73, 0.44, 0.24);
         return;
       }
     }
     // Scène pixel stade 0 (PixelLab) : station d'évacuation — hutte trapue en
-    // pierre sèche, toit bois, arche sombre grillagée, filet d'eau croupie ANIMÉ
-    // en sortie (bande composée hors-ligne, pipeline aqueduc). Le RÉSEAU, lui,
-    // se voit sur la chaussée (L.sewerDeco, cf. layout/pixelTerrain). Couvre
-    // bands 0-6 ; repli = prop statique, puis le procédural étagé d'origine.
-    if (animReady('sewers-water') && propReady('sewers-prop')) {
-      if (dBack) blitProp(ctx, ox, oy, sw, sh, 'sewers-prop', 0.5, 0.52, 0.92, 0.77);
-      if (dAnim) blitAnim(ctx, ox, oy, sw, sh, 'sewers-water', now, 0.5, 0.52, 0.92, 0.77);
-      return;
-    }
+    // pierre sèche, toit bois, arche sombre grillagée, et le tuyau qui rentre
+    // dans le sol au pied du mur (peint par scripts/sewerOutfall.mjs, comme aux
+    // quatre autres stades). ⛔ Pas d'eau de surface, ni ici ni ailleurs : la
+    // scène des égouts a porté un filet puis un caniveau, tous deux retirés le
+    // 2026-08-05 — un réseau d'évacuation se raconte par ce qui disparaît sous
+    // terre. Le RÉSEAU lui-même n'est pas dessiné sur la chaussée non plus
+    // (plaques/caniveaux de voirie : rejetés en 2026-07-02).
+    // Couvre bands 0-6 ; repli = le procédural étagé d'origine.
     if (propReady('sewers-prop')) {
       if (dBack) blitProp(ctx, ox, oy, sw, sh, 'sewers-prop', 0.5, 0.52, 0.92, 0.77);
       return;

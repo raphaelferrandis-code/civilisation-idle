@@ -13,6 +13,8 @@ import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
 import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
+import { snowSprite, snowRoofTune } from './snowRoof.js';
+import { WINTER } from './seasonMode.js';
 
 // ── PALIERS DE HALLE (grain, docs/PLAN-EGALISATION-GRAIN.md §5) ─────────────
 // Un sprite de scène qui possède une version `<clé>-grand` (manifeste
@@ -26,22 +28,57 @@ import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js'
 // on applique sa hauteur de calibrage × palierK (compensation des empreintes
 // 4-5), la largeur suivant le ratio NATIF de son canvas — blitProp n'préserve
 // pas le ratio, l'oublier étirerait le bâtiment.
+//
+// COUCHES JUMELÉES. Le stade 0 du Culte des ancêtres est en DEUX couches — le
+// cercle de mégalithes (prop statique) et sa flamme (bande animée) — pour que
+// les pierres ne gigotent pas. Substituer le seul cercle laisserait la flamme
+// à l'échelle ET à la place du petit, donc à côté de son foyer : les deux
+// couches n'ont un palier que si les DEUX grands sont chargés, et elles
+// partagent alors fractions et canvas (192×160 des deux côtés → même rectangle
+// dessiné, sans que le site d'appel ait à le savoir).
 const PALIER_SPAN_MIN = 6;
-let curSpanSum = 0;              // posé par drawCityEngineSprite, lu par blitProp
+const PALIER_JUMEAU = { 'ancestralcult-back': 'ancestralcult-fire', 'ancestralcult-fire': 'ancestralcult-back' };
+let curSpanSum = 0;
+// EMPREINTE DU LOT EN COURS (gw+gh), lue par palierImg. À poser AVANT tout blit,
+// par CHAQUE entrée du rendu de scène — il y en a deux, et c'est le piège :
+// `drawCityEngineSprite` sert les familles ÉCONOMIE, mais les familles SAVOIR et
+// INFRA (dont le culte des ancêtres) sont dessinées par `drawEngineSpriteCore`
+// (engineSprites.js), qui rend et RETOURNE bien avant sa retombée sur
+// drawCityEngineSprite. Sans cet appel, leurs paliers lisaient l'empreinte de la
+// tuile PRÉCÉDEMMENT dessinée : un atelier prenait le sprite de halle si une
+// halle venait de passer, et l'inverse. Ça ne se voit pas sur une capture — le
+// mauvais sprite est un sprite valide, juste à la mauvaise taille.
+export function setEngineSpan(gw, gh) { curSpanSum = (gw | 0) + (gh | 0); }
+// Chargement PARESSEUX d'un sprite de palier — un grand ne descend du réseau que
+// si son palier s'arme (les bandes, elles, seraient sinon préchargées par
+// ensureAnim pour tout le monde). Renvoie l'Image prête, ou null tant qu'elle
+// ne l'est pas : le petit sert de repli.
+function palierAsset(cle) {
+  const bande = !!ANIM_BANDS[cle];
+  const reg = bande ? animImg : propImg;
+  let im = reg[cle];
+  if (!im) {
+    if (typeof Image === 'undefined') return null;
+    im = new Image();
+    im.onload = () => { if (bande) animReadyN[cle] = 1; propVersion += 1; };
+    im.src = '/pixelart/agents/buildings/' + cle + '.png';
+    reg[cle] = im;
+    return null;
+  }
+  return (im.complete && im.naturalWidth > 0) ? im : null;
+}
 function palierImg(p) {
   if (curSpanSum < PALIER_SPAN_MIN) return null;
   const cle = p + '-grand';
   if (!PALIER_SPANSUM[cle]) return null;               // pas de palier livré
-  let im = propImg[cle];
-  if (!im) {                                           // chargement paresseux
-    if (typeof Image === 'undefined') return null;
-    im = new Image();
-    im.onload = () => { propVersion += 1; };
-    im.src = '/pixelart/agents/buildings/' + cle + '.png';
-    propImg[cle] = im;
-    return null;                                       // le petit sert de repli
-  }
-  return (im.complete && im.naturalWidth > 0) ? { im, cle } : null;
+  // Le jumeau est demandé AVANT le test de disponibilité, sans quoi son
+  // chargement ne démarrerait qu'à la frame suivante et la substitution
+  // attendrait un tour de plus (le repli est correct, mais il dure).
+  const jum = PALIER_JUMEAU[p];
+  const imJum = jum ? palierAsset(jum + '-grand') : true;
+  const im = palierAsset(cle);
+  if (!im || !imJum) return null;                      // pas l'une sans l'autre ; le petit sert de repli
+  return { im, cle };
 }
 
 // Sonde du grain : densité blitée (px écran par px source) normalisée à zoom 1,
@@ -67,10 +104,20 @@ const recBlitDens = (key, drawH, nat) => {
 const SCENE_HUMAN = { k: 0.85, ref: 0.46 };
 if (typeof window !== 'undefined') window.__sceneHumanScale = (v) => { if (v != null) SCENE_HUMAN.k = +v; return SCENE_HUMAN.k; };
 // Hauteur écran cible d'un humain de scène (px), calquée sur un habitant adulte.
+// ⚠ C'est la hauteur du CADRE carré, pas celle du bonhomme : stripMetrics cale
+// tout perso à SCENE_HUMAN_INK de son cadre. Comparer un objet posé à ses pieds
+// à cette valeur-là le fait 37 % trop grand — passer par sceneHumanInkH.
 function sceneHumanH(hFrac) {
   const tile = (CM.TILE || 32) * ((CM.cam && CM.cam.zoom) || 1);
   return tile * SCENE_HUMAN.k * AGENT_SCALE * ((hFrac || SCENE_HUMAN.ref) / SCENE_HUMAN.ref);
 }
+// Part du cadre réellement occupée par un humain de scène : stripMetrics
+// RENORMALISE chaque bande à cette fraction (k = INK/ratio), donc la hauteur
+// d'encre d'un perso vaut toujours SCENE_HUMAN_INK × sceneHumanH, quelle que
+// soit la bande. C'est LA référence contre laquelle se mesure tout objet posé
+// au sol à côté de lui (≈ 10 px apparents, cf. scripts/data/sprite-apparent.json).
+const SCENE_HUMAN_INK = 0.728;
+const sceneHumanInkH = (hFrac) => sceneHumanH(hFrac) * SCENE_HUMAN_INK;
 // Ombre de contact d'un humain/mulet, proportionnelle à SA taille (plus à la boîte).
 // cx/fy = centre/ligne de pieds en fraction de boîte (comme les blit*) ; wMul élargit
 // l'ombre (quadrupèdes).
@@ -122,8 +169,8 @@ function stripMetrics(img) {
         if (data[(y * fh + x) * 4 + 3] > 16) { if (top < 0) top = y; bottom = y; break; }
       }
     }
-    const ratio = bottom >= 0 ? (bottom - top + 1) / fh : 0.728;
-    m = { foot: bottom >= 0 ? (bottom + 1) / fh : 0.88, k: 0.728 / Math.max(0.2, ratio) };
+    const ratio = bottom >= 0 ? (bottom - top + 1) / fh : SCENE_HUMAN_INK;
+    m = { foot: bottom >= 0 ? (bottom + 1) / fh : 0.88, k: SCENE_HUMAN_INK / Math.max(0.2, ratio) };
   } catch { m = fallback; }
   stripMetricsCache.set(img, m);
   return m;
@@ -324,7 +371,7 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
 let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-fire', 'storyteller-reader', 'storyteller-back', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-hut', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
   // ── band 4 (Marbre) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12) ──
   'forager-hortus-classical', 'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
   'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
@@ -350,6 +397,130 @@ const propReady = (k) => { ensureProps(); const im = propImg[k]; return !!(im &&
 // Image BRUTE d'un prop (chantier iso : dessin sous transform canvas — roue de
 // moulin projetée dans le plan du mur — impossible via blitProp/blitPropRot).
 const propImage = (k) => { ensureProps(); return propImg[k] || null; };
+
+// SOURCE DE DESSIN d'un prop : sa version enneigée en hiver, son image sinon.
+//
+// ⚠ Ceci ne remplace QUE la source du drawImage. Toutes les MESURES continuent de
+// lire `propImg[k]` : naturalWidth/naturalHeight, propBBox, propPivot, recBlitDens,
+// lightCutImage. C'est volontaire et c'est le contrat de la passe — le canvas
+// enneigé a exactement les mêmes dimensions et exactement le même alpha que sa
+// source (cf. snowRoof.js), donc aucune de ces mesures n'a de raison de le relire,
+// et les faire dépendre d'un canvas cuit ouvrirait la porte à des métriques qui
+// changent avec la saison. Un bâtiment ne doit pas se déplacer parce qu'il neige.
+//
+// Repli sur la source à la moindre fausse note (sprite exclu, canvas indisponible,
+// rien à poser) : jamais de vide, jamais de trou dans la scène.
+function propArt(k, im) {
+  if (CM.season !== WINTER || !snowRoofTune.on) return im;
+  return snowSprite(k, im) || im;
+}
+// ── ALIGNEMENT DU RECTANGLE DE DESTINATION (molette d'A/B, 2026-08-05) ───────
+// Les blits de props partaient en FLOTTANTS : `left`, `top`, `drawW`, `drawH`
+// tels quels dans drawImage, avec imageSmoothingEnabled=false. Un sprite posé à
+// x=10,37 ne tombe alors plus sur la grille de l'écran — chaque pixel de
+// destination prend le pixel source qui couvre son centre, donc certains pixels
+// source occupent 1 pixel écran et d'autres 2, IRRÉGULIÈREMENT, et le motif se
+// redistribue au moindre déplacement de caméra. Le sol, lui, aligne depuis S11
+// (cf. isoRenderer § tuiles natives, chemin `exact`) ; ce chemin-ci ne l'a
+// jamais fait.
+//   0 = état d'origine (flottant)
+//   1 = position arrondie, taille intacte
+//   2 = position ET taille arrondies à l'entier
+//   3 = position arrondie + ÉCHELLE RATIONNELLE (défaut) — voir ci-dessous
+//
+// ── MODE 3, ET POURQUOI C'EST LUI QUI RÉPARE LE « PAS DROIT » ────────────────
+// Arrondir la taille à l'entier ne suffit pas : ce qui salit un sprite réduit,
+// ce n'est pas que sa taille soit fractionnaire, c'est que le RAPPORT le soit.
+// À l'échelle 0,73 le nearest garde 73 lignes sur 100, mais la ligne sautée
+// tombe tantôt au bout de 3 pixels tantôt au bout de 4, sans période : le grain
+// part en biais et un trait d'1 px survit ici, disparaît là. À 3/4 exactement,
+// il saute une ligne sur quatre, TOUJOURS — même perte d'information, mais
+// régulière, donc lisible.
+// Le mode 3 rabat donc l'échelle sur la fraction n/d la plus proche avec d ≤ 8 :
+// la période du motif ne dépasse jamais 8 px, et l'écart de taille reste sous
+// ~1,5 % (invisible, et sans commune mesure avec les 6 % qu'imposerait un jeu de
+// fractions plus grossier — ce qui compte ici, c'est de ne PAS déranger
+// l'égalisation du grain déjà validée).
+// Molette : window.__blitSnap(0|1|2|3).
+// ⚠ DÉFAUT = 1, et pas 3, alors que 3 est le mode qui répare vraiment le grain.
+// Raison mesurée : le rabattement de TAILLE déplace les sprites de ~2 % (4,8 % au
+// pire), et deux systèmes ont été calibrés au pixel sur les tailles actuelles —
+// l'ordre de substitution des paliers (`cityEngineSprites.test.js` : le grand
+// doit être dessiné STRICTEMENT plus petit que le petit étiré, or les deux
+// tombent sur 70 px après rabattement) et les foyers de flamme mesurés
+// (`flameGlow.test.js` : la lueur se décale de 0,69 px). Passer le défaut à 3
+// demande de rejouer ces deux calibrages, pas de desserrer leurs tests.
+export const BLIT_SNAP = { mode: 1, stats: null };
+if (typeof window !== 'undefined') {
+  window.__blitSnap = (v) => { if (v != null) BLIT_SNAP.mode = v | 0; return BLIT_SNAP.mode; };
+  // Diagnostic : `__blitSnapStats()` arme la collecte, la frame suivante remplit
+  // l'histogramme des parties FRACTIONNAIRES de left/top/drawW/drawH. C'est la
+  // seule mesure fiable ici — un diff de pixels entre deux clichés ne vaut rien,
+  // la recuisson du sol étant coalescée (deux clichés du MÊME réglage diffèrent
+  // de ~24 % de la frame, mesuré le 2026-08-05).
+  window.__blitSnapStats = () => {
+    const s = BLIT_SNAP.stats;
+    BLIT_SNAP.stats = { n: 0, pos: new Array(10).fill(0), taille: new Array(10).fill(0), entiers: 0 };
+    return s;
+  };
+}
+const frac = (v) => Math.abs(v - Math.round(v));
+
+// PÉRIODE DU MOTIF DE RÉDUCTION. Le nearest fait `src = floor(i × source/dest)` :
+// la suite des lignes sautées se répète tous les `dest / pgcd(source, dest)`
+// pixels. Réduire 112 en 82 donne une période de 41 — autant dire aucune, le
+// grain part en biais. La réduire en 84 donne 3, en 64 donne 4 : régulier, donc
+// net. On cherche donc, dans une fenêtre serrée autour de la taille visée,
+// l'entier de plus petite période ; à égalité, le plus proche de la cible.
+//
+// ⚠ La fenêtre est volontairement étroite (±4 % ET ±3 px). L'égalisation du
+// grain a été validée sur les tailles actuelles : un rabattement plus large
+// gagnerait en netteté ce qu'il casserait en cohérence de portes et fenêtres.
+const pgcd = (a, b) => { a = Math.abs(a | 0); b = Math.abs(b | 0); while (b) { const t = a % b; a = b; b = t; } return a || 1; };
+function tailleNette(src, cible) {
+  if (!(src > 0) || !(cible > 0)) return Math.max(1, Math.round(cible));
+  const tol = Math.min(Math.max(1, cible * 0.04), 3);
+  const lo = Math.max(1, Math.round(cible - tol)), hi = Math.round(cible + tol);
+  let best = Math.max(1, Math.round(cible)), bp = Infinity, bd = Infinity;
+  for (let d = lo; d <= hi; d += 1) {
+    const per = d / pgcd(src, d);
+    const ec = Math.abs(d - cible);
+    if (per < bp || (per === bp && ec < bd)) { bp = per; bd = ec; best = d; }
+  }
+  return best;
+}
+// Renvoie [left, top, drawW, drawH] alignés selon le mode. La taille est arrondie
+// AVANT la position quand les deux le sont, sinon le centrage rouvrirait un demi
+// pixel de décalage.
+// `ancre` : 'centre' (défaut) ou 'pied'. ⚠ Un prop posé au sol est ancré par le
+// BAS de son encre (blitPropGrounded) : recentrer son rectangle le ferait
+// léviter ou s'enfoncer d'un pixel, ce qui est exactement le défaut que
+// l'ancrage mesuré avait corrigé. Pour lui, c'est la ligne de sol qui ne bouge pas.
+function snapRect(left, top, drawW, drawH, srcW, srcH, ancre) {
+  const st = BLIT_SNAP.stats;
+  if (st) {
+    st.n += 1;
+    // 0 = pile sur la grille, 0,5 = pile entre deux pixels (le pire cas)
+    st.pos[Math.min(9, Math.floor(Math.max(frac(left), frac(top)) * 20))] += 1;
+    st.taille[Math.min(9, Math.floor(Math.max(frac(drawW), frac(drawH)) * 20))] += 1;
+    if (frac(left) < 0.02 && frac(top) < 0.02 && frac(drawW) < 0.02 && frac(drawH) < 0.02) st.entiers += 1;
+  }
+  const m = BLIT_SNAP.mode;
+  if (!m) return [left, top, drawW, drawH];
+  if (m >= 2) {
+    // Mode 3 : taille à motif PÉRIODIQUE (le seul qui répare le grain en biais).
+    // Mode 2 : simple arrondi entier — gardé pour l'A/B, il isole ce que la
+    // périodicité apporte AU-DELÀ de l'alignement.
+    const w = m >= 3 && srcW ? tailleNette(srcW, drawW) : Math.max(1, Math.round(drawW));
+    const h = m >= 3 && srcH ? tailleNette(srcH, drawH) : Math.max(1, Math.round(drawH));
+    // Recentrage sur la boîte D'ORIGINE : le rabattement ne doit pas décaler le
+    // bâtiment sur son lot, seulement changer sa grille d'échantillonnage.
+    const dy = ancre === 'pied' ? (drawH - h) : (drawH - h) / 2;
+    return [Math.round(left + (drawW - w) / 2), Math.round(top + dy), w, h];
+  }
+  return [Math.round(left), Math.round(top), drawW, drawH];
+}
+
 // Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const pal = palierImg(p);
@@ -359,11 +530,13 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
     p = pal.cle;
   }
   const im = propImg[p]; if (!im) return;
-  const drawW = sw * wFrac, drawH = sh * hFrac;
-  recBlitDens(p, drawH, im.naturalHeight);
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * cy - drawH / 2;
+  const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
+  recBlitDens(p, drawH0, im.naturalHeight);
+  const [left, top, drawW, drawH] = snapRect(
+    ox + sw * cx - drawW0 / 2, oy + sh * cy - drawH0 / 2, drawW0, drawH0,
+    im.naturalWidth, im.naturalHeight);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, left, top, drawW, drawH);
+  ctx.drawImage(propArt(p, im), left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
   // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
   lightCutImage(im, left, top, drawW, drawH);
@@ -381,7 +554,10 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   recBlitDens(key, drawH, im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
+  // Neige exclue par défaut sur les tours cosmiques (cf. skipKey dans snowRoof.js) :
+  // le passage par propArt existe pour que __snowRoofTune({skipCosmic:false}) veuille
+  // dire quelque chose, pas parce qu'on les enneige.
+  ctx.drawImage(propArt(key, im), cx - drawW / 2, baseY - drawH, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   if (cp && cp.glow) {
@@ -401,15 +577,44 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
 function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
   const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
   const bb = propBBox(p), footF = bb ? bb.y0f + bb.hf : 1;
-  const drawW = sw * wFrac, drawH = sh * hFrac;
-  recBlitDens(p, drawH, im.naturalHeight);
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * fy - footF * drawH;
+  const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
+  recBlitDens(p, drawH0, im.naturalHeight);
+  const [left, top, drawW, drawH] = snapRect(
+    ox + sw * cx - drawW0 / 2, oy + sh * fy - footF * drawH0, drawW0, drawH0,
+    im.naturalWidth, im.naturalHeight, 'pied');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(im, left, top, drawW, drawH);
+  ctx.drawImage(propArt(p, im), left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, left, top, drawW, drawH);
   return true;
 }
+
+// ── Petit prop posé au sol dimensionné sur l'HOMME, pas sur la boîte ─────────
+// Un panier, une cagette, un tonneau ne se jugent pas contre le lot : ils se
+// jugent contre le bonhomme accroupi à côté. Or les humains de scène sont calés
+// sur la TUILE (sceneHumanH) depuis 2026-07-29, pendant que blitProp est resté
+// en fraction de BOÎTE — laquelle grandit avec l'empreinte, avec le palier et
+// avec le jitter d'instance. Un panier à 0,32 de boîte finissait donc à ~1,5
+// fois la hauteur d'un homme (retour Raph : « les paniers de fruits sont
+// vraiment trop gros »). Le bornage de la boîte des halles avait déjà soigné le
+// cas extrême (isoRenderer, « panier plus haut qu'un homme ») sans corriger la
+// fraction de base : ici on coupe le lien à la boîte pour de bon.
+// hMul = hauteur d'ENCRE visée en fraction de l'ENCRE d'un humain de scène ;
+// ancrage par le bas de l'encre sur la ligne de sol fy, comme blitPropGrounded.
+// Les deux termes sont donc des hauteurs d'ENCRE : un hMul de 0,5 se relit
+// « la moitié du bonhomme », sans avoir à défalquer les marges des PNG.
+function blitPropHuman(ctx, ox, oy, sw, sh, p, cx, fy, hMul) {
+  const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
+  const bb = propBBox(p);
+  const inkHF = bb && bb.hf > 0 ? bb.hf : 1;         // part d'encre dans le PNG
+  const drawH = sceneHumanInkH() * hMul / inkHF;     // hauteur du PNG ENTIER
+  const drawW = drawH * (im.naturalWidth / im.naturalHeight);
+  return blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, drawW / sw, drawH / sh);
+}
+
+// Hauteur d'ENCRE du panier de récolte, en fraction de celle d'un humain de
+// scène : un panier d'osier plein arrive à mi-cuisse, fruits entassés compris.
+const BASKET_HF = 0.55;
 
 // Échelle des HALTES de caravane (stades 1-3). Les deux valeurs vont ENSEMBLE : le
 // véhicule était cadré à 0.66 de boîte et l'homme à 0.40 de tuile, ce qui rendait le
@@ -588,16 +793,30 @@ function drawCaravanHalt(ctx, ox, oy, sw, sh, now) {
 // Repli : prop statique correspondant, puis la scène procédurale d'origine.
 const ANIM_BANDS = {
   'mint-forge-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
-  'storyteller-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+  // `storyteller-fire` retirée le 2026-08-05 : le stade 0 des conteurs est passé
+  // d'une veillée au feu de camp à une loge close, sans foyer (le PNG reste sur
+  // le disque). Une bande déclarée ici est préchargée, donc laisser l'entrée
+  // coûterait un Image inutile par session et ferait mentir la garde des feux.
   'ancestralcult-fire': { fw: 96, fh: 80, frames: 7, ms: 130 },
+  // PALIER du stade 0 (spanSum ≥ 6) : la flamme du GRAND cercle. Frame 192×160,
+  // soit exactement le DOUBLE du petit — le canvas du palier a été choisi comme
+  // ça pour que la flamme s'y transpose au facteur 2 pile — et de même ratio que
+  // `ancestralcult-back-grand`, donc les deux couches tombent dans le même
+  // rectangle sans que le site d'appel ait à s'en occuper. Pas préchargée
+  // (cf. ensureAnim) : qui n'a jamais 25 cultes avant l'ère 10 ne la charge pas.
+  'ancestralcult-fire-grand': { fw: 192, fh: 160, frames: 7, ms: 130 },
   // Eau de l'aqueduc : un module = une tuile ; même horloge (ms) partout → le flux
   // se raccorde entre tuiles adjacentes (la frame est globale, pas par tuile).
   'aqueduct-water-outlet': { fw: 48, fh: 72, frames: 7, ms: 140 },
   'aqueduct-water-seg': { fw: 48, fh: 72, frames: 7, ms: 140 },
   'aqueduct-water-intake': { fw: 48, fh: 72, frames: 7, ms: 140 },
   'watch-fire': { fw: 80, fh: 96, frames: 7, ms: 130 },
-  // Filet d'eau croupie de la station égouts (verts foliage, remap feu).
-  'sewers-water': { fw: 96, fh: 80, frames: 7, ms: 140 },
+  // ⛔ Les ÉGOUTS n'ont PLUS de bande animée, et n'en veulent pas. Ils ont porté
+  // un filet d'eau croupie (`sewers-water`) puis un caniveau à ciel ouvert
+  // (`sewers-*-flow`) ; les deux ont été retirés le 2026-08-05 — « c'est vraiment
+  // le fait d'avoir de l'eau qui sort qui est bizarre » (Raph). Un égout AVALE :
+  // les stations ne montrent qu'un tuyau qui rentre dans le sol, peint en dur par
+  // scripts/sewerOutfall.mjs. Rien ne bouge, donc rien à déclarer ici.
 };
 // FOYERS MESURÉS des bandes de feu — d'où part la lueur, en fraction de la frame.
 // Mesure : le bâtiment est FIGÉ dans ces bandes, seul le feu bouge ; le centroïde
@@ -613,8 +832,16 @@ const ANIM_BANDS = {
 // rouges que l'ambre d'avant, qui grisait des flammes désormais écarlates.
 const ANIM_FIRE_CORES = {
   'mint-forge-fire': { fx: 0.477, fy: 0.443, sig: 0.116, col: '255,134,40' },
-  'storyteller-fire': { fx: 0.489, fy: 0.322, sig: 0.110, col: '255,142,46' },
-  'ancestralcult-fire': { fx: 0.494, fy: 0.441, sig: 0.084, col: '255,118,30' },
+  // Refoyer 2026-08-05 : la bande ne porte plus que la FLAMME (la galette de sol
+  // et les pierres du foyer y étaient cuites, cf. ancestralcult-back) et elle est
+  // assise 3 px plus bas dans le nouveau foyer — le centroïde descend d'autant.
+  'ancestralcult-fire': { fx: 0.501, fy: 0.478, sig: 0.069, col: '255,118,30' },
+  // Le palier a SON foyer, mesuré comme les autres : même flamme, mais
+  // rematérialisée à 1,52× et réassise dans le foyer du grand cercle. `sig`
+  // tombe à 0,046 non parce que le feu rétrécit — il fait 32 px de large au lieu
+  // de 21 — mais parce qu'il se rapporte à une frame deux fois plus large ; le
+  // halo, lui, se calcule sur la largeur DESSINÉE, il garde donc sa taille écran.
+  'ancestralcult-fire-grand': { fx: 0.495, fy: 0.483, sig: 0.046, col: '255,118,30' },
   'watch-fire': { fx: 0.514, fy: 0.153, sig: 0.108, col: '255,138,44' },
 };
 // Rayon du halo = sig × ce facteur : la lumière déborde du foyer (sinon elle se
@@ -627,6 +854,7 @@ function ensureAnim() {
   if (animInit || typeof Image === 'undefined') return;
   animInit = true;
   for (const k of Object.keys(ANIM_BANDS)) {
+    if (PALIER_SPANSUM[k]) continue;   // un grand ne descend que si son palier s'arme (palierAsset)
     const im = new Image();
     im.onload = () => { animReadyN[k] = 1; };
     im.src = '/pixelart/agents/buildings/' + k + '.png';
@@ -640,10 +868,21 @@ const animReady = (k) => { ensureAnim(); return animReadyN[k] === 1; };
 // coordonnées sortent de la boîte réellement dessinée — le site d'appel peut donc
 // changer cx/cy/échelle sans jamais désaligner la lueur.
 function blitAnim(ctx, ox, oy, sw, sh, key, now, cx, cy, wFrac, hFrac) {
+  // Palier : même règle générique que blitProp, sur la BANDE cette fois. Le
+  // ratio vient de la FRAME (meta.fw/fh) et non du canvas, qui est la bande
+  // entière — l'oublier écraserait la flamme de 7×.
+  const pal = palierImg(key);
+  if (pal) {
+    key = pal.cle;
+    hFrac = palierHFrac(key) * palierK(PALIER_SPANSUM[key], curSpanSum);
+    wFrac = hFrac * (ANIM_BANDS[key].fw / ANIM_BANDS[key].fh);
+  }
   const meta = ANIM_BANDS[key], im = animImg[key]; if (!meta || !im) return;
   const frame = Math.floor((now || 0) / meta.ms) % meta.frames;   // ~7.7 fps
-  const drawW = sw * wFrac, drawH = sh * hFrac;
-  const left = ox + sw * cx - drawW / 2, top = oy + sh * cy - drawH / 2;
+  const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
+  const [left, top, drawW, drawH] = snapRect(
+    ox + sw * cx - drawW0 / 2, oy + sh * cy - drawH0 / 2, drawW0, drawH0,
+    meta.fw, meta.fh);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(im, frame * meta.fw, 0, meta.fw, meta.fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
@@ -749,7 +988,7 @@ function drawCityEngineSprite(context) {
   // lit `now`, une bande animée ou sceneHumanH · 'front' = statique dessiné PAR-DESSUS.
   // Avec pass='all' (défaut) les trois booléens valent true → ordre et appels STRICTEMENT
   // identiques à avant. Dans le doute un appel est classé ANIMÉ (dessiné en direct).
-  curSpanSum = (gw | 0) + (gh | 0);   // lu par palierImg (substitution de palier)
+  setEngineSpan(gw, gh);              // lu par palierImg (substitution de palier)
   const dBack = pass === 'all' || pass === 'back';
   const dAnim = pass === 'all' || pass === 'anim';
   const dFront = pass === 'all' || pass === 'front';
@@ -873,10 +1112,19 @@ function drawCityEngineSprite(context) {
 
     // === PANIER — ombre de contact ICI (sous tout) ; le panier lui-même est dessiné
     // APRÈS le perso (plus bas) pour que le cueilleur passe DERRIÈRE le panier. ===
-    const bkx = 0.2, bky = 0.72;
+    // bkFy = ligne de sol du panier, un poil DEVANT les pieds du cueilleur (0.78).
+    const bkx = 0.2, bky = 0.72, bkFy = 0.82;
+    const bkPix = propReady('forager-prop-basket');
     if (dBack) {
+    // Ombre à la taille du panier RÉELLEMENT dessiné : le sprite se cale sur
+    // l'humain (blitPropHuman), le repli procédural est resté en fraction de
+    // boîte — une ombre unique en dur mentirait pour l'un ou pour l'autre.
+    const bh = sceneHumanInkH() * BASKET_HF;
     ctx.fillStyle = "rgba(0,0,0,0.28)";
-    ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * (bky + 0.045), sw * 0.13, sh * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(ox + sw * bkx, oy + sh * (bkPix ? bkFy : bky + 0.045),
+      bkPix ? bh * 0.52 : sw * 0.13, bkPix ? bh * 0.16 : sh * 0.04, 0, 0, Math.PI * 2);
+    ctx.fill();
     }
 
     // === PERSONNAGE — navette panier ↔ buisson === (ANIMÉ : navette pilotée par `now`)
@@ -944,8 +1192,8 @@ function drawCityEngineSprite(context) {
 
     // === PANIER (corps) — APRÈS le perso → le cueilleur passe DERRIÈRE le panier ===
     // (statique dessiné PAR-DESSUS un animé → passe 'front')
-    if (propReady('forager-prop-basket')) {
-      if (dFront) blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', bkx, bky - 0.01, 0.34, 0.32);
+    if (bkPix) {
+      if (dFront) blitPropHuman(ctx, ox, oy, sw, sh, 'forager-prop-basket', bkx, bkFy, BASKET_HF);
     } else if (dFront) {
       ctx.fillStyle = "#8a5520";
       ctx.beginPath(); ctx.ellipse(ox + sw * bkx, oy + sh * bky, sw * 0.12, sh * 0.08, 0, 0, Math.PI * 2); ctx.fill();
@@ -2222,8 +2470,9 @@ function drawCityEngineSprite(context) {
         softGround(ctx, ox, oy, sw, sh, 0.73, 0.5, 0.3, "40,28,14", 0.5); // sol (désactivé par défaut)
         // Étal de troc (prop PixelLab) — pièce maîtresse, aspect 96×72 préservé
         blitProp(ctx, ox, oy, sw, sh, 'market-prop-stall', 0.5, 0.46, 0.92, 0.69);
-        // Tier 1+ : panier de marchandises latéral (réutilise le prop cueilleur)
-        if (tier >= 1) blitProp(ctx, ox, oy, sw, sh, 'forager-prop-basket', 0.78, 0.82, 0.2, 0.19);
+        // Tier 1+ : panier de marchandises latéral (réutilise le prop cueilleur,
+        // à la MÊME taille qu'au verger — c'est le même objet, il se cale sur l'homme)
+        if (tier >= 1) blitPropHuman(ctx, ox, oy, sw, sh, 'forager-prop-basket', 0.78, 0.88, BASKET_HF);
         }
         if (dAnim && foragerReady()) { // vendeur + chalands : sprites cadencés par `now` → ANIMÉS
           // Vendeur accroupi au bord de l'étal (idle lent, face caméra)
@@ -4410,4 +4659,5 @@ function drawCityEngineSprite(context) {
 }
 
 export { drawCityEngineSprite, engineStage, cosmicBase, cosmicGround, softGround, propReady, blitProp, blitPropRot, propBBox, propImage, blitCosmicTower, animReady, blitAnim, ANIM_BANDS, ANIM_FIRE_CORES };
+export { tailleNette };   // exporté pour son test : c'est lui qui porte la netteté
 export { muleRestFrame, MULE_REST_NF }; // exportés pour le test du cycle de tête (halte de caravane)

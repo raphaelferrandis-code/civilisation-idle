@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 
-import { drawCityEngineSprite } from "../cityEngineSprites.js";
+import {
+  drawCityEngineSprite, blitProp, blitAnim, propReady, animReady, setEngineSpan,
+} from "../cityEngineSprites.js";
 
 // Le lint ne voit pas ce qui se passe DANS une branche de stade : ce smoke-test
 // exécute réellement le sprite pour attraper toute variable indéfinie / erreur
@@ -128,3 +130,71 @@ describe.each(["foragers", "granaries_city", "guilds", "mint_houses", "markets"]
     });
   }
 );
+
+// ── PALIER DU STADE 0 DU CULTE : deux couches, un seul rectangle ─────────────
+// Le cercle de mégalithes est dessiné en deux temps — le prop statique par
+// blitProp, la flamme par blitAnim — qui recalculent CHACUN leurs fractions
+// quand le palier s'arme. Rien dans le code ne les oblige à tomber au même
+// endroit : c'est une coïncidence entretenue par le manifeste (même spanSum de
+// calibrage, même hFrac, mêmes proportions de canvas). Ce test la vérifie sur
+// les rectangles RÉELLEMENT passés à drawImage, pas sur la table qui les
+// produit — le seul moyen d'attraper une bande régénérée à un autre format.
+describe("palier du cercle de mégalithes — les deux couches se superposent", () => {
+  // Image factice DÉJÀ PRÊTE : avec la coquille habituelle (sans naturalWidth)
+  // la substitution ne se déclenche jamais et le test passerait à vide.
+  class ImagePrete {
+    constructor() { this.complete = true; this.naturalWidth = 192; this.naturalHeight = 160; this.onload = null; }
+    set src(v) { this._src = v; if (this.onload) this.onload(); }
+    get src() { return this._src; }
+  }
+  // Rectangle de destination du dernier drawImage (les 4 derniers arguments).
+  function rectCtx() {
+    const rects = [];
+    return {
+      ctx: {
+        imageSmoothingEnabled: false,
+        drawImage: (im, ...a) => rects.push({ src: String(im.src).split("/").pop(), r: a.slice(-4).map((v) => +Number(v).toFixed(4)) }),
+      },
+      rects,
+    };
+  }
+  // Le chargement des grands est PARESSEUX : la 1re passe l'amorce et sert le
+  // petit (repli voulu), la 2e sert le palier. On dessine donc deux fois.
+  function poser(spanSum) {
+    const prev = globalThis.Image;
+    globalThis.Image = ImagePrete;
+    try {
+      propReady("ancestralcult-back"); animReady("ancestralcult-fire");
+      const demi = spanSum / 2;
+      const { ctx, rects } = rectCtx();
+      for (let i = 0; i < 2; i += 1) {
+        setEngineSpan(demi, demi);
+        rects.length = 0;
+        blitProp(ctx, 0, 0, 100, 100, "ancestralcult-back", 0.5, 0.53, 0.88, 0.73);
+        blitAnim(ctx, 0, 0, 100, 100, "ancestralcult-fire", 0, 0.5, 0.53, 0.88, 0.73);
+      }
+      return rects;
+    } finally { globalThis.Image = prev; }
+  }
+
+  it("à l'empreinte 3, les deux couches passent au grand DANS LE MÊME rectangle", () => {
+    const rects = poser(6);
+    expect(rects.map((r) => r.src)).toEqual(
+      ["ancestralcult-back-grand.png", "ancestralcult-fire-grand.png"]);
+    expect(rects[0].r, "cercle et flamme dessinés dans des rectangles différents").toEqual(rects[1].r);
+  });
+
+  it("à l'empreinte d'atelier, aucune des deux ne bascule", () => {
+    const rects = poser(4);
+    expect(rects.map((r) => r.src)).toEqual(
+      ["ancestralcult-back.png", "ancestralcult-fire.png"]);
+    expect(rects[0].r).toEqual(rects[1].r);
+  });
+
+  // Le palier n'a d'intérêt que s'il DÉSENFLE le dessin : le 96×80 étiré dans la
+  // boîte d'une halle est ce qu'on vient corriger.
+  it("le grand est dessiné plus petit que le petit étiré dans la même boîte", () => {
+    const grand = poser(6)[0].r, petit = poser(4)[0].r;
+    expect(grand[3]).toBeLessThan(petit[3]);
+  });
+});

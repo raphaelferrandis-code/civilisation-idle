@@ -112,7 +112,10 @@ export const buildings = [
   {
     id: "aqueducts",
     category: "infra",
-    name: { fr: "Aqueducs", en: "Aqueducts" },
+    // Renommé le 2026-08-05 avec le retrait de l'aqueduc-conduite : la ville ne
+    // montre plus d'aqueduc, elle montre des puits et des fontaines de quartier.
+    // L'id reste `aqueducts` — les sauvegardes le portent.
+    name: { fr: "Service des eaux", en: "Waterworks" },
     desc: { fr: "L'eau est arrivee en ville. Les maladies des bas quartiers ont mis du temps a l'apprendre.", en: "Water has come to the city. The diseases of the low quarters were slow to hear of it." },
     base: 8000,
     scale: 1.34,

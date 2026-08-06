@@ -81,7 +81,7 @@ export const REGULATION_ACTIONS = [
     // plus sain : l'infra porte la charge structurelle et absorbe la complexité).
     id: "publicWorks", foyer: "complexity", tier: 4, kind: "soothe",
     label: { fr: "Travaux publics", en: "Public Works" },
-    note: { fr: "Le trésor public finance routes, aqueducs et halles : la cité se dote des ouvrages qui la rendent gouvernable.", en: "The public treasury funds roads, aqueducs and markets: the city builds the works that make it governable." },
+    note: { fr: "Le trésor public finance routes, fontaines et halles : la cité se dote des ouvrages qui la rendent gouvernable.", en: "The public treasury funds roads, fountains and markets: the city builds the works that make it governable." },
     unlock: (c) => c.bestEra >= 3, unlockLabel: { fr: "Ère III", en: "Era III" },
     cost: { res: "gold", seconds: 60 },
     relief: 0.10, counter: "reforms", infraAdd: 0.30

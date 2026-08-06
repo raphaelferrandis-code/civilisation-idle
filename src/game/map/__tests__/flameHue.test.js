@@ -55,6 +55,12 @@ const FIRE_SPRITES = [
   ['wonders/pop1m-flame-spiral.png', 4000],
   ['agents/buildings/watch-fire.png', 450],
   ['agents/buildings/ancestralcult-fire.png', 500],
+  // Palier du stade 0. C'est le seul feu du jeu dont la couleur est posée PAR DU
+  // CODE : scripts/ancestralCultFire.mjs reprend la silhouette dessinée du petit,
+  // la rematérialise à 1,52× et sert la rampe par profondeur, dans les
+  // proportions mesurées sur le petit. Si ce classement dérapait hors rampe, rien
+  // d'autre ne le dirait. 2619 px mesurés → plancher à la moitié.
+  ['agents/buildings/ancestralcult-fire-grand.png', 1200],
   ['agents/buildings/storyteller-fire.png', 900],
   ['agents/buildings/mint-forge-fire.png', 450],
   ['agents/buildings/watch-prop.png', 60],

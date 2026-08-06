@@ -62,9 +62,13 @@ describe("isoUnitDepth — unités face aux emprises multi-tuiles", () => {
     expect(isoUnitDepth(95.3 * T, 88.2 * T)).toBe((95.3 + 88.2) * T);
   });
 
-  it("aqueduc : ignoré (tranches par tuile, clippées à leur colonne)", () => {
-    setLayout([house(90, 40, 10, 1, "aqueducts")]);
-    expect(isoUnitDepth(92 * T, 41.2 * T)).toBe((92 + 41.2) * T);
+  it("point d'eau : ignoré — c'est un PROP, pas une façade qui occulte", () => {
+    // L'exclusion date de l'aqueduc-conduite (tranches par tuile, clippées à
+    // leur colonne). Elle reste, pour une raison NEUVE : le puits qui l'a
+    // remplacé est du mobilier de rue, et aucun prop de place (banc, fontaine)
+    // ne figure dans les fiches d'unité. Emprise 1×1 depuis 2026-08-05.
+    setLayout([house(90, 40, 1, 1, "aqueducts")]);
+    expect(isoUnitDepth(90.4 * T, 40.6 * T)).toBe((90.4 + 40.6) * T);
   });
 
   it("sans layout : somme brute (repli sûr)", () => {

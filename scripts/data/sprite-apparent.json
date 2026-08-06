@@ -20,7 +20,7 @@
    "key": "mint-prop-house",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3732)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3781)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -40,7 +40,7 @@
    "key": "exchange-prop-stall",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (cityEngineSprites.js:4034)",
+   "densNote": "hFrac 0.73 (cityEngineSprites.js:4083)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -54,7 +54,7 @@
    "key": "libraries-prop-archive",
    "famille": "engine",
    "densite": 0.838,
-   "densNote": "hFrac 0.8 (engineSprites.js:645)",
+   "densNote": "hFrac 0.8 (engineSprites.js:660)",
    "densPetit": 0.419,
    "densHalleMax": 2.095,
    "door": {
@@ -170,7 +170,7 @@
    "key": "bank-house-renaissance",
    "famille": "engine",
    "densite": 0.901,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4114)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4163)",
    "densPetit": 0.45,
    "densHalleMax": 2.252,
    "door": {
@@ -218,7 +218,7 @@
    "key": "sewers-prop",
    "famille": "engine",
    "densite": 0.887,
-   "densNote": "hFrac 0.77 (engineSprites.js:1271)",
+   "densNote": "hFrac 0.77 (engineSprites.js:1286)",
    "densPetit": 0.444,
    "densHalleMax": 2.218,
    "door": {
@@ -256,7 +256,7 @@
    "key": "guild-prop-lodge",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2658)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2707)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -312,7 +312,7 @@
    "key": "academies-modern",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:419)",
+   "densNote": "hFrac 0.74 (engineSprites.js:429)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -336,7 +336,7 @@
    "key": "printing-media",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:901)",
+   "densNote": "hFrac 0.74 (engineSprites.js:916)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -356,7 +356,7 @@
    "key": "scribes-archive",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:290)",
+   "densNote": "hFrac 0.74 (engineSprites.js:300)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -374,6 +374,20 @@
    "floorPitch": {
     "source": 18,
     "apparent": 13.9
+   }
+  },
+  {
+   "key": "storyteller-prop-hut",
+   "famille": "engine",
+   "densite": 0.652,
+   "densNote": "hFrac 0.623 (engineSprites.js:209)",
+   "densPetit": 0.326,
+   "densHalleMax": 1.631,
+   "door": {
+    "hSource": 26,
+    "apparent": 17,
+    "bande": "porte",
+    "ecart": 3
    }
   },
   {
@@ -400,7 +414,7 @@
    "key": "cult-memorial",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:480)",
+   "densNote": "hFrac 0.74 (engineSprites.js:490)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -414,7 +428,7 @@
    "key": "think-prop-council",
    "famille": "engine",
    "densite": 0.838,
-   "densNote": "hFrac 0.8 (engineSprites.js:997)",
+   "densNote": "hFrac 0.8 (engineSprites.js:1012)",
    "densPetit": 0.419,
    "densHalleMax": 2.095,
    "door": {
@@ -472,7 +486,7 @@
    "key": "market-hall-glass",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2425)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2474)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -512,7 +526,7 @@
    "key": "mint-prop-forge",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (cityEngineSprites.js:3652)",
+   "densNote": "hFrac 0.73 (cityEngineSprites.js:3701)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -632,7 +646,7 @@
    "key": "academies-renaissance",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:419)",
+   "densNote": "hFrac 0.74 (engineSprites.js:429)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -698,7 +712,7 @@
    "key": "universities-collegiate",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:684)",
+   "densNote": "hFrac 0.74 (engineSprites.js:699)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -722,7 +736,7 @@
    "key": "universities-modern",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:684)",
+   "densNote": "hFrac 0.74 (engineSprites.js:699)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -746,7 +760,7 @@
    "key": "market-hall-tent",
    "famille": "engine",
    "densite": 0.71,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2335)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2384)",
    "densPetit": 0.355,
    "densHalleMax": 1.776,
    "door": {
@@ -810,7 +824,7 @@
    "key": "market-macellum",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:2129)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:2178)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -844,7 +858,7 @@
    "key": "cult-mausoleum",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:480)",
+   "densNote": "hFrac 0.74 (engineSprites.js:490)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -892,7 +906,7 @@
    "key": "market-prop-stall",
    "famille": "engine",
    "densite": 0.883,
-   "densNote": "hFrac 0.69 (cityEngineSprites.js:2224)",
+   "densNote": "hFrac 0.69 (cityEngineSprites.js:2273)",
    "densPetit": 0.442,
    "densHalleMax": 2.208,
    "door": {
@@ -970,7 +984,7 @@
    "key": "guild-consortium",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2939)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2988)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1014,7 +1028,7 @@
    "key": "printing-press-shop",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:901)",
+   "densNote": "hFrac 0.74 (engineSprites.js:916)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -1038,7 +1052,7 @@
    "key": "schools-campus",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:358)",
+   "densNote": "hFrac 0.74 (engineSprites.js:368)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -1210,7 +1224,7 @@
    "key": "forager-greenhouse",
    "famille": "engine",
    "densite": 0.648,
-   "densNote": "hFrac 0.675 (cityEngineSprites.js:1094)",
+   "densNote": "hFrac 0.675 (cityEngineSprites.js:1143)",
    "densPetit": 0.324,
    "densHalleMax": 1.62,
    "door": {
@@ -1230,7 +1244,7 @@
    "key": "granary-hall",
    "famille": "engine",
    "densite": 0.672,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1340)",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1389)",
    "densPetit": 0.336,
    "densHalleMax": 1.68,
    "door": {
@@ -1250,7 +1264,7 @@
    "key": "academies-institute",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:419)",
+   "densNote": "hFrac 0.74 (engineSprites.js:429)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -1330,7 +1344,7 @@
    "key": "academies-prop-yard",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (engineSprites.js:439)",
+   "densNote": "hFrac 0.73 (engineSprites.js:449)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -1520,7 +1534,7 @@
    "key": "bank-basilica-roman",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:762)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:811)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -1534,7 +1548,7 @@
    "key": "bank-house-glass",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4313)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4362)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -1578,7 +1592,7 @@
    "key": "bank-house-neoclassical",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:4208)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:4257)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2144,7 +2158,7 @@
    "key": "cult-shrine",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:480)",
+   "densNote": "hFrac 0.74 (engineSprites.js:490)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -2252,7 +2266,7 @@
    "key": "forager-hortus-classical",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:762)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:811)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -2322,7 +2336,7 @@
    "key": "granary-horreum-classical",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:762)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:811)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -2390,7 +2404,7 @@
    "key": "granary-warehouse",
    "famille": "engine",
    "densite": 0.672,
-   "densNote": "hFrac 0.7 (cityEngineSprites.js:1458)",
+   "densNote": "hFrac 0.7 (cityEngineSprites.js:1507)",
    "densPetit": 0.336,
    "densHalleMax": 1.68,
    "door": {
@@ -2434,7 +2448,7 @@
    "key": "guild-chamber",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2880)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2929)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2478,7 +2492,7 @@
    "key": "guild-collegium",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:762)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:811)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -2538,7 +2552,7 @@
    "key": "guild-house",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:2764)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:2813)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -2654,7 +2668,7 @@
    "key": "libraries-grand",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:623)",
+   "densNote": "hFrac 0.74 (engineSprites.js:638)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -2702,7 +2716,7 @@
    "key": "libraries-modern",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:623)",
+   "densNote": "hFrac 0.74 (engineSprites.js:638)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -2750,7 +2764,7 @@
    "key": "libraries-monastic",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:623)",
+   "densNote": "hFrac 0.74 (engineSprites.js:638)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -2864,7 +2878,7 @@
    "key": "market-plaza-neon",
    "famille": "engine",
    "densite": 0.71,
-   "densNote": "hFrac 0.74 (cityEngineSprites.js:2506)",
+   "densNote": "hFrac 0.74 (cityEngineSprites.js:2555)",
    "densPetit": 0.355,
    "densHalleMax": 1.776,
    "door": {
@@ -3196,7 +3210,7 @@
    "key": "mint-house-digital",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3907)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3956)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -3236,7 +3250,7 @@
    "key": "mint-house-steam",
    "famille": "engine",
    "densite": 0.826,
-   "densNote": "hFrac 0.86 (cityEngineSprites.js:3822)",
+   "densNote": "hFrac 0.86 (cityEngineSprites.js:3871)",
    "densPetit": 0.413,
    "densHalleMax": 2.064,
    "door": {
@@ -3276,7 +3290,7 @@
    "key": "mint-moneta",
    "famille": "engine",
    "densite": 0.73,
-   "densNote": "hFrac 0.76 (cityEngineSprites.js:762)",
+   "densNote": "hFrac 0.76 (cityEngineSprites.js:811)",
    "densPetit": 0.365,
    "densHalleMax": 1.824,
    "door": {
@@ -3350,7 +3364,7 @@
    "key": "observatories-array",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:557)",
+   "densNote": "hFrac 0.74 (engineSprites.js:572)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -3390,7 +3404,7 @@
    "key": "observatories-dome",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:557)",
+   "densNote": "hFrac 0.74 (engineSprites.js:572)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -3470,7 +3484,7 @@
    "key": "observatories-tower",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:557)",
+   "densNote": "hFrac 0.74 (engineSprites.js:572)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -3672,7 +3686,7 @@
    "key": "printing-factory",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:901)",
+   "densNote": "hFrac 0.74 (engineSprites.js:916)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -3752,7 +3766,7 @@
    "key": "printing-prop-workshop",
    "famille": "engine",
    "densite": 0.838,
-   "densNote": "hFrac 0.8 (engineSprites.js:922)",
+   "densNote": "hFrac 0.8 (engineSprites.js:937)",
    "densPetit": 0.419,
    "densHalleMax": 2.095,
    "door": {
@@ -4034,7 +4048,7 @@
    "key": "schools-prop-yard",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (engineSprites.js:377)",
+   "densNote": "hFrac 0.73 (engineSprites.js:387)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -4078,7 +4092,7 @@
    "key": "schools-schoolhouse",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:358)",
+   "densNote": "hFrac 0.74 (engineSprites.js:368)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4118,7 +4132,7 @@
    "key": "schools-victorian",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:358)",
+   "densNote": "hFrac 0.74 (engineSprites.js:368)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4158,7 +4172,7 @@
    "key": "scribes-data",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:290)",
+   "densNote": "hFrac 0.74 (engineSprites.js:300)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4178,7 +4192,7 @@
    "key": "scribes-prop-hall",
    "famille": "engine",
    "densite": 0.841,
-   "densNote": "hFrac 0.73 (engineSprites.js:310)",
+   "densNote": "hFrac 0.73 (engineSprites.js:320)",
    "densPetit": 0.42,
    "densHalleMax": 2.102,
    "door": {
@@ -4198,7 +4212,7 @@
    "key": "scribes-scriptorium",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:290)",
+   "densNote": "hFrac 0.74 (engineSprites.js:300)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4370,7 +4384,7 @@
    "key": "think-chancellery",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:975)",
+   "densNote": "hFrac 0.74 (engineSprites.js:990)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4414,7 +4428,7 @@
    "key": "think-institute",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:975)",
+   "densNote": "hFrac 0.74 (engineSprites.js:990)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4458,7 +4472,7 @@
    "key": "think-modern",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:975)",
+   "densNote": "hFrac 0.74 (engineSprites.js:990)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4674,7 +4688,7 @@
    "key": "universities-gothic",
    "famille": "engine",
    "densite": 0.775,
-   "densNote": "hFrac 0.74 (engineSprites.js:684)",
+   "densNote": "hFrac 0.74 (engineSprites.js:699)",
    "densPetit": 0.387,
    "densHalleMax": 1.937,
    "door": {
@@ -4738,7 +4752,7 @@
    "key": "universities-prop-hall",
    "famille": "engine",
    "densite": 0.838,
-   "densNote": "hFrac 0.8 (engineSprites.js:706)",
+   "densNote": "hFrac 0.8 (engineSprites.js:721)",
    "densPetit": 0.419,
    "densHalleMax": 2.095,
    "door": {
@@ -4772,7 +4786,7 @@
    "key": "watch-back",
    "famille": "engine",
    "densite": 0.902,
-   "densNote": "hFrac 0.94 (engineSprites.js:1180)",
+   "densNote": "hFrac 0.94 (engineSprites.js:1195)",
    "densPetit": 0.451,
    "densHalleMax": 2.256
   },
@@ -4780,7 +4794,7 @@
    "key": "watch-industrial",
    "famille": "engine",
    "densite": 0.773,
-   "densNote": "hFrac 0.94 (engineSprites.js:1159)",
+   "densNote": "hFrac 0.94 (engineSprites.js:1174)",
    "densPetit": 0.387,
    "densHalleMax": 1.934,
    "door": {
@@ -4804,7 +4818,7 @@
    "key": "watch-modern",
    "famille": "engine",
    "densite": 0.773,
-   "densNote": "hFrac 0.94 (engineSprites.js:1159)",
+   "densNote": "hFrac 0.94 (engineSprites.js:1174)",
    "densPetit": 0.387,
    "densHalleMax": 1.934,
    "door": {
@@ -4824,7 +4838,7 @@
    "key": "watch-prop",
    "famille": "engine",
    "densite": 0.902,
-   "densNote": "hFrac 0.94 (engineSprites.js:1185)",
+   "densNote": "hFrac 0.94 (engineSprites.js:1200)",
    "densPetit": 0.451,
    "densHalleMax": 2.256
   },
@@ -4832,7 +4846,7 @@
    "key": "watch-stone",
    "famille": "engine",
    "densite": 0.773,
-   "densNote": "hFrac 0.94 (engineSprites.js:1159)",
+   "densNote": "hFrac 0.94 (engineSprites.js:1174)",
    "densPetit": 0.387,
    "densHalleMax": 1.934,
    "door": {

@@ -11,6 +11,7 @@ import { pixelHouseReady, drawPixelHouse } from './pixelHouses.js';
 import { baseColor } from './renderWorld.js';
 import { wonderAnchor } from './iso/projection.js';
 import { queueFlameGlow, flameAssetGlow, flameFlicker } from './flameGlow.js';
+import { engineAnimNow } from './engineAnim.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -253,7 +254,11 @@ function drawTile(t, now, timeWear, maxD2) {
   }
 
   if (t.type === "engine") {
-    drawEngineSprite(t, x, y, w, h, now);
+    // Horloge propre à l'instance : sans elle, tous les ateliers d'un type jouent
+    // la même image au même instant (cf. engineAnim.js). Chemin de REPLI (CM.iso
+    // = false), tenu au même comportement que le rendu iso pour qu'un A/B entre
+    // les deux ne fasse pas apparaître de fausse différence.
+    drawEngineSprite(t, x, y, w, h, engineAnimNow(t, now));
     // ── Héritage Babel : halo doré pour les tuiles adjacentes du même type ──
     if (state?.babelHeritage && t.buildingId) {
       const tileMap = CM.layout?.engineTileMap;

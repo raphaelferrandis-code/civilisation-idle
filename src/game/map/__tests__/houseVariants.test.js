@@ -37,7 +37,11 @@ const chroma = (r, g, b) => (Math.max(r, g, b) - Math.min(r, g, b)) * 100 / 255;
 // permettait les faisait chuter de 26-30 de chroma à 10-16 — de la délavure, pas de la
 // variation. Cette liste est là pour que l'exclusion reste un CHOIX vérifié et non un
 // oubli : le test ci-dessous refuse aussi bien un ajout de teinte ici qu'un retrait ailleurs.
-const SANS_TEINTE = new Set(["tent", "hut", "longhouse", "courtyard"]);
+// `townhouse` et `manor` ont rejoint la liste le 2026-08-05 : leur échange les envoyait
+// sur `#8f8475`, à 20,7 du sol de la bande 3 et 11,9 de celui de la bande 2 — ils
+// disparaissaient dans le pavé au lieu de varier (25,0 % et 32,2 % d'encre dissoute,
+// sur le MUR). Cf. le commentaire de FAMILY dans housePalette.js.
+const SANS_TEINTE = new Set(["tent", "hut", "longhouse", "courtyard", "townhouse", "manor"]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.
 const SPRITES = readdirSync(HOUSES_DIR)
@@ -227,10 +231,16 @@ describe("tirage de l'aspect", () => {
       for (let i = 0; i < String(text).length; i += 1) { h ^= String(text).charCodeAt(i); h = Math.imul(h, 16777619); }
       return h >>> 0;
     };
+    // ⚠ L'archétype se LIT dans la table, il ne se code pas en dur : ce test a été
+    // écrit sur « townhouse », qui est sorti de FAMILY le 2026-08-05 — il rendait
+    // alors 100 % de voisins identiques (plus aucune teinte à tirer) et échouait pour
+    // une raison sans rapport avec le damier qu'il surveille.
+    const echantillon = Object.keys(HOUSE_FAMILY)[0];
+    expect(echantillon, "FAMILY ne doit pas être vide").toBeTruthy();
     const N = 60, g = [];
     for (let y = 0; y < N; y += 1) {
       g[y] = [];
-      for (let x = 0; x < N; x += 1) g[y][x] = pickHouseTint(cmHash("hvar:" + x + ":" + y), "townhouse");
+      for (let x = 0; x < N; x += 1) g[y][x] = pickHouseTint(cmHash("hvar:" + x + ":" + y), echantillon);
     }
     let memes = 0, total = 0;
     for (let y = 0; y < N; y += 1) {

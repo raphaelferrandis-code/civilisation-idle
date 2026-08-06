@@ -11,10 +11,13 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PNG } from 'pngjs';
 import {
   HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX,
   TILE_REF, HOUSE_LOT_WF, ENGINE_UNIT_F, WONDER_PPT, COSMIC_TOWER_H,
+  PALIER_SPANSUM, palierHFrac,
 } from '../spriteScale.js';
+import { ANIM_BANDS } from '../cityEngineSprites.js';
 
 const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
@@ -91,5 +94,59 @@ describe('constantes de référence — verrouillées sur les sites vifs', () =>
   });
   it('COSMIC_TOWER_H suit cityEngineSprites (tours cosmiques moteur)', () => {
     expect(SRC('cityEngineSprites.js')).toContain(`__cosmicTowerH) || ${COSMIC_TOWER_H}`);
+  });
+});
+
+// ── PALIERS DE HALLE : le manifeste doit correspondre à ce qui est sur le disque ──
+// `PALIER_SPANSUM` est déclaré « la seule liste qui fasse foi » : le rendu s'en
+// sert pour décider quoi charger. Une clé sans PNG fait donc une requête à vide,
+// et un PNG dont la géométrie a bougé depuis sa déclaration désaligne le blit
+// SANS que rien ne le signale — un sprite de palier ne se voit qu'à l'empreinte 3.
+describe('paliers de halle — le manifeste tient au disque', () => {
+  const BUILDINGS = path.join(__dirname, '..', '..', '..', '..', 'public', 'pixelart', 'agents', 'buildings');
+
+  it('chaque clé du manifeste a son PNG', () => {
+    const absents = Object.keys(PALIER_SPANSUM)
+      .filter((k) => !fs.existsSync(path.join(BUILDINGS, `${k}.png`)));
+    expect(absents, `paliers déclarés sans art : ${absents.join(', ')}`).toEqual([]);
+    expect(Object.keys(PALIER_SPANSUM).length).toBeGreaterThan(50);
+  });
+
+  // Le stade 0 du Culte des ancêtres est la seule scène à paliers en DEUX
+  // couches : le cercle (prop) et sa flamme (bande animée), dessinés dans le
+  // MÊME rectangle par deux fonctions différentes (blitProp et blitAnim), qui
+  // recalculent chacune leurs fractions de leur côté. Elles ne coïncident que si
+  // les deux sprites partagent calibrage, hauteur de calibrage et RATIO de
+  // canvas. Que l'un des trois bouge — une bande régénérée sur un autre format,
+  // un PALIER_HFRAC posé sur une seule des deux clés — et la flamme part se
+  // poser à côté de son foyer, en silence.
+  it('le cercle et sa flamme partagent calibrage, hFrac et ratio', () => {
+    const CERCLE = 'ancestralcult-back-grand', FEU = 'ancestralcult-fire-grand';
+    expect(PALIER_SPANSUM[CERCLE]).toBe(PALIER_SPANSUM[FEU]);
+    expect(palierHFrac(CERCLE)).toBe(palierHFrac(FEU));
+
+    const bande = ANIM_BANDS[FEU];
+    expect(bande, `${FEU} absente d'ANIM_BANDS`).toBeTruthy();
+    const png = PNG.sync.read(fs.readFileSync(path.join(BUILDINGS, `${FEU}.png`)));
+    // La bande est bien 7 frames de fw×fh — sinon blitAnim découpe à côté.
+    expect(png.width).toBe(bande.fw * bande.frames);
+    expect(png.height).toBe(bande.fh);
+
+    const cercle = PNG.sync.read(fs.readFileSync(path.join(BUILDINGS, `${CERCLE}.png`)));
+    expect(cercle.width / cercle.height).toBeCloseTo(bande.fw / bande.fh, 10);
+  });
+
+  // Un palier n'existe que pour rendre le grain COMPARABLE à celui d'un atelier.
+  // Le stade 0 étiré valait 1,26 px écran par px source ; le palier doit revenir
+  // dans la bande des autres halles (0,605 au calibrage nominal).
+  it('le palier du cercle ramène le grain dans la bande des halles', () => {
+    const png = PNG.sync.read(fs.readFileSync(path.join(BUILDINGS, 'ancestralcult-back-grand.png')));
+    const dens = (PALIER_SPANSUM['ancestralcult-back-grand'] * TILE_REF * ENGINE_UNIT_F
+      * palierHFrac('ancestralcult-back-grand')) / png.height;
+    expect(dens).toBeGreaterThan(0.55);
+    expect(dens).toBeLessThan(0.70);
+    // … contre le 96×80 servi dans la même boîte, deux fois trop gros.
+    const petit = PNG.sync.read(fs.readFileSync(path.join(BUILDINGS, 'ancestralcult-back.png')));
+    expect((6 * TILE_REF * ENGINE_UNIT_F * 0.73) / petit.height).toBeGreaterThan(dens * 1.9);
   });
 });

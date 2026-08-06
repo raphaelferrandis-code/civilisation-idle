@@ -39,7 +39,7 @@ import { preloadHouseSprites, houseSpriteHeightTiles, pixelHouseImages } from '.
 import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
-import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y } from './iso/projection.js';
+import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune, riverIslandObstacles } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
@@ -67,7 +67,7 @@ import {
   quayWallTune
 } from './renderWorld.js';
 import { drawTile, drawWonder } from './renderBuildings.js';
-import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
+import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, vehSkinFor, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
 import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
 import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
 import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
@@ -348,7 +348,9 @@ function cityMapCameraTarget(layout) {
     return {
       x: ((b.minX + b.maxX) / 2 + 0.5) * T,
       y: ((b.minY + b.maxY) / 2 + 0.5) * T,
-      zoom: Math.max(0.35, Math.min(1.6, Math.max(baseZoom, fit))),
+      // S11 : le zoom d'ouverture tombe sur un cran, sinon la première image de la
+      // partie est déjà hors grille (et le sol y porte ses coutures).
+      zoom: snapZoom(Math.max(0.35, Math.min(1.6, Math.max(baseZoom, fit)))),
     };
   }
 
@@ -356,7 +358,7 @@ function cityMapCameraTarget(layout) {
   return {
     x: (layout.plan?.core?.x ?? layout.gridN / 2) * T,
     y: (layout.plan?.core?.y ?? layout.gridN / 2) * T,
-    zoom: Math.max(0.35, Math.min(1.6, baseZoom)),
+    zoom: snapZoom(Math.max(0.35, Math.min(1.6, baseZoom))),
   };
 }
 
@@ -413,10 +415,15 @@ function cmClampCamera() {
     // bord-à-bord = intersection de losange, affiné en Phase 6 si besoin).
     const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
     const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
-    if (CM.cam.zoom < zoomFloorIso) CM.cam.zoom = zoomFloorIso;
+    // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
+    // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
+    // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
+    // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
+    const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
+    if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
     // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
     // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
-    if (CM.zoomGoal != null) CM.zoomGoal = Math.max(zoomFloorIso, Math.min(3.2, CM.zoomGoal));
+    if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
     CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
     CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
     return;
@@ -424,8 +431,9 @@ function cmClampCamera() {
   // Plancher de zoom : la boîte contient toujours le viewport (axe contraignant
   // ajusté pile -> on prend le max des deux ajustements).
   const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
-  if (CM.cam.zoom < zoomFloor) CM.cam.zoom = zoomFloor;
-  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(zoomFloor, Math.min(3.2, CM.zoomGoal)); // A9 : cible bornée comme cam.zoom
+  const loTd = snapZoom(zoomFloor, 1), hiTd = snapZoom(3.2, -1);   // S11, cf. la branche iso
+  if (CM.cam.zoom < loTd) CM.cam.zoom = loTd;
+  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loTd, Math.min(hiTd, CM.zoomGoal)); // A9 : cible bornée comme cam.zoom
   // Pan : chaque bord d'écran reste dans la boîte (centré si l'écran dépasse la
   // boîte sur cet axe).
   const halfW = (CM.cw / 2) / CM.cam.zoom, halfH = (CM.ch / 2) / CM.cam.zoom;
@@ -748,7 +756,13 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     // Pas accéléré (e.deltaY brut décuplé sur certaines souris) → cran constant.
     const step = CAM_FEEL.wheelStep;
     const factor = e.deltaY < 0 ? step : 1 / step;
-    CM.zoomGoal = Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * factor));
+    // S11 : un cran de molette = un cran de la grille. On arrondit DANS LE SENS du
+    // geste : au plus proche, un pas de 1,12 depuis 0,375 retomberait sur 0,375 et
+    // la molette serait morte en bas de plage.
+    CM.zoomGoal = snapZoom(
+      Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * factor)),
+      e.deltaY < 0 ? 1 : -1,
+    );
     CM.zoomAnchor = { mx, my };
     CM.camGoal = null;   // le joueur reprend la main sur un recentrage en cours
   }, { passive: false, signal });
@@ -865,7 +879,10 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       const t = twoTouches();
       if (pinch.dist > 8) {
         const rect = canvas.getBoundingClientRect();
-        CM.zoomGoal = Math.max(0.35, Math.min(3.2, pinch.zoom * (t.dist / pinch.dist)));
+        // S11 : au plus proche (dir 0) — le pincement est un geste ABSOLU (rapport
+        // des écartements depuis le début du geste), pas incrémental : arrondir dans
+        // un sens le ferait cliqueter d'un cran par event de déplacement.
+        CM.zoomGoal = snapZoom(Math.max(0.35, Math.min(3.2, pinch.zoom * (t.dist / pinch.dist))));
         // Ancre = le milieu des deux doigts : le point pincé reste sous eux.
         CM.zoomAnchor = { mx: t.cx - rect.left, my: t.cy - rect.top };
         CM.camGoal = null;
@@ -971,7 +988,10 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
         // crans quand la touche est tenue), cam.zoom glisse vers la cible. Pas
         // d'état « tenu » → aucune touche +/- ne peut rester coincée au relâcher.
         const f = cam.zoom > 0 ? CAM_FEEL.keyZoom : 1 / CAM_FEEL.keyZoom;
-        CM.zoomGoal = Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * f));
+        CM.zoomGoal = snapZoom(
+          Math.max(0.35, Math.min(3.2, (CM.zoomGoal ?? CM.cam.zoom) * f)),
+          cam.zoom > 0 ? 1 : -1,     // S11 : un appui = un cran, cf. la molette
+        );
         CM.zoomAnchor = { mx: CM.cw / 2, my: CM.ch / 2 };
         CM.camGoal = null;
       }
@@ -1024,6 +1044,7 @@ let _lyDeferredAt = 0;
 function cityMapEnsureLayout(now, deps = {}) {
   const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
   const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "wagon"; };
+  const vehSkinFor = deps.vehSkinFor || function () { return ""; };
 
   // engineSig : ne reconstruire que si les bâtiments ont changé (renderCache._buildingsVersion)
   if (renderCache._buildingsVersion !== _cachedEngineSigBuildVer) {
@@ -1486,7 +1507,12 @@ function cityMapEnsureLayout(now, deps = {}) {
         parkT: 0,
         parkSide: n % 2 ? 1 : -1,
         type: vehicleType,
-        speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" ? 34 + (n % 6) * 4 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
+        // Modèle et teinte de CETTE voiture-là (flotte moderne). Sans ça une
+        // avenue aligne vingt fois la même carrosserie ; c'est le seul endroit
+        // où le tirage a lieu, le rendu ne fait que lire v.skin. La BANDE compte :
+        // sous la bande 6 le pack ne sort pas et le skin revient vide.
+        skin: vehSkinFor(vehicleType, n, L.counts.eraBand),
+        speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
         col: vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6]
       });
     }
@@ -1770,7 +1796,7 @@ function initCityMap(canvas, options = {}) {
     window.removeEventListener("resize", resize);
     cityMapShowTooltip(null);
   };
-  const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType };
+  const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType, vehSkinFor };
 
   // Cap de frame : cmFrameMs (variable de module) — piloté par le préréglage
   // Qualité (30 fps par défaut/allégé, 60 fps en palier haut). Lu à chaque frame.
@@ -1901,7 +1927,17 @@ function initCityMap(canvas, options = {}) {
       // SAISON : un ENTIER, jamais de valeur continue (cf. seasonMode.js). Elle
       // entre dans la clé du bake du sol, donc chaque cran coûte une recuisson :
       // c'est la raison du cycle très lent, et de l'absence de fondu.
-      CM.season = currentSeason();
+      {
+        const prevSeason = CM.season;
+        CM.season = currentSeason();
+        // Le sol suit par sa CLÉ de bake ; les HABITATIONS, elles, sont cuites
+        // dans CM.tileCanvas dont la clé ignore la saison — depuis la neige des
+        // toits (snowRoof.js) elles en dépendent, il faut donc les rejeter à la
+        // main au cran. Sans ça la ville gardait ses toits d'été jusqu'à un
+        // re-bake sans rapport (achat, zoom, pan) : exactement le « flash de
+        // l'ancien sprite » que preloadHouseSprites a déjà eu à combattre.
+        if (prevSeason !== undefined && prevSeason !== CM.season) CM._tileBake = null;
+      }
       // MÉTÉO : une seule source par frame, lue par toutes les couches (pluie,
       // assombrissement, densité de foule). En capture, temps dégagé : un cliché
       // est déterministe, l'horloge murale ne décide pas s'il y pleut.

@@ -4,6 +4,7 @@ import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from 
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
 import { bridgeLiftScreen, bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
+import { VEH_SKINS } from './vehicleSkins.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -20,6 +21,9 @@ function getVehicleDensity(eraIndex, rank) {
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
   return ruined ? rankBase * 0.08 : rankBase * ageBase;
 }
+
+// Tout ce qui roule au moteur : voiture, tram et la flotte moderne du pack.
+const MOTOR_TYPES = new Set(["car", "tram", "bus", "van", "truck", "taxi", "police", "ambulance"]);
 
 function chooseRoadVehicleType(eraIndex, rank, seed) {
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
@@ -41,8 +45,11 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
       for (const v of weighted) {
         roll -= v.w;
         if (roll <= 0) {
-          // car/tram réservés aux grands axes (sinon retombe sur un wagon).
-          if ((v.type === "car" || v.type === "tram") && rank !== "main" && rank !== "avenue") return "wagon";
+          // Véhicules à MOTEUR réservés aux grands axes (sinon retombe sur un
+          // wagon). La règle valait déjà pour la voiture et le tram ; le bus et
+          // le camion, plus longs qu'une berline, n'ont rien à faire dans une
+          // venelle — ils y déborderaient de la chaussée.
+          if (MOTOR_TYPES.has(v.type) && rank !== "main" && rank !== "avenue") return "wagon";
           return v.type;
         }
       }
@@ -206,7 +213,12 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
   // Frame DÉDUITE de l'image (frames carrées) : les bandes flat 2026-08 sortent en
   // 56-60 px, plus au 68 historique. Coordonnées entières contre le fourmillement.
   const fh = img.naturalHeight || AGENT_FH;
-  const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % AGENT_NF) : 0;
+  // Nombre d'images DÉDUIT de la bande, comme le fait déjà le jumeau iso : la hauteur
+  // de frame l'était déjà, le COMPTE restait sur AGENT_NF en dur. Toutes les bandes
+  // actuelles en ont bien 6, mais une bande plus courte y tirait des frames hors cadre
+  // — panne muette, le sprite disparaît une image sur deux au lieu de crier.
+  const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
+  const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf) : 0;
   const left = Math.round(sx - drawW / 2), top = Math.round(groundY - AGENT_FEET * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
@@ -359,14 +371,20 @@ function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType
 // dir monde se projette sur une diagonale écran ; repli cardinal tant que la
 // vue manque (onerror toléré).
 const vehDiagImg = {};
-function ensureVehDiag(type) {
-  let c = vehDiagImg[type];
+// `skin` = teinte/modèle d'INSTANCE de la flotte moderne (cf. vehicleSkins.js) :
+// veh-car-sedan-red-southeast.png. Chargement PARESSEUX, une entrée de cache par
+// skin — la flotte compte 20 teintes de voiture, les charger toutes au démarrage
+// ferait 80 requêtes pour les 6 skins qu'une ville affiche réellement.
+function ensureVehDiag(type, skin) {
+  const key = skin ? type + '/' + skin : type;
+  let c = vehDiagImg[key];
   if (c) return c;
   c = { img: {}, ready: 0, failed: 0 };
-  vehDiagImg[type] = c;
+  vehDiagImg[key] = c;
+  const stem = '/pixelart/agents/vehicles/veh-' + type + (skin ? '-' + skin : '');
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
     c.img[d] = loadWithRetry(
-      '/pixelart/agents/vehicles/veh-' + type + '-' + d + '.png',
+      stem + '-' + d + '.png',
       () => { c.ready += 1; },
       () => { c.failed += 1; },
     );
@@ -374,6 +392,33 @@ function ensureVehDiag(type) {
   return c;
 }
 const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
+
+// Rebrassage avant tirage : l'appelant fournit un compteur de spawn, dont les bits
+// de poids faible suivent l'ordre d'apparition. Sans fmix32 les cinq premières
+// voitures d'une rue sortent dans l'ordre du catalogue (cf. la démonstration du
+// damier dans housePalette.js).
+function fmix32(x) {
+  let h = x >>> 0;
+  h ^= h >>> 16; h = Math.imul(h, 2246822507);
+  h ^= h >>> 13; h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+// ⛔ LA FLOTTE DU PACK NE ROULE QU'À PARTIR DE LA BANDE 6. Refus de Raph le
+// 2026-08-05 devant sa capitale monumentale (bande 5, pierre et colonnades) : des
+// berlines des années 2000 dessus, « ça ne va pas ». Le gel se joue ICI et pas
+// seulement dans les poids d'ère : le type `car` existe des deux côtés de la
+// frontière, et sans cette garde une voiture de bande 5 garderait son nom tout en
+// se repeignant en SUV blanc. Sous la frontière, skin vide = la vieille automobile.
+const MODERN_FLEET_BAND = 6;
+// Teinte/modèle d'une instance. Chaîne vide = bande nue (types sans skin, ère trop
+// ancienne, et repli si le manifeste ne connaît pas le type).
+function vehSkinFor(type, seed, band) {
+  if ((band | 0) < MODERN_FLEET_BAND) return '';
+  const list = VEH_SKINS[type] && VEH_SKINS[type].skins;
+  if (!list || !list.length) return '';
+  return list[fmix32(seed) % list.length];
+}
 
 // ── Véhicules pixel-art (objets directionnels PixelLab) ──────────────────────
 // Bandes : agents/veh-{type}-{dir}.png (1 frame, 64px). dir = v.dir (0=E,1=W,2=S,3=N).
@@ -384,6 +429,14 @@ const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
 // aucun tirage ne les produit (chooseRoadVehicleType, ageVisualConfig, cityPersonality) et
 // leur absence d'ici suffit à ne plus charger leurs sprites. L'art reste sur le disque.
 const VEH_SIZES = { wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72, tram: 1.4 };
+// Flotte moderne (pack MinZinn) : les tailles viennent du MANIFESTE, écrit par le
+// même script que les sprites. Un bus dessiné dans la boîte d'une berline serait
+// simplement une image écrasée — la taille de boîte et la taille de cuisson sont
+// deux faces d'un seul réglage, elles ne doivent pas pouvoir diverger.
+// `car` garde la sienne : sa valeur est un réglage de Raph, pas une donnée du pack.
+for (const [type, spec] of Object.entries(VEH_SKINS)) {
+  if (VEH_SIZES[type] == null) VEH_SIZES[type] = spec.size;
+}
 // Poussés par un humain (de l'ère) placé derrière. Table VIDE depuis le retrait de la
 // brouette et de la charrette : la mécanique du pousseur reste en place (ici et dans
 // drawIsoVehicle) pour un futur véhicule à bras, elle ne s'arme simplement plus.
@@ -1606,7 +1659,7 @@ function drawVehicles(now, pass, front) {
   }
 }
 
-// Phares d'une voiture/tram, dessinés À LA PROFONDEUR du véhicule (dans drawOneVehicle) pour
+// Phares d'un véhicule à moteur, dessinés À LA PROFONDEUR du véhicule (dans drawOneVehicle) pour
 // être occultés comme la carrosserie — au lieu du tapis lumineux tardif qui brillait par-dessus
 // bâtiments + nuit (même bug de z-order que carrosserie↔piéton). Nuit uniquement, ère motorisée,
 // véhicule en mouvement. Additif ; alpha BOOSTÉ car dessiné AVANT le voile de nuit (~×0.5).
@@ -1614,7 +1667,7 @@ function drawVehicleHeadlights(ctx, v) {
   const n = CM.nightF || 0;
   if (n <= 0.3) return;                                   // phares de nuit seulement
   if ((CM.layout?.counts?.eraIndex || 0) < 14) return;   // ère motorisée
-  if (v.type !== "car" && v.type !== "tram") return;
+  if (!MOTOR_TYPES.has(v.type)) return;                  // tout ce qui a un moteur s'allume
   if ((v.parkT || 0) > 0 || v.pauseT > 0) return;        // garé/arrêté : éteints
   const z = CM.cam.zoom, T = CM.TILE;
   const a = Math.min(1, (n - 0.1) / 0.7);
@@ -1686,8 +1739,11 @@ function drawOneVehicle(v, now) {
       const vf = vnf > 1 ? Math.floor((now || 0) / 130 + v.x * 0.1) % vnf : 0;
       const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
       const drawV = () => {
-        // Ombre au sol CENTRÉE sous la charrette (le chemin pixel-art n'en dessinait aucune → tout flottait).
-        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(sx, sy + dh * 0.30, dw * 0.30, dh * 0.085, 0, 0, Math.PI * 2); ctx.fill();
+        // ⛔ PAS D'ELLIPSE D'OMBRE SOUS UN VÉHICULE (Raph 2026-08-05). Elle avait
+        // été posée quand le chemin pixel-art n'en dessinait aucune et que tout
+        // semblait flotter ; les sprites portent depuis leur propre ombre de
+        // contact, et la tache du moteur faisait doublon — un galet noir qui
+        // suit la carrosserie. Même règle que sous les bâtiments.
         ctx.drawImage(vimg, vf * vfh, 0, vfh, vfh, sx - dw / 2, sy - dh / 2, dw, dh);
       };
       // Pousseur : humain de l'ère (marche) DERRIÈRE le véhicule, orienté pareil.
@@ -1707,8 +1763,8 @@ function drawOneVehicle(v, now) {
           const mimg = man.img[VILLAGER_DIRS[v.dir]] || man.img.south;
           const pxp = sx + off[0], pyp = sy + off[1];
           drawP = () => {
-            // Ombre CENTRÉE sous le pousseur (à sa vraie position pxp/pyp, pas sous la charrette).
-            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(pxp, pyp + ph * 0.20, ph * 0.38, ph * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+            // Pas d'ellipse non plus sous le pousseur : il fait équipage avec le
+            // véhicule, l'un ombré et l'autre non se verrait immédiatement.
             ctx.drawImage(mimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH, pxp - ph / 2, pyp - ph * 0.78, ph, ph);
           };
         }
@@ -1738,11 +1794,8 @@ function drawOneVehicle(v, now) {
                [front[0] + (horiz ? 0 : sep), front[1] + (horiz ? sep : 0)]]
             : [front];
           drawTeam = () => {
-            // Ombres CENTRÉES sous CHAQUE animal de trait (à sx+ax, décalé comme le sprite ;
-            // dessinées d'abord, puis les sprites, pour ne pas passer par-dessus une bête voisine).
-            for (const [ax, ay] of slots) {
-              ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(sx + ax, sy + ay + ah * 0.30, ah * 0.42, ah * 0.15, 0, 0, Math.PI * 2); ctx.fill();
-            }
+            // Pas d'ellipse sous les bêtes de trait : elles font équipage avec le
+            // véhicule, qui n'en a plus.
             for (const [ax, ay] of slots) {
               ctx.drawImage(aimg, fr * AGENT_FW, 0, AGENT_FW, AGENT_FH,
                 sx + ax - ah / 2, sy + ay - ah * 0.7, ah, ah);
@@ -1939,7 +1992,10 @@ function drawOneVehicle(v, now) {
     ctx.rotate(v.vAngle);
     ctx.fillStyle = "rgba(20,14,8,0.28)";
     ctx.fillRect(-s * 0.18, s * 0.08, s * 0.36, Math.max(1, s * 0.035));
-    if (v.type === "car") {
+    // Repli PROCÉDURAL (sprite pas chargé) : toute la flotte moderne emprunte la
+    // silhouette de la voiture. Sans ça un bus dont le PNG traîne se dessinerait
+    // en charrette à bœufs au milieu d'une mégalopole.
+    if (v.type === "car" || (MOTOR_TYPES.has(v.type) && v.type !== "tram")) {
       if (ei >= 14) {
         const t2 = now || 0;
         const gCol = v.col || "#4a6080";
@@ -2355,7 +2411,7 @@ function drawShips() {
   }
 }
 
-export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { chooseRoadVehicleType, drawCitizens, drawGroundAgents, drawShips, drawVehicles, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, frontByPainter, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

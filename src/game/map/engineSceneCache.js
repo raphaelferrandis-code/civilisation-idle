@@ -96,7 +96,10 @@ function currentEpoch(now) {
     const ei = (CM.layout && CM.layout.counts && CM.layout.counts.eraIndex) | 0;
     // Nuit QUANTIFIÉE au dixième (précédent : clé du bake des quais) — litWarm
     // et litGold en dérivent, les fenêtres allumées suivent par re-cuisson.
-    epochStr = band + ':' + ei + ':' + (CM.nightF || 0).toFixed(1) + ':' + getPropVersion();
+    // La SAISON entre dans l'époque depuis la neige des toits (snowRoof.js) :
+    // une scène cuite en été et rejouée en hiver garderait ses tuiles sèches au
+    // milieu d'une ville blanche. Un entier de plus, quatre valeurs, aucun coût.
+    epochStr = band + ':' + ei + ':' + (CM.nightF || 0).toFixed(1) + ':' + (CM.season | 0) + ':' + getPropVersion();
   }
   return epochStr;
 }
@@ -300,7 +303,17 @@ export function resetEngineSceneCache() { cache.clear(); cacheBytes = 0; }
 // Dessine la scène de `t` via le cache : back cuit → animé en direct → front
 // cuit. Renvoie false si le cache ne peut pas servir (molette off, échelle hors
 // bornes, cuisson échouée) — l'appelant dessine alors en direct comme avant.
-export function drawCachedEngineScene(ctx, t, bx, by, bw, now) {
+//
+// DEUX TEMPS, et la distinction est structurelle (cf. engineAnim.js) :
+//   `now`     — temps de la FRAME. Il pilote la clé de cache et la fraîcheur LRU.
+//               ⚠ Il DOIT rester commun à toutes les instances : `currentEpoch`
+//               se mémoïse dessus, un temps par instance la ferait recalculer par
+//               scène — précisément les huit concaténations par scène et par
+//               frame que la mémoïsation avait supprimées.
+//   `animNow` — temps propre à l'INSTANCE (décalé), pour la seule passe animée.
+//               Les plans cuits n'en ont que faire : ils ne lisent pas `now` (un
+//               bloc qui le lit est classé 'anim' par la doctrine du découpage).
+export function drawCachedEngineScene(ctx, t, bx, by, bw, now, animNow = now) {
   if (!enabled()) return false;
   const nowMs = performance.now();
   const z = CM.cam.zoom;
@@ -335,7 +348,7 @@ export function drawCachedEngineScene(ctx, t, bx, by, bw, now) {
     // L'ANIMÉ en direct, entre les deux plans — flammes, humains, lueurs. Ses
     // propres blitProp/blitAnim continuent d'alimenter flameGlow et lightLayer.
     ctx.imageSmoothingEnabled = prevSmooth;
-    drawEngineSprite(t, bx, by, bw, bw, now, 'anim');
+    drawEngineSprite(t, bx, by, bw, bw, animNow, 'anim');
     if (e.front) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(e.front, dx, dy, dw, dh);
@@ -346,7 +359,7 @@ export function drawCachedEngineScene(ctx, t, bx, by, bw, now) {
     // Scène (encore) vide : seul l'animé se dessine — le repli procédural
     // intégral reviendrait re-payer le vectoriel qu'on cherche à éviter, et la
     // re-cuisson arrive au prochain décodage (propVersion dans l'époque).
-    drawEngineSprite(t, bx, by, bw, bw, now, 'anim');
+    drawEngineSprite(t, bx, by, bw, bw, animNow, 'anim');
   }
   return true;
 }

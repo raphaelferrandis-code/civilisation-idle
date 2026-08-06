@@ -53,6 +53,14 @@ export const PALIER_SPANSUM = {
   'ministries-capitol-grand': 6, 'ministries-curia-grand': 6,
   'ministries-palace-grand': 6,
   'cult-shrine-grand': 6, 'cult-mausoleum-grand': 6, 'cult-memorial-grand': 6,
+  // Stade 0 du culte (cercle de mégalithes) : DEUX couches jumelées — le cercle
+  // statique et sa bande de feu — donc deux paliers, qui ne valent que servis
+  // ENSEMBLE (cf. PALIER_JUMEAU, cityEngineSprites.js). Le second est une BANDE
+  // ANIMÉE : sa présence ici la rend aussi paresseuse au chargement, au lieu
+  // d'être préchargée pour tout le monde par ensureAnim. Leurs deux canvas font
+  // 192×160, même ratio — sinon les couches se dessineraient dans des rectangles
+  // différents et la flamme sortirait de son foyer.
+  'ancestralcult-back-grand': 6, 'ancestralcult-fire-grand': 6,
   'think-prop-council-grand': 6, 'think-institute-grand': 6,
   'think-modern-grand': 6, 'think-chancellery-grand': 6,
   'think-stoa-roman-grand': 6,

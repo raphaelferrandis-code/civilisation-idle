@@ -138,6 +138,16 @@
    "note": "meme cercle, feu allume"
   },
   {
+   "key": "ancestralcult-back-grand",
+   "nature": "prop-sans-bati",
+   "door": null,
+   "doorKind": null,
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.85,
+   "note": "palier du cercle de megalithes, 192x160 — ni porte ni fenetre a mesurer, comme le petit"
+  },
+  {
    "key": "aqueduct-intake",
    "nature": "infrastructure",
    "door": null,
@@ -4406,6 +4416,21 @@
    "floorPitch": null,
    "confidence": 0.9,
    "note": "feu de camp"
+  },
+  {
+   "key": "storyteller-prop-hut",
+   "nature": "batiment",
+   "door": {
+    "x": 26,
+    "y": 40,
+    "w": 14,
+    "h": 26
+   },
+   "doorKind": "porte",
+   "window": null,
+   "floorPitch": null,
+   "confidence": 0.7,
+   "note": "hutte des conteurs, stade 0 (2026-08-05) ; sans fenetre, porte cintree haute"
   },
   {
    "key": "storyteller-reader",

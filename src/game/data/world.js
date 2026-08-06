@@ -372,7 +372,7 @@ export const CRISIS_POOL = [
     threshold: 0.5,
     condition: (s) => D(s.infrastructure).gt(40),
     title: { fr: "Les fondations fissurent", en: "The foundations are cracking" },
-    body: { fr: "Les aqueducs perdent leurs joints. Les routes s'effondrent entre les pierres. On a construit vite, mais personne n'a prévenu les budgets d'entretien.", en: "The aqueducts lose their seals. The roads collapse between the stones. We built fast, but no one warned the maintenance budgets." },
+    body: { fr: "Les fontaines perdent leurs joints. Les routes s'effondrent entre les pierres. On a construit vite, mais personne n'a prévenu les budgets d'entretien.", en: "The fountains lose their seals. The roads collapse between the stones. We built fast, but no one warned the maintenance budgets." },
     options: [
       {
         label: { fr: "Investir dans les réparations", en: "Invest in repairs" },

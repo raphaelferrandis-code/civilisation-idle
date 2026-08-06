@@ -255,6 +255,65 @@ attendent leur art, G1 traite le reste.
 > Vérifié en jeu aux ères 18, 20, 22, 26 et 33 (captures
 > `.preview-shots/grain/`), 1563 tests verts, lint propre.
 
+> **AJOUT 2026-08-05 — le stade 0 du Culte des ancêtres (95e palier), et un BUG
+> DE CÂBLAGE qu'il a mis au jour.**
+>
+> Le cercle de mégalithes était le dernier stade 0 sans palier ; à l'empreinte 3
+> il était servi ÉTIRÉ, à **1,262 px écran par px source contre 0,838 à
+> l'atelier** — le pire grain du parc. Livré : `ancestralcult-back-grand`
+> (192×160) + `ancestralcult-fire-grand`, densité **0,606** ; planche
+> `.preview-shots/grain/palier-ancestralcult-stade0.png` (atelier / avant / après
+> aux tailles écran réelles).
+>
+> ⛔ **`curSpanSum` n'était posé QUE par `drawCityEngineSprite`**, c'est-à-dire
+> pour les familles ÉCONOMIE. Les familles SAVOIR et INFRA (culte, écoles,
+> bibliothèques, universités, imprimerie, think tanks, ministères, tribunaux,
+> bureaucratie, travaux, archives, ruines, observatoires — la MAJORITÉ des 95
+> paliers) sont dessinées par `drawEngineSpriteCore`, qui rend et retourne bien
+> avant sa retombée sur `drawCityEngineSprite`. Elles lisaient donc l'empreinte
+> de la tuile PRÉCÉDEMMENT dessinée : un atelier prenait le sprite de halle si
+> une halle venait de passer, et l'inverse. Invisible sur une capture — le
+> mauvais sprite est un sprite valide, juste à la mauvaise taille — et invisible
+> à la vérification en jeu de la vague 1, où l'écran est plein de halles.
+> Corrigé par `setEngineSpan(gw, gh)`, appelé par les DEUX entrées.
+>
+> **Le premier palier en DEUX COUCHES** (prop statique du cercle + bande animée
+> de la flamme, séparés pour que les pierres ne gigotent pas). Trois choses :
+> - `blitAnim` ignorait les paliers : substituer la seule couche du fond laissait
+>   la flamme à l'échelle du petit, à côté d'un cercle deux fois plus grand. La
+>   substitution y est désormais aussi, générique.
+> - Les deux couches ne tombent dans le même rectangle que si elles partagent
+>   spanSum de calibrage, `palierHFrac` ET **ratio de canvas** — trois conditions
+>   qu'aucun code n'impose. Gardes : `spriteScale.test.js` (mesure les PNG) et
+>   `cityEngineSprites.test.js` (compare les rectangles réellement passés à
+>   `drawImage`). `PALIER_JUMEAU` interdit en plus de basculer l'une sans l'autre.
+> - Une bande déclarée dans `ANIM_BANDS` est PRÉCHARGÉE pour tout le monde ; sa
+>   présence dans `PALIER_SPANSUM` la rend paresseuse (`ensureAnim` la saute,
+>   `palierAsset` la charge quand le palier s'arme).
+>
+> ⛔ **On n'AGRANDIT pas une flamme, on la REDESSINE à la résolution cible.**
+> Scale2x (EPX) a été essayé et REGARDÉ : la flamme devient une fourche creuse
+> dont les pixels font le double de ceux des pierres — le défaut de grain de la
+> campagne, réintroduit dans le sprite censé le corriger. Ce qui se transpose,
+> c'est ce qui a été DESSINÉ : la silhouette et son mouvement (7 images).
+> `scripts/ancestralCultFire.mjs` rééchantillonne le masque en bilinéaire puis
+> REFAIT l'ombrage — chaque pixel reçoit un pas de rampe selon sa profondeur sous
+> le contour, dans les proportions mesurées sur le petit (55 % de rouge-feu,
+> 24 % d'orange…). Un cœur qui garderait ses 63 px deviendrait une tache ;
+> réattribuer par rang le garde à sa taille. Corollaire de cadrage : la flamme se
+> dimensionne sur le BOL de son foyer (21 px sur 21 dans le petit), pas sur le
+> canvas — ×1,52 et non ×2. Effet de bord heureux, elle garde ainsi sa taille À
+> L'ÉCRAN : c'est le cercle qui grandit, pas le feu.
+>
+> **Galette : la clause de découpe échoue toujours** (5 tirages sur 11 en
+> portaient une). Mais son retrait se MESURE : avec galette, la plus grosse
+> composante claire écrase la suivante d'un facteur 13 à 53 ; sans galette, le
+> rapport tombe à 1,0-1,2. `stoneCircle` (fetchProps.mjs) ne coupe donc plus
+> qu'au-delà d'un facteur 4 — sans quoi il aurait arraché une pierre au tirage
+> propre. Autre réglage utile : **`high detail` redessine les mégalithes en
+> murets de briques** sur un canvas 192×160 ; `medium detail` + « one single
+> unbroken block of solid rock » les garde monolithiques.
+
 > **ÉTAT 2026-08-04 : PILOTE « halle à paliers » LIVRÉ (greniers, stade
 > entrepôt).** Arbitrages Raph : greniers, et « le même bâtiment en plus
 > massif ». Recette VERROUILLÉE, prête à sérialiser :

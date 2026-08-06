@@ -10,6 +10,8 @@
 // chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
 import { CM, cmHash } from './layout.js';
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
+import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
+import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
 import { HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
 import { isoFlag } from './iso/projection.js';
@@ -89,12 +91,19 @@ function houseTintOf(t, key) {
 }
 
 // B — Canvas d'une teinte, RECADRÉ sur la bbox de contenu et mis en cache. Renvoie null
-// pour la teinte d'origine : ce cas emprunte le chemin historique, qui reste ainsi
-// strictement inchangé. Cuit une fois par teinte réellement rencontrée ; au pire
-// 12 archétypes × 2 teintes non identitaires, quelques Mo.
-function variantCanvas(key, tint) {
-  if (!tint) return null;
-  const vk = key + ":" + tint;
+// quand il n'y a NI teinte NI neige : ce cas emprunte le chemin historique, qui reste
+// ainsi strictement inchangé. Cuit une fois par teinte réellement rencontrée ; au pire
+// 12 archétypes × 2 teintes non identitaires × 2 saisons, quelques Mo.
+//
+// ⚠ L'ORDRE EST LE SUJET : la teinte D'ABORD, la neige ENSUITE. applyHouseTint est un
+// LOOKUP EXACT sur les rampes de matière (cf. housePalette.js) — les tons de neige n'y
+// figurent pas, donc une neige posée avant serait ignorée par la teinte, et surtout la
+// neige n'a AUCUNE raison de se teinter : elle est la même sur toutes les matières. La
+// passe de neige, elle, est additive (elle ne repeint que ses propres pixels), c'est ce
+// qui laisse les 20 aspects intacts en hiver.
+function variantCanvas(key, tint, winter) {
+  if (!tint && !winter) return null;
+  const vk = key + ":" + tint + (winter ? ":w" : "");
   const hit = variants.get(vk);
   if (hit) return hit;
   const e = cache.get(key);
@@ -109,12 +118,20 @@ function variantCanvas(key, tint) {
   let src;
   try { src = cx.getImageData(0, 0, bb.w, bb.h); }
   catch { return null; }                       // garde cross-origin (ne devrait pas arriver)
-  const dst = cx.createImageData(bb.w, bb.h);
-  applyHouseTint(src.data, dst.data, bb.w, bb.h, tint);
-  cx.putImageData(dst, 0, 0);
+  let out = src;
+  if (tint) {
+    out = cx.createImageData(bb.w, bb.h);
+    applyHouseTint(src.data, out.data, bb.w, bb.h, tint);
+  }
+  if (winter) snowImageData(out, bb.w, bb.h);
+  cx.putImageData(out, 0, 0);
   variants.set(vk, c);
   return c;
 }
+
+// Les canvas cuits portent le réglage de neige qui avait cours au moment de la cuisson :
+// un tour de molette doit les jeter, sans quoi l'A/B compare deux fois la même image.
+addSnowResetHook(() => { variants.clear(); CM._tileBake = null; });
 
 function ensure(key) {
   let e = cache.get(key);
@@ -231,7 +248,11 @@ function pixelHouseGeom(t, x, y, w, h) {
   // source part de (0,0) ; la géométrie, elle, ne change pas (la teinte ne déplace
   // aucun pixel). Tout ce qui passe par pixelHouseGeom — dessin, boîte de la fumée,
   // liseré de survol — suit donc automatiquement.
-  const vc = variantCanvas(key, houseTintOf(t, key));
+  //
+  // HIVER : même canvas, une passe de plus. La neige non plus ne déplace aucun pixel
+  // (elle repeint DANS la silhouette, alpha inchangé), donc la boîte, le liseré de
+  // survol et la portée peintre restent ceux du sprite d'été — c'est le contrat.
+  const vc = variantCanvas(key, houseTintOf(t, key), CM.season === WINTER && snowRoofTune.on);
   if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h }, dx, dy, dw, dh };
   return { img: e.img, bb, dx, dy, dw, dh };
 }
