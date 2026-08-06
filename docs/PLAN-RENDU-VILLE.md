@@ -234,9 +234,15 @@ dans le dépôt**, non connectés.
 > **37,0**, contre 36,9 mesuré pour la dose 0,6 sur la planche alignée — c'est bien
 > la dose arbitrée qui est gravée.
 >
-> ⚠ Une exécution sur trois a rendu 5 rouges dans 4 fichiers non touchés
-> (`waveSwash` entre autres), sur un run à 67 s contre 23 s : contention avec le
-> serveur dev et la session parallèle. Ces fichiers passent 3/3 en isolation.
+> ⚠ **MOTIF CONNU — des rouges qui n'en sont pas.** Vu quatre fois sur la séance : une
+> exécution complète rend 1 à 5 rouges alors que les mêmes fichiers passent en
+> isolation. Le signe qui ne trompe pas est la DURÉE du run : 39 à 67 s contre ~20 s
+> de référence, avec le serveur dev et une session parallèle qui tournent. Les tests
+> qui lâchent sont ceux qui sont SENSIBLES AU TEMPS (`waveSwash`, `regulation`
+> « les dés illustrent leur tier », `enginePlacementPerf` « contrôle négatif » — ce
+> dernier mesuré à 7 640 ms alors que le fichier entier tourne en 5,7 s seul).
+> **Avant de diagnostiquer un rouge : regarder la durée totale, puis rejouer le
+> fichier seul.**
 >
 > ⚠ **Ne JAMAIS comparer deux captures prises de part et d'autre d'un rechargement
 > de page** : la ville et la saison ont bougé entre-temps. Un tel diff a rendu
@@ -466,8 +472,48 @@ dans le dépôt**, non connectés.
 > | `manor` 2×2, b4 | 16,7 % | 2,7 % | **6,7 %** |
 > | `manor` 2×2, b3 | 12,5 % | 0 % | 0,3 % |
 >
-> Les 1×2 atteignent leur poids nominal. Comptes de maisons conservés partout
-> (372 / 522 / 839).
+> Comptes de maisons conservés partout (372 / 522 / 839).
+>
+> ⚠ **CORRECTION du 2026-08-06 : « les 1×2 atteignent leur poids nominal » était un
+> artefact de la liste du moment.** Ces 19,3 / 20,9 % ont été mesurés contre une liste
+> b5 à 5 entrées (nominal 20 %). La session parallèle l'a depuis ramenée à 4 entrées
+> (`terrace` ne compte plus qu'une fois) : nominal 25 % chacun, et les mêmes types
+> sortent à **12,0 et 12,6 %**, soit la moitié.
+>
+> **Ce que ça révèle, et qui vaut mieux que le chiffre d'origine : la pose de
+> multi-tuiles a un PLAFOND DE CAPACITÉ.** Il ne dépend pas du poids demandé mais de
+> la granularité de l'espace libre, et les 1×2 **se bloquent mutuellement** (chacun
+> posé retire les emplacements de ses voisins). Demander 50 % de 1×2 à la bande 5 n'en
+> produit pas plus que demander 40 % — l'excédent retombe sur le repli 1×1, que
+> `block` et `terrace` absorbent (37,2 et 38,1 %).
+>
+> **Conséquence pour qui règle ces listes : au-delà d'environ un quart de la liste, une
+> emprise multi-tuiles ne rend plus ce qu'on lui demande.** Le régler par le poids est
+> sans effet ; il faut libérer de l'espace contigu.
+
+> #### ⛔ Tri « grandes emprises d'abord » : ESSAYÉ, MESURÉ, REJETÉ (2026-08-06)
+> Suite logique du diagnostic ci-dessous (73 % des refus venaient de `usedKeys`, donc
+> des 1×1 posés plus tôt) : trier les slots par aire décroissante pour que les masses
+> se posent sur une carte encore vide. Implémenté, mesuré, **retiré** :
+>
+> | | avant | avec le tri |
+> |---|---|---|
+> | `manor` b3 | 0,3 % | 1,9 % |
+> | `manor` b4 | 6,7 % | 8,8 % |
+> | `tenement` b5 | 19,3 % | **12,6 %** |
+> | `tower` b5 | 20,9 % | **11,8 %** |
+>
+> Le tri gagne 1,6 et 2,1 points de manoir, et perd **40 %** sur les deux types 1×2 de
+> la bande 5 — qui pèsent bien plus dans une ville. Mauvais échange, revenu à `36de247`.
+>
+> Et la sonde a donné la vraie cause, qui n'est pas l'ordre : **même en posant les
+> manoirs EN PREMIER, 22 617 refus sur 24 049 viennent encore de `usedKeys`**. La carte
+> n'est donc pas vide quand les maisons arrivent — moteurs, merveilles, places et
+> districts l'ont déjà remplie. **L'espace libre de la bande 3 est GRANULAIRE : des
+> cellules isolées, pas des carrés.** Un 2×2 n'a nulle part où aller, et aucun ordre de
+> pose n'y changera rien. Ce qui débloquerait le manoir, c'est de libérer de l'espace
+> contigu — à commencer par les districts, qui réservent 43 cellules à la bande 3 sans
+> rien dessiner dessus.
 >
 > ⚠ **Le repli 1×1 est assumé et il a été mesuré.** Première version : sauter le slot
 > quand l'emprise ne loge pas, pour ne pas reproduire la substitution silencieuse.
