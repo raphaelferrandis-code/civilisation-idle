@@ -632,7 +632,43 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 >
 > ⛔ **Ne pas commencer par l'art.** C'est le seul enseignement solide de ce cadrage.
 >
-> #### ✅ Le lot 1 est VIABLE — simulé le 2026-08-06, avant d'écrire la pose
+> #### ⛔⛔ TOUT CE QUI SUIT SUR « LE LOT 1 » EST FAUX — implémenté, mesuré, REVERTÉ
+> **La cause : toutes mes mesures de rangées portaient sur un magasin de slots
+> PÉRIMÉ.** `placeCategorySlotted` passe 1 réutilise les positions persistées dans
+> `state.cityMapSlots` ; la ville de démo en avait, établies par l'ancien ordre. Mes
+> « 57,8 % de voisines / 18,3 % / 41,9 % » décrivaient donc une ville figée, pas le
+> comportement du code.
+>
+> **A/B propre, magasin vidé (`state.cityMapSlots = {}`) avant chaque mesure :**
+>
+> | | tri par score (l'existant) | mon ordre par fronts |
+> |---|---|---|
+> | maisons avec une voisine | **79,0 %** | 54,3 % |
+> | en rangée ≥ 2, axe X | 27,7 % | 40,1 % |
+> | en rangée ≥ 2, axe Y | **60,2 %** | 15,1 % |
+> | longueurs axe Y | 34 paires, **52 triplets** | 7 paires, 14 triplets |
+>
+> **Le tri par score existant est nettement MEILLEUR que mon remplacement**, et le
+> problème que je voulais résoudre n'existait pas : la pose produit déjà 79 % de
+> maisons avec une voisine et 60 % en rangée sur l'axe Y.
+>
+> ⚠ **Le plan avait donc raison depuis le début** : « le vrai mur de rue ne viendra pas
+> d'un poussé, il demande la mitoyenneté, donc de l'ART ». Ma requalification en
+> « S14 est deux lots dont le premier est du code » était fausse, et elle l'était à
+> cause de l'artefact de mesure.
+>
+> ⚠ **RÈGLE, pour toute mesure de placement** : vider `state.cityMapSlots` avant de
+> recomputer, sinon on mesure une ville fossilisée. Quatrième artefact de mesure de la
+> séance, et le plus coûteux.
+>
+> **Ce qui reste vrai et utile pour l'art** : 52 triplets à la bande 3, donc les
+> variantes « milieu » SERAIENT employées. Mais rien ne dépasse 3 de long, quel que
+> soit l'ordre — le devis se calcule sur des rangées de 2-3, pas de 5-9.
+>
+> <details><summary>Simulation d'origine, conservée pour mémoire (ses chiffres ne se
+> sont PAS reproduits en jeu)</summary>
+>
+> #### La simulation qui m'a induit en erreur
 > Simulation d'un ordre « le long des fronts » : pour chaque RUN de route de même axe,
 > on marche le long et on émet les deux cellules qui la flanquent — une rue produit
 > ainsi deux séquences CONTIGUES de cellules. Puis pose 1×1 dans cet ordre, à nombre de
@@ -664,6 +700,11 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 > `orderedList`.** ⚠ Ça change la position de TOUTES les maisons — mais le reshuffle
 > des types a déjà eu lieu deux fois cette séance, et les positions sont persistées
 > par slot, donc seule la première recomposition sera visible.
+>
+> *(Écrit, mesuré, reverté — la simulation surestimait parce qu'elle ignorait le filtre
+> des cellules bâtissables et la concurrence des autres catégories. Voir l'encadré en
+> tête de section.)*
+> </details>
 
 | **S14** | **La mitoyenneté, en art.** Façades de front, murets fermant le bord nu, variantes d'about. C'est le seul chemin vers l'îlot des deux références. ⛔ **INTERDIT de passer par le facteur d'échelle** : monter `HOUSE_LOT_WF` à 1,0 et descendre `HOUSE_UNIT` à 34 multiplie k par 1,66 et sort tout le corpus de la bande de porte 10-14 px. **On élargit l'ART, pas le facteur** | L + art |
 
