@@ -135,6 +135,30 @@ export const ROAD_RANKS = {
   connector: "secondary", trunkUse: 0.15, streetFoot: 4,
   wideCap: 0.22, capMinCells: 200,
 };
+
+// Serrage de l'emprise de ville — cf. le commentaire de `cityReachBase`.
+//
+// ⛔ MESURÉ LE 2026-08-06 : CE LEVIER NE PAIE PAS, gardé comme outil d'A/B seulement.
+// Sur le sol de ville hors routes, à bâti constant (372 maisons, bande 3) :
+//
+//   k = 1     5 867 cellules   53,4 % nues   599 arbres
+//   k = 0,9   5 279            52,0 %        410
+//   k = 0,82  4 830            50,7 %        243
+//   k = 0,75  4 219            48,1 %        121
+//
+// Serrer de 25 % ne gagne que **5 points** de sol nu, et coûte 80 % de la ceinture
+// boisée : le bâti gagne exactement ce que la végétation perd, parce que les arbres
+// vivaient dans les faubourgs qu'on supprime. La nappe grise n'est donc pas un
+// problème d'ÉTALEMENT mais de REMPLISSAGE — à traiter en posant du contenu.
+// Molette : `__cityReach(0.85)` ; `__cityReach()` rend la valeur courante.
+export const CITY_REACH = { k: 1 };
+if (typeof window !== "undefined") {
+  window.__cityReach = (v) => {
+    if (v != null) CITY_REACH.k = Math.max(0.5, Math.min(1.2, +v || 1));
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return CITY_REACH.k;
+  };
+}
 if (typeof window !== "undefined") {
   window.__roadRanks = (o) => {
     if (o && typeof o === "object") Object.assign(ROAD_RANKS, o);
@@ -2133,7 +2157,21 @@ function computeCityLayout(s) {
   const riverHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
   lp("riviere");
 
-  const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25));
+  // SERRAGE DE L'EMPRISE (lot densité, docs/PLAN-RENDU-VILLE.md). Retour Raph
+  // 2026-08-06 sur capture : « les grandes surfaces de sol gris ». Mesuré à la bande 3,
+  // sur le sol de ville HORS ROUTES : **53,4 % ne porte rien** (3 132 cellules nues
+  // contre 2 136 bâties et 599 sous un arbre).
+  //
+  // La cause est dans la formule ci-dessous : le terme dominant est `N × (0,18 +
+  // eraFrac × 0,24)`, donc l'étalement suit la GRILLE et l'ÈRE, pas la quantité de
+  // bâti. Le contenu ne remplit qu'une partie de ce qu'on lui alloue.
+  //
+  // `CITY_REACH.k` serre l'emprise à contenu constant : même nombre de bâtiments sur
+  // moins de sol. ⚠ Défaut à 1 tant que la valeur n'est pas arbitrée sur planche —
+  // ce réglage change TOUTE la silhouette (squelette routier, ancres de quartier,
+  // position relative du fleuve), il ne se grave pas au jugé.
+  // Molette : `__cityReach(0.85)`.
+  const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25)) * CITY_REACH.k;
   // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
   // Corridor du fleuve = eau ∪ berge : les places ne s'y posent jamais (seuls
   // routes/ponts traversent l'eau). Le reste (quartiers, merveilles) l'évite déjà.

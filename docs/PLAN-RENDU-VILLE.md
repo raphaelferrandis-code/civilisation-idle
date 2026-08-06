@@ -549,6 +549,54 @@ dans le dépôt**, non connectés.
 > `spanX` en 3e / `spanY` en 6e est le bon). La cause est donc dans `claimed` ou dans
 > la densité de voirie de cette bande, et elle n'est PAS isolée. À reprendre là.
 
+> ### 📐 LA NAPPE GRISE, chiffrée — et ce n'est PAS l'étalement (2026-08-06)
+> Retour de Raph sur capture : « les grandes surfaces de sol gris » **et** « ça va,
+> c'est le reste qui manque ». Mesuré à la bande 3, sur le sol de ville hors routes :
+>
+> | | cellules | part |
+> |---|---|---|
+> | routes | 1 695 | 22,4 % de la ville |
+> | sol avec bâti | 2 136 | 36,4 % |
+> | sol avec arbre | 599 | 10,2 % |
+> | **sol nu** | **3 132** | **53,4 %** |
+>
+> ⛔ **Le serrage de l'emprise ne paie pas.** `CITY_REACH.k` a été posé pour le
+> mesurer, à bâti constant :
+>
+> | k | sol hors routes | part nue | arbres |
+> |---|---|---|---|
+> | 1 | 5 867 | 53,4 % | 599 |
+> | 0,9 | 5 279 | 52,0 % | 410 |
+> | 0,82 | 4 830 | 50,7 % | 243 |
+> | 0,75 | 4 219 | **48,1 %** | **121** |
+>
+> Serrer de 25 % ne gagne que **5 points** et coûte **80 % de la ceinture boisée** : le
+> bâti gagne exactement ce que la végétation perd, parce que les arbres vivaient dans
+> les faubourgs supprimés. La molette reste comme outil d'A/B, défaut 1.
+>
+> **→ La nappe grise est un problème de REMPLISSAGE, pas d'étalement.**
+>
+> ### ⭐ GISEMENT VÉRIFIÉ : les clôtures sont sur le disque et personne ne les appelle
+> Le diagnostic l'annonçait, c'est **confirmé** :
+> - **20 sprites** : `public/pixelart/iso/plaza/fence-{n,s,e,w}-{antique,cosmic,industrial,medieval,modern}.png`
+> - **le module de pose est écrit ET testé** : `src/game/map/fenceEdges.js` +
+>   `fenceEdges.test.js`, module PUR (ne connaît ni Canvas ni CM)
+> - **aucun appelant** : grep exhaustif hors tests, zéro.
+>
+> Rendement mesuré en appelant le module sur le layout réel : **60 arêtes** à la
+> bande 3 (55 côté sud, 5 côté ouest) — un garde-corps le long de la berge bâtie et un
+> peu de parvis de merveille. La règle est volontairement stricte (« seulement un bord
+> qui sépare deux matières », sources en liste blanche), donc elle ne remplira PAS la
+> nappe grise.
+>
+> ⚠ **À arbitrer avant de brancher** : 60 segments justifient-ils un nouveau chemin de
+> dessin (chargement, projection d'arête, place dans le tri peintre) ? Et c'est adjacent
+> au refus « ne JAMAIS décorer la couture herbe↔ville » (7 refus) — même si la règle du
+> module dit avoir été arrêtée avec Raph.
+>
+> **Le vrai levier de la nappe grise reste à instruire** : la densité de contenu au sol
+> (arbres, buissons, mobilier via `isoStreetProps.js`), pas l'emprise ni les clôtures.
+
 ### Palier 0 — L'instrument (avant tout le reste)
 
 **S0 — Instrument de valeur + garde bâti/sol.** `scripts/frameStats.mjs`
