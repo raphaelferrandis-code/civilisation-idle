@@ -176,9 +176,21 @@ export const COULEURS_PROTEGEES = {
 // ⚠ Coût assumé : la bande 2 perd toute variation de matière (`townhouse` ×2 +
 // `courtyard`, aucun échangeable) et la bande 3 ne garde que `stonehouse`. À rétablir
 // le jour où la teinte existe — c'est la première chose à refaire à ce moment-là.
+//
+// 2026-08-06, les quatre archétypes de la vague « les îlots n'ont qu'un type de
+// bâtiment » (cf. VARIANTS_HOUSE). Tranchés sur la MESURE de leur part de terre cuite,
+// pas au jugé :
+//   - `towerhouse` 4,0 % → FROIDE, exactement le profil de `stonehouse` (1,0 %) et de
+//     `tower` (2,3 %). L'échange ardoise ↔ pierre lui va, et il rend enfin une variation
+//     de matière à la bande 3, qui n'avait plus que `stonehouse` ;
+//   - `crafthouse` 20,2 %, `insula` 16,5 %, `terrace` 8,9 % → AUCUNE teinte, du côté
+//     brique comme `block` (16,1 %) et `tenement` (13,0 %). Les mettre en famille chaude
+//     les enverrait sur `#8f8475`, la teinte qui a fait retirer `townhouse` et `manor` la
+//     veille : elle se dissout dans le sol de ville. Les rétablir en même temps qu'eux,
+//     le jour où la teinte de calcaire existe.
 const FAMILY = {
   block: 1, tenement: 1,
-  stonehouse: 2, tower: 2, megablock: 2, arcologyhome: 2
+  stonehouse: 2, tower: 2, megablock: 2, arcologyhome: 2, towerhouse: 2
 };
 
 // ⚠ REBRASSAGE OBLIGATOIRE AVANT DE PRENDRE UN BIT. L'appelant fournit un `cmHash`,

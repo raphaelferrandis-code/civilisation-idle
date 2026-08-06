@@ -2045,6 +2045,56 @@ function computeCityLayout(s) {
     }
   }
   riverSamples.push({ x: WP[WN - 1].x, y: WP[WN - 1].y, hw: 2.0 });
+
+  /* ── LA MAISON DES PLAISIRS : plantée EN PLEINE EAU, au large ──────────────
+   * Un monument permanent (il est là dès la première ère, il ne se gagne pas),
+   * posé loin en aval pour qu'on le rejoigne en barque au lieu de le croiser.
+   *
+   * Sa position est FIGÉE (Raph, 2026-08-06) — mais figer des coordonnées de
+   * grille le sortirait de l'eau au premier recalcul du cours. On fige donc son
+   * ABSCISSE LE LONG DU COURANT, et la traversée se redéduit du lit : le lieu
+   * dérive avec le fleuve et reste toujours au milieu de l'eau.
+   *
+   * ⚠ Et parce que sa place ne dépend PAS de `riverSet` (contrairement à
+   * l'Aiguille Céleste), l'évasement se fait ICI, AVANT la peinture des
+   * cellules : pas de repasse à faire après coup comme pour `era_mega`.
+   * ---------------------------------------------------------------------- */
+  const PLAISIRS = {
+    u: 0.82,      // abscisse figée le long du cours (0 = amont, 1 = aval)
+    spread: 2.5,  // demi-largeur gagnée au plus fort de l'évasement, en tuiles
+    etale: 14,    // portée de l'évasement le long du cours, en tuiles
+    drift: 1.4,   // décalage TRANSVERSAL du lit : c'est lui qui casse la symétrie
+    r: 2.6        // rayon d'obstacle pour les bateaux (le PIED, pas la couronne)
+  };
+  let plaisirsSpot = null;
+  {
+    const si = Math.max(0, Math.min(riverSamples.length - 1, Math.round(PLAISIRS.u * (riverSamples.length - 1))));
+    const s0 = riverSamples[si];
+    // Tangente du courant, prise sur deux échantillons de part et d'autre.
+    const a = riverSamples[Math.max(0, si - 2)], b = riverSamples[Math.min(riverSamples.length - 1, si + 2)];
+    let tx = b.x - a.x, ty = b.y - a.y;
+    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    // Sens du renflement tiré au sort, mais REBRASSÉ : le bit faible de cmHash
+    // vaut la parité de l'entrée, s'en servir tel quel donnerait un damier.
+    const h = cmHash("plaisirs:drift:" + (mapSeed || 0)) >>> 0;
+    const side = ((h >>> 13) & 1) ? 1 : -1;
+    for (const sp of riverSamples) {
+      const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
+      if (d > PLAISIRS.etale) continue;
+      const u = 1 - d / PLAISIRS.etale;
+      const k = u * u * (3 - 2 * u);                 // smoothstep : les rives s'ouvrent en douceur
+      sp.hw += PLAISIRS.spread * k;
+      // L'ASYMÉTRIE. Élargir `hw` seul donne un fuseau parfaitement symétrique ;
+      // un vrai élargissement de rivière creuse davantage une rive. On pousse
+      // donc aussi l'AXE du lit en travers du courant. ⚠ Modeste, et pour la
+      // même raison que l'évasement de l'île : un lit trop poussé finit sous une
+      // route, qui devient alors un pont que personne n'a demandé.
+      sp.y += side * PLAISIRS.drift * k * tx;
+      sp.x -= side * PLAISIRS.drift * k * ty;
+    }
+    plaisirsSpot = { x: s0.x, y: s0.y, tx, ty, r: PLAISIRS.r, rx: PLAISIRS.r, ry: PLAISIRS.r * 0.6 };
+  }
+
   const riverSet = new Set(), bankSet = new Set(), nearSet = new Set();
   for (const sp of riverSamples) {
     const R = sp.hw;
@@ -2095,6 +2145,11 @@ function computeCityLayout(s) {
     samples: riverSamples, bridge: riverBridge, riverYAt, present: true
   });
   const river = water;
+  // Le monument des Plaisirs voyage AVEC le modèle d'eau : le rendu y lit sa
+  // place, et la flotte en tire son obstacle (cf. CM.riverObstacles). Publié
+  // ici, donc après l'évasement du lit — ses coordonnées sont déjà celles du
+  // cours corrigé, il ne peut pas se retrouver au sec.
+  river.plaisirs = plaisirsSpot;
   lp("plan-eau");
 
   // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon

@@ -198,6 +198,121 @@ Conséquence à traiter au câblage : une emprise pareille demande une **zone r�
 sur la carte, comme `cmWonderExtent` et `WONDER_CLEAR_R` le font pour les merveilles
 (`layout.js:271`). Un lot ordinaire ne suffira pas.
 
+## Volet 1 bis — le placement : DANS L'EAU, au large
+
+> **Arbitré par Raph le 2026-08-06** : le lieu se pose **dans le fleuve**, pas
+> collé au centre, avec un **élargissement du lit** sur la zone (« naturel, pas
+> parfaitement rond ») et les **bateaux déviés autour**.
+>
+> ✅ **IMPLÉMENTÉ le 2026-08-06.** Pleine eau (pas d'île rendue à la terre),
+> évasement asymétrique, slot figé. `npm run lint` propre, **819 tests de carte au
+> vert**, et le sprite est servi en 200 OK au chargement — donc `river.plaisirs`
+> est bien publié et lu par le renderer.
+>
+> Trois points d'implémentation :
+> - le slot fige **l'abscisse le long du cours** (`u = 0.82`), jamais des
+>   coordonnées de grille : la traversée se redéduit du lit, donc un recalcul du
+>   fleuve ne peut pas le sortir de l'eau (condition posée par Raph) ;
+> - l'évasement se fait **avant** la peinture des cellules, ce que `era_mega` ne
+>   peut pas se permettre puisque sa place dépend de `riverSet` ;
+> - l'asymétrie vient d'un décalage de l'**axe** du lit (`drift`), pas seulement
+>   de `hw` — sens tiré sur `mapSeed`, rebrassé (le bit faible de `cmHash` vaut la
+>   parité de l'entrée).
+>
+> Fichiers touchés : `layout.js` (évasement + publication), `cityMapRuntime.js`
+> (obstacle de flotte), `iso/isoRenderer.js` (chargement + tri peintre).
+> Non vérifié : l'aspect **à l'écran**, le monument étant volontairement hors champ
+> au démarrage. À regarder au premier lancement.
+
+### Rien à inventer : le bloc `era_mega` fait déjà tout
+
+`layout.js:2183-2258` construit exactement ça pour la merveille `era_mega` (l'île
+de la Cité). Sept étapes, dans cet ordre :
+
+1. cherche le `riverSample` le plus proche du slot → centre `s0` + **tangente du
+   courant** `(tx, ty)` ;
+2. vérifie que le slot est bien en eau (`d <= hw + 1.5`) ;
+3. pose un fuseau de demi-axes `rx = 7.6`, `ry = 2.4` tuiles ;
+4. **élargit le lit** : `sp.hw += (ry + 0.8) · smoothstep(u)` sur une portée
+   `etale = rx · 1.9` ;
+5. **repeint** `riverSet` / `bankSet` / `nearSet` sur la zone élargie ;
+6. **rend l'île à la terre** : les cellules dans l'ellipse passent de `riverSet` à
+   `bankSet` ;
+7. publie `river.islands`, que `riverFleet.orbitPoint()` (`riverFleet.js:191`)
+   utilise pour faire **contourner les bateaux** sur une ellipse homothétique.
+
+### Le « pas parfaitement rond » est acquis par construction
+
+L'élargissement ne s'applique pas à un disque : il incrémente le `hw` de chaque
+**échantillon de la spline**. La forme obtenue est donc un **fuseau étiré par le
+courant**, jamais un rond. C'est déjà la doctrine écrite dans le code, et c'est
+Raph qui l'avait imposée en 2e passe : « une île de rivière est un fuseau étiré par
+le courant, pas un œuf ; à 4,6 elle se lisait comme un rond posé au milieu de
+l'eau » — d'où `rx = 7.6`.
+
+Pour aller plus loin dans l'irrégularité, un seul manque : l'élargissement actuel
+est **symétrique**, puisqu'il n'augmente qu'une demi-largeur. Le rendre asymétrique
+demande de décaler aussi le centre du lit (`sp.y += offset · smoothstep`), avec un
+offset seedé sur `mapSeed` — le fleuve gonflerait alors davantage d'une rive,
+comme un vrai méandre. ⚠ `cmHash` est SIGNÉ (`>>> 0` obligatoire) et son bit faible
+vaut la parité de l'entrée : rebrasser avant tout tirage.
+
+### Les deux variantes, et celle que je recommande
+
+| | Étape 6 | Le lieu | Ce que ça demande à l'art |
+|---|---|---|---|
+| **A. sur une île** | conservée | pose sur la terre ferme | un pied normal, une berge autour |
+| **B. en pleine eau** | supprimée | émerge de l'eau, comme l'Aiguille Céleste | **pilotis, récif ou îlot** sous le fût |
+
+**B**, puisque Raph a dit « dans l'eau » et qu'il retravaille justement le pied. On
+garde les étapes 1 à 5 et 7, on saute la 6 — ou on n'en garde qu'un noyau d'une ou
+deux cellules, un récif sous la structure.
+
+### Garde-fous, tous déjà payés une fois
+
+- ⚠️ **L'évasement transversal doit rester modeste** (`ry + 0.8`, pas `ry + 1.9`).
+  Le premier jet gonflait tant le lit qu'il **passait sous une route existante, qui
+  devenait un pont** — un ouvrage que personne n'avait demandé. C'est écrit noir sur
+  blanc dans le code.
+- ⚠️ **L'ordre de calcul est le vrai piège.** Le slot en eau (`cmWetWonderSlot`) a
+  besoin de `riverSet`, mais l'élargissement doit modifier `hw` **avant** que les
+  cellules soient peintes. Le bloc `era_mega` s'en sort en repeignant la zone après
+  coup (étape 5) : reprendre ce schéma plutôt que de réordonner la génération.
+- ⚠️ Augmenter `hw` ne risque pas d'ouvrir des trous entre échantillons (le danger
+  documenté est l'inverse : un pas d'échantillonnage trop grand devant un `hw`
+  trop petit).
+- Le slot en eau **s'écarte déjà du pont** (`nearBridge * 2`), la traversée est
+  préservée sans rien ajouter.
+
+### Les bateaux : réglé aussi, et né du même problème
+
+✅ **Vérifié.** `riverDodge()` + `riverIslandObstacles()` (`iso/isoRenderer.js:5715`
+et `:5755`) existent précisément pour ça. L'en-tête du test dit l'histoire : « **L'Aiguille
+Céleste est posée EN PLEIN FLEUVE (…) Les bateaux, eux, suivent le ruban : ils lui
+rentraient dedans** (Raph, 2026-07-30) ». La correction est en place.
+
+Le principe, à respecter : **l'évitement ne joue que sur la voie TRANSVERSALE**, on
+ne dévie jamais le cours d'eau ni la progression le long du fleuve — le bateau se
+range d'un bord. `riverIslandObstacles` égrène un point tous les `ry` le long du
+fuseau pour que les zones d'influence se recouvrent.
+
+Conséquence pratique : il suffit que le lieu soit publié dans `river.islands` pour
+que les bateaux le contournent **sans une ligne de plus**. `orbitPoint` (le circuit
+du pêcheur) est un bonus qui viendrait gratuitement par-dessus.
+
+⚠ Seul point à arbitrer : `islands` sert **aussi** au rendu du contour d'île (il
+existe un `beachIsland.test.js`). Publier une île « sans terre » pourrait dessiner
+une plage autour du monument. Deux issues : un fuseau minuscule assumé comme récif,
+ou alimenter la liste d'obstacles sans passer par `islands`.
+
+### Reste à trancher avant d'écrire
+
+- Le lieu étant présent **dès le début** alors que `era_mega` est une merveille
+  tardive, l'élargissement doit s'appliquer sans condition de construction — et
+  son slot doit être **figé**, sinon il dérive quand la ville grandit (`ring` est
+  relatif au périmètre urbain).
+- Récif ou pleine eau (cf. le tableau des deux variantes plus haut).
+
 ## Volet 2 — la navigation
 
 8 onglets aujourd'hui (`src/App.jsx:257`), le nôtre sera le 9e. Il lui faut une

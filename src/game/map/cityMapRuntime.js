@@ -525,8 +525,12 @@ function cityMapVariantLabel(type, variant) {
     longhouse: "Longue maison",
     courtyard: "Maison à cour",
     townhouse: "Maison de ville",
+    crafthouse: "Logis d'artisan",
+    towerhouse: "Maison-tour",
     manor: "Manoir",
     stonehouse: "Maison de pierre",
+    insula: "Immeuble de rapport",
+    terrace: "Rangée ouvrière",
     tenement: "Immeuble populaire",
     block: "Bloc résidentiel",
     tower: "Tour d'habitation",
@@ -1602,6 +1606,20 @@ function cityMapEnsureLayout(now, deps = {}) {
         const lat = (slot.gx - s0.x) * nx + (slot.gy - s0.y) * ny;   // signé, en tuiles
         CM.riverObstacles.push({ t: bi / Math.max(1, len - 1), lat, r: 1.6, id: w.id });
       }
+    }
+    // LA MAISON DES PLAISIRS. Même contrat que l'Aiguille, à deux différences :
+    // elle n'est pas une merveille (aucun rang à atteindre, elle est là dès la
+    // première ère), et sa place est publiée par le layout au lieu d'être
+    // déduite d'un `wonderSlot`. `lat` vaut 0 : le lit a été évasé AUTOUR d'elle,
+    // elle en occupe donc l'axe.
+    //
+    // Le rayon ne couvre que le PIED, pas l'envergure des plateaux : ceux-ci
+    // surplombent l'eau, et un bateau passe dessous sans rien heurter.
+    if (hasRiver && L.river.samples && L.river.plaisirs) {
+      const sm = L.river.samples, len = sm.length, p = L.river.plaisirs;
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < len; i += 1) { const dd = (sm[i].x - p.x) ** 2 + (sm[i].y - p.y) ** 2; if (dd < bd) { bd = dd; bi = i; } }
+      CM.riverObstacles.push({ t: bi / Math.max(1, len - 1), lat: 0, r: p.r || 2.6, id: "plaisirs" });
     }
     // L'ÎLE : un obstacle LONG et non un caillou. Le calcul vit avec `riverDodge`
     // (isoRenderer), qui consomme ces points — publier et éviter sont deux moitiés

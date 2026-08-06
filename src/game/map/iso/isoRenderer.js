@@ -22,6 +22,22 @@ import { grainTune } from '../spriteScale.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { drawEngineSprite } from '../buildingShapes.js';
 import { drawWonder } from '../renderBuildings.js';
+
+// LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
+// il n'a ni rang ni condition, donc rien à voir avec le cache des merveilles
+// (indexé id+rang). Un seul fichier, un seul chargement.
+// PPT identique aux merveilles (34 px de sprite par tuile) : c'est ce qui le met
+// à la même échelle qu'elles, et le sprite est calibré pour.
+const PLAISIRS_PPT = 34;
+let plaisirsArt = null;
+function plaisirsSprite() {
+  if (!plaisirsArt) {
+    plaisirsArt = { img: new Image(), ready: false };
+    plaisirsArt.img.onload = () => { plaisirsArt.ready = true; };
+    plaisirsArt.img.src = '/pixelart/wonders/plaisirs-t3.png';
+  }
+  return plaisirsArt.ready ? plaisirsArt : null;
+}
 // (engineStage n'était importé QUE pour choisir le stade de l'aqueduc-conduite,
 //  retiré le 2026-08-05. Les points d'eau ont leur propre échelle d'ère, alignée
 //  sur celle des places — cf. waterPointEra.)
@@ -9140,6 +9156,13 @@ function drawIsoLive(now) {
       }
     }
   }
+  // LA MAISON DES PLAISIRS, au tri peintre comme les merveilles : sa profondeur
+  // est son PIED, pas son centre — sinon la tour, haute de 11 tuiles, passerait
+  // devant des bateaux qui naviguent pourtant en aval d'elle.
+  {
+    const pl = L.river && L.river.plaisirs;
+    if (pl && plaisirsSprite()) items.push({ d: depthOf(pl.x * T, pl.y * T), kind: 'plaisirs', pl });
+  }
   // LAMPADAIRES : mâts de l'ère le long des routes (liste déterministe
   // isoLamps), posés au peintre ; leurs halos de nuit se dessinent dans
   // drawIsoNight à la MÊME position (points lumineux ancrés, retour Raph).
@@ -9612,6 +9635,22 @@ function drawIsoLive(now) {
     } else if (it.kind === 'wonder') {
       // MERVEILLE au tri peintre : drawWonder gère ancre/cull/érection lui-même.
       drawWonder(it.w, it.wi, now);
+    } else if (it.kind === 'plaisirs') {
+      const art = plaisirsSprite();
+      if (art) {
+        const p = worldToScreen(it.pl.x * T, it.pl.y * T);
+        const nw = art.img.naturalWidth || 1, nh = art.img.naturalHeight || 1;
+        // Hauteur = celle du sprite convertie en tuiles au PPT des merveilles,
+        // largeur au ratio du PNG : un blit carré l'écraserait.
+        const hpx = T * z * (nh / PLAISIRS_PPT);
+        const wpx = hpx * (nw / nh);
+        const prevPS = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        // Ancré sur le PIED (bas, centré) : le fût plonge dans l'eau au point
+        // exact qui a servi à évaser le lit.
+        ctx.drawImage(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx);
+        ctx.imageSmoothingEnabled = prevPS;
+      }
     } else if (it.kind === 'lamp') {
       const p = worldToScreen(it.wx, it.wy);
       const m = lampFootMetrics(it.art) || { footXf: 0.5, footYf: 0.97, usedHf: 0.92 };

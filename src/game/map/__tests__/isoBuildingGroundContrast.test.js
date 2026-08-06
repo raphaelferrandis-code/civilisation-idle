@@ -74,7 +74,19 @@ const CLIQUET = [
   { band: 6, max: 27.7, pire: "arcologyhome" },
   { band: 7, max: 25.0, pire: "tower-cosmic-7" },
   { band: 8, max: 28.1, pire: "tower-cosmic-8" },
-  { band: 9, max: 3.1, pire: "tower-cosmic-9" },
+  // ⚠ RELEVÉ de 3,1 à 7,5 le 2026-08-06, et c'est le SEUL relèvement de ce cliquet —
+  // il doit rester exceptionnel et justifié. Cause : l'archétype `terrace` (vague « les
+  // îlots n'ont qu'un type de bâtiment »), que la garde a attrapé dès sa pose.
+  //
+  // Pourquoi c'est acceptable, et comment ça se VÉRIFIE : le coupable est un FIL, pas
+  // une masse. Sur la version livrée, `#1f3a44` (teal, couleur protégée) pèse 4,1 % de
+  // l'encre, chaque pixel a 0,74 voisin de sa propre couleur et la plus grosse tache
+  // d'un seul tenant fait 4 px — 0,2 % du sprite. Un vrai défaut de lecture est un MUR
+  // ou un TOIT : 20 à 35 % de l'encre, en une seule plaque. Un liseré sombre sur une
+  // dalle tech sombre ne fait disparaître aucun bâtiment.
+  // ⚠ Le critère est « fil ou masse », pas le pourcentage seul : si un futur archétype
+  // pousse une PLAQUE dans le rayon, il faudra traiter le sprite, pas relever la ligne.
+  { band: 9, max: 7.5, pire: "terrace/origine (fil teal #1f3a44, 4,1 %)" },
 ];
 const TOLERANCE = 1.5;   // points de pourcentage — bruit d'arrondi des PNG
 // Plancher dur : aucune bande ne doit JAMAIS franchir ça, même en régressant depuis

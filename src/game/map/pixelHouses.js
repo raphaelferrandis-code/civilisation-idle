@@ -46,7 +46,10 @@ export const houseVarTune = { on: true };
 // pas de gate par bande, on se fie à la variante de la tuile.
 const AVAILABLE = new Set([
   "tent", "hut", "longhouse", "courtyard", "townhouse", "stonehouse",
-  "manor", "block", "tenement", "tower", "megablock", "arcologyhome"
+  "manor", "block", "tenement", "tower", "megablock", "arcologyhome",
+  // 2026-08-06 — quatre archétypes de plus pour les bandes 2 à 5, qui n'en
+  // offraient que deux ou trois (cf. VARIANTS_HOUSE).
+  "crafthouse", "towerhouse", "insula", "terrace"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /

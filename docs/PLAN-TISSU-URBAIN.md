@@ -919,8 +919,45 @@ Molette : `__engineSpread({ gap, reach })` — 0 rejoue le comportement d'avant.
 cours, l'effet n'apparaît que sur les bâtiments neufs. Une ville repartie de zéro le montre
 d'emblée.
 
-**Reste le point 2** (habitations, 3-4 variantes par ère) : c'est de l'art, pas du
-placement.
+#### ✅ LIVRÉ pour les habitations (2026-08-06) — la passe d'ART, quatre archétypes de plus
+
+Le point 2 n'avait pas de remède de code : on ne mélange pas trois choses en cinq. Quatre
+sprites ajoutés, choisis pour la **silhouette qui manquait à leur bande**, pas pour
+allonger une liste :
+
+| | bande | ce qu'il apporte | types de la bande |
+|---|---|---|---|
+| `crafthouse` — Logis d'artisan | 2-3 | l'**auvent**, une masse qui déborde du volume | 2 → 4 |
+| `towerhouse` — Maison-tour | 2-3 | la **verticale**, absente d'un paysage tout en bas | 2 → 4 |
+| `insula` — Immeuble de rapport | 4 | la **hauteur antique**, sans immeuble XIXe anachronique | 3 → 4 |
+| `terrace` — Rangée ouvrière | 5-6 | l'**horizontale**, là où tout s'empilait en tours | 3 → 4 |
+
+Câblage : `VARIANTS_HOUSE`, `AVAILABLE` (pixelHouses), `BUILDING_HEIGHTS` +
+`SHAPE_ALIAS` (repli procédural par emprunt, pas quatre silhouettes canvas de plus),
+`cityMapVariantLabel`, `FAMILY` (housePalette). Vérifié en jeu bande par bande : b2
+306 maisons en 3 types, b3 452 en 4, b4 713 en 4, b5 988 en 4, b6 1 261 en 5.
+
+**Trois enseignements, tous payés par un essai raté :**
+
+- ⛔ **La dalle de sol ne se retire pas par la COULEUR.** Le crème du mur de `crafthouse`
+  est byte-identique au sable de son socle : une tolérance de 46 a mangé toute la façade.
+  Ni la clause de découpe de `PLAN-EGALISATION-GRAIN §5` ni le silence total sur le sol
+  n'empêchent PixelLab de poser un socle — **9 générations sur 10 en portaient un**.
+  Outil final : `scripts/stripGroundSlab.mjs`, propagation à couleur EXACTE depuis le
+  pourtour du losange, bornée à ce losange, encadrée de deux passes de composantes.
+  ⚠ « Tout le demi-losange avant est de la dalle » est FAUX — le bas des murs descend
+  devant la ligne de contact, `terrace` y a perdu ses façades.
+- ⚠ **Un sprite se compare à ses frères AVANT d'être branché.** La première `terrace`
+  sortait à 65 de luminance moyenne (série : 74 à 119) et 59 % de son encre sous L60 :
+  en jeu, des taches noires. Régénérée en clair → 103 et 42 %.
+- ⚠ **Le POIDS dans la liste compte autant que le sprite.** `terrace` comptée deux fois
+  sortait à 525 exemplaires sur 988 : la variante censée rompre le monotype le
+  remplaçait. Une seule occurrence par liste.
+
+`terrace` et `crafthouse` sont **miroités** — leur mur gauche était plus sombre que le
+droit (57 vs 146 et 80 vs 110). C'est le miroir de rattrapage du horreum (`f576faf`), pas
+le miroir de variation rejeté : on mesure d'abord, on ne retourne que ce qui est à
+l'envers.
 
 #### ⚠ « Est-ce à cause de tes modifications qu'on a à nouveau ces carrés de routes ? »
 

@@ -19,17 +19,30 @@ import { hashString, mixSeed } from "./seedManager.js";
 // Exportée pour la garde de contraste bâti/sol (isoBuildingGroundContrast.test.js) :
 // elle doit savoir QUELS archétypes une bande pose réellement, et le lire ici plutôt
 // que d'en tenir une copie — une garde déduite d'une copie dérive en silence.
+// ⚠ CE QUI FAIT LA VARIÉTÉ D'UNE RUE, C'EST LE NOMBRE D'ARCHÉTYPES, PAS LA RÈGLE DE
+// TIRAGE. Raph, 2026-08-05 : « les îlots sont trop denses, surtout car il n'y a qu'un
+// type de bâtiments ». Mesuré alors : 53,8 % des voisines d'une habitation portaient la
+// même identité en b4, pour un mélange parfait à 33 % — parce que la bande n'offrait que
+// TROIS archétypes. Aucun mélange ne peut créer une variété qui n'existe pas ; le remède
+// est de l'ART. Quatre archétypes ajoutés le 2026-08-06 : `crafthouse` (b2-b3),
+// `towerhouse` (b2-b3), `insula` (b4), `terrace` (b5-b6). Bandes 2 à 5 : 2-3 → 4 types.
 export const VARIANTS_HOUSE = [
   { base: ["tent"], poor: ["tent"], rich: ["hut"] },
   { base: ["hut", "hut", "longhouse"], poor: ["tent", "hut", "hut"], rich: ["longhouse", "hut"] },
-  { base: ["townhouse", "townhouse", "courtyard"], poor: ["hut", "townhouse"], rich: ["courtyard", "townhouse", "manor"] },
-  { base: ["stonehouse", "stonehouse", "manor"], poor: ["townhouse", "stonehouse"], rich: ["manor", "stonehouse"] },
+  { base: ["townhouse", "crafthouse", "courtyard", "townhouse"], poor: ["hut", "townhouse", "crafthouse"], rich: ["courtyard", "towerhouse", "townhouse", "manor"] },
+  { base: ["stonehouse", "crafthouse", "towerhouse", "stonehouse", "manor"], poor: ["townhouse", "crafthouse", "stonehouse"], rich: ["manor", "towerhouse", "stonehouse"] },
   // b4 = Marbre / antiquité classique (habitants en toge) : pierre, cours et villas.
-  // PAS d'immeuble ici — `block`/`tenement` (façades d'appartements XIXe) démarrent en
-  // b5 = Fonte (époque industrielle), sinon on obtient « immeubles + toges ».
-  { base: ["courtyard", "stonehouse", "courtyard", "manor"], poor: ["stonehouse", "townhouse", "courtyard"], rich: ["manor", "courtyard", "manor"] },
-  { base: ["block", "tenement", "tower"], poor: ["tenement", "tenement", "block"], rich: ["tower", "block"] },
-  { base: ["tower", "block", "megablock", "arcologyhome"], poor: ["megablock", "tenement", "tower"], rich: ["arcologyhome", "tower"] }
+  // PAS d'immeuble XIXe ici — `block`/`tenement` (façades d'appartements) démarrent en
+  // b5 = Fonte (époque industrielle), sinon on obtient « immeubles + toges ». `insula`
+  // est l'immeuble de rapport ROMAIN (brique, balcons de bois, arcades au rez) : c'est
+  // la hauteur d'habitation que cette bande pouvait avoir, et elle lui manquait.
+  { base: ["courtyard", "insula", "stonehouse", "insula", "courtyard", "manor"], poor: ["stonehouse", "insula", "townhouse", "courtyard"], rich: ["manor", "courtyard", "insula", "manor"] },
+  // ⚠ `terrace` ne compte QU'UNE FOIS dans chaque liste. Doublée, elle sortait à 525
+  // exemplaires sur 988 en b5 et 481 sur 1261 en b6 : la rangée ouvrière est LARGE
+  // (54 px de contenu, ~1,3 tuile) et la plus sombre de la série — à ce nombre elle
+  // remplaçait le monotype qu'on voulait casser au lieu de le rompre.
+  { base: ["block", "terrace", "tenement", "tower"], poor: ["terrace", "tenement", "tenement", "block"], rich: ["tower", "block", "terrace"] },
+  { base: ["tower", "block", "megablock", "terrace", "arcologyhome"], poor: ["megablock", "tenement", "terrace", "tower"], rich: ["arcologyhome", "tower"] }
 ];
 
 function variantList(table, band, bias) {

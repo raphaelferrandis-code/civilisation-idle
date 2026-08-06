@@ -41,7 +41,13 @@ const chroma = (r, g, b) => (Math.max(r, g, b) - Math.min(r, g, b)) * 100 / 255;
 // sur `#8f8475`, à 20,7 du sol de la bande 3 et 11,9 de celui de la bande 2 — ils
 // disparaissaient dans le pavé au lieu de varier (25,0 % et 32,2 % d'encre dissoute,
 // sur le MUR). Cf. le commentaire de FAMILY dans housePalette.js.
-const SANS_TEINTE = new Set(["tent", "hut", "longhouse", "courtyard", "townhouse", "manor"]);
+// `crafthouse`, `insula` et `terrace` s'y ajoutent le 2026-08-06 pour la MÊME raison,
+// vérifiée sur leur art : 20,2 / 16,5 / 8,9 % de terre cuite, du côté brique. Leur
+// compagnon `towerhouse` (4,0 %, profil de `stonehouse`) part, lui, en famille FROIDE.
+const SANS_TEINTE = new Set([
+  "tent", "hut", "longhouse", "courtyard", "townhouse", "manor",
+  "crafthouse", "insula", "terrace"
+]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.
 const SPRITES = readdirSync(HOUSES_DIR)
@@ -54,7 +60,7 @@ const teinteDe = (nom) => HOUSE_TINTS[HOUSE_FAMILY[nom] | 0];
 describe("teintes des habitations", () => {
   // Sentinelle : un 13e sprite qui arriverait sans qu'on ait tranché sa famille sortirait
   // à l'identique en silence (défaut sûr de pickHouseTint). Ce test rend le silence bruyant.
-  it("les 12 archétypes livrés sont tous tranchés", () => {
+  it("les 16 archétypes livrés sont tous tranchés", () => {
     expect(SPRITES.map((s) => s.nom).sort()).toEqual(
       [...Object.keys(HOUSE_FAMILY), ...SANS_TEINTE].sort()
     );

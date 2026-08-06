@@ -17,8 +17,15 @@ import { drawEngineSprite } from './engineSprites.js';
 const BUILDING_HEIGHTS = {
   tent: 0.5, hut: 0.6, longhouse: 0.8, townhouse: 1.1,
   courtyard: 0.9, stonehouse: 1.1, manor: 1.4, block: 1.8, tenement: 2.2,
-  tower: 3.2, megablock: 2.8, arcologyhome: 3.4
+  tower: 3.2, megablock: 2.8, arcologyhome: 3.4,
+  crafthouse: 1.1, towerhouse: 1.7, insula: 1.7, terrace: 0.9
 };
+
+// Repli PROCÉDURAL des archétypes ajoutés en 2026-08-06 : ils n'ont pas de forme
+// vectorielle à eux et empruntent la plus proche. Écrire quatre silhouettes de plus
+// en canvas irait à l'envers de la campagne en cours (le rendu passe AU PIXEL) et ne
+// se verrait que sprite absent ou `__pixelHouses(false)`.
+const SHAPE_ALIAS = { crafthouse: "townhouse", towerhouse: "stonehouse", insula: "block", terrace: "townhouse" };
 
 // ── Helpers du langage commun ───────────────────────────────────────────────
 
@@ -93,7 +100,8 @@ const CPAL = {
   9: { mid: "#262044", edge: "#c8aef0", lite: "#ece2ff", glow: "170,140,255" }
 };
 
-function drawHouseShape(x, y, w, h, pad, tier, seed, variant, now) {
+function drawHouseShape(x, y, w, h, pad, tier, seed, variantIn, now) {
+  const variant = SHAPE_ALIAS[variantIn] || variantIn;
   const ctx = CM.ctx;
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 0;
   const lit = cmLitColor(band);
