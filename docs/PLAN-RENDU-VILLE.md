@@ -491,6 +491,29 @@ dans le dépôt**, non connectés.
 > emprise multi-tuiles ne rend plus ce qu'on lui demande.** Le régler par le poids est
 > sans effet ; il faut libérer de l'espace contigu.
 
+> #### ⛔ « Libérer les districts pour débloquer le manoir » : ÉCARTÉ (2026-08-06)
+> C'est moi qui l'avais proposé comme « lot court et bien cerné ». Mesuré, il ne tient
+> pas — sur les deux tableaux.
+>
+> | bande | districts | cellules réservées | carrés 2×2 offerts | occupées |
+> |---|---|---|---|---|
+> | 3 | 3 | 17 | **6** | 0 |
+> | 5 | 15 | 130 | 57 | 0 |
+> | 7 | 107 | **1 120** | — | 0 |
+>
+> 1. **Le gain sur le manoir est dérisoire là où il compte.** À la bande 3 — l'ère de
+>    la capture de Raph — ça offrirait **6 emplacements pour ~46 tirages de manoir**.
+>    Le manoir passerait de 0,3 % à ~1,6 %. Ce n'est pas le déblocage annoncé.
+> 2. **Et ça DENSIFIERAIT, à contresens du retour de Raph.** Les 1 120 cellules de la
+>    bande 7 (pour 2 371 tuiles bâties) ne se lisent PAS comme des trous : capture
+>    `.preview-shots/b7-districts-vides.png`, elles font des respirations entre les
+>    blocs. Les libérer ajouterait ~1 120 bâtiments à une ville dont le grief était
+>    « les îlots sont trop denses ».
+>
+> **Ces emprises remplissent donc une fonction — clairière — sans que personne l'ait
+> voulu.** Les dessiner reste ouvert (ce serait des repères civiques, ce qui manque
+> encore) ; les libérer est à écarter.
+
 > #### ⛔ Tri « grandes emprises d'abord » : ESSAYÉ, MESURÉ, REJETÉ (2026-08-06)
 > Suite logique du diagnostic ci-dessous (73 % des refus venaient de `usedKeys`, donc
 > des 1×1 posés plus tôt) : trier les slots par aire décroissante pour que les masses
