@@ -94,6 +94,52 @@ export function fenceEdges(o, cfg = FENCE) {
   return out;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * LES ENTRÉES, DÉRIVÉES D'UN LAYOUT — une seule définition pour deux appelants.
+ *
+ * Le compteur (`tissuMetrics`) et la pose (`isoRenderer`) doivent voir EXACTEMENT
+ * la même carte de matières, sinon le nombre annoncé par `__tissu()` ne serait pas
+ * celui des panneaux dessinés. La règle maison vaut ici comme ailleurs : une
+ * deuxième copie dérive en silence.
+ *
+ * La matière vient du CHAMP DE L2 (`L._courField` : urban / dirt / grass), que le
+ * plan désigne comme l'arbitre (« le champ de matières de L2 sait déjà trancher »).
+ * Par-dessus se superposent les matières que ce champ ne connaît pas — eau, parvis
+ * de merveille, place, chaussée, bâti — sans quoi une arête quai↔eau ne se verrait
+ * pas. L'ordre du test EST la priorité.
+ *
+ * Reste PUR : ne lit qu'un layout, ne connaît ni Canvas ni CM.
+ * ──────────────────────────────────────────────────────────────────────────── */
+export function fenceInputs(L) {
+  const urbanSet = (L && L.urbanSet) || new Set();
+  const roadSet = (L && L.roadSet) || new Set();
+  const roadMap = (L && L.roadMap) || new Map();
+  const waterSet = new Set((L && L.river && L.river.cells) || []);
+  const wonderSet = (L && L.wonderGround) || new Set();
+  const cour = (L && L._courField) || new Map();
+  // Empreintes bâties : même formule que le sol de ville et le trim (spanX × spanY,
+  // `size` pour les moteurs carrés qui ne portent pas spanX).
+  const builtSet = new Set();
+  for (const t of (L && L.tiles) || []) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) {
+      for (let ay = 0; ay < sy; ay += 1) builtSet.add((t.gx + ax) + ',' + (t.gy + ay));
+    }
+  }
+  const matOf = (a, b) => {
+    const k = b === undefined ? a : a + ',' + b;
+    if (waterSet.has(k)) return 'water';
+    if (wonderSet.has(k)) return 'wonder';
+    if (roadSet.has(k)) {
+      const c = roadMap.get(k);
+      return ((c && c.rank) === 'plaza') ? 'plaza' : 'road';
+    }
+    if (builtSet.has(k)) return 'built';
+    return cour.get(k) || (urbanSet.has(k) ? 'urban' : 'grass');
+  };
+  return { urbanSet, wonderSet, waterSet, matOf };
+}
+
 /* Le PLAFOND n'est pas un réglage de dosage, c'est un fusible. La règle des deux
  * matières borne déjà le résultat au périmètre des sources ; si ce nombre
  * explose un jour, c'est qu'une source a été ouverte trop large ou qu'une ère

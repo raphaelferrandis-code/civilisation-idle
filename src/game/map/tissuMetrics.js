@@ -26,7 +26,7 @@
 import { courField } from './iso/isoRenderer.js';
 // Le compteur de clôtures appelle le VRAI module de pose, pas une copie de sa règle
 // (cf. fenceCount plus bas) — une mesure déduite d'une réplique dériverait en silence.
-import { fenceEdges, FENCE } from './fenceEdges.js';
+import { fenceEdges, fenceInputs, FENCE } from './fenceEdges.js';
 
 // Médiane d'un tableau de nombres (copie triée ; les tableaux d'entrée sont des
 // longueurs de runs, quelques milliers d'éléments au pire).
@@ -213,7 +213,7 @@ export function tissuMetrics(L) {
       max: sizes.length ? Math.max(...sizes) : 0,
       singleShare: sizes.length ? single / sizes.length : 0,
     },
-    fences: fenceCount(L, urban, roadSet, roadMap, builtSet),
+    fences: fenceCount(L),
   };
 }
 
@@ -225,28 +225,17 @@ export function tissuMetrics(L) {
 // On appelle le VRAI module de pose (`fenceEdges`), jamais une réplique de sa règle :
 // le but est de savoir ce que la pose produira, pas ce qu'on croit qu'elle produira.
 //
-// La matière vient du CHAMP DE L2 (`L._courField`, urban/dirt/grass), que le plan
-// désigne comme l'arbitre : « le champ de matières de L2 sait déjà trancher ».
-// Au-dessus se superposent les matières que le champ ne connaît pas — eau, parvis de
-// merveille, place, chaussée — sans quoi une arête quai↔eau ne se verrait pas.
-function fenceCount(L, urban, roadSet, roadMap, builtSet) {
-  const water = new Set((L && L.river && L.river.cells) || []);
-  const wonder = (L && L.wonderGround) || new Set();
-  const cour = (L && L._courField) || new Map();
-  const matOf = (gx, gy) => {
-    const k = gx + ',' + gy;
-    if (water.has(k)) return 'water';
-    if (wonder.has(k)) return 'wonder';
-    if (roadSet.has(k)) {
-      const c = roadMap.get(k);
-      return ((c && c.rank) === 'plaza') ? 'plaza' : 'road';
-    }
-    if (builtSet.has(k)) return 'built';
-    return cour.get(k) || (urban.has(k) ? 'urban' : 'grass');
-  };
+// ⚠ LES ENTRÉES VIENNENT DE `fenceInputs`, JAMAIS D'UNE COPIE LOCALE. Première
+// version écrite : un `matOf(gx, gy)` recopié ici. Or `fenceEdges` appelle
+// `matOf(clé)` avec UNE CHAÎNE — le `gx + ',' + gy` local rendait donc
+// « 11,83,undefined », introuvable partout, et la fonction répondait 'grass' pour
+// TOUTE cellule. Le compteur ne voyait alors que les arêtes touchant l'EAU (l'eau est
+// testée avant `matOf`) et manquait entièrement les parvis de merveille, c'est-à-dire
+// l'étape 1 de l'ordre de pose. Une seule définition, partagée avec la pose.
+function fenceCount(L) {
   let edges;
   try {
-    edges = fenceEdges({ urbanSet: urban, wonderSet: wonder, waterSet: water, matOf }) || [];
+    edges = fenceEdges(fenceInputs(L)) || [];
   } catch { return { n: 0, cap: FENCE.cap, parCote: {}, erreur: true }; }
   const parCote = {};
   for (const e of edges) {
