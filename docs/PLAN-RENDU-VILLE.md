@@ -631,6 +631,39 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 > 2. **puis** dessiner les ~78 sprites, dont le devis ne vaudra que si (1) a livré.
 >
 > ⛔ **Ne pas commencer par l'art.** C'est le seul enseignement solide de ce cadrage.
+>
+> #### ✅ Le lot 1 est VIABLE — simulé le 2026-08-06, avant d'écrire la pose
+> Simulation d'un ordre « le long des fronts » : pour chaque RUN de route de même axe,
+> on marche le long et on émet les deux cellules qui la flanquent — une rue produit
+> ainsi deux séquences CONTIGUES de cellules. Puis pose 1×1 dans cet ordre, à nombre de
+> maisons égal (372), et comptage des rangées.
+>
+> | | actuel | ordre le long des fronts |
+> |---|---|---|
+> | en rangée ≥ 2, axe X | 18,3 % | **34,4 %** |
+> | en rangée ≥ 2, axe Y | 41,9 % | **69,6 %** |
+>
+> Et surtout, les LONGUEURS changent de nature — c'est ça qui compte pour l'art :
+>
+> | longueur de rangée (axe Y) | actuel | simulé |
+> |---|---|---|
+> | 2 | 23 | 21 |
+> | 3 | 34 | 13 |
+> | 4 | 2 | 5 |
+> | 5 à 6 | **0** | 11 |
+> | 7 à 9+ | **0** | 12 |
+>
+> Aujourd'hui rien ne dépasse 4 ; l'ordre par fronts produit des rangées de 5 à 9+.
+> **C'est exactement ce qui rend les variantes « milieu » utiles** — sans elles le
+> devis de 78 sprites était mal employé, avec elles il paie.
+>
+> Réserve de cellules : **1 944 cellules de front disponibles pour 372 maisons**, donc
+> aucune contrainte d'espace sur ce levier (contrairement aux emprises multi-tuiles).
+>
+> **→ Lot 1 validé sur simulation. Prochaine étape : écrire l'ordre dans
+> `orderedList`.** ⚠ Ça change la position de TOUTES les maisons — mais le reshuffle
+> des types a déjà eu lieu deux fois cette séance, et les positions sont persistées
+> par slot, donc seule la première recomposition sera visible.
 
 | **S14** | **La mitoyenneté, en art.** Façades de front, murets fermant le bord nu, variantes d'about. C'est le seul chemin vers l'îlot des deux références. ⛔ **INTERDIT de passer par le facteur d'échelle** : monter `HOUSE_LOT_WF` à 1,0 et descendre `HOUSE_UNIT` à 34 multiplie k par 1,66 et sort tout le corpus de la bande de porte 10-14 px. **On élargit l'ART, pas le facteur** | L + art |
 
