@@ -30,7 +30,14 @@ export const VARIANTS_HOUSE = [
   { base: ["tent"], poor: ["tent"], rich: ["hut"] },
   { base: ["hut", "hut", "longhouse"], poor: ["tent", "hut", "hut"], rich: ["longhouse", "hut"] },
   { base: ["townhouse", "crafthouse", "courtyard", "townhouse"], poor: ["hut", "townhouse", "crafthouse"], rich: ["courtyard", "towerhouse", "townhouse", "manor"] },
-  { base: ["stonehouse", "crafthouse", "towerhouse", "stonehouse", "manor"], poor: ["townhouse", "crafthouse", "stonehouse"], rich: ["manor", "towerhouse", "stonehouse"] },
+  // ⚠ LA TOUR EST UN ACCENT, PAS UN TYPE COURANT. Mesuré en jeu à la bande 3 le
+  // 2026-08-06, sur la liste `base` à 5 entrées : stonehouse 48,4 %, crafthouse 28,8 %,
+  // towerhouse 22,8 % — soit une tour toutes les 4,4 maisons. À l'écran ça remplace une
+  // monotonie par une autre : une forêt de pointes régulières. `towerhouse` fait 76 px
+  // d'encre contre 49 pour `stonehouse` ; c'est justement ce qui en fait un REPÈRE, et
+  // un repère qui se répète n'en est plus un. Reporté à 1 entrée sur 8 (~14 % de ce qui
+  // se pose réellement), les deux types courants se partageant le reste à parts égales.
+  { base: ["stonehouse", "crafthouse", "stonehouse", "towerhouse", "crafthouse", "stonehouse", "crafthouse", "manor"], poor: ["townhouse", "crafthouse", "stonehouse"], rich: ["manor", "towerhouse", "stonehouse"] },
   // b4 = Marbre / antiquité classique (habitants en toge) : pierre, cours et villas.
   // PAS d'immeuble XIXe ici — `block`/`tenement` (façades d'appartements) démarrent en
   // b5 = Fonte (époque industrielle), sinon on obtient « immeubles + toges ». `insula`
@@ -178,14 +185,34 @@ export function createBuildingPlacer({
   // (houseTintOf les exclut). Avant la bande 7, tirage historique inchangé.
   const BLOCK_Q = 3;
 
+  // ⚠ LE TIRAGE NE DOIT PAS DÉPENDRE DE LA CELLULE (lot S4, 2026-08-06).
+  // Il en dépendait, et ça CONFISQUAIT les grandes empreintes. Quand `finalize`
+  // refusait un 2×2 qui ne tenait pas, le slot passait à la cellule suivante — donc
+  // à un AUTRE tirage. Le grand bâtiment n'était jamais réessayé, il était remplacé.
+  // Mesuré en jeu avant correctif, part posée contre part attendue :
+  //
+  //   1×1 (block, b5)            20 %  →  36,8 %   (absorbe la part des autres)
+  //   1×2 (tenement, tower, b5)  20 %  →  13,9 / 12,5 %
+  //   2×2 (manor, b4)          16,7 %  →   2,7 %
+  //   2×2 (manor, b3)          12,5 %  →   0 %     (jamais posé, archétype invisible)
+  //
+  // La pénalité croissait avec la taille, c'est-à-dire à l'inverse de ce qui fait
+  // lire une ville : les grandes masses sont les repères.
+  //
+  // Le tirage se fait donc sur l'INDEX DE SLOT seul. ⚠ Pas `(n + h)` avec un h
+  // constant : l'index suit l'ordre de tri (donc la distance au cœur), et une somme
+  // ferait défiler la liste en anneaux concentriques. Un hash DE l'index n'a pas
+  // cette corrélation spatiale.
+  //
+  // ⚠ Les bandes cosmiques gardent leur tirage par BLOC : là on VEUT des îlots
+  // uniformes (Raph 2026-08-03), et leurs empreintes sont posées par un autre chemin.
   const chooseVariant = (category, n, cell) => {
     const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
     if (counts.eraBand >= 7) {
       const hq = hashString(seed + ":" + category + ":q" + Math.floor(cell.gx / BLOCK_Q) + ":" + Math.floor(cell.gy / BLOCK_Q));
       return list[hq % list.length];
     }
-    const h = hashString(seed + ":" + category + ":" + cell.gx + ":" + cell.gy);
-    return list[(n + h) % list.length];
+    return list[hashString(seed + ":" + category + ":v" + n) % list.length];
   };
 
   // Quartier d'appartenance d'une cellule : l'ancre la plus proche dont le
@@ -261,10 +288,13 @@ export function placeCategorySlotted(category, count, ctx) {
   const slotKey = (i) => cycle + ":dec_" + category + ":" + i;
   let placed = 0;
 
-  const finalize = (i, cell) => {
+  const finalize = (i, cell, forced) => {
     // L'index PERSISTANT `i` (pas le rang d'attribution) pilote chooseVariant :
     // le design reste stable à position fixe et n'évolue que par eraBand.
-    const variant = chooseVariant(category, i, cell);
+    // `forced` : variant déjà tiré par la passe 2 pour sonder une emprise — le
+    // retirer ici donnerait le même résultat (le tirage ne dépend plus de la
+    // cellule sous la bande 7), mais l'expliciter évite de le faire deux fois.
+    const variant = forced || chooseVariant(category, i, cell);
     // Empreinte multi-tuiles des grands bâtiments : refuse la pose si le rectangle
     // complet ne tient pas (cellFree est span-aware côté runtime) → refit ailleurs.
     const [spanX, spanY] = houseFootprint(variant, eraBand);
@@ -295,14 +325,67 @@ export function placeCategorySlotted(category, count, ctx) {
   }
 
   // Passe 2 — combler les index manquants depuis le tri.
+  //
+  // ⚠ SONDE SANS CONSOMMER LE CURSEUR pour les grandes empreintes (lot S4). Depuis
+  // que le variant est STABLE pour un slot donné, laisser la boucle avancer le
+  // curseur à chaque refus serait pire qu'avant : un seul 2×2 sans place mangerait
+  // toute la file et les slots suivants ne recevraient rien. On sonde donc en avant,
+  // borné, et on ne consomme le curseur que si la cellule retenue est la courante.
+  //
+  // ⚠ Les bandes cosmiques gardent la boucle D'ORIGINE : leur tirage est quantifié
+  // par bloc de cellules (îlots uniformes voulus), donc il dépend légitimement de la
+  // cellule et une sonde changerait le variant en route.
+  const LOOKAHEAD = 96;
   let cursor = 0;
+  if (eraBand >= 7) {
+    for (let i = 0; i < count; i += 1) {
+      if (reused.has(i)) continue;
+      while (cursor < ordered.length) {
+        const cell = ordered[cursor++];
+        if (!cellFree(cell.gx, cell.gy)) continue;
+        if (finalize(i, cell)) break;
+      }
+    }
+    return placed;
+  }
   for (let i = 0; i < count; i += 1) {
     if (reused.has(i)) continue;
-    while (cursor < ordered.length) {
-      const cell = ordered[cursor++];
-      if (!cellFree(cell.gx, cell.gy)) continue;
-      if (finalize(i, cell)) break;
+    while (cursor < ordered.length && !cellFree(ordered[cursor].gx, ordered[cursor].gy)) cursor += 1;
+    if (cursor >= ordered.length) break;
+    const variant = chooseVariant(category, i, ordered[cursor]);
+    const [sx, sy] = houseFootprint(variant, eraBand);
+    if (sx > 1 || sy > 1) {
+      let found = -1;
+      for (let k = cursor; k < Math.min(ordered.length, cursor + LOOKAHEAD); k += 1) {
+        const c = ordered[k];
+        if (cellFree(c.gx, c.gy, sx, sy)) { found = k; break; }
+      }
+      // Aucune place pour cette emprise dans la fenêtre : on RABAT sur un variant
+      // 1×1. Première version écrite : sauter le slot, pour ne pas reproduire le
+      // défaut corrigé (la grande masse remplacée en silence). Mesuré, c'est pire —
+      // les emplacements 2×2 sont réellement rares dans le résidu entre les rues, et
+      // sauter coûtait 54 bâtiments sur 522 à la bande 4, soit 10 % de la ville. La
+      // masse bâtie compte plus que la pureté du tirage ; le repli est donc assumé,
+      // mais EXPLICITE et déterministe (on refait tourner le tirage sur un index
+      // décalé jusqu'à tomber sur une empreinte simple).
+      if (found < 0) {
+        let repli = null;
+        for (let k = 1; k <= 8 && !repli; k += 1) {
+          const v = chooseVariant(category, i + k * 7919, ordered[cursor]);
+          const [fx, fy] = houseFootprint(v, eraBand);
+          if (fx === 1 && fy === 1) repli = v;
+        }
+        if (!repli) continue;                       // liste sans aucun 1×1 : on saute
+        finalize(i, ordered[cursor], repli);
+        cursor += 1;
+        continue;
+      }
+      finalize(i, ordered[found], variant);
+      if (found === cursor) cursor += 1;
+      continue;
     }
+    finalize(i, ordered[cursor], variant);
+    cursor += 1;
   }
   return placed;
 }

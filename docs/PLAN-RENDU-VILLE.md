@@ -406,6 +406,80 @@ dans le dépôt**, non connectés.
 > collision) et le défaut central. ⚠ Ça touche la palette maîtresse FIGÉE depuis le
 > 2026-07-02 et ça rouvre l'arbitrage anti-jaune : c'est une décision de Raph.
 
+> ### ✅ La hiérarchie de hauteur : réglée par l'ART (2026-08-06)
+> Quatre archétypes livrés par une session parallèle. Rapport hauteur max/min de
+> l'encre par bande :
+>
+> | bande | avant | après | apporté par |
+> |---|---|---|---|
+> | 3 | **1,10** | 1,58 | `towerhouse` (76 px d'encre contre 49) |
+> | 4 | 1,35 | 1,70 | `insula` (68) |
+> | 5 | 1,55 | **2,34** | `terrace`, qui ajoute un type BAS (47) |
+>
+> Un rapport de 1,10 à la bande 3 — trois archétypes à 49, 53 et 54 px — c'était
+> littéralement le constat « 848 bâtiments sur 849 entre 44 et 66 px ». **Aucune règle
+> de tirage ne pouvait créer une variété qui n'existait pas.** Mesuré ensuite au
+> `frameStats`, la bande 3 rejoint le régime de la capture qui lit bien : amplitude
+> 205,6 contre 199,4, grain 34,6 contre 32,7.
+>
+> ### ✅ La tour redevient un ACCENT (2026-08-06)
+> Mesuré à la pose : `towerhouse` sortait à **22,8 %** des habitations de la bande 3,
+> soit une tour toutes les 4,4 maisons — une forêt de pointes régulières, une
+> monotonie remplacée par une autre. La liste `base` passe de 5 à 8 entrées :
+> **13,2 %** mesuré après, les deux types courants à parité (44,4 / 42,5 %).
+> Un repère qui se répète n'en est plus un.
+>
+> ### ⚠ S4 CHIFFRÉ, et son correctif demande un arbitrage
+> Le défaut de pose des emprises multi-tuiles est maintenant mesuré, et il croît avec
+> la taille — exactement l'inverse de ce qui fait lire une ville :
+>
+> | emprise | attendu | obtenu | perte |
+> |---|---|---|---|
+> | 1×1 (`block`, b5) | 20 % | 36,8 % | **absorbe** la part des autres |
+> | 1×2 (`tenement`, `tower`, b5) | 20 % | 13,9 / 12,5 % | −35 % |
+> | 2×2 (`manor`, b4) | 16,7 % | 2,7 % | **−84 %** |
+> | 2×2 (`manor`, b3) | 12,5 % | **0 %** | l'archétype n'apparaît jamais |
+>
+> **Mécanisme, confirmé par lecture** : `chooseVariant(category, i, cell)` tire depuis
+> la CELLULE (`buildingGenerator.js`, `(n + h) % list.length` avec `h = hash(gx,gy)`).
+> Quand `finalize` refuse une emprise qui ne tient pas, le slot passe à la cellule
+> suivante — et **retire un variant différent**. Le manoir n'est donc jamais réessayé ;
+> seuls les tirages tombant sur du 1×1 aboutissent.
+>
+> #### ✅ S4 LIVRÉ le 2026-08-06
+> J'avais d'abord posé le reshuffle comme un blocage nécessitant un arbitrage. **C'était
+> faux : il avait déjà eu lieu.** Les quatre archétypes de la vague précédente ont fait
+> passer la bande 3 de 3 à 8 entrées, et `list[(n + h) % list.length]` change
+> d'affectation dès que la longueur change — toutes les positions avaient déjà changé,
+> dans le commit `e1aedaa`. Le coût invoqué était déjà payé.
+>
+> Livré : `chooseVariant` tire sur l'INDEX DE SLOT seul sous la bande 7
+> (`hashString(seed:category:v<i>)`), plus une **sonde en avant bornée** (96 cellules)
+> dans `placeCategorySlotted` qui ne consomme pas le curseur — sans elle, un seul 2×2
+> sans place mangerait toute la file. Les bandes cosmiques gardent la boucle d'origine
+> (tirage par bloc, îlots uniformes voulus).
+>
+> | | attendu | avant | après |
+> |---|---|---|---|
+> | `tenement` 1×2, b5 | 20 % | 13,9 % | **19,3 %** |
+> | `tower` 1×2, b5 | 20 % | 12,5 % | **20,9 %** |
+> | `manor` 2×2, b4 | 16,7 % | 2,7 % | **6,7 %** |
+> | `manor` 2×2, b3 | 12,5 % | 0 % | 0,3 % |
+>
+> Les 1×2 atteignent leur poids nominal. Comptes de maisons conservés partout
+> (372 / 522 / 839).
+>
+> ⚠ **Le repli 1×1 est assumé et il a été mesuré.** Première version : sauter le slot
+> quand l'emprise ne loge pas, pour ne pas reproduire la substitution silencieuse.
+> Mesuré, c'était pire — **54 bâtiments perdus sur 522** à la bande 4, 10 % de la
+> ville. La masse bâtie compte plus que la pureté du tirage.
+>
+> ⚠ **RESTE OUVERT : la bande 3 ne décolle pas** (0 → 0,3 %). `decCellFree(gx, gy, 2, 2)`
+> y refuse quasiment toutes les cellules de la fenêtre de sonde. `footprintFits` a été
+> relu, sa signature et son corps sont corrects (l'ordre d'arguments inhabituel
+> `spanX` en 3e / `spanY` en 6e est le bon). La cause est donc dans `claimed` ou dans
+> la densité de voirie de cette bande, et elle n'est PAS isolée. À reprendre là.
+
 ### Palier 0 — L'instrument (avant tout le reste)
 
 **S0 — Instrument de valeur + garde bâti/sol.** `scripts/frameStats.mjs`

@@ -26,9 +26,13 @@ import { drawWonder } from '../renderBuildings.js';
 // LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
 // il n'a ni rang ni condition, donc rien à voir avec le cache des merveilles
 // (indexé id+rang). Un seul fichier, un seul chargement.
-// PPT identique aux merveilles (34 px de sprite par tuile) : c'est ce qui le met
-// à la même échelle qu'elles, et le sprite est calibré pour.
-const PLAISIRS_PPT = 34;
+// PPT PROPRE, et non celui des merveilles (34). Le sprite a été recadré au ras de
+// son encre — la moitié du canevas d'origine était vide —, si bien qu'à 34 il
+// n'aurait plus fait que 4,8 tuiles de large contre 6,6 avant recadrage.
+// 25 lui rend exactement sa présence : 207 px à l'écran, 6,5 tuiles.
+// ⚠ Ce nombre va AVEC les dimensions du PNG : redécouper le sprite sans reprendre
+// le PPT le ferait grandir ou rétrécir en silence.
+const PLAISIRS_PPT = 25;
 let plaisirsArt = null;
 function plaisirsSprite() {
   if (!plaisirsArt) {

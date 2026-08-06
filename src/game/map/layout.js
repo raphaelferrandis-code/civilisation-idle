@@ -2059,8 +2059,21 @@ function computeCityLayout(s) {
    * l'Aiguille Céleste), l'évasement se fait ICI, AVANT la peinture des
    * cellules : pas de repasse à faire après coup comme pour `era_mega`.
    * ---------------------------------------------------------------------- */
+  /* ⚠ L'ÉCHELLE DE `u` EST UN PIÈGE. Le cours ne fait PAS la largeur de la carte :
+   * il court de `cx - 1.8N` à `cx + 1.8N` (cf. xStart/xEnd), soit 3,6 N, pour
+   * traverser l'écran à tout zoom. Donc `u` n'est PAS une fraction de la grille :
+   *
+   *     distance au centre = 3,6 N × (u - 0,5)
+   *
+   * Le bord de la carte tombe à u = 0,639 ; un u = 0,82 met le monument à 1,15 N,
+   * soit largement hors grille (première pose, corrigée le 2026-08-06 — Raph :
+   * « c'est vraiment très éloigné »). Les valeurs utiles vivent entre 0,55 et 0,62.
+   */
   const PLAISIRS = {
-    u: 0.82,      // abscisse figée le long du cours (0 = amont, 1 = aval)
+    // 0,58 → 0,29 N du centre, soit ~1,6 fois le rayon de la ville des premières
+    // ères : au large et bien détaché, mais dans le champ, et la cité finira par
+    // le rejoindre en grandissant.
+    u: 0.58,      // abscisse figée le long du cours (0 = amont, 1 = aval)
     spread: 2.5,  // demi-largeur gagnée au plus fort de l'évasement, en tuiles
     etale: 14,    // portée de l'évasement le long du cours, en tuiles
     drift: 1.4,   // décalage TRANSVERSAL du lit : c'est lui qui casse la symétrie

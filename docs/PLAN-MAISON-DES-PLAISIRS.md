@@ -181,6 +181,28 @@ Deux retouches connues sur G avant dépôt : la **dalle au sol** se retire en po
 (PixelLab ignore la négation), et l'**enseigne porte du faux texte** inventé, à
 remplacer par un symbole (dés ou roue).
 
+### ⛔ Dépoivrer un sprite lumineux : un pixel isolé clair EST une lumière
+
+Le sprite repassé par Midjourney puis réduit arrivait avec **12,6 % de pixels
+orphelins** (aucun voisin de leur couleur sur les 8) — le bruit classique du
+downscale, invisible agrandi mais qui scintille dès que la caméra bouge.
+
+⛔ Un dépoivrage naïf (remplacer tout orphelin par la couleur dominante du
+voisinage) a mangé **37 % de l'or** en une passe. Sur ce sprite, une fenêtre
+éclairée ou une lanterne fait légitimement 1 px sans voisin : ce sont des SOURCES
+LUMINEUSES, pas des parasites.
+
+✅ La garde qui marche : ne dépoivrer que les teintes **sourdes**, en épargnant
+tout pixel à la fois clair et saturé (`max > 150 && max - min > 60`). Résultat :
+orphelins 12,6 % → 4,7 % (le reliquat étant les lumières protégées), or et rouges
+préservés à +1 % et +3 %, palette inchangée à 22 teintes.
+
+⚠ Tester les **8** voisins et non 4 : un liseré néon d'un pixel d'épaisseur a
+toujours un voisin le long de son tracé, et se trouve donc épargné de lui-même.
+
+Script : `despeckle.mjs` (scratchpad de session), à généraliser si la passe sert
+sur d'autres sprites issus d'images générées.
+
 ### Échelle
 
 L'habitant fait ~10 px d'encre, cible verrouillée par Raph le 2026-08-05. Un
@@ -221,8 +243,27 @@ sur la carte, comme `cmWonderExtent` et `WONDER_CLEAR_R` le font pour les mervei
 >
 > Fichiers touchés : `layout.js` (évasement + publication), `cityMapRuntime.js`
 > (obstacle de flotte), `iso/isoRenderer.js` (chargement + tri peintre).
-> Non vérifié : l'aspect **à l'écran**, le monument étant volontairement hors champ
-> au démarrage. À regarder au premier lancement.
+
+### ⛔ L'échelle de `u` : le cours fait 3,6 fois la carte
+
+Première pose à `u = 0.82`, corrigée le jour même (Raph : « c'est vraiment très
+éloigné »). La cause : `xStart = cx - 1.8N` et `xEnd = cx + 1.8N` (`layout.js:2012`)
+— le fleuve **déborde volontairement de la grille** pour traverser l'écran à tout
+zoom. Donc `u` n'est pas une fraction de la carte :
+
+```
+distance au centre = 3,6 N × (u − 0,5)
+```
+
+| `u` | distance du centre | où ça tombe |
+|---|---|---|
+| 0,55 | 0,18 N | juste en lisière de la ville des premières ères |
+| **0,58** | **0,29 N** | **retenu** : au large, détaché, mais dans le champ |
+| 0,62 | 0,43 N | presque au bord de la grille |
+| 0,639 | 0,50 N | le bord exact |
+| 0,82 | 1,15 N | **hors carte**, plus du double du bord |
+
+⚠ Rester **sous 0,639**, sinon le monument sort de la grille.
 
 ### Rien à inventer : le bloc `era_mega` fait déjà tout
 
