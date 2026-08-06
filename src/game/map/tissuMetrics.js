@@ -24,6 +24,9 @@
 // importe SA règle au lieu de la recopier ici. Un tableau de bord qui rejouerait
 // le calcul qu'il surveille ne surveillerait que lui-même.
 import { courField } from './iso/isoRenderer.js';
+// Le compteur de clôtures appelle le VRAI module de pose, pas une copie de sa règle
+// (cf. fenceCount plus bas) — une mesure déduite d'une réplique dériverait en silence.
+import { fenceEdges, FENCE } from './fenceEdges.js';
 
 // Médiane d'un tableau de nombres (copie triée ; les tableaux d'entrée sont des
 // longueurs de runs, quelques milliers d'éléments au pire).
@@ -210,7 +213,47 @@ export function tissuMetrics(L) {
       max: sizes.length ? Math.max(...sizes) : 0,
       singleShare: sizes.length ? single / sizes.length : 0,
     },
+    fences: fenceCount(L, urban, roadSet, roadMap, builtSet),
   };
+}
+
+// ── CLÔTURES : le compteur AVANT la pose (lot L9) ───────────────────────────
+// Exigence du plan, mot pour mot : « Un compteur avant de livrer. "Ça alourdit" ne se
+// teste pas, "tant de panneaux à l'écran" si. Compteur dans __tissu() et plafond dur,
+// pour qu'une ère future ne puisse pas en faire pousser dix mille sans que ça se voie. »
+//
+// On appelle le VRAI module de pose (`fenceEdges`), jamais une réplique de sa règle :
+// le but est de savoir ce que la pose produira, pas ce qu'on croit qu'elle produira.
+//
+// La matière vient du CHAMP DE L2 (`L._courField`, urban/dirt/grass), que le plan
+// désigne comme l'arbitre : « le champ de matières de L2 sait déjà trancher ».
+// Au-dessus se superposent les matières que le champ ne connaît pas — eau, parvis de
+// merveille, place, chaussée — sans quoi une arête quai↔eau ne se verrait pas.
+function fenceCount(L, urban, roadSet, roadMap, builtSet) {
+  const water = new Set((L && L.river && L.river.cells) || []);
+  const wonder = (L && L.wonderGround) || new Set();
+  const cour = (L && L._courField) || new Map();
+  const matOf = (gx, gy) => {
+    const k = gx + ',' + gy;
+    if (water.has(k)) return 'water';
+    if (wonder.has(k)) return 'wonder';
+    if (roadSet.has(k)) {
+      const c = roadMap.get(k);
+      return ((c && c.rank) === 'plaza') ? 'plaza' : 'road';
+    }
+    if (builtSet.has(k)) return 'built';
+    return cour.get(k) || (urban.has(k) ? 'urban' : 'grass');
+  };
+  let edges;
+  try {
+    edges = fenceEdges({ urbanSet: urban, wonderSet: wonder, waterSet: water, matOf }) || [];
+  } catch { return { n: 0, cap: FENCE.cap, parCote: {}, erreur: true }; }
+  const parCote = {};
+  for (const e of edges) {
+    const s = e.side || '?';
+    parCote[s] = (parCote[s] || 0) + 1;
+  }
+  return { n: edges.length, cap: FENCE.cap, atteintLePlafond: edges.length >= FENCE.cap, parCote };
 }
 
 /** Rendu texte d'une mesure, pour la molette et les journaux. */
@@ -230,5 +273,11 @@ export function tissuReport(m) {
     `îlots             ${m.blocks.n} — médiane ${m.blocks.median}, p90 ${m.blocks.p90}, max ${m.blocks.max}`,
     `  d'une cellule   ${pc(m.blocks.singleShare)}`,
     `rangs             ${ranks}`,
+    `clôtures L9       ${m.fences.n} arêtes qualifiées${m.fences.atteintLePlafond ? ' ⚠ PLAFOND ATTEINT' : ''}`
+      + `  (plafond ${m.fences.cap})`
+      + (Object.keys(m.fences.parCote).length
+        ? '  · ' + Object.entries(m.fences.parCote).sort((a, b) => b[1] - a[1])
+          .map(([s, n]) => s + ' ' + n).join(' ')
+        : ''),
   ].join('\n');
 }

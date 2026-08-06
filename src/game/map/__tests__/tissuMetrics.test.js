@@ -8,6 +8,9 @@
 // code — sinon le test comparerait le calcul à lui-même.
 import { describe, it, expect } from "vitest";
 import { tissuMetrics, tissuReport } from "../tissuMetrics.js";
+// Importé pour le contrôle négatif du compteur de clôtures : on éteint le VRAI module
+// et on exige que le compte tombe à zéro.
+import { FENCE } from "../fenceEdges.js";
 
 // Grille jouet : sol de ville plein, rues là où `isRoad(gx, gy)` est vrai.
 const grid = (N, isRoad, tiles = []) => {
@@ -165,5 +168,62 @@ describe("mesure du tissu urbain", () => {
     expect(m.cells).toBe(0);
     expect(m.roadShare).toBe(0);
     expect(() => tissuReport(m)).not.toThrow();
+  });
+
+  // ── COMPTEUR DE CLÔTURES (lot L9) ────────────────────────────────────────
+  // Le plan l'exige AVANT la pose : « "Ça alourdit" ne se teste pas, "tant de
+  // panneaux à l'écran" si. Compteur dans __tissu() et plafond dur, pour qu'une ère
+  // future ne puisse pas en faire pousser dix mille sans que ça se voie. »
+  // Relevé en jeu au branchement du compteur : 60 arêtes à la bande 3, 372 à la
+  // bande 7 (30 028 cellules de ville) — le plafond de 4 000 est large.
+  describe("compteur de clôtures", () => {
+    // Une berge bâtie : sol de ville d'un côté, eau de l'autre. C'est l'étape 2 de
+    // l'ordre de pose du plan, et la plus simple à fabriquer en grille jouet.
+    const berge = (N) => {
+      const L = grid(N, () => false);
+      const cells = [];
+      for (let gx = 0; gx < N; gx += 1) {
+        const k = gx + "," + (N - 1);
+        L.urbanSet.delete(k);
+        cells.push(k);
+      }
+      L.river = { cells };
+      return L;
+    };
+
+    it("expose un compte et son plafond", () => {
+      const m = tissuMetrics(berge(8));
+      expect(typeof m.fences.n).toBe("number");
+      expect(m.fences.cap).toBeGreaterThan(0);
+      expect(m.fences.atteintLePlafond).toBe(false);
+      expect(() => tissuReport(m)).not.toThrow();
+    });
+
+    it("compte bien les arêtes de la berge bâtie", () => {
+      const m = tissuMetrics(berge(8));
+      // Les 7 cellules de sol qui touchent l'eau, par leur côté sud.
+      expect(m.fences.n).toBeGreaterThan(0);
+      expect(m.fences.parCote.s).toBe(m.fences.n);
+    });
+
+    // ⚠ LE point du test : le compteur doit refléter le MODULE, pas sa propre idée de
+    // la règle. On éteint le module et le compte doit tomber à zéro — sinon c'est que
+    // la mesure a été recopiée quelque part et dérivera en silence.
+    it("mord : éteindre fenceEdges met le compteur à zéro", () => {
+      const avant = tissuMetrics(berge(8)).fences.n;
+      expect(avant).toBeGreaterThan(0);
+      FENCE.on = false;
+      try {
+        expect(tissuMetrics(berge(8)).fences.n).toBe(0);
+      } finally { FENCE.on = true; }
+      expect(tissuMetrics(berge(8)).fences.n).toBe(avant);
+    });
+
+    it("ne pose rien dans un quartier homogène — la règle du plan", () => {
+      // Sol de ville plein, aucune eau, aucun parvis : aucune arête ne sépare deux
+      // matières différentes, donc aucune clôture. C'est ce qui écarte le treillis.
+      const m = tissuMetrics(grid(8, () => false));
+      expect(m.fences.n).toBe(0);
+    });
   });
 });
