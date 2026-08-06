@@ -601,6 +601,37 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 |---|---|---|
 | **S12** | **Dessiner les districts, ou les libérer** (cf. §2). ⚠ Rebrancher sur le socle `isoPlaza` demande de rouvrir le lot L1 (super-îlots, déclassé après mesure), pas d'ouvrir un chantier neuf | M + art |
 | **S13** | **Élargir le cœur de palette.** Le cœur compte 41 teintes ; **seules 7 dépassent chroma 10 en OKLab, et 5 sont du FEUILLAGE.** Il ne reste que `copper` (10,2) et `terracotta` (11,5) pour une façade ou un toit — quand une brique new-yorkaise mesure **15,9** et un ocre eBoy **15,8** avec la même formule. Le secteur bleu du cœur est du gris pur, le secteur bleu-violet est vide. **Tant que le cœur reste ainsi, tout échange de rampes ne peut que permuter des ocres et des gris — c'est le plafond de tous les autres chantiers de couleur.** ⚠ Une rampe ocre rouvre le bannissement des jaunes (`buildPalette.mjs:52`) | L + art |
+> #### 📐 S14 CADRÉ (2026-08-06) — et le sprite n'est pas la question
+> Mesuré avant de dessiner quoi que ce soit, à la bande 3 (372 maisons) :
+>
+> | | |
+> |---|---|
+> | maisons avec une voisine COLLÉE | **57,8 %** |
+> | en rangée ≥ 2 le long de l'axe X | 18,3 % — 22 paires, 8 triplets |
+> | en rangée ≥ 2 le long de l'axe Y | 41,9 % — 23 paires, 34 triplets, 2 quadruplets |
+>
+> ⚠ **Corrige le diagnostic**, qui annonçait « 95,6 % des maisons ont une voisine » :
+> c'est **57,8 %** pour une voisine réellement adjacente. Le 95,6 % devait compter les
+> diagonales ou un rayon 2.
+>
+> **Les rangées existent, mais elles sont COURTES** — deux à trois maisons, jamais plus
+> de quatre. De l'art de mitoyenneté posé là-dessus donnerait un patchwork de paires
+> jointes au milieu de maisons isolées, pas le mur de rue continu des références.
+>
+> **Le compte de sprites, puisque c'était la question** : 13 archétypes distincts sur
+> les bandes 2 à 6, × (2 abouts + 1 milieu), × 2 axes de rangée visibles en iso =
+> **~78 sprites**. C'est l'ordre de grandeur de la campagne des paliers (94 sprites),
+> donc faisable — mais la mesure dit que la moitié servirait à joindre des paires, et
+> que les « milieux » seraient rares (42 rangées de ≥ 3 sur toute la bande 3).
+>
+> **→ S14 est en réalité DEUX lots, et le premier est du CODE :**
+> 1. **faire produire des rangées LONGUES au placement** — l'ordre de pose
+>    (`orderedList`) trie par score, pas le long d'un front de rue. Tant qu'il rend des
+>    runs de 2-3, l'art n'a rien à quoi se raccrocher.
+> 2. **puis** dessiner les ~78 sprites, dont le devis ne vaudra que si (1) a livré.
+>
+> ⛔ **Ne pas commencer par l'art.** C'est le seul enseignement solide de ce cadrage.
+
 | **S14** | **La mitoyenneté, en art.** Façades de front, murets fermant le bord nu, variantes d'about. C'est le seul chemin vers l'îlot des deux références. ⛔ **INTERDIT de passer par le facteur d'échelle** : monter `HOUSE_LOT_WF` à 1,0 et descendre `HOUSE_UNIT` à 34 multiplie k par 1,66 et sort tout le corpus de la bande de porte 10-14 px. **On élargit l'ART, pas le facteur** | L + art |
 
 ---
