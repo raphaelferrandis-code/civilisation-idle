@@ -177,46 +177,43 @@ describe("mesure du tissu urbain", () => {
   // Relevé en jeu au branchement du compteur : 60 arêtes à la bande 3, 372 à la
   // bande 7 (30 028 cellules de ville) — le plafond de 4 000 est large.
   describe("compteur de clôtures", () => {
-    // Une berge bâtie : sol de ville d'un côté, eau de l'autre. C'est l'étape 2 de
-    // l'ordre de pose du plan, et la plus simple à fabriquer en grille jouet.
-    const berge = (N) => {
+    // Un parvis de merveille au milieu du sol de ville — c'est le cas RÉELLEMENT
+    // livré depuis l'arbitrage de Raph du 2026-08-06 (places et merveilles, plus les
+    // quais). Le compteur doit donc se mesurer là-dessus.
+    const parvis = (N) => {
       const L = grid(N, () => false);
-      const cells = [];
-      for (let gx = 0; gx < N; gx += 1) {
-        const k = gx + "," + (N - 1);
-        L.urbanSet.delete(k);
-        cells.push(k);
-      }
-      L.river = { cells };
+      const w = new Set();
+      for (let gx = 3; gx <= 5; gx += 1) for (let gy = 3; gy <= 5; gy += 1) w.add(gx + "," + gy);
+      L.wonderGround = w;
       return L;
     };
 
     it("expose un compte et son plafond", () => {
-      const m = tissuMetrics(berge(8));
+      const m = tissuMetrics(parvis(9));
       expect(typeof m.fences.n).toBe("number");
       expect(m.fences.cap).toBeGreaterThan(0);
       expect(m.fences.atteintLePlafond).toBe(false);
       expect(() => tissuReport(m)).not.toThrow();
     });
 
-    it("compte bien les arêtes de la berge bâtie", () => {
-      const m = tissuMetrics(berge(8));
-      // Les 7 cellules de sol qui touchent l'eau, par leur côté sud.
-      expect(m.fences.n).toBeGreaterThan(0);
-      expect(m.fences.parCote.s).toBe(m.fences.n);
+    it("compte le pourtour d'un parvis, et rien de plus", () => {
+      const m = tissuMetrics(parvis(9));
+      // 3×3 → 12 arêtes de pourtour, réparties sur les quatre côtés.
+      expect(m.fences.n).toBe(12);
+      expect(Object.keys(m.fences.parCote).sort()).toEqual(["e", "n", "s", "w"]);
     });
 
     // ⚠ LE point du test : le compteur doit refléter le MODULE, pas sa propre idée de
     // la règle. On éteint le module et le compte doit tomber à zéro — sinon c'est que
     // la mesure a été recopiée quelque part et dérivera en silence.
     it("mord : éteindre fenceEdges met le compteur à zéro", () => {
-      const avant = tissuMetrics(berge(8)).fences.n;
+      const avant = tissuMetrics(parvis(9)).fences.n;
       expect(avant).toBeGreaterThan(0);
       FENCE.on = false;
       try {
-        expect(tissuMetrics(berge(8)).fences.n).toBe(0);
+        expect(tissuMetrics(parvis(9)).fences.n).toBe(0);
       } finally { FENCE.on = true; }
-      expect(tissuMetrics(berge(8)).fences.n).toBe(avant);
+      expect(tissuMetrics(parvis(9)).fences.n).toBe(avant);
     });
 
     it("ne pose rien dans un quartier homogène — la règle du plan", () => {

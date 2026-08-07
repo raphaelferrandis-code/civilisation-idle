@@ -17,20 +17,43 @@ const carte = (N, mat = () => "urban") => {
 };
 const cle = (e) => e.gx + "," + e.gy + ":" + e.side;
 
-// ⚠ CES TESTS EXERCENT LA RÈGLE, PAS LE DÉFAUT LIVRÉ. La source « parvis de
-// merveille » a été coupée le 2026-08-06 (cf. FENCE.wonders et sa note) parce qu'elle
-// pose en plein pavé ouvert, mais la règle qui la gouverne doit rester vérifiée : le
-// jour où un art de bornage arrive, c'est elle qui décidera. On la rallume donc pour
-// la durée des tests, et un cas dédié plus bas verrouille le défaut livré.
+// ⚠ CES TESTS EXERCENT LA RÈGLE. Certains cas ont besoin d'une source que le défaut
+// livré n'active pas (les quais, abandonnés le 2026-08-06) : on la rallume alors
+// localement. Le défaut livré, lui, est verrouillé par le premier `it`.
 const DEFAUT = { ...FENCE };
-beforeEach(() => { Object.assign(FENCE, DEFAUT, { wonders: true }); });
+beforeEach(() => { Object.assign(FENCE, DEFAUT); });
 afterEach(() => { Object.assign(FENCE, DEFAUT); });
 
 describe("pose des clôtures", () => {
-  it("le défaut LIVRÉ ne pose pas autour des parvis, seulement le long de l'eau", () => {
-    expect(DEFAUT.wonders).toBe(false);
-    expect(DEFAUT.quays).toBe(true);
+  // ⛔ ARBITRAGE DE RAPH, 2026-08-06 : « oublie les clôtures sur les quais, le fait
+  // que ça ne suive pas la ligne des tuiles fait le rendu impossible. On garde pour
+  // mettre autour des places/merveilles, en laissant des entrées au niveau des
+  // routes. » Ce test est là pour qu'un retour en arrière soit un GESTE, pas un
+  // glissement — le fleuve est un ruban libre, la clôture se pose sur des arêtes de
+  // cellules, et l'écart entre les deux se voit.
+  it("le défaut LIVRÉ : places et merveilles, jamais les quais, avec des portes", () => {
+    expect(DEFAUT.wonders).toBe(true);
+    expect(DEFAUT.plazas).toBe(true);
+    expect(DEFAUT.quays).toBe(false);
+    expect(DEFAUT.gateOnRoad).toBe(true);
     expect(DEFAUT.on).toBe(true);
+  });
+
+  it("laisse une PORTE partout où une route aborde l'enceinte", () => {
+    // Parvis 3×3, et une route qui vient buter sur son bord ouest.
+    const w = new Set(["4,4", "5,4", "6,4", "4,5", "5,5", "6,5", "4,6", "5,6", "6,6"]);
+    const route = new Set(["3,5"]);
+    const mat = (k) => (w.has(k) ? "wonder" : (route.has(k) ? "road" : "urban"));
+    const o = { ...carte(11, mat), wonderSet: w };
+    const avec = fenceEdges(o);
+    FENCE.gateOnRoad = false;
+    const sans = fenceEdges(o);
+    // Sans la porte, le parvis est ceint sur ses 12 arêtes ; avec, celle qui donne
+    // sur la route manque — et c'est la SEULE qui manque.
+    expect(sans.length).toBe(12);
+    expect(avec.length).toBe(11);
+    expect(sans.map(cle)).toContain("4,5:w");
+    expect(avec.map(cle)).not.toContain("4,5:w");
   });
 
   it("ceint le parvis d'une merveille, et seulement son pourtour", () => {
@@ -51,7 +74,11 @@ describe("pose des clôtures", () => {
   // séparant deux matières recevaient un panneau — une berge qui touche l'eau au sud
   // posait aussi un garde-corps au NORD, côté ville, en pleine herbe et loin de toute
   // eau. Un quai ne se borde que du côté de l'eau.
+  // ⚠ Les deux cas de QUAI rallument leur source : elle n'est plus livrée (verdict de
+  // Raph, cf. plus haut), mais la règle reste dans le module et doit rester juste — le
+  // jour où un art qui suit le ruban arrivera, c'est elle qui décidera.
   it("un quai ne se clôture QUE du côté de l'eau, jamais côté ville", () => {
+    FENCE.quays = true;
     // Ligne d'eau en bas (gy = 6), sol de ville au-dessus, et de l'herbe encore
     // au-dessus : la cellule de berge a donc DEUX arêtes qui séparent des matières.
     const eau = new Set(["0,6", "1,6", "2,6", "3,6", "4,6", "5,6", "6,6"]);
@@ -79,6 +106,7 @@ describe("pose des clôtures", () => {
   });
 
   it("longe la berge bâtie, une ligne et pas une maille", () => {
+    FENCE.quays = true;
     // Fleuve sur la colonne 5 ; le sol de ville s'arrête à son bord.
     const water = new Set();
     for (let gy = 0; gy < 9; gy += 1) water.add("5," + gy);

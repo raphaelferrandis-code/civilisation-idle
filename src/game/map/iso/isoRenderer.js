@@ -6397,7 +6397,12 @@ function isoStreetPropsFor(L, band) {
 // `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place.
 // `minRun` = longueur minimale d'une suite d'arêtes contiguës.
 // Molette : `__fences(false)` éteint, `__fences({ p, minRun })` règle.
-export const FENCE_ISO = { on: true, p: 0.62, minRun: 3 };
+// ⚠ `minRun` REMIS À 1 le 2026-08-06, quand les quais ont été abandonnés au profit
+// des places et des parvis. Il avait été posé à 3 pour écarter les panneaux isolés
+// d'une berge ; sur une ENCEINTE il est nocif — un anneau TOURNE, donc chaque côté ne
+// fait que 3 ou 4 cellules et le filtre lui coupe les coins. Le laisser à 3 vidait la
+// ceinture d'une place de ses angles, et ce qui restait se lisait comme des débris.
+export const FENCE_ISO = { on: true, p: 0.62, minRun: 1 };
 const NO_FENCES = [];
 
 // ── LA BANDE : `per` panneaux composés UNE FOIS, blittés en UN drawImage ────────

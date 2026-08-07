@@ -27,17 +27,26 @@
 // (fence-n/s/e/w-<ère>.png) et comme les allées de seuil.
 const SIDES = [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]];
 
-// ⚠ `wonders` À FAUX depuis le 2026-08-06, sur capture. Le parvis d'une merveille est
-// entouré de pavé ouvert : ses arêtes qualifient (deux matières) mais le résultat se
-// lit comme des blocs de pierre abandonnés en plein sol, sans rien à border. Le quai
-// et la berge bâtie, eux, longent l'eau — la clôture y est une LIGNE qui ferme quelque
-// chose, et c'est exactement l'étape 2 de l'ordre de pose du plan. Rallumer les parvis
-// demande d'abord un art de bornage (des bornes aux angles, pas un grillage), cf. la
-// note « 🚫 Écarté » du lot L9.
+// ── OÙ L'ON CLÔTURE, ARBITRÉ PAR RAPH LE 2026-08-06 SUR CAPTURE ─────────────────
+//
+// ⛔ **QUAIS ABANDONNÉS.** Verdict : « oublie les clôtures sur les quais, le fait que
+// ça ne suive pas la ligne des tuiles fait le rendu impossible. » Le garde-corps était
+// techniquement continu, mais le fleuve est un RUBAN dessiné librement alors que la
+// clôture se pose sur des arêtes de CELLULES : la ligne d'eau et la ligne de tuiles ne
+// coïncident pas, et l'écart se voit. Ne pas reproposer sans un art qui suive le
+// ruban, pas la grille.
+//
+// ✅ **PLACES ET MERVEILLES**, avec des PORTES là où une route aborde l'enceinte.
+// ⚠ Ceci renverse une ligne du plan L9 (« 🚫 Écarté : autour des places — une place
+// est publique, l'enclore en fait un enclos ») : c'est un arbitrage explicite de Raph,
+// pas un oubli. Une enceinte percée d'entrées se lit comme un square clos, pas comme
+// un enclos — c'est la porte qui fait la différence.
 export const FENCE = {
   on: true,
-  wonders: false,    // parvis des merveilles — ÉCARTÉ sur capture, cf. la note ci-dessus
-  quays: true,       // berge bâtie — une LIGNE le long de l'eau, aucun bruit de grille
+  wonders: true,     // parvis des merveilles — un périmètre, quelques dizaines de panneaux
+  plazas: true,      // places — même geste, l'esplanade devient un square
+  quays: false,      // ⛔ berge : abandonné, cf. la note ci-dessus
+  gateOnRoad: true,  // laisse une OUVERTURE partout où une route aborde l'enceinte
   cap: 4000,         // garde-fou de dernier recours, cf. plus bas
 };
 
@@ -74,6 +83,9 @@ export function fenceEdges(o, cfg = FENCE) {
   // Un `Set` de côtés = seulement ceux-là (un quai ne se borde que face à l'eau).
   const sources = new Map();
   if (cfg.wonders) for (const k of wonderSet) if (urbanSet.has(k)) sources.set(k, null);
+  // Les PLACES se reconnaissent à leur matière (rang `plaza` du réseau, cf.
+  // fenceInputs) : pas besoin d'un ensemble dédié, le champ de matières sait déjà.
+  if (cfg.plazas) for (const k of urbanSet) if (matOf(k) === 'plaza') sources.set(k, null);
   if (cfg.quays) {
     // Berge BÂTIE seulement : une cellule de sol de ville qui touche l'eau. La
     // rive sauvage n'a pas de garde-corps, elle a de l'herbe.
@@ -106,6 +118,12 @@ export function fenceEdges(o, cfg = FENCE) {
       if (!isWater && !urbanSet.has(nk)) continue;
       const theirs = isWater ? 'water' : matOf(nk);
       if (theirs === mine) continue;               // LA règle
+      // PORTE. Là où une route aborde l'enceinte, on ne pose rien : c'est l'entrée.
+      // Sans cette exception on clôturerait la place EN TRAVERS de ses propres accès,
+      // et une esplanade qu'on ne peut pas aborder ne se lit plus comme une place.
+      // (Demande de Raph, 2026-08-06 : « en laissant des entrées au niveau des
+      // routes ».) C'est aussi ce qui distingue un square clos d'un enclos.
+      if (cfg.gateOnRoad && theirs === 'road') continue;
       // Une arête est partagée : sans ce départage, le parvis et la rue d'en
       // face poseraient chacun leur panneau au même endroit, en double.
       // On la donne à la cellule SOURCE ; si les deux sont sources, à la
