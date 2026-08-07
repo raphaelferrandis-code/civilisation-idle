@@ -32,6 +32,22 @@ import StageHelp from './StageHelp.jsx';
 
 const TICK_MS = 80;
 
+// L'EMBLÈME DE CHAQUE MISE. Les trois colonnes ne diffèrent que par un nom et un
+// nombre, alors que ce qu'elles vendent est un DEGRÉ DE RISQUE : la plume qu'on
+// jette, l'aile qu'on engage, l'hécatombe qu'on immole. L'escalade se voit
+// désormais avant de se lire.
+//
+// ⚠ Table EXPLICITE, et surtout pas un chemin déduit de `s.id` : une quatrième
+// mise ajoutée dans balance.js sortirait alors un 404 muet, sans rien à l'écran
+// pour le dire. Même doctrine que les sprites de l'.exe — on DÉCLARE, on ne
+// sonde pas. Une mise sans emblème déclaré rend simplement sa colonne comme
+// avant, ce qui est le bon repli.
+const STAKE_ART = {
+  plume: '/pixelart/ui/plaisirs/mises/icare-plume.png',
+  aile: '/pixelart/ui/plaisirs/mises/icare-aile.png',
+  hecatombe: '/pixelart/ui/plaisirs/mises/icare-hecatombe.png'
+};
+
 function PixelFeather() {
   return (
     <svg viewBox="0 0 8 14" width="16" height="28" shapeRendering="crispEdges" aria-hidden="true">
@@ -309,6 +325,20 @@ export default function IcarusStage({ table, onClose }) {
                       ? tr({ fr: `Vol offert par un Coup de Vénus. Le temple paie la mise. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(s.faveur) * 100)} % de la cagnotte.`, en: `Flight offered by a Venus throw. The temple pays the stake. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(s.faveur) * 100)}% of the pot.` })
                       : tr({ fr: `Mise de ${cost} Faveur. Se poser à ×m rapporte ${cost} × m. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(cost) * 100)} % de la cagnotte : la part suit la mise.`, en: `${cost} Favor stake. Landing at ×m pays ${cost} × m. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(cost) * 100)}% of the pot: the share follows the stake.` }))}
                   >
+                    {/* L'emblème AVANT le nom : il fait la tête de colonne et
+                        remplit le haut du bandeau, resté vide depuis que les
+                        mises ont perdu leur cadre. `alt=""` + aria-hidden, le
+                        nom juste dessous dit déjà tout à un lecteur d'écran. */}
+                    {STAKE_ART[s.id] && (
+                      <img
+                        className="stake-art"
+                        src={STAKE_ART[s.id]}
+                        alt=""
+                        aria-hidden="true"
+                        width={64}
+                        height={64}
+                      />
+                    )}
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>
                     {/* La part de cagnotte suit la mise (potRakeShare) : c'est la seule

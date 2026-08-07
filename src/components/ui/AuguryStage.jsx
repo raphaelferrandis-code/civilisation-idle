@@ -31,6 +31,26 @@ import StageHelp from './StageHelp.jsx';
  * (quitte ou double sur la Faveur gagnée).
  */
 
+// L'EMBLÈME DE CHAQUE RITE, en tête de sa colonne. Les quatre rites ne diffèrent
+// que par leur VARIANCE (spread 0,55 → 2,5) : un chiffre que rien ne rend
+// sensible. Les emblèmes montent donc en gravité rituelle — la coupe d'argile,
+// puis le bucrane de l'hécatombe, puis la lame du rite que les prêtres taisent.
+//
+// ⛔ LE RITE ANCESTRAL NE MONTRE PAS DES DÉS, il montre le CORNET qui les verse.
+// Un dé en 3/4 étale trois faces à la fois, donc des valeurs arbitraires :
+// « les dés n'ont aucun sens » (Raph, deux fois — le 2026-07-23 sur les faces
+// gravées, le 2026-08-07 sur cet emblème). Le cornet renversé garde l'identité
+// du jeu sans qu'aucune face ne prétende dire un chiffre.
+//
+// ⚠ Table explicite plutôt qu'un chemin déduit de `rite.id` : un rite ajouté
+// demain sortirait un 404 muet. Cf. la même table dans IcarusStage.
+const STAKE_ART = {
+  prudent: '/pixelart/ui/plaisirs/mises/osselets-prudent.png',
+  classique: '/pixelart/ui/plaisirs/mises/osselets-classique.png',
+  grand: '/pixelart/ui/plaisirs/mises/osselets-grand.png',
+  interdit: '/pixelart/ui/plaisirs/mises/osselets-interdit.png'
+};
+
 const LAND_FIRST_MS = 450;
 const LAND_STEP_MS = 340;
 const REVEAL_EXTRA_MS = 320;
@@ -227,6 +247,9 @@ export default function AuguryStage({ table, onClose }) {
                     {...tipProps(tr(rite.label), tr(rite.desc))}
                     onClick={() => setRiteId(rite.id)}
                   >
+                    {STAKE_ART[rite.id] && (
+                      <img className="stake-art" src={STAKE_ART[rite.id]} alt="" aria-hidden="true" width={64} height={64} />
+                    )}
                     <strong>{tr(rite.label)}</strong>
                     <span className="augury-rite-cost">
                       <FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}

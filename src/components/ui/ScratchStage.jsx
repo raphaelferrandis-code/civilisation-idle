@@ -24,6 +24,21 @@ if (FLAME_IMG) FLAME_IMG.src = '/pixelart/ui/faveur/flamme.png';
 import ScratchCanvas from './ScratchCanvas.jsx';
 import { scratchSymbolSrc } from './scratchSymbols.js';
 
+// L'EMBLÈME DE CHAQUE MISE, en tête de sa colonne. Les trois tickets portent des
+// NOMS DE MONNAIE, et l'escalade est celle du métal : bronze, argent, or. C'est
+// donc l'argent lui-même qu'on montre — le ticket, lui, se voit une fois acheté.
+//
+// ⚠ Ce n'est PAS l'art du ticket (ui/scratch/ticket-*.png) : ces planches-là font
+// 512 px et sont des SURFACES DE JEU, une grille d'alvéoles. Réduites à 64 elles
+// ne donnent qu'un quadrillage indistinct.
+// ⚠ Table explicite plutôt qu'un chemin déduit de `s.id` : une mise ajoutée
+// demain sortirait un 404 muet. Cf. la même table dans IcarusStage.
+const STAKE_ART = {
+  obole: '/pixelart/ui/plaisirs/mises/tickets-obole.png',
+  drachme: '/pixelart/ui/plaisirs/mises/tickets-drachme.png',
+  talent: '/pixelart/ui/plaisirs/mises/tickets-talent.png'
+};
+
 // Symbole d'un ticket = icône pixel-art réutilisée du jeu (scratchSymbols.js),
 // rendue nette (image-rendering: pixelated). Décoratif → aria-hidden.
 function Sym({ name, cls }) {
@@ -407,6 +422,9 @@ export default function ScratchStage({ table, onClose }) {
                     onClick={() => setChosenStake(s.id)}
                     {...tipProps(tr(s.label), tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` }))}
                   >
+                    {STAKE_ART[s.id] && (
+                      <img className="stake-art" src={STAKE_ART[s.id]} alt="" aria-hidden="true" width={64} height={64} />
+                    )}
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>
                   </button>

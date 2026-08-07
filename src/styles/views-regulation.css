@@ -2440,6 +2440,48 @@
   color: inherit;
 }
 
+/* L'EMBLÈME DE LA MISE — commun aux QUATRE jeux.
+   Il occupe le haut du bandeau, vide depuis que les mises ont perdu leur cadre.
+
+   ⚠ Classe NEUTRE (`.stake-art`) et non `.icarus-stake-art` : le corps cliquable
+   `.stake-pick` est déjà partagé par les quatre jeux, et le vingt-et-un rend ses
+   mises avec les classes DES TICKETS (`.scratch-stake`) — une classe nommée
+   d'après un jeu aurait menti dès le deuxième. Chaque scène garde en revanche sa
+   PROPRE table d'emblèmes ; seule la présentation est mutualisée.
+
+   ⚠ 64 px, LA TAILLE NATIVE du PNG, jamais une valeur intermédiaire : à 48 px
+   on tomberait sur un facteur 0,75 et le pixel art baverait. Si la colonne
+   devait un jour serrer, le seul autre barreau propre est 32 (×0,5).
+   ⚠ `pixelated` est indispensable et non décoratif — sans lui le navigateur
+   interpole, et l'or de l'aile part en bouillie grise.
+   ⚠ `align-self` : `.stake-pick` est une colonne flex en `stretch` par défaut,
+   qui étirerait l'image sur toute la largeur. Calé à gauche, au fer du texte.
+
+   Au repos l'emblème est ASSOMBRI, jamais absent : dans ce projet la hiérarchie
+   passe par la lumière et pas par la présence de l'objet (même règle que les
+   plaques de chrome-wizard.css). Les trois emblèmes restent donc toujours
+   lisibles côte à côte — c'est l'escalade qu'ils racontent, la comparaison est
+   tout leur intérêt. */
+.stake-art {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  filter: brightness(0.62) saturate(0.7);
+  transition: filter 140ms;
+}
+
+/* Les trois conteneurs sont énumérés plutôt que de viser `.is-chosen` seul :
+   cette classe sert ailleurs dans le jeu, et l'attraper au vol allumerait des
+   emblèmes qui ne nous appartiennent pas. */
+.icarus-stake.is-chosen .stake-art,
+.scratch-stake.is-chosen .stake-art,
+.augury-rite.is-chosen .stake-art,
+.stake-pick:hover .stake-art {
+  filter: none;
+}
+
 /* 2. La délimitation = un FONDU entre chaque mise (croquis Raph 2026-07-17 :
    « un fondu entre chaque mise ») : pas un trait net mais une bande verticale
    douce, dégradée horizontalement (transparent → ocre → transparent) et fondue

@@ -42,6 +42,62 @@ function plaisirsSprite() {
   }
   return plaisirsArt.ready ? plaisirsArt : null;
 }
+
+// MASQUE D'ENCRE de la tour. Le survol et le clic doivent tomber sur le
+// BÂTIMENT, pas sur son rectangle : le sprite est une pagode à plateaux et son
+// encre n'occupe que x ∈ [0,17 ; 0,89] et y ∈ [0,25 ; 0,94] du PNG (mesuré) —
+// un quart de la hauteur au-dessus de la flèche est vide, et ce vide-là est
+// posé sur le FLEUVE. Au rectangle, viser l'eau à trois tuiles du pied
+// allumait le monument et ouvrait l'onglet.
+// Lu UNE fois, à la taille naturelle du PNG (224×376), soit 84 ko de masque.
+// `undefined` = pas encore tenté, `null` = illisible (canvas souillé), on
+// retombe alors sur la boîte.
+let plaisirsMask;
+function plaisirsInk() {
+  if (plaisirsMask !== undefined) return plaisirsMask;
+  const art = plaisirsSprite();
+  // Sprite pas encore chargé : on ne MÉMORISE PAS cet échec, il se corrigera
+  // tout seul à la frame où l'image arrive.
+  if (!art || typeof document === 'undefined') return null;
+  const w = art.img.naturalWidth | 0, h = art.img.naturalHeight | 0;
+  if (!w || !h) return null;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(art.img, 0, 0);
+  let d;
+  try { d = cx.getImageData(0, 0, w, h).data; } catch { plaisirsMask = null; return null; }
+  const a = new Uint8Array(w * h);
+  for (let i = 0, n = w * h; i < n; i += 1) a[i] = d[i * 4 + 3] > 24 ? 1 : 0;
+  plaisirsMask = { w, h, a };
+  return plaisirsMask;
+}
+
+// SURVOL ET CLIC DE LA MAISON DES PLAISIRS : UN SEUL test, partagé par
+// l'infobulle et par le clic (cityMapRuntime). Deux tests séparés finiraient
+// par diverger, et on aurait un liseré qui s'allume là où le clic n'ouvre rien.
+// Part de la boîte RÉELLEMENT DESSINÉE à la dernière frame, puis descend au
+// pixel du masque.
+export function plaisirsHitTest(sx, sy) {
+  const b = CM._plaisirsBox;
+  if (!b) return false;
+  if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) return false;
+  const m = plaisirsInk();
+  if (!m) return true;                       // pas de masque : la boîte fait office
+  // Tolérance d'UN pixel source autour du point visé : garde-corps, lanternes et
+  // haubans ne font qu'un ou deux pixels de large, un test strict les rendrait
+  // invisibles à la souris alors qu'ils portent la silhouette.
+  const u = Math.min(m.w - 1, ((sx - b.dx) / b.dw) * m.w | 0);
+  const v = Math.min(m.h - 1, ((sy - b.dy) / b.dh) * m.h | 0);
+  for (let dv = -1; dv <= 1; dv += 1) {
+    const y = Math.min(m.h - 1, Math.max(0, v + dv));
+    for (let du = -1; du <= 1; du += 1) {
+      const x = Math.min(m.w - 1, Math.max(0, u + du));
+      if (m.a[y * m.w + x]) return true;
+    }
+  }
+  return false;
+}
 // (engineStage n'était importé QUE pour choisir le stade de l'aqueduc-conduite,
 //  retiré le 2026-08-05. Les points d'eau ont leur propre échelle d'ère, alignée
 //  sur celle des places — cf. waterPointEra.)
@@ -7691,6 +7747,43 @@ function drawIsoEngineOutline(t, bx, by, bw, now, color) {
   ctx.imageSmoothingEnabled = sm;
 }
 
+// ── LISERÉ D'UN SPRITE SIMPLE ───────────────────────────────────────────────
+// Troisième et dernière variante du liseré de survol, pour ce qui n'est QU'UNE
+// image blitée : la Maison des Plaisirs. Les deux autres partent d'une source
+// plus compliquée (un sprite mesuré au ras de l'encre pour les habitations,
+// une SCÈNE redessinée hors écran pour les moteurs) ; ici l'image est déjà la
+// silhouette, il n'y a rien à préparer.
+// Recette identique dans les trois cas : quatre copies décalées d'un pixel,
+// remplies à plat en source-in, posées AVANT le sprite qui les recouvre et n'en
+// laisse dépasser que le contour.
+let _sprOutlineCanvas = null;
+function drawSpriteOutline(img, dx, dy, dw, dh, color) {
+  if (typeof document === 'undefined') return;
+  const p = 1;
+  const w = Math.max(1, Math.ceil(dw)), h = Math.max(1, Math.ceil(dh));
+  const cw = w + p * 2, ch = h + p * 2;
+  if (!_sprOutlineCanvas) _sprOutlineCanvas = document.createElement('canvas');
+  const oc = _sprOutlineCanvas;
+  // Le canevas est réutilisé et ne rétrécit jamais : on efface TOUT et on ne
+  // reblitte ensuite que la zone utile.
+  if (oc.width < cw || oc.height < ch) { oc.width = cw; oc.height = ch; }
+  const octx = oc.getContext('2d');
+  octx.clearRect(0, 0, oc.width, oc.height);
+  octx.imageSmoothingEnabled = false;
+  for (const [ox, oy] of [[0, p], [p * 2, p], [p, 0], [p, p * 2]]) {
+    octx.drawImage(img, ox, oy, w, h);
+  }
+  octx.globalCompositeOperation = 'source-in';
+  octx.fillStyle = color;
+  octx.fillRect(0, 0, cw, ch);
+  octx.globalCompositeOperation = 'source-over';
+  const ctx = CM.ctx;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(oc, 0, 0, cw, ch, dx - p, dy - p, cw, ch);
+  ctx.imageSmoothingEnabled = prev;
+}
+
 function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) {
   const id = t.buildingId || t.variant || '?';
   if (_isoSceneQuarantine.has(id)) return false;
@@ -9388,6 +9481,10 @@ function drawIsoLive(now) {
   {
     const pl = L.river && L.river.plaisirs;
     if (pl && plaisirsSprite()) items.push({ d: depthOf(pl.x * T, pl.y * T), kind: 'plaisirs', pl });
+    // Rien à peindre cette frame (pas de fleuve, donc pas de monument) : on
+    // PÉRIME la boîte. Sans ça elle survivait à un effondrement qui redessine
+    // une ville sans fleuve, et un carré d'écran restait cliquable dans le vide.
+    else CM._plaisirsBox = null;
   }
   // LAMPADAIRES : mâts de l'ère le long des routes (liste déterministe
   // isoLamps), posés au peintre ; leurs halos de nuit se dessinent dans
@@ -9874,6 +9971,12 @@ function drawIsoLive(now) {
         ctx.imageSmoothingEnabled = false;
         // Ancré sur le PIED (bas, centré) : le fût plonge dans l'eau au point
         // exact qui a servi à évaser le lit.
+        // LISERÉ DE SURVOL, comme les habitations et les moteurs : le monument
+        // est CLIQUABLE, il doit donc dire qu'on le touche. Posé juste avant le
+        // sprite, à la même géométrie, il ne dépasse que d'un pixel.
+        if (CM.hover && CM.hover.plaisirs) {
+          drawSpriteOutline(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx, HOVER_GOLD);
+        }
         ctx.drawImage(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx);
         ctx.imageSmoothingEnabled = prevPS;
         // Boîte RÉELLEMENT dessinée, publiée pour le hit-test du clic

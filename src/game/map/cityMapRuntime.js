@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { state, collapseInProgress, setCollapseInProgress, renderCache } from '../core/state.js';
+import { state, collapseInProgress, setCollapseInProgress, renderCache, openView } from '../core/state.js';
 import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 import {
@@ -40,7 +40,7 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
-import { drawIsoWorld, waterShoreTune, riverIslandObstacles } from './iso/isoRenderer.js';
+import { drawIsoWorld, waterShoreTune, riverIslandObstacles, plaisirsHitTest } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 import {
@@ -618,6 +618,20 @@ function cityMapHitTest(sx, sy) {
   if (bestCitizen) {
     return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant" };
   }
+  // LA MAISON DES PLAISIRS, avant les merveilles et les bâtiments : elle est
+  // seule au milieu du fleuve, rien ne la dispute, et elle monte très haut
+  // au-dessus de tout ce qui est projeté derrière elle.
+  // `plaisirs: true` est le drapeau que lit le rendu iso pour allumer son
+  // liseré doré (drawSpriteOutline) : le monument est cliquable, il doit dire
+  // qu'on le touche, comme une habitation ou un moteur.
+  if (plaisirsHitTest(sx, sy)) {
+    return {
+      title: "La Maison des Plaisirs",
+      body: "On y joue, on y boit, on y perd son or. Cliquez pour entrer.",
+      kind: "Monument",
+      plaisirs: true,
+    };
+  }
   if (Array.isArray(state.wonders)) {
     const wonderTip = (wi) => {
       const w = CM_WONDERS[wi];
@@ -777,7 +791,29 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       return;
     }
     const rect = canvas.getBoundingClientRect();
-    showHover(e.clientX - rect.left, e.clientY - rect.top);
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    showHover(mx, my);
+    // CURSEUR : `pointer` exactement là où un clic FAIT quelque chose, `grab`
+    // partout ailleurs. La carte est une seule grande surface : sans ça, rien
+    // ne distingue au doigt un décor d'un point d'entrée, et le joueur ne
+    // découvre ce qui est cliquable qu'en cliquant au hasard.
+    //
+    // Deux des trois cibles se lisent sur le survol qu'on VIENT de calculer
+    // (CM.hover), gratuitement.
+    // ⚠ On n'appelle SURTOUT PAS cityMapCalmRioterAt ici : ce test APAISE
+    // l'émeutier au passage (il le retire de la foule). Le survol suffit et ne
+    // coûte rien de plus : son rayon (7·zoom) est INCLUS dans celui du clic
+    // (10·zoom), donc « l'infobulle dit Émeute » implique « le clic apaise ».
+    //
+    // La bulle de pensée, elle, demande son propre test : son rayon de clic est
+    // PLUS LARGE que celui du survol, et tous les habitants n'en portent pas
+    // une — la reconnaître à `kind === "Habitant"` allumerait le curseur sur
+    // des passants qui n'ouvrent rien. Le test est pur et il ne tourne que si
+    // les deux drapeaux gratuits ont échoué.
+    const h = CM.hover;
+    const clickable = !!(h && (h.plaisirs || h.kind === "Émeute"))
+      || (!!callbacks.onCitizenThoughtClicked && !!cityMapHitTestCitizenWithThought(mx, my));
+    canvas.style.cursor = clickable ? "pointer" : "grab";
   }, { signal });
   canvas.addEventListener("mouseleave", clearHover, { signal });
 
@@ -956,6 +992,22 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     if (cityMapCalmRioterAt(mx, my)) {
       e.stopImmediatePropagation();
       e.preventDefault();
+      return;
+    }
+    // LA MAISON DES PLAISIRS : cliquer le monument ouvre son onglet. La carte
+    // n'est que le POINT D'ENTRÉE — on y va, ça se joue dans le panneau.
+    //
+    // On teste la boîte RÉELLEMENT DESSINÉE à la dernière frame (publiée par le
+    // renderer iso), jamais un disque au sol : la tour monte onze tuiles
+    // au-dessus de son pied, et viser sa couronne tomberait à côté. Même leçon
+    // que les merveilles, qui ont dû abandonner leur disque pour la même raison.
+    //
+    // MÊME test que l'infobulle, au pixel d'encre près (plaisirsHitTest) : ce
+    // qui allume le liseré doré est exactement ce qui ouvre l'onglet.
+    if (plaisirsHitTest(mx, my)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      openView('plaisirs');
       return;
     }
     const hitCitizen = cityMapHitTestCitizenWithThought(mx, my);

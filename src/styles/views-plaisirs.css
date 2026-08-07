@@ -1,0 +1,450 @@
+/* La Maison des Plaisirs — calque du jeu par-dessus l'illustration.
+ *
+ * Le reste de la vue est stylé en ligne (positions calculées depuis les ancres) ;
+ * seul ce calque a besoin d'une feuille, pour une raison précise : il doit
+ * DISPARAÎTRE tant qu'aucune partie n'est ouverte, et cette information n'est
+ * lisible que dans le DOM. `RegulationStage` se marque lui-même `is-empty`
+ * quand il ne porte aucun jeu ; `:has()` est le seul moyen de réagir à l'état
+ * d'un enfant. S'abonner au pont des jeux depuis la vue était exclu :
+ * `registerTempleStage` n'admet qu'UN abonné, et lui prendre sa place couperait
+ * la scène de sa propre source. */
+
+/* La salle prend TOUTE la largeur disponible. La colonne de droite ayant
+   disparu, le gabarit par défaut des vues laissait plusieurs centaines de
+   pixels vides : une illustration est le sujet de cette page, pas un encart. */
+/* PLEIN CADRE — et la cause n'était ni un `max-width` ni un conteneur parent.
+ *
+ * Toute vue du jeu est une GRILLE À DEUX COLONNES (views-shop-myths.css) :
+ *     grid-template-columns: minmax(0, 1fr) clamp(24rem, 34vw, 30rem);
+ * une colonne fluide, plus une seconde FIXE de 384 à 480 px réservée à la
+ * boutique. La salle héritait de ce gabarit : elle tenait dans la première
+ * colonne pendant que la seconde restait réservée ET VIDE — les centaines de
+ * pixels morts à droite. Élargir la section ne pouvait rien y faire, la place
+ * étant allouée par la grille elle-même.
+ *
+ * Une seule colonne, donc. */
+#plaisirs {
+  grid-template-columns: 1fr;
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  /* Repère du menu volant, qui est désormais son ENFANT DIRECT et non plus
+     celui de la salle (cf. PlaisirsView.jsx). Le rendu ne bouge pas d'un pixel
+     sur grand écran : la salle occupe toute la largeur de la section, et le
+     menu étant en absolu il sort du flux — la hauteur de la section reste donc
+     celle de la salle, et un `top: 50%` y désigne le même point qu'avant. */
+  position: relative;
+}
+
+/* LE MENU VOLANT — aux codes du jeu, plus aux miens.
+ *
+ * Il était habillé en styles EN LIGNE, avec des couleurs inventées : c'est
+ * précisément ce qui le faisait dénoter. Il reprend ici les variables de
+ * l'interface (`--panel`, `--border`) et la typographie des libellés du jeu
+ * (majuscules, `letter-spacing: 0.12em`), comme la barre de ressources.
+ * Le magenta n'intervient plus que sur le lieu ACTIF : c'est la signature de la
+ * Maison des Plaisirs, elle doit rester un accent, pas un fond. */
+.plaisirs-menu {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 13rem;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  /* Coins francs : le décor est du pixel art, un rayon marqué ferait tache. */
+  border-radius: 3px;
+  box-shadow: 0 6px 22px rgba(8, 4, 14, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 6;
+  /* Le conteneur ne capte rien : sans ça, ses marges voleraient les clics
+     destinés au décor. Seuls ses boutons sont actifs. */
+  pointer-events: none;
+  /* ⚠ FILET : le menu ne dépasse JAMAIS la salle. `100%` désigne ici la hauteur
+     de #plaisirs, qui est celle de la salle (le menu étant hors flux). Sans ce
+     plafond, le menu déborde dès que la salle devient plus courte que lui — et
+     ça n'arrive pas qu'en fenêtre étroite : sa hauteur grandit avec les lieux
+     débloqués, donc le seuil remonte au fil de la partie. Un nombre écrit en
+     dur dans une media query ne peut pas suivre ça ; ce plafond, si. */
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---- ÉCRAN ÉTROIT : LE MENU DESCEND SOUS L'ILLUSTRATION ----
+ *
+ * La salle est une boîte à RATIO FIXE : sa hauteur vient de sa largeur. Le menu,
+ * lui, est de l'interface — une colonne de boutons qui ne se met pas à
+ * l'échelle. Mesuré : la salle fait 1,84 fois plus large que haute, donc elle
+ * passe sous les 381px du menu dès ~700px de largeur de fenêtre. En dessous, le
+ * faire flotter n'a plus de sens : il couvrirait l'illustration entière, ou il
+ * faudrait le faire défiler sur 200px de haut.
+ *
+ * On ne touche NI au ratio de l'image NI aux points chauds (placés en % du
+ * cadre) : le menu quitte simplement la surimpression et devient la seconde
+ * rangée de la grille de la vue. L'illustration garde ses proportions exactes.
+ *
+ * ⚠ Le seuil est au-dessus des 700px mesurés, pas dessus : la hauteur du menu
+ * grandit avec les lieux débloqués, et une bascule calée au ras du cas d'aujourd'hui
+ * se ferait rattraper par la partie de demain. */
+@media (max-width: 760px) {
+  .plaisirs-menu {
+    position: static;
+    transform: none;
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow: visible;
+    margin-top: 8px;
+    /* En pile, il n'y a plus de décor dessous à protéger : le panneau redevient
+       une surface normale, qui capte ses propres clics. */
+    pointer-events: auto;
+  }
+
+  /* ---- UNE PARTIE OUVERTE PREND L'ÉCRAN (demande Raph, 2026-08-07) ----
+   *
+   * Le jeu était monté DANS la salle, donc dans une boîte à ratio fixe de 198px
+   * de haut sur un téléphone. Or la scène porte un plancher de 260px : mesuré,
+   * le panneau sortait de 31px en haut ET en bas et se faisait rogner par le
+   * `overflow: hidden` de la salle — les mises, la cote et le bouton d'action se
+   * lisaient par-dessus le décor, à moitié coupés.
+   *
+   * ⚠ `max-height: 88%` ne pouvait rien y faire, et c'est le piège à retenir :
+   * la scène est un élément flex dont la taille minimale automatique
+   * (`min-height: auto`) vaut la hauteur de son contenu. Un minimum l'emporte
+   * toujours sur un maximum — le plafond était donc décoratif.
+   *
+   * La partie quitte le cadre et occupe tout l'espace de jeu. On garde
+   * VOLONTAIREMENT deux choses visibles : la barre de ressources en haut (c'est
+   * la Faveur qu'on mise, la cacher pendant qu'on parie serait absurde) et la
+   * barre d'onglets en bas (on doit pouvoir sortir).
+   *
+   * ⚠ PARTAGE EN DEUX MOITIÉS (demande Raph, 2026-08-07) : le jeu en haut, le
+   * menu des lieux en bas. Le menu était resté dans le flux, sous
+   * l'illustration — donc au MILIEU de l'écran une fois le jeu ouvert, posé en
+   * travers des cartes de mise (mesuré : `elementFromPoint` au centre répondait
+   * `plaisirs-lieu`, pas le jeu). Il ne suffisait pas de le passer dessous : on
+   * doit pouvoir changer de jeu en cours de partie (`depuisMenu` bascule
+   * directement), donc il lui faut sa place à lui, pas un dessous.
+   *
+   * Effet de bord recherché : les cartes de mise s'étirent pour remplir leur
+   * conteneur. Sur 665px de haut elles faisaient 605px — trois colonnes vides
+   * démesurées, avec le bouton d'action rejeté tout en bas de l'écran. Bornées
+   * à la moitié haute, elles retombent à une taille de carte.
+   *
+   * Fermeture : chaque scène a son propre bouton (`onClose`), et Échap. */
+
+  /* ⚠⚠ SANS CETTE RÈGLE, LE `position: fixed` CI-DESSOUS NE VISE PAS LA FENÊTRE.
+   * Toute vue du jeu porte une animation d'entrée (`view-enter`, 0,18 s) qui
+   * anime un `transform`. Or un ancêtre transformé devient BLOC CONTENEUR des
+   * descendants `fixed` : pendant l'animation, `top: 3.3rem` ne compte plus
+   * depuis le haut de l'écran mais depuis le haut de la vue. Mesuré : le
+   * panneau tombait à 116px au lieu de 53, décalé de la hauteur de la section.
+   * Le cas se produit pour de vrai — `openTempleGame` bascule sur l'onglet
+   * Plaisirs, donc ouvrir un jeu depuis la Cité anime la vue ET monte la partie
+   * dans le même souffle.
+   * On paye 4px de glissement à l'entrée, sur une seule vue et seulement sur
+   * petit écran. C'est moins cher qu'un panneau qui saute. */
+  #plaisirs.view {
+    animation: none;
+  }
+  .plaisirs-stage .regulation-stage:not(.is-empty) {
+    position: fixed;
+    /* Sous la barre de ressources (53px mesurés) et au-dessus de la barre
+       d'onglets. `--touch-nav-total` n'existe qu'au doigt : au curseur dans une
+       fenêtre étroite il n'y a pas de barre basse, d'où le repli à 0. */
+    top: 3.3rem;
+    /* La moitié haute. Le menu des lieux occupe l'autre. */
+    bottom: 50%;
+    left: 0;
+    right: 0;
+    /* Au-dessus de la page, SOUS la barre d'onglets (z-index 50) : elle doit
+       rester cliquable, c'est la sortie de secours. */
+    z-index: 45;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    /* Le plancher de la scène n'a plus de sens ici : c'est la fenêtre qui donne
+       la hauteur, et il empêcherait le panneau de tenir dans un petit écran. */
+    min-height: 0;
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* OPAQUE. Même règle que toutes les surfaces posées sur une image dans ce
+       jeu : ce n'est pas la taille du texte qui manquait, c'est le fond. */
+    background: var(--surface-panel);
+    border-radius: 0;
+  }
+
+  /* ---- UNE SCÈNE NE COMPRIME PLUS SON CONTENU ----
+     Les scènes sont des colonnes flex taillées pour la hauteur qu'on leur
+     donne : leurs rangées de mises sont en `flex: 1 1 auto` et se laissent
+     donc ÉCRASER sous la taille de leur propre texte. Sur une demi-hauteur de
+     téléphone, mesuré aux osselets : la colonne tombait à 185px pour 240px de
+     contenu, et la description de l'effet (`augury-rite-fx`) sortait de 56px
+     sous le cadre de sa mise — du texte posé dans le vide.
+     ⚠ `overflow: visible` partout : rien ne rognait, donc rien ne signalait la
+     compression. Un contenu qui déborde en silence est le pire des deux cas.
+     On rend leur taille naturelle aux rangées, et c'est le PANNEAU qui défile —
+     il est déjà en `overflow-y: auto`. Une scène plus haute que la moitié se
+     parcourt ; une scène rognée se devine. */
+  .plaisirs-stage .regulation-stage > * {
+    height: auto;
+    min-height: 100%;
+    /* ⚠ `height: auto` NE SUFFIT PAS sur un élément flex : la scène est un
+       enfant du panneau, et l'algorithme flex la RÉTRÉCIT sous sa hauteur
+       automatique dès que la place manque — c'est `flex-shrink` qui décide, pas
+       `height`. Sans cette ligne, la rangée de mises ressortait encore de 62px
+       sous la scène (mesuré aux osselets). */
+    flex-shrink: 0;
+  }
+
+  .plaisirs-stage .augury-rites,
+  .plaisirs-stage .icarus-stakes,
+  .plaisirs-stage .scratch-stakes {
+    flex-shrink: 0;
+  }
+
+  /* ---- LE BOUTON D'ACTION TIENT DANS SA COLONNE ----
+     Il est LOGÉ dans la colonne de la mise choisie (arbitrage Raph du
+     2026-07-17 : « visuellement dans le cadre de la mise choisie »), et sa
+     largeur est celle de son texte plus 2 × 1,4rem de marge intérieure — un
+     réglage juste tant qu'une colonne fait 360px. À trois colonnes sur 390px
+     elle en fait 119 : mesuré, « S'ENVOLER » sortait de 37px et se posait sur
+     la carte voisine.
+     Il prend donc la largeur de sa colonne au lieu de celle de son texte. Le
+     libellé passe à la ligne s'il le faut — deux lignes lisibles valent mieux
+     qu'un mot qui déborde chez le voisin.
+     ⚠ `--touch-target` n'existe qu'au doigt ; à 760px au curseur il faut un
+     repli, sinon `min-height` tombe et le bouton repasse sous le plancher. */
+  .plaisirs-stage .stake-play {
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.35rem;
+    white-space: normal;
+    line-height: 1.05;
+    height: auto;
+    min-height: var(--touch-target, 2.75rem);
+  }
+
+  /* LE MENU PREND LA MOITIÉ BASSE, et seulement pendant une partie. Hors
+     partie il reste ce qu'il est devenu plus haut : un bloc dans le flux, sous
+     l'illustration, qu'on fait défiler avec la page.
+     `:has()` est le seul moyen de lire l'état d'un enfant depuis un parent —
+     et ici c'est bien le PARENT qu'il faut interroger, puisque le menu n'est
+     pas dans la même branche que la scène.
+     ⚠ En `fixed` le menu redevient POSITIONNÉ, donc son `z-index` compte enfin.
+     Statique, il l'ignorait purement et simplement : c'est ce qui le faisait
+     peindre par-dessus le jeu au lieu de rester derrière. 46 le met au-dessus
+     du jeu (45) et sous la barre d'onglets (50). */
+  #plaisirs:has(.plaisirs-stage .regulation-stage:not(.is-empty)) .plaisirs-menu {
+    position: fixed;
+    top: 50%;
+    bottom: var(--touch-nav-total, 0px);
+    left: 0;
+    right: 0;
+    z-index: 46;
+    margin: 0;
+    max-height: none;
+    /* Six lieux plus la bourse dépassent la demi-hauteur d'un téléphone : il
+       défile chez lui plutôt que de rogner le jeu au-dessus. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}
+
+.plaisirs-lieu {
+  pointer-events: auto;
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-mid, #b9c2d8);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.plaisirs-lieu:hover:not(:disabled),
+.plaisirs-lieu.is-actif {
+  color: #ffd9f2;
+  background: rgba(255, 120, 210, 0.16);
+  border-color: rgba(255, 120, 210, 0.6);
+}
+
+.plaisirs-lieu:disabled {
+  color: #6d6478;
+  cursor: default;
+}
+
+/* LA BOURSE, en tête du menu volant. Compacte : elle partage la largeur des
+   entrées de lieux, et le menu ne doit pas manger l'illustration. */
+.plaisirs-bourse {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 120, 210, 0.3);
+  font-size: 0.82rem;
+  color: #e6cfe0;
+}
+
+.plaisirs-bourse-faveur {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: #ffd9f2;
+}
+
+.plaisirs-bourse-tronc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.plaisirs-jauge {
+  flex: 1 1 auto;
+  min-width: 46px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.plaisirs-jauge > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #b8602f, #ffb35c);
+}
+
+.plaisirs-bourse-chiffre {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.plaisirs-relever:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.plaisirs-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Au-dessus des points chauds et du bouton d'action, sous le menu volant
+     (z-index 3) : on garde le menu atteignable pendant une partie. */
+  z-index: 2;
+  /* Le calque ne capte rien lui-même, seul le panneau du jeu le fait — sans ça,
+     une bande transparente plein cadre volerait tous les clics du décor. */
+  pointer-events: none;
+}
+
+/* Le jeu OCCUPE la salle. Les 720 px d'avant le tassaient au centre d'une
+   illustration devenue très large : trois cartes de mise à l'étroit alors que
+   la place ne manquait pas. */
+.plaisirs-stage > * {
+  pointer-events: auto;
+  width: min(1180px, 88%);
+  max-width: min(1180px, 88%);
+  max-height: 88%;
+  overflow: auto;
+}
+
+/* ── LE PANNEAU DU JEU A BESOIN D'UN SOL ────────────────────────────────────
+   Retour Raph 2026-08-07 : « on ne voit pas bien la police d'écriture, c'est un
+   poil illisible », capture de l'écran de résultat des osselets à l'appui.
+
+   ⚠ LE COUPABLE N'EST PAS LA TYPOGRAPHIE, C'EST LE FOND. La scène des jeux a
+   été habillée pour la page Régulation, où elle repose sur un fond de page
+   sombre et uni : son décor (views-regulation.css, « le tapis de feutre ») n'est
+   fait QUE de couches translucides, la plus opaque plafonnant à 50 %. Elle
+   empruntait donc la moitié de son assise à ce qu'il y avait dessous. Ici, ce
+   qu'il y a dessous est une illustration en or vif et en rouge, à contraste
+   maximal et à grain de pixel — et les petites mentions dorées (« pitié :
+   prochaine offrande −50 % ») se retrouvent à lutter contre un fond de leur
+   propre couleur.
+
+   Deux leviers, et il faut LES DEUX :
+     · un SOL opaque. `background-color` se glisse DERRIÈRE tous les dégradés de
+       views-regulation — le raccourci `background` n'y pose que des images, la
+       couleur de fond y reste libre. Le tapis est donc conservé intact, il gagne
+       seulement un plancher ;
+     · un FLOU du peu qui traverse encore. C'est lui qui fait le vrai travail :
+       il casse le grain du pixel art, et ce qui reste visible devient un lavis
+       au lieu d'une texture concurrente.
+
+   C'est mot pour mot la recette du menu volant plus haut, qui est parfaitement
+   lisible sur cette même illustration : on ne fait que l'appliquer au panneau.
+
+   ⚠ `--panel-2` et non `--panel` : c'est le jeton des surfaces DE LECTURE (0,90
+   à 0,97 selon l'ère, contre 0,82), et ce panneau est devenu la surface de
+   lecture principale du hub. Il suit l'ère, donc le tapis se teinte avec elle.
+   ⚠ Le flou est posé sur la scène ELLE-MÊME, jamais sur un de ses ancêtres : un
+   ancêtre filtré redeviendrait bloc conteneur et casserait le `position: fixed`
+   dont dépend l'affichage plein écran au doigt (cf. la media query plus bas). */
+.plaisirs-stage .regulation-stage:not(.is-empty) {
+  background-color: var(--panel-2);
+  backdrop-filter: blur(4px);
+}
+
+/* Aucune partie en cours : la scène disparaît. On masque l'ENFANT vide et non
+   le calque via `:has()` — la version précédente s'appuyait dessus et laissait
+   le grand cadre pointillé de la scène vide posé au milieu de l'illustration.
+   Cibler directement l'enfant ne dépend d'aucun sélecteur conditionnel, donc
+   ne peut pas échouer silencieusement.
+   Le calque, lui, reste monté : il n'a ni fond ni bordure, et son
+   `pointer-events: none` fait qu'il ne capte rien tant qu'il est creux. */
+.plaisirs-stage .regulation-stage.is-empty {
+  /* `!important` assumé : la scène porte son propre cadre pointillé, hérité de
+     sa vie dans Régulation où elle servait de zone d'accueil visible. Ce cadre
+     restait posé au milieu de l'illustration entre deux parties, et la règle
+     simple ne suffisait pas à le faire taire. */
+  display: none !important;
+}
+
+/* ── LE BOUTON D'ACTION S'EFFACE PENDANT LA PARTIE ──────────────────────────
+   Retour Raph 2026-08-07, capture à l'appui : « Jouer » restait posé PAR-DESSUS
+   le panneau du vingt-et-un, en travers de la première colonne de mise.
+
+   Ce n'est pas un accident de z-index, c'est structurel : le bouton est ancré
+   sur SON LIEU, le panneau du jeu est centré et large. Dès qu'un lieu tombe vers
+   le milieu de l'illustration, les deux occupent la même place — le recouvrement
+   est garanti, et le monter ou le descendre d'un cran ne ferait que choisir
+   lequel des deux masque l'autre.
+
+   La vraie réponse est qu'il n'a PLUS D'OFFICE une fois la partie lancée : son
+   seul rôle est d'engager le jeu. Il en retrouve un dès qu'on referme, le lieu
+   restant choisi — donc on l'efface, on ne le déplace pas.
+
+   ⚠ Ça ne peut pas se décider dans la vue : elle ne sait pas qu'un jeu est
+   ouvert (`registerTempleStage` n'admet qu'UN abonné, et la scène se referme par
+   sa propre croix ou par Échap sans prévenir personne). La scène se marque
+   elle-même `is-empty`, et `:has()` est le seul moyen de réagir à l'état d'un
+   enfant — même signal que le calque juste au-dessus.
+   Vaut aussi au doigt, où la partie passe en `position: fixed` plein écran : le
+   bouton s'y retrouverait simplement caché derrière, mais toujours focusable. */
+#plaisirs:has(.plaisirs-stage .regulation-stage:not(.is-empty)) .plaisirs-action {
+  display: none;
+}

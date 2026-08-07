@@ -33,6 +33,20 @@ import StageHelp from './StageHelp.jsx';
  * en pleine main abandonne la mise (déjà payée).
  */
 
+// L'EMBLÈME DE CHAQUE MISE, en tête de sa colonne. Ici ce sont des CARTES et non
+// de l'argent : les tickets voisins portent déjà l'escalade du métal (bronze,
+// argent, or), et deux jeux à emblèmes de monnaie croissante auraient été des
+// jumeaux dans le même hub. La table monte donc par le JEU qu'on engage — une
+// carte, deux cartes, la couronne posée dessus.
+//
+// ⚠ Table explicite plutôt qu'un chemin déduit de `s.id` : une mise ajoutée
+// demain sortirait un 404 muet. Cf. la même table dans IcarusStage.
+const STAKE_ART = {
+  legere: '/pixelart/ui/plaisirs/mises/vingtetun-legere.png',
+  pleine: '/pixelart/ui/plaisirs/mises/vingtetun-pleine.png',
+  royale: '/pixelart/ui/plaisirs/mises/vingtetun-royale.png'
+};
+
 // Libellés d'issue pour l'infobulle des pastilles d'historique (résolus par tr()).
 const BJ_RESULT_LABEL = {
   blackjack: { fr: 'Vingt-et-un', en: 'Twenty-one' },
@@ -226,6 +240,9 @@ export default function BlackjackStage({ table, onClose }) {
                     onClick={() => setChosenStake(s.id)}
                     {...tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
                   >
+                    {STAKE_ART[s.id] && (
+                      <img className="stake-art" src={STAKE_ART[s.id]} alt="" aria-hidden="true" width={64} height={64} />
+                    )}
                     <strong>{tr(s.label)}</strong>
                     <span><FaveurIcon /> {fmt(cost)}</span>
                   </button>

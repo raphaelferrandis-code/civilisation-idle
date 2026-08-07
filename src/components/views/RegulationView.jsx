@@ -2,9 +2,7 @@ import TensionBarometers from '../ui/TensionBarometers.jsx';
 import PressureAnatomy from '../ui/PressureAnatomy.jsx';
 import CycleAnnals from '../ui/CycleAnnals.jsx';
 import StewardPanel from '../ui/StewardPanel.jsx';
-import AuguresPanel from '../ui/AuguresPanel.jsx';
 import TemplePupitre from '../ui/TemplePupitre.jsx';
-import RegulationStage from '../ui/RegulationStage.jsx';
 
 /**
  * Onglet Régulation — la « Chancellerie ». Layout (réorg 2026-07-14) :
@@ -23,20 +21,22 @@ import RegulationStage from '../ui/RegulationStage.jsx';
  */
 export default function RegulationView() {
   return (
+    // Les JEUX ont quitté cette page pour la Maison des Plaisirs (2026-08-06).
+    // AuguresPanel et RegulationStage y vivaient ; les laisser ici aurait donné
+    // deux entrées vers les mêmes parties, et deux scènes concurrentes pour un
+    // pont qui n'admet qu'un abonné.
     <section className="view active" id="regulation">
       <TensionBarometers />
       <div className="regulation-cols">
         <div className="regulation-col regulation-col--left">
           <PressureAnatomy />
           <StewardPanel />
-          <AuguresPanel />
         </div>
         <div className="regulation-col regulation-col--right">
           <CycleAnnals />
           <TemplePupitre />
         </div>
       </div>
-      <RegulationStage />
     </section>
   );
 }

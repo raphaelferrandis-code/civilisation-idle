@@ -8,6 +8,9 @@
 @import './views-layout-wrapper.css';
 @import './views-crises.css';
 @import './views-regulation.css';
+/* Après views-regulation : le calque des Plaisirs réutilise la scène des jeux
+   et doit pouvoir la surcharger. */
+@import './views-plaisirs.css';
 @import './views-city.css';
 @import './views-world-fullframe.css';
 @import './views-city-hud.css';

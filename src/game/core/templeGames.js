@@ -38,7 +38,11 @@ export function registerTempleStage(fn) {
 // clé de réinitialisation aux scènes (une réouverture repart à zéro).
 export function openTempleGame(kind, req = {}) {
   const game = { kind, openedAt: Date.now(), ...req };
-  openView('regulation');
+  // MIGRATION 2026-08-06 : les jeux ont quitté le Temple pour la Maison des
+  // Plaisirs. Cette ligne est la SEULE qui décide de l'onglet d'accueil —
+  // d'où qu'on ouvre un jeu (hub, barre de crise, panneau des augures), on
+  // atterrit désormais dans les Plaisirs.
+  openView('plaisirs');
   if (setter) setter(game);
   else pending = game;
 }

@@ -45,7 +45,8 @@ const VIEW_LOADERS = {
   tech: () => import('./components/views/HeritageView.jsx'),
   mythView: () => import('./components/views/MythsView.jsx'),
   history: () => import('./components/views/ChronicleView.jsx'),
-  comptoir: () => import('./components/views/ComptoirView.jsx')
+  comptoir: () => import('./components/views/ComptoirView.jsx'),
+  plaisirs: () => import('./components/views/PlaisirsView.jsx')
 };
 
 // Un échec de préchargement ne doit RIEN casser : le clic refera l'import et
@@ -64,6 +65,7 @@ const reopenDialog = (setOpen) => { setOpen(false); setTimeout(() => setOpen(tru
 
 const CityView = lazy(VIEW_LOADERS.city);
 const RegulationView = lazy(VIEW_LOADERS.regulation);
+const PlaisirsView = lazy(VIEW_LOADERS.plaisirs);
 const PrestigeView = lazy(VIEW_LOADERS.prestige);
 const RuinsView = lazy(VIEW_LOADERS.ruinsView);
 const HeritageView = lazy(VIEW_LOADERS.tech);
@@ -257,6 +259,7 @@ export default function App() {
   const tabs = [
     { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'nav/cite', unlocked: true },
     { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: true },
+    { id: 'plaisirs', label: { fr: 'Plaisirs', en: 'Pleasures' }, icon: 'nav/plaisirs', unlocked: true },
     { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: true },
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
@@ -449,6 +452,7 @@ export default function App() {
           {activeView === 'city' && <CityView />}
 
           {activeView === 'regulation' && <RegulationView />}
+          {activeView === 'plaisirs' && <PlaisirsView />}
 
           {activeView === 'prestige' && <PrestigeView />}
 
