@@ -1,5 +1,12 @@
 "use strict";
 
+import { blackjackUnlocked } from "../../../game/core/actions/blackjack.js";
+import { icarusUnlocked } from "../../../game/core/actions/icarus.js";
+import { scratchUnlocked } from "../../../game/core/actions/scratch.js";
+import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
+import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
+import { state } from "../../../game/core/state.js";
+
 // Les lieux cliquables de la Maison des Plaisirs.
 //
 // Même patron que l'Arbre des Ruines (views/ruinsTree/anchors.js) : les
@@ -60,14 +67,20 @@ export const PLAISIRS_SPOTS = [
   { id: "scene",   kind: null,        label: "La scène",       x: 300, y: 128, r: 30 },
   // L'ÉCHOPPE porte DEUX usages : on y achète (la boutique) et on y prend un
   // ticket. Les deux partagent donc la MÊME ancre (Raph, 2026-08-07).
+  { id: "tickets", kind: "scratch",   label: "Les tickets",    x: 221, y: 123, r: 24, z: 2 },
+  // LA BOUTIQUE EN DERNIER (Raph, 2026-08-07) : c'est sa place dans le menu —
+  // on y range ses gains, on n'y joue pas, elle ferme donc la liste.
+  // Le nom suit celui de l'ONGLET (« Boutique ») : c'est la même destination,
+  // et deux noms pour une chose obligent le joueur à faire le rapprochement.
   //
-  // ⚠ Deux zones superposées, une seule peut recevoir le clic : c'est la
-  // DERNIÈRE de cette liste qui est peinte par-dessus, donc elle qui gagne. Les
-  // tickets passent en dernier volontairement — la boutique, elle, garde deux
-  // autres chemins (son propre onglet et le menu volant), alors que les tickets
-  // n'ont que ce lieu.
-  { id: "boutique", view: "tech",     label: "L'échoppe",      x: 221, y: 123, r: 24 },
-  { id: "tickets", kind: "scratch",   label: "Les tickets",    x: 221, y: 123, r: 24 }
+  // ⚠ `z` — DEUX ZONES SUPERPOSÉES, une seule reçoit le clic. Avant, l'ordre de
+  // la liste en décidait (le dernier peint gagne) et les tickets étaient donc
+  // rangés en fin de tableau exprès. Déplacer la boutique en bas aurait
+  // silencieusement volé l'ancre aux tickets : la priorité est désormais
+  // ÉCRITE, pas déduite d'une position. Les tickets gardent la main parce que
+  // ce lieu est leur SEUL accès, alors que la boutique en a deux autres (son
+  // onglet et le menu).
+  { id: "boutique", view: "tech",     label: "Boutique",       x: 221, y: 123, r: 24, z: 1 }
 ];
 
 // Le VERBE de chaque lieu — celui du bouton qui apparaît sur l'illustration une
@@ -87,12 +100,53 @@ export const SPOT_VERBES = {
 };
 export const spotVerbe = (spot) => (spot && SPOT_VERBES[spot.id]) || "Ouvrir";
 
-// Un lieu est actif s'il ouvre QUELQUE CHOSE : un jeu (`kind`) ou une vue
-// (`view`). Un lieu sans l'un ni l'autre reste dessiné et inerte — mieux vaut ça
-// qu'un panneau vide qui s'ouvre sur rien. C'était le cas de la scène, faute de
-// banque de sons (le vrai coût de la musique est le SON, pas l'art).
+// Un lieu est-il DÉVERROUILLÉ dans la partie en cours ? (Raph, 2026-08-07 :
+// « les jeux inaccessibles au début doivent être grisés comme la scène ».)
+//
+// ⚠ CE N'EST PAS LA MÊME QUESTION QUE `spotIsOpen`, et les confondre était le
+// défaut : la scène est grise parce qu'elle n'ouvre RIEN (aucun jeu écrit), les
+// autres l'étaient à tort parce qu'on ne regardait que l'existence du jeu, pas
+// le droit d'y jouer. Un lieu affiché comme actif qui refuse le clic est pire
+// qu'un lieu grisé — le joueur croit à une panne.
+//
+// Chaque verrou est lu à SA source (les fonctions du jeu), jamais recopié : le
+// jour où le vingt-et-un change d'ère d'ouverture, ce fichier suit sans qu'on y
+// pense. Un seuil recopié ici se serait tu.
+function spotUnlocked(spot) {
+  if (!spot) return false;
+  if (spot.kind === "blackjack") return blackjackUnlocked();
+  if (spot.kind === "icarus") return icarusUnlocked();
+  if (spot.kind === "scratch") return scratchUnlocked();
+  if (spot.kind === "augury") {
+    // Les osselets sont une ACTION de régulation : leur verrou vit là-bas, et
+    // l'identifiant se lit dans les données plutôt qu'écrit en dur (même
+    // précaution que PlaisirsView pour l'ouverture du jeu).
+    const gamble = REGULATION_ACTIONS.find((a) => a.kind === "gamble");
+    return !!gamble && regulationActionUnlocked(gamble.id);
+  }
+  // LA BOUTIQUE suit exactement la règle de son onglet (App.jsx) : elle s'ouvre
+  // au 1er effondrement, ou dès qu'on détient de la Faveur — sinon la Faveur
+  // gagnée aux jeux du cycle 0 serait indépensable.
+  if (spot.view === "tech") {
+    return (state.cycles || 0) >= 1 || (state.grandResetCount || 0) > 0 || (state.faveur || 0) > 0;
+  }
+  return true;
+}
+
+// Un lieu est actif s'il ouvre QUELQUE CHOSE — un jeu (`kind`) ou une vue
+// (`view`) — ET si la partie y donne accès. Un lieu sans l'un ni l'autre reste
+// dessiné et inerte : mieux vaut ça qu'un panneau vide qui s'ouvre sur rien.
+// C'était le cas de la scène, faute de banque de sons (le vrai coût de la
+// musique est le SON, pas l'art).
 export function spotIsOpen(spot) {
-  return !!(spot && (spot.kind || spot.view));
+  return !!(spot && (spot.kind || spot.view)) && spotUnlocked(spot);
+}
+
+// Distingue les deux raisons d'être gris, pour l'infobulle seulement : un lieu
+// qui n'existe pas encore (« bientôt ») et un lieu qui existe mais qu'on n'a pas
+// mérité (« pas encore »). Visuellement ils sont identiques, c'est la demande.
+export function spotIsLocked(spot) {
+  return !!(spot && (spot.kind || spot.view)) && !spotUnlocked(spot);
 }
 
 // Les lieux qui prennent le CADRE ENTIER au lieu de s'ouvrir en panneau posé sur

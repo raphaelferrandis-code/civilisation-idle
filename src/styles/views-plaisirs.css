@@ -259,6 +259,33 @@
     border-left: 0;
     border-right: 0;
   }
+
+  /* ---- UNE PARTIE ENGAGÉE REPREND TOUTE LA PLACE ----
+   *
+   * Le partage en deux moitiés vaut pour la phase de MISE : trois colonnes de
+   * choix, c'est compact, et le menu mérite l'autre moitié. Une main DISTRIBUÉE
+   * n'a pas le même appétit — mesuré au vingt-et-un : 545px de scène pour 343
+   * visibles, si bien que le résultat (« Vingt-et-un ! +10 faveur ») et les
+   * boutons (« Redistribuer », « Changer de mise ») tombaient sous le pli. Le
+   * panneau défile, mais il reste à `scrollTop: 0` : le joueur voyait deux mains
+   * et rien d'autre. C'est le « les jeux n'apparaissent pas » de Raph.
+   *
+   * On lit la phase dans le DOM, sur le seul marqueur que les quatre jeux
+   * partagent : `.stake-pick`, la colonne de choix d'une mise. Présente, on
+   * choisit ; absente, on joue. Aucun des quatre n'a de drapeau commun ailleurs,
+   * et s'abonner à leur état d'ici est exclu (`registerTempleStage` n'admet
+   * qu'un abonné, cf. l'en-tête de ce fichier).
+   *
+   * Le menu s'efface pendant la main — c'est le prix, et il est juste : changer
+   * de jeu au milieu d'une donne n'a pas de sens, et il revient dès qu'on
+   * retombe sur le choix de mise. */
+  #plaisirs:has(.regulation-stage:not(.is-empty)):not(:has(.stake-pick)) .plaisirs-stage .regulation-stage {
+    bottom: var(--touch-nav-total, 0px);
+  }
+
+  #plaisirs:has(.regulation-stage:not(.is-empty)):not(:has(.stake-pick)) .plaisirs-menu {
+    display: none;
+  }
 }
 
 .plaisirs-lieu {

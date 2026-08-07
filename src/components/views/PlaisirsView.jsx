@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
+import { useGameState } from '../../hooks/useGameState.js';
 import { PLAISIRS_ART, PLAISIRS_SPOTS, spotRadius, spotIsOpen, spotIsFullFrame, spotHasAnchor, spotVerbe } from './plaisirs/anchors.js';
-import { openTempleGame } from '../../game/core/templeGames.js';
+import { openTempleGame, closeTempleStage } from '../../game/core/templeGames.js';
 import { REGULATION_ACTIONS } from '../../game/data/regulationActions.js';
 import RegulationStage from '../ui/RegulationStage.jsx';
 // La bourse SEULE (Faveur + tronc), extraite d'AuguresPanel. Le panneau entier
@@ -49,6 +50,16 @@ export default function PlaisirsView() {
   // l'illustration.
   const [plein, setPlein] = useState(null);
 
+  // ⚠⚠ ABONNEMENT AUX VERROUS. `spotIsOpen` lit l'état du jeu AU RENDU, et cette
+  // vue ne s'abonnait à rien : mesuré le 2026-08-07, porter la partie à l'ère 6
+  // ne dégrisait ni le vingt-et-un ni Icare tant qu'on ne quittait pas l'onglet.
+  // Un lieu qui reste gris alors qu'on vient de le débloquer se lit comme une
+  // panne — et c'est justement le moment où le joueur vient voir.
+  // On s'abonne à la SIGNATURE des verrous eux-mêmes, pas aux champs d'état qui
+  // les alimentent : le jour où un jeu change de condition d'ouverture, il n'y a
+  // rien à mettre à jour ici. Le re-rendu n'a lieu que si la chaîne change.
+  useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : '0')).join(''));
+
   // DEUX TEMPS, et c'est voulu (Raph, 2026-08-07) : choisir un lieu ne lance
   // rien, ça pose son bouton d'action SUR l'illustration, au niveau du lieu.
   // C'est ce bouton qui engage la partie. On évite ainsi de basculer dans un jeu
@@ -62,7 +73,16 @@ export default function PlaisirsView() {
   const lancer = (spot) => {
     if (!spotIsOpen(spot)) return;
     setSelection(spot.id);
-    if (spotIsFullFrame(spot)) { setPlein(spot.id); return; }
+    if (spotIsFullFrame(spot)) {
+      // ⚠ On FERME la partie en cours, symétrique de ce que fait la branche
+      // « jeu » juste en dessous. Sans ça, la scène du jeu — posée en calque
+      // par-dessus la salle — restait montée SUR la boutique : mesuré, les
+      // rayons de l'échoppe se retrouvaient sous les cartes de mise, et la
+      // boutique paraissait ne pas s'ouvrir alors qu'elle était bien là.
+      closeTempleStage();
+      setPlein(spot.id);
+      return;
+    }
     // Un jeu se joue par-dessus l'illustration : on quitte donc le plein cadre,
     // sinon la partie s'ouvrirait derrière l'échoppe restée affichée.
     setPlein(null);
@@ -88,7 +108,15 @@ export default function PlaisirsView() {
   // Depuis le MENU : si on joue déjà, on bascule DIRECTEMENT sur l'autre jeu
   // (Raph, 2026-08-07) — repasser par le bouton d'action obligerait à fermer,
   // viser le lieu, puis relancer. Hors partie, on garde les deux temps.
-  const depuisMenu = (spot) => (jeuEnCours() ? lancer(spot) : choisir(spot));
+  //
+  // ⚠ SAUF LA BOUTIQUE, qui s'ouvre toujours d'un seul tap. Les deux temps
+  // existent pour qu'un clic distrait sur le DÉCOR n'engage pas une mise — ils
+  // protègent de la Faveur perdue. Entrer dans une boutique ne coûte rien, et
+  // depuis le menu le geste est délibéré : on a lu un nom et on l'a touché.
+  // Rapporté par Raph : « l'échoppe n'amène pas à la boutique ». Elle amenait à
+  // un bouton « Entrer » de 63×40 posé sur une illustration haute de 198px sur
+  // téléphone — invisible en pratique.
+  const depuisMenu = (spot) => (jeuEnCours() || spotIsFullFrame(spot) ? lancer(spot) : choisir(spot));
 
   // Un clic n'importe où sur l'illustration journalise sa position source.
   const releve = (e) => {
@@ -193,6 +221,12 @@ export default function PlaisirsView() {
                 background: actif ? 'rgba(255,120,210,0.16)' : 'transparent',
                 boxShadow: actif ? '0 0 16px 4px rgba(255,120,210,0.55)' : 'none',
                 cursor: ouvert ? 'pointer' : 'default',
+                // ⚠ PRIORITÉ ÉCRITE, plus déduite de l'ordre du tableau : les
+                // tickets et la boutique partagent une ancre, et c'est `z` qui
+                // décide lequel reçoit le clic (cf. anchors.js). Sans lui,
+                // déplacer la boutique en fin de liste — sa place dans le menu —
+                // lui aurait volé l'ancre des tickets en silence.
+                zIndex: spot.z || 1,
                 padding: 0,
                 boxSizing: 'border-box',
                 transition: 'background 120ms, box-shadow 120ms, border-color 120ms'

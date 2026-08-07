@@ -1476,3 +1476,12 @@
 :root[data-pointer="coarse"] .stage-help {
   min-width: var(--touch-target);
 }
+
+/* Le VERBE posé sur l'illustration des Plaisirs (« Jeter », « Entrer »…) :
+   mesuré à 63×40, c'est ce bouton qui engage une partie. Sur une illustration
+   haute de 198px au téléphone, c'est déjà une petite cible ; sous le plancher
+   elle devient une cible qu'on rate. */
+:root[data-pointer="coarse"] .plaisirs-action button {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+}
