@@ -6,7 +6,7 @@
 // bord SÉPARANT DEUX MATIÈRES. Ce fichier vérifie que la règle mord dans les deux
 // sens : elle pose là où il faut, et surtout elle ne pose RIEN à l'intérieur d'un
 // quartier homogène, ce qui serait le treillis qu'on vient de retirer.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fenceEdges, FENCE } from "../fenceEdges.js";
 
 // Sol de ville N×N ; `mat` donne la matière d'une cellule, `urban` par défaut.
@@ -17,7 +17,22 @@ const carte = (N, mat = () => "urban") => {
 };
 const cle = (e) => e.gx + "," + e.gy + ":" + e.side;
 
+// ⚠ CES TESTS EXERCENT LA RÈGLE, PAS LE DÉFAUT LIVRÉ. La source « parvis de
+// merveille » a été coupée le 2026-08-06 (cf. FENCE.wonders et sa note) parce qu'elle
+// pose en plein pavé ouvert, mais la règle qui la gouverne doit rester vérifiée : le
+// jour où un art de bornage arrive, c'est elle qui décidera. On la rallume donc pour
+// la durée des tests, et un cas dédié plus bas verrouille le défaut livré.
+const DEFAUT = { ...FENCE };
+beforeEach(() => { Object.assign(FENCE, DEFAUT, { wonders: true }); });
+afterEach(() => { Object.assign(FENCE, DEFAUT); });
+
 describe("pose des clôtures", () => {
+  it("le défaut LIVRÉ ne pose pas autour des parvis, seulement le long de l'eau", () => {
+    expect(DEFAUT.wonders).toBe(false);
+    expect(DEFAUT.quays).toBe(true);
+    expect(DEFAUT.on).toBe(true);
+  });
+
   it("ceint le parvis d'une merveille, et seulement son pourtour", () => {
     // Parvis 3×3 de matière `wonder` au milieu d'un sol urbain.
     const w = new Set(["4,4", "5,4", "6,4", "4,5", "5,5", "6,5", "4,6", "5,6", "6,6"]);

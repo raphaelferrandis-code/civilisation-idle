@@ -192,9 +192,16 @@ const LEGACY_ERA = {
 };
 // Prop iso → prop du kit legacy quand le nom diffère (null = pas d'équivalent).
 const LEGACY_PROP = {
-  bench: 'bench', planter: 'planter', bush: 'bush', fountain: 'fountain',
+  bench: 'bench', bush: 'bush', fountain: 'fountain',
   flag: 'flag', amphora: 'planter', bollard: null, stall: null, statue: null,
   bin: null,                            // pas d'équivalent dans le kit legacy
+  // BAC : AUCUN repli, même doctrine que le puits ci-dessous. Le bac du kit
+  // top-down est dessiné DE FACE, à plat ; les 20 `planter-<face>-<ère>.png`
+  // iso existent. Laisser le repli en place, c'est garder le piège qui a
+  // frappé le 2026-08-07 : un bac posé sans variante ne trouvait pas d'iso et
+  // sortait de face au milieu d'une place en 3/4, sans que rien ne casse. Le
+  // gabarit gris, lui, se voit tout de suite.
+  planter: null,
   // PUITS (point d'eau de quartier, ex-aqueducs — cf. isoRenderer § POINTS D'EAU) :
   // AUCUN repli, volontairement. Il a d'abord retombé sur la fontaine du kit
   // top-down le temps que son art soit produit ; les 6 `well-<ère>.png` existent
@@ -465,6 +472,31 @@ const NO_PLACEHOLDER = new Set(['grate']);
 const LAMP_HW = 0.2;
 const aspectOf = (prop) => PROP_ASPECT[prop] || 1;
 
+// EMPREINTE ÉCRAN D'UN PROP, en TUILES — l'UNIQUE implémentation. Le mobilier de
+// trottoir (isoStreetProps) s'en sert pour son propre filet : il pose les MÊMES
+// objets, avec le même art, il doit les encombrer pareil. Une seconde table
+// d'aspects là-bas aurait dérivé à la première taille retouchée ici.
+//
+// On compare EN ESPACE ÉCRAN, seul endroit où « ça se chevauche » veut dire
+// quelque chose : deux props éloignés dans le monde peuvent se superposer à
+// l'écran en iso. sx = gx − gy, sy = (gx + gy) / 2 — donc indépendant du zoom.
+// `hh` = 0.4·hw : un objet posé au sol occupe en profondeur une fraction de sa
+// largeur, la vue 3/4 écrase l'axe vertical.
+export function propFootprint(gxf, gyf, prop, hT) {
+  const hw = hT * aspectOf(prop) * 0.5;
+  return { sx: gxf - gyf, sy: (gxf + gyf) * 0.5, hw, hh: hw * 0.4 };
+}
+// Deux empreintes se chevauchent-elles ? `gap` < 1 tolère un recouvrement (les
+// objets d'une rue se frôlent sans se gêner), > 1 les écarte.
+export function footClash(a, b, gap) {
+  return Math.abs(a.sx - b.sx) < (a.hw + b.hw) * gap
+    && Math.abs(a.sy - b.sy) < (a.hh + b.hh) * gap;
+}
+// Empreinte d'un MÂT de lampadaire : il n'a pas de recette, mais il encombre.
+export const lampFootprint = (gxf, gyf) => ({
+  sx: gxf - gyf, sy: (gxf + gyf) * 0.5, hw: LAMP_HW, hh: LAMP_HW * 0.4,
+});
+
 // ── COMPOSITION ─────────────────────────────────────────────────────────────
 // FIXÉE, pas semée (retour Raph 2026-07-29, le semis aléatoire faisait se
 // chevaucher bancs et buissons) :
@@ -507,21 +539,14 @@ function composeOne(L, era, box) {
     return post.hT;
   };
 
-  // FILET ANTI-CHEVAUCHEMENT. On compare les empreintes EN ESPACE ÉCRAN, seul
-  // endroit où « ça se chevauche » veut dire quelque chose : deux props éloignés
-  // dans le monde peuvent se superposer à l'écran en iso. Coordonnées écran en
-  // TUILES (donc indépendantes du zoom) : sx = gx − gy, sy = (gx + gy) / 2.
+  // FILET ANTI-CHEVAUCHEMENT. L'empreinte vient de `propFootprint` (§ EMPREINTE
+  // ÉCRAN plus haut) — la même que celle du mobilier de trottoir, une seule
+  // implémentation pour un seul art.
   const placed = [];
-  const foot = (gxf, gyf, prop, hT) => {
-    const hw = hT * aspectOf(prop) * 0.5;                  // empreinte au SOL
-    return { sx: gxf - gyf, sy: (gxf + gyf) * 0.5, hw, hh: hw * 0.4 };
-  };
+  const foot = (gxf, gyf, prop, hT) => propFootprint(gxf, gyf, prop, hT);
   const fits = (gxf, gyf, prop, hT) => {
     const f = foot(gxf, gyf, prop, hT);
-    for (const o of placed) {
-      if (Math.abs(f.sx - o.sx) < (f.hw + o.hw) * PLAZA_TUNE.minGap
-        && Math.abs(f.sy - o.sy) < (f.hh + o.hh) * PLAZA_TUNE.minGap) return false;
-    }
+    for (const o of placed) if (footClash(f, o, PLAZA_TUNE.minGap)) return false;
     placed.push(f);
     return true;
   };
@@ -621,10 +646,7 @@ function composeOne(L, era, box) {
   // 0. Les MÂTS d'abord, dans le filet seulement : ils sont dessinés par le
   //    système de lampadaires, mais rien ne doit venir se poser dessus.
   const lamps = buildLamps(box, w, h, R, T);
-  for (const lp of lamps) {
-    const gxf = lp.wx / T, gyf = lp.wy / T;
-    placed.push({ sx: gxf - gyf, sy: (gxf + gyf) * 0.5, hw: LAMP_HW, hh: LAMP_HW * 0.4 });
-  }
+  for (const lp of lamps) placed.push(lampFootprint(lp.wx / T, lp.wy / T));
 
   // 1. LE CENTRE N'EST JAMAIS VIDE (« il faut que le centre de la place soit
   //    pris, soit par un arbre, soit une fontaine, mais obligatoirement quelque
@@ -806,14 +828,26 @@ function composeOne(L, era, box) {
   //    ce sont deux MESURES qui le disent — chacune suffirait, on garde les deux
   //    parce qu'elles disent des choses différentes : sortir du cœur réservé
   //    (`fd > coreR`) et tenir la règle du duo (`loinDesBancs`).
+  //    ⚠ ELLE A UNE FACE, comme les compagnons de bord (Raph 2026-08-07 : « il y
+  //    a des bacs de fleurs VUS DE FACE sur les places »). Posée sans variante,
+  //    elle ne trouvait aucun `planter-<face>-<ère>.png` iso et propImage
+  //    retombait sur le kit top-down legacy — un bac dessiné de face, à plat,
+  //    au milieu d'une place en 3/4. Chaque emplacement regarde donc le centre,
+  //    même convention que les bancs : la variante nomme la direction MONDE vers
+  //    laquelle le prop REGARDE.
   const fd = Math.min(w, h) * 0.28;
   if (R.field && R.field.length && sideOn && fd > PLAZA_TUNE.coreR) {
-    const F_SPOTS = [[cxc + fd, cyc], [cxc - fd, cyc], [cxc, cyc + fd], [cxc, cyc - fd]];
+    const F_SPOTS = [
+      [cxc + fd, cyc, 'w'],   // à l'est du centre → regarde l'ouest
+      [cxc - fd, cyc, 'e'],
+      [cxc, cyc + fd, 'n'],
+      [cxc, cyc - fd, 's'],
+    ];
     for (let fi = 0; fi < F_SPOTS.length; fi += 1) {
-      const [fx, fy] = F_SPOTS[fi];
+      const [fx, fy, face] = F_SPOTS[fi];
       if (!loinDesBancs(fx, fy)) continue;
       const pick = R.field[Math.floor(h01('plz' + sd + ':f:' + fi) * R.field.length) % R.field.length];
-      add(pick.prop, null, fx, fy, hOf(pick.prop, pick), { field: true });
+      add(pick.prop, face, fx, fy, hOf(pick.prop, pick), { field: true });
     }
   }
   props.sort((a, b) => a.d - b.d);
@@ -1228,4 +1262,7 @@ export function drawIsoPlazaGrid(ctx, comp) {
   }
 }
 
-export { PLAZA_TUNE, RECIPES, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE };
+// `inkBox` est exporté pour les CLÔTURES (lot L9) : la composition d'une bande a
+// besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
+// dériverait de celle qui sert au dessin.
+export { PLAZA_TUNE, RECIPES, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox };

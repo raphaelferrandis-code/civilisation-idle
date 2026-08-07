@@ -83,6 +83,9 @@ import {
   // personHT : les POINTS D'EAU se cotent au même étalon que le mobilier de
   // place — la hauteur d'un habitant. Cf. § POINTS D'EAU.
   personHT,
+  // inkBox : la composition des BANDES de clôture a besoin de la boîte d'encre du
+  // panneau. Même mesure que le dessin, jamais une seconde implémentation.
+  inkBox,
 } from './isoPlaza.js';
 // MOBILIER DE TROTTOIR : la POSE vit là-bas (corps pur, testable), le dessin
 // reste celui du kit des places. Cf. § MOBILIER DE TROTTOIR plus bas.
@@ -6353,7 +6356,8 @@ function isoStreetPropsFor(L, band) {
 // `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place. Un garde-corps
 // arrive à la taille — pas un mur, pas une palissade.
 // Molette : `__fences(false)` éteint, `__fences({ p: 0.7 })` règle.
-// ⛔ **LIVRÉ ÉTEINT (2026-08-06) — le RENDU est bon, c'est le COÛT qui bloque.**
+// ✅ **ALLUMÉ le 2026-08-06, après la composition en BANDES.** Historique des trois
+// étapes, parce que chacune a corrigé la précédente et que le chemin compte :
 //
 // Étape 1, un panneau par arête : ça ne ferme pas la ligne, et c'est de
 // l'arithmétique, pas un réglage.
@@ -6377,17 +6381,70 @@ function isoStreetPropsFor(L, band) {
 // la pane, cf. PERF-CARTE-REPRISE §7 — c'est la PROPORTION qui compte.) La cause est
 // mécanique : 7 panneaux par arête, parce que chaque panneau est minuscule.
 //
-// **La suite est la DÉCOUPE, et pour la vraie raison** (intuition de Raph, confirmée
-// par la mesure) : il ne faut pas répéter le panneau AU DESSIN mais composer la ligne
-// UNE FOIS dans un canevas hors écran — même geste que l'aqueduc modulaire
-// (`aqueduct-{outlet,seg,intake}`, seg répété) et que le bake des quais. On blitte
-// ensuite une tranche par cellule, ce qui préserve le tri peintre.
+// Étape 3, la DÉCOUPE (intuition de Raph, et la mesure a dit pourquoi) : ne pas
+// répéter le panneau AU DESSIN mais composer la ligne UNE FOIS dans un canevas hors
+// écran — même geste que l'aqueduc modulaire et que le bake des quais — puis blitter
+// UNE bande par arête. Le tri peintre garde sa granularité par cellule.
+// ✅ Coût après composition, A/B rejoué TROIS fois, caméra épinglée :
+//   sans 78,4 / 71,7 / 65,8 ms   ·   avec 86,7 / 67,2 / 69,9 ms  (108 clôtures)
+// Écart moyen +2,6 ms pour une variance de ±8, et un tour sur trois donne les
+// clôtures PLUS RAPIDES : c'est dans le bruit. On passe de +17 ms à indétectable.
+//
+// ⚠ Le parvis des merveilles a été COUPÉ (`FENCE.wonders = false`) : ses arêtes
+// qualifient mais tombent en plein pavé ouvert, sans rien à border, et se lisent comme
+// des blocs abandonnés. Le quai et la berge bâtie longent l'eau — là c'est une ligne.
 //
 // `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place.
 // `minRun` = longueur minimale d'une suite d'arêtes contiguës.
-// Molette : `__fences(true)` allume, `__fences({ p, minRun })` règle.
-export const FENCE_ISO = { on: false, p: 0.62, minRun: 3 };
+// Molette : `__fences(false)` éteint, `__fences({ p, minRun })` règle.
+export const FENCE_ISO = { on: true, p: 0.62, minRun: 3 };
 const NO_FENCES = [];
+
+// ── LA BANDE : `per` panneaux composés UNE FOIS, blittés en UN drawImage ────────
+// C'est la « découpe » du plan, et la mesure a dit pourquoi elle est nécessaire :
+// répéter le panneau AU DESSIN coûtait +17 ms (955 items, ~+30 % de frame).
+// Ici la répétition est cuite dans un canevas hors écran, mis en cache par
+// (côté, ère, nombre) — il y en a au plus 4 × 5 × quelques valeurs de `per`.
+//
+// ⚠ LE SENS DE LA DIAGONALE N'EST PAS LE MÊME DES DEUX CÔTÉS. Une arête n/s avance
+// en +x dans le monde, soit (+2, +1) à l'écran ; une arête e/w avance en +y, soit
+// (−2, +1). Composer les deux dans le même sens collerait la moitié des clôtures
+// à contresens de leur berge.
+//
+// ⚠ On compose à la RÉSOLUTION NATIVE du sprite (jamais à l'échelle écran) : la bande
+// est alors indépendante du zoom, et un seul canevas sert à tous les zooms — sinon on
+// recuirait à chaque cran, exactement le point noir du sol.
+const _fenceStrips = new Map();
+function fenceStrip(side, era, per) {
+  const key = side + ':' + era + ':' + per;
+  const hit = _fenceStrips.get(key);
+  if (hit !== undefined) return hit;
+  const art = isoArt('plaza/fence-' + side + '-' + era);
+  if (!art.ready || !art.img) return null;            // pas décodé : on NE met pas en cache
+  const bb = inkBox(art.img);
+  if (!bb || !bb.w || !bb.h) return null;
+  const step = bb.w;                                  // les panneaux s'aboutent
+  const drop = step * (ISO_Y / ISO_X);                // la marche de la diagonale
+  const right = side === 'n' || side === 's';         // sens d'avance à l'écran
+  const cw = Math.max(1, Math.round(per * step));
+  const ch = Math.max(1, Math.round((per - 1) * drop + bb.h));
+  const c = (typeof OffscreenCanvas !== 'undefined')
+    ? new OffscreenCanvas(cw, ch)
+    : Object.assign(document.createElement('canvas'), { width: cw, height: ch });
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  for (let i = 0; i < per; i += 1) {
+    // Le premier panneau est en HAUT de la bande (il est le plus au nord) ; les
+    // suivants descendent. Horizontalement ils partent de la gauche pour n/s et de
+    // la droite pour e/w.
+    const dx = right ? i * step : (cw - bb.w - i * step);
+    const dy = i * drop;
+    g.drawImage(art.img, bb.x0, bb.y0, bb.w, bb.h, Math.round(dx), Math.round(dy), bb.w, bb.h);
+  }
+  const rec = { canvas: c, cw, ch, panelH: bb.h, per, right };
+  _fenceStrips.set(key, rec);
+  return rec;
+}
 let _fenceCache = { key: '', list: null };
 function isoFencesFor(L, band) {
   const era = plazaEraForBand(band);
@@ -6436,20 +6493,22 @@ function isoFencesFor(L, band) {
   const FENCE_INK = 21 / 31;                       // encre mesurée sur les 20 PNG
   const edgePx = Math.hypot(T * ISO_X, T * ISO_Y); // longueur d'une arête, à zoom 1
   const panelPx = Math.max(1, hT * T * FENCE_INK);
-  const per = Math.max(1, Math.min(8, Math.ceil(edgePx / panelPx)));
+  const per = Math.max(1, Math.min(10, Math.ceil(edgePx / panelPx)));
   for (const e of edges) {
-    // Les panneaux se répartissent LE LONG de l'arête (jamais au centre de la
-    // cellule) : c'est ce qui les fait lire comme une limite continue. Chacun garde sa
-    // propre profondeur, donc le peintre les trie un par un comme des lampadaires.
+    // UNE fiche par arête, pas une par panneau : la répétition est CUITE dans la
+    // bande (cf. `fenceStrip`). La profondeur se prend au MILIEU de l'arête, plus
+    // représentative que son coin, et chaque arête trie donc pour elle-même — le
+    // peintre garde sa granularité par cellule.
     const horiz = e.side === 'n' || e.side === 's';
-    const fx = e.side === 'e' ? 1 : e.side === 'w' ? 0 : 0;
-    const fy = e.side === 's' ? 1 : e.side === 'n' ? 0 : 0;
-    for (let i = 0; i < per; i += 1) {
-      const t = (i + 0.5) / per;
-      const wx = (e.gx + (horiz ? t : fx)) * T;
-      const wy = (e.gy + (horiz ? fy : t)) * T;
-      list.push({ prop: 'fence', variant: e.side, wx, wy, hT, d: depthOf(wx, wy) });
-    }
+    const sx = e.gx + (e.side === 'e' ? 1 : 0);            // coin de DÉPART de l'arête
+    const sy = e.gy + (e.side === 's' ? 1 : 0);
+    const mx = (sx + (horiz ? 0.5 : 0)) * T;
+    const my = (sy + (horiz ? 0 : 0.5)) * T;
+    list.push({
+      kind: 'fence', side: e.side, per, hT,
+      wx: sx * T, wy: sy * T,                              // ancre = coin de départ
+      d: depthOf(mx, my),
+    });
   }
   _fenceCache = { key, list };
   CM._fences = list;
@@ -9279,11 +9338,17 @@ function drawIsoLive(now) {
     const fen = isoFencesFor(L, band);
     let nF = 0;
     const minHF = 2 / (T * CM.cam.zoom);
+    const fEra = plazaEraForBand(band);
     for (const rec of fen) {
       if (rec.hT < minHF) continue;
-      if (!dvVis(rec.wx - T, rec.wy - T, rec.wx + T, rec.wy + T)) continue;
+      if (!dvVis(rec.wx - T, rec.wy - T, rec.wx + T * 2, rec.wy + T * 2)) continue;
+      // La bande est cuite à la demande : tant que le PNG n'est pas décodé, on ne
+      // pousse rien (et on ne met rien en cache) — le panneau apparaîtra au décodage.
+      const strip = fenceStrip(rec.side, fEra, rec.per);
+      if (!strip) continue;
       const it = pushItem();
-      it.d = rec.d; it.kind = 'plazaProp'; it.art = rec; it.eraKey = plazaEraForBand(band);
+      it.d = rec.d; it.kind = 'fence'; it.art = strip; it.wx = rec.wx; it.wy = rec.wy;
+      it.hT = rec.hT;
       nF += 1;
     }
     CM._fencesDrawn = nF;
@@ -9831,6 +9896,27 @@ function drawIsoLive(now) {
         const lc = lightCtx(bx.x0, bx.y0, bx.x1, bx.y1);
         if (lc) paintLampGlow(lc, it, p, lampK, now);
       }
+    } else if (it.kind === 'fence') {
+      // BANDE DE CLÔTURE (lot L9). `it.wx/wy` est le coin de DÉPART de l'arête, et la
+      // bande a été composée pour couvrir exactement une arête de cellule.
+      //
+      // L'échelle se déduit de la couverture voulue, pas d'un réglage : les `per`
+      // panneaux doivent couvrir l'écart écran d'UNE cellule sur l'axe, soit
+      // T·ISO_X·z. Le reste (hauteur) suit le ratio du canevas — jamais un blit carré,
+      // qui écraserait la bande.
+      const st = it.art;
+      const p = worldToScreen(it.wx, it.wy);
+      const s = (T * ISO_X * z) / st.cw;
+      // Le PREMIER panneau doit poser son pied sur le coin de départ : sa base est à
+      // `panelH` du haut de la bande. Pour un côté e/w le premier panneau est à
+      // DROITE du canevas, donc l'ancre horizontale change avec le sens d'avance.
+      const x0 = st.right ? p.x : p.x - st.cw * s;
+      const y0 = p.y - st.panelH * s;
+      const prevFS = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(st.canvas, Math.round(x0), Math.round(y0),
+        Math.round(st.cw * s), Math.round(st.ch * s));
+      ctx.imageSmoothingEnabled = prevFS;
     } else if (it.kind === 'bush') {
       // Buisson de terre-plein : feuillu réutilisé petit, pied sur la couture.
       const p = worldToScreen(it.wx, it.wy);

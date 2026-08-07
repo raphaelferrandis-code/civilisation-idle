@@ -27,9 +27,16 @@
 // (fence-n/s/e/w-<ère>.png) et comme les allées de seuil.
 const SIDES = [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]];
 
+// ⚠ `wonders` À FAUX depuis le 2026-08-06, sur capture. Le parvis d'une merveille est
+// entouré de pavé ouvert : ses arêtes qualifient (deux matières) mais le résultat se
+// lit comme des blocs de pierre abandonnés en plein sol, sans rien à border. Le quai
+// et la berge bâtie, eux, longent l'eau — la clôture y est une LIGNE qui ferme quelque
+// chose, et c'est exactement l'étape 2 de l'ordre de pose du plan. Rallumer les parvis
+// demande d'abord un art de bornage (des bornes aux angles, pas un grillage), cf. la
+// note « 🚫 Écarté » du lot L9.
 export const FENCE = {
   on: true,
-  wonders: true,     // parvis des merveilles — un périmètre, très peu de panneaux
+  wonders: false,    // parvis des merveilles — ÉCARTÉ sur capture, cf. la note ci-dessus
   quays: true,       // berge bâtie — une LIGNE le long de l'eau, aucun bruit de grille
   cap: 4000,         // garde-fou de dernier recours, cf. plus bas
 };
