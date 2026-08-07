@@ -16,7 +16,7 @@
 //   l'encre mesurée, l'ombre douce et la découpe des halos sont donc ceux du
 //   kit (drawIsoPlazaProp) : ce fichier ne fait que DÉCIDER OÙ.
 //
-//   LES QUATRE RÈGLES DE POSE (chacune répare un défaut connu du projet) :
+//   LES CINQ RÈGLES DE POSE (chacune répare un défaut connu du projet) :
 //
 //   1. JAMAIS SUR LA CHAUSSÉE. L'objet est posé entre le bord intérieur de la
 //      bande (le caniveau) et son bord extérieur, jamais au-delà — `out` dit où
@@ -41,6 +41,24 @@
 //      est sautée (`lampClear`) : le banc et le lampadaire tombaient sinon à
 //      moins d'une demi-largeur de banc l'un de l'autre.
 //
+//   5. UN FILET ANTI-CHEVAUCHEMENT, comme sur la place (Raph 2026-08-07 : « il
+//      faut faire en sorte que les éléments ne se chevauchent pas sur le
+//      trottoir également »). La règle 4 ne couvrait que le mât de LA cellule,
+//      et rien ne regardait les objets entre eux. MESURÉ avant d'écrire une
+//      ligne, sur 201 poses : 100 objets se chevauchaient (49,8 %), et 45 des 51
+//      paires étaient dans la MÊME cellule — c'est le COMPAGNON qui les faisait.
+//      ⛔ `dAlong` valait 0,17 tuile quand un banc en mesure 0,476 de large : la
+//      constante censée écarter deux objets était PLUS PETITE que les objets.
+//      C'est le piège des constantes de composition — elle n'avait jamais été
+//      rapportée à l'encombrement de ce qu'elle sépare. D'où les deux parades :
+//        · l'écart du compagnon se DÉDUIT des largeurs des deux objets, et il
+//          part de l'AUTRE CÔTÉ du centre de cellule (la rue continue là-bas,
+//          et le seuil de porte fait une respiration naturelle entre les deux) ;
+//        · un filet en espace ÉCRAN juge la pose finale — mêmes empreintes que
+//          la place (`propFootprint`, une seule implémentation pour un seul
+//          art), mâts de lampadaire compris, y compris ceux des cellules
+//          VOISINES que `lampClear` ne voit pas.
+//
 //   PROFONDEUR PEINTRE. Même piège que les lampadaires, et même parade : un
 //   objet posé sur le trottoir NORD se dresse DEVANT la façade sud du bâtiment
 //   mitoyen, mais son pied a une profondeur (wx+wy) PLUS PETITE que le coin sud
@@ -52,16 +70,24 @@
 
 import { cmHash, ROAD_N, ROAD_E, ROAD_S, ROAD_W } from '../layout.js';
 import { depthOf } from './projection.js';
-import { personHT, plazaEraForBand } from './isoPlaza.js';
+import { personHT, plazaEraForBand, propFootprint, footClash, lampFootprint } from './isoPlaza.js';
 
 export const STREET_PROPS = {
   on: true,
   dens: 0.5,           // part des cellules de rue BORDÉES qui reçoivent un objet
-  pair: 0.42,          // part de ces poses qui reçoivent un COMPAGNON un peu plus loin
+  pair: 0.42,          // part de ces poses qui reçoivent un COMPAGNON de l'autre côté du seuil
   facade: true,        // ne meuble que les bords bâtis (cf. « devant une façade »)
   along: [0.17, 0.44], // décalage le long de la rue depuis le centre de cellule, en tuiles (n'inclut JAMAIS 0)
   out: 0.34,           // position DANS la bande : 0 = au caniveau, 1 = bord extérieur
   lampClear: true,     // saute les cellules qui portent déjà un mât du même côté
+  // Filet anti-chevauchement. 1 = les empreintes ne se recouvrent PAS du tout.
+  // La place, elle, tolère 0,9 : elle est DENSE et composée, un frôlement y est
+  // le prix d'une rangée serrée. Une rue est éparse — la tolérance n'y achète
+  // aucune densité et ne rend que des objets qui se croisent. MESURÉ : à 0,9 il
+  // restait 2 paires qui se recouvraient de 38 % d'un banc, sauvées par le SEUL
+  // axe de profondeur (0,185 tuile d'écart pour 0,19 d'empreinte) — deux bancs
+  // du même trottoir n'ont pas de profondeur à faire valoir.
+  minGap: 1,
   scale: 1,            // multiplie la taille de tout le mobilier de rue
   max: 1500,           // plafond dur sur toute la ville (garde-fou, cf. __streetProps())
   rev: 0,
@@ -133,7 +159,38 @@ export function computeStreetProps(L, T, opts) {
       lampAt.add(gx + ':' + gy + ':' + tag);
     }
   }
+  // FILET (règle 5). Index par CELLULE MONDE : un objet ne déborde jamais de sa
+  // cellule de plus d'une largeur de bande, donc balayer les 5×5 voisines suffit
+  // et couvre le cas iso — deux cellules éloignées en x et y peuvent se
+  // superposer à l'ÉCRAN, mais pas au-delà de ce voisinage (sy = (gx+gy)/2 les
+  // sépare d'une demi-tuile par cellule, l'empreinte en fait 0,1).
+  const net = new Map();
+  const keep = (gx, gy, f) => {
+    const k = gx + ':' + gy;
+    const b = net.get(k);
+    if (b) b.push(f); else net.set(k, [f]);
+  };
+  const clash = (gx, gy, f) => {
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        const b = net.get((gx + dx) + ':' + (gy + dy));
+        if (!b) continue;
+        for (const o of b) if (footClash(f, o, STREET_PROPS.minGap)) return true;
+      }
+    }
+    return false;
+  };
+  // Les MÂTS entrent dans le filet — TOUS, pas seulement ceux de la cellule que
+  // `lampClear` surveille : un mât planté dans la cellule d'à côté tombe à
+  // portée d'un banc posé près du bord commun.
+  for (const lp of (opts.lamps || [])) {
+    keep(Math.floor(lp.wx / T), Math.floor(lp.wy / T), lampFootprint(lp.wx / T, lp.wy / T));
+  }
   const [a0, a1] = STREET_PROPS.along;
+  const hTof = (pick) => personHT() * pick[1] * STREET_PROPS.scale;
+  // Demi-largeur ÉCRAN d'un objet du kit, en tuiles — mesurée sur la même
+  // empreinte que le filet, jamais sur une seconde table.
+  const halfW = (pick) => propFootprint(0, 0, pick[0], hTof(pick)).hw;
   for (const c of L.roadMap.values()) {
     if (out.length >= (STREET_PROPS.max | 0)) break;
     if (c.roadSurface === 'bridge' || c.rank === 'plaza' || c.rank === 'path') continue;
@@ -202,29 +259,48 @@ export function computeStreetProps(L, T, opts) {
     // socles — sans ce recalage le peintre l'avale (même parade que les mâts).
     const bd = side < 0 && opts.solidSouth
       ? opts.solidSouth.get(horiz ? c.gx + ':' + (c.gy - 1) : (c.gx - 1) + ':' + c.gy) : null;
-    const place = (tAlong, hp) => {
-      if (tAlong < lo || tAlong > hi) return;   // ni dans la chaussée transverse, ni à cheval sur la cellule
-      const wx = (c.gx + 0.5 + (horiz ? sgn * tAlong : side * across)) * T;
-      const wy = (c.gy + 0.5 + (horiz ? side * across : sgn * tAlong)) * T;
+    // Tirage du prop, sorti de `place` : l'écart du compagnon se calcule sur les
+    // largeurs des DEUX objets, il faut donc les connaître avant de poser.
+    const pickOf = (hp) => {
       let pick = kit[0], r = (hp / 1024) * wTot;
       for (const k of kit) { r -= k[2]; if (r <= 0) { pick = k; break; } }
+      return pick;
+    };
+    const place = (tAlong, s, pick) => {
+      if (tAlong < lo || tAlong > hi) return false;   // ni dans la chaussée transverse, ni à cheval sur la cellule
+      const wx = (c.gx + 0.5 + (horiz ? s * tAlong : side * across)) * T;
+      const wy = (c.gy + 0.5 + (horiz ? side * across : s * tAlong)) * T;
+      const hT = hTof(pick);
+      const f = propFootprint(wx / T, wy / T, pick[0], hT);
+      if (clash(c.gx, c.gy, f)) return false;         // règle 5 : le filet tranche
+      keep(c.gx, c.gy, f);
       let d = depthOf(wx, wy);
       if (bd != null && bd + 1 > d) d = bd + 1;
-      out.push({
-        prop: pick[0], variant: faceOf(horiz, side), wx, wy,
-        hT: personHT() * pick[1] * STREET_PROPS.scale, d,
-      });
+      out.push({ prop: pick[0], variant: faceOf(horiz, side), wx, wy, hT, d });
+      return true;
     };
-    place(t, (h >>> 20) & 1023);
+    const p1 = pickOf((h >>> 20) & 1023);
+    if (!place(t, sgn, p1)) continue;   // refusé par le filet : pas de compagnon non plus
     // COMPAGNON : un objet isolé au milieu d'un long trottoir se lit comme un
     // oubli ; les objets de rue vont par petits groupes (le banc et son bac).
-    // Posé plus loin sur le MÊME côté, avec son propre tirage de prop — donc
-    // rarement le même objet deux fois. Il se replie de l'autre bord quand la
-    // cellule manque de place devant, sinon il tombait en silence une fois sur
-    // deux (le garde de `place` le refusait au-delà du bord de cellule).
+    // Son propre tirage de prop — donc rarement le même objet deux fois.
+    //
+    // ⛔ IL ÉTAIT POSÉ À 0,17 TUILE, DU MÊME CÔTÉ. Un banc en fait 0,476 de
+    //    large : les deux se recouvraient aux trois quarts, et ça faisait 45 des
+    //    51 chevauchements mesurés. L'écart se DÉDUIT maintenant des deux
+    //    largeurs (`need`), et le compagnon part de l'AUTRE CÔTÉ du centre de
+    //    cellule — la fenêtre [lo, hi] d'un seul côté ne fait que 0,275 tuile,
+    //    elle ne peut pas contenir deux objets, quel que soit le réglage.
+    //    On n'y va que si la rue CONTINUE de ce côté (`av.length > 1`) : sur une
+    //    impasse il n'y a ni chaussée ni trottoir en face, l'objet tomberait
+    //    dans le vide. Le repli du même côté existe encore, et le filet le
+    //    refusera presque toujours — c'est le bon résultat, une impasse n'a pas
+    //    la place pour deux.
     if (((h >>> 22) & 255) / 256 < STREET_PROPS.pair) {
-      const dAlong = 0.17;
-      place(t + dAlong <= hi ? t + dAlong : t - dAlong, (h >>> 2) & 1023);
+      const p2 = pickOf((h >>> 2) & 1023);
+      const need = (halfW(p1) + halfW(p2)) * STREET_PROPS.minGap;
+      if (av.length > 1) place(Math.max(lo, need - t), -sgn, p2);
+      else place(t + need, sgn, p2);
     }
   }
   return out;

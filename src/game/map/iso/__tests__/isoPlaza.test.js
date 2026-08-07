@@ -378,6 +378,51 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     }
   });
 
+  it("la garniture de CŒUR regarde le centre, elle aussi", () => {
+    // Retour Raph 2026-08-07 : « il y a des bacs de fleurs VUS DE FACE sur les
+    // places ». Posée sans variante, elle ne trouvait aucun sprite iso et
+    // retombait sur le kit top-down — un bac dessiné de face, à plat, au milieu
+    // d'une place en 3/4. Même convention que les bancs : la variante nomme la
+    // direction MONDE vers laquelle le prop regarde.
+    const comp = isoPlazaComposition(freshLayout(5), 3);
+    const mates = coeurMates(comp);
+    expect(mates.length).toBeGreaterThan(0);
+    const T = CM.TILE;
+    for (const m of mates) {
+      expect(m.variant, m.prop + " sans face").toBeTruthy();
+      const dy = m.wy / T - comp.cyc, dx = m.wx / T - comp.cxc;
+      if (m.variant === "s") expect(dy).toBeLessThan(0);
+      if (m.variant === "n") expect(dy).toBeGreaterThan(0);
+      if (m.variant === "e") expect(dx).toBeLessThan(0);
+      if (m.variant === "w") expect(dx).toBeGreaterThan(0);
+    }
+  });
+
+  it("aucun prop de place ne retombe sur le kit TOP-DOWN", () => {
+    // La garde de fond, et elle vaut pour tout le kit : propImage essaie l'iso
+    // puis, s'il manque, le kit legacy de /pixelart/plazas — dessiné DE FACE.
+    // Ce repli ne casse rien, ne se voit dans aucun test de composition, et sort
+    // un sprite à plat au milieu d'une vue 3/4. On vérifie donc sur le DISQUE
+    // que chaque (prop, variante, ère) réellement posé a son fichier iso.
+    // (L'arbre est hors kit : il passe par le pipeline d'arbres de la CARTE.)
+    const KIT = path.join("public", "pixelart", "iso", "plaza");
+    const BANDS = { antique: 3, medieval: 4, industrial: 5, modern: 6, cosmic: 7 };
+    let vus = 0;
+    for (const [era, band] of Object.entries(BANDS)) {
+      for (const p of isoPlazaComposition(freshLayout(7), band).props) {
+        if (p.prop === "tree") continue;
+        const dir = p.variant ? path.join(KIT, `${p.prop}-${p.variant}-${era}.png`) : null;
+        const uni = path.join(KIT, `${p.prop}-${era}.png`);
+        expect(
+          (dir && fs.existsSync(dir)) || fs.existsSync(uni),
+          `${p.prop}${p.variant ? "-" + p.variant : ""}-${era} : aucun sprite iso, repli top-down`,
+        ).toBe(true);
+        vus += 1;
+      }
+    }
+    expect(vus, "aucun prop examiné").toBeGreaterThan(50);
+  });
+
   it("le compagnon suit l'angle de son banc", () => {
     // Un bac rectangulaire posé le long d'un bord doit avoir la même face que
     // le banc auquel il est accolé, sinon les deux se croisent à l'écran.

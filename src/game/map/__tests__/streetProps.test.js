@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { computeStreetProps, STREET_PROPS } from "../iso/isoStreetProps.js";
+import { propFootprint } from "../iso/isoPlaza.js";
 
 // MOBILIER DE TROTTOIR — les gardes de POSE (isoStreetProps.computeStreetProps).
 //
@@ -56,6 +57,25 @@ function surLaChaussee(dx, dy, mask) {
 }
 
 const posesOf = (L, over) => computeStreetProps(L, T, opts(over));
+
+// ── ENCOMBREMENT, ÉCRIT EN DUR ──────────────────────────────────────────────
+// Largeur ÉCRAN de chaque objet du kit, en tuiles, au réglage par défaut. Ces
+// nombres sont RECOPIÉS, pas recalculés : le test du chevauchement doit juger
+// avec une règle à lui, sinon il compare le filet à lui-même — et un filet qui
+// s'auto-mesure passe même quand la constante qu'il applique est absurde (c'est
+// exactement ce qui s'est produit : `dAlong` valait 0,17 pour un banc de 0,476).
+// La garde `l'encombrement du kit n'a pas bougé` les rattache au modèle réel :
+// changer PROP_ASPECT ou la taille des habitants la fait tomber, pas dériver.
+const LARGEUR = { bench: 0.476, planter: 0.32725, bin: 0.16575 };
+const HW = (prop) => LARGEUR[prop] * 0.5;
+// Empreinte écran d'un objet posé, avec la règle du test.
+const footOf = (p) => {
+  const gx = p.wx / T, gy = p.wy / T;
+  const hw = HW(p.prop);
+  return { sx: gx - gy, sy: (gx + gy) * 0.5, hw, hh: hw * 0.4 };
+};
+const seChevauchent = (a, b) => Math.abs(a.sx - b.sx) < a.hw + b.hw
+  && Math.abs(a.sy - b.sy) < a.hh + b.hh;
 
 describe("mobilier de trottoir — pose", () => {
   it("aucun objet ne tombe sur la chaussée, et aucun ne sort du trottoir", () => {
@@ -122,6 +142,89 @@ describe("mobilier de trottoir — pose", () => {
       const dy = p.wy / T - 9.5;
       expect(p.variant).toBe(dy < 0 ? "s" : "n");
     }
+  });
+
+  it("l'encombrement du kit n'a pas bougé (sinon LARGEUR ment)", () => {
+    // Le seul point où le test regarde le modèle. Il ne s'en sert pas pour
+    // juger : il vérifie que les nombres écrits plus haut décrivent encore le
+    // vrai kit. Une retouche d'aspect ou de taille d'habitant tombe ICI, en
+    // clair, au lieu de rendre la garde du chevauchement muette.
+    const p = { bench: 0.7, planter: 0.55, bin: 0.52 };
+    for (const [prop, mul] of Object.entries(p)) {
+      const hw = propFootprint(0, 0, prop, 0.425 * mul).hw;
+      expect(hw * 2, prop).toBeCloseTo(LARGEUR[prop], 5);
+    }
+  });
+
+  it("aucun objet de trottoir n'en chevauche un autre", () => {
+    // Retour Raph 2026-08-07 : « il faut faire en sorte que les éléments ne se
+    // chevauchent pas sur le trottoir également ». MESURÉ avant correctif sur
+    // cette ville-là : 100 objets sur 201 se chevauchaient, dont 45 paires DANS
+    // LA MÊME cellule (le compagnon, posé à 0,17 tuile d'un banc large de
+    // 0,476). Le plancher de poses est là pour qu'un filet trop zélé — qui
+    // viderait les rues — ne fasse pas passer ce test pour la bonne raison.
+    const props = posesOf(cityOf(24));
+    expect(props.length, "trottoirs vidés : le test ne prouverait rien").toBeGreaterThan(150);
+    const fs = props.map(footOf);
+    const fautes = [];
+    for (let i = 0; i < fs.length; i += 1) {
+      for (let j = i + 1; j < fs.length; j += 1) {
+        if (seChevauchent(fs[i], fs[j])) {
+          fautes.push(`${props[i].prop}@${props[i].wx},${props[i].wy} × ${props[j].prop}@${props[j].wx},${props[j].wy}`);
+        }
+      }
+    }
+    expect(fautes.slice(0, 5)).toEqual([]);
+  });
+
+  it("un mât de la cellule VOISINE écarte le mobilier (ce que lampClear ne voit pas)", () => {
+    // `lampClear` ne regarde que les mâts de LA cellule et de SON côté ; un mât
+    // planté juste de l'autre côté du bord commun tombe pourtant à portée d'un
+    // banc posé près de ce bord. Il entre donc dans le filet comme les autres.
+    const L = cityOf(24);
+    const lamps = [];
+    for (let gx = 4; gx < 28; gx += 4) {
+      for (let gy = 6; gy < 28; gy += 3) lamps.push({ wx: (gx + 0.5) * T, wy: (gy + 0.14) * T });
+    }
+    const props = posesOf(L, { lamps });
+    expect(props.length).toBeGreaterThan(150);
+    const mats = lamps.map((l) => {
+      const gx = l.wx / T, gy = l.wy / T;
+      return { sx: gx - gy, sy: (gx + gy) * 0.5, hw: 0.2, hh: 0.08 };
+    });
+    for (const p of props) {
+      const f = footOf(p);
+      const dessus = mats.find((m) => seChevauchent(f, m));
+      expect(dessus, `${p.prop} sur un mât en ${p.wx},${p.wy}`).toBeUndefined();
+    }
+  });
+
+  it("le compagnon s'écarte de la LARGEUR des deux objets, pas d'une constante", () => {
+    // Ce qui a produit le défaut : un `dAlong` de 0,17 tuile, écrit sans jamais
+    // le rapporter à l'encombrement de ce qu'il sépare. La règle est maintenant
+    // que deux objets d'une MÊME cellule sont distants d'au moins la somme de
+    // leurs demi-largeurs — donc jamais moins de 0,17 pour deux corbeilles, et
+    // au moins 0,476 pour deux bancs. On vérifie sur les paires réelles.
+    const props = posesOf(cityOf(24));
+    const parCellule = new Map();
+    for (const p of props) {
+      const k = Math.floor(p.wx / T) + ":" + Math.floor(p.wy / T);
+      if (!parCellule.has(k)) parCellule.set(k, []);
+      parCellule.get(k).push(p);
+    }
+    let paires = 0;
+    for (const groupe of parCellule.values()) {
+      for (let i = 0; i < groupe.length; i += 1) {
+        for (let j = i + 1; j < groupe.length; j += 1) {
+          const a = groupe[i], b = groupe[j];
+          const d = Math.hypot(a.wx - b.wx, a.wy - b.wy) / T;
+          expect(d, `${a.prop} et ${b.prop} trop près dans leur cellule`)
+            .toBeGreaterThanOrEqual(HW(a.prop) + HW(b.prop) - 1e-9);
+          paires += 1;
+        }
+      }
+    }
+    expect(paires, "aucune paire posée : la règle du compagnon est morte").toBeGreaterThan(20);
   });
 
   it("le plafond dur borne le nombre d'objets", () => {
