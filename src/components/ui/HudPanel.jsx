@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
+import { useSheetSwipeClose } from '../../hooks/useSheetSwipeClose.js';
+import { isCoarsePointer } from '../../game/core/pointerMode.js';
 
 const NO_OP = () => {};
 
@@ -30,6 +32,7 @@ export default function HudPanel({
   open: openProp,
   onToggle,
   onOpenChange,
+  swipeToClose = false,
   children,
 }) {
   const [selfOpen, selfToggle, setSelfOpen] = useCollapsiblePanel(storageKey, defaultOpen);
@@ -63,9 +66,22 @@ export default function HudPanel({
     wasOn.current = openWhen;
   }, [openWhen, setOpen]);
 
+  // FERMETURE AU BALAYAGE (M4), sur demande explicite de l'appelant. Tous les
+  // encarts de HUD ne sont pas des feuilles : celui-ci ne l'est qu'au doigt, et
+  // seulement là où il recouvre la carte. On ne l'arme donc pas d'office —
+  // `swipeToClose` est le contrat, `enabled` la condition de régime.
+  // Le bandeau reste un bouton : le tap le replie comme avant, le balayage n'est
+  // qu'un second chemin vers la même action (le plan demande les deux).
+  // ⚠ Déstructuré sur place : cf. la note de BuildingShop — `react-hooks/refs`
+  // refuse une lecture de propriété sur un objet porteur de ref pendant le rendu.
+  const [sheetRef, swipeHandleProps] = useSheetSwipeClose({
+    enabled: swipeToClose && open && isCoarsePointer(),
+    onClose: toggle,
+  });
+
   return (
-    <div className={`hud-panel ${className} ${open ? 'is-open' : 'is-collapsed'}`.trim()}>
-      <button type="button" className="hud-panel-toggle" aria-expanded={open} onClick={toggle}>
+    <div className={`hud-panel ${className} ${open ? 'is-open' : 'is-collapsed'}`.trim()} ref={sheetRef}>
+      <button type="button" className="hud-panel-toggle" aria-expanded={open} onClick={toggle} {...swipeHandleProps}>
         <span className="hud-panel-title">{title}</span>
         {!open && summary && <span className="hud-panel-summary">{summary}</span>}
         <span className="hud-panel-chevron" aria-hidden="true"></span>

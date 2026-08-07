@@ -61,6 +61,22 @@ export function applyPointerMode() {
 }
 
 /**
+ * Le même verdict, à la demande, pour le JS qui doit décider AVANT le CSS —
+ * typiquement l'état par défaut d'un encart, qui n'est pas une question de style
+ * mais de disposition (au bureau la boutique est un meuble permanent, au doigt
+ * c'est une feuille qui recouvre la ville).
+ *
+ * ⚠ On relit `detect()` plutôt que `dataset.pointer` : l'attribut est posé par
+ * `watchPointerMode()` au démarrage, et un composant qui se monte avant lui
+ * lirait une chaîne vide — c'est-à-dire « bureau » — sur un téléphone. Un défaut
+ * qui dépend de l'ordre de montage est un défaut qui se trompera un jour.
+ */
+export function isCoarsePointer() {
+  if (typeof window === "undefined") return false;
+  return detect();
+}
+
+/**
  * Pose l'attribut et le tient à jour. Le régime change en cours de route plus
  * souvent qu'on ne croit : tablette qu'on pose sur son clavier, souris
  * branchée en Bluetooth, fenêtre déplacée sur un autre écran.

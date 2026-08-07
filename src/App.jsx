@@ -6,8 +6,10 @@ import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { HelpBubbleLayer, tipProps } from './components/ui/HelpBubble.jsx';
 import ContemplationBar from './components/ui/ContemplationBar.jsx';
+import MoreSheet from './components/ui/MoreSheet.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
+import { usePointerCoarse } from './hooks/usePointerCoarse.js';
 import { openView, save, getLastSaveError } from './game/core/state.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
@@ -107,6 +109,9 @@ export default function App() {
   const [contemplation, setContemplation] = useState(false);
   // Feuille d'état, régime tactile uniquement (cf. data-status-sheet plus bas).
   const [statusSheet, setStatusSheet] = useState(false);
+  // Feuille « Plus » de la barre basse (tactile). Cf. PRIMAIRES_TACTILE.
+  const [moreSheet, setMoreSheet] = useState(false);
+  const coarse = usePointerCoarse();
   const [isImportOpen, setIsImportOpen] = useState(false);
   // Texte d'export à copier à la main quand le presse-papiers a échoué. null =
   // pas de repli en cours (une chaîne vide reste un état valide à afficher).
@@ -260,7 +265,14 @@ export default function App() {
     { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'nav/cite', unlocked: true },
     { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: true },
     { id: 'plaisirs', label: { fr: 'Plaisirs', en: 'Pleasures' }, icon: 'nav/plaisirs', unlocked: true },
-    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: true },
+    // `short` — LIBELLÉ DE BARRE BASSE. Il ne sert QUE là, et seulement quand le
+    // nom complet ne rentre pas dans une cellule de la rangée tactile : mesuré,
+    // « Effondrement » demande 93px pour 77 disponibles, et un mot rogné
+    // (« Effondreme ») se lit plus mal qu'un mot court. « Chute » est le terme
+    // que le jeu emploie déjà partout ailleurs (« Chute annoncée », « chute par
+    // famine ») : ce n'est pas une abréviation, c'est le synonyme maison.
+    // Les trois autres onglets primaires tiennent en entier, ils n'en ont pas.
+    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, short: { fr: 'Chute', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: true },
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
@@ -268,6 +280,33 @@ export default function App() {
     { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, icon: 'res/gold', unlocked: isComptoirUnlocked },
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
+
+  // ---- BARRE BASSE : QUATRE ONGLETS, ET « PLUS » POUR LE RESTE (M4) ----
+  // Mesuré le 2026-08-07 en clonant des onglets dans le DOM : à 384px, la rangée
+  // donne 52px par onglet avec les 5 d'une partie neuve, et 27px avec les 9
+  // d'une partie avancée. 27px, c'est moins des deux tiers du plancher du doigt,
+  // sur la seule barre qu'on vise EN AVEUGLE au pouce — et aucun mot n'y entre.
+  // Le nombre d'onglets grandit avec la partie, la largeur de l'écran non : une
+  // rangée qui se partage à parts égales ne peut pas tenir les deux.
+  // Arbitrage de Raph : quatre onglets fixes, le reste dans une feuille.
+  // ⚠ La liste est FIXE et non « les quatre premiers débloqués » : une barre
+  // dont les cases changent de place en cours de partie se réapprend à chaque
+  // déblocage, ce qui est exactement ce qu'une barre de navigation doit éviter.
+  const PRIMAIRES_TACTILE = ['city', 'regulation', 'prestige', 'history'];
+  const ongletsDebloques = tabs.filter((t) => t.unlocked);
+  const ongletsBarre = coarse
+    ? ongletsDebloques.filter((t) => PRIMAIRES_TACTILE.includes(t.id))
+    : ongletsDebloques;
+  const ongletsRanges = coarse
+    ? ongletsDebloques.filter((t) => !PRIMAIRES_TACTILE.includes(t.id))
+    : [];
+  // La pastille des onglets rangés remonte sur « Plus », sinon replier la
+  // navigation reviendrait à éteindre l'alerte : un joueur ne va pas ouvrir un
+  // menu pour vérifier s'il a quelque chose à réclamer dedans.
+  const pastilleRanges = ongletsRanges.reduce((n, t) => n + (badges[t.id] || 0), 0);
+  // « Plus » s'allume quand la vue courante est rangée dedans : sans ça, se
+  // trouver dans les Mythes se lit comme n'être nulle part.
+  const vueRangee = ongletsRanges.some((t) => t.id === activeView);
 
   // Nom de la vue courante, lu à la SOURCE (la table d'onglets) plutôt que
   // recopié dans une seconde table : un libellé dupliqué finit toujours par
@@ -359,7 +398,7 @@ export default function App() {
               sous chaque onglet survolé pour n'y rien apprendre. Seul le
               message de crise reste, et il reste NATIF puisque le bouton est
               alors désactivé, état où la bulle ne peut pas s'ouvrir. */}
-          {tabs.map(tab => tab.unlocked && (
+          {ongletsBarre.map(tab => (
             <button
               key={tab.id}
               className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
@@ -373,7 +412,9 @@ export default function App() {
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
               <PixelIcon name={tab.icon} className="tab-icon" />
-              <span className="tab-label">{tr(tab.label)}</span>
+              {/* Le libellé court ne sert QUE dans la rangée du doigt : au
+                  curseur la gouttière est verticale et le nom entier y tient. */}
+              <span className="tab-label">{tr(coarse && tab.short ? tab.short : tab.label)}</span>
               {/* Pastille EN FLUX (B10) et non en position absolue débordante :
                   `.tab` porte un clip-path (coins crantés de la DA) qui découpe
                   tous ses descendants, y compris en position fixe — une pastille
@@ -393,14 +434,60 @@ export default function App() {
               )}
             </button>
           ))}
+          {/* « PLUS » — la porte des onglets rangés. Elle vit DANS la rangée des
+              onglets et non dans les actions rapides : c'est une destination de
+              navigation, elle doit être là où le pouce cherche à naviguer.
+              ⚠ Le verrou de crise la ferme aussi. Sans ça, elle serait le seul
+              chemin encore ouvert vers les vues qu'une crise interdit — le
+              verrou se contournerait par le menu. */}
+          {coarse && ongletsRanges.length > 0 && (
+            <button
+              className={`tab tab-more ${vueRangee ? 'active' : ''} ${crisisLocked ? 'tab-locked' : ''}`}
+              disabled={crisisLocked}
+              aria-expanded={moreSheet}
+              onClick={() => setMoreSheet((v) => !v)}
+              title={crisisLocked ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
+            >
+              <i className="fa-solid fa-ellipsis tab-icon" aria-hidden="true"></i>
+              <span className="tab-label">{tr({ fr: 'Plus', en: 'More' })}</span>
+              {pastilleRanges > 0 && (
+                <span className="tab-badge">{pastilleRanges > 9 ? '9+' : pastilleRanges}</span>
+              )}
+            </button>
+          )}
         </nav>
+
+        {/* LA FEUILLE « PLUS ». Elle porte les onglets rangés ET les deux
+            réglages (Options, État) : « plus » veut dire tout ce qui n'est pas
+            un des quatre gestes principaux, sinon ce serait deux menus.
+            ⚠ C'EST ELLE QUI PAYE LES LIBELLÉS. En sortant les actions rapides de
+            la rangée, on rend 83px aux onglets : ils passent de 55 à 77px, et
+            « Régulation » (73px) comme « Chronique » (69px) redeviennent
+            lisibles en entier. Sans ce déplacement il aurait fallu rebaptiser
+            trois onglets sur quatre — et « Annales », le seul synonyme correct
+            de Chronique, est déjà pris par la Chancellerie. */}
+        {coarse && (
+          <MoreSheet
+            open={moreSheet}
+            onClose={() => setMoreSheet(false)}
+            tabs={ongletsRanges}
+            badges={badges}
+            activeView={activeView}
+            onPick={(id) => { openView(id); setMoreSheet(false); }}
+            onPreload={preloadView}
+            onOptions={() => { setMoreSheet(false); reopenDialog(setIsOptionsOpen); }}
+            onStatus={() => { setMoreSheet(false); setStatusSheet((v) => !v); }}
+            statusOpen={statusSheet}
+          />
+        )}
 
         <CityStatusPanel />
 
-        {/* `data-qa` : prise CSS par action. Le régime tactile ne garde que
-            « Options » et « État » dans la barre basse (demande Raph) — Save,
-            Export et Import vivent alors DANS les Options, où le joueur les
-            cherche de toute façon sur téléphone. */}
+        {/* `data-qa` : prise CSS par action. En régime tactile la rangée n'en
+            garde AUCUNE : Options et État sont passés dans la feuille « Plus »
+            (leur place y est plus juste, et leurs 83px rendent aux onglets la
+            largeur qui leur manquait). Save, Export et Import vivent dans les
+            Options, où le joueur les cherche de toute façon sur téléphone. */}
         <div className="quick-actions">
           <button className="btn-tiny" data-qa="save" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
             <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>

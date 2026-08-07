@@ -49,6 +49,7 @@ import { computeCityPersonality } from '../../game/map/procedural/cityPersonalit
 import { fmt, clamp01, fmtHabitants } from '../../game/core/utils.js';
 import { crediblePopulation } from '../../game/core/demographics.js';
 import { tr } from '../../game/core/i18n.js';
+import { isCoarsePointer } from '../../game/core/pointerMode.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
   ICARE_ALTITUDE_TARGET,
@@ -158,7 +159,19 @@ export default function CityView() {
   // côté d'elle, pas dedans. Même clé de mémoire qu'avant, donc le bureau
   // retrouve exactement l'état qu'il avait — on a seulement déplacé le siège de
   // la vérité, pas changé le comportement.
-  const [shopOpen, toggleShop] = useCollapsiblePanel('shop', true);
+  //
+  // ⚠⚠ UNE CLÉ ET UN DÉFAUT PAR RÉGIME, ET C'EST L'ARBITRAGE DE M1 QUI L'EXIGE.
+  // Mesuré le 2026-08-07 : au premier lancement sur téléphone, la boutique
+  // s'ouvrait — donc 665px de feuille sur 782 posés sur la ville, exactement
+  // l'écran que M1 devait supprimer. La cause n'était pas le CSS mais ce
+  // `true` : au bureau la boutique est un MEUBLE (elle vit à côté de la carte,
+  // ouverte par défaut, c'est juste), au doigt c'est une FEUILLE qui la
+  // recouvre. Le même défaut ne peut pas servir les deux dispositions.
+  // La clé diverge aussi (`shop` / `shop:touch`) : sinon un joueur qui a laissé
+  // son meuble ouvert au bureau retrouve la feuille dépliée sur son téléphone,
+  // et le défaut ne s'applique plus jamais. Deux dispositions, deux mémoires.
+  const coarse = isCoarsePointer();
+  const [shopOpen, toggleShop] = useCollapsiblePanel(coarse ? 'shop:touch' : 'shop', !coarse);
   // Même remontée pour la RÉGULATION, et pour la même raison : au doigt, sa
   // poignée n'est plus son propre bandeau (l'encart disparaît quand il est
   // replié, exactement comme la boutique) mais un bouton flottant posé sur la
@@ -624,6 +637,7 @@ export default function CityView() {
           onOpenChange={setRegulOpen}
           openWhen={inCrisis}
           summary={<RegulSummary />}
+          swipeToClose
         >
           <CrisisActionBar />
         </HudPanel>

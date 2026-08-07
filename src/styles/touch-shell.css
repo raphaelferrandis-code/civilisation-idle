@@ -91,13 +91,27 @@
 /* Les onglets passent en RANGÉE, chacun une colonne égale. `auto-fit` et non un
    nombre fixe : le jeu déverrouille ses onglets au fil des ères (4 au début, 7
    ensuite) et la barre doit suivre sans qu'on la recompte. */
+/* ⚠ FLEX ET NON GRILLE, depuis M4. La version d'origine était une grille à
+   colonnes automatiques (`grid-auto-columns: minmax(0, 1fr)`), ce qui distribue
+   la largeur à parts strictement égales — impossible d'y loger un bouton qui
+   doit garder 44px pendant que les autres se partagent le reste : dans une
+   grille, la taille vient de la PISTE, et un enfant ne peut pas en sortir. En
+   flex, chaque enfant déclare sa part : les onglets prennent `1 1 0`, « Plus »
+   prend sa largeur fixe. */
 :root[data-pointer="coarse"] .tabs {
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-template-columns: none;
+  display: flex;
+  flex-direction: row;
   gap: 0.25rem;
   margin-bottom: 0;
   width: 100%;
+}
+
+/* `min-width: 0` OBLIGATOIRE : sans lui un élément flex refuse de descendre
+   sous la largeur de son contenu, et un libellé long imposerait sa taille à
+   toute la rangée — les autres onglets se feraient écraser par le plus bavard. */
+:root[data-pointer="coarse"] .tabs .tab {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 :root[data-pointer="coarse"] .tab {
@@ -722,27 +736,18 @@
   align-self: stretch;
 }
 
+/* ⚠⚠ LA RANGÉE N'A PLUS D'ACTIONS RAPIDES DU TOUT (M4, 2026-08-07), ET C'EST
+   CE QUI PAYE LES LIBELLÉS D'ONGLETS.
+   Elles n'en gardaient que deux (Options, État), soit 83px sur 384. Tant que ces
+   83px restaient là, les onglets se partageaient 279px : 55px chacun à quatre,
+   c'est-à-dire « Régulation » (73px de texte) et « Chronique » (69px) rognés
+   quoi qu'on fasse. En les passant dans la feuille « Plus » — leur vraie place,
+   ce sont des réglages et non des destinations — les onglets passent à 77px et
+   affichent leur nom entier. Un seul libellé court subsiste (Effondrement →
+   Chute, 93px), au lieu de trois.
+   ⚠ Rien ne se perd : les deux boutons sont rendus par MoreSheet.jsx, avec
+   leur libellé écrit en toutes lettres cette fois. */
 :root[data-pointer="coarse"] .quick-actions {
-  flex: 0 0 auto;
-  width: auto;
-  align-self: stretch;
-  align-items: stretch;
-  grid-template-columns: repeat(2, 2.6rem);
-}
-
-/* Sauvegarde / Export / Import : retirés de la barre, présents dans les Options. */
-:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="save"],
-:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="export"],
-:root[data-pointer="coarse"] .quick-actions .btn-tiny[data-qa="import"] {
-  display: none;
-}
-
-:root[data-pointer="coarse"] .quick-actions .btn-tiny {
-  min-height: 0;
-  height: auto;
-}
-
-:root[data-pointer="coarse"] .quick-actions .qa-label {
   display: none;
 }
 
@@ -841,9 +846,15 @@
 /* ⚠ LE BOUTON D'ACHAT NE RÉTRÉCIT PAS — il grandit même un peu (34 → 40px).
    C'est LE geste du jeu, répété des centaines de fois : le resserrer avec le
    reste reviendrait à optimiser la place au détriment de la seule chose qu'on
-   fait vraiment. Tout le gain de hauteur vient donc du texte et des marges. */
+   fait vraiment. Tout le gain de hauteur vient donc du texte et des marges.
+
+   M4 (2026-08-07) : 40px n'était pas le plancher, c'était un arrondi. M2 avait
+   posé la règle en toutes lettres (« cible ≥ 44px, jamais moins ») et le geste
+   central du jeu était le seul du lot à passer dessous — mesuré à 40px. Il
+   prend donc les 44px de `--touch-target`, comme tout le reste. Coût : 4px par
+   rangée sur une feuille qui en fait 665. */
 :root[data-pointer="coarse"] .city-shop-dock .btn-purchase {
-  min-height: 2.5rem;
+  min-height: var(--touch-target);
   padding: 0.2rem 0.5rem;
 }
 
@@ -925,9 +936,16 @@
    (« rangée basse et petite », views-world-fullframe.css) — mais 18px de haut,
    c'est la moitié du seuil du doigt, et ce sont eux qui décident de CE QU'ON
    ACHÈTE. Se tromper de multiplicateur coûte une fortune. */
+/* M4 (2026-08-07) : 2.25rem donnait 36px de haut, et surtout « x1 » ne mesurait
+   que 25px de LARGE — mesuré. Une cible se rate dans les deux sens : c'est la
+   plus petite des deux dimensions qui décide, et un bouton de 25px se manque au
+   pouce aussi sûrement qu'un bouton de 25px de haut. Les deux passent à
+   `--touch-target`. Cinq boutons à 44px + gouttières = ~240px, la barre en fait
+   350 : ils tiennent sans se serrer. */
 :root[data-pointer="coarse"] .city-shop-dock .shop-controls-row .buy-mode {
   height: auto;
-  min-height: 2.25rem;
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
   padding: 0 0.35rem;
   font-size: 0.8rem;
 }
@@ -1013,6 +1031,26 @@
 :root[data-pointer="coarse"] .app[data-active-view="city"] .chronicle-ticker,
 :root[data-pointer="coarse"] .first-steps,
 :root[data-pointer="coarse"] .hud-pop {
+  background: var(--surface-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ⚠⚠ LA RÉGULATION AVAIT ÉCHAPPÉ À CETTE LISTE, ET POUR UNE RAISON QUI SE
+   REPRODUIRA : M1 l'avait RETIRÉE de la carte, la liste ci-dessus a donc été
+   écrite sans elle — puis elle est REVENUE en feuille le même jour (bloc « LA
+   RÉGULATION REVIENT »). Une surface qui part et revient traverse la passe de
+   lisibilité sans être vue.
+   Elle est restée seule en verre : `rgba(30,35,45,0.44)` + `blur(18px)` posé sur
+   la carte. Contraste MESURÉ le 2026-08-07 sur le rendu réel (384×782, texte
+   231,204,186) : 5,66 sur la moyenne de la carte — mais 2,65 au-dessus de ses
+   zones claires (sable, toits, neige : le 5e centile le plus lumineux sous le
+   panneau). Le seuil est 4,5, donc le pire cas est SOUS la moitié du seuil.
+   C'est bien la maladie que M3 décrit : ce n'est pas la taille qui manque, le
+   texte est peint sur un paysage.
+   RÈGLE : toute surface posée sur la carte est opaque au doigt. Si une nouvelle
+   feuille apparaît, sa place est dans ce sélecteur. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
   background: var(--surface-panel);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1228,4 +1266,213 @@
   overflow: visible;
   text-overflow: clip;
   line-height: 1.25;
+}
+
+
+/* ============================================================================
+   M4 — QUATRE ONGLETS, ET « PLUS » POUR LE RESTE
+
+   Le problème, mesuré le 2026-08-07 en clonant des onglets dans le DOM à 384px :
+   la rangée donne 52px par onglet avec les cinq d'une partie neuve, et 27px avec
+   les neuf d'une partie avancée. Le plancher du doigt est 44px, et c'est la
+   seule barre qu'on vise EN AVEUGLE, au pouce, sans regarder. Une rangée qui se
+   partage à parts égales ne peut pas suivre un jeu dont le nombre de vues
+   grandit pendant que la largeur de l'écran, elle, ne bouge pas.
+
+   Arbitrage de Raph : quatre onglets fixes (Cité, Régulation, Effondrement,
+   Chronique), tout le reste dans une feuille. La liste est FIXE et non « les
+   quatre premiers débloqués » — une barre dont les cases changent de place en
+   cours de partie se réapprend à chaque déblocage.
+   ============================================================================ */
+
+/* « Plus » prend une largeur FIXE et non une part égale : c'est une porte, pas
+   une destination, et chaque pixel qu'elle ne prend pas revient aux quatre noms
+   qui, eux, doivent se lire. 44px = le plancher, pas un de plus. */
+:root[data-pointer="coarse"] .tabs .tab-more {
+  flex: 0 0 auto;
+  width: var(--touch-target);
+  min-width: var(--touch-target);
+}
+
+/* L'icône est une glyphe de fonte, pas un sprite : les 20px de `.tab-icon` sont
+   des dimensions de boîte, sans effet sur un `<i>` en ligne. C'est le corps qui
+   la dimensionne. */
+:root[data-pointer="coarse"] .tabs .tab-more .tab-icon {
+  width: auto;
+  height: 20px;
+  font-size: 1rem;
+  line-height: 20px;
+}
+
+/* ---- LA FEUILLE ---- */
+
+/* Voile : il assombrit la ville pour dire « on est ailleurs ». Sans lui la
+   feuille a l'air posée sur la carte, et on continue de regarder derrière. */
+:root[data-pointer="coarse"] .more-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ⚠ ANCRÉE AU-DESSUS DE LA BARRE, pas au bord de l'écran : la barre est en
+   `position: fixed` et la recouvrirait, or c'est depuis elle qu'on vient
+   d'ouvrir la feuille — la voir disparaître sous son propre bouton se lit comme
+   un bug. `--touch-nav-total` porte déjà l'encoche système. */
+:root[data-pointer="coarse"] .more-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--touch-nav-total);
+  z-index: 61;
+  max-height: 62dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* OPAQUE, comme toute surface posée sur la carte au doigt (cf. M3). */
+  background: var(--surface-panel);
+  border-top: 1px solid var(--gold);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+  padding: 0.9rem 0.5rem 0.6rem;
+}
+
+/* La barrette d'attrape, même vocabulaire que la feuille de construction : c'est
+   elle qui dit « ça se pousse vers le bas ». */
+:root[data-pointer="coarse"] .more-sheet::before {
+  content: "";
+  position: absolute;
+  top: 0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2.4rem;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
+:root[data-pointer="coarse"] .more-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--touch-target);
+  padding: 0 0.25rem;
+}
+
+:root[data-pointer="coarse"] .more-sheet-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+}
+
+:root[data-pointer="coarse"] .more-sheet-close {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-strong);
+}
+
+:root[data-pointer="coarse"] .more-sheet-list {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+/* Une rangée pleine largeur par vue : c'est la forme que la barre ne pouvait pas
+   donner, et la raison d'être de cette feuille. Le nom s'écrit en entier, la
+   cible fait toute la largeur — on ne vise plus, on tape. */
+:root[data-pointer="coarse"] .more-sheet .more-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.16));
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+:root[data-pointer="coarse"] .more-sheet .more-item.active {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--surface-panel), var(--gold) 12%);
+}
+
+:root[data-pointer="coarse"] .more-sheet .more-item-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+/* La glyphe de fonte (l'État) n'a pas de boîte : on lui rend la même emprise que
+   les sprites pour que les deux colonnes d'icônes s'alignent. */
+:root[data-pointer="coarse"] .more-sheet i.more-item-icon {
+  width: 24px;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+:root[data-pointer="coarse"] .more-sheet .more-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Les réglages se séparent des vues par un filet : ce sont deux natures, et une
+   liste continue les ferait lire comme des destinations de plus. */
+:root[data-pointer="coarse"] .more-sheet-reglages {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+
+/* ---- LES DERNIÈRES CIBLES SOUS LE PLANCHER ----
+   Relevées par la grille d'audit repassée après M4, hors boutique (celle-ci
+   était traitée) : trois familles à 40-42px là où le doigt en demande 44.
+   Aucune n'est un cas particulier — ce sont des commandes dessinées pour une
+   colonne de bureau, où 40px est confortable. */
+
+/* Sceaux du testament (Effondrement) : 77×40. C'est un choix qu'on ne fait
+   qu'une fois par cycle et qui l'oriente entièrement — le rater n'est pas
+   qu'une gêne. */
+:root[data-pointer="coarse"] .testament-seal {
+  min-height: var(--touch-target);
+}
+
+/* Onglets de comptes (Chronique) : 40px de haut, et ils se touchent. */
+:root[data-pointer="coarse"] .compte-tab {
+  min-height: var(--touch-target);
+}
+
+/* Premiers pas replié : la pastille fait bien 44px, mais son BOUTON n'en fait
+   que 42 — il occupe 100 % de la boîte de contenu, bordures déduites. Or c'est
+   le bouton qui reçoit le tap : la cible réelle est celle-là, pas le cadre.
+   ⚠ Piège général : mesurer le conteneur ne dit rien de la cible. */
+:root[data-pointer="coarse"] .first-steps.is-collapsed .first-steps-head {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+/* Maison des Plaisirs : les entrées de lieux et le bouton « relever » étaient à
+   40px. Même famille que les trois ci-dessus — de l'interface dessinée pour une
+   colonne de bureau. ⚠ Le menu, lui, n'avait pas besoin d'aide ici : sur écran
+   étroit il descend sous l'illustration (views-plaisirs.css), et ce n'était PAS
+   un défaut tactile — la même troncature se produisait au curseur dans une
+   fenêtre étroite. */
+:root[data-pointer="coarse"] .plaisirs-lieu,
+:root[data-pointer="coarse"] .plaisirs-relever {
+  min-height: var(--touch-target);
+}
+
+/* Croix et aide des scènes de jeu : 22 et 25px de LARGE (hauteur déjà à 44 par
+   la règle générique plus haut, qui ne pose qu'un `min-height`). La croix est la
+   sortie du jeu — c'est la dernière cible qu'on peut se permettre de rater. */
+:root[data-pointer="coarse"] .stage-close,
+:root[data-pointer="coarse"] .stage-help {
+  min-width: var(--touch-target);
 }

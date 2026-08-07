@@ -1,6 +1,8 @@
 import { memo, useMemo, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
+import { useSheetSwipeClose } from '../../hooks/useSheetSwipeClose.js';
+import { isCoarsePointer } from '../../game/core/pointerMode.js';
 import {
   globalMultiplier,
   globalMultiplierDec,
@@ -99,6 +101,19 @@ function BuildingShop({ open: openProp, onToggle }) {
   const [ownOpen, ownToggle] = useCollapsiblePanel("shop", true);
   const open = openProp === undefined ? ownOpen : openProp;
   const toggleOpen = onToggle || ownToggle;
+
+  // Fermeture au balayage (M4) : le geste s'arme sur le BANDEAU seul, jamais sur
+  // la liste — cf. useSheetSwipeClose, qui explique pourquoi. Au curseur le hook
+  // ne pose aucun écouteur : `enabled` est faux et il rend des props vides.
+  // ⚠ DÉSTRUCTURÉ SUR PLACE, et pas gardé en objet : la règle `react-hooks/refs`
+  // refuse toute lecture de propriété sur une valeur qui contient un ref en
+  // cours de rendu (`swipe.sheetRef` compte comme telle, même si on ne touche
+  // jamais à `.current`). Sortir les deux valeurs au moment de l'appel est la
+  // forme que le linter attend — et elle se lit mieux.
+  const [sheetRef, swipeHandleProps] = useSheetSwipeClose({
+    enabled: isCoarsePointer() && open,
+    onClose: toggleOpen,
+  });
 
   // Subscriptions to trigger component update on state mutations
   const stateBuildings = useGameState(s => ({ ...s.buildings }));
@@ -300,10 +315,13 @@ function BuildingShop({ open: openProp, onToggle }) {
   }, [etaSig]);
 
   return (
-    <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`}>
+    <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`} ref={sheetRef}>
       {/* En-tête : les catégories SONT le titre (plus de « Bâtiments ») ; le
-          chevron replie le corps, cliquer une catégorie déplie si besoin. */}
-      <div className="shop-head">
+          chevron replie le corps, cliquer une catégorie déplie si besoin.
+          C'est aussi la POIGNÉE du balayage : la barrette grise dessinée par
+          touch-shell.css se pose juste au-dessus, donc le doigt part de là où
+          l'œil voit « ça se pousse ». */}
+      <div className="shop-head" {...swipeHandleProps}>
         <div className="shop-subtabs" role="tablist" aria-label={tr({ fr: "Catégories de bâtiments", en: "Building categories" })}>
           {TABS.map((tab) => {
             const n = affordableCount(tab.id);

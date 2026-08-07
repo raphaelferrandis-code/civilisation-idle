@@ -121,7 +121,26 @@ tous au-dessus du seuil de 4,5.
 
 ⚠ Reste un point : les libellés d'onglets de la barre basse sont à 11 px et
 « EFFONDREMENT » se tronque. Le remède n'est pas typographique mais éditorial —
-des libellés courts propres au mobile. À traiter en M4.
+des libellés courts propres au mobile. À traiter en M4. *(Traité en M4 : la
+troncature ne venait pas des mots mais du NOMBRE d'onglets. Cf. ci-dessous.)*
+
+⚠⚠ **UNE SURFACE AVAIT ÉCHAPPÉ À M3, ET LA CAUSE SE REPRODUIRA** (relevé le
+2026-08-07). La feuille **Régulation** est restée seule en verre —
+`rgba(30,35,45,0.44)` + `blur(18px)` — parce que M1 l'avait RETIRÉE de la carte :
+la liste des panneaux à rendre opaques a donc été écrite sans elle, et elle est
+REVENUE en feuille le même jour. Une surface qui part et revient traverse une
+passe de lisibilité sans être vue. Contraste mesuré sur le rendu réel : **5,66
+sur la moyenne de la carte, mais 2,65 au-dessus de ses zones claires** (sable,
+toits, neige) — moins de la moitié du seuil de 4,5. Corrigé.
+**Règle : toute surface posée sur la carte est opaque au doigt, et sa place est
+dans le sélecteur de la section M3.**
+
+⚠ Second oubli de la même famille : la boutique s'ouvrait **par défaut** au
+premier lancement sur téléphone, donc 665px de feuille sur 782 posés sur la
+ville — l'écran exact que M1 devait supprimer. La cause n'était pas le CSS mais
+le défaut de `useCollapsiblePanel('shop', true)`, écrit pour le bureau où la
+boutique est un MEUBLE. Clé et défaut divergent désormais par régime
+(`shop` / `shop:touch`) : deux dispositions, deux mémoires.
 
 ### M2 — Refaire la rangée d'achat *(le geste du jeu)*
 
@@ -144,7 +163,38 @@ pourcentage de gain, compteur possédé. **Six informations pour un geste.**
 - Passer les valeurs de la topbar en police chiffres à chasse fixe et vérifier
   le contraste réel (ratio mesuré, pas à l'œil).
 
-### M4 — Ergonomie du pouce
+### ✅ M4 — Ergonomie du pouce *(LIVRÉ 2026-08-07)*
+
+**La barre basse passe à quatre onglets et une feuille « Plus ».** Mesuré en
+clonant des onglets dans le DOM à 384px : la rangée à parts égales donnait 52px
+par onglet avec les cinq d'une partie neuve et **27px avec les neuf d'une partie
+avancée** — moins des deux tiers du plancher du doigt, sur la seule barre qu'on
+vise en aveugle. Cité, Régulation, Effondrement et Chronique restent en bas ;
+Plaisirs, Ruines, Boutique, Mythes et Marchandage passent dans la feuille, avec
+Options et État. Les pastilles des onglets rangés remontent sur « Plus ».
+
+Ce sont les 83px rendus par Options et État qui payent les libellés : les onglets
+passent de 55 à **77px** et affichent leur nom entier. Un seul libellé court
+subsiste (Effondrement → **Chute**, qui demandait 93px), et c'est le mot que le
+jeu emploie déjà ailleurs — pas une abréviation.
+
+**Fermeture au balayage** sur les trois feuilles (construction, Régulation,
+Plus), via `hooks/useSheetSwipeClose.js`. ⚠ Le geste ne s'arme que sur le
+BANDEAU : armé sur le corps, il entrerait en concurrence avec le défilement de la
+liste, et c'est toujours le mauvais des deux qui gagne. Le bouton reste, comme
+prévu ici.
+
+**Toutes les cibles à 44px** : bouton d'achat (40), multiplicateurs (25×36),
+sceaux du testament (77×40), onglets de comptes de la Chronique (40), pastille
+Premiers pas (42 — son cadre faisait bien 44, mais c'est le BOUTON qui reçoit le
+tap, bordures déduites). Grille repassée : 0 cible sous 44px sur les 4 vues.
+
+⚠ **Non fait, et assumé** : « zones de tap élargies aux rangées entières ». Sur
+la rangée d'achat, cela reviendrait à acheter en effleurant la liste pendant
+qu'on la fait défiler. Le bouton occupe déjà 86 à 94 % de la largeur ; le reste
+de la rangée doit rester inerte.
+
+### M4 — Ergonomie du pouce *(intention d'origine)*
 
 - Toute action principale dans le tiers bas de l'écran.
 - Feuilles fermables par **balayage vers le bas** ET par un bouton visible.
