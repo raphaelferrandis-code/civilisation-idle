@@ -63,25 +63,42 @@ export function fenceEdges(o, cfg = FENCE) {
   // SOURCES : les seules cellules qui ont le droit de porter une clôture.
   // Triées, pour que deux calculs du même layout rendent la même liste — un
   // décor qui se réordonne d'un recompute à l'autre scintille au tri peintre.
-  const sources = new Set();
-  if (cfg.wonders) for (const k of wonderSet) if (urbanSet.has(k)) sources.add(k);
+  // ⚠ LE CÔTÉ COMPTE, PAS SEULEMENT LA CELLULE. Première version : un `Set` de
+  // cellules, et ensuite TOUTES les arêtes qui séparaient deux matières recevaient un
+  // panneau. Une cellule de berge qui touche l'eau au sud posait donc aussi une
+  // clôture au NORD, côté ville — d'où des garde-corps en pleine herbe, loin de toute
+  // eau (Raph sur capture, 2026-08-06 : « il faut que ça longe le quai s'il y en a
+  // là »). On mémorise donc POURQUOI une cellule est source.
+  //
+  // `null` = tous les côtés (un parvis se ceint sur tout son pourtour).
+  // Un `Set` de côtés = seulement ceux-là (un quai ne se borde que face à l'eau).
+  const sources = new Map();
+  if (cfg.wonders) for (const k of wonderSet) if (urbanSet.has(k)) sources.set(k, null);
   if (cfg.quays) {
     // Berge BÂTIE seulement : une cellule de sol de ville qui touche l'eau. La
     // rive sauvage n'a pas de garde-corps, elle a de l'herbe.
     for (const k of urbanSet) {
       const c = k.indexOf(',');
       const gx = +k.slice(0, c), gy = +k.slice(c + 1);
-      for (const [, dx, dy] of SIDES) {
-        if (waterSet.has((gx + dx) + ',' + (gy + dy))) { sources.add(k); break; }
+      let cotes = null;
+      for (const [side, dx, dy] of SIDES) {
+        if (!waterSet.has((gx + dx) + ',' + (gy + dy))) continue;
+        (cotes || (cotes = new Set())).add(side);
       }
+      // Déjà source par le parvis : elle garde son pourtour complet.
+      if (cotes && !sources.has(k)) sources.set(k, cotes);
     }
   }
 
-  for (const k of [...sources].sort()) {
+  for (const k of [...sources.keys()].sort()) {
     const c = k.indexOf(',');
     const gx = +k.slice(0, c), gy = +k.slice(c + 1);
     const mine = waterSet.has(k) ? 'water' : matOf(k);
+    const permis = sources.get(k);
     for (const [side, dx, dy] of SIDES) {
+      // Quai : seulement le côté qui donne sur l'eau. Sans ce filtre la cellule
+      // clôturait aussi sa face ville, à l'opposé du fleuve.
+      if (permis && !permis.has(side)) continue;
       const nk = (gx + dx) + ',' + (gy + dy);
       // Hors sol de ville et hors eau : c'est la campagne, pas une couture à
       // souligner — la lisière a déjà sa frange d'herbe.

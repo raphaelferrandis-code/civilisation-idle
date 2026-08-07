@@ -46,6 +46,25 @@ describe("pose des clôtures", () => {
     expect(e.map(cle)).toContain("4,4:w");
   });
 
+  // ⚠ DÉFAUT VÉCU, corrigé le 2026-08-06 sur capture de Raph : « il faut que ça longe
+  // le quai s'il y en a là ». La source était une CELLULE, donc toutes ses arêtes
+  // séparant deux matières recevaient un panneau — une berge qui touche l'eau au sud
+  // posait aussi un garde-corps au NORD, côté ville, en pleine herbe et loin de toute
+  // eau. Un quai ne se borde que du côté de l'eau.
+  it("un quai ne se clôture QUE du côté de l'eau, jamais côté ville", () => {
+    // Ligne d'eau en bas (gy = 6), sol de ville au-dessus, et de l'herbe encore
+    // au-dessus : la cellule de berge a donc DEUX arêtes qui séparent des matières.
+    const eau = new Set(["0,6", "1,6", "2,6", "3,6", "4,6", "5,6", "6,6"]);
+    const urbanSet = new Set();
+    for (let gx = 0; gx < 7; gx += 1) for (let gy = 3; gy <= 5; gy += 1) urbanSet.add(gx + "," + gy);
+    const matOf = (k) => (eau.has(k) ? "water" : (urbanSet.has(k) ? "urban" : "grass"));
+    const e = fenceEdges({ urbanSet, waterSet: eau, wonderSet: new Set(), matOf });
+    expect(e.length).toBeGreaterThan(0);
+    // TOUT est au sud, face à l'eau. Aucune arête nord, malgré urbain ↔ herbe en gy=3.
+    expect(e.every((x) => x.side === "s")).toBe(true);
+    expect(e.every((x) => x.gy === 5)).toBe(true);
+  });
+
   // ⚠ LE point du fichier.
   it("mord : rien du tout à l'intérieur d'un quartier homogène", () => {
     // Un parvis dont TOUT le voisinage est de la même matière : la source est
