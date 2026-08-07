@@ -92,6 +92,27 @@ describe("pose des clôtures", () => {
     expect(e.every((x) => x.gy === 5)).toBe(true);
   });
 
+  // ⚠ DÉFAUT VÉCU, corrigé le 2026-08-06 : « la barrière ne fait pas le contour
+  // complet des merveilles ». La règle sautait toute arête dont le voisin est hors du
+  // sol de ville — garde-fou contre la décoration de la couture ville↔campagne. Mais
+  // beaucoup de merveilles sont EN BORDURE : sur un parvis réel, 44 de ses ~96 arêtes
+  // de pourtour tombaient ainsi, et le contour restait ouvert. Une enceinte ceint un
+  // OBJET, elle ne souligne pas une lisière.
+  it("ceint un parvis ENTIÈREMENT, même là où il donne sur la campagne", () => {
+    // Parvis 3×3 collé au bord du sol de ville : sa colonne de gauche donne sur du
+    // hors-ville (pas d'urbanSet), les autres côtés sur de l'urbain.
+    const w = new Set(["0,4", "1,4", "2,4", "0,5", "1,5", "2,5", "0,6", "1,6", "2,6"]);
+    const urbanSet = new Set(w);
+    for (let gx = 3; gx <= 6; gx += 1) for (let gy = 3; gy <= 7; gy += 1) urbanSet.add(gx + "," + gy);
+    for (let gx = 0; gx <= 2; gx += 1) { urbanSet.add(gx + ",3"); urbanSet.add(gx + ",7"); }
+    const matOf = (k) => (w.has(k) ? "wonder" : (urbanSet.has(k) ? "urban" : "grass"));
+    const e = fenceEdges({ urbanSet, wonderSet: w, waterSet: new Set(), matOf });
+    // 12 arêtes de pourtour, y compris les 3 de la colonne ouest qui donnent sur le
+    // hors-ville. Sans le correctif il n'en sortait que 9.
+    expect(e.length).toBe(12);
+    for (const gy of [4, 5, 6]) expect(e.map(cle)).toContain("0," + gy + ":w");
+  });
+
   // ⚠ LE point du fichier.
   it("mord : rien du tout à l'intérieur d'un quartier homogène", () => {
     // Un parvis dont TOUT le voisinage est de la même matière : la source est
@@ -135,13 +156,28 @@ describe("pose des clôtures", () => {
     expect(new Set(e.map(cle)).size).toBe(e.length);   // aucun doublon nulle part
   });
 
-  it("ignore la lisière : la campagne n'est pas une couture à souligner", () => {
-    // Parvis au bord du sol de ville : le côté qui donne sur l'herbe hors ville
-    // ne porte rien — la lisière a déjà sa frange d'herbe.
+  // ⚠ CE TEST DISAIT L'INVERSE JUSQU'AU 2026-08-06. Il verrouillait « la campagne
+  // n'est pas une couture à souligner » y compris pour un parvis, et c'est ce qui
+  // laissait le contour des merveilles ouvert (retour de Raph). La règle de lisière
+  // reste juste pour une source à CÔTÉS (une berge, qui longe et ne ceint pas) ;
+  // elle est fausse pour une ENCEINTE, qui ceint un objet et doit se refermer.
+  it("une enceinte se referme sur la campagne, une berge non", () => {
+    // Parvis d'une cellule dans le coin : deux de ses côtés donnent hors ville.
     const w = new Set(["0,0"]);
     const o = { ...carte(4, (k) => (w.has(k) ? "wonder" : "urban")), wonderSet: w };
-    const e = fenceEdges(o);
-    expect(e.map(cle).sort()).toEqual(["0,0:e", "0,0:s"]);
+    // ENCEINTE : les quatre côtés, y compris les deux qui sortent de la ville.
+    expect(fenceEdges(o).map(cle).sort()).toEqual(["0,0:e", "0,0:n", "0,0:s", "0,0:w"]);
+
+    // BERGE : source à côtés, la règle de lisière tient. Une cellule de bord de ville
+    // qui touche l'eau au sud ne clôture que le sud, jamais son flanc hors ville.
+    const eau = new Set(["0,1"]);
+    const urbanSet = new Set(["0,0", "1,0"]);
+    const mat = (k) => (eau.has(k) ? "water" : (urbanSet.has(k) ? "urban" : "grass"));
+    const berge = fenceEdges(
+      { urbanSet, waterSet: eau, wonderSet: new Set(), matOf: mat },
+      { ...FENCE, wonders: false, plazas: false, quays: true },
+    );
+    expect(berge.map(cle)).toEqual(["0,0:s"]);
   });
 
   it("les sources sont une LISTE BLANCHE : sans elles, aucune clôture", () => {

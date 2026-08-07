@@ -112,10 +112,19 @@ export function fenceEdges(o, cfg = FENCE) {
       // clôturait aussi sa face ville, à l'opposé du fleuve.
       if (permis && !permis.has(side)) continue;
       const nk = (gx + dx) + ',' + (gy + dy);
+      const isWater = waterSet.has(nk);
       // Hors sol de ville et hors eau : c'est la campagne, pas une couture à
       // souligner — la lisière a déjà sa frange d'herbe.
-      const isWater = waterSet.has(nk);
-      if (!isWater && !urbanSet.has(nk)) continue;
+      //
+      // ⚠ SAUF POUR UNE ENCEINTE. Une source à pourtour complet (parvis, place)
+      // ceint un OBJET, elle ne souligne pas une lisière : couper à la limite du sol
+      // de ville laissait le contour ouvert dès qu'une merveille touchait la
+      // campagne — et beaucoup y touchent, elles sont en bordure. Mesuré sur un
+      // parvis : 44 de ses ~96 arêtes de pourtour tombaient ainsi. Retour de Raph,
+      // 2026-08-06 : « la barrière ne fait pas le contour complet des merveilles ».
+      // Le risque de la lisière ne revient pas : le pourtour d'un parvis est borné
+      // par le parvis lui-même, pas par la frontière de la ville.
+      if (!isWater && !urbanSet.has(nk) && permis) continue;
       const theirs = isWater ? 'water' : matOf(nk);
       if (theirs === mine) continue;               // LA règle
       // PORTE. Là où une route aborde l'enceinte, on ne pose rien : c'est l'entrée.
