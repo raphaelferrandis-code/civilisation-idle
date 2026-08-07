@@ -72,6 +72,13 @@ const FIRE_SPRITES = [
   // recouverts par un overlay animé. Repeindre les seuls overlays laissait donc
   // une moitié du monument en or à côté de l'autre en rouge.
   ['wonders/dynasty1-t5.png', 2000],
+  // Aiguille rang I (2026-08-07) : le sprite portait une FLAMME CUITE en ocre
+  // pâle que l'overlay animé, plus petit qu'elle, ne recouvrait pas — on voyait
+  // deux feux. Elle a été retirée et il ne reste que le LIT DE BRAISES au creux
+  // du brasero, seul élément de feu que le sprite ait le droit de garder. 181 px
+  // mesurés → plancher à la moitié : si un remap l'éteint, la vasque redevient
+  // un seau vide sous une flamme flottante, et rien d'autre ne le dirait.
+  ['wonders/era_mega-t1.png', 90],
 ];
 
 const rampSet = new Set(RAMP.steps.map((s) => s.hex.toLowerCase()));

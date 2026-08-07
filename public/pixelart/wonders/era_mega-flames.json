@@ -33,9 +33,10 @@
     "t1": {
       "flames": [
         {
+          "_note": "Assise DANS les braises (y=50), pas sur le bord (y=47) : le sprite ne porte plus de feu cuit, il porte un LIT DE CHARBONS au creux de la vasque. Largeur un cran sous la bouche du brasero (22 px pour 25) — un feu qui déborde de son foyer lit comme un décalque.",
           "x": 53,
-          "y": 47,
-          "w": 14,
+          "y": 50,
+          "w": 12,
           "h": 22,
           "kind": "brazier"
         }

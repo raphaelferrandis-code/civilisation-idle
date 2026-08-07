@@ -1,5 +1,5 @@
 {
-  "_comment": "Braseros animés du Mausolée (dynasty1). x,y=ancre bas-centre. 2026-07-09 : sprites RETOURNÉS horizontalement par Raphaël -> ancres recalées x'=nw-x pour t3/t5 ; t1 aussi ÉDITÉ (pas un simple miroir) -> recuré à 2 braseros d'entrée. t2/t4 non retournés (inchangés).",
+  "_comment": "Braseros animés du Mausolée (dynasty1). x,y=ancre bas-centre. 2026-07-09 : sprites RETOURNÉS horizontalement par Raphaël -> ancres recalées x'=nw-x pour t3/t5 ; t1 aussi ÉDITÉ (pas un simple miroir) -> recuré à 2 braseros d'entrée. t2/t4 non retournés (inchangés). 2026-08-07 : t2 avait DEUX ancres posées sur la PORTE DORÉE (88,78 et 86,91) — le piège de l'or, le même que --blob-key dans reflame.mjs : la porte, l'escalier et un brasero partagent la teinte, seule la TAILLE de la tache les sépare. Une flamme brûlait dans l'entrée. Retirées : t2 ne garde que ses 2 vrais braseros.",
   "asset": {
     "small": {
       "file": "flame-small.png",
@@ -37,20 +37,6 @@
     },
     "t2": {
       "flames": [
-        {
-          "x": 88,
-          "y": 78,
-          "w": 4,
-          "h": 16,
-          "kind": "large"
-        },
-        {
-          "x": 86,
-          "y": 91,
-          "w": 1,
-          "h": 7,
-          "kind": "small"
-        },
         {
           "x": 62,
           "y": 95,
