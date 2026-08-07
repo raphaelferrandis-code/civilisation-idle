@@ -6353,26 +6353,35 @@ function isoStreetPropsFor(L, band) {
 // `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place. Un garde-corps
 // arrive à la taille — pas un mur, pas une palissade.
 // Molette : `__fences(false)` éteint, `__fences({ p: 0.7 })` règle.
-// ⛔ **LIVRÉ ÉTEINT (2026-08-06).** Le branchement est complet et mesuré, mais l'ART
-// NE FERME PAS LA LIGNE — et c'est de l'arithmétique, pas un réglage :
+// ⛔ **LIVRÉ ÉTEINT (2026-08-06) — le RENDU est bon, c'est le COÛT qui bloque.**
 //
+// Étape 1, un panneau par arête : ça ne ferme pas la ligne, et c'est de
+// l'arithmétique, pas un réglage.
 //   arête de cellule à l'écran : hypot(32, 16) = 35,8 px à zoom 1
 //   encre du sprite            : 21 px de large (canvas 34×34, encre 21×31)
+// Il restait ~11 px de vide entre deux voisins, et les panneaux se lisaient comme des
+// BLOCS DE PIERRE ABANDONNÉS sur le sable — y compris centré sur la plus longue suite
+// contiguë (13 arêtes). `minRun` écarte les isolés (92 → 68 poses à 3) sans rien fermer.
 //
-// Un panneau par arête laisse donc ~11 px de vide entre deux voisins, et les panneaux
-// se lisent comme des BLOCS DE PIERRE ABANDONNÉS éparpillés sur le sable — vérifié en
-// capture, y compris centré sur la plus longue suite contiguë (13 arêtes).
-// `minRun` a été ajouté pour écarter les panneaux isolés (92 → 68 poses à 3) : ça
-// supprime les pires, ça ne ferme pas la ligne.
+// Étape 2, RÉPÉTER le panneau le long de l'arête (`per`, calculé) : ✅ visuellement
+// c'est LA solution. Le garde-corps devient une ligne continue qui suit la berge,
+// exactement ce que le plan décrivait. Et il n'a pas fallu découper le sprite : la
+// palissade est faite de planches verticales uniformes, le panneau entier se répète
+// sans couture, donc pas de poteau d'about doublé (la crainte du plan).
 //
-// Le plan avait pressenti la moitié du problème (« ces panneaux ont des poteaux
-// d'about, donc deux bouts à bout feront un double poteau… si ça jure, générer une
-// variante milieu de course ») ; la mesure dit qu'ils ne se touchent même pas.
+// ⛔ MAIS LE COÛT NE PASSE PAS. Profilé à zoom 1, caméra épinglée sur la berge, A/B
+// rejoué dans les deux sens (un seul sens ne prouve rien) :
+//   sans clôtures : 56,0 ms puis 53,6 ms rejoué   ·   0 dessinée
+//   avec          : 72,3 ms                        ·   955 dessinées
+// Soit **+17 ms, ~+30 % de la frame** pour 955 items. (Valeurs absolues gonflées par
+// la pane, cf. PERF-CARTE-REPRISE §7 — c'est la PROPORTION qui compte.) La cause est
+// mécanique : 7 panneaux par arête, parce que chaque panneau est minuscule.
 //
-// Deux issues, toutes deux à arbitrer par Raph AVANT d'écrire quoi que ce soit :
-//  · poser PLUSIEURS panneaux par arête pour qu'ils s'abutent — et alors la variante
-//    « milieu de course » du plan devient nécessaire, sinon on aligne des poteaux ;
-//  · ou redessiner l'art en PANNEAU LARGE, une arête = un sprite.
+// **La suite est la DÉCOUPE, et pour la vraie raison** (intuition de Raph, confirmée
+// par la mesure) : il ne faut pas répéter le panneau AU DESSIN mais composer la ligne
+// UNE FOIS dans un canevas hors écran — même geste que l'aqueduc modulaire
+// (`aqueduct-{outlet,seg,intake}`, seg répété) et que le bake des quais. On blitte
+// ensuite une tranche par cellule, ce qui préserve le tri peintre.
 //
 // `p` = hauteur en fraction d'HABITANT, l'étalon du mobilier de place.
 // `minRun` = longueur minimale d'une suite d'arêtes contiguës.
@@ -6415,12 +6424,32 @@ function isoFencesFor(L, band) {
     };
     edges = brutes.filter((e) => long(e) >= FENCE_ISO.minRun);
   }
+  // COMBIEN DE PANNEAUX PAR ARÊTE. C'est ici que se joue la continuité, et ça se
+  // calcule au lieu de se deviner : une arête de cellule mesure hypot(hw, hh) px à
+  // l'écran, un panneau en mesure `hT × T × (largeur d'encre / hauteur d'encre)`.
+  // Un seul panneau par arête laissait 11 px de vide — le défaut vu en capture.
+  //
+  // ⚠ Pas besoin de DÉCOUPER le sprite : la palissade est faite de planches
+  // verticales uniformes, donc le panneau entier se répète sans couture visible. La
+  // découpe en 3 tranches (comme l'aqueduc) ne servirait qu'à éviter des poteaux
+  // d'about répétés — or ce panneau n'en a pas, ses bords sont des planches.
+  const FENCE_INK = 21 / 31;                       // encre mesurée sur les 20 PNG
+  const edgePx = Math.hypot(T * ISO_X, T * ISO_Y); // longueur d'une arête, à zoom 1
+  const panelPx = Math.max(1, hT * T * FENCE_INK);
+  const per = Math.max(1, Math.min(8, Math.ceil(edgePx / panelPx)));
   for (const e of edges) {
-    // Le panneau se pose SUR l'arête, au milieu du côté nommé — c'est ce qui le fait
-    // lire comme une limite et non comme un objet posé dans une cellule.
-    const wx = (e.gx + (e.side === 'e' ? 1 : e.side === 'w' ? 0 : 0.5)) * T;
-    const wy = (e.gy + (e.side === 's' ? 1 : e.side === 'n' ? 0 : 0.5)) * T;
-    list.push({ prop: 'fence', variant: e.side, wx, wy, hT, d: depthOf(wx, wy) });
+    // Les panneaux se répartissent LE LONG de l'arête (jamais au centre de la
+    // cellule) : c'est ce qui les fait lire comme une limite continue. Chacun garde sa
+    // propre profondeur, donc le peintre les trie un par un comme des lampadaires.
+    const horiz = e.side === 'n' || e.side === 's';
+    const fx = e.side === 'e' ? 1 : e.side === 'w' ? 0 : 0;
+    const fy = e.side === 's' ? 1 : e.side === 'n' ? 0 : 0;
+    for (let i = 0; i < per; i += 1) {
+      const t = (i + 0.5) / per;
+      const wx = (e.gx + (horiz ? t : fx)) * T;
+      const wy = (e.gy + (horiz ? fy : t)) * T;
+      list.push({ prop: 'fence', variant: e.side, wx, wy, hT, d: depthOf(wx, wy) });
+    }
   }
   _fenceCache = { key, list };
   CM._fences = list;
