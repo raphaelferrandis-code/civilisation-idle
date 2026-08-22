@@ -152,7 +152,7 @@ inferieur a 0,1 % du build.**
 | Lot | Contenu | Octets |
 |---|---|---|
 | Libere par le chantier | `plazas/anim/` (5), `plazas/` lamppost+paving (10), `medians/` (5), `trees/` (7), `streets*.png` (11), `roads/*.edge.png` (10), `water/{water,reeds-*}` (4), `grass.png` | **~510 000** |
-| Deja orphelin, independant du chantier | `agents/vehicles/veh-{barrow,cart}-*` (16), `iso/bridge-full-*` (5), `agents/buildings/veh-caravan-{wagon,truck,pod}` (3), `_archive/` (vide) | **~444 000** |
+| Deja orphelin, independant du chantier — **SORTI le 2026-08-23, etape 2** | `agents/vehicles/veh-{barrow,cart}-*` (16), `iso/bridge-full-*` (5), `agents/buildings/veh-caravan-{wagon,truck,pod}` (3). ⚠ **`_archive/` RETIRE de cette liste : plus vide, et non suivi par git** (P16) | **476 000 mesures** |
 | A deplacer hors de `public/` (pas supprimer) | `master-palette.{json,gpl}`, `README.md` racine, `wonders/README.md`, `Asepritelayers/` | **~59 700** |
 
 **Total assets touchables : ~1 Mo sur 30 Mo.** Dont a peine la moitie est reellement due au chantier.
@@ -350,10 +350,10 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | `agents/vehicles/veh-{barrow,cart}-*` (16) | trim | bas | Deja orphelin (agents.js:357-361). Corriger le roster `extractVehFrame0.cjs:12` |
 | `agents/buildings/veh-caravan-{wagon,truck,pod}` (3) | trim | bas | Deja orphelin (cityEngineSprites.js:315-318). **Ne pas confondre avec `caravan-*` sans prefixe `veh-`, vivants** |
 | `iso/bridge-full-*` (5) | trim | bas | Deja orphelin (isoRenderer.js:4396). Mais `scripts/normalizeIsoScenes.mjs:106` boucle dessus |
-| `public/pixelart/_archive/` | delete | bas | Dossier **vide**, non suivi par git : ne partira qu'a la main |
+| `public/pixelart/_archive/` | ~~delete~~ → **KEEP** | ~~bas~~ **HAUT** | ⚠⚠ **CORRIGE le 2026-08-23 : le dossier N'EST PLUS VIDE.** 33 entrees, dont `coupled/` (20 fichiers). Il est **non suivi par git** — le supprimer serait **IRRECUPERABLE**. C'est la source de `separatePixelTerrain.mjs`, donc de `roads/*.png`. **NE PAS Y TOUCHER.** Voir P16 corrige |
 | `scripts/makeStreetTiles.mjs`, `fetchStreetSurfaces.mjs` | delete | bas | Deja inoperants (`_streets_src/` n'existe plus) |
 | `scripts/makeGrassEdge.mjs`, `fetchTrees.mjs`, `fetchMedians.mjs`, `retintWater.mjs` | trim | bas | Generateurs orphelins de leurs assets. Voir §6 Q6 |
-| `scripts/separatePixelTerrain.mjs` | **keep** | moyen | Seul regenerateur de `roads/<band>.png` (asset keep/haut). **Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables en l'etat** |
+| `scripts/separatePixelTerrain.mjs` | **keep** | moyen | Seul regenerateur de `roads/<band>.png` (asset keep/haut). ~~Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables~~ → **FAUX depuis le 2026-08-23 : `coupled/` contient de nouveau 20 fichiers**, `roads/*.png` est donc REGENERABLE. Voir P16 corrige |
 
 ---
 
@@ -669,16 +669,31 @@ fichiers — ou, mieux, ne pas y toucher (voir §6 Q3).
 
 ---
 
-#### P16 — `roads/*.png` n'est **plus regenerable**
+#### P16 — ~~`roads/*.png` n'est plus regenerable~~ → **CORRIGE : il l'est de nouveau, et `_archive/` est devenu INTOUCHABLE**
+
+> **Re-mesure du 2026-08-23, a l'ouverture de l'etape 2. Ce piege s'est INVERSE.**
 
 ```js
 // scripts/separatePixelTerrain.mjs:14
 const SRC = 'public/pixelart/_archive/coupled';
 ```
 
-Or `public/pixelart/_archive/` est **vide** (0 fichier, verifie). Le seul regenerateur de l'asset le plus
-critique de la dimension n'a plus de matiere premiere : **ces 20 fichiers sont irremplacables en l'etat.**
-Argument supplementaire pour ne jamais les frôler.
+~~Or `public/pixelart/_archive/` est **vide** (0 fichier, verifie). Le seul regenerateur de l'asset le
+plus critique de la dimension n'a plus de matiere premiere : **ces 20 fichiers sont irremplacables en
+l'etat.** Argument supplementaire pour ne jamais les froler.~~
+
+**FAUX aujourd'hui.** `public/pixelart/_archive/` contient **33 entrees**, dont **`coupled/` avec ses 20
+fichiers**. Deux consequences opposees :
+
+1. **`roads/*.png` EST regenerable.** L'argument « irremplacable » qui interdisait d'y toucher **tombe**.
+   A reporter dans **Q1**, dont c'etait le principal frein.
+2. **⚠⚠ `_archive/` DEVIENT INTOUCHABLE.** L'etape 2 dit de le supprimer « (vide, a la main) ». **NE PAS
+   LE FAIRE** : le dossier est **non suivi par git** (`git ls-files` → 0), donc une suppression serait
+   **definitive, sans recours**. C'est la matiere premiere de l'asset le plus critique de la carte.
+
+**Lecon de methode.** Un piege ecrit « ce dossier est vide » est une **mesure**, pas un fait. Une mesure
+se re-fait. Celle-ci s'est inversee en 25 jours, et la suivre a la lettre aurait detruit 20 fichiers
+irrecuperables.
 
 ---
 
@@ -1049,6 +1064,38 @@ chantier** au-dela des lignes explicitement listees en §2.
 - **Effort** : courte.
 - **Commit** : `chore(art): retirer 24 sprites debranches — brouettes, charrettes, caravanes animees, ponts pleins iso`
 
+> ## ✔ ETAPE 2 FAITE — 2026-08-23
+>
+> **24 PNG sortis** (476 Ko), tous suivis par git donc **recuperables** : brouettes (8), charrettes (8),
+> caravanes animees (3), ponts complets iso (5).
+>
+> **Orphelinat RE-VERIFIE avant de couper**, et pas seulement au grep de nom de fichier : les chemins
+> sont **construits par template** (`'/pixelart/agents/vehicles/veh-' + type + …`, agents.js), donc un
+> `grep "veh-cart"` ne peut pas les voir. Controle sur les **types nus** : `'cart'` et `'barrow'`
+> n'existent **nulle part** dans `src/`. Confirme a l'execution — sur 4 eres basses, le seul type de
+> vehicule emis est `basket`.
+>
+> **Rosters elagues** : `extractVehFrame0.cjs` (TYPES), `fetchVehicleAnims.mjs` (cart + barrow),
+> `normalizeIsoScenes.mjs` (**tout le mode `bridges`**, son en-tete et ses deux helpers devenus morts —
+> `flipX`, `rotate`, attrapes par le lint), `isoBatchRoster.json` (bloc `bridgesFull` → note de retrait).
+>
+> **⚠ DEUX ECARTS ASSUMES, chacun motive :**
+> 1. **`_archive/` N'A PAS ETE SUPPRIME.** Le plan le croyait vide ; il contient 33 entrees dont
+>    `coupled/` (20 fichiers), **non suivies par git**. Le supprimer aurait ete definitif. Voir **P16**,
+>    qui s'est inverse.
+> 2. **`fetchCaravanVehAnims.mjs` laisse INTACT.** Ses 3 entrees sont la totalite de son contenu :
+>    les retirer en aurait fait une coquille vide qui ne fait rien — pire que le garder ou le supprimer.
+>    Verse tel quel a **Q6** (memoire de fabrication vs dette), qui tranchera le sort du script entier.
+>
+> `scripts/data/sprite-inventory.json` porte encore 3 cles `veh-caravan-*` : fichier **genere**
+> (`spriteScaleAudit.mjs inventory`, « ne pas editer a la main »), il se remettra a jour tout seul.
+>
+> **Verification** : build OK ; jeu charge et carte exercee sur **6 eres** (0, 4, 9, 16, 23, 69) ;
+> **250 ressources reseau, ZERO requete vers un sprite supprime, zero image non decodee, console vide**.
+> 152 fichiers / 1734 `it` verts, lint revenu a sa seule erreur preexistante.
+>
+> **Prochaine etape : 4, la bascule de frame** — le point de non-retour. Re-ancrer d'abord (§0.3).
+
 ---
 
 ### Etape 3 — Les tests Y-sort : porter avant de jeter
@@ -1356,7 +1403,10 @@ Statiquement, la reference est vivante (`cityEngineSprites.js:2931` ← `isoRend
 refuse explicitement les scenes moteur pour les champs (`isoRenderer.js:4844`) et les redessine avec
 `drawIsoField` (`isoRenderer.js:6227`). **Indecidable par recherche** : il faut le mesurer a l'encre, en
 jeu. Si la branche est morte, `pixelTerrain.js` disparait **en entier** et 177 Ko d'assets partent.
-Rappel P16 : ces 20 fichiers **ne sont plus regenerables** (source `_archive/coupled/` vide).
+~~Rappel P16 : ces 20 fichiers **ne sont plus regenerables** (source `_archive/coupled/` vide).~~
+**⚠ CE FREIN A SAUTE le 2026-08-23 : `_archive/coupled/` contient de nouveau ses 20 fichiers, donc
+`roads/*.png` EST regenerable** (P16 corrige). Il reste a mesurer a l'encre si la branche est vivante,
+mais le risque en cas d'erreur n'est plus irreversible.
 *Bloque l'etape 6.3 et une partie de l'etape 8.*
 
 **Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ?**
