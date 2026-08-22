@@ -1548,6 +1548,46 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
 - **Effort** : courte.
 - **Commit** : `chore(art): retirer les 52 tuiles du terrain top-down et leurs generateurs`
 
+> ## ✔ ETAPE 8 FAITE — 2026-08-23
+>
+> **58 PNG** retires (le plan en annoncait 52) et **6 scripts** devenus orphelins de leurs assets.
+>
+> **⚠ L'ECART DE 6 VIENT DU KIT DE PLACES.** Le plan comptait 10 `lamppost-*` + `paving-*` ; il y en a
+> **15**. Verifie a la SOURCE plutot qu'au decompte : `LEGACY_PROP` (isoPlaza.js) mappe `bench`, `bush`,
+> `fountain`, `flag` et `amphora→planter`, **rien d'autre** — ni `lamppost` ni `paving` ne peuvent etre
+> sondes par le repli iso. Les **45 fichiers** du kit qui LE sont restent en place : c'est le defaut de
+> **Q3**, toujours ouverte.
+>
+> ### ⚠⚠ LA VERIFICATION NE PEUT PAS ETRE UN GREP DE NOM DE FICHIER
+>
+> Lecon de l'etape 2, ou les chemins de vehicules etaient construits par TEMPLATE. Methode retenue :
+> **enumerer tous les prefixes `/pixelart/…` litteraux de `src/`**, puis suivre chacun. Le seul prefixe nu
+> (`'/pixelart/' + name`) est celui de `pixelTerrain.ensure`, dont les noms viennent de `ROAD_STAGES` —
+> des `roads/band*`, conserves. **Aucun autre chemin ne peut atteindre les fichiers retires.**
+>
+> ### P14 respecte, avec une precision
+>
+> `grass.png` et `water/water.png` etaient lus **sans garde** par des scripts : les supprimer seuls aurait
+> casse ces scripts, d'ou leur depart conjoint. Mais `grass.png` est aussi touche par
+> `separatePixelTerrain.mjs`, que **P16 dit de garder**. Verifie : ce script l'**ECRIT** (`GRASS_OUT`), il
+> ne le lit pas. Il reste — et il peut le regenerer, d'autant que sa matiere premiere `_archive/coupled/`
+> est revenue (P16 inverse).
+>
+> Les **prechargements de niveau module** qui tenaient ces assets etaient deja partis avec leur code : les
+> 7 arbres a l'etape 5, l'herbe et les rues a l'etape 6. C'est ce que **P15** reclamait, et c'est pourquoi
+> le controle reseau est vide.
+>
+> `.gitignore` inchange : son commentaire dit que `public/pixelart/roads/` et `grass-ref` restent
+> versionnes — toujours vrai, seuls les `.edge.png` sont partis.
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1690 verts. Puis le jeu — seul controle qui
+> vaille pour des prechargements silencieux : **ere 23**, celle ou places et terre-pleins chargeraient,
+> carte peinte a 100 %, 250 ressources reseau, **ZERO requete vers un asset retire**, aucune image non
+> decodee, console vide.
+>
+> **Reste l'etape 9** (documentation), puis **Q5** (renommer `renderWorld.js`). Q1, Q2, Q3 et Q6 restent
+> ouvertes — chacune ne commande plus qu'un petit menage supplementaire.
+
 ---
 
 ### Etape 9 — Documentation
