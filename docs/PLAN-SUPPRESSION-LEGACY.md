@@ -4,9 +4,126 @@
 > contre-verification par sept contradicteurs. Les elements refutes avec preuve citee ont ete corriges ;
 > les elements indecidables par recherche statique sont classes **keep** avec une note.
 >
+> **Relu et re-verifie le 2026-08-22 : le raisonnement tient, les numeros de ligne sont morts.
+> LIRE LE §0 AVANT TOUTE CHOSE.**
+>
 > **Le gain de ce chantier est la MAINTENANCE, pas le poids.** Un seul chemin de rendu, une seule
 > geometrie, une seule facon de repondre a « pourquoi la carte fait ca ». Le poids libere est marginal
 > (voir §1) et ne doit jamais servir a justifier le chantier.
+
+---
+
+## 0. Etat de la derive — relecture du 2026-08-22
+
+> Relecture integrale et verification contre l'arbre du 2026-08-22, soit **24 jours** apres la redaction.
+> Les pieges porteurs ont ete rejoues un par un et resistent. Les ancres, elles, ont derive massivement.
+>
+> **Regle absolue : ne jamais editer sur la foi d'un numero de ligne de ce document. Re-grepper le
+> symbole.** Le plan reste un excellent guide de RAISONNEMENT et une carte PERIMEE.
+
+### 0.1 Derive des tailles
+
+| Fichier / repere | Plan (2026-07-29) | Reel (2026-08-22) | Derive |
+|---|---|---|---|
+| `iso/isoRenderer.js` | ~7 350 l. | **10 948 l.** | **+49 %** |
+| `drawIsoWorld` | l. 6841 | **l. 10427** | +3 586 |
+| `cityMapRuntime.js` | 2 117 l. | **2 500 l.** | +383 |
+| Bloc `else` legacy | 1739-1884 | **2112-2257** | +373 |
+| Bascule `if (CM.iso && drawIsoWorld(` | 1737 | **2110** | +373 |
+| `renderWorld.js` | 2 855 l. | **2 939 l.** | +84 |
+| Suite de tests | ~116 fichiers / ~1112 `it` | **149 / 1713** | **+54 %** |
+
+### 0.2 Points de controle devenus faux
+
+- **Le comptage « ~1112 → ~1068 `it` » est CADUC** (§2.5, §4 etape 1, §5.1). La vraie ligne de base est
+  **149 fichiers / 1713 `it`**, mesuree le 2026-08-22 (`npx vitest run`, 8,8 s, tout vert). Refaire
+  l'etape 1 AVANT tout : ce comptage est le seul garde-fou qui prouve qu'on a perdu **exactement** ce
+  qu'on croyait.
+- **L'inventaire des tests qui pilotent le flag est incomplet : 6 fichiers listes, 9 en realite.** Le plan
+  avait predit ce risque (§2.5, `isoPlaza.test.js` : « 4e fichier qui pilote le flag, absent des
+  inventaires initiaux. Futur faux vert »). C'est arrive **trois fois de plus** depuis.
+
+| Fichier | Lignes | Statut |
+|---|---|---|
+| `iso/__tests__/projection.test.js` | 16, 18, 63 | inventorie |
+| `iso/__tests__/isoPlaza.test.js` | 75, 80 | inventorie |
+| `__tests__/citizenDoorstep.test.js` | 28 | inventorie |
+| `__tests__/bridgePedEdge.test.js` | 34 | inventorie |
+| `__tests__/pedTurnSmooth.test.js` | 23 | inventorie |
+| `__tests__/roadDivided.test.js` | 149, 157, 163, 167 | inventorie |
+| `__tests__/riverLife.test.js` | 32-33 | **NOUVEAU** (2026-07-30) — pilote aussi `isoFlag`, voir **P22** |
+| `__tests__/bridgeWalkBand.test.js` | 27, 73 | **NOUVEAU** (2026-08-05) |
+| `__tests__/bridgeBury.test.js` | 26, 41 | **NOUVEAU** (non suivi par git) |
+
+### 0.3 Table de re-ancrage
+
+Ancres verifiees le 2026-08-22. **A re-verifier a nouveau avant chaque seance** : `isoRenderer.js` a pris
++49 % en 24 jours, rien ne dit que ca s'arrete.
+
+| Repere | Plan | Reel 2026-08-22 |
+|---|---|---|
+| `cityMapRuntime` — bascule `if (CM.iso && drawIsoWorld(` | 1737 | **2110** |
+| `cityMapRuntime` — corps du `else` | 1739-1884 | **2112-2257** |
+| `cityMapRuntime` — `} // fin du pipeline legacy` | 1884 | **2257** |
+| `cityMapRuntime` — imports a elaguer | 42-69 | **68-73** |
+| `cityMapRuntime` — lectures de `CM.iso` | 314, 321, 393, 1737 | **330, 337, 411, 2110** |
+| `agents.js` — pedEdge / spread / isoK / lane / retour anticipe | 769, 778, 1058, 1352, 1368 | **847, 856, 1164, 1481, 1497** |
+| `projection.js` — branches legacy | 50, 61, 70, 78, 85, 135, 181 | **96, 107, 116, 124, 131, 181, 227** |
+| `projection.js` — bloc racine du flag | 25-44 | **26-44** |
+| `isoRenderer` — `import { drawEngineSprite }` (P8) | 22 | **23** |
+| `isoRenderer` — `drawPixelBridges(CM, now)` (P5) | 4397 | **7290** |
+| `isoRenderer` — `if (!L) return false` (P13) | 6855 | **10429** |
+| `isoRenderer` — `CM._wonderBoxes = []` (P11) | 6893 | **10467** |
+| `isoRenderer` — `cityMapDrawQuays(now)` (P6) | 7324 | **10921** |
+| `renderWorld` — `cityMapDrawTrees` | 884 | **968** |
+| `renderWorld` — `cityMapDrawRoad` | 1619 | **1703** |
+| `renderWorld` — `drawCrisis` | 2594 | **2678** |
+| `renderWorld` — `cityMapDrawCityLights` | 2742 | **2826** |
+| `renderWorld` — `quayWallTune` | 543-548 | **638** |
+| `cityEngineSprites` — appel `drawEraGroundFill` (P4) | 2931 | **3297** |
+
+### 0.4 Ce qui a ete REJOUE et tient toujours
+
+Inutile de re-verifier ces points a la prochaine seance : ils ont ete controles sur l'arbre du 2026-08-22.
+
+| Point | Verdict 2026-08-22 |
+|---|---|
+| **P4** — `drawEraGroundFill` atteint par l'iso | tient — `cityEngineSprites.js:3297` |
+| **P5** — `drawPixelBridges` appele en iso | tient — `isoRenderer.js:7290` |
+| **P8** — `buildingShapes.js` est un pont, pas un mort | tient — import l.23, re-export `buildingShapes.js:335` |
+| **P13** — `drawIsoWorld` renvoie `false` sans layout | tient — `isoRenderer.js:10429` |
+| **§2.4** — graphe d'import des 4 modules a supprimer | tient, **exact au symbole pres**, aucun nouvel importeur |
+
+### 0.5 Etape 0 : l'arbre est presque propre
+
+Le plan partait d'un `git status` melant trois chantiers (voirie, places iso, flotte fluviale). Ce n'est
+plus le cas. Au 2026-08-22 il ne reste **qu'un** chantier en vol — le **pont** (`iso/isoBridge.js` modifie,
+`__tests__/bridgeBury.test.js` non suivi) — plus quelques fichiers non suivis hors code
+(`aseprite-pont/*.png`, `scene-family.png`, `scripts/zipDist.mjs`).
+
+**L'etape 0 est devenue courte : fermer le chantier pont, et commencer.**
+
+### 0.6 Etat des questions du §6
+
+- **Q7 — TRANCHEE le 2026-08-22 par Raphael : on porte LES 13. → ETAPE 3 FAITE le meme jour.**
+  11 des 13 regles etaient deja couvertes par `isoUnitDepth.test.js` ; les 2 manquantes sont ecrites, et
+  les 3 `it` de phares sont portes dans un `vehicleHeadlights.test.js` neuf (6 `it`, les 4 gardes).
+  Suite : **151 fichiers / 1728 `it`**, tout vert. **Prochaine etape : 2, puis 4.**
+- **Q1** (les champs passent-ils encore par `drawEraGroundFill` en iso) : **encore ouverte**, bloque
+  l'etape 6.3 et une partie de l'etape 8.
+- **Q2 a Q6, Q8** : encore ouvertes, ne bloquent rien.
+- **Q9 — TRANCHEE le 2026-08-22 par la mesure** (sonde `__depthProbe` + force brute) : l'aveuglement a la
+  hauteur ne fausse pas le tri. Option 3, ne pas toucher aux fiches (P23).
+- **Q10** (decoupage d'`isoRenderer.js`), **Q11** (la passe fantome redessine 86-87 % des unites) et
+  **Q12** (le departage d'egalite d'`isoUnitDepthEx`) : **ajoutees le 2026-08-22**, toutes trois **hors
+  perimetre** de ce chantier.
+
+### 0.7 Ce que la derive dit du chantier lui-meme
+
+`isoRenderer.js` a pris **+3 600 lignes en 24 jours**. La coupe du legacy donne un seul chemin de rendu —
+elle ne touche pas au fichier-dieu, qui grossit plus vite que tout le reste de la carte reunie. Le
+chantier reste la bonne premiere etape ; **le decoupage d'`isoRenderer.js` reste a faire derriere**, et
+plus on attend, plus il coute. Verse au §6 comme **Q10**.
 
 ---
 
@@ -57,7 +174,9 @@ du poids ».
 
 ## 2. Inventaire verifie
 
-### 2.1 `src/game/map/renderWorld.js` (2855 lignes)
+### 2.1 `src/game/map/renderWorld.js` (~~2855~~ **2939** lignes au 2026-08-22)
+
+> Lignes derivees de **~+84**. Quelques ancres re-verifiees en §0.3 ; re-grepper les autres.
 
 #### Ce qui part
 
@@ -109,7 +228,9 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 
 ---
 
-### 2.2 `src/game/map/cityMapRuntime.js` (2117 lignes)
+### 2.2 `src/game/map/cityMapRuntime.js` (~~2117~~ **2500** lignes au 2026-08-22)
+
+> Toutes les lignes de ce tableau ont derive de **~+373**. Re-anchor en §0.3.
 
 | Fichier | Symbole | Lignes | Verdict | Risque | Note |
 |---|---|---|---|---|---|
@@ -157,7 +278,7 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | agents.js | `vehicleLaneTarget` — poussee bord exterieur legacy | 1364-1392 | delete | moyen | `if (CM.iso) return {x:0,y:0}` (1368) devient inconditionnel. **La fonction ne devient PAS constante** : `rank !== "main"` (1338-1362), plaza (1337) et gare (1335) restent vivants |
 | agents.js | `import { pixelSidewalkFlag, sidewalkTune }` | 4 | delete | bas | Unique usage : l.1382, dans le bloc qui part |
 | agents.js | Commentaires « legacy » | 760, 1057, 1330, 1351, 1981 | trim | bas | L.1981 est le plus trompeur : donne `__iso(false)` comme mode d'emploi |
-| cityMapRuntime.js | Lectures de `CM.iso` | 314, 321, 393, 1737 | delete | bas | Condition de sortie : `grep -n "CM\.iso\b" src/` doit etre **vide** avant de toucher projection.js:25-44 |
+| cityMapRuntime.js | Lectures de `CM.iso` | ~~314, 321, 393, 1737~~ → **330, 337, 411, 2110** | delete | bas | Condition de sortie **corrigee (P22)** : `grep -rn "CM\.iso\b\|isoFlag" src/` ne doit plus rendre que projection.js, avant de toucher a son bloc racine |
 
 ---
 
@@ -201,6 +322,10 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | `__tests__/terrePlein.test.js`, `isoUnitDepth.test.js`, `roadIsoHierarchy.test.js` | — | keep | bas | Ne touchent jamais au flag ; ce sont les gardes qui restent |
 
 **Comptage attendu :** ~1112 `it` avant → ~1068 apres (~44 retires). Mesurer le total **avant** de commencer.
+
+> **CADUC au 2026-08-22 (§0.2).** La suite est passee a **149 fichiers / 1713 `it`**. Le delta de ~44 `it`
+> reste plausible (les fichiers vises n'ont pas bouge), mais **les totaux sont faux** : re-mesurer la
+> ligne de base avant de commencer, et recalculer la cible a partir de la mesure fraiche.
 
 ---
 
@@ -600,6 +725,12 @@ restent valides. **Rien a retoucher.**
 
 #### P20 — Derive des numeros de ligne dans `isoRenderer.js`
 
+> **Mise a jour 2026-08-22 : cette section est desormais tres en dessous de la realite.** La derive n'est
+> plus de +2 a +9 lignes, elle depasse **+3 500**. `isoRenderer.js` est passe de ~7 350 a **10 948
+> lignes** (+49 %) et `drawIsoWorld` de 6841 a **10427**. Les ancres « inferieures a ~4300 » ne sont plus
+> exactes non plus (l'import de P8 est passe de 22 a 23). **Aucune ancre de ce document n'est fiable.**
+> Table de re-ancrage en **§0.3**. Le tableau ci-dessous n'a plus qu'une valeur historique.
+
 Les inventaires ont ete produits sur des arbres legerement differents. Au-dela de la ligne ~4300, les
 ancres derivent de +2 a +9 :
 
@@ -622,12 +753,184 @@ Les ancres **inferieures a ~4300 sont exactes** (1287-1307, 1289, 1290, 1292, 13
 
 #### P21 — Piege de methode : les worktrees `.claude/`
 
+> **Mise a jour 2026-08-22 : les trois worktrees nommes ici n'existent plus, il y en a CINQ autres.**
+> `hungry-elion-3915d3`, `mystifying-faraday-f6bcfe`, `nifty-sutherland-efaff9`, `quizzical-payne-f6808f`,
+> `serene-satoshi-33e13c` — chacun avec sa copie de `isoRenderer.js`, `cityMapRuntime.js`, `layout.js`,
+> a des tailles toutes differentes (de 1 604 a 3 755 lignes pour `isoRenderer.js`). Le nom des worktrees
+> change a chaque seance : **ne jamais les lister en dur, toujours borner la recherche.** La consigne
+> ci-dessous est inchangee et plus importante que jamais.
+
 Un `grep -rn "CM\.iso"` lance depuis la racine ramene **trois arbres de travail paralleles**
 (`distracted-wilbur-08307d`, `elegant-liskov-158aaf`, `exciting-mendeleev-5471e0`) avec des numeros de
 ligne differents (ex. `agents.js:647/655/894/1192/1207` au lieu de `769/778/1058/1352/1368`).
 
 Ils ne comptent pas : `git ls-files | grep -c worktrees` → 0, et `vite.config.js:76` les exclut de vitest.
 **Toutes les recherches de ce chantier doivent etre bornees a `src/`, `docs/`, `scripts/` et la racine.**
+
+---
+
+#### P22 — `isoFlag` a deux lecteurs de PRODUCTION que la condition de passage de l'etape 7 ne voit pas
+
+> Piege **ajoute le 2026-08-22**. Il n'existait pas a la redaction du plan. C'est le seul piege neuf de la
+> relecture — les 21 autres tiennent.
+
+```js
+// pixelHouses.js:17   — module classe **keep** par le plan (« coeur du rendu iso des habitations »)
+import { isoFlag } from './iso/projection.js';
+// pixelHouses.js:242  — unite honnete des lots 1x2
+const spanY = isoFlag.on ? (t.spanY || span) : span;
+// pixelHouses.js:339
+const shape = isoFlag.on ? (2 * sx) / (sx + sy) : 1;
+```
+
+Introduit le 2026-08-04 par `feat(grain): G1 — l'unite honnete des lots 1x2`, **six jours apres** la
+redaction du plan.
+
+L'etape 7.4 supprime `projection.js:26-44`, donc `isoFlag`, sous la condition de passage
+**« `grep -n "CM\.iso\b" src/` doit etre vide »**. Cette condition **passe au vert** alors que `isoFlag` a
+encore deux lecteurs de production et un import vivant : la suppression casserait l'import de
+`pixelHouses.js:17`. Le lint l'attraperait — mais seulement apres coup, et le plan presente cette
+condition comme le **feu vert** de l'etape la plus risquee.
+
+S'y ajoute `riverLife.test.js:4` qui importe `isoFlag` et le pilote (l.31-33).
+
+**Geste correct.** La condition de passage de l'etape 7.4 devient :
+
+```
+grep -rn "CM\.iso\b\|isoFlag" src/
+```
+
+et ne doit plus rendre que la definition dans `projection.js`. Traiter les trois lecteurs **d'abord** :
+`pixelHouses.js` 242 et 339 (les branches `: span` et `: 1` sont la geometrie legacy — les aplatir), puis
+`riverLife.test.js`.
+
+**Lecon de methode :** la condition de passage d'une etape ne doit pas nommer **un** symbole quand le
+bloc supprime en exporte **trois** (`isoFlag`, `window.__iso`, `CM.iso`). Verifier chaque export du bloc,
+pas seulement le plus visible.
+
+---
+
+#### P23 — `isoUnitDepth` est AVEUGLE A LA HAUTEUR : une regle legacy n'est pas portable en l'etat
+
+> Trouve le 2026-08-22 en cartographiant Q7. **MESURE le meme jour — verdict ci-dessous.**
+>
+> **VERDICT EN TROIS TEMPS :**
+> 1. **L'aveuglement a la hauteur ne fausse PAS le tri** — la hauteur n'entre jamais dans le verdict.
+>    Le soupcon initial est clos, avec preuve. **Ne pas le rejouer.**
+> 2. **Un plafond peut malgre tout ecraser une remontee**, pour une raison sans rapport : un **departage
+>    d'egalite** quand lifteur et plafonneur ont la meme cle. Reel mais minuscule (0,01 % des geometries,
+>    0 en jeu), **fige par un test**. Verse en **Q12**.
+> 3. **La vraie trouvaille est ailleurs** : la passe **fantome** redessine **86-87 % des unites** a chaque
+>    frame. Verse en **Q11**. Detail en fin de section.
+>
+> ⚠ Cette fiche a d'abord conclu « cas inatteignable ». **C'etait faux** — le tirage aleatoire ratait la
+> bande de declenchement. Le contre-exemple et le piege de methode sont conserves ci-dessous : ils valent
+> plus que la conclusion.
+
+Le legacy pesait la **hauteur** du sprite occulteur :
+
+```js
+// ysortPainter.test.js:56 — « tour au sud TROP BASSE pour recouvrir la rue »
+setInfo(tower(8, 7), tower(8, 9, 1.0));   // hutte d'1 tuile au sud
+expect(frontByPainter(...feet(8, 8))).toBe(true);   // -> elle n'occulte PAS
+```
+
+Les fiches legacy portaient `topY` (haut du sprite). **Les fiches iso ne portent que `ax`, `halfW`,
+`key`, `x1`, `y1` — aucune hauteur.** `isoUnitDepth` ne peut donc pas rejouer cette regle.
+
+**Ce n'est pas forcement inoffensif.** Le `cap` est un **minimum global** sur toutes les fiches :
+
+```js
+// isoRenderer.js — isoUnitDepthEx
+} else if (b.key - T * 0.02 < cap) { cap = b.key - T * 0.02; }
+...
+const out = lift < cap ? lift : cap;
+_depthOut.hidden = cap < Infinity;
+```
+
+Un batiment **bas** au sud-est de l'unite pose un `cap` **quelle que soit sa hauteur**. Si l'unite devait
+par ailleurs se **lever** au-dessus d'une facade voisine (`lift`), le `cap` du batiment bas peut
+**annuler cette remontee** : l'unite retombe sous la cle de la facade et **se fait avaler par un mur qui,
+lui, la recouvre vraiment** — alors que la fiche qui a declenche le `cap` ne la cache pas du tout.
+
+Second effet : `hidden` passe a `true` des qu'un `cap` existe. Une unite peut donc etre **declaree
+occultee**, et re-dessinee en silhouette fantome, sans que rien ne la cache.
+
+**Rapprochement a faire** (non verifie) : le balayage des fantomes du 2026-08-03 relevait **10-19 % de
+conflits lift/cap** a toutes les eres. L'aveuglement a la hauteur en est un suspect plausible.
+
+**Ce que ce piege ne dit PAS.** Il ne dit pas qu'il y a un bug visible : un `cap` superflu n'a d'effet que
+si un `lift` concurrent existait, et le rendu iso n'a pas la meme geometrie de recouvrement que le
+top-down. **Il faut le mesurer avant d'y toucher.**
+
+### La mesure (2026-08-22) — option 1 executee
+
+**En jeu**, sonde `__depthProbe` (isoRenderer.js, opt-in, cout nul eteinte), vraie ville `__demoCity`,
+foule normale, habitants a la cible pleine :
+
+| Ere | Evaluations | `lift` | `cap` (= fantome) | Conflits lift+cap | **`suppressed`** |
+|---|---|---|---|---|---|
+| 11 | 244 | 37 | 196 | 33 | **0** |
+| 23 | 2 312 | 631 | 1 992 (86,2 %) | 557 | **0** |
+| 161 | 852 | 231 | 745 (87,4 %) | 183 | **0** |
+
+**Par force brute sur la vraie fonction** (`isoUnitDepth` importee, comparaison « les deux batiments »
+contre « le meilleur des deux solos » — une remontee ecrasee se voit sans instrumentation) :
+
+| Echantillonnage | Cas legaux | Remontees | **Suppressions** |
+|---|---|---|---|
+| Aleatoire, position continue (emprises 1×1 a 6×6) | 866 418 | 37 420 | **0** |
+| **Grille reguliere calee pres des faces** (emprises 1×1 a 3×3) | **19 557** | — | **2 (0,01 %)** |
+
+> ⚠⚠ **DEUX PIEGES DE MESURE, chacun a coute une conclusion fausse.**
+>
+> **(1) Rejeter les chevauchements.** Le premier jet, sans contrainte de disjonction, trouvait 382
+> suppressions sur 400 000 tirages — **toutes** dues a des emprises qui **se chevauchent**. Ca n'existe
+> pas en ville, et dans `isoUnitFiches` la seconde fiche **ecrase** la premiere dans la Map : la
+> geometrie testee n'etait meme pas celle qu'on croyait.
+>
+> **(2) Le tirage ALEATOIRE a position continue RATE le vrai cas.** 866 418 tirages, zero trouvaille —
+> d'ou une premiere conclusion « inatteignable » qui etait **fausse**. La remontee ne se declenche qu'en
+> **longeant une face**, bande etroite que le hasard visite peu. C'est une **grille reguliere**, calee a
+> 0,35 tuile des faces, qui a leve les 2 cas. **Pour sonder un comportement de face, echantillonner la
+> face, pas le volume.**
+
+**Ce que les 2 cas sont — et ce qu'ils ne sont pas.** Ils n'ont **rien a voir avec la hauteur**. Les deux
+ont le **meme cle peintre** pour le lifteur et le plafonneur : `lift = cle + T·0.02` contre
+`cap = cle − T·0.02`, le plafond gagne de **2·epsilon**, et l'unite bascule de « juste apres les deux
+batiments » a « juste avant les deux » — elle se fait avaler par le mur qu'elle longeait. C'est un
+**departage d'egalite**, pas un defaut de tri. Perte mesuree : exactement 0,04 tuile, dans les 2 cas.
+Zero occurrence en jeu sur 3 468 evaluations.
+
+**Conclusion Q9 : option 3, avec une reserve nommee.**
+- La regle de HAUTEUR n'est **pas portable** et n'a **pas besoin de l'etre** : la hauteur n'entre jamais
+  dans le verdict. **Ne pas ajouter la hauteur aux fiches.**
+- Le departage d'egalite est un **defaut reel mais minuscule** (0,01 % des geometries, 0 en jeu). Il est
+  **fige par un test** — `isoUnitDepth.test.js`, « un plafond ne coute qu'un departage d'egalite, jamais
+  un rang » : toute perte plus grande, ou a cles differentes, echoue. Le corriger est une **decision de
+  rendu** (Raph), pas une consequence de ce chantier : verse en **Q12**.
+
+### Ce que la mesure a trouve a la place — la passe FANTOME redessine presque tout
+
+`hidden` vaut vrai des qu'un `cap` existe, **sans egard a la hauteur de l'occulteur**. Or la passe
+fantome ne verifie rien :
+
+```js
+// isoRenderer.js — SILHOUETTES FANTOMES
+for (const it of items) {
+  if (!it.ghost) continue;
+  if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
+  ...
+}
+```
+
+**86 a 87 % des unites sont donc dessinees DEUX FOIS par frame** — a l'ere 23, ~1 992 redessins
+supplementaires. Sur une carte dont la campagne perf a etabli que **le cout est le trace, jamais le JS**,
+c'est un poste reel. Et une unite que rien ne cache recoit une copie translucide **pile sur elle-meme**.
+
+C'est **le vrai debouche** de l'aveuglement a la hauteur : il ne casse pas le tri, il fait redessiner
+6 unites sur 7. **Chantier distinct, hors perimetre de la suppression du legacy** — a ouvrir a part, et a
+rapprocher du reglage d'alpha des fantomes deja en cours cote Raph.
 
 ---
 
@@ -698,7 +1001,12 @@ chantier** au-dela des lignes explicitement listees en §2.
 
 - **Objectif** : partir d'un arbre propre. Le `git status` melange trois chantiers en cours (voirie,
   places iso, flotte fluviale) ; sans ce commit, aucun `git revert` ne sera exploitable.
-- **Fichiers** : les ~26 modifies + ~15 non suivis du `git status` initial.
+  > **Mise a jour 2026-08-22 (§0.5) : ces trois chantiers sont fermes.** Il ne reste qu'**un** chantier en
+  > vol, le **pont** (`iso/isoBridge.js` modifie, `__tests__/bridgeBury.test.js` non suivi), plus des
+  > fichiers non suivis hors code. **L'etape est devenue courte.**
+- **Fichiers** : ~~les ~26 modifies + ~15 non suivis du `git status` initial~~ → au 2026-08-22 :
+  `iso/isoBridge.js`, `__tests__/bridgeBury.test.js`, et le hors-code (`aseprite-pont/*.png`,
+  `scene-family.png`, `scripts/zipDist.mjs`).
 - **Diff attendu** : aucun changement de code, seulement la mise sous git de l'existant.
 - **Verification** : `npx vitest run` passe ; `npm run lint` propre ; `git status` vide.
 - **Effort** : courte.
@@ -712,8 +1020,9 @@ chantier** au-dela des lignes explicitement listees en §2.
 - **Fichiers** : aucun.
 - **Diff attendu** : aucun (etape de mesure, pas de commit).
 - **Verification** :
-  - `npx vitest run` → noter le nombre exact de fichiers et de tests passants (attendu ~116 fichiers,
-    ~1112 `it`).
+  - `npx vitest run` → noter le nombre exact de fichiers et de tests passants. ~~attendu ~116 fichiers,
+    ~1112 `it`~~ → **au 2026-08-22 : 149 fichiers / 1713 `it`, tout vert en 8,8 s** (§0.2). Ce chiffre
+    bouge vite : c'est une mesure a refaire, pas une valeur a recopier.
   - `npm run build` → noter la taille du bundle JS et du `dist/`.
   - Dans la pane : `await __demoCity({ pop: '1e25' })` puis `__CM.forceFrame()` puis
     `__cityShot({ name: 'avant-coupe' })`.
@@ -746,13 +1055,44 @@ chantier** au-dela des lignes explicitement listees en §2.
 
 - **Objectif** : ne pas perdre 27 `it` de doctrine ni la seule couverture de `drawVehicleHeadlights`.
 - **Fichiers** :
-  - **Nouveau** `src/game/map/__tests__/vehicleHeadlights.test.js` : reprendre les 3 `it` de
-    `groundSort.test.js:155-175` en appelant `drawVehicleHeadlights(ctx, v)` directement (fonction
-    exportee, agents.js:2282), avec le meme `ctx` compteur de `createRadialGradient`. Gating a couvrir :
-    `agents.js:1539` (nuit), `:1540` (ere ≥ 14), `:1542` (gare/arrete).
-  - `src/game/map/__tests__/isoUnitDepth.test.js` : porter 3-4 regles fortes de `ysortPainter.test.js`
-    (« rue entre deux rangs de tours », « longueur de flanc », « `clipOnly` n'occulte jamais »,
-    « empreinte multi-tuiles : base = rang SUD »).
+  - **Nouveau** `src/game/map/__tests__/vehicleHeadlights.test.js` — **ECRIT le 2026-08-22, 6 `it`.**
+    Les 3 `it` de `groundSort.test.js` (l. **156-164**, pas 155-175) sont repris en appelant
+    `drawVehicleHeadlights(ctx, v)` **directement** — la fonction est exportee (`agents.js:2414`, pas
+    2282) et vit aussi dans le chemin iso, donc la couverture survit a la coupe.
+    **Les QUATRE gardes du bloc d'entree sont couvertes une par une** (`agents.js` **1668** nuit,
+    **1669** ere ≥ 14, **1670** `MOTOR_TYPES`, **1671** gare/arrete) — l'appel direct a permis d'aller
+    au-dela des 3 `it` d'origine, qui tournaient **tous a l'ere 16** : la garde d'ERE, pourtant nommee
+    par ce plan, n'etait **jamais exercee**. Idem pour `MOTOR_TYPES` et pour la moitie `parkT` de la
+    garde d'arret.
+    Chaque `it` assert dans **les deux sens** (un cas allume, un cas eteint) : aucun ne peut passer au
+    vert par vacuite. **Verifie par mutation** : neutraliser la garde d'ere fait tomber l'`it` d'ere, et
+    lui seul.
+    ⚠ Ce fichier ne touche **pas** a `CM.iso` — inutile d'ajouter un 10e pilote du drapeau (§0.2).
+  - `src/game/map/__tests__/isoUnitDepth.test.js` : ~~porter 3-4 regles fortes~~ → **Q7 tranchee le
+    2026-08-22 : LES 13.** Cartographie faite le meme jour — **11 des 13 sont deja couvertes**, il reste
+    **2 regles** a ecrire. Table ci-dessous.
+
+**Cartographie des 13 `it` legacy vers le contrat iso** (verifiee le 2026-08-22)
+
+Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen (devant / derriere /
+`null`), `isoUnitDepth` rend une **cle de profondeur**. Porter = transposer la regle, pas copier l'assert.
+
+| # | `it` legacy — `frontByPainter` (10) | Couverture iso existante | Action |
+|---|---|---|---|
+| 1 | sans `buildingInfo` → `null` | `sans layout : somme brute (repli sur)` | rien |
+| 2 | tour PILE au nord → devant | `unite sur la route SUD d'une tour 1x2` | rien |
+| 3 | **RUE ENTRE DEUX RANGS DE TOURS → derriere** | `conflit devant B1 / derriere B2 : la remontee PLAFONNE` — meme doctrine, **geometrie differente** (B1 large au nord, B2 1x1 au sud) | **ECRIT le 2026-08-22** : `« RUE ENTRE DEUX RANGS DE TOURS : l'unite reste sous la cle de la tour sud »`, geometrie d'origine (tours en 8,7 et 8,9, unite en 8,8 — celle du legacy) |
+| 4 | **tour au sud TROP BASSE pour recouvrir la rue → devant** | **AUCUNE** — `isoUnitDepth` ne lit pas la hauteur | **TRANCHE (Q9) + ECRIT le 2026-08-22** : la hauteur n'entre jamais dans le verdict, la regle est sans objet. `it` « un plafond ne coute qu'un departage d'egalite, jamais un rang » — balayage de 19 557 geometries legales qui **fige la frontiere** : perte toleree UNIQUEMENT a cle egale et ≤ 2·epsilon (le seul defaut reel, verse en Q12). Ne PAS ajouter la hauteur aux fiches (P23) |
+| 5 | LONGEUR DE FLANC (tour meme rangee, est) | `unite sur le flanc EST d'une tour 2x2 (cas voiture verifie in-game)` | rien |
+| 6 | tour meme rangee sans voisine au nord → devant | idem #5 | rien |
+| 7 | meme rangee sans recouvrement de colonne → derriere | `unite hors de la colonne du sprite : cle brute` | rien |
+| 8 | tour au sud 2 colonnes plus loin → ignoree | idem #7 | rien |
+| 9 | `clipOnly` (moteur/district) au sud → n'occulte JAMAIS | `empreinte A PLAT (champ) : ignoree` + `point d'eau : ignore` — deux exclusions, meme doctrine | rien |
+| 10 | empreinte multi-tuiles : base = rang SUD | **c'est le titre meme du `describe` iso** | rien |
+
+| # | `it` legacy — `drawGroundAgents` (3) | Sort |
+|---|---|---|
+| 11-13 | rue entre deux rangs → passe 1 ; tour au nord → passe 2 ; longeur de flanc → passe 2 | **Non portables** : ils testent le **split de passes** de `drawGroundAgents`, fonction supprimee a l'etape 6.5. L'iso n'a pas de passes, il a une cle continue. Ce sont les echos d'integration des regles #3, #2, #5, **deja couvertes au niveau unitaire**. Les documenter comme tels dans l'en-tete du fichier iso, ne pas les recreer artificiellement |
 - **Diff attendu** : un fichier de test cree, un fichier de test enrichi. **Aucun code de production
   touche.**
 - **Verification** : `npx vitest run src/game/map/__tests__/vehicleHeadlights.test.js src/game/map/__tests__/isoUnitDepth.test.js`
@@ -760,20 +1100,40 @@ chantier** au-dela des lignes explicitement listees en §2.
 - **Effort** : moyenne.
 - **Commit** : `test(carte): porter les phares et les regles de tri peintre vers le chemin iso`
 
+> ## ✔ ETAPE 3 FAITE — 2026-08-22, non commitee
+>
+> | Fichier | Etat |
+> |---|---|
+> | `__tests__/vehicleHeadlights.test.js` | **cree**, 6 `it`, les 4 gardes couvertes une par une |
+> | `__tests__/isoUnitDepth.test.js` | **enrichi**, +2 `it` (bug fondateur en geometrie d'origine + balayage du departage d'egalite) |
+>
+> **Aucun code de production touche** (seule exception, hors etape : la sonde `__depthProbe` ajoutee dans
+> `isoRenderer.js` pour trancher Q9, opt-in et sans effet eteinte).
+> Suite complete : **151 fichiers / 1728 `it`, tout vert.** Les trois fichiers legacy
+> (`groundSort`, `ysortCorner`, `ysortPainter`) peuvent maintenant partir a l'etape 6.5 **sans perte de
+> couverture** — c'etait la condition de passage.
+>
+> **Prochaine etape : 2 (orphelins d'assets), puis 4 (la bascule de frame).** Rappel : re-ancrer les
+> lignes avant d'editer (§0.3), et fermer d'abord le chantier pont (§0.5).
+
 ---
 
 ### Etape 4 — La bascule de frame
 
 - **Objectif** : le point de non-retour visuel. **Un commit a lui seul**, pour un `git revert` propre.
+> **⚠ LIGNES RE-ANCREES LE 2026-08-22 (§0.3).** Les numeros barres ci-dessous visent aujourd'hui du code
+> **sans aucun rapport** : supprimer « 1739-1884 » detruirait `cityMapEnsureLayout`. Re-verifier avant
+> d'editer — le fichier a encore pu bouger.
+
 - **Fichiers** : `src/game/map/cityMapRuntime.js` uniquement.
-  - Supprimer 1739-1884 (le corps du `else`).
-  - Reecrire 1737 : garde `if (!CM.layout) { fpEnd(); return; }` **avant**, puis
+  - Supprimer ~~1739-1884~~ **2112-2257** (le corps du `else`, borne par `} // fin du pipeline legacy`).
+  - Reecrire ~~1737~~ **2110** : garde `if (!CM.layout) { fpEnd(); return; }` **avant**, puis
     `drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin });` (valeur de
     retour non consommee — P13).
-  - Elaguer les imports 42-69 : `renderWorld` → 2 specifieurs, `renderBuildings` → ligne supprimee,
-    `agents` → 4 specifieurs, `pixelTerrain` → retirer **le seul `drawPixelTerrain`**, `pixelRiver` →
-    ligne supprimee, `pixelBridge` → ligne supprimee.
-  - Reecrire les commentaires 1721-1725 et 1734-1736.
+  - Elaguer les imports ~~42-69~~ **68-73** : `renderWorld` (l.68) → 2 specifieurs, `renderBuildings`
+    (l.69) → ligne supprimee, `agents` (l.70) → 4 specifieurs, `pixelTerrain` (l.71) → retirer **le seul
+    `drawPixelTerrain`**, `pixelRiver` (l.72) → ligne supprimee, `pixelBridge` (l.73) → ligne supprimee.
+  - Reecrire les commentaires de bascule (autour de **2106-2112**).
 - **Diff attendu** : ~200 lignes retirees dans un seul fichier ; le legacy devient inatteignable.
 - **Verification** :
   - `npm run lint` propre (c'est la porte qui attrapera un import oublie — **attention, `renderWorld.js`
@@ -844,9 +1204,9 @@ chantier** au-dela des lignes explicitement listees en §2.
      `__waterRipples`, callback `setBridgeOnLoad` l.2064. **Garder `__quayWall`, `__waterShore`,
      `__pixelBridge`, `__sidewalk`, `__sidewalkTune`** (P17).
 - **Diff attendu** : 4 modules supprimes, 3 trimmes, 3 fichiers de test supprimes, ~10 molettes retirees.
-- **Verification** : `npm run lint` propre (mord sur tous ces fichiers) ; `npx vitest run` → **~1068 `it`**
-  (le compte prevu) ; full-reload + `__cityShot` ; taper `__pixelWater` dans la console doit rendre
-  `undefined`, taper `__quayWall` doit repondre.
+- **Verification** : `npm run lint` propre (mord sur tous ces fichiers) ; `npx vitest run` → ~~**~1068
+  `it`**~~ **le compte recalcule a l'etape 1** (§0.2) ; full-reload + `__cityShot` ; taper `__pixelWater`
+  dans la console doit rendre `undefined`, taper `__quayWall` doit repondre.
 - **Effort** : longue (peut se scinder en 2-3 commits : renderBuildings+buildingShapes / pixelTerrain +
   les 4 suppressions / agents + molettes).
 - **Commit** : `refactor(carte): quatre modules de peinture top-down disparaissent, le pont buildingShapes est demonte`
@@ -867,9 +1227,14 @@ chantier** au-dela des lignes explicitement listees en §2.
      **garder** le helper `legacyPlanarAnchor` 27-33) ; retirer `CM.iso = false` de
      `citizenDoorstep.test.js:28`, `bridgePedEdge.test.js:25`, `pedTurnSmooth.test.js:23` ;
      `isoPlaza.test.js:55/60` ; nettoyer l'echafaudage du `it` iso de `vehicleLane.test.js`.
-  4. **Le bloc racine en dernier** : `projection.js:25-44` (`isoFlag`, `window.__iso`, lecture/ecriture
-     `cmIsoMode`, invalidation des 4 bakes). **Condition de passage : `grep -n "CM\.iso\b" src/` doit
-     etre vide.**
+  4. **Le bloc racine en dernier** : `projection.js:26-44` (`isoFlag`, `window.__iso`, lecture/ecriture
+     `cmIsoMode`, invalidation des 4 bakes). **Condition de passage — CORRIGEE le 2026-08-22, voir P22 :**
+     ```
+     grep -rn "CM\.iso\b\|isoFlag" src/
+     ```
+     ne doit plus rendre que la definition dans `projection.js`. **L'ancienne condition (`CM.iso` seul)
+     passait au vert alors que `pixelHouses.js:17/242/339` lit encore `isoFlag`.** Traiter ces lecteurs
+     de production **avant** ce point.
   5. Optionnel : un `localStorage.removeItem('cmIsoMode')` one-shot au boot carte, pour ne pas laisser de
      dechet chez les postes qui avaient fait `__iso(false)`.
 - **Diff attendu** : ~45 lignes de branches + le bloc de 20 lignes du flag.
@@ -878,7 +1243,8 @@ chantier** au-dela des lignes explicitement listees en §2.
     un seuil numerique peut bouger : la vitesse pietonne passe de ×1 a ×0,72 (agents.js:1058). Les budgets
     sont larges (6000/8000 pas) et les assertions sont des ratios, mais **rejouer, pas relire**.
   - `npx vitest run` complet.
-  - `grep -n "CM\.iso\b" src/` → **vide**.
+  - `grep -rn "CM\.iso\b\|isoFlag" src/` → **plus rien hors `projection.js`** (P22 ; l'ancienne forme
+    `grep -n "CM\.iso\b"` seule est un faux feu vert).
   - Pane : taper `__iso` → `undefined`. Full-reload + `__cityShot`.
 - **Effort** : moyenne.
 - **Commit** : `feat(carte): plus de bascule de rendu — l'iso est la seule geometrie`
@@ -935,7 +1301,7 @@ chantier** au-dela des lignes explicitement listees en §2.
 |---|---|---|
 | Lint | `npm run lint` | Imports orphelins — **sauf dans `renderWorld.js`** (`/* eslint-disable */` l.1) |
 | Tests | `npx vitest run` | Regressions de logique. **Jamais avec `2>$null`** : la redirection avale l'echec |
-| Comptage | Total de `it` a chaque etape | Prouve qu'on a perdu **exactement** ce qu'on croyait (~1112 → ~1068) |
+| Comptage | Total de `it` a chaque etape | Prouve qu'on a perdu **exactement** ce qu'on croyait. ~~(~1112 → ~1068)~~ — totaux caducs, re-mesurer (§0.2) |
 | Build | `npm run build` | Erreurs de resolution de module |
 | 404 d'assets | Charger le jeu, onglet reseau | **Seul controle des prechargements de niveau module** (P15) |
 | Visuel | full-reload + `__demoCity` + `__CM.forceFrame()` + `__cityShot` | Regression de rendu |
@@ -980,7 +1346,9 @@ emeute (`__collapse`), et un clic d'apaisement sur un emeutier.
 
 ## 6. Questions ouvertes
 
-> A trancher par Raphael **avant** de commencer. Chacune bloque au moins une etape.
+> A trancher par Raphael **avant** de commencer. Q1 a Q8 bloquaient chacune au moins une etape ;
+> **Q7 est tranchee** (2026-08-22 : on porte les 13). Q9 et Q10, ajoutees le 2026-08-22, ne bloquent
+> que ce qu'elles nomment.
 
 **Q1 — `public/pixelart/roads/*.png|json` : les champs irrigues passent-ils encore par
 `drawEraGroundFill` en iso ?**
@@ -1023,11 +1391,17 @@ PixelLab** qui ont produit l'art. Les supprimer (defaut du plan, etape 8) perd l
 les garder laisse 6 scripts qui pointent des fichiers absents. Option intermediaire : les deplacer dans
 `scripts/_archive/` avec un README d'une ligne.
 
-**Q7 — Les 13 `it` de `ysortPainter.test.js` : combien on porte ?**
-Le plan (etape 3) propose 3-4 regles fortes. Le bug « pietons debout sur les toits » est **deja revenu
-une fois**. Porter les 13 est plus long mais plus sur. `isoUnitDepth.test.js` couvre le meme probleme avec
-une autre geometrie et moins de cas.
-*Bloque l'etape 3, donc tout le reste.*
+**Q7 — Les 13 `it` de `ysortPainter.test.js` : combien on porte ? — TRANCHEE le 2026-08-22 : LES 13.**
+
+~~Le plan (etape 3) propose 3-4 regles fortes.~~ **Decision de Raphael : on porte les 13.** Le bug
+« pietons debout sur les toits » est deja revenu une fois ; 3-4 regles ne suffisent pas.
+
+**Mais « porter les 13 » ne veut pas dire « ecrire 13 `it` neufs ».** Cartographie faite le 2026-08-22
+(lecture des deux fichiers + de l'implementation de `isoUnitDepth`) : **11 des 13 regles sont deja
+couvertes** par `isoUnitDepth.test.js`, sous une autre geometrie. Le travail reel, c'est **2 regles** —
+dont une qui revele une **divergence de contrat**. Voir la table de l'etape 3 et **P23**.
+
+*Ne bloque plus rien. L'etape 3 est ouverte.*
 
 **Q8 — On deplace `master-palette.*`, les deux `README.md` de `pixelart/` et `Asepritelayers/` hors de
 `public/` ?**
@@ -1035,3 +1409,46 @@ une autre geometrie et moins de cas.
 de `scripts/buildPalette.mjs` et `scripts/remapPalette.mjs:48`, et `package.json:25`
 (`!dist/**/Asepritelayers/**`). Hors perimetre strict du chantier — a faire ou a remettre a plus tard,
 mais pas a oublier.
+
+---
+
+**Q9 — `isoUnitDepth` est aveugle a la hauteur — TRANCHEE le 2026-08-22 par la mesure : option 3.**
+*Ajoutee et fermee le meme jour. Chiffres, contre-exemple et pieges de methode complets en **P23**.*
+La regle legacy « une tour au sud trop basse pour recouvrir la rue n'occulte pas » n'a aucun equivalent
+iso. On soupconnait qu'un batiment bas puisse annuler une remontee legitime. **Mesure : la hauteur n'y
+est pour rien** — 0 occurrence en jeu (3 468 evaluations, 3 eres, 773 conflits lift+cap), et la hauteur
+n'entre jamais dans le verdict.
+**Decision : ne PAS ajouter la hauteur aux fiches.** Le 13e `it` de Q7 est ecrit ; la divergence est
+documentee en en-tete de `isoUnitDepth.test.js`.
+⚠ Une premiere version de cette reponse concluait « cas inatteignable » sur la foi d'un tirage aleatoire.
+**C'etait faux** : une grille calee pres des faces trouve 2 contre-exemples — voir **Q12**.
+*Ne bloque plus rien.*
+
+**Q10 — Quand decoupe-t-on `isoRenderer.js` ?**
+*Ajoutee le 2026-08-22, cf. §0.7.* Le fichier a pris **+49 % en 24 jours** (~7 350 → 10 948 lignes) et
+porte des fonctions de 1 249 lignes (`drawIsoGround`), 982 (`drawIsoLive`), 492 (`drawIsoWorldInner`). Ce
+chantier-ci ne le touche pas : il supprime le **second** chemin de rendu, il ne range pas le premier.
+Le decoupage se fait passe par passe, **sans changer un pixel**, tests verts a chaque etape — c'est une
+extraction, pas une reecriture. Plus on attend, plus elle coute.
+*Ne bloque rien. A ouvrir apres l'etape 9.*
+
+**Q11 — La passe fantome redessine 86-87 % des unites a chaque frame : on la borne ?**
+*Ajoutee le 2026-08-22, nee de la mesure de Q9. Detail en fin de **P23**.*
+`hidden` se leve des qu'un occulteur existe **quelle que soit sa hauteur**, et la passe fantome redessine
+sans verifier que l'unite est reellement couverte. A l'ere 23, ~1 992 redessins translucides par frame,
+dont la plupart tombent **pile sur une unite que rien ne cache**. Sur une carte GPU-bound, c'est un poste
+reel — et c'est probablement ce que le reglage d'alpha en cours cherche a compenser.
+**Hors perimetre de ce chantier** : la suppression du legacy n'y touche pas. A ouvrir a part.
+*Ne bloque rien ici.*
+
+**Q12 — Le departage d'egalite d'`isoUnitDepthEx` : on le corrige ?**
+*Ajoutee le 2026-08-22, nee de la mesure de Q9. Detail en **P23**.*
+Quand le lifteur et le plafonneur ont **exactement la meme cle peintre**, `lift = cle + T·0.02` perd
+contre `cap = cle − T·0.02` : l'unite bascule de « juste apres les deux batiments » a « juste avant les
+deux » et se fait avaler par le mur qu'elle longeait. **Ampleur : 2 cas sur 19 557 geometries legales
+(0,01 %), exactement 2·epsilon a chaque fois, 0 occurrence en jeu sur 3 468 evaluations.**
+La frontiere est **figee par un test** (`isoUnitDepth.test.js`), donc rien ne peut empirer en silence.
+Corriger reviendrait a faire gagner le lifteur a cle egale — **decision de rendu, donc Raph**, et
+probablement a rapprocher de Q11 (la meme egalite decide aussi du marquage fantome).
+*Ne bloque rien. Ne PAS traiter dans ce chantier.*
+
