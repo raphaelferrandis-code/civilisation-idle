@@ -139,6 +139,7 @@ if (typeof window !== 'undefined') {
         vertical: g.vertical, lanes: g.lanes, c: g.c, wD: g.wD,
         a: g.a, b: g.b, wetA: g.wetA, wetB: g.wetB,
         sprite: !!g._sprite,
+        dryRuns: g.dryRuns, tDn: g.tDn,      // enterrement (cf. buryClip)
       })),
     };
   };
@@ -305,12 +306,22 @@ const BRIDGE_SPRITES = {
       footHi: [378, 23], footLo: [8, 208],
       over: [383, 5], capHi: 252, capLo: 31,
       tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
+      // ENTERREMENT (2026-08-22, retour Raph « un pont plat qui rejoigne les
+      // deux bords ») : px SOURCE sous la ligne d'axe où passe le BORD AVAL du
+      // tablier — le plan du sol du dessin. Mesuré au liseré sombre entre la
+      // face extérieure du parapet aval (+18..+24) et la face du caisson
+      // (+25 et au-delà) : cf. scan des contours, stable à ±1 px sur les
+      // 400 colonnes. Tout ce qui est dessiné plus bas (caisson, arches,
+      // piles) n'existe qu'au-dessus de l'eau : sur la berge il est caché,
+      // le tablier affleure la route, plus de marche. cf. buryClip.
+      bury: 25,
     },
     nw: {
       key: 'bridge-pierre-nw', sgn: +1,
       footHi: [21, 23], footLo: [391, 208],
       over: [17, 395], capHi: 253, capLo: 30,
       tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
+      bury: 25,   // miroir du ne : même liseré mesuré (+24/+25)
     },
   },
 };
@@ -491,7 +502,8 @@ export function bridgeLiftScreen(wx, wy) {
 // ── Géométrie par span, en repère (l = longitudinal, t = transverse) ─────────
 // P(l,t) projette directement en écran ; aval = t croissant (cf. en-tête).
 let _geo = { at: '', list: null };
-function bridgeGeoms() {
+// (exportée pour les tests : dryRuns / tDn de l'enterrement, cf. bridgeBury.test.js)
+export function bridgeGeoms() {
   const L = CM.layout;
   if (!L || !CM.bridgeSpans || !CM.bridgeSpans.length) return null;
   // La clé embarque les molettes de gabarit : muter __bridgeTune re-calcule
@@ -596,6 +608,49 @@ function bridgeGeoms() {
         }
       }
     }
+    // ── TRONÇONS SECS du bord aval (sprite ENTERRÉ, spec.bury) ──────────────
+    // Pour un sprite posé au niveau du sol, tout ce qui pend sous le bord aval
+    // du tablier (caisson, arches, piles) n'est visible qu'au-dessus de l'eau :
+    // sur la berge il est ENTERRÉ (cf. buryClip). On publie ici les intervalles
+    // [l0, l1] où le bord AVAL dessiné (t = tDn) est à sec — un par tête de pont
+    // — mesurés sur le ruban CONTINU du fleuve (samples ± hw, la même frange
+    // que la parallaxe ci-dessus), parce que c'est cette eau-là que l'œil voit.
+    // Sans samples (tests, repli) : les bornes mouillées de l'axe. Un fleuve
+    // oblique décale la ligne d'eau du bord aval par rapport à celle de l'axe :
+    // c'est précisément pour ça qu'on mesure au bord aval et pas à l'axe.
+    const dryRuns = [];
+    let tDn = c;
+    {
+      const spq = (bridgeTune.sprite && st.spriteKey) ? spriteSpecFor(st, vertical) : null;
+      if (spq && spq.bury != null) {
+        const kpx = T / tilePxOf(spq);
+        const aExt = a - Math.abs(spq.over[0] - spq.footHi[0]) * kpx;
+        const bExt = b + Math.abs(spq.over[1] - spq.footLo[0]) * kpx;
+        tDn = c + ((spq.dt || 0) + spq.bury) * kpx;
+        const hasSamples = !!(rv && rv.present && rv.samples && rv.samples.length);
+        const wetSamples = (l) => {
+          const wx = vertical ? tDn : l, wy = vertical ? l : tDn;
+          for (const s of rv.samples) {
+            const dx = s.x * T - wx, dy = s.y * T - wy, m = ((s.hw || 0) - 0.05) * T;
+            if (m > 0 && dx * dx + dy * dy < m * m) return true;
+          }
+          return false;
+        };
+        const wetAxis = (l) => l >= wetA && l <= wetB;
+        const scan = (wet) => {
+          const step = T / 8;
+          let wa = null, wb = null;
+          for (let l = aExt; l <= bExt; l += step) if (wet(l)) { wa = l; break; }
+          for (let l = bExt; l >= aExt; l -= step) if (wet(l)) { wb = l; break; }
+          return wa == null ? null : [wa, wb];
+        };
+        const w = (hasSamples && scan(wetSamples)) || scan(wetAxis);
+        if (w) {
+          if (w[0] - aExt > 0.5) dryRuns.push([aExt, w[0]]);
+          if (bExt - w[1] > 0.5) dryRuns.push([w[1], bExt]);
+        }
+      }
+    }
     // PILES précalculées, PIED VÉRIFIÉ SUR L'EAU (distance au ruban continu
     // < hw locale − marge) : une pile posée sur la frange peinte de la berge
     // laissait son remous flotter sur l'herbe (vu à la capture). Phase stable
@@ -669,7 +724,7 @@ function bridgeGeoms() {
       }
     }
     list.push({
-      sp, vertical, c, wD, a, b, wetA, wetB, lanes, piles, lamps, towers,
+      sp, vertical, c, wD, a, b, wetA, wetB, lanes, piles, lamps, towers, dryRuns, tDn,
       P: vertical ? (l, t) => worldToScreen(t, l) : (l, t) => worldToScreen(l, t),
       D: vertical ? (l, t) => depthOf(t, l) : (l, t) => depthOf(l, t),
     });
@@ -793,7 +848,13 @@ export function drawIsoBridgeUnder() {
         const x0 = Math.round(E.x - (ax - sx) * s);
         const x1 = Math.round(E.x - (ax - sx1) * s);
         const dy = Math.round(E.y - (ySol0 + Math.abs(ax - sp.footHi[0]) * 0.5) * s);
-        if (x1 > x0) ctx.drawImage(sil, sx, 0, sx1 - sx, ih, x0, dy, x1 - x0, Math.round(ih * s));
+        if (x1 <= x0) continue;
+        // Enterré sur la berge : l'ombre aussi (même clip que la pose, dans le
+        // repère TRANSLATÉ de l'ombre — la découpe suit son décalage, ce qui
+        // est le comportement voulu : c'est l'ombre du caisson qui disparaît).
+        const buried = buryClip(ctx, g, sp, s, x0, x1, dy, Math.round(ih * s), E.x, ax);
+        ctx.drawImage(sil, sx, 0, sx1 - sx, ih, x0, dy, x1 - x0, Math.round(ih * s));
+        if (buried) ctx.restore();
       }
       ctx.imageSmoothingEnabled = prevSm;
       ctx.restore();
@@ -1061,6 +1122,63 @@ export function pushIsoBridgeItems(items, bounds) {
   }
 }
 
+// ── ENTERREMENT : clip « au-dessus du plan du sol » sur les tronçons SECS ────
+// Pour un sprite posé AU NIVEAU DU SOL (humpH 0, spec.bury), tout ce que le
+// dessin porte SOUS le bord aval du tablier — face du caisson, arches, piles —
+// est sous le plan du sol. Au-dessus de l'eau (conventionnellement plus basse,
+// cf. en-tête) ça se voit ; sur la berge c'est ENTERRÉ dans le remblai. Sans ce
+// clip le pont se posait sur la rive comme une dalle, caisson apparent, avec
+// une MARCHE à chaque bout (Raph, 2026-08-22 : « je veux un pont plat, qui
+// rejoigne les deux bords »). Après : le tablier affleure la route, les
+// parapets filent sur la berge, et le caisson ne sort de terre qu'au-dessus de
+// l'eau — le dessin d'un vrai pont.
+//
+// Pièce écran [x0, x1] × [dy, dy+h] (rect de blit), ex/ax = ancre écran/source
+// (x source sx ↔ écran ex + (sx − ax)·s, s = px écran par px source). Le bord
+// caché suit le PIXEL du sprite — escalier 2:1 par colonne source, première
+// rangée cachée = ceil(ySol(sx) + bury) — et non une droite anticrénelée qui
+// baverait sur la ligne du tablier. Chaque tronçon sec (g.dryRuns, mesuré au
+// bord aval) devient un polygone « sous le tablier » ôté du rect par la règle
+// evenodd : la découpe à la ligne d'eau est une verticale écran, comme la fin
+// d'un mur de quai. Retourne true si un clip est posé (ctx.save fait — le
+// caller doit ctx.restore après son blit).
+export function buryClip(ctx, g, sp, s, x0, x1, dy, h, ex, ax) {
+  const runs = g.dryRuns;
+  if (!runs || !runs.length || sp.bury == null) return false;
+  const yBot = dy + h + 2;
+  // Ligne d'axe SIGNÉE (pas de |·| : au-delà du pied, dans le débord d'about,
+  // la droite continue — un abs en ferait un V et l'escalier repartirait à
+  // l'envers sur les dernières colonnes).
+  const ySolAt = (sx) => sp.footHi[1] + sp.sgn * (sx - sp.footHi[0]) * 0.5;
+  const yTop = (sx) => dy + Math.ceil(ySolAt(sx) + sp.bury - 1e-6) * s;
+  const xAt = (sx) => ex + (sx - ax) * s;
+  let any = false;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, dy, x1 - x0, h);
+  for (const [l0, l1] of runs) {
+    const p0 = g.P(l0, g.tDn), p1 = g.P(l1, g.tDn);
+    const Xa = Math.max(x0, Math.round(Math.min(p0.x, p1.x)));
+    const Xb = Math.min(x1, Math.round(Math.max(p0.x, p1.x)));
+    if (Xb - Xa < 1) continue;
+    any = true;
+    const sxA = Math.floor(ax + (Xa - ex) / s), sxB = Math.ceil(ax + (Xb - ex) / s);
+    ctx.moveTo(Xa, yBot);
+    ctx.lineTo(Xa, yTop(sxA));
+    for (let sx = sxA; sx <= sxB; sx += 1) {
+      const xr = Math.min(Xb, xAt(sx + 1));
+      ctx.lineTo(xr, yTop(sx));
+      if (xr >= Xb) break;
+      ctx.lineTo(xr, yTop(sx + 1));
+    }
+    ctx.lineTo(Xb, yBot);
+    ctx.closePath();
+  }
+  if (!any) { ctx.restore(); return false; }
+  ctx.clip('evenodd');
+  return true;
+}
+
 export function drawIsoBridgeSeg(ctx, it, now) {
   const geos = bridgeGeoms(); if (!geos || !geos[it.si]) return;
   const L = CM.layout; if (!L) return;
@@ -1095,7 +1213,11 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     const ih = img.naturalHeight || img.height;
     const prevSm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
+    // Sprite ENTERRÉ : sur les tronçons secs, rien sous le plan du sol (le
+    // calque -rail vit AU-DESSUS du tablier : jamais clippé).
+    const buried = !it.rail && buryClip(ctx, g, sp, s, x0, x1, dy, Math.round(ih * s), E.x, it.ax);
     ctx.drawImage(img, it.sx, 0, it.sw, ih, x0, dy, x1 - x0, Math.round(ih * s));
+    if (buried) ctx.restore();
     ctx.imageSmoothingEnabled = prevSm;
     return;
   }
