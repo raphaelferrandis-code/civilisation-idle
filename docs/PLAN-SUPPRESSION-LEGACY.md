@@ -1484,6 +1484,54 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
 - **Effort** : moyenne.
 - **Commit** : `feat(carte): plus de bascule de rendu — l'iso est la seule geometrie`
 
+> ## ✔ ETAPE 7 FAITE — 2026-08-23
+>
+> `CM.iso`, `isoFlag`, `window.__iso` et la cle `cmIsoMode` ont disparu. **Il n'y a plus qu'une
+> projection.** L'ordre impose a ete tenu a la lettre : lecteurs, puis `projection.js` fonction par
+> fonction, puis les tests, puis le bloc racine.
+>
+> ### ⚠⚠ LA CONDITION DE PASSAGE DU PLAN ETAIT INSUFFISANTE — DEUX FOIS
+>
+> Elle nommait **`CM.iso` seul**. Auraient echappe a ce grep :
+>
+> | Lecteur | Decouvert par |
+> |---|---|
+> | `pixelHouses.js` (import + 2 lectures de `isoFlag`) | **P22**, ajoute le 2026-08-22 en relisant le plan |
+> | `isoBridge.js` ×2 (`bridgeWalkBand`, `bridgeLiftScreen`) | **la condition elargie**, jamais inventories |
+> | `isoRenderer.js` ×1 (`drawIsoSplashes`) | idem |
+>
+> Les trois derniers sont apparus **apres** la redaction du plan. C'est `grep -rn "CM\.iso\b\|isoFlag"`
+> qui les a leves. **Une condition de passage ne doit pas nommer UN symbole quand le bloc supprime en
+> exporte TROIS** — la lecon de P22, verifiee sur pieces.
+>
+> ### Les pieges ont tenu
+>
+> **P3** — dans `agents.js`, seul `CM.iso && ` saute ; `CM.isoPedEdge != null` et `CM.isoVehLane != null`
+> RESTENT. Ce ne sont pas des restes du drapeau mais des gardes de **publication** : `agents.js` ne peut
+> pas importer `isoRenderer` (import inverse), la geometrie lui arrive sur `CM`, et sous vitest elle est
+> absente. Un commentaire le dit desormais sur place, pour que personne ne « simplifie » ca.
+> **P12** — la const `legacy` de `wonderFootWorld` est conservee : toujours renvoyee pour `era_mega`.
+> **P11** — le repli de survol des merveilles n'etait pas mort, seul son commentaire l'etait : reecrit.
+> **P25** — clos par le nettoyage ponctuel de `localStorage.cmIsoMode` au chargement.
+>
+> ### Les tests
+>
+> **Huit fichiers pilotaient le drapeau ; il n'en reste aucun.** Le `describe` « mode legacy » de
+> `projection.test.js` part — le `describe` iso couvrait deja chacun de ses cas (aller-retour, `depthOf`,
+> divergence de `wonderAnchor`). ⚠ **`legacyPlanarAnchor` RESTE malgre son nom** : ce n'est plus un
+> pilote mais un **temoin**, le test « l'ancre iso N'EST PAS la projection planaire » en depend.
+> **1694 → 1690 `it`.**
+>
+> ⚠ L'effet de bord annonce s'est produit sans casse : la vitesse pietonne passe de ×1 a ×0,72 dans les
+> suites qui eteignaient le drapeau. Budgets larges, assertions en ratio — **rejouees, pas relues**.
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1690 verts. Puis le jeu : `__iso` rend
+> `undefined`, `CM.iso` aussi, `cmIsoMode` est nettoye, et la carte tient — ere 20, 100 % peinte au repos,
+> en pan et aux deux bouts du zoom, quais presents, console vide.
+>
+> **Reste l'etape 8** (assets liberes, partiellement bloquee par **Q1** et **Q3**) et l'**etape 9**
+> (documentation). Puis **Q5** : `renderWorld.js` ne rend plus rien, son nom ment.
+
 ---
 
 ### Etape 8 — Les assets liberes
