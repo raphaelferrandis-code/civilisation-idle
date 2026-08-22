@@ -1,6 +1,6 @@
 # Plan de suppression du rendu legacy top-down
 
-> Etat : plan valide, pas encore execute. Ecrit le 2026-07-29 apres inventaire par sept sondes et
+> Etat : **✔ CHANTIER CLOS — etapes 2 a 9 executees le 2026-08-23** (bilan en fin de §4). Ecrit le 2026-07-29 apres inventaire par sept sondes et
 > contre-verification par sept contradicteurs. Les elements refutes avec preuve citee ont ete corriges ;
 > les elements indecidables par recherche statique sont classes **keep** avec une note.
 >
@@ -1613,6 +1613,70 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   historiques explicitement datees.
 - **Effort** : moyenne.
 - **Commit** : `docs(carte): acter la fin du top-down — un seul pipeline documente`
+
+> ## ✔ ETAPE 9 FAITE — 2026-08-23. **LE CHANTIER EST CLOS.**
+>
+> `ARCHITECTURE.md` §6 etait le plus trompeur : il decrivait la carte **sans jamais nommer
+> l'isometrique**, et donnait `cityMapRuntime.js` pour le renderer. Reecrit — la boucle de frame et la
+> camera y vivent, mais LE DESSIN est entierement dans `iso/isoRenderer.js`. « Plafonne a 30 fps »
+> corrige (60 au palier Eleve).
+>
+> ### ⚠ LES JOURNAUX NE SONT PAS REECRITS, ILS SONT DATES
+>
+> `REPRISE-chantier-iso.md` est un **registre de chantier** : sa valeur est d'avoir enregistre les
+> decisions et les pieges AU MOMENT ou ils se posaient. Le reecrire pour qu'il « ait raison » aujourd'hui
+> detruirait ca. Il recoit donc une **cloture en tete** (ce qui a ete retire, chiffres a l'appui) et un
+> avertissement : ce document decrit juillet 2026, l'etat qui fait foi est **ce plan**. La ligne
+> « retirer le top-down un jour » est cochee.
+>
+> Meme traitement pour les audits. **`m-11` de `audit-2026-07-lot2.md` planifiait exactement ce
+> chantier** : marque resolu et date. `n-04` devient sans objet. `audit-2026-07-mort.md` : sa liste de
+> molettes « intentionnelles » est caduque pour `isoFlag`, `__pixelMedian`, `__roadPaving` ; vivante pour
+> `__pixelBridge` et `houseFitTune`.
+>
+> `public/pixelart/README.md` : **elague, pas jete** (−70 lignes). Les deux sections decrivant des couches
+> disparues — frange d'herbe et rues edge-Wang — partent ; rangement des sprites, fiche DA moteurs et
+> palette maitre restent. Le tableau du kit `plazas/` dit ce qui subsiste **et pourquoi** : les cinq props
+> que `LEGACY_PROP` sonde encore.
+>
+> Ponctuels : `ANIMATION_INDEX.md`, `PERF-CARTE-REPRISE.md`, `RETRI-2026-07-27.md`, `PLAN-RENDU-VILLE.md`,
+> et l'en-tete de `roadWidth.test.js` — il vantait la factorisation de 3 copies de la table des largeurs,
+> dont 2 n'existent plus : c'est un garde-fou de VALEURS, plus de duplication.
+>
+> **Non touches, comme le §6 Q19 l'exige** : `PLACES-ISO-COMPOSEES.md` et `reprise-infra-pixel.md` — leurs
+> « legacy » designent des kits d'art et des replis proceduraux, pas le pipeline. Les corriger serait une
+> **regression documentaire**.
+>
+> ⚠ Piege de manipulation, rencontre deux fois : **`git add <dossier>` ramasse les fichiers non suivis
+> d'autres sessions** (`scripts/zipDist.mjs` a l'etape 2, `docs/PLAN-RELIEF.md` ici). Sorti du commit
+> avant le push les deux fois. **Stager par fichier.**
+>
+> ---
+>
+> # 🏁 BILAN DU CHANTIER — etapes 2 a 9, le 2026-08-23
+>
+> | | Avant | Apres |
+> |---|---|---|
+> | Chemins de rendu de la carte | **2** | **1** |
+> | `renderWorld.js` | 2939 l. | **~735** — ne rend plus le monde |
+> | `agents.js` | 2417 l. | **1421** |
+> | `renderBuildings.js` | 1088 l. | **775** |
+> | `pixelTerrain.js` | 340 l. | **96** |
+> | `cityMapRuntime.js` | 2500 l. | **2352** |
+> | Modules supprimes | — | **5** (`buildingShapes`, `plazaProps`, `pixelMedian`, `roadPaving`, `pixelRiver`) |
+> | Assets retires | — | **82 PNG** (24 orphelins + 58 liberes) + **6 scripts** |
+> | Drapeau de pipeline | `CM.iso`/`isoFlag`/`__iso`/`cmIsoMode` | **disparu** |
+> | Fichiers de la carte lintes | 0 sur 4 (`eslint-disable`) | **4 sur 4** |
+> | Tests | 1713 | **1690** (27 legacy retires, 14 portes/ecrits) |
+>
+> **Le gain est la MAINTENANCE, comme annonce en §1** — jamais le poids. Une seule facon de repondre a
+> « pourquoi la carte fait ca ».
+>
+> **Ce qui reste, et qui n'est plus ce chantier** : **Q5** (renommer `renderWorld.js`, dont le nom ment),
+> **Q1** (le reliquat de `pixelTerrain.js` et les assets `roads/`), **Q2** (l'A/B `__isoBridge3d`),
+> **Q3** (le kit `plazas/` dormant), **Q6** (les generateurs archives ou non), **Q8** (les fichiers
+> d'auteur hors `public/`), **Q10** (decouper `isoRenderer.js`, +49 % en 24 jours), **Q11** (la passe
+> fantome qui redessine 86-87 % des unites) et **Q12** (le departage d'egalite de la profondeur).
 
 ---
 
