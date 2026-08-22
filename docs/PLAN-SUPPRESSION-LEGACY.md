@@ -949,6 +949,68 @@ rapprocher du reglage d'alpha des fantomes deja en cours cote Raph.
 
 ---
 
+#### P24 — ⚠⚠ `cityMapRuntime.js` EST `/* eslint-disable */` : la porte de l'etape 4 N'EXISTE PAS
+
+> Trouve le 2026-08-23 en executant l'etape 4. **Ce plan affirme l'inverse, noir sur blanc.**
+
+L'etape 4 dit : « `npm run lint` propre (c'est **la porte qui attrapera un import oublie** — attention,
+`renderWorld.js` commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord
+ici) ».
+
+**FAUX.** `cityMapRuntime.js` **ligne 1** :
+
+```js
+/* eslint-disable */
+```
+
+**Verifie par mutation, deux fois :**
+
+| Mutation | Attendu si le lint mordait | Reel |
+|---|---|---|
+| Retirer `cityMapCalmRioterAt` de l'import, en gardant son appel l.977 | erreur `no-undef` | **rien** |
+| Ajouter `const x = zzzTotalementIndefini + 1;` | erreur `no-undef` | **rien** |
+
+`npm run build` ne l'attrape pas non plus (le bundle se construit, la `ReferenceError` n'arriverait qu'a
+l'execution de la ligne fautive — c'est-a-dire au clic, au survol, ou jamais).
+
+**Consequence : l'etape 4 n'a AUCUNE porte automatique.** Ce qui a tenu lieu de garde-fou :
+
+1. **Une analyse mesuree, symbole par symbole**, avec les **commentaires blanchis** — sans ca, une
+   mention en prose fait passer un symbole mort pour vivant (⚠ **7 faux positifs** au premier jet :
+   `cityMapDrawBridges`, `cityMapDrawPlazas`, `drawTile`, `drawWonder`, `drawCitizens`, `drawShips`…).
+2. **Un controle croise apres coupe** : aucun import mort (importe, jamais utilise) **et** aucun import
+   manquant (utilise, plus importe).
+3. **Le jeu lance**, seul juge reel : chaque symbole conserve exerce depuis la page.
+
+**A refaire a l'identique pour l'etape 5** : `renderWorld.js` porte le meme `/* eslint-disable */`, et le
+plan le sait pour celui-la. **Ne jamais ecrire « le lint est propre donc la coupe est bonne » sur ces deux
+fichiers.**
+
+---
+
+#### P25 — Entre les etapes 4 et 7, `__iso(false)` donne un rendu HYBRIDE, pas le legacy
+
+> Trouve le 2026-08-23. L'etape 4 annonce que `window.__iso(false)` « doit desormais **ne plus rien
+> changer** a l'ecran ». **C'est faux, et ce ne sera vrai qu'apres l'etape 7.**
+
+La bascule de frame ne lit plus `CM.iso` — mais **`projection.js` le lit toujours** (`worldToScreen`,
+`screenToWorld`, `panDeltaToScreen`, `screenDeltaToPan`, `depthOf`, `wonderFootWorld`,
+`visibleDiamondBounds`). Donc `__iso(false)` fait tourner **le peintre iso a travers la projection
+planaire** : mesure, l'ecran change bel et bien.
+
+Gravite **faible** : le canvas reste peint a 100 %, ce n'est pas un ecran noir, et la molette est
+dev-only (aucune UI ne l'expose). Mais :
+
+**⚠ Un poste qui porte `localStorage.cmIsoMode = '0'` verra une carte de travers entre les etapes 4 et 7**
+— la ou, avant l'etape 4, il voyait le legacy fonctionner. Le §5.2 disait « jugera le mauvais pipeline » ;
+c'est desormais « jugera un pipeline hybride ». **Verifier `localStorage.getItem('cmIsoMode')` avant toute
+seance**, et le remettre a `'1'` ou le supprimer.
+
+Le nettoyage one-shot propose en option a l'etape 7.5 (`localStorage.removeItem('cmIsoMode')`) **gagne a
+etre avance** si la periode 4→7 doit durer.
+
+---
+
 ## 3. Ce qu'on NE touche pas
 
 ### 3.1 Racines de `renderWorld.js` importees par l'iso
@@ -1183,16 +1245,52 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   - Reecrire les commentaires de bascule (autour de **2106-2112**).
 - **Diff attendu** : ~200 lignes retirees dans un seul fichier ; le legacy devient inatteignable.
 - **Verification** :
-  - `npm run lint` propre (c'est la porte qui attrapera un import oublie — **attention, `renderWorld.js`
-    commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord ici).
+  - ~~`npm run lint` propre (c'est la porte qui attrapera un import oublie — attention, `renderWorld.js`
+    commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord ici).~~
+    **⚠⚠ FAUX — voir P24. `cityMapRuntime.js` porte `/* eslint-disable */` en LIGNE 1 : le lint est
+    AVEUGLE sur ce fichier, et le build aussi.** Verifie par mutation. Il n'y a **aucune porte
+    automatique** a cette etape : il faut une analyse mesuree symbole par symbole (commentaires
+    blanchis !), un controle croise apres coupe, et le jeu lance.
   - `npx vitest run` : **meme total qu'a l'etape 3** (aucun test n'importe ce bloc).
   - Pane : **full-reload obligatoire** (`renderWorld`/`cityMapRuntime` ne se voient pas en HMR), puis
     `await __demoCity({ pop: '1e25' })`, `__CM.forceFrame()`, `__cityShot({ name: 'apres-bascule' })`.
     Comparer a `avant-coupe`. Verifier a la main : pan, zoom (les deux sens), redimensionnement de la
     fenetre, les 4 paliers de qualite dans les Options.
-  - `window.__iso(false)` doit desormais **ne plus rien changer** a l'ecran.
+  - ~~`window.__iso(false)` doit desormais **ne plus rien changer** a l'ecran.~~ **⚠ FAUX — voir P25.**
+    La bascule ne lit plus `CM.iso`, mais **`projection.js` si** : `__iso(false)` fait tourner le peintre
+    iso a travers la projection planaire, l'ecran CHANGE. Ce ne sera vrai qu'apres l'etape 7.
 - **Effort** : moyenne.
 - **Commit** : `feat(carte): la carte n'a plus qu'un chemin — l'iso peint, le top-down disparait de la frame`
+
+> ## ✔ ETAPE 4 FAITE — 2026-08-23
+>
+> `cityMapRuntime.js` : **2500 → 2348 lignes**. Le bloc `else` (145 lignes, 2112-2257) est parti, la
+> bascule est devenue un appel nu precede du garde `if (!CM.layout) { fpEnd(); return; }`. **Le pipeline
+> top-down n'est plus atteignable depuis la frame.**
+>
+> **⚠⚠ L'ELAGAGE DES IMPORTS NE SUIT PAS LE PLAN — il suit la MESURE, et le plan se trompait sur 3 des 6 :**
+>
+> | Module | Plan | Mesure | Retenu |
+> |---|---|---|---|
+> | `renderWorld` | → 2 specifieurs | 2 | ✔ conforme |
+> | `renderBuildings` | ligne supprimee | 0 survivant | ✔ conforme |
+> | `agents` | → 4 specifieurs | **5** | ✘ le plan oubliait `vehSkinFor` (l.1088/1555/1854) |
+> | `pixelTerrain` | retirer `drawPixelTerrain` seul | 5 survivants | ✔ conforme |
+> | `pixelRiver` | **ligne supprimee** | **2 survivants** | ✘ `setPixelWater`, `waterRippleTune` (molettes) |
+> | `pixelBridge` | **ligne supprimee** | **2 survivants** | ✘ `pixelBridgeFlag`, `setBridgeOnLoad` — et **P5 le disait deja**, l'etape 4 se contredisait elle-meme |
+>
+> Ces cinq modules ne sont plus tenus que par le bloc de molettes `window.__*` : c'est l'etape 6 qui les
+> emportera.
+>
+> **Verification, sans filet automatique (P24)** : analyse symbole par symbole **commentaires blanchis**
+> (7 faux positifs sans ca) ; controle croise apres coupe — zero import mort, zero import manquant ;
+> 152 fichiers / 1734 `it` verts ; build OK. Puis **le jeu**, seul juge : carte peinte a 100 %, pan, zoom
+> aux deux bouts (0,35 et 2,0), redimensionnement de fenetre, **les 4 paliers de qualite** (`perf` arme
+> bien le LOD), les 9 molettes conservees appelees une a une, clic et survol de carte — **zero erreur**.
+> Rechargement a froid : ere 18, 250 ressources, aucune image cassee, console vide.
+>
+> **Prochaine etape : 5, vider `renderWorld.js` en 5 temps.** ⚠ Meme piege qu'ici : ce fichier porte lui
+> aussi `/* eslint-disable */`, le menage d'imports y est **entierement manuel** (P24).
 
 ---
 
