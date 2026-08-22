@@ -1,4 +1,10 @@
-/* eslint-disable */
+// ✔ LE `/* eslint-disable */` DE TÊTE A ÉTÉ RETIRÉ le 2026-08-23 (étape 6). Il
+// couvrait le pipeline top-down ; une fois celui-ci parti, il ne restait qu'une
+// seule erreur — un paramètre de `catch` inutilisé — corrigée du même coup.
+// ⚠ CE N'EST PAS COSMÉTIQUE : le piège P24 constatait que le lint était AVEUGLE
+// sur ce fichier, alors que le plan comptait dessus comme garde-fou de l'étape 4.
+// La porte est rendue, et l'étape 7 (suppression du drapeau `CM.iso`) en profite.
+// Ne pas remettre ce commentaire magique sans raison écrite.
 import { state, collapseInProgress, setCollapseInProgress, renderCache, openView } from '../core/state.js';
 import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
@@ -53,9 +59,8 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // oubliait `vehSkinFor`.
 import { cityMapCalmRioterAt, quayWallTune } from './renderWorld.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
-import { pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
-import { setPixelWater, waterRippleTune } from './pixelRiver.js';
-import { pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
+import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
+import { pixelBridgeFlag } from './pixelBridge.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
@@ -1957,7 +1962,7 @@ function initCityMap(canvas, options = {}) {
           const prosper = Math.max(0, Math.min(1, 0.55 + vt.foodBonus * 1.6 + vt.goldBonus * 0.9 + vt.knowledgeBonus * 0.9));
           const strain = Math.max(0, Math.min(1, pr.total * 0.5 + (state.instability || 0) * 0.55 + (state.timeWear || 0) * 0.6));
           healthT = Math.max(0, Math.min(1, prosper * 0.45 + (1 - strain) * 0.55));
-        } catch (e) { healthT = CM.healthF; }
+        } catch { healthT = CM.healthF; }
         // Lissage : la palette glisse au fil des secondes, elle ne saute pas.
         CM.healthF += (healthT - CM.healthF) * Math.min(1, dt * 0.8);
       }
@@ -2269,8 +2274,8 @@ function initCityMap(canvas, options = {}) {
       CM.forceFrame();
       return { layout: !!CM.layout, veh: CM.vehicles.length, cit: CM.citizens.length, era: CM.layout && CM.layout.counts ? CM.layout.counts.eraIndex : null };
     };
-    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; cmInvalidateBakes(); };
-    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; cmInvalidateBakes(); };
+    // ⚠ `__pixelTerrain` et `__pixelRoads` pilotaient le terrain et les routes du
+    // rendu top-down : retirés le 2026-08-23 avec `drawPixelTerrain` (étape 6).
     // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
     // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
     window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM._groundBake = null; };
@@ -2282,17 +2287,16 @@ function initCityMap(canvas, options = {}) {
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
     window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
-    window.__pixelTileset = (name) => { setPixelTileset(name); cmInvalidateBakes(); };
-    window.__pixelWater = (on) => { setPixelWater(on); cmInvalidateBakes(); };
-    // Vaguelettes animées de l'eau (façon TheoTown) : réglage live. Eau LIVE → pas de rebake.
-    // __waterRipples({ on, lanes, freq, speed, thresh, alpha, color }). Ex. __waterRipples({ alpha: 0.5 }).
-    window.__waterRipples = (o) => { if (o) Object.assign(waterRippleTune, o); return { ...waterRippleTune }; };
+    // ⚠ `__pixelTileset`, `__pixelWater` et `__waterRipples` sont partis le
+    // 2026-08-23 (étape 6) avec le terrain top-down et `pixelRiver.js`.
     // Bas-fond clair des rives (iso) : réglage live. __waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
     window.__waterShore = (o) => { if (o) Object.assign(waterShoreTune, o); return { ...waterShoreTune }; };
+    // ⚠ CELLE-CI RESTE (P5) : `pixelBridgeFlag` pilote encore un chemin ISO — le
+    // repli de tablier plat quand `__isoBridge3d(false)`. Ne pas la balayer avec
+    // les molettes voisines sous prétexte qu'elle dit « pixel ».
     window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM._staticBake = null; };
-    // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
-    // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
-    setBridgeOnLoad(() => { CM._staticBake = null; });
+    // Le callback `setBridgeOnLoad` vivait ici : il n'invalidait que `CM._staticBake`,
+    // le cache du pipeline top-down, qui n'existe plus.
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
     window.__collapse = (on) => { setCollapseInProgress(!!on); cmInvalidateBakes(); };

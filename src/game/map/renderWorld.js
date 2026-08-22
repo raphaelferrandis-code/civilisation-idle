@@ -1,14 +1,13 @@
-/* eslint-disable */
-// ⚠ CE FICHIER NE REND PLUS LE MONDE. Étape 5 du plan de suppression du legacy
-// (2026-08-23) : 2939 → 760 lignes. Il ne reste que LES QUAIS et LA SIMULATION
-// D'ÉMEUTE, tous deux consommés par le peintre iso. Son nom ment désormais —
-// son renommage est la question ouverte Q5 du plan.
+// ⚠ CE FICHIER NE REND PLUS LE MONDE. Étapes 5 et 6 du plan de suppression du
+// legacy (2026-08-23) : 2939 → ~735 lignes. Il ne reste que LES QUAIS et LA
+// SIMULATION D'ÉMEUTE, tous deux consommés par le peintre iso. Son nom ment
+// désormais — son renommage est la question ouverte Q5 du plan.
 //
-// ⚠⚠ `/* eslint-disable */` CI-DESSUS : LE LINT EST AVEUGLE SUR CE FICHIER.
-// Aucun import orphelin, aucune variable non définie n'y sera signalée — ni par
-// le lint, ni par le build (vérifié par mutation, cf. P24). Tout ménage ici est
-// MANUEL, et se contrôle en mesurant les usages code par code, commentaires
-// blanchis : une mention en prose fait passer un symbole mort pour vivant.
+// ✔ LE `/* eslint-disable */` DE TÊTE A ÉTÉ RETIRÉ le 2026-08-23. Il couvrait le
+// peintre top-down ; une fois celui-ci parti, ESLint ne signalait plus rien sur
+// ce fichier — il le disait lui-même (« unused eslint-disable directive »).
+// Le lint MORD donc de nouveau ici : c'est la porte que P24 constatait absente,
+// et elle est rendue. Ne pas remettre ce commentaire magique sans raison écrite.
 import { state } from '../core/state.js';
 import { CM, CM_WONDERS, cmWonderSlot, cmWonderActive, WONDER_CLEAR_R } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
@@ -29,14 +28,11 @@ import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
  *   Pas de boucle, pas de listeners, pas de gros rendu de scene.
  * ============================================================================ */
 
-function baseColor() {
-  // Couleur de repli neutre pour les tuiles décoratives (habitations).
-  return "#8b6914";
-}
-
-function cmLitColor(band) {
-  return CM.cmLitColorStr || `rgba(255,204,68,0.32)`;
-}
+// `baseColor` et `cmLitColor` vivaient ici. Leurs derniers lecteurs — le bloc LOD
+// de `renderBuildings.js` pour l'un, `buildingShapes.js` pour l'autre — sont partis
+// à l'étape 6, le 2026-08-23. (Ne pas confondre `cmLitColor` avec
+// `CM.cmLitColorStr`, la chaîne que cityMapRuntime publie encore : autre
+// identifiant, toujours vivant.)
 
 // Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
 // Helper partagé par le fleuve, le gating des quais et le tracé des quais.
@@ -732,10 +728,8 @@ function updateCrisis(dt, now) {
 }
 
 export {
-  baseColor,
   cityMapDrawQuays,
   ensureQuayGate,
-  cmLitColor,
   updateCrisis,
   drawRiotWeapon,
   cityMapCalmRioterAt

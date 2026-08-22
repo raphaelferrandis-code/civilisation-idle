@@ -20,7 +20,10 @@ import { worldToScreen, screenToWorld, visibleCellBounds, visibleDiamondBounds, 
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { grainTune } from '../spriteScale.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
-import { drawEngineSprite } from '../buildingShapes.js';
+// Repointé sur la SOURCE le 2026-08-23 (étape 6) : `buildingShapes.js` ne faisait
+// que ré-exporter ce symbole depuis engineSprites, et il est supprimé. Précédent
+// identique : engineSceneCache.js importe déjà d'engineSprites directement.
+import { drawEngineSprite } from '../engineSprites.js';
 import { drawWonder } from '../renderBuildings.js';
 
 // LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
