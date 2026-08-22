@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { boatLampMul, boatLampFlicker, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoRenderer.js";
+import { boatLampMul, boatLampFlicker, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoFleet.js";
 import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 
 // Aucun bateau ne lisait nightF : la nuit tombée, le fleuve restait un ruban

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { shipVisual, tradeStage } from "../iso/isoRenderer.js";
+import { shipVisual, tradeStage } from "../iso/isoFleet.js";
 
 // Trois métiers sur le fleuve, trois aspects (riverFleet.js pilote leur vie, ce
 // module décide de quoi ils ont l'air). Deux invariants tiennent la fiche :

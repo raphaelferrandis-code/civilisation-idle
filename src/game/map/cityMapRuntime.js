@@ -47,7 +47,8 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
-import { drawIsoWorld, waterShoreTune, riverIslandObstacles, plaisirsHitTest } from './iso/isoRenderer.js';
+import { drawIsoWorld, waterShoreTune, plaisirsHitTest } from './iso/isoRenderer.js';
+import { riverIslandObstacles } from './iso/isoFleet.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down

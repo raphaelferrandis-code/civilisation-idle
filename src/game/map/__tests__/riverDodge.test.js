@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { riverDodge, riverIslandObstacles } from "../iso/isoRenderer.js";
+import { riverDodge, riverIslandObstacles } from "../iso/isoFleet.js";
 
 // L'Aiguille Céleste est posée EN PLEIN FLEUVE — c'est un phare, et
 // cmWetWonderSlot la cale volontairement sur le centre du courant. Les bateaux,
