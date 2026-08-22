@@ -1397,6 +1397,55 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   les 4 suppressions / agents + molettes).
 - **Commit** : `refactor(carte): quatre modules de peinture top-down disparaissent, le pont buildingShapes est demonte`
 
+> ## ✔ ETAPE 6 FAITE — 2026-08-23
+>
+> **CINQ modules supprimes** (et non quatre) : `plazaProps.js`, `pixelMedian.js`, `roadPaving.js`,
+> `pixelRiver.js` — orphelins en cascade, chacun verifie sans importeur avant la coupe — plus
+> **`buildingShapes.js`**, le PONT de P8, repointe puis supprime.
+>
+> **Quatre modules trimmes**, par atteignabilite depuis leurs vrais consommateurs :
+> `agents.js` **2417 → 1421**, `renderBuildings.js` **1088 → 775**, `pixelTerrain.js` **340 → 96**,
+> et `renderWorld.js` perd `baseColor` + `cmLitColor` (derniers lecteurs partis avec le bloc LOD et
+> `buildingShapes`). **Trois fichiers de test** retires : 1721 → **1694 `it`**, le compte exact.
+>
+> **Molettes** : 9 retirees, **5 gardees** (`__quayWall`, `__waterShore`, `__pixelBridge`, `__sidewalk`,
+> `__sidewalkTune`) — P17 respecte. ⚠ `__headlightDepth` et `__droneSprite` ont ete VERIFIES avant de
+> tomber : leurs drapeaux `CM.*` n'etaient lus que dans `drawOneVehicle`. L'iso appelle
+> `drawVehicleHeadlights` **sans garde** — un commentaire de `vehicleHeadlights.test.js` disait le
+> contraire, corrige.
+>
+> ### ⚠⚠ P26 — LA SUITE DE TESTS PASSE VERTE SUR UN MODULE CASSE
+>
+> Apres la coupe d'`agents.js`, son bloc `export` nommait encore 5 symboles disparus.
+> **`npx vitest run` : 1694 tests VERTS. `npm run build` : 5 `PARSE_ERROR` « Export X is not defined ».**
+> Vitest ne parse pas ces re-exports comme le bundler. **Sur ce chantier, « tests verts » ne vaut PAS
+> validation — lancer `npm run build` a chaque etape.** C'est la seule porte automatique qui reste sur les
+> fichiers `eslint-disable`, et elle n'attrape qu'une chose : un export vers un nom disparu.
+>
+> ### ✔ P24 REPARE — LA PORTE DU LINT EST RENDUE
+>
+> Une fois le top-down parti, **ESLint a signale lui-meme** que les `/* eslint-disable */` de
+> `renderWorld.js` et `pixelTerrain.js` etaient devenus inutiles (« unused eslint-disable directive »).
+> Retires. **`cityMapRuntime.js` a suivi** : il ne restait qu'une erreur, un parametre de `catch`
+> inutilise, corrigee.
+>
+> **Les quatre fichiers de la carte sont de nouveau lintes.** C'est exactement le garde-fou que P24
+> constatait absent a l'etape 4 — **l'etape 7 en profitera**. Le lint a servi dans la minute : il a
+> attrape `AGENT_NF`, `AGENT_FW` et `BOAT_SCALE`, restes morts apres la coupe. **Ne pas remettre ces
+> commentaires magiques sans raison ecrite.**
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1694 verts. Puis le jeu : ere 18,
+> 182 habitants, 80 vehicules, carte peinte a 100 %, quais presents, les 5 molettes conservees repondent
+> et les 9 retirees rendent `undefined`, 250 ressources, aucune image cassee, console vide.
+>
+> **⚠ Q1 reste ouverte** : c'est elle qui dira si le reliquat de `pixelTerrain.js` (96 lignes,
+> `drawEraGroundFill` + son tileset) peut disparaitre a son tour, avec les assets `roads/*.png`.
+>
+> **Prochaine etape : 7, le drapeau `CM.iso`.** Rappels : **P22** (la condition de passage doit inclure
+> `isoFlag`, pas seulement `CM.iso`), **P25** (entre 4 et 7, `__iso(false)` donne un rendu hybride —
+> avancer le nettoyage de `localStorage.cmIsoMode` si la periode dure), et l'inventaire des pilotes du
+> drapeau est descendu de 9 a **8** fichiers de test (§0.2).
+
 ---
 
 ### Etape 7 — Le flag `CM.iso`
