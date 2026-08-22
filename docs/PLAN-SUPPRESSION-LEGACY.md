@@ -1320,6 +1320,47 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   - `refactor(carte): renderWorld ne peint plus les routes — le marquage double vit desormais en iso`
   - `refactor(carte): renderWorld se reduit aux quais et a la simulation d'emeute`
 
+> ## ✔ ETAPE 5 FAITE — 2026-08-23, **en UN commit et non en 5 temps**
+>
+> `renderWorld.js` : **2939 → 742 lignes**, 52 declarations retirees (2162 lignes). Il ne reste que les
+> QUAIS et la SIMULATION D'EMEUTE, exactement les racines annoncees au §2.1.
+>
+> **Pourquoi un seul commit.** Les 5 temps avaient pour raison d'etre « `npm run lint` doit sortir propre
+> entre deux temps ». **Cette raison n'existe pas** : le lint est aveugle sur ce fichier (P24). Des
+> etats intermediaires non verifiables sont plus risques qu'une coupe unique validee d'un bloc.
+>
+> **La coupe a ete conduite par ANALYSE D'ATTEIGNABILITE**, pas a la main : graphe des references entre
+> declarations de premier niveau, depuis les 9 racines conservees, **commentaires ET chaines litterales
+> blanchis**, effets de bord du module traites comme racines. 17 vivants, 52 morts. Le plan annoncait
+> ~680 lignes restantes et ~2175 retirees ; mesure : **742 et 2162**.
+>
+> **⚠ P15 CONFIRME, ET PLUS MORDANT QUE PREVU.** Dix constantes d'arbres ne survivaient QUE par la boucle
+> de prechargement des 7 PNG et les 6 molettes `window.__tree*`, executees au simple import. Un effet de
+> bord de niveau module n'est pas une racine : c'est parfois du poids mort qui ancre du poids mort. Les
+> traiter comme morts fait tomber le bloc entier (42 morts → 52).
+>
+> **En-tete : 10 imports → 4.** Meurent `toNum`, `mapThemeForBand`, les 6 de `plazaProps.js`, les 2 de
+> `pixelMedian.js`, `setRoadPavingOnLoad`, `paintFlameGlows` (sans danger, l'iso l'importe pour son
+> compte), et les **trois hooks `setXOnLoad`**. → `plazaProps.js`, `pixelMedian.js`, `roadPaving.js`
+> deviennent orphelins, comme prevu : etape 6.
+>
+> **Q4 TRANCHEE PAR NECESSITE.** `CM.debugRoads` vivait **a l'interieur** de `cityMapDrawRoad` (l.1871
+> dans 1703-1885) : impossible de garder l'un en supprimant l'autre. Aucun equivalent iso ; les ~14
+> lignes sont dans l'historique, le recreer serait un petit chantier separe.
+>
+> **Tests — P9 respecte.** `roadDivided.test.js` → **`vehicleLane.test.js`** (301 → 58 lignes), trim et
+> non delete : son `describe` `vehicleLaneOffset` teste une fonction du chemin ISO, seule couverture
+> executable du placement des files. L'echafaudage `CM.iso` du `it` conserve saute aussi → **un pilote de
+> drapeau en moins pour l'etape 7 (9 → 8)**. **1734 → 1721 `it`** : les 12 tombes plus celui-la, au compte.
+>
+> **Verification** : controle croise apres coupe (aucun import mort, aucun manquant) ; 152 fichiers /
+> 1721 verts ; build OK — il attrape la seule chose qu'il sache attraper ici, un `export` vers un nom
+> disparu. Puis le jeu : eres 4, 16 et 69, carte peinte a 100 %, quais presents et molette vivante,
+> 250 ressources, aucune image cassee, console vide.
+>
+> **Prochaine etape : 6, les modules satellites.** ⚠ Elle est partiellement bloquee par **Q1**, toujours
+> ouverte — mais son principal frein a saute (P16 inverse : `roads/*.png` est regenerable).
+
 ---
 
 ### Etape 6 — Les modules satellites
