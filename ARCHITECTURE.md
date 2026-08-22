@@ -139,9 +139,10 @@ graphe connexe par construction).
 > peintres : l'isométrique et un top-down historique, choisis par un drapeau `CM.iso`.
 > Le second a été retiré en huit étapes — voir [docs/PLAN-SUPPRESSION-LEGACY.md](docs/PLAN-SUPPRESSION-LEGACY.md),
 > qui garde l'inventaire, les 26 pièges rencontrés et ce que chaque coupe a appris.
-> `renderWorld.js` a survécu à la coupe mais ne rend plus le monde : il ne lui reste
-> que **les quais et la simulation d'émeute**, tous deux consommés par le peintre iso.
-> Son nom ment ; le renommer est la question ouverte Q5 du plan.
+> `renderWorld.js` a survécu à la coupe mais ne rendait plus le monde : il ne lui
+> restait que **les quais et la simulation d'émeute**, tous deux consommés par le
+> peintre iso. Renommé [quaysAndRiot.js](src/game/map/quaysAndRiot.js) le même jour
+> (Q5 du plan) — un fichier dont le nom mentait était le dernier vestige du chantier.
 
 ---
 

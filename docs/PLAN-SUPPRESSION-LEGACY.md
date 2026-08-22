@@ -1768,11 +1768,30 @@ par `__CM.debugRoads = true`. **Aucun equivalent iso.** Le chantier voirie en co
 `RoadworksPanel`) pourrait en avoir besoin. Le supprimer sec, ou le porter d'abord ?
 *Bloque le temps 5d.*
 
-**Q5 — On renomme `renderWorld.js` ?**
-Apres la coupe il ne reste que les quais (15,4 Ko) et la simulation d'emeute (~10 Ko). Le nom ment.
-`mapQuaysAndRiot.js` ? `sharedMapPainters.js` ? Un renommage touche 5 imports (isoRenderer.js:32,
-renderBuildings.js:11, buildingShapes.js:2 — qui disparait —, pixelRiver.js:35 — qui disparait —,
-cityMapRuntime.js:62) plus une dizaine de docs. **A faire dans un commit separe, apres l'etape 9.**
+**Q5 — On renomme `renderWorld.js` ? — ✔ FAIT le 2026-08-23 : `quaysAndRiot.js`.**
+
+~~Apres la coupe il ne reste que les quais (15,4 Ko) et la simulation d'emeute (~10 Ko). Le nom ment.
+`mapQuaysAndRiot.js` ? `sharedMapPainters.js` ?~~
+
+**Nom retenu : `quaysAndRiot.js`**, ni l'un ni l'autre des deux candidats.
+- Le prefixe `map` est **redondant** : le fichier vit dans `src/game/map/`, ou aucun autre module ne le
+  porte (`riverFleet`, `flameGlow`, `pixelHouses`, `snowRoof`…).
+- `sharedMapPainters` serait **faux** : `updateCrisis` est une SIMULATION, pas un peintre.
+
+**Le renommage a touche 3 imports, pas 5** — `buildingShapes.js` et `pixelRiver.js` ont ete supprimes a
+l'etape 6, et `renderBuildings.js` a perdu son import de `baseColor` a la meme etape. Restent
+`isoRenderer.js`, `cityMapRuntime.js` et `__tests__/waterShoreRelais.test.js`.
+
+Cote docs, seuls les **canoniques** sont repointes (`ARCHITECTURE.md`, ce plan). Les journaux dates —
+audits, `REPRISE-*` — gardent l'ancien nom : c'est ce qu'ils citaient a l'epoque, et les reecrire serait
+la meme regression documentaire que P19. **Le pont est fait dans l'AUTRE SENS** : l'en-tete de
+`quaysAndRiot.js` dit qu'il s'appelait `renderWorld.js`, de sorte qu'un lecteur venu d'un vieux document
+retombe sur ses pieds.
+
+Deux bandeaux de section herites du decoupage d'origine (`legacy citymap rendering\draw-utils.js`,
+`\crisis.js`) sont remplaces par les deux vrais sujets du fichier : **PARTIE 1 — la berge maconnee**,
+**PARTIE 2 — l'emeute**. ⚠ Deux sujets sans rapport dans un meme fichier restent l'heritage de la coupe,
+pas un choix : les separer serait un petit chantier a part.
 
 **Q6 — Les generateurs de `scripts/` : memoire de fabrication ou dette ?**
 `fetchTrees.mjs`, `fetchMedians.mjs`, `makeGrassEdge.mjs`, `makeStreetTiles.mjs`,

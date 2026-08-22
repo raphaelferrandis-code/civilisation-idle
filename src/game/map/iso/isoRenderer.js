@@ -121,7 +121,7 @@ import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, suspendLightLayer,
   lightCtx, lightCut, lightCutImage, paintLightLayer,
 } from '../lightLayer.js';
-import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune, quayGapRuns } from '../renderWorld.js';
+import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWallTune, quayGapRuns } from '../quaysAndRiot.js';
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawCritterIso } from '../critters.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, bridgeLiftScreen, isoBridge3dFlag } from './isoBridge.js';

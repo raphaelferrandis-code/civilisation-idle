@@ -1,7 +1,20 @@
-// ⚠ CE FICHIER NE REND PLUS LE MONDE. Étapes 5 et 6 du plan de suppression du
-// legacy (2026-08-23) : 2939 → ~735 lignes. Il ne reste que LES QUAIS et LA
-// SIMULATION D'ÉMEUTE, tous deux consommés par le peintre iso. Son nom ment
-// désormais — son renommage est la question ouverte Q5 du plan.
+// LES QUAIS ET L'ÉMEUTE — les deux seules choses que ce fichier fait encore.
+//
+// ⚠ IL S'APPELAIT `renderWorld.js`, ET IL RENDAIT LE MONDE : c'était le peintre
+// top-down de la carte, 2939 lignes. Ce pipeline a été retiré aux étapes 4 à 7 du
+// plan de suppression du legacy (2026-08-23) ; il n'en restait que 735 lignes,
+// dont le nom mentait. Renommé le même jour — question Q5 du plan. Si vous suivez
+// un document qui parle encore de `renderWorld.js`, c'est ici que ça a atterri.
+//
+// Ce qui subsiste, et que le peintre iso consomme :
+//   · LA BERGE MAÇONNÉE — `ensureQuayGate` (où le quai a le droit de courir,
+//     calculé une fois par layout), `cityMapDrawQuays` (le tracé), `quayGapRuns`
+//     et `quayWallTune` ;
+//   · LA SIMULATION D'ÉMEUTE — `updateCrisis` et ses aides. Le DESSIN des
+//     émeutiers, lui, est passé à l'iso ; seul `drawRiotWeapon` est resté ici.
+//
+// ⚠ Deux sujets sans rapport dans un même fichier : c'est l'héritage de la coupe,
+// pas un choix. Les séparer serait un petit chantier à part.
 //
 // ✔ LE `/* eslint-disable */` DE TÊTE A ÉTÉ RETIRÉ le 2026-08-23. Il couvrait le
 // peintre top-down ; une fois celui-ci parti, ESLint ne signalait plus rien sur
@@ -20,12 +33,11 @@ import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 // (`plazaProps.js`, `pixelMedian.js`, `roadPaving.js`) deviennent orphelins du
 // même coup — c'est l'étape 6 qui les supprimera.
 
-/* ---- legacy citymap rendering\draw-utils.js ---- */
-
-
 /* ============================================================================
- * citymap-draw-utils.js - Petits helpers visuels partages par les renderers.
- *   Pas de boucle, pas de listeners, pas de gros rendu de scene.
+ * PARTIE 1 — LA BERGE MAÇONNÉE
+ *   Où le quai a le droit de courir (`ensureQuayGate`, calculé une fois par
+ *   layout et lisible par tout le monde), puis son tracé (`cityMapDrawQuays`).
+ *   Consommé par le peintre iso.
  * ============================================================================ */
 
 // `baseColor` et `cmLitColor` vivaient ici. Leurs derniers lecteurs — le bloc LOD
@@ -482,14 +494,11 @@ function cityMapDrawQuays(now, mode) {
   }
 }
 
-/* ---- legacy citymap rendering\agents.js ---- */
-/* Moved to agents.js. */
-
-/* ---- legacy citymap rendering\crisis.js ---- */
-
-
 /* ============================================================================
- * citymap-render-crisis.js - Evenements visuels lies a l'instabilite.
+ * PARTIE 2 — L'ÉMEUTE
+ *   La SIMULATION (`updateCrisis` et ses aides) vit ici ; le DESSIN des émeutiers
+ *   est passé au peintre iso, seul `drawRiotWeapon` étant resté.
+ *   Evenements visuels lies a l'instabilite.
  * ============================================================================ */
 
 const RIOT_WONDER_CLEAR_R = WONDER_CLEAR_R + 2;

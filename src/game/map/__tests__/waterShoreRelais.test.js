@@ -12,7 +12,7 @@
 // C'est exactement ce qu'un booléen global ne peut pas garantir, et c'est testable
 // sans canvas.
 import { describe, it, expect } from "vitest";
-import { quayGapRuns } from "../renderWorld.js";
+import { quayGapRuns } from "../quaysAndRiot.js";
 
 const mask = (s) => Uint8Array.from([...s].map((c) => (c === "1" ? 1 : 0)));
 const couvre = (runs) => { const s = new Set(); for (const [a, b] of runs) for (let i = a; i <= b; i += 1) s.add(i); return s; };

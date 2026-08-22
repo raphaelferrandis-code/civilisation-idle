@@ -58,7 +58,7 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // celui-ci annonçait de supprimer les lignes `renderBuildings`, `pixelRiver` et
 // `pixelBridge`, alors que quatre de leurs symboles sont encore lus ici, et il
 // oubliait `vehSkinFor`.
-import { cityMapCalmRioterAt, quayWallTune } from './renderWorld.js';
+import { cityMapCalmRioterAt, quayWallTune } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
 import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 import { pixelBridgeFlag } from './pixelBridge.js';
