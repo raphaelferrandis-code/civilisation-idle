@@ -264,6 +264,10 @@ Vérification (contre-lecture manuelle + agent) :
 **Impact.** Dette de maintenance : deux jeux de peintres à faire évoluer en tandem ; risque de divergence. Pas de bug runtime (legacy fonctionnel en fallback).
 **Correction (ne PAS appliquer).** Décision produit : une fois l'iso stabilisé (fin du chantier), planifier la suppression du peintre legacy + du fallback `__iso(false)`, ou l'isoler dans un module marqué `legacy`. **Effort : L.**
 
+> **✔ RÉSOLU le 2026-08-23.** Le peintre legacy et le repli `__iso(false)` sont supprimés,
+> en huit étapes (`docs/PLAN-SUPPRESSION-LEGACY.md`). Il n'y a plus qu'un chemin de rendu.
+> Cette fiche planifiait exactement ce chantier : elle est close.
+
 ### m-12 · MINEUR · `src/game/map/cityMapRuntime.js:82` — pas de clamp canvas vs limite navigateur
 
 **Problème.** `nw/nh/onw/onh` (`:82-92`) = viewport × dpr + marge, **sans borne max**. **Aucun lien avec la population** (dimensions viewport-driven).
@@ -283,6 +287,9 @@ Vérification (contre-lecture manuelle + agent) :
 **Correction (ne PAS appliquer).** Après `:986` : `if (!CM.ctx) { CM.inited = false; CM.canvas = null; return; }`. **Effort : S.**
 
 ### n-04 · NETTOYAGE · `src/game/map/renderWorld.js:405` — sous-cache `CM_TERRAIN` redondant
+
+> **✔ SANS OBJET depuis le 2026-08-23** : `cityMapDrawTerrain` et son sous-cache `CM_TERRAIN`
+> sont partis avec le peintre top-down (étape 5 de la suppression du legacy).
 
 `cityMapDrawTerrain` n'est appelée que dans le bake sol (`cityMapRuntime.js:1148`, repli quand `pixelTerrainFlag` off) → le sous-cache hillshade ne recalcule déjà qu'au re-bake. Double mise en cache inoffensive. Conserver tel quel ou retirer la clé interne. **Effort : S.**
 

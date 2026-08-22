@@ -5,8 +5,10 @@
 >
 > **Conventions partagées à respecter (lire avant d'éditer) :**
 > - `CM`, `CM.nightF` → `src/game/map/layout.js` (toute lumière nocturne passe par `CM.nightF`)
-> - `cmLitColor(band)` → `src/game/map/renderWorld.js` (couleur vitres éclairées par ère)
-> - `roofGable()` / `facade()` / `BUILDING_HEIGHTS` → haut de `src/game/map/buildingShapes.js`
+> - ⚠ `cmLitColor(band)` et `buildingShapes.js` ont été SUPPRIMÉS le 2026-08-23 avec le
+>   rendu top-down (cf. docs/PLAN-SUPPRESSION-LEGACY.md). Les repères ci-dessous qui les
+>   citent décrivent un code disparu ; ce document reste un journal d'animation daté.
+>   La couleur des vitres éclairées vit désormais dans le peintre iso.
 > - **Aléa toujours seedé** (`rngFrom`/`seededWeightedPick`) — jamais `Math.random()` dans le rendu (scintillement).
 > - build + lint + test doivent passer. Vérif visuelle via `?mapshot` / captures (pas de hot-reload fiable).
 

@@ -3,7 +3,11 @@
 // Avant la factorisation, la même table était copiée 3 fois (getRoadVisualStyle,
 // roadBodyWidth, vehicleLaneOffset) et devait être maintenue à la main « en
 // lockstep ». Ce test fige les valeurs par rang/ère pour que toute dérive future
-// (corps de route ↔ marquages ↔ files de véhicules) soit détectée.
+// soit détectée.
+// ⚠ Deux de ces trois copies sont parties avec le rendu top-down le 2026-08-23 :
+// `getRoadVisualStyle` et `roadBodyWidth` n'existent plus. `roadWidthFor` ne survit
+// donc plus que par `vehicleLaneOffset` (agents.js) — ce test devient un garde-fou
+// de valeurs plus qu'un garde-fou de duplication, mais les valeurs comptent toujours.
 
 import { describe, it, expect } from "vitest";
 import { roadWidthFor } from "../layout.js";

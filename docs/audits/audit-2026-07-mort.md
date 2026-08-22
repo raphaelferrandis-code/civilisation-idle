@@ -227,6 +227,11 @@ Ce que les outils ont proposé et qui **n'est PAS** mort/problématique, avec la
 **knip → flags & setters VIVANTS via `window.__` (invisibles à knip) :**
 - `setPixelBridge`/`setPixelMedian`/`setRoadPaving` : assignés à `window.__pixelBridge`/`__pixelMedian`/`__roadPaving` (toggles console). `isoFlag`/`pixelBuildingsFlag`/`pixelHousesFlag`/`pixelMedianFlag`/`houseFitTune` : lus en interne (`if(flag.on)`) **et** pilotés par des hooks `window.__`. Ce sont des molettes debug intentionnelles.
 
+> **⚠ CADUC EN PARTIE depuis le 2026-08-23.** `isoFlag`, `setPixelMedian`/`__pixelMedian`,
+> `setRoadPaving`/`__roadPaving` et `pixelMedianFlag` ont été supprimés avec le rendu
+> top-down (cf. `docs/PLAN-SUPPRESSION-LEGACY.md`). `__pixelBridge` et `houseFitTune`
+> restent des molettes vivantes.
+
 **manual → ~60 hooks `window.__`/`globalThis.__` : tous vivants.** Deux familles : (i) knobs lus chaque frame avec `?? défaut` (l'utilisateur écrit en console : `__strideLen`, `__pedEdge`, `__ysortEps`, `__panMargin`, `__citizenMul`, `__cosmicTowerH`…) ; (ii) setters dont la VAR cible est relue par le rendu (vérifié ≥1 read chacun). Seul « write-only par le code » : `__layoutProfileLast` — mais c'est la **sortie d'un profiler** destinée à la console (activé par `__layoutProfile`). **Aucun DEAD_FLAG.**
 
 **manual → assets d'archive NON morts (gitignorés, sources de build) :**

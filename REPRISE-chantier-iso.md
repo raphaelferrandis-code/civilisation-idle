@@ -1,5 +1,30 @@
 # Plan de chantier — CARTE ISOMÉTRIQUE (rédigé 2026-07-10 — Phases 0-1 LIVRÉES le soir même)
 
+> # ✔ CHANTIER CLOS — 2026-08-23
+>
+> **L'isométrique n'est plus « le nouveau rendu » : c'est LE rendu.** Le pipeline top-down
+> qu'il doublait a été entièrement retiré, en huit étapes, le 2026-08-23. Il n'existe plus
+> ni dans la frame, ni en modules, ni en assets, ni en drapeau.
+>
+> | | |
+> |---|---|
+> | `renderWorld.js` | 2939 → ~735 lignes — ne rend plus le monde, ne garde que **les quais et la simulation d'émeute** |
+> | `agents.js` | 2417 → 1421 |
+> | `renderBuildings.js` | 1088 → 775 — ne dessine plus que les merveilles |
+> | `pixelTerrain.js` | 340 → 96 |
+> | Modules supprimés | `buildingShapes`, `plazaProps`, `pixelMedian`, `roadPaving`, `pixelRiver` |
+> | Assets retirés | 58 PNG + 6 scripts générateurs |
+> | Drapeau | `CM.iso`, `isoFlag`, `window.__iso`, `cmIsoMode` — **disparus** |
+>
+> **⚠ CE DOCUMENT EST UN JOURNAL DATÉ, PAS UN ÉTAT DES LIEUX.** Tout ce qu'il dit du
+> « legacy intact au flag près », de `__iso(false)` comme A/B ou du renderer « SÉPARÉ »
+> décrivait la réalité de juillet 2026 et ne la décrit plus. On ne le réécrit pas : sa
+> valeur est d'avoir enregistré les décisions et les pièges au moment où ils se posaient.
+>
+> **L'état qui fait foi aujourd'hui, c'est `docs/PLAN-SUPPRESSION-LEGACY.md`** — inventaire,
+> 26 pièges (dont ceux découverts en exécutant), et ce que chaque coupe a appris.
+
+
 ## ÉTAT D'AVANCEMENT (2026-07-10 soir)
 
 **Décisions verrouillées par Raphaël** : losange 2:1 ✓ caméra fixe ✓ sprites bâtiments
@@ -509,8 +534,10 @@ Vérifié in-game les 2 orientations (`m5-se-zoom`, `m5-sw2-zoom`). Reste : dér
 save de test coincée en crise → purge = `localStorage.removeItem("civilization-collapse-idle-v1")` + reload DANS LE MÊME appel (l'autosave réécrit sinon).
 
 **RESTE (polish futur, hors goal)** : bateaux cosmiques en rotations iso ;
-fanion du char re-rollable ; ponton béton à re-roller (eau bakée) ; régénérer
-les vues cardinales legacy dans la nouvelle DA ou retirer le top-down un jour.
+fanion du char re-rollable ; ponton béton à re-roller (eau bakée) ; ~~régénérer
+les vues cardinales legacy dans la nouvelle DA ou retirer le top-down un jour~~
+→ **✔ FAIT le 2026-08-23 : le top-down est retiré.** Voir la clôture en tête de
+fichier et `docs/PLAN-SUPPRESSION-LEGACY.md`.
 
 But : obtenir le rendu de l'image de référence de Raphaël (ville pixel-art vue en
 losange, rues en diagonale à l'écran) **sans toucher à la logique du jeu** : la grille,
