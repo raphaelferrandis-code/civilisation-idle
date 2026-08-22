@@ -845,7 +845,11 @@ function citizenChooseNext(p) {
   // inconnu / hors-route / molette d'avant la hiérarchie).
   const sidewalkEra = bandPed >= (CM.isoSidewalkMinBand != null ? CM.isoSidewalkMinBand : 2);
   const pedByRank = sidewalkEra ? CM.isoPedEdgeByRank : CM.isoPedEdgeLowByRank;
-  const isoPed = CM.iso && CM.isoPedEdge != null
+  // ⚠ LE GARDE `!= null` N'EST PAS UN RESTE DU DRAPEAU (P3). `agents.js` ne peut
+  // pas importer `isoRenderer` (import inverse) : la géométrie du trottoir lui est
+  // PUBLIÉE sur `CM` par `syncIsoStreetGeom`. En test unitaire, elle est absente —
+  // le repli plus bas doit survivre. Ne pas « simplifier » cette condition.
+  const isoPed = CM.isoPedEdge != null
     ? (pedByRank && pedByRank[rank] != null ? pedByRank[rank]
       : (sidewalkEra ? CM.isoPedEdge : CM.isoPedEdgeLow))
     : null;
@@ -854,7 +858,7 @@ function citizenChooseNext(p) {
   // Étalement PERSONNEL dans la bande (iso) : chaque habitant tient SA ligne de
   // trottoir (tirée de sa phase, stable pas après pas) — une file au cordeau
   // exact faisait un rail robotique. Appliqué AVANT le resserrement de pont.
-  if (CM.iso && CM.isoPedSpread) {
+  if (CM.isoPedSpread) {
     if (p.pedJ === undefined) p.pedJ = ((((p.phase || 0) * 389.71) % 1) - 0.5) * 2;
     pedEdge += p.pedJ * CM.TILE * CM.isoPedSpread;
   }
@@ -1066,7 +1070,7 @@ function updateCitizens(dt) {
         // Iso : la projection étale l'écran (losange 2:1) → la même vitesse MONDE
         // paraît plus rapide. Facteur de calme dédié (retour Raph « ils glissent »),
         // molette window.__isoWalkSpeed (défaut 0.72). Sans effet en legacy.
-        const isoK = CM.iso ? ((typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72) : 1;
+        const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
         // Course sous l'averse : l'animation étant cadencée par la DISTANCE parcourue
         // (walkDist ci-dessous), les jambes accélèrent d'elles-mêmes, sans bande dédiée.
         const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : 1);
@@ -1236,7 +1240,7 @@ function vehicleLaneTarget(v) {
     // ISO : centre de voie = demi-chaussée dessinée / 2 — par RANG de la cellule
     // (hiérarchie des largeurs : la file colle au ruban réel, étroit ou large),
     // repli sur le scalaire CM.isoVehLane ; legacy : heuristique procédurale.
-    const lane = (CM.iso && CM.isoVehLane != null)
+    const lane = (CM.isoVehLane != null)   // ⚠ garde de PUBLICATION, pas de drapeau (P3)
       ? ((CM.isoVehLaneByRank && CM.isoVehLaneByRank[rank] != null) ? CM.isoVehLaneByRank[rank] : CM.isoVehLane)
       : Math.min(0.24, Math.max(0.13, (medianHalfFor(rank, eiR) + roadWidthFor(rank, eiR) / 2) / 2));
     const m = s * (lane + laneBias);

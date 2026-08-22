@@ -44,7 +44,8 @@ import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles, pixelHouseImages } from './pixelHouses.js';
 import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
-// monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
+// monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
+// iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune, riverIslandObstacles, plaisirsHitTest } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
@@ -278,8 +279,7 @@ function cityMapBlitMargin(canvas, stateName) {
   CM.ctx.drawImage(canvas, bx - M, by - M, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
-// Monde↔écran : délégué à la projection unique (iso/projection.js). Identique au
-// mapping historique quand CM.iso est éteint.
+// Monde↔écran : délégué à la projection unique (iso/projection.js).
 function cityMapWorldAtScreen(sx, sy) {
   return screenToWorld(sx, sy);
 }
@@ -317,14 +317,16 @@ function cityMapCameraTarget(layout) {
   // comportement (aucune régression sur les grandes villes), on peut seulement
   // resserrer sur un petit village. Iso : mêmes tuiles = 2× la largeur (losange 2:1).
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
-  const perTile = T * (CM.iso ? 2 * ISO_X : 1);
+  const perTile = T * 2 * ISO_X;   // mêmes tuiles = 2× la largeur (losange 2:1)
   const baseZoom = CM.cw / (targetTiles * perTile);
 
   // Cadre sur le CONTENU bâti réel plutôt que sur le seul cœur procédural : le
   // cœur (plan.core) est souvent au bord SUD du bâti, donc centrer dessus pousse
   // le village en haut d'un coin avec un large anneau d'herbe morte autour.
   const b = cityContentBounds(layout);
-  if (b && CM.iso) {
+  // ⚠ Le test sur `b` RESTE : `cityContentBounds` peut rendre null (aucun contenu
+  // bâti), et c'est le repli plus bas qui prend alors la main. Seul `CM.iso` a sauté.
+  if (b) {
     // Fit-to-bounds iso : la bbox (Wt×Ht tuiles) se projette en un losange dont
     // l'étendue écran vaut (Wt+Ht)·ISO_X × (Wt+Ht)·ISO_Y. On zoome pour que ce
     // losange + une marge (anneau délibéré) remplisse le cadre, sans jamais
@@ -344,7 +346,7 @@ function cityMapCameraTarget(layout) {
     };
   }
 
-  // Repli (legacy top-down, ou aucun contenu) : cœur du plan + zoom historique.
+  // Repli quand il n'y a AUCUN contenu bâti à cadrer : cœur du plan + zoom historique.
   return {
     x: (layout.plan?.core?.x ?? layout.gridN / 2) * T,
     y: (layout.plan?.core?.y ?? layout.gridN / 2) * T,
@@ -398,39 +400,23 @@ function cmClampCamera() {
   const by1 = (N + 0.5 * N) * T;  // ... et en dessous
   const boxW = bx1 - bx0, boxH = by1 - by0;
   if (boxW <= 0 || boxH <= 0) return;
-  if (CM.iso) {
-    // Iso (Phase 1) : la boîte monde projetée est un losange dont l'étendue écran
-    // vaut (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan
-    // se contente de garder le CENTRE caméra dans la boîte monde (clamp exact
-    // bord-à-bord = intersection de losange, affiné en Phase 6 si besoin).
-    const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
-    const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
-    // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
-    // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
-    // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
-    // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
-    const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
-    if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
-    // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
-    // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
-    if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
-    CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
-    CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
-    return;
-  }
-  // Plancher de zoom : la boîte contient toujours le viewport (axe contraignant
-  // ajusté pile -> on prend le max des deux ajustements).
-  const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
-  const loTd = snapZoom(zoomFloor, 1), hiTd = snapZoom(3.2, -1);   // S11, cf. la branche iso
-  if (CM.cam.zoom < loTd) CM.cam.zoom = loTd;
-  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loTd, Math.min(hiTd, CM.zoomGoal)); // A9 : cible bornée comme cam.zoom
-  // Pan : chaque bord d'écran reste dans la boîte (centré si l'écran dépasse la
-  // boîte sur cet axe).
-  const halfW = (CM.cw / 2) / CM.cam.zoom, halfH = (CM.ch / 2) / CM.cam.zoom;
-  const loX = bx0 + halfW, hiX = bx1 - halfW;
-  const loY = by0 + halfH, hiY = by1 - halfH;
-  CM.cam.x = loX > hiX ? (bx0 + bx1) / 2 : Math.max(loX, Math.min(hiX, CM.cam.x));
-  CM.cam.y = loY > hiY ? (by0 + by1) / 2 : Math.max(loY, Math.min(hiY, CM.cam.y));
+  // La boîte monde projetée est un losange dont l'étendue écran vaut
+  // (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan se
+  // contente de garder le CENTRE caméra dans la boîte monde (clamp exact
+  // bord-à-bord = intersection de losange, jamais jugé nécessaire).
+  const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
+  const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
+  // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
+  // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
+  // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
+  // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
+  const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
+  if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
+  // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
+  // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
+  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
+  CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
+  CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
 }
 
 // A9 — Un pas d'amortissement de la caméra, appelé chaque frame avant le clamp.
@@ -646,10 +632,13 @@ function cityMapHitTest(sx, sy) {
         return wonderTip(b.wi);
       }
     } else {
-      // Repli (legacy top-down, ou 1re frame avant publication) : le disque au
-      // sol d'avant. Ancre PARTAGÉE avec drawWonder — ce hit-test projetait
-      // encore à la main, façon legacy, donc en iso la zone survolable ne
-      // tombait plus sur la merveille dessinée.
+      // ⚠ CE REPLI N'EST PAS MORT (P11). Son ancien commentaire disait « legacy
+      // top-down » ; il TOURNE en réalité à chaque frame où aucune merveille n'est
+      // dessinée — `CM._wonderBoxes` est remis à zéro par le peintre iso, donc la
+      // branche du dessus ne prend pas. C'est aussi le seul consommateur de
+      // `wonderAnchor` dans ce fichier. Repli sur le disque au sol, avec l'ancre
+      // PARTAGÉE avec drawWonder : projeter à la main ici décalait la zone
+      // survolable par rapport à la merveille dessinée.
       const activeWonders = cmWonderActiveIds(state);
       for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
         if (!activeWonders.has(CM_WONDERS[wi].id)) continue;

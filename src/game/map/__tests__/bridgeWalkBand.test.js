@@ -24,7 +24,6 @@ function setupBridge() {
   CM.TILE = TILE;
   CM.cam = { x: 0, y: 0, zoom: 1 };
   CM.cw = 800; CM.ch = 600; CM.nightF = 0;
-  CM.iso = true;
   const roadMap = new Map();
   const walkRoadSet = new Set();
   const walkRoadList = [];
@@ -70,7 +69,7 @@ function stepFrom(gyStart, goalGy, phase) {
   return p;
 }
 
-afterEach(() => { CM.layout = null; CM.bridgeSpans = null; CM.iso = false; });
+afterEach(() => { CM.layout = null; CM.bridgeSpans = null; });
 beforeEach(setupBridge);
 
 describe("zone de passage du tablier", () => {

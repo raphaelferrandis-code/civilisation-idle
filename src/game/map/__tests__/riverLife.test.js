@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import { CM } from "../layout.js";
-import { isoFlag, worldToScreen } from "../iso/projection.js";
+import { worldToScreen } from "../iso/projection.js";
 import { visibleT, riverLifeTune } from "../iso/isoRiverLife.js";
 
 // La vie de surface (pluie sur l'eau, feuilles à la dérive, saut de poisson) est
@@ -28,9 +28,8 @@ function setupCam({ zoom, cx }) {
 }
 
 describe("vie de surface — on sème là où on regarde", () => {
-  const savedIso = isoFlag.on;
-  beforeEach(() => { isoFlag.on = true; CM.iso = true; });
-  afterEach(() => { isoFlag.on = savedIso; CM.iso = savedIso; });
+  // Ce bloc armait `isoFlag`/`CM.iso` : parti avec le drapeau à l'étape 7
+  // (2026-08-23). Le losange est désormais la seule projection.
 
   it("ne retient qu'une PORTION du ruban au zoom de jeu", () => {
     setupCam({ zoom: 3, cx: 100 });

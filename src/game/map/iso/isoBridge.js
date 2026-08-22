@@ -356,7 +356,7 @@ function spanBand(g, st) {
 // longitudinal est LARGE (les cellules d'atterrissage en font partie — la
 // convergence lox/loy doit commencer avant d'engager la travée).
 export function bridgeWalkBand(wx, wy) {
-  if (!CM.iso || !isoBridge3dFlag.on) return null;
+  if (!isoBridge3dFlag.on) return null;
   const geos = bridgeGeoms();
   if (!geos) return null;
   const T = CM.TILE;
@@ -460,7 +460,7 @@ function spanSprite(g, st) {
 // Lit le DERNIER cache géo (_geo) : les consommateurs dessinent dans la même
 // frame que pushIsoBridgeItems, qui vient de le (re)calculer.
 export function bridgeLiftScreen(wx, wy) {
-  if (!CM.iso || !isoBridge3dFlag.on) return 0;
+  if (!isoBridge3dFlag.on) return 0;
   const geos = _geo.list;
   if (!geos) return 0;
   const T = CM.TILE;

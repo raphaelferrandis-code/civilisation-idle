@@ -22,26 +22,24 @@ import { CM, cmWonderSlot, cmWonderExtent, cmWonderHeightTiles, CM_WONDERS } fro
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
 
-// ISO PAR DÉFAUT (Phase 6, goal Raph 2026-07-11) : le losange EST le jeu.
-// `__iso(false)` garde le legacy top-down accessible (A/B, secours) et PERSISTE
-// le choix (localStorage cmIsoMode) — en Node/tests le stockage est absent et
-// les suites fixent CM.iso elles-mêmes.
-export const isoFlag = { on: true };
+// LE LOSANGE EST LA SEULE PROJECTION. Le drapeau `isoFlag` / `CM.iso` et sa molette
+// `window.__iso` vivaient ici : ils choisissaient entre ce module et l'ancienne
+// projection planaire du rendu top-down. Ce dernier a été retiré aux étapes 4 à 6 ;
+// le drapeau est parti à l'étape 7, le 2026-08-23. Plus rien à basculer.
+//
+// ⚠ Ordre respecté à la lettre : `CM.iso` absent vaut `undefined` vaut `false` —
+// supprimer cette définition AVANT son dernier lecteur aurait rallumé toutes les
+// branches legacy en silence, sans une seule erreur. Condition de passage tenue
+// (P22) : plus aucun `CM.iso` ni `isoFlag` dans `src/`, hors commentaires.
+// ⚠⚠ La condition NAÏVE du plan — chercher `CM.iso` seul — était insuffisante :
+// `pixelHouses.js` lisait `isoFlag` directement, et trois lecteurs apparus après
+// la rédaction (isoBridge ×2, isoRenderer ×1) n'y figuraient pas non plus.
+
+// Nettoyage ponctuel : la clé de persistance du choix de pipeline ne veut plus rien
+// dire. La laisser traînerait un « 0 » inerte chez qui avait fait `__iso(false)`.
 try {
-  if (typeof localStorage !== "undefined" && localStorage.getItem("cmIsoMode") === "0") isoFlag.on = false;
-} catch { /* stockage indisponible : défaut iso */ }
-CM.iso = isoFlag.on;
-if (typeof window !== "undefined") {
-  window.__iso = (on) => {
-    isoFlag.on = on !== false;
-    CM.iso = isoFlag.on;
-    try { localStorage.setItem("cmIsoMode", isoFlag.on ? "1" : "0"); } catch { /* privé/plein */ }
-    // Invalide les bakes (le mapping change) + recadre la caméra proprement.
-    CM._groundBake = null; CM._staticBake = null; CM._tileBake = null; CM._isoGroundBake = null;
-    CM.centered = false;
-    return isoFlag.on;
-  };
-}
+  if (typeof localStorage !== "undefined") localStorage.removeItem("cmIsoMode");
+} catch { /* stockage indisponible : rien à nettoyer */ }
 
 // ── S11 — QUANTIFICATION DU ZOOM (docs/PLAN-RENDU-VILLE.md) ─────────────────
 // Le pas de grille du sol vaut hw = TILE·z·ISO_X et hh = TILE·z·ISO_Y, soit 32z et
@@ -93,7 +91,6 @@ if (typeof window !== "undefined") {
 export function worldToScreen(wx, wy) {
   const z = CM.cam.zoom;
   const dx = wx - CM.cam.x, dy = wy - CM.cam.y;
-  if (!CM.iso) return { x: dx * z + CM.cw / 2, y: dy * z + CM.ch / 2 };
   return {
     x: (dx - dy) * ISO_X * z + CM.cw / 2,
     y: (dx + dy) * ISO_Y * z + CM.ch / 2,
@@ -104,7 +101,6 @@ export function worldToScreen(wx, wy) {
 export function screenToWorld(sx, sy) {
   const z = CM.cam.zoom;
   const ax = (sx - CM.cw / 2) / z, ay = (sy - CM.ch / 2) / z;
-  if (!CM.iso) return { x: ax + CM.cam.x, y: ay + CM.cam.y };
   // ax = dx − dy ; ay/ISO_Y = dx + dy
   const b = ay / ISO_Y;
   return { x: (b + ax) / 2 + CM.cam.x, y: (b - ax) / 2 + CM.cam.y };
@@ -113,7 +109,6 @@ export function screenToWorld(sx, sy) {
 // Delta caméra (monde) → delta écran. Sert aux bakes offscreen (pan = translation).
 export function panDeltaToScreen(dwx, dwy) {
   const z = CM.cam.zoom;
-  if (!CM.iso) return { x: dwx * z, y: dwy * z };
   return { x: (dwx - dwy) * ISO_X * z, y: (dwx + dwy) * ISO_Y * z };
 }
 
@@ -121,14 +116,13 @@ export function panDeltaToScreen(dwx, dwy) {
 // (la souris tire la carte en px écran, la caméra vit en px monde).
 export function screenDeltaToPan(dsx, dsy) {
   const z = CM.cam.zoom;
-  if (!CM.iso) return { x: dsx / z, y: dsy / z };
   const ax = dsx / (ISO_X * z), b = dsy / (ISO_Y * z);
   return { x: (b + ax) / 2, y: (b - ax) / 2 };
 }
 
 // Profondeur du peintre : plus grand = plus « devant » (dessiné après).
 export function depthOf(wx, wy) {
-  return CM.iso ? wx + wy : wy;
+  return wx + wy;
 }
 
 // SOURCE UNIQUE de l'ancre écran d'une merveille. Le sprite reste debout
@@ -178,7 +172,6 @@ export function wonderFootWorld(idx, gridN, cx, cy) {
   const slot = cmWonderSlot(idx, gridN, cx, cy);
   const T = CM.TILE;
   const legacy = { x: slot.gx * T + T / 2, y: slot.gy * T + T };
-  if (!CM.iso) return legacy;
   const w = CM_WONDERS[idx];
   if (!w || w.id === "era_mega") return legacy;
   // Rang LU SUR LE PLAN (celui qui a dimensionné le parvis), aperçu prioritaire :
@@ -200,10 +193,6 @@ export function wonderAnchor(idx, gridN, cx, cy) {
 export function tileDiamond(gx, gy) {
   const T = CM.TILE;
   const wx = gx * T, wy = gy * T;
-  if (!CM.iso) {
-    const a = worldToScreen(wx, wy), c = worldToScreen(wx + T, wy + T);
-    return { n: a, e: { x: c.x, y: a.y }, s: c, w: { x: a.x, y: c.y }, c: worldToScreen(wx + T / 2, wy + T / 2) };
-  }
   return {
     n: worldToScreen(wx, wy),            // sommet haut (coin nord de la cellule)
     e: worldToScreen(wx + T, wy),        // droite
@@ -224,7 +213,6 @@ export function tileDiamond(gx, gy) {
 // Marge basse séparée (`marginDownPx`) : les sprites se DRESSENT depuis leur
 // base — une base sous le bord bas de l'écran peut encore montrer sa tour.
 export function visibleDiamondBounds(marginPx = 0, marginDownPx = 0) {
-  if (!CM.iso) return null; // legacy : la boîte englobante est déjà exacte
   const l = screenToWorld(-marginPx, 0), r = screenToWorld(CM.cw + marginPx, 0);
   const t = screenToWorld(0, -marginPx), bo = screenToWorld(0, CM.ch + marginDownPx);
   return { u0: l.x - l.y, u1: r.x - r.y, v0: t.x + t.y, v1: bo.x + bo.y };

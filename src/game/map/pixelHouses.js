@@ -14,7 +14,6 @@ import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
 import { HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
-import { isoFlag } from './iso/projection.js';
 import { houseFootprint } from './procedural/buildingGenerator.js';
 
 export const pixelHousesFlag = { on: true };
@@ -237,9 +236,8 @@ function pixelHouseGeom(t, x, y, w, h) {
   // Facteur commun + clamp au lot : LA formule vit dans spriteScale.js
   // (houseScaleK), partagée avec l'audit du grain — ne pas la recopier ici.
   // Côté iso, la boîte w est cousue sur (spanX+spanY) → on passe la vraie
-  // profondeur pour l'unité honnête (correction 1×2, G1) ; le legacy top-down
-  // passe spanY = span et garde son unité historique (jamais eu l'anomalie).
-  const spanY = isoFlag.on ? (t.spanY || span) : span;
+  // profondeur pour l'unité honnête (correction 1×2, G1).
+  const spanY = t.spanY || span;
   const k = houseScaleK(span, w, bb.w, spanY, key);
   recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k));
@@ -336,7 +334,7 @@ export function houseSpriteHeightTiles(variant) {
   const e = cache.get(key);
   if (!(e && e.ready && e.bbox)) return null;
   const [sx, sy] = houseFootprint(variant, CM.layout?.counts?.eraBand | 0);
-  const shape = isoFlag.on ? (2 * sx) / (sx + sy) : 1;
+  const shape = (2 * sx) / (sx + sy);
   const f = grainTune.on && GRAIN_FIX[key] ? Math.max(0.8, Math.min(1.25, GRAIN_FIX[key])) : 1;
   return (e.bbox.h / HOUSE_UNIT) * shape * f;
 }

@@ -314,8 +314,7 @@ function cityMapDrawQuays(now, mode) {
     return t * t * (3 - 2 * t);
   };
   // Point écran à l'offset additif `base` (tapered) du sample i, sur la rive `side`.
-  // Projection via le module iso (IDENTITÉ quand CM.iso off) → les quais suivent
-  // le ruban dans les DEUX modes ; appelé aussi par drawIsoWorld en Phase 5.
+  // Projection via le module iso → les quais suivent le ruban ; appelé par drawIsoWorld.
   const pt = (i, side, base, tap) => {
     const s = sm[i], n = cmRiverNormalAt(sm, i), off = s.hw + base * tap;
     const q = isoWorldToScreen((s.x + side * n.nx * off) * T, (s.y + side * n.ny * off) * T);

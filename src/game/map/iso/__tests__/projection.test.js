@@ -13,9 +13,8 @@ beforeEach(() => {
   CM.TILE = 32;
   CM.cw = 800; CM.ch = 600;
   CM.cam = { x: 1000, y: 2000, zoom: 1.5 };
-  CM.iso = false;
 });
-afterEach(() => { CM.iso = false; CM.layout = null; });
+afterEach(() => { CM.layout = null; });
 
 // Slot de merveille ÉPINGLÉ : cmWonderSlot rend tel quel un slot mémorisé dont
 // la signature (gridN, cx, cy) correspond — la géométrie du plan ne joue donc
@@ -32,35 +31,12 @@ function legacyPlanarAnchor(gx, gy) {
   };
 }
 
-describe("projection — mode legacy (CM.iso off)", () => {
-  it("réplique exactement l'ancien mapping écran", () => {
-    const p = worldToScreen(1100, 2050);
-    expect(p.x).toBe((1100 - 1000) * 1.5 + 400);
-    expect(p.y).toBe((2050 - 2000) * 1.5 + 300);
-  });
-
-  it("aller-retour exact", () => {
-    const w = screenToWorld(123, 456);
-    const p = worldToScreen(w.x, w.y);
-    expect(p.x).toBeCloseTo(123, 6);
-    expect(p.y).toBeCloseTo(456, 6);
-  });
-
-  it("depthOf = wy (tri du peintre actuel)", () => {
-    expect(depthOf(50, 70)).toBe(70);
-  });
-
-  it("wonderAnchor reproduit l'ancienne projection planaire au bit près", () => {
-    pinWonderSlot(26, 14);
-    const a = wonderAnchor(0, WSLOT.gridN, WSLOT.cx, WSLOT.cy);
-    const legacy = legacyPlanarAnchor(26, 14);
-    expect(a.x).toBe(legacy.x);
-    expect(a.y).toBe(legacy.y);
-  });
-});
-
-describe("projection — mode iso (losange 2:1)", () => {
-  beforeEach(() => { CM.iso = true; });
+// ⚠ `legacyPlanarAnchor` ci-dessus RESTE malgré son nom : il ne pilote plus rien,
+// il sert de TÉMOIN — le test « wonderAnchor N'EST PAS la projection planaire »
+// vérifie que l'ancre iso en DIVERGE. Le `describe` « mode legacy » qui vivait ici
+// est parti avec le drapeau `CM.iso` (étape 7, 2026-08-23) : il n'y a plus qu'une
+// projection, et le describe ci-dessous couvrait déjà chacun de ses cas.
+describe("projection — losange 2:1", () => {
 
   it("une tuile devient un losange 2·TILE × TILE (64×32 à zoom 1)", () => {
     CM.cam = { x: 0, y: 0, zoom: 1 };
