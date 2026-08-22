@@ -43,34 +43,19 @@ import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonde
 import { drawIsoWorld, waterShoreTune, riverIslandObstacles, plaisirsHitTest } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
-import {
-  cityMapDrawGround,
-  cityMapDrawTerrain,
-  cityMapDrawRiver,
-  cityMapDrawTrees,
-  cityMapDrawUrbanMass,
-  cityMapDrawNight,
-  cityMapDrawStreetLights,
-  cityMapDrawBridges,
-  cityMapDrawBridgeLights,
-  cityMapDrawPlazaSurface,
-  cityMapDrawPlazas,
-  cityMapDrawPlazaTallProps,
-  cityMapDrawQuays,
-  cityMapDrawCityReflections,
-  cityMapDrawHealthTint,
-  cityMapDrawCityLights,
-  drawCrisis,
-  cityMapDrawRoad,
-  cityMapDrawRoadMarkings,
-  cityMapCalmRioterAt,
-  quayWallTune
-} from './renderWorld.js';
-import { drawTile, drawWonder } from './renderBuildings.js';
-import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, vehSkinFor, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
-import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
-import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
-import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
+// ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
+// (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
+// garde que le clic d'apaisement et le réglage de mur de quai, les cinq autres
+// modules ne sont plus tenus que par les molettes console (bloc `window.__*` en
+// fin de fichier) — l'étape 6 les emportera. Élagué à la MESURE, pas au plan :
+// celui-ci annonçait de supprimer les lignes `renderBuildings`, `pixelRiver` et
+// `pixelBridge`, alors que quatre de leurs symboles sont encore lus ici, et il
+// oubliait `vehSkinFor`.
+import { cityMapCalmRioterAt, quayWallTune } from './renderWorld.js';
+import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
+import { pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
+import { setPixelWater, waterRippleTune } from './pixelRiver.js';
+import { pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
@@ -2104,157 +2089,20 @@ function initCityMap(canvas, options = {}) {
           islandT: CM.riverIslandT,
         });
       fp('flotte');
-      // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
-      // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
-      // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
-      if (CM.iso && drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin })) {
-        // frame iso rendue — le bloc legacy garde son indentation historique.
-      } else {
-      // --- Couches statiques (rebake si layout/zoom/nuit change OU pan > marge) ---
-      // NB: sol ET rivière ne sont PAS dans ce canvas — dessinés live pour l'ordre :
-      // sol → rivière → (blit décor : arbres/routes/ponts/lumières).
-      const _otherStatic = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1) + ':' + CM.healthF.toFixed(1);
-      cityMapBakeMargin(CM.staticCanvas, CM.sctx, '_staticBake', _otherStatic, () => {
-        cityMapDrawTrees();
-        cityMapDrawUrbanMass(CM.layout);
-        cityMapDrawPlazaSurface();
-        // Routes : pixel edge-Wang (dans drawPixelTerrain) si flag, sinon procédural.
-        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
-          for (const r of CM.roadList) cityMapDrawRoad(r);
-          cityMapDrawRoadMarkings();
-        }
-        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawStreetLights(now);
-      });
-      // Sol + rivière d'abord (sous le canvas statique), puis blit.
-      // Le SOL (procédural + tuiles pixel + relief) est statique à caméra fixe :
-      // baké dans un canvas offscreen et blitté chaque frame (en live, le sol
-      // pixel coûtait ~7 ms/frame). La rivière et les couches animées restent
-      // live PAR-DESSUS le blit — ordre inchangé.
-      if (CM.groundCanvas) {
-        const _otherGround = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':'
-          + (state.timeWear || 0).toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0)
-          + ':' + (pixelSidewalkFlag.on ? 1 : 0);
-        cityMapBakeMargin(CM.groundCanvas, CM.gctx, '_groundBake', _otherGround, () => {
-          CM._groundBakeStable = true; // drawPixelTerrain le baisse si tileset de repli
-          cityMapDrawGround(CM.layout);
-          const _pg = pixelTerrainFlag.on && drawPixelTerrain(CM);
-          if (!_pg) cityMapDrawTerrain();
-          // Tilesets encore en chargement → renvoyer false = re-bake à la frame suivante.
-          return (_pg || !pixelTerrainFlag.on) && CM._groundBakeStable;
-        });
-        cityMapBlitMargin(CM.groundCanvas, '_groundBake');
-      } else {
-        // Repli sans canvas offscreen : rendu live historique.
-        cityMapDrawGround(CM.layout);
-        // Prototype pixel-art : couche terrain en tuiles Wang (herbe + routes de
-        // terre) par-dessus le sol procédural, derrière le flag pixelTerrainFlag.
-        const _pixelGround = pixelTerrainFlag.on && drawPixelTerrain(CM);
-        // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
-        // + berges, SOUS le fleuve et la ville (qui restent plats).
-        if (!_pixelGround) cityMapDrawTerrain();
-      }
-      // Prototype pixel-art : corps d'eau clippé au ruban (Approche A), derrière
-      // le flag pixelWaterFlag. Renvoie false (layout/fleuve absent) -> fallback
-      // sur le rendu vectoriel intact. Inséré à la place exacte de l'ancien appel
-      // -> ordre de blit préservé (ponts/bateaux recouvrent l'eau gratuitement).
-      if (!(pixelWaterFlag.on && drawPixelRiver(CM, now))) cityMapDrawRiver(now);
-      // Quais : berge construite (pierre/béton/énergie) là où la ville borde l'eau,
-      // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
-      cityMapDrawQuays(now);
-      // Reflets nocturnes des bâtiments riverains sur l'eau (nappes lumineuses
-      // clippées au ruban), sous les bateaux/blit statique.
-      cityMapDrawCityReflections(now);
-      // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
-      // bâtiments (le blit statique les recouvre aux croisements).
-      drawShips();
-      if (CM.staticCanvas) {
-        cityMapBlitMargin(CM.staticCanvas, '_staticBake');
-      } else {
-        // sol + rivière déjà dessinés live au-dessus
-        cityMapDrawTrees();
-        cityMapDrawUrbanMass(CM.layout);
-        cityMapDrawPlazaSurface();
-        // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
-        // est actif ; sinon rendu procédural (voies doubles + marquages) PAR-DESSUS le sol.
-        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
-          for (const r of CM.roadList) cityMapDrawRoad(r);
-          cityMapDrawRoadMarkings();
-        }
-        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawStreetLights(now);
-      }
-      // --- Couches dynamiques (animees, chaque frame) ---
-      // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
-      cityMapDrawPlazas(now);
-      updateVehicles(dt);
-      // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
-      // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
-      // drawGroundAgents = MAJ citoyens + rendu SOL (piétons + véhicules) triés ENSEMBLE
-      // par Y (1re passe : agents « derrière » un bâtiment).
-      if (!CM.lodActive) {
-        drawGroundAgents(dt, now);
-      }
-      // Props TALL des places (fontaines + drapeaux/lampadaires) dessinés ICI (entre les 2
-      // passes d'habitants) → Y-SORT : au sud du prop = devant (2e passe), au nord = derrière
-      // (déjà dessiné). Le mobilier bas (bancs/bacs) reste dans cityMapDrawPlazas (avant agents).
-      cityMapDrawPlazaTallProps(now);
-      const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
-      // (CM.engineHomeReveal est calculé AVANT la bascule iso/legacy, cf. plus haut.)
-      if (CM.layout) {
-        if (now >= CM.tileDirtyUntil && CM.tileCanvas) {
-          // Hors fenêtre de naissance : bake les tuiles statiques (marge = pan fluide),
-          // engine toujours live. La clé inclut engineHomeReveal → re-bake quand une
-          // maison-moteur est révélée (per-buy, ~5 ms, pas les 800 ms du recompute).
-          const _otherTile = CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(2) + ':' + tw.toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (CM.engineHomeReveal || 0);
-          cityMapBakeMargin(CM.tileCanvas, CM.tctx, '_tileBake', _otherTile, () => {
-            for (const t of CM.layout.tiles) if (t.type !== "engine") drawTile(t, now, tw, maxD2);
-          });
-          cityMapBlitMargin(CM.tileCanvas, '_tileBake');
-          // Tuiles engine toujours dessinées live : leurs sprites ont des animations (feu, roues...).
-          for (const t of CM.layout.tiles) if (t.type === "engine") drawTile(t, now, tw, maxD2);
-        } else {
-          // Pendant la fenêtre de naissance : tout live
-          for (const t of CM.layout.tiles) drawTile(t, now, tw, maxD2);
-        }
-      }
-      // Y-SORT — 2e passe : agents DEVANT un bâtiment (voisin nord bâti), dessinés PAR-DESSUS
-      // le blit des bâtiments pour ne pas être rognés. dt=0 → aucune MAJ (déjà faite plus haut).
-      // Piétons + véhicules « devant » toujours triés ENSEMBLE par Y (drawGroundAgents).
-      if (!CM.lodActive) {
-        drawGroundAgents(0, now, true);
-      }
-      // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
-      // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.
-      cityMapDrawHealthTint();
-      // Nuit : assombrit la scene, les villes avancees se mettent a briller.
-      cityMapDrawNight(now);
-      // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
-      cityMapDrawCityLights(now);
-      // Lampes de pont (additif) : par-dessus le voile de nuit, comme les fenêtres.
-      cityMapDrawBridgeLights(now);
-      drawCrisis(dt, now);
-      // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
-      // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) sont dessinées ;
-      // une merveille en sommeil (cité pas encore assez grande) rejouera son
-      // animation de levée quand l'ère atteindra son seuil — on (re)cale alors son
-      // horodatage de naissance, et on l'efface quand elle redevient dormante.
-      if (CM.layout && Array.isArray(state.wonders)) {
-        const activeWonders = cmWonderActiveIds(state);
-        const pv = CM.previewWonder; // aperçu dev (__showWonder) : force le rendu
-        for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-          const w = CM_WONDERS[wi];
-          if (activeWonders.has(w.id) || (pv && pv.id === w.id)) {
-            if (!CM.born["wonder:" + w.id]) CM.born["wonder:" + w.id] = now;
-            drawWonder(w, wi, now);
-          } else if (CM.born["wonder:" + w.id]) {
-            delete CM.born["wonder:" + w.id];
-          }
-        }
-      }
-      drawVehicles(now, "air"); // drones au-dessus
-      if (!CM.lodActive) drawCitizenThoughts(now);
-      } // fin du pipeline legacy (voir la bascule CM.iso en tête de bloc)
+      // LA CARTE N'A PLUS QU'UN CHEMIN DE RENDU. drawIsoWorld peint la frame
+      // entière, simulation des agents incluse (iso/isoRenderer.js). Le pipeline
+      // top-down qui vivait ici — 145 lignes derrière un `else` — a été retiré le
+      // 2026-08-23 (étape 4 de docs/PLAN-SUPPRESSION-LEGACY.md).
+      //
+      // ⚠ LE GARDE EST AVANT L'APPEL, PAS APRÈS. `drawIsoWorld` renvoie false
+      // quand CM.layout est nul, et c'est le bloc legacy qui rattrapait ce cas :
+      // il peignait encore un fond (son `cityMapDrawGround` prenait `layout?.`,
+      // le `?.` prouvant que le cas était prévu). Sans lui, on sort de la frame
+      // proprement. Le retour de drawIsoWorld n'est donc plus consommé.
+      // Sortir ici est sûr : `frame` a ré-armé son rAF bien plus haut, comme le
+      // font déjà les deux replis d'entrée de la fonction.
+      if (!CM.layout) { fpEnd(); return; }
+      drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin });
       fpEnd();
     }
   }
