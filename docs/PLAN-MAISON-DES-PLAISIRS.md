@@ -1,7 +1,12 @@
 # La Maison des Plaisirs
 
-> **État 2026-08-05 : conception arbitrée, art en cours de tirage.** Ce fichier fait
-> foi pour le chantier. Rien n'est câblé, aucun sprite n'est encore déposé.
+> **État 2026-08-22 : le lieu est en jeu.** Ce fichier fait foi pour le chantier.
+> Sprite déposé, onglet ouvert, jeux migrés, placement en pleine eau, domaine
+> réservé et aura livrés. Restent le « où est Charlie » (volet 4) et les paliers
+> d'ère 1 et 3 du sprite (un seul palier est dessiné à ce jour).
+>
+> *(Les sections datées 2026-08-05 décrivent la conception ; elles sont conservées
+> pour les arbitrages et les pièges de tirage, pas pour l'état d'avancement.)*
 
 Un grand lieu de divertissement en bordure de ville, dans l'esprit du Gold Saucer :
 on y joue, on y écoute, on s'y amuse. Il est là dès la première ère et il ne se
@@ -265,6 +270,131 @@ distance au centre = 3,6 N × (u − 0,5)
 
 ⚠ Rester **sous 0,639**, sinon le monument sort de la grille.
 
+### ⛔ Et une abscisse fixe ne fixe PAS une distance — correctif du 2026-08-22
+
+Retour de Raph sur capture : « **beaucoup trop proche du centre** ». Le tableau
+ci-dessus dit pourquoi sans le dire : `0,29 N` n'est une distance qu'à `N` donné,
+et `N` part de **20** en début de partie pour finir à **360**.
+
+| `N` | avant (`u` fixe = 0,58) | après | écart au pont |
+|---|---|---|---|
+| 20-22 | **5,8 tuiles** — le sprite en fait 6,5 de large | **12,4** | 11,1 |
+| 30 | 8,6 | 14,7 | 14,0 |
+| 46 | 13,2 | 19,4 | 18,7 |
+| 70 | 20,2 | 29,6 | 28,1 |
+| 98 | 28,2 | 42,6 | 41,1 |
+
+Le pont historique se pose sur la colonne du cœur urbain, lequel ne dérive que de
+**±0,08 N** du centre de grille (`cityPlan.js` : `cx + (rng − 0,5)·N·0,16`). À
+N = 20, la tour et la traversée tombaient donc **au même endroit** — c'est
+exactement la capture.
+
+✅ **La distance se calcule maintenant en TUILES, puis se reconvertit en abscisse** :
+
+```
+d = max( 0,08·N + PAD , 0,43·N )        PAD = 12 (demi-sprite 3,25 + demi-tablier 1 + l'air)
+u = 0,5 + d / (3,6·N)
+```
+
+⛔ **ET CETTE FORMULE A ÉTÉ REFUSÉE À SON TOUR — voir la section suivante.** Elle
+est conservée parce qu'elle documente le piège de l'échelle de `u`, pas parce
+qu'elle décrit le code.
+
+### ✅ LA RÈGLE QUI TIENT : on ne fuit pas le centre, on fuit LA VILLE
+
+Trois refus, et c'est le troisième qui a tout invalidé :
+
+| pose | distance | verdict |
+|---|---|---|
+| `u = 0,82` | 1,15 N | « c'est vraiment très éloigné » — 2026-08-06 |
+| `u = 0,58` | 0,29 N | « beaucoup trop proche du centre » — 2026-08-22 |
+| `u = 0,62` | 0,43 N | « il est **toujours dans le rayon de la ville** et je ne veux pas ça » |
+
+Les trois raisonnaient en **fraction de grille**. Or la ville n'occupe pas une
+fraction fixe de la grille : son emprise dépend de l'ère, de la population et de
+l'archétype, et `reachFor` l'étire jusqu'à **1,9 fois** son rayon nominal dans la
+direction d'allongement — laquelle, pour un plan `linear`, suit justement le
+fleuve. Une carte pouvait donc rester bâtie bien au delà de 0,43 N.
+
+La place ne se **calcule** plus, elle se **marche** : on remonte le cours vers
+l'aval, échantillon par échantillon, et on s'arrête au premier qui soit
+franchement hors de l'emprise urbaine **dans sa propre direction** :
+
+```
+hypot(sp − cœur)  ≥  reachFor(cœur → sp) · reachMul  +  gap     (1,35 et 12 tuiles)
+```
+
+`reachFor` est exactement ce que consulte `organicLimit` pour décider si une
+cellule est constructible : on interroge donc la ville, pas la grille. Le
+résultat ne dépend plus du tout de `N`, et il s'adapte tout seul à l'ère et à
+l'archétype. Mesure en jeu (N = 98, bande 1, archétype `scattered`) :
+
+| | bâtiment le plus proche du monument |
+|---|---|
+| avant (0,43 N) | **8,2** — c'est-à-dire le domaine réservé, et rien d'autre |
+| après (la marche) | **21,2** — de la forêt, pas un faubourg |
+
+📌 **C'est cette mesure-là qui tranche**, pas la distance au centre : si le
+bâtiment le plus proche retombe à ~8 tuiles, c'est que seul le domaine réservé
+tient encore la ville à distance et que la marche a cessé de fonctionner.
+
+⚠ **Le déplacement de code qui rend ça possible** : `generateCityPlan` remonte
+AVANT la peinture du lit. C'est sans risque et vérifiable — il ne touche ni à
+`corridorAt` ni à `riverYAt` pendant sa construction, les deux ne servant qu'à
+`finalize()`, qui reste, lui, après le lit. Les Sets et tableaux de colonnes sont
+déclarés en haut et remplis plus bas (⚠ TDZ : déclarés vides, jamais capturés
+non initialisés).
+
+⛔ **Le seul cas où la marche perd** : en toute fin de partie, une ville qui
+couvre la carte ne laisse plus de « dehors ». La marche voudrait alors se poser
+au delà de 1 N — le voisinage exact du 1,15 N déjà refusé. On tranche en faveur
+du cadrage : borne `uMax` à **0,79 N**, à la lisière de la mégalopole.
+Molette pour arbitrer autrement : `globalThis.__plaisirsFar = 1.6` puis
+`window.__cityRecompute()`.
+
+Trois propriétés, verrouillées par `src/game/map/__tests__/plaisirsPlacement.test.js` :
+
+- le plancher **ne mord qu'en dessous de N ≈ 45** — au delà, 0,58 reprend la main
+  intact, la doctrine d'origine est préservée ;
+- la distance ne **décroît jamais** quand la carte grandit (condition de Raph : le
+  lieu ne se rapproche pas de la ville en cours de partie) ;
+- l'écart au pont reste ≥ demi-sprite + demi-tablier **au pire cas de dérive**.
+
+⚠ **Le plancher PRIME sur le plafond des 0,639**, et c'est délibéré : à N = 20 il
+place le monument à 0,46 N, presque au bord. Un monument qui déborde un peu de la
+grille tombe dans la **forêt sauvage**, laquelle n'a pas de bord (`isoWildForest`
+ne teste aucune borne de grille — vérifié) et est donc dessinée normalement. Un
+monument à cheval sur le pont, lui, est une faute de lecture.
+
+### Le domaine réservé — et pourquoi 6 tuiles ne réservaient rien
+
+Le plan le réclamait dès la conception (« une emprise pareille demande une zone
+réservée ») ; ce n'avait jamais été câblé. C'est fait : disque de `clear` tuiles
+autour du pied, tenu **hors de `reserved`** à dessein (`reserved` alimente aussi
+`demand`, qui *protège* les routes de l'émondage — un domaine qui attire les
+routes ferait l'inverse de ce qu'on lui demande). Trois portes seulement, celles
+qui posent quelque chose : districts (`footFits`), moteurs (`claimed`), bâti et
+arbres (la boucle `cells`). Plus le filtre des traversées seedées côté
+`roadGraph` (`bridgeAvoid`).
+
+⛔ **Aucune carve de route.** Le précédent est écrit dans la carve des merveilles :
+`era_mega` en est exemptée parce qu'elle vit sur le fleuve, et couper une travée
+au bord de l'eau coupe la ville en deux.
+
+⚠ **Premier rayon (6 tuiles) MESURÉ INOPÉRANT.** Au droit du monument le lit
+évasé fait `hw ≈ 5,6`, et le corridor eau + berge en fait déjà **7** : le domaine
+vivait entièrement dedans. Mesure avant/après sur une vraie carte (N = 98) :
+
+| | bâtiment le plus proche | arbre | route |
+|---|---|---|---|
+| `clear = 6` | 8,17 (dû au seul corridor) | 8,04 | 7,32 |
+| `clear = 8` | 8,17 | 8,04 | **8,14** |
+
+Le bâti était déjà tenu par le corridor ; c'est la **route** qui bougeait, et
+elle a bougé par ricochet (privée de bâti à desservir, elle a perdu sa demande et
+le trim l'a émondée). Toute reprise de ce rayon doit se mesurer ainsi, pas se
+juger à l'œil : sous ~7, il ne se passe rien.
+
 ### Rien à inventer : le bloc `era_mega` fait déjà tout
 
 `layout.js:2183-2258` construit exactement ça pour la merveille `era_mega` (l'île
@@ -375,6 +505,70 @@ sont déjà proprement isolés, la migration est peu risquée.
 À trancher au moment de câbler : la **mise reste-t-elle en Faveur** ? Garder la
 Faveur ne demande aucun rééquilibrage et c'est la voie recommandée ; en changer
 rouvrirait l'économie du Temple.
+
+## Volet 3 bis — l'aura (2026-08-22)
+
+> Demande de Raph, même séance que l'éloignement : « lui donner une sorte d'aura
+> autour, **un peu comme ce qui est fait pour la merveille de l'oeil, mais unique
+> à ce batiment** ». ✅ **LIVRÉ**, module dédié `src/game/map/iso/isoPlaisirs.js`
+> (le renderer iso pèse déjà 11 000 lignes), sans import retour — donc aucun
+> cycle ES. Molette : `window.__plaisirsAura({ … })`.
+
+**Point de départ, et il était embarrassant :** le monument n'émettait **aucune
+lumière**. Son blit posait le sprite et rien d'autre — ses cent lanternes cuites
+n'éclairaient pas un pixel d'eau, ce qui est mot pour mot la définition de
+l'autocollant donnée en tête de `flameGlow.js`. Trois foyers `queueFlameGlow`,
+un par plateau, corrigent ça quoi qu'il advienne du reste.
+
+### Trois couches, chacune à sa place dans la frame
+
+| | où | quoi | jour/nuit |
+|---|---|---|---|
+| **Le cerne** | tri peintre, couche de lumière | ellipse **couchée dans le plan iso**, allongée par le courant : nappe très faible + champ d'éclats + guirlande de feux au bord | nuit surtout, guirlande visible de jour |
+| **Les faisceaux** | passe de nuit | 3 rais minces qui balaient le ciel depuis la flèche, en 7 paliers francs | nuit pure |
+| **Les lanternes** | passe de nuit | lampions qui se détachent des plateaux et **montent** | atténuées de jour |
+
+Ce qui rend la figure **unique** : celle de l'Œil est une sphère en l'air, celle-ci
+est **couchée sur l'eau** — elle marque un territoire, pas un halo ; et le
+monument est le seul du jeu planté en pleine eau, donc le seul qui puisse porter
+cette figure-là. La seule chose empruntée à l'Œil est sa règle de densité (le
+**nombre** de points est fixe, pas leur espacement — c'est ce qui tient à tous
+les zooms).
+
+⛔ Interdits tenus, tirés du § « anti trop IA » plus haut : pas d'anneau qui
+tourne (signature de l'Œil), pas de dégradé lisse (la lumière tombe par
+**paliers**), pas de cyan — la palette est **relevée sur le sprite** (histogramme
+des pixels clairs et saturés : `232,40,128` néon, `249,96,45` braise,
+`252,190,93` or), pas inventée.
+
+⚠ **Les faisceaux survivent au LOD**, tout le reste non : c'est leur raison
+d'être (« visibles de très loin »), or le LOD s'arme précisément au dézoom.
+
+### Trois refus payés sur planche, à ne pas rejouer
+
+1. **Quatre grands aplats concentriques = l'orbe lisse.** Le premier cerne était
+   une tache violette molle étalée sur tout le fleuve — exactement ce que le doc
+   proscrit. La carte sait déjà peindre de la lumière sur de l'eau, et **pas en
+   aplats** : reflets du fleuve et lanternes de pont sont de **courts traits
+   horizontaux qui miroitent** (`isoBridge.js:1345`). C'est cette grammaire qu'il
+   fallait, semée en champ.
+2. **Un liseré peut être dessiné ET invisible.** 44 points de 3 px à alpha
+   0,16-0,56 ne déplaçaient que **360 pixels** de l'image (diff canvas
+   avec/sans). Ils existaient ; ils se noyaient dans le **grain de l'eau**, qui
+   porte ses propres moutons blancs. Sur une surface bruitée : moitié moins
+   nombreux, deux fois plus gros, deux fois plus opaques, halo chacun.
+   📌 **La mesure qui tranche est le diff de canvas**, jamais l'œil sur capture.
+3. **Des faisceaux larges ne sont pas des faisceaux.** À `w = 0,15` les trois
+   rais se recouvraient en un unique coin rose translucide qui **grisait la ville
+   derrière**. Un projecteur est mince (`w = 0,055`).
+
+⚠ **Le plancher de jour se règle en deux fois.** Un plancher commun à 0,28
+laissait l'aura *rigoureusement invisible* de jour (4 284 px d'écart moyen 13/765
+— sous le seuil de perception). La guirlande a donc le sien, bien plus haut
+(`dotDay = 0,6`) : ce sont des **objets amarrés**, pas de la lumière, et un feu
+flottant se voit à midi quand un miroitement d'eau, non.
+
+Coût mesuré : **nul** (30,0 ms/frame avec, 31,7 sans — dans le bruit, N = 98).
 
 ## Volet 4 — le « où est Charlie »
 

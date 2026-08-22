@@ -2070,92 +2070,30 @@ function computeCityLayout(s) {
   }
   riverSamples.push({ x: WP[WN - 1].x, y: WP[WN - 1].y, hw: 2.0 });
 
-  /* ── LA MAISON DES PLAISIRS : plantée EN PLEINE EAU, au large ──────────────
-   * Un monument permanent (il est là dès la première ère, il ne se gagne pas),
-   * posé loin en aval pour qu'on le rejoigne en barque au lieu de le croiser.
+  /* ── LE PLAN DE VILLE SE CALCULE ICI, AVANT LA PEINTURE DU LIT ─────────────
+   * Il était calculé plus bas, après le fleuve. Il remonte parce que la Maison
+   * des Plaisirs doit se poser HORS DE LA VILLE (Raph, 2026-08-22 : « il est
+   * toujours dans le rayon de la ville et je ne veux pas ça ») — et « hors de
+   * la ville » ne se déduit d'aucune fraction de grille, seulement de
+   * `plan.reachFor`, l'emprise urbaine réelle dans une direction donnée.
    *
-   * Sa position est FIGÉE (Raph, 2026-08-06) — mais figer des coordonnées de
-   * grille le sortirait de l'eau au premier recalcul du cours. On fige donc son
-   * ABSCISSE LE LONG DU COURANT, et la traversée se redéduit du lit : le lieu
-   * dérive avec le fleuve et reste toujours au milieu de l'eau.
+   * ✅ Le déplacement est SANS RISQUE, et c'est vérifiable : `generateCityPlan`
+   * ne touche NI à `corridorAt` NI à `riverYAt` pendant sa construction — les
+   * deux ne servent qu'à `finalize()` (cityPlan.js : buildAnchors/buildPlazas),
+   * qui reste, lui, à sa place d'origine, une fois le lit peint. Ce qu'on
+   * remonte ne dépend que de la graine, des comptes et de la grille.
    *
-   * ⚠ Et parce que sa place ne dépend PAS de `riverSet` (contrairement à
-   * l'Aiguille Céleste), l'évasement se fait ICI, AVANT la peinture des
-   * cellules : pas de repasse à faire après coup comme pour `era_mega`.
+   * ⚠ Les Sets et les tableaux de colonnes sont DÉCLARÉS ici et REMPLIS plus
+   * bas : les fermetures ci-dessous les capturent, et une capture de liaison
+   * non encore initialisée est le motif exact qui a déjà coûté une perte de
+   * save sur ce fichier (TDZ). Déclarés vides, ils ne peuvent pas mordre.
    * ---------------------------------------------------------------------- */
-  /* ⚠ L'ÉCHELLE DE `u` EST UN PIÈGE. Le cours ne fait PAS la largeur de la carte :
-   * il court de `cx - 1.8N` à `cx + 1.8N` (cf. xStart/xEnd), soit 3,6 N, pour
-   * traverser l'écran à tout zoom. Donc `u` n'est PAS une fraction de la grille :
-   *
-   *     distance au centre = 3,6 N × (u - 0,5)
-   *
-   * Le bord de la carte tombe à u = 0,639 ; un u = 0,82 met le monument à 1,15 N,
-   * soit largement hors grille (première pose, corrigée le 2026-08-06 — Raph :
-   * « c'est vraiment très éloigné »). Les valeurs utiles vivent entre 0,55 et 0,62.
-   */
-  const PLAISIRS = {
-    // 0,58 → 0,29 N du centre, soit ~1,6 fois le rayon de la ville des premières
-    // ères : au large et bien détaché, mais dans le champ, et la cité finira par
-    // le rejoindre en grandissant.
-    u: 0.58,      // abscisse figée le long du cours (0 = amont, 1 = aval)
-    spread: 2.5,  // demi-largeur gagnée au plus fort de l'évasement, en tuiles
-    etale: 14,    // portée de l'évasement le long du cours, en tuiles
-    drift: 1.4,   // décalage TRANSVERSAL du lit : c'est lui qui casse la symétrie
-    r: 2.6        // rayon d'obstacle pour les bateaux (le PIED, pas la couronne)
-  };
-  let plaisirsSpot = null;
-  {
-    const si = Math.max(0, Math.min(riverSamples.length - 1, Math.round(PLAISIRS.u * (riverSamples.length - 1))));
-    const s0 = riverSamples[si];
-    // Tangente du courant, prise sur deux échantillons de part et d'autre.
-    const a = riverSamples[Math.max(0, si - 2)], b = riverSamples[Math.min(riverSamples.length - 1, si + 2)];
-    let tx = b.x - a.x, ty = b.y - a.y;
-    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-    // Sens du renflement tiré au sort, mais REBRASSÉ : le bit faible de cmHash
-    // vaut la parité de l'entrée, s'en servir tel quel donnerait un damier.
-    const h = cmHash("plaisirs:drift:" + (mapSeed || 0)) >>> 0;
-    const side = ((h >>> 13) & 1) ? 1 : -1;
-    for (const sp of riverSamples) {
-      const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
-      if (d > PLAISIRS.etale) continue;
-      const u = 1 - d / PLAISIRS.etale;
-      const k = u * u * (3 - 2 * u);                 // smoothstep : les rives s'ouvrent en douceur
-      sp.hw += PLAISIRS.spread * k;
-      // L'ASYMÉTRIE. Élargir `hw` seul donne un fuseau parfaitement symétrique ;
-      // un vrai élargissement de rivière creuse davantage une rive. On pousse
-      // donc aussi l'AXE du lit en travers du courant. ⚠ Modeste, et pour la
-      // même raison que l'évasement de l'île : un lit trop poussé finit sous une
-      // route, qui devient alors un pont que personne n'a demandé.
-      sp.y += side * PLAISIRS.drift * k * tx;
-      sp.x -= side * PLAISIRS.drift * k * ty;
-    }
-    plaisirsSpot = { x: s0.x, y: s0.y, tx, ty, r: PLAISIRS.r, rx: PLAISIRS.r, ry: PLAISIRS.r * 0.6 };
-  }
-
   const riverSet = new Set(), bankSet = new Set(), nearSet = new Set();
-  for (const sp of riverSamples) {
-    const R = sp.hw;
-    for (let gx = Math.floor(sp.x - R - 3); gx <= Math.ceil(sp.x + R + 3); gx += 1) {
-      for (let gy = Math.floor(sp.y - R - 3); gy <= Math.ceil(sp.y + R + 3); gy += 1) {
-        const d = Math.hypot(gx + 0.5 - sp.x, gy + 0.5 - sp.y);
-        const k = gx + "," + gy;
-        if (d <= R + 0.5)                               { riverSet.add(k); bankSet.delete(k); nearSet.delete(k); }
-        else if (d <= R + 1.4) { if (!riverSet.has(k)) { bankSet.add(k);  nearSet.delete(k); } }
-        else if (d <= R + 3.2) { if (!riverSet.has(k) && !bankSet.has(k)) nearSet.add(k); }
-      }
-    }
-  }
   const riverYByCol = new Array(N), riverHwByCol = new Array(N);
-  for (let gx = 0; gx < N; gx += 1) {
-    let by = cy + N, bhw = 1.5, bd = Infinity;
-    for (const sp of riverSamples) { const dd = Math.abs(sp.x - (gx + 0.5)); if (dd < bd) { bd = dd; by = sp.y; bhw = sp.hw; } }
-    riverYByCol[gx] = by; riverHwByCol[gx] = bhw;
-  }
   const riverYAt = (gx) => riverYByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
   // Demi-largeur visible du ruban au droit d'une colonne (pour caler un riverain
   // sur le bord d'eau RÉELLEMENT peint, pas sur le riverSet euclidien plus large).
   const riverHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
-  lp("riviere");
 
   // SERRAGE DE L'EMPRISE (lot densité, docs/PLAN-RENDU-VILLE.md). Retour Raph
   // 2026-08-06 sur capture : « les grandes surfaces de sol gris ». Mesuré à la bande 3,
@@ -2181,12 +2119,172 @@ function computeCityLayout(s) {
   // la partie (cœur figé), seuls les faubourgs s'ajoutent. Reset au nouveau cycle.
   if (!s.cityArchetype) s.cityArchetype = plan.archetype;
   plan.reachBase = cityReachBase;
-  plan.finalize({ reachBase: cityReachBase });
-  const quarterAnchors = plan.anchors;
 
-  // Pont historique : la traversée la plus proche du cœur urbain.
+  // Pont historique : la traversée la plus proche du cœur urbain. Remonté avec le
+  // plan — le slot des Plaisirs a besoin de savoir où NE PAS se poser.
   let riverBridge = riverSamples[0], rbd = Infinity;
   for (const sp of riverSamples) { const dd = Math.abs(sp.x - (plan.core.x + 0.5)); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
+
+  /* ── LA MAISON DES PLAISIRS : plantée EN PLEINE EAU, au large ──────────────
+   * Un monument permanent (il est là dès la première ère, il ne se gagne pas),
+   * posé loin en aval pour qu'on le rejoigne en barque au lieu de le croiser.
+   *
+   * Sa position est FIGÉE (Raph, 2026-08-06) — mais figer des coordonnées de
+   * grille le sortirait de l'eau au premier recalcul du cours. On fige donc son
+   * ABSCISSE LE LONG DU COURANT, et la traversée se redéduit du lit : le lieu
+   * dérive avec le fleuve et reste toujours au milieu de l'eau.
+   *
+   * ⚠ Et parce que sa place ne dépend PAS de `riverSet` (contrairement à
+   * l'Aiguille Céleste), l'évasement se fait ICI, AVANT la peinture des
+   * cellules : pas de repasse à faire après coup comme pour `era_mega`.
+   * ---------------------------------------------------------------------- */
+  /* ⚠⚠ TROIS POSES REFUSÉES AVANT CELLE-CI. Il faut les avoir en tête, elles
+   * disent chacune une chose différente :
+   *
+   *   u = 0,82  (1,15 N)  « c'est vraiment très éloigné »   2026-08-06
+   *   u = 0,58  (0,29 N)  « beaucoup trop proche du centre » 2026-08-22
+   *   u = 0,62  (0,43 N)  « il est TOUJOURS DANS LE RAYON DE LA VILLE
+   *                        et je ne veux pas ça »            2026-08-22
+   *
+   * Le troisième refus invalide toute la démarche des deux premiers : tant qu'on
+   * exprime la place en fraction de GRILLE, on ne dit rien de la VILLE. Or la
+   * ville n'occupe pas une fraction fixe de la grille — son emprise dépend de
+   * l'ère, de la population et de l'archétype, et elle s'étire jusqu'à ~1,9 fois
+   * son rayon nominal dans la direction d'allongement (cityPlan : `reachFor` =
+   * `reachBase · (1 + lobes) · ecc`, et `ecc` monte à 1,55 pour un plan linéaire,
+   * lequel s'étire justement LE LONG DU FLEUVE). Une carte pouvait donc rester
+   * bâtie bien au delà de 0,43 N.
+   *
+   * ✅ LA RÈGLE EST DONC UNE MARCHE, PAS UNE FORMULE : on remonte le cours vers
+   * l'aval, échantillon par échantillon, et on s'arrête au PREMIER qui soit
+   * franchement hors de l'emprise urbaine dans SA propre direction :
+   *
+   *     hypot(sp − cœur)  ≥  reachFor(cœur → sp) · reachMul  +  gap
+   *
+   * Ça se lit comme la phrase de Raph, ça survit à toutes les ères et à tous les
+   * archétypes, et ça ne dépend plus du tout de N.
+   *
+   * ⚠ `reachFor` est le contour NOMINAL. Le contour réel (organicLimit) lui
+   * ajoute encore l'attraction du fleuve (jusqu'à ~3 tuiles), le tirage de
+   * quartier et un bruit de bord — d'où `reachMul` ET `gap`, qui absorbent ces
+   * débords en plus de la demi-largeur du sprite (3,25 tuiles).
+   *
+   * ⚠ L'ÉCHELLE DE `u` RESTE UN PIÈGE pour qui relit : le cours ne fait pas la
+   * largeur de la carte, il court de `cx − 1,8 N` à `cx + 1,8 N` (xStart/xEnd)
+   * pour traverser l'écran à tout zoom. `u = 0,639` est le bord de la grille, pas
+   * son milieu. Les bornes ci-dessous sont exprimées ainsi.
+   */
+  const PLAISIRS = {
+    // LA RÈGLE : hors de la ville, avec de la marge. `reachMul` multiplie le
+    // contour urbain nominal, `gap` ajoute des tuiles franches par dessus.
+    // Molette : `globalThis.__plaisirsFar = 1.6` puis `__cityRecompute()`.
+    reachMul: (typeof globalThis !== "undefined" && globalThis.__plaisirsFar) || 1.35,
+    gap: 12,        // tuiles franches au delà du contour (dont 3,25 de demi-sprite)
+    // ⚠ LA MARCHE PART DU CENTRE, PAS D'UN PLANCHER EN FRACTION DE GRILLE. Un
+    // `uMin` de 0,545 avait l'air anodin — il vaut 0,16 N, soit 49 tuiles à
+    // N = 300 : sur une grande carte il aurait décidé la place à lui tout seul,
+    // et on aurait réintroduit exactement le défaut qu'on vient de corriger.
+    // C'est `minBridge` qui protège le centre, en TUILES.
+    uMin: 0.5,      // départ de la marche : le milieu du cours (≈ le cœur urbain)
+    // ⛔ ET CETTE BORNE FINIT PAR MORDRE, EN TOUTE FIN DE PARTIE. À `eraFrac = 1`
+    // le contour nominal atteint 0,46 N, et son étirement le porte à 0,62 N
+    // (capital) voire 0,86 N (linéaire) : la marche voudrait alors se poser au
+    // delà de 1 N, soit le voisinage exact du 1,15 N déjà refusé. Le conflit est
+    // réel — une ville qui couvre la carte ne laisse pas de « dehors » — et on
+    // le tranche en faveur du cadrage : le lieu se pose à 0,79 N, à la lisière
+    // de la mégalopole. Sur tout le reste de la partie, c'est la marche qui
+    // décide. Molette pour arbitrer autrement : `globalThis.__plaisirsFar`.
+    uMax: 0.72,     // ⛔ jamais au delà : 0,79 N, on approche du refus de 1,15 N
+    minBridge: 12,  // écart minimal à la traversée historique, en tuiles
+    // ⚠ MESURÉ, PAS CHOISI AU JUGÉ : au droit du monument le lit évasé fait
+    // hw ≈ 5,6 tuiles, et le corridor eau+berge en fait déjà 7 — un domaine de
+    // 6 tuiles vivait ENTIÈREMENT dedans et ne réservait donc rien du tout
+    // (planche du 2026-08-22 : bâtiment le plus proche à 8,2 tuiles, dû au seul
+    // corridor). 8 dégage une vraie frange de berge autour du lieu.
+    clear: 8,       // rayon du DOMAINE réservé, en tuiles (ni bâti, ni traversée)
+    spread: 2.5,    // demi-largeur gagnée au plus fort de l'évasement, en tuiles
+    etale: 14,      // portée de l'évasement le long du cours, en tuiles
+    drift: 1.4,     // décalage TRANSVERSAL du lit : c'est lui qui casse la symétrie
+    r: 2.6          // rayon d'obstacle pour les bateaux (le PIED, pas la couronne)
+  };
+  let plaisirsSpot = null;
+  {
+    const last = riverSamples.length - 1;
+    const idxOf = (u) => Math.max(0, Math.min(last, Math.round(u * last)));
+    const iMin = idxOf(PLAISIRS.uMin), iMax = idxOf(PLAISIRS.uMax);
+    // HORS DE LA VILLE, dans la direction de l'échantillon lui-même. `reachFor`
+    // est le contour urbain à cet angle — le même que consulte `organicLimit`
+    // pour décider si une cellule est constructible : on interroge donc bien la
+    // ville, pas une fraction de grille.
+    const dehors = (sp) => {
+      const dx = sp.x - plan.core.x, dy = sp.y - plan.core.y;
+      const contour = plan.reachFor(cityReachBase, Math.atan2(dy, dx));
+      return Math.hypot(dx, dy) >= contour * PLAISIRS.reachMul + PLAISIRS.gap;
+    };
+    // …et jamais sur la traversée historique, qui n'est PAS filtrée ailleurs.
+    const loinDuPont = (sp) => Math.abs(sp.x - riverBridge.x) >= PLAISIRS.minBridge;
+    let si = iMax;                                  // repli : la borne aval
+    for (let i = iMin; i <= iMax; i += 1) {
+      if (dehors(riverSamples[i]) && loinDuPont(riverSamples[i])) { si = i; break; }
+    }
+    const s0 = riverSamples[si];
+    // Tangente du courant, prise sur deux échantillons de part et d'autre.
+    const a = riverSamples[Math.max(0, si - 2)], b = riverSamples[Math.min(riverSamples.length - 1, si + 2)];
+    let tx = b.x - a.x, ty = b.y - a.y;
+    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    // Sens du renflement tiré au sort, mais REBRASSÉ : le bit faible de cmHash
+    // vaut la parité de l'entrée, s'en servir tel quel donnerait un damier.
+    const h = cmHash("plaisirs:drift:" + (mapSeed || 0)) >>> 0;
+    const side = ((h >>> 13) & 1) ? 1 : -1;
+    for (const sp of riverSamples) {
+      const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
+      if (d > PLAISIRS.etale) continue;
+      const u = 1 - d / PLAISIRS.etale;
+      const k = u * u * (3 - 2 * u);                 // smoothstep : les rives s'ouvrent en douceur
+      sp.hw += PLAISIRS.spread * k;
+      // L'ASYMÉTRIE. Élargir `hw` seul donne un fuseau parfaitement symétrique ;
+      // un vrai élargissement de rivière creuse davantage une rive. On pousse
+      // donc aussi l'AXE du lit en travers du courant. ⚠ Modeste, et pour la
+      // même raison que l'évasement de l'île : un lit trop poussé finit sous une
+      // route, qui devient alors un pont que personne n'a demandé.
+      sp.y += side * PLAISIRS.drift * k * tx;
+      sp.x -= side * PLAISIRS.drift * k * ty;
+    }
+    // `clear` VOYAGE AVEC LE SPOT : le domaine réservé (ni bâti, ni traversée) se
+    // lit là où la place se lit, sinon les deux divergeraient au premier réglage.
+    plaisirsSpot = {
+      x: s0.x, y: s0.y, tx, ty,
+      r: PLAISIRS.r, rx: PLAISIRS.r, ry: PLAISIRS.r * 0.6,
+      clear: PLAISIRS.clear,
+    };
+  }
+
+  // PEINTURE DU LIT (les Sets sont déclarés plus haut, avec le plan de ville) :
+  // elle vient APRÈS l'évasement des Plaisirs, sans quoi le monument se
+  // retrouverait au sec au milieu de son propre élargissement.
+  for (const sp of riverSamples) {
+    const R = sp.hw;
+    for (let gx = Math.floor(sp.x - R - 3); gx <= Math.ceil(sp.x + R + 3); gx += 1) {
+      for (let gy = Math.floor(sp.y - R - 3); gy <= Math.ceil(sp.y + R + 3); gy += 1) {
+        const d = Math.hypot(gx + 0.5 - sp.x, gy + 0.5 - sp.y);
+        const k = gx + "," + gy;
+        if (d <= R + 0.5)                               { riverSet.add(k); bankSet.delete(k); nearSet.delete(k); }
+        else if (d <= R + 1.4) { if (!riverSet.has(k)) { bankSet.add(k);  nearSet.delete(k); } }
+        else if (d <= R + 3.2) { if (!riverSet.has(k) && !bankSet.has(k)) nearSet.add(k); }
+      }
+    }
+  }
+  for (let gx = 0; gx < N; gx += 1) {
+    let by = cy + N, bhw = 1.5, bd = Infinity;
+    for (const sp of riverSamples) { const dd = Math.abs(sp.x - (gx + 0.5)); if (dd < bd) { bd = dd; by = sp.y; bhw = sp.hw; } }
+    riverYByCol[gx] = by; riverHwByCol[gx] = bhw;
+  }
+  lp("riviere");
+
+  // Quartiers et places : ils demandent le lit PEINT (corridorAt), c'est pour
+  // ça que `finalize` reste ici alors que le plan, lui, est calculé plus haut.
+  plan.finalize({ reachBase: cityReachBase });
+  const quarterAnchors = plan.anchors;
 
   // Modèle d'eau : source de vérité unique du « sur l'eau / berge / près / sec ».
   // Construit tôt pour que pose, graphe routier et rendu consultent les mêmes
@@ -2231,9 +2329,15 @@ function computeCityLayout(s) {
 
   // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
   // Moteur graphe : réseau connexe par construction (cf. roadGraph.js).
+  // `bridgeAvoid` : le DOMAINE de la Maison des Plaisirs interdit les traversées
+  // seedées des ères avancées (le pont historique, lui, est tenu à distance par
+  // le plancher du slot — cf. § MAISON DES PLAISIRS). Sans ça, une deuxième
+  // traversée finissait par se poser en travers du monument, exactement le
+  // défaut qu'on vient de corriger sur la première.
   const { roads, roadKey, roadMeta, skeletonKey } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N,
-    riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit
+    riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
+    bridgeAvoid: plaisirsSpot ? { x: plaisirsSpot.x, r: plaisirsSpot.clear } : null,
   });
   lp("routes-gen");
 
@@ -2363,6 +2467,34 @@ function computeCityLayout(s) {
   river.islands = islands;
   water.islands = islands;
 
+  /* ── LE DOMAINE DE LA MAISON DES PLAISIRS ────────────────────────────────────
+   * Le monument n'avait AUCUNE emprise réservée — ni `WONDER_CLEAR_R`, ni rien —
+   * alors que le plan la réclamait dès la conception (« une emprise pareille
+   * demande une zone réservée »). Résultat : la ville venait bâtir au ras de la
+   * berge et le lieu cessait de se lire comme un ailleurs.
+   *
+   * Un disque de `clear` tuiles autour du pied, tenu SÉPARÉ de `reserved` à
+   * dessein : `reserved` alimente aussi `demand` (les routes qui le bordent sont
+   * protégées de l'émondage) et un domaine qui ATTIRE les routes ferait
+   * l'inverse de ce qu'on lui demande. Trois gates seulement, ceux qui posent
+   * quelque chose : districts (footFits), moteurs (`claimed`), bâti et arbres
+   * (la boucle `cells`).
+   *
+   * ⚠ On ne CARVE aucune route ici. Le précédent est écrit dans la carve des
+   * merveilles : `era_mega` en est exemptée parce qu'elle vit sur le fleuve, et
+   * couper une travée au bord de l'eau coupe la ville en deux. Les traversées
+   * sont tenues à l'écart en AMONT (bridgeAvoid), là où c'est sans risque.
+   * ------------------------------------------------------------------------ */
+  const plaisirsClear = new Set();
+  if (plaisirsSpot && plaisirsSpot.clear > 0) {
+    const R = plaisirsSpot.clear;
+    for (let gx = Math.floor(plaisirsSpot.x - R); gx <= Math.ceil(plaisirsSpot.x + R); gx += 1) {
+      for (let gy = Math.floor(plaisirsSpot.y - R); gy <= Math.ceil(plaisirsSpot.y + R); gy += 1) {
+        if (Math.hypot(gx + 0.5 - plaisirsSpot.x, gy + 0.5 - plaisirsSpot.y) <= R) plaisirsClear.add(gx + "," + gy);
+      }
+    }
+  }
+
   // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
   // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
   const districts = [];
@@ -2378,6 +2510,7 @@ function computeCityLayout(s) {
     for (let ax = -1; ax <= size; ax += 1) for (let ay = -1; ay <= size; ay += 1) {
       const tx = gx + ax, ty = gy + ay;
       if (occupiedFoot.has(tx + "," + ty)) return false;
+      if (plaisirsClear.has(tx + "," + ty)) return false;   // domaine des Plaisirs
       if (riverSet.has(tx + "," + ty) || bankSet.has(tx + "," + ty)) return false;
       if (ax >= 0 && ax < size && ay >= 0 && ay < size && roadKey.has(tx + "," + ty)) return false;
     }
@@ -2449,6 +2582,7 @@ function computeCityLayout(s) {
     for (let gy = 0; gy < N; gy += 1) {
       const key = gx + "," + gy;
       if (roadKey.has(key) || riverSet.has(key) || bankSet.has(key) || reserved.has(key)) continue;
+      if (plaisirsClear.has(key)) continue;                 // domaine des Plaisirs
       if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
@@ -2493,6 +2627,9 @@ function computeCityLayout(s) {
   for (const d of districts) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
   }
+  // Même geste pour le domaine des Plaisirs : `footprintFits` ne teste que
+  // `claimed`, sans ça un port ou un moulin viendrait se coller au monument.
+  for (const k of plaisirsClear) claimed.add(k);
   // L'emprise des merveilles sèches bloque aussi les bâtiments-moteur (aqueducs,
   // champs, ports/moulins, banques, génériques) : footprintFits ne teste que
   // `claimed`. era_mega exclue (riverains de l'Aiguille légitimes sur la berge).

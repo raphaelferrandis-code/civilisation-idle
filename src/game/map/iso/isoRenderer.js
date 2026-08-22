@@ -122,6 +122,10 @@ import { cityMapDrawQuays, updateCrisis, drawRiotWeapon, ensureQuayGate, quayWal
 import { drawPixelBridges } from '../pixelBridge.js';
 import { drawCritterIso } from '../critters.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight, pushIsoBridgeItems, drawIsoBridgeSeg, bridgeBlocks, bridgeLiftScreen, isoBridge3dFlag } from './isoBridge.js';
+// AURA DE LA MAISON DES PLAISIRS. Module à part (le renderer pèse déjà 11 000
+// lignes) et sans import retour : il ne connaît que CM, la projection et les
+// deux couches de lumière — donc aucun cycle ES avec nous.
+import { drawPlaisirsRing, drawPlaisirsSky, queuePlaisirsGlow } from './isoPlaisirs.js';
 import {
   updateCitizens, updateVehicles, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso,
   drawVehicleHeadlights, drawCitizenThoughts,
@@ -9967,6 +9971,19 @@ function drawIsoLive(now) {
         // largeur au ratio du PNG : un blit carré l'écraserait.
         const hpx = T * z * (nh / PLAISIRS_PPT);
         const wpx = hpx * (nw / nh);
+        // Boîte RÉELLEMENT dessinée, publiée pour le hit-test du clic
+        // (cityMapRuntime) ET pour l'aura (isoPlaisirs). Publiée ICI et pas
+        // recalculée là-bas : deux projections séparées finissent toujours par
+        // diverger, et la zone cliquable se retrouverait à côté de la tour.
+        // Posée AVANT le blit : l'aura s'y ancre et doit passer avant lui.
+        const box = { dx: p.x - wpx / 2, dy: p.y - hpx, dw: wpx, dh: hpx };
+        CM._plaisirsBox = box;
+        // AURA, à la profondeur du monument : le cerne de lumière sur l'eau puis
+        // les foyers de la tour. Déposés dans la couche de lumière, donc
+        // découpés par tout ce que le peintre dessine ensuite — à commencer par
+        // le sprite lui-même, trois lignes plus bas.
+        drawPlaisirsRing(it.pl, now);
+        queuePlaisirsGlow(box, now);
         const prevPS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
         // Ancré sur le PIED (bas, centré) : le fût plonge dans l'eau au point
@@ -9975,15 +9992,14 @@ function drawIsoLive(now) {
         // est CLIQUABLE, il doit donc dire qu'on le touche. Posé juste avant le
         // sprite, à la même géométrie, il ne dépasse que d'un pixel.
         if (CM.hover && CM.hover.plaisirs) {
-          drawSpriteOutline(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx, HOVER_GOLD);
+          drawSpriteOutline(art.img, box.dx, box.dy, wpx, hpx, HOVER_GOLD);
         }
-        ctx.drawImage(art.img, p.x - wpx / 2, p.y - hpx, wpx, hpx);
+        ctx.drawImage(art.img, box.dx, box.dy, wpx, hpx);
         ctx.imageSmoothingEnabled = prevPS;
-        // Boîte RÉELLEMENT dessinée, publiée pour le hit-test du clic
-        // (cityMapRuntime). Publiée ICI et pas recalculée là-bas : deux
-        // projections séparées finissent toujours par diverger, et la zone
-        // cliquable se retrouverait à côté de la tour.
-        CM._plaisirsBox = { dx: p.x - wpx / 2, dy: p.y - hpx, dw: wpx, dh: hpx };
+        // La tour DÉCOUPE l'aura qu'elle vient de poser : sans ça le cerne
+        // additif blanchirait son pied et les foyers lui traverseraient la
+        // façade. Même geste que les scènes moteur (drawIsoGroundedArt).
+        lightCutImage(art.img, box.dx, box.dy, wpx, hpx);
       }
     } else if (it.kind === 'lamp') {
       const p = worldToScreen(it.wx, it.wy);
@@ -10918,6 +10934,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   fp('ciel');
   drawIsoNight(now);
   drawIsoBridgeNight(now);   // lanternes de pont : halos + reflets dans l'eau, par-dessus le voile
+  drawPlaisirsSky(now);      // faisceaux + lanternes volantes : du CIEL, donc après tout le reste
   drawIsoShipNight(now);     // feux de position rouge/vert — même raison : le voile les mangeait
   fp('nuit');
   drawIsoRain(now);      // averse — après la nuit : la pluie passe DEVANT les halos

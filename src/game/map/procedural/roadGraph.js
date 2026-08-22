@@ -29,7 +29,7 @@ const ORGANIC_ARCHETYPES = new Set(["scattered", "crossroads", "linear"]);
 
 export function generateRoadsGraph({
   plan, seed, counts, ageCfg, N,
-  riverSet, bankSet, riverBridgeX, organicLimit
+  riverSet, bankSet, riverBridgeX, organicLimit, bridgeAvoid
 }) {
   const cells = new Set();          // "gx,gy" — source de vérité de la connexité
   const meta = new Map();           // "gx,gy" -> { h, v, rank }
@@ -74,8 +74,22 @@ export function generateRoadsGraph({
   if (counts.eraBand >= 3) {
     const bRng = rngFrom(seed, "bridges");
     const extra = counts.eraBand >= 5 ? 2 : 1;
+    // DOMAINE INTERDIT (Maison des Plaisirs) : la colonne tirée y est repoussée
+    // au bord, DU CÔTÉ OÙ ELLE ÉTAIT — la rabattre de l'autre côté la ferait
+    // tomber sur le pont historique une fois sur deux. Si le bord sort de la
+    // carte, on RENONCE à cette traversée : une ville avec un pont de moins se
+    // lit, une traversée plantée en travers du monument, non.
+    // ⚠ Le rayon inclut `bridgeLaneW` : la base occupe les colonnes bx..bx+w-1.
+    const avoidR = bridgeAvoid ? bridgeAvoid.r + bridgeLaneW : 0;
     for (let i = 0; i < extra; i += 1) {
-      bridgeBaseCols.push(Math.round(riverBridgeX + (bRng() - 0.5) * N * 0.45));
+      let bx = Math.round(riverBridgeX + (bRng() - 0.5) * N * 0.45);
+      if (bridgeAvoid) {
+        const d = bx - bridgeAvoid.x;
+        if (Math.abs(d) < avoidR) bx = Math.round(bridgeAvoid.x + (d >= 0 ? 1 : -1) * avoidR);
+        bx = Math.max(1, Math.min(N - 2, bx));
+        if (Math.abs(bx - bridgeAvoid.x) < avoidR) continue;
+      }
+      bridgeBaseCols.push(bx);
     }
   }
   // Chaque base occupe `bridgeLaneW` colonnes adjacentes (la 2e voie doit être
