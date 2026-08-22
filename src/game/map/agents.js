@@ -202,7 +202,7 @@ if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE
 // ── Helper PARTAGÉ : dessine un personnage PIXEL NOMMÉ (bande de marche 4 dirs,
 // AGENT_NF frames) à une position écran (sx = centre horizontal, groundY = ligne de
 // pieds). Charge paresseusement /pixelart/agents/{name}-{dir}.png. Réutilisé par les
-// porteurs de panier (ci-dessous), les émeutiers (renderWorld.js) et les habitants
+// porteurs de panier (ci-dessous), les émeutiers (quaysAndRiot.js, ex-renderWorld) et les habitants
 // d'ère — fini le vieux blob vectoriel. Renvoie { drawW, drawH, top } si un sprite a
 // été posé, ou false si le sprite n'est pas prêt (l'appelant garde son repli vectoriel).
 function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1) {

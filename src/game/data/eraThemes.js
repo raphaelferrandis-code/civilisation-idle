@@ -13,7 +13,7 @@ import { localizeData } from "../core/i18n.js";
  *    carte + ligne d'annonce du bandeau de transition.
  *
  * Consommé par App.jsx (variables CSS inline + data-era-band), Topbar,
- * journalThemes.js et le rendu canvas (renderWorld.js).
+ * journalThemes.js et le rendu canvas (iso/isoRenderer.js).
  */
 
 import { eras, eraTier } from "./world.js";

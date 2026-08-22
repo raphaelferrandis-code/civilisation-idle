@@ -6780,7 +6780,8 @@ if (typeof window !== 'undefined') {
 }
 
 /* ── REFLETS NOCTURNES DE LA VILLE SUR L'EAU ──────────────────────────────────
- * Portage iso de `cityMapDrawCityReflections` (renderWorld.js), qui existait
+ * Portage iso de `cityMapDrawCityReflections` (feu renderWorld.js, supprimé avec
+ * le peintre top-down), qui existait
  * depuis toujours mais n'était appelé QUE par le chemin legacy
  * (cityMapRuntime.js) — le rendu iso ne l'a jamais eu. Même grammaire que les
  * lanternes de pont (drawIsoBridgeNight) : nappes lumineuses ancrées à la berge

@@ -3,7 +3,7 @@
 // bloc LOD top-down sont partis ; il ne reste que le sprite de merveille, ses
 // flammes, l'Œil et son gyroscope — tous consommés par le peintre iso.
 // En partant, ce fichier retire les derniers lecteurs de `buildingShapes.js`
-// (hors isoRenderer) et de `baseColor` dans `renderWorld.js`.
+// (hors isoRenderer) et de `baseColor` dans `renderWorld.js` (devenu quaysAndRiot.js).
 import { state } from '../core/state.js';
 import { CM, CM_TINTS } from './layout.js';
 import { wonderAnchor } from './iso/projection.js';
