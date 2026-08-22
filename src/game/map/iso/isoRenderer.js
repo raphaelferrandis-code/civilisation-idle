@@ -8231,6 +8231,69 @@ function drawIsoField(ctx, t, spanX, spanY, band, eraIdx) {
 // Molette : window.__isoUnitDepth(false) = retour au tri scalaire brut.
 const isoUnitDepthFlag = { on: true };
 if (typeof window !== 'undefined') window.__isoUnitDepth = (on) => { isoUnitDepthFlag.on = on !== false; return isoUnitDepthFlag.on; };
+
+// ── SONDE Q9 / P23 (docs/PLAN-SUPPRESSION-LEGACY.md) ────────────────────────
+// isoUnitDepth ne lit AUCUNE hauteur de bâtiment — les fiches ne portent que
+// key/ax/halfW/x1/y1 — là où le legacy pesait `topY` : une hutte trop basse pour
+// recouvrir la rue n'occultait pas (ysortPainter.test.js:56). Comme `cap` est un
+// MINIMUM GLOBAL, on a soupçonné qu'un bâtiment bas puisse annuler un `lift`
+// légitime, l'unité retombant sous la clé d'une façade qui, ELLE, la recouvre.
+//
+// ⚠ MESURÉ LE 2026-08-22 : LA HAUTEUR N'Y EST POUR RIEN — NE PAS REJOUER CE
+// SOUPÇON. En jeu, 2 312 évaluations à l'ère 23 et 852 à l'ère 161, 557 et 183
+// conflits lift+cap, `suppressed` = 0 partout. La hauteur d'un occulteur n'entre
+// jamais dans le verdict, et son absence ne coûte rien au tri.
+//
+// ⚠⚠ EN REVANCHE un plafond PEUT écraser une remontée, pour une raison qui n'a
+// rien à voir : quand le lifteur et le plafonneur ont EXACTEMENT LA MÊME CLÉ,
+// lift = clé + T·0.02 et cap = clé − T·0.02 → le plafond gagne de 2·epsilon et
+// l'unité bascule de « juste après les deux » à « juste avant les deux » : elle
+// se fait avaler par le mur qu'elle longeait. C'est un départage d'ÉGALITÉ.
+// Mesuré : 2 cas sur 19 557 géométries légales (0,01 %), tous à clé égale, tous
+// d'exactement 2·epsilon, et 0 occurrence en jeu. Frontière figée par
+// isoUnitDepth.test.js (« un plafond ne coûte qu'un départage d'égalité »).
+//
+// ⚠⚠ DEUX PIÈGES DE MESURE, chèrement payés. (1) Une force brute sur emprises
+// doit REJETER LES CHEVAUCHEMENTS : sans ça, 382 faux positifs sur 400 000, et
+// la géométrie testée n'est même pas la bonne (dans isoUnitFiches la seconde
+// fiche écrase la première dans la Map). (2) Un tirage ALÉATOIRE à position
+// continue RATE le vrai cas — 866 418 tirages, zéro trouvaille — parce que la
+// remontée ne se déclenche qu'en longeant une face, bande étroite que le hasard
+// visite peu. C'est une grille régulière calée près des faces qui l'a levé.
+//
+// CE QUE LA MESURE A TROUVÉ À LA PLACE : `cap` lève `hidden` pour 86-87 % des
+// unités (2 eres mesurées, foule normale) et la passe FANTÔME redessine sans
+// vérifier — voir son bloc plus bas. L'aveuglement à la hauteur ne casse donc
+// pas le tri, il fait REDESSINER en transparence ~6 unités sur 7 à chaque frame.
+// C'est un sujet de coût/rendu, pas de profondeur. Chantier distinct.
+//
+// La sonde reste : elle re-tranche en une frame si la géométrie des fiches change.
+//   __depthProbe(true)  arme et remet à zéro     __depthProbe(false)  éteint
+//   window.__depthProbeLast  porte le relevé
+// Coût nul éteinte : un seul booléen de module lu par appel (même idiome que
+// isoUnitDepthFlag juste au-dessus, et que __layoutProfile dans layout.js).
+const depthProbe = { on: false, out: null };
+function depthProbeReset() {
+  depthProbe.out = {
+    units: 0,        // appels comptés
+    lift: 0,         // une remontée a été calculée
+    cap: 0,          // un plafond existe (= `hidden` = passe fantôme)
+    conflict: 0,     // les deux à la fois
+    suppressed: 0,   // LE CAS P23 : le plafond a ÉCRASÉ la remontée
+    ghostLifted: 0,  // remontée gagnante mais unité quand même marquée fantôme
+    cappers: {},     // qui plafonne, dans les cas `suppressed` : id -> compte
+    samples: [],     // 8 premiers cas `suppressed`, pour l'œil
+  };
+  if (typeof window !== 'undefined') window.__depthProbeLast = depthProbe.out;
+  return depthProbe.out;
+}
+if (typeof window !== 'undefined') {
+  window.__depthProbe = (on) => {
+    depthProbe.on = on !== false;
+    if (depthProbe.on) depthProbeReset();
+    return depthProbe.on;
+  };
+}
 let _unitFiches = null, _unitFichesAt = '';
 function isoUnitFiches() {
   const L = CM.layout;
@@ -8252,6 +8315,7 @@ function isoUnitFiches() {
       ax: x1 - y1,                                   // écran-X du coin sud (px monde)
       halfW: (sx + sy) * T * 0.39 + T * 0.45,        // demi-rect sprite (0.78/2) + demi-unité
       x1, y1,
+      id: idf, sx, sy,                               // identité : lue par la SONDE Q9 seulement
     };
     for (let ay = 0; ay < sy; ay += 1) for (let ax2 = 0; ax2 < sx; ax2 += 1) m.set((t.gx + ax2) * 10000 + (t.gy + ay), rec);
   }
@@ -8272,7 +8336,7 @@ export function isoUnitDepthEx(wx, wy) {
   if (!F) return _depthOut;
   const T = CM.TILE, gx = Math.floor(wx / T), gy = Math.floor(wy / T);
   const sxScr = wx - wy;                             // colonne écran (px monde)
-  let lift = d, cap = Infinity;
+  let lift = d, cap = Infinity, capB = null;
   // Voisinage cy−1..cy+2 (comme frontByPainter) : la rangée +2 porte les
   // occulteurs francs du sud dont la clé doit PLAFONNER la remontée. Une fiche
   // partagée revue par plusieurs cellules est re-testée telle quelle (max/min
@@ -8287,12 +8351,34 @@ export function isoUnitDepthEx(wx, wy) {
         if (b.key + T * 0.02 > lift) lift = b.key + T * 0.02;   // devant : passe au-dessus du mur
       } else if (b.key - T * 0.02 < cap) {
         cap = b.key - T * 0.02;                      // derrière : jamais par-dessus son toit
+        if (depthProbe.on) capB = b;                 // sonde Q9 : qui plafonne
       }
     }
   }
   const out = lift < cap ? lift : cap;
   _depthOut.d = out > d ? out : d;
   _depthOut.hidden = cap < Infinity;
+  if (depthProbe.on) {
+    const P = depthProbe.out, hasLift = lift > d, hasCap = cap < Infinity;
+    P.units += 1;
+    if (hasLift) P.lift += 1;
+    if (hasCap) P.cap += 1;
+    if (hasLift && hasCap) {
+      P.conflict += 1;
+      if (cap < lift) {
+        P.suppressed += 1;
+        const id = (capB && capB.id) || '?';
+        P.cappers[id] = (P.cappers[id] || 0) + 1;
+        if (P.samples.length < 8) {
+          P.samples.push({
+            id, span: capB ? capB.sx + 'x' + capB.sy : '?',
+            gx: Math.round(wx / T * 10) / 10, gy: Math.round(wy / T * 10) / 10,
+            perte: Math.round((lift - cap) / T * 100) / 100,   // en tuiles de clé peintre
+          });
+        }
+      } else P.ghostLifted += 1;
+    }
+  }
   return _depthOut;
 }
 export function isoUnitDepth(wx, wy) {
