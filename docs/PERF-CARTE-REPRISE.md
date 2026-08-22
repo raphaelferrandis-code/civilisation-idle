@@ -118,7 +118,8 @@ le DESSIN VECTORIEL. Avant le bake, les quais pesaient **10 065 des 11 172 lineT
 ### Détails à connaître
 
 **Quais — bake PARTIEL.** `cityMapDrawQuays(now, mode)` : `'base'` (bakable) /
-`'glow'` (additif, reste EN DIRECT) / absent (tout, legacy inchangé). Les lueurs
+`'glow'` (additif, reste EN DIRECT) / absent (tout — c'est l'iso qui appelle sans
+mode, cf. P6 du plan de suppression du legacy). Les lueurs
 sont en `globalCompositeOperation = "lighter"` ; bakées sur un offscreen
 TRANSPARENT puis blittées en source-over, elles cessent de s'ajouter à l'eau et le
 halo devient un aplat. Ne jamais baker l'additif.

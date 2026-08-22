@@ -99,9 +99,9 @@ dans le dépôt**, non connectés.
 > recouvre — automatiquement. Le `halfW` de `isoUnitFiches` y est correctement
 > calibré (0,39·(sx+sy)·T + 0,45·T = la demi-largeur réelle du sprite).
 >
-> `houseSpriteHeightTiles` et `clipOnly = !isHouse` ne nourrissent QUE
-> `frontByPainter` (`agents.js:1010` et `:1636`), qui est le split deux passes du
-> mode **legacy top-down**, et `splashPointOk` (impacts de pluie). L'erreur ×3,1
+> `houseSpriteHeightTiles` et `clipOnly = !isHouse` ne nourrissaient QUE
+> `frontByPainter` — le split deux passes du mode top-down, **supprimé le 2026-08-23** —
+> et `splashPointOk` (impacts de pluie), qui reste leur SEUL consommateur. L'erreur ×3,1
 > est réelle mais son seul effet visible en iso est que **des impacts de pluie se
 > posent sur les façades** — un petit défaut, pas le grief. Reclassé en suivi.
 >

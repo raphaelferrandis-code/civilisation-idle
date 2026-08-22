@@ -72,12 +72,11 @@ beforeEach(() => {
   CM.TILE = 32;
   CM.cw = 800; CM.ch = 600;
   CM.cam = { x: 0, y: 0, zoom: 1 };
-  CM.iso = true;
   recomputeAt += 1;
   CM.layoutRecomputeAt = recomputeAt;
   resetTune();
 });
-afterEach(() => { CM.iso = false; resetTune(); });
+afterEach(() => { resetTune(); });
 
 // Nouvelle identité de layout : sans ça la composition mémoïsée d'un test
 // précédent ressort telle quelle.

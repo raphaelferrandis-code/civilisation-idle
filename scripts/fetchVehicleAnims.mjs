@@ -18,12 +18,9 @@ const VEHS = [
   { name: 'chariot', obj: 'dfd60da7-6e35-4949-9fee-eb3ec116654b', anim: {
     south: 'bb0b2951-6fd5-4e9c-bca3-e3da9f44e314', north: 'e9fadec1-78b7-4b89-9547-971f891b8dab',
     east: 'da3ec2bf-bba6-433c-b1eb-71f8896a62b3', west: 'b92177cf-d1da-487d-850d-9e00f6815ebd' } },
-  { name: 'cart', obj: '271e95ab-c038-4899-8354-b26d510e1a7f', anim: {
-    south: '22d03f16-33fd-4b68-9dbe-883dcec5825b', north: 'd1bf372a-8be4-40d6-9b8e-38b7e4261546',
-    east: '05ff94b9-02f8-4618-86d7-197bbad8bfad', west: '828b5616-f40b-4285-8175-1fb42d8d9567' } },
-  { name: 'barrow', obj: '510edd1e-52f9-4c81-b622-1e4ec450769d', anim: {
-    south: '57a7f092-dd22-4716-b661-38d1f4992770', north: '5b37cdd4-0e50-4d83-b574-db041cd6b9e5',
-    east: 'cf4395be-6a57-4e82-8057-1821d6541776', west: '9ff830ce-625e-46f7-9cc1-9424d8368f70' } },
+  // 'cart' et 'barrow' retirés le 2026-08-23 avec leurs 16 PNG (étape 2 du plan
+  // de suppression du legacy) : débranchés côté agents.js depuis longtemps.
+  // Leurs object/animation ids restent récupérables dans l'historique git.
   { name: 'wagon', obj: '4f71f9b3-d89f-49dc-8109-a5d3e8af878f', anim: {
     south: 'faf6c723-abe0-49b5-888f-42bc0cfc7145', north: '095e6e00-94ee-4175-9b62-138af47d9887',
     east: '9da87ccf-c294-4c9e-8a73-314eeff9278c', west: 'de59cf61-77f5-4488-aead-30eb47092e56' } },

@@ -9,10 +9,12 @@ import { drawVehicleHeadlights } from "../agents.js";
 // disparaît avec le rendu top-down (docs/PLAN-SUPPRESSION-LEGACY.md, étape 3 —
 // décision Raph 2026-08-22 « on porte les 13 »). Ils y passaient par
 // `drawGroundAgents`, fonction purement legacy ; ici on appelle la fonction
-// PARTAGÉE directement — elle est aussi le chemin ISO (isoRenderer appelle
-// drawVehicleHeadlights sous `CM.headlightDepth !== false`), donc cette
-// couverture reste vivante après la coupe. C'était la SEULE du dépôt à toucher
-// cette fonction.
+// PARTAGÉE directement — c'est aussi le chemin ISO, qui l'appelle SANS GARDE
+// (isoRenderer.js). Cette couverture reste donc vivante après la coupe, et
+// c'était la SEULE du dépôt à toucher cette fonction.
+// ⚠ Le garde `CM.headlightDepth !== false` que mentionnait ce commentaire vivait
+// dans `drawOneVehicle`, côté top-down : il est parti avec lui à l'étape 6, avec
+// sa molette `__headlightDepth`. L'iso n'a jamais eu d'interrupteur ici.
 //
 // L'appel direct permet en prime de couvrir les gardes que l'ancien harnais ne
 // pouvait pas isoler : les 3 `it` d'origine tournaient tous à l'ère 16, donc la

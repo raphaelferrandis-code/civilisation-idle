@@ -9,7 +9,9 @@ const { PNG } = require('pngjs');
 
 const SRC = 'public/pixelart/agents/vehicles';
 const OUT = process.argv[2] || 'scratch-veh-ref';
-const TYPES = ['cart', 'barrow', 'wagon', 'chariot', 'caravan', 'car', 'tram'];
+// 'cart' et 'barrow' retirés le 2026-08-23 : leurs sprites sont sortis du dépôt
+// (débranchés depuis agents.js, cf. étape 2 du plan de suppression du legacy).
+const TYPES = ['wagon', 'chariot', 'caravan', 'car', 'tram'];
 
 fs.mkdirSync(OUT, { recursive: true });
 for (const t of TYPES) {

@@ -120,12 +120,28 @@ traités à part).
 
 ## 6. Carte de la cité (canvas)
 
-Rendu séparé de React, dans [cityMapRuntime.js](src/game/map/cityMapRuntime.js)
-(le runtime *vivant* — malgré son ancien nom `legacyRuntime.js`). La disposition est
-**pure** ([layout.js](src/game/map/layout.js)) et mise en cache sur `_buildingsVersion` ;
-le rendu est plafonné à 30 fps, mis en pause derrière les modales, et déterministe par
+Rendu séparé de React. La boucle de frame, la caméra et les entrées vivent dans
+[cityMapRuntime.js](src/game/map/cityMapRuntime.js) ; **le dessin, lui, est
+entièrement dans [iso/isoRenderer.js](src/game/map/iso/isoRenderer.js)**, qui peint
+la frame complète, simulation des agents comprise.
+
+**Une seule projection**, dans [iso/projection.js](src/game/map/iso/projection.js) :
+losange 2:1, caméra fixe. Règle d'or — *plus personne ne projette à la main*, tout
+passage monde↔écran passe par `worldToScreen` / `screenToWorld`.
+
+La disposition est **pure** ([layout.js](src/game/map/layout.js)) et mise en cache sur
+`_buildingsVersion` ; le rendu est plafonné par le palier de qualité choisi (30 fps,
+60 au palier Élevé), mis en pause derrière les modales, et déterministe par
 `state.mapSeed`. Moteur de routes unique : `generateRoadsGraph` ([roadGraph.js](src/game/map/procedural/roadGraph.js),
 graphe connexe par construction).
+
+> **Un seul chemin de rendu depuis le 2026-08-23.** La carte a longtemps porté DEUX
+> peintres : l'isométrique et un top-down historique, choisis par un drapeau `CM.iso`.
+> Le second a été retiré en huit étapes — voir [docs/PLAN-SUPPRESSION-LEGACY.md](docs/PLAN-SUPPRESSION-LEGACY.md),
+> qui garde l'inventaire, les 26 pièges rencontrés et ce que chaque coupe a appris.
+> `renderWorld.js` a survécu à la coupe mais ne rend plus le monde : il ne lui reste
+> que **les quais et la simulation d'émeute**, tous deux consommés par le peintre iso.
+> Son nom ment ; le renommer est la question ouverte Q5 du plan.
 
 ---
 

@@ -1,8 +1,8 @@
 "use strict";
 // ── CHANTIER ISO — Phase 1 : renderer du JALON go/no-go ─────────────────────
-// Rendu isométrique SÉPARÉ du pipeline legacy (leçon greybox : ne pas infecter
-// renderWorld de demi-conversions). Branché dans la frame par `CM.iso` ; le
-// legacy reste intact au flag près. Ce renderer réutilise LE MÊME layout et les
+// Rendu isométrique : LE rendu de la carte depuis que le pipeline top-down a été
+// retiré (étapes 4 à 7, 2026-08-23). Il était né séparé de renderWorld — leçon
+// greybox : ne pas infecter l'ancien de demi-conversions. Il réutilise LE MÊME layout et les
 // helpers de sprites existants — il ne re-calcule rien côté jeu.
 //
 // Périmètre Phase 1 (voulu MINCE, on juge le SOL et la LISIBILITÉ) :
@@ -20,7 +20,10 @@ import { worldToScreen, screenToWorld, visibleCellBounds, visibleDiamondBounds, 
 import { drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady } from '../pixelHouses.js';
 import { grainTune } from '../spriteScale.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
-import { drawEngineSprite } from '../buildingShapes.js';
+// Repointé sur la SOURCE le 2026-08-23 (étape 6) : `buildingShapes.js` ne faisait
+// que ré-exporter ce symbole depuis engineSprites, et il est supprimé. Précédent
+// identique : engineSceneCache.js importe déjà d'engineSprites directement.
+import { drawEngineSprite } from '../engineSprites.js';
 import { drawWonder } from '../renderBuildings.js';
 
 // LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
@@ -1978,7 +1981,7 @@ const SIDEWALK_ISO = {
 // GÉOMÉTRIE DE RUE publiée aux AGENTS (agents.js ne peut pas importer ce module :
 // import inverse). Les piétons et véhicules marchent/roulent sur la géométrie que
 // le renderer DESSINE — une seule source de vérité, resynchronisée quand une
-// molette change la rue. En tuiles (fractions), consommé quand CM.iso est actif :
+// molette change la rue. En tuiles (fractions) :
 //   isoVehLane      — centre de voie = demi-chaussée / 2 (conduite à droite) ;
 //   isoPedEdge      — milieu de la bande de trottoir (ères à trottoir) ;
 //   isoPedEdgeLow   — ligne d'accotement (ères de terre, avant les trottoirs) ;
@@ -9094,7 +9097,7 @@ function splashSpawn(now, essais, trees) {
 }
 
 function drawIsoSplashes(now, r, g) {
-  if (!SPLASH_TUNE.on || !CM.iso || CM.lodActive) { splashes.length = 0; return; }
+  if (!SPLASH_TUNE.on || CM.lodActive) { splashes.length = 0; return; }
   const unit = CM.TILE * CM.cam.zoom;
   const k = CM.ambianceK ?? 1;
   if (k <= 0 || unit < SPLASH_TILE_MIN) { splashes.length = 0; return; }

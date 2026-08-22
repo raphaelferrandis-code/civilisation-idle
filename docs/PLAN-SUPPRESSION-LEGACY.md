@@ -1,6 +1,6 @@
 # Plan de suppression du rendu legacy top-down
 
-> Etat : plan valide, pas encore execute. Ecrit le 2026-07-29 apres inventaire par sept sondes et
+> Etat : **✔ CHANTIER CLOS — etapes 2 a 9 executees le 2026-08-23** (bilan en fin de §4). Ecrit le 2026-07-29 apres inventaire par sept sondes et
 > contre-verification par sept contradicteurs. Les elements refutes avec preuve citee ont ete corriges ;
 > les elements indecidables par recherche statique sont classes **keep** avec une note.
 >
@@ -152,7 +152,7 @@ inferieur a 0,1 % du build.**
 | Lot | Contenu | Octets |
 |---|---|---|
 | Libere par le chantier | `plazas/anim/` (5), `plazas/` lamppost+paving (10), `medians/` (5), `trees/` (7), `streets*.png` (11), `roads/*.edge.png` (10), `water/{water,reeds-*}` (4), `grass.png` | **~510 000** |
-| Deja orphelin, independant du chantier | `agents/vehicles/veh-{barrow,cart}-*` (16), `iso/bridge-full-*` (5), `agents/buildings/veh-caravan-{wagon,truck,pod}` (3), `_archive/` (vide) | **~444 000** |
+| Deja orphelin, independant du chantier — **SORTI le 2026-08-23, etape 2** | `agents/vehicles/veh-{barrow,cart}-*` (16), `iso/bridge-full-*` (5), `agents/buildings/veh-caravan-{wagon,truck,pod}` (3). ⚠ **`_archive/` RETIRE de cette liste : plus vide, et non suivi par git** (P16) | **476 000 mesures** |
 | A deplacer hors de `public/` (pas supprimer) | `master-palette.{json,gpl}`, `README.md` racine, `wonders/README.md`, `Asepritelayers/` | **~59 700** |
 
 **Total assets touchables : ~1 Mo sur 30 Mo.** Dont a peine la moitie est reellement due au chantier.
@@ -350,10 +350,10 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | `agents/vehicles/veh-{barrow,cart}-*` (16) | trim | bas | Deja orphelin (agents.js:357-361). Corriger le roster `extractVehFrame0.cjs:12` |
 | `agents/buildings/veh-caravan-{wagon,truck,pod}` (3) | trim | bas | Deja orphelin (cityEngineSprites.js:315-318). **Ne pas confondre avec `caravan-*` sans prefixe `veh-`, vivants** |
 | `iso/bridge-full-*` (5) | trim | bas | Deja orphelin (isoRenderer.js:4396). Mais `scripts/normalizeIsoScenes.mjs:106` boucle dessus |
-| `public/pixelart/_archive/` | delete | bas | Dossier **vide**, non suivi par git : ne partira qu'a la main |
+| `public/pixelart/_archive/` | ~~delete~~ → **KEEP** | ~~bas~~ **HAUT** | ⚠⚠ **CORRIGE le 2026-08-23 : le dossier N'EST PLUS VIDE.** 33 entrees, dont `coupled/` (20 fichiers). Il est **non suivi par git** — le supprimer serait **IRRECUPERABLE**. C'est la source de `separatePixelTerrain.mjs`, donc de `roads/*.png`. **NE PAS Y TOUCHER.** Voir P16 corrige |
 | `scripts/makeStreetTiles.mjs`, `fetchStreetSurfaces.mjs` | delete | bas | Deja inoperants (`_streets_src/` n'existe plus) |
 | `scripts/makeGrassEdge.mjs`, `fetchTrees.mjs`, `fetchMedians.mjs`, `retintWater.mjs` | trim | bas | Generateurs orphelins de leurs assets. Voir §6 Q6 |
-| `scripts/separatePixelTerrain.mjs` | **keep** | moyen | Seul regenerateur de `roads/<band>.png` (asset keep/haut). **Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables en l'etat** |
+| `scripts/separatePixelTerrain.mjs` | **keep** | moyen | Seul regenerateur de `roads/<band>.png` (asset keep/haut). ~~Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables~~ → **FAUX depuis le 2026-08-23 : `coupled/` contient de nouveau 20 fichiers**, `roads/*.png` est donc REGENERABLE. Voir P16 corrige |
 
 ---
 
@@ -669,16 +669,31 @@ fichiers — ou, mieux, ne pas y toucher (voir §6 Q3).
 
 ---
 
-#### P16 — `roads/*.png` n'est **plus regenerable**
+#### P16 — ~~`roads/*.png` n'est plus regenerable~~ → **CORRIGE : il l'est de nouveau, et `_archive/` est devenu INTOUCHABLE**
+
+> **Re-mesure du 2026-08-23, a l'ouverture de l'etape 2. Ce piege s'est INVERSE.**
 
 ```js
 // scripts/separatePixelTerrain.mjs:14
 const SRC = 'public/pixelart/_archive/coupled';
 ```
 
-Or `public/pixelart/_archive/` est **vide** (0 fichier, verifie). Le seul regenerateur de l'asset le plus
-critique de la dimension n'a plus de matiere premiere : **ces 20 fichiers sont irremplacables en l'etat.**
-Argument supplementaire pour ne jamais les frôler.
+~~Or `public/pixelart/_archive/` est **vide** (0 fichier, verifie). Le seul regenerateur de l'asset le
+plus critique de la dimension n'a plus de matiere premiere : **ces 20 fichiers sont irremplacables en
+l'etat.** Argument supplementaire pour ne jamais les froler.~~
+
+**FAUX aujourd'hui.** `public/pixelart/_archive/` contient **33 entrees**, dont **`coupled/` avec ses 20
+fichiers**. Deux consequences opposees :
+
+1. **`roads/*.png` EST regenerable.** L'argument « irremplacable » qui interdisait d'y toucher **tombe**.
+   A reporter dans **Q1**, dont c'etait le principal frein.
+2. **⚠⚠ `_archive/` DEVIENT INTOUCHABLE.** L'etape 2 dit de le supprimer « (vide, a la main) ». **NE PAS
+   LE FAIRE** : le dossier est **non suivi par git** (`git ls-files` → 0), donc une suppression serait
+   **definitive, sans recours**. C'est la matiere premiere de l'asset le plus critique de la carte.
+
+**Lecon de methode.** Un piege ecrit « ce dossier est vide » est une **mesure**, pas un fait. Une mesure
+se re-fait. Celle-ci s'est inversee en 25 jours, et la suivre a la lettre aurait detruit 20 fichiers
+irrecuperables.
 
 ---
 
@@ -934,6 +949,68 @@ rapprocher du reglage d'alpha des fantomes deja en cours cote Raph.
 
 ---
 
+#### P24 — ⚠⚠ `cityMapRuntime.js` EST `/* eslint-disable */` : la porte de l'etape 4 N'EXISTE PAS
+
+> Trouve le 2026-08-23 en executant l'etape 4. **Ce plan affirme l'inverse, noir sur blanc.**
+
+L'etape 4 dit : « `npm run lint` propre (c'est **la porte qui attrapera un import oublie** — attention,
+`renderWorld.js` commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord
+ici) ».
+
+**FAUX.** `cityMapRuntime.js` **ligne 1** :
+
+```js
+/* eslint-disable */
+```
+
+**Verifie par mutation, deux fois :**
+
+| Mutation | Attendu si le lint mordait | Reel |
+|---|---|---|
+| Retirer `cityMapCalmRioterAt` de l'import, en gardant son appel l.977 | erreur `no-undef` | **rien** |
+| Ajouter `const x = zzzTotalementIndefini + 1;` | erreur `no-undef` | **rien** |
+
+`npm run build` ne l'attrape pas non plus (le bundle se construit, la `ReferenceError` n'arriverait qu'a
+l'execution de la ligne fautive — c'est-a-dire au clic, au survol, ou jamais).
+
+**Consequence : l'etape 4 n'a AUCUNE porte automatique.** Ce qui a tenu lieu de garde-fou :
+
+1. **Une analyse mesuree, symbole par symbole**, avec les **commentaires blanchis** — sans ca, une
+   mention en prose fait passer un symbole mort pour vivant (⚠ **7 faux positifs** au premier jet :
+   `cityMapDrawBridges`, `cityMapDrawPlazas`, `drawTile`, `drawWonder`, `drawCitizens`, `drawShips`…).
+2. **Un controle croise apres coupe** : aucun import mort (importe, jamais utilise) **et** aucun import
+   manquant (utilise, plus importe).
+3. **Le jeu lance**, seul juge reel : chaque symbole conserve exerce depuis la page.
+
+**A refaire a l'identique pour l'etape 5** : `renderWorld.js` porte le meme `/* eslint-disable */`, et le
+plan le sait pour celui-la. **Ne jamais ecrire « le lint est propre donc la coupe est bonne » sur ces deux
+fichiers.**
+
+---
+
+#### P25 — Entre les etapes 4 et 7, `__iso(false)` donne un rendu HYBRIDE, pas le legacy
+
+> Trouve le 2026-08-23. L'etape 4 annonce que `window.__iso(false)` « doit desormais **ne plus rien
+> changer** a l'ecran ». **C'est faux, et ce ne sera vrai qu'apres l'etape 7.**
+
+La bascule de frame ne lit plus `CM.iso` — mais **`projection.js` le lit toujours** (`worldToScreen`,
+`screenToWorld`, `panDeltaToScreen`, `screenDeltaToPan`, `depthOf`, `wonderFootWorld`,
+`visibleDiamondBounds`). Donc `__iso(false)` fait tourner **le peintre iso a travers la projection
+planaire** : mesure, l'ecran change bel et bien.
+
+Gravite **faible** : le canvas reste peint a 100 %, ce n'est pas un ecran noir, et la molette est
+dev-only (aucune UI ne l'expose). Mais :
+
+**⚠ Un poste qui porte `localStorage.cmIsoMode = '0'` verra une carte de travers entre les etapes 4 et 7**
+— la ou, avant l'etape 4, il voyait le legacy fonctionner. Le §5.2 disait « jugera le mauvais pipeline » ;
+c'est desormais « jugera un pipeline hybride ». **Verifier `localStorage.getItem('cmIsoMode')` avant toute
+seance**, et le remettre a `'1'` ou le supprimer.
+
+Le nettoyage one-shot propose en option a l'etape 7.5 (`localStorage.removeItem('cmIsoMode')`) **gagne a
+etre avance** si la periode 4→7 doit durer.
+
+---
+
 ## 3. Ce qu'on NE touche pas
 
 ### 3.1 Racines de `renderWorld.js` importees par l'iso
@@ -1049,6 +1126,38 @@ chantier** au-dela des lignes explicitement listees en §2.
 - **Effort** : courte.
 - **Commit** : `chore(art): retirer 24 sprites debranches — brouettes, charrettes, caravanes animees, ponts pleins iso`
 
+> ## ✔ ETAPE 2 FAITE — 2026-08-23
+>
+> **24 PNG sortis** (476 Ko), tous suivis par git donc **recuperables** : brouettes (8), charrettes (8),
+> caravanes animees (3), ponts complets iso (5).
+>
+> **Orphelinat RE-VERIFIE avant de couper**, et pas seulement au grep de nom de fichier : les chemins
+> sont **construits par template** (`'/pixelart/agents/vehicles/veh-' + type + …`, agents.js), donc un
+> `grep "veh-cart"` ne peut pas les voir. Controle sur les **types nus** : `'cart'` et `'barrow'`
+> n'existent **nulle part** dans `src/`. Confirme a l'execution — sur 4 eres basses, le seul type de
+> vehicule emis est `basket`.
+>
+> **Rosters elagues** : `extractVehFrame0.cjs` (TYPES), `fetchVehicleAnims.mjs` (cart + barrow),
+> `normalizeIsoScenes.mjs` (**tout le mode `bridges`**, son en-tete et ses deux helpers devenus morts —
+> `flipX`, `rotate`, attrapes par le lint), `isoBatchRoster.json` (bloc `bridgesFull` → note de retrait).
+>
+> **⚠ DEUX ECARTS ASSUMES, chacun motive :**
+> 1. **`_archive/` N'A PAS ETE SUPPRIME.** Le plan le croyait vide ; il contient 33 entrees dont
+>    `coupled/` (20 fichiers), **non suivies par git**. Le supprimer aurait ete definitif. Voir **P16**,
+>    qui s'est inverse.
+> 2. **`fetchCaravanVehAnims.mjs` laisse INTACT.** Ses 3 entrees sont la totalite de son contenu :
+>    les retirer en aurait fait une coquille vide qui ne fait rien — pire que le garder ou le supprimer.
+>    Verse tel quel a **Q6** (memoire de fabrication vs dette), qui tranchera le sort du script entier.
+>
+> `scripts/data/sprite-inventory.json` porte encore 3 cles `veh-caravan-*` : fichier **genere**
+> (`spriteScaleAudit.mjs inventory`, « ne pas editer a la main »), il se remettra a jour tout seul.
+>
+> **Verification** : build OK ; jeu charge et carte exercee sur **6 eres** (0, 4, 9, 16, 23, 69) ;
+> **250 ressources reseau, ZERO requete vers un sprite supprime, zero image non decodee, console vide**.
+> 152 fichiers / 1734 `it` verts, lint revenu a sa seule erreur preexistante.
+>
+> **Prochaine etape : 4, la bascule de frame** — le point de non-retour. Re-ancrer d'abord (§0.3).
+
 ---
 
 ### Etape 3 — Les tests Y-sort : porter avant de jeter
@@ -1136,16 +1245,52 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   - Reecrire les commentaires de bascule (autour de **2106-2112**).
 - **Diff attendu** : ~200 lignes retirees dans un seul fichier ; le legacy devient inatteignable.
 - **Verification** :
-  - `npm run lint` propre (c'est la porte qui attrapera un import oublie — **attention, `renderWorld.js`
-    commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord ici).
+  - ~~`npm run lint` propre (c'est la porte qui attrapera un import oublie — attention, `renderWorld.js`
+    commence par `/* eslint-disable */`, mais `cityMapRuntime.js` **non**, donc le lint mord ici).~~
+    **⚠⚠ FAUX — voir P24. `cityMapRuntime.js` porte `/* eslint-disable */` en LIGNE 1 : le lint est
+    AVEUGLE sur ce fichier, et le build aussi.** Verifie par mutation. Il n'y a **aucune porte
+    automatique** a cette etape : il faut une analyse mesuree symbole par symbole (commentaires
+    blanchis !), un controle croise apres coupe, et le jeu lance.
   - `npx vitest run` : **meme total qu'a l'etape 3** (aucun test n'importe ce bloc).
   - Pane : **full-reload obligatoire** (`renderWorld`/`cityMapRuntime` ne se voient pas en HMR), puis
     `await __demoCity({ pop: '1e25' })`, `__CM.forceFrame()`, `__cityShot({ name: 'apres-bascule' })`.
     Comparer a `avant-coupe`. Verifier a la main : pan, zoom (les deux sens), redimensionnement de la
     fenetre, les 4 paliers de qualite dans les Options.
-  - `window.__iso(false)` doit desormais **ne plus rien changer** a l'ecran.
+  - ~~`window.__iso(false)` doit desormais **ne plus rien changer** a l'ecran.~~ **⚠ FAUX — voir P25.**
+    La bascule ne lit plus `CM.iso`, mais **`projection.js` si** : `__iso(false)` fait tourner le peintre
+    iso a travers la projection planaire, l'ecran CHANGE. Ce ne sera vrai qu'apres l'etape 7.
 - **Effort** : moyenne.
 - **Commit** : `feat(carte): la carte n'a plus qu'un chemin — l'iso peint, le top-down disparait de la frame`
+
+> ## ✔ ETAPE 4 FAITE — 2026-08-23
+>
+> `cityMapRuntime.js` : **2500 → 2348 lignes**. Le bloc `else` (145 lignes, 2112-2257) est parti, la
+> bascule est devenue un appel nu precede du garde `if (!CM.layout) { fpEnd(); return; }`. **Le pipeline
+> top-down n'est plus atteignable depuis la frame.**
+>
+> **⚠⚠ L'ELAGAGE DES IMPORTS NE SUIT PAS LE PLAN — il suit la MESURE, et le plan se trompait sur 3 des 6 :**
+>
+> | Module | Plan | Mesure | Retenu |
+> |---|---|---|---|
+> | `renderWorld` | → 2 specifieurs | 2 | ✔ conforme |
+> | `renderBuildings` | ligne supprimee | 0 survivant | ✔ conforme |
+> | `agents` | → 4 specifieurs | **5** | ✘ le plan oubliait `vehSkinFor` (l.1088/1555/1854) |
+> | `pixelTerrain` | retirer `drawPixelTerrain` seul | 5 survivants | ✔ conforme |
+> | `pixelRiver` | **ligne supprimee** | **2 survivants** | ✘ `setPixelWater`, `waterRippleTune` (molettes) |
+> | `pixelBridge` | **ligne supprimee** | **2 survivants** | ✘ `pixelBridgeFlag`, `setBridgeOnLoad` — et **P5 le disait deja**, l'etape 4 se contredisait elle-meme |
+>
+> Ces cinq modules ne sont plus tenus que par le bloc de molettes `window.__*` : c'est l'etape 6 qui les
+> emportera.
+>
+> **Verification, sans filet automatique (P24)** : analyse symbole par symbole **commentaires blanchis**
+> (7 faux positifs sans ca) ; controle croise apres coupe — zero import mort, zero import manquant ;
+> 152 fichiers / 1734 `it` verts ; build OK. Puis **le jeu**, seul juge : carte peinte a 100 %, pan, zoom
+> aux deux bouts (0,35 et 2,0), redimensionnement de fenetre, **les 4 paliers de qualite** (`perf` arme
+> bien le LOD), les 9 molettes conservees appelees une a une, clic et survol de carte — **zero erreur**.
+> Rechargement a froid : ere 18, 250 ressources, aucune image cassee, console vide.
+>
+> **Prochaine etape : 5, vider `renderWorld.js` en 5 temps.** ⚠ Meme piege qu'ici : ce fichier porte lui
+> aussi `/* eslint-disable */`, le menage d'imports y est **entierement manuel** (P24).
 
 ---
 
@@ -1174,6 +1319,47 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   - `refactor(carte): renderWorld ne peint plus les ponts ni les lampadaires`
   - `refactor(carte): renderWorld ne peint plus les routes — le marquage double vit desormais en iso`
   - `refactor(carte): renderWorld se reduit aux quais et a la simulation d'emeute`
+
+> ## ✔ ETAPE 5 FAITE — 2026-08-23, **en UN commit et non en 5 temps**
+>
+> `renderWorld.js` : **2939 → 742 lignes**, 52 declarations retirees (2162 lignes). Il ne reste que les
+> QUAIS et la SIMULATION D'EMEUTE, exactement les racines annoncees au §2.1.
+>
+> **Pourquoi un seul commit.** Les 5 temps avaient pour raison d'etre « `npm run lint` doit sortir propre
+> entre deux temps ». **Cette raison n'existe pas** : le lint est aveugle sur ce fichier (P24). Des
+> etats intermediaires non verifiables sont plus risques qu'une coupe unique validee d'un bloc.
+>
+> **La coupe a ete conduite par ANALYSE D'ATTEIGNABILITE**, pas a la main : graphe des references entre
+> declarations de premier niveau, depuis les 9 racines conservees, **commentaires ET chaines litterales
+> blanchis**, effets de bord du module traites comme racines. 17 vivants, 52 morts. Le plan annoncait
+> ~680 lignes restantes et ~2175 retirees ; mesure : **742 et 2162**.
+>
+> **⚠ P15 CONFIRME, ET PLUS MORDANT QUE PREVU.** Dix constantes d'arbres ne survivaient QUE par la boucle
+> de prechargement des 7 PNG et les 6 molettes `window.__tree*`, executees au simple import. Un effet de
+> bord de niveau module n'est pas une racine : c'est parfois du poids mort qui ancre du poids mort. Les
+> traiter comme morts fait tomber le bloc entier (42 morts → 52).
+>
+> **En-tete : 10 imports → 4.** Meurent `toNum`, `mapThemeForBand`, les 6 de `plazaProps.js`, les 2 de
+> `pixelMedian.js`, `setRoadPavingOnLoad`, `paintFlameGlows` (sans danger, l'iso l'importe pour son
+> compte), et les **trois hooks `setXOnLoad`**. → `plazaProps.js`, `pixelMedian.js`, `roadPaving.js`
+> deviennent orphelins, comme prevu : etape 6.
+>
+> **Q4 TRANCHEE PAR NECESSITE.** `CM.debugRoads` vivait **a l'interieur** de `cityMapDrawRoad` (l.1871
+> dans 1703-1885) : impossible de garder l'un en supprimant l'autre. Aucun equivalent iso ; les ~14
+> lignes sont dans l'historique, le recreer serait un petit chantier separe.
+>
+> **Tests — P9 respecte.** `roadDivided.test.js` → **`vehicleLane.test.js`** (301 → 58 lignes), trim et
+> non delete : son `describe` `vehicleLaneOffset` teste une fonction du chemin ISO, seule couverture
+> executable du placement des files. L'echafaudage `CM.iso` du `it` conserve saute aussi → **un pilote de
+> drapeau en moins pour l'etape 7 (9 → 8)**. **1734 → 1721 `it`** : les 12 tombes plus celui-la, au compte.
+>
+> **Verification** : controle croise apres coupe (aucun import mort, aucun manquant) ; 152 fichiers /
+> 1721 verts ; build OK — il attrape la seule chose qu'il sache attraper ici, un `export` vers un nom
+> disparu. Puis le jeu : eres 4, 16 et 69, carte peinte a 100 %, quais presents et molette vivante,
+> 250 ressources, aucune image cassee, console vide.
+>
+> **Prochaine etape : 6, les modules satellites.** ⚠ Elle est partiellement bloquee par **Q1**, toujours
+> ouverte — mais son principal frein a saute (P16 inverse : `roads/*.png` est regenerable).
 
 ---
 
@@ -1210,6 +1396,55 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
 - **Effort** : longue (peut se scinder en 2-3 commits : renderBuildings+buildingShapes / pixelTerrain +
   les 4 suppressions / agents + molettes).
 - **Commit** : `refactor(carte): quatre modules de peinture top-down disparaissent, le pont buildingShapes est demonte`
+
+> ## ✔ ETAPE 6 FAITE — 2026-08-23
+>
+> **CINQ modules supprimes** (et non quatre) : `plazaProps.js`, `pixelMedian.js`, `roadPaving.js`,
+> `pixelRiver.js` — orphelins en cascade, chacun verifie sans importeur avant la coupe — plus
+> **`buildingShapes.js`**, le PONT de P8, repointe puis supprime.
+>
+> **Quatre modules trimmes**, par atteignabilite depuis leurs vrais consommateurs :
+> `agents.js` **2417 → 1421**, `renderBuildings.js` **1088 → 775**, `pixelTerrain.js` **340 → 96**,
+> et `renderWorld.js` perd `baseColor` + `cmLitColor` (derniers lecteurs partis avec le bloc LOD et
+> `buildingShapes`). **Trois fichiers de test** retires : 1721 → **1694 `it`**, le compte exact.
+>
+> **Molettes** : 9 retirees, **5 gardees** (`__quayWall`, `__waterShore`, `__pixelBridge`, `__sidewalk`,
+> `__sidewalkTune`) — P17 respecte. ⚠ `__headlightDepth` et `__droneSprite` ont ete VERIFIES avant de
+> tomber : leurs drapeaux `CM.*` n'etaient lus que dans `drawOneVehicle`. L'iso appelle
+> `drawVehicleHeadlights` **sans garde** — un commentaire de `vehicleHeadlights.test.js` disait le
+> contraire, corrige.
+>
+> ### ⚠⚠ P26 — LA SUITE DE TESTS PASSE VERTE SUR UN MODULE CASSE
+>
+> Apres la coupe d'`agents.js`, son bloc `export` nommait encore 5 symboles disparus.
+> **`npx vitest run` : 1694 tests VERTS. `npm run build` : 5 `PARSE_ERROR` « Export X is not defined ».**
+> Vitest ne parse pas ces re-exports comme le bundler. **Sur ce chantier, « tests verts » ne vaut PAS
+> validation — lancer `npm run build` a chaque etape.** C'est la seule porte automatique qui reste sur les
+> fichiers `eslint-disable`, et elle n'attrape qu'une chose : un export vers un nom disparu.
+>
+> ### ✔ P24 REPARE — LA PORTE DU LINT EST RENDUE
+>
+> Une fois le top-down parti, **ESLint a signale lui-meme** que les `/* eslint-disable */` de
+> `renderWorld.js` et `pixelTerrain.js` etaient devenus inutiles (« unused eslint-disable directive »).
+> Retires. **`cityMapRuntime.js` a suivi** : il ne restait qu'une erreur, un parametre de `catch`
+> inutilise, corrigee.
+>
+> **Les quatre fichiers de la carte sont de nouveau lintes.** C'est exactement le garde-fou que P24
+> constatait absent a l'etape 4 — **l'etape 7 en profitera**. Le lint a servi dans la minute : il a
+> attrape `AGENT_NF`, `AGENT_FW` et `BOAT_SCALE`, restes morts apres la coupe. **Ne pas remettre ces
+> commentaires magiques sans raison ecrite.**
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1694 verts. Puis le jeu : ere 18,
+> 182 habitants, 80 vehicules, carte peinte a 100 %, quais presents, les 5 molettes conservees repondent
+> et les 9 retirees rendent `undefined`, 250 ressources, aucune image cassee, console vide.
+>
+> **⚠ Q1 reste ouverte** : c'est elle qui dira si le reliquat de `pixelTerrain.js` (96 lignes,
+> `drawEraGroundFill` + son tileset) peut disparaitre a son tour, avec les assets `roads/*.png`.
+>
+> **Prochaine etape : 7, le drapeau `CM.iso`.** Rappels : **P22** (la condition de passage doit inclure
+> `isoFlag`, pas seulement `CM.iso`), **P25** (entre 4 et 7, `__iso(false)` donne un rendu hybride —
+> avancer le nettoyage de `localStorage.cmIsoMode` si la periode dure), et l'inventaire des pilotes du
+> drapeau est descendu de 9 a **8** fichiers de test (§0.2).
 
 ---
 
@@ -1249,6 +1484,54 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
 - **Effort** : moyenne.
 - **Commit** : `feat(carte): plus de bascule de rendu — l'iso est la seule geometrie`
 
+> ## ✔ ETAPE 7 FAITE — 2026-08-23
+>
+> `CM.iso`, `isoFlag`, `window.__iso` et la cle `cmIsoMode` ont disparu. **Il n'y a plus qu'une
+> projection.** L'ordre impose a ete tenu a la lettre : lecteurs, puis `projection.js` fonction par
+> fonction, puis les tests, puis le bloc racine.
+>
+> ### ⚠⚠ LA CONDITION DE PASSAGE DU PLAN ETAIT INSUFFISANTE — DEUX FOIS
+>
+> Elle nommait **`CM.iso` seul**. Auraient echappe a ce grep :
+>
+> | Lecteur | Decouvert par |
+> |---|---|
+> | `pixelHouses.js` (import + 2 lectures de `isoFlag`) | **P22**, ajoute le 2026-08-22 en relisant le plan |
+> | `isoBridge.js` ×2 (`bridgeWalkBand`, `bridgeLiftScreen`) | **la condition elargie**, jamais inventories |
+> | `isoRenderer.js` ×1 (`drawIsoSplashes`) | idem |
+>
+> Les trois derniers sont apparus **apres** la redaction du plan. C'est `grep -rn "CM\.iso\b\|isoFlag"`
+> qui les a leves. **Une condition de passage ne doit pas nommer UN symbole quand le bloc supprime en
+> exporte TROIS** — la lecon de P22, verifiee sur pieces.
+>
+> ### Les pieges ont tenu
+>
+> **P3** — dans `agents.js`, seul `CM.iso && ` saute ; `CM.isoPedEdge != null` et `CM.isoVehLane != null`
+> RESTENT. Ce ne sont pas des restes du drapeau mais des gardes de **publication** : `agents.js` ne peut
+> pas importer `isoRenderer` (import inverse), la geometrie lui arrive sur `CM`, et sous vitest elle est
+> absente. Un commentaire le dit desormais sur place, pour que personne ne « simplifie » ca.
+> **P12** — la const `legacy` de `wonderFootWorld` est conservee : toujours renvoyee pour `era_mega`.
+> **P11** — le repli de survol des merveilles n'etait pas mort, seul son commentaire l'etait : reecrit.
+> **P25** — clos par le nettoyage ponctuel de `localStorage.cmIsoMode` au chargement.
+>
+> ### Les tests
+>
+> **Huit fichiers pilotaient le drapeau ; il n'en reste aucun.** Le `describe` « mode legacy » de
+> `projection.test.js` part — le `describe` iso couvrait deja chacun de ses cas (aller-retour, `depthOf`,
+> divergence de `wonderAnchor`). ⚠ **`legacyPlanarAnchor` RESTE malgre son nom** : ce n'est plus un
+> pilote mais un **temoin**, le test « l'ancre iso N'EST PAS la projection planaire » en depend.
+> **1694 → 1690 `it`.**
+>
+> ⚠ L'effet de bord annonce s'est produit sans casse : la vitesse pietonne passe de ×1 a ×0,72 dans les
+> suites qui eteignaient le drapeau. Budgets larges, assertions en ratio — **rejouees, pas relues**.
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1690 verts. Puis le jeu : `__iso` rend
+> `undefined`, `CM.iso` aussi, `cmIsoMode` est nettoye, et la carte tient — ere 20, 100 % peinte au repos,
+> en pan et aux deux bouts du zoom, quais presents, console vide.
+>
+> **Reste l'etape 8** (assets liberes, partiellement bloquee par **Q1** et **Q3**) et l'**etape 9**
+> (documentation). Puis **Q5** : `renderWorld.js` ne rend plus rien, son nom ment.
+
 ---
 
 ### Etape 8 — Les assets liberes
@@ -1264,6 +1547,46 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   controle qui compte : les prechargements de niveau module ne signalent rien a l'ecran (P15).
 - **Effort** : courte.
 - **Commit** : `chore(art): retirer les 52 tuiles du terrain top-down et leurs generateurs`
+
+> ## ✔ ETAPE 8 FAITE — 2026-08-23
+>
+> **58 PNG** retires (le plan en annoncait 52) et **6 scripts** devenus orphelins de leurs assets.
+>
+> **⚠ L'ECART DE 6 VIENT DU KIT DE PLACES.** Le plan comptait 10 `lamppost-*` + `paving-*` ; il y en a
+> **15**. Verifie a la SOURCE plutot qu'au decompte : `LEGACY_PROP` (isoPlaza.js) mappe `bench`, `bush`,
+> `fountain`, `flag` et `amphora→planter`, **rien d'autre** — ni `lamppost` ni `paving` ne peuvent etre
+> sondes par le repli iso. Les **45 fichiers** du kit qui LE sont restent en place : c'est le defaut de
+> **Q3**, toujours ouverte.
+>
+> ### ⚠⚠ LA VERIFICATION NE PEUT PAS ETRE UN GREP DE NOM DE FICHIER
+>
+> Lecon de l'etape 2, ou les chemins de vehicules etaient construits par TEMPLATE. Methode retenue :
+> **enumerer tous les prefixes `/pixelart/…` litteraux de `src/`**, puis suivre chacun. Le seul prefixe nu
+> (`'/pixelart/' + name`) est celui de `pixelTerrain.ensure`, dont les noms viennent de `ROAD_STAGES` —
+> des `roads/band*`, conserves. **Aucun autre chemin ne peut atteindre les fichiers retires.**
+>
+> ### P14 respecte, avec une precision
+>
+> `grass.png` et `water/water.png` etaient lus **sans garde** par des scripts : les supprimer seuls aurait
+> casse ces scripts, d'ou leur depart conjoint. Mais `grass.png` est aussi touche par
+> `separatePixelTerrain.mjs`, que **P16 dit de garder**. Verifie : ce script l'**ECRIT** (`GRASS_OUT`), il
+> ne le lit pas. Il reste — et il peut le regenerer, d'autant que sa matiere premiere `_archive/coupled/`
+> est revenue (P16 inverse).
+>
+> Les **prechargements de niveau module** qui tenaient ces assets etaient deja partis avec leur code : les
+> 7 arbres a l'etape 5, l'herbe et les rues a l'etape 6. C'est ce que **P15** reclamait, et c'est pourquoi
+> le controle reseau est vide.
+>
+> `.gitignore` inchange : son commentaire dit que `public/pixelart/roads/` et `grass-ref` restent
+> versionnes — toujours vrai, seuls les `.edge.png` sont partis.
+>
+> **Verification** : lint propre, build OK, 149 fichiers / 1690 verts. Puis le jeu — seul controle qui
+> vaille pour des prechargements silencieux : **ere 23**, celle ou places et terre-pleins chargeraient,
+> carte peinte a 100 %, 250 ressources reseau, **ZERO requete vers un asset retire**, aucune image non
+> decodee, console vide.
+>
+> **Reste l'etape 9** (documentation), puis **Q5** (renommer `renderWorld.js`). Q1, Q2, Q3 et Q6 restent
+> ouvertes — chacune ne commande plus qu'un petit menage supplementaire.
 
 ---
 
@@ -1290,6 +1613,70 @@ Les deux fonctions n'ont pas le meme contrat : `frontByPainter` rend un booleen 
   historiques explicitement datees.
 - **Effort** : moyenne.
 - **Commit** : `docs(carte): acter la fin du top-down — un seul pipeline documente`
+
+> ## ✔ ETAPE 9 FAITE — 2026-08-23. **LE CHANTIER EST CLOS.**
+>
+> `ARCHITECTURE.md` §6 etait le plus trompeur : il decrivait la carte **sans jamais nommer
+> l'isometrique**, et donnait `cityMapRuntime.js` pour le renderer. Reecrit — la boucle de frame et la
+> camera y vivent, mais LE DESSIN est entierement dans `iso/isoRenderer.js`. « Plafonne a 30 fps »
+> corrige (60 au palier Eleve).
+>
+> ### ⚠ LES JOURNAUX NE SONT PAS REECRITS, ILS SONT DATES
+>
+> `REPRISE-chantier-iso.md` est un **registre de chantier** : sa valeur est d'avoir enregistre les
+> decisions et les pieges AU MOMENT ou ils se posaient. Le reecrire pour qu'il « ait raison » aujourd'hui
+> detruirait ca. Il recoit donc une **cloture en tete** (ce qui a ete retire, chiffres a l'appui) et un
+> avertissement : ce document decrit juillet 2026, l'etat qui fait foi est **ce plan**. La ligne
+> « retirer le top-down un jour » est cochee.
+>
+> Meme traitement pour les audits. **`m-11` de `audit-2026-07-lot2.md` planifiait exactement ce
+> chantier** : marque resolu et date. `n-04` devient sans objet. `audit-2026-07-mort.md` : sa liste de
+> molettes « intentionnelles » est caduque pour `isoFlag`, `__pixelMedian`, `__roadPaving` ; vivante pour
+> `__pixelBridge` et `houseFitTune`.
+>
+> `public/pixelart/README.md` : **elague, pas jete** (−70 lignes). Les deux sections decrivant des couches
+> disparues — frange d'herbe et rues edge-Wang — partent ; rangement des sprites, fiche DA moteurs et
+> palette maitre restent. Le tableau du kit `plazas/` dit ce qui subsiste **et pourquoi** : les cinq props
+> que `LEGACY_PROP` sonde encore.
+>
+> Ponctuels : `ANIMATION_INDEX.md`, `PERF-CARTE-REPRISE.md`, `RETRI-2026-07-27.md`, `PLAN-RENDU-VILLE.md`,
+> et l'en-tete de `roadWidth.test.js` — il vantait la factorisation de 3 copies de la table des largeurs,
+> dont 2 n'existent plus : c'est un garde-fou de VALEURS, plus de duplication.
+>
+> **Non touches, comme le §6 Q19 l'exige** : `PLACES-ISO-COMPOSEES.md` et `reprise-infra-pixel.md` — leurs
+> « legacy » designent des kits d'art et des replis proceduraux, pas le pipeline. Les corriger serait une
+> **regression documentaire**.
+>
+> ⚠ Piege de manipulation, rencontre deux fois : **`git add <dossier>` ramasse les fichiers non suivis
+> d'autres sessions** (`scripts/zipDist.mjs` a l'etape 2, `docs/PLAN-RELIEF.md` ici). Sorti du commit
+> avant le push les deux fois. **Stager par fichier.**
+>
+> ---
+>
+> # 🏁 BILAN DU CHANTIER — etapes 2 a 9, le 2026-08-23
+>
+> | | Avant | Apres |
+> |---|---|---|
+> | Chemins de rendu de la carte | **2** | **1** |
+> | `renderWorld.js` | 2939 l. | **~735** — ne rend plus le monde |
+> | `agents.js` | 2417 l. | **1421** |
+> | `renderBuildings.js` | 1088 l. | **775** |
+> | `pixelTerrain.js` | 340 l. | **96** |
+> | `cityMapRuntime.js` | 2500 l. | **2352** |
+> | Modules supprimes | — | **5** (`buildingShapes`, `plazaProps`, `pixelMedian`, `roadPaving`, `pixelRiver`) |
+> | Assets retires | — | **82 PNG** (24 orphelins + 58 liberes) + **6 scripts** |
+> | Drapeau de pipeline | `CM.iso`/`isoFlag`/`__iso`/`cmIsoMode` | **disparu** |
+> | Fichiers de la carte lintes | 0 sur 4 (`eslint-disable`) | **4 sur 4** |
+> | Tests | 1713 | **1690** (27 legacy retires, 14 portes/ecrits) |
+>
+> **Le gain est la MAINTENANCE, comme annonce en §1** — jamais le poids. Une seule facon de repondre a
+> « pourquoi la carte fait ca ».
+>
+> **Ce qui reste, et qui n'est plus ce chantier** : **Q5** (renommer `renderWorld.js`, dont le nom ment),
+> **Q1** (le reliquat de `pixelTerrain.js` et les assets `roads/`), **Q2** (l'A/B `__isoBridge3d`),
+> **Q3** (le kit `plazas/` dormant), **Q6** (les generateurs archives ou non), **Q8** (les fichiers
+> d'auteur hors `public/`), **Q10** (decouper `isoRenderer.js`, +49 % en 24 jours), **Q11** (la passe
+> fantome qui redessine 86-87 % des unites) et **Q12** (le departage d'egalite de la profondeur).
 
 ---
 
@@ -1356,7 +1743,10 @@ Statiquement, la reference est vivante (`cityEngineSprites.js:2931` ← `isoRend
 refuse explicitement les scenes moteur pour les champs (`isoRenderer.js:4844`) et les redessine avec
 `drawIsoField` (`isoRenderer.js:6227`). **Indecidable par recherche** : il faut le mesurer a l'encre, en
 jeu. Si la branche est morte, `pixelTerrain.js` disparait **en entier** et 177 Ko d'assets partent.
-Rappel P16 : ces 20 fichiers **ne sont plus regenerables** (source `_archive/coupled/` vide).
+~~Rappel P16 : ces 20 fichiers **ne sont plus regenerables** (source `_archive/coupled/` vide).~~
+**⚠ CE FREIN A SAUTE le 2026-08-23 : `_archive/coupled/` contient de nouveau ses 20 fichiers, donc
+`roads/*.png` EST regenerable** (P16 corrige). Il reste a mesurer a l'encre si la branche est vivante,
+mais le risque en cas d'erreur n'est plus irreversible.
 *Bloque l'etape 6.3 et une partie de l'etape 8.*
 
 **Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ?**

@@ -23,7 +23,6 @@ function setupBridge(eraBand) {
   CM.TILE = TILE;
   CM.cam = { x: 0, y: 0, zoom: 1 };
   CM.cw = 800; CM.ch = 600; CM.nightF = 0;
-  CM.iso = true;
   const roadMap = new Map();
   const mask = ROAD_E | ROAD_W | ROAD_S | ROAD_N;
   for (let gy = 0; gy <= 12; gy += 1) {
@@ -38,7 +37,7 @@ function setupBridge(eraBand) {
   }];
 }
 
-afterEach(() => { CM.layout = null; CM.bridgeSpans = null; CM.iso = false; });
+afterEach(() => { CM.layout = null; CM.bridgeSpans = null; });
 
 describe("enterrement du pont de pierre sur la berge", () => {
   beforeEach(() => setupBridge(2));   // bande 2 = pierre (spriteKey + bury)

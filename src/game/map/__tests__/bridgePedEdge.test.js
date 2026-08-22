@@ -3,12 +3,16 @@ import { describe, it, expect } from "vitest";
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
 
-// ⚠ CE FICHIER COUVRE LE CHEMIN DE REPLI (CM.iso = false). En ISO — le mode du
-// jeu — la ligne de marche vient désormais de bridgeWalkBand (isoBridge.js) :
-// une ZONE de la largeur du tablier DESSINÉ, pas un offset autour de l'axe de
-// voie (cf. citizenChooseNext, chantier « zone de passage » 2026-08-04). Le
-// resserrement ci-dessous ne s'applique plus qu'au legacy top-down, aux spans
-// sans géométrie iso, et quand __bridgePedEdge force l'ancienne ligne.
+// ⚠ CE FICHIER COUVRE LE CHEMIN DE REPLI. En jeu, la ligne de marche vient de
+// `bridgeWalkBand` (isoBridge.js) : une ZONE de la largeur du tablier DESSINÉ, pas
+// un offset autour de l'axe de voie (cf. citizenChooseNext, chantier « zone de
+// passage » 2026-08-04). Le resserrement testé ici ne s'applique qu'aux spans sans
+// géométrie iso et quand `__bridgePedEdge` force l'ancienne ligne.
+//
+// Le repli se déclenche de lui-même sous vitest : `agents.js` ne peut pas importer
+// `isoRenderer` (import inverse), donc `CM.isoPedEdge` n'est jamais publié ici. Le
+// `CM.iso = false` qui armait ce cas est parti avec le drapeau (étape 7,
+// 2026-08-23) — c'est le garde `!= null` de P3 qui fait le travail, et lui reste.
 //
 // Décalage-trottoir sur les PONTS. Le trottoir piéton (0.42 tuile) déborde du tablier :
 // sur une cellule-pont, l'habitant marchait DANS L'EAU. Le fix resserre l'offset vers
@@ -31,7 +35,6 @@ function setupCorridor() {
   CM.TILE = TILE;
   CM.cam = { x: 0, y: 0, zoom: 1 };
   CM.cw = 800; CM.ch = 600; CM.nightF = 0;
-  CM.iso = false;
   const roadMap = new Map();
   const walkRoadSet = new Set();
   const walkRoadList = [];

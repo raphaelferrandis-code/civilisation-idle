@@ -1,4 +1,10 @@
-/* eslint-disable */
+// ✔ LE `/* eslint-disable */` DE TÊTE A ÉTÉ RETIRÉ le 2026-08-23 (étape 6). Il
+// couvrait le pipeline top-down ; une fois celui-ci parti, il ne restait qu'une
+// seule erreur — un paramètre de `catch` inutilisé — corrigée du même coup.
+// ⚠ CE N'EST PAS COSMÉTIQUE : le piège P24 constatait que le lint était AVEUGLE
+// sur ce fichier, alors que le plan comptait dessus comme garde-fou de l'étape 4.
+// La porte est rendue, et l'étape 7 (suppression du drapeau `CM.iso`) en profite.
+// Ne pas remettre ce commentaire magique sans raison écrite.
 import { state, collapseInProgress, setCollapseInProgress, renderCache, openView } from '../core/state.js';
 import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
@@ -38,39 +44,24 @@ import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles, pixelHouseImages } from './pixelHouses.js';
 import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
-// monde↔écran (identité quand CM.iso est éteint → zéro changement legacy).
+// monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
+// iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
 import { drawIsoWorld, waterShoreTune, riverIslandObstacles, plaisirsHitTest } from './iso/isoRenderer.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
-import {
-  cityMapDrawGround,
-  cityMapDrawTerrain,
-  cityMapDrawRiver,
-  cityMapDrawTrees,
-  cityMapDrawUrbanMass,
-  cityMapDrawNight,
-  cityMapDrawStreetLights,
-  cityMapDrawBridges,
-  cityMapDrawBridgeLights,
-  cityMapDrawPlazaSurface,
-  cityMapDrawPlazas,
-  cityMapDrawPlazaTallProps,
-  cityMapDrawQuays,
-  cityMapDrawCityReflections,
-  cityMapDrawHealthTint,
-  cityMapDrawCityLights,
-  drawCrisis,
-  cityMapDrawRoad,
-  cityMapDrawRoadMarkings,
-  cityMapCalmRioterAt,
-  quayWallTune
-} from './renderWorld.js';
-import { drawTile, drawWonder } from './renderBuildings.js';
-import { drawCitizens, drawGroundAgents, updateVehicles, drawShips, getVehicleDensity, chooseRoadVehicleType, vehSkinFor, drawVehicles, drawCitizenThoughts, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
-import { drawPixelTerrain, pixelTerrainFlag, pixelRoadsFlag, pixelSidewalkFlag, sidewalkTune, setPixelTileset } from './pixelTerrain.js';
-import { drawPixelRiver, pixelWaterFlag, setPixelWater, waterRippleTune } from './pixelRiver.js';
-import { drawPixelBridges, pixelBridgeFlag, setBridgeOnLoad } from './pixelBridge.js';
+// ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
+// (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
+// garde que le clic d'apaisement et le réglage de mur de quai, les cinq autres
+// modules ne sont plus tenus que par les molettes console (bloc `window.__*` en
+// fin de fichier) — l'étape 6 les emportera. Élagué à la MESURE, pas au plan :
+// celui-ci annonçait de supprimer les lignes `renderBuildings`, `pixelRiver` et
+// `pixelBridge`, alors que quatre de leurs symboles sont encore lus ici, et il
+// oubliait `vehSkinFor`.
+import { cityMapCalmRioterAt, quayWallTune } from './renderWorld.js';
+import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
+import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
+import { pixelBridgeFlag } from './pixelBridge.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
@@ -288,8 +279,7 @@ function cityMapBlitMargin(canvas, stateName) {
   CM.ctx.drawImage(canvas, bx - M, by - M, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
-// Monde↔écran : délégué à la projection unique (iso/projection.js). Identique au
-// mapping historique quand CM.iso est éteint.
+// Monde↔écran : délégué à la projection unique (iso/projection.js).
 function cityMapWorldAtScreen(sx, sy) {
   return screenToWorld(sx, sy);
 }
@@ -327,14 +317,16 @@ function cityMapCameraTarget(layout) {
   // comportement (aucune régression sur les grandes villes), on peut seulement
   // resserrer sur un petit village. Iso : mêmes tuiles = 2× la largeur (losange 2:1).
   const targetTiles = 22 + Math.min(14, Math.max(0, (layout.gridN - 20) * 0.07));
-  const perTile = T * (CM.iso ? 2 * ISO_X : 1);
+  const perTile = T * 2 * ISO_X;   // mêmes tuiles = 2× la largeur (losange 2:1)
   const baseZoom = CM.cw / (targetTiles * perTile);
 
   // Cadre sur le CONTENU bâti réel plutôt que sur le seul cœur procédural : le
   // cœur (plan.core) est souvent au bord SUD du bâti, donc centrer dessus pousse
   // le village en haut d'un coin avec un large anneau d'herbe morte autour.
   const b = cityContentBounds(layout);
-  if (b && CM.iso) {
+  // ⚠ Le test sur `b` RESTE : `cityContentBounds` peut rendre null (aucun contenu
+  // bâti), et c'est le repli plus bas qui prend alors la main. Seul `CM.iso` a sauté.
+  if (b) {
     // Fit-to-bounds iso : la bbox (Wt×Ht tuiles) se projette en un losange dont
     // l'étendue écran vaut (Wt+Ht)·ISO_X × (Wt+Ht)·ISO_Y. On zoome pour que ce
     // losange + une marge (anneau délibéré) remplisse le cadre, sans jamais
@@ -354,7 +346,7 @@ function cityMapCameraTarget(layout) {
     };
   }
 
-  // Repli (legacy top-down, ou aucun contenu) : cœur du plan + zoom historique.
+  // Repli quand il n'y a AUCUN contenu bâti à cadrer : cœur du plan + zoom historique.
   return {
     x: (layout.plan?.core?.x ?? layout.gridN / 2) * T,
     y: (layout.plan?.core?.y ?? layout.gridN / 2) * T,
@@ -408,39 +400,23 @@ function cmClampCamera() {
   const by1 = (N + 0.5 * N) * T;  // ... et en dessous
   const boxW = bx1 - bx0, boxH = by1 - by0;
   if (boxW <= 0 || boxH <= 0) return;
-  if (CM.iso) {
-    // Iso (Phase 1) : la boîte monde projetée est un losange dont l'étendue écran
-    // vaut (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan
-    // se contente de garder le CENTRE caméra dans la boîte monde (clamp exact
-    // bord-à-bord = intersection de losange, affiné en Phase 6 si besoin).
-    const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
-    const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
-    // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
-    // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
-    // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
-    // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
-    const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
-    if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
-    // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
-    // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
-    if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
-    CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
-    CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
-    return;
-  }
-  // Plancher de zoom : la boîte contient toujours le viewport (axe contraignant
-  // ajusté pile -> on prend le max des deux ajustements).
-  const zoomFloor = Math.min(3.2, Math.max(CM.cw / boxW, CM.ch / boxH));
-  const loTd = snapZoom(zoomFloor, 1), hiTd = snapZoom(3.2, -1);   // S11, cf. la branche iso
-  if (CM.cam.zoom < loTd) CM.cam.zoom = loTd;
-  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loTd, Math.min(hiTd, CM.zoomGoal)); // A9 : cible bornée comme cam.zoom
-  // Pan : chaque bord d'écran reste dans la boîte (centré si l'écran dépasse la
-  // boîte sur cet axe).
-  const halfW = (CM.cw / 2) / CM.cam.zoom, halfH = (CM.ch / 2) / CM.cam.zoom;
-  const loX = bx0 + halfW, hiX = bx1 - halfW;
-  const loY = by0 + halfH, hiY = by1 - halfH;
-  CM.cam.x = loX > hiX ? (bx0 + bx1) / 2 : Math.max(loX, Math.min(hiX, CM.cam.x));
-  CM.cam.y = loY > hiY ? (by0 + by1) / 2 : Math.max(loY, Math.min(hiY, CM.cam.y));
+  // La boîte monde projetée est un losange dont l'étendue écran vaut
+  // (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan se
+  // contente de garder le CENTRE caméra dans la boîte monde (clamp exact
+  // bord-à-bord = intersection de losange, jamais jugé nécessaire).
+  const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
+  const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
+  // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
+  // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
+  // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
+  // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
+  const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
+  if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
+  // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
+  // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
+  if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
+  CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
+  CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
 }
 
 // A9 — Un pas d'amortissement de la caméra, appelé chaque frame avant le clamp.
@@ -656,10 +632,13 @@ function cityMapHitTest(sx, sy) {
         return wonderTip(b.wi);
       }
     } else {
-      // Repli (legacy top-down, ou 1re frame avant publication) : le disque au
-      // sol d'avant. Ancre PARTAGÉE avec drawWonder — ce hit-test projetait
-      // encore à la main, façon legacy, donc en iso la zone survolable ne
-      // tombait plus sur la merveille dessinée.
+      // ⚠ CE REPLI N'EST PAS MORT (P11). Son ancien commentaire disait « legacy
+      // top-down » ; il TOURNE en réalité à chaque frame où aucune merveille n'est
+      // dessinée — `CM._wonderBoxes` est remis à zéro par le peintre iso, donc la
+      // branche du dessus ne prend pas. C'est aussi le seul consommateur de
+      // `wonderAnchor` dans ce fichier. Repli sur le disque au sol, avec l'ancre
+      // PARTAGÉE avec drawWonder : projeter à la main ici décalait la zone
+      // survolable par rapport à la merveille dessinée.
       const activeWonders = cmWonderActiveIds(state);
       for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
         if (!activeWonders.has(CM_WONDERS[wi].id)) continue;
@@ -1972,7 +1951,7 @@ function initCityMap(canvas, options = {}) {
           const prosper = Math.max(0, Math.min(1, 0.55 + vt.foodBonus * 1.6 + vt.goldBonus * 0.9 + vt.knowledgeBonus * 0.9));
           const strain = Math.max(0, Math.min(1, pr.total * 0.5 + (state.instability || 0) * 0.55 + (state.timeWear || 0) * 0.6));
           healthT = Math.max(0, Math.min(1, prosper * 0.45 + (1 - strain) * 0.55));
-        } catch (e) { healthT = CM.healthF; }
+        } catch { healthT = CM.healthF; }
         // Lissage : la palette glisse au fil des secondes, elle ne saute pas.
         CM.healthF += (healthT - CM.healthF) * Math.min(1, dt * 0.8);
       }
@@ -2104,157 +2083,20 @@ function initCityMap(canvas, options = {}) {
           islandT: CM.riverIslandT,
         });
       fp('flotte');
-      // CHANTIER ISO (Phase 1) : rendu losange dédié (iso/isoRenderer.js) — quand le
-      // flag est actif, il rend la frame entière (sim des agents incluse) et on SAUTE
-      // tout le pipeline de dessin legacy ci-dessous, inchangé au flag près.
-      if (CM.iso && drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin })) {
-        // frame iso rendue — le bloc legacy garde son indentation historique.
-      } else {
-      // --- Couches statiques (rebake si layout/zoom/nuit change OU pan > marge) ---
-      // NB: sol ET rivière ne sont PAS dans ce canvas — dessinés live pour l'ordre :
-      // sol → rivière → (blit décor : arbres/routes/ponts/lumières).
-      const _otherStatic = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.nightF.toFixed(1) + ':' + CM.healthF.toFixed(1);
-      cityMapBakeMargin(CM.staticCanvas, CM.sctx, '_staticBake', _otherStatic, () => {
-        cityMapDrawTrees();
-        cityMapDrawUrbanMass(CM.layout);
-        cityMapDrawPlazaSurface();
-        // Routes : pixel edge-Wang (dans drawPixelTerrain) si flag, sinon procédural.
-        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
-          for (const r of CM.roadList) cityMapDrawRoad(r);
-          cityMapDrawRoadMarkings();
-        }
-        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawStreetLights(now);
-      });
-      // Sol + rivière d'abord (sous le canvas statique), puis blit.
-      // Le SOL (procédural + tuiles pixel + relief) est statique à caméra fixe :
-      // baké dans un canvas offscreen et blitté chaque frame (en live, le sol
-      // pixel coûtait ~7 ms/frame). La rivière et les couches animées restent
-      // live PAR-DESSUS le blit — ordre inchangé.
-      if (CM.groundCanvas) {
-        const _otherGround = CM.cam.zoom.toFixed(2) + ':' + CM.layoutRecomputeAt + ':' + CM.healthF.toFixed(1) + ':'
-          + (state.timeWear || 0).toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (pixelTerrainFlag.on ? 1 : 0) + ':' + (pixelRoadsFlag.on ? 1 : 0)
-          + ':' + (pixelSidewalkFlag.on ? 1 : 0);
-        cityMapBakeMargin(CM.groundCanvas, CM.gctx, '_groundBake', _otherGround, () => {
-          CM._groundBakeStable = true; // drawPixelTerrain le baisse si tileset de repli
-          cityMapDrawGround(CM.layout);
-          const _pg = pixelTerrainFlag.on && drawPixelTerrain(CM);
-          if (!_pg) cityMapDrawTerrain();
-          // Tilesets encore en chargement → renvoyer false = re-bake à la frame suivante.
-          return (_pg || !pixelTerrainFlag.on) && CM._groundBakeStable;
-        });
-        cityMapBlitMargin(CM.groundCanvas, '_groundBake');
-      } else {
-        // Repli sans canvas offscreen : rendu live historique.
-        cityMapDrawGround(CM.layout);
-        // Prototype pixel-art : couche terrain en tuiles Wang (herbe + routes de
-        // terre) par-dessus le sol procédural, derrière le flag pixelTerrainFlag.
-        const _pixelGround = pixelTerrainFlag.on && drawPixelTerrain(CM);
-        // Relief en trompe-l'œil (option B) : ombrage de pente sur le sol sauvage
-        // + berges, SOUS le fleuve et la ville (qui restent plats).
-        if (!_pixelGround) cityMapDrawTerrain();
-      }
-      // Prototype pixel-art : corps d'eau clippé au ruban (Approche A), derrière
-      // le flag pixelWaterFlag. Renvoie false (layout/fleuve absent) -> fallback
-      // sur le rendu vectoriel intact. Inséré à la place exacte de l'ancien appel
-      // -> ordre de blit préservé (ponts/bateaux recouvrent l'eau gratuitement).
-      if (!(pixelWaterFlag.on && drawPixelRiver(CM, now))) cityMapDrawRiver(now);
-      // Quais : berge construite (pierre/béton/énergie) là où la ville borde l'eau,
-      // SUR le bord du fleuve mais SOUS le blit statique (ponts/routes/bâtiments).
-      cityMapDrawQuays(now);
-      // Reflets nocturnes des bâtiments riverains sur l'eau (nappes lumineuses
-      // clippées au ruban), sous les bateaux/blit statique.
-      cityMapDrawCityReflections(now);
-      // Bateaux SUR la couche eau : ils passent sous les ponts, routes et
-      // bâtiments (le blit statique les recouvre aux croisements).
-      drawShips();
-      if (CM.staticCanvas) {
-        cityMapBlitMargin(CM.staticCanvas, '_staticBake');
-      } else {
-        // sol + rivière déjà dessinés live au-dessus
-        cityMapDrawTrees();
-        cityMapDrawUrbanMass(CM.layout);
-        cityMapDrawPlazaSurface();
-        // Routes : tuiles pixel edge-Wang (dessinées dans drawPixelTerrain) si le flag
-        // est actif ; sinon rendu procédural (voies doubles + marquages) PAR-DESSUS le sol.
-        if (!(pixelTerrainFlag.on && pixelRoadsFlag.on)) {
-          for (const r of CM.roadList) cityMapDrawRoad(r);
-          cityMapDrawRoadMarkings();
-        }
-        if (!(pixelBridgeFlag.on && drawPixelBridges(CM, now))) cityMapDrawBridges();
-        cityMapDrawStreetLights(now);
-      }
-      // --- Couches dynamiques (animees, chaque frame) ---
-      // Agents AVANT les batiments -> charrettes/pietons/navires passent derriere.
-      cityMapDrawPlazas(now);
-      updateVehicles(dt);
-      // En vue dézoomée (LOD), piétons et trafic au sol ne sont plus que du
-      // bruit de 1-2px : on ne les dessine pas (ils continuent d'exister).
-      // drawGroundAgents = MAJ citoyens + rendu SOL (piétons + véhicules) triés ENSEMBLE
-      // par Y (1re passe : agents « derrière » un bâtiment).
-      if (!CM.lodActive) {
-        drawGroundAgents(dt, now);
-      }
-      // Props TALL des places (fontaines + drapeaux/lampadaires) dessinés ICI (entre les 2
-      // passes d'habitants) → Y-SORT : au sud du prop = devant (2e passe), au nord = derrière
-      // (déjà dessiné). Le mobilier bas (bancs/bacs) reste dans cityMapDrawPlazas (avant agents).
-      cityMapDrawPlazaTallProps(now);
-      const tw = state.timeWear || 0, maxD2 = CM.layout ? CM.layout.maxD2 : 1;
-      // (CM.engineHomeReveal est calculé AVANT la bascule iso/legacy, cf. plus haut.)
-      if (CM.layout) {
-        if (now >= CM.tileDirtyUntil && CM.tileCanvas) {
-          // Hors fenêtre de naissance : bake les tuiles statiques (marge = pan fluide),
-          // engine toujours live. La clé inclut engineHomeReveal → re-bake quand une
-          // maison-moteur est révélée (per-buy, ~5 ms, pas les 800 ms du recompute).
-          const _otherTile = CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(2) + ':' + tw.toFixed(2) + ':' + (CM.frameRuined ? 1 : 0) + ':' + (CM.engineHomeReveal || 0);
-          cityMapBakeMargin(CM.tileCanvas, CM.tctx, '_tileBake', _otherTile, () => {
-            for (const t of CM.layout.tiles) if (t.type !== "engine") drawTile(t, now, tw, maxD2);
-          });
-          cityMapBlitMargin(CM.tileCanvas, '_tileBake');
-          // Tuiles engine toujours dessinées live : leurs sprites ont des animations (feu, roues...).
-          for (const t of CM.layout.tiles) if (t.type === "engine") drawTile(t, now, tw, maxD2);
-        } else {
-          // Pendant la fenêtre de naissance : tout live
-          for (const t of CM.layout.tiles) drawTile(t, now, tw, maxD2);
-        }
-      }
-      // Y-SORT — 2e passe : agents DEVANT un bâtiment (voisin nord bâti), dessinés PAR-DESSUS
-      // le blit des bâtiments pour ne pas être rognés. dt=0 → aucune MAJ (déjà faite plus haut).
-      // Piétons + véhicules « devant » toujours triés ENSEMBLE par Y (drawGroundAgents).
-      if (!CM.lodActive) {
-        drawGroundAgents(0, now, true);
-      }
-      // Santé : voile global (désaturation/brun en crise, vibrance en prospérité)
-      // appliqué AVANT la nuit — les merveilles, dessinées après, y échappent.
-      cityMapDrawHealthTint();
-      // Nuit : assombrit la scene, les villes avancees se mettent a briller.
-      cityMapDrawNight(now);
-      // Tapis de lumières nocturnes : fenêtres, districts, phares (additif).
-      cityMapDrawCityLights(now);
-      // Lampes de pont (additif) : par-dessus le voile de nuit, comme les fenêtres.
-      cityMapDrawBridgeLights(now);
-      drawCrisis(dt, now);
-      // Merveilles (trophees) par-dessus la nuit : elles restent eclatantes.
-      // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) sont dessinées ;
-      // une merveille en sommeil (cité pas encore assez grande) rejouera son
-      // animation de levée quand l'ère atteindra son seuil — on (re)cale alors son
-      // horodatage de naissance, et on l'efface quand elle redevient dormante.
-      if (CM.layout && Array.isArray(state.wonders)) {
-        const activeWonders = cmWonderActiveIds(state);
-        const pv = CM.previewWonder; // aperçu dev (__showWonder) : force le rendu
-        for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-          const w = CM_WONDERS[wi];
-          if (activeWonders.has(w.id) || (pv && pv.id === w.id)) {
-            if (!CM.born["wonder:" + w.id]) CM.born["wonder:" + w.id] = now;
-            drawWonder(w, wi, now);
-          } else if (CM.born["wonder:" + w.id]) {
-            delete CM.born["wonder:" + w.id];
-          }
-        }
-      }
-      drawVehicles(now, "air"); // drones au-dessus
-      if (!CM.lodActive) drawCitizenThoughts(now);
-      } // fin du pipeline legacy (voir la bascule CM.iso en tête de bloc)
+      // LA CARTE N'A PLUS QU'UN CHEMIN DE RENDU. drawIsoWorld peint la frame
+      // entière, simulation des agents incluse (iso/isoRenderer.js). Le pipeline
+      // top-down qui vivait ici — 145 lignes derrière un `else` — a été retiré le
+      // 2026-08-23 (étape 4 de docs/PLAN-SUPPRESSION-LEGACY.md).
+      //
+      // ⚠ LE GARDE EST AVANT L'APPEL, PAS APRÈS. `drawIsoWorld` renvoie false
+      // quand CM.layout est nul, et c'est le bloc legacy qui rattrapait ce cas :
+      // il peignait encore un fond (son `cityMapDrawGround` prenait `layout?.`,
+      // le `?.` prouvant que le cas était prévu). Sans lui, on sort de la frame
+      // proprement. Le retour de drawIsoWorld n'est donc plus consommé.
+      // Sortir ici est sûr : `frame` a ré-armé son rAF bien plus haut, comme le
+      // font déjà les deux replis d'entrée de la fonction.
+      if (!CM.layout) { fpEnd(); return; }
+      drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin });
       fpEnd();
     }
   }
@@ -2421,8 +2263,8 @@ function initCityMap(canvas, options = {}) {
       CM.forceFrame();
       return { layout: !!CM.layout, veh: CM.vehicles.length, cit: CM.citizens.length, era: CM.layout && CM.layout.counts ? CM.layout.counts.eraIndex : null };
     };
-    window.__pixelTerrain = (on) => { pixelTerrainFlag.on = !!on; cmInvalidateBakes(); };
-    window.__pixelRoads = (on) => { pixelRoadsFlag.on = !!on; cmInvalidateBakes(); };
+    // ⚠ `__pixelTerrain` et `__pixelRoads` pilotaient le terrain et les routes du
+    // rendu top-down : retirés le 2026-08-23 avec `drawPixelTerrain` (étape 6).
     // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
     // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
     window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM._groundBake = null; };
@@ -2434,17 +2276,16 @@ function initCityMap(canvas, options = {}) {
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).
     window.__crowd = (m) => { window.__citizenMul = (m == null ? 1 : +m); CM.layout = null; CM.centered = false; return { citizenMul: window.__citizenMul, target: CM.citizenTarget }; };
-    window.__pixelTileset = (name) => { setPixelTileset(name); cmInvalidateBakes(); };
-    window.__pixelWater = (on) => { setPixelWater(on); cmInvalidateBakes(); };
-    // Vaguelettes animées de l'eau (façon TheoTown) : réglage live. Eau LIVE → pas de rebake.
-    // __waterRipples({ on, lanes, freq, speed, thresh, alpha, color }). Ex. __waterRipples({ alpha: 0.5 }).
-    window.__waterRipples = (o) => { if (o) Object.assign(waterRippleTune, o); return { ...waterRippleTune }; };
+    // ⚠ `__pixelTileset`, `__pixelWater` et `__waterRipples` sont partis le
+    // 2026-08-23 (étape 6) avec le terrain top-down et `pixelRiver.js`.
     // Bas-fond clair des rives (iso) : réglage live. __waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
     window.__waterShore = (o) => { if (o) Object.assign(waterShoreTune, o); return { ...waterShoreTune }; };
+    // ⚠ CELLE-CI RESTE (P5) : `pixelBridgeFlag` pilote encore un chemin ISO — le
+    // repli de tablier plat quand `__isoBridge3d(false)`. Ne pas la balayer avec
+    // les molettes voisines sous prétexte qu'elle dit « pixel ».
     window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM._staticBake = null; };
-    // Le pont pixel est baké dans le canvas statique → invalider ce cache quand une
-    // scène de pont finit de décoder (sinon le pont vectoriel de repli reste baké).
-    setBridgeOnLoad(() => { CM._staticBake = null; });
+    // Le callback `setBridgeOnLoad` vivait ici : il n'invalidait que `CM._staticBake`,
+    // le cache du pipeline top-down, qui n'existe plus.
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
     window.__collapse = (on) => { setCollapseInProgress(!!on); cmInvalidateBakes(); };

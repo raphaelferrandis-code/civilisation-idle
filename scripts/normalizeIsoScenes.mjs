@@ -1,11 +1,14 @@
 // normalizeIsoScenes.mjs — NORMALISE la géométrie des scènes iso PixelLab pour
 // qu'elles se calent exactement sur la grille losange 2:1 du jeu (retour Raph :
-// places « en biais », ponts « dimensions fausses / mauvais sens »).
+// places « en biais »).
 //
-//   • PONTS (bridge-full-*.png) : PCA des pixels opaques → axe principal ;
-//     FLIP X si l'axe court en SE (il doit courir en SW : haut-droit → bas-
-//     gauche) ; ROTATION nearest-neighbor pour amener l'axe PILE sur la
-//     diagonale iso (pente 0.5) ; recadrage au contenu (+2 px).
+//   ⚠ LE MODE `bridges` A ÉTÉ RETIRÉ le 2026-08-23 avec les sprites qu'il
+//     traitait (iso/bridge-full-*.png). Ces ponts COMPLETS avaient été débranchés
+//     le 2026-07-12 — même normalisés en angle ils gardaient leur perspective
+//     interne et paraissaient tordus, « annule et remets comme avant » — puis
+//     sortis du dépôt à l'étape 2 du plan de suppression du legacy. Le pont du
+//     jeu est aujourd'hui une tranche de sprite posée au sol (iso/isoBridge.js).
+//     Le bloc PCA/flip/rotation reste dans l'historique git si besoin.
 //   • PLACES (plaza-*.png) : pente du losange de base mesurée entre le coin
 //     GAUCHE (colonne la plus à gauche) et le coin SUD (ligne la plus basse) ;
 //     re-échantillonnage VERTICAL (facteur 0.5/pente) pour un losange 2:1
@@ -14,7 +17,7 @@
 // Les originaux sont copiés une fois dans public/pixelart/iso/_orig/ (dossier
 // ignoré par quantize). IDEMPOTENT : un fichier déjà normalisé (marqueur dans
 // _orig) est re-normalisé DEPUIS l'original, jamais depuis lui-même.
-//   Lancer : node scripts/normalizeIsoScenes.mjs [bridges|plazas|all]
+//   Lancer : node scripts/normalizeIsoScenes.mjs [plazas|all]
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,34 +43,6 @@ function opaquePixels(png) {
     if (png.data[(y * png.width + x) * 4 + 3] > A) pts.push([x, y]);
   }
   return pts;
-}
-
-function flipX(png) {
-  const out = new PNG({ width: png.width, height: png.height });
-  for (let y = 0; y < png.height; y += 1) for (let x = 0; x < png.width; x += 1) {
-    const s = (y * png.width + x) * 4, d = (y * png.width + (png.width - 1 - x)) * 4;
-    out.data[d] = png.data[s]; out.data[d + 1] = png.data[s + 1];
-    out.data[d + 2] = png.data[s + 2]; out.data[d + 3] = png.data[s + 3];
-  }
-  return out;
-}
-
-// Rotation nearest-neighbor de `ang` rad autour du centre, canvas élargi.
-function rotate(png, ang) {
-  const S = Math.ceil(Math.hypot(png.width, png.height)) + 4;
-  const out = new PNG({ width: S, height: S });
-  const cs = Math.cos(-ang), sn = Math.sin(-ang);
-  const cx = png.width / 2, cy = png.height / 2, ox = S / 2, oy = S / 2;
-  for (let y = 0; y < S; y += 1) for (let x = 0; x < S; x += 1) {
-    const dx = x - ox, dy = y - oy;
-    const sx = Math.round(cx + dx * cs - dy * sn);
-    const sy = Math.round(cy + dx * sn + dy * cs);
-    if (sx < 0 || sy < 0 || sx >= png.width || sy >= png.height) continue;
-    const s = (sy * png.width + sx) * 4, d = (y * S + x) * 4;
-    out.data[d] = png.data[s]; out.data[d + 1] = png.data[s + 1];
-    out.data[d + 2] = png.data[s + 2]; out.data[d + 3] = png.data[s + 3];
-  }
-  return out;
 }
 
 function trim(png, margin = 2) {
@@ -99,33 +74,6 @@ function scaleXY(png, fx, fy) {
     }
   }
   return out;
-}
-
-if (MODE === 'bridges' || MODE === 'all') {
-  for (const f of fs.readdirSync(DIR)) {
-    if (!/^bridge-full-.*\.png$/.test(f)) continue;
-    let png = fromOrig(f);
-    const pts = opaquePixels(png);
-    // PCA : axe principal du nuage opaque.
-    let mx = 0, my = 0;
-    for (const [x, y] of pts) { mx += x; my += y; }
-    mx /= pts.length; my /= pts.length;
-    let sxx = 0, sxy = 0, syy = 0;
-    for (const [x, y] of pts) { const dx = x - mx, dy = y - my; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
-    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);   // orientation de l'axe (mod π)
-    let vx = Math.cos(th), vy = Math.sin(th);
-    if (vy < 0) { vx = -vx; vy = -vy; }                // normalise vy ≥ 0
-    let flipped = false;
-    if (vx > 0) { png = flipX(png); vx = -vx; flipped = true; }   // SE → SW
-    // Rotation vers la diagonale SW exacte : direction cible (−2, 1)/√5.
-    const target = Math.atan2(1, -2);
-    const cur = Math.atan2(vy, vx);
-    const delta = target - cur;
-    png = trim(rotate(png, delta));
-    save(path.join(DIR, f), png);
-    console.log(f, `axe ${(cur * 180 / Math.PI).toFixed(1)}° → ${(target * 180 / Math.PI).toFixed(1)}°`,
-      flipped ? '(FLIP X : courait en SE)' : '', `rot ${(delta * 180 / Math.PI).toFixed(1)}°`, `${png.width}×${png.height}`);
-  }
 }
 
 if (MODE === 'plazas' || MODE === 'all') {

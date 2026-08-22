@@ -296,14 +296,7 @@
       "beton": "ef9b2ae2-d9ce-4659-acb9-e161cd1889c5",
       "energie": "44282faf-c290-4c69-b706-786ed167802c"
     },
-    "bridgesFull": {
-      "_doc": "ponts COMPLETS 256px 1-direction (SW écran) → iso/bridge-full-*.png ; beton généré en SE → FLIPPÉ X au download ; energie v1 (eau bakée) remplacée par v2 272764ee",
-      "bois": "a5080844-2ecb-4e6c-9450-09beb7bd0442",
-      "pierre": "eef00025-bdc0-41c5-b169-18c31643cdb3",
-      "fer": "a81c9e79-a1a1-4fb3-b1ea-8636b0e6021e",
-      "beton": "09a05ff2-cafa-44a6-9e55-d32a19a45194",
-      "energie": "272764ee-4bc0-459b-8405-7f4e2f2d608e"
-    },
+    "_bridgesFullRetire": "2026-08-23, étape 2 du plan de suppression du legacy : les 5 ponts COMPLETS (iso/bridge-full-*.png) sont sortis du dépôt. Débranchés depuis le 2026-07-12 — même normalisés en angle ils gardaient leur perspective interne et paraissaient tordus. Leurs 5 object ids PixelLab restent dans l'historique git de ce fichier.",
     "pontoonsIso8dir": {
       "_doc": "axes MESURÉS au PCA 2026-07-13 (l'ancienne note était inversée) : bois ne/sw = NE-SW écran (N-S monde), bois nw/se = NW-SE écran (E-W monde) ; pierre sw = N-S, pierre se = E-W (DL brut, comme sw) ; beton = eau bakée REBUT (pierre sert au stade 3+)",
       "bois": "3c0bbf5a-9d84-4137-8d8b-4319bd9fa3a5",

@@ -25,7 +25,6 @@ function setupCorridor({ withDoorstep = true } = {}) {
   CM.TILE = TILE;
   CM.cam = { x: 0, y: 0, zoom: 1 };
   CM.cw = 800; CM.ch = 600; CM.nightF = 0;
-  CM.iso = false;
   const roadMap = new Map();
   const walkRoadSet = new Set();
   const walkRoadList = [];
