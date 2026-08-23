@@ -78,8 +78,13 @@ describe('houseScaleK — la formule unique', () => {
 });
 
 describe('constantes de référence — verrouillées sur les sites vifs', () => {
-  it('HOUSE_LOT_WF suit isoRenderer (boîte-lot des habitations)', () => {
-    expect(SRC('iso/isoRenderer.js')).toContain(
+  // ⚠ TROISIÈME DÉMÉNAGEMENT d'une garde de ce fichier (2026-08-23) : la boîte-lot
+  // suit désormais isoLivePaint.js, comme ENGINE_UNIT_F suit isoEngineScene.js. Ces
+  // gardes cherchent une FORMULE dans du TEXTE — elles ne portent aucun nom d'export,
+  // donc aucun balayage de symboles ne peut les voir partir avec le code. Si le site
+  // vif redéménage, c'est ce chemin-là qu'il faut suivre.
+  it('HOUSE_LOT_WF suit isoLivePaint (boîte-lot des habitations)', () => {
+    expect(SRC('iso/isoLivePaint.js')).toContain(
       `wpx = (spanX + spanY) * T * z * ISO_X * ${HOUSE_LOT_WF}`);
   });
   // ⚠ LA BOÎTE DES SCÈNES MOTEUR A DÉMÉNAGÉ le 2026-08-23 : isoRenderer →
