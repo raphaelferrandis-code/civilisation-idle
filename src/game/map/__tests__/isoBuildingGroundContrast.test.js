@@ -34,7 +34,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { isoEraSurface } from "../iso/isoRenderer.js";
+import { isoEraSurface } from "../iso/isoGroundDetail.js";
 import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 import { VARIANTS_HOUSE } from "../procedural/buildingGenerator.js";
 import { HOUSE_FAMILY, HOUSE_TINTS, applyHouseTint } from "../housePalette.js";

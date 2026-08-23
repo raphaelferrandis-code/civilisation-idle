@@ -11,7 +11,7 @@
 //     Elle vivait dans la boucle de dessin des allées ; elle est maintenant
 //     partagée, et ce fichier est ce qui empêche qu'elles se remettent à diverger.
 import { describe, it, expect } from "vitest";
-import { isoBuildingFront, isoFrontOffset, FRONT } from "../iso/isoRenderer.js";
+import { isoBuildingFront, isoFrontOffset, FRONT } from "../iso/isoGroundDetail.js";
 // La GÉOMÉTRIE de rue est partie dans isoRoad.js le 2026-08-23 : que de la config,
 // aucune ligne de dessin. Le front de rue, lui, est resté avec le peintre.
 import { ISO_ROAD_HALFW } from "../iso/isoRoad.js";

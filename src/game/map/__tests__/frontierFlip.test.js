@@ -4,7 +4,7 @@
 // aucune cellule bâtie ne bascule (sinon une maison se retrouve dans l'herbe),
 // et rien ne bouge loin du bord.
 import { describe, it, expect } from "vitest";
-import { frontierFlip } from "../iso/isoRenderer.js";
+import { frontierFlip } from "../iso/isoGroundDetail.js";
 
 // Ville = demi-plan gx < 0. La frontière court donc entre gx = -1 et gx = 0.
 const cityLeft = (gx) => gx < 0;

@@ -19,7 +19,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { URBAN_TILE_A } from "../iso/isoRenderer.js";
+import { URBAN_TILE_A } from "../iso/isoGroundDetail.js";
 import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 
 const ISO = new URL("../../../../public/pixelart/iso/", import.meta.url);

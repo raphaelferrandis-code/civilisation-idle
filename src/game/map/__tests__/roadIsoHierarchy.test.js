@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { ISO_ROAD_HALFW, isoRoadHalfW } from "../iso/isoRoad.js";
 import { CM } from "../layout.js";
-// ⚠ LA GÉOMÉTRIE PUBLIÉE AUX AGENTS (`CM.isoVehLane` & co) EST UN EFFET DE BORD du
-// CHARGEMENT d'isoRenderer : `syncIsoStreetGeom()` tourne au niveau module. Tant que
+// ⚠ LA GÉOMÉTRIE PUBLIÉE AUX AGENTS (`CM.isoVehLane` & co) EST UN EFFET DE BORD DE
+// CHARGEMENT : `syncIsoStreetGeom()` tourne au niveau module — dans isoGroundDetail.js
+// depuis le 2026-08-23, atteint en chargeant isoRenderer, qui l'importe. Tant que
 // ce test tirait ses largeurs DEPUIS isoRenderer, l'effet venait par la bande ; la
 // config est partie dans isoRoad.js le 2026-08-23, et il a fallu le demander à voix
 // haute. C'est mieux ainsi : ce fichier vérifie la cohérence renderer ↔ agents, donc
