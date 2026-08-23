@@ -9,6 +9,7 @@
 // ⚠ Les maisons sont BAKÉES dans le canvas offscreen CM.tileCanvas → à chaque
 // chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
 import { CM, cmHash } from './layout.js';
+import { maskFromImageData } from "./iso/isoMask.js";
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
@@ -195,7 +196,7 @@ function contentBBox(img) {
   cx.drawImage(img, 0, 0);
   let data;
   try { data = cx.getImageData(0, 0, w, h).data; }
-  catch { return { x0: 0, y0: 0, w, h }; }   // garde cross-origin (ne devrait pas arriver, same-origin)
+  catch { return { x0: 0, y0: 0, w, h, mask: null }; }   // garde cross-origin (ne devrait pas arriver, same-origin)
   let x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
@@ -205,8 +206,12 @@ function contentBBox(img) {
       }
     }
   }
-  if (x1 < 0) return { x0: 0, y0: 0, w, h };
-  return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  if (x1 < 0) return { x0: 0, y0: 0, w, h, mask: null };
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  // MASQUE D'OCCULTATION (Q11) : tiré du MÊME tampon, donc gratuit. Il dit à la
+  // passe fantôme si un point d'écran tombe sur de la matière ou dans un coin vide
+  // de la boîte — cf. iso/isoMask.js.
+  return { x0, y0, w: bw, h: bh, mask: maskFromImageData(data, w, h, x0, y0, bw, bh) };
 }
 
 // True si un sprite pixel PRÊT existe pour cette tuile → l'appelant saute le
@@ -253,8 +258,12 @@ function pixelHouseGeom(t, x, y, w, h) {
   // HIVER : même canvas, une passe de plus. La neige non plus ne déplace aucun pixel
   // (elle repeint DANS la silhouette, alpha inchangé), donc la boîte, le liseré de
   // survol et la portée peintre restent ceux du sprite d'été — c'est le contrat.
+  // ⚠ Le masque d'occultation (Q11) SUIT la teinte : le canvas teinté est recadré sur
+  // la bbox, donc le masque du sprite d'été s'y applique tel quel — et c'est le même
+  // contrat que la boîte et le liseré juste au-dessus, pour la même raison (ni la
+  // teinte ni la neige ne déplacent un pixel, elles repeignent DANS la silhouette).
   const vc = variantCanvas(key, houseTintOf(t, key), CM.season === WINTER && snowRoofTune.on);
-  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h }, dx, dy, dw, dh };
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh };
   return { img: e.img, bb, dx, dy, dw, dh };
 }
 
@@ -275,7 +284,7 @@ export function drawPixelHouse(t, x, y, w, h) {
   // lightLayer.js). Même image, même géométrie → découpe au pixel. No-op quand
   // aucune lumière n'a été déposée dans ce coin de l'écran.
   lightCutImage(g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
-  return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh };
+  return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh, mask: g.bb && g.bb.mask };
 }
 
 // Boîte écran du sprite SANS le dessiner, pour les couches qui doivent se placer

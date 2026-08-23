@@ -18,6 +18,7 @@
 // ⚠ Aucun cycle : engineSprites, engineSceneCache, engineAnim, flameGlow,
 // lightLayer et spriteScale citent bien isoRenderer — tous en PROSE, aucun import.
 import { CM, cmHash, cmEngineAtelierFoot } from '../layout.js';
+import { maskFromImageData } from "./isoMask.js";
 import { fp } from '../framePerf.js';
 import { worldToScreen, ISO_X } from './projection.js';
 import { grainTune } from '../spriteScale.js';
@@ -129,7 +130,12 @@ function engineInkFrac(t, now) {
   // en cache — sinon la première frame, celle où les PNG manquent encore,
   // figerait une emprise fausse pour toute la session.
   if (x1 < x0 || y1 < y0) return null;
+  // MASQUE D'OCCULTATION (Q11) : tiré du MÊME tampon `d` que l'encre ci-dessus,
+  // donc gratuit, et mémoïsé sur la même clé (id, tier, bande, ère) — partagé par
+  // toutes les instances de la scène. Il dit à la passe fantôme si un point d'écran
+  // tombe sur de la matière ou dans un coin vide de la boîte. Cf. iso/isoMask.js.
   const frac = {
+    mask: maskFromImageData(d, ENG_INK_REF, ENG_INK_REF, x0, y0, x1 - x0 + 1, y1 - y0 + 1),
     x0: x0 / ENG_INK_REF,
     y0: y0 / ENG_INK_REF,
     w: (x1 - x0 + 1) / ENG_INK_REF,
@@ -331,7 +337,7 @@ export function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) 
     const ink = engineInkFrac(t, now);
     fp('vif-moteurs');
     return ink
-      ? { dx: bx + bw * ink.x0, dy: by + bw * ink.y0, dw: bw * ink.w, dh: bw * ink.h }
+      ? { dx: bx + bw * ink.x0, dy: by + bw * ink.y0, dw: bw * ink.w, dh: bw * ink.h, mask: ink.mask }
       : { dx: bx, dy: by, dw: bw, dh: bw };
   } catch (e) {
     fp('vif-moteurs');

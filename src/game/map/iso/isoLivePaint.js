@@ -45,6 +45,7 @@ import { drawIsoEngineScene, drawSpriteOutline, isoEngineScenesFlag } from './is
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
 import { ISO_TREE_VARIANTS, drawIsoGroundedArt } from './isoGroundProps.js';
+import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import {
   PLAISIRS_PPT, drawPlaisirsRing, plaisirsSprite, queuePlaisirsGlow,
@@ -601,26 +602,37 @@ export function paintIsoItems(bake, items, now) {
     }
     const wU = T * z * ISO_X * GHOST_TUNE.wK, hU = T * z * GHOST_TUNE.hK;
     let vus = 0, dessines = 0;
+    // ⚠⚠ TEST AU PIXEL, et non plus au rectangle (2026-08-23, second tour de Q11).
+    // Le premier jet comparait des AIRES de rectangles. Une boîte d'encre est un
+    // rectangle autour d'une silhouette ISOMÉTRIQUE : ses coins sont vides, et une
+    // unité qui y tombe passait pour cachée — mesuré sur un attelage du pont, sous la
+    // boîte d'une maison de la rive, qui se redessinait sur lui-même. La condition
+    // « les pieds dans la boîte » a été essayée : elle n'écarte AUCUN cas.
+    // On échantillonne donc la silhouette sur une grille et on interroge le MASQUE du
+    // sprite (iso/isoMask.js) : de la matière, ou du vide ?
+    const NX = 3, NY = 5;                              // 15 points : assez pour trancher
     const couvert = (gwx, gwy, d) => {
       const sp = worldToScreen(gwx, gwy);
-      const ux0 = sp.x - wU * 0.5, ux1 = sp.x + wU * 0.5, uy0 = sp.y - hU, uy1 = sp.y;
-      const seuil = wU * hU * GHOST_TUNE.cover;
-      let aire = 0;
-      for (let c = Math.floor(ux0 / COL); c <= Math.floor(ux1 / COL); c += 1) {
-        const a = parCol.get(c); if (!a) continue;
-        for (let i = 0; i < a.length; i += 2) {
-          if (a[i + 1] <= d) continue;                 // dessiné AVANT l'unité : ne la cache pas
-          const bx = a[i];
-          const ox = Math.min(ux1, bx.dx + bx.dw) - Math.max(ux0, bx.dx);
-          if (ox <= 0) continue;
-          const oy = Math.min(uy1, bx.dy + bx.dh) - Math.max(uy0, bx.dy);
-          if (oy <= 0) continue;
-          // ⚠ On CUMULE (une unité peut être cachée par deux façades mitoyennes),
-          // mais l'aire est bornée par la silhouette : deux boîtes qui se
-          // chevauchent double-compteraient sinon. L'erreur restante penche du côté
-          // qui GARDE le fantôme — c'est le sens qu'on veut.
-          aire += ox * oy;
-          if (aire >= seuil) return true;
+      const besoin = Math.ceil(NX * NY * GHOST_TUNE.cover);
+      let touches = 0, restants = NX * NY;
+      for (let iy = 0; iy < NY; iy += 1) {
+        // De la tête (iy=0) aux pieds : la tête est ce qui compte le plus pour dire
+        // qu'on ne voit plus l'unité, mais un corps caché aux 3/4 compte aussi.
+        const py = sp.y - hU * (1 - iy / (NY - 1));
+        for (let ix = 0; ix < NX; ix += 1) {
+          const px = sp.x + wU * ((ix / (NX - 1)) - 0.5);
+          let vu = false;
+          for (let c = Math.floor((px - 1) / COL); c <= Math.floor((px + 1) / COL) && !vu; c += 1) {
+            const a = parCol.get(c); if (!a) continue;
+            for (let i = 0; i < a.length; i += 2) {
+              if (a[i + 1] <= d) continue;             // dessiné AVANT l'unité : ne la cache pas
+              if (maskHit(a[i], px, py)) { vu = true; break; }
+            }
+          }
+          if (vu) touches += 1;
+          restants -= 1;
+          if (touches >= besoin) return true;
+          if (touches + restants < besoin) return false;   // plus atteignable
         }
       }
       return false;
