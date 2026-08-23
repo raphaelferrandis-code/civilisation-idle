@@ -1,4 +1,4 @@
-# Cartographie de `drawIsoLive` — 936 lignes, 8 phases · **collecte sortie : 551 l.**
+# Cartographie de `drawIsoLive` — 936 lignes, 8 phases · 🏁 **découpée : 91 lignes**
 
 *Dressée le 2026-08-23, juste après la clôture de `CARTO-drawIsoGround.md` (Q10, cf.
 `PLAN-SUPPRESSION-LEGACY.md` §6). C'est une ANALYSE : rien n'a été déplacé.*
@@ -113,8 +113,9 @@ donc le premier à devoir passer par l'A/B pixel décrit dans `CARTO-drawIsoGrou
    Plaisirs est rentrée chez elle (`76b2003`). Le bloc « survol + pool » n’en était PAS un — cf. §4.
 2. ~~**La COLLECTE**~~ ✔ **FAIT** (`5a2b43e`) — `iso/isoLiveCollect.js` (437 l.), 386 lignes reprises
    verbatim. `drawIsoLive` : 936 → **551**. Le POOL d'items est parti avec : c'est son état privé.
-3. **Le DESSIN** (441 l., 12 lectures), phases 5-6-7 ENSEMBLE pour que l'état GPU voyage avec ses
-   écritures.
+3. ~~**Le DESSIN**~~ ✔ **FAIT** (`8d4f8b6`) — `iso/isoLivePaint.js` (540 l.), 461 lignes reprises
+   verbatim. Les phases 5-6-7 sont bien parties ENSEMBLE : l'état des lots GPU voyage avec ses
+   écritures. `drawTreeIso` et `HOUSE_BOX_CAP` les ont suivies. 🏁 **drawIsoLive : 936 → 91 l.**
 
 ### ⚠ Un CINQUIÈME angle mort, découvert à la coupe de la collecte
 
@@ -130,3 +131,39 @@ instruction hors déclaration · sortants vs déclarés · `let` réassigné · 
 Et à chaque coupe, le protocole désormais rodé : mesurer la couture, vérifier qu'aucun nom n'est
 réassigné, **passer la garde de collision** (`scratchpad/collision.cjs`), prouver l'identité des octets,
 puis lint + tests + build + une cuisson à l'écran.
+
+---
+
+## 7. 🏁 Bilan — 936 → 91 lignes
+
+`drawIsoLive` se lit maintenant d'un trait : *poser le contexte, collecter, trier, mesurer si on le
+demande, peindre, poser les anneaux d'apaisement.* La forme que le §1 avait relevée est devenue la
+forme du code.
+
+| coupe | commit | lignes reprises verbatim |
+|---|---|---|
+| prélude — Maison des Plaisirs → `isoPlaisirs.js` | `76b2003` | 75 |
+| **COLLECTE** → `iso/isoLiveCollect.js` (+ le pool d'items) | `5a2b43e` | 386 + 4 |
+| **DESSIN** → `iso/isoLivePaint.js` (+ `drawTreeIso`, `HOUSE_BOX_CAP`) | `8d4f8b6` | 461 + 12 + 1 |
+
+**Aucune ligne n'a changé.** Le contexte destructuré en tête a tenu ici comme sur le sol.
+
+### Ce que cette carte a appris, en plus de la précédente
+
+1. **Un CINQUIÈME angle mort** : les **paramètres** de la fonction englobante sont invisibles aux outils
+   (`now`, lu deux fois par la collecte). Levé par le lint.
+2. **Un faux positif de mesure** : `b` était compté comme lu, alors que le dessin écrit `{ b: box, t }`
+   — une **clé d'objet**, pas la variable. L'analyse textuelle ne distingue pas les deux.
+3. **P31 mord à répétition** : deux gardes de `spriteScale.test.js` ont dû suivre leur formule
+   (`ENGINE_UNIT_F` → `isoEngineScene`, `HOUSE_LOT_WF` → `isoLivePaint`), plus celle de
+   `groundTileDose`. **Trois fois sur ce chantier.** Une garde qui cherche du TEXTE ne porte aucun nom :
+   la chercher fait partie du protocole, au même titre que le balayage des exports.
+4. **Le motif « l'état voyage avec son écrivain » s'est présenté TROIS fois** — état de saison, couche
+   de marche, lots GPU. À ce stade, ce n'est plus une observation : c'est une règle de découpe.
+
+### Ce qui reste dans `isoRenderer.js` (1 186 l.)
+
+`drawIsoWorldInner` (~493 l.), **non cartographié** — le dernier des trois. Plus le cache du sol
+(~323 l.), qui en dépend, le survol (45 l.), et la coordination de haut niveau.
+
+⚠ Toujours hors tranche : l'aiguillage sur 17 `it.kind` → table de dispatch (cf. §5).
