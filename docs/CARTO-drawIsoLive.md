@@ -1,4 +1,4 @@
-# Cartographie de `drawIsoLive` — 936 lignes, 8 phases
+# Cartographie de `drawIsoLive` — 936 lignes, 8 phases · **collecte sortie : 551 l.**
 
 *Dressée le 2026-08-23, juste après la clôture de `CARTO-drawIsoGround.md` (Q10, cf.
 `PLAN-SUPPRESSION-LEGACY.md` §6). C'est une ANALYSE : rien n'a été déplacé.*
@@ -111,9 +111,21 @@ donc le premier à devoir passer par l'A/B pixel décrit dans `CARTO-drawIsoGrou
 
 1. ~~**Le prélude**~~ ✔ **FAIT** : la Maison des
    Plaisirs est rentrée chez elle (`76b2003`). Le bloc « survol + pool » n’en était PAS un — cf. §4.
-2. **La COLLECTE** (384 l., 9 lectures) — la plus simple des deux, et elle valide le contexte.
+2. ~~**La COLLECTE**~~ ✔ **FAIT** (`5a2b43e`) — `iso/isoLiveCollect.js` (437 l.), 386 lignes reprises
+   verbatim. `drawIsoLive` : 936 → **551**. Le POOL d'items est parti avec : c'est son état privé.
 3. **Le DESSIN** (441 l., 12 lectures), phases 5-6-7 ENSEMBLE pour que l'état GPU voyage avec ses
    écritures.
+
+### ⚠ Un CINQUIÈME angle mort, découvert à la coupe de la collecte
+
+`now` est le **PARAMÈTRE** de `drawIsoLive`, et la collecte le lit deux fois. **Les outils de mesure ne
+regardent que les DÉCLARATIONS de premier niveau — ils ne voient pas les paramètres de la fonction
+englobante.** C'est le lint qui l'a levé (`no-undef`), et il l'aurait levé de toute façon ; mais la
+mesure annonçait « 8 lectures » là où il y en avait 9.
+
+À ajouter à la liste des angles morts de l'analyse textuelle (cf. la fiche mémoire et le plan) :
+instruction hors déclaration · sortants vs déclarés · `let` réassigné · `${…}` de gabarit ·
+**et les PARAMÈTRES**.
 
 Et à chaque coupe, le protocole désormais rodé : mesurer la couture, vérifier qu'aucun nom n'est
 réassigné, **passer la garde de collision** (`scratchpad/collision.cjs`), prouver l'identité des octets,
