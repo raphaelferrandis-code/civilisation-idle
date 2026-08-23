@@ -1843,8 +1843,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 4 840 lignes, soit −56 %**, reparties
-> en **26 modules** sous `iso/`.
+> d'identite des octets** contre la version commitee. **11 039 → 3 583 lignes, soit −68 %**, reparties
+> en **29 modules** sous `iso/`.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1862,6 +1862,9 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `7cee866` | `iso/isoTissu.js` (233 l.) — bati / cour / friche, un MODELE ; `iso/isoFence.js` (218 l.) | → 5 580 |
 > | `c2f5609` | `iso/isoRoad.js` (176 l.) — la voirie, **eparpillee en 4 endroits** | → 5 439 |
 > | `6d59efe` | `iso/isoStreet.js` (639 l.) — lampadaires, mobilier, terre-pleins, la NUIT | → 4 840 |
+> | `e9b7e88` | `iso/isoGroundDetail.js` (815 l.) — matieres du sol + l'etat de SAISON (P28) | → 4 071 |
+> | `a979d90` | `iso/isoAmbient.js` (266 l.) + `iso/isoField.js` (96 l.) | → 3 747 |
+> | `82a5949` | le TABLIER rejoint `iso/isoBridge.js` — **consolidation, pas creation** | → 3 583 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1896,14 +1899,30 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > partagent une ou deux memes entrantes, sortir ces entrantes d'abord vaut mieux que de forcer un gros
 > bloc. Et une CONFIG (isoRoad) ou un MODELE (isoTissu) n'a de toute facon rien a faire dans un peintre.
 >
-> **Suite** : il reste **`drawIsoGround` (1 219 l.), `drawIsoLive` (994 l.) et `drawIsoWorldInner`
-> (492 l.)** — 2 705 lignes, **56 %** de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
-> passes autonomes : leur decoupage ne sera pas un simple deplacement de bloc, et demandera d'abord de
-> decider ce qui est une PASSE et ce qui est de la COORDINATION.
-> Restent extractibles a peu de frais : le PONT, le CHAMP, l'AMBIANCE (particules / fumee / chevron),
-> les POINTS D'EAU + la fontaine de place.
-> ⚠ Un bloc reste CHER et il faut le savoir : le **SURVOL** (~1 013 l., **47 entrantes**). Ne pas s'y
-> attaquer par la face — il faudra d'abord sortir ce qu'il lit, comme pour tous les autres.
+> ✔ **UNE TRANCHE PEUT ETRE UNE CONSOLIDATION.** Le TABLIER n'a pas cree de module : il a rejoint
+> `isoBridge.js`, qui portait deja la structure du pont. Deux morceaux d'un seul ouvrage, separes par
+> mille lignes. Chercher le FOYER NATUREL avant d'inventer un fichier.
+>
+> ⚠⚠ **CE DECOUPAGE MET AU JOUR DES DOUBLONS.** `isoBridge.js` portait sa propre copie du CACHE D'ART,
+> puis on a decouvert qu'il porte aussi un `rgb` **identique au caractere pres** a celui d'isoPalette
+> (leve par le lint, en collision de nom). Les deux existaient pour la meme raison, ecrite en
+> commentaire : « l'importer creerait un cycle isoRenderer ↔ isoBridge ». **Cette raison n'a plus
+> cours** depuis que ces briques sont en feuilles. La deduplication n'est PAS un deplacement pur : elle
+> merite son propre chantier.
+>
+> **Suite** : il reste **`drawIsoGround` (1 164 l.), `drawIsoLive` (936 l.) et `drawIsoWorldInner`
+> (493 l.)** — 2 593 lignes, **72 %** de ce qui subsiste (etendues MESUREES par appariement d'accolades,
+> pas estimees). Ce sont les ORCHESTRATEURS du peintre, pas des passes autonomes : leur decoupage ne
+> sera pas un deplacement de bloc, et demandera d'abord de decider ce qui est une PASSE et ce qui est de
+> la COORDINATION.
+> Restent extractibles a peu de frais (tous a **0 entrante**) : les POINTS D'EAU + place + fontaine
+> (126 l.), et le SURVOL (45 l.).
+>
+> ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas
+> prendre de face ». **C'est faux** : la plage mesuree englobait `drawIsoLive`. Le SURVOL reel fait
+> **45 lignes et ZERO entrante**. Lecon : quand une plage est bornee par deux bandeaux, verifier qu'elle
+> ne contient pas une GROSSE FONCTION — sinon on mesure la couture de l'orchestrateur, pas celle de la
+> passe. Un chiffre d'entrantes anormalement haut (≫ 10) est le symptome.
 > ⚠ Deux choses restent **exprès** dans isoRenderer et n'iront jamais dans une palette : le ton de
 > CHAUSSEE (`roadTone`/`roadToneRaw`), parce qu'il depend de `roadVeilFor` donc de `ROAD_DETAIL`
 > (34 usages de reglage de VOIRIE) ; et l'etat de SAISON, pour la raison de P28 ci-dessous.
