@@ -157,17 +157,40 @@ résolution ne peut basculer.
 **Cette vérification est OBLIGATOIRE à chaque passe.** C'est elle, pas les tests ni le build, qui couvre
 le risque que ce chantier ajoute.
 
+## 7. ✔ FAIT — C, D, E : ce qu'on croyait extraire n'était pas ce qu'il fallait extraire
+
+*Commit `4cc8d18`. `drawIsoGround` : 1 007 → **989 lignes**.*
+
+Le §6 annonçait « C/D/E : à traiter ensemble ou pas du tout ». **Après lecture, la réponse est : ni
+l'un ni l'autre.** Telles quelles, ces 33 lignes **SONT de la coordination** — elles bouclent sur un
+tampon et appellent un peintre vivant déjà ailleurs, et leurs commentaires disent l'**ordre** (« le
+dallage PUIS la margelle », « voile sous fleur », « après le fond, AVANT les rubans »). Les sortir en
+modules de dix lignes aurait retiré de l'orchestrateur la seule chose qu'il doit exprimer.
+
+**Ce qui méritait de bouger, c'est le FORMAT DES TAMPONS.** `wonderCells` et `grassCells` sont des
+tableaux **plats empaquetés par 4** (`gx, gy, px, py`) et l'orchestrateur connaissait ce détail à trois
+endroits. Ce format regarde qui remplit et qui lit, pas qui ordonne. Donc les **boucles** rejoignent
+leurs peintres — `drawWonderGroundAll`, `drawGrassDetailAll`, `drawGrassFringeAll` — et l'ordre, les
+commentaires qui l'expliquent et le chronomètre restent.
+
+> **La leçon, et elle vaut pour B et F** : dans un orchestrateur, la question n'est pas « ce bloc
+> peut-il sortir ? » mais « **qu'est-ce qui, dans ce bloc, n'est pas de la coordination ?** ». Souvent
+> ce n'est pas le bloc — c'est un DÉTAIL D'IMPLÉMENTATION qu'il porte pour un autre.
+
+⚠ `flushVeils()` **reste** : c'est une fermeture sur le tampon de voiles que la boucle de cellules
+remplit (`veilPush`). Elle partira **avec la passe B**, pas avant — producteur et consommateur
+voyagent ensemble, comme l'état de saison l'a montré ailleurs dans ce chantier.
+
 ### La suite
 
-Ordre conseillé inchangé : les passes restantes se prennent de la moins couplée à la plus couplée.
-**C (parvis, 13 l.)**, **D (voiles + herbe, 12 l.)** et **E (frange, 8 l.)** sont minuscules et
-consomment des tampons — à traiter ensemble ou pas du tout. Puis **B (222 l.)**, qui produit ces
-tampons. **F (428 l.) en dernier** : c'est elle qui porte la couche de marche et le plus d'état.
+**B (222 l.)** — la boucle de cellules — puis **F (428 l.)** en dernier, qui porte la couche de marche
+et le plus d'état. C'est à partir de B que la prévision du §4 redevient vraie : un objet de contexte
+sera inévitable, et l'A/B pixel avec lui.
 
 ⚠ C'est aussi à partir de B et F que la prévision du §4 redeviendra vraie : là, un objet de contexte
 sera inévitable, et l'A/B pixel avec lui.
 
 ---
 
-Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 3 210 lignes — et c'est un état sain :
+Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 3 194 lignes — et c'est un état sain :
 chaque passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
