@@ -20,6 +20,7 @@
 // ⚠ AUCUN CYCLE : `quaysAndRiot` et `riverFleet` ne remontent jamais vers le
 // peintre (vérifié avant la coupe), et `isoRiverLife` reçoit ce dont il a besoin
 // par INJECTION (`configureRiverLife`), pas par import.
+import { waterSinkPx } from './isoRelief.js';
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 // ⚠ L'INJECTION VIT ICI, pas dans le peintre : c'est le fleuve qui donne à la vie du
@@ -297,8 +298,15 @@ function riverRibbonScreen(pts, T, mode = 'wave') {
     const nx = -ty, ny = tx;
     const hl = wv ? (mode === 'wet' ? wv.wetPlus[i] : wv.plus[i]) : p.hw;
     const hr = wv ? (mode === 'wet' ? wv.wetMinus[i] : wv.minus[i]) : p.hw;
-    left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T));
-    right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T));
+    // ⚠ LA NAPPE DESCEND ICI, et tout la suit par construction : le lit, les vagues,
+    // les reflets, les bateaux, le contour des îles. C est le point d entrée du lot 1
+    // (cf. iso/isoRelief.js). Un décalage ÉCRAN, ajouté après projection — la verticale
+    // ne subit pas l écrasement iso, même convention que le lift du pont.
+    const sink = waterSinkPx();
+    const l = worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T);
+    const r = worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T);
+    l.y += sink; r.y += sink;
+    left.push(l); right.push(r);
   }
   return { left, right };
 }
@@ -352,7 +360,11 @@ function islandOutline(il, T, N = 30, mode = 'wave') {
     const rx = Math.max(0.25, il.rx - d), ry = Math.max(0.25, il.ry - d);
     const al = Math.cos(a) * rx, cr = Math.sin(a) * ry;
     // Repère de l'île : `al` le long du courant, `cr` en travers.
-    out.push(worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T));
+    // Le contour d île suit la nappe : une île est un TROU dans le ruban, son bord
+    // est donc au niveau de l eau, pas du sol.
+    const q = worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T);
+    q.y += waterSinkPx();
+    out.push(q);
   }
   return out;
 }
