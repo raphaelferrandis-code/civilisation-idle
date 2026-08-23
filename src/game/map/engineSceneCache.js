@@ -14,7 +14,7 @@
 //   front (statique d'avant-plan : brouettes, cagettes…)     → CUIT, blitté après.
 //
 // MÉCANISME DE CUISSON : l'échange de CM.ctx — la garantie est documentée dans
-// isoRenderer (drawIsoEngineOutline) : drawEngineSpriteCore lit CM.ctx UNE fois
+// isoEngineScene (drawIsoEngineOutline) : drawEngineSpriteCore lit CM.ctx UNE fois
 // en tête, l'échanger le temps du tracé redirige la scène entière, props compris.
 // flameGlow et lightLayer sont suspendus pendant la cuisson (mêmes gardes que
 // les deux passes hors écran existantes : mesure d'encre, silhouette de survol).

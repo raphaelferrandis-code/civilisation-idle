@@ -77,7 +77,7 @@ describe('densité moteur — la ville ne rétrécit jamais', () => {
 });
 
 describe('échelle — les paniers de fruits ne grossissent plus', () => {
-  // isoRenderer.drawIsoEngineScene : bw = (spanX + spanY) · T · z · ISO_X · 0.72,
+  // isoEngineScene.drawIsoEngineScene : bw = (spanX + spanY) · T · z · ISO_X · 0.72,
   // et toute la scène est peinte en coordonnées RELATIVES à cette boîte. Donc la
   // taille dessinée d'un panier est proportionnelle à l'emprise, point final.
   // Doit rester synchronisé avec isoRenderer.js.

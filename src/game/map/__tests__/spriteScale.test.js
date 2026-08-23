@@ -82,8 +82,12 @@ describe('constantes de référence — verrouillées sur les sites vifs', () =>
     expect(SRC('iso/isoRenderer.js')).toContain(
       `wpx = (spanX + spanY) * T * z * ISO_X * ${HOUSE_LOT_WF}`);
   });
-  it('ENGINE_UNIT_F suit isoRenderer (boîte des scènes moteur)', () => {
-    expect(SRC('iso/isoRenderer.js')).toContain(
+  // ⚠ LA BOÎTE DES SCÈNES MOTEUR A DÉMÉNAGÉ le 2026-08-23 : isoRenderer →
+  // isoEngineScene.js. Cette garde lit du TEXTE de source, pas un symbole — aucun
+  // balayage de noms d'export ne peut la voir partir. Ce sont les tests qui l'ont
+  // rattrapée. Si le site vif redéménage, c'est ce chemin-là qu'il faut suivre.
+  it('ENGINE_UNIT_F suit isoEngineScene (boîte des scènes moteur)', () => {
+    expect(SRC('iso/isoEngineScene.js')).toContain(
       `unit = T * z * ISO_X * ${ENGINE_UNIT_F}`);
   });
   it('WONDER_PPT suit renderBuildings (merveilles)', () => {

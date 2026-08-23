@@ -96,3 +96,11 @@ export const waterShoreTune = {
 
 export const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
 
+// L'OR DU SURVOL : le liseré qui répond à « qu'est-ce que l'infobulle décrit ? ».
+// Monté ici le 2026-08-23 parce que TROIS passes le tracent — les scènes moteur,
+// les habitations, les sprites simples — et que la première est partie dans son
+// propre module. Une teinte partagée par trois peintres est une teinte de palette.
+// ⚠ Son jumeau `HOVER_CELL` (le trait sur le losange au sol) est resté avec le
+// survol : lui n'a qu'un seul lecteur, et rien ne gagnerait à l'éloigner.
+export const HOVER_GOLD = 'rgba(232,198,110,0.95)';
+
