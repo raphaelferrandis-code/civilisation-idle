@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { isoUnitDepth, isoUnitDepthEx } from "../iso/isoRenderer.js";
+import { isoUnitDepth, isoUnitDepthEx } from "../iso/isoUnits.js";
 
 // PROFONDEUR PEINTRE des unités mobiles (habitants / véhicules / émeutiers) en
 // iso (isoUnitDepth). drawIsoLive classe chaque bâtiment au coin SUD de son
