@@ -23,7 +23,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { isoFaceKeeps, isoVariantKey, ISO_TILE_VARIANTS } from "../iso/isoRenderer.js";
+import { isoFaceKeeps, isoVariantKey, ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 const FW = 64, FH = 32;          // losange d'une cellule à zoom 1 (TILE=32, cf. projection.js)

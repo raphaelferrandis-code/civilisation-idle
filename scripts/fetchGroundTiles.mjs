@@ -359,7 +359,7 @@ const LOTS = [
 const BUCKET = 'https://backblaze.pixellab.ai/file/pixellab-tiles/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const FILTER = process.argv[2] || '';
 
-/* ── géométrie : LA MÊME que le moteur (isoRenderer.js `isoFaceKeeps`) ────────
+/* ── géométrie : LA MÊME que le moteur (isoGroundTiles.js `isoFaceKeeps`) ────────
  * Recopier la formule ici serait tentant, mais c'est le masque du sol : s'il
  * diverge d'un demi-pixel, les losanges se recouvrent ou laissent un interstice.
  * tol = 0.75 comme le moteur — les voisins se mordent d'un cheveu. */
@@ -770,6 +770,6 @@ for (const lot of LOTS) {
   }
 }
 if (tones.length) {
-  console.log('\n── tons moyens à reporter dans isoRenderer.js (aplat de repli + LOD lointain) ──');
+  console.log('\n── tons moyens à reporter dans isoGroundTiles.js (aplat de repli + LOD lointain) ──');
   for (const [k, t] of tones) console.log(`  ${k}: [${t.join(', ')}]`);
 }

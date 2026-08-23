@@ -6,7 +6,7 @@
 // (double blit, donc double liseré = le quadrillage qu'on passe son temps à
 // retirer). C'est ce que ce fichier vérifie, à la géométrie près du moteur.
 import { describe, it, expect } from "vitest";
-import { isoSubTileRect, isoFaceInset, isoFaceKeeps, groundTileTune, isoTileIsFlat } from "../iso/isoRenderer.js";
+import { isoSubTileRect, isoFaceInset, isoFaceKeeps, groundTileTune, isoTileIsFlat } from "../iso/isoGroundTiles.js";
 
 const FW = 64, FH = 32;   // géométrie réelle de ground-cobble / iso-grass / iso-plaza
 

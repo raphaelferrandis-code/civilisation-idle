@@ -8,8 +8,12 @@
 // referme, et ça se lit comme une île mal dessinée.
 import { describe, it, expect } from "vitest";
 import {
-  waveReach, waveReachLoop, waveWetReach, waveWetReachLoop, islandWakeK, waveTune, BEACH,
+  waveReach, waveReachLoop, waveWetReach, waveWetReachLoop, islandWakeK, waveTune,
 } from "../iso/isoRenderer.js";
+// `BEACH` est parti dans isoGroundTiles.js le 2026-08-23 (la MATIÈRE du rivage), le
+// ressac est resté avec l'eau. Les deux se lisent ensemble : la portée de l'onde est
+// bornée par la largeur de grève.
+import { BEACH } from "../iso/isoGroundTiles.js";
 
 // ⚠ LUS DEPUIS LES RÉGLAGES, jamais recopiés. Ce sont des valeurs d'oreille : les
 // figer ici ferait passer les tests en décrivant une houle morte (la leçon de

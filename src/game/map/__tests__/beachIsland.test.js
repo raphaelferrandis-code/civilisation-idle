@@ -12,7 +12,7 @@
 // mangeait la moitié et se lisait comme une allée de gravier, pas comme une berge.
 // Une largeur de rivage se juge au RAPPORT à l'objet qu'elle borde.
 import { describe, it, expect } from "vitest";
-import { BEACH } from "../iso/isoRenderer.js";
+import { BEACH } from "../iso/isoGroundTiles.js";
 
 // L'Aiguille Céleste telle que layout.js la construit (rx 7,6 / ry 2,4).
 const AIGUILLE_RY = 2.4;

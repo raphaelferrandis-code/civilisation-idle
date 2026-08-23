@@ -20,7 +20,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { isoEraSurface, ISO_TILE_VARIANTS } from "../iso/isoRenderer.js";
+import { isoEraSurface } from "../iso/isoRenderer.js";
+import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 const MIN_DIST = 40;

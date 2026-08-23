@@ -5,7 +5,7 @@
 // le recadrage rectangulaire ne pouvait pas les enlever, et elles se reposaient
 // sur chaque cellule voisine → quadrillage sur tout le sol.
 import { describe, it, expect } from "vitest";
-import { isoFaceKeeps } from "../iso/isoRenderer.js";
+import { isoFaceKeeps } from "../iso/isoGroundTiles.js";
 
 const FW = 64, FH = 32;   // géométrie réelle de ground-flagstone / iso-grass
 
