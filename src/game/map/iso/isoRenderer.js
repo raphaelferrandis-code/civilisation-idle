@@ -150,7 +150,7 @@ import {
 // Extraite le 2026-08-23. Pendant d'isoRoad — là-bas la chaussée, ici ses bords.
 import {
   isoLamps, streetPropEra, isoStreetPropsFor, lampEraForBand,
-  LAMP_V, LAMP_TUNE, lampFootMetrics, MEDIAN_TUNE, BED_PALETTES, medianSlots,
+  LAMP_V, LAMP_TUNE, lampFootMetrics, medianSlots, drawIsoMedians,
   drawIsoNight, isoLampLightFrame, lampLit, lampGlowBox, paintLampGlow,
 } from './isoStreet.js';
 // Les matières du sol (herbe, lisière, frange, sol urbain, front de rue), extraites
@@ -1383,168 +1383,11 @@ function drawIsoGround() {
   // reste, qui gardent leur tracé propre.
   if (lay) walkLayerEnd(lay, ctx, z);
   if (PR) PR.allees = performance.now() - tAl;
-  // Terre-plein PLANTÉ des boulevards 2-cellules (couture L.terrePlein), façon
-  // PLACE : le bake ne porte que le SOL — capsule d'herbe à bouts ronds (prolongée
-  // de MEDIAN_TUNE.ext dans les carrefours), ombre portée bas-droite (lumière
-  // haut-gauche), liseré de pierre, touffes et fleurs. Les BUISSONS (relief) sont
-  // des items du peintre par-dessus, cf. drawIsoLive. La bande sprite 3-slice a
-  // été RETIRÉE (« rendu étiré, peu de relief », Raph 2026-08-03).
+  // Terre-plein PLANTÉ des boulevards 2-cellules : la passe est partie dans
+  // isoStreet.js le 2026-08-23, avec sa config (elle y vivait déjà). Le chronomètre
+  // reste ici — mesurer l'ordre des passes est le travail de cet orchestrateur.
   const tMd = PR && performance.now();
-  const tp = L.terrePlein;
-  if (tp && tp.length) {
-    const wtp = T * 0.26;                        // demi-largeur monde de la capsule (< refuge agents ±0.34)
-    const ext = MEDIAN_TUNE.ext * T;
-    // Trace la capsule en MONDE (bouts = demi-cercles échantillonnés) : projetée
-    // par worldToScreen, elle s'écrase naturellement en rondelle iso au sol.
-    const capsulePath = (ax, ay, bx, by, w) => {
-      const dl = Math.hypot(bx - ax, by - ay) || 1;
-      const ux = (bx - ax) / dl, uy = (by - ay) / dl, pxw = -uy, pyw = ux;
-      ctx.beginPath();
-      const N = 7;
-      for (let i = 0; i <= N; i += 1) {          // bout A : +perp → −axe → −perp
-        const th = Math.PI * (i / N);
-        const q = worldToScreen(ax + (pxw * Math.cos(th) - ux * Math.sin(th)) * w, ay + (pyw * Math.cos(th) - uy * Math.sin(th)) * w);
-        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
-      }
-      for (let i = 0; i <= N; i += 1) {          // bout B : −perp → +axe → +perp
-        const th = Math.PI * (i / N);
-        const q = worldToScreen(bx + (-pxw * Math.cos(th) + ux * Math.sin(th)) * w, by + (-pyw * Math.cos(th) + uy * Math.sin(th)) * w);
-        ctx.lineTo(q.x, q.y);
-      }
-      ctx.closePath();
-    };
-    for (const seg of tp) {
-      let ax, ay, bx, by;
-      if (seg.axis === 'h') { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
-      else { ax = (seg.x + 1) * T; ay = seg.y0 * T - ext; bx = ax; by = (seg.y1 + 1) * T + ext; }
-      // Ombre portée : même capsule décalée bas-droite écran, SOUS le gazon.
-      ctx.save();
-      ctx.translate(z * 1.4, z * 1.0);
-      capsulePath(ax, ay, bx, by, wtp);
-      ctx.fillStyle = 'rgba(18,24,12,0.22)';
-      ctx.fill();
-      ctx.restore();
-      capsulePath(ax, ay, bx, by, wtp);
-      // Fond uni : REPLI tant que la texture décode, et bouche-trou sous ses
-      // pixels de bord. En saison verte : herbe SAISONNIÈRE éclaircie d'un cran
-      // (gazon municipal plus frais que le pré). En HIVER : blanc neige — la
-      // ville entière est enneigée (tuiles d'herbe hiver), un gazon resté vert
-      // jurait au milieu de la neige (retour Raph « l'hiver ne va pas du tout »).
-      const winterTP = CM.season === WINTER;
-      const lawn = winterTP
-        ? [224, 232, 236]
-        : [Math.min(255, SEASON_GRASS[0] + 6), Math.min(255, SEASON_GRASS[1] + 12), Math.max(0, SEASON_GRASS[2] - 2)];
-      ctx.fillStyle = rgb(lawn, 1);
-      ctx.fill();
-      // GAZON PixelLab (`median-lawn[-winter]`, tuile vue du dessus — l'hiver est
-      // une texture de NEIGE piquée de brins) posé en PATTERN écrasé 2:1 — la
-      // perspective du sol iso, comme les tuiles losange — et ANCRÉ AU MONDE
-      // (origine = worldToScreen(0,0)) : la texture ne « nage » pas au pan, une
-      // répétition couvre une tuile. Même contrat que blitIsoTileKey (la saison
-      // en place est gardée tant que la tuile de l'autre décode).
-      const lawnArt = isoArt(winterTP ? 'median-lawn-winter' : 'median-lawn');
-      let lawnTex = false;
-      if (lawnArt.ready) {
-        const pat = ctx.createPattern(lawnArt.img, 'repeat');
-        if (pat) {
-          const s = (T * z) / (lawnArt.img.naturalWidth || 64);
-          const o = worldToScreen(0, 0);
-          if (pat.setTransform) pat.setTransform(new DOMMatrix([s, 0, 0, s * 0.5, o.x, o.y]));
-          capsulePath(ax, ay, bx, by, wtp);
-          ctx.fillStyle = pat;
-          ctx.fill();
-          lawnTex = true;
-        }
-      }
-      ctx.strokeStyle = 'rgba(198,188,154,0.95)'; // liseré pierre (margelle fine)
-      ctx.lineWidth = Math.max(1, z * 0.9);
-      ctx.stroke();
-      const dl = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / dl, uy = (by - ay) / dl;
-      const pxw = -uy, pyw = ux;
-      const pu = Math.max(1, Math.round(T * z * 0.028));   // pixel d'art (cf. drawGrassDetail)
-      const segKey = seg.axis + ':' + (seg.axis === 'h' ? seg.y + ':' + seg.x0 : seg.x + ':' + seg.y0);
-      // MOUCHETIS de tonte : REPLI du gazon PixelLab (aplat + points 2 tons)
-      // tant que la texture n'est pas décodée — elle porte son propre grain.
-      if (!lawnTex) {
-        const mowL = rgb([Math.min(255, lawn[0] + 15), Math.min(255, lawn[1] + 15), Math.min(255, lawn[2] + 10)], 1);
-        const mowD = rgb([Math.max(0, lawn[0] - 13), Math.max(0, lawn[1] - 11), Math.max(0, lawn[2] - 8)], 1);
-        for (let t = wtp * 0.5; t <= dl - wtp * 0.5; t += T * 0.115) {
-          for (let kRow = -2; kRow <= 2; kRow += 1) {
-            const h = cmHash('tpm:' + segKey + ':' + Math.round(t * 100) + ':' + kRow);
-            if ((h & 255) / 255 > 0.52) continue;
-            const off = kRow * wtp * 0.36 + (((h >>> 9) % 64) / 64 - 0.5) * wtp * 0.3;
-            const jt = (((h >>> 16) % 64) / 64 - 0.5) * T * 0.09;
-            const q = worldToScreen(ax + ux * (t + jt) + pxw * off, ay + uy * (t + jt) + pyw * off);
-            ctx.fillStyle = (h & 1) ? mowL : mowD;
-            ctx.fillRect(Math.round(q.x), Math.round(q.y), pu, pu);
-          }
-        }
-      }
-      // PARTERRES DE FLEURS (slots pairs, cf. medianSlots — les impairs portent
-      // les buissons du peintre) : sprite PixelLab `flowerbed-1..4` (bac de
-      // terre + fleurs denses, robe par hash — planche 1e1aedaa découpée par
-      // scripts/sliceFlowerBeds.mjs) ; REPLI procédural (bordure + feuillage +
-      // tapis de points) tant que le PNG décode — le bake se recuit tout seul
-      // au décodage (invalidation douce d'isoArt).
-      for (const sl of medianSlots(seg, T)) {
-        if (sl.kind !== 'bed') continue;
-        // HIVER : pas de bacs du tout — seuls les buissons enneigés rendent bien
-        // (retour Raph ; les bacs de neige recolorés ont été retirés). Le peintre
-        // pose alors un buisson sur CES slots aussi, la bande garde son rythme.
-        if (winterTP) continue;
-        const br = T * (0.18 + ((sl.h >>> 3) % 40) / 730);           // rayon 0.18-0.235 tuile
-        const bedArt = isoArt('flowerbed-' + (1 + ((sl.h >>> 8) % 4)));
-        if (bedArt.ready) {
-          // Largeur écran EXACTE de l'ellipse du disque monde (2√2·c·br, c
-          // mesuré par projection) ; le bac « pose » son ovale autour du centre.
-          const qc = worldToScreen(sl.wx, sl.wy);
-          const cbr = worldToScreen(sl.wx + br, sl.wy).x - qc.x;
-          const dw = 2 * Math.SQRT2 * cbr * 1.12;                    // léger bonus : le PNG a sa marge
-          const iw = bedArt.img.naturalWidth || 1, ih = bedArt.img.naturalHeight || 1;
-          // Été et hiver partagent la MÊME géométrie 3/4 (les bacs d'hiver sont
-          // les bacs d'été recolorés par scripts/recolorWinterBeds.mjs — fleurs
-          // → paquets de neige à modelé conservé) : ratio naturel du PNG.
-          const dh = dw * (ih / iw);
-          const prevSm = ctx.imageSmoothingEnabled;
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(bedArt.img, Math.round(qc.x - dw / 2), Math.round(qc.y + dw * 0.25 - dh), dw, dh);
-          ctx.imageSmoothingEnabled = prevSm;
-          continue;
-        }
-        const ring = (rr) => {
-          ctx.beginPath();
-          for (let i = 0; i <= 14; i += 1) {
-            const th = (i / 14) * Math.PI * 2;
-            const q = worldToScreen(sl.wx + Math.cos(th) * rr, sl.wy + Math.sin(th) * rr);
-            if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
-          }
-          ctx.closePath();
-        };
-        ring(br);
-        ctx.fillStyle = 'rgb(88,68,50)';                              // terre de plate-bande
-        ctx.fill();
-        ring(br * 0.84);
-        ctx.fillStyle = 'rgb(58,84,44)';                              // feuillage du massif
-        ctx.fill();
-        const pal = BED_PALETTES[(sl.h >>> 8) % BED_PALETTES.length];
-        const step = T * 0.048, rIn = br * 0.8;
-        for (let dxw = -rIn; dxw <= rIn; dxw += step) {
-          for (let dyw = -rIn; dyw <= rIn; dyw += step) {
-            if (dxw * dxw + dyw * dyw > rIn * rIn) continue;
-            const h4 = cmHash('tpb:' + segKey + ':' + Math.round(sl.wx + dxw) + ':' + Math.round(sl.wy + dyw));
-            if ((h4 & 255) / 255 > 0.80) continue;                    // trouées de feuillage
-            const jx = (((h4 >>> 8) % 32) / 32 - 0.5) * step, jy = (((h4 >>> 13) % 32) / 32 - 0.5) * step;
-            const q = worldToScreen(sl.wx + dxw + jx, sl.wy + dyw + jy);
-            // dominante ×2, accent ×1 → un massif « à robe », pas des confettis
-            const ci = (h4 >>> 18) % 4;
-            ctx.fillStyle = rgb(pal[ci === 3 ? 2 : ci >> 1], 1);
-            const fs = ((h4 >>> 22) % 10) < 3 ? pu + 1 : pu;          // quelques grosses fleurs
-            ctx.fillRect(Math.round(q.x - fs / 2), Math.round(q.y - fs / 2), fs, fs);
-          }
-        }
-      }
-    }
-  }
+  drawIsoMedians(ctx, L.terrePlein, T, z);
   if (PR) {
     PR.median = performance.now() - tMd;
     PR.total = performance.now() - PR.t0;
