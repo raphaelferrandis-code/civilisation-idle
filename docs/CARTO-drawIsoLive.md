@@ -72,14 +72,30 @@ Quatre attaches de niveau module qu'il faudra traiter en premier (aucune n'est u
 
 | nom | usages | où il devrait aller |
 |---|---|---|
-| `ISO_ITEM_POOL` / `ISO_ITEM_VIEW` | collecte | avec la collecte — c'est SON pool |
-| `plaisirsSprite` + `PLAISIRS_PPT` | collecte + dessin | un module à eux (la Maison des Plaisirs) |
-| `drawTreeIso` | dessin | avec le dessin, ou son propre module |
-| `HOUSE_BOX_CAP` | dessin | avec le dessin (garde-fou mémoire des boîtes de lot) |
+| ✔ `plaisirsSprite` + `PLAISIRS_PPT` | collecte + dessin | **FAIT** (`76b2003`) → `isoPlaisirs.js` |
+| `ISO_ITEM_POOL` / `ISO_ITEM_VIEW` | collecte | avec la COLLECTE — c'est SON pool |
+| `drawTreeIso` | dessin | avec le DESSIN |
+| `HOUSE_BOX_CAP` | dessin | avec le DESSIN (garde-fou mémoire des boîtes de lot) |
 
-⚠ Le bloc « SURVOL + pool d'items » (59 l., 0 entrante) contient `ISO_ITEM_POOL`, `ISO_ITEM_VIEW`,
-`HOUSE_BOX_CAP`, `HOVER_CELL` et `drawIsoHoverCell`. Il est **déjà extractible seul** — c'est le
-prélude naturel.
+**✔ Prélude fait — la MAISON DES PLAISIRS** (`76b2003`, 75 l. → `isoPlaisirs.js`, qui portait déjà
+l'aura, l'anneau et le ciel du monument ; il ne lui manquait que le monument). **Zéro import nouveau** :
+le signe habituel que le rapatriement était dû. Au passage, `cityMapRuntime` cesse de demander au
+PEINTRE si un clic tombe sur la maison — il le demande à la maison. `isoRenderer` : 2 146 → **2 071**.
+
+### ⚠ Correction de ce document : le bloc « survol + pool » N'EST PAS un prélude
+
+Ce paragraphe annonçait le bloc « SURVOL + pool d'items » (59 l., 0 entrante) comme « le prélude
+naturel ». **La mesure dit non.** Il contient **trois sujets qui appartiennent à trois endroits
+différents** :
+
+- `ISO_ITEM_POOL` / `ISO_ITEM_VIEW` → lus par la **COLLECTE** (l. 430, 432) ;
+- `drawTreeIso` et `HOUSE_BOX_CAP` → lus par le **DESSIN** (l. 1107, 1009, 1019) ;
+- `HOVER_CELL` / `drawIsoHoverCell` → lus par le **préambule** (l. 412) : ils restent au peintre.
+
+L'extraire en un module aurait produit un fichier incohérent — « le pool, les arbres et le survol » —
+au lieu de trois pièces bien logées. **Chacune voyagera avec sa phase.** C'est la leçon de C/D/E sur la
+carte du sol, sous une autre forme : la bonne question n'est pas « ce bloc peut-il sortir ? » mais
+**« où chaque chose appartient-elle ? »**.
 
 ## 5. Ce que cette carte NE propose pas
 
@@ -93,8 +109,8 @@ donc le premier à devoir passer par l'A/B pixel décrit dans `CARTO-drawIsoGrou
 
 ## 6. Ordre conseillé
 
-1. **Le prélude** : sortir le bloc « survol + pool d'items » (59 l., 0 entrante), puis la Maison des
-   Plaisirs (`plaisirsSprite`, `PLAISIRS_PPT`, et `plaisirsHitTest` qui vit à côté).
+1. ~~**Le prélude**~~ ✔ **FAIT** : la Maison des
+   Plaisirs est rentrée chez elle (`76b2003`). Le bloc « survol + pool » n’en était PAS un — cf. §4.
 2. **La COLLECTE** (384 l., 9 lectures) — la plus simple des deux, et elle valide le contexte.
 3. **Le DESSIN** (441 l., 12 lectures), phases 5-6-7 ENSEMBLE pour que l'état GPU voyage avec ses
    écritures.
