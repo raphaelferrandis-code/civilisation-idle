@@ -47,7 +47,11 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
-import { drawIsoWorld, waterShoreTune, plaisirsHitTest } from './iso/isoRenderer.js';
+import { drawIsoWorld, plaisirsHitTest } from './iso/isoRenderer.js';
+// `waterShoreTune` est parti dans isoPalette.js le 2026-08-23 : c'est un RÉGLAGE de
+// teinte, pas du peintre. La molette `__waterShore` plus bas l'écrit par Object.assign
+// — mutation d'objet, donc légale sur une liaison importée.
+import { waterShoreTune } from './iso/isoPalette.js';
 import { riverIslandObstacles } from './iso/isoFleet.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';

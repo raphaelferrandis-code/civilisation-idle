@@ -143,6 +143,10 @@ import { _frac, _rnd } from './isoMath.js';
 // Matière du sol : tuiles PixelLab et grève, extraites le 2026-08-23. Le peintre
 // (blitIsoTileKey, le sol, le trottoir) est resté ici ; seul le CATALOGUE est parti.
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, isoTileCache, isoTileBBox, groundTileTune, isoFaceVeiled, ensureIsoTileKey, plazaEraTileKey, BEACH } from './isoGroundTiles.js';
+// Palette plate du sol, extraite le 2026-08-23. Feuille du graphe : elle n'importe
+// rien, donc tout peut la lire. ⚠ L'état de SAISON est resté ici (plus bas) — il est
+// réassigné chaque frame, et une liaison importée est en lecture seule.
+import { GRASS, GRASS_WILD, WATER, PLAZA, PLAZA_ERA_TONE, waterShoreTune, rgb } from './isoPalette.js';
 // AURA DE LA MAISON DES PLAISIRS. Module à part (le renderer pèse déjà 11 000
 // lignes) et sans import retour : il ne connaît que CM, la projection et les
 // deux couches de lumière — donc aucun cycle ES avec nous.
@@ -175,81 +179,11 @@ import { STREET_PROPS, computeStreetProps } from './isoStreetProps.js';
 // dans un module pur, partagé avec le compteur de `tissuMetrics` — cf. § CLÔTURES.
 import { fenceEdges, fenceInputs, FENCE } from '../fenceEdges.js';
 
-// ── Palette Phase 1 (flat, calée sur les teintes du rendu actuel) ────────────
-const GRASS = [116, 138, 84];        // herbe / nature (référence = été)
-const GRASS_WILD = [98, 120, 76];    // hors ville (léger contraste)
 // PALETTE DE SAISON, résolue une fois par frame depuis CM.season. Ces variables
 // remplacent GRASS / GRASS_WILD / GD_TIP partout où le SOL est peint : le sol
 // étant baké, elles ne sont relues qu'à la recuisson, et la saison figure dans
 // la clé du bake. Les constantes ci-dessus restent la référence d'été.
 let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SEASON_FLOWER_MUL = 1;
-const WATER = [74, 98, 109];         // eau ardoise (cf. fleuve)
-const PLAZA = [214, 206, 182];       // dallage d'esplanade (repli, toutes ères)
-// DALLAGE PAR ÈRE — ton d'APLAT de chaque matière, mesuré par fetchGroundTiles.
-// Il sert au repli (tuile pas encore décodée) et au LOD lointain, où la tuile
-// n'est plus blittée : sans lui, une place changeait de couleur en dézoomant.
-// Clé absente : on garde PLAZA.
-const PLAZA_ERA_TONE = {
-  antique: [219, 204, 185], medieval: [112, 115, 119], industrial: [89, 91, 97],
-  modern: [190, 194, 197], cosmic: [233, 223, 211],
-};
-// Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
-// (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
-// « remets un liseré bleu clair sur les bords du fleuve »). Teintes = bleus gris
-// CLAIRS de la famille de l'eau ardoise (pas de cyan). Réglable live via
-// window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3, lodMerge,lodW,lodA,lodC }).
-//
-// ⚠ EXCLUSION MUTUELLE AVEC LE QUAI, ET SON TROU. Dès la bande 2 la berge
-// maçonnée porte SON propre bas-fond au pied du mur (shoreLine de drawRun) : les
-// deux ensemble faisaient deux lignes claires parallèles, d'où `maxBand`. Mais ce
-// relais du quai est sous `if (wallOn && !lod)` — il DISPARAÎT au dézoom. Mesuré
-// sur les pixels de bord du ruban : bande 1 → 25,3 % de bord clair au repos comme
-// en LOD, bande 4 → 12,5 % au repos mais 10,0 % en LOD. Raph veut le liseré
-// « tout le temps » (2026-07-22), donc on reprend la main quand le quai lâche :
-// `lodFallback` rallume le bas-fond en LOD à toutes les ères. L'exclusion reste
-// entière au repos — jamais les deux à la fois, jamais deux lignes parallèles.
-export const waterShoreTune = {
-  on: true,
-  // SUIT LE CORPS D'EAU (Raph, 2026-07-30). Depuis les coloris pilotés par l'état
-  // (cf. WATER_SHEETS), un liseré figé en bleu-gris ardoise jurait franchement sur
-  // un fleuve azur ou turquoise : c'est la MÊME eau, en moins profond, donc sa
-  // teinte doit venir du même endroit. `follow: false` rend la main aux c1/c2/c3
-  // ci-dessous, qui restent le jeu ardoise d'origine (et le repli si la table des
-  // coloris ne dit rien).
-  follow: true,
-  // ÎLES : liseré clair OUI — et l'aller-retour vaut d'être raconté, pour que
-  // personne ne le « corrige » en croyant rétablir un choix.
-  //   · le matin du 2026-07-30, Raph le fait RETIRER : à ce moment-là le sable et
-  //     le bleu tombaient au même endroit, et deux franges concentriques sur un
-  //     fuseau étroit faisaient une cible plutôt qu'une berge ;
-  //   · le soir, il le redemande — « il faut le liseré clair tout autour de
-  //     l'île ». Entre les deux, le rivage de sable s'est posé pour de bon CÔTÉ
-  //     TERRE (cf. le drapeau `withIslands` de buildEdges). Les deux ne se
-  //     doublent donc plus : le sable dit la grève, le bleu dit le bas-fond, de
-  //     part et d'autre de la ligne d'eau — exactement comme sur les berges du
-  //     fleuve.
-  // Ce n'est pas un avis qui a changé, c'est la scène.
-  islands: true,
-  maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
-  lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
-  w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
-  a1: 0.45, a2: 0.58, a3: 0.75,                            // alphas (bord = plus opaque)
-  c1: '120,160,175', c2: '150,192,205', c3: '190,224,232', // bleus clairs, du doux au liseré
-  // FUSION AU DÉZOOM (LOD) : les trois bandes tombent alors à 6,3 / 3,5 / 1,6 px
-  // et se confondent en une seule lisière à l'œil, tout en coûtant six traits
-  // pleine longueur dans un clip. On les remplace par UN trait.
-  //
-  // ⚠ RÉGLAGE CALÉ À L'ŒIL SUR CAPTURE, pas déduit. Le premier essai prenait la
-  // teinte MÉDIANE c2 à 0,62 — comparaison à ×4 sans appel : le liseré clair
-  // disparaissait presque. Ce qui porte la lecture du bord, c'est la teinte VIVE
-  // c3, pas la moyenne des trois : empilées, les trois bandes culminent à ~0,94
-  // d'opacité sur c3 au ras de la rive. Trois essais capturés au même instant
-  // figé (10/0,80 · 12/0,70 · 8/0,90), c'est 12/0,70 qui recolle à la référence.
-  lodMerge: true,
-  lodW: 12,                                                // largeur du trait fusionné (× zoom)
-  lodA: 0.70,                                              // opacité
-  lodC: '190,224,232'                                      // = c3, la teinte VIVE du liseré
-};
 // Matière de chaussée par ère (calée sur la progression du jeu) :
 // terre battue → pavé de pierre → asphalte industriel → voie sombre futuriste.
 // Depuis la regénération des chaussées (2026-07-28), le ruban est REMPLI par la
@@ -274,8 +208,6 @@ function roadTone(band) {
   const t = roadToneRaw(band), v = roadVeilFor(band);
   return v ? [0, 1, 2].map((i) => Math.round(t[i] + (v[i] - t[i]) * v[3])) : t;
 }
-const rgb = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
-
 // ── LE TROTTOIR EST PEINT EN PIXELS, JAMAIS AU VECTEUR ──────────────────────
 // (Raph 2026-08-05 : « je ne veux plus de tracé au vecteur ».)
 //
