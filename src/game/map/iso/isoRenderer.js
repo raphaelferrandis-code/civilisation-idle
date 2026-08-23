@@ -136,6 +136,10 @@ import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { GL_RUN_MIN, WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { _frac, _rnd } from './isoMath.js';
+// Socle partagé, extrait le 2026-08-23 : les chemins du repère monde et le cache
+// d'art. Deux feuilles du graphe — elles débloquent le pont, le champ et le port.
+import { diamondPath, fillWorldQuad, pathWorldQuad } from './isoQuad.js';
+import { isoArt } from './isoArt.js';
 // Matière du sol : tuiles PixelLab et grève, extraites le 2026-08-23. Le peintre
 // (blitIsoTileKey, le sol, le trottoir) est resté ici ; seul le CATALOGUE est parti.
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, isoTileCache, isoTileBBox, groundTileTune, isoFaceVeiled, ensureIsoTileKey, plazaEraTileKey, BEACH } from './isoGroundTiles.js';
@@ -362,36 +366,6 @@ function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil = null
   }
   ctx.imageSmoothingEnabled = prev;
   return true;
-}
-
-// Losange d'une cellule à partir de son coin NORD projeté (évite 4 worldToScreen :
-// les 4 sommets se déduisent du pas de grille, constant à zoom fixe).
-function diamondPath(ctx, nx, ny, hw, hh) {
-  ctx.beginPath();
-  ctx.moveTo(nx, ny);
-  ctx.lineTo(nx + hw, ny + hh);
-  ctx.lineTo(nx, ny + hh * 2);
-  ctx.lineTo(nx - hw, ny + hh);
-  ctx.closePath();
-}
-
-// Quad monde → écran (la projection est linéaire : un rectangle monde reste un
-// parallélogramme écran). Sert aux rubans de chaussée.
-function fillWorldQuad(ctx, x0, y0, x1, y1) {
-  const a = worldToScreen(x0, y0), b = worldToScreen(x1, y0);
-  const c = worldToScreen(x1, y1), d = worldToScreen(x0, y1);
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
-  ctx.closePath();
-  ctx.fill();
-}
-// Ajoute un quad monde comme SOUS-CHEMIN (sans beginPath/fill) → union de quads
-// clippable (ruban de chaussée : pavé central + bras) puis clip + blit de la tuile.
-function pathWorldQuad(ctx, x0, y0, x1, y1) {
-  const a = worldToScreen(x0, y0), b = worldToScreen(x1, y0);
-  const c = worldToScreen(x1, y1), d = worldToScreen(x0, y1);
-  ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
-  ctx.closePath();
 }
 
 // ── SOL (baké : ~10-30 ms une fois par zoom/marge, blitté ensuite) ────────────
@@ -2785,33 +2759,6 @@ function drawIsoGround() {
   return true;
 }
 
-// ── Art iso dédié (/pixelart/iso/<name>.png) : cache paresseux ───────────────
-// Bateaux par stade (8 rotations). Les bandes mill-wheel-* n'ont plus de
-// consommateur depuis la refonte éolienne du moulin (retrait en phase art).
-// Tant qu'un PNG manque, chaque consommateur garde son repli (skew / profil).
-const isoArtCache = new Map();
-function isoArt(name) {
-  let e = isoArtCache.get(name);
-  if (e) return e;
-  e = { img: null, ready: false, bbox: null };
-  isoArtCache.set(name, e);
-  if (typeof Image !== 'undefined') {
-    const im = new Image();
-    im.onload = () => {
-      e.img = im; e.ready = true;
-      // Le BAKE du sol dépend de l'art décodé (dalle de place remplacée, bande
-      // gazon des terre-pleins sautée) → invalidation DOUCE, recuisson coalescée
-      // par drawIsoWorld (cf. isoTile : plus une recuisson par sprite décodé).
-      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
-    };
-    // `name` peut porter un cache-buster (`clef?v=2`) : la query passe APRÈS le
-    // `.png` dans l'URL. Sert quand un PNG est RÉÉCRIT sur disque (aqueduc : des
-    // navigateurs resservaient la 1re version cassée depuis le cache HTTP).
-    const qi = name.indexOf('?');
-    im.src = '/pixelart/iso/' + (qi < 0 ? name + '.png' : name.slice(0, qi) + '.png' + name.slice(qi));
-  }
-  return e;
-}
 // ── POINTS D'EAU (ex-aqueducs) ──────────────────────────────────────────────
 // 🚫 L'AQUEDUC-STRUCTURE A ÉTÉ RETIRÉ le 2026-08-05, ART COMPRIS. Vivait ici un
 // rendu 3-slice (start → mid ×N → end, posé par cisaillement sur l'axe long,
