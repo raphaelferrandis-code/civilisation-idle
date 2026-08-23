@@ -1,7 +1,8 @@
-# Cartographie de `drawIsoGround` — 1 164 lignes, 9 passes
+# Cartographie de `drawIsoGround` — 1 164 lignes, 9 passes · 🏁 **découpée : 77 lignes**
 
 *Dressée le 2026-08-23, à la fin de la phase mécanique de Q10 (cf. `PLAN-SUPPRESSION-LEGACY.md` §6).*
-*C'est une ANALYSE. Rien n'a été déplacé. Elle existe pour qu'une décision soit prise avant d'écrire.*
+*Elle a servi : les neuf passes sont sorties. §6 à §11 racontent CE QUI S'EST PASSÉ, y compris là où*
+*cette analyse s'est trompée. Le §11 en tire le bilan.*
 
 `isoRenderer.js` est passé de 11 039 à 3 368 lignes en 19 tranches de **déplacement pur**. Il en reste
 2 593 dans trois fonctions, dont celle-ci. **La méthode qui a porté les 19 tranches ne s'y applique
@@ -245,25 +246,74 @@ destructuration en tête → les **477 lignes reprises sans une ligne de changé
 
 ---
 
-## 10. Ce qui reste
+## 10. ✔ FAIT — la passe A (le montage) : 🏁 **1 164 → 77 lignes**
 
-`drawIsoGround` fait **329 lignes**, et sa queue est désormais *exactement* ce qu'un orchestrateur doit
-être : l'ordre des passes, les commentaires qui l'expliquent, le profileur, un appel par passe.
+*Commit `4e90d6a`. `drawIsoGround` : 329 → **77 lignes**, soit **−93 % depuis le début de cette carte**.
+isoRenderer : 2 146.*
 
-Il reste **la passe A** — le préambule et la RÉSOLUTION (~259 l.) : les ensembles dérivés du layout,
-les ensembles de grève, et surtout `kindAt`, le résolveur mémoïsé qui répond « de quoi cette cellule
-est-elle faite ? ». C'est le dernier morceau, et le §3 lui destinait `iso/isoGroundResolve.js`.
+`iso/isoGroundResolve.js` (299 l.) résout les ensembles dérivés du layout et construit les fermetures
+qui savent dire, pour une cellule, de quoi elle est faite.
 
-⚠ Sa particularité : elle ne PEINT rien, elle RÉPOND. Ses fermetures (`kindAt`, `grassAt`,
-`keyOfKind`, `frontierFlips`, `urbanLogical`) capturent un état partagé (`kinds`, `built`, `courK`, les
-ensembles de grève) — c'est un objet-résolveur en puissance, pas une passe. La forme naturelle serait
-une fabrique : `makeGroundResolver(L, band, …)` qui rend `{ kindAt, grassAt, keyOfKind }`.
-**Ce serait le premier vrai changement de forme du chantier** — pas un déplacement.
+**Ce n'est pas une passe, c'est une FABRIQUE** — d'où la forme. Elle rend les trois familles que les
+passes consommaient déjà : `bake`, `resolve`, `out`. L'orchestrateur les déstructure et les répartit ;
+il ne les construit plus.
+
+**Et la preuve par identité des octets a tenu jusqu'au bout.** `ISO_GROUND_LOD` arrive en paramètre
+sous **son nom d'origine** : les 258 lignes sont reprises sans une ligne de changée. Ce n'est pas qu'un
+artifice de preuve — c'est le bon sens du montage : le CACHE décide du niveau de bake allégé, la
+fabrique le REÇOIT. Elle n'a pas à connaître la politique de qui l'appelle.
+
+### Le résultat, en entier
+
+```js
+function drawIsoGround() {
+  const { bake, resolve, out } = makeGroundBake(ISO_GROUND_LOD);
+  const { ctx, T, z, hw, hh, … } = bake;   // + resolve, + out
+  ctx.save();
+  ctx.fillStyle = rgb(SEASON_GRASS, 1);    // fond d'herbe unique
+  ctx.fillRect(0, 0, CM.cw, CM.ch);
+  sweepIsoGroundCells(…);                  // le balayage remplit les tampons
+  drawWonderGroundAll(…);                  // puis on peint, DANS L'ORDRE :
+  flushVeils(); drawGrassDetailAll(…);     //   voile sous fleur
+  drawGrassFringeAll(…);                   //   après le fond, avant les rubans
+  drawIsoGroundRoads(…);                   //   la route recouvre ce qui la borde
+  drawIsoMedians(…);
+  ctx.restore();
+}
+```
+
+---
+
+## 11. Bilan de la cartographie
+
+**Ce que la carte annonçait au §4 s'est révélé FAUX, et c'est le principal enseignement.** Elle
+prévoyait que découper un orchestrateur imposerait des changements de signature, donc la perte de la
+preuve par identité des octets, donc un harnais A/B pixel obligatoire. **Les six coupes ont toutes été
+des déplacements purs** — 154 + 33 + 194 + 477 + 258 lignes reprises verbatim — grâce à une technique
+que la carte n'avait pas vue :
+
+> **Un contexte destructuré en tête rend les locales À LEUR NOM.** Le corps ne change pas (la preuve
+> tient), et le code compilé retrouve ses variables locales (la boucle chaude ne paie rien). Condition :
+> qu'aucun de ces noms ne soit RÉASSIGNÉ dans le corps.
+
+**Les trois autres leçons**, dans l'ordre où elles sont tombées :
+
+1. **Compter les noms ne suffit pas — il faut savoir d'où ils viennent.** « 52 lectures » pour la passe
+   des routes : 38 étaient ses propres locales, 14 des emprunts.
+2. **Dans un orchestrateur, la question n'est pas « ce bloc peut-il sortir ? » mais « qu'est-ce qui,
+   dans ce bloc, n'est PAS de la coordination ? »** Pour C/D/E, ce n'était pas le bloc — c'était le
+   format des tampons.
+3. **Une garde nouvelle, obligatoire** (`scratchpad/collision.cjs`) : un nom du corps peut résoudre en
+   silence vers une AUTRE liaison du module d'accueil. Le lint ne le voit pas — le nom existe des deux
+   côtés. Zéro collision sur les six coupes.
+
+⚠ **Le harnais A/B pixel du §4 n'a donc jamais servi** — mais il reste la bonne réponse le jour où un
+découpage changera vraiment du code. Ne pas le rayer de ce document.
 
 ⚠ C'est aussi à partir de B et F que la prévision du §4 redeviendra vraie : là, un objet de contexte
 sera inévitable, et l'A/B pixel avec lui.
 
 ---
 
-`isoRenderer.js` est à **2 396 lignes** — et c'est un état sain :
+`isoRenderer.js` est à **2 146 lignes**, et `drawIsoGround` à **77** — état sain :
 chaque passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
