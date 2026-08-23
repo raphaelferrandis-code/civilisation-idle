@@ -253,7 +253,7 @@ export function drawIsoRiverLife(now) {
   stats.leaves = 0; stats.jump = 0;
   ctx.save();
   // Tout reste SUR L'EAU, et le clip est en 'evenodd' comme l'exige le contrat du
-  // chemin d'eau (cf. WATER_FILL, isoRenderer) : les ÎLES y sont des SOUS-CHEMINS
+  // chemin d'eau (cf. WATER_FILL, isoRiver) : les ÎLES y sont des SOUS-CHEMINS
   // SÉPARÉS, et seule cette règle garantit qu'elles creusent un trou.
   //
   // ⚠ CE N'ÉTAIT PAS UN BUG, ET C'EST JUSTEMENT LE PROBLÈME. Le `ctx.clip()` nu

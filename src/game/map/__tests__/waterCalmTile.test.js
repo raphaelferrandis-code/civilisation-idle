@@ -25,10 +25,10 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
-import { WATER_SHEETS } from "../iso/isoRenderer.js";
+import { WATER_SHEETS } from "../iso/isoRiver.js";
 
 const T = 16, FRAMES = 8;
-const WATER = [74, 98, 109];                 // isoRenderer.js — teinte du corps d'eau
+const WATER = [74, 98, 109];                 // isoPalette.js — teinte du corps d'eau
 const RAMP = [                               // rampe ardoise du remap (bakeWaterTiles.mjs)
   [44, 62, 72], [68, 92, 103], [92, 119, 130], [122, 150, 160], [158, 184, 192],
 ];

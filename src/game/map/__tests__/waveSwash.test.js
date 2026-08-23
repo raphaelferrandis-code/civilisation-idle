@@ -1,4 +1,4 @@
-// LE RESSAC du fleuve (waveReach / waveReachLoop, isoRenderer).
+// LE RESSAC du fleuve (waveReach / waveReachLoop, isoRiver).
 //
 // Deux invariants tiennent tout l'effet, et les deux cassent EN SILENCE — d'où ce
 // fichier. Une onde mal bornée ne jette pas : elle découvre un liseré d'herbe bakée
@@ -9,7 +9,7 @@
 import { describe, it, expect } from "vitest";
 import {
   waveReach, waveReachLoop, waveWetReach, waveWetReachLoop, islandWakeK, waveTune,
-} from "../iso/isoRenderer.js";
+} from "../iso/isoRiver.js";
 // `BEACH` est parti dans isoGroundTiles.js le 2026-08-23 (la MATIÈRE du rivage), le
 // ressac est resté avec l'eau. Les deux se lisent ensemble : la portée de l'onde est
 // bornée par la largeur de grève.

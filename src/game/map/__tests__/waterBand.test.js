@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 // `waterBandKey` reçoit des BOOLÉENS, pas la saison brute : c'est le renderer qui
 // traduit `CM.season === WINTER` (seasonMode.js : WINTER = 3). La table de décision
 // n'a pas à connaître le codage des saisons pour être testable.
-import { waterBandKey, stepWaterBand, waterTilesTune, WATER_SHEETS } from "../iso/isoRenderer.js";
+import { waterBandKey, stepWaterBand, waterTilesTune, WATER_SHEETS } from "../iso/isoRiver.js";
 
 describe("coloris du fleuve selon l'état", () => {
   it("azur au beau fixe", () => {

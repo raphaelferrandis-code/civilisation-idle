@@ -8,7 +8,7 @@
 // premier correctif (`t % period`) ne changeait rien : `period` dérivait de la
 // vitesse, donc sautait aussi. La phase est désormais INTÉGRÉE pas à pas.
 import { describe, it, expect } from "vitest";
-import { stepWaterPhase, waterTilesTune } from "../iso/isoRenderer.js";
+import { stepWaterPhase, waterTilesTune } from "../iso/isoRiver.js";
 
 // ⚠ LU DEPUIS LE RÉGLAGE, pas recopié. Les valeurs bougent à l'oreille (fps 2,5
 // → 3,5 → 3 le 2026-07-22, puis 1,8 le 2026-07-30 avec la bande calme) : des

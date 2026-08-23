@@ -427,7 +427,7 @@ function cityMapDrawQuays(now, mode) {
       // TEINTES DU CORPS D'EAU COURANT (Raph, 2026-07-30). Depuis les coloris
       // pilotés par l'état, ce bas-fond restait bleu-gris ardoise au pied du mur
       // alors que le fleuve passait à l'azur ou au turquoise. Il est publié par
-      // le renderer iso sur CM.waterShore (isoRenderer, waterBandNow) plutôt
+      // le renderer iso sur CM.waterShore (isoRiver, waterBandNow) plutôt
       // qu'importé : ce fichier est le tronc commun des deux pipelines, et un
       // import croisé vers isoRenderer ferait un cycle. Repli = les valeurs
       // d'origine, donc le pipeline legacy et le fleuve ruiné ne changent pas.
