@@ -1843,8 +1843,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 3 583 lignes, soit −68 %**, reparties
-> en **29 modules** sous `iso/`.
+> d'identite des octets** contre la version commitee. **11 039 → 3 368 lignes, soit −69 %**, reparties
+> en **30 modules** sous `iso/`.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1865,6 +1865,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `e9b7e88` | `iso/isoGroundDetail.js` (815 l.) — matieres du sol + l'etat de SAISON (P28) | → 4 071 |
 > | `a979d90` | `iso/isoAmbient.js` (266 l.) + `iso/isoField.js` (96 l.) | → 3 747 |
 > | `82a5949` | le TABLIER rejoint `iso/isoBridge.js` — **consolidation, pas creation** | → 3 583 |
+> | `aa0acd0` | `iso/isoGroundProps.js` (107 l.) ; la FONTAINE rejoint `isoPlaza.js` | → 3 460 |
+> | `e2955d6` | le PEINTRE DU PARVIS rejoint `iso/isoWonderGround.js` | → 3 368 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1910,13 +1912,30 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > cours** depuis que ces briques sont en feuilles. La deduplication n'est PAS un deplacement pur : elle
 > merite son propre chantier.
 >
-> **Suite** : il reste **`drawIsoGround` (1 164 l.), `drawIsoLive` (936 l.) et `drawIsoWorldInner`
-> (493 l.)** — 2 593 lignes, **72 %** de ce qui subsiste (etendues MESUREES par appariement d'accolades,
-> pas estimees). Ce sont les ORCHESTRATEURS du peintre, pas des passes autonomes : leur decoupage ne
-> sera pas un deplacement de bloc, et demandera d'abord de decider ce qui est une PASSE et ce qui est de
-> la COORDINATION.
-> Restent extractibles a peu de frais (tous a **0 entrante**) : les POINTS D'EAU + place + fontaine
-> (126 l.), et le SURVOL (45 l.).
+> ## 🏁 LA PHASE MECANIQUE EST FINIE — ce qui reste est d'une AUTRE NATURE
+>
+> **Tout ce qui pouvait sortir par DEPLACEMENT PUR est sorti.** Il reste 3 368 lignes, dont
+> **2 593 (77 %) dans TROIS FONCTIONS** : `drawIsoGround` (1 164 l.), `drawIsoLive` (936 l.),
+> `drawIsoWorldInner` (493 l.) — etendues mesurees par appariement d'accolades.
+>
+> **Pourquoi la meme methode ne s'applique plus.** Ce ne sont pas des blocs de declarations posees cote a
+> cote : ce sont des fonctions LONGUES dont les passes successives partagent des variables LOCALES (le
+> contexte du bake, la memoisation du type de cellule, les demi-losanges, le voile d'ere, les fermetures
+> qui les lisent). On ne peut pas en deplacer un morceau tel quel : il faudrait **rendre cet etat
+> explicite** — un objet de contexte passe en parametre. C'est un CHANGEMENT DE SIGNATURE, donc :
+>   · l'identite des octets ne prouve plus rien (le code change) ;
+>   · la garde devient le RENDU, pas le texte — et le harnais d'empreinte de canvas ne marche pas ici
+>     (voir plus haut, decouvert par temoin) ;
+>   · le risque n'est plus « un import oublie » mais « une variable capturee qu'on croyait locale ».
+>
+> **Avant d'y toucher, il faut donc trancher une question de conception** : qu'est-ce qui, dans ces
+> fonctions, est une PASSE (autonome, qui prend un contexte et peint) et qu'est-ce qui est de la
+> COORDINATION (l'ordre, les gates, le budget de frame) ? Tant que ce n'est pas decide, decouper
+> ferait des modules qui se repassent dix parametres — pire que le fichier actuel.
+>
+> **Reste aussi, mais mineur** : la couche de MARCHE en pixels (149 l., 0 entrante), le SURVOL + le pool
+> d'items (59 l., 0 entrante), et le CACHE DU SOL (323 l.) — ce dernier depend des orchestrateurs
+> (`drawIsoGround`, `drawIsoWorldInner`), donc il ne peut pas partir avant eux sans creer un cycle.
 >
 > ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas
 > prendre de face ». **C'est faux** : la plage mesuree englobait `drawIsoLive`. Le SURVOL reel fait
