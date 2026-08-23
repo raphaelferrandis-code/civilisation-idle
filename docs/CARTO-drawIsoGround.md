@@ -220,17 +220,50 @@ contexte de cuisson, pose des questions, et remise ce qui se peindra en fournée
 `texAlpha = kind === 'urban' ? 0` en la cherchant dans le **texte** du source. Aucun balayage de
 symboles ne peut voir partir une garde qui ne porte aucun nom. Elle suit désormais `isoGroundCells.js`.
 
-### La suite
+## 9. ✔ FAIT — la passe F+G (routes), et la question de la couche de marche
 
-Il ne reste que **F** (routes + seuils + couche de marche). C'est la plus grosse et la plus couplée :
-elle ouvre la couche de marche au milieu d'elle-même et la referme dans la passe suivante — une
-**ressource à durée de vie**, pas une donnée (cf. §2). La technique du contexte destructuré devrait
-s'y appliquer aussi ; ce qui demandera un choix, c'est la portée de `walkLayerBegin`/`walkLayerEnd`.
+*Commit `6f28967`. `drawIsoGround` : 801 → **329 lignes**, soit **−72 % depuis le début de cette carte**.
+isoRenderer : 2 396.*
+
+`iso/isoGroundRoads.js` (569 l.) prend rubans, couloirs fusionnés, épaulement, marche du trottoir,
+gorge de contact et seuils d'allée.
+
+**La couche de marche est partie avec — et le §2 avait raison de poser la question.**
+`walkLayerBegin`/`walkLayerEnd` encadrent un canevas à la résolution du pixel d'art, ouvert **au milieu
+de F** et refermé **à la fin de G**. Ce n'est pas une donnée qu'on se passe, c'est une **ressource à
+durée de vie** : deux modules se la repassant en paramètre auraient été fragiles. La réponse s'est
+révélée simple une fois mesurée — **F+G en est le seul consommateur**. Elle les suit, et la question
+disparaît au lieu d'être résolue.
+
+**Même technique que B** : sur les **52** noms que la passe lit, **38 sont ses propres locales** (elles
+voyagent). Restent **quatorze** lectures vers l'englobante, redevenues des locales à leur nom par
+destructuration en tête → les **477 lignes reprises sans une ligne de changée**.
+
+> **Ce que la mesure a corrigé, ici comme ailleurs** : « 52 lectures » semblait rédhibitoire. En
+> distinguant ce que la passe DÉCLARE de ce qu'elle EMPRUNTE, le chiffre tombe à quatorze. **Compter
+> les noms ne suffit pas — il faut savoir d'où ils viennent.**
+
+---
+
+## 10. Ce qui reste
+
+`drawIsoGround` fait **329 lignes**, et sa queue est désormais *exactement* ce qu'un orchestrateur doit
+être : l'ordre des passes, les commentaires qui l'expliquent, le profileur, un appel par passe.
+
+Il reste **la passe A** — le préambule et la RÉSOLUTION (~259 l.) : les ensembles dérivés du layout,
+les ensembles de grève, et surtout `kindAt`, le résolveur mémoïsé qui répond « de quoi cette cellule
+est-elle faite ? ». C'est le dernier morceau, et le §3 lui destinait `iso/isoGroundResolve.js`.
+
+⚠ Sa particularité : elle ne PEINT rien, elle RÉPOND. Ses fermetures (`kindAt`, `grassAt`,
+`keyOfKind`, `frontierFlips`, `urbanLogical`) capturent un état partagé (`kinds`, `built`, `courK`, les
+ensembles de grève) — c'est un objet-résolveur en puissance, pas une passe. La forme naturelle serait
+une fabrique : `makeGroundResolver(L, band, …)` qui rend `{ kindAt, grassAt, keyOfKind }`.
+**Ce serait le premier vrai changement de forme du chantier** — pas un déplacement.
 
 ⚠ C'est aussi à partir de B et F que la prévision du §4 redeviendra vraie : là, un objet de contexte
 sera inévitable, et l'A/B pixel avec lui.
 
 ---
 
-Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 2 922 lignes — et c'est un état sain :
+`isoRenderer.js` est à **2 396 lignes** — et c'est un état sain :
 chaque passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
