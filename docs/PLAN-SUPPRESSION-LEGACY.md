@@ -1843,7 +1843,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 7 201 lignes, soit −35 %.**
+> d'identite des octets** contre la version commitee. **11 039 → 5 983 lignes, soit −46 %**, reparties
+> en **22 modules** sous `iso/`.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1854,6 +1855,10 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `f0f669f` | `iso/isoPalette.js` (98 l.) — les sept tons de reference ; **feuille du graphe** | → 9 682 |
 > | `9119c6e` | `iso/isoWeather.js` (769 l.) — pluie, eclats au sol, neige (+ teintes de flocon) | → 8 945 |
 > | `8186f81` | `iso/isoRiver.js` (1 783 l.) — le fleuve entier, derriere **3** symboles publics | → 7 201 |
+> | `5a83a15` | `iso/isoUnits.js` (481 l.) — vehicules, emeutiers, objets portes + PROFONDEUR | → 6 753 |
+> | `ec615c9` | `iso/isoEngineScene.js` (343 l.) — scenes moteur + liseres ; `HOVER_GOLD` → palette | → 6 435 |
+> | `447670f` | `iso/isoQuad.js` (46 l.) + `iso/isoArt.js` (41 l.) — **le socle qui debloque** | → 6 383 |
+> | `a171ab8` | `iso/isoPort.js` (433 l.) — flotte legacy, riverain, ponton, mouillage | → 5 983 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1865,10 +1870,23 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > Chaque coupe precedente etait le prix de celle-la. **On ne pouvait pas commencer par le fleuve** — et
 > c'est precisement ce que la mesure de couture sert a savoir avant de poser le premier trait.
 >
-> **Suite** : il reste **`drawIsoGround` (1 170 l.), `drawIsoLive` (994 l.) et `drawIsoWorldInner`
-> (492 l.)** — 2 656 lignes, 37 % de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
+> ✔✔ **LE SOCLE PARTAGE EST LA VRAIE LEVIER, ET C'EST CONTRE-INTUITIF.** `isoQuad` (46 l.) et `isoArt`
+> (41 l.) sont les deux plus PETITS modules du lot — et ce sont eux qui ont libere le PORT (400 l.),
+> et qui rendent extractibles le PONT et le CHAMP. Ces blocs ne tenaient au peintre que par deux fils.
+> **Ce n'est pas la taille du bloc qui decide, c'est le NOMBRE DE FILS** : quand plusieurs gros blocs
+> partagent les memes une ou deux entrantes, sortir ces entrantes d'abord vaut mieux que de forcer un
+> gros bloc.
+> ⚠ Effet de bord a exploiter : `isoBridge.js` porte une COPIE du cache d'art, avec la raison en
+> commentaire — « l'importer creerait un cycle isoRenderer ↔ isoBridge ». Cette raison n'existe plus.
+> La deduplication n'est pas un deplacement pur, donc pas dans une tranche de decoupage.
+>
+> **Suite** : il reste **`drawIsoGround` (1 219 l.), `drawIsoLive` (994 l.) et `drawIsoWorldInner`
+> (492 l.)** — 2 705 lignes, **45 %** de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
 > passes autonomes : leur decoupage ne sera pas un simple deplacement de bloc, et demandera d'abord de
-> decider ce qui est une PASSE et ce qui est de la COORDINATION.
+> decider ce qui est une PASSE et ce qui est de la COORDINATION. Restent aussi extractibles a peu de
+> frais : le PONT, le CHAMP, l'AMBIANCE (particules/fumee/chevron), les CLOTURES.
+> ⚠ Deux blocs sont CHERS et il faut le savoir : le **SURVOL** (1 014 l., **47 entrantes**) et
+> l'**ECLAIRAGE** (nuit + lampes + flammes, 439 l., 8 entrantes). Ne pas s'y attaquer par la face.
 > ⚠ Deux choses restent **exprès** dans isoRenderer et n'iront jamais dans une palette : le ton de
 > CHAUSSEE (`roadTone`/`roadToneRaw`), parce qu'il depend de `roadVeilFor` donc de `ROAD_DETAIL`
 > (34 usages de reglage de VOIRIE) ; et l'etat de SAISON, pour la raison de P28 ci-dessous.
@@ -1903,6 +1921,16 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 >    PARAMETRE de `rainStamp` qui masque l'import. L'import recopie devenait orphelin — leve par le lint.
 >
 > → La mesure sert a CHOISIR la borne, elle ne remplace aucune porte. Le lint reste l'arbitre.
+>
+> ⚠ **P31 — UNE GARDE QUI LIT DU TEXTE DE SOURCE NE PORTE AUCUN NOM.**
+> `spriteScale.test.js` verrouille `ENGINE_UNIT_F` en cherchant la FORMULE
+> `unit = T * z * ISO_X * 0.72` dans le TEXTE d'`isoRenderer.js` — pas un symbole, pas un export :
+> **aucun balayage de noms ne peut la voir partir avec le code.** Elle est tombee a la tranche des
+> scenes moteur ; ce sont les TESTS qui l'ont rattrapee.
+> → Avant une coupe, chercher aussi les tests qui LISENT le fichier (`readFileSync` / `new URL` sur un
+> `.js`). Les autres gardes du depot ont ete relues : elles sont POSITIVES (`toContain`), donc elles
+> tombent bruyamment. Une garde NEGATIVE (`not.toMatch`) passerait, elle, **a vide** — c'est le cas
+> silencieux a surveiller.
 >
 > ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
 > des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
