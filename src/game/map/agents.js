@@ -514,6 +514,14 @@ if (typeof window !== 'undefined') {
 // (origine = centre du drone, +y = arrière après le pivot au cap), avant restore.
 // dsz = taille de rendu du sprite ; t = horloge (ms) ; phase = déphasage par drone.
 function drawDroneRotors(ctx, dsz, t, phase) {
+  // ⚠ CETTE GARDE MANQUAIT, et la molette mentait depuis toujours. `droneRotorsOn`
+  // était ÉCRIT par `__droneRotors(false)` et relu par personne : appeler la molette
+  // ne coupait rien, les rotors continuaient de tourner. Trouvé au balayage des 163
+  // molettes du 2026-08-23 — quatrième drapeau du même motif (une molette est un
+  // consommateur qui trompe le lint : le nom est « utilisé », mais jamais LU).
+  // Réparée plutôt que retirée : le débranchement des rotors sert au réglage d'art,
+  // et une ligne suffit à rendre vrai ce que le commentaire promettait.
+  if (!droneRotorsOn) return;
   const r = dsz * DRONE_ROTOR_R;
   if (r < 1) return;                        // trop petit à l'écran : on saute
   const spin = t * 0.045;                   // vitesse de rotation (rapide)
