@@ -71,6 +71,7 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // pour la bonne raison, mesurée : son drapeau n'avait plus de LECTEUR une fois l'A/B
 // du pont retiré. La mesure avait raison de le retenir alors, et raison de le lâcher
 // maintenant ; c'est le plan qui avait tort les deux fois.
+import { maskHit } from './iso/isoMask.js';
 import { cityMapCalmRioterAt, quayWallTune } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
@@ -664,11 +665,18 @@ function cityMapHitTest(sx, sy) {
   // dessinées à la dernière frame (CM._houseBoxes, publiées par drawIsoLive), du
   // plus proche au plus lointain : la liste est en ordre du peintre, on la
   // parcourt donc à l'envers pour que ce qui est DEVANT gagne.
+  // ⚠⚠ TEST AU PIXEL, pas au rectangle (2026-08-23). Une boîte d'encre est un
+  // rectangle autour d'une silhouette ISOMÉTRIQUE : ses coins sont vides. Viser un
+  // coin vide désignait quand même le bâtiment — mesuré sur une grille de 15 480
+  // points d'écran, **10,7 % répondaient autre chose** selon le test : soit un voisin,
+  // soit un bâtiment là où il n'y a que du sol. Le masque vient de la passe fantôme
+  // (Q11, iso/isoMask.js) et ne coûte rien : les sprites le portent déjà.
+  // `maskHit` retombe sur le rectangle quand un sprite n'a pas encore été mesuré.
   const hb = CM._houseBoxes;
   if (hb) {
     for (let i = hb.length - 1; i >= 0; i -= 1) {
       const b = hb[i].b, t = hb[i].t;
-      if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) continue;
+      if (!maskHit(b, sx, sy)) continue;
       return { ...cityMapDescribeTile(t), kind: t.type === "house" ? "Logement" : "Bâtiment", tile: t, cell: t.gx + "," + t.gy };
     }
   }
