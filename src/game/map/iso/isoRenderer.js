@@ -13,7 +13,9 @@
 //     re-générés en diagonales en Phase 4) ; véhicules mis à jour mais PAS dessinés ;
 //   - PAS de nuit/santé/LOD/lumières/ponts/quais/merveilles ici (Phases 3-5).
 // Tuiles PixelLab iso : APRÈS le go (le jalon protège le budget d'art).
-import { CM, cmHash, cmCellNoise, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmForEachWonderCell, treeBandMul, treeCanvasT } from '../layout.js';
+// `cmCellNoise` est parti avec la forêt sauvage, `cmWonderSlot` et
+// `cmForEachWonderCell` avec le parvis (2026-08-23).
+import { CM, cmHash, cmEngineAtelierFoot, ROAD_E, ROAD_N, ROAD_S, ROAD_W, CM_WONDERS, cmWonderActiveIds, treeBandMul, treeCanvasT } from '../layout.js';
 import { fp } from '../framePerf.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, screenToWorld, visibleCellBounds, visibleDiamondBounds, depthOf, panDeltaToScreen, screenDeltaToPan, wonderFootWorld, ISO_X, ISO_Y } from './projection.js';
@@ -132,6 +134,11 @@ import { BOAT_IMG_K, BOAT_IMG_TOP, tradeStage, tradeSizeMul, drawIsoBoatStub, dr
 // 2026-08-23. `_frac`/`_rnd` vivent à part pour qu'aucun module extrait n'ait à
 // importer depuis isoRenderer (cycle → TDZ).
 import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
+// Parvis des merveilles (ensemble de cellules) et forêt sauvage — extraits le
+// 2026-08-23. Le parvis vit à part parce que DEUX passes le lisent : le sol y pose
+// son dallage, la forêt refuse d'y planter.
+import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
+import { WILD_PAD, GL_RUN_MIN, WILD_THIN_UNIT, WILD_BLOCK, isoWildForest } from './isoWildForest.js';
 import { _frac, _rnd } from './isoMath.js';
 // AURA DE LA MAISON DES PLAISIRS. Module à part (le renderer pèse déjà 11 000
 // lignes) et sans import retour : il ne connaît que CM, la projection et les
@@ -2062,7 +2069,6 @@ if (typeof window !== 'undefined') {
 // `pave`/`joint` : le DALLAGE PROCÉDURAL (drawWonderPaving) est coupé par défaut
 // depuis que l'art porte ses propres joints — deux appareillages superposés
 // faisaient une trame double. Le tracé reste, `joint` le rallume.
-export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 0, rim: 1.10, tileAlpha: 1 };
 // DALLAGE : joints d'un appareillage posé dans le repère MONDE, au pas TILE/pave,
 // À JOINTS DÉCALÉS (une rangée sur deux glisse d'une demi-dalle). Le décalage est
 // ce qui compte : sans lui les joints de bout se réalignent en maille croisée et
@@ -2120,35 +2126,6 @@ function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg) {
     seg(inset(a, 0.05), inset(b, 0.05), 'rgba(34,30,20,0.25)', Math.max(1, hw * 0.05));
     seg(inset(a, 0.16), inset(b, 0.16), shade(WONDER_GROUND.rim), Math.max(1, hw * 0.09));
   }
-}
-// Ensemble effectif des cellules-parvis : celui du layout, PLUS l'emprise de la
-// merveille en APERÇU (__showWonder force le rendu sans recalcul du plan — le
-// parvis suit pour que l'aperçu soit fidèle). Mémoïsé par (layout, id d'aperçu).
-function wonderGroundSet(L) {
-  const pv = CM.previewWonder;
-  if (!pv) return L.wonderGround || null;
-  // Le RANG entre dans la clé de mémoïsation : __showWonder(id, rang) change
-  // l'emprise sans recalculer le plan, et le cache renvoyait l'ancienne taille.
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + pv.id + ':' + pv.tier;
-  const cache = CM._pvWonderGround;
-  if (cache && cache.sig === sig) return cache.set;
-  const set = new Set(L.wonderGround || []);
-  const wi = CM_WONDERS.findIndex((w) => w.id === pv.id);
-  if (wi >= 0 && pv.id !== 'era_mega' && L.gridN) {
-    const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
-    cmForEachWonderCell(slot, pv.id, L.gridN, (gx, gy, k) => set.add(k), pv.tier);
-  }
-  CM._pvWonderGround = { sig, set };
-  return set;
-}
-if (typeof window !== 'undefined') {
-  window.__wonderGround = (arg) => {
-    if (arg === false) WONDER_GROUND.on = false;
-    else if (arg && typeof arg === 'object') { WONDER_GROUND.on = true; Object.assign(WONDER_GROUND, arg); }
-    else WONDER_GROUND.on = true;
-    CM._isoGroundBake = null;
-    return { ...WONDER_GROUND };
-  };
 }
 // BAKE ALLÉGÉ (posé par drawIsoWorld le temps d'un geste) : on garde ce qui porte
 // la LECTURE de la carte (aplats de sol, rubans de chaussée, marquages) et on saute
@@ -5197,150 +5174,6 @@ const ISO_BUSH_VARIANTS = 6;
 export const ISLAND_DECO = { on: true, count: 9, rMin: 0.5, rMax: 0.88, size: 0.3 };
 if (typeof window !== 'undefined') window.__islandDeco = ISLAND_DECO;
 
-// ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
-// Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol
-// urbain » ; en iso ce pipeline est SAUTÉ et drawIsoGround ne pose que l'herbe →
-// la ville se retrouvait nue dans une plaine. On replante donc les arbres sur
-// l'herbe sauvage (hors urbanSet / route / eau / berge), poussés dans `items` :
-// mêmes sprites tree-N et même tri de profondeur que les arbres décoratifs
-// (L.trees, tous ⊂ urbanSet → aucun doublon). La liste est STATIQUE dans le
-// monde : on la mémoïse par (layout, région visible élargie de WILD_PAD) et on
-// ne rebalaie le bruit de placement que si le layout change ou si la caméra sort
-// de la région couverte — même idiome que les bakes à marge.
-const WILD_PAD = 12;                    // cellules de marge : pan sans reconstruire
-// Emprises des BÂTIMENTS (tuiles du layout) : la forêt sauvage ne pousse PAS
-// dessus. La plupart des emprises sont déjà dans urbanSet, mais le CHAMP (posé
-// sur l'herbe par la voie « ceinture agricole », hors urbanSet/occupiedFoot) y
-// échappait → des arbres sauvages le traversaient, révélés depuis que les
-// empreintes à plat se trient SOUS les objets. On couvre toutes les emprises.
-//
-// ⚠ MÉMOÏSÉ SUR LE LAYOUT, pas sur la vue : ce Set ne dépend que des tuiles,
-// alors qu'il était reconstruit à CHAQUE régénération de la forêt — c'est-à-dire
-// à chaque franchissement des bornes cachées, donc en plein pan. Mesuré sur une
-// ville de 1 151 tuiles : la régénération coûtait 16 ms de surcoût médian
-// (pics à 33 ms), les pics de `vif-collecte` relevés sur la machine de jeu.
-function isoBuildFootSet(L) {
-  const at = CM.layoutRecomputeAt || 0;
-  const n = (L.tiles && L.tiles.length) | 0;
-  const c = CM._isoBuildFoot;
-  if (c && c.at === at && c.n === n) return c.set;
-  const set = new Set();
-  for (const t of (L.tiles || [])) {
-    const tsx = t.spanX || t.size || 1, tsy = t.spanY || t.size || 1;
-    for (let ax = 0; ax < tsx; ax += 1) for (let ay = 0; ay < tsy; ay += 1) set.add((t.gx + ax) + ',' + (t.gy + ay));
-  }
-  CM._isoBuildFoot = { at, n, set };
-  return set;
-}
-
-// ── FORÊT SAUVAGE PAR BLOCS ──────────────────────────────────────────────────
-// La dispersion était mémoïsée sur la ZONE VISIBLE : dès que la vue sortait des
-// bornes cachées (donc en plein pan), TOUTE la zone était rebalayée — mesuré
-// 14-16 ms de surcoût médian, pics à 33 ms : les pics de `vif-collecte` relevés
-// sur la machine de jeu. Le balayage se fait désormais par BLOCS alignés sur la
-// grille (invariants par pan, comme les tuiles d'une carte) : franchir une
-// frontière ne coûte que le ou les blocs nouvellement entrés, jamais la zone
-// entière. La liste concaténée est elle-même mémoïsée tant que l'ensemble des
-// blocs visibles ne change pas.
-// Longueur minimale d'une série de sprites pour valoir une bascule GL : sous ce
-// seuil, la composition (un blit plein écran) coûterait plus que les
-// `drawImage` économisés. 120 capture les ceintures forestières et laisse la
-// poussière de séries courtes au chemin 2D.
-const GL_RUN_MIN = 120;
-
-// Pesée fine de la passe vivante (opt-in : globalThis.__isoProfParts = true) :
-// isole les postes procéduraux candidats à la cuisson en texture. Le drapeau se
-// lit UNE fois par frame (constante d'import : la molette n'aurait aucun effet
-// après chargement).
-
-// Seuil d'éclaircie de la forêt : taille de tuile écran sous laquelle les
-// arbres se chevauchent au point qu'en retirer devient invisible (à 11 px, un
-// arbre en couvre ~21 et ses voisins mordent dessus).
-const WILD_THIN_UNIT = 14;
-
-const WILD_BLOCK = 32;                  // cellules par côté de bloc
-const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
-
-function isoWildForestBlock(L, bx, by, ctx) {
-  const gx0 = bx * WILD_BLOCK, gy0 = by * WILD_BLOCK;
-  const gx1 = gx0 + WILD_BLOCK - 1, gy1 = gy0 + WILD_BLOCK - 1;
-  const { isWild, nearCity, cellNoise } = ctx;
-  const arr = [];
-  for (let gy = gy0; gy <= gy1; gy += 1) {
-    for (let gx = gx0; gx <= gx1; gx += 1) {
-      if (!isWild(gx, gy)) continue;
-      let thr = cellNoise(gx, gy) * 1.25 - 0.08;       // fourrés (haut) / trouées (bas)
-      if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
-      if ((cmHash(gx + 'f' + gy) % 1000) / 1000 >= thr) continue;
-      // Décalage sous-cellule + taille par arbre (hash riche) : casse la grille et
-      // l'uniformité — mêmes plages que les arbres décoratifs (r ≈ 0.62..0.96).
-      const h = cmHash('wf:' + gx + ':' + gy);
-      const jx = ((h % 100) / 100 - 0.5) * 0.6;
-      const jy = (((h >> 7) % 100) / 100 - 0.5) * 0.6;
-      const r = 0.62 + (h % 30) / 80;
-      arr.push({ gx, gy, jx, jy, r });
-    }
-  }
-  return arr;
-}
-
-function isoWildForest(L, b) {
-  // ':pv…' : le parvis d'une merveille en APERÇU (hors urbanSet, contrairement aux
-  // actives) doit chasser les arbres sauvages → la dispersion se refait à l'aller-retour.
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
-    + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
-  let st = CM._isoWildForest;
-  if (!st || st.sig !== sig || st.blocks.size > WILD_BLOCK_CAP) {
-    st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '' };
-  }
-  const bx0 = Math.floor((b.gx0 - WILD_PAD) / WILD_BLOCK);
-  const bx1 = Math.floor((b.gx1 + WILD_PAD) / WILD_BLOCK);
-  const by0 = Math.floor((b.gy0 - WILD_PAD) / WILD_BLOCK);
-  const by1 = Math.floor((b.gy1 + WILD_PAD) / WILD_BLOCK);
-  const key = bx0 + ':' + bx1 + ':' + by0 + ':' + by1;
-  if (key === st.key) return st.list;   // mêmes blocs visibles → rien à refaire
-  const urbanSet = L.urbanSet, roadSet = L.roadSet;
-  const riverCells = (L.river && L.river.present && L.river.cells) || null;
-  const banks = (L.river && L.river.banks) || null;
-  const has = (s, gx, gy) => !!s && s.has(gx + ',' + gy);
-  const buildFoot = isoBuildFootSet(L);
-  // Herbe sauvage = ni sol urbain, ni route (les routes de campagne restent nues),
-  // ni eau, ni berge (roseaux/quais y vivent déjà), ni emprise de bâtiment, ni
-  // PARVIS de merveille (les emprises actives sont déjà urbaines ; celle d'un
-  // APERÇU __showWonder ne l'est pas — sans ce garde, des arbres poussaient dessus).
-  const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;
-  const isWild = (gx, gy) =>
-    !has(urbanSet, gx, gy) && !has(roadSet, gx, gy)
-    && !has(riverCells, gx, gy) && !has(banks, gx, gy)
-    && !buildFoot.has(gx + ',' + gy) && !has(wg, gx, gy);
-  // Aération de lisière : une cellule au contact du bâti reçoit moins d'arbres →
-  // clairière douce au bord de la ville (au lieu d'un mur d'arbres), comme le legacy.
-  const nearCity = (gx, gy) =>
-    has(urbanSet, gx - 1, gy) || has(urbanSet, gx + 1, gy) || has(urbanSet, gx, gy - 1) || has(urbanSet, gx, gy + 1)
-    || has(roadSet, gx - 1, gy) || has(roadSet, gx + 1, gy) || has(roadSet, gx, gy - 1) || has(roadSet, gx, gy + 1);
-  // Bruit basse fréquence → agglutine les arbres en fourrés et ménage des trouées
-  // (repris de cityMapDrawTrees : mêmes fréquences /5 et /11).
-  // S5 : la définition a migré dans layout.js (`cmCellNoise`) pour que les arbres de
-  // VILLE s'en servent aussi — ils étaient tirés au hash par cellule, donc en
-  // confettis, alors que la forêt lisait déjà en fourrés grâce à ce même bruit.
-  // Une seule définition, un seul grain ; la copie locale a été retirée.
-  const cellNoise = cmCellNoise;
-  const ctx = { isWild, nearCity, cellNoise };
-  // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
-  // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
-  const list = st.list;
-  list.length = 0;
-  for (let by = by0; by <= by1; by += 1) {
-    for (let bx = bx0; bx <= bx1; bx += 1) {
-      const bk = bx + ',' + by;
-      let arr = st.blocks.get(bk);
-      if (!arr) { arr = isoWildForestBlock(L, bx, by, ctx); st.blocks.set(bk, arr); }
-      for (let i = 0; i < arr.length; i += 1) list.push(arr[i]);
-    }
-  }
-  st.key = key;
-  return list;
-}
 
 // ── PLACE ───────────────────────────────────────────────────────────────────
 // `isoPlazaBox` (composante connexe de la dalle) et `plazaEraForBand` ont

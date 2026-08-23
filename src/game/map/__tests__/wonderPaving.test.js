@@ -23,7 +23,11 @@
 // ALLUME le knob dans son montage, comme il allumait déjà `pave: 3`. Sans ça les
 // quatre invariants de géométrie passaient au vert sur zéro segment dessiné.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { drawWonderPaving, WONDER_GROUND } from '../iso/isoRenderer.js';
+// Le PEINTRE du dallage est resté dans isoRenderer (il dépend de la machinerie de
+// tuiles) ; sa CONFIG est partie dans isoWonderGround.js le 2026-08-23, parce que
+// la forêt sauvage la lit aussi et ne pouvait pas importer depuis isoRenderer.
+import { drawWonderPaving } from '../iso/isoRenderer.js';
+import { WONDER_GROUND } from '../iso/isoWonderGround.js';
 
 const HW = 64, HH = 32;                 // demi-losange écran (2:1), valeurs rondes
 const PX = 500, PY = 300;               // coin NORD de la cellule de référence
