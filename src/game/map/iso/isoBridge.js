@@ -477,7 +477,14 @@ function spanSprite(g, st) {
 // Nul hors des spans sprités : le tablier procédural reste au plan du sol.
 // Lit le DERNIER cache géo (_geo) : les consommateurs dessinent dans la même
 // frame que pushIsoBridgeItems, qui vient de le (re)calculer.
-export function bridgeLiftScreen(wx, wy) {
+//
+// ⚠⚠ REND DES PX MONDE, ET C'EST LE CHANGEMENT DU 2026-08-23. Cette fonction rendait
+// des px ÉCRAN, déjà multipliés par le zoom, et ses quatre consommateurs faisaient
+// `sp.y -= …` APRÈS avoir projeté. C'était la plus ancienne des rustines d'altitude de
+// ce projet — celle qui a servi de modèle aux suivantes. Depuis que la projection a son
+// troisième axe, une altitude se PASSE à `worldToScreen` : le zoom ne regarde plus
+// l'appelant, et surtout on ne peut plus oublier de l'appliquer.
+export function bridgeLiftWorld(wx, wy) {
   const geos = _geo.list;
   if (!geos) return 0;
   const T = CM.TILE;
@@ -511,10 +518,16 @@ export function bridgeLiftScreen(wx, wy) {
     // bois) : hauteur du tablier DESSINÉ au-dessus de la ligne de sol, en px
     // source — mesurée sur le PNG, pas devinée.
     const hump = sp.humpH != null ? sp.humpH : bridgeTune.humpH;
-    return sm * hump * kpx * CM.cam.zoom;
+    return sm * hump * kpx;
   }
   return 0;
 }
+
+// Le même lift, en px ÉCRAN. ⚠ CONSERVÉ POUR UNE SEULE RAISON : la molette
+// `__bridgeLift(wx, wy)` sert à LIRE la hauteur du tablier au point visé, et un
+// chiffre d'écran est ce qu'on veut quand on mesure une capture. Aucun peintre ne
+// doit s'en servir — un point qui se projette passe son altitude à `worldToScreen`.
+export function bridgeLiftScreen(wx, wy) { return bridgeLiftWorld(wx, wy) * CM.cam.zoom; }
 
 // ── Géométrie par span, en repère (l = longitudinal, t = transverse) ─────────
 // P(l,t) projette directement en écran ; aval = t croissant (cf. en-tête).

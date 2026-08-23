@@ -100,3 +100,48 @@ describe('relief — la marche a UNE seule hauteur', () => {
     expect(src).toMatch(/- wz \* z/);
   });
 });
+
+describe('relief — le pont est passé par l axe', () => {
+  // Le dos d'âne du pont sprite était la PLUS ANCIENNE rustine d'altitude du projet,
+  // et le modèle de toutes les suivantes : projeter au sol, puis retrancher une
+  // hauteur d'écran du `y`. Six peintres la portaient, chacun devant se souvenir de
+  // l'appliquer. Migré le 2026-08-23, il devient la démonstration que l'axe suffit —
+  // ces gardes existent pour que personne ne rouvre le chemin d'avant.
+
+  it('le lift rend des px MONDE : le zoom a quitté son calcul', () => {
+    const src = SRC('iso/isoBridge.js');
+    const i = src.indexOf('export function bridgeLiftWorld');
+    const j = src.indexOf('export function bridgeLiftScreen');
+    expect(i).toBeGreaterThan(-1);
+    expect(j).toBeGreaterThan(i);
+    // La forme d'avant finissait par `sm * hump * kpx * CM.cam.zoom` — l'écran DANS
+    // le calcul. Le corps ne doit plus voir le zoom du tout : c'est ce qui rend le
+    // lift composable avec n'importe quelle autre altitude.
+    expect(src.slice(i, j)).not.toContain('cam.zoom');
+  });
+
+  it('plus AUCUN peintre ne corrige le y après coup', () => {
+    for (const f of ['iso/isoUnits.js', 'agents.js']) {
+      expect(SRC(f)).not.toMatch(/\.y -= bridgeLift/);
+    }
+  });
+
+  it('les SIX sites passent le lift en 3e argument de la projection', () => {
+    // Véhicule, bête de trait, pousseur, émeutier, piéton du tri peintre, et l'ancre
+    // de bulle d'agents.js (partagée avec le hit-test du clic). Le compte est verrouillé :
+    // un site qui disparaîtrait sans raison, ou un nouveau qui reviendrait à la rustine,
+    // fait tomber ce test.
+    const n = (SRC('iso/isoUnits.js').match(/worldToScreen\([^;]*bridgeLiftWorld\(/g) || []).length
+      + (SRC('agents.js').match(/projWorldToScreen\([^;]*bridgeLiftWorld\(/g) || []).length;
+    expect(n).toBe(6);
+  });
+
+  it('la variante ÉCRAN ne survit que pour la sonde', () => {
+    // `bridgeLiftScreen` reste parce qu'on MESURE en px d'écran sur une capture. Aucun
+    // peintre ne doit s'en servir : ce serait la rustine qui revient par la fenêtre.
+    expect(SRC('iso/isoBridge.js')).toMatch(/window\.__bridgeLift = \(wx, wy\) => bridgeLiftScreen/);
+    for (const f of ['iso/isoUnits.js', 'agents.js']) {
+      expect(SRC(f)).not.toContain('bridgeLiftScreen');
+    }
+  });
+});

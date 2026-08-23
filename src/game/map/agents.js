@@ -2,7 +2,7 @@
 import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
-import { bridgeLiftScreen, bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
+import { bridgeLiftWorld, bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
 import { VEH_SKINS } from './vehicleSkins.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
@@ -1147,10 +1147,11 @@ function thoughtBubbleBox(ctx, bx, by, r, color) {
 // (hauteur d'ère × charType), pas posée sur le corps (retour Raph). PARTAGÉE
 // entre le rendu (ci-dessous) et le hit-test du clic (cityMapRuntime).
 function thoughtBubbleAnchor(p) {
-  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   // Dos d'âne du pont sprite : la bulle suit la tête, qui suit le tablier —
-  // rendu ET hit-test du clic lisent cette ancre (source unique).
-  sp.y -= bridgeLiftScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  // rendu ET hit-test du clic lisent cette ancre (source unique). L'altitude passe
+  // par l'AXE de la projection (2026-08-23).
+  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0),
+    bridgeLiftWorld(p.x + (p.lox || 0), p.y + (p.loy || 0)));
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
   const spec = agentSpecFor(agentSetForBand(band), p.charType || 0) || AGENT_FALLBACK;
   const drawH = CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE;

@@ -19,7 +19,7 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
-import { bridgeLiftScreen } from './isoBridge.js';
+import { bridgeLiftWorld } from './isoBridge.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
@@ -83,10 +83,13 @@ export function drawIsoVehicle(ctx, v, now, z) {
   const T = CM.TILE, s = T * z;
   const lo = vehicleLaneOffset(v, T);              // offset en px MONDE (s = TILE)
   const wx = v.x + lo.x, wy = v.y + lo.y;
-  const p = worldToScreen(wx, wy);
+  // Dos d'âne du pont sprite : attelages et porteurs montent avec le tablier —
+  // l'altitude passe par l'AXE de la projection (2026-08-23), et non plus par une
+  // retouche du y après coup.
+  // ⚠ Le cull lit donc le point DESSINÉ et non son ombre au sol : plus juste, et sans
+  // effet pratique (la marge fait deux tuiles, le dos d'âne moins d'une).
+  const p = worldToScreen(wx, wy, bridgeLiftWorld(wx, wy));
   if (p.x < -s * 2 || p.y < -s * 2 || p.x > CM.cw + s * 2 || p.y > CM.ch + s * 2) return;
-  // Dos d'âne du pont sprite : attelages et porteurs montent avec le tablier.
-  p.y -= bridgeLiftScreen(wx, wy);
   if (v.type === 'basket') {                       // porteurs de panier (ères anciennes)
     // Le porteur marche sur une route, donc toujours en biais à l'écran : vue
     // DIAGONALE si sa bande est livrée (même contrat que les habitants d'ère,
@@ -155,12 +158,11 @@ export function drawIsoVehicle(ctx, v, now, z) {
   if (pull) {
     const D = (pull.dist || 0.44) * T * VEH_SCALE;
     const front = [[D, 0], [-D, 0], [0, D], [0, -D]][v.dir] || [0, 0];
-    const ap = worldToScreen(wx + front[0], wy + front[1]);
+    const ap = worldToScreen(wx + front[0], wy + front[1], bridgeLiftWorld(wx + front[0], wy + front[1]));
     // Dos d'âne : la BÊTE monte aussi, et à SA position — sur la rampe elle
     // précède la carrosserie donc elle est déjà plus haut. Sans ça l'attelage
     // restait au niveau du sol et traversait le tablier (retour Raph : « les
     // animaux ne montent pas dessus »).
-    ap.y -= bridgeLiftScreen(wx + front[0], wy + front[1]);
     teamBelow = ap.y > p.y;
     drawTeam = () => {
       ctx.strokeStyle = 'rgba(38,26,15,0.72)';
@@ -182,8 +184,8 @@ export function drawIsoVehicle(ctx, v, now, z) {
   if (VEH_PUSH[v.type]) {
     const D = 0.34 * T * VEH_SCALE;
     const back = [[-D, 0], [D, 0], [0, -D], [0, D]][v.dir] || [0, 0];
-    const pp = worldToScreen(wx + back[0], wy + back[1]);
-    pp.y -= bridgeLiftScreen(wx + back[0], wy + back[1]);   // idem attelage
+    // idem attelage : le pousseur monte à SA position, par l'axe.
+    const pp = worldToScreen(wx + back[0], wy + back[1], bridgeLiftWorld(wx + back[0], wy + back[1]));
     pusherBelow = pp.y > p.y;
     drawPusher = () => {
       // Vue diagonale du pousseur (nouvelle DA) si dispo, sinon bande cardinale.
@@ -215,9 +217,8 @@ export function drawIsoVehicle(ctx, v, now, z) {
 export function drawIsoRioter(ctx, p, now, z) {
   const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
   const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
-  const sp = worldToScreen(p.x + laneX, p.y + laneY);
   // Dos d'âne du pont sprite : l'émeute aussi passe par-dessus, pas au travers.
-  sp.y -= bridgeLiftScreen(p.x + laneX, p.y + laneY);
+  const sp = worldToScreen(p.x + laneX, p.y + laneY, bridgeLiftWorld(p.x + laneX, p.y + laneY));
   const wob = Math.sin(now / 170 + (p.phase || 0)) * 0.8;
   const sx = sp.x, groundY = sp.y + wob * z;
   if (sx < -24 || groundY < -24 || sx > CM.cw + 24 || groundY > CM.ch + 24) return;
@@ -461,9 +462,10 @@ export function isoUnitDepth(wx, wy) {
 // Dessin d'UN habitant du tri peintre (partagé entre la passe normale et la passe
 // silhouette fantôme — même rendu, seul globalAlpha diffère).
 export function drawIsoCitizenItem(ctx, p, now, z) {
-  const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
-  // Dos d'âne du pont sprite : le piéton suit le tablier (rampes + plateau).
-  sp.y -= bridgeLiftScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  // Dos d'âne du pont sprite : le piéton suit le tablier (rampes + plateau) —
+  // l'altitude passe par l'AXE de la projection, et non plus par une retouche du y.
+  const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0),
+    bridgeLiftWorld(p.x + (p.lox || 0), p.y + (p.loy || 0)));
   const walking = (p.pauseT || 0) <= 0;
   // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
   // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).

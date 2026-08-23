@@ -94,8 +94,8 @@ if (typeof window !== "undefined") {
 //
 // Pourquoi il existe, et pourquoi si tard. La projection n'en avait pas, si bien que
 // TOUTE altitude de ce jeu était une rustine posée après coup sur le `y` d'écran : le
-// pont soustrayait `bridgeLiftScreen` chez quatre appelants, l'enfoncement du fleuve
-// ajoutait son décalage chez trois autres, les collines en auraient ajouté d'autres.
+// pont soustrayait son dos d'âne chez SIX appelants, l'enfoncement du fleuve ajoutait
+// son décalage chez trois autres, les collines en auraient ajouté d'autres.
 // Chaque rustine devait être enfilée À LA MAIN dans chaque consommateur — et il suffit
 // d'en oublier un pour que la scène se disloque : c'est arrivé le jour même, le
 // bas-fond du fleuve projetant lui-même, il ignorait que l'eau avait bougé et s'en est
@@ -103,8 +103,8 @@ if (typeof window !== "undefined") {
 // quelle hauteur.
 //
 // ⚠ La verticale ne subit AUCUN écrasement iso — un pas d'altitude vaut un pas
-// d'écran. C'est la convention déjà en vigueur (cf. bridgeLiftScreen), et elle est ce
-// qui permet à une face verticale d'être un simple ruban qui pend.
+// d'écran. C'est la convention déjà en vigueur (cf. `bridgeLiftWorld`, le premier
+// migré), et elle est ce qui permet à une face verticale d'être un simple ruban qui pend.
 export function worldToScreen(wx, wy, wz = 0) {
   const z = CM.cam.zoom;
   const dx = wx - CM.cam.x, dy = wy - CM.cam.y;

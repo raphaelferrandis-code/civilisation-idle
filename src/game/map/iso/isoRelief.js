@@ -12,10 +12,10 @@
 // ⚠ LA VILLE RESTE À L'ALTITUDE 0 (§ 3, décision de Raph, non re-litigable). Ce module
 // ne porte que ce qui descend SOUS elle, ou monte HORS d'elle.
 //
-// ⚠ Convention d'altitude, celle du pont (`bridgeLiftScreen`) : une hauteur est un
-// nombre de px MONDE multiplié par le zoom, et l'écran SOUSTRAIT pour monter. Donc on
-// AJOUTE pour descendre. La projection iso n'écrase pas la verticale : elle s'applique
-// directement en espace écran.
+// ⚠ Convention d'altitude, celle du pont (`bridgeLiftWorld`) : une ALTITUDE est un
+// nombre de px MONDE positif vers le HAUT, qu'on passe en 3e argument de la projection
+// — c'est elle qui applique le zoom et qui SOUSTRAIT pour monter. La projection iso
+// n'écrase pas la verticale : un pas d'altitude vaut un pas d'écran.
 import { CM } from '../layout.js';
 
 // `water` = profondeur de la nappe, en unités. **0 = l'état d'avant le lot 1**, au
