@@ -1843,7 +1843,7 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 9 750 lignes.**
+> d'identite des octets** contre la version commitee. **11 039 → 9 682 lignes.**
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1851,23 +1851,37 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `7647fd7` | `iso/isoSky.js` (138 l.) ; `iso/isoMath.js` (17 l., `_frac`/`_rnd` partages) | → 10 365 |
 > | `a35e987` | `iso/isoWildForest.js` (159 l.) ; `iso/isoWonderGround.js` (44 l.) | → 10 196 |
 > | `550ef12` | `iso/isoGroundTiles.js` (473 l.) — catalogue des tuiles de sol + greve | → 9 750 |
+> | `f0f669f` | `iso/isoPalette.js` (98 l.) — les sept tons de reference ; **feuille du graphe** | → 9 682 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
 > **jamais un import retour** vers `isoRenderer` (un cycle ESM tombe en TDZ sur un `const` — cf. P22 et
 > la perte de save de juillet).
 >
-> **Suite** : la **palette** (1 entrante, `roadVeilFor`), puis **l'eau**, puis les gros morceaux
-> `drawIsoGround` / `drawIsoLive`.
-> L'eau (l. 2863-4736, 1 874 l., 58 declarations) est **re-mesuree apres la tranche des tuiles** :
-> **11 entrantes → 5**, exactement `WATER`, `waterShoreTune`, `rgb`, `RAIN_TUNE`, `precipKind`. Les six
-> autres (`ISO_TILE_KEYS`, `isoWinterTile`, `beachTone`, `isoVariantKey`, `ensureIsoTileKey`, `BEACH`)
-> sont devenues de simples imports d'`isoGroundTiles`. Les trois premieres partiront avec la **palette**,
-> et il ne restera que la **meteo** (`RAIN_TUNE`, `precipKind`) — probablement un second module partage.
-> ⚠ Le message de `550ef12` annonce « 8 des 11 » : c'est **6**, chiffre avance de memoire avant la
-> re-mesure. La mesure ci-dessus fait foi.
-> `roadVeilFor` reste en arriere **exprès** : il traine `ROAD_DETAIL` (34 usages), du reglage de voirie
-> qui n'a rien a faire dans une palette.
+> **Suite** : **l'eau**, puis les gros morceaux `drawIsoGround` / `drawIsoLive`.
+> L'eau (1 874 l., 58 declarations) a ete **re-mesuree apres chaque tranche**, et c'est la meilleure
+> illustration de la methode : **11 entrantes → 5 → 2**. Il ne reste que la **meteo** (`RAIN_TUNE`,
+> `precipKind`) — donc un petit module partage de plus, et l'eau part.
+> ⚠ Deux choses restent **exprès** dans isoRenderer et n'iront jamais dans une palette : le ton de
+> CHAUSSEE (`roadTone`/`roadToneRaw`), parce qu'il depend de `roadVeilFor` donc de `ROAD_DETAIL`
+> (34 usages de reglage de VOIRIE) ; et l'etat de SAISON, pour la raison de P28 ci-dessous.
+> ⚠ Le message de `550ef12` annonce « 8 des 11 » : c'etaient **6**, chiffre avance de memoire avant la
+> re-mesure. Les mesures de ce paragraphe font foi.
+>
+> ⚠ **P28 — une liaison IMPORTEE est en LECTURE SEULE, donc un `let` reassigne ne peut pas etre
+> deplace.** La palette de saison (`SEASON_GRASS` & co) est reecrite a chaque frame par isoRenderer :
+> l'emporter dans `isoPalette` aurait jete un `TypeError` **a la premiere frame, apres un lint vert**.
+> Elle reste chez son seul ecrivain et lit `GRASS`/`GRASS_WILD` du module. → **avant toute coupe,
+> chercher les REASSIGNATIONS des noms candidats** (`nom =`, hors declaration). Une MUTATION d'objet
+> (`Object.assign(waterShoreTune, …)`, comme la molette `__waterShore`) reste parfaitement legale.
+> ⚠ Corollaire d'outillage : `couture.cjs` ne retient que le PREMIER nom d'une declaration multiple
+> (`let A = …, B = …, C = …`) — les trois sœurs de `SEASON_GRASS` lui etaient invisibles.
+>
+> ⚠ **P29 — LES FINS DE LIGNE NE SONT PAS UNIFORMES DANS CE DEPOT.** `sed -i` a aplati
+> `cityMapRuntime.js` de CRLF en LF —
+> diff de **2 346/2 342** au lieu de 5/1. Ce fichier est CRLF dans le depot, contrairement a
+> `isoRenderer.js` qui est LF. **Verifier `tr -dc '\r' | wc -c` avant/apres**, et preferer l'edition
+> ciblee au `sed -i` sur les fichiers CRLF.
 >
 > ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
 > des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
