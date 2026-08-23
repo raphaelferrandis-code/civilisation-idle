@@ -1843,8 +1843,12 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 1 186 lignes, soit −89 %**, reparties
-> en **37 modules** sous `iso/`.
+> d'identite des octets** contre la version commitee. **11 039 → 394 lignes, soit −96 %**, reparties
+> en **35 modules** sous `iso/` (36 fichiers `.js` avec le renderer lui-meme).
+>
+> 🏁 **LES TROIS ORCHESTRATEURS SONT DECOUPES** : `drawIsoGround` 1 164 → 77, `drawIsoLive` 936 → 91,
+> `drawIsoWorldInner` 493 → 98. Il ne reste dans le fichier que QUATRE fonctions — le survol, la passe
+> vivante, le point d'entree et son corps — et un en-tete d'imports.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1867,6 +1871,10 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `82a5949` | le TABLIER rejoint `iso/isoBridge.js` — **consolidation, pas creation** | → 3 583 |
 > | `aa0acd0` | `iso/isoGroundProps.js` (107 l.) ; la FONTAINE rejoint `isoPlaza.js` | → 3 460 |
 > | `e2955d6` | le PEINTRE DU PARVIS rejoint `iso/isoWonderGround.js` | → 3 368 |
+> | *(les tranches suivantes sont les ORCHESTRATEURS — detail dans les trois `CARTO-*.md`)* | | |
+> | `f40299f`→`4e90d6a` | les 6 passes de `drawIsoGround` (terre-pleins, C/D/E, balayage, routes, montage) | → 1 401 |
+> | `76b2003`→`8d4f8b6` | les 3 tranches de `drawIsoLive` (prelude, collecte, dessin) | → 1 186 |
+> | **ce commit** | `iso/isoGroundBake.js` (830 l.) — **la cuisson du sol et son cache** | 🏁 **→ 394** |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1952,21 +1960,27 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > ⚠ Son §6 documente un **CINQUIEME angle mort** : les PARAMETRES d'une fonction sont invisibles a un
 > balayage de declarations. `now` etait lu deux fois par la collecte ; c'est le lint qui l'a rattrape.
 >
-> 📄 **`docs/CARTO-drawIsoWorldInner.md`** (2026-08-23) — la troisieme et derniere, **cartographiee,
-> non decoupee**. 493 l. en 3 phases, mais **une seule pese** : le PREAMBULE (22 l.) et la FILE DE
-> RENDU (73 l.) sont deja de la pure coordination, une ligne par sujet. Reste le **CACHE DU SOL**
-> (l. 715-1110, **396 l.**), qui ne lit que **TROIS** noms de l'englobante — `ctx`, `L`, `helpers`.
-> ⚠ Il ne peut pas partir seul : il appelle `drawIsoGround`. Mais en emmenant la cuisson avec lui on
-> trouve un ensemble **deja clos, simplement disperse en trois endroits** du fichier (159-236,
-> 375-663, 715-1110 = **763 l.**) : sur ses 20 declarations, **16 ne servent QUE dans le bloc**, et les
-> mentions inter-fichiers sont toutes fausses (un nom de PARAMETRE dans `isoGroundResolve`, un
-> COMMENTAIRE dans `cityMapRuntime`). Couture **a ZERO import retour** — la premiere du chantier —
-> pour une surface publique d'**UNE fonction**. `drawIsoWorldInner` tomberait a **~98 l.**, et
-> `isoRenderer.js` a **~424 l.** (−96 % depuis 11 039).
-> ⚠ Le bloc est **indivisible** : 10 noms declares en 715-861 sont relus en 982-1107. Le cache de
-> crans ne suit pas la decision, il en fait partie.
+> 📄 **`docs/CARTO-drawIsoWorldInner.md`** (2026-08-23) — 🏁 **CLOSE**. 493 l. en 3 phases, mais **une
+> seule pesait** : le PREAMBULE (22 l.) et la FILE DE RENDU (73 l.) etaient deja de la pure
+> coordination, une ligne par sujet. Restait le **CACHE DU SOL** (l. 715-1110, **396 l.**), qui ne
+> lisait que **TROIS** noms de l'englobante — `ctx`, `L`, `helpers`, devenus des PARAMETRES DE MEME NOM.
+> ⚠ Il ne pouvait pas partir seul : il appelle `drawIsoGround`. Mais en emmenant la cuisson avec lui on
+> a trouve un ensemble **deja clos, simplement disperse en trois endroits** du fichier (140-236,
+> 371-656, 715-1110 = **779 l.**) : sur ses 20 declarations, **16 ne servaient QUE dans le bloc**, et
+> les mentions inter-fichiers etaient toutes fausses (un nom de PARAMETRE dans `isoGroundResolve`, un
+> COMMENTAIRE dans `cityMapRuntime`).
 >
-> **Reste aussi, mais mineur** : le SURVOL (45 l., 0 entrante) et `drawIsoLive` reduit (91 l.) —
+> ✔ **SORTI (`iso/isoGroundBake.js`, 830 l.)** : couture **a ZERO import retour** — la seule du
+> chantier — pour une surface publique d'**UNE fonction**, `paintIsoGroundCached(ctx, L, helpers)`.
+> `drawIsoWorldInner` : 493 → **98 l.** ; `isoRenderer.js` : 1 186 → **394 l.**
+> ⚠ Le bloc etait **indivisible**, et c'etait mesure : 10 noms declares en 715-861 sont relus en
+> 982-1107. Le cache de crans ne suit pas la decision, il en fait partie.
+> ⚠ Verifie a l'ecran : le cache de crans photographie et restaure (`snapshots` 1→7, `restores` 0→2),
+> et `globalThis.__groundZoomCacheStats` repond toujours — l'effet de bord de niveau module a survecu
+> au demenagement (P32). ⚠ Ce qui n'a PAS ete etabli : le regime permanent du cache en conditions
+> reelles (cf. §8 de la carte — `forceFrame` a horloge synthetique ne rejoue pas la cascade).
+>
+> **Reste, mais mineur** : le SURVOL (45 l., 0 entrante) et `drawIsoLive` reduit (91 l.) —
 > deux coordinateurs courts, et c'est le travail d'un fichier nomme `isoRenderer`.
 >
 > ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas

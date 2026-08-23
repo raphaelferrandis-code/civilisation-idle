@@ -1,4 +1,4 @@
-# Cartographie de `drawIsoWorldInner` — 493 lignes, mais **une seule chose**
+# Cartographie de `drawIsoWorldInner` — 493 lignes, mais **une seule chose** · 🏁 **découpée : 98 lignes**
 
 Troisième et dernière carte du lot Q10, après `drawIsoGround` (1 164 l. → 77) et
 `drawIsoLive` (936 l. → 91). Celle-ci est courte, parce que la fonction l'est
@@ -207,3 +207,49 @@ canvas — cf. P24). Puis les trois portes, aucune ne suffisant seule : `lint`
 
 **Après cette coupe, `isoRenderer.js` ferait ~424 lignes** — dont ~130 d'en-tête
 d'imports — et le chantier Q10 serait à **11 039 → ~424 l., soit −96 %**.
+
+---
+
+## 8. ✔ FAIT — 🏁 `isoRenderer.js` : 1 186 → **394 lignes**
+
+Un seul commit, les trois tranches d'un bloc, dans l'ordre du §7. `iso/isoGroundBake.js`
+fait **830 lignes** et n'expose qu'un nom : `paintIsoGroundCached(ctx, L, helpers)`.
+`drawIsoWorldInner` est passé de 493 à **98 lignes** — la prévision au ligne près.
+
+**La preuve, dans les deux sens.** Les 779 lignes de A+B+C se retrouvent verbatim dans
+le module ; et le reste d'`isoRenderer` était, avant le nettoyage des imports,
+**identique à la ligne près** à l'ancien fichier privé de ces trois plages, plus
+l'appel. Le nettoyage a ensuite retiré dix imports devenus orphelins — vérification :
+sur le fichier final, **quatorze lignes seulement** n'existaient pas dans la version
+commitée, et ce sont exactement les quatre imports réécrits (chacun un sous-ensemble
+strict de son original), le bloc du nouvel import, et la ligne d'appel. Rien d'inventé.
+
+Les trois portes : lint du dépôt, **1 690 tests**, build. Vertes.
+
+### Ce que l'écran a montré, pane masquée
+
+`document.hidden` étant vrai, le rAF ne tire jamais et le jeu ne tique pas — mais
+`CM.captureFrame()` **joue une frame complète en synchrone**, layout compris. C'est
+l'outil pour ce cas, et il faut le noter : il vaut mieux que tous les contournements
+essayés jusqu'ici.
+
+- La carte peint : clé de cache composée `iso:…:0.850:0:s3:bchsand0.8_7:qg1000:f` —
+  on y lit `qg1000` (la porte du quai, résolue en avance, §4) et `bchsand` (`BEACH`,
+  un des imports déménagés) — bake réel mesuré à **14,6 ms**, image juste (sol
+  d'hiver, grève, pont, tentes, routes).
+- **Le cache de crans vit** : en promenant la caméra sur des crans neufs puis en y
+  revenant, `snapshots` monte 1 → 7 et `restores` 0 → 2, avec sept crans distincts
+  dans la Map. Les deux branches déplacées — restauration (l. 751-810) et snapshot
+  (l. 982-1032) — font donc ce pour quoi elles sont écrites.
+- ✔ **`globalThis.__groundZoomCacheStats` répond** : l'effet de bord de niveau module
+  a survécu au déménagement, comme le §5 le demandait (P32).
+
+⚠ **Ce que cette vérification n'établit PAS, et il faut le dire.** En pilotant la
+caméra à la main via `CM.forceFrame()`, le bake s'est figé sur un cran (2.400) et n'a
+plus été refait sur 52 frames. Ce n'est pas imputable à la coupe — le code est
+identique à l'octet près — mais c'est un artefact du harnais : `forceFrame` avec une
+horloge synthétique et une caméra poussée à la main ne rejoue pas la cascade de
+recuisson, qui s'appuie sur le temps mural et sur l'amortissement du zoom
+(`CM.zoomGoal`). Dès qu'on repasse par `captureFrame` (qui pose `CM.capture`, donc
+`settled`), la recuisson repart. **Le régime permanent du cache n'a donc pas été
+observé en conditions réelles** — seulement ses branches, une à une.
