@@ -43,6 +43,11 @@ export function reliefKey() {
   return w > 0 ? ':rl1.' + w : '';
 }
 
+// Matière de la FACE DE BERGE NATURELLE — deux assises, haut clair vers bas sombre,
+// exactement la lecture de profondeur du parement de quai (cf. quaysAndRiot). Terre et
+// roche mouillée, jamais de la pierre taillée : c'est une berge, pas un ouvrage.
+export const BANK_FACE = { on: true, top: '#7a6a52', bot: '#4a3f31' };
+
 if (typeof window !== 'undefined') {
   // __relief({ water: 3 }) enfonce la nappe de 3 unités. __relief({ water: 0 }) rejoue
   // l'état d'avant. Invalide le sol cuit ET le cache de crans (cf. reliefKey).

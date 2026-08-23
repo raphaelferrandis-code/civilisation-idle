@@ -20,7 +20,7 @@
 // ⚠ AUCUN CYCLE : `quaysAndRiot` et `riverFleet` ne remontent jamais vers le
 // peintre (vérifié avant la coupe), et `isoRiverLife` reçoit ce dont il a besoin
 // par INJECTION (`configureRiverLife`), pas par import.
-import { waterSinkPx } from './isoRelief.js';
+import { BANK_FACE, waterSinkPx } from './isoRelief.js';
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 // ⚠ L'INJECTION VIT ICI, pas dans le peintre : c'est le fleuve qui donne à la vie du
@@ -1618,7 +1618,20 @@ export function drawIsoRiver(now) {
             const hw = (mode === 'base' || !wv) ? p.hw
               : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
                 : (si ? wv.minus[i] : wv.plus[i]);
-            path.push(worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T));
+            const q = worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T);
+            // ⚠⚠ CETTE FONCTION PROJETTE ELLE-MÊME — elle ne passe PAS par
+            // `riverRibbonScreen`, donc elle n'héritait PAS de l'enfoncement de la
+            // nappe (lot 1). Le bas-fond et le liseré restaient au niveau d'avant
+            // pendant que l'eau descendait : ils se décollaient du bord.
+            //
+            // Et la règle qui suit EST la géométrie de la berge : le BORD D'EAU
+            // (`wave`) et la LAISSE (`wet`) descendent avec la nappe — ils SONT l'eau ;
+            // le LIT PEINT (`base`) ne bouge pas — il est le sable sec, qui reste à
+            // hauteur de terre. La bande qui s'ouvre entre les deux a exactement la
+            // hauteur de l'enfoncement : **c'est la face de berge**, et c'est ce que
+            // `drawBankFace` y peint.
+            if (mode !== 'base') q.y += waterSinkPx();
+            path.push(q);
           }
           out.push({ path, runs });
         });
@@ -1648,6 +1661,52 @@ export function drawIsoRiver(now) {
           }
         }
       };
+      // ── FACE DE BERGE NATURELLE (lot 1 du relief) ──────────────────────────
+      // ⚠ AVANT le clip d'eau, et c'est la raison d'être de sa place ici : une face
+      // de berge est AU-DESSUS de l'eau, elle serait entièrement rognée à l'intérieur.
+      //
+      // Là où le quai ne trace rien (`runsPlus`/`runsMinus` viennent de
+      // `quayGapRuns`), la berge n'a que sa ligne — elle se lit comme un autocollant.
+      // On lui donne la même face que le mur de quai : deux assises, haut clair vers
+      // bas sombre, en matière de TERRE. Sa hauteur n'est pas un réglage : elle est
+      // bornée par la géométrie, du lit peint (`base`, hauteur de terre) au bord
+      // d'eau (`wave`, descendu). Elle vaut donc exactement l'enfoncement, comme le
+      // parement du quai — la garde du plan (« même hauteur au sample de jonction »)
+      // est vraie PAR CONSTRUCTION, pas par réglage.
+      //
+      // ⚠ VISIBLE D'UN SEUL CÔTÉ, même règle que le mur : une face ne se voit que
+      // sur la rive dont l'eau est DEVANT (plus bas à l'écran). Sur l'autre, elle
+      // regarde ailleurs et sa propre berge l'occulte — la dessiner quand même
+      // poserait un bandeau de terre par-dessus le sol.
+      if (waterSinkPx() > 0 && BANK_FACE.on) {
+        const bas = buildEdges('wave', false);      // bord d'eau, descendu
+        const haut = buildEdges('base', false);     // lit peint, à hauteur de terre
+        ctx.save();
+        for (let s = 0; s < bas.length && s < haut.length; s += 1) {
+          const eb = bas[s], eh = haut[s];
+          for (const [a, b] of eb.runs) {
+            if (b <= a) continue;
+            // L'eau est-elle devant ? On lit la géométrie déjà construite : le bord
+            // d'eau plus bas que le lit à l'écran.
+            let devant = 0;
+            for (let i = a; i <= b; i += 1) if (eb.path[i].y > eh.path[i].y) devant += 1;
+            if (devant * 2 < (b - a + 1)) continue;   // majorité contre : rive occultée
+            for (const [t0, t1, col] of [[0, 0.5, BANK_FACE.top], [0.5, 1, BANK_FACE.bot]]) {
+              ctx.beginPath();
+              for (let i = a; i <= b; i += 1) {
+                const y = eh.path[i].y + (eb.path[i].y - eh.path[i].y) * t0;
+                if (i === a) ctx.moveTo(eh.path[i].x, y); else ctx.lineTo(eh.path[i].x, y);
+              }
+              for (let i = b; i >= a; i -= 1) {
+                const y = eh.path[i].y + (eb.path[i].y - eh.path[i].y) * t1;
+                ctx.lineTo(eh.path[i].x, y);
+              }
+              ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+            }
+          }
+        }
+        ctx.restore();
+      }
       ctx.save();
       riverRibbonPath(ctx, pts, T);
       ctx.clip(WATER_FILL);

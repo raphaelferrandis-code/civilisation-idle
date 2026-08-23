@@ -358,7 +358,10 @@ const GROUND_ZOOM_CACHE_MAX = 8;
 // changé sous le cache — recompute de layout, saison…) ; `purges` : entrées de
 // base morte retirées au snapshot. Ensemble ils disent si le cache MEURT plus
 // vite qu'il ne sert — le doute que le banc à sim GELÉE ne peut pas lever.
-const gzcStats = { restores: 0, snapshots: 0, missBase: 0, purges: 0, prebakes: 0 };
+// `farRestores` : restores servis AU-DELÀ du ½ cran (plafond levé en glide,
+// lot 1 anti-clignotement) ; `filet` : frames de geste où la photo la plus
+// basse du cache a bouché le pourtour du blit compensé (même lot).
+const gzcStats = { restores: 0, snapshots: 0, missBase: 0, purges: 0, prebakes: 0, farRestores: 0, filet: 0 };
 if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcStats;
 // Identité de CONTENU du sol — ce que drawIsoGround consomme réellement.
 // La clé du bake vivant porte `layoutRecomputeAt`, un TIMESTAMP : en sim
@@ -482,11 +485,18 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // valeurs intermédiaires qu'aucune clé exacte ne re-matchera jamais — la
     // première version du cache n'avait donc AUCUN hit en geste (mesuré :
     // 1 restore sur tout un aller-retour). On sert alors le cran caché le plus
-    // PROCHE en échelle (≤ ½ cran de molette, soit ±5,8 %) comme SOURCE du
-    // re-blit compensé : il reste un blit compensé (other garde la clé d'origine
-    // de la photo, la cascade compense zoom/zoomB), mais depuis une image du bon
-    // voisinage au lieu du bake de départ du geste — quasi net au lieu de flou
-    // croissant. Un bake courant déjà plus proche (ou aussi proche) est gardé.
+    // PROCHE en échelle comme SOURCE du re-blit compensé : il reste un blit
+    // compensé (other garde le marqueur, la cascade compense zoom/zoomB), mais
+    // depuis une image du bon voisinage au lieu du bake de départ du geste —
+    // quasi net au lieu de flou croissant.
+    // TANT QUE LE GLIDE DE ZOOM EST ACTIF, AUCUN plafond de distance (lot 1
+    // anti-clignotement) : un sol étiré de deux crans reste un sol, alors que
+    // l'alternative était le fond hors-monde nu — le « cadre sombre » du dézoom
+    // (.preview-shots/flicker-c2f0.png). HORS GLIDE, le ½ cran (±5,8 %) reste
+    // exigé : la cascade recuit dans la même frame, une photo lointaine serait
+    // une copie ~9 Mo pour rien — et au drag, le light exact en place vaut
+    // mieux qu'un plein étiré. Un bake courant déjà plus proche (ou aussi
+    // proche) est gardé.
     if (!CM.capture && globalThis.__groundZoomCache !== false) {
       const cur = CM._isoGroundBake;
       if (!(cur && !cur.soft && cur.other === key)) {
@@ -502,6 +512,11 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           if (!best) gzcStats.missBase += 1;
           // ½ cran de molette (cf. CAM_FEEL.wheelStep = 1,12).
           const HALF_STEP = Math.log(1.12) / 2;
+          // Le glide est actif tant que la cible n'est pas atteinte — même seuil
+          // que la pose franche de cmCameraGlide. C'est LUI qui lève le plafond
+          // de distance, pas `settled` : un drag bouge la caméra sans toucher au
+          // zoom, et il doit garder son ½ cran (cf. le bandeau ci-dessus).
+          const zoomGliding = CM.zoomGoal != null && Math.abs(CM.cam.zoom - CM.zoomGoal) > 1e-3;
           // Une photo est « exacte » au grain de la clé vivante (zoom à 3
           // décimales) : sous ±0,05 % l'écart d'échelle est sous le pixel.
           const exact = !!best && Math.abs(best.z - CM.cam.zoom) < CM.cam.zoom * 5e-4;
@@ -514,7 +529,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           const installed = !!cur && (exact
             ? cur.other === key
             : (cur.other === '__zoomcache__' && best && Math.abs((cur.zoomB || 0) - best.z) < 1e-9));
-          if (best && bestD <= HALF_STEP && !installed && (exact || bestD < curD - 1e-9)) {
+          if (best && (bestD <= HALF_STEP || zoomGliding) && !installed && (exact || bestD < curD - 1e-9)) {
             gc.delete(best.key); gc.set(best.key, best);   // rafraîchit le rang LRU
             const g = CM.gctx;
             g.setTransform(1, 0, 0, 1, 0, 0);
@@ -529,6 +544,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
               ? { camX: best.camX, camY: best.camY, other: key, zoomB: CM.cam.zoom }
               : { camX: best.camX, camY: best.camY, other: '__zoomcache__', zoomB: best.z };
             gzcStats.restores += 1;
+            if (bestD > HALF_STEP) gzcStats.farRestores += 1;
           }
         }
       }
@@ -696,6 +712,40 @@ export function paintIsoGroundCached(ctx, L, helpers) {
       const cx = CM.cw / 2, cy = CM.ch / 2;
       const prev = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = true;   // transitoire : lissé vieillit mieux que crénelé
+      // LE FILET (lot 1 anti-clignotement). Au dézoom, s < 1 : le rectangle
+      // compensé ne couvre plus l'écran, et le pourtour retombait sur le fond
+      // hors-monde uni — un cadre sombre qui grandissait à chaque frame du
+      // glide, LE clignotement du dézoom (.preview-shots/flicker-c2f0.png).
+      // Règle des cartes web (Leaflet garde l'ancien niveau étiré, Google Maps
+      // sert la tuile parente) : jamais un pixel sans contenu, on étire le
+      // niveau disponible en attendant le net. Sous le rectangle, on pose donc
+      // d'abord la photo du cran le plus BAS du cache : cuite plus dézoomée que
+      // la source courante, elle couvre plus de monde qu'elle — tout l'écran
+      // dès que son échelle passe sous le zoom courant. Un drawImage de plus
+      // par frame de geste, invisible à côté des ~4 000 blits du dézoom. Au
+      // zoom-IN (s ≥ 1) la source couvre déjà tout : aucune photo plus basse
+      // n'est retenue et la branche ne coûte rien. Sans photo basse au cache
+      // (début de session, pré-cuisson pas passée), comportement d'avant.
+      // A/B : globalThis.__solFilet = false.
+      if (globalThis.__solFilet !== false && globalThis.__groundZoomCache !== false) {
+        const gcF = CM._groundZoomCache;
+        let fond = null;
+        if (gcF && gcF.size) {
+          for (const e of gcF.values()) {
+            if (e.base !== cacheBase || !e.canvas || e.z >= bm.zoomB) continue;
+            if (e.canvas.width !== CM.groundCanvas.width || e.canvas.height !== CM.groundCanvas.height) continue;
+            if (!fond || e.z < fond.z) fond = e;
+          }
+        }
+        if (fond) {
+          const s2 = CM.cam.zoom / fond.z;
+          const pdF = panDeltaToScreen(CM.cam.x - fond.camX, CM.cam.y - fond.camY);
+          ctx.drawImage(fond.canvas,
+            cx - s2 * (cx + M) - pdF.x, cy - s2 * (cy + M) - pdF.y,
+            (CM.cw + 2 * M) * s2, (CM.ch + 2 * M) * s2);
+          gzcStats.filet += 1;
+        }
+      }
       ctx.drawImage(CM.groundCanvas,
         cx - s * (cx + M) - pd.x, cy - s * (cy + M) - pd.y,
         (CM.cw + 2 * M) * s, (CM.ch + 2 * M) * s);
