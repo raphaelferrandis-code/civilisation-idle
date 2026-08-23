@@ -1843,7 +1843,7 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 9 682 lignes.**
+> d'identite des octets** contre la version commitee. **11 039 → 7 201 lignes, soit −35 %.**
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1852,16 +1852,23 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `a35e987` | `iso/isoWildForest.js` (159 l.) ; `iso/isoWonderGround.js` (44 l.) | → 10 196 |
 > | `550ef12` | `iso/isoGroundTiles.js` (473 l.) — catalogue des tuiles de sol + greve | → 9 750 |
 > | `f0f669f` | `iso/isoPalette.js` (98 l.) — les sept tons de reference ; **feuille du graphe** | → 9 682 |
+> | `9119c6e` | `iso/isoWeather.js` (769 l.) — pluie, eclats au sol, neige (+ teintes de flocon) | → 8 945 |
+> | `8186f81` | `iso/isoRiver.js` (1 783 l.) — le fleuve entier, derriere **3** symboles publics | → 7 201 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
 > **jamais un import retour** vers `isoRenderer` (un cycle ESM tombe en TDZ sur un `const` — cf. P22 et
 > la perte de save de juillet).
 >
-> **Suite** : **l'eau**, puis les gros morceaux `drawIsoGround` / `drawIsoLive`.
-> L'eau (1 874 l., 58 declarations) a ete **re-mesuree apres chaque tranche**, et c'est la meilleure
-> illustration de la methode : **11 entrantes → 5 → 2**. Il ne reste que la **meteo** (`RAIN_TUNE`,
-> `precipKind`) — donc un petit module partage de plus, et l'eau part.
+> ✔ **L'EAU EST SORTIE, ET C'EST LA DEMONSTRATION DE LA METHODE.** Ses dependances entrantes ont ete
+> re-mesurees apres CHAQUE tranche : **11 → 5** (tuiles + greve) **→ 2** (palette) **→ 0** (meteo).
+> Chaque coupe precedente etait le prix de celle-la. **On ne pouvait pas commencer par le fleuve** — et
+> c'est precisement ce que la mesure de couture sert a savoir avant de poser le premier trait.
+>
+> **Suite** : il reste **`drawIsoGround` (1 170 l.), `drawIsoLive` (994 l.) et `drawIsoWorldInner`
+> (492 l.)** — 2 656 lignes, 37 % de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
+> passes autonomes : leur decoupage ne sera pas un simple deplacement de bloc, et demandera d'abord de
+> decider ce qui est une PASSE et ce qui est de la COORDINATION.
 > ⚠ Deux choses restent **exprès** dans isoRenderer et n'iront jamais dans une palette : le ton de
 > CHAUSSEE (`roadTone`/`roadToneRaw`), parce qu'il depend de `roadVeilFor` donc de `ROAD_DETAIL`
 > (34 usages de reglage de VOIRIE) ; et l'etat de SAISON, pour la raison de P28 ci-dessous.
@@ -1882,6 +1889,20 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > diff de **2 346/2 342** au lieu de 5/1. Ce fichier est CRLF dans le depot, contrairement a
 > `isoRenderer.js` qui est LF. **Verifier `tr -dc '\r' | wc -c` avant/apres**, et preferer l'edition
 > ciblee au `sed -i` sur les fichiers CRLF.
+>
+> ⚠ **P30 — UNE ANALYSE TEXTUELLE A TROIS TROUS, ET LES TROIS ONT MORDU.** L'outil de couture blanchit
+> commentaires et chaines pour ne pas prendre une mention en prose pour une dependance. Ce faisant :
+> 1. **`${…}` dans un gabarit est du CODE.** Le bloc meteo ne lisait `SNOW_TOP`/`SNOW_SHADE` que dans
+>    un `rgba(${SNOW_TOP[0]}…)` : l'outil annoncait **0 entrante alors qu'il y en avait 2**. Corrige
+>    (l'interpolation est desormais recopiee), puis re-mesure. Sans ca le module partait avec deux
+>    symboles non definis.
+> 2. **Une INSTRUCTION de premier niveau n'est pas une declaration.** `configureRiverLife({…})`, au
+>    niveau module d'`isoRiver`, etait invisible ; c'est le **lint** (`no-undef`) qui l'a levee. Meme
+>    classe que `isoTileCache` vide par une molette `window.__x`.
+> 3. **Le texte ne voit pas les PORTEES.** `rgb` semblait utilise par le bloc meteo : c'est un
+>    PARAMETRE de `rainStamp` qui masque l'import. L'import recopie devenait orphelin — leve par le lint.
+>
+> → La mesure sert a CHOISIR la borne, elle ne remplace aucune porte. Le lint reste l'arbitre.
 >
 > ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
 > des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
