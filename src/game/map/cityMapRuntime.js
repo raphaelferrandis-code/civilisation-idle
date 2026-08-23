@@ -65,11 +65,14 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // modules ne sont plus tenus que par les molettes console (bloc `window.__*` en
 // fin de fichier) — l'étape 6 les emportera. Élagué à la MESURE, pas au plan :
 // celui-ci annonçait de supprimer les lignes `renderBuildings`, `pixelRiver` et
-// `pixelBridge`, alors que quatre de leurs symboles sont encore lus ici, et il
+// `pixelBridge`, alors que quatre de leurs symboles étaient encore lus ici, et il
 // oubliait `vehSkinFor`.
+// ⚠ `pixelBridge` a fini par partir quand même, le 2026-08-23 (Q2, option B) — mais
+// pour la bonne raison, mesurée : son drapeau n'avait plus de LECTEUR une fois l'A/B
+// du pont retiré. La mesure avait raison de le retenir alors, et raison de le lâcher
+// maintenant ; c'est le plan qui avait tort les deux fois.
 import { cityMapCalmRioterAt, quayWallTune } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
-import { pixelBridgeFlag } from './pixelBridge.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
@@ -2288,12 +2291,12 @@ function initCityMap(canvas, options = {}) {
     // 2026-08-23 (étape 6) avec le terrain top-down et `pixelRiver.js`.
     // Bas-fond clair des rives (iso) : réglage live. __waterShore({ on, w1,w2,w3, a1,a2,a3, c1,c2,c3 }).
     window.__waterShore = (o) => { if (o) Object.assign(waterShoreTune, o); return { ...waterShoreTune }; };
-    // ⚠ CELLE-CI RESTE (P5) : `pixelBridgeFlag` pilote encore un chemin ISO — le
-    // repli de tablier plat quand `__isoBridge3d(false)`. Ne pas la balayer avec
-    // les molettes voisines sous prétexte qu'elle dit « pixel ».
-    window.__pixelBridge = (on) => { pixelBridgeFlag.on = !!on; CM._staticBake = null; };
-    // Le callback `setBridgeOnLoad` vivait ici : il n'invalidait que `CM._staticBake`,
-    // le cache du pipeline top-down, qui n'existe plus.
+    // ⚠ `__pixelBridge` a longtemps échappé aux balayages sous garde explicite —
+    // « celle-ci RESTE (P5), elle pilote encore un chemin ISO ». C'était vrai tant
+    // que `__isoBridge3d(false)` rebranchait un tablier plat. Q2 tranchée le
+    // 2026-08-23 (option B) : le pont 3D a gagné, l'A/B et son repli sont partis, et
+    // `pixelBridgeFlag` n'avait plus qu'une écriture pour zéro lecture. Le callback
+    // `setBridgeOnLoad` était déjà mort : plus personne ne l'importait.
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
     window.__collapse = (on) => { setCollapseInProgress(!!on); cmInvalidateBakes(); };

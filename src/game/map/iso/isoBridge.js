@@ -65,23 +65,31 @@
 
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
-import { bridgeEraForBand } from '../pixelBridge.js';
-// TABLIER : rapatrie d'isoRenderer le 2026-08-23 (Q10). Le pont vivait en deux
-// morceaux — la structure ici, la CHAUSSEE qui le traverse la-bas —, alors que
-// c'est un seul ouvrage. Ces imports servent au tablier.
-import { drawPixelBridges } from '../pixelBridge.js';
-import { ROAD_E, ROAD_W } from '../layout.js';
-import { ISO_X, ISO_Y } from './projection.js';
-import { fillWorldQuad } from './isoQuad.js';
-import { roadTone, ROAD_BAND } from './isoRoad.js';
+// MATIÈRE PAR BANDE D'ÈRE. Rapatriée de pixelBridge.js le 2026-08-23 (Q2) : elle y
+// était partagée avec le pont plat, qui n'existe plus. Fonction pure, sans
+// dépendance, et ce fichier est désormais son seul consommateur — la ramener ici
+// évite de garder un module de 163 lignes vivant pour huit.
+// La bascule bois→pierre coïncide avec le passage 1→2 voies (bande 2) : le bois est
+// le seul tablier à une voie.
+//   0-1 Feu/Bois → bois · 2-3 Pierre/Couronne → pierre · 4-5 → fer
+//   6 → béton            · 7-9 cosmiques → énergie
+export function bridgeEraForBand(band) {
+  const b = band | 0;
+  if (b <= 1) return 'bois';
+  if (b <= 3) return 'pierre';
+  if (b <= 5) return 'fer';
+  if (b === 6) return 'beton';
+  return 'energie';
+}
+// ⚠ QUATRE IMPORTS ONT VÉCU ICI — `ROAD_E`/`ROAD_W`, `ISO_X`/`ISO_Y`, `fillWorldQuad`
+// et `roadTone`/`ROAD_BAND`. Un commentaire affirmait qu'ils servaient LE TABLIER ;
+// c'était faux, ils servaient le chemin legacy (`drawIsoBridges` et ses aides), et
+// le tablier `drawIsoBridgeSeg` ne touche à aucun des quatre. Partis avec Q2 le
+// 2026-08-23 — levés par le lint, pas par la relecture du commentaire.
 // ⚠ PAS d'import de `rgb` : ce fichier en porte déjà une copie IDENTIQUE au
 // caractère près (cf. plus bas). Le tablier utilise donc la locale — rien ne change.
 // La déduplication est un chantier à part : ce n'est pas un déplacement pur.
 
-export const isoBridge3dFlag = { on: true };
-if (typeof window !== 'undefined') {
-  window.__isoBridge3d = (on) => { isoBridge3dFlag.on = on !== false; return isoBridge3dFlag.on; };
-}
 
 // Cotes en px MONDE (× zoom au rendu). Partagées entre matières sauf mention.
 export const bridgeTune = {
@@ -367,7 +375,6 @@ function spanBand(g, st) {
 // longitudinal est LARGE (les cellules d'atterrissage en font partie — la
 // convergence lox/loy doit commencer avant d'engager la travée).
 export function bridgeWalkBand(wx, wy) {
-  if (!isoBridge3dFlag.on) return null;
   const geos = bridgeGeoms();
   if (!geos) return null;
   const T = CM.TILE;
@@ -471,7 +478,6 @@ function spanSprite(g, st) {
 // Lit le DERNIER cache géo (_geo) : les consommateurs dessinent dans la même
 // frame que pushIsoBridgeItems, qui vient de le (re)calculer.
 export function bridgeLiftScreen(wx, wy) {
-  if (!isoBridge3dFlag.on) return 0;
   const geos = _geo.list;
   if (!geos) return 0;
   const T = CM.TILE;
@@ -768,7 +774,6 @@ export function bridgeIsSuspended(band) {
 // et rochers du décor…) : vrai si le point monde (wx, wy) tombe sur un
 // tablier, élargi de `margin` px.
 export function bridgeBlocks(wx, wy, margin = 0) {
-  if (!isoBridge3dFlag.on) return false;
   const geos = bridgeGeoms(); if (!geos) return false;
   for (const g of geos) {
     const l = g.vertical ? wy : wx, t = g.vertical ? wx : wy;
@@ -802,7 +807,6 @@ function fillFlat(ctx, g, l0, t0, l1, t1) {
 
 // ── PASSE A : ombre portée sur l'eau (avant les bateaux) ─────────────────────
 export function drawIsoBridgeUnder() {
-  if (!isoBridge3dFlag.on) return;
   const L = CM.layout; if (!L) return;
   const geos = bridgeGeoms(); if (!geos) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
@@ -1106,7 +1110,6 @@ function pushSpriteItems(items, bounds, g, si) {
 }
 
 export function pushIsoBridgeItems(items, bounds) {
-  if (!isoBridge3dFlag.on) return;
   const L = CM.layout; if (!L) return;
   const geos = bridgeGeoms(); if (!geos) return;
   const T = CM.TILE;
@@ -1439,7 +1442,6 @@ function drawSuspension(ctx, g, st, it, z) {
 // (boîtiers posés par drawRailRun), et REFLET dans l'eau côté aval — colonne de
 // courts traits horizontaux qui miroitent, la grammaire des reflets du fleuve.
 export function drawIsoBridgeNight(now) {
-  if (!isoBridge3dFlag.on) return;
   const nf = CM.nightF || 0;
   if (nf < 0.15 || CM.lodActive) return;
   const L = CM.layout; if (!L) return;
@@ -1498,46 +1500,12 @@ export function drawIsoBridgeNight(now) {
 // (bois → pierre → fer → béton/énergie). Le tablier d'une voie s'étend jusqu'au
 // bord mitoyen quand la voie JUMELLE est aussi un pont (double-voie dès band 2)
 // → un seul tablier continu, garde-corps seulement sur les bords EXTÉRIEURS.
-let _isoBridgeCache = { at: -1, cells: null };
-function isoBridgeCells(L) {
-  if (_isoBridgeCache.at === CM.layoutRecomputeAt && _isoBridgeCache.cells) return _isoBridgeCache.cells;
-  const cells = [];
-  for (const c of L.roadMap.values()) if (c.roadSurface === 'bridge') cells.push(c);
-  _isoBridgeCache = { at: CM.layoutRecomputeAt, cells };
-  return cells;
-}
-function bridgeTone(band) {
-  return band >= 7 ? [104, 110, 128]
-    : band >= 5 ? [92, 88, 86]
-      : band >= 3 ? [132, 126, 112]
-        : [126, 96, 58];
-}
 // Rejoue un rendu ÉCRAN LEGACY en iso : P_iso = A ∘ P_legacy, avec A l'affine
 // écran autour du centre, de colonnes (ISO_X, ISO_Y) et (−ISO_X, ISO_Y). Tout
 // art PLAT dessiné par le pipeline legacy (tablier de pont, terre-plein planté)
 // se projette ainsi EXACTEMENT sur le plan du sol en losange — zéro re-art.
 // ⚠ Réservé à l'art « à plat » : un décor avec verticalité bakée se coucherait.
-function withLegacyToIso(ctx, fn) {
-  ctx.save();
-  ctx.translate(CM.cw / 2, CM.ch / 2);
-  ctx.transform(ISO_X, ISO_Y, -ISO_X, ISO_Y, 0, 0);
-  ctx.translate(-CM.cw / 2, -CM.ch / 2);
-  const out = fn();
-  ctx.restore();
-  return out;
-}
 
-// Polygone MONDE (px) projeté puis rempli — quads non alignés aux axes
-// (rampes d'accès des ponts, etc.).
-function fillWorldPoly(ctx, pts) {
-  ctx.beginPath();
-  for (let i = 0; i < pts.length; i += 1) {
-    const q = worldToScreen(pts[i][0], pts[i][1]);
-    if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
-  }
-  ctx.closePath();
-  ctx.fill();
-}
 
 // RAMPES D'ACCÈS (retour Raph : « la jonction pont/routes n'est pas fluide »).
 // À chaque bout de travée, un trapèze en matière de CHAUSSÉE qui s'évase de la
@@ -1545,116 +1513,4 @@ function fillWorldPoly(ctx, pts) {
 // sur le pont et couvre la couture dure de la culée. Bordure sombre dessous,
 // même grammaire que les rubans de rue. Dessiné APRÈS le tablier (pixel ou
 // procédural), AVANT la passe vivante (les véhicules roulent dessus).
-function drawBridgeAprons(ctx, band, T) {
-  return;   // EMBOUTS RETIRÉS (Raph) : plus de rampe de raccord au début/sortie des ponts.
-  /* eslint-disable no-unreachable -- corps CONSERVÉ pour référence (rampes retirées) ; réactivable si les embouts reviennent */
-  const spans = CM.bridgeSpans;
-  if (!spans || !spans.length) return;
-  const road = roadTone(band);
-  const wr = T * (ROAD_BAND + 0.05);           // demi-largeur du ruban (avec bordure)
-  const deck = bridgeTone(band);
-  // Rampe AFFINÉE (retour Raph « trop brute ») : DÉGRADÉ de matière
-  // chaussée→tablier le long de l'axe (fini l'aplat qui tranchait), gabarit
-  // réduit, fines bordures sombres sur les flancs (grammaire des rubans).
-  const drawApron = (outer, inner, cOutL, cOutR, cInL, cInR) => {
-    const p0 = worldToScreen(outer[0], outer[1]);   // milieu du bord côté route
-    const p1 = worldToScreen(inner[0], inner[1]);   // milieu du bord côté tablier
-    const gr = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-    gr.addColorStop(0, rgb(road, 0.95));
-    gr.addColorStop(1, rgb(deck, 0.95));
-    ctx.fillStyle = gr;
-    fillWorldPoly(ctx, [cOutL, cInL, cInR, cOutR]);
-    // bordures des flancs (liseré sombre fin)
-    ctx.strokeStyle = 'rgba(20,20,24,0.4)';
-    ctx.lineWidth = 1;
-    const qa = worldToScreen(cOutL[0], cOutL[1]), qb = worldToScreen(cInL[0], cInL[1]);
-    const qc = worldToScreen(cOutR[0], cOutR[1]), qd = worldToScreen(cInR[0], cInR[1]);
-    ctx.beginPath(); ctx.moveTo(qa.x, qa.y); ctx.lineTo(qb.x, qb.y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(qc.x, qc.y); ctx.lineTo(qd.x, qd.y); ctx.stroke();
-  };
-  // ⚠ Le tablier PIXEL s'étend jusqu'aux routes d'atterrissage (drawSpan
-  // prolonge ses bornes aux exits) : la rampe se cale sur ces bornes
-  // ÉTENDUES, sinon elle coupe le tablier en biais (vu à la capture).
-  for (const sp of spans) {
-    if (!sp.exits || !sp.exits.length) continue;
-    if (!sp.vertical) {
-      const cy = (sp.gy0 + (sp.gy1 - sp.gy0 + 1) / 2) * T;
-      const wd = ((sp.gy1 - sp.gy0 + 1) / 2) * T * 0.5;    // demi-largeur de CHAUSSÉE du tablier
-      const xs = sp.exits.map((r) => r.gx);
-      const ex0 = Math.min(sp.gx0, ...xs), ex1 = Math.max(sp.gx1, ...xs) + 1;
-      if (ex0 < sp.gx0) {
-        const xo = (ex0 - 0.4) * T, xi = (ex0 + 0.6) * T;
-        drawApron([xo, cy], [xi, cy], [xo, cy - wr], [xo, cy + wr], [xi, cy - wd], [xi, cy + wd]);
-      }
-      if (ex1 > sp.gx1 + 1) {
-        const xo = (ex1 + 0.4) * T, xi = (ex1 - 0.6) * T;
-        drawApron([xo, cy], [xi, cy], [xo, cy - wr], [xo, cy + wr], [xi, cy - wd], [xi, cy + wd]);
-      }
-    } else {
-      const cx = (sp.gx0 + (sp.gx1 - sp.gx0 + 1) / 2) * T;
-      const wd = ((sp.gx1 - sp.gx0 + 1) / 2) * T * 0.5;
-      const ys = sp.exits.map((r) => r.gy);
-      const ey0 = Math.min(sp.gy0, ...ys), ey1 = Math.max(sp.gy1, ...ys) + 1;
-      if (ey0 < sp.gy0) {
-        const yo = (ey0 - 0.4) * T, yi = (ey0 + 0.6) * T;
-        drawApron([cx, yo], [cx, yi], [cx - wr, yo], [cx + wr, yo], [cx - wd, yi], [cx + wd, yi]);
-      }
-      if (ey1 > sp.gy1 + 1) {
-        const yo = (ey1 + 0.4) * T, yi = (ey1 - 0.6) * T;
-        drawApron([cx, yo], [cx, yi], [cx - wr, yo], [cx + wr, yo], [cx - wd, yi], [cx + wd, yi]);
-      }
-    }
-  }
-  /* eslint-enable no-unreachable */
-}
-
-export function drawIsoBridges(now) {
-  const L = CM.layout;
-  const cells = isoBridgeCells(L);
-  if (!cells.length) return;
-  // PONT « 3/4 top-down » (chantier relancé 2026-07-16) : tablier dans le plan
-  // du sol + verticalité ÉCRAN (face d'épaisseur, piles, parapets) — cf.
-  // isoBridge.js. L'ombre se dessine AVANT les bateaux (drawIsoBridgeUnder,
-  // cf. drawIsoWorld) ; TOUT LE RESTE (platelage compris) vit au tri peintre
-  // (kind 'bridgeSeg') — plus rien à dessiner ici. A/B : __isoBridge3d(false)
-  // rebranche les anciens chemins ci-dessous.
-  if (isoBridge3dFlag.on) return;
-  const T = CM.TILE, ctx = CM.ctx;
-  const bandA = (L.counts && L.counts.eraBand) | 0;
-  // PONTS (ancien chemin) : TABLIER PLAT PROJETÉ + rampes (décision Raph
-  // 2026-07-12 : les sprites de pont complet, même normalisés en angle, gardent
-  // leur PERSPECTIVE interne — re-tournés ils paraissent tordus ; « annule et
-  // remet comme avant »). Les sprites bridge-full-* restent sur disque, débranchés.
-  if (withLegacyToIso(ctx, () => drawPixelBridges(CM, now))) {
-    drawBridgeAprons(ctx, bandA, T);
-    return;
-  }
-  const band = (L.counts && L.counts.eraBand) | 0;
-  const tone = bridgeTone(band);
-  const isB = (x, y) => { const c = L.roadMap.get(x + ',' + y); return !!(c && c.roadSurface === 'bridge'); };
-  const wD = 0.44, wR = 0.07;   // demi-largeur tablier / épaisseur garde-corps (fraction tuile)
-  for (const b of cells) {
-    const throughH = !!((b.mask & ROAD_E) && (b.mask & ROAD_W));
-    const cx = (b.gx + 0.5) * T, cy = (b.gy + 0.5) * T;
-    const v = 0.96 + ((cmHash('br:' + b.gx + ',' + b.gy) % 100) / 100) * 0.07;
-    ctx.fillStyle = rgb(tone, v);
-    if (throughH) {
-      // voie jumelle au nord/sud → tablier étendu jusqu'à la couture, rail sauté.
-      const twinN = isB(b.gx, b.gy - 1), twinS = isB(b.gx, b.gy + 1);
-      const y0 = twinN ? b.gy * T : cy - T * wD, y1 = twinS ? (b.gy + 1) * T : cy + T * wD;
-      fillWorldQuad(ctx, b.gx * T, y0, (b.gx + 1) * T, y1);
-      ctx.fillStyle = rgb(tone, 0.55);
-      if (!twinN) fillWorldQuad(ctx, b.gx * T, y0, (b.gx + 1) * T, y0 + T * wR);
-      if (!twinS) fillWorldQuad(ctx, b.gx * T, y1 - T * wR, (b.gx + 1) * T, y1);
-    } else {
-      const twinW = isB(b.gx - 1, b.gy), twinE = isB(b.gx + 1, b.gy);
-      const x0 = twinW ? b.gx * T : cx - T * wD, x1 = twinE ? (b.gx + 1) * T : cx + T * wD;
-      fillWorldQuad(ctx, x0, b.gy * T, x1, (b.gy + 1) * T);
-      ctx.fillStyle = rgb(tone, 0.55);
-      if (!twinW) fillWorldQuad(ctx, x0, b.gy * T, x0 + T * wR, (b.gy + 1) * T);
-      if (!twinE) fillWorldQuad(ctx, x1 - T * wR, b.gy * T, x1, (b.gy + 1) * T);
-    }
-  }
-  drawBridgeAprons(ctx, band, T);
-}
 

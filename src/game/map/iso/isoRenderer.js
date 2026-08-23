@@ -25,7 +25,7 @@ import { fp } from '../framePerf.js';
 import { CM } from '../layout.js';
 import { cityMapDrawQuays, updateCrisis, quayWallTune } from '../quaysAndRiot.js';
 import { drawIsoAmbient, SMOKE_TUNE, smokeSeason } from './isoAmbient.js';
-import { drawIsoBridgeUnder, drawIsoBridgeNight, drawIsoBridges } from './isoBridge.js';
+import { drawIsoBridgeUnder, drawIsoBridgeNight } from './isoBridge.js';
 import { drawIsoShipNight } from './isoFleet.js';
 // ⚠ Cet import fait AUSSI vivre `globalThis.__groundZoomCacheStats`, publié au niveau
 // module là-bas : c'est un effet de bord de CHARGEMENT (P32 du plan), invisible au
@@ -255,8 +255,6 @@ function drawIsoWorldInner(dt, now, helpers) {
   fp('ponts-dessous');
   drawIsoShips(now);
   fp('bateaux');
-  drawIsoBridges(now);
-  fp('ponts');
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
   fp('scene-vivante');
   drawIsoBirds(now);     // nuée : passe aérienne, avant les drones

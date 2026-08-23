@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import { bridgeIsSuspended, bridgeTune } from "../iso/isoBridge.js";
-import { bridgeEraForBand } from "../pixelBridge.js";
+import { bridgeEraForBand } from "../iso/isoBridge.js";
 
 // Les palées d'un pont tombaient tous les 1,15 à 1,6 tuiles d'une berge à
 // l'autre, alors qu'un porte-conteneurs en fait 2,24 de large : il traversait la
