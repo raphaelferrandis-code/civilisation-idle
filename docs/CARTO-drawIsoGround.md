@@ -24,8 +24,11 @@ Cette carte dit exactement **combien** d'état est partagé, **par qui**, et ce 
 | **E** | FRANGE D'HERBE — les langues à la jonction herbe↔sol | 899-906 | 8 |
 | **F** | ROUTES — rubans, couloirs fusionnés, épaulement, TROTTOIRS, gorge | 907-1334 | **428** |
 | **G** | SEUILS d'allée + fermeture de la COUCHE DE MARCHE | 1335-1385 | 51 |
-| **H** | TERRE-PLEINS plantés des boulevards | 1386-1547 | 162 |
+| **H** | ~~TERRE-PLEINS plantés des boulevards~~ → **SORTIE** (`f40299f`, cf. §6) | 1386-1547 | 162 |
 | **I** | Épilogue — profileur, `ctx.restore()` | 1548-1556 | 9 |
+
+*Les numéros de ligne sont ceux du 2026-08-23 avant la sortie de H ; ils ont glissé depuis.
+**Re-mesurer avant chaque coupe** — c'est la règle de tout ce chantier.*
 
 **L'ordre n'est pas arbitraire, il est PICTURAL** : chaque passe recouvre la précédente. La frange
 d'herbe mord sur des cellules déjà peintes, puis la route recouvre ce qui la borde, puis le seuil rentre
@@ -118,5 +121,53 @@ deux côtés), les tests ne le voient pas (ils ne cuisent pas de sol), le build 
 3. **Le contexte est-il un objet nommé ?** Ma recommandation : oui, un `bake` explicite. La ligne rouge
    des dix paramètres séparés est ce qui ferait renoncer.
 
-Tant que ce n'est pas tranché, `isoRenderer.js` reste à 3 368 lignes — et c'est un état sain : chaque
-passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
+---
+
+## 6. ✔ FAIT — la passe H (terre-pleins), et ce qu'elle corrige de cette carte
+
+*Commit `f40299f`. `drawIsoGround` : 1 164 → **1 007 lignes**. `isoRenderer` : 3 368 → 3 210.*
+La passe a rejoint `isoStreet.js`, où sa config vivait déjà (`MEDIAN_TUNE`, `BED_PALETTES`,
+`medianSlots`) — consolidation plutôt que nouveau module.
+
+### ⚠ La prévision du §4 était trop pessimiste, et il faut le corriger ici
+
+Ce document annonçait : « le code change, donc la preuve par identité des octets tombe ». **Faux pour
+cette passe.** Mesure faite avant de couper : son corps ne lit que **quatre** variables de l'englobante
+— `ctx`, `tp`, `T`, `z`. Elles deviennent des **paramètres du même nom**, et le corps est exactement un
+bloc `if` : les **154 lignes passent sans une ligne de changée**, sous un simple en-tête de fonction.
+
+**La règle affinée**, qui vaut pour les passes suivantes :
+
+> Si les lectures d'une passe vers son englobante sont **peu nombreuses** et peuvent devenir des
+> **paramètres de même nom**, alors ce n'est PAS une refonte de signature : c'est encore un déplacement
+> pur, et l'identité des octets le prouve. L'A/B pixel du §4 n'est nécessaire que lorsque le code change
+> VRAIMENT — c'est-à-dire quand il faut introduire un objet de contexte, ce qui arrivera pour B et F.
+
+### ✔ La garde qui manquait, elle, est bien nécessaire — et elle est nouvelle
+
+Le risque propre au découpage d'orchestrateur n'est pas l'import oublié : c'est **un nom du corps qui
+résout en silence vers une AUTRE liaison dans le module d'accueil**. Le lint ne le voit pas — le nom
+existe des deux côtés, il résout. Simplement, vers autre chose.
+
+→ `scratchpad/collision.cjs` : intersection entre les **locales de la fonction d'origine** et les **noms
+de niveau module de la destination**, restreinte à ceux **effectivement utilisés dans le corps déplacé**.
+Pour cette passe : 90 locales × 71 noms de module → **zéro nom en commun dans le corps**. Aucune
+résolution ne peut basculer.
+
+**Cette vérification est OBLIGATOIRE à chaque passe.** C'est elle, pas les tests ni le build, qui couvre
+le risque que ce chantier ajoute.
+
+### La suite
+
+Ordre conseillé inchangé : les passes restantes se prennent de la moins couplée à la plus couplée.
+**C (parvis, 13 l.)**, **D (voiles + herbe, 12 l.)** et **E (frange, 8 l.)** sont minuscules et
+consomment des tampons — à traiter ensemble ou pas du tout. Puis **B (222 l.)**, qui produit ces
+tampons. **F (428 l.) en dernier** : c'est elle qui porte la couche de marche et le plus d'état.
+
+⚠ C'est aussi à partir de B et F que la prévision du §4 redeviendra vraie : là, un objet de contexte
+sera inévitable, et l'A/B pixel avec lui.
+
+---
+
+Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 3 210 lignes — et c'est un état sain :
+chaque passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
