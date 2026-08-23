@@ -1843,8 +1843,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 5 983 lignes, soit −46 %**, reparties
-> en **22 modules** sous `iso/`.
+> d'identite des octets** contre la version commitee. **11 039 → 4 840 lignes, soit −56 %**, reparties
+> en **26 modules** sous `iso/`.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1859,6 +1859,9 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `ec615c9` | `iso/isoEngineScene.js` (343 l.) — scenes moteur + liseres ; `HOVER_GOLD` → palette | → 6 435 |
 > | `447670f` | `iso/isoQuad.js` (46 l.) + `iso/isoArt.js` (41 l.) — **le socle qui debloque** | → 6 383 |
 > | `a171ab8` | `iso/isoPort.js` (433 l.) — flotte legacy, riverain, ponton, mouillage | → 5 983 |
+> | `7cee866` | `iso/isoTissu.js` (233 l.) — bati / cour / friche, un MODELE ; `iso/isoFence.js` (218 l.) | → 5 580 |
+> | `c2f5609` | `iso/isoRoad.js` (176 l.) — la voirie, **eparpillee en 4 endroits** | → 5 439 |
+> | `6d59efe` | `iso/isoStreet.js` (639 l.) — lampadaires, mobilier, terre-pleins, la NUIT | → 4 840 |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1880,13 +1883,27 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > commentaire — « l'importer creerait un cycle isoRenderer ↔ isoBridge ». Cette raison n'existe plus.
 > La deduplication n'est pas un deplacement pur, donc pas dans une tranche de decoupage.
 >
+> ✔✔✔ **CINQ FOIS DE SUITE, UNE FEUILLE A LIBERE UN GROS BLOC** — ce n'est plus une coincidence,
+> c'est LA methode :
+>
+> | La feuille sortie | ce qu'elle a libere |
+> |---|---|
+> | `isoQuad` (46 l.) + `isoArt` (41 l.) | le PORT (400 l.), et le pont + le champ |
+> | `isoTissu` (233 l.) | les CLOTURES (192 l.), dont `COUR` etait le seul fil |
+> | `isoRoad` (176 l.) | la RUE (604 l.) et le pont (165 l.) |
+>
+> **Ce n'est pas la TAILLE du bloc qui decide, c'est le NOMBRE DE FILS.** Quand plusieurs gros blocs
+> partagent une ou deux memes entrantes, sortir ces entrantes d'abord vaut mieux que de forcer un gros
+> bloc. Et une CONFIG (isoRoad) ou un MODELE (isoTissu) n'a de toute facon rien a faire dans un peintre.
+>
 > **Suite** : il reste **`drawIsoGround` (1 219 l.), `drawIsoLive` (994 l.) et `drawIsoWorldInner`
-> (492 l.)** — 2 705 lignes, **45 %** de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
+> (492 l.)** — 2 705 lignes, **56 %** de ce qui subsiste. Ce sont les ORCHESTRATEURS du peintre, pas des
 > passes autonomes : leur decoupage ne sera pas un simple deplacement de bloc, et demandera d'abord de
-> decider ce qui est une PASSE et ce qui est de la COORDINATION. Restent aussi extractibles a peu de
-> frais : le PONT, le CHAMP, l'AMBIANCE (particules/fumee/chevron), les CLOTURES.
-> ⚠ Deux blocs sont CHERS et il faut le savoir : le **SURVOL** (1 014 l., **47 entrantes**) et
-> l'**ECLAIRAGE** (nuit + lampes + flammes, 439 l., 8 entrantes). Ne pas s'y attaquer par la face.
+> decider ce qui est une PASSE et ce qui est de la COORDINATION.
+> Restent extractibles a peu de frais : le PONT, le CHAMP, l'AMBIANCE (particules / fumee / chevron),
+> les POINTS D'EAU + la fontaine de place.
+> ⚠ Un bloc reste CHER et il faut le savoir : le **SURVOL** (~1 013 l., **47 entrantes**). Ne pas s'y
+> attaquer par la face — il faudra d'abord sortir ce qu'il lit, comme pour tous les autres.
 > ⚠ Deux choses restent **exprès** dans isoRenderer et n'iront jamais dans une palette : le ton de
 > CHAUSSEE (`roadTone`/`roadToneRaw`), parce qu'il depend de `roadVeilFor` donc de `ROAD_DETAIL`
 > (34 usages de reglage de VOIRIE) ; et l'etat de SAISON, pour la raison de P28 ci-dessous.
@@ -1931,6 +1948,17 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > `.js`). Les autres gardes du depot ont ete relues : elles sont POSITIVES (`toContain`), donc elles
 > tombent bruyamment. Une garde NEGATIVE (`not.toMatch`) passerait, elle, **a vide** — c'est le cas
 > silencieux a surveiller.
+>
+> ⚠ **P32 — UN TEST PEUT DEPENDRE D'UN EFFET DE BORD DE CHARGEMENT, SANS LE SAVOIR.**
+> `roadIsoHierarchy.test.js` verifie `CM.isoVehLane`, publie par `syncIsoStreetGeom()` **au niveau
+> module** d'isoRenderer. Tant que le test tirait ses largeurs DEPUIS isoRenderer, l'effet venait par la
+> bande ; des que la config est partie dans `isoRoad.js`, le test a cesse de charger le renderer et
+> 2 `it` sont tombes sur `undefined`.
+> → Corrige en rendant la dependance EXPLICITE (`import "../iso/isoRenderer.js";` avec la raison
+> ecrite). Le test est meilleur qu'avant : il verifie la coherence renderer ↔ agents, donc il DOIT
+> charger le renderer et le dire.
+> ⚠ Le cas general : **deplacer un symbole peut retirer a un importeur un effet de bord qu'il ne
+> demandait pas explicitement.** Ni le lint ni le build ne le voient.
 >
 > ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
 > des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
