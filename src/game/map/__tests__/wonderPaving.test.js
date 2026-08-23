@@ -26,7 +26,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // Le PEINTRE du dallage est resté dans isoRenderer (il dépend de la machinerie de
 // tuiles) ; sa CONFIG est partie dans isoWonderGround.js le 2026-08-23, parce que
 // la forêt sauvage la lit aussi et ne pouvait pas importer depuis isoRenderer.
-import { drawWonderPaving } from '../iso/isoRenderer.js';
+import { drawWonderPaving } from '../iso/isoWonderGround.js';
 import { WONDER_GROUND } from '../iso/isoWonderGround.js';
 
 const HW = 64, HH = 32;                 // demi-losange écran (2:1), valeurs rondes
