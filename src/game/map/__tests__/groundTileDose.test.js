@@ -23,7 +23,7 @@ import { URBAN_TILE_A } from "../iso/isoGroundDetail.js";
 import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 
 const ISO = new URL("../../../../public/pixelart/iso/", import.meta.url);
-const SRC = new URL("../iso/isoRenderer.js", import.meta.url);
+const SRC = new URL("../iso/isoGroundCells.js", import.meta.url);
 
 // Grain d'une matière = moyenne des |ΔL| entre pixels ADJACENTS (H et V), sur les
 // pixels opaques, moyennée sur ses variantes. C'est la texture que l'œil lit, pas
@@ -86,6 +86,11 @@ describe("S2 — dose de la tuile de sol par matière", () => {
   // laisse pas voir le fond du canvas. Il vit dans une variable locale de la boucle
   // de cuisson, donc aucun import ne peut l'observer — la lecture de source est la
   // seule garde possible, et c'est l'idiome déjà retenu ailleurs (spriteScale).
+  // ⚠ LA BOUCLE DE CUISSON A DÉMÉNAGÉ le 2026-08-23 : isoRenderer → isoGroundCells.js.
+  // Cette garde ne porte AUCUN nom d'export — elle cherche une FORMULE dans du texte —,
+  // donc aucun balayage de symboles ne peut la voir partir avec le code. C'est le
+  // deuxième cas de ce genre dans ce découpage (cf. P31 du plan) ; si la boucle
+  // redéménage, c'est ce chemin-là qu'il faut suivre.
   it("l'aplat de ton est bien peint SOUS la tuile urbaine (texAlpha 0)", () => {
     const src = fs.readFileSync(SRC, "utf8");
     expect(src).toMatch(/texAlpha\s*=\s*kind === 'urban'\s*\?\s*0/);
