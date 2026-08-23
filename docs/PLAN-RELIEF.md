@@ -189,15 +189,28 @@ berge fait 871 cellules, trop mince pour remplir un bloc de 64 px — aucun bloc
 n'existe à ces zooms. Il faudrait un bloc plus petit, ou un zoom serré. **Cette moitié de la
 conjecture reste ouverte.**
 
-**3. ⚠⚠ LA TROUVAILLE, ET ELLE DÉPLACE LA CIBLE : LA VILLE S'APLATIT EN GRANDISSANT.** Sa
-modulation à grande échelle est divisée par **3 à 4** entre la bande 1 et la bande 7. La campagne
-est plate TOUJOURS ; la ville, elle, le devient À LA FIN. Or c'est la ville que le joueur regarde en
-fin de partie — donc un grief « tout est plat » venu d'un joueur avancé décrit très probablement la
-VILLE, pas la campagne.
-→ Les lots 1, 2 et 3 visent tous la CAMPAGNE. Ils restent justes, mais ils ne traitent pas ce que la
-mesure désigne. Et le § 3 écarte le relief EN ville (décision de Raph, non re-litigable) — donc si
-cette piste est la bonne, elle relève de l'OMBRAGE et du budget de contraste
-(`PLAN-RENDU-VILLE.md`), pas de la géométrie du terrain. **À trancher avant d'ouvrir le lot 1.**
+**3. La ville n'est PAS plate — 12 à 15,7 à toutes les bandes.** Elle est, de loin, la zone la plus
+modulée de l'image. La campagne l'est dix fois moins.
+
+> ### ⛔⛔ CORRECTION — J'AI PUBLIÉ ICI UNE TROUVAILLE FAUSSE, ET RAPH A DÉCIDÉ DESSUS
+>
+> J'avais écrit : « LA VILLE S'APLATIT EN GRANDISSANT, sa modulation est divisée par 3 à 4 entre la
+> bande 1 et la bande 7 (27 → 16 → 7) », et j'en avais conclu que les lots 1-3 ne visaient pas la
+> bonne cible. **C'était un ARTEFACT DE CADRAGE.** La ville grandit avec la bande ; si la caméra
+> n'est pas RECENTRÉE entre deux montages, elle ne regarde pas la même chose d'une bande à l'autre,
+> et le chiffre suit le cadrage, pas la ville.
+>
+> Protocole corrigé — `CM.centered = false` forcé à chaque montage, puis 12 frames — **deux passes
+> identiques coïncident à 0,2 près**, et la tendance DISPARAÎT : **13,5 / 12,8 / 15,2**.
+>
+> ⚠⚠ **La garde de cuisson que j'avais ajoutée ne suffisait pas.** Elle écarte le confondant du
+> ZOOM (un bake mis à l'échelle) et laissait passer celui de la POSITION. Une sonde qui compare deux
+> états du monde doit verrouiller **tout** le cadrage, pas seulement l'échelle. **Deux confondants,
+> trouvés l'un après l'autre, chacun capable d'inverser le résultat.**
+>
+> **Ce qui tombe avec la trouvaille** : la conclusion « le grief est un grief de fin de partie », et
+> la redirection vers l'ombrage qu'elle motivait. **Les lots 1 et 2 visaient juste depuis le début** :
+> c'est bien la CAMPAGNE qui est plate.
 
 ⚠⚠⚠ **PIÈGE D'INSTRUMENT, ET IL A MORDU : LE SOL DOIT ÊTRE CUIT AU ZOOM COURANT.** Sinon on mesure
 un BLIT MIS À L'ÉCHELLE d'un bake fait à un autre zoom — plus lisse, donc plus « plat ». Ça m'a
@@ -206,16 +219,20 @@ est en TRANCHES : deux frames après un changement de zoom ne suffisent pas. La 
 désormais sa garde — elle joue des frames jusqu'à ce que la clé du bake porte le zoom courant, et
 **REFUSE de répondre** sinon.
 
-#### ✔ Décision de Raph (2026-08-23) : **l'ombrage, pas le terrain** — et une première piste réfutée
+#### Décision de Raph (2026-08-23) : « l'ombrage, pas le terrain » — ⚠ PRISE SUR UNE MESURE FAUSSE
 
-Les lots 1, 2 et 3 (terrain de campagne) ne sont donc pas ouverts. La cible est la modulation de
-la VILLE, sans toucher à son altitude (§ 3).
+Raph a tranché pour l'ombrage de la ville après ma « trouvaille » ci-dessus. **Celle-ci s'est révélée
+être un artefact de cadrage** (cf. l'encadré). La décision reposait donc sur un fait qui n'existe pas,
+et elle lui revient à nouveau, en connaissance de cause :
 
-**Ce que la mesure a confirmé en croisant les sources.** `PLAN-RENDU-VILLE.md` avait déjà chiffré la
-cause, indépendamment : **« à la bande 4, 848 bâtiments sur 849 tiennent entre 44 et 66 px dessinés »**
-et « aucune contiguïté d'image ». Ma mesure de platitude en est la conséquence quantifiée : plus la
-ville se densifie de bâtiments identiques, plus sa modulation à grande échelle s'effondre. Deux
-mesures indépendantes, une seule maladie.
+- la **campagne** est bien plate (0,4 à 3,4) — les **lots 1 et 2 visaient juste** ;
+- la **ville** est la zone la plus modulée de l'image (12 à 15,7), et elle ne se dégrade pas avec
+  l'ère.
+
+Reste vrai indépendamment de tout ça : `PLAN-RENDU-VILLE.md` a mesuré que **« à la bande 4, 848
+bâtiments sur 849 tiennent entre 44 et 66 px dessinés »**. C'est un déficit de hiérarchie réel — mais
+il porte sur les HABITATIONS, et la capture montre que les bâtiments-moteur, eux, donnent de vraies
+masses. Ce n'est pas le même grief que « tout est plat ».
 
 **⛔ PISTE ESSAYÉE ET RÉFUTÉE : corréler la TEINTE des habitations par îlot.** L'idée était de faire
 s'accorder les voisines (le tirage de teinte est un pile ou face indexé sur les coordonnées de

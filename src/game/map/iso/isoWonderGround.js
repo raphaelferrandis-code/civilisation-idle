@@ -18,15 +18,50 @@ export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 
 // Ensemble effectif des cellules-parvis : celui du layout, PLUS l'emprise de la
 // merveille en APERÇU (__showWonder force le rendu sans recalcul du plan — le
 // parvis suit pour que l'aperçu soit fidèle). Mémoïsé par (layout, id d'aperçu).
+// ⚠⚠ LES DISTRICTS SONT DES TERRAINS VAGUES, ET C'EST MESURÉ (2026-08-23).
+// `layout.js` place 19 emprises civiques typées — palace, forum, archive, market… —
+// les verse dans `reserved`, donc les EXCLUT du pool bâtissable… et personne ne les
+// dessine. Vérifié à l'écran : leurs 2 à 4 tuiles sont vides, et se lisent comme des
+// friches brunes au milieu d'un tissu dense.
+//
+// `DISTRICT_GROUND.parvis` leur donne le dallage des merveilles — même art, même
+// machinerie, aucune image nouvelle : une friche devient une esplanade civique.
+// ⚠ ÉTEINT PAR DÉFAUT. C'est une décision de DA, elle revient à Raph, et elle
+// s'arbitre sur pièces : `__districts({ parvis: true })`.
+// ⚠ Ça ne donne PAS de la MASSE — seulement un sol délibéré. Le déficit mesuré au lot 0
+// de PLAN-RELIEF est une modulation de VALEUR, qui demande de la hauteur ; et l'art
+// des 13 genres de district n'existe pas (3 seulement ont un bâtiment correspondant).
+// Ce dallage est donc un premier pas honnête, pas la réponse au grief.
+export const DISTRICT_GROUND = { parvis: false };
+
+export function districtCells(L) {
+  if (!DISTRICT_GROUND.parvis || !L || !L.districts) return null;
+  const sig = (CM.layoutRecomputeAt || 0) + ':' + L.districts.length;
+  const c = CM._districtGround;
+  if (c && c.sig === sig) return c.set;
+  const set = new Set();
+  for (const d of L.districts) {
+    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) {
+      set.add((d.gx + ax) + ',' + (d.gy + ay));
+    }
+  }
+  CM._districtGround = { sig, set };
+  return set;
+}
+
 export function wonderGroundSet(L) {
+  const dis = districtCells(L);
   const pv = CM.previewWonder;
-  if (!pv) return L.wonderGround || null;
+  if (!pv && !dis) return L.wonderGround || null;
   // Le RANG entre dans la clé de mémoïsation : __showWonder(id, rang) change
   // l'emprise sans recalculer le plan, et le cache renvoyait l'ancienne taille.
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + pv.id + ':' + pv.tier;
+  const sig = (CM.layoutRecomputeAt || 0) + ':' + (pv ? pv.id + ':' + pv.tier : '-')
+    + ':' + (dis ? 'd' + dis.size : '-');
   const cache = CM._pvWonderGround;
   if (cache && cache.sig === sig) return cache.set;
   const set = new Set(L.wonderGround || []);
+  if (dis) for (const k of dis) set.add(k);
+  if (!pv) { CM._pvWonderGround = { sig, set }; return set; }
   const wi = CM_WONDERS.findIndex((w) => w.id === pv.id);
   if (wi >= 0 && pv.id !== 'era_mega' && L.gridN) {
     const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
@@ -36,6 +71,18 @@ export function wonderGroundSet(L) {
   return set;
 }
 if (typeof window !== 'undefined') {
+  // __districts({ parvis: true }) donne aux 19 emprises civiques le dallage des
+  // merveilles. Éteint par défaut : c'est une décision de DA. Rend aussi l'inventaire,
+  // pour qu'on puisse juger de ce qu'on regarde.
+  window.__districts = (o) => {
+    if (o && typeof o === 'object') Object.assign(DISTRICT_GROUND, o);
+    CM._districtGround = null; CM._pvWonderGround = null; CM._isoGroundBake = null;
+    const L = CM.layout;
+    return {
+      ...DISTRICT_GROUND,
+      emprises: (L && L.districts || []).map((d) => d.kind + ' ' + d.size + 'x' + d.size),
+    };
+  };
   window.__wonderGround = (arg) => {
     if (arg === false) WONDER_GROUND.on = false;
     else if (arg && typeof arg === 'object') { WONDER_GROUND.on = true; Object.assign(WONDER_GROUND, arg); }
