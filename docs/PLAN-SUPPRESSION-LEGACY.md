@@ -1843,8 +1843,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 1 673 lignes, soit −85 %**, reparties
-> en **35 modules** sous `iso/`.
+> d'identite des octets** contre la version commitee. **11 039 → 1 186 lignes, soit −89 %**, reparties
+> en **37 modules** sous `iso/`.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
