@@ -477,11 +477,19 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 // ⚠ `cover`/`wK`/`hK` posés le 2026-08-23 avec le test de couverture exact (Q11).
 // `cover` = fraction de la silhouette qu'une façade doit recouvrir pour qu'on
 // redessine ; `wK`/`hK` = la silhouette elle-même, en fractions de tuile (elle suit
-// l'échelle des habitants, cf. sceneHumanH). L'alpha est monté de 0,34 à 0,58 dans le
-// même geste : le réglage discret compensait le fait que la plupart des fantômes se
-// posaient sur des unités que rien ne cachait. Une fois qu'ils sont rares et tous
-// légitimes, ils peuvent enfin se lire.
-export const GHOST_TUNE = { on: true, alpha: 0.58, cover: 0.35, wK: 0.34, hK: 0.68 };
+// l'échelle des habitants, cf. sceneHumanH).
+//
+// ALPHA : 0,34 → 0,58 → **0,70**, choix de Raph le 2026-08-23. Le réglage discret
+// d'origine compensait le fait que la plupart des fantômes se posaient sur des unités
+// que rien ne cachait ; une fois le marquage exact, ils peuvent se lire. À 0,70 la
+// silhouette se voit franchement à travers la façade — c'est passé de « on devine »
+// à « on voit », et c'est assumé.
+// ⚠ Contrepartie signalée avant le choix : plus l'alpha monte, plus les faux positifs
+// du test de couverture se voient. Ils viennent de ce que la boîte d'encre est un
+// RECTANGLE autour d'une silhouette isométrique (coins vides) — cf. le § du test dans
+// isoLivePaint. Si un jour ça se remarque en jeu, c'est ce test-là qu'il faut affiner,
+// pas l'alpha qu'il faut redescendre.
+export const GHOST_TUNE = { on: true, alpha: 0.7, cover: 0.35, wK: 0.34, hK: 0.68 };
 if (typeof window !== 'undefined') {
   window.__ghost = (o) => { if (o) Object.assign(GHOST_TUNE, o); return { ...GHOST_TUNE }; };
 }
