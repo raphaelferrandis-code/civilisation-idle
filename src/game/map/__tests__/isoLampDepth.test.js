@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import { cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
-import { computeIsoLamps } from "../iso/isoRenderer.js";
+import { computeIsoLamps } from "../iso/isoStreet.js";
 
 // PROFONDEUR PEINTRE des lampadaires iso (computeIsoLamps). Le tri de drawIsoLive
 // classe les socles au coin SUD de leur empreinte (max wx+wy) : un mât côté 0.14
