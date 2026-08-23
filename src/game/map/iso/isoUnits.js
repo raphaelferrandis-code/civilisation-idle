@@ -474,7 +474,14 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 
 // Silhouettes fantômes : réglage live. __ghost({ on: false }) coupe, __ghost({ alpha: 0.5 })
 // renforce. L'alpha par défaut est volontairement discret — on devine, on ne lit pas.
-export const GHOST_TUNE = { on: true, alpha: 0.34 };
+// ⚠ `cover`/`wK`/`hK` posés le 2026-08-23 avec le test de couverture exact (Q11).
+// `cover` = fraction de la silhouette qu'une façade doit recouvrir pour qu'on
+// redessine ; `wK`/`hK` = la silhouette elle-même, en fractions de tuile (elle suit
+// l'échelle des habitants, cf. sceneHumanH). L'alpha est monté de 0,34 à 0,58 dans le
+// même geste : le réglage discret compensait le fait que la plupart des fantômes se
+// posaient sur des unités que rien ne cachait. Une fois qu'ils sont rares et tous
+// légitimes, ils peuvent enfin se lire.
+export const GHOST_TUNE = { on: true, alpha: 0.58, cover: 0.35, wK: 0.34, hK: 0.68 };
 if (typeof window !== 'undefined') {
   window.__ghost = (o) => { if (o) Object.assign(GHOST_TUNE, o); return { ...GHOST_TUNE }; };
 }

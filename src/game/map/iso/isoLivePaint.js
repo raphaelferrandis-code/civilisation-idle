@@ -569,21 +569,75 @@ export function paintIsoItems(bake, items, now) {
   }
   // ── SILHOUETTES FANTÔMES ────────────────────────────────────────────────────
   // La vie urbaine disparaissait derrière le bâti haut (correct en 3/4, mais on ne
-  // voyait plus vivre la ville — Raph 2026-08-03, « à tous les âges »). Toute unité
-  // marquée `ghost` par isoUnitDepthEx (un occulteur franc au sud la recouvre) est
-  // REDESSINÉE par-dessus le peintre en transparence : on la devine à travers la
-  // façade. AVANT endLightLayer pour qu'elle vive sous la même lumière que la scène.
-  // Molette : __ghost({ on, alpha }) — alpha 0 = coupé.
-  if (GHOST_TUNE.on && GHOST_TUNE.alpha > 0 && !CM.lodActive) {
+  // voyait plus vivre la ville — Raph 2026-08-03, « à tous les âges »). Une unité
+  // réellement recouverte est REDESSINÉE par-dessus le peintre en transparence : on
+  // la devine à travers la façade. AVANT endLightLayer pour qu'elle vive sous la même
+  // lumière que la scène. Molette : __ghost({ on, alpha, cover }) — alpha 0 = coupé.
+  //
+  // ⚠⚠ LE TEST DE COUVERTURE EST FAIT ICI, ET C'EST TOUT L'OBJET DE Q11 (2026-08-23).
+  // `isoUnitDepthEx` ne sait pas si l'unité est cachée : il lève `hidden` dès qu'un
+  // bâtiment la PLAFONNE dans l'ordre du peintre, sans jamais regarder s'il la
+  // recouvre — sa fiche ne porte AUCUNE hauteur, et il ne faut pas lui en donner
+  // (P23 : la hauteur n'entre pas dans le tri, c'est prouvé). Mesuré avant la
+  // correction : 55 % des unités marquées, dont 62 % que rien ne cachait — on
+  // redessinait ~48 silhouettes par frame pile sur elles-mêmes, invisibles.
+  //
+  // La vraie couverture ne coûte pourtant rien : cette passe tourne À LA FIN de la
+  // même frame, donc `houseBoxes` porte déjà les rectangles RÉELLEMENT dessinés de
+  // tout ce qui s'est peint — mesure exacte, pas une hauteur approchée.
+  if (GHOST_TUNE.on && GHOST_TUNE.alpha > 0 && !CM.lodActive && houseBoxes) {
+    // Index par colonne écran : ~700 boîtes contre ~80 unités, le produit naïf
+    // coûterait plus cher que les redessins qu'on économise.
+    const COL = 128;
+    const parCol = new Map();
+    for (const hb of houseBoxes) {
+      const t = hb.t, bx = hb.b;
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      const key = (t.gx + sx) * T + (t.gy + sy) * T;   // clé peintre, comme isoUnitFiches
+      for (let c = Math.floor(bx.dx / COL); c <= Math.floor((bx.dx + bx.dw) / COL); c += 1) {
+        let a = parCol.get(c); if (!a) parCol.set(c, a = []);
+        a.push(bx); a.push(key);
+      }
+    }
+    const wU = T * z * ISO_X * GHOST_TUNE.wK, hU = T * z * GHOST_TUNE.hK;
+    let vus = 0, dessines = 0;
+    const couvert = (gwx, gwy, d) => {
+      const sp = worldToScreen(gwx, gwy);
+      const ux0 = sp.x - wU * 0.5, ux1 = sp.x + wU * 0.5, uy0 = sp.y - hU, uy1 = sp.y;
+      const seuil = wU * hU * GHOST_TUNE.cover;
+      let aire = 0;
+      for (let c = Math.floor(ux0 / COL); c <= Math.floor(ux1 / COL); c += 1) {
+        const a = parCol.get(c); if (!a) continue;
+        for (let i = 0; i < a.length; i += 2) {
+          if (a[i + 1] <= d) continue;                 // dessiné AVANT l'unité : ne la cache pas
+          const bx = a[i];
+          const ox = Math.min(ux1, bx.dx + bx.dw) - Math.max(ux0, bx.dx);
+          if (ox <= 0) continue;
+          const oy = Math.min(uy1, bx.dy + bx.dh) - Math.max(uy0, bx.dy);
+          if (oy <= 0) continue;
+          // ⚠ On CUMULE (une unité peut être cachée par deux façades mitoyennes),
+          // mais l'aire est bornée par la silhouette : deux boîtes qui se
+          // chevauchent double-compteraient sinon. L'erreur restante penche du côté
+          // qui GARDE le fantôme — c'est le sens qu'on veut.
+          aire += ox * oy;
+          if (aire >= seuil) return true;
+        }
+      }
+      return false;
+    };
     const prevGA = ctx.globalAlpha;
     ctx.globalAlpha = GHOST_TUNE.alpha;
     for (const it of items) {
       if (!it.ghost) continue;
+      vus += 1;
+      if (!couvert(it.gwx, it.gwy, it.d)) continue;
+      dessines += 1;
       if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
       else if (it.kind === 'veh') drawIsoVehicle(ctx, it.v, now, z);
       else if (it.kind === 'riot') drawIsoRioter(ctx, it.p, now, z);
     }
     ctx.globalAlpha = prevGA;
+    if (globalThis.__ghostStats) globalThis.__ghostStatsLast = { marquees: vus, dessinees: dessines };
   }
   endLightLayer();
   ctx.imageSmoothingEnabled = prevSmooth;

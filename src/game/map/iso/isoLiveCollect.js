@@ -56,8 +56,18 @@ export function collectIsoItems(bake, now) {
         d: 0, kind: '', t: null, tr: null, p: null, v: null, w: null, wi: 0,
         moor: null, art: null, eraKey: '', axis: '', wx: 0, wy: 0, gx: 0, gy: 0,
         px: 0, py: 0, x0: 0, x1: 0, y0: 0, y1: 0, r: 0, i: 0, n: 0, pieces: null,
+        // Passe FANTÔME : le marqueur et le POINT MONDE qui a servi à la profondeur.
+        // Ils sont déclarés ICI, dans la forme du pool, parce que c'est tout l'objet
+        // du pool — une hidden class stable. `ghost` était posé à la volée sur les
+        // seules unités, donc la forme dérivait selon l'ordre de réutilisation.
+        ghost: false, gwx: 0, gwy: 0,
       };
     }
+    // ⚠ REMISE À ZÉRO OBLIGATOIRE : les objets survivent d'une frame à l'autre. Un
+    // item réutilisé après avoir été une unité fantôme gardait `ghost = true` et
+    // repassait dans la passe. Sans effet visible aujourd'hui (aucune branche de
+    // `kind` ne l'attrapait), mais c'est un piège armé pour le prochain `kind`.
+    it.ghost = false;
     itemN += 1;
     items.push(it);
     return it;
@@ -406,7 +416,7 @@ export function collectIsoItems(bake, now) {
       // Cull écran ABSENT jusqu'ici en iso (le legacy l'avait) : jusqu'à 450
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
-      { const dx = isoUnitDepthEx(pwx, pwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.kind = 'cit'; it.p = p; }
+      { const dx = isoUnitDepthEx(pwx, pwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = pwx; it.gwy = pwy; it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
     // carrosserie est dessinée CENTRÉE sur l'ancre (drawIsoVehicle) : son
@@ -419,7 +429,8 @@ export function collectIsoItems(bake, now) {
       const lo = vehicleLaneOffset(v, T);
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
       const h = T * 0.30 * (VEH_SIZES[v.type] || 0) * VEH_SCALE;
-      { const dx = isoUnitDepthEx(v.x + lo.x + h, v.y + lo.y + h); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.kind = 'veh'; it.v = v; }
+      { const gwx = v.x + lo.x + h, gwy = v.y + lo.y + h;
+        const dx = isoUnitDepthEx(gwx, gwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
@@ -429,7 +440,8 @@ export function collectIsoItems(bake, now) {
     for (const p of CM.riotDraw.pts) {
       const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
       const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
-      { const dx = isoUnitDepthEx(p.x + laneX, p.y + laneY); items.push({ d: dx.d, ghost: dx.hidden, kind: 'riot', p }); }
+      { const gwx = p.x + laneX, gwy = p.y + laneY;
+        const dx = isoUnitDepthEx(gwx, gwy); items.push({ d: dx.d, ghost: dx.hidden, gwx, gwy, kind: 'riot', p }); }
     }
   }
   return items;
