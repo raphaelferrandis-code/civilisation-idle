@@ -1739,10 +1739,13 @@ emeute (`__collapse`), et un clic d'apaisement sur un emeutier.
 >
 > ## ⚠⚠ ETAT AU 2026-08-23 — LES DOUZE ONT ETE RE-VERIFIEES CONTRE LE CODE
 >
-> **CLOSES (5)** : Q1, Q5, Q7, Q9, Q10. **VRAIES DECISIONS QUI RESTENT (2)** : **Q2** (l'A/B du pont)
-> et **Q3** (le kit legacy des places) — les deux portent sur un repli qui existe encore et qui COUTE
-> quelque chose. **PERIMEES OU REDUITES (3)** : **Q4** (l'objet a disparu), **Q6** (les 6 scripts sont
-> deja supprimes, il en reste 1), **Q8** (2 chiffres faux). **HORS PERIMETRE (2)** : Q11, Q12.
+> **CLOSES (7)** : Q1, **Q2**, **Q3**, Q5, Q7, Q9, Q10 — Q2 et Q3 tranchees par Raph le 2026-08-23,
+> les deux en OPTION B, et faites dans la foulee. **PERIMEES OU REDUITES (3)** : **Q4** (l'objet a
+> disparu), **Q6** (les 6 scripts sont deja supprimes, il en reste 1), **Q8** (2 chiffres faux) — aucune
+> ne bloque plus rien. **HORS PERIMETRE (2)** : Q11, Q12.
+>
+> 🏁 **PLUS AUCUNE QUESTION NE BLOQUE UNE ETAPE.** Bilan des deux coupes du 2026-08-23 : **238 Ko
+> d'assets** et **~490 lignes** retires, pour zero changement visible a l'ecran.
 >
 > ⚠⚠⚠ **LA LEÇON DE CETTE RELECTURE, ET ELLE VAUT POUR TOUT PLAN LONG : UNE QUESTION SURVIT A SON
 > OBJET.** Q1, Q4 et Q6 ont ete ecrites AVANT les etapes 4-7. Ces etapes ont retire ce dont elles
@@ -1794,7 +1797,7 @@ les regenerent. **Ne pas toucher a `_archive/`** (cf. P16).
 ⚠ `scripts/separatePixelTerrain.mjs` est CONSERVE : c'est Q6 qui tranchera le sort des generateurs.
 *Debloque l'etape 6.3 et la partie de l'etape 8 qui en dependait.*
 
-**Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ?**
+**Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ? — ✔ TRANCHEE le 2026-08-23 par Raph : OPTION B, on l'assume mort. FAIT (`8bf49cb`).**
 `isoBridge3dFlag` vaut `{on: true}` par defaut (**isoBridge.js:81**, pas 47). Tant qu'il existe,
 `pixelBridge.js` + `withLegacyToIso` + `public/pixelart/bridges/` restent. Ce n'est **pas** le
 legacy qui les retient, c'est un A/B interne a l'iso. Le supprimer serait un second chantier, plus petit.
@@ -1806,7 +1809,7 @@ legacy qui les retient, c'est un A/B interne a l'iso. Le supprimer serait un sec
 > et le retirer le jour ou Raph declare le pont fini. C'est la seule chose qui empeche de dire que la
 > carte n'a plus qu'un chemin.
 
-**Q3 — Le kit `public/pixelart/plazas/` : on garde le repli ?**
+**Q3 — Le kit `public/pixelart/plazas/` : on garde le repli ? — ✔ TRANCHEE le 2026-08-23 par Raph : OPTION B, on le retire. FAIT (`79188ba`).**
 `isoPlaza.js:761-762` sonde encore le kit top-down, et `docs/PLACES-ISO-COMPOSEES.md:100/407` le
 documente comme repli assume. En pratique aucune recette ne l'emet aujourd'hui (`RECIPES`,
 isoPlaza.js:214-257). Trois options : garder tel quel (defaut du plan) ; retirer `LEGACY_PROP`/`LEGACY_ERA`
@@ -2208,3 +2211,47 @@ Corriger reviendrait a faire gagner le lifteur a cle egale — **decision de ren
 probablement a rapprocher de Q11 (la meme egalite decide aussi du marquage fantome).
 *Ne bloque rien. Ne PAS traiter dans ce chantier.*
 
+
+---
+
+## 7. Bilan des coupes du 2026-08-23 (Q1, Q2, Q3)
+
+Trois replis retires le meme jour, tous par la meme methode : **fermer la chaine d'appel jusqu'a ce que
+le nombre d'importeurs tombe a un ou deux, puis verifier le garde-fou de chacun** — et confirmer en jeu.
+
+| | ce qui part | lignes | assets |
+|---|---|---|---|
+| **Q1** | `pixelTerrain.js` + le sol d'ere des champs | 96 | 180 Ko (20 f.) |
+| **Q2** | l'A/B du pont : `pixelBridge.js`, `drawIsoBridges`, `drawBridgeAprons`, `withLegacyToIso` | ~307 | 60 Ko (5 f.) |
+| **Q3** | le kit top-down des places : `LEGACY_PROP`/`LEGACY_ERA` + la cascade | ~30 | 178 Ko (45 f.) |
+| | | **~433** | **418 Ko / 70 fichiers** |
+
+**Zero changement visible a l'ecran** : les trois replis etaient soit jamais atteints, soit deja
+court-circuites en production.
+
+### ⚠⚠⚠ CE QUE CES TROIS COUPES ONT APPRIS, ET QUI VAUT AU-DELA DU CHANTIER
+
+1. **UNE MOLETTE DE DEV EST UN CONSOMMATEUR QUI TROMPE LE LINT.** Trois fois le meme motif en un jour :
+   `pixelSidewalkFlag`/`sidewalkTune` (Q1), `pixelBridgeFlag`/`setBridgeOnLoad` (Q2). Un drapeau ECRIT
+   par une molette et LU par personne reste « utilise » pour tous les outils. **Chercher `flag.on`,
+   `tune.x` — les LECTURES —, jamais les occurrences du nom.**
+   ⚠ Pire : `pixelBridgeFlag` etait sous garde ECRITE (« CELLE-CI RESTE (P5), elle pilote encore un
+   chemin ISO »). La garde avait raison quand elle a ete ecrite. **Une garde en prose vieillit comme
+   une question : elle dit l'etat du jour ou on l'a ecrite.**
+
+2. **UN REPLI « JAMAIS ATTEINT » PEUT ETRE TELECHARGE QUAND MEME.** La cascade des places testait la
+   DISPONIBILITE (`ready`) et non l'existence : au premier appel le PNG iso venait d'etre demande,
+   donc elle enchainait et lancait aussi la requete legacy. **Le prouver demande le RESEAU**, pas la
+   lecture du code.
+
+3. **UN 200 OK NE PROUVE PAS QU'UN FICHIER EXISTE.** Vite sert l'index en repli. L'inventaire de l'art
+   des places, fait au reseau, annoncait des sprites qui n'existent pas. **Refait au SYSTEME DE
+   FICHIERS.** C'est le meme piege que le fallback-200 note pour les osselets.
+
+4. **UN COMMENTAIRE QUI DIT A QUOI SERT UN IMPORT PEUT MENTIR.** « Ces imports servent au tablier » :
+   faux, ils servaient le chemin legacy, et le tablier n'en touche aucun. **C'est le LINT qui l'a leve.**
+
+5. **CHERCHER LA DOCTRINE DEJA ECRITE AVANT DE DECIDER.** Q3 n'etait pas une decision neuve : la table
+   `LEGACY_PROP` se vidait deja d'elle-meme, prop par prop, et chaque `null` portait sa raison — le bac
+   (2026-08-07), puis le puits. La conclusion etait ecrite noir sur blanc dans le code :
+   **« on prefere l'echec bruyant »**. Il ne restait qu'a la finir.
