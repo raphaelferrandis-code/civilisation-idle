@@ -1,5 +1,44 @@
 # Plan — Le relief : « tout est plat »
 
+> ## ⛔ CHANTIER CLOS LE 2026-08-24, PAR DÉCISION DE RAPH — NE PAS ROUVRIR
+>
+> « ça n'ajoute objectivement aucun relief, la base de la carte n'a pas été pensée pour
+> ça. On perd plus de temps à tout reprendre un par un alors qu'une base saine serait
+> mieux. » Puis, sur la question de la portée : **la ville ne prend pas le relief, et le
+> chantier s'arrête.**
+>
+> **Il avait raison, et le chiffre le prouve : 116 sites de projection dans la carte,
+> NEUF portent une altitude** (le fleuve, le contour d'île, la pente de grève, les gens
+> sur le pont). Tout le reste — chaque bâtiment, chaque tuile de route, chaque arbre,
+> chaque habitant, **et le sol lui-même** — se projette à zéro. Et il n'existe **aucune
+> hauteur par cellule** dans le dépôt. Ce qui a été livré n'est pas du relief : c'est de
+> l'habillage de bordure sur un monde plat.
+>
+> **Et ce n'était pas un accident d'exécution.** C'est la conséquence directe du § 3 de
+> ce plan — « la ville reste à l'altitude 0 », posé par Raph lui-même. Ville clouée à
+> zéro ⇒ le relief ne peut vivre qu'aux BORDS des choses. La contrainte excluait d'avance
+> le seul endroit qu'on regarde. **La leçon, pour tout plan futur : une contrainte de
+> cadrage qui exclut la zone d'intérêt condamne le chantier avant sa première ligne — il
+> faut la tester contre la cible AVANT d'écrire le plan, pas après le troisième lot.**
+>
+> ### Ce qui SURVIT (à ne pas défaire — utile hors relief)
+> · **Le troisième axe de la projection** (`a9b2738`) : `worldToScreen(x, y, wz = 0)`.
+>   No-op par défaut, et il a permis de retirer la plus vieille rustine d'altitude du
+>   projet. · **Le pont migré** (`a1e018e`) : six peintres ne corrigent plus le `y` après
+>   coup. · **`iso/isoBeachCells.js`** : la règle « cette berge est-elle du sable ? »
+>   n'existe plus qu'en un exemplaire, partagée par le sol cuit et la passe vive.
+>
+> ### Ce qui DORT (inerte : `RELIEF.water = 0` par défaut, aucun pixel ne change)
+> `isoRelief.js` (114 l.), les blocs face-de-berge et grève d'`isoRiver.js`, le
+> `waterSinkPx()` de `quaysAndRiot.js`, `reliefKey()` dans la clé de bake, et
+> `__tests__/reliefBerge.test.js` (16 gardes). **Retirable d'un bloc si le code mort
+> gêne** — ce dépôt a déjà payé pour des molettes et des données que personne ne lisait.
+>
+> ### La suite est ailleurs
+> La mesure corrigée du lot 0 (`60d78ca`) l'avait déjà dit : **la campagne est plate, la
+> ville ne l'est pas** — et c'est la ville qu'on regarde. Le levier est la **hiérarchie
+> de masse**, pas le terrain → `PLAN-RENDU-VILLE.md`.
+
 Chantier ouvert le 2026-08-22, sur le grief de Raph :
 
 > « un des problèmes qu'on a sur le rendu c'est qu'il n'y a pas de relief, tout est
