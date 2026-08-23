@@ -110,11 +110,33 @@ describe("S5 — bruit de bloc et regroupement", () => {
   // La forêt SAUVAGE lit déjà en fourrés avec ce bruit — c'est le précédent qui a
   // motivé le lot. Le gain conservé de S5 est donc la DÉDUPLICATION : isoRenderer
   // gardait sa propre copie de la formule. Une seule définition, un seul grain.
-  it("isoRenderer ne garde plus sa copie de la formule", async () => {
-    const src = await import("node:fs").then((fs) =>
-      fs.readFileSync(new URL("../iso/isoRenderer.js", import.meta.url), "utf8"));
-    expect(src).toContain("cmCellNoise");
-    // La formule elle-même ne doit plus apparaître deux fois dans le dépôt.
-    expect(src).not.toMatch(/n1 \* 0\.6 \+ n2 \* 0\.4/);
+  //
+  // ⚠ GARDE RÉÉCRITE le 2026-08-23, et c'est la leçon P33 du plan de suppression du
+  // legacy. Elle cherchait `cmCellNoise` dans le TEXTE d'isoRenderer.js pour prouver
+  // qu'il n'en gardait pas de copie. Le symbole est parti avec la forêt sauvage — et
+  // la garde est restée VERTE, satisfaite par le COMMENTAIRE qui racontait ce départ.
+  // Elle n'a pas cassé : elle a perdu son sens en silence. Une garde textuelle ne
+  // distingue pas le code de la prose, et elle ne survit pas à un déménagement.
+  // → On n'interroge plus UN fichier nommé, on interroge l'INVARIANT : la formule
+  //   n'existe qu'à un seul endroit du dépôt, et son consommateur passe par le
+  //   symbole partagé. Ça reste vrai quel que soit le fichier qui la consomme demain.
+  it("la formule du bruit de cellule n'existe qu'UNE fois dans le dépôt", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const SRC = path.join(__dirname, "..", "..", "..");        // src/
+    const porteurs = [];
+    const marcher = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) marcher(p);
+        else if (/\.jsx?$/.test(e.name)
+          && /n1 \* 0\.6 \+ n2 \* 0\.4/.test(fs.readFileSync(p, "utf8"))) porteurs.push(p);
+      }
+    };
+    marcher(SRC);
+    expect(porteurs.map((p) => path.basename(p))).toEqual(["layout.js"]);
+    // …et le consommateur l'atteint par le symbole partagé, pas par une recopie.
+    expect(fs.readFileSync(path.join(SRC, "game", "map", "iso", "isoWildForest.js"), "utf8"))
+      .toMatch(/import \{[^}]*\bcmCellNoise\b[^}]*\} from ["']\.\.\/layout\.js["']/);
   });
 });

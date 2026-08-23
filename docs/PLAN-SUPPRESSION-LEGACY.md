@@ -1843,15 +1843,30 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 359 lignes, soit −97 %**, reparties
+> d'identite des octets** contre la version commitee. **11 039 → 279 lignes, soit −97,5 %**, reparties
 > en **35 modules** sous `iso/` (36 fichiers `.js` avec le renderer lui-meme).
 >
 > 🏁 **LES TROIS ORCHESTRATEURS SONT DECOUPES** : `drawIsoGround` 1 164 → 77, `drawIsoLive` 936 → 91,
 > `drawIsoWorldInner` 493 → 98. Il ne reste dans le fichier que TROIS fonctions — la passe vivante, le
-> point d'entree et son corps — plus **132 lignes d'en-tete d'imports, soit plus d'un TIERS du fichier**.
-> ⚠ Cet en-tete est desormais la plus grosse chose du fichier, et il est en partie fait de commentaires
-> qui racontent ce qui est PARTI. Le toiletter serait utile, mais ce n'est pas un deplacement pur :
-> chantier a part, a ne pas melanger aux tranches.
+> point d'entree et son corps — et un en-tete de 51 lignes.
+>
+> ✔ **L'EN-TETE A ETE TOILETTE** (dernier lot). Il pesait **132 des 359 lignes, plus d'un tiers du
+> fichier**, et racontait surtout ce qui etait PARTI : douze blocs de commentaire orphelins decrivant
+> des extractions, sans aucun import en dessous. **132 → 51 lignes.**
+> ⚠ **Ce lot n'est PAS un deplacement pur** — d'ou une garde differente, en trois points :
+> 1. **le CORPS est byte-identique** (227 lignes, verifiees ligne a ligne) : seule l'en-tete a bouge ;
+> 2. **les 36 liaisons importees sont conservees a l'identique**, zero ajoutee, zero retiree ;
+> 3. la seule suppression est un **IMPORT A ACCOLADES VIDES** sur `isoPlaza` — qui n'importait rien
+>    mais CHARGEAIT le module, donc ses deux molettes de niveau module (`__plaza`, `__fountainAnim`).
+>    ⚠ Verifie AVANT de le retirer : `isoLivePaint` importe deja `isoPlaza`, donc la chaine tient — et
+>    verifie APRES, molettes en main, les deux repondent toujours. **Un import vide est un effet de
+>    bord deguise : ne jamais le retirer sans avoir retrouve qui d'autre charge la cible.**
+> ⚠ **Ce lot a aussi corrige la garde creuse de P33** (`cellClump.test.js`). Elle ne pouvait pas
+> survivre au nettoyage : elle cherchait `cmCellNoise` dans le TEXTE d'isoRenderer, et n'y trouvait
+> plus qu'un COMMENTAIRE racontant son depart. Reecrite pour interroger l'INVARIANT et non un fichier
+> nomme — la formule n'existe qu'a UN endroit du depot (`layout.js`), et son consommateur passe par le
+> symbole partage. **Verifiee par MORSURE** : un doublon plante dans `src/` la fait rougir en nommant
+> le fichier fautif. Une garde qu'on n'a pas vue rougir ne prouve rien.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1878,7 +1893,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | `f40299f`→`4e90d6a` | les 6 passes de `drawIsoGround` (terre-pleins, C/D/E, balayage, routes, montage) | → 1 401 |
 > | `76b2003`→`8d4f8b6` | les 3 tranches de `drawIsoLive` (prelude, collecte, dessin) | → 1 186 |
 > | `2602060` | `iso/isoGroundBake.js` (830 l.) — **la cuisson du sol et son cache** | → 394 |
-> | **ce commit** | le SURVOL AU SOL rejoint `iso/isoLivePaint.js` — **consolidation** | 🏁 **→ 359** |
+> | `61b732b` | le SURVOL AU SOL rejoint `iso/isoLivePaint.js` — **consolidation** | → 359 |
+> | **ce commit** | l'EN-TETE toilettee (132 → 51 l.) — *pas un deplacement pur* | 🏁 **→ 279** |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),

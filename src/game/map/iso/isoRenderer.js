@@ -1,134 +1,54 @@
 "use strict";
-// ── CHANTIER ISO — Phase 1 : renderer du JALON go/no-go ─────────────────────
-// Rendu isométrique : LE rendu de la carte depuis que le pipeline top-down a été
-// retiré (étapes 4 à 7, 2026-08-23). Il était né séparé de renderWorld — leçon
-// greybox : ne pas infecter l'ancien de demi-conversions. Il réutilise LE MÊME layout et les
-// helpers de sprites existants — il ne re-calcule rien côté jeu.
+// LE RENDU DE LA CARTE — et il ne reste ici que de la COORDINATION.
 //
-// Périmètre Phase 1 (voulu MINCE, on juge le SOL et la LISIBILITÉ) :
-//   - sol en losanges flat-shaded (herbe/urbain/place/eau) + routes par matière d'ère ;
-//   - habitations posées TELLES QUELLES (sprites actuels, ancrés au coin sud) ;
-//   - tuiles moteur/civiques = SOCLE teinté (scènes → Phase 3) ;
-//   - arbres = sapin minimal ; habitants = sprites actuels (4 dirs cardinales,
-//     re-générés en diagonales en Phase 4) ; véhicules mis à jour mais PAS dessinés ;
-//   - PAS de nuit/santé/LOD/lumières/ponts/quais/merveilles ici (Phases 3-5).
-// Tuiles PixelLab iso : APRÈS le go (le jalon protège le budget d'art).
-// `cmCellNoise` est parti avec la forêt sauvage, `cmWonderSlot` et
-// `cmForEachWonderCell` avec le parvis (2026-08-23).
-import { CM} from '../layout.js';
-import { fp } from '../framePerf.js';
+// Trois fonctions, dans cet ordre : la PASSE VIVANTE (`drawIsoLive` — collecter,
+// trier au peintre, dessiner), le POINT D'ENTRÉE (`drawIsoWorld`, qui quantifie la
+// caméra au pixel device avant tout le reste), et le CORPS DE FRAME
+// (`drawIsoWorldInner`, qui appelle les modules dans l'ordre PICTURAL : le sol, puis
+// le fleuve et ses ouvrages, puis ce qui est debout, puis la nuit et le ciel).
+// `cityMapRuntime.js` est le seul consommateur, et il n'en prend qu'un nom.
+//
+// Tout le reste vit dans `iso/*.js` — 35 modules sortis d'ici au fil de Q10
+// (`docs/PLAN-SUPPRESSION-LEGACY.md` §6 : 11 039 → 359 lignes). L'histoire de chaque
+// extraction — pourquoi cette borne, ce qu'elle a coûté, ce qu'elle a appris — vit
+// dans le plan et les trois `CARTO-*.md`. Cet en-tête l'a longtemps portée, jusqu'à
+// peser un tiers du fichier en récit de déménagements ; il ne la porte plus. Ce
+// fichier doit se lire pour ce qu'il FAIT, pas pour ce qu'il a cessé de faire.
+//
+// ⚠⚠ INVARIANT : AUCUN module `iso/` n'importe ce fichier, et ça doit le rester. Un
+// cycle ESM tombe en TDZ sur un `const`, et c'est ce qui a coûté une sauvegarde en
+// juillet. Ce qui doit être partagé DESCEND dans une feuille (`isoMath`, `isoQuad`,
+// `isoArt`, `isoPalette`) ; rien ne remonte ici.
 import { state } from '../../core/state.js';
-import { worldToScreen, visibleCellBounds, visibleDiamondBounds,  ISO_X, ISO_Y } from './projection.js';
-// Repointé sur la SOURCE le 2026-08-23 (étape 6) : `buildingShapes.js` ne faisait
-// que ré-exporter ce symbole depuis engineSprites, et il est supprimé. Précédent
-// identique : engineSceneCache.js importe déjà d'engineSprites directement.
-
-// (engineStage n'était importé QUE pour choisir le stade de l'aqueduc-conduite,
-//  retiré le 2026-08-05. Les points d'eau ont leur propre échelle d'ère, alignée
-//  sur celle des places — cf. waterPointEra.)
-// Outil de calibrage des feux de position : n'expose que window.__navCalib et
-// ne fait rien tant qu'on ne l'appelle pas (aucun coût en jeu). Il ne nous
-// importe RIEN en retour (cycle ES = zone morte) : on lui pousse sa config.
-// Vie de surface de l'eau. Même contrat que navCalib : il ne nous importe rien
-// en retour (cycle ES = zone morte), on lui pousse ce dont il a besoin.
-import { drawIsoRiverLife } from './isoRiverLife.js';
+import { updateCitizens, updateVehicles, drawCitizenThoughts } from '../agents.js';
+import { fp } from '../framePerf.js';
+import { CM } from '../layout.js';
 import { cityMapDrawQuays, updateCrisis, quayWallTune } from '../quaysAndRiot.js';
-import { drawIsoBridgeUnder, drawIsoBridgeNight,    drawIsoBridges } from './isoBridge.js';
-// LA FLOTTE, CÔTÉ RENDU — extraite d'ici le 2026-08-23 (Q10) : pose de coque,
-// stade de commerce, feux de navigation, passe de nuit, évitement d'obstacles.
-// Sa couture avait ZÉRO dépendance retour vers ce fichier, d'où l'extraction.
+import { drawIsoAmbient, SMOKE_TUNE, smokeSeason } from './isoAmbient.js';
+import { drawIsoBridgeUnder, drawIsoBridgeNight, drawIsoBridges } from './isoBridge.js';
 import { drawIsoShipNight } from './isoFleet.js';
-// Passe AÉRIENNE (oiseaux, drones) et outils numériques partagés — extraits le
-// 2026-08-23. `_frac`/`_rnd` vivent à part pour qu'aucun module extrait n'ait à
-// importer depuis isoRenderer (cycle → TDZ).
-import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
-// Socle partagé, extrait le 2026-08-23 : les chemins du repère monde et le cache
-// d'art. Deux feuilles du graphe — elles débloquent le pont, le champ et le port.
-// Le tissu urbain (bâti / cour / friche), extrait le 2026-08-23. C'est un MODÈLE :
-// tissuMetrics le lit aussi, et n'a plus à traverser le peintre pour ça.
-// Les clôtures et leur bande de panneaux, extraites le 2026-08-23.
-// La voirie (tons, largeurs, tuiles, voile d'ère, trottoir), extraite le 2026-08-23.
-// Que de la config : une feuille du graphe, que tout le monde peut lire.
-// La rue : lampadaires, mobilier, terre-pleins, et la nuit qui les allume.
-// Extraite le 2026-08-23. Pendant d'isoRoad — là-bas la chaussée, ici ses bords.
-import { drawIsoNight } from './isoStreet.js';
-// Les matières du sol (herbe, lisière, frange, sol urbain, front de rue), extraites
-// le 2026-08-23. ⚠ L'état de SAISON vit là-bas avec son écrivain : ici on ne fait
-// que le LIRE — une liaison ESM est vivante, la valeur suit.
-import { SEASON_WILD, refreshSeasonPalette } from './isoGroundDetail.js';
-// L'ambiance (particules, fumée, chevron) et le champ, extraits le 2026-08-23.
-import { drawIsoAmbient, SMOKE_TUNE, smokeSeason} from './isoAmbient.js';
-// LA CUISSON DU SOL ET SON CACHE, sortis le 2026-08-23 — la dernière coupe de Q10, et
-// la seule dont la couture n'avait AUCUN import retour. Le module a emporté d'un bloc
-// les trois morceaux qui vivaient ici sans se voir : l'ordre des passes du bake
-// (`drawIsoGround`), la machinerie de cache (apaisement, tranches, défilement au pan,
-// crans de zoom, pré-cuisson), et la décision qui les orchestre — 396 lignes au milieu
-// de `drawIsoWorldInner`. On ne voit plus d'ici aucun des seize noms qu'ils partageaient.
 // ⚠ Cet import fait AUSSI vivre `globalThis.__groundZoomCacheStats`, publié au niveau
-// module là-bas : c'est un effet de bord de chargement (cf. P32 du plan).
+// module là-bas : c'est un effet de bord de CHARGEMENT (P32 du plan), invisible au
+// lint comme au build. Le jour où plus personne n'appellerait `paintIsoGroundCached`,
+// retirer la ligne emporterait la molette de diagnostic avec elle.
 import { paintIsoGroundCached } from './isoGroundBake.js';
-// La COLLECTE du peintre, sortie de drawIsoLive le 2026-08-23 : elle dresse la liste
-// de ce qui se dessine, sans rien dessiner. Le POOL d'items part avec elle — c'est
-// son état privé. Le TRI, lui, reste ici : c'est lui qui donne son sens à la liste.
+// ⚠ L'état de SAISON vit là-bas, AVEC SON ÉCRIVAIN : ici on ne fait que le lire. La
+// liaison ESM est vivante — la valeur suit — mais elle est en LECTURE SEULE (P28) :
+// c'est `refreshSeasonPalette()` qui la réécrit, chez elle, une fois par frame.
+import { SEASON_WILD, refreshSeasonPalette } from './isoGroundDetail.js';
 import { collectIsoItems } from './isoLiveCollect.js';
-// Le DESSIN du peintre, sorti le 2026-08-23. Ses trois phases (préparation, boucle,
-// composition) sont parties ENSEMBLE : elles se partagent l'état des lots GPU, qui est
-// réassigné — il devait voyager avec ses écritures.
-// Le SURVOL AU SOL l'a rejoint le même jour, par CONSOLIDATION plutôt que par création
-// d'un module de 38 lignes : ce fichier portait déjà l'autre moitié du survol (l'or et
-// le liseré des silhouettes), et il n'a eu besoin d'aucun import nouveau pour l'accueillir.
 import { drawIsoHoverCell, paintIsoItems } from './isoLivePaint.js';
-// Objets posés au sol (points d'eau, art au sol, décor d'île), extraits le 2026-08-23.
-// Le port fluvial (flotte legacy sur le ruban, quai, ponton), extrait le 2026-08-23.
-import { drawIsoShips} from './isoPort.js';
-// Palette plate du sol, extraite le 2026-08-23. Feuille du graphe : elle n'importe
-// rien, donc tout peut la lire. ⚠ L'état de SAISON est resté ici (plus bas) — il est
-// réassigné chaque frame, et une liaison importée est en lecture seule.
-import { rgb} from './isoPalette.js';
-// La météo qui tombe (pluie, éclats, neige), extraite le 2026-08-23. Elle emporte
-// les teintes de flocon, qui traînaient dans la section « liseré d'herbe ».
-import { drawIsoRain } from './isoWeather.js';
-// Le fleuve, extrait le 2026-08-23 : le ruban d'eau vivant et tout ce qui bat sa
-// berge. Trois symboles suffisent au peintre — il peint, et il sait découper sur
-// l'eau.
+import { rgb } from './isoPalette.js';
+import { drawPlaisirsSky } from './isoPlaisirs.js';
+import { drawIsoShips } from './isoPort.js';
 import { drawIsoRiver } from './isoRiver.js';
-// Les unités mobiles (véhicules, émeutiers, objets portés) et leur profondeur au
-// tri, extraites le 2026-08-23.
-// Scènes moteur et liserés de sprite, extraits le 2026-08-23.
-// AURA DE LA MAISON DES PLAISIRS. Module à part (le renderer pèse déjà 11 000
-// lignes) et sans import retour : il ne connaît que CM, la projection et les
-// deux couches de lumière — donc aucun cycle ES avec nous.
-import {  drawPlaisirsSky} from './isoPlaisirs.js';
+import { drawIsoRiverLife } from './isoRiverLife.js';
+import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
+import { drawIsoNight } from './isoStreet.js';
+import { drawIsoRain } from './isoWeather.js';
 import {
-  updateCitizens, updateVehicles, drawCitizenThoughts,
-  // le lot bateaux est parti avec isoPort.js, les drones avec isoSky.js
-                            // le reste du lot est parti avec isoUnits.js
-} from '../agents.js';
-// PLACE COMPOSÉE : tout le modèle (rôles des cellules, recettes par ère, tailles
-// en tuiles, molette __plaza) vit dans isoPlaza.js. Ici on ne fait que pousser
-// ses items dans le tri peintre. Cf. docs/PLACES-ISO-COMPOSEES.md.
-import {
-  // personHT : les POINTS D'EAU se cotent au même étalon que le mobilier de
-  // place — la hauteur d'un habitant. Cf. § POINTS D'EAU.
-  // La FONTAINE de la scène de place est rentrée ici le 2026-08-23 : elle décrivait
-  // déjà une scène de ce module.
-} from './isoPlaza.js';
-// MOBILIER DE TROTTOIR : la POSE vit là-bas (corps pur, testable), le dessin
-// reste celui du kit des places. Cf. § MOBILIER DE TROTTOIR plus bas.
-
-// PALETTE DE SAISON, résolue une fois par frame depuis CM.season. Ces variables
-// remplacent GRASS / GRASS_WILD / GD_TIP partout où le SOL est peint : le sol
-// étant baké, elles ne sont relues qu'à la recuisson, et la saison figure dans
-// la clé du bake. Les constantes ci-dessus restent la référence d'été.
-// (Une MATIÈRE DE TROTTOIR a vécu ici — table de tons par bande et résolution
-//  de tuile dédiée, avec son art `walk-stone` / `walk-granite`. Retirée le
-//  2026-08-05 en même temps que la bande : le sol de ville EST le trottoir, il
-//  n'a donc pas de matière propre. Cf. le § LA MARCHE, ET RIEN QUE LA MARCHE,
-//  dans la passe route.)
-
-
-
-
+  worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
+} from './projection.js';
 
 function drawIsoLive(now) {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
