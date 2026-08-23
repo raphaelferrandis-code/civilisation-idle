@@ -2255,3 +2255,46 @@ court-circuites en production.
    `LEGACY_PROP` se vidait deja d'elle-meme, prop par prop, et chaque `null` portait sa raison — le bac
    (2026-08-07), puis le puits. La conclusion etait ecrite noir sur blanc dans le code :
    **« on prefere l'echec bruyant »**. Il ne restait qu'a la finir.
+
+---
+
+## 8. Balayage des molettes `window.__*` (2026-08-23, `6bb9f9d`)
+
+Troisieme point de l'avis donne a Raph le 2026-08-22 : « balayer les 165 molettes ». Fait, apres que
+trois d'entre elles se soient revelees mortes par accident dans la meme journee (Q1, Q2).
+
+**Resultat : 163 molettes hors tests — 88 SONDES (elles lisent, elles ne mutent rien), 74 VIVANTES,
+et UNE SEULE MORTE.** `__droneRotors` : `droneRotorsOn` n'apparaissait qu'a sa declaration et a la
+ligne qui l'ecrit ; `drawDroneRotors` ne l'a jamais consultee. **Reparee** (une ligne de garde) plutot
+que retiree — le debranchement des rotors sert au reglage d'art.
+
+### La methode, et pourquoi elle ne va pas de soi
+
+**On ne cherche pas les usages du NOM, on cherche les LECTURES de la CIBLE.** Pour chaque molette :
+extraire ce qu'elle mute (objet, champ, ou variable de module), puis classer chaque autre occurrence
+de cette cible en LECTURE ou en ECRITURE. Une cible sans aucune lecture = molette morte.
+Outil : `scratchpad/balayerMolettes.cjs` (a re-ecrire si besoin ; la methode ci-dessus suffit).
+
+### ⚠⚠⚠ L'OUTIL S'EST TROMPE TROIS FOIS, ET CHAQUE FOIS C'EST UN TEMOIN PLANTE QUI L'A DIT
+
+Aucune des trois erreurs n'a ete trouvee par relecture. **Un outil d'analyse doit etre teste sur un cas
+dont on connait la reponse, exactement comme une garde** — sinon il rend « 0 suspect » et on le croit.
+
+1. **Ancrage en debut de ligne** → 69 molettes invisibles. Beaucoup vivent DERRIERE une garde sur la
+   meme ligne : `if (typeof window !== 'undefined') window.__x = …`. Le depot en compte **163**, pas 96.
+2. **Une ligne `import` comptee comme une LECTURE.** C'est exactement par la que `sidewalkTune` aurait
+   echappe au balayage : il etait importe par `cityMapRuntime`… pour ne nourrir QUE sa molette.
+   **Un symbole importe uniquement pour etre passe a une molette reste mort.**
+3. **Les affectations a un nom NU ecartees comme « locales ».** Or `droneRotorsOn = …` vise un `let` de
+   niveau module. C'est ce trou-la qui cachait la seule molette morte du depot — elle etait classee
+   « sonde ». Correction : garder les noms nus DECLARES au niveau module du meme fichier.
+
+### ⚠⚠ ET LA PREUVE A L'ECRAN A DEMANDE MIEUX QU'UN A/B AU PIXEL
+
+L'A/B sur le canvas ENTIER **ne prouve rien** pour un objet en mouvement : bruit de fond mesure a
+**~1 150 pixels** contre **1 081** pour la coupure — la simulation domine l'effet. Il a fallu ISOLER la
+fonction et l'appeler sur un canvas a part : 1 675 pixels allumes, 0 eteints.
+→ **L'A/B pixel ne vaut que sur une scene STATIQUE** (il a marche pour le losange de survol, pose sur un
+sol bake). Des que le sujet bouge, isoler l'appel.
+⚠ Et compter l'encre **au seuil franc** : au seuil d'alpha 8 le compte oscille tout seul (4402, 4402,
+4354) sans qu'aucun parametre ne change — c'est l'anticrenelage pres du seuil.
