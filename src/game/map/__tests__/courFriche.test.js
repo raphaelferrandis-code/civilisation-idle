@@ -12,7 +12,11 @@
 // Ces gardes portent donc sur la FORME, pas sur des seuils : une table de seuils
 // juste peut produire du confetti, et c'est exactement ce qui est arrivé.
 import { describe, it, expect } from "vitest";
-import { courField, COUR, computeIsoLamps } from "../iso/isoRenderer.js";
+import { computeIsoLamps } from "../iso/isoRenderer.js";
+// Le MODÈLE (courField, COUR) est parti dans isoTissu.js le 2026-08-23 ; le PEINTRE
+// des lampadaires est resté. Ce test lit les deux : la matière du sol, et ce qu on
+// pose dessus.
+import { courField, COUR } from "../iso/isoTissu.js";
 
 const ROAD_E = 2, ROAD_W = 8;   // bits de masque de layout.js (N = 1, S = 4)
 const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];

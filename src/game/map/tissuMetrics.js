@@ -23,7 +23,7 @@
 // La MATIÈRE d'une cellule vide est décidée par le renderer (lot L2) : on
 // importe SA règle au lieu de la recopier ici. Un tableau de bord qui rejouerait
 // le calcul qu'il surveille ne surveillerait que lui-même.
-import { courField } from './iso/isoRenderer.js';
+import { courField } from './iso/isoTissu.js';
 // Le compteur de clôtures appelle le VRAI module de pose, pas une copie de sa règle
 // (cf. fenceCount plus bas) — une mesure déduite d'une réplique dériverait en silence.
 import { fenceEdges, fenceInputs, FENCE } from './fenceEdges.js';
