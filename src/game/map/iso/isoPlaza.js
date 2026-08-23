@@ -1266,3 +1266,41 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
 // dériverait de celle qui sert au dessin.
 export { PLAZA_TUNE, RECIPES, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox };
+
+// ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
+// (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre
+// obligeait à y garder les rects du crop, donc deux endroits à corriger si l'art
+// bouge. Le commentaire ci-dessous est celui d'origine, mot pour mot.
+// ── PLACE ───────────────────────────────────────────────────────────────────
+// `isoPlazaBox` (composante connexe de la dalle) et `plazaEraForBand` ont
+// DÉMÉNAGÉ dans isoPlaza.js : la place composée et l'ancienne scène doivent
+// lire la MÊME emprise et la MÊME ère, une copie ici les ferait diverger.
+// Ce qui reste ci-dessous ne sert qu'au mode 'scene' (__plaza({mode:'scene'})),
+// gardé comme référence d'A/B : la scène par ère validée le 2026-07-12
+// (fontaine monumentale + parterres + bancs, UNE image posée sur la dalle).
+// ── FONTAINE ANIMÉE : l'eau de la scène de place, bakée en strip 8 frames
+// (/pixelart/iso/anim/plaza-fountain-<ère>.png, scripts/fetchFountainAnims.mjs)
+// et blittée PAR-DESSUS la scène à l'emplacement exact du crop source. Hors
+// eau, chaque frame est VERROUILLÉE sur les pixels de la scène → zéro couture,
+// zéro wobble ; le repli (strip absent) est simplement la scène statique.
+// Rects en px de la scène SOURCE — miroir exact de FOUNTAIN du script.
+// FA_V : version de cache des strips (à incrémenter à chaque réécriture des
+// PNG, le cache HTTP ressert sinon l'ancienne version — leçon aqueducs).
+export const FA_V = 2;
+export const FOUNTAIN_ANIM = {
+  antique: { x: 100, y: 4, w: 108, h: 116 },
+  medieval: { x: 110, y: 8, w: 126, h: 128 },
+  industrial: { x: 108, y: 26, w: 116, h: 104 },
+  modern: { x: 116, y: 26, w: 124, h: 100 },
+  cosmic: { x: 92, y: 0, w: 110, h: 128 },
+};
+// Molette : __fountainAnim({ on, ms }) — ms = durée d'une frame.
+// 240 ms (≈4 fps, cycle 1.5-2 s) : à 120 les ondulations « allaient trop
+// vite » (retour Raph) ; l'eau de fontaine doit rester paisible.
+export const FOUNTAIN_TUNE = { on: true, ms: 240 };
+if (typeof window !== 'undefined') {
+  window.__fountainAnim = (o) => { if (o) Object.assign(FOUNTAIN_TUNE, o); return { ...FOUNTAIN_TUNE }; };
+}
+
+
+

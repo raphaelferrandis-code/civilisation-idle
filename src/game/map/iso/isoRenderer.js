@@ -166,11 +166,13 @@ import {
 // L'ambiance (particules, fumée, chevron) et le champ, extraits le 2026-08-23.
 import { drawIsoAmbient, SMOKE_TUNE, smokeSeason, drawIsoSmoke, REVEAL_PIN_MS, drawIsoRevealPin } from './isoAmbient.js';
 import { drawIsoField } from './isoField.js';
+// Objets posés au sol (points d'eau, art au sol, décor d'île), extraits le 2026-08-23.
+import { waterPointEra, WATER_POINT_P, drawIsoGroundedArt, ISO_TREE_VARIANTS, ISO_BUSH_VARIANTS, ISLAND_DECO } from './isoGroundProps.js';
 // Le port fluvial (flotte legacy sur le ruban, quai, ponton), extrait le 2026-08-23.
 import { drawIsoShips, portMooring, drawIsoPortBoat, drawIsoRiverside } from './isoPort.js';
 // Matière du sol : tuiles PixelLab et grève, extraites le 2026-08-23. Le peintre
 // (blitIsoTileKey, le sol, le trottoir) est resté ici ; seul le CATALOGUE est parti.
-import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, isoTileBBox, groundTileTune, isoFaceVeiled, ensureIsoTileKey, plazaEraTileKey, BEACH } from './isoGroundTiles.js';
+import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, groundTileTune, isoFaceVeiled, ensureIsoTileKey, plazaEraTileKey, BEACH } from './isoGroundTiles.js';
 // Palette plate du sol, extraite le 2026-08-23. Feuille du graphe : elle n'importe
 // rien, donc tout peut la lire. ⚠ L'état de SAISON est resté ici (plus bas) — il est
 // réassigné chaque frame, et une liaison importée est en lecture seule.
@@ -207,6 +209,9 @@ import {
   // personHT : les POINTS D'EAU se cotent au même étalon que le mobilier de
   // place — la hauteur d'un habitant. Cf. § POINTS D'EAU.
   personHT,
+  // La FONTAINE de la scène de place est rentrée ici le 2026-08-23 : elle décrivait
+  // déjà une scène de ce module.
+  FA_V, FOUNTAIN_ANIM, FOUNTAIN_TUNE,
 } from './isoPlaza.js';
 // MOBILIER DE TROTTOIR : la POSE vit là-bas (corps pur, testable), le dessin
 // reste celui du kit des places. Cf. § MOBILIER DE TROTTOIR plus bas.
@@ -1642,132 +1647,6 @@ function drawIsoGround() {
   ctx.restore();
   return true;
 }
-
-// ── POINTS D'EAU (ex-aqueducs) ──────────────────────────────────────────────
-// 🚫 L'AQUEDUC-STRUCTURE A ÉTÉ RETIRÉ le 2026-08-05, ART COMPRIS. Vivait ici un
-// rendu 3-slice (start → mid ×N → end, posé par cisaillement sur l'axe long,
-// une tranche par tuile pour le tri peintre) alimenté par 4 stades de PNG.
-// Motif : la conduite longeait la berge et puisait dans le fleuve d'à côté
-// (« ça n'est pas logique »), et son art avait déjà été refusé 5 fois. Le pavé
-// qui fait foi est celui de cmWaterPointCount, dans layout.js — le lire avant
-// toute tentative de résurrection.
-//
-// Le bâtiment se lit désormais en POINTS D'EAU semés dans la ville, et on ne
-// dessine RIEN ici : chacun devient un item `plazaProp`, donc c'est le KIT DES
-// PLACES qui s'en charge (même art, même ancrage sur l'ENCRE mesurée, même
-// ombre douce, même découpe des halos). Un item par point → chacun trie à SA
-// profondeur, sans le moindre cas particulier dans le peintre.
-//
-// L'objet est un PUITS et non une fontaine : la fontaine est la pièce maîtresse
-// de la place, la banaliser en la semant partout lui ferait perdre son rang. En
-// attendant l'art dédié, LEGACY_PROP fait retomber le puits sur la fontaine du
-// kit top-down (cf. isoPlaza.js), era-correcte dans les 5 ères.
-//
-// Ère : même échelle que les places, PLUS un cran primitif — les places
-// n'existent qu'à partir du band 2, mais les aqueducs s'achètent dès le début.
-const waterPointEra = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
-  : band >= 5 ? 'industrial' : band >= 4 ? 'medieval' : band >= 2 ? 'antique' : 'primitive');
-// Hauteur en `p` = MULTIPLES DE LA HAUTEUR D'UN HABITANT, exactement comme le
-// mobilier des places — et surtout PAS en tuiles. C'est la règle du kit : ancré
-// sur autre chose, un prop ne suit plus quand l'échelle des habitants bouge, et
-// la ville se met à enfler à vue d'œil. Repère : l'habitant ≈ 1,70 m, donc 1.15
-// ≈ 1,95 m — un puits couvert dont la margelle arrive à la taille.
-// 📏 TOUJOURS SOUS LA FONTAINE DE PLACE, qui va de 1.25 à 2.60 p. C'est ce qui
-//    garde la hiérarchie : la fontaine est la pièce maîtresse du forum, le puits
-//    est un point d'eau de quartier. Les rapprocher les banaliserait tous les deux.
-// ⚠ `p` cote l'ENCRE ENTIÈRE du sprite, pas l'objet qu'on a en tête. Le puits
-// primitif porte un CHEVALET : son encre monte bien plus haut que sa margelle, et
-// le coter comme une margelle l'écraserait au ras du sol. La règle qui a servi ici,
-// et la seule à réappliquer si l'art change : `p` = hauteur RÉELLE de l'objet en
-// mètres ÷ 1,70. Chaque valeur ci-dessous vient de la silhouette effectivement
-// livrée, pas d'une intention.
-// 🚫 La suite n'est PAS croissante, et c'est voulu : ce ne sont pas six états d'un
-//    même objet qui grandirait, mais six objets différents. Une borne à boire
-//    moderne EST plus basse qu'un chevalet de puits médiéval. (C'est la fontaine de
-//    place, elle, qui doit croître strictement — cf. RECIPES dans isoPlaza.)
-const WATER_POINT_P = {
-  primitive: 1.15,    // chevalet : deux montants + traverse       ≈ 1,95 m
-  antique: 0.68,      // bassin de rue + pilier à bec              ≈ 1,15 m
-  medieval: 0.85,     // margelle + treuil sur montants courts     ≈ 1,45 m
-  industrial: 0.94,   // colonne de pompe en fonte sur son socle   ≈ 1,60 m
-  modern: 0.62,       // borne à boire, hauteur de taille          ≈ 1,05 m
-  cosmic: 0.76,       // monolithe + vasque basse                  ≈ 1,30 m
-};
-// Pose un art iso « AU SOL » : le CONTENU opaque est mis à targetW px de large
-// et le COIN BAS de son losange de base tombe un quart sous (px, py) = centre
-// du losange visé. Corrige les décalages « ancienne dalle qui dépasse » (Raph) :
-// on cale la GÉOMÉTRIE MESURÉE du PNG, pas le canvas brut.
-function drawIsoGroundedArt(ctx, e, px, py, targetW) {
-  if (!e.bbox) {
-    const bpx = isoTileBBox(e.img);
-    const w = e.img.naturalWidth || 1, h = e.img.naturalHeight || 1;
-    e.bbox = bpx ? { x0f: bpx.x0 / w, y0f: bpx.y0 / h, wf: bpx.w / w, hf: bpx.h / h } : { x0f: 0, y0f: 0, wf: 1, hf: 1 };
-  }
-  const bb = e.bbox;
-  const imgW = e.img.naturalWidth || 1, imgH = e.img.naturalHeight || 1;
-  // ⚠ canvases NON carrés depuis la normalisation (normalizeIsoScenes) :
-  // la hauteur suit l'ASPECT NATUREL, plus jamais boxH = boxW.
-  const boxW = targetW / (bb.wf || 1), boxH = boxW * (imgH / imgW);
-  const cxf = bb.x0f + bb.wf / 2, cbf = bb.y0f + bb.hf;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  const dx = px - boxW * cxf, dy = py + targetW / 4 - boxH * cbf;
-  ctx.drawImage(e.img, dx, dy, boxW, boxH);
-  ctx.imageSmoothingEnabled = prev;
-  lightCutImage(e.img, dx, dy, boxW, boxH);   // masque les halos déposés derrière (lightLayer.js)
-  // Géométrie du draw (px écran) : permet de re-projeter un OVERLAY calé sur
-  // les pixels source (eau de fontaine animée des places).
-  return { x: dx, y: dy, w: boxW, h: boxH };
-}
-// Arbres pixel iso : tree-1..tree-N (feuillus + conifères, choisis par hash).
-// (Des feuillus du pack Cainos ont été essayés en variantes 5-7 le 2026-07-22 puis
-// RETIRÉS — « je n'aime pas les arbres », Raph. Ne pas re-proposer.)
-const ISO_TREE_VARIANTS = 4;
-// Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
-// rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
-// un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le
-// PNG manque (cf. les sprites absents du .exe hors ligne : un art absent ne doit
-// rien effacer).
-const ISO_BUSH_VARIANTS = 6;
-// Végétation de l'île (cf. son bloc dans drawIsoLive). `rMin/rMax` sont des rayons
-// NORMALISÉS de l'ellipse : le tiers central est laissé à la merveille.
-// Molette : window.__islandDeco.
-export const ISLAND_DECO = { on: true, count: 9, rMin: 0.5, rMax: 0.88, size: 0.3 };
-if (typeof window !== 'undefined') window.__islandDeco = ISLAND_DECO;
-
-
-// ── PLACE ───────────────────────────────────────────────────────────────────
-// `isoPlazaBox` (composante connexe de la dalle) et `plazaEraForBand` ont
-// DÉMÉNAGÉ dans isoPlaza.js : la place composée et l'ancienne scène doivent
-// lire la MÊME emprise et la MÊME ère, une copie ici les ferait diverger.
-// Ce qui reste ci-dessous ne sert qu'au mode 'scene' (__plaza({mode:'scene'})),
-// gardé comme référence d'A/B : la scène par ère validée le 2026-07-12
-// (fontaine monumentale + parterres + bancs, UNE image posée sur la dalle).
-// ── FONTAINE ANIMÉE : l'eau de la scène de place, bakée en strip 8 frames
-// (/pixelart/iso/anim/plaza-fountain-<ère>.png, scripts/fetchFountainAnims.mjs)
-// et blittée PAR-DESSUS la scène à l'emplacement exact du crop source. Hors
-// eau, chaque frame est VERROUILLÉE sur les pixels de la scène → zéro couture,
-// zéro wobble ; le repli (strip absent) est simplement la scène statique.
-// Rects en px de la scène SOURCE — miroir exact de FOUNTAIN du script.
-// FA_V : version de cache des strips (à incrémenter à chaque réécriture des
-// PNG, le cache HTTP ressert sinon l'ancienne version — leçon aqueducs).
-const FA_V = 2;
-const FOUNTAIN_ANIM = {
-  antique: { x: 100, y: 4, w: 108, h: 116 },
-  medieval: { x: 110, y: 8, w: 126, h: 128 },
-  industrial: { x: 108, y: 26, w: 116, h: 104 },
-  modern: { x: 116, y: 26, w: 124, h: 100 },
-  cosmic: { x: 92, y: 0, w: 110, h: 128 },
-};
-// Molette : __fountainAnim({ on, ms }) — ms = durée d'une frame.
-// 240 ms (≈4 fps, cycle 1.5-2 s) : à 120 les ondulations « allaient trop
-// vite » (retour Raph) ; l'eau de fontaine doit rester paisible.
-const FOUNTAIN_TUNE = { on: true, ms: 240 };
-if (typeof window !== 'undefined') {
-  window.__fountainAnim = (o) => { if (o) Object.assign(FOUNTAIN_TUNE, o); return { ...FOUNTAIN_TUNE }; };
-}
-
-
 
 // ── Drawables triés au peintre (profondeur = wx + wy) ────────────────────────
 function drawTreeIso(ctx, sx, sy, h) {

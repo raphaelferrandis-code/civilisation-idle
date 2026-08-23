@@ -9,7 +9,7 @@
 //   VERROUILLE chaque frame : seuls les pixels d'EAU restent animés, tout le
 //   minéral est recopié du crop ORIGINAL de la scène → le strip blitté
 //   par-dessus la scène est indiscernable d'elle hors eau (zéro wobble, zéro
-//   couture), cf. isoRenderer FOUNTAIN_ANIM.
+//   couture), cf. isoPlaza FOUNTAIN_ANIM.
 //
 //   Verrouillage, pixel par pixel (dans le CONFINEMENT par ère, qui exclut les
 //   props de bord du crop — obélisques cosmic, jardinières modern) :
