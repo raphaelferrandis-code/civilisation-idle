@@ -40,10 +40,18 @@
 //     __plaza({ seed: 3 })             → autre tirage, même ville
 //
 //   ART. /pixelart/iso/plaza/<prop>-<ère>.png (3/4 top-down, fond
-//   transparent, lumière haut-gauche, palette de l'ère). Tant qu'un sprite iso
-//   manque, on retombe sur le kit top-down legacy (/pixelart/plazas/, 60
-//   sprites déjà produits) puis sur un GABARIT plat — de sorte que la
-//   COMPOSITION se juge avant que l'art existe.
+//   transparent, lumière haut-gauche, palette de l'ère). Un sprite manquant
+//   tombe sur un GABARIT plat — visible tout de suite, donc réparable.
+//
+//   ⚠ UN REPLI SUR LE KIT TOP-DOWN A VÉCU ICI (/pixelart/plazas/, 45 sprites),
+//   utile tant que l'art iso n'existait pas. Retiré le 2026-08-23 (Q3 du plan de
+//   suppression du legacy) : l'art iso est complet, et ce repli était devenu le
+//   piège que `LEGACY_PROP` documentait déjà prop par prop — un sprite DE FACE
+//   posé au milieu d'une vue 3/4 sans que rien ne casse. Le bac (2026-08-07) et
+//   le puits y étaient déjà passés. **On préfère l'échec bruyant.**
+//   La garde qui rend la coupe sûre est dans isoPlaza.test.js — « aucun prop de
+//   place ne retombe sur le kit TOP-DOWN » vérifie SUR LE DISQUE que chaque
+//   (prop, variante, ère) réellement posé a son fichier iso.
 //
 //   Ce module ne dépend PAS de isoRenderer (il serait circulaire) : il ne lit
 //   que CM/cmHash, la projection et le calque de lumière.
@@ -186,32 +194,21 @@ if (typeof window !== 'undefined') {
 export const plazaEraForBand = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
   : band >= 5 ? 'industrial' : band >= 4 ? 'medieval' : band >= 2 ? 'antique' : null);
 // Ère iso → grappe du kit top-down legacy (repli d'art tant que l'iso manque).
-const LEGACY_ERA = {
-  antique: 'antique', medieval: 'classique', industrial: 'industrielle',
-  modern: 'moderne', cosmic: 'futuriste',
-};
-// Prop iso → prop du kit legacy quand le nom diffère (null = pas d'équivalent).
-const LEGACY_PROP = {
-  bench: 'bench', bush: 'bush', fountain: 'fountain',
-  flag: 'flag', amphora: 'planter', bollard: null, stall: null, statue: null,
-  bin: null,                            // pas d'équivalent dans le kit legacy
-  // BAC : AUCUN repli, même doctrine que le puits ci-dessous. Le bac du kit
-  // top-down est dessiné DE FACE, à plat ; les 20 `planter-<face>-<ère>.png`
-  // iso existent. Laisser le repli en place, c'est garder le piège qui a
-  // frappé le 2026-08-07 : un bac posé sans variante ne trouvait pas d'iso et
-  // sortait de face au milieu d'une place en 3/4, sans que rien ne casse. Le
-  // gabarit gris, lui, se voit tout de suite.
-  planter: null,
-  // PUITS (point d'eau de quartier, ex-aqueducs — cf. isoRenderer § POINTS D'EAU) :
-  // AUCUN repli, volontairement. Il a d'abord retombé sur la fontaine du kit
-  // top-down le temps que son art soit produit ; les 6 `well-<ère>.png` existent
-  // maintenant, et laisser ce repli en place serait un piège. Un PNG manquant
-  // rendrait alors silencieusement une fontaine de place à travers toute la ville
-  // — exactement la banalisation qu'on cherche à éviter, et invisible au test.
-  // Le gabarit gris, lui, se voit tout de suite. On préfère l'échec bruyant.
-  well: null,
-};
-
+// ⚠ DEUX TABLES ONT VÉCU ICI — `LEGACY_ERA` (nom d'ère iso → nom du kit top-down :
+// medieval → classique, cosmic → futuriste…) et `LEGACY_PROP` (nom d'objet iso → nom
+// du kit, `null` = pas d'équivalent). Elles pilotaient le repli de `propImage` sur
+// /pixelart/plazas/. Retirées le 2026-08-23 avec le kit lui-même (Q3).
+//
+// Ce n'était pas une nouvelle décision : la table s'était déjà vidée d'elle-même,
+// prop par prop, et chaque `null` portait sa raison écrite. Le BAC y est passé le
+// 2026-08-07 — posé sans variante, il ne trouvait pas d'iso et sortait DE FACE au
+// milieu d'une place en 3/4, sans que rien ne casse. Le PUITS ensuite : son repli
+// sur la fontaine aurait banalisé la pièce maîtresse de la place à travers toute la
+// ville, en silence. À chaque fois la même conclusion, écrite noir sur blanc :
+// **on préfère l'échec bruyant**, parce qu'un gabarit gris se voit tout de suite.
+// Ne restaient vivants que `bench` et `fountain` ; le reste (`bush`, `flag`,
+// `amphora`) n'est émis par aucune recette. Il n'y avait plus de repli à garder,
+// seulement un piège à retirer.
 // ── RECETTES PAR ÈRE ────────────────────────────────────────────────────────
 // C'est ICI qu'on travaille. La COMPOSITION est fixée (voir plus bas) et voulue
 // par Raph : fontaine au milieu, des bancs par côté tournés vers le centre, un
@@ -940,11 +937,6 @@ function propImage(prop, era, variant) {
   const tries = [];
   if (variant) tries.push('/pixelart/iso/plaza/' + prop + '-' + variant + '-' + era + '.png');
   tries.push('/pixelart/iso/plaza/' + prop + '-' + era + '.png');
-  const lp = LEGACY_PROP[prop], le = LEGACY_ERA[era];
-  if (lp && le) {
-    if (variant) tries.push('/pixelart/plazas/' + lp + '-' + variant + '-' + le + '.png');
-    tries.push('/pixelart/plazas/' + lp + '-' + le + '.png');
-  }
   for (const src of tries) { const e = art(src); if (e.ready) return e.img; }
   return null;
 }

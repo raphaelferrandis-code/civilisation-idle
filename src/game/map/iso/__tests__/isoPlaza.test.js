@@ -398,12 +398,16 @@ describe("LA COMPOSITION DEMANDÉE", () => {
   });
 
   it("aucun prop de place ne retombe sur le kit TOP-DOWN", () => {
-    // La garde de fond, et elle vaut pour tout le kit : propImage essaie l'iso
-    // puis, s'il manque, le kit legacy de /pixelart/plazas — dessiné DE FACE.
-    // Ce repli ne casse rien, ne se voit dans aucun test de composition, et sort
-    // un sprite à plat au milieu d'une vue 3/4. On vérifie donc sur le DISQUE
-    // que chaque (prop, variante, ère) réellement posé a son fichier iso.
+    // La garde de fond, et elle vaut pour tout le kit : chaque (prop, variante,
+    // ère) réellement posé doit avoir son fichier iso SUR LE DISQUE.
     // (L'arbre est hors kit : il passe par le pipeline d'arbres de la CARTE.)
+    //
+    // ⚠ C'est CETTE garde qui a rendu la coupe de Q3 sûre (2026-08-23). Un repli
+    // sur /pixelart/plazas vivait dans `propImage` : il ne cassait rien, ne se
+    // voyait dans aucun test de composition, et sortait un sprite DE FACE au
+    // milieu d'une vue 3/4. Le kit est parti ; c'est ce test qui garantit qu'on
+    // n'en a plus besoin, et il doit rester même si plus personne ne se souvient
+    // pourquoi : sans lui, un PNG iso manquant redevient un défaut silencieux.
     const KIT = path.join("public", "pixelart", "iso", "plaza");
     const BANDS = { antique: 3, medieval: 4, industrial: 5, modern: 6, cosmic: 7 };
     let vus = 0;
@@ -420,6 +424,37 @@ describe("LA COMPOSITION DEMANDÉE", () => {
       }
     }
     expect(vus, "aucun prop examiné").toBeGreaterThan(50);
+  });
+
+  // ⚠ Garde ANTI-RETOUR du repli, écrite pour ne PAS retomber dans P33 : elle
+  // n'interroge aucun fichier NOMMÉ (une garde qui cite un fichier meurt au premier
+  // déménagement, en silence), mais l'INVARIANT — plus une ligne de `src` ne demande
+  // le kit top-down des places. Vrai quel que soit le module qui le demanderait.
+  //
+  // ⚠⚠ ET ELLE A MORDU SUR SA PROPRE PROSE au premier jet : cherchée telle quelle,
+  // la chaîne se trouve aussi dans le commentaire d'isoPlaza.js qui RACONTE le
+  // départ du kit, et dans ce fichier-ci. C'est le défaut P33 retourné — une garde
+  // textuelle ne distingue pas le code du commentaire, et sur-tire au lieu de se
+  // vider. D'où l'ancrage sur un GUILLEMET : seul un chemin littéral compte, pas
+  // une mention en prose. Les tests sont exclus — ils ne dessinent rien.
+  it("plus aucune source ne demande le kit top-down des places", () => {
+    const SRC = path.join(__dirname, "..", "..", "..", "..");   // src/
+    const coupables = [];
+    const marcher = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "__tests__") continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) marcher(p);
+        else if (/\.jsx?$/.test(e.name)
+          && /['"`]\/pixelart\/plazas/.test(fs.readFileSync(p, "utf8"))) {
+          coupables.push(path.basename(p));
+        }
+      }
+    };
+    marcher(SRC);
+    expect(coupables, `kit top-down redemandé par : ${coupables.join(", ")}`).toEqual([]);
+    // …et le kit lui-même n'est plus sur le disque.
+    expect(fs.existsSync(path.join("public", "pixelart", "plazas"))).toBe(false);
   });
 
   it("le compagnon suit l'angle de son banc", () => {

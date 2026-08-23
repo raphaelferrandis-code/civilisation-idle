@@ -27,9 +27,12 @@ import { isoTileBBox } from './isoGroundTiles.js';
 // profondeur, sans le moindre cas particulier dans le peintre.
 //
 // L'objet est un PUITS et non une fontaine : la fontaine est la pièce maîtresse
-// de la place, la banaliser en la semant partout lui ferait perdre son rang. En
-// attendant l'art dédié, LEGACY_PROP fait retomber le puits sur la fontaine du
-// kit top-down (cf. isoPlaza.js), era-correcte dans les 5 ères.
+// de la place, la banaliser en la semant partout lui ferait perdre son rang. Il a
+// un temps retombé sur la fontaine du kit top-down, faute d'art dédié ; ses six
+// `well-<ère>.png` existent depuis, et ce repli a été retiré — d'abord pour lui
+// seul, puis avec le kit entier le 2026-08-23 (Q3). Un PNG manquant sort donc
+// maintenant un gabarit gris, qui se voit, au lieu d'une fontaine, qui ne se
+// voyait pas.
 //
 // Ère : même échelle que les places, PLUS un cran primitif — les places
 // n'existent qu'à partir du band 2, mais les aqueducs s'achètent dès le début.
