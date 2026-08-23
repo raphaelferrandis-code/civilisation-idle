@@ -181,16 +181,56 @@ commentaires qui l'expliquent et le chronomètre restent.
 remplit (`veilPush`). Elle partira **avec la passe B**, pas avant — producteur et consommateur
 voyagent ensemble, comme l'état de saison l'a montré ailleurs dans ce chantier.
 
+## 8. ✔ FAIT — la passe B (balayage de cellules) : le contexte, enfin
+
+*Commits `14e46a2` (prélude) et `7e07627`. `drawIsoGround` : 989 → **801 lignes**. isoRenderer : 2 922.*
+
+**Un prélude a été nécessaire.** La boucle appelait deux choses vivant au niveau module d'isoRenderer :
+`blitIsoTileKey` et `ISO_GROUND_SLICE`. Le blitteur est **rentré chez lui** dans `isoGroundTiles.js` —
+cinq de ses sept dépendances y vivaient déjà, les deux autres y étaient importées : **le rapatriement
+n'a coûté aucun import nouveau**, signe qu'il était dû. (L'en-tête d'`isoGroundTiles` affirmait le
+contraire depuis sa création ; c'était vrai le jour où il est né, plus après.) `ISO_GROUND_SLICE`, lu
+seulement, voyage dans le contexte.
+
+### Le contexte : trois objets, DESTRUCTURÉS À L'ENTRÉE
+
+27 lectures vers l'englobante — bien au-delà de la ligne rouge des dix paramètres du §3. Mais écrire
+`bake.ctx` partout aurait eu **deux** coûts : réécrire 194 lignes, et payer un accès de propriété par
+cellule dans **la boucle la plus chaude du bake** (~33 ms sur 87). D'où :
+
+```js
+export function sweepIsoGroundCells(bake, resolve, out) {
+  const { ctx, T, hw, hh, LOD, HARD, b, … , PR } = bake;
+  const { kindAt, grassAt, keyOfKind } = resolve;
+  const { fringes, roads, wonderCells, grassCells, veilPush } = out;
+  … 194 lignes reprises SANS UNE LIGNE DE CHANGÉE …
+}
+```
+
+> **La technique à retenir** : un objet de contexte **destructuré en tête** rend les locales *à leur
+> nom*. Le corps reste byte-identique — donc la preuve du §4 tient — et le code compilé retrouve ses
+> variables locales, donc la boucle chaude ne paie rien. **Condition** : qu'aucun de ces noms ne soit
+> RÉASSIGNÉ dans le corps (vérifié avant la coupe ; ici, aucun). Les tampons, eux, sont MUTÉS — légal
+> et voulu.
+
+Et les trois objets ne sont pas qu'un emballage : ils **disent ce que la passe fait**. Elle reçoit un
+contexte de cuisson, pose des questions, et remise ce qui se peindra en fournées.
+
+⚠ **P31 a mordu une seconde fois** : `groundTileDose.test.js` verrouille la formule
+`texAlpha = kind === 'urban' ? 0` en la cherchant dans le **texte** du source. Aucun balayage de
+symboles ne peut voir partir une garde qui ne porte aucun nom. Elle suit désormais `isoGroundCells.js`.
+
 ### La suite
 
-**B (222 l.)** — la boucle de cellules — puis **F (428 l.)** en dernier, qui porte la couche de marche
-et le plus d'état. C'est à partir de B que la prévision du §4 redevient vraie : un objet de contexte
-sera inévitable, et l'A/B pixel avec lui.
+Il ne reste que **F** (routes + seuils + couche de marche). C'est la plus grosse et la plus couplée :
+elle ouvre la couche de marche au milieu d'elle-même et la referme dans la passe suivante — une
+**ressource à durée de vie**, pas une donnée (cf. §2). La technique du contexte destructuré devrait
+s'y appliquer aussi ; ce qui demandera un choix, c'est la portée de `walkLayerBegin`/`walkLayerEnd`.
 
 ⚠ C'est aussi à partir de B et F que la prévision du §4 redeviendra vraie : là, un objet de contexte
 sera inévitable, et l'A/B pixel avec lui.
 
 ---
 
-Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 3 194 lignes — et c'est un état sain :
+Tant que la suite n'est pas tranchée, `isoRenderer.js` reste à 2 922 lignes — et c'est un état sain :
 chaque passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
