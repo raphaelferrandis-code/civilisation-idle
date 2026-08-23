@@ -1933,17 +1933,25 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > COORDINATION (l'ordre, les gates, le budget de frame) ? Tant que ce n'est pas decide, decouper
 > ferait des modules qui se repassent dix parametres — pire que le fichier actuel.
 >
-> 📄 **`docs/CARTO-drawIsoGround.md`** (2026-08-23) cartographie la premiere des trois : ses **9 passes**,
-> le **couplage mesure** (80 locales, dont **17 partagees par ≥ 3 passes**, 49 a une seule), un decoupage
-> propose qui ramenerait la fonction a ~180 lignes de coordination, et surtout **la garde a mettre en
-> place** — un A/B **dans la meme session** comparant les canevas pixel a pixel, puisque l'identite des
-> octets ne s'applique plus et que l'empreinte de canvas ne survit pas a un rechargement.
-> ⚠ Le risque propre a ce chantier, que les 19 tranches n'avaient pas : **une variable qu'on croit
-> locale a une passe et qu'une autre lisait**. Ni le lint, ni les tests, ni le build ne le voient — seule
-> la comparaison de pixels.
+> 📄 **`docs/CARTO-drawIsoGround.md`** — 🏁 **CLOSE**. Les 9 passes sont sorties, la fonction est passee
+> de **1 164 a 77 lignes**. Son §11 tire le bilan, et il faut le lire avant d'attaquer les deux autres :
+> la carte avait **predit a tort** que decouper un orchestrateur imposerait des changements de signature
+> et un A/B pixel obligatoire. **Les six coupes ont ete des deplacements purs**, grace au **contexte
+> destructure en tete** (les locales retrouvent leur nom → corps byte-identique, et la boucle chaude ne
+> paie aucun acces de propriete). L'A/B pixel n'a jamais servi — mais il reste la bonne reponse le jour
+> ou un decoupage changera vraiment du code.
 >
-> **Reste aussi, mais mineur** : la couche de MARCHE en pixels (149 l., 0 entrante), le SURVOL + le pool
-> d'items (59 l., 0 entrante), et le CACHE DU SOL (323 l.) — ce dernier depend des orchestrateurs
+> 📄 **`docs/CARTO-drawIsoLive.md`** (2026-08-23) — la deuxieme des trois, **cartographiee, non
+> decoupee**. 936 l. en 8 phases, d'architecture bien plus nette que le sol : **COLLECTE → TRI → DESSIN
+> → COMPOSITION**, un peintre a liste d'affichage. Couplage **deux fois plus faible** : 10 locales
+> partagees par ≥ 3 phases contre 17. Deux coupes proposees — la COLLECTE (384 l., **9** lectures vers
+> l'englobante) et le DESSIN (441 l., **12**) — qui rameneraient la fonction a **~110 lignes**.
+> ⚠ Seul nœud : l'etat des LOTS GPU est REASSIGNE (cf. P28), mais toutes ses ecritures tombent dans les
+> phases 5-6-7 — elles doivent donc partir ENSEMBLE. Meme motif que l'etat de saison et la couche de
+> marche : l'etat voyage avec son ecrivain.
+>
+> **Reste aussi, mais mineur** : le SURVOL + le pool d'items (59 l., 0 entrante — c'est le PRELUDE
+> naturel de `drawIsoLive`), et le CACHE DU SOL (323 l.) — ce dernier depend des orchestrateurs
 > (`drawIsoGround`, `drawIsoWorldInner`), donc il ne peut pas partir avant eux sans creer un cycle.
 >
 > ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas
