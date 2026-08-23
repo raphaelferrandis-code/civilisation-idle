@@ -28,6 +28,7 @@ import { diamondPath } from './isoQuad.js';
 import { COUR, builtCells, courOf } from './isoTissu.js';
 import { ROAD_DETAIL, roadTone } from './isoRoad.js';
 import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
+import { isBeachBankCell, beachPortCells } from './isoBeachCells.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { FRONTIER, frontierFlip, urbanMatFor } from './isoGroundDetail.js';
 import { plazaEraForBand, isoPlazaSceneCoversGround } from './isoPlaza.js';
@@ -129,38 +130,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     }
     return false;
   };
-  const beachBanks = (L.river && L.river.banks) || null;
-  // ⚠ LE PORT EST EXEMPTÉ DE L'EXCLUSION DES CELLULES BÂTIES. Retour Raph : « il y
-  // a une bande de gazon au port qui coupe la plage en 2 ». Mesuré : sur les 72
-  // cellules de berge concernées, 4 étaient écartées comme bâties — et les 4
-  // appartiennent au port. Son emprise (4×5) mord la berge en plein milieu de la
-  // grève et y laissait l'herbe. Or un port de rivière est un PONTON posé sur le
-  // rivage : du sable dessous est juste, et son sprite recouvre les cellules de
-  // toute façon. Les autres bâtiments gardent l'exclusion — pas de sable sous une
-  // maison — et les ROUTES aussi (une rampe vers le quai reste une rampe).
-  const beachPortCells = new Set();
-  for (const t of (L.tiles || [])) {
-    if (t.buildingId !== 'river_ports') continue;
-    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
-    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) beachPortCells.add((t.gx + ax) + ',' + (t.gy + ay));
-  }
-  const beachPts = (CM.quayGate && CM.quayGate.gapPts) || null;
-  // BERGES : une cellule de `river.banks` — donc qui TOUCHE l'eau par construction,
-  // impossible de dériver vers l'intérieur des terres — et proche d'un point où le
-  // quai ne trace pas (cf. gapPts dans renderWorld pour les deux formes ratées qui
-  // ont mené à celle-ci). Le rayon fait de la coupe de 4 samples du port une
-  // grève d'une douzaine de tuiles, assez pour se lire, et fond la plage dans la
-  // maçonnerie au lieu de l'arrêter net contre elle.
-  const beachBankAt = (gx, gy, key) => {
-    if (!BEACH.on || !beachBanks || !beachPts || !beachPts.length) return false;
-    if (!beachBanks.has(key)) return false;
-    const cx = gx + 0.5, cy = gy + 0.5, r2 = BEACH.bankR * BEACH.bankR;
-    for (const p of beachPts) {
-      const dx = cx - p.x, dy = cy - p.y;
-      if (dx * dx + dy * dy <= r2) return true;
-    }
-    return false;
-  };
+  // Le port échappe à l'exclusion du bâti (le pourquoi est dans isoBeachCells) : l'île
+  // en a besoin comme la berge, d'où cet ensemble ici. La règle de la BERGE, elle, est
+  // partie tout entière — exclusions comprises — dans `isBeachBankCell`.
+  const portCells = beachPortCells(L);
+
   // ÎLES : anneau extérieur de l'ellipse, en coordonnées de l'île (`tx,ty` = le sens
   // du courant). Test ANALYTIQUE, donc exact quelle que soit l'orientation — aucun
   // jeu de cellules à maintenir pour l'île.
@@ -203,7 +177,7 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // rôle : lui seul suit la courbe au pixel et lisse l'escalier des cellules
     // sur la ligne d'eau. Priorité AVANT le sol de ville, sans quoi l'emprise de
     // la merveille reprendrait l'île (mesuré : 60 cellules urbaines sur 89).
-    else if (!isWater && !isRoad && (!built.has(key) || beachPortCells.has(key))
+    else if (!isWater && !isRoad && (!built.has(key) || portCells.has(key))
       && beachIslandAt(gx, gy)) k = BEACH.mat;
     // ── PLAGE SUR LES BERGES DU FLEUVE, AVANT LE SOL DE VILLE ─────────────────
     // ⚠ Cette priorité est le cœur du correctif, et elle a coûté deux essais.
@@ -216,8 +190,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // merveille, les ROUTES (un pont qui traverse l'île reste un pont) et toute
     // cellule BÂTIE — sauf le PORT lui-même, cf. beachPortCells : son emprise
     // mordait la grève en plein milieu et y laissait une bande d'herbe.
-    else if (!isWater && !isRoad && (!built.has(key) || beachPortCells.has(key))
-      && beachBankAt(gx, gy, key)) k = BEACH.mat;
+    // ⚠ MÊME RÈGLE QUE LA PENTE DE GRÈVE, ET C'EST LE POINT : elle vit désormais dans
+    // `isoBeachCells`, appelée ici par le SOL CUIT et là-bas par la passe vive du fleuve.
+    // Les exclusions (route, bâti sauf port) sont parties avec elle — les redoubler ici
+    // rouvrirait l'écart que l'extraction ferme.
+    else if (!isWater && isBeachBankCell(L, gx, gy)) k = BEACH.mat;
     // Routes HORS tissu urbain : fond d'HERBE depuis le 2026-07-20 (retour Raph :
     // le fond de cellule 'dirt' — aplat terre + tuile de mottes — dépassait du
     // ruban en « pavé de terre » cranté à la jonction herbe↔sol). Le chemin se

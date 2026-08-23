@@ -145,3 +145,58 @@ describe('relief — le pont est passé par l axe', () => {
     }
   });
 });
+
+describe('relief — la grève est une PENTE, pas un autocollant', () => {
+  // Troisième situation du bord de l'eau (cf. isoRelief) : là où la berge est du SABLE,
+  // elle n'avait aucune face — mesuré le 2026-08-24, le sable s'arrêtait à plat sur le
+  // bleu. Ces gardes tiennent les trois choses qui ont coûté cher à trouver.
+
+  it('la règle de la grève n existe qu en UN exemplaire', () => {
+    // ⚠ Le sol CUIT et la passe VIVE du fleuve doivent poser la même question au même
+    // endroit. Le premier jet dupliquait le critère dans isoRiver — sans les exclusions —
+    // et la pente se posait devant le quartier pavé de la rive opposée.
+    const src = SRC('iso/isoBeachCells.js');
+    expect(src).toMatch(/export function isBeachBankCell\(L, gx, gy\)/);
+    for (const f of ['iso/isoGroundResolve.js', 'iso/isoRiver.js']) {
+      expect(SRC(f)).toContain('isBeachBankCell');
+    }
+    // Les exclusions vivent AVEC la règle, pas à côté d'elle.
+    expect(src).toContain('L.roadSet.has(key)');
+    expect(src).toContain('beachPortCells(L).has(key)');
+    // …et plus personne ne rejoue la proximité d'un trou de quai à la main.
+    expect(SRC('iso/isoGroundResolve.js')).not.toContain('BEACH.bankR');
+    expect(SRC('iso/isoRiver.js')).not.toContain('BEACH.bankR');
+  });
+
+  it('la pente se peint APRÈS la bande de sable, jamais avant', () => {
+    // ⚠⚠ LA GARDE QUI VAUT LE PLUS. Posée au même endroit que la face de berge, la pente
+    // était intégralement recouverte par `bankBand` — un trait de 140 px au zoom 4 quand
+    // la marche en fait 48. Le tracé était juste, il était peint dessous : une demi-heure
+    // à chercher un bug de géométrie qui n'existait pas. L'ordre EST le mécanisme.
+    const src = SRC('iso/isoRiver.js');
+    const bande = src.indexOf('BEACH.bankBand * T * z * 2');
+    const pente = src.indexOf('LA GRÈVE EN PENTE');
+    expect(bande).toBeGreaterThan(-1);
+    expect(pente).toBeGreaterThan(bande);
+  });
+
+  it('l axe HORIZONTAL de buildEdges existe, et le vertical avec lui', () => {
+    // Une grève a besoin de rives INTERMÉDIAIRES — un retrait et une altitude
+    // quelconques — que les modes nommés ne savent pas décrire. Sans ce paramètre il
+    // faudrait une seconde géométrie de berge à maintenir en parallèle.
+    const src = SRC('iso/isoRiver.js');
+    expect(src).toMatch(/buildEdges = \(mode, withIslands = islandsOn, ramp = null\)/);
+    expect(src).toMatch(/ramp \? p\.hw \+ ramp\.dhw/);
+    expect(src).toMatch(/ramp \? ramp\.wz/);
+  });
+
+  it('rien de la pente n existe quand le relief est à zéro', () => {
+    // Garde de COÛT autant que de rendu : à `steps: 2` la pente bâtit CINQ jeux de rives,
+    // autant que tout le reste du fleuve. L'état par défaut du jeu (relief nul, décision
+    // de Raph encore en attente) ne doit pas en payer un seul.
+    const src = SRC('iso/isoRiver.js');
+    expect(src).toMatch(/const greveOn = waterSinkPx\(\) > 0 && GREVE\.on/);
+    RELIEF.water = 0;
+    expect(waterSinkPx()).toBe(0);
+  });
+});

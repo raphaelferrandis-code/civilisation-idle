@@ -20,7 +20,8 @@
 // ⚠ AUCUN CYCLE : `quaysAndRiot` et `riverFleet` ne remontent jamais vers le
 // peintre (vérifié avant la coupe), et `isoRiverLife` reçoit ce dont il a besoin
 // par INJECTION (`configureRiverLife`), pas par import.
-import { BANK_FACE, waterSinkPx, waterZ } from './isoRelief.js';
+import { BANK_FACE, GREVE, waterSinkPx, waterZ } from './isoRelief.js';
+import { isBeachBankCell } from './isoBeachCells.js';
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 // ⚠ L'INJECTION VIT ICI, pas dans le peintre : c'est le fleuve qui donne à la vie du
@@ -1601,7 +1602,13 @@ export function drawIsoRiver(now) {
       // coïncident aujourd'hui : NE PAS EN CONCLURE que la séparation est morte.
       // C'est elle qui garantit qu'un futur retrait du bleu ne remmènera pas le
       // sable avec lui. Elle ne se voit que le jour où le drapeau retombe.
-      const buildEdges = (mode, withIslands = islandsOn) => {
+      // ⚠ 3e paramètre `ramp = { dhw, wz }` (2026-08-24) : il OUVRE L'AXE HORIZONTAL de
+      // cette fonction. Les modes nommés ne peuvent décrire que les bords que le fleuve
+      // possède déjà (lit peint, bord d'eau, laisse) ; une GRÈVE a besoin de rives
+      // INTERMÉDIAIRES, à un retrait et une altitude quelconques. Avec `ramp`, un niveau
+      // de pente est un jeu de rives comme un autre — même chemin, mêmes tronçons, même
+      // convention de signe — et il n'y a pas deux géométries de berge à maintenir.
+      const buildEdges = (mode, withIslands = islandsOn, ramp = null) => {
         const out = [];
         [1, -1].forEach((sgn, si) => {
           const runs = si ? runsMinus : runsPlus;
@@ -1612,11 +1619,12 @@ export function drawIsoRiver(now) {
             // ⚠ `si = 0` ↔ `sgn = +1` ↔ rive `plus` : même convention de signe que
             // riverRibbonScreen (left = +n). L'inverser décollerait le liseré du
             // bord de l'eau d'un côté sur deux, et seulement quand l'onde est haute.
-            const hw = (mode === 'base' || !wv) ? p.hw
-              : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
-                : (si ? wv.minus[i] : wv.plus[i]);
+            const hw = ramp ? p.hw + ramp.dhw
+              : (mode === 'base' || !wv) ? p.hw
+                : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
+                  : (si ? wv.minus[i] : wv.plus[i]);
             const q = worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T,
-              mode !== 'base' ? waterZ() : 0);
+              ramp ? ramp.wz : (mode !== 'base' ? waterZ() : 0));
             // ⚠⚠ CETTE FONCTION PROJETTE ELLE-MÊME — elle ne passe PAS par
             // `riverRibbonScreen`, donc elle n'héritait PAS de l'enfoncement de la
             // nappe (lot 1). Le bas-fond et le liseré restaient au niveau d'avant
@@ -1630,7 +1638,10 @@ export function drawIsoRiver(now) {
             // `drawBankFace` y peint.
             path.push(q);
           }
-          out.push({ path, runs });
+          // `sgn` VOYAGE AVEC LE JEU DE RIVES, il ne se redéduit PAS de l'indice : une
+          // rive sans tronçon sort avant d'empiler, donc `out[0]` n'est pas toujours la
+          // rive `plus`. Les faces en ont besoin pour savoir de quel côté elles sont.
+          out.push({ path, runs, sgn });
         });
         // La BERGE D'UNE ÎLE est une rive comme les autres : elle reçoit le même
         // bas-fond. Sans ça, l'île se découpait au couteau dans l'eau — un ovale
@@ -1658,6 +1669,49 @@ export function drawIsoRiver(now) {
           }
         }
       };
+      // ── QUI PORTE QUELLE FACE, LE LONG DE LA MÊME RIVE ─────────────────────
+      // Trois situations au bord de l'eau, mesurées le 2026-08-24 à `water: 3` :
+      // le quai maçonné fait la face là où il trace ; la BERGE NUE reçoit `BANK_FACE` ;
+      // et la GRÈVE — le sable — n'avait RIEN, elle s'arrêtait à plat sur le bleu.
+      // Les deux faces vives se partagent donc le ruban sample par sample, sinon la
+      // terre poserait une falaise brune au milieu d'une plage.
+      //
+      // La règle est celle d'`isoBeachCells` — LA MÊME que celle du sol cuit, pas une
+      // imitation. Premier jet : le fleuve rejouait la seule proximité d'un trou de quai
+      // et posait la pente devant le quartier PAVÉ de la rive opposée. Les exclusions
+      // (route, bâti sauf port) ne sont pas un détail de la règle, elles SONT la règle.
+      //
+      // ⚠ ON SONDE UNE DEMI-TUILE VERS LA TERRE, pas le bord d'eau lui-même : `p.hw` est
+      // exactement la ligne d'eau, et l'arrondi y tombe une fois sur deux dans la cellule
+      // MOUILLÉE, qui n'est pas une berge. Le demi-pas garantit la première cellule sèche.
+      const gapPts = (CM.quayGate && CM.quayGate.gapPts) || null;
+      // ⚠⚠ LA PENTE SE PEINT AVEC LES COUCHES DE PLAGE, PAS AVANT L'EAU — et ça a coûté
+      // une demi-heure de fausses pistes. Posée au même endroit que la face de berge,
+      // elle était intégralement RECOUVERTE par la bande de sable (`bankBand`), un trait
+      // de 0,55 tuile d'épaisseur DOUBLE — 140 px au zoom 4, quand la marche n'en fait
+      // que 48. Le tracé était juste (mesuré : contremarches d'exactement 48 px, `epX`
+      // nul), il était simplement peint dessous. La grève doit avoir le DERNIER MOT au
+      // bord de l'eau, sinon elle n'existe pas.
+      const greveOn = waterSinkPx() > 0 && GREVE.on && GREVE.steps > 0 && !!(gapPts && gapPts.length);
+      const sandAt = (i, sgn) => {
+        if (!BEACH.on || !CM.layout) return false;
+        const p = pts[i], n = nAt(i);
+        const d = p.hw + 0.5;
+        return isBeachBankCell(CM.layout, Math.floor(p.x + sgn * n.nx * d), Math.floor(p.y + sgn * n.ny * d));
+      };
+      // Découpe un tronçon selon ce prédicat. `want` dit lequel des deux camps on veut :
+      // la grève prend `true`, la face de terre `false`, et ensemble ils recouvrent le
+      // tronçon sans recouvrement — c'est ce qui rend le partage vrai par construction.
+      const splitRun = (a, b, sgn, want) => {
+        const out = [];
+        let s = -1;
+        for (let i = a; i <= b; i += 1) {
+          if (sandAt(i, sgn) === want) { if (s < 0) s = i; }
+          else if (s >= 0) { if (i - 1 > s) out.push([s, i - 1]); s = -1; }
+        }
+        if (s >= 0 && b > s) out.push([s, b]);
+        return out;
+      };
       // ── FACE DE BERGE NATURELLE (lot 1 du relief) ──────────────────────────
       // ⚠ AVANT le clip d'eau, et c'est la raison d'être de sa place ici : une face
       // de berge est AU-DESSUS de l'eau, elle serait entièrement rognée à l'intérieur.
@@ -1681,7 +1735,7 @@ export function drawIsoRiver(now) {
         ctx.save();
         for (let s = 0; s < bas.length && s < haut.length; s += 1) {
           const eb = bas[s], eh = haut[s];
-          for (const [a, b] of eb.runs) {
+          for (const [a, b] of eb.runs.flatMap(([u, v]) => splitRun(u, v, eb.sgn, false))) {
             if (b <= a) continue;
             // L'eau est-elle devant ? On lit la géométrie déjà construite : le bord
             // d'eau plus bas que le lit à l'écran.
@@ -1750,7 +1804,7 @@ export function drawIsoRiver(now) {
       // La moitié intérieure du trait tombe donc dans l'eau et disparaît, et il ne
       // reste que la lisière mouillée sur la berge. Même géométrie, mêmes tronçons
       // que le bas-fond : les deux franges se répondent au pixel.
-      if (BEACH.on && BEACH.wet > 0 && !CM.lodActive) {
+      if (BEACH.on && (BEACH.wet > 0 || greveOn) && !CM.lodActive) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(0, 0, CM.cw, CM.ch);
@@ -1778,6 +1832,67 @@ export function drawIsoRiver(now) {
           // Le clip côté terre, lui, est bien celui du ruban ANIMÉ — d'où la bande
           // qui s'amincit quand l'onde monte et se rouvre quand elle redescend.
           shore(beachStrokeStyle(ctx, z), Math.max(2, BEACH.bankBand * T * z * 2), edgesSand);
+          ctx.restore();
+        }
+        // ── LA GRÈVE EN PENTE (lot 1 du relief) ────────────────────────────────
+        // ⚠⚠ CE QUI DISTINGUE UNE GRÈVE D'UNE BERGE : L'EMPRISE HORIZONTALE. Une berge
+        // de terre se casse net, donc sa face tient dans l'épaisseur nulle du bord. Une
+        // grève DESCEND — sans largeur elle n'est pas une pente, c'est un mur de sable.
+        // La pente se creuse donc VERS L'INTÉRIEUR (`GREVE.run` tuiles), dans le sable sec
+        // déjà cuit au sol : elle n'ajoute pas de plage, elle incline celle qui existe.
+        //
+        // Chaque marche = un REPLAT (horizontal, sable nu — il prend la lumière comme le
+        // sol, le teinter le ferait lire comme une matière étrangère) suivi d'une
+        // CONTREMARCHE (verticale, sable assombri). Seule la contremarche est une face :
+        // c'est elle, et elle seule, qui doit se voir.
+        //
+        // ⚠ AVANT LE CLIP D'EAU, même raison que la face de berge : la pente est
+        // au-dessus de la nappe, elle serait entièrement rognée à l'intérieur. Sa
+        // dernière contremarche meurt exactement sur la ligne d'eau — le ruban la
+        // recouvrira, et c'est ainsi que le sable disparaît sous le fleuve.
+        if (greveOn) {
+          const NS = Math.max(1, GREVE.steps | 0);
+          // Le nez de la marche k, puis le fond de son replat — MÊME altitude, retrait
+          // suivant. `A[k]` → (retrait o_k, altitude z_k) ; `M[k]` → (o_{k+1}, z_k).
+          // Replat k = bande(A[k], M[k]) ; contremarche k = bande(M[k], A[k+1]).
+          // ⚠ BÂTIS UNE FOIS, hors des boucles : un jeu de rives coûte une projection par
+          // sample et par rive, et le ruban est déjà le goulot de la frame. À `steps: 2`
+          // cela fait cinq jeux — autant que tout le reste du fleuve réuni. La garde
+          // `waterSinkPx() > 0` est donc aussi une garde de COÛT : à relief nul, l'état
+          // par défaut du jeu, pas une seule de ces projections n'a lieu.
+          const oAt = (k) => GREVE.run * (1 - k / NS);
+          const zAt = (k) => waterZ() * (k / NS);
+          const A = [], M = [];
+          for (let k = 0; k <= NS; k += 1) A.push(buildEdges('base', false, { dhw: oAt(k), wz: zAt(k) }));
+          for (let k = 0; k < NS; k += 1) M.push(buildEdges('base', false, { dhw: oAt(k + 1), wz: zAt(k) }));
+          const sable = beachStrokeStyle(ctx, z);
+          const ombre = `rgba(26,18,10,${GREVE.riser})`;
+          const bande = (P, Q, a, b, face) => {
+            ctx.beginPath();
+            ctx.moveTo(P.path[a].x, P.path[a].y);
+            for (let i = a + 1; i <= b; i += 1) ctx.lineTo(P.path[i].x, P.path[i].y);
+            for (let i = b; i >= a; i -= 1) ctx.lineTo(Q.path[i].x, Q.path[i].y);
+            ctx.closePath();
+            ctx.fillStyle = sable; ctx.fill();
+            if (face) { ctx.fillStyle = ombre; ctx.fill(); }
+          };
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          for (let s = 0; s < A[0].length; s += 1) {
+            const sgn = A[0][s].sgn;
+            for (const [u, v] of A[0][s].runs) {
+              for (const [a, b] of splitRun(u, v, sgn, true)) {
+                // Du haut vers l'eau : chaque pièce descend, donc l'ordre de la descente
+                // EST l'ordre du peintre — aucun tri à faire.
+                for (let k = 0; k < NS; k += 1) {
+                  // Le replat 0 EST le sol lui-même (altitude nulle, même sable) : le
+                  // peindre ne ferait qu'y poser une pièce de texture désalignée.
+                  if (k > 0) bande(A[k][s], M[k][s], a, b, false);
+                  bande(M[k][s], A[k + 1][s], a, b, true);
+                }
+              }
+            }
+          }
           ctx.restore();
         }
         // Frange mouillée : elle suit la MATIÈRE, donc la même règle de neige que
