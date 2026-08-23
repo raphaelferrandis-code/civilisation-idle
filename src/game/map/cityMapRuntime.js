@@ -69,7 +69,6 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // oubliait `vehSkinFor`.
 import { cityMapCalmRioterAt, quayWallTune } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
-import { pixelSidewalkFlag, sidewalkTune } from './pixelTerrain.js';
 import { pixelBridgeFlag } from './pixelBridge.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
@@ -2274,10 +2273,10 @@ function initCityMap(canvas, options = {}) {
     };
     // ⚠ `__pixelTerrain` et `__pixelRoads` pilotaient le terrain et les routes du
     // rendu top-down : retirés le 2026-08-23 avec `drawPixelTerrain` (étape 6).
-    // Trottoir : on/off + réglage live. __sidewalkTune({ widthK, curbK, desat, lift, minBand })
-    // fusionne les clés passées ; les deux rebakent le sol. Ex. __sidewalkTune({ widthK: 7 }).
-    window.__sidewalk = (on) => { pixelSidewalkFlag.on = on !== false; CM._groundBake = null; };
-    window.__sidewalkTune = (o) => { if (o) Object.assign(sidewalkTune, o); CM._groundBake = null; return { ...sidewalkTune }; };
+    // `__sidewalk` / `__sidewalkTune` les ont suivis le même jour (Q1) : elles
+    // ÉCRIVAIENT dans `pixelSidewalkFlag`/`sidewalkTune` que plus personne ne
+    // LISAIT, et invalidaient `CM._groundBake` — le bake du top-down, disparu avec
+    // lui. Deux molettes sans effet depuis l'étape 6, et rien ne le signalait.
     // Bord de quai = berge maçonnée : réglage live. __quayWall({ on, full, heightK, joints })
     // fusionne les clés. full=true → tout le long de l'eau ; false → berges urbaines.
     // Quai LIVE → pas de rebake. Ex. __quayWall({ full: false }) / __quayWall({ heightK: 1.4 }).

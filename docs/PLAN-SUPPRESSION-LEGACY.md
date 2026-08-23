@@ -340,7 +340,7 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | `public/pixelart/trees/` (7) | delete | bas | Retirer **aussi** le prechargement renderWorld.js:240. Generateur : `scripts/fetchTrees.mjs` (orphelin, son en-tete cite `TREE_SPRITES`, symbole deja inexistant) |
 | `public/pixelart/streets*.png` (11) | delete | bas | Retirer aussi `ensureStreet` + pixelTerrain.js:111 |
 | `public/pixelart/roads/*.edge.png` (10) | delete | bas | Retirer aussi pixelTerrain.js:43-48 |
-| `public/pixelart/roads/*.png` + `*.json` (20) | **keep** | **HAUT** | Voir piege P4 |
+| `public/pixelart/roads/*.png` + `*.json` (20) | ~~keep~~ → ✔ **SUPPRIMES** | ~~HAUT~~ | **Q1 tranchee le 2026-08-23 : la branche qui les lisait est MORTE.** 180 Ko partis. Regenerables via `_archive/coupled/` + `separatePixelTerrain.mjs` |
 | `public/pixelart/water/{water,reeds-0..2}.png` | trim | bas | `water.png` : lecture **non gardee** par `scripts/retintWater.mjs:30` |
 | `public/pixelart/water/river-tiles.png` | keep | haut | isoRenderer.js:2622 |
 | `public/pixelart/grass.png` | trim | bas | Lecture **non gardee** par `scripts/makeGrassEdge.mjs:26`. Regenere par `separatePixelTerrain.mjs` |
@@ -353,7 +353,7 @@ simulation d'emeute.** Renommage a envisager (voir §6 Q5).
 | `public/pixelart/_archive/` | ~~delete~~ → **KEEP** | ~~bas~~ **HAUT** | ⚠⚠ **CORRIGE le 2026-08-23 : le dossier N'EST PLUS VIDE.** 33 entrees, dont `coupled/` (20 fichiers). Il est **non suivi par git** — le supprimer serait **IRRECUPERABLE**. C'est la source de `separatePixelTerrain.mjs`, donc de `roads/*.png`. **NE PAS Y TOUCHER.** Voir P16 corrige |
 | `scripts/makeStreetTiles.mjs`, `fetchStreetSurfaces.mjs` | delete | bas | Deja inoperants (`_streets_src/` n'existe plus) |
 | `scripts/makeGrassEdge.mjs`, `fetchTrees.mjs`, `fetchMedians.mjs`, `retintWater.mjs` | trim | bas | Generateurs orphelins de leurs assets. Voir §6 Q6 |
-| `scripts/separatePixelTerrain.mjs` | **keep** | moyen | Seul regenerateur de `roads/<band>.png` (asset keep/haut). ~~Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables~~ → **FAUX depuis le 2026-08-23 : `coupled/` contient de nouveau 20 fichiers**, `roads/*.png` est donc REGENERABLE. Voir P16 corrige |
+| `scripts/separatePixelTerrain.mjs` | **keep** | ~~moyen~~ bas | Seul regenerateur de `roads/<band>.png` — **asset supprime le 2026-08-23 (Q1)**, le script devient une memoire de fabrication : son sort revient a Q6. ~~Sa source `_archive/coupled/` est vide : ces 20 fichiers sont irremplacables~~ → **FAUX depuis le 2026-08-23 : `coupled/` contient de nouveau 20 fichiers**, `roads/*.png` est donc REGENERABLE. Voir P16 corrige |
 
 ---
 
@@ -1738,16 +1738,46 @@ emeute (`__collapse`), et un clic d'apaisement sur un emeutier.
 > que ce qu'elles nomment.
 
 **Q1 — `public/pixelart/roads/*.png|json` : les champs irrigues passent-ils encore par
-`drawEraGroundFill` en iso ?**
-Statiquement, la reference est vivante (`cityEngineSprites.js:2931` ← `isoRenderer.js:24`). Mais l'iso
-refuse explicitement les scenes moteur pour les champs (`isoRenderer.js:4844`) et les redessine avec
-`drawIsoField` (`isoRenderer.js:6227`). **Indecidable par recherche** : il faut le mesurer a l'encre, en
-jeu. Si la branche est morte, `pixelTerrain.js` disparait **en entier** et 177 Ko d'assets partent.
-~~Rappel P16 : ces 20 fichiers **ne sont plus regenerables** (source `_archive/coupled/` vide).~~
-**⚠ CE FREIN A SAUTE le 2026-08-23 : `_archive/coupled/` contient de nouveau ses 20 fichiers, donc
-`roads/*.png` EST regenerable** (P16 corrige). Il reste a mesurer a l'encre si la branche est vivante,
-mais le risque en cas d'erreur n'est plus irreversible.
-*Bloque l'etape 6.3 et une partie de l'etape 8.*
+`drawEraGroundFill` en iso ? — ✔ TRANCHEE le 2026-08-23 : LA BRANCHE EST MORTE. Supprimee.**
+
+⚠⚠ **ET ELLE ETAIT DECIDABLE PAR RECHERCHE**, contrairement a ce que disait cette question. Pas par
+erreur d'analyse : **les circonstances ont change depuis qu'elle a ete ecrite**. Elle datait d'avant les
+etapes 4-7, quand le pipeline top-down offrait une SECONDE route vers le peintre de scenes. Ce pipeline
+retire, il n'en reste qu'une, et elle est fermee. → **Leçon : une question marquee « indecidable » doit
+etre RE-POSEE apres chaque etape qui retire un chemin.** Sinon on garde un blocage qui n'existe plus.
+
+**La chaine, fermee bout a bout** : `drawEraGroundFill` (pixelTerrain.js:82) n'a qu'UN appelant,
+`cityEngineSprites.js:3297`, dans la branche `id === "irrigated_fields"` de `drawCityEngineSprite`. On
+n'entre dans `drawCityEngineSprite` que par `drawEngineSprite`, qui n'a que DEUX importeurs :
+`iso/isoEngineScene.js` et `engineSceneCache.js` — et le cache n'a lui-meme qu'un consommateur,
+`drawIsoEngineScene`, **apres** le refus. Or `drawIsoEngineScene` (isoEngineScene.js:239) rend `false`
+pour `/field|farm|crop|orchard/i` **avant tout dessin**. Aucun champ n'atteint donc jamais ce peintre.
+
+**Confirme a l'execution**, porte interrogee en direct : `irrigated_fields`, un variant `farm-plot` et
+`orchards` rendent tous `false` ; les deux TEMOINS non-champs (`water_mills`, `markets`) rendent bien
+leur boite. La porte discrimine — le test prouve donc quelque chose.
+
+**Ce qui est parti** : `src/game/map/pixelTerrain.js` (96 l.) et les **20 fichiers de
+`public/pixelart/roads/` (180 Ko)**, plus l'import et l'appel cote `cityEngineSprites` (l'aplat brun qui
+servait de repli devient le rendu — c'est deja ce que faisait le code tileset non charge).
+✔ **Verifie a l'ecran** : les 20 requetes `roads/band*` du demarrage ont disparu, la carte peint a
+l'identique (meme cle de bake, 782 echantillons opaques, 53 teintes).
+
+⚠⚠ **CORRECTION A CETTE QUESTION : « pixelTerrain disparait en entier » etait vrai, mais pas pour la
+raison ecrite.** Le fichier exportait AUSSI `pixelSidewalkFlag` et `sidewalkTune` — deux objets
+**EN ECRITURE SEULE** : `cityMapRuntime` les importait pour publier `window.__sidewalk` /
+`__sidewalkTune`, molettes qui les MUTAIENT et invalidaient `CM._groundBake`… le bake du top-down,
+disparu a l'etape 6 avec `drawPixelTerrain`, la passe qui devait rendre ce trottoir. **Deux molettes
+sans aucun effet depuis l'etape 6, et rien ne le signalait** — ni le lint (l'import etait « utilise »),
+ni les tests. Retirees avec le reste.
+→ **Leçon : une MOLETTE DE DEV est un consommateur qui trompe le lint.** Un flag ecrit par une molette
+et lu par personne reste vert pour tous les outils. Chercher les LECTURES, pas les usages.
+
+⚠ **Le filet tient** : les 20 assets etaient SUIVIS PAR GIT (donc `git checkout` les rend), et
+`public/pixelart/_archive/coupled/` (20 fichiers, NON suivis, donc precieux) + `separatePixelTerrain.mjs`
+les regenerent. **Ne pas toucher a `_archive/`** (cf. P16).
+⚠ `scripts/separatePixelTerrain.mjs` est CONSERVE : c'est Q6 qui tranchera le sort des generateurs.
+*Debloque l'etape 6.3 et la partie de l'etape 8 qui en dependait.*
 
 **Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ?**
 `isoBridge3dFlag` vaut `{on: true}` par defaut (isoBridge.js:47). Tant qu'il existe,

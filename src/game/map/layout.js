@@ -208,7 +208,7 @@ function roadWidthFor(rank, eraIndex) {
 }
 
 // Demi-largeur (en tuiles) du REFUGE CENTRAL PLANTÉ des grands axes ; 0 hors
-// avenue/main. SOURCE UNIQUE : le rendu du terre-plein (pixelMedian / pixelTerrain)
+// avenue/main. SOURCE UNIQUE : le rendu du terre-plein (iso/isoStreet.drawIsoMedians)
 // ET le décalage de voie des agents (agents.js) s'y calent → les voies sont de
 // chaque côté et PERSONNE ne roule/marche sur le refuge.
 function medianHalfFor(rank, eraIndex) {
@@ -1912,7 +1912,7 @@ function computeMedianSegments(roadMap) {
 // (≥ MIN_RUN, sinon miettes). Il s'interrompt naturellement AUX intersections (le
 // croisement rend le couloir « plus large que 2 » → la traversée reste dégagée),
 // exclut ponts et places, et IGNORE les paires d'autres rangs (dessertes collées
-// par accident). Entité PURE exposée en `L.terrePlein` : le rendu (pixelTerrain)
+// par accident). Entité PURE exposée en `L.terrePlein` : le rendu (iso/isoStreet)
 // ET toute déco future (fleurs/arbres/lampadaires) itèrent ces segments.
 //   { axis:"v", x,  y0, y1 } = couture verticale entre les colonnes x et x+1 ;
 //   { axis:"h", y,  x0, x1 } = couture horizontale entre les rangées y et y+1.
@@ -3577,7 +3577,7 @@ function computeCityLayout(s) {
   lp("graphe");
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
   // Refuge planté = mobilier d'avenue : réservé aux âges qui en tracent (band 2+,
-  // cf. pixelMedian « à partir des avenues »). Avant, un camp/hameau laissait des
+  // cf. iso/isoStreet « à partir des avenues »). Avant, un camp/hameau laissait des
   // haies fleuries au milieu de ses pistes dès que deux voies se collaient.
   const terrePlein = ageCfg.roadRanks.avenue ? computeTerrePleinSegments(roadGraph.roadMap, N) : []; // couture des voies collées
   // Cellules de SOL (ni route, ni bâti, ni eau) coincées ENTRE deux routes (route à l'ouest
@@ -3620,7 +3620,7 @@ function computeCityLayout(s) {
   // Frontière organique de la cité (organicLimit, petite marge pour englober les
   // rues/bâtis de lisière) ∪ emprises bâties, hors fleuve. PAS le roadSet complet :
   // les routes qui sortent vers la campagne restent sur l'herbe (pas de tentacule).
-  // Consommée par le sol pixel-art (pixelTerrain) ; les rues se dessinent PAR-DESSUS.
+  // Consommée par le SOL BAKÉ (iso/isoGroundBake) ; les rues se dessinent PAR-DESSUS.
   const urbanSet = new Set();
   for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
     const k = gx + "," + gy;

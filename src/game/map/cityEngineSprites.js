@@ -7,7 +7,6 @@
  * Partagé par TOUS les bâtiments achetés : `kind` choisit le motif (food, market,
  * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
  * ========================================================================== */
-import { drawEraGroundFill } from './pixelTerrain.js';
 import { AGENT_SCALE } from './agents.js';
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
@@ -3292,9 +3291,15 @@ function drawCityEngineSprite(context) {
     //    côte à côte) ; paysan qui marche LENTEMENT entre les parcelles. Stades
     //    1-3 = patchwork procédural + arroseur (plus bas). Repli sinon.
     if (propReady('field-prop-crop-green')) {   // pixel-art TOUS STADES (stade 3 = néon)
-      // Sol = MATIÈRE DE L'ÂGE (tuile pleine du tileset route de la bande : terre
-      // battue → gravier → pavé…) ; repli sur un aplat brun si pas encore chargée.
-      if (dBack) { if (!drawEraGroundFill(ctx, ox, oy, sw, sh, band, sw / Math.max(1, gw))) px(0, 0, 1, 1, pathCol); }
+      // Sol = aplat de terre battue / béton clair selon le stade.
+      // ⚠ Une MATIÈRE DE L'ÂGE a vécu ici : `drawEraGroundFill` pavait ce fond avec
+      // la tuile pleine du tileset de route de la bande (pixelTerrain.js), et cet
+      // aplat n'en était que le repli. Retirée le 2026-08-23 avec pixelTerrain —
+      // Q1 du plan de suppression du legacy : la mesure a montré que ce peintre
+      // n'est JAMAIS atteint depuis que la carte est iso. `drawIsoEngineScene`
+      // refuse les empreintes à plat (/field|farm|crop|orchard/) avant tout dessin,
+      // et c'est la seule route qui mène ici. Le repli est donc devenu le rendu.
+      if (dBack) px(0, 0, 1, 1, pathCol);
       const GREEN = 'field-prop-crop-green', GOLD = 'field-prop-crop-gold', FALLOW = 'field-prop-fallow', NEON = 'field-crop-neon';
       const neonOn = stage === 3 && propReady(NEON);   // stade 3 = hydroponie néon
       const blitTile = (key, cx, cy, w, h, rot) => {
