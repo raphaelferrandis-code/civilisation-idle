@@ -138,3 +138,19 @@ export function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg) {
     seg(inset(a, 0.16), inset(b, 0.16), shade(WONDER_GROUND.rim), Math.max(1, hw * 0.09));
   }
 }
+
+// Le PARVIS D'UNE FOURNÉE, tampon compris. Sorti de drawIsoGround le 2026-08-23 :
+// l'orchestrateur n'a plus à savoir que `wonderCells` est un tableau PLAT empaqueté
+// par 4 (gx, gy, px, py) — ce format appartient à qui le remplit et à qui le lit.
+// ⚠ L'ORDRE EST LE POINT : tout le dallage, PUIS toute la margelle. La margelle
+// encadre le parvis et doit rester au-dessus des joints.
+export function drawWonderGroundAll(ctx, wonderCells, hw, hh, wg) {
+  if (wonderCells.length) {
+    for (let i = 0; i < wonderCells.length; i += 4) {
+      drawWonderPaving(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh);
+    }
+    for (let i = 0; i < wonderCells.length; i += 4) {
+      drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg);
+    }
+  }
+}

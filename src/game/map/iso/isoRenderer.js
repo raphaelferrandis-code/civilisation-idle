@@ -129,7 +129,7 @@ import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
 // Parvis des merveilles (ensemble de cellules) et forêt sauvage — extraits le
 // 2026-08-23. Le parvis vit à part parce que DEUX passes le lisent : le sol y pose
 // son dallage, la forêt refuse d'y planter.
-import { WONDER_GROUND, wonderGroundSet, drawWonderPaving, drawWonderGroundDetail } from './isoWonderGround.js';
+import { WONDER_GROUND, wonderGroundSet, drawWonderGroundAll } from './isoWonderGround.js';
 import { GL_RUN_MIN, WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 // Socle partagé, extrait le 2026-08-23 : les chemins du repère monde et le cache
 // d'art. Deux feuilles du graphe — elles débloquent le pont, le champ et le port.
@@ -158,10 +158,11 @@ import {
 // que le LIRE — une liaison ESM est vivante, la valeur suit.
 import {
   SEASON_GRASS, SEASON_WILD, refreshSeasonPalette, GRASS_DETAIL, GRASS_TILE_UNDER,
-  GRASS_TILE_UNDER_WINTER, seasonTree, drawGrassDetail, smoothNoise,
+  GRASS_TILE_UNDER_WINTER, seasonTree, smoothNoise,
   FRONTIER, isoBuildingFront, isoFrontOffset, frontierFlip,
-  GRASS_FRINGE, drawGrassFringeEdge, URBAN_DETAIL, urbanTileAlpha,
+  GRASS_FRINGE, URBAN_DETAIL, urbanTileAlpha,
   urbanMatFor, drawUrbanDetail, roadFringeK, drawRoadEdgeFringe, roadMatFor,
+  drawGrassDetailAll, drawGrassFringeAll,
 } from './isoGroundDetail.js';
 // L'ambiance (particules, fumée, chevron) et le champ, extraits le 2026-08-23.
 import { drawIsoAmbient, SMOKE_TUNE, smokeSeason, drawIsoSmoke, REVEAL_PIN_MS, drawIsoRevealPin } from './isoAmbient.js';
@@ -873,37 +874,19 @@ function drawIsoGround() {
   if (PR) PR.cells = performance.now() - tLoop;
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
   // encadre le parvis et doit rester au-dessus des joints, comme avant.
-  if (wonderCells.length) {
-    for (let i = 0; i < wonderCells.length; i += 4) {
-      drawWonderPaving(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh);
-    }
-    for (let i = 0; i < wonderCells.length; i += 4) {
-      drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg);
-    }
-  }
+  drawWonderGroundAll(ctx, wonderCells, hw, hh, wg);
   // Voiles d'herbe puis FLEURS : même ordre qu'avant (voile sous fleur), mais en
   // fills d'union groupés. Les motifs de drawGrassDetail tiennent dans leur
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
   const tV = PR && performance.now();
   flushVeils();
-  // Les touffes de drawGrassDetail sont des SPRITES agrandis au pixel d'art :
-  // lissage coupé une fois pour toute la passe (le poser par cellule coûterait
-  // des centaines d'écritures de propriété pour le même résultat).
-  const prevGDS = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  for (let i = 0; i < grassCells.length; i += 4) {
-    drawGrassDetail(ctx, grassCells[i], grassCells[i + 1], grassCells[i + 2], grassCells[i + 3], hw, hh);
-  }
-  ctx.imageSmoothingEnabled = prevGDS;
+  drawGrassDetailAll(ctx, grassCells, hw, hh);
   if (PR) PR.grass += performance.now() - tV;
   // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
   // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).
   if (fringes.length) {
     const tFr = PR && performance.now();
-    const puF = Math.max(1, Math.round(hw * 0.055));
-    // urb = teinte du sol de l'ère : le mode 'wander' repeint avec elle quand le
-    // bord se déplace vers l'herbe (aucune couleur nouvelle n'est introduite).
-    for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb);
+    drawGrassFringeAll(ctx, fringes, hw, urb);
     if (PR) PR.fringe = performance.now() - tFr;
   }
   // Rubans de chaussée par-dessus le fond : pavé central + un bras vers chaque

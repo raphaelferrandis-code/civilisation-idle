@@ -813,3 +813,27 @@ if (typeof window !== 'undefined') {
   };
 }
 
+// Le DÉTAIL D'HERBE D'UNE FOURNÉE, tampon compris. Sorti de drawIsoGround le
+// 2026-08-23, même raison que le parvis : `grassCells` est un tableau PLAT empaqueté
+// par 4, et ce format regarde le peintre, pas l'orchestrateur.
+// ⚠ Le LISSAGE est coupé UNE FOIS pour toute la fournée : les touffes sont des
+// sprites agrandis au pixel d'art, et le poser par cellule coûterait des centaines
+// d'écritures de propriété pour le même résultat.
+export function drawGrassDetailAll(ctx, grassCells, hw, hh) {
+  const prevGDS = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  for (let i = 0; i < grassCells.length; i += 4) {
+    drawGrassDetail(ctx, grassCells[i], grassCells[i + 1], grassCells[i + 2], grassCells[i + 3], hw, hh);
+  }
+  ctx.imageSmoothingEnabled = prevGDS;
+}
+
+// La FRANGE D'HERBE d'une fournée. `puF` est le pixel d'art de la frange : sa
+// formule regarde le peintre. ⚠ L'appelant garde l'ORDRE — après le fond (les langues
+// mordent sur des cellules déjà peintes), avant les rubans (la route les recouvre).
+export function drawGrassFringeAll(ctx, fringes, hw, urb) {
+  const puF = Math.max(1, Math.round(hw * 0.055));
+  // urb = teinte du sol de l'ère : le mode 'wander' repeint avec elle quand le
+  // bord se déplace vers l'herbe (aucune couleur nouvelle n'est introduite).
+  for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb);
+}
