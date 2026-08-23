@@ -1841,6 +1841,40 @@ Le decoupage se fait passe par passe, **sans changer un pixel**, tests verts a c
 extraction, pas une reecriture. Plus on attend, plus elle coute.
 *Ne bloque rien. A ouvrir apres l'etape 9.*
 
+> **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
+> chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
+> d'identite des octets** contre la version commitee. **11 039 → 9 750 lignes.**
+>
+> | Commit | Module sorti | isoRenderer |
+> |---|---|---|
+> | `8c9c786` | `iso/isoFleet.js` (575 l.) — coque, stade de commerce, feux de nav, evitement | → 10 485 |
+> | `7647fd7` | `iso/isoSky.js` (138 l.) ; `iso/isoMath.js` (17 l., `_frac`/`_rnd` partages) | → 10 365 |
+> | `a35e987` | `iso/isoWildForest.js` (159 l.) ; `iso/isoWonderGround.js` (44 l.) | → 10 196 |
+> | `550ef12` | `iso/isoGroundTiles.js` (473 l.) — catalogue des tuiles de sol + greve | → 9 750 |
+>
+> **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
+> entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
+> **jamais un import retour** vers `isoRenderer` (un cycle ESM tombe en TDZ sur un `const` — cf. P22 et
+> la perte de save de juillet).
+>
+> **Suite** : la **palette** (1 entrante, `roadVeilFor`), puis **l'eau**, puis les gros morceaux
+> `drawIsoGround` / `drawIsoLive`.
+> L'eau (l. 2863-4736, 1 874 l., 58 declarations) est **re-mesuree apres la tranche des tuiles** :
+> **11 entrantes → 5**, exactement `WATER`, `waterShoreTune`, `rgb`, `RAIN_TUNE`, `precipKind`. Les six
+> autres (`ISO_TILE_KEYS`, `isoWinterTile`, `beachTone`, `isoVariantKey`, `ensureIsoTileKey`, `BEACH`)
+> sont devenues de simples imports d'`isoGroundTiles`. Les trois premieres partiront avec la **palette**,
+> et il ne restera que la **meteo** (`RAIN_TUNE`, `precipKind`) — probablement un second module partage.
+> ⚠ Le message de `550ef12` annonce « 8 des 11 » : c'est **6**, chiffre avance de memoire avant la
+> re-mesure. La mesure ci-dessus fait foi.
+> `roadVeilFor` reste en arriere **exprès** : il traine `ROAD_DETAIL` (34 usages), du reglage de voirie
+> qui n'a rien a faire dans une palette.
+>
+> ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
+> des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
+> 29 `it` tombes**. Le lint y est aveugle, et un import ESM d'un nom absent rend **`undefined` en
+> silence** — l'erreur sort en `Cannot read properties of undefined`, loin de sa cause.
+> **Balayer tous les noms DECLARES par le bloc, pas ses sortants.**
+
 **Q11 — La passe fantome redessine 86-87 % des unites a chaque frame : on la borne ?**
 *Ajoutee le 2026-08-22, nee de la mesure de Q9. Detail en fin de **P23**.*
 `hidden` se leve des qu'un occulteur existe **quelle que soit sa hauteur**, et la passe fantome redessine
