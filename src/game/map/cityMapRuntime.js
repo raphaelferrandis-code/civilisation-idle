@@ -423,6 +423,13 @@ function cmClampCamera() {
   // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
   // voir hors de la boîte de cadrage. Le plafond vers le bas, symétriquement.
   const loIso = snapZoom(zoomFloorIso, 1), hiIso = snapZoom(3.2, -1);
+  // Le plancher RÉEL du zoom dépend de l'écran et de l'étendue du monde — le
+  // 0.35 des entrées (wheel/pinch/clavier) n'est qu'un garde-fou : sur une
+  // grande carte le clamp autorise plus bas. La pré-cuisson du sol
+  // (isoGroundBake) doit viser le cran que le dézoom max ATTEINT vraiment,
+  // sinon l'atterrissage n'a jamais sa photo exacte. Publié ici, chez son
+  // écrivain ; lu là-bas.
+  CM.zoomFloor = loIso;
   if (CM.cam.zoom < loIso) CM.cam.zoom = loIso;
   // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
   // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.

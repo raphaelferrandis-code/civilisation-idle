@@ -41,7 +41,7 @@ import { reliefKey } from './isoRelief.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll } from './isoWonderGround.js';
-import { ISO_X, ISO_Y, panDeltaToScreen, screenDeltaToPan } from './projection.js';
+import { ISO_X, ISO_Y, panDeltaToScreen, screenDeltaToPan, snapZoom } from './projection.js';
 
 // ── SOL (baké : ~10-30 ms une fois par zoom/marge, blitté ensuite) ────────────
 // Les cellules-route ne remplissent PLUS tout leur losange (1er jet : rue aussi
@@ -417,6 +417,31 @@ function gzcPrebakeStrip(canvas, pctx, z2, yr) {
     CM.cam.zoom = z0;
     CM.ctx = mainCtx; CM.cw = cw0; CM.ch = ch0;
   }
+}
+
+// Le filet du geste (cf. la branche « ZOOM en cours ») n'a rien à servir tant
+// que le cache n'a pas de photo AU PLANCHER pour la base courante — c'est
+// l'état des premières secondes d'une session, mesuré : un dézoom immédiat y
+// retrouvait le cadre de fond nu (.preview-shots/filet-v3-c2f0.png). C'est le
+// SEUL cas où la pré-cuisson passe devant l'hystérésis de contenu (lot 2) —
+// et comme le plancher est la cible n° 1 du picker, « manquant ⟹ c'est lui
+// qu'on cuit ». Grâce au court-circuit de l'appelant, la boucle ne tourne
+// qu'en fenêtre d'hystérésis (≤ 8 entrées, une fois par frame de repos).
+// Le plancher EFFECTIF de la caméra — la cible n° 1 de la pré-cuisson. Le
+// clamp géométrique (CM.zoomFloor, publié par cmClampCamera) descend très bas
+// sur une grande carte (mesuré : 0,125) mais AUCUNE entrée n'y va : wheel,
+// pinch et clavier partagent le garde-fou 0,35, rabattu au cran de la grille
+// par snapZoom — c'est LÀ que le dézoom max atterrit. Viser le clamp seul
+// faisait cuire une photo 4× trop chère ((0,25/0,125)² = 4, posée à ~7 s au
+// lieu de ~3) que personne ne pouvait atteindre exactement.
+function gzcFloorZ() {
+  return Math.min(CM.cam.zoom, Math.max(CM.zoomFloor || 0.35, snapZoom(0.35, -1)));
+}
+function gzcFloorMissing(base) {
+  const zf = gzcFloorZ() * 1.06;
+  const gc = CM._groundZoomCache;
+  if (gc) for (const e of gc.values()) { if (e.base === base && e.z <= zf) return false; }
+  return true;
 }
 
 let gzcSigL = null, gzcSig = '';
@@ -813,9 +838,15 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // réellement toutes les quelques secondes — sans garde-fou la pré-cuisson
     // tournait en tapis roulant (mesuré : 18 pré-cuissons, 14 purgées aussitôt
     // sur 20 s de sim vivante). On attend que le CONTENU soit stable ≥ 3 s.
+    // EXCEPTION (lot 2 anti-clignotement) : LE PLANCHER N'ATTEND PAS. Tant
+    // qu'il manque au cache (cf. gzcFloorMissing), le filet du geste est
+    // aveugle — la cuisson démarre dès que l'écran est servi en plein. Le tapis
+    // roulant ne revient pas : ce chemin cuit au plus UNE cible (le plancher)
+    // par base, ~8 ms par frame de repos, puis l'hystérésis reprend la main
+    // pour les jalons.
     if (CM._gzcSigSeen !== cacheBase) { CM._gzcSigSeen = cacheBase; CM._gzcSigAt = nowMs; }
     if (!CM.capture && restful && !CM.previewWonder && _solSlice === null
-      && nowMs - (CM._gzcSigAt || 0) > 3000
+      && (nowMs - (CM._gzcSigAt || 0) > 3000 || gzcFloorMissing(cacheBase))
       && globalThis.__groundZoomCache !== false) {
       const bNow = CM._isoGroundBake;
       if (bNow && !bNow.soft && bNow.other === key) {
@@ -825,11 +856,14 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           || gzcPre.H !== CM.groundCanvas.height || gzcPre.camX !== CM.cam.x
           || gzcPre.camY !== CM.cam.y || gzcPre.z0 !== CM.cam.zoom)) gzcPre = null;
         if (!gzcPre) {
-          // Prochaine cible : le plancher, puis un jalon tous les DEUX crans
-          // sous le zoom courant — la suite que la molette suivra réellement,
-          // les crans impairs étant servis par le restore approché (± ½ cran).
-          const targets = [0.35];
-          for (let zt = CM.cam.zoom / (1.12 * 1.12); zt > 0.35 * 1.06; zt /= (1.12 * 1.12)) targets.push(zt);
+          // Prochaine cible : le PLANCHER EFFECTIF (cf. gzcFloorZ — le cran où
+          // le dézoom max atterrit vraiment, ni le 0,35 nu du wheel ni le clamp
+          // géométrique), puis un jalon tous les DEUX crans sous le zoom
+          // courant — la suite que la molette suivra réellement, les crans
+          // impairs étant servis par le restore approché (± ½ cran).
+          const zFloor = gzcFloorZ();
+          const targets = [zFloor];
+          for (let zt = CM.cam.zoom / (1.12 * 1.12); zt > zFloor * 1.06; zt /= (1.12 * 1.12)) targets.push(zt);
           const gcm = CM._groundZoomCache;
           let pick = null;
           for (const t of targets) {
