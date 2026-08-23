@@ -20,7 +20,7 @@
 // ⚠ AUCUN CYCLE : `quaysAndRiot` et `riverFleet` ne remontent jamais vers le
 // peintre (vérifié avant la coupe), et `isoRiverLife` reçoit ce dont il a besoin
 // par INJECTION (`configureRiverLife`), pas par import.
-import { BANK_FACE, waterSinkPx } from './isoRelief.js';
+import { BANK_FACE, waterSinkPx, waterZ } from './isoRelief.js';
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 // ⚠ L'INJECTION VIT ICI, pas dans le peintre : c'est le fleuve qui donne à la vie du
@@ -302,11 +302,10 @@ function riverRibbonScreen(pts, T, mode = 'wave') {
     // les reflets, les bateaux, le contour des îles. C est le point d entrée du lot 1
     // (cf. iso/isoRelief.js). Un décalage ÉCRAN, ajouté après projection — la verticale
     // ne subit pas l écrasement iso, même convention que le lift du pont.
-    const sink = waterSinkPx();
-    const l = worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T);
-    const r = worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T);
-    l.y += sink; r.y += sink;
-    left.push(l); right.push(r);
+    // L ALTITUDE PASSE PAR L AXE, plus par un décalage posé après coup.
+    const wz = waterZ();
+    left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T, wz));
+    right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T, wz));
   }
   return { left, right };
 }
@@ -362,9 +361,7 @@ function islandOutline(il, T, N = 30, mode = 'wave') {
     // Repère de l'île : `al` le long du courant, `cr` en travers.
     // Le contour d île suit la nappe : une île est un TROU dans le ruban, son bord
     // est donc au niveau de l eau, pas du sol.
-    const q = worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T);
-    q.y += waterSinkPx();
-    out.push(q);
+    out.push(worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T, waterZ()));
   }
   return out;
 }
@@ -1618,7 +1615,8 @@ export function drawIsoRiver(now) {
             const hw = (mode === 'base' || !wv) ? p.hw
               : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
                 : (si ? wv.minus[i] : wv.plus[i]);
-            const q = worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T);
+            const q = worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T,
+              mode !== 'base' ? waterZ() : 0);
             // ⚠⚠ CETTE FONCTION PROJETTE ELLE-MÊME — elle ne passe PAS par
             // `riverRibbonScreen`, donc elle n'héritait PAS de l'enfoncement de la
             // nappe (lot 1). Le bas-fond et le liseré restaient au niveau d'avant
@@ -1630,7 +1628,6 @@ export function drawIsoRiver(now) {
             // hauteur de terre. La bande qui s'ouvre entre les deux a exactement la
             // hauteur de l'enfoncement : **c'est la face de berge**, et c'est ce que
             // `drawBankFace` y peint.
-            if (mode !== 'base') q.y += waterSinkPx();
             path.push(q);
           }
           out.push({ path, runs });

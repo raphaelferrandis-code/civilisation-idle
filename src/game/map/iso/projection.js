@@ -88,16 +88,38 @@ if (typeof window !== "undefined") {
 }
 
 // Monde → écran. Renvoie {x, y} en px écran.
-export function worldToScreen(wx, wy) {
+//
+// ⚠⚠ LE TROISIÈME AXE (2026-08-23). `wz` est une ALTITUDE en px MONDE, positive vers le
+// HAUT, mise à l'échelle du zoom ici — l'appelant n'a pas à connaître le zoom.
+//
+// Pourquoi il existe, et pourquoi si tard. La projection n'en avait pas, si bien que
+// TOUTE altitude de ce jeu était une rustine posée après coup sur le `y` d'écran : le
+// pont soustrayait `bridgeLiftScreen` chez quatre appelants, l'enfoncement du fleuve
+// ajoutait son décalage chez trois autres, les collines en auraient ajouté d'autres.
+// Chaque rustine devait être enfilée À LA MAIN dans chaque consommateur — et il suffit
+// d'en oublier un pour que la scène se disloque : c'est arrivé le jour même, le
+// bas-fond du fleuve projetant lui-même, il ignorait que l'eau avait bougé et s'en est
+// décollé. Un axe rend cet oubli IMPOSSIBLE : on ne peut pas projeter sans dire à
+// quelle hauteur.
+//
+// ⚠ La verticale ne subit AUCUN écrasement iso — un pas d'altitude vaut un pas
+// d'écran. C'est la convention déjà en vigueur (cf. bridgeLiftScreen), et elle est ce
+// qui permet à une face verticale d'être un simple ruban qui pend.
+export function worldToScreen(wx, wy, wz = 0) {
   const z = CM.cam.zoom;
   const dx = wx - CM.cam.x, dy = wy - CM.cam.y;
   return {
     x: (dx - dy) * ISO_X * z + CM.cw / 2,
-    y: (dx + dy) * ISO_Y * z + CM.ch / 2,
+    y: (dx + dy) * ISO_Y * z + CM.ch / 2 - wz * z,
   };
 }
 
-// Écran → monde (inverse exact de worldToScreen).
+// Écran → monde. ⚠ INVERSE DU SEUL PLAN wz = 0, et ça ne peut pas être autrement : un
+// point d'écran ne désigne pas un point du monde mais un RAYON, et il faut une altitude
+// pour trancher. Le sol est à 0, donc c'est la bonne réponse pour ce qu'on lui demande
+// — le survol, qui cherche la cellule de SOL sous le curseur. Un consommateur qui
+// voudrait viser autre chose (le tablier d'un pont) devrait défalquer son altitude
+// AVANT d'appeler.
 export function screenToWorld(sx, sy) {
   const z = CM.cam.zoom;
   const ax = (sx - CM.cw / 2) / z, ay = (sy - CM.ch / 2) / z;

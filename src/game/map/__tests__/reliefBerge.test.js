@@ -68,7 +68,35 @@ describe('relief — la marche a UNE seule hauteur', () => {
     const src = SRC('iso/isoRiver.js');
     expect(src).toContain("buildEdges('wave', false)");
     expect(src).toContain("buildEdges('base', false)");
-    // et le bord d'eau descend, le lit peint non
-    expect(src).toMatch(/if \(mode !== 'base'\) q\.y \+= waterSinkPx\(\)/);
+    // …et le bord d'eau est projeté À SON ALTITUDE, le lit peint à zéro.
+    expect(src).toMatch(/mode !== 'base' \? waterZ\(\) : 0/);
+  });
+
+  // ⚠⚠ CETTE GARDE A MORDU LE JOUR MÊME, et c'est pour ça qu'elle vaut. Elle disait
+  // d'abord `q.y += waterSinkPx()` — la RUSTINE. Quand la projection a reçu son
+  // troisième axe et que le fleuve y est passé, elle est tombée : le mécanisme avait
+  // changé sous elle. Reformulée sur la forme nouvelle, elle verrouille désormais
+  // l'invariant FORT — une position se projette avec son altitude, elle ne se corrige
+  // pas après coup.
+  it('le fleuve projette AVEC son altitude, il ne corrige plus le y après coup', () => {
+    const src = SRC('iso/isoRiver.js');
+    // Plus une seule retouche de `y` par le décalage d'eau : l'axe s'en charge.
+    expect(src).not.toMatch(/\.y \+= (sink|waterSinkPx\(\))/);
+    // Les trois projections du fleuve passent leur altitude — le ruban (ses deux
+    // bords en un seul `wz`), le contour d'île, et les rives du bas-fond.
+    // ⚠ Ne PAS écrire `worldToScreen\([^)]*waterZ\(\)` : `[^)]*` s'arrête à la première
+    // parenthèse, or `waterZ()` en contient une. Le motif ne pouvait pas matcher, et
+    // c'est la garde qui était fausse, pas le code — deuxième fois de la journée qu'un
+    // regex trop malin me fait accuser le mauvais coupable.
+    const appels = (src.match(/\bwaterZ\(\)/g) || []).length;
+    expect(appels).toBeGreaterThanOrEqual(3);
+  });
+
+  it('l axe est un NO-OP quand personne ne passe d altitude', () => {
+    // La garantie qui rend la migration sûre : les 96 appels qui ignorent le 3e
+    // argument doivent rendre exactement ce qu'ils rendaient avant.
+    const src = SRC('iso/projection.js');
+    expect(src).toMatch(/export function worldToScreen\(wx, wy, wz = 0\)/);
+    expect(src).toMatch(/- wz \* z/);
   });
 });

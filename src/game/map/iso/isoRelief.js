@@ -26,7 +26,19 @@ export const RELIEF = { water: 0 };
 // Un pas de relief, en px MONDE. Lu à chaque appel : `CM.TILE` peut changer.
 export function reliefUnit() { return CM.TILE / 4; }
 
-// Décalage ÉCRAN de la nappe d'eau, en px. À AJOUTER à un `y` d'écran.
+// ALTITUDE de la nappe, en px MONDE, à passer en 3e argument de `worldToScreen`.
+// NÉGATIVE : l'eau est SOUS le sol. C'est la forme à préférer partout où l'on projette
+// un POINT — l'axe fait le reste, et on ne peut plus oublier de l'appliquer.
+export function waterZ() {
+  const w = RELIEF.water | 0;
+  return w > 0 ? -w * reliefUnit() : 0;
+}
+
+// Décalage ÉCRAN de la nappe, en px. ⚠ CE N'EST PAS UNE POSITION MAIS UNE HAUTEUR : il
+// sert à ceux qui ont besoin de la TAILLE de la marche, pas de l'endroit où elle est —
+// le parement de quai, qui pend de cette hauteur, et la face de berge, tendue entre
+// deux bords. Un point qui se PROJETTE doit passer par `waterZ()` et l'axe, jamais par
+// ceci : c'est la distinction qui empêche les rustines de revenir.
 export function waterSinkPx() {
   const w = RELIEF.water | 0;
   return w > 0 ? w * reliefUnit() * CM.cam.zoom : 0;
