@@ -206,6 +206,31 @@ est en TRANCHES : deux frames après un changement de zoom ne suffisent pas. La 
 désormais sa garde — elle joue des frames jusqu'à ce que la clé du bake porte le zoom courant, et
 **REFUSE de répondre** sinon.
 
+#### ✔ Décision de Raph (2026-08-23) : **l'ombrage, pas le terrain** — et une première piste réfutée
+
+Les lots 1, 2 et 3 (terrain de campagne) ne sont donc pas ouverts. La cible est la modulation de
+la VILLE, sans toucher à son altitude (§ 3).
+
+**Ce que la mesure a confirmé en croisant les sources.** `PLAN-RENDU-VILLE.md` avait déjà chiffré la
+cause, indépendamment : **« à la bande 4, 848 bâtiments sur 849 tiennent entre 44 et 66 px dessinés »**
+et « aucune contiguïté d'image ». Ma mesure de platitude en est la conséquence quantifiée : plus la
+ville se densifie de bâtiments identiques, plus sa modulation à grande échelle s'effondre. Deux
+mesures indépendantes, une seule maladie.
+
+**⛔ PISTE ESSAYÉE ET RÉFUTÉE : corréler la TEINTE des habitations par îlot.** L'idée était de faire
+s'accorder les voisines (le tirage de teinte est un pile ou face indexé sur les coordonnées de
+chaque tuile, donc du sel et poivre) pour fabriquer des îlots de matière. **Sans effet, ni à la
+sonde ni à l'œil** — et la mesure dit pourquoi : **les teintes sont ISO-LUMINEUSES** (`calcaire`
+décale la clarté de +3,2, `ardoise` de 0,0). Elles échangent la matière en préservant la valeur,
+ce qui est correct pour un échange de matière et disqualifiant pour du relief lumineux.
+Essai retiré, raison consignée dans `housePalette.js`. **Ne pas rejouer.**
+
+→ **Le levier d'une modulation de VALEUR est la HIÉRARCHIE DE MASSE**, pas la couleur. Et le dépôt
+la porte déjà, calculée et jamais dessinée : les **`districts`** (19 emprises civiques typées —
+palace, forum, archive — avec leurs positions et leur taille, `layout.js:2500-2538`) et **`qkind`**
+(l'identité de quartier, écrite sur chaque tuile en `buildingGenerator.js:257` et `:305`, **lue par
+personne dans tout le dépôt** — deux écritures, zéro lecture, vérifié). C'est là qu'il faut aller.
+
 ⚠ Autre piège de méthode : `__demoCity` n'a **pas** d'option `era` (elle prend `{pop, buildings,
 frames}`), et elle est `async` — sous pane masquée ses `setTimeout` sont étranglés, donc elle ne
 peut pas être attendue. Monter une ère se fait en SYNCHRONE : écrire `state.population`, appeler

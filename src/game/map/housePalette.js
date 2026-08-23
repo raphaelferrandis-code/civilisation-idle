@@ -115,6 +115,20 @@ export const HOUSE_TINTS = [
   { id: "ardoise", map: buildSwap(SWAP_FROID) }     // ardoise ↔ pierre
 ];
 
+// ⚠⚠ CES TEINTES SONT ISO-LUMINEUSES, ET C'EST À SAVOIR AVANT DE S'EN SERVIR.
+// Mesuré le 2026-08-23 : `calcaire` décale la clarté de **+3,2** en moyenne sur ses 21
+// couleurs, `ardoise` de **0,0** sur ses 10. Elles échangent la MATIÈRE et la COULEUR
+// en préservant la VALEUR — ce qui est la bonne façon de faire un échange de matière
+// (la lumière cuite dans le sprite reste cohérente), mais ce qui interdit aussi de s'en
+// servir pour donner du relief lumineux à la ville.
+//
+// Le lot 0 de `PLAN-RELIEF.md` a mesuré que la modulation à GRANDE ÉCHELLE de la ville
+// tombe de 27 à 7 entre les bandes 1 et 7. J'ai essayé de corréler ces teintes par
+// ÎLOT (un grain sur la clé du tirage) pour la remonter : **sans effet, ni à la sonde
+// ni à l'œil**, et pour cette raison-là. Essai retiré. Le levier d'une modulation de
+// VALEUR est ailleurs — hiérarchie de hauteur et repères (les `districts`, calculés et
+// dessinés nulle part), pas la teinte. **Ne pas rejouer cette piste.**
+//
 // Les paires brutes, exportées pour que le test puisse vérifier l'involution et
 // l'injectivité sur la MÊME donnée que le rendu (et pas sur une copie qui dériverait).
 export const SWAP_PAIRS = { calcaire: SWAP_CHAUD, ardoise: SWAP_FROID };
