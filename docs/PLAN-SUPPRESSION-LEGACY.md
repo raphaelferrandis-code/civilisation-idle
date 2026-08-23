@@ -1933,6 +1933,15 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > COORDINATION (l'ordre, les gates, le budget de frame) ? Tant que ce n'est pas decide, decouper
 > ferait des modules qui se repassent dix parametres — pire que le fichier actuel.
 >
+> 📄 **`docs/CARTO-drawIsoGround.md`** (2026-08-23) cartographie la premiere des trois : ses **9 passes**,
+> le **couplage mesure** (80 locales, dont **17 partagees par ≥ 3 passes**, 49 a une seule), un decoupage
+> propose qui ramenerait la fonction a ~180 lignes de coordination, et surtout **la garde a mettre en
+> place** — un A/B **dans la meme session** comparant les canevas pixel a pixel, puisque l'identite des
+> octets ne s'applique plus et que l'empreinte de canvas ne survit pas a un rechargement.
+> ⚠ Le risque propre a ce chantier, que les 19 tranches n'avaient pas : **une variable qu'on croit
+> locale a une passe et qu'une autre lisait**. Ni le lint, ni les tests, ni le build ne le voient — seule
+> la comparaison de pixels.
+>
 > **Reste aussi, mais mineur** : la couche de MARCHE en pixels (149 l., 0 entrante), le SURVOL + le pool
 > d'items (59 l., 0 entrante), et le CACHE DU SOL (323 l.) — ce dernier depend des orchestrateurs
 > (`drawIsoGround`, `drawIsoWorldInner`), donc il ne peut pas partir avant eux sans creer un cycle.

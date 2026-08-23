@@ -1,0 +1,122 @@
+# Cartographie de `drawIsoGround` — 1 164 lignes, 9 passes
+
+*Dressée le 2026-08-23, à la fin de la phase mécanique de Q10 (cf. `PLAN-SUPPRESSION-LEGACY.md` §6).*
+*C'est une ANALYSE. Rien n'a été déplacé. Elle existe pour qu'une décision soit prise avant d'écrire.*
+
+`isoRenderer.js` est passé de 11 039 à 3 368 lignes en 19 tranches de **déplacement pur**. Il en reste
+2 593 dans trois fonctions, dont celle-ci. **La méthode qui a porté les 19 tranches ne s'y applique
+plus** : ce ne sont pas des déclarations posées côte à côte, mais une fonction longue dont les passes
+partagent des variables **locales**. Les séparer demande de rendre cet état explicite — donc de changer
+des signatures, donc de perdre la preuve par identité des octets.
+
+Cette carte dit exactement **combien** d'état est partagé, **par qui**, et ce que coûterait la coupe.
+
+---
+
+## 1. Les neuf passes
+
+| | passe | lignes | taille |
+|---|---|---|---|
+| **A** | Préambule & RÉSOLUTION — locals, ensembles dérivés du layout, `kindAt` | 393-651 | 259 |
+| **B** | BALAYAGE des cellules — la boucle `gy`/`gx` qui peint chaque losange | 652-873 | 222 |
+| **C** | PARVIS — dallage puis margelle des merveilles | 874-886 | 13 |
+| **D** | VOILES + HERBE — vidange des voiles remisés, sprites de touffes | 887-898 | 12 |
+| **E** | FRANGE D'HERBE — les langues à la jonction herbe↔sol | 899-906 | 8 |
+| **F** | ROUTES — rubans, couloirs fusionnés, épaulement, TROTTOIRS, gorge | 907-1334 | **428** |
+| **G** | SEUILS d'allée + fermeture de la COUCHE DE MARCHE | 1335-1385 | 51 |
+| **H** | TERRE-PLEINS plantés des boulevards | 1386-1547 | 162 |
+| **I** | Épilogue — profileur, `ctx.restore()` | 1548-1556 | 9 |
+
+**L'ordre n'est pas arbitraire, il est PICTURAL** : chaque passe recouvre la précédente. La frange
+d'herbe mord sur des cellules déjà peintes, puis la route recouvre ce qui la borde, puis le seuil rentre
+sous la façade. Un découpage qui laisserait l'ordre au hasard casserait le rendu sans rien casser au
+lint.
+
+## 2. Le couplage — 80 locales, dont 17 partagées
+
+| partage | nombre | ce que ça veut dire |
+|---|---|---|
+| **≥ 3 passes** | **17** | c'est le CONTEXTE : elles devraient devenir un objet passé aux passes |
+| 2 passes | 14 | des liens de voisinage, la plupart producteur→consommateur |
+| 1 seule passe | 49 | partiraient sans douleur |
+
+**Les 17 du cœur**, avec les passes qui les lisent :
+
+```
+9 passes  ctx          [ABCDEFGHI]     8 passes  PR           [ABDEFGHI]
+6 passes  hw           [ABCDEF]        5 passes  T, L         [ABFGH]
+4 passes  hh [ABCD] · z [AFGH] · LOD [ABFG] · roadMap [ABFG] · urb [ABEF]
+3 passes  roads [ABF] · fringes [ABE] · wonderCells [ABC] · HARD [ABF]
+          wg [ABC] · kindAt [ABF] · grassCells [ABD]
+```
+
+**Elles ne sont pas toutes de même nature, et c'est ce qui rend la coupe faisable :**
+
+1. **Dérivables de `CM` en une ligne** — `ctx`, `T`, `z`, `hw`, `hh`, `L`, `LOD`, `HARD`, `band`.
+   Neuf des dix-sept. Un objet construit une fois en tête de fonction les porte toutes.
+2. **Ensembles dérivés du LAYOUT** — `roadMap`, `urb`, `wg`. Calculés en A, lus partout. Même objet.
+3. **TAMPONS D'ACCUMULATION** — `grassCells`, `wonderCells`, `fringes`, `roads`. Remplis par **B**,
+   consommés par **C**, **D**, **E**, **F**. C'est une relation PRODUCTEUR → CONSOMMATEUR, donc une
+   interface propre : la passe B les *retourne*.
+4. **Le résolveur** — `kindAt`, mémoïsé, qui capture `kinds`, `L`, `roadMap`, `riverCells`,
+   `plazaSceneReady`, `wg` et les ensembles de grève. C'est le HUB de la passe A.
+5. **Le profileur** — `PR`, lu par 8 passes, écrit par toutes. Transversal par nature.
+
+**Un couplage à part, et il faut le nommer** : `lay` / `sctx` (F↔G) sont la **couche de marche** — un
+canevas à la résolution du pixel d'art, ouvert au milieu de F (`walkLayerBegin`) et fermé en G
+(`walkLayerEnd`). Ce n'est pas une donnée, c'est une **ressource à durée de vie**. Deux modules qui se
+la passent en paramètre seraient fragiles ; la bonne forme est une portée (`withWalkLayer(z, (sctx) =>
+…)`), ce qui suppose que F et G restent **ensemble**.
+
+## 3. Découpage proposé
+
+| module | contenu | passes | ~lignes |
+|---|---|---|---|
+| `iso/isoGroundResolve.js` | `kindAt`, `grassAt`, `keyOfKind`, `frontierFlips`, `urbanLogical`, ensembles de grève, `built`/`courK`/`kinds` | A | ~250 |
+| `iso/isoGroundCells.js` | la boucle de cellules ; **retourne** les quatre tampons | B | ~220 |
+| `iso/isoGroundRoads.js` | rubans, couloirs, épaulement, trottoirs, gorge, seuils, couche de marche | F + G | ~480 |
+| `iso/isoGroundMedian.js` | terre-pleins plantés | H | ~162 |
+| *reste dans isoRenderer* | construction du contexte, ORDRE des passes, gates du bake allégé, profileur, C/D/E (33 l. au total) | — | **~180** |
+
+`drawIsoGround` passerait de **1 164 à ~180 lignes de coordination** — et ces 180 lignes seraient
+lisibles : construire le contexte, résoudre, balayer, puis peindre dans l'ordre.
+
+Le contexte à threader compte **~12 champs**. C'est beaucoup pour un paramètre, c'est peu pour un objet
+nommé (`bake`) dont chaque champ a une raison d'être. La ligne rouge : **si l'on se retrouve à passer
+dix paramètres séparés, c'est raté** — il faut alors s'arrêter et revoir la découpe.
+
+## 4. Comment on le PROUVE — le point dur
+
+Les 19 tranches précédentes étaient prouvées par **identité des octets** contre la version commitée.
+**Ici, le code change** : la preuve tombe. Et le harnais d'empreinte de canvas ne la remplace pas — il a
+été essayé et invalidé PAR TÉMOIN (une empreinte n'est pas stable à travers un rechargement : sprites
+décodés en asynchrone, sauvegarde qui s'accumule, phases d'animation sur l'horloge).
+
+**La garde qui marche ici est un A/B DANS LA MÊME SESSION**, exactement l'idiome que ce dépôt a déjà
+utilisé pour retirer le rendu legacy (`__iso(false)`) :
+
+1. garder l'ancienne `drawIsoGround` sous un drapeau dev (`__groundSplit`) le temps du chantier ;
+2. dans **une seule page**, sur **le même layout**, cuire le sol avec l'ancienne puis la nouvelle et
+   **comparer les canevas pixel à pixel** — le bake est déterministe à art décodé constant, ce que la
+   même session garantit ;
+3. répéter sur plusieurs ères et aux deux niveaux de bake allégé (HARD et LIGHT), qui empruntent des
+   chemins différents ;
+4. retirer le drapeau et l'ancienne fonction une fois l'égalité constatée.
+
+⚠ **Ce que ce chantier risque, et que les 19 tranches ne risquaient pas** : une variable qu'on croit
+locale à une passe et qui était en réalité lue par une autre. Le lint ne le voit pas (elle existe des
+deux côtés), les tests ne le voient pas (ils ne cuisent pas de sol), le build ne le voit pas.
+**Seule la comparaison de pixels le voit.** C'est pour ça qu'elle n'est pas optionnelle.
+
+## 5. Ce qui reste à décider — et c'est une décision de Raph
+
+1. **Y va-t-on ?** Le gain est réel (un peintre lisible, quatre passes testables à part) ; le coût est
+   un chantier à garde-fou, pas une série de déplacements sûrs.
+2. **Si oui, dans quel ordre ?** Le moins risqué est **H (terre-pleins, 162 l.)** en premier : c'est la
+   passe la moins couplée, elle sert de banc d'essai au contexte et au harnais A/B avant d'attaquer
+   F (428 l.) et B (222 l.).
+3. **Le contexte est-il un objet nommé ?** Ma recommandation : oui, un `bake` explicite. La ligne rouge
+   des dix paramètres séparés est ce qui ferait renoncer.
+
+Tant que ce n'est pas tranché, `isoRenderer.js` reste à 3 368 lignes — et c'est un état sain : chaque
+passe qui pouvait sortir est sortie, ce qui subsiste est un peintre et sa coordination.
