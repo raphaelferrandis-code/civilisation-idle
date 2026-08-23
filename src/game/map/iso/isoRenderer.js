@@ -74,7 +74,10 @@ import { collectIsoItems } from './isoLiveCollect.js';
 // Le DESSIN du peintre, sorti le 2026-08-23. Ses trois phases (préparation, boucle,
 // composition) sont parties ENSEMBLE : elles se partagent l'état des lots GPU, qui est
 // réassigné — il devait voyager avec ses écritures.
-import { paintIsoItems } from './isoLivePaint.js';
+// Le SURVOL AU SOL l'a rejoint le même jour, par CONSOLIDATION plutôt que par création
+// d'un module de 38 lignes : ce fichier portait déjà l'autre moitié du survol (l'or et
+// le liseré des silhouettes), et il n'a eu besoin d'aucun import nouveau pour l'accueillir.
+import { drawIsoHoverCell, paintIsoItems } from './isoLivePaint.js';
 // Objets posés au sol (points d'eau, art au sol, décor d'île), extraits le 2026-08-23.
 // Le port fluvial (flotte legacy sur le ruban, quai, ponton), extrait le 2026-08-23.
 import { drawIsoShips} from './isoPort.js';
@@ -125,44 +128,6 @@ import {
 
 
 
-// ── SURVOL ──────────────────────────────────────────────────────────────────
-// CM.hover (posé par cityMapShowTooltip) porte enfin la tuile et la cellule
-// visées : il était écrit deux fois et relu nulle part. On s'en sert pour
-// répondre à « qu'est-ce que l'infobulle est en train de décrire ? », par un
-// liseré sur la silhouette et un trait sur le losange au sol.
-const HOVER_CELL = 'rgba(232,198,110,0.7)';
-
-function drawIsoHoverCell(ctx, hw, hh) {
-  const h = CM.hover;
-  if (!h || !h.cell) return;
-  const c = h.cell.split(',');
-  const gx = +c[0], gy = +c[1];
-  // ⚠ L'EMPREINTE ENTIÈRE, pas une cellule. `cell` porte le coin NORD du lot ;
-  // un bâtiment de 2×2 ou 3×2 voyait donc son losange tracé sur la seule case
-  // d'origine, celle qui est la PLUS ÉLOIGNÉE à l'écran — on croyait voir « la
-  // case derrière le bâtiment s'allumer », alors que c'était bien la sienne,
-  // mais réduite à son coin nord. Les habitations tiennent sur une case, d'où
-  // un défaut invisible sur elles et criant sur les moteurs.
-  const t = h.tile;
-  const spanX = (t && (t.spanX || t.size)) || 1;
-  const spanY = (t && (t.spanY || t.size)) || 1;
-  const T = CM.TILE;
-  const n = worldToScreen(gx * T, gy * T);                     // coin nord
-  const e = { x: n.x + spanX * hw, y: n.y + spanX * hh };      // est
-  const s = { x: n.x + (spanX - spanY) * hw, y: n.y + (spanX + spanY) * hh };
-  const w = { x: n.x - spanY * hw, y: n.y + spanY * hh };      // ouest
-  ctx.save();
-  ctx.strokeStyle = HOVER_CELL;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(n.x, n.y);
-  ctx.lineTo(e.x, e.y);
-  ctx.lineTo(s.x, s.y);
-  ctx.lineTo(w.x, w.y);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.restore();
-}
 
 
 function drawIsoLive(now) {

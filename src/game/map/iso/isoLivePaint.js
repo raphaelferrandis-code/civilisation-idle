@@ -73,6 +73,57 @@ function drawTreeIso(ctx, sx, sy, h) {
 
 const HOUSE_BOX_CAP = 4000;            // garde-fou mémoire, jamais atteint en jeu
 
+// LE SURVOL AU SOL — le losange de la cellule visée, tracé AVANT le peintre parce
+// qu'il est au sol : tout ce qui est debout doit pouvoir passer devant.
+//
+// Rentré ici le 2026-08-23 (Q10) plutôt que de faire un module de 38 lignes : ce
+// fichier portait déjà l'autre moitié du survol (`HOVER_GOLD` et le liseré des
+// silhouettes), et les deux noms dont le corps a besoin — `CM`, `worldToScreen` — y
+// étaient déjà importés des mêmes sources. ZÉRO import nouveau : la pièce était due.
+//
+// ⚠ Le survol reste RÉPARTI EN TROIS, et c'est voulu : chaque liseré vit avec ce
+// qu'il entoure — les scènes moteur dans isoEngineScene, les habitations et la
+// Maison des Plaisirs dans la boucle ci-dessous, et le sol ici. Les rassembler
+// obligerait à sortir des one-liners du milieu de leurs boucles, avec leurs locales :
+// ce ne serait plus un déplacement pur, et on y perdrait plus qu'on n'y gagnerait.
+// CM.hover (posé par cityMapShowTooltip) porte enfin la tuile et la cellule
+// visées : il était écrit deux fois et relu nulle part. On s'en sert pour
+// répondre à « qu'est-ce que l'infobulle est en train de décrire ? », par un
+// liseré sur la silhouette et un trait sur le losange au sol.
+const HOVER_CELL = 'rgba(232,198,110,0.7)';
+
+export function drawIsoHoverCell(ctx, hw, hh) {
+  const h = CM.hover;
+  if (!h || !h.cell) return;
+  const c = h.cell.split(',');
+  const gx = +c[0], gy = +c[1];
+  // ⚠ L'EMPREINTE ENTIÈRE, pas une cellule. `cell` porte le coin NORD du lot ;
+  // un bâtiment de 2×2 ou 3×2 voyait donc son losange tracé sur la seule case
+  // d'origine, celle qui est la PLUS ÉLOIGNÉE à l'écran — on croyait voir « la
+  // case derrière le bâtiment s'allumer », alors que c'était bien la sienne,
+  // mais réduite à son coin nord. Les habitations tiennent sur une case, d'où
+  // un défaut invisible sur elles et criant sur les moteurs.
+  const t = h.tile;
+  const spanX = (t && (t.spanX || t.size)) || 1;
+  const spanY = (t && (t.spanY || t.size)) || 1;
+  const T = CM.TILE;
+  const n = worldToScreen(gx * T, gy * T);                     // coin nord
+  const e = { x: n.x + spanX * hw, y: n.y + spanX * hh };      // est
+  const s = { x: n.x + (spanX - spanY) * hw, y: n.y + (spanX + spanY) * hh };
+  const w = { x: n.x - spanY * hw, y: n.y + spanY * hh };      // ouest
+  ctx.save();
+  ctx.strokeStyle = HOVER_CELL;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(n.x, n.y);
+  ctx.lineTo(e.x, e.y);
+  ctx.lineTo(s.x, s.y);
+  ctx.lineTo(w.x, w.y);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function paintIsoItems(bake, items, now) {
   const { ctx, T, z, hw, hh, L, houseBoxes, band, eraIdx, smokeK } = bake;
   // ── GREFFE WebGL DES LONGUES SÉRIES ─────────────────────────────────────────

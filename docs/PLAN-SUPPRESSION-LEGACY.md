@@ -1843,12 +1843,15 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 
 > **OUVERTE le 2026-08-23, apres la fusion de l'etape 9.** Le decoupage avance tranche par tranche,
 > chacune commitee a part, chacune passee par les trois portes (lint, tests, build) et par une **preuve
-> d'identite des octets** contre la version commitee. **11 039 → 394 lignes, soit −96 %**, reparties
+> d'identite des octets** contre la version commitee. **11 039 → 359 lignes, soit −97 %**, reparties
 > en **35 modules** sous `iso/` (36 fichiers `.js` avec le renderer lui-meme).
 >
 > 🏁 **LES TROIS ORCHESTRATEURS SONT DECOUPES** : `drawIsoGround` 1 164 → 77, `drawIsoLive` 936 → 91,
-> `drawIsoWorldInner` 493 → 98. Il ne reste dans le fichier que QUATRE fonctions — le survol, la passe
-> vivante, le point d'entree et son corps — et un en-tete d'imports.
+> `drawIsoWorldInner` 493 → 98. Il ne reste dans le fichier que TROIS fonctions — la passe vivante, le
+> point d'entree et son corps — plus **132 lignes d'en-tete d'imports, soit plus d'un TIERS du fichier**.
+> ⚠ Cet en-tete est desormais la plus grosse chose du fichier, et il est en partie fait de commentaires
+> qui racontent ce qui est PARTI. Le toiletter serait utile, mais ce n'est pas un deplacement pur :
+> chantier a part, a ne pas melanger aux tranches.
 >
 > | Commit | Module sorti | isoRenderer |
 > |---|---|---|
@@ -1874,7 +1877,8 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > | *(les tranches suivantes sont les ORCHESTRATEURS — detail dans les trois `CARTO-*.md`)* | | |
 > | `f40299f`→`4e90d6a` | les 6 passes de `drawIsoGround` (terre-pleins, C/D/E, balayage, routes, montage) | → 1 401 |
 > | `76b2003`→`8d4f8b6` | les 3 tranches de `drawIsoLive` (prelude, collecte, dessin) | → 1 186 |
-> | **ce commit** | `iso/isoGroundBake.js` (830 l.) — **la cuisson du sol et son cache** | 🏁 **→ 394** |
+> | `2602060` | `iso/isoGroundBake.js` (830 l.) — **la cuisson du sol et son cache** | → 394 |
+> | **ce commit** | le SURVOL AU SOL rejoint `iso/isoLivePaint.js` — **consolidation** | 🏁 **→ 359** |
 >
 > **La regle de coupe : la dependance ENTRANTE decide la borne**, jamais le bandeau de section. Zero
 > entrante → on coupe ; quelques-unes → un **petit module partage** (`isoMath`, `isoWonderGround`),
@@ -1980,8 +1984,21 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > au demenagement (P32). ⚠ Ce qui n'a PAS ete etabli : le regime permanent du cache en conditions
 > reelles (cf. §8 de la carte — `forceFrame` a horloge synthetique ne rejoue pas la cascade).
 >
-> **Reste, mais mineur** : le SURVOL (45 l., 0 entrante) et `drawIsoLive` reduit (91 l.) —
-> deux coordinateurs courts, et c'est le travail d'un fichier nomme `isoRenderer`.
+> ✔ **LE SURVOL AU SOL est sorti a son tour**, et c'est une **CONSOLIDATION, pas un module** : 38 l.,
+> un seul appelant, et `isoLivePaint.js` portait deja l'autre moitie du survol (`HOVER_GOLD` et le
+> lisere des silhouettes). Les deux noms dont le corps a besoin — `CM`, `worldToScreen` — y etaient
+> deja importes des MEMES sources : **zero import nouveau**, le meme signal que pour `blitIsoTileKey`
+> rentre dans `isoGroundTiles`. `isoRenderer.js` : 394 → **359 l.**
+> ⚠ **Le survol reste REPARTI EN TROIS, et c'est voulu** : chaque lisere vit avec ce qu'il entoure —
+> les scenes moteur dans `isoEngineScene`, les habitations et la Maison des Plaisirs dans la boucle du
+> peintre, le sol dans `isoLivePaint`. Les rassembler obligerait a sortir des one-liners du milieu de
+> leurs boucles, avec leurs locales : ce ne serait plus un deplacement pur.
+> ⚠ Preuve a l'ecran par **A/B au pixel** (meme `now`, avec et sans `CM.hover`) : 416 pixels changes,
+> boite 106x54 au ratio 2:1 d'une tuile iso, tons dores melanges. Et l'EMPRISE ENTIERE tient — en
+> forcant `spanX/spanY`, la boite suit bien `(spanX + spanY)` : 2 → 5 → 4 donne 106 → 247 → 195 px.
+>
+> **Reste, mais mineur** : `drawIsoLive` reduit (91 l.) — un coordinateur court, et c'est le travail
+> d'un fichier nomme `isoRenderer`.
 >
 > ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas
 > prendre de face ». **C'est faux** : la plage mesuree englobait `drawIsoLive`. Le SURVOL reel fait
