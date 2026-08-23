@@ -1941,18 +1941,33 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > paie aucun acces de propriete). L'A/B pixel n'a jamais servi — mais il reste la bonne reponse le jour
 > ou un decoupage changera vraiment du code.
 >
-> 📄 **`docs/CARTO-drawIsoLive.md`** (2026-08-23) — la deuxieme des trois, **cartographiee, non
-> decoupee**. 936 l. en 8 phases, d'architecture bien plus nette que le sol : **COLLECTE → TRI → DESSIN
-> → COMPOSITION**, un peintre a liste d'affichage. Couplage **deux fois plus faible** : 10 locales
-> partagees par ≥ 3 phases contre 17. Deux coupes proposees — la COLLECTE (384 l., **9** lectures vers
-> l'englobante) et le DESSIN (441 l., **12**) — qui rameneraient la fonction a **~110 lignes**.
+> 📄 **`docs/CARTO-drawIsoLive.md`** (2026-08-23) — 🏁 **CLOSE**. 936 l. en 8 phases, d'architecture
+> bien plus nette que le sol : **COLLECTE → TRI → DESSIN → COMPOSITION**, un peintre a liste
+> d'affichage. Couplage **deux fois plus faible** : 10 locales partagees par ≥ 3 phases contre 17. Les
+> deux coupes annoncees ont ete faites — la COLLECTE (384 l.) et le DESSIN (441 l.) — et la fonction
+> est passee de **936 a 91 lignes**.
 > ⚠ Seul nœud : l'etat des LOTS GPU est REASSIGNE (cf. P28), mais toutes ses ecritures tombent dans les
-> phases 5-6-7 — elles doivent donc partir ENSEMBLE. Meme motif que l'etat de saison et la couche de
+> phases 5-6-7 — elles ont donc du partir ENSEMBLE. Meme motif que l'etat de saison et la couche de
 > marche : l'etat voyage avec son ecrivain.
+> ⚠ Son §6 documente un **CINQUIEME angle mort** : les PARAMETRES d'une fonction sont invisibles a un
+> balayage de declarations. `now` etait lu deux fois par la collecte ; c'est le lint qui l'a rattrape.
 >
-> **Reste aussi, mais mineur** : le SURVOL + le pool d'items (59 l., 0 entrante — c'est le PRELUDE
-> naturel de `drawIsoLive`), et le CACHE DU SOL (323 l.) — ce dernier depend des orchestrateurs
-> (`drawIsoGround`, `drawIsoWorldInner`), donc il ne peut pas partir avant eux sans creer un cycle.
+> 📄 **`docs/CARTO-drawIsoWorldInner.md`** (2026-08-23) — la troisieme et derniere, **cartographiee,
+> non decoupee**. 493 l. en 3 phases, mais **une seule pese** : le PREAMBULE (22 l.) et la FILE DE
+> RENDU (73 l.) sont deja de la pure coordination, une ligne par sujet. Reste le **CACHE DU SOL**
+> (l. 715-1110, **396 l.**), qui ne lit que **TROIS** noms de l'englobante — `ctx`, `L`, `helpers`.
+> ⚠ Il ne peut pas partir seul : il appelle `drawIsoGround`. Mais en emmenant la cuisson avec lui on
+> trouve un ensemble **deja clos, simplement disperse en trois endroits** du fichier (159-236,
+> 375-663, 715-1110 = **763 l.**) : sur ses 20 declarations, **16 ne servent QUE dans le bloc**, et les
+> mentions inter-fichiers sont toutes fausses (un nom de PARAMETRE dans `isoGroundResolve`, un
+> COMMENTAIRE dans `cityMapRuntime`). Couture **a ZERO import retour** — la premiere du chantier —
+> pour une surface publique d'**UNE fonction**. `drawIsoWorldInner` tomberait a **~98 l.**, et
+> `isoRenderer.js` a **~424 l.** (−96 % depuis 11 039).
+> ⚠ Le bloc est **indivisible** : 10 noms declares en 715-861 sont relus en 982-1107. Le cache de
+> crans ne suit pas la decision, il en fait partie.
+>
+> **Reste aussi, mais mineur** : le SURVOL (45 l., 0 entrante) et `drawIsoLive` reduit (91 l.) —
+> deux coordinateurs courts, et c'est le travail d'un fichier nomme `isoRenderer`.
 >
 > ⚠⚠ **CORRECTION D'UN CHIFFRE DE CE PLAN.** Il y etait ecrit « SURVOL : ~1 013 l., 47 entrantes, ne pas
 > prendre de face ». **C'est faux** : la plage mesuree englobait `drawIsoLive`. Le SURVOL reel fait
@@ -2014,6 +2029,19 @@ extraction, pas une reecriture. Plus on attend, plus elle coute.
 > charger le renderer et le dire.
 > ⚠ Le cas general : **deplacer un symbole peut retirer a un importeur un effet de bord qu'il ne
 > demandait pas explicitement.** Ni le lint ni le build ne le voient.
+>
+> ⚠ **P33 — UNE GARDE TEXTUELLE POSITIVE PEUT DEVENIR CREUSE SANS JAMAIS ROUGIR.** Amendement direct a
+> P31, trouve a la cartographie de `drawIsoWorldInner`. P31 concluait : « les gardes POSITIVES
+> (`toContain`) tombent bruyamment, seule une garde NEGATIVE passe a vide ». **C'est incomplet.**
+> `cellClump.test.js:113` affirme `expect(src).toContain("cmCellNoise")` sur le texte d'`isoRenderer.js`
+> pour prouver que le renderer **ne garde plus sa copie** de la formule. Elle est verte — mais
+> `cmCellNoise` n'y apparait plus que dans un **COMMENTAIRE** (l. 16), celui qui raconte que la fonction
+> est partie avec la foret sauvage. La garde n'a pas casse : elle a fait pire, elle est restee verte en
+> perdant son sens.
+> → Une garde textuelle ne distingue pas le CODE de la PROSE. Quand un symbole demenage, le commentaire
+> qui explique son depart suffit a nourrir le `toContain` reste sur place. **Verifier qu'une garde
+> textuelle verte pointe encore sur du code**, pas sur le recit du demenagement. Repointer celle-ci sur
+> `isoWildForest.js` est une reparation d'une ligne — mais ce n'est PAS un deplacement pur, donc a part.
 >
 > ⚠ **P27 — chercher les importeurs des seuls sortants MESURES ne suffit pas.** Les tests importent aussi
 > des noms que le moteur n'utilise plus lui-meme : 4 fichiers repointes a la main, **4 autres oublies,
