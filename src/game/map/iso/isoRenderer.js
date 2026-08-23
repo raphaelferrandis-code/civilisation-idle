@@ -26,81 +26,6 @@ import { WINTER } from '../seasonMode.js';
 // identique : engineSceneCache.js importe déjà d'engineSprites directement.
 import { drawWonder } from '../renderBuildings.js';
 
-// LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
-// il n'a ni rang ni condition, donc rien à voir avec le cache des merveilles
-// (indexé id+rang). Un seul fichier, un seul chargement.
-// PPT PROPRE, et non celui des merveilles (34). Le sprite a été recadré au ras de
-// son encre — la moitié du canevas d'origine était vide —, si bien qu'à 34 il
-// n'aurait plus fait que 4,8 tuiles de large contre 6,6 avant recadrage.
-// 25 lui rend exactement sa présence : 207 px à l'écran, 6,5 tuiles.
-// ⚠ Ce nombre va AVEC les dimensions du PNG : redécouper le sprite sans reprendre
-// le PPT le ferait grandir ou rétrécir en silence.
-const PLAISIRS_PPT = 25;
-let plaisirsArt = null;
-function plaisirsSprite() {
-  if (!plaisirsArt) {
-    plaisirsArt = { img: new Image(), ready: false };
-    plaisirsArt.img.onload = () => { plaisirsArt.ready = true; };
-    plaisirsArt.img.src = '/pixelart/wonders/plaisirs-t3.png';
-  }
-  return plaisirsArt.ready ? plaisirsArt : null;
-}
-
-// MASQUE D'ENCRE de la tour. Le survol et le clic doivent tomber sur le
-// BÂTIMENT, pas sur son rectangle : le sprite est une pagode à plateaux et son
-// encre n'occupe que x ∈ [0,17 ; 0,89] et y ∈ [0,25 ; 0,94] du PNG (mesuré) —
-// un quart de la hauteur au-dessus de la flèche est vide, et ce vide-là est
-// posé sur le FLEUVE. Au rectangle, viser l'eau à trois tuiles du pied
-// allumait le monument et ouvrait l'onglet.
-// Lu UNE fois, à la taille naturelle du PNG (224×376), soit 84 ko de masque.
-// `undefined` = pas encore tenté, `null` = illisible (canvas souillé), on
-// retombe alors sur la boîte.
-let plaisirsMask;
-function plaisirsInk() {
-  if (plaisirsMask !== undefined) return plaisirsMask;
-  const art = plaisirsSprite();
-  // Sprite pas encore chargé : on ne MÉMORISE PAS cet échec, il se corrigera
-  // tout seul à la frame où l'image arrive.
-  if (!art || typeof document === 'undefined') return null;
-  const w = art.img.naturalWidth | 0, h = art.img.naturalHeight | 0;
-  if (!w || !h) return null;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const cx = c.getContext('2d', { willReadFrequently: true });
-  cx.drawImage(art.img, 0, 0);
-  let d;
-  try { d = cx.getImageData(0, 0, w, h).data; } catch { plaisirsMask = null; return null; }
-  const a = new Uint8Array(w * h);
-  for (let i = 0, n = w * h; i < n; i += 1) a[i] = d[i * 4 + 3] > 24 ? 1 : 0;
-  plaisirsMask = { w, h, a };
-  return plaisirsMask;
-}
-
-// SURVOL ET CLIC DE LA MAISON DES PLAISIRS : UN SEUL test, partagé par
-// l'infobulle et par le clic (cityMapRuntime). Deux tests séparés finiraient
-// par diverger, et on aurait un liseré qui s'allume là où le clic n'ouvre rien.
-// Part de la boîte RÉELLEMENT DESSINÉE à la dernière frame, puis descend au
-// pixel du masque.
-export function plaisirsHitTest(sx, sy) {
-  const b = CM._plaisirsBox;
-  if (!b) return false;
-  if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) return false;
-  const m = plaisirsInk();
-  if (!m) return true;                       // pas de masque : la boîte fait office
-  // Tolérance d'UN pixel source autour du point visé : garde-corps, lanternes et
-  // haubans ne font qu'un ou deux pixels de large, un test strict les rendrait
-  // invisibles à la souris alors qu'ils portent la silhouette.
-  const u = Math.min(m.w - 1, ((sx - b.dx) / b.dw) * m.w | 0);
-  const v = Math.min(m.h - 1, ((sy - b.dy) / b.dh) * m.h | 0);
-  for (let dv = -1; dv <= 1; dv += 1) {
-    const y = Math.min(m.h - 1, Math.max(0, v + dv));
-    for (let du = -1; du <= 1; du += 1) {
-      const x = Math.min(m.w - 1, Math.max(0, u + du));
-      if (m.a[y * m.w + x]) return true;
-    }
-  }
-  return false;
-}
 // (engineStage n'était importé QUE pour choisir le stade de l'aqueduc-conduite,
 //  retiré le 2026-08-05. Les points d'eau ont leur propre échelle d'ère, alignée
 //  sur celle des places — cf. waterPointEra.)
@@ -200,7 +125,7 @@ import { isoEngineScenesFlag, drawSpriteOutline, drawIsoEngineScene } from './is
 // AURA DE LA MAISON DES PLAISIRS. Module à part (le renderer pèse déjà 11 000
 // lignes) et sans import retour : il ne connaît que CM, la projection et les
 // deux couches de lumière — donc aucun cycle ES avec nous.
-import { drawPlaisirsRing, drawPlaisirsSky, queuePlaisirsGlow } from './isoPlaisirs.js';
+import { drawPlaisirsRing, drawPlaisirsSky, queuePlaisirsGlow, PLAISIRS_PPT, plaisirsSprite } from './isoPlaisirs.js';
 import {
   updateCitizens, updateVehicles, drawCitizenThoughts,
   vehicleLaneOffset, VEH_SIZES,
