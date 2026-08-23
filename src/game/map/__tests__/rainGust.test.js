@@ -5,7 +5,7 @@
 // elle monte et RECULE quand elle retombe. Le rideau de pluie ne peut pas se
 // permettre de remonter : on intègre la descente image par image.
 import { describe, it, expect } from "vitest";
-import { stepRainPhase } from "../iso/isoRenderer.js";
+import { stepRainPhase } from "../iso/isoWeather.js";
 
 const H = 611;                       // hauteur d'écran de référence (cf. fiche neige)
 const BASE = 900 / H;                // écrans/s de la goutte la plus lente

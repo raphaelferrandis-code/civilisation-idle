@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import {
   rainStreakPixels, rainVeilDraws,
   splashPointOk, splashRingPixels, splashDiskPixels, splashFramePixels, splashPhase,
-} from "../iso/isoRenderer.js";
+} from "../iso/isoWeather.js";
 
 // Géométries réelles : dx = wind × len × 0,8, dy = len (cf. drawIsoRain).
 // windX ∈ [-0,7 ; 0,7], couché jusqu'à ±1,24 par la rafale ; len de 10 (bruine)

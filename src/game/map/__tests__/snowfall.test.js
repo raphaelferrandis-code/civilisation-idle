@@ -8,7 +8,7 @@
 // constantes du module les rendrait décoratifs.
 import { describe, it, expect } from "vitest";
 
-import { precipKind, isoSnowFlake } from "../iso/isoRenderer.js";
+import { precipKind, isoSnowFlake } from "../iso/isoWeather.js";
 import { SPRING, SUMMER, AUTUMN, WINTER } from "../seasonMode.js";
 
 const W = 1280, H = 800;
