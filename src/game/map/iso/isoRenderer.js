@@ -173,7 +173,7 @@ import { waterPointEra, WATER_POINT_P, drawIsoGroundedArt, ISO_TREE_VARIANTS, IS
 import { drawIsoShips, portMooring, drawIsoPortBoat, drawIsoRiverside } from './isoPort.js';
 // Matière du sol : tuiles PixelLab et grève, extraites le 2026-08-23. Le peintre
 // (blitIsoTileKey, le sol, le trottoir) est resté ici ; seul le CATALOGUE est parti.
-import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, groundTileTune, isoFaceVeiled, ensureIsoTileKey, plazaEraTileKey, BEACH } from './isoGroundTiles.js';
+import { ISO_TILE_KEYS, beachTone, ensureIsoTileKey, plazaEraTileKey, BEACH, blitIsoTileKey } from './isoGroundTiles.js';
 // Palette plate du sol, extraite le 2026-08-23. Feuille du graphe : elle n'importe
 // rien, donc tout peut la lire. ⚠ L'état de SAISON est resté ici (plus bas) — il est
 // réassigné chaque frame, et une liaison importée est en lecture seule.
@@ -284,92 +284,6 @@ function walkLayerEnd(lay, ctx, z) {
 //  2026-08-05 en même temps que la bande : le sol de ville EST le trottoir, il
 //  n'a donc pas de matière propre. Cf. le § LA MARCHE, ET RIEN QUE LA MARCHE,
 //  dans la passe route.)
-// Blit une tuile de sol sur la cellule dont le coin NORD projeté est (nx, ny).
-// ⚠ FACE SEULE, MASQUÉE AU LOSANGE (e.face, cf. isoTileFace) : l'épaisseur du
-// « thin tile » ne se contente pas de déborder sous la pointe sud, ses faces
-// latérales pendent sous les arêtes SO/SE, donc DANS le rectangle 2:1 — le seul
-// recadrage rectangulaire (1er correctif) laissait un liseré clair + un liseré
-// sombre sur chaque cellule = quadrillage sur tout le sol.
-// Un sol plat doit être une SURFACE continue, pas un empilement de dalles.
-// Repli (pixels illisibles) : recadrage rectangulaire historique depuis e.img.
-// Renvoie false si pas prête (l'appelant garde l'aplat).
-function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil = null) {
-  // HIVER : bascule vers la tuile enneigée si elle existe ET est décodée —
-  // sinon on garde l'été pour cette recuisson (le décodage la rappellera).
-  // (La GRÈVE n'en a pas, sauf `__beach.snow` — cf. ISO_TILE_WINTER_BEACH.)
-  const wKey = CM.season === WINTER ? isoWinterTile(key) : null;
-  if (wKey) {
-    const we = ensureIsoTileKey(isoVariantKey(wKey, h));
-    if (we && we.ready) key = wKey;
-  }
-  const e = ensureIsoTileKey(isoVariantKey(key, h));
-  if (!e || !e.ready) return false;
-  const bb = e.bbox;
-  const faceH = Math.max(1, Math.round(bb.w / 2));   // face iso 2:1 du contenu
-  const k = (hw * 2) / bb.w;
-  // DÉBORD EN PERSPECTIVE (e.over, herbe) : les `ov` lignes au-dessus du losange
-  // sont blittées AU-DESSUS du coin nord (dy remonte d'autant) — le bake balaie
-  // nord→sud, elles recouvrent donc le voisin du nord, sol urbain compris :
-  // « au sud du sol, l'herbe passe devant ». Borné par bb.h : une variante sans
-  // brins hauts ne doit pas étirer son losange.
-  const ov = (!e.face && e.over) ? Math.max(0, Math.min(e.over, bb.h - faceH)) : 0;
-  const srcH = faceH + ov;
-  // S7 — LE BLIT 1:1, QUAND LA GRILLE LE PERMET (docs/PLAN-RENDU-VILLE.md).
-  //
-  // Le `+1 px` historique est un anti-couture : à zoom fractionnaire le pas de
-  // grille (hw en x, hh = hw/2 en y) ne tombe pas sur l'entier, deux losanges
-  // voisins chacun arrondi laissent un liseré transparent, et on le recouvre en
-  // débordant d'un pixel sur le voisin. Le prix était lourd et invisible : la
-  // destination faisait 65×33 pour une source de 64×32 à z = 1, donc le nearest
-  // DUPLIQUAIT une colonne et une rangée d'art sur CHAQUE cellule du sol. Tout le
-  // reste du fichier promet un blit « pixel pour pixel » (cf. § tuiles natives) ;
-  // ici il ne l'était nulle part.
-  //
-  // Depuis S11 le zoom est quantifié au 1/8, donc hw = 32z et hh = 16z sont
-  // ENTIERS et les losanges se joignent exactement : plus de couture à couvrir.
-  // On ne s'y fie pas pour autant — la molette `__zoomQuant(0)` rend le zoom
-  // continu, et cam.zoom traverse des valeurs fractionnaires PENDANT le
-  // glissement (une recuisson nette peut y tomber si le budget de geste
-  // l'autorise). Le test porte donc sur la GÉOMÉTRIE COURANTE, pas sur un
-  // réglage : `hw` entier et pair ⟺ hw et hh entiers ⟺ grille exacte. Le +1
-  // revient tout seul dès qu'elle ne l'est plus.
-  // ⚠ Le test porte sur les DEUX dimensions réellement demandées, pas seulement
-  // sur hw : une tuile d'herbe à débord (`ov`) a srcH = faceH + ov, et sa hauteur
-  // de destination reste fractionnaire à bas zoom même quand la grille est exacte
-  // (hw = 4, ov = 3 → dh = 4,375). Elle retombe alors sur le +1, ce qui est le bon
-  // choix : à k < 1 on sous-échantillonne de toute façon.
-  const dwx = bb.w * k, dhx = srcH * k;
-  const whole = (v) => Math.abs(v - Math.round(v)) < 1e-9;
-  // `groundTileTune.exact = false` (molette `__groundTile({exact:false})`) rejoue le
-  // +1 inconditionnel : c'est l'A/B du lot, et le seul moyen de revoir en une
-  // seconde le pixel dupliqué que ce chemin supprime.
-  const exact = groundTileTune.exact
-    && Number.isInteger(hw) && hw % 2 === 0 && whole(dwx) && whole(dhx);
-  const dw = exact ? Math.round(dwx) : Math.ceil(dwx) + 1;
-  const dh = exact ? Math.round(dhx) : Math.ceil(dhx) + 1;
-  const dy = Math.round(ny - ov * k);
-  // Source : la face masquée (répétée rep×rep, cf. groundTileTune) si elle a pu
-  // être construite, sinon la tuile brute. La face répétée fait la MÊME taille
-  // que la simple (bb.w × faceH) — le blit ci-dessous ne change pas d'un iota.
-  const face = isoFaceVeiled(e, veil);
-  const src = face || e.img;
-  const sx = face ? 0 : bb.x0, sy = face ? 0 : bb.y0;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  if (mirror) {
-    // Miroir horizontal 1 cellule sur ~2 (hash) : casse la répétition du motif
-    // sans 2e asset — légitime pour une FACE de sol (pas d'ombrage directionnel fort).
-    ctx.save();
-    ctx.translate(Math.round(nx - hw) + dw, dy);
-    ctx.scale(-1, 1);
-    ctx.drawImage(src, sx, sy, bb.w, srcH, 0, 0, dw, dh);
-    ctx.restore();
-  } else {
-    ctx.drawImage(src, sx, sy, bb.w, srcH, Math.round(nx - hw), dy, dw, dh);
-  }
-  ctx.imageSmoothingEnabled = prev;
-  return true;
-}
 
 // ── SOL (baké : ~10-30 ms une fois par zoom/marge, blitté ensuite) ────────────
 // Les cellules-route ne remplissent PLUS tout leur losange (1er jet : rue aussi
