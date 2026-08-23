@@ -1736,6 +1736,21 @@ emeute (`__collapse`), et un clic d'apaisement sur un emeutier.
 > A trancher par Raphael **avant** de commencer. Q1 a Q8 bloquaient chacune au moins une etape ;
 > **Q7 est tranchee** (2026-08-22 : on porte les 13). Q9 et Q10, ajoutees le 2026-08-22, ne bloquent
 > que ce qu'elles nomment.
+>
+> ## ⚠⚠ ETAT AU 2026-08-23 — LES DOUZE ONT ETE RE-VERIFIEES CONTRE LE CODE
+>
+> **CLOSES (5)** : Q1, Q5, Q7, Q9, Q10. **VRAIES DECISIONS QUI RESTENT (2)** : **Q2** (l'A/B du pont)
+> et **Q3** (le kit legacy des places) — les deux portent sur un repli qui existe encore et qui COUTE
+> quelque chose. **PERIMEES OU REDUITES (3)** : **Q4** (l'objet a disparu), **Q6** (les 6 scripts sont
+> deja supprimes, il en reste 1), **Q8** (2 chiffres faux). **HORS PERIMETRE (2)** : Q11, Q12.
+>
+> ⚠⚠⚠ **LA LEÇON DE CETTE RELECTURE, ET ELLE VAUT POUR TOUT PLAN LONG : UNE QUESTION SURVIT A SON
+> OBJET.** Q1, Q4 et Q6 ont ete ecrites AVANT les etapes 4-7. Ces etapes ont retire ce dont elles
+> parlaient — le second chemin de rendu pour Q1, le calque pour Q4, les six scripts pour Q6 — mais les
+> questions, elles, sont restees ouvertes, a bloquer des etapes qui n'avaient plus rien a bloquer. Q1
+> se declarait meme « **indecidable par recherche** » : c'etait vrai a sa redaction, et faux ensuite.
+> → **RE-POSER les questions ouvertes apres chaque etape qui retire un chemin**, au lieu de les
+> recopier. Une fiche de decision qui cite le plan sans re-mesurer se trompe trois fois sur cinq.
 
 **Q1 — `public/pixelart/roads/*.png|json` : les champs irrigues passent-ils encore par
 `drawEraGroundFill` en iso ? — ✔ TRANCHEE le 2026-08-23 : LA BRANCHE EST MORTE. Supprimee.**
@@ -1780,10 +1795,16 @@ les regenerent. **Ne pas toucher a `_archive/`** (cf. P16).
 *Debloque l'etape 6.3 et la partie de l'etape 8 qui en dependait.*
 
 **Q2 — L'A/B `__isoBridge3d(false)` : on le garde ou on l'assume mort ?**
-`isoBridge3dFlag` vaut `{on: true}` par defaut (isoBridge.js:47). Tant qu'il existe,
-`pixelBridge.js` + `withLegacyToIso` + `public/pixelart/bridges/` (41 Ko) restent. Ce n'est **pas** le
+`isoBridge3dFlag` vaut `{on: true}` par defaut (**isoBridge.js:81**, pas 47). Tant qu'il existe,
+`pixelBridge.js` + `withLegacyToIso` + `public/pixelart/bridges/` restent. Ce n'est **pas** le
 legacy qui les retient, c'est un A/B interne a l'iso. Le supprimer serait un second chantier, plus petit.
 *Ne bloque rien, mais determine si le chantier « un seul chemin » est vraiment fini.*
+> **✔ RE-VERIFIEE le 2026-08-23.** Le drapeau est **VRAIMENT LU** (isoBridge.js:370 et 474) — ce n'est
+> PAS une molette morte comme celles du trottoir (cf. Q1). Chiffres a jour : `pixelBridge.js` **162 l.**,
+> `withLegacyToIso` 3 usages, assets **60 Ko / 5 fichiers** (le plan disait 41 Ko : ils ont grossi).
+> **Mon avis** : garder tant que le chantier pont est vivant — un A/B sur de l'art en reglage se merite —
+> et le retirer le jour ou Raph declare le pont fini. C'est la seule chose qui empeche de dire que la
+> carte n'a plus qu'un chemin.
 
 **Q3 — Le kit `public/pixelart/plazas/` : on garde le repli ?**
 `isoPlaza.js:761-762` sonde encore le kit top-down, et `docs/PLACES-ISO-COMPOSEES.md:100/407` le
@@ -1791,12 +1812,35 @@ documente comme repli assume. En pratique aucune recette ne l'emet aujourd'hui (
 isoPlaza.js:214-257). Trois options : garder tel quel (defaut du plan) ; retirer `LEGACY_PROP`/`LEGACY_ERA`
 et les fichiers ; ou garder les fichiers et documenter que le repli est dormant.
 *Bloque une partie de l'etape 8.*
+> **⚠⚠ RE-VERIFIEE le 2026-08-23, ET LE PLAN SE TROMPE SUR UN POINT.** « Aucune recette ne l'emet »
+> est vrai — les RECIPES (isoPlaza.js:252-319) n'emettent que **cinq** props : `planter`, `grate`,
+> `fountain`, `bin`, `bench`, et l'art iso est **complet pour les cinq**, a toutes les eres (87
+> fichiers). (`corners` est un mode de pose, `lamps: 'corners'` ; `bollard` n'apparait que dans un
+> commentaire qui dit « 🚫 aucun art n'existe pour lui ».) `bush` et `flag`, seuls props sans equivalent
+> iso, ne sont emis par personne.
+> **MAIS le repli n'est pas dormant pour autant** : mesure en jeu (ville d'ere 12, frames jouees),
+> **6 fichiers du kit legacy SONT telecharges** — `bench-{n,s,e,w,}-classique.png` et
+> `fountain-classique.png`. Jamais affiches, mais bien demandes. La cause est la cascade de `propImage`
+> (isoPlaza.js:939-951) : elle essaie chaque candidat jusqu'a en trouver un **DECODE**, or au premier
+> appel le PNG iso vient d'etre demande et n'est pas pret → elle enchaine et lance aussi la requete
+> legacy. **Le repli ne rattrape rien et coute a chaque premiere apparition d'un objet.**
+> ⚠ Leçon generale : **un repli « jamais atteint » peut quand meme etre TELECHARGE**, si la cascade
+> teste la disponibilite plutot que l'existence. Le prouver demande le RESEAU, pas la lecture.
+> Assets : **178 Ko / 45 fichiers**.
+> **Mon avis** : option B (retirer). L'art iso est complet et verifie objet par objet ; un trou d'art se
+> verrait immediatement a l'ecran — defaut bruyant, donc sans besoin de filet. ⚠ **C est la pire des
+> trois** : documenter un repli dormant, c'est garder son cout en ecrivant qu'il n'en a pas.
 
-**Q4 — `CM.debugRoads` : on re-cree le calque cote iso ?**
-C'est le calque de debug des masques N/E/S/W et des types de carrefour (renderWorld.js:1787-1800), pilote
-par `__CM.debugRoads = true`. **Aucun equivalent iso.** Le chantier voirie en cours (desserte,
-`RoadworksPanel`) pourrait en avoir besoin. Le supprimer sec, ou le porter d'abord ?
-*Bloque le temps 5d.*
+**Q4 — `CM.debugRoads` : on re-cree le calque cote iso ? — ⚠ PERIMEE le 2026-08-23.**
+C'etait le calque de debug des masques N/E/S/W et des types de carrefour, pilote par
+`__CM.debugRoads = true`. La question demandait : « le supprimer sec, ou le porter d'abord ? »
+> **✔ RE-VERIFIEE : `debugRoads` n'existe plus NULLE PART dans `src`.** Le calque est parti avec
+> l'etape 4, sans etre porte — la question s'est donc resolue toute seule, dans le sens « supprimer sec ».
+> Elle ne bloque plus le temps 5d : il n'y a plus rien a supprimer.
+> **Ce qu'il reste a decider** est une CONSTRUCTION, pas une suppression : veut-on un calque de debug
+> voirie cote iso ? Seul le chantier desserte / `RoadworksPanel` pourrait le reclamer. **Mon avis** :
+> le batir le jour ou ce chantier bute dessus, pas avant.
+> ⚠ **Meme motif que Q1 et Q6** : une question ecrite avant les etapes 4-7 a survecu a son objet.
 
 **Q5 — On renomme `renderWorld.js` ? — ✔ FAIT le 2026-08-23 : `quaysAndRiot.js`.**
 
@@ -1823,12 +1867,22 @@ Deux bandeaux de section herites du decoupage d'origine (`legacy citymap renderi
 **PARTIE 2 — l'emeute**. ⚠ Deux sujets sans rapport dans un meme fichier restent l'heritage de la coupe,
 pas un choix : les separer serait un petit chantier a part.
 
-**Q6 — Les generateurs de `scripts/` : memoire de fabrication ou dette ?**
+**Q6 — Les generateurs de `scripts/` : memoire de fabrication ou dette ? — ⚠ REDUITE A UN FICHIER.**
 `fetchTrees.mjs`, `fetchMedians.mjs`, `makeGrassEdge.mjs`, `makeStreetTiles.mjs`,
 `fetchStreetSurfaces.mjs`, `retintWater.mjs` deviennent orphelins de leurs assets. Ce sont les **recettes
 PixelLab** qui ont produit l'art. Les supprimer (defaut du plan, etape 8) perd la memoire de fabrication ;
 les garder laisse 6 scripts qui pointent des fichiers absents. Option intermediaire : les deplacer dans
 `scripts/_archive/` avec un README d'une ligne.
+> **✔ RE-VERIFIEE le 2026-08-23 : LES SIX SONT DEJA SUPPRIMES**, par `dcea073` (« retirer les 58 tuiles
+> du terrain top-down et leurs generateurs »). `scripts/_archive/` n'existe pas : **l'option
+> intermediaire n'a pas ete prise, le defaut a ete applique** — sans que la question soit refermee.
+> ⚠ Les copies qu'un `find` remonte encore sont dans `.claude/worktrees/` : des worktrees d'agents
+> perimes, PAS le depot. Ne pas s'y fier.
+> **Ce qu'il reste** : un seul orphelin, cree le jour meme par la cloture de Q1 —
+> `scripts/separatePixelTerrain.mjs` (**57 l.**).
+> **Mon avis** : le GARDER. Il est le seul lecteur de `public/pixelart/_archive/coupled/` — 20 fichiers
+> **non suivis par git**, donc irremplacables. Le supprimer ne gagne rien et transforme ces 20 fichiers
+> en matiere premiere sans machine.
 
 **Q7 — Les 13 `it` de `ysortPainter.test.js` : combien on porte ? — TRANCHEE le 2026-08-22 : LES 13.**
 
@@ -1848,6 +1902,14 @@ dont une qui revele une **divergence de contrat**. Voir la table de l'etape 3 et
 de `scripts/buildPalette.mjs` et `scripts/remapPalette.mjs:48`, et `package.json:25`
 (`!dist/**/Asepritelayers/**`). Hors perimetre strict du chantier — a faire ou a remettre a plus tard,
 mais pas a oublier.
+> **✔ RE-VERIFIEE le 2026-08-23 — deux chiffres a corriger.** Le poids reel est **44 Ko, pas 60** :
+> `master-palette.png` a **deja disparu**, il ne reste que le `.json` (20 Ko) + `README.md` (16 Ko) +
+> `Asepritelayers/` (8 Ko). Et il y a **CINQ** fichiers a repointer, pas trois : `buildPalette.mjs`,
+> `remapPalette.mjs`, **`fetchProps.mjs`**, **`sewerOutfall.mjs`** et `package.json`.
+> **Mon avis** : remettre a plus tard, mais en le sachant. Gain de 44 Ko sur un site mille fois plus
+> lourd, contre le risque de casser **en silence** quatre scripts de palette qui ne tournent qu'a la
+> main — donc dont la panne ne se verrait pas avant des semaines. A faire le jour ou l'on ouvre ces
+> scripts pour une autre raison, jamais comme lot isole.
 
 ---
 
