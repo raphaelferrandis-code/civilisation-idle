@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 
-import { ISO_ROAD_HALFW, isoRoadHalfW } from "../iso/isoRenderer.js";
+import { ISO_ROAD_HALFW, isoRoadHalfW } from "../iso/isoRoad.js";
 import { CM } from "../layout.js";
+// ⚠ LA GÉOMÉTRIE PUBLIÉE AUX AGENTS (`CM.isoVehLane` & co) EST UN EFFET DE BORD du
+// CHARGEMENT d'isoRenderer : `syncIsoStreetGeom()` tourne au niveau module. Tant que
+// ce test tirait ses largeurs DEPUIS isoRenderer, l'effet venait par la bande ; la
+// config est partie dans isoRoad.js le 2026-08-23, et il a fallu le demander à voix
+// haute. C'est mieux ainsi : ce fichier vérifie la cohérence renderer ↔ agents, donc
+// il DOIT charger le renderer, et le dire.
+import "../iso/isoRenderer.js";
 
 // Hiérarchie des largeurs de chaussée iso (Raph 2026-07-28 : « des petits
 // chemins et des grandes routes — là tout fait la même largeur ») : le RANG
