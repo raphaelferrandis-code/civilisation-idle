@@ -2176,6 +2176,108 @@ function initCityMap(canvas, options = {}) {
     };
     // Aides de vérif : accès à l'état + forçage d'un recalcul de carte. Permet de
     // monter une ville de démo (population/bâtiments) puis de capturer une frame.
+    // ── SONDE DE PLATITUDE (lot 0 de docs/PLAN-RELIEF.md) ─────────────────────
+    // « Tout est plat » est un grief d'ŒIL. Avant de peindre un seul pixel de
+    // relief, on le chiffre — ce projet a déjà vu la mesure réfuter l'œil (5
+    // constats sur 39 dans PLAN-RENDU-VILLE §7).
+    //
+    // ⚠⚠ CE QU'ON MESURE, ET POURQUOI CE N'EST PAS L'ÉVIDENT. Une forêt est
+    // PLEINE de variance : les feuilles, les troncs, le bruit de tuile. Mesurer
+    // l'écart-type des pixels DANS un bloc la déclarerait donc très contrastée,
+    // alors qu'elle est précisément ce qu'on trouve plat. Le relief est une
+    // modulation à GRANDE ÉCHELLE : c'est l'écart-type des MOYENNES DE BLOCS qui
+    // le dit. On rend les deux — `grandeEchelle` est la mesure qui compte,
+    // `dansLeBloc` est le témoin qui montre qu'elles ne disent pas la même chose.
+    //
+    // Zones classées par PROJECTION INVERSE du centre du bloc (screenToWorld),
+    // jamais par la couleur : on veut savoir ce qu'il y a là, pas ce qu'on voit.
+    window.__flatProbe = (opts = {}) => {
+      const B = opts.block || 64;
+      const c = CM.canvas, W = c.width, H = c.height;
+      if (!CM.layout || !W || !H) return { err: 'pas de layout' };
+      // ⚠⚠ GARDE : LE SOL DOIT ÊTRE CUIT AU ZOOM COURANT. Sinon on mesure un BLIT
+      // MIS À L'ÉCHELLE d'un bake fait à un autre zoom — plus lisse, donc plus
+      // « plat », et la sonde ment. Ça m'a donné deux séries contradictoires avant
+      // que je le voie : mêmes ères, même zoom, tendance inversée. La cuisson est
+      // en TRANCHES, donc deux frames après un changement de zoom ne suffisent pas.
+      // Parade : jouer des frames jusqu'à ce que la clé du bake porte ce zoom.
+      const zk = CM.cam.zoom.toFixed(3);
+      const bakeOk = () => !!(CM._isoGroundBake && String(CM._isoGroundBake.other).includes(':' + zk + ':'));
+      if (!bakeOk() && !opts.sansGarde) {
+        for (let i = 0; i < 24 && !bakeOk(); i += 1) CM.captureFrame({ now: 1e6 + i * 100 });
+        if (!bakeOk()) {
+          return { err: 'sol non cuit au zoom ' + zk + ' — mesure refusée',
+            bake: String(CM._isoGroundBake && CM._isoGroundBake.other) };
+        }
+      }
+      const L = CM.layout, T = CM.TILE;
+      // Densité d'arbres par cellule : une case boisée, c'est ≥1 arbre dessus.
+      const arbres = new Set();
+      for (const tr of L.trees || []) arbres.add(tr.gx + ',' + tr.gy);
+      const d = c.getContext('2d').getImageData(0, 0, W, H).data;
+      const zones = {};
+      const ajoute = (z, moy, dansBloc) => {
+        const s = zones[z] || (zones[z] = { n: 0, sMoy: 0, sMoy2: 0, sDans: 0 });
+        s.n += 1; s.sMoy += moy; s.sMoy2 += moy * moy; s.sDans += dansBloc;
+      };
+      for (let by = 0; by + B <= H; by += B) {
+        for (let bx = 0; bx + B <= W; bx += B) {
+          let sum = 0, sum2 = 0, n = 0;
+          for (let y = by; y < by + B; y += 2) {
+            for (let x = bx; x < bx + B; x += 2) {
+              const o = (y * W + x) * 4;
+              // Luminance perceptuelle (Rec. 601) — l'œil juge la clarté, pas le vert.
+              const l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+              sum += l; sum2 += l * l; n += 1;
+            }
+          }
+          if (!n) continue;
+          const moy = sum / n;
+          const dansBloc = Math.sqrt(Math.max(0, sum2 / n - moy * moy));
+          // ⚠ CLASSER PAR LE SEUL CENTRE DU BLOC EST TROP GROSSIER : au dézoom un
+          // bloc de 64 px couvre des dizaines de cellules, et une FORÊT est diffuse
+          // — le centre tombait rarement sur un arbre, si bien qu'AUCUN bloc n'était
+          // jamais classé « forêt ». On échantillonne donc 5×5 points et on vote.
+          const votes = {};
+          for (let sy = 0; sy < 5; sy += 1) {
+            for (let sx = 0; sx < 5; sx += 1) {
+              const w = screenToWorld(bx + ((sx + 0.5) / 5) * B, by + ((sy + 0.5) / 5) * B);
+              const gx = Math.floor(w.x / T), gy = Math.floor(w.y / T), k = gx + ',' + gy;
+              let z = 'plateau';
+              if (gx < 0 || gy < 0 || gx >= L.gridN || gy >= L.gridN) z = 'hors-carte';
+              else if (L.river && L.river.isWater && L.river.isWater(gx, gy)) z = 'eau';
+              else if (L.river && L.river.isBank && L.river.isBank(gx, gy)) z = 'lisiere-eau';
+              // ⚠ L'ARBRE PASSE AVANT LA VILLE : `urbanSet` est le disque urbain
+              // ENTIER (56 % de la carte), donc il avalait toute la forêt intérieure.
+              // Ce qu'on veut savoir, c'est ce qu'on VOIT à cet endroit.
+              else if (arbres.has(k)) z = 'foret';
+              else if (L.urbanSet && L.urbanSet.has(k)) z = 'ville';
+              votes[z] = (votes[z] || 0) + 1;
+            }
+          }
+          let z = 'plateau', best = -1;
+          for (const [k2, v] of Object.entries(votes)) if (v > best) { best = v; z = k2; }
+          // ⚠ OPTION `pur` : ne garder que les blocs UNANIMES. Sans elle, les blocs
+          // « ville » d'une petite ville contiennent aussi sa lisière avec la
+          // campagne — et cette frontière est franche, donc elle gonfle le contraste
+          // et ferait croire que la petite ville est plus modulée qu'elle n'est.
+          // C'est le biais à écarter avant de comparer deux tailles de ville.
+          if (opts.pur && best < 25) continue;
+          ajoute(z, moy, dansBloc);
+        }
+      }
+      const out = {};
+      for (const [z, s] of Object.entries(zones)) {
+        const moy = s.sMoy / s.n;
+        out[z] = {
+          blocs: s.n,
+          grandeEchelle: +Math.sqrt(Math.max(0, s.sMoy2 / s.n - moy * moy)).toFixed(1),
+          dansLeBloc: +(s.sDans / s.n).toFixed(1),
+          clarteMoyenne: +moy.toFixed(1),
+        };
+      }
+      return { bloc: B, zoom: +CM.cam.zoom.toFixed(3), zones: out };
+    };
     window.__state = state;
     window.__D = D;
     // L'INSTANCE CM de la page (pas d'import !) : le double-graphe HMR fait

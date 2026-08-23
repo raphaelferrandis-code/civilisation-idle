@@ -162,6 +162,56 @@ toute vérification touchant le fleuve se fait par **diff de canvas**, jamais au
 
 **Coût : une demi-journée. Non négociable.**
 
+#### ✔ FAIT le 2026-08-23 — et la mesure déplace la cible
+
+Sonde livrée : `window.__flatProbe({ block, pur })` (bloc dev de `cityMapRuntime`). Trois captures
+de référence figées : `.preview-shots/relief-lot0-reference-bande{1,4,7}.png`.
+
+⚠⚠ **CE QU'ON MESURE N'EST PAS L'ÉVIDENT.** Une forêt est PLEINE de variance — feuilles, troncs,
+bruit de tuile. L'écart-type des pixels DANS un bloc la déclarerait très contrastée, alors qu'elle
+est justement ce qu'on trouve plat. Le relief est une modulation à GRANDE ÉCHELLE : c'est
+l'écart-type des **MOYENNES DE BLOCS** qui le dit. La sonde rend les deux (`grandeEchelle` et
+`dansLeBloc`) — le second est le témoin qui montre qu'ils ne mesurent pas la même chose.
+
+**Résultats — blocs UNANIMES, reproductibles à 0,3 près en inversant l'ordre des zooms :**
+
+| Zone | bande 1 | bande 4 | bande 7 |
+|---|---|---|---|
+| **ville** | **27** | **16** | **7** |
+| plateau | 1,7 | 2,1 | *(absent : la ville a tout mangé)* |
+| eau | 3,3 | 2,0 | 1,5 |
+
+**1. La conjecture est CONFIRMÉE pour la campagne.** Plateau à 1,7-2,1, eau à 1,5-4,0 — bien sous
+les 5 points annoncés. Elles sont plates, à toutes les ères.
+
+**2. La « lisière à 40 » n'est PAS observée**, et elle n'est pas mesurable avec cet instrument : la
+berge fait 871 cellules, trop mince pour remplir un bloc de 64 px — aucun bloc unanime de lisière
+n'existe à ces zooms. Il faudrait un bloc plus petit, ou un zoom serré. **Cette moitié de la
+conjecture reste ouverte.**
+
+**3. ⚠⚠ LA TROUVAILLE, ET ELLE DÉPLACE LA CIBLE : LA VILLE S'APLATIT EN GRANDISSANT.** Sa
+modulation à grande échelle est divisée par **3 à 4** entre la bande 1 et la bande 7. La campagne
+est plate TOUJOURS ; la ville, elle, le devient À LA FIN. Or c'est la ville que le joueur regarde en
+fin de partie — donc un grief « tout est plat » venu d'un joueur avancé décrit très probablement la
+VILLE, pas la campagne.
+→ Les lots 1, 2 et 3 visent tous la CAMPAGNE. Ils restent justes, mais ils ne traitent pas ce que la
+mesure désigne. Et le § 3 écarte le relief EN ville (décision de Raph, non re-litigable) — donc si
+cette piste est la bonne, elle relève de l'OMBRAGE et du budget de contraste
+(`PLAN-RENDU-VILLE.md`), pas de la géométrie du terrain. **À trancher avant d'ouvrir le lot 1.**
+
+⚠⚠⚠ **PIÈGE D'INSTRUMENT, ET IL A MORDU : LE SOL DOIT ÊTRE CUIT AU ZOOM COURANT.** Sinon on mesure
+un BLIT MIS À L'ÉCHELLE d'un bake fait à un autre zoom — plus lisse, donc plus « plat ». Ça m'a
+donné deux séries CONTRADICTOIRES (tendance de la ville inversée) avant que je le voie. La cuisson
+est en TRANCHES : deux frames après un changement de zoom ne suffisent pas. La sonde porte
+désormais sa garde — elle joue des frames jusqu'à ce que la clé du bake porte le zoom courant, et
+**REFUSE de répondre** sinon.
+
+⚠ Autre piège de méthode : `__demoCity` n'a **pas** d'option `era` (elle prend `{pop, buildings,
+frames}`), et elle est `async` — sous pane masquée ses `setTimeout` sont étranglés, donc elle ne
+peut pas être attendue. Monter une ère se fait en SYNCHRONE : écrire `state.population`, appeler
+`__cityRecompute()`, puis jouer des `captureFrame`. Échelle relevée : `1e12` → bande 1, `1e23` →
+bande 4, `1e45` → bande 7.
+
 ---
 
 ### Lot 1 — ⭐ LE FLEUVE S'ENFONCE (l'entrée recommandée)
@@ -301,7 +351,7 @@ Si l'envie revient : rouvrir ce § avec les chiffres du lot 2 en main, pas avant
 
 | Piège | Pourquoi il mordra | Parade |
 |---|---|---|
-| **Invalidation du bake** | Ce projet s'est fait avoir **trois fois** (plage gelée, bas-fond de quai, saison). Le relief entre dans le sol baké ET dans le cache de crans. | `':rl' + version + amplitude` dans `key` ET dans `cacheBase` (`isoRenderer.js:10578-10592`). |
+| **Invalidation du bake** | Ce projet s'est fait avoir **trois fois** (plage gelée, bas-fond de quai, saison). Le relief entre dans le sol baké ET dans le cache de crans. | `':rl' + version + amplitude` dans `key` ET dans `cacheBase` — désormais dans **`isoGroundBake.js`**. ⚠ Le plan citait `isoRenderer.js:10578-10592` : périmé, ce code a déménagé au découpage Q10 et le fichier fait 279 lignes. **Le piège n° 7 de ce tableau a mordu le tableau lui-même.** |
 | **Culling** | `visibleCellBounds` / `visibleDiamondBounds` calculent sur un plan. Une cellule levée de 72 px dont la base est sous le bord bas reste visible. | `marginDownPx += Hmax · U · z`. |
 | **Quantification du zoom** | Une marche non multiple de `T/4` rouvre la couture inter-losanges. | § 2.1, avec un test propriété. |
 | **Tri du peintre** | `isoUnitDepth` est aveugle à la hauteur (P23). | Ville à 0 (§ 3). Sens de défaillance sûr : le sol est baké avant les sprites. |
