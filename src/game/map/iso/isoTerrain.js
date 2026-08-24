@@ -47,7 +47,7 @@ import { TERRAIN, terrainFieldU, terrainFlatR, ss01 } from '../procedural/terrai
 // avec les boutons d'ombrage — une seule molette, une seule vérité. Ombrage :
 // k = contraste par unité de pente (COMPRIMÉ à ±cap — un coteau saturerait le
 // soft-light), strength = alpha, texel = px écran par texel du buffer.
-Object.assign(TERRAIN, { shade: 1, texel: 8, k: 1600, cap: 80, strength: 0.7 });
+Object.assign(TERRAIN, { shade: 1, texel: 8, k: 1700, cap: 80, strength: 0.72 });
 export { TERRAIN };
 
 // L'unité de relief (convention n° 1). Exportée : les contremarches du sol et

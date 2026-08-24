@@ -24,9 +24,13 @@
 // 2026-08-24 (2e passe) : valley/hills en unités U = T/4, bench/coteau/big/det
 // en tuiles, cityK = fraction des collines EN ville, riverPad = bande à 0 le
 // long de l'eau.
+// « Accentue un peu » (Raph, 2026-08-24, 3e passe) : massifs plus couvrants
+// (hillCut 0,52 → 0,46) et plus hauts (9 → 12 U), vallée plus creuse (8 → 9),
+// un peu plus de sculpture EN ville (cityK 0,45 → 0,5). Toujours des massifs
+// DISCRETS — l'accent porte sur leur présence, pas un retour de la houle.
 export const TERRAIN = {
-  amp: 1, valley: 8, bench: 6, coteau: 4, hills: 9, hillCut: 0.52,
-  cityK: 0.45, big: 20, det: 7, riverPad: 3,
+  amp: 1, valley: 9, bench: 6, coteau: 4, hills: 12, hillCut: 0.46,
+  cityK: 0.5, big: 20, det: 7, riverPad: 3,
 };
 
 // Bruit de valeur (hérité du prototype legacy cityMapDrawTerrain). Hash entier
