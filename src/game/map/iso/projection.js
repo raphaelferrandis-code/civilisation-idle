@@ -18,6 +18,7 @@
 //
 // Profondeur du peintre (Phase 2) : depthOf = wx + wy (diagonales SE), remplace wy.
 import { CM, cmWonderSlot, cmWonderExtent, cmWonderHeightTiles, CM_WONDERS } from '../layout.js';
+import { terrainZ } from './isoTerrain.js';
 
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
@@ -110,22 +111,38 @@ export function worldToScreen(wx, wy, wz = 0) {
   const dx = wx - CM.cam.x, dy = wy - CM.cam.y;
   return {
     x: (dx - dy) * ISO_X * z + CM.cw / 2,
-    y: (dx + dy) * ISO_Y * z + CM.ch / 2 - wz * z,
+    // LE TERRAIN PASSE PAR L'AXE (isoTerrain.js) : l'altitude du sol s'ajoute à
+    // celle que le consommateur demande (wz — le pont s'y compose). terrainZ ne
+    // dépend que du monde → la compensation de pan des bakes (pure translation
+    // caméra) reste exacte. Inerte à TERRAIN.amp = 0 (__terrain(false)).
+    y: (dx + dy) * ISO_Y * z + CM.ch / 2 - (wz + terrainZ(wx, wy)) * z,
   };
 }
 
-// Écran → monde. ⚠ INVERSE DU SEUL PLAN wz = 0, et ça ne peut pas être autrement : un
-// point d'écran ne désigne pas un point du monde mais un RAYON, et il faut une altitude
-// pour trancher. Le sol est à 0, donc c'est la bonne réponse pour ce qu'on lui demande
-// — le survol, qui cherche la cellule de SOL sous le curseur. Un consommateur qui
-// voudrait viser autre chose (le tablier d'un pont) devrait défalquer son altitude
-// AVANT d'appeler.
+// Écran → monde. ⚠ INVERSE DE LA SURFACE DU SOL (terrain compris), pas d'un plan :
+// un point d'écran désigne un RAYON, et c'est le TERRAIN qui tranche — le survol
+// cherche la cellule de sol sous le curseur, laquelle est levée sur une colline.
+// Un consommateur qui viserait autre chose (le tablier d'un pont) devrait défalquer
+// son altitude AVANT d'appeler.
+//
+// L'itération : la projection soustrait terrainZ·z au y d'écran, et l'algèbre du
+// losange fait qu'ajouter h à l'altitude déplace l'unprojection d'exactement
+// (+h, +h) px monde. On part du plan (h = 0), on lit l'altitude au point obtenu,
+// on re-décale — deux tours suffisent : la pente du champ est bornée bien sous 1
+// (terrasses de 1 U toutes les ~4 tuiles). Aux discontinuités (bord de socle),
+// l'itération retombe d'un côté ou de l'autre — les deux réponses sont des sols.
+// Terrain coupé (amp 0) : h = 0 dès le premier tour, inverse EXACT du plan,
+// au bit près — c'est ce que les gardes de rondtrip verrouillent.
 export function screenToWorld(sx, sy) {
   const z = CM.cam.zoom;
   const ax = (sx - CM.cw / 2) / z, ay = (sy - CM.ch / 2) / z;
   // ax = dx − dy ; ay/ISO_Y = dx + dy
   const b = ay / ISO_Y;
-  return { x: (b + ax) / 2 + CM.cam.x, y: (b - ax) / 2 + CM.cam.y };
+  const wx = (b + ax) / 2 + CM.cam.x, wy = (b - ax) / 2 + CM.cam.y;
+  const h0 = terrainZ(wx, wy);
+  if (!h0) return { x: wx, y: wy };
+  const h1 = terrainZ(wx + h0, wy + h0);
+  return { x: wx + h1, y: wy + h1 };
 }
 
 // Delta caméra (monde) → delta écran. Sert aux bakes offscreen (pan = translation).

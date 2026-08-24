@@ -25,7 +25,11 @@ describe('projection — le troisième axe', () => {
     // rendent exactement ce qu'ils rendaient avant.
     const src = SRC('iso/projection.js');
     expect(src).toMatch(/export function worldToScreen\(wx, wy, wz = 0\)/);
-    expect(src).toMatch(/- wz \* z/);
+    // Depuis la v2 du relief (2026-08-24), LE TERRAIN passe par l'axe DANS la
+    // formule : l'altitude du sol s'ajoute à celle du consommateur (le pont s'y
+    // compose). terrainZ rend 0 à TERRAIN.amp = 0 — le no-op reste garanti par
+    // la molette, plus par l'absence de terrain.
+    expect(src).toMatch(/- \(wz \+ terrainZ\(wx, wy\)\) \* z/);
   });
 });
 
