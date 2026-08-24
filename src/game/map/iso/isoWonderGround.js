@@ -11,6 +11,7 @@
 // raison de vivre loin de sa config. Ce module porte donc maintenant les trois : la
 // config, l'ensemble effectif des cellules, et le DALLAGE qui s'y pose.
 import { CM, CM_WONDERS, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
+import { districtLandmarks } from './isoDistricts.js';
 import { rgb } from './isoPalette.js';   // le dallage compose ses tons
 
 export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 0, rim: 1.10, tileAlpha: 1 };
@@ -37,7 +38,10 @@ export function districtCells(L) {
   const c = CM._districtGround;
   if (c && c.sig === sig) return c.set;
   const set = new Set();
-  for (const d of L.districts) {
+  // L'esplanade suit la MASSE : les seuls repères élus (un par genre, le plus
+  // proche du cœur — cf. isoDistricts). Les autres emprises gardent leur friche.
+  const picks = districtLandmarks(L);
+  for (const d of (picks || [])) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) {
       set.add((d.gx + ax) + ',' + (d.gy + ay));
     }

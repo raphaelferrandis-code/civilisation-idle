@@ -2560,7 +2560,14 @@ function computeCityLayout(s) {
     }
     if (!placed) continue;
     for (let ax = 0; ax < size; ax += 1) for (let ay = 0; ay < size; ay += 1) occupiedFoot.add((placed.gx + ax) + "," + (placed.gy + ay));
-    districts.push({ gx: placed.gx, gy: placed.gy, size, kind, key: `district:${placed.gx},${placed.gy}:${kind}` });
+    // `civic` : les n premiers sont les MONUMENTS civiques (kind tiré de civicKinds),
+    // le reste est du tissu dense — la distinction existait dans le tirage du kind
+    // et n'était pas portée sur la fiche. Les repères de la carte (isoDistricts) ne
+    // dessinent une masse QUE sur les civiques : une hiérarchie est RARE par
+    // définition — 18 monuments par ville, c'est une couche uniforme de plus
+    // (retour Raph : « ça alourdit beaucoup le rendu »).
+    districts.push({ gx: placed.gx, gy: placed.gy, size, kind, civic: n < c.civicMonuments,
+      key: `district:${placed.gx},${placed.gy}:${kind}` });
   }
 
   // Zone réservée (merveilles + districts)

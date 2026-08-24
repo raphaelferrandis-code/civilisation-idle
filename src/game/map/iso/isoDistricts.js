@@ -37,12 +37,40 @@ const KIND_ART = {
 // et le survol n'y voient que du feu), plus `__district` — le marqueur qui coupe
 // le POUSSÉ DE FRONT (une masse civique reste centrée sur son esplanade, elle ne
 // se colle pas à la rue comme une échoppe).
-let _tiles = null, _tilesAt = -1;
-export function districtMassTiles(L) {
+// LA SÉLECTION : **un monument par GENRE**, celui de chaque genre le plus proche
+// du cœur — LE palais, LE forum, LES archives. Une hiérarchie est RARE par
+// définition : la v1 posait une masse sur chaque emprise (18-22 par ville) et
+// fabriquait une couche uniforme de plus (« ça alourdit beaucoup le rendu »,
+// Raph) — et le drapeau `civic` ne filtrait rien, à la bande 4 TOUTES les
+// emprises sortent du tirage civique (mesuré : 18/18). Trois repères par bande,
+// c'est l'étage manquant entre la maison et la merveille ; les autres emprises
+// redeviennent ce qu'elles étaient — du tissu réservé, sans masse ni esplanade.
+let _picks = null, _picksAt = -1;
+export function districtLandmarks(L) {
   if (!DISTRICT_MASS.on || !L || !L.districts || !L.districts.length) return null;
   const at = CM.layoutRecomputeAt || 0;
+  if (_picks && _picksAt === at) return _picks;
+  const cx = L.plan && L.plan.core ? L.plan.core.x : L.cx;
+  const cy = L.plan && L.plan.core ? L.plan.core.y : L.cy;
+  const best = new Map();
+  for (const d of L.districts) {
+    if (d.civic === false) continue;
+    const dist = Math.hypot(d.gx + d.size / 2 - cx, d.gy + d.size / 2 - cy);
+    const cur = best.get(d.kind);
+    if (!cur || dist < cur.dist) best.set(d.kind, { d, dist });
+  }
+  _picks = [...best.values()].map((e) => e.d);
+  _picksAt = at;
+  return _picks;
+}
+
+let _tiles = null, _tilesAt = -1;
+export function districtMassTiles(L) {
+  const picks = districtLandmarks(L);
+  if (!picks) return null;
+  const at = CM.layoutRecomputeAt || 0;
   if (_tiles && _tilesAt === at) return _tiles;
-  _tiles = L.districts.map((d) => ({
+  _tiles = picks.map((d) => ({
     gx: d.gx, gy: d.gy, spanX: d.size, spanY: d.size,
     type: 'engine',
     buildingId: KIND_ART[d.kind] || 'courthouses',
@@ -56,6 +84,8 @@ if (typeof window !== 'undefined') {
   window.__districtMass = (on) => {
     DISTRICT_MASS.on = on !== false;
     _tiles = null; _tilesAt = -1;
+    _picks = null; _picksAt = -1;
+    CM._districtGround = null; CM._pvWonderGround = null; CM._isoGroundBake = null;
     return DISTRICT_MASS.on;
   };
 }
