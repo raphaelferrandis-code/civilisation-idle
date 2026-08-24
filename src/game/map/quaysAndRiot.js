@@ -25,7 +25,6 @@ import { state } from '../core/state.js';
 import { CM, CM_WONDERS, cmWonderSlot, cmWonderActive, WONDER_CLEAR_R } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
 import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
-import { waterSinkPx } from './iso/isoRelief.js';
 
 // Les trois hooks `setPlazaPropOnLoad` / `setMedianOnLoad` / `setRoadPavingOnLoad`
 // vivaient ici : ils invalidaient les caches STATIQUE et SOL quand une tuile de
@@ -371,17 +370,7 @@ function cityMapDrawQuays(now, mode) {
     // dessine le parement que sur les sous-tronçons où c'est vrai ; l'autre rive
     // n'a que la margelle (parement occulté par sa propre promenade).
     if (baseOn && wallOn && !lod) {
-      // ⚠⚠ LOT 1 DU RELIEF : LA HAUTEUR DU PAREMENT DÉRIVE DE LA NAPPE.
-      // `wallTiles` est une constante par ère (0,66 à 0,75 tuile) : le mur pendait
-      // d'une hauteur décidée par le style, sans rapport avec le niveau de l'eau. Tant
-      // que l'eau était AU RAS DU SOL, c'était sans conséquence — le mur était un
-      // décor. Dès que la nappe descend, il devient la FACE DE LA MARCHE, et sa
-      // hauteur doit être exactement celle dont l'eau est descendue : c'est ce qui
-      // occulte le ruban et fait lire « l'eau est plus bas » au lieu de « le fleuve a
-      // bougé ». Cf. iso/isoRelief.js.
-      // `waterSinkPx()` rend 0 quand le relief est éteint → on retombe sur la
-      // constante d'ère, au pixel près. L'état d'avant est donc strictement conservé.
-      const wh = waterSinkPx() || (st.wallTiles * quayWallTune.heightK * T * z);
+      const wh = st.wallTiles * quayWallTune.heightK * T * z;   // hauteur écran du parement
       const N = b - a + 1;
       // wbelow par sample (l'eau est "devant" = plus bas à l'écran) → robuste courbes/full.
       const wbel = new Uint8Array(N);

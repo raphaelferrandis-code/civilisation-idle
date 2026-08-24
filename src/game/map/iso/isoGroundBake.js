@@ -37,7 +37,6 @@ import { SEASON_GRASS, drawGrassDetailAll, drawGrassFringeAll } from './isoGroun
 import { makeGroundBake } from './isoGroundResolve.js';
 import { drawIsoGroundRoads } from './isoGroundRoads.js';
 import { BEACH } from './isoGroundTiles.js';
-import { reliefKey } from './isoRelief.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll } from './isoWonderGround.js';
@@ -494,12 +493,6 @@ export function paintIsoGroundCached(ctx, L, helpers) {
       // rencontré trois fois sur ce projet.
       + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
       + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
-      // ⚠⚠ LE RELIEF ENTRE DANS LA CLÉ (lot 1, piège n° 1 du PLAN-RELIEF, qui a déjà
-      // mordu ce projet TROIS fois). `keySuf` nourrit `key` ET `cacheBase` : un seul
-      // ajout ici referme donc les deux, le bake vif et le cache de crans. Le fragment
-      // est VIDE tant que le relief est à 0 — les clés d'avant restent identiques, donc
-      // aucun cache existant n'est jeté pour rien.
-      + reliefKey()
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
     const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
     // Base du CACHE DE CRANS : identité de contenu (signature du sol), PAS le

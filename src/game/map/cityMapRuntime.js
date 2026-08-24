@@ -2188,6 +2188,11 @@ function initCityMap(canvas, options = {}) {
     // relief, on le chiffre — ce projet a déjà vu la mesure réfuter l'œil (5
     // constats sur 39 dans PLAN-RENDU-VILLE §7).
     //
+    // ⚠ LE CHANTIER DU RELIEF EST CLOS (cf. l'en-tête de PLAN-RELIEF.md) ; cette sonde
+    // SURVIT EXPRÈS. C'est elle qui a chiffré « la campagne est plate, la ville ne l'est
+    // pas », le constat qui désigne la suite — la hiérarchie de masse de
+    // PLAN-RENDU-VILLE. Elle mesurera ce chantier-là comme elle a mesuré celui-ci.
+    //
     // ⚠⚠ CE QU'ON MESURE, ET POURQUOI CE N'EST PAS L'ÉVIDENT. Une forêt est
     // PLEINE de variance : les feuilles, les troncs, le bruit de tuile. Mesurer
     // l'écart-type des pixels DANS un bloc la déclarerait donc très contrastée,

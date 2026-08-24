@@ -12,6 +12,8 @@
 // mangeait la moitié et se lisait comme une allée de gravier, pas comme une berge.
 // Une largeur de rivage se juge au RAPPORT à l'objet qu'elle borde.
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { BEACH } from "../iso/isoGroundTiles.js";
 
 // L'Aiguille Céleste telle que layout.js la construit (rx 7,6 / ry 2,4).
@@ -37,5 +39,27 @@ describe("réglage du rivage d'île", () => {
     expect(BEACH.wetTone.sand).toMatch(/^\d+,\d+,\d+$/);
     expect(BEACH.wetTone.shingle).toMatch(/^\d+,\d+,\d+$/);
     expect(BEACH.wetTone[BEACH.mat], `pas de ton humide pour « ${BEACH.mat} »`).toBeTruthy();
+  });
+});
+
+// ── LA RÈGLE DE LA GRÈVE DE BERGE ────────────────────────────────────────────
+// Sortie d'`isoGroundResolve` le 2026-08-24 vers `iso/isoBeachCells.js`. Le chantier qui
+// l'a motivée (la pente de grève) a été clos par Raph le jour même, mais l'extraction
+// reste : la règle et SES EXCLUSIONS forment un tout, et les avoir laissées séparées
+// avait déjà produit un bug — une pente de sable posée devant un quartier pavé, parce
+// que le second exemplaire de la règle n'avait gardé que le critère de proximité.
+describe('grève de berge — la règle et ses exclusions ne se séparent pas', () => {
+  it('la règle est nommée, et ses exclusions vivent AVEC elle', () => {
+    const src = readFileSync(join(__dirname, '..', 'iso/isoBeachCells.js'), 'utf8');
+    expect(src).toMatch(/export function isBeachBankCell\(L, gx, gy\)/);
+    expect(src).toContain('L.roadSet.has(key)');                 // une rampe vers le quai reste une rampe
+    expect(src).toContain('beachPortCells(L).has(key)');          // le port est exempté du bâti
+    expect(src).toContain('BEACH.bankR');                         // le rayon autour d'un trou de quai
+  });
+
+  it('le sol cuit ne rejoue plus le critère à la main', () => {
+    const src = readFileSync(join(__dirname, '..', 'iso/isoGroundResolve.js'), 'utf8');
+    expect(src).toContain('isBeachBankCell(L, gx, gy)');
+    expect(src).not.toContain('BEACH.bankR');
   });
 });

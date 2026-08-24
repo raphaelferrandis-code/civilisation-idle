@@ -1,17 +1,20 @@
 "use strict";
-// OÙ EST LA GRÈVE — la règle, en un seul exemplaire.
+// OÙ EST LA GRÈVE — la règle, et ses exclusions avec elle.
 //
-// Extraite d'`isoGroundResolve` le 2026-08-24, et pas par goût du rangement : la pente
-// de grève (lot 1 du relief, cf. `isoRelief.GREVE`) est peinte dans la passe VIVE du
-// fleuve, alors que le sable, lui, est cuit dans le SOL. Deux peintres, deux moments,
-// et une seule question — « cette cellule de berge est-elle du sable ? ». Tant que la
-// réponse vivait dans le bake, le fleuve ne pouvait que la deviner.
+// Extraite d'`isoGroundResolve` le 2026-08-24. Elle y était un prédicat anonyme dont les
+// exclusions (route, bâti sauf port) vivaient AILLEURS, dans les gardes de la chaîne
+// `kindAt` — trois morceaux pour une seule question : « cette cellule de berge est-elle
+// du sable ? ».
 //
-// ⚠⚠ ET LA DEVINER NE MARCHE PAS. Premier jet : le fleuve rejouait la seule proximité
-// d'un trou de quai, sans les exclusions. Mesuré au masque de différence : la pente se
-// posait aussi devant le QUARTIER PAVÉ de la rive opposée, là où le sol cuit est de la
-// pierre — une plage sous des maisons. Les exclusions ne sont pas un détail de la
-// règle, elles SONT la règle.
+// ⚠⚠ ET LES SÉPARER A DÉJÀ COÛTÉ UN BUG. Un second peintre a voulu poser la même
+// question et n'a recopié que le critère de proximité, pas les exclusions : il a peint
+// du sable devant le QUARTIER PAVÉ de la rive opposée, là où le sol cuit est de la
+// pierre. Les exclusions ne sont pas un détail de la règle, elles SONT la règle — d'où
+// une fonction nommée qui les porte toutes.
+//
+// ⚠ Le peintre en question était la pente de grève du chantier du RELIEF, clos par Raph
+// le jour même (cf. l'en-tête de `docs/PLAN-RELIEF.md`). Ce module n'a donc plus qu'un
+// appelant, le sol cuit. Il reste parce que la leçon, elle, ne dépend pas du chantier.
 //
 // ⚠ Ce module ne dit PAS tout le classement : la priorité de l'eau, du parvis de
 // merveille et des places reste dans la chaîne de `kindAt`, où elle se lit. Il ne porte
