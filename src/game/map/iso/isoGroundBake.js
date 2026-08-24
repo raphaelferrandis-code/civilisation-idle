@@ -102,12 +102,16 @@ function drawIsoGround() {
   const cullOn = globalThis.__isoCellCull !== false;
   // Contremarches du relief (quads écran, 8 nombres chacun) : terre claire/sombre
   // + pierre d'ère claire/sombre — la tranche prend la matière de sa cellule.
+  // Polish : lèvres (herbe/margelle, quads), assise sombre (quads), joints de
+  // pierre (verticales, 3 nombres) et ombre de contact au pied (segments, 4).
   const faceL = [], faceD = [], faceLU = [], faceDU = [];
+  const faceFoot = [], faceBand = [], faceJoint = [], faceLipG = [], faceLipS = [];
   sweepIsoGroundCells(
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY, ISO_GROUND_SLICE,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind },
-    { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD, faceLU, faceDU },
+    { fringes, roads, wonderCells, grassCells, veilPush,
+      faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS },
   );
   if (PR) PR.cells = performance.now() - tLoop;
   // CONTREMARCHES DU RELIEF : remisées par le balayage, peintes en DEUX fills
@@ -132,6 +136,36 @@ function drawIsoGround() {
     flushFaces(faceL, rgb(DIRT_TONE, 0.82));
     flushFaces(faceDU, rgb(urb, 0.60));    // pierre d'ère : mur de soutènement
     flushFaces(faceLU, rgb(urb, 0.84));
+    // ── Polish, du fond vers l'avant : assise sombre → joints → lèvre (elle
+    // recouvre le haut des deux premiers) → ombre de contact au pied.
+    flushFaces(faceBand, 'rgba(0,0,0,0.16)');
+    if (faceJoint.length) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.20)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < faceJoint.length; i += 3) {
+        ctx.moveTo(faceJoint[i], faceJoint[i + 1]);
+        ctx.lineTo(faceJoint[i], faceJoint[i + 2]);
+      }
+      ctx.stroke();
+    }
+    flushFaces(faceLipG, rgb(SEASON_GRASS, 0.72));
+    // Margelle : le ton urbain fondu vers le blanc — le même geste que la berge
+    // maçonnée (lightenHex), en tableau.
+    flushFaces(faceLipS, rgb([
+      Math.round(urb[0] + (255 - urb[0]) * 0.28),
+      Math.round(urb[1] + (255 - urb[1]) * 0.28),
+      Math.round(urb[2] + (255 - urb[2]) * 0.28)], 1));
+    if (faceFoot.length) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+      ctx.lineWidth = Math.max(1, z * 0.8);
+      ctx.beginPath();
+      for (let i = 0; i < faceFoot.length; i += 4) {
+        ctx.moveTo(faceFoot[i], faceFoot[i + 1]);
+        ctx.lineTo(faceFoot[i + 2], faceFoot[i + 3]);
+      }
+      ctx.stroke();
+    }
     if (PR) PR.faces = performance.now() - tF;
   }
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle

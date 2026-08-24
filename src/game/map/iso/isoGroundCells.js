@@ -42,7 +42,8 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD, faceLU, faceDU } = out;
+  const { fringes, roads, wonderCells, grassCells, veilPush,
+    faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS } = out;
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
@@ -268,13 +269,42 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           // pierre d'ère dans la ville (dallage/place/parvis), terre partout
           // ailleurs — le brun jurait sur le dallage gris (vu à la bande 4).
           const stone = kind === 'urban' || kind === 'plaza' || kind === 'wonder';
+          // POLISH (remisé comme le reste, ~5 fills/strokes d'union par recuisson,
+          // sauté en allégé HARD — c'est de la matière, pas de la structure) :
+          //   · LÈVRE — l'herbe DÉBORDE du bord (kind grass), la pierre reçoit sa
+          //     margelle claire ; la terre nue n'a pas de lèvre (un surplomb de
+          //     sol nu se lirait comme un bug, pas comme de la végétation) ;
+          //   · ASSISE sombre sous les GRANDES marches (≥ 2 U — et 2 U d'écran
+          //     valent exactement hh : 2·(T/4)·(hw/T) = hw/2) : la lecture de
+          //     profondeur du mur de quai, en une bande d'ombre ;
+          //   · JOINTS de pierre (faces assez hautes ET assez zoomées : ≥ 6 px) ;
+          //   · OMBRE DE CONTACT au pied — le trait qui pose la marche au sol.
+          const pushFace = (ax, ay, da, db, dark) => {
+            (stone ? (dark ? faceDU : faceLU) : (dark ? faceD : faceL))
+              .push(ax, ay, sx, sy, sx, sy + db, ax, ay + da);
+            if (HARD) return;
+            faceFoot.push(ax, ay + da, sx, sy + db);
+            if (kind === 'grass' || stone) {
+              const lh = Math.max(1, hh * 0.12);
+              (stone ? faceLipS : faceLipG).push(ax, ay, sx, sy, sx, sy + lh, ax, ay + lh);
+            }
+            if (Math.min(da, db) >= hh) {
+              faceBand.push(ax, ay + da * 0.55, sx, sy + db * 0.55, sx, sy + db, ax, ay + da);
+            }
+            if (stone && da >= 6) {
+              for (const tj of [0.35, 0.68]) {
+                const jx = ax + (sx - ax) * tj, jy = ay + (sy - ay) * tj;
+                faceJoint.push(jx, jy + 1, jy + da + (db - da) * tj - 1);
+              }
+            }
+          };
           if (zN > zE) {
             const dE = (zN - zE) * k;
-            (stone ? faceDU : faceD).push(p.x + hw, p.y + hh, sx, sy, sx, sy + Math.max(dE, dD), p.x + hw, p.y + hh + dE);
+            pushFace(p.x + hw, p.y + hh, dE, Math.max(dE, dD), true);
           }
           if (zN > zS) {
             const dS = (zN - zS) * k;
-            (stone ? faceLU : faceL).push(p.x - hw, p.y + hh, sx, sy, sx, sy + Math.max(dS, dD), p.x - hw, p.y + hh + dS);
+            pushFace(p.x - hw, p.y + hh, dS, Math.max(dS, dD), false);
           }
         }
       }
