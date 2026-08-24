@@ -1,6 +1,48 @@
 # Plan — Le relief : « tout est plat »
 
-> ## ⛔ CHANTIER CLOS LE 2026-08-24, PAR DÉCISION DE RAPH — NE PAS ROUVRIR
+> ## ✅ ROUVERT ET LIVRÉ LE 2026-08-24 — LE TERRAIN EST EN JEU (`79c0275` → `a83f1c8`)
+> **9 commits le jour même** : champ + socles + contremarches + ombrage (v1), remodelage
+> « fini la houle » (coteau + massifs discrets), ROUTES SILLONNANTES (coût de pente,
+> `terrainField.js` partagé génération/rendu), accent final validé par Raph, inverse du
+> survol en point fixe. Défauts de référence : `valley 9, hills 12, hillCut 0.46,
+> cityK 0.5` — validés (« c'est bien comme ça »).
+>
+> Raph a rouvert le dossier le jour même de la clôture (« j'ai travaillé le relief sans
+> succès, vérifie ce qui a été fait et quelle est ton approche »). Le diagnostic de la
+> clôture — « la base de la carte n'a pas été pensée pour ça » — s'est révélé **faux à
+> la mesure** : un seul site projette tout le sol, et les ~15 projections du peintre
+> sont toutes des pieds au sol. Ce que le premier chantier avait levé, c'était
+> l'exception (l'eau, le pont) — jamais la règle (le sol et ce qui s'y tient).
+>
+> **La méthode qui a marché, à retenir : une MAQUETTE JETABLE avant tout plan.** Une
+> colline bidon accrochée DANS `worldToScreen` (un seul point de contact), jugée sur
+> capture en une heure : géométrie seule = fish-eye ; géométrie + ombrage = relief.
+> Raph a validé la direction sur une image de ville réellement levée — ce que les six
+> lots du plan d'origine n'avaient jamais produit.
+>
+> ### Ce qui est LIVRÉ (`iso/isoTerrain.js`, défaut ALLUMÉ, `__terrain(false)` coupe)
+> · **Le champ** : vallée creusée par le fleuve + collines 2 octaves semées par
+>   `mapSeed`, douces en ville (`cityK`), pleines au-delà de la lisière ; DÉRIVÉ,
+>   jamais stocké — la save ne change pas. Unité **U = T/4 en entiers** (× le zoom
+>   quantifié au 1/8 = toujours un pixel entier), niveau **par cellule** (coin partagé
+>   → cellule sud-est), **socles plats** sous chaque emprise/place/parvis, résolus
+>   avant la cellule, en continu.
+> · **L'axe la porte** : `worldToScreen` additionne `terrainZ` à `wz` — tout suit,
+>   rien à enfiler chez les consommateurs. `screenToWorld` est l'inverse de la
+>   SURFACE (2 itérations, `+h` décale l'unprojection de `(+h,+h)`).
+> · **Les contremarches** : la tranche du terrain sous les arêtes sud/est des cellules
+>   hautes — terre en campagne, pierre d'ère en ville — remisées puis peintes en
+>   fills d'union (les fills par cellule coûtaient +45 % de recuisson).
+> · **L'ombrage** : hillshade du champ lisse en soft-light par-dessus la scène
+>   (lumière haut-gauche) — c'est lui qui « vend » la pente.
+> · **Coût** : recuisson pleine **+28-33 %** (dev, cadrage verrouillé, best-of-4) —
+>   coalescée au repos, jamais en geste ; les seuils auto-calibrés absorbent.
+> · **10 gardes** (`isoTerrain.test.js`) + gardes d'axe mises à jour.
+>
+> Le bandeau de clôture ci-dessous est CONSERVÉ pour ses leçons (contrainte de
+> cadrage, artefacts d'instrument) — mais sa conclusion est caduque.
+
+> ## ⛔ ~~CHANTIER CLOS LE 2026-08-24, PAR DÉCISION DE RAPH~~ — ROUVERT LE JOUR MÊME, cf. ci-dessus
 >
 > « ça n'ajoute objectivement aucun relief, la base de la carte n'a pas été pensée pour
 > ça. On perd plus de temps à tout reprendre un par un alors qu'une base saine serait
