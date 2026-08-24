@@ -26,13 +26,10 @@ export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 
 //
 // `DISTRICT_GROUND.parvis` leur donne le dallage des merveilles — même art, même
 // machinerie, aucune image nouvelle : une friche devient une esplanade civique.
-// ⚠ ÉTEINT PAR DÉFAUT. C'est une décision de DA, elle revient à Raph, et elle
-// s'arbitre sur pièces : `__districts({ parvis: true })`.
-// ⚠ Ça ne donne PAS de la MASSE — seulement un sol délibéré. Le déficit mesuré au lot 0
-// de PLAN-RELIEF est une modulation de VALEUR, qui demande de la hauteur ; et l'art
-// des 13 genres de district n'existe pas (3 seulement ont un bâtiment correspondant).
-// Ce dallage est donc un premier pas honnête, pas la réponse au grief.
-export const DISTRICT_GROUND = { parvis: false };
+// ⚠ ALLUMÉ depuis le lot A du chantier « hiérarchie de masse » (2026-08-24) : les
+// emprises portent désormais leurs MASSES (isoDistricts) — l'esplanade est leur
+// parvis, l'ensemble se juge en bloc. `__districts({ parvis: false })` pour l'A/B.
+export const DISTRICT_GROUND = { parvis: true };
 
 export function districtCells(L) {
   if (!DISTRICT_GROUND.parvis || !L || !L.districts) return null;

@@ -38,6 +38,7 @@ import { STREET_PROPS } from './isoStreetProps.js';
 import { isoUnitDepth, isoUnitDepthEx } from './isoUnits.js';
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { depthOf, wonderFootWorld } from './projection.js';
+import { districtMassTiles } from './isoDistricts.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
 // persistants au module : capacité conservée d'une frame à l'autre.
@@ -153,6 +154,20 @@ export function collectIsoItems(bake, now) {
           items.push({ d: isoUnitDepth(moor.mx * T + hb, moor.my * T + hb), kind: 'portBoat', moor });
         }
       }
+    }
+  }
+  // REPÈRES CIVIQUES (isoDistricts) : les emprises de district deviennent des
+  // pseudo-tiles moteur — même item 'tile', même peintre, même scène span-aware,
+  // même survol. PAS de poussé de front (cf. le marqueur __district) : une masse
+  // civique reste centrée sur son esplanade, elle ne se colle pas à la rue.
+  const dMass = districtMassTiles(L);
+  if (dMass) {
+    for (const t of dMass) {
+      if (t.gx + t.spanX < b.gx0 || t.gx > b.gx1 || t.gy + t.spanY < b.gy0 || t.gy > b.gy1) continue;
+      if (!dvVis(t.gx * T, t.gy * T, (t.gx + t.spanX) * T, (t.gy + t.spanY) * T)) continue;
+      const it = pushItem();
+      it.d = depthOf((t.gx + t.spanX) * T, (t.gy + t.spanY) * T);
+      it.kind = 'tile'; it.t = t;
     }
   }
   // Arbres (décor) — assez près de la ville seulement (le bake du sol couvre le
