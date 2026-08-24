@@ -32,11 +32,13 @@
 // fichier pour appeler la coupe. La molette doit toujours repondre apres coup.
 import { CM } from '../layout.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
+import { DIRT_TONE } from './isoTissu.js';
 import { sweepIsoGroundCells } from './isoGroundCells.js';
 import { SEASON_GRASS, drawGrassDetailAll, drawGrassFringeAll } from './isoGroundDetail.js';
 import { makeGroundBake } from './isoGroundResolve.js';
 import { drawIsoGroundRoads } from './isoGroundRoads.js';
 import { BEACH } from './isoGroundTiles.js';
+import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll } from './isoWonderGround.js';
@@ -93,16 +95,41 @@ function drawIsoGround() {
   // Le test est un rejet précoce, avant kindAt et tout tracé.
   // ⚠ Marge d'une cellule pleine : le losange pend SOUS son coin nord (2*hh) et
   // les tuiles/touffes débordent un peu. Trop serré, on raboterait le bord.
+  // + terrainMax en Y : la contremarche d'une cellule haute pend d'autant sous
+  // son losange — culler au coin nord la couperait au bord haut de l'écran.
   // A/B : globalThis.__isoCellCull = false rejoue le balayage complet.
-  const cullPadX = hw * 2, cullPadY = hh * 4;
+  const cullPadX = hw * 2, cullPadY = hh * 4 + terrainMaxPx() * z;
   const cullOn = globalThis.__isoCellCull !== false;
+  const faceL = [], faceD = [];        // contremarches du relief (quads écran, 8 nombres chacun)
   sweepIsoGroundCells(
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY, ISO_GROUND_SLICE,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind },
-    { fringes, roads, wonderCells, grassCells, veilPush },
+    { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD },
   );
   if (PR) PR.cells = performance.now() - tLoop;
+  // CONTREMARCHES DU RELIEF : remisées par le balayage, peintes en DEUX fills
+  // d'union (claire = face +y vers la lumière haut-gauche, sombre = face +x).
+  // L'ordre est libre — une face ne recouvre jamais un losange, le voisin plus
+  // bas commence exactement où elle finit — mais AVANT tout ce qui se pose sur
+  // le sol (parvis, franges, rubans) : la route rampe PAR-DESSUS sa marche.
+  if (faceL.length || faceD.length) {
+    const tF = PR && performance.now();
+    const flushFaces = (arr, col) => {
+      if (!arr.length) return;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      for (let i = 0; i < arr.length; i += 8) {
+        ctx.moveTo(arr[i], arr[i + 1]); ctx.lineTo(arr[i + 2], arr[i + 3]);
+        ctx.lineTo(arr[i + 4], arr[i + 5]); ctx.lineTo(arr[i + 6], arr[i + 7]);
+        ctx.closePath();
+      }
+      ctx.fill();
+    };
+    flushFaces(faceD, rgb(DIRT_TONE, 0.58));
+    flushFaces(faceL, rgb(DIRT_TONE, 0.82));
+    if (PR) PR.faces = performance.now() - tF;
+  }
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
   // encadre le parvis et doit rester au-dessus des joints, comme avant.
   drawWonderGroundAll(ctx, wonderCells, hw, hh, wg);
@@ -493,6 +520,9 @@ export function paintIsoGroundCached(ctx, L, helpers) {
       // rencontré trois fois sur ce projet.
       + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
       + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
+      // LE TERRAIN EST DANS LE SOL BAKÉ : niveaux de cellules ET contremarches
+      // dépendent du champ → tout réglage doit recuire (vide à l'arrêt).
+      + terrainKey()
       + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
     const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
     // Base du CACHE DE CRANS : identité de contenu (signature du sol), PAS le

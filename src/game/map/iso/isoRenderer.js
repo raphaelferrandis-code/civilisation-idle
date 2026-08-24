@@ -46,6 +46,7 @@ import { drawIsoRiverLife } from './isoRiverLife.js';
 import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
+import { drawTerrainShade } from './isoTerrain.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
 } from './projection.js';
@@ -256,6 +257,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   drawIsoShips(now);
   fp('bateaux');
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
+  drawTerrainShade();    // ombrage du relief — par-dessus la scène : le flanc prend aussi le bâti
   fp('scene-vivante');
   drawIsoBirds(now);     // nuée : passe aérienne, avant les drones
   drawIsoDrones(now);

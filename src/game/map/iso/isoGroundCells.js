@@ -28,6 +28,7 @@ import { WINTER } from '../seasonMode.js';
 import { PLAZA, PLAZA_ERA_TONE, rgb } from './isoPalette.js';
 import { DIRT_TONE } from './isoTissu.js';
 import { WONDER_GROUND } from './isoWonderGround.js';
+import { TERRAIN, terrainZ } from './isoTerrain.js';
 import { diamondPath } from './isoQuad.js';
 import { beachTone, ensureIsoTileKey, blitIsoTileKey } from './isoGroundTiles.js';
 import {
@@ -41,7 +42,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush } = out;
+  const { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD } = out;
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
@@ -228,6 +229,50 @@ export function sweepIsoGroundCells(bake, resolve, out) {
         if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key, wx0: gx + 1, wy0: gy, wx1: gx + 1, wy1: gy + 1 });
         if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key, wx0: gx, wy0: gy + 1, wx1: gx + 1, wy1: gy + 1 });
         if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key, wx0: gx, wy0: gy, wx1: gx, wy1: gy + 1 });
+      }
+      // ── CONTREMARCHES DU RELIEF (isoTerrain) ──────────────────────────────
+      // Une cellule plus HAUTE que son voisin SUD ou EST montre la TRANCHE du
+      // terrain : un quad qui pend sous l'arête partagée, de la différence de
+      // niveaux. En 3/4 seules ces deux faces existent (+x, +y) — règle de la
+      // marche, une face qui regarde ailleurs ne se voit pas. Peintes DANS le
+      // balayage : les voisins, dessinés plus bas et plus tard, recouvrent tout
+      // débord — on peut donc descendre le sommet SUD jusqu'au niveau du voisin
+      // DIAGONAL sans trou de coin ni double peinture visible.
+      // Matière TERRE (une coupe de sol montre la terre, jamais l'herbe) ; la
+      // face gauche (+y) regarde la lumière haut-gauche → claire, la droite
+      // (+x) → sombre. Dessinées à TOUS les niveaux d'allégé : elles sont
+      // structurelles — sans elles, le geste montrerait des fentes de fond.
+      if (TERRAIN.amp && !isWater && !isBridge) {
+        // ⚠ LA MÊME AUTORITÉ QUE LE LOSANGE : terrainZ aux coins nord — socles
+        // compris. Comparer des niveaux de cellule (cellLevelU) manquait les
+        // marches AUTOUR DES SOCLES : le losange se pose à la hauteur du replat,
+        // la face doit pendre d'exactement cette hauteur-là, pas de celle du
+        // terrain nu. (Vu à la capture : fentes vertes le long du bâti.)
+        //
+        // REMISÉES, PAS PEINTES : une face ne recouvre jamais un losange (le
+        // voisin plus bas COMMENCE là où elle finit) — l'ordre est donc libre,
+        // et on paie 2 fills d'union par recuisson au lieu de milliers (mesuré :
+        // les fills par cellule coûtaient ~+45 % de recuisson ; c'est toujours
+        // le tracé qui coûte sur cette carte, jamais le JS).
+        const zN = terrainZ(gx * T, gy * T);
+        const zE = terrainZ((gx + 1) * T, gy * T);
+        const zS = terrainZ(gx * T, (gy + 1) * T);
+        if (zN > zE || zN > zS) {
+          // Le même zoom que le losange : hw = T·z·ISO_X, donc z = hw/T — vrai
+          // aussi sous les transformations de calque (walkLayer bascule le repère).
+          const k = hw / T;
+          const zD = terrainZ((gx + 1) * T, (gy + 1) * T);
+          const dD = Math.max(0, zN - zD) * k;
+          const sx = p.x, sy = p.y + hh * 2;           // sommet SUD du losange
+          if (zN > zE) {
+            const dE = (zN - zE) * k;
+            faceD.push(p.x + hw, p.y + hh, sx, sy, sx, sy + Math.max(dE, dD), p.x + hw, p.y + hh + dE);
+          }
+          if (zN > zS) {
+            const dS = (zN - zS) * k;
+            faceL.push(p.x - hw, p.y + hh, sx, sy, sx, sy + Math.max(dS, dD), p.x - hw, p.y + hh + dS);
+          }
+        }
       }
       // Les cellules-PONT ne reçoivent ni fond ni ruban ici : leur tablier est
       // dessiné APRÈS le fleuve (drawIsoBridges), au-dessus de l'eau. Le PARVIS
