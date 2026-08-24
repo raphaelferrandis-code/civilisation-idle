@@ -501,6 +501,29 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // `soft` = invalidation DOUCE (sprite décodé en retard) : contenu encore
     // valable → coalescée ici ; `null` reste l'invalidation DURE (canvas
     // effacé/recréé : rien à re-blitter) → recuisson immédiate.
+    const nowMs = performance.now();
+    // ACCALMIE SUR LE MOUVEMENT RÉEL de la caméra — surtout PAS sur la clé : un
+    // DRAG ne change pas la clé (zoom et layout fixes), donc une accalmie « clé
+    // stable » se croyait au repos en plein geste et recuisait en boucle (retour
+    // Raph : « ça rame au drag »).
+    if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
+      CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
+    }
+    // Horloge du dernier changement d'ÉCHELLE, séparée du mouvement général :
+    // c'est elle qui borne la rafale de molette — un drag qui suit un zoom ne
+    // doit pas la prolonger, sinon le sol resterait compensé pendant tout le
+    // déplacement. (_igZ ne peut pas servir : le bloc ci-dessus l'écrase dès
+    // que x ou y bougent seuls.)
+    if (CM.cam.zoom !== CM._igZoomPrev) { CM._igZoomPrev = CM.cam.zoom; CM._igZoomAt = nowMs; }
+    const stillMs = nowMs - (CM._igMoveAt || 0);
+    const settled = CM.capture || stillMs > ISO_SETTLE_MS;
+    // `restful` = accalmie LONGUE (cf. ISO_CRISP_SETTLE_MS) : elle seule autorise
+    // le sol plein. `settled` ne donne plus que le sol allégé.
+    const restful = CM.capture || stillMs > ISO_CRISP_SETTLE_MS;
+    // `zoomBurst` = la RAFALE de molette est en cours : le dernier changement
+    // d'échelle date de moins d'une accalmie longue. Déclarée AVANT la
+    // restauration — c'est elle qui y règle la stabilité de la source (lot 4).
+    const zoomBurst = nowMs - (CM._igZoomAt || 0) < ISO_CRISP_SETTLE_MS;
     // ── CACHE DE CRANS : RESTAURATION, EXACTE OU APPROCHÉE ────────────────────
     // EXACTE (même clé, zoom compris) : on repose la photo dans le canvas de
     // travail et la cascade n'y voit qu'un bake valide (sameContent) — blit
@@ -514,14 +537,22 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // compensé (other garde le marqueur, la cascade compense zoom/zoomB), mais
     // depuis une image du bon voisinage au lieu du bake de départ du geste —
     // quasi net au lieu de flou croissant.
-    // TANT QUE LE GLIDE DE ZOOM EST ACTIF, AUCUN plafond de distance (lot 1
+    // PENDANT LA RAFALE (zoomBurst), AUCUN plafond de distance (lot 1
     // anti-clignotement) : un sol étiré de deux crans reste un sol, alors que
     // l'alternative était le fond hors-monde nu — le « cadre sombre » du dézoom
-    // (.preview-shots/flicker-c2f0.png). HORS GLIDE, le ½ cran (±5,8 %) reste
+    // (.preview-shots/flicker-c2f0.png). HORS RAFALE, le ½ cran (±5,8 %) reste
     // exigé : la cascade recuit dans la même frame, une photo lointaine serait
     // une copie ~9 Mo pour rien — et au drag, le light exact en place vaut
     // mieux qu'un plein étiré. Un bake courant déjà plus proche (ou aussi
     // proche) est gardé.
+    // ET LA SOURCE EST STABLE (lot 4, retour Raph « scintillement au zoom ») :
+    // pendant la rafale, changer de source ne se fait que pour un gain d'UN
+    // CRAN ENTIER. La règle d'avant (« strictement plus proche », et l'exact
+    // prioritaire) faisait sauter la netteté à chaque mi-chemin entre deux
+    // photos et à chaque pose de cran photographié — net→flou→net au rythme de
+    // la molette, ~10 sauts par seconde. Une carte web garde le niveau étiré
+    // pendant tout le pincement ; ici pareil : au plus un changement de source
+    // par cran entier d'écart, et le net revient à l'arrêt (l'atterrissage).
     // Les suffixes ':lod' (allégé HARD) et ':lodl' (allégé LIGHT, textures et
     // voiles gardés) marquent un bake posé pendant un geste : même contenu de
     // base, détails en moins → à remplacer par un bake plein au repos. Déclaré
@@ -542,13 +573,9 @@ export function paintIsoGroundCached(ctx, L, helpers) {
             if (d < bestD) { bestD = d; best = e; }
           }
           if (!best) gzcStats.missBase += 1;
-          // ½ cran de molette (cf. CAM_FEEL.wheelStep = 1,12).
+          // ½ cran et cran entier de molette (cf. CAM_FEEL.wheelStep = 1,12).
           const HALF_STEP = Math.log(1.12) / 2;
-          // Le glide est actif tant que la cible n'est pas atteinte — même seuil
-          // que la pose franche de cmCameraGlide. C'est LUI qui lève le plafond
-          // de distance, pas `settled` : un drag bouge la caméra sans toucher au
-          // zoom, et il doit garder son ½ cran (cf. le bandeau ci-dessus).
-          const zoomGliding = CM.zoomGoal != null && Math.abs(CM.cam.zoom - CM.zoomGoal) > 1e-3;
+          const FULL_STEP = Math.log(1.12);
           // Une photo est « exacte » au grain de la clé vivante (zoom à 3
           // décimales) : sous ±0,05 % l'écart d'échelle est sous le pixel.
           const exact = !!best && Math.abs(best.z - CM.cam.zoom) < CM.cam.zoom * 5e-4;
@@ -564,7 +591,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           // s'amorçaient jamais (vu au banc : HARD éternel à 74 ms/frame). À sa
           // vraie distance (0), l'approché ne gagne plus ; l'EXACT passe
           // toujours (`exact ||` ci-dessous) et TERMINE la montée d'un coup.
-          const curKeyLod = !!cur && !cur.soft && curLod && !zoomGliding && baseOf(cur.other) === key;
+          const curKeyLod = !!cur && !cur.soft && curLod && !zoomBurst && baseOf(cur.other) === key;
           const curD = (cur && cur.zoomB != null && (!curLod || curKeyLod))
             ? Math.abs(Math.log(cur.zoomB / CM.cam.zoom)) : Infinity;
           // Déjà installé ? (exact : la clé vivante ; approché : le marqueur et
@@ -572,7 +599,11 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           const installed = !!cur && (exact
             ? cur.other === key
             : (cur.other === '__zoomcache__' && best && Math.abs((cur.zoomB || 0) - best.z) < 1e-9));
-          if (best && (bestD <= HALF_STEP || zoomGliding) && !installed && (exact || bestD < curD - 1e-9)) {
+          // En rafale : victoire au CRAN ENTIER seulement (source stable, cf. le
+          // bandeau) — l'exact n'y est plus prioritaire, il redevient roi à
+          // l'arrêt. Hors rafale : la règle historique.
+          const wins = zoomBurst ? bestD < curD - FULL_STEP : (exact || bestD < curD - 1e-9);
+          if (best && (bestD <= HALF_STEP || zoomBurst) && !installed && wins) {
             gc.delete(best.key); gc.set(best.key, best);   // rafraîchit le rang LRU
             const g = CM.gctx;
             g.setTransform(1, 0, 0, 1, 0, 0);
@@ -595,25 +626,6 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     const bm = CM._isoGroundBake;
     const M = CM._bakeMargin || 0;
     const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : null;
-    const nowMs = performance.now();
-    // ACCALMIE SUR LE MOUVEMENT RÉEL de la caméra — surtout PAS sur la clé : un
-    // DRAG ne change pas la clé (zoom et layout fixes), donc une accalmie « clé
-    // stable » se croyait au repos en plein geste et recuisait en boucle (retour
-    // Raph : « ça rame au drag »).
-    if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
-      CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
-    }
-    // Horloge du dernier changement d'ÉCHELLE, séparée du mouvement général :
-    // c'est elle qui borne la rafale de molette (cf. zoomStale) — un drag qui
-    // suit un zoom ne doit pas la prolonger, sinon le sol resterait compensé
-    // pendant tout le déplacement. (_igZ ne peut pas servir : le bloc ci-dessus
-    // l'écrase dès que x ou y bougent seuls.)
-    if (CM.cam.zoom !== CM._igZoomPrev) { CM._igZoomPrev = CM.cam.zoom; CM._igZoomAt = nowMs; }
-    const stillMs = nowMs - (CM._igMoveAt || 0);
-    const settled = CM.capture || stillMs > ISO_SETTLE_MS;
-    // `restful` = accalmie LONGUE (cf. ISO_CRISP_SETTLE_MS) : elle seule autorise
-    // le sol plein. `settled` ne donne plus que le sol allégé.
-    const restful = CM.capture || stillMs > ISO_CRISP_SETTLE_MS;
     const sameContent = !!bm && !bm.soft && baseOf(bm.other) === key;
     const inMargin = !!bm && !!M && Math.abs(pd.x) <= M && Math.abs(pd.y) <= M;
     const isLod = !!bm && !!bm.other && (bm.other.endsWith(':lod') || bm.other.endsWith(':lodl'));
@@ -628,8 +640,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // apparence par geste : compensé pendant la rafale, le net à l'arrêt réel.
     // (Un bake `soft` d'une autre échelle compte aussi : son contenu reste
     // valable par définition, donc compensable — sa recuisson attendra l'arrêt.)
-    const zoomStale = !!bm && bm.zoomB != null && bm.zoomB !== CM.cam.zoom
-      && nowMs - (CM._igZoomAt || 0) < ISO_CRISP_SETTLE_MS;
+    const zoomStale = !!bm && bm.zoomB != null && bm.zoomB !== CM.cam.zoom && zoomBurst;
     // `level` : false = PLEIN, 'light' = allégé textures/voiles gardés, true =
     // allégé HARD (l'aplat historique, repli des machines lentes).
     const bake = (level) => {
@@ -798,14 +809,32 @@ export function paintIsoGroundCached(ctx, L, helpers) {
       // A/B : globalThis.__solFilet = false.
       if (globalThis.__solFilet !== false && globalThis.__groundZoomCache !== false) {
         const gcF = CM._groundZoomCache;
-        let fond = null;
+        // Deux rangs de fond : la base VIVANTE d'abord ; à défaut, une photo du
+        // LAYOUT PRÉCÉDENT au même keySuf (même saison/ère/plage — seule la
+        // signature du sol diffère). Sur une partie qui CROÎT, le recompute
+        // (~10 s) change la signature et tuait tout le filet d'un coup : le
+        // « carré » revenait à chaque recompute le temps que le plancher
+        // recuise (retour Raph). Un sol à peine périmé, étiré, en FOND d'un
+        // transitoire, vaut toujours mieux que le vide — les cartes web
+        // servent leurs tuiles périmées exactement pareil.
+        let fond = null, fondStale = null;
         if (gcF && gcF.size) {
           for (const e of gcF.values()) {
-            if (e.base !== cacheBase || !e.canvas || e.z >= bm.zoomB) continue;
+            if (!e.canvas || e.z >= bm.zoomB) continue;
             if (e.canvas.width !== CM.groundCanvas.width || e.canvas.height !== CM.groundCanvas.height) continue;
-            if (!fond || e.z < fond.z) fond = e;
+            if (e.base === cacheBase) { if (!fond || e.z < fond.z) fond = e; }
+            // ⚠ PAS de comparaison par keySuf : il porte la clé du QUAI, qui
+            // contient le timestamp de layout — après un recompute il ne
+            // rematche jamais (vu au banc : fallback mort-né, filet=0). Les
+            // seuls fragments qui FLASHERAIENT dans un fond étiré sont la
+            // saison et la bande d'ère : ce sont eux qu'on exige (étiquetés
+            // sur la photo à sa pose).
+            else if (e.season === (CM.season | 0) && e.band === (((L.counts && L.counts.eraBand) | 0))) {
+              if (!fondStale || e.z < fondStale.z) fondStale = e;
+            }
           }
         }
+        if (!fond) fond = fondStale;
         if (fond) {
           const s2 = CM.cam.zoom / fond.z;
           const pdF = panDeltaToScreen(CM.cam.x - fond.camX, CM.cam.y - fond.camY);
@@ -862,11 +891,18 @@ export function paintIsoGroundCached(ctx, L, helpers) {
             e.camX = b2.camX; e.camY = b2.camY;
             e.zoomB = (b2.zoomB != null) ? b2.zoomB : CM.cam.zoom;
             e.key = cacheKey; e.base = cacheBase; e.z = CM.cam.zoom;
+            // Étiquettes du fallback de fond (cf. la branche « ZOOM en cours ») :
+            // ce qui rendrait un fond périmé FLASHANT, et rien d'autre.
+            e.season = CM.season | 0; e.band = (L.counts && L.counts.eraBand) | 0;
             gzcStats.snapshots += 1;
-            // Purge : les photos d'un AUTRE contenu de sol (signature ou saison
-            // différentes) ne serviront plus — rendre la mémoire tout de suite.
-            // Puis éviction LRU.
-            for (const [k0, e0] of [...gc.entries()]) if (e0.base !== cacheBase) { gc.delete(k0); gzcStats.purges += 1; }
+            // PLUS DE PURGE EXPLICITE des bases mortes (lot 4) : depuis que le
+            // filet les sert en dernier recours (cf. la branche « ZOOM en
+            // cours »), une photo d'un layout précédent GARDE une valeur — la
+            // jeter au premier snapshot rouvrait le « carré » à chaque
+            // recompute d'une partie en croissance. L'éviction LRU borne la
+            // mémoire comme avant (cap inchangé), et les photos mortes sortent
+            // naturellement, les moins servies d'abord. `gzcStats.purges`
+            // reste à 0 — conservé pour les molettes qui le lisent.
             while (gc.size > GROUND_ZOOM_CACHE_MAX) gc.delete(gc.keys().next().value);
           } else {
             gc.delete(cacheKey);   // contexte refusé : pas d'entrée fantôme
@@ -950,6 +986,8 @@ export function paintIsoGroundCached(ctx, L, helpers) {
             gcm2.set(kC, {
               canvas: gzcPre.canvas, camX: gzcPre.camX, camY: gzcPre.camY,
               zoomB: gzcPre.z, key: kC, base: cacheBase, z: gzcPre.z,
+              // Mêmes étiquettes de fallback que le snapshot (fond du filet).
+              season: CM.season | 0, band: (L.counts && L.counts.eraBand) | 0,
             });
             gzcStats.prebakes = (gzcStats.prebakes || 0) + 1;
             while (gcm2.size > GROUND_ZOOM_CACHE_MAX) gcm2.delete(gcm2.keys().next().value);
