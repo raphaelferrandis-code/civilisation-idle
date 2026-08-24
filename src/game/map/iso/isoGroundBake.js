@@ -443,6 +443,20 @@ function gzcFloorMissing(base) {
   if (gc) for (const e of gc.values()) { if (e.base === base && e.z <= zf) return false; }
   return true;
 }
+// « L'écran est servi par un COMPENSÉ (photo ou plein d'une autre échelle) et
+// le cran courant n'a pas sa photo » — le second cas qui lève l'hystérésis de
+// la pré-cuisson (lot 5) : c'est l'atterrissage « carte web », il ATTEND sa
+// photo. Un light/hard en place n'en fait pas partie (sa montée en tranches
+// s'en charge), un soft non plus (il recuit par son propre chemin).
+function gzcScreenMissing(base, key) {
+  const b = CM._isoGroundBake;
+  if (!b || b.soft || b.zoomB == null || b.other === key) return false;
+  const o = String(b.other || '');
+  if (o.endsWith(':lod') || o.endsWith(':lodl')) return false;
+  const gc = CM._groundZoomCache, QT = Math.log(1.12) / 4;
+  if (gc) for (const e of gc.values()) { if (e.base === base && Math.abs(Math.log(e.z / CM.cam.zoom)) < QT) return false; }
+  return true;
+}
 
 let gzcSigL = null, gzcSig = '';
 function groundContentSig(L) {
@@ -706,6 +720,26 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     const lightZ = CM._isoGroundLightMsZ || CM.cam.zoom;
     const lightEstMs = (CM._isoGroundLightMs || 0) * Math.max(1, (lightZ / CM.cam.zoom) ** 2);
     const lightBudget = (typeof window !== 'undefined' && window.__lightBudgetMs) || ISO_LIGHT_BUDGET_MS;
+    // ATTERRISSAGE « CARTE WEB » (lot 5, retour Raph : « l'herbe autour reste
+    // toute verte un bon moment ») : quand la source compensée est à MOINS D'UN
+    // CRAN — du PLEIN étiré, touffes, fleurs et franges comprises — on la garde
+    // à l'écran au lieu de poser un allégé. Sur la campagne, le light sacrifie
+    // précisément touffes/fleurs/franges, c'est-à-dire TOUTE la matière de
+    // l'herbe : le temps de la montée en tranches (longue sur une mégapole),
+    // l'écran montrait un aplat vert uni. Ici la branche du compensé garde
+    // l'affichage, pendant que la PRÉ-CUISSON (tout en bas) cuit le cran
+    // courant vers son canvas tiers en tranches de ~8 ms — jamais de gel — et
+    // qu'à sa photo posée, le restore EXACT l'installe : le net arrive d'un
+    // coup, une seule transition. Un plein abordable d'un coup (petite ville)
+    // garde son chemin direct ; un light déjà en place finit ses tranches ; un
+    // soft recuit ; la capture ignore tout ceci. A/B : __webLanding = false.
+    const webLanding = globalThis.__webLanding !== false
+      && !CM.capture && !CM.previewWonder
+      && globalThis.__groundZoomCache !== false
+      && !!bm && !bm.soft && !isLod && bm.zoomB != null
+      && baseOf(bm.other) !== key
+      && crispEstMs > crispBudget
+      && Math.abs(Math.log(bm.zoomB / CM.cam.zoom)) <= Math.log(1.12) * 1.0001;
     if (CM.crispGesture && crispAffordable && !settled && bm && !sameContent) {
       // MAXIMALE : zoom/dézoom en cours → au lieu du re-blit LISSÉ (flou), on
       // recuit le sol NET à l'échelle exacte de la frame (la clé change à chaque
@@ -729,7 +763,10 @@ export function paintIsoGroundCached(ctx, L, helpers) {
       }
     } else if (settled
       // Pendant la rafale de molette (zoomStale), cette branche ne prend plus la
-      // main avant l'arrêt réel : le compensé (plus bas) garde l'écran.
+      // main avant l'arrêt réel : le compensé (plus bas) garde l'écran. Et à
+      // l'arrêt, l'atterrissage « carte web » (webLanding) la saute aussi tant
+      // que la photo du cran courant se cuit en coulisse.
+      && !webLanding
       && (restful || !zoomStale)
       // RAFALE DE DÉCODAGES (cascade au chargement) : quand la SEULE raison
       // d'arriver ici est une invalidation douce (clé inchangée, dans la marge),
@@ -926,10 +963,14 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // pour les jalons.
     if (CM._gzcSigSeen !== cacheBase) { CM._gzcSigSeen = cacheBase; CM._gzcSigAt = nowMs; }
     if (!CM.capture && restful && !CM.previewWonder && _solSlice === null
-      && (nowMs - (CM._gzcSigAt || 0) > 3000 || gzcFloorMissing(cacheBase))
+      && (nowMs - (CM._gzcSigAt || 0) > 3000 || gzcFloorMissing(cacheBase)
+        || gzcScreenMissing(cacheBase, key))
       && globalThis.__groundZoomCache !== false) {
       const bNow = CM._isoGroundBake;
-      if (bNow && !bNow.soft && bNow.other === key) {
+      // « L'écran d'abord » : soit il est servi en PLEIN exact (la règle
+      // d'origine), soit il est servi par un COMPENSÉ qui attend sa photo du
+      // cran courant (lot 5) — et la cuire, c'est précisément servir l'écran.
+      if (bNow && !bNow.soft && (bNow.other === key || gzcScreenMissing(cacheBase, key))) {
         // Annulé si le monde, l'écran ou la caméra ont bougé depuis l'amorce :
         // des tranches cuites sous deux caméras ne se raccordent pas.
         if (gzcPre && (gzcPre.base !== cacheBase || gzcPre.W !== CM.groundCanvas.width
@@ -942,7 +983,12 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           // courant — la suite que la molette suivra réellement, les crans
           // impairs étant servis par le restore approché (± ½ cran).
           const zFloor = gzcFloorZ();
-          const targets = [zFloor];
+          const targets = [];
+          // L'ÉCRAN D'ABORD (lot 5) : si le joueur regarde un compensé, le
+          // cran courant est la cible n° 1 — c'est sa photo que le restore
+          // exact installera pour finir l'atterrissage « carte web ».
+          if (gzcScreenMissing(cacheBase, key)) targets.push(CM.cam.zoom);
+          targets.push(zFloor);
           for (let zt = CM.cam.zoom / (1.12 * 1.12); zt > zFloor * 1.06; zt /= (1.12 * 1.12)) targets.push(zt);
           const gcm = CM._groundZoomCache;
           let pick = null;
