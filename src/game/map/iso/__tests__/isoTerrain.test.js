@@ -145,8 +145,13 @@ describe('terrain — l inverse de la projection', () => {
     // face) se projettent aux MÊMES pixels — l'inverse en rend un, et l'écart à
     // l'autre vaut la marche locale. Le contrat testable : exact PRESQUE
     // partout, jamais pire que le plus grand escarpement du champ.
+    // ⚠ GARDE ROBUSTE AU RÉGLAGE : un seuil global (« 85 % de points exacts »)
+    // casse dès qu'on accentue le champ — plus de massifs = plus de bandes
+    // d'escarpement, où l'inexactitude est GÉOMÉTRIQUEMENT légitime. La bonne
+    // formulation : EXACT PARTOUT en terrain localement plat (les 4 cellules
+    // voisines au même niveau), borné par la marche du champ ailleurs.
     const U = reliefUnit();
-    let liftedSeen = 0, exact = 0, n = 0, worst = 0;
+    let liftedSeen = 0, flatN = 0, flatBad = 0, worst = 0;
     for (let gy = 25; gy < 75; gy += 2) {
       for (let gx = 25; gx < 75; gx += 2) {
         const wx = gx * CM.TILE + 9, wy = gy * CM.TILE + 21;
@@ -154,13 +159,26 @@ describe('terrain — l inverse de la projection', () => {
         const p = worldToScreen(wx, wy);
         const q = screenToWorld(p.x, p.y);
         const err = Math.max(Math.abs(q.x - wx), Math.abs(q.y - wy));
-        n += 1;
-        if (err < 1e-9) exact += 1;
         if (err > worst) worst = err;
+        const lv = cellLevelU(gx, gy);
+        let flat = cellLevelU(gx + 1, gy) === lv && cellLevelU(gx - 1, gy) === lv
+          && cellLevelU(gx, gy + 1) === lv && cellLevelU(gx, gy - 1) === lv;
+        // …et HORS DE L'OMBRE d'une falaise : un escarpement jusqu'à ~6 cellules
+        // au NORD-OUEST (la diagonale écran) projette sur les mêmes pixels que ce
+        // point — deux sols sous le même curseur, l'inexactitude y est légitime.
+        // Bande à ±1 : la diagonale d'un point quelconque de la cellule traverse
+        // aussi les cellules décalées d'un cran de part et d'autre.
+        for (let kk = 1; flat && kk <= 7; kk += 1) {
+          if (cellLevelU(gx - kk, gy - kk) > lv
+            || cellLevelU(gx - kk - 1, gy - kk) > lv
+            || cellLevelU(gx - kk, gy - kk - 1) > lv) flat = false;
+        }
+        if (flat) { flatN += 1; if (err > 1e-9) flatBad += 1; }
       }
     }
     expect(liftedSeen).toBeGreaterThan(50);              // le test couvre bien du relief
-    expect(exact / n).toBeGreaterThan(0.85);             // exact presque partout
+    expect(flatN).toBeGreaterThan(60);                   // et assez de plat hors ombre
+    expect(flatBad).toBe(0);                             // exact PARTOUT hors escarpement
     // Jamais pire que le plafond d'une marche du champ (massif entier).
     expect(worst).toBeLessThanOrEqual((TERRAIN.valley + TERRAIN.hills * 1.2) * U);
   });

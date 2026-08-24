@@ -141,18 +141,25 @@ export function screenToWorld(sx, sy) {
   const wx = (b + ax) / 2 + CM.cam.x, wy = (b - ax) / 2 + CM.cam.y;
   const h0 = terrainZ(wx, wy);
   if (!h0) return { x: wx, y: wy };
-  // Deux candidats (le point fixe peut OSCILLER au droit d'un escarpement — la
-  // projection du sol n'y est pas injective, un bord haut visible et une bande
-  // cachée derrière la face partagent les mêmes pixels) : on garde celui dont
-  // le RÉSIDU |terrain(P) − α| est minimal, c'est-à-dire celui qui reprojette
-  // le plus près du pixel demandé. Écart borné par la hauteur de la marche
-  // locale — et c'est la bonne réponse : les deux sols sont sous le curseur.
-  const h1 = terrainZ(wx + h0, wy + h0);
-  if (h1 === h0) return { x: wx + h1, y: wy + h1 };
-  const e1 = Math.abs(terrainZ(wx + h1, wy + h1) - h1);
-  const e0 = Math.abs(h1 - h0);
-  const h = e1 <= e0 ? h1 : h0;
-  return { x: wx + h, y: wy + h };
+  // Point fixe α ← terrain(w₀ + α·(1,1)), 6 tours au plus, MEILLEUR RÉSIDU gardé.
+  // Deux régimes, et il faut servir les deux :
+  //   · une RAMPE progressive (coteau, flanc de massif : la diagonale grimpe
+  //     marche après marche) converge géométriquement — pente ≤ 0,3, l'erreur
+  //     fond d'un facteur ~3 par tour ; DEUX candidats s'arrêtaient une marche
+  //     trop tôt (trouvé à la sonde : résidu 8 px pile, 1 U) ;
+  //   · un ESCARPEMENT fait OSCILLER la suite (deux sols — le bord haut visible
+  //     et la bande cachée derrière la face — partagent les mêmes pixels) : on
+  //     rend le candidat au résidu minimal, l'écart est borné par la marche
+  //     locale, et c'est la bonne réponse — les deux sols sont sous le curseur.
+  let a = h0, best = h0, bestE = Infinity;
+  for (let i = 0; i < 6; i += 1) {
+    const t = terrainZ(wx + a, wy + a);
+    const e = Math.abs(t - a);
+    if (e < bestE) { bestE = e; best = a; }
+    if (e === 0) break;
+    a = t;
+  }
+  return { x: wx + best, y: wy + best };
 }
 
 // Delta caméra (monde) → delta écran. Sert aux bakes offscreen (pan = translation).
