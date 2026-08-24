@@ -19,8 +19,25 @@
 // Molette : __districtMass(false) coupe la couche ; __districts({ parvis }) régit
 // l'esplanade sous les masses (isoWonderGround).
 import { CM } from '../layout.js';
+import { isoArt } from './isoArt.js';
 
 export const DISTRICT_MASS = { on: true };
+
+// ── L'ART DÉDIÉ DES MONUMENTS (/pixelart/iso/monument-<genre>.png) ────────────
+// Généré le 2026-08-24 (PixelLab, DA verrouillée : low top-down, lineless,
+// medium shading, lumière haut-gauche, zéro humain, quantize 24). Tant que le
+// PNG d'un genre n'est pas décodé — ou pour un genre pas encore couvert — la
+// SCÈNE MOTEUR APPARENTÉE (KIND_ART) reste la masse d'attente : jamais de trou.
+const MONUMENT_ART = {
+  keep: 'monument-keep', market: 'monument-market', temple: 'monument-temple',
+  palace: 'monument-palace', forum: 'monument-forum', archive: 'monument-archive',
+  tower: 'monument-tower', station: 'monument-station',
+  observatory: 'monument-observatory', spire: 'monument-spire',
+};
+export function districtMonumentArt(kind) {
+  const n = MONUMENT_ART[kind];
+  return n ? isoArt(n) : null;
+}
 
 // Genre civique → moteur dont l'art PORTE la masse d'attente. Le choix est
 // sémantique (un donjon garde, un forum juge, une archive lit) — quand l'art

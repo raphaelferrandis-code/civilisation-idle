@@ -31,6 +31,10 @@
 export const TERRAIN = {
   amp: 1, valley: 9, bench: 6, coteau: 4, hills: 12, hillCut: 0.46,
   cityK: 0.5, big: 20, det: 7, riverPad: 3,
+  // `isle` : bombé LISSE des îles, en U — demande de Raph (« l'île légèrement
+  // bombée, sans marches ») : il ÉCHAPPE à la quantification (cf. islandDomeU),
+  // donc jamais de contremarche — un galbe, pas une terrasse.
+  isle: 1.25,
 };
 
 // Bruit de valeur (hérité du prototype legacy cityMapDrawTerrain). Hash entier
@@ -87,4 +91,24 @@ export function terrainFieldU(gx, gy, ctx) {
   // Rien sous le niveau de l'eau, et le bord de l'eau reste à 0.
   const h = Math.max(0, valley + hills) * ss01(TERRAIN.riverPad, TERRAIN.riverPad + 4, dr);
   return h * TERRAIN.amp;
+}
+
+// LE BOMBÉ DES ÎLES, en U — LISSE et SÉPARÉ du champ quantifié : il s'ajoute
+// APRÈS l'arrondi (cf. isoTerrain.terrainZ), donc jamais de contremarche —
+// « l'île légèrement bombée, sans marches » (Raph). Galbe en cos² dans le
+// repère de l'ellipse (tx/ty = le sens du courant, comme beachIslandAt),
+// nul au rivage : la ligne d'eau tracée ne bouge pas.
+export function islandDomeU(gx, gy, ctx) {
+  if (!TERRAIN.amp || !TERRAIN.isle || !ctx || !ctx.islands || !ctx.islands.length) return 0;
+  for (const il of ctx.islands) {
+    const rx = Math.max(0.001, il.rx), ry = Math.max(0.001, il.ry);
+    const dx = gx - il.x, dy = gy - il.y;
+    const al = dx * il.tx + dy * il.ty, cr = -dx * il.ty + dy * il.tx;
+    const r = Math.hypot(al / rx, cr / ry);
+    if (r < 1) {
+      const c = Math.cos(r * Math.PI / 2);
+      return TERRAIN.isle * c * c * TERRAIN.amp;
+    }
+  }
+  return 0;
 }

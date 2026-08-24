@@ -39,7 +39,7 @@
 // ⚠ Un réglage de FORME ne re-trace les ROUTES qu'au prochain __cityRecompute :
 // elles sont tracées au layout, sur le même champ (cf. terrainField.js).
 import { CM } from '../layout.js';
-import { TERRAIN, terrainFieldU, terrainFlatR, ss01 } from '../procedural/terrainField.js';
+import { TERRAIN, terrainFieldU, terrainFlatR, islandDomeU, ss01 } from '../procedural/terrainField.js';
 
 // LA FORME du champ vit dans procedural/terrainField.js depuis le lot « routes
 // sillonnantes » : le traceur de routes tourne au layout, avant CM.layout, et ne
@@ -67,7 +67,8 @@ export function terrainKey() {
   if (!TERRAIN.amp) return '';
   return ':tr' + TERRAIN.amp + '_' + TERRAIN.valley + '_' + TERRAIN.bench
     + '_' + TERRAIN.coteau + '_' + TERRAIN.hills + '_' + TERRAIN.hillCut
-    + '_' + TERRAIN.cityK + '_' + TERRAIN.big + '_' + TERRAIN.det + '_' + TERRAIN.riverPad;
+    + '_' + TERRAIN.cityK + '_' + TERRAIN.big + '_' + TERRAIN.det + '_' + TERRAIN.riverPad
+    + '_i' + TERRAIN.isle;
 }
 
 // ── SOCLES ────────────────────────────────────────────────────────────────────
@@ -173,6 +174,7 @@ function fieldCtx() {
   _fieldCtx = {
     seed: (L.mapSeed || 0) | 0,
     riverYAt: (L.river && L.river.present && L.river.riverYAt) || null,
+    islands: (L.river && L.river.present && L.river.islands) || null,
     cx: ccx, cy: ccy,
     flatR: terrainFlatR(L.counts),
   };
@@ -282,6 +284,12 @@ export function terrainZ(wx, wy) {
   } else {
     h = cellLevelU(Math.floor(gx), Math.floor(gy)) * U;
   }
+  // LE BOMBÉ DES ÎLES s'ajoute APRÈS l'arrondi — lisse par construction, donc
+  // jamais de contremarche (« l'île légèrement bombée, sans marches », Raph).
+  // Nul partout hors des ellipses d'île : coût d'un test de liste, en pratique
+  // gardé par ctx.islands (la plupart des cartes en ont 0 ou 1).
+  const ctx = fieldCtx();
+  if (ctx && ctx.islands) h += islandDomeU(gx, gy, ctx) * U;
   if (corner) _corners.set(ck, h);
   return h;
 }
@@ -325,15 +333,20 @@ export function drawTerrainShade() {
     const data = img.data;
     const px = CM.cw / W, py = CM.ch / H;
     const d = 0.5;                                     // pas de la différence finie (tuiles)
+    // Le champ ombré = la forme douce + le BOMBÉ des îles : c'est l'ombrage qui
+    // vend le galbe (la géométrie de l'île ne fait que ~1 U, exprès).
+    const fCtx = fieldCtx();
+    const fU = (fgx, fgy) => smoothFieldU(fgx, fgy)
+      + (fCtx && fCtx.islands ? islandDomeU(fgx, fgy, fCtx) : 0);
     for (let ty = 0; ty < H; ty += 1) {
       for (let tx = 0; tx < W; tx += 1) {
         const sx = (tx + 0.5) * px, sy = (ty + 0.5) * py;
         let p = s2w(sx, sy);
-        const z0 = smoothFieldU(p.x / T, p.y / T) * U;
+        const z0 = fU(p.x / T, p.y / T) * U;
         if (z0) p = s2w(sx, sy + z0 * z);
         const gx = p.x / T, gy = p.y / T;
-        const g = (smoothFieldU(gx + d, gy) - smoothFieldU(gx - d, gy)
-          + smoothFieldU(gx, gy + d) - smoothFieldU(gx, gy - d)) / (2 * d);
+        const g = (fU(gx + d, gy) - fU(gx - d, gy)
+          + fU(gx, gy + d) - fU(gx, gy - d)) / (2 * d);
         const o = (ty * W + tx) * 4;
         if (g === 0) { data[o + 3] = 0; continue; }
         // g est en U par tuile ; U/T = ¼ le convertit en pente sans dimension.

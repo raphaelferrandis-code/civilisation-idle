@@ -258,7 +258,12 @@ export function sweepIsoGroundCells(bake, resolve, out) {
         const zN = terrainZ(gx * T, gy * T);
         const zE = terrainZ((gx + 1) * T, gy * T);
         const zS = terrainZ(gx * T, (gy + 1) * T);
-        if (zN > zE || zN > zS) {
+        // ⚠ SEUIL D'UN CRAN PLEIN (U − ε) : le champ quantifié ne marche que par
+        // multiples de U, mais le BOMBÉ des îles est LISSE — sans ce seuil, ses
+        // différences sous-U fabriquaient des micro-faces d'un pixel, exactement
+        // les « marches » que Raph ne veut pas sur l'île.
+        const stepMin = T / 4 - 0.01;
+        if (zN - zE >= stepMin || zN - zS >= stepMin) {
           // Le même zoom que le losange : hw = T·z·ISO_X, donc z = hw/T — vrai
           // aussi sous les transformations de calque (walkLayer bascule le repère).
           const k = hw / T;
@@ -298,11 +303,11 @@ export function sweepIsoGroundCells(bake, resolve, out) {
               }
             }
           };
-          if (zN > zE) {
+          if (zN - zE >= stepMin) {
             const dE = (zN - zE) * k;
             pushFace(p.x + hw, p.y + hh, dE, Math.max(dE, dD), true);
           }
-          if (zN > zS) {
+          if (zN - zS >= stepMin) {
             const dS = (zN - zS) * k;
             pushFace(p.x - hw, p.y + hh, dS, Math.max(dS, dD), false);
           }

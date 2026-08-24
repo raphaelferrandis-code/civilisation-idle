@@ -44,6 +44,7 @@ import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoEngineScene, drawSpriteOutline, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
+import { districtMonumentArt } from './isoDistricts.js';
 import { ISO_TREE_VARIANTS, drawIsoGroundedArt } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
@@ -276,6 +277,22 @@ export function paintIsoItems(bake, items, now) {
         }
       }
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;  // largeur allouée au sprite (~78 % du losange)
+      // ── MONUMENT DÉDIÉ D'UN REPÈRE CIVIQUE ────────────────────────────────
+      // L'art /pixelart/iso/monument-<genre>.png remplace la scène moteur
+      // d'attente dès qu'il est décodé (repli scène sinon : jamais de trou).
+      // Ancré au CENTRE de l'esplanade (grounded art, base mesurée sur l'encre),
+      // 90 % du losange — un monument respire sur son parvis, il ne le remplit pas.
+      if (t.__district) {
+        const mArt = districtMonumentArt(t.__district);
+        if (mArt && mArt.ready) {
+          const c = worldToScreen((t.gx + spanX / 2) * T, (t.gy + spanY / 2) * T);
+          const g = drawIsoGroundedArt(ctx, mArt, c.x, c.y, (spanX + spanY) * T * z * ISO_X * 0.9);
+          if (houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) {
+            houseBoxes.push({ b: { dx: g.x, dy: g.y, dw: g.w, dh: g.h }, t });
+          }
+          continue;
+        }
+      }
       let engineBox;   // boîte rendue par la scène moteur, publiée pour le survol
       if (isHouse && pixelHouseReady(t)) {
         if (profParts) fp('vif-peinture');

@@ -138,6 +138,34 @@ describe('terrain — les socles', () => {
   });
 });
 
+describe('terrain — le bombé des îles', () => {
+  it('LISSE (jamais un multiple de U), borné à isle·U, nul au rivage', () => {
+    // Île elliptique au milieu du fleuve : le champ y est 0 (bande riverPad),
+    // seul le dôme s'exprime — c'est le « légèrement bombé, sans marches ».
+    CM.layout = makeLayout({
+      river: {
+        present: true, riverYAt: () => 50,
+        islands: [{ x: 50, y: 50, rx: 5, ry: 3, tx: 1, ty: 0 }],
+      },
+    });
+    CM.layoutRecomputeAt = ++seq;
+    const U = reliefUnit();
+    const center = terrainZ(50 * CM.TILE, 50 * CM.TILE);
+    expect(center).toBeGreaterThan(0);
+    expect(center).toBeLessThanOrEqual(TERRAIN.isle * U + 1e-9);
+    expect(Math.abs(center % U)).toBeGreaterThan(1e-6);   // PAS quantifié : un galbe
+    // Rivage (bord de l'ellipse) : le dôme s'annule, la ligne d'eau ne bouge pas.
+    expect(terrainZ((50 + 5) * CM.TILE, 50 * CM.TILE)).toBeCloseTo(0, 6);
+    // SANS MARCHES : d'une cellule à sa voisine, jamais un cran plein — le seuil
+    // des contremarches (U − ε) garantit alors qu'aucune face n'est dessinée.
+    for (let gx = 45; gx < 55; gx += 1) {
+      const a = terrainZ(gx * CM.TILE, 50 * CM.TILE);
+      const b = terrainZ((gx + 1) * CM.TILE, 50 * CM.TILE);
+      expect(Math.abs(a - b), `cellules ${gx}/${gx + 1}`).toBeLessThan(U - 0.01);
+    }
+  });
+});
+
 describe('terrain — l inverse de la projection', () => {
   it('screenToWorld retrouve un point LEVÉ — exact hors escarpement, borné dessus', () => {
     // ⚠ LE CONTRAT N'EST PAS « l'inverse retrouve LE point » : au droit d'un

@@ -2356,8 +2356,8 @@ function computeCityLayout(s) {
   // (coût de pente) au lieu de les gravir en ligne droite. Contexte bâti ici,
   // depuis les mêmes locales que le rendu lira plus tard via CM.layout.
   const terrCtx = river.present
-    ? { seed: mapSeed | 0, riverYAt, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) }
-    : { seed: mapSeed | 0, riverYAt: null, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) };
+    ? { seed: mapSeed | 0, riverYAt, islands: (river.islands || null), cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) }
+    : { seed: mapSeed | 0, riverYAt: null, islands: null, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) };
   const { roads, roadKey, roadMeta, skeletonKey } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
