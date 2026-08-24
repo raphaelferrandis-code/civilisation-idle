@@ -100,12 +100,14 @@ function drawIsoGround() {
   // A/B : globalThis.__isoCellCull = false rejoue le balayage complet.
   const cullPadX = hw * 2, cullPadY = hh * 4 + terrainMaxPx() * z;
   const cullOn = globalThis.__isoCellCull !== false;
-  const faceL = [], faceD = [];        // contremarches du relief (quads écran, 8 nombres chacun)
+  // Contremarches du relief (quads écran, 8 nombres chacun) : terre claire/sombre
+  // + pierre d'ère claire/sombre — la tranche prend la matière de sa cellule.
+  const faceL = [], faceD = [], faceLU = [], faceDU = [];
   sweepIsoGroundCells(
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY, ISO_GROUND_SLICE,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind },
-    { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD },
+    { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD, faceLU, faceDU },
   );
   if (PR) PR.cells = performance.now() - tLoop;
   // CONTREMARCHES DU RELIEF : remisées par le balayage, peintes en DEUX fills
@@ -113,7 +115,7 @@ function drawIsoGround() {
   // L'ordre est libre — une face ne recouvre jamais un losange, le voisin plus
   // bas commence exactement où elle finit — mais AVANT tout ce qui se pose sur
   // le sol (parvis, franges, rubans) : la route rampe PAR-DESSUS sa marche.
-  if (faceL.length || faceD.length) {
+  if (faceL.length || faceD.length || faceLU.length || faceDU.length) {
     const tF = PR && performance.now();
     const flushFaces = (arr, col) => {
       if (!arr.length) return;
@@ -128,6 +130,8 @@ function drawIsoGround() {
     };
     flushFaces(faceD, rgb(DIRT_TONE, 0.58));
     flushFaces(faceL, rgb(DIRT_TONE, 0.82));
+    flushFaces(faceDU, rgb(urb, 0.60));    // pierre d'ère : mur de soutènement
+    flushFaces(faceLU, rgb(urb, 0.84));
     if (PR) PR.faces = performance.now() - tF;
   }
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle

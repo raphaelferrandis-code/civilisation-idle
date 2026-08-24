@@ -42,7 +42,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD } = out;
+  const { fringes, roads, wonderCells, grassCells, veilPush, faceL, faceD, faceLU, faceDU } = out;
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
@@ -264,13 +264,17 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           const zD = terrainZ((gx + 1) * T, (gy + 1) * T);
           const dD = Math.max(0, zN - zD) * k;
           const sx = p.x, sy = p.y + hh * 2;           // sommet SUD du losange
+          // La tranche prend la MATIÈRE de sa cellule : mur de soutènement en
+          // pierre d'ère dans la ville (dallage/place/parvis), terre partout
+          // ailleurs — le brun jurait sur le dallage gris (vu à la bande 4).
+          const stone = kind === 'urban' || kind === 'plaza' || kind === 'wonder';
           if (zN > zE) {
             const dE = (zN - zE) * k;
-            faceD.push(p.x + hw, p.y + hh, sx, sy, sx, sy + Math.max(dE, dD), p.x + hw, p.y + hh + dE);
+            (stone ? faceDU : faceD).push(p.x + hw, p.y + hh, sx, sy, sx, sy + Math.max(dE, dD), p.x + hw, p.y + hh + dE);
           }
           if (zN > zS) {
             const dS = (zN - zS) * k;
-            faceL.push(p.x - hw, p.y + hh, sx, sy, sx, sy + Math.max(dS, dD), p.x - hw, p.y + hh + dS);
+            (stone ? faceLU : faceL).push(p.x - hw, p.y + hh, sx, sy, sx, sy + Math.max(dS, dD), p.x - hw, p.y + hh + dS);
           }
         }
       }
