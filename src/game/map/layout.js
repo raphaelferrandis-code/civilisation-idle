@@ -13,6 +13,7 @@ import { CRITTER_HERD, CRITTER_PETS } from './critters.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
+import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
@@ -1304,7 +1305,8 @@ function cityCounts(s) {
 // Pose les cellules dans roads/roadKey/roadMeta avec les flags h/v pour que
 // cmBuildRoadGraph les relie. Renvoie { engineTotal, engineConnected }.
 function connectBuildingsToNetwork(o) {
-  const { roads, roadKey, roadMeta, tiles, N, riverSet, bankSet, claimed, engineFootprint, occupiedFoot } = o;
+  const { roads, roadKey, roadMeta, tiles, N, riverSet, bankSet, claimed, engineFootprint, occupiedFoot,
+    districtWalk } = o;
   const RW = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
   const O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const K = (x, y) => x + "," + y;
@@ -1328,6 +1330,21 @@ function connectBuildingsToNetwork(o) {
     }
   };
   markSet(riverSet); markSet(bankSet); markSet(claimed); markSet(engineFootprint); markSet(occupiedFoot);
+  // ⚠ LES TERRAINS VAGUES DE DISTRICT SONT TRAVERSABLES par la desserte — une
+  // venelle sur l'esplanade civique, pas un bâtiment dessus (footprintFits, lui,
+  // continue de les refuser). Sans ça, un moteur dont les dernières portes
+  // libres donnent sur un district devient INVISIBLE : ni carve, ni vague de
+  // voirie (roadWorksInfo le croyait « done ») — l'académie orpheline du replay
+  // roadDesserte, exposée quand les routes sillonnantes ont rebattu les
+  // placements. Parvis de merveille et domaine des Plaisirs restent INTERDITS.
+  // Déclamé APRÈS claimed (l'ordre annule), AVANT les emprises bâties (un
+  // district ne porte jamais de bâtiment, l'ordre est sans effet là-dessus).
+  if (districtWalk) {
+    for (const k of districtWalk) {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      if (inB(x, y)) blockedG[y * N + x] = 0;
+    }
+  }
   for (const t of tiles) for (const [x, y] of footCells(t)) if (inB(x, y)) blockedG[y * N + x] = 1;
   const roadG = new Uint8Array(NN);
   for (const k of roadKey) {
@@ -2334,10 +2351,18 @@ function computeCityLayout(s) {
   // le plancher du slot — cf. § MAISON DES PLAISIRS). Sans ça, une deuxième
   // traversée finissait par se poser en travers du monument, exactement le
   // défaut qu'on vient de corriger sur la première.
+  // `fieldAt` : le CHAMP DE TERRAIN (terrainField.js), le même que le sol
+  // dessinera — les tracés longs le lisent pour SILLONNER entre les massifs
+  // (coût de pente) au lieu de les gravir en ligne droite. Contexte bâti ici,
+  // depuis les mêmes locales que le rendu lira plus tard via CM.layout.
+  const terrCtx = river.present
+    ? { seed: mapSeed | 0, riverYAt, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) }
+    : { seed: mapSeed | 0, riverYAt: null, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) };
   const { roads, roadKey, roadMeta, skeletonKey } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
     bridgeAvoid: plaisirsSpot ? { x: plaisirsSpot.x, r: plaisirsSpot.clear } : null,
+    fieldAt: (gx, gy) => terrainFieldU(gx, gy, terrCtx),
   });
   lp("routes-gen");
 
@@ -2624,8 +2649,14 @@ function computeCityLayout(s) {
 
   // Emprises moteur (bâtiments achetés) — réservées avant les tuiles décoratives
   const claimed = new Set(), engineFootprint = new Set();
+  // `districtWalk` : les mêmes cellules, tenues À PART — réservées aux bâtiments
+  // (claimed), TRAVERSABLES par la desserte (cf. connectBuildingsToNetwork).
+  const districtWalk = new Set();
   for (const d of districts) {
-    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) claimed.add((d.gx + ax) + "," + (d.gy + ay));
+    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) {
+      const k = (d.gx + ax) + "," + (d.gy + ay);
+      claimed.add(k); districtWalk.add(k);
+    }
   }
   // Même geste pour le domaine des Plaisirs : `footprintFits` ne teste que
   // `claimed`, sans ça un port ou un moulin viendrait se coller au monument.
@@ -2650,6 +2681,23 @@ function computeCityLayout(s) {
   };
   const claimFootprint = (gx, gy, sizeX, sizeY = sizeX) => {
     for (let ax = 0; ax < sizeX; ax += 1) for (let ay = 0; ay < sizeY; ay += 1) claimed.add((gx + ax) + "," + (gy + ay));
+  };
+  // PORTE NON-RÉSERVÉE : au moins une cellule du pourtour orthogonal qui ne soit
+  // ni réservée (claimed — districts, parvis, domaine des Plaisirs, emprises déjà
+  // posées) ni de l'eau. Une ROUTE compte : c'est un accès. Sans cette garde, un
+  // moteur peut se poser TOUTES portes sur un terrain vague de district — libre à
+  // l'œil, interdit à la pioche — et la desserte ne le voit plus jamais : ni
+  // carve, ni vague de voirie (roadWorksInfo le croyait « done »). Cas réel :
+  // l'académie orpheline du replay `roadDesserte`, exposée quand les routes
+  // sillonnantes ont rebattu les placements. La garde vaut AU PLACEMENT : un
+  // mur de bâtiments qui se referme APRÈS reste le cas « muré », toléré et lu
+  // comme un intérieur d'îlot.
+  const hasFreeDoor = (gx, gy, sizeX, sizeY = sizeX) => {
+    const ok = (x, y) => x >= 0 && y >= 0 && x < N && y < N
+      && !claimed.has(x + "," + y) && !riverSet.has(x + "," + y) && !bankSet.has(x + "," + y);
+    for (let ax = 0; ax < sizeX; ax += 1) { if (ok(gx + ax, gy - 1) || ok(gx + ax, gy + sizeY)) return true; }
+    for (let ay = 0; ay < sizeY; ay += 1) { if (ok(gx - 1, gy + ay) || ok(gx + sizeX, gy + ay)) return true; }
+    return false;
   };
   // Côté (N/S/E/W) par lequel une emprise sizeX×sizeY touche le FLEUVE (cellules
   // d'eau, pas la berge) — sert à orienter le sprite riverain vers le vrai cours
@@ -3102,7 +3150,10 @@ function computeCityLayout(s) {
       return true;
     };
     const fits = (gx, gy, sz) =>
-      (!spaced || spaced(gx, gy)) && footprintFits(gx, gy, sz, allowBank, false, sz, allowWater);
+      (!spaced || spaced(gx, gy)) && footprintFits(gx, gy, sz, allowBank, false, sz, allowWater)
+      // La desserte des moteurs est un invariant ABSOLU (« les routes reliées à
+      // TOUS les bâtiments ») : pas de pose sans porte carvable — cf. hasFreeDoor.
+      && hasFreeDoor(gx, gy, sz, sz);
     const slot = slotStore[req.slotKey];
     // Un slot hérité d'une autre zone est écarté (ex : slot de moulin RIVERAIN
     // d'avant la refonte éolienne, dy pointé sur le centre du fleuve) : sans ce
@@ -3387,7 +3438,7 @@ function computeCityLayout(s) {
   const connectorRank = ROAD_RANKS.connector;
   const netCover = connectBuildingsToNetwork({
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
-    claimed, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
+    claimed, districtWalk, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
     // Contrat de base (rappelé par Raph 2026-07-29 : « les routes reliées à
     // TOUS les bâtiments ») : les habitations sont TOUJOURS desservies,
     // gratuitement, quel que soit l'archétype — sur les villes en grille les

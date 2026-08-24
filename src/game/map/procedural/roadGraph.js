@@ -15,6 +15,7 @@
  * ============================================================================ */
 
 import { rngFrom } from "./seedManager.js";
+import { TERRAIN } from "./terrainField.js";
 
 // "plaza" = rang le plus fort (esplanade dallée, exclue du rendu de chaussée).
 const RANK_WEIGHT = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
@@ -29,7 +30,11 @@ const ORGANIC_ARCHETYPES = new Set(["scattered", "crossroads", "linear"]);
 
 export function generateRoadsGraph({
   plan, seed, counts, ageCfg, N,
-  riverSet, bankSet, riverBridgeX, organicLimit, bridgeAvoid
+  riverSet, bankSet, riverBridgeX, organicLimit, bridgeAvoid,
+  // Champ de terrain (terrainField.js), en unités U au centre de cellule —
+  // OPTIONNEL : absent, les tracés longs gardent le staircase historique au bit
+  // près (c'est le contrat des tests existants, qui ne le passent pas).
+  fieldAt = null,
 }) {
   const cells = new Set();          // "gx,gy" — source de vérité de la connexité
   const meta = new Map();           // "gx,gy" -> { h, v, rank }
@@ -202,6 +207,127 @@ export function generateRoadsGraph({
     }
   }
 
+  // ── CHEMIN SILLONNANT (lot « routes entre les collines », 2026-08-24) ───────
+  // Remplace le staircase pour les TRACÉS LONGS quand le champ de terrain est
+  // fourni et vivant : un A* orienté (état = cellule + direction d'arrivée) où
+  //   · TOURNER coûte (les longues jambes droites de Raph tombent du coût, plus
+  //     du RNG) ;
+  //   · MONTER coûte au CARRÉ de la pente — la route suit les vallées, contourne
+  //     les massifs, et quand elle DOIT grimper, elle fait des lacets : le
+  //     serpentin sort du coût, personne ne le dessine ;
+  //   · un souffle de bruit haché par cellule garde le pittoresque du staircase
+  //     (sans lui, deux tracés en plaine seraient au cordeau), DÉTERMINISTE.
+  // La recherche est BORNÉE à la boîte des extrémités + WIND_M de marge : un
+  // détour reste un détour, pas une errance. Échec (eau infranchissable, boîte
+  // trop petite) → repli staircase : la connexité ne se négocie pas.
+  // ⚠ Sans champ (tests, terrain coupé) → staircase, au bit près.
+  const WIND_M = 16, WIND_TURN = 2.4, WIND_SLOPE = 3.2, WIND_NOISE = 0.25;
+  const windHash = (x, y) => {
+    let h = (Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ (seed | 0)) >>> 0;
+    h ^= h >>> 13; h = Math.imul(h, 1274126177) >>> 0;
+    return ((h >>> 8) & 0xffff) / 65536;
+  };
+  function windingPath(x0, y0, x1, y1, rank, label) {
+    if (!fieldAt || !TERRAIN.amp) { staircase(x0, y0, x1, y1, rank, label); return; }
+    const ax = Math.round(x0), ay = Math.round(y0), tx = Math.round(x1), ty = Math.round(y1);
+    if (ax === tx && ay === ty) { addCell(tx, ty, "h", rank); addCell(tx, ty, "v", rank); return; }
+    const bx0 = Math.max(0, Math.min(ax, tx) - WIND_M), bx1 = Math.min(N - 1, Math.max(ax, tx) + WIND_M);
+    const by0 = Math.max(0, Math.min(ay, ty) - WIND_M), by1 = Math.min(N - 1, Math.max(ay, ty) + WIND_M);
+    const W = bx1 - bx0 + 1, H = by1 - by0 + 1;
+    const idOf = (x, y, d) => (((y - by0) * W) + (x - bx0)) * 4 + d;
+    const best = new Float64Array(W * H * 4).fill(Infinity);
+    const from = new Int32Array(W * H * 4).fill(-1);
+    // Tas binaire minimal [f, tie, id, g] à plat — le tie d'insertion rend
+    // l'ordre TOTAL, donc le tracé identique d'une exécution à l'autre.
+    const hp = [];
+    let tie = 0;
+    const push = (f, id, g) => {
+      hp.push([f, tie += 1, id, g]);
+      let i = hp.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (hp[p][0] < hp[i][0] || (hp[p][0] === hp[i][0] && hp[p][1] < hp[i][1])) break;
+        const t = hp[p]; hp[p] = hp[i]; hp[i] = t; i = p;
+      }
+    };
+    const pop = () => {
+      const top = hp[0], last = hp.pop();
+      if (hp.length) {
+        hp[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1, r = l + 1;
+          let m = i;
+          if (l < hp.length && (hp[l][0] < hp[m][0] || (hp[l][0] === hp[m][0] && hp[l][1] < hp[m][1]))) m = l;
+          if (r < hp.length && (hp[r][0] < hp[m][0] || (hp[r][0] === hp[m][0] && hp[r][1] < hp[m][1]))) m = r;
+          if (m === i) break;
+          const t = hp[m]; hp[m] = hp[i]; hp[i] = t; i = m;
+        }
+      }
+      return top;
+    };
+    const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+    const fld = (x, y) => fieldAt(x + 0.5, y + 0.5);
+    const okCell = (x, y) => x >= bx0 && x <= bx1 && y >= by0 && y <= by1 && !inWater(x, y);
+    const hMan = (x, y) => Math.abs(tx - x) + Math.abs(ty - y);
+    // Amorce : les 4 premiers pas depuis le départ (pas de pénalité de virage).
+    const f0 = fld(ax, ay);
+    for (let d = 0; d < 4; d += 1) {
+      const nx = ax + DX[d], ny = ay + DY[d];
+      if (!okCell(nx, ny)) continue;
+      const dz = fld(nx, ny) - f0;
+      const g = 1 + WIND_SLOPE * dz * dz + WIND_NOISE * windHash(nx, ny);
+      const id = idOf(nx, ny, d);
+      if (g < best[id]) { best[id] = g; from[id] = -2 - d; push(g + hMan(nx, ny), id, g); }
+    }
+    let goal = -1, guard = W * H * 4;
+    while (hp.length && guard-- > 0) {
+      const [, , id, g] = pop();
+      if (g > best[id] + 1e-9) continue;                 // entrée périmée du tas
+      const d = id % 4, ci = (id - d) / 4;
+      const x = bx0 + (ci % W), y = by0 + ((ci - (ci % W)) / W);
+      if (x === tx && y === ty) { goal = id; break; }
+      const fz = fld(x, y);
+      for (let nd = 0; nd < 4; nd += 1) {
+        if ((nd + 2) % 4 === d) continue;                // pas de demi-tour
+        const nx = x + DX[nd], ny = y + DY[nd];
+        if (!okCell(nx, ny)) continue;
+        const dz = fld(nx, ny) - fz;
+        const ng = g + 1 + (nd !== d ? WIND_TURN : 0)
+          + WIND_SLOPE * dz * dz + WIND_NOISE * windHash(nx, ny);
+        const nid = idOf(nx, ny, nd);
+        if (ng < best[nid] - 1e-9) { best[nid] = ng; from[nid] = id; push(ng + hMan(nx, ny), nid, ng); }
+      }
+    }
+    if (goal < 0) { staircase(x0, y0, x1, y1, rank, label); return; }
+    // Remontée → cellules du chemin (cible → départ), puis pose en JAMBES :
+    // un addEdge par run droit, coins marqués h+v — même vocabulaire de cellules
+    // que le staircase, les passes aval (trim/prune/dissolve) n'y voient rien.
+    const px = [], py = [];
+    for (let id = goal; id >= 0; id = from[id]) {
+      const d = id % 4, ci = (id - d) / 4;
+      px.push(bx0 + (ci % W)); py.push(by0 + ((ci - (ci % W)) / W));
+      if (from[id] <= -2) break;                         // amorce atteinte
+    }
+    px.push(ax); py.push(ay);
+    px.reverse(); py.reverse();
+    // Un run se ferme quand l'AXE du pas change ; chaque coin est marqué h+v.
+    let s = 0;
+    let axis = px[1] === px[0] ? "v" : "h";
+    for (let i = 2; i < px.length; i += 1) {
+      const a = px[i] === px[i - 1] ? "v" : "h";
+      if (a !== axis) {
+        addEdge(px[s], py[s], px[i - 1], py[i - 1], rank);
+        addCell(px[i - 1], py[i - 1], "h", rank);
+        addCell(px[i - 1], py[i - 1], "v", rank);
+        s = i - 1; axis = a;
+      }
+    }
+    addEdge(px[s], py[s], px[px.length - 1], py[py.length - 1], rank);
+    addCell(px[px.length - 1], py[px.length - 1], "h", rank);
+    addCell(px[px.length - 1], py[px.length - 1], "v", rank);
+  }
+
   // Anneau rectangulaire borné à la silhouette (rocades, enceintes).
   function ring(rcx, rcy, r, rank) {
     const put = (x, y, axis) => {
@@ -268,10 +394,10 @@ export function generateRoadsGraph({
     asSkel(() => bridgeCrossing("path"));
     let prevA = null;
     for (const a of plan.anchors) {
-      staircase(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
+      windingPath(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
       const ar = Math.max(1, Math.round((a.r || 2) * 0.5));
       ring(Math.round(a.gx), Math.round(a.gy), ar, "path");
-      if (prevA) staircase(prevA.gx, prevA.gy, a.gx, a.gy, "path", "sc-link:" + prevA.label + ">" + a.label);
+      if (prevA) windingPath(prevA.gx, prevA.gy, a.gx, a.gy, "path", "sc-link:" + prevA.label + ">" + a.label);
       prevA = a;
     }
     ring(core.x, core.y, 2, "path");
@@ -280,17 +406,17 @@ export function generateRoadsGraph({
     const bendY = core.y + Math.round((rng() - 0.5) * 4);
     const bendX = core.x + Math.round((rng() - 0.5) * 4);
     const west = clampRay(Math.PI, span), east = clampRay(0, span);
-    asSkel(() => staircase(west.x, bendY, east.x, core.y, mainRank, "cr:h"));
+    asSkel(() => windingPath(west.x, bendY, east.x, core.y, mainRank, "cr:h"));
     asSkel(() => bridgeCrossing(mainRank));
     const north = clampRay(-Math.PI / 2, Math.min(span, 6 + span * 0.3));
-    asSkel(() => staircase(bendX, north.y, core.x, core.y, "secondary", "cr:v"));
+    asSkel(() => windingPath(bendX, north.y, core.x, core.y, "secondary", "cr:v"));
     for (const a of plan.anchors)
-      staircase(core.x, core.y, a.gx, a.gy, a.band <= 1 ? "path" : "secondary", "cr:" + a.label);
+      windingPath(core.x, core.y, a.gx, a.gy, a.band <= 1 ? "path" : "secondary", "cr:" + a.label);
   } else if (A === "linear") {
     asSkel(() => linearMainStreet(mainRank));
     asSkel(() => bridgeCrossing("secondary"));
     for (const a of plan.anchors)
-      staircase(a.gx, core.y, a.gx, a.gy, "path", "ln:" + a.label);
+      windingPath(a.gx, core.y, a.gx, a.gy, "path", "ln:" + a.label);
   } else if (A === "radial") {
     const rng = rngFrom(seed, "radial");
     const spokes = 5 + Math.floor(rng() * 3);
@@ -298,17 +424,17 @@ export function generateRoadsGraph({
     for (let i = 0; i < spokes; i += 1) {
       const ang = a0 + (i / spokes) * Math.PI * 2 + (rng() - 0.5) * 0.35;
       const end = clampRay(ang, span);
-      staircase(core.x, core.y, end.x, end.y, i < 2 ? mainRank : "secondary", "ray:" + i);
+      windingPath(core.x, core.y, end.x, end.y, i < 2 ? mainRank : "secondary", "ray:" + i);
     }
     bridgeCrossing(mainRank);
     const rings = Math.min(4, 1 + counts.infraRings);
     for (let ri = 1; ri <= rings; ri += 1) ring(core.x, core.y, 3 + ri * 4, ri <= 1 ? "avenue" : "secondary");
-    for (const a of plan.anchors) staircase(core.x, core.y, a.gx, a.gy, "path", "rd:" + a.label);
+    for (const a of plan.anchors) windingPath(core.x, core.y, a.gx, a.gy, "path", "rd:" + a.label);
   } else if (A === "districts") {
     bridgeCrossing(mainRank);
     runLineWide("h", core.y, core.x, mainRank);
     for (const a of plan.anchors) {
-      staircase(core.x, core.y, a.gx, a.gy, a.band >= 3 ? "avenue" : "secondary", "dt:" + a.label);
+      windingPath(core.x, core.y, a.gx, a.gy, a.band >= 3 ? "avenue" : "secondary", "dt:" + a.label);
       localGrid(Math.round(a.gx), Math.round(a.gy), Math.round(a.r + 1), 3 + superMesh, "secondary", "dt:" + a.label);
     }
     const rng = rngFrom(seed, "districts-extra");
@@ -336,17 +462,17 @@ export function generateRoadsGraph({
       for (let di = 0; di < 4; di += 1) {
         const ang = Math.PI / 4 + di * Math.PI / 2;
         const end = clampRay(ang, plan.reachBase || 8);
-        staircase(core.x, core.y, end.x, end.y, "avenue", "diag:" + di);
+        windingPath(core.x, core.y, end.x, end.y, "avenue", "diag:" + di);
       }
     }
     for (const a of plan.anchors)
-      if (a.band <= 1) staircase(core.x, core.y, a.gx, a.gy, "path", "cp:" + a.label);
+      if (a.band <= 1) windingPath(core.x, core.y, a.gx, a.gy, "path", "cp:" + a.label);
   }
 
   // Vieux centre : sentiers fondateurs des villes avancées.
   if (A !== "scattered" && counts.eraBand >= 2) {
     const founders = plan.anchors.filter((a) => a.band <= 1).slice(0, 3);
-    for (const a of founders) staircase(core.x, core.y, a.gx, a.gy, "path", "old:" + a.label);
+    for (const a of founders) windingPath(core.x, core.y, a.gx, a.gy, "path", "old:" + a.label);
   }
 
   // ÉCHAFAUDAGE DE PERMÉABILITÉ (organiques denses) : un quadrillage de ruelles

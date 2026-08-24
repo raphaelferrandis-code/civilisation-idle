@@ -36,30 +36,19 @@
 // COMPOSE par-dessus (bridgeLiftWorld s'additionne dans l'axe).
 //
 // Molette : __terrain(false) coupe tout, __terrain({ ... }) règle à chaud.
+// ⚠ Un réglage de FORME ne re-trace les ROUTES qu'au prochain __cityRecompute :
+// elles sont tracées au layout, sur le même champ (cf. terrainField.js).
 import { CM } from '../layout.js';
+import { TERRAIN, terrainFieldU, terrainFlatR, ss01 } from '../procedural/terrainField.js';
 
-// amp est le MAÎTRE (0 = plat historique). Échelle validée à la capture le
-// 2026-08-24 ; REMODELÉE le jour même (retour Raph : « ça fait un peu vague de
-// colline ») — un bruit partout fait de la HOULE, pas des collines. Un vrai
-// paysage concentre ses pentes :
-//   · valley/bench/coteau : plaine alluviale PLATE sur `bench` tuiles, puis
-//     MONTÉE franche sur `coteau` tuiles, puis plateau — la pente du bord de
-//     fleuve vit dans le coteau, plus étalée partout ;
-//   · hills/hillCut : les collines sont des MASSIFS DISCRETS — elles n'existent
-//     qu'au-dessus du seuil `hillCut` du bruit large ; entre les massifs, la
-//     plaine est VRAIMENT plate. Le détail fin ne module que DANS un massif.
-// cityK = fraction des collines EN ville, big/det = tailles des octaves
-// (tuiles), riverPad = bande à 0 le long de l'eau. Ombrage : k = contraste par
-// unité de pente (COMPRIMÉ à ±cap — un coteau saturerait le soft-light),
-// strength = alpha, texel = px écran par texel du buffer.
-// Défauts accordés à la capture du 2026-08-24 (2e passe, après le retour
-// « vague de colline ») : massifs plus couvrants (hillCut 0,52, big 20),
-// coteau court et franc (8 U sur 4 tuiles), ombrage un cran plus present.
-export const TERRAIN = {
-  amp: 1, valley: 8, bench: 6, coteau: 4, hills: 9, hillCut: 0.52,
-  cityK: 0.45, big: 20, det: 7, riverPad: 3,
-  shade: 1, texel: 8, k: 1600, cap: 80, strength: 0.7,
-};
+// LA FORME du champ vit dans procedural/terrainField.js depuis le lot « routes
+// sillonnantes » : le traceur de routes tourne au layout, avant CM.layout, et ne
+// peut pas importer ce module de rendu. On ÉTEND ici le MÊME objet de réglages
+// avec les boutons d'ombrage — une seule molette, une seule vérité. Ombrage :
+// k = contraste par unité de pente (COMPRIMÉ à ±cap — un coteau saturerait le
+// soft-light), strength = alpha, texel = px écran par texel du buffer.
+Object.assign(TERRAIN, { shade: 1, texel: 8, k: 1600, cap: 80, strength: 0.7 });
+export { TERRAIN };
 
 // L'unité de relief (convention n° 1). Exportée : les contremarches du sol et
 // les gardes la lisent — une valeur recopiée finirait par diverger.
@@ -80,28 +69,6 @@ export function terrainKey() {
     + '_' + TERRAIN.coteau + '_' + TERRAIN.hills + '_' + TERRAIN.hillCut
     + '_' + TERRAIN.cityK + '_' + TERRAIN.big + '_' + TERRAIN.det + '_' + TERRAIN.riverPad;
 }
-
-// ── Bruit de valeur auto-porté (hérité du prototype legacy cityMapDrawTerrain).
-// Auto-porté EXPRÈS : cette feuille est importée par projection.js — importer quoi
-// que ce soit d'iso ici rouvrirait un risque de cycle. Hash entier sans allocation.
-function trHash2(ix, iy, seed) {
-  let h = (Math.imul(ix | 0, 73856093) ^ Math.imul(iy | 0, 19349663) ^ (seed | 0)) >>> 0;
-  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15;
-  return (h >>> 0) / 4294967295;
-}
-function trNoise(x, y, seed) {
-  const xi = Math.floor(x), yi = Math.floor(y);
-  const xf = x - xi, yf = y - yi;
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-  const a = trHash2(xi, yi, seed), b = trHash2(xi + 1, yi, seed);
-  const c = trHash2(xi, yi + 1, seed), d = trHash2(xi + 1, yi + 1, seed);
-  const ab = a + (b - a) * u, cd = c + (d - c) * u;
-  return ab + (cd - ab) * v;                          // 0..1
-}
-const ss01 = (e0, e1, x) => {
-  const t = Math.max(0, Math.min(1, (x - e0) / Math.max(1e-4, e1 - e0)));
-  return t * t * (3 - 2 * t);
-};
 
 // ── SOCLES ────────────────────────────────────────────────────────────────────
 // Bâtiments : rects CONTINUS (convention n° 3) indexés par blocs de 8 tuiles.
@@ -189,49 +156,34 @@ function padsFor(L) {
   return _pads;
 }
 
-// TERRAIN BRUT en unités U au point (gx, gy) en TUILES — vallée + collines,
-// AVANT socles et quantification. C'est lui qui donne la hauteur d'un socle.
-function rawFieldU(gx, gy) {
+// CONTEXTE DU CHAMP, bâti UNE FOIS par layout : la forme pure (terrainField.js)
+// ne connaît pas CM — c'est ici qu'on lui traduit le layout courant. Mémo sur le
+// recompute ; null si le layout est incomplet (tests unitaires, transitoires de
+// montage) — sans cœur de ville, la lisière n'est pas définissable, et un NaN
+// se propagerait à TOUTE projection.
+let _fieldCtx = null, _fieldCtxAt = -1;
+function fieldCtx() {
   const L = CM.layout;
-  // Layout incomplet (tests unitaires, transitoires de montage) : terrain plat.
-  // Sans cœur de ville, la lisière n'est pas définissable — et un NaN ici se
-  // propagerait à TOUTE projection.
+  const at = CM.layoutRecomputeAt || 0;
+  if (_fieldCtxAt === at) return _fieldCtx;
+  _fieldCtxAt = at;
   const ccx = L.plan && L.plan.core ? L.plan.core.x : L.cx;
   const ccy = L.plan && L.plan.core ? L.plan.core.y : L.cy;
-  if (!Number.isFinite(ccx) || !Number.isFinite(ccy)) return 0;
-  const seed = (L.mapSeed || 0) | 0;
-  const ry = L.river && L.river.present && L.river.riverYAt;
-  const dr = ry ? Math.abs(gy - ry(gx)) : 1e9;
-  // VALLÉE EN COTEAU (remodelage anti-« houle ») : plaine alluviale PLATE sur
-  // `bench` tuiles, puis montée FRANCHE sur `coteau` tuiles, puis plateau. La
-  // pente du bord de fleuve est CONCENTRÉE dans le coteau — c'est lui qu'on
-  // lit comme « la ville est au-dessus de sa rivière », au lieu d'une rampe
-  // diffuse qui inclinait tout le paysage.
-  const valley = TERRAIN.valley * ss01(TERRAIN.bench, TERRAIN.bench + TERRAIN.coteau, dr);
-  // MASSIFS DISCRETS : le bruit large ne fait une colline qu'au-dessus du
-  // seuil — entre les massifs, la plaine est VRAIMENT plate (le « vague de
-  // colline » venait du bruit résiduel partout). Le détail fin ne vit que DANS
-  // un massif (multiplié par sa masse) : il sculpte les flancs sans onduler la
-  // plaine.
-  const bigN = trNoise(gx / TERRAIN.big, gy / TERRAIN.big, seed);
-  const mass = ss01(TERRAIN.hillCut, 0.95, bigN);
-  let hills = 0;
-  if (mass > 0) {
-    const detN = trNoise(gx / TERRAIN.det, gy / TERRAIN.det, seed + 101);
-    hills = TERRAIN.hills * mass * (0.8 + 0.4 * detN);
-  }
-  // Lisière du prototype legacy : la ville « apprivoise » le relief — les
-  // collines pleines ne vivent qu'au-delà du rayon urbain, qui grandit avec
-  // les ères. Le terrain proche s'adoucit donc au fil de la partie : assumé.
-  const eraIndex = (L.counts && L.counts.eraIndex) || 0;
-  const urbanTier = (L.counts && L.counts.urbanTier) || 0;
-  const flatR = 6 + eraIndex * 3.8 + urbanTier * 7;
-  const wildK = ss01(flatR, flatR + 8, Math.hypot(gx - ccx, gy - ccy));
-  hills *= TERRAIN.cityK + (1 - TERRAIN.cityK) * wildK;
-  // Rien sous le niveau de l'eau, et le bord de l'eau reste à 0 : tout
-  // l'appareil du fleuve (quais, grève, vagues, pont) vit à z = 0.
-  const h = Math.max(0, valley + hills) * ss01(TERRAIN.riverPad, TERRAIN.riverPad + 4, dr);
-  return h * TERRAIN.amp;
+  if (!Number.isFinite(ccx) || !Number.isFinite(ccy)) { _fieldCtx = null; return null; }
+  _fieldCtx = {
+    seed: (L.mapSeed || 0) | 0,
+    riverYAt: (L.river && L.river.present && L.river.riverYAt) || null,
+    cx: ccx, cy: ccy,
+    flatR: terrainFlatR(L.counts),
+  };
+  return _fieldCtx;
+}
+
+// TERRAIN BRUT en unités U au point (gx, gy) en TUILES — vallée + collines,
+// AVANT socles et quantification. C'est lui qui donne la hauteur d'un socle.
+// La FORME vit dans terrainField.js (partagée avec le traceur de routes).
+function rawFieldU(gx, gy) {
+  return terrainFieldU(gx, gy, fieldCtx());
 }
 
 // Champ LISSE en unités U (socles fondus, PAS quantifié) — la référence de
