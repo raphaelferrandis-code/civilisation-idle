@@ -522,6 +522,13 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // une copie ~9 Mo pour rien — et au drag, le light exact en place vaut
     // mieux qu'un plein étiré. Un bake courant déjà plus proche (ou aussi
     // proche) est gardé.
+    // Les suffixes ':lod' (allégé HARD) et ':lodl' (allégé LIGHT, textures et
+    // voiles gardés) marquent un bake posé pendant un geste : même contenu de
+    // base, détails en moins → à remplacer par un bake plein au repos. Déclaré
+    // ICI, avant la restauration : elle aussi doit savoir reconnaître « un
+    // allégé de la clé courante » (cf. curKeyLod).
+    const baseOf = (k) => (k && k.endsWith(':lodl') ? k.slice(0, -5)
+      : k && k.endsWith(':lod') ? k.slice(0, -4) : k);
     if (!CM.capture && globalThis.__groundZoomCache !== false) {
       const cur = CM._isoGroundBake;
       if (!(cur && !cur.soft && cur.other === key)) {
@@ -548,7 +555,18 @@ export function paintIsoGroundCached(ctx, L, helpers) {
           // Distance d'échelle du bake courant — un lod/soft ne compte pas
           // (une photo PLEINE, même approchée, vaut mieux qu'un allégé exact).
           const curLod = !!cur && (!!cur.soft || !cur.other || cur.other.endsWith(':lod') || cur.other.endsWith(':lodl'));
-          const curD = (cur && !curLod && cur.zoomB != null) ? Math.abs(Math.log(cur.zoomB / CM.cam.zoom)) : Infinity;
+          // ⚠ SAUF un allégé DE LA CLÉ COURANTE, hors glide : c'est la MONTÉE
+          // vers le plein en cours (l'atterrissage l'a posé, les tranches
+          // l'écrasent). Le compter « infiniment loin » rejouait le duel à
+          // CHAQUE frame de repos : la photo approchée s'installait par-dessus
+          // l'allégé, la cascade recuisait l'allégé par-dessus la photo —
+          // 70-100 ms de recuisson par frame, en boucle, et les tranches ne
+          // s'amorçaient jamais (vu au banc : HARD éternel à 74 ms/frame). À sa
+          // vraie distance (0), l'approché ne gagne plus ; l'EXACT passe
+          // toujours (`exact ||` ci-dessous) et TERMINE la montée d'un coup.
+          const curKeyLod = !!cur && !cur.soft && curLod && !zoomGliding && baseOf(cur.other) === key;
+          const curD = (cur && cur.zoomB != null && (!curLod || curKeyLod))
+            ? Math.abs(Math.log(cur.zoomB / CM.cam.zoom)) : Infinity;
           // Déjà installé ? (exact : la clé vivante ; approché : le marqueur et
           // SON échelle) — sinon on recopierait la photo à chaque frame.
           const installed = !!cur && (exact
@@ -585,19 +603,33 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     if (CM.cam.x !== CM._igX || CM.cam.y !== CM._igY || CM.cam.zoom !== CM._igZ) {
       CM._igX = CM.cam.x; CM._igY = CM.cam.y; CM._igZ = CM.cam.zoom; CM._igMoveAt = nowMs;
     }
+    // Horloge du dernier changement d'ÉCHELLE, séparée du mouvement général :
+    // c'est elle qui borne la rafale de molette (cf. zoomStale) — un drag qui
+    // suit un zoom ne doit pas la prolonger, sinon le sol resterait compensé
+    // pendant tout le déplacement. (_igZ ne peut pas servir : le bloc ci-dessus
+    // l'écrase dès que x ou y bougent seuls.)
+    if (CM.cam.zoom !== CM._igZoomPrev) { CM._igZoomPrev = CM.cam.zoom; CM._igZoomAt = nowMs; }
     const stillMs = nowMs - (CM._igMoveAt || 0);
     const settled = CM.capture || stillMs > ISO_SETTLE_MS;
     // `restful` = accalmie LONGUE (cf. ISO_CRISP_SETTLE_MS) : elle seule autorise
     // le sol plein. `settled` ne donne plus que le sol allégé.
     const restful = CM.capture || stillMs > ISO_CRISP_SETTLE_MS;
-    // Les suffixes ':lod' (allégé HARD) et ':lodl' (allégé LIGHT, textures et
-    // voiles gardés) marquent un bake posé pendant un geste : même contenu de
-    // base, détails en moins → à remplacer par un bake plein au repos.
-    const baseOf = (k) => (k && k.endsWith(':lodl') ? k.slice(0, -5)
-      : k && k.endsWith(':lod') ? k.slice(0, -4) : k);
     const sameContent = !!bm && !bm.soft && baseOf(bm.other) === key;
     const inMargin = !!bm && !!M && Math.abs(pd.x) <= M && Math.abs(pd.y) <= M;
     const isLod = !!bm && !!bm.other && (bm.other.endsWith(':lod') || bm.other.endsWith(':lodl'));
+    // « Atterrissage de zoom en ATTENTE » (lot 3 anti-clignotement) : le bake en
+    // place est à une AUTRE échelle et le dernier cran date de moins d'une
+    // accalmie longue — la rafale de molette n'est probablement pas finie. Tant
+    // que c'est vrai, la branche d'accalmie COURTE ne pose plus de light : les
+    // crans humains s'espacent de 200-400 ms, donc CHAQUE cran atteignait les
+    // 110 ms de `settled` et posait un light net… que le cran suivant renvoyait
+    // au compensé flou. Le sol ALTERNAIT net/flou au rythme de la molette — LE
+    // clignotement du dézoom une fois le cadre bouché par le filet. Une seule
+    // apparence par geste : compensé pendant la rafale, le net à l'arrêt réel.
+    // (Un bake `soft` d'une autre échelle compte aussi : son contenu reste
+    // valable par définition, donc compensable — sa recuisson attendra l'arrêt.)
+    const zoomStale = !!bm && bm.zoomB != null && bm.zoomB !== CM.cam.zoom
+      && nowMs - (CM._igZoomAt || 0) < ISO_CRISP_SETTLE_MS;
     // `level` : false = PLEIN, 'light' = allégé textures/voiles gardés, true =
     // allégé HARD (l'aplat historique, repli des machines lentes).
     const bake = (level) => {
@@ -685,6 +717,9 @@ export function paintIsoGroundCached(ctx, L, helpers) {
         helpers.blitMargin(CM.groundCanvas, '_isoGroundBake');   // rien à faire
       }
     } else if (settled
+      // Pendant la rafale de molette (zoomStale), cette branche ne prend plus la
+      // main avant l'arrêt réel : le compensé (plus bas) garde l'écran.
+      && (restful || !zoomStale)
       // RAFALE DE DÉCODAGES (cascade au chargement) : quand la SEULE raison
       // d'arriver ici est une invalidation douce (clé inchangée, dans la marge),
       // le bake existant est encore valable — on le re-blitte tel quel et on
@@ -718,7 +753,16 @@ export function paintIsoGroundCached(ctx, L, helpers) {
         // EN TRANCHES (cf. runGroundSliceStep) au lieu d'un gel d'une frame.
         runGroundSliceStep(key, nowMs, helpers);
       } else {
-        bake(false);
+        // ATTERRISSAGE SANS GEL (lot 3) : depuis que la rafale ne cuit plus de
+        // light, on arrive souvent ici à l'arrêt SANS light en place — un plein
+        // d'un coup gèlerait la frame sur une grande ville (98-134 ms par cran
+        // mesurés en juillet, bien plus au plancher). S'il est cher, on pose
+        // d'abord le LIGHT : la frame suivante le voit en place (isLod, même
+        // clé) et le plein monte en TRANCHES, comme depuis toujours. Les
+        // petites villes gardent leur plein immédiat (sous budget = pas un
+        // gel), la capture aussi (déterminisme).
+        bake(CM.capture || crispEstMs <= crispBudget ? false
+          : (lightEstMs <= lightBudget ? 'light' : true));
       }
     } else if (sameContent && !inMargin) {
       // PAN hors marge, même zoom : DÉFILEMENT INCRÉMENTAL — auto-copie du
