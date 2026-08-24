@@ -91,7 +91,7 @@ describe('terrain — le champ', () => {
 
   it('la clé porte tous les réglages qui changent le dessin', () => {
     const k0 = terrainKey();
-    for (const knob of ['amp', 'valley', 'hills', 'cityK', 'big', 'det', 'riverPad']) {
+    for (const knob of ['amp', 'valley', 'bench', 'coteau', 'hills', 'hillCut', 'cityK', 'big', 'det', 'riverPad']) {
       const was = TERRAIN[knob];
       TERRAIN[knob] = was + 1;
       expect(terrainKey(), knob).not.toBe(k0);
@@ -139,10 +139,14 @@ describe('terrain — les socles', () => {
 });
 
 describe('terrain — l inverse de la projection', () => {
-  it('screenToWorld retrouve un point LEVÉ à mieux qu un demi-U (itération)', () => {
-    // Sur tout un quadrant de collines : projeter, unprojeter, comparer.
+  it('screenToWorld retrouve un point LEVÉ — exact hors escarpement, borné dessus', () => {
+    // ⚠ LE CONTRAT N'EST PAS « l'inverse retrouve LE point » : au droit d'un
+    // escarpement, deux sols (le bord haut visible, la bande cachée derrière la
+    // face) se projettent aux MÊMES pixels — l'inverse en rend un, et l'écart à
+    // l'autre vaut la marche locale. Le contrat testable : exact PRESQUE
+    // partout, jamais pire que le plus grand escarpement du champ.
     const U = reliefUnit();
-    let worst = 0, liftedSeen = 0;
+    let liftedSeen = 0, exact = 0, n = 0, worst = 0;
     for (let gy = 25; gy < 75; gy += 2) {
       for (let gx = 25; gx < 75; gx += 2) {
         const wx = gx * CM.TILE + 9, wy = gy * CM.TILE + 21;
@@ -150,11 +154,15 @@ describe('terrain — l inverse de la projection', () => {
         const p = worldToScreen(wx, wy);
         const q = screenToWorld(p.x, p.y);
         const err = Math.max(Math.abs(q.x - wx), Math.abs(q.y - wy));
+        n += 1;
+        if (err < 1e-9) exact += 1;
         if (err > worst) worst = err;
       }
     }
     expect(liftedSeen).toBeGreaterThan(50);              // le test couvre bien du relief
-    expect(worst).toBeLessThanOrEqual(U / 2 + 1e-9);     // ½ U = 4 px monde au pire (bord de terrasse)
+    expect(exact / n).toBeGreaterThan(0.85);             // exact presque partout
+    // Jamais pire que le plafond d'une marche du champ (massif entier).
+    expect(worst).toBeLessThanOrEqual((TERRAIN.valley + TERRAIN.hills * 1.2) * U);
   });
 
   it('terrain coupé : inverse EXACT du plan, au bit près', () => {

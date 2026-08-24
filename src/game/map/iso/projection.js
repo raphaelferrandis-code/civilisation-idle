@@ -141,8 +141,18 @@ export function screenToWorld(sx, sy) {
   const wx = (b + ax) / 2 + CM.cam.x, wy = (b - ax) / 2 + CM.cam.y;
   const h0 = terrainZ(wx, wy);
   if (!h0) return { x: wx, y: wy };
+  // Deux candidats (le point fixe peut OSCILLER au droit d'un escarpement — la
+  // projection du sol n'y est pas injective, un bord haut visible et une bande
+  // cachée derrière la face partagent les mêmes pixels) : on garde celui dont
+  // le RÉSIDU |terrain(P) − α| est minimal, c'est-à-dire celui qui reprojette
+  // le plus près du pixel demandé. Écart borné par la hauteur de la marche
+  // locale — et c'est la bonne réponse : les deux sols sont sous le curseur.
   const h1 = terrainZ(wx + h0, wy + h0);
-  return { x: wx + h1, y: wy + h1 };
+  if (h1 === h0) return { x: wx + h1, y: wy + h1 };
+  const e1 = Math.abs(terrainZ(wx + h1, wy + h1) - h1);
+  const e0 = Math.abs(h1 - h0);
+  const h = e1 <= e0 ? h1 : h0;
+  return { x: wx + h, y: wy + h };
 }
 
 // Delta caméra (monde) → delta écran. Sert aux bakes offscreen (pan = translation).

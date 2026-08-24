@@ -39,13 +39,26 @@
 import { CM } from '../layout.js';
 
 // amp est le MAÎTRE (0 = plat historique). Échelle validée à la capture le
-// 2026-08-24 : valley/hills en unités U, cityK = fraction des collines EN ville,
-// big/det = tailles des octaves (tuiles), riverPad = bande à 0 le long de l'eau.
-// Ombrage : k = contraste par unité de pente, strength = alpha du soft-light,
-// texel = px écran par texel du buffer basse résolution.
+// 2026-08-24 ; REMODELÉE le jour même (retour Raph : « ça fait un peu vague de
+// colline ») — un bruit partout fait de la HOULE, pas des collines. Un vrai
+// paysage concentre ses pentes :
+//   · valley/bench/coteau : plaine alluviale PLATE sur `bench` tuiles, puis
+//     MONTÉE franche sur `coteau` tuiles, puis plateau — la pente du bord de
+//     fleuve vit dans le coteau, plus étalée partout ;
+//   · hills/hillCut : les collines sont des MASSIFS DISCRETS — elles n'existent
+//     qu'au-dessus du seuil `hillCut` du bruit large ; entre les massifs, la
+//     plaine est VRAIMENT plate. Le détail fin ne module que DANS un massif.
+// cityK = fraction des collines EN ville, big/det = tailles des octaves
+// (tuiles), riverPad = bande à 0 le long de l'eau. Ombrage : k = contraste par
+// unité de pente (COMPRIMÉ à ±cap — un coteau saturerait le soft-light),
+// strength = alpha, texel = px écran par texel du buffer.
+// Défauts accordés à la capture du 2026-08-24 (2e passe, après le retour
+// « vague de colline ») : massifs plus couvrants (hillCut 0,52, big 20),
+// coteau court et franc (8 U sur 4 tuiles), ombrage un cran plus present.
 export const TERRAIN = {
-  amp: 1, valley: 6, hills: 5, cityK: 0.45, big: 18, det: 7, riverPad: 3,
-  shade: 1, texel: 8, k: 2000, strength: 0.65,
+  amp: 1, valley: 8, bench: 6, coteau: 4, hills: 9, hillCut: 0.52,
+  cityK: 0.45, big: 20, det: 7, riverPad: 3,
+  shade: 1, texel: 8, k: 1600, cap: 80, strength: 0.7,
 };
 
 // L'unité de relief (convention n° 1). Exportée : les contremarches du sol et
@@ -55,14 +68,16 @@ export function reliefUnit() { return CM.TILE / 4; }
 // Plafond du champ en px MONDE — sert aux marges de cull (une cellule sous le
 // bord bas de l'écran, levée de terrainMax, peut encore être visible).
 export function terrainMaxPx() {
-  return TERRAIN.amp ? (TERRAIN.valley + TERRAIN.hills) * TERRAIN.amp * reliefUnit() : 0;
+  // 1,2 = le plafond du modelé de massif (0,8 + 0,4 · détail max).
+  return TERRAIN.amp ? (TERRAIN.valley + TERRAIN.hills * 1.2) * TERRAIN.amp * reliefUnit() : 0;
 }
 
 // Fragment de clé de bake : vide à l'arrêt (aucune clé existante ne bouge), et il
 // porte TOUT ce qui change le dessin — le piège d'invalidation a mordu 3× ce projet.
 export function terrainKey() {
   if (!TERRAIN.amp) return '';
-  return ':tr' + TERRAIN.amp + '_' + TERRAIN.valley + '_' + TERRAIN.hills
+  return ':tr' + TERRAIN.amp + '_' + TERRAIN.valley + '_' + TERRAIN.bench
+    + '_' + TERRAIN.coteau + '_' + TERRAIN.hills + '_' + TERRAIN.hillCut
     + '_' + TERRAIN.cityK + '_' + TERRAIN.big + '_' + TERRAIN.det + '_' + TERRAIN.riverPad;
 }
 
@@ -187,9 +202,24 @@ function rawFieldU(gx, gy) {
   const seed = (L.mapSeed || 0) | 0;
   const ry = L.river && L.river.present && L.river.riverYAt;
   const dr = ry ? Math.abs(gy - ry(gx)) : 1e9;
-  const valley = TERRAIN.valley * ss01(TERRAIN.riverPad, 18, dr);
-  const n = (trNoise(gx / TERRAIN.big, gy / TERRAIN.big, seed) * 0.7
-    + trNoise(gx / TERRAIN.det, gy / TERRAIN.det, seed + 101) * 0.3) * 2 - 1;
+  // VALLÉE EN COTEAU (remodelage anti-« houle ») : plaine alluviale PLATE sur
+  // `bench` tuiles, puis montée FRANCHE sur `coteau` tuiles, puis plateau. La
+  // pente du bord de fleuve est CONCENTRÉE dans le coteau — c'est lui qu'on
+  // lit comme « la ville est au-dessus de sa rivière », au lieu d'une rampe
+  // diffuse qui inclinait tout le paysage.
+  const valley = TERRAIN.valley * ss01(TERRAIN.bench, TERRAIN.bench + TERRAIN.coteau, dr);
+  // MASSIFS DISCRETS : le bruit large ne fait une colline qu'au-dessus du
+  // seuil — entre les massifs, la plaine est VRAIMENT plate (le « vague de
+  // colline » venait du bruit résiduel partout). Le détail fin ne vit que DANS
+  // un massif (multiplié par sa masse) : il sculpte les flancs sans onduler la
+  // plaine.
+  const bigN = trNoise(gx / TERRAIN.big, gy / TERRAIN.big, seed);
+  const mass = ss01(TERRAIN.hillCut, 0.95, bigN);
+  let hills = 0;
+  if (mass > 0) {
+    const detN = trNoise(gx / TERRAIN.det, gy / TERRAIN.det, seed + 101);
+    hills = TERRAIN.hills * mass * (0.8 + 0.4 * detN);
+  }
   // Lisière du prototype legacy : la ville « apprivoise » le relief — les
   // collines pleines ne vivent qu'au-delà du rayon urbain, qui grandit avec
   // les ères. Le terrain proche s'adoucit donc au fil de la partie : assumé.
@@ -197,7 +227,7 @@ function rawFieldU(gx, gy) {
   const urbanTier = (L.counts && L.counts.urbanTier) || 0;
   const flatR = 6 + eraIndex * 3.8 + urbanTier * 7;
   const wildK = ss01(flatR, flatR + 8, Math.hypot(gx - ccx, gy - ccy));
-  const hills = TERRAIN.hills * n * (TERRAIN.cityK + (1 - TERRAIN.cityK) * wildK);
+  hills *= TERRAIN.cityK + (1 - TERRAIN.cityK) * wildK;
   // Rien sous le niveau de l'eau, et le bord de l'eau reste à 0 : tout
   // l'appareil du fleuve (quais, grève, vagues, pont) vit à z = 0.
   const h = Math.max(0, valley + hills) * ss01(TERRAIN.riverPad, TERRAIN.riverPad + 4, dr);
@@ -322,7 +352,7 @@ export function drawTerrainShade() {
   const W = Math.max(2, Math.ceil(CM.cw / TERRAIN.texel));
   const H = Math.max(2, Math.ceil(CM.ch / TERRAIN.texel));
   const key = CM.cam.x.toFixed(1) + ':' + CM.cam.y.toFixed(1) + ':' + z.toFixed(3)
-    + ':' + W + 'x' + H + terrainKey() + ':k' + TERRAIN.k + ':' + _pads.key;
+    + ':' + W + 'x' + H + terrainKey() + ':k' + TERRAIN.k + '_' + TERRAIN.cap + ':' + _pads.key;
   if (key !== _shade.key || !_shade.buf) {
     if (!_shade.buf || _shade.W !== W || _shade.H !== H) {
       _shade.buf = typeof OffscreenCanvas !== 'undefined'
@@ -355,8 +385,11 @@ export function drawTerrainShade() {
         const o = (ty * W + tx) * 4;
         if (g === 0) { data[o + 3] = 0; continue; }
         // g est en U par tuile ; U/T = ¼ le convertit en pente sans dimension.
-        let grey = 128 + g * 0.25 * TERRAIN.k;
-        grey = grey < 0 ? 0 : grey > 255 ? 255 : grey;
+        // COMPRIMÉ à ±cap : un coteau (1,2 U/tuile) saturerait le soft-light en
+        // noir/blanc pur — on garde k pour les pentes douces, le mur pour les raides.
+        let off = g * 0.25 * TERRAIN.k;
+        if (off > TERRAIN.cap) off = TERRAIN.cap; else if (off < -TERRAIN.cap) off = -TERRAIN.cap;
+        const grey = 128 + off;
         data[o] = data[o + 1] = data[o + 2] = grey;
         data[o + 3] = 255;
       }
