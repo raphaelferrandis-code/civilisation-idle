@@ -1,5 +1,28 @@
 # Plan — Le relief : « tout est plat »
 
+> ## ⛔⛔ RELIEF ÉTEINT PAR DÉFAUT LE 2026-08-24, PAR DÉCISION DE RAPH
+>
+> « rien ne va c'est tout fracassé […] je te propose d'annuler tout le relief » —
+> sur une capture de NUIT, bande 4, en pleine ville. `TERRAIN.amp = 0` : le sol est
+> plat au bit près, aucune contremarche, pas de socle, pas d'ombrage, dôme d'île nul,
+> et les routes reprennent leur tracé `staircase` d'avant.
+>
+> **⚠ CE QUI A CASSÉ N'EST PAS LE CHAMP NU.** Raph l'avait validé EN PROD le matin
+> même (« c'est fluide et le rendu est top », réglages `valley 8, hills 9,
+> hillCut 0,52, cityK 0,45`, tranches nues). Ce qui s'est empilé l'après-midi, si :
+> l'**accentuation** (hills 9→12, hillCut 0,52→0,46, cityK 0,45→0,5) ET
+> l'**habillage des tranches** (lèvre, assise, joints, pied d'ombre). En ville, à la
+> bande 4, chaque marche devient un mur de pierre grise — et il y en a partout.
+>
+> **La faute de méthode, à ne pas refaire :** j'ai accentué PUIS habillé sans re-juger
+> l'ensemble sur une capture de NUIT EN VILLE. Chaque lot avait sa capture ; leur
+> SOMME n'en a jamais eu. Deux changements qui vont chacun dans le bon sens peuvent
+> se multiplier en défaut.
+>
+> **Si le chantier rouvre un jour** : repartir des réglages VALIDÉS, tranches NUES,
+> et juger à chaque cran sur une capture de nuit en tissu dense — pas au grand large
+> où le relief a toujours l'air bon.
+
 > ## ✅ ROUVERT ET LIVRÉ LE 2026-08-24 — LE TERRAIN EST EN JEU (`79c0275` → `a83f1c8`)
 > **9 commits le jour même** : champ + socles + contremarches + ombrage (v1), remodelage
 > « fini la houle » (coteau + massifs discrets), ROUTES SILLONNANTES (coût de pente,
