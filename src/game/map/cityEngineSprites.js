@@ -495,6 +495,21 @@ function tailleNette(src, cible) {
 // BAS de son encre (blitPropGrounded) : recentrer son rectangle le ferait
 // léviter ou s'enfoncer d'un pixel, ce qui est exactement le défaut que
 // l'ancrage mesuré avait corrigé. Pour lui, c'est la ligne de sol qui ne bouge pas.
+// ── S6 — ARRONDIR SUR LA GRILLE **DEVICE**, PAS SUR LA GRILLE CSS ───────────
+// Le contexte de la carte est scalé par `dpr` (setTransform(dpr,0,0,dpr,…)), si
+// bien qu'un `Math.round` en px CSS tombe sur `dpr` px device : entier à dpr 1
+// et 2, mais sur un QUART DE PIXEL à 1,25 et une DEMIE à 1,5 — les deux échelles
+// Windows les plus répandues. L'arrondi CSS défaisait donc, sur ces postes, le
+// snap de caméra posé juste avant (drawIsoWorld quantifie la caméra au pixel
+// device, précisément pour que toutes les couches partagent une grille).
+// `snapDev` rabat sur la grille RÉELLE ; à dpr 1 il est l'identité, donc les
+// postes déjà nets ne bougent pas d'un pixel.
+// ⚠ POSITION SEULEMENT. Les TAILLES restent gouvernées par BLIT_SNAP.mode : leur
+// rabattement déplace les sprites de ~2 % et deux calibrages au pixel en
+// dépendent (ordre de substitution des paliers, foyers de flamme) — cf. le
+// bandeau de BLIT_SNAP, qui explique pourquoi le défaut est 1 et pas 3.
+const snapDev = (v) => { const d = CM.dpr || 1; return Math.round(v * d) / d; };
+
 function snapRect(left, top, drawW, drawH, srcW, srcH, ancre) {
   const st = BLIT_SNAP.stats;
   if (st) {
@@ -515,10 +530,14 @@ function snapRect(left, top, drawW, drawH, srcW, srcH, ancre) {
     // Recentrage sur la boîte D'ORIGINE : le rabattement ne doit pas décaler le
     // bâtiment sur son lot, seulement changer sa grille d'échantillonnage.
     const dy = ancre === 'pied' ? (drawH - h) : (drawH - h) / 2;
-    return [Math.round(left + (drawW - w) / 2), Math.round(top + dy), w, h];
+    return [snapDev(left + (drawW - w) / 2), snapDev(top + dy), w, h];
   }
-  return [Math.round(left), Math.round(top), drawW, drawH];
+  return [snapDev(left), snapDev(top), drawW, drawH];
 }
+
+// Enveloppe de TEST du rabattement (la garde S6 verrouille l'invariant de grille,
+// pas le corps) : snapRect reste privee, personne ne peut l'appeler par erreur.
+export const snapRectForTest = (l, t, w, h, sw, sh, a) => snapRect(l, t, w, h, sw, sh, a);
 
 // Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
