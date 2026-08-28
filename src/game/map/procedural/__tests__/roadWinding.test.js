@@ -4,9 +4,17 @@
 // champ de terrain est fourni : ces gardes verrouillent ce que le lot promet —
 // même réseau à chaque exécution, contournement des massifs, et l'ABSENCE de
 // champ qui rend le staircase historique (contrat des autres tests du dossier).
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { generateRoadsGraph } from "../roadGraph.js";
 import { TERRAIN } from "../terrainField.js";
+
+// ⚠ LE RELIEF EST ÉTEINT PAR DÉFAUT depuis le 2026-08-24 (décision de Raph, cf.
+// le bandeau de TERRAIN) : ces gardes vérifient un MÉCANISME devenu opt-in, elles
+// doivent donc l'armer elles-mêmes. Sans ça elles ne testaient plus rien — elles
+// passaient par le repli `staircase` en croyant mesurer le sillonnement.
+let ampAvant;
+beforeEach(() => { ampAvant = TERRAIN.amp; TERRAIN.amp = 1; });
+afterEach(() => { TERRAIN.amp = ampAvant; });
 
 const diskLimit = (core, R) => (x, y, m = 0) => Math.hypot(x - core.x, y - core.y) <= R + m;
 
