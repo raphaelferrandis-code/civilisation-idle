@@ -14,7 +14,10 @@ import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
-import { HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
+import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
+// ISO_Y : la marche d'un rang vers le nord (cf. houseSpriteReachTilesIso). Sens
+// d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
+import { ISO_Y } from './iso/projection.js';
 import { houseFootprint } from './procedural/buildingGenerator.js';
 
 export const pixelHousesFlag = { on: true };
@@ -346,6 +349,31 @@ export function houseSpriteHeightTiles(variant) {
   const shape = (2 * sx) / (sx + sy);
   const f = grainTune.on && GRAIN_FIX[key] ? Math.max(0.8, Math.min(1.25, GRAIN_FIX[key])) : 1;
   return (e.bbox.h / HOUSE_UNIT) * shape * f;
+}
+
+// PORTÉE VERS LE NORD, en TUILES, TELLE QUE LE PEINTRE ISO LA DESSINE — combien
+// de rangs au nord de sa base le sprite recouvre à l'écran.
+//
+// ⚠ CE N'EST PAS `houseSpriteHeightTiles`, et l'écart est un FACTEUR 3 (S3 de
+// PLAN-RENDU-VILLE, mesuré : stonehouse 1,11 contre 3,48). Deux raisons qui se
+// multiplient, toutes deux propres à l'iso :
+//   · la LARGEUR ALLOUÉE : le peintre coud la boîte sur (spanX + spanY) tuiles
+//     (HOUSE_LOT_WF), là où le top-down n'allouait que `spanX` ;
+//   · la MARCHE DU RANG : monter d'une tuile vers le nord ne lève l'écran que
+//     de ISO_Y tuile — un sprite couvre donc DEUX fois plus de rangs que sa
+//     hauteur exprimée en tuiles.
+// La portée en tuiles ne dépend pas du zoom (numérateur et dénominateur le
+// portent tous deux) : on la calcule à z = 1. Et elle passe par `houseScaleK`,
+// la vraie fonction d'échelle — pas une formule recopiée qui divergerait au
+// premier réglage (le clamp au lot vient avec).
+export function houseSpriteReachTilesIso(variant, spanX, spanY) {
+  const key = spriteKeyFor(variant);
+  const e = cache.get(key);
+  if (!(e && e.ready && e.bbox)) return null;
+  const sx = spanX || 1, sy = spanY || sx;
+  const w = (sx + sy) * CM.TILE * HOUSE_LOT_WF;
+  const dh = e.bbox.h * houseScaleK(sx, w, e.bbox.w, sy, key);
+  return dh / (CM.TILE * ISO_Y);
 }
 
 // Dev : bascule le rendu pixel des habitations. __pixelHouses(false) → procédural.

@@ -41,7 +41,7 @@ import { ambianceK } from './ambianceMode.js';
 import { weatherState } from './weatherMode.js';
 import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
-import { preloadHouseSprites, houseSpriteHeightTiles, pixelHouseImages } from './pixelHouses.js';
+import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso, pixelHouseImages } from './pixelHouses.js';
 import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
@@ -1499,7 +1499,14 @@ function cityMapEnsureLayout(now, deps = {}) {
   for (const t of L.tiles) {
     const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1;
     const isHouse = t.type === "house" || t.type === "enginehome";
-    const hTiles = isHouse ? (houseSpriteHeightTiles(t.variant) || 2.2) : 1.15;
+    // ⚠ PORTÉE **ISO**, pas la hauteur top-down (S3 de PLAN-RENDU-VILLE) : le
+    // seul consommateur vivant de `topY` est l'exclusion des éclaboussures de
+    // pluie (isoWeather.splashPointOk), et la formule legacy sous-estimait la
+    // portée d'un facteur ~3 — des ronds de pluie tombaient sur le bas des
+    // façades. Repli sur l'ancienne valeur tant que le PNG n'est pas mesuré.
+    const hTiles = isHouse
+      ? (houseSpriteReachTilesIso(t.variant, bx, by) || houseSpriteHeightTiles(t.variant) || 2.2)
+      : 1.15;
     const rec = {
       x0: t.gx * Tpx, x1: (t.gx + bx) * Tpx,
       baseY: (t.gy + by) * Tpx, topY: ((t.gy + by) - hTiles) * Tpx,
