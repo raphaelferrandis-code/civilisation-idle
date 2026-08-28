@@ -15,6 +15,18 @@
 // `end` doit donc passer par la projection, jamais par une taille d'écran
 // mémorisée avant l'appel.
 //
+// ⚠⚠ ET IL BASCULE AUSSI `CM.ctx`, DEPUIS LE BOGUE DU 2026-08-24. La première
+// version ne changeait que la projection : un consommateur qui prend sa cible
+// dans `CM.ctx` (c'est le cas de `cityMapDrawQuays`, qui la capture en tête)
+// peignait donc SUR L'ÉCRAN avec la géométrie du zoom 1, pendant qu'on composait
+// un calque resté vide par-dessus. Symptôme : « les quais bougent au zoom »
+// (Raph) — erreur NULLE à z = 1 et croissante en s'en éloignant, jusqu'à 34 px
+// mesurés. Le repère de projection et la CIBLE de dessin ne se séparent pas.
+//
+// ⚠⚠ COROLLAIRE POUR L'APPELANT : capturer la vraie cible AVANT `begin`, et la
+// passer à `end`. Écrire `artLayerEnd(lay, CM.ctx, z)` composerait le calque sur
+// LUI-MÊME, puisque `CM.ctx` vaut encore le calque au moment de l'évaluation.
+//
 // ⚠ SORTI d'isoGroundRoads.js le 2026-08-24 pour être PARTAGÉ avec le bake des
 // quais (§4.1 de REPRISE-TRACE-VECTORIEL). Déplacement pur : le corps est repris
 // sans une ligne de changée — la voirie ne doit pas bouger d'un pixel.
@@ -40,15 +52,16 @@ export function artLayerBegin(z) {
   const lay = _layer;
   lay.ctx.setTransform(1, 0, 0, 1, 0, 0);
   lay.ctx.clearRect(0, 0, lay.w, lay.h);
-  // Bascule du repère de projection : worldToScreen lit CM.cam.zoom et CM.cw/ch.
-  lay.saved = { zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch };
-  CM.cam.zoom = 1; CM.cw = lay.w; CM.ch = lay.h;
+  // Bascule du repère de projection ET de la cible : worldToScreen lit
+  // CM.cam.zoom et CM.cw/ch ; un consommateur peut prendre sa cible dans CM.ctx.
+  lay.saved = { zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch, ctx: CM.ctx };
+  CM.cam.zoom = 1; CM.cw = lay.w; CM.ch = lay.h; CM.ctx = lay.ctx;
   return lay;
 }
 
 export function artLayerEnd(lay, ctx, z) {
   const s = lay.saved;
-  CM.cam.zoom = s.zoom; CM.cw = s.cw; CM.ch = s.ch;
+  CM.cam.zoom = s.zoom; CM.cw = s.cw; CM.ch = s.ch; CM.ctx = s.ctx;
   const ox = s.cw / 2 - (lay.w * z) / 2, oy = s.ch / 2 - (lay.h * z) / 2;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;

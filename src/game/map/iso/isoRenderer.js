@@ -256,10 +256,14 @@ function drawIsoWorldInner(dt, now, helpers) {
     // A/B : `globalThis.__quayArtLayer = false` rejoue la cuisson à l'écran.
     helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => {
       const z = CM.cam.zoom;
+      // ⚠ LA VRAIE CIBLE SE CAPTURE AVANT `begin` : pendant le calque, `CM.ctx`
+      // EST le calque (c'est ce qui fait que le quai s'y peint). La passer après
+      // composerait le calque sur lui-même — cf. le bandeau d'isoArtLayer.
+      const target = CM.ctx;
       const lay = globalThis.__quayArtLayer === false ? null : artLayerBegin(z);
       if (!lay) return cityMapDrawQuays(now, 'base');
       const st = cityMapDrawQuays(now, 'base');
-      artLayerEnd(lay, CM.ctx, z);
+      artLayerEnd(lay, target, z);
       return st;
     });
     helpers.blitMargin(CM.quayCanvas, '_quayBake');
