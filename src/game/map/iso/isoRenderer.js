@@ -47,6 +47,7 @@ import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';
+import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
 } from './projection.js';
@@ -245,7 +246,22 @@ function drawIsoWorldInner(dt, now, helpers) {
       // La molette __quayWall change le tracé à chaud → elle doit casser la clé.
       + ':t' + (quayWallTune.on ? 1 : 0) + (quayWallTune.full ? 1 : 0)
       + (quayWallTune.joints ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light;
-    helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => cityMapDrawQuays(now, 'base'));
+    // ── §4.1 — LE QUAI CUIT DANS LE CALQUE À L'ÉCHELLE DE L'ART ───────────────
+    // Le quai était baké à la résolution de l'ÉCRAN : ses bords partaient
+    // antialiasés au zoom courant, puis cuits ainsi — le défaut que le lot L12 a
+    // corrigé sur la voirie, resté vivant sur toute la berge. On peint donc à
+    // zoom 1 (un pixel de tracé pour un pixel d'art) et on compose au nearest.
+    // ⚠ Le calque se dimensionne sur CM.cw/ch, que `bakeMargin` a DÉJÀ élargis
+    // de la marge : la bascule tombe juste sans rien savoir de la marge.
+    // A/B : `globalThis.__quayArtLayer = false` rejoue la cuisson à l'écran.
+    helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => {
+      const z = CM.cam.zoom;
+      const lay = globalThis.__quayArtLayer === false ? null : artLayerBegin(z);
+      if (!lay) return cityMapDrawQuays(now, 'base');
+      const st = cityMapDrawQuays(now, 'base');
+      artLayerEnd(lay, CM.ctx, z);
+      return st;
+    });
     helpers.blitMargin(CM.quayCanvas, '_quayBake');
     cityMapDrawQuays(now, 'glow');
   } else {

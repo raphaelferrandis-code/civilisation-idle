@@ -18,10 +18,11 @@
 // quatorze lectures vers l'englobante redeviennent des locales À LEUR NOM, si bien
 // que les 477 lignes sont reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée
 // dans le corps — vérifié avant la coupe, c'est ce qui autorise des `const`.
-import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
+import { cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { COUR, builtNear } from './isoTissu.js';
 import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadVeilFor } from './isoRoad.js';
+import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
 import { blitIsoTileKey, ensureIsoTileKey } from './isoGroundTiles.js';
 import { drawRoadEdgeFringe, isoBuildingFront, roadFringeK, roadMatFor, smoothNoise } from './isoGroundDetail.js';
 import { fillWorldQuad, pathWorldQuad } from './isoQuad.js';
@@ -56,34 +57,8 @@ import { rgb } from './isoPalette.js';
 // ~10 ms de bake total — et le bake ne tourne qu'à la recuisson, pas par frame.
 // Le calque fait cw/z × ch/z, soit ~1/z² de surface à rastériser : ce qu'on perd
 // à composer, on le regagne à peindre.
-let _walkLayer = null;
-function walkLayerBegin(z) {
-  const wArt = Math.ceil(CM.cw / z) + 2, hArt = Math.ceil(CM.ch / z) + 2;
-  if (!_walkLayer || _walkLayer.w !== wArt || _walkLayer.h !== hArt) {
-    const c = (typeof OffscreenCanvas !== 'undefined')
-      ? new OffscreenCanvas(wArt, hArt) : document.createElement('canvas');
-    c.width = wArt; c.height = hArt;
-    const cx = c.getContext('2d');
-    if (!cx) return null;
-    _walkLayer = { c, ctx: cx, w: wArt, h: hArt };
-  }
-  const lay = _walkLayer;
-  lay.ctx.setTransform(1, 0, 0, 1, 0, 0);
-  lay.ctx.clearRect(0, 0, lay.w, lay.h);
-  // Bascule du repère de projection : worldToScreen lit CM.cam.zoom et CM.cw/ch.
-  lay.saved = { zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch };
-  CM.cam.zoom = 1; CM.cw = lay.w; CM.ch = lay.h;
-  return lay;
-}
-function walkLayerEnd(lay, ctx, z) {
-  const s = lay.saved;
-  CM.cam.zoom = s.zoom; CM.cw = s.cw; CM.ch = s.ch;
-  const ox = s.cw / 2 - (lay.w * z) / 2, oy = s.ch / 2 - (lay.h * z) / 2;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(lay.c, 0, 0, lay.w, lay.h, ox, oy, lay.w * z, lay.h * z);
-  ctx.imageSmoothingEnabled = prev;
-}
+// Le calque à l'échelle de l'art vit désormais dans isoArtLayer.js — il est
+// PARTAGÉ avec le bake des quais (§4.1 de REPRISE-TRACE-VECTORIEL).
 
 export function drawIsoGroundRoads(bake, resolve, roads) {
   const { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR, ISO_GROUND_SLICE } = bake;
@@ -274,7 +249,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     }
     roadsVis.push(r);
   }
-  const lay = (ROAD_DETAIL.pixel !== false && roads.length) ? walkLayerBegin(z) : null;
+  const lay = (ROAD_DETAIL.pixel !== false && roads.length) ? artLayerBegin(z) : null;
   const sctx = lay ? lay.ctx : ctx;
   const shw = lay ? T * ISO_X : hw;   // demi-largeur du losange DANS le repère de dessin
   const tU1 = PR && performance.now();
@@ -563,6 +538,6 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
   // agrandi ×z en NEAREST, il rend des bords en marches de la même taille que
   // les pixels des tuiles voisines. Après lui viennent le terre-plein et le
   // reste, qui gardent leur tracé propre.
-  if (lay) walkLayerEnd(lay, ctx, z);
+  if (lay) artLayerEnd(lay, ctx, z);
   if (PR) PR.allees = performance.now() - tAl;
 }
