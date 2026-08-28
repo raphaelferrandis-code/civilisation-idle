@@ -833,6 +833,37 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 
 ---
 
+## 7 bis. BALAYAGE DU 2026-08-24 — l'état réel de chaque lot
+
+Chantier repris ce jour-là. Chaque lot a été **vérifié dans le code** avant d'être
+touché ; plusieurs étaient déjà tombés au fil des autres chantiers. Ce tableau
+remplace toute lecture au fil des paliers ci-dessus.
+
+| Lot | État | Où / pourquoi |
+|---|---|---|
+| **S0** instrument | ✅ **déjà là** | `scripts/frameStats.mjs` ET `isoBuildingGroundContrast.test.js` existent, garde « qui mord » comprise ; `__flatProbe` (chantier relief) complète la mesure de valeur |
+| **S0 bis** re-mesure | ✅ **fait ce jour** | wide (avenue+main) = **16,1 / 22,0 / 19,7 %** aux bandes 3/4/5. Le plafond `wideCap` (0,22) est **binding à la bande 4** : S1 est en place ET il travaille |
+| **S1** plafonds | ✅ **déjà livré** | `ROAD_RANKS.wideCap` + budget consommé dans `promote` ; `trunkUse` déjà refermé à 0,15 (le plan écrivait 0,30) |
+| **S2** grain du pavé | ⛔ **arbitrage Raph** (§6) | revient sur sa décision du 2026-07-28 — ne pas le faire en silence |
+| **S3** occultation | ✅ **fait ce jour**, mais **caduc dans son objet** | en iso `clipOnly` n'est lu nulle part et l'occultation passe par le tri du peintre + la passe fantôme au pixel (`7fcff63`). Restait UN consommateur vivant de `topY` — l'exclusion des éclaboussures — dont la formule mentait d'un facteur **3,12** (le ×3,1 annoncé au §2, retrouvé exactement). Corrigé : `houseSpriteReachTilesIso` |
+| **S4** manoirs | ✅ livré 2026-08-06 | |
+| **S5** grappes | ✅ livré | `cmCellNoise` partagé |
+| **S6** snap des sprites | ✅ **fait ce jour** | le rabattement existait mais en **px CSS** sous un contexte scalé par dpr → quart de pixel à 125 %, demie à 150 % : il défaisait le snap de caméra. `snapDev` rabat sur la grille **device**. Position seulement — les tailles restent sous `BLIT_SNAP.mode` et ses deux calibrages |
+| **S7** sol 1:1 | ✅ livré | |
+| **S8** teintes de toit | ⛔ **arbitrage Raph** (§6) + plafonné par S13 | |
+| **S9** joints du trottoir | 🔒 **conditionné à S2** | « le trottoir est aujourd'hui le seul dessin lisible du réseau » — le calmer avant d'avoir calmé le pavé retirerait ce qui reste lisible. Rouvrir avec S2 |
+| **S10** `qkind` | ⛔ **réfuté**, et consigné dans le code | essayé le 2026-08-23 (`housePalette.js`) : **sans effet, ni à la sonde ni à l'œil**, parce que les teintes sont **iso-lumineuses** (`calcaire` +3,2, `ardoise` 0,0). Le levier de valeur était la hiérarchie de masse — c'est S12. Plafonné par S13 de toute façon |
+| **S11** zoom quantifié | ✅ livré | |
+| **S12** districts | ✅ **livré ce jour** | repères civiques + **art dédié des 10 genres éligibles**. ⚠ v2 : **UN monument par genre** près du cœur — la v1 en posait 18 et Raph a tranché « ça alourdit ». Une hiérarchie est RARE |
+| **+** quai dans le calque | ✅ **fait ce jour** | `iso/isoArtLayer.js`, partagé voirie/quai. Bord franc à z > 1, identique à z ≤ 1, +0,6 ms au pire sur une cuisson à la clé |
+| **S13** palette | 🔒 **ouvert — L + art** | « le plafond de tous les autres chantiers de couleur ». Touche la palette maître et rouvre le bannissement des jaunes : ne s'ouvre pas en autonomie |
+| **S14** mitoyenneté | 🔒 **ouvert — L + art** | son lot de code a été **écrit, mesuré, reverté** (le tri par score existant est meilleur) ; il ne reste que l'art, ~78 sprites |
+
+**Ce qui reste demande donc soit ton arbitrage (S2, S8, et S9 derrière S2), soit une
+campagne d'art (S13, S14).** Le code non bloqué du plan est épuisé.
+
+---
+
 ## 8. L'ordre en une ligne
 
 **S0 (mesurer) → palier 1 (netteté, constantes) → S1 + S3 (les deux gros gains de
