@@ -2,7 +2,7 @@
 import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
-import { bridgeLiftWorld, bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
+import { bridgeLiftWorld, bridgeWalkBand, bridgeLaneBand, bridgeTune } from './iso/isoBridge.js';
 import { VEH_SKINS } from './vehicleSkins.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
@@ -1217,11 +1217,24 @@ function vehicleLaneTarget(v) {
   // roulait « centré sur sa cellule », c'est-à-dire sur l'AXE DE VOIE — donc,
   // le tablier dessiné étant décalé en amont, une roue sur le garde-corps aval.
   // Il tient maintenant sa file dans la bande réelle, côté droit du sens.
+  //
+  // ⚠⚠ LE « GLISSÉ » ENTRE LA ROUTE ET LE PONT (retour Raph 2026-08-30) VENAIT
+  // D'ICI. Le pont fait DEUX cellules de large mais n'est DESSINÉ que sur une,
+  // centrée sur la couture : chaque file doit donc se ranger d'UNE DEMI-TUILE
+  // pour monter sur le tablier. Ce n'est pas évitable — l'art est plus étroit
+  // que l'emprise —, mais ça se lisait mal parce que le rangement commençait
+  // trop tard : la cible ne basculait QUE sur une cellule `roadSurface ===
+  // "bridge"`, donc la demi-tuile se faisait EN ENTIER SUR LE PONT, en dérapage.
+  // ⚠ Le garde-fou de bridgeWalkBand était déjà écrit pour ça (« le test
+  // longitudinal est LARGE, les cellules d'atterrissage en font partie — la
+  // convergence lox/loy doit commencer avant d'engager la travée ») : le test
+  // de cellule le rendait inopérant. On interroge donc la bande PAR POSITION,
+  // avec 2,5 tuiles d'approche : le véhicule s'aligne sur la route, comme une
+  // voie qui se resserre, et il aborde la travée déjà en place.
   {
     const bT = CM.TILE;
-    const cell = CM.layout && CM.layout.roadMap && CM.layout.roadMap.get(v.gx + "," + v.gy);
-    if (cell && cell.roadSurface === "bridge") {
-      const band = bridgeWalkBand((v.gx + 0.5) * bT, (v.gy + 0.5) * bT);
+    {
+      const band = bridgeLaneBand(v.gx, v.gy, 2);
       if (band) {
         const side = band.vertical
           ? (v.dir === 3 ? 1 : v.dir === 2 ? -1 : 0)

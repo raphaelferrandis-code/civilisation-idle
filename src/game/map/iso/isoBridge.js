@@ -176,6 +176,10 @@ if (typeof window !== 'undefined') {
   // monde (null hors pont). Calibrage : poser des marqueurs à axis ± half et
   // vérifier qu'ils tombent sur le platelage, garde-corps exclus.
   window.__bridgeWalk = (wx, wy) => bridgeWalkBand(wx, wy);
+  // Même bande, adressée par CELLULE et avec l'approche : __bridgeLane(gx, gy).
+  // C'est elle que suivent les véhicules — utile pour voir OÙ commence leur
+  // rangement avant le pont (cf. bridgeLaneBand).
+  window.__bridgeLane = (gx, gy, marge) => bridgeLaneBand(gx, gy, marge);
 }
 
 // ── Styles par matière ────────────────────────────────────────────────────────
@@ -333,13 +337,13 @@ const BRIDGE_SPRITES = {
       key: 'bridge-pierre-ne', sgn: -1,
       footHi: [348, 11], footLo: [50, 160],
       over: [347, 50], capHi: 111, capLo: 111,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
     },
     nw: {
       key: 'bridge-pierre-nw', sgn: +1,
       footHi: [51, 11], footLo: [349, 160],
       over: [53, 350], capHi: 111, capLo: 111,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
     },
   },
   // ── FER (4-5) · BÉTON (6) · ÉNERGIE (7-9) — 2026-08-28 ─────────────────────
@@ -383,13 +387,13 @@ const BRIDGE_SPRITES = {
       key: 'bridge-fer-ne', sgn: -1,
       footHi: [364, 1], footLo: [36, 165],
       over: [362, 36], capHi: 121, capLo: 121,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
     },
     nw: {
       key: 'bridge-fer-nw', sgn: +1,
       footHi: [35, 1], footLo: [363, 165],
       over: [38, 364], capHi: 121, capLo: 121,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
     },
   },
   beton: {
@@ -397,13 +401,13 @@ const BRIDGE_SPRITES = {
       key: 'bridge-beton-ne', sgn: -1,
       footHi: [348, 12], footLo: [50, 161],
       over: [347, 50], capHi: 105, capLo: 105,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
     },
     nw: {
       key: 'bridge-beton-nw', sgn: +1,
       footHi: [51, 12], footLo: [349, 161],
       over: [53, 350], capHi: 105, capLo: 105,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
     },
   },
   energie: {
@@ -411,13 +415,13 @@ const BRIDGE_SPRITES = {
       key: 'bridge-energie-ne', sgn: -1,
       footHi: [348, 15], footLo: [50, 164],
       over: [345, 50], capHi: 111, capLo: 111,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
     },
     nw: {
       key: 'bridge-energie-nw', sgn: +1,
       footHi: [51, 15], footLo: [349, 164],
       over: [55, 350], capHi: 111, capLo: 111,
-      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
+      tilePx: 34, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
     },
   },
 };
@@ -460,6 +464,44 @@ export function bridgeWalkBand(wx, wy) {
     const l = g.vertical ? wy : wx, t = g.vertical ? wx : wy;
     if (l < g.a - T || l > g.b + T) continue;
     if (Math.abs(t - g.c) > g.wD + T * 2) continue;
+    const b = spanBand(g, st);
+    return { vertical: g.vertical, axis: b.axis, half: b.half };
+  }
+  return null;
+}
+
+// ── BANDE DE PASSAGE D'UN VÉHICULE, APPROCHE COMPRISE ───────────────────────
+// Même bande que bridgeWalkBand, mais adressée par CELLULE et étendue de
+// `margeCells` cellules AVANT et APRÈS la travée.
+//
+// Pourquoi une deuxième porte d'entrée : le pont fait DEUX cellules de large et
+// n'est DESSINÉ que sur une, centrée sur leur couture. Chaque file doit donc se
+// ranger d'une demi-tuile pour monter sur le tablier — inévitable, l'art est
+// plus étroit que l'emprise. Ce qui se voyait (« glissé », Raph 2026-08-30),
+// c'est que le rangement commençait au premier pas SUR le pont : la demi-tuile
+// se faisait en dérapage, sur la travée. Avec l'approche, elle se fait sur la
+// route, comme une voie qui se resserre.
+//
+// ⚠ Et pourquoi PAS simplement élargir la fenêtre de bridgeWalkBand : elle teste
+// une POSITION MONDE, avec une tolérance transverse de ±3 tuiles. Un véhicule
+// qui longe le quai PARALLÈLEMENT au fleuve tombe dans cette fenêtre sans
+// prendre le pont — il se ferait aspirer vers le tablier. Ici on exige que la
+// cellule soit DANS LES VOIES du pont : seul celui qui va le franchir se range.
+export function bridgeLaneBand(gx, gy, margeCells = 2) {
+  const L = CM.layout;
+  if (!L || !CM.bridgeSpans || !CM.bridgeSpans.length) return null;
+  const geos = bridgeGeoms();
+  if (!geos) return null;
+  const st = styleFor(L);
+  for (let i = 0; i < CM.bridgeSpans.length && i < geos.length; i += 1) {
+    const sp = CM.bridgeSpans[i], g = geos[i];
+    if (!g) continue;
+    const dansVoies = sp.vertical ? (gx >= sp.gx0 && gx <= sp.gx1) : (gy >= sp.gy0 && gy <= sp.gy1);
+    if (!dansVoies) continue;
+    const li = sp.vertical ? gy : gx;
+    const l0 = sp.vertical ? sp.gy0 : sp.gx0;
+    const l1 = sp.vertical ? sp.gy1 : sp.gx1;
+    if (li < l0 - margeCells || li > l1 + margeCells) continue;
     const b = spanBand(g, st);
     return { vertical: g.vertical, axis: b.axis, half: b.half };
   }
